@@ -1,0 +1,5 @@
+#obj-y += isp7_1/
+#obj-y += isp7s/
+#obj-y += isp7sp/
+#obj-$(CONFIG_RPMSG_MTK_CCD) += rpmsg/
+obj-$(CONFIG_MTK_CCD_REMOTEPROC) += remoteproc/

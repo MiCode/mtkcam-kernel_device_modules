@@ -1,0 +1,37 @@
+load("//build/bazel_mgk_rules:mgk_ko.bzl", "define_mgk_ko")
+
+package(
+    default_visibility = [
+        "//visibility:public",
+    ],
+)
+
+mgk_camsys_outs = [
+    # keep sorted
+    "isp7_1/cam/mtk-cam-isp.ko",
+    "isp7_1/cam/mtk-cam-plat-mt6879.ko",
+    "isp7_1/cam/mtk-cam-plat-mt6895.ko",
+    "isp7_1/cam/mtk-cam-plat-mt6983.ko",
+    "isp7_1/cam/mtk-cam-plat-util.ko",
+    "isp7s/cam_legacy/mtk-cam-isp7s.ko",
+    "isp7sp/cam/mtk-cam-isp7sp.ko",
+    "isp7sp/unit_test/cam-ut.ko",
+    "remoteproc/mtk_ccd_remoteproc.ko",
+    "rpmsg/ccd_rpmsg.ko",
+]
+
+# TODO: enable this part later
+#define_mgk_ko(
+#    name = "camsys",
+#    srcs = glob([
+#        "**/*.c",
+#        "**/*.h",
+#        "**/Kbuild",
+#        "**/Makefile",
+#    ]) + [
+#        "//vendor/mediatek/kernel_modules/mtkcam:public_headers",
+#        "//vendor/mediatek/kernel_modules/mtkcam/scpsys:public_headers",
+#        "//vendor/mediatek/kernel_modules/mtkcam:kbuild_makefiles",
+#    ],
+#    outs = mgk_camsys_outs,
+#)

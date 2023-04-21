@@ -16,7 +16,8 @@ subdir-ccflags-y += \
     -I$(DEVICE_MODULES_PATH)/drivers/misc/mediatek/iommu/ \
     -I$(DEVICE_MODULES_PATH)/drivers/clk/mediatek/ \
     -I$(DEVICE_MODULES_PATH)/drivers/misc/mediatek/slbc/ \
-    -I$(srctree)/$(src)
+    -I$(srctree)/$(src) \
+    -I$(DEVICE_MODULES_PATH)/include/
 
 
 #ifneq ($(wildcard $(DEVICE_MODULES_PATH)/include/dt-bindings/memory/mt6985-larb-port.h),)
@@ -92,7 +93,8 @@ endif
 
 #$(CAM_MODULE)-objs += mtk_cam-procdbg.o
 
-include $(src)/mtk_csi_phy_3_0/sub_drv.mk
+$(CAM_MODULE)-objs += \
+	mtk_csi_phy_3_0/mtk_cam-seninf-hw_phy_3_0.o
 
 PLATFORM_PATH = $(srctree)/$(src)
 # workaround for external build

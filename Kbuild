@@ -14,7 +14,7 @@ $(info KO_MTKCAM_INCLUDE_PATH=$(KO_MTKCAM_INCLUDE_PATH))
 
 subdir-ccflags-y += -I$(KO_MTKCAM_CODE_PATH)/ -I$(KO_MTKCAM_INCLUDE_PATH)/
 
-#obj-y += camsys/
+obj-y += camsys/
 obj-m += scpsys/
 #obj-m += cam_cal/
 #obj-$(CONFIG_VIDEO_MTK_ISP_IMGSYS) += imgsys/

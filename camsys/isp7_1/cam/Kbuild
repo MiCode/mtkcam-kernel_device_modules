@@ -57,8 +57,9 @@ endif
 mtk-cam-isp-objs +=  mtk_cam-hsf.o
 #mtk-cam-isp-objs += mtk_cam-procdbg.o
 
-include $(src)/mtk_csi_phy_2_0/sub_drv.mk
-include $(src)/mtk_csi_phy_3_0/sub_drv.mk
+mtk-cam-isp-objs += \
+	mtk_csi_phy_2_0/mtk_cam-seninf-hw_phy_2_0.o \
+	mtk_csi_phy_3_0/mtk_cam-seninf-hw_phy_3_0.o
 
 obj-$(CONFIG_VIDEO_MTK_ISP_CAMSYS) += mtk-cam-isp.o
 obj-$(CONFIG_VIDEO_MTK_ISP_CAMSYS) += mtk-cam-plat-util.o

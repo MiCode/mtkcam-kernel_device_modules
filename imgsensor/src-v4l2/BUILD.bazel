@@ -1,0 +1,20 @@
+load("//build/bazel_mgk_rules:mgk_ko.bzl", "define_mgk_ko")
+
+package(
+    default_visibility = [
+        "//visibility:public",
+    ],
+)
+define_mgk_ko(
+    name = "mtk_imgsensor",
+    srcs = glob([
+        "**",
+    ]) + [
+        "//vendor/mediatek/kernel_modules/mtkcam:public_headers",
+        "//vendor/mediatek/kernel_modules/mtkcam/imgsensor:public_headers",
+    ],
+    outs = [
+        "imgsensor-glue/imgsensor-glue.ko",
+        "imgsensor.ko",
+    ],
+)

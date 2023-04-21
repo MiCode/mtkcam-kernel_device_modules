@@ -20,9 +20,10 @@
 #include "mtk_cam-timesync.h"
 #include "mtk_cam-hsf.h"
 #include "mtk_cam-trace.h"
+#include "mtk_cam-raw_ctrl.h"
 
-#define SENSOR_SET_MARGIN_MS  25
-#define SENSOR_SET_MARGIN_MS_STAGGER  27
+#define SCQ_DEADLINE_US(fi)		((fi) / 2) // 0.5 frame interval
+#define SCQ_DEADLINE_US_STAGGER(fi)	((fi) - 3000) // fi - n us
 
 static unsigned int debug_buf_fmt_sel = -1;
 module_param(debug_buf_fmt_sel, int, 0644);
@@ -822,6 +823,19 @@ static int get_tg_seninf_pad(struct mtk_cam_job *job)
 	}
 }
 
+static void toggle_raw_engines_db(struct mtk_cam_ctx *ctx)
+{
+	struct mtk_raw_device *raw_dev;
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(ctx->hw_raw); i++) {
+		if (ctx->hw_raw[i]) {
+			raw_dev = dev_get_drvdata(ctx->hw_raw[i]);
+			toggle_db(raw_dev);
+		}
+	}
+}
+
 static int
 _stream_on(struct mtk_cam_job *job, bool on)
 {
@@ -853,9 +867,14 @@ _stream_on(struct mtk_cam_job *job, bool on)
 			apply_cam_mux_switch_stagger(job);
 	}
 
+	toggle_raw_engines_db(ctx);
+
 	for (i = 0; i < ARRAY_SIZE(ctx->hw_raw); i++) {
 		if (ctx->hw_raw[i]) {
 			raw_dev = dev_get_drvdata(ctx->hw_raw[i]);
+
+			if (raw_dev->is_slave)
+				continue;
 
 			if (job->enable_hsf_raw) {
 				ccu_stream_on(ctx, on);
@@ -1450,6 +1469,8 @@ static int trigger_m2m(struct mtk_cam_job *job)
 
 	mtk_cam_event_frame_sync(&ctx->cam_ctrl, job->req_seq);
 
+	toggle_raw_engines_db(ctx);
+
 	if (is_apu) {
 		is_apu_dc = is_m2m_apu_dc(job);
 
@@ -1657,14 +1678,15 @@ _job_pack_subsample(struct mtk_cam_job *job,
 	struct mtk_cam_device *cam = ctx->cam;
 	int first_frame_only_cur = job->job_scen.scen.smvr.output_first_frame_only;
 	int first_frame_only_prev = job->prev_scen.scen.smvr.output_first_frame_only;
-	int ret, subsof_fps;
+	int ret;
+	unsigned int fi;
 
 	job->sub_ratio = get_subsample_ratio(&job->job_scen);
-	subsof_fps = get_sensor_fps(job) / job->sub_ratio;
-	job->scq_period = subsof_fps > 0 ? SCQ_DEADLINE_MS / (subsof_fps / 30) : SCQ_DEADLINE_MS;
-	dev_info(cam->dev, "[%s] ctx:%d, type:%d, scen_id:%d, 1stonly:%d, ratio:%d, subsof_fps:%d",
-		__func__, ctx->stream_id, job->job_type, job->job_scen.id, first_frame_only_cur,
-		job->sub_ratio, subsof_fps);
+	fi = get_sensor_interval_us(job);
+	job->scq_period = SCQ_DEADLINE_US(fi * job->sub_ratio) / 1000;
+	dev_info(cam->dev, "[%s] ctx:%d, type:%d, scen_id:%d, 1stonly:%d, ratio:%d, fi:%u",
+		__func__, ctx->stream_id, job->job_type, job->job_scen.id,
+		first_frame_only_cur, job->sub_ratio, fi);
 	job->stream_on_seninf = false;
 
 	if (!ctx->used_engine) {
@@ -1881,7 +1903,8 @@ _job_pack_otf_stagger(struct mtk_cam_job *job,
 		prev_scen->scen.normal.exp_num,
 		job->job_scen.scen.normal.exp_num, job->switch_type);
 	job->stream_on_seninf = false;
-	job->scq_period = SCQ_DEADLINE_MS_STAGGER;
+	job->scq_period =
+		SCQ_DEADLINE_US_STAGGER(get_sensor_interval_us(job)) / 1000;
 
 	if (!ctx->used_engine) {
 		if (job_related_hw_init(job))
@@ -3147,7 +3170,7 @@ static int job_factory(struct mtk_cam_job *job)
 	job->seamless_switch = false;
 	job->first_frm_switch = false;
 	job->switch_type = EXPOSURE_CHANGE_NONE;
-	job->scq_period = SCQ_DEADLINE_MS;
+	job->scq_period = SCQ_DEADLINE_US(get_sensor_interval_us(job)) / 1000;
 	init_completion(&job->compose_completion);
 	init_completion(&job->cq_exe_completion);
 
@@ -3295,15 +3318,19 @@ static int mraw_set_ipi_input_param(struct mtkcam_ipi_input_param *input,
 static int update_frame_order_to_config(struct mtk_cam_scen *scen,
 				       struct mtkcam_ipi_config_param *config)
 {
-	switch (scen->scen.normal.frame_order) {
-	case MTK_CAM_FRAME_BAYER_W:
+
+	if (scen_is_normal(scen)) {
+		switch (scen->scen.normal.frame_order) {
+		case MTK_CAM_FRAME_W_BAYER:
+			config->frame_order = MTKCAM_IPI_ORDER_W_FIRST;
+			break;
+		case MTK_CAM_FRAME_BAYER_W:
+		default:
+			config->frame_order = MTKCAM_IPI_ORDER_BAYER_FIRST;
+			break;
+		}
+	} else
 		config->frame_order = MTKCAM_IPI_ORDER_BAYER_FIRST;
-		break;
-	case MTK_CAM_FRAME_W_BAYER:
-	default:
-		config->frame_order = MTKCAM_IPI_ORDER_W_FIRST;
-		break;
-	}
 
 	if (CAM_DEBUG_ENABLED(IPI_BUF))
 		pr_info("%s: scen id %d frame order: %d\n",
@@ -3377,7 +3404,7 @@ static int mtk_cam_job_fill_ipi_config(struct mtk_cam_job *job,
 		update_frame_order_to_config(&job->job_scen, config);
 		update_vsync_order_to_config(ctx, &job->job_scen, config);
 
-		if (job->job_scen.scen.normal.w_chn_supported) {
+		if (scen_is_normal(&job->job_scen) && job->job_scen.scen.normal.w_chn_supported) {
 			config->w_cac_table.iova = ctx->w_caci_buf.daddr;
 			config->w_cac_table.size = ctx->w_caci_buf.size;
 		}
@@ -3662,7 +3689,8 @@ static int update_mraw_meta_buf_to_ipi_frame(
 		}
 	}
 
-	if (param_idx < 0 || param_idx >= ARRAY_SIZE(fp->mraw_param)) {
+	if (param_idx < 0 || param_idx >= ARRAY_SIZE(fp->mraw_param) ||
+		param_idx >= ARRAY_SIZE(ctx->mraw_subdev_idx)) {
 		ret = -1;
 		pr_info("%s %s: mraw subdev idx not found(pipe_id:%d)\n",
 			__FILE__, __func__, node->uid.pipe_id);
@@ -4379,7 +4407,7 @@ static int job_fetch_freq(struct mtk_cam_job *job,
 
 	*freq_hz = freq;
 	/* boost isp clk during switching */
-	*boostable = res->user_data.raw_res.hw_mode == HW_MODE_DIRECT_COUPLED;
+	*boostable = res_raw_is_dc_mode(&res->user_data.raw_res);
 
 	return 0;
 }

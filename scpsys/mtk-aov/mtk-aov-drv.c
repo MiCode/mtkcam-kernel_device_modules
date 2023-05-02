@@ -33,6 +33,10 @@ struct wakeup_source *aov_wake_lock;
 struct wake_lock aov_wake_lock;
 #endif
 
+static uint32_t enable_aov_ut_flag;
+module_param(enable_aov_ut_flag, uint, 0644);
+MODULE_PARM_DESC(enable_aov_ut_flag, "enable aov ut flag");
+
 static struct mtk_aov *query_aov_dev(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
@@ -314,6 +318,7 @@ static int mtk_aov_probe(struct platform_device *pdev)
 
 	aov_dev->is_open = false;
 	aov_dev->user_cnt = 0;
+	aov_dev->enable_aov_ut_flag = &enable_aov_ut_flag;
 
 	aov_dev->dev = &pdev->dev;
 

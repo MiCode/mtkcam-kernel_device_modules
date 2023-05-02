@@ -439,7 +439,7 @@ void update_scq_start_period(struct mtk_raw_device *dev, int scq_ms)
 	val = readl_relaxed(dev->base + REG_TG_TIME_STAMP_CNT);
 	writel_relaxed(scq_ms * scq_cnt_rate_khz(val),
 		       dev->base + REG_CAMCQ_SCQ_START_PERIOD);
-	dev_info(dev->dev, "[%s] REG_CAMCQ_SCQ_START_PERIOD:%d (%dms)\n",
+	dev_info(dev->dev, "[%s] REG_CAMCQ_SCQ_START_PERIOD:0x%08x (%dms)\n",
 		 __func__, readl(dev->base + REG_CAMCQ_SCQ_START_PERIOD), scq_ms);
 }
 

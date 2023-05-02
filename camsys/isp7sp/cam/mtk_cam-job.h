@@ -309,7 +309,7 @@ struct mtk_cam_job {
 	char scen_str[40];
 
 	unsigned int sub_ratio;
-	u32 scq_period;
+	int scq_period;
 	u64 (*timestamp_buf)[128];
 	struct mmqos_bw raw_mmqos[SMI_PORT_RAW_NUM];
 	struct mmqos_bw raw_w_mmqos[SMI_PORT_RAW_NUM];

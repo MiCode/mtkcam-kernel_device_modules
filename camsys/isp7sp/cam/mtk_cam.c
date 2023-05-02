@@ -1945,7 +1945,7 @@ int mtk_cam_alloc_img_pool(struct device *dev_to_attach,
 
 	raw_res = &ctrl_data->resource.user_data.raw_res;
 	if (ctrl_data->pre_alloc_mem.num
-	    && desc->max_size >= ctrl_data->pre_alloc_mem.bufs[0].length) {
+	    && desc->max_size <= ctrl_data->pre_alloc_mem.bufs[0].length) {
 		ret = _alloc_pool_by_dbuf(
 			  img_work_buffer, img_work_pool,
 			  dev_to_attach,

@@ -108,9 +108,9 @@ u64 infer_i2c_deadline_ns(struct mtk_cam_scen *scen, u64 frame_interval_ns);
 
 int get_raw_subdev_idx(unsigned long used_pipe);
 int get_sv_subdev_idx(unsigned long used_pipe);
-unsigned int _get_master_engines(unsigned int used_engine);
-unsigned int _get_master_raw_id(unsigned int used_engine);
-unsigned int _get_master_sv_id(unsigned int used_engine);
+unsigned int get_master_engines(unsigned int used_engine);
+unsigned int get_master_raw_id(unsigned int used_engine);
+unsigned int get_master_sv_id(unsigned int used_engine);
 
 int fill_img_in(struct mtkcam_ipi_img_input *ii,
 		struct mtk_cam_buffer *buf,

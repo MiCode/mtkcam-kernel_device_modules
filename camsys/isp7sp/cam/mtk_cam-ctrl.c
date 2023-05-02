@@ -960,7 +960,7 @@ static void mtk_cam_ctrl_seamless_switch_flow(struct mtk_cam_job *job)
 		goto SWITCH_FAILURE;
 
 	call_jobop(job, apply_switch);
-	vsync_set_desired(&ctrl->vsync_col, _get_master_engines(job->used_engine));
+	vsync_set_desired(&ctrl->vsync_col, job->master_engine);
 
 	if (mtk_cam_ctrl_wait_event(ctrl, check_done, &prev_seq, 999)) {
 		dev_info(dev, "[%s] check_done timeout: prev_seq=0x%x\n",
@@ -1025,8 +1025,7 @@ static void mtk_cam_ctrl_raw_switch_flow(struct mtk_cam_job *job)
 	mtk_cam_watchdog_init(&ctrl->watchdog);
 
 	/* TBC: do we need vsync_set_desired here? */
-	vsync_set_desired(&ctrl->vsync_col,
-			  _get_master_engines(job->used_engine));
+	vsync_set_desired(&ctrl->vsync_col, job->master_engine);
 
 	/* Update the context's sensor and seninf */
 	ctx->sensor = job->sensor;
@@ -1152,8 +1151,7 @@ void mtk_cam_ctrl_job_enque(struct mtk_cam_ctrl *cam_ctrl,
 	if (cam_ctrl->initial_req) {
 		cam_ctrl->initial_req = 0;
 
-		vsync_set_desired(&cam_ctrl->vsync_col,
-				  _get_master_engines(job->used_engine));
+		vsync_set_desired(&cam_ctrl->vsync_col, job->master_engine);
 
 		if (is_m2m(job)) {
 

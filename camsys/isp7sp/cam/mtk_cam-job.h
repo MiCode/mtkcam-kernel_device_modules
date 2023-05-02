@@ -252,6 +252,8 @@ struct mtk_cam_job {
 
 	struct mtkcam_ipi_frame_ack_result cq_rst;
 	unsigned int used_engine;
+	unsigned int master_engine;
+
 	bool do_ipi_config;
 	struct mtkcam_ipi_config_param ipi_config;
 	bool stream_on_seninf;
@@ -275,6 +277,7 @@ struct mtk_cam_job {
 	atomic_long_t afo_done; /* bit 0: not handled, bit 1: handled */
 	atomic_long_t done_set;
 	unsigned long done_handled;
+	unsigned int done_pipe;
 
 	/* aa debug info */
 	struct work_struct aa_dump_work;
@@ -339,6 +342,12 @@ void mtk_cam_ctx_job_finish(struct mtk_cam_job *job);
 bool mtk_cam_job_has_pending_action(struct mtk_cam_job *job);
 int mtk_cam_job_apply_pending_action(struct mtk_cam_job *job);
 
+/* note: should beware of data-racing when use this function */
+static inline bool mtk_cam_job_is_done(struct mtk_cam_job *job)
+{
+	return (unsigned long)job->master_engine == job->done_handled;
+}
+
 #define call_jobop(job, func, ...) \
 ({\
 	typeof(job) _job = (job);\
@@ -385,14 +394,6 @@ struct mtk_cam_mstream_job {
 	u8 apply_isp_idx;
 
 	bool composed_1st;
-
-#ifdef DOES_MSTREAM_NEED_THESE
-	/* TODO */
-	wait_queue_head_t expnum_change_wq;
-	atomic_t expnum_change;
-	struct mtk_cam_scen prev_scen;
-	int switch_type;
-#endif
 };
 
 struct mtk_cam_timeshare_job {

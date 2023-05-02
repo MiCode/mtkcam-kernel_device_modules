@@ -417,10 +417,10 @@ u64 infer_i2c_deadline_ns(struct mtk_cam_scen *scen, u64 frame_interval_ns)
 		return frame_interval_ns - reserved_i2c_time(frame_interval_ns);
 }
 
-unsigned int _get_master_engines(unsigned int used_engine)
+unsigned int get_master_engines(unsigned int used_engine)
 {
 	unsigned int master_engine = used_engine & ~bit_map_subset_mask(MAP_HW_RAW);
-	int master_raw_id = _get_master_raw_id(used_engine);
+	int master_raw_id = get_master_raw_id(used_engine);
 
 	if (master_raw_id != -1)
 		master_engine |= bit_map_bit(MAP_HW_RAW, master_raw_id);
@@ -428,16 +428,14 @@ unsigned int _get_master_engines(unsigned int used_engine)
 	return master_engine;
 }
 
-unsigned int
-_get_master_raw_id(unsigned int used_engine)
+unsigned int get_master_raw_id(unsigned int used_engine)
 {
 	used_engine = bit_map_subset_of(MAP_HW_RAW, used_engine);
 
 	return ffs(used_engine) - 1;
 }
 
-unsigned int
-_get_master_sv_id(unsigned int used_engine)
+unsigned int get_master_sv_id(unsigned int used_engine)
 {
 	used_engine = bit_map_subset_of(MAP_HW_CAMSV, used_engine);
 
@@ -1400,7 +1398,7 @@ int fill_imgo_buf_as_working_buf(
 
 	if (sv_pure_raw && CAM_DEBUG_ENABLED(JOB))
 		pr_info("%s:req:%s bypass pure raw node\n",
-			__func__, job->req->req.debug_str);
+			__func__, job->req->debug_str);
 	/* fill sv image fp */
 	ret = ret || fill_sv_img_fp(helper, buf, node);
 

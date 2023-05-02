@@ -105,6 +105,9 @@ struct mtk_cam_request {
 	struct media_request req;
 	struct list_head list; /* entry in pending_job_list */
 
+	char debug_str[32];
+	bool is_buf_empty;
+
 	int used_ctx;
 	unsigned int used_pipe;
 
@@ -123,6 +126,8 @@ to_mtk_cam_req(struct media_request *__req)
 {
 	return container_of(__req, struct mtk_cam_request, req);
 }
+
+void mtk_cam_req_reset(struct media_request *req);
 
 static inline int mtk_cam_req_used_ctx(struct media_request *req)
 {

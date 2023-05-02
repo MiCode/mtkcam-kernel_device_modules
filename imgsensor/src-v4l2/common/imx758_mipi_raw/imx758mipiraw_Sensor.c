@@ -706,7 +706,7 @@ static struct subdrv_static_ctx static_ctx = {
 	.chk_s_off_sta = 0,
 	.chk_s_off_end = 0,
 
-	.checksum_value = 0xD086E5A5,//sensor verify to modify
+	.checksum_value = 0xAF3E324F,
 };
 
 static struct subdrv_ops ops = {
@@ -890,7 +890,7 @@ static int imx758_set_test_pattern(struct subdrv_ctx *ctx, u8 *para, u32 *len)
 	u32 mode = *((u32 *)para);
 
 	if (mode != ctx->test_pattern)
-		DRV_LOG(ctx, "mode(%u->%u)\n", ctx->test_pattern, mode);
+		DRV_LOGE(ctx, "mode(%u->%u)\n", ctx->test_pattern, mode);
 	/* 1:Solid Color 2:Color Bar 5:Black */
 	switch (mode) {
 	case 5:

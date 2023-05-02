@@ -3072,15 +3072,15 @@ static int runtime_resume(struct device *dev)
 					}
 
 					ret = clk_set_parent(core->clk[CLK_TOP_SENINF],
-							core->clk[CLK_TOP_MAINPLL2_D9]);
+							core->clk[CLK_TOP_UNIVPLL_D4_D2]);
 					if (ret < 0) {
 						dev_info(dev,
-							"[%s] clk_set_parent(core->clk[CLK_TOP_SENINF:%u]:%s, core->clk[CLK_TOP_MAINPLL2_D9:%u]:%s, ret(%d)\n",
+							"[%s] clk_set_parent(core->clk[CLK_TOP_SENINF:%u]:%s, core->clk[CLK_TOP_UNIVPLL_D4_D2:%u]:%s, ret(%d)\n",
 							__func__,
 							CLK_TOP_SENINF,
 							clk_names[CLK_TOP_SENINF],
-							CLK_TOP_MAINPLL2_D9,
-							clk_names[CLK_TOP_MAINPLL2_D9],
+							CLK_TOP_UNIVPLL_D4_D2,
+							clk_names[CLK_TOP_UNIVPLL_D4_D2],
 							ret);
 						return ret;
 					}
@@ -3103,15 +3103,15 @@ static int runtime_resume(struct device *dev)
 					}
 
 					ret = clk_set_parent(core->clk[CLK_TOP_SENINF1],
-							core->clk[CLK_TOP_MAINPLL2_D9]);
+							core->clk[CLK_TOP_UNIVPLL_D4_D2]);
 					if (ret < 0) {
 						dev_info(dev,
-							"[%s] clk_set_parent(core->clk[CLK_TOP_SENINF1:%u]:%s, core->clk[CLK_TOP_MAINPLL2_D9:%u]:%s, ret(%d)\n",
+							"[%s] clk_set_parent(core->clk[CLK_TOP_SENINF1:%u]:%s, core->clk[CLK_TOP_UNIVPLL_D4_D2:%u]:%s, ret(%d)\n",
 							__func__,
 							CLK_TOP_SENINF1,
 							clk_names[CLK_TOP_SENINF1],
-							CLK_TOP_MAINPLL2_D9,
-							clk_names[CLK_TOP_MAINPLL2_D9],
+							CLK_TOP_UNIVPLL_D4_D2,
+							clk_names[CLK_TOP_UNIVPLL_D4_D2],
 							ret);
 						return ret;
 					}
@@ -3135,15 +3135,15 @@ static int runtime_resume(struct device *dev)
 					}
 
 					ret = clk_set_parent(core->clk[CLK_TOP_SENINF2],
-							core->clk[CLK_TOP_MAINPLL2_D9]);
+							core->clk[CLK_TOP_UNIVPLL_D4_D2]);
 					if (ret < 0) {
 						dev_info(dev,
-							"[%s] clk_set_parent(core->clk[CLK_TOP_SENINF2:%u]:%s, core->clk[CLK_TOP_MAINPLL2_D9:%u]:%s, ret(%d)\n",
+							"[%s] clk_set_parent(core->clk[CLK_TOP_SENINF2:%u]:%s, core->clk[CLK_TOP_UNIVPLL_D4_D2:%u]:%s, ret(%d)\n",
 							__func__,
 							CLK_TOP_SENINF2,
 							clk_names[CLK_TOP_SENINF2],
-							CLK_TOP_MAINPLL2_D9,
-							clk_names[CLK_TOP_MAINPLL2_D9],
+							CLK_TOP_UNIVPLL_D4_D2,
+							clk_names[CLK_TOP_UNIVPLL_D4_D2],
 							ret);
 						return ret;
 					}
@@ -3167,15 +3167,15 @@ static int runtime_resume(struct device *dev)
 					}
 
 					ret = clk_set_parent(core->clk[CLK_TOP_SENINF3],
-							core->clk[CLK_TOP_MAINPLL2_D9]);
+							core->clk[CLK_TOP_UNIVPLL_D4_D2]);
 					if (ret < 0) {
 						dev_info(dev,
-							"[%s] clk_set_parent(core->clk[CLK_TOP_SENINF3:%u]:%s, core->clk[CLK_TOP_MAINPLL2_D9:%u]:%s, ret(%d)\n",
+							"[%s] clk_set_parent(core->clk[CLK_TOP_SENINF3:%u]:%s, core->clk[CLK_TOP_UNIVPLL_D4_D2:%u]:%s, ret(%d)\n",
 							__func__,
 							CLK_TOP_SENINF3,
 							clk_names[CLK_TOP_SENINF3],
-							CLK_TOP_MAINPLL2_D9,
-							clk_names[CLK_TOP_MAINPLL2_D9],
+							CLK_TOP_UNIVPLL_D4_D2,
+							clk_names[CLK_TOP_UNIVPLL_D4_D2],
 							ret);
 						return ret;
 					}
@@ -3199,15 +3199,15 @@ static int runtime_resume(struct device *dev)
 					}
 
 					ret = clk_set_parent(core->clk[CLK_TOP_SENINF4],
-							core->clk[CLK_TOP_MAINPLL2_D9]);
+							core->clk[CLK_TOP_UNIVPLL_D4_D2]);
 					if (ret < 0) {
 						dev_info(dev,
-							"[%s] clk_set_parent(core->clk[CLK_TOP_SENINF4:%u]:%s, core->clk[CLK_TOP_MAINPLL2_D9:%u]:%s, ret(%d)\n",
+							"[%s] clk_set_parent(core->clk[CLK_TOP_SENINF4:%u]:%s, core->clk[CLK_TOP_UNIVPLL_D4_D2:%u]:%s, ret(%d)\n",
 							__func__,
 							CLK_TOP_SENINF4,
 							clk_names[CLK_TOP_SENINF4],
-							CLK_TOP_MAINPLL2_D9,
-							clk_names[CLK_TOP_MAINPLL2_D9],
+							CLK_TOP_UNIVPLL_D4_D2,
+							clk_names[CLK_TOP_UNIVPLL_D4_D2],
 							ret);
 						return ret;
 					}
@@ -3231,15 +3231,15 @@ static int runtime_resume(struct device *dev)
 					}
 
 					ret = clk_set_parent(core->clk[CLK_TOP_SENINF5],
-							core->clk[CLK_TOP_MAINPLL2_D9]);
+							core->clk[CLK_TOP_UNIVPLL_D4_D2]);
 					if (ret < 0) {
 						dev_info(dev,
-							"[%s] clk_set_parent(core->clk[CLK_TOP_SENINF5:%u]:%s, core->clk[CLK_TOP_MAINPLL2_D9:%u]:%s, ret(%d)\n",
+							"[%s] clk_set_parent(core->clk[CLK_TOP_SENINF5:%u]:%s, core->clk[CLK_TOP_UNIVPLL_D4_D2:%u]:%s, ret(%d)\n",
 							__func__,
 							CLK_TOP_SENINF5,
 							clk_names[CLK_TOP_SENINF5],
-							CLK_TOP_MAINPLL2_D9,
-							clk_names[CLK_TOP_MAINPLL2_D9],
+							CLK_TOP_UNIVPLL_D4_D2,
+							clk_names[CLK_TOP_UNIVPLL_D4_D2],
 							ret);
 						return ret;
 					}
@@ -3842,25 +3842,25 @@ int mtk_cam_seninf_aov_runtime_resume(unsigned int sensor_id,
 			/* SCP side to AP */
 			if (core->aov_csi_clk_switch_flag == CSI_CLK_130) {
 				/* set the parent of clk as parent_clk */
-				if (core->clk[CLK_TOP_SENINF1] && core->clk[CLK_TOP_MAINPLL2_D9]) {
+				if (core->clk[CLK_TOP_SENINF1] && core->clk[CLK_TOP_UNIVPLL_D4_D2]) {
 					ret = clk_set_parent(
 						core->clk[CLK_TOP_SENINF1],
-						core->clk[CLK_TOP_MAINPLL2_D9]);
+						core->clk[CLK_TOP_UNIVPLL_D4_D2]);
 					if (ret < 0) {
 						dev_info(ctx->dev,
-							"[%s] clk[CLK_TOP_SENINF1:%u]:%s set_parent clk[CLK_TOP_MAINPLL2_D9:%u]:%s(fail),ret(%d)\n",
+							"[%s] clk[CLK_TOP_SENINF1:%u]:%s set_parent clk[CLK_TOP_UNIVPLL_D4_D2:%u]:%s(fail),ret(%d)\n",
 							__func__,
 							CLK_TOP_SENINF1, clk_names[CLK_TOP_SENINF1],
-							CLK_TOP_MAINPLL2_D9,
-							clk_names[CLK_TOP_MAINPLL2_D9],
+							CLK_TOP_UNIVPLL_D4_D2,
+							clk_names[CLK_TOP_UNIVPLL_D4_D2],
 							ret);
 						return ret;
 					}
 					dev_info(ctx->dev,
-						"[%s] clk[CLK_TOP_SENINF1:%u]:%s set_parent clk[CLK_TOP_MAINPLL2_D9:%u]:%s(correct),ret(%d)\n",
+						"[%s] clk[CLK_TOP_SENINF1:%u]:%s set_parent clk[CLK_TOP_UNIVPLL_D4_D2:%u]:%s(correct),ret(%d)\n",
 						__func__,
 						CLK_TOP_SENINF1, clk_names[CLK_TOP_SENINF1],
-						CLK_TOP_MAINPLL2_D9, clk_names[CLK_TOP_MAINPLL2_D9],
+						CLK_TOP_UNIVPLL_D4_D2, clk_names[CLK_TOP_UNIVPLL_D4_D2],
 						ret);
 				} else {
 					dev_info(ctx->dev,
@@ -3895,26 +3895,26 @@ int mtk_cam_seninf_aov_runtime_resume(unsigned int sensor_id,
 			}
 			/* SCP side to AP */
 			if (core->aov_csi_clk_switch_flag == CSI_CLK_130) {
-				if (core->clk[CLK_TOP_CAMTM] && core->clk[CLK_TOP_MAINPLL2_D9]) {
+				if (core->clk[CLK_TOP_CAMTM] && core->clk[CLK_TOP_UNIVPLL_D4_D2]) {
 					/* set the parent of clk as parent_clk */
 					ret = clk_set_parent(
 						core->clk[CLK_TOP_CAMTM],
-						core->clk[CLK_TOP_MAINPLL2_D9]);
+						core->clk[CLK_TOP_UNIVPLL_D4_D2]);
 					if (ret < 0) {
 						dev_info(ctx->dev,
-							"[%s] clk[CLK_TOP_CAMTM:%u]:%s set_parent clk[CLK_TOP_MAINPLL2_D9:%u]:%s(fail),ret(%d)\n",
+							"[%s] clk[CLK_TOP_CAMTM:%u]:%s set_parent clk[CLK_TOP_UNIVPLL_D4_D2:%u]:%s(fail),ret(%d)\n",
 							__func__,
 							CLK_TOP_CAMTM, clk_names[CLK_TOP_CAMTM],
-							CLK_TOP_MAINPLL2_D9,
-							clk_names[CLK_TOP_MAINPLL2_D9],
+							CLK_TOP_UNIVPLL_D4_D2,
+							clk_names[CLK_TOP_UNIVPLL_D4_D2],
 							ret);
 						return ret;
 					}
 					dev_info(ctx->dev,
-						"[%s] clk[CLK_TOP_CAMTM:%u]:%s set_parent clk[CLK_TOP_MAINPLL2_D9:%u]:%s(correct),ret(%d)\n",
+						"[%s] clk[CLK_TOP_CAMTM:%u]:%s set_parent clk[CLK_TOP_UNIVPLL_D4_D2:%u]:%s(correct),ret(%d)\n",
 						__func__,
 						CLK_TOP_CAMTM, clk_names[CLK_TOP_CAMTM],
-						CLK_TOP_MAINPLL2_D9, clk_names[CLK_TOP_MAINPLL2_D9],
+						CLK_TOP_UNIVPLL_D4_D2, clk_names[CLK_TOP_UNIVPLL_D4_D2],
 						ret);
 				} else {
 					dev_info(ctx->dev,

@@ -87,7 +87,7 @@
 #endif
 
 /* under 14.5 Gbps, trail should be enable */
-#define SENINF_HS_TRAIL_EN_CONDITION 1450000000
+#define SENINF_HS_TRAIL_EN_CONDITION 1000000000
 
 //#define REDUCE_KO_DEPENDANCY_FOR_SMT
 

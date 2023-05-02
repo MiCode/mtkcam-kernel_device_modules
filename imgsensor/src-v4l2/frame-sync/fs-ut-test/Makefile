@@ -18,18 +18,20 @@ $(info $(NEWLINE))
 # TSREC path
 ISP7S_CAM_LEGACY = ../../../../../../media/platform/mtk-isp/camsys/isp7s/cam_legacy
 ISP7SP_CAM = ../../../../../../media/platform/mtk-isp/camsys/isp7sp/cam
+MTKCAM_ISP7SP_CAM = ../../../../camsys/isp7sp/cam
 ## Please manually change/set TSREC file path for unit test file building
-TSREC_DIR = $(ISP7SP_CAM)
+TSREC_DIR = $(MTKCAM_ISP7SP_CAM)
 $(info TSREC_DIR = $(TSREC_DIR))
 $(info $(NEWLINE))
 
 
-INCS = -I ../
+INCS = -I ./  \
+	   -I ../
 #	   -I ../../../inc/
 
 # $(info INCS = $(INCS))
 TSREC_INCS = -I $(TSREC_DIR)/ \
-	   -I ../../../../../../misc/mediatek/imgsensor/src-v4l2/frame-sync/fs-ut-test/
+#	   -I ../../../../../../misc/mediatek/imgsensor/src-v4l2/frame-sync/fs-ut-test/
 
 
 SRCS = ut_fs_test.c \

@@ -873,6 +873,14 @@ static int get_exp_order_ipi_normal(struct mtk_cam_scen_normal *n)
 		exp_order = MTKCAM_IPI_ORDER_NE_SE;
 	else {
 		switch (n->exp_order) {
+		case MTK_CAM_EXP_SE_ME_LE:
+			pr_info("%s: ERROR: MTK_CAM_EXP_SE_ME_LE not support",
+					__func__);
+			exp_order = MTKCAM_IPI_ORDER_NE_ME_SE;
+			break;
+		case MTK_CAM_EXP_LE_ME_SE:
+			exp_order = MTKCAM_IPI_ORDER_NE_ME_SE;
+			break;
 		case MTK_CAM_EXP_SE_LE:
 			exp_order = MTKCAM_IPI_ORDER_SE_NE;
 			break;
@@ -971,6 +979,38 @@ int get_buf_offset_idx(int exp_order_ipi, int exp_seq_num, bool is_rgbw, bool w_
 	return ret;
 }
 
+static int get_exp_support(u32 raw_dev)
+{
+	int r = 0;
+	int min_exp = INT_MAX;
+
+	while (raw_dev) {
+		if (raw_dev & 1 << r)
+			min_exp =
+				min(min_exp, CALL_PLAT_HW(query_max_exp_support, r));
+
+		raw_dev &=~(1 << r);
+		++r;
+	}
+
+	return (min_exp == INT_MAX) ? 0 : min_exp;
+}
+
+static u16 get_raw_dev(struct mtkcam_ipi_config_param *ipi_cfg)
+{
+	int i = 0;
+	u16 raw_dev = 0;
+
+	for (i = 0; i < ipi_cfg->n_maps; i++) {
+		if (is_raw_subdev(ipi_cfg->maps[i].pipe_id)) {
+			raw_dev = ipi_cfg->maps[i].dev_mask;
+			break;
+		}
+	}
+
+	return raw_dev;
+}
+
 int fill_img_in_by_exposure(struct req_buffer_helper *helper,
 	struct mtk_cam_buffer *buf,
 	struct mtk_cam_video_device *node)
@@ -981,12 +1021,18 @@ int fill_img_in_by_exposure(struct req_buffer_helper *helper,
 	struct mtk_cam_job *job = helper->job;
 	bool is_w = is_rgbw(job) ? true : false;//for coverity...
 	const int *rawi_table = NULL;
-	int i = 0, rawi_cnt = 0;
+	int i = 0, e = 0, rawi_cnt = 0;
 	int exp_order = get_exp_order(&job->job_scen);
+	int job_exp = job_exp_num(job);
+	int exp_support = get_exp_support(get_raw_dev(&job->src_ctx->ipi_config));
+	bool first_last_exp_only = (exp_support) ? (job_exp > exp_support) : false;
 
 	// the order rawi is in exposure sequence
 	get_stagger_rawi_table(job, &rawi_table, &rawi_cnt);
-	for (i = 0; i < rawi_cnt; i++) {
+	for (i = 0, e = job_exp; i < rawi_cnt; i++, e--) {
+		if (first_last_exp_only && (e > 1) && (e < job_exp))
+			continue;
+
 		in = &fp->img_ins[helper->ii_idx++];
 
 		ret = fill_img_in_hdr(in, buf, node,

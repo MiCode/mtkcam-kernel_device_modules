@@ -186,6 +186,7 @@ struct plat_data_hw {
 	int (*query_yuv_dma_group)(int m4u_id, u32 group[4]);
 
 	int (*query_caci_size)(int w, int h, size_t *size);
+	int (*query_max_exp_support)(u32 raw_idx);
 };
 
 struct camsys_platform_data {

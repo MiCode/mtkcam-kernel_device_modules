@@ -317,6 +317,97 @@ static int set_sv_meta_stats_info(
 	return 0;
 }
 
+static int get_sv_dmao_common_setting(struct sv_dma_th_setting *sv_th_setting,
+	struct sv_cq_th_setting sv_cq_setting)
+{
+	sv_th_setting[CAMSV_0].urgent_th = 0x87FF06AA;
+	sv_th_setting[CAMSV_0].ultra_th = 0x15550400;
+	sv_th_setting[CAMSV_0].pultra_th = 0x12AA0155;
+	sv_th_setting[CAMSV_0].dvfs_th = 0x81550000;
+	sv_th_setting[CAMSV_0].urgent_th2 = 0x8500042A;
+	sv_th_setting[CAMSV_0].ultra_th2 = 0x13550280;
+	sv_th_setting[CAMSV_0].pultra_th2 = 0x11AB00D5;
+	sv_th_setting[CAMSV_0].dvfs_th2 = 0x80D50000;
+
+	sv_th_setting[CAMSV_1].urgent_th = 0x87FF06AA;
+	sv_th_setting[CAMSV_1].ultra_th = 0x15550400;
+	sv_th_setting[CAMSV_1].pultra_th = 0x12AA0155;
+	sv_th_setting[CAMSV_1].dvfs_th = 0x81550000;
+	sv_th_setting[CAMSV_1].urgent_th2 = 0x8500042A;
+	sv_th_setting[CAMSV_1].ultra_th2 = 0x13550280;
+	sv_th_setting[CAMSV_1].pultra_th2 = 0x11AB00D5;
+	sv_th_setting[CAMSV_1].dvfs_th2 = 0x80D50000;
+
+	sv_th_setting[CAMSV_2].urgent_th = 0x86000500;
+	sv_th_setting[CAMSV_2].ultra_th = 0x14000300;
+	sv_th_setting[CAMSV_2].pultra_th = 0x12000100;
+	sv_th_setting[CAMSV_2].dvfs_th = 0x81000000;
+
+	sv_th_setting[CAMSV_3].urgent_th = 0x83C00320;
+	sv_th_setting[CAMSV_3].ultra_th = 0x128001E0;
+	sv_th_setting[CAMSV_3].pultra_th = 0x114000A0;
+	sv_th_setting[CAMSV_3].dvfs_th = 0x80A00000;
+
+	sv_th_setting[CAMSV_4].urgent_th = 0x810800DC;
+	sv_th_setting[CAMSV_4].ultra_th = 0x10B00084;
+	sv_th_setting[CAMSV_4].pultra_th = 0x1058002C;
+	sv_th_setting[CAMSV_4].dvfs_th = 0x802C0000;
+
+	sv_th_setting[CAMSV_5].urgent_th = 0x810800DC;
+	sv_th_setting[CAMSV_5].ultra_th = 0x10B00084;
+	sv_th_setting[CAMSV_5].pultra_th = 0x1058002C;
+	sv_th_setting[CAMSV_5].dvfs_th = 0x802C0000;
+
+	sv_cq_setting.cq1_fifo_size = 0x10000040;
+	sv_cq_setting.cq1_urgent_th = 0x00270020;
+	sv_cq_setting.cq1_ultra_th = 0x001A0014;
+	sv_cq_setting.cq1_pultra_th = 0x000D0007;
+	sv_cq_setting.cq1_dvfs_th = 0x00070000;
+
+	sv_cq_setting.cq2_fifo_size = 0x10000040;
+	sv_cq_setting.cq2_urgent_th = 0x00270020;
+	sv_cq_setting.cq2_ultra_th = 0x001A0014;
+	sv_cq_setting.cq2_pultra_th = 0x000D0007;
+	sv_cq_setting.cq2_dvfs_th = 0x00070000;
+
+	return 0;
+}
+
+static int get_mraw_dmao_common_setting(struct mraw_dma_th_setting *mraw_th_setting,
+	struct mraw_cq_th_setting mraw_cq_setting)
+{
+	mraw_th_setting[imgo_m1].urgent_th = 0x011B00EC;
+	mraw_th_setting[imgo_m1].ultra_th = 0x00BD008E;
+	mraw_th_setting[imgo_m1].pultra_th = 0x005E002F;
+	mraw_th_setting[imgo_m1].dvfs_th = 0x002F0000;
+	mraw_th_setting[imgo_m1].fifo_size = 0x100001D8;
+
+	mraw_th_setting[imgbo_m1].urgent_th = 0x80E200BC;
+	mraw_th_setting[imgbo_m1].ultra_th = 0x10960071;
+	mraw_th_setting[imgbo_m1].pultra_th = 0x104B0026;
+	mraw_th_setting[imgbo_m1].dvfs_th = 0x80260000;
+	mraw_th_setting[imgbo_m1].fifo_size = 0x10000178;
+
+	mraw_th_setting[cpio_m1].urgent_th = 0x00270020;
+	mraw_th_setting[cpio_m1].ultra_th = 0x001A0014;
+	mraw_th_setting[cpio_m1].pultra_th = 0x000D0007;
+	mraw_th_setting[cpio_m1].dvfs_th = 0x00070000;
+	mraw_th_setting[cpio_m1].fifo_size = 0x10000040;
+
+	mraw_cq_setting.cq1_fifo_size = 0x10000040;
+	mraw_cq_setting.cq1_urgent_th = 0x00270020;
+	mraw_cq_setting.cq1_ultra_th = 0x001A0014;
+	mraw_cq_setting.cq1_pultra_th = 0x000D0007;
+	mraw_cq_setting.cq1_dvfs_th = 0x00070000;
+
+	mraw_cq_setting.cq2_fifo_size = 0x10000040;
+	mraw_cq_setting.cq2_urgent_th = 0x00270020;
+	mraw_cq_setting.cq2_ultra_th = 0x001A0014;
+	mraw_cq_setting.cq2_pultra_th = 0x000D0007;
+	mraw_cq_setting.cq2_dvfs_th = 0x00070000;
+	return 0;
+}
+
 static int set_mraw_meta_stats_info(
 	int ipi_id, void *addr, struct dma_info *info)
 {
@@ -528,6 +619,8 @@ static const struct plat_v4l2_data mt6989_v4l2_data = {
 	.get_meta_stats_port_size = get_meta_stats_port_size,
 
 	.set_sv_meta_stats_info = set_sv_meta_stats_info,
+	.get_sv_dmao_common_setting = get_sv_dmao_common_setting,
+	.get_mraw_dmao_common_setting = get_mraw_dmao_common_setting,
 	.set_mraw_meta_stats_info = set_mraw_meta_stats_info,
 	.get_mraw_stats_cfg_param = get_mraw_stats_cfg_param,
 };

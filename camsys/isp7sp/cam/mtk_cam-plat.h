@@ -33,6 +33,17 @@ enum mraw_dmao_id {
 	mraw_dmao_num
 };
 
+enum camsv_module_id {
+	CAMSV_START = 0,
+	CAMSV_0 = CAMSV_START,
+	CAMSV_1 = 1,
+	CAMSV_2 = 2,
+	CAMSV_3 = 3,
+	CAMSV_4 = 4,
+	CAMSV_5 = 5,
+	CAMSV_END
+};
+
 struct mraw_stats_cfg_param {
 	s8  mqe_en;
 	s8  mobc_en;
@@ -64,6 +75,54 @@ struct mraw_stats_cfg_param {
 
 	u32 img_sel;
 	u32 imgo_sel;
+};
+
+struct sv_dma_th_setting {
+	u32 urgent_th;
+	u32 ultra_th;
+	u32 pultra_th;
+	u32 dvfs_th;
+
+	u32 urgent_th2;
+	u32 ultra_th2;
+	u32 pultra_th2;
+	u32 dvfs_th2;
+};
+
+struct sv_cq_th_setting {
+	u32 cq1_fifo_size;
+	u32 cq1_urgent_th;
+	u32 cq1_ultra_th;
+	u32 cq1_pultra_th;
+	u32 cq1_dvfs_th;
+
+	u32 cq2_fifo_size;
+	u32 cq2_urgent_th;
+	u32 cq2_ultra_th;
+	u32 cq2_pultra_th;
+	u32 cq2_dvfs_th;
+};
+
+struct mraw_dma_th_setting {
+	u32 urgent_th;
+	u32 ultra_th;
+	u32 pultra_th;
+	u32 dvfs_th;
+	u32 fifo_size;
+};
+
+struct mraw_cq_th_setting {
+	u32 cq1_fifo_size;
+	u32 cq1_urgent_th;
+	u32 cq1_ultra_th;
+	u32 cq1_pultra_th;
+	u32 cq1_dvfs_th;
+
+	u32 cq2_fifo_size;
+	u32 cq2_urgent_th;
+	u32 cq2_ultra_th;
+	u32 cq2_pultra_th;
+	u32 cq2_dvfs_th;
 };
 
 struct dma_info {
@@ -110,8 +169,11 @@ struct plat_v4l2_data {
 	int (*set_meta_stats_info)(int ipi_id, void *addr, size_t size,
 				   const struct set_meta_stats_info_param *p);
 	int (*get_meta_stats_port_size)(int ipi_id, void *addr, int dma_port, int *size);
-
 	int (*set_sv_meta_stats_info)(int ipi_id, void *addr, struct dma_info *info);
+	int (*get_sv_dmao_common_setting)(struct sv_dma_th_setting *sv_th_setting,
+		struct sv_cq_th_setting sv_cq_setting);
+	int (*get_mraw_dmao_common_setting)(struct mraw_dma_th_setting *mraw_th_setting,
+		struct mraw_cq_th_setting mraw_cq_setting);
 	int (*set_mraw_meta_stats_info)(int ipi_id, void *addr, struct dma_info *info);
 	int (*get_mraw_stats_cfg_param)(void *addr, struct mraw_stats_cfg_param *param);
 };

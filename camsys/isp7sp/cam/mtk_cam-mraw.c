@@ -728,67 +728,74 @@ int mtk_cam_mraw_top_config(struct mtk_mraw_device *mraw_dev)
 
 int mtk_cam_mraw_dma_config(struct mtk_mraw_device *mraw_dev)
 {
-	int ret = 0;
+	struct mraw_dma_th_setting mraw_th_setting[mraw_dmao_num];
+	struct mraw_cq_th_setting mraw_cq_setting;
 
+	memset(mraw_th_setting, 0, sizeof(mraw_th_setting));
+	memset(&mraw_cq_setting, 0, sizeof(mraw_cq_setting));
+
+
+	CALL_PLAT_V4L2(
+		get_mraw_dmao_common_setting, mraw_th_setting, mraw_cq_setting);
 	/* imgo con */
 	MRAW_WRITE_REG(mraw_dev->base + REG_MRAW_M_IMGO_ORIWDMA_CON0,
-		0x10000188);  // BURST_LEN and FIFO_SIZE
+		mraw_th_setting[imgo_m1].fifo_size);  // BURST_LEN and FIFO_SIZE
 	MRAW_WRITE_REG(mraw_dev->base + REG_MRAW_M_IMGO_ORIWDMA_CON1,
-		0x004F0028);  // Threshold for pre-ultra
+		mraw_th_setting[imgo_m1].pultra_th);  // Threshold for pre-ultra
 	MRAW_WRITE_REG(mraw_dev->base + REG_MRAW_M_IMGO_ORIWDMA_CON2,
-		0x009D0076);  // Threshold for ultra
+		mraw_th_setting[imgo_m1].ultra_th);  // Threshold for ultra
 	MRAW_WRITE_REG(mraw_dev->base + REG_MRAW_M_IMGO_ORIWDMA_CON3,
-		0x00EC00C4);  // Threshold for urgent
+		mraw_th_setting[imgo_m1].urgent_th);  // Threshold for urgent
 	MRAW_WRITE_REG(mraw_dev->base + REG_MRAW_M_IMGO_ORIWDMA_CON4,
-		0x00280000);  // Threshold for DVFS
+		mraw_th_setting[imgo_m1].dvfs_th);  // Threshold for DVFS
 
 	/* imgbo con */
 	MRAW_WRITE_REG(mraw_dev->base + REG_MRAW_M_IMGBO_ORIWDMA_CON0,
-		0x10000140);  // BURST_LEN and FIFO_SIZE
+		mraw_th_setting[imgbo_m1].fifo_size);  // BURST_LEN and FIFO_SIZE
 	MRAW_WRITE_REG(mraw_dev->base + REG_MRAW_M_IMGBO_ORIWDMA_CON1,
-		0x00400020);  // Threshold for pre-ultra
+		mraw_th_setting[imgbo_m1].pultra_th);  // Threshold for pre-ultra
 	MRAW_WRITE_REG(mraw_dev->base + REG_MRAW_M_IMGBO_ORIWDMA_CON2,
-		0x00800060);  // Threshold for ultra
+		mraw_th_setting[imgbo_m1].ultra_th);  // Threshold for ultra
 	MRAW_WRITE_REG(mraw_dev->base + REG_MRAW_M_IMGBO_ORIWDMA_CON3,
-		0x00C000A0);  // Threshold for urgent
+		mraw_th_setting[imgbo_m1].urgent_th);  // Threshold for urgent
 	MRAW_WRITE_REG(mraw_dev->base + REG_MRAW_M_IMGBO_ORIWDMA_CON4,
-		0x00200000);  // Threshold for DVFS
+		mraw_th_setting[imgbo_m1].dvfs_th);  // Threshold for DVFS
 
 	/* cpio con */
 	MRAW_WRITE_REG(mraw_dev->base + REG_MRAW_M_CPIO_ORIWDMA_CON0,
-		0x10000040);  // BURST_LEN and FIFO_SIZE
+		mraw_th_setting[cpio_m1].fifo_size);  // BURST_LEN and FIFO_SIZE
 	MRAW_WRITE_REG(mraw_dev->base + REG_MRAW_M_CPIO_ORIWDMA_CON1,
-		0x000D0007);  // Threshold for pre-ultra
+		mraw_th_setting[cpio_m1].pultra_th);  // Threshold for pre-ultra
 	MRAW_WRITE_REG(mraw_dev->base + REG_MRAW_M_CPIO_ORIWDMA_CON2,
-		0x001A0014);  // Threshold for ultra
+		mraw_th_setting[cpio_m1].ultra_th);  // Threshold for ultra
 	MRAW_WRITE_REG(mraw_dev->base + REG_MRAW_M_CPIO_ORIWDMA_CON3,
-		0x00270020);  // Threshold for urgent
+		mraw_th_setting[cpio_m1].urgent_th);  // Threshold for urgent
 	MRAW_WRITE_REG(mraw_dev->base + REG_MRAW_M_CPIO_ORIWDMA_CON4,
-		0x00070000);  // Threshold for DVFS
+		mraw_th_setting[cpio_m1].dvfs_th);  // Threshold for DVFS
 
 	/* cqi con */
 	MRAW_WRITE_REG(mraw_dev->base + REG_MRAW_M1_CQI_ORIRDMA_CON0,
-		0x10000040);  // BURST_LEN and FIFO_SIZE
+		mraw_cq_setting.cq1_fifo_size);  // BURST_LEN and FIFO_SIZE
 	MRAW_WRITE_REG(mraw_dev->base + REG_MRAW_M1_CQI_ORIRDMA_CON1,
-		0x000D0007);  // Threshold for pre-ultra
+		mraw_cq_setting.cq1_pultra_th);  // Threshold for pre-ultra
 	MRAW_WRITE_REG(mraw_dev->base + REG_MRAW_M1_CQI_ORIRDMA_CON2,
-		0x001A0014);  // Threshold for ultra
+		mraw_cq_setting.cq1_ultra_th);  // Threshold for ultra
 	MRAW_WRITE_REG(mraw_dev->base + REG_MRAW_M1_CQI_ORIRDMA_CON3,
-		0x00270020);  // Threshold for urgent
+		mraw_cq_setting.cq1_urgent_th);  // Threshold for urgent
 	MRAW_WRITE_REG(mraw_dev->base + REG_MRAW_M1_CQI_ORIRDMA_CON4,
-		0x00070000);  // Threshold for DVFS
+		mraw_cq_setting.cq1_dvfs_th);  // Threshold for DVFS
 
 	MRAW_WRITE_REG(mraw_dev->base + REG_MRAW_M2_CQI_ORIRDMA_CON0,
-		0x10000040);  // BURST_LEN and FIFO_SIZE
+		mraw_cq_setting.cq2_fifo_size);  // BURST_LEN and FIFO_SIZE
 	MRAW_WRITE_REG(mraw_dev->base + REG_MRAW_M2_CQI_ORIRDMA_CON1,
-		0x000D0007);  // Threshold for pre-ultra
+		mraw_cq_setting.cq2_pultra_th);  // Threshold for pre-ultra
 	MRAW_WRITE_REG(mraw_dev->base + REG_MRAW_M2_CQI_ORIRDMA_CON2,
-		0x001A0014);  // Threshold for ultra
+		mraw_cq_setting.cq2_ultra_th);  // Threshold for ultra
 	MRAW_WRITE_REG(mraw_dev->base + REG_MRAW_M2_CQI_ORIRDMA_CON3,
-		0x00270020);  // Threshold for urgent
+		mraw_cq_setting.cq2_urgent_th);  // Threshold for urgent
 	MRAW_WRITE_REG(mraw_dev->base + REG_MRAW_M2_CQI_ORIRDMA_CON4,
-		0x00070000);  // Threshold for DVFS
-	return ret;
+		mraw_cq_setting.cq2_dvfs_th);  // Threshold for DVFS
+	return 0;
 }
 
 int mtk_cam_mraw_fbc_config(

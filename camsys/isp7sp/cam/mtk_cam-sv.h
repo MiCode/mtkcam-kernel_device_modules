@@ -12,10 +12,11 @@
 #include "mtk_cam-engine.h"
 #include "mtk_cam-dvfs_qos.h"
 #include "mtk_cam-resource_calc.h"
-
+#include "mtk_cam-plat.h"
 #define MULTI_SMI_SV_HW_NUM 2
 #define MAX_SV_HW_GROUPS 4
 #define CAMSV_IRQ_NUM 4
+#define MAX_SV_HW_NUM 6
 
 enum SV_SMI_PORT_ID {
 	SMI_PORT0_SV_CQI = 0,
@@ -77,17 +78,6 @@ struct mtk_cam_ctx;
 
 enum camsv_function_id {
 	DISPLAY_IC = (1 << 0)
-};
-
-enum camsv_module_id {
-	CAMSV_START = 0,
-	CAMSV_0 = CAMSV_START,
-	CAMSV_1 = 1,
-	CAMSV_2 = 2,
-	CAMSV_3 = 3,
-	CAMSV_4 = 4,
-	CAMSV_5 = 5,
-	CAMSV_END
 };
 
 enum camsv_int_en {

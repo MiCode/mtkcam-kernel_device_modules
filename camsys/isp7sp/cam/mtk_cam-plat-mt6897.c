@@ -317,6 +317,99 @@ static int set_sv_meta_stats_info(
 	return 0;
 }
 
+static int get_sv_dmao_common_setting(struct sv_dma_th_setting *sv_th_setting,
+	struct sv_cq_th_setting sv_cq_setting)
+{
+	sv_th_setting[CAMSV_0].urgent_th = 0x86660555;
+	sv_th_setting[CAMSV_0].ultra_th = 0x14440333;
+	sv_th_setting[CAMSV_0].pultra_th = 0x12220111;
+	sv_th_setting[CAMSV_0].dvfs_th = 0x81110000;
+
+	sv_th_setting[CAMSV_0].urgent_th2 = 0x84000355;
+	sv_th_setting[CAMSV_0].ultra_th2 = 0x12AA0200;
+	sv_th_setting[CAMSV_0].pultra_th2 = 0x115500AB;
+	sv_th_setting[CAMSV_0].dvfs_th2 = 0x80AB0000;
+
+	sv_th_setting[CAMSV_1].urgent_th = 0x86660555;
+	sv_th_setting[CAMSV_1].ultra_th = 0x14440333;
+	sv_th_setting[CAMSV_1].pultra_th = 0x12220111;
+	sv_th_setting[CAMSV_1].dvfs_th = 0x81110000;
+
+	sv_th_setting[CAMSV_1].urgent_th2 = 0x84000355;
+	sv_th_setting[CAMSV_1].ultra_th2 = 0x12AA0200;
+	sv_th_setting[CAMSV_1].pultra_th2 = 0x115500AB;
+	sv_th_setting[CAMSV_1].dvfs_th2 = 0x80AB0000;
+
+	sv_th_setting[CAMSV_2].urgent_th = 0x84CE0401;
+	sv_th_setting[CAMSV_2].ultra_th = 0x13340267;
+	sv_th_setting[CAMSV_2].pultra_th = 0x119A00CD;
+	sv_th_setting[CAMSV_2].dvfs_th = 0x80CD0000;
+
+	sv_th_setting[CAMSV_3].urgent_th = 0x83000280;
+	sv_th_setting[CAMSV_3].ultra_th = 0x12000180;
+	sv_th_setting[CAMSV_3].pultra_th = 0x11000080;
+	sv_th_setting[CAMSV_3].dvfs_th = 0x80800000;
+
+	sv_th_setting[CAMSV_4].urgent_th = 0x80D800B4;
+	sv_th_setting[CAMSV_4].ultra_th = 0x1090006C;
+	sv_th_setting[CAMSV_4].pultra_th = 0x10480024;
+	sv_th_setting[CAMSV_4].dvfs_th = 0x80240000;
+
+	sv_th_setting[CAMSV_5].urgent_th = 0x80D800B4;
+	sv_th_setting[CAMSV_5].ultra_th = 0x1090006C;
+	sv_th_setting[CAMSV_5].pultra_th = 0x10480024;
+	sv_th_setting[CAMSV_5].dvfs_th = 0x80240000;
+
+	sv_cq_setting.cq1_fifo_size = 0x10000040;
+	sv_cq_setting.cq1_urgent_th = 0x00270020;
+	sv_cq_setting.cq1_ultra_th = 0x001A0014;
+	sv_cq_setting.cq1_pultra_th = 0x000D0007;
+	sv_cq_setting.cq1_dvfs_th = 0x00070000;
+
+	sv_cq_setting.cq2_fifo_size = 0x10000040;
+	sv_cq_setting.cq2_urgent_th = 0x00270020;
+	sv_cq_setting.cq2_ultra_th = 0x001A0014;
+	sv_cq_setting.cq2_pultra_th = 0x000D0007;
+	sv_cq_setting.cq2_dvfs_th = 0x00070000;
+
+
+	return 0;
+}
+
+static int get_mraw_dmao_common_setting(struct mraw_dma_th_setting *mraw_th_setting,
+	struct mraw_cq_th_setting mraw_cq_setting)
+{
+	mraw_th_setting[imgo_m1].urgent_th = 0x00EC00C4;
+	mraw_th_setting[imgo_m1].ultra_th = 0x009D0076;
+	mraw_th_setting[imgo_m1].pultra_th = 0x004F0028;
+	mraw_th_setting[imgo_m1].dvfs_th = 0x00280000;
+	mraw_th_setting[imgo_m1].fifo_size = 0x10000188;
+
+	mraw_th_setting[imgbo_m1].urgent_th = 0x00C000A0;
+	mraw_th_setting[imgbo_m1].ultra_th = 0x00800060;
+	mraw_th_setting[imgbo_m1].pultra_th = 0x00400020;
+	mraw_th_setting[imgbo_m1].dvfs_th = 0x00200000;
+	mraw_th_setting[imgbo_m1].fifo_size = 0x10000140;
+
+	mraw_th_setting[cpio_m1].urgent_th = 0x00270020;
+	mraw_th_setting[cpio_m1].ultra_th = 0x001A0014;
+	mraw_th_setting[cpio_m1].pultra_th = 0x000D0007;
+	mraw_th_setting[cpio_m1].dvfs_th = 0x00070000;
+	mraw_th_setting[cpio_m1].fifo_size = 0x10000040;
+
+	mraw_cq_setting.cq1_fifo_size = 0x10000040;
+	mraw_cq_setting.cq1_urgent_th = 0x00270020;
+	mraw_cq_setting.cq1_ultra_th = 0x001A0014;
+	mraw_cq_setting.cq1_pultra_th = 0x000D0007;
+	mraw_cq_setting.cq1_dvfs_th = 0x00070000;
+
+	mraw_cq_setting.cq2_fifo_size = 0x10000040;
+	mraw_cq_setting.cq2_urgent_th = 0x00270020;
+	mraw_cq_setting.cq2_ultra_th = 0x001A0014;
+	mraw_cq_setting.cq2_pultra_th = 0x000D0007;
+	mraw_cq_setting.cq2_dvfs_th = 0x00070000;
+	return 0;
+}
 static int set_mraw_meta_stats_info(
 	int ipi_id, void *addr, struct dma_info *info)
 {
@@ -527,6 +620,8 @@ static const struct plat_v4l2_data mt6897_v4l2_data = {
 	.get_meta_stats_port_size = get_meta_stats_port_size,
 
 	.set_sv_meta_stats_info = set_sv_meta_stats_info,
+	.get_sv_dmao_common_setting = get_sv_dmao_common_setting,
+	.get_mraw_dmao_common_setting = get_mraw_dmao_common_setting,
 	.set_mraw_meta_stats_info = set_mraw_meta_stats_info,
 	.get_mraw_stats_cfg_param = get_mraw_stats_cfg_param,
 };

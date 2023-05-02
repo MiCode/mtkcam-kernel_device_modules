@@ -6,12 +6,21 @@ package(
     ],
 )
 
+mt6879_outs = [
+    "isp7_1/cam/mtk-cam-plat-mt6879.ko",
+]
+
+mt6895_outs = [
+    "isp7_1/cam/mtk-cam-plat-mt6895.ko",
+]
+
+mt6983_outs = [
+    "isp7_1/cam/mtk-cam-plat-mt6983.ko",
+]
+
 mgk_camsys_outs = [
     # keep sorted
     "isp7_1/cam/mtk-cam-isp.ko",
-    "isp7_1/cam/mtk-cam-plat-mt6879.ko",
-    "isp7_1/cam/mtk-cam-plat-mt6895.ko",
-    "isp7_1/cam/mtk-cam-plat-mt6983.ko",
     "isp7_1/cam/mtk-cam-plat-util.ko",
     "isp7s/cam_legacy/mtk-cam-isp7s.ko",
     "isp7sp/cam/mtk-cam-isp7sp.ko",
@@ -36,5 +45,11 @@ define_mgk_ko(
     deps = [
         "//vendor/mediatek/kernel_modules/mtkcam/imgsensor/src-v4l2:mtk_imgsensor",
     ],
-    outs = mgk_camsys_outs,
+    outs = (
+        mt6879_outs if glob(["isp7_1/**/mtk_cam-plat-mt6879.c"]) else []
+    ) + (
+        mt6895_outs if glob(["isp7_1/**/mtk_cam-plat-mt6895.c"]) else []
+    ) + (
+        mt6983_outs if glob(["isp7_1/**/mtk_cam-plat-mt6983.c"]) else []
+    ) + mgk_camsys_outs,
 )

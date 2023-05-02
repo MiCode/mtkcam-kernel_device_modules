@@ -394,7 +394,7 @@ static int ccd_probe(struct platform_device *pdev)
 
 	if (smmu_v3_enabled()) {
 		ccd->smmu_dev = mtk_smmu_get_shared_device(&pdev->dev);
-		if (ccd->smmu_dev) {
+		if (!ccd->smmu_dev) {
 			dev_info(dev, "failed to get smmu device\n");
 			return -ENODEV;
 		}

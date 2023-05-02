@@ -3669,7 +3669,7 @@ static int mtk_cam_probe(struct platform_device *pdev)
 
 	if (smmu_v3_enabled()) {
 		cam_dev->smmu_dev = mtk_smmu_get_shared_device(&pdev->dev);
-		if (cam_dev->smmu_dev) {
+		if (!cam_dev->smmu_dev) {
 			dev_info(dev, "failed to get smmu device\n");
 			return -ENODEV;
 		}

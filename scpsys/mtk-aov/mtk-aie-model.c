@@ -29,15 +29,15 @@
 
 #if (AOV_GOLDEN || AOV_RESEULT)
 #if REDUCE_MEM_NETWORK
-#include <aie_golden_reduce/fmap/dma_def.h>
-#include <aie_golden_reduce/yuv2rgb/dma_def.h>
-#include <aie_golden_reduce/rs/dma_def.h>
-#include <aie_golden_reduce/all_header.h>
+#include "aie_golden_reduce/fmap/dma_def.h"
+#include "aie_golden_reduce/yuv2rgb/dma_def.h"
+#include "aie_golden_reduce/rs/dma_def.h"
+#include "aie_golden_reduce/all_header.h"
 #else
-#include <aie_golden/fmap/dma_def.h>
-#include <aie_golden/yuv2rgb/dma_def.h>
-#include <aie_golden/rs/dma_def.h>
-#include <aie_golden/all_header.h>
+#include "aie_golden/fmap/dma_def.h"
+#include "aie_golden/yuv2rgb/dma_def.h"
+#include "aie_golden/rs/dma_def.h"
+#include "aie_golden/all_header.h"
 #endif
 #endif
 

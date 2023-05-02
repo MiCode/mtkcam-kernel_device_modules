@@ -120,6 +120,13 @@
 /******************************************************************************
  * TSREC log define/macro
  *****************************************************************************/
+/* log ctrl */
+enum tsrec_log_ctrl_category {
+	LOG_TSREC = 0,
+	LOG_TSREC_REG,
+};
+extern unsigned int tsrec_log_ctrl;
+
 #ifndef FS_UT
 #include <linux/spinlock.h>
 extern spinlock_t tsrec_log_concurrency_lock;
@@ -135,22 +142,35 @@ extern spinlock_t tsrec_log_concurrency_lock;
 // prevent printing log in ISR-related functions
 #define REDUCE_TSREC_LOG_IN_ISR_FUNC
 #define REDUCE_TSREC_LOG_DUMP_RAW_TICK
-#endif // !FS_UT
+#endif
 
+
+/* log macro/define */
+#define _TSREC_LOG_ENABLED(category)	\
+	((tsrec_log_ctrl) & (1UL << (category)))
 
 #ifndef FS_UT
 #include <linux/printk.h>
+
+#define DY_INFO(log_cat, format, args...) \
+do { \
+	if (unlikely(_TSREC_LOG_ENABLED(log_cat))) { \
+		pr_info(PFX "[%s] " format, __func__, ##args); \
+	} \
+} while (0)
+
 #define TSREC_LOG_DBG(format, args...) \
-	pr_debug(PFX "[%s] " format, __func__, ##args)
+	DY_INFO(TSREC_LOG_DBG_DEF_CAT, format, args)
 #define TSREC_LOG_INF(format, args...) \
 	pr_info(PFX "[%s] " format, __func__, ##args)
 #else
 #include <stdio.h>
+
 #define TSREC_LOG_DBG(format, args...) \
 	printf(PFX "[%s] " format, __func__, ##args)
 #define TSREC_LOG_INF(format, args...) \
 	printf(PFX "[%s] " format, __func__, ##args)
-#endif // FS_UT
+#endif
 
 
 /******************************************************************************

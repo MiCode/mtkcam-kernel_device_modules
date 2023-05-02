@@ -17,6 +17,7 @@
 
 
 #define PFX "TSREC"
+#define TSREC_LOG_DBG_DEF_CAT LOG_TSREC
 
 
 /******************************************************************************
@@ -27,6 +28,9 @@ struct device *seninf_dev;
 
 DEFINE_SPINLOCK(tsrec_log_concurrency_lock);
 #endif
+
+
+unsigned int tsrec_log_ctrl;
 
 
 /*---------------------------------------------------------------------------*/
@@ -42,6 +46,9 @@ enum tsrec_console_cmd_id {
 	TSREC_CON_CMD_OVW_EXP_TRIG_SRC,
 	TSREC_CON_CMD_SET_INTR_EXP_EN_MASK,
 	TSREC_CON_CMD_SET_INTR_EXP_TRIG_SRC_BOTH,
+
+	/* last cmd id (42) */
+	TSREC_CON_CMD_LOG_CTRL = 42,
 };
 
 /*---------------------------------------------------------------------------*/
@@ -342,6 +349,11 @@ static void tsrec_con_mgr_process_cmd(const unsigned int cmd)
 	case TSREC_CON_CMD_SET_INTR_EXP_TRIG_SRC_BOTH:
 		tsrec_con_mgr_s_cmd_value(cmd,
 			&tsrec_con_mgr.intr_exp_trig_src_both);
+		break;
+
+	case TSREC_CON_CMD_LOG_CTRL:
+		tsrec_con_mgr_s_cmd_value(cmd,
+			&tsrec_log_ctrl);
 		break;
 
 	default:
@@ -3392,6 +3404,9 @@ void mtk_cam_seninf_tsrec_dbg_dump_ts_records(const unsigned int tsrec_no)
 	unsigned long long curr_tick_caller = 0;
 	int ret = 0;
 	char *log_buf = NULL;
+
+	if (likely(_TSREC_LOG_ENABLED(TSREC_LOG_DBG_DEF_CAT) == 0))
+		return;
 
 	if (unlikely(!chk_exist_tsrec_hw(__func__, 1)))
 		return;

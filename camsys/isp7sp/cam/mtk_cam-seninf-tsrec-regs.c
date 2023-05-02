@@ -13,6 +13,7 @@
 
 
 #define PFX "TSREC-REGS"
+#define TSREC_LOG_DBG_DEF_CAT LOG_TSREC_REG
 
 
 /******************************************************************************

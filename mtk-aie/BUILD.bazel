@@ -1,0 +1,26 @@
+load("//build/bazel_mgk_rules:mgk_ko.bzl", "define_mgk_ko")
+package(
+    default_visibility = [
+        "//visibility:public",
+    ],
+)
+mgk_aie_outs = [
+    # keep sorted
+    "mtk_aie.ko",
+]
+
+# TODO: enable this part later
+define_mgk_ko(
+    name = "mtk-aie",
+    srcs = glob([
+        "**/*.c",
+        "**/*.h",
+        "**/Kbuild",
+        "**/Makefile",
+    ]),
+    deps = [
+        "//vendor/mediatek/kernel_modules/mtkcam/scpsys/mtk-aov:mtk_aov",
+    ],
+
+    outs = mgk_aie_outs,
+)

@@ -13,6 +13,7 @@
 #include "mtk_imgsys-cmdq.h"
 #include "mtk_imgsys-module.h"
 #include "mtk_imgsys-engine.h"
+#include "mtk_imgsys-isp-debug.h"
 /**
  * enum IMGSYS_DL_PATH_E
  *
@@ -47,5 +48,11 @@ void imgsys_debug_dump_routine(struct mtk_imgsys_dev *imgsys_dev,
 void imgsys_main_init(struct mtk_imgsys_dev *imgsys_dev);
 void imgsys_main_set_init(struct mtk_imgsys_dev *imgsys_dev);
 void imgsys_main_uninit(struct mtk_imgsys_dev *imgsys_dev);
+
+bool imgsys_dip_7s_dbg_enable(void);
+bool imgsys_traw_7s_dbg_enable(void);
+bool imgsys_wpe_7s_dbg_enable(void);
+bool imgsys_pqdip_7s_dbg_enable(void);
+bool imgsys_me_7s_dbg_enable(void);
 
 #endif /* _MTK_IMGSYS_DEBUG_H_ */

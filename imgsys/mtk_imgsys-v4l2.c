@@ -29,11 +29,20 @@
 #include "mtk-hcp_kernelfence.h"
 #include "mtkdip.h"
 #include "mtk_imgsys-cmdq.h"
+#include "mtk_imgsys-v4l2-debug.h"
 
 #include "mtk_imgsys-data.h"
 #include "mtk_imgsys-probe.h"
 #include "iommu_debug.h"
 #define CLK_READY
+
+int imgsys_dbg_en;
+module_param(imgsys_dbg_en, int, 0644);
+
+bool imgsys_dbg_enable(void)
+{
+	return imgsys_dbg_en;
+}
 
 static struct device *imgsys_pm_dev;
 
@@ -89,6 +98,7 @@ static int mtk_imgsys_subdev_get_fmt(struct v4l2_subdev *sd,
 		fmt->format = *mf;
 	}
 
+    if (imgsys_dbg_enable())
 	dev_dbg(imgsys_pipe->imgsys_dev->dev,
 		"get(try:%d) node:%s(pad:%d)fmt: %dx%d",
 		fmt->which, imgsys_pipe->nodes[pad].desc->name, pad,
@@ -105,6 +115,7 @@ static int mtk_imgsys_subdev_set_fmt(struct v4l2_subdev *sd,
 	struct v4l2_mbus_framefmt *mf;
 	u32 pad = fmt->pad;
 
+    if (imgsys_dbg_enable())
 	dev_dbg(imgsys_pipe->imgsys_dev->dev, "set(try:%d) node:%s(pad:%d)fmt: %dx%d",
 		fmt->which, imgsys_pipe->nodes[pad].desc->name, pad,
 		fmt->format.width, fmt->format.height);
@@ -145,6 +156,7 @@ static int mtk_imgsys_subdev_get_selection(struct v4l2_subdev *sd,
 	struct v4l2_rect *try_sel, *r;
 	struct mtk_imgsys_pipe *imgsys_pipe = mtk_imgsys_subdev_to_pipe(sd);
 
+    if (imgsys_dbg_enable())
 	dev_dbg(imgsys_pipe->imgsys_dev->dev,
 		"get subdev %s sel which %d target 0x%4x rect [%dx%d]",
 		imgsys_pipe->desc->name, sel->which, sel->target,
@@ -152,6 +164,7 @@ static int mtk_imgsys_subdev_get_selection(struct v4l2_subdev *sd,
 
 	if (sel->pad != MTK_IMGSYS_VIDEO_NODE_ID_WROT_A_CAPTURE &&
 	    sel->pad != MTK_IMGSYS_VIDEO_NODE_ID_WROT_B_CAPTURE) {
+	    if (imgsys_dbg_enable())
 		dev_dbg(imgsys_pipe->imgsys_dev->dev,
 			"g_select failed(%s:%d):not support\n",
 			imgsys_pipe->nodes[sel->pad].desc->name, sel->pad);
@@ -165,6 +178,7 @@ static int mtk_imgsys_subdev_get_selection(struct v4l2_subdev *sd,
 		r = &imgsys_pipe->nodes[sel->pad].crop;
 		break;
 	default:
+        if (imgsys_dbg_enable())
 		dev_dbg(imgsys_pipe->imgsys_dev->dev,
 			"s_select failed(%s:%d):target(%d) not support\n",
 			imgsys_pipe->nodes[sel->pad].desc->name, sel->pad,
@@ -187,6 +201,7 @@ static int mtk_imgsys_subdev_set_selection(struct v4l2_subdev *sd,
 	struct v4l2_rect *rect, *try_sel;
 	struct mtk_imgsys_pipe *imgsys_pipe = mtk_imgsys_subdev_to_pipe(sd);
 
+    if (imgsys_dbg_enable())
 	dev_dbg(imgsys_pipe->imgsys_dev->dev,
 		"set subdev %s sel which %d target 0x%4x rect [%dx%d]",
 		imgsys_pipe->desc->name, sel->which, sel->target,
@@ -194,6 +209,7 @@ static int mtk_imgsys_subdev_set_selection(struct v4l2_subdev *sd,
 
 	if (sel->pad != MTK_IMGSYS_VIDEO_NODE_ID_WROT_A_CAPTURE &&
 	    sel->pad != MTK_IMGSYS_VIDEO_NODE_ID_WROT_B_CAPTURE) {
+	    if (imgsys_dbg_enable())
 		dev_dbg(imgsys_pipe->imgsys_dev->dev,
 			"g_select failed(%s:%d):not support\n",
 			imgsys_pipe->nodes[sel->pad].desc->name, sel->pad);
@@ -206,6 +222,7 @@ static int mtk_imgsys_subdev_set_selection(struct v4l2_subdev *sd,
 		rect = &imgsys_pipe->nodes[sel->pad].crop;
 		break;
 	default:
+        if (imgsys_dbg_enable())
 		dev_dbg(imgsys_pipe->imgsys_dev->dev,
 			"s_select failed(%s:%d):target(%d) not support\n",
 			imgsys_pipe->nodes[sel->pad].desc->name, sel->pad,
@@ -243,6 +260,7 @@ static int mtk_imgsys_link_setup(struct media_entity *entity,
 	pipe->nodes[pad].flags &= ~MEDIA_LNK_FL_ENABLED;
 	pipe->nodes[pad].flags |= flags & MEDIA_LNK_FL_ENABLED;
 
+    if (imgsys_dbg_enable())
 	dev_dbg(pipe->imgsys_dev->dev,
 		"%s: link setup, flags(0x%x), (%s)%d -->(%s)%d, nodes_enabled(0x%llx)\n",
 		pipe->desc->name, flags, local->entity->name, local->index,
@@ -262,6 +280,7 @@ static int mtk_imgsys_vb2_meta_buf_prepare(struct vb2_buffer *vb)
 	const struct v4l2_format *fmt = &node->vdev_fmt;
 
 	if (vb->planes[0].length < fmt->fmt.meta.buffersize) {
+        if (imgsys_dbg_enable())
 		dev_dbg(dev,
 			"%s:%s:%s: size error(user:%d, required:%d)\n",
 			__func__, pipe->desc->name, node->desc->name,
@@ -295,6 +314,7 @@ static int mtk_imgsys_vb2_video_buf_prepare(struct vb2_buffer *vb)
 	for (i = 0; i < vb->num_planes; i++) {
 		size = fmt->fmt.pix_mp.plane_fmt[i].sizeimage;
 		if (vb->planes[i].length < size) {
+            if (imgsys_dbg_enable())
 			dev_dbg(dev,
 				"%s:%s:%s: size error(user:%d, max:%d)\n",
 				__func__, pipe->desc->name, node->desc->name,
@@ -329,6 +349,7 @@ static int mtk_imgsys_vb2_meta_buf_init(struct vb2_buffer *vb)
 					mtk_imgsys_vbq_to_node(vb->vb2_queue);
 	/* phys_addr_t buf_paddr; */
 
+    if (imgsys_dbg_enable())
 	dev_dbg(pipe->imgsys_dev->dev,
 		"%s:%s:%s: buf type(%d), idx(%d), mem(%d)\n",
 		__func__, pipe->desc->name, node->desc->name, b->vb2_buf.type,
@@ -366,6 +387,7 @@ static int mtk_imgsys_vb2_meta_buf_init(struct vb2_buffer *vb)
 #endif
 	}
 
+    if (imgsys_dbg_enable())
 	dev_dbg(pipe->imgsys_dev->dev,
 		"%s:%s: buf type(%d), idx(%d), mem(%d), p(%d) i_daddr(0x%llx), s_daddr(0x%llx), va_daddr(0x%llx)\n",
 		pipe->desc->name, node->desc->name, b->vb2_buf.type,
@@ -386,6 +408,7 @@ static int mtk_imgsys_vb2_video_buf_init(struct vb2_buffer *vb)
 					mtk_imgsys_vbq_to_node(vb->vb2_queue);
 	int i;
 
+    if (imgsys_dbg_enable())
 	dev_dbg(pipe->imgsys_dev->dev,
 		"%s:%s:%s: buf type(%d), idx(%d), mem(%d)\n",
 		__func__, pipe->desc->name, node->desc->name, b->vb2_buf.type,
@@ -395,6 +418,7 @@ static int mtk_imgsys_vb2_video_buf_init(struct vb2_buffer *vb)
 		dev_buf->scp_daddr[i] = 0;
 		dev_buf->isp_daddr[i] =	vb2_dma_contig_plane_dma_addr(vb, i);
 
+        if (imgsys_dbg_enable())
 		dev_dbg(pipe->imgsys_dev->dev,
 			"%s:%s: buf type(%d), idx(%d), mem(%d), p(%d) i_daddr(0x%llx), s_daddr(0x%llx)\n",
 			pipe->desc->name, node->desc->name, b->vb2_buf.type,
@@ -442,6 +466,7 @@ static void mtk_imgsys_vb2_buf_queue(struct vb2_buffer *vb)
 	}
 	//get qbuf dynamic info to devbuf for desc mode(-)
 #ifdef BUF_QUEUE_LOG
+    if (imgsys_dbg_enable())
 	dev_dbg(pipe->imgsys_dev->dev,
 			"[%s] portid(%d), rotat(%d), hflip(%d), vflip(%d)\n",
 			__func__,
@@ -451,6 +476,7 @@ static void mtk_imgsys_vb2_buf_queue(struct vb2_buffer *vb)
 			dev_buf->vflip);
 
 	for (i = 0; i < dev_buf->fmt.fmt.pix_mp.num_planes; i++) {
+        if (imgsys_dbg_enable())
 		dev_dbg(pipe->imgsys_dev->dev,
 			"[%s] width(%d), width(%d), sizeimage(%d), bytesperline(%d)\n",
 			__func__,
@@ -460,6 +486,7 @@ static void mtk_imgsys_vb2_buf_queue(struct vb2_buffer *vb)
 			dev_buf->fmt.fmt.pix_mp.plane_fmt[i].bytesperline);
 	}
 
+    if (imgsys_dbg_enable())
 	dev_dbg(pipe->imgsys_dev->dev,
 		"%s:%s: buf type(%d), idx(%d), mem(%d), i_daddr(0x%llx), s_daddr(0x%llx)\n",
 		req->imgsys_pipe->desc->name, node->desc->name, b->vb2_buf.type,
@@ -472,6 +499,7 @@ static void mtk_imgsys_vb2_buf_queue(struct vb2_buffer *vb)
 
 	buf_count = atomic_dec_return(&req->buf_count);
 	if (!buf_count) {
+        if (imgsys_dbg_enable())
 		dev_dbg(pipe->imgsys_dev->dev,
 			"framo_no: (%d), reqfd-%d\n",
 			req->img_fparam.frameparam.frame_no, b->request_fd);
@@ -480,7 +508,9 @@ static void mtk_imgsys_vb2_buf_queue(struct vb2_buffer *vb)
 		mtk_imgsys_pipe_try_enqueue(req->imgsys_pipe);
 		mutex_unlock(&req->imgsys_pipe->lock);
 	}
+#ifdef REQ_TIMESTAMP
 	req->tstate.time_qreq = ktime_get_boottime_ns()/1000;
+#endif
 }
 
 static int mtk_imgsys_vb2_meta_queue_setup(struct vb2_queue *vq,
@@ -504,6 +534,7 @@ static int mtk_imgsys_vb2_meta_queue_setup(struct vb2_queue *vq,
 		*num_buffers = clamp_val(*num_buffers, 1, VB2_MAX_FRAME);
 		sizes[0] = size;
 
+    if (imgsys_dbg_enable())
 	dev_dbg(pipe->imgsys_dev->dev,
 		"%s:%s:%s: n_p(%d), n_b(%d), s[%d](%u)\n",
 		__func__, pipe->desc->name, node->desc->name,
@@ -531,6 +562,7 @@ static int mtk_imgsys_vb2_video_queue_setup(struct vb2_queue *vq,
 	for (i = 0; i < *num_planes; i++) {
 		if (sizes[i] < fmt->fmt.pix_mp.plane_fmt[i].sizeimage) {
 			size = fmt->fmt.pix_mp.plane_fmt[i].sizeimage;
+            if (imgsys_dbg_enable())
 			dev_dbg(pipe->imgsys_dev->dev,
 				"%s:%s:%s: invalid buf: %u < %u\n",
 				__func__, pipe->desc->name,
@@ -541,6 +573,7 @@ static int mtk_imgsys_vb2_video_queue_setup(struct vb2_queue *vq,
 		*num_buffers = clamp_val(*num_buffers, 1,
 					 VB2_MAX_FRAME);
 
+        if (imgsys_dbg_enable())
 		dev_dbg(pipe->imgsys_dev->dev,
 			"%s:%s:%s: n_p(%d), n_b(%d), s[%d](%u)\n",
 			__func__, pipe->desc->name, node->desc->name,
@@ -604,6 +637,7 @@ static int mtk_imgsys_vb2_start_streaming(struct vb2_queue *vq,
 		}
 	}
 
+    if (imgsys_dbg_enable())
 	dev_dbg(pipe->imgsys_dev->dev,
 		"%s:%s:%s nodes_streaming(0x%llx), nodes_enable(0x%llx)\n",
 		__func__, pipe->desc->name, node->desc->name,
@@ -659,6 +693,7 @@ static void mtk_imgsys_vb2_stop_streaming(struct vb2_queue *vq)
 
 	mtk_imgsys_return_all_buffers(pipe, node, VB2_BUF_STATE_ERROR);
 
+    if (imgsys_dbg_enable())
 	dev_dbg(pipe->imgsys_dev->dev,
 		"%s:%s:%s nodes_streaming(0x%llx), nodes_enable(0x%llx)\n",
 		__func__, pipe->desc->name, node->desc->name,
@@ -708,6 +743,7 @@ static int mtk_imgsys_videoc_try_fmt(struct file *file, void *fh,
 					f->fmt.pix_mp.pixelformat);
 	if (!dev_fmt) {
 		dev_fmt = &node->desc->fmts[node->desc->default_fmt_idx];
+        if (imgsys_dbg_enable())
 		dev_dbg(pipe->imgsys_dev->dev,
 			"%s:%s:%s: dev_fmt(%d) not found, use default(%d)\n",
 			__func__, pipe->desc->name, node->desc->name,
@@ -744,6 +780,7 @@ static int mtk_imgsys_videoc_s_fmt(struct file *file, void *fh,
 					f->fmt.pix_mp.pixelformat);
 	if (!dev_fmt) {
 		dev_fmt = &node->desc->fmts[node->desc->default_fmt_idx];
+        if (imgsys_dbg_enable())
 		dev_dbg(pipe->imgsys_dev->dev,
 			"%s:%s:%s: dev_fmt(%d) not found, use default(%d)\n",
 			__func__, pipe->desc->name, node->desc->name,
@@ -867,6 +904,7 @@ static int mtk_imgsys_videoc_s_meta_fmt(struct file *file, void *fh,
 	f->fmt.meta.dataformat = dev_fmt->format;
 
 	if (dev_fmt->buffer_size <= 0) {
+        if (imgsys_dbg_enable())
 		dev_dbg(pipe->imgsys_dev->dev,
 			"%s: Invalid meta buf size(%u), use default(%u)\n",
 			pipe->desc->name, dev_fmt->buffer_size,
@@ -892,8 +930,10 @@ static int mtk_imgsys_video_device_s_ctrl(struct v4l2_ctrl *ctrl)
 			     struct mtk_imgsys_video_device, ctrl_handler);
 
 	if (ctrl->id != V4L2_CID_ROTATE) {
+        if (imgsys_dbg_enable()) {
 		pr_debug("[%s] doesn't support ctrl(%d)\n",
 			 node->desc->name, ctrl->id);
+        }
 		return -EINVAL;
 	}
 
@@ -912,8 +952,10 @@ static int mtk_imgsys_vidioc_qbuf(struct file *file, void *priv,
 	struct buf_info dyn_buf_info;
 	int ret = 0, i = 0;
 	unsigned long user_ptr = 0;
+#ifdef REQ_TIMESTAMP
 	struct mtk_imgsys_request *imgsys_req;
 	struct media_request *req;
+#endif
 #ifndef USE_V4L2_FMT
 	struct v4l2_plane_pix_format *vfmt;
 	struct plane_pix_format *bfmt;
@@ -926,16 +968,19 @@ static int mtk_imgsys_vidioc_qbuf(struct file *file, void *priv,
 	vb = node->dev_q.vbq.bufs[buf->index];
 	dev_buf = mtk_imgsys_vb2_buf_to_dev_buf(vb);
 	if (!dev_buf) {
+        if (imgsys_dbg_enable())
 		dev_dbg(pipe->imgsys_dev->dev, "[%s] NULL dev_buf obtained with idx %d\n", __func__,
 											buf->index);
 		return -EINVAL;
 	}
 
 	//support dynamic change size&fmt for std mode flow
+#ifdef REQ_TIMESTAMP
 	req = media_request_get_by_fd(&pipe->imgsys_dev->mdev, buf->request_fd);
 	imgsys_req = mtk_imgsys_media_req_to_imgsys_req(req);
 	imgsys_req->tstate.time_qbuf = ktime_get_boottime_ns()/1000;
 	media_request_put(req);
+#endif
 	if (!is_desc_fmt(node->dev_q.dev_fmt)) {
 		user_ptr =
 			(((unsigned long)(buf->m.planes[0].reserved[0]) << 32) |
@@ -946,6 +991,7 @@ static int mtk_imgsys_vidioc_qbuf(struct file *file, void *priv,
 						   (void *)(size_t)user_ptr,
 						   sizeof(struct buf_info));
 			if (ret != 0) {
+                if (imgsys_dbg_enable())
 				dev_dbg(pipe->imgsys_dev->dev,
 					"[%s]%s:%s:copy_from_user fail !!!\n",
 					__func__,
@@ -975,6 +1021,7 @@ static int mtk_imgsys_vidioc_qbuf(struct file *file, void *priv,
 			dev_buf->hflip = dyn_buf_info.hflip;
 			dev_buf->vflip = dyn_buf_info.vflip;
 
+            if (imgsys_dbg_enable())
 			dev_dbg(pipe->imgsys_dev->dev,
 					"[%s] portid(%d), rotat(%d), hflip(%d), vflip(%d)\n",
 					__func__,
@@ -985,6 +1032,7 @@ static int mtk_imgsys_vidioc_qbuf(struct file *file, void *priv,
 
 			for (i = 0;
 				i < dev_buf->fmt.fmt.pix_mp.num_planes; i++) {
+                if (imgsys_dbg_enable())
 				dev_dbg(pipe->imgsys_dev->dev,
 					"[%s] width(%d), width(%d), sizeimage(%d), bytesperline(%d)\n",
 					__func__,
@@ -994,6 +1042,7 @@ static int mtk_imgsys_vidioc_qbuf(struct file *file, void *priv,
 			dev_buf->fmt.fmt.pix_mp.plane_fmt[i].bytesperline);
 			}
 		} else {
+		    if (imgsys_dbg_enable())
 			dev_dbg(pipe->imgsys_dev->dev,
 				"[%s]%s: stdmode videonode(%s) qbuf bufinfo(reserved) is null!\n",
 				__func__, pipe->desc->name, node->desc->name);
@@ -1010,6 +1059,7 @@ static int mtk_imgsys_vidioc_qbuf(struct file *file, void *priv,
 			}
 		}
 	} else {
+        if (imgsys_dbg_enable())
 		dev_dbg(pipe->imgsys_dev->dev,
 			"[%s]%s:%s: no need to cache bufinfo,videonode fmt is DESC or SingleDevice(%d)!\n",
 			__func__,
@@ -1045,8 +1095,10 @@ static bool get_user_by_file(struct file *filp, struct mtk_imgsys_user **user)
 	list_for_each_entry((*user), &imgsys_dev->imgsys_users.list, entry) {
 		if ((*user)->fh == filp->private_data) {
 			found = true;
+            if (imgsys_dbg_enable()) {
 			pr_debug("%s: user(%lx) found! id(%d)", __func__, (unsigned long)(*user),
 				(*user)->id);
+            }
 			break;
 		}
 	}
@@ -1197,6 +1249,7 @@ static int mtkdip_fill_req(struct mtk_imgsys_dev *imgsys_dev,
 		frame->tuning_data.va = (u64)subframe->tuning_buf.vaddr
 			- (u64)mtk_hcp_get_reserve_mem_virt(DIP_MEM_FOR_HW_ID);
 		memset(subframe->tuning_buf.vaddr, 0, DIP_TUNING_SZ);
+        if (imgsys_dbg_enable())
 		dev_dbg(imgsys_dev->dev,
 			"packed_frame->tuning_data.present:0x%llx, idx(%d), f_no(%d), in(%d), out(%d)\n",
 			frame->tuning_data.present,
@@ -1226,6 +1279,7 @@ static int mtkdip_fill_req(struct mtk_imgsys_dev *imgsys_dev,
 			prev_frame->dip_param.next_frame =
 					subframe->frameparam.scp_daddr
 					- imgsys_dev->working_buf_mem_scp_daddr;
+            if (imgsys_dbg_enable())
 			dev_dbg(imgsys_dev->dev, "next_frame offset:%x\n",
 				 prev_frame->dip_param.next_frame);
 		}
@@ -1432,7 +1486,9 @@ long mtk_imgsys_vidioc_default(struct file *file, void *fh,
 {
 	struct v4l2_fh *handle = fh;
 
+    if (imgsys_dbg_enable()) {
 	pr_debug("%s cmd: %d handle: %p\n", __func__, cmd, handle);
+    }
 
 	switch (cmd) {
 	case MTKDIP_IOC_QBUF:
@@ -1544,8 +1600,10 @@ static int mtkdip_ioc_add_kva(struct v4l2_subdev *subdev, void *arg)
 		list_add_tail(vlist_link(buf_va_info, struct buf_va_info_t),
 		   &kva_list->mylist);
 		mutex_unlock(&(kva_list->mymutex));
+        if (imgsys_dbg_enable()) {
 		pr_debug("%s: fd(%d) size(%lx) cached\n", __func__,
 					fd_info->fds[i], fd_info->fds_size[i]);
+	}
 	}
 
 	mtk_hcp_send_async(imgsys_pipe->imgsys_dev->scp_pdev,
@@ -1601,8 +1659,10 @@ static int mtkdip_ioc_del_kva(struct v4l2_subdev *subdev, void *arg)
 		dma_buf_put(dmabuf);
 		vfree(buf_va_info);
 		buf_va_info = NULL;
+        if (imgsys_dbg_enable()) {
 		pr_debug("%s: fd(%d) size (%lx) cache invalidated\n", __func__,
 					fd_info->fds[i], fd_info->fds_size[i]);
+	}
 	}
 
 	mtk_hcp_send_async(imgsys_pipe->imgsys_dev->scp_pdev,
@@ -1629,6 +1689,7 @@ static int mtkdip_ioc_add_iova(struct v4l2_subdev *subdev, void *arg)
 
 	if (!fd_tbl->fds) {
 		return -EINVAL;
+        if (imgsys_dbg_enable())
 		dev_dbg(pipe->imgsys_dev->dev, "%s:NULL usrptr\n", __func__);
 	}
 
@@ -1639,6 +1700,7 @@ static int mtkdip_ioc_add_iova(struct v4l2_subdev *subdev, void *arg)
 	kfd = vzalloc(size);
 	ret = copy_from_user(kfd, (void *)fd_tbl->fds, size);
 	if (ret != 0) {
+        if (imgsys_dbg_enable())
 		dev_dbg(pipe->imgsys_dev->dev,
 			"[%s]%s:copy_from_user fail !!!\n",
 			__func__,
@@ -1691,6 +1753,7 @@ static int mtkdip_ioc_add_iova(struct v4l2_subdev *subdev, void *arg)
 		fd_iova->dma_buf = dmabuf;
 		fd_iova->attach = attach;
 		fd_iova->sgt = sgt;
+        if (imgsys_dbg_enable())
 		dev_dbg(pipe->imgsys_dev->dev,
 				"%s:dma_buf:%lx,attach:%lx,sgt:%lx\n", __func__,
 			(unsigned long)fd_iova->dma_buf, (unsigned long)fd_iova->attach, (unsigned long)fd_iova->sgt);
@@ -1701,6 +1764,7 @@ static int mtkdip_ioc_add_iova(struct v4l2_subdev *subdev, void *arg)
 		spin_unlock(&pipe->iova_cache.lock);
 		fd_info.fds_size[i] = dmabuf->size;
 		fd_info.fds[i] = kfd[i];
+        if (imgsys_dbg_enable())
 		dev_dbg(pipe->imgsys_dev->dev, "%s: fd(%d) size (%lx) cache added\n", __func__,
 					fd_info.fds[i], fd_info.fds_size[i]);
 
@@ -1725,6 +1789,7 @@ static int mtkdip_ioc_del_iova(struct v4l2_subdev *subdev, void *arg)
 
 	if ((!fd_tbl->fds) || (!fd_tbl->fd_num) || (fd_tbl->fd_num > FD_MAX)) {
 		return -EINVAL;
+        if (imgsys_dbg_enable())
 		dev_dbg(pipe->imgsys_dev->dev, "%s:NULL usrptr\n", __func__);
 	}
 
@@ -1732,6 +1797,7 @@ static int mtkdip_ioc_del_iova(struct v4l2_subdev *subdev, void *arg)
 	kfd = vzalloc(size);
 	ret = copy_from_user(kfd, (void *)fd_tbl->fds, size);
 	if (ret != 0) {
+        if (imgsys_dbg_enable())
 		dev_dbg(pipe->imgsys_dev->dev,
 			"[%s]%s:copy_from_user fail !!!\n",
 			__func__,
@@ -1774,6 +1840,7 @@ static int mtkdip_ioc_del_iova(struct v4l2_subdev *subdev, void *arg)
 		dma_buf_put(dmabuf);
 
 		fd_info.fds[i] = kfd[i];
+        if (imgsys_dbg_enable())
 		dev_dbg(pipe->imgsys_dev->dev, "%s: fd(%d) size (%lx) cache invalidated\n",
 					__func__, fd_info.fds[i], fd_info.fds_size[i]);
 
@@ -1893,6 +1960,7 @@ static int mtkdip_ioc_set_control(struct v4l2_subdev *subdev, void *arg)
 
 	if (!ctrl) {
 		return -EINVAL;
+        if (imgsys_dbg_enable())
 		dev_dbg(pipe->imgsys_dev->dev, "%s:NULL usrptr\n", __func__);
 	}
 
@@ -1914,8 +1982,9 @@ static int mtkdip_ioc_set_control(struct v4l2_subdev *subdev, void *arg)
 long mtk_imgsys_subdev_ioctl(struct v4l2_subdev *subdev, unsigned int cmd,
 								void *arg)
 {
-
+    if (imgsys_dbg_enable()) {
 	pr_debug("%s cmd: %d\n", __func__, cmd);
+    }
 
 	switch (cmd) {
 	case MTKDIP_IOC_ADD_KVA:
@@ -1971,8 +2040,8 @@ static void mtk_imgsys_request_free(struct media_request *req)
 
 	if (imgsys_req->used)
 		leavetime = wait_for_completion_timeout(&imgsys_req->done, HZ);
-	if (!leavetime)
-		pr_info("timeout(%ld)", leavetime);
+	if (leavetime < 0)
+		pr_info("request_free_timeout(%ld)", leavetime);
 	vfree(imgsys_req->buf_map);
 	vfree(imgsys_req);
 
@@ -2009,6 +2078,7 @@ static int mtk_imgsys_vb2_request_validate(struct media_request *req)
 		node = mtk_imgsys_vbq_to_node(vb->vb2_queue);
 		pipe = vb2_get_drv_priv(vb->vb2_queue);
 		if (pipe_prev && pipe != pipe_prev) {
+            if (imgsys_dbg_enable())
 			dev_dbg(imgsys_dev->dev,
 				"%s:%s:%s:found buf of different pipes(%p,%p)\n",
 				__func__, node->desc->name,
@@ -2021,6 +2091,7 @@ static int mtk_imgsys_vb2_request_validate(struct media_request *req)
 		imgsys_req->buf_map[node->desc->id] = dev_buf;
 		buf_count++;
 
+        if (imgsys_dbg_enable())
 		dev_dbg(pipe->imgsys_dev->dev,
 			"%s:%s: added buf(%p) to pipe-job(%p), buf_count(%d)\n",
 			pipe->desc->name, node->desc->name, dev_buf,
@@ -2028,6 +2099,7 @@ static int mtk_imgsys_vb2_request_validate(struct media_request *req)
 	}
 
 	if (!pipe) {
+        if (imgsys_dbg_enable())
 		dev_dbg(imgsys_dev->dev,
 			"%s: no buffer in the request(%p)\n",
 			req->debug_str, req);
@@ -2058,6 +2130,7 @@ static void mtk_imgsys_vb2_request_queue(struct media_request *req)
 	spin_lock_irqsave(&pipe->pending_job_lock, flag);
 	list_add_tail(&imgsys_req->list, &pipe->pipe_job_pending_list);
 	pipe->num_pending_jobs++;
+    if (imgsys_dbg_enable())
 	dev_dbg(imgsys_dev->dev,
 		"%s:%s: current num of pending jobs(%d)\n",
 		__func__, pipe->desc->name, pipe->num_pending_jobs);
@@ -2065,6 +2138,7 @@ static void mtk_imgsys_vb2_request_queue(struct media_request *req)
 #if MTK_V4L2_BATCH_MODE_SUPPORT == 1
 	#ifdef BATCH_MODE_V3
 	imgsys_req->is_batch_mode = false;
+    if (imgsys_dbg_enable())
 	dev_dbg(imgsys_dev->dev,
 		"%s:is_batch_mode(%d)\n",
 		__func__, imgsys_req->is_batch_mode);
@@ -2104,7 +2178,9 @@ int mtk_imgsys_v4l2_fh_open(struct file *filp)
 	mutex_lock(&imgsys_dev->imgsys_users.user_lock);
 	list_add_tail(&user->entry, &imgsys_dev->imgsys_users.list);
 	mutex_unlock(&imgsys_dev->imgsys_users.user_lock);
+    if (imgsys_dbg_enable()) {
 	pr_debug("%s: id(%d)\n", __func__, user->id);
+    }
 	return 0;
 }
 
@@ -2115,7 +2191,9 @@ int mtk_imgsys_v4l2_fh_release(struct file *filp)
 	struct mtk_imgsys_dev *imgsys_dev = pipe->imgsys_dev;
 	int ret = 0;
 
+    if (imgsys_dbg_enable()) {
 	pr_debug("%s: filp(%lx)\n", __func__, (unsigned long)filp);
+    }
 	ret = get_user_by_file(filp, &user);
 	if (ret < 0) {
 		pr_info("%s: cannot find user\n", __func__);
@@ -2124,7 +2202,9 @@ int mtk_imgsys_v4l2_fh_release(struct file *filp)
 		mutex_lock(&imgsys_dev->imgsys_users.user_lock);
 		list_del(&user->entry);
 		mutex_unlock(&imgsys_dev->imgsys_users.user_lock);
+        if (imgsys_dbg_enable()) {
 		pr_debug("%s: id(%d)\n", __func__, user->id);
+        }
 		vfree(user);
 	}
 	vb2_fop_release(filp);
@@ -2157,6 +2237,7 @@ int mtk_imgsys_dev_media_register(struct device *dev,
 		return ret;
 	}
 
+    if (imgsys_dbg_enable())
 	dev_dbg(dev, "Registered media device: %s, %p", media_dev->model,
 		media_dev);
 
@@ -2243,12 +2324,14 @@ static int mtk_imgsys_video_device_v4l2_register(struct mtk_imgsys_pipe *pipe,
 
 	if (node->desc->smem_alloc) {
 		vdev->queue->dev = &pipe->imgsys_dev->scp_pdev->dev;
+        if (imgsys_dbg_enable())
 		dev_dbg(pipe->imgsys_dev->dev,
 			"%s:%s: select smem_vb2_alloc_ctx(%p)\n",
 			pipe->desc->name, node->desc->name,
 			vdev->queue->dev);
 	} else {
 		vdev->queue->dev = pipe->imgsys_dev->dev;
+        if (imgsys_dbg_enable())
 		dev_dbg(pipe->imgsys_dev->dev,
 			"%s:%s: select default_vb2_alloc_ctx(%p)\n",
 			pipe->desc->name, node->desc->name,
@@ -2263,6 +2346,7 @@ static int mtk_imgsys_video_device_v4l2_register(struct mtk_imgsys_pipe *pipe,
 			"failed to register video device (%d)\n", ret);
 		goto err_vb2_queue_release;
 	}
+    if (imgsys_dbg_enable())
 	dev_dbg(pipe->imgsys_dev->dev, "registered vdev: %s\n",
 		vdev->name);
 
@@ -2428,6 +2512,7 @@ int mtk_imgsys_pipe_v4l2_register(struct mtk_imgsys_pipe *pipe,
 		goto err_media_entity_cleanup;
 	}
 
+    if (imgsys_dbg_enable())
 	dev_dbg(pipe->imgsys_dev->dev,
 		"register subdev: %s, ctrl_handler %p\n",
 		 pipe->subdev.name, pipe->subdev.ctrl_handler);
@@ -3032,6 +3117,7 @@ int mtk_imgsys_runtime_suspend(struct device *dev)
 	clk_bulk_disable_unprepare(imgsys_dev->num_clks,
 				   imgsys_dev->clks);
 
+    if (imgsys_dbg_enable())
 	dev_dbg(dev, "%s: disabled imgsys clks\n", __func__);
 
 	return 0;
@@ -3046,6 +3132,7 @@ int mtk_imgsys_runtime_resume(struct device *dev)
 	ret = clk_bulk_prepare_enable(imgsys_dev->num_clks,
 				      imgsys_dev->clks);
 
+    if (imgsys_dbg_enable())
 	dev_dbg(dev, "%s: enabled imgsys clks\n", __func__);
 
 #if MTK_CM4_SUPPORT
@@ -3065,6 +3152,7 @@ int mtk_imgsys_runtime_resume(struct device *dev)
 		return ret;
 	}
 #if MTK_CM4_SUPPORT
+    if (imgsys_dbg_enable())
 	dev_dbg(dev, "%s: FW loaded(rproc:%p)\n",
 		__func__, imgsys_dev->rproc_handle);
 #endif

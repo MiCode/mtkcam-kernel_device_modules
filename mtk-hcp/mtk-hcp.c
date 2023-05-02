@@ -128,6 +128,10 @@ struct msg {
 	struct share_buf user_obj;
 };
 #define  MSG_NR (96)
+
+int hcp_dbg_en;
+module_param(hcp_dbg_en, int, 0644);
+
 /**
  * struct my_wq_t - work struct to handle daemon notification
  *
@@ -249,6 +253,7 @@ inline int hcp_id_to_ipi_id(struct mtk_hcp *hcp_dev, enum hcp_id id)
 		break;
 	}
 
+    if (hcp_dbg_enable())
 	dev_dbg(hcp_dev->dev, "ipi_id:%d\n", ipi_id);
 	return ipi_id;
 }
@@ -273,6 +278,7 @@ inline int hcp_id_to_module_id(struct mtk_hcp *hcp_dev, enum hcp_id id)
 	case HCP_IMGSYS_SW_TIMEOUT_ID:
 	case HCP_DIP_DEQUE_DUMP_ID:
 	case HCP_IMGSYS_DEQUE_DONE_ID:
+	case HCP_IMGSYS_ASYNC_DEQUE_DONE_ID:
 	case HCP_IMGSYS_DEINIT_ID:
 	case HCP_IMGSYS_IOVA_FDS_ADD_ID:
 	case HCP_IMGSYS_IOVA_FDS_DEL_ID:
@@ -290,6 +296,7 @@ inline int hcp_id_to_module_id(struct mtk_hcp *hcp_dev, enum hcp_id id)
 		break;
 	}
 
+    if (hcp_dbg_enable())
 	dev_dbg(hcp_dev->dev, "module_id:%d\n", module_id);
 	return module_id;
 }
@@ -303,6 +310,7 @@ inline int ipi_id_to_hcp_id(int id)
 	default:
 		break;
 	}
+    if (hcp_dbg_enable())
 	pr_debug("[%s]hcp_id:%d\n", __func__, hcp_id);
 	return hcp_id;
 }
@@ -390,6 +398,7 @@ static ssize_t mtk_hcp_proc_read(struct file *file, char __user *buf,
 	len = (remain > lbuf) ? lbuf : remain;
 	if (len == 0) {
 		mutex_unlock(&data->mtx);
+        if (hcp_dbg_enable())
 		dev_dbg(hcp_dev->dev, "Reached end of the device on a read");
 		return 0;
 	}
@@ -399,6 +408,7 @@ static ssize_t mtk_hcp_proc_read(struct file *file, char __user *buf,
 
 	mutex_unlock(&data->mtx);
 
+    if (hcp_dbg_enable())
 	dev_dbg(hcp_dev->dev, "Leaving the READ function, len=%d, pos=%d\n",
 		len, (int)*ppos);
 
@@ -426,6 +436,7 @@ ssize_t mtk_hcp_kernel_db_write(struct platform_device *pdev,
 	len = (remain > sz) ? sz : remain;
 
 	if (len == 0) {
+        if (hcp_dbg_enable())
 		dev_dbg(hcp_dev->dev, "Reach end of the file on write");
 		mutex_unlock(&data->mtx);
 		return 0;
@@ -459,6 +470,7 @@ static ssize_t mtk_hcp_proc_write(struct file *file, const char __user *buf,
 	len = (remain > lbuf) ? lbuf : remain;
 	if (len == 0) {
 		mutex_unlock(&data->mtx);
+        if (hcp_dbg_enable())
 		dev_dbg(hcp_dev->dev, "Reached end of the device on a write");
 		return 0;
 	}
@@ -470,6 +482,7 @@ static ssize_t mtk_hcp_proc_write(struct file *file, const char __user *buf,
 
 	mutex_unlock(&data->mtx);
 
+    if (hcp_dbg_enable())
 	dev_dbg(hcp_dev->dev, "Leaving the WRITE function, len=%ld, pos=%lu\n",
 		len, data->cnt);
 
@@ -494,6 +507,7 @@ static void hcp_aee_reset(struct mtk_hcp *hcp_dev)
 	int i = 0;
 	struct hcp_aee_info *info = &hcp_dev->aee_info;
 
+    if (hcp_dbg_enable())
 	dev_dbg(hcp_dev->dev, "%s -s\n", __func__);
 
 	if (info == NULL) {
@@ -506,6 +520,7 @@ static void hcp_aee_reset(struct mtk_hcp *hcp_dev)
 		info->data[i].cnt = 0;
 	}
 
+    if (hcp_dbg_enable())
 	dev_dbg(hcp_dev->dev, "%s -e\n", __func__);
 }
 
@@ -517,6 +532,7 @@ int hcp_aee_init(struct mtk_hcp *hcp_dev)
 	kgid_t gid;
 	int i = 0;
 
+    if (hcp_dbg_enable())
 	dev_dbg(hcp_dev->dev, "%s -s\n", __func__);
 	info = &hcp_dev->aee_info;
 
@@ -562,6 +578,7 @@ int hcp_aee_init(struct mtk_hcp *hcp_dev)
 	else
 		pr_info("%s: mtk_img_dbg/kernel: failed to set u/g", __func__);
 
+    if (hcp_dbg_enable())
 	dev_dbg(hcp_dev->dev, "%s - e\n", __func__);
 	return 0;
 }
@@ -646,6 +663,7 @@ static bool mtk_hcp_cm4_support(struct mtk_hcp *hcp_dev, enum hcp_id id)
 		break;
 	}
 
+    if (hcp_dbg_enable())
 	dev_dbg(hcp_dev->dev, "cm4 support status:%d\n", is_cm4_support);
 	return is_cm4_support;
 }
@@ -719,6 +737,7 @@ static int hcp_send_internal(struct mtk_hcp *hcp_dev,
 	int ret = 0;
 	unsigned int no = 0;
 
+    if (hcp_dbg_enable())
 	dev_dbg(hcp_dev->dev, "%s id:%d len %d\n",
 		__func__, id, len);
 
@@ -737,7 +756,7 @@ static int hcp_send_internal(struct mtk_hcp *hcp_dev,
 	if (mtk_hcp_cm4_support(hcp_dev, id) == true) {
 	#if MTK_CM4_SUPPORT
 		int ipi_id = hcp_id_to_ipi_id(hcp_dev, id);
-
+        if (hcp_dbg_enable())
 		dev_dbg(hcp_dev->dev, "%s cm4 is support !!!\n", __func__);
 		return scp_ipi_send(ipi_id, buf, len, 0, SCP_A_ID);
 	#endif
@@ -790,8 +809,18 @@ static int hcp_send_internal(struct mtk_hcp *hcp_dev,
 		list_add_tail(&msg->entry, &hcp_dev->chans[module_id]);
 		spin_unlock_irqrestore(&hcp_dev->msglock, flag);
 
+		if (id != HCP_IMGSYS_DEQUE_DONE_ID) {
+            if (hcp_dbg_enable())
+			dev_dbg(hcp_dev->dev, "wake up id(%d)\n",
+				id);
 		wake_up(&hcp_dev->poll_wq[module_id]);
+		} else {
+		    if (hcp_dbg_enable())
+			dev_dbg(hcp_dev->dev, "no wake_up deque_done, id(%d)\n",
+				id);
+		}
 
+        if (hcp_dbg_enable())
 		dev_dbg(hcp_dev->dev,
 			"%s frame_no_%d, message(%d)size(%d) send to user space !!!\n",
 			__func__, no, id, len);
@@ -912,6 +941,7 @@ struct platform_device *mtk_hcp_get_plat_device(struct platform_device *pdev)
 	struct device_node *hcp_node = NULL;
 	struct platform_device *hcp_pdev = NULL;
 
+    if (hcp_dbg_enable())
 	dev_dbg(&pdev->dev, "- E. hcp get platform device.\n");
 
 	hcp_node = of_parse_phandle(dev->of_node, "mediatek,hcp", 0);
@@ -1011,6 +1041,204 @@ void*mtk_hcp_get_wpe_mem_virt(struct platform_device *pdev)
 }
 EXPORT_SYMBOL(mtk_hcp_get_wpe_mem_virt);
 
+int mtk_hcp_get_wpe_mem_cq_fd(struct platform_device *pdev)
+{
+	struct mtk_hcp *hcp_dev = platform_get_drvdata(pdev);
+	int fd = -1;
+
+	if (!hcp_dev->data->get_wpe_cq_fd) {
+		dev_info(&pdev->dev, "%s: not supported\n", __func__);
+		return -1;
+	}
+
+	fd = hcp_dev->data->get_wpe_cq_fd();
+	if (fd < 0)
+		dev_info(&pdev->dev, "%s: wpe cq fd is wrong\n", __func__);
+
+	return fd;
+}
+EXPORT_SYMBOL(mtk_hcp_get_wpe_mem_cq_fd);
+
+int mtk_hcp_get_wpe_mem_tdr_fd(struct platform_device *pdev)
+{
+	struct mtk_hcp *hcp_dev = platform_get_drvdata(pdev);
+	int fd = -1;
+
+	if (!hcp_dev->data->get_wpe_tdr_fd) {
+		dev_info(&pdev->dev, "%s: not supported\n", __func__);
+		return -1;
+	}
+
+	fd = hcp_dev->data->get_wpe_tdr_fd();
+	if (fd < 0)
+		dev_info(&pdev->dev, "%s: wpe tdr fd is wrong\n", __func__);
+
+	return fd;
+}
+EXPORT_SYMBOL(mtk_hcp_get_wpe_mem_tdr_fd);
+
+void *mtk_hcp_get_dip_mem_virt(struct platform_device *pdev)
+{
+	struct mtk_hcp *hcp_dev = platform_get_drvdata(pdev);
+	void *buffer = NULL;
+
+	if (!hcp_dev->data->get_dip_virt) {
+		dev_info(&pdev->dev, "%s: not supported\n", __func__);
+		return NULL;
+	}
+
+	buffer = hcp_dev->data->get_dip_virt();
+	if (!buffer)
+		dev_info(&pdev->dev, "%s: dip cq buffer is null\n", __func__);
+
+	return buffer;
+}
+EXPORT_SYMBOL(mtk_hcp_get_dip_mem_virt);
+
+int mtk_hcp_get_dip_mem_cq_fd(struct platform_device *pdev)
+{
+	struct mtk_hcp *hcp_dev = platform_get_drvdata(pdev);
+	int fd = -1;
+
+	if (!hcp_dev->data->get_dip_cq_fd) {
+		dev_info(&pdev->dev, "%s: not supported\n", __func__);
+		return -1;
+	}
+
+	fd = hcp_dev->data->get_dip_cq_fd();
+	if (fd < 0)
+		dev_info(&pdev->dev, "%s: dip cq fd is wrong\n", __func__);
+
+	return fd;
+}
+EXPORT_SYMBOL(mtk_hcp_get_dip_mem_cq_fd);
+
+int mtk_hcp_get_dip_mem_tdr_fd(struct platform_device *pdev)
+{
+	struct mtk_hcp *hcp_dev = platform_get_drvdata(pdev);
+	int fd = -1;
+
+	if (!hcp_dev->data->get_dip_tdr_fd) {
+		dev_info(&pdev->dev, "%s: not supported\n", __func__);
+		return -1;
+	}
+
+	fd = hcp_dev->data->get_dip_tdr_fd();
+	if (fd < 0)
+		dev_info(&pdev->dev, "%s: dip tdr fd is wrong\n", __func__);
+
+	return fd;
+}
+EXPORT_SYMBOL(mtk_hcp_get_dip_mem_tdr_fd);
+
+void *mtk_hcp_get_traw_mem_virt(struct platform_device *pdev)
+{
+	struct mtk_hcp *hcp_dev = platform_get_drvdata(pdev);
+	void *buffer = NULL;
+
+	if (!hcp_dev->data->get_traw_virt) {
+		dev_info(&pdev->dev, "%s: not supported\n", __func__);
+		return NULL;
+	}
+
+	buffer = hcp_dev->data->get_traw_virt();
+	if (!buffer)
+		dev_info(&pdev->dev, "%s: traw cq buffer is null\n", __func__);
+
+	return buffer;
+}
+EXPORT_SYMBOL(mtk_hcp_get_traw_mem_virt);
+
+int mtk_hcp_get_traw_mem_cq_fd(struct platform_device *pdev)
+{
+	struct mtk_hcp *hcp_dev = platform_get_drvdata(pdev);
+	int fd = -1;
+
+	if (!hcp_dev->data->get_traw_cq_fd) {
+		dev_info(&pdev->dev, "%s: not supported\n", __func__);
+		return -1;
+	}
+
+	fd = hcp_dev->data->get_traw_cq_fd();
+	if (fd < 0)
+		dev_info(&pdev->dev, "%s: traw cq fd is wrong\n", __func__);
+
+	return fd;
+}
+EXPORT_SYMBOL(mtk_hcp_get_traw_mem_cq_fd);
+
+int mtk_hcp_get_traw_mem_tdr_fd(struct platform_device *pdev)
+{
+	struct mtk_hcp *hcp_dev = platform_get_drvdata(pdev);
+	int fd = -1;
+
+	if (!hcp_dev->data->get_traw_tdr_fd) {
+		dev_info(&pdev->dev, "%s: not supported\n", __func__);
+		return -1;
+	}
+
+	fd = hcp_dev->data->get_traw_tdr_fd();
+	if (fd < 0)
+		dev_info(&pdev->dev, "%s: traw tdr fd is wrong\n", __func__);
+
+	return fd;
+}
+EXPORT_SYMBOL(mtk_hcp_get_traw_mem_tdr_fd);
+
+void *mtk_hcp_get_pqdip_mem_virt(struct platform_device *pdev)
+{
+	struct mtk_hcp *hcp_dev = platform_get_drvdata(pdev);
+	void *buffer = NULL;
+
+	if (!hcp_dev->data->get_pqdip_virt) {
+		dev_info(&pdev->dev, "%s: not supported\n", __func__);
+		return NULL;
+	}
+
+	buffer = hcp_dev->data->get_pqdip_virt();
+	if (!buffer)
+		dev_info(&pdev->dev, "%s: pqdip cq buffer is null\n", __func__);
+
+	return buffer;
+}
+EXPORT_SYMBOL(mtk_hcp_get_pqdip_mem_virt);
+
+int mtk_hcp_get_pqdip_mem_cq_fd(struct platform_device *pdev)
+{
+	struct mtk_hcp *hcp_dev = platform_get_drvdata(pdev);
+	int fd = -1;
+
+	if (!hcp_dev->data->get_pqdip_cq_fd) {
+		dev_info(&pdev->dev, "%s: not supported\n", __func__);
+		return -1;
+	}
+
+	fd = hcp_dev->data->get_pqdip_cq_fd();
+	if (fd < 0)
+		dev_info(&pdev->dev, "%s: pqdip cq fd is wrong\n", __func__);
+
+	return fd;
+}
+EXPORT_SYMBOL(mtk_hcp_get_pqdip_mem_cq_fd);
+
+int mtk_hcp_get_pqdip_mem_tdr_fd(struct platform_device *pdev)
+{
+	struct mtk_hcp *hcp_dev = platform_get_drvdata(pdev);
+	int fd = -1;
+
+	if (!hcp_dev->data->get_pqdip_tdr_fd) {
+		dev_info(&pdev->dev, "%s: not supported\n", __func__);
+		return -1;
+	}
+
+	fd = hcp_dev->data->get_pqdip_tdr_fd();
+	if (fd < 0)
+		dev_info(&pdev->dev, "%s: pqdip tdr fd is wrong\n", __func__);
+
+	return fd;
+}
+EXPORT_SYMBOL(mtk_hcp_get_pqdip_mem_tdr_fd);
+
 int mtk_hcp_get_gce_buffer(struct platform_device *pdev)
 {
 	struct mtk_hcp *hcp_dev = platform_get_drvdata(pdev);
@@ -1057,6 +1285,7 @@ static int mtk_hcp_open(struct inode *inode, struct file *file)
 	struct mtk_hcp *hcp_dev = NULL;
 
 	hcp_dev = container_of(inode->i_cdev, struct mtk_hcp, hcp_cdev);
+    if (hcp_dbg_enable())
 	dev_dbg(hcp_dev->dev, "open inode->i_cdev = 0x%p\n", inode->i_cdev);
 
 	/*  */
@@ -1067,6 +1296,7 @@ static int mtk_hcp_open(struct inode *inode, struct file *file)
 
 	hcp_dev->current_task = current;
 
+    if (hcp_dbg_enable())
 	dev_dbg(hcp_dev->dev, "- X. hcp open.\n");
 
 	return 0;
@@ -1100,6 +1330,7 @@ static int mtk_hcp_release(struct inode *inode, struct file *file)
 	int ret = 0;
 #endif
 
+    if (hcp_dbg_enable())
 	dev_dbg(hcp_dev->dev, "- E. hcp release.\n");
 
 	hcp_dev->is_open = false;
@@ -1144,6 +1375,7 @@ static void module_notify(struct mtk_hcp *hcp_dev,
 		return;
 	}
 
+    if (hcp_dbg_enable())
 	dev_dbg(hcp_dev->dev, " %s with message id:%d\n",
 				__func__, user_data_addr->id);
 
@@ -1165,6 +1397,7 @@ static void module_notify(struct mtk_hcp *hcp_dev,
 
 		if (req_stat) {
 			*req_stat = *req_stat + 1;
+            if (hcp_dbg_enable())
 			dev_dbg(hcp_dev->dev, "req:%d req_stat(%p):%llu\n",
 				req_fd, req_stat, *req_stat);
 		}
@@ -1255,8 +1488,8 @@ static long mtk_hcp_ioctl(struct file *file, unsigned int cmd,
 				ret = copy_to_user((void *)data.buffer[index++], &msg->user_obj,
 					(unsigned long)sizeof(struct share_buf));
 
-				// dev_info(hcp_dev->dev, "copy req fd(%d), obj id(%d) to user",
-				//	req_fd, hcp_id);
+				 //dev_info(hcp_dev->dev, "copy to user, index(%d)",
+				 //	index);
 
 				spin_lock_irqsave(&hcp_dev->msglock, flag);
 				list_add_tail(&msg->entry, &hcp_dev->msg_list);
@@ -1545,6 +1778,22 @@ void mtk_hcp_purge_msg(struct platform_device *pdev)
 }
 EXPORT_SYMBOL(mtk_hcp_purge_msg);
 
+int mtk_hcp_partial_flush(struct platform_device *pdev, struct flush_buf_info *b_info)
+{
+	struct mtk_hcp *hcp_dev = platform_get_drvdata(pdev);
+
+	if ((hcp_dev == NULL)
+		|| (hcp_dev->data == NULL)
+		|| (hcp_dev->data->partial_flush == NULL)
+		|| (b_info == NULL)) {
+		dev_info(&pdev->dev, "%s:not supported\n", __func__);
+		return -1;
+	}
+
+	return hcp_dev->data->partial_flush(hcp_dev, b_info);
+}
+EXPORT_SYMBOL(mtk_hcp_partial_flush);
+
 static int mtk_hcp_probe(struct platform_device *pdev)
 {
 	struct mtk_hcp *hcp_dev = NULL;
@@ -1670,8 +1919,10 @@ static int mtk_hcp_probe(struct platform_device *pdev)
 	}
 
 	hcp_aee_init(hcp_mtkdev);
+    if (hcp_dbg_enable()) {
 	dev_dbg(&pdev->dev, "hcp aee init done\n");
 	dev_dbg(&pdev->dev, "- X. hcp driver probe success.\n");
+    }
 
 #if HCP_RESERVED_MEM
 	/* allocate reserved memory */
@@ -1721,6 +1972,7 @@ static int mtk_hcp_remove(struct platform_device *pdev)
 	struct mtk_hcp *hcp_dev = platform_get_drvdata(pdev);
 	int i = 0;
 
+    if (hcp_dbg_enable())
 	dev_dbg(&pdev->dev, "- E. hcp driver remove.\n");
 
 	hcp_aee_deinit(hcp_dev);
@@ -1735,6 +1987,7 @@ static int mtk_hcp_remove(struct platform_device *pdev)
 
 	if (hcp_dev->is_open == true) {
 		hcp_dev->is_open = false;
+        if (hcp_dbg_enable())
 		dev_dbg(&pdev->dev, "%s: opened device found\n", __func__);
 	}
 	devm_kfree(&pdev->dev, hcp_dev);
@@ -1742,9 +1995,14 @@ static int mtk_hcp_remove(struct platform_device *pdev)
 	cdev_del(&hcp_dev->hcp_cdev);
 	unregister_chrdev_region(hcp_dev->hcp_devno, 1);
 
-
+    if (hcp_dbg_enable())
 	dev_dbg(&pdev->dev, "- X. hcp driver remove.\n");
 	return 0;
+}
+
+bool hcp_dbg_enable(void)
+{
+	return hcp_dbg_en;
 }
 
 static struct platform_driver mtk_hcp_driver = {

@@ -88,6 +88,8 @@
 #define IMGSYS_DVFS_RATIO_L		4
 #define IMGSYS_DVFS_RATIO_H		6
 
+#define IMGSYS_CMDQ_CBPARAM_NUM	(85*3)
+
 enum mtk_imgsys_event {
 	/* HW event */
 	IMGSYS_CMDQ_EVENT_IMG_TRAW0_CQ_THR_DONE_TRAW0_0 = 0,
@@ -1060,6 +1062,7 @@ void mtk_imgsys_mmqos_monitor_plat7sp(struct mtk_imgsys_dev *imgsys_dev, u32 sta
 bool imgsys_cmdq_ts_enable_plat7sp(void);
 u32 imgsys_wpe_bwlog_enable_plat7sp(void);
 bool imgsys_cmdq_ts_dbg_enable_plat7sp(void);
+bool imgsys_cmdq_dbg_enable_plat7sp(void);
 bool imgsys_dvfs_dbg_enable_plat7sp(void);
 bool imgsys_qos_dbg_enable_plat7sp(void);
 bool imgsys_quick_onoff_enable_plat7sp(void);

@@ -10,6 +10,7 @@
 #define _MTK_IMGSYS_ME_H_
 
 #include "mtk_imgsys-dev.h"
+#include "./../mtk_imgsys-debug.h"
 
 #define ME_CTL_OFFSET      0x0000
 #define ME_CTL_RANGE       0xA10

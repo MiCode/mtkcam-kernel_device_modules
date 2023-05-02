@@ -66,9 +66,8 @@ static void dma_fence_cb_release(struct dma_fence *fence)
 			kfree(f_entry);
 		}
 	}
-	pr_debug("release fence callback -\n");
 	mutex_unlock(&fence_info_list->fence_lock);
-	pr_info("release fence callback -1\n");
+	pr_info("release fence callback -\n");
 }
 
 
@@ -128,6 +127,7 @@ static int mtk_hcp_release_KernelFence(unsigned int *fds, int fd_num)
 	struct fence_info *f_entry;
 	struct fence_info *f_entry_temp;
 
+    if (hcp_dbg_enable())
 	pr_debug("set release fence flag\n");
 	if (fd_num > 3) {
 		pr_info("fd num over the limit\n");
@@ -147,6 +147,7 @@ static int mtk_hcp_release_KernelFence(unsigned int *fds, int fd_num)
 				break;
 			}
 		}
+        if (hcp_dbg_enable())
 		pr_debug("imgsys_fw-(%d/%d)--\n", i, fds[i]);
 	}
 	return 0;

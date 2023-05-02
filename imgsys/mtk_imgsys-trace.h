@@ -5,15 +5,31 @@
  * Author: Johnson-CH Chiu <Johnson-CH.chiu@mediatek.com>
  *
  */
-#ifndef __MTK_IMG_TRACE_H__
+#undef TRACE_SYSTEM
+#define TRACE_SYSTEM mtk_imgsys
+
+#if !defined(__MTK_IMG_TRACE_H__) || defined(TRACE_HEADER_MULTI_READ)
 #define __MTK_IMG_TRACE_H__
 
 #include <linux/kernel.h>
+#include <linux/tracepoint.h>
 #include <linux/trace_events.h>
 #define IMGSYS_FTRACE
 #ifdef IMGSYS_FTRACE
 
 #define IMGSYS_TRACE_LEN 1024
+
+TRACE_EVENT(tracing_mark_write,
+	TP_PROTO(const char *fmt, va_list *va),
+	TP_ARGS(fmt, va),
+	TP_STRUCT__entry(
+		__vstring(vstr, fmt, va)
+	),
+	TP_fast_assign(
+		__assign_vstr(vstr, fmt, va);
+	),
+	TP_printk("%s", __get_str(vstr))
+);
 
 #define IMGSYS_TRACE_FORCE_BEGIN(fmt, args...) \
 	__imgsys_systrace("B|%d|" fmt "\n", current->tgid, ##args)
@@ -44,3 +60,10 @@ void __imgsys_systrace(const char *fmt, ...);
 #endif
 
 #endif
+
+#undef TRACE_INCLUDE_PATH
+#define TRACE_INCLUDE_PATH .
+#undef TRACE_INCLUDE_FILE
+#define TRACE_INCLUDE_FILE mtk_imgsys-trace
+/* This part must be outside protection */
+#include <trace/define_trace.h>

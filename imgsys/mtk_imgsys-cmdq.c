@@ -34,6 +34,10 @@ module_param(imgsys_wpe_bwlog_en, int, 0644);
 int imgsys_cmdq_ts_dbg_en;
 module_param(imgsys_cmdq_ts_dbg_en, int, 0644);
 
+int imgsys_cmdq_dbg_en;
+module_param(imgsys_cmdq_dbg_en, int, 0644);
+
+
 int imgsys_dvfs_dbg_en;
 module_param(imgsys_dvfs_dbg_en, int, 0644);
 
@@ -78,6 +82,11 @@ u32 imgsys_wpe_bwlog_enable(void)
 bool imgsys_cmdq_ts_dbg_enable(void)
 {
 	return imgsys_cmdq_ts_dbg_en;
+}
+
+bool imgsys_cmdq_dbg_enable(void)
+{
+	return imgsys_cmdq_dbg_en;
 }
 
 bool imgsys_dvfs_dbg_enable(void)
@@ -147,17 +156,21 @@ static void module_uninit(struct kref *kref)
 		if (imgsys_dev->modules[i].uninit)
 			imgsys_dev->modules[i].uninit(imgsys_dev);
 
-	if (IS_ERR_OR_NULL(dvfs_info->reg) || !regulator_is_enabled(dvfs_info->reg))
+	if (IS_ERR_OR_NULL(dvfs_info->reg) || !regulator_is_enabled(dvfs_info->reg)) {
+        if (imgsys_cmdq_dbg_enable())
 		dev_dbg(dvfs_info->dev,
 			"%s: [ERROR] reg is null or disabled\n", __func__);
+	}
 	else
 		regulator_disable(dvfs_info->reg);
 
 	mtk_imgsys_power_ctrl_ccu(imgsys_dev, 0);
 
-	if (IS_ERR_OR_NULL(dvfs_info->mmdvfs_clk))
+	if (IS_ERR_OR_NULL(dvfs_info->mmdvfs_clk)) {
+        if (imgsys_cmdq_dbg_enable())
 		dev_dbg(dvfs_info->dev,
 			"%s: [ERROR] mmdvfs_clk is null\n", __func__);
+	}
 #if DVFS_QOS_READY
 	else {
 		mtk_mmdvfs_enable_ccu(false, CCU_PWR_USR_IMG);
@@ -296,6 +309,7 @@ struct platform_device *mtk_imgsys_cmdq_get_plat_dev(struct platform_device *pde
 	struct device_node *cmdq_node;
 	struct platform_device *cmdq_pdev;
 
+    if (imgsys_cmdq_dbg_enable())
 	dev_dbg(&pdev->dev, "- E. imgsys cmdq get platform device.\n");
 
 	cmdq_node = of_parse_phandle(dev->of_node, "mediatek,imgsys-cmdq", 0);
@@ -332,6 +346,7 @@ static int mtk_imgsys_cmdq_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, cmdq_dev);
 	dev_set_drvdata(&pdev->dev, cmdq_dev);
 
+    if (imgsys_cmdq_dbg_enable())
 	dev_dbg(&pdev->dev, "- X. imgsys cmdq driver probe success\n");
 	return 0;
 }
@@ -339,8 +354,10 @@ static int mtk_imgsys_cmdq_probe(struct platform_device *pdev)
 
 static int mtk_imgsys_cmdq_remove(struct platform_device *pdev)
 {
+    if (imgsys_cmdq_dbg_enable())
 	dev_dbg(&pdev->dev, "- E. imgsys cmdq driver remove\n");
 	devm_kfree(&pdev->dev, imgsys_cmdq_dev);
+    if (imgsys_cmdq_dbg_enable())
 	dev_dbg(&pdev->dev, "- X. imgsys cmdq driver remove success\n");
 	return 0;
 }

@@ -20,5 +20,6 @@ extern int imgsys_fence_dbg_en;
 extern int imgsys_fine_grain_dvfs_en;
 extern int imgsys_iova_dbg_en;
 extern int imgsys_iova_dbg_port_en;
+extern int imgsys_cmdq_dbg_en;
 
 void imgsys_cmdq_setevent(u64 u_id);

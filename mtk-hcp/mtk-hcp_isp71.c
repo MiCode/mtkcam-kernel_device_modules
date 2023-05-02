@@ -620,6 +620,7 @@ int isp71_allocate_working_buffer(struct mtk_hcp *hcp_dev, unsigned int mode)
 			mblock[id].start_phys = virt_to_phys(mblock[id].start_virt);
 			mblock[id].start_dma = 0;
 		}
+        if (hcp_dbg_enable()) {
 		pr_debug(
 			"%s: [HCP][mem_reserve-%d] phys:0x%llx, virt:0x%p, dma:0x%llx, size:0x%llx, is_dma_buf:%d, fd:%d, d_buf:0x%p\n",
 			__func__, id,
@@ -630,6 +631,7 @@ int isp71_allocate_working_buffer(struct mtk_hcp *hcp_dev, unsigned int mode)
 			mblock[id].is_dma_buf,
 			isp71_get_reserve_mem_fd(id),
 			mblock[id].d_buf);
+	}
 	}
 
 	return 0;
@@ -724,6 +726,7 @@ int isp71_release_working_buffer(struct mtk_hcp *hcp_dev)
 			mblock[id].start_dma = 0x0;
 			mblock[id].mmap_cnt = 0;
 		}
+        if (hcp_dbg_enable()) {
 		pr_debug(
 			"%s: [HCP][mem_reserve-%d] phys:0x%llx, virt:0x%p, dma:0x%llx, size:0x%llx, is_dma_buf:%d, fd:%d\n",
 			__func__, id,
@@ -733,6 +736,7 @@ int isp71_release_working_buffer(struct mtk_hcp *hcp_dev)
 			isp71_get_reserve_mem_size(id),
 			mblock[id].is_dma_buf,
 			isp71_get_reserve_mem_fd(id));
+	}
 	}
 
 	return 0;
@@ -866,6 +870,72 @@ void *isp71_get_wpe_virt(void)
 }
 EXPORT_SYMBOL(isp71_get_wpe_virt);
 
+int isp71_get_wpe_cq_fd(void)
+{
+	return mb[WPE_MEM_C_ID].fd;
+}
+EXPORT_SYMBOL(isp71_get_wpe_cq_fd);
+
+int isp71_get_wpe_tdr_fd(void)
+{
+	return mb[WPE_MEM_T_ID].fd;
+}
+EXPORT_SYMBOL(isp71_get_wpe_tdr_fd);
+
+void *isp71_get_dip_virt(void)
+{
+	return mb[DIP_MEM_C_ID].start_virt;
+}
+EXPORT_SYMBOL(isp71_get_dip_virt);
+
+int isp71_get_dip_cq_fd(void)
+{
+	return mb[DIP_MEM_C_ID].fd;
+}
+EXPORT_SYMBOL(isp71_get_dip_cq_fd);
+
+int isp71_get_dip_tdr_fd(void)
+{
+	return mb[DIP_MEM_T_ID].fd;
+}
+EXPORT_SYMBOL(isp71_get_dip_tdr_fd);
+
+void *isp71_get_traw_virt(void)
+{
+	return mb[TRAW_MEM_C_ID].start_virt;
+}
+EXPORT_SYMBOL(isp71_get_traw_virt);
+
+int isp71_get_traw_cq_fd(void)
+{
+	return mb[TRAW_MEM_C_ID].fd;
+}
+EXPORT_SYMBOL(isp71_get_traw_cq_fd);
+
+int isp71_get_traw_tdr_fd(void)
+{
+	return mb[TRAW_MEM_T_ID].fd;
+}
+EXPORT_SYMBOL(isp71_get_traw_tdr_fd);
+
+void *isp71_get_pqdip_virt(void)
+{
+	return mb[PQDIP_MEM_C_ID].start_virt;
+}
+EXPORT_SYMBOL(isp71_get_pqdip_virt);
+
+int isp71_get_pqdip_cq_fd(void)
+{
+	return mb[PQDIP_MEM_C_ID].fd;
+}
+EXPORT_SYMBOL(isp71_get_pqdip_cq_fd);
+
+int isp71_get_pqdip_tdr_fd(void)
+{
+	return mb[PQDIP_MEM_T_ID].fd;
+}
+EXPORT_SYMBOL(isp71_get_pqdip_tdr_fd);
+
 struct mtk_hcp_data isp71_hcp_data = {
 	.mblock = isp71_reserve_mblock,
 	.block_num = ARRAY_SIZE(isp71_reserve_mblock),
@@ -878,5 +948,17 @@ struct mtk_hcp_data isp71_hcp_data = {
 	.put_gce = isp71_put_gce,
 	.get_hwid_virt = isp71_get_hwid_virt,
 	.get_wpe_virt = isp71_get_wpe_virt,
+	.get_wpe_cq_fd = isp71_get_wpe_cq_fd,
+	.get_wpe_tdr_fd = isp71_get_wpe_tdr_fd,
+	.get_dip_virt = isp71_get_dip_virt,
+	.get_dip_cq_fd = isp71_get_dip_cq_fd,
+	.get_dip_tdr_fd = isp71_get_dip_tdr_fd,
+	.get_traw_virt = isp71_get_traw_virt,
+	.get_traw_cq_fd = isp71_get_traw_cq_fd,
+	.get_traw_tdr_fd = isp71_get_traw_tdr_fd,
+	.get_pqdip_virt = isp71_get_pqdip_virt,
+	.get_pqdip_cq_fd = isp71_get_pqdip_cq_fd,
+	.get_pqdip_tdr_fd = isp71_get_pqdip_tdr_fd,
+	.partial_flush = NULL,
 };
 MODULE_IMPORT_NS(DMA_BUF);

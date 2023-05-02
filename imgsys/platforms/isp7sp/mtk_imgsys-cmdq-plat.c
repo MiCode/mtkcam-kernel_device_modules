@@ -50,6 +50,12 @@ static u32 is_sec_task_create;
 #endif
 static struct imgsys_event_history event_hist[IMGSYS_CMDQ_SYNC_POOL_NUM];
 
+#ifdef IMGSYS_CMDQ_CBPARAM_NUM
+static struct mtk_imgsys_cb_param g_cb_param[IMGSYS_CMDQ_CBPARAM_NUM];
+static u32 g_cb_param_idx;
+static struct mutex g_cb_param_lock;
+#endif
+
 enum SMI_MONITOR_STATE {
 	SMI_MONITOR_IDLE_STATE = 0,
 	SMI_MONITOR_START_STATE,
@@ -130,6 +136,9 @@ void imgsys_cmdq_init_plat7sp(struct mtk_imgsys_dev *imgsys_dev, const int nr_im
 
 	mutex_init(&imgsys_dev->dvfs_qos_lock);
 	mutex_init(&imgsys_dev->power_ctrl_lock);
+#ifdef IMGSYS_CMDQ_CBPARAM_NUM
+	mutex_init(&g_cb_param_lock);
+#endif
 	mutex_init(&imgsys_dev->vss_blk_lock);
 }
 
@@ -162,6 +171,9 @@ void imgsys_cmdq_release_plat7sp(struct mtk_imgsys_dev *imgsys_dev)
 #endif
 	mutex_destroy(&imgsys_dev->dvfs_qos_lock);
 	mutex_destroy(&imgsys_dev->power_ctrl_lock);
+#ifdef IMGSYS_CMDQ_CBPARAM_NUM
+	mutex_destroy(&g_cb_param_lock);
+#endif
 	mutex_destroy(&imgsys_dev->vss_blk_lock);
 }
 
@@ -187,6 +199,18 @@ void imgsys_cmdq_streamon_plat7sp(struct mtk_imgsys_dev *imgsys_dev)
 	mtk_imgsys_mmqos_reset_plat7sp(imgsys_dev);
 	mtk_imgsys_mmqos_monitor_plat7sp(imgsys_dev, SMI_MONITOR_START_STATE);
 #endif
+
+#ifdef IMGSYS_CMDQ_CBPARAM_NUM
+	memset((void *)g_cb_param, 0x0,
+		sizeof(struct mtk_imgsys_cb_param) * IMGSYS_CMDQ_CBPARAM_NUM);
+	g_cb_param_idx = -1;
+    if (imgsys_cmdq_dbg_enable_plat7sp()) {
+	dev_dbg(imgsys_dev->dev,
+		"%s: g_cb_param sz: %d * sizeof mtk_imgsys_cb_param %lu\n",
+		__func__, IMGSYS_CMDQ_CBPARAM_NUM, sizeof(struct mtk_imgsys_cb_param));
+    }
+#endif
+
 }
 
 void imgsys_cmdq_streamoff_plat7sp(struct mtk_imgsys_dev *imgsys_dev)
@@ -201,9 +225,11 @@ void imgsys_cmdq_streamoff_plat7sp(struct mtk_imgsys_dev *imgsys_dev)
 	#if CMDQ_STOP_FUNC
 	for (idx = 0; idx < IMGSYS_NOR_THD; idx++) {
 		cmdq_mbox_stop(imgsys_clt[idx]);
+        if (imgsys_cmdq_dbg_enable_plat7sp()) {
 		dev_dbg(imgsys_dev->dev,
 			"%s: calling cmdq_mbox_stop(%d, 0x%lx)\n",
 			__func__, idx, (unsigned long)imgsys_clt[idx]);
+	}
 	}
 	#endif
 	#if IMGSYS_SECURE_ENABLE
@@ -260,18 +286,22 @@ static void imgsys_cmdq_cmd_dump_plat7sp(struct swfrm_info_t *frm_info, u32 frm_
 				cmd[cmd_idx].u.source, cmd[cmd_idx].u.target, cmd[cmd_idx].u.mask);
 			break;
 		case IMGSYS_CMD_WRITE:
+            if (imgsys_cmdq_dbg_enable_plat7sp()) {
 			pr_debug(
 			"%s: WRITE with addr(0x%08x) value(0x%08x) mask(0x%08x)\n", __func__,
 				cmd[cmd_idx].u.address, cmd[cmd_idx].u.value, cmd[cmd_idx].u.mask);
+            }
 			break;
 #ifdef MTK_IOVA_SINK2KERNEL
 		case IMGSYS_CMD_WRITE_FD:
+            if (imgsys_cmdq_dbg_enable_plat7sp()) {
 			pr_debug(
 			"%s: WRITE_FD with addr(0x%08x) msb_ofst(0x%08x) fd(0x%08x) ofst(0x%08x) rshift(%d)\n",
 				__func__, cmd[cmd_idx].u.dma_addr,
 				cmd[cmd_idx].u.dma_addr_msb_ofst,
 				cmd[cmd_idx].u.fd, cmd[cmd_idx].u.ofst,
 				cmd[cmd_idx].u.right_shift);
+            }
 			break;
 #endif
 		case IMGSYS_CMD_POLL:
@@ -354,7 +384,9 @@ static void imgsys_cmdq_fence_set_plat7sp(struct mtk_imgsys_dev *imgsys_dev,
 	struct fence_event *fence_evt = NULL;
 	struct mtk_imgsys_fence *imgsys_fence = NULL;
 
+    if (imgsys_cmdq_dbg_enable_plat7sp()) {
 	pr_debug("%s: +\n", __func__);
+    }
 
 	notif_num = frm_info->user_info[frm_idx].notify_fence_num;
 	if (notif_num <= 0)
@@ -570,12 +602,15 @@ static void imgsys_cmdq_cb_work_plat7sp(struct work_struct *work)
 	u32 idx = 0;
 	u32 real_frm_idx = 0;
 
+    if (imgsys_cmdq_dbg_enable_plat7sp()) {
 	pr_debug("%s: +\n", __func__);
+    }
 
 	cb_param = container_of(work, struct mtk_imgsys_cb_param, cmdq_cb_work);
 	cb_param->cmdqTs.tsCmdqCbWorkStart = ktime_get_boottime_ns()/1000;
 	imgsys_dev = cb_param->imgsys_dev;
 
+    if (imgsys_cmdq_dbg_enable_plat7sp()) {
 	dev_dbg(imgsys_dev->dev,
 		"%s: cb(%p) gid(%d) in block(%d/%d) for frm(%d/%d) lst(%d/%d/%d) task(%d/%d/%d) ofst(%lx/%lx/%lx/%lx/%lx)\n",
 		__func__, cb_param, cb_param->group_id,
@@ -585,6 +620,7 @@ static void imgsys_cmdq_cb_work_plat7sp(struct work_struct *work)
 		cb_param->task_id, cb_param->task_num, cb_param->task_cnt,
 		cb_param->pkt_ofst[0], cb_param->pkt_ofst[1], cb_param->pkt_ofst[2],
 		cb_param->pkt_ofst[3], cb_param->pkt_ofst[4]);
+    }
 
 	imgsys_cmdq_fence_notify_plat7sp(imgsys_dev, cb_param);
 	imgsys_cmdq_fence_rmcb_plat7sp(imgsys_dev, cb_param);
@@ -616,6 +652,7 @@ static void imgsys_cmdq_cb_work_plat7sp(struct work_struct *work)
 			tsTaskPending =
 				(cb_param->cmdqTs.tsCmdqCbStart-cb_param->cmdqTs.tsFlushStart)
 				- tsTaskPending;
+            if (imgsys_cmdq_dbg_enable_plat7sp()) {
 			dev_dbg(imgsys_dev->dev,
 			"%s: TSus cb(%p) err(%d) frm(%d/%d/%d) hw_comb(0x%x) ts_num(%d) sw_event(%d) hw_event(%d) hw_real(%d) (%d/%d/%d/%d)\n",
 				__func__, cb_param, cb_param->err, cb_param->frm_idx,
@@ -626,6 +663,7 @@ static void imgsys_cmdq_cb_work_plat7sp(struct work_struct *work)
 				cb_param->taskTs.dma_va[cb_param->taskTs.ofst+4*idx+2],
 				cb_param->taskTs.dma_va[cb_param->taskTs.ofst+4*idx+3]
 			);
+            }
 			/* if (imgsys_cmdq_ts_dbg_enable_plat7sp()) { */
 				real_frm_idx = cb_param->frm_idx - (cb_param->task_cnt - 1) + idx;
 				hw_comb = cb_param->frm_info->user_info[real_frm_idx].hw_comb;
@@ -665,6 +703,7 @@ static void imgsys_cmdq_cb_work_plat7sp(struct work_struct *work)
 		pr_info("%s: [ERROR] cb(%p) pipe already streamoff(%d)!\n",
 			__func__, cb_param, is_stream_off);
 
+    if (imgsys_cmdq_dbg_enable_plat7sp()) {
 	dev_dbg(imgsys_dev->dev,
 		"%s: req fd/no(%d/%d) frame no(%d) cb(%p)frm_info(%p) isBlkLast(%d) isFrmLast(%d) isECB(%d) isGPLast(%d) isGPECB(%d) for frm(%d/%d)\n",
 		__func__, cb_param->frm_info->request_fd,
@@ -674,6 +713,7 @@ static void imgsys_cmdq_cb_work_plat7sp(struct work_struct *work)
 		cb_param->frm_info->user_info[cb_param->frm_idx].is_lastingroup,
 		cb_param->frm_info->user_info[cb_param->frm_idx].is_earlycb,
 		cb_param->frm_idx, cb_param->frm_num);
+    }
 
 	req_fd = cb_param->frm_info->request_fd;
 	req_no = cb_param->frm_info->request_no;
@@ -724,12 +764,14 @@ static void imgsys_cmdq_cb_work_plat7sp(struct work_struct *work)
 
 	hw_comb = cb_param->frm_info->user_info[cb_param->frm_idx].hw_comb;
 
+    if (imgsys_cmdq_dbg_enable_plat7sp()) {
 	dev_dbg(imgsys_dev->dev,
 		"%s: req fd/no(%d/%d) frame no(%d) cb(%p)frm_info(%p) isBlkLast(%d) cb_param->frm_num(%d) cb_frm_cnt(%d)\n",
 		__func__, cb_param->frm_info->request_fd,
 		cb_param->frm_info->request_no, cb_param->frm_info->frame_no,
 		cb_param, cb_param->frm_info, cb_param->isBlkLast, cb_param->frm_num,
 		cb_frm_cnt);
+    }
 
 	if (cb_param->isBlkLast && cb_param->user_cmdq_cb &&
 		((cb_param->frm_info->total_taskcnt == cb_frm_cnt) || cb_param->is_earlycb)) {
@@ -819,7 +861,11 @@ static void imgsys_cmdq_cb_work_plat7sp(struct work_struct *work)
 			(cb_param->cmdqTs.tsUserCbEnd-cb_param->cmdqTs.tsUserCbStart),
 			(tsDvfsQosEnd-tsDvfsQosStart)
 			);
+#ifdef IMGSYS_CMDQ_CBPARAM_NUM
+	cb_param->isOccupy = false;
+#else
 	vfree(cb_param);
+#endif
 }
 
 void imgsys_cmdq_task_cb_plat7sp(struct cmdq_cb_data data)
@@ -832,7 +878,9 @@ void imgsys_cmdq_task_cb_plat7sp(struct cmdq_cb_data data)
 	u64 event_diff = 0;
 	bool isHWhang = 0;
 
+    if (imgsys_cmdq_dbg_enable_plat7sp()) {
 	pr_debug("%s: +\n", __func__);
+    }
 
 	if (!data.data) {
 		pr_info("%s: [ERROR]no callback data\n", __func__);
@@ -843,9 +891,11 @@ void imgsys_cmdq_task_cb_plat7sp(struct cmdq_cb_data data)
 	cb_param->err = data.err;
 	cb_param->cmdqTs.tsCmdqCbStart = ktime_get_boottime_ns()/1000;
 
+    if (imgsys_cmdq_dbg_enable_plat7sp()) {
 	pr_debug(
 		"%s: Receive cb(%p) with err(%d) for frm(%d/%d)\n",
 		__func__, cb_param, data.err, cb_param->frm_idx, cb_param->frm_num);
+    }
 
 	if (cb_param->err != 0) {
 		err_ofst = cb_param->pkt->err_data.offset;
@@ -1424,9 +1474,11 @@ int imgsys_cmdq_sendtask_plat7sp(struct mtk_imgsys_dev *imgsys_dev,
 				for (thd_idx = 0; thd_idx < IMGSYS_NOR_THD; thd_idx++) {
 					if (hw_comb & 0x1) {
 						clt = imgsys_clt[thd_idx];
+                        if (imgsys_cmdq_dbg_enable_plat7sp()) {
 						pr_debug(
 						"%s: chosen mbox thread (%d, 0x%lx) for frm(%d/%d)\n",
 						__func__, thd_idx, (unsigned long)clt, frm_idx, frm_num);
+                        }
 						break;
 					}
 					hw_comb = hw_comb>>1;
@@ -1466,12 +1518,14 @@ int imgsys_cmdq_sendtask_plat7sp(struct mtk_imgsys_dev *imgsys_dev,
 			}
 		}
 
+        if (imgsys_cmdq_dbg_enable_plat7sp()) {
 		dev_dbg(imgsys_dev->dev,
 		"%s: req fd/no(%d/%d) frame no(%d) frm(%d/%d) cmd_oft(0x%x/0x%x), cmd_len(%d), num(%d), sz_per_cmd(%lu), frm_blk(%d), hw_comb(0x%x), sync_id(%d), gce_thd(%d), gce_clt(0x%lx)\n",
 			__func__, frm_info->request_fd, frm_info->request_no, frm_info->frame_no,
 			frm_idx, frm_num, cmd_buf->cmd_offset, cmd_ofst, cmd_buf->curr_length,
 			cmd_num, sizeof(struct Command), cmd_buf->frame_block,
 			frm_info->user_info[frm_idx].hw_comb, frm_info->sync_id, thd_idx, (unsigned long)clt);
+        }
 
 		cmd_idx = 0;
 		if (isTimeShared)
@@ -1489,9 +1543,11 @@ int imgsys_cmdq_sendtask_plat7sp(struct mtk_imgsys_dev *imgsys_dev,
 						mutex_unlock(&(imgsys_dev->vss_blk_lock));
 					return -1;
 				}
+                if (imgsys_cmdq_dbg_enable_plat7sp()) {
 				pr_debug(
 					"%s: cmdq_pkt_create success(0x%lx) in block(%d) for frm(%d/%d)\n",
 					__func__, (unsigned long)pkt, blk_idx, frm_idx, frm_num);
+                }
 				/* Reset pkt timestamp num */
 				pkt_ts_num = 0;
 			}
@@ -1545,8 +1601,38 @@ int imgsys_cmdq_sendtask_plat7sp(struct mtk_imgsys_dev *imgsys_dev,
 				mtk_imgsys_power_ctrl_plat7sp(imgsys_dev, true);
 #endif
 				/* Prepare cb param */
+#ifdef IMGSYS_CMDQ_CBPARAM_NUM
+				mutex_lock(&g_cb_param_lock);
+				g_cb_param_idx = (g_cb_param_idx+1)%IMGSYS_CMDQ_CBPARAM_NUM;
+				if ((g_cb_param_idx < 0)
+					|| g_cb_param_idx >= IMGSYS_CMDQ_CBPARAM_NUM) {
+					dev_info(imgsys_dev->dev,
+						"%s: force set g_cb_param_idx(%d) to 0! in block(%d) for frm(%d/%d)\n",
+						__func__, g_cb_param_idx, blk_idx,
+						frm_idx, frm_num);
+					g_cb_param_idx = 0;
+				}
+				cb_param = &g_cb_param[g_cb_param_idx];
+				if (cb_param->isOccupy) {
+					dev_info(imgsys_dev->dev,
+						"%s: g_cb_param[%d] is occypied!!! in block(%d) for frm(%d/%d)\n",
+						__func__, g_cb_param_idx, blk_idx,
+						frm_idx, frm_num);
+					mutex_unlock(&g_cb_param_lock);
+					return -1;
+				}
+				cb_param->isOccupy = true;
+				mutex_unlock(&g_cb_param_lock);
+                if (imgsys_cmdq_dbg_enable_plat7sp()) {
+				dev_dbg(imgsys_dev->dev,
+						"%s: set cb_param to g_cb_param[%d] in block(%d) for frm(%d/%d)\n",
+						__func__, g_cb_param_idx, blk_idx,
+						frm_idx, frm_num);
+                }
+#else
 				cb_param =
 					vzalloc(sizeof(struct mtk_imgsys_cb_param));
+#endif
 				if (cb_param == NULL) {
 					cmdq_pkt_destroy(pkt);
 					dev_info(imgsys_dev->dev,
@@ -1556,9 +1642,11 @@ int imgsys_cmdq_sendtask_plat7sp(struct mtk_imgsys_dev *imgsys_dev,
 						mutex_unlock(&(imgsys_dev->vss_blk_lock));
 					return -1;
 				}
+                if (imgsys_cmdq_dbg_enable_plat7sp()) {
 				dev_dbg(imgsys_dev->dev,
 				"%s: cb_param kzalloc success cb(%p) in block(%d) for frm(%d/%d)!\n",
 					__func__, cb_param, blk_idx, frm_idx, frm_num);
+                }
 
 				task_num++;
 				cb_param->pkt = pkt;
@@ -1607,6 +1695,7 @@ int imgsys_cmdq_sendtask_plat7sp(struct mtk_imgsys_dev *imgsys_dev,
 				imgsys_cmdq_fence_set_plat7sp(imgsys_dev, frm_info, cb_param,
 					frm_idx, thd_idx);
 
+                if (imgsys_cmdq_dbg_enable_plat7sp()) {
 				dev_dbg(imgsys_dev->dev,
 					"%s: cb(%p) gid(%d) in block(%d/%d) for frm(%d/%d) lst(%d/%d/%d) task(%d/%d/%d) ofst(%lx/%lx/%lx/%lx/%lx)\n",
 					__func__, cb_param, cb_param->group_id,
@@ -1618,6 +1707,7 @@ int imgsys_cmdq_sendtask_plat7sp(struct mtk_imgsys_dev *imgsys_dev,
 					cb_param->pkt_ofst[0], cb_param->pkt_ofst[1],
 					cb_param->pkt_ofst[2], cb_param->pkt_ofst[3],
 					cb_param->pkt_ofst[4]);
+                }
 
 				if (imgsys_cmdq_ts_enable_plat7sp()
 					|| imgsys_wpe_bwlog_enable_plat7sp()) {
@@ -1654,11 +1744,14 @@ int imgsys_cmdq_sendtask_plat7sp(struct mtk_imgsys_dev *imgsys_dev,
 					"%s: cmdq_pkt_flush_async ret(%d) for frm(%d/%d) ts(%lld)!\n",
 						__func__, ret_flush, frm_idx, frm_num,
 						tsFlushEnd - tsflushStart);
-				else
+				else {
+                    if (imgsys_cmdq_dbg_enable_plat7sp()) {
 					pr_debug(
 					"%s: cmdq_pkt_flush_async success(%d), blk(%d), frm(%d/%d), ts(%lld)!\n",
 						__func__, ret_flush, blk_idx, frm_idx, frm_num,
 						tsFlushEnd - tsflushStart);
+                    }
+				}
 				isPack = 0;
 			} else {
 				isPack = 1;
@@ -1699,14 +1792,18 @@ int imgsys_cmdq_parser_plat7sp(struct mtk_imgsys_dev *imgsys_dev,
 	req_no = frm_info->request_no;
 	frm_no = frm_info->frame_no;
 
+    if (imgsys_cmdq_dbg_enable_plat7sp()) {
 	pr_debug("%s: +, cmd(%d)\n", __func__, cmd->opcode);
+    }
 
 	do {
 		switch (cmd->opcode) {
 		case IMGSYS_CMD_READ:
+            if (imgsys_cmdq_dbg_enable_plat7sp()) {
 			pr_debug(
 				"%s: READ with source(0x%08x) target(0x%08x) mask(0x%08x)\n",
 				__func__, cmd->u.source, cmd->u.target, cmd->u.mask);
+            }
 			if (imgsys_wpe_bwlog_enable_plat7sp()) {
 				cmdq_pkt_mem_move(pkt, NULL, (dma_addr_t)cmd->u.source,
 					dma_pa + (4*(*num)), CMDQ_THR_SPR_IDX3);
@@ -1717,9 +1814,11 @@ int imgsys_cmdq_parser_plat7sp(struct mtk_imgsys_dev *imgsys_dev,
 					__func__);
 			break;
 		case IMGSYS_CMD_WRITE:
+            if (imgsys_cmdq_dbg_enable_plat7sp()) {
 			pr_debug(
 				"%s: WRITE with addr(0x%08x) value(0x%08x) mask(0x%08x)\n",
 				__func__, cmd->u.address, cmd->u.value, cmd->u.mask);
+            }
 			cmdq_pkt_write(pkt, NULL, (dma_addr_t)cmd->u.address,
 					cmd->u.value, cmd->u.mask);
 			break;
@@ -1745,10 +1844,13 @@ int imgsys_cmdq_parser_plat7sp(struct mtk_imgsys_dev *imgsys_dev,
 				dev_b = req->buf_map[is_singledev_mode(req)];
 				iova_addr = imgsys_get_iova(dbuf, cmd->u.fd, imgsys_dev, dev_b);
 				pre_fd = cmd->u.fd;
-			} else
+			} else {
+			if (imgsys_cmdq_dbg_enable_plat7sp()) {
 				pr_debug(
 					"%s: Current fd(0x%08x) is the same with previous fd(0x%08x) with iova(0x%08llx), bypass map iova operation\n",
 					__func__, cmd->u.fd, pre_fd, iova_addr);
+			}
+			}
 			cur_iova_addr = iova_addr + cmd->u.ofst;
 			//
 			if (imgsys_iova_dbg_enable_plat7sp() || iova_dbg) {
@@ -1777,19 +1879,23 @@ int imgsys_cmdq_parser_plat7sp(struct mtk_imgsys_dev *imgsys_dev,
 			break;
 #endif
 		case IMGSYS_CMD_POLL:
+            if (imgsys_cmdq_dbg_enable_plat7sp()) {
 			pr_debug(
 				"%s: POLL with addr(0x%08x) value(0x%08x) mask(0x%08x) thd(%d)\n",
 				__func__, cmd->u.address, cmd->u.value, cmd->u.mask, thd_idx);
+            }
 			/* cmdq_pkt_poll(pkt, NULL, cmd->u.value, cmd->u.address, */
 			/* cmd->u.mask, CMDQ_GPR_R15); */
 			cmdq_pkt_poll_timeout(pkt, cmd->u.value, SUBSYS_NO_SUPPORT,
 				cmd->u.address, cmd->u.mask, 0xFFFF, CMDQ_GPR_R03+thd_idx);
 			break;
 		case IMGSYS_CMD_WAIT:
+            if (imgsys_cmdq_dbg_enable_plat7sp()) {
 			pr_debug(
 				"%s: WAIT event(%d/%d) action(%d)\n",
 				__func__, cmd->u.event, imgsys_event[cmd->u.event].event,
 				cmd->u.action);
+            }
 			if (cmd->u.action == 1) {
 				cmdq_pkt_wfe(pkt, imgsys_event[cmd->u.event].event);
 				if ((cmd->u.event >= IMGSYS_CMDQ_SYNC_TOKEN_IMGSYS_POOL_START) &&
@@ -1811,10 +1917,12 @@ int imgsys_cmdq_parser_plat7sp(struct mtk_imgsys_dev *imgsys_dev,
 					__func__, cmd->u.action);
 			break;
 		case IMGSYS_CMD_UPDATE:
+            if (imgsys_cmdq_dbg_enable_plat7sp()) {
 			pr_debug(
 				"%s: UPDATE event(%d/%d) action(%d)\n",
 				__func__, cmd->u.event, imgsys_event[cmd->u.event].event,
 				cmd->u.action);
+            }
 			if (cmd->u.action == 1) {
 				cmdq_pkt_set_event(pkt, imgsys_event[cmd->u.event].event);
 				if ((cmd->u.event >= IMGSYS_CMDQ_SYNC_TOKEN_IMGSYS_POOL_START) &&
@@ -1836,15 +1944,19 @@ int imgsys_cmdq_parser_plat7sp(struct mtk_imgsys_dev *imgsys_dev,
 					__func__, cmd->u.action);
 			break;
 		case IMGSYS_CMD_ACQUIRE:
+            if (imgsys_cmdq_dbg_enable_plat7sp()) {
 			pr_debug(
 				"%s: ACQUIRE event(%d/%d) action(%d)\n", __func__,
 				cmd->u.event, imgsys_event[cmd->u.event].event, cmd->u.action);
 				cmdq_pkt_acquire_event(pkt, imgsys_event[cmd->u.event].event);
+            }
 			break;
 		case IMGSYS_CMD_TIME:
+            if (imgsys_cmdq_dbg_enable_plat7sp()) {
 			pr_debug(
 				"%s: TIME with addr(0x%08lx) num(0x%08x)\n",
 				__func__, (unsigned long)dma_pa, *num);
+            }
 			if (imgsys_cmdq_ts_enable_plat7sp()) {
 				cmdq_pkt_write_indriect(pkt, NULL, dma_pa + (4*(*num)),
 					CMDQ_TPR_ID, ~0);
@@ -1855,7 +1967,9 @@ int imgsys_cmdq_parser_plat7sp(struct mtk_imgsys_dev *imgsys_dev,
 					__func__);
 			break;
 		case IMGSYS_CMD_STOP:
+            if (imgsys_cmdq_dbg_enable_plat7sp()) {
 			pr_debug("%s: End Of Cmd!\n", __func__);
+            }
 			stop = 1;
 			break;
 		default:
@@ -1910,8 +2024,10 @@ void imgsys_cmdq_setevent_plat7sp(u64 u_id)
 
 	if (event_val == 0) {
 		cmdq_set_event(imgsys_clt[0]->chan, imgsys_event[event_id].event);
+        if (imgsys_cmdq_dbg_enable_plat7sp()) {
 		pr_debug("%s: SetEvent success with (u_id/event_id/event_val)=(%llu/%d/%d)!\n",
 			__func__, u_id, event_id, event_val);
+        }
 	} else {
 		pr_info("%s: [ERROR]SetEvent fail with (u_id/event_id/event_val)=(%llu/%d/%d)!\n",
 			__func__, u_id, event_id, event_val);
@@ -1926,8 +2042,10 @@ void imgsys_cmdq_clearevent_plat7sp(int event_id)
 		(event_id <= IMGSYS_CMDQ_SYNC_TOKEN_IMGSYS_END)) {
 		cmdq_mbox_enable(imgsys_clt[0]->chan);
 		cmdq_clear_event(imgsys_clt[0]->chan, imgsys_event[event_id].event);
+        if (imgsys_cmdq_dbg_enable_plat7sp()) {
 		pr_debug("%s: cmdq_clear_event with (%d/%d)!\n",
 			__func__, event_id, imgsys_event[event_id].event);
+        }
 		event = event_id - IMGSYS_CMDQ_SYNC_TOKEN_IMGSYS_POOL_START;
 		memset((void *)&event_hist[event], 0x0,
 			sizeof(struct imgsys_event_history));
@@ -1961,7 +2079,10 @@ void mtk_imgsys_mmdvfs_init_plat7sp(struct mtk_imgsys_dev *imgsys_dev)
 		dev_info(dvfs_info->dev,
 			"%s: [ERROR] Failed to get dvfsrc-vmm\n", __func__);
 		dvfs_info->reg = NULL;
+		if (!mmdvfs_get_version())
 		dvfs_info->mmdvfs_clk = devm_clk_get(dvfs_info->dev, "mmdvfs_clk");
+		else
+			dvfs_info->mmdvfs_clk = devm_clk_get(dvfs_info->dev, "mmdvfs_mux");
 		if (IS_ERR_OR_NULL(dvfs_info->mmdvfs_clk)) {
 			dev_info(dvfs_info->dev,
 				"%s: [ERROR] Failed to get mmdvfs_clk\n", __func__);
@@ -2103,8 +2224,10 @@ void mtk_imgsys_mmdvfs_set_plat7sp(struct mtk_imgsys_dev *imgsys_dev,
 
 	freq = dvfs_info->freq;
 
-	if (IS_ERR_OR_NULL(dvfs_info->reg) && IS_ERR_OR_NULL(dvfs_info->mmdvfs_clk))
+	if (IS_ERR_OR_NULL(dvfs_info->reg) && IS_ERR_OR_NULL(dvfs_info->mmdvfs_clk)) {
+        if (imgsys_cmdq_dbg_enable_plat7sp())
 		dev_dbg(dvfs_info->dev, "%s: [ERROR] reg and clk is err or null\n", __func__);
+	}
 	else {
 		/* Choose for IPESYS */
 		/* if (hw_comb & IMGSYS_ENG_ME) */
@@ -2167,18 +2290,22 @@ void mtk_imgsys_mmdvfs_reset_plat7sp(struct mtk_imgsys_dev *imgsys_dev)
 		for (idx = 0; idx < dvfs_info->clklv_num[opp_idx]; idx++) {
 			dvfs_info->clklv[opp_idx][idx] = clklv[idx];
 			dvfs_info->voltlv[opp_idx][idx] = voltlv[idx];
+            if (imgsys_cmdq_dbg_enable_plat7sp()) {
 			dev_dbg(dvfs_info->dev, "[%s] opp=%d, idx=%d, clk=%d volt=%d\n",
 				__func__, opp_idx, idx,
 				dvfs_info->clklv[opp_idx][idx],
 				dvfs_info->voltlv[opp_idx][idx]);
 		}
 	}
+	}
 
 	for (idx = 0; idx < MTK_IMGSYS_DVFS_GROUP; idx++)
 		dvfs_info->pixel_size[idx] = 0;
 
-	if (IS_ERR_OR_NULL(dvfs_info->reg) && IS_ERR_OR_NULL(dvfs_info->mmdvfs_clk))
+	if (IS_ERR_OR_NULL(dvfs_info->reg) && IS_ERR_OR_NULL(dvfs_info->mmdvfs_clk)) {
+        if (imgsys_cmdq_dbg_enable_plat7sp())
 		dev_dbg(dvfs_info->dev, "%s: [ERROR] reg and clk is err or null\n", __func__);
+	}
 	else {
 		if (dvfs_info->cur_volt != volt) {
 			dev_info(dvfs_info->dev, "[%s] volt change clk=%ld volt=%d\n",
@@ -2265,14 +2392,17 @@ void mtk_imgsys_mmqos_uninit_plat7sp(struct mtk_imgsys_dev *imgsys_dev)
 
 	for (idx = 0; idx < IMGSYS_M4U_PORT_MAX; idx++) {
 		if (IS_ERR_OR_NULL(qos_info->qos_path[idx].path)) {
+            if (imgsys_cmdq_dbg_enable_plat7sp())
 			dev_dbg(qos_info->dev, "[%s] path of idx(%d) is NULL\n", __func__, idx);
 			continue;
 		}
+        if (imgsys_cmdq_dbg_enable_plat7sp()) {
 		dev_dbg(qos_info->dev, "[%s] idx=%d, path=%p, bw=%llu\n",
 			__func__, idx,
 			qos_info->qos_path[idx].path,
 			qos_info->qos_path[idx].bw);
 		qos_info->qos_path[idx].bw = 0;
+        }
 #ifndef CONFIG_FPGA_EARLY_PORTING
 		mtk_icc_set_bw(qos_info->qos_path[idx].path, 0, 0);
 #endif
@@ -2826,6 +2956,12 @@ bool imgsys_cmdq_ts_dbg_enable_plat7sp(void)
 {
 	return imgsys_cmdq_ts_dbg_en;
 }
+
+bool imgsys_cmdq_dbg_enable_plat7sp(void)
+{
+	return imgsys_cmdq_dbg_en;
+}
+
 
 bool imgsys_dvfs_dbg_enable_plat7sp(void)
 {

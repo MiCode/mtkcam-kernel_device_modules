@@ -46,6 +46,31 @@ void __iomem *trawRegBA;
 void __iomem *adlARegBA;
 void __iomem *adlBRegBA;
 
+bool imgsys_dip_7s_dbg_enable(void)
+{
+	return imgsys_dip_dbg_en;
+}
+
+bool imgsys_traw_7s_dbg_enable(void)
+{
+	return imgsys_traw_dbg_en;
+}
+
+bool imgsys_wpe_7s_dbg_enable(void)
+{
+	return imgsys_wpe_dbg_en;
+}
+
+bool imgsys_pqdip_7s_dbg_enable(void)
+{
+	return imgsys_pqdip_dbg_en;
+}
+
+bool imgsys_me_7s_dbg_enable(void)
+{
+	return imgsys_me_dbg_en;
+}
+
 void imgsys_main_init(struct mtk_imgsys_dev *imgsys_dev)
 {
 	struct resource adl;

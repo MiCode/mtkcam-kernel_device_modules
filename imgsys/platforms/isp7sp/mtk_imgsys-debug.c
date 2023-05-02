@@ -21,6 +21,31 @@
 #define SW_RST   (0x000C)
 #define DBG_SW_CLR   (0x0260)
 
+bool imgsys_dip_7sp_dbg_enable(void)
+{
+	return imgsys_dip_dbg_en;
+}
+
+bool imgsys_traw_7sp_dbg_enable(void)
+{
+	return imgsys_traw_dbg_en;
+}
+
+bool imgsys_wpe_7sp_dbg_enable(void)
+{
+	return imgsys_wpe_dbg_en;
+}
+
+bool imgsys_pqdip_7sp_dbg_enable(void)
+{
+	return imgsys_pqdip_dbg_en;
+}
+
+bool imgsys_me_7sp_dbg_enable(void)
+{
+	return imgsys_me_dbg_en;
+}
+
 struct imgsys_dbg_engine_t dbg_engine_name_list[DL_CHECK_ENG_NUM] = {
 	{IMGSYS_ENG_WPE_EIS, "WPE_EIS"},
 	{IMGSYS_ENG_WPE_TNR, "WPE_TNR"},

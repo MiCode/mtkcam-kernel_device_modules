@@ -11,6 +11,8 @@
 
 #include "mtk_imgsys-worker.h"
 #include "mtk_imgsys-trace.h"
+#include "mtk_imgsys-v4l2-debug.h"
+
 
 int imgsys_queue_init(struct imgsys_queue *que, struct device *dev, char *name)
 {
@@ -44,10 +46,12 @@ static int worker_func(void *data)
 	u64 end;
 
 	while (1) {
+        if (imgsys_dbg_enable())
 		dev_dbg(head->dev, "%s: %s kthread sleeps\n", __func__,
 								head->name);
 		wait_event_interruptible(head->wq,
 			atomic_read(&head->nr) || atomic_read(&head->disable));
+        if (imgsys_dbg_enable())
 		dev_dbg(head->dev, "%s: %s kthread wakes dis/nr(%d/%d)\n", __func__,
 				head->name, atomic_read(&head->disable), atomic_read(&head->nr));
 
@@ -81,6 +85,7 @@ static int worker_func(void *data)
 
 next:
 		if (kthread_should_stop()) {
+            if (imgsys_dbg_enable())
 			dev_dbg(head->dev, "%s: %s kthread exits\n", __func__, head->name);
 			break;
 		}
@@ -170,10 +175,12 @@ int imgsys_queue_add(struct imgsys_queue *que, struct imgsys_work *work)
 		que->peak = size;
 	spin_unlock(&que->lock);
 
+    if (imgsys_dbg_enable())
 	dev_dbg(que->dev, "%s try wakeup dis/nr(%d/%d)\n", __func__,
 		atomic_read(&que->disable), atomic_read(&que->nr));
 	wake_up(&que->wq);
 
+    if (imgsys_dbg_enable())
 	dev_dbg(que->dev, "%s: raising %s\n", __func__, que->name);
 
 	return 0;

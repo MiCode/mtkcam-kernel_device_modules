@@ -11,6 +11,21 @@
 #include "./platforms/isp7s/mtk_imgsys-data-7s.h"
 #include "mtk_imgsys-probe.h"
 
+int imgsys_dip_dbg_en;
+module_param(imgsys_dip_dbg_en, int, 0644);
+
+int imgsys_traw_dbg_en;
+module_param(imgsys_traw_dbg_en, int, 0644);
+
+int imgsys_pqdip_dbg_en;
+module_param(imgsys_pqdip_dbg_en, int, 0644);
+
+int imgsys_wpe_dbg_en;
+module_param(imgsys_wpe_dbg_en, int, 0644);
+
+int imgsys_me_dbg_en;
+module_param(imgsys_me_dbg_en, int, 0644);
+
 static const struct dev_pm_ops mtk_imgsys_pm_ops = {
 	SET_RUNTIME_PM_OPS(mtk_imgsys_runtime_suspend,
 						mtk_imgsys_runtime_resume, NULL)

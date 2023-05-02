@@ -30,15 +30,17 @@
 /*
  * For APMCU <-> SCP communication
  */
-#define AOV_SCP_CMD_READY         (0)
-#define AOV_SCP_CMD_START         (1)
-#define AOV_SCP_CMD_PWR_ON        (2)
-#define AOV_SCP_CMD_PWR_OFF       (3)
-#define AOV_SCP_CMD_FRAME         (4)
-#define AOV_SCP_CMD_NOTIFY        (5)
-#define AOV_SCP_CMD_STOP          (6)
-#define AOV_SCP_CMD_MAX           (7)
-#define AOV_SCP_CMD_ACK           (0x80000000)
+#define AOV_SCP_CMD_READY            (0)
+#define AOV_SCP_CMD_START            (1)
+#define AOV_SCP_CMD_PWR_ON           (2)
+#define AOV_SCP_CMD_PWR_OFF          (3)
+#define AOV_SCP_CMD_FRAME            (4)
+#define AOV_SCP_CMD_NOTIFY           (5)
+#define AOV_SCP_CMD_STOP             (6)
+#define AOV_SCP_CMD_AIE_HANG         (7)
+#define AOV_SCP_CMD_AIE_HANG_DONE    (8)
+#define AOV_SCP_CMD_MAX              (9)
+#define AOV_SCP_CMD_ACK              (0x80000000)
 
 #define AOV_DEBUG_MODE_DUMP       (1)  // General debug
 #define AOV_DEBUG_MODE_NDD        (2)  // NDD debug mode

@@ -140,13 +140,17 @@ static void init_camsys_settings(struct mtk_raw_device *dev, bool is_srt)
 	if (is_srt) {
 		writel_relaxed(0x0, cam_dev->base + reg_raw_urgent);
 		writel_relaxed(0x0, cam_dev->base + reg_yuv_urgent);
-		mtk_smi_larb_ultra_dis(&dev->larb_pdev->dev, true);
-		mtk_smi_larb_ultra_dis(&yuv_dev->larb_pdev->dev, true);
+		if (dev->larb_pdev)
+			mtk_smi_larb_ultra_dis(&dev->larb_pdev->dev, true);
+		if (yuv_dev->larb_pdev)
+			mtk_smi_larb_ultra_dis(&yuv_dev->larb_pdev->dev, true);
 	} else {
 		writel_relaxed(raw_urgent, cam_dev->base + reg_raw_urgent);
 		writel_relaxed(yuv_urgent, cam_dev->base + reg_yuv_urgent);
-		mtk_smi_larb_ultra_dis(&dev->larb_pdev->dev, false);
-		mtk_smi_larb_ultra_dis(&yuv_dev->larb_pdev->dev, false);
+		if (dev->larb_pdev)
+			mtk_smi_larb_ultra_dis(&dev->larb_pdev->dev, false);
+		if (yuv_dev->larb_pdev)
+			mtk_smi_larb_ultra_dis(&yuv_dev->larb_pdev->dev, false);
 	}
 
 	wmb(); /* TBC */

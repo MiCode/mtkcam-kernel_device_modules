@@ -767,10 +767,10 @@ static void FDVT_DumpDRAMOut(struct mtk_aie_dev *fd, unsigned int *hw, unsigned 
 	unsigned int comparetimes = size / 4;
 
 	for (i = 0; i < comparetimes; i += 4) {
-		dev_info(fd->dev, "0x%08x, 0x%08x, 0x%08x, 0x%08x", hw[i],
+		aie_dev_info(fd->dev, "0x%08x, 0x%08x, 0x%08x, 0x%08x", hw[i],
 						hw[i + 1], hw[i + 2], hw[i + 3]);
 	}
-	dev_info(fd->dev, "Dump End");
+	aie_dev_info(fd->dev, "Dump End");
 }
 
 static void aie_fdvt_dump_reg(struct mtk_aie_dev *fd)
@@ -779,263 +779,263 @@ static void aie_fdvt_dump_reg(struct mtk_aie_dev *fd)
 	unsigned int loop_num = 1;
 	int i = 0;
 
-	dev_info(fd->dev, "%s result result1: %x, %x, %x", __func__,
+	aie_dev_info(fd->dev, "%s result result1: %x, %x, %x", __func__,
 		 readl(fd->fd_base + AIE_RESULT_0_REG),
 		 readl(fd->fd_base + AIE_RESULT_1_REG),
 		 readl(fd->fd_base + AIE_DMA_CTL_REG));
 
-	dev_info(fd->dev, "%s interrupt status: %x", __func__,
+	aie_dev_info(fd->dev, "%s interrupt status: %x", __func__,
 		 readl(fd->fd_base + AIE_INT_EN_REG));
 	if (fd->aie_cfg->sel_mode == ATTRIBUTEMODE) {
-		dev_info(fd->dev, "[ATTRMODE] w_idx = %d, r_idx = %d\n",
+		aie_dev_info(fd->dev, "[ATTRMODE] w_idx = %d, r_idx = %d\n",
 			 fd->attr_para->w_idx, fd->attr_para->r_idx);
 	} else if (fd->aie_cfg->sel_mode == FLDMODE) {
-		dev_info(fd->dev, "Blink Addr: %llx\n", fd->dma_para->fld_blink_weight_pa);
+		aie_dev_info(fd->dev, "Blink Addr: %llx\n", fd->dma_para->fld_blink_weight_pa);
 		for (i = 0; i < 15; i++) {
-			dev_info(fd->dev, "[%d]CV Addr: %llx\n", i, fd->dma_para->fld_cv_pa[i]);
-			dev_info(fd->dev, "[%d]LEAFNODE Addr: %llx\n", i,
+			aie_dev_info(fd->dev, "[%d]CV Addr: %llx\n", i, fd->dma_para->fld_cv_pa[i]);
+			aie_dev_info(fd->dev, "[%d]LEAFNODE Addr: %llx\n", i,
 						fd->dma_para->fld_leafnode_pa[i]);
-			dev_info(fd->dev, "[%d]FP Addr: %llx\n", i, fd->dma_para->fld_fp_pa[i]);
-			dev_info(fd->dev, "[%d]Tree02 Addr: %llx\n", i,
+			aie_dev_info(fd->dev, "[%d]FP Addr: %llx\n", i, fd->dma_para->fld_fp_pa[i]);
+			aie_dev_info(fd->dev, "[%d]Tree02 Addr: %llx\n", i,
 						fd->dma_para->fld_tree02_pa[i]);
-			dev_info(fd->dev, "[%d]Tree03 Addr: %llx\n", i,
+			aie_dev_info(fd->dev, "[%d]Tree03 Addr: %llx\n", i,
 						fd->dma_para->fld_shape_pa[i]);
 		}
-		dev_info(fd->dev, "OUT Addr: %llx\n", fd->dma_para->fld_output_pa);
+		aie_dev_info(fd->dev, "OUT Addr: %llx\n", fd->dma_para->fld_output_pa);
 
-		dev_info(fd->dev, "- E.");
-		dev_info(fd->dev, "FLD Config Info\n");
-		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int)AIE_START_REG,
+		aie_dev_info(fd->dev, "- E.");
+		aie_dev_info(fd->dev, "FLD Config Info\n");
+		aie_dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int)AIE_START_REG,
 					(unsigned int)readl(fd->fd_base + AIE_START_REG));
 
-		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int)AIE_DMA_CTL_REG,
+		aie_dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int)AIE_DMA_CTL_REG,
 					(unsigned int)readl(fd->fd_base + AIE_DMA_CTL_REG));
-		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int)FLD_EN,
+		aie_dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int)FLD_EN,
 					(unsigned int)readl(fd->fd_base + FLD_EN));
 
-		dev_info(fd->dev, "Width Hieght:\n");
-		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int)FLD_SRC_WD_HT,
+		aie_dev_info(fd->dev, "Width Hieght:\n");
+		aie_dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int)FLD_SRC_WD_HT,
 					(unsigned int)readl(fd->fd_base + FLD_SRC_WD_HT));
 
-		dev_info(fd->dev, "FLD busy\n");
-		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int)FLD_BUSY,
+		aie_dev_info(fd->dev, "FLD busy\n");
+		aie_dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int)FLD_BUSY,
 					(unsigned int)readl(fd->fd_base + FLD_BUSY));
 
-		dev_info(fd->dev, "FLD done\n");
-		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int)FLD_DONE,
+		aie_dev_info(fd->dev, "FLD done\n");
+		aie_dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int)FLD_DONE,
 		(unsigned int)readl(fd->fd_base + FLD_DONE));
-					dev_info(fd->dev, "FLD Crop\n");
+					aie_dev_info(fd->dev, "FLD Crop\n");
 
 		for (i = 0; i < fld_face_num; i++) {
-			dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int)FLD_BASE_ADDR_FACE_0 +
+			aie_dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int)FLD_BASE_ADDR_FACE_0 +
 			i * 0x4, (unsigned int)readl(fd->fd_base + FLD_BASE_ADDR_FACE_0 + i * 0x4));
 
-			dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int)fld_face_info_0[i],
+			aie_dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int)fld_face_info_0[i],
 				(unsigned int)readl(fd->fd_base + fld_face_info_0[i]));
 
-			dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int)fld_face_info_1[i],
+			aie_dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int)fld_face_info_1[i],
 				(unsigned int)readl(fd->fd_base + fld_face_info_1[i]));
 
-			dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int)fld_face_info_2[i],
+			aie_dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int)fld_face_info_2[i],
 				(unsigned int)readl(fd->fd_base + fld_face_info_2[i]));
 		}
-		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int) FLD_MODEL_PARA1,
+		aie_dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int) FLD_MODEL_PARA1,
 					(unsigned int)readl(fd->fd_base + FLD_MODEL_PARA1));
-		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int) FLD_MODEL_PARA14,
+		aie_dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int) FLD_MODEL_PARA14,
 					(unsigned int)readl(fd->fd_base + FLD_MODEL_PARA14));
 
 		for (i = 0; i < FLD_MAX_INPUT; i++) {
-			dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int) fld_pl_in_addr_0[i],
+			aie_dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int) fld_pl_in_addr_0[i],
 					(unsigned int)readl(fd->fd_base + fld_pl_in_addr_0[i]));
-			dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int) fld_pl_in_addr_1[i],
+			aie_dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int) fld_pl_in_addr_1[i],
 					(unsigned int)readl(fd->fd_base + fld_pl_in_addr_1[i]));
-			dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int) fld_pl_in_addr_2[i],
+			aie_dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int) fld_pl_in_addr_2[i],
 					(unsigned int)readl(fd->fd_base + fld_pl_in_addr_2[i]));
-			dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int) fld_pl_in_addr_3[i],
+			aie_dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int) fld_pl_in_addr_3[i],
 					(unsigned int)readl(fd->fd_base + fld_pl_in_addr_3[i]));
-			dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int) fld_sh_in_addr[i],
+			aie_dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int) fld_sh_in_addr[i],
 					(unsigned int)readl(fd->fd_base + fld_sh_in_addr[i]));
 		}
 
-		dev_info(fd->dev, "MSB BIT\n");
-		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int) FLD_PL_IN_BASE_ADDR_0_0_7_MSB,
+		aie_dev_info(fd->dev, "MSB BIT\n");
+		aie_dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int) FLD_PL_IN_BASE_ADDR_0_0_7_MSB,
 				(unsigned int)readl(fd->fd_base + FLD_PL_IN_BASE_ADDR_0_0_7_MSB));
-		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int) FLD_PL_IN_BASE_ADDR_0_8_15_MSB,
+		aie_dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int) FLD_PL_IN_BASE_ADDR_0_8_15_MSB,
 				(unsigned int)readl(fd->fd_base + FLD_PL_IN_BASE_ADDR_0_8_15_MSB));
 
-		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int) FLD_PL_IN_BASE_ADDR_1_0_7_MSB,
+		aie_dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int) FLD_PL_IN_BASE_ADDR_1_0_7_MSB,
 				(unsigned int)readl(fd->fd_base + FLD_PL_IN_BASE_ADDR_1_0_7_MSB));
-		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int) FLD_PL_IN_BASE_ADDR_1_8_15_MSB,
+		aie_dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int) FLD_PL_IN_BASE_ADDR_1_8_15_MSB,
 				(unsigned int)readl(fd->fd_base + FLD_PL_IN_BASE_ADDR_1_8_15_MSB));
 
-		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int) FLD_PL_IN_BASE_ADDR_2_0_7_MSB,
+		aie_dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int) FLD_PL_IN_BASE_ADDR_2_0_7_MSB,
 				(unsigned int)readl(fd->fd_base + FLD_PL_IN_BASE_ADDR_2_0_7_MSB));
-		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int) FLD_PL_IN_BASE_ADDR_2_8_15_MSB,
+		aie_dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int) FLD_PL_IN_BASE_ADDR_2_8_15_MSB,
 				(unsigned int)readl(fd->fd_base + FLD_PL_IN_BASE_ADDR_2_8_15_MSB));
 
-		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int) FLD_PL_IN_BASE_ADDR_3_0_7_MSB,
+		aie_dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int) FLD_PL_IN_BASE_ADDR_3_0_7_MSB,
 				(unsigned int)readl(fd->fd_base + FLD_PL_IN_BASE_ADDR_3_0_7_MSB));
-		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int) FLD_PL_IN_BASE_ADDR_3_8_15_MSB,
+		aie_dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int) FLD_PL_IN_BASE_ADDR_3_8_15_MSB,
 				(unsigned int)readl(fd->fd_base + FLD_PL_IN_BASE_ADDR_3_8_15_MSB));
 
-		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int) FLD_SH_IN_BASE_ADDR_0_7_MSB,
+		aie_dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int) FLD_SH_IN_BASE_ADDR_0_7_MSB,
 				(unsigned int)readl(fd->fd_base + FLD_SH_IN_BASE_ADDR_0_7_MSB));
-		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int) FLD_SH_IN_BASE_ADDR_8_15_MSB,
+		aie_dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int) FLD_SH_IN_BASE_ADDR_8_15_MSB,
 				(unsigned int)readl(fd->fd_base + FLD_SH_IN_BASE_ADDR_8_15_MSB));
 
-		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int) FLD_BS_IN_BASE_ADDR_8_15_MSB,
+		aie_dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int) FLD_BS_IN_BASE_ADDR_8_15_MSB,
 				(unsigned int)readl(fd->fd_base + FLD_BS_IN_BASE_ADDR_8_15_MSB));
 
-		dev_info(fd->dev, "OUT\n");
+		aie_dev_info(fd->dev, "OUT\n");
 
-		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int) FLD_SH_IN_SIZE_0,
+		aie_dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int) FLD_SH_IN_SIZE_0,
 				(unsigned int)readl(fd->fd_base + FLD_SH_IN_SIZE_0));
-		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int) FLD_SH_IN_STRIDE_0,
+		aie_dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int) FLD_SH_IN_STRIDE_0,
 				(unsigned int)readl(fd->fd_base + FLD_SH_IN_STRIDE_0));
 
-		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int) FLD_TR_OUT_BASE_ADDR_0,
+		aie_dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int) FLD_TR_OUT_BASE_ADDR_0,
 				(unsigned int)readl(fd->fd_base + FLD_TR_OUT_BASE_ADDR_0));
-		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int) FLD_TR_OUT_SIZE_0,
+		aie_dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int) FLD_TR_OUT_SIZE_0,
 				(unsigned int)readl(fd->fd_base + FLD_TR_OUT_SIZE_0));
 
-		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int) FLD_TR_OUT_STRIDE_0,
+		aie_dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int) FLD_TR_OUT_STRIDE_0,
 				(unsigned int)readl(fd->fd_base + FLD_TR_OUT_STRIDE_0));
-		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int) FLD_PP_OUT_BASE_ADDR_0,
+		aie_dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int) FLD_PP_OUT_BASE_ADDR_0,
 				(unsigned int)readl(fd->fd_base + FLD_PP_OUT_BASE_ADDR_0));
 
-		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int) FLD_PP_OUT_SIZE_0,
+		aie_dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int) FLD_PP_OUT_SIZE_0,
 				(unsigned int)readl(fd->fd_base + FLD_PP_OUT_SIZE_0));
-		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int) FLD_PP_OUT_STRIDE_0,
+		aie_dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int) FLD_PP_OUT_STRIDE_0,
 				(unsigned int)readl(fd->fd_base + FLD_PP_OUT_STRIDE_0));
 
 		/*cv score*/
-		dev_info(fd->dev, "CV Score\n");
-		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int) FLD_BS_BIAS,
+		aie_dev_info(fd->dev, "CV Score\n");
+		aie_dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int) FLD_BS_BIAS,
 						(unsigned int)readl(fd->fd_base + FLD_BS_BIAS));
-		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int) FLD_CV_FM_RANGE_0,
+		aie_dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int) FLD_CV_FM_RANGE_0,
 					(unsigned int)readl(fd->fd_base + FLD_CV_FM_RANGE_0));
-		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int) FLD_CV_FM_RANGE_1,
+		aie_dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int) FLD_CV_FM_RANGE_1,
 					(unsigned int)readl(fd->fd_base + FLD_CV_FM_RANGE_1));
 
-		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int) FLD_CV_PM_RANGE_0,
+		aie_dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int) FLD_CV_PM_RANGE_0,
 					(unsigned int)readl(fd->fd_base + FLD_CV_PM_RANGE_0));
-		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int) FLD_CV_PM_RANGE_1,
+		aie_dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int) FLD_CV_PM_RANGE_1,
 					(unsigned int)readl(fd->fd_base + FLD_CV_PM_RANGE_1));
 
-		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int) FLD_BS_RANGE_0,
+		aie_dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int) FLD_BS_RANGE_0,
 					(unsigned int)readl(fd->fd_base + FLD_BS_RANGE_0));
-		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int) FLD_BS_RANGE_1,
+		aie_dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int) FLD_BS_RANGE_1,
 					(unsigned int)readl(fd->fd_base + FLD_BS_RANGE_1));
 
 		/*input settings*/
-		dev_info(fd->dev, "input settings\n");
-		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int) FLD_PL_IN_SIZE_0,
+		aie_dev_info(fd->dev, "input settings\n");
+		aie_dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int) FLD_PL_IN_SIZE_0,
 					(unsigned int)readl(fd->fd_base + FLD_PL_IN_SIZE_0));
-		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int) FLD_PL_IN_STRIDE_0,
+		aie_dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int) FLD_PL_IN_STRIDE_0,
 					(unsigned int)readl(fd->fd_base + FLD_PL_IN_STRIDE_0));
-		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int) FLD_PL_IN_SIZE_1,
+		aie_dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int) FLD_PL_IN_SIZE_1,
 					(unsigned int)readl(fd->fd_base + FLD_PL_IN_SIZE_1));
 
-		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int) FLD_PL_IN_STRIDE_1,
+		aie_dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int) FLD_PL_IN_STRIDE_1,
 					(unsigned int)readl(fd->fd_base + FLD_PL_IN_STRIDE_1));
-		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int) FLD_PL_IN_SIZE_2_0,
+		aie_dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int) FLD_PL_IN_SIZE_2_0,
 					(unsigned int)readl(fd->fd_base + FLD_PL_IN_SIZE_2_0));
 
-		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int) FLD_PL_IN_STRIDE_2_0,
+		aie_dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int) FLD_PL_IN_STRIDE_2_0,
 					(unsigned int)readl(fd->fd_base + FLD_PL_IN_STRIDE_2_0));
-		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int) FLD_PL_IN_SIZE_2_1,
+		aie_dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int) FLD_PL_IN_SIZE_2_1,
 					(unsigned int)readl(fd->fd_base + FLD_PL_IN_SIZE_2_1));
 
-		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int) FLD_PL_IN_STRIDE_2_1,
+		aie_dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int) FLD_PL_IN_STRIDE_2_1,
 					(unsigned int)readl(fd->fd_base + FLD_PL_IN_STRIDE_2_1));
 
-		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int) FLD_PL_IN_SIZE_2_2,
+		aie_dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int) FLD_PL_IN_SIZE_2_2,
 					(unsigned int)readl(fd->fd_base + FLD_PL_IN_SIZE_2_2));
-		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int) FLD_PL_IN_STRIDE_2_2,
+		aie_dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int) FLD_PL_IN_STRIDE_2_2,
 					(unsigned int)readl(fd->fd_base + FLD_PL_IN_STRIDE_2_2));
 
-		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int) FLD_PL_IN_SIZE_3,
+		aie_dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int) FLD_PL_IN_SIZE_3,
 					(unsigned int)readl(fd->fd_base + FLD_PL_IN_SIZE_3));
-		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int) FLD_PL_IN_STRIDE_3,
+		aie_dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int) FLD_PL_IN_STRIDE_3,
 					(unsigned int)readl(fd->fd_base + FLD_PL_IN_STRIDE_3));
 
 	} else {
-		dev_info(fd->dev, "- E.");
-		dev_info(fd->dev, "FDVT Config Info\n");
-		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int)AIE_START_REG,
+		aie_dev_info(fd->dev, "- E.");
+		aie_dev_info(fd->dev, "FDVT Config Info\n");
+		aie_dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int)AIE_START_REG,
 		(unsigned int)readl(fd->fd_base + AIE_START_REG));
-		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int)AIE_ENABLE_REG,
+		aie_dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int)AIE_ENABLE_REG,
 			(unsigned int)readl(fd->fd_base + AIE_ENABLE_REG));
-		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int)AIE_LOOP_REG,
+		aie_dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int)AIE_LOOP_REG,
 			(unsigned int)readl(fd->fd_base + AIE_LOOP_REG));
-		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int)AIE_INT_EN_REG,
+		aie_dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int)AIE_INT_EN_REG,
 			(unsigned int)readl(fd->fd_base + AIE_INT_EN_REG));
-		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int)FDVT_SRC_WD_HT,
+		aie_dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int)FDVT_SRC_WD_HT,
 			(unsigned int)readl(fd->fd_base + FDVT_SRC_WD_HT));
-		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int)FDVT_DES_WD_HT,
+		aie_dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int)FDVT_DES_WD_HT,
 			(unsigned int)readl(fd->fd_base + FDVT_DES_WD_HT));
-		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int)FDVT_DEBUG_INFO_0,
+		aie_dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int)FDVT_DEBUG_INFO_0,
 			(unsigned int)readl(fd->fd_base + FDVT_DEBUG_INFO_0));
-		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int)FDVT_DEBUG_INFO_1,
+		aie_dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int)FDVT_DEBUG_INFO_1,
 			(unsigned int)readl(fd->fd_base + FDVT_DEBUG_INFO_1));
-		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int)FDVT_YUV2RGB_CON,
+		aie_dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int)FDVT_YUV2RGB_CON,
 			(unsigned int)readl(fd->fd_base + FDVT_YUV2RGB_CON));
-		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int)AIE_RS_CON_BASE_ADR_REG,
+		aie_dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int)AIE_RS_CON_BASE_ADR_REG,
 			(unsigned int)readl(fd->fd_base + AIE_RS_CON_BASE_ADR_REG));
-		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int)AIE_FD_CON_BASE_ADR_REG,
+		aie_dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int)AIE_FD_CON_BASE_ADR_REG,
 			(unsigned int)readl(fd->fd_base + AIE_FD_CON_BASE_ADR_REG));
-		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int)AIE_YUV2RGB_CON_BASE_ADR_REG,
+		aie_dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int)AIE_YUV2RGB_CON_BASE_ADR_REG,
 			(unsigned int)readl(fd->fd_base + AIE_YUV2RGB_CON_BASE_ADR_REG));
-		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int)FDVT_IN_BASE_ADR_0,
+		aie_dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int)FDVT_IN_BASE_ADR_0,
 			(unsigned int)readl(fd->fd_base + FDVT_IN_BASE_ADR_0));
-		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int)FDVT_IN_BASE_ADR_1,
+		aie_dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int)FDVT_IN_BASE_ADR_1,
 			(unsigned int)readl(fd->fd_base + FDVT_IN_BASE_ADR_1));
-		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int)FDVT_IN_BASE_ADR_2,
+		aie_dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int)FDVT_IN_BASE_ADR_2,
 			(unsigned int)readl(fd->fd_base + FDVT_IN_BASE_ADR_2));
-		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int)FDVT_IN_BASE_ADR_3,
+		aie_dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int)FDVT_IN_BASE_ADR_3,
 			(unsigned int)readl(fd->fd_base + FDVT_IN_BASE_ADR_3));
-		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int)FDVT_OUT_BASE_ADR_0,
+		aie_dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int)FDVT_OUT_BASE_ADR_0,
 			(unsigned int)readl(fd->fd_base + FDVT_OUT_BASE_ADR_0));
-		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int)FDVT_OUT_BASE_ADR_1,
+		aie_dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int)FDVT_OUT_BASE_ADR_1,
 			(unsigned int)readl(fd->fd_base + FDVT_OUT_BASE_ADR_1));
-		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int)FDVT_OUT_BASE_ADR_2,
+		aie_dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int)FDVT_OUT_BASE_ADR_2,
 			(unsigned int)readl(fd->fd_base + FDVT_OUT_BASE_ADR_2));
-		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int)FDVT_OUT_BASE_ADR_3,
+		aie_dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int)FDVT_OUT_BASE_ADR_3,
 			(unsigned int)readl(fd->fd_base + FDVT_OUT_BASE_ADR_3));
-		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int)FDVT_KERNEL_BASE_ADR_0,
+		aie_dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int)FDVT_KERNEL_BASE_ADR_0,
 			(unsigned int)readl(fd->fd_base + FDVT_KERNEL_BASE_ADR_0));
-		dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int)FDVT_KERNEL_BASE_ADR_1,
+		aie_dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int)FDVT_KERNEL_BASE_ADR_1,
 			(unsigned int)readl(fd->fd_base + FDVT_KERNEL_BASE_ADR_1));
 
-		dev_info(fd->dev,
+		aie_dev_info(fd->dev,
 			"fdmode_fdvt_yuv2rgb_config:	0x%lx, fdmode_fdvt_yuv2rgb_config_size:	%d",
 			(unsigned long)fd->base_para->fd_yuv2rgb_cfg_va, fd->fd_yuv2rgb_cfg_size);
 		FDVT_DumpDRAMOut(fd, (u32 *)fd->base_para->fd_yuv2rgb_cfg_va,
 								fd->fd_yuv2rgb_cfg_size);
-		dev_info(fd->dev,
+		aie_dev_info(fd->dev,
 			"fdmode_fdvt_rs_config:	  0x%lx, fdmode_fdvt_rs_config_size:	 %d",
 			(unsigned long)fd->base_para->fd_rs_cfg_va, fd->fd_rs_cfg_size);
 		FDVT_DumpDRAMOut(fd, (u32 *)fd->base_para->fd_rs_cfg_va, fd->fd_rs_cfg_size);
 
 		loop_num = (unsigned int)readl(fd->fd_base + FDVT_DEBUG_INFO_0) & 0xFF;
 
-		dev_info(fd->dev,
+		aie_dev_info(fd->dev,
 			"fdmode_fdvt_fd_config:	0x%lx, fdmode_fdvt_fd_config_size:	%d",
 			(unsigned long)fd->base_para->fd_fd_cfg_va,
 			((fd->fd_fd_cfg_aligned_size)/87) * loop_num);
 		FDVT_DumpDRAMOut(fd, (u32 *)fd->base_para->fd_fd_cfg_va,
 			((fd->fd_fd_cfg_aligned_size)/87) * loop_num);
 
-		dev_info(fd->dev, "FDVT DMA Debug Info\n");
+		aie_dev_info(fd->dev, "FDVT DMA Debug Info\n");
 
 		writel(((unsigned int)readl(fd->fd_base + FDVT_CTRL_REG)) & 0xFFFFF00B,
 					fd->fd_base + DMA_DEBUG_SEL_REG); //0x3f4
 		writel(((unsigned int)readl(fd->fd_base + FDVT_CTRL_REG)) & 0xFFFF1FFF,
 					fd->fd_base + FDVT_CTRL_REG); //0x0098 bit[15:13] = 0
-		dev_info(fd->dev, "[FDVT_CTRL]: 0x%08lX %08X\n",
+		aie_dev_info(fd->dev, "[FDVT_CTRL]: 0x%08lX %08X\n",
 		  ((unsigned long)fd->fd_base + FDVT_CTRL_REG),
 		  (unsigned int)readl(fd->fd_base + FDVT_CTRL_REG));
-		dev_info(fd->dev, "[FDVT_DEBUG_INFO_2 - %x]: 0x%08lX %08X\n", i,
+		aie_dev_info(fd->dev, "[FDVT_DEBUG_INFO_2 - %x]: 0x%08lX %08X\n", i,
 			((unsigned long)fd->fd_base + FDVT_DEBUG_INFO_2),
 			(unsigned int)readl(fd->fd_base + FDVT_DEBUG_INFO_2));
 
@@ -1043,10 +1043,10 @@ static void aie_fdvt_dump_reg(struct mtk_aie_dev *fd)
 			fd->fd_base + DMA_DEBUG_SEL_REG);
 		writel(((unsigned int)readl(fd->fd_base + FDVT_CTRL_REG)) & 0xFFFF1FFF,
 			fd->fd_base + FDVT_CTRL_REG); //0x0098 bit[15:13] = 0
-		dev_info(fd->dev, "[FDVT_CTRL]: 0x%08lX %08X\n",
+		aie_dev_info(fd->dev, "[FDVT_CTRL]: 0x%08lX %08X\n",
 		  ((unsigned long)fd->fd_base + FDVT_CTRL_REG),
 		  (unsigned int)readl(fd->fd_base + FDVT_CTRL_REG));
-		dev_info(fd->dev, "[FDVT_DEBUG_INFO_2 - %x]: 0x%08lX %08X\n", i,
+		aie_dev_info(fd->dev, "[FDVT_DEBUG_INFO_2 - %x]: 0x%08lX %08X\n", i,
 			((unsigned long)fd->fd_base + FDVT_DEBUG_INFO_2),
 			(unsigned int)readl(fd->fd_base + FDVT_DEBUG_INFO_2));
 
@@ -1054,10 +1054,10 @@ static void aie_fdvt_dump_reg(struct mtk_aie_dev *fd)
 			fd->fd_base + DMA_DEBUG_SEL_REG);
 		writel(((unsigned int)readl(fd->fd_base + FDVT_CTRL_REG)) & 0xFFFF1FFF,
 			fd->fd_base + FDVT_CTRL_REG); //0x0098 bit[15:13] = 0
-		dev_info(fd->dev, "[FDVT_CTRL]: 0x%08lX %08X\n",
+		aie_dev_info(fd->dev, "[FDVT_CTRL]: 0x%08lX %08X\n",
 		  ((unsigned long)fd->fd_base + FDVT_CTRL_REG),
 		  (unsigned int)readl(fd->fd_base + FDVT_CTRL_REG));
-		dev_info(fd->dev, "[FDVT_DEBUG_INFO_2 - %x]: 0x%08lX %08X\n", i,
+		aie_dev_info(fd->dev, "[FDVT_DEBUG_INFO_2 - %x]: 0x%08lX %08X\n", i,
 			((unsigned long)fd->fd_base + FDVT_DEBUG_INFO_2),
 			(unsigned int)readl(fd->fd_base + FDVT_DEBUG_INFO_2));
 
@@ -1065,16 +1065,16 @@ static void aie_fdvt_dump_reg(struct mtk_aie_dev *fd)
 			fd->fd_base + DMA_DEBUG_SEL_REG);
 		writel(((unsigned int)readl(fd->fd_base + FDVT_CTRL_REG)) & 0xFFFF1FFF,
 			fd->fd_base + FDVT_CTRL_REG); //0x0098 bit[15:13] = 0
-		dev_info(fd->dev, "[FDVT_CTRL]: 0x%08lX %08X\n",
+		aie_dev_info(fd->dev, "[FDVT_CTRL]: 0x%08lX %08X\n",
 		  ((unsigned long)fd->fd_base + FDVT_CTRL_REG),
 		  (unsigned int)readl(fd->fd_base + FDVT_CTRL_REG));
-		dev_info(fd->dev, "[FDVT_DEBUG_INFO_2 - %x]: 0x%08lX %08X\n", i,
+		aie_dev_info(fd->dev, "[FDVT_DEBUG_INFO_2 - %x]: 0x%08lX %08X\n", i,
 			((unsigned long)fd->fd_base + FDVT_DEBUG_INFO_2),
 			(unsigned int)readl(fd->fd_base + FDVT_DEBUG_INFO_2));
 
 		writel(((unsigned int)readl(fd->fd_base + FDVT_CTRL_REG)) & 0xFFFF1FFF,
 			fd->fd_base + FDVT_CTRL_REG);
-		dev_info(fd->dev, "[FDVT_CTRL - %x]: 0x%08lX %08X\n", i,
+		aie_dev_info(fd->dev, "[FDVT_CTRL - %x]: 0x%08lX %08X\n", i,
 		  ((unsigned long)fd->fd_base + FDVT_CTRL_REG),
 		  (unsigned int)readl(fd->fd_base + FDVT_CTRL_REG));
 
@@ -1086,18 +1086,18 @@ static void aie_fdvt_dump_reg(struct mtk_aie_dev *fd)
 				continue;
 			writel((((unsigned int)readl(fd->fd_base + DMA_DEBUG_SEL_REG)) &
 			   0xFFFF00FF) | (i << 8), fd->fd_base + DMA_DEBUG_SEL_REG);
-			dev_info(fd->dev, "[FDVT_DEBUG_SEL - %x]: 0x%08lX %08X\n", i,
+			aie_dev_info(fd->dev, "[FDVT_DEBUG_SEL - %x]: 0x%08lX %08X\n", i,
 				((unsigned long)fd->fd_base + DMA_DEBUG_SEL_REG),
 				(unsigned int)readl(fd->fd_base + DMA_DEBUG_SEL_REG));
 
-			dev_info(fd->dev, "[FDVT_DEBUG_INFO_2 - %x]: 0x%08lX %08X\n", i,
+			aie_dev_info(fd->dev, "[FDVT_DEBUG_INFO_2 - %x]: 0x%08lX %08X\n", i,
 				((unsigned long)fd->fd_base + FDVT_DEBUG_INFO_2),
 				(unsigned int)readl(fd->fd_base + FDVT_DEBUG_INFO_2));
 		}
 
-		dev_info(fd->dev, "FDVT SMI Debug Info\n");
-		dev_info(fd->dev, "FDVT Write FDVT_A_DMA_DEBUG_SEL[15:8] = 0x1\n");
-		dev_info(fd->dev, "FDVT Write FDVT_A_DMA_DEBUG_SEL[23:16] = 0x0\n");
+		aie_dev_info(fd->dev, "FDVT SMI Debug Info\n");
+		aie_dev_info(fd->dev, "FDVT Write FDVT_A_DMA_DEBUG_SEL[15:8] = 0x1\n");
+		aie_dev_info(fd->dev, "FDVT Write FDVT_A_DMA_DEBUG_SEL[23:16] = 0x0\n");
 		writel((((unsigned int)readl(fd->fd_base + DMA_DEBUG_SEL_REG)) &
 			0xFFFF00FF) | (1 << 8), fd->fd_base + DMA_DEBUG_SEL_REG);
 		writel(((unsigned int)readl(fd->fd_base + DMA_DEBUG_SEL_REG))
@@ -1106,17 +1106,17 @@ static void aie_fdvt_dump_reg(struct mtk_aie_dev *fd)
 		for (i = 1; i <= 0xe; i++) {
 			writel((((unsigned int)readl(fd->fd_base + DMA_DEBUG_SEL_REG)) &
 				0xFFFFFF00) | i, fd->fd_base + DMA_DEBUG_SEL_REG);
-			dev_info(fd->dev, "[FDVT_DEBUG_SEL SMI - %x]: 0x%08lX %08X\n", i,
+			aie_dev_info(fd->dev, "[FDVT_DEBUG_SEL SMI - %x]: 0x%08lX %08X\n", i,
 				((unsigned long)fd->fd_base + DMA_DEBUG_SEL_REG),
 				(unsigned int)readl(fd->fd_base + DMA_DEBUG_SEL_REG));
-			dev_info(fd->dev, "[FDVT_DEBUG_INFO_2 SMI - %x]: 0x%08lX %08X\n", i,
+			aie_dev_info(fd->dev, "[FDVT_DEBUG_INFO_2 SMI - %x]: 0x%08lX %08X\n", i,
 				((unsigned long)fd->fd_base + FDVT_DEBUG_INFO_2),
 				(unsigned int)readl(fd->fd_base + FDVT_DEBUG_INFO_2));
 		}
 
-		dev_info(fd->dev, "FDVT fifo_debug_data_case1\n");
-		dev_info(fd->dev, "FDVT Write FDVT_A_DMA_DEBUG_SEL[15:8] = 0x2\n");
-		dev_info(fd->dev, "FDVT Write FDVT_A_DMA_DEBUG_SEL[23:16] = 0x1\n");
+		aie_dev_info(fd->dev, "FDVT fifo_debug_data_case1\n");
+		aie_dev_info(fd->dev, "FDVT Write FDVT_A_DMA_DEBUG_SEL[15:8] = 0x2\n");
+		aie_dev_info(fd->dev, "FDVT Write FDVT_A_DMA_DEBUG_SEL[23:16] = 0x1\n");
 		writel((((unsigned int)readl(fd->fd_base + DMA_DEBUG_SEL_REG)) &
 			0xFFFF00FF) | (2 << 8), fd->fd_base + DMA_DEBUG_SEL_REG);
 		writel((((unsigned int)readl(fd->fd_base + DMA_DEBUG_SEL_REG)) &
@@ -1125,17 +1125,17 @@ static void aie_fdvt_dump_reg(struct mtk_aie_dev *fd)
 		for (i = 1; i <= 0xe; i++) {
 			writel((((unsigned int)readl(fd->fd_base + DMA_DEBUG_SEL_REG)) &
 				0xFFFFFF00) | i, fd->fd_base + DMA_DEBUG_SEL_REG);
-			dev_info(fd->dev, "[FDVT_DEBUG_SEL SMI - %x]: 0x%08lX %08X\n", i,
+			aie_dev_info(fd->dev, "[FDVT_DEBUG_SEL SMI - %x]: 0x%08lX %08X\n", i,
 				((unsigned long)fd->fd_base + DMA_DEBUG_SEL_REG),
 				(unsigned int)readl(fd->fd_base + DMA_DEBUG_SEL_REG));
-			dev_info(fd->dev, "[FDVT_DEBUG_INFO_2 SMI - %x]: 0x%08lX %08X\n", i,
+			aie_dev_info(fd->dev, "[FDVT_DEBUG_INFO_2 SMI - %x]: 0x%08lX %08X\n", i,
 				((unsigned long)fd->fd_base + FDVT_DEBUG_INFO_2),
 				(unsigned int)readl(fd->fd_base + FDVT_DEBUG_INFO_2));
 		}
 
-		dev_info(fd->dev, "FDVT fifo_debug_data_case3\n");
-		dev_info(fd->dev, "FDVT Write FDVT_A_DMA_DEBUG_SEL[15:8] = 0x2\n");
-		dev_info(fd->dev, "FDVT Write FDVT_A_DMA_DEBUG_SEL[23:16] = 0x3\n");
+		aie_dev_info(fd->dev, "FDVT fifo_debug_data_case3\n");
+		aie_dev_info(fd->dev, "FDVT Write FDVT_A_DMA_DEBUG_SEL[15:8] = 0x2\n");
+		aie_dev_info(fd->dev, "FDVT Write FDVT_A_DMA_DEBUG_SEL[23:16] = 0x3\n");
 		writel((((unsigned int)readl(fd->fd_base + DMA_DEBUG_SEL_REG)) &
 			0xFFFF00FF) | (2 << 8), fd->fd_base + DMA_DEBUG_SEL_REG);
 		writel((((unsigned int)readl(fd->fd_base + DMA_DEBUG_SEL_REG)) &
@@ -1144,10 +1144,10 @@ static void aie_fdvt_dump_reg(struct mtk_aie_dev *fd)
 		for (i = 1; i <= 0xe; i++) {
 			writel((((unsigned int)readl(fd->fd_base + DMA_DEBUG_SEL_REG)) &
 			   0xFFFFFF00) | i, fd->fd_base + DMA_DEBUG_SEL_REG);
-			dev_info(fd->dev, "[FDVT_DEBUG_SEL SMI - %x]: 0x%08lX %08X\n", i,
+			aie_dev_info(fd->dev, "[FDVT_DEBUG_SEL SMI - %x]: 0x%08lX %08X\n", i,
 				((unsigned long)fd->fd_base + DMA_DEBUG_SEL_REG),
 				(unsigned int)readl(fd->fd_base + DMA_DEBUG_SEL_REG));
-			dev_info(fd->dev, "[FDVT_DEBUG_INFO_2 SMI - %x]: 0x%08lX %08X\n", i,
+			aie_dev_info(fd->dev, "[FDVT_DEBUG_INFO_2 SMI - %x]: 0x%08lX %08X\n", i,
 				((unsigned long)fd->fd_base + FDVT_DEBUG_INFO_2),
 				(unsigned int)readl(fd->fd_base + FDVT_DEBUG_INFO_2));
 		}
@@ -1193,14 +1193,14 @@ struct dma_buf *aie_imem_sec_alloc(struct mtk_aie_dev *fd, u32 size, bool IsSecu
 
 
 	if (!dma_heap) {
-		dev_info(fd->dev, "heap find fail\n");
+		aie_dev_info(fd->dev, "heap find fail\n");
 		return NULL;
 	}
 
 	my_dma_buf = dma_heap_buffer_alloc(dma_heap, size, O_RDWR |
 		O_CLOEXEC, DMA_HEAP_VALID_HEAP_FLAGS);
 	if (IS_ERR(my_dma_buf)) {
-		dev_info(fd->dev, "buffer alloc fail\n");
+		aie_dev_info(fd->dev, "buffer alloc fail\n");
 		dma_heap_put(dma_heap);
 		return NULL;
 	}
@@ -1217,14 +1217,14 @@ unsigned long long aie_get_sec_iova(struct mtk_aie_dev *fd, struct dma_buf *my_d
 
 	attach = dma_buf_attach(my_dma_buf, fd->dev);
 	if (IS_ERR(attach)) {
-		dev_info(fd->dev, "attach fail, return\n");
+		aie_dev_info(fd->dev, "attach fail, return\n");
 		return 0;
 	}
 	bufinfo->attach = attach;
 
 	sgt = dma_buf_map_attachment(attach, DMA_BIDIRECTIONAL);
 	if (IS_ERR(sgt)) {
-		dev_info(fd->dev, "map failed, detach and return\n");
+		aie_dev_info(fd->dev, "map failed, detach and return\n");
 		dma_buf_detach(my_dma_buf, attach);
 		return 0;
 	}
@@ -1243,14 +1243,14 @@ void *aie_get_va(struct mtk_aie_dev *fd, struct dma_buf *my_dma_buf,
 
 	ret = dma_buf_vmap(my_dma_buf, &bufinfo->map);
 	if (ret) {
-		dev_info(fd->dev, "%s, map kernel va failed\n", __func__);
+		aie_dev_info(fd->dev, "%s, map kernel va failed\n", __func__);
 		return NULL;
 	}
 
 	buf_ptr = bufinfo->map.vaddr;
 
 	if (!buf_ptr) {
-		dev_info(fd->dev, "map failed\n");
+		aie_dev_info(fd->dev, "map failed\n");
 		return NULL;
 	}
 	return buf_ptr;
@@ -3645,7 +3645,7 @@ static int aie_update_cfg(struct mtk_aie_dev *fd, struct aie_enq_info *aie_cfg)
 	}
 
 	if (crop_width == 0 || crop_height == 0) {
-		dev_info(fd->dev, "AIE error:crop size is wrong");
+		aie_dev_info(fd->dev, "AIE error:crop size is wrong");
 		return -EINVAL;
 	}
 
@@ -3748,7 +3748,7 @@ static int aie_config_y2r(struct mtk_aie_dev *fd, struct aie_enq_info *aie_cfg,
 				aie_cfg->src_img_stride * aie_cfg->src_roi.y1 +
 				aie_cfg->src_roi.x1 * 2;
 		} else {
-			dev_info(fd->dev,
+			aie_dev_info(fd->dev,
 				 "AIE error: Unsupport input format %d",
 				 aie_cfg->src_img_fmt);
 			return -EINVAL;
@@ -3780,7 +3780,7 @@ static int aie_config_y2r(struct mtk_aie_dev *fd, struct aie_enq_info *aie_cfg,
 				->attr_yuv2rgb_cfg_va[fd->attr_para->w_idx];
 		pym0_out_w = ATTR_MODE_PYRAMID_WIDTH;
 	} else {
-		dev_info(fd->dev,
+		aie_dev_info(fd->dev,
 				"YUV2RGB not support %d", mode);
 		return -EINVAL;
 	}
@@ -4740,7 +4740,7 @@ static int aie_alloc_aie_buf(struct mtk_aie_dev *fd)
 		goto fld_fail;
 #endif
 
-	dev_info(fd->dev,
+	aie_dev_info(fd->dev,
 	"c(%llx/%llx/%llx)o(%llx/%llx/%llx/%llx/%llx)f(%llx/%llx/%llx/%llx/%llx/%llx/%llx)\n",
 		fd->rs_cfg_data.pa, fd->fd_cfg_data.pa, fd->yuv2rgb_cfg_data.pa,
 		fd->rs_output_hw.pa, fd->fd_dma_hw.pa, fd->fd_dma_result_hw.pa,
@@ -4782,7 +4782,7 @@ dram_fail:
 	fd->dma_para = NULL;
 	err_tag++;
 
-	dev_info(fd->dev, "Failed to alloc aie buf: %d\n", err_tag);
+	aie_dev_info(fd->dev, "Failed to alloc aie buf: %d\n", err_tag);
 	return ret;
 
 
@@ -4858,7 +4858,7 @@ attr_para_fail:
 	fd->base_para = NULL;
 	err_tag++;
 
-	dev_info(fd->dev, "Failed to init aie: %d\n", err_tag);
+	aie_dev_info(fd->dev, "Failed to init aie: %d\n", err_tag);
 
 	return -ENOMEM;
 }
@@ -4902,7 +4902,7 @@ static int aie_prepare(struct mtk_aie_dev *fd, struct aie_enq_info *aie_cfg)
 	int ret = 0;
 
 	if (fd->fd_state != STATE_INIT) {
-		dev_info(fd->dev, "%s fd state fail: %d\n",
+		aie_dev_info(fd->dev, "%s fd state fail: %d\n",
 			 __func__, fd->fd_state);
 		return -EINVAL;
 	}
@@ -4922,11 +4922,11 @@ static int aie_prepare(struct mtk_aie_dev *fd, struct aie_enq_info *aie_cfg)
 			fd->base_para->max_pyramid_height ||
 		    aie_cfg->number_of_pyramid > 3 ||
 		    aie_cfg->number_of_pyramid <= 0) {
-			dev_info(fd->dev, "err: base w: %d, h: %d, num: %d\n",
+			aie_dev_info(fd->dev, "err: base w: %d, h: %d, num: %d\n",
 			    aie_cfg->pyramid_base_width,
 			    aie_cfg->pyramid_base_height,
 			    aie_cfg->number_of_pyramid);
-			dev_info(fd->dev, "err: max w: %d, h: %d\n",
+			aie_dev_info(fd->dev, "err: max w: %d, h: %d\n",
 			    fd->base_para->max_pyramid_width,
 			    fd->base_para->max_pyramid_height);
 
@@ -4939,7 +4939,7 @@ static int aie_prepare(struct mtk_aie_dev *fd, struct aie_enq_info *aie_cfg)
 			aie_cfg->number_of_pyramid;
 		if (aie_cfg->pyramid_base_width !=
 			fd->base_para->pyramid_width) {
-			dev_dbg(fd->dev, "pre: %d, cur: %d, num: %d\n",
+			aie_dev_dbg(fd->dev, "pre: %d, cur: %d, num: %d\n",
 				fd->base_para->pyramid_width,
 				aie_cfg->pyramid_base_width,
 				fd->base_para->number_of_pyramid);
@@ -4954,12 +4954,12 @@ static int aie_prepare(struct mtk_aie_dev *fd, struct aie_enq_info *aie_cfg)
 
 	if ((aie_cfg->src_img_width > fd->base_para->max_img_width) ||
 	    (aie_cfg->src_img_height > fd->base_para->max_img_height)) {
-		dev_info(
+		aie_dev_info(
 			fd->dev,
 			"AIE error: Enque Size error, Src_WD: %d, Src_HT: %d\n",
 			aie_cfg->src_img_width, aie_cfg->src_img_height);
 
-		dev_info(fd->dev, "AIE error: MAX_Src_WD: %d, MAX_Src_HT: %d\n",
+		aie_dev_info(fd->dev, "AIE error: MAX_Src_WD: %d, MAX_Src_HT: %d\n",
 			 fd->base_para->max_img_width,
 			 fd->base_para->max_img_height);
 		return -EINVAL;
@@ -4983,7 +4983,7 @@ static int aie_prepare(struct mtk_aie_dev *fd, struct aie_enq_info *aie_cfg)
 			(u32)fd->base_para
 				->attr_fd_cfg_pa[fd->attr_para->w_idx];
 	} else {
-		dev_info(fd->dev, "AIE error, Mode: %d", aie_cfg->sel_mode);
+		aie_dev_info(fd->dev, "AIE error, Mode: %d", aie_cfg->sel_mode);
 		return -EINVAL;
 	}
 
@@ -5015,7 +5015,7 @@ static void AIECmdqSecCB(struct cmdq_cb_data data)
 {
 	struct mtk_aie_dev *fd = (struct mtk_aie_dev *)data.data;
 
-	dev_info(fd->dev, "AIE SEC CMDQ CB\n");
+	aie_dev_info(fd->dev, "AIE SEC CMDQ CB\n");
 }
 
 

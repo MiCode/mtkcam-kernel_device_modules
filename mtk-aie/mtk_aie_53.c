@@ -50,6 +50,9 @@
 #define CHECK_SERVICE_1 1
 #define AOV_NOTIFY_AIE_AVAIL 1
 
+int aie_log_level_value;
+module_param(aie_log_level_value, int, 0644);
+
 struct mtk_aie_user_para g_user_param;
 static struct device *aie_pm_dev;
 static struct platform_device *gaov_dev;
@@ -173,25 +176,25 @@ static int mtk_aie_suspend(struct device *dev)
 
 
 	num = atomic_read(&fd->num_composing);
-	dev_dbg(dev, "%s: suspend aie job start, num(%d)\n", __func__, num);
+	aie_dev_dbg(dev, "%s: suspend aie job start, num(%d)\n", __func__, num);
 
 	ret = wait_event_timeout
 		(fd->flushing_waitq,
 		 !(num = atomic_read(&fd->num_composing)),
 		 msecs_to_jiffies(MTK_FD_HW_TIMEOUT));
 	if (!ret && num) {
-		dev_info(dev, "%s: flushing aie job timeout, num(%d)\n",
+		aie_dev_info(dev, "%s: flushing aie job timeout, num(%d)\n",
 			__func__, num);
 
 		return -EBUSY;
 	}
 
-	dev_dbg(dev, "%s: suspend aie job end, num(%d)\n", __func__, num);
+	aie_dev_dbg(dev, "%s: suspend aie job end, num(%d)\n", __func__, num);
 
 	if (fd->larb_clk_ready) {
 		ret = pm_runtime_put_sync(dev);
 		if (ret) {
-			dev_info(dev, "%s: pm_runtime_put_sync failed:(%d)\n",
+			aie_dev_info(dev, "%s: pm_runtime_put_sync failed:(%d)\n",
 				__func__, ret);
 			return ret;
 		}
@@ -205,11 +208,11 @@ static int mtk_aie_resume(struct device *dev)
 	struct mtk_aie_dev *fd = dev_get_drvdata(dev);
 	int ret;
 
-	dev_dbg(dev, "%s: resume aie job start)\n", __func__);
+	aie_dev_dbg(dev, "%s: resume aie job start)\n", __func__);
 
 	if (fd->larb_clk_ready) {
 		if (pm_runtime_suspended(dev)) {
-			dev_dbg(dev, "%s: pm_runtime_suspended is true, no action\n",
+			aie_dev_dbg(dev, "%s: pm_runtime_suspended is true, no action\n",
 				__func__);
 			return 0;
 		}
@@ -222,13 +225,13 @@ static int mtk_aie_resume(struct device *dev)
 	if (fd->larb_clk_ready) {
 		ret = pm_runtime_get_sync(dev);
 		if (ret) {
-			dev_info(dev, "%s: pm_runtime_get_sync failed:(%d)\n",
+			aie_dev_info(dev, "%s: pm_runtime_get_sync failed:(%d)\n",
 				__func__, ret);
 			return ret;
 		}
 	}
 
-	dev_dbg(dev, "%s: resume aie job end)\n", __func__);
+	aie_dev_dbg(dev, "%s: resume aie job end)\n", __func__);
 
 	return 0;
 }
@@ -286,12 +289,12 @@ static void mtk_aie_mmdvfs_init(struct mtk_aie_dev *fd)
 	dvfs_info->dev = fd->dev;
 	ret = dev_pm_opp_of_add_table(dvfs_info->dev);
 	if (ret < 0) {
-		dev_info(dvfs_info->dev, "fail to init opp table: %d\n", ret);
+		aie_dev_info(dvfs_info->dev, "fail to init opp table: %d\n", ret);
 		return;
 	}
 	dvfs_info->reg = devm_regulator_get(dvfs_info->dev, "dvfsrc-vcore");
 	if (IS_ERR(dvfs_info->reg)) {
-		dev_info(dvfs_info->dev, "can't get dvfsrc-vcore\n");
+		aie_dev_info(dvfs_info->dev, "can't get dvfsrc-vcore\n");
 		return;
 	}
 
@@ -300,7 +303,7 @@ static void mtk_aie_mmdvfs_init(struct mtk_aie_dev *fd)
 		&it, ret, dvfs_info->dev->of_node, "operating-points-v2", NULL, 0) {
 		np = of_node_get(it.node);
 		if (!np) {
-			dev_info(dvfs_info->dev, "of_node_get fail\n");
+			aie_dev_info(dvfs_info->dev, "of_node_get fail\n");
 			return;
 		}
 
@@ -325,7 +328,7 @@ static void mtk_aie_mmdvfs_init(struct mtk_aie_dev *fd)
 	opp_num = opp_idx;
 	for (opp_idx = 0; opp_idx < opp_num; opp_idx++) {
 		for (idx = 0; idx < dvfs_info->clklv_num[opp_idx]; idx++) {
-			dev_dbg(dvfs_info->dev, "[%s] opp=%d, idx=%d, clk=%d volt=%d\n",
+			aie_dev_dbg(dvfs_info->dev, "[%s] opp=%d, idx=%d, clk=%d volt=%d\n",
 				__func__, opp_idx, idx, dvfs_info->clklv[opp_idx][idx],
 				dvfs_info->voltlv[opp_idx][idx]);
 		}
@@ -358,7 +361,7 @@ static void mtk_aie_mmdvfs_set(struct mtk_aie_dev *fd,
 	volt = dvfs_info->voltlv[opp_idx][idx];
 
 	if (dvfs_info->cur_volt != volt) {
-		dev_dbg(dvfs_info->dev, "[%s] volt change opp=%d, idx=%d, clk=%d volt=%d\n",
+		aie_dev_dbg(dvfs_info->dev, "[%s] volt change opp=%d, idx=%d, clk=%d volt=%d\n",
 			__func__, opp_idx, idx, dvfs_info->clklv[opp_idx][idx],
 			dvfs_info->voltlv[opp_idx][idx]);
 		ret = regulator_set_voltage(dvfs_info->reg, volt, INT_MAX);
@@ -383,7 +386,7 @@ static void mtk_aie_mmqos_init(struct mtk_aie_dev *fd)
 			of_mtk_icc_get(qos_info->dev, qos_info->qos_path[idx].dts_name);
 
 		qos_info->qos_path[idx].bw = 0;
-		dev_dbg(qos_info->dev, "[%s] idx=%d, path=%p, name=%s, bw=%d\n",
+		aie_dev_dbg(qos_info->dev, "[%s] idx=%d, path=%p, name=%s, bw=%d\n",
 			__func__, idx,
 			qos_info->qos_path[idx].path,
 			qos_info->qos_path[idx].dts_name,
@@ -398,10 +401,10 @@ static void mtk_aie_mmqos_uninit(struct mtk_aie_dev *fd)
 
 	for (idx = 0; idx < AIE_QOS_MAX; idx++) {
 		if (qos_info->qos_path[idx].path == NULL) {
-			dev_dbg(qos_info->dev, "[%s] path of idx(%d) is NULL\n", __func__, idx);
+			aie_dev_dbg(qos_info->dev, "[%s] path of idx(%d) is NULL\n", __func__, idx);
 			continue;
 		}
-		dev_dbg(qos_info->dev, "[%s] idx=%d, path=%p, bw=%d\n",
+		aie_dev_dbg(qos_info->dev, "[%s] idx=%d, path=%p, bw=%d\n",
 			__func__, idx,
 			qos_info->qos_path[idx].path,
 			qos_info->qos_path[idx].bw);
@@ -428,14 +431,14 @@ static void mtk_aie_mmqos_set(struct mtk_aie_dev *fd,
 
 	for (idx = 0; idx < AIE_QOS_MAX; idx++) {
 		if (qos_info->qos_path[idx].path == NULL) {
-			dev_info(qos_info->dev, "[%s] path of idx(%d) is NULL\n",
+			aie_dev_info(qos_info->dev, "[%s] path of idx(%d) is NULL\n",
 				 __func__, idx);
 			continue;
 		}
 
 		if (idx == AIE_QOS_RA_IDX &&
 		    qos_info->qos_path[idx].bw != r0_bw) {
-			dev_info(qos_info->dev, "[%s] idx=%d, path=%p, bw=%d/%d,\n",
+			aie_dev_info(qos_info->dev, "[%s] idx=%d, path=%p, bw=%d/%d,\n",
 				__func__, idx,
 				qos_info->qos_path[idx].path,
 				qos_info->qos_path[idx].bw, r0_bw);
@@ -447,7 +450,7 @@ static void mtk_aie_mmqos_set(struct mtk_aie_dev *fd,
 
 		if (idx == AIE_QOS_RB_IDX &&
 		    qos_info->qos_path[idx].bw != r1_bw) {
-			dev_info(qos_info->dev, "[%s] idx=%d, path=%p, bw=%d/%d,\n",
+			aie_dev_info(qos_info->dev, "[%s] idx=%d, path=%p, bw=%d/%d,\n",
 				__func__, idx,
 				qos_info->qos_path[idx].path,
 				qos_info->qos_path[idx].bw, r1_bw);
@@ -459,7 +462,7 @@ static void mtk_aie_mmqos_set(struct mtk_aie_dev *fd,
 
 		if (idx == AIE_QOS_WA_IDX &&
 		    qos_info->qos_path[idx].bw != w2_bw) {
-			dev_info(qos_info->dev, "[%s] idx=%d, path=%p, bw=%d/%d,\n",
+			aie_dev_info(qos_info->dev, "[%s] idx=%d, path=%p, bw=%d/%d,\n",
 				__func__, idx,
 				qos_info->qos_path[idx].path,
 				qos_info->qos_path[idx].bw, w2_bw);
@@ -471,7 +474,7 @@ static void mtk_aie_mmqos_set(struct mtk_aie_dev *fd,
 
 		if (idx == AIE_QOS_WB_IDX &&
 		    qos_info->qos_path[idx].bw != w3_bw) {
-			dev_info(qos_info->dev, "[%s] idx=%d, path=%p, bw=%d/%d,\n",
+			aie_dev_info(qos_info->dev, "[%s] idx=%d, path=%p, bw=%d/%d,\n",
 				__func__, idx,
 				qos_info->qos_path[idx].path,
 				qos_info->qos_path[idx].bw, w3_bw);
@@ -494,9 +497,9 @@ static void mtk_aie_fill_init_param(struct mtk_aie_dev *fd,
 	ctrl = v4l2_ctrl_find(hdl, V4L2_CID_MTK_AIE_INIT);
 	if (ctrl) {
 		memcpy(user_init, ctrl->p_new.p_u32, sizeof(struct user_init));
-		dev_dbg(fd->dev, "init param : max w:%d, max h:%d",
+		aie_dev_dbg(fd->dev, "init param : max w:%d, max h:%d",
 			user_init->max_img_width, user_init->max_img_height);
-		dev_dbg(fd->dev, "init param : p_w:%d, p_h:%d, f thread:%d",
+		aie_dev_dbg(fd->dev, "init param : p_w:%d, p_h:%d, f thread:%d",
 			user_init->pyramid_width, user_init->pyramid_height,
 			user_init->feature_thread);
 	}
@@ -551,7 +554,7 @@ static int mtk_aie_ccf_enable(struct device *dev)
 
 	ret = clk_bulk_prepare_enable(fd->aie_clk.clk_num, fd->aie_clk.clks);
 	if (ret) {
-		dev_info(fd->dev, "failed to enable AIE clock:%d\n", ret);
+		aie_dev_info(fd->dev, "failed to enable AIE clock:%d\n", ret);
 		return ret;
 	}
 
@@ -607,7 +610,7 @@ static void mtk_aie_hw_disconnect(struct mtk_aie_dev *fd)
 	if (fd->larb_clk_ready)
 		pm_runtime_put_sync(fd->dev);
 
-	dev_info(fd->dev, "[%s] stream_count:%d map_count%d\n", __func__,
+	aie_dev_info(fd->dev, "[%s] stream_count:%d map_count%d\n", __func__,
 			fd->fd_stream_count, fd->map_count);
 	fd->fd_stream_count--;
 	if (fd->fd_stream_count == 0) { //have hw_connect
@@ -619,7 +622,7 @@ static void mtk_aie_hw_disconnect(struct mtk_aie_dev *fd)
 			dma_buf_end_cpu_access(fd->dmabuf, DMA_BIDIRECTIONAL);
 			dma_buf_put(fd->dmabuf);
 			fd->map_count--;
-			dev_info(fd->dev, "[%s] stream_count:%d map_count%d\n", __func__,
+			aie_dev_info(fd->dev, "[%s] stream_count:%d map_count%d\n", __func__,
 					fd->fd_stream_count, fd->map_count);
 		}
 		fd->drv_ops->uninit(fd);
@@ -659,7 +662,7 @@ static int mtk_aie_vb2_buf_prepare(struct vb2_buffer *vb)
 	switch (vq->type) {
 	case V4L2_BUF_TYPE_META_CAPTURE:
 		if (vb2_plane_size(vb, 0) < ctx->dst_fmt.buffersize) {
-			dev_info(dev, "meta size %lu is too small\n",
+			aie_dev_info(dev, "meta size %lu is too small\n",
 				 vb2_plane_size(vb, 0));
 			return -EINVAL;
 		}
@@ -671,13 +674,13 @@ static int mtk_aie_vb2_buf_prepare(struct vb2_buffer *vb)
 			vbuf->field = V4L2_FIELD_NONE;
 
 		if (vb->num_planes > 2 || vbuf->field != V4L2_FIELD_NONE) {
-			dev_info(dev, "plane %d or field %d not supported\n",
+			aie_dev_info(dev, "plane %d or field %d not supported\n",
 				 vb->num_planes, vbuf->field);
 			return -EINVAL;
 		}
 
 		if (vb2_plane_size(vb, 0) < pixfmt->plane_fmt[0].sizeimage) {
-			dev_info(dev, "plane 0 %lu is too small than %x\n",
+			aie_dev_info(dev, "plane 0 %lu is too small than %x\n",
 				 vb2_plane_size(vb, 0),
 				 pixfmt->plane_fmt[0].sizeimage);
 			return -EINVAL;
@@ -685,7 +688,7 @@ static int mtk_aie_vb2_buf_prepare(struct vb2_buffer *vb)
 
 		if (pixfmt->num_planes == 2 &&
 		    vb2_plane_size(vb, 1) < pixfmt->plane_fmt[1].sizeimage) {
-			dev_info(dev, "plane 1 %lu is too small than %x\n",
+			aie_dev_info(dev, "plane 1 %lu is too small than %x\n",
 				 vb2_plane_size(vb, 1),
 				 pixfmt->plane_fmt[1].sizeimage);
 			return -EINVAL;
@@ -760,9 +763,9 @@ static void mtk_aie_job_timeout_work(struct work_struct *work)
 	struct mtk_aie_dev *fd =
 		container_of(work, struct mtk_aie_dev, job_timeout_work.work);
 
-	dev_info(fd->dev, "FD Job timeout!");
+	aie_dev_info(fd->dev, "FD Job timeout!");
 
-	dev_info(fd->dev, "AIE mode:%d fmt:%d w:%d h:%d s:%d pw%d ph%d np%d dg%d",
+	aie_dev_info(fd->dev, "AIE mode:%d fmt:%d w:%d h:%d s:%d pw%d ph%d np%d dg%d",
 		 fd->aie_cfg->sel_mode,
 		 fd->aie_cfg->src_img_fmt,
 		 fd->aie_cfg->src_img_width,
@@ -772,7 +775,7 @@ static void mtk_aie_job_timeout_work(struct work_struct *work)
 		 fd->aie_cfg->pyramid_base_height,
 		 fd->aie_cfg->number_of_pyramid,
 		 fd->aie_cfg->rotate_degree);
-	dev_info(fd->dev, "roi%d x1:%d y1:%d x2:%d y2:%d pad%d l%d r%d d%d u%d f%d",
+	aie_dev_info(fd->dev, "roi%d x1:%d y1:%d x2:%d y2:%d pad%d l%d r%d d%d u%d f%d",
 		 fd->aie_cfg->en_roi,
 		 fd->aie_cfg->src_roi.x1,
 		 fd->aie_cfg->src_roi.y1,
@@ -808,11 +811,11 @@ static void mtk_aie_vb2_stop_streaming(struct vb2_queue *vq)
 	struct v4l2_m2m_queue_ctx *queue_ctx;
 	int ret;
 
-	dev_info(fd->dev, "STREAM STOP\n");
+	aie_dev_info(fd->dev, "STREAM STOP\n");
 
 	ret = mtk_aie_job_wait_finish(fd);
 	if (!ret)
-		dev_info(fd->dev, "wait job finish timeout\n");
+		aie_dev_info(fd->dev, "wait job finish timeout\n");
 
 	queue_ctx = V4L2_TYPE_IS_OUTPUT(vq->type) ? &m2m_ctx->out_q_ctx
 						  : &m2m_ctx->cap_q_ctx;
@@ -948,7 +951,7 @@ static int mtk_aie_s_fmt_out_mp(struct file *file, void *fh,
 
 	/* Change not allowed if queue is streaming. */
 	if (vb2_is_streaming(vq)) {
-		dev_info(ctx->dev, "Failed to set format, vb2 is busy\n");
+		aie_dev_info(ctx->dev, "Failed to set format, vb2 is busy\n");
 		return -EBUSY;
 	}
 
@@ -993,20 +996,20 @@ int mtk_aie_vidioc_qbuf(struct file *file, void *priv,
 
 			fd->dmabuf = dma_buf_get(buf->m.planes[buf->length-1].m.fd);
 			if (IS_ERR(fd->dmabuf) || fd->dmabuf == NULL) {
-				dev_info(fd->dev, "%s, dma_buf_getad failed\n", __func__);
+				aie_dev_info(fd->dev, "%s, dma_buf_getad failed\n", __func__);
 				return -ENOMEM;
 			}
 
 			ret = dma_buf_begin_cpu_access(fd->dmabuf, DMA_BIDIRECTIONAL);
 			if (ret < 0) {
-				dev_info(fd->dev, "%s, begin_cpu_access failed\n", __func__);
+				aie_dev_info(fd->dev, "%s, begin_cpu_access failed\n", __func__);
 				ret = -ENOMEM;
 				goto ERROR_PUTBUF;
 			}
 
 			ret = (u64)dma_buf_vmap(fd->dmabuf, &fd->map);
 			if (ret) {
-				dev_info(fd->dev, "%s, map kernel va failed\n", __func__);
+				aie_dev_info(fd->dev, "%s, map kernel va failed\n", __func__);
 				ret = -ENOMEM;
 				goto ERROR;
 			}
@@ -1029,7 +1032,7 @@ int mtk_aie_vidioc_qbuf(struct file *file, void *priv,
 						(g_user_param.pyramid_height & 0x0000FFFF);
 
 			if (g_user_param.is_secure) {
-				dev_info(fd->dev, "AIE SECURE MODE INIT!\n");
+				aie_dev_info(fd->dev, "AIE SECURE MODE INIT!\n");
 				config_aie_cmdq_secure_init(fd);
 				aie_enable_secure_domain(fd);
 			}
@@ -1202,7 +1205,7 @@ static __poll_t mtk_vfd_fop_poll(struct file *file, poll_table *wait)
 
 	ret = mtk_aie_job_wait_finish(ctx->fd_dev);
 	if (!ret) {
-		dev_info(ctx->dev, "wait job finish timeout\n");
+		aie_dev_info(ctx->dev, "wait job finish timeout\n");
 		return EPOLLERR;
 	}
 
@@ -1252,7 +1255,7 @@ static void mtk_aie_device_run(void *priv)
 
 	plane_vaddr = vb2_plane_vaddr(&dst_buf->vb2_buf, 0);
 	if (plane_vaddr == NULL) {
-		dev_info(fd->dev, "vb2 plane vaddr is null");
+		aie_dev_info(fd->dev, "vb2 plane vaddr is null");
 		return;
 	}
 
@@ -1346,7 +1349,7 @@ static void mtk_aie_device_run(void *priv)
 	mtk_aie_hw_job_exec(fd, &fd_param);
 
 	if (ret) {
-		dev_info(fd->dev, "Failed to prepare aie setting\n");
+		aie_dev_info(fd->dev, "Failed to prepare aie setting\n");
 		return;
 	}
 
@@ -1384,14 +1387,14 @@ static int mtk_aie_video_device_register(struct mtk_aie_dev *fd)
 
 	ret = video_register_device(vfd, VFL_TYPE_VIDEO, 0);
 	if (ret) {
-		dev_info(dev, "Failed to register video device\n");
+		aie_dev_info(dev, "Failed to register video device\n");
 		return ret;
 	}
 
 	ret = v4l2_m2m_register_media_controller(
 		m2m_dev, vfd, MEDIA_ENT_F_PROC_VIDEO_STATISTICS);
 	if (ret) {
-		dev_info(dev, "Failed to init mem2mem media controller\n");
+		aie_dev_info(dev, "Failed to init mem2mem media controller\n");
 		goto err_unreg_video;
 	}
 	return 0;
@@ -1422,7 +1425,7 @@ static int mtk_aie_dev_larb_init(struct mtk_aie_dev *fd)
 	link = device_link_add(fd->dev, &pdev->dev,
 					DL_FLAG_PM_RUNTIME | DL_FLAG_STATELESS);
 	if (!link) {
-		dev_info(fd->dev, "unable to link SMI LARB idx\n");
+		aie_dev_info(fd->dev, "unable to link SMI LARB idx\n");
 		return -EINVAL;
 	}
 
@@ -1437,13 +1440,13 @@ static int mtk_aie_dev_v4l2_init(struct mtk_aie_dev *fd)
 
 	ret = v4l2_device_register(dev, &fd->v4l2_dev);
 	if (ret) {
-		dev_info(dev, "Failed to register v4l2 device\n");
+		aie_dev_info(dev, "Failed to register v4l2 device\n");
 		return ret;
 	}
 
 	fd->m2m_dev = v4l2_m2m_init(&fd_m2m_ops);
 	if (IS_ERR(fd->m2m_dev)) {
-		dev_info(dev, "Failed to init mem2mem device\n");
+		aie_dev_info(dev, "Failed to init mem2mem device\n");
 		ret = PTR_ERR(fd->m2m_dev);
 		goto err_unreg_v4l2_dev;
 	}
@@ -1464,13 +1467,13 @@ static int mtk_aie_dev_v4l2_init(struct mtk_aie_dev *fd)
 
 	ret = mtk_aie_video_device_register(fd);
 	if (ret) {
-		dev_info(dev, "Failed to register video device\n");
+		aie_dev_info(dev, "Failed to register video device\n");
 		goto err_cleanup_mdev;
 	}
 
 	ret = media_device_register(mdev);
 	if (ret) {
-		dev_info(dev, "Failed to register mem2mem media device\n");
+		aie_dev_info(dev, "Failed to register mem2mem media device\n");
 		goto err_unreg_vdev;
 	}
 
@@ -1527,25 +1530,25 @@ static int mtk_aie_probe(struct platform_device *pdev)
 	int ret;
 	const struct aie_data *data;
 
-	dev_info(dev, "probe start\n");
+	aie_dev_info(dev, "probe start\n");
 
 	fd = devm_kzalloc(&pdev->dev, sizeof(*fd), GFP_KERNEL);
 	if (!fd) {
-		dev_info(dev, "devm_kzalloc fail!\n");
+		aie_dev_info(dev, "devm_kzalloc fail!\n");
 		return -ENOMEM;
 	}
 	memset(fd, 0, sizeof(*fd));
 
 	data = of_device_get_match_data(&pdev->dev);
 	if (!data) {
-		dev_info(dev, "match data is NULL\n");
+		aie_dev_info(dev, "match data is NULL\n");
 		return PTR_ERR(data);
 	}
 	fd->drv_ops = data->drv_ops;
 	fd->larb_clk_ready = data->larb_clk_ready;
 
 	if (dma_set_mask_and_coherent(dev, DMA_BIT_MASK(34)))
-		dev_info(dev, "%s: No suitable DMA available\n", __func__);
+		aie_dev_info(dev, "%s: No suitable DMA available\n", __func__);
 
 	if (!dev->dma_parms) {
 		dev->dma_parms =
@@ -1557,7 +1560,7 @@ static int mtk_aie_probe(struct platform_device *pdev)
 	if (dev->dma_parms) {
 		ret = dma_set_max_seg_size(dev, UINT_MAX);
 		if (ret)
-			dev_info(dev, "Failed to set DMA segment size\n");
+			aie_dev_info(dev, "Failed to set DMA segment size\n");
 	}
 
 	dev_set_drvdata(dev, fd);
@@ -1566,14 +1569,14 @@ static int mtk_aie_probe(struct platform_device *pdev)
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	fd->fd_base = devm_ioremap_resource(dev, res);
 	if (IS_ERR(fd->fd_base)) {
-		dev_info(dev, "Failed to get fd reg base\n");
+		aie_dev_info(dev, "Failed to get fd reg base\n");
 		return PTR_ERR(fd->fd_base);
 	}
 
 	if (fd->larb_clk_ready) {
 		ret = mtk_aie_dev_larb_init(fd);
 		if (ret) {
-			dev_info(dev, "Failed to init larb : %d\n", ret);
+			aie_dev_info(dev, "Failed to init larb : %d\n", ret);
 			return ret;
 		}
 	}
@@ -1585,24 +1588,24 @@ static int mtk_aie_probe(struct platform_device *pdev)
 				fd->aie_clk.clk_num,
 				fd->aie_clk.clks);
 		if (ret) {
-			dev_info(dev, "Failed to get clks: %d\n", ret);
+			aie_dev_info(dev, "Failed to get clks: %d\n", ret);
 			return ret;
 		}
 	}
 
 	fd->fdvt_clt = cmdq_mbox_create(dev, 0);
 	if (!fd->fdvt_clt)
-		dev_info(dev, "cmdq mbox create fail\n");
+		aie_dev_info(dev, "cmdq mbox create fail\n");
 	else
-		dev_info(dev, "cmdq mbox create done\n");
+		aie_dev_info(dev, "cmdq mbox create done\n");
 
 #if CMDQ_SEC_READY
 	fd->fdvt_secure_clt = cmdq_mbox_create(dev, 1);
 
 	if (!fd->fdvt_secure_clt)
-		dev_info(dev, "cmdq mbox create fail\n");
+		aie_dev_info(dev, "cmdq mbox create fail\n");
 	else
-		dev_info(dev, "cmdq mbox create done\n");
+		aie_dev_info(dev, "cmdq mbox create done\n");
 #endif
 
 	of_property_read_u32(pdev->dev.of_node, "fdvt-frame-done", &(fd->fdvt_event_id));
@@ -1610,10 +1613,10 @@ static int mtk_aie_probe(struct platform_device *pdev)
 #if CMDQ_SEC_READY
 	of_property_read_u32(pdev->dev.of_node, "sw-sync-token-tzmp-aie-wait",
 				&(fd->fdvt_sec_wait));
-	dev_info(dev, "fdvt_sec_wait is %d\n", fd->fdvt_sec_wait);
+	aie_dev_info(dev, "fdvt_sec_wait is %d\n", fd->fdvt_sec_wait);
 	of_property_read_u32(pdev->dev.of_node, "sw-sync-token-tzmp-aie-set",
 				&(fd->fdvt_sec_set));
-	dev_info(dev, "fdvt_sec_set is %d\n", fd->fdvt_sec_set);
+	aie_dev_info(dev, "fdvt_sec_set is %d\n", fd->fdvt_sec_set);
 #endif
 
 	mutex_init(&fd->vfd_lock);
@@ -1626,7 +1629,7 @@ static int mtk_aie_probe(struct platform_device *pdev)
 			alloc_ordered_workqueue(dev_name(fd->dev),
 						WQ_HIGHPRI | WQ_FREEZABLE);
 	if (!fd->frame_done_wq) {
-		dev_info(fd->dev, "failed to alloc frame_done workqueue\n");
+		aie_dev_info(fd->dev, "failed to alloc frame_done workqueue\n");
 		mutex_destroy(&fd->vfd_lock);
 		return -ENOMEM;
 	}
@@ -1644,7 +1647,7 @@ static int mtk_aie_probe(struct platform_device *pdev)
 
 	ret = mtk_aie_dev_v4l2_init(fd);
 	if (ret) {
-		dev_info(dev, "Failed to init v4l2 device: %d\n", ret);
+		aie_dev_info(dev, "Failed to init v4l2 device: %d\n", ret);
 		goto err_destroy_mutex;
 	}
 
@@ -1652,20 +1655,20 @@ static int mtk_aie_probe(struct platform_device *pdev)
 #if IS_ENABLED(CONFIG_PM)
 	ret = register_pm_notifier(&aie_notifier_block);
 	if (ret) {
-		dev_info(dev, "failed to register notifier block.\n");
+		aie_dev_info(dev, "failed to register notifier block.\n");
 		return ret;
 	}
 #endif
 
 	fd->smmu_dev = mtk_smmu_get_shared_device(dev);
 	if (!fd->smmu_dev) {
-		dev_info(dev,
+		aie_dev_info(dev,
 			"%s: failed to get aie smmu device\n",
 			__func__);
 		return -EINVAL;
 	}
 
-	dev_info(dev, "AIE : Success to %s\n", __func__);
+	aie_dev_info(dev, "AIE : Success to %s\n", __func__);
 
 	return 0;
 
@@ -1698,7 +1701,7 @@ static int mtk_aie_remove(struct platform_device *pdev)
 
 static int mtk_aie_runtime_suspend(struct device *dev)
 {
-	dev_info(dev, "%s: runtime suspend aie job)\n", __func__);
+	aie_dev_info(dev, "%s: runtime suspend aie job)\n", __func__);
 	mtk_aie_ccf_disable(dev);
 
 #if AOV_READY
@@ -1710,7 +1713,7 @@ static int mtk_aie_runtime_suspend(struct device *dev)
 
 static int mtk_aie_runtime_resume(struct device *dev)
 {
-	dev_info(dev, "%s: empty runtime resume aie job)\n", __func__);
+	aie_dev_info(dev, "%s: empty runtime resume aie job)\n", __func__);
 	mtk_aie_ccf_enable(dev);
 
 	return 0;

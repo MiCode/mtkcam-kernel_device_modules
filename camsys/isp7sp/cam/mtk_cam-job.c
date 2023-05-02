@@ -194,7 +194,8 @@ static bool update_sv_pure_raw(struct mtk_cam_job *job)
 
 	/* TODO: scen help func */
 	is_supported_scen =
-		(job->job_scen.id == MTK_CAM_SCEN_NORMAL);
+		(job->job_scen.id == MTK_CAM_SCEN_NORMAL ||
+		job->job_scen.id == MTK_CAM_SCEN_MSTREAM);
 
 	is_sv_pure_raw = has_pure_raw && is_supported_scen;
 
@@ -2514,6 +2515,7 @@ int fill_imgo_buf_to_ipi_mstream(
 	struct mtk_cam_job *job = helper->job;
 	struct mtkcam_ipi_img_output *out;
 	struct mtkcam_ipi_img_input *in;
+	bool is_pure_imgo = is_pure_raw_node(job, node);
 
 	int exp_order = get_exp_order(&job->job_scen);
 
@@ -2529,11 +2531,21 @@ int fill_imgo_buf_to_ipi_mstream(
 		get_buf_offset_idx(exp_order, 0, 0, 0),
 		MTKCAM_IPI_RAW_RAWI_2);
 
-	// IMGO is used as the second exp
-	out = &fp->img_outs[helper->io_idx++];
-	fill_img_out_hdr(out, buf, node,
-		get_buf_offset_idx(exp_order, 1, 0, 0),
-		MTKCAM_IPI_RAW_IMGO);
+	if (is_pure_imgo && is_sv_pure_raw(job)) {
+		/* pure raw */
+		if (CAM_DEBUG_ENABLED(JOB))
+			pr_info("%s:req:%s bypass pure raw node\n",
+				__func__, job->req->req.debug_str);
+	} else {
+		// IMGO is used as the second exp
+		out = &fp->img_outs[helper->io_idx++];
+		fill_img_out_hdr(out, buf, node,
+			get_buf_offset_idx(exp_order, 1, 0, 0),
+			MTKCAM_IPI_RAW_IMGO);
+	}
+
+	/* fill sv image fp */
+	fill_sv_img_fp(helper, buf, node);
 
 	return 0;
 }

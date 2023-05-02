@@ -952,8 +952,7 @@ static struct subdrv_static_ctx static_ctx = {
 	.chk_s_off_sta = 0,
 	.chk_s_off_end = 0,
 
-	//TBD
-	.checksum_value = 0x37E5E8C5,
+	.checksum_value = 0xecaae2a0,
 };
 
 static struct subdrv_ops ops = {

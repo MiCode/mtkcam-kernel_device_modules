@@ -2511,7 +2511,7 @@ void get_dcg_type_by_scenario(struct subdrv_ctx *ctx,
 		enum SENSOR_SCENARIO_ID_ENUM scenario_id,
 		u64 *dcg_mode, u64 *dcg_gain_mode)
 {
-	enum IMGSENSOR_HDR_MODE_ENUM hdr_mode;
+	enum IMGSENSOR_HDR_MODE_ENUM hdr_mode = 0;
 
 	if (scenario_id >= ctx->s_ctx.sensor_mode_num) {
 		DRV_LOG(ctx, "invalid sid:%u, mode_num:%u\n",

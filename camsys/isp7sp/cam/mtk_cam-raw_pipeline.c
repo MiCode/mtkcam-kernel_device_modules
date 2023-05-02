@@ -1474,7 +1474,7 @@ static inline void log_raw_subdev_format(struct v4l2_subdev *sd,
 {
 	struct device *dev = subdev_to_cam_dev(sd);
 
-	dev_info(dev, "%s: sd(%s) active %d, pad %u(%s) fmt %ux%u code %u\n",
+	dev_info(dev, "%s: sd(%s) active %d, pad %u(%s) fmt %ux%u code 0x%x\n",
 		 caller, sd->name,
 		 fmt->which == V4L2_SUBDEV_FORMAT_ACTIVE,
 		 fmt->pad, raw_get_pad_name(fmt->pad),

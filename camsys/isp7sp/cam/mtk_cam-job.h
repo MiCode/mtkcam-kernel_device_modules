@@ -177,16 +177,6 @@ struct mtk_cam_job_state {
 	_s->ops->func(_s, ##__VA_ARGS__); \
 })
 
-enum EXP_CHANGE_TYPE {
-	EXPOSURE_CHANGE_NONE = 0,
-	EXPOSURE_CHANGE_3_to_2,
-	EXPOSURE_CHANGE_3_to_1,
-	EXPOSURE_CHANGE_2_to_3,
-	EXPOSURE_CHANGE_2_to_1,
-	EXPOSURE_CHANGE_1_to_3,
-	EXPOSURE_CHANGE_1_to_2,
-	MSTREAM_EXPOSURE_CHANGE = (1 << 4), // TODO(Will): remove this
-};
 struct mtk_cam_job_event_info {
 	int engine;
 	int ctx_id;
@@ -230,6 +220,7 @@ struct mtk_cam_job_ops {
 	int (*mark_engine_done)(struct mtk_cam_job *s,
 				int engine_type, int engine_id,
 				int seq_no);
+	int (*switch_prepare)(struct mtk_cam_job *s);
 	int (*apply_switch)(struct mtk_cam_job *s);
 	int (*dump_aa_info)(struct mtk_cam_job *s, int engine_type);
 };
@@ -266,7 +257,7 @@ struct mtk_cam_job {
 	bool stream_on_seninf;
 	bool seamless_switch;
 	bool first_frm_switch;
-	int switch_type;
+	bool first_job;
 
 	bool raw_switch;
 
@@ -315,7 +306,7 @@ struct mtk_cam_job {
 	char scen_str[40];
 
 	unsigned int sub_ratio;
-	int scq_period;
+	u32 scq_period;
 	u64 (*timestamp_buf)[128];
 	struct mmqos_bw raw_mmqos[SMI_PORT_RAW_NUM];
 	struct mmqos_bw raw_w_mmqos[SMI_PORT_RAW_NUM];

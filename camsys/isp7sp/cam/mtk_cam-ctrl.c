@@ -952,6 +952,7 @@ static void mtk_cam_ctrl_seamless_switch_flow(struct mtk_cam_job *job)
 	}
 
 	mtk_cam_job_update_clk_switching(job, 1);
+	call_jobop(job, switch_prepare);
 
 	mtk_cam_job_manually_apply_sensor(job);
 

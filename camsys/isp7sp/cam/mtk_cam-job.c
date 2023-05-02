@@ -24,6 +24,7 @@
 
 #define SCQ_DEADLINE_US(fi)		((fi) / 2) // 0.5 frame interval
 #define SCQ_DEADLINE_US_STAGGER(fi)	((fi) - 3000) // fi - n us
+#define SCQ_DEADLINE_MAX		0xFFFFFFFF
 
 static unsigned int debug_buf_fmt_sel = -1;
 module_param(debug_buf_fmt_sel, int, 0644);
@@ -47,9 +48,9 @@ static inline int job_debug_exception_dump(struct mtk_cam_job *job,
 
 static struct mtk_raw_request_data *req_get_raw_data(struct mtk_cam_ctx *ctx,
 						     struct mtk_cam_request *req);
-static int get_exp_switch_type(struct mtk_cam_job *job);
-static bool do_seamless_switch(struct mtk_cam_job *job);
+static bool is_sensor_mode_update(struct mtk_cam_job *job);
 static void mtk_cam_aa_dump_work(struct work_struct *work);
+static int disable_seninf_raw_src_cammux(struct mtk_cam_job *job);
 
 static int subdev_set_fmt(struct v4l2_subdev *sd, int pad,
 						  const struct v4l2_mbus_framefmt *format)
@@ -298,6 +299,9 @@ static int mtk_cam_job_pack_init(struct mtk_cam_job *job,
 	job->req = req;
 	job->src_ctx = ctx;
 	job->img_wbuf_pool_wrapper = ctx->pack_job_img_wbuf_pool_wrapper;
+
+	job->first_job = !ctx->not_first_job;
+	ctx->not_first_job = true;
 
 	ret = mtk_cam_buffer_pool_fetch(&ctx->cq_pool, &job->cq);
 	if (ret) {
@@ -862,8 +866,10 @@ _stream_on(struct mtk_cam_job *job, bool on)
 	if (job->stream_on_seninf || job->raw_switch) {
 		ctx_stream_on_seninf_sensor(job, seninf_pad, raw_tg_idx);
 
-		if (job->first_frm_switch)
-			apply_cam_mux_switch_stagger(job);
+		if (job->first_frm_switch) {
+			disable_seninf_raw_src_cammux(job);
+			apply_cam_mux_switch(job);
+		}
 	}
 
 	toggle_raw_engines_db(ctx);
@@ -1055,8 +1061,7 @@ static bool check_update_mstream_mode(struct mtk_cam_job *job)
 		bool exp_switch =
 			job_exp_num(job) != job_prev_exp_num(job);
 
-		/* FIXME: should not use 'seq == 0' */
-		return ((job->frame_seq_no == 0) || exp_switch);
+		return (job->first_job || exp_switch);
 	}
 
 	return false;
@@ -1107,28 +1112,32 @@ static int apply_cam_switch_stagger(struct mtk_cam_job *job)
 	struct mtk_cam_device *cam = ctx->cam;
 	int raw_id = _get_master_raw_id(job->used_engine);
 	struct mtk_raw_device *raw_dev = NULL;
-	int type = job->switch_type;
+	int prev_exp = job_prev_exp_num_seamless(job);
+	int cur_exp = job_exp_num(job);
 	bool stagger_mode_updated = false;
 	bool is_dc = is_dc_mode(job) ? true : false;
 
 	if (raw_id < 0)
 		return -1;
 	raw_dev = dev_get_drvdata(cam->engines.raw_devs[raw_id]);
-	if (type == EXPOSURE_CHANGE_3_to_1 ||
-		type == EXPOSURE_CHANGE_2_to_1) {
+	if (prev_exp != 1 && cur_exp == 1) {
 		stagger_disable(raw_dev);
 		stagger_mode_updated = true;
 		dev_info(cam->dev,
 			"[%s] ctx:%d, job:0x%x, stagger_disable\n",
 			__func__, ctx->stream_id, job->frame_seq_no);
-	} else if (type == EXPOSURE_CHANGE_1_to_2 ||
-		type == EXPOSURE_CHANGE_1_to_3) {
+	} else if (prev_exp == 1 && cur_exp != 1) {
 		stagger_enable(raw_dev, is_dc);
 		stagger_mode_updated = true;
 		dev_info(cam->dev,
 			"[%s] ctx:%d, job:0x%x, stagger_enable\n",
 			__func__, ctx->stream_id, job->frame_seq_no);
 	}
+
+	if (CAM_DEBUG_ENABLED(JOB))
+		dev_info(cam->dev,
+			"[%s] ctx:%d, prev:%d cur:%d\n",
+			__func__, ctx->stream_id, prev_exp, cur_exp);
 
 	if (stagger_mode_updated && STAGGER_SEAMLESS_DBLOAD_FORCE)
 		dbload_force(raw_dev);
@@ -1171,21 +1180,74 @@ static int update_seninf_fmt(struct mtk_cam_job *job)
 	return 0;
 }
 
+static int
+disable_seninf_raw_src_cammux(struct mtk_cam_job *job)
+{
+	struct mtk_cam_ctx *ctx = job->src_ctx;
+	struct v4l2_subdev *seninf = ctx->seninf;
+	int i, max_exp = scen_max_exp_num(&job->job_scen);
+	bool is_w = is_rgbw(job);
+
+	for (i = 0; i < max_exp; ++i) {
+		mtk_cam_seninf_set_camtg(seninf, PAD_SRC_RAW0 + i, 0xFF);
+		if (is_w)
+			mtk_cam_seninf_set_camtg(seninf, PAD_SRC_RAW_W0 + i, 0xFF);
+	}
+
+	pr_info("%s: job type:%d, seq:0x%x\n", __func__, job->job_type, job->frame_seq_no);
+	return 0;
+}
+
+static void set_cq_deadline(struct mtk_cam_job *job, u32 cq_deadline)
+{
+	struct mtk_cam_ctx *ctx = job->src_ctx;
+	struct mtk_raw_device *dev;
+	struct mtk_camsv_device *sv_dev;
+	struct mtk_mraw_device *mraw_dev;
+	int i;
+
+	if (job->enable_hsf_raw)
+		return;
+
+	for (i = 0; i < ARRAY_SIZE(ctx->hw_raw); i++) {
+		if (ctx->hw_raw[i]) {
+			dev = dev_get_drvdata(ctx->hw_raw[i]);
+
+			if (!dev->is_slave)
+				update_scq_start_period(dev, cq_deadline);
+		}
+	}
+
+	if (ctx->hw_sv) {
+		sv_dev = dev_get_drvdata(ctx->hw_sv);
+			mtk_cam_sv_update_start_period(sv_dev, cq_deadline);
+	}
+
+	for (i = 0; i < ctx->num_mraw_subdevs; i++) {
+		if (ctx->hw_mraw[i]) {
+			mraw_dev = dev_get_drvdata(ctx->hw_mraw[i]);
+			mtk_cam_mraw_update_start_period(mraw_dev, cq_deadline);
+		}
+	}
+}
+
+static int
+_switch_prepare(struct mtk_cam_job *job)
+{
+	set_cq_deadline(job, SCQ_DEADLINE_MAX);
+	disable_seninf_raw_src_cammux(job);
+
+	return 0;
+}
+
 /* kthread context */
 static int
 _apply_switch(struct mtk_cam_job *job)
 {
-	switch (job->job_type) {
-	case JOB_TYPE_BASIC:
-	case JOB_TYPE_STAGGER:
-		update_seninf_fmt(job);
-		apply_cam_mux_switch_stagger(job);
-		apply_cam_switch_stagger(job);
-		break;
-	default:
-		pr_info("%s: job type %d not ready\n", __func__, job->job_type);
-		break;
-	}
+	update_seninf_fmt(job);
+	apply_cam_mux_switch(job);
+	set_cq_deadline(job, job->scq_period);
+	apply_cam_switch_stagger(job);
 	pr_info("%s: job type:%d, seq:0x%x\n", __func__, job->job_type, job->frame_seq_no);
 	return 0;
 }
@@ -1726,8 +1788,6 @@ _job_pack_subsample(struct mtk_cam_job *job,
 	}
 	/* clone into job for debug dump */
 	job->ipi_config = ctx->ipi_config;
-	if (!ctx->not_first_job)
-		ctx->not_first_job = true;
 
 	ret = mtk_cam_job_fill_ipi_frame(job, job_helper);
 
@@ -1889,8 +1949,6 @@ _job_pack_otf_stagger(struct mtk_cam_job *job,
 	bool sensor_change = is_sensor_changed(job);
 	int ret;
 
-	job->switch_type = get_exp_switch_type(job);
-
 	/**
 	 * If sensor_change happened, we also run the
 	 * mtk_cam_ctrl_stream_on_job() flow. (In this case,
@@ -1898,9 +1956,9 @@ _job_pack_otf_stagger(struct mtk_cam_job *job,
 	 * the updated sensor.)
 	 */
 	job->first_frm_switch =
-		(!ctx->not_first_job || sensor_change) && do_seamless_switch(job);
+		(job->first_job || sensor_change) && is_sensor_mode_update(job);
 	job->seamless_switch =
-		(ctx->not_first_job && !sensor_change) && do_seamless_switch(job);
+		(!job->first_job && !sensor_change) && is_sensor_mode_update(job);
 	job->sub_ratio = get_subsample_ratio(&job->job_scen);
 	job->stream_on_seninf = false;
 	job->scq_period =
@@ -1945,9 +2003,6 @@ _job_pack_otf_stagger(struct mtk_cam_job *job,
 	job->enabled_tags = ctx->enabled_tags;
 	memcpy(job->tag_info, ctx->tag_info,
 		sizeof(struct mtk_camsv_tag_info) * CAMSV_MAX_TAGS);
-
-	if (!ctx->not_first_job)
-		ctx->not_first_job = true;
 
 	ret = mtk_cam_job_fill_ipi_frame(job, job_helper);
 	return ret;
@@ -2109,9 +2164,6 @@ _job_pack_mstream(struct mtk_cam_job *job,
 	memcpy(job->tag_info, ctx->tag_info,
 		sizeof(struct mtk_camsv_tag_info) * CAMSV_MAX_TAGS);
 
-	if (!ctx->not_first_job)
-		ctx->not_first_job = true;
-
 	if (mtk_cam_job_fill_ipi_frame(job, job_helper))
 		return -1;
 
@@ -2198,7 +2250,7 @@ _job_pack_normal(struct mtk_cam_job *job,
 	struct mtk_cam_device *cam = ctx->cam;
 	int ret;
 
-	job->seamless_switch = do_seamless_switch(job);
+	job->seamless_switch = is_sensor_mode_update(job);
 	job->sub_ratio = get_subsample_ratio(&job->job_scen);
 	job->stream_on_seninf = false;
 
@@ -2243,9 +2295,6 @@ _job_pack_normal(struct mtk_cam_job *job,
 	memcpy(job->tag_info, ctx->tag_info,
 		sizeof(struct mtk_camsv_tag_info) * CAMSV_MAX_TAGS);
 
-	if (!ctx->not_first_job)
-		ctx->not_first_job = true;
-
 	ret = mtk_cam_job_fill_ipi_frame(job, job_helper);
 
 	return ret;
@@ -2284,10 +2333,7 @@ _job_pack_m2m(struct mtk_cam_job *job,
 	}
 	/* clone into job for debug dump */
 	job->ipi_config = ctx->ipi_config;
-	if (!ctx->not_first_job) {
-
-		ctx->not_first_job = true;
-
+	if (job->first_job) {
 		/* There is no stream on work in m2m, so we must update clock here */
 		mtk_cam_job_update_clk(job);
 	}
@@ -2353,8 +2399,6 @@ _job_pack_only_sv(struct mtk_cam_job *job,
 	memcpy(job->tag_info, ctx->tag_info,
 		sizeof(struct mtk_camsv_tag_info) * CAMSV_MAX_TAGS);
 
-	if (!ctx->not_first_job)
-		ctx->not_first_job = true;
 	ret = mtk_cam_job_fill_ipi_frame(job, job_helper);
 
 	return ret;
@@ -2970,6 +3014,7 @@ static struct mtk_cam_job_ops otf_job_ops = {
 	.apply_isp = _apply_cq,
 	.mark_afo_done = job_mark_afo_done,
 	.mark_engine_done = job_mark_engine_done,
+	.switch_prepare = _switch_prepare,
 	.apply_switch = _apply_switch,
 	.dump_aa_info = job_dump_aa_info,
 };
@@ -2986,6 +3031,7 @@ static struct mtk_cam_job_ops otf_stagger_job_ops = {
 	.apply_isp = _apply_cq,
 	.mark_afo_done = job_mark_afo_done,
 	.mark_engine_done = job_mark_engine_done,
+	.switch_prepare = _switch_prepare,
 	.apply_switch = _apply_switch,
 	.dump_aa_info = job_dump_aa_info,
 };
@@ -3190,7 +3236,6 @@ static int job_factory(struct mtk_cam_job *job)
 	job->composed = false;
 	job->seamless_switch = false;
 	job->first_frm_switch = false;
-	job->switch_type = EXPOSURE_CHANGE_NONE;
 	job->scq_period = SCQ_DEADLINE_US(get_sensor_interval_us(job)) / 1000;
 
 	init_completion(&job->compose_completion);
@@ -3452,7 +3497,7 @@ static int mtk_cam_job_fill_ipi_config(struct mtk_cam_job *job,
 				sv_input->tag_id = i;
 				sv_input->tag_order = job->tag_info[i].tag_order;
 				sv_input->is_first_frame =
-					(!ctx->not_first_job || job->raw_switch) ? 1 : 0;
+					(job->first_job || job->raw_switch) ? 1 : 0;
 				sv_input->input = job->ipi_config.sv_input[0][i].input;
 			}
 		}
@@ -3501,7 +3546,7 @@ static int mtk_cam_job_fill_ipi_config_only_sv(struct mtk_cam_job *job,
 			sv_input->pipe_id = sv_dev->id + MTKCAM_SUBDEV_CAMSV_START;
 			sv_input->tag_id = i;
 			sv_input->tag_order = job->tag_info[i].tag_order;
-			sv_input->is_first_frame = (ctx->not_first_job) ? 0 : 1;
+			sv_input->is_first_frame = (job->first_job) ? 1 : 0;
 			sv_input->input = job->ipi_config.sv_input[0][i].input;
 		}
 	}
@@ -4155,51 +4200,10 @@ DUMP_FAILED:
 	return -1;
 }
 
-static int get_exp_switch_type(struct mtk_cam_job *job)
-{
-	struct mtk_cam_ctx *ctx = job->src_ctx;
-	int res = EXPOSURE_CHANGE_NONE;
-	int cur, prev;
-
-	cur = job_exp_num(job);
-
-	if (ctx->not_first_job)
-		prev = job_prev_exp_num(job);
-	else
-		prev = scen_max_exp_num(&job->job_scen);
-
-	if (cur == prev)
-		return EXPOSURE_CHANGE_NONE;
-	if (prev == 3) {
-		if (cur == 1)
-			res = EXPOSURE_CHANGE_3_to_1;
-		else if (cur == 2)
-			res = EXPOSURE_CHANGE_3_to_2;
-	} else if (prev == 2) {
-		if (cur == 1)
-			res = EXPOSURE_CHANGE_2_to_1;
-		else if (cur == 3)
-			res = EXPOSURE_CHANGE_2_to_3;
-	} else if (prev == 1)  {
-		if (cur == 2)
-			res = EXPOSURE_CHANGE_1_to_2;
-		else if (cur == 3)
-			res = EXPOSURE_CHANGE_1_to_3;
-	}
-
-	//pr_info("[%s] switch_type:%d (cur:%d prev:%d)", __func__, res, cur, prev);
-
-	return res;
-}
-
-static bool do_seamless_switch(struct mtk_cam_job *job)
+static bool is_sensor_mode_update(struct mtk_cam_job *job)
 {
 	struct mtk_raw_ctrl_data *ctrl_data = get_raw_ctrl_data(job);
 	bool ret;
-
-	/* exposure change */
-	if (job->switch_type != EXPOSURE_CHANGE_NONE)
-		return true;
 
 	/* sensor change */
 	ret = (ctrl_data) ?

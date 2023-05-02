@@ -28,6 +28,7 @@ static void set_group_hold(void *arg, u8 en);
 static u16 get_gain2reg(u32 gain);
 static int imx758_seamless_switch(struct subdrv_ctx *ctx, u8 *para, u32 *len);
 static int imx758_set_test_pattern(struct subdrv_ctx *ctx, u8 *para, u32 *len);
+static int imx758_set_test_pattern_data(struct subdrv_ctx *ctx, u8 *para, u32 *len);
 static int get_imgsensor_id(struct subdrv_ctx *ctx, u32 *sensor_id);
 static int init_ctx(struct subdrv_ctx *ctx,	struct i2c_client *i2c_client, u8 i2c_write_id);
 static int vsync_notify(struct subdrv_ctx *ctx,	unsigned int sof_cnt);
@@ -36,6 +37,7 @@ static int vsync_notify(struct subdrv_ctx *ctx,	unsigned int sof_cnt);
 
 static struct subdrv_feature_control feature_control_list[] = {
 	{SENSOR_FEATURE_SET_TEST_PATTERN, imx758_set_test_pattern},
+	{SENSOR_FEATURE_SET_TEST_PATTERN_DATA, imx758_set_test_pattern_data},
 	{SENSOR_FEATURE_SEAMLESS_SWITCH, imx758_seamless_switch},
 };
 
@@ -890,25 +892,36 @@ static int imx758_set_test_pattern(struct subdrv_ctx *ctx, u8 *para, u32 *len)
 	u32 mode = *((u32 *)para);
 
 	if (mode != ctx->test_pattern)
-		DRV_LOGE(ctx, "mode(%u->%u)\n", ctx->test_pattern, mode);
+		DRV_LOG(ctx, "mode(%u->%u)\n", ctx->test_pattern, mode);
 	/* 1:Solid Color 2:Color Bar 5:Black */
-	switch (mode) {
-	case 5:
-		subdrv_i2c_wr_u8(ctx, 0x020E, 0x00); /* dig_gain = 0 */
-		break;
-	default:
-		subdrv_i2c_wr_u8(ctx, 0x0601, mode);
-		break;
-	}
-
-	if ((ctx->test_pattern) && (mode != ctx->test_pattern)) {
-		if (ctx->test_pattern == 5)
-			subdrv_i2c_wr_u8(ctx, 0x020E, 0x01);
-		else if (mode == 0)
-			subdrv_i2c_wr_u8(ctx, 0x0601, 0x00); /* No pattern */
-	}
+	if (mode)
+		subdrv_i2c_wr_u8(ctx, 0x0601, mode); /*100% Color bar*/
+	else if (ctx->test_pattern)
+		subdrv_i2c_wr_u8(ctx, 0x0601, 0x00); /*No pattern*/
 
 	ctx->test_pattern = mode;
+	return ERROR_NONE;
+}
+
+static int imx758_set_test_pattern_data(struct subdrv_ctx *ctx, u8 *para, u32 *len)
+{
+	struct mtk_test_pattern_data *data = (struct mtk_test_pattern_data *)para;
+	u16 R = (data->Channel_R >> 22) & 0x3ff;
+	u16 Gr = (data->Channel_Gr >> 22) & 0x3ff;
+	u16 Gb = (data->Channel_Gb >> 22) & 0x3ff;
+	u16 B = (data->Channel_B >> 22) & 0x3ff;
+
+	subdrv_i2c_wr_u8(ctx, 0x0602, (R >> 8));
+	subdrv_i2c_wr_u8(ctx, 0x0603, (R & 0xff));
+	subdrv_i2c_wr_u8(ctx, 0x0604, (Gr >> 8));
+	subdrv_i2c_wr_u8(ctx, 0x0605, (Gr & 0xff));
+	subdrv_i2c_wr_u8(ctx, 0x0606, (B >> 8));
+	subdrv_i2c_wr_u8(ctx, 0x0606, (B & 0xff));
+	subdrv_i2c_wr_u8(ctx, 0x0608, (Gb >> 8));
+	subdrv_i2c_wr_u8(ctx, 0x0608, (Gb & 0xff));
+
+	DRV_LOG(ctx, "mode(%u) R/Gr/Gb/B = 0x%04x/0x%04x/0x%04x/0x%04x\n",
+		ctx->test_pattern, R, Gr, Gb, B);
 	return ERROR_NONE;
 }
 

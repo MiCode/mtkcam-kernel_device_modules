@@ -647,7 +647,7 @@ static struct subdrv_static_ctx static_ctx = {
 	.chk_s_off_sta = 0,
 	.chk_s_off_end = 0,
 
-	.checksum_value = 0xAF3E324F,
+	.checksum_value = 0xecaae2a0,
 };
 
 static struct subdrv_ops ops = {
@@ -735,7 +735,7 @@ static int imx598_set_test_pattern(struct subdrv_ctx *ctx, u8 *para, u32 *len)
 	if (mode)
 		subdrv_i2c_wr_u8(ctx, 0x0601, mode); /*100% Color bar*/
 	else if (ctx->test_pattern)
-		subdrv_i2c_wr_u8(ctx, 0x0601, 0x0000); /*No pattern*/
+		subdrv_i2c_wr_u8(ctx, 0x0601, 0x00); /*No pattern*/
 
 	ctx->test_pattern = mode;
 	return ERROR_NONE;

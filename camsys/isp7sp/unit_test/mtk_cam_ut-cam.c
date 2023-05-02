@@ -1451,7 +1451,7 @@ static int mtk_ut_rms_of_probe(struct platform_device *pdev,
 {
 	struct device *dev = &pdev->dev;
 	struct resource *res;
-	int ret;
+	int clks, i, ret;
 
 	ret = of_property_read_u32(dev->of_node, "mediatek,cam-id",
 				   &drvdata->id);
@@ -1474,8 +1474,27 @@ static int mtk_ut_rms_of_probe(struct platform_device *pdev,
 		return PTR_ERR(drvdata->base);
 	}
 
-	drvdata->num_clks = 0;
+	clks = of_count_phandle_with_args(pdev->dev.of_node,
+				"clocks", "#clock-cells");
+
+	drvdata->num_clks = (clks == -ENOENT) ? 0:clks;
 	dev_info(dev, "clk_num:%d\n", drvdata->num_clks);
+
+	if (drvdata->num_clks) {
+		drvdata->clks = devm_kcalloc(dev, drvdata->num_clks,
+						sizeof(*drvdata->clks),
+						GFP_KERNEL);
+		if (!drvdata->clks)
+			return -ENODEV;
+	}
+
+	for (i = 0; i < drvdata->num_clks; i++) {
+		drvdata->clks[i] = of_clk_get(pdev->dev.of_node, i);
+		if (IS_ERR(drvdata->clks[i])) {
+			dev_info(dev, "failed to get clk %d\n", i);
+			return -ENODEV;
+		}
+	}
 
 	return 0;
 }

@@ -206,7 +206,7 @@ static inline int _get_min_opp_idx(struct raw_resource_stepper *stepper)
 	int min_idx = 0;
 
 	while (min_idx < stepper->opp_num &&
-	       stepper->tbl[stepper->opp_idx].freq_hz == 0)
+	       stepper->tbl[min_idx].volt_uv == 0)
 		++min_idx;
 
 	return (min_idx == stepper->opp_num) ? 0 : min_idx;

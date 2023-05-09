@@ -2697,7 +2697,7 @@ int common_open(struct subdrv_ctx *ctx)
 	ctx->line_length = ctx->s_ctx.mode[scenario_id].linelength;
 	ctx->frame_length = ctx->s_ctx.mode[scenario_id].framelength;
 	ctx->frame_length_rg = ctx->frame_length;
-	ctx->current_fps = 10 * ctx->pclk / ctx->line_length / ctx->frame_length;
+	ctx->current_fps = ctx->pclk / ctx->line_length * 10 / ctx->frame_length;
 	ctx->readout_length = ctx->s_ctx.mode[scenario_id].readout_length;
 	ctx->read_margin = ctx->s_ctx.mode[scenario_id].read_margin;
 	ctx->min_frame_length = ctx->frame_length;
@@ -2829,7 +2829,7 @@ void update_mode_info(struct subdrv_ctx *ctx, enum SENSOR_SCENARIO_ID_ENUM scena
 	ctx->line_length = ctx->s_ctx.mode[scenario_id].linelength;
 	ctx->frame_length = ctx->s_ctx.mode[scenario_id].framelength;
 	ctx->frame_length_rg = ctx->frame_length;
-	ctx->current_fps = 10 * ctx->pclk / ctx->line_length / ctx->frame_length;
+	ctx->current_fps = ctx->pclk / ctx->line_length * 10 / ctx->frame_length;
 	ctx->readout_length = ctx->s_ctx.mode[scenario_id].readout_length;
 	ctx->read_margin = ctx->s_ctx.mode[scenario_id].read_margin;
 	ctx->min_frame_length = ctx->frame_length;

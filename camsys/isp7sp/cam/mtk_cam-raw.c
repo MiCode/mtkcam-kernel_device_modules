@@ -244,6 +244,7 @@ void initialize(struct mtk_raw_device *dev, int is_slave, int is_srt,
 
 	dev->is_slave = is_slave;
 	dev->sof_count = 0;
+	dev->tg_count = 0;
 	dev->vsync_count = 0;
 	dev->sub_sensor_ctrl_en = false;
 	dev->time_shared_busy = 0;
@@ -823,6 +824,7 @@ static irqreturn_t mtk_irq_raw(int irq, void *data)
 	unsigned int irq_status, err_status, dmao_done_status, dmai_done_status;
 	unsigned int drop_status, dma_ofl_status, cq_done_status, dcif_status;
 	unsigned int dma_ufl_status;
+	unsigned int tg_cnt;
 	bool wake_thread = 0;
 
 	irq_status	 = readl_relaxed(raw_dev->base + REG_CAMCTL_INT_STATUS);
@@ -836,16 +838,17 @@ static irqreturn_t mtk_irq_raw(int irq, void *data)
 
 	frame_idx	= readl_relaxed(raw_dev->base + REG_FRAME_SEQ_NUM);
 	frame_idx_inner	= readl_relaxed(raw_dev->base_inner + REG_FRAME_SEQ_NUM);
-
+	tg_cnt = readl_relaxed(raw_dev->base + REG_TG_INTER_ST);
+	tg_cnt = (raw_dev->tg_count & 0xffffff00) + ((tg_cnt & 0xff000000) >> 24);
 	err_status = irq_status & INT_ST_MASK_CAM_ERR;
 
 	if (CAM_DEBUG_ENABLED(RAW_INT))
 		dev_info(dev,
-			 "INT:0x%x(err:0x%x) 2~7 0x%x/0x%x/0x%x/0x%x/0x%x/0x%x (in:0x%x)\n",
+			 "INT:0x%x(err:0x%x) 2~7 0x%x/0x%x/0x%x/0x%x/0x%x/0x%x (in:0x%x) tg_cnt:%d/%lld\n",
 			 irq_status, err_status,
 			 dmao_done_status, dmai_done_status, drop_status,
 			 dma_ofl_status, cq_done_status, dcif_status,
-			 frame_idx_inner);
+			 frame_idx_inner, tg_cnt, raw_dev->sof_count);
 
 	irq_info.irq_type = 0;
 	irq_info.ts_ns = ktime_get_boottime_ns();
@@ -886,6 +889,13 @@ static irqreturn_t mtk_irq_raw(int irq, void *data)
 		raw_dev->cur_vsync_idx = 0;
 
 		irq_info.fbc_empty = is_fbc_empty(raw_dev);
+		if (tg_cnt < raw_dev->tg_count)
+			raw_dev->tg_count = tg_cnt + BIT(8);
+		else
+			raw_dev->tg_count = tg_cnt;
+		irq_info.tg_cnt = raw_dev->tg_count;
+		if (CAM_DEBUG_ENABLED(EXTISP_SW_CNT))
+			irq_info.tg_cnt = raw_dev->sof_count - 2;
 
 		engine_handle_sof(&raw_dev->cq_ref,
 				  bit_map_bit(MAP_HW_RAW, raw_dev->id),
@@ -1017,11 +1027,12 @@ static irqreturn_t mtk_thread_irq_raw(int irq, void *data)
 		WARN_ON(len != sizeof(irq_info));
 
 #if RAW_DEBUG
-		dev_info(raw_dev->dev, "ts=%lu irq_type %d, req:0x%x/0x%x\n",
+		dev_info(raw_dev->dev, "ts=%lu irq_type %d, req:0x%x/0x%x tg_cnt:%d\n",
 			irq_info.ts_ns / 1000,
 			irq_info.irq_type,
 			irq_info.frame_idx_inner,
-			irq_info.frame_idx);
+			irq_info.frame_idx,
+			irq_info.tg_cnt);
 #endif
 
 		/* error case */

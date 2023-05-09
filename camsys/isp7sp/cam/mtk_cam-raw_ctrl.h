@@ -65,6 +65,10 @@ static inline bool scen_is_rgbw(const struct mtk_cam_scen *scen)
 
 	return false;
 }
+static inline bool scen_is_extisp(const struct mtk_cam_scen *scen)
+{
+	return (scen->id == MTK_CAM_SCEN_EXT_ISP);
+}
 
 static inline bool scen_is_m2m(const struct mtk_cam_scen *scen)
 {

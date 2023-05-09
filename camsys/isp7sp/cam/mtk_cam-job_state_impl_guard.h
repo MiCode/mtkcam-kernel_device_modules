@@ -19,6 +19,10 @@ struct state_accessor_ops {
 	bool (*prev_allow_apply_isp)(struct state_accessor *s_acc);
 
 	/*
+	 * to check if previous frame's status is allowing to apply current isp setting
+	 */
+	bool (*prev_allow_apply_extisp_procraw)(struct state_accessor *s_acc);
+	/*
 	 * to check if next frame's sensor is already applied (for sensor-mismatched case)
 	 */
 	bool (*is_next_sensor_applied)(struct state_accessor *s_acc);

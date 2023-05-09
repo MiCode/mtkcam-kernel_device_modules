@@ -31,6 +31,8 @@ const char *str_event(int event)
 
 		[CAMSYS_EVENT_ENQUE] = "enq",
 		[CAMSYS_EVENT_ACK] = "ack",
+		[CAMSYS_EVENT_IRQ_EXTMETA_SOF] = "extisp meta sof",
+		[CAMSYS_EVENT_IRQ_EXTMETA_CQ_DONE] = "extisp cq done",
 	};
 
 	return value_to_str(str, ARRAY_SIZE(str), event);
@@ -57,7 +59,10 @@ const char *str_isp_state(int state)
 		[S_ISP_COMPOSED] = "composed",
 		[S_ISP_APPLYING] = "applying",
 		[S_ISP_OUTER] = "outer",
+		[S_ISP_APPLYING_PROCRAW] = "applying proc raw",
+		[S_ISP_OUTER_PROCRAW] = "outer proc raw",
 		[S_ISP_PROCESSING] = "processing",
+		[S_ISP_PROCESSING_PROCRAW] = "processing proc raw",
 		[S_ISP_SENSOR_MISMATCHED] = "s-mismatched",
 		[S_ISP_DONE] = "done",
 		[S_ISP_DONE_MISMATCHED] = "done-mismatched",

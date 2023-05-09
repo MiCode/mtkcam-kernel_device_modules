@@ -167,6 +167,7 @@ bool is_vhdr(struct mtk_cam_job *job);
 bool is_dc_mode(struct mtk_cam_job *job);
 bool is_sv_pure_raw(struct mtk_cam_job *job);
 bool is_rgbw(struct mtk_cam_job *job);
+bool is_extisp(struct mtk_cam_job *job);
 bool is_dcg_sensor_merge(struct mtk_cam_job *job);
 bool is_m2m(struct mtk_cam_job *job);
 bool is_m2m_apu(struct mtk_cam_job *job);
@@ -197,7 +198,7 @@ u32 get_sensor_vb(struct mtk_cam_job *job);
 u32 get_sensor_fps(struct mtk_cam_job *job);
 u32 get_sensor_interval_us(struct mtk_cam_job *job);
 u8 get_sensor_data_pattern(struct mtk_cam_job *job);
-
+void mtk_cam_sv_reset_tag_info(struct mtk_cam_job *job);
 int handle_sv_tag(struct mtk_cam_job *job);
 int handle_sv_tag_display_ic(struct mtk_cam_job *job);
 int handle_sv_tag_only_sv(struct mtk_cam_job *job);

@@ -41,7 +41,10 @@ enum mtk_cam_isp_state {
 	S_ISP_COMPOSED,
 	S_ISP_APPLYING,
 	S_ISP_OUTER,
+	S_ISP_APPLYING_PROCRAW,
+	S_ISP_OUTER_PROCRAW,
 	S_ISP_PROCESSING,
+	S_ISP_PROCESSING_PROCRAW, /* extisp used */
 	S_ISP_SENSOR_MISMATCHED,
 	S_ISP_DONE,
 	S_ISP_DONE_MISMATCHED,
@@ -68,6 +71,9 @@ enum mtk_cam_job_action {
 	ACTION_AFO_DONE = 4,
 	ACTION_COMPOSE_CQ = 8,
 	ACTION_TRIGGER = 16, /* trigger m2m start */
+	ACTION_APPLY_ISP_EXTMETA_PD_EXTISP = 64, /* extisp used for apply cq for extmeta data */
+	ACTION_APPLY_ISP_PROCRAW_EXTISP = 128, /* extisp used for apply cq for proc raw data */
+	ACTION_BUFFER_EXTMETA_PD_DONE = 256,
 };
 
 enum mtk_camsys_event_type {
@@ -81,8 +87,17 @@ enum mtk_camsys_event_type {
 
 	CAMSYS_EVENT_ENQUE,
 	CAMSYS_EVENT_ACK,
+	CAMSYS_EVENT_IRQ_EXTMETA_SOF, /* extisp meta's vsync */
+	CAMSYS_EVENT_IRQ_EXTMETA_CQ_DONE, /* extisp meta's cq done */
+	CAMSYS_EVENT_IRQ_EXTMETA_FRAME_DONE, /* extisp meta's frame done */
 };
 const char *str_event(int event);
+enum extisp_data {
+	EXTISP_DATA_PD,
+	EXTISP_DATA_META,
+	EXTISP_DATA_PROCRAW,
+	NR_EXTISP_DATA,
+};
 
 struct mtk_cam_ctrl_runtime_info {
 
@@ -95,6 +110,8 @@ struct mtk_cam_ctrl_runtime_info {
 	u64 sof_ts_mono_ns;
 	u64 sof_l_ts_ns;
 	u64 sof_l_ts_mono_ns;
+	int extisp_enable; /* extisp used */
+	int extisp_tg_cnt[NR_EXTISP_DATA]; /* extisp used */
 };
 
 enum mtk_cam_sensor_latch {
@@ -169,6 +186,8 @@ struct mtk_cam_job_state {
 	/* for different sensor latched timing */
 	struct sensor_apply_params s_params;
 	struct state_table *sensor_tbl;
+	/* for extisp */
+	int tg_cnt;
 };
 
 #define ops_call(s, func, ...) \
@@ -223,6 +242,8 @@ struct mtk_cam_job_ops {
 	int (*switch_prepare)(struct mtk_cam_job *s);
 	int (*apply_switch)(struct mtk_cam_job *s);
 	int (*dump_aa_info)(struct mtk_cam_job *s, int engine_type);
+	int (*apply_extisp_meta_pd)(struct mtk_cam_job *s); /* extisp use */
+	int (*apply_extisp_procraw)(struct mtk_cam_job *s); /* extisp use */
 };
 
 struct initialize_params {
@@ -311,6 +332,7 @@ struct mtk_cam_job {
 	unsigned int sub_ratio;
 	int scq_period;
 	u64 (*timestamp_buf)[128];
+	int extisp_data; /* extisp used */
 	struct mmqos_bw raw_mmqos[SMI_PORT_RAW_NUM];
 	struct mmqos_bw raw_w_mmqos[SMI_PORT_RAW_NUM];
 	struct mmqos_bw yuv_mmqos[SMI_PORT_YUV_NUM];

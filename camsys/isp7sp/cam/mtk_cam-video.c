@@ -1135,20 +1135,11 @@ int mtk_cam_vidioc_g_meta_fmt(struct file *file, void *fh,
 	u32 extmeta_size = 0;
 #endif
 
-#ifdef NOT_READY
 	switch (node->desc.id) {
 	case MTK_RAW_META_SV_OUT_0:
 	case MTK_RAW_META_SV_OUT_1:
 	case MTK_RAW_META_SV_OUT_2:
-		if (node->enabled && node->ctx)
-			extmeta_size = cam->raw.pipelines[node->uid.pipe_id]
-				.cfg[MTK_RAW_META_SV_OUT_0].mbus_fmt.width *
-				cam->raw.pipelines[node->uid.pipe_id]
-				.cfg[MTK_RAW_META_SV_OUT_0].mbus_fmt.height;
-		if (extmeta_size)
-			node->active_fmt.fmt.meta.buffersize = extmeta_size;
-		else
-			node->active_fmt.fmt.meta.buffersize =
+		node->active_fmt.fmt.meta.buffersize =
 				CAMSV_EXT_META_0_WIDTH * CAMSV_EXT_META_0_HEIGHT;
 		dev_dbg(cam->dev,
 			"%s:extmeta name:%s buffersize:%d\n",
@@ -1157,7 +1148,6 @@ int mtk_cam_vidioc_g_meta_fmt(struct file *file, void *fh,
 	default:
 		break;
 	}
-#endif
 
 	f->fmt.meta.dataformat = node->active_fmt.fmt.meta.dataformat;
 	f->fmt.meta.buffersize = node->active_fmt.fmt.meta.buffersize;

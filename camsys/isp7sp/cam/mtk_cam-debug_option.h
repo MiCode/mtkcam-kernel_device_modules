@@ -24,6 +24,7 @@
 #define CAM_DEBUG_MMQOS		11
 
 #define CAM_DEBUG_JOB_ACTION	12
+#define CAM_DEBUG_EXTISP_SW_CNT	13
 
 #define CAM_DEBUG_AA		31
 

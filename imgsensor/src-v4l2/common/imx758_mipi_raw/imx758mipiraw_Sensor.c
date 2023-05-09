@@ -320,7 +320,7 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.csi_param = {
 			//.cphy_settle = 73,
 		},
-		.sensor_output_dataformat = SENSOR_OUTPUT_FORMAT_RAW_4CELL_HW_BAYER_R,
+		.sensor_output_dataformat = SENSOR_OUTPUT_FORMAT_RAW_4CELL_HW_BAYER_B,
 	},
 	{
 		.frame_desc = frame_desc_cap,
@@ -369,7 +369,7 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.csi_param = {
 			//.cphy_settle = 73,
 		},
-		.sensor_output_dataformat = SENSOR_OUTPUT_FORMAT_RAW_4CELL_HW_BAYER_R,
+		.sensor_output_dataformat = SENSOR_OUTPUT_FORMAT_RAW_4CELL_HW_BAYER_B,
 	},
 	{
 		.frame_desc = frame_desc_vid,
@@ -418,7 +418,7 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.csi_param = {
 			//.cphy_settle = 73,
 		},
-		.sensor_output_dataformat = SENSOR_OUTPUT_FORMAT_RAW_4CELL_HW_BAYER_R,
+		.sensor_output_dataformat = SENSOR_OUTPUT_FORMAT_RAW_4CELL_HW_BAYER_B,
 	},
 	{
 		.frame_desc = frame_desc_hs_vid,
@@ -467,7 +467,7 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.csi_param = {
 			//.cphy_settle = 76,
 		},
-		.sensor_output_dataformat = SENSOR_OUTPUT_FORMAT_RAW_4CELL_HW_BAYER_R,
+		.sensor_output_dataformat = SENSOR_OUTPUT_FORMAT_RAW_4CELL_HW_BAYER_B,
 	},
 	{
 		.frame_desc = frame_desc_slim_vid,
@@ -516,7 +516,7 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.csi_param = {
 			//.cphy_settle = 65,
 		},
-		.sensor_output_dataformat = SENSOR_OUTPUT_FORMAT_RAW_4CELL_HW_BAYER_R,
+		.sensor_output_dataformat = SENSOR_OUTPUT_FORMAT_RAW_4CELL_HW_BAYER_B,
 	},
 	{
 		.frame_desc = frame_desc_cus1,
@@ -565,7 +565,7 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.csi_param = {
 			//.cphy_settle = 69,
 		},
-		.sensor_output_dataformat = SENSOR_OUTPUT_FORMAT_RAW_4CELL_R,
+		.sensor_output_dataformat = SENSOR_OUTPUT_FORMAT_RAW_4CELL_B,
 	},
 	{
 		.frame_desc = frame_desc_cus2,
@@ -614,7 +614,7 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.csi_param = {
 			//.cphy_settle = 73,
 		},
-		.sensor_output_dataformat = SENSOR_OUTPUT_FORMAT_RAW_4CELL_HW_BAYER_R,
+		.sensor_output_dataformat = SENSOR_OUTPUT_FORMAT_RAW_4CELL_HW_BAYER_B,
 		.ana_gain_max = BASEGAIN * 8,
 	},
 	{
@@ -664,7 +664,7 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.csi_param = {
 			//.cphy_settle = 69,
 		},
-		.sensor_output_dataformat = SENSOR_OUTPUT_FORMAT_RAW_4CELL_R,
+		.sensor_output_dataformat = SENSOR_OUTPUT_FORMAT_RAW_4CELL_B,
 		.ana_gain_max = BASEGAIN * 8,
 	},
 
@@ -688,7 +688,7 @@ static struct subdrv_static_ctx static_ctx = {
 	.mipi_lane_num = SENSOR_MIPI_4_LANE,
 	.ob_pedestal = 0x40,//done
 
-	.sensor_output_dataformat = SENSOR_OUTPUT_FORMAT_RAW_4CELL_HW_BAYER_R,
+	.sensor_output_dataformat = SENSOR_OUTPUT_FORMAT_RAW_4CELL_HW_BAYER_B,
 	.ana_gain_def = BASEGAIN * 4,
 	.ana_gain_min = BASEGAIN * 1,
 	.ana_gain_max = BASEGAIN * 32,

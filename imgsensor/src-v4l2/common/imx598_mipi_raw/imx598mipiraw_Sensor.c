@@ -46,23 +46,33 @@ static struct eeprom_info_struct eeprom_info[] = {
 };
 
 static struct SET_PD_BLOCK_INFO_T imgsensor_pd_info = {
-	.i4OffsetX = 0,
-	.i4OffsetY = 0,
-	.i4PitchX = 0,
-	.i4PitchY = 0,
-	.i4PairNum = 0,
-	.i4SubBlkW = 0,
-	.i4SubBlkH = 0,
-	.i4PosL = {{0, 0} },
-	.i4PosR = {{0, 0} },
-	.i4BlockNumX = 0,
-	.i4BlockNumY = 0,
+	.i4OffsetX = 17,
+	.i4OffsetY = 12,
+	.i4PitchX = 8,
+	.i4PitchY = 16,
+	.i4PairNum = 8,
+	.i4SubBlkW = 8,
+	.i4SubBlkH = 2,
+	.i4PosL = {{20, 13}, {18, 15}, {22, 17}, {24, 19},
+	           {20, 21}, {18, 23}, {22, 25}, {24, 27}},
+	.i4PosR = {{19, 13}, {17, 15}, {21, 17}, {23, 19},
+	           {19, 21}, {17, 23}, {21, 25}, {23, 27}},
+	.i4BlockNumX = 496,
+	.i4BlockNumY = 186,
 	.i4LeFirst = 0,
 	.i4Crop = {
-		{0, 0}, {0, 0}, {0, 384}, {0, 384}, {0, 0},
-		{0, 0}, {0, 384}, {0, 0}, {0, 384}, {0, 384}
+		// <prev> <cap> <vid> <hs_vid> <slim_vid>
+		{0, 0}, {0, 0}, {0, 372}, {0, 372}, {0, 372},
+		// <cust1> <<cust2>> <<cust3>>
+		{0, 0}, {0, 0}, {0, 0},
 	},
-	.iMirrorFlip = 3,
+	.iMirrorFlip = 0,
+
+	.sPDMapInfo[0] = {
+		.i4PDPattern = 2,
+		.i4PDRepetition = 4,
+		.i4PDOrder = {1}, // R = 1, L = 0
+	},
 };
 
 static struct mtk_mbus_frame_desc_entry frame_desc_prev[] = {

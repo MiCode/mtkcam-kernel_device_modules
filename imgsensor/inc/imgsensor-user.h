@@ -399,6 +399,7 @@ struct mtk_csi_param {
 	__u8 not_fixed_trail_settle;
 	__u32 dphy_csi2_resync_dmy_cycle;
 	__u8 not_fixed_dphy_settle;
+	__u8 dphy_init_deskew_support;
 };
 
 struct mtk_sensor_saturation_info {

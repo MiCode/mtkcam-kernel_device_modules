@@ -104,6 +104,17 @@ static struct mtk_cam_seninf_irq_event_st vsync_detect_seninf_irq_event;
 	len += snprintf(buf + len, PAGE_SIZE - len, fmt, ##__VA_ARGS__); \
 }
 
+#ifdef INIT_DESKEW_UT
+uint adb_data_rate;
+uint adb_seninf_clk;
+
+module_param(adb_data_rate, uint, 0644);
+MODULE_PARM_DESC(adb_data_rate, "adb_data_rate");
+
+module_param(adb_seninf_clk, uint, 0644);
+MODULE_PARM_DESC(adb_seninf_clk, "adb_seninf_clk");
+#endif /* INIT_DESKEW_UT */
+
 static u64 settle_formula(u64 settle_ns, u64 seninf_ck)
 {
 	u64 _val = (settle_ns * seninf_ck);
@@ -3147,6 +3158,241 @@ static int csirx_phyA_setting(struct seninf_ctx *ctx)
 }
 #endif
 
+static int debug_init_deskew_begin_end_apply_code(struct seninf_ctx *ctx)
+{
+	void *dphy_base = ctx->reg_ana_dphy_top[(unsigned int)ctx->port];
+	unsigned int lane_idx;
+	unsigned int apply_code = 0;
+	unsigned int begin_end_code = 0;
+
+	SENINF_WRITE_REG(dphy_base, CDPHY_DEBUG_MODE_SELECT, 0x1111);
+
+	for (lane_idx = CSIRX_LANE_A0; lane_idx < CSIRX_LANE_MAX_NUM; lane_idx++) {
+		if (lane_idx == CSIRX_LANE_A0) {
+			dev_info(ctx->dev, "[%s] CSIRX_LANE_A0\n", __func__);
+			SENINF_WRITE_REG(dphy_base, CDPHY_DEBUG_PORT_SELECT, 0x03020100);
+		} else if(lane_idx == CSIRX_LANE_A1) {
+			dev_info(ctx->dev, "[%s] CSIRX_LANE_A1\n", __func__);
+			SENINF_WRITE_REG(dphy_base, CDPHY_DEBUG_PORT_SELECT, 0x1b1a1918);
+		} else if(lane_idx == CSIRX_LANE_A2) {
+			dev_info(ctx->dev, "[%s] CSIRX_LANE_A2\n", __func__);
+			SENINF_WRITE_REG(dphy_base, CDPHY_DEBUG_PORT_SELECT, 0x33323130);
+		} else if(lane_idx == CSIRX_LANE_B0) {
+			dev_info(ctx->dev, "[%s] CSIRX_LANE_B0\n", __func__);
+			SENINF_WRITE_REG(dphy_base, CDPHY_DEBUG_PORT_SELECT, 0x4b4a4948);
+		} else if(lane_idx == CSIRX_LANE_B1) {
+			dev_info(ctx->dev, "[%s] CSIRX_LANE_B1\n", __func__);
+			SENINF_WRITE_REG(dphy_base, CDPHY_DEBUG_PORT_SELECT, 0x63626160);
+		} else if(lane_idx == CSIRX_LANE_B2) {
+			dev_info(ctx->dev, "[%s] CSIRX_LANE_B2\n", __func__);
+			SENINF_WRITE_REG(dphy_base, CDPHY_DEBUG_PORT_SELECT, 0x7b7a7978);
+		} else {
+			dev_info(ctx->dev, "[%s] ERROR lane\n", __func__);
+		}
+		SENINF_WRITE_REG(dphy_base, DPHY_RX_DESKEW_DBG_MUX, 0x1);
+		udelay(5);
+		apply_code = SENINF_READ_REG(dphy_base, CDPHY_DEBUG_OUT_READ);
+		dev_info(ctx->dev, "[%s] read delay code CDPHY_DEBUG_OUT_READ = 0x%x, apply_code = %d\n",
+			__func__,
+			apply_code,
+			(apply_code  >> 24 & 0x3f));
+
+		SENINF_WRITE_REG(dphy_base, DPHY_RX_DESKEW_DBG_MUX, 0x8);
+		udelay(5);
+		begin_end_code = SENINF_READ_REG(dphy_base, CDPHY_DEBUG_OUT_READ);
+		dev_info(ctx->dev, "[%s] read begin/end code CDPHY_DEBUG_OUT_READ = 0x%x, begin = %d, end = %d\n",
+			__func__,
+			begin_end_code,
+			((begin_end_code) >> 8 & 0x3f),
+			((begin_end_code) >> 16 & 0x3f));
+	}
+	return 0;
+}
+
+static int csirx_dphy_init_deskew_setting(struct seninf_ctx *ctx, u64 seninf_ck)
+{
+	void *base = ctx->reg_ana_dphy_top[(unsigned int)ctx->port];
+	int bit_per_pixel = 10;
+	struct seninf_vc *vc = mtk_cam_seninf_get_vc_by_pad(ctx, PAD_SRC_RAW0);
+	struct seninf_vc *vc1 = mtk_cam_seninf_get_vc_by_pad(ctx, PAD_SRC_RAW_EXT0);
+	u64 data_rate = 0;
+
+	dev_info(ctx->dev, "[%s] dphy_init_deskew_support = %d\n",
+			__func__, ctx->csi_param.dphy_init_deskew_support);
+
+	if (!ctx->csi_param.dphy_init_deskew_support)
+		return 0;
+
+	if (vc)
+		bit_per_pixel = vc->bit_depth;
+	else if (vc1)
+		bit_per_pixel = vc1->bit_depth;
+
+	data_rate = ctx->mipi_pixel_rate * bit_per_pixel;
+	do_div(data_rate, ctx->num_data_lanes);
+
+
+#ifdef INIT_DESKEW_UT
+	if (adb_data_rate != 0) {
+		data_rate = adb_data_rate;
+		data_rate = data_rate * 1000000;
+	}
+
+	if (adb_seninf_clk != 0) {
+		seninf_ck = adb_seninf_clk;
+		seninf_ck = seninf_ck * 1000000;
+	}
+#endif /* INIT_DESKEW_UT */
+
+	if (data_rate > SENINF_DESKEW_DATA_RATE_1500M) {
+		/* Init deskew pattern calibration config */
+
+#ifdef INIT_DESKEW_DEBUG
+		dev_info(ctx->dev, "[%s] dump begin_end_apply_code before sw reset\n", __func__);
+		debug_init_deskew_begin_end_apply_code(ctx);
+#endif /* INIT_DESKEW_DEBUG */
+
+		/* deskew sw reset */
+		SENINF_BITS(base, DPHY_RX_DESKEW_CTRL, DPHY_RX_DESKEW_SW_RST, 1);
+		udelay(2);
+		SENINF_BITS(base, DPHY_RX_DESKEW_CTRL, DPHY_RX_DESKEW_SW_RST, 0);
+
+#ifdef INIT_DESKEW_DEBUG
+		dev_info(ctx->dev, "[%s] dump begin_end_apply_code after sw reset\n", __func__);
+		debug_init_deskew_begin_end_apply_code(ctx);
+#endif /* INIT_DESKEW_DEBUG */
+
+		/* DESKEW CTRL */
+		SENINF_BITS(base, DPHY_RX_DESKEW_CTRL, RG_DPHY_RX_DESKEW_INITIAL_SETUP, 0);
+		SENINF_BITS(base, DPHY_RX_DESKEW_CTRL, RG_DPHY_RX_DESKEW_EN, 1);
+
+		if (data_rate > SENINF_DESKEW_DATA_RATE_6500M)
+			SENINF_BITS(base, DPHY_RX_DESKEW_CTRL, RG_DPHY_RX_DESKEW_CODE_UNIT_SEL, 0);
+		else if (data_rate > SENINF_DESKEW_DATA_RATE_3200M)
+			SENINF_BITS(base, DPHY_RX_DESKEW_CTRL, RG_DPHY_RX_DESKEW_CODE_UNIT_SEL, 1);
+		else
+			SENINF_BITS(base, DPHY_RX_DESKEW_CTRL, RG_DPHY_RX_DESKEW_CODE_UNIT_SEL, 2);
+		/* RG_DPHY_RX_DESKEW_CODE_UNIT_SEL */
+		/* Date rate > 6.5G :                    set 'b0 */
+		/* Date rate < 6.5G & Date rate > 3.2G : set 'b01 */
+		/* Date rate < 3.2G :                    set 'b10 */
+
+		SENINF_BITS(base, DPHY_RX_DESKEW_CTRL, RG_DPHY_RX_DESKEW_DELAY_APPLY_OPT, 1);
+		SENINF_BITS(base, DPHY_RX_DESKEW_CTRL, RG_DPHY_RX_DESKEW_ACC_MODE, 1);
+
+		/* DESKEW LANE0~3 CTRL */
+		SENINF_BITS(base, DPHY_RX_DESKEW_LANE0_CTRL, DPHY_RX_DESKEW_L0_DELAY_EN, 1);
+		SENINF_BITS(base, DPHY_RX_DESKEW_LANE1_CTRL, DPHY_RX_DESKEW_L1_DELAY_EN, 1);
+		SENINF_BITS(base, DPHY_RX_DESKEW_LANE2_CTRL, DPHY_RX_DESKEW_L2_DELAY_EN, 1);
+		SENINF_BITS(base, DPHY_RX_DESKEW_LANE3_CTRL, DPHY_RX_DESKEW_L3_DELAY_EN, 1);
+
+		/* DESKEW TIMING CTRL */
+		SENINF_BITS(base, DPHY_RX_DESKEW_TIMING_CTRL, RG_DPHY_RX_DESKEW_DETECT_CNT, 2);
+
+		SENINF_BITS(base, DPHY_RX_DESKEW_TIMING_CTRL, RG_DPHY_RX_DESKEW_CMPLENGTH, 3);
+
+		/* RG_DPHY_RX_DESKEW_SETUP_CNT setting by csi_clk default 312MHZ & data rate */
+		switch (seninf_ck) {
+		case SENINF_CLK_499_2MHZ:
+			if (data_rate > SENINF_DESKEW_DATA_RATE_6500M) {
+				SENINF_BITS(base, DPHY_RX_DESKEW_TIMING_CTRL,
+					RG_DPHY_RX_DESKEW_SETUP_CNT, 12);
+			} else if (data_rate > SENINF_DESKEW_DATA_RATE_3200M) {
+				SENINF_BITS(base, DPHY_RX_DESKEW_TIMING_CTRL,
+					RG_DPHY_RX_DESKEW_SETUP_CNT, 19);
+			} else {
+				SENINF_BITS(base, DPHY_RX_DESKEW_TIMING_CTRL,
+					RG_DPHY_RX_DESKEW_SETUP_CNT, 36);
+			}
+			break;
+		case SENINF_CLK_416_MHZ:
+			if (data_rate > SENINF_DESKEW_DATA_RATE_6500M) {
+				SENINF_BITS(base, DPHY_RX_DESKEW_TIMING_CTRL,
+					RG_DPHY_RX_DESKEW_SETUP_CNT, 11);
+			} else if (data_rate > SENINF_DESKEW_DATA_RATE_3200M) {
+				SENINF_BITS(base, DPHY_RX_DESKEW_TIMING_CTRL,
+					RG_DPHY_RX_DESKEW_SETUP_CNT, 17);
+			} else {
+				SENINF_BITS(base, DPHY_RX_DESKEW_TIMING_CTRL,
+					RG_DPHY_RX_DESKEW_SETUP_CNT, 31);
+			}
+			break;
+		case SENINF_CLK_356_MHZ:
+			if (data_rate > SENINF_DESKEW_DATA_RATE_6500M) {
+				SENINF_BITS(base, DPHY_RX_DESKEW_TIMING_CTRL,
+					RG_DPHY_RX_DESKEW_SETUP_CNT, 10);
+			} else if (data_rate > SENINF_DESKEW_DATA_RATE_3200M) {
+				SENINF_BITS(base, DPHY_RX_DESKEW_TIMING_CTRL,
+					RG_DPHY_RX_DESKEW_SETUP_CNT, 15);
+			} else {
+				SENINF_BITS(base, DPHY_RX_DESKEW_TIMING_CTRL,
+					RG_DPHY_RX_DESKEW_SETUP_CNT, 27);
+			}
+			break;
+		case SENINF_CLK_312_MHZ:
+			if (data_rate > SENINF_DESKEW_DATA_RATE_6240M) {
+				dev_info(ctx->dev,
+					"ERROR cis_clk 312MHZ not support data rate > 6240Mbps\n");
+			} else if (data_rate > SENINF_DESKEW_DATA_RATE_3200M) {
+				SENINF_BITS(base, DPHY_RX_DESKEW_TIMING_CTRL,
+					RG_DPHY_RX_DESKEW_SETUP_CNT, 14);
+			} else {
+				SENINF_BITS(base, DPHY_RX_DESKEW_TIMING_CTRL,
+					RG_DPHY_RX_DESKEW_SETUP_CNT, 24);
+			}
+			break;
+		default:
+			dev_info(ctx->dev, "ERROR csi_clk no match\n");
+			break;
+		}
+
+		SENINF_BITS(base, DPHY_RX_DESKEW_TIMING_CTRL, RG_DPHY_RX_DESKEW_HOLD_CNT, 0);
+
+		/* DESKEW LANE SWAP */
+		SENINF_BITS(base, DPHY_RX_DESKEW_LANE_SWAP, RG_APPLY_ONLY_1ST_PAT, 1);
+
+		/* DESKEW LANE SYNC DETECT DESKEW */
+		SENINF_BITS(base, DPHY_RX_DATA_LANE_SYNC_DETECT_DESKEW,
+			RG_DPHY_RX_LD_SYNC_SEQ_PAT_DESKEW, 0xFF);
+		SENINF_BITS(base, DPHY_RX_DATA_LANE_SYNC_DETECT_DESKEW,
+			RG_DPHY_RX_LD_SYNC_SEQ_MASK_DESKEW, 0x00);
+
+		/* enable deskew irq*/
+		SENINF_WRITE_REG(base, DPHY_RX_DESKEW_IRQ_EN, 0xffffffff);
+		SENINF_WRITE_REG(base, DPHY_RX_IRQ_EN, 0xffffffff);
+		SENINF_WRITE_REG(base, DPHY_RX_IRQ_EN, 0x800000ff);
+
+		dev_info(ctx->dev, "Data rate = %llu, SENINF CLK = %llu init deskew setting done\n",
+			data_rate, seninf_ck);
+#ifdef INIT_DESKEW_UT
+		dev_info(ctx->dev, "DPHY_RX_DESKEW_CTRL = 0x%x\n",
+			SENINF_READ_REG(base, DPHY_RX_DESKEW_CTRL));
+		dev_info(ctx->dev, "DPHY_RX_DESKEW_LANE_CTRL = 0x%x|0x%x|0x%x|0x%x\n",
+			SENINF_READ_REG(base, DPHY_RX_DESKEW_LANE0_CTRL),
+			SENINF_READ_REG(base, DPHY_RX_DESKEW_LANE1_CTRL),
+			SENINF_READ_REG(base, DPHY_RX_DESKEW_LANE2_CTRL),
+			SENINF_READ_REG(base, DPHY_RX_DESKEW_LANE3_CTRL));
+		dev_info(ctx->dev, "DPHY_RX_DESKEW_TIMING_CTRL = 0x%x\n",
+			SENINF_READ_REG(base, DPHY_RX_DESKEW_TIMING_CTRL));
+		dev_info(ctx->dev, "DPHY_RX_DESKEW_LANE_SWAP = 0x%x\n",
+			SENINF_READ_REG(base, DPHY_RX_DESKEW_LANE_SWAP));
+		dev_info(ctx->dev, "DPHY_RX_DATA_LANE_SYNC_DETECT_DESKEW = 0x%x\n",
+			SENINF_READ_REG(base, DPHY_RX_DATA_LANE_SYNC_DETECT_DESKEW));
+		dev_info(ctx->dev, "DPHY_RX_IRQ_EN = 0x%x\n",
+			SENINF_READ_REG(base, DPHY_RX_IRQ_EN));
+#endif /* INIT_DESKEW_UT */
+
+#ifdef INIT_DESKEW_DEBUG
+		dev_info(ctx->dev, "[%s] after config\n", __func__);
+		debug_init_deskew_begin_end_apply_code(ctx);
+#endif /* INIT_DESKEW_DEBUG */
+	} else {
+		dev_info(ctx->dev, "Data rate = %llu < 1.5G, skip init deskew\n", data_rate);
+	}
+	return 0;
+}
+
+
 static int csirx_dphy_setting(struct seninf_ctx *ctx)
 {
 	void *base = ctx->reg_ana_dphy_top[(unsigned int)ctx->port];
@@ -3183,6 +3429,10 @@ static int csirx_dphy_setting(struct seninf_ctx *ctx)
 	SENINF_BITS(base, DPHY_RX_LANE_SELECT, DPHY_RX_CK_DATA_MUX_EN, 1);
 	SENINF_BITS(base, DPHY_DPHYV21_CTRL, RG_DPHY_RX_SYNC_METH_SEL, 0x1);
 	SENINF_WRITE_REG(base, DPHY_RX_SPARE0, 0xf1);
+
+#ifdef INIT_DESKEW_SUPPORT
+	csirx_dphy_init_deskew_setting(ctx, SENINF_CK);
+#endif /* INIT_DESKEW_SUPPORT */
 
 	return 0;
 }
@@ -5350,6 +5600,32 @@ static int mtk_cam_seninf_set_reg(struct seninf_ctx *ctx, u32 key, u64 val)
 	return 0;
 }
 
+
+static int debug_init_deskew_irq(struct seninf_ctx *ctx)
+{
+	void *dphy_base = ctx->reg_ana_dphy_top[(unsigned int)ctx->port];
+	void *csi_mac_base = ctx->reg_csirx_mac_csi[(unsigned int)ctx->port];
+	static int i = 0;
+	dev_info(ctx->dev, "[%s] deskew_irq_en = 0x%x, deskew_irq_clr = 0x%x, deskew_irq_status = 0x%x\n",
+		__func__,
+		SENINF_READ_REG(dphy_base, DPHY_RX_DESKEW_IRQ_EN),
+		SENINF_READ_REG(dphy_base, DPHY_RX_DESKEW_IRQ_CLR),
+		SENINF_READ_REG(dphy_base, DPHY_RX_DESKEW_IRQ_STATUS));
+	dev_info(ctx->dev, "[%s] csirx_mac_irq_status = 0x%x, \n",
+		__func__,
+		SENINF_READ_REG(csi_mac_base, CSIRX_MAC_CSI2_IRQ_STATUS));
+	dev_info(ctx->dev, "[%s] DPHY_RX_IRQ_EN = 0x%x, DPHY_RX_IRQ_CLR = 0x%x, DPHY_RX_IRQ_STATUS = 0x%x\n",
+		__func__,
+		SENINF_READ_REG(dphy_base, DPHY_RX_IRQ_EN),
+		SENINF_READ_REG(dphy_base, DPHY_RX_IRQ_CLR),
+		SENINF_READ_REG(dphy_base, DPHY_RX_IRQ_STATUS));
+
+	dev_info(ctx->dev, "[%s] dump i = %d\n", __func__, i);
+	i++;
+	debug_init_deskew_begin_end_apply_code(ctx);
+	return 0;
+}
+
 struct mtk_cam_seninf_ops mtk_csi_phy_3_0 = {
 	._init_iomem = mtk_cam_seninf_init_iomem,
 	._init_port = mtk_cam_seninf_init_port,
@@ -5409,4 +5685,6 @@ struct mtk_cam_seninf_ops mtk_csi_phy_3_0 = {
 	.iomem_ver = NULL,
 	._show_err_status = mtk_cam_seninf_show_err_status,
 	._enable_stream_err_detect = mtk_cam_enable_stream_err_detect,
+	._debug_init_deskew_irq = debug_init_deskew_irq,
+	._debug_init_deskew_begin_end_apply_code = debug_init_deskew_begin_end_apply_code,
 };

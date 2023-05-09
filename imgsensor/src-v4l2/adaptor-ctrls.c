@@ -1045,6 +1045,8 @@ static int ext_ctrl(struct adaptor_ctx *ctx, struct v4l2_ctrl *ctrl, struct sens
 			else
 				csi_param->not_fixed_dphy_settle =
 					mode->csi_param.not_fixed_dphy_settle;
+			csi_param->dphy_init_deskew_support =
+					mode->csi_param.dphy_init_deskew_support;
 		}
 	}
 		break;

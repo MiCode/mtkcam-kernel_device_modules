@@ -28,6 +28,22 @@
 #define MAX_MUX_VCINFO_DEBUG 15
 #define MAX_TS_SIZE 4
 
+/*init deskew define*/
+#define INIT_DESKEW_SUPPORT
+//#define INIT_DESKEW_UT
+//#define INIT_DESKEW_DEBUG
+
+enum CSIRX_LANE_NUM {
+	CSIRX_LANE_A0 = 0,
+	CSIRX_LANE_A1,
+	CSIRX_LANE_A2,
+	CSIRX_LANE_B0,
+	CSIRX_LANE_B1,
+	CSIRX_LANE_B2,
+	CSIRX_LANE_MAX_NUM
+};
+
+
 enum SET_REG_KEYS {
 	REG_KEY_MIN = 0,
 	REG_KEY_SETTLE_CK = REG_KEY_MIN,
@@ -168,6 +184,8 @@ struct mtk_cam_seninf_ops {
 	int (*_set_reg)(struct seninf_ctx *ctx, u32 key, u64 val);
 	ssize_t (*_show_err_status)(struct device *dev, struct device_attribute *attr, char *buf);
 	int (*_enable_stream_err_detect)(struct seninf_ctx *ctx);
+	int (*_debug_init_deskew_irq)(struct seninf_ctx *ctx);
+	int (*_debug_init_deskew_begin_end_apply_code)(struct seninf_ctx *ctx);
 	unsigned int seninf_num;
 	unsigned int mux_num;
 	unsigned int cam_mux_num;

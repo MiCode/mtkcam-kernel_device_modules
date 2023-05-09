@@ -319,6 +319,7 @@ done:
 #ifdef REQ_TIMESTAMP
 	req->tstate.time_notify2vb2done = ktime_get_boottime_ns()/1000;
 #endif
+    req_track->mainflow_from = REQUEST_DONE_FROM_KERNEL_TO_IMGSTREAM;
     req_track->subflow_kernel++;
 	complete(&req->done);
         if (imgsys_dbg_enable()) {

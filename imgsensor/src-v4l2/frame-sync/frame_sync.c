@@ -3162,9 +3162,11 @@ void fs_update_shutter(struct fs_perframe_st (*pf_ctrl))
 			fs_mgr.seamless_ctrl[idx].seamless_sof_cnt);
 		return;
 	}
+	if (FS_CHECK_BIT(idx, &fs_mgr.validSync_bits) == 1) {
+		/* check fl info drv set match Frame-Sync gave */
+		fs_chk_fl_info_updated_from_drv(idx, pf_ctrl, __func__);
+	}
 
-	/* check fl info drv set */
-	fs_chk_fl_info_updated_from_drv(idx, pf_ctrl, __func__);
 	/* update/overwrite fl info drv set */
 	fs_mgr.pf_ctrl[idx] = *pf_ctrl;
 

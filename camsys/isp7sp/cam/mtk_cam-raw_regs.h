@@ -7498,10 +7498,13 @@ static inline u32 _set_field(u32 *val, int pos, int width, u32 fval)
 /* CAMSYS_RAW */
 #define REG_RAWI_R2_BASE       0x42c0
 #define REG_UFDI_R2_BASE       0x4330
+#define REG_RAWI_R3_BASE       0x43a0
+#define REG_UFDI_R3_BASE       0x4410
 #define REG_RAWI_R5_BASE       0x4480
 #define REG_UFDI_R5_BASE       0x44f0
 #define REG_BPCI_R1_BASE       0x4560
 #define REG_BPCI_R2_BASE       0x45a0
+#define REG_BPCI_R3_BASE       0x45e0
 #define REG_LSCI_R1_BASE       0x4660
 #define REG_PDI_R1_BASE        0x46a0
 #define REG_AAI_R1_BASE        0x46e0

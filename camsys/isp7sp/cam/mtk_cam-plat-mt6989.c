@@ -540,7 +540,7 @@ static u32 raw_dma_group[RAW_M4U_PORT_NUM][DMA_GROUP_SIZE] = {
 	/* port-1 */
 	{REG_RAWI_R2_BASE, REG_UFDI_R2_BASE, 0x0, 0x0},
 	/* port-2 */
-	{0x0, 0x0, 0x0, 0x0},
+	{REG_RAWI_R3_BASE, REG_UFDI_R3_BASE, 0x0, 0x0},
 	/* port-3 */
 	{0x0, 0x0, 0x0, 0x0},
 	/* port-4 */
@@ -550,11 +550,11 @@ static u32 raw_dma_group[RAW_M4U_PORT_NUM][DMA_GROUP_SIZE] = {
 	/* port-6 */
 	{0x0, 0x0, 0x0, 0x0},
 	/* port-7 */
-	{REG_BPCI_R1_BASE, REG_BPCI_R2_BASE, 0x0, 0x0},
-	/* port-8 */
-	{0x0, 0x0, 0x0, 0x0},
-	/* port-9 */
 	{REG_CACI_R1_BASE, 0x0, 0x0, 0x0},
+	/* port-8 */
+	{REG_BPCI_R1_BASE, REG_BPCI_R2_BASE, 0x0, 0x0},
+	/* port-9 */
+	{REG_BPCI_R3_BASE, 0x0, 0x0, 0x0},
 	/* port-10 */
 	{REG_LSCI_R1_BASE, REG_PDI_R1_BASE, REG_AAI_R1_BASE, 0x0},
 	/* port-11 */
@@ -564,11 +564,11 @@ static u32 raw_dma_group[RAW_M4U_PORT_NUM][DMA_GROUP_SIZE] = {
 	/* port-13  */
 	{REG_DRZB2NO_R1_BASE, REG_DRZB2NBO_R1_BASE, REG_DRZB2NCO_R1_BASE, 0x0},
 	/* port-14 */
-	{REG_AFO_R1_BASE, REG_TSFSO_R1_BASE, 0x0, 0x0},
-	/* port-15 */
-	{REG_AAO_R1_BASE, REG_AAHO_R1_BASE, 0x0, 0x0},
-	/* port-16 */
 	{0x0, 0x0, 0x0, 0x0},
+	/* port-15 */
+	{REG_AFO_R1_BASE, REG_TSFSO_R1_BASE, 0x0, 0x0},
+	/* port-16 */
+	{REG_AAO_R1_BASE, REG_AAHO_R1_BASE, 0x0, 0x0},
 };
 
 static u32 yuv_dma_group[YUV_M4U_PORT_NUM][DMA_GROUP_SIZE] = {
@@ -581,13 +581,13 @@ static u32 yuv_dma_group[YUV_M4U_PORT_NUM][DMA_GROUP_SIZE] = {
 	/* port-3 */
 	{REG_YUVO_R5_BASE, REG_YUVBO_R5_BASE, REG_RZH1N2TBO_R1_BASE, REG_RZH1N2TBO_R3_BASE},
 	/* port-4 */
-	{0x0, 0x0, 0x0, 0x0},
-	/* port-5 */
-	{REG_TCYSO_R1_BASE, REG_RZH1N2TO_R2_BASE, REG_DRZS4NO_R1_BASE, REG_DRZH2NO_R8_BASE},
-	/* port-6 */
-	{REG_DRZS4NO_R3_BASE, REG_RZH1N2TO_R3_BASE, REG_RZH1N2TO_R1_BASE, 0x0},
-	/* port-7 */
 	{REG_RGBWI_R1_BASE, 0x0, 0x0, 0x0},
+	/* port-5 */
+	{0x0, 0x0, 0x0, 0x0},
+	/* port-6 */
+	{REG_TCYSO_R1_BASE, REG_RZH1N2TO_R2_BASE, REG_DRZS4NO_R1_BASE, REG_DRZH2NO_R8_BASE},
+	/* port-7 */
+	{REG_DRZS4NO_R3_BASE, REG_RZH1N2TO_R3_BASE, REG_RZH1N2TO_R1_BASE, 0x0},
 };
 
 static int query_raw_dma_group(int m4u_id, u32 group[4])

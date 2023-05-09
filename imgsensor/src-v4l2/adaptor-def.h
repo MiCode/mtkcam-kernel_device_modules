@@ -91,6 +91,10 @@ enum {
 	STATE_DVDD1_ON,
 	STATE_DVDD2_OFF,
 	STATE_DVDD2_ON,
+	STATE_OISVDD_OFF,
+	STATE_OISVDD_ON,
+	STATE_OISEN_OFF,
+	STATE_OISEN_ON,
 	STATE_RST1_LOW,
 	STATE_RST1_HIGH,
 	STATE_PONV_LOW,
@@ -142,6 +146,10 @@ enum {
 	"dvdd1_on", \
 	"dvdd2_off", \
 	"dvdd2_on", \
+	"oisvdd_off", \
+	"oisvdd_on", \
+	"oisen_off", \
+	"oisen_on", \
 	"rst1_low", \
 	"rst1_high", \
 	"ponv_low", \
@@ -164,6 +172,8 @@ enum {
 	REGULATOR_AVDD4,
 	REGULATOR_DVDD1,
 	REGULATOR_DVDD2,
+	REGULATOR_OISVDD,
+	REGULATOR_OISEN,
 	REGULATOR_RST,
 	REGULATOR_MAXCNT,
 };
@@ -180,6 +190,8 @@ enum {
 	"avdd4", \
 	"dvdd1", \
 	"dvdd2", \
+	"oisvdd", \
+	"oisen", \
 	"rst", \
 
 /* Format code util */

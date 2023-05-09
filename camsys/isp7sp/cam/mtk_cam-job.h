@@ -188,6 +188,7 @@ struct mtk_cam_job_state {
 	struct state_table *sensor_tbl;
 	/* for extisp */
 	int tg_cnt;
+	u64 extisp_data_timestamp[NR_EXTISP_DATA]; /* extisp used */
 };
 
 #define ops_call(s, func, ...) \

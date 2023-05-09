@@ -162,7 +162,7 @@ static struct aie_data data_isp7sp_1 = {
 	.clks = isp7sp_1_aie_clks,
 	.clk_num = ARRAY_SIZE(isp7sp_1_aie_clks),
 	.drv_ops = &aie_ops_isp7sp,
-	.larb_clk_ready = false,
+	.larb_clk_ready = true,
 };
 
 static int mtk_aie_suspend(struct device *dev)

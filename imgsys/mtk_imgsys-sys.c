@@ -543,6 +543,8 @@ static void mtk_imgsys_notify(struct mtk_imgsys_request *req, uint64_t frm_owner
 	u32 index = iparam->index;
 	u32 frame_no = iparam->frame_no;
 	u64 req_enq, req_done, imgenq;
+    union request_track *req_track = NULL;
+    req_track = (union request_track *)req->req_stat;
 
 	IMGSYS_SYSTRACE_BEGIN("ReqFd:%d Own:%s\n", req->tstate.req_fd, ((char *)&frm_owner));
 #ifdef REQ_TIMESTAMP
@@ -550,7 +552,7 @@ static void mtk_imgsys_notify(struct mtk_imgsys_request *req, uint64_t frm_owner
 #endif
 	if (!pipe->streaming)
 		goto notify;
-
+    req_track->subflow_kernel++;
 	if (is_singledev_mode(req))
 		mtk_imgsys_iova_map_tbl_unmap_sd(req);
 	else if (is_desc_mode(req))
@@ -571,6 +573,7 @@ notify:
 								false);
 	req->working_buf = NULL;
 	/*  vb2 buffer done in below function  */
+    req_track->subflow_kernel++;
 	if (vbf_state == VB2_BUF_STATE_DONE)
 		mtk_imgsys_pipe_job_finish(req, vbf_state);
 	mtk_imgsys_pipe_remove_job(req);
@@ -844,11 +847,12 @@ static void imgsys_mdp_cb_func(struct cmdq_cb_data data,
 		return;
 	}
 
+    req_track = (union request_track *)req->req_stat;
 	if (swfrminfo_cb->is_lastfrm && isLastTaskInReq
 		&& (swfrminfo_cb->fail_isHWhang == -1)
 		&& (pipe->streaming)) {
-		req_track = (union request_track *)req->req_stat;
-		req_track->mainflow_from = REQUEST_DONE_FROM_KERNEL_TO_IMGSTREAM;
+		//req_track = (union request_track *)req->req_stat;
+		//req_track->mainflow_from = REQUEST_DONE_FROM_KERNEL_TO_IMGSTREAM;
 		req_track->subflow_kernel++;
 	}
 
@@ -979,6 +983,7 @@ static void imgsys_mdp_cb_func(struct cmdq_cb_data data,
 		}
 	}
 	mutex_unlock(&(reqfd_cbinfo_list.mymutex));
+    req_track->subflow_kernel++;
 	if (!reqfd_record_find) {
 		dev_info(imgsys_dev->dev,
 			"%s:%s:req fd/no(%d/%d)frame no(%d)no record, kva(0x%lx)group ID/L(%d/%d)e_cb(idx_%d:%d)tfrm(%d) cb/lst(%d/%d)->%d/%d\n",
@@ -1126,6 +1131,7 @@ static void imgsys_mdp_cb_func(struct cmdq_cb_data data,
 			if (swfrminfo_cb->user_info[subfidx].is_earlycb) {
 				ev.req_fd = swfrminfo_cb->request_fd;
 				ev.frame_number = swfrminfo_cb->user_info[subfidx].subfrm_idx;
+                req_track->subflow_kernel++;
 				mtk_imgsys_early_notify(req, &ev);
 			}
 
@@ -1139,6 +1145,7 @@ static void imgsys_mdp_cb_func(struct cmdq_cb_data data,
 			if (swfrminfo_cb->is_earlycb) {
 				ev.req_fd = swfrminfo_cb->request_fd;
 				ev.frame_number = swfrminfo_cb->earlycb_sidx;
+                req_track->subflow_kernel++;
 				mtk_imgsys_early_notify(req, &ev);
 			}
 			if (swfrminfo_cb->is_lastfrm) {
@@ -1156,8 +1163,10 @@ static void imgsys_mdp_cb_func(struct cmdq_cb_data data,
 			(unsigned long)swfrminfo_cb, lastfrmInMWReq);
         }
 		/* call dip notify when all package done */
-		if (/*pipe->streaming && */can_notify_imgsys/*lastfrmInMWReq*/)
+		if (/*pipe->streaming && */can_notify_imgsys/*lastfrmInMWReq*/) {
+            req_track->subflow_kernel++;
 			mtk_imgsys_notify(req, swfrminfo_cb->frm_owner);
+		}
 
 		if (need_notify_daemon) {
 			gwork.reqfd = swfrminfo_cb->request_fd;
@@ -1875,7 +1884,7 @@ static void imgsys_scp_handler(void *data, unsigned int len, void *priv)
 	}
 
 	if (swfrm_info->is_lastfrm) {
-		req_track = (union request_track *)req->req_stat;
+        req_track = (union request_track *)req->req_stat;
 		req_track->mainflow_to = REQUEST_FROM_DAEMON_TO_KERNEL;
 		req_track->subflow_kernel++;
 	}

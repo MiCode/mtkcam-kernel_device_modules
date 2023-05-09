@@ -1160,12 +1160,11 @@ static int mtk_cam_seninf_set_mux_ctrl(struct seninf_ctx *ctx, int mux,
 	temp = SENINF_READ_REG(pSeninf_mux, SENINF_MUX_CTRL_0);
 	SENINF_WRITE_REG(pSeninf_mux, SENINF_MUX_CTRL_0, temp | 0x6);//reset
 	SENINF_WRITE_REG(pSeninf_mux, SENINF_MUX_CTRL_0, temp & 0xFFFFFFF9);
-#if LOG_MORE
+
 	dev_info(ctx->dev, "SENINF_MUX_CTRL_0(0x%x), SENINF_MUX_CTRL_1(0x%x), SENINF_MUX_OPT(0x%x)",
 		 SENINF_READ_REG(pSeninf_mux, SENINF_MUX_CTRL_0),
 		 SENINF_READ_REG(pSeninf_mux, SENINF_MUX_CTRL_1),
 		SENINF_READ_REG(pSeninf_mux, SENINF_MUX_OPT));
-#endif
 	return 0;
 }
 

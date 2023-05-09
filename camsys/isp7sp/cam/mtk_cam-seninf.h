@@ -139,9 +139,6 @@ struct seninf_core {
 	unsigned int err_detect_init_flag;
 	unsigned int err_detect_termination_flag;
 
-	/* for sentest use */
-	bool allow_adjust_isp_en;
-
 	/* aov sensor use */
 	int pwr_refcnt_for_aov;
 	int aov_sensor_id;
@@ -263,6 +260,10 @@ struct seninf_ctx {
 	unsigned int size_err_flag;
 	unsigned int dbg_timeout;
 	unsigned int dbg_last_dump_req;
+
+	/* for sentest use */
+	bool allow_adjust_isp_en;
+	bool single_raw_streaming_en;
 
 	/* cammux switch debug element */
 	struct mtk_cam_seninf_mux_param *dbg_chmux_param;

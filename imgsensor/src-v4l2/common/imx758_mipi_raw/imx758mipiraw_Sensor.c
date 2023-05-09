@@ -320,6 +320,7 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.csi_param = {
 			//.cphy_settle = 73,
 		},
+		.sensor_output_dataformat = SENSOR_OUTPUT_FORMAT_RAW_4CELL_HW_BAYER_R,
 	},
 	{
 		.frame_desc = frame_desc_cap,
@@ -368,6 +369,7 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.csi_param = {
 			//.cphy_settle = 73,
 		},
+		.sensor_output_dataformat = SENSOR_OUTPUT_FORMAT_RAW_4CELL_HW_BAYER_R,
 	},
 	{
 		.frame_desc = frame_desc_vid,
@@ -416,6 +418,7 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.csi_param = {
 			//.cphy_settle = 73,
 		},
+		.sensor_output_dataformat = SENSOR_OUTPUT_FORMAT_RAW_4CELL_HW_BAYER_R,
 	},
 	{
 		.frame_desc = frame_desc_hs_vid,
@@ -464,6 +467,7 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.csi_param = {
 			//.cphy_settle = 76,
 		},
+		.sensor_output_dataformat = SENSOR_OUTPUT_FORMAT_RAW_4CELL_HW_BAYER_R,
 	},
 	{
 		.frame_desc = frame_desc_slim_vid,
@@ -490,12 +494,12 @@ static struct subdrv_mode_struct mode_struct[] = {
 			.full_w = 8192,
 			.full_h = 6144,
 			.x0_offset = 0,
-			.y0_offset = 0,
+			.y0_offset = 1536,
 			.w0_size = 8192,
-			.h0_size = 6144,
-			.scale_w = 4096,
+			.h0_size = 3072,
+			.scale_w = 8192,
 			.scale_h = 3072,
-			.x1_offset = 0,
+			.x1_offset = 2048,
 			.y1_offset = 0,
 			.w1_size = 4096,
 			.h1_size = 3072,
@@ -512,6 +516,7 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.csi_param = {
 			//.cphy_settle = 65,
 		},
+		.sensor_output_dataformat = SENSOR_OUTPUT_FORMAT_RAW_4CELL_HW_BAYER_R,
 	},
 	{
 		.frame_desc = frame_desc_cus1,
@@ -535,15 +540,15 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.coarse_integ_step = 1,
 		.min_exposure_line = 8,
 		.imgsensor_winsize_info = {
-			.full_w = 8192,//check
+			.full_w = 8192,
 			.full_h = 6144,
 			.x0_offset = 0,
-			.y0_offset = 0,
+			.y0_offset = 1536,
 			.w0_size = 8192,
-			.h0_size = 6144,
-			.scale_w = 4096,
+			.h0_size = 3072,
+			.scale_w = 8192,
 			.scale_h = 3072,
-			.x1_offset = 0,
+			.x1_offset = 2048,
 			.y1_offset = 0,
 			.w1_size = 4096,
 			.h1_size = 3072,
@@ -560,6 +565,7 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.csi_param = {
 			//.cphy_settle = 69,
 		},
+		.sensor_output_dataformat = SENSOR_OUTPUT_FORMAT_RAW_4CELL_R,
 	},
 	{
 		.frame_desc = frame_desc_cus2,
@@ -608,6 +614,7 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.csi_param = {
 			//.cphy_settle = 73,
 		},
+		.sensor_output_dataformat = SENSOR_OUTPUT_FORMAT_RAW_4CELL_HW_BAYER_R,
 		.ana_gain_max = BASEGAIN * 8,
 	},
 	{
@@ -657,6 +664,7 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.csi_param = {
 			//.cphy_settle = 69,
 		},
+		.sensor_output_dataformat = SENSOR_OUTPUT_FORMAT_RAW_4CELL_R,
 		.ana_gain_max = BASEGAIN * 8,
 	},
 
@@ -680,7 +688,7 @@ static struct subdrv_static_ctx static_ctx = {
 	.mipi_lane_num = SENSOR_MIPI_4_LANE,
 	.ob_pedestal = 0x40,//done
 
-	.sensor_output_dataformat = SENSOR_OUTPUT_FORMAT_RAW_4CELL_HW_BAYER_B,
+	.sensor_output_dataformat = SENSOR_OUTPUT_FORMAT_RAW_4CELL_HW_BAYER_R,
 	.ana_gain_def = BASEGAIN * 4,
 	.ana_gain_min = BASEGAIN * 1,
 	.ana_gain_max = BASEGAIN * 32,

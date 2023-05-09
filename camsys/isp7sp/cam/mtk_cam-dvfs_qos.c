@@ -475,9 +475,9 @@ static int fill_raw_out_qos(struct mtk_cam_job *job,
 					u32 sensor_h, u32 sensor_vb, u64 linet)
 {
 	struct mtkcam_qos_desc *qos_desc;
-	unsigned int size, dst_port;
+	unsigned int size;
 	u32 peak_bw, avg_bw, active_h;
-	int i;
+	int i, dst_port;
 
 	qos_desc = find_qos_desc_by_uid(
 			mmqos_img_table, ARRAY_SIZE(mmqos_img_table), out->uid.id);
@@ -502,6 +502,11 @@ static int fill_raw_out_qos(struct mtk_cam_job *job,
 				job->req_seq, out->uid.id, size);
 			continue;
 		}
+
+		dst_port = CALL_PLAT_HW(query_icc_path_idx,
+			qos_desc->dma_desc[i].domain, qos_desc->dma_desc[i].dst_port);
+		if (dst_port < 0)
+			continue;
 
 		active_h = sensor_h + sensor_vb;
 		avg_bw = calc_bw(size, linet, active_h);
@@ -548,9 +553,9 @@ static int fill_raw_in_qos(struct mtk_cam_job *job,
 {
 	struct mtkcam_qos_desc *qos_desc = NULL;
 	struct mtkcam_qos_desc *imgo_qos_desc = NULL;
-	unsigned int size, dst_port;
+	unsigned int size;
 	u32 peak_bw, avg_bw;
-	int i;
+	int i, dst_port;
 
 	qos_desc = find_qos_desc_by_uid(
 			mmqos_img_table, ARRAY_SIZE(mmqos_img_table), in->uid.id);
@@ -582,12 +587,16 @@ static int fill_raw_in_qos(struct mtk_cam_job *job,
 			continue;
 		}
 
+		dst_port = CALL_PLAT_HW(query_icc_path_idx,
+				qos_desc->dma_desc[i].domain, qos_desc->dma_desc[i].dst_port);
+		if (dst_port < 0)
+			continue;
+
 		avg_bw = calc_bw(size, linet, sensor_h + sensor_vb);
 		avg_bw = is_bitstream(qos_desc->dma_desc[i].ufbc_type) ?
 				apply_ufo_com_ratio(avg_bw) : avg_bw;
 		peak_bw = is_dc_mode(job) ? 0 : calc_bw(size, linet, sensor_h);
 
-		dst_port = qos_desc->dma_desc[i].dst_port;
 		switch (qos_desc->dma_desc[i].domain) {
 		case RAW_DOMAIN:
 			job->raw_mmqos[dst_port].peak_bw += to_qos_icc(peak_bw);
@@ -630,11 +639,10 @@ static int fill_raw_stats_qos(struct req_buffer_helper *helper,
 {
 	struct mtk_cam_job *job = helper->job;
 	struct mtkcam_qos_desc *qos_desc;
-	unsigned int dst_port;
 	unsigned int size = 0;
 	void *meta_va = NULL;
 	u32 peak_bw, avg_bw;
-	int i, j;
+	int i, j, dst_port;
 
 	for (i = 0; i < ARRAY_SIZE(mmqos_stats_table); i++) {
 		qos_desc = &mmqos_stats_table[i];
@@ -649,6 +657,10 @@ static int fill_raw_stats_qos(struct req_buffer_helper *helper,
 			continue;
 
 		for (j = 0; j < qos_desc->desc_size; j++) {
+			/* for multi exposure */
+			if (qos_desc->dma_desc[j].exp_num > job_exp_num(job))
+				continue;
+
 			CALL_PLAT_V4L2(get_meta_stats_port_size,
 				qos_desc->id, meta_va, qos_desc->dma_desc[j].src_port, &size);
 			if (!size)
@@ -662,14 +674,14 @@ static int fill_raw_stats_qos(struct req_buffer_helper *helper,
 				continue;
 			}
 
-			/* for multi exposure */
-			if (qos_desc->dma_desc[j].src_port == PORT_BPCI)
-				size *= job_exp_num(job);
+			dst_port = CALL_PLAT_HW(query_icc_path_idx,
+				qos_desc->dma_desc[j].domain, qos_desc->dma_desc[j].dst_port);
+			if (dst_port < 0)
+				continue;
 
 			avg_bw = calc_bw(size, linet, sensor_h + sensor_vb);
 			peak_bw = is_dc_mode(job) ? 0 : avg_bw;
 
-			dst_port = qos_desc->dma_desc[j].dst_port;
 			switch (qos_desc->dma_desc[j].domain) {
 			case RAW_DOMAIN:
 				job->raw_mmqos[dst_port].peak_bw += to_qos_icc(peak_bw);

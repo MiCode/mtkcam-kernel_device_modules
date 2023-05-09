@@ -6,7 +6,6 @@
 #ifndef __MTK_CAM_DVFS_QOS_RAW_H
 #define __MTK_CAM_DVFS_QOS_RAW_H
 
-#include "mtk_cam-plat.h"
 #include "mtk_cam-defs.h"
 
 enum SMI_RAW_MERGE_PORT_ID {
@@ -18,6 +17,7 @@ enum SMI_RAW_MERGE_PORT_ID {
 	SMI_PORT_IMGO_R1,
 	SMI_PORT_FPRI_R1,
 	SMI_PORT_BPCI_R1,
+	SMI_PORT_BPCI_R4,
 	SMI_PORT_LSCI_R1,
 	SMI_PORT_UFEO_R1,
 	SMI_PORT_LTMSO_R1,
@@ -34,7 +34,7 @@ enum SMI_YUV_MERGE_PORT_ID {
 	SMI_PORT_YUVO_R2,
 	SMI_PORT_YUVO_R5,
 	SMI_PORT_RGBWI_R1,
-	SMI_PORT_TSYSO_R1,
+	SMI_PORT_TCYSO_R1,
 	SMI_PORT_DRZHNO_R3,
 	SMI_PORT_YUV_NUM,
 };
@@ -43,6 +43,23 @@ enum PORT_DOMAIN {
 	RAW_DOMAIN,
 	RAW_W_DOMAIN,
 	YUV_DOMAIN,
+};
+
+enum STATS_DMA_PORT {
+	PORT_UNKNOWN = 0,
+	PORT_CQI,
+	PORT_CACI,
+	PORT_BPCI,
+	PORT_PDI,
+	PORT_PDO,
+	PORT_AAO,
+	PORT_AAHO,
+	PORT_TSFSO,
+	PORT_LTMSO,
+	PORT_LTMSHO,
+	PORT_FLKO,
+	PORT_TCYSO,
+	PORT_AFO,
 };
 
 /* for yuv */
@@ -59,6 +76,7 @@ struct qos_dma_desc {
 	u8 src_port;
 	u8 dst_port;
 	u8 ufbc_type;
+	u8 exp_num;
 };
 
 struct mtkcam_qos_desc {
@@ -86,6 +104,20 @@ static struct qos_dma_desc stats_cfg_dmas[] = {
 		.domain = RAW_DOMAIN,
 		.src_port = PORT_BPCI,
 		.dst_port = SMI_PORT_BPCI_R1,
+	},
+	{
+		.dma_name = "bpci_r2",
+		.domain = RAW_DOMAIN,
+		.src_port = PORT_BPCI,
+		.exp_num = 2,
+		.dst_port = SMI_PORT_BPCI_R1,
+	},
+	{
+		.dma_name = "bpci_r3",
+		.domain = RAW_DOMAIN,
+		.src_port = PORT_BPCI,
+		.exp_num = 3,
+		.dst_port = SMI_PORT_BPCI_R4,
 	},
 	{
 		.dma_name = "pdi_r1",
@@ -135,7 +167,7 @@ static struct qos_dma_desc stats_0_dmas[] = {
 		.dma_name = "tcyso_r1",
 		.domain = YUV_DOMAIN,
 		.src_port = PORT_TCYSO,
-		.dst_port = SMI_PORT_TSYSO_R1,
+		.dst_port = SMI_PORT_TCYSO_R1,
 	},
 	{
 		.dma_name = "pdo_r1",
@@ -330,7 +362,7 @@ static struct qos_dma_desc rzh1n2to_2_dmas[] = {
 	{
 		.dma_name = "rzh1n2to_r2",
 		.domain = YUV_DOMAIN,
-		.dst_port = SMI_PORT_TSYSO_R1,
+		.dst_port = SMI_PORT_TCYSO_R1,
 	},
 };
 
@@ -338,12 +370,12 @@ static struct qos_dma_desc drzs4no_1_dmas[] = {
 	{
 		.dma_name = " drzs4no_r1",
 		.domain = YUV_DOMAIN,
-		.dst_port = SMI_PORT_TSYSO_R1,
+		.dst_port = SMI_PORT_TCYSO_R1,
 	},
 	{
 		.dma_name = " drzh2no_r8",
 		.domain = YUV_DOMAIN,
-		.dst_port = SMI_PORT_TSYSO_R1,
+		.dst_port = SMI_PORT_TCYSO_R1,
 	},
 };
 

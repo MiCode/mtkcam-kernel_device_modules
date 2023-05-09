@@ -10,6 +10,7 @@
 #include "mtk_cam-ipi.h"
 #include "mtk_camera-v4l2-controls-7sp.h"
 #include "mtk_camera-videodev2.h"
+#include "mtk_cam-dvfs_qos_raw.h"
 
 #define RAW_STATS_CFG_SIZE \
 	ALIGN(sizeof(struct mtk_cam_uapi_meta_raw_stats_cfg), SZ_4K)
@@ -53,6 +54,34 @@
 	sizeof(struct mtk_cam_uapi_meta_mraw_stats_0)
 
 #define DYNAMIC_SIZE
+
+enum RAW_ICC_PATH_IDX {
+	ICC_PATH_CQI_R1 = 0,
+	ICC_PATH_RAWI_R2,
+	ICC_PATH_RAWI_R3,
+	ICC_PATH_RAWI_R5,
+	ICC_PATH_IMGO_R1,
+	ICC_PATH_FPRI_R1,
+	ICC_PATH_BPCI_R1,
+	ICC_PATH_LSCI_R1,
+	ICC_PATH_UFEO_R1,
+	ICC_PATH_LTMSO_R1,
+	ICC_PATH_DRZB2NO_R1,
+	ICC_PATH_AFO_R1,
+	ICC_PATH_AAO_R1,
+	RAW_ICC_PATH_NUM,
+};
+
+enum YUV_ICC_PATH_IDX {
+	ICC_PATH_YUVO_R1 = 0,
+	ICC_PATH_YUVO_R3,
+	ICC_PATH_YUVO_R2,
+	ICC_PATH_YUVO_R5,
+	ICC_PATH_RGBWI_R1,
+	ICC_PATH_TSYSO_R1,
+	ICC_PATH_DRZHNO_R3,
+	YUV_ICC_PATH_NUM,
+};
 
 static void set_payload(struct mtk_cam_uapi_meta_hw_buf *buf,
 			unsigned int size, size_t *offset)
@@ -600,6 +629,70 @@ static int query_max_exp_support(u32 raw_idx)
 	return 2;
 }
 
+static int map_raw_icc_path(u32 smi_port)
+{
+	switch (smi_port) {
+	case SMI_PORT_CQI_R1:
+		return ICC_PATH_CQI_R1;
+	case SMI_PORT_RAWI_R2:
+		return ICC_PATH_RAWI_R2;
+	case SMI_PORT_RAWI_R3:
+		return ICC_PATH_RAWI_R3;
+	case SMI_PORT_RAWI_R5:
+		return ICC_PATH_RAWI_R5;
+	case SMI_PORT_IMGO_R1:
+		return ICC_PATH_IMGO_R1;
+	case SMI_PORT_FPRI_R1:
+		return ICC_PATH_FPRI_R1;
+	case SMI_PORT_BPCI_R1:
+		return ICC_PATH_BPCI_R1;
+	case SMI_PORT_LSCI_R1:
+		return ICC_PATH_LSCI_R1;
+	case SMI_PORT_UFEO_R1:
+		return ICC_PATH_UFEO_R1;
+	case SMI_PORT_LTMSO_R1:
+		return ICC_PATH_LTMSO_R1;
+	case SMI_PORT_DRZB2NO_R1:
+		return ICC_PATH_DRZB2NO_R1;
+	case SMI_PORT_AFO_R1:
+		return ICC_PATH_AFO_R1;
+	case SMI_PORT_AAO_R1:
+		return ICC_PATH_AAO_R1;
+	default:
+		return -1;
+	}
+}
+
+static int map_yuv_icc_path(u32 smi_port)
+{
+	switch (smi_port) {
+	case SMI_PORT_YUVO_R1:
+		return ICC_PATH_YUVO_R1;
+	case SMI_PORT_YUVO_R3:
+		return ICC_PATH_YUVO_R3;
+	case SMI_PORT_YUVO_R2:
+		return ICC_PATH_YUVO_R2;
+	case SMI_PORT_YUVO_R5:
+		return ICC_PATH_YUVO_R5;
+	case SMI_PORT_RGBWI_R1:
+		return ICC_PATH_RGBWI_R1;
+	case SMI_PORT_TCYSO_R1:
+		return ICC_PATH_TSYSO_R1;
+	case SMI_PORT_DRZHNO_R3:
+		return ICC_PATH_DRZHNO_R3;
+	default:
+		return -1;
+	}
+}
+
+static int query_icc_path_idx(int domain, int smi_port)
+{
+	if (domain == YUV_DOMAIN)
+		return map_yuv_icc_path(smi_port);
+	else
+		return map_raw_icc_path(smi_port);
+}
+
 static const struct plat_v4l2_data mt6897_v4l2_data = {
 	.raw_pipeline_num = 3,
 	.camsv_pipeline_num = 16,
@@ -635,11 +728,14 @@ static const struct plat_v4l2_data mt6897_v4l2_data = {
 
 static const struct plat_data_hw mt6897_hw_data = {
 	.cammux_id_raw_start = 34,
+	.raw_icc_path_num = RAW_ICC_PATH_NUM,
+	.yuv_icc_path_num = YUV_ICC_PATH_NUM,
 
 	.query_raw_dma_group = query_raw_dma_group,
 	.query_yuv_dma_group = query_yuv_dma_group,
 	.query_caci_size = query_caci_size,
 	.query_max_exp_support = query_max_exp_support,
+	.query_icc_path_idx = query_icc_path_idx,
 };
 
 struct camsys_platform_data mt6897_data = {

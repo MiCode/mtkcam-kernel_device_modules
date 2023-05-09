@@ -2711,14 +2711,14 @@ int fill_imgo_buf_to_ipi_mstream(
 	helper->filled_hdr_buffer = true;
 
 	if (CAM_DEBUG_ENABLED(JOB))
-		pr_info("%s: exp_order: %d\n",
-				__func__, exp_order);
+		pr_info("%s: exp_order: %d\n", __func__, exp_order);
 
 	// RAWI is always the first exp
 	in = &fp->img_ins[helper->ii_idx++];
-	fill_img_in_hdr(in, buf, node,
-		get_buf_offset_idx(exp_order, 0, 0, 0),
-		MTKCAM_IPI_RAW_RAWI_2);
+	fill_mp_img_in_hdr(in, buf, node, MTKCAM_IPI_RAW_RAWI_2,
+			   get_buf_plane(exp_order, 0),
+			   get_plane_per_exp(0),
+			   get_plane_buf_offset(0));
 
 	if (is_pure_imgo && is_sv_pure_raw(job)) {
 		/* pure raw */
@@ -2728,9 +2728,10 @@ int fill_imgo_buf_to_ipi_mstream(
 	} else {
 		// IMGO is used as the second exp
 		out = &fp->img_outs[helper->io_idx++];
-		fill_img_out_hdr(out, buf, node,
-			get_buf_offset_idx(exp_order, 1, 0, 0),
-			MTKCAM_IPI_RAW_IMGO);
+		fill_mp_img_out_hdr(out, buf, node, MTKCAM_IPI_RAW_IMGO,
+				    get_buf_plane(exp_order, 1),
+				    get_plane_per_exp(0),
+				    get_plane_buf_offset(0));
 	}
 
 	/* fill sv image fp */

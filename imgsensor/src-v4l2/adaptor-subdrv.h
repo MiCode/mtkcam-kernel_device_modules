@@ -358,6 +358,8 @@ struct subdrv_ctx {
 	u32 shutter; /* current shutter */
 	u32 gain; /* current gain */
 	u32 pclk; /* current pclk */
+	u32 frame_length_rg; /* current framelength in RG */
+	u32 frame_length_in_lut_rg[IMGSENSOR_STAGGER_EXPOSURE_CNT]; /* current lbmf framelength in RG */
 	u32 frame_length; /* current framelength */
 	u32 frame_length_in_lut[IMGSENSOR_STAGGER_EXPOSURE_CNT]; /* current lbmf framelength */
 	u32 line_length; /* current linelength */

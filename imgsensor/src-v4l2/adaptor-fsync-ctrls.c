@@ -108,7 +108,6 @@ static void fsync_mgr_s_frame_length(struct adaptor_ctx *ctx)
 	union feature_para para;
 	u32 len;
 
-	// para.u64[0] = ctx->subctx.frame_length;
 	para.u64[0] = ctx->fsync_out_fl;
 
 	subdrv_call(ctx, feature_control,
@@ -162,7 +161,7 @@ static void fsync_mgr_update_sensor_actual_fl_info(struct adaptor_ctx *ctx,
 	const unsigned int mode_exp_cnt = p_pf_ctrl->hdr_exp.mode_exp_cnt;
 	unsigned int i;
 
-	p_pf_ctrl->out_fl_lc = ctx->subctx.frame_length;
+	p_pf_ctrl->out_fl_lc = ctx->subctx.frame_length_rg;
 
 	if (p_pf_ctrl->hdr_exp.multi_exp_type == MULTI_EXP_TYPE_LBMF) {
 		for (i = 0; i < mode_exp_cnt; ++i) {
@@ -174,7 +173,7 @@ static void fsync_mgr_update_sensor_actual_fl_info(struct adaptor_ctx *ctx,
 
 			p_pf_ctrl->hdr_exp.fl_lc[fl_idx] =
 #ifndef WAIT_SENSOR_SUPPORT_LBMF
-				ctx->subctx.frame_length_in_lut[i];
+				ctx->subctx.frame_length_in_lut_rg[i];
 #else
 				0;
 #endif
@@ -387,7 +386,7 @@ static void fsync_mgr_set_hdr_exp_data(struct adaptor_ctx *ctx,
 				if (p_hdr_exp->multi_exp_type ==
 						MULTI_EXP_TYPE_LBMF) {
 					p_hdr_exp->fl_lc[fl_idx] =
-						ctx->subctx.frame_length_in_lut[i];
+						ctx->subctx.frame_length_in_lut_rg[i];
 				}
 #endif
 
@@ -592,9 +591,8 @@ static void fsync_mgr_setup_fs_streaming_st(struct adaptor_ctx *ctx,
 
 	s_info->fl_active_delay = ctx->subctx.frame_time_delay_frame;
 
-	/* using ctx->subctx.frame_length instead of ctx->cur_mode->fll */
 	/* for any settings before streaming on */
-	s_info->def_fl_lc = ctx->subctx.frame_length;
+	s_info->def_fl_lc = ctx->subctx.frame_length_rg;
 	s_info->max_fl_lc = ctx->subctx.max_frame_length;
 
 	/* frame sync sensor operate mode. none/master/slave */
@@ -693,18 +691,18 @@ void fsync_mgr_dump_fs_perframe_st(struct adaptor_ctx *ctx,
 		mode_id,
 		ctx->needs_fsync_assign_fl,
 		ctx->fsync_out_fl,
-		ctx->subctx.frame_length,
+		ctx->subctx.frame_length_rg,
 		ctx->fsync_out_fl_arr[0],
 		ctx->fsync_out_fl_arr[1],
 		ctx->fsync_out_fl_arr[2],
 		ctx->fsync_out_fl_arr[3],
 		ctx->fsync_out_fl_arr[4],
 #ifndef WAIT_SENSOR_SUPPORT_LBMF
-		ctx->subctx.frame_length_in_lut[0],
-		ctx->subctx.frame_length_in_lut[1],
-		ctx->subctx.frame_length_in_lut[2],
-		ctx->subctx.frame_length_in_lut[3],
-		ctx->subctx.frame_length_in_lut[4],
+		ctx->subctx.frame_length_in_lut_rg[0],
+		ctx->subctx.frame_length_in_lut_rg[1],
+		ctx->subctx.frame_length_in_lut_rg[2],
+		ctx->subctx.frame_length_in_lut_rg[3],
+		ctx->subctx.frame_length_in_lut_rg[4],
 #else
 		0, 0, 0, 0, 0,
 #endif
@@ -773,7 +771,7 @@ static void fsync_mgr_setup_basic_fs_perframe_st(struct adaptor_ctx *ctx,
 	pf_ctrl->min_fl_lc = ctx->subctx.min_frame_length;
 	pf_ctrl->margin_lc = g_sensor_margin(ctx, mode_id);
 	pf_ctrl->flicker_en = ctx->subctx.autoflicker_en;
-	pf_ctrl->out_fl_lc = ctx->subctx.frame_length; // sensor current fl_lc
+	pf_ctrl->out_fl_lc = ctx->subctx.frame_length_rg; // sensor current fl_lc
 
 	/* preventing issue (seamless switch not update ctx->cur_mode data) */
 	pf_ctrl->pclk = ctx->subctx.pclk;
@@ -950,7 +948,7 @@ void notify_fsync_mgr_update_min_fl(struct adaptor_ctx *ctx)
 		FSYNC_MGR_LOGI(ctx,
 			"ERROR: sidx:%d, ctx->fsync_mgr:%p is NULL, min_fl_lc:%u (fl_lc:%u), return\n",
 			ctx->idx, ctx->fsync_mgr, ctx->subctx.min_frame_length,
-			ctx->subctx.frame_length);
+			ctx->subctx.frame_length_rg);
 		return;
 	}
 	/* check if sensor driver lock i2c operation */
@@ -964,7 +962,7 @@ void notify_fsync_mgr_update_min_fl(struct adaptor_ctx *ctx)
 
 	ctx->fsync_mgr->fs_update_min_fl_lc(ctx->idx,
 		ctx->subctx.min_frame_length,
-		ctx->subctx.frame_length, fl_lc_arr, FS_HDR_MAX);
+		ctx->subctx.frame_length_rg, fl_lc_arr, FS_HDR_MAX);
 }
 
 void notify_fsync_mgr_set_extend_framelength(struct adaptor_ctx *ctx,
@@ -1132,7 +1130,6 @@ void notify_fsync_mgr_set_shutter(struct adaptor_ctx *ctx,
 
 		/* update sensor current fl_lc */
 		fsync_mgr_update_sensor_actual_fl_info(ctx, &pf_ctrl);
-		// pf_ctrl.out_fl_lc = ctx->subctx.frame_length;
 	}
 	/* update sensor current fl_lc to Frame-Sync */
 	ctx->fsync_mgr->fs_update_shutter(&pf_ctrl);

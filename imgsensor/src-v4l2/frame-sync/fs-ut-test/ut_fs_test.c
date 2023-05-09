@@ -2820,7 +2820,10 @@ static void ut_trigger_ext_ctrl(struct fs_perframe_st *p_pf_ctrl)
 					g_counter);
 
 				seamless_info.seamless_pf_ctrl = *p_pf_ctrl;
-				seamless_info.orig_readout_time_us = p_pf_ctrl->readout_time_us;
+				seamless_info.prop.orig_readout_time_us =
+					p_pf_ctrl->readout_time_us;
+				seamless_info.prop.prsh_length_lc =
+					p_pf_ctrl->hdr_exp.exp_lc[0] + 100;
 
 				/* test seamless switch procedure */
 				switch (REGISTER_METHOD) {

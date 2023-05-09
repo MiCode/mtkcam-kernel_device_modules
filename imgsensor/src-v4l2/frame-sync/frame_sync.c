@@ -1396,7 +1396,7 @@ static void fs_clr_seamless_switch_info(const unsigned int idx)
 
 	memset(&fs_mgr.seamless_ctrl[idx], 0, sizeof(fs_mgr.seamless_ctrl[idx]));
 
-	LOG_MUST(
+	LOG_INF(
 		"[%u] ID:%#x(sidx:%u), seamless:%#x, seamless_sof_cnt:%u (cleared), SA(m_idx:%d)\n",
 		idx,
 		fs_get_reg_sensor_id(idx),
@@ -1451,7 +1451,7 @@ static void fs_set_seamless_switch_info(const unsigned int idx,
 		fs_mgr.seamless_ctrl[idx].seamless_sof_cnt,
 		FS_ATOMIC_READ(&fs_mgr.seamless_ctrl[idx].wait_for_processing),
 		FS_ATOMIC_READ(&fs_mgr.master_idx),
-		fs_mgr.seamless_ctrl[idx].seamless_info.orig_readout_time_us);
+		fs_mgr.seamless_ctrl[idx].seamless_info.prop.orig_readout_time_us);
 }
 
 
@@ -1460,7 +1460,7 @@ static void fs_do_seamless_switch_proc(const unsigned int idx,
 {
 	struct fs_seamless_st *p_seamless_info = NULL;
 	struct fs_perframe_st *p_seamless_ctrl = NULL;
-	struct FrameRecord frame_rec = {0};
+	struct frec_seamless_st seamless_rec = {0};
 
 	/* error handling (unexpected case) */
 	if (unlikely(check_idx_valid(idx) == 0)) {
@@ -1485,10 +1485,9 @@ static void fs_do_seamless_switch_proc(const unsigned int idx,
 	p_seamless_info = &fs_mgr.seamless_ctrl[idx].seamless_info;
 	p_seamless_ctrl = &fs_mgr.seamless_ctrl[idx].seamless_info.seamless_pf_ctrl;
 
-	frec_reset_records(idx);
-	frec_setup_frame_rec_by_fs_perframe_st(&frame_rec, p_seamless_ctrl);
-	frec_setup_def_records(idx, p_seamless_ctrl->min_fl_lc, &frame_rec);
-	// frec_dump_recorder(idx, __func__);
+	frec_setup_seamless_rec_by_fs_seamless_st(
+		&seamless_rec, p_seamless_info);
+	frec_seamless_switch(idx, p_seamless_ctrl->min_fl_lc, &seamless_rec);
 
 	fs_alg_seamless_switch(idx, p_seamless_info, p_sa_cfg);
 }
@@ -1869,6 +1868,30 @@ static void fs_set_framelength_lc(const unsigned int idx,
 #ifdef FS_UT
 	fs_alg_setup_frame_monitor_fmeas_data(idx);
 #endif
+}
+
+
+static void fs_reject_frame_length_ctrl(const unsigned int idx)
+{
+	const unsigned int cmd_id = fs_mgr.cb_info[idx].cmd_id;
+	const unsigned int fl_drv_handle_val = 0;
+	const unsigned int fl_lc_arr[FS_HDR_MAX] = {fl_drv_handle_val};
+
+	/* let fl to drv self ctrl => set value to 0 */
+	fs_cb_fsync_ctrl_to_set_fl_info(idx, cmd_id,
+		fl_drv_handle_val, fl_lc_arr, FS_HDR_MAX);
+
+	LOG_MUST(
+		"NOTICE: [%u] ID:%#x(sidx:%u), let FL be controlled by sensor drv, set FL:(%u, %u/%u/%u/%u/%u)\n",
+		idx,
+		fs_get_reg_sensor_id(idx),
+		fs_get_reg_sensor_idx(idx),
+		fl_drv_handle_val,
+		fl_lc_arr[0],
+		fl_lc_arr[1],
+		fl_lc_arr[2],
+		fl_lc_arr[3],
+		fl_lc_arr[4]);
 }
 
 
@@ -2302,7 +2325,7 @@ void fs_chk_exit_seamless_switch_frame(const unsigned int ident)
 	/* if yes, clear/reset seamless ctrl data */
 	if (fs_chk_seamless_switch_status(idx)) {
 		if (fs_mgr.seamless_ctrl[idx].seamless_sof_cnt
-				!= fs_mgr.notify_vsync_sof_cnt_arr[idx]
+				!= fs_mgr.sof_cnt_arr[idx]
 			|| (FS_ATOMIC_READ(&fs_mgr.seamless_ctrl[idx].wait_for_processing) == 0)) {
 			LOG_MUST(
 				"NOTICE: [%u] ID:%#x(sidx:%u), wait_for_processing:%d or (current sof cnt:%u)/(seamelss sof cnt:%u) is different => It is NOT seamless switch frame => enter to NORMAL frame => clear seamless ctrl that keep before\n",
@@ -2310,7 +2333,7 @@ void fs_chk_exit_seamless_switch_frame(const unsigned int ident)
 				fs_mgr.seamless_ctrl[idx].seamless_info.seamless_pf_ctrl.sensor_id,
 				fs_mgr.seamless_ctrl[idx].seamless_info.seamless_pf_ctrl.sensor_idx,
 				FS_ATOMIC_READ(&fs_mgr.seamless_ctrl[idx].wait_for_processing),
-				fs_mgr.notify_vsync_sof_cnt_arr[idx],
+				fs_mgr.sof_cnt_arr[idx],
 				fs_mgr.seamless_ctrl[idx].seamless_sof_cnt);
 
 			fs_clr_seamless_switch_info(idx);
@@ -2331,8 +2354,21 @@ void fs_chk_valid_for_doing_seamless_switch(const unsigned int ident)
 	/* check if new vsync sof cnt been updated and is match to seamless sof cnt */
 	/* if not, keep seamless ctrl for vsync notify using. */
 	if (fs_chk_seamless_switch_status(idx)) {
+		if (FS_ATOMIC_READ(&fs_mgr.seamless_ctrl[idx].wait_for_processing) == 0) {
+			LOG_PF_INF(
+				"NOTICE: [%u] ID:%#x(sidx:%u), seamless:%#x, wait_for_processing:%d, through (current sof cnt:%u)/(seamelss sof cnt:%u) is same, SA(m_idx:%d), keep this seamless ctrl timing\n",
+				idx,
+				fs_mgr.seamless_ctrl[idx].seamless_info.seamless_pf_ctrl.sensor_id,
+				fs_mgr.seamless_ctrl[idx].seamless_info.seamless_pf_ctrl.sensor_idx,
+				FS_ATOMIC_READ(&fs_mgr.seamless_bits),
+				FS_ATOMIC_READ(&fs_mgr.seamless_ctrl[idx].wait_for_processing),
+				fs_mgr.sof_cnt_arr[idx],
+				fs_mgr.seamless_ctrl[idx].seamless_sof_cnt,
+				FS_ATOMIC_READ(&fs_mgr.master_idx));
+			return;
+		}
 		if (fs_mgr.seamless_ctrl[idx].seamless_sof_cnt
-				!= fs_mgr.notify_vsync_sof_cnt_arr[idx]) {
+				!= fs_mgr.sof_cnt_arr[idx]) {
 			LOG_MUST(
 				"NOTICE: [%u] ID:%#x(sidx:%u), seamless:%#x, wait_for_processing:%d, (current sof cnt:%u)/(seamelss sof cnt:%u) is different, SA(m_idx:%d), keep this seamless ctrl\n",
 				idx,
@@ -2340,10 +2376,9 @@ void fs_chk_valid_for_doing_seamless_switch(const unsigned int ident)
 				fs_mgr.seamless_ctrl[idx].seamless_info.seamless_pf_ctrl.sensor_idx,
 				FS_ATOMIC_READ(&fs_mgr.seamless_bits),
 				FS_ATOMIC_READ(&fs_mgr.seamless_ctrl[idx].wait_for_processing),
-				fs_mgr.notify_vsync_sof_cnt_arr[idx],
+				fs_mgr.sof_cnt_arr[idx],
 				fs_mgr.seamless_ctrl[idx].seamless_sof_cnt,
 				FS_ATOMIC_READ(&fs_mgr.master_idx));
-
 			return;
 		}
 
@@ -2357,7 +2392,7 @@ void fs_chk_valid_for_doing_seamless_switch(const unsigned int ident)
 			fs_mgr.seamless_ctrl[idx].seamless_info.seamless_pf_ctrl.sensor_idx,
 			FS_ATOMIC_READ(&fs_mgr.seamless_bits),
 			FS_ATOMIC_READ(&fs_mgr.seamless_ctrl[idx].wait_for_processing),
-			fs_mgr.notify_vsync_sof_cnt_arr[idx],
+			fs_mgr.sof_cnt_arr[idx],
 			fs_mgr.seamless_ctrl[idx].seamless_sof_cnt,
 			sa_cfg.idx,
 			sa_cfg.m_idx,
@@ -3088,6 +3123,7 @@ void fs_set_shutter(struct fs_perframe_st (*pf_ctrl))
 			fs_mgr.sof_cnt_arr[idx],
 			FS_ATOMIC_READ(&fs_mgr.seamless_bits),
 			fs_mgr.seamless_ctrl[idx].seamless_sof_cnt);
+		fs_reject_frame_length_ctrl(idx);
 		return;
 	}
 

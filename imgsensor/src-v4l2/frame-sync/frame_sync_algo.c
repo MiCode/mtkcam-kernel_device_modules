@@ -606,7 +606,7 @@ static unsigned int calc_vts_sync_bias(unsigned int idx)
 }
 
 
-static unsigned int calc_seamless_frame_time_us(const unsigned int idx,
+/* static */unsigned int calc_seamless_frame_time_us(const unsigned int idx,
 	const struct fs_seamless_st *p_seamless_info)
 {
 	const unsigned int mode_exp_cnt =
@@ -628,7 +628,8 @@ static unsigned int calc_seamless_frame_time_us(const unsigned int idx,
 
 	/* get basic info */
 	/* check normal or hdr situation (normal: shutter_lc / hdr: hdr_exp) */
-	if (p_seamless_info->seamless_pf_ctrl.shutter_lc != 0)
+	// if (p_seamless_info->seamless_pf_ctrl.shutter_lc != 0)
+	if (p_seamless_info->seamless_pf_ctrl.hdr_exp.ae_exp_cnt <= 1)
 		re_exp_lc = p_seamless_info->seamless_pf_ctrl.shutter_lc;
 	else
 		re_exp_lc = p_seamless_info->seamless_pf_ctrl.hdr_exp.exp_lc[0];
@@ -665,7 +666,7 @@ static unsigned int calc_seamless_frame_time_us(const unsigned int idx,
 			convert2TotalTime(fs_inst[idx].lineTimeInNs, readout_start_shift_us);
 	}
 
-	ret = readout_start_shift_us + p_seamless_info->orig_readout_time_us
+	ret = readout_start_shift_us + p_seamless_info->prop.orig_readout_time_us
 		+ hw_init_time_us + re_exp_us;
 
 	LOG_MUST(
@@ -673,7 +674,7 @@ static unsigned int calc_seamless_frame_time_us(const unsigned int idx,
 		idx, fs_inst[idx].sensor_id, fs_inst[idx].sensor_idx,
 		ret,
 		readout_start_shift_us,
-		p_seamless_info->orig_readout_time_us,
+		p_seamless_info->prop.orig_readout_time_us,
 		hw_init_time_us,
 		re_exp_us,
 		fs_inst[idx].lineTimeInNs,
@@ -1765,7 +1766,7 @@ static void fs_alg_sa_update_seamless_dynamic_para(const unsigned int idx,
 	struct fs_seamless_st *p_seamless_info,
 	struct FrameSyncDynamicPara *p_para)
 {
-	unsigned int seamless_frame_time_us = 0;
+	// unsigned int seamless_frame_time_us = 0;
 	unsigned int ts_bias_lc = 0;
 	unsigned int i = 0;
 
@@ -1781,36 +1782,25 @@ static void fs_alg_sa_update_seamless_dynamic_para(const unsigned int idx,
 	}
 
 	/* calculate seamless frame time */
-	seamless_frame_time_us = calc_seamless_frame_time_us(idx, p_seamless_info);
+	// seamless_frame_time_us = calc_seamless_frame_time_us(idx, p_seamless_info);
 
 	/* using seamless ctrl to update pf ctrl */
 	fs_inst[idx].hdr_exp = p_seamless_info->seamless_pf_ctrl.hdr_exp;
 	fs_alg_set_perframe_st_data(idx, &p_seamless_info->seamless_pf_ctrl);
 
+
+	/* !!! setup dynamic parameters !!! */
 	/* calculate and get timestamp bias */
 	ts_bias_lc = calc_vts_sync_bias(idx);
 	p_para->ts_bias_us =
 		convert2TotalTime(fs_inst[idx].lineTimeInNs, ts_bias_lc);
 
-	/* overwrite pred_fl_us/lc[] value to match seamless ctrl */
-	fs_inst[idx].predicted_fl_us[0] = seamless_frame_time_us;
-	fs_inst[idx].predicted_fl_lc[0] =
-		convert2LineCount(
-			fs_inst[idx].lineTimeInNs,
-			fs_inst[idx].predicted_fl_us[0]);
-	fs_inst[idx].predicted_fl_lc[1] = p_seamless_info->seamless_pf_ctrl.out_fl_lc;
-	fs_inst[idx].predicted_fl_us[1] =
-		convert2TotalTime(
-			fs_inst[idx].lineTimeInNs,
-			fs_inst[idx].predicted_fl_lc[1]);
-	p_para->pred_fl_us[0] =
-		fs_inst[idx].predicted_fl_us[0];
-	p_para->pred_fl_us[1] =
-		fs_inst[idx].predicted_fl_us[1];
+	/* setup frame length info */
+	p_para->pred_fl_us[0] = fs_inst[idx].predicted_fl_us[0];
+	p_para->pred_fl_us[1] = fs_inst[idx].predicted_fl_us[1];
 
 	/* overwrite frame measurement predicted frame length for debugging */
-	frm_set_frame_measurement(
-		idx, 0,
+	frm_set_frame_measurement(idx, 0,
 		fs_inst[idx].predicted_fl_us[0],
 		fs_inst[idx].predicted_fl_lc[0],
 		fs_inst[idx].predicted_fl_us[1],
@@ -1820,7 +1810,7 @@ static void fs_alg_sa_update_seamless_dynamic_para(const unsigned int idx,
 #if defined(FS_UT)
 	/* update frame monitor current predicted framelength data */
 	frm_update_next_vts_bias_us(idx, p_para->ts_bias_us);
-#endif // FS_UT
+#endif
 
 
 	/* for N:1 FrameSync case, calculate and get tag bias */
@@ -1866,7 +1856,7 @@ static void fs_alg_sa_update_seamless_dynamic_para(const unsigned int idx,
 		p_para->tag_bias_us,
 		p_para->delta,
 		fs_inst[idx].fl_active_delay);
-#endif // REDUCE_FS_ALGO_LOG
+#endif
 
 
 	fs_alg_dump_fs_inst_data(idx);

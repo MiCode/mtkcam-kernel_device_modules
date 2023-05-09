@@ -589,6 +589,76 @@ static int do_set_ae_ctrl(struct adaptor_ctx *ctx,
 	return 0;
 }
 
+
+static void delay_do_set_ae_ctrl(struct kthread_work *work)
+{
+	struct adaptor_work *_adaptor_work = NULL;
+	struct adaptor_ctx *ctx = NULL;
+	u64 time_boot = ktime_get_boottime_ns();
+	pr_info("[%s] start %llu\n", __func__, time_boot);
+	_adaptor_work = container_of(work, struct adaptor_work, dwork.work);
+
+	if (_adaptor_work) {
+		ctx = _adaptor_work->ctx;
+		if (ctx) {
+			dev_info(ctx->dev, "%s start working\n",__func__);
+			do_set_ae_ctrl(ctx, &_adaptor_work->ae_ctrl);
+		}
+
+		kfree(_adaptor_work);
+	}
+}
+
+static u64 get_lbmf_lut_a_delay_time(struct adaptor_ctx *ctx)
+{
+	u64 delay_ms = 0;
+
+	if (ctx == NULL) {
+		pr_info("[%s] ctx is NULL, skip fucntion\n", __func__);
+		return 0;
+	}
+
+	delay_ms = ctx->subctx.frame_length_in_lut[0] *
+				CALC_LINE_TIME_IN_NS(ctx->subctx.pclk, ctx->subctx.line_length);
+	delay_ms /= 1000000;
+
+	return delay_ms;
+}
+
+static int push_do_ae_ctrl_delay_work(struct adaptor_ctx *ctx,
+	 const u64 delay_ms)
+{
+	struct adaptor_work *_adaptor_work = NULL;
+
+	u64 time_boot = ktime_get_boottime_ns();
+	_adaptor_work = kmalloc(sizeof(struct adaptor_work), GFP_ATOMIC);
+
+	if (_adaptor_work == NULL) {
+		dev_info(ctx->dev, "%s [error] _adaptor_work kmalloc failed\n", __func__);
+		return 0;
+	}
+
+	if (!ctx->is_streaming) {
+		dev_info(ctx->dev, "%s ctx->is_streaming if %d, skip the func\n",
+					__func__, ctx->is_streaming);
+		return 0;
+	}
+
+	kthread_init_delayed_work(&_adaptor_work->dwork, delay_do_set_ae_ctrl);
+
+	_adaptor_work->ctx = ctx;
+	memcpy((void *)&_adaptor_work->ae_ctrl, (void *)ctx->hdr_ae_ctrl->p_new.p,
+			sizeof(struct mtk_hdr_ae));
+
+	kthread_queue_delayed_work(&ctx->adaptor_worker,
+							   &_adaptor_work->dwork,
+							   msecs_to_jiffies(delay_ms));
+
+	dev_info(ctx->dev, "%s queue worker_done %llu\n", __func__, time_boot);
+
+	return 0;
+}
+
 static int s_ae_ctrl(struct v4l2_ctrl *ctrl)
 {
 	struct adaptor_ctx *ctx = ctrl_to_ctx(ctrl);
@@ -615,7 +685,10 @@ static int s_ae_ctrl(struct v4l2_ctrl *ctrl)
 	case HDR_RAW_DCG_COMPOSE:
 		return do_set_dcg_ae_ctrl(ctx, ae_ctrl);
 	default:
-		return do_set_ae_ctrl(ctx, ae_ctrl);
+		if (ctx->sentest_lbmf_delay_do_ae_en)
+			return push_do_ae_ctrl_delay_work(ctx, get_lbmf_lut_a_delay_time(ctx));
+		else
+			return do_set_ae_ctrl(ctx, ae_ctrl);
 	}
 }
 

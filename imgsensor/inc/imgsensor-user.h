@@ -663,4 +663,7 @@ struct mtk_sensor_profile {
 #define VIDIOC_MTK_S_SENSOR_PROFILE_EN \
 	_IOW('M', BASE_VIDIOC_PRIVATE + 111, int)
 
+#define VIDIOC_MTK_S_SENTEST_LBMF_DELAY_DO_AE_EN \
+	_IOW('M', BASE_VIDIOC_PRIVATE + 112, int)
+
 #endif

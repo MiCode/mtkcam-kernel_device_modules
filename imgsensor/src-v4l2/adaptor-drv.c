@@ -844,6 +844,9 @@ static int imgsensor_stop_streaming(struct adaptor_ctx *ctx)
 	ctx->sys_ts_update_sof_cnt = 0;
 	ctx->sof_cnt = 0;
 
+	/* reset sentest flag */
+	ctx->sentest_lbmf_delay_do_ae_en = false;
+
 	return 0;
 }
 
@@ -1531,6 +1534,19 @@ static int imgsensor_probe(struct i2c_client *client)
 
 	if (!ctx->sensor_ws)
 		dev_info(dev, "failed to wakeup_source_register\n");
+
+	kthread_init_worker(&ctx->adaptor_worker);
+	ctx->adaptor_kworker_task = kthread_run(kthread_worker_fn,
+				&ctx->adaptor_worker,
+				"adaptor_worker_sensor_idx_%d",
+				ctx->idx);
+
+	if (IS_ERR(ctx->adaptor_kworker_task)) {
+		dev_info(dev, "%s: failed to start adaptor kthread worker\n",
+			__func__);
+		ctx->adaptor_kworker_task = NULL;
+	} else
+		dev_info(dev, "%s: adaptor kthread worker init done\n", __func__);
 
 	return 0;
 

@@ -1558,8 +1558,6 @@ mtk_cam_ctx_create_task(struct mtk_cam_ctx *ctx,
 
 static int mtk_cam_ctx_alloc_workers(struct mtk_cam_ctx *ctx)
 {
-	struct device *dev = ctx->cam->dev;
-
 	kthread_init_worker(&ctx->sensor_worker);
 	ctx->sensor_worker_task =
 		mtk_cam_ctx_create_task(ctx, "sensor_worker",
@@ -1581,19 +1579,8 @@ static int mtk_cam_ctx_alloc_workers(struct mtk_cam_ctx *ctx)
 	if (!ctx->done_task)
 		goto fail_uninit_flow_worker_task;
 
-	ctx->aa_dump_wq =
-			alloc_ordered_workqueue(dev_name(dev),
-						WQ_HIGHPRI | WQ_FREEZABLE);
-	if (!ctx->aa_dump_wq) {
-		dev_info(dev, "failed to alloc aa_dump workqueue\n");
-		goto fail_uninit_done_worker_task;
-	}
-
 	return 0;
 
-fail_uninit_done_worker_task:
-	kthread_stop(ctx->done_task);
-	ctx->done_task = NULL;
 fail_uninit_flow_worker_task:
 	kthread_stop(ctx->flow_task);
 	ctx->flow_task = NULL;
@@ -1612,8 +1599,6 @@ static void mtk_cam_ctx_destroy_workers(struct mtk_cam_ctx *ctx)
 	ctx->flow_task = NULL;
 	kthread_stop(ctx->done_task);
 	ctx->done_task = NULL;
-
-	destroy_workqueue(ctx->aa_dump_wq);
 }
 
 static struct dma_buf *_alloc_dma_buf(const char *name,
@@ -2743,20 +2728,6 @@ int mtk_cam_ctx_queue_flow_worker(struct mtk_cam_ctx *ctx,
 				  struct kthread_work *work)
 {
 	return ctx_kthread_queue_work(ctx, &ctx->flow_worker, work, __func__);
-}
-
-int mtk_cam_ctx_queue_aa_dump_wq(struct mtk_cam_ctx *ctx, struct work_struct *work)
-{
-	int ret;
-
-	if (WARN_ON(!ctx || !ctx->aa_dump_wq))
-		return -1;
-
-	ret = queue_work(ctx->aa_dump_wq, work) ? 0 : -1;
-	if (ret)
-		pr_info("%s: failed\n", __func__);
-
-	return ret;
 }
 
 /* fetch devs & reset unused elements */

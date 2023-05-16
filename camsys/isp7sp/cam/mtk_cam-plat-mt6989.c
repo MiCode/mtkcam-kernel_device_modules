@@ -737,7 +737,7 @@ static const struct plat_data_hw mt6989_hw_data = {
 	.cammux_id_raw_start = 34,  /* TBC(AY) */
 	.raw_icc_path_num = RAW_ICC_PATH_NUM,
 	.yuv_icc_path_num = YUV_ICC_PATH_NUM,
-
+	.platform_id = 6989,
 	.query_raw_dma_group = query_raw_dma_group,
 	.query_yuv_dma_group = query_yuv_dma_group,
 	.query_caci_size = query_caci_size,

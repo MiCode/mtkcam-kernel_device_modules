@@ -163,6 +163,7 @@ struct plat_v4l2_data {
 
 struct plat_data_hw {
 	u32 camsys_axi_mux;
+	u32 platform_id;
 	int cammux_id_raw_start;
 	int raw_icc_path_num;
 	int yuv_icc_path_num;

@@ -29,11 +29,12 @@ struct vsync_result {
 struct vsync_collector {
 	unsigned int desired;
 	unsigned int collected;
+	unsigned int collected_first;
 };
 
 static inline void vsync_reset(struct vsync_collector *c)
 {
-	c->desired = c->collected = 0;
+	c->desired = c->collected = c->collected_first = 0;
 }
 
 static inline void vsync_set_desired(struct vsync_collector *c,
@@ -41,6 +42,7 @@ static inline void vsync_set_desired(struct vsync_collector *c,
 {
 	c->desired = desried;
 	c->collected = 0;
+	c->collected_first = 0;
 }
 int vsync_update(struct vsync_collector *c,
 		  int engine_type, int irq_type, int idx,

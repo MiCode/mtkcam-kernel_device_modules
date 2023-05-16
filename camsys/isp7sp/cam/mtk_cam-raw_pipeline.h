@@ -51,7 +51,7 @@
 
 #define IMG_PIX_ALIGN		2
 
-#define DUMMY_BUF_SIZE 4096  /* 1 page size */
+#define DUMMY_BUF_SIZE PAGE_SIZE
 
 #define PREISP
 

@@ -30,6 +30,8 @@ int mtk_cam_seninf_get_csi_param(struct seninf_ctx *ctx);
 u8 is_reset_by_user(struct seninf_ctx *ctx);
 int reset_sensor(struct seninf_ctx *ctx);
 int mtk_cam_seninf_s_stream_mux(struct seninf_ctx *ctx);
+int seninf_get_fmeter_clk(struct seninf_core *core,
+	int clk_fmeter_idx, unsigned int *out_clk);
 
 #ifdef SENINF_DEBUG
 void mtk_cam_seninf_release_cam_mux(struct seninf_ctx *ctx);

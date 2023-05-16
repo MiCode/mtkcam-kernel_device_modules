@@ -341,7 +341,7 @@ static int do_set_dcg_ae_ctrl(struct adaptor_ctx *ctx,
 	}
 
 	/* get scenario exp_cnt */
-	scenario_exp_cnt = g_scenario_exposure_cnt(ctx, ctx->cur_mode->id);
+	scenario_exp_cnt = g_scenario_exposure_cnt(ctx, ctx->subctx.current_scenario_id);
 	if (scenario_exp_cnt != exp_count) {
 		dev_info(ctx->dev, "warn: scenario_exp_cnt=%u, but ae_exp_count=%u\n",
 			 scenario_exp_cnt, exp_count);
@@ -488,7 +488,7 @@ static int do_set_ae_ctrl(struct adaptor_ctx *ctx,
 		exp_count++;
 
 	/* get scenario exp_cnt */
-	scenario_exp_cnt = g_scenario_exposure_cnt(ctx, ctx->cur_mode->id);
+	scenario_exp_cnt = g_scenario_exposure_cnt(ctx, ctx->subctx.current_scenario_id);
 	if (scenario_exp_cnt != exp_count) {
 		dev_info(ctx->dev, "warn: scenario_exp_cnt=%u, but ae_exp_count=%u\n",
 			 scenario_exp_cnt, exp_count);

@@ -345,7 +345,6 @@ void stagger_disable(struct mtk_raw_device *dev)
 }
 
 void apply_cq(struct mtk_raw_device *dev,
-	      struct apply_cq_ref *ref,
 	      dma_addr_t cq_addr,
 	      unsigned int cq_size, unsigned int cq_offset,
 	      unsigned int sub_cq_size, unsigned int sub_cq_offset)
@@ -359,9 +358,6 @@ void apply_cq(struct mtk_raw_device *dev,
 
 	/* note: apply cq with size = 0, will cause cq hang */
 	if (WARN_ON(!cq_size || !sub_cq_size))
-		return;
-
-	if (WARN_ON(assign_apply_cq_ref(&dev->cq_ref, ref)))
 		return;
 
 	main = cq_addr + cq_offset;

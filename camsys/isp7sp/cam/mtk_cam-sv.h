@@ -213,7 +213,6 @@ void mtk_cam_sv_fill_tag_info(struct mtk_camsv_tag_info *arr_tag,
 int mtk_cam_sv_get_tag_param(struct mtk_camsv_tag_param *arr_tag_param,
 	unsigned int hw_scen, unsigned int exp_no, unsigned int req_amount);
 void apply_camsv_cq(struct mtk_camsv_device *sv_dev,
-	      struct apply_cq_ref *ref,
 	      dma_addr_t cq_addr, unsigned int cq_size, unsigned int cq_offset,
 	      int initial);
 bool mtk_cam_is_display_ic(struct mtk_cam_ctx *ctx);

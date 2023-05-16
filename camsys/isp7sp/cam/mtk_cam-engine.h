@@ -90,14 +90,15 @@ static inline void apply_cq_ref_reset(struct apply_cq_ref *ref)
 }
 
 static inline void apply_cq_ref_init(struct apply_cq_ref *ref,
-				     int cookie, unsigned long cq_engine)
+				     int cookie, unsigned long cq_engine,
+				     unsigned long used_engine)
 {
 	/* it's abnormal if cnt is not zero */
 	WARN_ON(atomic_long_read(&ref->cq_not_ready));
 
 	ref->cookie = cookie;
 	atomic_long_set(&ref->cq_not_ready, cq_engine);
-	atomic_long_set(&ref->inner_not_ready, cq_engine);
+	atomic_long_set(&ref->inner_not_ready, used_engine);
 }
 
 static inline bool apply_cq_ref_handle_cq_done(struct apply_cq_ref *ref,

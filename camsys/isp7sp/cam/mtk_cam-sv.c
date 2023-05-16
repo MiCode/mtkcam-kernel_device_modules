@@ -782,7 +782,6 @@ void mtk_cam_sv_check_fbc_cnt(struct mtk_camsv_device *sv_dev,
 }
 
 void apply_camsv_cq(struct mtk_camsv_device *sv_dev,
-	struct apply_cq_ref *ref,
 	dma_addr_t cq_addr, unsigned int cq_size,
 	unsigned int cq_offset, int initial)
 {
@@ -791,9 +790,6 @@ void apply_camsv_cq(struct mtk_camsv_device *sv_dev,
 	u32 cq_addr_msb = ((cq_addr + cq_offset) >> 32);
 
 	if (cq_size == 0)
-		return;
-
-	if (WARN_ON(assign_apply_cq_ref(&sv_dev->cq_ref, ref)))
 		return;
 
 	CAMSV_WRITE_REG(sv_dev->base_scq  + REG_CAMSVCQ_CQ_SUB_THR0_DESC_SIZE_2,

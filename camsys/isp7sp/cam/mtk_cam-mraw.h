@@ -166,7 +166,6 @@ int mtk_cam_mraw_is_vf_on(struct mtk_mraw_device *mraw_dev);
 int mtk_cam_mraw_toggle_tg_db(struct mtk_mraw_device *mraw_dev);
 int mtk_cam_mraw_toggle_db(struct mtk_mraw_device *mraw_dev);
 void apply_mraw_cq(struct mtk_mraw_device *mraw_dev,
-	      struct apply_cq_ref *ref,
 	      dma_addr_t cq_addr, unsigned int cq_size, unsigned int cq_offset,
 	      int initial);
 void mtk_cam_mraw_copy_user_input_param(struct mtk_cam_device *cam,	void *vaddr,

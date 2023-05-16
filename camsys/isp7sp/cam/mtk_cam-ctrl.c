@@ -1627,15 +1627,19 @@ int vsync_update(struct vsync_collector *c,
 		c->collected |= (coming & c->desired);
 
 	if (CAM_DEBUG_ENABLED(CTRL))
-		pr_info("%s: vsync desired/collected/coming %x/%x/%x\n",
-			__func__, c->desired, c->collected, (coming & c->desired));
+		pr_info("%s: vsync desired/collected/coming/first %x/%x/%x/%x\n",
+			__func__, c->desired,
+			c->collected, (coming & c->desired), c->collected_first);
 
-	res->is_first = !(c->collected & (c->collected - 1)) ||
-		(!c->collected && (irq_type & BIT(CAMSYS_IRQ_FRAME_START_DCIF_MAIN)));
+	res->is_first = c->collected_first ? 0 :
+			!(c->collected & (c->collected - 1)) ||
+			(!c->collected && irq_type & BIT(CAMSYS_IRQ_FRAME_START_DCIF_MAIN));
 	res->is_last = c->collected == c->desired;
 	res->is_extmeta = 0;
 	if (res->is_last)
-		c->collected = 0;
+		c->collected = c->collected_first = 0;
+	if (res->is_first)
+		c->collected_first = 1;
 
 	return 0;
 

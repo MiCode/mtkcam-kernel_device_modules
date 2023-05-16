@@ -22,8 +22,6 @@
 #include "mtk_cam-trace.h"
 #include "mtk_cam-job_utils.h"
 
-#include "imgsys/mtk_imgsys-cmdq-ext.h"
-
 #define WATCHDOG_INTERVAL_MS		400
 #define WATCHDOG_MAX_HWTIME_MS		400
 #define WATCHDOG_MAX_SENSOR_RETRY_CNT	3

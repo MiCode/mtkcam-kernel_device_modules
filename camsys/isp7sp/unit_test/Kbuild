@@ -1,7 +1,6 @@
 # SPDX-License-Identifier: GPL-2.0-only
 
-ccflags-y += -I$(DEVICE_MODULES_PATH)/drivers/media/platform/mtk-isp \
-	     -I$(DEVICE_MODULES_PATH)/drivers/media/platform/mtk-isp/camsys/isp7sp \
+ccflags-y += \
 		 -I$(DEVICE_MODULES_PATH)/drivers/rpmsg/ \
 		 -I$(DEVICE_MODULES_PATH)/drivers/remoteproc/ \
 		 -I$(DEVICE_MODULES_PATH)/include/ \

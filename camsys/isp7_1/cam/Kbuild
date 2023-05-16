@@ -9,7 +9,7 @@ modules modules_install clean:
 
 CAMSYS_TRACE_ENABLE = n
 
-subdir-ccflags-y += -I$(DEVICE_MODULES_PATH)/drivers/media/platform/mtk-isp \
+subdir-ccflags-y += \
 	     -I$(DEVICE_MODULES_PATH)/drivers/misc/mediatek/mmdvfs \
 	     -I$(DEVICE_MODULES_PATH)/drivers/misc/mediatek/smi/ \
 	     -I$(DEVICE_MODULES_PATH)/drivers/misc/mediatek/include/mt-plat/ \

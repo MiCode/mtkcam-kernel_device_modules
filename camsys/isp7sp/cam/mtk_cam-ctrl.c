@@ -22,8 +22,6 @@
 #include "mtk_cam-trace.h"
 #include "mtk_cam-job_utils.h"
 
-#include "imgsys/mtk_imgsys-cmdq-ext.h"
-
 #define WATCHDOG_INTERVAL_MS		400
 /*
  * note:

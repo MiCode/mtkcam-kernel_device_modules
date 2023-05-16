@@ -7,7 +7,7 @@ package(
 filegroup(
     name = "public_headers",
     srcs = glob([
-        "include/*.h",
+        "include/**/*.h",
     ]),
 )
 

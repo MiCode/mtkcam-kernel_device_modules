@@ -1,5 +1,4 @@
-ccflags-y += -I$(DEVICE_MODULES_PATH)/drivers/media/platform/mtk-isp \
-	     -I$(DEVICE_MODULES_PATH)/drivers/media/platform/mtk-isp/camsys/isp7_1 \
+ccflags-y += \
 		 -I$(DEVICE_MODULES_PATH)/drivers/rpmsg/ \
 		 -I$(DEVICE_MODULES_PATH)/drivers/remoteproc/
 

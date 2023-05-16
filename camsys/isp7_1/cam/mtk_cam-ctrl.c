@@ -28,8 +28,6 @@
 #include "mtk_camera-videodev2.h"
 #include "mtk_cam-trace.h"
 
-#include "imgsys/mtk_imgsys-cmdq-ext.h"
-
 #include "frame_sync_camsys.h"
 
 #define SENSOR_SET_DEADLINE_MS  18
@@ -6149,4 +6147,3 @@ void mtk_cam_state_del_wo_sensor(struct mtk_cam_ctx *ctx,
 	}
 	spin_unlock(&sensor_ctrl->camsys_state_lock);
 }
-

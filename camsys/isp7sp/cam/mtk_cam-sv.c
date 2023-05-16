@@ -1715,7 +1715,7 @@ static int mtk_camsv_of_probe(struct platform_device *pdev,
 	struct device_link *link;
 	struct resource *res;
 	unsigned int i, j;
-	int ret, num_clks, num_larbs, num_iommus, num_ports;
+	int ret, num_clks, num_larbs, num_iommus, num_ports, smmus;
 	unsigned int larb_idx = 0;
 
 	ret = of_property_read_u32(dev->of_node, "mediatek,camsv-id",
@@ -1960,6 +1960,22 @@ static int mtk_camsv_of_probe(struct platform_device *pdev,
 				mtk_camsv_translation_fault_callback,
 				(void *)sv_dev, false);
 			sv_dev->larb_master_id[i] = args.args[0];
+		}
+	}
+
+	smmus = of_property_count_u32_elems(
+		pdev->dev.of_node, "mediatek,smmu-dma-axid");
+	smmus = (smmus > 0) ? smmus : 0;
+	dev_info(dev, "smmu_num:%d\n", smmus);
+	for (i = 0; i < smmus; i++) {
+		u32 axid;
+
+		if (!of_property_read_u32_index(
+			pdev->dev.of_node, "mediatek,smmu-dma-axid", i, &axid)) {
+			mtk_iommu_register_fault_callback(
+				axid, mtk_camsv_translation_fault_callback,
+				(void *)sv_dev, false);
+			sv_dev->larb_master_id[i] = axid;
 		}
 	}
 

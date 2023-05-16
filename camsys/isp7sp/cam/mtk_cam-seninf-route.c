@@ -1373,24 +1373,18 @@ static struct seninf_mux *get_mux(struct seninf_ctx *ctx, struct seninf_vc *vc,
 	default:
 		break;
 	}
-	dev_info(ctx->dev, "[%s]Vsync_time_out_debug group_src : %d\n", __func__, group_src);
-	dev_info(ctx->dev, "[%s]Vsync_time_out_debug dest_cam_type : %d\n",
-		__func__, dest_cam_type);
 	/* alloc mux by group */
 	if (ctx->mux_by[group_src][dest_cam_type]) {
 		mux = ctx->mux_by[group_src][dest_cam_type];
 		skip_mux_ctrl = 1;
-		dev_info(ctx->dev, "[%s]Vsync_time_out_debug skip_mux_ctrl 1\n", __func__);
 	} else {
 		mux = mtk_cam_seninf_mux_get_by_type(ctx, dest_cam_type);
 		ctx->mux_by[group_src][dest_cam_type] = mux;
 		skip_mux_ctrl = 0;
-		dev_info(ctx->dev, "[%s]Vsync_time_out_debug skip_mux_ctrl 0\n", __func__);
 	}
-	dev_info(ctx->dev, "[%s]Vsync_time_out_debug skip_mux_ctrl : %d\n",
-		__func__, skip_mux_ctrl);
+
 	if (!mux) {
-		dev_info(ctx->dev, "Err get NULL mux\n");
+		dev_info(ctx->dev, "Err get NULL mux, skip_mux_ctrl = %d\n", skip_mux_ctrl);
 		mtk_cam_seninf_release_mux(ctx);
 		return NULL;
 	}
@@ -1487,17 +1481,12 @@ int _mtk_cam_seninf_set_camtg_with_dest_idx(struct v4l2_subdev *sd, int pad_id,
 				/* enable new */
 				dest->cam = camtg;
 				dest->tag = tag_id;
-
 				dest->cam_type = cammux2camtype(ctx, dest->cam);
-				dev_info(ctx->dev, "[%s]Vsync_time_out_debug pad_id : %d\n",
-					__func__, pad_id);
-				dev_info(ctx->dev, "[%s]Vsync_time_out_debug dest->cam : %d\n",
-					__func__, dest->cam);
-				dev_info(ctx->dev, "[%s]Vsync_time_out_debug dest->cam_type : %d\n",
-					__func__, dest->cam_type);
 				mux = get_mux(ctx, vc, dest->cam_type, ctx->seninfIdx);
 				if (!mux) {
-					dev_info(ctx->dev, "mux is null\n");
+					dev_info(ctx->dev,"mux is null, pad_id %d\n", pad_id);
+					dev_info(ctx->dev,"cam = %d, cam_type = %d\n",
+						dest->cam, dest->cam_type);
 					return -EBUSY;
 				}
 
@@ -1622,8 +1611,6 @@ int _mtk_cam_seninf_set_camtg(struct v4l2_subdev *sd, int pad_id, int camtg, int
 
 	if (camtg < 0 || camtg == 0xff) {
 		/* disable all dest */
-		dev_info(ctx->dev, "[%s] disable camtg %d by pad %d\n",
-			__func__, camtg, pad_id);
 		return _mtk_cam_seninf_reset_cammux(ctx, pad_id);
 	}
 
@@ -1851,17 +1838,15 @@ int mtk_cam_seninf_s_stream_mux(struct seninf_ctx *ctx)
 			dest = &vc->dest[j];
 
 			dest->cam = ctx->pad2cam[vc->out_pad][j];
-
 			dest->cam_type = cammux2camtype(ctx, dest->cam);
-			dev_info(ctx->dev, "[%s]Vsync_time_out_debug vc[%d] pad %d\n",
-				__func__, i, vc->feature);
-			dev_info(ctx->dev, "[%s]Vsync_time_out_debug dest->cam : %d\n",
-				__func__, dest->cam);
-			dev_info(ctx->dev, "[%s]Vsync_time_out_debug dest->cam_type : %d\n",
-				__func__, dest->cam_type);
 			mux = get_mux(ctx, vc, dest->cam_type, intf);
-			if (!mux)
+
+			if (!mux) {
+				dev_info(ctx->dev,"mux is null, vc[%d]pad %d\n",i, vc->out_pad);
+				dev_info(ctx->dev,"cam = %d, cam_type = %d\n",
+					dest->cam, dest->cam_type);
 				return -EBUSY;
+			}
 
 			dest->mux = mux->idx;
 

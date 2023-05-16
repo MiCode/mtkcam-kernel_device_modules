@@ -792,7 +792,7 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.seamless_switch_mode_setting_table = imx866_seamless_custom4,
 		.seamless_switch_mode_setting_len = ARRAY_SIZE(imx866_seamless_custom4),
 		.hdr_mode = HDR_RAW_STAGGER,
-		.raw_cnt = 4,
+		.raw_cnt = 2,
 		.exp_cnt = 2,
 		.pclk = 1648000000,
 		.linelength = 11536,
@@ -973,6 +973,7 @@ static struct subdrv_static_ctx static_ctx = {
 
 	.pdaf_type = PDAF_SUPPORT_CAMSV_QPD,
 	.hdr_type = HDR_SUPPORT_STAGGER_FDOL,
+	.rgbw_support = 1,
 	.seamless_switch_support = TRUE,
 	.temperature_support = TRUE,
 

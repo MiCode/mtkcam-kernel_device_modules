@@ -55,8 +55,7 @@ struct mtk_rpmsg_device;
 #define CAM_CQ_BUF_NUM  (JOB_NUM_PER_STREAM * 2) /* 2 for mstream */
 
 enum mtkcam_buf_fmt_type {
-	MTKCAM_BUF_FMT_TYPE_START = 0,
-	MTKCAM_BUF_FMT_TYPE_BAYER = MTKCAM_BUF_FMT_TYPE_START,
+	MTKCAM_BUF_FMT_TYPE_BAYER,
 	MTKCAM_BUF_FMT_TYPE_UFBC,
 	MTKCAM_BUF_FMT_TYPE_CNT,
 };
@@ -75,12 +74,6 @@ struct mtk_cam_driver_buf_desc {
 	struct mtk_cam_buf_fmt_desc fmt_desc[MTKCAM_BUF_FMT_TYPE_CNT];
 
 	size_t max_size; //largest size among all fmt type
-
-	/* for userspace only */
-	dma_addr_t daddr;
-	int fd;
-	/* for buf pool release */
-	bool has_pool;
 };
 
 struct mtk_cam_adl_work {
@@ -90,8 +83,6 @@ struct mtk_cam_adl_work {
 };
 
 struct mtk_cam_buf_fmt_desc *get_fmt_desc(
-		struct mtk_cam_driver_buf_desc *buf_desc);
-int set_fmt_select(int sel,
 		struct mtk_cam_driver_buf_desc *buf_desc);
 int update_buf_fmt_desc(struct mtk_cam_driver_buf_desc *desc,
 		struct v4l2_mbus_framefmt *mf);
@@ -164,6 +155,9 @@ struct mtk_cam_ctx {
 	/* slb */
 	void __iomem *slb_addr;
 	unsigned int slb_size;
+	unsigned int ring_start_offset;
+
+	unsigned int aid_feature;
 
 	/* cmdq */
 	bool cmdq_enabled;

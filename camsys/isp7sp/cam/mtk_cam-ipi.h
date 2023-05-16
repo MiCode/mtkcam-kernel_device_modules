@@ -141,6 +141,11 @@ struct mtkcam_ipi_img_ufdi_params {
 	struct mtkcam_ipi_img_ufo_param rawi5;
 } __packed;
 
+struct mtkcam_ipi_dcif_ring_param {
+	__u8	ring_mode_en;
+	__u64	ring_start_offset;
+} __packed;
+
 struct mtkcam_ipi_raw_frame_param {
 	__u8	imgo_path_sel; /* mtkcam_ipi_raw_path_control */
 	__u32	hardware_scenario;
@@ -248,6 +253,7 @@ struct mtkcam_ipi_frame_param {
 	__u32 cur_workbuf_offset;
 	__u32 cur_workbuf_size;
 
+	struct mtkcam_ipi_dcif_ring_param dcif_param;
 	struct mtkcam_ipi_raw_frame_param raw_param;
 	struct mtkcam_ipi_mraw_frame_param mraw_param[MRAW_MAX_PIPE_USED];
 	struct mtkcam_ipi_camsv_frame_param camsv_param[CAMSV_MAX_PIPE_USED][CAMSV_MAX_TAGS];

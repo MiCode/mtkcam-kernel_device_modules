@@ -232,7 +232,8 @@ static inline int mtk_raw_find_combination(struct mtk_cam_res_calc *c,
 					policy, ARRAY_SIZE(policy));
 }
 
-static void mtk_cam_get_work_buf_num(struct mtk_cam_resource_v2 *user_ctrl)
+static void
+mtk_cam_resource_update_work_buf(struct mtk_cam_resource_v2 *user_ctrl)
 {
 	struct mtk_cam_resource_sensor_v2 *s = &user_ctrl->sensor_res;
 	struct mtk_cam_resource_raw_v2 *r = &user_ctrl->raw_res;
@@ -270,6 +271,15 @@ static void mtk_cam_get_work_buf_num(struct mtk_cam_resource_v2 *user_ctrl)
 
 	r->img_wbuf_size = desc.max_size;
 	r->img_wbuf_num = buf_require;
+}
+
+static void
+mtk_cam_resource_update_slb_size(struct mtk_cam_resource_v2 *user_ctrl)
+{
+	struct mtk_cam_resource_raw_v2 *res_raw = &user_ctrl->raw_res;
+
+	if (!res_raw_is_dc_mode(res_raw))
+		res_raw->slb_size = 0;
 }
 
 static int mtk_raw_calc_raw_mask_chk(struct device *dev,
@@ -550,7 +560,8 @@ static int mtk_raw_calc_raw_resource(struct mtk_raw_pipeline *pipeline,
 	r->raw_pixel_mode = c.raw_pixel_mode;
 	r->freq = c.clk;
 
-	mtk_cam_get_work_buf_num(user_ctrl);
+	mtk_cam_resource_update_work_buf(user_ctrl);
+	mtk_cam_resource_update_slb_size(user_ctrl);
 
 	final_raw_num = (debug_raw_num == -1) ? c.raw_num : debug_raw_num;
 

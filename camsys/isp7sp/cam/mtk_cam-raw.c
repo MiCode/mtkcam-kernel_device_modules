@@ -1356,7 +1356,7 @@ static int mtk_raw_of_probe(struct platform_device *pdev,
 
 	iommus = of_count_phandle_with_args(
 		pdev->dev.of_node, "iommus", "#iommu-cells");
-	iommus = (iommus > 0) ? : 0;
+	iommus = (iommus > 0) ? iommus : 0;
 	for (i = 0; i < iommus; i++) {
 		if (!of_parse_phandle_with_args(pdev->dev.of_node,
 			"iommus", "#iommu-cells", i, &args)) {
@@ -1368,7 +1368,7 @@ static int mtk_raw_of_probe(struct platform_device *pdev,
 
 	smmus = of_property_count_u32_elems(
 		pdev->dev.of_node, "mediatek,smmu-dma-axid");
-	smmus = (smmus > 0) ? : 0;
+	smmus = (smmus > 0) ? smmus : 0;
 	for (i = 0; i < smmus; i++) {
 		u32 axid;
 
@@ -1795,7 +1795,7 @@ static int mtk_yuv_of_probe(struct platform_device *pdev,
 
 	iommus = of_count_phandle_with_args(
 		pdev->dev.of_node, "iommus", "#iommu-cells");
-	iommus = (iommus > 0) ? : 0;
+	iommus = (iommus > 0) ? iommus : 0;
 	for (i = 0; i < iommus; i++) {
 		if (!of_parse_phandle_with_args(pdev->dev.of_node,
 			"iommus", "#iommu-cells", i, &args)) {
@@ -1807,7 +1807,7 @@ static int mtk_yuv_of_probe(struct platform_device *pdev,
 
 	smmus = of_property_count_u32_elems(
 		pdev->dev.of_node, "mediatek,smmu-dma-axid");
-	smmus = (smmus > 0) ? : 0;
+	smmus = (smmus > 0) ? smmus : 0;
 	for (i = 0; i < smmus; i++) {
 		u32 axid;
 

@@ -67,6 +67,7 @@
 //#include <linux/soc/mediatek/mtk-cmdq.h>
 #include <soc/mediatek/smi.h>
 #include<soc/mediatek/mmdvfs_v3.h>
+#include "iommu_debug.h"
 
 //! for IOVA to PA
 #include <linux/iommu.h>
@@ -298,6 +299,7 @@ struct DPE_device {
 	void __iomem *regs;
 	struct device *dev;
 	struct device		*larb19;
+	struct device *smmu_dev;
 	int irq;
 // V4L2
 	struct v4l2_device v4l2_dev;
@@ -319,6 +321,7 @@ struct platform_device *DPE_pdev;
 #endif
 #ifdef KERNEL_DMA_BUFFER
 struct device *gdev;
+struct device *smmudev;
 struct dma_buf *dbuf;
 struct vb2_dc_buf {
 	struct device			*dev;
@@ -349,6 +352,7 @@ dma_addr_t *g_dpewb_asfrmext_Buffer_pa;
 dma_addr_t *g_dpewb_wmfhf_Buffer_pa;
 #else
 struct device *gdev;
+struct device *smmudev;
 #endif
 static unsigned int g_u4EnableClockCount;
 static unsigned int g_SuspendCnt;
@@ -479,6 +483,7 @@ unsigned int DVGF_Num;
 //unsigned int Get_DVS_IRQ;
 //unsigned int Get_DVP_IRQ;
 //unsigned int Get_DVGF_IRQ;
+unsigned int No_SMMU;
 //unsigned int DVGF_Frame_cnt;
 unsigned int DPE_debug_log_en;
 
@@ -1533,8 +1538,11 @@ static bool dpe_get_dma_buffer(struct tee_mmu *mmu, int fd)
 		return false;
 	 //LOG_INF("buf_addr = %x\n", buf);
 	mmu->dma_buf = buf;
-	mmu->attach = dma_buf_attach(mmu->dma_buf, gdev);
-
+	if (No_SMMU == 0){
+		mmu->attach = dma_buf_attach(mmu->dma_buf, smmudev);
+	} else {
+		mmu->attach = dma_buf_attach(mmu->dma_buf, gdev);
+	}
 	//LOG_INF("mmu->attach = %x\n", mmu->attach);
 
 	if (IS_ERR(mmu->attach))
@@ -2015,11 +2023,11 @@ signed int dpe_enque_cb(struct frame *frames, void *req)
 				_req->m_pDpeConfig[ucnt].Dpe_OutBuf_ASF_RM =
 				(sg_dma_address(ASF_RM_mmu[DVP_only_en-1].sgt->sgl) +
 				(_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_OutBuf_ASF_RM_Ofs));
-				get_dvp_iova[11] += 1;
+				get_dvp_iova[10] += 1;
 				if (DPE_debug_log_en == 1) {
-					LOG_INF("Dpe_OutBuf_ASF_RD = %llu iova[4] = %d\n",
+					LOG_INF("Dpe_OutBuf_ASF_RM = %llu iova[10] = %d\n",
 					_req->m_pDpeConfig[ucnt].Dpe_OutBuf_ASF_RM,
-					get_dvp_iova[11]);
+					get_dvp_iova[10]);
 					LOG_INF("====================================\n");
 				}
 			} else {
@@ -2046,7 +2054,7 @@ signed int dpe_enque_cb(struct frame *frames, void *req)
 				(_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_OutBuf_WMF_RD_Ofs));
 				get_dvp_iova[4] += 1;
 				if (DPE_debug_log_en == 1) {
-					LOG_INF("Dpe_OutBuf_ASF_RD = %llu iova[4] = %d\n",
+					LOG_INF("Dpe_OutBuf_WMF_RD = %llu iova[4] = %d\n",
 					_req->m_pDpeConfig[ucnt].Dpe_OutBuf_WMF_RD,
 					get_dvp_iova[4]);
 					LOG_INF("==============================================\n");
@@ -3049,6 +3057,7 @@ void DPE_Config_DVS(struct DPE_Config_V2 *pDpeConfig,
 	((pDpeConfig->Dpe_DVSSettings.dram_out_pitch_en & 0x01) << 31) |
 	((full_tile_width & 0x3FF) << 20); //!ISP7
 
+
 	if (pDpeConfig->Dpe_DVSSettings.ext_frm_mode_en == 0) {
 		tile_pitch = (((engWidth >> 1) + 15) >> 4);
 		LOG_INF("tile_pitch =%d\n", tile_pitch);
@@ -3058,10 +3067,11 @@ void DPE_Config_DVS(struct DPE_Config_V2 *pDpeConfig,
 		pDpeConfig->Dpe_DVSSettings.occ_width) {
 		pConfigToKernel->DVS_DRAM_PITCH1 = 0;
 	} else {
-	pConfigToKernel->DVS_DRAM_PITCH1 =
-	((tile_pitch) & 0x3FF) |
-	((pDpeConfig->Dpe_DVSSettings.dram_out_pitch_en & 0x01) << 31) ;//0x80000014;
+		pConfigToKernel->DVS_DRAM_PITCH1 =
+		((tile_pitch) & 0x3FF) |
+		((pDpeConfig->Dpe_DVSSettings.dram_out_pitch_en & 0x01) << 31) ;//0x80000014;
 	}
+
 
 	pConfigToKernel->DVS_SRC_00 = //0x00000502;
 	((pDpeConfig->Dpe_is16BitMode & 0x1) << 0) | //!c_dv16b_mode = 1 ;ISP7 only
@@ -3400,7 +3410,7 @@ void DPE_Config_DVP(struct DPE_Config_V2 *pDpeConfig,
 	#ifdef KERNEL_DMA_BUFFER
 	LOG_INF("get kernel asf buffer 1\n");
 	pConfigToKernel->DVP_SRC_18_ASF_RMDV =
-	((dma_addr_t)g_dpewb_asfrm_Buffer_pa & 0xfffffffff);
+	((uintptr_t)g_dpewb_asfrm_Buffer_pa & 0xfffffffff);
 	#else
 	if (pDpeConfig->Dpe_OutBuf_ASF_RM != 0x0) {
 		pConfigToKernel->DVP_SRC_18_ASF_RMDV =
@@ -8457,6 +8467,21 @@ if (DPE_dev->irq > 0) {
 				DPE_DEV_NAME, Ret);
 			goto EXIT;
 		}
+	//!SMMU
+	LOG_INF("Star SMMU init\n");
+	No_SMMU = 0;
+	_dpe_dev->smmu_dev = mtk_smmu_get_shared_device(&pDev->dev);
+	if (!_dpe_dev) {
+		dev_dbg(&pDev->dev,
+			"%s: failed to get dpe smmu device\n",
+			__func__);
+		LOG_INF("NO useing SMMU\n");
+		No_SMMU = 1;
+		return -EINVAL;
+	}
+	LOG_INF("smmu_get done\n");
+	smmudev = _dpe_dev->smmu_dev;
+	LOG_INF("Star SMMU end\n");
 #ifdef KERNEL_DMA_BUFFER
 
 	gdev = &pDev->dev;
@@ -8467,8 +8492,14 @@ if (DPE_dev->irq > 0) {
 	vb2_dc_alloc(NULL, gdev, WB_TOTAL_SIZE);
 	dbuf = vb2_dc_get_dmabuf(NULL, kernel_dpebuf, O_RDWR);
 	refcount_dec(&kernel_dpebuf->refcount);
-	dpebuf =
-	vb2_dc_attach_dmabuf(NULL, gdev, dbuf, WB_TOTAL_SIZE);
+	if(No_SMMU == 0) {
+		dpebuf =
+		vb2_dc_attach_dmabuf(NULL, smmudev, dbuf, WB_TOTAL_SIZE);
+	} else {
+		dpebuf =
+		vb2_dc_attach_dmabuf(NULL, gdev, dbuf, WB_TOTAL_SIZE);
+	}
+
 	if (vb2_dc_map_dmabuf(dpebuf) != 0)
 		LOG_INF("Allocate Buffer Fail!");
 	g_dpewb_dvme_int_Buffer_pa = (dma_addr_t *)dpebuf->dma_addr;
@@ -9220,7 +9251,7 @@ LOG_INF("- E. MTK_DPE_VER Ster");
 		return Ret;
 	}
 #endif
-
+	//No_SMMU = 0;
 	LOG_INF("- X. DPE Init Ret: %d.", Ret);
 	return Ret;
 }

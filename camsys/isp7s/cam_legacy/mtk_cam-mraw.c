@@ -856,7 +856,7 @@ static void mtk_cam_mraw_copy_user_input_param(
 		mraw_pipeline->res_config.tg_crop.s.h < param->crop_height)
 		dev_info(dev, "%s tg size smaller than crop size", __func__);
 
-	dev_dbg(dev, "%s:enable:(%d,%d,%d) crop:(%d,%d) mqe:%d mbn:0x%x_%x_%x_%x_%x_%x_%x_%x cpi:0x%x_%x_%x_%x_%x_%x_%x_%x tg:0x%x_%x\n",
+	dev_info(dev, "%s:enable:(%d,%d,%d) crop:(%d,%d) mqe:%d mbn:0x%x_%x_%x_%x_%x_%x_%x_%x cpi:0x%x_%x_%x_%x_%x_%x_%x_%x tg:0x%x_%x\n",
 		__func__,
 		param->mqe_en,
 		param->mobc_en,

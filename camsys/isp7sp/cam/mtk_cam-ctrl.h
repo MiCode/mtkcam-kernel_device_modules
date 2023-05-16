@@ -146,7 +146,7 @@ void mtk_cam_event_sensor_trigger(struct mtk_cam_ctrl *cam_ctrl,
 			      unsigned int frame_seq_no);
 int extisp_listen_each_cq_done(struct mtk_cam_ctrl *ctrl);
 int vsync_update_extisp(struct mtk_cam_ctrl *ctrl,
-		  int engine_type, int idx,
+		  int engine_type, int irq_type, int idx,
 		  struct vsync_result *res);
 
 #endif

@@ -2480,7 +2480,6 @@ _job_pack_extisp(struct mtk_cam_job *job,
 		get_extisp_meta_info(job, PAD_SRC_GENERAL0);
 		get_extisp_meta_info(job, PAD_SRC_RAW0);
 		get_extisp_meta_info(job, PAD_SRC_RAW_EXT0);
-		/* TO-DO - Hsiencheng */
 		if (handle_sv_tag_extisp(job)) {
 			dev_info(cam->dev, "tag handle failed");
 			return -1;

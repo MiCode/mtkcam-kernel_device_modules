@@ -1426,7 +1426,6 @@ static irqreturn_t mtk_irq_camsv_sof(int irq, void *data)
 	if ((irq_info.sof_tags & sv_dev->last_tag) &&
 		is_all_tag_setting_to_inner(sv_dev, frm_seq_no_inner)) {
 
-	if (irq_info.sof_tags & sv_dev->first_tag)
 		engine_handle_sof(&sv_dev->cq_ref,
 				  bit_map_bit(MAP_HW_CAMSV, sv_dev->id),
 				  irq_info.frame_idx_inner);

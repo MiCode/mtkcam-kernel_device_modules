@@ -175,6 +175,10 @@ int common_get_info(struct subdrv_ctx *ctx,
 	enum MSDK_SCENARIO_ID_ENUM scenario_id,
 	MSDK_SENSOR_INFO_STRUCT *sensor_info,
 	MSDK_SENSOR_CONFIG_STRUCT *sensor_config_data);
+void common_get_prsh_length_lines(struct subdrv_ctx *ctx,
+	struct mtk_hdr_ae *ae_ctrl,
+	enum SENSOR_SCENARIO_ID_ENUM pre_seamless_scenario_id,
+	enum SENSOR_SCENARIO_ID_ENUM scenario_id);
 int common_get_resolution(struct subdrv_ctx *ctx,
 	MSDK_SENSOR_RESOLUTION_INFO_STRUCT *sensor_resolution);
 void update_mode_info(struct subdrv_ctx *ctx, enum SENSOR_SCENARIO_ID_ENUM scenario_id);

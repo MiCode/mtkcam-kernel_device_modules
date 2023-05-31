@@ -13,6 +13,7 @@
 #include "adaptor.h"
 #include "adaptor-def.h"
 #include "adaptor-common-ctrl.h"
+#include "adaptor-subdrv-ctrl.h"
 #include "adaptor-fsync-ctrls.h"
 
 
@@ -720,19 +721,25 @@ static inline void fsync_mgr_setup_seamless_property(struct adaptor_ctx *ctx,
 	/* setup original mode readout time */
 	seamless_info->prop.orig_readout_time_us = orig_readout_time_us;
 
-	// switch () {
-	// case ??? :
-		// seamless_info->switch_type_id =
-		// break;
-	// default:
-		// FSYNC_MGR_LOGI(ctx,
-		// 	"ERROR: sidx:%d, get unknown type:%u, do nothing\n",
-		// 	ctx->idx, ?);
-		// break;
-	// }
+	switch ( ctx->subctx.s_ctx.seamless_switch_type ) {
+	case SEAMLESS_SWITCH_CUT_VB_INIT_SHUT :
+		seamless_info->prop.type_id = FREC_SEAMLESS_SWITCH_CUT_VB_INIT_SHUT;
+		break;
+	case SEAMLESS_SWITCH_ORIG_VB_INIT_SHUT :
+		seamless_info->prop.type_id = FREC_SEAMLESS_SWITCH_ORIG_VB_INIT_SHUT;
+		break;
+	case SEAMLESS_SWITCH_ORIG_VB_ORIG_IMG :
+		seamless_info->prop.type_id = FREC_SEAMLESS_SWITCH_ORIG_VB_ORIG_IMG;
+		break;
+	default:
+		FSYNC_MGR_LOG_INF(ctx,
+			"ERROR: sidx:%d, get unknown type:%u, do nothing\n",
+			ctx->idx, ctx->subctx.s_ctx.seamless_switch_type);
+		break;
+	}
 
-	// seamless_info.hw_re_init_time_us =
-	// seamless_info.prsh_length_lc =
+	seamless_info->prop.hw_re_init_time_us = ctx->subctx.s_ctx.seamless_switch_hw_re_init_time_ns / 1000;
+	seamless_info->prop.prsh_length_lc = ctx->subctx.s_ctx.seamless_switch_prsh_length_lc;
 }
 
 static void fsync_mgr_setup_cb_func_cmd_id(struct adaptor_ctx *ctx,

@@ -2876,6 +2876,93 @@ int common_get_info(struct subdrv_ctx *ctx,
 	return ERROR_NONE;
 }
 
+void common_get_prsh_length_lines(struct subdrv_ctx *ctx,
+	struct mtk_hdr_ae *ae_ctrl,
+	enum SENSOR_SCENARIO_ID_ENUM pre_seamless_scenario_id,
+	enum SENSOR_SCENARIO_ID_ENUM scenario_id)
+{
+	u32 ae_ctrl_cit;
+	u32 prsh_length_lc = 0;
+	u32 cit_step = 1;
+	u64 frame_duration_us = 0;
+	u64 orig_readout_time_us = 0;
+	u64 current_fps;
+	u8 hw_fixed_value = ctx->s_ctx.seamless_switch_prsh_hw_fixed_value;
+	enum IMGSENSOR_HDR_MODE_ENUM hdr_mode;
+
+	current_fps = (u64)ctx->current_fps;
+	frame_duration_us = 10 * (1000000 / current_fps);
+	frame_duration_us -= (ctx->s_ctx.seamless_switch_hw_re_init_time_ns / 1000); // CIS boot time
+	orig_readout_time_us = 1000000
+					* (u64)ctx->s_ctx.mode[pre_seamless_scenario_id].imgsensor_winsize_info.h1_size
+					*ctx->s_ctx.mode[pre_seamless_scenario_id].linelength
+					/ctx->s_ctx.mode[pre_seamless_scenario_id].pclk;
+	frame_duration_us -= orig_readout_time_us;
+
+	hdr_mode = (ctx->s_ctx.mode == NULL)
+		? HDR_NONE
+		: ctx->s_ctx.mode[scenario_id].hdr_mode;
+	switch (hdr_mode) {
+	case HDR_RAW_LBMF:
+		if (ctx->s_ctx.mode[ctx->current_scenario_id].exposure_order_in_lbmf ==
+			IMGSENSOR_LBMF_EXPOSURE_SE_FIRST) {
+			/* 2exp: dig_gain_lut_a = SE / dig_gain_lut_b = LE */
+			/* 3exp: dig_gain_lut_a = SE / dig_gain_lut_b = ME / dig_gain_lut_c = LE */
+			ae_ctrl_cit =ae_ctrl->exposure.se_exposure;
+		} else if (ctx->s_ctx.mode[ctx->current_scenario_id].exposure_order_in_lbmf ==
+			IMGSENSOR_LBMF_EXPOSURE_LE_FIRST) {
+			/* 2exp: dig_gain_lut_a = LE / dig_gain_lut_b = SE */
+			/* 3exp: dig_gain_lut_a = LE / dig_gain_lut_b = ME / dig_gain_lut_c = SE */
+			ae_ctrl_cit =ae_ctrl->exposure.le_exposure;
+		} else {
+			DRV_LOGE(ctx, "pls assign exposure_order_in_lbmf value!\n");
+			return;
+		}
+		break;
+	case HDR_NONE:
+	case HDR_RAW:
+	case HDR_CAMSV:
+	case HDR_RAW_ZHDR:
+	case HDR_MultiCAMSV:
+	case HDR_RAW_STAGGER:
+	case HDR_RAW_DCG_RAW:
+	case HDR_RAW_DCG_COMPOSE:
+	default:
+		ae_ctrl_cit =ae_ctrl->exposure.le_exposure;
+		break;
+	}
+
+	ae_ctrl_cit = FINE_INTEG_CONVERT(ae_ctrl_cit, ctx->s_ctx.mode[scenario_id].fine_integ_line);
+	prsh_length_lc = frame_duration_us
+					* ctx->s_ctx.mode[scenario_id].pclk
+					/ ctx->s_ctx.mode[scenario_id].linelength
+					/ 1000000;
+
+	ae_ctrl_cit = max(ae_ctrl_cit, ctx->s_ctx.exposure_min);
+	ae_ctrl_cit = min(ae_ctrl_cit, ctx->s_ctx.exposure_max);
+	cit_step = ctx->s_ctx.mode[ctx->current_scenario_id].coarse_integ_step ?: 1;
+	if (cit_step) {
+		ae_ctrl_cit = round_up(ae_ctrl_cit, cit_step);
+		prsh_length_lc = round_up(prsh_length_lc, cit_step);
+	}
+
+
+	DRV_LOG(ctx, "calc_prsh_length_lc(%d->%d): orig:pclk(%u),linelength(%u),frame_length(%u),fps(%llu),frame_duration_us(%llu),readout_us(%llu) new:pclk(%u),linelength(%u), ae_ctrl_cit(%u(max=%u,min=%u)),prsh_length_lc(%u)\n",
+					pre_seamless_scenario_id,scenario_id,
+					ctx->s_ctx.mode[pre_seamless_scenario_id].pclk,
+					ctx->s_ctx.mode[pre_seamless_scenario_id].linelength,
+					ctx->s_ctx.mode[pre_seamless_scenario_id].framelength,
+					current_fps,
+					10 * (1000000 / current_fps),
+					orig_readout_time_us,
+					ctx->s_ctx.mode[scenario_id].pclk,
+					ctx->s_ctx.mode[scenario_id].linelength,
+					ae_ctrl_cit, ctx->s_ctx.exposure_max, ctx->s_ctx.exposure_min, prsh_length_lc);
+
+	prsh_length_lc = (prsh_length_lc > (ae_ctrl_cit + hw_fixed_value)) ? prsh_length_lc : 0;
+	ctx->s_ctx.seamless_switch_prsh_length_lc = prsh_length_lc;
+}
+
 int common_get_resolution(struct subdrv_ctx *ctx,
 	MSDK_SENSOR_RESOLUTION_INFO_STRUCT *sensor_resolution)
 {

@@ -288,6 +288,13 @@ struct subdrv_static_ctx {
 	enum IMGSENSOR_HDR_SUPPORT_TYPE_ENUM hdr_type;
 	enum IMGSENSOR_RGBW_SUPPORT_TYPE_ENUM rgbw_support;
 	u8 seamless_switch_support;
+	enum SENSOR_SEAMLESS_SWITCH_TYPE seamless_switch_type;
+	unsigned int seamless_switch_hw_re_init_time_ns;
+	u8 seamless_switch_prsh_hw_fixed_value;
+	u32 seamless_switch_prsh_length_lc;
+	struct reg_ reg_addr_prsh_length_lines;
+	u16 reg_addr_prsh_mode;
+
 	u8 temperature_support;
 
 	int (*g_temp)(void *arg);

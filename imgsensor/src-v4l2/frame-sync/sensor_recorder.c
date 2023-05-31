@@ -1481,7 +1481,7 @@ static unsigned int frec_calc_seamless_frame_length(const unsigned int idx,
 	const struct FrameRecorder *pfrec = frec_g_recorder_ctx(idx, __func__);
 	const struct FrameRecord *frame_rec = &p_seamless_rec->frame_rec;
 	const struct fs_seamless_property_st *ss_prop = &p_seamless_rec->prop;
-	const unsigned int orig_fl_us = pfrec->curr_predicted_fl_us;
+	const unsigned int orig_fl_us = (pfrec != NULL) ? pfrec->curr_predicted_fl_us : 0;
 	const unsigned int new_mode_line_time_ns =
 		calcLineTimeInNs(
 			p_seamless_rec->frame_rec.pclk,

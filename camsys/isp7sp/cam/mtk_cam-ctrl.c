@@ -332,6 +332,8 @@ void mtk_cam_event_error(struct mtk_cam_ctrl *cam_ctrl, const char *msg)
 
 	if (ctx->has_raw_subdev)
 		mtk_cam_ctx_send_raw_event(ctx, &event);
+	else
+		mtk_cam_ctx_send_sv_event(ctx, &event);
 
 	if (CAM_DEBUG_ENABLED(V4L2_EVENT))
 		log_event(__func__, ctx->stream_id, &event);

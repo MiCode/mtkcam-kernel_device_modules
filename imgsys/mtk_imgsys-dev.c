@@ -46,6 +46,12 @@ int mtk_imgsys_pipe_init(struct mtk_imgsys_dev *imgsys_dev,
 	pipe->desc = setting;
 	pipe->nodes_enabled = 0ULL;
 	pipe->nodes_streaming = 0ULL;
+    #if SMVR_DECOUPLE
+    pipe->streaming_alloc = 0;
+    pipe->capture_alloc = 0;
+    pipe->smvr_alloc = 0;
+    pipe->imgsys_user_count = 0;
+    #endif
 
 	atomic_set(&pipe->pipe_job_sequence, 0);
 	INIT_LIST_HEAD(&pipe->pipe_job_running_list);
@@ -664,6 +670,8 @@ u64 mtk_imgsys_get_iova(struct dma_buf *dma_buf, s32 ionFd,
 		struct mtk_imgsys_dma_buf_iova_get_info *ion;
 
 		ion = vzalloc(sizeof(*ion));
+		if (ion == NULL)
+			return -ENOMEM;
 		ion->ionfd = ionFd;
 		ion->dma_addr = dma_addr;
 		ion->dma_buf = dma_buf;

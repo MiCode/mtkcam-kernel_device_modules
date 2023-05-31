@@ -286,12 +286,18 @@ inline int hcp_id_to_module_id(struct mtk_hcp *hcp_dev, enum hcp_id id)
 	case HCP_IMGSYS_UVA_FDS_DEL_ID:
 	case HCP_IMGSYS_SET_CONTROL_ID:
 	case HCP_IMGSYS_GET_CONTROL_ID:
+#if SMVR_DECOUPLE
+    case HCP_IMGSYS_ALOC_WORKING_BUF_ID:
+    case HCP_IMGSYS_FREE_WORKING_BUF_ID:
+#endif
 		module_id = MODULE_DIP;
 		break;
+#if !SMVR_DECOUPLE
 	case HCP_RSC_INIT_ID:
 	case HCP_RSC_FRAME_ID:
 		module_id = MODULE_RSC;
 		break;
+#endif
 	default:
 		break;
 	}
@@ -651,6 +657,7 @@ static bool mtk_hcp_cm4_support(struct mtk_hcp *hcp_dev, enum hcp_id id)
 	case HCP_IMGSYS_SW_TIMEOUT_ID:
 		is_cm4_support = hcp_dev->cm4_support_list[MODULE_DIP];
 		break;
+#if !SMVR_DECOUPLE
 	case HCP_FD_CMD_ID:
 	case HCP_FD_FRAME_ID:
 		is_cm4_support = hcp_dev->cm4_support_list[MODULE_FD];
@@ -659,6 +666,7 @@ static bool mtk_hcp_cm4_support(struct mtk_hcp *hcp_dev, enum hcp_id id)
 	case HCP_RSC_FRAME_ID:
 		is_cm4_support = hcp_dev->cm4_support_list[MODULE_RSC];
 		break;
+#endif
 	default:
 		break;
 	}
@@ -1004,8 +1012,11 @@ uint32_t mtk_hcp_get_reserve_mem_fd(unsigned int id)
 	return 0;
 }
 EXPORT_SYMBOL(mtk_hcp_get_reserve_mem_fd);
-
+#if SMVR_DECOUPLE
+void *mtk_hcp_get_gce_mem_virt(struct platform_device *pdev, unsigned int mode)
+#else
 void *mtk_hcp_get_gce_mem_virt(struct platform_device *pdev)
+#endif
 {
 	struct mtk_hcp *hcp_dev = platform_get_drvdata(pdev);
 	void *buffer = NULL;
@@ -1014,8 +1025,11 @@ void *mtk_hcp_get_gce_mem_virt(struct platform_device *pdev)
 		dev_info(&pdev->dev, "%s: not supported\n", __func__);
 		return NULL;
 	}
-
+#if SMVR_DECOUPLE
+	buffer = hcp_dev->data->get_gce_virt(mode);
+#else
 	buffer = hcp_dev->data->get_gce_virt();
+#endif
 	if (!buffer)
 		dev_info(&pdev->dev, "%s: gce buffer is null\n", __func__);
 
@@ -1023,7 +1037,27 @@ void *mtk_hcp_get_gce_mem_virt(struct platform_device *pdev)
 }
 EXPORT_SYMBOL(mtk_hcp_get_gce_mem_virt);
 
+#if SMVR_DECOUPLE
+void *mtk_hcp_get_gce_token_mem_virt(struct platform_device *pdev, unsigned int mode)
+{
+    struct mtk_hcp *hcp_dev = platform_get_drvdata(pdev);
+    void *buffer = NULL;
+    if (!hcp_dev->data->get_gce_token_virt) {
+        dev_info(&pdev->dev, "%s: not supported\n", __func__);
+        return NULL;
+    }
+    buffer = hcp_dev->data->get_gce_token_virt(mode);
+    if (!buffer)
+        dev_info(&pdev->dev, "%s: token buffer is null\n", __func__);
+
+        return buffer;
+}
+EXPORT_SYMBOL(mtk_hcp_get_gce_token_mem_virt);
+
+void*mtk_hcp_get_wpe_mem_virt(struct platform_device *pdev, unsigned int mode)
+#else
 void*mtk_hcp_get_wpe_mem_virt(struct platform_device *pdev)
+#endif
 {
 	struct mtk_hcp *hcp_dev = platform_get_drvdata(pdev);
 	void *buffer = NULL;
@@ -1032,8 +1066,11 @@ void*mtk_hcp_get_wpe_mem_virt(struct platform_device *pdev)
 		dev_info(&pdev->dev, "%s: not supported\n", __func__);
 		return NULL;
 	}
-
+#if SMVR_DECOUPLE
+    buffer = hcp_dev->data->get_wpe_virt(mode);
+#else
 	buffer = hcp_dev->data->get_wpe_virt();
+#endif
 	if (!buffer)
 		dev_info(&pdev->dev, "%s: wpe cq buffer is null\n", __func__);
 
@@ -1041,7 +1078,11 @@ void*mtk_hcp_get_wpe_mem_virt(struct platform_device *pdev)
 }
 EXPORT_SYMBOL(mtk_hcp_get_wpe_mem_virt);
 
+#if SMVR_DECOUPLE
+int mtk_hcp_get_wpe_mem_cq_fd(struct platform_device *pdev, unsigned int mode)
+#else
 int mtk_hcp_get_wpe_mem_cq_fd(struct platform_device *pdev)
+#endif
 {
 	struct mtk_hcp *hcp_dev = platform_get_drvdata(pdev);
 	int fd = -1;
@@ -1050,8 +1091,11 @@ int mtk_hcp_get_wpe_mem_cq_fd(struct platform_device *pdev)
 		dev_info(&pdev->dev, "%s: not supported\n", __func__);
 		return -1;
 	}
-
+#if SMVR_DECOUPLE
+	fd = hcp_dev->data->get_wpe_cq_fd(mode);
+#else
 	fd = hcp_dev->data->get_wpe_cq_fd();
+#endif
 	if (fd < 0)
 		dev_info(&pdev->dev, "%s: wpe cq fd is wrong\n", __func__);
 
@@ -1059,7 +1103,11 @@ int mtk_hcp_get_wpe_mem_cq_fd(struct platform_device *pdev)
 }
 EXPORT_SYMBOL(mtk_hcp_get_wpe_mem_cq_fd);
 
+#if SMVR_DECOUPLE
+int mtk_hcp_get_wpe_mem_tdr_fd(struct platform_device *pdev, unsigned int mode)
+#else
 int mtk_hcp_get_wpe_mem_tdr_fd(struct platform_device *pdev)
+#endif
 {
 	struct mtk_hcp *hcp_dev = platform_get_drvdata(pdev);
 	int fd = -1;
@@ -1068,8 +1116,11 @@ int mtk_hcp_get_wpe_mem_tdr_fd(struct platform_device *pdev)
 		dev_info(&pdev->dev, "%s: not supported\n", __func__);
 		return -1;
 	}
-
+#if SMVR_DECOUPLE
+	fd = hcp_dev->data->get_wpe_tdr_fd(mode);
+#else
 	fd = hcp_dev->data->get_wpe_tdr_fd();
+#endif
 	if (fd < 0)
 		dev_info(&pdev->dev, "%s: wpe tdr fd is wrong\n", __func__);
 
@@ -1077,7 +1128,11 @@ int mtk_hcp_get_wpe_mem_tdr_fd(struct platform_device *pdev)
 }
 EXPORT_SYMBOL(mtk_hcp_get_wpe_mem_tdr_fd);
 
+#if SMVR_DECOUPLE
+void*mtk_hcp_get_dip_mem_virt(struct platform_device *pdev, unsigned int mode)
+#else
 void *mtk_hcp_get_dip_mem_virt(struct platform_device *pdev)
+#endif
 {
 	struct mtk_hcp *hcp_dev = platform_get_drvdata(pdev);
 	void *buffer = NULL;
@@ -1086,8 +1141,11 @@ void *mtk_hcp_get_dip_mem_virt(struct platform_device *pdev)
 		dev_info(&pdev->dev, "%s: not supported\n", __func__);
 		return NULL;
 	}
-
+#if SMVR_DECOUPLE
+	buffer = hcp_dev->data->get_dip_virt(mode);
+#else
 	buffer = hcp_dev->data->get_dip_virt();
+#endif
 	if (!buffer)
 		dev_info(&pdev->dev, "%s: dip cq buffer is null\n", __func__);
 
@@ -1095,7 +1153,11 @@ void *mtk_hcp_get_dip_mem_virt(struct platform_device *pdev)
 }
 EXPORT_SYMBOL(mtk_hcp_get_dip_mem_virt);
 
+#if SMVR_DECOUPLE
+int mtk_hcp_get_dip_mem_cq_fd(struct platform_device *pdev, unsigned int mode)
+#else
 int mtk_hcp_get_dip_mem_cq_fd(struct platform_device *pdev)
+#endif
 {
 	struct mtk_hcp *hcp_dev = platform_get_drvdata(pdev);
 	int fd = -1;
@@ -1104,8 +1166,11 @@ int mtk_hcp_get_dip_mem_cq_fd(struct platform_device *pdev)
 		dev_info(&pdev->dev, "%s: not supported\n", __func__);
 		return -1;
 	}
-
+#if SMVR_DECOUPLE
+	fd = hcp_dev->data->get_dip_cq_fd(mode);
+#else
 	fd = hcp_dev->data->get_dip_cq_fd();
+#endif
 	if (fd < 0)
 		dev_info(&pdev->dev, "%s: dip cq fd is wrong\n", __func__);
 
@@ -1113,7 +1178,11 @@ int mtk_hcp_get_dip_mem_cq_fd(struct platform_device *pdev)
 }
 EXPORT_SYMBOL(mtk_hcp_get_dip_mem_cq_fd);
 
+#if SMVR_DECOUPLE
+int mtk_hcp_get_dip_mem_tdr_fd(struct platform_device *pdev, unsigned int mode)
+#else
 int mtk_hcp_get_dip_mem_tdr_fd(struct platform_device *pdev)
+#endif
 {
 	struct mtk_hcp *hcp_dev = platform_get_drvdata(pdev);
 	int fd = -1;
@@ -1122,8 +1191,11 @@ int mtk_hcp_get_dip_mem_tdr_fd(struct platform_device *pdev)
 		dev_info(&pdev->dev, "%s: not supported\n", __func__);
 		return -1;
 	}
-
+#if SMVR_DECOUPLE
+	fd = hcp_dev->data->get_dip_tdr_fd(mode);
+#else
 	fd = hcp_dev->data->get_dip_tdr_fd();
+#endif
 	if (fd < 0)
 		dev_info(&pdev->dev, "%s: dip tdr fd is wrong\n", __func__);
 
@@ -1131,7 +1203,11 @@ int mtk_hcp_get_dip_mem_tdr_fd(struct platform_device *pdev)
 }
 EXPORT_SYMBOL(mtk_hcp_get_dip_mem_tdr_fd);
 
+#if SMVR_DECOUPLE
+void*mtk_hcp_get_traw_mem_virt(struct platform_device *pdev, unsigned int mode)
+#else
 void *mtk_hcp_get_traw_mem_virt(struct platform_device *pdev)
+#endif
 {
 	struct mtk_hcp *hcp_dev = platform_get_drvdata(pdev);
 	void *buffer = NULL;
@@ -1140,8 +1216,11 @@ void *mtk_hcp_get_traw_mem_virt(struct platform_device *pdev)
 		dev_info(&pdev->dev, "%s: not supported\n", __func__);
 		return NULL;
 	}
-
+#if SMVR_DECOUPLE
+	buffer = hcp_dev->data->get_traw_virt(mode);
+#else
 	buffer = hcp_dev->data->get_traw_virt();
+#endif
 	if (!buffer)
 		dev_info(&pdev->dev, "%s: traw cq buffer is null\n", __func__);
 
@@ -1149,7 +1228,11 @@ void *mtk_hcp_get_traw_mem_virt(struct platform_device *pdev)
 }
 EXPORT_SYMBOL(mtk_hcp_get_traw_mem_virt);
 
+#if SMVR_DECOUPLE
+int mtk_hcp_get_traw_mem_cq_fd(struct platform_device *pdev, unsigned int mode)
+#else
 int mtk_hcp_get_traw_mem_cq_fd(struct platform_device *pdev)
+#endif
 {
 	struct mtk_hcp *hcp_dev = platform_get_drvdata(pdev);
 	int fd = -1;
@@ -1158,8 +1241,11 @@ int mtk_hcp_get_traw_mem_cq_fd(struct platform_device *pdev)
 		dev_info(&pdev->dev, "%s: not supported\n", __func__);
 		return -1;
 	}
-
+#if SMVR_DECOUPLE
+	fd = hcp_dev->data->get_traw_cq_fd(mode);
+#else
 	fd = hcp_dev->data->get_traw_cq_fd();
+#endif
 	if (fd < 0)
 		dev_info(&pdev->dev, "%s: traw cq fd is wrong\n", __func__);
 
@@ -1167,7 +1253,11 @@ int mtk_hcp_get_traw_mem_cq_fd(struct platform_device *pdev)
 }
 EXPORT_SYMBOL(mtk_hcp_get_traw_mem_cq_fd);
 
+#if SMVR_DECOUPLE
+int mtk_hcp_get_traw_mem_tdr_fd(struct platform_device *pdev, unsigned int mode)
+#else
 int mtk_hcp_get_traw_mem_tdr_fd(struct platform_device *pdev)
+#endif
 {
 	struct mtk_hcp *hcp_dev = platform_get_drvdata(pdev);
 	int fd = -1;
@@ -1176,8 +1266,11 @@ int mtk_hcp_get_traw_mem_tdr_fd(struct platform_device *pdev)
 		dev_info(&pdev->dev, "%s: not supported\n", __func__);
 		return -1;
 	}
-
+#if SMVR_DECOUPLE
+	fd = hcp_dev->data->get_traw_tdr_fd(mode);
+#else
 	fd = hcp_dev->data->get_traw_tdr_fd();
+#endif
 	if (fd < 0)
 		dev_info(&pdev->dev, "%s: traw tdr fd is wrong\n", __func__);
 
@@ -1185,7 +1278,11 @@ int mtk_hcp_get_traw_mem_tdr_fd(struct platform_device *pdev)
 }
 EXPORT_SYMBOL(mtk_hcp_get_traw_mem_tdr_fd);
 
+#if SMVR_DECOUPLE
+void*mtk_hcp_get_pqdip_mem_virt(struct platform_device *pdev, unsigned int mode)
+#else
 void *mtk_hcp_get_pqdip_mem_virt(struct platform_device *pdev)
+#endif
 {
 	struct mtk_hcp *hcp_dev = platform_get_drvdata(pdev);
 	void *buffer = NULL;
@@ -1194,8 +1291,11 @@ void *mtk_hcp_get_pqdip_mem_virt(struct platform_device *pdev)
 		dev_info(&pdev->dev, "%s: not supported\n", __func__);
 		return NULL;
 	}
-
+#if SMVR_DECOUPLE
+	buffer = hcp_dev->data->get_pqdip_virt(mode);
+#else
 	buffer = hcp_dev->data->get_pqdip_virt();
+#endif
 	if (!buffer)
 		dev_info(&pdev->dev, "%s: pqdip cq buffer is null\n", __func__);
 
@@ -1203,7 +1303,11 @@ void *mtk_hcp_get_pqdip_mem_virt(struct platform_device *pdev)
 }
 EXPORT_SYMBOL(mtk_hcp_get_pqdip_mem_virt);
 
+#if SMVR_DECOUPLE
+int mtk_hcp_get_pqdip_mem_cq_fd(struct platform_device *pdev, unsigned int mode)
+#else
 int mtk_hcp_get_pqdip_mem_cq_fd(struct platform_device *pdev)
+#endif
 {
 	struct mtk_hcp *hcp_dev = platform_get_drvdata(pdev);
 	int fd = -1;
@@ -1213,7 +1317,11 @@ int mtk_hcp_get_pqdip_mem_cq_fd(struct platform_device *pdev)
 		return -1;
 	}
 
+#if SMVR_DECOUPLE
+	fd = hcp_dev->data->get_pqdip_cq_fd(mode);
+#else
 	fd = hcp_dev->data->get_pqdip_cq_fd();
+#endif
 	if (fd < 0)
 		dev_info(&pdev->dev, "%s: pqdip cq fd is wrong\n", __func__);
 
@@ -1221,7 +1329,11 @@ int mtk_hcp_get_pqdip_mem_cq_fd(struct platform_device *pdev)
 }
 EXPORT_SYMBOL(mtk_hcp_get_pqdip_mem_cq_fd);
 
+#if SMVR_DECOUPLE
+int mtk_hcp_get_pqdip_mem_tdr_fd(struct platform_device *pdev, unsigned int mode)
+#else
 int mtk_hcp_get_pqdip_mem_tdr_fd(struct platform_device *pdev)
+#endif
 {
 	struct mtk_hcp *hcp_dev = platform_get_drvdata(pdev);
 	int fd = -1;
@@ -1231,7 +1343,11 @@ int mtk_hcp_get_pqdip_mem_tdr_fd(struct platform_device *pdev)
 		return -1;
 	}
 
+#if SMVR_DECOUPLE
+	fd = hcp_dev->data->get_pqdip_tdr_fd(mode);
+#else
 	fd = hcp_dev->data->get_pqdip_tdr_fd();
+#endif
 	if (fd < 0)
 		dev_info(&pdev->dev, "%s: pqdip tdr fd is wrong\n", __func__);
 
@@ -1239,7 +1355,11 @@ int mtk_hcp_get_pqdip_mem_tdr_fd(struct platform_device *pdev)
 }
 EXPORT_SYMBOL(mtk_hcp_get_pqdip_mem_tdr_fd);
 
+#if SMVR_DECOUPLE
+int mtk_hcp_get_gce_buffer(struct platform_device *pdev, unsigned int mode)
+#else
 int mtk_hcp_get_gce_buffer(struct platform_device *pdev)
+#endif
 {
 	struct mtk_hcp *hcp_dev = platform_get_drvdata(pdev);
 
@@ -1247,12 +1367,19 @@ int mtk_hcp_get_gce_buffer(struct platform_device *pdev)
 		dev_info(&pdev->dev, "%s:not supported\n", __func__);
 		return -1;
 	}
-
+#if SMVR_DECOUPLE
+	return hcp_dev->data->get_gce(mode);
+#else
 	return hcp_dev->data->get_gce();
+#endif
 }
 EXPORT_SYMBOL(mtk_hcp_get_gce_buffer);
 
+#if SMVR_DECOUPLE
+int mtk_hcp_put_gce_buffer(struct platform_device *pdev, unsigned int mode)
+#else
 int mtk_hcp_put_gce_buffer(struct platform_device *pdev)
+#endif
 {
 	struct mtk_hcp *hcp_dev = platform_get_drvdata(pdev);
 
@@ -1260,12 +1387,19 @@ int mtk_hcp_put_gce_buffer(struct platform_device *pdev)
 		dev_info(&pdev->dev, "%s:not supported\n", __func__);
 		return -1;
 	}
-
+#if SMVR_DECOUPLE
+	return hcp_dev->data->put_gce(mode);
+#else
 	return hcp_dev->data->put_gce();
+#endif
 }
 EXPORT_SYMBOL(mtk_hcp_put_gce_buffer);
 
+#if SMVR_DECOUPLE
+void *mtk_hcp_get_hwid_mem_virt(struct platform_device *pdev, unsigned int mode)
+#else
 void *mtk_hcp_get_hwid_mem_virt(struct platform_device *pdev)
+#endif
 {
 	struct mtk_hcp *hcp_dev = platform_get_drvdata(pdev);
 
@@ -1273,8 +1407,11 @@ void *mtk_hcp_get_hwid_mem_virt(struct platform_device *pdev)
 		dev_info(&pdev->dev, "%s:not supported\n", __func__);
 		return NULL;
 	}
-
+#if SMVR_DECOUPLE
+	return hcp_dev->data->get_hwid_virt(mode);
+#else
 	return hcp_dev->data->get_hwid_virt();
+#endif
 }
 EXPORT_SYMBOL(mtk_hcp_get_hwid_mem_virt);
 
@@ -1364,6 +1501,9 @@ static void module_notify(struct mtk_hcp *hcp_dev,
 	struct swfrm_info_t *swfrm_info = NULL;
 	struct mtk_imgsys_request *req = NULL;
 	u64 *req_stat = NULL;
+#if SMVR_DECOUPLE
+unsigned int mode = imgsys_streaming;
+#endif
 
 	if (!user_data_addr) {
 		dev_info(hcp_dev->dev, "%s invalid null share buffer", __func__);
@@ -1381,12 +1521,38 @@ static void module_notify(struct mtk_hcp *hcp_dev,
 
 	swbuf_data = (struct img_sw_buffer *)user_data_addr->share_data;
 	if (swbuf_data && user_data_addr->id == HCP_IMGSYS_FRAME_ID) {
+#if SMVR_DECOUPLE
+		 switch (swbuf_data->scp_addr) {
+        case imgsys_streaming:
+        case imgsys_capture:
+        case imgsys_smvr:
+                mode  = swbuf_data->scp_addr;
+                break;
+        default:
+                dev_warn(hcp_dev->dev, " %s with message id:%d, w/ unexpected mode(%d/%d)\n",
+                    __func__, user_data_addr->id, swbuf_data->scp_addr, mode);
+                break;
+        }
+        //dev_dbg(hcp_dev->dev, " %s with message id:%d scp_addr(%d) mode(%d) swbuf_data->offset(0x%x)\n",
+        //    __func__, user_data_addr->id,
+        //    swbuf_data->scp_addr, mode,
+        //    swbuf_data->offset);
+		if (hcp_dev->data && hcp_dev->data->get_gce_virt)
+			gce_buf = hcp_dev->data->get_gce_virt(mode);
+            #else
 		if (hcp_dev->data && hcp_dev->data->get_gce_virt)
 			gce_buf = hcp_dev->data->get_gce_virt();
+            #endif
 
 		if (gce_buf)
 			swfrm_info = (struct swfrm_info_t *)(gce_buf + (swbuf_data->offset));
-
+#if SMVR_DECOUPLE
+//dev_info(hcp_dev->dev,
+//            " %s with message id:%d gce_buf/swfrm_info (%lx/%lx) scp_addr(%d) mode(%d) swbuf_data->offset(0x%x)",
+//            __func__, user_data_addr->id,
+//            (unsigned long)gce_buf, (unsigned long)swfrm_info, swbuf_data->scp_addr, mode,
+//            swbuf_data->offset);
+#endif
 		if (swfrm_info && swfrm_info->is_lastfrm)
 			req = (struct mtk_imgsys_request *)swfrm_info->req_vaddr;
 
@@ -1576,7 +1742,11 @@ static const struct file_operations hcp_fops = {
 int allocate_working_buffer_helper(struct platform_device *pdev)
 {
 	unsigned int id = 0;
+#if SMVR_DECOUPLE
+struct mtk_hcp_streaming_reserve_mblock *mblock = NULL;
+#else
 	struct mtk_hcp_reserve_mblock *mblock = NULL;
+#endif
 	unsigned int block_num = 0;
 	struct sg_table *sgt = NULL;
 	struct dma_buf_attachment *attach = NULL;
@@ -1652,7 +1822,10 @@ int allocate_working_buffer_helper(struct platform_device *pdev)
 			mblock[id].start_dma = 0;
 		}
 	}
-
+    #if SMVR_DECOUPLE
+	hcp_dev->is_mem_alloc_streaming = 1;
+    #else
+    #endif
 	return 0;
 }
 EXPORT_SYMBOL(allocate_working_buffer_helper);
@@ -1660,7 +1833,11 @@ EXPORT_SYMBOL(allocate_working_buffer_helper);
 int release_working_buffer_helper(struct platform_device *pdev)
 {
 	unsigned int id = 0;
+#if SMVR_DECOUPLE
+struct mtk_hcp_streaming_reserve_mblock *mblock = NULL;
+#else
 	struct mtk_hcp_reserve_mblock *mblock = NULL;
+#endif
 	unsigned int block_num = 0;
 	struct mtk_hcp *hcp_dev = platform_get_drvdata(pdev);
 
@@ -1705,15 +1882,47 @@ int release_working_buffer_helper(struct platform_device *pdev)
 			mblock[id].mmap_cnt = 0;
 		}
 	}
-
+    #if SMVR_DECOUPLE
+	hcp_dev->is_mem_alloc_streaming = 0;
+    #endif
 	return 0;
 }
 EXPORT_SYMBOL(release_working_buffer_helper);
 
+#if SMVR_DECOUPLE
+int mtk_hcp_allocate_working_buffer(struct platform_device *pdev, unsigned int mode, unsigned int g_gmb_en)
+#else
 int mtk_hcp_allocate_working_buffer(struct platform_device *pdev, unsigned int mode)
+#endif
 {
 	struct mtk_hcp *hcp_dev = platform_get_drvdata(pdev);
 
+#if SMVR_DECOUPLE
+    int ret = 0;
+
+	if ((hcp_dev == NULL)
+		|| (hcp_dev->data == NULL)
+		|| (hcp_dev->data->allocate == NULL)) {
+		dev_info(&pdev->dev, "%s:allocate not supported\n", __func__);
+		ret = allocate_working_buffer_helper(pdev);
+	} else {
+		if (mode == imgsys_streaming) {
+			ret = hcp_dev->data->allocate(hcp_dev, imgsys_streaming, g_gmb_en);
+			hcp_dev->is_mem_alloc_streaming = (ret == 0);
+			hcp_dev->alloc_count++;
+		} else if (mode == imgsys_capture) {
+			ret = hcp_dev->data->allocate(hcp_dev, imgsys_capture, g_gmb_en);
+			hcp_dev->is_mem_alloc_capture = (ret == 0);
+			hcp_dev->alloc_count++;
+		} else {
+			ret = hcp_dev->data->allocate(hcp_dev, imgsys_smvr, g_gmb_en);
+			hcp_dev->is_mem_alloc_smvr = (ret == 0);
+			hcp_dev->alloc_count++;
+		}
+    }
+
+	return ret;
+#else
 	if ((hcp_dev == NULL)
 		|| (hcp_dev->data == NULL)
 		|| (hcp_dev->data->allocate == NULL)) {
@@ -1722,23 +1931,120 @@ int mtk_hcp_allocate_working_buffer(struct platform_device *pdev, unsigned int m
 	}
 
 	return hcp_dev->data->allocate(hcp_dev, mode);
+#endif
 }
 EXPORT_SYMBOL(mtk_hcp_allocate_working_buffer);
+
+#if SMVR_DECOUPLE
+int mtk_hcp_release_gce_working_buffer(struct platform_device *pdev)
+{
+	struct mtk_hcp *hcp_dev = platform_get_drvdata(pdev);
+
+	if ((hcp_dev == NULL)
+		|| (hcp_dev->data == NULL)
+		|| (hcp_dev->data->release_gce_buf == NULL)) {
+		dev_info(&pdev->dev, "%s:allocate not supported\n", __func__);
+		return release_working_buffer_helper(pdev);
+	}
+
+	return hcp_dev->data->release_gce_buf(hcp_dev);
+}
+EXPORT_SYMBOL(mtk_hcp_release_gce_working_buffer);
+#endif
 
 int mtk_hcp_release_working_buffer(struct platform_device *pdev)
 {
 	struct mtk_hcp *hcp_dev = platform_get_drvdata(pdev);
+#if SMVR_DECOUPLE
+	int ret = 0, i = 0;
 
+	if ((hcp_dev == NULL)
+		|| (hcp_dev->data == NULL)
+		|| (hcp_dev->data->release == NULL)) {
+		dev_info(&pdev->dev, "%s:release not supported\n", __func__);
+		ret = release_working_buffer_helper(pdev);
+	} else {
+		for (i = 0; i < hcp_dev->alloc_count; i++) {
+			if (hcp_dev->is_mem_alloc_streaming) {
+				ret = hcp_dev->data->release(hcp_dev, imgsys_streaming);
+				hcp_dev->is_mem_alloc_streaming = 0;
+			} else if (hcp_dev->is_mem_alloc_capture) {
+				ret = hcp_dev->data->release(hcp_dev, imgsys_capture);
+				hcp_dev->is_mem_alloc_capture = 0;
+			} else {
+				ret = hcp_dev->data->release(hcp_dev, imgsys_smvr);
+				hcp_dev->is_mem_alloc_smvr = 0;
+			}
+		}
+		hcp_dev->alloc_count = 0;
+	}
+
+	return ret;
+#else
 	if ((hcp_dev == NULL)
 		|| (hcp_dev->data == NULL)
 		|| (hcp_dev->data->allocate == NULL)) {
 		dev_info(&pdev->dev, "%s:release not supported\n", __func__);
 		return release_working_buffer_helper(pdev);
 	}
-
 	return hcp_dev->data->release(hcp_dev);
+#endif
 }
 EXPORT_SYMBOL(mtk_hcp_release_working_buffer);
+
+#if SMVR_DECOUPLE
+int mtk_hcp_ioc_release_working_buffer(struct platform_device *pdev, unsigned int mode)
+{
+	struct mtk_hcp *hcp_dev = platform_get_drvdata(pdev);
+	int ret = 0;
+
+	if ((hcp_dev == NULL)
+		|| (hcp_dev->data == NULL)
+		|| (hcp_dev->data->allocate == NULL)) {
+		dev_info(&pdev->dev, "%s:release not supported\n", __func__);
+		ret = release_working_buffer_helper(pdev);
+	} else {
+	    switch (mode) {
+            case imgsys_streaming:
+                ret = hcp_dev->data->release(hcp_dev, imgsys_streaming);
+			    hcp_dev->is_mem_alloc_streaming = 0;
+			    hcp_dev->alloc_count--;
+                break;
+            case imgsys_capture:
+                ret = hcp_dev->data->release(hcp_dev, imgsys_capture);
+			    hcp_dev->is_mem_alloc_capture = 0;
+			    hcp_dev->alloc_count--;
+                break;
+            case imgsys_smvr:
+                ret = hcp_dev->data->release(hcp_dev, imgsys_smvr);
+			    hcp_dev->is_mem_alloc_smvr = 0;
+			    hcp_dev->alloc_count--;
+                break;
+            default:
+                dev_info(&pdev->dev,"not support mode\n");
+                break;
+        }
+        #if 0
+		if (hcp_dev->is_mem_alloc_streaming) {
+			ret = hcp_dev->data->release(hcp_dev, imgsys_streaming);
+			hcp_dev->is_mem_alloc_streaming = 0;
+			hcp_dev->alloc_count--;
+		} else if (mode == imgsys_capture) {
+			ret = hcp_dev->data->release(hcp_dev, imgsys_capture);
+			hcp_dev->is_mem_alloc_capture = 0;
+			hcp_dev->alloc_count--;
+		} else {
+			ret = hcp_dev->data->release(hcp_dev, imgsys_smvr);
+			hcp_dev->is_mem_alloc_smvr = 0;
+			hcp_dev->alloc_count--;
+		}
+        #endif
+	}
+
+	return ret;
+}
+EXPORT_SYMBOL(mtk_hcp_ioc_release_working_buffer);
+#endif
 
 int mtk_hcp_get_init_info(struct platform_device *pdev,
 			struct img_init_info *info)
@@ -1756,6 +2062,25 @@ int mtk_hcp_get_init_info(struct platform_device *pdev,
 	return hcp_dev->data->get_init_info(info);
 }
 EXPORT_SYMBOL(mtk_hcp_get_init_info);
+
+#if SMVR_DECOUPLE
+int mtk_hcp_get_mem_info(struct platform_device *pdev,
+			struct img_init_info *info, unsigned int mode)
+{
+	struct mtk_hcp *hcp_dev = platform_get_drvdata(pdev);
+
+	if ((hcp_dev == NULL)
+		|| (hcp_dev->data == NULL)
+		|| (hcp_dev->data->get_mem_info == NULL)
+		|| (info == NULL)) {
+		dev_info(&pdev->dev, "%s:not supported\n", __func__);
+		return -1;
+	}
+
+	return hcp_dev->data->get_mem_info(info);
+}
+EXPORT_SYMBOL(mtk_hcp_get_mem_info);
+#endif
 
 void mtk_hcp_purge_msg(struct platform_device *pdev)
 {
@@ -1837,6 +2162,9 @@ static int mtk_hcp_probe(struct platform_device *pdev)
 	}
 
 	atomic_set(&(hcp_dev->have_slb), 0);
+    #if SMVR_DECOUPLE
+	hcp_dev->alloc_count = 0;
+    #endif
 
 	hcp_dev->is_open = false;
 	for (i = 0; i < MODULE_MAX_ID; i++) {

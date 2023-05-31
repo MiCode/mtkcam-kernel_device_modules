@@ -218,7 +218,16 @@ struct mtk_imgsys_pipe {
 	//struct mutex job_lock;
 	const struct mtk_imgsys_pipe_desc *desc;
 	struct mtk_imgsys_dma_buf_iova_list iova_cache;
+        #if SMVR_DECOUPLE
+        struct init_info ini_info;
+        struct mem_info meminfo;
+        unsigned int capture_alloc;
+        unsigned int smvr_alloc;
+        unsigned int streaming_alloc;
+        unsigned int imgsys_user_count;
+        #else
 	struct init_info init_info;
+        #endif
 };
 
 struct imgsys_event_status {
@@ -432,6 +441,11 @@ struct gce_timeout_work {
 	uint32_t fail_uinfo_idx;
 	int8_t fail_isHWhang;
 	int hang_event;
+#if SMVR_DECOUPLE
+    int is_time_shared;
+    int is_capture;
+    int batchnum;
+#endif
 };
 
 struct gce_cb_work {

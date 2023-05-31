@@ -613,8 +613,13 @@ void imgsys_pqdip_updatecq(struct mtk_imgsys_dev *imgsys_dev,
 			continue;
 		if (iova_addr) {
 			cq_desc = (u64 *)((void *)(
+				#if SMVR_DECOUPLE
+				mtk_hcp_get_pqdip_mem_virt(imgsys_dev->scp_pdev, mode) +
+					user_info->priv[pq_hw].desc_offset));
+				#else
 					mtk_hcp_get_pqdip_mem_virt(imgsys_dev->scp_pdev) +
 					user_info->priv[pq_hw].desc_offset));
+				#endif
 			for (i = 0; i < PQDIP_CQ_DESC_NUM; i++) {
 				dtable = (struct mtk_imgsys_pqdip_dtable *)cq_desc + i;
 				if ((dtable->addr_msb & PSEUDO_DESC_TUNING) == PSEUDO_DESC_TUNING) {
@@ -633,7 +638,11 @@ void imgsys_pqdip_updatecq(struct mtk_imgsys_dev *imgsys_dev,
 		}
 		}
 		//
+		#if SMVR_DECOUPLE
+		pqdip_buf_info.fd = mtk_hcp_get_pqdip_mem_cq_fd(imgsys_dev->scp_pdev, mode);
+		#else
 		pqdip_buf_info.fd = mtk_hcp_get_pqdip_mem_cq_fd(imgsys_dev->scp_pdev);
+		#endif
 		pqdip_buf_info.offset = user_info->priv[pq_hw].desc_offset;
 		pqdip_buf_info.len =
 			((dtbl_sz * PQDIP_CQ_DESC_NUM) + PQDIP_REG_SIZE);
@@ -650,7 +659,11 @@ void imgsys_pqdip_updatecq(struct mtk_imgsys_dev *imgsys_dev,
 	for (pq_hw = IMGSYS_PQDIP_A; pq_hw <= IMGSYS_PQDIP_B; pq_hw++) {
 		if (user_info->priv[pq_hw].need_flush_tdr) {
 			// tdr buffer
+			#if SMVR_DECOUPLE
+			pqdip_buf_info.fd = mtk_hcp_get_pqdip_mem_tdr_fd(imgsys_dev->scp_pdev, mode);
+			#else
 			pqdip_buf_info.fd = mtk_hcp_get_pqdip_mem_tdr_fd(imgsys_dev->scp_pdev);
+			#endif
 			pqdip_buf_info.offset = user_info->priv[pq_hw].tdr_offset;
 			pqdip_buf_info.len = PQDIP_TDR_BUF_MAXSZ;
 			pqdip_buf_info.mode = mode;

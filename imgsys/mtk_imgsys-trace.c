@@ -15,11 +15,21 @@ module_param(imgsys_ftrace_en, int, 0644);
 
 void __imgsys_systrace(const char *fmt, ...)
 {
+	char buf[IMGSYS_TRACE_LEN];
 	va_list args;
+	int len;
 
+	memset(buf, ' ', sizeof(buf));
 	va_start(args, fmt);
-	trace_tracing_mark_write(fmt, &args);
+	len = vsnprintf(buf, (IMGSYS_TRACE_LEN -1), fmt, args);
 	va_end(args);
+
+	if (len >= IMGSYS_TRACE_LEN) {
+        	pr_info("%s trace size(%d) over limit", __func__, len);
+		len = IMGSYS_TRACE_LEN - 1;
+		return;
+	}
+	trace_tracing_mark_write(buf);
 }
 
 bool imgsys_core_ftrace_enabled(void)

@@ -660,7 +660,21 @@ static void cmdq_cb_timeout_worker(struct work_struct *work)
 		/* DAEMON debug dump */
 		ipi_param.usage = IMG_IPI_DEBUG;
 		swbuf_data.offset  = frm_info->req_sbuf_goft;
-
+#if SMVR_DECOUPLE
+if ((swork->is_capture) || (swork->is_time_shared)) {
+            swbuf_data.scp_addr = imgsys_capture;
+        } else {
+            if (swork->batchnum > 0) {
+                swbuf_data.scp_addr = imgsys_smvr;
+            } else {
+                swbuf_data.scp_addr = imgsys_streaming;
+            }
+        }
+        dev_info(req->imgsys_pipe->imgsys_dev->dev,
+            "%s: is_vss(%d)/is_capture(%d), batchnum(%d) scp_addr(%d)\n",
+            __func__, swork->is_time_shared, swork->is_capture,
+            swork->batchnum, swbuf_data.scp_addr);
+#endif
 		if (swork->fail_isHWhang) {
 			imgsys_send(req->imgsys_pipe->imgsys_dev->scp_pdev,
 					HCP_IMGSYS_HW_TIMEOUT_ID,
@@ -683,7 +697,19 @@ release_req:
 	media_request_put(&req->req);
 
 release_work:
+#if SMVR_DECOUPLE
+	if (swork->is_capture) {
+	    mtk_hcp_put_gce_buffer(pipe->imgsys_dev->scp_pdev, imgsys_capture);
+    } else {
+        if (swork->batchnum) {
+            mtk_hcp_put_gce_buffer(pipe->imgsys_dev->scp_pdev, imgsys_smvr);
+        } else {
+            mtk_hcp_put_gce_buffer(pipe->imgsys_dev->scp_pdev, imgsys_streaming);
+        }
+    }
+#else
 	mtk_hcp_put_gce_buffer(pipe->imgsys_dev->scp_pdev);
+#endif
 
 }
 
@@ -718,7 +744,19 @@ static void imgsys_cmdq_timeout_cb_func(struct cmdq_cb_data data,
 		return;
 	}
 	imgsys_dev = req->imgsys_pipe->imgsys_dev;
+	#if SMVR_DECOUPLE
+	 if (frm_info_cb->is_capture) {
+	    mtk_hcp_get_gce_buffer(imgsys_dev->scp_pdev, imgsys_capture);
+    } else {
+        if (frm_info_cb->batchnum) {
+            mtk_hcp_get_gce_buffer(imgsys_dev->scp_pdev, imgsys_smvr);
+        } else {
+            mtk_hcp_get_gce_buffer(imgsys_dev->scp_pdev, imgsys_streaming);
+        }
+    }
+	#else
 	mtk_hcp_get_gce_buffer(imgsys_dev->scp_pdev);
+	#endif
 	/*frm_info_cb->fail_uinfo_idx = fail_subfidx;*/
 	dev_info(imgsys_dev->dev,
 		"%s:%s:req fd/no(%d/%d) frmNo(%d) tfnum(%d)sidx/fidx/hw(%d/%d_%d/0x%x)timeout(%d/%d)hang_event(%d) dump cb +",
@@ -750,6 +788,11 @@ static void imgsys_cmdq_timeout_cb_func(struct cmdq_cb_data data,
 	swork->fail_uinfo_idx = fail_subfidx;
 	swork->fail_isHWhang = isHWhang;
 	swork->hang_event = hang_event;
+#if SMVR_DECOUPLE
+swork->is_time_shared = frm_info_cb->user_info[fail_subfidx].is_time_shared;
+    swork->is_capture = frm_info_cb->is_capture;
+    swork->batchnum = frm_info_cb->batchnum;
+#endif
 	INIT_WORK(&swork->work, cmdq_cb_timeout_worker);
 	queue_work(req->imgsys_pipe->imgsys_dev->mdpcb_wq,
 		&swork->work);
@@ -786,6 +829,21 @@ static void cmdq_cb_done_worker(struct work_struct *work)
 	/* send to HCP after frame done & del node from list */
 	gwfrm_info = (struct swfrm_info_t *)gwork->req_sbuf_kva;
 	swbuf_data.offset = gwfrm_info->req_sbuf_goft;
+#if SMVR_DECOUPLE
+ if (gwfrm_info->is_capture || (gwfrm_info->user_info[0].is_time_shared)) {
+        swbuf_data.scp_addr = imgsys_capture;
+    } else {
+        if (gwfrm_info->batchnum > 0) {
+            swbuf_data.scp_addr = imgsys_smvr;
+        } else {
+            swbuf_data.scp_addr = imgsys_streaming;
+        }
+    }
+
+    //pr_info("%s: is_vss(%d)/is_capture(%d), batchnum(%d) scp_addr(%d)\n", __func__,
+    //    gwfrm_info->user_info[0].is_time_shared, gwfrm_info->is_capture,
+    //    gwfrm_info->batchnum, swbuf_data.scp_addr);
+#endif
 	if (gwfrm_info->is_ndd)
 		imgsys_send(pipe->imgsys_dev->scp_pdev, HCP_IMGSYS_DEQUE_DUMP_ID,
 			&swbuf_data, sizeof(struct img_sw_buffer),
@@ -1056,8 +1114,21 @@ static void imgsys_mdp_cb_func(struct cmdq_cb_data data,
 		if (/*pipe->streaming && */can_notify_imgsys/*lastfrmInMWReq*/)
 			mtk_imgsys_notify(req, swfrminfo_cb->frm_owner);
 
-		if (lastin_errcase)
+		if (lastin_errcase) {
+    		#if SMVR_DECOUPLE
+    			if (swfrminfo_cb->is_capture) {
+            	    mtk_hcp_put_gce_buffer(imgsys_dev->scp_pdev, imgsys_capture);
+                } else {
+                    if (swfrminfo_cb->batchnum) {
+                        mtk_hcp_put_gce_buffer(imgsys_dev->scp_pdev, imgsys_smvr);
+                    } else {
+                        mtk_hcp_put_gce_buffer(imgsys_dev->scp_pdev, imgsys_streaming);
+                    }
+                }
+    		#else
 			mtk_hcp_put_gce_buffer(imgsys_dev->scp_pdev);
+    		#endif
+		}
 	} else {
 		if (swfrminfo_cb->is_lastfrm || swfrminfo_cb->is_earlycb ||
 			isLastTaskInReq) {
@@ -1178,7 +1249,19 @@ static void imgsys_mdp_cb_func(struct cmdq_cb_data data,
 			gwork.pipe = swfrminfo_cb->pipe;
 			cmdq_cb_done_worker(&gwork.work);
 			/*grouping, paired with scp_handler*/
+			#if SMVR_DECOUPLE
+			if (swfrminfo_cb->is_capture) {
+        	    mtk_hcp_put_gce_buffer(imgsys_dev->scp_pdev, imgsys_capture);
+            } else {
+                if (swfrminfo_cb->batchnum) {
+                    mtk_hcp_put_gce_buffer(imgsys_dev->scp_pdev, imgsys_smvr);
+                } else {
+                    mtk_hcp_put_gce_buffer(imgsys_dev->scp_pdev, imgsys_streaming);
+                }
+            }
+			#else
 			mtk_hcp_put_gce_buffer(imgsys_dev->scp_pdev);
+			#endif
 		}
 	}
 
@@ -1661,6 +1744,7 @@ static void imgsys_runner_func(void *data)
 		iova_addr = transform_tuning_iova(imgsys_dev, req, &module_tuning_info,
 					frm_info->user_info[subfidx].subfrm_idx);
         if (imgsys_dbg_enable()) {
+        //if (1) {
 		pr_debug("imgsys_fw:tuning_index/frm_num/index/sub_frm(%d/%d/%d/%d)",
 		MTK_IMGSYS_VIDEO_NODE_TUNING_OUT, frm_info->total_frmnum, subfidx,
 		frm_info->user_info[subfidx].subfrm_idx);
@@ -1704,7 +1788,19 @@ static void imgsys_runner_func(void *data)
 			frm_info->frame_no, frm_info->request_no, req->tstate.req_fd,
 		((char *)&frm_info->frm_owner), frm_info->user_info[0].subfrm_idx);
 
+	#if SMVR_DECOUPLE
+	if (frm_info->is_capture) {
+	    mtk_hcp_get_gce_buffer(imgsys_dev->scp_pdev, imgsys_capture);
+    } else {
+        if (frm_info->batchnum) {
+            mtk_hcp_get_gce_buffer(imgsys_dev->scp_pdev, imgsys_smvr);
+        } else {
+            mtk_hcp_get_gce_buffer(imgsys_dev->scp_pdev, imgsys_streaming);
+        }
+    }
+	#else
 	mtk_hcp_get_gce_buffer(imgsys_dev->scp_pdev);
+	#endif
 	ret = imgsys_cmdq_sendtask(imgsys_dev, frm_info, imgsys_mdp_cb_func,
 		imgsys_cmdq_timeout_cb_func, mtk_imgsys_get_iova, is_singledev_mode);
 	IMGSYS_SYSTRACE_END();
@@ -1728,7 +1824,19 @@ static void imgsys_runner_func(void *data)
 		req_track->subflow_kernel++;
 
 	gce_put_work(work);
+	#if SMVR_DECOUPLE
+	if (frm_info->is_capture) {
+        mtk_hcp_put_gce_buffer(imgsys_dev->scp_pdev, imgsys_capture);
+    } else {
+        if (frm_info->batchnum) {
+            mtk_hcp_put_gce_buffer(imgsys_dev->scp_pdev, imgsys_smvr);
+        } else {
+            mtk_hcp_put_gce_buffer(imgsys_dev->scp_pdev, imgsys_streaming);
+        }
+    }
+	#else
 	mtk_hcp_put_gce_buffer(imgsys_dev->scp_pdev);
+	#endif
 }
 
 static void imgsys_scp_handler(void *data, unsigned int len, void *priv)
@@ -1753,6 +1861,9 @@ static void imgsys_scp_handler(void *data, unsigned int len, void *priv)
 	int f_lop_idx = 0, fence_num = 0;
 	struct fence_event *fence_evt = NULL;
 	union request_track *req_track = NULL;
+#if SMVR_DECOUPLE
+unsigned int mode = imgsys_streaming;
+#endif
 #ifdef MTK_IOVA_SINK2KERNEL
     struct mtk_imgsys_req_fd_list *fd_list = &imgsys_dev->req_fd_cache;
 	u32	req_fd = 0;
@@ -1768,9 +1879,32 @@ static void imgsys_scp_handler(void *data, unsigned int len, void *priv)
 		return;
 
 	swbuf_data = (struct img_sw_buffer *)data;
+	#if SMVR_DECOUPLE
+	switch (swbuf_data->scp_addr) {
+        case imgsys_streaming:
+        case imgsys_capture:
+        case imgsys_smvr:
+            mode  = swbuf_data->scp_addr;
+            break;
+        default:
+            dev_warn(imgsys_dev->dev,
+                "%s: unexpected mode (%d/%d)\n",
+                __func__, swbuf_data->scp_addr, mode);
+            break;
+    }
+    //dev_dbg(imgsys_dev->dev,
+    //    "%s: scp_addr/ mode (%d/%d)\n",
+    //    __func__, swbuf_data->scp_addr, mode);
+    gce_virt = mtk_hcp_get_gce_mem_virt(imgsys_dev->scp_pdev, mode);
+	#else
 	gce_virt = mtk_hcp_get_gce_mem_virt(imgsys_dev->scp_pdev);
+	#endif
 	swfrm_info = (struct swfrm_info_t *)(gce_virt + (swbuf_data->offset));
-
+#if SMVR_DECOUPLE
+ //dev_info(imgsys_dev->dev,
+ //       "%s: swfrm_info/ gce_virt (%p/%p) scp_addr/ mode(%d/%d)\n",
+ //       __func__, swfrm_info, gce_virt, swbuf_data->scp_addr, mode);
+#endif
 	if (!swfrm_info) {
 		pr_info("%s: invalid swfrm_info\n", __func__);
 		return;
@@ -2072,7 +2206,19 @@ static void imgsys_scp_handler(void *data, unsigned int len, void *priv)
 		GCE_WORK_NR);
 		return;
 	}
+	#if SMVR_DECOUPLE
+	if (swfrm_info->is_capture) {
+	    mtk_hcp_get_gce_buffer(imgsys_dev->scp_pdev, imgsys_capture);
+    } else {
+        if (swfrm_info->batchnum) {
+            mtk_hcp_get_gce_buffer(imgsys_dev->scp_pdev, imgsys_smvr);
+        } else {
+            mtk_hcp_get_gce_buffer(imgsys_dev->scp_pdev, imgsys_streaming);
+        }
+    }
+	#else
 	mtk_hcp_get_gce_buffer(imgsys_dev->scp_pdev);
+	#endif
 	gwork->req = req;
 	gwork->req_sbuf_kva = (void *)swfrm_info;
 	gwork->work.run = imgsys_runner_func;
@@ -2096,7 +2242,11 @@ static void imgsys_cleartoken_handler(void *data, unsigned int len, void *priv)
 	struct img_sw_buffer *swbuf_data = NULL;
 	struct cleartoken_info_t *cleartoken_info = NULL;
 	int i = 0;
+#if SMVR_DECOUPLE
+    void *token_virt = NULL;
+#else
 	void *gce_virt = NULL;
+#endif
 	int clear_tnum = 0;
 
 	if (!data) {
@@ -2109,8 +2259,14 @@ static void imgsys_cleartoken_handler(void *data, unsigned int len, void *priv)
 		return;
 
 	swbuf_data = (struct img_sw_buffer *)data;
+	#if SMVR_DECOUPLE
+	token_virt = mtk_hcp_get_gce_token_mem_virt(imgsys_dev->scp_pdev, 0);
+    cleartoken_info = (struct cleartoken_info_t *)(token_virt + (swbuf_data->offset));
+	#else
 	gce_virt = mtk_hcp_get_gce_mem_virt(imgsys_dev->scp_pdev);
 	cleartoken_info = (struct cleartoken_info_t *)(gce_virt + (swbuf_data->offset));
+	#endif
+
 
 	if (!cleartoken_info) {
 		pr_info("%s: invalid swfrm_info\n", __func__);
@@ -2274,13 +2430,21 @@ static void imgsys_composer_workfunc(struct work_struct *work)
 #endif
 	} else
 		ipi_param.frm_param.offset = (u32)(buf->frameparam.vaddr -
+		#if SMVR_DECOUPLE
+			mtk_hcp_get_hwid_mem_virt(imgsys_dev->scp_pdev, 0));
+		#else
 			mtk_hcp_get_hwid_mem_virt(imgsys_dev->scp_pdev));
+		#endif
 
     if (imgsys_dbg_enable())
 	dev_dbg(imgsys_dev->dev, "req-fd:%d, va:0x%lx,sva:0x%lx, offset:%d, fd:%d\n",
 		req->tstate.req_fd,
 		(unsigned long)buf->frameparam.vaddr,
+		#if SMVR_DECOUPLE
+		(unsigned long)mtk_hcp_get_hwid_mem_virt(imgsys_dev->scp_pdev, 0),
+		#else
 		(unsigned long)mtk_hcp_get_hwid_mem_virt(imgsys_dev->scp_pdev),
+		#endif
 		ipi_param.frm_param.offset, ipi_param.frm_param.fd);
 #endif
 
@@ -2466,7 +2630,7 @@ static int mtk_imgsys_hw_connect(struct mtk_imgsys_dev *imgsys_dev)
 	int fd;
 #endif
 	u32 user_cnt = 0;
-	unsigned int mode;
+	unsigned int mode = imgsys_streaming;
 	struct mtk_imgsys_dvfs *dvfs_info = &imgsys_dev->dvfs_info;
 
 	user_cnt = atomic_read(&imgsys_dev->imgsys_user_cnt);
@@ -2527,11 +2691,50 @@ static int mtk_imgsys_hw_connect(struct mtk_imgsys_dev *imgsys_dev)
 	{
 		struct img_init_info info;
 		struct resource *imgsys_resource = imgsys_dev->imgsys_resource;
+		#if SMVR_DECOUPLE
+        unsigned int gce_buf_en = 0;
+		#endif
 
 		mtk_imgsys_hw_working_buf_pool_reinit(imgsys_dev);
 		/* ALLOCATE IMGSYS WORKING BUFFER FIRST */
+		#if SMVR_DECOUPLE
+		if (imgsys_dev->imgsys_pipe[0].imgsys_user_count == 0)
+            gce_buf_en = 1;
+
+        if ((imgsys_dev->imgsys_pipe[0].meminfo.is_capture) &&
+            (!imgsys_dev->imgsys_pipe[0].capture_alloc)) {
+            mode = imgsys_capture;
+            ret = mtk_hcp_allocate_working_buffer(imgsys_dev->scp_pdev, mode, gce_buf_en);
+            imgsys_dev->imgsys_pipe[0].capture_alloc = 1;
+            imgsys_dev->imgsys_pipe[0].imgsys_user_count++;
+        } else {
+            if ((imgsys_dev->imgsys_pipe[0].meminfo.is_smvr) &&
+                (!imgsys_dev->imgsys_pipe[0].smvr_alloc)) {
+			mode = imgsys_smvr;
+                ret = mtk_hcp_allocate_working_buffer(imgsys_dev->scp_pdev, mode, gce_buf_en);
+                imgsys_dev->imgsys_pipe[0].smvr_alloc = 1;
+                imgsys_dev->imgsys_pipe[0].imgsys_user_count++;
+            } else {
+                if(!imgsys_dev->imgsys_pipe[0].streaming_alloc) {
+			mode = imgsys_streaming;
+		ret = mtk_hcp_allocate_working_buffer(imgsys_dev->scp_pdev, mode, gce_buf_en);
+                    imgsys_dev->imgsys_pipe[0].streaming_alloc = 1;
+                    imgsys_dev->imgsys_pipe[0].imgsys_user_count++;
+                }
+            }
+        }
+
+        pr_info("imgsys_fw: mode/cap_mode/smvr_mode(%d/%d/%d)",
+            mode,
+            imgsys_dev->imgsys_pipe[0].meminfo.is_capture,
+            imgsys_dev->imgsys_pipe[0].meminfo.is_smvr);
+        pr_info("imgsys_fw: hw_connect_mode/cap/smvr/streaming/user_count(%d/%d/%d/%d/%d)",
+            mode, imgsys_dev->imgsys_pipe[0].capture_alloc, imgsys_dev->imgsys_pipe[0].smvr_alloc
+            , imgsys_dev->imgsys_pipe[0].streaming_alloc, imgsys_dev->imgsys_pipe[0].imgsys_user_count);
+		#else
 		mode = imgsys_dev->imgsys_pipe[0].init_info.is_smvr;
 		ret = mtk_hcp_allocate_working_buffer(imgsys_dev->scp_pdev, mode);
+		#endif
 		if (ret) {
             if (imgsys_dbg_enable())
 			dev_dbg(imgsys_dev->dev, "%s: mtk_hcp_allocate_working_buffer failed %d\n",
@@ -2569,11 +2772,20 @@ static int mtk_imgsys_hw_connect(struct mtk_imgsys_dev *imgsys_dev)
 			info.hw_buf_fd = buf->buf_fd;
 		}
 #endif
+#if SMVR_DECOUPLE
+        info.smvr_mode = imgsys_dev->imgsys_pipe[0].meminfo.is_smvr;
+		info.is_capture = imgsys_dev->imgsys_pipe[0].meminfo.is_capture;
+		mtk_hcp_get_init_info(imgsys_dev->scp_pdev, &info);
+		info.sec_tag = imgsys_dev->imgsys_pipe[0].ini_info.sec_tag;
+		info.full_wd = imgsys_dev->imgsys_pipe[0].ini_info.sensor.full_wd;
+		info.full_ht = imgsys_dev->imgsys_pipe[0].ini_info.sensor.full_ht;
+#else
 		mtk_hcp_get_init_info(imgsys_dev->scp_pdev, &info);
 		info.sec_tag = imgsys_dev->imgsys_pipe[0].init_info.sec_tag;
 		info.full_wd = imgsys_dev->imgsys_pipe[0].init_info.sensor.full_wd;
 		info.full_ht = imgsys_dev->imgsys_pipe[0].init_info.sensor.full_ht;
 		info.smvr_mode = imgsys_dev->imgsys_pipe[0].init_info.is_smvr;
+#endif
 		ret = imgsys_send(imgsys_dev->scp_pdev, HCP_IMGSYS_INIT_ID,
 			(void *)&info, sizeof(info), 0, 1);
 	}
@@ -2665,6 +2877,11 @@ static void mtk_imgsys_hw_disconnect(struct mtk_imgsys_dev *imgsys_dev)
 #else
 	struct img_init_info info = {0};
 	u32 user_cnt = 0;
+	#if SMVR_DECOUPLE
+    info.is_capture = 0;
+    info.smvr_mode = 0;
+imgsys_dev->imgsys_pipe[0].imgsys_user_count = 0;
+	#endif
 
 	ret = imgsys_send(imgsys_dev->scp_pdev, HCP_IMGSYS_DEINIT_ID,
 			(void *)&info, sizeof(info),
@@ -2680,7 +2897,24 @@ static void mtk_imgsys_hw_disconnect(struct mtk_imgsys_dev *imgsys_dev)
 	imgsys_cmdq_streamoff(imgsys_dev);
 
 	/* RELEASE IMGSYS WORKING BUFFER FIRST */
+#if SMVR_DECOUPLE
+ret = mtk_hcp_release_gce_working_buffer(imgsys_dev->scp_pdev);
+if (imgsys_dev->imgsys_pipe[0].capture_alloc != 0) {
+    mtk_hcp_ioc_release_working_buffer(imgsys_dev->scp_pdev, imgsys_capture);
+    imgsys_dev->imgsys_pipe[0].capture_alloc = 0;
+}
+if (imgsys_dev->imgsys_pipe[0].streaming_alloc != 0) {
+    mtk_hcp_ioc_release_working_buffer(imgsys_dev->scp_pdev, imgsys_streaming);
+    imgsys_dev->imgsys_pipe[0].streaming_alloc = 0;
+}
+if (imgsys_dev->imgsys_pipe[0].smvr_alloc != 0) {
+    mtk_hcp_ioc_release_working_buffer(imgsys_dev->scp_pdev, imgsys_smvr);
+    imgsys_dev->imgsys_pipe[0].smvr_alloc = 0;
+}
+
+#else
 	ret = mtk_hcp_release_working_buffer(imgsys_dev->scp_pdev);
+#endif
 	if (ret) {
 		dev_info(imgsys_dev->dev,
 			"%s: mtk_hcp_release_working_buffer failed(%d)\n",

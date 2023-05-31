@@ -62,12 +62,17 @@ enum hcp_id {
 	HCP_IMGSYS_GET_CONTROL_ID,
 	HCP_IMGSYS_CLEAR_HWTOKEN_ID,
 	HCP_IMGSYS_AEE_DUMP_ID,
+#if SMVR_DECOUPLE
+	HCP_IMGSYS_ALOC_WORKING_BUF_ID,
+	HCP_IMGSYS_FREE_WORKING_BUF_ID,
+#else
 	HCP_FD_CMD_ID,
 	HCP_FD_FRAME_ID,
 	HCP_RSC_INIT_ID,
 	HCP_RSC_FRAME_ID,
 	HCP_IMGSYS_FENCE_FDS_ADD_ID,
 	HCP_IMGSYS_FENCE_FDS_DEL_ID,
+#endif
 	HCP_MAX_ID,
 };
 
@@ -206,7 +211,11 @@ struct task_struct *mtk_hcp_get_current_task(struct platform_device *pdev);
  * This function allocate working buffers and store the information
  * in mtk_hcp_reserve_mblock.
  **/
+#if !SMVR_DECOUPLE
 int mtk_hcp_allocate_working_buffer(struct platform_device *pdev, unsigned int mode);
+#else
+int mtk_hcp_allocate_working_buffer(struct platform_device *pdev, unsigned int mode, unsigned int gmb_en);
+#endif
 
 /**
  * mtk_hcp_release_working_buffer - release driver working buffer.
@@ -215,8 +224,9 @@ int mtk_hcp_allocate_working_buffer(struct platform_device *pdev, unsigned int m
  *
  * This function release working buffers
  **/
-int mtk_hcp_release_working_buffer(struct platform_device *pdev);
+int mtk_hcp_release_gce_working_buffer(struct platform_device *pdev);
 
+#if !SMVR_DECOUPLE
 void *mtk_hcp_get_gce_mem_virt(struct platform_device *pdev);
 void *mtk_hcp_get_wpe_mem_virt(struct platform_device *pdev);
 int mtk_hcp_get_wpe_mem_cq_fd(struct platform_device *pdev);
@@ -230,12 +240,36 @@ int mtk_hcp_get_traw_mem_tdr_fd(struct platform_device *pdev);
 void *mtk_hcp_get_pqdip_mem_virt(struct platform_device *pdev);
 int mtk_hcp_get_pqdip_mem_cq_fd(struct platform_device *pdev);
 int mtk_hcp_get_pqdip_mem_tdr_fd(struct platform_device *pdev);
-
 void *mtk_hcp_get_hwid_mem_virt(struct platform_device *pdev);
-int mtk_hcp_get_init_info(struct platform_device *pdev, struct img_init_info *info);
-
 int mtk_hcp_get_gce_buffer(struct platform_device *pdev);
 int mtk_hcp_put_gce_buffer(struct platform_device *pdev);
+
+#else
+int mtk_hcp_ioc_release_working_buffer(struct platform_device *pdev, unsigned int mode);
+void *mtk_hcp_get_gce_mem_virt(struct platform_device *pdev, unsigned int mode);
+void *mtk_hcp_get_gce_token_mem_virt(struct platform_device *pdev, unsigned int mode);
+void *mtk_hcp_get_wpe_mem_virt(struct platform_device *pdev, unsigned int mode);
+int mtk_hcp_get_wpe_mem_cq_fd(struct platform_device *pdev, unsigned int mode);
+int mtk_hcp_get_wpe_mem_tdr_fd(struct platform_device *pdev, unsigned int mode);
+void *mtk_hcp_get_dip_mem_virt(struct platform_device *pdev, unsigned int mode);
+int mtk_hcp_get_dip_mem_cq_fd(struct platform_device *pdev, unsigned int mode);
+int mtk_hcp_get_dip_mem_tdr_fd(struct platform_device *pdev, unsigned int mode);
+void *mtk_hcp_get_traw_mem_virt(struct platform_device *pdev, unsigned int mode);
+int mtk_hcp_get_traw_mem_cq_fd(struct platform_device *pdev, unsigned int mode);
+int mtk_hcp_get_traw_mem_tdr_fd(struct platform_device *pdev, unsigned int mode);
+void *mtk_hcp_get_pqdip_mem_virt(struct platform_device *pdev, unsigned int mode);
+int mtk_hcp_get_pqdip_mem_cq_fd(struct platform_device *pdev, unsigned int mode);
+int mtk_hcp_get_pqdip_mem_tdr_fd(struct platform_device *pdev, unsigned int mode);
+void *mtk_hcp_get_hwid_mem_virt(struct platform_device *pdev, unsigned int mode);
+int mtk_hcp_get_mem_info(struct platform_device *pdev, struct img_init_info *info, unsigned int mode);
+int mtk_hcp_get_gce_buffer(struct platform_device *pdev, unsigned int mode);
+int mtk_hcp_put_gce_buffer(struct platform_device *pdev, unsigned int mode);
+
+#endif
+int mtk_hcp_release_working_buffer(struct platform_device *pdev);
+
+int mtk_hcp_get_init_info(struct platform_device *pdev, struct img_init_info *info);
+
 int mtk_hcp_partial_flush(struct platform_device *pdev, struct flush_buf_info *b_info);
 
 /**
@@ -303,7 +337,12 @@ struct object_id {
 	};
 } __packed;
 
+#if !SMVR_DECOUPLE
 #define HCP_SHARE_BUF_SIZE      388
+#else
+#define HCP_SHARE_BUF_SIZE      900
+#endif
+
 /**
  * struct share_buf - DTCM (Data Tightly-Coupled Memory) buffer shared with
  *                    RED and HCP
@@ -319,12 +358,13 @@ struct share_buf {
 	struct object_id info;
 };
 
+#if 0
 enum Mem_Mode {
 	imgsys_streaming = 0,
 	imgsys_capture,
 	imgsys_smvr
 };
-
+#endif
 /**
  * struct mtk_hcp - hcp driver data
  * @extmem:              hcp extended memory information
@@ -385,15 +425,51 @@ struct mtk_hcp {
 	struct task_struct *current_task;
 	struct workqueue_struct *daemon_notify_wq[MODULE_MAX_ID];
 	struct hcp_aee_info aee_info;
+#if SMVR_DECOUPLE
+    bool is_mem_alloc_streaming;
+    bool is_mem_alloc_capture;
+    bool is_mem_alloc_smvr;
+	int  alloc_count;
+#endif
 };
 
 struct mtk_hcp_data {
+#if SMVR_DECOUPLE
+    struct mtk_hcp_streaming_reserve_mblock *mblock;
+	struct mtk_hcp_smvr_reserve_mblock *smblock;
+    struct mtk_hcp_capture_reserve_mblock *cmblock;
+    struct mtk_hcp_gce_token_reserve_mblock *gmblock;
+    unsigned int block_num_gce;
+#else
 	struct mtk_hcp_reserve_mblock *mblock;
 	struct mtk_hcp_reserve_mblock *smblock;
+#endif
 	unsigned int block_num;
+#if SMVR_DECOUPLE
+	int (*allocate)(struct mtk_hcp *hcp_dev, unsigned int mode, unsigned int gmb_en);
+    int (*release)(struct mtk_hcp *hcp_dev, unsigned int mode);
+int (*release_gce_buf)(struct mtk_hcp *hcp_dev);
+    int (*get_mem_info)(struct img_init_info *info);
+	void* (*get_gce_virt)(unsigned int mode);
+	int (*get_gce)(unsigned int mode);
+	int (*put_gce)(unsigned int mode);
+void* (*get_gce_token_virt)(unsigned int mode);
+	void* (*get_hwid_virt)(unsigned int mode);
+	void* (*get_wpe_virt)(unsigned int mode);
+	int (*get_wpe_cq_fd)(unsigned int mode);
+	int (*get_wpe_tdr_fd)(unsigned int mode);
+	void* (*get_dip_virt)(unsigned int mode);
+	int (*get_dip_cq_fd)(unsigned int mode);
+	int (*get_dip_tdr_fd)(unsigned int mode);
+	void* (*get_traw_virt)(unsigned int mode);
+	int (*get_traw_cq_fd)(unsigned int mode);
+	int (*get_traw_tdr_fd)(unsigned int mode);
+	void* (*get_pqdip_virt)(unsigned int mode);
+	int (*get_pqdip_cq_fd)(unsigned int mode);
+	int (*get_pqdip_tdr_fd)(unsigned int mode);
+#else
 	int (*allocate)(struct mtk_hcp *hcp_dev, unsigned int smvr);
 	int (*release)(struct mtk_hcp *hcp_dev);
-	int (*get_init_info)(struct img_init_info *info);
 	void* (*get_gce_virt)(void);
 	int (*get_gce)(void);
 	int (*put_gce)(void);
@@ -410,6 +486,9 @@ struct mtk_hcp_data {
 	void* (*get_pqdip_virt)(void);
 	int (*get_pqdip_cq_fd)(void);
 	int (*get_pqdip_tdr_fd)(void);
+#endif
+	int (*get_init_info)(struct img_init_info *info);
+
 	int (*partial_flush)(struct mtk_hcp *hcp_dev, struct flush_buf_info *b_info);
 };
 
@@ -450,7 +529,91 @@ struct mtk_hcp_reserve_mblock {
 	struct sg_table *sgt;
 	struct kref kref;
 };
+#if SMVR_DECOUPLE
+struct mtk_hcp_streaming_reserve_mblock {
+	const char *name;
+	unsigned int num;
+	phys_addr_t start_phys;
+	void *start_virt;
+	phys_addr_t start_dma;
+	phys_addr_t size;
+	uint8_t is_dma_buf;
+	struct iosys_map map;
+	/*new add*/
+	int mmap_cnt;
+	void *mem_priv;
+	struct dma_buf *d_buf;
+	int fd;
+	struct ion_handle *pIonHandle;
+	struct dma_buf_attachment *attach;
+	struct sg_table *sgt;
+	struct kref kref;
+    uint8_t streaming;
+};
 
+struct mtk_hcp_capture_reserve_mblock {
+	const char *name;
+	unsigned int num;
+	phys_addr_t start_phys;
+	void *start_virt;
+	phys_addr_t start_dma;
+	phys_addr_t size;
+	uint8_t is_dma_buf;
+	struct iosys_map map;
+	/*new add*/
+	int mmap_cnt;
+	void *mem_priv;
+	struct dma_buf *d_buf;
+	int fd;
+	struct ion_handle *pIonHandle;
+	struct dma_buf_attachment *attach;
+	struct sg_table *sgt;
+	struct kref kref;
+    uint8_t capture;
+};
+
+struct mtk_hcp_smvr_reserve_mblock {
+	const char *name;
+	unsigned int num;
+	phys_addr_t start_phys;
+	void *start_virt;
+	phys_addr_t start_dma;
+	phys_addr_t size;
+	uint8_t is_dma_buf;
+	struct iosys_map map;
+	/*new add*/
+	int mmap_cnt;
+	void *mem_priv;
+	struct dma_buf *d_buf;
+	int fd;
+	struct ion_handle *pIonHandle;
+	struct dma_buf_attachment *attach;
+	struct sg_table *sgt;
+	struct kref kref;
+    uint8_t smvr;
+};
+
+struct mtk_hcp_gce_token_reserve_mblock {
+	const char *name;
+	unsigned int num;
+	phys_addr_t start_phys;
+	void *start_virt;
+	phys_addr_t start_dma;
+	phys_addr_t size;
+	uint8_t is_dma_buf;
+	struct iosys_map map;
+	/*new add*/
+	int mmap_cnt;
+	void *mem_priv;
+	struct dma_buf *d_buf;
+	int fd;
+	struct ion_handle *pIonHandle;
+	struct dma_buf_attachment *attach;
+	struct sg_table *sgt;
+	struct kref kref;
+    uint8_t gce;
+};
+#endif
 int mtk_hcp_set_apu_dc(struct platform_device *pdev,
 	int32_t value, size_t size);
 

@@ -1699,6 +1699,13 @@ static int mtk_cam_ctx_destroy_rgbw_caci_buf(struct mtk_cam_ctx *ctx)
 	return 0;
 }
 
+static void mtk_cam_ctx_reset_slb(struct mtk_cam_ctx *ctx)
+{
+	ctx->slb_uid = 0;
+	ctx->slb_addr = 0;
+	ctx->slb_size = 0;
+}
+
 static int mtk_cam_ctx_request_slb(struct mtk_cam_ctx *ctx, int uid)
 {
 	struct device *dev = ctx->cam->dev;
@@ -1714,6 +1721,7 @@ static int mtk_cam_ctx_request_slb(struct mtk_cam_ctx *ctx, int uid)
 	} else {
 		dev_info(dev, "%s: slb buffer uid %d base(0x%lx), size(%ld)",
 			 __func__, uid, (uintptr_t)slb.paddr, slb.size);
+		ctx->slb_uid = uid;
 		ctx->slb_addr = slb.paddr;
 		ctx->slb_size = slb.size;
 	}
@@ -1735,12 +1743,14 @@ static void mtk_cam_ctx_release_slb(struct mtk_cam_ctx *ctx)
 	if (!ctx->slb_addr)
 		return;
 
-	slb.uid = UID_SH_P1;
+	slb.uid = ctx->slb_uid;
 	slb.type = TP_BUFFER;
 
 	ret = slbc_release(&slb);
 	if (ret < 0)
 		dev_info(dev, "failed to release slb buffer\n");
+
+	mtk_cam_ctx_reset_slb(ctx);
 
 	/* reset aid: may not necessary */
 	if (ctx->aid_feature)
@@ -2335,8 +2345,6 @@ int mtk_cam_ctx_init_scenario(struct mtk_cam_ctx *ctx)
 				 __func__, ctx->slb_size, res->slb_size);
 
 			mtk_cam_ctx_release_slb(ctx);
-			ctx->slb_addr = 0;
-			ctx->slb_size = 0;
 			ret = -1;
 		}
 

@@ -48,6 +48,13 @@ enum fs_log_ctrl_category {
 	LOG_FS_UTIL,
 
 	/* custom category */
+	LOG_FS_ALGO_FPS_INFO,
+
+	/* extra category */
+	LOG_FS_USER_QUERY_INFO = 26,
+
+	/* max category */
+	LOG_FS_CTRL_CAT_MAX = 26
 };
 
 #define _FS_LOG_ENABLED(category) \

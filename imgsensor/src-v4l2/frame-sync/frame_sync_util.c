@@ -37,12 +37,9 @@ void fs_util_tsrec_dynamic_msg_connector(const unsigned int idx,
 	if (frm_get_ts_src_type() != FS_TS_SRC_TSREC)
 		return;
 	if (unlikely(p_ts_info == NULL)) {
-		fs_spin_lock(&fs_log_concurrency_lock);
 		LOG_MUST(
 			"[%s] ERROR: USING_TSREC timestamp, but get p_ts_info:%p, skip dump tsrec ts info part\n",
 			caller, p_ts_info);
-		LOG_MUST("%s\n", log_buf);
-		fs_spin_unlock(&fs_log_concurrency_lock);
 		return;
 	}
 

@@ -1306,9 +1306,7 @@ void fs_alg_sa_dump_dynamic_para(const unsigned int idx)
 	/* print timestamp related info */
 	fs_alg_sa_ts_info_dynamic_msg_connector(idx, log_buf, len, __func__);
 
-	fs_spin_lock(&fs_log_concurrency_lock);
-	LOG_MUST("%s\n", log_buf);
-	fs_spin_unlock(&fs_log_concurrency_lock);
+	LOG_MUST_SPIN("%s\n", log_buf);
 
 	FS_FREE(log_buf);
 }
@@ -1474,7 +1472,7 @@ void fs_alg_get_fl_rec_st_info(const unsigned int idx,
 		*p_out_fl_us += fs_inst[idx].fl_rec[i].out_fl_us;
 	}
 
-	LOG_PF_INF(
+	LOG_INF_CAT_SPIN(LOG_FS_USER_QUERY_INFO,
 		"[%u] ID:%#x(sidx:%u), target_min_fl_us:%u/out_fl_us:%u, fl_rec(0:(#%u, %u/%u), 1:(#%u, %u/%u), 2:(#%u, %u/%u), 3:(#%u, %u/%u), 4:(#%u, %u/%u), (target_min_fl_us/out_fl_us)), f_cell:%u\n",
 		idx,
 		fs_inst[idx].sensor_id,
@@ -2510,9 +2508,7 @@ static long long fs_alg_sa_adjust_slave_diff_resolver(
 		m_idx, s_idx, p_para_m, p_para_s,
 		log_buf, len, __func__);
 
-	fs_spin_lock(&fs_log_concurrency_lock);
-	LOG_MUST("%s\n", log_buf);
-	fs_spin_unlock(&fs_log_concurrency_lock);
+	LOG_MUST_SPIN("%s\n", log_buf);
 
 	FS_FREE(log_buf);
 
@@ -3860,8 +3856,7 @@ static unsigned int do_fps_sync_sa_proc_checker(const unsigned int idx,
 	ret = 1;
 	FS_WRITE_BIT(idx, 1, &fs_sa_inst.unstable_fps_bits);
 
-	fs_spin_lock(&fs_log_concurrency_lock);
-	LOG_MUST(
+	LOG_MUST_SPIN(
 		"WARNING: [%u] ID:%#x(sidx:%u), detect pure min FL for shutter NOT stable, %#x, (#%u/req_id:%d)[%u/%u/%u] => (#%u/req_id:%d)[%u/%u/%u], target min FL:%u, ts:%llu, ret:%u\n",
 		idx,
 		fs_get_reg_sensor_id(idx),
@@ -3880,7 +3875,6 @@ static unsigned int do_fps_sync_sa_proc_checker(const unsigned int idx,
 		p_para->target_min_fl_us,
 		p_para->last_ts,
 		ret);
-	fs_spin_unlock(&fs_log_concurrency_lock);
 
 	return ret;
 }
@@ -3899,10 +3893,6 @@ static unsigned int do_fps_sync_sa(const struct fs_sa_cfg *p_sa_cfg,
 	unsigned int skip_adjust_vsync_diff;
 	unsigned int fps_sync_fl_result, flk_diff;
 	unsigned int i;
-#if !defined(REDUCE_FS_ALGO_LOG) || defined(FS_UT)
-	char *log_buf = NULL;
-	int len = 0, ret;
-#endif
 
 	fs_alg_sa_query_all_dynamic_fps_info(fps_info_arr, last_fps_info_arr,
 		SENSOR_MAX_NUM, &unstable_fps_bits);
@@ -3946,51 +3936,53 @@ static unsigned int do_fps_sync_sa(const struct fs_sa_cfg *p_sa_cfg,
 	fs_alg_sa_update_target_stable_fl_info(idx, p_para, fps_sync_fl_result);
 
 
-#if !defined(REDUCE_FS_ALGO_LOG) || defined(FS_UT)
 	/* !!! for log info !!! */
-	ret = alloc_log_buf(LOG_BUF_STR_LEN, &log_buf);
-	if (unlikely(ret != 0)) {
-		LOG_MUST("ERROR: log_buf allocate memory failed\n");
-		goto end_do_fps_sync_sa;
-	}
+	if (unlikely(_FS_LOG_ENABLED(LOG_FS_ALGO_FPS_INFO))) {
+		char *log_buf = NULL;
+		int len = 0, ret;
 
-	FS_SNPRINTF(log_buf, len,
-		"[%u] ID:%#x(sidx:%u), #%u, m_idx:%u, target FL sync to %u(%u)(+%u), fl:(%u(%u)/%u/%u/%u,%u), flk_en:[%u/%u/%u/%u/%u], valid:%#x(%#x/%#x), unstable:%#x",
-		idx,
-		fs_get_reg_sensor_id(idx),
-		fs_get_reg_sensor_idx(idx),
-		p_para->magic_num,
-		p_sa_cfg->m_idx,
-		fps_sync_fl_result,
-		convert2LineCount(
+		ret = alloc_log_buf(LOG_BUF_STR_LEN, &log_buf);
+		if (unlikely(ret != 0)) {
+			LOG_MUST("ERROR: log_buf allocate memory failed\n");
+			goto end_do_fps_sync_sa;
+		}
+
+		FS_SNPRINTF(log_buf, len,
+			"[%u] ID:%#x(sidx:%u), #%u, m_idx:%u, target FL sync to %u(%u)(+%u), fl:(%u(%u)/%u/%u/%u,%u), flk_en:[%u/%u/%u/%u/%u], valid:%#x(%#x/%#x), unstable:%#x",
+			idx,
+			fs_get_reg_sensor_id(idx),
+			fs_get_reg_sensor_idx(idx),
+			p_para->magic_num,
+			p_sa_cfg->m_idx,
+			fps_sync_fl_result,
+			convert2LineCount(
+				fs_inst[idx].lineTimeInNs,
+				fps_sync_fl_result),
+			flk_diff,
+			p_para->pure_min_fl_us,
+			p_para->pure_min_fl_lc,
+			p_para->min_fl_us,
+			p_para->target_min_fl_us,
+			p_para->stable_fl_us,
 			fs_inst[idx].lineTimeInNs,
-			fps_sync_fl_result),
-		flk_diff,
-		p_para->pure_min_fl_us,
-		p_para->pure_min_fl_lc,
-		p_para->min_fl_us,
-		p_para->target_min_fl_us,
-		p_para->stable_fl_us,
-		fs_inst[idx].lineTimeInNs,
-		fs_inst[0].flicker_en,
-		fs_inst[1].flicker_en,
-		fs_inst[2].flicker_en,
-		fs_inst[3].flicker_en,
-		fs_inst[4].flicker_en,
-		valid_bits,
-		p_sa_cfg->valid_sync_bits,
-		p_sa_cfg->async_s_bits,
-		unstable_fps_bits);
+			fs_inst[0].flicker_en,
+			fs_inst[1].flicker_en,
+			fs_inst[2].flicker_en,
+			fs_inst[3].flicker_en,
+			fs_inst[4].flicker_en,
+			valid_bits,
+			p_sa_cfg->valid_sync_bits,
+			p_sa_cfg->async_s_bits,
+			unstable_fps_bits);
 
-	fs_alg_sa_dynamic_fps_info_arr_msg_connector(idx,
-		fps_info_arr, last_fps_info_arr, SENSOR_MAX_NUM, valid_bits,
-		log_buf, len, __func__);
+		fs_alg_sa_dynamic_fps_info_arr_msg_connector(idx,
+			fps_info_arr, last_fps_info_arr, SENSOR_MAX_NUM, valid_bits,
+			log_buf, len, __func__);
 
-	LOG_INF("%s\n", log_buf);
-	FS_FREE(log_buf);
-
+		LOG_MUST_SPIN("%s\n", log_buf);
+		FS_FREE(log_buf);
+	}
 end_do_fps_sync_sa:
-#endif
 
 	return 0;
 }
@@ -4267,9 +4259,7 @@ static void adjust_async_vsync_diff_sa(
 		m_idx, idx, p_para_m, p_para,
 		log_buf, len, __func__);
 
-	fs_spin_lock(&fs_log_concurrency_lock);
-	LOG_MUST("%s\n", log_buf);
-	fs_spin_unlock(&fs_log_concurrency_lock);
+	LOG_MUST_SPIN("%s\n", log_buf);
 
 	FS_FREE(log_buf);
 

@@ -690,19 +690,18 @@ void get_stagger_rawi_table(struct mtk_cam_job *job,
 }
 
 static int update_dcif_param_to_ipi_frame(struct mtk_cam_job *job,
-					  struct mtkcam_ipi_frame_param *fp)
+					  struct mtkcam_ipi_frame_param *fp,
+					  unsigned int frame_size,
+					  unsigned int ring_buffer_size)
 {
 	struct mtkcam_ipi_dcif_ring_param *p = &fp->dcif_param;
 	struct mtk_cam_ctx *ctx = job->src_ctx;
-	struct mtk_cam_buf_fmt_desc *fmt_desc;
 
 	p->ring_mode_en = 1;
 	p->ring_start_offset = ctx->ring_start_offset;
 
-	fmt_desc = &ctx->img_work_buf_desc.fmt_desc[MTKCAM_BUF_FMT_TYPE_BAYER];
-	if (ctx->slb_size)
-		ctx->ring_start_offset += fmt_desc->size % ctx->slb_size;
-
+	ctx->ring_start_offset =
+		(ctx->ring_start_offset + frame_size) % ring_buffer_size;
 	return 0;
 }
 
@@ -711,7 +710,7 @@ static int update_work_buffer_by_slb(struct req_buffer_helper *helper,
 {
 	struct mtk_cam_job *job = helper->job;
 	struct mtk_cam_ctx *ctx = job->src_ctx;
-	struct mtk_cam_buf_fmt_desc fmt_desc;
+	struct mtk_cam_buf_fmt_desc slb_fmt_desc, *fmt_desc;
 	struct mtk_cam_pool_buffer img_work_buf;
 	int ret;
 	int i = 0;
@@ -723,42 +722,43 @@ static int update_work_buffer_by_slb(struct req_buffer_helper *helper,
 	if (rawi_table_size != 1)
 		return -1;
 
-	fmt_desc = ctx->img_work_buf_desc.fmt_desc[MTKCAM_BUF_FMT_TYPE_BAYER];
-	fmt_desc.size = ctx->slb_size;
+	fmt_desc = &ctx->img_work_buf_desc.fmt_desc[MTKCAM_BUF_FMT_TYPE_BAYER];
+	slb_fmt_desc = *fmt_desc;
 
-	img_work_buf.daddr = (dma_addr_t)ctx->slb_addr;
+	if (!ctx->slb_used_size) {
+		int stride = slb_fmt_desc.stride[0];
+
+		ctx->slb_used_size = (ctx->slb_size / stride) * stride;
+		dev_info(ctx->cam->dev, "%s: stride %d slb used %u\n",
+			 __func__, stride, ctx->slb_used_size);
+	}
+
+	slb_fmt_desc.size = ctx->slb_used_size;
+
+	img_work_buf.daddr = ctx->slb_iova;
 	img_work_buf.vaddr = 0;
-	img_work_buf.size = ctx->slb_size;
+	img_work_buf.size = ctx->slb_used_size;
 
 	ret = fill_sv_to_rawi_wbuf(helper, get_raw_subdev_idx(ctx->used_pipe),
 				   rawi_table[i], i, false,
-				   &fmt_desc, &img_work_buf);
-	ret = ret || update_dcif_param_to_ipi_frame(job, helper->fp);
+				   &slb_fmt_desc, &img_work_buf);
+
+	ret = ret || update_dcif_param_to_ipi_frame(job, helper->fp,
+						    fmt_desc->size,
+						    ctx->slb_used_size);
 	return ret;
 }
 
-int update_work_buffer_to_ipi_frame(struct req_buffer_helper *helper)
+static int
+update_work_buffer_by_workbuf(struct req_buffer_helper *helper,
+			      const int *rawi_table, int rawi_table_size)
 {
 	struct mtk_cam_job *job = helper->job;
 	struct mtk_cam_ctx *ctx = job->src_ctx;
-	const int *rawi_table = NULL;
-	int rawi_table_size = 0;
-	struct mtk_cam_pool_buffer img_work_buf;
 	struct mtk_cam_buf_fmt_desc *fmt_desc;
-	int ret;
+	struct mtk_cam_pool_buffer img_work_buf;
+	int ret = 0;
 	int i;
-
-	if (helper->filled_hdr_buffer)
-		return 0;
-
-	get_stagger_rawi_table(job, &rawi_table, &rawi_table_size);
-
-	/* no need img working buffer */
-	if (!rawi_table || !rawi_table_size)
-		return 0;
-
-	if (update_work_buffer_by_slb(helper, rawi_table, rawi_table_size) == 0)
-		return 0;
 
 	if (!job->img_wbuf_pool_wrapper) {
 		pr_info("[%s] fail to fetch, img_wbuf_pool_wrapper is NULL\n", __func__);
@@ -798,8 +798,35 @@ int update_work_buffer_to_ipi_frame(struct req_buffer_helper *helper)
 	}
 
 	if (unlikely(debug_dram_ring_mode))
-		update_dcif_param_to_ipi_frame(job, helper->fp);
+		update_dcif_param_to_ipi_frame(job, helper->fp,
+				fmt_desc->size + fmt_desc->stride[0] * debug_dram_ring_mode,
+				fmt_desc->size);
+
 	return ret;
+}
+
+int update_work_buffer_to_ipi_frame(struct req_buffer_helper *helper)
+{
+	struct mtk_cam_job *job = helper->job;
+	const int *rawi_table = NULL;
+	int rawi_table_size = 0;
+
+	if (helper->filled_hdr_buffer)
+		return 0;
+
+	get_stagger_rawi_table(job, &rawi_table, &rawi_table_size);
+
+	/* no need img working buffer */
+	if (!rawi_table || !rawi_table_size)
+		return 0;
+
+	if (!update_work_buffer_by_slb(helper, rawi_table, rawi_table_size))
+		return 0;
+
+	if (!update_work_buffer_by_workbuf(helper, rawi_table, rawi_table_size))
+		return 0;
+
+	return -1;
 }
 
 int update_sensor_meta_buffer_to_ipi_frame(struct mtk_cam_job *job,

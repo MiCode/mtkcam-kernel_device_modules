@@ -136,7 +136,9 @@ struct mtk_cam_ctx {
 	/* slb */
 	int slb_uid;
 	void __iomem *slb_addr;
+	dma_addr_t slb_iova;
 	unsigned int slb_size;
+	unsigned int slb_used_size;
 	unsigned int ring_start_offset;
 
 	unsigned int aid_feature;

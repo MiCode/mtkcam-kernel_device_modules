@@ -1707,13 +1707,19 @@ static void mtk_cam_ctx_reset_slb(struct mtk_cam_ctx *ctx)
 {
 	ctx->slb_uid = 0;
 	ctx->slb_addr = 0;
+	ctx->slb_iova = 0;
+	ctx->slb_used_size = 0;
 	ctx->slb_size = 0;
 }
 
-static int mtk_cam_ctx_request_slb(struct mtk_cam_ctx *ctx, int uid)
+static void mtk_cam_ctx_release_slb(struct mtk_cam_ctx *ctx);
+static int mtk_cam_ctx_request_slb(struct mtk_cam_ctx *ctx, int uid,
+				   bool map_iova)
 {
 	struct device *dev = ctx->cam->dev;
 	struct slbc_data slb;
+	struct device *dma_dev;
+	dma_addr_t iova;
 	int ret;
 
 	slb.uid = uid;
@@ -1722,20 +1728,35 @@ static int mtk_cam_ctx_request_slb(struct mtk_cam_ctx *ctx, int uid)
 	ret = slbc_request(&slb);
 	if (ret < 0) {
 		dev_info(dev, "%s: allocate slb fail\n", __func__);
-	} else {
-		dev_info(dev, "%s: slb buffer uid %d base(0x%lx), size(%ld)",
-			 __func__, uid, (uintptr_t)slb.paddr, slb.size);
-		ctx->slb_uid = uid;
-		ctx->slb_addr = slb.paddr;
-		ctx->slb_size = slb.size;
+		return -1;
 	}
+
+	ctx->slb_uid = uid;
+	ctx->slb_addr = slb.paddr;
+	ctx->slb_size = slb.size;
+	ctx->slb_iova = 0;
+
+	if (!map_iova)
+		goto SUCCESS_REQUEST;
+
+	dma_dev = ctx->cam->smmu_dev;
+	iova = dma_map_resource(dma_dev, (phys_addr_t)slb.emi_paddr, ctx->slb_size,
+				DMA_BIDIRECTIONAL, 0);
+	if (dma_mapping_error(dma_dev, iova)) {
+		dev_info(dev, "%s: failed to map resource\n", __func__);
+		mtk_cam_ctx_release_slb(ctx);
+		return -1;
+	}
+	ctx->slb_iova = iova;
 
 	/*
 	 * set aid after power-on devices
 	 * e.g., mtk_cam_hsf_aid(ctx, 1, AID_VAINR);
 	 */
-
-	return ret < 0 ? -1 : 0;
+SUCCESS_REQUEST:
+	dev_info(dev, "%s: slb buffer uid %d base(0x%lx/%pad), size(%ld)",
+		 __func__, uid, (uintptr_t)slb.paddr, &ctx->slb_iova, slb.size);
+	return 0;
 }
 
 static void mtk_cam_ctx_release_slb(struct mtk_cam_ctx *ctx)
@@ -1746,6 +1767,14 @@ static void mtk_cam_ctx_release_slb(struct mtk_cam_ctx *ctx)
 
 	if (!ctx->slb_addr)
 		return;
+
+	if (ctx->slb_iova) {
+		struct device *dma_dev;
+
+		dma_dev = ctx->cam->engines.raw_devs[0];
+		dma_unmap_resource(dma_dev, ctx->slb_iova, ctx->slb_size,
+				   DMA_BIDIRECTIONAL, 0);
+	}
 
 	slb.uid = ctx->slb_uid;
 	slb.type = TP_BUFFER;
@@ -2368,7 +2397,7 @@ int mtk_cam_ctx_init_scenario(struct mtk_cam_ctx *ctx)
 		   scen_is_m2m_apu(scen, &ctrl_data->apu_info)) {
 
 		if (apu_info_is_dc(&ctrl_data->apu_info)) {
-			ret = mtk_cam_ctx_request_slb(ctx, UID_SH_P1);
+			ret = mtk_cam_ctx_request_slb(ctx, UID_SH_P1, false);
 
 			if (!ret)
 				ctx->aid_feature = AID_VAINR;
@@ -2376,17 +2405,17 @@ int mtk_cam_ctx_init_scenario(struct mtk_cam_ctx *ctx)
 	} else if (res_raw_is_dc_mode(res) && res->slb_size) {
 		/* dcif + slb ring buffer case */
 
-		ret = mtk_cam_ctx_request_slb(ctx, UID_SENSOR);
+		ret = mtk_cam_ctx_request_slb(ctx, UID_SENSOR, true);
 		if (ctx->slb_size < res->slb_size) {
 			dev_info(cam->dev, "%s: warn. slb size not enough: %u<%u\n",
 				 __func__, ctx->slb_size, res->slb_size);
 
 			mtk_cam_ctx_release_slb(ctx);
-			ret = -1;
+			ret = 0;
 		}
 
-		if (!ret)
-			ctx->aid_feature = AID_VAINR; /* TODO: new aid */
+		//if (!ret)
+		//	ctx->aid_feature = AID_VAINR; /* TODO: new aid */
 	}
 
 	ctx->scenario_init = true;

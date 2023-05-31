@@ -552,7 +552,9 @@ mtk_cam_job_initialize_engines(struct mtk_cam_ctx *ctx,
 	/* raw */
 	raw_master_id = get_master_raw_id(engines);
 	if (raw_master_id >= 0) {
-		int is_srt = is_dc_mode(job) || is_m2m(job);
+		int is_srt =
+			(is_dc_mode(job) /*&& !ctx->slb_addr*/) /* dc */
+			|| is_m2m(job); /* m2m */
 
 		for (i = 0 ; i < ARRAY_SIZE(ctx->hw_raw); i++) {
 			struct mtk_raw_device *raw;

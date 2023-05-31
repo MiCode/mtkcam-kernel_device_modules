@@ -32,7 +32,19 @@ void dump_yuv_dma_fbc(struct mtk_yuv_device *yuv);
 void dump_raw_dma_err_st(struct mtk_raw_device *raw);
 void dump_yuv_dma_err_st(struct mtk_yuv_device *yuv);
 
+void dump_dmatop_dc_st(struct mtk_raw_device *raw);
+
 void set_topdebug_rdyreq(struct mtk_raw_device *dev, u32 event);
 void dump_topdebug_rdyreq(struct mtk_raw_device *dev);
+
+struct dma_debug_item {
+	unsigned int	debug_sel;
+	const char	*msg;
+};
+
+void mtk_cam_dump_dma_debug(struct mtk_raw_device *dev,
+			    void __iomem *dmatop_base,
+			    const char *dma_name,
+			    struct dma_debug_item *items, int n);
 
 #endif	/* _MTK_CAM_RAW_DEBUG_H */

@@ -30,6 +30,7 @@
 
 #define REDUCE_FS_ALGO_LOG
 #define PFX "FrameSyncAlgo"
+#define FS_LOG_DBG_DEF_CAT LOG_FS_ALGO
 /******************************************************************************/
 
 

@@ -30,6 +30,7 @@ typedef unsigned long long uint64_t;
 
 #define REDUCE_FRM_LOG
 #define PFX "FrameMonitor"
+#define FS_LOG_DBG_DEF_CAT LOG_FRM
 /******************************************************************************/
 
 

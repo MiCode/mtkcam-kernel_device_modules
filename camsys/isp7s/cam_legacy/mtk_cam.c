@@ -110,6 +110,13 @@ module_param(debug_cam, int, 0644);
 				## arg);	\
 	} while (0)
 
+#undef pr_debug
+#define pr_debug(fmt, arg...)		\
+	do {					\
+		if (debug_cam >= 1)		\
+			pr_info(fmt, ## arg);	\
+	} while (0)
+
 #define MTK_CAM_IMGO_W_IMG_OUT_IDX			CAM_MAX_OUTPUT_PAD
 
 #define MTK_CAM_IMGO_W_IMG_IN_R2_IDX	CAM_MAX_INPUT_PAD
@@ -2506,7 +2513,7 @@ static void check_mstream_buffer(struct mtk_cam_device *cam,
 				is_m2m ? MTKCAM_IPI_HW_PATH_OFFLINE_STAGGER :
 			MTKCAM_IPI_HW_PATH_MSTREAM;
 
-			dev_info(cam->dev,
+			dev_dbg(cam->dev,
 				"%s: mstream (m2m %d) ne_se ne imgo:0x%llx se rawi:0x%llx\n",
 				__func__, is_m2m, out_fmt->buf[0][0].iova,
 				in_fmt->buf[0].iova);
@@ -2516,13 +2523,13 @@ static void check_mstream_buffer(struct mtk_cam_device *cam,
 				is_m2m ? MTKCAM_IPI_HW_PATH_OFFLINE_STAGGER :
 			MTKCAM_IPI_HW_PATH_MSTREAM;
 
-			dev_info(cam->dev,
+			dev_dbg(cam->dev,
 				"%s: mstream (m2m %d) se_ne se imgo:0x%llx ne rawi:0x%llx\n",
 				__func__, is_m2m, out_fmt->buf[0][0].iova,
 				in_fmt->buf[0].iova);
 		}
 	}
-	dev_info(cam->dev, "%s:%s mstream rawi:0x%llx\n",
+	dev_dbg(cam->dev, "%s:%s mstream rawi:0x%llx\n",
 		__func__, req->req.debug_str, in_fmt->buf[0].iova);
 }
 
@@ -4609,7 +4616,7 @@ static int mtk_cam_req_update(struct mtk_cam_device *cam,
 				req_stream_data->frame_params.raw_param.hardware_scenario =
 					MTKCAM_IPI_HW_PATH_OTF_RGBW;
 		}
-		dev_info(cam->dev,
+		dev_dbg(cam->dev,
 			"%s:%s check ctx-%d\n",
 			 __func__, req->req.debug_str, ctx->stream_id);
 	}

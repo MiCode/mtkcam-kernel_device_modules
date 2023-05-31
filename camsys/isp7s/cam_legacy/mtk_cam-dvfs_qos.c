@@ -1250,7 +1250,7 @@ void mtk_cam_qos_mraw_bw_calc(struct mtk_cam_ctx *ctx,
 			sd_fmt.which = V4L2_SUBDEV_FORMAT_ACTIVE;
 			sd_fmt.pad = PAD_SRC_RAW0;
 			v4l2_subdev_call(ctx->seninf, pad, get_fmt, NULL, &sd_fmt);
-			dev_info(cam->dev, "[%s] FPS:%u/%u:%lu, W/H:%u/%u, VB:%lu\n",
+			dev_dbg(cam->dev, "[%s] FPS:%u/%u:%lu, W/H:%u/%u, VB:%lu\n",
 				__func__, fi.interval.denominator, fi.interval.numerator,
 				fps, sd_fmt.format.width, sd_fmt.format.height, vblank);
 		}

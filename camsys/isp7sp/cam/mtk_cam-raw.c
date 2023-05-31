@@ -467,7 +467,6 @@ void stream_on(struct mtk_raw_device *dev, int on)
 		/* toggle db before stream-on */
 		enable_tg_db(dev, 0);
 		enable_tg_db(dev, 1);
-		rwfbc_inc_setup(dev);
 		set_tg_vfdata_en(dev, 1);
 		set_topdebug_rdyreq(dev, TG_OVERRUN);
 	} else {

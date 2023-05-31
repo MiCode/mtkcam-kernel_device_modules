@@ -672,22 +672,25 @@ int mtk_cam_seninf_get_pad_data_info(struct v4l2_subdev *sd,
 }
 
 int mtk_cam_seninf_get_active_line_info(struct v4l2_subdev *sd,
+				unsigned int mbus_code,
 				struct mtk_seninf_active_line_info *result)
 {
 	struct seninf_ctx *ctx = container_of(sd, struct seninf_ctx, subdev);
 	struct v4l2_subdev *sensor_sd = NULL;
-	struct mtk_sensor_mode_config_info info;
-	struct mtk_sensor_mode_info *p_mode;
+	struct mtk_sensor_mode_info mode_info;
 	struct mtk_seninf_pad_data_info pad_info;
-	int i;
+	unsigned int scenario_id;
 
 	if (!result)
 		return -1;
 
+	scenario_id = (mbus_code >> 16) & 0xff;
 	memset(result, 0, sizeof(*result));
 
 	if (ctx)
 		sensor_sd = ctx->sensor_sd;
+
+	mode_info.scenario_id = scenario_id;
 
 	if (sensor_sd &&
 	    sensor_sd->ops &&
@@ -695,40 +698,26 @@ int mtk_cam_seninf_get_active_line_info(struct v4l2_subdev *sd,
 	    sensor_sd->ops->core->command) {
 
 		sensor_sd->ops->core->command(sensor_sd,
-			V4L2_CMD_GET_SENSOR_MODE_CONFIG_INFO, &info);
+			V4L2_CMD_GET_SEND_SENSOR_MODE_CONFIG_INFO, &mode_info);
 
-		dev_info(ctx->dev, "info.cur_mode = %u, info.count = %u\n",
-			 info.current_scenario_id, info.count);
+		result->active_line_num = mode_info.active_line_num;
+		result->avg_linetime_in_ns = mode_info.avg_linetime_in_ns;
 
-		for (i = 0; i < info.count; i++) {
-			p_mode = &info.seamless_scenario_infos[i];
-
-			if (info.current_scenario_id == p_mode->scenario_id) {
-				result->active_line_num = p_mode->active_line_num;
-				result->avg_linetime_in_ns = p_mode->avg_linetime_in_ns;
-
-				// Fallback to raw0 or raw_ext0 vsize
-				if (!result->active_line_num) {
-					if (mtk_cam_seninf_get_pad_data_info(sd,
-						PAD_SRC_RAW0, &pad_info) != -1) {
-						result->active_line_num = pad_info.exp_vsize;
-					} else if (mtk_cam_seninf_get_pad_data_info(sd,
-						PAD_SRC_RAW_EXT0, &pad_info) != -1) {
-						result->active_line_num = pad_info.exp_vsize;
-					}
-				}
-
-				seninf_logi(ctx,
-					"modeid=%u, active_line=%u/%u, avg_tline_ns=%llu\n",
-					p_mode->scenario_id,
-					p_mode->active_line_num,
-					result->active_line_num,
-					p_mode->avg_linetime_in_ns);
-
-				return 0;
+		if (!result->active_line_num) {
+			if (mtk_cam_seninf_get_pad_data_info(sd,
+				PAD_SRC_RAW0, &pad_info) != -1) {
+				result->active_line_num = pad_info.exp_vsize;
+			} else if (mtk_cam_seninf_get_pad_data_info(sd,
+				PAD_SRC_RAW_EXT0, &pad_info) != -1) {
+				result->active_line_num = pad_info.exp_vsize;
 			}
-
 		}
+		seninf_logi(ctx, "modeid=%u, active_line=%u/%u, avg_tline_ns=%llu\n",
+					mode_info.scenario_id,
+					mode_info.active_line_num,
+					result->active_line_num,
+					mode_info.avg_linetime_in_ns);
+		dev_info(ctx->dev, "mode_info.scenario_id = %u\n", mode_info.scenario_id);
 	}
 
 	return -1;

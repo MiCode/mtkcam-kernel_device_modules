@@ -91,6 +91,35 @@ static int g_cmd_sensor_mode_config_info(struct adaptor_ctx *ctx, void *arg)
 	return ret;
 }
 
+static int g_cmd_send_sensor_mode_config_info(struct adaptor_ctx *ctx, void *arg)
+{
+	int ret = 0;
+	int send_scenario_id = 0;
+	struct mtk_sensor_mode_info *p_mode_info = NULL;
+
+	/* error handling (unexpected case) */
+	if (unlikely(arg == NULL)) {
+		ret = -ENOIOCTLCMD;
+		adaptor_logi(ctx,
+			"ERROR: V4L2_CMD_GET_SEND_SENSOR_MODE_CONFIG_INFO, idx:%d, input arg is nullptr, return:%d\n",
+			ctx->idx, ret);
+		return ret;
+	}
+
+	p_mode_info = arg;
+	send_scenario_id = p_mode_info->scenario_id;
+	memset(p_mode_info, 0, sizeof(struct mtk_sensor_mode_info));
+
+	ret = get_sensor_mode_info(ctx, send_scenario_id, p_mode_info);
+
+	if (ret) {
+		adaptor_logi(ctx,"get_sensor_mode_info fail , scenario_id:%d, ret:%d\n",
+			send_scenario_id, ret);
+	}
+
+	return ret;
+}
+
 static int g_cmd_sensor_in_reset(struct adaptor_ctx *ctx, void *arg)
 {
 	int ret = 0;
@@ -284,6 +313,7 @@ struct command_entry {
 static const struct command_entry command_list[] = {
 	/* GET */
 	{V4L2_CMD_GET_SENSOR_MODE_CONFIG_INFO, g_cmd_sensor_mode_config_info},
+	{V4L2_CMD_GET_SEND_SENSOR_MODE_CONFIG_INFO, g_cmd_send_sensor_mode_config_info},
 	{V4L2_CMD_SENSOR_IN_RESET, g_cmd_sensor_in_reset},
 
 	/* SET */

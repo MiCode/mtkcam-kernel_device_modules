@@ -263,6 +263,8 @@ enum mtk_cam_sensor_pm_ops {
 #define V4L2_CMD_TSREC_SEND_TIMESTAMP_INFO \
 	(V4L2_CMD_USER_MTK_SENSOR_BASE + 6)
 
+#define V4L2_CMD_GET_SEND_SENSOR_MODE_CONFIG_INFO \
+	(V4L2_CMD_USER_MTK_SENSOR_BASE + 7)
 
 /**
  * TSREC - notify vsync structure

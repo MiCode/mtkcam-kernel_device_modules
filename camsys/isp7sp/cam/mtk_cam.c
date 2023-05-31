@@ -2270,6 +2270,11 @@ struct mtk_cam_ctx *mtk_cam_start_ctx(struct mtk_cam_device *cam,
 	mtk_cam_ctrl_start(&ctx->cam_ctrl, ctx);
 	mtk_raw_hdr_tsfifo_reset(ctx);
 
+	if (cam->cmdq_clt) {
+		cmdq_mbox_enable(cam->cmdq_clt->chan);
+		ctx->cmdq_enabled = 1;
+	}
+
 	return ctx;
 
 fail_unprepare_session:
@@ -2368,9 +2373,6 @@ int mtk_cam_ctx_init_scenario(struct mtk_cam_ctx *ctx)
 			if (!ret)
 				ctx->aid_feature = AID_VAINR;
 		}
-
-		cmdq_mbox_enable(cam->cmdq_clt->chan);
-		ctx->cmdq_enabled = 1;
 	} else if (res_raw_is_dc_mode(res) && res->slb_size) {
 		/* dcif + slb ring buffer case */
 

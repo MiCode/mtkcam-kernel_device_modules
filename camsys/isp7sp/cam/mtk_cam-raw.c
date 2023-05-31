@@ -289,6 +289,40 @@ static void subsample_set_sensor_time(struct mtk_raw_device *dev,
 	dev->cur_vsync_idx = -1;
 }
 
+static void reset_reg(struct mtk_raw_device *dev)
+{
+	u32 cq_en, sw_done, sw_sub_ctl;
+
+	cq_en = readl_relaxed(dev->base_inner + REG_CAMCQ_CQ_EN);
+	sw_done = readl_relaxed(dev->base_inner + REG_CAMCTL_SW_PASS1_DONE);
+	sw_sub_ctl = readl_relaxed(dev->base_inner + REG_CAMCTL_SW_SUB_CTL);
+
+	SET_FIELD(&cq_en, CAMCQ_SCQ_SUBSAMPLE_EN, 0);
+	SET_FIELD(&cq_en, CAMCQ_SCQ_STAGGER_MODE, 0);
+	writel(cq_en, dev->base_inner + REG_CAMCQ_CQ_EN);
+	writel(cq_en, dev->base + REG_CAMCQ_CQ_EN);
+
+	SET_FIELD(&sw_done, CAMCTL_DOWN_SAMPLE_EN, 0);
+	writel(sw_done, dev->base_inner + REG_CAMCTL_SW_PASS1_DONE);
+	writel(sw_done, dev->base + REG_CAMCTL_SW_PASS1_DONE);
+
+	writel(0, dev->base_inner + REG_CAMCTL_SW_SUB_CTL);
+	writel(0, dev->base + REG_CAMCTL_SW_SUB_CTL);
+
+	wmb(); /* make sure committed */
+
+	if (CAM_DEBUG_ENABLED(RAW_INT))
+		dev_info(dev->dev,
+			 "[%s] CQ_EN/SW_SUB_CTL/SW_DONE [in] 0x%x/0x%x/0x%x [out] 0x%x/0x%x/0x%x\n",
+			 __func__,
+			 readl_relaxed(dev->base_inner + REG_CAMCQ_CQ_EN),
+			 readl_relaxed(dev->base_inner + REG_CAMCTL_SW_SUB_CTL),
+			 readl_relaxed(dev->base_inner + REG_CAMCTL_SW_PASS1_DONE),
+			 readl_relaxed(dev->base + REG_CAMCQ_CQ_EN),
+			 readl_relaxed(dev->base + REG_CAMCTL_SW_SUB_CTL),
+			 readl_relaxed(dev->base + REG_CAMCTL_SW_PASS1_DONE));
+}
+
 void subsample_enable(struct mtk_raw_device *dev, int subsample_ratio)
 {
 	u32 val;
@@ -473,8 +507,7 @@ void stream_on(struct mtk_raw_device *dev, int on)
 		set_tg_vfdata_en(dev, 0);
 		enable_tg_db(dev, 0);
 		enable_tg_db(dev, 1);
-
-		// TODO: reset_reg
+		reset_reg(dev);
 	}
 
 	//dev_info(dev->dev, "%s: %d\n", __func__, on);

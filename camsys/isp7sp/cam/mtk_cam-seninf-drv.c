@@ -2989,35 +2989,24 @@ err_free_handler:
 	return ret;
 }
 
-static int enable_phya_clk(struct seninf_core *core)
+static int enable_phya_clk(struct seninf_ctx *ctx)
 {
 	int ret = 0;
-
-	if (!core->clk[CLK_TOP_CAMTG] || !core->clk[CLK_TOP_OSC_D20])
-		return -EINVAL;
-
-	ret = clk_prepare_enable(core->clk[CLK_TOP_CAMTG]);
-	if (ret < 0) {
-		dev_info(core->dev,
-			"[%s] fail to enable phya clk,ret(%d)\n",
-			__func__, ret);
-		return ret;
-	}
+	struct seninf_core *core = ctx->core;
 
 	/* set the parent of clk as parent_clk */
 	if (core->pwr_refcnt_for_aov &&
 		!(core->aov_sensor_id < 0) &&
 		!(core->current_sensor_id < 0) &&
 		(core->current_sensor_id != core->aov_sensor_id))
-		dev_info(core->dev,
-			"[%s] aov is using CLK_TOP_CAMTG (phya) parent CLK_TOP_OSC_D20 now\n",
+		dev_info(ctx->dev,
+			"[%s] aov is using phya osc source clk now\n",
 			__func__);
 	else {
-		ret = clk_set_parent(
-			core->clk[CLK_TOP_CAMTG], core->clk[CLK_TOP_OSC_D20]);
+		ret = g_seninf_ops->_set_scp_phya_clock(ctx, 1);
 		if (ret < 0) {
-			dev_info(core->dev,
-				"[%s] fail to set phya parent,ret(%d)\n",
+			dev_info(ctx->dev,
+				"[%s] fail to set phya osc source clk,ret(%d)\n",
 				__func__, ret);
 			return ret;
 		}
@@ -3026,10 +3015,17 @@ static int enable_phya_clk(struct seninf_core *core)
 	return 0;
 }
 
-static int disable_phya_clk(struct seninf_core *core)
+static int disable_phya_clk(struct seninf_ctx *ctx)
 {
-	if (core->clk[CLK_TOP_CAMTG])
-		clk_disable_unprepare(core->clk[CLK_TOP_CAMTG]);
+	int ret = 0;
+
+	ret = g_seninf_ops->_set_scp_phya_clock(ctx, 0);
+	if (ret < 0) {
+		dev_info(ctx->dev,
+			"[%s] fail to set phya pll source clk,ret(%d)\n",
+			__func__, ret);
+		return ret;
+	}
 
 	return 0;
 }
@@ -3117,7 +3113,7 @@ static int runtime_suspend(struct device *dev)
 			}
 
 			/* disable camtg_sel as phya clk */
-			disable_phya_clk(core);
+			disable_phya_clk(ctx);
 			/* power-domains disable */
 			seninf_core_pm_runtime_put(core);
 		}
@@ -3156,7 +3152,7 @@ static int runtime_resume(struct device *dev)
 				return ret;
 			}
 			/* enable camtg_sel as phya clk */
-			ret = enable_phya_clk(core);
+			ret = enable_phya_clk(ctx);
 			if (ret < 0)
 				dev_info(dev,
 					"[%s] enable_phya_clk(fail),ret(%d)\n",
@@ -3822,14 +3818,6 @@ int mtk_cam_seninf_aov_runtime_suspend(unsigned int sensor_id)
 					CLK_CAM_SENINF, clk_names[CLK_CAM_SENINF]);
 			}
 
-			/* disable seninf camtg clk (phya) while aov is using it */
-			if (core->clk[CLK_TOP_CAMTG]) {
-				clk_disable_unprepare(core->clk[CLK_TOP_CAMTG]);
-				dev_info(ctx->dev,
-					"[%s] disable_unprepare clk[CLK_TOP_CAMTG:%u]:%s\n",
-					__func__,
-					CLK_TOP_CAMTG, clk_names[CLK_TOP_CAMTG]);
-			}
 			seninf_core_pm_runtime_put(core);
 		}
 	}
@@ -3879,9 +3867,9 @@ int mtk_cam_seninf_aov_runtime_resume(unsigned int sensor_id,
 #ifdef SENSING_MODE_READY
 		if (!g_aov_param.is_test_model) {
 			/* switch i2c bus scl from scp to apmcu */
-			aov_switch_i2c_bus_scl_aux(ctx, SCL4);
+			aov_switch_i2c_bus_scl_aux(ctx, SCL13);
 			/* switch i2c bus sda from scp to apmcu */
-			aov_switch_i2c_bus_sda_aux(ctx, SDA4);
+			aov_switch_i2c_bus_sda_aux(ctx, SDA13);
 			/* restore aov pm ops: pm_stay_awake */
 			aov_switch_pm_ops(ctx, AOV_PM_STAY_AWAKE);
 		}
@@ -3917,51 +3905,15 @@ int mtk_cam_seninf_aov_runtime_resume(unsigned int sensor_id,
 				core->aov_sensor_id, core->refcnt);
 			/* power-domains enable */
 			seninf_core_pm_runtime_get_sync(core);
-			/* enable camtg_sel as phya clk */
-			if (core->clk[CLK_TOP_CAMTG] && core->clk[CLK_TOP_OSC_D20]) {
-				/* must enable mux clk before clk_set_parent */
-				ret = clk_prepare_enable(core->clk[CLK_TOP_CAMTG]);
-				if (ret < 0) {
-					dev_info(ctx->dev,
-						"[%s] prepare_enable clk[CLK_TOP_CAMTG:%u]:%s(fail),ret(%d)\n",
-						__func__,
-						CLK_TOP_CAMTG, clk_names[CLK_TOP_CAMTG],
-						ret);
-					mutex_unlock(&core->mutex);
-					return ret;
-				}
+			/* set register to switch phya clock source */
+			ret = g_seninf_ops->_set_scp_phya_clock(ctx, 1);
+			if (ret < 0) {
 				dev_info(ctx->dev,
-					"[%s] prepare_enable clk[CLK_TOP_CAMTG:%u]:%s(correct),ret(%d)\n",
-					__func__,
-					CLK_TOP_CAMTG, clk_names[CLK_TOP_CAMTG],
-					ret);
-				/* set the parent of clk as parent_clk */
-				ret = clk_set_parent(
-					core->clk[CLK_TOP_CAMTG],
-					core->clk[CLK_TOP_OSC_D20]);
-				if (ret < 0) {
-					dev_info(ctx->dev,
-						"[%s] clk[CLK_TOP_CAMTG:%u]:%s set_parent clk[CLK_TOP_OSC_D20:%u]:%s(fail),ret(%d)\n",
-						__func__,
-						CLK_TOP_CAMTG, clk_names[CLK_TOP_CAMTG],
-						CLK_TOP_OSC_D20, clk_names[CLK_TOP_OSC_D20],
-						ret);
-					mutex_unlock(&core->mutex);
-					return ret;
-				}
-				dev_info(ctx->dev,
-					"[%s] clk[CLK_TOP_CAMTG:%u]:%s set_parent clk[CLK_TOP_OSC_D20:%u]:%s(correct),ret(%d)\n",
-					__func__,
-					CLK_TOP_CAMTG, clk_names[CLK_TOP_CAMTG],
-					CLK_TOP_OSC_D20, clk_names[CLK_TOP_OSC_D20],
-					ret);
-			} else {
-				dev_info(ctx->dev,
-					"[%s] Please check clk get whether NULL?\n",
-					__func__);
+					"[%s] fail to set phya osc source clk\n", __func__);
 				mutex_unlock(&core->mutex);
-				return -EINVAL;
+				return ret;
 			}
+			dev_info(ctx->dev, "[%s] phya clock source switch to scp side\n", __func__);
 			/* enable seninf cg */
 			if (core->clk[CLK_CAM_SENINF]) {
 				ret = clk_prepare_enable(core->clk[CLK_CAM_SENINF]);

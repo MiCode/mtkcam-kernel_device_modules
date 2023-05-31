@@ -998,7 +998,7 @@ static int mtk_cam_seninf_set_vc(struct seninf_ctx *ctx, int intf,
 			  struct seninf_vcinfo *vcinfo)
 {
 	void *pSeninf_csi2 = ctx->reg_if_csi2[(unsigned int)intf];
-	int i, ret, dt_remap_index = 0, j;
+	int i, ret, dt_remap_index = 0, j, remap;
 	struct seninf_vc *vc;
 	int dt_remap_table[4] = {0};
 
@@ -1023,6 +1023,7 @@ static int mtk_cam_seninf_set_vc(struct seninf_ctx *ctx, int intf,
 
 	for (i = 0; i < vcinfo->cnt; i++) {
 		vc = &vcinfo->vc[i];
+		remap = false;
 		if (vc->dt_remap_to_type > MTK_MBUS_FRAME_DESC_REMAP_NONE &&
 			vc->dt_remap_to_type <= MTK_MBUS_FRAME_DESC_REMAP_TO_RAW14) {
 			if (dt_remap_index == 0) {
@@ -1032,6 +1033,7 @@ static int mtk_cam_seninf_set_vc(struct seninf_ctx *ctx, int intf,
 					"ret(%d) idx(%d) vc[%d] dt 0x%x remap to %d\n",
 					ret, dt_remap_index, i, vc->dt, vc->dt_remap_to_type);
 				dt_remap_index++;
+				remap = true;
 			} else {
 				j = 0;
 				while (j < dt_remap_index && dt_remap_index < DT_REMAP_MAX_CNT) {
@@ -1050,12 +1052,13 @@ static int mtk_cam_seninf_set_vc(struct seninf_ctx *ctx, int intf,
 						ret, dt_remap_index, i, vc->dt,
 						vc->dt_remap_to_type);
 					dt_remap_index++;
+					remap = true;
 				}
 			}
 		}
 
 		/* General Long Packet Data Types: 0x10-0x17 */
-		if (vc->dt >= 0x10 && vc->dt <= 0x17) {
+		if (!remap && vc->dt >= 0x10 && vc->dt <= 0x17) {
 			SENINF_BITS(pSeninf_csi2, SENINF_CSI2_OPT,
 				    RG_CSI2_GENERIC_LONG_PACKET_EN, 1);
 		}

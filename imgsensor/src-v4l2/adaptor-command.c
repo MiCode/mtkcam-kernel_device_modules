@@ -141,6 +141,86 @@ static int g_cmd_sensor_in_reset(struct adaptor_ctx *ctx, void *arg)
 	return ret;
 }
 
+static int g_cmd_sensor_has_ebd_parser(struct adaptor_ctx *ctx, void *arg)
+{
+	int ret = 0;
+	bool *has_parser = NULL;
+
+	/* error handling (unexpected case) */
+	if (unlikely(ctx == NULL))
+		return -EINVAL;
+	if (unlikely(arg == NULL)) {
+		ret = -ENOIOCTLCMD;
+		adaptor_logi(ctx,
+			"ERROR: V4L2_CMD_SENSOR_HAS_EBD_PARSER, idx:%d, input arg is nullptr, return:%d\n",
+			ctx->idx, ret);
+		return ret;
+	}
+
+	has_parser = arg;
+
+	*has_parser = !!(ctx->subdrv->ops->parse_ebd_line);
+
+	return ret;
+}
+
+static int g_cmd_sensor_ebd_info_by_scenario(struct adaptor_ctx *ctx, void *arg)
+{
+	int i;
+	int ret = 0;
+	struct mtk_sensor_ebd_info_by_scenario *p_info = NULL;
+	u32 scenario_id;
+	struct mtk_mbus_frame_desc fd_tmp = {0};
+	struct mtk_mbus_frame_desc_entry_csi2 *entry;
+
+	/* error handling (unexpected case) */
+	if (unlikely(arg == NULL)) {
+		ret = -ENOIOCTLCMD;
+		adaptor_logi(ctx,
+			"ERROR: V4L2_CMD_GET_SENSOR_EBD_INFO_BY_SCENARIO, idx:%d, input arg is nullptr, return:%d\n",
+			ctx->idx, ret);
+		return ret;
+	}
+
+	p_info = arg;
+
+	scenario_id = p_info->input_scenario_id;
+
+	memset(p_info, 0, sizeof(struct mtk_sensor_ebd_info_by_scenario));
+	p_info->input_scenario_id = scenario_id;
+
+	ret = subdrv_call(ctx, get_frame_desc, scenario_id, &fd_tmp);
+	if (!ret) {
+		for (i = 0; i < fd_tmp.num_entries; ++i) {
+			entry = &fd_tmp.entry[i].bus.csi2;
+			if (entry->user_data_desc == VC_GENERAL_EMBEDDED &&
+			    entry->ebd_parsing_type != MTK_EBD_PARSING_TYPE_MIPI_RAW_NA) {
+
+				p_info->exp_hsize = entry->hsize;
+				p_info->exp_vsize = entry->vsize;
+				p_info->dt_remap_to_type = entry->dt_remap_to_type;
+				p_info->data_type = entry->data_type;
+				p_info->ebd_parsing_type = entry->ebd_parsing_type;
+
+				adaptor_logd(ctx,
+					"[%s] scenario %u desc %u/%u/%u/0x%x/%u\n",
+					__func__,
+					scenario_id,
+					p_info->exp_hsize,
+					p_info->exp_vsize,
+					p_info->dt_remap_to_type,
+					p_info->data_type,
+					p_info->ebd_parsing_type);
+
+				break;
+			}
+
+		}
+	}
+
+	return ret;
+}
+
 /* SET */
 static int s_cmd_fsync_sync_frame_start_end(struct adaptor_ctx *ctx, void *arg)
 {
@@ -300,6 +380,39 @@ static int s_cmd_tsrec_send_timestamp_info(struct adaptor_ctx *ctx, void *arg)
 	return ret;
 }
 
+static int s_cmd_sensor_parse_ebd(struct adaptor_ctx *ctx, void *arg)
+{
+	struct mtk_recv_sensor_ebd_line *recv_ebd;
+	struct mtk_ebd_dump obj;
+	int ret = 0;
+
+	/* error handling (unexpected case) */
+	if (unlikely(ctx == NULL))
+		return -EINVAL;
+	if (unlikely(arg == NULL)) {
+		ret = -EINVAL;
+		adaptor_logi(ctx,
+			"ERROR: V4L2_CMD_SENSOR_PARSE_EBD, idx:%d, input arg is nullptr, return:%d\n",
+			ctx->idx, ret);
+		return ret;
+	}
+
+	recv_ebd = (struct mtk_recv_sensor_ebd_line *)arg;
+
+	memset(&obj, 0, sizeof(obj));
+	ret = subdrv_call(ctx, parse_ebd_line, recv_ebd, &obj);
+
+	mutex_lock(&ctx->ebd_lock);
+	ctx->latest_ebd.recv_ts = ktime_get_boottime_ns();
+	ctx->latest_ebd.req_no = recv_ebd->req_id;
+	memset(ctx->latest_ebd.req_fd_desc, 0, sizeof(ctx->latest_ebd.req_fd_desc));
+	strncpy(ctx->latest_ebd.req_fd_desc, recv_ebd->req_fd_desc,
+		sizeof(ctx->latest_ebd.req_fd_desc) - 1);
+	memcpy(&ctx->latest_ebd.record, &obj, sizeof(struct mtk_ebd_dump));
+	mutex_unlock(&ctx->ebd_lock);
+
+	return ret;
+}
 
 /*---------------------------------------------------------------------------*/
 // adaptor command framework/entry
@@ -315,6 +428,8 @@ static const struct command_entry command_list[] = {
 	{V4L2_CMD_GET_SENSOR_MODE_CONFIG_INFO, g_cmd_sensor_mode_config_info},
 	{V4L2_CMD_GET_SEND_SENSOR_MODE_CONFIG_INFO, g_cmd_send_sensor_mode_config_info},
 	{V4L2_CMD_SENSOR_IN_RESET, g_cmd_sensor_in_reset},
+	{V4L2_CMD_SENSOR_HAS_EBD_PARSER, g_cmd_sensor_has_ebd_parser},
+	{V4L2_CMD_GET_SENSOR_EBD_INFO_BY_SCENARIO, g_cmd_sensor_ebd_info_by_scenario},
 
 	/* SET */
 	{V4L2_CMD_FSYNC_SYNC_FRAME_START_END, s_cmd_fsync_sync_frame_start_end},
@@ -322,6 +437,7 @@ static const struct command_entry command_list[] = {
 	{V4L2_CMD_TSREC_NOTIFY_SENSOR_HW_PRE_LATCH,
 		s_cmd_tsrec_notify_sensor_hw_pre_latch},
 	{V4L2_CMD_TSREC_SEND_TIMESTAMP_INFO, s_cmd_tsrec_send_timestamp_info},
+	{V4L2_CMD_SENSOR_PARSE_EBD, s_cmd_sensor_parse_ebd},
 };
 
 long adaptor_command(struct v4l2_subdev *sd, unsigned int cmd, void *arg)

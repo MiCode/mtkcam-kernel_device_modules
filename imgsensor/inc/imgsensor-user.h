@@ -353,6 +353,14 @@ enum mtk_mbus_frame_desc_dt_remap_type {
 	MTK_MBUS_FRAME_DESC_REMAP_TO_RAW14,
 };
 
+enum mtk_frame_desc_parsing_type {
+	MTK_EBD_PARSING_TYPE_MIPI_RAW_NA = 0,
+	MTK_EBD_PARSING_TYPE_MIPI_RAW8,
+	MTK_EBD_PARSING_TYPE_MIPI_RAW10,
+	MTK_EBD_PARSING_TYPE_MIPI_RAW12,
+	MTK_EBD_PARSING_TYPE_MIPI_RAW14,
+};
+
 struct mtk_mbus_frame_desc_entry_csi2 {
 	u8 channel;
 	u8 data_type;
@@ -365,6 +373,7 @@ struct mtk_mbus_frame_desc_entry_csi2 {
 	enum mtk_cam_seninf_tsrec_exp_id cust_assign_to_tsrec_exp_id;
 	u16 valid_bit;
 	u8 is_active_line;
+	u8 ebd_parsing_type; // for ebd parser query how to parse content
 };
 
 struct mtk_mbus_frame_desc_entry {
@@ -515,6 +524,43 @@ struct mtk_multi_exp_shutter_range_by_scenario {
 	__u32 scenario_id;
 	__u32 exp_cnt;
 	struct mtk_multi_exp_shutter_range *multi_exp_shutter_range;
+};
+
+struct mtk_sensor_ebd_info_by_scenario {
+	__u32 input_scenario_id;
+	__u16 exp_hsize;
+	__u16 exp_vsize;
+	__u8 dt_remap_to_type;
+	__u8 data_type;
+	__u8 ebd_parsing_type;
+};
+
+struct mtk_recv_sensor_ebd_line {
+	__u32 req_id;
+	char *req_fd_desc;
+	__u32 mbus_code;
+	__u32 stride;
+	__u32 buf_sz;
+	char *buf;
+	__u8 ebd_parsing_type;
+};
+
+struct mtk_ebd_dump {
+	__u32 frm_cnt;
+	__u32 cit[IMGSENSOR_STAGGER_EXPOSURE_CNT];
+	__u32 again[IMGSENSOR_STAGGER_EXPOSURE_CNT];
+	__u32 dgain[IMGSENSOR_STAGGER_EXPOSURE_CNT];
+	__u32 cit_shift;
+	__u32 dol;
+	__u32 fll;
+	__u32 temperature;
+};
+
+struct mtk_ebd_dump_record {
+	__u64 recv_ts;
+	__u32 req_no;
+	char req_fd_desc[50];
+	struct mtk_ebd_dump record;
 };
 
 

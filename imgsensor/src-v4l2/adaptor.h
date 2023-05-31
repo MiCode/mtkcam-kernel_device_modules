@@ -201,6 +201,10 @@ struct adaptor_ctx {
 	struct wakeup_source *sensor_ws;
 	unsigned int aov_pm_ops_flag;	/* flag for aov pm ops */
 	unsigned int aov_mclk_ulposc_flag;	/* flag for aov switch mclk to ulposc */
+
+	/* embedded data dump */
+	struct mutex ebd_lock;
+	struct mtk_ebd_dump_record latest_ebd;
 };
 
 #endif

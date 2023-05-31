@@ -31,6 +31,13 @@
 #define to_std_fmt_code(code) \
 	((code) & 0xFFFF)
 
+#define get_scenario_from_fmt_code(code) \
+({ \
+	int __val = 0; \
+	__val = ((code) >> 16) & 0xFF; \
+	__val; \
+})
+
 void mtk_cam_seninf_init_res(struct seninf_core *core)
 {
 	int i;
@@ -490,9 +497,15 @@ int mtk_cam_seninf_get_pad_data_info(struct v4l2_subdev *sd,
 	pvc = mtk_cam_seninf_get_vc_by_pad(ctx, pad);
 	if (pvc) {
 		result->feature = pvc->feature;
-		result->mux = pvc->dest[0].mux;
 		result->exp_hsize = pvc->exp_hsize;
 		result->exp_vsize = pvc->exp_vsize;
+		result->mbus_code = ctx->fmt[pad].format.code;
+
+		seninf_logd(ctx, "feature = %u, h = %u, v = %u, mbus_code = 0x%x\n",
+			    result->feature,
+			    result->exp_hsize,
+			    result->exp_vsize,
+			    result->mbus_code);
 
 		return 0;
 	}
@@ -500,15 +513,33 @@ int mtk_cam_seninf_get_pad_data_info(struct v4l2_subdev *sd,
 	return -1;
 }
 
-static int get_mbus_format_by_dt(int dt)
+static unsigned int dt_remap_to_mipi_dt(unsigned int dt_remap)
 {
-	switch (dt) {
+	switch (dt_remap) {
+	case MTK_MBUS_FRAME_DESC_REMAP_TO_RAW12:
+		return 0x2c;
+	case MTK_MBUS_FRAME_DESC_REMAP_TO_RAW14:
+		return 0x2d;
+	case MTK_MBUS_FRAME_DESC_REMAP_TO_RAW10:
+	default:
+		return 0x2b;
+	}
+}
+
+static int get_mbus_format_by_dt(int dt, int remap_type)
+{
+	int remap_dt = (remap_type == MTK_MBUS_FRAME_DESC_REMAP_NONE)
+		? dt : dt_remap_to_mipi_dt(remap_type);
+
+	switch (remap_dt) {
 	case 0x2a:
 		return MEDIA_BUS_FMT_SBGGR8_1X8;
 	case 0x2b:
 		return MEDIA_BUS_FMT_SBGGR10_1X10;
 	case 0x2c:
 		return MEDIA_BUS_FMT_SBGGR12_1X12;
+	case 0x2d:
+		return MEDIA_BUS_FMT_SBGGR14_1X14;
 	default:
 		/* default raw8 for other data types */
 		return MEDIA_BUS_FMT_SBGGR8_1X8;
@@ -935,6 +966,20 @@ int mtk_cam_seninf_get_vcinfo(struct seninf_ctx *ctx)
 			break;
 		}
 
+		switch (vc->dt_remap_to_type) {
+		case MTK_MBUS_FRAME_DESC_REMAP_TO_RAW10:
+			vc->bit_depth = 10;
+			break;
+		case MTK_MBUS_FRAME_DESC_REMAP_TO_RAW12:
+			vc->bit_depth = 12;
+			break;
+		case MTK_MBUS_FRAME_DESC_REMAP_TO_RAW14:
+			vc->bit_depth = 14;
+			break;
+		default:
+			break;
+		}
+
 
 		/* update pad fotmat */
 		if (vc->exp_hsize && vc->exp_vsize) {
@@ -951,14 +996,14 @@ int mtk_cam_seninf_get_vcinfo(struct seninf_ctx *ctx)
 				dev_info(ctx->dev, "no get_fmt in %s\n",
 					ctx->sensor_sd->name);
 				ctx->fmt[vc->out_pad].format.code =
-					get_mbus_format_by_dt(vc->dt);
+					get_mbus_format_by_dt(vc->dt, vc->dt_remap_to_type);
 			} else {
 				ctx->fmt[vc->out_pad].format.code =
 					to_std_fmt_code(raw_fmt.format.code);
 			}
 		} else {
 			ctx->fmt[vc->out_pad].format.code =
-				get_mbus_format_by_dt(vc->dt);
+				get_mbus_format_by_dt(vc->dt, vc->dt_remap_to_type);
 		}
 
 		dev_info(ctx->dev,
@@ -2098,6 +2143,107 @@ bool is_fsync_listening_on_pd(struct v4l2_subdev *sd)
 	dev_info(ctx->dev, "%s , ret = %d\n", __func__, ret);
 
 	return ret;
+}
+
+bool has_embedded_parser(struct v4l2_subdev *sd)
+{
+	struct seninf_ctx *ctx = container_of(sd, struct seninf_ctx, subdev);
+	struct v4l2_subdev *sensor_sd = ctx->sensor_sd;
+	bool ret = false;
+
+	if (sensor_sd &&
+	    sensor_sd->ops &&
+	    sensor_sd->ops->core &&
+	    sensor_sd->ops->core->command) {
+
+		sensor_sd->ops->core->command(sensor_sd,
+			V4L2_CMD_SENSOR_HAS_EBD_PARSER, &ret);
+	}
+
+	seninf_logd(ctx, "ret = %d\n", ret);
+
+	return ret;
+}
+
+int mtk_cam_seninf_get_ebd_info_by_scenario(struct v4l2_subdev *sd,
+				u32 scenario_mbus_code,
+				struct mtk_seninf_pad_data_info *result)
+{
+	struct seninf_ctx *ctx = container_of(sd, struct seninf_ctx, subdev);
+	struct v4l2_subdev *sensor_sd = ctx->sensor_sd;
+	struct mtk_sensor_ebd_info_by_scenario ebd_info;
+	int ret = -1;
+
+	memset(result, 0, sizeof(*result));
+
+	if (sensor_sd &&
+	    sensor_sd->ops &&
+	    sensor_sd->ops->core &&
+	    sensor_sd->ops->core->command) {
+
+		ebd_info.input_scenario_id = get_scenario_from_fmt_code(scenario_mbus_code);
+
+		sensor_sd->ops->core->command(sensor_sd,
+			V4L2_CMD_GET_SENSOR_EBD_INFO_BY_SCENARIO, &ebd_info);
+
+		result->feature = VC_GENERAL_EMBEDDED;
+		result->exp_hsize = ebd_info.exp_hsize;
+		result->exp_vsize = ebd_info.exp_vsize;
+		result->mbus_code = get_mbus_format_by_dt(ebd_info.data_type,
+						ebd_info.dt_remap_to_type);
+
+		seninf_logd(ctx, "mode = %u, result(%u,%u,%u,0x%x)\n",
+			    ebd_info.input_scenario_id,
+			    result->feature,
+			    result->exp_hsize,
+			    result->exp_vsize,
+			    result->mbus_code);
+
+		if (result->exp_hsize && result->exp_vsize) // has ebd info
+			ret = 0;
+	}
+
+	seninf_logd(ctx, "ret = %d\n", ret);
+
+	return ret;
+}
+
+void mtk_cam_seninf_parse_ebd_line(struct v4l2_subdev *sd,
+				unsigned int req_id,
+				char *req_fd_desc,
+				char *buf, u32 buf_sz,
+				u32 stride, u32 scenario_mbus_code)
+{
+	struct seninf_ctx *ctx = container_of(sd, struct seninf_ctx, subdev);
+	struct v4l2_subdev *sensor_sd = ctx->sensor_sd;
+	struct mtk_recv_sensor_ebd_line ebd_line;
+	struct mtk_sensor_ebd_info_by_scenario ebd_info;
+
+	seninf_logd(ctx, "req_id = %u, req_fd_desc = %s, mbus = 0x%x\n",
+		    req_id, req_fd_desc, scenario_mbus_code);
+
+	if (sensor_sd &&
+	    sensor_sd->ops &&
+	    sensor_sd->ops->core &&
+	    sensor_sd->ops->core->command) {
+
+		ebd_info.input_scenario_id = get_scenario_from_fmt_code(scenario_mbus_code);
+
+		sensor_sd->ops->core->command(sensor_sd,
+			V4L2_CMD_GET_SENSOR_EBD_INFO_BY_SCENARIO, &ebd_info);
+
+		ebd_line.req_id = req_id;
+		ebd_line.req_fd_desc = req_fd_desc;
+		ebd_line.stride = stride;
+		ebd_line.buf_sz = buf_sz;
+		ebd_line.buf = buf;
+		ebd_line.ebd_parsing_type = ebd_info.ebd_parsing_type;
+		ebd_line.mbus_code = get_mbus_format_by_dt(ebd_info.data_type,
+						ebd_info.dt_remap_to_type);
+
+		sensor_sd->ops->core->command(sensor_sd,
+			V4L2_CMD_SENSOR_PARSE_EBD, &ebd_line);
+	}
 }
 
 #if AOV_GET_PARAM

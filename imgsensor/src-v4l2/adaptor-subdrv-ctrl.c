@@ -3465,3 +3465,318 @@ int common_update_sof_cnt(struct subdrv_ctx *ctx, u32 sof_cnt)
 	ctx->sof_cnt = sof_cnt;
 	return 0;
 }
+
+static int read_mipi_raw8(char *buf, size_t buf_sz, int base_ofs, int pix,
+			  u8 parsing_type, u32 *val)
+{
+	int ofs;
+	int p = pix - 1;
+	int b = 0;
+
+	switch (parsing_type) {
+	case MTK_EBD_PARSING_TYPE_MIPI_RAW10:
+		/* 5 bytes for 4 pixels */
+		b = ((p >> 2) * 5) + (p % 4);
+		break;
+	case MTK_EBD_PARSING_TYPE_MIPI_RAW12:
+		/* 3 bytes for 2 pixels */
+		b = ((p >> 1) * 3) + (p % 2);
+		break;
+	case MTK_EBD_PARSING_TYPE_MIPI_RAW14:
+		/* 7 bytes for 4 pixels */
+		b = ((p >> 2) * 7) + (p % 4);
+		break;
+	case MTK_EBD_PARSING_TYPE_MIPI_RAW8:
+	default:
+		/* 1 byte for 1 pixel */
+		b = p;
+		break;
+	}
+
+	if (val) {
+		ofs = base_ofs + b;
+		if (ofs < buf_sz) {
+			*val = buf[ofs];
+			return 0;
+		}
+	}
+
+	return -EINVAL;
+}
+
+static int read_mipi_raw10(char *buf, size_t buf_sz, int base_ofs, int pix,
+			   u8 parsing_type, u32 *val)
+{
+	int ofs1, ofs2, ls, hs, mask;
+	int p = pix - 1;
+
+	/*
+	 * pix1 = (byte[0] >> 0) | ((byte[1] & 0x03) << 8)
+	 * pix2 = (byte[1] >> 2) | ((byte[2] & 0x0f) << 6)
+	 * pix3 = (byte[2] >> 4) | ((byte[3] & 0x3f) << 4)
+	 * pix4 = (byte[3] >> 6) | ((byte[4] & 0xff) << 2)
+	 * pix5 = (byte[5] >> 0) | ((byte[6] & 0x03) << 8)
+	 * -> general:
+	 * pix{pix} = (byte[ofs1] >> ls) | ((byte[ofs2] & mask) << hs)
+	 */
+	if (val) {
+		switch (p % 4) {
+		case 0:
+			ls = 0;
+			mask = 0x03;
+			break;
+		case 1:
+			ls = 2;
+			mask = 0x0f;
+			break;
+		case 2:
+			ls = 4;
+			mask = 0x3f;
+			break;
+		case 3:
+			ls = 6;
+			mask = 0xff;
+			break;
+		default:
+			// never here
+			return -EINVAL;
+		}
+		hs = 8 - ls;
+
+		ofs1 = base_ofs + (p >> 2) + p;
+		ofs2 = ofs1 + 1;
+
+		if ((ofs1 < buf_sz) && (ofs2 < buf_sz)) {
+			*val = (buf[ofs1] >> ls) | ((buf[ofs2] & mask) << hs);
+			// truncate bit 0 ~ 1 to convert to 8-bit
+			*val = (*val) >> 2;
+			return 0;
+		}
+	}
+
+	return -EINVAL;
+}
+
+static int read_mipi_raw12(char *buf, size_t buf_sz, int base_ofs, int pix,
+			   u8 parsing_type, u32 *val)
+{
+	int ofs1, ofs2, ls, hs, mask;
+	int p = pix - 1;
+
+	/*
+	 * pix1 = (byte[0] >> 0) | ((byte[1] & 0x0f) << 8)
+	 * pix2 = (byte[1] >> 4) | ((byte[2] & 0xff) << 4)
+	 * pix3 = (byte[3] >> 0) | ((byte[4] & 0x0f) << 8)
+	 * -> general:
+	 * pix{pix} = (byte[ofs1] >> ls) | ((byte[ofs2] & mask) << hs)
+	 */
+	if (val) {
+		switch (p % 2) {
+		case 0:
+			ls = 0;
+			mask = 0x0f;
+			break;
+		case 1:
+			ls = 4;
+			mask = 0xff;
+			break;
+		default:
+			// never here
+			return -EINVAL;
+		}
+		hs = 8 - ls;
+
+		ofs1 = base_ofs + (p >> 1) + p;
+		ofs2 = ofs1 + 1;
+
+		if ((ofs1 < buf_sz) && (ofs2 < buf_sz)) {
+			*val = (buf[ofs1] >> ls) | ((buf[ofs2] & mask) << hs);
+			// truncate bit 0 ~ 3 to convert to 8-bit
+			*val = (*val) >> 4;
+			return 0;
+		}
+	}
+
+	return -EINVAL;
+}
+
+static int read_mipi_raw14(char *buf, size_t buf_sz, int base_ofs, int pix,
+			   u8 parsing_type, u32 *val)
+{
+	int ofs1, ofs2, ofs3, ls, hs2, hs3, mask2, mask3;
+	int p = pix - 1;
+
+	/*
+	 * pix1 = (byte[0] >> 0) | ((byte[1] & 0x3f) << 8)
+	 * pix2 = (byte[1] >> 6) | ((byte[2] & 0xff) << 2) | ((byte[3] & 0x0f) << 10)
+	 * pix3 = (byte[3] >> 4) | ((byte[4] & 0xff) << 4) | ((byte[5] & 0x03) << 12)
+	 * pix4 = (byte[5] >> 2) | ((byte[6] & 0xff) << 6)
+	 * pix5 = (byte[7] >> 0) | ((byte[8] & 0x3f) << 8)
+	 * -> general:
+	 * pix{pix} = (byte[ofs1] >> ls) | ((byte[ofs2] & mask2) << hs2)
+	 *             | ((byte[ofs3] & mask3) << hs3)
+	 */
+	if (val) {
+		switch (p % 4) {
+		case 0:
+			ofs1 = (p >> 2) * 7;
+			ls = 0;
+			hs2 = 8;
+			hs3 = 0;
+			mask2 = 0x3f;
+			mask3 = 0x00;
+			break;
+		case 1:
+			ofs1 = (p >> 2) * 7 + 1;
+			ls = 6;
+			hs2 = 2;
+			hs3 = 10;
+			mask2 = 0xff;
+			mask3 = 0x0f;
+			break;
+		case 2:
+			ofs1 = (p >> 2) * 7 + 3;
+			ls = 4;
+			hs2 = 4;
+			hs3 = 12;
+			mask2 = 0xff;
+			mask3 = 0x03;
+			break;
+		case 3:
+			ofs1 = (p >> 2) * 7 + 5;
+			ls = 2;
+			hs2 = 6;
+			hs3 = 0;
+			mask2 = 0xff;
+			mask3 = 0x00;
+			break;
+		default:
+			// never here
+			return -EINVAL;
+		}
+
+		ofs1 += base_ofs;
+		ofs2 = ofs1 + 1;
+		ofs3 = ofs2 + 1;
+
+		if ((ofs1 < buf_sz) && (ofs2 < buf_sz)) {
+			*val = (buf[ofs1] >> ls) | ((buf[ofs2] & mask2) << hs2)
+				| ((buf[ofs3] & mask3) << hs3);
+			// truncate bit 0 ~ 5 to convert to 8-bit
+			*val = (*val) >> 6;
+			return 0;
+		}
+	}
+
+	return -EINVAL;
+}
+
+static u32 read_ebd(char *buf, size_t buf_sz, u32 stride, u32 mbus, u8 parsing_type,
+		    struct ebd_loc *loc)
+{
+	u32 result = 0;
+	u32 tmp = 0;
+	int i, base_ofs;
+	int (*read)(char *, size_t, int, int, u8, u32 *);
+
+	if (!buf || !loc || (loc->loc_line <= 0))
+		return 0;
+
+	base_ofs = (loc->loc_line - 1) * stride;
+
+	switch (mbus) {
+	case MEDIA_BUS_FMT_SBGGR10_1X10:
+	case MEDIA_BUS_FMT_SGBRG10_1X10:
+	case MEDIA_BUS_FMT_SGRBG10_1X10:
+	case MEDIA_BUS_FMT_SRGGB10_1X10:
+		read = read_mipi_raw10;
+		break;
+	case MEDIA_BUS_FMT_SBGGR12_1X12:
+	case MEDIA_BUS_FMT_SGBRG12_1X12:
+	case MEDIA_BUS_FMT_SGRBG12_1X12:
+	case MEDIA_BUS_FMT_SRGGB12_1X12:
+		read = read_mipi_raw12;
+		break;
+	case MEDIA_BUS_FMT_SBGGR14_1X14:
+	case MEDIA_BUS_FMT_SGBRG14_1X14:
+	case MEDIA_BUS_FMT_SGRBG14_1X14:
+	case MEDIA_BUS_FMT_SRGGB14_1X14:
+		read = read_mipi_raw14;
+		break;
+	default:
+		read = read_mipi_raw8;
+		break;
+	}
+
+	for (i = 0; i < ARRAY_SIZE(loc->loc_pix) && (loc->loc_pix[i] > 0); i++) {
+		if (read(buf, buf_sz, base_ofs, loc->loc_pix[i], parsing_type, &tmp) >= 0)
+			result = (result << 8) | tmp;
+	}
+
+	return result;
+}
+
+int common_parse_ebd_line(struct subdrv_ctx *ctx, struct mtk_recv_sensor_ebd_line *data,
+	struct mtk_ebd_dump *obj)
+{
+	struct ebd_info_struct *ebd_info = &ctx->s_ctx.ebd_info;
+	int i;
+
+	if (!obj) {
+		DRV_LOG_MUST(ctx, "obj is NULL\n");
+		return -EINVAL;
+	}
+
+	if (data && data->buf) {
+		obj->frm_cnt = read_ebd(data->buf, data->buf_sz, data->stride,
+					data->mbus_code, data->ebd_parsing_type,
+					&ebd_info->frm_cnt_loc);
+		for (i = 0; i < IMGSENSOR_STAGGER_EXPOSURE_CNT; i++) {
+			obj->cit[i] = read_ebd(data->buf, data->buf_sz, data->stride,
+					data->mbus_code, data->ebd_parsing_type,
+					&ebd_info->coarse_integ_loc[i]);
+			obj->again[i] = read_ebd(data->buf, data->buf_sz, data->stride,
+					data->mbus_code, data->ebd_parsing_type,
+					&ebd_info->ana_gain_loc[i]);
+			obj->dgain[i] = read_ebd(data->buf, data->buf_sz, data->stride,
+					data->mbus_code, data->ebd_parsing_type,
+					&ebd_info->dig_gain_loc[i]);
+		}
+		obj->cit_shift = read_ebd(data->buf, data->buf_sz, data->stride,
+					data->mbus_code, data->ebd_parsing_type,
+					&ebd_info->coarse_integ_shift_loc);
+		obj->dol = read_ebd(data->buf, data->buf_sz, data->stride,
+					data->mbus_code, data->ebd_parsing_type,
+					&ebd_info->dol_loc);
+		obj->fll = read_ebd(data->buf, data->buf_sz, data->stride,
+					data->mbus_code, data->ebd_parsing_type,
+					&ebd_info->framelength_loc);
+		obj->temperature = read_ebd(data->buf, data->buf_sz, data->stride,
+					data->mbus_code, data->ebd_parsing_type,
+					&ebd_info->temperature_loc);
+
+		DRV_LOG(ctx,
+			"req_id/stride/bufsz/mbus/p_type(%u,%u,%u,0x%x,%u) frm_cnt/cit_sft/dol/fll/temp(%u/%u/0x%x/%u/0x%x) cit(%u,%u,%u,%u,%u) again(0x%x,0x%x,0x%x,0x%x,0x%x) dgain(0x%x,0x%x,0x%x,0x%x,0x%x)\n",
+			data->req_id, data->stride, data->buf_sz,
+			data->mbus_code, data->ebd_parsing_type,
+			obj->frm_cnt, obj->cit_shift, obj->dol, obj->fll, obj->temperature,
+			obj->cit[IMGSENSOR_STAGGER_EXPOSURE_LE],
+			obj->cit[IMGSENSOR_STAGGER_EXPOSURE_ME],
+			obj->cit[IMGSENSOR_STAGGER_EXPOSURE_SE],
+			obj->cit[IMGSENSOR_STAGGER_EXPOSURE_SSE],
+			obj->cit[IMGSENSOR_STAGGER_EXPOSURE_SSSE],
+			obj->again[IMGSENSOR_STAGGER_EXPOSURE_LE],
+			obj->again[IMGSENSOR_STAGGER_EXPOSURE_ME],
+			obj->again[IMGSENSOR_STAGGER_EXPOSURE_SE],
+			obj->again[IMGSENSOR_STAGGER_EXPOSURE_SSE],
+			obj->again[IMGSENSOR_STAGGER_EXPOSURE_SSSE],
+			obj->dgain[IMGSENSOR_STAGGER_EXPOSURE_LE],
+			obj->dgain[IMGSENSOR_STAGGER_EXPOSURE_ME],
+			obj->dgain[IMGSENSOR_STAGGER_EXPOSURE_SE],
+			obj->dgain[IMGSENSOR_STAGGER_EXPOSURE_SSE],
+			obj->dgain[IMGSENSOR_STAGGER_EXPOSURE_SSSE]);
+	} else
+		DRV_LOG_MUST(ctx, "buffer is null\n");
+
+	return 0;
+}

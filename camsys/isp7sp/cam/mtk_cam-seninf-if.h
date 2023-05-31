@@ -95,9 +95,9 @@ mtk_cam_seninf_sof_notify(struct mtk_seninf_sof_notify_param *param);
  */
 struct mtk_seninf_pad_data_info {
 	u8 feature;
-	u8 mux; // allocated per group
 	u16 exp_hsize;
 	u16 exp_vsize;
+	u32 mbus_code;
 };
 
 /**
@@ -110,6 +110,18 @@ struct mtk_seninf_pad_data_info {
  */
 int mtk_cam_seninf_get_pad_data_info(struct v4l2_subdev *sd,
 				unsigned int pad,
+				struct mtk_seninf_pad_data_info *result);
+
+/**
+ * Get embedded line info by mtk_mbus_code (with sensor mode info)
+ *
+ * @param sd v4l2_subdev
+ * @param scenario_mbus_code The mbus code with mtk sensor mode
+ * @param result The result
+ * @return 0 if success, and negative number if error occur
+ */
+int mtk_cam_seninf_get_ebd_info_by_scenario(struct v4l2_subdev *sd,
+				u32 scenario_mbus_code,
 				struct mtk_seninf_pad_data_info *result);
 
 /**
@@ -135,5 +147,30 @@ void
 mtk_cam_seninf_set_secure(struct v4l2_subdev *sd, int enable, u64 SecInfo_addr);
 
 bool is_fsync_listening_on_pd(struct v4l2_subdev *sd);
+
+/**
+ * Has embedded data line parser implemented
+ *
+ * @param sd v4l2_subdev
+ * @return 1 if parser implemented
+ */
+bool has_embedded_parser(struct v4l2_subdev *sd);
+
+/**
+ * Callback function for parsing embedded data line
+ *
+ * @param sd v4l2_subdev
+ * @param req_id Request id
+ * @param req_fd_desc Request fd description
+ * @param buf Buffer of received data
+ * @param buf_sz Size of buffer of received data
+ * @param stride Stride of buffer
+ * @param scenario_mbus_code The mbus code with mtk sensor mode
+ */
+void mtk_cam_seninf_parse_ebd_line(struct v4l2_subdev *sd,
+				unsigned int req_id,
+				char *req_fd_desc,
+				char *buf, u32 buf_sz,
+				u32 stride, u32 scenario_mbus_code);
 
 #endif

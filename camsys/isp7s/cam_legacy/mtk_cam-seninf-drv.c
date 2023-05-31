@@ -388,6 +388,10 @@ static u32 seninf_vsync_debug;
 module_param(seninf_vsync_debug, uint, 0644);
 MODULE_PARM_DESC(seninf_vsync_debug, "seninf_vsync_debug");
 
+static u32 seninf_dbg_log;
+module_param(seninf_dbg_log, uint, 0644);
+MODULE_PARM_DESC(seninf_dbg_log, "seninf_dbg_log");
+
 #define SENINF_DVFS_READY
 #ifdef SENINF_DVFS_READY
 static int seninf_dfs_init(struct seninf_dfs *dfs, struct device *dev)
@@ -803,6 +807,7 @@ static int seninf_core_probe(struct platform_device *pdev)
 		&core->hs_trail_parameter);
 
 	core->seninf_vsync_debug_flag = &seninf_vsync_debug;
+	core->seninf_dbg_log = &seninf_dbg_log;
 
 	core->aov_csi_clk_switch_flag = CSI_CLK_130;
 	core->aov_abnormal_deinit_flag = 0;

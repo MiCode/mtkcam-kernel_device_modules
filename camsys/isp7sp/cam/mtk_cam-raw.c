@@ -954,7 +954,8 @@ static irqreturn_t mtk_irq_raw(int irq, void *data)
 		if (not_support_rwfbc(raw_dev)) {
 			irq_info.fbc_empty = is_fbc_empty(raw_dev);
 		} else {
-			if (irq_status & FBIT(CAMCTL_SW_ENQUE_ERR_ST))
+			if (irq_status & FBIT(CAMCTL_SW_ENQUE_ERR_ST) ||
+				dcif_status & FBIT(CAMCTL_DCIF_LAST_CQ_START_INT_ST))
 				irq_info.fbc_empty = 1;
 			else
 				irq_info.fbc_empty = 0;

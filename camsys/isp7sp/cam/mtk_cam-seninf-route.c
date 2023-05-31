@@ -221,7 +221,7 @@ int mux2mux_vr(struct seninf_ctx *ctx, int mux, int cammux, int vc_idx)
 			   + (num_pdp_mux * PDP_MUX_FACTOR);
 	}
 
-	dev_info(ctx->dev,
+	seninf_logd(ctx,
 				"[%s] num_sat_mux %d num_sv_normal_mux %d num_raw_mux %d sat_based %d sv_based %d raw_based %d, pdp_based %d uisp_based %d\n",
 				__func__,
 				num_sat_mux,

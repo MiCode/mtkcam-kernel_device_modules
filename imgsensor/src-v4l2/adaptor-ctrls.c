@@ -90,6 +90,9 @@ static bool imgsensor_set_ctrl_locker(struct v4l2_ctrl *ctrl)
 		break;
 	}
 
+	if (!ctx->is_streaming) // allow i2c operation when streaming off
+		lock_set_ctrl = false;
+
 	if (ctx->sof_no)
 		lock_set_ctrl = false;
 
@@ -1321,9 +1324,9 @@ static int imgsensor_set_ctrl(struct v4l2_ctrl *ctrl)
 
 	if (imgsensor_set_ctrl_locker(ctrl)) {
 		dev_info(ctx->dev,
-		"[%s] skip imgsensor_set_ctrl with ctrl_id(%u), sof_cnt(%u) p_set_ctrl_unlock_flag(%u) \n",
+		"[%s] skip imgsensor_set_ctrl with ctrl_id_offset(%u), sof_cnt(%u) p_set_ctrl_unlock_flag(%u) \n",
 			__func__,
-			ctrl->id,
+			ctrl->id - V4L2_CID_USER_MTK_SENSOR_BASE,
 			ctx->sof_no,
 			*ctx->p_set_ctrl_unlock_flag);
 		return ret;

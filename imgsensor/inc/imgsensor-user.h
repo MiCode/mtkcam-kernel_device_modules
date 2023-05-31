@@ -487,6 +487,36 @@ struct mtk_sensor_profile {
 	__u64 hw_power_on_period;
 };
 
+struct mtk_gain_range {
+	__u32 min;
+	__u32 max;
+};
+
+struct mtk_shutter_range {
+	__u64 min;
+	__u64 max;
+};
+
+struct mtk_multi_exp_gain_range {
+	struct mtk_gain_range exposure[5];
+};
+
+struct mtk_multi_exp_shutter_range {
+	struct mtk_shutter_range exposure[5];
+};
+
+struct mtk_multi_exp_gain_range_by_scenario {
+	__u32 scenario_id;
+	__u32 exp_cnt;
+	struct mtk_multi_exp_gain_range *multi_exp_gain_range;
+};
+
+struct mtk_multi_exp_shutter_range_by_scenario {
+	__u32 scenario_id;
+	__u32 exp_cnt;
+	struct mtk_multi_exp_shutter_range *multi_exp_shutter_range;
+};
+
 
 /* GET */
 
@@ -628,6 +658,11 @@ struct mtk_sensor_profile {
 #define VIDIOC_MTK_G_SENSOR_PROFILE \
 	_IOWR('M', BASE_VIDIOC_PRIVATE + 48, struct mtk_sensor_profile)
 
+#define VIDIOC_MTK_G_MULTI_EXP_GAIN_RANGE_BY_SCENARIO \
+	_IOWR('M', BASE_VIDIOC_PRIVATE + 49, struct mtk_multi_exp_gain_range_by_scenario)
+
+#define VIDIOC_MTK_G_MULTI_EXP_SHUTTER_RANGE_BY_SCENARIO \
+	_IOWR('M', BASE_VIDIOC_PRIVATE + 50, struct mtk_multi_exp_shutter_range_by_scenario)
 /* SET */
 
 #define VIDIOC_MTK_S_VIDEO_FRAMERATE \

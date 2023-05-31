@@ -2567,6 +2567,38 @@ void get_dcg_type_by_scenario(struct subdrv_ctx *ctx,
 	*dcg_gain_mode = ctx->s_ctx.mode[scenario_id].dcg_info.dcg_gain_mode;
 }
 
+void get_multi_exp_gain_range_by_scenario(struct subdrv_ctx *ctx,
+		enum SENSOR_SCENARIO_ID_ENUM scenario_id,
+		u64 *exp_cnt, void *data)
+{
+	if (scenario_id >= ctx->s_ctx.sensor_mode_num) {
+		DRV_LOG(ctx, "invalid sid:%u, mode_num:%u\n",
+			scenario_id, ctx->s_ctx.sensor_mode_num);
+		scenario_id = SENSOR_SCENARIO_ID_NORMAL_PREVIEW;
+	}
+	*exp_cnt = ctx->s_ctx.mode[scenario_id].exp_cnt
+				? ctx->s_ctx.mode[scenario_id].exp_cnt : 1;
+	memcpy(data,
+		(void *)ctx->s_ctx.mode[scenario_id].multi_exposure_ana_gain_range,
+		sizeof(struct u32_min_max)*IMGSENSOR_EXPOSURE_CNT);
+}
+
+void get_multi_exp_shutter_range_by_scenario(struct subdrv_ctx *ctx,
+		enum SENSOR_SCENARIO_ID_ENUM scenario_id,
+		u64 *exp_cnt, void *data)
+{
+	if (scenario_id >= ctx->s_ctx.sensor_mode_num) {
+		DRV_LOG(ctx, "invalid sid:%u, mode_num:%u\n",
+			scenario_id, ctx->s_ctx.sensor_mode_num);
+		scenario_id = SENSOR_SCENARIO_ID_NORMAL_PREVIEW;
+	}
+	*exp_cnt = ctx->s_ctx.mode[scenario_id].exp_cnt
+				? ctx->s_ctx.mode[scenario_id].exp_cnt : 1;
+	memcpy(data,
+		(void *)ctx->s_ctx.mode[scenario_id].multi_exposure_shutter_range,
+		sizeof(struct u64_min_max)*IMGSENSOR_EXPOSURE_CNT);
+}
+
 int common_get_imgsensor_id(struct subdrv_ctx *ctx, u32 *sensor_id)
 {
 	u8 i = 0;
@@ -2600,7 +2632,7 @@ int common_get_imgsensor_id(struct subdrv_ctx *ctx, u32 *sensor_id)
 
 void subdrv_ctx_init(struct subdrv_ctx *ctx)
 {
-	int i;
+	int i, j, exp_cnt;
 
 	ctx->ana_gain_def = ctx->s_ctx.ana_gain_def;
 	ctx->ana_gain_max = ctx->s_ctx.ana_gain_max;
@@ -2646,6 +2678,22 @@ void subdrv_ctx_init(struct subdrv_ctx *ctx)
 			ctx->exposure_min = ctx->s_ctx.mode[i].min_exposure_line;
 		if (!ctx->s_ctx.mode[i].saturation_info)
 			ctx->s_ctx.mode[i].saturation_info = ctx->s_ctx.saturation_info;
+		exp_cnt = ctx->s_ctx.mode[i].exp_cnt ?
+					ctx->s_ctx.mode[i].exp_cnt : 1;
+		for (j = 0; j < exp_cnt; j++) {
+			if (!ctx->s_ctx.mode[i].multi_exposure_ana_gain_range[j].min)
+				ctx->s_ctx.mode[i].multi_exposure_ana_gain_range[j].min =
+					ctx->s_ctx.ana_gain_min;
+			if (!ctx->s_ctx.mode[i].multi_exposure_ana_gain_range[j].max)
+				ctx->s_ctx.mode[i].multi_exposure_ana_gain_range[j].max =
+					ctx->s_ctx.ana_gain_max;
+			if (!ctx->s_ctx.mode[i].multi_exposure_shutter_range[j].min)
+				ctx->s_ctx.mode[i].multi_exposure_shutter_range[j].min =
+					ctx->s_ctx.exposure_min;
+			if (!ctx->s_ctx.mode[i].multi_exposure_shutter_range[j].max)
+				ctx->s_ctx.mode[i].multi_exposure_shutter_range[j].max =
+					ctx->s_ctx.exposure_max;
+		}
 	}
 	ctx->aov_sensor_support = ctx->s_ctx.aov_sensor_support;
 	ctx->aov_csi_clk = ctx->s_ctx.aov_csi_clk;
@@ -3338,6 +3386,16 @@ int common_feature_control(struct subdrv_ctx *ctx, MSDK_SENSOR_FEATURE_ENUM feat
 		DRV_LOG_MUST(ctx,
 			"[%s] SENSOR_FEATURE_SET_AOV_CSI_CLK(%u)\n",
 			__func__, *feature_data_32);
+		break;
+	case SENSOR_FEATURE_GET_MULTI_EXP_GAIN_RANGE_BY_SCENARIO:
+		get_multi_exp_gain_range_by_scenario(ctx,
+			(enum SENSOR_SCENARIO_ID_ENUM)*(feature_data),
+			feature_data + 1, (void *)(uintptr_t)(*(feature_data + 2)));
+		break;
+	case SENSOR_FEATURE_GET_MULTI_EXP_SHUTTER_RANGE_BY_SCENARIO:
+		get_multi_exp_shutter_range_by_scenario(ctx,
+			(enum SENSOR_SCENARIO_ID_ENUM)*(feature_data),
+			feature_data + 1, (void *)(uintptr_t)(*(feature_data + 2)));
 		break;
 	default:
 		DRV_LOGE(ctx, "feature_id %u is invalid\n", feature_id);

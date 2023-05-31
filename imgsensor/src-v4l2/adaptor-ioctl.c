@@ -1645,6 +1645,54 @@ static int g_sensor_profile(struct adaptor_ctx *ctx, void *arg)
 	return 0;
 }
 
+static int g_multi_exp_gain_range_by_scenario(struct adaptor_ctx *ctx, void *arg)
+{
+	struct mtk_multi_exp_gain_range_by_scenario *info = arg;
+	struct mtk_multi_exp_gain_range gain_range;
+	union feature_para para;
+	u32 len;
+
+	memset(&gain_range, 0, sizeof(struct mtk_multi_exp_gain_range));
+	para.u64[0] = info->scenario_id;
+	para.u64[1] = 0;
+	para.u64[2] = (u64)gain_range.exposure;
+
+	subdrv_call(ctx, feature_control,
+		SENSOR_FEATURE_GET_MULTI_EXP_GAIN_RANGE_BY_SCENARIO,
+		para.u8, &len);
+
+	info->exp_cnt = para.u64[1];
+	if (copy_to_user((void *)info->multi_exp_gain_range,
+			&gain_range, sizeof(struct mtk_multi_exp_gain_range)))
+		return -EFAULT;
+
+	return 0;
+}
+
+static int g_multi_exp_shutter_range_by_scenario(struct adaptor_ctx *ctx, void *arg)
+{
+	struct mtk_multi_exp_shutter_range_by_scenario *info = arg;
+	struct mtk_multi_exp_shutter_range shutter_range;
+	union feature_para para;
+	u32 len;
+
+	memset(&shutter_range, 0, sizeof(struct mtk_multi_exp_shutter_range));
+	para.u64[0] = info->scenario_id;
+	para.u64[1] = 0;
+	para.u64[2] = (u64)shutter_range.exposure;
+
+	subdrv_call(ctx, feature_control,
+		SENSOR_FEATURE_GET_MULTI_EXP_SHUTTER_RANGE_BY_SCENARIO,
+		para.u8, &len);
+
+	info->exp_cnt = para.u64[1];
+	if (copy_to_user((void *)info->multi_exp_shutter_range,
+			&shutter_range, sizeof(struct mtk_multi_exp_shutter_range)))
+		return -EFAULT;
+
+	return 0;
+}
+
 struct ioctl_entry {
 	unsigned int cmd;
 	int (*func)(struct adaptor_ctx *ctx, void *arg);
@@ -1700,6 +1748,8 @@ static const struct ioctl_entry ioctl_list[] = {
 	{VIDIOC_MTK_G_DCG_GAIN_RATIO_TABLE_BY_SCENARIO, g_dcg_gain_ratio_table_by_scenario},
 	{VIDIOC_MTK_G_DCG_GAIN_RATIO_RANGE_BY_SCENARIO, g_dcg_gain_ratio_range_by_scenario},
 	{VIDIOC_MTK_G_DCG_TYPE_BY_SCENARIO, g_dcg_type_by_scenario},
+	{VIDIOC_MTK_G_MULTI_EXP_GAIN_RANGE_BY_SCENARIO, g_multi_exp_gain_range_by_scenario},
+	{VIDIOC_MTK_G_MULTI_EXP_SHUTTER_RANGE_BY_SCENARIO, g_multi_exp_shutter_range_by_scenario},
 	/* SET */
 	{VIDIOC_MTK_S_VIDEO_FRAMERATE, s_video_framerate},
 	{VIDIOC_MTK_S_MAX_FPS_BY_SCENARIO, s_max_fps_by_scenario},

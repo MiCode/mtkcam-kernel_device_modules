@@ -888,9 +888,18 @@ static void update_sensor_active_info(struct mtk_cam_job *job)
 
 	/* get active line time */
 	if (ctx->act_line_info.avg_linetime_in_ns == 0 ||
-		job->seamless_switch || job->raw_switch)
+		job->seamless_switch || job->raw_switch) {
+		struct mtk_raw_sink_data *sink = get_raw_sink_data(job);
+
+		if (!sink) {
+			pr_info("%s: raw_data not found: ctx-%d job %d\n",
+				 __func__, ctx->stream_id, job->frame_seq_no);
+			return;
+		}
+
 		mtk_cam_seninf_get_active_line_info(
-				job->seninf, &ctx->act_line_info);
+			job->seninf, sink->mbus_code, &ctx->act_line_info);
+	}
 }
 
 void mtk_cam_fill_qos(struct req_buffer_helper *helper)

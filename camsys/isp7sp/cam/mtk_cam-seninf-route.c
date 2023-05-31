@@ -1665,16 +1665,53 @@ int mtk_cam_seninf_get_tag_order(struct v4l2_subdev *sd, int pad_id)
 	struct seninf_ctx *ctx = container_of(sd, struct seninf_ctx, subdev);
 	struct seninf_vcinfo *vcinfo = &ctx->vcinfo;
 	struct seninf_vc *vc;
-	int ret = 0;
-	int i = 0;
+	int ret = 0, i = 0, j = 0, map_cnt = 0;
 	int exposure_num = 0;
+	int *out_pad_map = NULL;
+
+	if (sd == NULL) {
+		pr_info("[%s][ERROR] sd is NULL\n", __func__);
+		return -EINVAL;
+	}
+
+	ctx = container_of(sd, struct seninf_ctx, subdev);
+
+	if (ctx == NULL) {
+		pr_info("[%s][ERROR] ctx is NULL\n", __func__);
+		return -EINVAL;
+	}
+
+	vcinfo = &ctx->vcinfo;
+
+	if (vcinfo == NULL) {
+		pr_info("[%s][ERROR] vcinfo is NULL\n", __func__);
+		return -EINVAL;
+	}
+
+	out_pad_map = kmalloc_array(vcinfo->cnt, sizeof(int), GFP_KERNEL);
+
+	if (out_pad_map == NULL) {
+		pr_info("[%s][ERROR] out_pad_map is NULL\n", __func__);
+		return -EINVAL;
+	}
 
 	for (i = 0; i < vcinfo->cnt; i++) {
 		vc = &vcinfo->vc[i];
+
 		if (vc->out_pad == PAD_SRC_RAW0  ||
 			vc->out_pad == PAD_SRC_RAW1  ||
 			vc->out_pad == PAD_SRC_RAW2) {
-			exposure_num++;
+
+			for (j = 0; j < map_cnt; j++) { /* find pad if already in map */
+				if (out_pad_map[j] == vc->out_pad)
+					break;
+			}
+
+			if (map_cnt == j) { /* if not found in pad map */
+				out_pad_map[j] = vc->out_pad;
+				map_cnt = j + 1;
+			}
+			exposure_num = map_cnt;
 		}
 	}
 
@@ -1703,7 +1740,13 @@ int mtk_cam_seninf_get_tag_order(struct v4l2_subdev *sd, int pad_id)
 		ret = 0;
 		break;
 	}
+	dev_info(ctx->dev,
+			"[%s][23161] input pad_id (%d) return tag_order(%d)\n",
+			__func__,
+			pad_id,
+			ret);
 
+	kfree(out_pad_map);
 	return ret;
 }
 

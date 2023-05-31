@@ -117,6 +117,44 @@ static int apply_sensor_async(struct mtk_cam_job *job)
 	return mtk_cam_ctx_queue_sensor_worker(ctx, &job->sensor_work);
 }
 
+static int handle_cq_done(struct mtk_cam_job *job)
+{
+	struct mtk_cam_ctx *ctx = job->src_ctx;
+	struct mtk_cam_device *cam = ctx->cam;
+	struct mtk_mraw_device *mraw_dev;
+	unsigned int i, mraw_idx;
+	int ret = 0;
+
+	if (job->first_job || job->first_frm_switch)
+		goto EXIT;
+
+	/* turn on mraw vf when first frame setting applied */
+	for (i = 0; i < ctx->num_mraw_subdevs; i++) {
+		mraw_idx = ctx->mraw_subdev_idx[i];
+		mraw_dev = dev_get_drvdata(cam->engines.mraw_devs[mraw_idx]);
+
+		if (CAM_DEBUG_ENABLED(JOB))
+			pr_info("%s idx:%d used_engine:0x%x first_job:%d first_frm_switch:%d is_vf_on:%d\n",
+				__func__,
+				mraw_dev->id,
+				job->used_engine,
+				job->first_job,
+				job->first_frm_switch,
+				atomic_read(&mraw_dev->is_vf_on));
+
+		if (!(job->used_engine & bit_map_bit(MAP_HW_MRAW, mraw_idx)))
+			continue;
+
+		if (atomic_read(&mraw_dev->is_vf_on) == 0) {
+			atomic_set(&mraw_dev->is_vf_on, 1);
+			mtk_cam_mraw_vf_on(mraw_dev, true);
+		}
+	}
+
+EXIT:
+	return ret;
+}
+
 bool mtk_cam_job_has_pending_action(struct mtk_cam_job *job)
 {
 	return mtk_cam_job_state_has_action(&job->job_state);
@@ -147,6 +185,10 @@ int mtk_cam_job_apply_pending_action(struct mtk_cam_job *job)
 
 	if (action & ACTION_APPLY_ISP_PROCRAW_EXTISP)
 		ret = ret || call_jobop(job, apply_extisp_procraw);
+
+	if (action & ACTION_CQ_DONE)
+		ret = ret || handle_cq_done(job);
+
 	return ret;
 }
 
@@ -960,6 +1002,9 @@ _stream_on(struct mtk_cam_job *job, bool on)
 	for (i = 0; i < ctx->num_mraw_subdevs; i++) {
 		if (ctx->hw_mraw[i]) {
 			mraw_dev = dev_get_drvdata(ctx->hw_mraw[i]);
+			if (job->used_engine &
+				bit_map_bit(MAP_HW_MRAW, ctx->mraw_subdev_idx[i]))
+				atomic_set(&mraw_dev->is_vf_on, 1);
 			mtk_cam_mraw_update_start_period(mraw_dev, job->scq_period);
 			mtk_cam_mraw_dev_stream_on(mraw_dev, on);
 		}

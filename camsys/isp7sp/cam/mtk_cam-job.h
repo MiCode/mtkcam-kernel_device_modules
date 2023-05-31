@@ -103,6 +103,7 @@ enum mtk_cam_job_action {
 	ACTION_APPLY_ISP_EXTMETA_PD_EXTISP = 64, /* extisp used for apply cq for extmeta data */
 	ACTION_APPLY_ISP_PROCRAW_EXTISP = 128, /* extisp used for apply cq for proc raw data */
 	ACTION_BUFFER_EXTMETA_PD_DONE = 256,
+	ACTION_CQ_DONE = 512,
 };
 
 enum mtk_camsys_event_type {

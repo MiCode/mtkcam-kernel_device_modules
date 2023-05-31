@@ -29,9 +29,6 @@
 #define LOG_INF(format, args...) pr_info(PFX "[%s] " format, __func__, ##args)
 #define LOG_DEBUG(...) do { if ((DEBUG_LOG_EN)) LOG_INF(__VA_ARGS__); } while (0)
 
-#define MT6985_PHY_CTRL_VERSIONS "mt6985"
-#define MT6989_PHY_CTRL_VERSIONS "mt6989"
-
 static const char * const clk_names[] = {
 	ADAPTOR_CLK_NAMES
 };
@@ -1428,83 +1425,41 @@ static int get_csi_param(struct subdrv_ctx *ctx,
 	enum SENSOR_SCENARIO_ID_ENUM scenario_id,
 	struct mtk_csi_param *csi_param)
 {
-	// LOG_INF("+ scenario_id:%u,aov_csi_clk:%u\n",
-		// scenario_id, ctx->aov_csi_clk);
-
 	switch (scenario_id) {
 	case SENSOR_SCENARIO_ID_NORMAL_PREVIEW:
 	case SENSOR_SCENARIO_ID_NORMAL_CAPTURE:
 		csi_param->legacy_phy = 0;
 		csi_param->not_fixed_trail_settle = 1;
 		csi_param->not_fixed_dphy_settle = 1;
-		if (ctx->aov_phy_ctrl_ver == NULL) {
-			csi_param->dphy_data_settle = 0x13;
-			csi_param->dphy_clk_settle = 0x13;
-			csi_param->dphy_trail = 0x34;
-			csi_param->dphy_csi2_resync_dmy_cycle = 0xF;
-		} else if (!strcasecmp(ctx->aov_phy_ctrl_ver,
-			MT6989_PHY_CTRL_VERSIONS)) {
-			csi_param->dphy_data_settle = 0x18;
-			csi_param->dphy_clk_settle = 0x18;
-			csi_param->dphy_trail = 0x43;
-			csi_param->dphy_csi2_resync_dmy_cycle = 0x13;
-		} else {
-			DRV_LOGE(ctx, "phy_ctrl_ver is invalid\n");
-			return -EINVAL;
-		}
+		csi_param->dphy_data_settle = 0x13;
+		csi_param->dphy_clk_settle = 0x13;
+		csi_param->dphy_trail = 0x34;
+		csi_param->dphy_csi2_resync_dmy_cycle = 0xF;
 		break;
 	case SENSOR_SCENARIO_ID_NORMAL_VIDEO:
 		csi_param->legacy_phy = 0;
 		csi_param->not_fixed_trail_settle = 1;
 		csi_param->not_fixed_dphy_settle = 1;
-		if (ctx->aov_phy_ctrl_ver == NULL) {
-			csi_param->dphy_data_settle = 0x12;
-			csi_param->dphy_clk_settle = 0x12;
-			csi_param->dphy_trail = 0x31;
-			csi_param->dphy_csi2_resync_dmy_cycle = 0xF;
-		} else if (!strcasecmp(ctx->aov_phy_ctrl_ver,
-			MT6989_PHY_CTRL_VERSIONS)) {
-			csi_param->dphy_data_settle = 0x17;
-			csi_param->dphy_clk_settle = 0x17;
-			csi_param->dphy_trail = 0x3F;
-			csi_param->dphy_csi2_resync_dmy_cycle = 0x13;
-		} else {
-			DRV_LOGE(ctx, "phy_ctrl_ver is invalid\n");
-			return -EINVAL;
-		}
+		csi_param->dphy_data_settle = 0x12;
+		csi_param->dphy_clk_settle = 0x12;
+		csi_param->dphy_trail = 0x31;
+		csi_param->dphy_csi2_resync_dmy_cycle = 0xF;
 		break;
 	case SENSOR_SCENARIO_ID_HIGHSPEED_VIDEO:
 	case SENSOR_SCENARIO_ID_SLIM_VIDEO:
 		csi_param->legacy_phy = 0;
 		csi_param->not_fixed_trail_settle = 1;
 		csi_param->not_fixed_dphy_settle = 1;
-		if (ctx->aov_phy_ctrl_ver == NULL) {
-			csi_param->dphy_data_settle = 0x13;
-			csi_param->dphy_clk_settle = 0x13;
-			csi_param->dphy_trail = 0x35;
-			csi_param->dphy_csi2_resync_dmy_cycle = 0xF;
-		} else if (!strcasecmp(ctx->aov_phy_ctrl_ver,
-			MT6989_PHY_CTRL_VERSIONS)) {
-			csi_param->dphy_data_settle = 0x19;
-			csi_param->dphy_clk_settle = 0x19;
-			csi_param->dphy_trail = 0x44;
-			csi_param->dphy_csi2_resync_dmy_cycle = 0x14;
-		} else {
-			DRV_LOGE(ctx, "phy_ctrl_ver is invalid\n");
-			return -EINVAL;
-		}
+		csi_param->dphy_data_settle = 0x13;
+		csi_param->dphy_clk_settle = 0x13;
+		csi_param->dphy_trail = 0x35;
+		csi_param->dphy_csi2_resync_dmy_cycle = 0xF;
 		break;
 	case SENSOR_SCENARIO_ID_CUSTOM1:
 		csi_param->legacy_phy = 0;
 		csi_param->not_fixed_trail_settle = 1;
 		csi_param->not_fixed_dphy_settle = 1;
 		switch (ctx->aov_csi_clk) {
-		case 312:
-			csi_param->dphy_data_settle = 0x19;
-			csi_param->dphy_clk_settle = 0x19;
-			csi_param->dphy_trail = 0xA8;
-			csi_param->dphy_csi2_resync_dmy_cycle = 0x31;
-			break;
 		case 242:
 			csi_param->dphy_data_settle = 0x13;
 			csi_param->dphy_clk_settle = 0x13;
@@ -1512,21 +1467,10 @@ static int get_csi_param(struct subdrv_ctx *ctx,
 			csi_param->dphy_csi2_resync_dmy_cycle = 0x26;
 			break;
 		case 130:
-			if (ctx->aov_phy_ctrl_ver == NULL) {
-				csi_param->dphy_data_settle = 0xB;
-				csi_param->dphy_clk_settle = 0xB;
-				csi_param->dphy_trail = 0x46;
-				csi_param->dphy_csi2_resync_dmy_cycle = 0x15;
-			} else if (!strcasecmp(ctx->aov_phy_ctrl_ver,
-				MT6989_PHY_CTRL_VERSIONS)) {
-				csi_param->dphy_data_settle = 0xC;
-				csi_param->dphy_clk_settle = 0xC;
-				csi_param->dphy_trail = 0x50;
-				csi_param->dphy_csi2_resync_dmy_cycle = 0x15;
-			} else {
-				DRV_LOGE(ctx, "phy_ctrl_ver is invalid\n");
-				return -EINVAL;
-			}
+			csi_param->dphy_data_settle = 0xB;
+			csi_param->dphy_clk_settle = 0xB;
+			csi_param->dphy_trail = 0x46;
+			csi_param->dphy_csi2_resync_dmy_cycle = 0x15;
 			break;
 		}
 		break;
@@ -1535,12 +1479,6 @@ static int get_csi_param(struct subdrv_ctx *ctx,
 		csi_param->not_fixed_trail_settle = 1;
 		csi_param->not_fixed_dphy_settle = 1;
 		switch (ctx->aov_csi_clk) {
-		case 312:
-			csi_param->dphy_data_settle = 0x17;
-			csi_param->dphy_clk_settle = 0x17;
-			csi_param->dphy_trail = 0x96;
-			csi_param->dphy_csi2_resync_dmy_cycle = 0x2D;
-			break;
 		case 242:
 			csi_param->dphy_data_settle = 0x12;
 			csi_param->dphy_clk_settle = 0x12;
@@ -1548,21 +1486,10 @@ static int get_csi_param(struct subdrv_ctx *ctx,
 			csi_param->dphy_csi2_resync_dmy_cycle = 0x23;
 			break;
 		case 130:
-			if (ctx->aov_phy_ctrl_ver== NULL) {
-				csi_param->dphy_data_settle = 0xA;
-				csi_param->dphy_clk_settle = 0xA;
-				csi_param->dphy_trail = 0x3F;
-				csi_param->dphy_csi2_resync_dmy_cycle = 0x13;
-			} else if (!strcasecmp(ctx->aov_phy_ctrl_ver,
-				MT6989_PHY_CTRL_VERSIONS)) {
-				csi_param->dphy_data_settle = 0xC;
-				csi_param->dphy_clk_settle = 0xC;
-				csi_param->dphy_trail = 0x4D;
-				csi_param->dphy_csi2_resync_dmy_cycle = 0x13;
-			} else {
-				DRV_LOGE(ctx, "phy_ctrl_ver is invalid\n");
-				return -EINVAL;
-			}
+			csi_param->dphy_data_settle = 0xA;
+			csi_param->dphy_clk_settle = 0xA;
+			csi_param->dphy_trail = 0x3F;
+			csi_param->dphy_csi2_resync_dmy_cycle = 0x13;
 			break;
 		}
 		break;
@@ -1571,12 +1498,6 @@ static int get_csi_param(struct subdrv_ctx *ctx,
 		csi_param->not_fixed_trail_settle = 1;
 		csi_param->not_fixed_dphy_settle = 1;
 		switch (ctx->aov_csi_clk) {
-		case 312:
-			csi_param->dphy_data_settle = 0x18;
-			csi_param->dphy_clk_settle = 0x18;
-			csi_param->dphy_trail = 0xA3;
-			csi_param->dphy_csi2_resync_dmy_cycle = 0x2F;
-			break;
 		case 242:
 			csi_param->dphy_data_settle = 0x13;
 			csi_param->dphy_clk_settle = 0x13;
@@ -1584,21 +1505,10 @@ static int get_csi_param(struct subdrv_ctx *ctx,
 			csi_param->dphy_csi2_resync_dmy_cycle = 0x25;
 			break;
 		case 130:
-			if (ctx->aov_phy_ctrl_ver == NULL) {
-				csi_param->dphy_data_settle = 0xA;
-				csi_param->dphy_clk_settle = 0xA;
-				csi_param->dphy_trail = 0x44;
-				csi_param->dphy_csi2_resync_dmy_cycle = 0x14;
-			} else if (!strcasecmp(ctx->aov_phy_ctrl_ver,
-				MT6989_PHY_CTRL_VERSIONS)) {
-				csi_param->dphy_data_settle = 0xC;
-				csi_param->dphy_clk_settle = 0xC;
-				csi_param->dphy_trail = 0x4B;
-				csi_param->dphy_csi2_resync_dmy_cycle = 0x14;
-			} else {
-				DRV_LOGE(ctx, "phy_ctrl_ver is invalid\n");
-				return -EINVAL;
-			}
+			csi_param->dphy_data_settle = 0xA;
+			csi_param->dphy_clk_settle = 0xA;
+			csi_param->dphy_trail = 0x44;
+			csi_param->dphy_csi2_resync_dmy_cycle = 0x14;
 			break;
 		}
 		break;
@@ -1613,12 +1523,6 @@ static int get_csi_param(struct subdrv_ctx *ctx,
 		csi_param->not_fixed_trail_settle = 1;
 		csi_param->not_fixed_dphy_settle = 1;
 		switch (ctx->aov_csi_clk) {
-		case 312:
-			csi_param->dphy_data_settle = 0x19;
-			csi_param->dphy_clk_settle = 0x19;
-			csi_param->dphy_trail = 0xE6;
-			csi_param->dphy_csi2_resync_dmy_cycle = 0x43;
-			break;
 		case 242:
 			csi_param->dphy_data_settle = 0x14;
 			csi_param->dphy_clk_settle = 0x14;
@@ -1626,21 +1530,10 @@ static int get_csi_param(struct subdrv_ctx *ctx,
 			csi_param->dphy_csi2_resync_dmy_cycle = 0x34;
 			break;
 		case 130:
-			if (ctx->aov_phy_ctrl_ver == NULL) {
-				csi_param->dphy_data_settle = 0xB;
-				csi_param->dphy_clk_settle = 0xB;
-				csi_param->dphy_trail = 0x60;
-				csi_param->dphy_csi2_resync_dmy_cycle = 0x1C;
-			} else if (!strcasecmp(ctx->aov_phy_ctrl_ver,
-				MT6989_PHY_CTRL_VERSIONS)) {
-				csi_param->dphy_data_settle = 0xC;
-				csi_param->dphy_clk_settle = 0xC;
-				csi_param->dphy_trail = 0x77;
-				csi_param->dphy_csi2_resync_dmy_cycle = 0x1C;
-			} else {
-				DRV_LOGE(ctx, "phy_ctrl_ver is invalid\n");
-				return -EINVAL;
-			}
+			csi_param->dphy_data_settle = 0xB;
+			csi_param->dphy_clk_settle = 0xB;
+			csi_param->dphy_trail = 0x60;
+			csi_param->dphy_csi2_resync_dmy_cycle = 0x1C;
 			break;
 		}
 		break;
@@ -1651,9 +1544,8 @@ static int get_csi_param(struct subdrv_ctx *ctx,
 		break;
 	}
 	DRV_LOG_MUST(ctx,
-		"[%s] scenario:%u,aov_csi_clk[%u] %d|%d|%d|%d|%d|%d|%d|%d\n",
+		"[%s] aov_csi_clk[%u] %d|%d|%d|%d|%d|%d|%d|%d\n",
 		__func__,
-		scenario_id,
 		ctx->aov_csi_clk,
 		csi_param->cphy_settle,
 		csi_param->dphy_clk_settle,

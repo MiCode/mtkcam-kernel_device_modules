@@ -77,6 +77,32 @@ enum SET_REG_KEYS {
 	"RG_AOV_CSI_CLK_SWITCH", \
 	"RG_MIPI_ERROR_DETECT_EN", \
 
+enum EYE_SCAN_KEYS {
+	EYE_SCAN_KEYS_EQ_DG0_EN,
+	EYE_SCAN_KEYS_EQ_SR0,
+	EYE_SCAN_KEYS_EQ_DG1_EN,
+	EYE_SCAN_KEYS_EQ_SR1,
+	EYE_SCAN_KEYS_EQ_BW,
+	EYE_SCAN_KEYS_CDR_DELAY,
+	EYE_SCAN_KEYS_GET_CRC_STATUS,
+	EYE_SCAN_KEYS_CDR_DELAY_DPHY_EN,
+	EYE_SCAN_KEYS_FLUSH_CRC_STATUS,
+	EYE_SCAN_KEYS_EQ_OFFSET,
+	EYE_SCAN_MAX_NUM
+};
+
+#define EYE_SCAN_KEYS_NAMES \
+	"EQ_DG0_EN", \
+	"EQ_SR0", \
+	"EQ_DG1_EN", \
+	"EQ_SR1", \
+	"EQ_BW", \
+	"CDR_DELAY", \
+	"GET_CRC_STATUS", \
+	"CDR_DELAY_DPHY_EN", \
+	"FLUSH_CRC_STATUS",\
+	"EQ_OFFSET",\
+
 struct mtk_cam_seninf_mux_meter {
 	u32 width;
 	u32 height;
@@ -181,6 +207,7 @@ struct mtk_cam_seninf_ops {
 	int (*_debug)(struct seninf_ctx *ctx);
 	int (*_get_debug_reg_result)(struct seninf_ctx *ctx, void *arg);
 	int (*_get_tsrec_timestamp)(struct seninf_ctx *ctx, void *arg);
+	int (*_eye_scan)(struct seninf_ctx *ctx, u32 key, int val, char *plog, int logbuf_size);
 	int (*_set_reg)(struct seninf_ctx *ctx, u32 key, u64 val);
 	ssize_t (*_show_err_status)(struct device *dev, struct device_attribute *attr, char *buf);
 	int (*_enable_stream_err_detect)(struct seninf_ctx *ctx);

@@ -27,6 +27,8 @@
 #include "mtk-vmm-notifier.h"
 #include "mtk_mmdvfs.h"
 
+#include "mtk_notify_aov.h"
+
 uint32_t g_frame_mode;
 #ifdef CONFIG_PM_WAKELOCKS
 struct wakeup_source *aov_wake_lock;
@@ -97,7 +99,6 @@ int mtk_aov_notify(struct platform_device *pdev, uint32_t notify, uint32_t statu
 
 	return ret;
 }
-EXPORT_SYMBOL(mtk_aov_notify);
 
 static inline bool mtk_aov_is_open(struct mtk_aov *aov_dev)
 {
@@ -377,6 +378,8 @@ static int mtk_aov_probe(struct platform_device *pdev)
 		dev_info(&pdev->dev, "device create fail  err= %d", ret);
 		goto err_device;
 	}
+
+	aov_notify_register(mtk_aov_notify);
 	dev_info(&pdev->dev, "%s probe aov driver-\n", __func__);
 	return 0;
 

@@ -15,5 +15,6 @@ define_mgk_ko(
     ],
     deps = [
         "//vendor/mediatek/kernel_modules/mtkcam/camsys:camsys",
+        "//vendor/mediatek/kernel_modules/mtkcam/mtk-aie:mtk-aie",
     ],
 )

@@ -88,6 +88,20 @@ struct fs_streaming_st imx516 = {
 };
 
 
+struct fs_streaming_st ov64b = {
+	.sensor_idx = 0,
+	.sensor_id = 0x64,
+	.tg = 2,
+	.fl_active_delay = 2,
+	.def_fl_lc = 3660*2,
+	.max_fl_lc = 0xFFFFFF,
+	.def_shutter_lc = 0x3D0,
+	.pclk = 115200000,
+	.linelength = 528,
+	.lineTimeInNs = 4584,
+};
+
+
 /******************************************************************************/
 struct ut_fs_streaming_sensor_list ut_fs_s_list[] = {
 	/* Head */
@@ -109,6 +123,16 @@ struct ut_fs_streaming_sensor_list ut_fs_s_list[] = {
 	{
 		.sensor_name = "imx766",
 		.sensor = &imx766,
+	},
+
+	{
+		.sensor_name = "imx516",
+		.sensor = &imx516,
+	},
+
+	{
+		.sensor_name = "ov64b",
+		.sensor = &ov64b,
 	},
 
 	/* End */

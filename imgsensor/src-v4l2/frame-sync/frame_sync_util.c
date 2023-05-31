@@ -4,7 +4,7 @@
  */
 
 #include "frame_sync_util.h"
-#include "frame_sync_def.h"
+#include "frame_monitor.h"
 
 
 /******************************************************************************/
@@ -23,79 +23,141 @@
 /******************************************************************************/
 // Frame Sync Utilities function
 /******************************************************************************/
-long long calc_mod_64(const long long a, const long long b)
+void fs_util_tsrec_dynamic_msg_connector(const unsigned int idx,
+	char *log_buf, int len, const char *caller)
 {
-	/* assuming b > 0 */
-	long long r = a % b;
+#if defined(USING_TSREC)
+	const struct mtk_cam_seninf_tsrec_timestamp_info
+		*p_ts_info = frm_get_tsrec_timestamp_info_ptr(idx);
+	const unsigned int exp_id = TSREC_1ST_EXP_ID;
+	unsigned int act_fl_arr[VSYNCS_MAX-1] = {0};
+	unsigned int i;
 
-	return (r < 0) ? (r + b) : r;
+	if (frm_get_ts_src_type() != FS_TS_SRC_TSREC)
+		return;
+	if (unlikely(p_ts_info == NULL)) {
+		fs_spin_lock(&fs_log_concurrency_lock);
+		LOG_MUST(
+			"[%s] ERROR: USING_TSREC timestamp, but get p_ts_info:%p, skip dump tsrec ts info part\n",
+			caller, p_ts_info);
+		LOG_MUST("%s\n", log_buf);
+		fs_spin_unlock(&fs_log_concurrency_lock);
+		return;
+	}
+
+	/* prepare information for printing */
+	for (i = 0; i < VSYNCS_MAX-1; ++i) {
+		fs_timestamp_t tick_a, tick_b;
+
+		/* check if this is first timestamp & get tick factor */
+		if (unlikely((!p_ts_info->exp_recs[exp_id].ts_us[1])
+				|| (!p_ts_info->tick_factor)))
+			break;
+		/* update actual frame length by timestamp diff */
+		tick_a = (p_ts_info->tick_factor *
+			p_ts_info->exp_recs[exp_id].ts_us[i]);
+		tick_b = (p_ts_info->tick_factor *
+			p_ts_info->exp_recs[exp_id].ts_us[i+1]);
+		act_fl_arr[i] = ((tick_a - tick_b) / p_ts_info->tick_factor);
+	}
+
+	/* print TSREC info */
+	FS_SNPRINTF(log_buf, len,
+		", tsrec[(no:%u/inf:%u,irq(%llu(ns)/%llu(us)+%llu), act_fl(%u/%u/%u), (0:(%llu/%llu/%llu/%llu), 1:(%llu/%llu/%llu/%llu), 2:(%llu/%llu/%llu/%llu))]",
+		p_ts_info->tsrec_no, p_ts_info->seninf_idx,
+		p_ts_info->irq_sys_time_ns, p_ts_info->irq_tsrec_ts_us,
+		(convert_tick_2_timestamp(
+			(p_ts_info->tsrec_curr_tick
+				- (p_ts_info->exp_recs[exp_id].ts_us[0]
+					* p_ts_info->tick_factor)),
+			p_ts_info->tick_factor)),
+		act_fl_arr[0],
+		act_fl_arr[1],
+		act_fl_arr[2],
+		p_ts_info->exp_recs[0].ts_us[0],
+		p_ts_info->exp_recs[0].ts_us[1],
+		p_ts_info->exp_recs[0].ts_us[2],
+		p_ts_info->exp_recs[0].ts_us[3],
+		p_ts_info->exp_recs[1].ts_us[0],
+		p_ts_info->exp_recs[1].ts_us[1],
+		p_ts_info->exp_recs[1].ts_us[2],
+		p_ts_info->exp_recs[1].ts_us[3],
+		p_ts_info->exp_recs[2].ts_us[0],
+		p_ts_info->exp_recs[2].ts_us[1],
+		p_ts_info->exp_recs[2].ts_us[2],
+		p_ts_info->exp_recs[2].ts_us[3]);
+#endif // USING_TSREC
 }
 
 
-inline unsigned int calcLineTimeInNs(
-	const unsigned int pclk, const unsigned int linelength)
+/*
+ * return: (0/1) or 0xFFFFFFFF
+ *     0xFFFFFFFF: when check_idx_valid() return error
+ */
+unsigned int check_bit_atomic(const unsigned int idx,
+	const FS_Atomic_T *p_fs_atomic_val)
 {
-	unsigned int val = 0;
+	const unsigned int ret = check_idx_valid(idx);
+	unsigned int result = 0;
 
-	if ((pclk / 1000) == 0)
-		return 0;
+	if (unlikely(ret == 0))
+		return 0xFFFFFFFF;
 
-	val = ((unsigned long long)linelength * 1000000 + ((pclk / 1000) - 1))
-		/ (pclk / 1000);
+	result = FS_ATOMIC_READ(p_fs_atomic_val);
+	result = ((result >> idx) & 1UL);
 
-#if !defined(REDUCE_FS_UTIL_LOG)
-	LOG_INF(
-		"lineTime(ns):%u (linelength:%u, pclk:%u)\n",
-		val, linelength, pclk);
-#endif
-
-	return val;
+	return result;
 }
 
 
-inline unsigned int convert2TotalTime(
-	const unsigned int lineTimeInNs, const unsigned int lc)
+/*
+ * return: 1 or 0xFFFFFFFF
+ *     0xFFFFFFFF: when check_idx_valid() return error
+ */
+unsigned int write_bit_atomic(const unsigned int idx, const unsigned int en,
+	FS_Atomic_T *p_fs_atomic_val)
 {
-	if (lineTimeInNs == 0)
-		return 0;
+	const unsigned int ret = check_idx_valid(idx);
 
-	return (unsigned int)((unsigned long long)(lc)
-				* lineTimeInNs / 1000);
+	if (unlikely(ret == 0))
+		return 0xFFFFFFFF;
+
+	/* en > 0 => set ; en == 0 => clear */
+	if (en > 0)
+		FS_ATOMIC_FETCH_OR((1UL << idx), p_fs_atomic_val);
+	else
+		FS_ATOMIC_FETCH_AND((~(1UL << idx)), p_fs_atomic_val);
+
+	return ret;
 }
 
 
-inline unsigned int convert2LineCount(
-	const unsigned int lineTimeInNs, const unsigned int val)
+unsigned int chk_xchg_bit_atomic(const unsigned int idx, const unsigned int en,
+	FS_Atomic_T *p_fs_atomic_val)
 {
-	if (lineTimeInNs == 0)
-		return 0;
+	unsigned int bit_needs_to_be_changed;
+	int val_ori, val_target;
 
-	return ((1000 * (unsigned long long)val) / lineTimeInNs) +
-		((1000 * (unsigned long long)val) % lineTimeInNs ? 1 : 0);
-}
+	do {
+		val_ori = FS_ATOMIC_READ(p_fs_atomic_val);
+		if (en) {
+			/* !!! want to set bit !!! */
+			/* if bit status: 0, set it to 1 (need to setup data) */
+			bit_needs_to_be_changed =
+				(((val_ori >> idx) & 1UL) == 0) ? 1 : 0;
 
+			val_target = (val_ori | (1UL << idx));
+		} else {
+			/* !!! want to clr bit !!! */
+			/* if bit status: 1, set it to 1 (need to clear data) */
+			bit_needs_to_be_changed =
+				(((val_ori >> idx) & 1UL) == 1) ? 1 : 0;
 
-inline unsigned long long convert_timestamp_2_tick(
-	const unsigned long long timestamp, const unsigned int tick_factor)
-{
-	return (tick_factor) ? (timestamp * tick_factor) : timestamp;
-}
+			val_target = (val_ori & (~(1UL << idx)));
+		}
+	} while (FS_ATOMIC_CMPXCHG(val_ori, val_target, p_fs_atomic_val) == 0);
 
-
-inline unsigned long long convert_tick_2_timestamp(
-	const unsigned long long tick, const unsigned int tick_factor)
-{
-	return (tick_factor) ? (tick / tick_factor) : tick;
-}
-
-
-inline unsigned long long calc_time_after_sof(
-	const unsigned long long timestamp,
-	const unsigned long long tick, const unsigned int tick_factor)
-{
-	return (tick_factor != 0)
-		? ((tick - convert_timestamp_2_tick(timestamp, tick_factor))
-			/ tick_factor) : 0;
+	return bit_needs_to_be_changed;
 }
 
 

@@ -42,12 +42,6 @@
 #endif
 
 
-enum predicted_fl_label {
-	PREDICT_NEXT_FL = 0,
-	PREDICT_STABLE_FL,
-};
-
-
 /******************************************************************************/
 // frame recorder static structure
 /******************************************************************************/
@@ -154,16 +148,15 @@ void frec_dump_cascade_exp_fl_info(const unsigned int idx,
 	const unsigned int *exp_cas_arr, const unsigned int *fl_cas_arr,
 	const unsigned int arr_len, const char *caller)
 {
-	char *log_buf = NULL;
 	unsigned int i;
-	int len = 0;
+	char *log_buf = NULL;
+	int len = 0, ret;
 
-	log_buf = FS_CALLOC(LOG_BUF_STR_LEN, sizeof(char));
-	if (unlikely(log_buf == NULL)) {
+	ret = alloc_log_buf(LOG_BUF_STR_LEN, &log_buf);
+	if (unlikely(ret != 0)) {
 		LOG_MUST("ERROR: log_buf allocate memory failed\n");
 		return;
 	}
-	log_buf[0] = '\0';
 
 	FS_SNPRINTF(log_buf, len,
 		"[%s]: [%u] ID:%#x(sidx:%u/inf:%u), cas_exp:(",
@@ -272,7 +265,7 @@ void frec_dump_recorder(const unsigned int idx, const char *caller)
 	unsigned int depth_idx;
 	unsigned int i;
 	char *log_buf = NULL;
-	int len = 0;
+	int len = 0, ret;
 
 	/* error handle */
 	if (unlikely(pfrec == NULL))
@@ -280,23 +273,26 @@ void frec_dump_recorder(const unsigned int idx, const char *caller)
 
 	depth_idx = FS_ATOMIC_READ(&pfrec->depth_idx);
 
-	log_buf = FS_CALLOC(LOG_BUF_STR_LEN, sizeof(char));
-	if (unlikely(log_buf == NULL)) {
+	ret = alloc_log_buf(LOG_BUF_STR_LEN, &log_buf);
+	if (unlikely(ret != 0)) {
 		LOG_MUST("ERROR: log_buf allocate memory failed\n");
 		return;
 	}
-	log_buf[0] = '\0';
 
 	FS_SNPRINTF(log_buf, len,
-		"[%s]: [%u] ID:%#x(sidx:%u/inf:%u), is_init:%u, def_fl_lc:%u, fdelay:%u, RECs:(idx:%u",
+		"[%s]: [%u] ID:%#x(sidx:%u/inf:%u), def_fl_lc:%u, fdelay:%u, line_t:%u(%u/%u), RECs:(idx:%u",
 		caller,
 		idx,
 		fs_get_reg_sensor_id(idx),
 		fs_get_reg_sensor_idx(idx),
 		fs_get_reg_sensor_inf_idx(idx),
-		pfrec->is_init,
 		pfrec->def_fl_lc,
 		pfrec->fl_act_delay,
+		calcLineTimeInNs(
+			pfrec->frame_recs[depth_idx].pclk,
+			pfrec->frame_recs[depth_idx].line_length),
+		pfrec->frame_recs[depth_idx].line_length,
+		pfrec->frame_recs[depth_idx].pclk,
 		depth_idx);
 
 	for (i = 0; i < RECORDER_DEPTH; ++i) {
@@ -305,7 +301,7 @@ void frec_dump_recorder(const unsigned int idx, const char *caller)
 		const unsigned int idx = RING_BACK(depth_idx, i);
 
 		FS_SNPRINTF(log_buf, len,
-			", ([%u](%llu)(req:%d): (%u/%u), (a:%u/m:%u(%u,%u), %u/%u/%u/%u/%u, %u/%u/%u/%u/%u), margin(%u,r:%u), rout_l:%u, (%u/%u))",
+			", ([%u](%llu)(req:%d): (%u/%u), (a:%u/m:%u(%u,%u), %u/%u/%u/%u/%u, %u/%u/%u/%u/%u), margin(%u,r:%u), rout_l:%u)",
 			idx,
 			pfrec->sys_ts_recs[idx],
 			pfrec->frame_recs[idx].mw_req_id,
@@ -327,9 +323,7 @@ void frec_dump_recorder(const unsigned int idx, const char *caller)
 			pfrec->frame_recs[idx].fl_lc_arr[4],
 			pfrec->frame_recs[idx].margin_lc,
 			pfrec->frame_recs[idx].read_margin_lc,
-			pfrec->frame_recs[idx].readout_len_lc,
-			pfrec->frame_recs[idx].pclk,
-			pfrec->frame_recs[idx].line_length);
+			pfrec->frame_recs[idx].readout_len_lc);
 	}
 
 	FS_SNPRINTF(log_buf, len,
@@ -382,7 +376,12 @@ void frec_dump_recorder(const unsigned int idx, const char *caller)
 		pfrec->ts_exp_0[2],
 		pfrec->ts_exp_0[3]);
 
+	fs_util_tsrec_dynamic_msg_connector(idx, log_buf, len, __func__);
+
+	frec_spin_lock(&fs_log_concurrency_lock);
 	LOG_MUST("%s\n", log_buf);
+	frec_spin_unlock(&fs_log_concurrency_lock);
+
 	FS_FREE(log_buf);
 }
 /*----------------------------------------------------------------------------*/
@@ -862,15 +861,15 @@ static unsigned int frec_calc_lbmf_valid_min_fl_lc_for_shutters_fdelay_3(
 	unsigned int equiv_min_fl_lc = 0;
 	unsigned int i;
 	char *log_buf = NULL;
-	int len = 0;
+	int len = 0, ret;
 
 	/* prepare for log print */
-	log_buf = FS_CALLOC(LOG_BUF_STR_LEN, sizeof(char));
-	if (unlikely(log_buf == NULL)) {
+	ret = alloc_log_buf(LOG_BUF_STR_LEN, &log_buf);
+	if (unlikely(ret != 0)) {
 		LOG_MUST("ERROR: log_buf allocate memory failed\n");
 		return 0;
 	}
-	log_buf[0] = '\0';
+
 	FS_SNPRINTF(log_buf, len,
 		"[%u] ID:%#x(sidx:%u/inf:%u)",
 		idx,
@@ -1423,11 +1422,12 @@ void frec_get_predicted_frame_length_info(const unsigned int idx,
 
 
 unsigned int frec_g_valid_min_fl_lc_for_shutters_by_frame_rec(
-	const unsigned int idx,
-	const struct FrameRecord *curr_rec, const unsigned int min_fl_lc)
+	const unsigned int idx, const struct FrameRecord *curr_rec,
+	const unsigned int min_fl_lc, const enum predicted_fl_label label)
 {
 	const struct FrameRecorder *pfrec = frec_g_recorder_ctx(idx, __func__);
-	unsigned int shutter_margin_lc = 0;
+	const struct FrameRecord *frame_rec = NULL;
+	unsigned int s_m_min_lc = 0;
 	unsigned int result;
 
 	/* error handle */
@@ -1437,23 +1437,40 @@ unsigned int frec_g_valid_min_fl_lc_for_shutters_by_frame_rec(
 			idx, pfrec->fl_act_delay, __func__)))
 		return min_fl_lc;
 
-	/* check min frame length that shutter needed */
-	shutter_margin_lc = frec_calc_valid_min_fl_lc_for_shutters(
-		idx, pfrec->fl_act_delay, curr_rec, curr_rec, min_fl_lc);
+	switch (label) {
+	case PREDICT_NEXT_FL:
+	{
+		const unsigned int curr_idx = FS_ATOMIC_READ(&pfrec->depth_idx);
+		const unsigned int target_idx = RING_BACK(curr_idx, 1);
 
-	result = (shutter_margin_lc > min_fl_lc)
-		? shutter_margin_lc : min_fl_lc;
+		frame_rec = &pfrec->frame_recs[target_idx];
+	}
+		break;
+	case PREDICT_STABLE_FL:
+	default:
+		frame_rec = curr_rec;
+		break;
+	}
+
+	/* check min frame length that shutter needed */
+	s_m_min_lc = frec_calc_valid_min_fl_lc_for_shutters(
+		idx, pfrec->fl_act_delay, curr_rec, frame_rec, min_fl_lc);
+
+	result = (s_m_min_lc > min_fl_lc) ? s_m_min_lc : min_fl_lc;
 
 	LOG_INF(
-		"[%u] ID:%#x(sidx:%u/inf:%u), result:%u (fdelay:%u/s+m:%u/min_fl(maxFPS):%u)\n",
+		"[%u] ID:%#x(sidx:%u/inf:%u), result:%u (fdelay:%u/min_fl(s+m):%u/min_fl(maxFPS):%u), predict:%u(next:%u/stable:%u)\n",
 		idx,
 		fs_get_reg_sensor_id(idx),
 		fs_get_reg_sensor_idx(idx),
 		fs_get_reg_sensor_inf_idx(idx),
 		result,
 		pfrec->fl_act_delay,
-		shutter_margin_lc,
-		min_fl_lc);
+		s_m_min_lc,
+		min_fl_lc,
+		label,
+		PREDICT_NEXT_FL,
+		PREDICT_STABLE_FL);
 
 	return result;
 }
@@ -1629,8 +1646,9 @@ static void frec_chk_fl_info_predicted_match_actual(const unsigned int idx)
 		: (pfrec->act_fl_us - pfrec->prev_predicted_fl_us);
 
 	if (unlikely(diff > diff_th)) {
+		frec_spin_lock(&fs_log_concurrency_lock);
 		LOG_MUST(
-			"WARNING: [%u] ID:%#x(sidx:%u/inf:%u), frame length (fdelay:%u): pr(p)(%u(%u)/act:%u) seems not match, plz check manually (FL of the frame that shutter toggle HW auto-extended is not as expected or FL not be took effect by sensor driver)\n",
+			"WARNING: [%u] ID:%#x(sidx:%u/inf:%u), frame length (fdelay:%u): pr(p)(%u(%u)/act:%u) seems not match, plz check manually\n",
 			idx,
 			fs_get_reg_sensor_id(idx),
 			fs_get_reg_sensor_idx(idx),
@@ -1639,6 +1657,7 @@ static void frec_chk_fl_info_predicted_match_actual(const unsigned int idx)
 			pfrec->prev_predicted_fl_us,
 			pfrec->prev_predicted_fl_lc,
 			pfrec->act_fl_us);
+		frec_spin_unlock(&fs_log_concurrency_lock);
 
 		frec_dump_recorder(idx, __func__);
 	}

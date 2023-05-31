@@ -213,102 +213,16 @@ static enum FS_STATUS get_fs_status(void)
 }
 
 
-/*
- * return: (0/1) for (non-valid/valid)
- */
-static inline unsigned int check_idx_valid(const unsigned int sensor_idx)
-{
-	return (likely(sensor_idx < SENSOR_MAX_NUM)) ? 1 : 0;
-}
-
-
 #if defined(SUPPORT_FS_NEW_METHOD)
-/*
- * return: (0/1) or 0xFFFFFFFF
- *     0xFFFFFFFF: when check_idx_valid() return error
- */
-static unsigned int check_bit_atomic(const unsigned int idx,
-	const FS_Atomic_T *p_fs_atomic_val)
-{
-	unsigned int ret = check_idx_valid(idx);
-	unsigned int result = 0;
-
-	if (unlikely(ret == 0))
-		return 0xFFFFFFFF;
-
-	result = FS_ATOMIC_READ(p_fs_atomic_val);
-	result = ((result >> idx) & 1UL);
-
-	return result;
-}
-
-
-/*
- * return: 1 or 0xFFFFFFFF
- *     0xFFFFFFFF: when check_idx_valid() return error
- */
-static unsigned int write_bit_atomic(const unsigned int idx,
-	const unsigned int en, FS_Atomic_T *p_fs_atomic_val)
-{
-	unsigned int ret = check_idx_valid(idx);
-
-	if (unlikely(ret == 0))
-		return 0xFFFFFFFF;
-
-	/* en > 0 => set ; en == 0 => clear */
-	if (en > 0)
-		FS_ATOMIC_FETCH_OR((1UL << idx), p_fs_atomic_val);
-	else
-		FS_ATOMIC_FETCH_AND((~(1UL << idx)), p_fs_atomic_val);
-
-	return ret;
-}
-
-
-static unsigned int chk_xchg_bit_atomic(const unsigned int idx,
-	const unsigned int en, FS_Atomic_T *p_fs_atomic_val)
-{
-	unsigned int bit_needs_to_be_changed;
-	int val_ori, val_target;
-
-	do {
-		val_ori = FS_ATOMIC_READ(p_fs_atomic_val);
-		if (en) {
-			/* !!! want to set bit !!! */
-			/* if bit status: 0, set it to 1 (need to setup data) */
-			bit_needs_to_be_changed =
-				(((val_ori >> idx) & 1UL) == 0) ? 1 : 0;
-
-			val_target = (val_ori | (1UL << idx));
-		} else {
-			/* !!! want to clr bit !!! */
-			/* if bit status: 1, set it to 1 (need to clear data) */
-			bit_needs_to_be_changed =
-				(((val_ori >> idx) & 1UL) == 1) ? 1 : 0;
-
-			val_target = (val_ori & (~(1UL << idx)));
-		}
-	} while (FS_ATOMIC_CMPXCHG(val_ori, val_target, p_fs_atomic_val) == 0);
-
-	return bit_needs_to_be_changed;
-}
-
-
-static inline void clear_all_bit_atomic(FS_Atomic_T *p_fs_atomic_val)
-{
-	FS_ATOMIC_SET(0, p_fs_atomic_val);
-}
-
-
 static inline unsigned int fs_user_sa_config(void)
 {
 #ifdef FORCE_USING_SA_MODE
 	return 1;
 #else
 	return fs_mgr.user_set_sa;
-#endif // FORCE_USING_SA_MODE
+#endif
 }
-#endif // SUPPORT_FS_NEW_METHOD
+#endif
 /******************************************************************************/
 
 
@@ -322,17 +236,16 @@ static void fs_dump_status(const int idx, const int flag, const char *caller,
 	const char *msg)
 {
 	char *log_buf = NULL;
-	int len = 0;
+	int len = 0, ret;
 
-	log_buf = FS_CALLOC(LOG_BUF_STR_LEN, sizeof(char));
-	if (unlikely(log_buf == NULL)) {
+	ret = alloc_log_buf(LOG_BUF_STR_LEN, &log_buf);
+	if (unlikely(ret != 0)) {
 		LOG_MUST(
 			"[%s]: ERROR: [%u] flag:%u, log_buf allocate memory failed\n",
 			caller, idx, flag);
 		return;
 	}
 
-	log_buf[0] = '\0';
 	FS_SNPRINTF(log_buf, len,
 		"[%s:%d/%d %s]: stat:%u, stream:%#x/enSync:%#x(%#x/%#x/%#x/%#x/%#x/%#x)/valid:%#x",
 		caller, idx, flag, msg,
@@ -405,7 +318,10 @@ static void fs_dump_status(const int idx, const int flag, const char *caller,
 		frm_get_ccu_pwn_cnt());
 #endif
 
+	fs_spin_lock(&fs_log_concurrency_lock);
 	LOG_MUST("%s\n", log_buf);
+	fs_spin_unlock(&fs_log_concurrency_lock);
+
 	FS_FREE(log_buf);
 }
 /******************************************************************************/
@@ -488,17 +404,16 @@ void fs_dump_all_registered_sensor_info(const char *caller)
 {
 	const int reg_cnt = FS_ATOMIC_READ(&fs_mgr.reg_table.reg_cnt);
 	unsigned int i;
-	int len = 0;
+	int len = 0, ret;
 	char *log_buf = NULL;
 
-	log_buf = FS_CALLOC(LOG_BUF_STR_LEN, sizeof(char));
-	if (unlikely(log_buf == NULL)) {
+	ret = alloc_log_buf(LOG_BUF_STR_LEN, &log_buf);
+	if (unlikely(ret != 0)) {
 		LOG_MUST(
 			"[%s]: ERROR: log_buf allocate memory failed\n",
 			caller);
 		return;
 	}
-	log_buf[0] = '\0';
 
 	FS_SNPRINTF(log_buf, len,
 		"[%s] sensor registered cnt:%d, sensor info:(",
@@ -979,7 +894,7 @@ static void fs_clear_fl_restore_info(const unsigned int idx)
 {
 	struct fs_fl_restore_info_st *ptr = NULL;
 
-	FS_SPIN_LOCK(&fs_mgr.fl_restore_info_update_spinlock[idx]);
+	fs_spin_lock(&fs_mgr.fl_restore_info_update_spinlock[idx]);
 
 	ptr = fs_mgr.fl_restore_info[idx];
 	if (ptr == NULL)
@@ -990,7 +905,7 @@ static void fs_clear_fl_restore_info(const unsigned int idx)
 	fs_mgr.fl_restore_info[idx] = NULL;
 
 end_of_clear_fl_restore_info:
-	FS_SPIN_UNLOCK(&fs_mgr.fl_restore_info_update_spinlock[idx]);
+	fs_spin_unlock(&fs_mgr.fl_restore_info_update_spinlock[idx]);
 }
 
 
@@ -999,7 +914,7 @@ static void fs_setup_fl_restore_info(const unsigned int idx,
 {
 	struct fs_fl_restore_info_st *ptr = NULL;
 
-	FS_SPIN_LOCK(&fs_mgr.fl_restore_info_update_spinlock[idx]);
+	fs_spin_lock(&fs_mgr.fl_restore_info_update_spinlock[idx]);
 
 	ptr = fs_mgr.fl_restore_info[idx];
 	/* check case */
@@ -1038,7 +953,7 @@ static void fs_setup_fl_restore_info(const unsigned int idx,
 	memcpy(ptr, p_fl_restore_info, sizeof(*ptr));
 
 end_of_set_fl_restore_info:
-	FS_SPIN_UNLOCK(&fs_mgr.fl_restore_info_update_spinlock[idx]);
+	fs_spin_unlock(&fs_mgr.fl_restore_info_update_spinlock[idx]);
 }
 
 
@@ -1047,7 +962,7 @@ static void fs_get_fl_restore_info(const unsigned int idx,
 {
 	struct fs_fl_restore_info_st *ptr = NULL;
 
-	FS_SPIN_LOCK(&fs_mgr.fl_restore_info_update_spinlock[idx]);
+	fs_spin_lock(&fs_mgr.fl_restore_info_update_spinlock[idx]);
 
 	ptr = fs_mgr.fl_restore_info[idx];
 	/* error handling */
@@ -1064,7 +979,7 @@ static void fs_get_fl_restore_info(const unsigned int idx,
 	memcpy(p_fl_restore_info, ptr, sizeof(*p_fl_restore_info));
 
 end_of_get_fl_restore_info:
-	FS_SPIN_UNLOCK(&fs_mgr.fl_restore_info_update_spinlock[idx]);
+	fs_spin_unlock(&fs_mgr.fl_restore_info_update_spinlock[idx]);
 }
 
 
@@ -2632,6 +2547,9 @@ unsigned int fs_streaming(const unsigned int flag,
 		frec_init_recorder(idx, &frame_rec,
 			sensor_info->def_fl_lc, sensor_info->fl_active_delay);
 
+		/* init/setup fs algo SA dynamic infos */
+		fs_alg_sa_update_dynamic_infos(idx, 0);
+
 		fs_set_stream(idx, 1);
 		fs_streaming_chk_restore_preset_set_sync_status(
 			idx, sensor_info);
@@ -3184,7 +3102,7 @@ void fs_update_shutter(struct fs_perframe_st (*pf_ctrl))
 	fs_try_setup_preset_perframe_data(idx, pf_ctrl);
 
 	/* check case */
-	if (FS_CHECK_BIT(idx, &fs_mgr.streaming_bits) == 0)
+	if (unlikely(FS_CHECK_BIT(idx, &fs_mgr.streaming_bits) == 0))
 		return;
 	if (unlikely(fs_chk_seamless_switch_status(idx))) {
 		LOG_MUST(
@@ -3205,6 +3123,12 @@ void fs_update_shutter(struct fs_perframe_st (*pf_ctrl))
 
 	/* update/overwrite fl info drv set */
 	fs_mgr.pf_ctrl[idx] = *pf_ctrl;
+
+	/* keep tracking per-frame settings even when NOT enable sync */
+	// if (FS_CHECK_BIT(idx, &fs_mgr.validSync_bits) == 0) {
+	//	fs_alg_set_perframe_st_data(idx, pf_ctrl);
+	//	fs_alg_sa_update_dynamic_infos(idx, 1);
+	// }
 
 	/* update frame recorder data */
 	frec_setup_frame_rec_by_fs_perframe_st(&frame_rec, pf_ctrl);

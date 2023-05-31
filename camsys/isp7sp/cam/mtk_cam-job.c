@@ -4222,7 +4222,18 @@ static int update_mraw_meta_buf_to_ipi_frame(
 	}
 
 	if (mraw_pipe->res_config.enque_num == MTK_MRAW_TOTAL_NODES) {
-		struct mtk_mraw_sink_data *sink =
+		struct mtk_mraw_sink_data *sink;
+
+		if (ctx->mraw_subdev_idx[param_idx] < 0 ||
+			ctx->mraw_subdev_idx[param_idx] >=
+				ARRAY_SIZE(helper->job->req->mraw_data)) {
+			ret = -1;
+			pr_info("%s %s: mraw subdev idx out of bound(subdev idx:%d)\n",
+				__FILE__, __func__, ctx->mraw_subdev_idx[param_idx]);
+			goto EXIT;
+		}
+
+		sink =
 			&helper->job->req->mraw_data[ctx->mraw_subdev_idx[param_idx]].sink;
 		mtk_cam_mraw_cal_cfg_info(ctx->cam,
 			node->uid.pipe_id, &fp->mraw_param[param_idx],

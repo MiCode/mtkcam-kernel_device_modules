@@ -1276,7 +1276,7 @@ static struct subdrv_static_ctx static_ctx = {
 	.aov_csi_clk = 242,
 	.sensor_mode_ops = 0,
 	.sensor_debug_sensing_ut_on_scp = TRUE,
-	.sensor_debug_dphy_global_timing_continuous_clk = TRUE,
+	.sensor_debug_dphy_global_timing_continuous_clk = FALSE,
 	.reg_addr_aov_mode_mirror_flip = 0x3874,
 	.init_in_open = FALSE,
 	.streaming_ctrl_imp = TRUE,
@@ -1519,9 +1519,9 @@ static int get_csi_param(struct subdrv_ctx *ctx,
 				csi_param->dphy_csi2_resync_dmy_cycle = 0x15;
 			} else if (!strcasecmp(ctx->aov_phy_ctrl_ver,
 				MT6989_PHY_CTRL_VERSIONS)) {
-				csi_param->dphy_data_settle = 0x10;
-				csi_param->dphy_clk_settle = 0x10;
-				csi_param->dphy_trail = 0x10;
+				csi_param->dphy_data_settle = 0xC;
+				csi_param->dphy_clk_settle = 0xC;
+				csi_param->dphy_trail = 0x50;
 				csi_param->dphy_csi2_resync_dmy_cycle = 0x15;
 			} else {
 				DRV_LOGE(ctx, "phy_ctrl_ver is invalid\n");
@@ -1555,9 +1555,9 @@ static int get_csi_param(struct subdrv_ctx *ctx,
 				csi_param->dphy_csi2_resync_dmy_cycle = 0x13;
 			} else if (!strcasecmp(ctx->aov_phy_ctrl_ver,
 				MT6989_PHY_CTRL_VERSIONS)) {
-				csi_param->dphy_data_settle = 0x10;
-				csi_param->dphy_clk_settle = 0x10;
-				csi_param->dphy_trail = 0x10;
+				csi_param->dphy_data_settle = 0xC;
+				csi_param->dphy_clk_settle = 0xC;
+				csi_param->dphy_trail = 0x4D;
 				csi_param->dphy_csi2_resync_dmy_cycle = 0x13;
 			} else {
 				DRV_LOGE(ctx, "phy_ctrl_ver is invalid\n");
@@ -1591,9 +1591,9 @@ static int get_csi_param(struct subdrv_ctx *ctx,
 				csi_param->dphy_csi2_resync_dmy_cycle = 0x14;
 			} else if (!strcasecmp(ctx->aov_phy_ctrl_ver,
 				MT6989_PHY_CTRL_VERSIONS)) {
-				csi_param->dphy_data_settle = 0x10;
-				csi_param->dphy_clk_settle = 0x10;
-				csi_param->dphy_trail = 0x10;
+				csi_param->dphy_data_settle = 0xC;
+				csi_param->dphy_clk_settle = 0xC;
+				csi_param->dphy_trail = 0x4B;
 				csi_param->dphy_csi2_resync_dmy_cycle = 0x14;
 			} else {
 				DRV_LOGE(ctx, "phy_ctrl_ver is invalid\n");
@@ -1633,9 +1633,9 @@ static int get_csi_param(struct subdrv_ctx *ctx,
 				csi_param->dphy_csi2_resync_dmy_cycle = 0x1C;
 			} else if (!strcasecmp(ctx->aov_phy_ctrl_ver,
 				MT6989_PHY_CTRL_VERSIONS)) {
-				csi_param->dphy_data_settle = 0x10;
-				csi_param->dphy_clk_settle = 0x10;
-				csi_param->dphy_trail = 0x10;
+				csi_param->dphy_data_settle = 0xC;
+				csi_param->dphy_clk_settle = 0xC;
+				csi_param->dphy_trail = 0x77;
 				csi_param->dphy_csi2_resync_dmy_cycle = 0x1C;
 			} else {
 				DRV_LOGE(ctx, "phy_ctrl_ver is invalid\n");
@@ -1854,14 +1854,14 @@ static void set_data_rate_global_timing_phy_ctrl(void *arg)
 			subdrv_i2c_wr_u8(ctx, 0x080B, 0xC3);
 		} else {
 			subdrv_i2c_wr_u8(ctx, 0x080A, 0x00);	// TCLK_POST_EX[9:8]
-			subdrv_i2c_wr_u8(ctx, 0x080B, 0x64);	// TCLK_POST_EX[7:0]
+			subdrv_i2c_wr_u8(ctx, 0x080B, 0x5F);	// TCLK_POST_EX[7:0]
 		}
 		subdrv_i2c_wr_u8(ctx, 0x080C, 0x00);	// THS_PREPARE_EX[9:8]
 		subdrv_i2c_wr_u8(ctx, 0x080D, 0x1F);	// THS_PREPARE_EX[7:0]
 		subdrv_i2c_wr_u8(ctx, 0x080E, 0x00);	// THS_ZERO_MIN_EX[9:8]
 		subdrv_i2c_wr_u8(ctx, 0x080F, 0x3F);	// THS_ZERO_MIN_EX[7:0]
 		subdrv_i2c_wr_u8(ctx, 0x0810, 0x00);	// THS_TRAIL_EX[9:8]
-		subdrv_i2c_wr_u8(ctx, 0x0811, 0x3F);	// THS_TRAIL_EX[7:0]
+		subdrv_i2c_wr_u8(ctx, 0x0811, 0x1F);	// THS_TRAIL_EX[7:0]
 		subdrv_i2c_wr_u8(ctx, 0x0812, 0x00);	// TCLK_TRAIL_MIN_EX[9:8]
 		subdrv_i2c_wr_u8(ctx, 0x0813, 0x1F);	// TCLK_TRAIL_MIN_EX[7:0]
 		subdrv_i2c_wr_u8(ctx, 0x0814, 0x00);	// TCLK_PREPARE_EX[9:8]
@@ -1875,7 +1875,7 @@ static void set_data_rate_global_timing_phy_ctrl(void *arg)
 			subdrv_i2c_wr_u8(ctx, 0x0825, 0x2F);	// THS_EXIT_EX[7:0]
 		} else {
 			subdrv_i2c_wr_u8(ctx, 0x0824, 0x00);
-			subdrv_i2c_wr_u8(ctx, 0x0825, 0xFD);
+			subdrv_i2c_wr_u8(ctx, 0x0825, 0xE0);
 		}
 		subdrv_i2c_wr_u8(ctx, 0x0826, 0x00);	// TCLK_PRE_EX[9:8]
 		subdrv_i2c_wr_u8(ctx, 0x0827, 0x0F);	// TCLK_PRE_EX[7:0]
@@ -1887,14 +1887,14 @@ static void set_data_rate_global_timing_phy_ctrl(void *arg)
 			subdrv_i2c_wr_u8(ctx, 0x080B, 0xC1);
 		} else {
 			subdrv_i2c_wr_u8(ctx, 0x080A, 0x00);	// TCLK_POST_EX[9:8]
-			subdrv_i2c_wr_u8(ctx, 0x080B, 0x64);	// TCLK_POST_EX[7:0]
+			subdrv_i2c_wr_u8(ctx, 0x080B, 0x5F);	// TCLK_POST_EX[7:0]
 		}
 		subdrv_i2c_wr_u8(ctx, 0x080C, 0x00);	// THS_PREPARE_EX[9:8]
 		subdrv_i2c_wr_u8(ctx, 0x080D, 0x27);	// THS_PREPARE_EX[7:0]
 		subdrv_i2c_wr_u8(ctx, 0x080E, 0x00);	// THS_ZERO_MIN_EX[9:8]
 		subdrv_i2c_wr_u8(ctx, 0x080F, 0x3F);	// THS_ZERO_MIN_EX[7:0]
 		subdrv_i2c_wr_u8(ctx, 0x0810, 0x00);	// THS_TRAIL_EX[9:8]
-		subdrv_i2c_wr_u8(ctx, 0x0811, 0x3F);	// THS_TRAIL_EX[7:0]
+		subdrv_i2c_wr_u8(ctx, 0x0811, 0x27);	// THS_TRAIL_EX[7:0]
 		subdrv_i2c_wr_u8(ctx, 0x0812, 0x00);	// TCLK_TRAIL_MIN_EX[9:8]
 		subdrv_i2c_wr_u8(ctx, 0x0813, 0x1F);	// TCLK_TRAIL_MIN_EX[7:0]
 		subdrv_i2c_wr_u8(ctx, 0x0814, 0x00);	// TCLK_PREPARE_EX[9:8]
@@ -1908,7 +1908,7 @@ static void set_data_rate_global_timing_phy_ctrl(void *arg)
 			subdrv_i2c_wr_u8(ctx, 0x0825, 0x3F);	// THS_EXIT_EX[7:0]
 		} else {
 			subdrv_i2c_wr_u8(ctx, 0x0824, 0x00);
-			subdrv_i2c_wr_u8(ctx, 0x0825, 0xFD);
+			subdrv_i2c_wr_u8(ctx, 0x0825, 0xE0);
 		}
 		subdrv_i2c_wr_u8(ctx, 0x0826, 0x00);	// TCLK_PRE_EX[9:8]
 		subdrv_i2c_wr_u8(ctx, 0x0827, 0x0F);	// TCLK_PRE_EX[7:0]
@@ -1920,14 +1920,14 @@ static void set_data_rate_global_timing_phy_ctrl(void *arg)
 			subdrv_i2c_wr_u8(ctx, 0x080B, 0xC2);
 		} else {
 			subdrv_i2c_wr_u8(ctx, 0x080A, 0x00);	// TCLK_POST_EX[9:8]
-			subdrv_i2c_wr_u8(ctx, 0x080B, 0x64);	// TCLK_POST_EX[7:0]
+			subdrv_i2c_wr_u8(ctx, 0x080B, 0x5F);	// TCLK_POST_EX[7:0]
 		}
 		subdrv_i2c_wr_u8(ctx, 0x080C, 0x00);	// THS_PREPARE_EX[9:8]
 		subdrv_i2c_wr_u8(ctx, 0x080D, 0x1F);	// THS_PREPARE_EX[7:0]
 		subdrv_i2c_wr_u8(ctx, 0x080E, 0x00);	// THS_ZERO_MIN_EX[9:8]
 		subdrv_i2c_wr_u8(ctx, 0x080F, 0x3F);	// THS_ZERO_MIN_EX[7:0]
 		subdrv_i2c_wr_u8(ctx, 0x0810, 0x00);	// THS_TRAIL_EX[9:8]
-		subdrv_i2c_wr_u8(ctx, 0x0811, 0x3F);	// THS_TRAIL_EX[7:0]
+		subdrv_i2c_wr_u8(ctx, 0x0811, 0x1F);	// THS_TRAIL_EX[7:0]
 		subdrv_i2c_wr_u8(ctx, 0x0812, 0x00);	// TCLK_TRAIL_MIN_EX[9:8]
 		subdrv_i2c_wr_u8(ctx, 0x0813, 0x1F);	// TCLK_TRAIL_MIN_EX[7:0]
 		subdrv_i2c_wr_u8(ctx, 0x0814, 0x00);	// TCLK_PREPARE_EX[9:8]
@@ -1941,7 +1941,7 @@ static void set_data_rate_global_timing_phy_ctrl(void *arg)
 			subdrv_i2c_wr_u8(ctx, 0x0825, 0x2F);	// THS_EXIT_EX[7:0]
 		} else {
 			subdrv_i2c_wr_u8(ctx, 0x0824, 0x00);
-			subdrv_i2c_wr_u8(ctx, 0x0825, 0xFD);
+			subdrv_i2c_wr_u8(ctx, 0x0825, 0xE0);
 		}
 		subdrv_i2c_wr_u8(ctx, 0x0826, 0x00);	// TCLK_PRE_EX[9:8]
 		subdrv_i2c_wr_u8(ctx, 0x0827, 0x0F);	// TCLK_PRE_EX[7:0]
@@ -1959,14 +1959,14 @@ static void set_data_rate_global_timing_phy_ctrl(void *arg)
 			subdrv_i2c_wr_u8(ctx, 0x080B, 0xC9);
 		} else {
 			subdrv_i2c_wr_u8(ctx, 0x080A, 0x00);	// TCLK_POST_EX[9:8]
-			subdrv_i2c_wr_u8(ctx, 0x080B, 0x64);	// TCLK_POST_EX[7:0]
+			subdrv_i2c_wr_u8(ctx, 0x080B, 0x4F);	// TCLK_POST_EX[7:0]
 		}
 		subdrv_i2c_wr_u8(ctx, 0x080C, 0x00);	// THS_PREPARE_EX[9:8]
 		subdrv_i2c_wr_u8(ctx, 0x080D, 0x17);	// THS_PREPARE_EX[7:0]
 		subdrv_i2c_wr_u8(ctx, 0x080E, 0x00);	// THS_ZERO_MIN_EX[9:8]
 		subdrv_i2c_wr_u8(ctx, 0x080F, 0x2F);	// THS_ZERO_MIN_EX[7:0]
 		subdrv_i2c_wr_u8(ctx, 0x0810, 0x00);	// THS_TRAIL_EX[9:8]
-		subdrv_i2c_wr_u8(ctx, 0x0811, 0x3F);	// THS_TRAIL_EX[7:0]
+		subdrv_i2c_wr_u8(ctx, 0x0811, 0x17);	// THS_TRAIL_EX[7:0]
 		subdrv_i2c_wr_u8(ctx, 0x0812, 0x00);	// TCLK_TRAIL_MIN_EX[9:8]
 		subdrv_i2c_wr_u8(ctx, 0x0813, 0x17);	// TCLK_TRAIL_MIN_EX[7:0]
 		subdrv_i2c_wr_u8(ctx, 0x0814, 0x00);	// TCLK_PREPARE_EX[9:8]
@@ -1980,7 +1980,7 @@ static void set_data_rate_global_timing_phy_ctrl(void *arg)
 			subdrv_i2c_wr_u8(ctx, 0x0825, 0x2F);	// THS_EXIT_EX[7:0]
 		} else {
 			subdrv_i2c_wr_u8(ctx, 0x0824, 0x00);
-			subdrv_i2c_wr_u8(ctx, 0x0825, 0xFD);
+			subdrv_i2c_wr_u8(ctx, 0x0825, 0xDE);
 		}
 		subdrv_i2c_wr_u8(ctx, 0x0826, 0x00);	// TCLK_PRE_EX[9:8]
 		subdrv_i2c_wr_u8(ctx, 0x0827, 0x0F);	// TCLK_PRE_EX[7:0]

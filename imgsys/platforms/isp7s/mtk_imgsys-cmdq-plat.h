@@ -26,7 +26,7 @@
 #define GCE_REC_MAX_LABEL_COUNT     (2048)
 #endif
 
-#define IMGSYS_NOR_THD 12
+#define IMGSYS_NOR_THD 14
 #define IMGSYS_QOS_MAX 56
 #define IMGSYS_SEC_THD 2
 #define IMGSYS_MAX_FPS 60

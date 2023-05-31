@@ -22,6 +22,7 @@
 #include "mtk-aov-aee.h"
 #include "mtk-aov-data.h"
 #include "mtk-aov-trace.h"
+#include "mtk-aov-log.h"
 
 #include "mtk-vmm-notifier.h"
 #include "mtk_mmdvfs.h"
@@ -36,6 +37,10 @@ struct wake_lock aov_wake_lock;
 static uint32_t enable_aov_ut_flag;
 module_param(enable_aov_ut_flag, uint, 0644);
 MODULE_PARM_DESC(enable_aov_ut_flag, "enable aov ut flag");
+
+static uint32_t enable_aov_log_flag;
+module_param(enable_aov_log_flag, uint, 0644);
+MODULE_PARM_DESC(enable_aov_log_flag, "enable aov log flag");
 
 static struct mtk_aov *query_aov_dev(struct platform_device *pdev)
 {
@@ -106,7 +111,8 @@ static int mtk_aov_open(struct inode *inode, struct file *file)
 	pr_info("%s open aov driver+\n", __func__);
 
 	aov_dev = container_of(inode->i_cdev, struct mtk_aov, aov_cdev);
-	dev_dbg(aov_dev->dev, "open inode->i_cdev = 0x%p\n", inode->i_cdev);
+	AOV_DEBUG_LOG(*(aov_dev->enable_aov_log_flag),
+		"open inode->i_cdev = 0x%p\n", inode->i_cdev);
 
 	file->private_data = aov_dev;
 
@@ -127,7 +133,8 @@ static long mtk_aov_ioctl(struct file *file, unsigned int cmd,
 	struct mtk_aov *aov_dev = (struct mtk_aov *)file->private_data;
 	int ret;
 
-	dev_dbg(aov_dev->dev, "%s ioctl aov driver(%d)+\n", __func__, cmd);
+	AOV_DEBUG_LOG(*(aov_dev->enable_aov_log_flag),
+		"%s ioctl aov driver(%d)+\n", __func__, cmd);
 
 	switch (cmd) {
 	case AOV_DEV_START: {
@@ -169,31 +176,31 @@ static long mtk_aov_ioctl(struct file *file, unsigned int cmd,
 		break;
 	}
 	case AOV_DEV_SENSOR_ON:
-		dev_dbg(aov_dev->dev, "AOV sensor on\n+");
+		AOV_DEBUG_LOG(*(aov_dev->enable_aov_log_flag), "AOV sensor on\n+");
 
 		AOV_TRACE_FORCE_BEGIN("AOV sensor on");
 		ret = aov_core_notify(aov_dev, (void *)arg, true);
 		AOV_TRACE_FORCE_END();
 
-		dev_dbg(aov_dev->dev, "AOV sensor on(%d)\n+", ret);
+		AOV_DEBUG_LOG(*(aov_dev->enable_aov_log_flag), "AOV sensor on(%d)\n-", ret);
 		break;
 	case AOV_DEV_SENSOR_OFF:
-		dev_dbg(aov_dev->dev, "AOV sensor off\n+");
+		AOV_DEBUG_LOG(*(aov_dev->enable_aov_log_flag), "AOV sensor off\n+");
 
 		AOV_TRACE_FORCE_BEGIN("AOV sensor off");
 		ret = aov_core_notify(aov_dev, (void *)arg, true);
 		AOV_TRACE_FORCE_END();
 
-		dev_dbg(aov_dev->dev, "AOV sensor off(%d)\n+", ret);
+		AOV_DEBUG_LOG(*(aov_dev->enable_aov_log_flag), "AOV sensor off(%d)\n-", ret);
 		break;
 	case AOV_DEV_DQEVENT:
-		dev_dbg(aov_dev->dev, "AOV dqevent+\n");
+		AOV_DEBUG_LOG(*(aov_dev->enable_aov_log_flag), "AOV dqevent+\n");
 
 		AOV_TRACE_FORCE_BEGIN("AOV dqevent");
 		ret = aov_core_copy(aov_dev, (struct aov_dqevent *)arg);
 		AOV_TRACE_FORCE_END();
 
-		dev_dbg(aov_dev->dev, "AOV dqevent-(%d)\n", ret);
+		AOV_DEBUG_LOG(*(aov_dev->enable_aov_log_flag), "AOV dqevent(%d)-\n", ret);
 		break;
 	case AOV_DEV_STOP:
 		dev_info(aov_dev->dev, "AOV stop+\n");
@@ -224,7 +231,8 @@ static long mtk_aov_ioctl(struct file *file, unsigned int cmd,
 		return -EINVAL;
 	}
 
-	dev_dbg(aov_dev->dev, "%s ioctl aov driver(cmd)-(%d), ret(%d)\n", __func__, cmd, ret);
+	AOV_DEBUG_LOG(*(aov_dev->enable_aov_log_flag),
+		"%s ioctl aov driver(cmd)-(%d), ret(%d)\n", __func__, cmd, ret);
 
 	return ret;
 }
@@ -319,6 +327,7 @@ static int mtk_aov_probe(struct platform_device *pdev)
 	aov_dev->is_open = false;
 	aov_dev->user_cnt = 0;
 	aov_dev->enable_aov_ut_flag = &enable_aov_ut_flag;
+	aov_dev->enable_aov_log_flag = &enable_aov_log_flag;
 
 	aov_dev->dev = &pdev->dev;
 
@@ -395,7 +404,8 @@ static int mtk_aov_remove(struct platform_device *pdev)
 
 	if (mtk_aov_is_open(aov_dev) == true) {
 		aov_dev->is_open = false;
-		dev_dbg(&pdev->dev, "%s: opened device found\n", __func__);
+		AOV_DEBUG_LOG(*(aov_dev->enable_aov_log_flag),
+			"%s: opened device found\n",__func__);
 	}
 
 	cdev_del(&aov_dev->aov_cdev);
@@ -415,7 +425,7 @@ static int aov_runtime_suspend(struct device *dev)
 {
 	struct mtk_aov *aov_dev = dev_get_drvdata(dev);
 
-	dev_dbg(aov_dev->dev, "%s runtime suspend+\n", __func__);
+	AOV_DEBUG_LOG(*(aov_dev->enable_aov_log_flag), "%s runtime suspend+", __func__);
 
 #if AOV_WAIT_POWER_ACK
 	(void)aov_core_send_cmd(aov_dev, AOV_SCP_CMD_PWR_OFF, NULL, 0, true);
@@ -423,7 +433,7 @@ static int aov_runtime_suspend(struct device *dev)
 	(void)aov_core_send_cmd(aov_dev, AOV_SCP_CMD_PWR_OFF, NULL, 0, false);
 #endif  // AOV_WAIT_POWER_ACK
 
-	dev_dbg(aov_dev->dev, "%s runtime suspend-\n", __func__);
+	AOV_DEBUG_LOG(*(aov_dev->enable_aov_log_flag), "%s runtime suspend-", __func__);
 
 	return 0;
 }
@@ -432,7 +442,7 @@ static int aov_runtime_resume(struct device *dev)
 {
 	struct mtk_aov *aov_dev = dev_get_drvdata(dev);
 
-	dev_dbg(aov_dev->dev, "%s runtime resume+\n", __func__);
+	AOV_DEBUG_LOG(*(aov_dev->enable_aov_log_flag), "%s runtime resume+", __func__);
 
 #if AOV_WAIT_POWER_ACK
 	(void)aov_core_send_cmd(aov_dev, AOV_SCP_CMD_PWR_ON, NULL, 0, true);
@@ -440,7 +450,7 @@ static int aov_runtime_resume(struct device *dev)
 	(void)aov_core_send_cmd(aov_dev, AOV_SCP_CMD_PWR_ON, NULL, 0, false);
 #endif  // AOV_WAIT_POWER_ACK
 
-	dev_dbg(aov_dev->dev, "%s runtime resume-\n", __func__);
+	AOV_DEBUG_LOG(*(aov_dev->enable_aov_log_flag), "%s runtime resume-", __func__);
 
 	return 0;
 }

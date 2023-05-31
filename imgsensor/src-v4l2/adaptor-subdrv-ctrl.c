@@ -2697,6 +2697,8 @@ void subdrv_ctx_init(struct subdrv_ctx *ctx)
 	}
 	ctx->aov_sensor_support = ctx->s_ctx.aov_sensor_support;
 	ctx->aov_csi_clk = ctx->s_ctx.aov_csi_clk;
+	if (ctx->aov_sensor_support && !ctx->aov_csi_clk)
+		DRV_LOGE(ctx, "please assign aov csi clk!\n");
 	ctx->sensor_mode_ops = ctx->s_ctx.sensor_mode_ops;
 	ctx->sensor_debug_sensing_ut_on_scp =
 		ctx->s_ctx.sensor_debug_sensing_ut_on_scp;
@@ -3466,8 +3468,14 @@ int common_feature_control(struct subdrv_ctx *ctx, MSDK_SENSOR_FEATURE_ENUM feat
 			ctx->aov_csi_clk = 130;
 			break;
 		case 242:
-		default:
 			ctx->aov_csi_clk = 242;
+			break;
+		case 312:
+			ctx->aov_csi_clk = 312;
+			break;
+		default:
+			DRV_LOGE(ctx,
+				"plz assign csi clk when running aov!\n");
 			break;
 		}
 		DRV_LOG_MUST(ctx,

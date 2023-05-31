@@ -5930,17 +5930,21 @@ static int mtk_cam_seninf_set_reg(struct seninf_ctx *ctx, u32 key, u64 val)
 		switch (val) {
 		case 130:
 			core->aov_csi_clk_switch_flag = CSI_CLK_130;
+			core->aov_ut_debug_for_get_csi_param = 1;
 			break;
 		case 242:
 			core->aov_csi_clk_switch_flag = CSI_CLK_242;
+			core->aov_ut_debug_for_get_csi_param = 0;
 			break;
 		case 312:
 		default:
 			core->aov_csi_clk_switch_flag = CSI_CLK_312;
+			core->aov_ut_debug_for_get_csi_param = 0;
 			break;
 		}
-		dev_info(ctx->dev, "[%s] set aov csi clk (%llu)\n",
-			__func__, val);
+		dev_info(ctx->dev,
+			"[%s] set aov csi clk (%llu), ut_flag:%u\n",
+			__func__, val, core->aov_ut_debug_for_get_csi_param);
 		break;
 	}
 

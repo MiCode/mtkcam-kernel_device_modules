@@ -441,11 +441,15 @@ struct subdrv_ctx {
 	struct clk *clk[CLK_MAXCNT];
 
 	struct subdrv_static_ctx s_ctx;
+
 	u8 aov_sensor_support;
-	u32 aov_csi_clk;	/* aov switch csi clk param */
+	/* aov switch csi clk param */
+	u32 aov_csi_clk;
+	const char *aov_phy_ctrl_ver;
 	unsigned int sensor_mode_ops;
 	bool sensor_debug_sensing_ut_on_scp;
 	bool sensor_debug_dphy_global_timing_continuous_clk;
+
 	bool power_on_profile_en;
 	struct mtk_sensor_profile sensor_pw_on_profile;
 

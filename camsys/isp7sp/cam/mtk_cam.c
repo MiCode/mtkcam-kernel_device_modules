@@ -45,6 +45,10 @@
 #include "mtk_cam-hsf.h"
 #include "iommu_debug.h"
 
+static unsigned int debug_sensor_meta_dump = 1;
+module_param(debug_sensor_meta_dump, uint, 0644);
+MODULE_PARM_DESC(debug_sensor_meta_dump, "activates sensor meta dump");
+
 #define CAM_DEBUG 0
 
 
@@ -2012,6 +2016,25 @@ EXIT_NO_POOL:
 	return ret;
 }
 
+static int mtk_cam_ctx_alloc_sensor_meta_pool(struct mtk_cam_ctx *ctx)
+{
+	struct device *dev_to_attach;
+	int ret = 0;
+
+	ctx->enable_sensor_meta_dump = (debug_sensor_meta_dump) ? true : false;
+
+	if (debug_sensor_meta_dump) {
+		dev_to_attach = get_dev_to_attach(ctx);
+
+		ret = _alloc_pool("SENSOR_META_ID", &ctx->sensor_meta_buffer,
+				&ctx->sensor_meta_pool,
+				dev_to_attach, SENSOR_META_BUF_SIZE, SENSOR_META_BUF_NUM,
+				false);
+	}
+
+	return ret;
+}
+
 static void mtk_cam_ctx_destroy_pool(struct mtk_cam_ctx *ctx)
 {
 	_destroy_pool(&ctx->cq_buffer, &ctx->cq_pool);
@@ -2038,6 +2061,12 @@ void mtk_cam_ctx_destroy_img_pool(struct mtk_cam_ctx *ctx)
 
 	ctx->img_wbuf_pool_wrapper = NULL;
 	ctx->pack_job_img_wbuf_pool_wrapper = NULL;
+}
+
+static void mtk_cam_ctx_destroy_sensor_meta_pool(struct mtk_cam_ctx *ctx)
+{
+	if (debug_sensor_meta_dump)
+		_destroy_pool(&ctx->sensor_meta_buffer, &ctx->sensor_meta_pool);
 }
 
 void mtk_cam_ctx_update_img_pool(struct mtk_cam_ctx *ctx,
@@ -2228,8 +2257,11 @@ struct mtk_cam_ctx *mtk_cam_start_ctx(struct mtk_cam_device *cam,
 	if (mtk_cam_ctx_alloc_img_pool(ctx))
 		goto fail_destroy_pools;
 
-	if (mtk_cam_ctx_prepare_session(ctx))
+	if (mtk_cam_ctx_alloc_sensor_meta_pool(ctx))
 		goto fail_destroy_img_pool;
+
+	if (mtk_cam_ctx_prepare_session(ctx))
+		goto fail_destroy_sensor_meta_pool;
 
 	if (mtk_cam_ctx_init_job_pool(ctx))
 		goto fail_unprepare_session;
@@ -2242,6 +2274,8 @@ struct mtk_cam_ctx *mtk_cam_start_ctx(struct mtk_cam_device *cam,
 
 fail_unprepare_session:
 	mtk_cam_ctx_unprepare_session(ctx);
+fail_destroy_sensor_meta_pool:
+	mtk_cam_ctx_destroy_sensor_meta_pool(ctx);
 fail_destroy_img_pool:
 	mtk_cam_ctx_destroy_img_pool(ctx);
 fail_destroy_pools:
@@ -2269,6 +2303,7 @@ void mtk_cam_stop_ctx(struct mtk_cam_ctx *ctx, struct media_entity *entity)
 	dev_info(cam->dev, "%s: by node %s\n", __func__, entity->name);
 
 	mtk_cam_ctx_unprepare_session(ctx);
+	mtk_cam_ctx_destroy_sensor_meta_pool(ctx);
 	mtk_cam_ctx_destroy_pool(ctx);
 	mtk_cam_ctx_destroy_img_pool(ctx);
 	mtk_cam_ctx_destroy_rgbw_caci_buf(ctx);

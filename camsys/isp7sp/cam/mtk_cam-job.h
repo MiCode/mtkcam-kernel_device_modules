@@ -51,6 +51,35 @@ enum mtk_cam_isp_state {
 	NR_S_ISP_STATE,
 };
 
+enum mtkcam_buf_fmt_type {
+	MTKCAM_BUF_FMT_TYPE_START = 0,
+	MTKCAM_BUF_FMT_TYPE_BAYER = MTKCAM_BUF_FMT_TYPE_START,
+	MTKCAM_BUF_FMT_TYPE_UFBC,
+	MTKCAM_BUF_FMT_TYPE_CNT,
+};
+
+struct mtk_cam_buf_fmt_desc {
+	int ipi_fmt;
+	int pixel_fmt;
+	int width;
+	int height;
+	int stride[3];
+	size_t size;
+};
+
+struct mtk_cam_driver_buf_desc {
+	int fmt_sel;
+	struct mtk_cam_buf_fmt_desc fmt_desc[MTKCAM_BUF_FMT_TYPE_CNT];
+
+	size_t max_size; //largest size among all fmt type
+
+	/* for userspace only */
+	dma_addr_t daddr;
+	int fd;
+	/* for buf pool release */
+	bool has_pool;
+};
+
 struct mtk_camsv_tag_info {
 	struct mtk_camsv_pipeline *sv_pipe;
 	unsigned int seninf_padidx;
@@ -336,6 +365,11 @@ struct mtk_cam_job {
 	struct mmqos_bw yuv_mmqos[SMI_PORT_YUV_NUM];
 	struct mmqos_bw sv_mmqos[SMI_PORT_SV_NUM];
 	struct mmqos_bw mraw_mmqos[MAX_MRAW_PIPES_PER_STREAM][SMI_PORT_MRAW_NUM];
+
+	/* sensor meta dump */
+	bool is_sensor_meta_dump;
+	struct mtk_cam_driver_buf_desc seninf_meta_buf_desc;
+	struct mtk_cam_pool_buffer sensor_meta_buf;
 
 	/* sv tag control */
 	unsigned int used_tag_cnt;

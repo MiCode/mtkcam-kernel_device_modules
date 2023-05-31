@@ -314,6 +314,13 @@ int apply_cam_mux_switch(struct mtk_cam_job *job)
 			settings[3].source, settings[3].camtg, settings[3].enable);
 	}
 
+	if (job->is_sensor_meta_dump)
+		mtk_cam_seninf_set_camtg_camsv(
+			ctx->seninf,
+			PAD_SRC_GENERAL0,
+			mtk_cam_get_sv_cammux_id(sv_dev, SVTAG_SENSOR_META),
+			SVTAG_SENSOR_META);
+
 	for (i = 0; i < ctx->num_sv_subdevs; i++) {
 		unsigned int tag_idx = mtk_cam_get_sv_tag_index(job->tag_info,
 			ctx->sv_subdev_idx[i] + MTKCAM_SUBDEV_CAMSV_START);

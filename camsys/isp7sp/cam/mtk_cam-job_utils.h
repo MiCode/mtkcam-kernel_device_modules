@@ -160,6 +160,8 @@ int fill_imgo_buf_as_working_buf(
 	struct mtk_cam_video_device *node);
 
 int update_work_buffer_to_ipi_frame(struct req_buffer_helper *helper);
+int update_sensor_meta_buffer_to_ipi_frame(struct mtk_cam_job *job,
+	struct mtkcam_ipi_frame_param *fp);
 int update_ufbc_header_param(struct mtk_cam_job *job);
 
 struct mtkcam_ipi_crop v4l2_rect_to_ipi_crop(const struct v4l2_rect *r);
@@ -196,6 +198,7 @@ bool is_processed_raw_node(struct mtk_cam_job *job,
 
 struct mtk_raw_ctrl_data *get_raw_ctrl_data(struct mtk_cam_job *job);
 struct mtk_raw_sink_data *get_raw_sink_data(struct mtk_cam_job *job);
+struct mtk_camsv_sink_data *get_sv_sink_data(struct mtk_cam_job *job);
 
 bool has_valid_mstream_exp(struct mtk_cam_job *job);
 

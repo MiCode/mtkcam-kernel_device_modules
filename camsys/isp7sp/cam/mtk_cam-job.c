@@ -720,6 +720,8 @@ handle_sv_frame_done(struct mtk_cam_job *job)
 {
 	struct mtk_cam_ctx *ctx = job->src_ctx;
 	struct mtk_cam_device *cam = ctx->cam;
+	struct mtk_raw_sink_data *raw_sink;
+	struct mtk_camsv_sink_data *sv_sink;
 	unsigned int used_pipe = job->req->used_pipe & job->src_ctx->used_pipe;
 	bool is_normal = true;
 	int i, pipe_id;
@@ -740,6 +742,36 @@ handle_sv_frame_done(struct mtk_cam_job *job)
 		mtk_cam_req_buffer_done(job, pipe_id, MTK_RAW_PURE_RAW_OUT,
 			is_normal ? VB2_BUF_STATE_DONE : VB2_BUF_STATE_ERROR,
 			true);
+	}
+
+	if (job->is_sensor_meta_dump) {
+		if (ctx->has_raw_subdev) {
+			raw_sink = get_raw_sink_data(job);
+			if (raw_sink)
+				mtk_cam_seninf_parse_ebd_line(
+					job->seninf,
+					job->req_seq,
+					job->req->debug_str,
+					job->sensor_meta_buf.vaddr,
+					job->sensor_meta_buf.size,
+					job->seninf_meta_buf_desc.fmt_desc[0].stride[0],
+					raw_sink->mbus_code);
+			else
+				dev_info(cam->dev, "%s: raw sink data not found\n", __func__);
+		} else {
+			sv_sink = get_sv_sink_data(job);
+			if (sv_sink)
+				mtk_cam_seninf_parse_ebd_line(
+					job->seninf,
+					job->req_seq,
+					job->req->debug_str,
+					job->sensor_meta_buf.vaddr,
+					job->sensor_meta_buf.size,
+					job->seninf_meta_buf_desc.fmt_desc[0].stride[0],
+					sv_sink->mbus_code);
+			else
+				dev_info(cam->dev, "%s: sv sink data not found\n", __func__);
+		}
 	}
 
 	for (i = MTKCAM_SUBDEV_CAMSV_START; i < MTKCAM_SUBDEV_CAMSV_END; i++) {
@@ -1264,6 +1296,9 @@ disable_seninf_cammux(struct mtk_cam_job *job)
 		if (is_w)
 			mtk_cam_seninf_set_camtg(seninf, PAD_SRC_RAW_W0 + i, 0xFF);
 	}
+
+	if (job->is_sensor_meta_dump)
+		mtk_cam_seninf_set_camtg(seninf, PAD_SRC_GENERAL0, 0xFF);
 
 	if (ctx->hw_sv) {
 		sv_dev = dev_get_drvdata(ctx->hw_sv);
@@ -2236,9 +2271,6 @@ _job_pack_otf_stagger(struct mtk_cam_job *job,
 	/* determine if it is a raw switch job */
 	update_job_raw_switch(job);
 
-	/* config_flow_by_job_type */
-	update_job_used_engine(job);
-
 	job->do_ipi_config = false;
 	if (check_if_need_configure(ctx->configured, job->seamless_switch,
 				    job->raw_switch)) {
@@ -2261,10 +2293,15 @@ _job_pack_otf_stagger(struct mtk_cam_job *job,
 	/* clone into job for debug dump */
 	job->ipi_config = ctx->ipi_config;
 
+	job->is_sensor_meta_dump = ctx->is_sensor_meta_dump;
+	job->seninf_meta_buf_desc = ctx->seninf_meta_buf_desc;
 	job->used_tag_cnt = ctx->used_tag_cnt;
 	job->enabled_tags = ctx->enabled_tags;
 	memcpy(job->tag_info, ctx->tag_info,
 		sizeof(struct mtk_camsv_tag_info) * CAMSV_MAX_TAGS);
+
+	/* config_flow_by_job_type */
+	update_job_used_engine(job);
 
 	ret = mtk_cam_job_fill_ipi_frame(job, job_helper);
 	return ret;
@@ -2397,9 +2434,6 @@ _job_pack_mstream(struct mtk_cam_job *job,
 	/* determine if it is a raw switch job */
 	update_job_raw_switch(job);
 
-	/* config_flow_by_job_type */
-	update_job_used_engine(job);
-
 	job->do_ipi_config = false;
 	if (check_if_need_configure(ctx->configured, false, job->raw_switch)) {
 		/* handle camsv tags */
@@ -2421,10 +2455,15 @@ _job_pack_mstream(struct mtk_cam_job *job,
 	/* clone into job for debug dump */
 	job->ipi_config = ctx->ipi_config;
 
+	job->is_sensor_meta_dump = ctx->is_sensor_meta_dump;
+	job->seninf_meta_buf_desc = ctx->seninf_meta_buf_desc;
 	job->used_tag_cnt = ctx->used_tag_cnt;
 	job->enabled_tags = ctx->enabled_tags;
 	memcpy(job->tag_info, ctx->tag_info,
 		sizeof(struct mtk_camsv_tag_info) * CAMSV_MAX_TAGS);
+
+	/* config_flow_by_job_type */
+	update_job_used_engine(job);
 
 	if (mtk_cam_job_fill_ipi_frame(job, job_helper))
 		return -1;
@@ -2526,9 +2565,6 @@ _job_pack_normal(struct mtk_cam_job *job,
 	/* determine if it is a raw switch job */
 	update_job_raw_switch(job);
 
-	/* config_flow_by_job_type */
-	update_job_used_engine(job);
-
 	job->do_ipi_config = false;
 	if (check_if_need_configure(ctx->configured,
 				    seamless_config_changed(job),
@@ -2552,10 +2588,15 @@ _job_pack_normal(struct mtk_cam_job *job,
 	/* clone into job for debug dump */
 	job->ipi_config = ctx->ipi_config;
 
+	job->is_sensor_meta_dump = ctx->is_sensor_meta_dump;
+	job->seninf_meta_buf_desc = ctx->seninf_meta_buf_desc;
 	job->used_tag_cnt = ctx->used_tag_cnt;
 	job->enabled_tags = ctx->enabled_tags;
 	memcpy(job->tag_info, ctx->tag_info,
 		sizeof(struct mtk_camsv_tag_info) * CAMSV_MAX_TAGS);
+
+	/* config_flow_by_job_type */
+	update_job_used_engine(job);
 
 	ret = mtk_cam_job_fill_ipi_frame(job, job_helper);
 
@@ -2582,9 +2623,6 @@ _job_pack_extisp(struct mtk_cam_job *job,
 	}
 	/* determine if it is a raw switch job */
 	update_job_raw_switch(job);
-
-	/* config_flow_by_job_type */
-	update_job_used_engine(job);
 
 	ctx->configured = (ctx->configured && !seamless_config_changed(job));
 	job->do_ipi_config = false;
@@ -2614,12 +2652,18 @@ _job_pack_extisp(struct mtk_cam_job *job,
 	}
 	/* clone into job for debug dump */
 	job->ipi_config = ctx->ipi_config;
+
+	job->is_sensor_meta_dump = ctx->is_sensor_meta_dump;
+	job->seninf_meta_buf_desc = ctx->seninf_meta_buf_desc;
 	job->used_tag_cnt = ctx->used_tag_cnt;
 	job->enabled_tags = ctx->enabled_tags;
 	memcpy(job->tag_info, ctx->tag_info,
 		sizeof(struct mtk_camsv_tag_info) * CAMSV_MAX_TAGS);
 	if (!ctx->not_first_job)
 		ctx->not_first_job = true;
+
+	/* config_flow_by_job_type */
+	update_job_used_engine(job);
 
 	ret = mtk_cam_job_fill_ipi_frame(job, job_helper);
 	dev_info(cam->dev, "[%s] ctx:%d, job_type:%d, scen:%d, used_engine:0x%x",
@@ -2691,9 +2735,6 @@ _job_pack_only_sv(struct mtk_cam_job *job,
 		job->stream_on_seninf = true;
 	}
 
-	/* config_flow_by_job_type */
-	update_job_used_engine(job);
-
 	job->do_ipi_config = false;
 	if (!ctx->configured) {
 		/* handle camsv tags */
@@ -2722,10 +2763,15 @@ _job_pack_only_sv(struct mtk_cam_job *job,
 	/* clone into job for debug dump */
 	job->ipi_config = ctx->ipi_config;
 
+	job->is_sensor_meta_dump = ctx->is_sensor_meta_dump;
+	job->seninf_meta_buf_desc = ctx->seninf_meta_buf_desc;
 	job->used_tag_cnt = ctx->used_tag_cnt;
 	job->enabled_tags = ctx->enabled_tags;
 	memcpy(job->tag_info, ctx->tag_info,
 		sizeof(struct mtk_camsv_tag_info) * CAMSV_MAX_TAGS);
+
+	/* config_flow_by_job_type */
+	update_job_used_engine(job);
 
 	ret = mtk_cam_job_fill_ipi_frame(job, job_helper);
 
@@ -4521,7 +4567,8 @@ static int mtk_cam_job_fill_ipi_frame(struct mtk_cam_job *job,
 
 	ret = update_cq_buffer_to_ipi_frame(&job->cq, fp)
 		|| update_job_raw_param_to_ipi_frame(job, fp)
-		|| update_job_buffer_to_ipi_frame(job, fp, job_helper);
+		|| update_job_buffer_to_ipi_frame(job, fp, job_helper)
+		|| update_sensor_meta_buffer_to_ipi_frame(job, fp);
 
 	if (ret)
 		pr_info("%s: failed.\n", __func__);

@@ -54,27 +54,8 @@ struct mtk_rpmsg_device;
 #define CQ_BUF_SIZE  0x10000
 #define CAM_CQ_BUF_NUM  (JOB_NUM_PER_STREAM * 2) /* 2 for mstream */
 
-enum mtkcam_buf_fmt_type {
-	MTKCAM_BUF_FMT_TYPE_BAYER,
-	MTKCAM_BUF_FMT_TYPE_UFBC,
-	MTKCAM_BUF_FMT_TYPE_CNT,
-};
-
-struct mtk_cam_buf_fmt_desc {
-	int ipi_fmt;
-	int pixel_fmt;
-	int width;
-	int height;
-	int stride[3];
-	size_t size;
-};
-
-struct mtk_cam_driver_buf_desc {
-	int fmt_sel;
-	struct mtk_cam_buf_fmt_desc fmt_desc[MTKCAM_BUF_FMT_TYPE_CNT];
-
-	size_t max_size; //largest size among all fmt type
-};
+#define SENSOR_META_BUF_SIZE 0x8000
+#define SENSOR_META_BUF_NUM 8
 
 struct mtk_cam_adl_work {
 	struct work_struct work;
@@ -199,6 +180,13 @@ struct mtk_cam_ctx {
 
 	/* for mmqos usage */
 	struct mtk_seninf_active_line_info act_line_info;
+
+	/* sensor meta dump */
+	bool enable_sensor_meta_dump;
+	bool is_sensor_meta_dump;
+	struct mtk_cam_device_buf sensor_meta_buffer;
+	struct mtk_cam_driver_buf_desc seninf_meta_buf_desc;
+	struct mtk_cam_pool sensor_meta_pool;
 };
 
 struct mtk_cam_v4l2_pipelines {

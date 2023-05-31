@@ -94,6 +94,8 @@ int handle_sv_tag_extisp(struct mtk_cam_job *job)
 			sv_sink->height,
 			sv_sink->mbus_code);
 	}
+
+	ctx->is_sensor_meta_dump = job->is_sensor_meta_dump = false;
 	ctx->used_tag_cnt = job->used_tag_cnt;
 	ctx->enabled_tags = job->enabled_tags;
 	memcpy(ctx->tag_info, job->tag_info,

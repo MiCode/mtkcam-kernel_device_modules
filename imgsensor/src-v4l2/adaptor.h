@@ -42,6 +42,7 @@
 
 struct adaptor_ctx;
 static unsigned int sensor_debug;
+static unsigned int set_ctrl_unlock;
 
 struct adaptor_ae_ctrl_dbg_info {
 	/* timestamp info when get ae ctrl */
@@ -192,7 +193,9 @@ struct adaptor_ctx {
 
 	unsigned long long sys_ts_update_sof_cnt;
 	unsigned int *sensor_debug_flag;
+	unsigned int *p_set_ctrl_unlock_flag;
 	unsigned int sof_cnt;
+	unsigned int sof_no;
 	int req_id; /* from mtk hdr ae ctrl */
 	u64 shutter_for_timeout;
 	struct wakeup_source *sensor_ws;

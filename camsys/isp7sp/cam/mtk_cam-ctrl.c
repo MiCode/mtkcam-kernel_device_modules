@@ -1030,6 +1030,7 @@ static int mtk_cam_ctrl_stream_on_job(struct mtk_cam_job *job)
 	/* should set ts for second job's apply_sensor */
 	ctrl->r_info.sof_ts_ns = ktime_get_boottime_ns();
 	ctrl->r_info.sof_l_ts_ns = ktime_get_boottime_ns();
+	ctrl->fs_event_subframe_cnt = job->frame_cnt;
 
 	call_jobop(job, stream_on, true);
 	if (ctrl->r_info.extisp_enable)

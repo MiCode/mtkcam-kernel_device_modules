@@ -632,16 +632,16 @@ const struct mtk_format_info *mtk_format_info(u32 format)
 		/* note: v4l2 supports bayer12 unpack */
 
 		/* bayer14, unpacked */
-		{ .format = V4L2_PIX_FMT_MTISP_SBGGR14,  .mem_planes = 1, .comp_planes = 1,
+		{ .format = V4L2_PIX_FMT_SBGGR14,  .mem_planes = 1, .comp_planes = 1,
 			.bitpp = { 16, 0, 0, 0 }, .hdiv = 1, .vdiv = 1,
 			.bus_align = 2 * 8 /* 8p */ },
-		{ .format = V4L2_PIX_FMT_MTISP_SGBRG14,  .mem_planes = 1, .comp_planes = 1,
+		{ .format = V4L2_PIX_FMT_SGBRG14,  .mem_planes = 1, .comp_planes = 1,
 			.bitpp = { 16, 0, 0, 0 }, .hdiv = 1, .vdiv = 1,
 			.bus_align = 2 * 8 /* 8p */ },
-		{ .format = V4L2_PIX_FMT_MTISP_SGRBG14,  .mem_planes = 1, .comp_planes = 1,
+		{ .format = V4L2_PIX_FMT_SGRBG14,  .mem_planes = 1, .comp_planes = 1,
 			.bitpp = { 16, 0, 0, 0 }, .hdiv = 1, .vdiv = 1,
 			.bus_align = 2 * 8 /* 8p */ },
-		{ .format = V4L2_PIX_FMT_MTISP_SRGGB14,  .mem_planes = 1, .comp_planes = 1,
+		{ .format = V4L2_PIX_FMT_SRGGB14,  .mem_planes = 1, .comp_planes = 1,
 			.bitpp = { 16, 0, 0, 0 }, .hdiv = 1, .vdiv = 1,
 			.bus_align = 2 * 8 /* 8p */ },
 

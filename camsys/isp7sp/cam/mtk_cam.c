@@ -503,7 +503,7 @@ static void mtk_cam_clone_pipe_data_to_req(struct media_request *req)
 
 		data = &cam_req->raw_data[i];
 		raw = &ppls->raw[i];
-		pad = &raw->pad_cfg[MTK_RAW_SINK];
+		pad = mtk_raw_current_sink(raw);
 
 		data->ctrl = raw->ctrl_data;
 		mtk_cam_reset_rc_data(&raw->ctrl_data.rc_data);

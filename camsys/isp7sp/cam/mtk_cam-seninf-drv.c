@@ -3897,24 +3897,24 @@ int mtk_cam_seninf_aov_runtime_suspend(unsigned int sensor_id)
 			/* AP side to SCP */
 			if (core->aov_csi_clk_switch_flag == CSI_CLK_130) {
 				/* set the parent of clk as parent_clk */
-				if (core->clk[CLK_TOP_SENINF1] && core->clk[CLK_TOP_OSC_D4]) {
+				if (core->clk[CLK_TOP_SENINF4] && core->clk[CLK_TOP_OSC_D4]) {
 					ret = clk_set_parent(
-						core->clk[CLK_TOP_SENINF1],
+						core->clk[CLK_TOP_SENINF4],
 						core->clk[CLK_TOP_OSC_D4]);
 					if (ret < 0) {
 						dev_info(ctx->dev,
-							"[%s] clk[CLK_TOP_SENINF1:%u]:%s set_parent clk[CLK_TOP_OSC_D4:%u]:%s(fail),ret(%d)\n",
+							"[%s] clk[CLK_TOP_SENINF4:%u]:%s set_parent clk[CLK_TOP_OSC_D4:%u]:%s(fail),ret(%d)\n",
 							__func__,
-							CLK_TOP_SENINF1, clk_names[CLK_TOP_SENINF1],
+							CLK_TOP_SENINF1, clk_names[CLK_TOP_SENINF4],
 							CLK_TOP_OSC_D4, clk_names[CLK_TOP_OSC_D4],
 							ret);
 						mutex_unlock(&core->mutex);
 						return ret;
 					}
 					dev_info(ctx->dev,
-						"[%s] clk[CLK_TOP_SENINF1:%u]:%s set_parent clk[CLK_TOP_OSC_D4:%u]:%s(correct),ret(%d)\n",
+						"[%s] clk[CLK_TOP_SENINF4:%u]:%s set_parent clk[CLK_TOP_OSC_D4:%u]:%s(correct),ret(%d)\n",
 						__func__,
-						CLK_TOP_SENINF1, clk_names[CLK_TOP_SENINF1],
+						CLK_TOP_SENINF4, clk_names[CLK_TOP_SENINF4],
 						CLK_TOP_OSC_D4, clk_names[CLK_TOP_OSC_D4],
 						ret);
 				} else {
@@ -3927,12 +3927,12 @@ int mtk_cam_seninf_aov_runtime_suspend(unsigned int sensor_id)
 			}
 
 			/* disable seninf csi clk which connects aov sensor */
-			if (core->clk[CLK_TOP_SENINF1]) {
-				clk_disable_unprepare(core->clk[CLK_TOP_SENINF1]);
+			if (core->clk[CLK_TOP_SENINF4]) {
+				clk_disable_unprepare(core->clk[CLK_TOP_SENINF4]);
 				dev_info(ctx->dev,
-					"[%s] disable_unprepare clk[CLK_TOP_SENINF1:%u]:%s\n",
+					"[%s] disable_unprepare clk[CLK_TOP_SENINF4:%u]:%s\n",
 					__func__,
-					CLK_TOP_SENINF1, clk_names[CLK_TOP_SENINF1]);
+					CLK_TOP_SENINF4, clk_names[CLK_TOP_SENINF4]);
 			}
 		} else {
 			/* AP side to SCP */
@@ -4102,20 +4102,20 @@ int mtk_cam_seninf_aov_runtime_resume(unsigned int sensor_id,
 			/* enable seninf csi clk which connects aov sensor */
 			if (core->clk[CLK_TOP_SENINF1]) {
 				/* must enable mux clk before clk_set_parent */
-				ret = clk_prepare_enable(core->clk[CLK_TOP_SENINF1]);
+				ret = clk_prepare_enable(core->clk[CLK_TOP_SENINF4]);
 				if (ret < 0) {
 					dev_info(ctx->dev,
-						"[%s] prepare_enable clk[CLK_TOP_SENINF1:%u]:%s(fail),ret(%d)\n",
+						"[%s] prepare_enable clk[CLK_TOP_SENINF4:%u]:%s(fail),ret(%d)\n",
 						__func__,
-						CLK_TOP_SENINF1, clk_names[CLK_TOP_SENINF1],
+						CLK_TOP_SENINF4, clk_names[CLK_TOP_SENINF4],
 						ret);
 					mutex_unlock(&core->mutex);
 					return ret;
 				}
 				dev_info(ctx->dev,
-					"[%s] prepare_enable clk[CLK_TOP_SENINF1:%u]:%s(correct),ret(%d)\n",
+					"[%s] prepare_enable clk[CLK_TOP_SENINF4:%u]:%s(correct),ret(%d)\n",
 					__func__,
-					CLK_TOP_SENINF1, clk_names[CLK_TOP_SENINF1],
+					CLK_TOP_SENINF4, clk_names[CLK_TOP_SENINF4],
 					ret);
 			} else {
 				dev_info(ctx->dev,
@@ -4136,15 +4136,15 @@ int mtk_cam_seninf_aov_runtime_resume(unsigned int sensor_id,
 			/* SCP side to AP */
 			if (core->aov_csi_clk_switch_flag == CSI_CLK_130) {
 				/* set the parent of clk as parent_clk */
-				if (core->clk[CLK_TOP_SENINF1] && core->clk[CLK_TOP_UNIVPLL2_D4_D2]) {
+				if (core->clk[CLK_TOP_SENINF4] && core->clk[CLK_TOP_UNIVPLL2_D4_D2]) {
 					ret = clk_set_parent(
-						core->clk[CLK_TOP_SENINF1],
+						core->clk[CLK_TOP_SENINF4],
 						core->clk[CLK_TOP_UNIVPLL2_D4_D2]);
 					if (ret < 0) {
 						dev_info(ctx->dev,
-							"[%s] clk[CLK_TOP_SENINF1:%u]:%s set_parent clk[CLK_TOP_UNIVPLL2_D4_D2:%u]:%s(fail),ret(%d)\n",
+							"[%s] clk[CLK_TOP_SENINF4:%u]:%s set_parent clk[CLK_TOP_UNIVPLL2_D4_D2:%u]:%s(fail),ret(%d)\n",
 							__func__,
-							CLK_TOP_SENINF1, clk_names[CLK_TOP_SENINF1],
+							CLK_TOP_SENINF4, clk_names[CLK_TOP_SENINF4],
 							CLK_TOP_UNIVPLL2_D4_D2,
 							clk_names[CLK_TOP_UNIVPLL2_D4_D2],
 							ret);
@@ -4152,9 +4152,9 @@ int mtk_cam_seninf_aov_runtime_resume(unsigned int sensor_id,
 						return ret;
 					}
 					dev_info(ctx->dev,
-						"[%s] clk[CLK_TOP_SENINF1:%u]:%s set_parent clk[CLK_TOP_UNIVPLL2_D4_D2:%u]:%s(correct),ret(%d)\n",
+						"[%s] clk[CLK_TOP_SENINF4:%u]:%s set_parent clk[CLK_TOP_UNIVPLL2_D4_D2:%u]:%s(correct),ret(%d)\n",
 						__func__,
-						CLK_TOP_SENINF1, clk_names[CLK_TOP_SENINF1],
+						CLK_TOP_SENINF4, clk_names[CLK_TOP_SENINF4],
 						CLK_TOP_UNIVPLL2_D4_D2, clk_names[CLK_TOP_UNIVPLL2_D4_D2],
 						ret);
 				} else {

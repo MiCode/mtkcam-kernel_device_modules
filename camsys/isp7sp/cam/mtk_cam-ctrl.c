@@ -700,12 +700,22 @@ static void ctrl_vsync_preprocess(struct mtk_cam_ctrl *ctrl,
 					seq_from_fh_cookie(cq_ref->cookie);
 				WRITE_ONCE(ctrl->cur_cq_ref, 0);
 			} else {
+				vsync_res->is_last = 0;
 				hint_inner_err = 1;
 				cookie = cq_ref->cookie;
 				inner_not_ready =
 					atomic_long_read(&cq_ref->inner_not_ready);
 			}
 		}
+
+		/* note:
+		 *   cpu0 busy or low performance may causes sof out of order.
+		 *   to correct this order, rewait sof that module is not to inner.
+		 */
+		if (hint_inner_err)
+			vsync_rewait(&ctrl->vsync_col, inner_not_ready);
+		else
+			vsync_clear_collected(&ctrl->vsync_col);
 	}
 
 	spin_unlock(&ctrl->info_lock);
@@ -1641,8 +1651,6 @@ int vsync_update(struct vsync_collector *c,
 	res->is_extmeta = 0;
 	if (res->is_first)
 		c->collected_first = 1;
-	if (res->is_last)
-		c->collected = c->collected_first = 0;
 
 	return 0;
 

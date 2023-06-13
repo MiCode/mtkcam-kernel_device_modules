@@ -289,9 +289,9 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.num_entries = ARRAY_SIZE(frame_desc_vid),
 		.mode_setting_table = imx598_normal_video_setting,
 		.mode_setting_len = ARRAY_SIZE(imx598_normal_video_setting),
-		.seamless_switch_group = 1,
-		.seamless_switch_mode_setting_table = imx598_seamless_normal_video,
-		.seamless_switch_mode_setting_len = ARRAY_SIZE(imx598_seamless_normal_video),
+		.seamless_switch_group = PARAM_UNDEFINED,
+		.seamless_switch_mode_setting_table = PARAM_UNDEFINED,
+		.seamless_switch_mode_setting_len = PARAM_UNDEFINED,
 		.hdr_mode = HDR_NONE,
 		.raw_cnt = 1,
 		.exp_cnt = 1,
@@ -749,7 +749,7 @@ static int imx598_set_test_pattern(struct subdrv_ctx *ctx, u8 *para, u32 *len)
 	u32 mode = *((u32 *)para);
 
 	if (mode != ctx->test_pattern)
-		DRV_LOGE(ctx, "mode(%u->%u)\n", ctx->test_pattern, mode);
+		DRV_LOG_MUST(ctx, "mode(%u->%u)\n", ctx->test_pattern, mode);
 	/* 1:Solid Color 2:Color Bar 5:Black */
 	if (mode)
 		subdrv_i2c_wr_u8(ctx, 0x0601, mode); /*100% Color bar*/
@@ -777,7 +777,7 @@ static int imx598_set_test_pattern_data(struct subdrv_ctx *ctx, u8 *para, u32 *l
 	subdrv_i2c_wr_u8(ctx, 0x0608, (Gb >> 8));
 	subdrv_i2c_wr_u8(ctx, 0x0609, (Gb & 0xff));
 
-	DRV_LOGE(ctx, "mode(%u) R/Gr/Gb/B = 0x%04x/0x%04x/0x%04x/0x%04x\n",
+	DRV_LOG_MUST(ctx, "mode(%u) R/Gr/Gb/B = 0x%04x/0x%04x/0x%04x/0x%04x\n",
 		ctx->test_pattern, R, Gr, Gb, B);
 	return ERROR_NONE;
 }

@@ -88,7 +88,6 @@ static int mtk_cam_vb2_queue_setup(struct vb2_queue *vq,
 {
 	struct mtk_cam_device *cam = vb2_get_drv_priv(vq);
 	struct mtk_cam_video_device *node = mtk_cam_vbq_to_vdev(vq);
-	unsigned int max_buffer_count = node->desc.max_buf_count;
 	const struct v4l2_format *fmt = &node->active_fmt, *meta_fmt;
 	unsigned int size;
 	int i;
@@ -97,9 +96,6 @@ static int mtk_cam_vb2_queue_setup(struct vb2_queue *vq,
 	min_buf_sz = ALIGN(IMG_MIN_WIDTH, IMG_PIX_ALIGN) * IMG_MIN_HEIGHT;
 
 	/* Check the limitation of buffer size */
-	if (max_buffer_count)
-		*num_buffers = clamp_val(*num_buffers, 1, max_buffer_count);
-
 	if (node->desc.smem_alloc)
 		vq->dma_attrs |= DMA_ATTR_NO_KERNEL_MAPPING;
 

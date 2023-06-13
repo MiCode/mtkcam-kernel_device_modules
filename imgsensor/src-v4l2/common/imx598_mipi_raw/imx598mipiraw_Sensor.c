@@ -643,7 +643,7 @@ static struct subdrv_static_ctx static_ctx = {
 			{0x0202, 0x0203},
 	},
 	.long_exposure_support = TRUE,
-	.reg_addr_exposure_lshift = 0x3128,
+	.reg_addr_exposure_lshift = 0x3100,
 	.reg_addr_ana_gain = {
 			{0x0204, 0x0205},
 	},
@@ -749,7 +749,7 @@ static int imx598_set_test_pattern(struct subdrv_ctx *ctx, u8 *para, u32 *len)
 	u32 mode = *((u32 *)para);
 
 	if (mode != ctx->test_pattern)
-		DRV_LOG(ctx, "mode(%u->%u)\n", ctx->test_pattern, mode);
+		DRV_LOGE(ctx, "mode(%u->%u)\n", ctx->test_pattern, mode);
 	/* 1:Solid Color 2:Color Bar 5:Black */
 	if (mode)
 		subdrv_i2c_wr_u8(ctx, 0x0601, mode); /*100% Color bar*/
@@ -773,11 +773,11 @@ static int imx598_set_test_pattern_data(struct subdrv_ctx *ctx, u8 *para, u32 *l
 	subdrv_i2c_wr_u8(ctx, 0x0604, (Gr >> 8));
 	subdrv_i2c_wr_u8(ctx, 0x0605, (Gr & 0xff));
 	subdrv_i2c_wr_u8(ctx, 0x0606, (B >> 8));
-	subdrv_i2c_wr_u8(ctx, 0x0606, (B & 0xff));
+	subdrv_i2c_wr_u8(ctx, 0x0607, (B & 0xff));
 	subdrv_i2c_wr_u8(ctx, 0x0608, (Gb >> 8));
-	subdrv_i2c_wr_u8(ctx, 0x0608, (Gb & 0xff));
+	subdrv_i2c_wr_u8(ctx, 0x0609, (Gb & 0xff));
 
-	DRV_LOG(ctx, "mode(%u) R/Gr/Gb/B = 0x%04x/0x%04x/0x%04x/0x%04x\n",
+	DRV_LOGE(ctx, "mode(%u) R/Gr/Gb/B = 0x%04x/0x%04x/0x%04x/0x%04x\n",
 		ctx->test_pattern, R, Gr, Gb, B);
 	return ERROR_NONE;
 }

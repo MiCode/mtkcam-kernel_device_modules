@@ -615,7 +615,7 @@ static struct subdrv_mode_struct mode_struct[] = {
 			.dphy_init_deskew_support = 1,
 		},
 		.sensor_output_dataformat = SENSOR_OUTPUT_FORMAT_RAW_4CELL_HW_BAYER_B,
-		.ana_gain_max = BASEGAIN * 8,
+		.multi_exposure_ana_gain_range[IMGSENSOR_EXPOSURE_LE].max = BASEGAIN * 8,
 	},
 	{
 		.frame_desc = frame_desc_cus3,
@@ -665,7 +665,7 @@ static struct subdrv_mode_struct mode_struct[] = {
 			.dphy_init_deskew_support = 1,
 		},
 		.sensor_output_dataformat = SENSOR_OUTPUT_FORMAT_RAW_4CELL_B,
-		.ana_gain_max = BASEGAIN * 8,
+		.multi_exposure_ana_gain_range[IMGSENSOR_EXPOSURE_LE].max = BASEGAIN * 8,
 	},
 
 };

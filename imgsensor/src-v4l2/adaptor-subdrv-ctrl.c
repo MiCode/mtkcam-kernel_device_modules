@@ -1123,8 +1123,10 @@ void set_shutter_frame_length(struct subdrv_ctx *ctx, u64 shutter, u32 frame_len
 	/* check boundary of shutter */
 	fine_integ_line = ctx->s_ctx.mode[ctx->current_scenario_id].fine_integ_line;
 	shutter = FINE_INTEG_CONVERT(shutter, fine_integ_line);
-	shutter = max_t(u64, shutter, (u64)ctx->s_ctx.exposure_min);
-	shutter = min_t(u64, shutter, (u64)ctx->s_ctx.exposure_max);
+	shutter = max_t(u64, shutter,
+		(u64)ctx->s_ctx.mode[ctx->current_scenario_id].multi_exposure_shutter_range[0].min);
+	shutter = min_t(u64, shutter,
+		(u64)ctx->s_ctx.mode[ctx->current_scenario_id].multi_exposure_shutter_range[0].max);
 	/* check boundary of framelength */
 	ctx->frame_length = max((u32)shutter + ctx->s_ctx.exposure_margin, ctx->min_frame_length);
 	ctx->frame_length = min(ctx->frame_length, ctx->s_ctx.frame_length_max);
@@ -1214,8 +1216,10 @@ void set_multi_shutter_frame_length(struct subdrv_ctx *ctx,
 	cit_step = ctx->s_ctx.mode[ctx->current_scenario_id].coarse_integ_step;
 	for (i = 0; i < exp_cnt; i++) {
 		shutters[i] = FINE_INTEG_CONVERT(shutters[i], fine_integ_line);
-		shutters[i] = max_t(u64, shutters[i], (u64)ctx->s_ctx.exposure_min);
-		shutters[i] = min_t(u64, shutters[i], (u64)ctx->s_ctx.exposure_max);
+		shutters[i] = max_t(u64, shutters[i],
+			(u64)ctx->s_ctx.mode[ctx->current_scenario_id].multi_exposure_shutter_range[i].min);
+		shutters[i] = min_t(u64, shutters[i],
+			(u64)ctx->s_ctx.mode[ctx->current_scenario_id].multi_exposure_shutter_range[i].max);
 		if (cit_step)
 			shutters[i] = round_up(shutters[i], cit_step);
 	}
@@ -1359,8 +1363,10 @@ void set_multi_shutter_frame_length_in_lut(struct subdrv_ctx *ctx,
 	/* manual mode */
 	for (i = 0; i < exp_cnt; i++) {
 		shutters[i] = FINE_INTEG_CONVERT(shutters[i], fine_integ_line);
-		shutters[i] = max_t(u64, shutters[i], (u64)ctx->s_ctx.exposure_min);
-		shutters[i] = min_t(u64, shutters[i], (u64)ctx->s_ctx.exposure_max);
+		shutters[i] = max_t(u64, shutters[i],
+			(u64)ctx->s_ctx.mode[ctx->current_scenario_id].multi_exposure_shutter_range[i].min);
+		shutters[i] = min_t(u64, shutters[i],
+			(u64)ctx->s_ctx.mode[ctx->current_scenario_id].multi_exposure_shutter_range[i].max);
 		if (cit_step)
 			shutters[i] = round_up(shutters[i], cit_step);
 
@@ -1569,9 +1575,9 @@ void set_gain(struct subdrv_ctx *ctx, u32 gain)
 
 	/* check boundary of gain */
 	gain = max(gain,
-		ctx->s_ctx.mode[ctx->current_scenario_id].ana_gain_min);
+		ctx->s_ctx.mode[ctx->current_scenario_id].multi_exposure_ana_gain_range[0].min);
 	gain = min(gain,
-		ctx->s_ctx.mode[ctx->current_scenario_id].ana_gain_max);
+		ctx->s_ctx.mode[ctx->current_scenario_id].multi_exposure_ana_gain_range[0].max);
 	/* mapping of gain to register value */
 	if (ctx->s_ctx.g_gain2reg != NULL)
 		rg_gain = ctx->s_ctx.g_gain2reg(gain);
@@ -1625,9 +1631,9 @@ void set_multi_gain(struct subdrv_ctx *ctx, u32 *gains, u16 exp_cnt)
 	for (i = 0; i < exp_cnt; i++) {
 		/* check boundary of gain */
 		gains[i] = max(gains[i],
-			ctx->s_ctx.mode[ctx->current_scenario_id].ana_gain_min);
+			ctx->s_ctx.mode[ctx->current_scenario_id].multi_exposure_ana_gain_range[i].min);
 		gains[i] = min(gains[i],
-			ctx->s_ctx.mode[ctx->current_scenario_id].ana_gain_max);
+			ctx->s_ctx.mode[ctx->current_scenario_id].multi_exposure_ana_gain_range[i].max);
 		/* mapping of gain to register value */
 		if (ctx->s_ctx.g_gain2reg != NULL)
 			gains[i] = ctx->s_ctx.g_gain2reg(gains[i]);

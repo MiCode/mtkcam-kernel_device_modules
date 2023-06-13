@@ -123,16 +123,20 @@ static void c2ps_notifier_wq_cb_task_start(int pid, int task_id)
 {
 	C2PS_LOGD("[C2PS_CB] task_start task_id: %d\n", task_id);
 
-	if (unlikely(monitor_task_start(pid, task_id)))
-		C2PS_LOGE("notify_task_start failed\n");
+	if (unlikely(monitor_task_start(pid, task_id))) {
+		C2PS_LOGW_ONCE("notify_task_start failed\n");
+		C2PS_LOGW("notify_task_start failed\n");
+	}
 }
 
 static void c2ps_notifier_wq_cb_task_end(int pid, int task_id)
 {
 	C2PS_LOGD("[C2PS_CB] task_end task_id: %d\n", task_id);
 
-	if (unlikely(monitor_task_end(pid, task_id)))
-		C2PS_LOGE("notify_task_end failed\n");
+	if (unlikely(monitor_task_end(pid, task_id))) {
+		C2PS_LOGW_ONCE("notify_task_end failed\n");
+		C2PS_LOGW("notify_task_end failed\n");
+	}
 }
 
 static void c2ps_notifier_wq_cb_vsync(u64 ts)

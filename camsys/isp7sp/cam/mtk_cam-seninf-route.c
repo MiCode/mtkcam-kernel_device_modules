@@ -462,7 +462,7 @@ void mtk_cam_seninf_mux_put(struct seninf_ctx *ctx, struct seninf_mux *mux)
 		}
 	}
 	list_for_each_entry(ent, &core->list_mux, list) {
-		dev_info(ctx->dev, "[%s] ent = %d\n", __func__, ent->idx);
+		seninf_logd(ctx, "[%s] ent = %d\n", __func__, ent->idx);
 	}
 	mutex_unlock(&core->mutex);
 }

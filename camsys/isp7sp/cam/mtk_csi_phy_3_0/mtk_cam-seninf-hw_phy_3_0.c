@@ -2179,13 +2179,36 @@ static int csirx_mac_csi_setting(struct seninf_ctx *ctx)
 	case CSI_PORT_4:
 	case CSI_PORT_5:
 		/* Enalbe 4 lane data lane */
-		SENINF_BITS(csirx_mac_csi, CSIRX_MAC_CSI2_EN, CSI2_LANE0_EN, 1);
-		SENINF_BITS(csirx_mac_csi, CSIRX_MAC_CSI2_EN, CSI2_LANE1_EN, 1);
-		SENINF_BITS(csirx_mac_csi, CSIRX_MAC_CSI2_EN, CSI2_LANE2_EN, 1);
-
-		if (!ctx->is_cphy)
+		switch (ctx->num_data_lanes) {
+		case 1:
+			SENINF_BITS(csirx_mac_csi, CSIRX_MAC_CSI2_EN, CSI2_LANE3_EN, 0);
+			SENINF_BITS(csirx_mac_csi, CSIRX_MAC_CSI2_EN, CSI2_LANE2_EN, 0);
+			SENINF_BITS(csirx_mac_csi, CSIRX_MAC_CSI2_EN, CSI2_LANE1_EN, 0);
+			SENINF_BITS(csirx_mac_csi, CSIRX_MAC_CSI2_EN, CSI2_LANE0_EN, 1);
+			break;
+		case 2:
+			SENINF_BITS(csirx_mac_csi, CSIRX_MAC_CSI2_EN, CSI2_LANE3_EN, 0);
+			SENINF_BITS(csirx_mac_csi, CSIRX_MAC_CSI2_EN, CSI2_LANE2_EN, 0);
+			SENINF_BITS(csirx_mac_csi, CSIRX_MAC_CSI2_EN, CSI2_LANE1_EN, 1);
+			SENINF_BITS(csirx_mac_csi, CSIRX_MAC_CSI2_EN, CSI2_LANE0_EN, 1);
+			break;
+		case 3:
+			SENINF_BITS(csirx_mac_csi, CSIRX_MAC_CSI2_EN, CSI2_LANE3_EN, 0);
+			SENINF_BITS(csirx_mac_csi, CSIRX_MAC_CSI2_EN, CSI2_LANE2_EN, 1);
+			SENINF_BITS(csirx_mac_csi, CSIRX_MAC_CSI2_EN, CSI2_LANE1_EN, 1);
+			SENINF_BITS(csirx_mac_csi, CSIRX_MAC_CSI2_EN, CSI2_LANE0_EN, 1);
+			break;
+		case 4:
 			SENINF_BITS(csirx_mac_csi, CSIRX_MAC_CSI2_EN, CSI2_LANE3_EN, 1);
-
+			SENINF_BITS(csirx_mac_csi, CSIRX_MAC_CSI2_EN, CSI2_LANE2_EN, 1);
+			SENINF_BITS(csirx_mac_csi, CSIRX_MAC_CSI2_EN, CSI2_LANE1_EN, 1);
+			SENINF_BITS(csirx_mac_csi, CSIRX_MAC_CSI2_EN, CSI2_LANE0_EN, 1);
+			break;
+		default:
+			dev_info(ctx->dev, "[%s][ERROR] invalid lane num(%d)\n",
+				__func__,
+				ctx->num_data_lanes);
+		}
 		break;
 
 	case CSI_PORT_0A:
@@ -2195,10 +2218,24 @@ static int csirx_mac_csi_setting(struct seninf_ctx *ctx)
 	case CSI_PORT_4A:
 	case CSI_PORT_5A:
 		/* Enalbe 2 lane data lane */
-		SENINF_BITS(csirx_mac_csi, CSIRX_MAC_CSI2_EN, CSI2_LANE0_EN, 1);
-		SENINF_BITS(csirx_mac_csi, CSIRX_MAC_CSI2_EN, CSI2_LANE1_EN, 1);
-		SENINF_BITS(csirx_mac_csi, CSIRX_MAC_CSI2_EN, CSI2_LANE2_EN, 0);
-		SENINF_BITS(csirx_mac_csi, CSIRX_MAC_CSI2_EN, CSI2_LANE3_EN, 0);
+		switch (ctx->num_data_lanes) {
+		case 1:
+			SENINF_BITS(csirx_mac_csi, CSIRX_MAC_CSI2_EN, CSI2_LANE3_EN, 0);
+			SENINF_BITS(csirx_mac_csi, CSIRX_MAC_CSI2_EN, CSI2_LANE2_EN, 0);
+			SENINF_BITS(csirx_mac_csi, CSIRX_MAC_CSI2_EN, CSI2_LANE1_EN, 0);
+			SENINF_BITS(csirx_mac_csi, CSIRX_MAC_CSI2_EN, CSI2_LANE0_EN, 1);
+			break;
+		case 2:
+			SENINF_BITS(csirx_mac_csi, CSIRX_MAC_CSI2_EN, CSI2_LANE3_EN, 0);
+			SENINF_BITS(csirx_mac_csi, CSIRX_MAC_CSI2_EN, CSI2_LANE2_EN, 0);
+			SENINF_BITS(csirx_mac_csi, CSIRX_MAC_CSI2_EN, CSI2_LANE1_EN, 1);
+			SENINF_BITS(csirx_mac_csi, CSIRX_MAC_CSI2_EN, CSI2_LANE0_EN, 1);
+			break;
+		default:
+			dev_info(ctx->dev, "[%s][ERROR] invalid lane num(%d)\n",
+				__func__,
+				ctx->num_data_lanes);
+		}
 		break;
 
 	case CSI_PORT_0B:
@@ -2620,12 +2657,6 @@ static int csirx_phyA_setting(struct seninf_ctx *ctx)
 		SENINF_BITS(baseA, CDPHY_RX_ANA_SETTING_1,
 			AFIFO_DUMMY_VALID_GAP_NUM, 0x4);
 
-		SENINF_BITS(baseA, CDPHY_RX_ASYM_AFIFO_CTRL_0,
-		    L0_AFIFO_FLUSH_EN, 0x1);
-		SENINF_BITS(baseA, CDPHY_RX_ASYM_AFIFO_CTRL_0,
-		    L1_AFIFO_FLUSH_EN, 0x1);
-		SENINF_BITS(baseA, CDPHY_RX_ASYM_AFIFO_CTRL_0,
-		    L2_AFIFO_FLUSH_EN, 0x1);
 		SENINF_BITS(baseA, CDPHY_RX_ANA_SETTING_0,
 		    CSR_ASYNC_FIFO_GATING_SEL, 0x2);
 
@@ -3490,43 +3521,208 @@ static int csirx_dphy_init_deskew_setting(struct seninf_ctx *ctx, u64 seninf_ck)
 static int csirx_dphy_setting(struct seninf_ctx *ctx)
 {
 	void *base = ctx->reg_ana_dphy_top[(unsigned int)ctx->port];
+	void *baseA = ctx->reg_ana_csi_rx[(unsigned int)ctx->portA];
+	void *baseB = ctx->reg_ana_csi_rx[(unsigned int)ctx->portB];
 
 	if (ctx->is_4d1c) {
-		SENINF_BITS(base, DPHY_RX_LANE_SELECT, RG_DPHY_RX_LD3_SEL, 4);
-		SENINF_BITS(base, DPHY_RX_LANE_SELECT, RG_DPHY_RX_LD2_SEL, 0);
-		SENINF_BITS(base, DPHY_RX_LANE_SELECT, RG_DPHY_RX_LD1_SEL, 3);
-		SENINF_BITS(base, DPHY_RX_LANE_SELECT, RG_DPHY_RX_LD0_SEL, 1);
-		SENINF_BITS(base, DPHY_RX_LANE_SELECT, RG_DPHY_RX_LC0_SEL, 2);
+		switch(ctx->num_data_lanes) {
+		case 1:
+			SENINF_BITS(base, DPHY_RX_LANE_EN, DPHY_RX_LC0_EN, 1);
+			SENINF_BITS(base, DPHY_RX_LANE_EN, DPHY_RX_LC1_EN, 0);
+			SENINF_BITS(base, DPHY_RX_LANE_EN, DPHY_RX_LD0_EN, 1);
+			SENINF_BITS(base, DPHY_RX_LANE_EN, DPHY_RX_LD1_EN, 0);
+			SENINF_BITS(base, DPHY_RX_LANE_EN, DPHY_RX_LD2_EN, 0);
+			SENINF_BITS(base, DPHY_RX_LANE_EN, DPHY_RX_LD3_EN, 0);
 
-		SENINF_BITS(base, DPHY_RX_LANE_EN, DPHY_RX_LD0_EN, 1);
-		SENINF_BITS(base, DPHY_RX_LANE_EN, DPHY_RX_LD1_EN, 1);
-		SENINF_BITS(base, DPHY_RX_LANE_EN, DPHY_RX_LD2_EN, 1);
-		SENINF_BITS(base, DPHY_RX_LANE_EN, DPHY_RX_LD3_EN, 1);
-		SENINF_BITS(base, DPHY_RX_LANE_EN, DPHY_RX_LC0_EN, 1);
-		SENINF_BITS(base, DPHY_RX_LANE_EN, DPHY_RX_LC1_EN, 0);
+			SENINF_BITS(base, DPHY_RX_LANE_SELECT, RG_DPHY_RX_LC0_SEL, 2);
+			SENINF_BITS(base, DPHY_RX_LANE_SELECT, RG_DPHY_RX_LC1_SEL, 0);
+			SENINF_BITS(base, DPHY_RX_LANE_SELECT, RG_DPHY_RX_LD0_SEL, 1);
+			SENINF_BITS(base, DPHY_RX_LANE_SELECT, RG_DPHY_RX_LD1_SEL, 0);
+			SENINF_BITS(base, DPHY_RX_LANE_SELECT, RG_DPHY_RX_LD2_SEL, 0);
+			SENINF_BITS(base, DPHY_RX_LANE_SELECT, RG_DPHY_RX_LD3_SEL, 0);
+
+			SENINF_BITS(baseA, CDPHY_RX_ASYM_AFIFO_CTRL_0,
+								L1_AFIFO_FLUSH_EN, 0x1);
+			break;
+
+		case 2:
+			SENINF_BITS(base, DPHY_RX_LANE_EN, DPHY_RX_LC0_EN, 1);
+			SENINF_BITS(base, DPHY_RX_LANE_EN, DPHY_RX_LC1_EN, 0);
+			SENINF_BITS(base, DPHY_RX_LANE_EN, DPHY_RX_LD0_EN, 1);
+			SENINF_BITS(base, DPHY_RX_LANE_EN, DPHY_RX_LD1_EN, 1);
+			SENINF_BITS(base, DPHY_RX_LANE_EN, DPHY_RX_LD2_EN, 0);
+			SENINF_BITS(base, DPHY_RX_LANE_EN, DPHY_RX_LD3_EN, 0);
+
+			SENINF_BITS(base, DPHY_RX_LANE_SELECT, RG_DPHY_RX_LC0_SEL, 2);
+			SENINF_BITS(base, DPHY_RX_LANE_SELECT, RG_DPHY_RX_LC1_SEL, 0);
+			SENINF_BITS(base, DPHY_RX_LANE_SELECT, RG_DPHY_RX_LD0_SEL, 1);
+			SENINF_BITS(base, DPHY_RX_LANE_SELECT, RG_DPHY_RX_LD1_SEL, 3);
+			SENINF_BITS(base, DPHY_RX_LANE_SELECT, RG_DPHY_RX_LD2_SEL, 0);
+			SENINF_BITS(base, DPHY_RX_LANE_SELECT, RG_DPHY_RX_LD3_SEL, 0);
+
+			SENINF_BITS(baseA, CDPHY_RX_ASYM_AFIFO_CTRL_0,
+								L1_AFIFO_FLUSH_EN, 0x1);
+
+			SENINF_BITS(baseB, CDPHY_RX_ASYM_AFIFO_CTRL_0,
+								L0_AFIFO_FLUSH_EN, 0x1);
+			break;
+
+		case 4:
+			SENINF_BITS(base, DPHY_RX_LANE_EN, DPHY_RX_LC0_EN, 1);
+			SENINF_BITS(base, DPHY_RX_LANE_EN, DPHY_RX_LC1_EN, 0);
+			SENINF_BITS(base, DPHY_RX_LANE_EN, DPHY_RX_LD0_EN, 1);
+			SENINF_BITS(base, DPHY_RX_LANE_EN, DPHY_RX_LD1_EN, 1);
+			SENINF_BITS(base, DPHY_RX_LANE_EN, DPHY_RX_LD2_EN, 1);
+			SENINF_BITS(base, DPHY_RX_LANE_EN, DPHY_RX_LD3_EN, 1);
+
+			SENINF_BITS(base, DPHY_RX_LANE_SELECT, RG_DPHY_RX_LC0_SEL, 2);
+			SENINF_BITS(base, DPHY_RX_LANE_SELECT, RG_DPHY_RX_LC1_SEL, 0);
+			SENINF_BITS(base, DPHY_RX_LANE_SELECT, RG_DPHY_RX_LD0_SEL, 1);
+			SENINF_BITS(base, DPHY_RX_LANE_SELECT, RG_DPHY_RX_LD1_SEL, 3);
+			SENINF_BITS(base, DPHY_RX_LANE_SELECT, RG_DPHY_RX_LD2_SEL, 0);
+			SENINF_BITS(base, DPHY_RX_LANE_SELECT, RG_DPHY_RX_LD3_SEL, 4);
+
+			SENINF_BITS(baseA, CDPHY_RX_ASYM_AFIFO_CTRL_0,
+								L0_AFIFO_FLUSH_EN, 0x1);
+
+			SENINF_BITS(baseA, CDPHY_RX_ASYM_AFIFO_CTRL_0,
+								L1_AFIFO_FLUSH_EN, 0x1);
+
+			SENINF_BITS(baseB, CDPHY_RX_ASYM_AFIFO_CTRL_0,
+								L0_AFIFO_FLUSH_EN, 0x1);
+
+			SENINF_BITS(baseB, CDPHY_RX_ASYM_AFIFO_CTRL_0,
+								L1_AFIFO_FLUSH_EN, 0x1);
+			break;
+		default:
+			dev_info(ctx->dev, "[%s][ERROR] invalid lane num(%d)\n",
+				__func__,
+				ctx->num_data_lanes);
+			break;
+		}
 	} else {
-		SENINF_BITS(base, DPHY_RX_LANE_SELECT, RG_DPHY_RX_LD3_SEL, 5);
-		SENINF_BITS(base, DPHY_RX_LANE_SELECT, RG_DPHY_RX_LD2_SEL, 3);
-		SENINF_BITS(base, DPHY_RX_LANE_SELECT, RG_DPHY_RX_LD1_SEL, 2);
-		SENINF_BITS(base, DPHY_RX_LANE_SELECT, RG_DPHY_RX_LD0_SEL, 0);
-		SENINF_BITS(base, DPHY_RX_LANE_SELECT, RG_DPHY_RX_LC1_SEL, 4);
-		SENINF_BITS(base, DPHY_RX_LANE_SELECT, RG_DPHY_RX_LC0_SEL, 1);
+		switch(ctx->num_data_lanes) {
+		case 1:
+			switch(ctx->port) {
+			case CSI_PORT_0A:
+			case CSI_PORT_1A:
+			case CSI_PORT_2A:
+			case CSI_PORT_3A:
+			case CSI_PORT_4A:
+			case CSI_PORT_5A:
+				SENINF_BITS(base, DPHY_RX_LANE_EN, DPHY_RX_LC0_EN, 1);
+				SENINF_BITS(base, DPHY_RX_LANE_EN, DPHY_RX_LC1_EN, 0);
+				SENINF_BITS(base, DPHY_RX_LANE_EN, DPHY_RX_LD0_EN, 1);
+				SENINF_BITS(base, DPHY_RX_LANE_EN, DPHY_RX_LD1_EN, 0);
+				SENINF_BITS(base, DPHY_RX_LANE_EN, DPHY_RX_LD2_EN, 0);
+				SENINF_BITS(base, DPHY_RX_LANE_EN, DPHY_RX_LD3_EN, 0);
 
-		SENINF_BITS(base, DPHY_RX_LANE_EN, DPHY_RX_LD0_EN, 1);
-		SENINF_BITS(base, DPHY_RX_LANE_EN, DPHY_RX_LD1_EN, 1);
-		SENINF_BITS(base, DPHY_RX_LANE_EN, DPHY_RX_LD2_EN, 1);
-		SENINF_BITS(base, DPHY_RX_LANE_EN, DPHY_RX_LD3_EN, 1);
-		SENINF_BITS(base, DPHY_RX_LANE_EN, DPHY_RX_LC0_EN, 1);
-		SENINF_BITS(base, DPHY_RX_LANE_EN, DPHY_RX_LC1_EN, 1);
+				SENINF_BITS(base, DPHY_RX_LANE_SELECT, RG_DPHY_RX_LC0_SEL, 1);
+				SENINF_BITS(base, DPHY_RX_LANE_SELECT, RG_DPHY_RX_LC1_SEL, 0);
+				SENINF_BITS(base, DPHY_RX_LANE_SELECT, RG_DPHY_RX_LD0_SEL, 0);
+				SENINF_BITS(base, DPHY_RX_LANE_SELECT, RG_DPHY_RX_LD1_SEL, 0);
+				SENINF_BITS(base, DPHY_RX_LANE_SELECT, RG_DPHY_RX_LD2_SEL, 0);
+				SENINF_BITS(base, DPHY_RX_LANE_SELECT, RG_DPHY_RX_LD3_SEL, 0);
+
+				SENINF_BITS(baseA, CDPHY_RX_ASYM_AFIFO_CTRL_0,
+								L0_AFIFO_FLUSH_EN, 0x1);
+				break;
+
+			case CSI_PORT_0B:
+			case CSI_PORT_1B:
+			case CSI_PORT_2B:
+			case CSI_PORT_3B:
+			case CSI_PORT_4B:
+			case CSI_PORT_5B:
+				SENINF_BITS(base, DPHY_RX_LANE_EN, DPHY_RX_LC0_EN, 1);
+				SENINF_BITS(base, DPHY_RX_LANE_EN, DPHY_RX_LC1_EN, 0);
+				SENINF_BITS(base, DPHY_RX_LANE_EN, DPHY_RX_LD0_EN, 1);
+				SENINF_BITS(base, DPHY_RX_LANE_EN, DPHY_RX_LD1_EN, 0);
+				SENINF_BITS(base, DPHY_RX_LANE_EN, DPHY_RX_LD2_EN, 0);
+				SENINF_BITS(base, DPHY_RX_LANE_EN, DPHY_RX_LD3_EN, 0);
+
+				SENINF_BITS(base, DPHY_RX_LANE_SELECT, RG_DPHY_RX_LC0_SEL, 4);
+				SENINF_BITS(base, DPHY_RX_LANE_SELECT, RG_DPHY_RX_LC1_SEL, 0);
+				SENINF_BITS(base, DPHY_RX_LANE_SELECT, RG_DPHY_RX_LD0_SEL, 3);
+				SENINF_BITS(base, DPHY_RX_LANE_SELECT, RG_DPHY_RX_LD1_SEL, 0);
+				SENINF_BITS(base, DPHY_RX_LANE_SELECT, RG_DPHY_RX_LD2_SEL, 0);
+				SENINF_BITS(base, DPHY_RX_LANE_SELECT, RG_DPHY_RX_LD3_SEL, 0);
+
+				SENINF_BITS(baseB, CDPHY_RX_ASYM_AFIFO_CTRL_0,
+								L0_AFIFO_FLUSH_EN, 0x1);
+				break;
+			default:
+				dev_info(ctx->dev, "[%s][ERROR] invalid port(%d on lane %d\n",
+				__func__,
+				ctx->port,
+				ctx->num_data_lanes);
+				break;
+			}
+
+			break;
+
+		case 2:
+			switch(ctx->port) {
+			case CSI_PORT_0A:
+			case CSI_PORT_1A:
+			case CSI_PORT_2A:
+			case CSI_PORT_3A:
+			case CSI_PORT_4A:
+			case CSI_PORT_5A:
+				SENINF_BITS(base, DPHY_RX_LANE_EN, DPHY_RX_LC0_EN, 1);
+				SENINF_BITS(base, DPHY_RX_LANE_EN, DPHY_RX_LC1_EN, 0);
+				SENINF_BITS(base, DPHY_RX_LANE_EN, DPHY_RX_LD0_EN, 1);
+				SENINF_BITS(base, DPHY_RX_LANE_EN, DPHY_RX_LD1_EN, 1);
+				SENINF_BITS(base, DPHY_RX_LANE_EN, DPHY_RX_LD2_EN, 0);
+				SENINF_BITS(base, DPHY_RX_LANE_EN, DPHY_RX_LD3_EN, 0);
+
+				SENINF_BITS(base, DPHY_RX_LANE_SELECT, RG_DPHY_RX_LC0_SEL, 1);
+				SENINF_BITS(base, DPHY_RX_LANE_SELECT, RG_DPHY_RX_LC1_SEL, 0);
+				SENINF_BITS(base, DPHY_RX_LANE_SELECT, RG_DPHY_RX_LD0_SEL, 0);
+				SENINF_BITS(base, DPHY_RX_LANE_SELECT, RG_DPHY_RX_LD1_SEL, 2);
+				SENINF_BITS(base, DPHY_RX_LANE_SELECT, RG_DPHY_RX_LD2_SEL, 0);
+				SENINF_BITS(base, DPHY_RX_LANE_SELECT, RG_DPHY_RX_LD3_SEL, 0);
+
+				SENINF_BITS(baseA, CDPHY_RX_ASYM_AFIFO_CTRL_0,
+								L0_AFIFO_FLUSH_EN, 0x1);
+
+				SENINF_BITS(baseA, CDPHY_RX_ASYM_AFIFO_CTRL_0,
+								L2_AFIFO_FLUSH_EN, 0x1);
+				break;
+
+			default:
+				dev_info(ctx->dev, "[%s][ERROR] invalid port(%d on lane %d\n",
+				__func__,
+				ctx->port,
+				ctx->num_data_lanes);
+				break;
+			}
+			break;
+
+		default:
+			dev_info(ctx->dev, "[%s][ERROR] invalid lane num(%d)\n",
+				__func__,
+				ctx->num_data_lanes);
+			break;
+		}
 	}
 
 	SENINF_BITS(base, DPHY_RX_LANE_SELECT, DPHY_RX_CK_DATA_MUX_EN, 1);
-	SENINF_BITS(base, DPHY_DPHYV21_CTRL, RG_DPHY_RX_SYNC_METH_SEL, 0x1);
+	SENINF_BITS(base, DPHY_RX_HS_RX_EN_SW, RG_DPHY_PHY_PN_SWAP_EN, 0);
+	SENINF_BITS(base, DPHY_DPHYV21_CTRL, RG_DPHY_RX_SYNC_METH_SEL, 1);
+
 	SENINF_WRITE_REG(base, DPHY_RX_SPARE0, 0xf1);
 
 #ifdef INIT_DESKEW_SUPPORT
 	csirx_dphy_init_deskew_setting(ctx, SENINF_CK);
 #endif /* INIT_DESKEW_SUPPORT */
+
+	dev_info(ctx->dev,
+			"[%s][Done] with is_4d1c(%d) num_data_lanes(%d), port(%d)\n",
+			__func__,
+			ctx->is_4d1c,
+			ctx->num_data_lanes,
+			ctx->port);
 
 	return 0;
 }

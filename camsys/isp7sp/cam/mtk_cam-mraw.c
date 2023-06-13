@@ -1637,7 +1637,7 @@ static int mtk_mraw_of_probe(struct platform_device *pdev,
 				(void *)mraw_dev, false);
 		}
 	}
-
+#ifdef CONFIG_PM_SLEEP
 	mraw_dev->notifier_blk.notifier_call = mtk_mraw_suspend_pm_event;
 	mraw_dev->notifier_blk.priority = 0;
 	ret = register_pm_notifier(&mraw_dev->notifier_blk);
@@ -1645,7 +1645,7 @@ static int mtk_mraw_of_probe(struct platform_device *pdev,
 		dev_info(dev, "Failed to register PM notifier");
 		return -ENODEV;
 	}
-
+#endif
 	return 0;
 }
 
@@ -1711,6 +1711,9 @@ static int mtk_mraw_remove(struct platform_device *pdev)
 	struct device *dev = &pdev->dev;
 	struct mtk_mraw_device *mraw_dev = dev_get_drvdata(dev);
 
+#ifdef CONFIG_PM_SLEEP
+	unregister_pm_notifier(&mraw_dev->notifier_blk);
+#endif
 	pm_runtime_disable(dev);
 
 	mtk_cam_qos_remove(&mraw_dev->qos);

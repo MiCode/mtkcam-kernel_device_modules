@@ -1974,7 +1974,7 @@ static int mtk_camsv_of_probe(struct platform_device *pdev,
 			sv_dev->larb_master_id[i] = axid;
 		}
 	}
-
+#ifdef CONFIG_PM_SLEEP
 	sv_dev->notifier_blk.notifier_call = mtk_camsv_suspend_pm_event;
 	sv_dev->notifier_blk.priority = 0;
 	ret = register_pm_notifier(&sv_dev->notifier_blk);
@@ -1982,7 +1982,7 @@ static int mtk_camsv_of_probe(struct platform_device *pdev,
 		dev_info(dev, "Failed to register PM notifier");
 		return -ENODEV;
 	}
-
+#endif
 	return 0;
 }
 
@@ -2054,6 +2054,9 @@ static int mtk_camsv_remove(struct platform_device *pdev)
 	struct device *dev = &pdev->dev;
 	struct mtk_camsv_device *sv_dev = dev_get_drvdata(dev);
 
+#ifdef CONFIG_PM_SLEEP
+	unregister_pm_notifier(&sv_dev->notifier_blk);
+#endif
 	pm_runtime_disable(dev);
 
 	mtk_cam_qos_remove(&sv_dev->qos);

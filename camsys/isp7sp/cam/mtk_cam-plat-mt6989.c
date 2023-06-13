@@ -498,6 +498,7 @@ static int get_mraw_stats_cfg_param(
 	param->mobc_en = stats_cfg->mobc_enable;
 	param->plsc_en = stats_cfg->plsc_enable;
 	param->dbg_en = stats_cfg->dbg_enable;
+	param->lm_en = stats_cfg->lm_enable;
 
 	param->crop_width = stats_cfg->crop_param.crop_x_end -
 		stats_cfg->crop_param.crop_x_start;
@@ -526,6 +527,8 @@ static int get_mraw_stats_cfg_param(
 
 	param->img_sel = stats_cfg->img_sel_param.img_sel;
 	param->imgo_sel = stats_cfg->img_sel_param.imgo_sel;
+
+	param->lm_mode_ctrl = stats_cfg->lm_param.lm_mode_ctrl;
 
 	return 0;
 }

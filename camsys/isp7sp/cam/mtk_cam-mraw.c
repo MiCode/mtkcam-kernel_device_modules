@@ -396,11 +396,12 @@ void mtk_cam_mraw_copy_user_input_param(struct mtk_cam_device *cam,
 		mraw_pipe->res_config.tg_crop.s.h < param->crop_height)
 		dev_info(cam->dev, "%s tg size smaller than crop size", __func__);
 
-	dev_dbg(cam->dev, "%s:enable:(%d,%d,%d,%d) crop:(%d,%d) mqe:%d mbn:0x%x_%x_%x_%x_%x_%x_%x_%x cpi:0x%x_%x_%x_%x_%x_%x_%x_%x sel:0x%x_%x\n",
+	dev_dbg(cam->dev, "%s:enable:(%d,%d,%d,%d,%d) crop:(%d,%d) mqe:%d mbn:0x%x_%x_%x_%x_%x_%x_%x_%x cpi:0x%x_%x_%x_%x_%x_%x_%x_%x sel:0x%x_%x lm_ctl:%d\n",
 		__func__,
 		param->mqe_en,
 		param->mobc_en,
 		param->plsc_en,
+		param->lm_en,
 		param->dbg_en,
 		param->crop_width,
 		param->crop_height,
@@ -422,7 +423,8 @@ void mtk_cam_mraw_copy_user_input_param(struct mtk_cam_device *cam,
 		param->cpi_spar_con1,
 		param->cpi_spar_con0,
 		param->img_sel,
-		param->imgo_sel);
+		param->imgo_sel,
+		param->lm_mode_ctrl);
 }
 
 static void mtk_cam_mraw_set_frame_param_dmao(
@@ -507,6 +509,11 @@ void mtk_cam_mraw_get_mqe_size(struct mtk_cam_device *cam, unsigned int pipe_id,
 
 	*width = param->crop_width;
 	*height = param->crop_height;
+
+	if (param->lm_en) {
+		*width = param->crop_width * (2 * param->lm_mode_ctrl);
+		*height = param->crop_height / (2 * param->lm_mode_ctrl);
+	}
 
 	if (param->mqe_en) {
 		switch (param->mqe_mode) {
@@ -1129,9 +1136,10 @@ void mtk_cam_mraw_debug_dump(struct mtk_mraw_device *mraw_dev)
 		readl_relaxed(mraw_dev->base_inner + REG_MRAW_TG_SEN_GRAB_PXL),
 		readl_relaxed(mraw_dev->base_inner + REG_MRAW_TG_SEN_GRAB_LIN));
 
-	dev_info_ratelimited(mraw_dev->dev, "mod_en:0x%x mod2_en:0x%x sel:0x%x fmt_sel:0x%x done_sel:0x%x\n",
+	dev_info_ratelimited(mraw_dev->dev, "mod_en:0x%x mod2_en:0x%x mod_ctl:0x%x sel:0x%x fmt_sel:0x%x done_sel:0x%x\n",
 		readl_relaxed(mraw_dev->base_inner + REG_MRAW_MRAWCTL_MOD_EN),
 		readl_relaxed(mraw_dev->base_inner + REG_MRAW_MRAWCTL_MOD2_EN),
+		readl_relaxed(mraw_dev->base_inner + REG_MRAW_MRAWCTL_MODE_CTL),
 		readl_relaxed(mraw_dev->base_inner + REG_MRAW_MRAWCTL_SEL),
 		readl_relaxed(mraw_dev->base_inner + REG_MRAW_MRAWCTL_FMT_SEL),
 		readl_relaxed(mraw_dev->base_inner + REG_MRAW_MRAWCTL_DONE_SEL));

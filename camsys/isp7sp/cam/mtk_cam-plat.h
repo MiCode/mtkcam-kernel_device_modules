@@ -31,6 +31,7 @@ struct mraw_stats_cfg_param {
 	s8  mqe_en;
 	s8  mobc_en;
 	s8  plsc_en;
+	s8  lm_en;
 	s8  dbg_en;
 
 	u32 crop_width;
@@ -58,6 +59,8 @@ struct mraw_stats_cfg_param {
 
 	u32 img_sel;
 	u32 imgo_sel;
+
+	u32 lm_mode_ctrl;
 };
 
 struct sv_dma_th_setting {

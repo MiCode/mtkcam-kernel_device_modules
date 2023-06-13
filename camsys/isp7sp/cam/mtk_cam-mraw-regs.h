@@ -10,6 +10,7 @@
 
 #define REG_MRAW_MRAWCTL_MOD_EN					0x0000
 #define REG_MRAW_MRAWCTL_MOD2_EN				0x0004
+#define REG_MRAW_MRAWCTL_MODE_CTL				0x002c
 union MRAW_MRAWCTL_MOD2_EN {
 	struct {
 		unsigned int MRAWCTL_IMGO_M1_EN             :  1;    /*  0.. 0, 0x00000001 */

@@ -4002,13 +4002,12 @@ static int mtk_cam_seninf_debug_core_dump(struct seninf_ctx *ctx,
 	rx = ctx->reg_ana_dphy_top[(unsigned int)ctx->port];
 	base_ana = ctx->reg_ana_csi_rx[(unsigned int)ctx->port];
 
-	if (sensor_sd) {
-		ctrl = v4l2_ctrl_find(sensor_sd->ctrl_handler, V4L2_CID_MTK_SOF_TIMEOUT_VALUE);
-		if (ctrl) {
-			val = v4l2_ctrl_g_ctrl(ctrl);
-			if (val > 0)
-				dbg_timeout = val + (val / 10);
-		}
+	ctrl =
+		v4l2_ctrl_find(sensor_sd->ctrl_handler, V4L2_CID_MTK_SOF_TIMEOUT_VALUE);
+	if (ctrl) {
+		val = v4l2_ctrl_g_ctrl(ctrl);
+		if (val > 0)
+			dbg_timeout = val + (val / 10);
 	}
 
 	if (dbg_timeout != 0)
@@ -4017,18 +4016,16 @@ static int mtk_cam_seninf_debug_core_dump(struct seninf_ctx *ctx,
 	debug_ft += ft_delay_margin;
 
 	dev_info(ctx->dev,
-		"[%s] before_delay %lu(ms), reg_Pcknt = 0x%x, packet_cnt_status 0x%x\n",
+		"[%s] before_delay %u(ms), reg_Pcknt = 0x%x, packet_cnt_status 0x%x\n",
 			__func__,
-			debug_ft,
 			SENINF_READ_REG(csi_mac, CSIRX_MAC_CSI2_PACKET_CNT_STATUS),
 			debug_result->packet_cnt_status);
 	mdelay(debug_ft);
 
 	debug_result->packet_cnt_status =
 		SENINF_READ_REG(csi_mac, CSIRX_MAC_CSI2_PACKET_CNT_STATUS);
-	dev_info(ctx->dev, "[%s] before_delay %lu(ms), Pcknt = 0x%x\n",
+	dev_info(ctx->dev, "[%s] before_delay %u(ms), Pcknt = 0x%x\n",
 			__func__,
-			debug_ft,
 			debug_result->packet_cnt_status);
 
 	debug_result->csi_irq_status =

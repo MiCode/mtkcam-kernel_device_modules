@@ -170,6 +170,7 @@ struct seninf_core {
 
 	/* debug flag for aov csi clk */
 	enum mtk_cam_seninf_csi_clk_for_param aov_csi_clk_switch_flag;
+	u32 aov_ut_debug_for_get_csi_param;
 	/* abnormal deinit flag */
 	u32 aov_abnormal_deinit_flag;
 	u32 aov_abnormal_deinit_usr_fd_kill_flag;

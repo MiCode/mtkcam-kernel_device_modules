@@ -24,67 +24,67 @@ extern int proc_time_window_size;
 extern int debug_log_on;
 
 struct c2ps_task_info {
-    u32 task_id;
-    pid_t pid;
-    u32 loading;
-    u32 nr_hist_info;
-    u32 default_uclamp;
-    u64 task_target_time;
-    u64 start_time;
-    u64 end_time;
-    u64 proc_time;
-    u64 sum_exec_runtime_start;
-    u64 real_exec_runtime;
-    u64 hist_proc_time_sum;
-    u64 hist_window_size;
-    u64 hist_proc_time_avg;
-    u32 hist_loading[MAX_WINDOW_SIZE];
-    u64 hist_proc_time[MAX_WINDOW_SIZE];
-    struct hlist_node hlist;
-    struct c2ps_task_info *overlap_task;
-    struct list_head task_group_list;
-    struct task_group_info *tsk_group;
-    struct mutex mlock;
-    bool is_dynamic_tid;
-    bool is_vip_task;
-    bool is_active;
-    bool is_scene_changed;
+	u32 task_id;
+	pid_t pid;
+	u32 loading;
+	u32 nr_hist_info;
+	u32 default_uclamp;
+	u64 task_target_time;
+	u64 start_time;
+	u64 end_time;
+	u64 proc_time;
+	u64 sum_exec_runtime_start;
+	u64 real_exec_runtime;
+	u64 hist_proc_time_sum;
+	u64 hist_window_size;
+	u64 hist_proc_time_avg;
+	u32 hist_loading[MAX_WINDOW_SIZE];
+	u64 hist_proc_time[MAX_WINDOW_SIZE];
+	struct hlist_node hlist;
+	struct c2ps_task_info *overlap_task;
+	struct list_head task_group_list;
+	struct task_group_info *tsk_group;
+	struct mutex mlock;
+	bool is_dynamic_tid;
+	bool is_vip_task;
+	bool is_active;
+	bool is_scene_changed;
 
-    /**
-     * update by uclamp regulator
-     */
-    unsigned int latest_uclamp;
+	/**
+	* update by uclamp regulator
+	*/
+	unsigned int latest_uclamp;
 };
 
 struct task_group_info {
 	int group_head;
-    u64 group_start_time;
+	u64 group_start_time;
 	u64 group_target_time;
 	u64 accumulate_time;
 	struct hlist_node hlist;
-    struct mutex mlock;
+	struct mutex mlock;
 };
 
 struct global_info {
-    int cfg_camfps;
-    int max_uclamp_cluster0;
-    int max_uclamp_cluster1;
-    int max_uclamp_cluster2;
+	int cfg_camfps;
+	int max_uclamp_cluster0;
+	int max_uclamp_cluster1;
+	int max_uclamp_cluster2;
 	int camfps;
-    u64 vsync_time;
-    struct mutex mlock;
+	u64 vsync_time;
+	struct mutex mlock;
 };
 
 struct regulator_req {
 	struct c2ps_task_info *tsk_info;
 	struct global_info *glb_info;
 	struct list_head queue_list;
-    struct mutex* flush_lock;
+	struct mutex* flush_lock;
 };
 
 
 #define C2PS_LOGD(fmt, ...)                                         \
-    do {                                                            \
+	do {                                                            \
 		if (debug_log_on)                                           \
 			pr_debug("[C2PS]: %s " fmt, __func__, ##__VA_ARGS__);   \
 	} while (0)

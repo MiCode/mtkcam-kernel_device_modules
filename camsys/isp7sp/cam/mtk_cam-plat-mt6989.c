@@ -743,6 +743,7 @@ static const struct plat_data_hw mt6989_hw_data = {
 	.query_caci_size = query_caci_size,
 	.query_max_exp_support = query_max_exp_support,
 	.query_icc_path_idx = query_icc_path_idx,
+	.dcif_slb_support = true,
 };
 
 struct camsys_platform_data mt6989_data = {

@@ -141,7 +141,7 @@ struct mtk_cam_ctx {
 	unsigned int slb_used_size;
 	unsigned int ring_start_offset;
 
-	unsigned int aid_feature;
+	unsigned int set_adl_aid;
 
 	/* cmdq */
 	bool cmdq_enabled;
@@ -253,6 +253,7 @@ struct mtk_cam_device {
 
 	phandle rproc_ccu_phandle;
 	struct rproc *rproc_ccu_handle;
+	struct platform_device *ccu_pdev;
 
 	struct cmdq_client *cmdq_clt;
 
@@ -435,5 +436,7 @@ int mtk_cam_alloc_img_pool(struct device *dev_to_attach,
 			   struct mtk_cam_device_buf *img_work_buffer,
 			   struct mtk_cam_pool *img_work_pool);
 void mtk_cam_destroy_img_pool(struct mtk_cam_pool_wrapper *pool_wrapper);
+
+bool mtk_cam_is_dcif_slb_supported(void);
 
 #endif /*__MTK_CAM_H*/

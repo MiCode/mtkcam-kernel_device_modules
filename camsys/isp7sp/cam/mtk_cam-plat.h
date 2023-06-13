@@ -175,6 +175,8 @@ struct plat_data_hw {
 	int (*query_max_exp_support)(u32 raw_idx);
 
 	int (*query_icc_path_idx)(int domain, int smi_port);
+
+	bool dcif_slb_support;
 };
 
 struct camsys_platform_data {

@@ -23,6 +23,8 @@ struct mtk_cam_res_calc {
 	int qbnd_en : 4;
 	int qbn_type : 4; /* 0: disable, 1: w/2, 2: w/4 */
 	int bin_en : 4;
+
+	unsigned int slb_size;
 };
 
 static inline int _bin_ratio(struct mtk_cam_res_calc *c)
@@ -213,6 +215,27 @@ static inline bool mtk_cam_sv_check_throughput(struct mtk_cam_res_calc *c,
 	int processed_w = _process_pxl_per_line(c, 0, enable_log);
 
 	return c->width <= processed_w;
+}
+
+static inline bool mtk_cam_raw_check_slb_size(struct mtk_cam_res_calc *c,
+					      bool enable_log)
+{
+	int processed_w;
+	size_t max_pending;
+	bool valid;
+
+	if (!c->slb_size)
+		return true;
+
+	processed_w = _process_pxl_per_line(c, 1, false);
+	max_pending = (size_t)max(c->width - processed_w, 0) * c->height;
+
+	/* 5% as margin */
+	valid = (max_pending * 100 < (size_t)c->slb_size * 95);
+	if (!valid && enable_log)
+		pr_info("%s: processed_w %d max_pending %zu slb_size %u\n", __func__,
+			processed_w, max_pending, c->slb_size);
+	return valid;
 }
 
 #endif //__MTK_CAM_RAW_RESOURCE_H

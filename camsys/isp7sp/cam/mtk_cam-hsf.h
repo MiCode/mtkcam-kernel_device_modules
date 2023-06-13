@@ -12,7 +12,8 @@
 int mtk_cam_hsf_init(struct mtk_cam_ctx *ctx);
 int mtk_cam_hsf_config(struct mtk_cam_ctx *ctx, unsigned int raw_id);
 int mtk_cam_hsf_uninit(struct mtk_cam_ctx *ctx);
-int mtk_cam_hsf_aid(struct mtk_cam_ctx *ctx, unsigned int enable, unsigned int feature);
+int mtk_cam_hsf_aid(struct mtk_cam_ctx *ctx, unsigned int enable,
+		    unsigned int feature, unsigned int used_engine);
 void ccu_apply_cq(struct mtk_cam_job *job, unsigned long raw_engines, dma_addr_t cq_addr,
 unsigned int cq_size, unsigned int cq_offset,  unsigned int sub_cq_size,
 unsigned int sub_cq_offset);

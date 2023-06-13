@@ -50,7 +50,7 @@ module_param(debug_sensor_meta_dump, uint, 0644);
 MODULE_PARM_DESC(debug_sensor_meta_dump, "activates sensor meta dump");
 
 #define CAM_DEBUG 0
-
+#define ENABLE_CCU
 
 static const struct of_device_id mtk_cam_of_ids[] = {
 #ifdef CAMSYS_ISP7SP_MT6897
@@ -664,33 +664,6 @@ static const struct media_device_ops mtk_cam_dev_ops = {
 	.req_queue = mtk_cam_req_queue,
 };
 
-#ifdef REMOVE
-static int mtk_cam_get_ccu_phandle(struct mtk_cam_device *cam)
-{
-	struct device *dev = cam->dev;
-	struct device_node *node;
-	int ret = 0;
-
-	node = of_find_compatible_node(NULL, NULL, "mediatek,camera_camsys_ccu");
-	if (node == NULL) {
-		dev_info(dev, "of_find mediatek,camera_camsys_ccu fail\n");
-		ret = PTR_ERR(node);
-		goto out;
-	}
-
-	ret = of_property_read_u32(node, "mediatek,ccu_rproc",
-				   &cam->rproc_ccu_phandle);
-	if (ret) {
-		dev_info(dev, "fail to get ccu rproc_phandle:%d\n", ret);
-		ret = -EINVAL;
-		goto out;
-	}
-
-out:
-	return ret;
-}
-#endif
-
 static int mtk_cam_of_rproc(struct mtk_cam_device *cam)
 {
 	struct device *dev = cam->dev;
@@ -1111,51 +1084,104 @@ static int mtk_cam_power_rproc(struct mtk_cam_device *cam, int on)
 	return ret;
 }
 
-#ifdef REMOVE
+#ifdef ENABLE_CCU
+static int mtk_cam_get_ccu_phandle(struct mtk_cam_device *cam)
+{
+	struct device *dev = cam->dev;
+	struct device_node *node;
+	int ret;
+
+	node = of_find_compatible_node(NULL, NULL, "mediatek,camera-camsys-ccu");
+	if (node == NULL) {
+		dev_info(dev, "of_find mediatek,camera-camsys-ccu fail\n");
+		return -1;
+	}
+
+	ret = of_property_read_u32(node, "mediatek,ccu-rproc",
+				   &cam->rproc_ccu_phandle);
+	if (ret)
+		dev_info(dev, "fail to get ccu rproc_phandle:%d\n", ret);
+
+	of_node_put(node);
+	return ret;
+}
+
 static int mtk_cam_power_ctrl_ccu(struct device *dev, int on_off)
 {
-	struct mtk_cam_device *cam_dev = dev_get_drvdata(dev);
-	struct mtk_camsys_dvfs *dvfs = &cam_dev->dvfs;
+	struct mtk_cam_device *cam = dev_get_drvdata(dev);
 	int ret = 0;
 
 	if (on_off) {
+		struct device_node *rproc_np;
 
-		ret = mtk_cam_get_ccu_phandle(cam_dev);
+		WARN_ON(cam->rproc_ccu_handle);
+
+		ret = mtk_cam_get_ccu_phandle(cam);
 		if (ret)
-			goto out;
-		cam_dev->rproc_ccu_handle = rproc_get_by_phandle(cam_dev->rproc_ccu_phandle);
-		if (cam_dev->rproc_ccu_handle == NULL) {
+			return -1;
+
+		cam->rproc_ccu_handle = rproc_get_by_phandle(cam->rproc_ccu_phandle);
+		if (!cam->rproc_ccu_handle) {
 			dev_info(dev, "Get ccu handle fail\n");
-			ret = PTR_ERR(cam_dev->rproc_ccu_handle);
-			goto out;
+			return -1;
 		}
 
-		ret = rproc_boot(cam_dev->rproc_ccu_handle);
-		if (ret)
-			dev_info(dev, "boot ccu rproc fail\n");
+		rproc_np = of_find_node_by_phandle(cam->rproc_ccu_phandle);
+		if (!rproc_np) {
+			dev_info(dev, "failed to find node of ccu rproc\n");
+			rproc_put(cam->rproc_ccu_handle);
+			cam->rproc_ccu_handle = NULL;
+			return -1;
+		}
 
-#ifdef DVFS_REGULATOR
-		mtk_cam_dvfs_regulator_enable(dvfs);
+		cam->ccu_pdev = of_find_device_by_node(rproc_np);
+		if (!cam->ccu_pdev) {
+			dev_info(dev, "failed to find ccu rproc pdev\n");
+			of_node_put(rproc_np);
+			rproc_put(cam->rproc_ccu_handle);
+			cam->rproc_ccu_handle = NULL;
+			return -1;
+		}
+
+#if IS_ENABLED(CONFIG_MTK_CCU_DEBUG)
+		ret = rproc_bootx(cam->rproc_ccu_handle, RPROC_UID_SC);
+#else
+		ret = rproc_boot(cam->rproc_ccu_handle);
 #endif
-		mtk_cam_dvfs_reset_runtime_info(dvfs);
+		if (ret)
+			dev_info(dev, "boot ccu rproc fail, ret=%d\n", ret);
+
 	} else {
 
-#ifdef DVFS_REGULATOR
-		mtk_cam_dvfs_regulator_disable(dvfs);
+		if (!cam->rproc_ccu_handle)
+			return 0;
+
+#if IS_ENABLED(CONFIG_MTK_CCU_DEBUG)
+		rproc_shutdownx(cam->rproc_ccu_handle, RPROC_UID_SC);
+#else
+		rproc_shutdown(cam->rproc_ccu_handle);
 #endif
 
-#ifdef REMOVE
-		if (cam_dev->rproc_ccu_handle) {
-			rproc_shutdown(cam_dev->rproc_ccu_handle);
-			ret = 0;
-		} else
-			ret = -EINVAL;
-#endif
+		rproc_put(cam->rproc_ccu_handle);
+		platform_device_put(cam->ccu_pdev);
+
+		cam->rproc_ccu_handle = NULL;
+		cam->ccu_pdev = NULL;
 	}
-out:
 	return ret;
 }
 #endif
+
+static bool is_ccu_required(struct mtk_cam_device *cam)
+{
+	/*
+	 * to set camsv/raw's GDOMAIN of aid to access slb
+	 */
+	if (mtk_cam_is_dcif_slb_supported())
+		return true;
+
+	return false;
+}
 
 static int mtk_cam_initialize(struct mtk_cam_device *cam)
 {
@@ -1166,7 +1192,10 @@ static int mtk_cam_initialize(struct mtk_cam_device *cam)
 
 	dev_info(cam->dev, "camsys initialize\n");
 
-	//mtk_cam_power_ctrl_ccu(cam->dev, 1);
+#ifdef ENABLE_CCU
+	if (is_ccu_required(cam))
+		mtk_cam_power_ctrl_ccu(cam->dev, 1);
+#endif
 
 	mtk_cam_dvfs_reset_runtime_info(&cam->dvfs);
 
@@ -1192,7 +1221,9 @@ static int mtk_cam_uninitialize(struct mtk_cam_device *cam)
 	mtk_cam_power_rproc(cam, 0);
 	pm_runtime_put_sync(cam->dev);
 
-	//mtk_cam_power_ctrl_ccu(cam->dev, 0);
+#ifdef ENABLE_CCU
+	mtk_cam_power_ctrl_ccu(cam->dev, 0);
+#endif
 
 	return 0;
 }
@@ -1749,10 +1780,6 @@ static int mtk_cam_ctx_request_slb(struct mtk_cam_ctx *ctx, int uid,
 	}
 	ctx->slb_iova = iova;
 
-	/*
-	 * set aid after power-on devices
-	 * e.g., mtk_cam_hsf_aid(ctx, 1, AID_VAINR);
-	 */
 SUCCESS_REQUEST:
 	dev_info(dev, "%s: slb buffer uid %d base(0x%lx/%pad), size(%ld)",
 		 __func__, uid, (uintptr_t)slb.paddr, &ctx->slb_iova, slb.size);
@@ -1785,9 +1812,7 @@ static void mtk_cam_ctx_release_slb(struct mtk_cam_ctx *ctx)
 
 	mtk_cam_ctx_reset_slb(ctx);
 
-	/* reset aid: may not necessary */
-	if (ctx->aid_feature)
-		mtk_cam_hsf_aid(ctx, 0, ctx->aid_feature);
+	/* reset aid: not necessary */
 }
 
 /* for cq working buffers */
@@ -2400,7 +2425,7 @@ int mtk_cam_ctx_init_scenario(struct mtk_cam_ctx *ctx)
 			ret = mtk_cam_ctx_request_slb(ctx, UID_SH_P1, false);
 
 			if (!ret)
-				ctx->aid_feature = AID_VAINR;
+				ctx->set_adl_aid = true;
 		}
 	} else if (res_raw_is_dc_mode(res) && res->slb_size) {
 		/* dcif + slb ring buffer case */
@@ -2413,9 +2438,6 @@ int mtk_cam_ctx_init_scenario(struct mtk_cam_ctx *ctx)
 			mtk_cam_ctx_release_slb(ctx);
 			ret = 0;
 		}
-
-		//if (!ret)
-		//	ctx->aid_feature = AID_VAINR; /* TODO: new aid */
 	}
 
 	ctx->scenario_init = true;
@@ -3927,6 +3949,33 @@ static int __init mtk_cam_init(void)
 static void __exit mtk_cam_exit(void)
 {
 	platform_driver_unregister(&mtk_cam_driver);
+}
+
+bool mtk_cam_is_dcif_slb_supported(void)
+{
+	static int is_supported;
+	struct slbc_data slb;
+	int ret;
+
+	if (is_supported != 0)
+		return is_supported > 0;
+
+	if (!GET_PLAT_HW(dcif_slb_support)) {
+		is_supported = -1;
+		pr_info("%s: disabled\n", __func__);
+		return 0;
+	}
+
+	slb.uid = UID_SENSOR;
+	slb.type = TP_BUFFER;
+
+	ret = slbc_status(&slb);
+	is_supported = ret < 0 ? -1 : 1;
+
+	if (is_supported < 0)
+		pr_info("%s: not supported\n", __func__);
+
+	return is_supported > 0;
 }
 
 module_init(mtk_cam_init);

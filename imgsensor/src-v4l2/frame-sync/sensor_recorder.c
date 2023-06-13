@@ -300,9 +300,9 @@ void frec_dump_recorder(const unsigned int idx, const char *caller)
 			pfrec->frame_recs[depth_idx].line_length),
 		pfrec->frame_recs[depth_idx].line_length,
 		pfrec->frame_recs[depth_idx].pclk,
-		pfrec->frame_recs[idx].margin_lc,
-		pfrec->frame_recs[idx].read_margin_lc,
-		pfrec->frame_recs[idx].readout_len_lc);
+		pfrec->frame_recs[depth_idx].margin_lc,
+		pfrec->frame_recs[depth_idx].read_margin_lc,
+		pfrec->frame_recs[depth_idx].readout_len_lc);
 
 	for (i = 0; i < RECORDER_DEPTH; ++i) {
 		/* dump data from newest to old */

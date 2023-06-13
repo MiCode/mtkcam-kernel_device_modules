@@ -72,7 +72,7 @@ static struct SET_PD_BLOCK_INFO_T imgsensor_pd_info = {
 	.i4PosR = {{46, 16}, {54, 16}, {42, 20}, {50, 20},
 	           {46, 24}, {54, 24}, {42, 28}, {50, 28}},
 	.i4BlockNumX = 284,
-	.i4BlockNumY = 215,
+	.i4BlockNumY = 214,
 	.i4LeFirst = 0,
 	.i4Crop = {
 		// <prev> <cap> <vid> <hs_vid> <slim_vid>

@@ -1718,7 +1718,6 @@ int mtk_cam_seninf_get_tag_order(struct v4l2_subdev *sd,
 	}
 
 	ctx = container_of(sd, struct seninf_ctx, subdev);
-
 	if (ctx == NULL) {
 		pr_info("[%s][ERROR] ctx is NULL\n", __func__);
 		return -EINVAL;
@@ -2129,6 +2128,11 @@ static void mtk_notify_vsync_fn(struct kthread_work *work)
 	struct v4l2_subdev *sensor_sd = ctx->sensor_sd;
 	unsigned int sof_cnt = seninf_work->data.sof;
 
+	if (sensor_sd == NULL) {
+		dev_info(ctx->dev, "[%s][error] sensor_sd is NULL, skip function\n", __func__);
+		return;
+	}
+
 	ctrl = v4l2_ctrl_find(sensor_sd->ctrl_handler,
 				V4L2_CID_VSYNC_NOTIFY);
 	if (!ctrl) {
@@ -2156,6 +2160,11 @@ mtk_cam_seninf_sof_notify(struct mtk_seninf_sof_notify_param *param)
 	struct mtk_seninf_work *seninf_work = NULL;
 	struct v4l2_ctrl *ctrl;
 	struct v4l2_subdev *sensor_sd = ctx->sensor_sd;
+
+	if (sensor_sd == NULL) {
+		dev_info(ctx->dev, "[%s][error] sensor_sd is NULL, skip function\n", __func__);
+		return;
+	}
 
 	ctrl = v4l2_ctrl_find(sensor_sd->ctrl_handler,
 				V4L2_CID_UPDATE_SOF_CNT);
@@ -2191,6 +2200,11 @@ u8 is_reset_by_user(struct seninf_ctx *ctx)
 	struct v4l2_subdev *sensor_sd = ctx->sensor_sd;
 	struct v4l2_ctrl *ctrl;
 
+	if (sensor_sd == NULL) {
+		dev_info(ctx->dev, "[%s][error] sensor_sd is NULL, skip function\n", __func__);
+		return 0;
+	}
+
 	ctrl = v4l2_ctrl_find(sensor_sd->ctrl_handler,
 			V4L2_CID_MTK_SENSOR_RESET_BY_USER);
 
@@ -2201,6 +2215,11 @@ int reset_sensor(struct seninf_ctx *ctx)
 {
 	struct v4l2_subdev *sensor_sd = ctx->sensor_sd;
 	struct v4l2_ctrl *ctrl;
+
+	if (sensor_sd == NULL) {
+		dev_info(ctx->dev, "[%s][error] sensor_sd is NULL, skip function\n", __func__);
+		return -EINVAL;
+	}
 
 	ctrl = v4l2_ctrl_find(sensor_sd->ctrl_handler,
 			V4L2_CID_MTK_SENSOR_RESET);
@@ -2224,6 +2243,11 @@ int notify_fsync_listen_target(struct seninf_ctx *ctx)
 
 	if (cam_idx < 0 || cam_idx >= 0xff)
 		return -EINVAL;
+
+	if (sensor_sd == NULL) {
+		dev_info(ctx->dev, "[%s][error] sensor_sd is NULL, skip function\n", __func__);
+		return -EINVAL;
+	}
 
 	ctrl = v4l2_ctrl_find(sensor_sd->ctrl_handler,
 			V4L2_CID_FSYNC_LISTEN_TARGET);
@@ -2472,6 +2496,11 @@ int aov_switch_i2c_bus_scl_aux(struct seninf_ctx *ctx,
 	struct v4l2_subdev *sensor_sd = ctx->sensor_sd;
 	struct v4l2_ctrl *ctrl;
 
+	if (sensor_sd == NULL) {
+		dev_info(ctx->dev, "[%s][error] sensor_sd is NULL, skip function\n", __func__);
+		return -EINVAL;
+	}
+
 	ctrl = v4l2_ctrl_find(sensor_sd->ctrl_handler,
 		V4L2_CID_MTK_AOV_SWITCH_I2C_BUS_SCL_AUX);
 	if (!ctrl) {
@@ -2502,6 +2531,11 @@ int aov_switch_i2c_bus_sda_aux(struct seninf_ctx *ctx,
 	struct v4l2_subdev *sensor_sd = ctx->sensor_sd;
 	struct v4l2_ctrl *ctrl;
 
+	if (sensor_sd == NULL) {
+		dev_info(ctx->dev, "[%s][error] sensor_sd is NULL, skip function\n", __func__);
+		return -EINVAL;
+	}
+
 	ctrl = v4l2_ctrl_find(sensor_sd->ctrl_handler,
 		V4L2_CID_MTK_AOV_SWITCH_I2C_BUS_SDA_AUX);
 	if (!ctrl) {
@@ -2530,6 +2564,11 @@ int aov_switch_pm_ops(struct seninf_ctx *ctx,
 {
 	struct v4l2_subdev *sensor_sd = ctx->sensor_sd;
 	struct v4l2_ctrl *ctrl;
+
+	if (sensor_sd == NULL) {
+		dev_info(ctx->dev, "[%s][error] sensor_sd is NULL, skip function\n", __func__);
+		return -EINVAL;
+	}
 
 	ctrl = v4l2_ctrl_find(sensor_sd->ctrl_handler,
 		V4L2_CID_MTK_AOV_SWITCH_PM_OPS);

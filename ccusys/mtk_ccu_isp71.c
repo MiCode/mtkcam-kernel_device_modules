@@ -183,7 +183,7 @@ alloc_with_smmu:
 	memHandle->dmabuf = dma_heap_buffer_alloc(dmaheap, memHandle->meminfo.size,
 		O_RDWR | O_CLOEXEC, DMA_HEAP_VALID_HEAP_FLAGS);
 	dma_heap_put(dmaheap);
-	if(IS_ERR(memHandle->dmabuf)) {
+	if (IS_ERR(memHandle->dmabuf)) {
 		dev_err(dev, "fail to alloc dma_buf");
 		memHandle->dmabuf = NULL;
 		goto err_out;
@@ -199,9 +199,9 @@ alloc_with_smmu:
 
 	memHandle->attach = dma_buf_attach(memHandle->dmabuf, sdev);
 	if (IS_ERR(memHandle->attach)) {
-	    dev_err(dev, "fail to attach dma_buf");
-	    memHandle->attach = NULL;
-	    goto err_out;
+		dev_err(dev, "fail to attach dma_buf");
+		memHandle->attach = NULL;
+		goto err_out;
 	}
 
 	memHandle->sgt = dma_buf_map_attachment(memHandle->attach, DMA_FROM_DEVICE);
@@ -218,11 +218,11 @@ alloc_with_smmu:
 	if ((ret) || (memHandle->meminfo.va == NULL)) {
 		dev_err(dev, "fail to map va");
 		memHandle->meminfo.va = NULL;
-	    goto err_out;
+		goto err_out;
 	}
 
 alloc_show:
-	dev_info(dev, "success: size(%x), va(%lx), mva(%pad)\n",
+	dev_info(dev, "success: size(0x%x), va(0x%lx), mva(%pad)\n",
 		memHandle->meminfo.size, (unsigned long)memHandle->meminfo.va,
 		&memHandle->meminfo.mva);
 
@@ -264,7 +264,7 @@ static void mtk_ccu_set_log_memory_address(struct mtk_ccu *ccu)
 
 	/* sram log */
 	ccu->log_info[2].fd = meminfo->fd;
-	ccu->log_info[2].size = MTK_CCU_DRAM_LOG_BUF_SIZE;
+	ccu->log_info[2].size = MTK_CCU_SRAM_LOG_INDRAM_BUF_SIZE;
 	ccu->log_info[2].offset = offset + MTK_CCU_DRAM_LOG_BUF_SIZE * 2;
 	ccu->log_info[2].mva = ccu->log_info[1].mva + MTK_CCU_DRAM_LOG_BUF_SIZE;
 	ccu->log_info[2].va = ccu->log_info[1].va + MTK_CCU_DRAM_LOG_BUF_SIZE;
@@ -492,8 +492,7 @@ static int mtk_ccu_start(struct rproc *rproc)
 		mtk_icc_set_bw(ccu->path_ccuo, MBps_to_icc(20), MBps_to_icc(30));
 		mtk_icc_set_bw(ccu->path_ccui, MBps_to_icc(10), MBps_to_icc(30));
 		mtk_icc_set_bw(ccu->path_ccug, MBps_to_icc(30), MBps_to_icc(30));
-	}
-	else {
+	} else {
 		mtk_icc_set_bw(ccu->path_ccuo, MBps_to_icc(50), MBps_to_icc(60));
 		mtk_icc_set_bw(ccu->path_ccui, MBps_to_icc(40), MBps_to_icc(60));
 	}
@@ -1146,7 +1145,7 @@ static int mtk_ccu_probe(struct platform_device *pdev)
 
 	ccu->smmu_enabled = smmu_v3_enabled();
 
-	ccu->ext_buf.meminfo.size = MTK_CCU_DRAM_LOG_BUF_SIZE * 4;
+	ccu->ext_buf.meminfo.size = MTK_CCU_DRAM_LOG_DBG_BUF_SIZE;
 	ccu->ext_buf.meminfo.cached = false;
 	ret = mtk_ccu_allocate_mem(ccu->dev, &ccu->ext_buf, ccu->smmu_enabled);
 	if (ret) {
@@ -1155,6 +1154,7 @@ static int mtk_ccu_probe(struct platform_device *pdev)
 	}
 
 	mtk_ccu_set_log_memory_address(ccu);
+
 	rproc->auto_boot = false;
 
 #if IS_ENABLED(CONFIG_MTK_AEE_IPANIC)

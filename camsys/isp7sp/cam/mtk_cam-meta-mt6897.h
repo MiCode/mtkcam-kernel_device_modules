@@ -782,7 +782,7 @@ struct mtk_cam_uapi_meta_raw_stats_cfg {
 	struct mtk_cam_uapi_pmrg_r7_sel_param pmrg_r7_sel_param;
 	struct mtk_cam_uapi_cac_param cac_param;
 
-	__u8 bytes[46520];
+	__u8 bytes[46544];
 };
 
 struct mtk_cam_uapi_meta_raw_stats_w_cfg {
@@ -799,7 +799,7 @@ struct mtk_cam_uapi_meta_raw_stats_w_cfg {
 	struct mtk_cam_uapi_flk_param flk_param;
 	struct mtk_cam_uapi_tsf_param tsf_param;
 
-	__u8 bytes[42500];
+	__u8 bytes[42508];
 };
 
 struct mtk_cam_uapi_meta_raw_stats_rgbw_cfg {
@@ -882,7 +882,7 @@ struct mtk_cam_uapi_meta_camsv_stats_0 {
 };
 
 #define MTK_CAM_META_VERSION_MAJOR 1
-#define MTK_CAM_META_VERSION_MINOR 4
+#define MTK_CAM_META_VERSION_MINOR 5
 #define MTK_CAM_META_PLATFORM_NAME "isp7sp"
 #define MTK_CAM_META_CHIP_NAME "mt6897"
 

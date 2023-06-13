@@ -3284,11 +3284,12 @@ int tsrec_cb_handler(const unsigned int seninf_idx, const unsigned int tsrec_no,
 	if (unlikely(is_cmd_found == 0)) {
 		ret = TSREC_CB_CTRL_ERR_CMD_NOT_FOUND;
 		TSREC_LOG_INF(
-			"[%s] ERROR: cb tsrec cmd NOT found(unknown cmd):%u, return:%d\n",
+			"[%s] ERROR: cb tsrec cmd NOT found(unknown cmd):%u, ret:%d, end\n",
 			caller, cmd, ret);
-		return ret;
+		goto tsrec_cb_handler_end;
 	}
 
+tsrec_cb_handler_end:
 	tsrec_pm_ctrl_put_sync(p_src_cfg, caller);
 	return ret;
 }

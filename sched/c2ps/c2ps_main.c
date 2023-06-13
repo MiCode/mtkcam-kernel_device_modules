@@ -48,10 +48,6 @@ static int condition_notifier_wq;
 static bool condition_notifier_exit;
 static DEFINE_MUTEX(notifier_wq_lock);
 static DECLARE_WAIT_QUEUE_HEAD(notifier_wq_queue);
-
-// extern void set_curr_uclamp_ctrl(int val);
-// extern void set_gear_uclamp_ctrl(int val);
-// extern void set_gear_uclamp_max(int gearid, int val);
 static void self_uninit_timer_callback(struct timer_list *t);
 
 struct timer_list self_uninit_timer;
@@ -72,9 +68,9 @@ static void c2ps_notifier_wq_cb_uninit(void)
 {
 	C2PS_LOGD("[C2PS_CB] uninit\n");
 	// disable sugov per-gear uclamp max feature
-	// set_gear_uclamp_ctrl(0);
+	set_gear_uclamp_ctrl(0);
 	// disable sugov curr_uclamp feature
-	// set_curr_uclamp_ctrl(0);
+	set_curr_uclamp_ctrl(0);
 	c2ps_uclamp_regulator_flush();
 	exit_c2ps_common();
 	del_timer_sync(&self_uninit_timer);
@@ -296,13 +292,13 @@ int c2ps_notify_init(
 	// set_config_camfps(cfg_camfps);
 
 	// enable sugov per-gear uclamp max feature
-	// set_gear_uclamp_ctrl(1);
-	// set_gear_uclamp_max(0, max_uclamp_cluster0);
-	// set_gear_uclamp_max(1, max_uclamp_cluster1);
-	// set_gear_uclamp_max(2, max_uclamp_cluster2);
+	set_gear_uclamp_ctrl(1);
+	set_gear_uclamp_max(0, max_uclamp_cluster0);
+	set_gear_uclamp_max(1, max_uclamp_cluster1);
+	set_gear_uclamp_max(2, max_uclamp_cluster2);
 
 	// enable sugov curr_uclamp feature
-	// set_curr_uclamp_ctrl(1);
+	set_curr_uclamp_ctrl(1);
 
 	vpPush = (struct C2PS_NOTIFIER_PUSH_TAG *)
 		c2ps_alloc_atomic(sizeof(*vpPush));

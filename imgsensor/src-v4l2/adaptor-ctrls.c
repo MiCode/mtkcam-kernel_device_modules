@@ -1855,8 +1855,8 @@ static const struct v4l2_ctrl_config cfg_anti_flicker = {
 	.ops = &ctrl_ops,
 	.id = V4L2_CID_MTK_ANTI_FLICKER,
 	.name = "anti_flicker",
-	.type = V4L2_CTRL_TYPE_BOOLEAN,
-	.max = 1,
+	.type = V4L2_CTRL_TYPE_INTEGER,
+	.max = 0x7fffffff,
 	.step = 1,
 };
 

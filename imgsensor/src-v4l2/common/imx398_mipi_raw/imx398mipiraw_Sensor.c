@@ -3349,31 +3349,28 @@ static int control(struct subdrv_ctx *ctx, enum MSDK_SCENARIO_ID_ENUM scenario_i
 
 
 static kal_uint32 set_video_mode(struct subdrv_ctx *ctx, UINT16 framerate)
-{				/* This Function not used after ROME */
-	pr_debug("framerate = %d\n ", framerate);
+{
+	LOG_DEBUG("framerate = %d\n ", framerate);
 	/* SetVideoMode Function should fix framerate */
 	if (framerate == 0)
 		/* Dynamic frame rate */
 		return ERROR_NONE;
-	if ((framerate == 300) && (ctx->autoflicker_en == KAL_TRUE))
+	if (framerate == 300 && ctx->autoflicker_en)
 		ctx->current_fps = 296;
-	else if ((framerate == 150) && (ctx->autoflicker_en == KAL_TRUE))
+	else if (framerate == 150 && ctx->autoflicker_en)
 		ctx->current_fps = 146;
 	else
 		ctx->current_fps = framerate;
 	set_max_framerate(ctx, ctx->current_fps, 1);
+	set_dummy(ctx);
 
 	return ERROR_NONE;
 }
 
-static kal_uint32 set_auto_flicker_mode(struct subdrv_ctx *ctx,
-		kal_bool enable, UINT16 framerate)
+static kal_uint32 set_auto_flicker_mode(struct subdrv_ctx *ctx, INT32 enable, UINT16 framerate)
 {
-	pr_debug("enable = %d, framerate = %d\n", enable, framerate);
-	if (enable)		/* enable auto flicker */
-		ctx->autoflicker_en = KAL_TRUE;
-	else			/* Cancel Auto flick */
-		ctx->autoflicker_en = KAL_FALSE;
+	LOG_DEBUG("enable = %d, framerate = %d\n", enable, framerate);
+	ctx->autoflicker_en = enable;
 	return ERROR_NONE;
 }
 
@@ -4024,7 +4021,7 @@ static int feature_control(struct subdrv_ctx *ctx,
 
 	case SENSOR_FEATURE_SET_AUTO_FLICKER_MODE:
 		set_auto_flicker_mode(ctx,
-			(BOOL) (*feature_data_16), *(feature_data_16 + 1));
+			(*feature_data_16), *(feature_data_16 + 1));
 		break;
 
 	case SENSOR_FEATURE_SET_MAX_FRAME_RATE_BY_SCENARIO:

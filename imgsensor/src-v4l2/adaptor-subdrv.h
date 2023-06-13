@@ -421,7 +421,7 @@ struct subdrv_ctx {
 	u16 current_fps; /* current max fps */
 	u32 readout_length; /* current readoutlength */
 	u8 read_margin; /* current read margin */
-	bool autoflicker_en; /* record autoflicker enable or disable */
+	int autoflicker_en; /* record autoflicker enable or disable */
 	u8 test_pattern; /* record test pattern mode or not */
 	u8 ihdr_mode; /* ihdr enable or disable */
 	u8 pdaf_mode; /* pdaf enable or disable */

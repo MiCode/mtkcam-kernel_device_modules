@@ -1022,6 +1022,7 @@ void set_max_framerate_in_lut_by_scenario(struct subdrv_ctx *ctx,
 bool set_auto_flicker(struct subdrv_ctx *ctx, bool min_framelength_en)
 {
 	u16 framerate = 0;
+	bool ret = TRUE;
 
 	if (!ctx->line_length) {
 		DRV_LOGE(ctx, "line_length(%u) is invalid\n", ctx->line_length);
@@ -1033,9 +1034,43 @@ bool set_auto_flicker(struct subdrv_ctx *ctx, bool min_framelength_en)
 		return FALSE;
 	}
 	framerate = ctx->pclk / ctx->line_length * 10 / ctx->frame_length;
+
+	switch (ctx->autoflicker_en) {
+	case 1:
+		if (framerate > 592 && framerate <= 607)
+			set_max_framerate(ctx, 592, min_framelength_en);
+		else if (framerate > 296 && framerate <= 305)
+			set_max_framerate(ctx, 296, min_framelength_en);
+		else if (framerate > 246 && framerate <= 253)
+			set_max_framerate(ctx, 246, min_framelength_en);
+		else if (framerate > 236 && framerate <= 243)
+			set_max_framerate(ctx, 236, min_framelength_en);
+		else if (framerate > 146 && framerate <= 153)
+			set_max_framerate(ctx, 146, min_framelength_en);
+		else
+			ret = FALSE;
+		break;
+	case 2:
+		if (framerate > 592 && framerate <= 607)
+			set_max_framerate(ctx, 592, min_framelength_en);
+		else if (framerate > 299 && framerate <= 305)
+			set_max_framerate(ctx, 299, min_framelength_en);
+		else if (framerate > 246 && framerate <= 253)
+			set_max_framerate(ctx, 246, min_framelength_en);
+		else if (framerate > 236 && framerate <= 243)
+			set_max_framerate(ctx, 236, min_framelength_en);
+		else if (framerate > 146 && framerate <= 153)
+			set_max_framerate(ctx, 146, min_framelength_en);
+		else
+			ret = FALSE;
+		break;
+	default:
+		ret = FALSE;
+	}
+
 	if (ctx->s_ctx.mode[ctx->current_scenario_id].hdr_mode == HDR_RAW_LBMF)
 		DRV_LOG(ctx,
-			"sid:%u,cur_fps:%u,flick_en:%u,min_fl_en:%u,fll(ctx/output_a/b/c/d/e):%u/%u/%u/%u/%u/%u\n",
+	"sid:%u,cur_fps:%u,flick_en:%d,min_fl_en:%u,fll(ctx/output_a/b/c/d/e):%u/%u/%u/%u/%u/%u,new_fps:%u\n",
 			ctx->current_scenario_id,
 			framerate, ctx->autoflicker_en, min_framelength_en,
 			ctx->frame_length,
@@ -1043,28 +1078,14 @@ bool set_auto_flicker(struct subdrv_ctx *ctx, bool min_framelength_en)
 			ctx->frame_length_in_lut[1],
 			ctx->frame_length_in_lut[2],
 			ctx->frame_length_in_lut[3],
-			ctx->frame_length_in_lut[4]);
+			ctx->frame_length_in_lut[4],
+			ctx->pclk / ctx->line_length * 10 / ctx->frame_length);
 	else
-		DRV_LOG(ctx, "cur_fps:%u, flick_en:%u, min_fl_en:%u\n",
-			framerate, ctx->autoflicker_en, min_framelength_en);
+		DRV_LOG(ctx, "cur_fps:%u, flick_en:%d, min_fl_en:%u, new_fps:%u\n",
+			framerate, ctx->autoflicker_en, min_framelength_en,
+			ctx->pclk / ctx->line_length * 10 / ctx->frame_length);
 
-	if (!ctx->autoflicker_en)
-		return FALSE;
-
-	if (framerate > 592 && framerate <= 607)
-		set_max_framerate(ctx, 592, min_framelength_en);
-	else if (framerate > 299 && framerate <= 305)
-		set_max_framerate(ctx, 299, min_framelength_en);
-	else if (framerate > 246 && framerate <= 253)
-		set_max_framerate(ctx, 246, min_framelength_en);
-	else if (framerate > 236 && framerate <= 243)
-		set_max_framerate(ctx, 236, min_framelength_en);
-	else if (framerate > 146 && framerate <= 153)
-		set_max_framerate(ctx, 146, min_framelength_en);
-	else
-		return FALSE;
-
-	return TRUE;
+	return ret;
 }
 
 void set_long_exposure(struct subdrv_ctx *ctx)
@@ -1157,7 +1178,7 @@ void set_shutter_frame_length(struct subdrv_ctx *ctx, u64 shutter, u32 frame_len
 		set_i2c_buffer(ctx,	ctx->s_ctx.reg_addr_exposure[0].addr[1],
 			ctx->exposure[0] & 0xFF);
 	}
-	DRV_LOG(ctx, "exp[0x%x], fll(input/output):%u/%u, flick_en:%u\n",
+	DRV_LOG(ctx, "exp[0x%x], fll(input/output):%u/%u, flick_en:%d\n",
 		ctx->exposure[0], frame_length, ctx->frame_length, ctx->autoflicker_en);
 	if (!ctx->ae_ctrl_gph_en) {
 		if (gph)
@@ -1299,7 +1320,7 @@ void set_multi_shutter_frame_length(struct subdrv_ctx *ctx,
 			}
 		}
 	}
-	DRV_LOG(ctx, "exp[0x%x/0x%x/0x%x], fll(input/output):%u/%u, flick_en:%u\n",
+	DRV_LOG(ctx, "exp[0x%x/0x%x/0x%x], fll(input/output):%u/%u, flick_en:%d\n",
 		rg_shutters[0], rg_shutters[1], rg_shutters[2],
 		frame_length, ctx->frame_length, ctx->autoflicker_en);
 	if (!ctx->ae_ctrl_gph_en) {
@@ -1544,7 +1565,7 @@ void set_multi_shutter_frame_length_in_lut(struct subdrv_ctx *ctx,
 		}
 	}
 	DRV_LOG(ctx,
-		"sid:%u,shutter(input/lut):0x%llx/%llx/%llx,%x/%x/%x,flInLUT(input/ctx/output_a/b/c/d/e):%u/%u/%u/%u/%u/%u/%u,flick_en:%u\n",
+		"sid:%u,shutter(input/lut):0x%llx/%llx/%llx,%x/%x/%x,flInLUT(input/ctx/output_a/b/c/d/e):%u/%u/%u/%u/%u/%u/%u,flick_en:%d\n",
 		ctx->current_scenario_id,
 		shutters[0], shutters[1], shutters[2],
 		cit_in_lut[0], cit_in_lut[1], cit_in_lut[2],
@@ -2030,13 +2051,13 @@ void set_video_mode(struct subdrv_ctx *ctx, u16 framerate)
 	DRV_LOG(ctx, "fps(input/max):%u/%u\n", framerate, ctx->current_fps);
 }
 
-void set_auto_flicker_mode(struct subdrv_ctx *ctx, bool enable, u16 framerate)
+void set_auto_flicker_mode(struct subdrv_ctx *ctx, int enable, u16 framerate)
 {
 	(void) framerate;
 
-	ctx->autoflicker_en = enable ? TRUE : FALSE;
+	ctx->autoflicker_en = enable;
 
-	DRV_LOG(ctx, "enable:%u\n", enable);
+	DRV_LOG(ctx, "enable:%d\n", enable);
 }
 
 void get_output_format_by_scenario(struct subdrv_ctx *ctx,
@@ -2121,7 +2142,7 @@ void get_min_shutter_by_scenario(struct subdrv_ctx *ctx,
 	*exposure_step = ctx->s_ctx.exposure_step * ratio;
 }
 
-void get_offset_to_start_of_exposure(struct subdrv_ctx *ctx,	u32 *offset)
+void get_offset_to_start_of_exposure(struct subdrv_ctx *ctx, u32 *offset)
 {
 	*offset = ctx->s_ctx.start_exposure_offset;
 }
@@ -3231,7 +3252,7 @@ int common_feature_control(struct subdrv_ctx *ctx, MSDK_SENSOR_FEATURE_ENUM feat
 		break;
 	case SENSOR_FEATURE_SET_AUTO_FLICKER_MODE:
 		set_auto_flicker_mode(ctx,
-			(bool)*feature_data_16, *(feature_data_16 + 1));
+			*feature_data_16, *(feature_data_16 + 1));
 		break;
 	case SENSOR_FEATURE_SET_MAX_FRAME_RATE_BY_SCENARIO:
 		set_max_framerate_by_scenario(ctx,

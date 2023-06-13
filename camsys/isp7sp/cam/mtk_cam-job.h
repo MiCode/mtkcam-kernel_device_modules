@@ -315,6 +315,7 @@ struct mtk_cam_job {
 
 	/* for raw switch */
 	struct mtk_cam_pool_wrapper *img_wbuf_pool_wrapper;
+	struct mtk_cam_device_refcnt_buf *w_caci_buf;
 
 	struct mtkcam_ipi_frame_ack_result cq_rst;
 	unsigned int used_engine;

@@ -398,6 +398,7 @@ struct subdrv_ctx {
 	bool is_streaming;
 	u32 sof_cnt;
 	u32 ref_sof_cnt;
+	u32 sof_no;
 
 	u8 mirror; /* mirrorflip information */
 	u8 sensor_mode; /* record IMGSENSOR_MODE enum value */
@@ -498,6 +499,7 @@ struct subdrv_ops {
 	int (*parse_ebd_line)(struct subdrv_ctx *ctx,
 		struct mtk_recv_sensor_ebd_line *data,
 		struct mtk_ebd_dump *obj);
+	int (*set_ctrl_locker)(struct subdrv_ctx *ctx, u32 cid, bool *is_lock);
 };
 
 struct subdrv_entry {

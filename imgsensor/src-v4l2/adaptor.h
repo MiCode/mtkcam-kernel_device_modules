@@ -201,7 +201,6 @@ struct adaptor_ctx {
 	unsigned int *sensor_debug_flag;
 	unsigned int *p_set_ctrl_unlock_flag;
 	unsigned int sof_cnt;
-	unsigned int sof_no;
 	int req_id; /* from mtk hdr ae ctrl */
 	u64 shutter_for_timeout;
 	struct wakeup_source *sensor_ws;

@@ -142,7 +142,9 @@
 /******************************************************************************
  * TSREC log define/macro
  *****************************************************************************/
-#define TSREC_LOG_BUF_STR_LEN        (1024)
+// guess the max length of the mobile log is 1000 characters
+// , reserve 200 characters (for time, func name, etc.) first.
+#define TSREC_LOG_BUF_STR_LEN        (800)
 
 /* for reducing log */
 #define REDUCE_TSREC_LOG
@@ -248,9 +250,18 @@ do { \
 #endif
 
 
-#define TSREC_SNPRF(buf_len, buf, len, fmt, ...) { \
-	len += snprintf(buf + len, buf_len - len, fmt, ##__VA_ARGS__); \
-}
+#define TSREC_SNPRF(buf_len, buf, len, fmt, ...) \
+do{ \
+	int ret; \
+	ret = snprintf((buf + len), (buf_len - len), fmt, ##__VA_ARGS__); \
+	if (unlikely((ret < 0) || (ret >= (buf_len - len)))) { \
+		TSREC_LOG_PF_DBG( \
+			"WARNING: snprintf ret:%d, space:%u(truncated), set len to buf_len:%u\n", \
+			ret, (buf_len - len), buf_len); \
+		len = buf_len; \
+	} else \
+		len += ret; \
+} while (0)
 
 
 /******************************************************************************

@@ -217,26 +217,26 @@ static void fsync_mgr_chk_wait_tsrec_hw_pre_latch_updated(
 	if (unlikely(i >= FSYNC_WAIT_TSREC_UPDATE_DELAY_CNT)) {
 		adaptor_logi(ctx,
 			"WARNING: idx:%d, TIMEOUT:(%u+%u+%u+%u+%u)(us), i:%u(FSYNC_WAIT_TSREC_UPDATE_DELAY_CNT:%u) => bypass\n",
-			ctx->idx, i,
+			ctx->idx,
 			delay_us[0], delay_us[1], delay_us[2],
 			delay_us[3], delay_us[4],
-			FSYNC_WAIT_TSREC_UPDATE_DELAY_CNT);
-		fsync_mgr_dump_tsrec_ts_info(ctx, &ts_info, __func__);
+			i, FSYNC_WAIT_TSREC_UPDATE_DELAY_CNT);
 
-		spin_lock(&ctx->fsync_pre_latch_ts_info_update_lock);
+		fsync_mgr_dump_tsrec_ts_info(ctx, &ts_info, __func__);
 		fsync_mgr_dump_tsrec_ts_info(
 			ctx, &ctx->fsync_pre_latch_ts_info, __func__);
-		spin_unlock(&ctx->fsync_pre_latch_ts_info_update_lock);
-	}
 
-	if (unlikely(i > 0)) {
-		adaptor_logi(ctx,
+	} else if (unlikely(i > 0)) {
+		adaptor_logd(ctx,
 			"NOTICE: idx:%d, i:%u (%u+%u+%u+%u+%u)(us) => ts info match\n",
 			ctx->idx, i,
 			delay_us[0], delay_us[1], delay_us[2],
 			delay_us[3], delay_us[4]);
-		fsync_mgr_dump_tsrec_ts_info(
-			ctx, &ctx->fsync_pre_latch_ts_info, __func__);
+
+		if ((unlikely(*(ctx->sensor_debug_flag)))) {
+			fsync_mgr_dump_tsrec_ts_info(
+				ctx, &ctx->fsync_pre_latch_ts_info, __func__);
+		}
 	}
 }
 

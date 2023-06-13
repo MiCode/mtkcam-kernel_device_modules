@@ -155,17 +155,18 @@ void frec_dump_cascade_exp_fl_info(const unsigned int idx,
 	const unsigned int *exp_cas_arr, const unsigned int *fl_cas_arr,
 	const unsigned int arr_len, const char *caller)
 {
+	const unsigned int log_str_len = 512;
 	unsigned int i;
 	char *log_buf = NULL;
 	int len = 0, ret;
 
-	ret = alloc_log_buf(LOG_BUF_STR_LEN, &log_buf);
+	ret = alloc_log_buf(log_str_len, &log_buf);
 	if (unlikely(ret != 0)) {
 		LOG_MUST("ERROR: log_buf allocate memory failed\n");
 		return;
 	}
 
-	FS_SNPRINTF(log_buf, len,
+	FS_SNPRF(log_str_len, log_buf, len,
 		"[%s]: [%u] ID:%#x(sidx:%u/inf:%u), cas_exp:(",
 		caller,
 		idx,
@@ -174,20 +175,20 @@ void frec_dump_cascade_exp_fl_info(const unsigned int idx,
 		fs_get_reg_sensor_inf_idx(idx));
 
 	for (i = 0; i < arr_len; ++i) {
-		FS_SNPRINTF(log_buf, len, "%u", exp_cas_arr[i]);
+		FS_SNPRF(log_str_len, log_buf, len, "%u", exp_cas_arr[i]);
 		if ((i + 1) < arr_len)
-			FS_SNPRINTF(log_buf, len, "/");
+			FS_SNPRF(log_str_len, log_buf, len, "/");
 	}
 
-	FS_SNPRINTF(log_buf, len, "), cas_fl:(");
+	FS_SNPRF(log_str_len, log_buf, len, "), cas_fl:(");
 
 	for (i = 0; i < arr_len; ++i) {
-		FS_SNPRINTF(log_buf, len, "%u", fl_cas_arr[i]);
+		FS_SNPRF(log_str_len, log_buf, len, "%u", fl_cas_arr[i]);
 		if ((i + 1) < arr_len)
-			FS_SNPRINTF(log_buf, len, "/");
+			FS_SNPRF(log_str_len, log_buf, len, "/");
 	}
 
-	FS_SNPRINTF(log_buf, len, "), arr_len:%u", arr_len);
+	FS_SNPRF(log_str_len, log_buf, len, "), arr_len:%u", arr_len);
 
 	LOG_MUST("%s\n", log_buf);
 	FS_FREE(log_buf);
@@ -268,6 +269,7 @@ void frec_dump_frame_record_info(const struct FrameRecord *p_frame_rec,
 void frec_dump_recorder(const unsigned int idx, const char *caller)
 {
 	const struct FrameRecorder *pfrec = frec_g_recorder_ctx(idx, __func__);
+	const unsigned int log_str_len = LOG_BUF_STR_LEN;
 	unsigned int act_fl_arr[RECORDER_DEPTH-1] = {0};
 	unsigned int depth_idx;
 	unsigned int i;
@@ -280,26 +282,23 @@ void frec_dump_recorder(const unsigned int idx, const char *caller)
 
 	depth_idx = FS_ATOMIC_READ(&pfrec->depth_idx);
 
-	ret = alloc_log_buf(LOG_BUF_STR_LEN, &log_buf);
+	ret = alloc_log_buf(log_str_len, &log_buf);
 	if (unlikely(ret != 0)) {
 		LOG_MUST("ERROR: log_buf allocate memory failed\n");
 		return;
 	}
 
-	FS_SNPRINTF(log_buf, len,
-		"[%s]: [%u] ID:%#x(sidx:%u/inf:%u), fdelay:%u/def_fl:%u/line_t:%u(%u/%u)/mar(%u,r:%u)/rout_l:%u",
+	FS_SNPRF(log_str_len, log_buf, len,
+		"[%s]: [%u] ID:%#x(sidx:%u), fdelay:%u/def_fl:%u/lineT:%u/mar(%u,r:%u)/routL:%u",
 		caller,
 		idx,
 		fs_get_reg_sensor_id(idx),
 		fs_get_reg_sensor_idx(idx),
-		fs_get_reg_sensor_inf_idx(idx),
 		pfrec->fl_act_delay,
 		pfrec->def_fl_lc,
 		calcLineTimeInNs(
 			pfrec->frame_recs[depth_idx].pclk,
 			pfrec->frame_recs[depth_idx].line_length),
-		pfrec->frame_recs[depth_idx].line_length,
-		pfrec->frame_recs[depth_idx].pclk,
 		pfrec->frame_recs[depth_idx].margin_lc,
 		pfrec->frame_recs[depth_idx].read_margin_lc,
 		pfrec->frame_recs[depth_idx].readout_len_lc);
@@ -309,8 +308,8 @@ void frec_dump_recorder(const unsigned int idx, const char *caller)
 		/* newest => copy from previous, at this time sensor driver not get AE ctrl yet */
 		const unsigned int idx = RING_BACK(depth_idx, i);
 
-		FS_SNPRINTF(log_buf, len,
-			", ([%u](%llu)(req:%d):(%u/%u),(a:%u/m:%u(t:%u,o:%u),%u/%u/%u/%u/%u,%u/%u/%u/%u/%u))",
+		FS_SNPRF(log_str_len, log_buf, len,
+			", ([%u](%llu/req:%d):(%u/%u),(a:%u/m:%u(t:%u,o:%u),%u/%u/%u/%u/%u",
 			idx,
 			pfrec->sys_ts_recs[idx]/1000,
 			pfrec->frame_recs[idx].mw_req_id,
@@ -324,15 +323,22 @@ void frec_dump_recorder(const unsigned int idx, const char *caller)
 			pfrec->frame_recs[idx].exp_lc_arr[1],
 			pfrec->frame_recs[idx].exp_lc_arr[2],
 			pfrec->frame_recs[idx].exp_lc_arr[3],
-			pfrec->frame_recs[idx].exp_lc_arr[4],
-			pfrec->frame_recs[idx].fl_lc_arr[0],
-			pfrec->frame_recs[idx].fl_lc_arr[1],
-			pfrec->frame_recs[idx].fl_lc_arr[2],
-			pfrec->frame_recs[idx].fl_lc_arr[3],
-			pfrec->frame_recs[idx].fl_lc_arr[4]);
+			pfrec->frame_recs[idx].exp_lc_arr[4]);
+
+		if (pfrec->frame_recs[idx].m_exp_type == MULTI_EXP_TYPE_LBMF) {
+			FS_SNPRF(log_str_len, log_buf, len,
+				",%u/%u/%u/%u/%u",
+				pfrec->frame_recs[idx].fl_lc_arr[0],
+				pfrec->frame_recs[idx].fl_lc_arr[1],
+				pfrec->frame_recs[idx].fl_lc_arr[2],
+				pfrec->frame_recs[idx].fl_lc_arr[3],
+				pfrec->frame_recs[idx].fl_lc_arr[4]);
+		}
+
+		FS_SNPRF(log_str_len, log_buf, len, "))");
 	}
 
-	FS_SNPRINTF(log_buf, len,
+	FS_SNPRF(log_str_len, log_buf, len,
 		", r_offset(%u(%u)/%u(%u)/%u(%u)/%u(%u)/%u(%u))",
 		pfrec->curr_predicted_rd_offset_us[0],
 		pfrec->curr_predicted_rd_offset_lc[0],
@@ -345,7 +351,7 @@ void frec_dump_recorder(const unsigned int idx, const char *caller)
 		pfrec->curr_predicted_rd_offset_us[4],
 		pfrec->curr_predicted_rd_offset_lc[4]);
 
-	FS_SNPRINTF(log_buf, len,
+	FS_SNPRF(log_str_len, log_buf, len,
 		", pr(p(%u(%u)/act:%u)/c(%u(%u))",
 		pfrec->prev_predicted_fl_us,
 		pfrec->prev_predicted_fl_lc,
@@ -356,33 +362,42 @@ void frec_dump_recorder(const unsigned int idx, const char *caller)
 	for (i = 0; i < RECORDER_DEPTH-1; ++i) {
 		SenRec_TS_T tick_a, tick_b;
 
-		/* check if this is first timestamp & get tick factor */
-		if (unlikely((!pfrec->ts_exp_0[1]) || (!pfrec->tick_factor)))
+		/* check if tick factor is valid */
+		if (unlikely(pfrec->tick_factor == 0))
 			break;
+
 		/* update actual frame length by timestamp diff */
 		tick_a = pfrec->ts_exp_0[i] * pfrec->tick_factor;
 		tick_b = pfrec->ts_exp_0[i+1] * pfrec->tick_factor;
-		act_fl_arr[i] = divide_num(idx,
-			(tick_a - tick_b), pfrec->tick_factor, __func__);
+
+		act_fl_arr[i] = (tick_b != 0)
+			? ((tick_a - tick_b) / (pfrec->tick_factor)) : 0;
 	}
-	FS_SNPRINTF(log_buf, len,
-		", act_fl(%u/%u/%u)",
-		act_fl_arr[0],
-		act_fl_arr[1],
-		act_fl_arr[2]);
 
-	FS_SNPRINTF(log_buf, len,
+	if (frm_get_ts_src_type() != FS_TS_SRC_TSREC) {
+		FS_SNPRF(log_str_len, log_buf, len,
 #ifdef TS_TICK_64_BITS
-		", ts(%llu/%llu/%llu/%llu)",
+			", ts(%u/%u/%u,%llu/%llu/%llu/%llu)",
 #else
-		", ts(%u/%u/%u/%u)",
+			", ts(%u/%u/%u,%u/%u/%u/%u)",
 #endif
-		pfrec->ts_exp_0[0],
-		pfrec->ts_exp_0[1],
-		pfrec->ts_exp_0[2],
-		pfrec->ts_exp_0[3]);
+			act_fl_arr[0],
+			act_fl_arr[1],
+			act_fl_arr[2],
+			pfrec->ts_exp_0[0],
+			pfrec->ts_exp_0[1],
+			pfrec->ts_exp_0[2],
+			pfrec->ts_exp_0[3]);
+	} else {
+		FS_SNPRF(log_str_len, log_buf, len,
+			", ts(%u/%u/%u)",
+			act_fl_arr[0],
+			act_fl_arr[1],
+			act_fl_arr[2]);
 
-	fs_util_tsrec_dynamic_msg_connector(idx, log_buf, len, __func__);
+		fs_util_tsrec_dynamic_msg_connector(idx,
+			log_str_len, log_buf, len, __func__);
+	}
 
 	LOG_MUST_LOCK("%s\n", log_buf);
 
@@ -940,6 +955,11 @@ static unsigned int frec_calc_lbmf_valid_min_fl_lc_for_shutters_fdelay_3(
 	const struct FrameRecord *curr_rec, const struct FrameRecord *prev_rec,
 	const unsigned int target_min_fl_lc)
 {
+#ifndef REDUCE_SEN_REC_LOG
+	const unsigned int log_str_len = 512;
+	char *log_buf = NULL;
+	int len = 0, ret;
+#endif
 	const struct FrameRecord *recs[2] = {prev_rec, curr_rec};
 	const unsigned int prev_mode_exp_cnt = prev_rec->mode_exp_cnt;
 	const unsigned int margin_lc_per_exp = divide_num(idx,
@@ -949,31 +969,25 @@ static unsigned int frec_calc_lbmf_valid_min_fl_lc_for_shutters_fdelay_3(
 	unsigned int exp_cas[2*FS_HDR_MAX] = {0}, fl_cas[2*FS_HDR_MAX] = {0};
 	unsigned int equiv_min_fl_lc = 0;
 	unsigned int i;
-	char *log_buf = NULL;
-	int len = 0, ret;
 
+#ifndef REDUCE_SEN_REC_LOG
 	/* prepare for log print */
-	ret = alloc_log_buf(LOG_BUF_STR_LEN, &log_buf);
+	ret = alloc_log_buf(log_str_len, &log_buf);
 	if (unlikely(ret != 0)) {
 		LOG_MUST("ERROR: log_buf allocate memory failed\n");
 		return 0;
 	}
 
-	FS_SNPRINTF(log_buf, len,
+	FS_SNPRF(log_str_len, log_buf, len,
 		"[%u] ID:%#x(sidx:%u/inf:%u)",
 		idx,
 		fs_get_reg_sensor_id(idx),
 		fs_get_reg_sensor_idx(idx),
 		fs_get_reg_sensor_inf_idx(idx));
-
+#endif
 
 	frec_get_cascade_exp_fl_settings(
 		idx, recs, 2, exp_cas, fl_cas, (2*FS_HDR_MAX));
-
-#ifndef REDUCE_SEN_REC_LOG
-	frec_dump_cascade_exp_fl_info(
-		idx, exp_cas_arr, fl_cas_arr, (2*FS_HDR_MAX), __func__);
-#endif
 
 	/* N+2 type, e.g., general SONY sensor */
 	/* check each CIT/FLL settings in LUT */
@@ -1000,7 +1014,8 @@ static unsigned int frec_calc_lbmf_valid_min_fl_lc_for_shutters_fdelay_3(
 
 		equiv_min_fl_lc += min_fl_lc;
 
-		FS_SNPRINTF(log_buf, len,
+#ifndef REDUCE_SEN_REC_LOG
+		FS_SNPRF(log_str_len, log_buf, len,
 			", i:%u(ref_idx:%u)/cnt:%u, equiv_min_fl_lc:%u(min_fl_lc:%u(s+m:%u(%u/%u), based:%u(rout_l:%u/r_m:%u), fl:%u, total_min:%u(prev:%u/target:%u)))",
 			i, ref_idx, prev_mode_exp_cnt,
 			equiv_min_fl_lc,
@@ -1010,10 +1025,13 @@ static unsigned int frec_calc_lbmf_valid_min_fl_lc_for_shutters_fdelay_3(
 			prev_rec->readout_len_lc, prev_rec->read_margin_lc,
 			fl_cas[i],
 			total_min_fl_lc, prev_rec->framelength_lc, target_min_fl_lc);
+#endif
 	}
 
+#ifndef REDUCE_SEN_REC_LOG
 	LOG_INF("%s\n", log_buf);
 	FS_FREE(log_buf);
+#endif
 
 	return equiv_min_fl_lc;
 }
@@ -1730,12 +1748,10 @@ void frec_chk_fl_pr_match_act(const unsigned int idx)
 			pfrec->act_fl_us);
 
 		frec_dump_recorder(idx, __func__);
+	} else {
+		if (unlikely(_FS_LOG_ENABLED(LOG_FS_PF)))
+			frec_dump_recorder(idx, __func__);
 	}
-
-#ifndef FS_UT
-	if (unlikely(_FS_LOG_ENABLED(LOG_FS_PF)))
-#endif
-		frec_dump_recorder(idx, __func__);
 }
 
 

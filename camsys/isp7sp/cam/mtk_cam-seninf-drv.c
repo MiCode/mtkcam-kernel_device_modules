@@ -1531,6 +1531,7 @@ static int set_test_model(struct seninf_ctx *ctx, char enable)
 		for (i = 0; i < vc_used; ++i) {
 			vc[i]->dest_cnt = 1;
 			vc[i]->dest[0].cam = ctx->pad2cam[vc[i]->out_pad][0];
+			vc[i]->dest[0].tag = ctx->pad_tag_id[vc[i]->out_pad][0];
 			vc[i]->enable = 1;
 
 			if (mux_by_camtype[vc[i]->dest[0].cam_type]) {
@@ -1552,7 +1553,8 @@ static int set_test_model(struct seninf_ctx *ctx, char enable)
 
 			g_seninf_ops->_set_test_model(ctx,
 					vc[i]->dest[0].mux, vc[i]->dest[0].cam, vc[i]->pixel_mode,
-					vc_dt_filter, i, vc[i]->vc, vc[i]->dt, vc[i]->vc);
+					vc_dt_filter, i, vc[i]->vc, vc[i]->dt, vc[i]->vc,
+					vc[i]->dest[0].tag);
 			if (vc[i]->out_pad == PAD_SRC_PDAF0)
 				mdelay(40);
 			else

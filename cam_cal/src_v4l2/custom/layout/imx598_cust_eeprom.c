@@ -404,7 +404,7 @@ static unsigned int do_2a_gain_imx598(struct EEPROM_DRV_FD_DATA *pdata,
 		/* AWB Golden Gain (3100K) */
 		FacR = FacGr = FacGb = FacG = FacB = 0;
 		tempMax = 0;
-		awb_offset = 0xCBC;
+		awb_offset = 0xCBE;
 		read_data_size = read_data(pdata, pCamCalData->sensorID, pCamCalData->deviceID,
 				awb_offset, 6, (unsigned char *)&FacGain);
 		if (read_data_size > 0)	{

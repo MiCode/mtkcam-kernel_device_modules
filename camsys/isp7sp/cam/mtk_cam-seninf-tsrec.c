@@ -931,6 +931,33 @@ static void tsrec_irq_event_st_init(void)
 /*---------------------------------------------------------------------------*/
 // tsrec v4l2_subdev_core_ops --- command call to sensor adaptor functions
 /*---------------------------------------------------------------------------*/
+/* return: 1 => can do works/jobs; 0 => skip works/jobs */
+static int tsrec_work_chk_status_valid(const unsigned int tsrec_no,
+	const char *caller)
+{
+	struct tsrec_n_regs_st *ptr = NULL;
+	int ret;
+
+	ret = g_tsrec_n_regs_st(tsrec_no, &ptr, __func__);
+	if (unlikely(ret != 0))
+		return 0;
+	if (unlikely(ptr == NULL)) {
+		TSREC_LOG_INF(
+			"[%s] ERROR: tsrec_n_regs_st[%u] is nullptr (%p), return\n",
+			caller, tsrec_no, ptr);
+		return 0;
+	}
+	if (unlikely(ptr->en == 0)) {
+		TSREC_LOG_DBG_CAT(LOG_TSREC_WORK_HANDLE,
+			"[%s] NOTICE: tsrec_n_regs_st[%u]:(en:%u), skip works/jobs, return 0\n",
+			caller, tsrec_no, ptr->en);
+		return 0;
+	}
+
+	return 1;
+}
+
+
 #ifndef FS_UT
 static void tsrec_find_seninf_ctx_by_tsrec_no(void *irq_dev_ctx,
 	const unsigned int tsrec_no,
@@ -951,8 +978,15 @@ static void tsrec_find_seninf_ctx_by_tsrec_no(void *irq_dev_ctx,
 			caller, tsrec_no, ptr);
 		return;
 	}
-	*p_seninf_idx = ptr->seninf_idx;
+	if (unlikely((ptr->en == 0) || (ptr->seninf_idx == SENINF_IDX_NONE))) {
+		TSREC_LOG_DBG_CAT(LOG_TSREC_WORK_HANDLE,
+			"[%s] NOTICE: tsrec_n_regs_st[%u]:(en:%u/seninf_idx:%u(NONE:%u)), return\n",
+			caller, tsrec_no, ptr->en,
+			ptr->seninf_idx, SENINF_IDX_NONE);
+		return;
+	}
 
+	*p_seninf_idx = ptr->seninf_idx;
 	list_for_each_entry(ctx, &core->list, list) {
 		if (ctx->seninfIdx == *p_seninf_idx) {
 			/* find out */
@@ -966,7 +1000,7 @@ static void tsrec_find_seninf_ctx_by_tsrec_no(void *irq_dev_ctx,
 		"[%s] ERROR: can't find seninf_ctx:%p by (tsrec_no:%u => seninf_idx:%u)\n",
 		caller, *p_seninf_ctx, tsrec_no, *p_seninf_idx);
 }
-#endif // !FS_UT
+#endif
 
 
 static void tsrec_setup_cb_func_info_of_sensor(struct seninf_ctx *inf_ctx,
@@ -1115,10 +1149,10 @@ static void tsrec_n_update_irq_info_st(const unsigned int tsrec_no,
 static void tsrec_work_handler(struct kthread_work *work)
 #else /* => using workqueue */
 static void tsrec_work_handler(struct work_struct *work)
-#endif // TSREC_WORK_USING_KTHREAD
+#endif
 #else /* => FS_UT */
 static void tsrec_work_handler(struct tsrec_work_request *req)
-#endif // !FS_UT
+#endif
 {
 #ifndef FS_UT
 	struct tsrec_work_request *req = NULL;
@@ -1154,6 +1188,9 @@ static void tsrec_work_handler(struct tsrec_work_request *req)
 		TSREC_KFREE(req);
 		return;
 	}
+	if (unlikely(tsrec_work_chk_status_valid(req->tsrec_no, __func__) == 0))
+		return;
+
 	req->irq_info.worker_handle_ts_ns = curr_sys_ts;
 
 

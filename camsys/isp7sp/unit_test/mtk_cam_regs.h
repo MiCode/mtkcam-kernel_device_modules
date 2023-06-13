@@ -142,6 +142,9 @@ enum topdebug_event {
 #define CAM_REG_CTL_RAW_MOD5_DCM_DIS			0x0310
 #define CAM_REG_CTL_RAW_MOD6_DCM_DIS			0x0314
 
+#define CAM_REG_CTL_WFBC_EN				0x03B0
+#define CAM_REG_CTL_WFBC_INC				0x03B4
+
 #define CAM_REG_CQ_THR0_CTL(regs)			    (regs + 0x0410)
 #define CAM_REG_CQ_THR0_BASEADDR(regs)			(regs + 0x0414)
 #define CAM_REG_CQ_THR0_DESC_SIZE(regs)			(regs + 0x041C)
@@ -297,6 +300,7 @@ enum topdebug_event {
 #define REG_CTL_START					0x00B0
 
 /* camctl */
+#define CAM_REG_CTL_MISC				0x0060
 #define REG_CTL_RAWI_TRIG				0x00C0
 #define REG_CTL_SW_CTL					0x00C4
 #define REG_CTL_SW_PASS1_DONE				0x00C8

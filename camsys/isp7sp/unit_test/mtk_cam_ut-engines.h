@@ -20,7 +20,7 @@ struct engine_ops {
 
 	int (*initialize)(struct device *dev, void *ext_params);
 	int (*reset)(struct device *dev);
-	int (*s_stream)(struct device *dev, int on);
+	int (*s_stream)(struct device *dev, enum streaming_enum on);
 	int (*apply_cq)(struct device *dev,
 		dma_addr_t cq_addr, unsigned int cq_size, unsigned int cq_offset,
 		unsigned int sub_cq_size,
@@ -35,8 +35,8 @@ struct engine_ops {
 enum RAW_STREAMON_TYPE {
 	STREAM_FROM_TG,
 	STREAM_FROM_RAWI_R2,
+	STREAM_FROM_RAWI_R3,
 	STREAM_FROM_RAWI_R5,
-	STREAM_FROM_RAWI_R6,
 	STREAM_FROM_ADLRD,
 };
 
@@ -281,5 +281,6 @@ extern struct platform_driver mtk_ut_seninf_driver;
 #define SUPPORT_RAWB 0
 #define WITH_POWER_DRIVER 1
 extern struct platform_driver mtk_ut_larb_driver;
+extern const struct mtk_cam_ut_data *cur_platform;
 
 #endif /* __MTK_CAM_UT_ENGINES_H */

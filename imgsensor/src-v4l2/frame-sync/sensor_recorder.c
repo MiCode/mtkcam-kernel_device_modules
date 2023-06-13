@@ -495,6 +495,91 @@ static unsigned int frec_chk_fdelay_is_valid(const unsigned int idx,
 }
 
 
+static inline int chk_exp_order_valid(const unsigned int exp_order)
+{
+	return (likely(exp_order < EXP_ORDER_MAX)) ? 1 : 0;
+}
+
+
+static inline int chk_exp_cnt_valid(const unsigned int exp_cnt)
+{
+	return (likely(exp_cnt < (FS_HDR_MAX + 1))) ? 1 : 0;
+}
+
+
+static inline int chk_exp_no_valid(const unsigned int exp_no)
+{
+	return (likely(exp_no < FS_HDR_MAX)) ? 1 : 0;
+}
+
+
+static inline int g_exp_order_idx_mapping(const unsigned int idx,
+	const unsigned int m_exp_order, const unsigned int m_exp_cnt,
+	const unsigned int exp_no, const char *caller)
+{
+	/* error handling */
+	if (unlikely((!chk_exp_order_valid(m_exp_order))
+			|| (!chk_exp_cnt_valid(m_exp_cnt))
+			|| (!chk_exp_no_valid(exp_no)))) {
+		LOG_MUST(
+			"[%s] ERROR: [%u] ID:%#x(sidx:%u/inf:%u), get invalid para, exp(order:%u/cnt:%u/no:%u) => return exp_idx:%d\n",
+			caller,
+			idx,
+			fs_get_reg_sensor_id(idx),
+			fs_get_reg_sensor_idx(idx),
+			fs_get_reg_sensor_inf_idx(idx),
+			m_exp_order,
+			m_exp_cnt,
+			exp_no,
+			FS_HDR_NONE);
+
+		return FS_HDR_NONE;
+	}
+
+	return (exp_order_idx_map[m_exp_order][m_exp_cnt][exp_no]);
+}
+
+
+static int frec_g_mode_last_exp_idx(const unsigned int idx,
+	const struct FrameRecorder *pfrec, const unsigned int depth_idx)
+{
+	unsigned int m_exp_cnt, m_exp_order, last_exp_no;
+	int last_exp_idx;
+
+	m_exp_order = pfrec->frame_recs[depth_idx].exp_order;
+
+	m_exp_cnt = pfrec->frame_recs[depth_idx].mode_exp_cnt;
+	if (unlikely(m_exp_cnt == 0)) {
+		m_exp_cnt = 1;
+		LOG_MUST(
+			"ERROR: [%u] ID:%#x(sidx:%u/inf:%u), m_exp_cnt:0 => assign m_exp_cnt:%u\n",
+			idx,
+			fs_get_reg_sensor_id(idx),
+			fs_get_reg_sensor_idx(idx),
+			fs_get_reg_sensor_inf_idx(idx),
+			m_exp_cnt);
+	}
+	last_exp_no = (m_exp_cnt - 1);
+
+	last_exp_idx = g_exp_order_idx_mapping(idx, m_exp_order, m_exp_cnt, last_exp_no, __func__);
+	if (unlikely(last_exp_idx < 0)) {
+		last_exp_idx = 0;
+		LOG_MUST(
+			"ERROR: [%u] ID:%#x(sidx:%u/inf:%u), exp_order_idx_map[%u][%u][%u]:(< 0) => assign last_exp_idx:%d\n",
+			idx,
+			fs_get_reg_sensor_id(idx),
+			fs_get_reg_sensor_idx(idx),
+			fs_get_reg_sensor_inf_idx(idx),
+			m_exp_order,
+			m_exp_cnt,
+			last_exp_no,
+			last_exp_idx);
+	}
+
+	return last_exp_idx;
+}
+
+
 void frec_setup_frame_rec_by_fs_streaming_st(struct FrameRecord *p_frame_rec,
 	const struct fs_streaming_st *sensor_info)
 {
@@ -616,7 +701,7 @@ static void frec_get_cascade_exp_fl_settings(const unsigned int idx,
 		for (j = 0; j < mode_exp_cnt; ++j) {
 			const unsigned int ii = j + accumulated_exp_cnt;
 			const int exp_idx =
-				exp_order_idx_map[order][mode_exp_cnt][j];
+				g_exp_order_idx_mapping(idx, order, mode_exp_cnt, j, __func__);
 
 			if (unlikely(exp_idx < 0)) {
 				LOG_MUST(
@@ -794,7 +879,7 @@ static void frec_calc_lbmf_read_offset_fdelay_3(const unsigned int idx,
 	for (i = 0; i < (curr_mode_exp_cnt - 1); ++i) {
 		const unsigned int ref_idx = i + 1;
 		const int exp_idx =
-			exp_order_idx_map[order][curr_mode_exp_cnt][ref_idx];
+			g_exp_order_idx_mapping(idx, order, curr_mode_exp_cnt, ref_idx, __func__);
 		const unsigned int sm_lc = exp_cas[ref_idx] + margin_lc_per_exp;
 		unsigned int min_fl_lc = based_min_fl_lc;
 
@@ -1474,45 +1559,28 @@ unsigned int frec_g_valid_min_fl_lc_for_shutters_by_frame_rec(
 
 
 static unsigned int frec_calc_seamless_frame_length(const unsigned int idx,
+	const struct FrameRecorder *pfrec,
 	const struct frec_seamless_st *p_seamless_rec)
 {
-	const struct FrameRecorder *pfrec = frec_g_recorder_ctx(idx, __func__);
 	const struct FrameRecord *frame_rec = &p_seamless_rec->frame_rec;
 	const struct fs_seamless_property_st *ss_prop = &p_seamless_rec->prop;
-	const unsigned int orig_fl_us = (pfrec != NULL) ? pfrec->curr_predicted_fl_us : 0;
+	const unsigned int orig_fl_us = pfrec->curr_predicted_fl_us;
 	const unsigned int new_mode_line_time_ns =
 		calcLineTimeInNs(
 			p_seamless_rec->frame_rec.pclk,
 			p_seamless_rec->frame_rec.line_length);
 	const int first_exp_idx =
-		exp_order_idx_map[frame_rec->exp_order][frame_rec->mode_exp_cnt][0];
+		g_exp_order_idx_mapping(idx,
+			frame_rec->exp_order, frame_rec->mode_exp_cnt, 0, __func__);
 	unsigned int fl_us_composition[3] = {0};
-	unsigned int curr_exp_read_offset, orig_m_exp_cnt, orig_m_exp_order;
+	unsigned int curr_exp_read_offset;
 	unsigned int depth_idx, seamless_shutter_lc = 0;
 	unsigned int result = 0;
 	int orig_last_exp_idx;
 
 	/* Part-1: calculate end of readout time us */
 	depth_idx = FS_ATOMIC_READ(&pfrec->depth_idx);
-
-	orig_m_exp_cnt = pfrec->frame_recs[depth_idx].mode_exp_cnt;
-	orig_m_exp_order = pfrec->frame_recs[depth_idx].exp_order;
-	orig_last_exp_idx =
-		exp_order_idx_map[orig_m_exp_order][orig_m_exp_cnt][orig_m_exp_cnt-1];
-	if (unlikely(orig_last_exp_idx < 0)) {
-		orig_last_exp_idx = 0;
-		LOG_MUST(
-			"ERROR: [%u] ID:%#x(sidx:%u/inf:%u), exp_order_idx_map[%u][%u][%u]:%d(< 0) => assign orig_last_exp_idx:0\n",
-			idx,
-			fs_get_reg_sensor_id(idx),
-			fs_get_reg_sensor_idx(idx),
-			fs_get_reg_sensor_inf_idx(idx),
-			orig_m_exp_order,
-			orig_m_exp_cnt,
-			orig_m_exp_cnt-1,
-			orig_last_exp_idx);
-	}
-
+	orig_last_exp_idx = frec_g_mode_last_exp_idx(idx, pfrec, depth_idx);
 	curr_exp_read_offset =
 		pfrec->curr_predicted_rd_offset_us[orig_last_exp_idx];
 	fl_us_composition[0] =
@@ -2087,7 +2155,7 @@ void frec_seamless_switch(const unsigned int idx, const unsigned int def_fl_lc,
 	frec_dump_recorder(idx, __func__);
 
 	seamless_fl_us =
-		frec_calc_seamless_frame_length(idx, p_seamless_rec);
+		frec_calc_seamless_frame_length(idx, pfrec, p_seamless_rec);
 
 	FS_ATOMIC_SET(0, &pfrec->depth_idx);
 	for (i = 0; i < RECORDER_DEPTH; ++i) {

@@ -498,16 +498,18 @@ static bool not_support_rwfbc(struct mtk_raw_device *dev)
 void rwfbc_inc_setup(struct mtk_raw_device *dev)
 {
 	u32 wfbc_en_raw, wfbc_en_yuv;
-	if (not_support_rwfbc(dev)) {
-		dev_info(dev->dev, "[%s] bypass using RWFBC\n", __func__);
-	} else {
-		wfbc_en_raw = readl_relaxed(dev->base + REG_CAMCTL_WFBC_EN);
-		writel_relaxed(wfbc_en_raw, dev->base + REG_CAMCTL_WFBC_INC);
-		wfbc_en_yuv = readl_relaxed(dev->yuv_base + REG_CAMCTL_WFBC_EN);
-		writel_relaxed(wfbc_en_yuv, dev->yuv_base + REG_CAMCTL_WFBC_INC);
+
+	if (not_support_rwfbc(dev))
+		return;
+
+	wfbc_en_raw = readl_relaxed(dev->base + REG_CAMCTL_WFBC_EN);
+	wfbc_en_yuv = readl_relaxed(dev->yuv_base + REG_CAMCTL_WFBC_EN);
+	writel(wfbc_en_raw, dev->base + REG_CAMCTL_WFBC_INC);
+	writel(wfbc_en_yuv, dev->yuv_base + REG_CAMCTL_WFBC_INC);
+
+	if (CAM_DEBUG_ENABLED(RAW_INT))
 		dev_info(dev->dev, "[%s] WFBC_INC camctl/camctl2:0x%x/0x%x\n",
-			__func__, wfbc_en_raw, wfbc_en_yuv);
-	}
+			 __func__, wfbc_en_raw, wfbc_en_yuv);
 }
 
 void stream_on(struct mtk_raw_device *dev, int on)

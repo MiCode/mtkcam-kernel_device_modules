@@ -577,9 +577,6 @@ mtk_cam_job_initialize_engines(struct mtk_cam_ctx *ctx,
 		if (job->enable_hsf_raw)
 			mtk_cam_hsf_init(ctx);
 
-		if (ctx->slb_addr && ctx->set_adl_aid)
-			mtk_cam_hsf_aid(ctx, 1, AID_VAINR, engines);
-
 		if (mtk_cam_is_dcif_slb_supported())
 			mtk_cam_hsf_aid(ctx, 1, AID_CAM_DC, engines);
 	}
@@ -1874,7 +1871,18 @@ static void trigger_adl_by_work(struct mtk_cam_ctx *ctx,
 	queue_work(system_highpri_wq, &adl_work->work);
 }
 
-//#define ADL_FRAME_MODE_BY_CMDQ
+static int update_adl_aid(struct mtk_cam_ctx *ctx, bool is_apu_dc)
+{
+	if (ctx->set_adl_aid == is_apu_dc)
+		return 0;
+
+	mtk_cam_hsf_aid(ctx, is_apu_dc, AID_VAINR, ctx->used_engine);
+	ctx->set_adl_aid = is_apu_dc;
+
+	return 0;
+}
+
+#define ADL_FRAME_MODE_BY_CMDQ
 static int trigger_m2m(struct mtk_cam_job *job)
 {
 	struct mtk_cam_ctx *ctx = job->src_ctx;
@@ -1895,6 +1903,8 @@ static int trigger_m2m(struct mtk_cam_job *job)
 
 	if (is_apu) {
 		is_apu_dc = is_m2m_apu_dc(job);
+
+		update_adl_aid(ctx, is_apu_dc);
 
 #ifdef ADL_FRAME_MODE_BY_CMDQ
 		trigger_adl_by_work(ctx, raw_dev, is_apu_dc);

@@ -3983,9 +3983,12 @@ static int mtk_cam_job_fill_ipi_config(struct mtk_cam_job *job,
 			return -1;
 
 		// TODO(Will): seamless at first frame?
-		config->flags = (job->seamless_switch || job->raw_switch) ?
-			MTK_CAM_IPI_CONFIG_TYPE_INPUT_CHANGE :
-			MTK_CAM_IPI_CONFIG_TYPE_INIT;
+		if (job->seamless_switch)
+			config->flags = MTK_CAM_IPI_CONFIG_TYPE_INPUT_CHANGE;
+		else if (job->raw_switch)
+			config->flags = MTK_CAM_IPI_CONFIG_TYPE_REINIT;
+		else
+			config->flags = MTK_CAM_IPI_CONFIG_TYPE_INIT;
 
 		config->sw_feature = get_sw_feature(job);
 

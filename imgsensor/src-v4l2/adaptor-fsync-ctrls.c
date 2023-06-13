@@ -87,7 +87,7 @@ static void fsync_mgr_reset_fsync_related_info(struct adaptor_ctx *ctx)
 /*******************************************************************************
  * for tsrec sen hw pre-latch info st
  ******************************************************************************/
-static void fsync_mgr_dump_tsrec_ts_info(struct adaptor_ctx *ctx,
+void fsync_mgr_dump_tsrec_ts_info(struct adaptor_ctx *ctx,
 	const struct mtk_cam_seninf_tsrec_timestamp_info *ts_info,
 	const char *caller)
 {
@@ -190,6 +190,8 @@ static void fsync_mgr_chk_wait_tsrec_hw_pre_latch_updated(
 	struct mtk_cam_seninf_tsrec_timestamp_info ts_info = {0};
 	const unsigned int delay_us[FSYNC_WAIT_TSREC_UPDATE_DELAY_CNT] =
 		{500, 500, 400, 300, 300};
+	unsigned long long curr_ts, after_vsync;
+	unsigned int factor;
 	unsigned int i = 0;
 	int ret;
 
@@ -214,29 +216,48 @@ static void fsync_mgr_chk_wait_tsrec_hw_pre_latch_updated(
 			&& (i < FSYNC_WAIT_TSREC_UPDATE_DELAY_CNT))
 		udelay(delay_us[i++]);
 
+	/* prepare info for printing */
+	factor = (ts_info.tick_factor) ? ts_info.tick_factor : 1;
+	curr_ts = (ts_info.tsrec_curr_tick / factor);
+	after_vsync =
+		(ts_info.tsrec_curr_tick - (ts_info.exp_recs[0].ts_us[0] * factor)) / factor;
+
 	if (unlikely(i >= FSYNC_WAIT_TSREC_UPDATE_DELAY_CNT)) {
 		adaptor_logi(ctx,
-			"WARNING: idx:%d, TIMEOUT:(%u+%u+%u+%u+%u)(us), i:%u(FSYNC_WAIT_TSREC_UPDATE_DELAY_CNT:%u) => bypass\n",
-			ctx->idx,
-			delay_us[0], delay_us[1], delay_us[2],
-			delay_us[3], delay_us[4],
-			i, FSYNC_WAIT_TSREC_UPDATE_DELAY_CNT);
-
-		fsync_mgr_dump_tsrec_ts_info(ctx, &ts_info, __func__);
-		fsync_mgr_dump_tsrec_ts_info(
-			ctx, &ctx->fsync_pre_latch_ts_info, __func__);
-
+			"WARNING: timeout i:%u[%u/%u/%u/%u/%u](us) => bypass, ts(%u/inf:%u, pre_latch_exp:%u,%llu(+%llu),(0:(%llu/%llu/%llu/%llu)/1:(%llu/%llu/%llu/%llu)/2:(%llu/%llu/%llu/%llu)))\n",
+			i, delay_us[0], delay_us[1], delay_us[2], delay_us[3], delay_us[4],
+			ts_info.tsrec_no, ts_info.seninf_idx, ts_info.irq_pre_latch_exp_no,
+			curr_ts, after_vsync,
+			ts_info.exp_recs[0].ts_us[0],
+			ts_info.exp_recs[0].ts_us[1],
+			ts_info.exp_recs[0].ts_us[2],
+			ts_info.exp_recs[0].ts_us[3],
+			ts_info.exp_recs[1].ts_us[0],
+			ts_info.exp_recs[1].ts_us[1],
+			ts_info.exp_recs[1].ts_us[2],
+			ts_info.exp_recs[1].ts_us[3],
+			ts_info.exp_recs[2].ts_us[0],
+			ts_info.exp_recs[2].ts_us[1],
+			ts_info.exp_recs[2].ts_us[2],
+			ts_info.exp_recs[2].ts_us[3]);
 	} else if (unlikely(i > 0)) {
 		adaptor_logd(ctx,
-			"NOTICE: idx:%d, i:%u (%u+%u+%u+%u+%u)(us) => ts info match\n",
-			ctx->idx, i,
-			delay_us[0], delay_us[1], delay_us[2],
-			delay_us[3], delay_us[4]);
-
-		if ((unlikely(*(ctx->sensor_debug_flag)))) {
-			fsync_mgr_dump_tsrec_ts_info(
-				ctx, &ctx->fsync_pre_latch_ts_info, __func__);
-		}
+			"NOTICE: i:%u[%u/%u/%u/%u/%u](us) => waiting is over, ts(%u/inf:%u, pre_latch_exp:%u,%llu(+%llu),(0:(%llu/%llu/%llu/%llu)/1:(%llu/%llu/%llu/%llu)/2:(%llu/%llu/%llu/%llu)))\n",
+			i, delay_us[0], delay_us[1], delay_us[2], delay_us[3], delay_us[4],
+			ts_info.tsrec_no, ts_info.seninf_idx, ts_info.irq_pre_latch_exp_no,
+			curr_ts, after_vsync,
+			ts_info.exp_recs[0].ts_us[0],
+			ts_info.exp_recs[0].ts_us[1],
+			ts_info.exp_recs[0].ts_us[2],
+			ts_info.exp_recs[0].ts_us[3],
+			ts_info.exp_recs[1].ts_us[0],
+			ts_info.exp_recs[1].ts_us[1],
+			ts_info.exp_recs[1].ts_us[2],
+			ts_info.exp_recs[1].ts_us[3],
+			ts_info.exp_recs[2].ts_us[0],
+			ts_info.exp_recs[2].ts_us[1],
+			ts_info.exp_recs[2].ts_us[2],
+			ts_info.exp_recs[2].ts_us[3]);
 	}
 }
 

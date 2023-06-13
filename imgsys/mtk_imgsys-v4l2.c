@@ -1996,7 +1996,6 @@ static int mtkdip_ioc_alloc_buffer(struct v4l2_subdev *subdev, void *arg)
 	struct dma_buf *dbuf;
     unsigned int gce_buf_en = 0;
 
-    pr_info("mtk_hcp: allocate buf");
 
 	pipe = container_of(subdev, struct mtk_imgsys_pipe, subdev);
 	imgsys_resource = pipe->imgsys_dev->imgsys_resource;
@@ -2089,35 +2088,21 @@ static int mtkdip_ioc_free_buffer(struct v4l2_subdev *subdev, void *arg)
 	pipe = container_of(subdev, struct mtk_imgsys_pipe, subdev);
 	imgsys_resource = pipe->imgsys_dev->imgsys_resource;
 
+    memset(&working_buf_info, 0, sizeof(working_buf_info));
+    working_buf_info.drv_data = (u64)&pipe->imgsys_dev;
+    working_buf_info.header_version = HEADER_VER;
+	working_buf_info.dip_param_size = sizeof(struct dip_param);
+	working_buf_info.param_pack_size = sizeof(struct frame_param_pack);
+	working_buf_info.frameparam_size = sizeof(struct img_ipi_frameparam);
+	working_buf_info.reg_phys_addr = imgsys_resource->start;
+	working_buf_info.reg_range = resource_size(imgsys_resource);
+
 
     pr_info("mtk_hcp: free buf(%d/%d/%d/%d/%d)",
            info->is_capture, info->is_smvr,
            pipe->capture_alloc,pipe->smvr_alloc, pipe->streaming_alloc);
     if (pipe->streaming) {
 		/* IMGSYS HW INIT */
-        #if 0
-		memset(&working_buf_info, 0, sizeof(working_buf_info));
-		working_buf_info.drv_data = (u64)&pipe->imgsys_dev;
-		working_buf_info.header_version = HEADER_VER;
-		working_buf_info.dip_param_size = sizeof(struct dip_param);
-		working_buf_info.param_pack_size = sizeof(struct frame_param_pack);
-		working_buf_info.frameparam_size = sizeof(struct img_ipi_frameparam);
-		working_buf_info.reg_phys_addr = imgsys_resource->start;
-		working_buf_info.reg_range = resource_size(imgsys_resource);
-		working_buf_info.is_capture = info->is_capture;
-		working_buf_info.smvr_mode = info->is_smvr;
-		buf = get_first_sd_buf();
-		if (!buf) {
-			pr_debug("%s: no single device buff added\n", __func__);
-		} else {
-			dbuf = (struct dma_buf *)buf->dma_buf_putkva;
-			working_buf_info.hw_buf_size = dbuf->size;
-			working_buf_info.hw_buf_fd = buf->buf_fd;
-		}
-		working_buf_info.sec_tag = pipe->ini_info.sec_tag;
-		working_buf_info.full_wd = pipe->ini_info.sensor.full_wd;
-		working_buf_info.full_ht = pipe->ini_info.sensor.full_ht;
-        #endif
 
         //if (info->is_smvr) {
         if ((info->is_capture) && (pipe->capture_alloc)) {

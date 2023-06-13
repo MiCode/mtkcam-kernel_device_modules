@@ -905,28 +905,26 @@ static int _aov_switch_i2c_bus_scl_aux(struct v4l2_ctrl *ctrl)
 
 	// aux as aux function number corresponding to gpio table.
 	switch (aux) {
-	case SDA4:
+	case SCL4:
+	case SCL13:
 		ret = pinctrl_select_state(ctx->pinctrl, ctx->state[STATE_SCL_AP]);
 		if (ret < 0) {
-			dev_info(ctx->dev,
-				"[%s] select(%s)(fail)\n",
-				__func__, state_names[STATE_SCL_AP]);
+			dev_info(ctx->dev, "[%s] select(%s)(fail) %d\n",
+				__func__, state_names[STATE_SCL_AP], ret);
 			return ret;
 		}
-		dev_info(ctx->dev,
-			"[%s] select(%s)(correct)\n",
+		dev_info(ctx->dev, "[%s] select(%s)(correct)\n",
 			__func__, state_names[STATE_SCL_AP]);
 		break;
 	case SCL7:
+	case SCL3:
 		ret = pinctrl_select_state(ctx->pinctrl, ctx->state[STATE_SCL_SCP]);
 		if (ret < 0) {
-			dev_info(ctx->dev,
-				"[%s] select(%s)(fail)\n",
-				__func__, state_names[STATE_SCL_SCP]);
+			dev_info(ctx->dev, "[%s] select(%s)(fail) %d\n",
+				__func__, state_names[STATE_SCL_SCP], ret);
 			return ret;
 		}
-		dev_info(ctx->dev,
-			"[%s] select(%s)(correct)\n",
+		dev_info(ctx->dev, "[%s] select(%s)(correct)\n",
 			__func__, state_names[STATE_SCL_SCP]);
 		break;
 	default:
@@ -949,32 +947,29 @@ static int _aov_switch_i2c_bus_sda_aux(struct v4l2_ctrl *ctrl)
 	// aux as aux function number corresponding to gpio table.
 	switch (aux) {
 	case SDA4:
+	case SDA13:
 		ret = pinctrl_select_state(ctx->pinctrl, ctx->state[STATE_SDA_AP]);
 		if (ret < 0) {
-			dev_info(ctx->dev,
-				"[%s] select(%s)(fail)\n",
-				__func__, state_names[STATE_SDA_AP]);
+			dev_info(ctx->dev, "[%s] select(%s)(fail) %d\n",
+				__func__, state_names[STATE_SDA_AP], ret);
 			return ret;
-		} else
-			dev_info(ctx->dev,
-				"[%s] select(%s)(correct)\n",
-				__func__, state_names[STATE_SDA_AP]);
+		}
+		dev_info(ctx->dev, "[%s] select(%s)(correct)\n",
+			__func__, state_names[STATE_SDA_AP]);
 		break;
 	case SDA7:
+	case SDA3:
 		ret = pinctrl_select_state(ctx->pinctrl, ctx->state[STATE_SDA_SCP]);
 		if (ret < 0) {
-			dev_info(ctx->dev,
-				"[%s] select(%s)(fail)\n",
-				__func__, state_names[STATE_SDA_SCP]);
+			dev_info(ctx->dev, "[%s] select(%s)(fail) %d\n",
+				__func__, state_names[STATE_SDA_SCP], ret);
 			return ret;
-		} else
-			dev_info(ctx->dev,
-				"[%s] select(%s)(correct)\n",
-				__func__, state_names[STATE_SDA_SCP]);
+		}
+		dev_info(ctx->dev, "[%s] select(%s)(correct)\n",
+			__func__, state_names[STATE_SDA_SCP]);
 		break;
 	default:
-		dev_info(ctx->dev,
-			"[%s] i2c bus aux function not support(%d)\n",
+		dev_info(ctx->dev, "[%s] i2c bus aux function not support(%d)\n",
 			__func__, ctrl->val);
 		return -EINVAL;
 	}
@@ -995,41 +990,30 @@ static int _aov_switch_rx_param(struct v4l2_ctrl *ctrl)
 	switch (csi_clk) {
 	case CSI_CLK_130:
 		para.u32[0] = 130;
-		subdrv_call(ctx, feature_control,
-			SENSOR_FEATURE_SET_AOV_CSI_CLK, para.u8, &len);
-		dev_info(ctx->dev,
-			"[%s] csi clk select(%u)\n",
-			__func__, csi_clk);
-		/* update mode csi_param */
-		for (i = SENSOR_SCENARIO_ID_MIN; i < SENSOR_SCENARIO_ID_MAX; i++) {
-			mode = &ctx->mode[i];
-			mode->id = i;
-			subdrv_call(ctx, get_csi_param, mode->id, &mode->csi_param);
-		}
-		dev_info(ctx->dev,
-			"[%s] update mode csi_param(done)\n", __func__);
 		break;
 	case CSI_CLK_242:
 		para.u32[0] = 242;
-		subdrv_call(ctx, feature_control,
-			SENSOR_FEATURE_SET_AOV_CSI_CLK, para.u8, &len);
-		dev_info(ctx->dev,
-			"[%s] csi clk select(%u)\n", __func__, csi_clk);
-		/* update mode csi_param */
-		for (i = SENSOR_SCENARIO_ID_MIN; i < SENSOR_SCENARIO_ID_MAX; i++) {
-			mode = &ctx->mode[i];
-			mode->id = i;
-			subdrv_call(ctx, get_csi_param, mode->id, &mode->csi_param);
-		}
-		dev_info(ctx->dev,
-			"[%s] update mode csi_param(done)\n", __func__);
+		break;
+	case CSI_CLK_312:
+		para.u32[0] = 312;
 		break;
 	default:
-		dev_info(ctx->dev,
-			"[%s] csi clk not support(%d)\n",
+		dev_info(ctx->dev, "[%s] csi clk not support(%d)\n",
 			__func__, ctrl->val);
 		return -EINVAL;
 	}
+
+	subdrv_call(ctx, feature_control, SENSOR_FEATURE_SET_AOV_CSI_CLK,
+		para.u8, &len);
+	dev_info(ctx->dev, "[%s] csi clk select(%u)\n", __func__, csi_clk);
+
+	/* update mode csi_param */
+	for (i = SENSOR_SCENARIO_ID_MIN; i < SENSOR_SCENARIO_ID_MAX; i++) {
+		mode = &ctx->mode[i];
+		mode->id = i;
+		subdrv_call(ctx, get_csi_param, mode->id, &mode->csi_param);
+	}
+	dev_info(ctx->dev, "[%s] update mode csi_param(done)\n", __func__);
 
 	return 0;
 }

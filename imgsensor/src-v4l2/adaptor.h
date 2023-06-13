@@ -156,6 +156,7 @@ struct adaptor_ctx {
 	int fmt_code[SENSOR_SCENARIO_ID_MAX];
 	int idx; /* requireed by frame-sync modules */
 	int dts_idx; /* dts idx (before reindex) */
+	int forbid_idx; /* idx forbidden to open in sametime */
 	struct mtk_hdr_ae ae_memento;
 
 	u32 seamless_scenarios[SENSOR_SCENARIO_ID_MAX];

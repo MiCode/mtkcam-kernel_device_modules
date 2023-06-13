@@ -319,7 +319,7 @@ static void fs_dump_status(const int idx, const int flag, const char *caller,
 		frm_get_ccu_pwn_cnt());
 #endif
 
-	LOG_MUST_SPIN("%s\n", log_buf);
+	LOG_MUST_LOCK("%s\n", log_buf);
 
 	FS_FREE(log_buf);
 }

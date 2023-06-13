@@ -53,7 +53,12 @@ struct mtk_cam_pool {
 	int available_cnt;
 };
 
+/**
+ * Must be created and managed through
+ * mtk_cam_pool_wrapper_[create/get/put] functions
+ */
 struct mtk_cam_pool_wrapper {
+	struct kref refcount;
 	struct mtk_cam_pool pool;
 	struct mtk_cam_device_buf mem;
 };

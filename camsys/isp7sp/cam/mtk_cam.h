@@ -123,7 +123,6 @@ struct mtk_cam_ctx {
 	struct mtk_cam_pool	ipi_pool;
 
 	struct mtk_cam_driver_buf_desc img_work_buf_desc;
-	struct mtk_cam_pool_wrapper *img_wbuf_pool_wrapper;
 
 	/* cached for pack job */
 	struct mtk_cam_pool_wrapper *pack_job_img_wbuf_pool_wrapper;
@@ -377,7 +376,7 @@ int mtk_cam_ctx_queue_done_worker(struct mtk_cam_ctx *ctx,
 				  struct kthread_work *work);
 
 int mtk_cam_ctx_fetch_devices(struct mtk_cam_ctx *ctx, unsigned long engines);
-void mtk_cam_ctx_destroy_img_pool(struct mtk_cam_ctx *ctx);
+void mtk_cam_ctx_clean_img_pool(struct mtk_cam_ctx *ctx);
 void mtk_cam_ctx_update_img_pool(struct mtk_cam_ctx *ctx,
 				 struct mtk_cam_pool_wrapper *pool_wrapper);
 
@@ -435,8 +434,23 @@ int mtk_cam_alloc_img_pool(struct device *dev_to_attach,
 			   struct mtk_cam_driver_buf_desc *desc,
 			   struct mtk_cam_device_buf *img_work_buffer,
 			   struct mtk_cam_pool *img_work_pool);
+int mtk_cam_ctx_alloc_img_pool(struct mtk_cam_ctx *ctx, struct mtk_raw_ctrl_data *ctrl_data);
+
 void mtk_cam_destroy_img_pool(struct mtk_cam_pool_wrapper *pool_wrapper);
 
 bool mtk_cam_is_dcif_slb_supported(void);
+void
+mtk_cam_pool_wrapper_get(struct mtk_cam_pool_wrapper *wrapper);
+
+void
+mtk_cam_pool_wrapper_put(struct mtk_cam_pool_wrapper *wrapper);
+struct mtk_cam_pool_wrapper*
+mtk_cam_pool_wrapper_create(struct device *dev_to_attach,
+			    struct mtk_raw_ctrl_data *ctrl_data,
+			    struct v4l2_mbus_framefmt *mf,
+			    struct mtk_cam_driver_buf_desc *desc);
+
+void
+mtk_cam_pool_wrapper_destroy(struct kref *ref);
 
 #endif /*__MTK_CAM_H*/

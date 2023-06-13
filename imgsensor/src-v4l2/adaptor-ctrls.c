@@ -84,6 +84,11 @@ static bool imgsensor_set_ctrl_locker(struct v4l2_ctrl *ctrl)
 	case V4L2_CID_MTK_N_1_MODE:
 	case V4L2_CID_MTK_SENSOR_RESET:
 	case V4L2_CID_MTK_SENSOR_RESET_S_STREAM:
+	case V4L2_CID_MTK_AOV_SWITCH_I2C_BUS_SCL_AUX:
+	case V4L2_CID_MTK_AOV_SWITCH_I2C_BUS_SDA_AUX:
+	case V4L2_CID_MTK_AOV_SWITCH_RX_PARAM:
+	case V4L2_CID_MTK_AOV_SWITCH_PM_OPS:
+	case V4L2_CID_MTK_AOV_SWITCH_MCLK_ULPOSC:
 		lock_set_ctrl = false;
 		break;
 	default:

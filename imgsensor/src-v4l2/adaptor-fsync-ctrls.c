@@ -3,10 +3,14 @@
  * Copyright (c) 2020 MediaTek Inc.
  */
 
+#include <linux/atomic.h>
+#include <linux/spinlock.h>
+#include <linux/delay.h>
+
 #include "frame-sync/frame_sync.h"
 #include "frame-sync/sensor_recorder.h"
-#include <linux/atomic.h>
 
+#include "mtk_camera-v4l2-controls-common.h"
 #include "kd_imgsensor_define_v4l2.h"
 #include "imgsensor-user.h"
 
@@ -15,6 +19,7 @@
 #include "adaptor-common-ctrl.h"
 #include "adaptor-subdrv-ctrl.h"
 #include "adaptor-fsync-ctrls.h"
+#include "adaptor-tsrec-cb-ctrl-impl.h"
 
 
 /*******************************************************************************
@@ -48,6 +53,9 @@
 /*******************************************************************************
  * fsync mgr define/enum/structure
  ******************************************************************************/
+#define FSYNC_WAIT_TSREC_UPDATE_DELAY_CNT (5)
+
+static unsigned int is_fsync_ts_src_type_tsrec;
 
 
 /*******************************************************************************
@@ -73,6 +81,163 @@ static void fsync_mgr_reset_fsync_related_info(struct adaptor_ctx *ctx)
 {
 	fsync_mgr_clear_output_info(ctx);
 	atomic_fetch_and((~(1UL << ctx->idx)), &long_exp_mode_bits);
+}
+
+
+/*******************************************************************************
+ * for tsrec sen hw pre-latch info st
+ ******************************************************************************/
+static void fsync_mgr_dump_tsrec_ts_info(struct adaptor_ctx *ctx,
+	const struct mtk_cam_seninf_tsrec_timestamp_info *ts_info,
+	const char *caller)
+{
+	adaptor_logi(ctx,
+		"[%s] idx:%d, ts_info(tsrec_no:%u, seninf_idx:%u, tick_factor:%u, pre_latch_exp_no:%u, sys_ts:%llu(ns), tsrec_ts:%llu(us), tick:%llu, ts(0:(%llu/%llu/%llu/%llu), 1:(%llu/%llu/%llu/%llu), 2:(%llu/%llu/%llu/%llu)))\n",
+		caller,
+		ctx->idx,
+		ts_info->tsrec_no,
+		ts_info->seninf_idx,
+		ts_info->tick_factor,
+		ts_info->irq_pre_latch_exp_no,
+		ts_info->irq_sys_time_ns,
+		ts_info->irq_tsrec_ts_us,
+		ts_info->tsrec_curr_tick,
+		ts_info->exp_recs[0].ts_us[0],
+		ts_info->exp_recs[0].ts_us[1],
+		ts_info->exp_recs[0].ts_us[2],
+		ts_info->exp_recs[0].ts_us[3],
+		ts_info->exp_recs[1].ts_us[0],
+		ts_info->exp_recs[1].ts_us[1],
+		ts_info->exp_recs[1].ts_us[2],
+		ts_info->exp_recs[1].ts_us[3],
+		ts_info->exp_recs[2].ts_us[0],
+		ts_info->exp_recs[2].ts_us[1],
+		ts_info->exp_recs[2].ts_us[2],
+		ts_info->exp_recs[2].ts_us[3]);
+}
+
+
+static inline int fsync_mgr_cb_tsrec_read_ts_recs(struct adaptor_ctx *ctx,
+	struct mtk_cam_seninf_tsrec_timestamp_info *ts_info)
+{
+	return (adaptor_tsrec_cb_ctrl_execute(ctx,
+		TSREC_CB_CMD_READ_TS_INFO, ts_info, __func__));
+}
+
+
+static inline void fsync_mgr_init_tsrec_sen_hw_pre_latch_info(
+	struct adaptor_ctx *ctx)
+{
+	if (unlikely(ctx->fsync_mgr == NULL))
+		is_fsync_ts_src_type_tsrec = 0;
+	else {
+		is_fsync_ts_src_type_tsrec =
+			ctx->fsync_mgr->fs_is_ts_src_type_tsrec();
+	}
+	spin_lock_init(&ctx->fsync_pre_latch_ts_info_update_lock);
+}
+
+
+static inline void fsync_mgr_reset_tsrec_sen_hw_pre_latch_ts_info(
+	struct adaptor_ctx *ctx)
+{
+	spin_lock(&ctx->fsync_pre_latch_ts_info_update_lock);
+	memset(&ctx->fsync_pre_latch_ts_info, 0,
+		sizeof(ctx->fsync_pre_latch_ts_info));
+	spin_unlock(&ctx->fsync_pre_latch_ts_info_update_lock);
+}
+
+
+static inline void fsync_mgr_update_tsrec_sen_hw_pre_latch_ts_info(
+	struct adaptor_ctx *ctx,
+	const struct mtk_cam_seninf_tsrec_timestamp_info *ts_info)
+{
+	spin_lock(&ctx->fsync_pre_latch_ts_info_update_lock);
+	ctx->fsync_pre_latch_ts_info = *ts_info;
+	spin_unlock(&ctx->fsync_pre_latch_ts_info_update_lock);
+}
+
+
+/* return: 0 => all match (or ts_info read from tsrec is all 0) => skip waiting */
+static int fsync_mgr_cmp_tsrec_sen_hw_pre_latch_ts_info(
+	struct adaptor_ctx *ctx,
+	const struct mtk_cam_seninf_tsrec_timestamp_info *ts_info)
+{
+	unsigned int unmatch_exp_id_bits = 0;
+	unsigned int i;
+
+	spin_lock(&ctx->fsync_pre_latch_ts_info_update_lock);
+	/* compare timestamp of each exp id */
+	for (i = 0; i < TSREC_EXP_MAX_CNT; ++i) {
+		const unsigned int pre_latch_exp_no =
+			ctx->fsync_pre_latch_ts_info.irq_pre_latch_exp_no;
+
+		if ((i != pre_latch_exp_no) || (ts_info->exp_recs[i].ts_us[0] == 0))
+			continue;
+		if (ctx->fsync_pre_latch_ts_info.exp_recs[i].ts_us[0]
+				!= ts_info->exp_recs[i].ts_us[0])
+			unmatch_exp_id_bits |= (1UL << i);
+	}
+	spin_unlock(&ctx->fsync_pre_latch_ts_info_update_lock);
+
+	return unmatch_exp_id_bits;
+}
+
+
+static void fsync_mgr_chk_wait_tsrec_hw_pre_latch_updated(
+	struct adaptor_ctx *ctx)
+{
+	struct mtk_cam_seninf_tsrec_timestamp_info ts_info = {0};
+	const unsigned int delay_us[FSYNC_WAIT_TSREC_UPDATE_DELAY_CNT] =
+		{500, 500, 400, 300, 300};
+	unsigned int i = 0;
+	int ret;
+
+	/* bypass case */
+	if ((is_fsync_ts_src_type_tsrec == 0) || (!ctx->is_streaming))
+		return;
+
+	ret = fsync_mgr_cb_tsrec_read_ts_recs(ctx, &ts_info);
+	if (unlikely(ret != TSREC_CB_CTRL_ERR_NONE)) {
+		/* for sensor that data not pass through tsrec hw, e.g., AOV */
+		if (unlikely(ret == TSREC_CB_CTRL_ERR_NOT_CONNECTED_TO_TSREC))
+			return;
+
+		adaptor_logi(ctx,
+			"ERROR: idx:%d, cb tsrec to read ts, ret:%d(!= TSREC_CB_CTRL_ERR_NONE:%d), skip compare ts info\n",
+			ctx->idx, ret, TSREC_CB_CTRL_ERR_NONE);
+		return;
+	}
+
+	/* waiting & compare */
+	while ((fsync_mgr_cmp_tsrec_sen_hw_pre_latch_ts_info(ctx, &ts_info) > 0)
+			&& (i < FSYNC_WAIT_TSREC_UPDATE_DELAY_CNT))
+		udelay(delay_us[i++]);
+
+	if (unlikely(i >= FSYNC_WAIT_TSREC_UPDATE_DELAY_CNT)) {
+		adaptor_logi(ctx,
+			"WARNING: idx:%d, TIMEOUT:(%u+%u+%u+%u+%u)(us), i:%u(FSYNC_WAIT_TSREC_UPDATE_DELAY_CNT:%u) => bypass\n",
+			ctx->idx, i,
+			delay_us[0], delay_us[1], delay_us[2],
+			delay_us[3], delay_us[4],
+			FSYNC_WAIT_TSREC_UPDATE_DELAY_CNT);
+		fsync_mgr_dump_tsrec_ts_info(ctx, &ts_info, __func__);
+
+		spin_lock(&ctx->fsync_pre_latch_ts_info_update_lock);
+		fsync_mgr_dump_tsrec_ts_info(
+			ctx, &ctx->fsync_pre_latch_ts_info, __func__);
+		spin_unlock(&ctx->fsync_pre_latch_ts_info_update_lock);
+	}
+
+	if (unlikely(i > 0)) {
+		adaptor_logi(ctx,
+			"NOTICE: idx:%d, i:%u (%u+%u+%u+%u+%u)(us) => ts info match\n",
+			ctx->idx, i,
+			delay_us[0], delay_us[1], delay_us[2],
+			delay_us[3], delay_us[4]);
+		fsync_mgr_dump_tsrec_ts_info(
+			ctx, &ctx->fsync_pre_latch_ts_info, __func__);
+	}
 }
 
 
@@ -768,6 +933,7 @@ int chk_if_need_to_use_s_multi_exp_fl_by_fsync_mgr(struct adaptor_ctx *ctx,
 		ctx->needs_fsync_assign_fl = 0;
 		return ctx->needs_fsync_assign_fl;
 	}
+	fsync_mgr_chk_wait_tsrec_hw_pre_latch_updated(ctx);
 
 	en_fsync = (ctx->fsync_mgr->fs_is_set_sync(ctx->idx));
 	if (en_fsync) {
@@ -896,6 +1062,7 @@ void notify_fsync_mgr_update_min_fl(struct adaptor_ctx *ctx)
 			ctx->subctx.fast_mode_on);
 		return;
 	}
+	fsync_mgr_chk_wait_tsrec_hw_pre_latch_updated(ctx);
 
 	ctx->fsync_mgr->fs_update_min_fl_lc(ctx->idx,
 		ctx->subctx.min_frame_length,
@@ -1140,7 +1307,8 @@ void notify_fsync_mgr_vsync_by_tsrec(struct adaptor_ctx *ctx)
 }
 
 
-void notify_fsync_mgr_sensor_hw_pre_latch_by_tsrec(struct adaptor_ctx *ctx)
+void notify_fsync_mgr_sensor_hw_pre_latch_by_tsrec(struct adaptor_ctx *ctx,
+	const struct mtk_cam_seninf_tsrec_timestamp_info *ts_info)
 {
 	/* not expected case */
 	if (unlikely(ctx->fsync_mgr == NULL)) {
@@ -1150,7 +1318,12 @@ void notify_fsync_mgr_sensor_hw_pre_latch_by_tsrec(struct adaptor_ctx *ctx)
 		return;
 	}
 
+	/* first, notify sensor hw pr-latch */
 	ctx->fsync_mgr->fs_notify_sensor_hw_pre_latch_by_tsrec(ctx->idx);
+	/* then, update TS data for check FL result */
+	ctx->fsync_mgr->fs_receive_tsrec_timestamp_info(ctx->idx, ts_info);
+	/* finally, update TS data for timing ckecker */
+	fsync_mgr_update_tsrec_sen_hw_pre_latch_ts_info(ctx, ts_info);
 }
 
 
@@ -1165,7 +1338,7 @@ void notify_fsync_mgr_receive_tsrec_timestamp_info(struct adaptor_ctx *ctx,
 		return;
 	}
 
-	ctx->fsync_mgr->fs_receive_tsrec_timestamp_info(ctx->idx, ts_info);
+	// ctx->fsync_mgr->fs_receive_tsrec_timestamp_info(ctx->idx, ts_info);
 }
 
 
@@ -1248,10 +1421,6 @@ int notify_fsync_mgr(struct adaptor_ctx *ctx, const int on)
 	seninf_idx += (ret == 2 && (c_ab == 'b' || c_ab == 'B'));
 	ctx->seninf_idx = seninf_idx;
 
-	FSYNC_MGR_LOGI(ctx,
-		"sensor_idx %d seninf_port %s seninf_idx %d\n",
-		ctx->idx, seninf_port, ctx->seninf_idx);
-
 	/* notify frame-sync mgr of sensor-idx and seninf-idx */
 #if !defined(FORCE_DISABLE_FSYNC_MGR)
 	/* frame-sync init */
@@ -1266,6 +1435,8 @@ int notify_fsync_mgr(struct adaptor_ctx *ctx, const int on)
 			"sidx:%d, ctx->fsync_mgr:%p init done, ret:%d",
 			ctx->idx, ctx->fsync_mgr, ret);
 
+		fsync_mgr_init_tsrec_sen_hw_pre_latch_info(ctx);
+
 		/* update seninf idx and call register sensor */
 		info.seninf_idx = ctx->seninf_idx;
 		ctx->fsync_mgr->fs_register_sensor(&info, REGISTER_METHOD);
@@ -1276,6 +1447,11 @@ int notify_fsync_mgr(struct adaptor_ctx *ctx, const int on)
 		"WARNING: sidx:%d, ctx->fsync_mgr:%p is NULL(set FORCE_DISABLE_FSYNC_MGR compile flag)\n",
 		ctx->idx, ctx->fsync_mgr);
 #endif
+
+	FSYNC_MGR_LOGI(ctx,
+		"sensor_idx:%d, seninf_port:%s, seninf_idx:%d, is_fsync_ts_src_type_tsrec:%u\n",
+		ctx->idx, seninf_port, ctx->seninf_idx,
+		is_fsync_ts_src_type_tsrec);
 
 	return 0;
 }

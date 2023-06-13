@@ -402,6 +402,9 @@ struct FrameSync {
 		unsigned int *p_target_min_fl_us, unsigned int *p_out_fl_us);
 
 	void (*fs_clear_fl_restore_status_if_needed)(const unsigned int ident);
+
+
+	unsigned int (*fs_is_ts_src_type_tsrec)(void);
 };
 
 

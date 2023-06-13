@@ -21,6 +21,7 @@
 #include "adaptor-fsync-ctrls.h"
 #include "adaptor-ioctl.h"
 #include "adaptor-trace.h"
+#include "adaptor-tsrec-cb-ctrl-impl.h"
 #include "imgsensor-glue/imgsensor-glue.h"
 #include "virt-sensor/virt-sensor-entry.h"
 
@@ -1410,6 +1411,8 @@ static int imgsensor_probe(struct i2c_client *client)
 	ctx = devm_kzalloc(dev, sizeof(*ctx), GFP_KERNEL);
 	if (!ctx)
 		return -ENOMEM;
+
+	adaptor_tsrec_cb_ctrl_init(ctx);
 
 	mutex_init(&ctx->mutex);
 	mutex_init(&ctx->ebd_lock);

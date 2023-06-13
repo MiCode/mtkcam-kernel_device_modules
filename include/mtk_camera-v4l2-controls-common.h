@@ -275,6 +275,9 @@ enum mtk_cam_sensor_pm_ops {
 #define V4L2_CMD_GET_SENSOR_EBD_INFO_BY_SCENARIO \
 	(V4L2_CMD_USER_MTK_SENSOR_BASE + 10)
 
+#define V4L2_CMD_TSREC_SETUP_CB_FUNC_OF_SENSOR \
+	(V4L2_CMD_USER_MTK_SENSOR_BASE + 11)
+
 /**
  * TSREC - notify vsync structure
  *         V4L2_CMD_TSREC_NOTIFY_VSYNC
@@ -308,6 +311,8 @@ struct mtk_cam_seninf_tsrec_timestamp_info {
 	/* basic info */
 	__u32 tick_factor; // MHz
 
+	/* interrupt pre-latch exp no */
+	__u32 irq_pre_latch_exp_no;
 	/* record when receive a interrupt (top-half) */
 	__u64 irq_sys_time_ns; // ktime_get_boottime_ns()
 	__u64 irq_tsrec_ts_us;
@@ -315,6 +320,41 @@ struct mtk_cam_seninf_tsrec_timestamp_info {
 	/* current tick when query/send tsrec timestamp info */
 	__u64 tsrec_curr_tick;
 	struct mtk_cam_seninf_tsrec_timestamp_exp exp_recs[TSREC_EXP_MAX_CNT];
+};
+
+
+/**
+ * TSREC - callback info
+ */
+enum tsrec_cb_cmd {
+	/* user get tsrec information */
+	TSREC_CB_CMD_READ_CURR_TS,
+	TSREC_CB_CMD_READ_TS_INFO,
+};
+
+enum tsrec_cb_ctrl_error_type {
+	TSREC_CB_CTRL_ERR_NONE = 0,
+	TSREC_CB_CTRL_ERR_INVALID,
+	TSREC_CB_CTRL_ERR_NOT_CONNECTED_TO_TSREC,
+	TSREC_CB_CTRL_ERR_CB_FUNC_PTR_NULL,
+	TSREC_CB_CTRL_ERR_CMD_NOT_FOUND,
+	TSREC_CB_CTRL_ERR_CMD_ARG_PTR_NULL,
+	TSREC_CB_CTRL_ERR_CMD_IN_SENINF_SUSPEND,
+};
+
+/* call back function prototype, see mtk_cam-seninf-tsrec.c */
+typedef int (*tsrec_cb_handler_func_ptr)(const unsigned int seninf_idx,
+	const unsigned int tsrec_no, const unsigned int cmd, void *arg,
+	const char *caller);
+
+struct mtk_cam_seninf_tsrec_cb_info {
+	/* check this sensor is => 1: with TSREC; 0: NOT with TSREC */
+	__u32 is_connected_to_tsrec;
+
+	/* !!! below data are valid ONLY when "is_connected_to_tsrec != 0" !!! */
+	__u32 seninf_idx;
+	__u32 tsrec_no;
+	tsrec_cb_handler_func_ptr tsrec_cb_handler;
 };
 
 

@@ -209,6 +209,8 @@ unsigned int frec_g_valid_min_fl_lc_for_shutters_by_frame_rec(
 /*----------------------------------------------------------------------------*/
 // recorder framework related functions
 /*----------------------------------------------------------------------------*/
+void frec_chk_fl_pr_match_act(const unsigned int idx);
+
 void frec_update_fl_info(const unsigned int idx, const unsigned int fl_lc,
 	const unsigned int fl_lc_arr[], const unsigned int arr_len);
 

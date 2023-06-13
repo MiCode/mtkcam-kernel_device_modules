@@ -7,10 +7,13 @@
 #define __UT_FS_TSREC_H__
 
 
-/******************************************************************************
+/*******************************************************************************
  * for unit test (struct/enum) - TSREC
- *****************************************************************************/
-/* sync from imgsensor-user.h */
+ ******************************************************************************/
+
+/*----------------------------------------------------------------------------*/
+/* !!! sync from imgsensor-user.h !!! */
+/*----------------------------------------------------------------------------*/
 enum {
 	PAD_SINK = 0,
 	PAD_SRC_RAW0,
@@ -43,7 +46,9 @@ enum mtk_cam_seninf_tsrec_exp_id {
 };
 
 
-/* sync from linux/irqreturn.h for UT testing */
+/*----------------------------------------------------------------------------*/
+/* !!! sync from linux/irqreturn.h for UT testing !!! */
+/*----------------------------------------------------------------------------*/
 enum irqreturn {
 	IRQ_NONE		= (0 << 0),
 	IRQ_HANDLED		= (1 << 0),
@@ -55,7 +60,11 @@ enum irqreturn {
 
 #define __u32 unsigned int
 #define __u64 unsigned long long
-/* sync from mtk_camera-v4l2-controls.h */
+
+
+/*----------------------------------------------------------------------------*/
+/* !!! sync from mtk_camera-v4l2-controls-common.h !!! */
+/*----------------------------------------------------------------------------*/
 #define TSREC_TS_REC_MAX_CNT (4)
 #define TSREC_EXP_MAX_CNT    (3)
 
@@ -69,7 +78,6 @@ struct mtk_cam_seninf_tsrec_vsync_info {
 };
 
 
-/* sync from mtk_camera-v4l2-controls.h */
 struct mtk_cam_seninf_tsrec_timestamp_exp {
 	__u64 ts_us[TSREC_TS_REC_MAX_CNT];
 };
@@ -82,6 +90,8 @@ struct mtk_cam_seninf_tsrec_timestamp_info {
 	/* basic info */
 	__u32 tick_factor; // MHz
 
+	/* interrupt pre-latch exp no */
+	__u32 irq_pre_latch_exp_no;
 	/* record when receive a interrupt (top-half) */
 	__u64 irq_sys_time_ns; // ktime_get_boottime_ns()
 	__u64 irq_tsrec_ts_us;
@@ -92,15 +102,57 @@ struct mtk_cam_seninf_tsrec_timestamp_info {
 };
 
 
-/******************************************************************************
+/**
+ * TSREC - call back info
+ *
+ *         call back function prototype, see mtk_cam-seninf-tsrec.c
+ */
+enum tsrec_cb_cmd {
+	/* user get tsrec information */
+	TSREC_CB_CMD_READ_CURR_TS,
+	TSREC_CB_CMD_READ_TS_INFO,
+};
+
+enum tsrec_cb_ctrl_error_type {
+	TSREC_CB_CTRL_ERR_NONE = 0,
+	TSREC_CB_CTRL_ERR_INVALID,
+	TSREC_CB_CTRL_ERR_NOT_CONNECTED_TO_TSREC,
+	TSREC_CB_CTRL_ERR_CB_FUNC_PTR_NULL,
+	TSREC_CB_CTRL_ERR_CMD_NOT_FOUND,
+	TSREC_CB_CTRL_ERR_CMD_ARG_PTR_NULL,
+	TSREC_CB_CTRL_ERR_CMD_IN_SENINF_SUSPEND,
+};
+
+/* call back function prototype, see mtk_cam-seninf-tsrec.c */
+typedef int (*tsrec_cb_handler_func_ptr)(const unsigned int seninf_idx,
+	const unsigned int tsrec_no, const unsigned int cmd, void *arg,
+	const char *caller);
+
+struct mtk_cam_seninf_tsrec_cb_info {
+	/* check this sensor is => 1: with TSREC; 0: NOT with TSREC */
+	__u32 is_connected_to_tsrec;
+
+	/* !!! below data are valid ONLY when "is_connected_to_tsrec != 0" !!! */
+	__u32 seninf_idx;
+	__u32 tsrec_no;
+	tsrec_cb_handler_func_ptr tsrec_cb_handler;
+};
+
+
+/*******************************************************************************
  * for unit test (fake function of linux APIs)
- *****************************************************************************/
+ ******************************************************************************/
 unsigned long long ktime_get_boottime_ns(void);
 
 
-/******************************************************************************
+/*******************************************************************************
  * for unit test (function) - TSREC
- *****************************************************************************/
+ ******************************************************************************/
+struct seninf_ctx {
+	int seninfIdx;
+};
+
+
 void ut_fs_tsrec_write_reg(const unsigned int addr, const unsigned int val);
 unsigned int ut_fs_tsrec_read_reg(const unsigned int addr);
 

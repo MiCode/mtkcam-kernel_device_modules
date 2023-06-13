@@ -61,7 +61,6 @@ struct mtk_cam_buffer {
 		dma_addr_t mdaddr[MULTI_PLANE_NUM];
 	};
 	dma_addr_t scp_addr;
-	void *vaddr;
 
 	unsigned int valid_mp;
 

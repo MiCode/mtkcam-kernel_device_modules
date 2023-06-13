@@ -503,6 +503,11 @@ int is_raw_ufo(unsigned int pixelformat)
 	}
 }
 
+int is_ufo(unsigned int pixelformat)
+{
+	return (is_raw_ufo(pixelformat) || is_yuv_ufo(pixelformat));
+}
+
 int ipifmt_is_raw_ufo(unsigned int ipi_fmt)
 {
 	switch (ipi_fmt) {

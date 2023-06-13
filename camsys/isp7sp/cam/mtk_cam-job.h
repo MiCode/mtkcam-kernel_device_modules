@@ -227,6 +227,20 @@ struct mtk_cam_job_state {
 	_s->ops->func(_s, ##__VA_ARGS__); \
 })
 
+// raw imgo:1 + camsv tag:4 + yuvo_r1/r3:2
+#define UBFC_HEADER_PARAM_MAX		7
+
+struct mtk_cam_ufbc_header_entry {
+	int ipi_id;
+	void *vaddr;
+	struct mtkcam_ipi_img_ufo_param *param;
+};
+
+struct mtk_cam_ufbc_header {
+	int used;
+	struct mtk_cam_ufbc_header_entry entry[UBFC_HEADER_PARAM_MAX];
+};
+
 struct mtk_cam_job_event_info {
 	int engine;
 	int ctx_id;
@@ -379,6 +393,7 @@ struct mtk_cam_job {
 
 	/* use local_clock() to be consitent with printk */
 	u64 local_apply_sensor_ts;
+	struct mtk_cam_ufbc_header ufbc_header;
 };
 
 static inline struct mtk_cam_job *mtk_cam_job_get(struct mtk_cam_job *job)

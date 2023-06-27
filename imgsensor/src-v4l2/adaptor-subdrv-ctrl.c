@@ -1070,7 +1070,7 @@ bool set_auto_flicker(struct subdrv_ctx *ctx, bool min_framelength_en)
 
 	if (ctx->s_ctx.mode[ctx->current_scenario_id].hdr_mode == HDR_RAW_LBMF)
 		DRV_LOG(ctx,
-	"sid:%u,cur_fps:%u,flick_en:%d,min_fl_en:%u,fll(ctx/output_a/b/c/d/e):%u/%u/%u/%u/%u/%u,new_fps:%u\n",
+	"sid:%u,cur_fps:%u,flick_en:%d,min_fl_en:%u,fll(ctx/output_a/b/c/d/e):%u/%u/%u/%u/%u/%u,new_fps:%llu\n",
 			ctx->current_scenario_id,
 			framerate, ctx->autoflicker_en, min_framelength_en,
 			ctx->frame_length,
@@ -1081,7 +1081,7 @@ bool set_auto_flicker(struct subdrv_ctx *ctx, bool min_framelength_en)
 			ctx->frame_length_in_lut[4],
 			ctx->pclk / ctx->line_length * 10 / ctx->frame_length);
 	else
-		DRV_LOG(ctx, "cur_fps:%u, flick_en:%d, min_fl_en:%u, new_fps:%u\n",
+		DRV_LOG(ctx, "cur_fps:%u, flick_en:%d, min_fl_en:%u, new_fps:%llu\n",
 			framerate, ctx->autoflicker_en, min_framelength_en,
 			ctx->pclk / ctx->line_length * 10 / ctx->frame_length);
 
@@ -2148,7 +2148,7 @@ void get_offset_to_start_of_exposure(struct subdrv_ctx *ctx, u32 *offset)
 }
 
 void get_pixel_clock_freq_by_scenario(struct subdrv_ctx *ctx,
-		enum SENSOR_SCENARIO_ID_ENUM scenario_id, u32 *pclk)
+		enum SENSOR_SCENARIO_ID_ENUM scenario_id, u64 *pclk)
 {
 	if (scenario_id >= ctx->s_ctx.sensor_mode_num) {
 		DRV_LOG(ctx, "invalid sid:%u, mode_num:%u\n",
@@ -2182,7 +2182,7 @@ void get_period(struct subdrv_ctx *ctx,
 	*frame_length = ctx->frame_length;
 }
 
-void get_pixel_clock_freq(struct subdrv_ctx *ctx, u32 *pclk)
+void get_pixel_clock_freq(struct subdrv_ctx *ctx, u64 *pclk)
 {
 	*pclk = ctx->pclk;
 }
@@ -2286,8 +2286,8 @@ void extend_frame_length(struct subdrv_ctx *ctx, u32 ns)
 	u32 calc_fl = 0;
 	u32 readoutLength = 0;
 	u32 readMargin = 0;
-	u32 per_frame_ns = (u32)(((u64)ctx->frame_length *
-		(u64)ctx->line_length * 1000000000) / (u64)ctx->pclk);
+	u32 per_frame_ns = (u64)ctx->frame_length *
+		(u64)ctx->line_length * 1000000000 / ctx->pclk;
 
 	check_current_scenario_id_bound(ctx);
 	if (ctx->s_ctx.mode[ctx->current_scenario_id].hdr_mode == HDR_RAW_LBMF)
@@ -2309,8 +2309,8 @@ void extend_frame_length(struct subdrv_ctx *ctx, u32 ns)
 	set_dummy(ctx);
 	ctx->extend_frame_length_en = TRUE;
 
-	ns = (u32)(((u64)(ctx->frame_length - old_fl) *
-		(u64)ctx->line_length * 1000000000) / (u64)ctx->pclk);
+	ns = (u64)(ctx->frame_length - old_fl) *
+		(u64)ctx->line_length * 1000000000 / ctx->pclk;
 	DRV_LOG(ctx, "fll(old/new):%u/%u, add %u ns", old_fl, ctx->frame_length, ns);
 }
 
@@ -2527,9 +2527,9 @@ void get_readout_by_scenario(struct subdrv_ctx *ctx,
 	if (ctx->s_ctx.mode[scenario_id].hdr_mode == HDR_RAW_STAGGER)
 		ratio = ctx->s_ctx.mode[scenario_id].exp_cnt;
 	*readout_time =
-		(u64)((u64)ctx->s_ctx.mode[scenario_id].linelength
+		(u64)ctx->s_ctx.mode[scenario_id].linelength
 		* ctx->s_ctx.mode[scenario_id].imgsensor_winsize_info.h2_tg_size
-		* 1000000000) / ctx->s_ctx.mode[scenario_id].pclk * ratio;
+		* 1000000000 / ctx->s_ctx.mode[scenario_id].pclk * ratio;
 }
 
 void get_exposure_count_by_scenario(struct subdrv_ctx *ctx,
@@ -2977,7 +2977,7 @@ void common_get_prsh_length_lines(struct subdrv_ctx *ctx,
 	}
 
 
-	DRV_LOG(ctx, "calc_prsh_length_lc(%d->%d): orig:pclk(%u),linelength(%u),frame_length(%u),fps(%llu),frame_duration_us(%llu),readout_us(%llu) new:pclk(%u),linelength(%u), ae_ctrl_cit(%u(max=%u,min=%u)),prsh_length_lc(%u)\n",
+	DRV_LOG(ctx, "calc_prsh_length_lc(%d->%d): orig:pclk(%llu),linelength(%u),frame_length(%u),fps(%llu),frame_duration_us(%llu),readout_us(%llu) new:pclk(%llu),linelength(%u), ae_ctrl_cit(%u(max=%u,min=%u)),prsh_length_lc(%u)\n",
 					pre_seamless_scenario_id,scenario_id,
 					ctx->s_ctx.mode[pre_seamless_scenario_id].pclk,
 					ctx->s_ctx.mode[pre_seamless_scenario_id].linelength,
@@ -3197,7 +3197,7 @@ int common_feature_control(struct subdrv_ctx *ctx, MSDK_SENSOR_FEATURE_ENUM feat
 	case SENSOR_FEATURE_GET_PIXEL_CLOCK_FREQ_BY_SCENARIO:
 		get_pixel_clock_freq_by_scenario(ctx,
 			(enum SENSOR_SCENARIO_ID_ENUM)*(feature_data),
-			(u32 *)(uintptr_t)(*(feature_data + 1)));
+			(u64 *)(uintptr_t)(*(feature_data + 1)));
 		break;
 	case SENSOR_FEATURE_GET_PERIOD_BY_SCENARIO:
 		get_period_by_scenario(ctx,
@@ -3210,7 +3210,7 @@ int common_feature_control(struct subdrv_ctx *ctx, MSDK_SENSOR_FEATURE_ENUM feat
 		*feature_para_len = 4;
 		break;
 	case SENSOR_FEATURE_GET_PIXEL_CLOCK_FREQ:
-		get_pixel_clock_freq(ctx, feature_data_32);
+		get_pixel_clock_freq(ctx, feature_data);
 		*feature_para_len = 4;
 		break;
 	case SENSOR_FEATURE_SET_ESHUTTER:

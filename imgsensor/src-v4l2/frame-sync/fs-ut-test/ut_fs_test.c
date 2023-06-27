@@ -244,7 +244,7 @@ static unsigned int print_and_select_s_mode(const int idx)
 			.mode_list[i].sensor_id != 0; ++i) {
 
 		printf(GREEN
-			"[%d] ID:%#x (sidx:%u), margin_lc:%3u, lineTimeInNs:%7u, pclk:%10u, linelength:%6u, hdr_exp.mode_exp_cnt:%u\n"
+			"[%d] ID:%#x (sidx:%u), margin_lc:%3u, lineTimeInNs:%7u, pclk:%10llu, linelength:%6u, hdr_exp.mode_exp_cnt:%u\n"
 			NONE,
 			i,
 			g_streaming_sensors_modes_list[idx]

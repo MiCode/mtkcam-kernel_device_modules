@@ -191,7 +191,7 @@ struct subdrv_mode_struct {
 	u32 raw_cnt;
 	u32 exp_cnt;
 
-	u32 pclk;
+	u64 pclk;
 	u32 linelength;
 	u32 framelength;
 	u16 max_framerate;
@@ -407,7 +407,7 @@ struct subdrv_ctx {
 	u32 dig_gain[IMGSENSOR_STAGGER_EXPOSURE_CNT]; /* current dig_gain */
 	u32 shutter; /* current shutter */
 	u32 gain; /* current gain */
-	u32 pclk; /* current pclk */
+	u64 pclk; /* current pclk */
 	u32 frame_length_rg; /* current framelength in RG */
 	u32 frame_length_in_lut_rg[IMGSENSOR_STAGGER_EXPOSURE_CNT]; /* current lbmf framelength in RG */
 	u32 frame_length; /* current framelength */

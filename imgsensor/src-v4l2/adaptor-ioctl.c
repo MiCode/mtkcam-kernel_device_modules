@@ -648,13 +648,13 @@ static int g_pclk(struct adaptor_ctx *ctx, void *arg)
 	union feature_para para;
 	u32 len;
 
-	para.u32[0] = 0;
+	para.u64[0] = 0;
 
 	subdrv_call(ctx, feature_control,
 		SENSOR_FEATURE_GET_PIXEL_CLOCK_FREQ,
 		para.u8, &len);
 
-	*info = para.u32[0];
+	*info = para.u64[0];
 
 	return 0;
 }

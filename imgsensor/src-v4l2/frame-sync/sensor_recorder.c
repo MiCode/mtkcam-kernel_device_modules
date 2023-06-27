@@ -239,7 +239,7 @@ void frec_dump_frame_record_info(const struct FrameRecord *p_frame_rec,
 	const char *caller)
 {
 	LOG_MUST(
-		"[%s]: req_id:%d, (exp_lc:%u/fl_lc:%u), (a:%u/m:%u(%u,%u), exp:%u/%u/%u/%u/%u, fl:%u/%u/%u/%u/%u), margin_lc:(%u, read:%u), readout_len_lc:%u, pclk:%u, line_length:%u\n",
+		"[%s]: req_id:%d, (exp_lc:%u/fl_lc:%u), (a:%u/m:%u(%u,%u), exp:%u/%u/%u/%u/%u, fl:%u/%u/%u/%u/%u), margin_lc:(%u, read:%u), readout_len_lc:%u, pclk:%llu, line_length:%u\n",
 		caller,
 		p_frame_rec->mw_req_id,
 		p_frame_rec->shutter_lc,

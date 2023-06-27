@@ -2117,24 +2117,24 @@ static int feature_control(struct subdrv_ctx *ctx, MSDK_SENSOR_FEATURE_ENUM feat
 	case SENSOR_FEATURE_GET_PIXEL_CLOCK_FREQ_BY_SCENARIO:
 		switch (*feature_data) {
 		case SENSOR_SCENARIO_ID_NORMAL_CAPTURE:
-			*(MUINT32 *)(uintptr_t)(*(feature_data + 1))
+			*(MUINT64 *)(uintptr_t)(*(feature_data + 1))
 				= imgsensor_info.cap.pclk;
 			break;
 		case SENSOR_SCENARIO_ID_NORMAL_VIDEO:
-			*(MUINT32 *)(uintptr_t)(*(feature_data + 1))
+			*(MUINT64 *)(uintptr_t)(*(feature_data + 1))
 				= imgsensor_info.normal_video.pclk;
 			break;
 		case SENSOR_SCENARIO_ID_HIGHSPEED_VIDEO:
-			*(MUINT32 *)(uintptr_t)(*(feature_data + 1))
+			*(MUINT64 *)(uintptr_t)(*(feature_data + 1))
 				= imgsensor_info.hs_video.pclk;
 			break;
 		case SENSOR_SCENARIO_ID_SLIM_VIDEO:
-			*(MUINT32 *)(uintptr_t)(*(feature_data + 1))
+			*(MUINT64 *)(uintptr_t)(*(feature_data + 1))
 				= imgsensor_info.slim_video.pclk;
 			break;
 		case SENSOR_SCENARIO_ID_NORMAL_PREVIEW:
 		default:
-			*(MUINT32 *)(uintptr_t)(*(feature_data + 1))
+			*(MUINT64 *)(uintptr_t)(*(feature_data + 1))
 				= imgsensor_info.pre.pclk;
 			break;
 		}
@@ -2176,7 +2176,7 @@ static int feature_control(struct subdrv_ctx *ctx, MSDK_SENSOR_FEATURE_ENUM feat
 		*feature_para_len = 4;
 		break;
 	case SENSOR_FEATURE_GET_PIXEL_CLOCK_FREQ:
-		*feature_return_para_32 = ctx->pclk;
+		*feature_para = ctx->pclk;
 		*feature_para_len = 4;
 		break;
 	case SENSOR_FEATURE_SET_ESHUTTER:

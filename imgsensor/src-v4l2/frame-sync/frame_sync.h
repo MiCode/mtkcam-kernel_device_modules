@@ -203,7 +203,7 @@ struct fs_streaming_st {
 	struct fs_hdr_exp_st hdr_exp;    // hdr exposure settings
 
 	/* sensor mode info */
-	unsigned int pclk;
+	unsigned long long pclk;
 	unsigned int linelength;
 	unsigned int lineTimeInNs;
 
@@ -227,7 +227,7 @@ struct fs_perframe_st {
 	struct fs_hdr_exp_st hdr_exp;    // hdr exposure settings
 
 	/* for on-the-fly mode change */
-	unsigned int pclk;               // write_shutter(), set_max_framerate()
+	unsigned long long pclk;               // write_shutter(), set_max_framerate()
 	unsigned int linelength;         // write_shutter(), set_max_framerate()
 	/* lineTimeInNs ~= 10^9 * (linelength/pclk) */
 	unsigned int lineTimeInNs;

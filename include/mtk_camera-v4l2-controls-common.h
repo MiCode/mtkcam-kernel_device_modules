@@ -252,6 +252,11 @@ enum mtk_cam_sensor_pm_ops {
 	AOV_ABNORMAL_FORCE_SENSOR_PWR_ON,
 };
 
+struct mtk_seninf_lbmf_info {
+	u32 scenario;
+	bool is_lbmf;
+};
+
 
 /* imgsensor commands */
 #define V4L2_CMD_FSYNC_SYNC_FRAME_START_END \
@@ -286,6 +291,9 @@ enum mtk_cam_sensor_pm_ops {
 
 #define V4L2_CMD_TSREC_SETUP_CB_FUNC_OF_SENSOR \
 	(V4L2_CMD_USER_MTK_SENSOR_BASE + 11)
+
+#define V4L2_CMD_SENSOR_GET_LBMF_TYPE_BY_SCENARIO \
+	(V4L2_CMD_USER_MTK_SENSOR_BASE + 12)
 
 /**
  * TSREC - notify vsync structure

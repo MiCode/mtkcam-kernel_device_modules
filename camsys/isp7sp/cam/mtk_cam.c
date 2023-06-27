@@ -4098,6 +4098,24 @@ bool mtk_cam_is_dcif_slb_supported(void)
 	return is_supported > 0;
 }
 
+bool mtk_cam_ctx_is_raw_sink_changed(struct mtk_cam_ctx *ctx,
+				     struct mtk_raw_sink_data *sink)
+{
+	struct mtk_raw_sink_data *config_sink;
+	bool changed;
+
+	if (!sink)
+		return false;
+
+	config_sink = &ctx->configured_raw_sink;
+
+	changed = !is_raw_sink_eq(config_sink, sink);
+	if (changed)
+		dev_info(ctx->cam->dev, "%s: changed\n", __func__);
+
+	return changed;
+}
+
 module_init(mtk_cam_init);
 module_exit(mtk_cam_exit);
 

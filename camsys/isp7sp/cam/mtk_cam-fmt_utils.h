@@ -66,7 +66,14 @@ unsigned int v4l2_format_calc_planesize(const struct v4l2_format_info *info,
 					unsigned int h,
 					unsigned int stride);
 
-#define SENSOR_FMT_MASK			0xFFFF
+static inline unsigned int mbus_code_fmt(unsigned int mbus_code)
+{
+	const int sensor_fmt_mask = 0xffff;
+
+	/* remove mtk sensor mode info */
+	return mbus_code & sensor_fmt_mask;
+}
+
 unsigned int sensor_mbus_to_ipi_fmt(unsigned int mbus_code);
 unsigned int sensor_mbus_to_ipi_fmt_ufbc(unsigned int mbus_code);
 unsigned int sensor_mbus_to_ipi_pixel_id(unsigned int mbus_code);

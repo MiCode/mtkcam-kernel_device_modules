@@ -87,7 +87,7 @@ void _on_job_last_ref(struct mtk_cam_job *job)
 
 	write_unlock(&ctrl->list_lock);
 
-	if (CAM_DEBUG_ENABLED(CTRL) || is_last)
+	if (CAM_DEBUG_ENABLED(CTRL))
 		pr_info("%s: ctx %d job #%d %s%s\n", __func__,
 			ctx->stream_id, job->req_seq, job->req->debug_str,
 			is_last ? "(last)" : "");
@@ -2624,12 +2624,12 @@ _job_pack_extisp(struct mtk_cam_job *job,
 	return ret;
 }
 
-
 static int
 _job_pack_m2m(struct mtk_cam_job *job,
 	      struct pack_job_ops_helper *job_helper)
 {
 	struct mtk_cam_ctx *ctx = job->src_ctx;
+	struct mtk_raw_sink_data *sink;
 	int ret;
 
 	job->sub_ratio = get_subsample_ratio(&job->job_scen);
@@ -2638,14 +2638,14 @@ _job_pack_m2m(struct mtk_cam_job *job,
 	if (!ctx->used_engine) {
 		if (job_related_hw_init(job))
 			return -1;
-		//job->stream_on_seninf = true;
 	}
 
 	/* config_flow_by_job_type */
 	update_job_used_engine(job);
 
+	sink = get_raw_sink_data(job);
 	job->do_ipi_config = false;
-	if (!ctx->configured) {
+	if (!ctx->configured || mtk_cam_ctx_is_raw_sink_changed(ctx, sink)) {
 		/* if has raw */
 		if (bit_map_subset_of(MAP_HW_RAW, ctx->used_engine)) {
 			/* ipi_config_param */
@@ -2655,13 +2655,15 @@ _job_pack_m2m(struct mtk_cam_job *job,
 		}
 		job->do_ipi_config = true;
 		ctx->configured = true;
+		mtk_cam_ctx_set_raw_sink(ctx, sink);
+
+		/* There is no stream on work in m2m, so we must update clock
+		 * here
+		 */
+		mtk_cam_job_update_clk(job);
 	}
 	/* clone into job for debug dump */
 	job->ipi_config = ctx->ipi_config;
-	if (job->first_job) {
-		/* There is no stream on work in m2m, so we must update clock here */
-		mtk_cam_job_update_clk(job);
-	}
 	ret = mtk_cam_job_fill_ipi_frame(job, job_helper);
 
 	return ret;
@@ -4131,12 +4133,13 @@ static int update_adl_param(struct mtk_cam_job *job,
 	adl_fp->slb_addr = (__u64)ctx->slb_addr;
 	adl_fp->slb_size = ctx->slb_size;
 
-	pr_info("%s: vpu i/o %d/%d sram %d ysize %d\n",
-		__func__,
-		adl_fp->vpu_i_point,
-		adl_fp->vpu_o_point,
-		adl_fp->sysram_en,
-		adl_fp->block_y_size);
+	if (CAM_DEBUG_ENABLED(IPI_BUF))
+		pr_info("%s: vpu i/o %d/%d sram %d ysize %d\n",
+			__func__,
+			adl_fp->vpu_i_point,
+			adl_fp->vpu_o_point,
+			adl_fp->sysram_en,
+			adl_fp->block_y_size);
 	return 0;
 }
 

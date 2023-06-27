@@ -865,7 +865,7 @@ unsigned int sensor_mbus_to_ipi_fmt(unsigned int mbus_code)
 {
 	unsigned int fmt = MTKCAM_IPI_IMG_FMT_UNKNOWN;
 
-	switch (mbus_code & SENSOR_FMT_MASK) {
+	switch (mbus_code_fmt(mbus_code)) {
 	case MEDIA_BUS_FMT_SBGGR8_1X8:
 	case MEDIA_BUS_FMT_SGBRG8_1X8:
 	case MEDIA_BUS_FMT_SGRBG8_1X8:
@@ -924,7 +924,7 @@ unsigned int sensor_mbus_to_ipi_pixel_id(unsigned int mbus_code)
 {
 	unsigned int pxl_id = MTKCAM_IPI_BAYER_PXL_ID_UNKNOWN;
 
-	switch (mbus_code & SENSOR_FMT_MASK) {
+	switch (mbus_code_fmt(mbus_code)) {
 	case MEDIA_BUS_FMT_SBGGR8_1X8:
 	case MEDIA_BUS_FMT_SBGGR10_1X10:
 	case MEDIA_BUS_FMT_SBGGR12_1X12:
@@ -957,7 +957,7 @@ unsigned int sensor_mbus_to_ipi_pixel_id(unsigned int mbus_code)
 
 unsigned int sensor_mbus_to_pixel_format(unsigned int mbus_code)
 {
-	switch (mbus_code & SENSOR_FMT_MASK) {
+	switch (mbus_code_fmt(mbus_code)) {
 	case MEDIA_BUS_FMT_SBGGR8_1X8:
 		return V4L2_PIX_FMT_SBGGR8;
 	case MEDIA_BUS_FMT_SGBRG8_1X8:

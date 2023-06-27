@@ -138,6 +138,8 @@ struct mtk_raw_sink_data {
 	struct v4l2_rect crop;
 };
 
+bool is_raw_sink_eq(struct mtk_raw_sink_data *a, struct mtk_raw_sink_data *b);
+
 struct mtk_raw_request_data {
 	struct mtk_raw_sink_data sink;
 	struct mtk_raw_ctrl_data ctrl;

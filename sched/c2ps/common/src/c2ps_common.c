@@ -418,14 +418,14 @@ void c2ps_systrace_c(pid_t pid, int val, const char *fmt, ...)
 	trace_c2ps_systrace(buf);
 }
 
-void c2ps_systrace_d(const char *fmt, ...)
+void c2ps_main_systrace(const char *fmt, ...)
 {
 	char log[256];
 	va_list args;
 	int len;
 	char buf[256];
 
-	if (!trace_c2ps_systrace_enabled())
+	if (!trace_c2ps_main_trace_enabled())
 		return;
 
 	memset(log, ' ', sizeof(log));
@@ -445,7 +445,79 @@ void c2ps_systrace_d(const char *fmt, ...)
 	else if (unlikely(len == 256))
 		buf[255] = '\0';
 
-	trace_c2ps_systrace(buf);
+	trace_c2ps_main_trace(buf);
+}
+
+void c2ps_bg_info_systrace(const char *fmt, ...)
+{
+	char log[256];
+	va_list args;
+	int len;
+	char buf[256];
+
+	if (!trace_c2ps_bg_info_enabled())
+		return;
+
+	memset(log, ' ', sizeof(log));
+	va_start(args, fmt);
+	len = vsnprintf(log, sizeof(log), fmt, args);
+	va_end(args);
+
+	if (unlikely(len < 0))
+		return;
+	else if (unlikely(len == 256))
+		log[255] = '\0';
+
+	len = snprintf(buf, sizeof(buf), "%s\n", log);
+
+	if (unlikely(len < 0))
+		return;
+	else if (unlikely(len == 256))
+		buf[255] = '\0';
+
+	trace_c2ps_bg_info(buf);
+}
+
+void c2ps_critical_task_systrace(struct c2ps_task_info *tsk_info)
+{
+	int len;
+	unsigned int curr_cpu = 0;
+	unsigned long curr_freq = 0;
+	unsigned int curr_util = 0;
+	char buf[256];
+	struct task_struct *p;
+
+	if (!tsk_info) {
+		C2PS_LOGE("tsk_info is null\n");
+		return;
+	}
+	if (!trace_c2ps_critical_task_enabled())
+		return;
+
+	curr_util = tsk_info->latest_uclamp;
+
+	rcu_read_lock();
+	p = find_task_by_vpid(tsk_info->pid);
+
+	if (likely(p)) {
+		get_task_struct(p);
+		curr_cpu = task_cpu(p);
+		curr_freq = pd_get_util_freq(curr_cpu, curr_util);
+		put_task_struct(p);
+	}
+	rcu_read_unlock();
+
+	len = snprintf(buf, sizeof(buf),
+		"task_name=%s_%d util=%d freq=%ld\n",
+		tsk_info->task_name,  tsk_info->task_id,
+		curr_util, curr_freq);
+
+	if (unlikely(len < 0))
+		return;
+	else if (unlikely(len == 256))
+		buf[255] = '\0';
+
+	trace_c2ps_critical_task(buf);
 }
 
 void *c2ps_alloc_atomic(int i32Size)
@@ -511,11 +583,14 @@ void update_cpu_idle_rate(void)
 		}
 	}
 
-	c2ps_systrace_d(
-		"background uclamp max cluster_0: %d, cluster_1: %d, cluster_2: %d",
-		glb_info->curr_max_uclamp[0],
-		glb_info->curr_max_uclamp[1],
-		glb_info->curr_max_uclamp[2]);
+	c2ps_bg_info_systrace(
+		"cluster_0_util=%d cluster_1_util=%d cluster_2_util=%d "
+		"cluster_0_freq=%ld cluster_1_freq=%ld cluster_2_freq=%ld",
+		glb_info->curr_max_uclamp[0], glb_info->curr_max_uclamp[1],
+		glb_info->curr_max_uclamp[2],
+		pd_get_util_freq(LCORE_ID, glb_info->curr_max_uclamp[0]),
+		pd_get_util_freq(MCORE_ID, glb_info->curr_max_uclamp[1]),
+		pd_get_util_freq(BCORE_ID, glb_info->curr_max_uclamp[2]));
 }
 
 inline bool need_update_background(void)
@@ -548,7 +623,7 @@ static ssize_t task_info_show(struct kobject *kobj,
 		goto out;
 
     length = scnprintf(temp + pos, C2PS_SYSFS_MAX_BUFF_SIZE - pos,
-	    "\nTASKID\tPID\tINIT_UCLAMP\tTASK_TARGET_TIME\tVIP_TASK\t");
+	    "\nTASKID\tPID\tTASK_NAME\tINIT_UCLAMP\tTASK_TARGET_TIME\tVIP_TASK\t");
     pos += length;
     length = scnprintf(temp + pos, C2PS_SYSFS_MAX_BUFF_SIZE - pos,
 	    "START_TIME\tEND_TIME\tPROC_TIME\tEXEC_TIME\tLATEST_UCLAMP\n");
@@ -559,8 +634,9 @@ static ssize_t task_info_show(struct kobject *kobj,
     hash_for_each(task_info_tbl, bkt, tsk_info, hlist) {
 		length = scnprintf(temp + pos,
 			C2PS_SYSFS_MAX_BUFF_SIZE - pos,
-			"%-2d\t%-5d\t%-4u\t\t%-8llu\t\t%d\t\t",
+			"%-2d\t%-5d\t%s\t\t%-4u\t\t%-8llu\t\t%d\t\t",
 			tsk_info->task_id, tsk_info->pid,
+			tsk_info->task_name,
 			tsk_info->default_uclamp, tsk_info->task_target_time,
 			tsk_info->is_vip_task);
 		pos += length;
@@ -584,6 +660,53 @@ out:
 
 static KOBJ_ATTR_RO(task_info);
 
+static ssize_t gear_uclamp_max_store(struct kobject *kobj,
+	struct kobj_attribute *attr,
+	const char *buf, size_t count)
+{
+	int gearid = -1;
+	int val = -1;
+	char *buffer = NULL;
+
+	buffer = kcalloc(C2PS_SYSFS_MAX_BUFF_SIZE, sizeof(char), GFP_KERNEL);
+	if (!buffer)
+		goto out;
+
+	if ((count > 0) && (count < C2PS_SYSFS_MAX_BUFF_SIZE)) {
+		if (scnprintf(buffer, C2PS_SYSFS_MAX_BUFF_SIZE, "%s", buf)) {
+			if (sscanf(buffer, "%d %d", &gearid, &val) != 2)
+				goto out;
+		}
+	}
+
+	if (gearid < 0 || gearid >= get_nr_gears() ||
+		val < 0)
+		goto out;
+
+	set_gear_uclamp_max(gearid, val);
+
+out:
+	kfree(buffer);
+	return count;
+}
+
+static ssize_t gear_uclamp_max_show(struct kobject *kobj,
+	struct kobj_attribute *attr,
+	char *buf)
+{
+	int length = 0;
+
+	for (int i = 0; i < get_nr_gears(); ++i) {
+		length += scnprintf(buf + length, PAGE_SIZE - length,
+				"gear: %d, uclamp_max: %d \n",
+				i, get_gear_uclamp_max(i));
+	}
+
+	return length;
+}
+
+static KOBJ_ATTR_RW(gear_uclamp_max);
+
 int init_c2ps_common(void)
 {
 	int ret = 0;
@@ -599,6 +722,7 @@ int init_c2ps_common(void)
 
 	if (!(ret = c2ps_sysfs_create_dir(NULL, "common", &base_kobj))) {
 		c2ps_sysfs_create_file(base_kobj, &kobj_attr_task_info);
+		c2ps_sysfs_create_file(base_kobj, &kobj_attr_gear_uclamp_max);
 	}
 
 	set_glb_info_bg_uclamp_max();
@@ -614,5 +738,6 @@ void exit_c2ps_common(void)
 	glb_info = NULL;
 
 	c2ps_sysfs_remove_file(base_kobj, &kobj_attr_task_info);
+	c2ps_sysfs_remove_file(base_kobj, &kobj_attr_gear_uclamp_max);
 	c2ps_sysfs_remove_dir(&base_kobj);
 }

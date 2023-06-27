@@ -171,11 +171,10 @@ int monitor_task_end(int pid, int task_id)
 	c2ps_update_task_info_hist(tsk_info);
 
 	/* debug tool tag */
-	c2ps_systrace_d(
-			"c2ps set uclamp: %d to task: %d end, proc_time: %llu, "
-			"real exec_time: %llu",
-			tsk_info->latest_uclamp, tsk_info->task_id,
+	c2ps_main_systrace("task_id: %d, proc_time: %llu, "
+			"real exec_time: %llu", tsk_info->task_id,
 			tsk_info->proc_time, tsk_info->real_exec_runtime);
+	c2ps_critical_task_systrace(tsk_info);
 
 	reset_task_eas_setting(tsk_info);
 	C2PS_LOGD("- \n");

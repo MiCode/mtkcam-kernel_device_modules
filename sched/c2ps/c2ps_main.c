@@ -39,6 +39,7 @@ struct C2PS_NOTIFIER_PUSH_TAG {
 	u64 cur_ts;
 	bool is_vip_task;
 	bool is_dynamic_tid;
+	char task_name[MAX_TASK_NAME_SIZE];
 	struct list_head queue_list;
 };
 
@@ -92,10 +93,11 @@ static void c2ps_notifier_wq_cb_uninit(void)
 static void c2ps_notifier_wq_cb_add_task(
 	u32 task_id, u32 task_target_time, u32 default_uclamp,
 	int group_head, u32 task_group_target_time, bool is_vip_task,
-	bool is_dynamic_tid)
+	bool is_dynamic_tid, const char *task_name)
 {
 	struct c2ps_task_info *tsk_info = NULL;
-	C2PS_LOGD("[C2PS_CB] add_task task_id: %d\n", task_id);
+	C2PS_LOGD("[C2PS_CB] add_task task_id: %d task_name: %s\n",
+		task_id, task_name);
 
 	tsk_info = kzalloc(sizeof(*tsk_info), GFP_KERNEL);
 
@@ -109,6 +111,7 @@ static void c2ps_notifier_wq_cb_add_task(
 	tsk_info->default_uclamp = default_uclamp;
 	tsk_info->is_vip_task = is_vip_task;
 	tsk_info->is_dynamic_tid = is_dynamic_tid;
+	strncpy(tsk_info->task_name, task_name, sizeof(tsk_info->task_name));
 
 	if (unlikely(c2ps_add_task_info(tsk_info))) {
 		C2PS_LOGE("add task failed\n");
@@ -257,7 +260,8 @@ static void c2ps_notifier_wq_cb(void)
 			vpPush->task_id,
 			vpPush->task_target_time, vpPush->default_uclamp,
 			vpPush->group_head, vpPush->task_group_target_time,
-			vpPush->is_vip_task, vpPush->is_dynamic_tid);
+			vpPush->is_vip_task, vpPush->is_dynamic_tid,
+			vpPush->task_name);
 		break;
 	case C2PS_NOTIFIER_TASK_START:
 		c2ps_notifier_wq_cb_task_start(vpPush->pid, vpPush->task_id);
@@ -383,7 +387,8 @@ out:
 int c2ps_notify_add_task(
     u32 task_id, u32 task_target_time, u32 default_uclamp,
 	int group_head, u32 task_group_target_time,
-	bool is_vip_task, bool is_dynamic_tid)
+	bool is_vip_task, bool is_dynamic_tid,
+	const char *task_name)
 {
 	struct C2PS_NOTIFIER_PUSH_TAG *vpPush = NULL;
 	int ret = 0;
@@ -414,6 +419,7 @@ int c2ps_notify_add_task(
 	vpPush->task_group_target_time = task_group_target_time;
 	vpPush->is_vip_task = is_vip_task;
 	vpPush->is_dynamic_tid = is_dynamic_tid;
+	strncpy(vpPush->task_name, task_name, sizeof(vpPush->task_name));
 
 	c2ps_queue_work(vpPush);
 

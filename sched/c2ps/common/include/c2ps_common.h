@@ -27,6 +27,7 @@
 #define MCORE_ID 6
 #define BCORE_ID 7
 #define BACKGROUND_UCLAMPMAX_ALERT 10
+#define MAX_TASK_NAME_SIZE 10
 
 extern int proc_time_window_size;
 extern int debug_log_on;
@@ -48,6 +49,7 @@ struct c2ps_task_info {
 	u64 hist_proc_time_avg;
 	u32 hist_loading[MAX_WINDOW_SIZE];
 	u64 hist_proc_time[MAX_WINDOW_SIZE];
+	char task_name[MAX_TASK_NAME_SIZE];
 	struct hlist_node hlist;
 	struct c2ps_task_info *overlap_task;
 	struct list_head task_group_list;
@@ -153,8 +155,10 @@ void set_config_camfps(int camfps);
 void update_vsync_time(u64 ts);
 void update_camfps(int camfps);
 bool is_group_head(struct c2ps_task_info *tsk_info);
-void c2ps_systrace_c(pid_t pid, int val, const char *name, ...);
-void c2ps_systrace_d(const char *name, ...);
+void c2ps_systrace_c(pid_t pid, int val, const char *fmt, ...);
+void c2ps_bg_info_systrace(const char *fmt, ...);
+void c2ps_main_systrace(const char *fmt, ...);
+void c2ps_critical_task_systrace(struct c2ps_task_info *tsk_info);
 void *c2ps_alloc_atomic(int i32Size);
 void c2ps_free(void *pvBuf, int i32Size);
 void set_glb_info_bg_uclamp_max(void);
@@ -166,5 +170,7 @@ extern void set_curr_uclamp_ctrl(int val);
 extern void set_gear_uclamp_ctrl(int val);
 extern void set_gear_uclamp_max(int gearid, int val);
 extern int get_gear_uclamp_max(int gearid);
+extern unsigned long pd_get_util_freq(int cpu, unsigned long util);
+extern unsigned int get_nr_gears(void);
 
 #endif  // C2PS_COMMON_INCLUDE_C2PS_COMMON_H_

@@ -13,7 +13,8 @@ extern int (*c2ps_notify_uninit_fp)(void);
 extern int (*c2ps_notify_add_task_fp)(
 	u32 task_id, u32 task_target_time, u32 default_uclamp,
 	int group_head, u32 task_group_target_time,
-	bool is_vip_task, bool is_dynamic_tid);
+	bool is_vip_task, bool is_dynamic_tid,
+	const char *task_name);
 extern int (*c2ps_notify_task_start_fp)(int pid, int task_id);
 extern int (*c2ps_notify_task_end_fp)(int pid, int task_id);
 extern int (*c2ps_notify_vsync_fp)(void);

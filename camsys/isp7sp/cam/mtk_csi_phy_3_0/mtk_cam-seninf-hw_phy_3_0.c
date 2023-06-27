@@ -392,6 +392,37 @@ static int mtk_cam_seninf_cammux(struct seninf_ctx *ctx, int cam_mux)
 	return 0;
 }
 
+static int mtk_cam_seninf_enable_cam_mux_vsync_irq(struct seninf_ctx *ctx, bool enable, int cam_mux)
+{
+	void *pSeninf_cam_mux_gcsr = ctx->reg_if_cam_mux_gcsr;
+	int tmp = 0;
+
+	if ((cam_mux >= 0) && (cam_mux <= 31)) {
+		tmp = SENINF_READ_BITS(pSeninf_cam_mux_gcsr,
+			SENINF_CAM_MUX_GCSR_VSYNC_IRQ_EN, RG_SENINF_CAM_MUX_GCSR_VSYNC_IRQ_EN);
+		if (enable)
+			tmp |= (1 << cam_mux);
+		else
+			tmp &= ~(1 << cam_mux);
+		SENINF_BITS(pSeninf_cam_mux_gcsr,
+			SENINF_CAM_MUX_GCSR_VSYNC_IRQ_EN,
+			RG_SENINF_CAM_MUX_GCSR_VSYNC_IRQ_EN, tmp);
+	} else if ((cam_mux >= 32) && (cam_mux <= 63)) {
+		cam_mux -= 32;
+		tmp = SENINF_READ_BITS(pSeninf_cam_mux_gcsr,
+			SENINF_CAM_MUX_GCSR_VSYNC_IRQ_EN_H,
+			RG_SENINF_CAM_MUX_GCSR_VSYNC_IRQ_EN);
+		if (enable)
+			tmp |= (1 << cam_mux);
+		else
+			tmp &= ~(1 << cam_mux);
+		SENINF_BITS(pSeninf_cam_mux_gcsr,
+			SENINF_CAM_MUX_GCSR_VSYNC_IRQ_EN_H,
+			RG_SENINF_CAM_MUX_GCSR_VSYNC_IRQ_EN, tmp);
+	}
+	return 0;
+}
+
 static int mtk_cam_seninf_disable_cammux(struct seninf_ctx *ctx, int cam_mux)
 {
 	void *pSeninf_cam_mux_pcsr = NULL;
@@ -406,6 +437,7 @@ static int mtk_cam_seninf_disable_cammux(struct seninf_ctx *ctx, int cam_mux)
 		return 0;
 	}
 	pSeninf_cam_mux_pcsr = ctx->reg_if_cam_mux_pcsr[cam_mux];
+	mtk_cam_seninf_enable_cam_mux_vsync_irq(ctx, 0, cam_mux);
 
 	SENINF_BITS(pSeninf_cam_mux_pcsr,
 			SENINF_CAM_MUX_PCSR_CTRL, CAM_MUX_PCSR_NEXT_SRC_SEL, 0x3f);
@@ -5597,38 +5629,6 @@ static int mtk_cam_seninf_enable_global_drop_irq(struct seninf_ctx *ctx, bool en
 	return 0;
 
 }
-
-static int mtk_cam_seninf_enable_cam_mux_vsync_irq(struct seninf_ctx *ctx, bool enable, int cam_mux)
-{
-	void *pSeninf_cam_mux_gcsr = ctx->reg_if_cam_mux_gcsr;
-	int tmp = 0;
-
-	if ((cam_mux >= 0) && (cam_mux <= 31)) {
-		tmp = SENINF_READ_BITS(pSeninf_cam_mux_gcsr,
-			SENINF_CAM_MUX_GCSR_VSYNC_IRQ_EN, RG_SENINF_CAM_MUX_GCSR_VSYNC_IRQ_EN);
-		if (enable)
-			tmp |= (1 << cam_mux);
-		else
-			tmp &= ~(1 << cam_mux);
-		SENINF_BITS(pSeninf_cam_mux_gcsr,
-			SENINF_CAM_MUX_GCSR_VSYNC_IRQ_EN,
-			RG_SENINF_CAM_MUX_GCSR_VSYNC_IRQ_EN, tmp);
-	} else if ((cam_mux >= 32) && (cam_mux <= 63)) {
-		cam_mux -= 32;
-		tmp = SENINF_READ_BITS(pSeninf_cam_mux_gcsr,
-			SENINF_CAM_MUX_GCSR_VSYNC_IRQ_EN_H,
-			RG_SENINF_CAM_MUX_GCSR_VSYNC_IRQ_EN);
-		if (enable)
-			tmp |= (1 << cam_mux);
-		else
-			tmp &= ~(1 << cam_mux);
-		SENINF_BITS(pSeninf_cam_mux_gcsr,
-			SENINF_CAM_MUX_GCSR_VSYNC_IRQ_EN_H,
-			RG_SENINF_CAM_MUX_GCSR_VSYNC_IRQ_EN, tmp);
-	}
-	return 0;
-}
-
 
 static int mtk_cam_seninf_set_all_cam_mux_vsync_irq(struct seninf_ctx *ctx, bool enable)
 {

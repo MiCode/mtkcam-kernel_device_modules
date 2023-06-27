@@ -441,8 +441,11 @@ static void fsync_mgr_setup_sensor_hdr_info(struct adaptor_ctx *ctx,
 			p_hdr_exp->exp_order = EXP_ORDER_SE_1ST;
 			break;
 		}
+	} else if (g_sensor_dcg_property(ctx, mode_id)) {
+		/* => DCG */
+		p_hdr_exp->mode_exp_cnt = 1;
 	} else {
-		/* => DCG, stagger */
+		/* => stagger */
 		p_hdr_exp->multi_exp_type = MULTI_EXP_TYPE_STG;
 	}
 

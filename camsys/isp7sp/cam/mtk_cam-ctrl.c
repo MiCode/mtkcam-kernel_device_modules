@@ -731,8 +731,10 @@ static int frame_no_to_fs_req_no(struct mtk_cam_ctrl *ctrl, int frame_no,
 	struct mtk_cam_job *job;
 	int do_send_evnt;
 
-	if (frame_no == -1)
+	if (frame_no == -1) {
+		ctrl->frame_sync_event_cnt = add_frame_seq(ctrl_fetch_inner(ctrl), 1);
 		goto SKIP_FIND_JOB;
+	}
 
 	job = mtk_cam_ctrl_get_job(ctrl, cond_frame_no_belong, &frame_no);
 	if (job) {

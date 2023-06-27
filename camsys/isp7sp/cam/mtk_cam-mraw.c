@@ -1695,17 +1695,27 @@ static int mtk_mraw_probe(struct platform_device *pdev)
 
 	ret = mtk_cam_qos_probe(dev, &mraw_dev->qos, SMI_PORT_MRAW_NUM);
 	if (ret)
-		return ret;
+		goto UNREGISTER_PM_NOTIFIER;
 
 	mraw_dev->fifo_size =
 		roundup_pow_of_two(8 * sizeof(struct mtk_camsys_irq_info));
 	mraw_dev->msg_buffer = devm_kzalloc(dev, mraw_dev->fifo_size, GFP_KERNEL);
-	if (!mraw_dev->msg_buffer)
-		return -ENOMEM;
+	if (!mraw_dev->msg_buffer) {
+		ret = -ENOMEM;
+		goto UNREGISTER_PM_NOTIFIER;
+	}
 
 	pm_runtime_enable(dev);
 
-	return component_add(dev, &mtk_mraw_component_ops);
+	ret = component_add(dev, &mtk_mraw_component_ops);
+	if (ret)
+		goto UNREGISTER_PM_NOTIFIER;
+
+	return ret;
+
+UNREGISTER_PM_NOTIFIER:
+	unregister_pm_notifier(&mraw_dev->notifier_blk);
+	return ret;
 }
 
 static int mtk_mraw_remove(struct platform_device *pdev)

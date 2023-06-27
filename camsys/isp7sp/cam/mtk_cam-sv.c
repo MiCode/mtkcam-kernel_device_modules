@@ -2032,23 +2032,34 @@ static int mtk_camsv_probe(struct platform_device *pdev)
 	if (sv_dev->id < MULTI_SMI_SV_HW_NUM) {
 		ret = mtk_cam_qos_probe(dev, &sv_dev->qos, SMI_PORT_SV_TYPE0_NUM);
 		if (ret)
-			return ret;
+			goto UNREGISTER_PM_NOTIFIER;
 	} else {
 		ret = mtk_cam_qos_probe(dev, &sv_dev->qos, SMI_PORT_SV_TYPE1_NUM);
 		if (ret)
-			return ret;
+			goto UNREGISTER_PM_NOTIFIER;
 	}
 
 	sv_dev->fifo_size =
 		roundup_pow_of_two(8 * sizeof(struct mtk_camsys_irq_info));
 	sv_dev->msg_buffer = devm_kzalloc(dev, sv_dev->fifo_size,
 					     GFP_KERNEL);
-	if (!sv_dev->msg_buffer)
-		return -ENOMEM;
+	if (!sv_dev->msg_buffer) {
+		ret = -ENOMEM;
+		goto UNREGISTER_PM_NOTIFIER;
+	}
 
 	pm_runtime_enable(dev);
 
-	return component_add(dev, &mtk_camsv_component_ops);
+	ret = component_add(dev, &mtk_camsv_component_ops);
+
+	if (ret)
+		goto UNREGISTER_PM_NOTIFIER;
+
+	return ret;
+
+UNREGISTER_PM_NOTIFIER:
+	unregister_pm_notifier(&sv_dev->notifier_blk);
+	return ret;
 }
 
 static int mtk_camsv_remove(struct platform_device *pdev)

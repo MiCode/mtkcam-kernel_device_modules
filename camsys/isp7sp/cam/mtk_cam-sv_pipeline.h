@@ -12,10 +12,10 @@
 
 #define MAX_SV_PIPELINE_NUN 16
 
-#define SV_IMG_MAX_WIDTH	8192
-#define SV_IMG_MAX_HEIGHT	6144
-#define SV_IMG_MIN_WIDTH	0
-#define SV_IMG_MIN_HEIGHT	0
+#define SV_IMG_MAX_WIDTH	18000
+#define SV_IMG_MAX_HEIGHT	16000
+#define SV_IMG_MIN_WIDTH	8
+#define SV_IMG_MIN_HEIGHT	1
 
 /* enum for pads of camsv pipeline */
 enum {

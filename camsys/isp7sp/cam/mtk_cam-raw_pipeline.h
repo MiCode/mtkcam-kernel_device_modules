@@ -14,10 +14,10 @@
 #include "mtk_cam-raw_pads.h"
 
 /* FIXME: dynamic config image max/min w/h */
-#define IMG_MAX_WIDTH		12000
-#define IMG_MAX_HEIGHT		9000
-#define IMG_MIN_WIDTH		40
-#define IMG_MIN_HEIGHT		30
+#define IMG_MAX_WIDTH		18000
+#define IMG_MAX_HEIGHT		16000
+#define IMG_MIN_WIDTH		8
+#define IMG_MIN_HEIGHT		1
 #define YUV_GROUP1_MAX_WIDTH	8160
 #define YUV_GROUP1_MAX_HEIGHT	3896
 #define YUV_GROUP2_MAX_WIDTH	3060

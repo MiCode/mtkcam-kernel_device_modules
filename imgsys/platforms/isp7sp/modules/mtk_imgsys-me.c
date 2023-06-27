@@ -37,6 +37,7 @@ struct clk_bulk_data imgsys_isp7_me_clks[] = {
 	{ .id = "ME_CG_LARB12" },
 };
 
+
 //static struct ipesys_me_device *me_dev;
 static void __iomem *g_meRegBA;
 static void __iomem *g_mmgRegBA;
@@ -218,3 +219,38 @@ void ipesys_me_debug_dump_local(void)
 	}
 }
 //EXPORT_SYMBOL(ipesys_me_debug_dump_local);
+
+
+void ME_mode3_reset(struct mtk_imgsys_dev *imgsys_dev) {
+
+	void __iomem *meRegBA = 0L;
+	void __iomem *mmgRegBA = 0L;
+
+	/* iomap registers */
+	meRegBA = g_meRegBA;
+	if (!meRegBA) {
+		pr_info("imgsys %s Unable to ioremap me registers\n",
+			__func__);
+	}
+	mmgRegBA = g_mmgRegBA;
+	if (!mmgRegBA) {
+		pr_info("imgsys %s Unable to ioremap mmg registers\n",
+			__func__);
+	}
+
+	// ME reset core
+		pr_info("imgsys %s: Reset ME Core \n", __func__);
+		iowrite32(0x00000001 << 20, (void *)(meRegBA + 0x0000000c));
+		while (((unsigned int)ioread32((void *)(meRegBA +0x00000800)) != 0))
+			pr_info("imgsys %s: waiting ME reset core done\n", __func__);
+		iowrite32(0x00000000, (void *)(meRegBA + 0x0000000c));
+		pr_info("imgsys %s: ME reset core done \n", __func__);
+	//MMG reset core
+		pr_info("imgsys %s: Reset MMG Core \n", __func__);
+		iowrite32(0x00000001, (void *)(mmgRegBA + 0x00000010));
+		while (((unsigned int)ioread32((void *)(mmgRegBA +0x00000A00)) != 0))
+			pr_info("imgsys %s: waiting MMG reset core done\n", __func__);
+		iowrite32(0x00000000, (void *)(mmgRegBA + 0x00000010));
+		pr_info("imgsys %s: MMG reset core done \n", __func__);
+
+}

@@ -1405,6 +1405,7 @@ static void fs_do_seamless_switch_proc(const unsigned int idx,
 		&seamless_rec, p_seamless_info);
 	frec_seamless_switch(idx, p_seamless_ctrl->min_fl_lc, &seamless_rec);
 
+	fs_alg_set_perframe_st_data(idx, &p_seamless_info->seamless_pf_ctrl);
 	fs_alg_seamless_switch(idx, p_seamless_info, p_sa_cfg);
 }
 /*---------------------------------------------------------------------------*/

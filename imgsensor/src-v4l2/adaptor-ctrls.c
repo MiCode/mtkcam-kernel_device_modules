@@ -1580,6 +1580,9 @@ static int imgsensor_set_ctrl(struct v4l2_ctrl *ctrl)
 			/* first, notify fsync cancel FL restore proc if needed */
 			notify_fsync_mgr_clear_fl_restore_info_if_needed(ctx);
 
+			/* update ctx req id */
+			ctx->req_id = info->ae_ctrl[0].req_id;
+
 			/* copy original input data for fsync using */
 			memcpy(fsync_exp, &info->ae_ctrl[0].exposure.arr, sizeof(fsync_exp));
 

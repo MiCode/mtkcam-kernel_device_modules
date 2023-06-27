@@ -166,6 +166,7 @@ void get_multi_exp_gain_range_by_scenario(struct subdrv_ctx *ctx,
 void get_multi_exp_shutter_range_by_scenario(struct subdrv_ctx *ctx,
 		enum SENSOR_SCENARIO_ID_ENUM scenario_id,
 		u64 *exp_cnt, void *data);
+void get_sensor_frame_count(struct subdrv_ctx *ctx, u32 *frame_cnt);
 
 int common_get_imgsensor_id(struct subdrv_ctx *ctx, u32 *sensor_id);
 void subdrv_ctx_init(struct subdrv_ctx *ctx);

@@ -4492,6 +4492,9 @@ static int mtk_cam_seninf_debug(struct seninf_ctx *ctx)
 	enum CSI_PORT csi_port = CSI_PORT_0;
 	unsigned int tag_03_vc, tag_03_dt, tag_47_vc, tag_47_dt;
 	char *fmeter_dbg = kzalloc(sizeof(char) * 256, GFP_KERNEL);
+	unsigned int frame_cnt1 = 0, frame_cnt2 = 0;
+
+	mtk_cam_sensor_get_frame_cnt(ctx, &frame_cnt1);
 
 	if (ctx->dbg_timeout != 0)
 		debug_ft = ctx->dbg_timeout / 1000;
@@ -4780,6 +4783,11 @@ static int mtk_cam_seninf_debug(struct seninf_ctx *ctx)
 			}
 		}
 	}
+	mtk_cam_sensor_get_frame_cnt(ctx, &frame_cnt2);
+	if (frame_cnt2 == frame_cnt1)
+		dev_info(ctx->dev, "frame cnt(%d) doesn't update, please check sensor status.", frame_cnt2);
+	else
+		dev_info(ctx->dev, "sensor is streaming, frame_cnt1: %d, frame_cnt2: %d", frame_cnt1, frame_cnt2);
 
 	dev_info(ctx->dev, "ret = %d", ret);
 

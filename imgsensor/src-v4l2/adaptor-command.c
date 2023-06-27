@@ -214,6 +214,33 @@ static int g_cmd_sensor_ebd_info_by_scenario(struct adaptor_ctx *ctx, void *arg)
 	return ret;
 }
 
+static int g_cmd_sensor_frame_cnt(struct adaptor_ctx *ctx, void *arg)
+{
+	u32 *frame_cnt = arg;
+	union feature_para para;
+	u32 len;
+	int ret = 0;
+
+	para.u64[0] = 0;
+
+	/* error handling (unexpected case) */
+	if (unlikely(arg == NULL)) {
+		ret = -ENOIOCTLCMD;
+		adaptor_logi(ctx,
+			"ERROR: V4L2_CMD_G_SENSOR_FRAME_CNT, idx:%d, input arg is nullptr, return:%d\n",
+			ctx->idx, ret);
+		return ret;
+	}
+
+	subdrv_call(ctx, feature_control,
+		SENSOR_FEATURE_GET_FRAME_CNT,
+		para.u8, &len);
+
+	*frame_cnt = para.u64[0];
+
+	return ret;
+}
+
 static int g_cmd_sensor_get_lbmf_type_by_secnario(struct adaptor_ctx *ctx, void *arg)
 {
 	int ret = 0;
@@ -416,6 +443,7 @@ static const struct command_entry command_list[] = {
 	{V4L2_CMD_SENSOR_HAS_EBD_PARSER, g_cmd_sensor_has_ebd_parser},
 	{V4L2_CMD_GET_SENSOR_EBD_INFO_BY_SCENARIO, g_cmd_sensor_ebd_info_by_scenario},
 	{V4L2_CMD_SENSOR_GET_LBMF_TYPE_BY_SCENARIO, g_cmd_sensor_get_lbmf_type_by_secnario},
+	{V4L2_CMD_G_SENSOR_FRAME_CNT, g_cmd_sensor_frame_cnt},
 
 	/* SET */
 	{V4L2_CMD_FSYNC_SYNC_FRAME_START_END, s_cmd_fsync_sync_frame_start_end},

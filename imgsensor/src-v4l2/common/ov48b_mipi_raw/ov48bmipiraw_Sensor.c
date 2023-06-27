@@ -1333,7 +1333,7 @@ static struct subdrv_static_ctx static_ctx = {
 	.reg_addr_temp_en = 0x4D12,
 	.reg_addr_temp_read = 0x4D13,
 	.reg_addr_auto_extend = PARAM_UNDEFINED,
-	.reg_addr_frame_count = PARAM_UNDEFINED,
+	.reg_addr_frame_count = 0x387F,
 
 	.init_setting_table = addr_data_pair_init_ov48b2q,
 	.init_setting_len = ARRAY_SIZE(addr_data_pair_init_ov48b2q),

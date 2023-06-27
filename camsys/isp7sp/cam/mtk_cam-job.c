@@ -3662,7 +3662,7 @@ static int update_job_raw_switch(struct mtk_cam_job *job)
 		if (mtk_cam_ctx_alloc_img_pool(ctx, ctrl_data))
 			goto EXIT_CLEAN;
 		res = &ctrl_data->resource.user_data.raw_res;
-		if (scen_is_rgbw(&res->scen)) {
+		if (scen_support_rgbw(&res->scen)) {
 			raw_pipe = &ctx->cam->pipelines.raw[ctx->raw_subdev_idx];
 			sink_w = raw_pipe->pad_cfg[MTK_RAW_SINK].mbus_fmt.width;
 			sink_h = raw_pipe->pad_cfg[MTK_RAW_SINK].mbus_fmt.height;
@@ -3985,7 +3985,10 @@ static int mtk_cam_job_fill_ipi_config(struct mtk_cam_job *job,
 		update_frame_order_to_config(&job->job_scen, config);
 		update_vsync_order_to_config(ctx, &job->job_scen, config);
 
-		if (scen_is_normal(&job->job_scen) && job->job_scen.scen.normal.w_chn_supported) {
+		if (scen_support_rgbw(&job->job_scen)) {
+			if (WARN_ON(!job->w_caci_buf))
+				return -1;
+
 			config->w_cac_table.iova = job->w_caci_buf->buf.daddr;
 			config->w_cac_table.size = job->w_caci_buf->buf.size;
 		}

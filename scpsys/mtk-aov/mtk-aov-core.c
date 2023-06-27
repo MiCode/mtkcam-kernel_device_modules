@@ -604,6 +604,12 @@ int aov_core_send_cmd(struct mtk_aov *aov_dev, uint32_t cmd,
 		}
 
 		atomic_set(&(core_info->aie_avail), notify->status);
+	} else if (cmd == AOV_SCP_CMD_QEA) {
+		vmm_isp_ctrl_notify(1);
+		mtk_mmdvfs_aov_enable(1);
+		atomic_set(&(core_info->qea_ready), 1);
+		send_cmd_internal(core_info, cmd, 0, 0, false, true);
+		atomic_set(&(core_info->qea_ready), 0);
 	}
 
 	if (atomic_read(&(core_info->aov_ready))) {
@@ -866,6 +872,13 @@ static int scp_state_notify(struct notifier_block *this,
 			(void)aov_core_recover(aov_dev);
 		}
 
+		// Recovery the interruped session - qea
+		if (atomic_read(&(core_info->qea_ready))) {
+			AOV_DEBUG_LOG(*(aov_dev->enable_aov_log_flag), "AOV QEA restart\n");
+			ret = aov_core_send_cmd(aov_dev, AOV_SCP_CMD_QEA, NULL, 0, false);
+			AOV_DEBUG_LOG(*(aov_dev->enable_aov_log_flag), "AOV QEA restart done, ret(%d)\n", ret);
+		}
+
 		atomic_set(&(core_info->scp_ready), 2);
 	}
 
@@ -892,6 +905,7 @@ int aov_core_init(struct mtk_aov *aov_dev)
 	atomic_set(&(core_info->aov_session), 0);
 	atomic_set(&(core_info->aov_ready), 0);
 	atomic_set(&(core_info->cmd_seq), 0);
+	atomic_set(&(core_info->qea_ready), 0);
 
 	if (curr_dev->op_mode == 0) {
 		dev_info(aov_dev->dev, "%s: bypass init operation", __func__);

@@ -633,25 +633,13 @@ struct mtk_aie_dev {
 	struct aie_enq_info *aie_cfg;
 	struct aie_reg_cfg reg_cfg;
 
-	/* Input Buffer Pointer */
-	struct imem_buf_info rs_cfg_data;
-	struct imem_buf_info fd_cfg_data;
-	struct imem_buf_info pose_cfg_data;
-	struct imem_buf_info yuv2rgb_cfg_data;
 	/* HW Output Buffer Pointer */
 	struct imem_buf_info rs_output_hw;
 	struct imem_buf_info fd_dma_hw;
 	struct imem_buf_info fd_dma_result_hw;
-	struct imem_buf_info fd_kernel_hw;
 	struct imem_buf_info fd_attr_dma_hw;
 
 	/* HW FLD Buffer Pointer for allocate memory*/
-	struct imem_buf_info fld_cv_hw;
-	struct imem_buf_info fld_fp_hw;
-	struct imem_buf_info fld_leafnode_hw;
-	struct imem_buf_info fld_tree_02_hw;
-	struct imem_buf_info fld_shape_hw;
-	struct imem_buf_info fld_blink_weight_hw;
 	struct imem_buf_info fld_output_hw;
 
 	/* Image information */
@@ -685,9 +673,15 @@ struct mtk_aie_dev {
 	unsigned int pose_height;
 
 	/*DMA Buffer*/
-	struct dma_buf *dmabuf;
-	unsigned long long kva;
-	struct iosys_map map;
+	struct dma_buf *para_dmabuf;
+	unsigned long long para_kva;
+	struct iosys_map para_map;
+	struct dma_buf *config_model_dmabuf;
+	unsigned long long config_model_kva;
+	struct iosys_map config_model_map;
+	unsigned long long config_model_pa;
+	struct dma_buf_attachment *config_model_attach;
+	struct sg_table *config_model_sgt;
 	int map_count;
 
 	struct aie_para *base_para;
@@ -722,7 +716,6 @@ struct mtk_aie_ctx {
 	struct v4l2_meta_format dst_fmt;
 };
 
-extern const struct mtk_aie_drv_ops aie_ops_isp71;
 extern const struct mtk_aie_drv_ops aie_ops_isp7s;
 extern const struct mtk_aie_drv_ops aie_ops_isp7sp;
 

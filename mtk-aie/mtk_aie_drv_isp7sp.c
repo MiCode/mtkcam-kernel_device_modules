@@ -22,21 +22,18 @@
 #include "cmdq-sec-iwc-common.h"
 #include "iommu_debug.h"
 
+#include "aie_mp_fw_7sp_def.h"
+
 #define FDVT_TF_DUMP 0
 #if FDVT_TF_DUMP
 #include <dt-bindings/memory/mt6897-larb-port.h>
 #endif
-
-#include "aie_mp_fw_7sp/config/dma_def.h"
-#include "aie_mp_fw_7sp/kernel/dma_def.h"
-#include "aie_mp_fw_7sp/all_header.h"
 
 #define FDVT_USE_GCE 1
 #define FLD
 #define FLD_ALIGN 128
 #define CHECK_SERVICE_0 0
 #define BUFTAG "AIE"
-//#include <mtkcam-hwcore/imgsys/inc/drv/gce/mt6983/gce_module.h>
 
 #define AIE_ALIGN32(x) round_up(x, 32)
 
@@ -486,7 +483,13 @@ static unsigned int attr_wdma_aligned_size[attr_loop_num][output_WDMA_WRA_num];
 #define wdma_offset_83_0 1587200
 #define FD_DMA_BUFFER_SIZE round_up(2150400, 32)
 
+static unsigned int g_fd_rs_config_offset;
+static unsigned int g_fd_yuv2rgb_config_offset;
+static unsigned int g_fd_fd_config_offset;
+
 static void aie_irqhandle(struct mtk_aie_dev *fd);
+
+static void aie_arrange_config_network(struct mtk_aie_dev *fd);
 
 #if FDVT_TF_DUMP
 static int FDVT_M4U_TranslationFault_callback(int port,
@@ -1021,7 +1024,7 @@ static struct dma_buf *aie_imem_sec_alloc(struct mtk_aie_dev *fd,
 		dma_heap_put(dma_heap);
 		return NULL;
 	}
-	//mtk_dma_buf_set_name(my_dma_buf, BUFTAG);
+
 	return my_dma_buf;
 }
 
@@ -1313,143 +1316,6 @@ static void aie_get_data_size(struct mtk_aie_dev *fd, u16 max_img_width,
 
 }
 
-static int aie_alloc_dram_buf(struct mtk_aie_dev *fd)
-{
-	u8 i;
-	u32 alloc_size;
-	unsigned long long addr = 0;
-	unsigned int msb_bit = 0;
-	struct dma_buf *ret_buf = NULL;
-	unsigned long long iova = 0;
-	void *va = NULL;
-
-	/* RS DRAM */
-	alloc_size = fd->fd_rs_cfg_size;
-	//ret = aie_imem_alloc(fd, alloc_size, &fd->rs_cfg_data);
-
-	ret_buf = aie_imem_sec_alloc(fd, alloc_size, CACHED_BUF);
-	if (!ret_buf)
-		return -1;
-
-	mtk_dma_buf_set_name(ret_buf, "rs_cfg_buf");
-	fd->rs_cfg_data.dmabuf = ret_buf;
-	fd->rs_cfg_data.size = alloc_size;
-	iova = aie_get_sec_iova(fd, ret_buf, &fd->rs_cfg_data);
-	if (!iova)
-		return -1;
-
-	fd->rs_cfg_data.pa = iova;
-	va = aie_get_va(fd, ret_buf, &fd->rs_cfg_data);
-	if (!va)
-		return -1;
-
-	fd->rs_cfg_data.va = va;
-
-	addr = fd->rs_cfg_data.pa;
-	msb_bit = (addr & 0Xf00000000) >> 32; //MASK MSB-BIT
-
-	writel(msb_bit, fd->fd_base + FDVT_RS_CON_BASE_ADR_MSB);
-
-	/* FD MODE */
-	fd->base_para->fd_rs_cfg_pa = fd->rs_cfg_data.pa;
-	fd->base_para->fd_rs_cfg_va = fd->rs_cfg_data.va;
-
-	/* FD DRAM */
-	alloc_size =
-		fd->fd_fd_cfg_aligned_size + fd->attr_fd_cfg_aligned_size * MAX_ENQUE_FRAME_NUM;
-	//ret = aie_imem_alloc(fd, alloc_size, &fd->fd_cfg_data);
-	ret_buf = aie_imem_sec_alloc(fd, alloc_size, CACHED_BUF);
-	if (!ret_buf)
-		return -1;
-
-	mtk_dma_buf_set_name(ret_buf, "fd_cfg_buf");
-	fd->fd_cfg_data.dmabuf = ret_buf;
-	fd->fd_cfg_data.size = alloc_size;
-	iova = aie_get_sec_iova(fd, ret_buf, &fd->fd_cfg_data);
-	if (!iova)
-		return -1;
-
-	fd->fd_cfg_data.pa = iova;
-	va = aie_get_va(fd, ret_buf, &fd->fd_cfg_data);
-	if (!va)
-		return -1;
-
-	fd->fd_cfg_data.va = va;
-
-	addr = fd->fd_cfg_data.pa;
-	msb_bit = (addr & 0Xf00000000) >> 32; //MASK MSB-BIT
-
-	writel(msb_bit, fd->fd_base + FDVT_FD_CON_BASE_ADR_MSB);
-
-	/* FD MODE */
-	fd->base_para->fd_fd_cfg_pa = fd->fd_cfg_data.pa;
-	fd->base_para->fd_fd_cfg_va = fd->fd_cfg_data.va;
-	/* ATTR MODE */
-	fd->base_para->attr_fd_cfg_pa[0] =
-		fd->base_para->fd_fd_cfg_pa + fd->fd_fd_cfg_aligned_size;
-	fd->base_para->attr_fd_cfg_va[0] =
-		fd->base_para->fd_fd_cfg_va + fd->fd_fd_cfg_aligned_size;
-
-	for (i = 1; i < MAX_ENQUE_FRAME_NUM; i++) {
-		fd->base_para->attr_fd_cfg_pa[i] =
-			fd->base_para->attr_fd_cfg_pa[i - 1] +
-			fd->attr_fd_cfg_aligned_size;
-		fd->base_para->attr_fd_cfg_va[i] =
-			fd->base_para->attr_fd_cfg_va[i - 1] +
-			fd->attr_fd_cfg_aligned_size;
-	}
-
-	/* YUV2RGB DRAM */
-	alloc_size = fd->fd_yuv2rgb_cfg_aligned_size +
-		     fd->attr_yuv2rgb_cfg_aligned_size * MAX_ENQUE_FRAME_NUM;
-	//ret = aie_imem_alloc(fd, alloc_size, &fd->yuv2rgb_cfg_data);
-	ret_buf = aie_imem_sec_alloc(fd, alloc_size, CACHED_BUF);
-	if (!ret_buf)
-		return -1;
-
-	mtk_dma_buf_set_name(ret_buf, "yuv2rgb_cfg_buf");
-	fd->yuv2rgb_cfg_data.dmabuf = ret_buf;
-	fd->yuv2rgb_cfg_data.size = alloc_size;
-	iova = aie_get_sec_iova(fd, ret_buf, &fd->yuv2rgb_cfg_data);
-	if (!iova)
-		return -1;
-
-	fd->yuv2rgb_cfg_data.pa = iova;
-	va = aie_get_va(fd, ret_buf, &fd->yuv2rgb_cfg_data);
-	if (!va)
-		return -1;
-
-	fd->yuv2rgb_cfg_data.va = va;
-
-	addr = fd->yuv2rgb_cfg_data.pa;
-	msb_bit = (addr & 0Xf00000000) >> 32; //MASK MSB-BIT
-
-	writel(msb_bit, fd->fd_base + FDVT_YUV2RGB_CON_BASE_ADR_MSB);
-
-
-	/* FD MODE */
-	fd->base_para->fd_yuv2rgb_cfg_pa = fd->yuv2rgb_cfg_data.pa;
-	fd->base_para->fd_yuv2rgb_cfg_va = fd->yuv2rgb_cfg_data.va;
-
-	/* ATTR MODE */
-	fd->base_para->attr_yuv2rgb_cfg_pa[0] =
-		fd->base_para->fd_yuv2rgb_cfg_pa + fd->fd_yuv2rgb_cfg_aligned_size;
-	fd->base_para->attr_yuv2rgb_cfg_va[0] =
-		fd->base_para->fd_yuv2rgb_cfg_va + fd->fd_yuv2rgb_cfg_aligned_size;
-
-	for (i = 1; i < MAX_ENQUE_FRAME_NUM; i++) {
-		fd->base_para->attr_yuv2rgb_cfg_pa[i] =
-			fd->base_para->attr_yuv2rgb_cfg_pa[i - 1] +
-			fd->attr_yuv2rgb_cfg_aligned_size;
-		fd->base_para->attr_yuv2rgb_cfg_va[i] =
-			fd->base_para->attr_yuv2rgb_cfg_va[i - 1] +
-			fd->attr_yuv2rgb_cfg_aligned_size;
-	}
-
-	return 0;
-
-}
-
 static int aie_alloc_output_buf(struct mtk_aie_dev *fd)
 {
 	int ret = 0;
@@ -1537,30 +1403,7 @@ static int aie_alloc_fddma_buf(struct mtk_aie_dev *fd)
 
 	fd->fd_dma_hw.va = va;
 
-
-	alloc_size = fd->fd_fd_kernel_size + fd->fd_attr_kernel_size;
-	//ret = aie_imem_alloc(fd, alloc_size, &fd->fd_kernel_hw);
-	ret_buf = aie_imem_sec_alloc(fd, alloc_size, CACHED_BUF);
-	if (!ret_buf)
-		return -1;
-
-	mtk_dma_buf_set_name(ret_buf, "fd_kernel_buf");
-	fd->fd_kernel_hw.dmabuf = ret_buf;
-	fd->fd_kernel_hw.size = alloc_size;
-	iova = aie_get_sec_iova(fd, ret_buf, &fd->fd_kernel_hw);
-	if (!iova)
-		return -1;
-
-	fd->fd_kernel_hw.pa = iova;
-	va = aie_get_va(fd, ret_buf, &fd->fd_kernel_hw);
-	if (!va)
-		return -1;
-
-	fd->fd_kernel_hw.va = va;
-
-
 	alloc_size = fd->fd_attr_dma_max_size;
-	//ret = aie_imem_alloc(fd, alloc_size, &fd->fd_attr_dma_hw);
 	ret_buf = aie_imem_sec_alloc(fd, alloc_size, CACHED_BUF);
 	if (!ret_buf)
 		return -1;
@@ -1578,146 +1421,8 @@ static int aie_alloc_fddma_buf(struct mtk_aie_dev *fd)
 		return -1;
 
 	fd->fd_attr_dma_hw.va = va;
-
 	return 0;
 }
-#ifdef FLD
-static int aie_alloc_fld_buf(struct mtk_aie_dev *fd)
-{
-
-	u32 alloc_size;
-	struct dma_buf *ret_buf = NULL;
-	unsigned long long iova = 0;
-	void *va = NULL;
-
-	/* fld_blink_weight_forect14, blink weight start (done) */
-	alloc_size = fld_blink_weight_size;
-	ret_buf = aie_imem_sec_alloc(fd, alloc_size, CACHED_BUF);
-	if (!ret_buf)
-		return -1;
-
-	mtk_dma_buf_set_name(ret_buf, "fld_blink_weight_buf");
-	fd->fld_blink_weight_hw.dmabuf = ret_buf;
-	fd->fld_blink_weight_hw.size = alloc_size;
-	iova = aie_get_sec_iova(fd, ret_buf, &fd->fld_blink_weight_hw);
-	if (!iova)
-		return -1;
-	writel(AIE_IOVA(iova), fd->fd_base + FLD_BS_BASE_ADDR);
-	fd->fld_blink_weight_hw.pa = iova;
-
-	va = aie_get_va(fd, ret_buf, &fd->fld_blink_weight_hw);
-	if (!va)
-		return -1;
-	fd->fld_blink_weight_hw.va = va;
-	/* blink weight end */
-
-	/* fld_fp_forest00_om45, FP start (done) */
-	alloc_size = fld_fp_size * FLD_MAX_INPUT;
-	ret_buf = aie_imem_sec_alloc(fd, alloc_size, CACHED_BUF);
-	if (!ret_buf)
-		return -1;
-
-	mtk_dma_buf_set_name(ret_buf, "fld_fp_forest_buf");
-	fd->fld_fp_hw.dmabuf = ret_buf;
-	fd->fld_fp_hw.size = alloc_size;
-	iova = aie_get_sec_iova(fd, ret_buf, &fd->fld_fp_hw);
-	if (!iova)
-		return -1;
-	writel(AIE_IOVA(iova), fd->fd_base + FLD_FP_BASE_ADDR);
-	fd->fld_fp_hw.pa = iova;
-
-	va = aie_get_va(fd, ret_buf, &fd->fld_fp_hw);
-	if (!va)
-		return -1;
-	fd->fld_fp_hw.va = va;
-	/* FP end */
-
-	/* fld_tree_forest00_cv_weight, CV weight start (done) */
-	alloc_size = (fld_cv_size * (FLD_MAX_INPUT-1)) + fld_cv_size_00;
-	ret_buf = aie_imem_sec_alloc(fd, alloc_size, CACHED_BUF);
-	if (!ret_buf)
-		return -1;
-
-	mtk_dma_buf_set_name(ret_buf, "fld_tree_forest_cv_buf");
-	fd->fld_cv_hw.dmabuf = ret_buf;
-	fd->fld_cv_hw.size = alloc_size;
-	iova = aie_get_sec_iova(fd, ret_buf, &fd->fld_cv_hw);
-	if (!iova)
-		return -1;
-	writel(AIE_IOVA(iova), fd->fd_base + FLD_CV_BASE_ADDR);
-	fd->fld_cv_hw.pa = iova;
-
-	va = aie_get_va(fd, ret_buf, &fd->fld_cv_hw);
-	if (!va)
-		return -1;
-	fd->fld_cv_hw.va = va;
-	/* CV weight end (done) */
-
-	/* fld_leafnode_forest00 start (done) */
-	alloc_size = fld_leafnode_size * FLD_MAX_INPUT;
-	ret_buf = aie_imem_sec_alloc(fd, alloc_size, CACHED_BUF);
-	if (!ret_buf)
-		return -1;
-
-	mtk_dma_buf_set_name(ret_buf, "fld_leafnode_buf");
-	fd->fld_leafnode_hw.dmabuf = ret_buf;
-	fd->fld_leafnode_hw.size = alloc_size;
-	iova = aie_get_sec_iova(fd, ret_buf, &fd->fld_leafnode_hw);
-	if (!iova)
-		return -1;
-	writel(AIE_IOVA(iova), fd->fd_base + FLD_SH_BASE_ADDR);
-	fd->fld_leafnode_hw.pa = iova;
-
-	va = aie_get_va(fd, ret_buf, &fd->fld_leafnode_hw);
-	if (!va)
-		return -1;
-	fd->fld_leafnode_hw.va = va;
-	/* fld_leafnode_forest00 end */
-
-	/* fld_tree_forest00_tree_node start (done) */
-	alloc_size = fld_tree_size * FLD_MAX_INPUT;
-	ret_buf = aie_imem_sec_alloc(fd, alloc_size, CACHED_BUF);
-	if (!ret_buf)
-		return -1;
-
-	mtk_dma_buf_set_name(ret_buf, "fld_forest_tree_node_buf");
-	fd->fld_tree_02_hw.dmabuf = ret_buf;
-	fd->fld_tree_02_hw.size = alloc_size;
-	iova = aie_get_sec_iova(fd, ret_buf, &fd->fld_tree_02_hw);
-	if (!iova)
-		return -1;
-	writel(AIE_IOVA(iova), fd->fd_base + FLD_TR_BASE_ADDR);
-
-	fd->fld_tree_02_hw.pa = iova;
-	va = aie_get_va(fd, ret_buf, &fd->fld_tree_02_hw);
-	if (!va)
-		return -1;
-	fd->fld_tree_02_hw.va = va;
-	/* fld_tree_forest00_tree_node end */
-
-	/* fdvt_fld_tree_forest00_init_shape start (done) */
-	alloc_size = fld_shape_size;
-	ret_buf = aie_imem_sec_alloc(fd, alloc_size, CACHED_BUF);
-	if (!ret_buf)
-		return -1;
-
-	mtk_dma_buf_set_name(ret_buf, "fld_forest_init_shape_buf");
-	fd->fld_shape_hw.dmabuf = ret_buf;
-	fd->fld_shape_hw.size = alloc_size;
-	iova = aie_get_sec_iova(fd, ret_buf, &fd->fld_shape_hw);
-	if (!iova)
-		return -1;
-	writel(AIE_IOVA(iova), fd->fd_base + FLD_MS_BASE_ADDR);
-	fd->fld_shape_hw.pa = iova;
-
-	va = aie_get_va(fd, ret_buf, &fd->fld_shape_hw);
-	if (!va)
-		return -1;
-	fd->fld_shape_hw.va = va;
-
-	return 0;
-}
-#endif
 
 static void aie_arrange_fddma_buf(struct mtk_aie_dev *fd)
 {
@@ -2099,42 +1804,6 @@ static void aie_arrange_fddma_buf(struct mtk_aie_dev *fd)
 		fd->dma_para->fd_out_hw_pa[83][0] + 4 * pstv->out_xsize_plus_1[85];
 }
 
-static void aie_arrange_kernel_buf(struct mtk_aie_dev *fd)
-{
-	void *currentVA = NULL;
-	dma_addr_t currentPA;
-	u8 i, j;
-
-	currentPA = fd->fd_kernel_hw.pa;
-	currentVA = fd->fd_kernel_hw.va;
-
-	for (i = 0; i < fd_loop_num; i++) {
-		for (j = 0; j < kernel_RDMA_RA_num; j++) {
-			if (fd_ker_rdma_size[i][j]) {
-				fd->dma_para->fd_kernel_pa[i][j] = currentPA;
-				fd->dma_para->fd_kernel_va[i][j] = currentVA;
-				currentPA += fd_ker_rdma_size_aligned[i][j];
-				currentVA += fd_ker_rdma_size_aligned[i][j];
-			}
-		}
-	}
-
-	for (i = 0; i < attr_loop_num; i++) {
-		for (j = 0; j < kernel_RDMA_RA_num; j++) {
-			fd->dma_para->attr_kernel_pa[i][j] = currentPA;
-			fd->dma_para->attr_kernel_va[i][j] = currentVA;
-			currentPA += attr_ker_rdma_aligned_size[i][j];
-			currentVA += attr_ker_rdma_aligned_size[i][j];
-		}
-	}
-
-	/* Set up kernel offset */
-	writel(0x0000014E, fd->fd_base + FLD_FP_FORT_OFST);
-	writel(0x000003E8, fd->fd_base + FLD_TR_FORT_OFST);
-	writel(0x00004B00, fd->fd_base + FLD_SH_FORT_OFST);
-	writel(0x00000043, fd->fd_base + FLD_CV_FORT_OFST);
-}
-
 static void aie_arrange_attrdma_buf(struct mtk_aie_dev *fd)
 {
 	void *currentVA = NULL;
@@ -2156,57 +1825,6 @@ static void aie_arrange_attrdma_buf(struct mtk_aie_dev *fd)
 		}
 	}
 }
-
-#ifdef FLD
-static void aie_arrange_fld_buf(struct mtk_aie_dev *fd)
-{
-	int input_index = 0;
-
-	fd->dma_para->fld_blink_weight_va = fd->fld_blink_weight_hw.va;
-	fd->dma_para->fld_blink_weight_pa = fd->fld_blink_weight_hw.pa;
-
-	fd->dma_para->fld_cv_va[0] = fd->fld_cv_hw.va;
-	fd->dma_para->fld_cv_pa[0] = fd->fld_cv_hw.pa;
-	fd->dma_para->fld_fp_va[0] = fd->fld_fp_hw.va;
-	fd->dma_para->fld_fp_pa[0] = fd->fld_fp_hw.pa;
-
-	fd->dma_para->fld_leafnode_va[0] = fd->fld_leafnode_hw.va;
-	fd->dma_para->fld_leafnode_pa[0] = fd->fld_leafnode_hw.pa;
-	fd->dma_para->fld_tree02_va[0] = fd->fld_tree_02_hw.va;
-	fd->dma_para->fld_tree02_pa[0] = fd->fld_tree_02_hw.pa;
-	fd->dma_para->fld_shape_va[0] = fd->fld_shape_hw.va;
-	fd->dma_para->fld_shape_pa[0] = fd->fld_shape_hw.pa;
-
-	fd->dma_para->fld_cv_va[1] = fd->dma_para->fld_cv_va[0] + fld_cv_size_00;
-	fd->dma_para->fld_cv_pa[1] = fd->dma_para->fld_cv_pa[0] + fld_cv_size_00;
-	fd->dma_para->fld_fp_va[1] = fd->dma_para->fld_fp_va[0] + fld_fp_size;
-	fd->dma_para->fld_fp_pa[1] = fd->dma_para->fld_fp_pa[0] + fld_fp_size;
-	fd->dma_para->fld_leafnode_va[1] = fd->dma_para->fld_leafnode_va[0] + fld_leafnode_size;
-	fd->dma_para->fld_leafnode_pa[1] = fd->dma_para->fld_leafnode_pa[0] + fld_leafnode_size;
-	fd->dma_para->fld_tree02_va[1] = fd->dma_para->fld_tree02_va[0] + fld_tree_size;
-	fd->dma_para->fld_tree02_pa[1] = fd->dma_para->fld_tree02_pa[0] + fld_tree_size;
-
-	for (input_index = 1; input_index < FLD_MAX_INPUT - 1; input_index++) {
-		fd->dma_para->fld_cv_va[input_index + 1] = fd->dma_para->fld_cv_va[input_index] +
-							     fld_cv_size;
-		fd->dma_para->fld_cv_pa[input_index + 1] = fd->dma_para->fld_cv_pa[input_index] +
-							     fld_cv_size;
-		fd->dma_para->fld_fp_va[input_index + 1] = fd->dma_para->fld_fp_va[input_index] +
-							     fld_fp_size;
-		fd->dma_para->fld_fp_pa[input_index + 1] = fd->dma_para->fld_fp_pa[input_index] +
-							     fld_fp_size;
-		fd->dma_para->fld_leafnode_va[input_index + 1] =
-				fd->dma_para->fld_leafnode_va[input_index] + fld_leafnode_size;
-		fd->dma_para->fld_leafnode_pa[input_index + 1] =
-				fd->dma_para->fld_leafnode_pa[input_index] + fld_leafnode_size;
-		fd->dma_para->fld_tree02_va[input_index + 1] =
-				fd->dma_para->fld_tree02_va[input_index] + fld_tree_size;
-		fd->dma_para->fld_tree02_pa[input_index + 1] =
-				fd->dma_para->fld_tree02_pa[input_index] + fld_tree_size;
-	}
-}
-#endif
-
 
 static void aie_update_fddma_buf(struct mtk_aie_dev *fd)
 {
@@ -2372,84 +1990,24 @@ static void aie_free_sec_buf(struct mtk_aie_dev *fd)
 	aie_free_dmabuf(fd, &fd->rs_output_hw);
 }
 
-static void aie_free_dram_buf(struct mtk_aie_dev *fd)
-{
-	//aie_imem_free(fd, &fd->rs_cfg_data);
-	aie_free_iova(fd, &fd->rs_cfg_data);
-	aie_free_va(fd, &fd->rs_cfg_data);
-	aie_free_dmabuf(fd, &fd->rs_cfg_data);
-
-	//aie_imem_free(fd, &fd->fd_cfg_data);
-	aie_free_iova(fd, &fd->fd_cfg_data);
-	aie_free_va(fd, &fd->fd_cfg_data);
-	aie_free_dmabuf(fd, &fd->fd_cfg_data);
-
-	//aie_imem_free(fd, &fd->yuv2rgb_cfg_data);
-	aie_free_iova(fd, &fd->yuv2rgb_cfg_data);
-	aie_free_va(fd, &fd->yuv2rgb_cfg_data);
-	aie_free_dmabuf(fd, &fd->yuv2rgb_cfg_data);
-
-}
-
 static void aie_free_output_buf(struct mtk_aie_dev *fd)
 {
 	aie_free_iova(fd, &fd->rs_output_hw);
 	aie_free_va(fd, &fd->rs_output_hw);
 	aie_free_dmabuf(fd, &fd->rs_output_hw);
-
 }
 
 static void aie_free_fddma_buf(struct mtk_aie_dev *fd)
 {
-	//aie_imem_free(fd, &fd->fd_dma_hw);
 	aie_free_iova(fd, &fd->fd_dma_hw);
 	aie_free_va(fd, &fd->fd_dma_hw);
 	aie_free_dmabuf(fd, &fd->fd_dma_hw);
 
-	//aie_imem_free(fd, &fd->fd_kernel_hw);
-	aie_free_iova(fd, &fd->fd_kernel_hw);
-	aie_free_va(fd, &fd->fd_kernel_hw);
-	aie_free_dmabuf(fd, &fd->fd_kernel_hw);
-
-	//aie_imem_free(fd, &fd->fd_attr_dma_hw);
 	aie_free_iova(fd, &fd->fd_attr_dma_hw);
 	aie_free_va(fd, &fd->fd_attr_dma_hw);
 	aie_free_dmabuf(fd, &fd->fd_attr_dma_hw);
 }
-#ifdef FLD
-static void aie_free_fld_buf(struct mtk_aie_dev *fd)
-{
-	//aie_imem_free(fd, &fd->fld_blink_weight_hw);
-	aie_free_iova(fd, &fd->fld_blink_weight_hw);
-	aie_free_va(fd, &fd->fld_blink_weight_hw);
-	aie_free_dmabuf(fd, &fd->fld_blink_weight_hw);
 
-	//aie_imem_free(fd, &fd->fld_cv_hw);
-	aie_free_iova(fd, &fd->fld_cv_hw);
-	aie_free_va(fd, &fd->fld_cv_hw);
-	aie_free_dmabuf(fd, &fd->fld_cv_hw);
-
-	//aie_imem_free(fd, &fd->fld_fp_hw);
-	aie_free_iova(fd, &fd->fld_fp_hw);
-	aie_free_va(fd, &fd->fld_fp_hw);
-	aie_free_dmabuf(fd, &fd->fld_fp_hw);
-
-	//aie_imem_free(fd, &fd->fld_leafnode_hw);
-	aie_free_iova(fd, &fd->fld_leafnode_hw);
-	aie_free_va(fd, &fd->fld_leafnode_hw);
-	aie_free_dmabuf(fd, &fd->fld_leafnode_hw);
-
-	//aie_imem_free(fd, &fd->fld_tree_02_hw);
-	aie_free_iova(fd, &fd->fld_tree_02_hw);
-	aie_free_va(fd, &fd->fld_tree_02_hw);
-	aie_free_dmabuf(fd, &fd->fld_tree_02_hw);
-
-	//aie_imem_free(fd, &fd->fld_tree_13_hw);
-	aie_free_iova(fd, &fd->fld_shape_hw);
-	aie_free_va(fd, &fd->fld_shape_hw);
-	aie_free_dmabuf(fd, &fd->fld_shape_hw);
-}
-#endif
 #if CHECK_SERVICE_0
 static int aie_copy_fw(struct mtk_aie_dev *fd, const char *name, void *buf,
 		       unsigned int size)
@@ -2475,746 +2033,7 @@ static int aie_copy_fw(struct mtk_aie_dev *fd, const char *name, void *buf,
 	return ret;
 }
 #endif
-static int aie_load_fw(struct mtk_aie_dev *fd)
-{
-	int ret = 0;
-	int i = 0;
 
-	memcpy(fd->base_para->fd_fd_cfg_va,
-			&fdvt_fd_confi_frame01_7sp[0], fd->fd_fd_cfg_data_size);
-	memcpy(fd->base_para->fd_rs_cfg_va, &fdvt_rs_confi_frame01_7sp[0], fd->fd_rs_cfg_size);
-	memcpy(fd->base_para->fd_yuv2rgb_cfg_va, &fdvt_yuv2rgb_confi_frame01_7sp[0],
-			fd->fd_yuv2rgb_cfg_size);
-
-
-	memcpy(fd->base_para->attr_fd_cfg_va[0],
-			&attr_fd_confi_frame01_7sp[0], fd->attr_fd_cfg_data_size);
-	memcpy(fd->base_para->attr_yuv2rgb_cfg_va[0], &attr_yuv2rgb_confi_frame01_7sp[0],
-			fd->attr_yuv2rgb_cfg_data_size);
-
-	for (i = 1; i < MAX_ENQUE_FRAME_NUM; i++) {
-		memcpy(fd->base_para->attr_fd_cfg_va[i],
-		       fd->base_para->attr_fd_cfg_va[0], fd->attr_fd_cfg_data_size);
-		memcpy(fd->base_para->attr_yuv2rgb_cfg_va[i],
-		       fd->base_para->attr_yuv2rgb_cfg_va[0],
-		       fd->attr_yuv2rgb_cfg_data_size);
-	}
-
-	dma_buf_end_cpu_access(fd->fd_cfg_data.dmabuf, DMA_BIDIRECTIONAL);
-	dma_buf_end_cpu_access(fd->rs_cfg_data.dmabuf, DMA_BIDIRECTIONAL);
-	dma_buf_end_cpu_access(fd->yuv2rgb_cfg_data.dmabuf, DMA_BIDIRECTIONAL);
-
-	dma_buf_begin_cpu_access(fd->fd_kernel_hw.dmabuf, DMA_BIDIRECTIONAL);
-	dma_buf_begin_cpu_access(fd->fld_blink_weight_hw.dmabuf, DMA_BIDIRECTIONAL);
-	dma_buf_begin_cpu_access(fd->fld_fp_hw.dmabuf, DMA_BIDIRECTIONAL);
-	dma_buf_begin_cpu_access(fd->fld_cv_hw.dmabuf, DMA_BIDIRECTIONAL);
-	dma_buf_begin_cpu_access(fd->fld_leafnode_hw.dmabuf, DMA_BIDIRECTIONAL);
-	dma_buf_begin_cpu_access(fd->fld_tree_02_hw.dmabuf, DMA_BIDIRECTIONAL);
-	dma_buf_begin_cpu_access(fd->fld_shape_hw.dmabuf, DMA_BIDIRECTIONAL);
-
-	/*0~10*/
-	memcpy(fd->dma_para->fd_kernel_va[0][0], &fdvt_kernel_bias_loop00_0_frame01_7sp[0],
-						fd_ker_rdma_size[0][0]);
-	memcpy(fd->dma_para->fd_kernel_va[0][1], &fdvt_kernel_bias_loop00_1_frame01_7sp[0],
-						fd_ker_rdma_size[0][1]);
-
-	memcpy(fd->dma_para->fd_kernel_va[1][0], &fdvt_kernel_bias_loop01_0_frame01_7sp[0],
-						fd_ker_rdma_size[1][0]);
-	memcpy(fd->dma_para->fd_kernel_va[1][1], &fdvt_kernel_bias_loop01_1_frame01_7sp[0],
-						fd_ker_rdma_size[1][1]);
-
-	memcpy(fd->dma_para->fd_kernel_va[2][0], &fdvt_kernel_bias_loop02_0_frame01_7sp[0],
-						fd_ker_rdma_size[2][0]);
-	memcpy(fd->dma_para->fd_kernel_va[2][1], &fdvt_kernel_bias_loop02_1_frame01_7sp[0],
-						fd_ker_rdma_size[2][1]);
-
-	memcpy(fd->dma_para->fd_kernel_va[3][0], &fdvt_kernel_bias_loop03_0_frame01_7sp[0],
-						fd_ker_rdma_size[3][0]);
-	memcpy(fd->dma_para->fd_kernel_va[3][1], &fdvt_kernel_bias_loop03_1_frame01_7sp[0],
-						fd_ker_rdma_size[3][1]);
-
-	memcpy(fd->dma_para->fd_kernel_va[4][0], &fdvt_kernel_bias_loop04_0_frame01_7sp[0],
-						fd_ker_rdma_size[4][0]);
-	memcpy(fd->dma_para->fd_kernel_va[4][1], &fdvt_kernel_bias_loop04_1_frame01_7sp[0],
-						fd_ker_rdma_size[4][1]);
-
-	memcpy(fd->dma_para->fd_kernel_va[5][0], &fdvt_kernel_bias_loop05_0_frame01_7sp[0],
-						fd_ker_rdma_size[5][0]);
-	memcpy(fd->dma_para->fd_kernel_va[5][1], &fdvt_kernel_bias_loop05_1_frame01_7sp[0],
-						fd_ker_rdma_size[5][1]);
-
-	memcpy(fd->dma_para->fd_kernel_va[6][0], &fdvt_kernel_bias_loop06_0_frame01_7sp[0],
-						fd_ker_rdma_size[6][0]);
-	memcpy(fd->dma_para->fd_kernel_va[6][1], &fdvt_kernel_bias_loop06_1_frame01_7sp[0],
-						fd_ker_rdma_size[6][1]);
-
-	memcpy(fd->dma_para->fd_kernel_va[7][0], &fdvt_kernel_bias_loop07_0_frame01_7sp[0],
-						fd_ker_rdma_size[7][0]);
-	memcpy(fd->dma_para->fd_kernel_va[7][1], &fdvt_kernel_bias_loop07_1_frame01_7sp[0],
-						fd_ker_rdma_size[7][1]);
-
-	memcpy(fd->dma_para->fd_kernel_va[8][0], &fdvt_kernel_bias_loop08_0_frame01_7sp[0],
-						fd_ker_rdma_size[8][0]);
-	memcpy(fd->dma_para->fd_kernel_va[8][1], &fdvt_kernel_bias_loop08_1_frame01_7sp[0],
-						fd_ker_rdma_size[8][1]);
-
-	memcpy(fd->dma_para->fd_kernel_va[9][0], &fdvt_kernel_bias_loop09_0_frame01_7sp[0],
-						fd_ker_rdma_size[9][0]);
-	memcpy(fd->dma_para->fd_kernel_va[9][1], &fdvt_kernel_bias_loop09_1_frame01_7sp[0],
-						fd_ker_rdma_size[9][1]);
-
-	memcpy(fd->dma_para->fd_kernel_va[10][0], &fdvt_kernel_bias_loop10_0_frame01_7sp[0],
-						fd_ker_rdma_size[10][0]);
-	memcpy(fd->dma_para->fd_kernel_va[10][1], &fdvt_kernel_bias_loop10_1_frame01_7sp[0],
-						fd_ker_rdma_size[10][1]);
-
-	/*11~20*/
-	memcpy(fd->dma_para->fd_kernel_va[11][0], &fdvt_kernel_bias_loop11_0_frame01_7sp[0],
-						fd_ker_rdma_size[11][0]);
-	memcpy(fd->dma_para->fd_kernel_va[11][1], &fdvt_kernel_bias_loop11_1_frame01_7sp[0],
-						fd_ker_rdma_size[11][1]);
-
-	memcpy(fd->dma_para->fd_kernel_va[12][0], &fdvt_kernel_bias_loop12_0_frame01_7sp[0],
-						fd_ker_rdma_size[12][0]);
-	memcpy(fd->dma_para->fd_kernel_va[12][1], &fdvt_kernel_bias_loop12_1_frame01_7sp[0],
-						fd_ker_rdma_size[12][1]);
-
-	memcpy(fd->dma_para->fd_kernel_va[13][0], &fdvt_kernel_bias_loop13_0_frame01_7sp[0],
-						fd_ker_rdma_size[13][0]);
-	memcpy(fd->dma_para->fd_kernel_va[13][1], &fdvt_kernel_bias_loop13_1_frame01_7sp[0],
-						fd_ker_rdma_size[13][1]);
-
-	memcpy(fd->dma_para->fd_kernel_va[14][0], &fdvt_kernel_bias_loop14_0_frame01_7sp[0],
-						fd_ker_rdma_size[14][0]);
-	memcpy(fd->dma_para->fd_kernel_va[14][1], &fdvt_kernel_bias_loop14_1_frame01_7sp[0],
-						fd_ker_rdma_size[14][1]);
-
-	memcpy(fd->dma_para->fd_kernel_va[15][0], &fdvt_kernel_bias_loop15_0_frame01_7sp[0],
-						fd_ker_rdma_size[15][0]);
-	memcpy(fd->dma_para->fd_kernel_va[15][1], &fdvt_kernel_bias_loop15_1_frame01_7sp[0],
-						fd_ker_rdma_size[15][1]);
-
-	memcpy(fd->dma_para->fd_kernel_va[16][0], &fdvt_kernel_bias_loop16_0_frame01_7sp[0],
-						fd_ker_rdma_size[16][0]);
-	memcpy(fd->dma_para->fd_kernel_va[16][1], &fdvt_kernel_bias_loop16_1_frame01_7sp[0],
-						fd_ker_rdma_size[16][1]);
-
-	memcpy(fd->dma_para->fd_kernel_va[17][0], &fdvt_kernel_bias_loop17_0_frame01_7sp[0],
-						fd_ker_rdma_size[17][0]);
-	memcpy(fd->dma_para->fd_kernel_va[17][1], &fdvt_kernel_bias_loop17_1_frame01_7sp,
-						fd_ker_rdma_size[17][1]);
-
-	memcpy(fd->dma_para->fd_kernel_va[18][0], &fdvt_kernel_bias_loop18_0_frame01_7sp[0],
-						fd_ker_rdma_size[18][0]);
-	memcpy(fd->dma_para->fd_kernel_va[18][1], &fdvt_kernel_bias_loop18_1_frame01_7sp[0],
-						fd_ker_rdma_size[18][1]);
-
-	memcpy(fd->dma_para->fd_kernel_va[19][0], &fdvt_kernel_bias_loop19_0_frame01_7sp[0],
-						fd_ker_rdma_size[19][0]);
-	memcpy(fd->dma_para->fd_kernel_va[19][1], &fdvt_kernel_bias_loop19_1_frame01_7sp[0],
-						fd_ker_rdma_size[19][1]);
-
-	memcpy(fd->dma_para->fd_kernel_va[20][0], &fdvt_kernel_bias_loop20_0_frame01_7sp[0],
-						fd_ker_rdma_size[20][0]);
-	memcpy(fd->dma_para->fd_kernel_va[20][1], &fdvt_kernel_bias_loop20_1_frame01_7sp[0],
-						fd_ker_rdma_size[20][1]);
-
-	/*21~30: except 28*/
-	memcpy(fd->dma_para->fd_kernel_va[21][0], &fdvt_kernel_bias_loop21_0_frame01_7sp[0],
-						fd_ker_rdma_size[21][0]);
-	memcpy(fd->dma_para->fd_kernel_va[21][1], &fdvt_kernel_bias_loop21_1_frame01_7sp[0],
-						fd_ker_rdma_size[21][1]);
-
-	memcpy(fd->dma_para->fd_kernel_va[22][0], &fdvt_kernel_bias_loop22_0_frame01_7sp[0],
-						fd_ker_rdma_size[22][0]);
-	memcpy(fd->dma_para->fd_kernel_va[22][1], &fdvt_kernel_bias_loop22_1_frame01_7sp[0],
-						fd_ker_rdma_size[22][1]);
-
-	memcpy(fd->dma_para->fd_kernel_va[23][0], &fdvt_kernel_bias_loop23_0_frame01_7sp[0],
-						fd_ker_rdma_size[23][0]);
-	memcpy(fd->dma_para->fd_kernel_va[23][1], &fdvt_kernel_bias_loop23_1_frame01_7sp[0],
-						fd_ker_rdma_size[23][1]);
-
-	memcpy(fd->dma_para->fd_kernel_va[24][0], &fdvt_kernel_bias_loop24_0_frame01_7sp[0],
-						fd_ker_rdma_size[24][0]);
-	memcpy(fd->dma_para->fd_kernel_va[24][1], &fdvt_kernel_bias_loop24_1_frame01_7sp[0],
-						fd_ker_rdma_size[24][1]);
-
-	memcpy(fd->dma_para->fd_kernel_va[25][0], &fdvt_kernel_bias_loop25_0_frame01_7sp[0],
-						fd_ker_rdma_size[25][0]);
-	memcpy(fd->dma_para->fd_kernel_va[25][1], &fdvt_kernel_bias_loop25_1_frame01_7sp[0],
-						fd_ker_rdma_size[25][1]);
-
-	memcpy(fd->dma_para->fd_kernel_va[26][0], &fdvt_kernel_bias_loop26_0_frame01_7sp[0],
-						fd_ker_rdma_size[26][0]);
-	memcpy(fd->dma_para->fd_kernel_va[26][1], &fdvt_kernel_bias_loop26_1_frame01_7sp[0],
-						fd_ker_rdma_size[26][1]);
-
-	memcpy(fd->dma_para->fd_kernel_va[27][0], &fdvt_kernel_bias_loop27_0_frame01_7sp[0],
-						fd_ker_rdma_size[27][0]);
-	memcpy(fd->dma_para->fd_kernel_va[27][1], &fdvt_kernel_bias_loop27_1_frame01_7sp[0],
-						fd_ker_rdma_size[27][1]);
-
-	memcpy(fd->dma_para->fd_kernel_va[29][0], &fdvt_kernel_bias_loop29_0_frame01_7sp[0],
-						fd_ker_rdma_size[29][0]);
-	memcpy(fd->dma_para->fd_kernel_va[29][1], &fdvt_kernel_bias_loop29_1_frame01_7sp[0],
-						fd_ker_rdma_size[29][1]);
-
-	memcpy(fd->dma_para->fd_kernel_va[30][0], &fdvt_kernel_bias_loop30_0_frame01_7sp[0],
-						fd_ker_rdma_size[30][0]);
-	memcpy(fd->dma_para->fd_kernel_va[30][1], &fdvt_kernel_bias_loop30_1_frame01_7sp[0],
-						fd_ker_rdma_size[30][1]);
-
-	/*31~40*/
-	memcpy(fd->dma_para->fd_kernel_va[31][0], &fdvt_kernel_bias_loop31_0_frame01_7sp[0],
-						fd_ker_rdma_size[31][0]);
-	memcpy(fd->dma_para->fd_kernel_va[31][1], &fdvt_kernel_bias_loop31_1_frame01_7sp[0],
-						fd_ker_rdma_size[31][1]);
-
-	memcpy(fd->dma_para->fd_kernel_va[32][0], &fdvt_kernel_bias_loop32_0_frame01_7sp[0],
-						fd_ker_rdma_size[32][0]);
-	memcpy(fd->dma_para->fd_kernel_va[32][1], &fdvt_kernel_bias_loop32_1_frame01_7sp[0],
-						fd_ker_rdma_size[32][1]);
-
-	memcpy(fd->dma_para->fd_kernel_va[33][0], &fdvt_kernel_bias_loop33_0_frame01_7sp[0],
-						fd_ker_rdma_size[33][0]);
-	memcpy(fd->dma_para->fd_kernel_va[33][1], &fdvt_kernel_bias_loop33_1_frame01_7sp[0],
-						fd_ker_rdma_size[33][1]);
-
-	memcpy(fd->dma_para->fd_kernel_va[34][0], &fdvt_kernel_bias_loop34_0_frame01_7sp[0],
-						fd_ker_rdma_size[34][0]);
-	memcpy(fd->dma_para->fd_kernel_va[34][1], &fdvt_kernel_bias_loop34_1_frame01_7sp[0],
-						fd_ker_rdma_size[34][1]);
-
-	memcpy(fd->dma_para->fd_kernel_va[35][0], &fdvt_kernel_bias_loop35_0_frame01_7sp[0],
-						fd_ker_rdma_size[35][0]);
-	memcpy(fd->dma_para->fd_kernel_va[35][1], &fdvt_kernel_bias_loop35_1_frame01_7sp[0],
-						fd_ker_rdma_size[35][1]);
-
-	memcpy(fd->dma_para->fd_kernel_va[36][0], &fdvt_kernel_bias_loop36_0_frame01_7sp[0],
-						fd_ker_rdma_size[36][0]);
-	memcpy(fd->dma_para->fd_kernel_va[36][1], &fdvt_kernel_bias_loop36_1_frame01_7sp[0],
-						fd_ker_rdma_size[36][1]);
-
-	memcpy(fd->dma_para->fd_kernel_va[37][0], &fdvt_kernel_bias_loop37_0_frame01_7sp[0],
-						fd_ker_rdma_size[37][0]);
-	memcpy(fd->dma_para->fd_kernel_va[37][1], &fdvt_kernel_bias_loop37_1_frame01_7sp[0],
-						fd_ker_rdma_size[37][1]);
-
-	memcpy(fd->dma_para->fd_kernel_va[38][0], &fdvt_kernel_bias_loop38_0_frame01_7sp[0],
-						fd_ker_rdma_size[38][0]);
-	memcpy(fd->dma_para->fd_kernel_va[38][1], &fdvt_kernel_bias_loop38_1_frame01_7sp[0],
-						fd_ker_rdma_size[38][1]);
-
-	memcpy(fd->dma_para->fd_kernel_va[39][0], &fdvt_kernel_bias_loop39_0_frame01_7sp[0],
-						fd_ker_rdma_size[39][0]);
-	memcpy(fd->dma_para->fd_kernel_va[39][1], &fdvt_kernel_bias_loop39_1_frame01_7sp[0],
-						fd_ker_rdma_size[39][1]);
-
-	memcpy(fd->dma_para->fd_kernel_va[40][0], &fdvt_kernel_bias_loop40_0_frame01_7sp[0],
-						fd_ker_rdma_size[40][0]);
-	memcpy(fd->dma_para->fd_kernel_va[40][1], &fdvt_kernel_bias_loop40_1_frame01_7sp[0],
-						fd_ker_rdma_size[40][1]);
-
-	/*41~50*/
-	memcpy(fd->dma_para->fd_kernel_va[41][0], &fdvt_kernel_bias_loop41_0_frame01_7sp[0],
-						fd_ker_rdma_size[41][0]);
-	memcpy(fd->dma_para->fd_kernel_va[41][1], &fdvt_kernel_bias_loop41_1_frame01_7sp[0],
-						fd_ker_rdma_size[41][1]);
-
-	memcpy(fd->dma_para->fd_kernel_va[42][0], &fdvt_kernel_bias_loop42_0_frame01_7sp[0],
-						fd_ker_rdma_size[42][0]);
-	memcpy(fd->dma_para->fd_kernel_va[42][1], &fdvt_kernel_bias_loop42_1_frame01_7sp[0],
-						fd_ker_rdma_size[42][1]);
-
-	memcpy(fd->dma_para->fd_kernel_va[43][0], &fdvt_kernel_bias_loop43_0_frame01_7sp[0],
-						fd_ker_rdma_size[43][0]);
-	memcpy(fd->dma_para->fd_kernel_va[43][1], &fdvt_kernel_bias_loop43_1_frame01_7sp[0],
-						fd_ker_rdma_size[43][1]);
-
-	memcpy(fd->dma_para->fd_kernel_va[44][0], &fdvt_kernel_bias_loop44_0_frame01_7sp[0],
-						fd_ker_rdma_size[44][0]);
-	memcpy(fd->dma_para->fd_kernel_va[44][1], &fdvt_kernel_bias_loop44_1_frame01_7sp[0],
-						fd_ker_rdma_size[44][1]);
-
-	memcpy(fd->dma_para->fd_kernel_va[45][0], &fdvt_kernel_bias_loop45_0_frame01_7sp[0],
-						fd_ker_rdma_size[45][0]);
-	memcpy(fd->dma_para->fd_kernel_va[45][1], &fdvt_kernel_bias_loop45_1_frame01_7sp[0],
-						fd_ker_rdma_size[45][1]);
-
-	memcpy(fd->dma_para->fd_kernel_va[46][0], &fdvt_kernel_bias_loop46_0_frame01_7sp[0],
-						fd_ker_rdma_size[46][0]);
-	memcpy(fd->dma_para->fd_kernel_va[46][1], &fdvt_kernel_bias_loop46_1_frame01_7sp[0],
-						fd_ker_rdma_size[46][1]);
-
-	memcpy(fd->dma_para->fd_kernel_va[47][0], &fdvt_kernel_bias_loop47_0_frame01_7sp[0],
-						fd_ker_rdma_size[47][0]);
-	memcpy(fd->dma_para->fd_kernel_va[47][1], &fdvt_kernel_bias_loop47_1_frame01_7sp[0],
-						fd_ker_rdma_size[47][1]);
-
-	memcpy(fd->dma_para->fd_kernel_va[48][0], &fdvt_kernel_bias_loop48_0_frame01_7sp[0],
-						fd_ker_rdma_size[48][0]);
-	memcpy(fd->dma_para->fd_kernel_va[48][1], &fdvt_kernel_bias_loop48_1_frame01_7sp[0],
-						fd_ker_rdma_size[48][1]);
-
-	memcpy(fd->dma_para->fd_kernel_va[49][0], &fdvt_kernel_bias_loop49_0_frame01_7sp[0],
-						fd_ker_rdma_size[49][0]);
-	memcpy(fd->dma_para->fd_kernel_va[49][1], &fdvt_kernel_bias_loop49_1_frame01_7sp[0],
-						fd_ker_rdma_size[49][1]);
-
-	memcpy(fd->dma_para->fd_kernel_va[50][0], &fdvt_kernel_bias_loop50_0_frame01_7sp[0],
-						fd_ker_rdma_size[50][0]);
-	memcpy(fd->dma_para->fd_kernel_va[50][1], &fdvt_kernel_bias_loop50_1_frame01_7sp[0],
-						fd_ker_rdma_size[50][1]);
-
-	/*51~60: except 57*/
-	memcpy(fd->dma_para->fd_kernel_va[51][0], &fdvt_kernel_bias_loop51_0_frame01_7sp[0],
-						fd_ker_rdma_size[51][0]);
-	memcpy(fd->dma_para->fd_kernel_va[51][1], &fdvt_kernel_bias_loop51_1_frame01_7sp[0],
-						fd_ker_rdma_size[51][1]);
-
-	memcpy(fd->dma_para->fd_kernel_va[52][0], &fdvt_kernel_bias_loop52_0_frame01_7sp[0],
-						fd_ker_rdma_size[52][0]);
-	memcpy(fd->dma_para->fd_kernel_va[52][1], &fdvt_kernel_bias_loop52_1_frame01_7sp[0],
-						fd_ker_rdma_size[52][1]);
-
-	memcpy(fd->dma_para->fd_kernel_va[53][0], &fdvt_kernel_bias_loop53_0_frame01_7sp[0],
-						fd_ker_rdma_size[53][0]);
-	memcpy(fd->dma_para->fd_kernel_va[53][1], &fdvt_kernel_bias_loop53_1_frame01_7sp[0],
-						fd_ker_rdma_size[53][1]);
-
-	memcpy(fd->dma_para->fd_kernel_va[54][0], &fdvt_kernel_bias_loop54_0_frame01_7sp[0],
-						fd_ker_rdma_size[54][0]);
-	memcpy(fd->dma_para->fd_kernel_va[54][1], &fdvt_kernel_bias_loop54_1_frame01_7sp[0],
-						fd_ker_rdma_size[54][1]);
-
-	memcpy(fd->dma_para->fd_kernel_va[55][0], &fdvt_kernel_bias_loop55_0_frame01_7sp[0],
-						fd_ker_rdma_size[55][0]);
-	memcpy(fd->dma_para->fd_kernel_va[55][1], &fdvt_kernel_bias_loop55_1_frame01_7sp[0],
-						fd_ker_rdma_size[55][1]);
-
-	memcpy(fd->dma_para->fd_kernel_va[56][0], &fdvt_kernel_bias_loop56_0_frame01_7sp[0],
-						fd_ker_rdma_size[56][0]);
-	memcpy(fd->dma_para->fd_kernel_va[56][1], &fdvt_kernel_bias_loop56_1_frame01_7sp[0],
-						fd_ker_rdma_size[56][1]);
-
-	memcpy(fd->dma_para->fd_kernel_va[58][0], &fdvt_kernel_bias_loop58_0_frame01_7sp[0],
-						fd_ker_rdma_size[58][0]);
-	memcpy(fd->dma_para->fd_kernel_va[58][1], &fdvt_kernel_bias_loop58_1_frame01_7sp[0],
-						fd_ker_rdma_size[58][1]);
-
-	memcpy(fd->dma_para->fd_kernel_va[59][0], &fdvt_kernel_bias_loop59_0_frame01_7sp[0],
-						fd_ker_rdma_size[59][0]);
-	memcpy(fd->dma_para->fd_kernel_va[59][1], &fdvt_kernel_bias_loop59_1_frame01_7sp[0],
-						fd_ker_rdma_size[59][1]);
-
-	memcpy(fd->dma_para->fd_kernel_va[60][0], &fdvt_kernel_bias_loop60_0_frame01_7sp[0],
-						fd_ker_rdma_size[60][0]);
-	memcpy(fd->dma_para->fd_kernel_va[60][1], &fdvt_kernel_bias_loop60_1_frame01_7sp[0],
-						fd_ker_rdma_size[60][1]);
-
-	/*61~70*/
-	memcpy(fd->dma_para->fd_kernel_va[61][0], &fdvt_kernel_bias_loop61_0_frame01_7sp[0],
-						fd_ker_rdma_size[61][0]);
-	memcpy(fd->dma_para->fd_kernel_va[61][1], &fdvt_kernel_bias_loop61_1_frame01_7sp[0],
-						fd_ker_rdma_size[61][1]);
-
-	memcpy(fd->dma_para->fd_kernel_va[62][0], &fdvt_kernel_bias_loop62_0_frame01_7sp[0],
-						fd_ker_rdma_size[62][0]);
-	memcpy(fd->dma_para->fd_kernel_va[62][1], &fdvt_kernel_bias_loop62_1_frame01_7sp[0],
-						fd_ker_rdma_size[62][1]);
-
-	memcpy(fd->dma_para->fd_kernel_va[63][0], &fdvt_kernel_bias_loop63_0_frame01_7sp[0],
-						fd_ker_rdma_size[63][0]);
-	memcpy(fd->dma_para->fd_kernel_va[63][1], &fdvt_kernel_bias_loop63_1_frame01_7sp[0],
-						fd_ker_rdma_size[63][1]);
-
-	memcpy(fd->dma_para->fd_kernel_va[64][0], &fdvt_kernel_bias_loop64_0_frame01_7sp[0],
-						fd_ker_rdma_size[64][0]);
-	memcpy(fd->dma_para->fd_kernel_va[64][1], &fdvt_kernel_bias_loop64_1_frame01_7sp[0],
-						fd_ker_rdma_size[64][1]);
-
-	memcpy(fd->dma_para->fd_kernel_va[65][0], &fdvt_kernel_bias_loop65_0_frame01_7sp[0],
-						fd_ker_rdma_size[65][0]);
-	memcpy(fd->dma_para->fd_kernel_va[65][1], &fdvt_kernel_bias_loop65_1_frame01_7sp[0],
-						fd_ker_rdma_size[65][1]);
-
-	memcpy(fd->dma_para->fd_kernel_va[66][0], &fdvt_kernel_bias_loop66_0_frame01_7sp[0],
-						fd_ker_rdma_size[66][0]);
-	memcpy(fd->dma_para->fd_kernel_va[66][1], &fdvt_kernel_bias_loop66_1_frame01_7sp[0],
-						fd_ker_rdma_size[66][1]);
-
-	memcpy(fd->dma_para->fd_kernel_va[67][0], &fdvt_kernel_bias_loop67_0_frame01_7sp[0],
-						fd_ker_rdma_size[67][0]);
-	memcpy(fd->dma_para->fd_kernel_va[67][1], &fdvt_kernel_bias_loop67_1_frame01_7sp[0],
-						fd_ker_rdma_size[67][1]);
-
-	memcpy(fd->dma_para->fd_kernel_va[68][0], &fdvt_kernel_bias_loop68_0_frame01_7sp[0],
-						fd_ker_rdma_size[68][0]);
-	memcpy(fd->dma_para->fd_kernel_va[68][1], &fdvt_kernel_bias_loop68_1_frame01_7sp[0],
-						fd_ker_rdma_size[68][1]);
-
-	memcpy(fd->dma_para->fd_kernel_va[69][0], &fdvt_kernel_bias_loop69_0_frame01_7sp[0],
-						fd_ker_rdma_size[69][0]);
-	memcpy(fd->dma_para->fd_kernel_va[69][1], &fdvt_kernel_bias_loop69_1_frame01_7sp[0],
-						fd_ker_rdma_size[69][1]);
-
-	memcpy(fd->dma_para->fd_kernel_va[70][0], &fdvt_kernel_bias_loop70_0_frame01_7sp[0],
-						fd_ker_rdma_size[70][0]);
-	memcpy(fd->dma_para->fd_kernel_va[70][1], &fdvt_kernel_bias_loop70_1_frame01_7sp[0],
-						fd_ker_rdma_size[70][1]);
-
-	/*71~80*/
-	memcpy(fd->dma_para->fd_kernel_va[71][0], &fdvt_kernel_bias_loop71_0_frame01_7sp[0],
-						fd_ker_rdma_size[71][0]);
-	memcpy(fd->dma_para->fd_kernel_va[71][1], &fdvt_kernel_bias_loop71_1_frame01_7sp[0],
-						fd_ker_rdma_size[71][1]);
-
-	memcpy(fd->dma_para->fd_kernel_va[72][0], &fdvt_kernel_bias_loop72_0_frame01_7sp[0],
-						fd_ker_rdma_size[72][0]);
-	memcpy(fd->dma_para->fd_kernel_va[72][1], &fdvt_kernel_bias_loop72_1_frame01_7sp[0],
-						fd_ker_rdma_size[72][1]);
-
-	memcpy(fd->dma_para->fd_kernel_va[73][0], &fdvt_kernel_bias_loop73_0_frame01_7sp[0],
-						fd_ker_rdma_size[73][0]);
-	memcpy(fd->dma_para->fd_kernel_va[73][1], &fdvt_kernel_bias_loop73_1_frame01_7sp[0],
-						fd_ker_rdma_size[73][1]);
-
-	memcpy(fd->dma_para->fd_kernel_va[74][0], &fdvt_kernel_bias_loop74_0_frame01_7sp[0],
-						fd_ker_rdma_size[74][0]);
-	memcpy(fd->dma_para->fd_kernel_va[74][1], &fdvt_kernel_bias_loop74_1_frame01_7sp[0],
-						fd_ker_rdma_size[74][1]);
-
-	memcpy(fd->dma_para->fd_kernel_va[75][0], &fdvt_kernel_bias_loop75_0_frame01_7sp[0],
-						fd_ker_rdma_size[75][0]);
-	memcpy(fd->dma_para->fd_kernel_va[75][1], &fdvt_kernel_bias_loop75_1_frame01_7sp[0],
-						fd_ker_rdma_size[75][1]);
-
-	memcpy(fd->dma_para->fd_kernel_va[76][0], &fdvt_kernel_bias_loop76_0_frame01_7sp[0],
-						fd_ker_rdma_size[76][0]);
-	memcpy(fd->dma_para->fd_kernel_va[76][1], &fdvt_kernel_bias_loop76_1_frame01_7sp[0],
-						fd_ker_rdma_size[76][1]);
-
-	memcpy(fd->dma_para->fd_kernel_va[77][0], &fdvt_kernel_bias_loop77_0_frame01_7sp[0],
-						fd_ker_rdma_size[77][0]);
-	memcpy(fd->dma_para->fd_kernel_va[77][1], &fdvt_kernel_bias_loop77_1_frame01_7sp[0],
-						fd_ker_rdma_size[77][1]);
-
-	memcpy(fd->dma_para->fd_kernel_va[78][0], &fdvt_kernel_bias_loop78_0_frame01_7sp[0],
-						fd_ker_rdma_size[78][0]);
-	memcpy(fd->dma_para->fd_kernel_va[78][1], &fdvt_kernel_bias_loop78_1_frame01_7sp[0],
-						fd_ker_rdma_size[78][1]);
-
-	memcpy(fd->dma_para->fd_kernel_va[79][0], &fdvt_kernel_bias_loop79_0_frame01_7sp[0],
-						fd_ker_rdma_size[79][0]);
-	memcpy(fd->dma_para->fd_kernel_va[79][1], &fdvt_kernel_bias_loop79_1_frame01_7sp[0],
-						fd_ker_rdma_size[79][1]);
-
-	memcpy(fd->dma_para->fd_kernel_va[80][0], &fdvt_kernel_bias_loop80_0_frame01_7sp[0],
-						fd_ker_rdma_size[80][0]);
-	memcpy(fd->dma_para->fd_kernel_va[80][1], &fdvt_kernel_bias_loop80_1_frame01_7sp[0],
-						fd_ker_rdma_size[80][1]);
-
-	/*81~85*/
-	memcpy(fd->dma_para->fd_kernel_va[81][0], &fdvt_kernel_bias_loop81_0_frame01_7sp[0],
-						fd_ker_rdma_size[81][0]);
-	memcpy(fd->dma_para->fd_kernel_va[81][1], &fdvt_kernel_bias_loop81_1_frame01_7sp[0],
-						fd_ker_rdma_size[81][1]);
-
-	memcpy(fd->dma_para->fd_kernel_va[82][0], &fdvt_kernel_bias_loop82_0_frame01_7sp[0],
-						fd_ker_rdma_size[82][0]);
-	memcpy(fd->dma_para->fd_kernel_va[82][1], &fdvt_kernel_bias_loop82_1_frame01_7sp[0],
-						fd_ker_rdma_size[82][1]);
-
-	memcpy(fd->dma_para->fd_kernel_va[83][0], &fdvt_kernel_bias_loop83_0_frame01_7sp[0],
-						fd_ker_rdma_size[83][0]);
-	memcpy(fd->dma_para->fd_kernel_va[83][1], &fdvt_kernel_bias_loop83_1_frame01_7sp[0],
-						fd_ker_rdma_size[83][1]);
-
-	memcpy(fd->dma_para->fd_kernel_va[84][0], &fdvt_kernel_bias_loop84_0_frame01_7sp[0],
-						fd_ker_rdma_size[84][0]);
-	memcpy(fd->dma_para->fd_kernel_va[84][1], &fdvt_kernel_bias_loop84_1_frame01_7sp[0],
-						fd_ker_rdma_size[84][1]);
-
-	memcpy(fd->dma_para->fd_kernel_va[85][0], &fdvt_kernel_bias_loop85_0_frame01_7sp[0],
-						fd_ker_rdma_size[85][0]);
-	memcpy(fd->dma_para->fd_kernel_va[85][1], &fdvt_kernel_bias_loop85_1_frame01_7sp[0],
-						fd_ker_rdma_size[85][1]);
-
-	memcpy(fd->dma_para->attr_kernel_va[0][0], &gender_kernel_bias_loop00_0_frame01_7sp[0],
-						 attr_ker_rdma_size[0][0]);
-	memcpy(fd->dma_para->attr_kernel_va[0][1], &gender_kernel_bias_loop00_1_frame01_7sp[0],
-						attr_ker_rdma_size[0][1]);
-
-	memcpy(fd->dma_para->attr_kernel_va[1][0], &gender_kernel_bias_loop01_0_frame01_7sp[0],
-						attr_ker_rdma_size[1][0]);
-	memcpy(fd->dma_para->attr_kernel_va[1][1], &gender_kernel_bias_loop01_1_frame01_7sp[0],
-						attr_ker_rdma_size[1][1]);
-
-	memcpy(fd->dma_para->attr_kernel_va[2][0], &gender_kernel_bias_loop02_0_frame01_7sp[0],
-						attr_ker_rdma_size[2][0]);
-	memcpy(fd->dma_para->attr_kernel_va[2][1], &gender_kernel_bias_loop02_1_frame01_7sp[0],
-						attr_ker_rdma_size[2][1]);
-
-	memcpy(fd->dma_para->attr_kernel_va[3][0], &gender_kernel_bias_loop03_0_frame01_7sp[0],
-						attr_ker_rdma_size[3][0]);
-	memcpy(fd->dma_para->attr_kernel_va[3][1], &gender_kernel_bias_loop03_1_frame01_7sp[0],
-						attr_ker_rdma_size[3][1]);
-
-	memcpy(fd->dma_para->attr_kernel_va[4][0], &gender_kernel_bias_loop04_0_frame01_7sp[0],
-						attr_ker_rdma_size[4][0]);
-	memcpy(fd->dma_para->attr_kernel_va[4][1], &gender_kernel_bias_loop04_1_frame01_7sp[0],
-						attr_ker_rdma_size[4][1]);
-
-	memcpy(fd->dma_para->attr_kernel_va[5][0], &gender_kernel_bias_loop05_0_frame01_7sp[0],
-						attr_ker_rdma_size[5][0]);
-	memcpy(fd->dma_para->attr_kernel_va[5][1], &gender_kernel_bias_loop05_1_frame01_7sp[0],
-						attr_ker_rdma_size[5][1]);
-
-	memcpy(fd->dma_para->attr_kernel_va[6][0], &gender_kernel_bias_loop06_0_frame01_7sp[0],
-						attr_ker_rdma_size[6][0]);
-	memcpy(fd->dma_para->attr_kernel_va[6][1], &gender_kernel_bias_loop06_1_frame01_7sp[0],
-						attr_ker_rdma_size[6][1]);
-
-	memcpy(fd->dma_para->attr_kernel_va[7][0], &gender_kernel_bias_loop07_0_frame01_7sp[0],
-						attr_ker_rdma_size[7][0]);
-	memcpy(fd->dma_para->attr_kernel_va[7][1], &gender_kernel_bias_loop07_1_frame01_7sp[0],
-						attr_ker_rdma_size[7][1]);
-
-	memcpy(fd->dma_para->attr_kernel_va[8][0], &gender_kernel_bias_loop08_0_frame01_7sp[0],
-						attr_ker_rdma_size[8][0]);
-	memcpy(fd->dma_para->attr_kernel_va[8][1], &gender_kernel_bias_loop08_1_frame01_7sp[0],
-						attr_ker_rdma_size[8][1]);
-
-	memcpy(fd->dma_para->attr_kernel_va[9][0], &gender_kernel_bias_loop09_0_frame01_7sp[0],
-						attr_ker_rdma_size[9][0]);
-	memcpy(fd->dma_para->attr_kernel_va[9][1], &gender_kernel_bias_loop09_1_frame01_7sp[0],
-						attr_ker_rdma_size[9][1]);
-
-	memcpy(fd->dma_para->attr_kernel_va[10][0], &gender_kernel_bias_loop10_0_frame01_7sp[0],
-						attr_ker_rdma_size[10][0]);
-	memcpy(fd->dma_para->attr_kernel_va[10][1], &gender_kernel_bias_loop10_1_frame01_7sp[0],
-						attr_ker_rdma_size[10][1]);
-
-	/*11~20*/
-	memcpy(fd->dma_para->attr_kernel_va[11][0], &gender_kernel_bias_loop11_0_frame01_7sp[0],
-						attr_ker_rdma_size[11][0]);
-	memcpy(fd->dma_para->attr_kernel_va[11][1], &gender_kernel_bias_loop11_1_frame01_7sp[0],
-						attr_ker_rdma_size[11][1]);
-
-	memcpy(fd->dma_para->attr_kernel_va[12][0], &gender_kernel_bias_loop12_0_frame01_7sp[0],
-						attr_ker_rdma_size[12][0]);
-	memcpy(fd->dma_para->attr_kernel_va[12][1], &gender_kernel_bias_loop12_1_frame01_7sp[0],
-						attr_ker_rdma_size[12][1]);
-
-	memcpy(fd->dma_para->attr_kernel_va[13][0], &gender_kernel_bias_loop13_0_frame01_7sp[0],
-						attr_ker_rdma_size[13][0]);
-	memcpy(fd->dma_para->attr_kernel_va[13][1], &gender_kernel_bias_loop13_1_frame01_7sp[0],
-						attr_ker_rdma_size[13][1]);
-
-	memcpy(fd->dma_para->attr_kernel_va[14][0], &gender_kernel_bias_loop14_0_frame01_7sp[0],
-						attr_ker_rdma_size[14][0]);
-	memcpy(fd->dma_para->attr_kernel_va[14][1], &gender_kernel_bias_loop14_1_frame01_7sp[0],
-						attr_ker_rdma_size[14][1]);
-
-	memcpy(fd->dma_para->attr_kernel_va[15][0], &gender_kernel_bias_loop15_0_frame01_7sp[0],
-						attr_ker_rdma_size[15][0]);
-	memcpy(fd->dma_para->attr_kernel_va[15][1], &gender_kernel_bias_loop15_1_frame01_7sp[0],
-						attr_ker_rdma_size[15][1]);
-
-	memcpy(fd->dma_para->attr_kernel_va[16][0], &gender_kernel_bias_loop16_0_frame01_7sp[0],
-						attr_ker_rdma_size[16][0]);
-	memcpy(fd->dma_para->attr_kernel_va[16][1], &gender_kernel_bias_loop16_1_frame01_7sp[0],
-						attr_ker_rdma_size[16][1]);
-
-	memcpy(fd->dma_para->attr_kernel_va[17][0], &gender_kernel_bias_loop17_0_frame01_7sp[0],
-						attr_ker_rdma_size[17][0]);
-	memcpy(fd->dma_para->attr_kernel_va[17][1], &gender_kernel_bias_loop17_1_frame01_7sp[0],
-						attr_ker_rdma_size[17][1]);
-
-	memcpy(fd->dma_para->attr_kernel_va[18][0], &gender_kernel_bias_loop18_0_frame01_7sp[0],
-						attr_ker_rdma_size[18][0]);
-	memcpy(fd->dma_para->attr_kernel_va[18][1], &gender_kernel_bias_loop18_1_frame01_7sp[0],
-						attr_ker_rdma_size[18][1]);
-
-	memcpy(fd->dma_para->attr_kernel_va[19][0], &gender_kernel_bias_loop19_0_frame01_7sp[0],
-						attr_ker_rdma_size[19][0]);
-	memcpy(fd->dma_para->attr_kernel_va[19][1], &gender_kernel_bias_loop19_1_frame01_7sp[0],
-						attr_ker_rdma_size[19][1]);
-
-	memcpy(fd->dma_para->attr_kernel_va[20][0], &gender_kernel_bias_loop20_0_frame01_7sp[0],
-						attr_ker_rdma_size[20][0]);
-	memcpy(fd->dma_para->attr_kernel_va[20][1], &gender_kernel_bias_loop20_1_frame01_7sp[0],
-						attr_ker_rdma_size[20][1]);
-
-	/*21~30: except 28*/
-	memcpy(fd->dma_para->attr_kernel_va[21][0], &gender_kernel_bias_loop21_0_frame01_7sp[0],
-						attr_ker_rdma_size[21][0]);
-	memcpy(fd->dma_para->attr_kernel_va[21][1], &gender_kernel_bias_loop21_1_frame01_7sp[0],
-						attr_ker_rdma_size[21][1]);
-
-	memcpy(fd->dma_para->attr_kernel_va[22][0], &gender_kernel_bias_loop22_0_frame01_7sp[0],
-						attr_ker_rdma_size[22][0]);
-	memcpy(fd->dma_para->attr_kernel_va[22][1], &gender_kernel_bias_loop22_1_frame01_7sp[0],
-						attr_ker_rdma_size[22][1]);
-
-	memcpy(fd->dma_para->attr_kernel_va[23][0], &gender_kernel_bias_loop23_0_frame01_7sp[0],
-						attr_ker_rdma_size[23][0]);
-	memcpy(fd->dma_para->attr_kernel_va[23][1], &gender_kernel_bias_loop23_1_frame01_7sp[0],
-						attr_ker_rdma_size[23][1]);
-
-	memcpy(fd->dma_para->attr_kernel_va[24][0], &gender_kernel_bias_loop24_0_frame01_7sp[0],
-						attr_ker_rdma_size[24][0]);
-	memcpy(fd->dma_para->attr_kernel_va[24][1], &gender_kernel_bias_loop24_1_frame01_7sp[0],
-						attr_ker_rdma_size[24][1]);
-
-	memcpy(fd->dma_para->attr_kernel_va[25][0], &gender_kernel_bias_loop25_0_frame01_7sp[0],
-						attr_ker_rdma_size[25][0]);
-	memcpy(fd->dma_para->attr_kernel_va[25][1], &gender_kernel_bias_loop25_1_frame01_7sp[0],
-						attr_ker_rdma_size[25][1]);
-
-
-	memcpy(fd->dma_para->fld_blink_weight_va, &fdvt_fld_blink_weight_forest14_7sp[0],
-						fld_blink_weight_size_non_align);
-	memcpy(fd->dma_para->fld_cv_va[0],
-			&fdvt_fld_tree_forest00_cv_weight_7sp, fld_cv_size_00_non_align);
-	memcpy(fd->dma_para->fld_cv_va[1], &fdvt_fld_tree_forest01_cv_weight_7sp, fld_cv_size);
-	memcpy(fd->dma_para->fld_cv_va[2], &fdvt_fld_tree_forest02_cv_weight_7sp, fld_cv_size);
-	memcpy(fd->dma_para->fld_cv_va[3], &fdvt_fld_tree_forest03_cv_weight_7sp, fld_cv_size);
-	memcpy(fd->dma_para->fld_cv_va[4], &fdvt_fld_tree_forest04_cv_weight_7sp, fld_cv_size);
-	memcpy(fd->dma_para->fld_cv_va[5], &fdvt_fld_tree_forest05_cv_weight_7sp, fld_cv_size);
-	memcpy(fd->dma_para->fld_cv_va[6], &fdvt_fld_tree_forest06_cv_weight_7sp, fld_cv_size);
-	memcpy(fd->dma_para->fld_cv_va[7], &fdvt_fld_tree_forest07_cv_weight_7sp, fld_cv_size);
-	memcpy(fd->dma_para->fld_cv_va[8], &fdvt_fld_tree_forest08_cv_weight_7sp, fld_cv_size);
-	memcpy(fd->dma_para->fld_cv_va[9], &fdvt_fld_tree_forest09_cv_weight_7sp, fld_cv_size);
-	memcpy(fd->dma_para->fld_cv_va[10], &fdvt_fld_tree_forest10_cv_weight_7sp, fld_cv_size);
-	memcpy(fd->dma_para->fld_cv_va[11], &fdvt_fld_tree_forest11_cv_weight_7sp, fld_cv_size);
-	memcpy(fd->dma_para->fld_cv_va[12], &fdvt_fld_tree_forest12_cv_weight_7sp, fld_cv_size);
-	memcpy(fd->dma_para->fld_cv_va[13], &fdvt_fld_tree_forest13_cv_weight_7sp, fld_cv_size);
-	memcpy(fd->dma_para->fld_cv_va[14], &fdvt_fld_tree_forest14_cv_weight_7sp, fld_cv_size);
-
-	memcpy(fd->dma_para->fld_fp_va[0], &fdvt_fld_fp_forest00_om45_7sp, fld_fp_size_non_align);
-	memcpy(fd->dma_para->fld_fp_va[1], &fdvt_fld_fp_forest01_om45_7sp, fld_fp_size_non_align);
-	memcpy(fd->dma_para->fld_fp_va[2], &fdvt_fld_fp_forest02_om45_7sp, fld_fp_size_non_align);
-	memcpy(fd->dma_para->fld_fp_va[3], &fdvt_fld_fp_forest03_om45_7sp, fld_fp_size_non_align);
-	memcpy(fd->dma_para->fld_fp_va[4], &fdvt_fld_fp_forest04_om45_7sp, fld_fp_size_non_align);
-	memcpy(fd->dma_para->fld_fp_va[5], &fdvt_fld_fp_forest05_om45_7sp, fld_fp_size_non_align);
-	memcpy(fd->dma_para->fld_fp_va[6], &fdvt_fld_fp_forest06_om45_7sp, fld_fp_size_non_align);
-	memcpy(fd->dma_para->fld_fp_va[7], &fdvt_fld_fp_forest07_om45_7sp, fld_fp_size_non_align);
-	memcpy(fd->dma_para->fld_fp_va[8], &fdvt_fld_fp_forest08_om45_7sp, fld_fp_size_non_align);
-	memcpy(fd->dma_para->fld_fp_va[9], &fdvt_fld_fp_forest09_om45_7sp, fld_fp_size_non_align);
-	memcpy(fd->dma_para->fld_fp_va[10], &fdvt_fld_fp_forest10_om45_7sp, fld_fp_size_non_align);
-	memcpy(fd->dma_para->fld_fp_va[11], &fdvt_fld_fp_forest11_om45_7sp, fld_fp_size_non_align);
-	memcpy(fd->dma_para->fld_fp_va[12], &fdvt_fld_fp_forest12_om45_7sp, fld_fp_size_non_align);
-	memcpy(fd->dma_para->fld_fp_va[13], &fdvt_fld_fp_forest13_om45_7sp, fld_fp_size_non_align);
-	memcpy(fd->dma_para->fld_fp_va[14], &fdvt_fld_fp_forest14_om45_7sp, fld_fp_size_non_align);
-
-	memcpy(fd->dma_para->fld_leafnode_va[0], &fdvt_fld_leafnode_forest00_7sp,
-		   fld_leafnode_size);
-	memcpy(fd->dma_para->fld_leafnode_va[1], &fdvt_fld_leafnode_forest01_7sp,
-		   fld_leafnode_size);
-	memcpy(fd->dma_para->fld_leafnode_va[2], &fdvt_fld_leafnode_forest02_7sp,
-		   fld_leafnode_size);
-	memcpy(fd->dma_para->fld_leafnode_va[3], &fdvt_fld_leafnode_forest03_7sp,
-		   fld_leafnode_size);
-	memcpy(fd->dma_para->fld_leafnode_va[4], &fdvt_fld_leafnode_forest04_7sp,
-		   fld_leafnode_size);
-	memcpy(fd->dma_para->fld_leafnode_va[5], &fdvt_fld_leafnode_forest05_7sp,
-		   fld_leafnode_size);
-	memcpy(fd->dma_para->fld_leafnode_va[6], &fdvt_fld_leafnode_forest06_7sp,
-		   fld_leafnode_size);
-	memcpy(fd->dma_para->fld_leafnode_va[7], &fdvt_fld_leafnode_forest07_7sp,
-		   fld_leafnode_size);
-	memcpy(fd->dma_para->fld_leafnode_va[8], &fdvt_fld_leafnode_forest08_7sp,
-		   fld_leafnode_size);
-	memcpy(fd->dma_para->fld_leafnode_va[9], &fdvt_fld_leafnode_forest09_7sp,
-		   fld_leafnode_size);
-	memcpy(fd->dma_para->fld_leafnode_va[10],
-			&fdvt_fld_leafnode_forest10_7sp, fld_leafnode_size);
-	memcpy(fd->dma_para->fld_leafnode_va[11],
-			&fdvt_fld_leafnode_forest11_7sp, fld_leafnode_size);
-	memcpy(fd->dma_para->fld_leafnode_va[12],
-			&fdvt_fld_leafnode_forest12_7sp, fld_leafnode_size);
-	memcpy(fd->dma_para->fld_leafnode_va[13],
-			&fdvt_fld_leafnode_forest13_7sp, fld_leafnode_size);
-	memcpy(fd->dma_para->fld_leafnode_va[14],
-			&fdvt_fld_leafnode_forest14_7sp, fld_leafnode_size);
-
-	memcpy(fd->dma_para->fld_shape_va[0], &fdvt_fld_tree_forest00_init_shape_7sp,
-								fld_shape_size_non_align);
-
-	memcpy(fd->dma_para->fld_tree02_va[0], &fdvt_fld_tree_forest00_tree_node_7sp,
-								fld_tree_size_non_align);
-	memcpy(fd->dma_para->fld_tree02_va[1], &fdvt_fld_tree_forest01_tree_node_7sp,
-								fld_tree_size_non_align);
-	memcpy(fd->dma_para->fld_tree02_va[2], &fdvt_fld_tree_forest02_tree_node_7sp,
-								fld_tree_size_non_align);
-	memcpy(fd->dma_para->fld_tree02_va[3], &fdvt_fld_tree_forest03_tree_node_7sp,
-								fld_tree_size_non_align);
-	memcpy(fd->dma_para->fld_tree02_va[4], &fdvt_fld_tree_forest04_tree_node_7sp,
-								fld_tree_size_non_align);
-	memcpy(fd->dma_para->fld_tree02_va[5], &fdvt_fld_tree_forest05_tree_node_7sp,
-								fld_tree_size_non_align);
-	memcpy(fd->dma_para->fld_tree02_va[6], &fdvt_fld_tree_forest06_tree_node_7sp,
-								fld_tree_size_non_align);
-	memcpy(fd->dma_para->fld_tree02_va[7], &fdvt_fld_tree_forest07_tree_node_7sp,
-								fld_tree_size_non_align);
-	memcpy(fd->dma_para->fld_tree02_va[8], &fdvt_fld_tree_forest08_tree_node_7sp,
-								fld_tree_size_non_align);
-	memcpy(fd->dma_para->fld_tree02_va[9], &fdvt_fld_tree_forest09_tree_node_7sp,
-								fld_tree_size_non_align);
-	memcpy(fd->dma_para->fld_tree02_va[10], &fdvt_fld_tree_forest10_tree_node_7sp,
-								fld_tree_size_non_align);
-	memcpy(fd->dma_para->fld_tree02_va[11], &fdvt_fld_tree_forest11_tree_node_7sp,
-								fld_tree_size_non_align);
-	memcpy(fd->dma_para->fld_tree02_va[12], &fdvt_fld_tree_forest12_tree_node_7sp,
-								fld_tree_size_non_align);
-	memcpy(fd->dma_para->fld_tree02_va[13], &fdvt_fld_tree_forest13_tree_node_7sp,
-								fld_tree_size_non_align);
-	memcpy(fd->dma_para->fld_tree02_va[14], &fdvt_fld_tree_forest14_tree_node_7sp,
-								fld_tree_size_non_align);
-
-	dma_buf_end_cpu_access(fd->fd_kernel_hw.dmabuf, DMA_BIDIRECTIONAL);
-	dma_buf_end_cpu_access(fd->fld_blink_weight_hw.dmabuf, DMA_BIDIRECTIONAL);
-	dma_buf_end_cpu_access(fd->fld_fp_hw.dmabuf, DMA_BIDIRECTIONAL);
-	dma_buf_end_cpu_access(fd->fld_cv_hw.dmabuf, DMA_BIDIRECTIONAL);
-	dma_buf_end_cpu_access(fd->fld_leafnode_hw.dmabuf, DMA_BIDIRECTIONAL);
-	dma_buf_end_cpu_access(fd->fld_tree_02_hw.dmabuf, DMA_BIDIRECTIONAL);
-	dma_buf_end_cpu_access(fd->fld_shape_hw.dmabuf, DMA_BIDIRECTIONAL);
-
-	/* Model related configuration */
-	writel(0x00b0c80f, fd->fd_base + FLD_NUM_CONFIG_0);
-
-	writel(0x6C004800, fd->fd_base + FLD_PCA_MEAN_SCALE_0);
-	writel(0x6c007c00, fd->fd_base + FLD_PCA_MEAN_SCALE_1);
-	writel(0x6c00b800, fd->fd_base + FLD_PCA_MEAN_SCALE_2);
-	writel(0x6c00ec00, fd->fd_base + FLD_PCA_MEAN_SCALE_3);
-	writel(0xb0009800, fd->fd_base + FLD_PCA_MEAN_SCALE_4);
-	writel(0xdc006800, fd->fd_base + FLD_PCA_MEAN_SCALE_5);
-	writel(0xdc00cc00, fd->fd_base + FLD_PCA_MEAN_SCALE_6);
-
-	writel(0x00fdefd3, fd->fd_base + FLD_PCA_VEC_0);
-	writel(0x00fef095, fd->fd_base + FLD_PCA_VEC_1);
-	writel(0x00011095, fd->fd_base + FLD_PCA_VEC_2);
-	writel(0x00022fd3, fd->fd_base + FLD_PCA_VEC_3);
-	writel(0x000003e6, fd->fd_base + FLD_PCA_VEC_4);
-	writel(0x0000dfe9, fd->fd_base + FLD_PCA_VEC_5);
-	writel(0x00ff3fe9, fd->fd_base + FLD_PCA_VEC_6);
-
-	writel(0x00000008, fd->fd_base + FLD_CV_BIAS_FR_0);
-	writel(0x00000003, fd->fd_base + FLD_CV_BIAS_PF_0);
-	writel(0x0000b835, fd->fd_base + FLD_CV_RANGE_FR_0);
-	writel(0xFFFF5cba, fd->fd_base + FLD_CV_RANGE_FR_1);
-	writel(0x00005ed5, fd->fd_base + FLD_CV_RANGE_PF_0);
-	writel(0xFFFF910d, fd->fd_base + FLD_CV_RANGE_PF_1);
-	writel(0xe8242184, fd->fd_base + FLD_PP_COEF);
-
-	writel(0x00000001, fd->fd_base + FLD_BS_CONFIG0);
-	writel(0x0000031e, fd->fd_base + FLD_BS_CONFIG1);
-	writel(0xfffffcae, fd->fd_base + FLD_BS_CONFIG2);
-
-	return ret;
-}
 #if  CHECK_SERVICE_0
 static void aie_reset_output_buf(struct mtk_aie_dev *fd,
 				 struct aie_enq_info *aie_cfg)
@@ -3380,8 +2199,8 @@ static int aie_config_y2r(struct mtk_aie_dev *fd, struct aie_enq_info *aie_cfg,
 		src_crop_h = fd->base_para->crop_height;
 		yuv2rgb_cfg = (u32 *)fd->base_para->fd_yuv2rgb_cfg_va;
 		pym0_out_w = fd->base_para->pyramid_width;
-		flush_offset = 0;
-		flush_len = fd->fd_yuv2rgb_cfg_aligned_size;
+		flush_offset = g_fd_yuv2rgb_config_offset;
+		flush_len = AIE_ALIGN32(fdvt_yuv2rgb_confi_frame01_size);
 	} else if (mode == ATTRIBUTEMODE) {
 		src_crop_w = fd->attr_para->crop_width[fd->attr_para->w_idx];
 		src_crop_h = fd->attr_para->crop_height[fd->attr_para->w_idx];
@@ -3389,9 +2208,10 @@ static int aie_config_y2r(struct mtk_aie_dev *fd, struct aie_enq_info *aie_cfg,
 			(u32 *)fd->base_para
 				->attr_yuv2rgb_cfg_va[fd->attr_para->w_idx];
 		pym0_out_w = ATTR_MODE_PYRAMID_WIDTH;
-		flush_offset = fd->fd_yuv2rgb_cfg_aligned_size +
-			fd->attr_yuv2rgb_cfg_aligned_size * fd->attr_para->w_idx;
-		flush_len = fd->attr_yuv2rgb_cfg_aligned_size;
+		flush_offset = g_fd_yuv2rgb_config_offset +
+			AIE_ALIGN32(fdvt_yuv2rgb_confi_frame01_size) +
+			AIE_ALIGN32(attr_yuv2rgb_confi_frame01_size) * fd->attr_para->w_idx;
+		flush_len = AIE_ALIGN32(attr_yuv2rgb_confi_frame01_size);
 	} else {
 		aie_dev_info(fd->dev,
 				"YUV2RGB not support %d", mode);
@@ -3624,7 +2444,7 @@ static int aie_config_y2r(struct mtk_aie_dev *fd, struct aie_enq_info *aie_cfg,
 			((src_crop_h - 1) << 15) / (pym0_out_h - 1);
 	}
 
-	dma_buf_end_cpu_access_partial(fd->yuv2rgb_cfg_data.dmabuf,
+	dma_buf_end_cpu_access_partial(fd->config_model_dmabuf,
 		DMA_BIDIRECTIONAL, flush_offset, flush_len);
 
 	return 0;
@@ -3741,7 +2561,9 @@ static int aie_config_rs(struct mtk_aie_dev *fd, struct aie_enq_info *aie_cfg)
 			(xmag_0 & 0x3FFF) | ((ymag_0 << 16) & 0x3FFF0000);
 	}
 
-	dma_buf_end_cpu_access(fd->rs_cfg_data.dmabuf, DMA_BIDIRECTIONAL);
+	dma_buf_end_cpu_access_partial(fd->config_model_dmabuf,
+		DMA_BIDIRECTIONAL, g_fd_rs_config_offset,
+		AIE_ALIGN32(fdvt_rs_confi_frame01_size));
 
 	return 0;
 }
@@ -3769,8 +2591,8 @@ static int aie_config_network(struct mtk_aie_dev *fd,
 	u16 out_ysize_plus_1_stride2 = 0;
 	u32 src_crop_w  = 0;
 	u32 src_crop_h = 0;
-	u32 flush_offset  = 0;
-	u32 flush_len = fd->fd_fd_cfg_aligned_size;
+	u32 flush_offset  = g_fd_fd_config_offset;
+	u32 flush_len = AIE_ALIGN32(fdvt_fd_confi_frame01_size);
 	struct aie_static_info *pstv = NULL;
 	int msb_bit_0 = 0, msb_bit_1 = 0, msb_bit_2 = 0, msb_bit_3 = 0;
 
@@ -4083,7 +2905,7 @@ static int aie_config_network(struct mtk_aie_dev *fd,
 		fd_cur_cfg[POS_FDCON_KERNEL_BA_MSB] = (u32)((msb_bit_1 << 8) | (msb_bit_0));
 	}
 
-	dma_buf_end_cpu_access_partial(fd->fd_cfg_data.dmabuf,
+	dma_buf_end_cpu_access_partial(fd->config_model_dmabuf,
 		DMA_BIDIRECTIONAL, flush_offset, flush_len);
 
 	return 0;
@@ -4107,9 +2929,9 @@ static int aie_config_attr_network(struct mtk_aie_dev *fd,
 	u32 flush_offset;
 	u32 flush_len;
 
-	flush_offset = fd->fd_fd_cfg_aligned_size +
-		fd->attr_fd_cfg_aligned_size * fd->attr_para->w_idx;
-	flush_len = fd->attr_fd_cfg_aligned_size;
+	flush_offset = g_fd_fd_config_offset + AIE_ALIGN32(fdvt_fd_confi_frame01_size) +
+		AIE_ALIGN32(attr_fd_confi_frame01_size) * fd->attr_para->w_idx;
+	flush_len = AIE_ALIGN32(attr_fd_confi_frame01_size);
 
 	src_crop_w = fd->attr_para->crop_width[fd->attr_para->w_idx];
 	src_crop_h = fd->attr_para->crop_height[fd->attr_para->w_idx];
@@ -4317,7 +3139,7 @@ static int aie_config_attr_network(struct mtk_aie_dev *fd,
 		}
 	}
 
-	dma_buf_end_cpu_access_partial(fd->fd_cfg_data.dmabuf,
+	dma_buf_end_cpu_access_partial(fd->config_model_dmabuf,
 		DMA_BIDIRECTIONAL, flush_offset, flush_len);
 
 	return 0;
@@ -4372,7 +3194,6 @@ static int aie_alloc_aie_buf(struct mtk_aie_dev *fd)
 {
 	int ret = -1;
 	int err_tag = 0;
-	// struct arm_smccc_res res;
 
 	aie_reset(fd);
 
@@ -4392,10 +3213,6 @@ static int aie_alloc_aie_buf(struct mtk_aie_dev *fd)
 	aie_get_data_size(fd, fd->base_para->max_img_width,
 				      fd->base_para->max_img_height);
 
-	ret = aie_alloc_dram_buf(fd); //config
-	if (ret)
-		goto dram_fail;
-
 	ret = aie_alloc_output_buf(fd); //pyramid
 	if (ret)
 		goto output_fail;
@@ -4403,49 +3220,28 @@ static int aie_alloc_aie_buf(struct mtk_aie_dev *fd)
 	ret = aie_alloc_fddma_buf(fd); //inter-production
 	if (ret)
 		goto fddma_fail;
-#ifdef FLD
-	ret = aie_alloc_fld_buf(fd);
-	if (ret)
-		goto fld_fail;
-#endif
+
+	aie_arrange_config_network(fd);
 
 	aie_dev_info(fd->dev,
 	"c(%llx/%llx/%llx)o(%llx/%llx/%llx/%llx)f(%llx/%llx/%llx/%llx/%llx/%llx)\n",
-		fd->rs_cfg_data.pa, fd->fd_cfg_data.pa, fd->yuv2rgb_cfg_data.pa,
-		fd->rs_output_hw.pa, fd->fd_dma_hw.pa,
-		fd->fd_kernel_hw.pa, fd->fd_attr_dma_hw.pa, fd->fld_cv_hw.pa,
-		fd->fld_fp_hw.pa, fd->fld_leafnode_hw.pa, fd->fld_tree_02_hw.pa,
-		fd->fld_shape_hw.pa, fd->fld_blink_weight_hw.pa
+		fd->base_para->fd_rs_cfg_pa, fd->base_para->fd_fd_cfg_pa,
+		fd->base_para->fd_yuv2rgb_cfg_pa, fd->rs_output_hw.pa, fd->fd_dma_hw.pa,
+		fd->dma_para->fd_kernel_pa[0][0], fd->fd_attr_dma_hw.pa,
+		fd->dma_para->fld_cv_pa[0], fd->dma_para->fld_fp_pa[0],
+		fd->dma_para->fld_leafnode_pa[0], fd->dma_para->fld_tree02_pa[0],
+		fd->dma_para->fld_shape_pa[0], fd->dma_para->fld_blink_weight_pa
 	);
 	aie_arrange_fddma_buf(fd);
-	aie_arrange_kernel_buf(fd);
 	aie_arrange_attrdma_buf(fd);
-#ifdef FLD
-	aie_arrange_fld_buf(fd);
-#endif
-	ret = aie_load_fw(fd);
-	if (ret)
-		goto load_fw_fail;
 
 	return ret;
 
-load_fw_fail:
-	aie_free_fddma_buf(fd);
-	err_tag++;
-#ifdef FLD
-fld_fail:
-	aie_free_fld_buf(fd);
-	err_tag++;
-#endif
 fddma_fail:
 	aie_free_output_buf(fd);
 	err_tag++;
 
 output_fail:
-	aie_free_dram_buf(fd);
-	err_tag++;
-
-dram_fail:
 	err_tag++;
 
 max_pyramid_size_too_large:
@@ -4517,11 +3313,8 @@ static void aie_uninit(struct mtk_aie_dev *fd)
 {
 	fd->fd_state = STATE_NA;
 
-	aie_free_dram_buf(fd);
 	aie_free_fddma_buf(fd);
-#ifdef FLD
-	aie_free_fld_buf(fd);
-#endif
+
 	if (g_user_param.is_secure)
 		aie_free_sec_buf(fd);
 	else
@@ -5006,6 +3799,1513 @@ static void aie_config_fld_buf_reg(struct mtk_aie_dev *fd)
 		fd->fd_base + FLD_IMG_BASE_ADDR);
 	writel(AIE_IOVA(fd->dma_para->fld_output_pa),
 		fd->fd_base + FLD_PP_BASE_ADDR);
+}
+
+static void aie_arrange_config_network(struct mtk_aie_dev *fd)
+{
+	unsigned char *va = (unsigned char *)fd->config_model_kva;
+	unsigned long long pa = fd->config_model_pa;
+	unsigned int i;
+	unsigned int msb_bit = 0;
+
+	g_fd_rs_config_offset = 0;
+
+	/* arrange iova */
+	/* rs config */
+	fd->base_para->fd_rs_cfg_pa = pa;
+	msb_bit = (pa & 0Xf00000000) >> 32;
+	writel(msb_bit, fd->fd_base + FDVT_RS_CON_BASE_ADR_MSB);
+
+	pa += AIE_ALIGN32(fdvt_rs_confi_frame01_size);
+	g_fd_yuv2rgb_config_offset =
+		g_fd_rs_config_offset + AIE_ALIGN32(fdvt_rs_confi_frame01_size);
+
+	/* yuv2rgb config */
+	fd->base_para->fd_yuv2rgb_cfg_pa = pa;
+	msb_bit = (pa & 0Xf00000000) >> 32;
+	writel(msb_bit, fd->fd_base + FDVT_YUV2RGB_CON_BASE_ADR_MSB);
+
+	pa += AIE_ALIGN32(fdvt_yuv2rgb_confi_frame01_size);
+
+	for (i = 0; i < MAX_ENQUE_FRAME_NUM; i++) {
+		fd->base_para->attr_yuv2rgb_cfg_pa[i] = pa;
+		pa += AIE_ALIGN32(attr_yuv2rgb_confi_frame01_size);
+	}
+	g_fd_fd_config_offset =
+		g_fd_yuv2rgb_config_offset +
+		AIE_ALIGN32(fdvt_yuv2rgb_confi_frame01_size) +
+		MAX_ENQUE_FRAME_NUM * AIE_ALIGN32(attr_yuv2rgb_confi_frame01_size);
+
+	/* fd config */
+	fd->base_para->fd_fd_cfg_pa = pa;
+	msb_bit = (pa & 0Xf00000000) >> 32;
+	writel(msb_bit, fd->fd_base + FDVT_FD_CON_BASE_ADR_MSB);
+
+	pa += AIE_ALIGN32(fdvt_fd_confi_frame01_size);
+
+	for (i = 0; i < MAX_ENQUE_FRAME_NUM; i++) {
+		fd->base_para->attr_fd_cfg_pa[i] = pa;
+		pa += AIE_ALIGN32(attr_fd_confi_frame01_size);
+	}
+
+	/* fd kernel model */
+	fd->dma_para->fd_kernel_pa[0][0] = pa;
+	pa += AIE_ALIGN32(fdvt_kernel_bias_loop00_0_frame01_size);
+
+	fd->dma_para->fd_kernel_pa[0][1] = pa;
+	pa += AIE_ALIGN32(fdvt_kernel_bias_loop00_1_frame01_size);
+
+	fd->dma_para->fd_kernel_pa[1][0] = pa;
+	pa += AIE_ALIGN32(fdvt_kernel_bias_loop01_0_frame01_size);
+
+	fd->dma_para->fd_kernel_pa[1][1] = pa;
+	pa += AIE_ALIGN32(fdvt_kernel_bias_loop01_1_frame01_size);
+
+	fd->dma_para->fd_kernel_pa[2][0] = pa;
+	pa += AIE_ALIGN32(fdvt_kernel_bias_loop02_0_frame01_size);
+
+	fd->dma_para->fd_kernel_pa[2][1] = pa;
+	pa += AIE_ALIGN32(fdvt_kernel_bias_loop02_1_frame01_size);
+
+	fd->dma_para->fd_kernel_pa[3][0] = pa;
+	pa += AIE_ALIGN32(fdvt_kernel_bias_loop03_0_frame01_size);
+
+	fd->dma_para->fd_kernel_pa[3][1] = pa;
+	pa += AIE_ALIGN32(fdvt_kernel_bias_loop03_1_frame01_size);
+
+	fd->dma_para->fd_kernel_pa[4][0] = pa;
+	pa += AIE_ALIGN32(fdvt_kernel_bias_loop04_0_frame01_size);
+
+	fd->dma_para->fd_kernel_pa[4][1] = pa;
+	pa += AIE_ALIGN32(fdvt_kernel_bias_loop04_1_frame01_size);
+
+	fd->dma_para->fd_kernel_pa[5][0] = pa;
+	pa += AIE_ALIGN32(fdvt_kernel_bias_loop05_0_frame01_size);
+
+	fd->dma_para->fd_kernel_pa[5][1] = pa;
+	pa += AIE_ALIGN32(fdvt_kernel_bias_loop05_1_frame01_size);
+
+	fd->dma_para->fd_kernel_pa[6][0] = pa;
+	pa += AIE_ALIGN32(fdvt_kernel_bias_loop06_0_frame01_size);
+
+	fd->dma_para->fd_kernel_pa[6][1] = pa;
+	pa += AIE_ALIGN32(fdvt_kernel_bias_loop06_1_frame01_size);
+
+	fd->dma_para->fd_kernel_pa[7][0] = pa;
+	pa += AIE_ALIGN32(fdvt_kernel_bias_loop07_0_frame01_size);
+
+	fd->dma_para->fd_kernel_pa[7][1] = pa;
+	pa += AIE_ALIGN32(fdvt_kernel_bias_loop07_1_frame01_size);
+
+	fd->dma_para->fd_kernel_pa[8][0] = pa;
+	pa += AIE_ALIGN32(fdvt_kernel_bias_loop08_0_frame01_size);
+
+	fd->dma_para->fd_kernel_pa[8][1] = pa;
+	pa += AIE_ALIGN32(fdvt_kernel_bias_loop08_1_frame01_size);
+
+	fd->dma_para->fd_kernel_pa[9][0] = pa;
+	pa += AIE_ALIGN32(fdvt_kernel_bias_loop09_0_frame01_size);
+
+	fd->dma_para->fd_kernel_pa[9][1] = pa;
+	pa += AIE_ALIGN32(fdvt_kernel_bias_loop09_1_frame01_size);
+
+	fd->dma_para->fd_kernel_pa[10][0] = pa;
+	pa += AIE_ALIGN32(fdvt_kernel_bias_loop10_0_frame01_size);
+
+	fd->dma_para->fd_kernel_pa[10][1] = pa;
+	pa += AIE_ALIGN32(fdvt_kernel_bias_loop10_1_frame01_size);
+
+	fd->dma_para->fd_kernel_pa[11][0] = pa;
+	pa += AIE_ALIGN32(fdvt_kernel_bias_loop11_0_frame01_size);
+
+	fd->dma_para->fd_kernel_pa[11][1] = pa;
+	pa += AIE_ALIGN32(fdvt_kernel_bias_loop11_1_frame01_size);
+
+	fd->dma_para->fd_kernel_pa[12][0] = pa;
+	pa += AIE_ALIGN32(fdvt_kernel_bias_loop12_0_frame01_size);
+
+	fd->dma_para->fd_kernel_pa[12][1] = pa;
+	pa += AIE_ALIGN32(fdvt_kernel_bias_loop12_1_frame01_size);
+
+	fd->dma_para->fd_kernel_pa[13][0] = pa;
+	pa += AIE_ALIGN32(fdvt_kernel_bias_loop13_0_frame01_size);
+
+	fd->dma_para->fd_kernel_pa[13][1] = pa;
+	pa += AIE_ALIGN32(fdvt_kernel_bias_loop13_1_frame01_size);
+
+	fd->dma_para->fd_kernel_pa[14][0] = pa;
+	pa += AIE_ALIGN32(fdvt_kernel_bias_loop14_0_frame01_size);
+
+	fd->dma_para->fd_kernel_pa[14][1] = pa;
+	pa += AIE_ALIGN32(fdvt_kernel_bias_loop14_1_frame01_size);
+
+	fd->dma_para->fd_kernel_pa[15][0] = pa;
+	pa += AIE_ALIGN32(fdvt_kernel_bias_loop15_0_frame01_size);
+
+	fd->dma_para->fd_kernel_pa[15][1] = pa;
+	pa += AIE_ALIGN32(fdvt_kernel_bias_loop15_1_frame01_size);
+
+	fd->dma_para->fd_kernel_pa[16][0] = pa;
+	pa += AIE_ALIGN32(fdvt_kernel_bias_loop16_0_frame01_size);
+
+	fd->dma_para->fd_kernel_pa[16][1] = pa;
+	pa += AIE_ALIGN32(fdvt_kernel_bias_loop16_1_frame01_size);
+
+	fd->dma_para->fd_kernel_pa[17][0] = pa;
+	pa += AIE_ALIGN32(fdvt_kernel_bias_loop17_0_frame01_size);
+
+	fd->dma_para->fd_kernel_pa[17][1] = pa;
+	pa += AIE_ALIGN32(fdvt_kernel_bias_loop17_1_frame01_size);
+
+	fd->dma_para->fd_kernel_pa[18][0] = pa;
+	pa += AIE_ALIGN32(fdvt_kernel_bias_loop18_0_frame01_size);
+
+	fd->dma_para->fd_kernel_pa[18][1] = pa;
+	pa += AIE_ALIGN32(fdvt_kernel_bias_loop18_1_frame01_size);
+
+	fd->dma_para->fd_kernel_pa[19][0] = pa;
+	pa += AIE_ALIGN32(fdvt_kernel_bias_loop19_0_frame01_size);
+
+	fd->dma_para->fd_kernel_pa[19][1] = pa;
+	pa += AIE_ALIGN32(fdvt_kernel_bias_loop19_1_frame01_size);
+
+	fd->dma_para->fd_kernel_pa[20][0] = pa;
+	pa += AIE_ALIGN32(fdvt_kernel_bias_loop20_0_frame01_size);
+
+	fd->dma_para->fd_kernel_pa[20][1] = pa;
+	pa += AIE_ALIGN32(fdvt_kernel_bias_loop20_1_frame01_size);
+
+	fd->dma_para->fd_kernel_pa[21][0] = pa;
+	pa += AIE_ALIGN32(fdvt_kernel_bias_loop21_0_frame01_size);
+
+	fd->dma_para->fd_kernel_pa[21][1] = pa;
+	pa += AIE_ALIGN32(fdvt_kernel_bias_loop21_1_frame01_size);
+
+	fd->dma_para->fd_kernel_pa[22][0] = pa;
+	pa += AIE_ALIGN32(fdvt_kernel_bias_loop22_0_frame01_size);
+
+	fd->dma_para->fd_kernel_pa[22][1] = pa;
+	pa += AIE_ALIGN32(fdvt_kernel_bias_loop22_1_frame01_size);
+
+	fd->dma_para->fd_kernel_pa[23][0] = pa;
+	pa += AIE_ALIGN32(fdvt_kernel_bias_loop23_0_frame01_size);
+
+	fd->dma_para->fd_kernel_pa[23][1] = pa;
+	pa += AIE_ALIGN32(fdvt_kernel_bias_loop23_1_frame01_size);
+
+	fd->dma_para->fd_kernel_pa[24][0] = pa;
+	pa += AIE_ALIGN32(fdvt_kernel_bias_loop24_0_frame01_size);
+
+	fd->dma_para->fd_kernel_pa[24][1] = pa;
+	pa += AIE_ALIGN32(fdvt_kernel_bias_loop24_1_frame01_size);
+
+	fd->dma_para->fd_kernel_pa[25][0] = pa;
+	pa += AIE_ALIGN32(fdvt_kernel_bias_loop25_0_frame01_size);
+
+	fd->dma_para->fd_kernel_pa[25][1] = pa;
+	pa += AIE_ALIGN32(fdvt_kernel_bias_loop25_1_frame01_size);
+
+	fd->dma_para->fd_kernel_pa[26][0] = pa;
+	pa += AIE_ALIGN32(fdvt_kernel_bias_loop26_0_frame01_size);
+
+	fd->dma_para->fd_kernel_pa[26][1] = pa;
+	pa += AIE_ALIGN32(fdvt_kernel_bias_loop26_1_frame01_size);
+
+	fd->dma_para->fd_kernel_pa[27][0] = pa;
+	pa += AIE_ALIGN32(fdvt_kernel_bias_loop27_0_frame01_size);
+
+	fd->dma_para->fd_kernel_pa[27][1] = pa;
+	pa += AIE_ALIGN32(fdvt_kernel_bias_loop27_1_frame01_size);
+
+	fd->dma_para->fd_kernel_pa[29][0] = pa;
+	pa += AIE_ALIGN32(fdvt_kernel_bias_loop29_0_frame01_size);
+
+	fd->dma_para->fd_kernel_pa[29][1] = pa;
+	pa += AIE_ALIGN32(fdvt_kernel_bias_loop29_1_frame01_size);
+
+	fd->dma_para->fd_kernel_pa[30][0] = pa;
+	pa += AIE_ALIGN32(fdvt_kernel_bias_loop30_0_frame01_size);
+
+	fd->dma_para->fd_kernel_pa[30][1] = pa;
+	pa += AIE_ALIGN32(fdvt_kernel_bias_loop30_1_frame01_size);
+
+	fd->dma_para->fd_kernel_pa[31][0] = pa;
+	pa += AIE_ALIGN32(fdvt_kernel_bias_loop31_0_frame01_size);
+
+	fd->dma_para->fd_kernel_pa[31][1] = pa;
+	pa += AIE_ALIGN32(fdvt_kernel_bias_loop31_1_frame01_size);
+
+	fd->dma_para->fd_kernel_pa[32][0] = pa;
+	pa += AIE_ALIGN32(fdvt_kernel_bias_loop32_0_frame01_size);
+
+	fd->dma_para->fd_kernel_pa[32][1] = pa;
+	pa += AIE_ALIGN32(fdvt_kernel_bias_loop32_1_frame01_size);
+
+	fd->dma_para->fd_kernel_pa[33][0] = pa;
+	pa += AIE_ALIGN32(fdvt_kernel_bias_loop33_0_frame01_size);
+
+	fd->dma_para->fd_kernel_pa[33][1] = pa;
+	pa += AIE_ALIGN32(fdvt_kernel_bias_loop33_1_frame01_size);
+
+	fd->dma_para->fd_kernel_pa[34][0] = pa;
+	pa += AIE_ALIGN32(fdvt_kernel_bias_loop34_0_frame01_size);
+
+	fd->dma_para->fd_kernel_pa[34][1] = pa;
+	pa += AIE_ALIGN32(fdvt_kernel_bias_loop34_1_frame01_size);
+
+	fd->dma_para->fd_kernel_pa[35][0] = pa;
+	pa += AIE_ALIGN32(fdvt_kernel_bias_loop35_0_frame01_size);
+
+	fd->dma_para->fd_kernel_pa[35][1] = pa;
+	pa += AIE_ALIGN32(fdvt_kernel_bias_loop35_1_frame01_size);
+
+	fd->dma_para->fd_kernel_pa[36][0] = pa;
+	pa += AIE_ALIGN32(fdvt_kernel_bias_loop36_0_frame01_size);
+
+	fd->dma_para->fd_kernel_pa[36][1] = pa;
+	pa += AIE_ALIGN32(fdvt_kernel_bias_loop36_1_frame01_size);
+
+	fd->dma_para->fd_kernel_pa[37][0] = pa;
+	pa += AIE_ALIGN32(fdvt_kernel_bias_loop37_0_frame01_size);
+
+	fd->dma_para->fd_kernel_pa[37][1] = pa;
+	pa += AIE_ALIGN32(fdvt_kernel_bias_loop37_1_frame01_size);
+
+	fd->dma_para->fd_kernel_pa[38][0] = pa;
+	pa += AIE_ALIGN32(fdvt_kernel_bias_loop38_0_frame01_size);
+
+	fd->dma_para->fd_kernel_pa[38][1] = pa;
+	pa += AIE_ALIGN32(fdvt_kernel_bias_loop38_1_frame01_size);
+
+	fd->dma_para->fd_kernel_pa[39][0] = pa;
+	pa += AIE_ALIGN32(fdvt_kernel_bias_loop39_0_frame01_size);
+
+	fd->dma_para->fd_kernel_pa[39][1] = pa;
+	pa += AIE_ALIGN32(fdvt_kernel_bias_loop39_1_frame01_size);
+
+	fd->dma_para->fd_kernel_pa[40][0] = pa;
+	pa += AIE_ALIGN32(fdvt_kernel_bias_loop40_0_frame01_size);
+
+	fd->dma_para->fd_kernel_pa[40][1] = pa;
+	pa += AIE_ALIGN32(fdvt_kernel_bias_loop40_1_frame01_size);
+
+	fd->dma_para->fd_kernel_pa[41][0] = pa;
+	pa += AIE_ALIGN32(fdvt_kernel_bias_loop41_0_frame01_size);
+
+	fd->dma_para->fd_kernel_pa[41][1] = pa;
+	pa += AIE_ALIGN32(fdvt_kernel_bias_loop41_1_frame01_size);
+
+	fd->dma_para->fd_kernel_pa[42][0] = pa;
+	pa += AIE_ALIGN32(fdvt_kernel_bias_loop42_0_frame01_size);
+
+	fd->dma_para->fd_kernel_pa[42][1] = pa;
+	pa += AIE_ALIGN32(fdvt_kernel_bias_loop42_1_frame01_size);
+
+	fd->dma_para->fd_kernel_pa[43][0] = pa;
+	pa += AIE_ALIGN32(fdvt_kernel_bias_loop43_0_frame01_size);
+
+	fd->dma_para->fd_kernel_pa[43][1] = pa;
+	pa += AIE_ALIGN32(fdvt_kernel_bias_loop43_1_frame01_size);
+
+	fd->dma_para->fd_kernel_pa[44][0] = pa;
+	pa += AIE_ALIGN32(fdvt_kernel_bias_loop44_0_frame01_size);
+
+	fd->dma_para->fd_kernel_pa[44][1] = pa;
+	pa += AIE_ALIGN32(fdvt_kernel_bias_loop44_1_frame01_size);
+
+	fd->dma_para->fd_kernel_pa[45][0] = pa;
+	pa += AIE_ALIGN32(fdvt_kernel_bias_loop45_0_frame01_size);
+
+	fd->dma_para->fd_kernel_pa[45][1] = pa;
+	pa += AIE_ALIGN32(fdvt_kernel_bias_loop45_1_frame01_size);
+
+	fd->dma_para->fd_kernel_pa[46][0] = pa;
+	pa += AIE_ALIGN32(fdvt_kernel_bias_loop46_0_frame01_size);
+
+	fd->dma_para->fd_kernel_pa[46][1] = pa;
+	pa += AIE_ALIGN32(fdvt_kernel_bias_loop46_1_frame01_size);
+
+	fd->dma_para->fd_kernel_pa[47][0] = pa;
+	pa += AIE_ALIGN32(fdvt_kernel_bias_loop47_0_frame01_size);
+
+	fd->dma_para->fd_kernel_pa[47][1] = pa;
+	pa += AIE_ALIGN32(fdvt_kernel_bias_loop47_1_frame01_size);
+
+	fd->dma_para->fd_kernel_pa[48][0] = pa;
+	pa += AIE_ALIGN32(fdvt_kernel_bias_loop48_0_frame01_size);
+
+	fd->dma_para->fd_kernel_pa[48][1] = pa;
+	pa += AIE_ALIGN32(fdvt_kernel_bias_loop48_1_frame01_size);
+
+	fd->dma_para->fd_kernel_pa[49][0] = pa;
+	pa += AIE_ALIGN32(fdvt_kernel_bias_loop49_0_frame01_size);
+
+	fd->dma_para->fd_kernel_pa[49][1] = pa;
+	pa += AIE_ALIGN32(fdvt_kernel_bias_loop49_1_frame01_size);
+
+	fd->dma_para->fd_kernel_pa[50][0] = pa;
+	pa += AIE_ALIGN32(fdvt_kernel_bias_loop50_0_frame01_size);
+
+	fd->dma_para->fd_kernel_pa[50][1] = pa;
+	pa += AIE_ALIGN32(fdvt_kernel_bias_loop50_1_frame01_size);
+
+	fd->dma_para->fd_kernel_pa[51][0] = pa;
+	pa += AIE_ALIGN32(fdvt_kernel_bias_loop51_0_frame01_size);
+
+	fd->dma_para->fd_kernel_pa[51][1] = pa;
+	pa += AIE_ALIGN32(fdvt_kernel_bias_loop51_1_frame01_size);
+
+	fd->dma_para->fd_kernel_pa[52][0] = pa;
+	pa += AIE_ALIGN32(fdvt_kernel_bias_loop52_0_frame01_size);
+
+	fd->dma_para->fd_kernel_pa[52][1] = pa;
+	pa += AIE_ALIGN32(fdvt_kernel_bias_loop52_1_frame01_size);
+
+	fd->dma_para->fd_kernel_pa[53][0] = pa;
+	pa += AIE_ALIGN32(fdvt_kernel_bias_loop53_0_frame01_size);
+
+	fd->dma_para->fd_kernel_pa[53][1] = pa;
+	pa += AIE_ALIGN32(fdvt_kernel_bias_loop53_1_frame01_size);
+
+	fd->dma_para->fd_kernel_pa[54][0] = pa;
+	pa += AIE_ALIGN32(fdvt_kernel_bias_loop54_0_frame01_size);
+
+	fd->dma_para->fd_kernel_pa[54][1] = pa;
+	pa += AIE_ALIGN32(fdvt_kernel_bias_loop54_1_frame01_size);
+
+	fd->dma_para->fd_kernel_pa[55][0] = pa;
+	pa += AIE_ALIGN32(fdvt_kernel_bias_loop55_0_frame01_size);
+
+	fd->dma_para->fd_kernel_pa[55][1] = pa;
+	pa += AIE_ALIGN32(fdvt_kernel_bias_loop55_1_frame01_size);
+
+	fd->dma_para->fd_kernel_pa[56][0] = pa;
+	pa += AIE_ALIGN32(fdvt_kernel_bias_loop56_0_frame01_size);
+
+	fd->dma_para->fd_kernel_pa[56][1] = pa;
+	pa += AIE_ALIGN32(fdvt_kernel_bias_loop56_1_frame01_size);
+
+	fd->dma_para->fd_kernel_pa[58][0] = pa;
+	pa += AIE_ALIGN32(fdvt_kernel_bias_loop58_0_frame01_size);
+
+	fd->dma_para->fd_kernel_pa[58][1] = pa;
+	pa += AIE_ALIGN32(fdvt_kernel_bias_loop58_1_frame01_size);
+
+	fd->dma_para->fd_kernel_pa[59][0] = pa;
+	pa += AIE_ALIGN32(fdvt_kernel_bias_loop59_0_frame01_size);
+
+	fd->dma_para->fd_kernel_pa[59][1] = pa;
+	pa += AIE_ALIGN32(fdvt_kernel_bias_loop59_1_frame01_size);
+
+	fd->dma_para->fd_kernel_pa[60][0] = pa;
+	pa += AIE_ALIGN32(fdvt_kernel_bias_loop60_0_frame01_size);
+
+	fd->dma_para->fd_kernel_pa[60][1] = pa;
+	pa += AIE_ALIGN32(fdvt_kernel_bias_loop60_1_frame01_size);
+
+	fd->dma_para->fd_kernel_pa[61][0] = pa;
+	pa += AIE_ALIGN32(fdvt_kernel_bias_loop61_0_frame01_size);
+
+	fd->dma_para->fd_kernel_pa[61][1] = pa;
+	pa += AIE_ALIGN32(fdvt_kernel_bias_loop61_1_frame01_size);
+
+	fd->dma_para->fd_kernel_pa[62][0] = pa;
+	pa += AIE_ALIGN32(fdvt_kernel_bias_loop62_0_frame01_size);
+
+	fd->dma_para->fd_kernel_pa[62][1] = pa;
+	pa += AIE_ALIGN32(fdvt_kernel_bias_loop62_1_frame01_size);
+
+	fd->dma_para->fd_kernel_pa[63][0] = pa;
+	pa += AIE_ALIGN32(fdvt_kernel_bias_loop63_0_frame01_size);
+
+	fd->dma_para->fd_kernel_pa[63][1] = pa;
+	pa += AIE_ALIGN32(fdvt_kernel_bias_loop63_1_frame01_size);
+
+	fd->dma_para->fd_kernel_pa[64][0] = pa;
+	pa += AIE_ALIGN32(fdvt_kernel_bias_loop64_0_frame01_size);
+
+	fd->dma_para->fd_kernel_pa[64][1] = pa;
+	pa += AIE_ALIGN32(fdvt_kernel_bias_loop64_1_frame01_size);
+
+	fd->dma_para->fd_kernel_pa[65][0] = pa;
+	pa += AIE_ALIGN32(fdvt_kernel_bias_loop65_0_frame01_size);
+
+	fd->dma_para->fd_kernel_pa[65][1] = pa;
+	pa += AIE_ALIGN32(fdvt_kernel_bias_loop65_1_frame01_size);
+
+	fd->dma_para->fd_kernel_pa[66][0] = pa;
+	pa += AIE_ALIGN32(fdvt_kernel_bias_loop66_0_frame01_size);
+
+	fd->dma_para->fd_kernel_pa[66][1] = pa;
+	pa += AIE_ALIGN32(fdvt_kernel_bias_loop66_1_frame01_size);
+
+	fd->dma_para->fd_kernel_pa[67][0] = pa;
+	pa += AIE_ALIGN32(fdvt_kernel_bias_loop67_0_frame01_size);
+
+	fd->dma_para->fd_kernel_pa[67][1] = pa;
+	pa += AIE_ALIGN32(fdvt_kernel_bias_loop67_1_frame01_size);
+
+	fd->dma_para->fd_kernel_pa[68][0] = pa;
+	pa += AIE_ALIGN32(fdvt_kernel_bias_loop68_0_frame01_size);
+
+	fd->dma_para->fd_kernel_pa[68][1] = pa;
+	pa += AIE_ALIGN32(fdvt_kernel_bias_loop68_1_frame01_size);
+
+	fd->dma_para->fd_kernel_pa[69][0] = pa;
+	pa += AIE_ALIGN32(fdvt_kernel_bias_loop69_0_frame01_size);
+
+	fd->dma_para->fd_kernel_pa[69][1] = pa;
+	pa += AIE_ALIGN32(fdvt_kernel_bias_loop69_1_frame01_size);
+
+	fd->dma_para->fd_kernel_pa[70][0] = pa;
+	pa += AIE_ALIGN32(fdvt_kernel_bias_loop70_0_frame01_size);
+
+	fd->dma_para->fd_kernel_pa[70][1] = pa;
+	pa += AIE_ALIGN32(fdvt_kernel_bias_loop70_1_frame01_size);
+
+	fd->dma_para->fd_kernel_pa[71][0] = pa;
+	pa += AIE_ALIGN32(fdvt_kernel_bias_loop71_0_frame01_size);
+
+	fd->dma_para->fd_kernel_pa[71][1] = pa;
+	pa += AIE_ALIGN32(fdvt_kernel_bias_loop71_1_frame01_size);
+
+	fd->dma_para->fd_kernel_pa[72][0] = pa;
+	pa += AIE_ALIGN32(fdvt_kernel_bias_loop72_0_frame01_size);
+
+	fd->dma_para->fd_kernel_pa[72][1] = pa;
+	pa += AIE_ALIGN32(fdvt_kernel_bias_loop72_1_frame01_size);
+
+	fd->dma_para->fd_kernel_pa[73][0] = pa;
+	pa += AIE_ALIGN32(fdvt_kernel_bias_loop73_0_frame01_size);
+
+	fd->dma_para->fd_kernel_pa[73][1] = pa;
+	pa += AIE_ALIGN32(fdvt_kernel_bias_loop73_1_frame01_size);
+
+	fd->dma_para->fd_kernel_pa[74][0] = pa;
+	pa += AIE_ALIGN32(fdvt_kernel_bias_loop74_0_frame01_size);
+
+	fd->dma_para->fd_kernel_pa[74][1] = pa;
+	pa += AIE_ALIGN32(fdvt_kernel_bias_loop74_1_frame01_size);
+
+	fd->dma_para->fd_kernel_pa[75][0] = pa;
+	pa += AIE_ALIGN32(fdvt_kernel_bias_loop75_0_frame01_size);
+
+	fd->dma_para->fd_kernel_pa[75][1] = pa;
+	pa += AIE_ALIGN32(fdvt_kernel_bias_loop75_1_frame01_size);
+
+	fd->dma_para->fd_kernel_pa[76][0] = pa;
+	pa += AIE_ALIGN32(fdvt_kernel_bias_loop76_0_frame01_size);
+
+	fd->dma_para->fd_kernel_pa[76][1] = pa;
+	pa += AIE_ALIGN32(fdvt_kernel_bias_loop76_1_frame01_size);
+
+	fd->dma_para->fd_kernel_pa[77][0] = pa;
+	pa += AIE_ALIGN32(fdvt_kernel_bias_loop77_0_frame01_size);
+
+	fd->dma_para->fd_kernel_pa[77][1] = pa;
+	pa += AIE_ALIGN32(fdvt_kernel_bias_loop77_1_frame01_size);
+
+	fd->dma_para->fd_kernel_pa[78][0] = pa;
+	pa += AIE_ALIGN32(fdvt_kernel_bias_loop78_0_frame01_size);
+
+	fd->dma_para->fd_kernel_pa[78][1] = pa;
+	pa += AIE_ALIGN32(fdvt_kernel_bias_loop78_1_frame01_size);
+
+	fd->dma_para->fd_kernel_pa[79][0] = pa;
+	pa += AIE_ALIGN32(fdvt_kernel_bias_loop79_0_frame01_size);
+
+	fd->dma_para->fd_kernel_pa[79][1] = pa;
+	pa += AIE_ALIGN32(fdvt_kernel_bias_loop79_1_frame01_size);
+
+	fd->dma_para->fd_kernel_pa[80][0] = pa;
+	pa += AIE_ALIGN32(fdvt_kernel_bias_loop80_0_frame01_size);
+
+	fd->dma_para->fd_kernel_pa[80][1] = pa;
+	pa += AIE_ALIGN32(fdvt_kernel_bias_loop80_1_frame01_size);
+
+	fd->dma_para->fd_kernel_pa[81][0] = pa;
+	pa += AIE_ALIGN32(fdvt_kernel_bias_loop81_0_frame01_size);
+
+	fd->dma_para->fd_kernel_pa[81][1] = pa;
+	pa += AIE_ALIGN32(fdvt_kernel_bias_loop81_1_frame01_size);
+
+	fd->dma_para->fd_kernel_pa[82][0] = pa;
+	pa += AIE_ALIGN32(fdvt_kernel_bias_loop82_0_frame01_size);
+
+	fd->dma_para->fd_kernel_pa[82][1] = pa;
+	pa += AIE_ALIGN32(fdvt_kernel_bias_loop82_1_frame01_size);
+
+	fd->dma_para->fd_kernel_pa[83][0] = pa;
+	pa += AIE_ALIGN32(fdvt_kernel_bias_loop83_0_frame01_size);
+
+	fd->dma_para->fd_kernel_pa[83][1] = pa;
+	pa += AIE_ALIGN32(fdvt_kernel_bias_loop83_1_frame01_size);
+
+	fd->dma_para->fd_kernel_pa[84][0] = pa;
+	pa += AIE_ALIGN32(fdvt_kernel_bias_loop84_0_frame01_size);
+
+	fd->dma_para->fd_kernel_pa[84][1] = pa;
+	pa += AIE_ALIGN32(fdvt_kernel_bias_loop84_1_frame01_size);
+
+	fd->dma_para->fd_kernel_pa[85][0] = pa;
+	pa += AIE_ALIGN32(fdvt_kernel_bias_loop85_0_frame01_size);
+
+	fd->dma_para->fd_kernel_pa[85][1] = pa;
+	pa += AIE_ALIGN32(fdvt_kernel_bias_loop85_1_frame01_size);
+
+	/* attribute kernel model */
+	fd->dma_para->attr_kernel_pa[0][0] = pa;
+	pa += AIE_ALIGN32(gender_kernel_bias_loop00_0_frame01_size);
+
+	fd->dma_para->attr_kernel_pa[0][1] = pa;
+	pa += AIE_ALIGN32(gender_kernel_bias_loop00_1_frame01_size);
+
+	fd->dma_para->attr_kernel_pa[1][0] = pa;
+	pa += AIE_ALIGN32(gender_kernel_bias_loop01_0_frame01_size);
+
+	fd->dma_para->attr_kernel_pa[1][1] = pa;
+	pa += AIE_ALIGN32(gender_kernel_bias_loop01_1_frame01_size);
+
+	fd->dma_para->attr_kernel_pa[2][0] = pa;
+	pa += AIE_ALIGN32(gender_kernel_bias_loop02_0_frame01_size);
+
+	fd->dma_para->attr_kernel_pa[2][1] = pa;
+	pa += AIE_ALIGN32(gender_kernel_bias_loop02_1_frame01_size);
+
+	fd->dma_para->attr_kernel_pa[3][0] = pa;
+	pa += AIE_ALIGN32(gender_kernel_bias_loop03_0_frame01_size);
+
+	fd->dma_para->attr_kernel_pa[3][1] = pa;
+	pa += AIE_ALIGN32(gender_kernel_bias_loop03_1_frame01_size);
+
+	fd->dma_para->attr_kernel_pa[4][0] = pa;
+	pa += AIE_ALIGN32(gender_kernel_bias_loop04_0_frame01_size);
+
+	fd->dma_para->attr_kernel_pa[4][1] = pa;
+	pa += AIE_ALIGN32(gender_kernel_bias_loop04_1_frame01_size);
+
+	fd->dma_para->attr_kernel_pa[5][0] = pa;
+	pa += AIE_ALIGN32(gender_kernel_bias_loop05_0_frame01_size);
+
+	fd->dma_para->attr_kernel_pa[5][1] = pa;
+	pa += AIE_ALIGN32(gender_kernel_bias_loop05_1_frame01_size);
+
+	fd->dma_para->attr_kernel_pa[6][0] = pa;
+	pa += AIE_ALIGN32(gender_kernel_bias_loop06_0_frame01_size);
+
+	fd->dma_para->attr_kernel_pa[6][1] = pa;
+	pa += AIE_ALIGN32(gender_kernel_bias_loop06_1_frame01_size);
+
+	fd->dma_para->attr_kernel_pa[7][0] = pa;
+	pa += AIE_ALIGN32(gender_kernel_bias_loop07_0_frame01_size);
+
+	fd->dma_para->attr_kernel_pa[7][1] = pa;
+	pa += AIE_ALIGN32(gender_kernel_bias_loop07_1_frame01_size);
+
+	fd->dma_para->attr_kernel_pa[8][0] = pa;
+	pa += AIE_ALIGN32(gender_kernel_bias_loop08_0_frame01_size);
+
+	fd->dma_para->attr_kernel_pa[8][1] = pa;
+	pa += AIE_ALIGN32(gender_kernel_bias_loop08_1_frame01_size);
+
+	fd->dma_para->attr_kernel_pa[9][0] = pa;
+	pa += AIE_ALIGN32(gender_kernel_bias_loop09_0_frame01_size);
+
+	fd->dma_para->attr_kernel_pa[9][1] = pa;
+	pa += AIE_ALIGN32(gender_kernel_bias_loop09_1_frame01_size);
+
+	fd->dma_para->attr_kernel_pa[10][0] = pa;
+	pa += AIE_ALIGN32(gender_kernel_bias_loop10_0_frame01_size);
+
+	fd->dma_para->attr_kernel_pa[10][1] = pa;
+	pa += AIE_ALIGN32(gender_kernel_bias_loop10_1_frame01_size);
+
+	fd->dma_para->attr_kernel_pa[11][0] = pa;
+	pa += AIE_ALIGN32(gender_kernel_bias_loop11_0_frame01_size);
+
+	fd->dma_para->attr_kernel_pa[11][1] = pa;
+	pa += AIE_ALIGN32(gender_kernel_bias_loop11_1_frame01_size);
+
+	fd->dma_para->attr_kernel_pa[12][0] = pa;
+	pa += AIE_ALIGN32(gender_kernel_bias_loop12_0_frame01_size);
+
+	fd->dma_para->attr_kernel_pa[12][1] = pa;
+	pa += AIE_ALIGN32(gender_kernel_bias_loop12_1_frame01_size);
+
+	fd->dma_para->attr_kernel_pa[13][0] = pa;
+	pa += AIE_ALIGN32(gender_kernel_bias_loop13_0_frame01_size);
+
+	fd->dma_para->attr_kernel_pa[13][1] = pa;
+	pa += AIE_ALIGN32(gender_kernel_bias_loop13_1_frame01_size);
+
+	fd->dma_para->attr_kernel_pa[14][0] = pa;
+	pa += AIE_ALIGN32(gender_kernel_bias_loop14_0_frame01_size);
+
+	fd->dma_para->attr_kernel_pa[14][1] = pa;
+	pa += AIE_ALIGN32(gender_kernel_bias_loop14_1_frame01_size);
+
+	fd->dma_para->attr_kernel_pa[15][0] = pa;
+	pa += AIE_ALIGN32(gender_kernel_bias_loop15_0_frame01_size);
+
+	fd->dma_para->attr_kernel_pa[15][1] = pa;
+	pa += AIE_ALIGN32(gender_kernel_bias_loop15_1_frame01_size);
+
+	fd->dma_para->attr_kernel_pa[16][0] = pa;
+	pa += AIE_ALIGN32(gender_kernel_bias_loop16_0_frame01_size);
+
+	fd->dma_para->attr_kernel_pa[16][1] = pa;
+	pa += AIE_ALIGN32(gender_kernel_bias_loop16_1_frame01_size);
+
+	fd->dma_para->attr_kernel_pa[17][0] = pa;
+	pa += AIE_ALIGN32(gender_kernel_bias_loop17_0_frame01_size);
+
+	fd->dma_para->attr_kernel_pa[17][1] = pa;
+	pa += AIE_ALIGN32(gender_kernel_bias_loop17_1_frame01_size);
+
+	fd->dma_para->attr_kernel_pa[18][0] = pa;
+	pa += AIE_ALIGN32(gender_kernel_bias_loop18_0_frame01_size);
+
+	fd->dma_para->attr_kernel_pa[18][1] = pa;
+	pa += AIE_ALIGN32(gender_kernel_bias_loop18_1_frame01_size);
+
+	fd->dma_para->attr_kernel_pa[19][0] = pa;
+	pa += AIE_ALIGN32(gender_kernel_bias_loop19_0_frame01_size);
+
+	fd->dma_para->attr_kernel_pa[19][1] = pa;
+	pa += AIE_ALIGN32(gender_kernel_bias_loop19_1_frame01_size);
+
+	fd->dma_para->attr_kernel_pa[20][0] = pa;
+	pa += AIE_ALIGN32(gender_kernel_bias_loop20_0_frame01_size);
+
+	fd->dma_para->attr_kernel_pa[20][1] = pa;
+	pa += AIE_ALIGN32(gender_kernel_bias_loop20_1_frame01_size);
+
+	fd->dma_para->attr_kernel_pa[21][0] = pa;
+	pa += AIE_ALIGN32(gender_kernel_bias_loop21_0_frame01_size);
+
+	fd->dma_para->attr_kernel_pa[21][1] = pa;
+	pa += AIE_ALIGN32(gender_kernel_bias_loop21_1_frame01_size);
+
+	fd->dma_para->attr_kernel_pa[22][0] = pa;
+	pa += AIE_ALIGN32(gender_kernel_bias_loop22_0_frame01_size);
+
+	fd->dma_para->attr_kernel_pa[22][1] = pa;
+	pa += AIE_ALIGN32(gender_kernel_bias_loop22_1_frame01_size);
+
+	fd->dma_para->attr_kernel_pa[23][0] = pa;
+	pa += AIE_ALIGN32(gender_kernel_bias_loop23_0_frame01_size);
+
+	fd->dma_para->attr_kernel_pa[23][1] = pa;
+	pa += AIE_ALIGN32(gender_kernel_bias_loop23_1_frame01_size);
+
+	fd->dma_para->attr_kernel_pa[24][0] = pa;
+	pa += AIE_ALIGN32(gender_kernel_bias_loop24_0_frame01_size);
+
+	fd->dma_para->attr_kernel_pa[24][1] = pa;
+	pa += AIE_ALIGN32(gender_kernel_bias_loop24_1_frame01_size);
+
+	fd->dma_para->attr_kernel_pa[25][0] = pa;
+	pa += AIE_ALIGN32(gender_kernel_bias_loop25_0_frame01_size);
+
+	fd->dma_para->attr_kernel_pa[25][1] = pa;
+	pa += AIE_ALIGN32(gender_kernel_bias_loop25_1_frame01_size);
+
+	/* fld blink weight forest model */
+	writel(AIE_IOVA(pa), fd->fd_base + FLD_BS_BASE_ADDR);
+	fd->dma_para->fld_blink_weight_pa = pa;
+	pa += AIE_ALIGN32(fdvt_fld_blink_weight_forest14_size);
+
+	/* fld fp forest model */
+	writel(AIE_IOVA(pa), fd->fd_base + FLD_FP_BASE_ADDR);
+	for (i = 0; i < FLD_MAX_INPUT; i++) {
+		fd->dma_para->fld_fp_pa[i] = pa;
+		pa += AIE_ALIGN32(fdvt_fld_fp_forest00_om45_size);
+	}
+
+	/* fld leafnode forest model */
+	writel(AIE_IOVA(pa), fd->fd_base + FLD_SH_BASE_ADDR);
+	for (i = 0; i < FLD_MAX_INPUT; i++) {
+		fd->dma_para->fld_leafnode_pa[i] = pa;
+		pa += AIE_ALIGN32(fdvt_fld_leafnode_forest00_size);
+	}
+
+	/* fld tree forest cv weight model */
+	writel(AIE_IOVA(pa), fd->fd_base + FLD_CV_BASE_ADDR);
+	for (i = 0; i < FLD_MAX_INPUT; i++) {
+		fd->dma_para->fld_cv_pa[i] = pa;
+		pa += AIE_ALIGN32(fdvt_fld_tree_forest00_cv_weight_size);
+	}
+
+	/* fld tree forest init shape model */
+	writel(AIE_IOVA(pa), fd->fd_base + FLD_MS_BASE_ADDR);
+	fd->dma_para->fld_shape_pa[0] = pa;
+	pa += AIE_ALIGN32(fdvt_fld_tree_forest00_init_shape_size);
+
+	/* fld tree forest tree node model */
+	writel(AIE_IOVA(pa), fd->fd_base + FLD_TR_BASE_ADDR);
+	for (i = 0; i < FLD_MAX_INPUT; i++) {
+		fd->dma_para->fld_tree02_pa[i] = pa;
+		pa += AIE_ALIGN32(fdvt_fld_tree_forest00_tree_node_size);
+	}
+
+	/* arrange va */
+	/* rs config */
+	fd->base_para->fd_rs_cfg_va = va;
+	va += AIE_ALIGN32(fdvt_rs_confi_frame01_size);
+
+	/* yuv2rgb config */
+	fd->base_para->fd_yuv2rgb_cfg_va = va;
+	va += AIE_ALIGN32(fdvt_yuv2rgb_confi_frame01_size);
+
+	for (i = 0; i < MAX_ENQUE_FRAME_NUM; i++) {
+		fd->base_para->attr_yuv2rgb_cfg_va[i] = va;
+		va += AIE_ALIGN32(attr_yuv2rgb_confi_frame01_size);
+	}
+
+	/* fd config */
+	fd->base_para->fd_fd_cfg_va = va;
+	va += AIE_ALIGN32(fdvt_fd_confi_frame01_size);
+
+	for (i = 0; i < MAX_ENQUE_FRAME_NUM; i++) {
+		fd->base_para->attr_fd_cfg_va[i] = va;
+		va += AIE_ALIGN32(attr_fd_confi_frame01_size);
+	}
+
+	/* fd kernel model */
+	fd->dma_para->fd_kernel_va[0][0] = va;
+	va += AIE_ALIGN32(fdvt_kernel_bias_loop00_0_frame01_size);
+
+	fd->dma_para->fd_kernel_va[0][1] = va;
+	va += AIE_ALIGN32(fdvt_kernel_bias_loop00_1_frame01_size);
+
+	fd->dma_para->fd_kernel_va[1][0] = va;
+	va += AIE_ALIGN32(fdvt_kernel_bias_loop01_0_frame01_size);
+
+	fd->dma_para->fd_kernel_va[1][1] = va;
+	va += AIE_ALIGN32(fdvt_kernel_bias_loop01_1_frame01_size);
+
+	fd->dma_para->fd_kernel_va[2][0] = va;
+	va += AIE_ALIGN32(fdvt_kernel_bias_loop02_0_frame01_size);
+
+	fd->dma_para->fd_kernel_va[2][1] = va;
+	va += AIE_ALIGN32(fdvt_kernel_bias_loop02_1_frame01_size);
+
+	fd->dma_para->fd_kernel_va[3][0] = va;
+	va += AIE_ALIGN32(fdvt_kernel_bias_loop03_0_frame01_size);
+
+	fd->dma_para->fd_kernel_va[3][1] = va;
+	va += AIE_ALIGN32(fdvt_kernel_bias_loop03_1_frame01_size);
+
+	fd->dma_para->fd_kernel_va[4][0] = va;
+	va += AIE_ALIGN32(fdvt_kernel_bias_loop04_0_frame01_size);
+
+	fd->dma_para->fd_kernel_va[4][1] = va;
+	va += AIE_ALIGN32(fdvt_kernel_bias_loop04_1_frame01_size);
+
+	fd->dma_para->fd_kernel_va[5][0] = va;
+	va += AIE_ALIGN32(fdvt_kernel_bias_loop05_0_frame01_size);
+
+	fd->dma_para->fd_kernel_va[5][1] = va;
+	va += AIE_ALIGN32(fdvt_kernel_bias_loop05_1_frame01_size);
+
+	fd->dma_para->fd_kernel_va[6][0] = va;
+	va += AIE_ALIGN32(fdvt_kernel_bias_loop06_0_frame01_size);
+
+	fd->dma_para->fd_kernel_va[6][1] = va;
+	va += AIE_ALIGN32(fdvt_kernel_bias_loop06_1_frame01_size);
+
+	fd->dma_para->fd_kernel_va[7][0] = va;
+	va += AIE_ALIGN32(fdvt_kernel_bias_loop07_0_frame01_size);
+
+	fd->dma_para->fd_kernel_va[7][1] = va;
+	va += AIE_ALIGN32(fdvt_kernel_bias_loop07_1_frame01_size);
+
+	fd->dma_para->fd_kernel_va[8][0] = va;
+	va += AIE_ALIGN32(fdvt_kernel_bias_loop08_0_frame01_size);
+
+	fd->dma_para->fd_kernel_va[8][1] = va;
+	va += AIE_ALIGN32(fdvt_kernel_bias_loop08_1_frame01_size);
+
+	fd->dma_para->fd_kernel_va[9][0] = va;
+	va += AIE_ALIGN32(fdvt_kernel_bias_loop09_0_frame01_size);
+
+	fd->dma_para->fd_kernel_va[9][1] = va;
+	va += AIE_ALIGN32(fdvt_kernel_bias_loop09_1_frame01_size);
+
+	fd->dma_para->fd_kernel_va[10][0] = va;
+	va += AIE_ALIGN32(fdvt_kernel_bias_loop10_0_frame01_size);
+
+	fd->dma_para->fd_kernel_va[10][1] = va;
+	va += AIE_ALIGN32(fdvt_kernel_bias_loop10_1_frame01_size);
+
+	fd->dma_para->fd_kernel_va[11][0] = va;
+	va += AIE_ALIGN32(fdvt_kernel_bias_loop11_0_frame01_size);
+
+	fd->dma_para->fd_kernel_va[11][1] = va;
+	va += AIE_ALIGN32(fdvt_kernel_bias_loop11_1_frame01_size);
+
+	fd->dma_para->fd_kernel_va[12][0] = va;
+	va += AIE_ALIGN32(fdvt_kernel_bias_loop12_0_frame01_size);
+
+	fd->dma_para->fd_kernel_va[12][1] = va;
+	va += AIE_ALIGN32(fdvt_kernel_bias_loop12_1_frame01_size);
+
+	fd->dma_para->fd_kernel_va[13][0] = va;
+	va += AIE_ALIGN32(fdvt_kernel_bias_loop13_0_frame01_size);
+
+	fd->dma_para->fd_kernel_va[13][1] = va;
+	va += AIE_ALIGN32(fdvt_kernel_bias_loop13_1_frame01_size);
+
+	fd->dma_para->fd_kernel_va[14][0] = va;
+	va += AIE_ALIGN32(fdvt_kernel_bias_loop14_0_frame01_size);
+
+	fd->dma_para->fd_kernel_va[14][1] = va;
+	va += AIE_ALIGN32(fdvt_kernel_bias_loop14_1_frame01_size);
+
+	fd->dma_para->fd_kernel_va[15][0] = va;
+	va += AIE_ALIGN32(fdvt_kernel_bias_loop15_0_frame01_size);
+
+	fd->dma_para->fd_kernel_va[15][1] = va;
+	va += AIE_ALIGN32(fdvt_kernel_bias_loop15_1_frame01_size);
+
+	fd->dma_para->fd_kernel_va[16][0] = va;
+	va += AIE_ALIGN32(fdvt_kernel_bias_loop16_0_frame01_size);
+
+	fd->dma_para->fd_kernel_va[16][1] = va;
+	va += AIE_ALIGN32(fdvt_kernel_bias_loop16_1_frame01_size);
+
+	fd->dma_para->fd_kernel_va[17][0] = va;
+	va += AIE_ALIGN32(fdvt_kernel_bias_loop17_0_frame01_size);
+
+	fd->dma_para->fd_kernel_va[17][1] = va;
+	va += AIE_ALIGN32(fdvt_kernel_bias_loop17_1_frame01_size);
+
+	fd->dma_para->fd_kernel_va[18][0] = va;
+	va += AIE_ALIGN32(fdvt_kernel_bias_loop18_0_frame01_size);
+
+	fd->dma_para->fd_kernel_va[18][1] = va;
+	va += AIE_ALIGN32(fdvt_kernel_bias_loop18_1_frame01_size);
+
+	fd->dma_para->fd_kernel_va[19][0] = va;
+	va += AIE_ALIGN32(fdvt_kernel_bias_loop19_0_frame01_size);
+
+	fd->dma_para->fd_kernel_va[19][1] = va;
+	va += AIE_ALIGN32(fdvt_kernel_bias_loop19_1_frame01_size);
+
+	fd->dma_para->fd_kernel_va[20][0] = va;
+	va += AIE_ALIGN32(fdvt_kernel_bias_loop20_0_frame01_size);
+
+	fd->dma_para->fd_kernel_va[20][1] = va;
+	va += AIE_ALIGN32(fdvt_kernel_bias_loop20_1_frame01_size);
+
+	fd->dma_para->fd_kernel_va[21][0] = va;
+	va += AIE_ALIGN32(fdvt_kernel_bias_loop21_0_frame01_size);
+
+	fd->dma_para->fd_kernel_va[21][1] = va;
+	va += AIE_ALIGN32(fdvt_kernel_bias_loop21_1_frame01_size);
+
+	fd->dma_para->fd_kernel_va[22][0] = va;
+	va += AIE_ALIGN32(fdvt_kernel_bias_loop22_0_frame01_size);
+
+	fd->dma_para->fd_kernel_va[22][1] = va;
+	va += AIE_ALIGN32(fdvt_kernel_bias_loop22_1_frame01_size);
+
+	fd->dma_para->fd_kernel_va[23][0] = va;
+	va += AIE_ALIGN32(fdvt_kernel_bias_loop23_0_frame01_size);
+
+	fd->dma_para->fd_kernel_va[23][1] = va;
+	va += AIE_ALIGN32(fdvt_kernel_bias_loop23_1_frame01_size);
+
+	fd->dma_para->fd_kernel_va[24][0] = va;
+	va += AIE_ALIGN32(fdvt_kernel_bias_loop24_0_frame01_size);
+
+	fd->dma_para->fd_kernel_va[24][1] = va;
+	va += AIE_ALIGN32(fdvt_kernel_bias_loop24_1_frame01_size);
+
+	fd->dma_para->fd_kernel_va[25][0] = va;
+	va += AIE_ALIGN32(fdvt_kernel_bias_loop25_0_frame01_size);
+
+	fd->dma_para->fd_kernel_va[25][1] = va;
+	va += AIE_ALIGN32(fdvt_kernel_bias_loop25_1_frame01_size);
+
+	fd->dma_para->fd_kernel_va[26][0] = va;
+	va += AIE_ALIGN32(fdvt_kernel_bias_loop26_0_frame01_size);
+
+	fd->dma_para->fd_kernel_va[26][1] = va;
+	va += AIE_ALIGN32(fdvt_kernel_bias_loop26_1_frame01_size);
+
+	fd->dma_para->fd_kernel_va[27][0] = va;
+	va += AIE_ALIGN32(fdvt_kernel_bias_loop27_0_frame01_size);
+
+	fd->dma_para->fd_kernel_va[27][1] = va;
+	va += AIE_ALIGN32(fdvt_kernel_bias_loop27_1_frame01_size);
+
+	fd->dma_para->fd_kernel_va[29][0] = va;
+	va += AIE_ALIGN32(fdvt_kernel_bias_loop29_0_frame01_size);
+
+	fd->dma_para->fd_kernel_va[29][1] = va;
+	va += AIE_ALIGN32(fdvt_kernel_bias_loop29_1_frame01_size);
+
+	fd->dma_para->fd_kernel_va[30][0] = va;
+	va += AIE_ALIGN32(fdvt_kernel_bias_loop30_0_frame01_size);
+
+	fd->dma_para->fd_kernel_va[30][1] = va;
+	va += AIE_ALIGN32(fdvt_kernel_bias_loop30_1_frame01_size);
+
+	fd->dma_para->fd_kernel_va[31][0] = va;
+	va += AIE_ALIGN32(fdvt_kernel_bias_loop31_0_frame01_size);
+
+	fd->dma_para->fd_kernel_va[31][1] = va;
+	va += AIE_ALIGN32(fdvt_kernel_bias_loop31_1_frame01_size);
+
+	fd->dma_para->fd_kernel_va[32][0] = va;
+	va += AIE_ALIGN32(fdvt_kernel_bias_loop32_0_frame01_size);
+
+	fd->dma_para->fd_kernel_va[32][1] = va;
+	va += AIE_ALIGN32(fdvt_kernel_bias_loop32_1_frame01_size);
+
+	fd->dma_para->fd_kernel_va[33][0] = va;
+	va += AIE_ALIGN32(fdvt_kernel_bias_loop33_0_frame01_size);
+
+	fd->dma_para->fd_kernel_va[33][1] = va;
+	va += AIE_ALIGN32(fdvt_kernel_bias_loop33_1_frame01_size);
+
+	fd->dma_para->fd_kernel_va[34][0] = va;
+	va += AIE_ALIGN32(fdvt_kernel_bias_loop34_0_frame01_size);
+
+	fd->dma_para->fd_kernel_va[34][1] = va;
+	va += AIE_ALIGN32(fdvt_kernel_bias_loop34_1_frame01_size);
+
+	fd->dma_para->fd_kernel_va[35][0] = va;
+	va += AIE_ALIGN32(fdvt_kernel_bias_loop35_0_frame01_size);
+
+	fd->dma_para->fd_kernel_va[35][1] = va;
+	va += AIE_ALIGN32(fdvt_kernel_bias_loop35_1_frame01_size);
+
+	fd->dma_para->fd_kernel_va[36][0] = va;
+	va += AIE_ALIGN32(fdvt_kernel_bias_loop36_0_frame01_size);
+
+	fd->dma_para->fd_kernel_va[36][1] = va;
+	va += AIE_ALIGN32(fdvt_kernel_bias_loop36_1_frame01_size);
+
+	fd->dma_para->fd_kernel_va[37][0] = va;
+	va += AIE_ALIGN32(fdvt_kernel_bias_loop37_0_frame01_size);
+
+	fd->dma_para->fd_kernel_va[37][1] = va;
+	va += AIE_ALIGN32(fdvt_kernel_bias_loop37_1_frame01_size);
+
+	fd->dma_para->fd_kernel_va[38][0] = va;
+	va += AIE_ALIGN32(fdvt_kernel_bias_loop38_0_frame01_size);
+
+	fd->dma_para->fd_kernel_va[38][1] = va;
+	va += AIE_ALIGN32(fdvt_kernel_bias_loop38_1_frame01_size);
+
+	fd->dma_para->fd_kernel_va[39][0] = va;
+	va += AIE_ALIGN32(fdvt_kernel_bias_loop39_0_frame01_size);
+
+	fd->dma_para->fd_kernel_va[39][1] = va;
+	va += AIE_ALIGN32(fdvt_kernel_bias_loop39_1_frame01_size);
+
+	fd->dma_para->fd_kernel_va[40][0] = va;
+	va += AIE_ALIGN32(fdvt_kernel_bias_loop40_0_frame01_size);
+
+	fd->dma_para->fd_kernel_va[40][1] = va;
+	va += AIE_ALIGN32(fdvt_kernel_bias_loop40_1_frame01_size);
+
+	fd->dma_para->fd_kernel_va[41][0] = va;
+	va += AIE_ALIGN32(fdvt_kernel_bias_loop41_0_frame01_size);
+
+	fd->dma_para->fd_kernel_va[41][1] = va;
+	va += AIE_ALIGN32(fdvt_kernel_bias_loop41_1_frame01_size);
+
+	fd->dma_para->fd_kernel_va[42][0] = va;
+	va += AIE_ALIGN32(fdvt_kernel_bias_loop42_0_frame01_size);
+
+	fd->dma_para->fd_kernel_va[42][1] = va;
+	va += AIE_ALIGN32(fdvt_kernel_bias_loop42_1_frame01_size);
+
+	fd->dma_para->fd_kernel_va[43][0] = va;
+	va += AIE_ALIGN32(fdvt_kernel_bias_loop43_0_frame01_size);
+
+	fd->dma_para->fd_kernel_va[43][1] = va;
+	va += AIE_ALIGN32(fdvt_kernel_bias_loop43_1_frame01_size);
+
+	fd->dma_para->fd_kernel_va[44][0] = va;
+	va += AIE_ALIGN32(fdvt_kernel_bias_loop44_0_frame01_size);
+
+	fd->dma_para->fd_kernel_va[44][1] = va;
+	va += AIE_ALIGN32(fdvt_kernel_bias_loop44_1_frame01_size);
+
+	fd->dma_para->fd_kernel_va[45][0] = va;
+	va += AIE_ALIGN32(fdvt_kernel_bias_loop45_0_frame01_size);
+
+	fd->dma_para->fd_kernel_va[45][1] = va;
+	va += AIE_ALIGN32(fdvt_kernel_bias_loop45_1_frame01_size);
+
+	fd->dma_para->fd_kernel_va[46][0] = va;
+	va += AIE_ALIGN32(fdvt_kernel_bias_loop46_0_frame01_size);
+
+	fd->dma_para->fd_kernel_va[46][1] = va;
+	va += AIE_ALIGN32(fdvt_kernel_bias_loop46_1_frame01_size);
+
+	fd->dma_para->fd_kernel_va[47][0] = va;
+	va += AIE_ALIGN32(fdvt_kernel_bias_loop47_0_frame01_size);
+
+	fd->dma_para->fd_kernel_va[47][1] = va;
+	va += AIE_ALIGN32(fdvt_kernel_bias_loop47_1_frame01_size);
+
+	fd->dma_para->fd_kernel_va[48][0] = va;
+	va += AIE_ALIGN32(fdvt_kernel_bias_loop48_0_frame01_size);
+
+	fd->dma_para->fd_kernel_va[48][1] = va;
+	va += AIE_ALIGN32(fdvt_kernel_bias_loop48_1_frame01_size);
+
+	fd->dma_para->fd_kernel_va[49][0] = va;
+	va += AIE_ALIGN32(fdvt_kernel_bias_loop49_0_frame01_size);
+
+	fd->dma_para->fd_kernel_va[49][1] = va;
+	va += AIE_ALIGN32(fdvt_kernel_bias_loop49_1_frame01_size);
+
+	fd->dma_para->fd_kernel_va[50][0] = va;
+	va += AIE_ALIGN32(fdvt_kernel_bias_loop50_0_frame01_size);
+
+	fd->dma_para->fd_kernel_va[50][1] = va;
+	va += AIE_ALIGN32(fdvt_kernel_bias_loop50_1_frame01_size);
+
+	fd->dma_para->fd_kernel_va[51][0] = va;
+	va += AIE_ALIGN32(fdvt_kernel_bias_loop51_0_frame01_size);
+
+	fd->dma_para->fd_kernel_va[51][1] = va;
+	va += AIE_ALIGN32(fdvt_kernel_bias_loop51_1_frame01_size);
+
+	fd->dma_para->fd_kernel_va[52][0] = va;
+	va += AIE_ALIGN32(fdvt_kernel_bias_loop52_0_frame01_size);
+
+	fd->dma_para->fd_kernel_va[52][1] = va;
+	va += AIE_ALIGN32(fdvt_kernel_bias_loop52_1_frame01_size);
+
+	fd->dma_para->fd_kernel_va[53][0] = va;
+	va += AIE_ALIGN32(fdvt_kernel_bias_loop53_0_frame01_size);
+
+	fd->dma_para->fd_kernel_va[53][1] = va;
+	va += AIE_ALIGN32(fdvt_kernel_bias_loop53_1_frame01_size);
+
+	fd->dma_para->fd_kernel_va[54][0] = va;
+	va += AIE_ALIGN32(fdvt_kernel_bias_loop54_0_frame01_size);
+
+	fd->dma_para->fd_kernel_va[54][1] = va;
+	va += AIE_ALIGN32(fdvt_kernel_bias_loop54_1_frame01_size);
+
+	fd->dma_para->fd_kernel_va[55][0] = va;
+	va += AIE_ALIGN32(fdvt_kernel_bias_loop55_0_frame01_size);
+
+	fd->dma_para->fd_kernel_va[55][1] = va;
+	va += AIE_ALIGN32(fdvt_kernel_bias_loop55_1_frame01_size);
+
+	fd->dma_para->fd_kernel_va[56][0] = va;
+	va += AIE_ALIGN32(fdvt_kernel_bias_loop56_0_frame01_size);
+
+	fd->dma_para->fd_kernel_va[56][1] = va;
+	va += AIE_ALIGN32(fdvt_kernel_bias_loop56_1_frame01_size);
+
+	fd->dma_para->fd_kernel_va[58][0] = va;
+	va += AIE_ALIGN32(fdvt_kernel_bias_loop58_0_frame01_size);
+
+	fd->dma_para->fd_kernel_va[58][1] = va;
+	va += AIE_ALIGN32(fdvt_kernel_bias_loop58_1_frame01_size);
+
+	fd->dma_para->fd_kernel_va[59][0] = va;
+	va += AIE_ALIGN32(fdvt_kernel_bias_loop59_0_frame01_size);
+
+	fd->dma_para->fd_kernel_va[59][1] = va;
+	va += AIE_ALIGN32(fdvt_kernel_bias_loop59_1_frame01_size);
+
+	fd->dma_para->fd_kernel_va[60][0] = va;
+	va += AIE_ALIGN32(fdvt_kernel_bias_loop60_0_frame01_size);
+
+	fd->dma_para->fd_kernel_va[60][1] = va;
+	va += AIE_ALIGN32(fdvt_kernel_bias_loop60_1_frame01_size);
+
+	fd->dma_para->fd_kernel_va[61][0] = va;
+	va += AIE_ALIGN32(fdvt_kernel_bias_loop61_0_frame01_size);
+
+	fd->dma_para->fd_kernel_va[61][1] = va;
+	va += AIE_ALIGN32(fdvt_kernel_bias_loop61_1_frame01_size);
+
+	fd->dma_para->fd_kernel_va[62][0] = va;
+	va += AIE_ALIGN32(fdvt_kernel_bias_loop62_0_frame01_size);
+
+	fd->dma_para->fd_kernel_va[62][1] = va;
+	va += AIE_ALIGN32(fdvt_kernel_bias_loop62_1_frame01_size);
+
+	fd->dma_para->fd_kernel_va[63][0] = va;
+	va += AIE_ALIGN32(fdvt_kernel_bias_loop63_0_frame01_size);
+
+	fd->dma_para->fd_kernel_va[63][1] = va;
+	va += AIE_ALIGN32(fdvt_kernel_bias_loop63_1_frame01_size);
+
+	fd->dma_para->fd_kernel_va[64][0] = va;
+	va += AIE_ALIGN32(fdvt_kernel_bias_loop64_0_frame01_size);
+
+	fd->dma_para->fd_kernel_va[64][1] = va;
+	va += AIE_ALIGN32(fdvt_kernel_bias_loop64_1_frame01_size);
+
+	fd->dma_para->fd_kernel_va[65][0] = va;
+	va += AIE_ALIGN32(fdvt_kernel_bias_loop65_0_frame01_size);
+
+	fd->dma_para->fd_kernel_va[65][1] = va;
+	va += AIE_ALIGN32(fdvt_kernel_bias_loop65_1_frame01_size);
+
+	fd->dma_para->fd_kernel_va[66][0] = va;
+	va += AIE_ALIGN32(fdvt_kernel_bias_loop66_0_frame01_size);
+
+	fd->dma_para->fd_kernel_va[66][1] = va;
+	va += AIE_ALIGN32(fdvt_kernel_bias_loop66_1_frame01_size);
+
+	fd->dma_para->fd_kernel_va[67][0] = va;
+	va += AIE_ALIGN32(fdvt_kernel_bias_loop67_0_frame01_size);
+
+	fd->dma_para->fd_kernel_va[67][1] = va;
+	va += AIE_ALIGN32(fdvt_kernel_bias_loop67_1_frame01_size);
+
+	fd->dma_para->fd_kernel_va[68][0] = va;
+	va += AIE_ALIGN32(fdvt_kernel_bias_loop68_0_frame01_size);
+
+	fd->dma_para->fd_kernel_va[68][1] = va;
+	va += AIE_ALIGN32(fdvt_kernel_bias_loop68_1_frame01_size);
+
+	fd->dma_para->fd_kernel_va[69][0] = va;
+	va += AIE_ALIGN32(fdvt_kernel_bias_loop69_0_frame01_size);
+
+	fd->dma_para->fd_kernel_va[69][1] = va;
+	va += AIE_ALIGN32(fdvt_kernel_bias_loop69_1_frame01_size);
+
+	fd->dma_para->fd_kernel_va[70][0] = va;
+	va += AIE_ALIGN32(fdvt_kernel_bias_loop70_0_frame01_size);
+
+	fd->dma_para->fd_kernel_va[70][1] = va;
+	va += AIE_ALIGN32(fdvt_kernel_bias_loop70_1_frame01_size);
+
+	fd->dma_para->fd_kernel_va[71][0] = va;
+	va += AIE_ALIGN32(fdvt_kernel_bias_loop71_0_frame01_size);
+
+	fd->dma_para->fd_kernel_va[71][1] = va;
+	va += AIE_ALIGN32(fdvt_kernel_bias_loop71_1_frame01_size);
+
+	fd->dma_para->fd_kernel_va[72][0] = va;
+	va += AIE_ALIGN32(fdvt_kernel_bias_loop72_0_frame01_size);
+
+	fd->dma_para->fd_kernel_va[72][1] = va;
+	va += AIE_ALIGN32(fdvt_kernel_bias_loop72_1_frame01_size);
+
+	fd->dma_para->fd_kernel_va[73][0] = va;
+	va += AIE_ALIGN32(fdvt_kernel_bias_loop73_0_frame01_size);
+
+	fd->dma_para->fd_kernel_va[73][1] = va;
+	va += AIE_ALIGN32(fdvt_kernel_bias_loop73_1_frame01_size);
+
+	fd->dma_para->fd_kernel_va[74][0] = va;
+	va += AIE_ALIGN32(fdvt_kernel_bias_loop74_0_frame01_size);
+
+	fd->dma_para->fd_kernel_va[74][1] = va;
+	va += AIE_ALIGN32(fdvt_kernel_bias_loop74_1_frame01_size);
+
+	fd->dma_para->fd_kernel_va[75][0] = va;
+	va += AIE_ALIGN32(fdvt_kernel_bias_loop75_0_frame01_size);
+
+	fd->dma_para->fd_kernel_va[75][1] = va;
+	va += AIE_ALIGN32(fdvt_kernel_bias_loop75_1_frame01_size);
+
+	fd->dma_para->fd_kernel_va[76][0] = va;
+	va += AIE_ALIGN32(fdvt_kernel_bias_loop76_0_frame01_size);
+
+	fd->dma_para->fd_kernel_va[76][1] = va;
+	va += AIE_ALIGN32(fdvt_kernel_bias_loop76_1_frame01_size);
+
+	fd->dma_para->fd_kernel_va[77][0] = va;
+	va += AIE_ALIGN32(fdvt_kernel_bias_loop77_0_frame01_size);
+
+	fd->dma_para->fd_kernel_va[77][1] = va;
+	va += AIE_ALIGN32(fdvt_kernel_bias_loop77_1_frame01_size);
+
+	fd->dma_para->fd_kernel_va[78][0] = va;
+	va += AIE_ALIGN32(fdvt_kernel_bias_loop78_0_frame01_size);
+
+	fd->dma_para->fd_kernel_va[78][1] = va;
+	va += AIE_ALIGN32(fdvt_kernel_bias_loop78_1_frame01_size);
+
+	fd->dma_para->fd_kernel_va[79][0] = va;
+	va += AIE_ALIGN32(fdvt_kernel_bias_loop79_0_frame01_size);
+
+	fd->dma_para->fd_kernel_va[79][1] = va;
+	va += AIE_ALIGN32(fdvt_kernel_bias_loop79_1_frame01_size);
+
+	fd->dma_para->fd_kernel_va[80][0] = va;
+	va += AIE_ALIGN32(fdvt_kernel_bias_loop80_0_frame01_size);
+
+	fd->dma_para->fd_kernel_va[80][1] = va;
+	va += AIE_ALIGN32(fdvt_kernel_bias_loop80_1_frame01_size);
+
+	fd->dma_para->fd_kernel_va[81][0] = va;
+	va += AIE_ALIGN32(fdvt_kernel_bias_loop81_0_frame01_size);
+
+	fd->dma_para->fd_kernel_va[81][1] = va;
+	va += AIE_ALIGN32(fdvt_kernel_bias_loop81_1_frame01_size);
+
+	fd->dma_para->fd_kernel_va[82][0] = va;
+	va += AIE_ALIGN32(fdvt_kernel_bias_loop82_0_frame01_size);
+
+	fd->dma_para->fd_kernel_va[82][1] = va;
+	va += AIE_ALIGN32(fdvt_kernel_bias_loop82_1_frame01_size);
+
+	fd->dma_para->fd_kernel_va[83][0] = va;
+	va += AIE_ALIGN32(fdvt_kernel_bias_loop83_0_frame01_size);
+
+	fd->dma_para->fd_kernel_va[83][1] = va;
+	va += AIE_ALIGN32(fdvt_kernel_bias_loop83_1_frame01_size);
+
+	fd->dma_para->fd_kernel_va[84][0] = va;
+	va += AIE_ALIGN32(fdvt_kernel_bias_loop84_0_frame01_size);
+
+	fd->dma_para->fd_kernel_va[84][1] = va;
+	va += AIE_ALIGN32(fdvt_kernel_bias_loop84_1_frame01_size);
+
+	fd->dma_para->fd_kernel_va[85][0] = va;
+	va += AIE_ALIGN32(fdvt_kernel_bias_loop85_0_frame01_size);
+
+	fd->dma_para->fd_kernel_va[85][1] = va;
+	va += AIE_ALIGN32(fdvt_kernel_bias_loop85_1_frame01_size);
+
+	/* attribute kernel model */
+	fd->dma_para->attr_kernel_va[0][0] = va;
+	va += AIE_ALIGN32(gender_kernel_bias_loop00_0_frame01_size);
+
+	fd->dma_para->attr_kernel_va[0][1] = va;
+	va += AIE_ALIGN32(gender_kernel_bias_loop00_1_frame01_size);
+
+	fd->dma_para->attr_kernel_va[1][0] = va;
+	va += AIE_ALIGN32(gender_kernel_bias_loop01_0_frame01_size);
+
+	fd->dma_para->attr_kernel_va[1][1] = va;
+	va += AIE_ALIGN32(gender_kernel_bias_loop01_1_frame01_size);
+
+	fd->dma_para->attr_kernel_va[2][0] = va;
+	va += AIE_ALIGN32(gender_kernel_bias_loop02_0_frame01_size);
+
+	fd->dma_para->attr_kernel_va[2][1] = va;
+	va += AIE_ALIGN32(gender_kernel_bias_loop02_1_frame01_size);
+
+	fd->dma_para->attr_kernel_va[3][0] = va;
+	va += AIE_ALIGN32(gender_kernel_bias_loop03_0_frame01_size);
+
+	fd->dma_para->attr_kernel_va[3][1] = va;
+	va += AIE_ALIGN32(gender_kernel_bias_loop03_1_frame01_size);
+
+	fd->dma_para->attr_kernel_va[4][0] = va;
+	va += AIE_ALIGN32(gender_kernel_bias_loop04_0_frame01_size);
+
+	fd->dma_para->attr_kernel_va[4][1] = va;
+	va += AIE_ALIGN32(gender_kernel_bias_loop04_1_frame01_size);
+
+	fd->dma_para->attr_kernel_va[5][0] = va;
+	va += AIE_ALIGN32(gender_kernel_bias_loop05_0_frame01_size);
+
+	fd->dma_para->attr_kernel_va[5][1] = va;
+	va += AIE_ALIGN32(gender_kernel_bias_loop05_1_frame01_size);
+
+	fd->dma_para->attr_kernel_va[6][0] = va;
+	va += AIE_ALIGN32(gender_kernel_bias_loop06_0_frame01_size);
+
+	fd->dma_para->attr_kernel_va[6][1] = va;
+	va += AIE_ALIGN32(gender_kernel_bias_loop06_1_frame01_size);
+
+	fd->dma_para->attr_kernel_va[7][0] = va;
+	va += AIE_ALIGN32(gender_kernel_bias_loop07_0_frame01_size);
+
+	fd->dma_para->attr_kernel_va[7][1] = va;
+	va += AIE_ALIGN32(gender_kernel_bias_loop07_1_frame01_size);
+
+	fd->dma_para->attr_kernel_va[8][0] = va;
+	va += AIE_ALIGN32(gender_kernel_bias_loop08_0_frame01_size);
+
+	fd->dma_para->attr_kernel_va[8][1] = va;
+	va += AIE_ALIGN32(gender_kernel_bias_loop08_1_frame01_size);
+
+	fd->dma_para->attr_kernel_va[9][0] = va;
+	va += AIE_ALIGN32(gender_kernel_bias_loop09_0_frame01_size);
+
+	fd->dma_para->attr_kernel_va[9][1] = va;
+	va += AIE_ALIGN32(gender_kernel_bias_loop09_1_frame01_size);
+
+	fd->dma_para->attr_kernel_va[10][0] = va;
+	va += AIE_ALIGN32(gender_kernel_bias_loop10_0_frame01_size);
+
+	fd->dma_para->attr_kernel_va[10][1] = va;
+	va += AIE_ALIGN32(gender_kernel_bias_loop10_1_frame01_size);
+
+	fd->dma_para->attr_kernel_va[11][0] = va;
+	va += AIE_ALIGN32(gender_kernel_bias_loop11_0_frame01_size);
+
+	fd->dma_para->attr_kernel_va[11][1] = va;
+	va += AIE_ALIGN32(gender_kernel_bias_loop11_1_frame01_size);
+
+	fd->dma_para->attr_kernel_va[12][0] = va;
+	va += AIE_ALIGN32(gender_kernel_bias_loop12_0_frame01_size);
+
+	fd->dma_para->attr_kernel_va[12][1] = va;
+	va += AIE_ALIGN32(gender_kernel_bias_loop12_1_frame01_size);
+
+	fd->dma_para->attr_kernel_va[13][0] = va;
+	va += AIE_ALIGN32(gender_kernel_bias_loop13_0_frame01_size);
+
+	fd->dma_para->attr_kernel_va[13][1] = va;
+	va += AIE_ALIGN32(gender_kernel_bias_loop13_1_frame01_size);
+
+	fd->dma_para->attr_kernel_va[14][0] = va;
+	va += AIE_ALIGN32(gender_kernel_bias_loop14_0_frame01_size);
+
+	fd->dma_para->attr_kernel_va[14][1] = va;
+	va += AIE_ALIGN32(gender_kernel_bias_loop14_1_frame01_size);
+
+	fd->dma_para->attr_kernel_va[15][0] = va;
+	va += AIE_ALIGN32(gender_kernel_bias_loop15_0_frame01_size);
+
+	fd->dma_para->attr_kernel_va[15][1] = va;
+	va += AIE_ALIGN32(gender_kernel_bias_loop15_1_frame01_size);
+
+	fd->dma_para->attr_kernel_va[16][0] = va;
+	va += AIE_ALIGN32(gender_kernel_bias_loop16_0_frame01_size);
+
+	fd->dma_para->attr_kernel_va[16][1] = va;
+	va += AIE_ALIGN32(gender_kernel_bias_loop16_1_frame01_size);
+
+	fd->dma_para->attr_kernel_va[17][0] = va;
+	va += AIE_ALIGN32(gender_kernel_bias_loop17_0_frame01_size);
+
+	fd->dma_para->attr_kernel_va[17][1] = va;
+	va += AIE_ALIGN32(gender_kernel_bias_loop17_1_frame01_size);
+
+	fd->dma_para->attr_kernel_va[18][0] = va;
+	va += AIE_ALIGN32(gender_kernel_bias_loop18_0_frame01_size);
+
+	fd->dma_para->attr_kernel_va[18][1] = va;
+	va += AIE_ALIGN32(gender_kernel_bias_loop18_1_frame01_size);
+
+	fd->dma_para->attr_kernel_va[19][0] = va;
+	va += AIE_ALIGN32(gender_kernel_bias_loop19_0_frame01_size);
+
+	fd->dma_para->attr_kernel_va[19][1] = va;
+	va += AIE_ALIGN32(gender_kernel_bias_loop19_1_frame01_size);
+
+	fd->dma_para->attr_kernel_va[20][0] = va;
+	va += AIE_ALIGN32(gender_kernel_bias_loop20_0_frame01_size);
+
+	fd->dma_para->attr_kernel_va[20][1] = va;
+	va += AIE_ALIGN32(gender_kernel_bias_loop20_1_frame01_size);
+
+	fd->dma_para->attr_kernel_va[21][0] = va;
+	va += AIE_ALIGN32(gender_kernel_bias_loop21_0_frame01_size);
+
+	fd->dma_para->attr_kernel_va[21][1] = va;
+	va += AIE_ALIGN32(gender_kernel_bias_loop21_1_frame01_size);
+
+	fd->dma_para->attr_kernel_va[22][0] = va;
+	va += AIE_ALIGN32(gender_kernel_bias_loop22_0_frame01_size);
+
+	fd->dma_para->attr_kernel_va[22][1] = va;
+	va += AIE_ALIGN32(gender_kernel_bias_loop22_1_frame01_size);
+
+	fd->dma_para->attr_kernel_va[23][0] = va;
+	va += AIE_ALIGN32(gender_kernel_bias_loop23_0_frame01_size);
+
+	fd->dma_para->attr_kernel_va[23][1] = va;
+	va += AIE_ALIGN32(gender_kernel_bias_loop23_1_frame01_size);
+
+	fd->dma_para->attr_kernel_va[24][0] = va;
+	va += AIE_ALIGN32(gender_kernel_bias_loop24_0_frame01_size);
+
+	fd->dma_para->attr_kernel_va[24][1] = va;
+	va += AIE_ALIGN32(gender_kernel_bias_loop24_1_frame01_size);
+
+	fd->dma_para->attr_kernel_va[25][0] = va;
+	va += AIE_ALIGN32(gender_kernel_bias_loop25_0_frame01_size);
+
+	fd->dma_para->attr_kernel_va[25][1] = va;
+	va += AIE_ALIGN32(gender_kernel_bias_loop25_1_frame01_size);
+
+	/* fld blink weight forest model */
+	fd->dma_para->fld_blink_weight_va = va;
+	va += AIE_ALIGN32(fdvt_fld_blink_weight_forest14_size);
+
+	/* fld fp forest model */
+	for (i = 0; i < FLD_MAX_INPUT; i++) {
+		fd->dma_para->fld_fp_va[i] = va;
+		va += AIE_ALIGN32(fdvt_fld_fp_forest00_om45_size);
+	}
+
+	/* fld leafnode forest model */
+	for (i = 0; i < FLD_MAX_INPUT; i++) {
+		fd->dma_para->fld_leafnode_va[i] = va;
+		va += AIE_ALIGN32(fdvt_fld_leafnode_forest00_size);
+	}
+
+	/* fld tree forest cv weight model */
+	for (i = 0; i < FLD_MAX_INPUT; i++) {
+		fd->dma_para->fld_cv_va[i] = va;
+		va += AIE_ALIGN32(fdvt_fld_tree_forest00_cv_weight_size);
+	}
+
+	/* fld tree forest init shape model */
+	fd->dma_para->fld_shape_va[0] = va;
+	va += AIE_ALIGN32(fdvt_fld_tree_forest00_init_shape_size);
+
+	/* fld tree forest tree node model */
+	for (i = 0; i < FLD_MAX_INPUT; i++) {
+		fd->dma_para->fld_tree02_va[i] = va;
+		va += AIE_ALIGN32(fdvt_fld_tree_forest00_tree_node_size);
+	}
+
+	/* Set up kernel offset */
+	writel(AIE_IOVA(AIE_ALIGN32(fdvt_fld_fp_forest00_om45_size)),
+		fd->fd_base + FLD_FP_FORT_OFST);
+	writel(AIE_IOVA(AIE_ALIGN32(fdvt_fld_tree_forest00_tree_node_size)),
+		fd->fd_base + FLD_TR_FORT_OFST);
+	writel(AIE_IOVA(AIE_ALIGN32(fdvt_fld_leafnode_forest00_size)),
+		fd->fd_base + FLD_SH_FORT_OFST);
+	writel(AIE_IOVA(AIE_ALIGN32(fdvt_fld_tree_forest00_cv_weight_size)),
+		fd->fd_base + FLD_CV_FORT_OFST);
+
+	/* Model related configuration */
+	writel(0x00b0c80f, fd->fd_base + FLD_NUM_CONFIG_0);
+
+	writel(0x6C004800, fd->fd_base + FLD_PCA_MEAN_SCALE_0);
+	writel(0x6c007c00, fd->fd_base + FLD_PCA_MEAN_SCALE_1);
+	writel(0x6c00b800, fd->fd_base + FLD_PCA_MEAN_SCALE_2);
+	writel(0x6c00ec00, fd->fd_base + FLD_PCA_MEAN_SCALE_3);
+	writel(0xb0009800, fd->fd_base + FLD_PCA_MEAN_SCALE_4);
+	writel(0xdc006800, fd->fd_base + FLD_PCA_MEAN_SCALE_5);
+	writel(0xdc00cc00, fd->fd_base + FLD_PCA_MEAN_SCALE_6);
+
+	writel(0x00fdefd3, fd->fd_base + FLD_PCA_VEC_0);
+	writel(0x00fef095, fd->fd_base + FLD_PCA_VEC_1);
+	writel(0x00011095, fd->fd_base + FLD_PCA_VEC_2);
+	writel(0x00022fd3, fd->fd_base + FLD_PCA_VEC_3);
+	writel(0x000003e6, fd->fd_base + FLD_PCA_VEC_4);
+	writel(0x0000dfe9, fd->fd_base + FLD_PCA_VEC_5);
+	writel(0x00ff3fe9, fd->fd_base + FLD_PCA_VEC_6);
+
+	writel(0x00000008, fd->fd_base + FLD_CV_BIAS_FR_0);
+	writel(0x00000003, fd->fd_base + FLD_CV_BIAS_PF_0);
+	writel(0x0000b835, fd->fd_base + FLD_CV_RANGE_FR_0);
+	writel(0xFFFF5cba, fd->fd_base + FLD_CV_RANGE_FR_1);
+	writel(0x00005ed5, fd->fd_base + FLD_CV_RANGE_PF_0);
+	writel(0xFFFF910d, fd->fd_base + FLD_CV_RANGE_PF_1);
+	writel(0xe8242184, fd->fd_base + FLD_PP_COEF);
+
+	writel(0x00000001, fd->fd_base + FLD_BS_CONFIG0);
+	writel(0x0000031e, fd->fd_base + FLD_BS_CONFIG1);
+	writel(0xfffffcae, fd->fd_base + FLD_BS_CONFIG2);
+
 }
 
 const struct mtk_aie_drv_ops aie_ops_isp7sp = {

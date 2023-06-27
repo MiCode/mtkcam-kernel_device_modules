@@ -55,6 +55,7 @@ int aie_log_level_value;
 module_param(aie_log_level_value, int, 0644);
 
 aov_notify m_aov_notify = NULL;
+mtk_aie_register_tf_cb m_aie_reg_tf_cb = NULL;
 
 struct mtk_aie_user_para g_user_param;
 static struct device *aie_pm_dev;
@@ -156,6 +157,12 @@ void aov_notify_register(aov_notify aov_notify_fn)
 	m_aov_notify = aov_notify_fn;
 }
 EXPORT_SYMBOL(aov_notify_register);
+
+void register_mtk_aie_reg_tf_cb(mtk_aie_register_tf_cb mtk_aie_register_tf_cb_fn)
+{
+	m_aie_reg_tf_cb = mtk_aie_register_tf_cb_fn;
+}
+EXPORT_SYMBOL(register_mtk_aie_reg_tf_cb);
 
 static int mtk_aie_suspend(struct device *dev)
 {
@@ -498,6 +505,11 @@ static void mtk_aie_fill_init_param(struct mtk_aie_dev *fd,
 #endif
 static int mtk_aie_hw_enable(struct mtk_aie_dev *fd)
 {
+	if (m_aie_reg_tf_cb) {
+		aie_dev_info(fd->dev, "AIE register tf callback\n");
+		m_aie_reg_tf_cb(fd);
+	}
+
 	return fd->drv_ops->init(fd);
 }
 

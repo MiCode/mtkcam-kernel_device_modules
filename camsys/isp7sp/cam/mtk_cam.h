@@ -250,6 +250,8 @@ struct mtk_cam_device {
 	phandle rproc_phandle;
 	struct rproc *rproc_handle;
 
+	struct mutex ccu_lock;
+	int ccu_use_cnt;
 	phandle rproc_ccu_phandle;
 	struct rproc *rproc_ccu_handle;
 	struct platform_device *ccu_pdev;
@@ -354,6 +356,8 @@ static inline void mtk_cam_ctx_flush_adl_work(struct mtk_cam_ctx *ctx)
 	if (adl_work->raw_dev)
 		flush_work(&adl_work->work);
 }
+
+int mtk_cam_power_ctrl_ccu(struct device *dev, int on_off);
 
 int mtk_cam_ctx_init_scenario(struct mtk_cam_ctx *ctx);
 int mtk_cam_ctx_all_nodes_streaming(struct mtk_cam_ctx *ctx);

@@ -1108,24 +1108,33 @@ static int mtk_cam_get_ccu_phandle(struct mtk_cam_device *cam)
 	return ret;
 }
 
-static int mtk_cam_power_ctrl_ccu(struct device *dev, int on_off)
+int mtk_cam_power_ctrl_ccu(struct device *dev, int on_off)
 {
 	struct mtk_cam_device *cam = dev_get_drvdata(dev);
 	int ret = 0;
 
+	mutex_lock(&cam->ccu_lock);
+
 	if (on_off) {
 		struct device_node *rproc_np;
+
+		if (cam->ccu_use_cnt) {
+			++cam->ccu_use_cnt;
+			goto EXIT;
+		}
 
 		WARN_ON(cam->rproc_ccu_handle);
 
 		ret = mtk_cam_get_ccu_phandle(cam);
 		if (ret)
-			return -1;
+			goto EXIT;
 
 		cam->rproc_ccu_handle = rproc_get_by_phandle(cam->rproc_ccu_phandle);
 		if (!cam->rproc_ccu_handle) {
 			dev_info(dev, "Get ccu handle fail\n");
-			return -1;
+
+			ret = -1;
+			goto EXIT;
 		}
 
 		rproc_np = of_find_node_by_phandle(cam->rproc_ccu_phandle);
@@ -1133,7 +1142,9 @@ static int mtk_cam_power_ctrl_ccu(struct device *dev, int on_off)
 			dev_info(dev, "failed to find node of ccu rproc\n");
 			rproc_put(cam->rproc_ccu_handle);
 			cam->rproc_ccu_handle = NULL;
-			return -1;
+
+			ret = -1;
+			goto EXIT;
 		}
 
 		cam->ccu_pdev = of_find_device_by_node(rproc_np);
@@ -1142,24 +1153,38 @@ static int mtk_cam_power_ctrl_ccu(struct device *dev, int on_off)
 			of_node_put(rproc_np);
 			rproc_put(cam->rproc_ccu_handle);
 			cam->rproc_ccu_handle = NULL;
-			return -1;
+
+			ret = -1;
+			goto EXIT;
 		}
 
 #if IS_ENABLED(CONFIG_MTK_CCU_DEBUG)
-		ret = rproc_bootx(cam->rproc_ccu_handle, RPROC_UID_SC);
+		ret = rproc_bootx(cam->rproc_ccu_handle, RPROC_UID_CAM);
 #else
 		ret = rproc_boot(cam->rproc_ccu_handle);
 #endif
-		if (ret)
+		if (ret) {
 			dev_info(dev, "boot ccu rproc fail, ret=%d\n", ret);
+			goto EXIT;
+		}
 
+		++cam->ccu_use_cnt;
 	} else {
 
+		if (WARN_ON(!cam->ccu_use_cnt)) {
+			ret = -1;
+			goto EXIT;
+		}
+
+		--cam->ccu_use_cnt;
+		if (cam->ccu_use_cnt)
+			goto EXIT;
+
 		if (!cam->rproc_ccu_handle)
-			return 0;
+			goto EXIT;
 
 #if IS_ENABLED(CONFIG_MTK_CCU_DEBUG)
-		rproc_shutdownx(cam->rproc_ccu_handle, RPROC_UID_SC);
+		rproc_shutdownx(cam->rproc_ccu_handle, RPROC_UID_CAM);
 #else
 		rproc_shutdown(cam->rproc_ccu_handle);
 #endif
@@ -1170,20 +1195,14 @@ static int mtk_cam_power_ctrl_ccu(struct device *dev, int on_off)
 		cam->rproc_ccu_handle = NULL;
 		cam->ccu_pdev = NULL;
 	}
+
+EXIT:
+	dev_info(dev, "%s: on %d cnt %d, ret = %d\n", __func__,
+		 on_off, cam->ccu_use_cnt, ret);
+	mutex_unlock(&cam->ccu_lock);
 	return ret;
 }
 #endif
-
-static bool is_ccu_required(struct mtk_cam_device *cam)
-{
-	/*
-	 * to set camsv/raw's GDOMAIN of aid to access slb
-	 */
-	if (mtk_cam_is_dcif_slb_supported())
-		return true;
-
-	return false;
-}
 
 static int mtk_cam_initialize(struct mtk_cam_device *cam)
 {
@@ -1193,11 +1212,6 @@ static int mtk_cam_initialize(struct mtk_cam_device *cam)
 		return 0;
 
 	dev_info(cam->dev, "camsys initialize\n");
-
-#ifdef ENABLE_CCU
-	if (is_ccu_required(cam))
-		mtk_cam_power_ctrl_ccu(cam->dev, 1);
-#endif
 
 	mtk_cam_dvfs_reset_runtime_info(&cam->dvfs);
 
@@ -1222,10 +1236,6 @@ static int mtk_cam_uninitialize(struct mtk_cam_device *cam)
 
 	mtk_cam_power_rproc(cam, 0);
 	pm_runtime_put_sync(cam->dev);
-
-#ifdef ENABLE_CCU
-	mtk_cam_power_ctrl_ccu(cam->dev, 0);
-#endif
 
 	return 0;
 }
@@ -3214,6 +3224,8 @@ static int mtk_cam_master_bind(struct device *dev)
 		dev_dbg(dev, "Failed to register subdev nodes\n");
 		goto fail_unreg_mraw_entities;
 	}
+
+	mutex_init(&cam_dev->ccu_lock);
 
 	mtk_cam_dvfs_probe(cam_dev->dev,
 			   &cam_dev->dvfs, cam_dev->max_stream_num);

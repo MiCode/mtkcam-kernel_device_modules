@@ -587,7 +587,7 @@ mtk_cam_job_initialize_engines(struct mtk_cam_ctx *ctx,
 		if (job->enable_hsf_raw)
 			mtk_cam_hsf_init(ctx);
 
-		if (mtk_cam_is_dcif_slb_supported())
+		if (is_dc_mode(job) && ctx->slb_addr)
 			mtk_cam_hsf_aid(ctx, 1, AID_CAM_DC, engines);
 	}
 

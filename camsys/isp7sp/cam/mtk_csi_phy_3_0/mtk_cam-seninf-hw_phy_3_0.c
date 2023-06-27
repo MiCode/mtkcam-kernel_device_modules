@@ -4555,7 +4555,7 @@ static int mtk_cam_seninf_debug(struct seninf_ctx *ctx)
 					DPHY_RX_DATA_LANE3_HS_PARAMETER),
 			SENINF_READ_REG(base_dphy,
 					DPHY_RX_SPARE0));
-			dev_info(ctx->dev,
+		dev_info(ctx->dev,
 			"Csi%d_Dphy_Top: DPHY_RX_DESKEW_CTRL(0x%08x) DPHY_RX_DESKEW_TIMING_CTRL(0x%08x) DPHY_RX_DESKEW_LANE0_CTRL(0x%08x) DPHY_RX_DESKEW_LANE1_CTRL(0x%08x) DPHY_RX_DESKEW_LANE2_CTRL(0x%08x) DPHY_RX_DESKEW_LANE3_CTRL(0x%08x)\n",
 			csi_port,
 			SENINF_READ_REG(base_dphy, DPHY_RX_DESKEW_CTRL),
@@ -4568,6 +4568,12 @@ static int mtk_cam_seninf_debug(struct seninf_ctx *ctx)
 					DPHY_RX_DESKEW_LANE2_CTRL),
 			SENINF_READ_REG(base_dphy,
 					DPHY_RX_DESKEW_LANE3_CTRL));
+		dev_info(ctx->dev,
+			"Csi%d_Dphy_Top: DPHY_RX_DESKEW_IRQ_EN(0x%08x) DPHY_RX_DESKEW_IRQ_CLR(0x%08x) DPHY_RX_DESKEW_IRQ_STATUS(0x%08x)\n",
+			csi_port,
+			SENINF_READ_REG(base_dphy, DPHY_RX_DESKEW_IRQ_EN),
+			SENINF_READ_REG(base_dphy, DPHY_RX_DESKEW_IRQ_CLR),
+			SENINF_READ_REG(base_dphy, DPHY_RX_DESKEW_IRQ_STATUS));
 
 		dev_info(ctx->dev,
 			"Csi%d_Cphy_Top: CPHY_RX_CTRL(0x%x) CPHY_RX_DETECT_CTRL_POST(0x%x)\n",

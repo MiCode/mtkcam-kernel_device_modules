@@ -29,6 +29,8 @@
 #define FLD_ALIGN 128
 #define CHECK_SERVICE_0 0
 #define BUFTAG "AIE"
+#define MAX_PYRAMID_WIDTH 640
+#define MAX_PYRAMID_HEIGHT 640
 
 #define AIE_ALIGN32(x) round_up(x, 32)
 
@@ -2583,6 +2585,13 @@ static int aie_config_network(struct mtk_aie_dev *fd,
 	if (src_crop_w)
 		pyramid0_out_h = pyramid0_out_w * src_crop_h / src_crop_w;
 
+	if (pyramid0_out_h > MAX_PYRAMID_HEIGHT) {
+		pyramid0_out_w = pyramid0_out_w * MAX_PYRAMID_HEIGHT / pyramid0_out_h;
+		pyramid0_out_h = MAX_PYRAMID_HEIGHT;
+		aie_dev_info(fd->dev, "pyramid size waring: w: %d, h: %d",
+					pyramid0_out_w, pyramid0_out_h);
+	}
+
 	pyramid1_out_h = pyramid0_out_h / 2;
 	pyramid2_out_h = pyramid1_out_h / 2;
 
@@ -3172,8 +3181,8 @@ static int aie_alloc_aie_buf(struct mtk_aie_dev *fd)
 
 	memset(&fd->st_info, 0, sizeof(fd->st_info));
 
-	if (fd->base_para->max_pyramid_width > 640
-		|| fd->base_para->max_pyramid_height > 640) {
+	if (fd->base_para->max_pyramid_width > MAX_PYRAMID_WIDTH
+		|| fd->base_para->max_pyramid_height > MAX_PYRAMID_HEIGHT) {
 		aie_dev_info(fd->dev, "max pyramid size too big: w: %d, h: %d",
 			fd->base_para->max_pyramid_width,
 			fd->base_para->max_pyramid_height);

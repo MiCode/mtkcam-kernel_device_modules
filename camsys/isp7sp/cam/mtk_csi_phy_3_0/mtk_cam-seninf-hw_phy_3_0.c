@@ -2275,11 +2275,6 @@ static int csirx_mac_csi_setting(struct seninf_ctx *ctx)
 				RG_CSI2_DBG_PACKET_CNT_EN,
 				1);
 
-	// lane/trio count
-	SENINF_BITS(csirx_mac_csi,
-				CSIRX_MAC_CSI2_RESYNC_MERGE_CTRL,
-				RG_CSI2_RESYNC_CYCLE_CNT_OPT,
-				1);
 
 	if (!ctx->is_cphy) { //Dphy
 
@@ -2311,9 +2306,25 @@ static int csirx_mac_csi_setting(struct seninf_ctx *ctx)
 					0);
 
 		/* Setting DEFAULT RESYNC_MERGE SETTING */
-		SENINF_WRITE_REG(csirx_mac_csi,
-						CSIRX_MAC_CSI2_RESYNC_MERGE_CTRL,
-						0x2020f106);
+		SENINF_BITS(csirx_mac_csi,
+					CSIRX_MAC_CSI2_RESYNC_MERGE_CTRL,
+					RG_CSI2_RESYNC_DMY_CYCLE,
+					0);
+
+		SENINF_BITS(csirx_mac_csi,
+					CSIRX_MAC_CSI2_RESYNC_MERGE_CTRL,
+					RG_CSI2_RESYNC_DMY_CNT,
+					0);
+
+		SENINF_BITS(csirx_mac_csi,
+					CSIRX_MAC_CSI2_RESYNC_MERGE_CTRL,
+					RG_CSI2_RESYNC_DMY_EN,
+					0);
+
+		SENINF_BITS(csirx_mac_csi,
+					CSIRX_MAC_CSI2_RESYNC_MERGE_CTRL,
+					RG_CSI2_RESYNC_LRTE_EN,
+					0);
 
 	} else { //Cphy
 		u8 map_hdr_len[] = {0, 1, 2, 4, 5};
@@ -2343,9 +2354,25 @@ static int csirx_mac_csi_setting(struct seninf_ctx *ctx)
 					RG_CSI2_HEADER_LEN,
 					map_hdr_len[(unsigned int)ctx->num_data_lanes]);
 
-		SENINF_WRITE_REG(csirx_mac_csi,
-						CSIRX_MAC_CSI2_RESYNC_MERGE_CTRL,
-						0x20207106);
+		SENINF_BITS(csirx_mac_csi,
+					CSIRX_MAC_CSI2_RESYNC_MERGE_CTRL,
+					RG_CSI2_RESYNC_DMY_CYCLE,
+					0);
+
+		SENINF_BITS(csirx_mac_csi,
+					CSIRX_MAC_CSI2_RESYNC_MERGE_CTRL,
+					RG_CSI2_RESYNC_DMY_CNT,
+					0);
+
+		SENINF_BITS(csirx_mac_csi,
+					CSIRX_MAC_CSI2_RESYNC_MERGE_CTRL,
+					RG_CSI2_RESYNC_DMY_EN,
+					0);
+
+		SENINF_BITS(csirx_mac_csi,
+					CSIRX_MAC_CSI2_RESYNC_MERGE_CTRL,
+					RG_CSI2_RESYNC_LRTE_EN,
+					0);
 
 	}
 

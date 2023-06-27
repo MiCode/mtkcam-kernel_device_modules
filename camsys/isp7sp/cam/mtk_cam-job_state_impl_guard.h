@@ -6,6 +6,8 @@
 #ifndef __MTK_CAM_JOB_STATE_IMPL_GUARD_H
 #define __MTK_CAM_JOB_STATE_IMPL_GUARD_H
 
+#define I2C_THRES_FROM_L_SOF_NS 3000000
+
 struct state_accessor;
 struct state_accessor_ops {
 	/*
@@ -154,7 +156,8 @@ static inline bool valid_i2c_period(struct transition_param *p)
 	if (unlikely(!p->s_params))
 		return false;
 
-	return (p->event_ts - p->info->sof_ts_ns) < p->s_params->i2c_thres_ns;
+	return ((p->event_ts - p->info->sof_ts_ns) < p->s_params->i2c_thres_ns) ||
+		((p->event_ts - p->info->sof_l_ts_ns) < I2C_THRES_FROM_L_SOF_NS);
 }
 
 static inline bool valid_i2c_period_l(struct transition_param *p)

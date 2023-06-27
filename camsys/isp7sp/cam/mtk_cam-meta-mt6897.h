@@ -96,6 +96,7 @@ struct mtk_cam_uapi_ae_param {
 	__u32 act_win_x_end;
 	__u32 act_win_y_start;
 	__u32 act_win_y_end;
+	__u8 se_precision_mode;
 };
 
 /**
@@ -882,7 +883,7 @@ struct mtk_cam_uapi_meta_camsv_stats_0 {
 };
 
 #define MTK_CAM_META_VERSION_MAJOR 1
-#define MTK_CAM_META_VERSION_MINOR 5
+#define MTK_CAM_META_VERSION_MINOR 6
 #define MTK_CAM_META_PLATFORM_NAME "isp7sp"
 #define MTK_CAM_META_CHIP_NAME "mt6897"
 

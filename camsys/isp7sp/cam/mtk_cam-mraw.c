@@ -944,15 +944,17 @@ int mtk_cam_mraw_cq_config(struct mtk_mraw_device *mraw_dev,
 	return 0;
 }
 
+#define MRAW_TS_CNT 0x2
 void mtk_cam_mraw_update_start_period(
 	struct mtk_mraw_device *mraw_dev, int scq_ms)
 {
-	u32 ts_cnt, scq_cnt_rate;
+	u32 scq_cnt_rate;
 
-	ts_cnt = readl_relaxed(mraw_dev->base + REG_MRAW_TG_TIME_STAMP_CNT);
+	writel(0x101, mraw_dev->base + REG_MRAW_TG_TIME_STAMP_CTL);
+	writel(MRAW_TS_CNT, mraw_dev->base + REG_MRAW_TG_TIME_STAMP_CNT);
 
 	/* scq count rate(khz) */
-	scq_cnt_rate = SCQ_DEFAULT_CLK_RATE * 1000 / ((ts_cnt + 1) * 2);
+	scq_cnt_rate = SCQ_DEFAULT_CLK_RATE * 1000 / ((MRAW_TS_CNT + 1) * 2);
 
 	/* scq start period */
 	writel_relaxed(scq_ms * scq_cnt_rate,
@@ -961,7 +963,7 @@ void mtk_cam_mraw_update_start_period(
 	dev_info(mraw_dev->dev, "[%s] start_period:0x%x ts_cnt:%d, scq_ms:%d\n",
 		__func__,
 		readl_relaxed(mraw_dev->base + REG_MRAW_SCQ_START_PERIOD),
-		ts_cnt, scq_ms);
+		MRAW_TS_CNT, scq_ms);
 }
 
 int mtk_cam_mraw_cq_disable(struct mtk_mraw_device *mraw_dev)

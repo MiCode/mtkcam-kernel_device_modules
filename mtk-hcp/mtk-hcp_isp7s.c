@@ -1021,7 +1021,8 @@ static struct mtk_hcp_gce_token_reserve_mblock isp7s_gce_mblock[] = {
 		.fd = -1,
 		.pIonHandle = NULL,
 		.attach = NULL,
-		.sgt = NULL
+		.sgt = NULL,
+		.gce = 1
 	},
 	{
 		.name = "IMG_MEM_G_TOKEN_ID",
@@ -1429,6 +1430,8 @@ static int isp7s_module_driver_allocate_working_buffer_streaming(struct mtk_hcp 
                 case TRAW_MEM_T_ID:
                 case PQDIP_MEM_C_ID:
                 case PQDIP_MEM_T_ID:
+                case ADL_MEM_C_ID:
+                case ADL_MEM_T_ID:
                     /* all supported heap name you can find with cmd */
                     /* (ls /dev/dma_heap/) in shell */
                     pdma_heap = dma_heap_find("mtk_mm-uncached");
@@ -1476,8 +1479,8 @@ static int isp7s_module_driver_allocate_working_buffer_streaming(struct mtk_hcp 
                     str_mblock[id].fd =
                     dma_buf_fd(str_mblock[id].d_buf, O_RDWR | O_CLOEXEC);
                     if (hcp_dbg_enable()) {
-                        pr_debug("%s:[HCP_WORKING][%s] phys:0x%llx, virt:0x%p, dma:0x%llx,size:0x%llx, is_dma_buf:%d, fd:%d, d_buf:0x%p\n",
-                                __func__, str_mblock[id].name,
+                    pr_debug("%s:[HCP_WORKING][%s(%d)] phys:0x%llx, virt:0x%p, dma:0x%llx,size:0x%llx, is_dma_buf:%d, fd:%d, d_buf:0x%p\n",
+                            __func__, str_mblock[id].name, id,
                                 isp7s_get_reserve_mem_phys(id, str_mode),
                                 isp7s_get_reserve_mem_virt(id, str_mode),
                                 isp7s_get_reserve_mem_dma(id, str_mode),
@@ -1658,6 +1661,8 @@ static int isp7s_module_driver_allocate_working_buffer_capture(struct mtk_hcp *h
                 case TRAW_MEM_T_ID:
                 case PQDIP_MEM_C_ID:
                 case PQDIP_MEM_T_ID:
+                case ADL_MEM_C_ID:
+                case ADL_MEM_T_ID:
                     /* all supported heap name you can find with cmd */
                     /* (ls /dev/dma_heap/) in shell */
                     pdma_heap = dma_heap_find("mtk_mm-uncached");
@@ -1705,8 +1710,8 @@ static int isp7s_module_driver_allocate_working_buffer_capture(struct mtk_hcp *h
                     cap_mblock[id].fd =
                     dma_buf_fd(cap_mblock[id].d_buf, O_RDWR | O_CLOEXEC);
                     if (hcp_dbg_enable()) {
-                        pr_debug("%s:[HCP_WORKING][%s] phys:0x%llx, virt:0x%p, dma:0x%llx,size:0x%llx, is_dma_buf:%d, fd:%d, d_buf:0x%p\n",
-                                __func__, cap_mblock[id].name,
+                        pr_debug("%s:[HCP_WORKING][%s(%d)] phys:0x%llx, virt:0x%p, dma:0x%llx,size:0x%llx, is_dma_buf:%d, fd:%d, d_buf:0x%p\n",
+                            __func__, cap_mblock[id].name, id,
                                 isp7s_get_reserve_mem_phys(id, cap_mode),
                                 isp7s_get_reserve_mem_virt(id, cap_mode),
                                 isp7s_get_reserve_mem_dma(id, cap_mode),
@@ -1764,8 +1769,8 @@ static int isp7s_module_driver_allocate_working_buffer_capture(struct mtk_hcp *h
                     cap_mblock[id].fd =
                     dma_buf_fd(cap_mblock[id].d_buf, O_RDWR | O_CLOEXEC);
                     if (hcp_dbg_enable()) {
-                        pr_debug("%s:[HCP_WORKING_DEFAULT][%s] phys:0x%llx, virt:0x%p, dma:0x%llx, size:0x%llx, is_dma_buf:%d, fd:%d, d_buf:0x%p\n",
-                                __func__, cap_mblock[id].name,
+                        pr_debug("%s:[HCP_WORKING_DEFAULT][%s(%d)] phys:0x%llx, virt:0x%p, dma:0x%llx, size:0x%llx, is_dma_buf:%d, fd:%d, d_buf:0x%p\n",
+                            __func__, cap_mblock[id].name, id,
                                 isp7s_get_reserve_mem_phys(id, cap_mode),
                                 isp7s_get_reserve_mem_virt(id, cap_mode),
                                 isp7s_get_reserve_mem_dma(id, cap_mode),
@@ -1888,6 +1893,8 @@ static int isp7s_module_driver_allocate_working_buffer_smvr(struct mtk_hcp *hcp_
                 case TRAW_MEM_T_ID:
                 case PQDIP_MEM_C_ID:
                 case PQDIP_MEM_T_ID:
+                case ADL_MEM_C_ID:
+                case ADL_MEM_T_ID:
                     /* all supported heap name you can find with cmd */
                     /* (ls /dev/dma_heap/) in shell */
                     pdma_heap = dma_heap_find("mtk_mm-uncached");
@@ -1935,8 +1942,8 @@ static int isp7s_module_driver_allocate_working_buffer_smvr(struct mtk_hcp *hcp_
                     smvr_mblock[id].fd =
                     dma_buf_fd(smvr_mblock[id].d_buf, O_RDWR | O_CLOEXEC);
                     if (hcp_dbg_enable()) {
-                        pr_debug("%s:[HCP_WORKING][%s] phys:0x%llx, virt:0x%p, dma:0x%llx,size:0x%llx, is_dma_buf:%d, fd:%d, d_buf:0x%p\n",
-                                __func__, smvr_mblock[id].name,
+                        pr_debug("%s:[HCP_WORKING][%s(%d)] phys:0x%llx, virt:0x%p, dma:0x%llx,size:0x%llx, is_dma_buf:%d, fd:%d, d_buf:0x%p\n",
+                            __func__, smvr_mblock[id].name, id,
                                 isp7s_get_reserve_mem_phys(id, smvr_mode),
                                 isp7s_get_reserve_mem_virt(id, smvr_mode),
                                 isp7s_get_reserve_mem_dma(id, smvr_mode),
@@ -1994,8 +2001,8 @@ static int isp7s_module_driver_allocate_working_buffer_smvr(struct mtk_hcp *hcp_
                     smvr_mblock[id].fd =
                     dma_buf_fd(smvr_mblock[id].d_buf, O_RDWR | O_CLOEXEC);
                     if (hcp_dbg_enable()) {
-                        pr_debug("%s:[HCP_WORKING_DEFAULT][%s] phys:0x%llx, virt:0x%p, dma:0x%llx, size:0x%llx, is_dma_buf:%d, fd:%d, d_buf:0x%p\n",
-                                __func__, smvr_mblock[id].name,
+                        pr_debug("%s:[HCP_WORKING_DEFAULT][%s(%d)] phys:0x%llx, virt:0x%p, dma:0x%llx, size:0x%llx, is_dma_buf:%d, fd:%d, d_buf:0x%p\n",
+                            __func__, smvr_mblock[id].name, id,
                                 isp7s_get_reserve_mem_phys(id, smvr_mode),
                                 isp7s_get_reserve_mem_virt(id, smvr_mode),
                                 isp7s_get_reserve_mem_dma(id, smvr_mode),
@@ -2188,6 +2195,187 @@ int isp7s_allocate_working_buffer(struct mtk_hcp *hcp_dev, unsigned int mode, un
 }
 
 EXPORT_SYMBOL(isp7s_allocate_working_buffer);
+
+static void gce_release_streaming(struct kref *ref)
+{
+	struct mtk_hcp_streaming_reserve_mblock *mblock =
+		container_of(ref, struct mtk_hcp_streaming_reserve_mblock, kref);
+
+	dma_buf_vunmap(mblock->d_buf, &mblock->map);
+	/* free iova */
+	dma_buf_unmap_attachment(mblock->attach, mblock->sgt, DMA_BIDIRECTIONAL);
+	dma_buf_detach(mblock->d_buf, mblock->attach);
+	dma_buf_end_cpu_access(mblock->d_buf, DMA_BIDIRECTIONAL);
+	dma_buf_put(mblock->d_buf);
+    if (hcp_dbg_enable()) {
+	    pr_info("%s:[HCP][%s] phys:0x%llx, virt:0x%p, dma:0x%llx, size:0x%llx, is_dma_buf:%d, fd:%d, d_buf:0x%p\n",
+    		__func__, mblock->name,
+    		#if SMVR_DECOUPLE
+    		isp7s_get_reserve_mem_phys(IMG_MEM_G_ID, imgsys_streaming),
+    		isp7s_get_reserve_mem_virt(IMG_MEM_G_ID, imgsys_streaming),
+    		isp7s_get_reserve_mem_dma(IMG_MEM_G_ID, imgsys_streaming),
+    		isp7s_get_reserve_mem_size(IMG_MEM_G_ID, imgsys_streaming),
+    		mblock->is_dma_buf,
+    		isp7s_get_reserve_mem_fd(IMG_MEM_G_ID, imgsys_streaming),
+    		#else
+    		isp7s_get_reserve_mem_phys(IMG_MEM_G_ID),
+    		isp7s_get_reserve_mem_virt(IMG_MEM_G_ID),
+    		isp7s_get_reserve_mem_dma(IMG_MEM_G_ID),
+    		isp7s_get_reserve_mem_size(IMG_MEM_G_ID),
+    		mblock->is_dma_buf,
+    		isp7s_get_reserve_mem_fd(IMG_MEM_G_ID),
+    		#endif
+    		mblock->d_buf);
+    }
+	// close fd in user space driver, you can't close fd in kernel site
+	// dma_heap_buffer_free(mblock[id].d_buf);
+	//dma_buf_put(my_dma_buf);
+	//also can use this api, but not recommended
+	mblock->mem_priv = NULL;
+	mblock->mmap_cnt = 0;
+	mblock->start_dma = 0x0;
+	mblock->start_virt = 0x0;
+	mblock->start_phys = 0x0;
+	mblock->d_buf = NULL;
+	mblock->fd = -1;
+	mblock->pIonHandle = NULL;
+	mblock->attach = NULL;
+	mblock->sgt = NULL;
+}
+
+static void gce_release_capture(struct kref *ref)
+{
+	struct mtk_hcp_capture_reserve_mblock *mblock =
+		container_of(ref, struct mtk_hcp_capture_reserve_mblock, kref);
+
+	dma_buf_vunmap(mblock->d_buf, &mblock->map);
+	/* free iova */
+	dma_buf_unmap_attachment(mblock->attach, mblock->sgt, DMA_BIDIRECTIONAL);
+	dma_buf_detach(mblock->d_buf, mblock->attach);
+	dma_buf_end_cpu_access(mblock->d_buf, DMA_BIDIRECTIONAL);
+	dma_buf_put(mblock->d_buf);
+    if (hcp_dbg_enable()) {
+	    pr_info("%s:[HCP][%s] phys:0x%llx, virt:0x%p, dma:0x%llx, size:0x%llx, is_dma_buf:%d, fd:%d, d_buf:0x%p\n",
+    		__func__, mblock->name,
+    		#if SMVR_DECOUPLE
+    		isp7s_get_reserve_mem_phys(IMG_MEM_G_ID, imgsys_capture),
+    		isp7s_get_reserve_mem_virt(IMG_MEM_G_ID, imgsys_capture),
+    		isp7s_get_reserve_mem_dma(IMG_MEM_G_ID, imgsys_capture),
+    		isp7s_get_reserve_mem_size(IMG_MEM_G_ID, imgsys_capture),
+    		mblock->is_dma_buf,
+    		isp7s_get_reserve_mem_fd(IMG_MEM_G_ID, imgsys_capture),
+    		#else
+    		isp7s_get_reserve_mem_phys(IMG_MEM_G_ID),
+    		isp7s_get_reserve_mem_virt(IMG_MEM_G_ID),
+    		isp7s_get_reserve_mem_dma(IMG_MEM_G_ID),
+    		isp7s_get_reserve_mem_size(IMG_MEM_G_ID),
+    		mblock->is_dma_buf,
+    		isp7s_get_reserve_mem_fd(IMG_MEM_G_ID),
+    		#endif
+    		mblock->d_buf);
+    }
+	// close fd in user space driver, you can't close fd in kernel site
+	// dma_heap_buffer_free(mblock[id].d_buf);
+	//dma_buf_put(my_dma_buf);
+	//also can use this api, but not recommended
+	mblock->mem_priv = NULL;
+	mblock->mmap_cnt = 0;
+	mblock->start_dma = 0x0;
+	mblock->start_virt = 0x0;
+	mblock->start_phys = 0x0;
+	mblock->d_buf = NULL;
+	mblock->fd = -1;
+	mblock->pIonHandle = NULL;
+	mblock->attach = NULL;
+	mblock->sgt = NULL;
+}
+
+static void gce_release_smvr(struct kref *ref)
+{
+	struct mtk_hcp_smvr_reserve_mblock *mblock =
+		container_of(ref, struct mtk_hcp_smvr_reserve_mblock, kref);
+
+	dma_buf_vunmap(mblock->d_buf, &mblock->map);
+	/* free iova */
+	dma_buf_unmap_attachment(mblock->attach, mblock->sgt, DMA_BIDIRECTIONAL);
+	dma_buf_detach(mblock->d_buf, mblock->attach);
+	dma_buf_end_cpu_access(mblock->d_buf, DMA_BIDIRECTIONAL);
+	dma_buf_put(mblock->d_buf);
+    if (hcp_dbg_enable()) {
+	    pr_info("%s:[HCP][%s] phys:0x%llx, virt:0x%p, dma:0x%llx, size:0x%llx, is_dma_buf:%d, fd:%d, d_buf:0x%p\n",
+    		__func__, mblock->name,
+    		#if SMVR_DECOUPLE
+    		isp7s_get_reserve_mem_phys(IMG_MEM_G_ID, imgsys_smvr),
+    		isp7s_get_reserve_mem_virt(IMG_MEM_G_ID, imgsys_smvr),
+    		isp7s_get_reserve_mem_dma(IMG_MEM_G_ID, imgsys_smvr),
+    		isp7s_get_reserve_mem_size(IMG_MEM_G_ID, imgsys_smvr),
+    		mblock->is_dma_buf,
+    		isp7s_get_reserve_mem_fd(IMG_MEM_G_ID, imgsys_smvr),
+    		#else
+    		isp7s_get_reserve_mem_phys(IMG_MEM_G_ID),
+    		isp7s_get_reserve_mem_virt(IMG_MEM_G_ID),
+    		isp7s_get_reserve_mem_dma(IMG_MEM_G_ID),
+    		isp7s_get_reserve_mem_size(IMG_MEM_G_ID),
+    		mblock->is_dma_buf,
+    		isp7s_get_reserve_mem_fd(IMG_MEM_G_ID),
+    		#endif
+    		mblock->d_buf);
+    }
+	// close fd in user space driver, you can't close fd in kernel site
+	// dma_heap_buffer_free(mblock[id].d_buf);
+	//dma_buf_put(my_dma_buf);
+	//also can use this api, but not recommended
+	mblock->mem_priv = NULL;
+	mblock->mmap_cnt = 0;
+	mblock->start_dma = 0x0;
+	mblock->start_virt = 0x0;
+	mblock->start_phys = 0x0;
+	mblock->d_buf = NULL;
+	mblock->fd = -1;
+	mblock->pIonHandle = NULL;
+	mblock->attach = NULL;
+	mblock->sgt = NULL;
+}
+
+static void gce_release_token(struct kref *ref)
+{
+	struct mtk_hcp_gce_token_reserve_mblock *mblock =
+		container_of(ref, struct mtk_hcp_gce_token_reserve_mblock, kref);
+
+	dma_buf_vunmap(mblock->d_buf, &mblock->map);
+	/* free iova */
+	dma_buf_unmap_attachment(mblock->attach, mblock->sgt, DMA_BIDIRECTIONAL);
+	dma_buf_detach(mblock->d_buf, mblock->attach);
+	dma_buf_end_cpu_access(mblock->d_buf, DMA_BIDIRECTIONAL);
+	dma_buf_put(mblock->d_buf);
+
+    if (hcp_dbg_enable()) {
+	    pr_info("%s:[HCP][%s] phys:0x%llx, virt:0x%p, dma:0x%llx, size:0x%llx, is_dma_buf:%d, fd:%d, d_buf:0x%p\n",
+    		__func__, mblock->name,
+    		isp7s_get_reserve_mem_phys(IMG_MEM_G_TOKEN_ID, imgsys_streaming),
+    		isp7s_get_reserve_mem_virt(IMG_MEM_G_TOKEN_ID, imgsys_streaming),
+    		isp7s_get_reserve_mem_dma(IMG_MEM_G_TOKEN_ID, imgsys_streaming),
+    		isp7s_get_reserve_mem_size(IMG_MEM_G_TOKEN_ID, imgsys_streaming),
+    		mblock->is_dma_buf,
+    		isp7s_get_reserve_mem_fd(IMG_MEM_G_TOKEN_ID, imgsys_streaming),
+    		mblock->d_buf);
+    }
+	// close fd in user space driver, you can't close fd in kernel site
+	// dma_heap_buffer_free(mblock[id].d_buf);
+	//dma_buf_put(my_dma_buf);
+	//also can use this api, but not recommended
+	mblock->mem_priv = NULL;
+	mblock->mmap_cnt = 0;
+	mblock->start_dma = 0x0;
+	mblock->start_virt = 0x0;
+	mblock->start_phys = 0x0;
+	mblock->d_buf = NULL;
+	mblock->fd = -1;
+	mblock->pIonHandle = NULL;
+	mblock->attach = NULL;
+	mblock->sgt = NULL;
+}
+
 #else
 phys_addr_t isp7s_get_reserve_mem_phys(unsigned int id)
 {
@@ -2546,7 +2734,7 @@ int isp7s_allocate_working_buffer(struct mtk_hcp *hcp_dev, unsigned int mode)
 	return 0;
 }
 EXPORT_SYMBOL(isp7s_allocate_working_buffer);
-#endif
+
 static void gce_release(struct kref *ref)
 {
 	struct mtk_hcp_reserve_mblock *mblock =
@@ -2594,6 +2782,8 @@ static void gce_release(struct kref *ref)
 	mblock->sgt = NULL;
 }
 
+#endif
+
 #if SMVR_DECOUPLE
 static int isp7s_module_driver_release_working_buffer_streaming(struct mtk_hcp *hcp_dev,
     unsigned int str_mode, struct mtk_hcp_streaming_reserve_mblock *str_mblock)
@@ -2607,7 +2797,7 @@ static int isp7s_module_driver_release_working_buffer_streaming(struct mtk_hcp *
             if (str_mblock[id].is_dma_buf) {
                 switch (id) {
                 case IMG_MEM_G_ID:
-                    kref_put(&str_mblock[id].kref, gce_release);
+                    kref_put(&str_mblock[id].kref, gce_release_streaming);
                     break;
                 case WPE_MEM_C_ID:
                 case WPE_MEM_T_ID:
@@ -2651,8 +2841,8 @@ static int isp7s_module_driver_release_working_buffer_streaming(struct mtk_hcp *
             }
             if (hcp_dbg_enable()) {
                 pr_debug(
-                    "%s: [HCP][mem_reserve-%d] phys:0x%llx, virt:0x%p, dma:0x%llx, size:0x%llx, is_dma_buf:%d, fd:%d\n",
-                    __func__, id,
+                "%s: [HCP][mem_reserve-%s(%d)] phys:0x%llx, virt:0x%p, dma:0x%llx, size:0x%llx, is_dma_buf:%d, fd:%d\n",
+                __func__, str_mblock[id].name, id,
                     isp7s_get_reserve_mem_phys(id, str_mode),
                     isp7s_get_reserve_mem_virt(id, str_mode),
                     isp7s_get_reserve_mem_dma(id, str_mode),
@@ -2677,7 +2867,7 @@ static int isp7s_module_driver_release_working_buffer_capture(struct mtk_hcp *hc
             if (cap_mblock[id].is_dma_buf) {
                 switch (id) {
                 case IMG_MEM_G_ID:
-                    kref_put(&cap_mblock[id].kref, gce_release);
+                    kref_put(&cap_mblock[id].kref, gce_release_capture);
                     break;
                 case WPE_MEM_C_ID:
                 case WPE_MEM_T_ID:
@@ -2721,8 +2911,8 @@ static int isp7s_module_driver_release_working_buffer_capture(struct mtk_hcp *hc
             }
             if (hcp_dbg_enable()) {
                 pr_debug(
-                    "%s: [HCP][mem_reserve-%d] phys:0x%llx, virt:0x%p, dma:0x%llx, size:0x%llx, is_dma_buf:%d, fd:%d\n",
-                    __func__, id,
+                "%s: [HCP][mem_reserve-%s(%d)] phys:0x%llx, virt:0x%p, dma:0x%llx, size:0x%llx, is_dma_buf:%d, fd:%d\n",
+                __func__, cap_mblock[id].name,id,
                     isp7s_get_reserve_mem_phys(id, cap_mode),
                     isp7s_get_reserve_mem_virt(id, cap_mode),
                     isp7s_get_reserve_mem_dma(id, cap_mode),
@@ -2747,7 +2937,7 @@ static int isp7s_module_driver_release_working_buffer_smvr(struct mtk_hcp *hcp_d
             if (smvr_mblock[id].is_dma_buf) {
                 switch (id) {
                 case IMG_MEM_G_ID:
-                    kref_put(&smvr_mblock[id].kref, gce_release);
+                    kref_put(&smvr_mblock[id].kref, gce_release_smvr);
                     break;
                 case WPE_MEM_C_ID:
                 case WPE_MEM_T_ID:
@@ -2791,8 +2981,8 @@ static int isp7s_module_driver_release_working_buffer_smvr(struct mtk_hcp *hcp_d
             }
             if (hcp_dbg_enable()) {
                 pr_debug(
-                    "%s: [HCP][mem_reserve-%d] phys:0x%llx, virt:0x%p, dma:0x%llx, size:0x%llx, is_dma_buf:%d, fd:%d\n",
-                    __func__, id,
+                "%s: [HCP][mem_reserve- %s(%d)] phys:0x%llx, virt:0x%p, dma:0x%llx, size:0x%llx, is_dma_buf:%d, fd:%d\n",
+                __func__, smvr_mblock[id].name,id,
                     isp7s_get_reserve_mem_phys(id, smvr_mode),
                     isp7s_get_reserve_mem_virt(id, smvr_mode),
                     isp7s_get_reserve_mem_dma(id, smvr_mode),
@@ -2815,12 +3005,12 @@ int isp7s_release_gce_working_buffer(struct mtk_hcp *hcp_dev)
     block_num_gce = hcp_dev->data->block_num_gce;
     /* release gce reserved memory */
 	for (gid = 0; gid < block_num_gce; gid++) {
-        switch (gid) {
+        switch (gid + IMG_MEM_FOR_HW_ID) {
 			case IMG_MEM_FOR_HW_ID:
 				/*allocated at probe via dts*/
 				break;
 			case IMG_MEM_G_TOKEN_ID:
-				kref_put(&gmblock[gid - IMG_MEM_FOR_HW_ID].kref, gce_release);
+				kref_put(&gmblock[gid].kref, gce_release_token);
 				break;
 			default:
 				break;
@@ -3177,11 +3367,11 @@ int isp7s_get_mem_info(struct img_init_info *info)
 static int isp7s_put_gce(unsigned int mode)
 {
     if (mode == imgsys_streaming)
-		kref_put(&mb[IMG_MEM_G_ID].kref, gce_release);
+		kref_put(&mb[IMG_MEM_G_ID].kref, gce_release_streaming);
 	else if(mode == imgsys_capture)
-		kref_put(&cmb[IMG_MEM_G_ID].kref, gce_release);
+		kref_put(&cmb[IMG_MEM_G_ID].kref, gce_release_capture);
 	else
-		kref_put(&smb[IMG_MEM_G_ID].kref, gce_release);
+		kref_put(&smb[IMG_MEM_G_ID].kref, gce_release_smvr);
 
 	return 0;
 }

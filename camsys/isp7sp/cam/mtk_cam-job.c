@@ -2677,6 +2677,9 @@ _job_pack_only_sv(struct mtk_cam_job *job,
 
 	job->sub_ratio = get_subsample_ratio(&job->job_scen);
 	job->stream_on_seninf = false;
+	if (is_stagger_lbmf(job))
+ 		job->scq_period =
+ 			SCQ_DEADLINE_US_LBMF(get_sensor_interval_us(job)) / 1000;
 
 	if (!ctx->used_engine) {
 		if (job_related_hw_init(job))
@@ -3602,7 +3605,7 @@ static void update_job_state_init_sensor_param(struct mtk_cam_job *job)
 	struct mtk_cam_ctrl *ctrl = &job->src_ctx->cam_ctrl;
 
 	job->job_state.s_params.i2c_thres_ns =
-		infer_i2c_deadline_ns(&job->job_scen, ctrl->frame_interval_ns);
+		infer_i2c_deadline_ns(job, ctrl->frame_interval_ns);
 
 	job->job_state.s_params.latched_timing =
 		is_stagger_lbmf(job) ? SENSOR_LATCHED_L_SOF : SENSOR_LATCHED_F_SOF;

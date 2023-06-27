@@ -7,6 +7,7 @@
 #define __MTK_CAM_SV_PIPELINE_H
 
 #include <media/v4l2-subdev.h>
+#include "mtk_cam-seninf-if.h"
 #include "mtk_cam-video.h"
 
 #define MAX_SV_PIPELINE_NUN 16
@@ -46,6 +47,10 @@ struct mtk_camsv_pipeline {
 
 	/* display ic */
 	u32 feature_pending;
+
+	/* sentest param */
+	atomic_t is_sentest_param_updated;
+	struct mtk_cam_seninf_sentest_param sentest_param;
 };
 
 struct mtk_camsv_sink_data {

@@ -32,8 +32,11 @@ static struct global_info *glb_info;
 
 int proc_time_window_size = 1;
 int debug_log_on = 0;
+int background_idlerate_alert = 12;
 module_param(proc_time_window_size, int, 0644);
 module_param(debug_log_on, int, 0644);
+module_param(background_idlerate_alert, int, 0644);
+
 struct c2ps_task_info *c2ps_find_task_info_by_tskid(int task_id)
 {
 	struct c2ps_task_info *tsk_info = NULL;
@@ -344,9 +347,13 @@ inline void set_glb_info_bg_uclamp_max(void)
 		return;
 	}
 	c2ps_info_lock(&glb_info->mlock);
-	glb_info->max_uclamp_cluster0 = get_gear_uclamp_max(0);
-	glb_info->max_uclamp_cluster1 = get_gear_uclamp_max(1);
-	glb_info->max_uclamp_cluster2 = get_gear_uclamp_max(2);
+	{
+		short _idx = 0;
+		for (; _idx < NUMBER_OF_CLUSTER; _idx++) {
+			glb_info->max_uclamp[_idx] = get_gear_uclamp_max(_idx);
+			glb_info->curr_max_uclamp[_idx] = glb_info->max_uclamp[_idx];
+		}
+	}
 	c2ps_info_unlock(&glb_info->mlock);
 }
 
@@ -462,6 +469,68 @@ void c2ps_free(void *pvBuf, int i32Size)
 		kfree(pvBuf);
 	else
 		vfree(pvBuf);
+}
+
+void update_cpu_idle_rate(void)
+{
+	u64 idle_time, wall_time;
+	unsigned int _cpu_index = 0;
+
+	if (!glb_info)
+		return;
+
+	// Only timer callback will call this function, shouldn't lock
+	for (; _cpu_index < MAX_CPU_NUM; _cpu_index++) {
+		struct per_cpu_idle_rate *idle_rate =
+			&glb_info->cpu_idle_rates[_cpu_index];
+		int _cluster_idx = 0;
+
+		idle_time = get_cpu_idle_time(_cpu_index, &wall_time, 1);
+
+		idle_rate->idle = (100 * (idle_time - idle_rate->idle_time)) /
+					(wall_time - idle_rate->wall_time);
+
+		idle_rate->idle_time = idle_time;
+		idle_rate->wall_time = wall_time;
+		C2PS_LOGD("check idle rate: %u for cpu: %d", idle_rate->idle, _cpu_index);
+
+		if (_cpu_index <= LCORE_ID)
+			_cluster_idx = 0;
+		else if (_cpu_index <= MCORE_ID)
+			_cluster_idx = 1;
+		else if (_cpu_index <= BCORE_ID)
+			_cluster_idx = 2;
+
+		if (idle_rate->idle < background_idlerate_alert) {
+			glb_info->need_update_uclamp[0] = 1;
+			glb_info->need_update_uclamp[1 + _cluster_idx] = 1;
+		} else if (glb_info->curr_max_uclamp[_cluster_idx] >
+					glb_info->max_uclamp[_cluster_idx]) {
+			glb_info->need_update_uclamp[0] = 1;
+			glb_info->need_update_uclamp[1 + _cluster_idx] = -1;
+		}
+	}
+
+	c2ps_systrace_d(
+		"background uclamp max cluster_0: %d, cluster_1: %d, cluster_2: %d",
+		glb_info->curr_max_uclamp[0],
+		glb_info->curr_max_uclamp[1],
+		glb_info->curr_max_uclamp[2]);
+}
+
+inline bool need_update_background(void)
+{
+	if (!glb_info)
+		return false;
+	return glb_info->need_update_uclamp[0];
+}
+
+inline void reset_need_update_status(void)
+{
+	if (!glb_info)
+		return;
+
+	glb_info->need_update_uclamp[0] = 0;
 }
 
 static ssize_t task_info_show(struct kobject *kobj,

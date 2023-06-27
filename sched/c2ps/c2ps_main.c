@@ -50,7 +50,14 @@ static DEFINE_MUTEX(notifier_wq_lock);
 static DECLARE_WAIT_QUEUE_HEAD(notifier_wq_queue);
 static void self_uninit_timer_callback(struct timer_list *t);
 
+struct timer_list backgroup_info_update_timer;
 struct timer_list self_uninit_timer;
+
+static void backgroup_info_update_timer_callback(struct timer_list *t)
+{
+	mod_timer(t, jiffies + BACKGROUND_MONITOR_DURATION*HZ / 1000);
+	update_cpu_idle_rate();
+}
 
 static void c2ps_notifier_wq_cb_init(void)
 {
@@ -62,6 +69,11 @@ static void c2ps_notifier_wq_cb_init(void)
 	self_uninit_timer.expires = jiffies + 5*HZ;
 	timer_setup(&self_uninit_timer, self_uninit_timer_callback, 0);
 	add_timer(&self_uninit_timer);
+
+	backgroup_info_update_timer.expires = jiffies + 2*HZ;
+	timer_setup(&backgroup_info_update_timer,
+				backgroup_info_update_timer_callback, 0);
+	add_timer(&backgroup_info_update_timer);
 }
 
 static void c2ps_notifier_wq_cb_uninit(void)
@@ -73,6 +85,7 @@ static void c2ps_notifier_wq_cb_uninit(void)
 	set_curr_uclamp_ctrl(0);
 	c2ps_uclamp_regulator_flush();
 	exit_c2ps_common();
+	del_timer_sync(&backgroup_info_update_timer);
 	del_timer_sync(&self_uninit_timer);
 }
 
@@ -267,6 +280,16 @@ static void c2ps_notifier_wq_cb(void)
 		break;
 	}
 	c2ps_free(vpPush, sizeof(*vpPush));
+
+	if (need_update_background()) {
+		struct regulator_req *req = get_regulator_req();
+
+		if (req != NULL) {
+			req->glb_info = get_glb_info();
+			send_regulator_req(req);
+			reset_need_update_status();
+		}
+	}
 }
 
 static int c2ps_thread_loop(void *arg)

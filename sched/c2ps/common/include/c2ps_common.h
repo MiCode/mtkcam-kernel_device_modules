@@ -19,6 +19,14 @@
 #include <uapi/linux/sched/types.h>
 
 #define MAX_WINDOW_SIZE 70
+#define MAX_CPU_NUM CONFIG_MAX_NR_CPUS
+// ms
+#define BACKGROUND_MONITOR_DURATION 2000
+#define NUMBER_OF_CLUSTER 3
+#define LCORE_ID 3
+#define MCORE_ID 6
+#define BCORE_ID 7
+#define BACKGROUND_UCLAMPMAX_ALERT 10
 
 extern int proc_time_window_size;
 extern int debug_log_on;
@@ -65,13 +73,31 @@ struct task_group_info {
 	struct mutex mlock;
 };
 
+struct per_cpu_idle_rate {
+	unsigned int idle;
+	u64 wall_time;
+	u64 idle_time;
+};
+
 struct global_info {
 	int cfg_camfps;
-	int max_uclamp_cluster0;
-	int max_uclamp_cluster1;
-	int max_uclamp_cluster2;
+	int max_uclamp[NUMBER_OF_CLUSTER];
+	// int max_uclamp_cluster1;
+	// int max_uclamp_cluster2;
 	int camfps;
 	u64 vsync_time;
+	struct per_cpu_idle_rate cpu_idle_rates[MAX_CPU_NUM];
+	/**
+	 * need_update_uclamp definition:
+	 * [if any needs update,
+	 *  LCore needs update, MCore needs update, LCore needs update]
+	 *
+	 *  set 1: need to increase uclamp
+	 *  set 0: no need to modify uclamp
+	 *  set -1: be able to decrease uclamp
+	 */
+	int need_update_uclamp[1 + NUMBER_OF_CLUSTER];
+	int curr_max_uclamp[NUMBER_OF_CLUSTER];
 	struct mutex mlock;
 };
 
@@ -92,7 +118,7 @@ struct regulator_req {
 #define C2PS_LOGW(fmt, ...)                                         \
 	do {                                                            \
 		if (debug_log_on)                                           \
-			pr_warn("[C2PS]: %s " fmt, __func__, ##__VA_ARGS__);   \
+			pr_warn("[C2PS]: %s " fmt, __func__, ##__VA_ARGS__);    \
 	} while (0)
 
 #define C2PS_LOGW_ONCE(fmt, ...) pr_warn_once("[C2PS]: %s %s %d " fmt, \
@@ -132,6 +158,9 @@ void c2ps_systrace_d(const char *name, ...);
 void *c2ps_alloc_atomic(int i32Size);
 void c2ps_free(void *pvBuf, int i32Size);
 void set_glb_info_bg_uclamp_max(void);
+void update_cpu_idle_rate(void);
+bool need_update_background(void);
+void reset_need_update_status(void);
 
 extern void set_curr_uclamp_ctrl(int val);
 extern void set_gear_uclamp_ctrl(int val);

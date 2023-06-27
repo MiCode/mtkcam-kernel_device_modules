@@ -1827,11 +1827,19 @@ static int csirx_dphy_init(struct seninf_ctx *ctx)
 	struct seninf_vc *vc = mtk_cam_seninf_get_vc_by_pad(ctx, PAD_SRC_RAW0);
 	struct seninf_vc *vc1 = mtk_cam_seninf_get_vc_by_pad(ctx, PAD_SRC_RAW_EXT0);
 	u64 data_rate = 0;
+	struct seninf_core *core = ctx->core;
+	u64 csi_clk = SENINF_CK;
 
 	if (vc)
 		bit_per_pixel = vc->bit_depth;
 	else if (vc1)
 		bit_per_pixel = vc1->bit_depth;
+
+	csi_clk =
+		core->cdphy_dvfs_step[ctx->vcore_step_index].csi_clk ?
+		(u64)core->cdphy_dvfs_step[ctx->vcore_step_index].csi_clk * CSI_CLK_FREQ_MULTIPLIER :
+		SENINF_CK;
+
 	if (ctx->is_cphy) {
 		if (ctx->csi_param.not_fixed_trail_settle) {
 			settle_delay_dt = ctx->csi_param.cphy_settle
@@ -1840,13 +1848,12 @@ static int csirx_dphy_init(struct seninf_ctx *ctx)
 		} else {
 			settle_delay_dt = ctx->csi_param.cphy_settle;
 			if (settle_delay_dt == 0) {
-				settle_delay_dt =
-					settle_formula(CPHY_SETTLE_DEF, SENINF_CK);
+				settle_delay_dt = settle_formula(CPHY_SETTLE_DEF, csi_clk);
 				dev_info(ctx->dev,
-					 "cphy settle val: (%u, %u) => %llu\n",
-					 CPHY_SETTLE_DEF, SENINF_CK, settle_delay_dt);
+					 "cphy settle val: (%u, %llu) => %llu\n",
+					 CPHY_SETTLE_DEF, csi_clk, settle_delay_dt);
 			} else {
-				u64 temp = SENINF_CK * settle_delay_dt;
+				u64 temp = csi_clk * settle_delay_dt;
 
 				if (temp % 1000000000)
 					settle_delay_dt = 1 + (temp / 1000000000);
@@ -1858,11 +1865,11 @@ static int csirx_dphy_init(struct seninf_ctx *ctx)
 	} else {
 		if (!ctx->csi_param.not_fixed_dphy_settle) {
 			settle_delay_dt = settle_delay_ck =
-				settle_formula(DPHY_SETTLE_DEF, SENINF_CK);
+				settle_formula(DPHY_SETTLE_DEF, csi_clk);
 			settle_delay_ck = 0;
 			dev_info(ctx->dev,
-				 "dphy settle val: (%u, %u) => %llu\n",
-				 DPHY_SETTLE_DEF, SENINF_CK, settle_delay_dt);
+				 "dphy settle val: (%u, %llu) => %llu\n",
+				 DPHY_SETTLE_DEF, csi_clk, settle_delay_dt);
 		} else {
 			if (ctx->csi_param.not_fixed_trail_settle) {
 				settle_delay_dt = ctx->csi_param.dphy_data_settle
@@ -1875,12 +1882,12 @@ static int csirx_dphy_init(struct seninf_ctx *ctx)
 				settle_delay_dt = ctx->csi_param.dphy_data_settle;
 				if (settle_delay_dt == 0) {
 					settle_delay_dt =
-						settle_formula(DPHY_SETTLE_DEF, SENINF_CK);
+						settle_formula(DPHY_SETTLE_DEF, csi_clk);
 					dev_info(ctx->dev,
-						 "dphy settle val: (%u, %u) => %llu\n",
-						 DPHY_SETTLE_DEF, SENINF_CK, settle_delay_dt);
+						 "dphy settle val: (%u, %llu) => %llu\n",
+						 DPHY_SETTLE_DEF, csi_clk, settle_delay_dt);
 				} else {
-					u64 temp = SENINF_CK * settle_delay_dt;
+					u64 temp = csi_clk * settle_delay_dt;
 
 					if (temp % 1000000000)
 						settle_delay_dt = 1 + (temp / 1000000000);
@@ -1890,12 +1897,12 @@ static int csirx_dphy_init(struct seninf_ctx *ctx)
 				settle_delay_ck = ctx->csi_param.dphy_clk_settle;
 				if (settle_delay_ck == 0) {
 					settle_delay_ck =
-						settle_formula(DPHY_SETTLE_DEF, SENINF_CK);
+						settle_formula(DPHY_SETTLE_DEF, csi_clk);
 					dev_info(ctx->dev,
-						 "dphy settle val: (%u, %u) => %llu\n",
-						 DPHY_SETTLE_DEF, SENINF_CK, settle_delay_dt);
+						 "dphy settle val: (%u, %llu) => %llu\n",
+						 DPHY_SETTLE_DEF, csi_clk, settle_delay_dt);
 				} else {
-					u64 temp = SENINF_CK * settle_delay_ck;
+					u64 temp = csi_clk * settle_delay_ck;
 
 					if (temp % 1000000000)
 						settle_delay_ck = 1 + (temp / 1000000000);
@@ -1966,7 +1973,7 @@ static int csirx_dphy_init(struct seninf_ctx *ctx)
 		else {
 
 			temp = ui_224 - ctx->csi_param.dphy_trail;
-			temp *= SENINF_CK;
+			temp *= csi_clk;
 
 			if (temp % 1000000000)
 				hs_trail = 1 + (temp / 1000000000);
@@ -2159,11 +2166,18 @@ static int csirx_mac_csi_setting(struct seninf_ctx *ctx)
 	int bit_per_pixel = 10;
 	struct seninf_vc *vc = mtk_cam_seninf_get_vc_by_pad(ctx, PAD_SRC_RAW0);
 	struct seninf_vc *vc1 = mtk_cam_seninf_get_vc_by_pad(ctx, PAD_SRC_RAW_EXT0);
+	struct seninf_core *core = ctx->core;
+	u64 csi_clk = SENINF_CK;
 
 	if (vc)
 		bit_per_pixel = vc->bit_depth;
 	else if (vc1)
 		bit_per_pixel = vc1->bit_depth;
+
+	csi_clk =
+		core->cdphy_dvfs_step[ctx->vcore_step_index].csi_clk ?
+		(u64)core->cdphy_dvfs_step[ctx->vcore_step_index].csi_clk * CSI_CLK_FREQ_MULTIPLIER :
+		SENINF_CK;
 
 	/* select C / D phy */
 	SENINF_BITS(csirx_mac_csi,
@@ -2281,7 +2295,7 @@ static int csirx_mac_csi_setting(struct seninf_ctx *ctx)
 		u64 data_rate = ctx->mipi_pixel_rate * bit_per_pixel;
 		u64 cycles = 64;
 
-		cycles *= SENINF_CK;
+		cycles *= csi_clk;
 		do_div(data_rate, ctx->num_data_lanes);
 		do_div(cycles, data_rate);
 		cycles += CYCLE_MARGIN;
@@ -2331,7 +2345,7 @@ static int csirx_mac_csi_setting(struct seninf_ctx *ctx)
 		u64 cycles = 64;
 		u64 data_rate = ctx->mipi_pixel_rate * bit_per_pixel;
 
-		cycles *= SENINF_CK;
+		cycles *= csi_clk;
 		data_rate *= 7;
 		do_div(data_rate, ctx->num_data_lanes*16);
 		do_div(cycles, data_rate);
@@ -3551,6 +3565,13 @@ static int csirx_dphy_setting(struct seninf_ctx *ctx)
 	void *base = ctx->reg_ana_dphy_top[(unsigned int)ctx->port];
 	void *baseA = ctx->reg_ana_csi_rx[(unsigned int)ctx->portA];
 	void *baseB = ctx->reg_ana_csi_rx[(unsigned int)ctx->portB];
+	struct seninf_core *core = ctx->core;
+	u64 csi_clk = SENINF_CK;
+
+	csi_clk =
+		core->cdphy_dvfs_step[ctx->vcore_step_index].csi_clk ?
+		(u64)core->cdphy_dvfs_step[ctx->vcore_step_index].csi_clk * CSI_CLK_FREQ_MULTIPLIER :
+		SENINF_CK;
 
 	if (ctx->is_4d1c) {
 		switch(ctx->num_data_lanes) {
@@ -3742,7 +3763,7 @@ static int csirx_dphy_setting(struct seninf_ctx *ctx)
 	SENINF_WRITE_REG(base, DPHY_RX_SPARE0, 0xf1);
 
 #ifdef INIT_DESKEW_SUPPORT
-	csirx_dphy_init_deskew_setting(ctx, SENINF_CK);
+	csirx_dphy_init_deskew_setting(ctx, csi_clk);
 #endif /* INIT_DESKEW_SUPPORT */
 
 	dev_info(ctx->dev,
@@ -6261,20 +6282,32 @@ static int mtk_cam_seninf_set_reg(struct seninf_ctx *ctx, u32 key, u64 val)
 	return 0;
 }
 
-static int mtk_cam_set_scp_phya_clock(struct seninf_ctx *ctx, u64 val)
+static int mtk_cam_set_phya_clock_src(struct seninf_ctx *ctx, u64 val)
 {
 	void *base = ctx->reg_ana_csi_rx[(unsigned int)ctx->port];
 
 	switch (val) {
 	case 1:
-		return 0;
+		if (_seninf_ops->iomem_ver == NULL) {
+			dev_info(ctx->dev, "[%s] phya clk set to 0\n", __func__);
+			return 0;
+		}
+		else if (!strcasecmp(_seninf_ops->iomem_ver, MT6989_IOMOM_VERSIONS))
+			SENINF_BITS(base, CDPHY_RX_ANA_SETTING_0, CSR_ANA_REF_CK_SEL, val);
+		else {
+			dev_info(ctx->dev,
+				"[%s] phya clk set to %llu fail, check platform ver\n",
+				__func__, val);
+			return -EINVAL;
+		}
+		break;
 	case 0:
 		SENINF_BITS(base, CDPHY_RX_ANA_SETTING_0, CSR_ANA_REF_CK_SEL, val);
 		break;
 	default:
-		return -1;
+		return -EINVAL;
 	}
-	dev_info(ctx->dev, "[%s] mtk_cam_seninf_set_reg set to %llu\n", __func__, val);
+	dev_info(ctx->dev, "[%s] phya clk set to %llu\n", __func__, val);
 
 	return 0;
 }
@@ -6357,7 +6390,7 @@ struct mtk_cam_seninf_ops mtk_csi_phy_3_0 = {
 	._get_tsrec_timestamp = mtk_cam_seninf_get_tsrec_timestamp,
 	._eye_scan = mtk_cam_seninf_eye_scan,
 	._set_reg = mtk_cam_seninf_set_reg,
-	._set_scp_phya_clock = mtk_cam_set_scp_phya_clock,
+	._set_phya_clock_src = mtk_cam_set_phya_clock_src,
 	.seninf_num = 12,
 	.mux_num = 22,
 	.cam_mux_num = 41,

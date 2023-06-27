@@ -141,6 +141,10 @@ static const struct seninf_struct_map clk_fmeter_maps[] = {
 	CLK_FMETER_MAPS
 };
 
+static const char * const cdphy_dvfs_step_name[] = {
+	CDPHY_DVFS_STEP
+};
+
 static ssize_t status_show(struct device *dev,
 			   struct device_attribute *attr, char *buf)
 {
@@ -876,7 +880,91 @@ static int get_seninf_ops(struct device *dev, struct seninf_core *core)
 			}
 		}
 
-		dev_info(dev, "%s: seninf_num = %d, mux_num = %d, cam_mux_num = %d, pref_mux_num =%d\n",
+		for (i = CDPHY_DVFS_STEP_0; i < CDPHY_DVFS_STEP_MAX_NUM; i++) {
+			/* cphy 4d1c data rate maximum */
+			ret = of_property_read_u32_index(dev->of_node,
+				cdphy_dvfs_step_name[i], 0,
+				&core->cdphy_dvfs_step[i].cphy_data_rate.first);
+			if (ret) {
+				dev_info(dev,
+					"%s: ERROR: read property index:(cdphy_dvfs_step_name[%d].cphy_data_rate.first) failed,ret:%d\n",
+					__func__, i, ret);
+				core->cdphy_dvfs_step[i].cphy_data_rate.first = 0;
+			}
+			/* cphy 2d1c data rate maximum */
+			ret = of_property_read_u32_index(dev->of_node,
+				cdphy_dvfs_step_name[i], 1,
+				&core->cdphy_dvfs_step[i].cphy_data_rate.second);
+			if (ret) {
+				dev_info(dev,
+					"%s: ERROR: read property index:(cdphy_dvfs_step_name[%d].cphy_data_rate.second) failed,ret:%d\n",
+					__func__, i, ret);
+				core->cdphy_dvfs_step[i].cphy_data_rate.second = 0;
+			}
+			/* dphy 4d1c data rate maximum */
+			ret = of_property_read_u32_index(dev->of_node,
+				cdphy_dvfs_step_name[i], 2,
+				&core->cdphy_dvfs_step[i].dphy_data_rate.first);
+			if (ret) {
+				dev_info(dev,
+					"%s: ERROR: read property index:(cdphy_dvfs_step_name[%d].dphy_data_rate.first) failed,ret:%d\n",
+					__func__, i, ret);
+				core->cdphy_dvfs_step[i].dphy_data_rate.first = 0;
+			}
+			/* dphy 2d1c data rate maximum */
+			ret = of_property_read_u32_index(dev->of_node,
+				cdphy_dvfs_step_name[i], 3,
+				&core->cdphy_dvfs_step[i].dphy_data_rate.second);
+			if (ret) {
+				dev_info(dev,
+					"%s: ERROR: read property index:(cdphy_dvfs_step_name[%d].dphy_data_rate.second) failed,ret:%d\n",
+					__func__, i, ret);
+				core->cdphy_dvfs_step[i].dphy_data_rate.second = 0;
+			}
+			/* cdphy csi clk according to vcore */
+			ret = of_property_read_u32_index(dev->of_node,
+				cdphy_dvfs_step_name[i], 4,
+				&core->cdphy_dvfs_step[i].csi_clk);
+			if (ret) {
+				dev_info(dev,
+					"%s: ERROR: read property index:(cdphy_dvfs_step_name[%d].csi_clk) failed,ret:%d\n",
+					__func__, i, ret);
+				core->cdphy_dvfs_step[i].csi_clk = 0;
+			}
+			/* cdphy 4d1c vcore minimum */
+			ret = of_property_read_u32_index(dev->of_node,
+				cdphy_dvfs_step_name[i], 5,
+				&core->cdphy_dvfs_step[i].cdphy_voltage.first);
+			if (ret) {
+				dev_info(dev,
+					"%s: ERROR: read property index:(cdphy_dvfs_step_name[%d].cdphy_voltage.first) failed,ret:%d\n",
+					__func__, i, ret);
+				core->cdphy_dvfs_step[i].cdphy_voltage.first = 0;
+			}
+			/* cdphy 2d1c vcore minimum */
+			ret = of_property_read_u32_index(dev->of_node,
+				cdphy_dvfs_step_name[i], 6,
+				&core->cdphy_dvfs_step[i].cdphy_voltage.second);
+			if (ret) {
+				dev_info(dev,
+					"%s: ERROR: read property index:(cdphy_dvfs_step_name[%d].cdphy_voltage.second) failed,ret:%d\n",
+					__func__, i, ret);
+				core->cdphy_dvfs_step[i].cdphy_voltage.second = 0;
+			}
+			dev_info(dev,
+				"[%s]: step[%d].c/dphy_data_rate.first/second:%u/%u/%u/%u,csi_clk:%u,voltage.first/second:%u/%u,ret:%d\n",
+				__func__, i,
+				core->cdphy_dvfs_step[i].cphy_data_rate.first,
+				core->cdphy_dvfs_step[i].cphy_data_rate.second,
+				core->cdphy_dvfs_step[i].dphy_data_rate.first,
+				core->cdphy_dvfs_step[i].dphy_data_rate.second,
+				core->cdphy_dvfs_step[i].csi_clk,
+				core->cdphy_dvfs_step[i].cdphy_voltage.first,
+				core->cdphy_dvfs_step[i].cdphy_voltage.second, ret);
+		}
+
+		dev_info(dev,
+			"%s: seninf_num = %d, mux_num = %d, cam_mux_num = %d, pref_mux_num =%d\n",
 			__func__,
 			g_seninf_ops->seninf_num,
 			g_seninf_ops->mux_num,
@@ -1026,6 +1114,14 @@ static int seninf_core_probe(struct platform_device *pdev)
 	core->aov_abnormal_init_flag = 0;
 	core->aov_ut_debug_for_get_csi_param = 0;
 
+	/* vcore node get */
+	core->dvfsrc_vcore_power = devm_regulator_get_optional(dev, "dvfsrc-vcore");
+	if (IS_ERR(core->dvfsrc_vcore_power)) {
+		dev_info(dev, "failed to get dvfsrc-vcore\n");
+		core->dvfsrc_vcore_power = NULL;
+	}
+
+	/* clk node get */
 	for (i = 0; i < CLK_MAXCNT; i++) {
 		core->clk[i] = devm_clk_get(dev, clk_names[i]);
 		if (IS_ERR(core->clk[i])) {
@@ -1046,7 +1142,9 @@ static int seninf_core_probe(struct platform_device *pdev)
 			of_property_read_string(tmp_node,
 				"fmeter-type", &str);
 			of_node_put(tmp_node);
-			tmp_node = NULL;
+		} else {
+			dev_info(dev, "[i:%d], tmp_node == NULL\n", i);
+			continue;
 		}
 		if (str) {
 			for (j = 0; j < ARRAY_SIZE(clk_fmeter_maps); j++) {
@@ -1057,6 +1155,7 @@ static int seninf_core_probe(struct platform_device *pdev)
 			}
 			core->fmeter[i].fmeter_no = tmp_no;
 		}
+		tmp_node = NULL;
 	}
 
 	ret = of_platform_populate(dev->of_node, NULL, NULL, dev);
@@ -3006,15 +3105,11 @@ static int enable_phya_clk(struct seninf_ctx *ctx)
 		!(core->aov_sensor_id < 0) &&
 		!(core->current_sensor_id < 0) &&
 		(core->current_sensor_id != core->aov_sensor_id))
-		dev_info(ctx->dev,
-			"[%s] aov is using phya osc source clk now\n",
-			__func__);
+		seninf_logi(ctx, "aov is using phya osc source clk now\n");
 	else {
-		ret = g_seninf_ops->_set_scp_phya_clock(ctx, 1);
+		ret = g_seninf_ops->_set_phya_clock_src(ctx, 1);
 		if (ret < 0) {
-			dev_info(ctx->dev,
-				"[%s] fail to set phya osc source clk,ret(%d)\n",
-				__func__, ret);
+			seninf_logi(ctx, "fail to set phya osc source clk,ret(%d)\n", ret);
 			return ret;
 		}
 	}
@@ -3026,13 +3121,370 @@ static int disable_phya_clk(struct seninf_ctx *ctx)
 {
 	int ret = 0;
 
-	ret = g_seninf_ops->_set_scp_phya_clock(ctx, 0);
+	ret = g_seninf_ops->_set_phya_clock_src(ctx, 0);
 	if (ret < 0) {
-		dev_info(ctx->dev,
-			"[%s] fail to set phya pll source clk,ret(%d)\n",
-			__func__, ret);
+		seninf_logi(ctx, "fail to set phya pll source clk,ret(%d)\n", ret);
 		return ret;
 	}
+
+	return 0;
+}
+
+static int mtk_cam_get_vcore_csi_clk_src(struct seninf_ctx *ctx,
+	enum CDPHY_DVFS_STEP_ENUM index,
+	unsigned int *clk_src_index)
+{
+	struct seninf_core *core = ctx->core;
+	int ret = 0;
+
+	/* vcore step index <-> csi clk mapping */
+	switch (index) {
+	case CDPHY_DVFS_STEP_0:
+		/* ex. DX-3 csi clk: 312M */
+		if (!core->clk[CLK_TOP_AP_STEP0]) {
+			seninf_logi(ctx, "core->clk[CLK_TOP_AP_STEP0] = NULL\n");
+			return -EINVAL;
+		} else
+			*clk_src_index = CLK_TOP_AP_STEP0;
+		break;
+	case CDPHY_DVFS_STEP_1:
+		/* ex. DX-3 csi clk: 356M */
+		if (!core->clk[CLK_TOP_AP_STEP1]) {
+			seninf_logi(ctx, "core->clk[CLK_TOP_AP_STEP1] = NULL\n");
+			return -EINVAL;
+		} else
+			*clk_src_index = CLK_TOP_AP_STEP1;
+		break;
+	case CDPHY_DVFS_STEP_2:
+		/* ex. DX-3 csi clk: 416M */
+		if (!core->clk[CLK_TOP_AP_STEP2]) {
+			seninf_logi(ctx, "core->clk[CLK_TOP_AP_STEP2] = NULL\n");
+			return -EINVAL;
+		} else
+			*clk_src_index = CLK_TOP_AP_STEP2;
+		break;
+	case CDPHY_DVFS_STEP_3:
+		/* ex. DX-3 csi clk: 499M */
+		if (!core->clk[CLK_TOP_AP_STEP3]) {
+			seninf_logi(ctx, "core->clk[CLK_TOP_AP_STEP3] = NULL\n");
+			return -EINVAL;
+		} else
+			*clk_src_index = CLK_TOP_AP_STEP3;
+		break;
+	case CDPHY_DVFS_STEP_4:
+		/* ex. DX-3 csi clk: none */
+		if (!core->clk[CLK_TOP_AP_STEP4]) {
+			seninf_logi(ctx, "core->clk[CLK_TOP_AP_STEP4] = NULL\n");
+			return -EINVAL;
+		} else
+			*clk_src_index = CLK_TOP_AP_STEP4;
+		break;
+	case CDPHY_DVFS_STEP_5:
+		/* ex. DX-3 csi clk: none */
+		if (!core->clk[CLK_TOP_AP_STEP5]) {
+			seninf_logi(ctx, "core->clk[CLK_TOP_AP_STEP5] = NULL\n");
+			return -EINVAL;
+		} else
+			*clk_src_index = CLK_TOP_AP_STEP5;
+		break;
+	default:
+		/* csi clk: unknown */
+		seninf_logi(ctx, "please check index:%u\n", index);
+		return -EINVAL;
+	}
+
+	return ret;
+}
+
+static int set_csi_clk(struct seninf_ctx *ctx, enum CDPHY_DVFS_STEP_ENUM index)
+{
+	struct seninf_core *core = ctx->core;
+	int ret = 0;
+	struct clk *clk = NULL, *clk_src = NULL;
+	unsigned int clk_index = 0, clk_src_index = 0;
+
+	switch (ctx->seninfIdx) {
+	case SENINF_1:
+	case SENINF_2:
+		if (!core->clk[CLK_TOP_SENINF]) {
+			seninf_logi(ctx, "core->clk[CLK_TOP_SENINF] = NULL\n");
+			return -EINVAL;
+		} else {
+			clk_index = CLK_TOP_SENINF;
+			clk = core->clk[CLK_TOP_SENINF];
+		}
+		break;
+	case SENINF_3:
+	case SENINF_4:
+		if (!core->clk[CLK_TOP_SENINF1]) {
+			seninf_logi(ctx, "core->clk[CLK_TOP_SENINF1] = NULL\n");
+			return -EINVAL;
+		} else {
+			clk_index = CLK_TOP_SENINF1;
+			clk = core->clk[CLK_TOP_SENINF1];
+		}
+		break;
+	case SENINF_5:
+	case SENINF_6:
+		if (!core->clk[CLK_TOP_SENINF2]) {
+			seninf_logi(ctx, "core->clk[CLK_TOP_SENINF2] = NULL\n");
+			return -EINVAL;
+		} else {
+			clk_index = CLK_TOP_SENINF2;
+			clk = core->clk[CLK_TOP_SENINF2];
+		}
+		break;
+	case SENINF_7:
+	case SENINF_8:
+		if (!core->clk[CLK_TOP_SENINF3]) {
+			seninf_logi(ctx, "core->clk[CLK_TOP_SENINF3] = NULL\n");
+			return -EINVAL;
+		} else {
+			clk_index = CLK_TOP_SENINF3;
+			clk = core->clk[CLK_TOP_SENINF3];
+		}
+		break;
+	case SENINF_9:
+	case SENINF_10:
+		if (!core->clk[CLK_TOP_SENINF4]) {
+			seninf_logi(ctx, "core->clk[CLK_TOP_SENINF4] = NULL\n");
+			return -EINVAL;
+		} else {
+			clk_index = CLK_TOP_SENINF4;
+			clk = core->clk[CLK_TOP_SENINF4];
+		}
+		break;
+	case SENINF_11:
+	case SENINF_12:
+		if (!core->clk[CLK_TOP_SENINF5]) {
+			seninf_logi(ctx, "core->clk[CLK_TOP_SENINF5] = NULL\n");
+			return -EINVAL;
+		} else {
+			clk_index = CLK_TOP_SENINF5;
+			clk = core->clk[CLK_TOP_SENINF5];
+		}
+		break;
+	default:
+		seninf_logi(ctx, "invalid seninfIdx %d\n", ctx->seninfIdx);
+		return -EINVAL;
+	}
+	/* set csi clk from dts according to vcore voltage from dts */
+	ret = mtk_cam_get_vcore_csi_clk_src(ctx, index, &clk_src_index);
+	if (ret < 0) {
+		seninf_logi(ctx, "mtk_cam_get_vcore_csi_clk_src(fail),ret(%d),index(%u)", ret, index);
+		return -EINVAL;
+	} else {
+		seninf_logd(ctx,
+			"mtk_cam_get_vcore_csi_clk_src(success),clk[%u]:%s,clk_src[%u]:%s,ret(%d)\n",
+			clk_index, clk_names[clk_index],
+			clk_src_index, clk_names[clk_src_index], ret);
+		clk_src = core->clk[clk_src_index];
+	}
+	/* enable seninf csi clk */
+	if (IS_ERR(clk)) {
+		seninf_logi(ctx, "clk == NULL");
+		return -EINVAL;
+	}
+	ret = clk_prepare_enable(clk);
+	if (ret < 0) {
+		seninf_logi(ctx,
+			"clk_prepare_enable clk[%u]:%s(fail),ret(%d)\n",
+			clk_index, clk_names[clk_index], ret);
+		return ret;
+	} else
+		seninf_logd(ctx,
+			"clk_prepare_enable clk[%u]:%s(success),ret(%d)\n",
+			clk_index, clk_names[clk_index], ret);
+	/* set seninf csi clk source */
+	if (!core->aov_ut_debug_for_get_csi_param) {
+		if (IS_ERR(clk_src)) {
+			seninf_logi(ctx, "clk_src == NULL");
+			return -EINVAL;
+		}
+		ret = clk_set_parent(clk, clk_src);
+		if (ret) {
+			seninf_logi(ctx,
+				"clk_set_parent(clk[%u]:%s,clk_src[%u]:%s)(fail),ret(%d)\n",
+				clk_index, clk_names[clk_index],
+				clk_src_index, clk_names[clk_src_index], ret);
+			return -EINVAL;
+		} else {
+			seninf_logd(ctx,
+				"clk_set_parent(clk[%u]:%s,clk_src[%u]:%s)(success),ret(%d),aov_ut_debug_for_get_csi_param(%u)\n",
+				clk_index, clk_names[clk_index],
+				clk_src_index, clk_names[clk_src_index],
+				ret, core->aov_ut_debug_for_get_csi_param);
+			ctx->vcore_step_index = index;
+			ctx->clk_index = clk_index;
+			ctx->clk_src_index = clk_src_index;
+		}
+	} else {
+		if (IS_ERR(core->clk[CLK_TOP_AOV_STEP0])) {
+			seninf_logi(ctx, "core->clk[CLK_TOP_AOV_STEP0] = NULL\n");
+			return -EINVAL;
+		}
+		ret = clk_set_parent(clk, core->clk[CLK_TOP_AOV_STEP0]);
+		if (ret) {
+			seninf_logi(ctx,
+				"clk_set_parent(clk[%u]:%s,clk_src[%u]:%s)(fail),ret(%d),aov_ut_debug_for_get_csi_param(%u)\n",
+				clk_index, clk_names[clk_index],
+				CLK_TOP_AOV_STEP0, clk_names[CLK_TOP_AOV_STEP0],
+				ret, core->aov_ut_debug_for_get_csi_param);
+			return -EINVAL;
+		} else
+			seninf_logd(ctx,
+				"clk_set_parent(clk[%u]:%s,clk_src[%u]:%s)(success),ret(%d),aov_ut_debug_for_get_csi_param(%u)\n",
+				clk_index, clk_names[clk_index],
+				CLK_TOP_AOV_STEP0, clk_names[CLK_TOP_AOV_STEP0],
+				ret, core->aov_ut_debug_for_get_csi_param);
+			ctx->vcore_step_index = index;
+			ctx->clk_index = clk_index;
+			ctx->clk_src_index = CLK_TOP_AOV_STEP0;
+	}
+
+	return 0;
+}
+
+static int data_rate2vcore_voltage(struct seninf_ctx *ctx,
+	struct seninf_struct_pair_u64 *cdphy_dvfs_data_rate,
+	u64 data_rate, enum CDPHY_DVFS_STEP_ENUM *index)
+{
+	struct seninf_core *core = ctx->core;
+	enum CDPHY_DVFS_STEP_ENUM i;
+	int vcore_voltage = 0;
+
+	for (i = CDPHY_DVFS_STEP_0; i < CDPHY_DVFS_STEP_MAX_NUM; i++) {
+		if (cdphy_dvfs_data_rate[i].first == 0 ||
+			cdphy_dvfs_data_rate[i].second == 0)
+			break;
+		seninf_logd(ctx,
+			"cdphy_dvfs_data_rate[i:%u].first/second:%llu/%llu",
+			i, cdphy_dvfs_data_rate[i].first, cdphy_dvfs_data_rate[i].second);
+	}
+
+	if (ctx->is_4d1c) {
+		for (i = CDPHY_DVFS_STEP_0; i < CDPHY_DVFS_STEP_MAX_NUM; i++) {
+			if (data_rate < cdphy_dvfs_data_rate[i].first) {
+				vcore_voltage =
+					core->cdphy_dvfs_step[i].cdphy_voltage.first;
+				*index = i;
+				break;
+			}
+			if (cdphy_dvfs_data_rate[i].first == 0 && i > CDPHY_DVFS_STEP_0) {
+				vcore_voltage =
+					core->cdphy_dvfs_step[i-1].cdphy_voltage.first;
+				*index = i-1;
+				break;
+			}
+		}
+	} else {
+		for (i = CDPHY_DVFS_STEP_0; i < CDPHY_DVFS_STEP_MAX_NUM; i++) {
+			if (data_rate < cdphy_dvfs_data_rate[i].second) {
+				vcore_voltage =
+					core->cdphy_dvfs_step[i].cdphy_voltage.second;
+				*index = i;
+				break;
+			}
+			if (cdphy_dvfs_data_rate[i].second == 0 && i > CDPHY_DVFS_STEP_0) {
+				vcore_voltage =
+					core->cdphy_dvfs_step[i-1].cdphy_voltage.second;
+				*index = i-1;
+				break;
+			}
+		}
+	}
+	return vcore_voltage;
+}
+
+static int set_vcore_power(struct seninf_ctx *ctx, u64 data_rate)
+{
+	struct seninf_core *core = ctx->core;
+	int ret = 0;
+	enum CDPHY_DVFS_STEP_ENUM i, j, index;
+	struct seninf_struct_pair_u64 cdphy_dvfs_data_rate[CDPHY_DVFS_STEP_MAX_NUM] = {0};
+	int vcore_voltage = 0;
+
+	seninf_logd(ctx,
+		"line:%d,data rate(%llu),is_cphy(%u),is_4d1c(%d)\n",
+		__LINE__, data_rate, ctx->is_cphy, ctx->is_4d1c);
+	if (data_rate <= 0) {
+		seninf_logi(ctx,
+			"line:%d,please check data rate(%llu),is_cphy(%u),is_4d1c(%d)\n",
+			__LINE__, data_rate, ctx->is_cphy, ctx->is_4d1c);
+		return -EINVAL;
+	}
+	/* loop compare data rate -> if match condition, then break return vcore voltage */
+	if (!ctx->is_cphy) {	// Dphy
+		/* dphy vcore range */
+		for (i = CDPHY_DVFS_STEP_0; i < CDPHY_DVFS_STEP_MAX_NUM; i++) {
+			cdphy_dvfs_data_rate[i].first =
+				(u64)core->cdphy_dvfs_step[i].dphy_data_rate.first * CSI_CLK_FREQ_MULTIPLIER;
+			cdphy_dvfs_data_rate[i].second =
+				(u64)core->cdphy_dvfs_step[i].dphy_data_rate.second * CSI_CLK_FREQ_MULTIPLIER;
+			if (cdphy_dvfs_data_rate[i].first == 0 ||
+				cdphy_dvfs_data_rate[i].second == 0)
+				break;
+		}
+	} else {	// Cphy
+		/* cphy vcore range */
+		for (j = CDPHY_DVFS_STEP_0; j < CDPHY_DVFS_STEP_MAX_NUM; j++) {
+			cdphy_dvfs_data_rate[j].first =
+				(u64)core->cdphy_dvfs_step[j].cphy_data_rate.first * CSI_CLK_FREQ_MULTIPLIER;
+			cdphy_dvfs_data_rate[j].second =
+				(u64)core->cdphy_dvfs_step[j].cphy_data_rate.second * CSI_CLK_FREQ_MULTIPLIER;
+			if (cdphy_dvfs_data_rate[j].first == 0 ||
+				cdphy_dvfs_data_rate[j].second == 0)
+				break;
+		}
+	}
+	vcore_voltage = data_rate2vcore_voltage(
+		ctx, cdphy_dvfs_data_rate, data_rate, &index);
+	if (!vcore_voltage) {
+		seninf_logi(ctx,
+			"can't find appropriate vcore_voltage(%d) with data rate(%llu)\n",
+			vcore_voltage, data_rate);
+		return -EINVAL;
+	}
+	seninf_logd(ctx,
+		"line:%d,index(%u),vcore_voltage(%d)\n",
+		__LINE__, index, vcore_voltage);
+	/* regulator api to set vcore voltage. unit: uV */
+	if (!IS_ERR(core->dvfsrc_vcore_power)) {
+		if (regulator_get_voltage(core->dvfsrc_vcore_power) < vcore_voltage) {
+			ret = regulator_set_voltage(core->dvfsrc_vcore_power,
+				vcore_voltage, INT_MAX);
+			if (ret) {
+				seninf_logi(ctx,
+					"regulator_set_voltage,val(%d),ret(%d)(fail) when data rate(%llu),is_cphy/4d1c(%u/%u)\n",
+					vcore_voltage, ret, data_rate, ctx->is_cphy, ctx->is_4d1c);
+				return ret;
+			} else
+				seninf_logd(ctx,
+					"regulator_set_voltage,val(%d),ret(%d)(success) when data rate(%llu),is_cphy/4d1c(%u/%u)\n",
+					vcore_voltage, ret, data_rate, ctx->is_cphy, ctx->is_4d1c);
+		}
+	} else {
+		seninf_logi(ctx, "core->dvfsrc_vcore_power == NULL\n");
+		return -EINVAL;
+	}
+	/* set csi clock after setting vcore voltage */
+	ret = set_csi_clk(ctx, index);
+	if (ret < 0) {
+		seninf_logi(ctx,
+			"set_csi_clk,ret(%d)(fail) when vcore_power(%d),data rate(%llu),is_cphy/4d1c(%u/%u)\n",
+			ret, vcore_voltage, data_rate, ctx->is_cphy, ctx->is_4d1c);
+		return ret;
+	} else
+		seninf_logd(ctx,
+			"set_csi_clk,ret(%d)(success) when vcore_power(%d),data rate(%llu),is_cphy/4d1c(%u/%u)\n",
+			ret, vcore_voltage, data_rate, ctx->is_cphy, ctx->is_4d1c);
+
+	seninf_logi(ctx,
+		"ret(%d)(success) in vcore_power/data rate/csi_clk[%u]/src[%u](%d/%llu/%s/%s),is_cphy/4d1c(%u/%u)\n",
+		ret, ctx->clk_index, ctx->clk_src_index,
+		vcore_voltage, data_rate,
+		clk_names[ctx->clk_index], clk_names[ctx->clk_src_index],
+		ctx->is_cphy, ctx->is_4d1c);
 
 	return 0;
 }
@@ -3048,86 +3500,79 @@ static int runtime_suspend(struct device *dev)
 	core->refcnt--;
 	if (core->refcnt >= 0) {
 		if (core->refcnt == 0)
-			dev_info(dev,
-				"[%s] last user(%d),cnt(%d)\n",
-				__func__, core->current_sensor_id, core->refcnt);
+			seninf_logi(ctx,
+				"last user(%d),cnt(%d)\n",
+				core->current_sensor_id, core->refcnt);
 		else
-			dev_info(dev,
-				"[%s] multi user(%d),cnt(%d)\n",
-				__func__, core->current_sensor_id, core->refcnt);
+			seninf_logi(ctx,
+				"multi user(%d),cnt(%d)\n",
+				core->current_sensor_id, core->refcnt);
 
-		if (!ctx->is_test_model) {
-			/* disable camtg_sel as phya clk */
-			disable_phya_clk(ctx);
-			/* disable seninf csi clk */
-			switch (ctx->seninfIdx) {
-			case SENINF_1:
-			case SENINF_2:
-				if (core->clk[CLK_TOP_SENINF])
-					clk_disable_unprepare(core->clk[CLK_TOP_SENINF]);
-				break;
-			case SENINF_3:
-			case SENINF_4:
-				if (core->clk[CLK_TOP_SENINF1])
-					clk_disable_unprepare(core->clk[CLK_TOP_SENINF1]);
-				break;
-			case SENINF_5:
-			case SENINF_6:
-				if (core->clk[CLK_TOP_SENINF2])
-					clk_disable_unprepare(core->clk[CLK_TOP_SENINF2]);
-				break;
-			case SENINF_7:
-			case SENINF_8:
-				if (core->clk[CLK_TOP_SENINF3])
-					clk_disable_unprepare(core->clk[CLK_TOP_SENINF3]);
-				break;
-			case SENINF_9:
-			case SENINF_10:
-				if (core->clk[CLK_TOP_SENINF4])
-					clk_disable_unprepare(core->clk[CLK_TOP_SENINF4]);
-				break;
-			case SENINF_11:
-			case SENINF_12:
-				if (core->clk[CLK_TOP_SENINF5])
-					clk_disable_unprepare(core->clk[CLK_TOP_SENINF5]);
-				break;
-			default:
-				dev_info(dev, "invalid seninfIdx(%d)\n", ctx->seninfIdx);
-				mutex_unlock(&core->mutex);
-				return -EINVAL;
-			}
+		/* disable camtg_sel as phya clk */
+		disable_phya_clk(ctx);
+		/* disable seninf csi clk */
+		switch (ctx->seninfIdx) {
+		case SENINF_1:
+		case SENINF_2:
+			if (core->clk[CLK_TOP_SENINF])
+				clk_disable_unprepare(core->clk[CLK_TOP_SENINF]);
+			break;
+		case SENINF_3:
+		case SENINF_4:
+			if (core->clk[CLK_TOP_SENINF1])
+				clk_disable_unprepare(core->clk[CLK_TOP_SENINF1]);
+			break;
+		case SENINF_5:
+		case SENINF_6:
+			if (core->clk[CLK_TOP_SENINF2])
+				clk_disable_unprepare(core->clk[CLK_TOP_SENINF2]);
+			break;
+		case SENINF_7:
+		case SENINF_8:
+			if (core->clk[CLK_TOP_SENINF3])
+				clk_disable_unprepare(core->clk[CLK_TOP_SENINF3]);
+			break;
+		case SENINF_9:
+		case SENINF_10:
+			if (core->clk[CLK_TOP_SENINF4])
+				clk_disable_unprepare(core->clk[CLK_TOP_SENINF4]);
+			break;
+		case SENINF_11:
+		case SENINF_12:
+			if (core->clk[CLK_TOP_SENINF5])
+				clk_disable_unprepare(core->clk[CLK_TOP_SENINF5]);
+			break;
+		default:
+			seninf_logi(ctx, "invalid seninfIdx(%d)\n", ctx->seninfIdx);
+			mutex_unlock(&core->mutex);
+			return -EINVAL;
 		}
 
 		if (core->refcnt == 0) {
 			/* disable tsrec timer clk */
 			mtk_cam_seninf_tsrec_timer_enable(0);
 
-			/* disable cam main cg (seninf, cam, camtg) */
-			for (i = CLK_TOP_SENINF - 1; i >= 0; --i) {
-				if (core->clk[i]) {
-					clk_disable_unprepare(core->clk[i]);
-
-					dev_dbg(dev,
-						"[%s] clk_disable_unprepare clk[%d]:%s\n",
-						__func__, i, clk_names[i]);
-				}
-			}
-
 			/* one of the source clk of TSREC */
 			if (core->clk[CLK_TOP_CAMTM]) {
 				clk_disable_unprepare(core->clk[CLK_TOP_CAMTM]);
-				dev_info(dev,
-					"[%s] clk_disable_unprepare CLK_TOP_CAMTM\n",
-					__func__);
+				seninf_logi(ctx, "clk_disable_unprepare CLK_TOP_CAMTM\n");
+			}
+
+			/* disable cg (cam, seninf, camtg) */
+			for (i = CLK_TOP_SENINF - 1; i >= 0; --i) {
+				if (core->clk[i]) {
+					clk_disable_unprepare(core->clk[i]);
+					seninf_logd(ctx,
+						"clk_disable_unprepare clk[%d]:%s\n",
+						i, clk_names[i]);
+				}
 			}
 
 			/* power-domains disable */
 			seninf_core_pm_runtime_put(core);
 		}
 	} else
-		dev_info(dev,
-			"[%s] times error! cnt(%d)\n",
-			__func__, core->refcnt);
+		seninf_logi(ctx, "times error! cnt(%d)\n", core->refcnt);
 
 	mutex_unlock(&core->mutex);
 
@@ -3140,8 +3585,17 @@ static int runtime_resume(struct device *dev)
 	struct seninf_core *core = ctx->core;
 	unsigned int i = 0;
 	int ret = 0;
+	struct seninf_vc *vc = mtk_cam_seninf_get_vc_by_pad(ctx, PAD_SRC_RAW0);
+	struct seninf_vc *vc1 = mtk_cam_seninf_get_vc_by_pad(ctx, PAD_SRC_RAW_EXT0);
+	int bit_per_pixel = 10;
+	u64 data_rate = 0;
 
 	mutex_lock(&core->mutex);
+
+	if (vc)
+		bit_per_pixel = vc->bit_depth;
+	else if (vc1)
+		bit_per_pixel = vc1->bit_depth;
 
 	core->refcnt++;
 	if (core->refcnt > 0) {
@@ -3152,439 +3606,94 @@ static int runtime_resume(struct device *dev)
 			/* power-domains enable */
 			ret = seninf_core_pm_runtime_get_sync(core);
 			if (ret < 0) {
-				dev_info(dev,
-					"[%s] seninf_core_pm_runtime_get_sync(fail),ret(%d)\n",
-					__func__, ret);
+				seninf_logi(ctx, "seninf_core_pm_runtime_get_sync(fail),ret(%d)\n", ret);
 				mutex_unlock(&core->mutex);
 				return ret;
 			}
-			if (ret < 0)
-				dev_info(dev,
-					"[%s] enable_phya_clk(fail),ret(%d)\n",
-					__func__, ret);
-			/* enable seninf cg */
-			/* including seninf, cam, camtg */
+			seninf_logd(ctx, "seninf_core_pm_runtime_get_sync(success),ret(%d)\n", ret);
+			/*
+			 * enable seninf cg
+			 * including cam, seninf, camtg
+			 */
 			for (i = 0; i < CLK_TOP_SENINF; ++i) {
 				if (core->clk[i]) {
 					ret = clk_prepare_enable(core->clk[i]);
 					if (ret < 0) {
-						dev_info(dev,
-							"[%s] clk_prepare_enable clk[%u]:%s(fail),ret(%d)\n",
-							__func__, i, clk_names[i], ret);
+						seninf_logi(ctx,
+							"clk_prepare_enable clk[%u]:%s(fail),ret(%d)\n",
+							i, clk_names[i], ret);
 						mutex_unlock(&core->mutex);
 						return ret;
 					}
-
-					dev_dbg(dev,
-						"[%s] clk_prepare_enable clk[%u]:%s(success),ret(%d)\n",
-						__func__, i, clk_names[i], ret);
+					seninf_logd(ctx,
+						"clk_prepare_enable clk[%u]:%s(success),ret(%d)\n",
+						i, clk_names[i], ret);
 				}
 			}
-
 			/* one of the source clk of TSREC */
 			if (core->clk[CLK_TOP_CAMTM]) {
 				ret = clk_prepare_enable(core->clk[CLK_TOP_CAMTM]);
 				if (ret < 0) {
-					dev_info(dev,
-						"[%s] clk_prepare_enable clk[CLK_TOP_CAMTM:%u]:%s(fail),ret(%d)\n",
-						__func__, CLK_TOP_CAMTM,
-						clk_names[CLK_TOP_CAMTM], ret);
+					seninf_logi(ctx,
+						"clk_prepare_enable clk[CLK_TOP_CAMTM:%u]:%s(fail),ret(%d)\n",
+						CLK_TOP_CAMTM, clk_names[CLK_TOP_CAMTM], ret);
 					mutex_unlock(&core->mutex);
 					return ret;
 				}
-				dev_dbg(dev,
-					"[%s] clk_prepare_enable clk[CLK_TOP_CAMTM:%u]:%s(success),ret(%d)\n",
-					__func__, CLK_TOP_CAMTM,
-					clk_names[CLK_TOP_CAMTM], ret);
+				seninf_logd(ctx,
+					"clk_prepare_enable clk[CLK_TOP_CAMTM:%u]:%s(success),ret(%d)\n",
+					CLK_TOP_CAMTM, clk_names[CLK_TOP_CAMTM], ret);
+				/* enable tsrec timer clk */
+				mtk_cam_seninf_tsrec_timer_enable(1);
 			}
-
-			/* enable tsrec timer clk */
-			mtk_cam_seninf_tsrec_timer_enable(1);
 		} else
-			dev_info(dev,
-				"[%s] multi user(%d),cnt(%d)\n",
-				__func__, core->current_sensor_id, core->refcnt);
-
-		if (!ctx->is_test_model) {
-			/* enable seninf csi clk */
-			switch (ctx->seninfIdx) {
-			case SENINF_1:
-			case SENINF_2:
-				if (core->clk[CLK_TOP_SENINF]) {
-					ret = clk_prepare_enable(core->clk[CLK_TOP_SENINF]);
-					if (ret < 0) {
-						dev_info(dev,
-							"[%s] clk_prepare_enable clk[CLK_TOP_SENINF:%u]:%s(fail),ret(%d)\n",
-							__func__, CLK_TOP_SENINF,
-							clk_names[CLK_TOP_SENINF], ret);
-						mutex_unlock(&core->mutex);
-						return ret;
-					}
-					if (!core->aov_ut_debug_for_get_csi_param) {
-						if (!core->clk[CLK_TOP_UNIVPLL2_D4_D2]) {
-							dev_info(dev,
-								"[%s] core->clk[CLK_TOP_UNIVPLL2_D4_D2] = NULL\n",
-								__func__);
-							return -EINVAL;
-						}
-						ret = clk_set_parent(core->clk[CLK_TOP_SENINF],
-								core->clk[CLK_TOP_UNIVPLL2_D4_D2]);
-						if (ret < 0) {
-							dev_info(dev,
-								"[%s] clk_set_parent(core->clk[CLK_TOP_SENINF:%u]:%s, core->clk[CLK_TOP_UNIVPLL2_D4_D2:%u]:%s, ret(%d)\n",
-								__func__,
-								CLK_TOP_SENINF,
-								clk_names[CLK_TOP_SENINF],
-								CLK_TOP_UNIVPLL2_D4_D2,
-								clk_names[CLK_TOP_UNIVPLL2_D4_D2],
-								ret);
-							mutex_unlock(&core->mutex);
-							return ret;
-						}
-					} else {
-						if (!core->clk[CLK_TOP_OSC_D4]) {
-							dev_info(dev,
-								"[%s] core->clk[CLK_TOP_OSC_D4] = NULL\n",
-								__func__);
-							return -EINVAL;
-						}
-						ret = clk_set_parent(core->clk[CLK_TOP_SENINF],
-								core->clk[CLK_TOP_OSC_D4]);
-						if (ret < 0) {
-							dev_info(dev,
-								"[%s] clk_set_parent(core->clk[CLK_TOP_SENINF:%u]:%s, core->clk[CLK_TOP_OSC_D4:%u]:%s, ret(%d)\n",
-								__func__,
-								CLK_TOP_SENINF,
-								clk_names[CLK_TOP_SENINF],
-								CLK_TOP_OSC_D4,
-								clk_names[CLK_TOP_OSC_D4],
-								ret);
-							mutex_unlock(&core->mutex);
-							return ret;
-						}
-					}
-					dev_dbg(dev,
-						"[%s] clk_prepare_enable clk[CLK_TOP_SENINF:%u]:%s(success),ret(%d)\n",
-						__func__, CLK_TOP_SENINF,
-						clk_names[CLK_TOP_SENINF], ret);
-				}
-				break;
-			case SENINF_3:
-			case SENINF_4:
-				if (core->clk[CLK_TOP_SENINF1]) {
-					ret = clk_prepare_enable(core->clk[CLK_TOP_SENINF1]);
-					if (ret < 0) {
-						dev_info(dev,
-							"[%s] clk_prepare_enable clk[CLK_TOP_SENINF1:%u]:%s(fail),ret(%d)\n",
-							__func__, CLK_TOP_SENINF1,
-							clk_names[CLK_TOP_SENINF1], ret);
-						mutex_unlock(&core->mutex);
-						return ret;
-					}
-					if (!core->aov_ut_debug_for_get_csi_param) {
-						if (!core->clk[CLK_TOP_UNIVPLL2_D4_D2]) {
-							dev_info(dev,
-								"[%s] core->clk[CLK_TOP_UNIVPLL2_D4_D2] = NULL\n",
-								__func__);
-							return -EINVAL;
-						}
-						ret = clk_set_parent(core->clk[CLK_TOP_SENINF1],
-								core->clk[CLK_TOP_UNIVPLL2_D4_D2]);
-						if (ret < 0) {
-							dev_info(dev,
-								"[%s] clk_set_parent(core->clk[CLK_TOP_SENINF1:%u]:%s, core->clk[CLK_TOP_UNIVPLL2_D4_D2:%u]:%s, ret(%d)\n",
-								__func__,
-								CLK_TOP_SENINF1,
-								clk_names[CLK_TOP_SENINF1],
-								CLK_TOP_UNIVPLL2_D4_D2,
-								clk_names[CLK_TOP_UNIVPLL2_D4_D2],
-								ret);
-							mutex_unlock(&core->mutex);
-							return ret;
-						}
-					} else {
-						if (!core->clk[CLK_TOP_OSC_D4]) {
-							dev_info(dev,
-								"[%s] core->clk[CLK_TOP_OSC_D4] = NULL\n",
-								__func__);
-							return -EINVAL;
-						}
-						ret = clk_set_parent(core->clk[CLK_TOP_SENINF1],
-								core->clk[CLK_TOP_OSC_D4]);
-						if (ret < 0) {
-							dev_info(dev,
-								"[%s] clk_set_parent(core->clk[CLK_TOP_SENINF1:%u]:%s, core->clk[CLK_TOP_OSC_D4:%u]:%s, ret(%d)\n",
-								__func__,
-								CLK_TOP_SENINF1,
-								clk_names[CLK_TOP_SENINF1],
-								CLK_TOP_OSC_D4,
-								clk_names[CLK_TOP_OSC_D4],
-								ret);
-							mutex_unlock(&core->mutex);
-							return ret;
-						}
-					}
-					dev_dbg(dev,
-						"[%s] clk_prepare_enable clk[CLK_TOP_SENINF1:%u]:%s(success),ret(%d)\n",
-						__func__, CLK_TOP_SENINF1,
-						clk_names[CLK_TOP_SENINF1], ret);
-				}
-				break;
-			case SENINF_5:
-			case SENINF_6:
-				if (core->clk[CLK_TOP_SENINF2]) {
-					ret = clk_prepare_enable(core->clk[CLK_TOP_SENINF2]);
-					if (ret < 0) {
-						dev_info(dev,
-							"[%s] clk_prepare_enable clk[CLK_TOP_SENINF2:%u]:%s(fail),ret(%d)\n",
-							__func__, CLK_TOP_SENINF2,
-							clk_names[CLK_TOP_SENINF2], ret);
-						mutex_unlock(&core->mutex);
-						return ret;
-					}
-					if (!core->aov_ut_debug_for_get_csi_param) {
-						if (!core->clk[CLK_TOP_UNIVPLL2_D4_D2]) {
-							dev_info(dev,
-								"[%s] core->clk[CLK_TOP_UNIVPLL2_D4_D2] = NULL\n",
-								__func__);
-							return -EINVAL;
-						}
-						ret = clk_set_parent(core->clk[CLK_TOP_SENINF2],
-								core->clk[CLK_TOP_UNIVPLL2_D4_D2]);
-						if (ret < 0) {
-							dev_info(dev,
-								"[%s] clk_set_parent(core->clk[CLK_TOP_SENINF2:%u]:%s, core->clk[CLK_TOP_UNIVPLL2_D4_D2:%u]:%s, ret(%d)\n",
-								__func__,
-								CLK_TOP_SENINF2,
-								clk_names[CLK_TOP_SENINF2],
-								CLK_TOP_UNIVPLL2_D4_D2,
-								clk_names[CLK_TOP_UNIVPLL2_D4_D2],
-								ret);
-							mutex_unlock(&core->mutex);
-							return ret;
-						}
-					} else {
-						if (!core->clk[CLK_TOP_OSC_D4]) {
-							dev_info(dev,
-								"[%s] core->clk[CLK_TOP_OSC_D4] = NULL\n",
-								__func__);
-							return -EINVAL;
-						}
-						ret = clk_set_parent(core->clk[CLK_TOP_SENINF2],
-								core->clk[CLK_TOP_OSC_D4]);
-						if (ret < 0) {
-							dev_info(dev,
-								"[%s] clk_set_parent(core->clk[CLK_TOP_SENINF2:%u]:%s, core->clk[CLK_TOP_OSC_D4:%u]:%s, ret(%d)\n",
-								__func__,
-								CLK_TOP_SENINF2,
-								clk_names[CLK_TOP_SENINF2],
-								CLK_TOP_OSC_D4,
-								clk_names[CLK_TOP_OSC_D4],
-								ret);
-							mutex_unlock(&core->mutex);
-							return ret;
-						}
-					}
-					dev_dbg(dev,
-						"[%s] clk_prepare_enable clk[CLK_TOP_SENINF2:%u]:%s(success),ret(%d)\n",
-						__func__, CLK_TOP_SENINF2,
-						clk_names[CLK_TOP_SENINF2], ret);
-				}
-				break;
-			case SENINF_7:
-			case SENINF_8:
-				if (core->clk[CLK_TOP_SENINF3]) {
-					ret = clk_prepare_enable(core->clk[CLK_TOP_SENINF3]);
-					if (ret < 0) {
-						dev_info(dev,
-							"[%s] clk_prepare_enable clk[CLK_TOP_SENINF3:%u]:%s(fail),ret(%d)\n",
-							__func__, CLK_TOP_SENINF3,
-							clk_names[CLK_TOP_SENINF3], ret);
-						mutex_unlock(&core->mutex);
-						return ret;
-					}
-					if (!core->aov_ut_debug_for_get_csi_param) {
-						if (!core->clk[CLK_TOP_UNIVPLL2_D4_D2]) {
-							dev_info(dev,
-								"[%s] core->clk[CLK_TOP_UNIVPLL2_D4_D2] = NULL\n",
-								__func__);
-							return -EINVAL;
-						}
-						ret = clk_set_parent(core->clk[CLK_TOP_SENINF3],
-								core->clk[CLK_TOP_UNIVPLL2_D4_D2]);
-						if (ret < 0) {
-							dev_info(dev,
-								"[%s] clk_set_parent(core->clk[CLK_TOP_SENINF3:%u]:%s, core->clk[CLK_TOP_UNIVPLL2_D4_D2:%u]:%s, ret(%d)\n",
-								__func__,
-								CLK_TOP_SENINF3,
-								clk_names[CLK_TOP_SENINF3],
-								CLK_TOP_UNIVPLL2_D4_D2,
-								clk_names[CLK_TOP_UNIVPLL2_D4_D2],
-								ret);
-							mutex_unlock(&core->mutex);
-							return ret;
-						}
-					} else {
-						if (!core->clk[CLK_TOP_OSC_D4]) {
-							dev_info(dev,
-								"[%s] core->clk[CLK_TOP_OSC_D4] = NULL\n",
-								__func__);
-							return -EINVAL;
-						}
-						ret = clk_set_parent(core->clk[CLK_TOP_SENINF3],
-								core->clk[CLK_TOP_OSC_D4]);
-						if (ret < 0) {
-							dev_info(dev,
-								"[%s] clk_set_parent(core->clk[CLK_TOP_SENINF3:%u]:%s, core->clk[CLK_TOP_OSC_D4:%u]:%s, ret(%d)\n",
-								__func__,
-								CLK_TOP_SENINF3,
-								clk_names[CLK_TOP_SENINF3],
-								CLK_TOP_OSC_D4,
-								clk_names[CLK_TOP_OSC_D4],
-								ret);
-							mutex_unlock(&core->mutex);
-							return ret;
-						}
-					}
-					dev_dbg(dev,
-						"[%s] clk_prepare_enable clk[CLK_TOP_SENINF3:%u]:%s(success),ret(%d)\n",
-						__func__, CLK_TOP_SENINF3,
-						clk_names[CLK_TOP_SENINF3], ret);
-				}
-				break;
-			case SENINF_9:
-			case SENINF_10:
-				if (core->clk[CLK_TOP_SENINF4]) {
-					ret = clk_prepare_enable(core->clk[CLK_TOP_SENINF4]);
-					if (ret < 0) {
-						dev_info(dev,
-							"[%s] clk_prepare_enable clk[CLK_TOP_SENINF4:%u]:%s(fail),ret(%d)\n",
-							__func__, CLK_TOP_SENINF4,
-							clk_names[CLK_TOP_SENINF4], ret);
-						mutex_unlock(&core->mutex);
-						return ret;
-					}
-					if (!core->aov_ut_debug_for_get_csi_param) {
-						if (!core->clk[CLK_TOP_UNIVPLL2_D4_D2]) {
-							dev_info(dev,
-								"[%s] core->clk[CLK_TOP_UNIVPLL2_D4_D2] = NULL\n",
-								__func__);
-							return -EINVAL;
-						}
-						ret = clk_set_parent(core->clk[CLK_TOP_SENINF4],
-								core->clk[CLK_TOP_UNIVPLL2_D4_D2]);
-						if (ret < 0) {
-							dev_info(dev,
-								"[%s] clk_set_parent(core->clk[CLK_TOP_SENINF4:%u]:%s, core->clk[CLK_TOP_UNIVPLL2_D4_D2:%u]:%s, ret(%d)\n",
-								__func__,
-								CLK_TOP_SENINF4,
-								clk_names[CLK_TOP_SENINF4],
-								CLK_TOP_UNIVPLL2_D4_D2,
-								clk_names[CLK_TOP_UNIVPLL2_D4_D2],
-								ret);
-							mutex_unlock(&core->mutex);
-							return ret;
-						}
-					} else {
-						if (!core->clk[CLK_TOP_OSC_D4]) {
-							dev_info(dev,
-								"[%s] core->clk[CLK_TOP_OSC_D4] = NULL\n",
-								__func__);
-							return -EINVAL;
-						}
-						ret = clk_set_parent(core->clk[CLK_TOP_SENINF4],
-								core->clk[CLK_TOP_OSC_D4]);
-						if (ret < 0) {
-							dev_info(dev,
-								"[%s] clk_set_parent(core->clk[CLK_TOP_SENINF4:%u]:%s, core->clk[CLK_TOP_OSC_D4:%u]:%s, ret(%d)\n",
-								__func__,
-								CLK_TOP_SENINF4,
-								clk_names[CLK_TOP_SENINF4],
-								CLK_TOP_OSC_D4,
-								clk_names[CLK_TOP_OSC_D4],
-								ret);
-							mutex_unlock(&core->mutex);
-							return ret;
-						}
-					}
-					dev_dbg(dev,
-						"[%s] clk_prepare_enable clk[CLK_TOP_SENINF4:%u]:%s(success),ret(%d)\n",
-						__func__, CLK_TOP_SENINF4,
-						clk_names[CLK_TOP_SENINF4], ret);
-				}
-				break;
-			case SENINF_11:
-			case SENINF_12:
-				if (core->clk[CLK_TOP_SENINF5]) {
-					ret = clk_prepare_enable(core->clk[CLK_TOP_SENINF5]);
-					if (ret < 0) {
-						dev_info(dev,
-							"[%s] clk_prepare_enable clk[CLK_TOP_SENINF5:%u]:%s(fail),ret(%d)\n",
-							__func__, CLK_TOP_SENINF5,
-							clk_names[CLK_TOP_SENINF5], ret);
-						mutex_unlock(&core->mutex);
-						return ret;
-					}
-					if (!core->aov_ut_debug_for_get_csi_param) {
-						if (!core->clk[CLK_TOP_UNIVPLL2_D4_D2]) {
-							dev_info(dev,
-								"[%s] core->clk[CLK_TOP_UNIVPLL2_D4_D2] = NULL\n",
-								__func__);
-							return -EINVAL;
-						}
-						ret = clk_set_parent(core->clk[CLK_TOP_SENINF5],
-								core->clk[CLK_TOP_UNIVPLL2_D4_D2]);
-						if (ret < 0) {
-							dev_info(dev,
-								"[%s] clk_set_parent(core->clk[CLK_TOP_SENINF5:%u]:%s, core->clk[CLK_TOP_UNIVPLL2_D4_D2:%u]:%s, ret(%d)\n",
-								__func__,
-								CLK_TOP_SENINF5,
-								clk_names[CLK_TOP_SENINF5],
-								CLK_TOP_UNIVPLL2_D4_D2,
-								clk_names[CLK_TOP_UNIVPLL2_D4_D2],
-								ret);
-							mutex_unlock(&core->mutex);
-							return ret;
-						}
-					} else {
-						if (!core->clk[CLK_TOP_OSC_D4]) {
-							dev_info(dev,
-								"[%s] core->clk[CLK_TOP_OSC_D4] = NULL\n",
-								__func__);
-							return -EINVAL;
-						}
-						ret = clk_set_parent(core->clk[CLK_TOP_SENINF5],
-								core->clk[CLK_TOP_OSC_D4]);
-						if (ret < 0) {
-							dev_info(dev,
-								"[%s] clk_set_parent(core->clk[CLK_TOP_SENINF5:%u]:%s, core->clk[CLK_TOP_OSC_D4:%u]:%s, ret(%d)\n",
-								__func__,
-								CLK_TOP_SENINF5,
-								clk_names[CLK_TOP_SENINF5],
-								CLK_TOP_OSC_D4,
-								clk_names[CLK_TOP_OSC_D4],
-								ret);
-							mutex_unlock(&core->mutex);
-							return ret;
-						}
-					}
-					dev_dbg(dev,
-						"[%s] clk_prepare_enable clk[CLK_TOP_SENINF5:%u]:%s(success),ret(%d)\n",
-						__func__, CLK_TOP_SENINF5,
-						clk_names[CLK_TOP_SENINF5], ret);
-				}
-				break;
-			default:
-				dev_info(dev, "invalid seninfIdx %d\n", ctx->seninfIdx);
+			seninf_logi(ctx,
+				"multi user(%d),cnt(%d)\n",
+				core->current_sensor_id, core->refcnt);
+		/*
+		 * set vcore according to data rate
+		 * set csi clk according to vcore range
+		 */
+		data_rate = ctx->mipi_pixel_rate * bit_per_pixel;
+		if (data_rate > 0) {
+			seninf_logd(ctx,
+				"data rate(%llu),mipi pixel rate(%lld),bit_per_pixel(%d),num_data_lanes(%d)\n",
+				data_rate, ctx->mipi_pixel_rate, bit_per_pixel, ctx->num_data_lanes);
+			if (!ctx->is_cphy) {	// Dphy
+				do_div(data_rate, ctx->num_data_lanes);
+			} else {	// Cphy
+				data_rate *= 7;
+				do_div(data_rate, ctx->num_data_lanes*16);
+			}
+		} else {
+			seninf_logi(ctx,
+				"please check data rate(%llu),mipi pixel rate(%lld),bit_per_pixel(%d),num_data_lanes(%d)\n",
+				data_rate, ctx->mipi_pixel_rate, bit_per_pixel, ctx->num_data_lanes);
+			mutex_unlock(&core->mutex);
+			return -EINVAL;
+		}
+		ret = set_vcore_power(ctx, data_rate);
+		if (ret) {
+			seninf_logi(ctx, "set_vcore_power(fail),ret(%d)\n", ret);
+			mutex_unlock(&core->mutex);
+			return -EINVAL;
+		} else {
+			if (!IS_ERR(core->dvfsrc_vcore_power))
+				seninf_logd(ctx,
+					"set_vcore_power(%d)(success),ret(%d)\n",
+					regulator_get_voltage(core->dvfsrc_vcore_power), ret);
+			else {
+				seninf_logi(ctx, "core->dvfsrc_vcore_power == NULL\n");
 				mutex_unlock(&core->mutex);
 				return -EINVAL;
 			}
-			/* enable camtg_sel as phya clk */
-			ret = enable_phya_clk(ctx);
-			if (ret < 0)
-				dev_info(dev,
-					"[%s] enable_phya_clk(fail),ret(%d)\n",
-					__func__, ret);
+		}
+		/* enable camtg_sel as phya clk */
+		ret = enable_phya_clk(ctx);
+		if (ret < 0) {
+			seninf_logi(ctx, "enable_phya_clk(fail),ret(%d)\n", ret);
+			mutex_unlock(&core->mutex);
+			return ret;
 		}
 
 		if (core->refcnt == 1) {
@@ -3592,25 +3701,19 @@ static int runtime_resume(struct device *dev)
 				!(core->aov_sensor_id < 0) &&
 				!(core->current_sensor_id < 0) &&
 				(core->current_sensor_id != core->aov_sensor_id))
-				dev_info(dev,
-					"[%s] aov sensor streaming on scp now, won't disable mux/cammux\n",
-					__func__);
+				seninf_logi(ctx, "aov sensor streaming on scp now, won't disable mux/cammux\n");
 			else {
-				dev_info(dev,
-					"[%s] common sensor streaming, disable mux/cammux for initialization\n",
-					__func__);
+				seninf_logi(ctx, "common sensor streaming, disable mux/cammux for initialization\n");
 				g_seninf_ops->_disable_all_mux(ctx);
 				g_seninf_ops->_disable_all_cammux(ctx);
 			}
 		}
 	} else
-		dev_info(dev,
-			"[%s] times error! cnt(%d)\n",
-			__func__, core->refcnt);
+		seninf_logi(ctx, "times error! cnt(%d)\n", core->refcnt);
 
 	mutex_unlock(&core->mutex);
 
-	return 0;
+	return ret;
 }
 
 static const struct dev_pm_ops pm_ops = {
@@ -3837,6 +3940,7 @@ int mtk_cam_seninf_aov_runtime_suspend(unsigned int sensor_id)
 	unsigned int real_sensor_id = 0;
 	struct seninf_core *core = NULL;
 	int ret = 0;
+	int i = 0;
 
 	pr_info("[%s] sensor_id(%d)\n", __func__, sensor_id);
 
@@ -3899,97 +4003,66 @@ int mtk_cam_seninf_aov_runtime_suspend(unsigned int sensor_id)
 				__func__,
 				core->aov_sensor_id, core->refcnt);
 
-		if (!g_aov_param.is_test_model) {
-			/* AP side to SCP */
-			if (core->aov_csi_clk_switch_flag == CSI_CLK_130) {
-				/* set the parent of clk as parent_clk */
-				if (core->clk[CLK_TOP_SENINF4] && core->clk[CLK_TOP_OSC_D4]) {
-					ret = clk_set_parent(
-						core->clk[CLK_TOP_SENINF4],
-						core->clk[CLK_TOP_OSC_D4]);
-					if (ret < 0) {
-						dev_info(ctx->dev,
-							"[%s] clk[CLK_TOP_SENINF4:%u]:%s set_parent clk[CLK_TOP_OSC_D4:%u]:%s(fail),ret(%d)\n",
-							__func__,
-							CLK_TOP_SENINF1, clk_names[CLK_TOP_SENINF4],
-							CLK_TOP_OSC_D4, clk_names[CLK_TOP_OSC_D4],
-							ret);
-						mutex_unlock(&core->mutex);
-						return ret;
-					}
+		/* AP side to SCP */
+		if (core->aov_csi_clk_switch_flag == CSI_CLK_130) {
+			/* set the parent of clk as parent_clk */
+			if (core->clk[ctx->clk_index] && core->clk[CLK_TOP_AOV_STEP0]) {
+				ret = clk_set_parent(
+					core->clk[ctx->clk_index],
+					core->clk[CLK_TOP_AOV_STEP0]);
+				if (ret < 0) {
 					dev_info(ctx->dev,
-						"[%s] clk[CLK_TOP_SENINF4:%u]:%s set_parent clk[CLK_TOP_OSC_D4:%u]:%s(correct),ret(%d)\n",
+						"[%s] clk[%u]:%s set_parent clk[CLK_TOP_AOV_STEP0:%u]:%s(fail),ret(%d)\n",
 						__func__,
-						CLK_TOP_SENINF4, clk_names[CLK_TOP_SENINF4],
-						CLK_TOP_OSC_D4, clk_names[CLK_TOP_OSC_D4],
+						ctx->clk_index, clk_names[ctx->clk_index],
+						CLK_TOP_AOV_STEP0, clk_names[CLK_TOP_AOV_STEP0],
 						ret);
-				} else {
-					dev_info(ctx->dev,
-						"[%s] Please check clk get whether NULL?\n",
-						__func__);
 					mutex_unlock(&core->mutex);
-					return -EINVAL;
+					return ret;
 				}
-			}
-
-			/* disable seninf csi clk which connects aov sensor */
-			if (core->clk[CLK_TOP_SENINF4]) {
-				clk_disable_unprepare(core->clk[CLK_TOP_SENINF4]);
 				dev_info(ctx->dev,
-					"[%s] disable_unprepare clk[CLK_TOP_SENINF4:%u]:%s\n",
+					"[%s] clk[%u]:%s set_parent clk[CLK_TOP_AOV_STEP0:%u]:%s(correct),ret(%d)\n",
 					__func__,
-					CLK_TOP_SENINF4, clk_names[CLK_TOP_SENINF4]);
+					ctx->clk_index, clk_names[ctx->clk_index],
+					CLK_TOP_AOV_STEP0, clk_names[CLK_TOP_AOV_STEP0],
+					ret);
+			} else {
+				dev_info(ctx->dev,
+					"[%s] Please check clk get whether NULL?\n",
+					__func__);
+				mutex_unlock(&core->mutex);
+				return -EINVAL;
 			}
-		} else {
-			/* AP side to SCP */
-			if (core->aov_csi_clk_switch_flag == CSI_CLK_130) {
-				/* set the parent of clk as parent_clk */
-				if (core->clk[CLK_TOP_CAMTM] && core->clk[CLK_TOP_OSC_D4]) {
-					ret = clk_set_parent(
-						core->clk[CLK_TOP_CAMTM],
-						core->clk[CLK_TOP_OSC_D4]);
-					if (ret < 0) {
-						dev_info(ctx->dev,
-							"[%s] clk[CLK_TOP_CAMTM:%u]:%s set_parent clk[CLK_TOP_OSC_D4:%u]:%s(fail),ret(%d)\n",
-							__func__,
-							CLK_TOP_CAMTM, clk_names[CLK_TOP_CAMTM],
-							CLK_TOP_OSC_D4, clk_names[CLK_TOP_OSC_D4],
-							ret);
-						mutex_unlock(&core->mutex);
-						return ret;
-					}
-					dev_info(ctx->dev,
-						"[%s] clk[CLK_TOP_CAMTM:%u]:%s set_parent clk[CLK_TOP_OSC_D4:%u]:%s(correct),ret(%d)\n",
-						__func__,
-						CLK_TOP_CAMTM, clk_names[CLK_TOP_CAMTM],
-						CLK_TOP_OSC_D4, clk_names[CLK_TOP_OSC_D4],
-						ret);
-				} else {
-					dev_info(ctx->dev,
-						"[%s] Please check clk get whether NULL?\n",
-						__func__);
-					mutex_unlock(&core->mutex);
-					return -EINVAL;
-				}
-			}
+		}
+		/* disable seninf csi clk which connects aov sensor */
+		if (core->clk[ctx->clk_index]) {
+			clk_disable_unprepare(core->clk[ctx->clk_index]);
+			dev_info(ctx->dev,
+				"[%s] clk_disable_unprepare clk[%u]:%s\n",
+				__func__,
+				ctx->clk_index, clk_names[ctx->clk_index]);
+		}
 
-			/* disable seninf test model clk while aov is using it */
+		if (core->refcnt == 0) {
+			/* disable tsrec timer clk */
+			mtk_cam_seninf_tsrec_timer_enable(0);
+
+			/* one of the source clk of TSREC */
 			if (core->clk[CLK_TOP_CAMTM]) {
 				clk_disable_unprepare(core->clk[CLK_TOP_CAMTM]);
 				dev_info(ctx->dev,
-					"[%s] disable_unprepare clk[CLK_TOP_CAMTM:%u]:%s\n",
-					__func__,
-					CLK_TOP_CAMTM, clk_names[CLK_TOP_CAMTM]);
+					"[%s] clk_disable_unprepare clk[CLK_TOP_CAMTM:%u]:%s\n",
+					__func__, CLK_TOP_CAMTM, clk_names[CLK_TOP_CAMTM]);
 			}
-		}
-		if (core->refcnt == 0) {
-			/* disable seninf cg */
-			if (core->clk[CLK_CAM_SENINF]) {
-				clk_disable_unprepare(core->clk[CLK_CAM_SENINF]);
-				dev_info(ctx->dev,
-					"[%s] disable_unprepare clk[CLK_CAM_SENINF:%u]:%s\n",
-					__func__,
-					CLK_CAM_SENINF, clk_names[CLK_CAM_SENINF]);
+
+			/* disable cg (cam, seninf, camtg) */
+			for (i = CLK_TOP_SENINF - 1; i >= 0; --i) {
+				if (core->clk[i]) {
+					clk_disable_unprepare(core->clk[i]);
+					dev_info(ctx->dev,
+						"[%s] clk_disable_unprepare clk[%d]:%s\n",
+						__func__, i, clk_names[i]);
+				}
 			}
 
 			seninf_core_pm_runtime_put(core);
@@ -4011,6 +4084,7 @@ int mtk_cam_seninf_aov_runtime_resume(unsigned int sensor_id,
 #ifdef AOV_SUSPEND_RESUME_USE_PM_CLK
 	int ret = 0;
 #endif
+	int i = 0;
 
 	pr_info("[%s] sensor_id(%d),aov_seninf_deinit_type(%u)\n",
 		__func__, sensor_id, aov_seninf_deinit_type);
@@ -4080,23 +4154,40 @@ int mtk_cam_seninf_aov_runtime_resume(unsigned int sensor_id,
 			/* power-domains enable */
 			seninf_core_pm_runtime_get_sync(core);
 			dev_info(ctx->dev, "[%s] phya clock source switch to scp side\n", __func__);
-			/* enable seninf cg */
-			if (core->clk[CLK_CAM_SENINF]) {
-				ret = clk_prepare_enable(core->clk[CLK_CAM_SENINF]);
+			/*
+			 * enable seninf cg
+			 * including cam, seninf, camtg
+			 */
+			for (i = 0; i < CLK_TOP_SENINF; ++i) {
+				if (core->clk[i]) {
+					ret = clk_prepare_enable(core->clk[i]);
+					if (ret < 0) {
+						dev_info(ctx->dev,
+							"[%s] clk_prepare_enable clk[%u]:%s(fail),ret(%d)\n",
+							__func__, i, clk_names[i], ret);
+						mutex_unlock(&core->mutex);
+						return ret;
+					}
+					dev_info(ctx->dev,
+						"[%s] clk_prepare_enable clk[%u]:%s(success),ret(%d)\n",
+						__func__, i, clk_names[i], ret);
+				}
+			}
+			/* one of the source clk of TSREC */
+			if (core->clk[CLK_TOP_CAMTM]) {
+				ret = clk_prepare_enable(core->clk[CLK_TOP_CAMTM]);
 				if (ret < 0) {
 					dev_info(ctx->dev,
-						"[%s] clk_prepare_enable clk[CLK_CAM_SENINF:%u]:%s(fail),ret(%d)\n",
-						__func__,
-						CLK_CAM_SENINF, clk_names[CLK_CAM_SENINF],
-						ret);
+						"[%s] clk_prepare_enable clk[CLK_TOP_CAMTM:%u]:%s(fail),ret(%d)\n",
+						__func__, CLK_TOP_CAMTM, clk_names[CLK_TOP_CAMTM], ret);
 					mutex_unlock(&core->mutex);
 					return ret;
 				}
 				dev_info(ctx->dev,
-					"[%s] prepare_enable clk[CLK_CAM_SENINF:%u]:%s(correct),ret(%d)\n",
-					__func__,
-					CLK_CAM_SENINF, clk_names[CLK_CAM_SENINF],
-					ret);
+					"[%s] clk_prepare_enable clk[CLK_TOP_CAMTM:%u]:%s(success),ret(%d)\n",
+					__func__, CLK_TOP_CAMTM, clk_names[CLK_TOP_CAMTM], ret);
+				/* enable tsrec timer clk */
+				mtk_cam_seninf_tsrec_timer_enable(1);
 			}
 		} else
 			dev_info(ctx->dev,
@@ -4104,91 +4195,54 @@ int mtk_cam_seninf_aov_runtime_resume(unsigned int sensor_id,
 				__func__,
 				core->aov_sensor_id, core->refcnt);
 
-		if (!g_aov_param.is_test_model) {
-			/* enable seninf csi clk which connects aov sensor */
-			if (core->clk[CLK_TOP_SENINF1]) {
-				/* must enable mux clk before clk_set_parent */
-				ret = clk_prepare_enable(core->clk[CLK_TOP_SENINF4]);
-				if (ret < 0) {
-					dev_info(ctx->dev,
-						"[%s] prepare_enable clk[CLK_TOP_SENINF4:%u]:%s(fail),ret(%d)\n",
-						__func__,
-						CLK_TOP_SENINF4, clk_names[CLK_TOP_SENINF4],
-						ret);
-					mutex_unlock(&core->mutex);
-					return ret;
-				}
-				dev_info(ctx->dev,
-					"[%s] prepare_enable clk[CLK_TOP_SENINF4:%u]:%s(correct),ret(%d)\n",
-					__func__,
-					CLK_TOP_SENINF4, clk_names[CLK_TOP_SENINF4],
-					ret);
-			} else {
-				dev_info(ctx->dev,
-					"[%s] Please check clk get whether NULL?\n",
-					__func__);
-				mutex_unlock(&core->mutex);
-				return -EINVAL;
-			}
-			/* set register to switch phya clock source */
-			ret = g_seninf_ops->_set_scp_phya_clock(ctx, 1);
+		/* enable seninf csi clk which connects aov sensor */
+		if (core->clk[ctx->clk_index]) {
+			/* must enable mux clk before clk_set_parent */
+			ret = clk_prepare_enable(core->clk[ctx->clk_index]);
 			if (ret < 0) {
 				dev_info(ctx->dev,
-					"[%s] fail to set phya osc source clk\n", __func__);
+					"[%s] prepare_enable clk[%u]:%s(fail),ret(%d)\n",
+					__func__,
+					ctx->clk_index, clk_names[ctx->clk_index],
+					ret);
 				mutex_unlock(&core->mutex);
 				return ret;
 			}
-			dev_info(ctx->dev, "[%s] phya clock source switch to scp side\n", __func__);
-			/* SCP side to AP */
-			if (core->aov_csi_clk_switch_flag == CSI_CLK_130) {
-				/* set the parent of clk as parent_clk */
-				if (core->clk[CLK_TOP_SENINF4] && core->clk[CLK_TOP_UNIVPLL2_D4_D2]) {
-					ret = clk_set_parent(
-						core->clk[CLK_TOP_SENINF4],
-						core->clk[CLK_TOP_UNIVPLL2_D4_D2]);
-					if (ret < 0) {
-						dev_info(ctx->dev,
-							"[%s] clk[CLK_TOP_SENINF4:%u]:%s set_parent clk[CLK_TOP_UNIVPLL2_D4_D2:%u]:%s(fail),ret(%d)\n",
-							__func__,
-							CLK_TOP_SENINF4, clk_names[CLK_TOP_SENINF4],
-							CLK_TOP_UNIVPLL2_D4_D2,
-							clk_names[CLK_TOP_UNIVPLL2_D4_D2],
-							ret);
-						mutex_unlock(&core->mutex);
-						return ret;
-					}
-					dev_info(ctx->dev,
-						"[%s] clk[CLK_TOP_SENINF4:%u]:%s set_parent clk[CLK_TOP_UNIVPLL2_D4_D2:%u]:%s(correct),ret(%d)\n",
-						__func__,
-						CLK_TOP_SENINF4, clk_names[CLK_TOP_SENINF4],
-						CLK_TOP_UNIVPLL2_D4_D2, clk_names[CLK_TOP_UNIVPLL2_D4_D2],
-						ret);
-				} else {
-					dev_info(ctx->dev,
-						"[%s] Please check clk get whether NULL?\n",
-						__func__);
-					mutex_unlock(&core->mutex);
-					return -EINVAL;
-				}
-			}
+			dev_info(ctx->dev,
+				"[%s] prepare_enable clk[%u]:%s(correct),ret(%d)\n",
+				__func__,
+				ctx->clk_index, clk_names[ctx->clk_index],
+				ret);
 		} else {
-			/* enable seninf test model clk while aov is using it */
-			if (core->clk[CLK_TOP_CAMTM]) {
-				/* must enable mux(clk/src) before clk_set_parent */
-				ret = clk_prepare_enable(core->clk[CLK_TOP_CAMTM]);
+			dev_info(ctx->dev,
+				"[%s] Please check clk get whether NULL?\n",
+				__func__);
+			mutex_unlock(&core->mutex);
+			return -EINVAL;
+		}
+		/* SCP side to AP */
+		if (core->aov_csi_clk_switch_flag == CSI_CLK_130) {
+			/* set the parent of clk as parent_clk */
+			if (core->clk[ctx->clk_index] && core->clk[ctx->clk_src_index]) {
+				ret = clk_set_parent(
+					core->clk[ctx->clk_index],
+					core->clk[ctx->clk_src_index]);
 				if (ret < 0) {
 					dev_info(ctx->dev,
-						"[%s] prepare_enable clk[CLK_TOP_CAMTM:%u]:%s(fail),ret(%d)\n",
+						"[%s] clk[%u]:%s set_parent clk_src[%u]:%s(fail),ret(%d)\n",
 						__func__,
-						CLK_TOP_CAMTM, clk_names[CLK_TOP_CAMTM],
+						ctx->clk_index, clk_names[ctx->clk_index],
+						ctx->clk_src_index,
+						clk_names[ctx->clk_src_index],
 						ret);
 					mutex_unlock(&core->mutex);
 					return ret;
 				}
 				dev_info(ctx->dev,
-					"[%s] prepare_enable clk[CLK_TOP_CAMTM:%u]:%s(correct),ret(%d)\n",
+					"[%s] clk[%u]:%s set_parent clk_src[%u]:%s(correct),ret(%d)\n",
 					__func__,
-					CLK_TOP_CAMTM, clk_names[CLK_TOP_CAMTM],
+					ctx->clk_index, clk_names[ctx->clk_index],
+					ctx->clk_src_index, clk_names[ctx->clk_src_index],
 					ret);
 			} else {
 				dev_info(ctx->dev,
@@ -4197,39 +4251,16 @@ int mtk_cam_seninf_aov_runtime_resume(unsigned int sensor_id,
 				mutex_unlock(&core->mutex);
 				return -EINVAL;
 			}
-			/* SCP side to AP */
-			if (core->aov_csi_clk_switch_flag == CSI_CLK_130) {
-				if (core->clk[CLK_TOP_CAMTM] && core->clk[CLK_TOP_UNIVPLL2_D4_D2]) {
-					/* set the parent of clk as parent_clk */
-					ret = clk_set_parent(
-						core->clk[CLK_TOP_CAMTM],
-						core->clk[CLK_TOP_UNIVPLL2_D4_D2]);
-					if (ret < 0) {
-						dev_info(ctx->dev,
-							"[%s] clk[CLK_TOP_CAMTM:%u]:%s set_parent clk[CLK_TOP_UNIVPLL2_D4_D2:%u]:%s(fail),ret(%d)\n",
-							__func__,
-							CLK_TOP_CAMTM, clk_names[CLK_TOP_CAMTM],
-							CLK_TOP_UNIVPLL2_D4_D2,
-							clk_names[CLK_TOP_UNIVPLL2_D4_D2],
-							ret);
-						mutex_unlock(&core->mutex);
-						return ret;
-					}
-					dev_info(ctx->dev,
-						"[%s] clk[CLK_TOP_CAMTM:%u]:%s set_parent clk[CLK_TOP_UNIVPLL2_D4_D2:%u]:%s(correct),ret(%d)\n",
-						__func__,
-						CLK_TOP_CAMTM, clk_names[CLK_TOP_CAMTM],
-						CLK_TOP_UNIVPLL2_D4_D2, clk_names[CLK_TOP_UNIVPLL2_D4_D2],
-						ret);
-				} else {
-					dev_info(ctx->dev,
-						"[%s] Please check clk get whether NULL?\n",
-						__func__);
-					mutex_unlock(&core->mutex);
-					return -EINVAL;
-				}
-			}
 		}
+		/* set register to switch phya clock source */
+		ret = enable_phya_clk(ctx);
+		if (ret < 0) {
+			dev_info(ctx->dev,
+				"[%s] fail to set phya osc source clk\n", __func__);
+			mutex_unlock(&core->mutex);
+			return ret;
+		}
+		dev_info(ctx->dev, "[%s] phya clock source switch to scp side\n", __func__);
 	}
 #endif
 	mutex_unlock(&core->mutex);

@@ -29,6 +29,8 @@
 	if ((_ctx) && (_ctx)->sensor_sd) { \
 		dev_info((_ctx)->dev, "[%s][%s] " format, \
 			(_ctx)->sensor_sd->name, __func__, ##args); \
+	} else { \
+		pr_info("ctx or subdev == NULL, please check!\n"); \
 	} \
 } while (0)
 
@@ -36,6 +38,8 @@
 	if ((_ctx) && (_ctx)->sensor_sd && unlikely(*((_ctx)->core->seninf_dbg_log))) { \
 		dev_info((_ctx)->dev, "[%s][%s] " format, \
 			(_ctx)->sensor_sd->name, __func__, ##args); \
+	} else { \
+		pr_info("ctx or subdev == NULL, please check!\n"); \
 	} \
 } while (0)
 
@@ -92,6 +96,18 @@ struct mtk_seninf_work {
 		unsigned int sof;
 		void *data_ptr;
 	} data;
+};
+
+struct seninf_struct_pair_u64 {
+	u64 first;
+	u64 second;
+};
+
+struct mtk_seninf_cdphy_dvfs_step {
+	struct seninf_struct_pair cphy_data_rate;
+	struct seninf_struct_pair dphy_data_rate;
+	unsigned int csi_clk;
+	struct seninf_struct_pair cdphy_voltage;
 };
 
 struct seninf_core {
@@ -179,6 +195,10 @@ struct seninf_core {
 	u32 aov_abnormal_init_flag;
 
 	struct clk_fmeter_info fmeter[CLK_FMETER_MAX];
+
+	/* dvfs vcore power */
+	struct regulator *dvfsrc_vcore_power;
+	struct mtk_seninf_cdphy_dvfs_step cdphy_dvfs_step[CDPHY_DVFS_STEP_MAX_NUM];
 };
 
 struct seninf_ctx {
@@ -297,6 +317,10 @@ struct seninf_ctx {
 #endif
 	/* record pid */
 	struct pid *pid;
+	/* vcore_step/clk/clk_src index */
+	u32 vcore_step_index;
+	u32 clk_index;
+	u32 clk_src_index;
 };
 
 struct mtk_cam_seninf_irq_event_st {

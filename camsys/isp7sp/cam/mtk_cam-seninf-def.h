@@ -373,17 +373,17 @@ enum {
 	CLK_TOP_SENINF_END,
 	/* test model clk */
 	CLK_TOP_CAMTM = CLK_TOP_SENINF_END,
-	CLK_TOP_OSC_D4,					// aov 130M seninf csi clk on scp
-	CLK_TOP_MAINPLL2_D9,			// default 242M seninf csi clk on apmcu
-	CLK_TOP_UNIVPLL2_D4_D2,			// default 312M seninf csi clk on apmcu
+	CLK_TOP_AOV_STEP0,				// aov 130M seninf csi clk on scp
+	CLK_TOP_AP_STEP0,				// default 312M seninf csi clk on apmcu
+	CLK_TOP_AP_STEP1,				// default 356M seninf csi clk on apmcu
+	CLK_TOP_AP_STEP2,				// default 416M seninf csi clk on apmcu
+	CLK_TOP_AP_STEP3,				// default 499M seninf csi clk on apmcu
+	CLK_TOP_AP_STEP4,				// unknown seninf csi clk on apmcu
+	CLK_TOP_AP_STEP5,				// unknown seninf csi clk on apmcu
 	CLK_TOP_CAMTM_END,
-	/* analog phyD clk */
-	CLK_TOP_CAMTG = CLK_TOP_CAMTM_END,
-	CLK_TOP_OSC_D20,				// aov low power 26M reference clk on scp
-	CLK_TOP_TCK_26M_MX9,			// default 26M analog reference clk on apmcu
 
 	/*mtk isp clk*/
-	CLK_MMDVFS,
+	CLK_MMDVFS = CLK_TOP_CAMTM_END,
 	CLK_MAXCNT,
 };
 
@@ -398,13 +398,14 @@ enum {
 	"clk_top_seninf4", \
 	"clk_top_seninf5", \
 	"clk_top_camtm", \
-	"clk_top_osc_d4", \
-	"clk_top_mainpll2_d9", \
-	"clk_top_univpll2_d4_d2", \
-	"clk_top_camtg", \
-	"clk_top_osc_d20", \
-	"clk_top_tck_26m_mx9", \
-	"clk_mmdvfs", \
+	"clk_top_aov_step0", \
+	"clk_top_ap_step0", \
+	"clk_top_ap_step1", \
+	"clk_top_ap_step2", \
+	"clk_top_ap_step3", \
+	"clk_top_ap_step4", \
+	"clk_top_ap_step5", \
+	"mmdvfs_mux", \
 
 enum {
 	CLK_FMETER_ISP = 0,
@@ -436,5 +437,26 @@ enum {
 	{"CKGEN_CK2", CKGEN_CK2}, \
 	{"SUBSYS", SUBSYS}, \
 	{"VLPCK", VLPCK}, \
+
+/* unit: MHz -> Hz */
+#define CSI_CLK_FREQ_MULTIPLIER 1000000
+
+enum CDPHY_DVFS_STEP_ENUM {
+	CDPHY_DVFS_STEP_0,
+	CDPHY_DVFS_STEP_1,
+	CDPHY_DVFS_STEP_2,
+	CDPHY_DVFS_STEP_3,
+	CDPHY_DVFS_STEP_4,
+	CDPHY_DVFS_STEP_5,
+	CDPHY_DVFS_STEP_MAX_NUM,
+};
+
+#define CDPHY_DVFS_STEP \
+	"cdphy-dvfs-step0", \
+	"cdphy-dvfs-step1", \
+	"cdphy-dvfs-step2", \
+	"cdphy-dvfs-step3", \
+	"cdphy-dvfs-step4", \
+	"cdphy-dvfs-step5", \
 
 #endif

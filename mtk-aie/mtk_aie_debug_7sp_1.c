@@ -8,7 +8,9 @@
 
 #include <linux/module.h>
 #include <linux/platform_device.h>
+#ifdef AIE_TF_DUMP_7SP_1
 #include <dt-bindings/memory/mt6989-larb-port.h>
+#endif
 #include "mtk_aie.h"
 #include "iommu_debug.h"
 
@@ -51,12 +53,14 @@ static int FDVT_M4U_TranslationFault_callback(int port,
 
 void mtk_aie_register_tf_cb_7sp_1(void *data)
 {
+#ifdef AIE_TF_DUMP_7SP_1
     mtk_iommu_register_fault_callback(SMMU_L12_P0_FDVT_RDA_0,
 		(mtk_iommu_fault_callback_t)FDVT_M4U_TranslationFault_callback,
 		data, false);
 	mtk_iommu_register_fault_callback(SMMU_L12_P1_FDVT_WRA_0,
 		(mtk_iommu_fault_callback_t)FDVT_M4U_TranslationFault_callback,
 		data, false);
+#endif
 }
 EXPORT_SYMBOL(mtk_aie_register_tf_cb_7sp_1);
 

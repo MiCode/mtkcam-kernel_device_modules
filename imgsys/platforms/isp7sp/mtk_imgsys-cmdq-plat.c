@@ -1171,6 +1171,7 @@ void imgsys_cmdq_task_cb_plat7sp(struct cmdq_cb_data data)
 #ifdef IMGSYS_ME_CHECK_FUNC_EN
 		} else if (cb_param->err == -800) {
 			isHWhang = 1;
+			real_frm_idx = cb_param->frm_idx;
 			pr_info(
 				"%s: [ERROR] ME HW timeout! wfe(%d) event(%d) isHW(%d)",
 				__func__,

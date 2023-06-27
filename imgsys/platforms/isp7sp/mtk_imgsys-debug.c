@@ -15,11 +15,19 @@
 /* TODO */
 #include "smi.h"
 
+// GCE header
+#include <linux/soc/mediatek/mtk-cmdq-ext.h>
+
 #define DL_CHECK_ENG_NUM 11
 #define WPE_HW_SET    3
 #define ADL_HW_SET    2
 #define SW_RST   (0x000C)
 #define DBG_SW_CLR   (0x0260)
+
+#define TRAW_BASE (0x15710000)
+#define IMGSYS_DIP_BASE (0x15110000)
+unsigned int gWpeRegBaseAddr[3] = { 0x15220000, 0x15520000, 0x15620000 };
+unsigned int gMainRegBase = (0x15000000);
 
 bool imgsys_dip_7sp_dbg_enable(void)
 {
@@ -214,7 +222,6 @@ void imgsys_main_set_init(struct mtk_imgsys_dev *imgsys_dev)
 	}
 
 	HwIdx = 0;
-
 	if (adlARegBA || adlBRegBA) {
 		/* Reset ADL A */
 		for (HwIdx = 0; HwIdx < ADL_HW_SET; HwIdx++) {
@@ -260,6 +267,54 @@ void imgsys_main_set_init(struct mtk_imgsys_dev *imgsys_dev)
 		mtk_smi_larb_clamp_and_lock(imgsys_dev->larbs[i], 0);
 
 	pr_debug("%s: -.\n", __func__);
+}
+
+void imgsys_main_cmdq_set_init(struct mtk_imgsys_dev *imgsys_dev, void *pkt)
+{
+	struct cmdq_pkt *package = NULL;
+	unsigned int WpeRegBA = 0L;
+	unsigned int pWpeCtrl = 0L;
+	unsigned int HwIdx = 0;
+	int num;
+
+	if (imgsys_dev == NULL || pkt == NULL) {
+		dump_stack();
+		pr_err("[%s][%d] param fatal error!", __func__, __LINE__);
+		return;
+	}
+	package = (struct cmdq_pkt *)pkt;
+	num = imgsys_dev->larbs_num - 1;
+	for (HwIdx = 0; HwIdx < WPE_HW_SET; HwIdx++) {
+		if (HwIdx == 0)
+			WpeRegBA = gWpeRegBaseAddr[0];
+		else if (HwIdx == 1)
+			WpeRegBA = gWpeRegBaseAddr[1];
+		else
+			WpeRegBA = gWpeRegBaseAddr[2];
+
+		/* Wpe Macro HW Reset */
+		pWpeCtrl = WpeRegBA + SW_RST;
+		cmdq_pkt_write(package, NULL, pWpeCtrl /*address*/,
+			       0xF, 0xffffffff);
+		/* Clear HW Reset */
+		cmdq_pkt_write(package, NULL, pWpeCtrl /*address*/,
+			       0x0, 0xffffffff);
+	}
+
+	cmdq_pkt_write(package, NULL, (gMainRegBase + DBG_SW_CLR) /*address*/,
+			       0xFF, 0xffffffff);
+	cmdq_pkt_write(package, NULL, (gMainRegBase + DBG_SW_CLR) /*address*/,
+			       0x0, 0xffffffff);
+
+	cmdq_pkt_write(package, NULL, (gMainRegBase + SW_RST) /*address*/,
+			       0xF0, 0xffffffff);
+	cmdq_pkt_write(package, NULL, (gMainRegBase + SW_RST) /*address*/,
+			       0x0, 0xffffffff);
+
+	cmdq_pkt_write(package, NULL, (IMGSYS_DIP_BASE + SW_RST) /*address*/,
+			       0x3FC03, 0xffffffff);
+	cmdq_pkt_write(package, NULL, (IMGSYS_DIP_BASE + SW_RST) /*address*/,
+			       0x0, 0xffffffff);
 }
 
 void imgsys_main_uninit(struct mtk_imgsys_dev *imgsys_dev)

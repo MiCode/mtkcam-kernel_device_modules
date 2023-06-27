@@ -14,6 +14,9 @@
 #include <linux/pm_runtime.h>
 #include <linux/remoteproc.h>
 
+// GCE header
+#include <linux/soc/mediatek/mtk-cmdq-ext.h>
+
 // mtk imgsys local header file
 
 // Local header file
@@ -116,6 +119,7 @@ const struct mtk_imgsys_init_array
 #define PQDIP_INIT_ARRAY_COUNT	ARRAY_SIZE(mtk_imgsys_pqdip_init_ary)
 
 void __iomem *gpqdipRegBA[PQDIP_HW_SET] = {0L};
+unsigned int gPQDIPRegBase[PQDIP_HW_SET] = {0x15210000 , 0x15510000};
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 // Public Functions
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -142,8 +146,8 @@ void imgsys_pqdip_set_hw_initial_value(struct mtk_imgsys_dev *imgsys_dev)
 	unsigned int hw_idx = 0;
 	unsigned int i = 0;
 
-    if (imgsys_pqdip_7sp_dbg_enable())
-	dev_dbg(imgsys_dev->dev, "%s: +\n", __func__);
+	if (imgsys_pqdip_7sp_dbg_enable())
+		dev_dbg(imgsys_dev->dev, "%s: +\n", __func__);
 
 	for (hw_idx = 0 ; hw_idx < PQDIP_HW_SET ; hw_idx++) {
 		for (i = 0 ; i < PQDIP_INIT_ARRAY_COUNT ; i++) {
@@ -153,7 +157,36 @@ void imgsys_pqdip_set_hw_initial_value(struct mtk_imgsys_dev *imgsys_dev)
 		}
 	}
 
-    if (imgsys_pqdip_7sp_dbg_enable())
+	if (imgsys_pqdip_7sp_dbg_enable())
+		dev_dbg(imgsys_dev->dev, "%s: -\n", __func__);
+}
+
+void imgsys_pqdip_cmdq_set_hw_initial_value(struct mtk_imgsys_dev *imgsys_dev,
+		void *pkt)
+{
+	unsigned int ofset;
+	unsigned int hw_idx = 0;
+	unsigned int i = 0;
+	struct cmdq_pkt *package = NULL;
+
+	if (imgsys_dev == NULL || pkt == NULL) {
+		dump_stack();
+		pr_err("[%s][%d] param fatal error!", __func__, __LINE__);
+		return;
+	}
+	package = (struct cmdq_pkt *)pkt;
+
+	dev_dbg(imgsys_dev->dev, "%s: +\n", __func__);
+
+	for (hw_idx = 0 ; hw_idx < PQDIP_HW_SET ; hw_idx++) {
+		for (i = 0 ; i < PQDIP_INIT_ARRAY_COUNT ; i++) {
+			ofset = gPQDIPRegBase[hw_idx]
+				+ mtk_imgsys_pqdip_init_ary[i].ofset;
+			cmdq_pkt_write(package, NULL, ofset /*address*/,
+					mtk_imgsys_pqdip_init_ary[i].val, 0xffffffff);
+		}
+	}
+
 	dev_dbg(imgsys_dev->dev, "%s: -\n", __func__);
 }
 

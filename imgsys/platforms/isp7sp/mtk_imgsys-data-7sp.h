@@ -19,20 +19,35 @@
 /* For ISP 7.1 */
 
 /* imgsys_data is a keyword, please don't rename */
-const struct cust_data imgsys_data[] = {
+const struct cust_data imgsys_data_mt6897[] = {
 	/* ISP 7 */
 	[0] = {
-	.clks = imgsys_isp7_clks,
-	.clk_num = MTK_IMGSYS_CLK_NUM,
-		.module_pipes = module_pipe_isp7,
-		.mod_num = ARRAY_SIZE(module_pipe_isp7),
-		.pipe_settings = pipe_settings_isp7,
-		.pipe_num = ARRAY_SIZE(pipe_settings_isp7),
+	.clks = imgsys_isp7_clks_mt6897,
+	.clk_num = MTK_IMGSYS_CLK_NUM_MT6897,
+	.module_pipes = module_pipe_isp7,
+	.mod_num = ARRAY_SIZE(module_pipe_isp7),
+	.pipe_settings = pipe_settings_isp7,
+	.pipe_num = ARRAY_SIZE(pipe_settings_isp7),
 	.imgsys_modules = imgsys_isp7_modules,
-		.dump = imgsys_debug_dump_routine,
+	.imgsys_modules_num = MTK_IMGSYS_MODULE_NUM,
+	.dump = imgsys_debug_dump_routine,
 	},
 	/* ISP 7.1 */
 
+};
+
+const struct cust_data imgsys_data_mt6989[] = {
+	[0] = {
+	.clks = imgsys_isp7_clks_mt6989,
+	.clk_num = MTK_IMGSYS_CLK_NUM_MT6989,
+	.module_pipes = module_pipe_isp7,
+	.mod_num = ARRAY_SIZE(module_pipe_isp7),
+	.pipe_settings = pipe_settings_isp7,
+	.pipe_num = ARRAY_SIZE(pipe_settings_isp7),
+	.imgsys_modules = imgsys_isp7_modules,
+	.imgsys_modules_num = MTK_IMGSYS_MODULE_NUM,
+	.dump = imgsys_debug_dump_routine,
+	},
 };
 #endif /* _MTK_IMGSYS_DATA_H_ */
 

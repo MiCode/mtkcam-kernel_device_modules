@@ -19,6 +19,9 @@
 #include <dt-bindings/memory/mt6985-larb-port.h>
 #endif
 
+// GCE header
+#include <linux/soc/mediatek/mtk-cmdq-ext.h>
+
 // drivers/misc/mediatek/iommu/
 #include "iommu_debug.h"
 
@@ -40,7 +43,9 @@
 
 #define TRAW_HW_SET		2
 
-
+#define TRAW_BASE 	(0x15700000)
+#define LTRAW_BASE 	(0x15040000)
+#define SW_RST   (0x000C)
 /********************************************************************
  * Global Variable
  ********************************************************************/
@@ -786,23 +791,105 @@ void imgsys_traw_set_initial_value_hw(struct mtk_imgsys_dev *imgsys_dev)
 {
 	void __iomem *trawRegBA = 0L;
 	void __iomem *ofset = NULL;
-	unsigned int i = 0, HwIdx = 0;
+	unsigned int i = 0;
 
-	for (HwIdx = 0; HwIdx < TRAW_HW_SET; HwIdx++) {
-		if (HwIdx == 0)
-			trawRegBA = g_trawRegBA;
-		else
-			trawRegBA = g_ltrawRegBA;
+	trawRegBA = g_trawRegBA;
+	if (!trawRegBA) {
+		pr_info("%s: TRAW null reg base\n", __func__);
+		return;
+	}
 
-		if (!trawRegBA) {
-			pr_info("%s: hw(%d)null reg base\n", __func__, HwIdx);
-			break;
-		}
+	for (i = 0 ; i < TRAW_INIT_ARRAY_COUNT ; i++) {
+		ofset = trawRegBA + mtk_imgsys_traw_init_ary[i].ofset;
+		writel(mtk_imgsys_traw_init_ary[i].val, ofset);
+	}
+}
 
-		for (i = 0 ; i < TRAW_INIT_ARRAY_COUNT ; i++) {
-			ofset = trawRegBA + mtk_imgsys_traw_init_ary[i].ofset;
-			writel(mtk_imgsys_traw_init_ary[i].val, ofset);
-		}
+void imgsys_ltraw_set_initial_value_hw(struct mtk_imgsys_dev *imgsys_dev)
+{
+	void __iomem *trawRegBA = 0L;
+	void __iomem *ofset = NULL;
+	unsigned int i = 0;
+
+	trawRegBA = g_ltrawRegBA;
+	if (!trawRegBA) {
+		pr_info("%s: LTRAW hw null reg base\n", __func__);
+		return;
+	}
+
+	for (i = 0 ; i < TRAW_INIT_ARRAY_COUNT ; i++) {
+		ofset = trawRegBA + mtk_imgsys_traw_init_ary[i].ofset;
+		writel(mtk_imgsys_traw_init_ary[i].val, ofset);
+	}
+}
+
+void imgsys_traw_cmdq_set_initial_value_hw(struct mtk_imgsys_dev *imgsys_dev,
+		void *pkt)
+{
+	unsigned int trawRegBA, ofset;
+	unsigned int i = 0;
+	struct cmdq_pkt *package = NULL;
+
+	if (imgsys_dev == NULL || pkt == NULL) {
+		dump_stack();
+		pr_err("[%s][%d] param fatal error!", __func__, __LINE__);
+		return;
+	}
+	package = (struct cmdq_pkt *)pkt;
+	trawRegBA = TRAW_BASE;
+	if (!trawRegBA) {
+		pr_info("%s: TRAW hw null reg base\n", __func__);
+		return;
+	}
+
+	/* move from main */
+	cmdq_pkt_write(package, NULL,
+		      (trawRegBA + SW_RST) /*address*/, 0xFFFFFFFF,
+		       0xffffffff);
+	cmdq_pkt_write(package, NULL,
+		       (trawRegBA + SW_RST) /*address*/, 0x0,
+		       0xffffffff);
+
+	/* ori traw set */
+	for (i = 0 ; i < TRAW_INIT_ARRAY_COUNT ; i++) {
+		ofset = trawRegBA + mtk_imgsys_traw_init_ary[i].ofset;
+		cmdq_pkt_write(package, NULL, ofset /*address*/,
+				mtk_imgsys_traw_init_ary[i].val, 0xffffffff);
+	}
+}
+
+void imgsys_ltraw_cmdq_set_initial_value_hw(struct mtk_imgsys_dev *imgsys_dev,
+		void *pkt)
+{
+	unsigned int trawRegBA, ofset;
+	unsigned int i = 0;
+	struct cmdq_pkt *package = NULL;
+
+	if (imgsys_dev == NULL || pkt == NULL) {
+		dump_stack();
+		pr_err("[%s][%d] param fatal error!", __func__, __LINE__);
+		return;
+	}
+	package = (struct cmdq_pkt *)pkt;
+	trawRegBA = LTRAW_BASE;
+	if (!trawRegBA) {
+		pr_info("%s: TRAW hw null reg base\n", __func__);
+		return;
+	}
+
+	/* move from main */
+	cmdq_pkt_write(package, NULL,
+		    	(trawRegBA + SW_RST) /*address*/, 0xFFFFFFFF,
+		    	0xffffffff);
+	cmdq_pkt_write(package, NULL,
+		    	(trawRegBA + SW_RST) /*address*/, 0x0,
+		    	0xffffffff);
+
+	/* ori traw set */
+	for (i = 0 ; i < TRAW_INIT_ARRAY_COUNT ; i++) {
+		ofset = trawRegBA + mtk_imgsys_traw_init_ary[i].ofset;
+		cmdq_pkt_write(package, NULL, ofset /*address*/,
+				mtk_imgsys_traw_init_ary[i].val, 0xffffffff);
 	}
 }
 

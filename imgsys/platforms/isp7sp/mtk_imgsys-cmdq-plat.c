@@ -17,6 +17,7 @@
 #include "mtk_imgsys-cmdq-plat.h"
 #include "mtk_imgsys-cmdq-plat_def.h"
 #include "mtk_imgsys-cmdq-ext.h"
+#include "mtk_imgsys-cmdq-qof.h"
 #include "mtk_imgsys-trace.h"
 #include "mtk-interconnect.h"
 
@@ -79,7 +80,6 @@ enum {
 	SMI_WRITE
 };
 
-
 void imgsys_cmdq_init_plat7sp(struct mtk_imgsys_dev *imgsys_dev, const int nr_imgsys_dev)
 {
 	struct device *dev = imgsys_dev->dev;
@@ -119,11 +119,11 @@ void imgsys_cmdq_init_plat7sp(struct mtk_imgsys_dev *imgsys_dev, const int nr_im
 		}
 		#if IMGSYS_SECURE_ENABLE
 		/* request for imgsys secure gce thread */
-		for (idx = IMGSYS_NOR_THD; idx < (IMGSYS_NOR_THD + IMGSYS_SEC_THD); idx++) {
-			imgsys_sec_clt[idx-IMGSYS_NOR_THD] = cmdq_mbox_create(dev, idx);
+		for (idx = IMGSYS_NOR_THD + IMGSYS_PWR_THD; idx < (IMGSYS_NOR_THD + IMGSYS_PWR_THD + IMGSYS_SEC_THD); idx++) {
+			imgsys_sec_clt[idx-IMGSYS_NOR_THD - IMGSYS_PWR_THD] = cmdq_mbox_create(dev, idx);
 			pr_info(
 				"%s: cmdq_mbox_create sec_thd(%d, 0x%lx)\n",
-				__func__, idx, (unsigned long)imgsys_sec_clt[idx-IMGSYS_NOR_THD]);
+				__func__, idx, (unsigned long)imgsys_sec_clt[idx-IMGSYS_NOR_THD - IMGSYS_PWR_THD]);
 		}
 		#endif
 		/* parse hardware event */
@@ -139,6 +139,8 @@ void imgsys_cmdq_init_plat7sp(struct mtk_imgsys_dev *imgsys_dev, const int nr_im
 	default:
 		break;
 	}
+
+	mtk_imgsys_cmdq_qof_init(imgsys_dev, imgsys_clt[0]);
 
 	mutex_init(&imgsys_dev->dvfs_qos_lock);
 	mutex_init(&imgsys_dev->power_ctrl_lock);
@@ -165,6 +167,8 @@ void imgsys_cmdq_release_plat7sp(struct mtk_imgsys_dev *imgsys_dev)
 		imgsys_sec_clt[idx] = NULL;
 	}
 	#endif
+
+	MTK_IMGSYS_QOF_NEED_RUN(imgsys_dev->qof_ver, mtk_imgsys_cmdq_qof_release(imgsys_dev, imgsys_clt[0]));
 
 	/* Release work_quque */
 #if CMDQ_CB_KTHREAD
@@ -197,6 +201,8 @@ void imgsys_cmdq_streamon_plat7sp(struct mtk_imgsys_dev *imgsys_dev)
 	for (idx = IMGSYS_CMDQ_SYNC_TOKEN_IMGSYS_START;
 		idx <= IMGSYS_CMDQ_SYNC_TOKEN_IMGSYS_END; idx++)
 		cmdq_clear_event(imgsys_clt[0]->chan, imgsys_event[idx].event);
+
+	MTK_IMGSYS_QOF_NEED_RUN(imgsys_dev->qof_ver, mtk_imgsys_cmdq_qof_streamon(imgsys_dev));
 
 	memset((void *)event_hist, 0x0,
 		sizeof(struct imgsys_event_history)*IMGSYS_CMDQ_SYNC_POOL_NUM);
@@ -256,6 +262,7 @@ void imgsys_cmdq_streamoff_plat7sp(struct mtk_imgsys_dev *imgsys_dev)
 	}
 	#endif
 
+	MTK_IMGSYS_QOF_NEED_RUN(imgsys_dev->qof_ver, mtk_imgsys_cmdq_qof_streamoff(imgsys_dev));
 	cmdq_mbox_disable(imgsys_clt[0]->chan);
 
 	#if DVFS_QOS_READY
@@ -641,7 +648,8 @@ static void imgsys_cmdq_cb_work_plat7sp(struct work_struct *work)
 	imgsys_cmdq_fence_rmcb_plat7sp(imgsys_dev, cb_param);
 
 #ifndef CONFIG_FPGA_EARLY_PORTING
-	mtk_imgsys_power_ctrl_plat7sp(imgsys_dev, false);
+	if (imgsys_dev->qof_ver == MTK_IMGSYS_QOF_FUNCTION_OFF)
+		mtk_imgsys_power_ctrl_plat7sp(imgsys_dev, false);
 #endif
 
 	if (imgsys_cmdq_ts_enable_plat7sp()) {
@@ -1188,6 +1196,8 @@ void imgsys_cmdq_task_cb_plat7sp(struct cmdq_cb_data data)
 		}
 
 		imgsys_cmdq_cmd_dump_plat7sp(cb_param->frm_info, real_frm_idx);
+		if (isHWhang)
+			mtk_imgsys_cmdq_qof_dump();
 
 		if (cb_param->user_cmdq_err_cb) {
 			struct cmdq_cb_data user_cb_data;
@@ -1199,7 +1209,6 @@ void imgsys_cmdq_task_cb_plat7sp(struct cmdq_cb_data data)
 				event_sft + IMGSYS_CMDQ_SYNC_TOKEN_IMGSYS_POOL_START);
 		}
 	}
-
 	cb_param->cmdqTs.tsCmdqCbEnd = ktime_get_boottime_ns()/1000;
 
 #if CMDQ_CB_KTHREAD
@@ -1505,6 +1514,7 @@ int imgsys_cmdq_sendtask_plat7sp(struct mtk_imgsys_dev *imgsys_dev,
 	u32 task_id = 0;
 	u32 task_num = 0;
 	u32 task_cnt = 0;
+	bool qof_need_sub[ISP7SP_PWR_NUM] = {0};
 	size_t pkt_ofst[MAX_FRAME_IN_TASK] = {0};
 	char logBuf_temp[MTK_IMGSYS_LOG_LENGTH];
 	u64 tsflushStart = 0, tsFlushEnd = 0;
@@ -1672,6 +1682,8 @@ int imgsys_cmdq_sendtask_plat7sp(struct mtk_imgsys_dev *imgsys_dev,
 				/* Reset pkt timestamp num */
 				pkt_ts_num = 0;
 			}
+			MTK_IMGSYS_QOF_NEED_RUN(imgsys_dev->qof_ver,
+					mtk_imgsys_cmdq_qof_add(pkt, frm_info->user_info[frm_idx].hw_comb, qof_need_sub));
 
 			IMGSYS_CMDQ_SYSTRACE_BEGIN(
 				"%s_%s|Imgsys MWFrame:#%d MWReq:#%d ReqFd:%d fidx:%d hw_comb:0x%x Own:%llx frm(%d/%d) blk(%d)",
@@ -1719,7 +1731,8 @@ int imgsys_cmdq_sendtask_plat7sp(struct mtk_imgsys_dev *imgsys_dev,
 				|| (frm_info->user_info[frm_idx].wait_fence_num > 0)
 				|| (frm_info->user_info[frm_idx].notify_fence_num > 0)) {
 #ifndef CONFIG_FPGA_EARLY_PORTING
-				mtk_imgsys_power_ctrl_plat7sp(imgsys_dev, true);
+				if (imgsys_dev->qof_ver == MTK_IMGSYS_QOF_FUNCTION_OFF)
+					mtk_imgsys_power_ctrl_plat7sp(imgsys_dev, true);
 #endif
 				/* Prepare cb param */
 #ifdef IMGSYS_CMDQ_CBPARAM_NUM
@@ -1857,6 +1870,8 @@ int imgsys_cmdq_sendtask_plat7sp(struct mtk_imgsys_dev *imgsys_dev,
 					frm_info->frm_owner, cb_param, frm_idx, frm_num,
 					blk_idx, blk_num);
 
+				MTK_IMGSYS_QOF_NEED_RUN(imgsys_dev->qof_ver, mtk_imgsys_cmdq_qof_sub(pkt, qof_need_sub));
+
 				ret_flush = cmdq_pkt_flush_async(pkt, imgsys_cmdq_task_cb_plat7sp,
 								(void *)cb_param);
 				IMGSYS_CMDQ_SYSTRACE_END();
@@ -1913,7 +1928,6 @@ int imgsys_cmdq_parser_plat7sp(struct mtk_imgsys_dev *imgsys_dev,
 #ifdef IMGSYS_ME_CHECK_FUNC_EN
 	u32 me_read_num = 0;
 #endif
-
 	req_fd = frm_info->request_fd;
 	req_no = frm_info->request_no;
 	frm_no = frm_info->frame_no;
@@ -2057,12 +2071,12 @@ int imgsys_cmdq_parser_plat7sp(struct mtk_imgsys_dev *imgsys_dev,
 					__func__, cmd->u.action);
 			break;
 		case IMGSYS_CMD_UPDATE:
-            if (imgsys_cmdq_dbg_enable_plat7sp()) {
-			pr_debug(
-				"%s: UPDATE event(%d/%d) action(%d)\n",
-				__func__, cmd->u.event, imgsys_event[cmd->u.event].event,
-				cmd->u.action);
-            }
+			if (imgsys_cmdq_dbg_enable_plat7sp()) {
+				pr_debug(
+					"%s: UPDATE event(%d/%d) action(%d)\n",
+					__func__, cmd->u.event, imgsys_event[cmd->u.event].event,
+					cmd->u.action);
+			}
 			if (cmd->u.action == 1) {
 				cmdq_pkt_set_event(pkt, imgsys_event[cmd->u.event].event);
 				if ((cmd->u.event >= IMGSYS_CMDQ_SYNC_TOKEN_IMGSYS_POOL_START) &&
@@ -3055,7 +3069,8 @@ void mtk_imgsys_power_ctrl_plat7sp(struct mtk_imgsys_dev *imgsys_dev, bool isPow
 
 			/*set default value for hw module*/
 			mtk_imgsys_mod_get(imgsys_dev);
-			for (i = 0; i < (imgsys_dev->num_mods); i++)
+
+			for (i = 0; i < imgsys_dev->modules_num; i++)
 				if (imgsys_dev->modules[i].set)
 					imgsys_dev->modules[i].set(imgsys_dev);
 			mutex_unlock(&(imgsys_dev->power_ctrl_lock));
@@ -3076,6 +3091,21 @@ void mtk_imgsys_power_ctrl_plat7sp(struct mtk_imgsys_dev *imgsys_dev, bool isPow
 			//pm_runtime_put_autosuspend(imgsys_dev->dev);
 
 			mutex_unlock(&(imgsys_dev->power_ctrl_lock));
+		}
+	}
+}
+
+void mtk_imgsys_main_power_ctrl_plat7sp(struct mtk_imgsys_dev *imgsys_dev, bool isPowerOn)
+{
+	int i;
+	const u32 img_main_modules
+			= BIT(IMGSYS_MOD_ADL) |
+			BIT(IMGSYS_MOD_ME);
+
+	if (isPowerOn) {
+		for (i = 0; i < imgsys_dev->modules_num; i++) {
+			if ((BIT(i) & img_main_modules) && imgsys_dev->modules[i].set)
+				imgsys_dev->modules[i].set(imgsys_dev);
 		}
 	}
 }
@@ -3159,6 +3189,7 @@ struct imgsys_cmdq_cust_data imgsys_cmdq_data_7sp = {
 	.mmqos_bw_cal = mtk_imgsys_mmqos_bw_cal_plat7sp,
 	.mmqos_ts_cal = mtk_imgsys_mmqos_ts_cal_plat7sp,
 	.power_ctrl = mtk_imgsys_power_ctrl_plat7sp,
+    .main_power_ctrl = mtk_imgsys_main_power_ctrl_plat7sp,
 	.mmqos_monitor = mtk_imgsys_mmqos_monitor_plat7sp,
 #endif
 	.cmdq_ts_en = imgsys_cmdq_ts_enable_plat7sp,

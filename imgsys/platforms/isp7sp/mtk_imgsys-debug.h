@@ -47,6 +47,7 @@ void imgsys_debug_dump_routine(struct mtk_imgsys_dev *imgsys_dev,
 	unsigned int hw_comb);
 void imgsys_main_init(struct mtk_imgsys_dev *imgsys_dev);
 void imgsys_main_set_init(struct mtk_imgsys_dev *imgsys_dev);
+void imgsys_main_cmdq_set_init(struct mtk_imgsys_dev *imgsys_dev, void *pkt);
 void imgsys_main_uninit(struct mtk_imgsys_dev *imgsys_dev);
 
 bool imgsys_dip_7sp_dbg_enable(void);

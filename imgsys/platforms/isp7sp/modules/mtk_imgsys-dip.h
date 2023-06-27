@@ -129,6 +129,8 @@ struct DIPDmaDebugInfo {
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 void imgsys_dip_set_initial_value(struct mtk_imgsys_dev *imgsys_dev);
 void imgsys_dip_set_hw_initial_value(struct mtk_imgsys_dev *imgsys_dev);
+void imgsys_dip_cmdq_set_hw_initial_value(struct mtk_imgsys_dev *imgsys_dev,
+		void *pkt);
 void imgsys_dip_debug_dump(struct mtk_imgsys_dev *imgsys_dev,
 							unsigned int engine);
 

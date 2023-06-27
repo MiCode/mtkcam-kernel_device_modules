@@ -15,6 +15,8 @@
 #include "mtk-hcp.h"
 #include "mtk_imgsys-v4l2-debug.h"
 
+// GCE header
+#include <linux/soc/mediatek/mtk-cmdq-ext.h>
 
 const struct mtk_imgsys_init_array mtk_imgsys_dip_init_ary[] = {
 	{0x0AC, 0x80000000}, /* DIPCTL_D1A_DIPCTL_INT2_EN */
@@ -170,9 +172,9 @@ void imgsys_dip_updatecq(struct mtk_imgsys_dev *imgsys_dev,
 						user_info->priv[IMGSYS_DIP].desc_offset,
 						cq_desc, dtable->empty, dtable->addr,
 						dtable->addr_msb);
-				}
-			}
-		}
+				    }
+			    }
+		    }
 		}
 		//
 		#if SMVR_DECOUPLE
@@ -210,6 +212,27 @@ void imgsys_dip_updatecq(struct mtk_imgsys_dev *imgsys_dev,
 			dip_buf_info.offset, dip_buf_info.mode);
         }
 		mtk_hcp_partial_flush(imgsys_dev->scp_pdev, &dip_buf_info);
+    }
+}
+
+void imgsys_dip_cmdq_set_hw_initial_value(struct mtk_imgsys_dev *imgsys_dev, void *pkt)
+{
+	unsigned int dipRegBA, ofset;
+	unsigned int i;
+	struct cmdq_pkt *package = NULL;
+
+	if (imgsys_dev == NULL || pkt == NULL) {
+		dump_stack();
+		pr_err("[%s][%d] param fatal error!", __func__, __LINE__);
+		return;
+	}
+	package = (struct cmdq_pkt *)pkt;
+	/* iomap registers */
+	dipRegBA = DIP_TOP_ADDR;
+	for (i = 0 ; i < DIP_INIT_ARRAY_COUNT; i++) {
+		ofset = dipRegBA + mtk_imgsys_dip_init_ary[i].ofset;
+		cmdq_pkt_write(package, NULL, ofset /*address*/,
+				mtk_imgsys_dip_init_ary[i].val, 0xffffffff);
 	}
 }
 

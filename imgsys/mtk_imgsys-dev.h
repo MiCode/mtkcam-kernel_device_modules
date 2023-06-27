@@ -63,6 +63,8 @@
 
 
 #define MTK_REQ_FD_CACHE_ARRAY_MAX		65536
+#define MTK_IMGSYS_QOF_FUNCTION_OFF		(0)
+#define MTK_IMGSYS_QOF_NEED_RUN(ver, qof_func) if (ver != MTK_IMGSYS_QOF_FUNCTION_OFF) qof_func
 
 enum imgsys_user_state {
 	DIP_STATE_INIT	= 0,
@@ -321,6 +323,7 @@ struct mtk_imgsys_dev {
 	struct clk_bulk_data *clks;
 	int num_clks;
 	int num_mods;
+	int modules_num;
 	struct workqueue_struct *enqueue_wq;
 	struct workqueue_struct *composer_wq;
 	struct workqueue_struct *mdp_wq[RUNNER_WQ_NR];
@@ -379,6 +382,12 @@ struct mtk_imgsys_dev {
 		struct mtk_imgsys_dev_buffer *dev_buf);
 	int (*is_singledev_mode)(struct mtk_imgsys_request *req);
 #endif
+	/* IMGSYS Qucik on off */
+	u8 qof_ver;
+	u32 *work_buf_va;
+	dma_addr_t work_buf_pa;
+	u32 *traw_work_buf_va;
+	dma_addr_t traw_work_buf_pa;
 };
 
 /* contained in struct mtk_imgsys_user's done_list */

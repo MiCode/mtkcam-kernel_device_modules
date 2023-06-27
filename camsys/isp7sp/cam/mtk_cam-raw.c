@@ -1504,20 +1504,30 @@ static int mtk_raw_probe(struct platform_device *pdev)
 	ret = mtk_cam_qos_probe(dev, &raw_dev->qos,
 				GET_PLAT_HW(raw_icc_path_num));
 	if (ret)
-		return ret;
+		goto UNREGISTER_PM_NOTIFIER;
 
 	raw_dev->fifo_size =
 		roundup_pow_of_two(8 * sizeof(struct mtk_camsys_irq_info));
 
 	raw_dev->msg_buffer = devm_kzalloc(dev, raw_dev->fifo_size, GFP_KERNEL);
-	if (!raw_dev->msg_buffer)
-		return -ENOMEM;
+	if (!raw_dev->msg_buffer) {
+		ret = -ENOMEM;
+		goto UNREGISTER_PM_NOTIFIER;
+	}
 
 	raw_dev->default_printk_cnt = get_detect_count();
 
 	pm_runtime_enable(dev);
 
-	return component_add(dev, &mtk_raw_component_ops);
+	ret = component_add(dev, &mtk_raw_component_ops);
+	if (ret)
+		goto UNREGISTER_PM_NOTIFIER;
+
+	return ret;
+
+UNREGISTER_PM_NOTIFIER:
+	unregister_pm_notifier(&raw_dev->pm_notifier);
+	return ret;
 }
 
 static int mtk_raw_remove(struct platform_device *pdev)
@@ -1932,11 +1942,19 @@ static int mtk_yuv_probe(struct platform_device *pdev)
 	ret = mtk_cam_qos_probe(dev, &drvdata->qos,
 				GET_PLAT_HW(yuv_icc_path_num));
 	if (ret)
-		return ret;
+		goto UNREGISTER_PM_NOTIFIER;
 
 	pm_runtime_enable(dev);
 
-	return component_add(dev, &mtk_yuv_component_ops);
+	ret = component_add(dev, &mtk_yuv_component_ops);
+	if (ret)
+		goto UNREGISTER_PM_NOTIFIER;
+
+	return ret;
+
+UNREGISTER_PM_NOTIFIER:
+	unregister_pm_notifier(&drvdata->pm_notifier);
+	return ret;
 }
 
 static int mtk_yuv_remove(struct platform_device *pdev)
@@ -2358,7 +2376,15 @@ static int mtk_rms_probe(struct platform_device *pdev)
 
 	pm_runtime_enable(dev);
 
-	return component_add(dev, &mtk_rms_component_ops);
+	ret = component_add(dev, &mtk_rms_component_ops);
+	if (ret)
+		goto UNREGISTER_PM_NOTIFIER;
+
+	return ret;
+
+UNREGISTER_PM_NOTIFIER:
+	unregister_pm_notifier(&drvdata->pm_notifier);
+	return ret;
 }
 
 static int mtk_rms_remove(struct platform_device *pdev)

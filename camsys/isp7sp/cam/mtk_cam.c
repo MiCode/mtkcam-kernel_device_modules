@@ -2972,7 +2972,9 @@ int mtk_cam_ctx_fetch_devices(struct mtk_cam_ctx *ctx, unsigned long engines)
 	struct mtk_cam_device *cam = ctx->cam;
 	int ret;
 
-	dev_info(cam->dev, "%s: engines: 0x%lx\n", __func__, engines);
+	if (CAM_DEBUG_ENABLED(V4L2))
+		dev_info(cam->dev, "%s: engines: 0x%lx\n", __func__, engines);
+
 	ret = fill_devs(ctx->hw_raw, ARRAY_SIZE(ctx->hw_raw),
 			cam->engines.raw_devs,
 			cam->engines.num_raw_devices,

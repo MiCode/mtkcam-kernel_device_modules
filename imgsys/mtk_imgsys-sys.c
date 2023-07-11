@@ -779,7 +779,7 @@ static void imgsys_cmdq_timeout_cb_func(struct cmdq_cb_data data,
 	if (imgsys_dev->dump && isHWhang) {
 		imgsys_modules = req->imgsys_pipe->imgsys_dev->modules;
 		imgsys_dev->dump(imgsys_dev, imgsys_modules,
-		req->imgsys_pipe->imgsys_dev->num_mods,
+		req->imgsys_pipe->imgsys_dev->modules_num,
 		frm_info_cb->user_info[fail_subfidx].hw_comb);
 	}
 

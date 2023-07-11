@@ -338,11 +338,12 @@ static int refine_valid_selection(struct mtk_cam_video_device *node,
 	/* workaround for user's wrong crop */
 	if (is_raw_subdev(node->uid.pipe_id)) {
 		struct media_pad *remote_pad;
+		struct mtk_raw_pad_config *sink_pad;
 		struct mtk_raw_pipeline *pipe;
 		int sink_w, sink_h;
 
 		remote_pad = media_pad_remote_pad_unique(&node->pad);
-		if (WARN_ON_ONCE(!remote_pad))
+		if (WARN_ON_ONCE(IS_ERR_OR_NULL(remote_pad)))
 			return -1;
 
 		if (CAM_DEBUG_ENABLED(V4L2))
@@ -354,8 +355,9 @@ static int refine_valid_selection(struct mtk_cam_video_device *node,
 		pipe = container_of(remote_pad->entity,
 				    struct mtk_raw_pipeline, subdev.entity);
 
-		sink_w = pipe->pad_cfg[MTK_RAW_SINK].mbus_fmt.width;
-		sink_h = pipe->pad_cfg[MTK_RAW_SINK].mbus_fmt.height;
+		sink_pad = mtk_raw_current_sink(pipe);
+		sink_w = sink_pad->mbus_fmt.width;
+		sink_h = sink_pad->mbus_fmt.height;
 
 		if (!check_valid_selection(sink_w, sink_h, &s->r)) {
 			pr_info("%s: warn. wrong selection: %d, %d, %ux%u, sink %dx%d\n",

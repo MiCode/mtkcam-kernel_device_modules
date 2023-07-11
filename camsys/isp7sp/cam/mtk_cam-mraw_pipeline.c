@@ -41,6 +41,15 @@ static int mtk_mraw_sd_subscribe_event(struct v4l2_subdev *subdev,
 
 static int mtk_mraw_sd_s_stream(struct v4l2_subdev *sd, int enable)
 {
+	struct mtk_mraw_pipeline *pipe =
+		container_of(sd, struct mtk_mraw_pipeline, subdev);
+
+	/* reset format changed status */
+	atomic_set(&pipe->res_config.is_fmt_change, 0);
+
+	/* reset enque node number */
+	atomic_set(&pipe->res_config.enque_node_num, 0);
+
 	return 0;
 }
 

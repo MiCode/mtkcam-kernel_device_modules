@@ -1106,10 +1106,6 @@ int mtk_cam_mraw_dev_stream_on(struct mtk_mraw_device *mraw_dev, bool on)
 	else {
 		/* reset vf on status */
 		atomic_set(&mraw_dev->is_vf_on, 0);
-		/* reset format status */
-		atomic_set(&mraw_dev->pipeline->res_config.is_fmt_change, 0);
-		/* reset enque number */
-		mraw_dev->pipeline->res_config.enque_num = 0;
 
 		ret = mtk_cam_mraw_top_disable(mraw_dev) ||
 			mtk_cam_mraw_cq_disable(mraw_dev) ||

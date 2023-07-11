@@ -4318,7 +4318,7 @@ static int update_mraw_meta_buf_to_ipi_frame(
 			mraw_pipe->res_config.daddr[MTKCAM_IPI_MRAW_META_STATS_CFG
 				- MTKCAM_IPI_MRAW_ID_START] = buf->daddr;
 			mtk_cam_mraw_copy_user_input_param(ctx->cam, vaddr, mraw_pipe);
-			mraw_pipe->res_config.enque_num++;
+			atomic_inc(&mraw_pipe->res_config.enque_node_num);
 		}
 		break;
 	case MTKCAM_IPI_MRAW_META_STATS_0:
@@ -4330,7 +4330,7 @@ static int update_mraw_meta_buf_to_ipi_frame(
 				- MTKCAM_IPI_MRAW_ID_START] = vaddr;
 			mraw_pipe->res_config.daddr[MTKCAM_IPI_MRAW_META_STATS_0
 				- MTKCAM_IPI_MRAW_ID_START] = buf->daddr;
-			mraw_pipe->res_config.enque_num++;
+			atomic_inc(&mraw_pipe->res_config.enque_node_num);
 		}
 		break;
 	default:
@@ -4338,7 +4338,8 @@ static int update_mraw_meta_buf_to_ipi_frame(
 			__FILE__, __func__, node->desc.dma_port);
 	}
 
-	if (mraw_pipe->res_config.enque_num == MTK_MRAW_TOTAL_NODES) {
+	if (atomic_read(&mraw_pipe->res_config.enque_node_num) ==
+			MTK_MRAW_TOTAL_NODES) {
 		struct mtk_mraw_sink_data *sink;
 
 		if (ctx->mraw_subdev_idx[param_idx] < 0 ||
@@ -4355,7 +4356,7 @@ static int update_mraw_meta_buf_to_ipi_frame(
 		mtk_cam_mraw_cal_cfg_info(ctx->cam,
 			node->uid.pipe_id, &fp->mraw_param[param_idx],
 			sensor_mbus_to_ipi_fmt(sink->mbus_code));
-		mraw_pipe->res_config.enque_num = 0;
+		atomic_set(&mraw_pipe->res_config.enque_node_num, 0);
 	}
 EXIT:
 	return ret;

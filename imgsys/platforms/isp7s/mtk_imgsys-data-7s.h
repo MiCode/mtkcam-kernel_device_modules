@@ -22,13 +22,14 @@
 const struct cust_data imgsys_data[] = {
 	/* ISP 7 */
 	[0] = {
-	.clks = imgsys_isp7_clks,
-	.clk_num = MTK_IMGSYS_CLK_NUM,
+		.clks = imgsys_isp7_clks,
+		.clk_num = MTK_IMGSYS_CLK_NUM,
 		.module_pipes = module_pipe_isp7,
 		.mod_num = ARRAY_SIZE(module_pipe_isp7),
 		.pipe_settings = pipe_settings_isp7,
 		.pipe_num = ARRAY_SIZE(pipe_settings_isp7),
-	.imgsys_modules = imgsys_isp7_modules,
+		.imgsys_modules = imgsys_isp7_modules,
+		.imgsys_modules_num = MTK_IMGSYS_MODULE_NUM,
 		.dump = imgsys_debug_dump_routine,
 	},
 	/* ISP 7.1 */

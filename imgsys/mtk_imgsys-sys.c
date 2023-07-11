@@ -2729,24 +2729,18 @@ static int mtk_imgsys_worker_power_on(void *data)
 		imgsys_dev->modules[i].init(imgsys_dev);
 	kref_init(&imgsys_dev->init_kref);
 
-	if (imgsys_dev->qof_ver != MTK_IMGSYS_QOF_FUNCTION_OFF) {
+	pm_runtime_put_sync(imgsys_dev->dev);
+	if (!imgsys_quick_onoff_enable()) {
 		#if DVFS_QOS_READY
-		mtk_imgsys_main_power_ctrl(imgsys_dev, true);
+		mtk_imgsys_power_ctrl(imgsys_dev, true);
+		#else
+		pm_runtime_get_sync(imgsys_dev->dev);
 		#endif
-		dev_info(imgsys_dev->dev, "%s: Start imgsys qof", __func__);
-	} else {
-		pm_runtime_put_sync(imgsys_dev->dev);
-		if (!imgsys_quick_onoff_enable()) {
-			#if DVFS_QOS_READY
-			mtk_imgsys_power_ctrl(imgsys_dev, true);
-			#else
-			pm_runtime_get_sync(imgsys_dev->dev);
-			#endif
-		} else
-			dev_info(imgsys_dev->dev,
-				"%s: imgsys_quick_onoff_enable(%d)\n",
-				__func__, imgsys_quick_onoff_enable());
-	}
+	} else
+		dev_info(imgsys_dev->dev,
+			"%s: imgsys_quick_onoff_enable(%d)\n",
+			__func__, imgsys_quick_onoff_enable());
+
 	complete(&imgsys_dev->comp);
 	dev_info(imgsys_dev->dev, "%s-", __func__);
 	return 0;
@@ -2962,20 +2956,16 @@ IMGSYS_SYSTRACE_BEGIN("imgsys_fw-init:\n");
 #endif
 
 err_power_off:
-	if (imgsys_dev->qof_ver != MTK_IMGSYS_QOF_FUNCTION_OFF)
+	if (!imgsys_quick_onoff_enable()) {
+	#if DVFS_QOS_READY
+		mtk_imgsys_power_ctrl(imgsys_dev, false);
+	#else
 		pm_runtime_put_sync(imgsys_dev->dev);
-	else {
-		if (!imgsys_quick_onoff_enable()) {
-		#if DVFS_QOS_READY
-			mtk_imgsys_power_ctrl(imgsys_dev, false);
-		#else
-			pm_runtime_put_sync(imgsys_dev->dev);
-		#endif
-		} else
-			dev_info(imgsys_dev->dev,
-				"%s: imgsys_quick_onoff_enable(%d)\n",
-				__func__, imgsys_quick_onoff_enable());
-	}
+	#endif
+	} else
+		dev_info(imgsys_dev->dev,
+			"%s: imgsys_quick_onoff_enable(%d)\n",
+			__func__, imgsys_quick_onoff_enable());
 
 	mtk_imgsys_mod_put(imgsys_dev);
 
@@ -3062,21 +3052,16 @@ if (imgsys_dev->imgsys_pipe[0].smvr_alloc != 0) {
 	work_pool_uninit(&imgsys_dev->gwork_pool);
 	work_pool_uninit(&imgsys_dev->reqfd_cbinfo_pool);
 
-	if (imgsys_dev->qof_ver != MTK_IMGSYS_QOF_FUNCTION_OFF) {
+	if (!imgsys_quick_onoff_enable()) {
+		#if DVFS_QOS_READY
+		mtk_imgsys_power_ctrl(imgsys_dev, false);
+		#else
 		pm_runtime_put_sync(imgsys_dev->dev);
-	}
-	else {
-		if (!imgsys_quick_onoff_enable()) {
-			#if DVFS_QOS_READY
-			mtk_imgsys_power_ctrl(imgsys_dev, false);
-			#else
-			pm_runtime_put_sync(imgsys_dev->dev);
-			#endif
-		} else
-			dev_info(imgsys_dev->dev,
-				"%s: imgsys_quick_onoff_enable(%d)\n",
-				__func__, imgsys_quick_onoff_enable());
-	}
+		#endif
+	} else
+		dev_info(imgsys_dev->dev,
+			"%s: imgsys_quick_onoff_enable(%d)\n",
+			__func__, imgsys_quick_onoff_enable());
 
 	mtk_imgsys_mod_put(imgsys_dev);
 

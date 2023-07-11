@@ -219,6 +219,48 @@ struct clk_bulk_data imgsys_isp7_clks_mt6989[] = {
 		.id = "IMGSYS_CG_IMG_GALS",
 	},
 	{
+		.id = "DIP_TOP_DIP_TOP",
+	},
+	{
+		.id = "DIP_TOP_DIP_TOP_GALS0",
+	},
+	{
+		.id = "DIP_TOP_DIP_TOP_GALS1",
+	},
+	{
+		.id = "DIP_TOP_DIP_TOP_GALS2",
+	},
+	{
+		.id = "DIP_TOP_DIP_TOP_GALS3",
+	},
+	{
+		.id = "DIP_NR1_DIP1_LARB",
+	},
+	{
+		.id = "DIP_NR1_DIP_NR1",
+	},
+	{
+		.id = "DIP_NR2_DIP_NR",
+	},
+	{
+		.id = "WPE1_CG_DIP1_WPE",
+	},
+	{
+		.id = "WPE1_CG_DIP1_GALS0",
+	},
+	{
+		.id = "WPE2_CG_DIP1_WPE",
+	},
+	{
+		.id = "WPE2_CG_DIP1_GALS0",
+	},
+	{
+		.id = "WPE3_CG_DIP1_WPE",
+	},
+	{
+		.id = "WPE3_CG_DIP1_GALS0",
+	},
+	{
 		.id = "IMGSYS_CG_IMG_IPE"
 	},
 	{

@@ -1296,8 +1296,11 @@ void camsv_handle_err(
 	mtk_cam_sv_debug_dump(sv_dev, data->err_tags);
 
 	/* check dma fifo status */
-	if (!(data->err_tags) && (err_status & CAMSVCENTRAL_DMA_SRAM_FULL_ST))
+	if (!(data->err_tags) && (err_status & CAMSVCENTRAL_DMA_SRAM_FULL_ST)) {
 		dev_info_ratelimited(sv_dev->dev, "camsv dma fifo full\n");
+		mtk_cam_ctrl_dump_request(sv_dev->cam, CAMSYS_ENGINE_CAMSV, sv_dev->id,
+				   frame_idx_inner, MSG_CAMSV_ERROR);
+	}
 }
 
 static irqreturn_t mtk_irq_camsv_done(int irq, void *data)

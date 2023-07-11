@@ -136,6 +136,7 @@ int mtk_cam_debug_exp_dump(struct mtk_cam_debug *dbg,
 #define MSG_M4U_TF		"Camsys: M4U TF"
 #define MSG_SWITCH_FAILURE	"Camsys: switch error"
 #define MSG_NORMAL_DUMP		"Camsys: normal dump"
+#define MSG_CAMSV_ERROR		"Camsys: camsv error"
 
 #endif /* __MTK_CAM_DEBUG__ */
 

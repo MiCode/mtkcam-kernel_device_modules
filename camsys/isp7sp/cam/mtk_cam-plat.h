@@ -158,6 +158,7 @@ struct plat_v4l2_data {
 	int (*set_sv_meta_stats_info)(int ipi_id, void *addr, struct dma_info *info);
 	int (*get_sv_dmao_common_setting)(struct sv_dma_th_setting *sv_th_setting,
 		struct sv_cq_th_setting sv_cq_setting);
+	int (*get_sv_two_smi_setting)(int *sv_two_smi_en);
 	int (*get_mraw_dmao_common_setting)(struct mraw_dma_th_setting *mraw_th_setting,
 		struct mraw_cq_th_setting mraw_cq_setting);
 	int (*set_mraw_meta_stats_info)(int ipi_id, void *addr, struct dma_info *info);

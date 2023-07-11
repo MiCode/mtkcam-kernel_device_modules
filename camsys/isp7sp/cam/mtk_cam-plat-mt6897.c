@@ -345,7 +345,12 @@ static int set_sv_meta_stats_info(
 
 	return 0;
 }
+static int get_sv_two_smi_setting(int *sv_two_smi_en)
+{
+	*sv_two_smi_en = 0;
 
+	return 0;
+}
 static int get_sv_dmao_common_setting(struct sv_dma_th_setting *sv_th_setting,
 	struct sv_cq_th_setting sv_cq_setting)
 {
@@ -723,6 +728,7 @@ static const struct plat_v4l2_data mt6897_v4l2_data = {
 
 	.set_sv_meta_stats_info = set_sv_meta_stats_info,
 	.get_sv_dmao_common_setting = get_sv_dmao_common_setting,
+	.get_sv_two_smi_setting = get_sv_two_smi_setting,
 	.get_mraw_dmao_common_setting = get_mraw_dmao_common_setting,
 	.set_mraw_meta_stats_info = set_mraw_meta_stats_info,
 	.get_mraw_stats_cfg_param = get_mraw_stats_cfg_param,

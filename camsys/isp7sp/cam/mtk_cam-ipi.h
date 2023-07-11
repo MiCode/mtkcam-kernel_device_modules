@@ -112,6 +112,7 @@ struct mtkcam_ipi_sv_input_param {
 	__u8	tag_id;
 	__u8	tag_order;
 	__u32	is_first_frame;
+	__u32	is_two_smi_out;
 	struct mtkcam_ipi_input_param input;
 } __packed;
 

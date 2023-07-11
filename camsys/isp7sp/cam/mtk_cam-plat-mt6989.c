@@ -350,53 +350,53 @@ static int set_sv_meta_stats_info(
 static int get_sv_dmao_common_setting(struct sv_dma_th_setting *sv_th_setting,
 	struct sv_cq_th_setting sv_cq_setting)
 {
-	sv_th_setting[CAMSV_0].urgent_th = 0x87FF06AA;
-	sv_th_setting[CAMSV_0].ultra_th = 0x15550400;
+	sv_th_setting[CAMSV_0].urgent_th = 0x85550400;
+	sv_th_setting[CAMSV_0].ultra_th = 0x12AA0155;
 	sv_th_setting[CAMSV_0].pultra_th = 0x12AA0155;
 	sv_th_setting[CAMSV_0].dvfs_th = 0x81550000;
-	sv_th_setting[CAMSV_0].urgent_th2 = 0x8500042A;
-	sv_th_setting[CAMSV_0].ultra_th2 = 0x13550280;
+	sv_th_setting[CAMSV_0].urgent_th2 = 0x83550280;
+	sv_th_setting[CAMSV_0].ultra_th2 = 0x11AB00D5;
 	sv_th_setting[CAMSV_0].pultra_th2 = 0x11AB00D5;
 	sv_th_setting[CAMSV_0].dvfs_th2 = 0x80D50000;
 
-	sv_th_setting[CAMSV_1].urgent_th = 0x87FF06AA;
-	sv_th_setting[CAMSV_1].ultra_th = 0x15550400;
+	sv_th_setting[CAMSV_1].urgent_th = 0x85550400;
+	sv_th_setting[CAMSV_1].ultra_th = 0x12AA0155;
 	sv_th_setting[CAMSV_1].pultra_th = 0x12AA0155;
 	sv_th_setting[CAMSV_1].dvfs_th = 0x81550000;
-	sv_th_setting[CAMSV_1].urgent_th2 = 0x8500042A;
-	sv_th_setting[CAMSV_1].ultra_th2 = 0x13550280;
+	sv_th_setting[CAMSV_1].urgent_th2 = 0x83550280;
+	sv_th_setting[CAMSV_1].ultra_th2 = 0x11AB00D5;
 	sv_th_setting[CAMSV_1].pultra_th2 = 0x11AB00D5;
 	sv_th_setting[CAMSV_1].dvfs_th2 = 0x80D50000;
 
-	sv_th_setting[CAMSV_2].urgent_th = 0x86000500;
-	sv_th_setting[CAMSV_2].ultra_th = 0x14000300;
+	sv_th_setting[CAMSV_2].urgent_th = 0x84000300;
+	sv_th_setting[CAMSV_2].ultra_th = 0x12000100;
 	sv_th_setting[CAMSV_2].pultra_th = 0x12000100;
 	sv_th_setting[CAMSV_2].dvfs_th = 0x81000000;
 
-	sv_th_setting[CAMSV_3].urgent_th = 0x83C00320;
-	sv_th_setting[CAMSV_3].ultra_th = 0x128001E0;
+	sv_th_setting[CAMSV_3].urgent_th = 0x828001E0;
+	sv_th_setting[CAMSV_3].ultra_th = 0x114000A0;
 	sv_th_setting[CAMSV_3].pultra_th = 0x114000A0;
 	sv_th_setting[CAMSV_3].dvfs_th = 0x80A00000;
 
-	sv_th_setting[CAMSV_4].urgent_th = 0x810800DC;
-	sv_th_setting[CAMSV_4].ultra_th = 0x10B00084;
+	sv_th_setting[CAMSV_4].urgent_th = 0x80B00084;
+	sv_th_setting[CAMSV_4].ultra_th = 0x1058002C;
 	sv_th_setting[CAMSV_4].pultra_th = 0x1058002C;
 	sv_th_setting[CAMSV_4].dvfs_th = 0x802C0000;
 
-	sv_th_setting[CAMSV_5].urgent_th = 0x810800DC;
-	sv_th_setting[CAMSV_5].ultra_th = 0x10B00084;
+	sv_th_setting[CAMSV_5].urgent_th = 0x80B00084;
+	sv_th_setting[CAMSV_5].ultra_th = 0x1058002C;
 	sv_th_setting[CAMSV_5].pultra_th = 0x1058002C;
 	sv_th_setting[CAMSV_5].dvfs_th = 0x802C0000;
 
 	sv_cq_setting.cq1_fifo_size = 0x10000040;
-	sv_cq_setting.cq1_urgent_th = 0x00270020;
-	sv_cq_setting.cq1_ultra_th = 0x001A0014;
+	sv_cq_setting.cq1_urgent_th = 0x001A0014;
+	sv_cq_setting.cq1_ultra_th = 0x000D0007;
 	sv_cq_setting.cq1_pultra_th = 0x000D0007;
 	sv_cq_setting.cq1_dvfs_th = 0x00070000;
 
 	sv_cq_setting.cq2_fifo_size = 0x10000040;
-	sv_cq_setting.cq2_urgent_th = 0x00270020;
-	sv_cq_setting.cq2_ultra_th = 0x001A0014;
+	sv_cq_setting.cq2_urgent_th = 0x001A0014;
+	sv_cq_setting.cq2_ultra_th = 0x000D0007;
 	sv_cq_setting.cq2_pultra_th = 0x000D0007;
 	sv_cq_setting.cq2_dvfs_th = 0x00070000;
 

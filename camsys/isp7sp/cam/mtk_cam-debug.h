@@ -137,6 +137,7 @@ int mtk_cam_debug_exp_dump(struct mtk_cam_debug *dbg,
 #define MSG_SWITCH_FAILURE	"Camsys: switch error"
 #define MSG_NORMAL_DUMP		"Camsys: normal dump"
 #define MSG_CAMSV_ERROR		"Camsys: camsv error"
+#define MSG_RINGBUFFER_OFL	"Camsys: dcif ringbuffer ofl"
 
 #endif /* __MTK_CAM_DEBUG__ */
 

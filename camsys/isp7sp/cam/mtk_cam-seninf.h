@@ -301,6 +301,7 @@ struct seninf_ctx {
 	unsigned int size_err_flag;
 	unsigned int dbg_timeout;
 	unsigned int dbg_last_dump_req;
+	unsigned int power_status_flag;
 
 	/* for sentest use */
 	bool allow_adjust_isp_en;

@@ -18,6 +18,16 @@
 #ifdef AIE_TF_DUMP_7SP
 static void aie_tf_dump(struct mtk_aie_dev *fd)
 {
+    if (fd == NULL) {
+        pr_info("AIE TF Dump Data pointer is NULL\n");
+        return;
+    }
+
+    if (fd->dev == NULL || fd->base_para == NULL || fd->aie_cfg == NULL) {
+        pr_info("AIE TF Dump param is NULL\n");
+        return;
+    }
+
     /* init param */
     dev_info(fd->dev, "rpn_anchor_thrd(%d), max_img_height(%d), max_img_width(%d)\n",
         fd->base_para->rpn_anchor_thrd, fd->base_para->max_img_height,
@@ -45,10 +55,12 @@ static int FDVT_M4U_TranslationFault_callback(int port,
 							   dma_addr_t mva,
 							   void *data)
 {
-    struct mtk_aie_dev *fd = (struct mtk_aie_dev *)data;
+    pr_info("[FDVT_M4U]fault call port=%d, mva=0x%llx\n", port, mva);
 
-    dev_info(fd->dev ,"[FDVT_M4U]fault call port=%d, mva=0x%llx", port, mva);
-	aie_tf_dump(data);
+    if (data == NULL)
+        pr_info("FDVT TF CB Data is NULL\n");
+    else
+	    aie_tf_dump(data);
 
 	return 1;
 }

@@ -624,11 +624,17 @@ static void mtk_aie_hw_disconnect(struct mtk_aie_dev *fd)
 			dma_buf_end_cpu_access(fd->para_dmabuf, DMA_BIDIRECTIONAL);
 			dma_buf_put(fd->para_dmabuf);
 
-			dma_buf_unmap_attachment(fd->config_model_attach,
-				fd->config_model_sgt, DMA_BIDIRECTIONAL);
-			dma_buf_detach(fd->config_model_dmabuf, fd->config_model_attach);
-			dma_buf_vunmap(fd->config_model_dmabuf, &fd->config_model_map);
-			dma_buf_put(fd->config_model_dmabuf);
+			dma_buf_unmap_attachment(fd->config_attach,
+				fd->config_sgt, DMA_BIDIRECTIONAL);
+			dma_buf_detach(fd->config_dmabuf, fd->config_attach);
+			dma_buf_vunmap(fd->config_dmabuf, &fd->config_map);
+			dma_buf_put(fd->config_dmabuf);
+
+			dma_buf_unmap_attachment(fd->model_attach,
+				fd->model_sgt, DMA_BIDIRECTIONAL);
+			dma_buf_detach(fd->model_dmabuf, fd->model_attach);
+			dma_buf_vunmap(fd->model_dmabuf, &fd->model_map);
+			dma_buf_put(fd->model_dmabuf);
 			fd->map_count--;
 			aie_dev_info(fd->dev, "[%s] stream_count:%d map_count%d\n", __func__,
 					fd->fd_stream_count, fd->map_count);
@@ -997,12 +1003,18 @@ int mtk_aie_vidioc_qbuf(struct file *file, void *priv,
 				  struct v4l2_buffer *buf)
 {
 	struct mtk_aie_dev *fd = video_drvdata(file);
-	int ret = 0;
+	int ret = 0, idx = 0;
 
 	if (buf->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) { /*IMG & data*/
 		if (!fd->map_count) {
 
-			fd->para_dmabuf = dma_buf_get(buf->m.planes[buf->length-2].m.fd);
+			idx = buf->length - 3;
+			if (idx < 0) {
+				aie_dev_info(fd->dev, "%s, buffer index out of range(%d, %d)\n",
+					__func__, buf->length, idx);
+				return -1;
+			}
+			fd->para_dmabuf = dma_buf_get(buf->m.planes[idx].m.fd);
 			if (IS_ERR(fd->para_dmabuf) || fd->para_dmabuf == NULL) {
 				aie_dev_info(fd->dev, "%s, dma_buf_getad failed\n", __func__);
 				return -ENOMEM;
@@ -1045,38 +1057,93 @@ int mtk_aie_vidioc_qbuf(struct file *file, void *priv,
 				aie_enable_secure_domain(fd);
 			}
 
-			fd->config_model_dmabuf =
-				dma_buf_get(buf->m.planes[buf->length-1].m.fd);
-			if (IS_ERR(fd->config_model_dmabuf) ||
-				fd->config_model_dmabuf == NULL) {
-				aie_dev_info(fd->dev, "%s, config_model dmabuf get failed\n",
+			idx = buf->length - 2;
+			if (idx < 0) {
+				aie_dev_info(fd->dev, "%s, buffer index out of range(%d, %d)\n",
+					__func__, buf->length, idx);
+				return -1;
+			}
+			fd->config_dmabuf =
+				dma_buf_get(buf->m.planes[idx].m.fd);
+			if (IS_ERR(fd->config_dmabuf) ||
+				fd->config_dmabuf == NULL) {
+				aie_dev_info(fd->dev, "%s, config dmabuf get failed\n",
 					__func__);
 				ret = -ENOMEM;
 				goto ERROR_PARA_UMAP;
 			}
 
-			ret = (u64)dma_buf_vmap(fd->config_model_dmabuf,
-				&fd->config_model_map);
+			ret = (u64)dma_buf_vmap(fd->config_dmabuf,
+				&fd->config_map);
 			if (ret) {
-				aie_dev_info(fd->dev, "%s, config_model map va failed\n",
+				aie_dev_info(fd->dev, "%s, config map va failed\n",
 					__func__);
 				ret = -ENOMEM;
-				goto ERROR_PUT_CONFIG_MODEL_BUFFER;
+				goto ERROR_PUT_CONFIG_BUFFER;
 			}
-			fd->config_model_kva =
-				(unsigned long long)fd->config_model_map.vaddr;
+			fd->config_kva =
+				(unsigned long long)fd->config_map.vaddr;
 
-			fd->config_model_attach =
-				dma_buf_attach(fd->config_model_dmabuf, fd->smmu_dev);
-			if (IS_ERR(fd->config_model_attach)) {
-				aie_dev_info(fd->dev, "config_model_dmabuf attach fail\n");
+			fd->config_attach =
+				dma_buf_attach(fd->config_dmabuf, fd->smmu_dev);
+			if (IS_ERR(fd->config_attach)) {
+				aie_dev_info(fd->dev, "config_dmabuf attach fail\n");
 				ret = -ENOMEM;
-				goto ERROR_CONFIG_MODEL_UMAP;
+				goto ERROR_CONFIG_UMAP;
 			}
 
-			fd->config_model_sgt =
-				dma_buf_map_attachment(fd->config_model_attach, DMA_BIDIRECTIONAL);
-			fd->config_model_pa = sg_dma_address(fd->config_model_sgt->sgl);
+			fd->config_sgt =
+				dma_buf_map_attachment(fd->config_attach, DMA_BIDIRECTIONAL);
+			if (IS_ERR(fd->config_sgt)) {
+				aie_dev_info(fd->dev, "config_dmabuf attach fail\n");
+				ret = -ENOMEM;
+				goto ERROR_CONFIG_DETACH;
+			}
+			fd->config_pa = sg_dma_address(fd->config_sgt->sgl);
+
+			idx = buf->length - 1;
+			if (idx < 0) {
+				aie_dev_info(fd->dev, "%s, buffer index out of range(%d, %d)\n",
+					__func__, buf->length, idx);
+				return -1;
+			}
+			fd->model_dmabuf =
+				dma_buf_get(buf->m.planes[idx].m.fd);
+			if (IS_ERR(fd->model_dmabuf) ||
+				fd->model_dmabuf == NULL) {
+				aie_dev_info(fd->dev, "%s, model dmabuf get failed\n",
+					__func__);
+				ret = -ENOMEM;
+				goto ERROR_CONFIG_UMAP_ATTACHMENT;
+			}
+
+			ret = (u64)dma_buf_vmap(fd->model_dmabuf,
+				&fd->model_map);
+			if (ret) {
+				aie_dev_info(fd->dev, "%s, model map va failed\n",
+					__func__);
+				ret = -ENOMEM;
+				goto ERROR_PUT_MODEL_BUFFER;
+			}
+			fd->model_kva =
+				(unsigned long long)fd->model_map.vaddr;
+
+			fd->model_attach =
+				dma_buf_attach(fd->model_dmabuf, fd->smmu_dev);
+			if (IS_ERR(fd->model_attach)) {
+				aie_dev_info(fd->dev, "model_dmabuf attach fail\n");
+				ret = -ENOMEM;
+				goto ERROR_MODEL_UMAP;
+			}
+
+			fd->model_sgt =
+				dma_buf_map_attachment(fd->model_attach, DMA_BIDIRECTIONAL);
+			if (IS_ERR(fd->model_sgt)) {
+				aie_dev_info(fd->dev, "model_dmabuf attach fail\n");
+				ret = -ENOMEM;
+				goto ERROR_MODEL_DETACH;
+			}
+			fd->model_pa = sg_dma_address(fd->model_sgt->sgl);
 
 			ret = fd->drv_ops->alloc_buf(fd);
 			if (ret)
@@ -1090,11 +1157,27 @@ int mtk_aie_vidioc_qbuf(struct file *file, void *priv,
 
 	return v4l2_m2m_ioctl_qbuf(file, priv, buf);
 
-ERROR_CONFIG_MODEL_UMAP:
-	dma_buf_vunmap(fd->config_model_dmabuf, &fd->config_model_map);
+ERROR_MODEL_DETACH:
+	dma_buf_detach(fd->model_dmabuf, fd->model_attach);
 
-ERROR_PUT_CONFIG_MODEL_BUFFER:
-	dma_buf_put(fd->config_model_dmabuf);
+ERROR_MODEL_UMAP:
+	dma_buf_vunmap(fd->model_dmabuf, &fd->model_map);
+
+ERROR_PUT_MODEL_BUFFER:
+		dma_buf_put(fd->model_dmabuf);
+
+ERROR_CONFIG_UMAP_ATTACHMENT:
+	dma_buf_unmap_attachment(fd->config_attach,
+		fd->config_sgt, DMA_BIDIRECTIONAL);
+
+ERROR_CONFIG_DETACH:
+	dma_buf_detach(fd->config_dmabuf, fd->config_attach);
+
+ERROR_CONFIG_UMAP:
+	dma_buf_vunmap(fd->config_dmabuf, &fd->config_map);
+
+ERROR_PUT_CONFIG_BUFFER:
+	dma_buf_put(fd->config_dmabuf);
 
 ERROR_PARA_UMAP:
 	dma_buf_vunmap(fd->para_dmabuf, &fd->para_map);

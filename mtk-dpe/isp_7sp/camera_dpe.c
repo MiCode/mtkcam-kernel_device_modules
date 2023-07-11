@@ -487,7 +487,7 @@ unsigned int DVGF_Num;
 //unsigned int No_SMMU;
 //unsigned int DVGF_Frame_cnt;
 unsigned int DPE_debug_log_en;
-
+#define CMASYS_CLK_Debug 1
 #ifdef CMASYS_CLK_Debug
 // add Rang to dts
 // <0 0x1a000000 0 0x1000>,
@@ -533,6 +533,12 @@ static struct MRAW_device *MRAW_devs;
 #define CAMMRAW_MAIN_BASE (MRAW_devs[0].regs)
 #define IPE_MAIN_BASE (IPE_devs[0].regs)
 #endif
+
+//!
+struct my_callback_data {
+    struct cmdq_pkt *pkt;
+};
+
 /**************************************************************
  *
  **************************************************************/
@@ -4544,1122 +4550,6 @@ void DPE_DumpUserSpaceReg(struct DPE_Kernel_Config *pDpeConfig)
 	//LOG_INF("DVP_CORE_14 = 0x%08X\n", pDpeConfig->DVP_CORE_14);
 	//LOG_INF("DVP_CORE_15 = 0x%08X\n", pDpeConfig->DVP_CORE_15);
 }
-void cmdq_cb_destroy(struct cmdq_cb_data data)
-{
-	//LOG_INF("%s DPE cmdq_cb_Dump statr", __func__);
-	cmdq_pkt_destroy((struct cmdq_pkt *)data.data);
-}
-
-signed int CmdqDPEHW(struct frame *frame)
-{
-	struct DPE_Kernel_Config *pDpeConfig;
-	struct DPE_Kernel_Config DpeConfig;
-	struct DPE_Config_V2 *pDpeUserConfig;
-
-	#ifdef CMdq_en
-	struct cmdq_pkt *handle;
-	#endif
-	//struct cmdqRecStruct *handle;
-	//uint64_t engineFlag = (uint64_t)(1LL << CMDQ_ENG_DPE);
-#if defined(DPE_PMQOS_EN) && defined(CONFIG_MTK_QOS_SUPPORT)
-	unsigned int w_imgi, h_imgi, w_mvio, h_mvio, w_bvo, h_bvo;
-	unsigned int dma_bandwidth, trig_num;
-#endif
-	//int cmd_cnt = 0;
-
-	//LOG_INF("%s CmdqtoHw statr", __func__);
-
-	if (frame == NULL || frame->data == NULL)
-		return -1;
-
-	//LOG_INF("%s request sent to CMDQ driver", __func__);
-	pDpeUserConfig = (struct DPE_Config_V2 *) frame->data;
-
-//LOG_INF("%s CmdqtoHw statr2222", __func__);
-	pDpeConfig = &DpeConfig;
-/************** Pass User info to DPE_Kernel_Config **************/
-  // LOG_INF("%s CmdqtoHw statr2111", __func__);
-	if (pDpeUserConfig->Dpe_engineSelect == MODE_DVS_DVP_BOTH) {
-		// LOG_INF("%s CmdqtoHw statr3333", __func__);
-		DPE_Config_DVS(pDpeUserConfig, pDpeConfig);
-			// LOG_INF("%s CmdqtoHw statr31111", __func__);
-		DPE_Config_DVP(pDpeUserConfig, pDpeConfig);
-			// LOG_INF("%s CmdqtoHw statr32222", __func__);
-
-		pDpeConfig->DPE_MODE = 0;
-	} else if (pDpeUserConfig->Dpe_engineSelect == MODE_DVS_ONLY) {
-		//LOG_INF("DVS frm_width =%d ", pDpeUserConfig->Dpe_DVSSettings.frm_width);
-		if (pDpeUserConfig->Dpe_DVSSettings.frm_width == 0)
-			return -1;
-
-		DPE_Config_DVS(pDpeUserConfig, pDpeConfig);
-		pDpeConfig->DPE_MODE = 1;
-	} else if (pDpeUserConfig->Dpe_engineSelect == MODE_DVP_ONLY) {
-		//LOG_INF("DVP frm_width =%d ", pDpeUserConfig->Dpe_DVPSettings.frm_width);
-		if (pDpeUserConfig->Dpe_DVPSettings.frm_width == 0)
-			return -1;
-
-		DPE_Config_DVP(pDpeUserConfig, pDpeConfig);
-		pDpeConfig->DPE_MODE = 2;
-	} else if (pDpeUserConfig->Dpe_engineSelect == MODE_DVGF_ONLY) {
-		//LOG_INF("DVGF frm_width =%d ", pDpeUserConfig->Dpe_DVGFSettings.frm_width);
-		if (pDpeUserConfig->Dpe_DVGFSettings.frm_width == 0)
-			return -1;
-
-		DPE_Config_DVGF(pDpeUserConfig, pDpeConfig);
-		pDpeConfig->DPE_MODE = 3;
-	}
-
-	if (DPE_debug_log_en == 1) {
-		LOG_INF("%s CmdqtoHw statr4444", __func__);
-		DPE_DumptoHWReg(pDpeConfig);
-	}
-	//if (g_isDPELogEnable)
-	//DPE_DumpUserSpaceReg(pDpeConfig);
-	//cmdqRecCreate(CMDQ_SCENARIO_ISP_DPE, &handle);
-	//cmdqRecSetEngine(handle, engineFlag);
-	//cmdq_pkt_cl_create(&handle, dpe_clt);
-#ifdef CMdq_en
-	handle = cmdq_pkt_create(dpe_clt);
-#endif
-#define CMDQWR(REG) \
-	cmdq_pkt_write(handle, dpe_clt_base, \
-	REG ##_HW, pDpeConfig->REG, CMDQ_REG_MASK)
-#define CMDQWR_DPE_DRAM_ADDR(REG) \
-	cmdq_pkt_write(handle, dpe_clt_base, \
-	REG ##_HW, (pDpeConfig->REG)>>4, CMDQ_REG_MASK)
-#define CMDQWR_DPE_ME_ADDR(REG) \
-	cmdq_pkt_write(handle, dpe_clt_base, \
-	REG ##_HW, pDpeConfig->TuningBuf_ME.REG, CMDQ_REG_MASK)
-#define CMDQWR_DPE_OCC_ADDR(REG) \
-	cmdq_pkt_write(handle, dpe_clt_base, \
-	REG ##_HW, pDpeConfig->TuningKernel_OCC.REG, CMDQ_REG_MASK)
-#define CMDQWR_DPE_DVP_ADDR(REG) \
-	cmdq_pkt_write(handle, dpe_clt_base, \
-	REG ##_HW, pDpeConfig->TuningKernel_DVP.REG, CMDQ_REG_MASK)
-#define CMDQWR_DPE_DVGF_ADDR(REG) \
-	cmdq_pkt_write(handle, dpe_clt_base, \
-	REG ##_HW, pDpeConfig->TuningKernel_DVGF.REG, CMDQ_REG_MASK)
-//LOG_INF("pDpeConfig->DPE_MODE = %x\n", pDpeConfig->DPE_MODE);
-if ((pDpeConfig->DPE_MODE != 2) && (pDpeConfig->DPE_MODE != 3)) {
-	if (pDpeConfig->DPE_MODE == 1) {
-		/* DVS Only Mode*/
-		/* dvp_en = 1 */
-		#ifdef CMdq_en
-		cmdq_pkt_write(handle, dpe_clt_base,
-		DVP_CTRL00_HW, 0x80000000, 0x80000000);
-		#endif
-	}
-	/* mask trigger bit */
-	#ifdef CMdq_en
-	cmdq_pkt_write(handle, dpe_clt_base,
-	DVS_CTRL00_HW, pDpeConfig->DVS_CTRL00, 0xDFF5FC00);//0xDBF5FC00
-	cmdq_pkt_write(handle, dpe_clt_base,
-	DVS_CTRL02_HW, 0x70310001, CMDQ_REG_MASK);
-	#endif
-
-
-	//LOG_INF("mask trigger bit\n");
-	/* cmdq_pkt_write(handle, dpe_clt_base, */
-	/* DVS_CTRL07_HW, 0x0000FF1F, CMDQ_REG_MASK); */
-	/* cmdq_pkt_write(handle, dpe_clt_base, */
-	/* DVS_SRC_CTRL_HW, 0x00000040, CMDQ_REG_MASK); */
-	/* DVS Frame Done IRQ */
-	if (pDpeConfig->DPE_MODE == 1) { // MODE_DVS_ONLY
-		//LOG_INF("MODE_DVS_ONLY\n");
-		#ifdef CMdq_en
-		cmdq_pkt_write(handle, dpe_clt_base,
-		DVS_IRQ_00_HW, 0x00000E00, 0x00000F00);
-		#endif
-	} else { // MODE_DVS_DVP_BOTH
-		#ifdef CMdq_en		 // MODE_DVS_DVP_BOTH
-		cmdq_pkt_write(handle, dpe_clt_base,
-		DVS_IRQ_00_HW, 0x00000F00, 0x00000F00);
-		#endif
-	}
-	//LOG_INF("star CMDQWR\n");
-	#ifdef CMdq_en
-	CMDQWR(DVS_DRAM_PITCH);
-	CMDQWR(DVS_DRAM_PITCH1);
-	CMDQWR(DVS_SRC_00);
-	CMDQWR(DVS_SRC_01);
-	CMDQWR(DVS_SRC_02);
-	CMDQWR(DVS_SRC_03);
-	CMDQWR(DVS_SRC_04);
-	CMDQWR_DPE_DRAM_ADDR(DVS_SRC_05_L_FRM0);
-	CMDQWR_DPE_DRAM_ADDR(DVS_SRC_06_L_FRM1);
-	CMDQWR_DPE_DRAM_ADDR(DVS_SRC_07_L_FRM2);
-	CMDQWR_DPE_DRAM_ADDR(DVS_SRC_08_L_FRM3);
-	CMDQWR_DPE_DRAM_ADDR(DVS_SRC_09_R_FRM0);
-	CMDQWR_DPE_DRAM_ADDR(DVS_SRC_10_R_FRM1);
-	CMDQWR_DPE_DRAM_ADDR(DVS_SRC_11_R_FRM2);
-	CMDQWR_DPE_DRAM_ADDR(DVS_SRC_12_R_FRM3);
-	CMDQWR_DPE_DRAM_ADDR(DVS_SRC_13_Hist0);
-	CMDQWR_DPE_DRAM_ADDR(DVS_SRC_14_Hist1);
-	CMDQWR_DPE_DRAM_ADDR(DVS_SRC_15_Hist2);
-	CMDQWR_DPE_DRAM_ADDR(DVS_SRC_16_Hist3);
-	CMDQWR_DPE_DRAM_ADDR(DVS_SRC_17_OCCDV_EXT0);
-	CMDQWR_DPE_DRAM_ADDR(DVS_SRC_18_OCCDV_EXT1);
-	CMDQWR_DPE_DRAM_ADDR(DVS_SRC_19_OCCDV_EXT2);
-	CMDQWR_DPE_DRAM_ADDR(DVS_SRC_20_OCCDV_EXT3);
-	CMDQWR_DPE_DRAM_ADDR(DVS_SRC_21_P4_L_DV_ADR);
-	CMDQWR_DPE_DRAM_ADDR(DVS_SRC_22_OCCDV0);
-	CMDQWR_DPE_DRAM_ADDR(DVS_SRC_23_OCCDV1);
-	CMDQWR_DPE_DRAM_ADDR(DVS_SRC_24_OCCDV2);
-	CMDQWR_DPE_DRAM_ADDR(DVS_SRC_25_OCCDV3);
-	CMDQWR_DPE_DRAM_ADDR(DVS_SRC_26_P4_R_DV_ADR);
-	CMDQWR(DVS_SRC_27);
-	CMDQWR(DVS_SRC_28);
-	CMDQWR(DVS_SRC_29);
-	CMDQWR(DVS_SRC_30);
-	CMDQWR(DVS_SRC_31);
-	CMDQWR(DVS_SRC_32);
-	CMDQWR(DVS_SRC_33);
-	CMDQWR(DVS_SRC_34);
-	CMDQWR(DVS_SRC_35);
-	CMDQWR(DVS_SRC_36);
-	CMDQWR(DVS_SRC_37);
-	CMDQWR(DVS_SRC_38);
-	CMDQWR(DVS_SRC_39);
-	CMDQWR(DVS_FIX_HIST_ADR);
-	CMDQWR(DVS_DRAM_SEC_0);
-	CMDQWR(DVS_DRAM_SEC_1);
-	CMDQWR(DVS_DRAM_SEC_2);
-	CMDQWR(DVS_DEQ_FORCE);
-	CMDQWR(DVS_CTRL_RESERVED);
-	CMDQWR(DVS_CTRL_ATPG);
-
-	if (pDpeUserConfig->Dpe_DVSSettings.is_pd_mode) {
-		//CMDQWR_DPE_DRAM_ADDR(DVS_PD_SRC_04_R_FRM0);
-		//CMDQWR_DPE_DRAM_ADDR(DVS_PD_SRC_08_OCCDV0);
-		//CMDQWR_DPE_DRAM_ADDR(DVS_PD_SRC_16_DCV_CONF0);
-		//if (pDpeUserConfig->DVP_ASF_CONF_EN != 0) //!ISP7
-		//CMDQWR_DPE_DRAM_ADDR(DVS_PD_SRC_12_OCCDV_EXT0);
-	}
-	CMDQWR_DPE_ME_ADDR(DVS_ME_00);
-	CMDQWR_DPE_ME_ADDR(DVS_ME_01);
-	CMDQWR_DPE_ME_ADDR(DVS_ME_02);
-	CMDQWR_DPE_ME_ADDR(DVS_ME_03);
-	CMDQWR_DPE_ME_ADDR(DVS_ME_04);
-	CMDQWR_DPE_ME_ADDR(DVS_ME_06);
-	CMDQWR_DPE_ME_ADDR(DVS_ME_07);
-	CMDQWR_DPE_ME_ADDR(DVS_ME_08);
-	CMDQWR_DPE_ME_ADDR(DVS_ME_09);
-	CMDQWR_DPE_ME_ADDR(DVS_ME_10);
-	CMDQWR_DPE_ME_ADDR(DVS_ME_11);
-	CMDQWR_DPE_ME_ADDR(DVS_ME_12);
-	CMDQWR_DPE_ME_ADDR(DVS_ME_13);
-	CMDQWR_DPE_ME_ADDR(DVS_ME_14);
-	CMDQWR_DPE_ME_ADDR(DVS_ME_15);
-	CMDQWR_DPE_ME_ADDR(DVS_ME_16);
-	CMDQWR_DPE_ME_ADDR(DVS_ME_17);
-	CMDQWR_DPE_ME_ADDR(DVS_ME_18);
-	CMDQWR_DPE_ME_ADDR(DVS_ME_19);
-	CMDQWR_DPE_ME_ADDR(DVS_ME_20);
-	CMDQWR_DPE_ME_ADDR(DVS_ME_21);
-	CMDQWR_DPE_ME_ADDR(DVS_ME_22);
-	CMDQWR_DPE_ME_ADDR(DVS_ME_23);
-	CMDQWR_DPE_ME_ADDR(DVS_ME_24);
-	CMDQWR_DPE_ME_ADDR(DVS_ME_25);
-	CMDQWR_DPE_ME_ADDR(DVS_ME_26);
-	CMDQWR_DPE_ME_ADDR(DVS_ME_27);
-	CMDQWR_DPE_ME_ADDR(DVS_ME_28);
-	CMDQWR_DPE_ME_ADDR(DVS_ME_29);
-	CMDQWR_DPE_ME_ADDR(DVS_ME_30);
-	CMDQWR_DPE_ME_ADDR(DVS_ME_31);
-	CMDQWR_DPE_ME_ADDR(DVS_ME_32);
-	CMDQWR_DPE_ME_ADDR(DVS_ME_33);
-	CMDQWR_DPE_ME_ADDR(DVS_ME_34);
-	CMDQWR_DPE_ME_ADDR(DVS_ME_35);
-	CMDQWR_DPE_ME_ADDR(DVS_ME_36);
-	CMDQWR_DPE_ME_ADDR(DVS_ME_37);
-	CMDQWR_DPE_ME_ADDR(DVS_ME_38);
-	CMDQWR_DPE_ME_ADDR(DVS_ME_39);
-	CMDQWR_DPE_ME_ADDR(DVS_DEBUG);
-	CMDQWR_DPE_ME_ADDR(DVS_ME_RESERVED);
-	CMDQWR_DPE_ME_ADDR(DVS_ME_ATPG);
-	CMDQWR_DPE_ME_ADDR(DVS_ME_40);
-	CMDQWR_DPE_ME_ADDR(DVS_ME_41);
-	CMDQWR_DPE_ME_ADDR(DVS_ME_42);
-	CMDQWR_DPE_ME_ADDR(DVS_ME_43);
-	CMDQWR_DPE_ME_ADDR(DVS_ME_44);
-	CMDQWR_DPE_ME_ADDR(DVS_ME_45);
-	CMDQWR_DPE_ME_ADDR(DVS_ME_46);
-	CMDQWR_DPE_ME_ADDR(DVS_ME_47);
-	CMDQWR_DPE_ME_ADDR(DVS_ME_48);
-	CMDQWR_DPE_ME_ADDR(DVS_ME_49);
-	CMDQWR_DPE_ME_ADDR(DVS_ME_50);
-	CMDQWR_DPE_ME_ADDR(DVS_ME_51);
-	CMDQWR_DPE_ME_ADDR(DVS_ME_52);
-	CMDQWR_DPE_ME_ADDR(DVS_ME_53);
-	CMDQWR_DPE_ME_ADDR(DVS_ME_54);
-	CMDQWR_DPE_ME_ADDR(DVS_ME_55);
-	CMDQWR_DPE_ME_ADDR(DVS_ME_56);
-	CMDQWR_DPE_ME_ADDR(DVS_ME_57);
-	CMDQWR_DPE_ME_ADDR(DVS_ME_58);
-	CMDQWR_DPE_ME_ADDR(DVS_ME_59);
-	CMDQWR_DPE_OCC_ADDR(DVS_OCC_PQ_0);
-	CMDQWR_DPE_OCC_ADDR(DVS_OCC_PQ_1);
-	CMDQWR_DPE_OCC_ADDR(DVS_OCC_PQ_2);
-	CMDQWR_DPE_OCC_ADDR(DVS_OCC_PQ_3);
-	CMDQWR_DPE_OCC_ADDR(DVS_OCC_PQ_4);
-	CMDQWR_DPE_OCC_ADDR(DVS_OCC_PQ_5);
-	CMDQWR_DPE_OCC_ADDR(DVS_OCC_PQ_10);
-	CMDQWR_DPE_OCC_ADDR(DVS_OCC_PQ_11);
-	CMDQWR_DPE_OCC_ADDR(DVS_OCC_PQ_12);
-	CMDQWR_DPE_OCC_ADDR(DVS_OCC_ATPG);
-	CMDQWR_DPE_OCC_ADDR(DVS_OCC_HIST0);
-	CMDQWR_DPE_OCC_ADDR(DVS_OCC_HIST1);
-	CMDQWR_DPE_OCC_ADDR(DVS_OCC_HIST2);
-	CMDQWR_DPE_OCC_ADDR(DVS_OCC_HIST3);
-	CMDQWR_DPE_OCC_ADDR(DVS_OCC_HIST4);
-	CMDQWR_DPE_OCC_ADDR(DVS_OCC_HIST5);
-	CMDQWR_DPE_OCC_ADDR(DVS_OCC_HIST6);
-	CMDQWR_DPE_OCC_ADDR(DVS_OCC_HIST7);
-	CMDQWR_DPE_OCC_ADDR(DVS_OCC_HIST8);
-	CMDQWR_DPE_OCC_ADDR(DVS_OCC_HIST9);
-	CMDQWR_DPE_OCC_ADDR(DVS_OCC_HIST10);
-	CMDQWR_DPE_OCC_ADDR(DVS_OCC_HIST11);
-	CMDQWR_DPE_OCC_ADDR(DVS_OCC_HIST12);
-	CMDQWR_DPE_OCC_ADDR(DVS_OCC_HIST13);
-	CMDQWR_DPE_OCC_ADDR(DVS_OCC_HIST14);
-	CMDQWR_DPE_OCC_ADDR(DVS_OCC_HIST15);
-	CMDQWR_DPE_OCC_ADDR(DVS_OCC_HIST16);
-	CMDQWR_DPE_OCC_ADDR(DVS_OCC_HIST17);
-	CMDQWR_DPE_OCC_ADDR(DVS_OCC_HIST18);
-	#endif
-/* CRC EN, CRC SEL =0x0 */
-/* cmdq_pkt_write(handle, dpe_clt_base, */
-/* DVS_CRC_CTRL_HW, 0x00000001, 0x00000F01); */
-/* CRC CLEAR  = 1 */
-/* cmdq_pkt_write(handle, dpe_clt_base, */
-/* DVS_CRC_CTRL_HW, 0x00000010, 0x00000010); */
-/* CRC CLEAR  = 0 */
-/* cmdq_pkt_write(handle, dpe_clt_base, */
-/* DVS_CRC_CTRL_HW, 0x00000000, 0x00000010); */
-}
-	/*================= DVP Settings ==================*/
-if ((pDpeConfig->DPE_MODE != 1) && (pDpeConfig->DPE_MODE != 3)) {
-	if (pDpeConfig->DPE_MODE == 2) {
-		/* DVP Only Mode*/
-		/* dvs_en = 1, DPE FW Tri En = 1, */
-		/* dvp_trig_en = 1, dvs_trig_en = 0  */
-		#ifdef CMdq_en
-		cmdq_pkt_write(handle, dpe_clt_base,
-		DVS_CTRL00_HW, 0xC8000000, 0xDC300000);
-		cmdq_pkt_write(handle, dpe_clt_base,
-		DVS_CTRL02_HW, 0x70310001, CMDQ_REG_MASK);
-		#endif
-	}
-	#ifdef CMdq_en
-	cmdq_pkt_write(handle, dpe_clt_base,
-	DVP_CTRL00_HW, 0x80000080, CMDQ_REG_MASK);
-	cmdq_pkt_write(handle, dpe_clt_base,
-	DVP_CTRL02_HW, 0x70310001, CMDQ_REG_MASK);
-	/* cmdq_pkt_write(handle, dpe_clt_base, */
-	/* DVP_CTRL07_HW, 0x00000707, CMDQ_REG_MASK); */
-	/* DVP Frame Done IRQ */
-	cmdq_pkt_write(handle, dpe_clt_base,
-	DVP_IRQ_00_HW, 0x00000E00, 0x00000F00);
-	//LOG_INF("star CMDQWR DVP Settings\n");
-
-
-	CMDQWR(DVP_DRAM_PITCH);
-	CMDQWR(DVP_SRC_00);
-	CMDQWR(DVP_SRC_01);
-	CMDQWR(DVP_SRC_02);
-	CMDQWR(DVP_SRC_03);
-	CMDQWR(DVP_SRC_04);
-	CMDQWR_DPE_DRAM_ADDR(DVP_SRC_05_Y_FRM0);
-	CMDQWR_DPE_DRAM_ADDR(DVP_SRC_06_Y_FRM1);
-	CMDQWR_DPE_DRAM_ADDR(DVP_SRC_07_Y_FRM2);
-	CMDQWR_DPE_DRAM_ADDR(DVP_SRC_08_Y_FRM3);
-	CMDQWR_DPE_DRAM_ADDR(DVP_SRC_09_C_FRM0);
-	CMDQWR_DPE_DRAM_ADDR(DVP_SRC_10_C_FRM1);
-	CMDQWR_DPE_DRAM_ADDR(DVP_SRC_11_C_FRM2);
-	CMDQWR_DPE_DRAM_ADDR(DVP_SRC_12_C_FRM3);
-	CMDQWR_DPE_DRAM_ADDR(DVP_SRC_13_OCCDV0);
-	CMDQWR_DPE_DRAM_ADDR(DVP_SRC_14_OCCDV1);
-	CMDQWR_DPE_DRAM_ADDR(DVP_SRC_15_OCCDV2);
-	CMDQWR_DPE_DRAM_ADDR(DVP_SRC_16_OCCDV3);
-	CMDQWR_DPE_DRAM_ADDR(DVP_SRC_17_CRM);
-	CMDQWR_DPE_DRAM_ADDR(DVP_SRC_18_ASF_RMDV);
-	CMDQWR_DPE_DRAM_ADDR(DVP_SRC_19_ASF_RDDV);
-	CMDQWR_DPE_DRAM_ADDR(DVP_SRC_20_ASF_DV0);
-	CMDQWR_DPE_DRAM_ADDR(DVP_SRC_21_ASF_DV1);
-	CMDQWR_DPE_DRAM_ADDR(DVP_SRC_22_ASF_DV2);
-	CMDQWR_DPE_DRAM_ADDR(DVP_SRC_23_ASF_DV3);
-	CMDQWR_DPE_DRAM_ADDR(DVP_SRC_24_WMF_RDDV);
-	CMDQWR_DPE_DRAM_ADDR(DVP_SRC_25_WMF_HFDV);
-	CMDQWR_DPE_DRAM_ADDR(DVP_SRC_26_WMF_DV0);
-	CMDQWR_DPE_DRAM_ADDR(DVP_SRC_27_WMF_DV1);
-	CMDQWR_DPE_DRAM_ADDR(DVP_SRC_28_WMF_DV2);
-	CMDQWR_DPE_DRAM_ADDR(DVP_SRC_29_WMF_DV3);
-	CMDQWR_DPE_DRAM_ADDR(DVP_EXT_SRC_13_OCCDV0);
-	CMDQWR_DPE_DRAM_ADDR(DVP_EXT_SRC_14_OCCDV1);
-	CMDQWR_DPE_DRAM_ADDR(DVP_EXT_SRC_15_OCCDV2);
-	CMDQWR_DPE_DRAM_ADDR(DVP_EXT_SRC_16_OCCDV3);
-	CMDQWR_DPE_DRAM_ADDR(DVP_EXT_SRC_18_ASF_RMDV);
-	CMDQWR_DPE_DRAM_ADDR(DVP_EXT_SRC_19_ASF_RDDV);
-	CMDQWR_DPE_DRAM_ADDR(DVP_EXT_SRC_20_ASF_DV0);
-	CMDQWR_DPE_DRAM_ADDR(DVP_EXT_SRC_21_ASF_DV1);
-	CMDQWR_DPE_DRAM_ADDR(DVP_EXT_SRC_22_ASF_DV2);
-	CMDQWR_DPE_DRAM_ADDR(DVP_EXT_SRC_23_ASF_DV3);
-	CMDQWR_DPE_DVP_ADDR(DVP_CORE_00);
-	CMDQWR_DPE_DVP_ADDR(DVP_CORE_01);
-	CMDQWR_DPE_DVP_ADDR(DVP_CORE_02);
-	CMDQWR_DPE_DVP_ADDR(DVP_CORE_03);
-	CMDQWR_DPE_DVP_ADDR(DVP_CORE_04);
-	CMDQWR_DPE_DVP_ADDR(DVP_CORE_05);
-	CMDQWR_DPE_DVP_ADDR(DVP_CORE_06);
-	CMDQWR_DPE_DVP_ADDR(DVP_CORE_07);
-	CMDQWR_DPE_DVP_ADDR(DVP_CORE_08);
-	CMDQWR_DPE_DVP_ADDR(DVP_CORE_09);
-	CMDQWR_DPE_DVP_ADDR(DVP_CORE_10);
-	CMDQWR_DPE_DVP_ADDR(DVP_CORE_11);
-	CMDQWR_DPE_DVP_ADDR(DVP_CORE_12);
-	CMDQWR_DPE_DVP_ADDR(DVP_CORE_13);
-	CMDQWR_DPE_DVP_ADDR(DVP_CORE_14);
-	CMDQWR_DPE_DVP_ADDR(DVP_CORE_15);
-	CMDQWR_DPE_DVP_ADDR(DVP_CORE_16);
-	CMDQWR_DPE_DVP_ADDR(DVP_CORE_17);
-	CMDQWR_DPE_DVP_ADDR(DVP_CORE_18);
-	CMDQWR_DPE_DVP_ADDR(DVP_CORE_19);
-	#endif
-/*CRC EN, CRC SEL = 0x1000*/
-/* cmdq_pkt_write(handle, dpe_clt_base, */
-/* DVP_CRC_CTRL_HW, 0x00000801, 0x00000F01); */
-/* CRC CLEAR  = 1 */
-/* cmdq_pkt_write(handle, dpe_clt_base, */
-/* DVP_CRC_CTRL_HW, 0x00000010, 0x00000010); */
-/* CRC CLEAR  = 0 */
-/* cmdq_pkt_write(handle, dpe_clt_base, */
-/* DVP_CRC_CTRL_HW, 0x00000000, 0x00000010); */
-}
-/*================= DVGF Settings ==================*/
-if (pDpeConfig->DPE_MODE == 3) {
-
-	//LOG_INF("star DVGF CMDQWR\n");
-	#ifdef CMdq_en
-	cmdq_pkt_write(handle, dpe_clt_base,
-	DVS_CTRL00_HW, 0xC4040000, 0xDC040000); //dvgf_trig_en
-
-	//cmdq_pkt_write(handle, dpe_clt_base,
-	//DVGF_CTRL_00_HW, 0x80000000, CMDQ_REG_MASK);
-	//cmdq_pkt_write(handle, dpe_clt_base,
-	//DVGF_CTRL_02_HW, 0x70310001, CMDQ_REG_MASK);
-
-	cmdq_pkt_write(handle, dpe_clt_base,
-	DVGF_IRQ_00_HW, 0x00000E00, 0x00000F00);
-
-	cmdq_pkt_write(handle, dpe_clt_base,
-	DVGF_CTRL_00_HW, 0x80000000, 0x80000000);
-
-	///CMDQWR(DVGF_CTRL_00);
-	CMDQWR(DVGF_CTRL_01);
-	CMDQWR(DVGF_CTRL_02);
-	CMDQWR(DVGF_CTRL_03);
-	CMDQWR(DVGF_CTRL_05);
-	CMDQWR(DVGF_CTRL_07);
-	//CMDQWR(DVGF_IRQ_00);
-	CMDQWR(DVGF_DRAM_PITCH);
-	CMDQWR(DVGF_SRC_00);
-	CMDQWR(DVGF_SRC_01);
-	CMDQWR(DVGF_SRC_02);
-	CMDQWR_DPE_DRAM_ADDR(DVGF_SRC_04);
-	CMDQWR_DPE_DRAM_ADDR(DVGF_SRC_05);
-	CMDQWR_DPE_DRAM_ADDR(DVGF_SRC_06);
-	CMDQWR_DPE_DRAM_ADDR(DVGF_SRC_07);
-	CMDQWR_DPE_DRAM_ADDR(DVGF_SRC_08);
-	CMDQWR_DPE_DRAM_ADDR(DVGF_SRC_09);
-	CMDQWR_DPE_DRAM_ADDR(DVGF_SRC_10);
-	CMDQWR_DPE_DRAM_ADDR(DVGF_SRC_11);
-	CMDQWR_DPE_DRAM_ADDR(DVGF_SRC_12);
-	CMDQWR_DPE_DRAM_ADDR(DVGF_SRC_13);
-	CMDQWR_DPE_DRAM_ADDR(DVGF_SRC_14);
-	CMDQWR_DPE_DRAM_ADDR(DVGF_SRC_15);
-	CMDQWR_DPE_DRAM_ADDR(DVGF_SRC_16);
-	CMDQWR_DPE_DRAM_ADDR(DVGF_SRC_17);
-	CMDQWR_DPE_DRAM_ADDR(DVGF_SRC_18);
-	CMDQWR_DPE_DRAM_ADDR(DVGF_SRC_19);
-	CMDQWR_DPE_DRAM_ADDR(DVGF_SRC_20);
-	CMDQWR_DPE_DRAM_ADDR(DVGF_SRC_21);
-	CMDQWR_DPE_DRAM_ADDR(DVGF_SRC_22);
-	CMDQWR_DPE_DRAM_ADDR(DVGF_SRC_23);
-	CMDQWR_DPE_DRAM_ADDR(DVGF_SRC_24);
-	CMDQWR_DPE_DVGF_ADDR(DVGF_CORE_00);
-	CMDQWR_DPE_DVGF_ADDR(DVGF_CORE_01);
-	CMDQWR_DPE_DVGF_ADDR(DVGF_CORE_02);
-	CMDQWR_DPE_DVGF_ADDR(DVGF_CORE_03);
-	CMDQWR_DPE_DVGF_ADDR(DVGF_CORE_05);
-	CMDQWR_DPE_DVGF_ADDR(DVGF_CORE_06);
-	CMDQWR_DPE_DVGF_ADDR(DVGF_CORE_07);
-	CMDQWR_DPE_DVGF_ADDR(DVGF_CORE_08);
-	CMDQWR_DPE_DVGF_ADDR(DVGF_CORE_09);
-	CMDQWR_DPE_DVGF_ADDR(DVGF_CORE_10);
-	CMDQWR_DPE_DVGF_ADDR(DVGF_CORE_11);
-	CMDQWR_DPE_DVGF_ADDR(DVGF_CORE_12);
-	CMDQWR_DPE_DVGF_ADDR(DVGF_CORE_13);
-	CMDQWR_DPE_DVGF_ADDR(DVGF_CORE_14);
-	CMDQWR_DPE_DVGF_ADDR(DVGF_CORE_15);
-	#endif
-}
-/* DPE FW Tri = 1*/
-#ifdef CMdq_en
-cmdq_pkt_write(handle, dpe_clt_base, DVS_CTRL00_HW, 0x20000000, 0x20000000);
-//LOG_INF("DPE FW Tri = %x\n", pDpeConfig->DVS_CTRL00);
-	if (pDpeConfig->DPE_MODE == 1) /* DVS ONLY MODE */
-		cmdq_pkt_wfe(handle, dvs_event_id);
-	else if (pDpeConfig->DPE_MODE == 3)
-		cmdq_pkt_wfe(handle, dvgf_event_id);
-	else
-		cmdq_pkt_wfe(handle, dvp_event_id);
-
-//cmdq_pkt_write(handle, dpe_clt_base, DVS_CTRL00_HW, 0x00000000, 0x20000000);
-#endif
-#if defined(DPE_PMQOS_EN) && defined(CONFIG_MTK_QOS_SUPPORT)
-	LOG_INF("DPE_PMQOS_EN =1\n");
-	trig_num = (pDpeConfig->DPE_CTRL & 0x00000F00) >> 8;
-	w_imgi = pDpeConfig->DPE_SIZE & 0x000001FF;
-	h_imgi = (pDpeConfig->DPE_SIZE & 0x01FF0000) >> 16;
-	w_mvio = ((w_imgi + 1) >> 1) - 1;
-	w_mvio = ((w_mvio / 7) << 4) + (((((w_mvio % 7) + 1) * 18) + 7) >> 3);
-	h_mvio = (h_imgi + 1) >> 1;
-	w_bvo =  (w_imgi + 1) >> 1;
-	h_bvo =  (h_imgi + 1) >> 1;
-	dma_bandwidth = ((w_imgi * h_imgi) * 2 + (w_mvio * h_mvio) * 2 * 16 +
-			(w_bvo * h_bvo)) * trig_num * 30 / 1000000;
-	cmdq_task_update_property(handle, &dma_bandwidth, sizeof(unsigned int));
-#endif
-	/* non-blocking API, Please  use cmdqRecFlushAsync() */
-	//cmdq_task_flush_async_destroy(handle);
-	/* flush and destroy in cmdq */
-	//LOG_INF("cmd_pkt start\n");
-
-	#ifdef CMASYS_CLK_Debug
-		LOG_INF("cmd_pkt[0x1A000000 %08X]\n",
-		(unsigned int)DPE_RD32(CAMSYS_MAIN_BASE));
-		LOG_INF("cmd_pkt[0x1A170000 %08X]\n",
-		(unsigned int)DPE_RD32(CAMMRAW_MAIN_BASE));
-		LOG_INF("cmd_pkt[0x1A1D0000 %08X]\n",
-		(unsigned int)DPE_RD32(IPE_MAIN_BASE));
-	#endif
-
-#ifdef CMdq_en
-	cmdq_pkt_flush_threaded(handle,
-	cmdq_cb_destroy, (void *)handle);
-#endif
-//LOG_INF("cmd_pkt end\n");
-	return 0;
-}
-signed int dpe_feedback(struct frame *frame)
-{
-	struct DPE_Config_V2 *pDpeConfig;
-
-	pDpeConfig = (struct DPE_Config_V2 *) frame->data;
-	/* TODO: read statistics and write to the frame data */
-	// pDpeConfig->DVS_IRQ_STATUS = DPE_RD32(DVS_IRQ_STATUS_REG);
-	return 0;
-}
-static const struct engine_ops dpe_ops = {
-	.req_enque_cb = dpe_enque_cb,
-	.req_deque_cb = dpe_deque_cb,
-	.frame_handler = CmdqDPEHW,
-	.req_feedback_cb = dpe_feedback,
-};
-#if defined(DPE_PMQOS_EN) && defined(CONFIG_MTK_QOS_SUPPORT)
-void cmdq_pm_qos_start(struct TaskStruct *task, struct TaskStruct *task_list[],
-								u32 size)
-{
-	unsigned int dma_bandwidth;
-
-	dma_bandwidth = *(unsigned int *) task->prop_addr;
-	pm_qos_update_request(&dpe_pm_qos_request, dma_bandwidth);
-	LOG_INF("+ PMQOS Bandwidth : %d MB/sec\n", dma_bandwidth);
-}
-void cmdq_pm_qos_stop(struct TaskStruct *task, struct TaskStruct *task_list[],
-								u32 size)
-{
-	pm_qos_update_request(&dpe_pm_qos_request, 0);
-	LOG_DBG("- PMQOS Bandwidth : %d\n", 0);
-}
-#endif
-unsigned int Compute_Para(struct DPE_Config_V2 *pDpeConfig,
-	unsigned int tile_occ_width)
-{
-	unsigned int w_width; //!full_tile_width
-	unsigned int tile_num = MAX_NUM_TILE;
-	unsigned int egn_st_x = pDpeConfig->Dpe_DVSSettings.l_eng_start_x;
-
-	w_width = (tile_num*tile_occ_width)+(2*egn_st_x);
-	while (w_width > pDpeConfig->Dpe_DVSSettings.dram_pxl_pitch) {
-		tile_num = tile_num - 1;
-		w_width = (tile_num*tile_occ_width)+(2*egn_st_x);
-	}
-	if (tile_num > 0) {
-		pDpeConfig->Dpe_DVSSettings.pd_frame_num = tile_num;
-		return w_width;
-	}
-	pDpeConfig->Dpe_DVSSettings.pd_frame_num = 1;
-	return 0;
-}
-void Get_Tile_Info(struct DPE_Config_V2 *pDpeConfig)
-{
-	unsigned int tile_occ_width[TILE_WITH_NUM] = {640, 512, 384};
-	unsigned int w_width[TILE_WITH_NUM] = {0};
-	unsigned int tile_num[TILE_WITH_NUM] = {0};
-	unsigned int idx = 0, i = 0;
-	unsigned int max_width = 0, interval = 0, st_x = 0;
-	unsigned int engStart_x_L, engStart_x_R, frmHeight;
-	unsigned int engWidth;
-
-	engStart_x_L = pDpeConfig->Dpe_DVSSettings.l_eng_start_x;
-	engStart_x_R = pDpeConfig->Dpe_DVSSettings.r_eng_start_x;
-	frmHeight = pDpeConfig->Dpe_DVSSettings.frm_height;
-	engWidth = pDpeConfig->Dpe_DVSSettings.eng_width;
-#if IS_ENABLED(CONFIG_MTK_LEGACY)
-	if (pDpeConfig->Dpe_DVSSettings.dram_pxl_pitch <
-			(tile_occ_width[TILE_WITH_NUM-1]+(2*engStart_x_L))) {
-		LOG_ERR("Frame size [%d] is smaller than 384\n",
-		pDpeConfig->Dpe_DVSSettings.dram_pxl_pitch);
-		pDpeConfig->Dpe_DVSSettings.pd_frame_num = 1;
-	} else {
-		for (i = 0; i < TILE_WITH_NUM; i++) {
-			w_width[i] =
-			Compute_Para(pDpeConfig, tile_occ_width[i]);
-			tile_num[i] =
-			pDpeConfig->Dpe_DVSSettings.pd_frame_num;
-			if (w_width[i] > max_width) {
-				max_width = w_width[i];
-				idx = i;
-			}
-		}
-
-			interval = (pDpeConfig->Dpe_DVSSettings.dram_pxl_pitch - w_width[idx])/2;
-			st_x = ((interval%16) == 0) ? (interval) : ((interval/16)*16);
-			//pDpeConfig->Dpe_DVSSettings.eng_start_y = 0;
-			pDpeConfig->Dpe_DVSSettings.frm_width =
-			tile_occ_width[idx] + (2*engStart_x_L);
-			pDpeConfig->Dpe_DVSSettings.eng_width =
-			pDpeConfig->Dpe_DVSSettings.frm_width -
-			engStart_x_L - engStart_x_R;
-			pDpeConfig->Dpe_DVSSettings.eng_height
-			= frmHeight -
-			(2*pDpeConfig->Dpe_DVSSettings.eng_start_y);
-			pDpeConfig->Dpe_DVSSettings.occ_width = tile_occ_width[idx];
-			pDpeConfig->Dpe_DVSSettings.occ_start_x = engStart_x_L;
-			pDpeConfig->Dpe_DVSSettings.pd_frame_num = tile_num[idx];
-#if defined(UT_CASE)
-		pDpeConfig->Dpe_DVSSettings.pd_st_x = 0;
-#else
-		pDpeConfig->Dpe_DVSSettings.pd_st_x = st_x;
-#endif
-	}
-#else
-	//!ISP7 tile mode
-	if (pDpeConfig->Dpe_DVSSettings.dram_pxl_pitch <
-			(tile_occ_width[TILE_WITH_NUM-1]+(2*engStart_x_L))) {
-		LOG_ERR("Frame size [%d] is smaller than 384\n",
-		pDpeConfig->Dpe_DVSSettings.dram_pxl_pitch);
-		pDpeConfig->Dpe_DVSSettings.pd_frame_num = 1;
-	} else {//!ISP7 tile mode
-		for (i = 0; i < TILE_WITH_NUM; i++) {
-			w_width[i] =
-			Compute_Para(pDpeConfig, tile_occ_width[i]);
-			LOG_INF("a w_width[%d] = %d\n", i, w_width[i]);
-			tile_num[i] =
-			pDpeConfig->Dpe_DVSSettings.pd_frame_num;
-			LOG_INF("a tile_num[%d] = %d\n", i, tile_num[i]);
-			if (w_width[i] > max_width) {
-				max_width = w_width[i];
-				idx = i;
-			}
-		}
-
-		interval = (pDpeConfig->Dpe_DVSSettings.dram_pxl_pitch - w_width[idx])/2;
-		st_x = ((interval%16) == 0) ? (interval) : ((interval/16)*16);
-		pDpeConfig->Dpe_DVSSettings.frm_width = engWidth; //!ISP7
-		//!pDpeConfig->Dpe_DVSSettings.eng_width =
-		//!pDpeConfig->Dpe_DVSSettings.frm_width -
-		//!engStart_x_L - engStart_x_R;
-		pDpeConfig->Dpe_DVSSettings.eng_height
-		= frmHeight -
-		(2*pDpeConfig->Dpe_DVSSettings.eng_start_y);
-		pDpeConfig->Dpe_DVSSettings.occ_width = tile_occ_width[idx];
-		pDpeConfig->Dpe_DVSSettings.occ_start_x = engStart_x_L;
-		pDpeConfig->Dpe_DVSSettings.pd_frame_num = tile_num[idx];
-
-
-		LOG_INF("a occ_width = %d,pd_frame_num  = %d\n",
-		pDpeConfig->Dpe_DVSSettings.occ_width,
-		pDpeConfig->Dpe_DVSSettings.pd_frame_num);
-	if ((pDpeConfig->Dpe_DVSSettings.dram_out_pitch_en) == 0 &&
-			(pDpeConfig->Dpe_DVSSettings.occ_width > 640))
-		LOG_INF("Dram_out_pitch_en not turn on, but occwidth over 640\n");
-	if ((pDpeConfig->Dpe_DVSSettings.dram_out_pitch_en == 1) &&
-			(pDpeConfig->Dpe_DVSSettings.occ_width < 640))
-		LOG_INF("Dram_out_pitch_en turn on, but occwidth is smaller than 640\n");
-
-#if defined(UT_CASE)
-		pDpeConfig->Dpe_DVSSettings.pd_st_x = 0;
-#else
-		pDpeConfig->Dpe_DVSSettings.pd_st_x = st_x;
-#endif
-	}
-#endif
-}
-
-
-
-static signed int DPE_Dump_kernelReg(struct DPE_Config_V2 *cfg)
-{
-	//DVS Register
-	cfg->DPE_Kernel_DpeConfig.DVS_CTRL00 = (unsigned int)DPE_RD32(DVS_CTRL00_REG);
-	LOG_INF("[DPE_Dump_kernelRegdqbuf] DVS_CTRL00 = 0x%0x DVS_CTRL00 = 0x%0x\n",
-		cfg->DPE_Kernel_DpeConfig.DVS_CTRL00, (unsigned int)DPE_RD32(DVS_CTRL00_REG));
-	cfg->DPE_Kernel_DpeConfig.DVS_CTRL01 = (unsigned int)DPE_RD32(DVS_CTRL01_REG);
-		LOG_INF("[DPE_Dump_kernelRegdqbuf] DVS_CTRL01 = 0x%0x DVS_CTRL01 = 0x%0x\n",
-	cfg->DPE_Kernel_DpeConfig.DVS_CTRL01, (unsigned int)DPE_RD32(DVS_CTRL01_REG));
-	cfg->DPE_Kernel_DpeConfig.DVS_CTRL02 = (unsigned int)DPE_RD32(DVS_CTRL02_REG);
-	cfg->DPE_Kernel_DpeConfig.DVS_CTRL03 = (unsigned int)DPE_RD32(DVS_CTRL03_REG);
-	cfg->DPE_Kernel_DpeConfig.DVS_CTRL06 = (unsigned int)DPE_RD32(DVS_CTRL06_REG);
-	cfg->DPE_Kernel_DpeConfig.DVS_CTRL07 = (unsigned int)DPE_RD32(DVS_CTRL07_REG);
-	cfg->DPE_Kernel_DpeConfig.DVS_IRQ_00 = (unsigned int)DPE_RD32(DVS_IRQ_00_REG);
-	cfg->DPE_Kernel_DpeConfig.DVS_IRQ_01 = (unsigned int)DPE_RD32(DVS_IRQ_01_REG);
-	cfg->DPE_Kernel_DpeConfig.DVS_CTRL_STATUS0 = (unsigned int)DPE_RD32(DVS_CTRL_STATUS0_REG);
-	cfg->DPE_Kernel_DpeConfig.DVS_CTRL_STATUS2 = (unsigned int)DPE_RD32(DVS_CTRL_STATUS2_REG);
-	cfg->DPE_Kernel_DpeConfig.DVS_IRQ_STATUS = (unsigned int)DPE_RD32(DVS_IRQ_STATUS_REG);
-	cfg->DPE_Kernel_DpeConfig.DVS_FRM_STATUS0 = (unsigned int)DPE_RD32(DVS_FRM_STATUS0_REG);
-	cfg->DPE_Kernel_DpeConfig.DVS_FRM_STATUS1 = (unsigned int)DPE_RD32(DVS_FRM_STATUS1_REG);
-	cfg->DPE_Kernel_DpeConfig.DVS_FRM_STATUS2 = (unsigned int)DPE_RD32(DVS_FRM_STATUS2_REG);
-	cfg->DPE_Kernel_DpeConfig.DVS_FRM_STATUS3 = (unsigned int)DPE_RD32(DVS_FRM_STATUS3_REG);
-	cfg->DPE_Kernel_DpeConfig.DVS_FRM_STATUS4 = (unsigned int)DPE_RD32(DVS_FRM_STATUS4_REG);
-	cfg->DPE_Kernel_DpeConfig.DVS_EXT_STATUS0 = (unsigned int)DPE_RD32(DVS_EXT_STATUS0_REG);
-	cfg->DPE_Kernel_DpeConfig.DVS_EXT_STATUS1 = (unsigned int)DPE_RD32(DVS_EXT_STATUS1_REG);
-	cfg->DPE_Kernel_DpeConfig.DVS_CUR_STATUS = (unsigned int)DPE_RD32(DVS_CUR_STATUS_REG);
-	cfg->DPE_Kernel_DpeConfig.DVS_SRC_CTRL = (unsigned int)DPE_RD32(DVS_SRC_CTRL_REG);
-	cfg->DPE_Kernel_DpeConfig.DVS_CRC_CTRL = (unsigned int)DPE_RD32(DVS_CRC_CTRL_REG);
-	cfg->DPE_Kernel_DpeConfig.DVS_CRC_IN = (unsigned int)DPE_RD32(DVS_CRC_IN_REG);
-	cfg->DPE_Kernel_DpeConfig.DVS_DRAM_STA0 = (unsigned int)DPE_RD32(DVS_DRAM_STA0_REG);
-	cfg->DPE_Kernel_DpeConfig.DVS_DRAM_STA1 = (unsigned int)DPE_RD32(DVS_DRAM_STA1_REG);
-	cfg->DPE_Kernel_DpeConfig.DVS_DRAM_ULT = (unsigned int)DPE_RD32(DVS_DRAM_ULT_REG);
-	cfg->DPE_Kernel_DpeConfig.DVS_DRAM_PITCH = (unsigned int)DPE_RD32(DVS_DRAM_PITCH_REG);
-	cfg->DPE_Kernel_DpeConfig.DVS_DRAM_PITCH1 = (unsigned int)DPE_RD32(DVS_DRAM_PITCH1_REG);
-	cfg->DPE_Kernel_DpeConfig.DVS_SRC_00 = (unsigned int)DPE_RD32(DVS_SRC_00_REG);
-	cfg->DPE_Kernel_DpeConfig.DVS_SRC_01 = (unsigned int)DPE_RD32(DVS_SRC_01_REG);
-	cfg->DPE_Kernel_DpeConfig.DVS_SRC_02 = (unsigned int)DPE_RD32(DVS_SRC_02_REG);
-	cfg->DPE_Kernel_DpeConfig.DVS_SRC_03 = (unsigned int)DPE_RD32(DVS_SRC_03_REG);
-	cfg->DPE_Kernel_DpeConfig.DVS_SRC_04 = (unsigned int)DPE_RD32(DVS_SRC_04_REG);
-	cfg->DPE_Kernel_DpeConfig.DVS_SRC_05_L_FRM0 = (unsigned int)DPE_RD32(DVS_SRC_05_L_FRM0_REG);
-	cfg->DPE_Kernel_DpeConfig.DVS_SRC_06_L_FRM1 = (unsigned int)DPE_RD32(DVS_SRC_06_L_FRM1_REG);
-	cfg->DPE_Kernel_DpeConfig.DVS_SRC_07_L_FRM2 = (unsigned int)DPE_RD32(DVS_SRC_07_L_FRM2_REG);
-	cfg->DPE_Kernel_DpeConfig.DVS_SRC_08_L_FRM3 = (unsigned int)DPE_RD32(DVS_SRC_08_L_FRM3_REG);
-	cfg->DPE_Kernel_DpeConfig.DVS_SRC_09_R_FRM0 = (unsigned int)DPE_RD32(DVS_SRC_09_R_FRM0_REG);
-	cfg->DPE_Kernel_DpeConfig.DVS_SRC_10_R_FRM1 = (unsigned int)DPE_RD32(DVS_SRC_10_R_FRM1_REG);
-	cfg->DPE_Kernel_DpeConfig.DVS_SRC_11_R_FRM2 = (unsigned int)DPE_RD32(DVS_SRC_11_R_FRM2_REG);
-	cfg->DPE_Kernel_DpeConfig.DVS_SRC_12_R_FRM3 = (unsigned int)DPE_RD32(DVS_SRC_12_R_FRM3_REG);
-	cfg->DPE_Kernel_DpeConfig.DVS_SRC_13_Hist0 = (unsigned int)DPE_RD32(DVS_SRC_13_Hist0_REG);
-	cfg->DPE_Kernel_DpeConfig.DVS_SRC_14_Hist1 = (unsigned int)DPE_RD32(DVS_SRC_14_Hist1_REG);
-	cfg->DPE_Kernel_DpeConfig.DVS_SRC_15_Hist2 = (unsigned int)DPE_RD32(DVS_SRC_15_Hist2_REG);
-	cfg->DPE_Kernel_DpeConfig.DVS_SRC_16_Hist3 = (unsigned int)DPE_RD32(DVS_SRC_16_Hist3_REG);
-	cfg->DPE_Kernel_DpeConfig.DVS_SRC_17_OCCDV_EXT0 =
-	(unsigned int)DPE_RD32(DVS_SRC_17_OCCDV_EXT0_REG);
-	cfg->DPE_Kernel_DpeConfig.DVS_SRC_18_OCCDV_EXT1 =
-	(unsigned int)DPE_RD32(DVS_SRC_18_OCCDV_EXT1_REG);
-	cfg->DPE_Kernel_DpeConfig.DVS_SRC_19_OCCDV_EXT2 =
-	(unsigned int)DPE_RD32(DVS_SRC_19_OCCDV_EXT2_REG);
-	cfg->DPE_Kernel_DpeConfig.DVS_SRC_20_OCCDV_EXT3 =
-	(unsigned int)DPE_RD32(DVS_SRC_20_OCCDV_EXT3_REG);
-	cfg->DPE_Kernel_DpeConfig.DVS_SRC_21_P4_L_DV_ADR =
-	(unsigned int)DPE_RD32(DVS_SRC_21_P4_L_DV_ADR_REG);
-	cfg->DPE_Kernel_DpeConfig.DVS_SRC_22_OCCDV0 = (unsigned int)DPE_RD32(DVS_SRC_22_OCCDV0_REG);
-	cfg->DPE_Kernel_DpeConfig.DVS_SRC_23_OCCDV1 = (unsigned int)DPE_RD32(DVS_SRC_23_OCCDV1_REG);
-	cfg->DPE_Kernel_DpeConfig.DVS_SRC_24_OCCDV2 = (unsigned int)DPE_RD32(DVS_SRC_24_OCCDV2_REG);
-	cfg->DPE_Kernel_DpeConfig.DVS_SRC_25_OCCDV3 = (unsigned int)DPE_RD32(DVS_SRC_25_OCCDV3_REG);
-	cfg->DPE_Kernel_DpeConfig.DVS_SRC_26_P4_R_DV_ADR =
-	(unsigned int)DPE_RD32(DVS_SRC_26_P4_R_DV_ADR_REG);
-	cfg->DPE_Kernel_DpeConfig.DVS_SRC_27 = (unsigned int)DPE_RD32(DVS_SRC_27_REG);
-	cfg->DPE_Kernel_DpeConfig.DVS_SRC_28 = (unsigned int)DPE_RD32(DVS_SRC_28_REG);
-	cfg->DPE_Kernel_DpeConfig.DVS_SRC_29 = (unsigned int)DPE_RD32(DVS_SRC_29_REG);
-	cfg->DPE_Kernel_DpeConfig.DVS_SRC_30 = (unsigned int)DPE_RD32(DVS_SRC_30_REG);
-	cfg->DPE_Kernel_DpeConfig.DVS_SRC_31 = (unsigned int)DPE_RD32(DVS_SRC_31_REG);
-	cfg->DPE_Kernel_DpeConfig.DVS_SRC_32 = (unsigned int)DPE_RD32(DVS_SRC_32_REG);
-	cfg->DPE_Kernel_DpeConfig.DVS_SRC_33 = (unsigned int)DPE_RD32(DVS_SRC_33_REG);
-	cfg->DPE_Kernel_DpeConfig.DVS_SRC_34 = (unsigned int)DPE_RD32(DVS_SRC_34_REG);
-	cfg->DPE_Kernel_DpeConfig.DVS_SRC_35 = (unsigned int)DPE_RD32(DVS_SRC_35_REG);
-	cfg->DPE_Kernel_DpeConfig.DVS_SRC_36 = (unsigned int)DPE_RD32(DVS_SRC_36_REG);
-	cfg->DPE_Kernel_DpeConfig.DVS_SRC_37 = (unsigned int)DPE_RD32(DVS_SRC_37_REG);
-	cfg->DPE_Kernel_DpeConfig.DVS_SRC_38 = (unsigned int)DPE_RD32(DVS_SRC_38_REG);
-	cfg->DPE_Kernel_DpeConfig.DVS_SRC_39 = (unsigned int)DPE_RD32(DVS_SRC_39_REG);
-	cfg->DPE_Kernel_DpeConfig.DVS_FIX_HIST_ADR = (unsigned int)DPE_RD32(DVS_FIX_HIST_ADR_REG);
-	cfg->DPE_Kernel_DpeConfig.DVS_CRC_OUT_0 = (unsigned int)DPE_RD32(DVS_CRC_OUT_0_REG);
-	cfg->DPE_Kernel_DpeConfig.DVS_CRC_OUT_1 = (unsigned int)DPE_RD32(DVS_CRC_OUT_1_REG);
-	cfg->DPE_Kernel_DpeConfig.DVS_CRC_OUT_2 = (unsigned int)DPE_RD32(DVS_CRC_OUT_2_REG);
-	cfg->DPE_Kernel_DpeConfig.DVS_CRC_OUT_3 = (unsigned int)DPE_RD32(DVS_CRC_OUT_3_REG);
-	cfg->DPE_Kernel_DpeConfig.DVS_DRAM_SEC_0 = (unsigned int)DPE_RD32(DVS_DRAM_SEC_0_REG);
-	cfg->DPE_Kernel_DpeConfig.DVS_DRAM_SEC_1 = (unsigned int)DPE_RD32(DVS_DRAM_SEC_1_REG);
-	cfg->DPE_Kernel_DpeConfig.DVS_DRAM_SEC_2 = (unsigned int)DPE_RD32(DVS_DRAM_SEC_2_REG);
-	cfg->DPE_Kernel_DpeConfig.DVS_DEQ_FORCE = (unsigned int)DPE_RD32(DVS_DEQ_FORCE_REG);
-	cfg->DPE_Kernel_DpeConfig.DVS_CTRL_RESERVED = (unsigned int)DPE_RD32(DVS_CTRL_RESERVED_REG);
-	cfg->DPE_Kernel_DpeConfig.DVS_CTRL_ATPG = (unsigned int)DPE_RD32(DVS_CTRL_ATPG_REG);
-
-	//ME
-	cfg->DPE_Kernel_DpeConfig.DVS_ME_00 = (unsigned int)DPE_RD32(DVS_ME_00_REG);
-	cfg->DPE_Kernel_DpeConfig.DVS_ME_01 = (unsigned int)DPE_RD32(DVS_ME_01_REG);
-	cfg->DPE_Kernel_DpeConfig.DVS_ME_02 = (unsigned int)DPE_RD32(DVS_ME_02_REG);
-	cfg->DPE_Kernel_DpeConfig.DVS_ME_03 = (unsigned int)DPE_RD32(DVS_ME_03_REG);
-	cfg->DPE_Kernel_DpeConfig.DVS_ME_04 = (unsigned int)DPE_RD32(DVS_ME_04_REG);
-	cfg->DPE_Kernel_DpeConfig.DVS_ME_05 = (unsigned int)DPE_RD32(DVS_ME_05_REG);
-	cfg->DPE_Kernel_DpeConfig.DVS_ME_06 = (unsigned int)DPE_RD32(DVS_ME_06_REG);
-	cfg->DPE_Kernel_DpeConfig.DVS_ME_07 = (unsigned int)DPE_RD32(DVS_ME_07_REG);
-	cfg->DPE_Kernel_DpeConfig.DVS_ME_08 = (unsigned int)DPE_RD32(DVS_ME_08_REG);
-	cfg->DPE_Kernel_DpeConfig.DVS_ME_09 = (unsigned int)DPE_RD32(DVS_ME_09_REG);
-	cfg->DPE_Kernel_DpeConfig.DVS_ME_10 = (unsigned int)DPE_RD32(DVS_ME_10_REG);
-	cfg->DPE_Kernel_DpeConfig.DVS_ME_11 = (unsigned int)DPE_RD32(DVS_ME_11_REG);
-	cfg->DPE_Kernel_DpeConfig.DVS_ME_12 = (unsigned int)DPE_RD32(DVS_ME_12_REG);
-	cfg->DPE_Kernel_DpeConfig.DVS_ME_13 = (unsigned int)DPE_RD32(DVS_ME_13_REG);
-	cfg->DPE_Kernel_DpeConfig.DVS_ME_14 = (unsigned int)DPE_RD32(DVS_ME_14_REG);
-	cfg->DPE_Kernel_DpeConfig.DVS_ME_15 = (unsigned int)DPE_RD32(DVS_ME_15_REG);
-	cfg->DPE_Kernel_DpeConfig.DVS_ME_16 = (unsigned int)DPE_RD32(DVS_ME_16_REG);
-	cfg->DPE_Kernel_DpeConfig.DVS_ME_17 = (unsigned int)DPE_RD32(DVS_ME_17_REG);
-	cfg->DPE_Kernel_DpeConfig.DVS_ME_18 = (unsigned int)DPE_RD32(DVS_ME_18_REG);
-	cfg->DPE_Kernel_DpeConfig.DVS_ME_19 = (unsigned int)DPE_RD32(DVS_ME_19_REG);
-	cfg->DPE_Kernel_DpeConfig.DVS_ME_20 = (unsigned int)DPE_RD32(DVS_ME_20_REG);
-	cfg->DPE_Kernel_DpeConfig.DVS_ME_21 = (unsigned int)DPE_RD32(DVS_ME_21_REG);
-	cfg->DPE_Kernel_DpeConfig.DVS_ME_22 = (unsigned int)DPE_RD32(DVS_ME_22_REG);
-	cfg->DPE_Kernel_DpeConfig.DVS_ME_23 = (unsigned int)DPE_RD32(DVS_ME_23_REG);
-	cfg->DPE_Kernel_DpeConfig.DVS_ME_24 = (unsigned int)DPE_RD32(DVS_ME_24_REG);
-	cfg->DPE_Kernel_DpeConfig.DVS_ME_25 = (unsigned int)DPE_RD32(DVS_ME_25_REG);
-	cfg->DPE_Kernel_DpeConfig.DVS_ME_26 = (unsigned int)DPE_RD32(DVS_ME_26_REG);
-	cfg->DPE_Kernel_DpeConfig.DVS_ME_27 = (unsigned int)DPE_RD32(DVS_ME_27_REG);
-	cfg->DPE_Kernel_DpeConfig.DVS_ME_28 = (unsigned int)DPE_RD32(DVS_ME_28_REG);
-	cfg->DPE_Kernel_DpeConfig.DVS_ME_29 = (unsigned int)DPE_RD32(DVS_ME_29_REG);
-	cfg->DPE_Kernel_DpeConfig.DVS_ME_30 = (unsigned int)DPE_RD32(DVS_ME_30_REG);
-	cfg->DPE_Kernel_DpeConfig.DVS_ME_31 = (unsigned int)DPE_RD32(DVS_ME_31_REG);
-	cfg->DPE_Kernel_DpeConfig.DVS_ME_32 = (unsigned int)DPE_RD32(DVS_ME_32_REG);
-	cfg->DPE_Kernel_DpeConfig.DVS_ME_33 = (unsigned int)DPE_RD32(DVS_ME_33_REG);
-	cfg->DPE_Kernel_DpeConfig.DVS_ME_34 = (unsigned int)DPE_RD32(DVS_ME_34_REG);
-	cfg->DPE_Kernel_DpeConfig.DVS_ME_35 = (unsigned int)DPE_RD32(DVS_ME_35_REG);
-	cfg->DPE_Kernel_DpeConfig.DVS_ME_36 = (unsigned int)DPE_RD32(DVS_ME_36_REG);
-	cfg->DPE_Kernel_DpeConfig.DVS_ME_37 = (unsigned int)DPE_RD32(DVS_ME_37_REG);
-	cfg->DPE_Kernel_DpeConfig.DVS_ME_38 = (unsigned int)DPE_RD32(DVS_ME_38_REG);
-	cfg->DPE_Kernel_DpeConfig.DVS_ME_39 = (unsigned int)DPE_RD32(DVS_ME_39_REG);
-	cfg->DPE_Kernel_DpeConfig.DVS_DEBUG = (unsigned int)DPE_RD32(DVS_DEBUG_REG);
-	cfg->DPE_Kernel_DpeConfig.DVS_ME_RESERVED = (unsigned int)DPE_RD32(DVS_ME_RESERVED_REG);
-	cfg->DPE_Kernel_DpeConfig.DVS_ME_ATPG = (unsigned int)DPE_RD32(DVS_ME_ATPG_REG);
-	cfg->DPE_Kernel_DpeConfig.DVS_ME_40 = (unsigned int)DPE_RD32(DVS_ME_40_REG);
-	cfg->DPE_Kernel_DpeConfig.DVS_ME_41 = (unsigned int)DPE_RD32(DVS_ME_41_REG);
-	cfg->DPE_Kernel_DpeConfig.DVS_ME_42 = (unsigned int)DPE_RD32(DVS_ME_42_REG);
-	cfg->DPE_Kernel_DpeConfig.DVS_ME_43 = (unsigned int)DPE_RD32(DVS_ME_43_REG);
-	cfg->DPE_Kernel_DpeConfig.DVS_ME_44 = (unsigned int)DPE_RD32(DVS_ME_44_REG);
-	cfg->DPE_Kernel_DpeConfig.DVS_ME_45 = (unsigned int)DPE_RD32(DVS_ME_45_REG);
-	cfg->DPE_Kernel_DpeConfig.DVS_ME_46 = (unsigned int)DPE_RD32(DVS_ME_46_REG);
-	cfg->DPE_Kernel_DpeConfig.DVS_ME_47 = (unsigned int)DPE_RD32(DVS_ME_47_REG);
-	cfg->DPE_Kernel_DpeConfig.DVS_ME_48 = (unsigned int)DPE_RD32(DVS_ME_48_REG);
-	cfg->DPE_Kernel_DpeConfig.DVS_ME_49 = (unsigned int)DPE_RD32(DVS_ME_49_REG);
-	cfg->DPE_Kernel_DpeConfig.DVS_ME_50 = (unsigned int)DPE_RD32(DVS_ME_50_REG);
-	cfg->DPE_Kernel_DpeConfig.DVS_ME_51 = (unsigned int)DPE_RD32(DVS_ME_51_REG);
-	cfg->DPE_Kernel_DpeConfig.DVS_ME_52 = (unsigned int)DPE_RD32(DVS_ME_52_REG);
-	cfg->DPE_Kernel_DpeConfig.DVS_ME_53 = (unsigned int)DPE_RD32(DVS_ME_53_REG);
-	cfg->DPE_Kernel_DpeConfig.DVS_ME_54 = (unsigned int)DPE_RD32(DVS_ME_54_REG);
-	cfg->DPE_Kernel_DpeConfig.DVS_ME_55 = (unsigned int)DPE_RD32(DVS_ME_55_REG);
-	cfg->DPE_Kernel_DpeConfig.DVS_ME_56 = (unsigned int)DPE_RD32(DVS_ME_56_REG);
-	cfg->DPE_Kernel_DpeConfig.DVS_ME_57 = (unsigned int)DPE_RD32(DVS_ME_57_REG);
-	cfg->DPE_Kernel_DpeConfig.DVS_ME_58 = (unsigned int)DPE_RD32(DVS_ME_58_REG);
-	cfg->DPE_Kernel_DpeConfig.DVS_ME_59 = (unsigned int)DPE_RD32(DVS_ME_59_REG);
-
-	//OCC
-	cfg->DPE_Kernel_DpeConfig.DVS_OCC_PQ_0 = (unsigned int)DPE_RD32(DVS_OCC_PQ_0_REG);
-	cfg->DPE_Kernel_DpeConfig.DVS_OCC_PQ_1 = (unsigned int)DPE_RD32(DVS_OCC_PQ_1_REG);
-	cfg->DPE_Kernel_DpeConfig.DVS_OCC_PQ_2 = (unsigned int)DPE_RD32(DVS_OCC_PQ_2_REG);
-	cfg->DPE_Kernel_DpeConfig.DVS_OCC_PQ_3 = (unsigned int)DPE_RD32(DVS_OCC_PQ_3_REG);
-	cfg->DPE_Kernel_DpeConfig.DVS_OCC_PQ_4 = (unsigned int)DPE_RD32(DVS_OCC_PQ_4_REG);
-	cfg->DPE_Kernel_DpeConfig.DVS_OCC_PQ_5 = (unsigned int)DPE_RD32(DVS_OCC_PQ_5_REG);
-	cfg->DPE_Kernel_DpeConfig.DVS_OCC_PQ_10 = (unsigned int)DPE_RD32(DVS_OCC_PQ_10_REG);
-	cfg->DPE_Kernel_DpeConfig.DVS_OCC_PQ_11 = (unsigned int)DPE_RD32(DVS_OCC_PQ_11_REG);
-	cfg->DPE_Kernel_DpeConfig.DVS_OCC_PQ_12 = (unsigned int)DPE_RD32(DVS_OCC_PQ_12_REG);
-	cfg->DPE_Kernel_DpeConfig.DVS_OCC_ATPG = (unsigned int)DPE_RD32(DVS_OCC_ATPG_REG);
-	cfg->DPE_Kernel_DpeConfig.DVS_OCC_HIST0 = (unsigned int)DPE_RD32(DVS_OCC_HIST0_REG);
-	cfg->DPE_Kernel_DpeConfig.DVS_OCC_HIST1 = (unsigned int)DPE_RD32(DVS_OCC_HIST1_REG);
-	cfg->DPE_Kernel_DpeConfig.DVS_OCC_HIST2 = (unsigned int)DPE_RD32(DVS_OCC_HIST2_REG);
-	cfg->DPE_Kernel_DpeConfig.DVS_OCC_HIST3 = (unsigned int)DPE_RD32(DVS_OCC_HIST3_REG);
-	cfg->DPE_Kernel_DpeConfig.DVS_OCC_HIST4 = (unsigned int)DPE_RD32(DVS_OCC_HIST4_REG);
-	cfg->DPE_Kernel_DpeConfig.DVS_OCC_HIST5 = (unsigned int)DPE_RD32(DVS_OCC_HIST5_REG);
-	cfg->DPE_Kernel_DpeConfig.DVS_OCC_HIST6 = (unsigned int)DPE_RD32(DVS_OCC_HIST6_REG);
-	cfg->DPE_Kernel_DpeConfig.DVS_OCC_HIST7 = (unsigned int)DPE_RD32(DVS_OCC_HIST7_REG);
-	cfg->DPE_Kernel_DpeConfig.DVS_OCC_HIST8 = (unsigned int)DPE_RD32(DVS_OCC_HIST8_REG);
-	cfg->DPE_Kernel_DpeConfig.DVS_OCC_HIST9 = (unsigned int)DPE_RD32(DVS_OCC_HIST9_REG);
-	cfg->DPE_Kernel_DpeConfig.DVS_OCC_HIST10 = (unsigned int)DPE_RD32(DVS_OCC_HIST10_REG);
-	cfg->DPE_Kernel_DpeConfig.DVS_OCC_HIST11 = (unsigned int)DPE_RD32(DVS_OCC_HIST11_REG);
-	cfg->DPE_Kernel_DpeConfig.DVS_OCC_HIST12 = (unsigned int)DPE_RD32(DVS_OCC_HIST12_REG);
-	cfg->DPE_Kernel_DpeConfig.DVS_OCC_HIST13 = (unsigned int)DPE_RD32(DVS_OCC_HIST13_REG);
-	cfg->DPE_Kernel_DpeConfig.DVS_OCC_HIST14 = (unsigned int)DPE_RD32(DVS_OCC_HIST14_REG);
-	cfg->DPE_Kernel_DpeConfig.DVS_OCC_HIST15 = (unsigned int)DPE_RD32(DVS_OCC_HIST15_REG);
-	cfg->DPE_Kernel_DpeConfig.DVS_OCC_HIST16 = (unsigned int)DPE_RD32(DVS_OCC_HIST16_REG);
-	cfg->DPE_Kernel_DpeConfig.DVS_OCC_HIST17 = (unsigned int)DPE_RD32(DVS_OCC_HIST17_REG);
-	cfg->DPE_Kernel_DpeConfig.DVS_OCC_HIST18 = (unsigned int)DPE_RD32(DVS_OCC_HIST18_REG);
-	//DVP
-	cfg->DPE_Kernel_DpeConfig.DVP_CTRL00 = (unsigned int)DPE_RD32(DVP_CTRL00_REG);
-	cfg->DPE_Kernel_DpeConfig.DVP_CTRL01 = (unsigned int)DPE_RD32(DVP_CTRL01_REG);
-	cfg->DPE_Kernel_DpeConfig.DVP_CTRL02 = (unsigned int)DPE_RD32(DVP_CTRL02_REG);
-	cfg->DPE_Kernel_DpeConfig.DVP_CTRL03 = (unsigned int)DPE_RD32(DVP_CTRL03_REG);
-	cfg->DPE_Kernel_DpeConfig.DVP_CTRL04 = (unsigned int)DPE_RD32(DVP_CTRL04_REG);
-	cfg->DPE_Kernel_DpeConfig.DVP_CTRL05 = (unsigned int)DPE_RD32(DVP_CTRL05_REG);
-	cfg->DPE_Kernel_DpeConfig.DVP_CTRL07 = (unsigned int)DPE_RD32(DVP_CTRL07_REG);
-	cfg->DPE_Kernel_DpeConfig.DVP_IRQ_00 = (unsigned int)DPE_RD32(DVP_IRQ_00_REG);
-	cfg->DPE_Kernel_DpeConfig.DVP_IRQ_01 = (unsigned int)DPE_RD32(DVP_IRQ_01_REG);
-	cfg->DPE_Kernel_DpeConfig.DVP_CTRL_STATUS0 = (unsigned int)DPE_RD32(DVP_CTRL_STATUS0_REG);
-	cfg->DPE_Kernel_DpeConfig.DVP_CTRL_STATUS1 = (unsigned int)DPE_RD32(DVP_CTRL_STATUS1_REG);
-	cfg->DPE_Kernel_DpeConfig.DVP_IRQ_STATUS = (unsigned int)DPE_RD32(DVP_IRQ_STATUS_REG);
-	cfg->DPE_Kernel_DpeConfig.DVP_FRM_STATUS0 = (unsigned int)DPE_RD32(DVP_FRM_STATUS0_REG);
-	cfg->DPE_Kernel_DpeConfig.DVP_FRM_STATUS1 = (unsigned int)DPE_RD32(DVP_FRM_STATUS1_REG);
-	cfg->DPE_Kernel_DpeConfig.DVP_FRM_STATUS2 = (unsigned int)DPE_RD32(DVP_FRM_STATUS2_REG);
-	cfg->DPE_Kernel_DpeConfig.DVP_FRM_STATUS3 = (unsigned int)DPE_RD32(DVP_FRM_STATUS3_REG);
-	cfg->DPE_Kernel_DpeConfig.DVP_CUR_STATUS = (unsigned int)DPE_RD32(DVP_CUR_STATUS_REG);
-	cfg->DPE_Kernel_DpeConfig.DVP_SRC_00 = (unsigned int)DPE_RD32(DVP_SRC_00_REG);
-	cfg->DPE_Kernel_DpeConfig.DVP_SRC_01 = (unsigned int)DPE_RD32(DVP_SRC_01_REG);
-	cfg->DPE_Kernel_DpeConfig.DVP_SRC_02 = (unsigned int)DPE_RD32(DVP_SRC_02_REG);
-	cfg->DPE_Kernel_DpeConfig.DVP_SRC_03 = (unsigned int)DPE_RD32(DVP_SRC_03_REG);
-	cfg->DPE_Kernel_DpeConfig.DVP_SRC_04 = (unsigned int)DPE_RD32(DVP_SRC_04_REG);
-	cfg->DPE_Kernel_DpeConfig.DVP_SRC_05_Y_FRM0 = (unsigned int)DPE_RD32(DVP_SRC_05_Y_FRM0_REG);
-	cfg->DPE_Kernel_DpeConfig.DVP_SRC_06_Y_FRM1 = (unsigned int)DPE_RD32(DVP_SRC_06_Y_FRM1_REG);
-	cfg->DPE_Kernel_DpeConfig.DVP_SRC_07_Y_FRM2 = (unsigned int)DPE_RD32(DVP_SRC_07_Y_FRM2_REG);
-	cfg->DPE_Kernel_DpeConfig.DVP_SRC_08_Y_FRM3 = (unsigned int)DPE_RD32(DVP_SRC_08_Y_FRM3_REG);
-	cfg->DPE_Kernel_DpeConfig.DVP_SRC_09_C_FRM0 = (unsigned int)DPE_RD32(DVP_SRC_09_C_FRM0_REG);
-	cfg->DPE_Kernel_DpeConfig.DVP_SRC_10_C_FRM1 = (unsigned int)DPE_RD32(DVP_SRC_10_C_FRM1_REG);
-	cfg->DPE_Kernel_DpeConfig.DVP_SRC_11_C_FRM2 = (unsigned int)DPE_RD32(DVP_SRC_11_C_FRM2_REG);
-	cfg->DPE_Kernel_DpeConfig.DVP_SRC_12_C_FRM3 = (unsigned int)DPE_RD32(DVP_SRC_12_C_FRM3_REG);
-	cfg->DPE_Kernel_DpeConfig.DVP_SRC_13_OCCDV0 = (unsigned int)DPE_RD32(DVP_SRC_13_OCCDV0_REG);
-	cfg->DPE_Kernel_DpeConfig.DVP_SRC_14_OCCDV1 = (unsigned int)DPE_RD32(DVP_SRC_14_OCCDV1_REG);
-	cfg->DPE_Kernel_DpeConfig.DVP_SRC_15_OCCDV2 = (unsigned int)DPE_RD32(DVP_SRC_15_OCCDV2_REG);
-	cfg->DPE_Kernel_DpeConfig.DVP_SRC_16_OCCDV3 = (unsigned int)DPE_RD32(DVP_SRC_16_OCCDV3_REG);
-	cfg->DPE_Kernel_DpeConfig.DVP_SRC_17_CRM = (unsigned int)DPE_RD32(DVP_SRC_17_CRM_REG);
-	cfg->DPE_Kernel_DpeConfig.DVP_SRC_18_ASF_RMDV =
-	(unsigned int)DPE_RD32(DVP_SRC_18_ASF_RMDV_REG);
-	cfg->DPE_Kernel_DpeConfig.DVP_SRC_19_ASF_RDDV =
-	(unsigned int)DPE_RD32(DVP_SRC_19_ASF_RDDV_REG);
-	cfg->DPE_Kernel_DpeConfig.DVP_SRC_20_ASF_DV0 =
-	(unsigned int)DPE_RD32(DVP_SRC_20_ASF_DV0_REG);
-	cfg->DPE_Kernel_DpeConfig.DVP_SRC_21_ASF_DV1 =
-	(unsigned int)DPE_RD32(DVP_SRC_21_ASF_DV1_REG);
-	cfg->DPE_Kernel_DpeConfig.DVP_SRC_22_ASF_DV2 =
-	(unsigned int)DPE_RD32(DVP_SRC_22_ASF_DV2_REG);
-	cfg->DPE_Kernel_DpeConfig.DVP_SRC_23_ASF_DV3 =
-	(unsigned int)DPE_RD32(DVP_SRC_23_ASF_DV3_REG);
-	cfg->DPE_Kernel_DpeConfig.DVP_SRC_25_WMF_HFDV =
-	(unsigned int)DPE_RD32(DVP_SRC_25_WMF_HFDV_REG);
-	cfg->DPE_Kernel_DpeConfig.DVP_SRC_26_WMF_DV0 =
-	(unsigned int)DPE_RD32(DVP_SRC_26_WMF_DV0_REG);
-	cfg->DPE_Kernel_DpeConfig.DVP_SRC_27_WMF_DV1 =
-	(unsigned int)DPE_RD32(DVP_SRC_27_WMF_DV1_REG);
-	cfg->DPE_Kernel_DpeConfig.DVP_SRC_28_WMF_DV2 =
-	(unsigned int)DPE_RD32(DVP_SRC_28_WMF_DV2_REG);
-	cfg->DPE_Kernel_DpeConfig.DVP_SRC_29_WMF_DV3 =
-	(unsigned int)DPE_RD32(DVP_SRC_29_WMF_DV3_REG);
-
-	//CORE
-	cfg->DPE_Kernel_DpeConfig.DVP_CORE_00 = (unsigned int)DPE_RD32(DVP_CORE_00_REG);
-	cfg->DPE_Kernel_DpeConfig.DVP_CORE_01 = (unsigned int)DPE_RD32(DVP_CORE_01_REG);
-	cfg->DPE_Kernel_DpeConfig.DVP_CORE_02 = (unsigned int)DPE_RD32(DVP_CORE_02_REG);
-	cfg->DPE_Kernel_DpeConfig.DVP_CORE_03 = (unsigned int)DPE_RD32(DVP_CORE_03_REG);
-	cfg->DPE_Kernel_DpeConfig.DVP_CORE_04 = (unsigned int)DPE_RD32(DVP_CORE_04_REG);
-	cfg->DPE_Kernel_DpeConfig.DVP_CORE_05 = (unsigned int)DPE_RD32(DVP_CORE_05_REG);
-	cfg->DPE_Kernel_DpeConfig.DVP_CORE_06 = (unsigned int)DPE_RD32(DVP_CORE_06_REG);
-	cfg->DPE_Kernel_DpeConfig.DVP_CORE_07 = (unsigned int)DPE_RD32(DVP_CORE_07_REG);
-	cfg->DPE_Kernel_DpeConfig.DVP_CORE_08 = (unsigned int)DPE_RD32(DVP_CORE_08_REG);
-	cfg->DPE_Kernel_DpeConfig.DVP_CORE_09 = (unsigned int)DPE_RD32(DVP_CORE_09_REG);
-	cfg->DPE_Kernel_DpeConfig.DVP_CORE_10 = (unsigned int)DPE_RD32(DVP_CORE_10_REG);
-	cfg->DPE_Kernel_DpeConfig.DVP_CORE_11 = (unsigned int)DPE_RD32(DVP_CORE_11_REG);
-	cfg->DPE_Kernel_DpeConfig.DVP_CORE_12 = (unsigned int)DPE_RD32(DVP_CORE_12_REG);
-	cfg->DPE_Kernel_DpeConfig.DVP_CORE_13 = (unsigned int)DPE_RD32(DVP_CORE_13_REG);
-	cfg->DPE_Kernel_DpeConfig.DVP_CORE_14 = (unsigned int)DPE_RD32(DVP_CORE_14_REG);
-	cfg->DPE_Kernel_DpeConfig.DVP_CORE_15 = (unsigned int)DPE_RD32(DVP_CORE_15_REG);
-	cfg->DPE_Kernel_DpeConfig.DVP_CORE_16 = (unsigned int)DPE_RD32(DVP_CORE_16_REG);
-	cfg->DPE_Kernel_DpeConfig.DVP_CORE_17 = (unsigned int)DPE_RD32(DVP_CORE_17_REG);
-	cfg->DPE_Kernel_DpeConfig.DVP_CORE_18 = (unsigned int)DPE_RD32(DVP_CORE_18_REG);
-	cfg->DPE_Kernel_DpeConfig.DVP_CORE_19 = (unsigned int)DPE_RD32(DVP_CORE_19_REG);
-	cfg->DPE_Kernel_DpeConfig.DVP_SRC_CTRL = (unsigned int)DPE_RD32(DVP_SRC_CTRL_REG);
-	cfg->DPE_Kernel_DpeConfig.DVP_CTRL_RESERVED = (unsigned int)DPE_RD32(DVP_CTRL_RESERVED_REG);
-	cfg->DPE_Kernel_DpeConfig.DVP_CTRL_ATPG = (unsigned int)DPE_RD32(DVP_CTRL_ATPG_REG);
-	cfg->DPE_Kernel_DpeConfig.DVP_CRC_OUT_0 = (unsigned int)DPE_RD32(DVP_CRC_OUT_0_REG);
-	cfg->DPE_Kernel_DpeConfig.DVP_CRC_OUT_1 = (unsigned int)DPE_RD32(DVP_CRC_OUT_1_REG);
-	cfg->DPE_Kernel_DpeConfig.DVP_CRC_OUT_2 = (unsigned int)DPE_RD32(DVP_CRC_OUT_2_REG);
-	cfg->DPE_Kernel_DpeConfig.DVP_CRC_CTRL = (unsigned int)DPE_RD32(DVP_CRC_CTRL_REG);
-	cfg->DPE_Kernel_DpeConfig.DVP_CRC_OUT = (unsigned int)DPE_RD32(DVP_CRC_OUT_REG);
-	cfg->DPE_Kernel_DpeConfig.DVP_CRC_IN = (unsigned int)DPE_RD32(DVP_CRC_IN_REG);
-	cfg->DPE_Kernel_DpeConfig.DVP_DRAM_STA = (unsigned int)DPE_RD32(DVP_DRAM_STA_REG);
-	cfg->DPE_Kernel_DpeConfig.DVP_DRAM_ULT = (unsigned int)DPE_RD32(DVP_DRAM_ULT_REG);
-	cfg->DPE_Kernel_DpeConfig.DVP_DRAM_PITCH = (unsigned int)DPE_RD32(DVP_DRAM_PITCH_REG);
-	cfg->DPE_Kernel_DpeConfig.DVP_DRAM_SEC_0 = (unsigned int)DPE_RD32(DVP_DRAM_SEC_0_REG);
-	cfg->DPE_Kernel_DpeConfig.DVP_DRAM_SEC_1 = (unsigned int)DPE_RD32(DVP_DRAM_SEC_1_REG);
-	cfg->DPE_Kernel_DpeConfig.DVP_CORE_CRC_IN = (unsigned int)DPE_RD32(DVP_CORE_CRC_IN_REG);
-	cfg->DPE_Kernel_DpeConfig.DVP_EXT_SRC_13_OCCDV0 =
-	(unsigned int)DPE_RD32(DVP_EXT_SRC_13_OCCDV0_REG);
-	cfg->DPE_Kernel_DpeConfig.DVP_EXT_SRC_14_OCCDV1 =
-	(unsigned int)DPE_RD32(DVP_EXT_SRC_14_OCCDV1_REG);
-	cfg->DPE_Kernel_DpeConfig.DVP_EXT_SRC_15_OCCDV2 =
-	(unsigned int)DPE_RD32(DVP_EXT_SRC_15_OCCDV2_REG);
-	cfg->DPE_Kernel_DpeConfig.DVP_EXT_SRC_16_OCCDV3 =
-	(unsigned int)DPE_RD32(DVP_EXT_SRC_16_OCCDV3_REG);
-	cfg->DPE_Kernel_DpeConfig.DVP_EXT_SRC_18_ASF_RMDV =
-	(unsigned int)DPE_RD32(DVP_EXT_SRC_18_ASF_RMDV_REG);
-	cfg->DPE_Kernel_DpeConfig.DVP_EXT_SRC_19_ASF_RDDV =
-	(unsigned int)DPE_RD32(DVP_EXT_SRC_19_ASF_RDDV_REG);
-	cfg->DPE_Kernel_DpeConfig.DVP_EXT_SRC_20_ASF_DV0 =
-	(unsigned int)DPE_RD32(DVP_EXT_SRC_20_ASF_DV0_REG);
-	cfg->DPE_Kernel_DpeConfig.DVP_EXT_SRC_21_ASF_DV1 =
-	(unsigned int)DPE_RD32(DVP_EXT_SRC_21_ASF_DV1_REG);
-	cfg->DPE_Kernel_DpeConfig.DVP_EXT_SRC_22_ASF_DV2 =
-	(unsigned int)DPE_RD32(DVP_EXT_SRC_22_ASF_DV2_REG);
-	cfg->DPE_Kernel_DpeConfig.DVP_EXT_SRC_23_ASF_DV3 =
-	(unsigned int)DPE_RD32(DVP_EXT_SRC_23_ASF_DV3_REG);
-	cfg->DPE_Kernel_DpeConfig.DVP_EXT_SRC_24_WMF_RD_DV_ADR =
-	(unsigned int)DPE_RD32(DVP_EXT_SRC_24_WMF_RD_DV_ADR_REG);
-	// DVGF
-	cfg->DPE_Kernel_DpeConfig.DVGF_CTRL_00 =
-	(unsigned int)DPE_RD32(DVGF_CTRL_00_REG);
-	cfg->DPE_Kernel_DpeConfig.DVGF_CTRL_01 =
-	(unsigned int)DPE_RD32(DVGF_CTRL_01_REG);
-	cfg->DPE_Kernel_DpeConfig.DVGF_CTRL_02 =
-	(unsigned int)DPE_RD32(DVGF_CTRL_02_REG);
-	cfg->DPE_Kernel_DpeConfig.DVGF_CTRL_03 =
-	(unsigned int)DPE_RD32(DVGF_CTRL_03_REG);
-	cfg->DPE_Kernel_DpeConfig.DVGF_CTRL_05 =
-	(unsigned int)DPE_RD32(DVGF_CTRL_05_REG);
-	cfg->DPE_Kernel_DpeConfig.DVGF_CTRL_07 =
-	(unsigned int)DPE_RD32(DVGF_CTRL_07_REG);
-	cfg->DPE_Kernel_DpeConfig.DVGF_IRQ_00 =
-	(unsigned int)DPE_RD32(DVGF_IRQ_00_REG);
-	cfg->DPE_Kernel_DpeConfig.DVGF_IRQ_01 =
-	(unsigned int)DPE_RD32(DVGF_IRQ_01_REG);
-	cfg->DPE_Kernel_DpeConfig.DVGF_CTRL_STATUS0 =
-	(unsigned int)DPE_RD32(DVGF_CTRL_STATUS0_REG);
-	cfg->DPE_Kernel_DpeConfig.DVGF_CTRL_STATUS0 =
-	(unsigned int)DPE_RD32(DVGF_CTRL_STATUS0_REG);
-	cfg->DPE_Kernel_DpeConfig.DVGF_IRQ_STATUS =
-	(unsigned int)DPE_RD32(DVGF_IRQ_STATUS_REG);
-	cfg->DPE_Kernel_DpeConfig.DVGF_FRM_STATUS =
-	(unsigned int)DPE_RD32(DVGF_FRM_STATUS_REG);
-	cfg->DPE_Kernel_DpeConfig.DVGF_CUR_STATUS =
-	(unsigned int)DPE_RD32(DVGF_CUR_STATUS_REG);
-	cfg->DPE_Kernel_DpeConfig.DVGF_CRC_CTRL =
-	(unsigned int)DPE_RD32(DVGF_CRC_CTRL_REG);
-	cfg->DPE_Kernel_DpeConfig.DVGF_CRC_OUT =
-	(unsigned int)DPE_RD32(DVGF_CRC_OUT_REG);
-	cfg->DPE_Kernel_DpeConfig.DVGF_CRC_IN =
-	(unsigned int)DPE_RD32(DVGF_CRC_IN_REG);
-	cfg->DPE_Kernel_DpeConfig.DVGF_CRC_OUT_0 =
-	(unsigned int)DPE_RD32(DVGF_CRC_OUT_0_REG);
-	cfg->DPE_Kernel_DpeConfig.DVGF_CRC_OUT_1 =
-	(unsigned int)DPE_RD32(DVGF_CRC_OUT_1_REG);
-	cfg->DPE_Kernel_DpeConfig.DVGF_CRC_OUT_2 =
-	(unsigned int)DPE_RD32(DVGF_CRC_OUT_2_REG);
-	cfg->DPE_Kernel_DpeConfig.DVGF_CORE_CRC_IN =
-	(unsigned int)DPE_RD32(DVGF_CORE_CRC_IN_REG);
-	cfg->DPE_Kernel_DpeConfig.DVGF_DRAM_STA =
-	(unsigned int)DPE_RD32(DVGF_DRAM_STA_REG);
-	cfg->DPE_Kernel_DpeConfig.DVGF_DRAM_PITCH =
-	(unsigned int)DPE_RD32(DVGF_DRAM_PITCH_REG);
-	cfg->DPE_Kernel_DpeConfig.DVGF_DRAM_SEC_0 =
-	(unsigned int)DPE_RD32(DVGF_DRAM_SEC_0_REG);
-	cfg->DPE_Kernel_DpeConfig.DVGF_DRAM_SEC_1 =
-	(unsigned int)DPE_RD32(DVGF_DRAM_SEC_1_REG);
-	cfg->DPE_Kernel_DpeConfig.DVGF_CTRL_STATUS_32b_00 =
-	(unsigned int)DPE_RD32(DVGF_CTRL_STATUS_32b_00_REG);
-	cfg->DPE_Kernel_DpeConfig.DVGF_CTRL_STATUS_32b_01 =
-	(unsigned int)DPE_RD32(DVGF_CTRL_STATUS_32b_01_REG);
-	cfg->DPE_Kernel_DpeConfig.DVGF_CTRL_STATUS_32b_02 =
-	(unsigned int)DPE_RD32(DVGF_CTRL_STATUS_32b_02_REG);
-	cfg->DPE_Kernel_DpeConfig.DVGF_CTRL_STATUS_32b_03 =
-	(unsigned int)DPE_RD32(DVGF_CTRL_STATUS_32b_03_REG);
-	cfg->DPE_Kernel_DpeConfig.DVGF_CTRL_STATUS_32b_04 =
-	(unsigned int)DPE_RD32(DVGF_CTRL_STATUS_32b_04_REG);
-	cfg->DPE_Kernel_DpeConfig.DVGF_CTRL_RESERVED =
-	(unsigned int)DPE_RD32(DVGF_CTRL_RESERVED_REG);
-	cfg->DPE_Kernel_DpeConfig.DVGF_CTRL_ATPG =
-	(unsigned int)DPE_RD32(DVGF_CTRL_ATPG_REG);
-	cfg->DPE_Kernel_DpeConfig.DVGF_SRC_00 =
-	(unsigned int)DPE_RD32(DVGF_SRC_00_REG);
-	cfg->DPE_Kernel_DpeConfig.DVGF_SRC_01 =
-	(unsigned int)DPE_RD32(DVGF_SRC_01_REG);
-	cfg->DPE_Kernel_DpeConfig.DVGF_SRC_02 =
-	(unsigned int)DPE_RD32(DVGF_SRC_02_REG);
-	cfg->DPE_Kernel_DpeConfig.DVGF_SRC_04 =
-	(unsigned int)DPE_RD32(DVGF_SRC_04_REG);
-	cfg->DPE_Kernel_DpeConfig.DVGF_SRC_05 =
-	(unsigned int)DPE_RD32(DVGF_SRC_05_REG);
-	cfg->DPE_Kernel_DpeConfig.DVGF_SRC_06 =
-	(unsigned int)DPE_RD32(DVGF_SRC_06_REG);
-	cfg->DPE_Kernel_DpeConfig.DVGF_SRC_07 =
-	(unsigned int)DPE_RD32(DVGF_SRC_07_REG);
-	cfg->DPE_Kernel_DpeConfig.DVGF_SRC_08 =
-	(unsigned int)DPE_RD32(DVGF_SRC_08_REG);
-	cfg->DPE_Kernel_DpeConfig.DVGF_SRC_09 =
-	(unsigned int)DPE_RD32(DVGF_SRC_09_REG);
-	cfg->DPE_Kernel_DpeConfig.DVGF_SRC_10 =
-	(unsigned int)DPE_RD32(DVGF_SRC_10_REG);
-	cfg->DPE_Kernel_DpeConfig.DVGF_SRC_11 =
-	(unsigned int)DPE_RD32(DVGF_SRC_11_REG);
-	cfg->DPE_Kernel_DpeConfig.DVGF_SRC_12 =
-	(unsigned int)DPE_RD32(DVGF_SRC_12_REG);
-	cfg->DPE_Kernel_DpeConfig.DVGF_SRC_13 =
-	(unsigned int)DPE_RD32(DVGF_SRC_13_REG);
-	cfg->DPE_Kernel_DpeConfig.DVGF_SRC_14 =
-	(unsigned int)DPE_RD32(DVGF_SRC_14_REG);
-	cfg->DPE_Kernel_DpeConfig.DVGF_SRC_15 =
-	(unsigned int)DPE_RD32(DVGF_SRC_15_REG);
-	cfg->DPE_Kernel_DpeConfig.DVGF_SRC_16 =
-	(unsigned int)DPE_RD32(DVGF_SRC_16_REG);
-	cfg->DPE_Kernel_DpeConfig.DVGF_SRC_17 =
-	(unsigned int)DPE_RD32(DVGF_SRC_17_REG);
-	cfg->DPE_Kernel_DpeConfig.DVGF_SRC_18 =
-	(unsigned int)DPE_RD32(DVGF_SRC_18_REG);
-	cfg->DPE_Kernel_DpeConfig.DVGF_SRC_19 =
-	(unsigned int)DPE_RD32(DVGF_SRC_19_REG);
-	cfg->DPE_Kernel_DpeConfig.DVGF_SRC_20 =
-	(unsigned int)DPE_RD32(DVGF_SRC_20_REG);
-	cfg->DPE_Kernel_DpeConfig.DVGF_SRC_21 =
-	(unsigned int)DPE_RD32(DVGF_SRC_21_REG);
-	cfg->DPE_Kernel_DpeConfig.DVGF_SRC_22 =
-	(unsigned int)DPE_RD32(DVGF_SRC_22_REG);
-	cfg->DPE_Kernel_DpeConfig.DVGF_SRC_23 =
-	(unsigned int)DPE_RD32(DVGF_SRC_23_REG);
-	cfg->DPE_Kernel_DpeConfig.DVGF_SRC_24 =
-	(unsigned int)DPE_RD32(DVGF_SRC_24_REG);
-	cfg->DPE_Kernel_DpeConfig.DVGF_CORE_00 =
-	(unsigned int)DPE_RD32(DVGF_CORE_00_REG);
-	cfg->DPE_Kernel_DpeConfig.DVGF_CORE_01 =
-	(unsigned int)DPE_RD32(DVGF_CORE_01_REG);
-	cfg->DPE_Kernel_DpeConfig.DVGF_CORE_02 =
-	(unsigned int)DPE_RD32(DVGF_CORE_02_REG);
-	cfg->DPE_Kernel_DpeConfig.DVGF_CORE_03 =
-	(unsigned int)DPE_RD32(DVGF_CORE_03_REG);
-	cfg->DPE_Kernel_DpeConfig.DVGF_CORE_05 =
-	(unsigned int)DPE_RD32(DVGF_CORE_05_REG);
-	cfg->DPE_Kernel_DpeConfig.DVGF_CORE_06 =
-	(unsigned int)DPE_RD32(DVGF_CORE_06_REG);
-	cfg->DPE_Kernel_DpeConfig.DVGF_CORE_07 =
-	(unsigned int)DPE_RD32(DVGF_CORE_07_REG);
-	cfg->DPE_Kernel_DpeConfig.DVGF_CORE_08 =
-	(unsigned int)DPE_RD32(DVGF_CORE_08_REG);
-	cfg->DPE_Kernel_DpeConfig.DVGF_CORE_09 =
-	(unsigned int)DPE_RD32(DVGF_CORE_09_REG);
-	cfg->DPE_Kernel_DpeConfig.DVGF_CORE_10 =
-	(unsigned int)DPE_RD32(DVGF_CORE_10_REG);
-	cfg->DPE_Kernel_DpeConfig.DVGF_CORE_11 =
-	(unsigned int)DPE_RD32(DVGF_CORE_11_REG);
-	cfg->DPE_Kernel_DpeConfig.DVGF_CORE_12 =
-	(unsigned int)DPE_RD32(DVGF_CORE_12_REG);
-	cfg->DPE_Kernel_DpeConfig.DVGF_CORE_13 =
-	(unsigned int)DPE_RD32(DVGF_CORE_13_REG);
-	cfg->DPE_Kernel_DpeConfig.DVGF_CORE_14 =
-	(unsigned int)DPE_RD32(DVGF_CORE_14_REG);
-	cfg->DPE_Kernel_DpeConfig.DVGF_CORE_15 =
-	(unsigned int)DPE_RD32(DVGF_CORE_15_REG);
-
-	return 0;
-}
-
 static signed int DPE_DumpReg(void)
 #if BYPASS_REG
 {
@@ -5678,7 +4568,7 @@ static signed int DPE_DumpReg(void)
 	spin_unlock(&(DPEInfo.SpinLockDPE));
 //#if 1
 	/*  */
-	LOG_INF("DPE Config Info\n");
+	LOG_INF("DPE Register Dump\n");
 	/* DPE Config0 */
 	LOG_INF("[0x%08X %08X]\n", (unsigned int)(DVS_CTRL00_HW),
 		(unsigned int)DPE_RD32(DVS_CTRL00_REG));
@@ -6299,6 +5189,1155 @@ static signed int DPE_DumpReg(void)
 	return Ret;
 }
 #endif
+void cmdq_cb_destroy(struct cmdq_cb_data data)
+{
+	//LOG_INF("%s DPE cmdq_cb_Dump statr", __func__);
+	cmdq_pkt_destroy((struct cmdq_pkt *)data.data);
+}
+
+void DPE_callback_func(struct cmdq_cb_data data)
+{
+    struct my_callback_data *my_data = (struct my_callback_data *)data.data;
+
+    if (data.err < 0) {
+    	LOG_INF("DPE_callback_func 2\n");
+    	#ifdef CMASYS_CLK_Debug
+			LOG_INF("cmd_pkt[0x1A000000 %08X]\n",
+			(unsigned int)DPE_RD32(CAMSYS_MAIN_BASE));
+			LOG_INF("cmd_pkt[0x1A170000 %08X]\n",
+			(unsigned int)DPE_RD32(CAMMRAW_MAIN_BASE));
+			LOG_INF("cmd_pkt[0x1A1D0000 %08X]\n",
+			(unsigned int)DPE_RD32(IPE_MAIN_BASE));
+			#endif
+    	DPE_DumpReg();//!test
+        // do error handling
+       cmdq_dump_pkt(my_data->pkt, 0 , 1);
+    }
+}
+
+void my_wait(struct my_callback_data *my_data)
+{
+    cmdq_pkt_wait_complete(my_data->pkt);
+    cmdq_pkt_destroy(my_data->pkt);
+    kfree(my_data);
+}
+
+
+signed int CmdqDPEHW(struct frame *frame)
+{
+	struct DPE_Kernel_Config *pDpeConfig;
+	struct DPE_Kernel_Config DpeConfig;
+	struct DPE_Config_V2 *pDpeUserConfig;
+
+	#ifdef CMdq_en
+	struct cmdq_pkt *handle;
+	#endif
+	//!
+	struct my_callback_data *my_data = kzalloc(sizeof(*my_data), GFP_KERNEL);
+
+	//struct cmdqRecStruct *handle;
+	//uint64_t engineFlag = (uint64_t)(1LL << CMDQ_ENG_DPE);
+#if defined(DPE_PMQOS_EN) && defined(CONFIG_MTK_QOS_SUPPORT)
+	unsigned int w_imgi, h_imgi, w_mvio, h_mvio, w_bvo, h_bvo;
+	unsigned int dma_bandwidth, trig_num;
+#endif
+	//int cmd_cnt = 0;
+
+	//LOG_INF("%s CmdqtoHw statr", __func__);
+
+	if (frame == NULL || frame->data == NULL) {
+    LOG_INF("frame->data = NULL ");
+		return -1;
+	}
+
+	//LOG_INF("%s request sent to CMDQ driver", __func__);
+	pDpeUserConfig = (struct DPE_Config_V2 *) frame->data;
+
+//LOG_INF("%s CmdqtoHw statr2222", __func__);
+	pDpeConfig = &DpeConfig;
+/************** Pass User info to DPE_Kernel_Config **************/
+  // LOG_INF("%s CmdqtoHw statr2111", __func__);
+	if (pDpeUserConfig->Dpe_engineSelect == MODE_DVS_DVP_BOTH) {
+		// LOG_INF("%s CmdqtoHw statr3333", __func__);
+		DPE_Config_DVS(pDpeUserConfig, pDpeConfig);
+			// LOG_INF("%s CmdqtoHw statr31111", __func__);
+		DPE_Config_DVP(pDpeUserConfig, pDpeConfig);
+			// LOG_INF("%s CmdqtoHw statr32222", __func__);
+
+		pDpeConfig->DPE_MODE = 0;
+	} else if (pDpeUserConfig->Dpe_engineSelect == MODE_DVS_ONLY) {
+		//LOG_INF("DVS frm_width =%d ", pDpeUserConfig->Dpe_DVSSettings.frm_width);
+		if (pDpeUserConfig->Dpe_DVSSettings.frm_width == 0) {
+			LOG_INF("DVS frm_width =%d ", pDpeUserConfig->Dpe_DVSSettings.frm_width);
+			return -1;
+		}
+
+		DPE_Config_DVS(pDpeUserConfig, pDpeConfig);
+		pDpeConfig->DPE_MODE = 1;
+	} else if (pDpeUserConfig->Dpe_engineSelect == MODE_DVP_ONLY) {
+		//LOG_INF("DVP frm_width =%d ", pDpeUserConfig->Dpe_DVPSettings.frm_width);
+		if (pDpeUserConfig->Dpe_DVPSettings.frm_width == 0) {
+			LOG_INF("DVP frm_width =%d ", pDpeUserConfig->Dpe_DVPSettings.frm_width);
+			return -1;
+		}
+
+		DPE_Config_DVP(pDpeUserConfig, pDpeConfig);
+		pDpeConfig->DPE_MODE = 2;
+	} else if (pDpeUserConfig->Dpe_engineSelect == MODE_DVGF_ONLY) {
+		//LOG_INF("DVGF frm_width =%d ", pDpeUserConfig->Dpe_DVGFSettings.frm_width);
+		if (pDpeUserConfig->Dpe_DVGFSettings.frm_width == 0) {
+			LOG_INF("DVGF frm_width =%d ", pDpeUserConfig->Dpe_DVGFSettings.frm_width);
+			return -1;
+		}
+		DPE_Config_DVGF(pDpeUserConfig, pDpeConfig);
+		pDpeConfig->DPE_MODE = 3;
+	}
+
+	if (DPE_debug_log_en == 1) {
+		LOG_INF("%s CmdqtoHw statr4444", __func__);
+		DPE_DumptoHWReg(pDpeConfig);
+	}
+	//if (g_isDPELogEnable)
+	//DPE_DumpUserSpaceReg(pDpeConfig);
+	//cmdqRecCreate(CMDQ_SCENARIO_ISP_DPE, &handle);
+	//cmdqRecSetEngine(handle, engineFlag);
+	//cmdq_pkt_cl_create(&handle, dpe_clt);
+#ifdef CMdq_en
+	handle = cmdq_pkt_create(dpe_clt);
+#endif
+#define CMDQWR(REG) \
+	cmdq_pkt_write(handle, dpe_clt_base, \
+	REG ##_HW, pDpeConfig->REG, CMDQ_REG_MASK)
+#define CMDQWR_DPE_DRAM_ADDR(REG) \
+	cmdq_pkt_write(handle, dpe_clt_base, \
+	REG ##_HW, (pDpeConfig->REG)>>4, CMDQ_REG_MASK)
+#define CMDQWR_DPE_ME_ADDR(REG) \
+	cmdq_pkt_write(handle, dpe_clt_base, \
+	REG ##_HW, pDpeConfig->TuningBuf_ME.REG, CMDQ_REG_MASK)
+#define CMDQWR_DPE_OCC_ADDR(REG) \
+	cmdq_pkt_write(handle, dpe_clt_base, \
+	REG ##_HW, pDpeConfig->TuningKernel_OCC.REG, CMDQ_REG_MASK)
+#define CMDQWR_DPE_DVP_ADDR(REG) \
+	cmdq_pkt_write(handle, dpe_clt_base, \
+	REG ##_HW, pDpeConfig->TuningKernel_DVP.REG, CMDQ_REG_MASK)
+#define CMDQWR_DPE_DVGF_ADDR(REG) \
+	cmdq_pkt_write(handle, dpe_clt_base, \
+	REG ##_HW, pDpeConfig->TuningKernel_DVGF.REG, CMDQ_REG_MASK)
+//LOG_INF("pDpeConfig->DPE_MODE = %x\n", pDpeConfig->DPE_MODE);
+if ((pDpeConfig->DPE_MODE != 2) && (pDpeConfig->DPE_MODE != 3)) {
+	if (pDpeConfig->DPE_MODE == 1) {
+		/* DVS Only Mode*/
+		/* dvp_en = 1 */
+		#ifdef CMdq_en
+		cmdq_pkt_write(handle, dpe_clt_base,
+		DVP_CTRL00_HW, 0x80000000, 0x80000000);
+		#endif
+	}
+	/* mask trigger bit */
+	#ifdef CMdq_en
+	cmdq_pkt_write(handle, dpe_clt_base,
+	DVS_CTRL00_HW, pDpeConfig->DVS_CTRL00, 0xDFF5FC00);//0xDBF5FC00
+	cmdq_pkt_write(handle, dpe_clt_base,
+	DVS_CTRL02_HW, 0x70310001, CMDQ_REG_MASK);
+	#endif
+
+
+	//LOG_INF("mask trigger bit\n");
+	/* cmdq_pkt_write(handle, dpe_clt_base, */
+	/* DVS_CTRL07_HW, 0x0000FF1F, CMDQ_REG_MASK); */
+	/* cmdq_pkt_write(handle, dpe_clt_base, */
+	/* DVS_SRC_CTRL_HW, 0x00000040, CMDQ_REG_MASK); */
+	/* DVS Frame Done IRQ */
+	if (pDpeConfig->DPE_MODE == 1) { // MODE_DVS_ONLY
+		//LOG_INF("MODE_DVS_ONLY\n");
+		#ifdef CMdq_en
+		cmdq_pkt_write(handle, dpe_clt_base,
+		DVS_IRQ_00_HW, 0x00000E00, 0x00000F00);
+		#endif
+	} else { // MODE_DVS_DVP_BOTH
+		#ifdef CMdq_en		 // MODE_DVS_DVP_BOTH
+		cmdq_pkt_write(handle, dpe_clt_base,
+		DVS_IRQ_00_HW, 0x00000F00, 0x00000F00);
+		#endif
+	}
+	//LOG_INF("star CMDQWR\n");
+	#ifdef CMdq_en
+	CMDQWR(DVS_DRAM_PITCH);
+	CMDQWR(DVS_DRAM_PITCH1);
+	CMDQWR(DVS_SRC_00);
+	CMDQWR(DVS_SRC_01);
+	CMDQWR(DVS_SRC_02);
+	CMDQWR(DVS_SRC_03);
+	CMDQWR(DVS_SRC_04);
+	CMDQWR_DPE_DRAM_ADDR(DVS_SRC_05_L_FRM0);
+	CMDQWR_DPE_DRAM_ADDR(DVS_SRC_06_L_FRM1);
+	CMDQWR_DPE_DRAM_ADDR(DVS_SRC_07_L_FRM2);
+	CMDQWR_DPE_DRAM_ADDR(DVS_SRC_08_L_FRM3);
+	CMDQWR_DPE_DRAM_ADDR(DVS_SRC_09_R_FRM0);
+	CMDQWR_DPE_DRAM_ADDR(DVS_SRC_10_R_FRM1);
+	CMDQWR_DPE_DRAM_ADDR(DVS_SRC_11_R_FRM2);
+	CMDQWR_DPE_DRAM_ADDR(DVS_SRC_12_R_FRM3);
+	CMDQWR_DPE_DRAM_ADDR(DVS_SRC_13_Hist0);
+	CMDQWR_DPE_DRAM_ADDR(DVS_SRC_14_Hist1);
+	CMDQWR_DPE_DRAM_ADDR(DVS_SRC_15_Hist2);
+	CMDQWR_DPE_DRAM_ADDR(DVS_SRC_16_Hist3);
+	CMDQWR_DPE_DRAM_ADDR(DVS_SRC_17_OCCDV_EXT0);
+	CMDQWR_DPE_DRAM_ADDR(DVS_SRC_18_OCCDV_EXT1);
+	CMDQWR_DPE_DRAM_ADDR(DVS_SRC_19_OCCDV_EXT2);
+	CMDQWR_DPE_DRAM_ADDR(DVS_SRC_20_OCCDV_EXT3);
+	CMDQWR_DPE_DRAM_ADDR(DVS_SRC_21_P4_L_DV_ADR);
+	CMDQWR_DPE_DRAM_ADDR(DVS_SRC_22_OCCDV0);
+	CMDQWR_DPE_DRAM_ADDR(DVS_SRC_23_OCCDV1);
+	CMDQWR_DPE_DRAM_ADDR(DVS_SRC_24_OCCDV2);
+	CMDQWR_DPE_DRAM_ADDR(DVS_SRC_25_OCCDV3);
+	CMDQWR_DPE_DRAM_ADDR(DVS_SRC_26_P4_R_DV_ADR);
+	CMDQWR(DVS_SRC_27);
+	CMDQWR(DVS_SRC_28);
+	CMDQWR(DVS_SRC_29);
+	CMDQWR(DVS_SRC_30);
+	CMDQWR(DVS_SRC_31);
+	CMDQWR(DVS_SRC_32);
+	CMDQWR(DVS_SRC_33);
+	CMDQWR(DVS_SRC_34);
+	CMDQWR(DVS_SRC_35);
+	CMDQWR(DVS_SRC_36);
+	CMDQWR(DVS_SRC_37);
+	CMDQWR(DVS_SRC_38);
+	CMDQWR(DVS_SRC_39);
+	CMDQWR(DVS_FIX_HIST_ADR);
+	CMDQWR(DVS_DRAM_SEC_0);
+	CMDQWR(DVS_DRAM_SEC_1);
+	CMDQWR(DVS_DRAM_SEC_2);
+	CMDQWR(DVS_DEQ_FORCE);
+	CMDQWR(DVS_CTRL_RESERVED);
+	CMDQWR(DVS_CTRL_ATPG);
+
+	if (pDpeUserConfig->Dpe_DVSSettings.is_pd_mode) {
+		//CMDQWR_DPE_DRAM_ADDR(DVS_PD_SRC_04_R_FRM0);
+		//CMDQWR_DPE_DRAM_ADDR(DVS_PD_SRC_08_OCCDV0);
+		//CMDQWR_DPE_DRAM_ADDR(DVS_PD_SRC_16_DCV_CONF0);
+		//if (pDpeUserConfig->DVP_ASF_CONF_EN != 0) //!ISP7
+		//CMDQWR_DPE_DRAM_ADDR(DVS_PD_SRC_12_OCCDV_EXT0);
+	}
+	CMDQWR_DPE_ME_ADDR(DVS_ME_00);
+	CMDQWR_DPE_ME_ADDR(DVS_ME_01);
+	CMDQWR_DPE_ME_ADDR(DVS_ME_02);
+	CMDQWR_DPE_ME_ADDR(DVS_ME_03);
+	CMDQWR_DPE_ME_ADDR(DVS_ME_04);
+	CMDQWR_DPE_ME_ADDR(DVS_ME_06);
+	CMDQWR_DPE_ME_ADDR(DVS_ME_07);
+	CMDQWR_DPE_ME_ADDR(DVS_ME_08);
+	CMDQWR_DPE_ME_ADDR(DVS_ME_09);
+	CMDQWR_DPE_ME_ADDR(DVS_ME_10);
+	CMDQWR_DPE_ME_ADDR(DVS_ME_11);
+	CMDQWR_DPE_ME_ADDR(DVS_ME_12);
+	CMDQWR_DPE_ME_ADDR(DVS_ME_13);
+	CMDQWR_DPE_ME_ADDR(DVS_ME_14);
+	CMDQWR_DPE_ME_ADDR(DVS_ME_15);
+	CMDQWR_DPE_ME_ADDR(DVS_ME_16);
+	CMDQWR_DPE_ME_ADDR(DVS_ME_17);
+	CMDQWR_DPE_ME_ADDR(DVS_ME_18);
+	CMDQWR_DPE_ME_ADDR(DVS_ME_19);
+	CMDQWR_DPE_ME_ADDR(DVS_ME_20);
+	CMDQWR_DPE_ME_ADDR(DVS_ME_21);
+	CMDQWR_DPE_ME_ADDR(DVS_ME_22);
+	CMDQWR_DPE_ME_ADDR(DVS_ME_23);
+	CMDQWR_DPE_ME_ADDR(DVS_ME_24);
+	CMDQWR_DPE_ME_ADDR(DVS_ME_25);
+	CMDQWR_DPE_ME_ADDR(DVS_ME_26);
+	CMDQWR_DPE_ME_ADDR(DVS_ME_27);
+	CMDQWR_DPE_ME_ADDR(DVS_ME_28);
+	CMDQWR_DPE_ME_ADDR(DVS_ME_29);
+	CMDQWR_DPE_ME_ADDR(DVS_ME_30);
+	CMDQWR_DPE_ME_ADDR(DVS_ME_31);
+	CMDQWR_DPE_ME_ADDR(DVS_ME_32);
+	CMDQWR_DPE_ME_ADDR(DVS_ME_33);
+	CMDQWR_DPE_ME_ADDR(DVS_ME_34);
+	CMDQWR_DPE_ME_ADDR(DVS_ME_35);
+	CMDQWR_DPE_ME_ADDR(DVS_ME_36);
+	CMDQWR_DPE_ME_ADDR(DVS_ME_37);
+	CMDQWR_DPE_ME_ADDR(DVS_ME_38);
+	CMDQWR_DPE_ME_ADDR(DVS_ME_39);
+	CMDQWR_DPE_ME_ADDR(DVS_DEBUG);
+	CMDQWR_DPE_ME_ADDR(DVS_ME_RESERVED);
+	CMDQWR_DPE_ME_ADDR(DVS_ME_ATPG);
+	CMDQWR_DPE_ME_ADDR(DVS_ME_40);
+	CMDQWR_DPE_ME_ADDR(DVS_ME_41);
+	CMDQWR_DPE_ME_ADDR(DVS_ME_42);
+	CMDQWR_DPE_ME_ADDR(DVS_ME_43);
+	CMDQWR_DPE_ME_ADDR(DVS_ME_44);
+	CMDQWR_DPE_ME_ADDR(DVS_ME_45);
+	CMDQWR_DPE_ME_ADDR(DVS_ME_46);
+	CMDQWR_DPE_ME_ADDR(DVS_ME_47);
+	CMDQWR_DPE_ME_ADDR(DVS_ME_48);
+	CMDQWR_DPE_ME_ADDR(DVS_ME_49);
+	CMDQWR_DPE_ME_ADDR(DVS_ME_50);
+	CMDQWR_DPE_ME_ADDR(DVS_ME_51);
+	CMDQWR_DPE_ME_ADDR(DVS_ME_52);
+	CMDQWR_DPE_ME_ADDR(DVS_ME_53);
+	CMDQWR_DPE_ME_ADDR(DVS_ME_54);
+	CMDQWR_DPE_ME_ADDR(DVS_ME_55);
+	CMDQWR_DPE_ME_ADDR(DVS_ME_56);
+	CMDQWR_DPE_ME_ADDR(DVS_ME_57);
+	CMDQWR_DPE_ME_ADDR(DVS_ME_58);
+	CMDQWR_DPE_ME_ADDR(DVS_ME_59);
+	CMDQWR_DPE_OCC_ADDR(DVS_OCC_PQ_0);
+	CMDQWR_DPE_OCC_ADDR(DVS_OCC_PQ_1);
+	CMDQWR_DPE_OCC_ADDR(DVS_OCC_PQ_2);
+	CMDQWR_DPE_OCC_ADDR(DVS_OCC_PQ_3);
+	CMDQWR_DPE_OCC_ADDR(DVS_OCC_PQ_4);
+	CMDQWR_DPE_OCC_ADDR(DVS_OCC_PQ_5);
+	CMDQWR_DPE_OCC_ADDR(DVS_OCC_PQ_10);
+	CMDQWR_DPE_OCC_ADDR(DVS_OCC_PQ_11);
+	CMDQWR_DPE_OCC_ADDR(DVS_OCC_PQ_12);
+	CMDQWR_DPE_OCC_ADDR(DVS_OCC_ATPG);
+	CMDQWR_DPE_OCC_ADDR(DVS_OCC_HIST0);
+	CMDQWR_DPE_OCC_ADDR(DVS_OCC_HIST1);
+	CMDQWR_DPE_OCC_ADDR(DVS_OCC_HIST2);
+	CMDQWR_DPE_OCC_ADDR(DVS_OCC_HIST3);
+	CMDQWR_DPE_OCC_ADDR(DVS_OCC_HIST4);
+	CMDQWR_DPE_OCC_ADDR(DVS_OCC_HIST5);
+	CMDQWR_DPE_OCC_ADDR(DVS_OCC_HIST6);
+	CMDQWR_DPE_OCC_ADDR(DVS_OCC_HIST7);
+	CMDQWR_DPE_OCC_ADDR(DVS_OCC_HIST8);
+	CMDQWR_DPE_OCC_ADDR(DVS_OCC_HIST9);
+	CMDQWR_DPE_OCC_ADDR(DVS_OCC_HIST10);
+	CMDQWR_DPE_OCC_ADDR(DVS_OCC_HIST11);
+	CMDQWR_DPE_OCC_ADDR(DVS_OCC_HIST12);
+	CMDQWR_DPE_OCC_ADDR(DVS_OCC_HIST13);
+	CMDQWR_DPE_OCC_ADDR(DVS_OCC_HIST14);
+	CMDQWR_DPE_OCC_ADDR(DVS_OCC_HIST15);
+	CMDQWR_DPE_OCC_ADDR(DVS_OCC_HIST16);
+	CMDQWR_DPE_OCC_ADDR(DVS_OCC_HIST17);
+	CMDQWR_DPE_OCC_ADDR(DVS_OCC_HIST18);
+	#endif
+/* CRC EN, CRC SEL =0x0 */
+/* cmdq_pkt_write(handle, dpe_clt_base, */
+/* DVS_CRC_CTRL_HW, 0x00000001, 0x00000F01); */
+/* CRC CLEAR  = 1 */
+/* cmdq_pkt_write(handle, dpe_clt_base, */
+/* DVS_CRC_CTRL_HW, 0x00000010, 0x00000010); */
+/* CRC CLEAR  = 0 */
+/* cmdq_pkt_write(handle, dpe_clt_base, */
+/* DVS_CRC_CTRL_HW, 0x00000000, 0x00000010); */
+}
+	/*================= DVP Settings ==================*/
+if ((pDpeConfig->DPE_MODE != 1) && (pDpeConfig->DPE_MODE != 3)) {
+	if (pDpeConfig->DPE_MODE == 2) {
+		/* DVP Only Mode*/
+		/* dvs_en = 1, DPE FW Tri En = 1, */
+		/* dvp_trig_en = 1, dvs_trig_en = 0  */
+		#ifdef CMdq_en
+		cmdq_pkt_write(handle, dpe_clt_base,
+		DVS_CTRL00_HW, 0xC8000000, 0xDC300000);
+		cmdq_pkt_write(handle, dpe_clt_base,
+		DVS_CTRL02_HW, 0x70310001, CMDQ_REG_MASK);
+		#endif
+	}
+	#ifdef CMdq_en
+	cmdq_pkt_write(handle, dpe_clt_base,
+	DVP_CTRL00_HW, 0x80000080, CMDQ_REG_MASK);
+	cmdq_pkt_write(handle, dpe_clt_base,
+	DVP_CTRL02_HW, 0x70310001, CMDQ_REG_MASK);
+	/* cmdq_pkt_write(handle, dpe_clt_base, */
+	/* DVP_CTRL07_HW, 0x00000707, CMDQ_REG_MASK); */
+	/* DVP Frame Done IRQ */
+	cmdq_pkt_write(handle, dpe_clt_base,
+	DVP_IRQ_00_HW, 0x00000E00, 0x00000F00);
+	//LOG_INF("star CMDQWR DVP Settings\n");
+
+
+	CMDQWR(DVP_DRAM_PITCH);
+	CMDQWR(DVP_SRC_00);
+	CMDQWR(DVP_SRC_01);
+	CMDQWR(DVP_SRC_02);
+	CMDQWR(DVP_SRC_03);
+	CMDQWR(DVP_SRC_04);
+	CMDQWR_DPE_DRAM_ADDR(DVP_SRC_05_Y_FRM0);
+	CMDQWR_DPE_DRAM_ADDR(DVP_SRC_06_Y_FRM1);
+	CMDQWR_DPE_DRAM_ADDR(DVP_SRC_07_Y_FRM2);
+	CMDQWR_DPE_DRAM_ADDR(DVP_SRC_08_Y_FRM3);
+	CMDQWR_DPE_DRAM_ADDR(DVP_SRC_09_C_FRM0);
+	CMDQWR_DPE_DRAM_ADDR(DVP_SRC_10_C_FRM1);
+	CMDQWR_DPE_DRAM_ADDR(DVP_SRC_11_C_FRM2);
+	CMDQWR_DPE_DRAM_ADDR(DVP_SRC_12_C_FRM3);
+	CMDQWR_DPE_DRAM_ADDR(DVP_SRC_13_OCCDV0);
+	CMDQWR_DPE_DRAM_ADDR(DVP_SRC_14_OCCDV1);
+	CMDQWR_DPE_DRAM_ADDR(DVP_SRC_15_OCCDV2);
+	CMDQWR_DPE_DRAM_ADDR(DVP_SRC_16_OCCDV3);
+	CMDQWR_DPE_DRAM_ADDR(DVP_SRC_17_CRM);
+	CMDQWR_DPE_DRAM_ADDR(DVP_SRC_18_ASF_RMDV);
+	CMDQWR_DPE_DRAM_ADDR(DVP_SRC_19_ASF_RDDV);
+	CMDQWR_DPE_DRAM_ADDR(DVP_SRC_20_ASF_DV0);
+	CMDQWR_DPE_DRAM_ADDR(DVP_SRC_21_ASF_DV1);
+	CMDQWR_DPE_DRAM_ADDR(DVP_SRC_22_ASF_DV2);
+	CMDQWR_DPE_DRAM_ADDR(DVP_SRC_23_ASF_DV3);
+	CMDQWR_DPE_DRAM_ADDR(DVP_SRC_24_WMF_RDDV);
+	CMDQWR_DPE_DRAM_ADDR(DVP_SRC_25_WMF_HFDV);
+	CMDQWR_DPE_DRAM_ADDR(DVP_SRC_26_WMF_DV0);
+	CMDQWR_DPE_DRAM_ADDR(DVP_SRC_27_WMF_DV1);
+	CMDQWR_DPE_DRAM_ADDR(DVP_SRC_28_WMF_DV2);
+	CMDQWR_DPE_DRAM_ADDR(DVP_SRC_29_WMF_DV3);
+	CMDQWR_DPE_DRAM_ADDR(DVP_EXT_SRC_13_OCCDV0);
+	CMDQWR_DPE_DRAM_ADDR(DVP_EXT_SRC_14_OCCDV1);
+	CMDQWR_DPE_DRAM_ADDR(DVP_EXT_SRC_15_OCCDV2);
+	CMDQWR_DPE_DRAM_ADDR(DVP_EXT_SRC_16_OCCDV3);
+	CMDQWR_DPE_DRAM_ADDR(DVP_EXT_SRC_18_ASF_RMDV);
+	CMDQWR_DPE_DRAM_ADDR(DVP_EXT_SRC_19_ASF_RDDV);
+	CMDQWR_DPE_DRAM_ADDR(DVP_EXT_SRC_20_ASF_DV0);
+	CMDQWR_DPE_DRAM_ADDR(DVP_EXT_SRC_21_ASF_DV1);
+	CMDQWR_DPE_DRAM_ADDR(DVP_EXT_SRC_22_ASF_DV2);
+	CMDQWR_DPE_DRAM_ADDR(DVP_EXT_SRC_23_ASF_DV3);
+	CMDQWR_DPE_DVP_ADDR(DVP_CORE_00);
+	CMDQWR_DPE_DVP_ADDR(DVP_CORE_01);
+	CMDQWR_DPE_DVP_ADDR(DVP_CORE_02);
+	CMDQWR_DPE_DVP_ADDR(DVP_CORE_03);
+	CMDQWR_DPE_DVP_ADDR(DVP_CORE_04);
+	CMDQWR_DPE_DVP_ADDR(DVP_CORE_05);
+	CMDQWR_DPE_DVP_ADDR(DVP_CORE_06);
+	CMDQWR_DPE_DVP_ADDR(DVP_CORE_07);
+	CMDQWR_DPE_DVP_ADDR(DVP_CORE_08);
+	CMDQWR_DPE_DVP_ADDR(DVP_CORE_09);
+	CMDQWR_DPE_DVP_ADDR(DVP_CORE_10);
+	CMDQWR_DPE_DVP_ADDR(DVP_CORE_11);
+	CMDQWR_DPE_DVP_ADDR(DVP_CORE_12);
+	CMDQWR_DPE_DVP_ADDR(DVP_CORE_13);
+	CMDQWR_DPE_DVP_ADDR(DVP_CORE_14);
+	CMDQWR_DPE_DVP_ADDR(DVP_CORE_15);
+	CMDQWR_DPE_DVP_ADDR(DVP_CORE_16);
+	CMDQWR_DPE_DVP_ADDR(DVP_CORE_17);
+	CMDQWR_DPE_DVP_ADDR(DVP_CORE_18);
+	CMDQWR_DPE_DVP_ADDR(DVP_CORE_19);
+	#endif
+/*CRC EN, CRC SEL = 0x1000*/
+/* cmdq_pkt_write(handle, dpe_clt_base, */
+/* DVP_CRC_CTRL_HW, 0x00000801, 0x00000F01); */
+/* CRC CLEAR  = 1 */
+/* cmdq_pkt_write(handle, dpe_clt_base, */
+/* DVP_CRC_CTRL_HW, 0x00000010, 0x00000010); */
+/* CRC CLEAR  = 0 */
+/* cmdq_pkt_write(handle, dpe_clt_base, */
+/* DVP_CRC_CTRL_HW, 0x00000000, 0x00000010); */
+}
+/*================= DVGF Settings ==================*/
+if (pDpeConfig->DPE_MODE == 3) {
+
+	//LOG_INF("star DVGF CMDQWR\n");
+	#ifdef CMdq_en
+	cmdq_pkt_write(handle, dpe_clt_base,
+	DVS_CTRL00_HW, 0xC4040000, 0xDC040000); //dvgf_trig_en
+
+	//cmdq_pkt_write(handle, dpe_clt_base,
+	//DVGF_CTRL_00_HW, 0x80000000, CMDQ_REG_MASK);
+	//cmdq_pkt_write(handle, dpe_clt_base,
+	//DVGF_CTRL_02_HW, 0x70310001, CMDQ_REG_MASK);
+
+	cmdq_pkt_write(handle, dpe_clt_base,
+	DVGF_IRQ_00_HW, 0x00000E00, 0x00000F00);
+
+	cmdq_pkt_write(handle, dpe_clt_base,
+	DVGF_CTRL_00_HW, 0x80000000, 0x80000000);
+
+	///CMDQWR(DVGF_CTRL_00);
+	CMDQWR(DVGF_CTRL_01);
+	CMDQWR(DVGF_CTRL_02);
+	CMDQWR(DVGF_CTRL_03);
+	CMDQWR(DVGF_CTRL_05);
+	CMDQWR(DVGF_CTRL_07);
+	//CMDQWR(DVGF_IRQ_00);
+	CMDQWR(DVGF_DRAM_PITCH);
+	CMDQWR(DVGF_SRC_00);
+	CMDQWR(DVGF_SRC_01);
+	CMDQWR(DVGF_SRC_02);
+	CMDQWR_DPE_DRAM_ADDR(DVGF_SRC_04);
+	CMDQWR_DPE_DRAM_ADDR(DVGF_SRC_05);
+	CMDQWR_DPE_DRAM_ADDR(DVGF_SRC_06);
+	CMDQWR_DPE_DRAM_ADDR(DVGF_SRC_07);
+	CMDQWR_DPE_DRAM_ADDR(DVGF_SRC_08);
+	CMDQWR_DPE_DRAM_ADDR(DVGF_SRC_09);
+	CMDQWR_DPE_DRAM_ADDR(DVGF_SRC_10);
+	CMDQWR_DPE_DRAM_ADDR(DVGF_SRC_11);
+	CMDQWR_DPE_DRAM_ADDR(DVGF_SRC_12);
+	CMDQWR_DPE_DRAM_ADDR(DVGF_SRC_13);
+	CMDQWR_DPE_DRAM_ADDR(DVGF_SRC_14);
+	CMDQWR_DPE_DRAM_ADDR(DVGF_SRC_15);
+	CMDQWR_DPE_DRAM_ADDR(DVGF_SRC_16);
+	CMDQWR_DPE_DRAM_ADDR(DVGF_SRC_17);
+	CMDQWR_DPE_DRAM_ADDR(DVGF_SRC_18);
+	CMDQWR_DPE_DRAM_ADDR(DVGF_SRC_19);
+	CMDQWR_DPE_DRAM_ADDR(DVGF_SRC_20);
+	CMDQWR_DPE_DRAM_ADDR(DVGF_SRC_21);
+	CMDQWR_DPE_DRAM_ADDR(DVGF_SRC_22);
+	CMDQWR_DPE_DRAM_ADDR(DVGF_SRC_23);
+	CMDQWR_DPE_DRAM_ADDR(DVGF_SRC_24);
+	CMDQWR_DPE_DVGF_ADDR(DVGF_CORE_00);
+	CMDQWR_DPE_DVGF_ADDR(DVGF_CORE_01);
+	CMDQWR_DPE_DVGF_ADDR(DVGF_CORE_02);
+	CMDQWR_DPE_DVGF_ADDR(DVGF_CORE_03);
+	CMDQWR_DPE_DVGF_ADDR(DVGF_CORE_05);
+	CMDQWR_DPE_DVGF_ADDR(DVGF_CORE_06);
+	CMDQWR_DPE_DVGF_ADDR(DVGF_CORE_07);
+	CMDQWR_DPE_DVGF_ADDR(DVGF_CORE_08);
+	CMDQWR_DPE_DVGF_ADDR(DVGF_CORE_09);
+	CMDQWR_DPE_DVGF_ADDR(DVGF_CORE_10);
+	CMDQWR_DPE_DVGF_ADDR(DVGF_CORE_11);
+	CMDQWR_DPE_DVGF_ADDR(DVGF_CORE_12);
+	CMDQWR_DPE_DVGF_ADDR(DVGF_CORE_13);
+	CMDQWR_DPE_DVGF_ADDR(DVGF_CORE_14);
+	CMDQWR_DPE_DVGF_ADDR(DVGF_CORE_15);
+	#endif
+}
+/* DPE FW Tri = 1*/
+#ifdef CMdq_en
+cmdq_pkt_write(handle, dpe_clt_base, DVS_CTRL00_HW, 0x20000000, 0x20000000);
+//LOG_INF("DPE FW Tri = %x\n", pDpeConfig->DVS_CTRL00);
+	if (pDpeConfig->DPE_MODE == 1) /* DVS ONLY MODE */
+		cmdq_pkt_wfe(handle, dvs_event_id);
+	else if (pDpeConfig->DPE_MODE == 3)
+		cmdq_pkt_wfe(handle, dvgf_event_id);
+	else
+		cmdq_pkt_wfe(handle, dvp_event_id);
+
+//cmdq_pkt_write(handle, dpe_clt_base, DVS_CTRL00_HW, 0x00000000, 0x20000000);
+#endif
+#if defined(DPE_PMQOS_EN) && defined(CONFIG_MTK_QOS_SUPPORT)
+	LOG_INF("DPE_PMQOS_EN =1\n");
+	trig_num = (pDpeConfig->DPE_CTRL & 0x00000F00) >> 8;
+	w_imgi = pDpeConfig->DPE_SIZE & 0x000001FF;
+	h_imgi = (pDpeConfig->DPE_SIZE & 0x01FF0000) >> 16;
+	w_mvio = ((w_imgi + 1) >> 1) - 1;
+	w_mvio = ((w_mvio / 7) << 4) + (((((w_mvio % 7) + 1) * 18) + 7) >> 3);
+	h_mvio = (h_imgi + 1) >> 1;
+	w_bvo =  (w_imgi + 1) >> 1;
+	h_bvo =  (h_imgi + 1) >> 1;
+	dma_bandwidth = ((w_imgi * h_imgi) * 2 + (w_mvio * h_mvio) * 2 * 16 +
+			(w_bvo * h_bvo)) * trig_num * 30 / 1000000;
+	cmdq_task_update_property(handle, &dma_bandwidth, sizeof(unsigned int));
+#endif
+	/* non-blocking API, Please  use cmdqRecFlushAsync() */
+	//cmdq_task_flush_async_destroy(handle);
+	/* flush and destroy in cmdq */
+	//LOG_INF("cmd_pkt start\n");
+
+  my_data->pkt = handle;
+  cmdq_pkt_flush_async(handle, DPE_callback_func, (void *)my_data);
+  my_wait(my_data);
+
+//#ifdef CMdq_en
+//	cmdq_pkt_flush_threaded(handle,
+//	cmdq_cb_destroy, (void *)handle);
+//#endif
+LOG_INF("cmd_pkt end\n");
+	return 0;
+}
+signed int dpe_feedback(struct frame *frame)
+{
+	struct DPE_Config_V2 *pDpeConfig;
+
+	pDpeConfig = (struct DPE_Config_V2 *) frame->data;
+	/* TODO: read statistics and write to the frame data */
+	// pDpeConfig->DVS_IRQ_STATUS = DPE_RD32(DVS_IRQ_STATUS_REG);
+	return 0;
+}
+static const struct engine_ops dpe_ops = {
+	.req_enque_cb = dpe_enque_cb,
+	.req_deque_cb = dpe_deque_cb,
+	.frame_handler = CmdqDPEHW,
+	.req_feedback_cb = dpe_feedback,
+};
+#if defined(DPE_PMQOS_EN) && defined(CONFIG_MTK_QOS_SUPPORT)
+void cmdq_pm_qos_start(struct TaskStruct *task, struct TaskStruct *task_list[],
+								u32 size)
+{
+	unsigned int dma_bandwidth;
+
+	dma_bandwidth = *(unsigned int *) task->prop_addr;
+	pm_qos_update_request(&dpe_pm_qos_request, dma_bandwidth);
+	LOG_INF("+ PMQOS Bandwidth : %d MB/sec\n", dma_bandwidth);
+}
+void cmdq_pm_qos_stop(struct TaskStruct *task, struct TaskStruct *task_list[],
+								u32 size)
+{
+	pm_qos_update_request(&dpe_pm_qos_request, 0);
+	LOG_DBG("- PMQOS Bandwidth : %d\n", 0);
+}
+#endif
+unsigned int Compute_Para(struct DPE_Config_V2 *pDpeConfig,
+	unsigned int tile_occ_width)
+{
+	unsigned int w_width; //!full_tile_width
+	unsigned int tile_num = MAX_NUM_TILE;
+	unsigned int egn_st_x = pDpeConfig->Dpe_DVSSettings.l_eng_start_x;
+
+	w_width = (tile_num*tile_occ_width)+(2*egn_st_x);
+	while (w_width > pDpeConfig->Dpe_DVSSettings.dram_pxl_pitch) {
+		tile_num = tile_num - 1;
+		w_width = (tile_num*tile_occ_width)+(2*egn_st_x);
+	}
+	if (tile_num > 0) {
+		pDpeConfig->Dpe_DVSSettings.pd_frame_num = tile_num;
+		return w_width;
+	}
+	pDpeConfig->Dpe_DVSSettings.pd_frame_num = 1;
+	return 0;
+}
+void Get_Tile_Info(struct DPE_Config_V2 *pDpeConfig)
+{
+	unsigned int tile_occ_width[TILE_WITH_NUM] = {640, 512, 384};
+	unsigned int w_width[TILE_WITH_NUM] = {0};
+	unsigned int tile_num[TILE_WITH_NUM] = {0};
+	unsigned int idx = 0, i = 0;
+	unsigned int max_width = 0, interval = 0, st_x = 0;
+	unsigned int engStart_x_L, engStart_x_R, frmHeight;
+	unsigned int engWidth;
+
+	engStart_x_L = pDpeConfig->Dpe_DVSSettings.l_eng_start_x;
+	engStart_x_R = pDpeConfig->Dpe_DVSSettings.r_eng_start_x;
+	frmHeight = pDpeConfig->Dpe_DVSSettings.frm_height;
+	engWidth = pDpeConfig->Dpe_DVSSettings.eng_width;
+#if IS_ENABLED(CONFIG_MTK_LEGACY)
+	if (pDpeConfig->Dpe_DVSSettings.dram_pxl_pitch <
+			(tile_occ_width[TILE_WITH_NUM-1]+(2*engStart_x_L))) {
+		LOG_ERR("Frame size [%d] is smaller than 384\n",
+		pDpeConfig->Dpe_DVSSettings.dram_pxl_pitch);
+		pDpeConfig->Dpe_DVSSettings.pd_frame_num = 1;
+	} else {
+		for (i = 0; i < TILE_WITH_NUM; i++) {
+			w_width[i] =
+			Compute_Para(pDpeConfig, tile_occ_width[i]);
+			tile_num[i] =
+			pDpeConfig->Dpe_DVSSettings.pd_frame_num;
+			if (w_width[i] > max_width) {
+				max_width = w_width[i];
+				idx = i;
+			}
+		}
+
+			interval = (pDpeConfig->Dpe_DVSSettings.dram_pxl_pitch - w_width[idx])/2;
+			st_x = ((interval%16) == 0) ? (interval) : ((interval/16)*16);
+			//pDpeConfig->Dpe_DVSSettings.eng_start_y = 0;
+			pDpeConfig->Dpe_DVSSettings.frm_width =
+			tile_occ_width[idx] + (2*engStart_x_L);
+			pDpeConfig->Dpe_DVSSettings.eng_width =
+			pDpeConfig->Dpe_DVSSettings.frm_width -
+			engStart_x_L - engStart_x_R;
+			pDpeConfig->Dpe_DVSSettings.eng_height
+			= frmHeight -
+			(2*pDpeConfig->Dpe_DVSSettings.eng_start_y);
+			pDpeConfig->Dpe_DVSSettings.occ_width = tile_occ_width[idx];
+			pDpeConfig->Dpe_DVSSettings.occ_start_x = engStart_x_L;
+			pDpeConfig->Dpe_DVSSettings.pd_frame_num = tile_num[idx];
+#if defined(UT_CASE)
+		pDpeConfig->Dpe_DVSSettings.pd_st_x = 0;
+#else
+		pDpeConfig->Dpe_DVSSettings.pd_st_x = st_x;
+#endif
+	}
+#else
+	//!ISP7 tile mode
+	if (pDpeConfig->Dpe_DVSSettings.dram_pxl_pitch <
+			(tile_occ_width[TILE_WITH_NUM-1]+(2*engStart_x_L))) {
+		LOG_ERR("Frame size [%d] is smaller than 384\n",
+		pDpeConfig->Dpe_DVSSettings.dram_pxl_pitch);
+		pDpeConfig->Dpe_DVSSettings.pd_frame_num = 1;
+	} else {//!ISP7 tile mode
+		for (i = 0; i < TILE_WITH_NUM; i++) {
+			w_width[i] =
+			Compute_Para(pDpeConfig, tile_occ_width[i]);
+			LOG_INF("a w_width[%d] = %d\n", i, w_width[i]);
+			tile_num[i] =
+			pDpeConfig->Dpe_DVSSettings.pd_frame_num;
+			LOG_INF("a tile_num[%d] = %d\n", i, tile_num[i]);
+			if (w_width[i] > max_width) {
+				max_width = w_width[i];
+				idx = i;
+			}
+		}
+
+		interval = (pDpeConfig->Dpe_DVSSettings.dram_pxl_pitch - w_width[idx])/2;
+		st_x = ((interval%16) == 0) ? (interval) : ((interval/16)*16);
+		pDpeConfig->Dpe_DVSSettings.frm_width = engWidth; //!ISP7
+		//!pDpeConfig->Dpe_DVSSettings.eng_width =
+		//!pDpeConfig->Dpe_DVSSettings.frm_width -
+		//!engStart_x_L - engStart_x_R;
+		pDpeConfig->Dpe_DVSSettings.eng_height
+		= frmHeight -
+		(2*pDpeConfig->Dpe_DVSSettings.eng_start_y);
+		pDpeConfig->Dpe_DVSSettings.occ_width = tile_occ_width[idx];
+		pDpeConfig->Dpe_DVSSettings.occ_start_x = engStart_x_L;
+		pDpeConfig->Dpe_DVSSettings.pd_frame_num = tile_num[idx];
+
+
+		LOG_INF("a occ_width = %d,pd_frame_num  = %d\n",
+		pDpeConfig->Dpe_DVSSettings.occ_width,
+		pDpeConfig->Dpe_DVSSettings.pd_frame_num);
+	if ((pDpeConfig->Dpe_DVSSettings.dram_out_pitch_en) == 0 &&
+			(pDpeConfig->Dpe_DVSSettings.occ_width > 640))
+		LOG_INF("Dram_out_pitch_en not turn on, but occwidth over 640\n");
+	if ((pDpeConfig->Dpe_DVSSettings.dram_out_pitch_en == 1) &&
+			(pDpeConfig->Dpe_DVSSettings.occ_width < 640))
+		LOG_INF("Dram_out_pitch_en turn on, but occwidth is smaller than 640\n");
+
+#if defined(UT_CASE)
+		pDpeConfig->Dpe_DVSSettings.pd_st_x = 0;
+#else
+		pDpeConfig->Dpe_DVSSettings.pd_st_x = st_x;
+#endif
+	}
+#endif
+}
+
+
+
+static signed int DPE_Dump_kernelReg(struct DPE_Config_V2 *cfg)
+{
+	//DVS Register
+	cfg->DPE_Kernel_DpeConfig.DVS_CTRL00 = (unsigned int)DPE_RD32(DVS_CTRL00_REG);
+	LOG_INF("[DPE_Dump_kernelRegdqbuf] DVS_CTRL00 = 0x%0x DVS_CTRL00 = 0x%0x\n",
+		cfg->DPE_Kernel_DpeConfig.DVS_CTRL00, (unsigned int)DPE_RD32(DVS_CTRL00_REG));
+	cfg->DPE_Kernel_DpeConfig.DVS_CTRL01 = (unsigned int)DPE_RD32(DVS_CTRL01_REG);
+		LOG_INF("[DPE_Dump_kernelRegdqbuf] DVS_CTRL01 = 0x%0x DVS_CTRL01 = 0x%0x\n",
+	cfg->DPE_Kernel_DpeConfig.DVS_CTRL01, (unsigned int)DPE_RD32(DVS_CTRL01_REG));
+	cfg->DPE_Kernel_DpeConfig.DVS_CTRL02 = (unsigned int)DPE_RD32(DVS_CTRL02_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_CTRL03 = (unsigned int)DPE_RD32(DVS_CTRL03_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_CTRL06 = (unsigned int)DPE_RD32(DVS_CTRL06_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_CTRL07 = (unsigned int)DPE_RD32(DVS_CTRL07_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_IRQ_00 = (unsigned int)DPE_RD32(DVS_IRQ_00_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_IRQ_01 = (unsigned int)DPE_RD32(DVS_IRQ_01_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_CTRL_STATUS0 = (unsigned int)DPE_RD32(DVS_CTRL_STATUS0_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_CTRL_STATUS2 = (unsigned int)DPE_RD32(DVS_CTRL_STATUS2_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_IRQ_STATUS = (unsigned int)DPE_RD32(DVS_IRQ_STATUS_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_FRM_STATUS0 = (unsigned int)DPE_RD32(DVS_FRM_STATUS0_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_FRM_STATUS1 = (unsigned int)DPE_RD32(DVS_FRM_STATUS1_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_FRM_STATUS2 = (unsigned int)DPE_RD32(DVS_FRM_STATUS2_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_FRM_STATUS3 = (unsigned int)DPE_RD32(DVS_FRM_STATUS3_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_FRM_STATUS4 = (unsigned int)DPE_RD32(DVS_FRM_STATUS4_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_EXT_STATUS0 = (unsigned int)DPE_RD32(DVS_EXT_STATUS0_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_EXT_STATUS1 = (unsigned int)DPE_RD32(DVS_EXT_STATUS1_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_CUR_STATUS = (unsigned int)DPE_RD32(DVS_CUR_STATUS_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_SRC_CTRL = (unsigned int)DPE_RD32(DVS_SRC_CTRL_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_CRC_CTRL = (unsigned int)DPE_RD32(DVS_CRC_CTRL_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_CRC_IN = (unsigned int)DPE_RD32(DVS_CRC_IN_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_DRAM_STA0 = (unsigned int)DPE_RD32(DVS_DRAM_STA0_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_DRAM_STA1 = (unsigned int)DPE_RD32(DVS_DRAM_STA1_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_DRAM_ULT = (unsigned int)DPE_RD32(DVS_DRAM_ULT_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_DRAM_PITCH = (unsigned int)DPE_RD32(DVS_DRAM_PITCH_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_DRAM_PITCH1 = (unsigned int)DPE_RD32(DVS_DRAM_PITCH1_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_SRC_00 = (unsigned int)DPE_RD32(DVS_SRC_00_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_SRC_01 = (unsigned int)DPE_RD32(DVS_SRC_01_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_SRC_02 = (unsigned int)DPE_RD32(DVS_SRC_02_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_SRC_03 = (unsigned int)DPE_RD32(DVS_SRC_03_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_SRC_04 = (unsigned int)DPE_RD32(DVS_SRC_04_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_SRC_05_L_FRM0 = (unsigned int)DPE_RD32(DVS_SRC_05_L_FRM0_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_SRC_06_L_FRM1 = (unsigned int)DPE_RD32(DVS_SRC_06_L_FRM1_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_SRC_07_L_FRM2 = (unsigned int)DPE_RD32(DVS_SRC_07_L_FRM2_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_SRC_08_L_FRM3 = (unsigned int)DPE_RD32(DVS_SRC_08_L_FRM3_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_SRC_09_R_FRM0 = (unsigned int)DPE_RD32(DVS_SRC_09_R_FRM0_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_SRC_10_R_FRM1 = (unsigned int)DPE_RD32(DVS_SRC_10_R_FRM1_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_SRC_11_R_FRM2 = (unsigned int)DPE_RD32(DVS_SRC_11_R_FRM2_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_SRC_12_R_FRM3 = (unsigned int)DPE_RD32(DVS_SRC_12_R_FRM3_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_SRC_13_Hist0 = (unsigned int)DPE_RD32(DVS_SRC_13_Hist0_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_SRC_14_Hist1 = (unsigned int)DPE_RD32(DVS_SRC_14_Hist1_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_SRC_15_Hist2 = (unsigned int)DPE_RD32(DVS_SRC_15_Hist2_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_SRC_16_Hist3 = (unsigned int)DPE_RD32(DVS_SRC_16_Hist3_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_SRC_17_OCCDV_EXT0 =
+	(unsigned int)DPE_RD32(DVS_SRC_17_OCCDV_EXT0_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_SRC_18_OCCDV_EXT1 =
+	(unsigned int)DPE_RD32(DVS_SRC_18_OCCDV_EXT1_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_SRC_19_OCCDV_EXT2 =
+	(unsigned int)DPE_RD32(DVS_SRC_19_OCCDV_EXT2_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_SRC_20_OCCDV_EXT3 =
+	(unsigned int)DPE_RD32(DVS_SRC_20_OCCDV_EXT3_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_SRC_21_P4_L_DV_ADR =
+	(unsigned int)DPE_RD32(DVS_SRC_21_P4_L_DV_ADR_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_SRC_22_OCCDV0 = (unsigned int)DPE_RD32(DVS_SRC_22_OCCDV0_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_SRC_23_OCCDV1 = (unsigned int)DPE_RD32(DVS_SRC_23_OCCDV1_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_SRC_24_OCCDV2 = (unsigned int)DPE_RD32(DVS_SRC_24_OCCDV2_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_SRC_25_OCCDV3 = (unsigned int)DPE_RD32(DVS_SRC_25_OCCDV3_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_SRC_26_P4_R_DV_ADR =
+	(unsigned int)DPE_RD32(DVS_SRC_26_P4_R_DV_ADR_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_SRC_27 = (unsigned int)DPE_RD32(DVS_SRC_27_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_SRC_28 = (unsigned int)DPE_RD32(DVS_SRC_28_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_SRC_29 = (unsigned int)DPE_RD32(DVS_SRC_29_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_SRC_30 = (unsigned int)DPE_RD32(DVS_SRC_30_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_SRC_31 = (unsigned int)DPE_RD32(DVS_SRC_31_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_SRC_32 = (unsigned int)DPE_RD32(DVS_SRC_32_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_SRC_33 = (unsigned int)DPE_RD32(DVS_SRC_33_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_SRC_34 = (unsigned int)DPE_RD32(DVS_SRC_34_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_SRC_35 = (unsigned int)DPE_RD32(DVS_SRC_35_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_SRC_36 = (unsigned int)DPE_RD32(DVS_SRC_36_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_SRC_37 = (unsigned int)DPE_RD32(DVS_SRC_37_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_SRC_38 = (unsigned int)DPE_RD32(DVS_SRC_38_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_SRC_39 = (unsigned int)DPE_RD32(DVS_SRC_39_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_FIX_HIST_ADR = (unsigned int)DPE_RD32(DVS_FIX_HIST_ADR_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_CRC_OUT_0 = (unsigned int)DPE_RD32(DVS_CRC_OUT_0_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_CRC_OUT_1 = (unsigned int)DPE_RD32(DVS_CRC_OUT_1_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_CRC_OUT_2 = (unsigned int)DPE_RD32(DVS_CRC_OUT_2_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_CRC_OUT_3 = (unsigned int)DPE_RD32(DVS_CRC_OUT_3_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_DRAM_SEC_0 = (unsigned int)DPE_RD32(DVS_DRAM_SEC_0_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_DRAM_SEC_1 = (unsigned int)DPE_RD32(DVS_DRAM_SEC_1_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_DRAM_SEC_2 = (unsigned int)DPE_RD32(DVS_DRAM_SEC_2_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_DEQ_FORCE = (unsigned int)DPE_RD32(DVS_DEQ_FORCE_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_CTRL_RESERVED = (unsigned int)DPE_RD32(DVS_CTRL_RESERVED_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_CTRL_ATPG = (unsigned int)DPE_RD32(DVS_CTRL_ATPG_REG);
+
+	//ME
+	cfg->DPE_Kernel_DpeConfig.DVS_ME_00 = (unsigned int)DPE_RD32(DVS_ME_00_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_ME_01 = (unsigned int)DPE_RD32(DVS_ME_01_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_ME_02 = (unsigned int)DPE_RD32(DVS_ME_02_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_ME_03 = (unsigned int)DPE_RD32(DVS_ME_03_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_ME_04 = (unsigned int)DPE_RD32(DVS_ME_04_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_ME_05 = (unsigned int)DPE_RD32(DVS_ME_05_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_ME_06 = (unsigned int)DPE_RD32(DVS_ME_06_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_ME_07 = (unsigned int)DPE_RD32(DVS_ME_07_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_ME_08 = (unsigned int)DPE_RD32(DVS_ME_08_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_ME_09 = (unsigned int)DPE_RD32(DVS_ME_09_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_ME_10 = (unsigned int)DPE_RD32(DVS_ME_10_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_ME_11 = (unsigned int)DPE_RD32(DVS_ME_11_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_ME_12 = (unsigned int)DPE_RD32(DVS_ME_12_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_ME_13 = (unsigned int)DPE_RD32(DVS_ME_13_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_ME_14 = (unsigned int)DPE_RD32(DVS_ME_14_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_ME_15 = (unsigned int)DPE_RD32(DVS_ME_15_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_ME_16 = (unsigned int)DPE_RD32(DVS_ME_16_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_ME_17 = (unsigned int)DPE_RD32(DVS_ME_17_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_ME_18 = (unsigned int)DPE_RD32(DVS_ME_18_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_ME_19 = (unsigned int)DPE_RD32(DVS_ME_19_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_ME_20 = (unsigned int)DPE_RD32(DVS_ME_20_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_ME_21 = (unsigned int)DPE_RD32(DVS_ME_21_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_ME_22 = (unsigned int)DPE_RD32(DVS_ME_22_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_ME_23 = (unsigned int)DPE_RD32(DVS_ME_23_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_ME_24 = (unsigned int)DPE_RD32(DVS_ME_24_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_ME_25 = (unsigned int)DPE_RD32(DVS_ME_25_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_ME_26 = (unsigned int)DPE_RD32(DVS_ME_26_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_ME_27 = (unsigned int)DPE_RD32(DVS_ME_27_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_ME_28 = (unsigned int)DPE_RD32(DVS_ME_28_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_ME_29 = (unsigned int)DPE_RD32(DVS_ME_29_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_ME_30 = (unsigned int)DPE_RD32(DVS_ME_30_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_ME_31 = (unsigned int)DPE_RD32(DVS_ME_31_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_ME_32 = (unsigned int)DPE_RD32(DVS_ME_32_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_ME_33 = (unsigned int)DPE_RD32(DVS_ME_33_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_ME_34 = (unsigned int)DPE_RD32(DVS_ME_34_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_ME_35 = (unsigned int)DPE_RD32(DVS_ME_35_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_ME_36 = (unsigned int)DPE_RD32(DVS_ME_36_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_ME_37 = (unsigned int)DPE_RD32(DVS_ME_37_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_ME_38 = (unsigned int)DPE_RD32(DVS_ME_38_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_ME_39 = (unsigned int)DPE_RD32(DVS_ME_39_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_DEBUG = (unsigned int)DPE_RD32(DVS_DEBUG_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_ME_RESERVED = (unsigned int)DPE_RD32(DVS_ME_RESERVED_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_ME_ATPG = (unsigned int)DPE_RD32(DVS_ME_ATPG_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_ME_40 = (unsigned int)DPE_RD32(DVS_ME_40_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_ME_41 = (unsigned int)DPE_RD32(DVS_ME_41_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_ME_42 = (unsigned int)DPE_RD32(DVS_ME_42_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_ME_43 = (unsigned int)DPE_RD32(DVS_ME_43_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_ME_44 = (unsigned int)DPE_RD32(DVS_ME_44_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_ME_45 = (unsigned int)DPE_RD32(DVS_ME_45_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_ME_46 = (unsigned int)DPE_RD32(DVS_ME_46_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_ME_47 = (unsigned int)DPE_RD32(DVS_ME_47_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_ME_48 = (unsigned int)DPE_RD32(DVS_ME_48_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_ME_49 = (unsigned int)DPE_RD32(DVS_ME_49_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_ME_50 = (unsigned int)DPE_RD32(DVS_ME_50_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_ME_51 = (unsigned int)DPE_RD32(DVS_ME_51_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_ME_52 = (unsigned int)DPE_RD32(DVS_ME_52_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_ME_53 = (unsigned int)DPE_RD32(DVS_ME_53_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_ME_54 = (unsigned int)DPE_RD32(DVS_ME_54_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_ME_55 = (unsigned int)DPE_RD32(DVS_ME_55_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_ME_56 = (unsigned int)DPE_RD32(DVS_ME_56_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_ME_57 = (unsigned int)DPE_RD32(DVS_ME_57_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_ME_58 = (unsigned int)DPE_RD32(DVS_ME_58_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_ME_59 = (unsigned int)DPE_RD32(DVS_ME_59_REG);
+
+	//OCC
+	cfg->DPE_Kernel_DpeConfig.DVS_OCC_PQ_0 = (unsigned int)DPE_RD32(DVS_OCC_PQ_0_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_OCC_PQ_1 = (unsigned int)DPE_RD32(DVS_OCC_PQ_1_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_OCC_PQ_2 = (unsigned int)DPE_RD32(DVS_OCC_PQ_2_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_OCC_PQ_3 = (unsigned int)DPE_RD32(DVS_OCC_PQ_3_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_OCC_PQ_4 = (unsigned int)DPE_RD32(DVS_OCC_PQ_4_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_OCC_PQ_5 = (unsigned int)DPE_RD32(DVS_OCC_PQ_5_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_OCC_PQ_10 = (unsigned int)DPE_RD32(DVS_OCC_PQ_10_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_OCC_PQ_11 = (unsigned int)DPE_RD32(DVS_OCC_PQ_11_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_OCC_PQ_12 = (unsigned int)DPE_RD32(DVS_OCC_PQ_12_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_OCC_ATPG = (unsigned int)DPE_RD32(DVS_OCC_ATPG_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_OCC_HIST0 = (unsigned int)DPE_RD32(DVS_OCC_HIST0_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_OCC_HIST1 = (unsigned int)DPE_RD32(DVS_OCC_HIST1_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_OCC_HIST2 = (unsigned int)DPE_RD32(DVS_OCC_HIST2_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_OCC_HIST3 = (unsigned int)DPE_RD32(DVS_OCC_HIST3_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_OCC_HIST4 = (unsigned int)DPE_RD32(DVS_OCC_HIST4_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_OCC_HIST5 = (unsigned int)DPE_RD32(DVS_OCC_HIST5_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_OCC_HIST6 = (unsigned int)DPE_RD32(DVS_OCC_HIST6_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_OCC_HIST7 = (unsigned int)DPE_RD32(DVS_OCC_HIST7_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_OCC_HIST8 = (unsigned int)DPE_RD32(DVS_OCC_HIST8_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_OCC_HIST9 = (unsigned int)DPE_RD32(DVS_OCC_HIST9_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_OCC_HIST10 = (unsigned int)DPE_RD32(DVS_OCC_HIST10_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_OCC_HIST11 = (unsigned int)DPE_RD32(DVS_OCC_HIST11_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_OCC_HIST12 = (unsigned int)DPE_RD32(DVS_OCC_HIST12_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_OCC_HIST13 = (unsigned int)DPE_RD32(DVS_OCC_HIST13_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_OCC_HIST14 = (unsigned int)DPE_RD32(DVS_OCC_HIST14_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_OCC_HIST15 = (unsigned int)DPE_RD32(DVS_OCC_HIST15_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_OCC_HIST16 = (unsigned int)DPE_RD32(DVS_OCC_HIST16_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_OCC_HIST17 = (unsigned int)DPE_RD32(DVS_OCC_HIST17_REG);
+	cfg->DPE_Kernel_DpeConfig.DVS_OCC_HIST18 = (unsigned int)DPE_RD32(DVS_OCC_HIST18_REG);
+	//DVP
+	cfg->DPE_Kernel_DpeConfig.DVP_CTRL00 = (unsigned int)DPE_RD32(DVP_CTRL00_REG);
+	cfg->DPE_Kernel_DpeConfig.DVP_CTRL01 = (unsigned int)DPE_RD32(DVP_CTRL01_REG);
+	cfg->DPE_Kernel_DpeConfig.DVP_CTRL02 = (unsigned int)DPE_RD32(DVP_CTRL02_REG);
+	cfg->DPE_Kernel_DpeConfig.DVP_CTRL03 = (unsigned int)DPE_RD32(DVP_CTRL03_REG);
+	cfg->DPE_Kernel_DpeConfig.DVP_CTRL04 = (unsigned int)DPE_RD32(DVP_CTRL04_REG);
+	cfg->DPE_Kernel_DpeConfig.DVP_CTRL05 = (unsigned int)DPE_RD32(DVP_CTRL05_REG);
+	cfg->DPE_Kernel_DpeConfig.DVP_CTRL07 = (unsigned int)DPE_RD32(DVP_CTRL07_REG);
+	cfg->DPE_Kernel_DpeConfig.DVP_IRQ_00 = (unsigned int)DPE_RD32(DVP_IRQ_00_REG);
+	cfg->DPE_Kernel_DpeConfig.DVP_IRQ_01 = (unsigned int)DPE_RD32(DVP_IRQ_01_REG);
+	cfg->DPE_Kernel_DpeConfig.DVP_CTRL_STATUS0 = (unsigned int)DPE_RD32(DVP_CTRL_STATUS0_REG);
+	cfg->DPE_Kernel_DpeConfig.DVP_CTRL_STATUS1 = (unsigned int)DPE_RD32(DVP_CTRL_STATUS1_REG);
+	cfg->DPE_Kernel_DpeConfig.DVP_IRQ_STATUS = (unsigned int)DPE_RD32(DVP_IRQ_STATUS_REG);
+	cfg->DPE_Kernel_DpeConfig.DVP_FRM_STATUS0 = (unsigned int)DPE_RD32(DVP_FRM_STATUS0_REG);
+	cfg->DPE_Kernel_DpeConfig.DVP_FRM_STATUS1 = (unsigned int)DPE_RD32(DVP_FRM_STATUS1_REG);
+	cfg->DPE_Kernel_DpeConfig.DVP_FRM_STATUS2 = (unsigned int)DPE_RD32(DVP_FRM_STATUS2_REG);
+	cfg->DPE_Kernel_DpeConfig.DVP_FRM_STATUS3 = (unsigned int)DPE_RD32(DVP_FRM_STATUS3_REG);
+	cfg->DPE_Kernel_DpeConfig.DVP_CUR_STATUS = (unsigned int)DPE_RD32(DVP_CUR_STATUS_REG);
+	cfg->DPE_Kernel_DpeConfig.DVP_SRC_00 = (unsigned int)DPE_RD32(DVP_SRC_00_REG);
+	cfg->DPE_Kernel_DpeConfig.DVP_SRC_01 = (unsigned int)DPE_RD32(DVP_SRC_01_REG);
+	cfg->DPE_Kernel_DpeConfig.DVP_SRC_02 = (unsigned int)DPE_RD32(DVP_SRC_02_REG);
+	cfg->DPE_Kernel_DpeConfig.DVP_SRC_03 = (unsigned int)DPE_RD32(DVP_SRC_03_REG);
+	cfg->DPE_Kernel_DpeConfig.DVP_SRC_04 = (unsigned int)DPE_RD32(DVP_SRC_04_REG);
+	cfg->DPE_Kernel_DpeConfig.DVP_SRC_05_Y_FRM0 = (unsigned int)DPE_RD32(DVP_SRC_05_Y_FRM0_REG);
+	cfg->DPE_Kernel_DpeConfig.DVP_SRC_06_Y_FRM1 = (unsigned int)DPE_RD32(DVP_SRC_06_Y_FRM1_REG);
+	cfg->DPE_Kernel_DpeConfig.DVP_SRC_07_Y_FRM2 = (unsigned int)DPE_RD32(DVP_SRC_07_Y_FRM2_REG);
+	cfg->DPE_Kernel_DpeConfig.DVP_SRC_08_Y_FRM3 = (unsigned int)DPE_RD32(DVP_SRC_08_Y_FRM3_REG);
+	cfg->DPE_Kernel_DpeConfig.DVP_SRC_09_C_FRM0 = (unsigned int)DPE_RD32(DVP_SRC_09_C_FRM0_REG);
+	cfg->DPE_Kernel_DpeConfig.DVP_SRC_10_C_FRM1 = (unsigned int)DPE_RD32(DVP_SRC_10_C_FRM1_REG);
+	cfg->DPE_Kernel_DpeConfig.DVP_SRC_11_C_FRM2 = (unsigned int)DPE_RD32(DVP_SRC_11_C_FRM2_REG);
+	cfg->DPE_Kernel_DpeConfig.DVP_SRC_12_C_FRM3 = (unsigned int)DPE_RD32(DVP_SRC_12_C_FRM3_REG);
+	cfg->DPE_Kernel_DpeConfig.DVP_SRC_13_OCCDV0 = (unsigned int)DPE_RD32(DVP_SRC_13_OCCDV0_REG);
+	cfg->DPE_Kernel_DpeConfig.DVP_SRC_14_OCCDV1 = (unsigned int)DPE_RD32(DVP_SRC_14_OCCDV1_REG);
+	cfg->DPE_Kernel_DpeConfig.DVP_SRC_15_OCCDV2 = (unsigned int)DPE_RD32(DVP_SRC_15_OCCDV2_REG);
+	cfg->DPE_Kernel_DpeConfig.DVP_SRC_16_OCCDV3 = (unsigned int)DPE_RD32(DVP_SRC_16_OCCDV3_REG);
+	cfg->DPE_Kernel_DpeConfig.DVP_SRC_17_CRM = (unsigned int)DPE_RD32(DVP_SRC_17_CRM_REG);
+	cfg->DPE_Kernel_DpeConfig.DVP_SRC_18_ASF_RMDV =
+	(unsigned int)DPE_RD32(DVP_SRC_18_ASF_RMDV_REG);
+	cfg->DPE_Kernel_DpeConfig.DVP_SRC_19_ASF_RDDV =
+	(unsigned int)DPE_RD32(DVP_SRC_19_ASF_RDDV_REG);
+	cfg->DPE_Kernel_DpeConfig.DVP_SRC_20_ASF_DV0 =
+	(unsigned int)DPE_RD32(DVP_SRC_20_ASF_DV0_REG);
+	cfg->DPE_Kernel_DpeConfig.DVP_SRC_21_ASF_DV1 =
+	(unsigned int)DPE_RD32(DVP_SRC_21_ASF_DV1_REG);
+	cfg->DPE_Kernel_DpeConfig.DVP_SRC_22_ASF_DV2 =
+	(unsigned int)DPE_RD32(DVP_SRC_22_ASF_DV2_REG);
+	cfg->DPE_Kernel_DpeConfig.DVP_SRC_23_ASF_DV3 =
+	(unsigned int)DPE_RD32(DVP_SRC_23_ASF_DV3_REG);
+	cfg->DPE_Kernel_DpeConfig.DVP_SRC_25_WMF_HFDV =
+	(unsigned int)DPE_RD32(DVP_SRC_25_WMF_HFDV_REG);
+	cfg->DPE_Kernel_DpeConfig.DVP_SRC_26_WMF_DV0 =
+	(unsigned int)DPE_RD32(DVP_SRC_26_WMF_DV0_REG);
+	cfg->DPE_Kernel_DpeConfig.DVP_SRC_27_WMF_DV1 =
+	(unsigned int)DPE_RD32(DVP_SRC_27_WMF_DV1_REG);
+	cfg->DPE_Kernel_DpeConfig.DVP_SRC_28_WMF_DV2 =
+	(unsigned int)DPE_RD32(DVP_SRC_28_WMF_DV2_REG);
+	cfg->DPE_Kernel_DpeConfig.DVP_SRC_29_WMF_DV3 =
+	(unsigned int)DPE_RD32(DVP_SRC_29_WMF_DV3_REG);
+
+	//CORE
+	cfg->DPE_Kernel_DpeConfig.DVP_CORE_00 = (unsigned int)DPE_RD32(DVP_CORE_00_REG);
+	cfg->DPE_Kernel_DpeConfig.DVP_CORE_01 = (unsigned int)DPE_RD32(DVP_CORE_01_REG);
+	cfg->DPE_Kernel_DpeConfig.DVP_CORE_02 = (unsigned int)DPE_RD32(DVP_CORE_02_REG);
+	cfg->DPE_Kernel_DpeConfig.DVP_CORE_03 = (unsigned int)DPE_RD32(DVP_CORE_03_REG);
+	cfg->DPE_Kernel_DpeConfig.DVP_CORE_04 = (unsigned int)DPE_RD32(DVP_CORE_04_REG);
+	cfg->DPE_Kernel_DpeConfig.DVP_CORE_05 = (unsigned int)DPE_RD32(DVP_CORE_05_REG);
+	cfg->DPE_Kernel_DpeConfig.DVP_CORE_06 = (unsigned int)DPE_RD32(DVP_CORE_06_REG);
+	cfg->DPE_Kernel_DpeConfig.DVP_CORE_07 = (unsigned int)DPE_RD32(DVP_CORE_07_REG);
+	cfg->DPE_Kernel_DpeConfig.DVP_CORE_08 = (unsigned int)DPE_RD32(DVP_CORE_08_REG);
+	cfg->DPE_Kernel_DpeConfig.DVP_CORE_09 = (unsigned int)DPE_RD32(DVP_CORE_09_REG);
+	cfg->DPE_Kernel_DpeConfig.DVP_CORE_10 = (unsigned int)DPE_RD32(DVP_CORE_10_REG);
+	cfg->DPE_Kernel_DpeConfig.DVP_CORE_11 = (unsigned int)DPE_RD32(DVP_CORE_11_REG);
+	cfg->DPE_Kernel_DpeConfig.DVP_CORE_12 = (unsigned int)DPE_RD32(DVP_CORE_12_REG);
+	cfg->DPE_Kernel_DpeConfig.DVP_CORE_13 = (unsigned int)DPE_RD32(DVP_CORE_13_REG);
+	cfg->DPE_Kernel_DpeConfig.DVP_CORE_14 = (unsigned int)DPE_RD32(DVP_CORE_14_REG);
+	cfg->DPE_Kernel_DpeConfig.DVP_CORE_15 = (unsigned int)DPE_RD32(DVP_CORE_15_REG);
+	cfg->DPE_Kernel_DpeConfig.DVP_CORE_16 = (unsigned int)DPE_RD32(DVP_CORE_16_REG);
+	cfg->DPE_Kernel_DpeConfig.DVP_CORE_17 = (unsigned int)DPE_RD32(DVP_CORE_17_REG);
+	cfg->DPE_Kernel_DpeConfig.DVP_CORE_18 = (unsigned int)DPE_RD32(DVP_CORE_18_REG);
+	cfg->DPE_Kernel_DpeConfig.DVP_CORE_19 = (unsigned int)DPE_RD32(DVP_CORE_19_REG);
+	cfg->DPE_Kernel_DpeConfig.DVP_SRC_CTRL = (unsigned int)DPE_RD32(DVP_SRC_CTRL_REG);
+	cfg->DPE_Kernel_DpeConfig.DVP_CTRL_RESERVED = (unsigned int)DPE_RD32(DVP_CTRL_RESERVED_REG);
+	cfg->DPE_Kernel_DpeConfig.DVP_CTRL_ATPG = (unsigned int)DPE_RD32(DVP_CTRL_ATPG_REG);
+	cfg->DPE_Kernel_DpeConfig.DVP_CRC_OUT_0 = (unsigned int)DPE_RD32(DVP_CRC_OUT_0_REG);
+	cfg->DPE_Kernel_DpeConfig.DVP_CRC_OUT_1 = (unsigned int)DPE_RD32(DVP_CRC_OUT_1_REG);
+	cfg->DPE_Kernel_DpeConfig.DVP_CRC_OUT_2 = (unsigned int)DPE_RD32(DVP_CRC_OUT_2_REG);
+	cfg->DPE_Kernel_DpeConfig.DVP_CRC_CTRL = (unsigned int)DPE_RD32(DVP_CRC_CTRL_REG);
+	cfg->DPE_Kernel_DpeConfig.DVP_CRC_OUT = (unsigned int)DPE_RD32(DVP_CRC_OUT_REG);
+	cfg->DPE_Kernel_DpeConfig.DVP_CRC_IN = (unsigned int)DPE_RD32(DVP_CRC_IN_REG);
+	cfg->DPE_Kernel_DpeConfig.DVP_DRAM_STA = (unsigned int)DPE_RD32(DVP_DRAM_STA_REG);
+	cfg->DPE_Kernel_DpeConfig.DVP_DRAM_ULT = (unsigned int)DPE_RD32(DVP_DRAM_ULT_REG);
+	cfg->DPE_Kernel_DpeConfig.DVP_DRAM_PITCH = (unsigned int)DPE_RD32(DVP_DRAM_PITCH_REG);
+	cfg->DPE_Kernel_DpeConfig.DVP_DRAM_SEC_0 = (unsigned int)DPE_RD32(DVP_DRAM_SEC_0_REG);
+	cfg->DPE_Kernel_DpeConfig.DVP_DRAM_SEC_1 = (unsigned int)DPE_RD32(DVP_DRAM_SEC_1_REG);
+	cfg->DPE_Kernel_DpeConfig.DVP_CORE_CRC_IN = (unsigned int)DPE_RD32(DVP_CORE_CRC_IN_REG);
+	cfg->DPE_Kernel_DpeConfig.DVP_EXT_SRC_13_OCCDV0 =
+	(unsigned int)DPE_RD32(DVP_EXT_SRC_13_OCCDV0_REG);
+	cfg->DPE_Kernel_DpeConfig.DVP_EXT_SRC_14_OCCDV1 =
+	(unsigned int)DPE_RD32(DVP_EXT_SRC_14_OCCDV1_REG);
+	cfg->DPE_Kernel_DpeConfig.DVP_EXT_SRC_15_OCCDV2 =
+	(unsigned int)DPE_RD32(DVP_EXT_SRC_15_OCCDV2_REG);
+	cfg->DPE_Kernel_DpeConfig.DVP_EXT_SRC_16_OCCDV3 =
+	(unsigned int)DPE_RD32(DVP_EXT_SRC_16_OCCDV3_REG);
+	cfg->DPE_Kernel_DpeConfig.DVP_EXT_SRC_18_ASF_RMDV =
+	(unsigned int)DPE_RD32(DVP_EXT_SRC_18_ASF_RMDV_REG);
+	cfg->DPE_Kernel_DpeConfig.DVP_EXT_SRC_19_ASF_RDDV =
+	(unsigned int)DPE_RD32(DVP_EXT_SRC_19_ASF_RDDV_REG);
+	cfg->DPE_Kernel_DpeConfig.DVP_EXT_SRC_20_ASF_DV0 =
+	(unsigned int)DPE_RD32(DVP_EXT_SRC_20_ASF_DV0_REG);
+	cfg->DPE_Kernel_DpeConfig.DVP_EXT_SRC_21_ASF_DV1 =
+	(unsigned int)DPE_RD32(DVP_EXT_SRC_21_ASF_DV1_REG);
+	cfg->DPE_Kernel_DpeConfig.DVP_EXT_SRC_22_ASF_DV2 =
+	(unsigned int)DPE_RD32(DVP_EXT_SRC_22_ASF_DV2_REG);
+	cfg->DPE_Kernel_DpeConfig.DVP_EXT_SRC_23_ASF_DV3 =
+	(unsigned int)DPE_RD32(DVP_EXT_SRC_23_ASF_DV3_REG);
+	cfg->DPE_Kernel_DpeConfig.DVP_EXT_SRC_24_WMF_RD_DV_ADR =
+	(unsigned int)DPE_RD32(DVP_EXT_SRC_24_WMF_RD_DV_ADR_REG);
+	// DVGF
+	cfg->DPE_Kernel_DpeConfig.DVGF_CTRL_00 =
+	(unsigned int)DPE_RD32(DVGF_CTRL_00_REG);
+	cfg->DPE_Kernel_DpeConfig.DVGF_CTRL_01 =
+	(unsigned int)DPE_RD32(DVGF_CTRL_01_REG);
+	cfg->DPE_Kernel_DpeConfig.DVGF_CTRL_02 =
+	(unsigned int)DPE_RD32(DVGF_CTRL_02_REG);
+	cfg->DPE_Kernel_DpeConfig.DVGF_CTRL_03 =
+	(unsigned int)DPE_RD32(DVGF_CTRL_03_REG);
+	cfg->DPE_Kernel_DpeConfig.DVGF_CTRL_05 =
+	(unsigned int)DPE_RD32(DVGF_CTRL_05_REG);
+	cfg->DPE_Kernel_DpeConfig.DVGF_CTRL_07 =
+	(unsigned int)DPE_RD32(DVGF_CTRL_07_REG);
+	cfg->DPE_Kernel_DpeConfig.DVGF_IRQ_00 =
+	(unsigned int)DPE_RD32(DVGF_IRQ_00_REG);
+	cfg->DPE_Kernel_DpeConfig.DVGF_IRQ_01 =
+	(unsigned int)DPE_RD32(DVGF_IRQ_01_REG);
+	cfg->DPE_Kernel_DpeConfig.DVGF_CTRL_STATUS0 =
+	(unsigned int)DPE_RD32(DVGF_CTRL_STATUS0_REG);
+	cfg->DPE_Kernel_DpeConfig.DVGF_CTRL_STATUS0 =
+	(unsigned int)DPE_RD32(DVGF_CTRL_STATUS0_REG);
+	cfg->DPE_Kernel_DpeConfig.DVGF_IRQ_STATUS =
+	(unsigned int)DPE_RD32(DVGF_IRQ_STATUS_REG);
+	cfg->DPE_Kernel_DpeConfig.DVGF_FRM_STATUS =
+	(unsigned int)DPE_RD32(DVGF_FRM_STATUS_REG);
+	cfg->DPE_Kernel_DpeConfig.DVGF_CUR_STATUS =
+	(unsigned int)DPE_RD32(DVGF_CUR_STATUS_REG);
+	cfg->DPE_Kernel_DpeConfig.DVGF_CRC_CTRL =
+	(unsigned int)DPE_RD32(DVGF_CRC_CTRL_REG);
+	cfg->DPE_Kernel_DpeConfig.DVGF_CRC_OUT =
+	(unsigned int)DPE_RD32(DVGF_CRC_OUT_REG);
+	cfg->DPE_Kernel_DpeConfig.DVGF_CRC_IN =
+	(unsigned int)DPE_RD32(DVGF_CRC_IN_REG);
+	cfg->DPE_Kernel_DpeConfig.DVGF_CRC_OUT_0 =
+	(unsigned int)DPE_RD32(DVGF_CRC_OUT_0_REG);
+	cfg->DPE_Kernel_DpeConfig.DVGF_CRC_OUT_1 =
+	(unsigned int)DPE_RD32(DVGF_CRC_OUT_1_REG);
+	cfg->DPE_Kernel_DpeConfig.DVGF_CRC_OUT_2 =
+	(unsigned int)DPE_RD32(DVGF_CRC_OUT_2_REG);
+	cfg->DPE_Kernel_DpeConfig.DVGF_CORE_CRC_IN =
+	(unsigned int)DPE_RD32(DVGF_CORE_CRC_IN_REG);
+	cfg->DPE_Kernel_DpeConfig.DVGF_DRAM_STA =
+	(unsigned int)DPE_RD32(DVGF_DRAM_STA_REG);
+	cfg->DPE_Kernel_DpeConfig.DVGF_DRAM_PITCH =
+	(unsigned int)DPE_RD32(DVGF_DRAM_PITCH_REG);
+	cfg->DPE_Kernel_DpeConfig.DVGF_DRAM_SEC_0 =
+	(unsigned int)DPE_RD32(DVGF_DRAM_SEC_0_REG);
+	cfg->DPE_Kernel_DpeConfig.DVGF_DRAM_SEC_1 =
+	(unsigned int)DPE_RD32(DVGF_DRAM_SEC_1_REG);
+	cfg->DPE_Kernel_DpeConfig.DVGF_CTRL_STATUS_32b_00 =
+	(unsigned int)DPE_RD32(DVGF_CTRL_STATUS_32b_00_REG);
+	cfg->DPE_Kernel_DpeConfig.DVGF_CTRL_STATUS_32b_01 =
+	(unsigned int)DPE_RD32(DVGF_CTRL_STATUS_32b_01_REG);
+	cfg->DPE_Kernel_DpeConfig.DVGF_CTRL_STATUS_32b_02 =
+	(unsigned int)DPE_RD32(DVGF_CTRL_STATUS_32b_02_REG);
+	cfg->DPE_Kernel_DpeConfig.DVGF_CTRL_STATUS_32b_03 =
+	(unsigned int)DPE_RD32(DVGF_CTRL_STATUS_32b_03_REG);
+	cfg->DPE_Kernel_DpeConfig.DVGF_CTRL_STATUS_32b_04 =
+	(unsigned int)DPE_RD32(DVGF_CTRL_STATUS_32b_04_REG);
+	cfg->DPE_Kernel_DpeConfig.DVGF_CTRL_RESERVED =
+	(unsigned int)DPE_RD32(DVGF_CTRL_RESERVED_REG);
+	cfg->DPE_Kernel_DpeConfig.DVGF_CTRL_ATPG =
+	(unsigned int)DPE_RD32(DVGF_CTRL_ATPG_REG);
+	cfg->DPE_Kernel_DpeConfig.DVGF_SRC_00 =
+	(unsigned int)DPE_RD32(DVGF_SRC_00_REG);
+	cfg->DPE_Kernel_DpeConfig.DVGF_SRC_01 =
+	(unsigned int)DPE_RD32(DVGF_SRC_01_REG);
+	cfg->DPE_Kernel_DpeConfig.DVGF_SRC_02 =
+	(unsigned int)DPE_RD32(DVGF_SRC_02_REG);
+	cfg->DPE_Kernel_DpeConfig.DVGF_SRC_04 =
+	(unsigned int)DPE_RD32(DVGF_SRC_04_REG);
+	cfg->DPE_Kernel_DpeConfig.DVGF_SRC_05 =
+	(unsigned int)DPE_RD32(DVGF_SRC_05_REG);
+	cfg->DPE_Kernel_DpeConfig.DVGF_SRC_06 =
+	(unsigned int)DPE_RD32(DVGF_SRC_06_REG);
+	cfg->DPE_Kernel_DpeConfig.DVGF_SRC_07 =
+	(unsigned int)DPE_RD32(DVGF_SRC_07_REG);
+	cfg->DPE_Kernel_DpeConfig.DVGF_SRC_08 =
+	(unsigned int)DPE_RD32(DVGF_SRC_08_REG);
+	cfg->DPE_Kernel_DpeConfig.DVGF_SRC_09 =
+	(unsigned int)DPE_RD32(DVGF_SRC_09_REG);
+	cfg->DPE_Kernel_DpeConfig.DVGF_SRC_10 =
+	(unsigned int)DPE_RD32(DVGF_SRC_10_REG);
+	cfg->DPE_Kernel_DpeConfig.DVGF_SRC_11 =
+	(unsigned int)DPE_RD32(DVGF_SRC_11_REG);
+	cfg->DPE_Kernel_DpeConfig.DVGF_SRC_12 =
+	(unsigned int)DPE_RD32(DVGF_SRC_12_REG);
+	cfg->DPE_Kernel_DpeConfig.DVGF_SRC_13 =
+	(unsigned int)DPE_RD32(DVGF_SRC_13_REG);
+	cfg->DPE_Kernel_DpeConfig.DVGF_SRC_14 =
+	(unsigned int)DPE_RD32(DVGF_SRC_14_REG);
+	cfg->DPE_Kernel_DpeConfig.DVGF_SRC_15 =
+	(unsigned int)DPE_RD32(DVGF_SRC_15_REG);
+	cfg->DPE_Kernel_DpeConfig.DVGF_SRC_16 =
+	(unsigned int)DPE_RD32(DVGF_SRC_16_REG);
+	cfg->DPE_Kernel_DpeConfig.DVGF_SRC_17 =
+	(unsigned int)DPE_RD32(DVGF_SRC_17_REG);
+	cfg->DPE_Kernel_DpeConfig.DVGF_SRC_18 =
+	(unsigned int)DPE_RD32(DVGF_SRC_18_REG);
+	cfg->DPE_Kernel_DpeConfig.DVGF_SRC_19 =
+	(unsigned int)DPE_RD32(DVGF_SRC_19_REG);
+	cfg->DPE_Kernel_DpeConfig.DVGF_SRC_20 =
+	(unsigned int)DPE_RD32(DVGF_SRC_20_REG);
+	cfg->DPE_Kernel_DpeConfig.DVGF_SRC_21 =
+	(unsigned int)DPE_RD32(DVGF_SRC_21_REG);
+	cfg->DPE_Kernel_DpeConfig.DVGF_SRC_22 =
+	(unsigned int)DPE_RD32(DVGF_SRC_22_REG);
+	cfg->DPE_Kernel_DpeConfig.DVGF_SRC_23 =
+	(unsigned int)DPE_RD32(DVGF_SRC_23_REG);
+	cfg->DPE_Kernel_DpeConfig.DVGF_SRC_24 =
+	(unsigned int)DPE_RD32(DVGF_SRC_24_REG);
+	cfg->DPE_Kernel_DpeConfig.DVGF_CORE_00 =
+	(unsigned int)DPE_RD32(DVGF_CORE_00_REG);
+	cfg->DPE_Kernel_DpeConfig.DVGF_CORE_01 =
+	(unsigned int)DPE_RD32(DVGF_CORE_01_REG);
+	cfg->DPE_Kernel_DpeConfig.DVGF_CORE_02 =
+	(unsigned int)DPE_RD32(DVGF_CORE_02_REG);
+	cfg->DPE_Kernel_DpeConfig.DVGF_CORE_03 =
+	(unsigned int)DPE_RD32(DVGF_CORE_03_REG);
+	cfg->DPE_Kernel_DpeConfig.DVGF_CORE_05 =
+	(unsigned int)DPE_RD32(DVGF_CORE_05_REG);
+	cfg->DPE_Kernel_DpeConfig.DVGF_CORE_06 =
+	(unsigned int)DPE_RD32(DVGF_CORE_06_REG);
+	cfg->DPE_Kernel_DpeConfig.DVGF_CORE_07 =
+	(unsigned int)DPE_RD32(DVGF_CORE_07_REG);
+	cfg->DPE_Kernel_DpeConfig.DVGF_CORE_08 =
+	(unsigned int)DPE_RD32(DVGF_CORE_08_REG);
+	cfg->DPE_Kernel_DpeConfig.DVGF_CORE_09 =
+	(unsigned int)DPE_RD32(DVGF_CORE_09_REG);
+	cfg->DPE_Kernel_DpeConfig.DVGF_CORE_10 =
+	(unsigned int)DPE_RD32(DVGF_CORE_10_REG);
+	cfg->DPE_Kernel_DpeConfig.DVGF_CORE_11 =
+	(unsigned int)DPE_RD32(DVGF_CORE_11_REG);
+	cfg->DPE_Kernel_DpeConfig.DVGF_CORE_12 =
+	(unsigned int)DPE_RD32(DVGF_CORE_12_REG);
+	cfg->DPE_Kernel_DpeConfig.DVGF_CORE_13 =
+	(unsigned int)DPE_RD32(DVGF_CORE_13_REG);
+	cfg->DPE_Kernel_DpeConfig.DVGF_CORE_14 =
+	(unsigned int)DPE_RD32(DVGF_CORE_14_REG);
+	cfg->DPE_Kernel_DpeConfig.DVGF_CORE_15 =
+	(unsigned int)DPE_RD32(DVGF_CORE_15_REG);
+
+	return 0;
+}
+
 #if !IS_ENABLED(CONFIG_MTK_LEGACY) && IS_ENABLED(CONFIG_COMMON_CLK) /*CCF*/
 static inline void DPE_Prepare_Enable_ccf_clock(void)
 {

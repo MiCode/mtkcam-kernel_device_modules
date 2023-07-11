@@ -715,14 +715,14 @@ static int get_sensor_temperature(void *arg)
 
 	temperature = subdrv_i2c_rd_u8(ctx, ctx->s_ctx.reg_addr_temp_read);
 
-	if (temperature <= 0x0 && temperature <= 0x4F)
+	if (temperature < 0x50)
 		temperature_convert = temperature;
-	else if (temperature >= 0x50 && temperature <= 0x7F)
+	else if (temperature < 0x80)
 		temperature_convert = 80;
-	else if (temperature >= 0x81 && temperature <= 0xEC)
+	else if (temperature < 0xED)
 		temperature_convert = -20;
 	else
-		temperature_convert = (char)temperature | 0xFFFFF00;
+		temperature_convert = (char)temperature;
 
 	DRV_LOG(ctx, "temperature: %d degrees\n", temperature_convert);
 	return temperature_convert;

@@ -694,6 +694,12 @@ if ((swork->is_capture) || (swork->is_time_shared)) {
 	}
 
 release_req:
+	pr_info("req track-%s:req(0x%lx) \n", __func__, (unsigned long)swork->req_sbuf_kva);
+	frm_info = (struct swfrm_info_t *)(swork->req_sbuf_kva);
+	pr_info("req track-%s:%s:req fd/no(%d/%d)frame_no(%d)\n",
+			__func__, (char *)(&(frm_info->frm_owner)), frm_info->request_fd,
+			frm_info->request_no,
+			frm_info->frame_no);
 	media_request_put(&req->req);
 
 release_work:
@@ -732,12 +738,6 @@ static void imgsys_cmdq_timeout_cb_func(struct cmdq_cb_data data,
 
 	frm_info_cb = data.data;
 	pipe = (struct mtk_imgsys_pipe *)frm_info_cb->pipe;
-	if (!pipe->streaming) {
-		pr_info("%s pipe already streamoff\n", __func__);
-
-		return;
-	}
-
 	req = (struct mtk_imgsys_request *)(frm_info_cb->req);
 	if (!req) {
 		pr_info("%s NULL request Address\n", __func__);
@@ -759,7 +759,7 @@ static void imgsys_cmdq_timeout_cb_func(struct cmdq_cb_data data,
 	#endif
 	/*frm_info_cb->fail_uinfo_idx = fail_subfidx;*/
 	dev_info(imgsys_dev->dev,
-		"%s:%s:req fd/no(%d/%d) frmNo(%d) tfnum(%d)sidx/fidx/hw(%d/%d_%d/0x%x)timeout(%d/%d)hang_event(%d) dump cb +",
+		"req track-%s:%s:req fd/no(%d/%d) frmNo(%d) tfnum(%d)sidx/fidx/hw(%d/%d_%d/0x%x)timeout(%d/%d)hang_event(%d) dump cb +",
 		__func__, (char *)(&(frm_info_cb->frm_owner)), frm_info_cb->request_fd,
 		frm_info_cb->request_no,
 		frm_info_cb->frame_no,
@@ -770,6 +770,11 @@ static void imgsys_cmdq_timeout_cb_func(struct cmdq_cb_data data,
 		frm_info_cb->user_info[fail_subfidx].hw_comb, isHWhang,
 		imgsys_timeout_idx, hang_event);
 
+    if (!pipe->streaming) {
+		pr_info("gce count-%s pipe already streamoff\n", __func__);
+		goto release_req;
+	}
+
 	/* DUMP DL CHECKSUM & HW REGISTERS*/
 	if (imgsys_dev->dump && isHWhang) {
 		imgsys_modules = req->imgsys_pipe->imgsys_dev->modules;
@@ -778,7 +783,7 @@ static void imgsys_cmdq_timeout_cb_func(struct cmdq_cb_data data,
 		frm_info_cb->user_info[fail_subfidx].hw_comb);
 	}
 
-
+release_req:
 	/*swork = vzalloc(sizeof(struct gce_timeout_work));*/
 	media_request_get(&req->req);
 	swork = &(imgsys_timeout_winfo[imgsys_timeout_idx]);
@@ -813,7 +818,7 @@ static void imgsys_cmdq_timeout_cb_func(struct cmdq_cb_data data,
 	imgsys_timeout_idx = (imgsys_timeout_idx + 1) % VIDEO_MAX_FRAME;
 
 	dev_info(imgsys_dev->dev,
-		"%s:%s:req fd/no(%d/%d) frmNo(%d) tfnum(%d)sidx/fidx/hw(%d/%d_%d/0x%x)timeout(%d/%d)hang_event(%d) dump cb -",
+		"req track-%s:%s:req fd/no(%d/%d) frmNo(%d) tfnum(%d)sidx/fidx/hw(%d/%d_%d/0x%x)timeout(%d/%d)hang_event(%d) dump cb -",
 		__func__, (char *)(&(frm_info_cb->frm_owner)), frm_info_cb->request_fd,
 		frm_info_cb->request_no,
 		frm_info_cb->frame_no,
@@ -881,7 +886,8 @@ release_work:
 
 /* Maybe in IRQ context of cmdq */
 static void imgsys_mdp_cb_func(struct cmdq_cb_data data,
-					unsigned int subfidx, bool isLastTaskInReq)
+					unsigned int subfidx, bool isLastTaskInReq,
+					unsigned int batchnum, unsigned int is_capture)
 {
 	struct mtk_imgsys_pipe *pipe;
 	struct mtk_imgsys_request *req;
@@ -911,7 +917,24 @@ static void imgsys_mdp_cb_func(struct cmdq_cb_data data,
 	swfrminfo_cb = data.data;
 	pipe = (struct mtk_imgsys_pipe *)swfrminfo_cb->pipe;
 	if (!pipe->streaming) {
-		pr_info("%s pipe already streamoff\n", __func__);
+		pr_info("req track-%s pipe already streamoff %s-%d-%d\n", __func__,
+    		((char *)&swfrminfo_cb->frm_owner), swfrminfo_cb->request_fd,
+    		swfrminfo_cb->request_no);
+		if (isLastTaskInReq) {
+			#if SMVR_DECOUPLE
+				if (is_capture) {
+					mtk_hcp_put_gce_buffer(pipe->imgsys_dev->scp_pdev, imgsys_capture);
+				} else {
+					if (batchnum) {
+						mtk_hcp_put_gce_buffer(pipe->imgsys_dev->scp_pdev, imgsys_smvr);
+					} else {
+						mtk_hcp_put_gce_buffer(pipe->imgsys_dev->scp_pdev, imgsys_streaming);
+					}
+				}
+			#else
+				mtk_hcp_put_gce_buffer(pipe->imgsys_dev->scp_pdev);
+			#endif
+		}
 		return;
 	}
 
@@ -938,9 +961,11 @@ static void imgsys_mdp_cb_func(struct cmdq_cb_data data,
 	req->tstate.time_mdpcbStart = ktime_get_boottime_ns()/1000;
 #endif
     if (imgsys_dbg_enable()) {
-	dev_dbg(imgsys_dev->dev, "%s:(reqfd-%d)frame_no(%d) +", __func__,
-		req->tstate.req_fd,
-		req->img_fparam.frameparam.frame_no);
+		dev_info(imgsys_dev->dev, "gce count-%s:(reqfd-%d/%d)frame_no(%d)-Own:%s +", __func__,
+			req->tstate.req_fd,
+			swfrminfo_cb->request_no,
+			swfrminfo_cb->frame_no,
+			((char *)&swfrminfo_cb->frm_owner));
     }
 
 
@@ -1023,14 +1048,14 @@ static void imgsys_mdp_cb_func(struct cmdq_cb_data data,
 	#endif
 #endif
     if (imgsys_dbg_enable()) {
-	dev_dbg(imgsys_dev->dev, "%s: req(%p), idx(%d), no(%d), s(%d), n_in(%d), n_out(%d)\n",
-		__func__,
-		req,
-		req->img_fparam.frameparam.index,
-		req->img_fparam.frameparam.frame_no,
-		req->img_fparam.frameparam.state,
-		req->img_fparam.frameparam.num_inputs,
-		req->img_fparam.frameparam.num_outputs);
+		dev_dbg(imgsys_dev->dev, "%s: req(%p), idx(%d), no(%d), s(%d), n_in(%d), n_out(%d)\n",
+			__func__,
+			req,
+			req->img_fparam.frameparam.index,
+			req->img_fparam.frameparam.frame_no,
+			req->img_fparam.frameparam.state,
+			req->img_fparam.frameparam.num_inputs,
+			req->img_fparam.frameparam.num_outputs);
     }
 
 	/*check gce cb cnt*/
@@ -1242,7 +1267,7 @@ static void imgsys_mdp_cb_func(struct cmdq_cb_data data,
 			need_notify_daemon = true;
 		}
         if (imgsys_dbg_enable()) {
-		dev_dbg(imgsys_dev->dev,
+		dev_info(imgsys_dev->dev,
 			"%s:%s:req fd/no(%d/%d)frame no(%d)done, kva(0x%lx)lastfrmInMWReq:%d\n",
 			__func__, (char *)(&(swfrminfo_cb->frm_owner)), swfrminfo_cb->request_fd,
 			swfrminfo_cb->request_no,
@@ -1840,14 +1865,29 @@ static void imgsys_runner_func(void *data)
 		(req->tstate.time_cmqret - stime);
 #endif
     if (imgsys_dbg_enable())
-	dev_dbg(imgsys_dev->dev,
-		"%s:(reqfd-%d) send2GCE tfnum/fidx(%d/%d)\n",
+	dev_info(imgsys_dev->dev,
+		"req track-%s:(reqfd-%d) send2GCE tfnum/fidx(%d/%d) MWFrame:#%d MWReq:#%d owner:%s\n",
 		__func__, req->tstate.req_fd,
 		frm_info->total_frmnum,
-		frm_info->user_info[0].subfrm_idx);
+		frm_info->user_info[0].subfrm_idx,
+		frm_info->frame_no, frm_info->request_no,
+		((char *)&frm_info->frm_owner));
 	if (ret < 0) {
 		dev_info(imgsys_dev->dev,
 			"%s: imgsys_cmdq_sendtask fail(%d)\n", __func__, ret);
+        #if SMVR_DECOUPLE
+        	if (frm_info->is_capture) {
+        	    mtk_hcp_put_gce_buffer(imgsys_dev->scp_pdev, imgsys_capture);
+            } else {
+                if (frm_info->batchnum) {
+                    mtk_hcp_put_gce_buffer(imgsys_dev->scp_pdev, imgsys_smvr);
+                } else {
+                    mtk_hcp_put_gce_buffer(imgsys_dev->scp_pdev, imgsys_streaming);
+                }
+            }
+        #else
+        	mtk_hcp_put_gce_buffer(imgsys_dev->scp_pdev);
+        #endif
 	}
 
 	if (req_track)

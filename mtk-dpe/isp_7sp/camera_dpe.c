@@ -7212,7 +7212,7 @@ static long DPE_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 						LOG_INF("[DPE ioctl DVP]direct request_handler\n");
 						dpe_request_handler_isp7s(&dpe_reqs_dvgf,
 						&(DPEInfo.SpinLockIrq[
-						DPE_IRQ_TYPE_INT_DVGF_ST]));
+						DPE_IRQ_TYPE_INT_DVP_ST]));
 					}
 				}
 //				mutex_unlock(&gDVSMutex);
@@ -8050,7 +8050,7 @@ static int vidioc_qbuf(struct file *file, void *priv, struct v4l2_buffer *p)
 				//if (!dpe_request_running_isp7s(&dpe_reqs)) {
 				//LOG_INF("[vidioc_qbuf]direct request_handler\n");
 				dpe_request_handler_isp7s(&dpe_reqs_dvgf,
-				&(DPEInfo.SpinLockIrq[DPE_IRQ_TYPE_INT_DVGF_ST]));
+				&(DPEInfo.SpinLockIrq[DPE_IRQ_TYPE_INT_DVP_ST]));
 			}
 		}
 	//mutex_unlock(&gDpeMutex);
@@ -9398,7 +9398,7 @@ void DVGF_ScheduleWork(struct work_struct *data)
 
 	if (DPEInfo.UserCount > 0) {
 		dpe_request_handler_isp7s(&dpe_reqs_dvgf,
-				&(DPEInfo.SpinLockIrq[DPE_IRQ_TYPE_INT_DVGF_ST]));
+				&(DPEInfo.SpinLockIrq[DPE_IRQ_TYPE_INT_DVP_ST]));
 
 
 		if (!dpe_request_running_isp7s(&dpe_reqs_dvgf))

@@ -1201,6 +1201,8 @@ static void mtk_cam_ctrl_raw_switch_flow(struct mtk_cam_job *job)
 			 "[%s] stream off sensor %s\n",
 			__func__, job->seninf_prev->entity.name);
 
+	mtk_cam_job_clean_prev_img_pool(job);
+
 	mtk_cam_watchdog_init(&ctrl->watchdog);
 
 	/* TBC: do we need vsync_set_desired here? */

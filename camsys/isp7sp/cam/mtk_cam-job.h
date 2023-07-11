@@ -315,6 +315,7 @@ struct mtk_cam_job {
 
 	/* for raw switch */
 	struct mtk_cam_pool_wrapper *img_wbuf_pool_wrapper;
+	struct mtk_cam_pool_wrapper *img_wbuf_pool_wrapper_prev;
 	struct mtk_cam_device_refcnt_buf *w_caci_buf;
 
 	struct mtkcam_ipi_frame_ack_result cq_rst;
@@ -613,5 +614,6 @@ int mtk_cam_job_update_clk_switching(struct mtk_cam_job *job, bool begin);
 int mtk_cam_job_initialize_engines(struct mtk_cam_ctx *ctx,
 				   struct mtk_cam_job *job,
 				   const struct initialize_params *params);
+void mtk_cam_job_clean_prev_img_pool(struct mtk_cam_job *job);
 
 #endif //__MTK_CAM_JOB_H

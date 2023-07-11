@@ -4129,7 +4129,8 @@ static int mtk_cam_seninf_irq_handler(int irq, void *data)
 				}
 				seninf_aee_print("[AEE] %s", seninf_name);
 
-				// kill_pid(core->pid, SIGKILL, 1);
+				// if(ctx_->pid)
+				// kill_pid(ctx_->pid, SIGKILL, 1);
 			}
 		}
 	}

@@ -360,7 +360,7 @@ static int ut_mraw_s_stream(struct device *dev, enum streaming_enum on)
 {
 	int ret = 0;
 
-	dev_info(dev, "%s: %s\n", __func__, on ? "on" : "off");
+	dev_info(dev, "%s: %d\n", __func__, on);
 	if (on) {
 		ret = ut_mtk_cam_mraw_cq_enable(dev) ||
 			ut_mtk_cam_mraw_top_enable(dev);

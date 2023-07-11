@@ -32,6 +32,9 @@
 #define IMGO_DONE_ST			(1L << 0)
 //#define CQI_R1_DONE_ST			(1L << 8)
 
+#define DCIF_LAST_SOF_INT_ST		(1L << 5)
+#define DCIF_LAST_CQ_START_INT_ST	(1L << 7)
+
 enum topdebug_event {
 	ALL_THE_TIME	= 1 << 0,
 	TG_OVERRUN	= 1 << 1,
@@ -97,6 +100,31 @@ enum topdebug_event {
 #define CAMSYS_MAIN_REG_HALT4_EN(regs)			(regs + 0x00D0)
 #define CAMSYS_MAIN_REG_HALT5_EN(regs)			(regs + 0x00D4)
 #define CAMSYS_MAIN_REG_HALT6_EN(regs)			(regs + 0x00D8)
+
+/* camsv_a/b */
+#define HALT1_EN					0x2
+#define HALT2_EN					0x2
+/* raw_a/yuv_a */
+#define HALT5_EN					0xF860
+#define HALT6_EN					0x6F
+/* raw_b/yuv_b */
+#define HALT7_EN					0xF860
+#define HALT8_EN					0x6F
+/* raw_c/yuv_c */
+#define HALT9_EN					0xF860
+#define HALT10_EN					0x6F
+/* camsv_c/d/e/f */
+#define HALT13_EN					0xF0
+#define REG_HALT1_EN					0x00c4
+#define REG_HALT2_EN					0x00c8
+#define REG_HALT5_EN					0x00d4
+#define REG_HALT6_EN					0x00d8
+#define REG_HALT7_EN					0x00dc
+#define REG_HALT8_EN					0x00e0
+#define REG_HALT9_EN					0x00e4
+#define REG_HALT10_EN					0x00e8
+#define REG_HALT13_EN					0x00f4
+
 
 #define CAM_REG_CTL_RAW_INT_EN(regs)			(regs + 0x0100)
 #define CAM_REG_CTL_RAW_INT_STATUS(regs)		(regs + 0x0104)
@@ -188,6 +216,17 @@ enum topdebug_event {
 #define CAM_REG_IMGO_CON2(regs)				(regs + 0x4788)
 #define CAM_REG_IMGO_CON3(regs)				(regs + 0x478C)
 #define CAM_REG_IMGO_CON4(regs)				(regs + 0x4790)
+
+#define REG_CQI_R1A_CON0					0x4120
+#define REG_CQI_R1A_CON1					0x4124
+#define REG_CQI_R1A_CON2					0x4128
+#define REG_CQI_R1A_CON3					0x412C
+#define REG_CQI_R1A_CON4					0x4130
+
+#define REG_CAMRAWDMATOP_LOW_LATENCY_LINE_CNT_IMGO_R1		0x4090
+#define REG_CAMYUVDMATOP_LOW_LATENCY_LINE_CNT_YUVO_R1		0x4090
+#define REG_CAMYUVDMATOP_LOW_LATENCY_LINE_CNT_YUVO_R3		0x4098
+#define REG_CAMYUVDMATOP_LOW_LATENCY_LINE_CNT_DRZS4NO_R1	0x40A0
 
 /* error status */
 #define REG_RAWI_R2_ERR_STAT				0x42F4

@@ -290,20 +290,23 @@ static int ut_seninf_set_cammux_tag(struct device *dev,
 		page = tag / 4;
 		tag_sel = tag % 4;
 		SET_TAG(cam_mux_addr, page, tag_sel, 0, 0, 1);
+/*
 		dev_info(dev,
 			"[before] cam_mux_base: 0x%p   CAM_MUX_TAG_VC_SEL_addr: 0x%p   CAM_MUX_TAG_VC_SEL: 0x%x   CAM_MUX_TAG_DT_SEL: 0x%x\n",
 		(unsigned int *)cam_mux_addr,
 		ISP_SENINF_CAM_MUX_PCSR_VC_SEL((unsigned int *)cam_mux_addr),
 		readl(ISP_SENINF_CAM_MUX_PCSR_VC_SEL((unsigned int *)cam_mux_addr)),
 		readl(ISP_SENINF_CAM_MUX_PCSR_DT_SEL((unsigned int *)cam_mux_addr)));
-
+*/
 		dev_info(dev, "page = %d, tag_sel=%d\n", page, tag_sel);
+/*
 		dev_info(dev,
 			"[after] cam_mux_base: 0x%p   CAM_MUX_TAG_VC_SEL_addr: 0x%p   CAM_MUX_TAG_VC_SEL: 0x%x   CAM_MUX_TAG_DT_SEL: 0x%x\n",
 		(unsigned int *)cam_mux_addr,
 		ISP_SENINF_CAM_MUX_PCSR_VC_SEL((unsigned int *)cam_mux_addr),
 		readl(ISP_SENINF_CAM_MUX_PCSR_VC_SEL((unsigned int *)cam_mux_addr)),
 		readl(ISP_SENINF_CAM_MUX_PCSR_DT_SEL((unsigned int *)cam_mux_addr)));
+*/
 	}
 
 	return 0;
@@ -386,7 +389,7 @@ static int ut_seninf_set_testmdl(struct device *dev,
 	void __iomem *seninf_base;
 	void __iomem *mux_base;
 	const u16 dummy_pxl = testmdl_hblank, h_margin = 0x1000;
-	const u8 clk_div_cnt = (16 >> pixmode_lg2) - 1;
+	const u8 clk_div_cnt = (16 >> (pixmode_lg2 ? 1 : 0)) - 1;
 	const u16 dum_vsync = get_test_hmargin(width + dummy_pxl,
 					      height + h_margin,
 					      clk_div_cnt, 416, 30);

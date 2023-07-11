@@ -48,6 +48,7 @@ struct mtk_ut_raw_initial_params {
 
 struct mtk_ut_raw_device {
 	struct device *dev;
+	struct mtk_cam_ut *ut;
 	unsigned int id;
 	void __iomem *base;
 	void __iomem *base_inner;
@@ -67,6 +68,13 @@ struct mtk_ut_raw_device {
 	int cq_done_mask; /* [0]: main, [1]: sub */
 	int hardware_scenario;
 
+};
+
+enum mtk_ut_raw_module_id {
+	RAW_A = 0,
+	RAW_B = 1,
+	RAW_C = 2,
+	RAW_NUM = 3,
 };
 
 struct mtk_ut_mraw_initial_params {
@@ -166,7 +174,7 @@ struct mtk_ut_camsv_device {
 	unsigned int num_clks;
 	unsigned int cammux_id;
 	struct clk **clks;
-
+	unsigned int is_dc_mode;
 	struct ut_event_source event_src;
 	struct engine_ops ops;
 };

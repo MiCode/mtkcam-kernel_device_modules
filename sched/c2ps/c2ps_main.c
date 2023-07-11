@@ -85,8 +85,8 @@ static void c2ps_notifier_wq_cb_uninit(void)
 	// disable sugov curr_uclamp feature
 	set_curr_uclamp_ctrl(0);
 	c2ps_uclamp_regulator_flush();
-	exit_c2ps_common();
 	del_timer_sync(&backgroup_info_update_timer);
+	exit_c2ps_common();
 	del_timer_sync(&self_uninit_timer);
 }
 

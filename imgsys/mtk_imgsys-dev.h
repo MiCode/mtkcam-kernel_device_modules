@@ -388,6 +388,8 @@ struct mtk_imgsys_dev {
 	dma_addr_t work_buf_pa;
 	u32 *traw_work_buf_va;
 	dma_addr_t traw_work_buf_pa;
+	/*streamon parallel*/
+	struct completion comp;
 };
 
 /* contained in struct mtk_imgsys_user's done_list */

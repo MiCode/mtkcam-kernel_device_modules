@@ -2123,6 +2123,38 @@ static struct mtk_cam_format_desc stream_out_fmts[] = {
 		.vfmt.fmt.pix_mp = {
 			.width = IMG_MAX_WIDTH,
 			.height = IMG_MAX_HEIGHT,
+			.pixelformat = V4L2_PIX_FMT_MTISP_SBGGR22,
+			.num_planes = 1,
+		},
+	},
+	{
+		.vfmt.fmt.pix_mp = {
+			.width = IMG_MAX_WIDTH,
+			.height = IMG_MAX_HEIGHT,
+			.pixelformat = V4L2_PIX_FMT_MTISP_SGBRG22,
+			.num_planes = 1,
+		},
+	},
+	{
+		.vfmt.fmt.pix_mp = {
+			.width = IMG_MAX_WIDTH,
+			.height = IMG_MAX_HEIGHT,
+			.pixelformat = V4L2_PIX_FMT_MTISP_SGRBG22,
+			.num_planes = 1,
+		},
+	},
+	{
+		.vfmt.fmt.pix_mp = {
+			.width = IMG_MAX_WIDTH,
+			.height = IMG_MAX_HEIGHT,
+			.pixelformat = V4L2_PIX_FMT_MTISP_SRGGB22,
+			.num_planes = 1,
+		},
+	},
+	{
+		.vfmt.fmt.pix_mp = {
+			.width = IMG_MAX_WIDTH,
+			.height = IMG_MAX_HEIGHT,
 			.pixelformat = V4L2_PIX_FMT_MTISP_BAYER8_UFBC,
 		},
 	},

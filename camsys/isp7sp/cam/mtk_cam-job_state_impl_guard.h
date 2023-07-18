@@ -7,6 +7,7 @@
 #define __MTK_CAM_JOB_STATE_IMPL_GUARD_H
 
 #define I2C_THRES_FROM_L_SOF_NS 3000000
+#define SCQ_THRES_FROM_F_SOF_NS 8000000
 
 struct state_accessor;
 struct state_accessor_ops {
@@ -168,6 +169,14 @@ static inline bool valid_i2c_period_l(struct transition_param *p)
 	return (p->event_ts - p->info->sof_l_ts_ns) < p->s_params->i2c_thres_ns;
 }
 
+static inline bool valid_cq_execution(struct transition_param *p)
+{
+	if (unlikely(!p->s_params))
+		return false;
+
+	return (p->event_ts - p->info->sof_ts_ns) < SCQ_THRES_FROM_F_SOF_NS;
+}
+
 static inline int guard_apply_sensor_subsample(struct state_accessor *s_acc,
 					       struct transition_param *p)
 {
@@ -238,8 +247,8 @@ static inline int guard_apply_isp_subsample(struct state_accessor *s_acc,
 static inline int guard_ack_apply_directly(struct state_accessor *s_acc,
 					   struct transition_param *p)
 {
-	/* TODO: check timer? */
-	return guard_ack_eq(s_acc, p) && guard_apply_isp(s_acc, p);
+	return guard_ack_eq(s_acc, p) && guard_apply_isp(s_acc, p) &&
+			valid_cq_execution(p);
 }
 
 static inline int guard_ack_apply_m2m_directly(struct state_accessor *s_acc,

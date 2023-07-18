@@ -3485,6 +3485,7 @@ static void config_aie_cmdq_hw(struct mtk_aie_dev *fd, struct aie_enq_info *aie_
 	unsigned int loop_num = 0;
 	unsigned int loop_reg_val = 0;
 
+	aie_get_time(fd->tv, 1);
 	pkt = cmdq_pkt_create(fd->fdvt_clt);
 	/*for early porting*/
 	if (aie_cfg->sel_mode == FDMODE) {
@@ -3568,8 +3569,10 @@ static void config_aie_cmdq_hw(struct mtk_aie_dev *fd, struct aie_enq_info *aie_
 	}
 
 	//cmdq_pkt_flush(pkt);
+	aie_get_time(fd->tv, 2);
 	cmdq_pkt_flush_async(pkt, AIECmdqCB, (void *)fd);	/* flush and destry in cmdq*/
 	cmdq_pkt_wait_complete(pkt);
+	aie_get_time(fd->tv, 3);
 	/* release resource */
 	cmdq_pkt_destroy(pkt);
 }

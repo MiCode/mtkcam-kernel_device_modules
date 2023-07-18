@@ -408,37 +408,38 @@ static int get_sv_dmao_common_setting(struct sv_dma_th_setting *sv_th_setting,
 }
 
 static int get_mraw_dmao_common_setting(struct mraw_dma_th_setting *mraw_th_setting,
-	struct mraw_cq_th_setting mraw_cq_setting)
+	struct mraw_cq_th_setting *mraw_cq_setting)
 {
-	mraw_th_setting[imgo_m1].urgent_th = 0x00EC00C4;
-	mraw_th_setting[imgo_m1].ultra_th = 0x009D0076;
-	mraw_th_setting[imgo_m1].pultra_th = 0x004F0028;
-	mraw_th_setting[imgo_m1].dvfs_th = 0x00280000;
-	mraw_th_setting[imgo_m1].fifo_size = 0x10000188;
+	mraw_th_setting[imgo_m1].urgent_th = 1<<31|FIFO_THRESHOLD(392, 6/10, 5/10);
+	mraw_th_setting[imgo_m1].ultra_th = 1<<28|FIFO_THRESHOLD(392, 4/10, 3/10);
+	mraw_th_setting[imgo_m1].pultra_th = 1<<28|FIFO_THRESHOLD(392, 2/10, 1/10);
+	mraw_th_setting[imgo_m1].dvfs_th = 1<<31|FIFO_THRESHOLD(392, 1/10, 0);
+	mraw_th_setting[imgo_m1].fifo_size = (0x10 << 24) | 392;
 
-	mraw_th_setting[imgbo_m1].urgent_th = 0x00C000A0;
-	mraw_th_setting[imgbo_m1].ultra_th = 0x00800060;
-	mraw_th_setting[imgbo_m1].pultra_th = 0x00400020;
-	mraw_th_setting[imgbo_m1].dvfs_th = 0x00200000;
-	mraw_th_setting[imgbo_m1].fifo_size = 0x10000140;
+	mraw_th_setting[imgbo_m1].urgent_th = 1<<31|FIFO_THRESHOLD(320, 6/10, 5/10);
+	mraw_th_setting[imgbo_m1].ultra_th = 1<<28|FIFO_THRESHOLD(320, 4/10, 3/10);
+	mraw_th_setting[imgbo_m1].pultra_th = 1<<28|FIFO_THRESHOLD(320, 2/10, 1/10);
+	mraw_th_setting[imgbo_m1].dvfs_th = 1<<31|FIFO_THRESHOLD(320, 1/10, 0);
+	mraw_th_setting[imgbo_m1].fifo_size = (0x10 << 24) | 320;
 
-	mraw_th_setting[cpio_m1].urgent_th = 0x00270020;
-	mraw_th_setting[cpio_m1].ultra_th = 0x001A0014;
-	mraw_th_setting[cpio_m1].pultra_th = 0x000D0007;
-	mraw_th_setting[cpio_m1].dvfs_th = 0x00070000;
-	mraw_th_setting[cpio_m1].fifo_size = 0x10000040;
+	mraw_th_setting[cpio_m1].urgent_th = 1<<31|FIFO_THRESHOLD(64, 6/10, 5/10);
+	mraw_th_setting[cpio_m1].ultra_th = 1<<28|FIFO_THRESHOLD(64, 4/10, 3/10);
+	mraw_th_setting[cpio_m1].pultra_th = 1<<28|FIFO_THRESHOLD(64, 2/10, 1/10);
+	mraw_th_setting[cpio_m1].dvfs_th = 1<<31|FIFO_THRESHOLD(64, 1/10, 0);
+	mraw_th_setting[cpio_m1].fifo_size = (0x10 << 24) | 64;
 
-	mraw_cq_setting.cq1_fifo_size = 0x10000040;
-	mraw_cq_setting.cq1_urgent_th = 0x00270020;
-	mraw_cq_setting.cq1_ultra_th = 0x001A0014;
-	mraw_cq_setting.cq1_pultra_th = 0x000D0007;
-	mraw_cq_setting.cq1_dvfs_th = 0x00070000;
+	mraw_cq_setting->cq1_fifo_size = (0x10 << 24) | 64;
+	mraw_cq_setting->cq1_urgent_th = 1<<31|FIFO_THRESHOLD(64, 6/10, 5/10);
+	mraw_cq_setting->cq1_ultra_th = 1<<28|FIFO_THRESHOLD(64, 4/10, 3/10);
+	mraw_cq_setting->cq1_pultra_th = 1<<28|FIFO_THRESHOLD(64, 2/10, 1/10);
+	mraw_cq_setting->cq1_dvfs_th = 1<<31|FIFO_THRESHOLD(64, 1/10, 0);
 
-	mraw_cq_setting.cq2_fifo_size = 0x10000040;
-	mraw_cq_setting.cq2_urgent_th = 0x00270020;
-	mraw_cq_setting.cq2_ultra_th = 0x001A0014;
-	mraw_cq_setting.cq2_pultra_th = 0x000D0007;
-	mraw_cq_setting.cq2_dvfs_th = 0x00070000;
+	mraw_cq_setting->cq2_fifo_size = (0x10 << 24) | 64;
+	mraw_cq_setting->cq2_urgent_th = 1<<31|FIFO_THRESHOLD(64, 6/10, 5/10);
+	mraw_cq_setting->cq2_ultra_th = 1<<28|FIFO_THRESHOLD(64, 4/10, 3/10);
+	mraw_cq_setting->cq2_pultra_th = 1<<28|FIFO_THRESHOLD(64, 2/10, 1/10);
+	mraw_cq_setting->cq2_dvfs_th = 1<<31|FIFO_THRESHOLD(64, 1/10, 0);
+
 	return 0;
 }
 static int set_mraw_meta_stats_info(

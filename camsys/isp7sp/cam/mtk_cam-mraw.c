@@ -739,7 +739,7 @@ int mtk_cam_mraw_dma_config(struct mtk_mraw_device *mraw_dev)
 
 
 	CALL_PLAT_V4L2(
-		get_mraw_dmao_common_setting, mraw_th_setting, mraw_cq_setting);
+		get_mraw_dmao_common_setting, mraw_th_setting, &mraw_cq_setting);
 	/* imgo con */
 	MRAW_WRITE_REG(mraw_dev->base + REG_MRAW_M_IMGO_ORIWDMA_CON0,
 		mraw_th_setting[imgo_m1].fifo_size);  // BURST_LEN and FIFO_SIZE

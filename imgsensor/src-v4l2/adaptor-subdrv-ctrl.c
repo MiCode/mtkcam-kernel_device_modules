@@ -1759,15 +1759,13 @@ void set_multi_gain_in_lut(struct subdrv_ctx *ctx, u32 *gains, u16 exp_cnt)
 		ctx->s_ctx.s_gph((void *)ctx, 1);
 
 	/* write gain: update ana gain addr and set gain for lbmf */
-	for (i = 0; i < 3; i++) {
-		if (ana_gain_in_lut[i]) {
-			set_i2c_buffer(ctx,
-				ctx->s_ctx.reg_addr_ana_gain_in_lut[i].addr[0],
-				(ana_gain_in_lut[i] >> 8) & 0xFF);
-			set_i2c_buffer(ctx,
-				ctx->s_ctx.reg_addr_ana_gain_in_lut[i].addr[1],
-				ana_gain_in_lut[i] & 0xFF);
-		}
+	for (i = 0; i < exp_cnt; i++) {
+		set_i2c_buffer(ctx,
+			ctx->s_ctx.reg_addr_ana_gain_in_lut[i].addr[0],
+			(ana_gain_in_lut[i] >> 8) & 0xFF);
+		set_i2c_buffer(ctx,
+			ctx->s_ctx.reg_addr_ana_gain_in_lut[i].addr[1],
+			ana_gain_in_lut[i] & 0xFF);
 	}
 	DRV_LOG(ctx,
 		"sid:%u,gain(input/lut):0x%x/%x/%x,%x/%x/%x\n",

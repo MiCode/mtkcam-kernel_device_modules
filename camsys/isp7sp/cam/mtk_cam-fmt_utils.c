@@ -20,6 +20,10 @@ void fill_ext_mtkcam_fmtdesc(struct v4l2_fmtdesc *f)
 	const char *descr = NULL;
 	const unsigned int sz = sizeof(f->description);
 
+	/// NOTE: "descr" points to a string equal to or longer than
+	/// 32 byte will then trigger a WARN_ON, which writes too much
+	/// log in try format stage, that lead to an exceed of MW config
+	/// stream timeout and then sanity test case will fail
 	switch (f->pixelformat) {
 	case V4L2_PIX_FMT_YUYV10:
 		descr = "YUYV 4:2:2 10 bits"; break;
@@ -70,13 +74,13 @@ void fill_ext_mtkcam_fmtdesc(struct v4l2_fmtdesc *f)
 	case V4L2_PIX_FMT_MTISP_SRGGB14:
 		descr = "14-bit Bayer RGGB MTISP Packed"; break;
 	case V4L2_PIX_FMT_MTISP_SBGGR22:
-		descr = "22-bit Bayer BGGR MTISP Unpacked"; break;
+		descr = "22-bit Bayer BGGR MTISP unpack"; break;
 	case V4L2_PIX_FMT_MTISP_SGBRG22:
-		descr = "22-bit Bayer GBRG MTISP Unpacked"; break;
+		descr = "22-bit Bayer GBRG MTISP unpack"; break;
 	case V4L2_PIX_FMT_MTISP_SGRBG22:
-		descr = "22-bit Bayer GRBG MTISP Unpacked"; break;
+		descr = "22-bit Bayer GRBG MTISP unpack"; break;
 	case V4L2_PIX_FMT_MTISP_SRGGB22:
-		descr = "22-bit Bayer RGGB MTISP Unpacked"; break;
+		descr = "22-bit Bayer RGGB MTISP unpack"; break;
 	case V4L2_PIX_FMT_MTISP_SBGGR8F:
 		descr = "8-bit Enhanced BGGR Packed"; break;
 	case V4L2_PIX_FMT_MTISP_SGBRG8F:

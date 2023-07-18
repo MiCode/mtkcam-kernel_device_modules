@@ -1221,6 +1221,8 @@ static void mtk_cam_ctrl_raw_switch_flow(struct mtk_cam_job *job)
 	atomic_dec(&ctrl->stream_on_cnt);
 	mtk_cam_ctrl_loop_job(ctrl, ctrl_enable_job_fsm_until_switch, job);
 
+	trigger_fake_sof_event(ctrl);
+
 	dev_info(dev, "[%s] finish, used_engine:0x%x\n",
 		 __func__, job->used_engine);
 }

@@ -355,58 +355,57 @@ static int get_sv_two_smi_setting(int *sv_two_smi_en)
 }
 
 static int get_sv_dmao_common_setting(struct sv_dma_th_setting *sv_th_setting,
-	struct sv_cq_th_setting sv_cq_setting)
+	struct sv_cq_th_setting *sv_cq_setting)
 {
-	sv_th_setting[CAMSV_0].urgent_th = 0x85550400;
-	sv_th_setting[CAMSV_0].ultra_th = 0x12AA0155;
-	sv_th_setting[CAMSV_0].pultra_th = 0x12AA0155;
-	sv_th_setting[CAMSV_0].dvfs_th = 0x81550000;
-	sv_th_setting[CAMSV_0].urgent_th2 = 0x83550280;
-	sv_th_setting[CAMSV_0].ultra_th2 = 0x11AB00D5;
-	sv_th_setting[CAMSV_0].pultra_th2 = 0x11AB00D5;
-	sv_th_setting[CAMSV_0].dvfs_th2 = 0x80D50000;
+	sv_th_setting[CAMSV_0].urgent_th = 1<<31|FIFO_THRESHOLD(3412, 4/10, 3/10);
+	sv_th_setting[CAMSV_0].ultra_th = 1<<28|FIFO_THRESHOLD(3412, 2/10, 1/10);
+	sv_th_setting[CAMSV_0].pultra_th = 1<<28|FIFO_THRESHOLD(3412, 2/10, 1/10);
+	sv_th_setting[CAMSV_0].dvfs_th = 1<<31|FIFO_THRESHOLD(3412, 1/10, 0);
+	sv_th_setting[CAMSV_0].urgent_th2 = 1<<31|FIFO_THRESHOLD(2132, 4/10, 3/10);
+	sv_th_setting[CAMSV_0].ultra_th2 = 1<<28|FIFO_THRESHOLD(2132, 2/10, 1/10);
+	sv_th_setting[CAMSV_0].pultra_th2 = 1<<28|FIFO_THRESHOLD(2132, 2/10, 1/10);
+	sv_th_setting[CAMSV_0].dvfs_th2 = 1<<31|FIFO_THRESHOLD(2132, 1/10, 0);
 
-	sv_th_setting[CAMSV_1].urgent_th = 0x85550400;
-	sv_th_setting[CAMSV_1].ultra_th = 0x12AA0155;
-	sv_th_setting[CAMSV_1].pultra_th = 0x12AA0155;
-	sv_th_setting[CAMSV_1].dvfs_th = 0x81550000;
-	sv_th_setting[CAMSV_1].urgent_th2 = 0x83550280;
-	sv_th_setting[CAMSV_1].ultra_th2 = 0x11AB00D5;
-	sv_th_setting[CAMSV_1].pultra_th2 = 0x11AB00D5;
-	sv_th_setting[CAMSV_1].dvfs_th2 = 0x80D50000;
+	sv_th_setting[CAMSV_1].urgent_th = 1<<31|FIFO_THRESHOLD(3412, 4/10, 3/10);
+	sv_th_setting[CAMSV_1].ultra_th = 1<<28|FIFO_THRESHOLD(3412, 2/10, 1/10);
+	sv_th_setting[CAMSV_1].pultra_th = 1<<28|FIFO_THRESHOLD(3412, 2/10, 1/10);
+	sv_th_setting[CAMSV_1].dvfs_th = 1<<31|FIFO_THRESHOLD(3412, 1/10, 0);
+	sv_th_setting[CAMSV_1].urgent_th2 = 1<<31|FIFO_THRESHOLD(2132, 4/10, 3/10);
+	sv_th_setting[CAMSV_1].ultra_th2 = 1<<28|FIFO_THRESHOLD(2132, 2/10, 1/10);
+	sv_th_setting[CAMSV_1].pultra_th2 = 1<<28|FIFO_THRESHOLD(2132, 2/10, 1/10);
+	sv_th_setting[CAMSV_1].dvfs_th2 = 1<<31|FIFO_THRESHOLD(2132, 1/10, 0);
 
-	sv_th_setting[CAMSV_2].urgent_th = 0x84000300;
-	sv_th_setting[CAMSV_2].ultra_th = 0x12000100;
-	sv_th_setting[CAMSV_2].pultra_th = 0x12000100;
-	sv_th_setting[CAMSV_2].dvfs_th = 0x81000000;
+	sv_th_setting[CAMSV_2].urgent_th = 1<<31|FIFO_THRESHOLD(2560, 4/10, 3/10);
+	sv_th_setting[CAMSV_2].ultra_th = 1<<28|FIFO_THRESHOLD(2560, 2/10, 1/10);
+	sv_th_setting[CAMSV_2].pultra_th = 1<<28|FIFO_THRESHOLD(2560, 2/10, 1/10);
+	sv_th_setting[CAMSV_2].dvfs_th = 1<<31|FIFO_THRESHOLD(2560, 1/10, 0);
 
-	sv_th_setting[CAMSV_3].urgent_th = 0x828001E0;
-	sv_th_setting[CAMSV_3].ultra_th = 0x114000A0;
-	sv_th_setting[CAMSV_3].pultra_th = 0x114000A0;
-	sv_th_setting[CAMSV_3].dvfs_th = 0x80A00000;
+	sv_th_setting[CAMSV_3].urgent_th = 1<<31|FIFO_THRESHOLD(1600, 4/10, 3/10);
+	sv_th_setting[CAMSV_3].ultra_th = 1<<28|FIFO_THRESHOLD(1600, 2/10, 1/10);
+	sv_th_setting[CAMSV_3].pultra_th = 1<<28|FIFO_THRESHOLD(1600, 2/10, 1/10);;
+	sv_th_setting[CAMSV_3].dvfs_th = 1<<31|FIFO_THRESHOLD(1600, 1/10, 0);
 
-	sv_th_setting[CAMSV_4].urgent_th = 0x80B00084;
-	sv_th_setting[CAMSV_4].ultra_th = 0x1058002C;
-	sv_th_setting[CAMSV_4].pultra_th = 0x1058002C;
-	sv_th_setting[CAMSV_4].dvfs_th = 0x802C0000;
+	sv_th_setting[CAMSV_4].urgent_th = 1<<31|FIFO_THRESHOLD(440, 4/10, 3/10);
+	sv_th_setting[CAMSV_4].ultra_th = 1<<28|FIFO_THRESHOLD(440, 2/10, 1/10);
+	sv_th_setting[CAMSV_4].pultra_th = 1<<28|FIFO_THRESHOLD(440, 2/10, 1/10);
+	sv_th_setting[CAMSV_4].dvfs_th = 1<<31|FIFO_THRESHOLD(440, 1/10, 0);
 
-	sv_th_setting[CAMSV_5].urgent_th = 0x80B00084;
-	sv_th_setting[CAMSV_5].ultra_th = 0x1058002C;
-	sv_th_setting[CAMSV_5].pultra_th = 0x1058002C;
-	sv_th_setting[CAMSV_5].dvfs_th = 0x802C0000;
+	sv_th_setting[CAMSV_5].urgent_th = 1<<31|FIFO_THRESHOLD(440, 4/10, 3/10);
+	sv_th_setting[CAMSV_5].ultra_th = 1<<28|FIFO_THRESHOLD(440, 2/10, 1/10);
+	sv_th_setting[CAMSV_5].pultra_th = 1<<28|FIFO_THRESHOLD(440, 2/10, 1/10);
+	sv_th_setting[CAMSV_5].dvfs_th = 1<<31|FIFO_THRESHOLD(440, 1/10, 0);
 
-	sv_cq_setting.cq1_fifo_size = 0x10000040;
-	sv_cq_setting.cq1_urgent_th = 0x001A0014;
-	sv_cq_setting.cq1_ultra_th = 0x000D0007;
-	sv_cq_setting.cq1_pultra_th = 0x000D0007;
-	sv_cq_setting.cq1_dvfs_th = 0x00070000;
+	sv_cq_setting->cq1_fifo_size = (0x10 << 24) | 64;
+	sv_cq_setting->cq1_urgent_th = 1<<31|FIFO_THRESHOLD(64, 4/10, 3/10);
+	sv_cq_setting->cq1_ultra_th = 1<<28|FIFO_THRESHOLD(64, 2/10, 1/10);
+	sv_cq_setting->cq1_pultra_th = 1<<28|FIFO_THRESHOLD(64, 2/10, 1/10);
+	sv_cq_setting->cq1_dvfs_th = 1<<31|FIFO_THRESHOLD(64, 1/10, 0);
 
-	sv_cq_setting.cq2_fifo_size = 0x10000040;
-	sv_cq_setting.cq2_urgent_th = 0x001A0014;
-	sv_cq_setting.cq2_ultra_th = 0x000D0007;
-	sv_cq_setting.cq2_pultra_th = 0x000D0007;
-	sv_cq_setting.cq2_dvfs_th = 0x00070000;
-
+	sv_cq_setting->cq2_fifo_size = (0x10 << 24) | 64;
+	sv_cq_setting->cq2_urgent_th = 1<<31|FIFO_THRESHOLD(64, 4/10, 3/10);
+	sv_cq_setting->cq2_ultra_th = 1<<28|FIFO_THRESHOLD(64, 2/10, 1/10);
+	sv_cq_setting->cq2_pultra_th = 1<<28|FIFO_THRESHOLD(64, 2/10, 1/10);
+	sv_cq_setting->cq2_dvfs_th = 1<<31|FIFO_THRESHOLD(64, 1/10, 0);
 	return 0;
 }
 

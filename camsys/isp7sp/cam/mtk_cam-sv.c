@@ -405,7 +405,7 @@ int mtk_cam_sv_dmao_common_config(struct mtk_camsv_device *sv_dev)
 	memset(&sv_cq_setting, 0, sizeof(sv_cq_setting));
 
 	CALL_PLAT_V4L2(
-		get_sv_dmao_common_setting, sv_th_setting, sv_cq_setting);
+		get_sv_dmao_common_setting, sv_th_setting, &sv_cq_setting);
 	CALL_PLAT_V4L2(
 		get_sv_two_smi_setting, &sv_two_smi_en);
 	switch (sv_dev->id) {

@@ -88,15 +88,17 @@ static inline struct v4l2_rect fullsize_as_crop(unsigned int w, unsigned int h)
 
 #define USE_CTRL_PIXEL_RATE 0
 #define DC_MODE_VB_MARGIN 100
+
 static int res_calc_fill_sensor(struct mtk_cam_res_calc *c,
 				const struct mtk_cam_resource_sensor_v2 *s,
 				const struct mtk_cam_resource_raw_v2 *r)
 {
-	u32 vb = res_raw_is_dc_mode(r) ? DC_MODE_VB_MARGIN : s->vblank;
+	long interval;
 	u32 interval_n, interval_d;
 
 	interval_n = max(s->interval.numerator, 1U);
 	interval_d = max(s->interval.denominator, 1U);
+	interval = 1000000000L * interval_n / interval_d;
 
 #if USE_CTRL_PIXEL_RATE
 	c->mipi_pixel_rate = s->pixel_rate;
@@ -106,9 +108,10 @@ static int res_calc_fill_sensor(struct mtk_cam_res_calc *c,
 		* (s->height + s->vblank)
 		* interval_d / interval_n;
 #endif
-	c->line_time =
-		1000000000L
-		* interval_n / interval_d / max(s->height + vb, 1U);
+	c->line_time = interval / max(s->height + s->vblank, 1U);
+	c->raw_line_time = res_raw_is_dc_mode(r) ?
+		interval / max(s->height + DC_MODE_VB_MARGIN, 1U) :
+		c->line_time;
 	c->width = s->width;
 	c->height = s->height;
 	return 0;

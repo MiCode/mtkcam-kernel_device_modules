@@ -87,6 +87,8 @@ void _on_job_last_ref(struct mtk_cam_job *job)
 
 	write_unlock(&ctrl->list_lock);
 
+	wake_up_interruptible(&ctrl->state_list_wq);
+
 	if (CAM_DEBUG_ENABLED(CTRL))
 		pr_info("%s: ctx %d job #%d %s%s\n", __func__,
 			ctx->stream_id, job->req_seq, job->req->debug_str,

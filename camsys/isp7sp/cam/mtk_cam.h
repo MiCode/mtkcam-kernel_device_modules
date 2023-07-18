@@ -350,6 +350,11 @@ struct mtk_cam_ctx *mtk_cam_start_ctx(struct mtk_cam_device *cam,
 				      struct mtk_cam_video_device *node);
 void mtk_cam_stop_ctx(struct mtk_cam_ctx *ctx, struct media_entity *entity);
 
+static inline bool mtk_cam_ctx_is_adl_flow(struct mtk_cam_ctx *ctx)
+{
+	return !!ctx->adl_work.raw_dev;
+}
+
 static inline void mtk_cam_ctx_flush_adl_work(struct mtk_cam_ctx *ctx)
 {
 	struct mtk_cam_adl_work *adl_work = &ctx->adl_work;

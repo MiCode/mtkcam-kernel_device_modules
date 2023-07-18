@@ -1512,6 +1512,7 @@ void mtk_cam_ctrl_start(struct mtk_cam_ctrl *cam_ctrl, struct mtk_cam_ctx *ctx)
 	spin_lock_init(&cam_ctrl->send_lock);
 	rwlock_init(&cam_ctrl->list_lock);
 	INIT_LIST_HEAD(&cam_ctrl->camsys_state_list);
+	init_waitqueue_head(&cam_ctrl->state_list_wq);
 
 	spin_lock_init(&cam_ctrl->info_lock);
 	reset_runtime_info(cam_ctrl);
@@ -1526,12 +1527,40 @@ void mtk_cam_ctrl_start(struct mtk_cam_ctrl *cam_ctrl, struct mtk_cam_ctx *ctx)
 	dev_info(ctx->cam->dev, "[%s] ctx:%d\n", __func__, ctx->stream_id);
 }
 
+static bool ctrl_is_state_list_empty(struct mtk_cam_ctrl *ctrl)
+{
+	bool empty;
+
+	read_lock(&ctrl->list_lock);
+	empty = list_empty(&ctrl->camsys_state_list);
+	read_unlock(&ctrl->list_lock);
+
+	return empty;
+}
+
+static void mtk_cam_ctrl_wait_list_empty(struct mtk_cam_ctrl *ctrl)
+{
+	int timeout_ms = 200;
+	long timeout;
+
+	timeout = wait_event_interruptible_timeout(ctrl->state_list_wq,
+					ctrl_is_state_list_empty(ctrl),
+					msecs_to_jiffies(timeout_ms));
+	if (timeout == 0)
+		pr_info("%s: error: wait for list empty: %dms timeout\n",
+			__func__, timeout_ms);
+}
+
 void mtk_cam_ctrl_stop(struct mtk_cam_ctrl *cam_ctrl)
 {
 	struct mtk_cam_ctx *ctx = cam_ctrl->ctx;
 	struct mtk_cam_job_state *job_s;
 	struct mtk_cam_job *job;
 	struct list_head job_list;
+
+	// if adl flow, await all job done to avoid hw abnormal issue
+	if (mtk_cam_ctx_is_adl_flow(ctx))
+		mtk_cam_ctrl_wait_list_empty(cam_ctrl);
 
 	/* should wait stream-on/seamless switch finished before stopping */
 	kthread_flush_worker(&ctx->flow_worker);

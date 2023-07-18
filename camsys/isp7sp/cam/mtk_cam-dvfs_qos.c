@@ -990,11 +990,6 @@ int mtk_cam_apply_qos(struct mtk_cam_job *job)
 	int i, j, port_num;
 
 	used_raw_num = is_rgbw(job) ? 1 : get_used_raw_num(job);
-	if (WARN_ON(used_raw_num == 0)) {
-		pr_info("%s: req_seq(%d) wrong used raw number\n",
-				__func__, job->req_seq);
-		return 0;
-	}
 
 	submask = bit_map_subset_of(MAP_HW_RAW, ctx->used_engine);
 	for (i = 0; i < raw_num && submask; i++, submask >>= 1) {

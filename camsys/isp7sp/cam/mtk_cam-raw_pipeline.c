@@ -239,11 +239,7 @@ static inline int mtk_raw_find_combination(struct mtk_cam_res_calc *c,
 	/* initial value */
 	stepper->pixel_mode = stepper->pixel_mode_min;
 	stepper->num_raw = stepper->num_raw_min;
-
-	if (cur_platform->hw->platform_id == 6897)
-		stepper->opp_idx = stepper->min_opp_idx;
-	else
-		stepper->opp_idx = stepper->min_opp_idx + 1;
+	stepper->opp_idx = stepper->min_opp_idx;
 
 	return loop_resource_till_valid(c, stepper,
 					policy, ARRAY_SIZE(policy));

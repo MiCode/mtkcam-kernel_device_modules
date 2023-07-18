@@ -1047,11 +1047,11 @@ static int mtk_cam_seninf_remap_dt(void *pCsi2_mac, struct seninf_vc *vc, int dt
 	return remap_ret;
 }
 static int mtk_cam_seninf_set_vc(struct seninf_ctx *ctx, int intf,
-			  struct seninf_vcinfo *vcinfo)
+			  struct seninf_vcinfo *vcinfo, struct seninf_glp_dt *glpinfo)
 {
 	void *pSeninf_csi2 = ctx->reg_if_csi2[(unsigned int)intf];
 	void *pCsi2_mac = ctx->reg_csirx_mac_csi[(uint32_t)ctx->port];
-	int i, ret, dt_remap_index = 0, j, remap;
+	int i, ret, dt_remap_index = 0, j, k = 0, seq_dt_flag = 0;
 	struct seninf_vc *vc;
 	int dt_remap_table[4] = {0};
 
@@ -1076,7 +1076,6 @@ static int mtk_cam_seninf_set_vc(struct seninf_ctx *ctx, int intf,
 
 	for (i = 0; i < vcinfo->cnt; i++) {
 		vc = &vcinfo->vc[i];
-		remap = false;
 		if (vc->dt_remap_to_type > MTK_MBUS_FRAME_DESC_REMAP_NONE &&
 			vc->dt_remap_to_type <= MTK_MBUS_FRAME_DESC_REMAP_TO_RAW14) {
 			if (dt_remap_index == 0) {
@@ -1086,7 +1085,6 @@ static int mtk_cam_seninf_set_vc(struct seninf_ctx *ctx, int intf,
 					"ret(%d) idx(%d) vc[%d] dt 0x%x remap to %d\n",
 					ret, dt_remap_index, i, vc->dt, vc->dt_remap_to_type);
 				dt_remap_index++;
-				remap = true;
 			} else {
 				j = 0;
 				while (j < dt_remap_index && dt_remap_index < DT_REMAP_MAX_CNT) {
@@ -1105,16 +1103,58 @@ static int mtk_cam_seninf_set_vc(struct seninf_ctx *ctx, int intf,
 						ret, dt_remap_index, i, vc->dt,
 						vc->dt_remap_to_type);
 					dt_remap_index++;
-					remap = true;
 				}
 			}
 		}
 
-		/* General Long Packet Data Types: 0x10-0x17 */
-		if (ctx->core->force_glp_en || (!remap && vc->dt >= 0x10 && vc->dt <= 0x17)) {
-			SENINF_BITS(pCsi2_mac, CSIRX_MAC_CSI2_OPT,
-				    RG_CSI2_GENERIC_LONG_PACKET_EN, 1);
-			dev_info(ctx->dev, "enable generic long packet\n");
+		/* Set SEQ DT  */
+		if (vc->dt >= 0x10 && vc->dt <= 0x17) {
+			if (glpinfo->cnt){
+				for (k = 0; k < glpinfo->cnt; k++){
+					switch (k) {
+					case 0:
+						SENINF_BITS(pCsi2_mac, CSIRX_MAC_CSI2_FORCEDT2,
+							RG_SEQ_DT0, glpinfo->dt[k]);
+						break;
+					case 1:
+						SENINF_BITS(pCsi2_mac, CSIRX_MAC_CSI2_FORCEDT2,
+							RG_SEQ_DT1, glpinfo->dt[k]);
+						break;
+					case 2:
+						SENINF_BITS(pCsi2_mac, CSIRX_MAC_CSI2_FORCEDT2,
+							RG_SEQ_DT2, glpinfo->dt[k]);
+						break;
+					case 3:
+						SENINF_BITS(pCsi2_mac, CSIRX_MAC_CSI2_FORCEDT2,
+							RG_SEQ_DT3, glpinfo->dt[k]);
+						break;
+					}
+				}
+			} else {
+				switch (k) {
+					case 0:
+						SENINF_BITS(pCsi2_mac, CSIRX_MAC_CSI2_FORCEDT2,
+							RG_SEQ_DT0, vc->dt);
+						break;
+					case 1:
+						SENINF_BITS(pCsi2_mac, CSIRX_MAC_CSI2_FORCEDT2,
+							RG_SEQ_DT1, vc->dt);
+						break;
+					case 2:
+						SENINF_BITS(pCsi2_mac, CSIRX_MAC_CSI2_FORCEDT2,
+							RG_SEQ_DT2, vc->dt);
+						break;
+					case 3:
+						SENINF_BITS(pCsi2_mac, CSIRX_MAC_CSI2_FORCEDT2,
+							RG_SEQ_DT3, vc->dt);
+						break;
+					}
+				k++;
+			}
+			SENINF_BITS(pCsi2_mac, CSIRX_MAC_CSI2_FORCEDT2, RG_SEQ14_DT_EN, 1);
+			seq_dt_flag = 1;
+			dev_info(ctx->dev, "[%s] CSIRX_MAC_CSI2_FORCEDT2: 0x%08x\n",
+				__func__, SENINF_READ_REG(pCsi2_mac, CSIRX_MAC_CSI2_FORCEDT2));
 		}
 
 		switch (i) {
@@ -1144,6 +1184,14 @@ static int mtk_cam_seninf_set_vc(struct seninf_ctx *ctx, int intf,
 			break;
 		}
 	}
+
+/* General Long Packet Data Types: 0x10-0x17 */
+	if (ctx->core->force_glp_en && !seq_dt_flag) {
+		SENINF_BITS(pCsi2_mac, CSIRX_MAC_CSI2_OPT,
+				RG_CSI2_GENERIC_LONG_PACKET_EN, 1);
+		dev_info(ctx->dev, "enable generic long packet\n");
+	}
+
 #if LOG_MORE
 	dev_info(ctx->dev, "DI_CTRL 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x\n",
 		 SENINF_READ_REG(pSeninf_csi2, SENINF_CSI2_S0_DI_CTRL),

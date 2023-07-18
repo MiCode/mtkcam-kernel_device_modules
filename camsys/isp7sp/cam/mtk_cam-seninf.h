@@ -76,6 +76,12 @@ struct seninf_vcinfo {
 	int cnt;
 };
 
+#define SEQ_DT_MAX_CNT 4
+struct seninf_glp_dt {
+	u32 dt[SEQ_DT_MAX_CNT];
+	int cnt;
+};
+
 struct seninf_dfs {
 	struct device *dev;
 	struct regulator *reg;

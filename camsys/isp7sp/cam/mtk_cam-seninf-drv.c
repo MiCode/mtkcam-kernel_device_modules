@@ -1682,11 +1682,15 @@ static int config_hw_csi(struct seninf_ctx *ctx)
 {
 	int intf = ctx->seninfIdx;
 	struct seninf_vcinfo *vcinfo = &ctx->vcinfo;
+	struct seninf_glp_dt glpinfo;
 #if AOV_GET_PARAM
 	struct seninf_core *core = ctx->core;
 #endif
 
+	memset(&glpinfo, 0, sizeof(struct seninf_glp_dt));
+
 	mtk_cam_seninf_get_csi_param(ctx);
+	mtk_cam_sensor_get_glp_dt(ctx, &glpinfo);
 
 #if AOV_GET_PARAM
 	if (!(core->aov_sensor_id < 0) &&
@@ -1709,7 +1713,7 @@ static int config_hw_csi(struct seninf_ctx *ctx)
 
 	g_seninf_ops->_reset(ctx, intf);
 
-	g_seninf_ops->_set_vc(ctx, intf, vcinfo);
+	g_seninf_ops->_set_vc(ctx, intf, vcinfo, &glpinfo);
 
 	g_seninf_ops->_set_csi_mipi(ctx);
 

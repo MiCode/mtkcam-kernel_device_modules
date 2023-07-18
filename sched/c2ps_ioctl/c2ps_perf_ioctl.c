@@ -207,7 +207,7 @@ static int __init init_c2ps_perf_ioctl(void)
 	parent = proc_mkdir("c2ps", NULL);
 	c2ps_ioctl_root = parent;
 
-	pe = proc_create("c2ps_ioctl", 0664, parent, &Fops);
+	pe = proc_create("c2ps_ioctl", 0660, parent, &Fops);
 	if (!pe) {
 		C2PS_LOGD(TAG"%s failed with %d\n",
 			"Creating file node ",

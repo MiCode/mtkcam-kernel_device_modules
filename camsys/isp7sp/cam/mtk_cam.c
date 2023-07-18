@@ -3973,9 +3973,39 @@ static int mtk_cam_remove(struct platform_device *pdev)
 	return 0;
 }
 
+#define CAM_MAIN_LOW_POWER_CTRL    0x390
+#define CAM_MAIN_CAM_SPM_ACK    0x42C
+static void camsys_main_lp_ctrl(struct mtk_cam_device *cam_dev, bool on)
+{
+	int spm_ack;
+	int ret;
+
+	writel_relaxed(on ? BIT(0) | BIT(1) | BIT(2) : 0x0,
+		cam_dev->base + CAM_MAIN_LOW_POWER_CTRL);
+
+	if (on) {
+		ret = readx_poll_timeout(readl, cam_dev->base + CAM_MAIN_CAM_SPM_ACK,
+					 spm_ack,
+					 spm_ack & BIT(0) | BIT(1) | BIT(2),
+					 1 /* delay, us */,
+					 2000 /* timeout, us */);
+		if (ret < 0) {
+			dev_info(cam_dev->dev, "%s: error: timeout!\n", __func__);
+			return;
+		}
+	}
+
+	dev_dbg(cam_dev->dev, "%s: 0x%x\n", __func__,
+		readl(cam_dev->base + CAM_MAIN_LOW_POWER_CTRL));
+}
+
 static int mtk_cam_runtime_suspend(struct device *dev)
 {
+	struct mtk_cam_device *cam_dev = dev_get_drvdata(dev);
+
 	dev_dbg(dev, "- %s\n", __func__);
+
+	camsys_main_lp_ctrl(cam_dev, false);
 
 	return 0;
 }
@@ -4039,6 +4069,8 @@ static int mtk_cam_runtime_resume(struct device *dev)
 	struct mtk_cam_device *cam_dev = dev_get_drvdata(dev);
 
 	dev_dbg(dev, "- %s\n", __func__);
+
+	camsys_main_lp_ctrl(cam_dev, true);
 
 	init_camsys_main_adl_setting(cam_dev);
 #ifdef DO_ADLWR_RESET

@@ -13,8 +13,9 @@ static LIST_HEAD(regulator_wq);
 static int regulator_condition_notifier_wq;
 static bool regulator_condition_notifier_exit;
 static DEFINE_MUTEX(regulator_notifier_wq_lock);
-static DEFINE_MUTEX(regulator_notifier_flush_lock);
 static DECLARE_WAIT_QUEUE_HEAD(regulator_notifier_wq_queue);
+static bool regulator_flush_finish = false;
+static DECLARE_WAIT_QUEUE_HEAD(regulator_flush_wq);
 static int c2ps_regulator_process_mode = 0;
 static unsigned int c2ps_remote_monitor_proc_time = 0;
 static unsigned int c2ps_remote_monitor_uclamp = 0;
@@ -25,19 +26,6 @@ module_param(c2ps_remote_monitor_proc_time, int, 0644);
 module_param(c2ps_remote_monitor_uclamp, int, 0644);
 module_param_string(c2ps_remote_monitor_task,
 			c2ps_remote_monitor_task, 30, 0644);
-
-
-#define WAIT_FLUSH_START()                              \
-	mutex_lock(&regulator_notifier_flush_lock)
-
-#define WAIT_FLUSH_END()                                \
-	do {                                                \
-		mutex_lock(&regulator_notifier_flush_lock);     \
-		mutex_unlock(&regulator_notifier_flush_lock);   \
-	} while (0)
-
-#define NOTIFY_WAIT_FLUSH(lock)                         \
-	mutex_unlock(lock)
 
 static inline enum c2ps_regulator_mode
 decide_process_type(struct regulator_req *req)
@@ -51,8 +39,10 @@ static void regulator_process(struct regulator_req *req)
 {
 	if (req == NULL)
 		return;
-	if (req->flush_lock != NULL) {
-		NOTIFY_WAIT_FLUSH(req->flush_lock);
+
+	if (req->is_flush) {
+		regulator_flush_finish = true;
+		wake_up_interruptible(&regulator_flush_wq);
 		return;
 	}
 
@@ -145,6 +135,7 @@ struct regulator_req* get_regulator_req(void)
 		return NULL;
 	}
 
+	req->is_flush = false;
 	return req;
 }
 
@@ -162,10 +153,10 @@ void c2ps_uclamp_regulator_flush(void)
 		C2PS_LOGE("NULL flush_req");
 		return;
 	}
-	flush_req->flush_lock = &regulator_notifier_flush_lock;
-	WAIT_FLUSH_START();
+	flush_req->is_flush = true;
 	send_regulator_req(flush_req);
-	WAIT_FLUSH_END();
+	wait_event_interruptible(regulator_flush_wq, regulator_flush_finish);
+	regulator_flush_finish = false;
 }
 
 int uclamp_regulator_init(void)
@@ -182,6 +173,7 @@ int uclamp_regulator_init(void)
 		  sizeof(struct regulator_req), 0, SLAB_HWCACHE_ALIGN, NULL);
 	}
 
+	mutex_init(&regulator_notifier_wq_lock);
 	wake_up_process(c2ps_regulator_thread);
 	return 0;
 }

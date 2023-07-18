@@ -600,6 +600,73 @@ static void handle_ss_try_set_sensor(struct mtk_cam_ctrl *cam_ctrl)
 {
 	mtk_cam_ctrl_send_event(cam_ctrl, CAMSYS_EVENT_TIMER_SENSOR);
 }
+
+static void ctrl_vsync_history_push(struct vsync_collector *c,
+				    int engine, int engine_id, u64 ts)
+{
+	struct vsync_history *h;
+
+	spin_lock(&c->history_lock);
+	h = c->history + c->cur_history_idx;
+
+	h->engine = engine;
+	h->id = engine_id;
+	h->ts_ns = ts;
+
+	c->cur_history_idx = (c->cur_history_idx + 1) % VSYNC_HIST_NUM;
+
+	spin_unlock(&c->history_lock);
+}
+
+static int vsync_history_prev_idx(unsigned int i)
+{
+	int idx = i - 1;
+
+	return idx < 0 ? VSYNC_HIST_NUM - 1 : idx;
+}
+
+void vsync_collector_dump(struct vsync_collector *c)
+{
+	struct vsync_history *history;
+	int i;
+	int idx;
+
+	history = kmalloc(sizeof(c->history), GFP_ATOMIC);
+	if (!history) {
+		pr_info("%s: failed to alloc for dump\n", __func__);
+		return;
+	}
+
+	spin_lock(&c->history_lock);
+
+	memcpy(history, c->history, sizeof(c->history));
+	idx = c->cur_history_idx;
+
+	spin_unlock(&c->history_lock);
+
+	pr_info("%s: === dump begin ===\n", __func__);
+	i = 0;
+	idx = vsync_history_prev_idx(idx);
+	while (i < VSYNC_HIST_NUM) {
+		struct vsync_history *h = history + idx;
+		u64 ts = h->ts_ns;
+
+		if (!ts)
+			break;
+
+		/* note:
+		 * this timestamp is not consitent w. the local_clock() used in printk
+		 */
+		pr_info("%s: [%d] engine %d-%d, ts %llu\n",
+			__func__, i, h->engine, h->id, ts);
+
+		idx = vsync_history_prev_idx(idx);
+		++i;
+	}
+
+	kfree(history);
+}
+
 static void ctrl_vsync_preprocess_extisp(struct mtk_cam_ctrl *ctrl,
 				  enum MTK_CAMSYS_ENGINE_TYPE engine_type,
 				  unsigned int engine_id,
@@ -608,8 +675,11 @@ static void ctrl_vsync_preprocess_extisp(struct mtk_cam_ctrl *ctrl,
 {
 	bool hint_inner_err = 0;
 	int cookie;
-	long inner_not_ready;
+	long cq_not_ready, inner_not_ready;
 	struct apply_cq_ref *cq_ref;
+
+	ctrl_vsync_history_push(&ctrl->vsync_col,
+				engine_type, engine_id, irq_info->ts_ns);
 
 	if (vsync_update_extisp(ctrl, engine_type,
 			irq_info->irq_type, engine_id, vsync_res))
@@ -638,6 +708,8 @@ static void ctrl_vsync_preprocess_extisp(struct mtk_cam_ctrl *ctrl,
 			} else {
 				hint_inner_err = 1;
 				cookie = cq_ref->cookie;
+				cq_not_ready =
+					atomic_long_read(&cq_ref->cq_not_ready);
 				inner_not_ready =
 					atomic_long_read(&cq_ref->inner_not_ready);
 			}
@@ -660,8 +732,8 @@ static void ctrl_vsync_preprocess_extisp(struct mtk_cam_ctrl *ctrl,
 			vsync_res->is_first, vsync_res->is_extmeta, vsync_res->is_last);
 	}
 	if (hint_inner_err)
-		pr_info("%s: warn. inner not updated to 0x%x, engine not ready: 0x%lx\n",
-			__func__, cookie, inner_not_ready);
+		pr_info("%s: warn. inner not updated to 0x%x, cq not ready: 0x%lx engine not ready: 0x%lx\n",
+			__func__, cookie, cq_not_ready, inner_not_ready);
 }
 
 static void ctrl_vsync_preprocess(struct mtk_cam_ctrl *ctrl,
@@ -672,8 +744,11 @@ static void ctrl_vsync_preprocess(struct mtk_cam_ctrl *ctrl,
 {
 	bool hint_inner_err = 0;
 	int cookie;
-	long inner_not_ready;
+	long cq_not_ready, inner_not_ready;
 	struct apply_cq_ref *cq_ref;
+
+	ctrl_vsync_history_push(&ctrl->vsync_col,
+				engine_type, engine_id, irq_info->ts_ns);
 
 	if (vsync_update(&ctrl->vsync_col, engine_type,
 			irq_info->irq_type, engine_id, vsync_res))
@@ -703,6 +778,8 @@ static void ctrl_vsync_preprocess(struct mtk_cam_ctrl *ctrl,
 				vsync_res->is_last = 0;
 				hint_inner_err = 1;
 				cookie = cq_ref->cookie;
+				cq_not_ready =
+					atomic_long_read(&cq_ref->cq_not_ready);
 				inner_not_ready =
 					atomic_long_read(&cq_ref->inner_not_ready);
 			}
@@ -721,8 +798,8 @@ static void ctrl_vsync_preprocess(struct mtk_cam_ctrl *ctrl,
 	spin_unlock(&ctrl->info_lock);
 
 	if (hint_inner_err)
-		pr_info("%s: warn. inner not updated to 0x%x, engine not ready: 0x%lx\n",
-			__func__, cookie, inner_not_ready);
+		pr_info("%s: warn. inner not updated to 0x%x, cq not ready: 0x%lx engine not ready: 0x%lx\n",
+			__func__, cookie, cq_not_ready, inner_not_ready);
 }
 
 static int frame_no_to_fs_req_no(struct mtk_cam_ctrl *ctrl, int frame_no,
@@ -1519,7 +1596,7 @@ void mtk_cam_ctrl_start(struct mtk_cam_ctrl *cam_ctrl, struct mtk_cam_ctx *ctx)
 	spin_lock_init(&cam_ctrl->info_lock);
 	reset_runtime_info(cam_ctrl);
 
-	vsync_reset(&cam_ctrl->vsync_col);
+	vsync_collector_init(&cam_ctrl->vsync_col);
 	cam_ctrl->cur_cq_ref = 0;
 
 	mtk_cam_watchdog_init(&cam_ctrl->watchdog);
@@ -1799,6 +1876,7 @@ static void mtk_cam_watchdog_sensor_worker(struct work_struct *work)
 
 	dev_info(ctx->cam->dev, "ctx-%d reset sensor failed\n", ctx->stream_id);
 	mtk_dump_debug_for_no_vsync(ctx);
+	vsync_collector_dump(&ctrl->vsync_col);
 
 	mtk_cam_event_error(ctrl, MSG_VSYNC_TIMEOUT);
 	WRAP_AEE_EXCEPTION(MSG_VSYNC_TIMEOUT, "watchdog timeout");

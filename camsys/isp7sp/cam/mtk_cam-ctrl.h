@@ -26,16 +26,31 @@ struct vsync_result {
 	int inner_cookie;
 };
 
+#define VSYNC_HIST_NUM	10
 struct vsync_collector {
 	unsigned int desired;
 	unsigned int collected;
 	unsigned int collected_first;
+
+	/* vsync history */
+	spinlock_t history_lock;
+	unsigned int cur_history_idx;
+	struct vsync_history {
+		int engine;
+		int id;
+		u64 ts_ns;
+	} history[VSYNC_HIST_NUM];
 };
 
-static inline void vsync_reset(struct vsync_collector *c)
+static inline void vsync_collector_init(struct vsync_collector *c)
 {
 	c->desired = c->collected = c->collected_first = 0;
+	spin_lock_init(&c->history_lock);
+	c->cur_history_idx = 0;
+	memset(c->history, 0, sizeof(c->history));
 }
+
+void vsync_collector_dump(struct vsync_collector *c);
 
 static inline void vsync_set_desired(struct vsync_collector *c,
 				     unsigned int desried)

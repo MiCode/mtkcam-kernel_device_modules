@@ -221,7 +221,7 @@ struct subdrv_mode_struct {
 	/* aov param by mode */
 	u8 aov_mode;
 	u8 s_dummy_support;
-	u8 ae_ctrl_support;
+	enum IMGSENSOR_AE_CONTROL_SUPPORT ae_ctrl_support;
 
 	u8 pdaf_cap;
 	struct SET_PD_BLOCK_INFO_T *imgsensor_pd_info;

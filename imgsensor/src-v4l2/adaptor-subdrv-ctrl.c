@@ -3278,18 +3278,20 @@ int common_feature_control(struct subdrv_ctx *ctx, MSDK_SENSOR_FEATURE_ENUM feat
 	case SENSOR_FEATURE_SET_ESHUTTER:
 		if (ctx->s_ctx.aov_sensor_support &&
 			ctx->s_ctx.mode[ctx->current_scenario_id].aov_mode &&
-			!ctx->s_ctx.mode[ctx->current_scenario_id].ae_ctrl_support)
+			(ctx->s_ctx.mode[ctx->current_scenario_id].ae_ctrl_support !=
+				IMGSENSOR_AE_CONTROL_SUPPORT_VIEWING_MODE))
 			DRV_LOG_MUST(ctx,
-				"AOV sensing mode not support ae shutter control!\n");
+				"AOV mode not support ae shutter control!\n");
 		else
 			set_shutter(ctx, *feature_data);
 		break;
 	case SENSOR_FEATURE_SET_GAIN:
 		if (ctx->s_ctx.aov_sensor_support &&
 			ctx->s_ctx.mode[ctx->current_scenario_id].aov_mode &&
-			!ctx->s_ctx.mode[ctx->current_scenario_id].ae_ctrl_support)
+			(ctx->s_ctx.mode[ctx->current_scenario_id].ae_ctrl_support !=
+				IMGSENSOR_AE_CONTROL_SUPPORT_VIEWING_MODE))
 			DRV_LOG_MUST(ctx,
-				"AOV sensing mode not support ae gain control!\n");
+				"AOV mode not support ae gain control!\n");
 		else
 			set_gain(ctx, *feature_data);
 		break;
@@ -3404,45 +3406,50 @@ int common_feature_control(struct subdrv_ctx *ctx, MSDK_SENSOR_FEATURE_ENUM feat
 	case SENSOR_FEATURE_SET_HDR_SHUTTER:
 		if (ctx->s_ctx.aov_sensor_support &&
 			ctx->s_ctx.mode[ctx->current_scenario_id].aov_mode &&
-			!ctx->s_ctx.mode[ctx->current_scenario_id].ae_ctrl_support)
+			(ctx->s_ctx.mode[ctx->current_scenario_id].ae_ctrl_support !=
+				IMGSENSOR_AE_CONTROL_SUPPORT_VIEWING_MODE))
 			DRV_LOG_MUST(ctx,
-				"AOV sensing mode not support ae shutter control!\n");
+				"AOV mode not support ae shutter control!\n");
 		else
 			set_hdr_tri_shutter(ctx, feature_data, 2);
 		break;
 	case SENSOR_FEATURE_SET_DUAL_GAIN:
 		if (ctx->s_ctx.aov_sensor_support &&
 			ctx->s_ctx.mode[ctx->current_scenario_id].aov_mode &&
-			!ctx->s_ctx.mode[ctx->current_scenario_id].ae_ctrl_support)
+			(ctx->s_ctx.mode[ctx->current_scenario_id].ae_ctrl_support !=
+				IMGSENSOR_AE_CONTROL_SUPPORT_VIEWING_MODE))
 			DRV_LOG_MUST(ctx,
-				"AOV sensing mode not support ae gain control!\n");
+				"AOV mode not support ae gain control!\n");
 		else
 			set_hdr_tri_gain(ctx, feature_data, 2);
 		break;
 	case SENSOR_FEATURE_SET_HDR_TRI_SHUTTER:
 		if (ctx->s_ctx.aov_sensor_support &&
 			ctx->s_ctx.mode[ctx->current_scenario_id].aov_mode &&
-			!ctx->s_ctx.mode[ctx->current_scenario_id].ae_ctrl_support)
+			(ctx->s_ctx.mode[ctx->current_scenario_id].ae_ctrl_support !=
+				IMGSENSOR_AE_CONTROL_SUPPORT_VIEWING_MODE))
 			DRV_LOG_MUST(ctx,
-				"AOV sensing mode not support ae shutter control!\n");
+				"AOV mode not support ae shutter control!\n");
 		else
 			set_hdr_tri_shutter(ctx, feature_data, 3);
 		break;
 	case SENSOR_FEATURE_SET_HDR_TRI_GAIN:
 		if (ctx->s_ctx.aov_sensor_support &&
 			ctx->s_ctx.mode[ctx->current_scenario_id].aov_mode &&
-			!ctx->s_ctx.mode[ctx->current_scenario_id].ae_ctrl_support)
+			(ctx->s_ctx.mode[ctx->current_scenario_id].ae_ctrl_support !=
+				IMGSENSOR_AE_CONTROL_SUPPORT_VIEWING_MODE))
 			DRV_LOG_MUST(ctx,
-				"AOV sensing mode not support ae gain control!\n");
+				"AOV mode not support ae gain control!\n");
 		else
 			set_hdr_tri_gain(ctx, feature_data, 3);
 		break;
 	case SENSOR_FEATURE_SET_MULTI_DIG_GAIN:
 		if (ctx->s_ctx.aov_sensor_support &&
 			ctx->s_ctx.mode[ctx->current_scenario_id].aov_mode &&
-			!ctx->s_ctx.mode[ctx->current_scenario_id].ae_ctrl_support)
+			(ctx->s_ctx.mode[ctx->current_scenario_id].ae_ctrl_support !=
+				IMGSENSOR_AE_CONTROL_SUPPORT_VIEWING_MODE))
 			DRV_LOG_MUST(ctx,
-				"AOV sensing mode not support ae gain control!\n");
+				"AOV mode not support ae gain control!\n");
 		else
 			set_multi_dig_gain(
 				ctx, (u32 *)(*feature_data), (u16) (*(feature_data + 1)));
@@ -3476,9 +3483,10 @@ int common_feature_control(struct subdrv_ctx *ctx, MSDK_SENSOR_FEATURE_ENUM feat
 		if (*feature_data) {
 			if (ctx->s_ctx.aov_sensor_support &&
 				ctx->s_ctx.mode[ctx->current_scenario_id].aov_mode &&
-				!ctx->s_ctx.mode[ctx->current_scenario_id].ae_ctrl_support)
+				(ctx->s_ctx.mode[ctx->current_scenario_id].ae_ctrl_support !=
+					IMGSENSOR_AE_CONTROL_SUPPORT_VIEWING_MODE))
 				DRV_LOG_MUST(ctx,
-					"AOV sensing mode not support ae shutter control!\n");
+					"AOV mode not support ae shutter control!\n");
 			else
 				set_shutter(ctx, *feature_data);
 		}

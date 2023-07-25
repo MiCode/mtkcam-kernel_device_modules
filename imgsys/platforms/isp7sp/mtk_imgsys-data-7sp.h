@@ -16,11 +16,10 @@
 #include "mtk_imgsys-plat.h"
 #include "mtk_imgsys_v4l2_vnode.h"
 #include "mtk_imgsys-debug.h"
-/* For ISP 7.1 */
+#include "mtk_imgsys-port.h"
 
 /* imgsys_data is a keyword, please don't rename */
 const struct cust_data imgsys_data_mt6897[] = {
-	/* ISP 7 */
 	[0] = {
 	.clks = imgsys_isp7_clks_mt6897,
 	.clk_num = MTK_IMGSYS_CLK_NUM_MT6897,
@@ -31,6 +30,12 @@ const struct cust_data imgsys_data_mt6897[] = {
 	.imgsys_modules = imgsys_isp7_modules,
 	.imgsys_modules_num = MTK_IMGSYS_MODULE_NUM,
 	.dump = imgsys_debug_dump_routine,
+#ifdef IMGSYS_TF_DUMP_7SP_P
+	.imgsys_ports = imgsys_dma_port_mt6897,
+	.imgsys_ports_num = ARRAY_SIZE(imgsys_dma_port_mt6897),
+#else
+	.imgsys_ports_num = 0;
+#endif
 	},
 	/* ISP 7.1 */
 
@@ -47,6 +52,12 @@ const struct cust_data imgsys_data_mt6989[] = {
 	.imgsys_modules = imgsys_isp7_modules,
 	.imgsys_modules_num = MTK_IMGSYS_MODULE_NUM,
 	.dump = imgsys_debug_dump_routine,
+#ifdef IMGSYS_TF_DUMP_7SP_L
+	.imgsys_ports = imgsys_dma_port_mt6989,
+	.imgsys_ports_num = ARRAY_SIZE(imgsys_dma_port_mt6989),
+#else
+	.imgsys_ports_num = 0;
+#endif
 	},
 };
 #endif /* _MTK_IMGSYS_DATA_H_ */

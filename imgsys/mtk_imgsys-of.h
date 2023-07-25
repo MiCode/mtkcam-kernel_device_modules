@@ -30,6 +30,8 @@ struct cust_data {
 	const struct module_ops *imgsys_modules;
 	unsigned int imgsys_modules_num;
 	debug_dump dump;
+	const struct mtk_imgsys_port_table *imgsys_ports;
+	unsigned int imgsys_ports_num;
 };
 
 void init_imgsys_pipeline(const struct cust_data *data);

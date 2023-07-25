@@ -1550,11 +1550,11 @@ static bool dpe_get_dma_buffer(struct tee_mmu *mmu, int fd)
 	Get_SMMU = smmu_v3_enabled();
 	// LOG_INF("Get_SMMU = %x\n", Get_SMMU);
 	if (Get_SMMU == 1) {
-		if ((smmudev != NULL) || (smmudev != 0)) {
+		if (smmudev != NULL) {
 			mmu->attach = dma_buf_attach(mmu->dma_buf, smmudev);
 		}
 	} else {
-		if ((gdev != NULL) || (gdev != 0)) {
+		if (gdev != NULL) {
 			mmu->attach = dma_buf_attach(mmu->dma_buf, gdev);
 		}
 	}
@@ -5245,8 +5245,8 @@ signed int CmdqDPEHW(struct frame *frame)
 
 	//LOG_INF("%s CmdqtoHw statr", __func__);
 
-	if (frame == NULL || frame->data == NULL) {
-    LOG_INF("frame->data = NULL ");
+	if (frame == NULL || frame->data == NULL || my_data == NULL) {
+    LOG_INF("frame->data = NULL or my_date = NULL");
 		return -1;
 	}
 
@@ -7714,7 +7714,7 @@ static signed int DPE_open(struct inode *pInode, struct file *pFile)
 								current->tgid);
 		goto EXIT;
 	} else {
-		DPEInfo.UserCount++;
+		// DPEInfo.UserCount++;
 
 		/* do wait queue head init when re-enter in camera */
 		/*  */
@@ -7780,6 +7780,7 @@ static signed int DPE_open(struct inode *pInode, struct file *pFile)
 	/* Enable clock */
 	LOG_INF("DPE OPNE CLK\n");
 	DPE_EnableClock(MTRUE);
+	DPEInfo.UserCount++;
 	cmdq_mbox_enable(dpe_clt->chan);
 	g_SuspendCnt = 0;
 	//DPE_debug_log_en = 1;
@@ -8776,6 +8777,18 @@ static signed int DPE_remove(struct platform_device *pDev)
 	if (DPE_devs != NULL) {
 		kfree(DPE_devs);
 		DPE_devs = NULL;
+	}
+	if (CAM_devs != NULL) {
+		kfree(CAM_devs);
+		CAM_devs = NULL;
+	}
+	if (MRAW_devs != NULL) {
+		kfree(MRAW_devs);
+		MRAW_devs = NULL;
+	}
+	if (IPE_devs != NULL) {
+		kfree(IPE_devs);
+		IPE_devs = NULL;
 	}
 
 #if defined(DPE_PMQOS_EN) && defined(CONFIG_MTK_QOS_SUPPORT)

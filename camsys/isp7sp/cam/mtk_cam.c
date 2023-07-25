@@ -1973,15 +1973,17 @@ int mtk_cam_alloc_img_pool(struct device *dev_to_attach,
 	struct mtk_cam_resource_raw_v2 *raw_res;
 	int i;
 	int ret = 0;
+	int total_size;
 
 	raw_res = &ctrl_data->resource.user_data.raw_res;
-	if (ctrl_data->pre_alloc_mem.num
-	    && desc->max_size <= ctrl_data->pre_alloc_mem.bufs[0].length) {
+	total_size = desc->max_size * raw_res->img_wbuf_num;
+	if (ctrl_data->pre_alloc_mem.num &&
+	    total_size <= ctrl_data->pre_alloc_mem.bufs[0].length) {
 		ret = _alloc_pool_by_dbuf(
 			  img_work_buffer, img_work_pool,
 			  dev_to_attach,
 			  ctrl_data->pre_alloc_dbuf,
-			  ctrl_data->pre_alloc_mem.bufs[0].length,
+			  total_size,
 			  raw_res->img_wbuf_num);
 	} else {
 		ret = _alloc_pool(

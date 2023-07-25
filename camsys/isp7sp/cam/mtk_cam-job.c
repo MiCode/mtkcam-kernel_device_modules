@@ -25,8 +25,7 @@
 #include "mtk_cam-raw_ctrl.h"
 
 #define SCQ_DEADLINE_US(fi)		((fi) / 2) // 0.5 frame interval
-#define SCQ_DEADLINE_US_STAGGER(fi)	((fi) - 3000) // fi - n us
-#define SCQ_DEADLINE_US_LBMF(fi)	((fi) - 500) // fi - n us
+#define SCQ_DEADLINE_US_STAGGER(fi)	((fi) - 500) // fi - n us
 #define SCQ_DEADLINE_MS_LONG_PERIOD		30 * 1000
 
 static unsigned int debug_buf_fmt_sel = -1;
@@ -2215,8 +2214,6 @@ _job_pack_otf_stagger(struct mtk_cam_job *job,
 	job->sub_ratio = get_subsample_ratio(&job->job_scen);
 	job->stream_on_seninf = false;
 	job->scq_period =
-		is_stagger_lbmf(job) ?
-		SCQ_DEADLINE_US_LBMF(get_sensor_interval_us(job)) / 1000 :
 		SCQ_DEADLINE_US_STAGGER(get_sensor_interval_us(job)) / 1000;
 
 	if (!ctx->used_engine) {
@@ -2675,7 +2672,7 @@ _job_pack_only_sv(struct mtk_cam_job *job,
 	job->stream_on_seninf = false;
 	if (is_stagger_lbmf(job))
  		job->scq_period =
- 			SCQ_DEADLINE_US_LBMF(get_sensor_interval_us(job)) / 1000;
+			SCQ_DEADLINE_US_STAGGER(get_sensor_interval_us(job)) / 1000;
 
 	if (!ctx->used_engine) {
 		if (job_related_hw_init(job))

@@ -1904,6 +1904,7 @@ static void mtk_cam_watchdog_job_worker(struct work_struct *work)
 	if (!ctx || atomic_read(&ctrl->stopped))
 		goto EXIT_WORK;
 
+	vsync_collector_dump(&ctrl->vsync_col);
 	mtk_cam_ctrl_dump_first_job(ctrl, NULL, dbg_work->desc);
 
 EXIT_WORK:

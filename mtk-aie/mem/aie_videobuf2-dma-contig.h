@@ -14,7 +14,12 @@ aie_vb2_dma_contig_plane_dma_addr(struct vb2_buffer *vb, unsigned int plane_no)
 {
 	dma_addr_t *addr = vb2_plane_cookie(vb, plane_no);
 
-	return *addr;
+	if (addr == NULL) {
+		pr_info("[%s] address is null\n", __FUNCTION__);
+		return 0;
+	} else {
+		return *addr;
+	}
 }
 
 int aie_vb2_dma_contig_set_max_seg_size(struct device *dev, unsigned int size);

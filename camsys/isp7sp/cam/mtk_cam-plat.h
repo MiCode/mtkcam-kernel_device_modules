@@ -73,16 +73,6 @@ struct sv_dma_th_setting {
 	u32 ultra_th2;
 	u32 pultra_th2;
 	u32 dvfs_th2;
-
-	u32 urgent_len1_th;
-	u32 ultra_len1_th;
-	u32 pultra_len1_th;
-	u32 dvfs_len1_th;
-
-	u32 urgent_len2_th;
-	u32 ultra_len2_th;
-	u32 pultra_len2_th;
-	u32 dvfs_len2_th;
 };
 
 struct sv_cq_th_setting {

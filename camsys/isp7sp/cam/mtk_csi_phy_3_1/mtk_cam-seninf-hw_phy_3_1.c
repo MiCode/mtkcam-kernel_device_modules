@@ -8,17 +8,17 @@
 #include "mtk_cam-seninf.h"
 #include "mtk_cam-seninf-hw.h"
 #include "mtk_cam-seninf-regs.h"
-#include "mtk_csi_phy_3_0/mtk_cam-seninf-top-ctrl.h"
-#include "mtk_csi_phy_3_0/mtk_cam-seninf-seninf1-mux.h"
-#include "mtk_csi_phy_3_0/mtk_cam-seninf-seninf1.h"
-#include "mtk_csi_phy_3_0/mtk_cam-seninf-seninf1-csi2.h"
-#include "mtk_csi_phy_3_0/mtk_cam-seninf-cammux-gcsr.h"
-#include "mtk_csi_phy_3_0/mtk_cam-seninf-cammux-pcsr.h"
-#include "mtk_csi_phy_3_0/mtk_cam-seninf-mipi-rx-ana-cdphy-csi0a.h"
-#include "mtk_csi_phy_3_0/mtk_cam-seninf-csi0-cphy.h"
-#include "mtk_csi_phy_3_0/mtk_cam-seninf-csi0-dphy.h"
-#include "mtk_csi_phy_3_0/mtk_cam-seninf-csirx_mac_csi0.h"
-#include "mtk_csi_phy_3_0/mtk_cam-seninf-csirx_mac_top.h"
+#include "mtk_csi_phy_3_1/mtk_cam-seninf-top-ctrl.h"
+#include "mtk_csi_phy_3_1/mtk_cam-seninf-seninf1-mux.h"
+#include "mtk_csi_phy_3_1/mtk_cam-seninf-seninf1.h"
+#include "mtk_csi_phy_3_1/mtk_cam-seninf-seninf1-csi2.h"
+#include "mtk_csi_phy_3_1/mtk_cam-seninf-cammux-gcsr.h"
+#include "mtk_csi_phy_3_1/mtk_cam-seninf-cammux-pcsr.h"
+#include "mtk_csi_phy_3_1/mtk_cam-seninf-mipi-rx-ana-cdphy-csi0a.h"
+#include "mtk_csi_phy_3_1/mtk_cam-seninf-csi0-cphy.h"
+#include "mtk_csi_phy_3_1/mtk_cam-seninf-csi0-dphy.h"
+#include "mtk_csi_phy_3_1/mtk_cam-seninf-csirx_mac_csi0.h"
+#include "mtk_csi_phy_3_1/mtk_cam-seninf-csirx_mac_top.h"
 
 #include "mtk_cam-seninf_control.h"
 #include "mtk_cam-seninf-route.h"
@@ -39,7 +39,7 @@
 
 #define MT6989_IOMOM_VERSIONS "mt6989"
 
-static struct mtk_cam_seninf_ops *_seninf_ops = &mtk_csi_phy_3_0;
+static struct mtk_cam_seninf_ops *_seninf_ops = &mtk_csi_phy_3_1;
 static struct mtk_cam_seninf_irq_event_st vsync_detect_seninf_irq_event;
 #define SENINF_IRQ_FIFO_LEN 36
 #define VSYNC_DUMP_BUF_MAX_LEN 2048
@@ -2262,7 +2262,6 @@ static int csirx_mac_top_setting(struct seninf_ctx *ctx)
 	if (ctx->port < 0) {
 		dev_info(ctx->dev, "[%s][Error] ctx->port (%d) is < 0\n",
 			__func__, ctx->port);
-		return 	-EINVAL;
 	}
 
 	csirx_mac_top = ctx->reg_csirx_mac_top[ctx->port];
@@ -4013,16 +4012,10 @@ static int csirx_phy_setting(struct seninf_ctx *ctx)
 
 static int mtk_cam_seninf_set_csi_mipi(struct seninf_ctx *ctx)
 {
-	int ret = 0;
-
 	csirx_phy_init(ctx);
 
 	/* csi_mac_top */
-	ret = csirx_mac_top_setting(ctx);
-	if (ret) {
-		dev_info(ctx->dev, "[%s][Error] ret(%d)\n", __func__, ret);
-		return ret;
-	}
+	csirx_mac_top_setting(ctx);
 
 	/* csi_mac_CSI2 */
 	csirx_mac_csi_setting(ctx);
@@ -6471,7 +6464,7 @@ static int debug_init_deskew_irq(struct seninf_ctx *ctx)
 	return 0;
 }
 
-struct mtk_cam_seninf_ops mtk_csi_phy_3_0 = {
+struct mtk_cam_seninf_ops mtk_csi_phy_3_1 = {
 	._init_iomem = mtk_cam_seninf_init_iomem,
 	._init_port = mtk_cam_seninf_init_port,
 	._is_cammux_used = mtk_cam_seninf_is_cammux_used,

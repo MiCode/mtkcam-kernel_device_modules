@@ -2469,9 +2469,8 @@ static int imx766dual_seamless_switch(struct subdrv_ctx *ctx, u8 *para, u32 *len
 			set_gain(ctx, ae_ctrl->gain.le_gain);
 			break;
 		}
+		common_get_prsh_length_lines(ctx, ae_ctrl, pre_seamless_scenario_id, scenario_id);
 	}
-
-	common_get_prsh_length_lines(ctx, ae_ctrl, pre_seamless_scenario_id, scenario_id);
 
 	if (ctx->s_ctx.seamless_switch_prsh_length_lc > 0) {
 		subdrv_i2c_wr_u8(ctx, ctx->s_ctx.reg_addr_prsh_mode, 0x01);

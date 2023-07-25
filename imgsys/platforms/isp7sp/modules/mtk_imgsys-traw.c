@@ -15,9 +15,6 @@
 #include <linux/remoteproc.h>
 #include "mtk-hcp.h"
 #include "mtk_imgsys-v4l2-debug.h"
-#ifdef WPE_TF_DUMP_7S_1
-#include <dt-bindings/memory/mt6985-larb-port.h>
-#endif
 
 // GCE header
 #include <linux/soc/mediatek/mtk-cmdq-ext.h>
@@ -122,46 +119,6 @@ static unsigned int g_RegBaseAddr = TRAW_A_BASE_ADDR;
 static void __iomem *g_trawRegBA, *g_ltrawRegBA, *g_ispMainRegBA;
 
 static unsigned int g_IOMMUDumpPort;
-
-#ifndef CONFIG_FPGA_EARLY_PORTING
-#if IOMMU_TF_CB_SUPPORT //YWTBD K DBG
-static unsigned int g_IOMMUL9Def[] = {
-#ifdef WPE_TF_DUMP_7S_1
-	M4U_PORT_L9_IMGI_T1_B,
-	M4U_PORT_L9_IMGI_T1_N_B,
-	M4U_PORT_L9_IMGCI_T1_B,
-	M4U_PORT_L9_IMGCI_T1_N_B,
-	M4U_PORT_L9_SMTI_T1_B,
-	M4U_PORT_L9_YUVO_T1_B,
-	M4U_PORT_L9_YUVO_T1_N_B,
-	M4U_PORT_L9_YUVCO_T1_B,
-	M4U_PORT_L9_YUVO_T2_B,
-	M4U_PORT_L9_YUVO_T4_B,
-	M4U_PORT_L9_TNCSTO_T1_B,
-	M4U_PORT_L9_SMTO_T1_B,
-	M4U_PORT_L28_IMGI_T1_A,
-	M4U_PORT_L28_IMGI_T1_N_A,
-	M4U_PORT_L28_IMGCI_T1_A,
-	M4U_PORT_L28_IMGCI_T1_N_A,
-	M4U_PORT_L28_SMTI_T1_A,
-	M4U_PORT_L28_SMTI_T4_A,
-	M4U_PORT_L28_TNCSTI_T1_A,
-	M4U_PORT_L28_TNCSTI_T4_A,
-	M4U_PORT_L28_LTMSTI_T1_A,
-	M4U_PORT_L28_YUVO_T1_A,
-	M4U_PORT_L28_YUVO_T1_N_A,
-	M4U_PORT_L28_YUVCO_T1_A,
-	M4U_PORT_L28_YUVO_T2_A,
-	M4U_PORT_L28_YUVO_T4_A,
-	M4U_PORT_L28_TNCSTO_T1_A,
-	M4U_PORT_L28_TNCSO_T1_A,
-	M4U_PORT_L28_SMTO_T1_A,
-	M4U_PORT_L28_SMTO_T4_A,
-	M4U_PORT_L28_LTMSO_T1_A,
-#endif
-};
-#endif
-#endif
 
 #if IF_0_DEFINE //YWTBD K DBG
 static unsigned int ExeDbgCmd(struct mtk_imgsys_dev *a_pDev,
@@ -614,9 +571,7 @@ static void imgsys_traw_dump_dl(struct mtk_imgsys_dev *a_pDev,
 }
 #endif
 
-#ifndef CONFIG_FPGA_EARLY_PORTING
-#if IOMMU_TF_CB_SUPPORT //YWTBD K DBG
-static int imgsys_traw_iommu_cb(int port, dma_addr_t mva, void *cb_data)
+int imgsys_traw_tfault_callback(int port, dma_addr_t mva, void *cb_data)
 {
 	unsigned int i = 0;
 	char DbgStr[128];
@@ -673,25 +628,6 @@ static int imgsys_traw_iommu_cb(int port, dma_addr_t mva, void *cb_data)
 	}
 
 	return 0;
-}
-#endif
-#endif
-
-static void imgsys_traw_reg_iommu_cb(void)
-{
-#ifndef CONFIG_FPGA_EARLY_PORTING
-#if IOMMU_TF_CB_SUPPORT //YWTBD K DBG
-	unsigned int i = 0;
-
-	/* Reg Ltraw L9 Port Callback */
-	for (i = 0; i < ARRAY_SIZE(g_IOMMUL9Def); i++) {
-		mtk_iommu_register_fault_callback(
-			g_IOMMUL9Def[i],
-			(mtk_iommu_fault_callback_t)imgsys_traw_iommu_cb,
-			NULL, false);
-	}
-#endif
-#endif
 }
 
 void imgsys_traw_updatecq(struct mtk_imgsys_dev *imgsys_dev,
@@ -786,7 +722,7 @@ void imgsys_traw_set_initial_value(struct mtk_imgsys_dev *imgsys_dev)
 	g_trawRegBA = of_iomap(imgsys_dev->dev->of_node, REG_MAP_E_TRAW);
 	g_ltrawRegBA = of_iomap(imgsys_dev->dev->of_node, REG_MAP_E_LTRAW);
 	g_ispMainRegBA = of_iomap(imgsys_dev->dev->of_node, REG_MAP_E_TOP);
-	imgsys_traw_reg_iommu_cb();
+	//imgsys_traw_reg_iommu_cb();
 	/* Register IOMMU Callback */
 	g_IOMMUDumpPort = 0;
 }

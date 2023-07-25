@@ -3937,6 +3937,41 @@ int mtk_cam_seninf_dump(struct v4l2_subdev *sd, u32 seq_id, bool force_check)
 	return (ret && reset_by_user);
 }
 
+int mtk_cam_seninf_dump_current_status(struct v4l2_subdev *sd)
+{
+	int ret = 0;
+	struct seninf_ctx *ctx = sd_to_ctx(sd);
+	struct v4l2_subdev *sensor_sd = ctx->sensor_sd;
+	int reset_by_user = 0;
+	bool in_reset = 0;
+
+	ret = pm_runtime_get_sync(ctx->dev);
+	if (ret < 0) {
+		dev_info(ctx->dev, "%s pm_runtime_get_sync ret %d\n", __func__, ret);
+		pm_runtime_put_noidle(ctx->dev);
+		return ret;
+	}
+
+	/* query if sensor in reset */
+	sensor_sd->ops->core->command(sensor_sd,
+			V4L2_CMD_SENSOR_IN_RESET, &in_reset);
+
+	if (ctx->streaming) {
+		if (!in_reset) {
+			ret = g_seninf_ops->_debug_current_status(sd_to_ctx(sd));
+		} else
+			dev_info(ctx->dev, "%s skip dump, sensor is in resetting\n", __func__);
+	} else
+		dev_info(ctx->dev, "%s should not dump during stream off\n", __func__);
+
+	pm_runtime_put_sync(ctx->dev);
+
+	dev_info(ctx->dev, "%s ret(%d),reset_by_user(%d)\n",
+		 __func__, ret, reset_by_user);
+
+	return (ret && reset_by_user);
+}
+
 void mtk_cam_seninf_set_secure(struct v4l2_subdev *sd, int enable, u64 SecInfo_addr)
 {
 	struct seninf_ctx *ctx = sd_to_ctx(sd);

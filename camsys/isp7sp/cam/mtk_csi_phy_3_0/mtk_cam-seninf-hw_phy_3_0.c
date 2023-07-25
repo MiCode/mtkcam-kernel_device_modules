@@ -2259,8 +2259,8 @@ static int csirx_mac_top_setting(struct seninf_ctx *ctx)
 {
 	void *csirx_mac_top;
 
-	if (ctx->port < 0) {
-		dev_info(ctx->dev, "[%s][Error] ctx->port (%d) is < 0\n",
+	if ((ctx->port < 0) || (ctx->port >= CSI_PORT_MAX_NUM)) {
+		dev_info(ctx->dev, "[%s][Error] ctx->port (%d) is invalid\n",
 			__func__, ctx->port);
 		return 	-EINVAL;
 	}

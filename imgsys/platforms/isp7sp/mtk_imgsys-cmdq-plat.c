@@ -151,6 +151,7 @@ void imgsys_cmdq_init_plat7sp(struct mtk_imgsys_dev *imgsys_dev, const int nr_im
 	mutex_init(&g_cb_param_lock);
 #endif
 	mutex_init(&imgsys_dev->vss_blk_lock);
+	mutex_init(&imgsys_dev->sec_task_lock);
 }
 
 void imgsys_cmdq_release_plat7sp(struct mtk_imgsys_dev *imgsys_dev)
@@ -188,6 +189,7 @@ void imgsys_cmdq_release_plat7sp(struct mtk_imgsys_dev *imgsys_dev)
 	mutex_destroy(&g_cb_param_lock);
 #endif
 	mutex_destroy(&imgsys_dev->vss_blk_lock);
+	mutex_destroy(&imgsys_dev->sec_task_lock);
 }
 
 void imgsys_cmdq_streamon_plat7sp(struct mtk_imgsys_dev *imgsys_dev)
@@ -257,12 +259,14 @@ void imgsys_cmdq_streamoff_plat7sp(struct mtk_imgsys_dev *imgsys_dev)
 	#endif
 
 	#if IMGSYS_SECURE_ENABLE
+	mutex_lock(&(imgsys_dev->sec_task_lock));
 	if (is_sec_task_create) {
 		cmdq_sec_mbox_stop(imgsys_sec_clt[0]);
 		/* cmdq_pkt_destroy(pkt_sec); */
 		/* pkt_sec = NULL; */
 		is_sec_task_create = 0;
 	}
+	mutex_unlock(&(imgsys_dev->sec_task_lock));
 	#endif
 
 	MTK_IMGSYS_QOF_NEED_RUN(imgsys_dev->qof_ver, mtk_imgsys_cmdq_qof_streamoff(imgsys_dev));
@@ -1562,6 +1566,7 @@ int imgsys_cmdq_sendtask_plat7sp(struct mtk_imgsys_dev *imgsys_dev,
 	dvfs_info = &imgsys_dev->dvfs_info;
 
 	#if IMGSYS_SECURE_ENABLE
+	mutex_lock(&(imgsys_dev->sec_task_lock));
 	if (frm_info->is_secReq && (is_sec_task_create == 0)) {
 		imgsys_cmdq_sec_sendtask_plat7sp(imgsys_dev);
 		is_sec_task_create = 1;
@@ -1569,6 +1574,7 @@ int imgsys_cmdq_sendtask_plat7sp(struct mtk_imgsys_dev *imgsys_dev,
 			"%s: create imgsys secure task is_secReq(%d)\n",
 			__func__, frm_info->is_secReq);
 	}
+	mutex_unlock(&(imgsys_dev->sec_task_lock));
 	#endif
 
 	/* Allocate cmdq buffer for task timestamp */

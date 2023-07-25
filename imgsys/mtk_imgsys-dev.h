@@ -379,6 +379,7 @@ struct mtk_imgsys_dev {
 	struct mutex dvfs_qos_lock;
 	struct mutex power_ctrl_lock;
 	struct mutex vss_blk_lock;
+	struct mutex sec_task_lock;
 	debug_dump dump;
 	atomic_t imgsys_user_cnt;
 	struct kref init_kref;

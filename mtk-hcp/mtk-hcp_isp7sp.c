@@ -2891,7 +2891,7 @@ static int isp7sp_module_driver_release_working_buffer_streaming(struct mtk_hcp 
                 case PQDIP_MEM_C_ID:
                 case PQDIP_MEM_T_ID:
                 default:
-                    if (IS_ERR(str_mblock[id].d_buf)) {
+                    if (IS_ERR(str_mblock[id].d_buf) || IS_ERR(str_mblock[id].sgt)) {
                          pr_info("streaming dma_heap_buffer_alloc already fail :%ld\n",
                                     PTR_ERR(str_mblock[id].d_buf));
                         str_mblock[id].mem_priv = NULL;
@@ -2978,7 +2978,7 @@ static int isp7sp_module_driver_release_working_buffer_capture(struct mtk_hcp *h
                 case PQDIP_MEM_C_ID:
                 case PQDIP_MEM_T_ID:
                 default:
-                    if (IS_ERR(cap_mblock[id].d_buf)) {
+                    if (IS_ERR(cap_mblock[id].d_buf) || IS_ERR(cap_mblock[id].sgt)) {
                          pr_info("capture dma_heap_buffer_alloc already fail :%ld\n",
                                     PTR_ERR(cap_mblock[id].d_buf));
                          cap_mblock[id].mem_priv = NULL;
@@ -3065,7 +3065,7 @@ static int isp7sp_module_driver_release_working_buffer_smvr(struct mtk_hcp *hcp_
                 case PQDIP_MEM_C_ID:
                 case PQDIP_MEM_T_ID:
                 default:
-                    if (IS_ERR(smvr_mblock[id].d_buf)) {
+                    if (IS_ERR(smvr_mblock[id].d_buf) || IS_ERR(smvr_mblock[id].sgt)) {
                          pr_info("smvr dma_heap_buffer_alloc already fail :%ld\n",
                                     PTR_ERR(smvr_mblock[id].d_buf));
                          smvr_mblock[id].mem_priv = NULL;
@@ -3144,7 +3144,7 @@ int isp7sp_release_gce_working_buffer(struct mtk_hcp *hcp_dev)
 				/*allocated at probe via dts*/
 				break;
 			case IMG_MEM_G_TOKEN_ID:
-                    if (IS_ERR(gmblock[gid].d_buf)) {
+                    if (IS_ERR(gmblock[gid].d_buf) || IS_ERR(gmblock[gid].sgt)) {
                          pr_info("smvr dma_heap_buffer_alloc already fail :%ld\n",
                                     PTR_ERR(gmblock[gid].d_buf));
                          gmblock[gid].mem_priv = NULL;

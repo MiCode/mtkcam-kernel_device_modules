@@ -1283,18 +1283,18 @@ static int ov64b_seamless_switch(struct subdrv_ctx *ctx, u8 *para, u32 *len)
 	}
 	i2c_table_write(ctx, addr_data_pair_seamless_switch_step2_ov64b,
 		ARRAY_SIZE(addr_data_pair_seamless_switch_step2_ov64b));
-	if (ae_ctrl) {
-		switch (ctx->s_ctx.mode[scenario_id].hdr_mode) {
-		case HDR_RAW_STAGGER:
-			set_multi_shutter_frame_length(ctx, (u64 *)&ae_ctrl->exposure, exp_cnt, 0);
-			set_multi_gain(ctx, (u32 *)&ae_ctrl->gain, exp_cnt);
-			break;
-		default:
-			set_shutter(ctx, ae_ctrl->exposure.le_exposure);
-			set_gain(ctx, ae_ctrl->gain.le_gain);
-			break;
-		}
-	}
+	// if (ae_ctrl) {
+	// 	switch (ctx->s_ctx.mode[scenario_id].hdr_mode) {
+	// 	case HDR_RAW_STAGGER:
+	// 		set_multi_shutter_frame_length(ctx, (u64 *)&ae_ctrl->exposure, exp_cnt, 0);
+	// 		set_multi_gain(ctx, (u32 *)&ae_ctrl->gain, exp_cnt);
+	// 		break;
+	// 	default:
+	// 		set_shutter(ctx, ae_ctrl->exposure.le_exposure);
+	// 		set_gain(ctx, ae_ctrl->gain.le_gain);
+	// 		break;
+	// 	}
+	// }
 	if (scen1_hdr == HDR_RAW_STAGGER) {
 		i2c_table_write(ctx, addr_data_pair_seamless_switch_step3_HDR_ov64b,
 			ARRAY_SIZE(addr_data_pair_seamless_switch_step3_HDR_ov64b));

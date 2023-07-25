@@ -960,6 +960,10 @@ static int mtk_imgsys_vidioc_qbuf(struct file *file, void *priv,
 	struct v4l2_plane_pix_format *vfmt;
 	struct plane_pix_format *bfmt;
 #endif
+	if (!pipe->streaming) {
+		dev_info(pipe->imgsys_dev->dev, "[%s] illegal process access \n", __func__);
+		return -EINVAL;
+	}
 	if (buf->index >= VB2_MAX_FRAME) {
 		dev_info(pipe->imgsys_dev->dev, "[%s] error vb2 index %d\n", __func__, buf->index);
 		return -EINVAL;
@@ -968,7 +972,6 @@ static int mtk_imgsys_vidioc_qbuf(struct file *file, void *priv,
 	vb = node->dev_q.vbq.bufs[buf->index];
 	dev_buf = mtk_imgsys_vb2_buf_to_dev_buf(vb);
 	if (!dev_buf) {
-        if (imgsys_dbg_enable())
 		dev_dbg(pipe->imgsys_dev->dev, "[%s] NULL dev_buf obtained with idx %d\n", __func__,
 											buf->index);
 		return -EINVAL;
@@ -991,13 +994,13 @@ static int mtk_imgsys_vidioc_qbuf(struct file *file, void *priv,
 						   (void *)(size_t)user_ptr,
 						   sizeof(struct buf_info));
 			if (ret != 0) {
-                if (imgsys_dbg_enable())
 				dev_dbg(pipe->imgsys_dev->dev,
 					"[%s]%s:%s:copy_from_user fail !!!\n",
 					__func__,
 					pipe->desc->name, node->desc->name);
 				return -EINVAL;
 			}
+
 #ifdef USE_V4L2_FMT
 			dev_buf->fmt.fmt.pix_mp = dyn_buf_info.fmt.fmt.pix_mp;
 #else
@@ -1015,6 +1018,7 @@ static int mtk_imgsys_vidioc_qbuf(struct file *file, void *priv,
 				vfmt->bytesperline = bfmt->sizeimage;
 			}
 #endif
+
 			dev_buf->crop = dyn_buf_info.crop;
 			/* dev_buf->compose = dyn_buf_info.compose; */
 			dev_buf->rotation = dyn_buf_info.rotation;
@@ -1040,8 +1044,10 @@ static int mtk_imgsys_vidioc_qbuf(struct file *file, void *priv,
 					dev_buf->fmt.fmt.pix_mp.width,
 			dev_buf->fmt.fmt.pix_mp.plane_fmt[i].sizeimage,
 			dev_buf->fmt.fmt.pix_mp.plane_fmt[i].bytesperline);
+
 			}
 		} else {
+
 		    if (imgsys_dbg_enable())
 			dev_dbg(pipe->imgsys_dev->dev,
 				"[%s]%s: stdmode videonode(%s) qbuf bufinfo(reserved) is null!\n",
@@ -1057,9 +1063,9 @@ static int mtk_imgsys_vidioc_qbuf(struct file *file, void *priv,
 				dev_buf->crop.c = node->crop;
 				dev_buf->compose = node->compose;
 			}
+
 		}
 	} else {
-        if (imgsys_dbg_enable())
 		dev_dbg(pipe->imgsys_dev->dev,
 			"[%s]%s:%s: no need to cache bufinfo,videonode fmt is DESC or SingleDevice(%d)!\n",
 			__func__,
@@ -1067,6 +1073,7 @@ static int mtk_imgsys_vidioc_qbuf(struct file *file, void *priv,
 			node->desc->name,
 			node->dev_q.dev_fmt->format);
 	}
+
 	if ((node->desc->id == MTK_IMGSYS_VIDEO_NODE_ID_CTRLMETA_OUT) ||
 		(node->desc->id == MTK_IMGSYS_VIDEO_NODE_ID_TUNING_OUT)) {
 		dev_buf->dataofst = buf->reserved2;

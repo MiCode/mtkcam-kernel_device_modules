@@ -2262,6 +2262,7 @@ static int csirx_mac_top_setting(struct seninf_ctx *ctx)
 	if (ctx->port < 0) {
 		dev_info(ctx->dev, "[%s][Error] ctx->port (%d) is < 0\n",
 			__func__, ctx->port);
+		return 	-EINVAL;
 	}
 
 	csirx_mac_top = ctx->reg_csirx_mac_top[ctx->port];
@@ -4012,10 +4013,16 @@ static int csirx_phy_setting(struct seninf_ctx *ctx)
 
 static int mtk_cam_seninf_set_csi_mipi(struct seninf_ctx *ctx)
 {
+	int ret = 0;
+
 	csirx_phy_init(ctx);
 
 	/* csi_mac_top */
-	csirx_mac_top_setting(ctx);
+	ret = csirx_mac_top_setting(ctx);
+	if (ret) {
+		dev_info(ctx->dev, "[%s][Error] ret(%d)\n", __func__, ret);
+		return ret;
+	}
 
 	/* csi_mac_CSI2 */
 	csirx_mac_csi_setting(ctx);

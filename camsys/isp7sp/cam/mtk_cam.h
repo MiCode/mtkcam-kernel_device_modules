@@ -162,10 +162,6 @@ struct mtk_cam_ctx {
 	struct mtk_raw_sink_data configured_raw_sink;
 	struct mtkcam_ipi_config_param ipi_config;
 
-	/* cached for stream_off */
-	int raw_tg_idx;
-	int seninf_pad;
-
 	struct device *hw_raw[MAX_RAW_PER_STREAM];
 	struct device *hw_sv;
 	struct device *hw_mraw[MAX_MRAW_PIPES_PER_STREAM];

@@ -907,26 +907,38 @@ static int job_mark_engine_done(struct mtk_cam_job *job,
 	return (old | coming) == master_engine;
 }
 
-static int get_tg_seninf_pad(struct mtk_cam_job *job)
+static inline int get_pad_bitmask(int exp)
 {
-	int tg_exp_num = 1;
+	switch (exp) {
+	case 2:
+		return 1 << PAD_SRC_RAW1;
+	case 3:
+		return 1 << PAD_SRC_RAW2;
+	case 1:
+	default:
+		return 1 << PAD_SRC_RAW0;
+	}
+}
+
+static int get_seninf_pad_bitmask(struct mtk_cam_job *job)
+{
+	int first_exp = 1, last_exp = 1;
+	int hw_scen = get_hw_scenario(job);
+	int pad_bitmask = 0;
 
 	if (job->job_scen.id == MTK_CAM_SCEN_NORMAL)
-		tg_exp_num = scen_max_exp_num(&job->job_scen);
+		last_exp = scen_max_exp_num(&job->job_scen);
 	else if (job->job_scen.id == MTK_CAM_SCEN_EXT_ISP)
 		return PAD_SRC_RAW_EXT0;
 	else
-		tg_exp_num = 1;
+		last_exp = 1;
 
-	switch (tg_exp_num) {
-	case 2:
-		return PAD_SRC_RAW1;
-	case 3:
-		return PAD_SRC_RAW2;
-	case 1:
-	default:
-		return PAD_SRC_RAW0;
-	}
+	pad_bitmask |= get_pad_bitmask(last_exp);
+
+	if (hw_scen == MTKCAM_IPI_HW_PATH_OTF_STAGGER_LN_INTL)
+		pad_bitmask |= get_pad_bitmask(first_exp);
+
+	return pad_bitmask;
 }
 
 static void toggle_raw_engines_db(struct mtk_cam_ctx *ctx)
@@ -950,7 +962,8 @@ _stream_on(struct mtk_cam_job *job, bool on)
 	struct mtk_raw_device *raw_dev;
 	struct mtk_camsv_device *sv_dev;
 	struct mtk_mraw_device *mraw_dev;
-	int seninf_pad = get_tg_seninf_pad(job), raw_tg_idx = -1;
+	int pad_bitmask = get_seninf_pad_bitmask(job);
+	int raw_tg_idx = -1;
 	int i;
 
 	for (i = 0; i < ARRAY_SIZE(ctx->hw_raw); i++) {
@@ -962,13 +975,13 @@ _stream_on(struct mtk_cam_job *job, bool on)
 	}
 
 	if (is_dc_mode(job)) {
-		seninf_pad = 0;
+		pad_bitmask = 0;
 		raw_tg_idx = -1;
 	}
 
 	/* TODO: separate seninf api to cammux setting and enable */
 	if (job->stream_on_seninf || job->raw_switch) {
-		ctx_stream_on_seninf_sensor(job, seninf_pad, raw_tg_idx);
+		ctx_stream_on_seninf_sensor(job, pad_bitmask, raw_tg_idx);
 
 		if (job->first_frm_switch) {
 			disable_seninf_cammux(job);

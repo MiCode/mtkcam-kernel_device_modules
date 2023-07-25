@@ -2624,7 +2624,7 @@ int PipeIDtoTGIDX(int pipe_id)
 #endif
 
 int ctx_stream_on_seninf_sensor(struct mtk_cam_job *job,
-				int seninf_pad, int raw_tg_idx)
+				int seninf_pad_bitmask, int raw_tg_idx)
 {
 	struct mtk_cam_ctx *ctx = job->src_ctx;
 	struct mtk_cam_device *cam = ctx->cam;
@@ -2660,10 +2660,14 @@ int ctx_stream_on_seninf_sensor(struct mtk_cam_job *job,
 
 	/* raw */
 	if (raw_tg_idx >= 0 && ctx->hw_raw[0]) {
-		int pixel_mode = 3;
+		int seninf_pad, i;
 
-		mtk_cam_seninf_set_camtg(seninf, seninf_pad, raw_tg_idx);
-		mtk_cam_seninf_set_pixelmode(seninf, seninf_pad, pixel_mode);
+		for (seninf_pad = PAD_SRC_RAW0, i = 0;
+			  seninf_pad <= PAD_SRC_RAW2; ++seninf_pad, ++i)
+			if (seninf_pad_bitmask & 1 << seninf_pad) {
+				mtk_cam_seninf_set_camtg(seninf, seninf_pad, raw_tg_idx + i);
+				mtk_cam_seninf_set_pixelmode(seninf, seninf_pad, 3);
+			}
 	}
 
 	/* camsv */
@@ -2706,10 +2710,6 @@ int ctx_stream_on_seninf_sensor(struct mtk_cam_job *job,
 			 ctx->stream_id, seninf->name, ret);
 		return -EPERM;
 	}
-
-	/* cache for stop */
-	ctx->seninf_pad = seninf_pad;
-	ctx->raw_tg_idx = raw_tg_idx;
 
 	MTK_CAM_TRACE_END(BASIC);
 	return ret;

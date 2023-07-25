@@ -226,11 +226,18 @@ int get_hw_scenario(struct mtk_cam_job *job)
 		if (is_w) {
 			hard_scenario = (is_dc) ? MTKCAM_IPI_HW_PATH_DC_RGBW :
 				MTKCAM_IPI_HW_PATH_OTF_RGBW;
-		} else if (scen->scen.normal.exp_num > 1)
-			hard_scenario = is_dc ?
-				MTKCAM_IPI_HW_PATH_DC_STAGGER :
-				MTKCAM_IPI_HW_PATH_STAGGER;
-		else
+		} else if (scen->scen.normal.exp_num > 1) {
+			if (is_dc) {
+				hard_scenario = MTKCAM_IPI_HW_PATH_DC_STAGGER;
+			} else if (scen->scen.normal.stagger_type ==
+					   MTK_CAM_STAGGER_DCG_AP_MERGE) {
+				// TODO: OTF RGBW
+				// OTF DCG AP merge
+				hard_scenario = MTKCAM_IPI_HW_PATH_OTF_STAGGER_LN_INTL;
+			} else {
+				hard_scenario = MTKCAM_IPI_HW_PATH_STAGGER;
+			}
+		} else
 			hard_scenario = is_dc ?
 				MTKCAM_IPI_HW_PATH_DC_STAGGER :
 				MTKCAM_IPI_HW_PATH_ON_THE_FLY;
@@ -669,6 +676,7 @@ void get_stagger_rawi_table(struct mtk_cam_job *job,
 		const int **rawi_table, int *cnt)
 {
 	int exp_num_cur = job_exp_num(job);
+	int hw_scen = get_hw_scenario(job);
 	bool without_tg = is_dc_mode(job) || is_m2m(job);
 
 	switch (exp_num_cur) {
@@ -677,9 +685,14 @@ void get_stagger_rawi_table(struct mtk_cam_job *job,
 		*cnt = without_tg ? ARRAY_SIZE(dc_1exp_rawi) : 0;
 		break;
 	case 2:
-		(*rawi_table) = without_tg ? dc_2exp_rawi : otf_2exp_rawi;
-		*cnt = without_tg ?
-			ARRAY_SIZE(dc_2exp_rawi) : ARRAY_SIZE(otf_2exp_rawi);
+		if (hw_scen == MTKCAM_IPI_HW_PATH_OTF_STAGGER_LN_INTL) {
+			(*rawi_table) = NULL;
+			*cnt = 0;
+		} else {
+			(*rawi_table) = without_tg ? dc_2exp_rawi : otf_2exp_rawi;
+			*cnt = without_tg ?
+				ARRAY_SIZE(dc_2exp_rawi) : ARRAY_SIZE(otf_2exp_rawi);
+		}
 		break;
 	case 3:
 		(*rawi_table) = without_tg ? dc_3exp_rawi : otf_3exp_rawi;
@@ -2401,7 +2414,8 @@ bool is_sv_img_tag_used(struct mtk_cam_job *job)
 
 	if (job->job_scen.id == MTK_CAM_SCEN_NORMAL &&
 		job->job_scen.scen.normal.exp_num > 1)
-		rst = !is_m2m(job);
+		rst = !is_m2m(job) &&
+			get_hw_scenario(job) != MTKCAM_IPI_HW_PATH_OTF_STAGGER_LN_INTL;
 	if (is_dc_mode(job))
 		rst = true;
 	if (is_sv_pure_raw(job))

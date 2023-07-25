@@ -187,55 +187,21 @@ int imgsys_wpe_tfault_callback(int port,
 	dma_addr_t mva, void *data)
 {
 	void __iomem *wpeRegBA = 0L;
-	unsigned int i, j;
+	unsigned larb = 0;
+	unsigned int i =0, j = 0;
 	unsigned int wpeBase = 0;
-	unsigned int engine;
+	unsigned int engine = 0;
 
 	pr_debug("%s: +\n", __func__);
 
-	switch (port) {
-#ifdef WPE_TF_DUMP_7SP_1
-	case M4U_PORT_L11_WPE_RDMA_0:
-	case M4U_PORT_L11_WPE_RDMA_1:
-	case M4U_PORT_L11_WPE_RDMA_4P_0:
-	case M4U_PORT_L11_WPE_RDMA_4P_1:
-	case M4U_PORT_L11_WPE_WDMA_0:
-	case M4U_PORT_L11_WPE_WDMA_4P_0:
-#else
-	case M4U_PORT_DUMMY_EIS:
-#endif
-		engine = REG_MAP_E_WPE_EIS;
-		break;
-#ifdef WPE_TF_DUMP_7SP_1
-	case M4U_PORT_L22_WPE_RDMA_0:
-	case M4U_PORT_L22_WPE_RDMA_1:
-	case M4U_PORT_L22_WPE_RDMA_4P_0:
-	case M4U_PORT_L22_WPE_RDMA_4P_1:
-	case M4U_PORT_L22_WPE_WDMA_0:
-	case M4U_PORT_L22_WPE_WDMA_4P_0:
-#else
-	case M4U_PORT_DUMMY_TNR:
-#endif
-		engine = REG_MAP_E_WPE_TNR;
-		break;
-#ifdef WPE_TF_DUMP_7SP_1
-	case M4U_PORT_L23_WPE_RDMA_0:
-	case M4U_PORT_L23_WPE_RDMA_1:
-	case M4U_PORT_L23_WPE_RDMA_4P_0:
-	case M4U_PORT_L23_WPE_RDMA_4P_1:
-	case M4U_PORT_L23_WPE_WDMA_0:
-	case M4U_PORT_L23_WPE_WDMA_4P_0:
-#else
-	case M4U_PORT_DUMMY_LITE:
-#endif
-		engine = REG_MAP_E_WPE_LITE;
-		break;
-	default:
-		pr_info("%s: TF port(%d) doesn't belongs to WPE.\n\n", __func__, port);
-		return 0;
-	};
+	/* port: [10:5] larb / larb11: wpe_eis; larb22: wpe_tnr; larb23: wpe_lite */
+	larb = ((port>>5) & 0x3F);
+
+	pr_info("%s: iommu port:0x%x, larb:%d, idx:%d, addr:0x%08lx, +\n", __func__,
+		port, larb, (port & 0x1F), (unsigned long)mva);
 
 	/* iomap registers */
+	engine = (larb == 11) ? REG_MAP_E_WPE_EIS : ((larb == 22) ? REG_MAP_E_WPE_TNR : REG_MAP_E_WPE_LITE);
 	wpeRegBA = gWpeRegBA[engine - REG_MAP_E_WPE_EIS];
 	if (!wpeRegBA) {
 		pr_info("%s: WPE_%d, RegBA=0", __func__, port);

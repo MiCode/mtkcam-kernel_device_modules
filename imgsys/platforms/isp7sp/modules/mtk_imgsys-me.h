@@ -25,5 +25,7 @@ void imgsys_me_debug_dump(struct mtk_imgsys_dev *imgsys_dev,
 							unsigned int engine);
 void imgsys_me_uninit(struct mtk_imgsys_dev *imgsys_dev);
 void ME_mode3_reset(struct mtk_imgsys_dev *imgsys_dev);
+int ME_TranslationFault_callback(int port, dma_addr_t mva, void *data);
+int MMG_TranslationFault_callback(int port, dma_addr_t mva, void *data);
 
 #endif /* _MTK_IMGSYS_ME_H_ */

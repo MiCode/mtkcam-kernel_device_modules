@@ -718,7 +718,7 @@ int init_c2ps_common(void)
 
 	if (unlikely(!glb_info)) {
 		C2PS_LOGE("OOM\n");
-		ret = -ENOMEM;
+		return -ENOMEM;
 	}
 
 	mutex_init(&glb_info->mlock);

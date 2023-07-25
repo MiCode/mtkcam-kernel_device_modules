@@ -904,6 +904,27 @@ static struct mtk_mbus_frame_desc_entry frame_desc_cus26[] = {
 		},
 	},
 };
+static struct mtk_mbus_frame_desc_entry frame_desc_cus27[] = {
+	{
+		.bus.csi2 = {
+			.channel = 0,
+			.data_type = 0x2b,
+			.hsize = 0x1000,
+			.vsize = 0x0900,
+			.user_data_desc = VC_STAGGER_NE,
+		},
+	},
+	{
+		.bus.csi2 = {
+			.channel = 0,
+			.data_type = 0x30,
+			.hsize = 0x1000,
+			.vsize = 0x0240,
+			.dt_remap_to_type = MTK_MBUS_FRAME_DESC_REMAP_TO_RAW10,
+			.user_data_desc = VC_PDAF_STATS_NE_PIX_1,
+		},
+	},
+};
 
 static struct subdrv_mode_struct mode_struct[] = {
 	{
@@ -2480,6 +2501,53 @@ static struct subdrv_mode_struct mode_struct[] = {
 		},
 		.multi_exposure_ana_gain_range[IMGSENSOR_EXPOSURE_LE].min = BASEGAIN * 4,
 		.multi_exposure_ana_gain_range[IMGSENSOR_EXPOSURE_ME].max = BASEGAIN * 16,
+	},
+	{
+		.frame_desc = frame_desc_cus27,
+		.num_entries = ARRAY_SIZE(frame_desc_cus27),
+		.mode_setting_table = imx989_custom27_setting,
+		.mode_setting_len = ARRAY_SIZE(imx989_custom27_setting),
+		.seamless_switch_group = PARAM_UNDEFINED,
+		.seamless_switch_mode_setting_table = PARAM_UNDEFINED,
+		.seamless_switch_mode_setting_len = PARAM_UNDEFINED,
+		.hdr_mode = HDR_NONE,
+		.raw_cnt = 1,
+		.exp_cnt = 1,
+		.pclk = 4390400000,
+		.linelength = 11168,
+		.framelength = 6552,
+		.max_framerate = 600,
+		.mipi_pixel_rate = 3085714286,
+		.readout_length = 0,
+		.read_margin = 64,
+		.framelength_step = 8,
+		.coarse_integ_step = 4,
+		.multi_exposure_shutter_range[IMGSENSOR_EXPOSURE_LE].min = 8,
+		.imgsensor_winsize_info = {
+			.full_w = 8192,
+			.full_h = 6144,
+			.x0_offset = 0,
+			.y0_offset = 768,
+			.w0_size = 8192,
+			.h0_size = 4608,
+			.scale_w = 4096,
+			.scale_h = 2304,
+			.x1_offset = 0,
+			.y1_offset = 0,
+			.w1_size = 4096,
+			.h1_size = 2304,
+			.x2_tg_offset = 0,
+			.y2_tg_offset = 0,
+			.w2_tg_size = 4096,
+			.h2_tg_size = 2304,
+		},
+		.pdaf_cap = TRUE,
+		.imgsensor_pd_info = &imgsensor_pd_info,
+		.ae_binning_ratio = 1000,
+		.fine_integ_line = 0,
+		.delay_frame = 3,
+		.csi_param = {},
+		.dpc_enabled = true,
 	},
 };
 

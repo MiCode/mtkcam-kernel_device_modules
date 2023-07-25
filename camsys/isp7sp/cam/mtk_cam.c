@@ -2380,9 +2380,15 @@ static int mtk_cam_ctx_init_job_pool(struct mtk_cam_ctx *ctx)
 {
 	int ret;
 
-	ret = mtk_cam_pool_alloc(&ctx->job_pool,
-				 sizeof(struct mtk_cam_pool_job),
-				 JOB_NUM_PER_STREAM);
+	if (mtk_cam_is_display_ic(ctx))
+		ret = mtk_cam_pool_alloc(&ctx->job_pool,
+					sizeof(struct mtk_cam_pool_job),
+					JOB_NUM_PER_STREAM_DISPLAY_IC);
+	else
+		ret = mtk_cam_pool_alloc(&ctx->job_pool,
+					sizeof(struct mtk_cam_pool_job),
+					JOB_NUM_PER_STREAM);
+
 	if (ret) {
 		dev_info(ctx->cam->dev, "failed to alloc job pool of ctx %d\n",
 			 ctx->stream_id);

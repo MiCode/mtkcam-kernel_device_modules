@@ -3140,6 +3140,20 @@ int mtk_imgsys_probe(struct platform_device *pdev)
 	imgsys_dev->dma_ports = data->imgsys_ports;
 	imgsys_dev->dma_ports_num = data->imgsys_ports_num;
 
+	/* register iommu TF cb */
+	dev_info(imgsys_dev->dev, "%s: dma_ports_num(0x%x)\n",
+		__func__, imgsys_dev->dma_ports_num);
+	for (i = 0; i < imgsys_dev->dma_ports_num; i++) {
+		if (imgsys_dev->dma_ports[i].fn == NULL)
+			continue;
+		mtk_iommu_register_fault_callback(imgsys_dev->dma_ports[i].port,
+			(mtk_iommu_fault_callback_t)imgsys_dev->dma_ports[i].fn,
+			NULL, false);
+		dev_info(imgsys_dev->dev,
+		"%s: [%d] register iommu cb(0x%x)\n",
+		__func__, i, imgsys_dev->dma_ports[i].port);
+	}
+
 #ifdef CLK_READY
 	ret = devm_clk_bulk_get(&pdev->dev, imgsys_dev->num_clks,
 							imgsys_dev->clks);

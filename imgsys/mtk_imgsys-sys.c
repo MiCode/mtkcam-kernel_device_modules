@@ -2729,20 +2729,6 @@ static int mtk_imgsys_worker_power_on(void *data)
 		imgsys_dev->modules[i].init(imgsys_dev);
 	kref_init(&imgsys_dev->init_kref);
 
-	/* register iommu TF cb */
-	dev_dbg(imgsys_dev->dev, "%s: dma_ports_num(0x%x)\n",
-		__func__, imgsys_dev->dma_ports_num);
-	for (i = 0; i < imgsys_dev->dma_ports_num; i++) {
-		if (imgsys_dev->dma_ports[i].fn == NULL)
-			continue;
-		mtk_iommu_register_fault_callback(imgsys_dev->dma_ports[i].port,
-			(mtk_iommu_fault_callback_t)imgsys_dev->dma_ports[i].fn,
-			NULL, false);
-		dev_dbg(imgsys_dev->dev,
-		"%s: [%d] register iommu cb(0x%x)\n",
-		__func__, i, imgsys_dev->dma_ports[i].port);
-	}
-
 	pm_runtime_put_sync(imgsys_dev->dev);
 	if (!imgsys_quick_onoff_enable()) {
 		#if DVFS_QOS_READY

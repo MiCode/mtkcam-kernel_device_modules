@@ -1943,7 +1943,7 @@ int mtk_hcp_release_gce_working_buffer(struct platform_device *pdev)
 	if ((hcp_dev == NULL)
 		|| (hcp_dev->data == NULL)
 		|| (hcp_dev->data->release_gce_buf == NULL)) {
-		dev_info(&pdev->dev, "%s:allocate not supported\n", __func__);
+		dev_info(&pdev->dev, "%s:release gce not supported\n", __func__);
 		return release_working_buffer_helper(pdev);
 	}
 

@@ -830,7 +830,7 @@ void imgsys_ltraw_set_initial_value_hw(struct mtk_imgsys_dev *imgsys_dev)
 void imgsys_traw_cmdq_set_initial_value_hw(struct mtk_imgsys_dev *imgsys_dev,
 		void *pkt)
 {
-	unsigned int trawRegBA, ofset;
+	unsigned int ofset;
 	unsigned int i = 0;
 	struct cmdq_pkt *package = NULL;
 
@@ -841,28 +841,25 @@ void imgsys_traw_cmdq_set_initial_value_hw(struct mtk_imgsys_dev *imgsys_dev,
 	}
 	package = (struct cmdq_pkt *)pkt;
 
-	/* macro reset */
-	trawRegBA = TRAW_TOP_BASE;
+	/* reset traw macro */
 	cmdq_pkt_write(package, NULL,
-		      (trawRegBA + SW_RST) /*address*/, 0xFFFFFFFF,
-		       0xffffffff);
+		    	(IMG_MAIN_BASE + SW_RST) /*address*/, 0x30,
+		    	0xffffffff);
 	cmdq_pkt_write(package, NULL,
-		       (trawRegBA + SW_RST) /*address*/, 0x0,
-		       0xffffffff);
+		    	(IMG_MAIN_BASE + SW_RST) /*address*/, 0x0,
+		    	0xffffffff);
 
-	/* DL reset */
-	trawRegBA = IMG_MAIN_BASE;
+	/* module reset */
 	cmdq_pkt_write(package, NULL,
-		      (trawRegBA + TRAW_DL_RST) /*address*/, 0xB2,
+		      (TRAW_TOP_BASE + SW_RST) /*address*/, 0x3C,
 		       0xffffffff);
 	cmdq_pkt_write(package, NULL,
-		       (trawRegBA + TRAW_DL_RST) /*address*/, 0x0,
+		       (TRAW_TOP_BASE + SW_RST) /*address*/, 0x0,
 		       0xffffffff);
 
 	/* ori traw set */
-	trawRegBA = TRAW_BASE;
 	for (i = 0 ; i < TRAW_INIT_ARRAY_COUNT ; i++) {
-		ofset = trawRegBA + mtk_imgsys_traw_init_ary[i].ofset;
+		ofset = TRAW_BASE + mtk_imgsys_traw_init_ary[i].ofset;
 		cmdq_pkt_write(package, NULL, ofset /*address*/,
 				mtk_imgsys_traw_init_ary[i].val, 0xffffffff);
 	}
@@ -871,7 +868,7 @@ void imgsys_traw_cmdq_set_initial_value_hw(struct mtk_imgsys_dev *imgsys_dev,
 void imgsys_ltraw_cmdq_set_initial_value_hw(struct mtk_imgsys_dev *imgsys_dev,
 		void *pkt)
 {
-	unsigned int trawRegBA, ofset;
+	unsigned int ofset;
 	unsigned int i = 0;
 	struct cmdq_pkt *package = NULL;
 
@@ -881,23 +878,18 @@ void imgsys_ltraw_cmdq_set_initial_value_hw(struct mtk_imgsys_dev *imgsys_dev,
 		return;
 	}
 	package = (struct cmdq_pkt *)pkt;
-	trawRegBA = LTRAW_BASE;
-	if (!trawRegBA) {
-		pr_info("%s: TRAW hw null reg base\n", __func__);
-		return;
-	}
-#if 0
-	/* move from main */
+
+	/* reset ltraw macro */
 	cmdq_pkt_write(package, NULL,
-		    	(trawRegBA + SW_RST) /*address*/, 0xFFFFFFFF,
+		    	(IMG_MAIN_BASE + SW_RST) /*address*/, 0xC0,
 		    	0xffffffff);
 	cmdq_pkt_write(package, NULL,
-		    	(trawRegBA + SW_RST) /*address*/, 0x0,
+		    	(IMG_MAIN_BASE + SW_RST) /*address*/, 0x0,
 		    	0xffffffff);
-#endif
+
 	/* ori traw set */
 	for (i = 0 ; i < TRAW_INIT_ARRAY_COUNT ; i++) {
-		ofset = trawRegBA + mtk_imgsys_traw_init_ary[i].ofset;
+		ofset = LTRAW_BASE + mtk_imgsys_traw_init_ary[i].ofset;
 		cmdq_pkt_write(package, NULL, ofset /*address*/,
 				mtk_imgsys_traw_init_ary[i].val, 0xffffffff);
 	}

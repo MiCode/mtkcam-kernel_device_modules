@@ -55,6 +55,7 @@ struct imgsys_mtcmos_data {
 	void (*cg_ungating)(struct cmdq_pkt *pkt, const struct imgsys_cg_data *cg);
 	const struct imgsys_cg_data *cg_data;
 	void (*set_larb_golden)(struct cmdq_pkt *pkt);
+	void (*direct_link_reset)(struct cmdq_pkt *pkt);
 };
 
 void mtk_imgsys_cmdq_qof_init(struct mtk_imgsys_dev *imgsys_dev, struct cmdq_client *imgsys_clt);
@@ -63,5 +64,5 @@ void mtk_imgsys_cmdq_qof_streamon(struct mtk_imgsys_dev *imgsys_dev);
 void mtk_imgsys_cmdq_qof_streamoff(struct mtk_imgsys_dev *imgsys_dev);
 void mtk_imgsys_cmdq_qof_add(struct cmdq_pkt *pkt, u32 hwcomb, bool *qof_need_sub);
 void mtk_imgsys_cmdq_qof_sub(struct cmdq_pkt *pkt, bool *qof_need_sub);
-void mtk_imgsys_cmdq_qof_dump(void);
 bool mtk_imgsys_cmdq_qof_get_pwr_status(u32 pwr);
+void mtk_imgsys_cmdq_qof_dump(uint32_t hwcomb);

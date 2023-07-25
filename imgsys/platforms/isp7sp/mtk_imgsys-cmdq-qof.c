@@ -884,6 +884,10 @@ int mtk_query_qof_status(const char *val, const struct kernel_param *kp)
 	int reserved = 0;
 
 	ret = sscanf(val, "%d", &reserved);
+	if (ret <= 0) {
+		pr_err("[%s] param fail, plz check ! \n", __func__);
+		return 0;
+	}
 
  	if (g_qof_ver == MTK_IMGSYS_QOF_FUNCTION_OFF){
 		pr_err("[%s] qof ver = %d\n", __func__, g_qof_ver);
@@ -935,6 +939,10 @@ int mtk_qof_gce_set_reg(const char *val, const struct kernel_param *kp)
 	unsigned mode = 0;
 
 	ret = sscanf(val, "%u %u %u", &mode, &addr, &value);
+	if (ret <= 0) {
+		pr_err("[%s] param fail, plz check ! \n", __func__);
+		return 0;
+	}
 	pr_info("[%s] mode =%u addr=0x%x,value=%u\n", __func__, mode, addr, value);
 	client = imgsys_pwr_clt[0];
 	cmdq_mbox_enable(client->chan);
@@ -969,6 +977,10 @@ int mtk_qof_dbg_ctrl(const char *val, const struct kernel_param *kp)
 	int ret;
 
 	ret = sscanf(val, "%u %u", &g_dbg_log_on, &g_disable_qof);
+	if (ret <= 0) {
+		pr_err("[%s] param fail, plz check ! \n", __func__);
+		return 0;
+	}
 	pr_info("[%s] g_dbg_log_on=%u g_disable_qof=%u\n", __func__, g_dbg_log_on, g_disable_qof);
 
 	return 0;

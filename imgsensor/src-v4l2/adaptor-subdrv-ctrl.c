@@ -2976,9 +2976,7 @@ void common_get_prsh_length_lines(struct subdrv_ctx *ctx,
 	}
 	frame_duration_us -= (ctx->s_ctx.seamless_switch_hw_re_init_time_ns / 1000); // CIS boot time
 
-	hdr_mode = (ctx->s_ctx.mode == NULL)
-		? HDR_NONE
-		: ctx->s_ctx.mode[scenario_id].hdr_mode;
+	hdr_mode = ctx->s_ctx.mode[scenario_id].hdr_mode;
 	switch (hdr_mode) {
 	case HDR_RAW_LBMF:
 		if (ctx->s_ctx.mode[ctx->current_scenario_id].exposure_order_in_lbmf ==

@@ -324,7 +324,7 @@ static ssize_t debug_ops_store(struct device *dev,
 	char *token = NULL;
 	char *sbuf = kzalloc(sizeof(char) * (count + 1), GFP_KERNEL);
 	char *s = sbuf;
-	int ret, i, csi_port, val_signed, rg_idx = -1;
+	int ret, i, csi_port, val_signed, rg_idx = -1, eye_scan_rg_idx = -1;
 	unsigned int num_para = 0;
 	char *arg[REG_OPS_CMD_MAX_NUM];
 	struct seninf_core *core = dev_get_drvdata(dev);
@@ -468,19 +468,19 @@ static ssize_t debug_ops_store(struct device *dev,
 	} else if (strncmp("EYE_SCAN", arg[EYE_SCAN_ID], sizeof("EYE_SCAN")) == 0){
 		for (i = 0; i < EYE_SCAN_MAX_NUM; i++) {
 			if (!strcasecmp(arg[EYE_SCAN_CMD], eye_scan_names[i])){
-				rg_idx = i;
+				eye_scan_rg_idx = i;
 				break;
 			}
 		}
-		if (rg_idx < 0){
+		if (eye_scan_rg_idx < 0){
 			snprintf(debug_ops_show_log, DEBUG_OPS_SHOW_LOG_SIZE, "[EYE_SCAN FAIL] no such command\n");
-			dev_info(dev, "[%s] wrong rg_idx, line=%d\n", __func__, __LINE__);
+			dev_info(dev, "[%s] wrong eye_scan_rg_idx, line=%d\n", __func__, __LINE__);
 			goto ERR_DEBUG_OPS_STORE;
 		}
 
-		if (!((rg_idx == EYE_SCAN_KEYS_GET_CRC_STATUS) ||\
-			  (rg_idx == EYE_SCAN_KEYS_CDR_DELAY_DPHY_EN) ||\
-			  (rg_idx == EYE_SCAN_KEYS_FLUSH_CRC_STATUS))) {
+		if (!((eye_scan_rg_idx == EYE_SCAN_KEYS_GET_CRC_STATUS) ||\
+			  (eye_scan_rg_idx == EYE_SCAN_KEYS_CDR_DELAY_DPHY_EN) ||\
+			  (eye_scan_rg_idx == EYE_SCAN_KEYS_FLUSH_CRC_STATUS))) {
 			ret = kstrtoint(arg[EYE_SCAN_VAL], 0, &val_signed);
 			if (ret){
 				snprintf(debug_ops_show_log, DEBUG_OPS_SHOW_LOG_SIZE, "[EYE_SCAN FAIL] decode value (str2int) fail\n");
@@ -503,7 +503,7 @@ static ssize_t debug_ops_store(struct device *dev,
 
 				eye_scan_log = kzalloc(DEBUG_OPS_SHOW_LOG_SIZE + 1, GFP_KERNEL);
 				if (eye_scan_log != NULL) {
-					g_seninf_ops->_eye_scan(ctx, rg_idx, val_signed, eye_scan_log, (int)DEBUG_OPS_SHOW_LOG_SIZE );
+					g_seninf_ops->_eye_scan(ctx, eye_scan_rg_idx, val_signed, eye_scan_log, (int)DEBUG_OPS_SHOW_LOG_SIZE );
 					snprintf(debug_ops_show_log, DEBUG_OPS_SHOW_LOG_SIZE, eye_scan_log);
 				}
 				kfree(eye_scan_log);

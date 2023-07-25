@@ -114,7 +114,7 @@ enum mtkcam_pipe_dev {
 	MTKCAM_PIPE_MAX
 };
 
-enum mtkcam_ipi_raw_video_id {
+enum mtkcam_ipi_video_id {
 	MTKCAM_IPI_RAW_ID_UNKNOWN	= 0,
 	MTKCAM_IPI_RAW_RAWI_2,		/* RAWI_R2 */
 	MTKCAM_IPI_RAW_RAWI_3,		/* RAWI_R3 */
@@ -150,17 +150,11 @@ enum mtkcam_ipi_raw_video_id {
 	MTKCAM_IPI_RAW_RAWI_5_W,	/* RAWI_R5 */
 
 	MTKCAM_IPI_RAW_ID_MAX,
-};
 
-enum mtkcam_ipi_camsv_video_id {
-	MTKCAM_IPI_CAMSV_ID_UNKNOWN	= 0,
 	MTKCAM_IPI_CAMSV_MAIN_OUT = MTKCAM_IPI_RAW_ID_MAX,	/* imgo */
 
 	MTKCAM_IPI_CAMSV_ID_MAX,
-};
 
-enum mtkcam_ipi_mraw_video_id {
-	MTKCAM_IPI_MRAW_ID_UNKNOWN	= 0,
 	MTKCAM_IPI_MRAW_ID_START = MTKCAM_IPI_CAMSV_ID_MAX,
 	MTKCAM_IPI_MRAW_META_STATS_CFG = MTKCAM_IPI_MRAW_ID_START,
 	MTKCAM_IPI_MRAW_META_STATS_0,

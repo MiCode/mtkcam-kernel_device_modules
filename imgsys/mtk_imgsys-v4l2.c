@@ -1025,32 +1025,35 @@ static int mtk_imgsys_vidioc_qbuf(struct file *file, void *priv,
 			dev_buf->hflip = dyn_buf_info.hflip;
 			dev_buf->vflip = dyn_buf_info.vflip;
 
-            if (imgsys_dbg_enable())
-			dev_dbg(pipe->imgsys_dev->dev,
-					"[%s] portid(%d), rotat(%d), hflip(%d), vflip(%d)\n",
-					__func__,
-					dev_buf->dma_port,
-					dev_buf->rotation,
-					dev_buf->hflip,
-					dev_buf->vflip);
+            if (imgsys_dbg_enable()) {
+				dev_dbg(pipe->imgsys_dev->dev,
+						"[%s] portid(%d), rotat(%d), hflip(%d), vflip(%d)\n",
+						__func__,
+						dev_buf->dma_port,
+						dev_buf->rotation,
+						dev_buf->hflip,
+						dev_buf->vflip);
+			}
 
 			for (i = 0;
 				i < dev_buf->fmt.fmt.pix_mp.num_planes; i++) {
-                if (imgsys_dbg_enable())
+                if (imgsys_dbg_enable()) {
 				dev_dbg(pipe->imgsys_dev->dev,
 					"[%s] width(%d), width(%d), sizeimage(%d), bytesperline(%d)\n",
 					__func__,
 					dev_buf->fmt.fmt.pix_mp.width,
 					dev_buf->fmt.fmt.pix_mp.width,
-			dev_buf->fmt.fmt.pix_mp.plane_fmt[i].sizeimage,
-			dev_buf->fmt.fmt.pix_mp.plane_fmt[i].bytesperline);
+					dev_buf->fmt.fmt.pix_mp.plane_fmt[i].sizeimage,
+					dev_buf->fmt.fmt.pix_mp.plane_fmt[i].bytesperline);
+				}
 
 			}
 		} else {
-		    if (imgsys_dbg_enable())
-			dev_dbg(pipe->imgsys_dev->dev,
-				"[%s]%s: stdmode videonode(%s) qbuf bufinfo(reserved) is null!\n",
-				__func__, pipe->desc->name, node->desc->name);
+		    if (imgsys_dbg_enable()) {
+				dev_dbg(pipe->imgsys_dev->dev,
+					"[%s]%s: stdmode videonode(%s) qbuf bufinfo(reserved) is null!\n",
+					__func__, pipe->desc->name, node->desc->name);
+			}
 			/*
 			 * update fiexd pipeline node info for update devbuf
 			 * lately
@@ -1065,13 +1068,14 @@ static int mtk_imgsys_vidioc_qbuf(struct file *file, void *priv,
 
 		}
 	} else {
-        if (imgsys_dbg_enable())
+        if (imgsys_dbg_enable()) {
         dev_dbg(pipe->imgsys_dev->dev,
 			"[%s]%s:%s: no need to cache bufinfo,videonode fmt is DESC or SingleDevice(%d)!\n",
 			__func__,
 			pipe->desc->name,
 			node->desc->name,
 			node->dev_q.dev_fmt->format);
+		}
 	}
 
 	if ((node->desc->id == MTK_IMGSYS_VIDEO_NODE_ID_CTRLMETA_OUT) ||

@@ -1628,9 +1628,8 @@ static void mtk_cam_ctrl_wait_list_empty(struct mtk_cam_ctrl *ctrl)
 	if (ret == 0)
 		pr_info("%s: error: wait for list empty: %dms timeout\n",
 			__func__, timeout_ms);
-	else if (ret < 0) {
-		pr_info("%s: error: %ld\n", __func__, ret);
-	}
+	else if (ret == -ERESTARTSYS)
+		pr_info("%s: error: interrupted by signal\n", __func__);
 }
 
 void mtk_cam_ctrl_stop(struct mtk_cam_ctrl *cam_ctrl)

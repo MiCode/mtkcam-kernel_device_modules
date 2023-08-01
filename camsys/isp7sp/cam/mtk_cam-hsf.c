@@ -621,6 +621,7 @@ int mtk_cam_hsf_uninit(struct mtk_cam_ctx *ctx)
 	kfree(hsf_config->cq_buf);
 	kfree(hsf_config->chk_buf);
 	kfree(ctx->hsf);
+	ctx->hsf = NULL;
 
 	ctx->enable_hsf_raw = 0;
 

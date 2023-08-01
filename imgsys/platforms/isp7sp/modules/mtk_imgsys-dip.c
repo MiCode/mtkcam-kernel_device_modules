@@ -47,6 +47,7 @@ static struct DIPDmaDebugInfo g_DMATopDbgIfo[] = {
 	{"RECI_D3", DIP_ULC_RDMA_DEBUG, 21},
 	{"RECBI_D3", DIP_ULC_RDMA_DEBUG, 22},
 	{"IMG4O", DIP_ORI_WDMA_DEBUG, 30},
+	{"IMG4O_N", DIP_ORI_WDMA_DEBUG, 4126},
 	{"IMG4BO", DIP_ORI_WDMA_DEBUG, 31},
 	{"IMG4CO", DIP_ORI_WDMA_DEBUG, 32},
 	{"IMG4DO", DIP_ORI_WDMA_DEBUG, 33},
@@ -72,6 +73,7 @@ static struct DIPDmaDebugInfo g_DMANrDbgIfo[] = {
 	{"CSMCSI", DIP_ULC_RDMA_DEBUG, 15},
 	{"CSMCSTI", DIP_ULC_RDMA_DEBUG, 16},
 	{"IMG3O", DIP_ORI_WDMA_DEBUG, 17},
+	{"IMG3O_N", DIP_ORI_WDMA_DEBUG, 4113},
 	{"IMG3BO", DIP_ORI_WDMA_DEBUG, 18},
 	{"IMG3CO", DIP_ORI_WDMA_DEBUG, 19},
 	{"IMG3DO", DIP_ORI_WDMA_DEBUG, 20},
@@ -385,6 +387,27 @@ static void imgsys_dip_dump_dma(struct mtk_imgsys_dev *a_pDev,
 				DbgCmd);
 		}
 	}
+	if (a_DMANrPort == 0) {
+		//img4o smi
+		DbgCmd = 0x000000A8;
+		ExeDbgCmd(a_pDev, a_pRegBA, a_DdbSel, a_DbgOut,
+			DbgCmd);
+		DbgCmd = 0x000000A9;
+		ExeDbgCmd(a_pDev, a_pRegBA, a_DdbSel, a_DbgOut,
+			DbgCmd);
+		DbgCmd = 0x000000AA;
+		ExeDbgCmd(a_pDev, a_pRegBA, a_DdbSel, a_DbgOut,
+			DbgCmd);
+		DbgCmd = 0x000000AB;
+		ExeDbgCmd(a_pDev, a_pRegBA, a_DdbSel, a_DbgOut,
+			DbgCmd);
+		DbgCmd = 0x000000AC;
+		ExeDbgCmd(a_pDev, a_pRegBA, a_DdbSel, a_DbgOut,
+			DbgCmd);
+		DbgCmd = 0x000000AD;
+		ExeDbgCmd(a_pDev, a_pRegBA, a_DdbSel, a_DbgOut,
+			DbgCmd);
+	}
 }
 
 static void imgsys_dip_dump_nr3d(struct mtk_imgsys_dev *a_pDev,
@@ -694,6 +717,7 @@ static void imgsys_dip_dump_yufdd1(struct mtk_imgsys_dev *a_pDev,
 	unsigned int DbgData = 0;
 	unsigned int Idx = 0;
 	unsigned int CmdOft = 0x10000;
+	unsigned int yufdCmdOft = 0x1;
 
 	pr_info("dump yufd_d1 debug\n");
 
@@ -702,6 +726,13 @@ static void imgsys_dip_dump_yufdd1(struct mtk_imgsys_dev *a_pDev,
 	for (Idx = 0; Idx < 0xF; Idx++) {
 		DbgData = ExeDbgCmd(a_pDev, a_pRegBA, a_DdbSel, a_DbgOut, DbgCmd);
 		DbgCmd += CmdOft;
+	}
+	/* yufd_d1_dbg_sel debug */
+	a_DdbSel = DIP_YUFD_DBG_SEL;
+	DbgCmd = 0x0;
+	for (Idx = 0; Idx < 0x12; Idx++) {
+		DbgData = ExeDbgCmd(a_pDev, a_pRegBA, a_DdbSel, a_DbgOut, DbgCmd);
+		DbgCmd += yufdCmdOft;
 	}
 
 }

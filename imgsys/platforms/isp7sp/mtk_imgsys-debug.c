@@ -77,10 +77,14 @@ void __iomem *dip2RegBA;
 void __iomem *trawRegBA;
 void __iomem *adlARegBA;
 void __iomem *adlBRegBA;
+void __iomem *imgsysddrenRegBA;
+int imgsys_ddr_en;
 
 void imgsys_main_init(struct mtk_imgsys_dev *imgsys_dev)
 {
 	struct resource adl;
+	int ddr_en = 0;
+	imgsys_ddr_en = 0;
 
 	pr_info("%s: +.\n", __func__);
 
@@ -186,6 +190,24 @@ void imgsys_main_init(struct mtk_imgsys_dev *imgsys_dev)
 		dev_info(imgsys_dev->dev, "%s Do not have ADL hardware.\n", __func__);
 	}
 
+	if (of_property_read_u32(imgsys_dev->dev->of_node,
+		"mediatek,imgsys-ddr-en", &ddr_en) != 0) {
+		dev_info(imgsys_dev->dev, "ddr_en is not exist\n");
+	} else {
+		imgsys_ddr_en = ddr_en;
+		dev_info(imgsys_dev->dev, "ddr_en(%d/%d)\n", ddr_en, imgsys_ddr_en);
+	}
+
+	if (imgsys_ddr_en == 4) {
+		imgsysddrenRegBA = of_iomap(imgsys_dev->dev->of_node, REG_MAP_E_IMG_VCORE);
+		if (!imgsysddrenRegBA) {
+			dev_info(imgsys_dev->dev, "%s: Unable to ioremap img_vcore registers\n",
+					__func__);
+			dev_info(imgsys_dev->dev, "%s: of_iomap fail, devnode(%s).\n",
+					__func__, imgsys_dev->dev->of_node->name);
+			return;
+		}
+	}
 	pr_info("%s: -.\n", __func__);
 }
 
@@ -194,12 +216,42 @@ void imgsys_main_set_init(struct mtk_imgsys_dev *imgsys_dev)
 	void __iomem *WpeRegBA = 0L;
 	void __iomem *ADLRegBA = 0L;
 	void __iomem *pWpeCtrl = 0L;
+	void __iomem *DdrRegBA = 0L;
 	unsigned int HwIdx = 0;
 	uint32_t count;
 	uint32_t value;
 	int i, num;
 
 	pr_debug("%s: +.\n", __func__);
+
+	if (imgsys_ddr_en == 4) {
+		DdrRegBA = imgsysddrenRegBA;
+		value = ioread32((void *)(DdrRegBA + 0x10));
+		pr_info("[DDR] 0x15780010 R(0x%x)\n", value);
+		value |= 0x1000;
+		iowrite32(value, (DdrRegBA + 0x10));
+		count = 0;
+		while (count < 1000000) {
+			value = ioread32((void *)(DdrRegBA + 0x14));
+			if ((value & 0x2) == 0x2)
+				break;
+			count++;
+		}
+		pr_info("[DDR] APSRC ACK count(%d)\n", count);
+		value = ioread32((void *)(DdrRegBA + 0x10));
+		value |= 0x100;
+		iowrite32(value, (DdrRegBA + 0x10));
+		count = 0;
+		while (count < 1000000) {
+			value = ioread32((void *)(DdrRegBA + 0x14));
+			if ((value & 0x1) == 0x1)
+				break;
+			count++;
+		}
+		pr_info("[DDR] DDREN ACK count(%d)\n", count);
+		value = ioread32((void *)(DdrRegBA + 0x10));
+		pr_info("[DDR] 0x15780010 W(0x%x)\n", value);
+	}
 
 	if (imgsys_dev == NULL) {
 		dump_stack();
@@ -359,6 +411,13 @@ void imgsys_main_uninit(struct mtk_imgsys_dev *imgsys_dev)
 		adlBRegBA = 0L;
 	}
 
+	if (imgsys_ddr_en == 4) {
+		if (imgsysddrenRegBA) {
+			iounmap(imgsysddrenRegBA);
+			imgsysddrenRegBA = 0L;
+		}
+	}
+	imgsys_ddr_en = 0;
 	pr_debug("%s: -.\n", __func__);
 }
 

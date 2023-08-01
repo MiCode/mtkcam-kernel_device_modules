@@ -5200,7 +5200,7 @@ void DPE_callback_func(struct cmdq_cb_data data)
     struct my_callback_data *my_data = (struct my_callback_data *)data.data;
 
     if ((data.err < 0)) {
-      if (DPEInfo.UserCount > 0) {
+      if (g_u4EnableClockCount > 0) {
         LOG_INF("DPE_callback_func 2\n");
             #ifdef CMASYS_CLK_Debug
 			LOG_INF("cmd_pkt[0x1A000000 %08X]\n",
@@ -7719,7 +7719,7 @@ static signed int DPE_open(struct inode *pInode, struct file *pFile)
 								current->tgid);
 		goto EXIT;
 	} else {
-		// DPEInfo.UserCount++;
+		 DPEInfo.UserCount++;
 
 		/* do wait queue head init when re-enter in camera */
 		/*  */
@@ -7783,9 +7783,8 @@ static signed int DPE_open(struct inode *pInode, struct file *pFile)
 	spin_unlock(&(DPEInfo.SpinLockFD));
 
 	/* Enable clock */
-	LOG_INF("DPE OPNE CLK\n");
+	LOG_INF("DPE OPNE CLK UserCount: %d\n", DPEInfo.UserCount);
 	DPE_EnableClock(MTRUE);
-	DPEInfo.UserCount++;
 	cmdq_mbox_enable(dpe_clt->chan);
 	g_SuspendCnt = 0;
 	//DPE_debug_log_en = 1;
@@ -9483,7 +9482,7 @@ static irqreturn_t ISP_Irq_DVP(signed int Irq, void *DeviceId)
 	pid_t ProcessID;
 	unsigned int p = 0;
 
-	if (DPEInfo.UserCount > 0) {
+	if (g_u4EnableClockCount > 0) {
 		DvsStatus = DPE_RD32(DVS_CTRL_STATUS0_REG);	/* DVS Status */
 		DvpStatus = DPE_RD32(DVP_CTRL_STATUS0_REG);	/* DVP Status */
 	} else {
@@ -9513,8 +9512,15 @@ static irqreturn_t ISP_Irq_DVP(signed int Irq, void *DeviceId)
 #ifdef __DPE_KERNEL_PERFORMANCE_MEASURE__
 		mt_kernel_trace_begin("dpe_irq");
 #endif
-		if (dpe_update_request_isp7s(&dpe_reqs_dvp, &ProcessID) == 0)
+		if (dpe_update_request_isp7s(&dpe_reqs_dvp, &ProcessID) == 0) {
 			bResulst = MTRUE;
+		} else {
+			LOG_INF("dvp_update_request bResulst fail = %d\n",
+			bResulst);
+			spin_unlock(&(DPEInfo.SpinLockIrq[DPE_IRQ_TYPE_INT_DVP_ST]));
+			return IRQ_HANDLED;
+		}
+
 		if (bResulst == MTRUE) {
 			#if REQUEST_REGULATION == REQUEST_BASE_REGULATION
 			/* schedule_work(&DPEInfo.ScheduleDpeWork); */
@@ -9533,6 +9539,9 @@ static irqreturn_t ISP_Irq_DVP(signed int Irq, void *DeviceId)
 			DPEInfo.WriteReqIdx =
 				(DPEInfo.WriteReqIdx + 1) %
 				_SUPPORT_MAX_DPE_FRAME_REQUEST_;
+		} else {
+			LOG_INF("dvp_update_request_isp7s bResulst fail = %d\n",
+			bResulst);
 		}
 #ifdef __DPE_KERNEL_PERFORMANCE_MEASURE__
 		mt_kernel_trace_end();
@@ -9583,7 +9592,7 @@ static irqreturn_t ISP_Irq_DVS(signed int Irq, void *DeviceId)
 	pid_t ProcessID;
 	unsigned int p = 0;
 
-	if (DPEInfo.UserCount > 0) {
+	if (g_u4EnableClockCount > 0) {
 		DvsStatus = DPE_RD32(DVS_CTRL_STATUS0_REG);	/* DVS Status */
 		DvpStatus = DPE_RD32(DVP_CTRL_STATUS0_REG);	/* DVP Status */
 	} else {
@@ -9616,8 +9625,14 @@ static irqreturn_t ISP_Irq_DVS(signed int Irq, void *DeviceId)
 		mt_kernel_trace_begin("dpe_irq");
 #endif
 			//LOG_INF("DPE isDvsDone 2");
-		if (dpe_update_request_isp7s(&dpe_reqs_dvs, &ProcessID) == 0)
+		if (dpe_update_request_isp7s(&dpe_reqs_dvs, &ProcessID) == 0) {
 			bResulst = MTRUE;
+		} else {
+			LOG_INF("dvs_update_request bResulst fail = %d\n",
+			bResulst);
+			spin_unlock(&(DPEInfo.SpinLockIrq[DPE_IRQ_TYPE_INT_DVP_ST]));
+			return IRQ_HANDLED;
+		}
 
 
 		//LOG_INF("bResulst = %d\n", bResulst);
@@ -9643,6 +9658,9 @@ static irqreturn_t ISP_Irq_DVS(signed int Irq, void *DeviceId)
 			DPEInfo.WriteReqIdx =
 				(DPEInfo.WriteReqIdx + 1) %
 				_SUPPORT_MAX_DPE_FRAME_REQUEST_;
+		} else {
+			LOG_INF("dvs_update_request_isp7s bResulst fail = %d\n",
+			bResulst);
 		}
 #ifdef __DPE_KERNEL_PERFORMANCE_MEASURE__
 		mt_kernel_trace_end();
@@ -9694,7 +9712,7 @@ static irqreturn_t ISP_Irq_DVGF(signed int Irq, void *DeviceId)
 	unsigned int p = 0;
 	//unsigned int CMDQ_Value = 0;
 
-	if (DPEInfo.UserCount > 0) {
+	if (g_u4EnableClockCount > 0) {
 		DvsStatus = DPE_RD32(DVS_CTRL_STATUS0_REG);	/* DVS Status */
 		DvpStatus = DPE_RD32(DVP_CTRL_STATUS0_REG);	/* DVP Status */
 		DvgfStatus = DPE_RD32(DVGF_CTRL_STATUS0_REG);	/* DVGF Status */
@@ -9730,8 +9748,14 @@ static irqreturn_t ISP_Irq_DVGF(signed int Irq, void *DeviceId)
 #ifdef __DPE_KERNEL_PERFORMANCE_MEASURE__
 		mt_kernel_trace_begin("dpe_irq");
 #endif
-		if (dpe_update_request_isp7s(&dpe_reqs_dvgf, &ProcessID) == 0)
+		if (dpe_update_request_isp7s(&dpe_reqs_dvgf, &ProcessID) == 0) {
 			bResulst = MTRUE;
+		}	else {
+			LOG_INF("dvdf_update_request bResulst fail = %d\n",
+			bResulst);
+			spin_unlock(&(DPEInfo.SpinLockIrq[DPE_IRQ_TYPE_INT_DVP_ST]));
+			return IRQ_HANDLED;
+		}
 
 		if (bResulst == MTRUE) {
 			#if REQUEST_REGULATION == REQUEST_BASE_REGULATION
@@ -9753,6 +9777,9 @@ static irqreturn_t ISP_Irq_DVGF(signed int Irq, void *DeviceId)
 			DPEInfo.WriteReqIdx =
 				(DPEInfo.WriteReqIdx + 1) %
 				_SUPPORT_MAX_DPE_FRAME_REQUEST_;
+		} else {
+			LOG_INF("dvgf_update_request_isp7s bResulst fail = %d\n",
+			bResulst);
 		}
 #ifdef __DPE_KERNEL_PERFORMANCE_MEASURE__
 		mt_kernel_trace_end();

@@ -2074,7 +2074,7 @@ int imgsys_cmdq_parser_plat7sp(struct mtk_imgsys_dev *imgsys_dev,
 			/* cmd->u.mask, CMDQ_GPR_R15); */
 			#ifdef IMGSYS_ME_CHECK_FUNC_EN
 			cmdq_pkt_poll_timeout(pkt, cmd->u.value, SUBSYS_NO_SUPPORT,
-				cmd->u.address, cmd->u.mask, IMGSYS_POLL_TIME_20MS,
+				cmd->u.address, cmd->u.mask, IMGSYS_POLL_TIME_30MS,
 				CMDQ_GPR_R03+thd_idx);
 			#else
 			cmdq_pkt_poll_timeout(pkt, cmd->u.value, SUBSYS_NO_SUPPORT,

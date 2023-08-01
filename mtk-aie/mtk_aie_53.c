@@ -52,7 +52,12 @@
 #define AOV_NOTIFY_AIE_AVAIL 1
 
 int aie_log_level_value;
+int aie_cg_debug_open_en;
+int aie_cg_debug_perframe_en;
+
 module_param(aie_log_level_value, int, 0644);
+module_param(aie_cg_debug_open_en, int, 0644);
+module_param(aie_cg_debug_perframe_en, int, 0644);
 
 aov_notify m_aov_notify = NULL;
 mtk_aie_register_tf_cb m_aie_reg_tf_cb = NULL;
@@ -95,6 +100,8 @@ struct aie_data {
 	unsigned int clk_num;
 	const struct mtk_aie_drv_ops *drv_ops;
 	bool larb_clk_ready;
+	struct aie_reg_map *reg_map;
+	unsigned int reg_map_num;
 };
 
 static struct clk_bulk_data ipesys_isp7s_aie_clks[] = {
@@ -131,11 +138,20 @@ static struct clk_bulk_data isp7sp_1_aie_clks[] = {
 	{ .id = "LARB12" },
 };
 
+static struct aie_reg_map isp7sp_aie_reg_map[] = {
+	{ .base = 0x15000000, .offset = 0x1000},  /* isp_main */
+	{ .base = 0x15780000, .offset = 0x1000},  /* isp_vcore */
+	{ .base = 0x1c001000, .offset = 0x1000},  /* sys_spm */
+	{ .base = 0x10000000, .offset = 0x1000},  /* top_ck_gen */
+};
+
 static struct aie_data data_isp7s = {
 	.clks = ipesys_isp7s_aie_clks,
 	.clk_num = ARRAY_SIZE(ipesys_isp7s_aie_clks),
 	.drv_ops = &aie_ops_isp7s,
 	.larb_clk_ready = true,
+	.reg_map = NULL,
+	.reg_map_num = 0,
 };
 
 static struct aie_data data_isp7sp = {
@@ -143,6 +159,8 @@ static struct aie_data data_isp7sp = {
 	.clk_num = ARRAY_SIZE(isp7sp_aie_clks),
 	.drv_ops = &aie_ops_isp7sp,
 	.larb_clk_ready = true,
+	.reg_map = isp7sp_aie_reg_map,
+	.reg_map_num = ARRAY_SIZE(isp7sp_aie_reg_map),
 };
 
 static struct aie_data data_isp7sp_1 = {
@@ -150,6 +168,8 @@ static struct aie_data data_isp7sp_1 = {
 	.clk_num = ARRAY_SIZE(isp7sp_1_aie_clks),
 	.drv_ops = &aie_ops_isp7sp_1,
 	.larb_clk_ready = true,
+	.reg_map = isp7sp_aie_reg_map,
+	.reg_map_num = ARRAY_SIZE(isp7sp_aie_reg_map),
 };
 
 void aie_get_time(long long *tv, unsigned int idx)
@@ -512,12 +532,16 @@ static void mtk_aie_fill_init_param(struct mtk_aie_dev *fd,
 	}
 }
 #endif
+
 static int mtk_aie_hw_enable(struct mtk_aie_dev *fd)
 {
 	if (m_aie_reg_tf_cb) {
 		aie_dev_info(fd->dev, "AIE register tf callback\n");
 		m_aie_reg_tf_cb(fd);
 	}
+
+	if(aie_cg_debug_open_en && fd->drv_ops->dump_cg_reg)
+		fd->drv_ops->dump_cg_reg(fd);
 
 	return fd->drv_ops->init(fd);
 }
@@ -1384,6 +1408,9 @@ static void mtk_aie_device_run(void *priv)
 	void *plane_vaddr;
 	int ret = 0;
 
+	if(aie_cg_debug_perframe_en && fd->drv_ops->dump_cg_reg)
+		fd->drv_ops->dump_cg_reg(fd);
+
 	src_buf = v4l2_m2m_next_src_buf(ctx->fh.m2m_ctx);
 	if (src_buf == NULL)
 		return;
@@ -1695,6 +1722,7 @@ static int mtk_aie_probe(struct platform_device *pdev)
 	struct resource *res;
 	int ret, i;
 	const struct aie_data *data;
+	struct aie_reg_map *reg_map;
 
 	aie_dev_info(dev, "probe start\n");
 
@@ -1712,6 +1740,8 @@ static int mtk_aie_probe(struct platform_device *pdev)
 	}
 	fd->drv_ops = data->drv_ops;
 	fd->larb_clk_ready = data->larb_clk_ready;
+	fd->reg_map_num = data->reg_map_num;
+	reg_map = data->reg_map;
 
 	if (dma_set_mask_and_coherent(dev, DMA_BIT_MASK(34)))
 		aie_dev_info(dev, "%s: No suitable DMA available\n", __func__);
@@ -1739,14 +1769,15 @@ static int mtk_aie_probe(struct platform_device *pdev)
 		return PTR_ERR(fd->fd_base);
 	}
 
-	for(i = 0; i < MAX_REG_BASE; i++) {
-		res = platform_get_resource(pdev, IORESOURCE_MEM, i+1);
-		if (res == NULL) {
-			aie_dev_info(dev, "reg base(%d) is NULL\n", i);
-			break;
-		}
 
-		fd->reg_base[i] = devm_ioremap_resource(dev, res);
+	if (fd->reg_map_num > MAX_REG_BASE) {
+		aie_dev_info(dev, "reg_map_num is over tje limit(%d/%d)\n",
+			fd->reg_map_num, MAX_REG_BASE);
+		return -1;
+	}
+
+	for (i = 0; i < fd->reg_map_num; i++) {
+		fd->reg_base[i] = ioremap(reg_map[i].base, reg_map[i].offset);
 		if (IS_ERR(fd->reg_base[i])) {
 			aie_dev_info(dev, "Failed to get reg base(%i)\n", i);
 			return PTR_ERR(fd->reg_base[i]);

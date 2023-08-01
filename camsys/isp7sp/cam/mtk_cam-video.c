@@ -728,9 +728,9 @@ static int mtk_cam_fill_mtk_pixfmt_mp(const struct mtk_format_info *info,
 		plane->sizeimage = stride * height;
 		plane->sizeimage += stride * height / 2;
 		plane->sizeimage += ALIGN((aligned_width / 64), 8) * height;
-		plane->sizeimage += ALIGN((aligned_width / 64), 8) * height / 2;
-		// workaround for P2/WPE require len table size to align 64
-		plane->sizeimage += 64;
+		/* NOTE: size of P2/WPE UV plane len table to be aligned to 64 */
+		plane->sizeimage +=
+			ALIGN(ALIGN((aligned_width / 64), 8) * height / 2, 64);
 		plane->sizeimage += sizeof(struct UfbcBufferHeader);
 
 		plane->bytesperline = max(plane->bytesperline, stride);

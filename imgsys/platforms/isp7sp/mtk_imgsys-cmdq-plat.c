@@ -12,6 +12,7 @@
 #include <linux/pm_opp.h>
 #include <linux/pm_runtime.h>
 #include <linux/regulator/consumer.h>
+#include <linux/mailbox_controller.h>
 #include "mtk_imgsys-engine.h"
 #include "mtk_imgsys-cmdq.h"
 #include "mtk_imgsys-cmdq-plat.h"
@@ -978,8 +979,10 @@ void imgsys_cmdq_task_cb_plat7sp(struct cmdq_cb_data data)
 					pr_info("%s: [WARN] Do ME reset flow\n", __func__);
 				} else	/* ME set function is not implement */
 					cb_param->err = -800;
-			} else	/* ME hang, and can't recover case */
+			} else	/* ME hang, and can't recover case */ {
 				cb_param->err = -800;
+				cmdq_thread_dump_spr((struct cmdq_thread *)cb_param->clt->chan->con_priv);
+			}
 		}
 		if (cb_param->err == 0)
 			cmdq_clear_event(imgsys_clt[0]->chan,
@@ -1990,7 +1993,7 @@ int imgsys_cmdq_parser_plat7sp(struct mtk_imgsys_dev *imgsys_dev,
 #ifdef IMGSYS_ME_CHECK_FUNC_EN
 			} else if (hw_comb == 0x800) {
 				cmdq_pkt_mem_move(pkt, NULL, (dma_addr_t)cmd->u.source,
-					g_pkt_me_pa + (4 * me_read_num), CMDQ_THR_SPR_IDX3);
+					g_pkt_me_pa + (4 * me_read_num), CMDQ_THR_SPR_IDX2);
 				me_read_num++;
 				is_me_read_cmd = 1;
 #endif

@@ -448,6 +448,7 @@ struct subdrv_ctx {
 	bool is_seamless;
 	bool fast_mode_on;
 	bool ae_ctrl_gph_en;
+	u16 l_shift;
 
 	u32 is_read_preload_eeprom;
 	u32 is_read_four_cell;

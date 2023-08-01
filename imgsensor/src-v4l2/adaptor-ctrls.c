@@ -1088,10 +1088,16 @@ static int ext_ctrl(struct adaptor_ctx *ctx, struct v4l2_ctrl *ctrl, struct sens
 
 			ctrl->val = tmp / 1000;
 		}
-		dev_info(ctx->dev, "[%s][%s] sof timeout value in us %llu|%llu|%d|%d\n",
+		if (ctx->framelength_for_timeout != 0) {
+			u64 tmp2 = mode->linetime_in_ns * ctx->framelength_for_timeout;
+			if (ctrl->val < (tmp2 / 1000))
+				ctrl->val = tmp2 / 1000;
+		}
+		dev_info(ctx->dev, "[%s][%s] sof timeout value in us %llu|%llu|%llu|%d|%d\n",
 			__func__,
 			(ctx->subdrv) ? (ctx->subdrv->name) : "null",
 			ctx->shutter_for_timeout,
+			ctx->framelength_for_timeout,
 			mode->linetime_in_ns,
 			ctrl->val,
 			10000000 / ctx->subctx.current_fps);
@@ -1303,6 +1309,7 @@ static int imgsensor_set_ctrl(struct v4l2_ctrl *ctrl)
 		/* update timeout value upon vsync*/
 		if (!update_shutter_for_timeout_by_ae_ctrl(ctx, &ctx->ae_memento))
 			update_shutter_for_timeout(ctx);
+		update_framelength_for_timeout(ctx);
 		break;
 	case V4L2_CID_VSYNC_NOTIFY:
 		subdrv_call(ctx, vsync_notify, (u64)ctrl->val);
@@ -1652,6 +1659,7 @@ static int imgsensor_set_ctrl(struct v4l2_ctrl *ctrl)
 
 			/* update timeout value upon seamless switch*/
 			update_shutter_for_timeout_by_ae_ctrl(ctx, &info->ae_ctrl[0]);
+			ctx->last_framelength = ctx->subctx.frame_length_rg;
 		}
 		break;
 #ifdef IMGSENSOR_DEBUG
@@ -1716,6 +1724,8 @@ static int imgsensor_set_ctrl(struct v4l2_ctrl *ctrl)
 			/* update timeout value after reset*/
 			if (!update_shutter_for_timeout_by_ae_ctrl(ctx, &ctx->ae_memento))
 				update_shutter_for_timeout(ctx);
+			ctx->last_framelength = ctx->subctx.frame_length_rg;
+			update_framelength_for_timeout(ctx);
 
 			_sensor_reset_s_stream(ctrl);
 			//dev_info(dev, "exit V4L2_CID_MTK_SENSOR_RESET\n");
@@ -2358,6 +2368,23 @@ void restore_ae_ctrl(struct adaptor_ctx *ctx)
 	dev_info(ctx->dev, "[%s][%s]-\n",
 		__func__, (ctx->subdrv) ? (ctx->subdrv->name) : "null");
 #endif
+}
+
+int update_framelength_for_timeout(struct adaptor_ctx *ctx)
+{
+	switch (ctx->subctx.frame_time_delay_frame) {
+	case 3:
+		ctx->framelength_for_timeout = ctx->last_framelength << ctx->subctx.l_shift;
+		ctx->last_framelength = ctx->subctx.frame_length_rg;
+		break;
+	case 2:
+		ctx->last_framelength = ctx->subctx.frame_length_rg;
+		ctx->framelength_for_timeout = ctx->last_framelength << ctx->subctx.l_shift;
+		break;
+	default:
+		return 0;
+	}
+	return 1;
 }
 
 int update_shutter_for_timeout(struct adaptor_ctx *ctx)

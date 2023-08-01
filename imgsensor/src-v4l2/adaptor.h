@@ -203,6 +203,8 @@ struct adaptor_ctx {
 	unsigned int sof_cnt;
 	int req_id; /* from mtk hdr ae ctrl */
 	u64 shutter_for_timeout;
+	u64 framelength_for_timeout;
+	u64 last_framelength;
 	struct wakeup_source *sensor_ws;
 	unsigned int aov_pm_ops_flag;	/* flag for aov pm ops */
 	unsigned int aov_mclk_ulposc_flag;	/* flag for aov switch mclk to ulposc */

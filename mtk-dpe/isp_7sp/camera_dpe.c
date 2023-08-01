@@ -1687,9 +1687,9 @@ signed int dpe_enque_cb(struct frame *frames, void *req)
 			iova_temp = 0x200000000;
 			#endif
 		} else {
-			LOG_INF("get Dpe_InBuf_SrcImg_Y_L_fd fail\n");
-//			mutex_unlock(&gFDMutex);
-			//return ENQUE_FAIL;
+      LOG_INF("get Dpe_InBuf_SrcImg_Y_L_fd fail\n");
+      mutex_unlock(&gFDMutex);
+      return ENQUE_FAIL;
 		}
 
 		if (DPE_debug_log_en == 1) {
@@ -1714,8 +1714,8 @@ signed int dpe_enque_cb(struct frame *frames, void *req)
 			}
 		} else {
 			LOG_INF("get Dpe_InBuf_SrcImg_Y_R fail\n");
-//			mutex_unlock(&gFDMutex);
-			//return ENQUE_FAIL;
+      mutex_unlock(&gFDMutex);
+      return ENQUE_FAIL;
 		}
 
 		if (DPE_debug_log_en == 1) {
@@ -1745,7 +1745,8 @@ signed int dpe_enque_cb(struct frame *frames, void *req)
 			#endif
 		} else {
 			LOG_INF("get Dpe_OutBuf_OCC fail\n");
-			//return ENQUE_FAIL;
+      mutex_unlock(&gFDMutex);
+			return ENQUE_FAIL;
 		}
 
 		if (DPE_debug_log_en == 1) {
@@ -1768,8 +1769,8 @@ signed int dpe_enque_cb(struct frame *frames, void *req)
 			}
 		} else {
 			LOG_INF("get Dpe_OutBuf_OCC_Ext fail\n");
-//			mutex_unlock(&gFDMutex);
-			//return ENQUE_FAIL;
+      mutex_unlock(&gFDMutex);
+      return ENQUE_FAIL;
 		}
 
 		//OCC_Hist
@@ -1792,8 +1793,8 @@ signed int dpe_enque_cb(struct frame *frames, void *req)
 			}
 		} else {
 			LOG_INF("get Dpe_OutBuf_OCC_Hist fail\n");
-//			mutex_unlock(&gFDMutex);
-			//return ENQUE_FAIL;
+			mutex_unlock(&gFDMutex);
+			return ENQUE_FAIL;
 		}
 
 		//!!!!!
@@ -1820,8 +1821,8 @@ signed int dpe_enque_cb(struct frame *frames, void *req)
 				}
 			} else {
 				LOG_INF("get Dpe_InBuf_SrcImg_Y_L_Pre fail\n");
-//				mutex_unlock(&gFDMutex);
-				//return ENQUE_FAIL;
+        mutex_unlock(&gFDMutex);
+        return ENQUE_FAIL;
 			}
 			if (DPE_debug_log_en == 1) {
 				LOG_INF("SrcImg_Y_R_Pre fd= %x ,offset = %x\n",
@@ -1843,8 +1844,8 @@ signed int dpe_enque_cb(struct frame *frames, void *req)
 				}
 			}	else {
 				LOG_INF("get Dpe_InBuf_SrcImg_Y_R_Pre fail\n");
-//				mutex_unlock(&gFDMutex);
-				//return ENQUE_FAIL;
+        mutex_unlock(&gFDMutex);
+        return ENQUE_FAIL;
 			}
 
 			if (DPE_debug_log_en == 1) {
@@ -1868,8 +1869,8 @@ signed int dpe_enque_cb(struct frame *frames, void *req)
 				}
 			} else {
 				LOG_INF("get Dpe_InBuf_P4_L_DV fail\n");
-				//mutex_unlock(&gFDMutex);
-				//return ENQUE_FAIL;
+        mutex_unlock(&gFDMutex);
+        return ENQUE_FAIL;
 			}
 
 			if (DPE_debug_log_en == 1) {
@@ -1893,8 +1894,8 @@ signed int dpe_enque_cb(struct frame *frames, void *req)
 				}
 			} else {
 				LOG_INF("get Dpe_InBuf_P4_R_DV fail\n");
-				//mutex_unlock(&gFDMutex);
-				//return ENQUE_FAIL;
+        mutex_unlock(&gFDMutex);
+        return ENQUE_FAIL;
 			}
 		}
 		mutex_unlock(&gFDMutex);
@@ -1964,8 +1965,8 @@ signed int dpe_enque_cb(struct frame *frames, void *req)
 			}
 		} else {
 			LOG_INF("get Dpe_InBuf_SrcImg_Y fail\n");
-			//mutex_unlock(&gFDMutex);
-			//return ENQUE_FAIL;
+      mutex_unlock(&gFDMutex);
+      return ENQUE_FAIL;
 		}
 		//mutex_unlock(&gFDMutex);
 
@@ -1990,8 +1991,8 @@ signed int dpe_enque_cb(struct frame *frames, void *req)
 			}
 		} else {
 			LOG_INF("get Dpe_InBuf_SrcImg_C fail\n");
-			//mutex_unlock(&gFDMutex);
-			//return ENQUE_FAIL;
+      mutex_unlock(&gFDMutex);
+      return ENQUE_FAIL;
 		}
 
 		//mutex_unlock(&gFDMutex);
@@ -2017,8 +2018,8 @@ signed int dpe_enque_cb(struct frame *frames, void *req)
 			}
 		} else {
 			LOG_INF("get Dpe_InBuf_OCC fail\n");
-			//mutex_unlock(&gFDMutex);
-			//return ENQUE_FAIL;
+      mutex_unlock(&gFDMutex);
+      return ENQUE_FAIL;
 		}
 		//mutex_unlock(&gFDMutex);
 		if (DPE_debug_log_en == 1) {
@@ -2042,8 +2043,8 @@ signed int dpe_enque_cb(struct frame *frames, void *req)
 			}
 		} else {
 			LOG_INF("get Dpe_OutBuf_CRM fail\n");
-			//mutex_unlock(&gFDMutex);
-			//return ENQUE_FAIL;
+      mutex_unlock(&gFDMutex);
+      return ENQUE_FAIL;
 		}
 		//mutex_unlock(&gFDMutex);
 
@@ -2098,8 +2099,8 @@ signed int dpe_enque_cb(struct frame *frames, void *req)
 				}
 			} else {
 				LOG_INF("get Dpe_OutBuf_ASF_RD fail\n");
-				//mutex_unlock(&gFDMutex);
-				//return ENQUE_FAIL;
+        mutex_unlock(&gFDMutex);
+        return ENQUE_FAIL;
 			}
 				//mutex_unlock(&gFDMutex);
 		} else if (WMF_RD_EN == 0) {
@@ -2124,8 +2125,8 @@ signed int dpe_enque_cb(struct frame *frames, void *req)
 				}
 			} else {
 				LOG_INF("get Dpe_OutBuf_ASF_RD fail\n");
-				//mutex_unlock(&gFDMutex);
-				//return ENQUE_FAIL;
+        mutex_unlock(&gFDMutex);
+        return ENQUE_FAIL;
 			}
 			//mutex_unlock(&gFDMutex);
 		}
@@ -2153,8 +2154,8 @@ signed int dpe_enque_cb(struct frame *frames, void *req)
 			}
 		} else {
 			LOG_INF("get Dpe_OutBuf_ASF_HF fail\n");
-				//mutex_unlock(&gFDMutex);
-			//return ENQUE_FAIL;
+      mutex_unlock(&gFDMutex);
+      return ENQUE_FAIL;
 		}
 		if (DVP_16bitMode == 0) {
 			//mutex_unlock(&gFDMutex);
@@ -2181,8 +2182,8 @@ signed int dpe_enque_cb(struct frame *frames, void *req)
 				}
 			} else {
 				LOG_INF("get Dpe_OutBuf_WMF_FILT fail\n");
-				//mutex_unlock(&gFDMutex);
-				//return ENQUE_FAIL;
+        mutex_unlock(&gFDMutex);
+        return ENQUE_FAIL;
 			}
 			//mutex_unlock(&gFDMutex);
 		}
@@ -2213,8 +2214,8 @@ signed int dpe_enque_cb(struct frame *frames, void *req)
 				}
 			} else {
 				LOG_INF("get Dpe_InBuf_OCC_Ext fail\n");
-				//mutex_unlock(&gFDMutex);
-				//return ENQUE_FAIL;
+				mutex_unlock(&gFDMutex);
+				return ENQUE_FAIL;
 			}
 			LOG_INF("Dpe_OutBuf_ASF_RM_Ext fd = %d offset = %d\n",
 			_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_OutBuf_ASF_RM_Ext_fd,
@@ -2239,8 +2240,8 @@ signed int dpe_enque_cb(struct frame *frames, void *req)
 				}
 			} else {
 				LOG_INF("get Dpe_OutBuf_ASF_RM_Ext fail\n");
-				//mutex_unlock(&gFDMutex);
-				//return ENQUE_FAIL;
+        mutex_unlock(&gFDMutex);
+        return ENQUE_FAIL;
 			}
 			//mutex_unlock(&gFDMutex);
 
@@ -2268,8 +2269,8 @@ signed int dpe_enque_cb(struct frame *frames, void *req)
 				}
 			} else {
 				LOG_INF("get Dpe_OutBuf_ASF_RD_Ext fail\n");
-				//mutex_unlock(&gFDMutex);
-				//return ENQUE_FAIL;
+				mutex_unlock(&gFDMutex);
+				return ENQUE_FAIL;
 			}
 			//mutex_unlock(&gFDMutex);
 
@@ -2298,8 +2299,8 @@ signed int dpe_enque_cb(struct frame *frames, void *req)
 				}
 			} else {
 				LOG_INF("get Dpe_OutBuf_ASF_HF_Ext fail\n");
-				//mutex_unlock(&gFDMutex);
-				//return ENQUE_FAIL;
+				mutex_unlock(&gFDMutex);
+				return ENQUE_FAIL;
 			}
 			//mutex_unlock(&gFDMutex);
 		}
@@ -2357,8 +2358,8 @@ signed int dpe_enque_cb(struct frame *frames, void *req)
 			}
 		} else {
 			LOG_INF("get Dpe_InBuf_SrcImg_Y fail\n");
-			//mutex_unlock(&gFDMutex);
-			//return ENQUE_FAIL;
+			mutex_unlock(&gFDMutex);
+			return ENQUE_FAIL;
 		}
 
 
@@ -2382,8 +2383,8 @@ signed int dpe_enque_cb(struct frame *frames, void *req)
 			}
 		} else {
 			LOG_INF("get Dpe_InBuf_SrcImg_C fail\n");
-			//mutex_unlock(&gFDMutex);
-			//return ENQUE_FAIL;
+			mutex_unlock(&gFDMutex);
+			return ENQUE_FAIL;
 		}
 
 
@@ -2402,8 +2403,8 @@ signed int dpe_enque_cb(struct frame *frames, void *req)
 				}
 			} else {
 				LOG_INF("get Dpe_InBuf_SrcImg_Y_Pre fail\n");
-				//mutex_unlock(&gFDMutex);
-				//return ENQUE_FAIL;
+				mutex_unlock(&gFDMutex);
+				return ENQUE_FAIL;
 			}
 
 
@@ -2422,8 +2423,8 @@ signed int dpe_enque_cb(struct frame *frames, void *req)
 				}
 			}	else {
 				LOG_INF("get Dpe_InBuf_SrcImg_C_Pre fail\n");
-				//mutex_unlock(&gFDMutex);
-				//return ENQUE_FAIL;
+				mutex_unlock(&gFDMutex);
+				return ENQUE_FAIL;
 			}
 
 		if (DPE_debug_log_en == 1) {
@@ -2447,8 +2448,8 @@ signed int dpe_enque_cb(struct frame *frames, void *req)
 			}
 		} else {
 			LOG_INF("get Dpe_OutBuf_OCC_Ext fail\n");
-			//mutex_unlock(&gFDMutex);
-			//return ENQUE_FAIL;
+			mutex_unlock(&gFDMutex);
+			return ENQUE_FAIL;
 		}
 		//mutex_unlock(&gFDMutex);
 
@@ -2473,8 +2474,8 @@ signed int dpe_enque_cb(struct frame *frames, void *req)
 			}
 		} else {
 			LOG_INF("get Dpe_OutBuf_WMT_Fnl fail\n");
-			//mutex_unlock(&gFDMutex);
-			//return ENQUE_FAIL;
+			mutex_unlock(&gFDMutex);
+			return ENQUE_FAIL;
 		}
 		//RW_IIR
 		if (DPE_debug_log_en == 1) {
@@ -2497,8 +2498,8 @@ signed int dpe_enque_cb(struct frame *frames, void *req)
 			}
 		} else {
 			LOG_INF("get Dpe_OutBuf_RW_IIR fail\n");
-			//mutex_unlock(&gFDMutex);
-			//return ENQUE_FAIL;
+			mutex_unlock(&gFDMutex);
+			return ENQUE_FAIL;
 		}
 
 		if (DPE_debug_log_en == 1) {
@@ -2524,8 +2525,8 @@ signed int dpe_enque_cb(struct frame *frames, void *req)
 				}
 			} else {
 				LOG_INF("get Dpe_OutBuf_WMF_FILT fail\n");
-				//mutex_unlock(&gFDMutex);
-				//return ENQUE_FAIL;
+				mutex_unlock(&gFDMutex);
+				return ENQUE_FAIL;
 			}
 		mutex_unlock(&gFDMutex);
 	}
@@ -5732,7 +5733,7 @@ cmdq_pkt_write(handle, dpe_clt_base, DVS_CTRL00_HW, 0x20000000, 0x20000000);
 //	cmdq_pkt_flush_threaded(handle,
 //	cmdq_cb_destroy, (void *)handle);
 //#endif
-LOG_INF("cmd_pkt end\n");
+//LOG_INF("cmd_pkt end\n");
 	return 0;
 }
 signed int dpe_feedback(struct frame *frame)

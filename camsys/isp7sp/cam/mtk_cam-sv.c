@@ -29,9 +29,6 @@
 static int debug_cam_sv;
 module_param(debug_cam_sv, int, 0644);
 
-static int debug_cam_sv_fifo_full;
-module_param(debug_cam_sv_fifo_full, int, 0644);
-
 #undef dev_dbg
 #define dev_dbg(dev, fmt, arg...)		\
 	do {					\
@@ -1305,8 +1302,6 @@ void camsv_handle_err(
           	mtk_cam_seninf_dump_current_status(ctx->seninf);
 		mtk_cam_ctrl_dump_request(sv_dev->cam, CAMSYS_ENGINE_CAMSV, sv_dev->id,
 				   frame_idx_inner, MSG_CAMSV_ERROR);
-		debug_cam_sv_fifo_full = 1;
-		mtk_smi_dbg_hang_detect("camsys-camsv");
 	}
 }
 

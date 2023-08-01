@@ -8292,36 +8292,36 @@ static signed int DPE_probe(struct platform_device *pDev)
 	DPE_dev->dev = &pDev->dev;
 	//--------------
 #ifdef CMASYS_CLK_Debug
-	_cam_dev = krealloc(CAM_devs, sizeof(struct CAM_device) * nr_DPE_devs,
+	_cam_dev = krealloc(CAM_devs, sizeof(struct CAM_device),
 							GFP_KERNEL|__GFP_ZERO);
 	if (!_cam_dev) {
 		dev_dbg(&pDev->dev, "Unable to allocate CAM_devs\n");
 		return -ENOMEM;
 	}
 	CAM_devs = _cam_dev;
-	Cam_dev = &(CAM_devs[nr_DPE_devs - 1]);
+	Cam_dev = &(CAM_devs[0]);
 	Cam_dev->dev = &pDev->dev;
 
 	//--------------
-	_mraw_dev = krealloc(MRAW_devs, sizeof(struct MRAW_device) * nr_DPE_devs,
+	_mraw_dev = krealloc(MRAW_devs, sizeof(struct MRAW_device),
 							GFP_KERNEL|__GFP_ZERO);
 	if (!_mraw_dev) {
 		dev_dbg(&pDev->dev, "Unable to allocate MRAW_devs\n");
 		return -ENOMEM;
 	}
 	MRAW_devs = _mraw_dev;
-	Mraw_dev = &(MRAW_devs[nr_DPE_devs - 1]);
+	Mraw_dev = &(MRAW_devs[0]);
 	Mraw_dev->dev = &pDev->dev;
 
 	//--------------
-	_ipe_dev = krealloc(IPE_devs, sizeof(struct IPE_device) * nr_DPE_devs,
+	_ipe_dev = krealloc(IPE_devs, sizeof(struct IPE_device),
 							GFP_KERNEL|__GFP_ZERO);
 	if (!_ipe_dev) {
 		dev_dbg(&pDev->dev, "Unable to allocate IPE_devs\n");
 		return -ENOMEM;
 	}
 	IPE_devs = _ipe_dev;
-	Ipe_dev = &(IPE_devs[nr_DPE_devs - 1]);
+	Ipe_dev = &(IPE_devs[0]);
 	Ipe_dev->dev = &pDev->dev;
 #endif
 

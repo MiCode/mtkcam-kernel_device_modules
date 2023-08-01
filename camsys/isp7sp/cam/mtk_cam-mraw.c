@@ -948,16 +948,17 @@ int mtk_cam_mraw_cq_config(struct mtk_mraw_device *mraw_dev,
 void mtk_cam_mraw_update_start_period(
 	struct mtk_mraw_device *mraw_dev, int scq_ms)
 {
-	u32 scq_cnt_rate;
+	u32 scq_cnt_rate, start_period;
 
 	writel(0x101, mraw_dev->base + REG_MRAW_TG_TIME_STAMP_CTL);
 	writel(MRAW_TS_CNT, mraw_dev->base + REG_MRAW_TG_TIME_STAMP_CNT);
 
 	/* scq count rate(khz) */
 	scq_cnt_rate = SCQ_DEFAULT_CLK_RATE * 1000 / ((MRAW_TS_CNT + 1) * 2);
+	start_period = (scq_ms == -1) ? 0xFFFFFFFF : scq_ms * scq_cnt_rate;
 
 	/* scq start period */
-	writel_relaxed(scq_ms * scq_cnt_rate,
+	writel_relaxed(start_period,
 		mraw_dev->base + REG_MRAW_SCQ_START_PERIOD);
 
 	dev_info(mraw_dev->dev, "[%s] start_period:0x%x ts_cnt:%d, scq_ms:%d\n",

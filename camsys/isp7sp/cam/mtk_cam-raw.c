@@ -486,10 +486,13 @@ static u32 scq_cnt_rate_khz(u32 time_stamp_cnt)
 
 void update_scq_start_period(struct mtk_raw_device *dev, int scq_ms)
 {
-	u32 val;
+	u32 val, start_period;
 
 	val = readl_relaxed(dev->base + REG_TG_TIME_STAMP_CNT);
-	writel_relaxed(scq_ms * scq_cnt_rate_khz(val),
+	start_period = (scq_ms == -1) ? 0xFFFFFFFF :
+		scq_ms * scq_cnt_rate_khz(val);
+
+	writel_relaxed(start_period,
 		       dev->base + REG_CAMCQ_SCQ_START_PERIOD);
 	dev_info(dev->dev, "[%s] REG_CAMCQ_SCQ_START_PERIOD:0x%08x (%dms)\n",
 		 __func__, readl(dev->base + REG_CAMCQ_SCQ_START_PERIOD), scq_ms);

@@ -1061,7 +1061,7 @@ int mtk_cam_sv_cq_config(struct mtk_camsv_device *sv_dev, unsigned int sub_ratio
 void mtk_cam_sv_update_start_period(
 	struct mtk_camsv_device *sv_dev, int scq_ms)
 {
-	u32 scq_cnt_rate;
+	u32 scq_cnt_rate, start_period;
 
 	CAMSV_WRITE_REG(sv_dev->base + REG_CAMSVCENTRAL_TIME_STAMP_CTL, 0x101);
 	CAMSV_WRITE_REG(sv_dev->base +
@@ -1069,10 +1069,11 @@ void mtk_cam_sv_update_start_period(
 
 	/* scq count rate(khz) */
 	scq_cnt_rate = SCQ_DEFAULT_CLK_RATE * 1000 / ((CAMSV_TS_CNT + 1) * 2);
+	start_period = (scq_ms == -1) ? 0xFFFFFFFF : scq_ms * scq_cnt_rate;
 
 	/* scq start period */
 	CAMSV_WRITE_REG(sv_dev->base_scq + REG_CAMSVCQ_SCQ_START_PERIOD,
-		scq_ms * scq_cnt_rate);
+		start_period);
 
 	dev_info(sv_dev->dev, "[%s] start_period:0x%x ts_cnt:%d, scq_ms:%d\n",
 		__func__,

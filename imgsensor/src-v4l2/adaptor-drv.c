@@ -829,12 +829,8 @@ static int imgsensor_start_streaming(struct adaptor_ctx *ctx)
 	dev_info(ctx->dev, "[%s] [SENSOR_FEATURE_SET_STREAMING_RESUME]-\n", __func__);
 #endif
 
-	/* update timeout value upon streaming on */
-	if (ctx->ae_memento.exposure.le_exposure) {
-		ctx->shutter_for_timeout = ctx->ae_memento.exposure.le_exposure;
-		if (ctx->cur_mode->fine_intg_line)
-			ctx->shutter_for_timeout /= 1000;
-	}
+	/* update timeout value after reset*/
+	update_shutter_for_timeout_by_ae_ctrl(ctx, &ctx->ae_memento);
 
 	/* notify frame-sync streaming ON */
 	notify_fsync_mgr_streaming(ctx, 1);

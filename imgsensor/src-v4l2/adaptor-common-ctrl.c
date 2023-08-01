@@ -173,11 +173,11 @@ u32 g_sensor_margin(struct adaptor_ctx *ctx, unsigned int scenario)
 	return (para.u64[2] * mode_exp_cnt);
 }
 
-u32 g_sensor_fine_integ_line(struct adaptor_ctx *ctx,
+int g_sensor_fine_integ_line(struct adaptor_ctx *ctx,
 	const unsigned int scenario)
 {
 	union feature_para para;
-	u32 fine_integ_line = 0;
+	int fine_integ_line = 0;
 	u32 len = 0;
 
 	// para.u64[0] = ctx->cur_mode->id;

@@ -1338,7 +1338,7 @@ static int imgsensor_set_ctrl(struct v4l2_ctrl *ctrl)
 	case V4L2_CID_EXPOSURE_ABSOLUTE:
 		{
 			u64 fsync_exp[1] = {0}; /* needed by fsync set_shutter */
-			__u32 fine_integ_time = 0;
+			int fine_integ_time = 0;
 
 			para.u64[0] = (u64)(ctrl->val) * 100000;
 			do_div(para.u64[0], ctx->cur_mode->linetime_in_ns);
@@ -1346,7 +1346,7 @@ static int imgsensor_set_ctrl(struct v4l2_ctrl *ctrl)
 			/* read fine integ time*/
 			fine_integ_time = g_sensor_fine_integ_line(ctx, ctx->cur_mode->id);
 
-			if (fine_integ_time > 0)
+			if (fine_integ_time)
 				para.u64[0] = para.u64[0] * 1000;
 
 			fsync_exp[0] = (u32)para.u64[0];

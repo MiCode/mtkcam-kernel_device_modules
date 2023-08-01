@@ -32,7 +32,7 @@ int g_max_exposure_line(struct adaptor_ctx *ctx,
 
 u32 g_sensor_margin(struct adaptor_ctx *ctx, unsigned int scenario);
 
-u32 g_sensor_fine_integ_line(struct adaptor_ctx *ctx,
+int g_sensor_fine_integ_line(struct adaptor_ctx *ctx,
 	const unsigned int scenario);
 
 /* return: 0 => NON DCG; 1 => DCG */

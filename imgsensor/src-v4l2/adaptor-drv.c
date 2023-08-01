@@ -189,6 +189,7 @@ static void add_sensor_mode(struct adaptor_ctx *ctx,
 	union feature_para para;
 	u32 idx, len, llp_readout;
 	u64 val;
+	int val_signed;
 	struct sensor_mode *mode;
 
 	idx = ctx->mode_cnt;
@@ -253,19 +254,20 @@ static void add_sensor_mode(struct adaptor_ctx *ctx,
 	mode->pclk = val;
 
 	val = 0;
-
-	subdrv_call(ctx, feature_control,
-		SENSOR_FEATURE_GET_FINE_INTEG_LINE_BY_SCENARIO,
-		para.u8, &len);
-	mode->fine_intg_line = val;
-
-	val = 0;
 	subdrv_call(ctx, feature_control,
 		SENSOR_FEATURE_ESD_RESET_BY_USER,
 		para.u8, &len);
 
 	mode->esd_reset_by_user = val;
 
+	para.u64[1] = (u64)&val_signed;
+	val_signed = 0;
+
+	subdrv_call(ctx, feature_control,
+		SENSOR_FEATURE_GET_FINE_INTEG_LINE_BY_SCENARIO,
+		para.u8, &len);
+
+	mode->fine_intg_line = val_signed;
 
 	if (!mode->mipi_pixel_rate || !mode->max_framerate || !mode->pclk)
 		return;
@@ -287,7 +289,7 @@ static void add_sensor_mode(struct adaptor_ctx *ctx,
 	mode->active_line_num = get_active_line_num(ctx, mode->id);
 
 
-	dev_dbg(ctx->dev, "%s [%d] id %d %dx%d %dx%d px %d fps %d tLine %lld|%lld fintl %llu\n",
+	dev_dbg(ctx->dev, "%s [%d] id %d %dx%d %dx%d px %d fps %d tLine %lld|%lld fintl %d\n",
 		__func__,
 		idx, id, width, height,
 		mode->llp, mode->fll,

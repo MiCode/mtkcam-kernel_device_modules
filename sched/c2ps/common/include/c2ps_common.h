@@ -165,6 +165,7 @@ void set_glb_info_bg_uclamp_max(void);
 void update_cpu_idle_rate(void);
 bool need_update_background(void);
 void reset_need_update_status(void);
+unsigned long c2ps_get_uclamp_freq(int cpu,  unsigned int uclamp);
 
 extern void set_curr_uclamp_ctrl(int val);
 extern void set_gear_uclamp_ctrl(int val);
@@ -175,5 +176,6 @@ extern unsigned int get_nr_gears(void);
 extern void set_wl_type_manual(int val);
 extern int get_nr_wl_type(void);
 extern void set_rt_aggre_preempt(int val);
+extern unsigned int get_adaptive_margin(int cpu);
 
 #endif  // C2PS_COMMON_INCLUDE_C2PS_COMMON_H_

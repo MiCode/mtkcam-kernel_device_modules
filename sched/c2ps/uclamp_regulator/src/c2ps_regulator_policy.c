@@ -217,9 +217,9 @@ void c2ps_regulator_bgpolicy_simple(struct regulator_req *req)
 		"cluster_0_freq=%ld cluster_1_freq=%ld cluster_2_freq=%ld",
 		req->glb_info->curr_max_uclamp[0], req->glb_info->curr_max_uclamp[1],
 		req->glb_info->curr_max_uclamp[2],
-		pd_get_util_freq(LCORE_ID, req->glb_info->curr_max_uclamp[0]),
-		pd_get_util_freq(MCORE_ID, req->glb_info->curr_max_uclamp[1]),
-		pd_get_util_freq(BCORE_ID, req->glb_info->curr_max_uclamp[2]));
+		c2ps_get_uclamp_freq(LCORE_ID, req->glb_info->curr_max_uclamp[0]),
+		c2ps_get_uclamp_freq(MCORE_ID, req->glb_info->curr_max_uclamp[1]),
+		c2ps_get_uclamp_freq(BCORE_ID, req->glb_info->curr_max_uclamp[2]));
 
 	C2PS_LOGD("debug: c2ps_regulator_bgpolicy_simple set"
 			  "uclamp max: %d, %d, %d",

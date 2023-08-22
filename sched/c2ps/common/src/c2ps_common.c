@@ -503,7 +503,7 @@ void c2ps_critical_task_systrace(struct c2ps_task_info *tsk_info)
 	if (likely(p)) {
 		get_task_struct(p);
 		curr_cpu = task_cpu(p);
-		curr_freq = pd_get_util_freq(curr_cpu, curr_util);
+		curr_freq = c2ps_get_uclamp_freq(curr_cpu, curr_util);
 		put_task_struct(p);
 	}
 	rcu_read_unlock();
@@ -542,6 +542,14 @@ void c2ps_free(void *pvBuf, int i32Size)
 		kfree(pvBuf);
 	else
 		vfree(pvBuf);
+}
+
+unsigned long c2ps_get_uclamp_freq(int cpu,  unsigned int uclamp)
+{
+	unsigned long am_util = 0;
+
+	am_util = (uclamp * get_adaptive_margin(cpu)) >> SCHED_CAPACITY_SHIFT;
+	return pd_get_util_freq(cpu, am_util);
 }
 
 void update_cpu_idle_rate(void)
@@ -589,9 +597,9 @@ void update_cpu_idle_rate(void)
 		"cluster_0_freq=%ld cluster_1_freq=%ld cluster_2_freq=%ld",
 		glb_info->curr_max_uclamp[0], glb_info->curr_max_uclamp[1],
 		glb_info->curr_max_uclamp[2],
-		pd_get_util_freq(LCORE_ID, glb_info->curr_max_uclamp[0]),
-		pd_get_util_freq(MCORE_ID, glb_info->curr_max_uclamp[1]),
-		pd_get_util_freq(BCORE_ID, glb_info->curr_max_uclamp[2]));
+		c2ps_get_uclamp_freq(LCORE_ID, glb_info->curr_max_uclamp[0]),
+		c2ps_get_uclamp_freq(MCORE_ID, glb_info->curr_max_uclamp[1]),
+		c2ps_get_uclamp_freq(BCORE_ID, glb_info->curr_max_uclamp[2]));
 }
 
 inline bool need_update_background(void)
@@ -635,9 +643,9 @@ static ssize_t task_info_show(struct kobject *kobj,
     hash_for_each(task_info_tbl, bkt, tsk_info, hlist) {
 		length = scnprintf(temp + pos,
 			C2PS_SYSFS_MAX_BUFF_SIZE - pos,
-			"%-2d\t%-5d\t%s\t\t%-4u\t\t%-8llu\t\t%d\t\t",
+			"%-2d\t%-5d\t%*s\t%-4u\t\t%-8llu\t\t%d\t\t",
 			tsk_info->task_id, tsk_info->pid,
-			tsk_info->task_name,
+			-MAX_TASK_NAME_SIZE, tsk_info->task_name,
 			tsk_info->default_uclamp, tsk_info->task_target_time,
 			tsk_info->is_vip_task);
 		pos += length;

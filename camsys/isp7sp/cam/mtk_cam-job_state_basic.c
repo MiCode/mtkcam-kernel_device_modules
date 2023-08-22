@@ -88,12 +88,20 @@ static struct state_transition STATE_TRANS(basic, S_ISP_APPLYING)[] = {
 		S_ISP_OUTER, CAMSYS_EVENT_IRQ_L_CQ_DONE,
 		guard_outer_eq, ACTION_CQ_DONE
 	},
+	{
+		S_ISP_ABORTED, CAMSYS_EVENT_HW_HANG,
+		NULL, ACTION_ABORT_SW_RECOVERY
+	},
 };
 
 static struct state_transition STATE_TRANS(basic, S_ISP_OUTER)[] = {
 	{
 		S_ISP_PROCESSING, CAMSYS_EVENT_IRQ_L_SOF,
 		guard_inner_eq, 0
+	},
+	{
+		S_ISP_ABORTED, CAMSYS_EVENT_HW_HANG,
+		NULL, ACTION_ABORT_SW_RECOVERY
 	},
 };
 
@@ -116,6 +124,10 @@ static struct state_transition STATE_TRANS(basic, S_ISP_PROCESSING)[] = {
 		guard_inner_ge, 0
 	},
 #endif
+	{
+		S_ISP_ABORTED, CAMSYS_EVENT_HW_HANG,
+		NULL, ACTION_ABORT_SW_RECOVERY
+	},
 };
 
 static struct state_transition STATE_TRANS(basic, S_ISP_SENSOR_MISMATCHED)[] = {
@@ -129,6 +141,10 @@ static struct state_transition STATE_TRANS(basic, S_ISP_SENSOR_MISMATCHED)[] = {
 		guard_inner_ge, 0
 	},
 #endif
+	{
+		S_ISP_ABORTED, CAMSYS_EVENT_HW_HANG,
+		NULL, ACTION_ABORT_SW_RECOVERY
+	},
 };
 
 static struct transitions_entry basic_sensor_entries[NR_S_SENSOR_STATE] = {

@@ -186,6 +186,8 @@ struct mtk_cam_ctx {
 	struct mtk_cam_device_buf sensor_meta_buffer;
 	struct mtk_cam_driver_buf_desc seninf_meta_buf_desc;
 	struct mtk_cam_pool sensor_meta_pool;
+
+	u64 sw_recovery_ts;
 };
 
 struct mtk_cam_v4l2_pipelines {
@@ -370,6 +372,7 @@ int mtk_cam_ctx_stream_off(struct mtk_cam_ctx *ctx);
 void mtk_cam_ctx_engine_off(struct mtk_cam_ctx *ctx);
 void mtk_cam_ctx_engine_disable_irq(struct mtk_cam_ctx *ctx);
 void mtk_cam_ctx_engine_reset(struct mtk_cam_ctx *ctx);
+void mtk_cam_ctx_engine_dc_sw_recovery(struct mtk_cam_ctx *ctx);
 int mtk_cam_ctx_send_raw_event(struct mtk_cam_ctx *ctx,
 			       struct v4l2_event *event);
 int mtk_cam_ctx_send_sv_event(struct mtk_cam_ctx *ctx,

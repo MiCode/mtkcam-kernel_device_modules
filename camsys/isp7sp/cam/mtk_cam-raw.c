@@ -535,7 +535,7 @@ void rwfbc_inc_setup(struct mtk_raw_device *dev)
 			 __func__, wfbc_en_raw, wfbc_en_yuv);
 }
 
-void stream_on(struct mtk_raw_device *dev, int on)
+void stream_on(struct mtk_raw_device *dev, int on, bool reset_at_off)
 {
 	if (on) {
 		/* toggle db before stream-on */
@@ -546,7 +546,10 @@ void stream_on(struct mtk_raw_device *dev, int on)
 		set_tg_vfdata_en(dev, 0);
 		enable_tg_db(dev, 0);
 		enable_tg_db(dev, 1);
-		reset_reg(dev);
+
+		/* TODO: move reset_reg into initialize? */
+		if (reset_at_off)
+			reset_reg(dev);
 	}
 
 	//dev_info(dev->dev, "%s: %d\n", __func__, on);
@@ -741,7 +744,7 @@ void dump_dma_soft_rst_stat(struct mtk_raw_device *dev)
 void reset(struct mtk_raw_device *dev)
 {
 	int sw_ctl;
-	u32 val;
+	u32 mod6_en, val;
 	int ret;
 
 	dev_info(dev->dev, "%s\n", __func__);
@@ -753,7 +756,8 @@ void reset(struct mtk_raw_device *dev)
 	writel(0xffffffff, dev->yuv_base + REG_CAMCTL2_MOD6_DCM_DIS);
 
 	/* enable CQI_R1 ~ R4 before reset and make sure loaded to inner */
-	val = readl(dev->base + REG_CAMCTL_MOD6_EN)
+	mod6_en = readl(dev->base + REG_CAMCTL_MOD6_EN);
+	val = mod6_en
 		| FBIT(CAMCTL_CQI_R1_EN)
 		| FBIT(CAMCTL_CQI_R2_EN)
 		| FBIT(CAMCTL_CQI_R3_EN)
@@ -781,6 +785,10 @@ void reset(struct mtk_raw_device *dev)
 	writel(0, dev->base + REG_CAMCTL_SW_CTL);
 
 RESET_FAILURE:
+
+	writel(mod6_en, dev->base + REG_CAMCTL_MOD6_EN);
+	writel(mod6_en, dev->base_inner + REG_CAMCTL_MOD6_EN);
+
 	/* Enable all DMA DCM back */
 	writel(0x0, dev->base + REG_CAMCTL_MOD5_DCM_DIS);
 	writel(0x0, dev->base + REG_CAMCTL_MOD6_DCM_DIS);

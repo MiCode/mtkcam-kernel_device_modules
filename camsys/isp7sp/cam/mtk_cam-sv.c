@@ -261,6 +261,64 @@ int mtk_camsv_translation_fault_callback(int port, dma_addr_t mva, void *data)
 	return 0;
 }
 
+void mtk_cam_sv_backup(struct mtk_camsv_device *sv_dev)
+{
+	struct mtk_camsv_backup_setting *s = &sv_dev->backup_setting;
+	int i;
+
+	s->done_status_en = CAMSV_READ_REG(sv_dev->base +
+					   REG_CAMSVCENTRAL_DONE_STATUS_EN);
+	s->err_status_en = CAMSV_READ_REG(sv_dev->base +
+					  REG_CAMSVCENTRAL_ERR_STATUS_EN);
+	s->sof_status_en = CAMSV_READ_REG(sv_dev->base +
+					  REG_CAMSVCENTRAL_SOF_STATUS_EN);
+
+	for (i = SVTAG_START; i < SVTAG_END; i++) {
+		s->grab_pxl[i] = CAMSV_READ_REG(sv_dev->base_inner +
+				       REG_CAMSVCENTRAL_GRAB_PXL_TAG1 +
+				       CAMSVCENTRAL_GRAB_PXL_TAG_SHIFT * i);
+		s->grab_lin[i] = CAMSV_READ_REG(sv_dev->base_inner +
+				       REG_CAMSVCENTRAL_GRAB_LIN_TAG1 +
+				       CAMSVCENTRAL_GRAB_LIN_TAG_SHIFT * i);
+		s->fbc0[i] = CAMSV_READ_REG(sv_dev->base +
+				       REG_CAMSVCENTRAL_FBC0_TAG1 +
+				       CAMSVCENTRAL_FBC0_TAG_SHIFT * i);
+	}
+
+	s->dma_en_img = CAMSV_READ_REG(sv_dev->base +
+				       REG_CAMSVCENTRAL_DMA_EN_IMG);
+	s->dcif_set = CAMSV_READ_REG(sv_dev->base +
+				     REG_E_CAMSVCENTRAL_DCIF_SET);
+	s->dcif_sel = CAMSV_READ_REG(sv_dev->base +
+				     REG_E_CAMSVCENTRAL_DCIF_SEL);
+}
+
+void mtk_cam_sv_restore(struct mtk_camsv_device *sv_dev)
+{
+	struct mtk_camsv_backup_setting *s = &sv_dev->backup_setting;
+	int i;
+
+	CAMSV_WRITE_REG(sv_dev->base + REG_CAMSVCENTRAL_DONE_STATUS_EN,
+			s->done_status_en);
+	CAMSV_WRITE_REG(sv_dev->base + REG_CAMSVCENTRAL_ERR_STATUS_EN,
+			s->err_status_en);
+	CAMSV_WRITE_REG(sv_dev->base + REG_CAMSVCENTRAL_SOF_STATUS_EN,
+			s->sof_status_en);
+
+	for (i = SVTAG_START; i < SVTAG_END; i++) {
+		CAMSV_WRITE_REG(sv_dev->base_inner + REG_CAMSVCENTRAL_GRAB_PXL_TAG1 +
+			CAMSVCENTRAL_GRAB_PXL_TAG_SHIFT * i, s->grab_pxl[i]);
+		CAMSV_WRITE_REG(sv_dev->base_inner + REG_CAMSVCENTRAL_GRAB_LIN_TAG1 +
+			CAMSVCENTRAL_GRAB_LIN_TAG_SHIFT * i, s->grab_lin[i]);
+		CAMSV_WRITE_REG(sv_dev->base + REG_CAMSVCENTRAL_FBC0_TAG1 +
+			CAMSVCENTRAL_FBC0_TAG_SHIFT * i, s->fbc0[i]);
+	}
+
+	CAMSV_WRITE_REG(sv_dev->base + REG_CAMSVCENTRAL_DMA_EN_IMG, s->dma_en_img);
+	CAMSV_WRITE_REG(sv_dev->base + REG_E_CAMSVCENTRAL_DCIF_SET, s->dcif_set);
+	CAMSV_WRITE_REG(sv_dev->base + REG_E_CAMSVCENTRAL_DCIF_SEL, s->dcif_sel);
+}
+
 static int reset_msgfifo(struct mtk_camsv_device *sv_dev)
 {
 	atomic_set(&sv_dev->is_fifo_overflow, 0);
@@ -1251,6 +1309,10 @@ void camsv_handle_err(
           	mtk_cam_seninf_dump_current_status(ctx->seninf);
 		mtk_cam_ctrl_dump_request(sv_dev->cam, CAMSYS_ENGINE_CAMSV, sv_dev->id,
 				   frame_idx_inner, MSG_CAMSV_ERROR);
+
+		mtk_cam_ctrl_notify_hw_hang(sv_dev->cam,
+					    CAMSYS_ENGINE_CAMSV, sv_dev->id,
+					    frame_idx_inner);
 	}
 }
 

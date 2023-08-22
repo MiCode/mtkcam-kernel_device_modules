@@ -52,6 +52,7 @@ static struct mtk_raw_request_data *req_get_raw_data(struct mtk_cam_ctx *ctx,
 static bool is_sensor_mode_update(struct mtk_cam_job *job);
 static int disable_seninf_cammux(struct mtk_cam_job *job);
 static int job_dump_aa_info(struct mtk_cam_job *job);
+static int job_sw_recovery(struct mtk_cam_job *job);
 
 static int subdev_set_fmt(struct v4l2_subdev *sd, int pad,
 						  const struct v4l2_mbus_framefmt *format)
@@ -198,6 +199,9 @@ int mtk_cam_job_apply_pending_action(struct mtk_cam_job *job)
 
 	if (action & ACTION_CQ_DONE)
 		ret = ret || handle_cq_done(job);
+
+	if (action & ACTION_ABORT_SW_RECOVERY)
+		ret = ret || call_jobop_opt(job, sw_recovery);
 
 	return ret;
 }
@@ -403,6 +407,8 @@ static int mtk_cam_job_pack_init(struct mtk_cam_job *job,
 	job->raw_switch = false;
 
 	memset(&job->ufbc_header, 0, sizeof(job->ufbc_header));
+
+	job->is_error = 0;
 
 	job->local_enqueue_ts = local_clock();
 	job->local_apply_sensor_ts = 0;
@@ -719,6 +725,11 @@ static void convert_fho_timestamp_to_meta(struct mtk_cam_job *job)
 	}
 }
 
+static int job_vb2_buf_state(struct mtk_cam_job *job)
+{
+	return job->is_error ? VB2_BUF_STATE_ERROR : VB2_BUF_STATE_DONE;
+}
+
 /* workqueue context */
 static int
 handle_raw_frame_done(struct mtk_cam_job *job)
@@ -759,7 +770,7 @@ handle_raw_frame_done(struct mtk_cam_job *job)
 	for (i = MTKCAM_SUBDEV_RAW_START; i < MTKCAM_SUBDEV_RAW_END; i++) {
 		if (used_pipe & (1 << i)) {
 			mtk_cam_req_buffer_done(job, i, -1,
-						VB2_BUF_STATE_DONE, true);
+						job_vb2_buf_state(job), true);
 		}
 	}
 
@@ -793,7 +804,7 @@ handle_sv_frame_done(struct mtk_cam_job *job)
 	if (ctx->has_raw_subdev && is_sv_pure_raw(job)) {
 		pipe_id = get_raw_subdev_idx(ctx->used_pipe);
 		mtk_cam_req_buffer_done(job, pipe_id, MTK_RAW_PURE_RAW_OUT,
-					VB2_BUF_STATE_DONE, true);
+					job_vb2_buf_state(job), true);
 	}
 
 	if (job->is_sensor_meta_dump) {
@@ -829,7 +840,7 @@ handle_sv_frame_done(struct mtk_cam_job *job)
 	for (i = MTKCAM_SUBDEV_CAMSV_START; i < MTKCAM_SUBDEV_CAMSV_END; i++) {
 		if (used_pipe & (1 << i)) {
 			mtk_cam_req_buffer_done(job, i, -1,
-						VB2_BUF_STATE_DONE, true);
+						job_vb2_buf_state(job), true);
 		}
 	}
 	if (is_extisp(job)) {
@@ -838,7 +849,7 @@ handle_sv_frame_done(struct mtk_cam_job *job)
 				job->timestamp = job->job_state.extisp_data_timestamp[EXTISP_DATA_PD];
 				mtk_cam_req_buffer_done(job, i,
 							MTK_RAW_META_SV_OUT_0,
-							VB2_BUF_STATE_DONE,
+							job_vb2_buf_state(job),
 							true);
 
 			}
@@ -867,7 +878,7 @@ handle_mraw_frame_done(struct mtk_cam_job *job, unsigned int pipe_id)
 			 mtk_cam_job_state_get(&job->job_state, ISP_STATE),
 			 job->timestamp, job->timestamp_mono);
 
-	mtk_cam_req_buffer_done(job, pipe_id, -1, VB2_BUF_STATE_DONE, true);
+	mtk_cam_req_buffer_done(job, pipe_id, -1, job_vb2_buf_state(job), true);
 
 	return 0;
 }
@@ -1009,7 +1020,7 @@ _stream_on(struct mtk_cam_job *job, bool on)
 			} else {
 				update_scq_start_period(raw_dev, job->scq_period);
 				update_done_tolerance(raw_dev, job->scq_period);
-				stream_on(raw_dev, on);
+				stream_on(raw_dev, on, true);
 			}
 		}
 	}
@@ -3398,7 +3409,7 @@ static void m2m_on_transit(struct mtk_cam_job_state *s, int state_type,
 	}
 }
 
-static struct mtk_cam_job_ops otf_job_ops = {
+static struct mtk_cam_job_ops basic_job_ops = {
 	.cancel = job_cancel,
 	.dump = job_dump,
 	.finalize = job_finalize,
@@ -3413,9 +3424,10 @@ static struct mtk_cam_job_ops otf_job_ops = {
 	.switch_prepare = _switch_prepare,
 	.apply_switch = _apply_switch,
 	.dump_aa_info = job_dump_aa_info,
+	.sw_recovery = job_sw_recovery,
 };
 
-static struct mtk_cam_job_ops otf_stagger_job_ops = {
+static struct mtk_cam_job_ops stagger_job_ops = {
 	.cancel = job_cancel,
 	.dump = job_dump,
 	.finalize = job_finalize,
@@ -3430,6 +3442,7 @@ static struct mtk_cam_job_ops otf_stagger_job_ops = {
 	.switch_prepare = _switch_prepare,
 	.apply_switch = _apply_switch,
 	.dump_aa_info = job_dump_aa_info,
+	.sw_recovery = job_sw_recovery,
 };
 
 static struct mtk_cam_job_ops m2m_job_ops = {
@@ -3785,14 +3798,14 @@ static int job_factory(struct mtk_cam_job *job)
 
 		mtk_cam_job_state_init_basic(&job->job_state, &sf_state_cb,
 					     !!job->sensor_hdl_obj);
-		job->ops = &otf_job_ops;
+		job->ops = &basic_job_ops;
 		break;
 	case JOB_TYPE_STAGGER:
 		pack_helper = &stagger_pack_helper;
 
 		mtk_cam_job_state_init_basic(&job->job_state, &sf_state_cb,
 					     !!job->sensor_hdl_obj);
-		job->ops = &otf_stagger_job_ops;
+		job->ops = &stagger_job_ops;
 		job->init_params = &stagger_init;
 		break;
 	case JOB_TYPE_M2M:
@@ -3814,7 +3827,7 @@ static int job_factory(struct mtk_cam_job *job)
 
 		mtk_cam_job_state_init_subsample(&job->job_state, &sf_state_cb,
 					     !!job->sensor_hdl_obj);
-		job->ops = &otf_job_ops;
+		job->ops = &basic_job_ops;
 		job->init_params = &subsample_init;
 		break;
 	case JOB_TYPE_ONLY_SV:
@@ -4897,6 +4910,56 @@ static int job_dump_aa_info(struct mtk_cam_job *job)
 		__func__, job->req->debug_str,
 		ctx->stream_id, ctx->raw_subdev_idx, job->req_seq,
 		sink->width, sink->height, str_buf);
+
+	return 0;
+}
+
+static bool test_do_engine_reset_for_recovery(struct mtk_cam_ctx *ctx)
+{
+	u64 ts;
+
+	ts = ktime_get_boottime_ns();
+	if (ts - ctx->sw_recovery_ts > 500000000ULL) {
+		ctx->sw_recovery_ts = ts;
+
+		return true;
+	}
+
+	pr_info("%s: ctx-%d skipped\n", __func__, ctx->stream_id);
+	return false;
+}
+
+static void job_mark_dc_engine_error_buffer(struct mtk_cam_job *job)
+{
+	int raw_id = get_master_raw_id(job->used_engine);
+	int sv_id = get_master_sv_id(job->used_engine);
+
+	job->is_error = 1;
+
+	job_mark_engine_done(job, CAMSYS_ENGINE_RAW, raw_id, job->frame_seq_no);
+	job_mark_engine_done(job, CAMSYS_ENGINE_CAMSV, sv_id, job->frame_seq_no);
+}
+
+static int job_sw_recovery(struct mtk_cam_job *job)
+{
+	struct mtk_cam_ctx *ctx = job->src_ctx;
+
+	/* for dc mode only*/
+	if (!is_dc_mode(job))
+		return 0;
+
+	pr_info("%s: ctx-%d cq-0x%x eng 0x%08x (%s)\n",
+		__func__, ctx->stream_id,
+		job->frame_seq_no, job->used_engine, job->scen_str);
+
+	// skip succesive sw_recovery
+	if (test_do_engine_reset_for_recovery(ctx)) {
+		mtk_cam_ctx_engine_dc_sw_recovery(ctx);
+		WRITE_ONCE(ctx->cam_ctrl.cur_cq_ref, 0);
+	}
+
+	// mark job done w. error
+	job_mark_dc_engine_error_buffer(job);
 
 	return 0;
 }

@@ -138,7 +138,7 @@ void enable_tg_db(struct mtk_raw_device *dev, int en);
 void rwfbc_inc_setup(struct mtk_raw_device *dev);
 
 /* trigger */
-void stream_on(struct mtk_raw_device *dev, int on);
+void stream_on(struct mtk_raw_device *dev, int on, bool reset_at_off);
 void immediate_stream_off(struct mtk_raw_device *dev);
 void trigger_rawi_r2(struct mtk_raw_device *dev);
 void trigger_rawi_r5(struct mtk_raw_device *dev);

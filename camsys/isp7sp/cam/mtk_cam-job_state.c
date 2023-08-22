@@ -33,6 +33,8 @@ const char *str_event(int event)
 		[CAMSYS_EVENT_ACK] = "ack",
 		[CAMSYS_EVENT_IRQ_EXTMETA_SOF] = "extisp meta sof",
 		[CAMSYS_EVENT_IRQ_EXTMETA_CQ_DONE] = "extisp cq done",
+
+		[CAMSYS_EVENT_HW_HANG] = "hw hang",
 	};
 
 	return value_to_str(str, ARRAY_SIZE(str), event);
@@ -66,6 +68,7 @@ const char *str_isp_state(int state)
 		[S_ISP_SENSOR_MISMATCHED] = "s-mismatched",
 		[S_ISP_DONE] = "done",
 		[S_ISP_DONE_MISMATCHED] = "done-mismatched",
+		[S_ISP_ABORTED] = "aborted",
 	};
 
 	return value_to_str(str, ARRAY_SIZE(str), state);

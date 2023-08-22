@@ -780,6 +780,7 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.fine_integ_line = 0,
 		.delay_frame = 2,
 		.csi_param = {0},
+		.sensor_output_dataformat_cell_type = SENSOR_OUTPUT_FORMAT_CELL_4X4,
 	},
 };
 

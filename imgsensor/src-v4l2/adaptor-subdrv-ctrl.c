@@ -2889,6 +2889,7 @@ int common_get_info(struct subdrv_ctx *ctx,
 	sensor_info->SensorOutputDataFormat =
 		ctx->s_ctx.mode[scenario_id].sensor_output_dataformat;
 	for (i = 0; i < ctx->s_ctx.sensor_mode_num; i++) {
+		sensor_info->sensorFormatCellType[i] = ctx->s_ctx.mode[i].sensor_output_dataformat_cell_type;
 		sensor_info->DelayFrame[i] = ctx->s_ctx.mode[i].delay_frame;
 		sensor_info->ModeInfo[i].SensorDpcEnabled = ctx->s_ctx.mode[i].dpc_enabled;
 		sensor_info->ModeInfo[i].SensorPdcEnabled = ctx->s_ctx.mode[i].pdc_enabled;

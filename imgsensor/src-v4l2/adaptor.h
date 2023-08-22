@@ -45,6 +45,12 @@ struct adaptor_ctx;
 static unsigned int sensor_debug;
 static unsigned int set_ctrl_unlock;
 
+#ifdef IMGSENSOR_FUSION_TEST_WORKAROUND
+extern unsigned int gSensor_num;
+extern unsigned int is_multicam;
+extern unsigned int is_imgsensor_fusion_test_workaround;
+#endif
+
 struct adaptor_ae_ctrl_dbg_info {
 	/* timestamp info when get ae ctrl */
 	u64 sys_ts_g_ae_ctrl;

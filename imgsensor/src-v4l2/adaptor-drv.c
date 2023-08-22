@@ -45,6 +45,12 @@ module_param(sensor_debug, uint, 0644);
 module_param(set_ctrl_unlock, uint, 0644);
 MODULE_PARM_DESC(sensor_debug, "imgsensor_debug");
 
+#ifdef IMGSENSOR_FUSION_TEST_WORKAROUND
+unsigned int gSensor_num;
+unsigned int is_multicam;
+unsigned int is_imgsensor_fusion_test_workaround;
+#endif
+
 static void get_outfmt_code(struct adaptor_ctx *ctx)
 {
 	unsigned int i, outfmt;
@@ -1428,6 +1434,7 @@ static int imgsensor_probe(struct i2c_client *client)
 	const char *reindex_match[OF_SENSOR_NAMES_MAXCNT];
 	int reindex_match_cnt;
 	int forbid_index;
+	struct device_node *platform_node = NULL;
 
 	ctx = devm_kzalloc(dev, sizeof(*ctx), GFP_KERNEL);
 	if (!ctx)
@@ -1451,8 +1458,15 @@ static int imgsensor_probe(struct i2c_client *client)
 		dev->of_node, "cust-aov-csi-clk", &ctx->cust_aov_csi_clk))
 		dev_info(dev, "cust_aov_csi_clk:%u\n", ctx->cust_aov_csi_clk);
 
+	platform_node = of_find_compatible_node(NULL, NULL, "mediatek,seninf-core");
+	if (!platform_node) {
+		dev_info(dev,
+			"compatiable node:(mediatek,seninf-core) not found\n");
+		return -EINVAL;
+	}
+
 	if (!of_property_read_string(
-		dev->of_node, "phy-ctrl-ver", &ctx->phy_ctrl_ver))
+		platform_node, "mtk-iomem-ver", &ctx->phy_ctrl_ver))
 		dev_info(dev, "phy_ctrl_ver:%s\n", ctx->phy_ctrl_ver);
 
 	endpoint = of_graph_get_next_endpoint(dev->of_node, NULL);
@@ -1461,8 +1475,7 @@ static int imgsensor_probe(struct i2c_client *client)
 		return -EINVAL;
 	}
 
-	ret = v4l2_fwnode_endpoint_parse(of_fwnode_handle(endpoint),
-					 &ctx->ep);
+	ret = v4l2_fwnode_endpoint_parse(of_fwnode_handle(endpoint), &ctx->ep);
 
 	of_node_put(endpoint);
 
@@ -1482,6 +1495,25 @@ static int imgsensor_probe(struct i2c_client *client)
 		dev_err(dev, "no sensor found\n");
 		return ret;
 	}
+#ifdef IMGSENSOR_FUSION_TEST_WORKAROUND
+	else {
+		gSensor_num++;
+		if (gSensor_num > 2)
+			is_multicam = 1;
+		else
+			is_multicam = 0;
+		if (ctx->phy_ctrl_ver) {
+			if (is_multicam && !strcasecmp(ctx->phy_ctrl_ver,
+				MT6989_PHY_CTRL_VERSIONS))
+				is_imgsensor_fusion_test_workaround = 1;
+		} else
+			is_imgsensor_fusion_test_workaround = 0;
+		dev_info(dev,
+			"Sensor_num/is_multicam/is_imgsensor_fusion_test_workaround:%u/%u/%u\n",
+			gSensor_num, is_multicam,
+			is_imgsensor_fusion_test_workaround);
+	}
+#endif
 
 	/* read property */
 	of_property_read_u32(dev->of_node, "location", &ctx->location);
@@ -1675,6 +1707,11 @@ static struct i2c_driver imgsensor_i2c_driver = {
 
 static int __init adaptor_drv_init(void)
 {
+#ifdef IMGSENSOR_FUSION_TEST_WORKAROUND
+	gSensor_num = 0;
+	is_multicam = 0;
+	is_imgsensor_fusion_test_workaround = 0;
+#endif
 	i2c_add_driver(&imgsensor_i2c_driver);
 
 	return 0;
@@ -1682,6 +1719,11 @@ static int __init adaptor_drv_init(void)
 
 static void __exit adaptor_drv_exit(void)
 {
+#ifdef IMGSENSOR_FUSION_TEST_WORKAROUND
+	gSensor_num = 0;
+	is_multicam = 0;
+	is_imgsensor_fusion_test_workaround = 0;
+#endif
 	i2c_del_driver(&imgsensor_i2c_driver);
 }
 

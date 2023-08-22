@@ -951,6 +951,69 @@ struct mtk_cam_seninf_sentest_param *
 	}
 }
 
+int mtk_cam_sv_golden_set(struct mtk_camsv_device *sv_dev, bool is_golden_set)
+{
+	int ret = 0;
+
+	switch (sv_dev->id) {
+	case CAMSV_0:
+		/* force ultra */
+		mtk_smi_golden_set(is_golden_set, true, sv_dev->larb_id, 1);
+		mtk_smi_golden_set(is_golden_set, true, sv_dev->larb_id, 2);
+		/* ostd */
+		if (is_golden_set) {
+			mtk_smi_larb_bw_set(&sv_dev->larb_pdev->dev, 1, 0x40);
+			mtk_smi_larb_bw_set(&sv_dev->larb_pdev->dev, 2, 0x40);
+		}
+		/* cmd th */
+		mtk_smi_golden_set(is_golden_set, false, 0, 0);
+		break;
+	case CAMSV_1:
+		/* force ultra */
+		mtk_smi_golden_set(is_golden_set, true, sv_dev->larb_id, 1);
+		mtk_smi_golden_set(is_golden_set, true, sv_dev->larb_id, 2);
+		/* ostd */
+		if (is_golden_set) {
+			mtk_smi_larb_bw_set(&sv_dev->larb_pdev->dev, 1, 0x40);
+			mtk_smi_larb_bw_set(&sv_dev->larb_pdev->dev, 2, 0x40);
+		}
+		break;
+	case CAMSV_2:
+		/* force ultra */
+		mtk_smi_golden_set(is_golden_set, true, sv_dev->larb_id, 4);
+		/* ostd */
+		if (is_golden_set)
+			mtk_smi_larb_bw_set(&sv_dev->larb_pdev->dev, 4, 0x40);
+		break;
+	case CAMSV_3:
+		/* force ultra */
+		mtk_smi_golden_set(is_golden_set, true, sv_dev->larb_id, 5);
+		/* ostd */
+		if (is_golden_set)
+			mtk_smi_larb_bw_set(&sv_dev->larb_pdev->dev, 5, 0x40);
+		break;
+	case CAMSV_4:
+		/* force ultra */
+		mtk_smi_golden_set(is_golden_set, true, sv_dev->larb_id, 6);
+		/* ostd */
+		if (is_golden_set)
+			mtk_smi_larb_bw_set(&sv_dev->larb_pdev->dev, 6, 0x40);
+		break;
+	case CAMSV_5:
+		/* force ultra */
+		mtk_smi_golden_set(is_golden_set, true, sv_dev->larb_id, 7);
+		/* ostd */
+		if (is_golden_set)
+			mtk_smi_larb_bw_set(&sv_dev->larb_pdev->dev, 7, 0x40);
+		break;
+	}
+
+	dev_info(sv_dev->dev, "%s: is_golden_set:%d larb_id:%d",
+		__func__, (is_golden_set) ? 1 : 0, sv_dev->larb_id);
+
+	return ret;
+}
+
 unsigned int mtk_cam_get_sv_tag_index(struct mtk_camsv_tag_info *arr_tag,
 	unsigned int pipe_id)
 {
@@ -1984,6 +2047,13 @@ static int mtk_camsv_of_probe(struct platform_device *pdev,
 					pdev->dev.of_node, "mediatek,larbs", i);
 		if (!larb_node) {
 			dev_info(dev, "failed to get larb node\n");
+			continue;
+		}
+
+		ret = of_property_read_u32(larb_node, "mediatek,larb-id",
+								   &sv_dev->larb_id);
+		if (ret) {
+			dev_info(dev, "missing larb id property\n");
 			continue;
 		}
 

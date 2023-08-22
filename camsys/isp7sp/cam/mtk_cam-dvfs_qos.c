@@ -1081,6 +1081,7 @@ int mtk_cam_apply_qos(struct mtk_cam_job *job)
 		}
 
 		if (apply_sv_th) {
+			/* apply fifo setting according to bandwidth */
 			fifo_img_p1 =
 				(job->sv_mmqos[SMI_PORT_SV_DISP_WDMA_0].peak_bw +
 				job->sv_mmqos[SMI_PORT_SV_MDP_WDMA_0].peak_bw) * 64 * 12 / 1000000;
@@ -1090,6 +1091,9 @@ int mtk_cam_apply_qos(struct mtk_cam_job *job)
 			fifo_len_p1 = fifo_img_p1 / 80;
 			fifo_len_p2 = fifo_img_p2 / 80;
 			mtk_cam_sv_dmao_common_config(sv_dev, fifo_img_p1, fifo_img_p2, fifo_len_p1, fifo_len_p2);
+
+			/* apply golden setting */
+			mtk_cam_sv_golden_set(sv_dev, is_dc_mode(job) ? true : false);
 		}
 	}
 

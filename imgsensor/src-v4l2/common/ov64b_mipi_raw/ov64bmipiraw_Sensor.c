@@ -992,9 +992,9 @@ static struct subdrv_static_ctx static_ctx = {
 	.min_gain_iso = 100,
 	.exposure_def = 0x3D0,
 	.exposure_min = 16,
-	.exposure_max = 0xFFFFFF - 24,
+	.exposure_max = 0xFFFFFF - 36,
 	.exposure_step = 2,
-	.exposure_margin = 24,
+	.exposure_margin = 36,
 
 	.frame_length_max = 0xFFFFFF,
 	.ae_effective_frame = 2,
@@ -1206,6 +1206,8 @@ static int ov64b_set_max_framerate_by_scenario(struct subdrv_ctx *ctx, u8 *para,
 		framerate, ctx->current_fps, scenario_id, ctx->frame_length, calc_fl);
 	if (ctx->frame_length > calc_fl)
 		ov64b_set_dummy(ctx);
+	else
+		ctx->frame_length = calc_fl;
 
 	return ERROR_NONE;
 }

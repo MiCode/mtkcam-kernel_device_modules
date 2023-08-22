@@ -502,7 +502,7 @@ static int do_set_dcg_ae_ctrl(struct adaptor_ctx *ctx,
 		notify_fsync_mgr_set_extend_framelength(ctx, para.u64[0]);
 	}
 
-	ctx->exposure->val = (u32) ae_ctrl->exposure.le_exposure;
+	ctx->exposure->val = FINE_INTEG_CONVERT(ae_ctrl->exposure.le_exposure, ctx->cur_mode->fine_intg_line);
 	ctx->analogue_gain->val = ae_ctrl->gain.le_gain;
 	ctx->subctx.ae_ctrl_gph_en = 0;
 	dump_perframe_info(ctx, ae_ctrl);
@@ -624,7 +624,7 @@ static int do_set_ae_ctrl(struct adaptor_ctx *ctx,
 		notify_fsync_mgr_set_extend_framelength(ctx, para.u64[0]);
 	}
 
-	ctx->exposure->val = (u32) ae_ctrl->exposure.le_exposure;
+	ctx->exposure->val = FINE_INTEG_CONVERT(ae_ctrl->exposure.le_exposure, ctx->cur_mode->fine_intg_line);
 	ctx->analogue_gain->val = ae_ctrl->gain.le_gain;
 	ctx->subctx.ae_ctrl_gph_en = 0;
 	dump_perframe_info(ctx, ae_ctrl);
@@ -1654,7 +1654,7 @@ static int imgsensor_set_ctrl(struct v4l2_ctrl *ctrl)
 					info->target_scenario_id);
 			}
 
-			ctx->exposure->val = info->ae_ctrl[0].exposure.arr[0];
+			ctx->exposure->val = FINE_INTEG_CONVERT(info->ae_ctrl[0].exposure.arr[0], ctx->cur_mode->fine_intg_line);
 			ctx->is_sensor_scenario_inited = 1;
 
 			/* update timeout value upon seamless switch*/
@@ -2401,8 +2401,6 @@ int update_shutter_for_timeout(struct adaptor_ctx *ctx)
 		: ctx->subctx.s_ctx.mode[ctx->cur_mode->id].exp_cnt;
 
 	ctx->shutter_for_timeout = ctx->exposure->val;
-	if (ctx->cur_mode->fine_intg_line)
-		ctx->shutter_for_timeout /= 1000;
 
 	if (ctx->subctx.s_ctx.mode != NULL) {
 		switch (hdr_mode) {
@@ -2438,7 +2436,7 @@ int update_shutter_for_timeout_by_ae_ctrl(struct adaptor_ctx *ctx, struct mtk_hd
 		return 0;
 	}
 
-	if (ae_ctrl->exposure.arr[IMGSENSOR_STAGGER_EXPOSURE_LE])
+	if (!ae_ctrl->exposure.arr[IMGSENSOR_STAGGER_EXPOSURE_LE])
 		return 0;
 
 	ctx->shutter_for_timeout = ae_ctrl->exposure.arr[IMGSENSOR_STAGGER_EXPOSURE_LE];
@@ -2453,8 +2451,7 @@ int update_shutter_for_timeout_by_ae_ctrl(struct adaptor_ctx *ctx, struct mtk_hd
 	default:
 		break;
 	}
-	if (ctx->cur_mode->fine_intg_line)
-		ctx->shutter_for_timeout /= 1000;
+	ctx->shutter_for_timeout = FINE_INTEG_CONVERT(ctx->shutter_for_timeout, ctx->cur_mode->fine_intg_line);
 	return 1;
 }
 

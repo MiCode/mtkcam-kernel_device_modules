@@ -1488,6 +1488,7 @@ int imgsys_cmdq_task_aee_cb_plat7sp(struct cmdq_cb_data data)
 	} else if ((event >= IMGSYS_CMDQ_GPR_EVENT_BEGIN) &&
 		(event <= IMGSYS_CMDQ_GPR_EVENT_END)) {
 		isHWhang = 1;
+		pkt->timeout_dump_hw_trace = 1;
 		ret = CMDQ_AEE_EXCEPTION;
 		pr_info(
 			"%s: [ERROR] GPR event timeout! wfe(%d) event(%d) isHW(%d)",
@@ -1503,6 +1504,7 @@ int imgsys_cmdq_task_aee_cb_plat7sp(struct cmdq_cb_data data)
 			cb_param->pkt->err_data.event, isHWhang);
 	} else {
 		isHWhang = 1;
+		pkt->timeout_dump_hw_trace = 1;
 		ret = CMDQ_AEE_EXCEPTION;
 		pr_info(
 			"%s: [ERROR] HW event timeout! wfe(%d) event(%d) isHW(%d)",

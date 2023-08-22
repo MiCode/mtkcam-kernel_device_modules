@@ -6,7 +6,7 @@
  *
  * Filename:
  * ---------
- *	 imx758_ana_gain_table.h
+ *	 imx989lite_ana_gain_table.h
  *
  * Project:
  * --------
@@ -15,12 +15,12 @@
  *	 Analog Gain Table
  *
  ****************************************************************************/
-#ifndef __IMX758_ANA_GAIN_TABLE_H__
-#define __IMX758_ANA_GAIN_TABLE_H__
+#ifndef __IMX989LITE_ANA_GAIN_TABLE_H__
+#define __IMX989LITE_ANA_GAIN_TABLE_H__
 
 #include "kd_camera_typedef.h"
 
-static kal_uint32 imx758_ana_gain_table[] = {
+static kal_uint32 imx989lite_ana_gain_table[] = {
 	1024,
 	1025,
 	1026,
@@ -220,7 +220,7 @@ static kal_uint32 imx758_ana_gain_table[] = {
 	1266,
 	1267,
 	1269,
-	1271,
+	1270,
 	1272,
 	1274,
 	1275,
@@ -1014,10 +1014,27 @@ static kal_uint32 imx758_ana_gain_table[] = {
 	30840,
 	31775,
 	32768,
+	33825,
+	34952,
+	36157,
+	37449,
+	38836,
+	40329,
+	41943,
+	43690,
+	45590,
+	47662,
+	49932,
+	52428,
+	55188,
+	58254,
+	61680,
+	65536,
+	65536,
 };
 
-#define IMX758_GAIN_TABLE_SIZE 432
-static kal_uint32 imx758_gain_table[IMX758_GAIN_TABLE_SIZE] = {
+#define imx989lite_GAIN_TABLE_SIZE 432
+static kal_uint32 imx989lite_gain_table[imx989lite_GAIN_TABLE_SIZE] = {
 	1024,
 	1040,
 	1056,
@@ -1452,7 +1469,7 @@ static kal_uint32 imx758_gain_table[IMX758_GAIN_TABLE_SIZE] = {
 	65536,
 };
 
-static kal_uint16 imx758_gain_reg[IMX758_GAIN_TABLE_SIZE] = {
+static kal_uint16 imx989lite_gain_reg[imx989lite_GAIN_TABLE_SIZE] = {
 	0,
 	240,
 	496,

@@ -6,7 +6,7 @@
  *
  * Filename:
  * ---------
- *	 imx598_ana_gain_table.h
+ *	 imx598lite_ana_gain_table.h
  *
  * Project:
  * --------
@@ -15,12 +15,12 @@
  *	 Analog Gain Table
  *
  ****************************************************************************/
-#ifndef __IMX598_ANA_GAIN_TABLE_H__
-#define __IMX598_ANA_GAIN_TABLE_H__
+#ifndef __IMX598LITE_ANA_GAIN_TABLE_H__
+#define __IMX598LITE_ANA_GAIN_TABLE_H__
 
 #include "kd_camera_typedef.h"
 
-static kal_uint32 imx598_ana_gain_table[] = {
+static kal_uint32 imx598lite_ana_gain_table[] = {
 	1150,
 	1151,
 	1152,

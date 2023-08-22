@@ -7,7 +7,7 @@
  *
  * Filename:
  * ---------
- *     imx598mipiraw_Sensor.h
+ *     imx989litemipiraw_Sensor.h
  *
  * Project:
  * --------
@@ -18,8 +18,8 @@
  *     CMOS sensor header file
  *
  ****************************************************************************/
-#ifndef _IMX598MIPI_SENSOR_H
-#define _IMX598MIPI_SENSOR_H
+#ifndef _IMX989LITEMIPI_SENSOR_H
+#define _IMX989LITEMIPI_SENSOR_H
 
 #include <linux/videodev2.h>
 #include <linux/i2c.h>
@@ -36,8 +36,8 @@
 #include "kd_imgsensor_define_v4l2.h"
 #include "kd_imgsensor_errcode.h"
 
-#include "imx598_ana_gain_table.h"
-#include "imx598_Sensor_setting.h"
+#include "imx989lite_ana_gain_table.h"
+#include "imx989lite_Sensor_setting.h"
 
 #include "adaptor-subdrv-ctrl.h"
 #include "adaptor-i2c.h"

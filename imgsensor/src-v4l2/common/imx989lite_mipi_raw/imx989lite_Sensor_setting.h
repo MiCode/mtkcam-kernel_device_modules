@@ -6,7 +6,7 @@
  *
  * Filename:
  * ---------
- *	 imx989_Sensor_setting.h
+ *	 imx989lite_Sensor_setting.h
  *
  * Project:
  * --------
@@ -15,8 +15,8 @@
  *	 CMOS sensor header file
  *
  ****************************************************************************/
-#ifndef _IMX989_SENSOR_SETTING_H
-#define _IMX989_SENSOR_SETTING_H
+#ifndef _IMX989LITE_SENSOR_SETTING_H
+#define _IMX989LITE_SENSOR_SETTING_H
 
 #include "kd_camera_typedef.h"
 
@@ -28,7 +28,7 @@
 // must be two different value
 
 /* init setting */
-static u16 imx989_init_setting[] = {
+static u16 imx989lite_init_setting[] = {
 	// External Clock Setting
 	0x0136, 0x13,
 	0x0137, 0x33,
@@ -336,7 +336,7 @@ static u16 imx989_init_setting[] = {
 	0xF412, 0x00,
 };
 /* mode setting */
-static u16 imx989_preview_setting[] = {
+static u16 imx989lite_preview_setting[] = {
 /* Reg_A: OBIN_4096_3072_30FPS_PD_On the fly1 */
 	// MIPI output setting
 	0x0112, 0x0A,
@@ -636,7 +636,7 @@ static u16 imx989_preview_setting[] = {
 	0x0858, 0x00,
 	0x0859, 0x1F,
 };
-static u16 imx989_capture_setting[] = {
+static u16 imx989lite_capture_setting[] = {
 /* Reg_B: OBIN_4096_3072_30FPS_PD_On the fly1 */
 	// MIPI output setting
 	0x0112, 0x0A,
@@ -936,7 +936,7 @@ static u16 imx989_capture_setting[] = {
 	0x0858, 0x00,
 	0x0859, 0x1F,
 };
-static u16 imx989_normal_video_setting[] = {
+static u16 imx989lite_normal_video_setting[] = {
 /* Reg_C: OBIN_4K_4096_2304_30FPS_PD_On the fly2 */
 	// MIPI output setting
 	0x0112, 0x0A,
@@ -1236,7 +1236,7 @@ static u16 imx989_normal_video_setting[] = {
 	0x0858, 0x00,
 	0x0859, 0x1F,
 };
-static u16 imx989_hs_video_setting[] = {
+static u16 imx989lite_hs_video_setting[] = {
 /* Reg_D: OBIN_4K_4096_2304_120FPS */
 	// MIPI output setting
 	0x0112, 0x0A,
@@ -1536,7 +1536,7 @@ static u16 imx989_hs_video_setting[] = {
 	0x0858, 0x00,
 	0x0859, 0x1F,
 };
-static u16 imx989_slim_video_setting[] = {
+static u16 imx989lite_slim_video_setting[] = {
 /* Reg_E: V2H2_FHD_1920_1080_240FPS */
 	// MIPI output setting
 	0x0112, 0x0A,
@@ -1836,7 +1836,7 @@ static u16 imx989_slim_video_setting[] = {
 	0x0858, 0x00,
 	0x0859, 0x1F,
 };
-static u16 imx989_custom1_setting[] = {
+static u16 imx989lite_custom1_setting[] = {
 /* Reg_F: V2H2_HD_1280_720_960FPS */
 	// MIPI output setting
 	0x0112, 0x0A,
@@ -2139,7 +2139,7 @@ static u16 imx989_custom1_setting[] = {
 	0x0100, 0x01,
 	0x0100, 0x00,
 };
-static u16 imx989_custom2_setting[] = {
+static u16 imx989lite_custom2_setting[] = {
 /* Reg_G: V2H2_FHD_1920_1080_480FPS */
 	// MIPI output setting
 	0x0112, 0x0A,
@@ -2442,7 +2442,7 @@ static u16 imx989_custom2_setting[] = {
 	0x0100, 0x01,
 	0x0100, 0x00,
 };
-static u16 imx989_custom3_setting[] = {
+static u16 imx989lite_custom3_setting[] = {
 /* Reg_H: V2H2_HD_1280_720_480FPS */
 	// MIPI output setting
 	0x0112, 0x0A,
@@ -2742,7 +2742,7 @@ static u16 imx989_custom3_setting[] = {
 	0x0858, 0x00,
 	0x0859, 0x1F,
 };
-static u16 imx989_custom4_setting[] = {
+static u16 imx989lite_custom4_setting[] = {
 /* Reg_I: DCGHDR_RATIO4_4K_4096_2304_30FPS_PD_On the fly2 (12bit) */
 	// MIPI output setting
 	0x0112, 0x0C,
@@ -3042,7 +3042,7 @@ static u16 imx989_custom4_setting[] = {
 	0x0858, 0x00,
 	0x0859, 0x1F,
 };
-static u16 imx989_custom5_setting[] = {
+static u16 imx989lite_custom5_setting[] = {
 /* Reg_I: DCGHDR_RATIO4_4K_4096_2304_30FPS_PD_On the fly2 (14bit) */
 	// MIPI output setting
 	0x0112, 0x0E,
@@ -3342,7 +3342,7 @@ static u16 imx989_custom5_setting[] = {
 	0x0858, 0x00,
 	0x0859, 0x1F,
 };
-static u16 imx989_custom6_setting[] = {
+static u16 imx989lite_custom6_setting[] = {
 /* Reg_K: 2LBMF_MANUAL_MODE_4K_4096_2304_30FPS_PD_On the fly2 */
 	// MIPI output setting
 	0x0112, 0x0A,
@@ -3642,7 +3642,7 @@ static u16 imx989_custom6_setting[] = {
 	0x0858, 0x00,
 	0x0859, 0x1F,
 };
-static u16 imx989_custom7_setting[] = {
+static u16 imx989lite_custom7_setting[] = {
 /* Reg_L: 2FDOL_4K_4096_2304_30FPS_PD_On the fly2 */
 	// MIPI output setting
 	0x0112, 0x0A,
@@ -3942,7 +3942,7 @@ static u16 imx989_custom7_setting[] = {
 	0x0858, 0x00,
 	0x0859, 0x1F,
 };
-static u16 imx989_custom8_setting[] = {
+static u16 imx989lite_custom8_setting[] = {
 /* Reg_M: OBIN_4K_4096_2304_60FPS_PD_On the fly2 */
 	// MIPI output setting
 	0x0112, 0x0A,
@@ -4242,7 +4242,7 @@ static u16 imx989_custom8_setting[] = {
 	0x0858, 0x00,
 	0x0859, 0x1F,
 };
-static u16 imx989_custom9_setting[] = {
+static u16 imx989lite_custom9_setting[] = {
 /* Reg_N: FULL_RAW_CENTER_CROP_4096_2304_60FPS_PD_On the fly2 */
 	// MIPI output setting
 	0x0112, 0x0A,
@@ -4542,7 +4542,7 @@ static u16 imx989_custom9_setting[] = {
 	0x0858, 0x00,
 	0x0859, 0x1F,
 };
-static u16 imx989_custom10_setting[] = {
+static u16 imx989lite_custom10_setting[] = {
 /* Reg_O: FULL_CENTER_CROP_4096_3072_30FPS_PD_On the fly1 */
 	// MIPI output setting
 	0x0112, 0x0A,
@@ -4842,7 +4842,7 @@ static u16 imx989_custom10_setting[] = {
 	0x0858, 0x00,
 	0x0859, 0x1F,
 };
-static u16 imx989_custom11_setting[] = {
+static u16 imx989lite_custom11_setting[] = {
 /* Reg_P: FULL_RAW_CENTER_CROP_4096_3072_30FPS_PD_On the fly1 */
 	// MIPI output setting
 	0x0112, 0x0A,
@@ -5142,7 +5142,7 @@ static u16 imx989_custom11_setting[] = {
 	0x0858, 0x00,
 	0x0859, 0x1F,
 };
-static u16 imx989_custom12_setting[] = {
+static u16 imx989lite_custom12_setting[] = {
 /* Reg_Q: FULL_8192_6144_24FPS_PD_On the fly1 */
 	// MIPI output setting
 	0x0112, 0x0A,
@@ -5442,7 +5442,7 @@ static u16 imx989_custom12_setting[] = {
 	0x0858, 0x00,
 	0x0859, 0x1F,
 };
-static u16 imx989_custom13_setting[] = {
+static u16 imx989lite_custom13_setting[] = {
 /* Reg_R: FULL_RAW_8192_6144_24FPS_PD_On the fly1 */
 	// MIPI output setting
 	0x0112, 0x0A,
@@ -5742,7 +5742,7 @@ static u16 imx989_custom13_setting[] = {
 	0x0858, 0x00,
 	0x0859, 0x1F,
 };
-static u16 imx989_custom14_setting[] = {
+static u16 imx989lite_custom14_setting[] = {
 /* Reg_S: 2FDOL_4K_4096_3072_30FPS_PD_On the fly1 */
 	// MIPI output setting
 	0x0112, 0x0A,
@@ -6042,7 +6042,7 @@ static u16 imx989_custom14_setting[] = {
 	0x0858, 0x00,
 	0x0859, 0x1F,
 };
-static u16 imx989_custom15_setting[] = {
+static u16 imx989lite_custom15_setting[] = {
 /* Reg_Y: 3FDOL_4K_4096_3072_30FPS_PD_On the fly1 */
 	// MIPI output setting
 	0x0112, 0x0A,
@@ -6342,7 +6342,7 @@ static u16 imx989_custom15_setting[] = {
 	0x0858, 0x00,
 	0x0859, 0x1F,
 };
-static u16 imx989_custom16_setting[] = {
+static u16 imx989lite_custom16_setting[] = {
 /* Reg_U: DCGHDR_RATIO4_4K_4096_3072_30FPS_PD_On the fly1 (12bit) */
 	// MIPI output setting
 	0x0112, 0x0C,
@@ -6642,7 +6642,7 @@ static u16 imx989_custom16_setting[] = {
 	0x0858, 0x00,
 	0x0859, 0x1F,
 };
-static u16 imx989_custom17_setting[] = {
+static u16 imx989lite_custom17_setting[] = {
 /* Reg_U: DCGHDR_RATIO4_4K_4096_3072_30FPS_PD_On the fly1 (14bit) */
 	// MIPI output setting
 	0x0112, 0x0E,
@@ -6942,7 +6942,7 @@ static u16 imx989_custom17_setting[] = {
 	0x0858, 0x00,
 	0x0859, 0x1F,
 };
-static u16 imx989_custom18_setting[] = {
+static u16 imx989lite_custom18_setting[] = {
 /* Reg_W: 2LBMF_MANUAL_MODE_4K_4096_3072_30FPS_PD_On the fly1 */
 	// MIPI output setting
 	0x0112, 0x0A,
@@ -7242,7 +7242,7 @@ static u16 imx989_custom18_setting[] = {
 	0x0858, 0x00,
 	0x0859, 0x1F,
 };
-static u16 imx989_custom19_setting[] = {
+static u16 imx989lite_custom19_setting[] = {
 /* Reg_Z: OBIN_4096_3072_60FPS_PD_On the fly1 */
 	// MIPI output setting
 	0x0112, 0x0A,
@@ -7542,7 +7542,7 @@ static u16 imx989_custom19_setting[] = {
 	0x0858, 0x00,
 	0x0859, 0x1F,
 };
-static u16 imx989_custom20_setting[] = {
+static u16 imx989lite_custom20_setting[] = {
 /* Reg_T: FULL_RAW_CENTER_CROP_4096_3072_30FPS_PD_On the fly1 */
 	// MIPI output setting
 	0x0112, 0x0A,
@@ -7842,7 +7842,7 @@ static u16 imx989_custom20_setting[] = {
 	0x0858, 0x00,
 	0x0859, 0x1F,
 };
-static u16 imx989_custom21_setting[] = {
+static u16 imx989lite_custom21_setting[] = {
 /* Reg_AA: OBIN_4096_3072_30FPS_PD */
 	// MIPI output setting
 	0x0112, 0x0A,
@@ -8142,7 +8142,7 @@ static u16 imx989_custom21_setting[] = {
 	0x0858, 0x00,
 	0x0859, 0x1F,
 };
-static u16 imx989_custom22_setting[] = {
+static u16 imx989lite_custom22_setting[] = {
 /* Reg_AB: OBIN_4K_4096_2304_30FPS_PD */
 	// MIPI output setting
 	0x0112, 0x0A,
@@ -8442,7 +8442,7 @@ static u16 imx989_custom22_setting[] = {
 	0x0858, 0x00,
 	0x0859, 0x1F,
 };
-static u16 imx989_custom23_setting[] = {
+static u16 imx989lite_custom23_setting[] = {
 /* Reg_AC: OBIN_4K_4096_2304_60FPS_PD */
 	// MIPI output setting
 	0x0112, 0x0A,
@@ -8742,7 +8742,7 @@ static u16 imx989_custom23_setting[] = {
 	0x0858, 0x00,
 	0x0859, 0x1F,
 };
-static u16 imx989_custom24_setting[] = {
+static u16 imx989lite_custom24_setting[] = {
 /* reg_I_RAW: DCGHDR_RAW_RATIO4_4K_4096_2304_30FPS_PD */
     // MIPI output setting
     0x0112, 0x0A,
@@ -9042,7 +9042,7 @@ static u16 imx989_custom24_setting[] = {
     0x0858, 0x00,
     0x0859, 0x1F,
 };
-static u16 imx989_custom25_setting[] = {
+static u16 imx989lite_custom25_setting[] = {
 /* reg_U_RAW: DCGHDR_RAW_RATIO4_4K_4096_3072_30FPS_PD */
     // MIPI output setting
     0x0112, 0x0A,
@@ -9342,7 +9342,7 @@ static u16 imx989_custom25_setting[] = {
     0x0858, 0x00,
     0x0859, 0x1F,
 };
-static u16 imx989_custom26_setting[] = {
+static u16 imx989lite_custom26_setting[] = {
 /* reg_U_RAW_FHD: DCGHDR_RAW_RATIO4_FHD_1920_1080_60FPS_PD */
     // MIPI output setting
     0x0112, 0x0A,
@@ -9642,7 +9642,7 @@ static u16 imx989_custom26_setting[] = {
     0x0858, 0x00,
     0x0859, 0x1F,
 };
-static u16 imx989_custom27_setting[] = {
+static u16 imx989lite_custom27_setting[] = {
 /* Reg_D: OBIN_4K_4096_2304_120FPS */
 	// MIPI output setting
 	0x0112, 0x0A,
@@ -9943,7 +9943,7 @@ static u16 imx989_custom27_setting[] = {
 	0x0859, 0x1F,
 };
 /* seamless switch group 1 */
-static u16 imx989_seamless_preview[] = {
+static u16 imx989lite_seamless_preview[] = {
 	0x0112, 0x0A,
 	0x0113, 0x0A,
 	0x0342, 0x2B,
@@ -10047,7 +10047,7 @@ static u16 imx989_seamless_preview[] = {
 	0x3241, 0x00,
 	0x3087, 0x30,
 };
-static u16 imx989_seamless_capture[] = {
+static u16 imx989lite_seamless_capture[] = {
 	0x0112, 0x0A,
 	0x0113, 0x0A,
 	0x0342, 0x2B,
@@ -10151,7 +10151,7 @@ static u16 imx989_seamless_capture[] = {
 	0x3241, 0x00,
 	0x3087, 0x30,
 };
-static u16 imx989_seamless_custom10[] = {
+static u16 imx989lite_seamless_custom10[] = {
 	0x0112, 0x0A,
 	0x0113, 0x0A,
 	0x0342, 0x54,
@@ -10255,7 +10255,7 @@ static u16 imx989_seamless_custom10[] = {
 	0x3241, 0x00,
 	0x3087, 0x30,
 };
-static u16 imx989_seamless_custom11[] = {
+static u16 imx989lite_seamless_custom11[] = {
 	0x0112, 0x0A,
 	0x0113, 0x0A,
 	0x0342, 0x54,
@@ -10359,7 +10359,7 @@ static u16 imx989_seamless_custom11[] = {
 	0x3241, 0x00,
 	0x3087, 0x30,
 };
-static u16 imx989_seamless_custom12[] = {
+static u16 imx989lite_seamless_custom12[] = {
 	0x0112, 0x0A,
 	0x0113, 0x0A,
 	0x0342, 0x54,
@@ -10463,7 +10463,7 @@ static u16 imx989_seamless_custom12[] = {
 	0x3241, 0x00,
 	0x3087, 0x30,
 };
-static u16 imx989_seamless_custom13[] = {
+static u16 imx989lite_seamless_custom13[] = {
 	0x0112, 0x0A,
 	0x0113, 0x0A,
 	0x0342, 0x54,
@@ -10567,7 +10567,7 @@ static u16 imx989_seamless_custom13[] = {
 	0x3241, 0x00,
 	0x3087, 0x30,
 };
-static u16 imx989_seamless_custom14[] = {
+static u16 imx989lite_seamless_custom14[] = {
 	0x0112, 0x0A,
 	0x0113, 0x0A,
 	0x0342, 0x2B,
@@ -10671,7 +10671,7 @@ static u16 imx989_seamless_custom14[] = {
 	0x3241, 0x00,
 	0x3087, 0x30,
 };
-static u16 imx989_seamless_custom15[] = {
+static u16 imx989lite_seamless_custom15[] = {
 	0x0112, 0x0A,
 	0x0113, 0x0A,
 	0x0342, 0x2B,
@@ -10775,7 +10775,7 @@ static u16 imx989_seamless_custom15[] = {
 	0x3241, 0x00,
 	0x3087, 0x30,
 };
-static u16 imx989_seamless_custom16[] = {
+static u16 imx989lite_seamless_custom16[] = {
 	0x0112, 0x0C,
 	0x0113, 0x0C,
 	0x0342, 0xA5,
@@ -10879,7 +10879,7 @@ static u16 imx989_seamless_custom16[] = {
 	0x3241, 0x00,
 	0x3087, 0x31,
 };
-static u16 imx989_seamless_custom17[] = {
+static u16 imx989lite_seamless_custom17[] = {
 	0x0112, 0x0E,
 	0x0113, 0x0E,
 	0x0342, 0xA5,
@@ -10983,7 +10983,7 @@ static u16 imx989_seamless_custom17[] = {
 	0x3241, 0x00,
 	0x3087, 0x32,
 };
-static u16 imx989_seamless_custom18[] = {
+static u16 imx989lite_seamless_custom18[] = {
 	0x0112, 0x0A,
 	0x0113, 0x0A,
 	0x0342, 0x2B,
@@ -11087,7 +11087,7 @@ static u16 imx989_seamless_custom18[] = {
 	0x3241, 0x01,
 	0x3087, 0x30,
 };
-static u16 imx989_seamless_custom19[] = {
+static u16 imx989lite_seamless_custom19[] = {
 	0x0112, 0x0A,
 	0x0113, 0x0A,
 	0x0342, 0x2B,
@@ -11191,7 +11191,7 @@ static u16 imx989_seamless_custom19[] = {
 	0x3241, 0x00,
 	0x3087, 0x30,
 };
-static u16 imx989_seamless_custom20[] = {
+static u16 imx989lite_seamless_custom20[] = {
 	0x0112, 0x0A,
 	0x0113, 0x0A,
 	0x0342, 0x54,
@@ -11296,7 +11296,7 @@ static u16 imx989_seamless_custom20[] = {
 	0x3087, 0x30,
 };
 /* seamless switch group 2 */
-static u16 imx989_seamless_normal_video[] = {
+static u16 imx989lite_seamless_normal_video[] = {
 	0x0112, 0x0A,
 	0x0113, 0x0A,
 	0x0342, 0x2B,
@@ -11385,7 +11385,7 @@ static u16 imx989_seamless_normal_video[] = {
 	0x3241, 0x00,
 	0x3087, 0x30,
 };
-static u16 imx989_seamless_custom4[] = {
+static u16 imx989lite_seamless_custom4[] = {
 	0x0112, 0x0C,
 	0x0113, 0x0C,
 	0x0342, 0xA5,
@@ -11474,7 +11474,7 @@ static u16 imx989_seamless_custom4[] = {
 	0x3241, 0x00,
 	0x3087, 0x31,
 };
-static u16 imx989_seamless_custom5[] = {
+static u16 imx989lite_seamless_custom5[] = {
 	0x0112, 0x0E,
 	0x0113, 0x0E,
 	0x0342, 0xA5,
@@ -11563,7 +11563,7 @@ static u16 imx989_seamless_custom5[] = {
 	0x3241, 0x00,
 	0x3087, 0x32,
 };
-static u16 imx989_seamless_custom6[] = {
+static u16 imx989lite_seamless_custom6[] = {
 	0x0112, 0x0A,
 	0x0113, 0x0A,
 	0x0342, 0x2B,
@@ -11652,7 +11652,7 @@ static u16 imx989_seamless_custom6[] = {
 	0x3241, 0x01,
 	0x3087, 0x30,
 };
-static u16 imx989_seamless_custom7[] = {
+static u16 imx989lite_seamless_custom7[] = {
 	0x0112, 0x0A,
 	0x0113, 0x0A,
 	0x0342, 0x2B,
@@ -11741,7 +11741,7 @@ static u16 imx989_seamless_custom7[] = {
 	0x3241, 0x00,
 	0x3087, 0x30,
 };
-static u16 imx989_seamless_custom8[] = {
+static u16 imx989lite_seamless_custom8[] = {
 	0x0112, 0x0A,
 	0x0113, 0x0A,
 	0x0342, 0x2B,
@@ -11830,7 +11830,7 @@ static u16 imx989_seamless_custom8[] = {
 	0x3241, 0x00,
 	0x3087, 0x30,
 };
-static u16 imx989_seamless_custom9[] = {
+static u16 imx989lite_seamless_custom9[] = {
 	0x0112, 0x0A,
 	0x0113, 0x0A,
 	0x0342, 0x54,
@@ -11919,7 +11919,7 @@ static u16 imx989_seamless_custom9[] = {
 	0x3241, 0x00,
 	0x3087, 0x30,
 };
-static u16 imx989_seamless_custom24[] = {
+static u16 imx989lite_seamless_custom24[] = {
 	0x0112, 0x0a,
 	0x0113, 0x0a,
 	0x0342, 0xa5,
@@ -12008,7 +12008,7 @@ static u16 imx989_seamless_custom24[] = {
 	0x3241, 0x00,
 	0x3087, 0x30,
 };
-static u16 imx989_seamless_custom25[] = {
+static u16 imx989lite_seamless_custom25[] = {
 	0x0112, 0x0a,
 	0x0113, 0x0a,
 	0x0342, 0xa5,

@@ -35,6 +35,7 @@ int seninf_get_fmeter_clk(struct seninf_core *core,
 	int clk_fmeter_idx, unsigned int *out_clk);
 void mtk_cam_sensor_get_frame_cnt(struct seninf_ctx *ctx, u32 *frame_cnt);
 void mtk_cam_sensor_get_glp_dt(struct seninf_ctx *ctx, struct seninf_glp_dt *info);
+void mtk_cam_sensor_get_vc_info_by_scenario(struct seninf_ctx *ctx, u32 code);
 
 #ifdef SENINF_DEBUG
 void mtk_cam_seninf_release_cam_mux(struct seninf_ctx *ctx);

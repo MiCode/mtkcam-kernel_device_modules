@@ -1447,6 +1447,8 @@ static int mtk_cam_seninf_set_fmt(struct v4l2_subdev *sd,
 		if (bSinkFormatChanged && !ctx->is_test_model && !ctx->streaming)
 			mtk_cam_seninf_get_vcinfo(ctx);
 
+		mtk_cam_sensor_get_vc_info_by_scenario(ctx, fmt->format.code);
+
 		dev_info(ctx->dev, "s_fmt pad %d code/res 0x%x/%dx%d which %d=> 0x%x/%dx%d\n",
 			fmt->pad,
 			fmt->format.code,

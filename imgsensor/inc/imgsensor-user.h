@@ -563,6 +563,10 @@ struct mtk_ebd_dump_record {
 	struct mtk_ebd_dump record;
 };
 
+struct mtk_sensor_vc_info_by_scenario {
+	__u32 scenario_id;
+	struct mtk_mbus_frame_desc fd;
+};
 
 /* GET */
 

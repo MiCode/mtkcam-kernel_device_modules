@@ -1954,6 +1954,7 @@ static void imgsys_scp_handler(void *data, unsigned int len, void *priv)
 	int f_lop_idx = 0, fence_num = 0;
 	struct fence_event *fence_evt = NULL;
 	union request_track *req_track = NULL;
+	int total_framenum = 0;
 #if SMVR_DECOUPLE
 unsigned int mode = imgsys_streaming;
 #endif
@@ -2153,6 +2154,28 @@ unsigned int mode = imgsys_streaming;
 	swfrm_info->total_taskcnt = 0;
 	swfrm_info->chan_id = 0;
 	swfrm_info->fail_isHWhang = -1;
+	total_framenum = swfrm_info->total_frmnum;
+	if (swfrm_info->batchnum > 0) {
+		if ((total_framenum < 0) || (total_framenum > TIME_MAX)) {
+			dev_info(imgsys_dev->dev,
+				"%s:unexpected total_framenum (%d -> %d), batchnum(%d) MAX (%d/%d)\n",
+				__func__, swfrm_info->total_frmnum,
+				total_framenum,
+				swfrm_info->batchnum,
+				TMAX, TIME_MAX);
+			return;
+		}
+	} else {
+		if ((total_framenum < 0) || (total_framenum > TMAX)) {
+			dev_info(imgsys_dev->dev,
+				"%s:unexpected total_framenum (%d -> %d), batchnum(%d) MAX (%d/%d)\n",
+				__func__, swfrm_info->total_frmnum,
+				total_framenum,
+				swfrm_info->batchnum,
+				TMAX, TIME_MAX);
+			return;
+		}
+	}
 	for (i = 0 ; i < swfrm_info->total_frmnum ; i++) {
 		swfrm_info->user_info[i].g_swbuf = gce_virt + (swfrm_info->user_info[i].sw_goft);
 		swfrm_info->user_info[i].bw_swbuf = gce_virt + (swfrm_info->user_info[i].sw_bwoft);

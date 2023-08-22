@@ -33,6 +33,7 @@
 #define DPHY_TRAIL_SPEC 224
 #define FT_30_FPS 33
 
+#define PIX_MODE_16_REG_VAL 4
 //#define SCAN_SETTLE
 
 #define MT6989_IOMOM_VERSIONS "mt6989"
@@ -2165,64 +2166,101 @@ static int csirx_phy_init(struct seninf_ctx *ctx)
 	return 0;
 }
 
-static int seninf1_setting(struct seninf_ctx *ctx)
+static int mtk_cam_seninf_set_seninf_top_ctrl2(struct seninf_ctx *ctx, u32 val)
 {
-	void *pSeninf = ctx->reg_if_ctrl[(unsigned int)ctx->seninfIdx];
 	void *pSeninf_top = ctx->reg_if_top;
 	int port;
 	u32 tmp;
 
-	/* afifo pop out splited from 1T to 2T */
 	port = ctx->port;
 	tmp = SENINF_READ_REG(pSeninf_top, SENINF_TOP_CTRL2);
 
+	/* afifo pop out splited from 1T to 2T */
 	switch (port) {
 	case CSI_PORT_0:
 	case CSI_PORT_0A:
-		SENINF_WRITE_REG(pSeninf_top, SENINF_TOP_CTRL2, (tmp | (1 << 0)));
+		SENINF_WRITE_REG(pSeninf_top,
+						SENINF_TOP_CTRL2,
+						val ? (tmp | (1 << 0)) : (tmp & ~(1 << 0)));
 		break;
 	case CSI_PORT_0B:
-		SENINF_WRITE_REG(pSeninf_top, SENINF_TOP_CTRL2, (tmp | (1 << 8)));
+		SENINF_WRITE_REG(pSeninf_top,
+						SENINF_TOP_CTRL2,
+						val ? (tmp | (1 << 8)) : (tmp & ~(1 << 8)));
 		break;
 	case CSI_PORT_1:
 	case CSI_PORT_1A:
-		SENINF_WRITE_REG(pSeninf_top, SENINF_TOP_CTRL2, (tmp | (1 << 1)));
+		SENINF_WRITE_REG(pSeninf_top,
+						 SENINF_TOP_CTRL2,
+						 val ? (tmp | (1 << 1)) : (tmp & ~(1 << 1)));
 		break;
 	case CSI_PORT_1B:
-		SENINF_WRITE_REG(pSeninf_top, SENINF_TOP_CTRL2, (tmp | (1 << 9)));
+		SENINF_WRITE_REG(pSeninf_top,
+						SENINF_TOP_CTRL2,
+						val ? (tmp | (1 << 9)) : (tmp & ~(1 << 9)));
 		break;
 	case CSI_PORT_2:
 	case CSI_PORT_2A:
-		SENINF_WRITE_REG(pSeninf_top, SENINF_TOP_CTRL2, (tmp | (1 << 2)));
+		SENINF_WRITE_REG(pSeninf_top,
+						 SENINF_TOP_CTRL2,
+						 val ? (tmp | (1 << 2)) : (tmp & ~(1 << 2)));
 		break;
 	case CSI_PORT_2B:
-		SENINF_WRITE_REG(pSeninf_top, SENINF_TOP_CTRL2, (tmp | (1 << 10)));
+		SENINF_WRITE_REG(pSeninf_top,
+						 SENINF_TOP_CTRL2,
+						 val ? (tmp | (1 << 10)) : (tmp & ~(1 << 10)));
 		break;
 	case CSI_PORT_3:
 	case CSI_PORT_3A:
-		SENINF_WRITE_REG(pSeninf_top, SENINF_TOP_CTRL2, (tmp | (1 << 3)));
+		SENINF_WRITE_REG(pSeninf_top,
+						 SENINF_TOP_CTRL2,
+						 val ? (tmp | (1 << 3)) : (tmp & ~(1 << 3)));
 		break;
 	case CSI_PORT_3B:
-		SENINF_WRITE_REG(pSeninf_top, SENINF_TOP_CTRL2, (tmp | (1 << 11)));
+		SENINF_WRITE_REG(pSeninf_top,
+						 SENINF_TOP_CTRL2,
+						 val ? (tmp | (1 << 11)) : (tmp & ~(1 << 11)));
 		break;
 	case CSI_PORT_4:
 	case CSI_PORT_4A:
-		SENINF_WRITE_REG(pSeninf_top, SENINF_TOP_CTRL2, (tmp | (1 << 4)));
+		SENINF_WRITE_REG(pSeninf_top,
+						SENINF_TOP_CTRL2,
+						val ? (tmp | (1 << 4)) : (tmp & ~(1 << 4)));
 		break;
 	case CSI_PORT_4B:
-		SENINF_WRITE_REG(pSeninf_top, SENINF_TOP_CTRL2, (tmp | (1 << 12)));
+		SENINF_WRITE_REG(pSeninf_top,
+						SENINF_TOP_CTRL2,
+						val ? (tmp | (1 << 12)) : (tmp & ~(1 << 12)));
 		break;
 	case CSI_PORT_5:
 	case CSI_PORT_5A:
-		SENINF_WRITE_REG(pSeninf_top, SENINF_TOP_CTRL2, (tmp | (1 << 5)));
+		SENINF_WRITE_REG(pSeninf_top,
+						SENINF_TOP_CTRL2,
+						val ? (tmp | (1 << 5)) : (tmp & ~(1 << 5)));
 		break;
 	case CSI_PORT_5B:
-		SENINF_WRITE_REG(pSeninf_top, SENINF_TOP_CTRL2, (tmp | (1 << 13)));
+		SENINF_WRITE_REG(pSeninf_top,
+						SENINF_TOP_CTRL2,
+						val ? (tmp | (1 << 13)) : (tmp & ~(1 << 13)));
 		break;
 	default:
 		dev_info(ctx->dev, "invalid port %d\n", port);
 		return -EINVAL;
 	}
+
+	dev_info(ctx->dev, "[%s] port:%d,TOP_CTRL2(0x%x)", __func__, port,
+		SENINF_READ_REG(pSeninf_top, SENINF_TOP_CTRL2));
+
+	return 0;
+}
+
+static int seninf1_setting(struct seninf_ctx *ctx)
+{
+	void *pSeninf = ctx->reg_if_ctrl[(unsigned int)ctx->seninfIdx];
+	void *pSeninf_top = ctx->reg_if_top;
+	int port = ctx->port;;
+
+	mtk_cam_seninf_set_seninf_top_ctrl2(ctx, 1);
 
 	// enable/disable seninf csi2
 	SENINF_BITS(pSeninf, SENINF_CSI2_CTRL, RG_SENINF_CSI2_EN, 1);
@@ -6862,6 +6900,53 @@ static int debug_init_deskew_irq(struct seninf_ctx *ctx)
 	return 0;
 }
 
+static int mtk_cam_seninf_set_csi_afifo_pop(struct seninf_ctx *ctx)
+{
+	struct seninf_vcinfo *vcinfo;
+	struct seninf_vc *vc;
+	struct seninf_vc_out_dest *dest;
+	int i, j;
+
+	if (unlikely(ctx == NULL)) {
+		pr_info("[%s][ERROR] ctx is NULL\n", __func__);
+		return -EINVAL;
+	}
+
+	vcinfo = &ctx->vcinfo;
+	if (unlikely(vcinfo == NULL)) {
+		dev_info(ctx->dev, "[%s][ERROR] vcinfo is NULL\n", __func__);
+		return -EINVAL;
+	}
+
+	/* scan all vc info */
+	for (i = 0; i < vcinfo->cnt; i++) {
+		vc = &vcinfo->vc[i];
+
+		if (unlikely(vc == NULL)) {
+			dev_info(ctx->dev, "[%s][ERROR] vc is NULL\n", __func__);
+			return -EINVAL;
+		}
+
+		/* scan all dest_cnt in per vcinfo */
+		for (j = 0; j < vc->dest_cnt; j++) {
+			dest = &vc->dest[j];
+
+			if (unlikely(dest == NULL)) {
+				dev_info(ctx->dev, "[%s][ERROR] dest is NULL\n", __func__);
+				return -EINVAL;
+			}
+
+			if (dest->pix_mode == PIX_MODE_16_REG_VAL) {
+				mtk_cam_seninf_set_seninf_top_ctrl2(ctx, 0);
+				dev_info(ctx->dev,
+					"[%s] target 16 pix_mode at vc[%d].dest[%d]\n", __func__, i, j);
+				return 0;
+			}
+		}
+	}
+	return 0;
+}
+
 struct mtk_cam_seninf_ops mtk_csi_phy_3_0 = {
 	._init_iomem = mtk_cam_seninf_init_iomem,
 	._init_port = mtk_cam_seninf_init_port,
@@ -6926,4 +7011,5 @@ struct mtk_cam_seninf_ops mtk_csi_phy_3_0 = {
 	._debug_init_deskew_irq = debug_init_deskew_irq,
 	._debug_init_deskew_begin_end_apply_code = debug_init_deskew_begin_end_apply_code,
 	._debug_current_status = mtk_cam_seninf_debug_current_status,
+	._set_csi_afifo_pop = mtk_cam_seninf_set_csi_afifo_pop,
 };

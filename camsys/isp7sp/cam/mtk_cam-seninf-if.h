@@ -10,6 +10,9 @@ int mtk_cam_seninf_get_pixelmode(struct v4l2_subdev *sd, int pad_id,
 int mtk_cam_seninf_set_pixelmode(struct v4l2_subdev *sd, int pad_id,
 				 int pixelmode);
 
+int mtk_cam_seninf_set_pixelmode_camsv(struct v4l2_subdev *sd, int pad_id,
+				 int pixelMode, int camtg);
+
 int mtk_cam_seninf_set_camtg(struct v4l2_subdev *sd, int pad_id, int camtg);
 
 int mtk_cam_seninf_get_pixelrate(struct v4l2_subdev *sd, s64 *pixelrate);

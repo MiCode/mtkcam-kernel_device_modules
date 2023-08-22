@@ -956,7 +956,7 @@ static int seninf_subscribe_event(struct v4l2_subdev *sd,
 
 static void init_fmt(struct seninf_ctx *ctx)
 {
-	int i;
+	int i,j;
 
 	for (i = 0 ; i < ARRAY_SIZE(ctx->fmt); i++) {
 		ctx->fmt[i].format.code = MEDIA_BUS_FMT_SBGGR10_1X10;
@@ -970,7 +970,8 @@ static void init_fmt(struct seninf_ctx *ctx)
 	}
 
 	for (i = 0; i < ARRAY_SIZE(ctx->vcinfo.vc); i++)
-		ctx->vcinfo.vc[i].pixel_mode = SENINF_DEF_PIXEL_MODE;
+		for (j = 0; j < MAX_DEST_NUM; j++)
+			ctx->vcinfo.vc[i].dest[j].pix_mode = SENINF_DEF_PIXEL_MODE;
 }
 #ifdef CSI_EFUSE_SET
 static int dev_read_csi_efuse(struct seninf_ctx *ctx)
@@ -1141,7 +1142,7 @@ static int set_aov_test_model_param(struct seninf_ctx *ctx,
 
 		for (i = 0; i < vc_used; ++i) {
 			vc[i]->enable = 1;
-			vc[i]->pixel_mode = 2;
+			vc[i]->dest[0].pix_mode = 2;
 
 			vc[i]->dest_cnt = 1;
 			vc[i]->dest[0].cam = 33;
@@ -1150,7 +1151,7 @@ static int set_aov_test_model_param(struct seninf_ctx *ctx,
 
 			dev_info(ctx->dev,
 				"test mode mux %d, cam %d, pixel mode %d, vc = %d, dt = 0x%x\n",
-				vc[i]->dest[0].mux, vc[i]->dest[0].cam, vc[i]->pixel_mode,
+				vc[i]->dest[0].mux, vc[i]->dest[0].cam, vc[i]->dest[0].pix_mode,
 				vc[i]->vc, vc[i]->dt);
 
 			g_aov_param.height = 480;
@@ -1251,11 +1252,11 @@ static int set_test_model(struct seninf_ctx *ctx, char enable)
 
 			dev_info(ctx->dev,
 				"test mode mux %d, cam %d, pixel mode %d, vc = %d, dt = 0x%x\n",
-				vc[i]->dest[0].mux, vc[i]->dest[0].cam, vc[i]->pixel_mode,
+				vc[i]->dest[0].mux, vc[i]->dest[0].cam, vc[i]->dest[0].pix_mode,
 				vc[i]->vc, vc[i]->dt);
 
 			g_seninf_ops->_set_test_model(ctx,
-					vc[i]->dest[0].mux, vc[i]->dest[0].cam, vc[i]->pixel_mode,
+					vc[i]->dest[0].mux, vc[i]->dest[0].cam, vc[i]->dest[0].pix_mode,
 					vc_dt_filter, i, vc[i]->vc, vc[i]->dt, vc[i]->vc);
 
 			if (vc[i]->out_pad == PAD_SRC_PDAF0)
@@ -1533,7 +1534,7 @@ int update_isp_clk(struct seninf_ctx *ctx)
 		"%s dfs->cnt %d pixel mode %d customized_pixel_rate %lld, buffered_pixel_rate %lld mipi_pixel_rate %lld\n",
 		__func__,
 		dfs->cnt,
-		vc->pixel_mode,
+		vc->dest[0].pix_mode,
 		ctx->customized_pixel_rate,
 		ctx->buffered_pixel_rate,
 		ctx->mipi_pixel_rate);
@@ -1549,7 +1550,7 @@ int update_isp_clk(struct seninf_ctx *ctx)
 		return -EINVAL;
 	}
 
-	pixelmode = vc->pixel_mode;
+	pixelmode = vc->dest[0].pix_mode;
 	for (i = 0; i < dfs->cnt; i++) {
 		dfs_freq = dfs->freqs[i];
 		dfs_freq = dfs_freq * (100 - SENINF_CLK_MARGIN_IN_PERCENT);

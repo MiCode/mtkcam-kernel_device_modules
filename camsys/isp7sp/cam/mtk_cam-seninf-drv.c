@@ -1257,7 +1257,7 @@ static int seninf_subscribe_event(struct v4l2_subdev *sd,
 
 static void init_fmt(struct seninf_ctx *ctx)
 {
-	int i;
+	int i, j;
 
 	for (i = 0 ; i < ARRAY_SIZE(ctx->fmt); i++) {
 		ctx->fmt[i].format.code = MEDIA_BUS_FMT_SBGGR10_1X10;
@@ -1271,7 +1271,8 @@ static void init_fmt(struct seninf_ctx *ctx)
 	}
 
 	for (i = 0; i < ARRAY_SIZE(ctx->vcinfo.vc); i++)
-		ctx->vcinfo.vc[i].pixel_mode = SENINF_DEF_PIXEL_MODE;
+		for(j = 0; j < MAX_DEST_NUM; j++)
+			ctx->vcinfo.vc[i].dest[j].pix_mode = SENINF_DEF_PIXEL_MODE;
 }
 #ifdef CSI_EFUSE_SET
 static int dev_read_csi_efuse(struct seninf_ctx *ctx)
@@ -1524,7 +1525,7 @@ static int set_aov_test_model_param(struct seninf_ctx *ctx,
 
 		for (i = 0; i < vc_used; ++i) {
 			vc[i]->enable = 1;
-			vc[i]->pixel_mode = 2;
+			vc[i]->dest[0].pix_mode = 2;
 
 			vc[i]->dest_cnt = 1;
 			vc[i]->dest[0].cam = 33;
@@ -1533,7 +1534,7 @@ static int set_aov_test_model_param(struct seninf_ctx *ctx,
 
 			dev_info(ctx->dev,
 				"test mode mux %d, cam %d, pixel mode %d, vc = %d, dt = 0x%x\n",
-				vc[i]->dest[0].mux, vc[i]->dest[0].cam, vc[i]->pixel_mode,
+				vc[i]->dest[0].mux, vc[i]->dest[0].cam, vc[i]->dest[0].pix_mode,
 				vc[i]->vc, vc[i]->dt);
 
 			g_aov_param.height = 480;
@@ -1634,11 +1635,11 @@ static int set_test_model(struct seninf_ctx *ctx, char enable)
 
 			dev_info(ctx->dev,
 				"test mode mux %d, cam %d, pixel mode %d, vc = %d, dt = 0x%x\n",
-				vc[i]->dest[0].mux, vc[i]->dest[0].cam, vc[i]->pixel_mode,
+				vc[i]->dest[0].mux, vc[i]->dest[0].cam, vc[i]->dest[0].pix_mode,
 				vc[i]->vc, vc[i]->dt);
 
 			g_seninf_ops->_set_test_model(ctx,
-					vc[i]->dest[0].mux, vc[i]->dest[0].cam, vc[i]->pixel_mode,
+					vc[i]->dest[0].mux, vc[i]->dest[0].cam, vc[i]->dest[0].pix_mode,
 					vc_dt_filter, i, vc[i]->vc, vc[i]->dt, vc[i]->vc);
 			if (vc[i]->out_pad == PAD_SRC_PDAF0)
 				mdelay(40);
@@ -1704,7 +1705,14 @@ static int config_hw_csi(struct seninf_ctx *ctx)
 
 	ret = g_seninf_ops->_set_csi_mipi(ctx);
 	if (ret) {
-		dev_info(ctx->dev, "[%s][Error] ret(%d)\n", __func__, ret);
+		dev_info(ctx->dev, "[%s][Error] _set_csi_mipi ret(%d)\n", __func__, ret);
+		return ret;
+	}
+
+	ret = g_seninf_ops->_set_csi_afifo_pop(ctx);
+	if (ret) {
+		dev_info(ctx->dev, "[%s][Error] _set_csi_afifo_pop ret(%d)\n",
+				__func__, ret);
 		return ret;
 	}
 

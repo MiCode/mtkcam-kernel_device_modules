@@ -1133,7 +1133,7 @@ int mtk_cam_seninf_get_pixelmode(struct v4l2_subdev *sd,
 		return -1;
 	}
 
-	*pixelMode = vc->pixel_mode;
+	*pixelMode = vc->dest[0].pix_mode;
 
 	return 0;
 }
@@ -1150,7 +1150,7 @@ int mtk_cam_seninf_set_pixelmode(struct v4l2_subdev *sd,
 		return -1;
 	}
 
-	vc->pixel_mode = pixelMode;
+	vc->dest[0].pix_mode = pixelMode;
 	if (ctx->streaming) {
 		update_isp_clk(ctx);
 		g_seninf_ops->_update_mux_pixel_mode(ctx, vc->dest[0].mux, pixelMode);
@@ -1201,7 +1201,7 @@ static struct seninf_mux *get_mux(struct seninf_ctx *ctx, struct seninf_vc *vc,
 		g_seninf_ops->_set_mux_ctrl(ctx, mux->idx,
 					    hsPol, vsPol,
 					    group_src + MIPI_SENSOR,
-					    vc->pixel_mode);
+					    vc->dest[0].pix_mode);
 
 		g_seninf_ops->_set_top_mux_ctrl(ctx, mux->idx, intf);
 
@@ -1270,7 +1270,7 @@ int _mtk_cam_seninf_set_camtg_with_dest_idx(struct v4l2_subdev *sd, int pad_id,
 							vc->dt);
 			g_seninf_ops->_set_cammux_chk_pixel_mode(ctx,
 							dest->cam,
-							vc->pixel_mode);
+							dest->pix_mode);
 			g_seninf_ops->_cammux(ctx, dest->cam);
 
 			chk_is_fsync_vsync_src(ctx, pad_id);
@@ -1327,7 +1327,7 @@ int _mtk_cam_seninf_set_camtg_with_dest_idx(struct v4l2_subdev *sd, int pad_id,
 								vc->dt);
 				g_seninf_ops->_set_cammux_chk_pixel_mode(ctx,
 								dest->cam,
-								vc->pixel_mode);
+								dest->pix_mode);
 				if (old_camtg != 0xff && disable_last) {
 					//disable old in next sof
 					g_seninf_ops->_disable_cammux(ctx, old_camtg);
@@ -1599,7 +1599,7 @@ int mtk_cam_seninf_s_stream_mux(struct seninf_ctx *ctx)
 				g_aov_param.vc.dest[0].mux = 5;
 				g_aov_param.vc.dest[0].mux_vr = 33;
 				g_aov_param.vc.dest[0].cam = 33;
-				g_aov_param.vc.pixel_mode = 3;
+				g_aov_param.vc.dest[0].pix_mode = 3;
 				g_aov_param.camtg = 33;
 			}
 
@@ -1673,7 +1673,7 @@ int mtk_cam_seninf_s_stream_mux(struct seninf_ctx *ctx)
 
 				g_seninf_ops->_set_cammux_chk_pixel_mode(ctx,
 									 dest->cam,
-									 vc->pixel_mode);
+									 dest->pix_mode);
 				g_seninf_ops->_cammux(ctx, dest->cam);
 				g_seninf_ops->_set_cammux_next_ctrl(ctx, dest->mux_vr, dest->cam);
 				g_seninf_ops->_switch_to_cammux_inner_page(ctx, true);
@@ -1690,7 +1690,7 @@ int mtk_cam_seninf_s_stream_mux(struct seninf_ctx *ctx)
 
 				g_seninf_ops->_set_cammux_chk_pixel_mode(ctx,
 									 dest->cam,
-									 vc->pixel_mode);
+									 dest->pix_mode);
 				g_seninf_ops->_cammux(ctx, dest->cam);
 
 				// inner next
@@ -2504,7 +2504,7 @@ int mtk_cam_seninf_s_aov_param(unsigned int sensor_id,
 		pr_debug(
 			"[%s] out_pad(%d)\n", __func__, aov_seninf_param->vc.out_pad);
 		pr_debug(
-			"[%s] pixel_mode(%d)\n", __func__, aov_seninf_param->vc.pixel_mode);
+			"[%s] pixel_mode(%d)\n", __func__, aov_seninf_param->vc.dest[0].pix_mode);
 		pr_debug(
 			"[%s] group(%d)\n", __func__, aov_seninf_param->vc.group);
 		pr_debug(

@@ -229,6 +229,7 @@ struct mtk_cam_seninf_ops {
 	int (*_debug_init_deskew_irq)(struct seninf_ctx *ctx);
 	int (*_debug_init_deskew_begin_end_apply_code)(struct seninf_ctx *ctx);
 	int (*_debug_current_status)(struct seninf_ctx *ctx);
+	int (*_set_csi_afifo_pop)(struct seninf_ctx *ctx);
 	unsigned int seninf_num;
 	unsigned int mux_num;
 	unsigned int cam_mux_num;

@@ -1326,19 +1326,66 @@ void mtk_cam_seninf_release_cam_mux(struct seninf_ctx *ctx)
 }
 #endif
 
-int mtk_cam_seninf_get_pixelmode(struct v4l2_subdev *sd,
-				 int pad_id, int *pixelMode)
+int mtk_cam_seninf_set_pixelmode_camsv(struct v4l2_subdev *sd,
+				 int pad_id, int pixelMode, int camtg)
 {
 	struct seninf_ctx *ctx = container_of(sd, struct seninf_ctx, subdev);
 	struct seninf_vc *vc;
+	int i;
+
+	if (pad_id < PAD_SRC_RAW0 || pad_id >= PAD_MAXCNT) {
+		pr_info("[%s][err]: no such pad id:%d\n", __func__, pad_id);
+		return -EINVAL;
+	}
 
 	vc = mtk_cam_seninf_get_vc_by_pad(ctx, pad_id);
 	if (!vc) {
-		pr_info("%s: invalid pad=%d\n", __func__, pad_id);
-		return -1;
+		pr_info("[%s][err]: invalid pad=%d\n", __func__, pad_id);
+		return -EINVAL;
 	}
 
-	*pixelMode = vc->pixel_mode;
+	for (i = 0; i < vc->dest_cnt; i++) {
+
+		dev_info(ctx->dev, "%s camtg: %d, ctx->pad2cam[pad:%d][des_cnt:%d] %d\n",
+				__func__,
+				camtg,
+				pad_id,
+				i,
+				ctx->pad2cam[pad_id][i]);
+
+		if (cammux2camtype(ctx, camtg) !=
+			cammux2camtype(ctx, ctx->pad2cam[pad_id][i])) {
+			dev_info(ctx->dev,
+			"%s camtg %d camtype is mismatch ctx->pad2cam[pad:%d][des_cnt:%d] %d\n",
+			__func__, camtg, pad_id, i, ctx->pad2cam[pad_id][i]);
+			continue;
+		}
+
+		vc->dest[i].pix_mode = pixelMode;
+		dev_info(ctx->dev, "%s update pixel mode %d for cam %d\n",
+				__func__,
+				vc->dest[i].pix_mode,
+				ctx->pad2cam[pad_id][i]);
+
+		if (ctx->streaming) {
+			update_isp_clk(ctx);
+			if (vc->dest[i].mux == 0xFF) {
+				dev_info(ctx->dev, "%s dest[%d].mux == 0xFF\n", __func__, i);
+			} else {
+				g_seninf_ops->_update_mux_pixel_mode(
+							ctx,
+							vc->dest[i].mux,
+							vc->dest[i].pix_mode);
+
+				dev_info(ctx->dev,
+					"%s set mux%d pixel_mode %d done\n",
+					__func__,
+					vc->dest[i].mux,
+					vc->dest[i].pix_mode);
+			}
+		}
+	}
+	// if streaming, update ispclk and update pixle mode seninf mux and reset
 
 	return 0;
 }
@@ -1347,33 +1394,25 @@ int mtk_cam_seninf_set_pixelmode(struct v4l2_subdev *sd,
 				 int pad_id, int pixelMode)
 {
 	struct seninf_ctx *ctx = container_of(sd, struct seninf_ctx, subdev);
-	struct seninf_vc *vc;
-	int i;
+	struct seninf_core *core;
 
-	vc = mtk_cam_seninf_get_vc_by_pad(ctx, pad_id);
-	if (!vc) {
-		pr_info("%s: invalid pad=%d\n", __func__, pad_id);
-		return -1;
+	if (ctx == NULL) {
+		pr_info("%s [ERROR] ctx is NULL\n", __func__);
+		return -EINVAL;
 	}
 
-	vc->pixel_mode = pixelMode;
-	if (ctx->streaming) {
-		update_isp_clk(ctx);
-		for (i = 0; i < vc->dest_cnt; i++) {
-			if (vc->dest[i].mux == 0xFF)
-				dev_info(ctx->dev, "%s !ERROR dest[%d].mux == 0xFF\n", __func__, i);
-			else
-				g_seninf_ops->_update_mux_pixel_mode(ctx,
-							vc->dest[i].mux, pixelMode);
-		}
+	core = ctx->core;
+	if (core == NULL) {
+		dev_info(ctx->dev, "%s [ERROR] core is NULL\n", __func__);
+		return -EINVAL;
 	}
-	// if streaming, update ispclk and update pixle mode seninf mux and reset
 
-	return 0;
+	return mtk_cam_seninf_set_pixelmode_camsv(
+				sd, pad_id, pixelMode, core->cammux_range[TYPE_RAW].first);
 }
 
 static struct seninf_mux *get_mux(struct seninf_ctx *ctx, struct seninf_vc *vc,
-				  u8 dest_cam_type, int intf)
+				  u8 dest_cam_type, int intf, int pix_mode)
 {
 	int skip_mux_ctrl;
 	u32 group_src = VC_CH_GROUP_ALL;
@@ -1413,7 +1452,7 @@ static struct seninf_mux *get_mux(struct seninf_ctx *ctx, struct seninf_vc *vc,
 		g_seninf_ops->_set_mux_ctrl(ctx, mux->idx,
 					    hsPol, vsPol,
 					    group_src + MIPI_SENSOR,
-					    vc->pixel_mode);
+					    pix_mode);
 
 		g_seninf_ops->_set_top_mux_ctrl(ctx, mux->idx, intf);
 
@@ -1506,7 +1545,7 @@ int _mtk_cam_seninf_set_camtg_with_dest_idx(struct v4l2_subdev *sd, int pad_id,
 				dest->cam = camtg;
 				dest->tag = tag_id;
 				dest->cam_type = cammux2camtype(ctx, dest->cam);
-				mux = get_mux(ctx, vc, dest->cam_type, ctx->seninfIdx);
+				mux = get_mux(ctx, vc, dest->cam_type, ctx->seninfIdx, dest->pix_mode);
 				if (!mux) {
 					dev_info(ctx->dev,"mux is null, pad_id %d\n", pad_id);
 					dev_info(ctx->dev,"cam = %d, cam_type = %d\n",
@@ -1535,7 +1574,7 @@ int _mtk_cam_seninf_set_camtg_with_dest_idx(struct v4l2_subdev *sd, int pad_id,
 								vc->dt);
 				g_seninf_ops->_set_cammux_chk_pixel_mode(ctx,
 								dest->cam,
-								vc->pixel_mode);
+								dest->pix_mode);
 				if (old_camtg != 0xff && disable_last) {
 					//disable old in next sof
 					g_seninf_ops->_disable_cammux(ctx, old_camtg);
@@ -2001,7 +2040,7 @@ int mtk_cam_seninf_s_stream_mux(struct seninf_ctx *ctx)
 
 			dest->cam = ctx->pad2cam[vc->out_pad][j];
 			dest->cam_type = cammux2camtype(ctx, dest->cam);
-			mux = get_mux(ctx, vc, dest->cam_type, intf);
+			mux = get_mux(ctx, vc, dest->cam_type, intf, dest->pix_mode);
 
 			if (!mux) {
 				dev_info(ctx->dev,"mux is null, vc[%d]pad %d\n",i, vc->out_pad);
@@ -2039,7 +2078,7 @@ int mtk_cam_seninf_s_stream_mux(struct seninf_ctx *ctx)
 
 				g_seninf_ops->_set_cammux_chk_pixel_mode(ctx,
 									 dest->cam,
-									 vc->pixel_mode);
+									 dest->pix_mode);
 				g_seninf_ops->_cammux(ctx, dest->cam);
 				g_seninf_ops->_set_cammux_next_ctrl(ctx, dest->mux_vr, dest->cam);
 				g_seninf_ops->_switch_to_cammux_inner_page(ctx, true);
@@ -2056,7 +2095,7 @@ int mtk_cam_seninf_s_stream_mux(struct seninf_ctx *ctx)
 
 				g_seninf_ops->_set_cammux_chk_pixel_mode(ctx,
 									 dest->cam,
-									 vc->pixel_mode);
+									 dest->pix_mode);
 				g_seninf_ops->_cammux(ctx, dest->cam);
 
 				// inner next
@@ -2788,7 +2827,7 @@ int mtk_cam_seninf_s_aov_param(unsigned int sensor_id,
 		g_aov_param.vc.dest[0].mux = 14;
 		g_aov_param.vc.dest[0].mux_vr = 54;
 		g_aov_param.vc.dest[0].cam = 44;
-		g_aov_param.vc.pixel_mode = 3;
+		g_aov_param.vc.dest[0].pix_mode = 3;
 		g_aov_param.camtg = 44;
 	}
 
@@ -2884,7 +2923,7 @@ int mtk_cam_seninf_s_aov_param(unsigned int sensor_id,
 		pr_debug(
 			"[%s] out_pad(%d)\n", __func__, aov_seninf_param->vc.out_pad);
 		pr_debug(
-			"[%s] pixel_mode(%d)\n", __func__, aov_seninf_param->vc.pixel_mode);
+			"[%s] pixel_mode(%d)\n", __func__, aov_seninf_param->vc.dest[0].pix_mode);
 		pr_debug(
 			"[%s] group(%d)\n", __func__, aov_seninf_param->vc.group);
 		pr_debug(

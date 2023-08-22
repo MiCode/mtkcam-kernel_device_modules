@@ -1554,6 +1554,7 @@ static int imgsensor_probe(struct i2c_client *client)
 #else
 	// TODO
 #endif
+	device_enable_async_suspend(dev);
 
 	/* register thermal device */
 	if (ctx->subdrv->ops->get_temp) {

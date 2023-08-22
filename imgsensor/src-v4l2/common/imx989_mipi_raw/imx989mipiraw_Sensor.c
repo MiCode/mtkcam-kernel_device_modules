@@ -79,9 +79,9 @@ static struct SET_PD_BLOCK_INFO_T imgsensor_pd_info_fullsize = {
 		// <cust16> <cust17> cust18 <cust19> cust20
 		{0, 0}, {0, 0}, {0, 0}, {0, 0}, {256, 912},
 		// <cust21> <cust22> <cust23> <cust24> <cust25>
-		{0, 0}, {0, 384}, {0, 384}, {0, 0}, {0, 0},
-		// <cust26> <cust27> <cust28>
-		{0, 0}, {0, 0}, {2048, 1536},
+		{0, 0}, {0, 384}, {0, 384}, {0, 384}, {0, 0},
+		// cust26 <cust27> cust28
+		{1088, 996}, {0, 384}, {2048, 1536},
 	},
 	.iMirrorFlip = 0,
 	.i4FullRawW = 8192,
@@ -119,8 +119,10 @@ static struct SET_PD_BLOCK_INFO_T imgsensor_pd_info = {
 		{2048, 1536}, {0, 0}, {0, 0}, {0, 0}, {0, 0},
 		// <cust16> <cust17> cust18 <cust19> cust20
 		{0, 0}, {0, 0}, {0, 0}, {0, 0}, {256, 912},
-		// <cust21> <cust22> cust23
-		{0, 0}, {0, 384}, {0, 384},
+		// <cust21> <cust22> <cust23> <cust24> <cust25>
+		{0, 0}, {0, 384}, {0, 384}, {0, 384}, {0, 0},
+		// cust26 <cust27> cust28
+		{1088, 996}, {0, 384}, {2048, 1536},
 	},
 	.iMirrorFlip = 0,
 	.i4FullRawW = 4096,

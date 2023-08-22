@@ -307,10 +307,14 @@ static bool is_4cell_sensor(struct mtk_cam_job *job)
 
 static bool is_sv_support_ufbc(struct mtk_cam_job *job)
 {
+#if 0
 	bool use_ufbc = !job->is_sv_pure_raw;
 	// TODO: 16 pixel mode not support UFBC
 
 	return use_ufbc;
+#else
+	return false;
+#endif
 }
 
 static void update_buf_fmt_sel(struct mtk_cam_job *job)

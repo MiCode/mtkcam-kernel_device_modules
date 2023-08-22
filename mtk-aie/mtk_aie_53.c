@@ -143,6 +143,7 @@ static struct aie_reg_map isp7sp_aie_reg_map[] = {
 	{ .base = 0x15780000, .offset = 0x1000},  /* isp_vcore */
 	{ .base = 0x1c001000, .offset = 0x1000},  /* sys_spm */
 	{ .base = 0x10000000, .offset = 0x1000},  /* top_ck_gen */
+	{ .base = 0x1000c000, .offset = 0x1000},  /* apmixedsys_clk */
 };
 
 static struct aie_data data_isp7s = {
@@ -1771,7 +1772,7 @@ static int mtk_aie_probe(struct platform_device *pdev)
 
 
 	if (fd->reg_map_num > MAX_REG_BASE) {
-		aie_dev_info(dev, "reg_map_num is over tje limit(%d/%d)\n",
+		aie_dev_info(dev, "reg_map_num is over the limit(%d/%d)\n",
 			fd->reg_map_num, MAX_REG_BASE);
 		return -1;
 	}

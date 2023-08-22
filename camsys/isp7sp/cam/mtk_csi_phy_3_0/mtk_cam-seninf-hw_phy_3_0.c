@@ -2408,6 +2408,52 @@ static int csirx_mac_csi_setting(struct seninf_ctx *ctx)
 				RG_CSI2_8_16_PIXEL_SEL,
 				(ctx->port >= CSI_PORT_MIN_SPLIT_PORT) ? 1 : 0);
 
+	/* write fix setting */
+	SENINF_BITS(csirx_mac_csi,
+				CSIRX_MAC_CSI2_OPT,
+				RG_CSI2_ECC_EN,
+				1);
+
+	SENINF_BITS(csirx_mac_csi,
+				CSIRX_MAC_CSI2_OPT,
+				RG_CSI2_B2P_EN,
+				1);
+
+	SENINF_BITS(csirx_mac_csi,
+				CSIRX_MAC_CSI2_OPT,
+				RG_CSI2_IMG_PACKET_EN,
+				1);
+
+	SENINF_BITS(csirx_mac_csi,
+				CSIRX_MAC_CSI2_OPT,
+				RG_CSI2_SPEC_V2P0_SEL,
+				1);
+
+	SENINF_BITS(csirx_mac_csi,
+				CSIRX_MAC_CSI2_OPT,
+				RG_CSI2_MULTI_FRAME_VLD_EN,
+				1);
+
+	SENINF_BITS(csirx_mac_csi,
+				CSIRX_MAC_CSI2_OPT,
+				RG_CSI2_VS_OUTPUT_MODE,
+				0);
+
+	SENINF_BITS(csirx_mac_csi,
+				CSIRX_MAC_CSI2_OPT,
+				RG_CSI2_VS_OUPUT_LEN_SEL,
+				0);
+
+	SENINF_BITS(csirx_mac_csi,
+				CSIRX_MAC_CSI2_RESYNC_MERGE_CTRL,
+				RG_CSI2_RESYNC_CYCLE_CNT,
+				0x6);
+
+	SENINF_BITS(csirx_mac_csi,
+				CSIRX_MAC_CSI2_RESYNC_MERGE_CTRL,
+				RG_CSI2_RESYNC_DATAOUT_OPT,
+				1);
+
 	/* Enable CSI2 interrupt */
 	SENINF_WRITE_REG(csirx_mac_csi,
 					CSIRX_MAC_CSI2_IRQ_EN,

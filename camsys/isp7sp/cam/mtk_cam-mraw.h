@@ -13,8 +13,6 @@
 #include "mtk_cam-engine.h"
 #include "mtk_cam-dvfs_qos.h"
 
-#define MRAW_TG_PIXEL_MODE 3
-
 #define MRAW_WRITE_BITS(RegAddr, RegName, FieldName, FieldValue) do {\
 	union RegName reg;\
 	\

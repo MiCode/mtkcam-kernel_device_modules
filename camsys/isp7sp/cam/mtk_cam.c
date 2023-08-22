@@ -2705,8 +2705,10 @@ int ctx_stream_on_seninf_sensor(struct mtk_cam_job *job,
 				mtk_cam_seninf_set_camtg_camsv(seninf,
 					job->tag_info[i].seninf_padidx,
 					sv_cammux_id, i);
-				mtk_cam_seninf_set_pixelmode(seninf,
-					job->tag_info[i].seninf_padidx, 3);
+				mtk_cam_seninf_set_pixelmode_camsv(seninf,
+					job->tag_info[i].seninf_padidx,
+					job->tag_info[i].pixel_mode,
+					sv_cammux_id);
 			}
 		}
 	}
@@ -2722,7 +2724,8 @@ int ctx_stream_on_seninf_sensor(struct mtk_cam_job *job,
 			mtk_cam_seninf_set_camtg(seninf,
 				mraw_pipe->seninf_padidx, mraw_dev->cammux_id);
 			mtk_cam_seninf_set_pixelmode(seninf,
-				mraw_pipe->seninf_padidx, MRAW_TG_PIXEL_MODE);
+				mraw_pipe->seninf_padidx,
+				mraw_pipe->res_config.pixel_mode);
 		}
 	}
 

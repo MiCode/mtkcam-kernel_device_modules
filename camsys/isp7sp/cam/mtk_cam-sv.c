@@ -630,6 +630,36 @@ int mtk_cam_sv_dmao_common_config(struct mtk_camsv_device *sv_dev,
 	return ret;
 }
 
+int mtk_cam_sv_smi_path_sel(struct mtk_camsv_device *sv_dev, bool is_16p)
+{
+	int ret = 0;
+
+	switch (sv_dev->id) {
+	case CAMSV_0:
+	case CAMSV_1:
+		smi_sysram_enable(&sv_dev->larb_pdev->dev,
+			sv_dev->larb_master_id[SMI_PORT0_SV_CQI], false, "camsys-camsv");
+		smi_sysram_enable(&sv_dev->larb_pdev->dev,
+			sv_dev->larb_master_id[SMI_PORT1_SV_WDMA], false, "camsys-camsv");
+		smi_sysram_enable(&sv_dev->larb_pdev->dev,
+			sv_dev->larb_master_id[SMI_PORT2_SV_WDMA], false, "camsys-camsv");
+		break;
+	case CAMSV_2:
+	case CAMSV_3:
+	case CAMSV_4:
+	case CAMSV_5:
+		WARN_ON(is_16p);
+		/* default disp */
+		smi_sysram_enable(&sv_dev->larb_pdev->dev,
+			sv_dev->larb_master_id[SMI_PORT0_SV_CQI], false, "camsys-camsv");
+		smi_sysram_enable(&sv_dev->larb_pdev->dev,
+			sv_dev->larb_master_id[SMI_PORT1_SV_WDMA], false, "camsys-camsv");
+		break;
+	}
+
+	return ret;
+}
+
 int mtk_cam_sv_toggle_tg_db(struct mtk_camsv_device *sv_dev)
 {
 	int val, val2;
@@ -976,6 +1006,7 @@ void mtk_cam_sv_fill_tag_info(struct mtk_camsv_tag_info *arr_tag,
 	tag_info->seninf_padidx = tag_param->seninf_padidx;
 	tag_info->hw_scen = hw_scen;
 	tag_info->tag_order = tag_param->tag_order;
+	tag_info->pixel_mode = pixelmode;
 
 	cfg_in_param->pixel_mode = pixelmode;
 	cfg_in_param->data_pattern = 0x0;

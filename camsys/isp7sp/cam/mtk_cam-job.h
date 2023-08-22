@@ -90,6 +90,7 @@ struct mtk_camsv_tag_info {
 	unsigned int seninf_padidx;
 	unsigned int hw_scen;
 	unsigned int tag_order;
+	unsigned int pixel_mode;
 };
 
 static inline bool isp_in_done_state(int state)

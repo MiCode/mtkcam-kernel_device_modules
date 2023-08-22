@@ -211,6 +211,7 @@ int mtk_cam_sv_dev_stream_on(struct mtk_camsv_device *sv_dev, bool on,
 int mtk_cam_sv_dmao_common_config(struct mtk_camsv_device *sv_dev,
 	unsigned int fifo_img_p1, unsigned int fifo_img_p2,
 	unsigned int fifo_len_p1, unsigned int fifo_len_p2);
+int mtk_cam_sv_smi_path_sel(struct mtk_camsv_device *sv_dev, bool is_16p);
 int mtk_cam_sv_toggle_tg_db(struct mtk_camsv_device *sv_dev);
 int mtk_cam_sv_toggle_db(struct mtk_camsv_device *sv_dev);
 int mtk_cam_sv_central_common_enable(struct mtk_camsv_device *sv_dev);

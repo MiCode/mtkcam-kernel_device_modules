@@ -25,7 +25,6 @@
 #include "mtk_cam-raw_ctrl.h"
 
 #define SCQ_DEADLINE_US(fi)		((fi) / 2) // 0.5 frame interval
-#define SCQ_DEADLINE_US_STAGGER(fi)	((fi) - 500) // fi - n us
 
 static unsigned int debug_buf_fmt_sel = -1;
 module_param(debug_buf_fmt_sel, int, 0644);
@@ -1019,7 +1018,9 @@ _stream_on(struct mtk_cam_job *job, bool on)
 				ccu_stream_on(ctx, on);
 			} else {
 				update_scq_start_period(raw_dev, job->scq_period);
-				update_done_tolerance(raw_dev, job->scq_period);
+				update_done_tolerance(raw_dev,
+					(job->scq_period == -1) ?
+					get_sensor_interval_us(job) / 1000 : job->scq_period);
 				stream_on(raw_dev, on, true);
 			}
 		}
@@ -2242,8 +2243,7 @@ _job_pack_otf_stagger(struct mtk_cam_job *job,
 		(!job->first_job && !sensor_change) && is_sensor_mode_update(job);
 	job->sub_ratio = get_subsample_ratio(&job->job_scen);
 	job->stream_on_seninf = false;
-	job->scq_period =
-		SCQ_DEADLINE_US_STAGGER(get_sensor_interval_us(job)) / 1000;
+	job->scq_period = -1;
 
 	if (!ctx->used_engine) {
 		if (job_related_hw_init(job))
@@ -2700,8 +2700,7 @@ _job_pack_only_sv(struct mtk_cam_job *job,
 	job->sub_ratio = get_subsample_ratio(&job->job_scen);
 	job->stream_on_seninf = false;
 	if (is_stagger_lbmf(job))
- 		job->scq_period =
-			SCQ_DEADLINE_US_STAGGER(get_sensor_interval_us(job)) / 1000;
+ 		job->scq_period = -1;
 
 	if (!ctx->used_engine) {
 		if (job_related_hw_init(job))

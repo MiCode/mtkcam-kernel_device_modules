@@ -1136,8 +1136,6 @@ static void set_group_hold(void *arg, u8 en)
 {
 	struct subdrv_ctx *ctx = (struct subdrv_ctx *)arg;
 
-	if (!ctx->is_streaming || !ctx->sof_cnt)
-		return;
 	if (en) {
 		set_i2c_buffer(ctx, 0x3208, 0x00);
 	} else {

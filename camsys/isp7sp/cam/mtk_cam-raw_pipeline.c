@@ -55,6 +55,7 @@ MODULE_PARM_DESC(debug_disable_twin_dc_scen, "debug: disable twin dc scen");
 
 #define RAW_PIPELINE_NUM 3
 
+#define CAMSV_16P_ENABLE 0
 
 #define sizeof_u32(__struct__) ((sizeof(__struct__) + sizeof(u32) - 1)/ \
 				sizeof(u32))
@@ -673,8 +674,12 @@ static int mtk_raw_calc_raw_resource(struct mtk_raw_pipeline *pipeline,
 CALC_RESOURCE:
 	memset(&stepper, 0, sizeof(stepper));
 	/* frontal pixel mode */
-	stepper.frontal_pixel_mode_min = 8;
+#if CAMSV_16P_ENABLE
 	stepper.frontal_pixel_mode_max = res_raw_is_dc_mode(r) ? 16 : 8;
+#else
+	stepper.frontal_pixel_mode_max = 8;
+#endif
+	stepper.frontal_pixel_mode_min = 8;
 
 	/* constraints */
 	/* always 2 pixel mode, beside sensor size <= 1920 */

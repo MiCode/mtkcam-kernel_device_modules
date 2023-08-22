@@ -341,7 +341,7 @@ int job_prev_exp_num_seamless(struct mtk_cam_job *job)
 	//NOTE: for legacy issue, it is assumed that
 	//in stagger scenario, it will start from the sensor mode of max exp
 
-	if (job->first_job)
+	if (job->first_job || job->raw_switch)
 		prev = scen_max_exp_num(&job->job_scen);
 	else
 		prev = job_prev_exp_num(job);

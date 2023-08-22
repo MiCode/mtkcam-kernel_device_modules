@@ -1751,7 +1751,8 @@ static void mtk_cam_ctx_reset_slb(struct mtk_cam_ctx *ctx)
 
 static void mtk_cam_ctx_release_slb(struct mtk_cam_ctx *ctx);
 static int mtk_cam_ctx_request_slb(struct mtk_cam_ctx *ctx, int uid,
-				   bool map_iova)
+				   bool map_iova,
+				   struct slbc_data *early_request_slb)
 {
 	struct device *dev = ctx->cam->dev;
 	struct slbc_data slb;
@@ -1759,13 +1760,22 @@ static int mtk_cam_ctx_request_slb(struct mtk_cam_ctx *ctx, int uid,
 	dma_addr_t iova;
 	int ret;
 
-	slb.uid = uid;
-	slb.type = TP_BUFFER;
+	if (!early_request_slb) {
 
-	ret = slbc_request(&slb);
-	if (ret < 0) {
-		dev_info(dev, "%s: allocate slb fail\n", __func__);
-		return -1;
+		slb.uid = uid;
+		slb.type = TP_BUFFER;
+
+		ret = slbc_request(&slb);
+		if (ret < 0) {
+			dev_info(dev, "%s: allocate slb fail\n", __func__);
+			return -1;
+		}
+	} else {
+
+		if (WARN_ON(early_request_slb->uid != uid))
+			return -1;
+
+		slb = *early_request_slb;
 	}
 
 	ctx->slb_uid = uid;
@@ -2555,12 +2565,17 @@ int mtk_cam_ctx_init_scenario(struct mtk_cam_ctx *ctx)
 	} else if (ctrl_data->valid_apu_info &&
 		   scen_is_m2m_apu(scen, &ctrl_data->apu_info)) {
 
-		ret = mtk_cam_ctx_request_slb(ctx, UID_SH_P1, false);
+		ret = mtk_cam_ctx_request_slb(ctx, UID_SH_P1, false, NULL);
 
 	} else if (res_raw_is_dc_mode(res) && res->slb_size) {
 		/* dcif + slb ring buffer case */
 
-		ret = mtk_cam_ctx_request_slb(ctx, UID_SENSOR, true);
+		ret = mtk_cam_ctx_request_slb(ctx, UID_SENSOR, true,
+					      raw_pipe->early_request_slb_data);
+
+		/* let ctx control the life-cyle of slb_buffer */
+		mtk_raw_reset_early_slb(raw_pipe);
+
 		if (ctx->slb_size < res->slb_size) {
 			dev_info(cam->dev, "%s: warn. slb size not enough: %u<%u\n",
 				 __func__, ctx->slb_size, res->slb_size);

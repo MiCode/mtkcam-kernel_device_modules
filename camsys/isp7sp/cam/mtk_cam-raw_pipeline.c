@@ -7,6 +7,7 @@
 #include <media/v4l2-event.h>
 #include <media/v4l2-ioctl.h>
 #include <media/v4l2-subdev.h>
+#include <slbc_ops.h>
 
 #include "mtk_cam.h"
 #include "mtk_cam-dvfs_qos.h"
@@ -513,6 +514,78 @@ static inline bool skip_find_resource(void)
 	return (debug_clk_freq_mhz != -1);
 }
 
+void mtk_raw_reset_early_slb(struct mtk_raw_pipeline *pipe)
+{
+	struct slbc_data *slb = pipe->early_request_slb_data;
+
+	if (!slb)
+		return;
+
+	kfree(slb);
+	pipe->early_request_slb_data = NULL;
+}
+
+static int mtk_raw_slb_request_early(struct mtk_raw_pipeline *pipeline,
+				     int uid)
+{
+	struct device *dev = subdev_to_cam_dev(&pipeline->subdev);
+	struct slbc_data *slb;
+	int ret;
+
+	if (WARN_ON(pipeline->early_request_slb_data))
+		return -1;
+
+	slb = kmalloc(sizeof(*slb), GFP_KERNEL);
+	if (!slb) {
+		dev_info(dev, "%s: failed to kmalloc\n", __func__);
+		return -1;
+	}
+
+	slb->uid = uid;
+	slb->type = TP_BUFFER;
+	ret = slbc_request(slb);
+	if (ret < 0) {
+		dev_info(dev, "%s: allocate slb fail\n", __func__);
+		kfree(slb);
+		return -1;
+	}
+
+	pipeline->early_request_slb_data = slb;
+	return 0;
+}
+
+static int mtk_raw_slb_release_early(struct mtk_raw_pipeline *pipeline)
+{
+	struct device *dev = subdev_to_cam_dev(&pipeline->subdev);
+	struct slbc_data *slb = pipeline->early_request_slb_data;
+	int ret;
+
+	if (!slb)
+		return 0;
+
+	ret = slbc_release(slb);
+	if (ret < 0)
+		dev_info(dev, "%s: failed to release slb buffer\n", __func__);
+
+	mtk_raw_reset_early_slb(pipeline);
+	return 0;
+}
+
+static int mtk_raw_update_early_request_slb_data(
+			struct mtk_raw_pipeline *pipeline,
+			struct mtk_cam_resource_raw_v2 *res)
+{
+	int ret = 0;
+
+	if (!res->slb_size && pipeline->early_request_slb_data)
+		ret |= mtk_raw_slb_release_early(pipeline);
+
+	if (res->slb_size && res_raw_is_dc_mode(res))
+		ret |= mtk_raw_slb_request_early(pipeline, UID_SENSOR);
+
+	return ret;
+}
+
 #define PIX_MODE_SIZE_CONSTRAIN 1920
 static int mtk_raw_calc_raw_resource(struct mtk_raw_pipeline *pipeline,
 				     struct mtk_cam_resource_v2 *user_ctrl,
@@ -628,6 +701,12 @@ CALC_RESOURCE:
 		drv_data->tgo_pxl_mode =
 			mtk_pixelmode_val(mtk_raw_overall_pixel_mode(&c));
 		drv_data->tgo_pxl_mode_before_raw = mtk_pixelmode_val(8);
+	}
+
+	/* if s_ctrl check if need to  request for slb directly */
+	if (drv_data) {
+		if (mtk_raw_update_early_request_slb_data(pipeline, r))
+			dev_info(cam->dev, "failed to update early requested slb_data\n");
 	}
 
 EXIT:
@@ -3538,6 +3617,36 @@ static void mtk_raw_pipeline_ctrl_setup(struct mtk_raw_pipeline *pipe)
 	memset(&pipe->ctrl_data, 0, sizeof(pipe->ctrl_data));
 }
 
+static void mtk_raw_on_last_close(struct mtk_raw_pipeline *pipe)
+{
+	mtk_raw_slb_release_early(pipe);
+}
+
+static int mtk_raw_open(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
+{
+	struct mtk_raw_pipeline *pipe =
+		container_of(sd, struct mtk_raw_pipeline, subdev);
+
+	atomic_add(1, &pipe->open_cnt);
+	return 0;
+}
+
+static int mtk_raw_close(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
+{
+	struct mtk_raw_pipeline *pipe =
+		container_of(sd, struct mtk_raw_pipeline, subdev);
+
+	if (atomic_dec_and_test(&pipe->open_cnt))
+		mtk_raw_on_last_close(pipe);
+
+	return 0;
+}
+
+static const struct v4l2_subdev_internal_ops mtk_raw_internal_ops = {
+	.open = mtk_raw_open,
+	.close = mtk_raw_close,
+};
+
 static int mtk_raw_pipeline_register(const char *str, unsigned int id,
 				     struct mtk_raw_pipeline *pipe,
 				     struct v4l2_device *v4l2_dev)
@@ -3553,6 +3662,7 @@ static int mtk_raw_pipeline_register(const char *str, unsigned int id,
 	v4l2_subdev_init(sd, &mtk_raw_subdev_ops);
 	sd->entity.function = MEDIA_ENT_F_PROC_VIDEO_PIXEL_FORMATTER;
 	sd->entity.ops = &mtk_cam_media_entity_ops;
+	sd->internal_ops = &mtk_raw_internal_ops;
 	sd->flags = V4L2_SUBDEV_FL_HAS_DEVNODE | V4L2_SUBDEV_FL_HAS_EVENTS;
 	(void)snprintf(sd->name, sizeof(sd->name), "%s-%d", str, pipe->id);
 	v4l2_set_subdevdata(sd, pipe);

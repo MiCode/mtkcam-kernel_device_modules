@@ -553,7 +553,8 @@ static int g_vcinfo_by_scenario(struct adaptor_ctx *ctx, void *arg)
 	struct mtk_vcinfo_by_scenario *info = arg;
 	MSDK_SENSOR_INFO_STRUCT sinfo;
 	MSDK_SENSOR_CONFIG_STRUCT config;
-	struct SENSOR_VC_INFO2_STRUCT vcinfo2;
+	struct SENSOR_VC_INFO2_STRUCT *vcinfo2 = NULL;
+
 #ifdef IMGSENSOR_VC_ROUTING
 	struct mtk_mbus_frame_desc fd;
 
@@ -563,24 +564,30 @@ static int g_vcinfo_by_scenario(struct adaptor_ctx *ctx, void *arg)
 	u32 len;
 
 	para.u64[0] = info->scenario_id;
-	para.u64[1] = (u64)&vcinfo2;
 #endif
 
 	memset(&sinfo, 0, sizeof(sinfo));
 	memset(&config, 0, sizeof(config));
-	memset(&vcinfo2, 0, sizeof(vcinfo2));
+	vcinfo2 = kmalloc(sizeof(struct SENSOR_VC_INFO2_STRUCT), GFP_KERNEL);
+	if (unlikely(vcinfo2 == NULL)) {
+		adaptor_logi(ctx, "[%s] kmalloc fail\n", __func__);
+		return -ENOIOCTLCMD;
+	} else {
+		memset(vcinfo2, 0, sizeof(vcinfo2));
+	}
 
 	subdrv_call(ctx, get_info, info->scenario_id, &sinfo, &config);
 
 #ifdef IMGSENSOR_VC_ROUTING
 	subdrv_call(ctx, get_frame_desc, info->scenario_id, &fd);
-	frame_desc_to_vcinfo2(&fd, &vcinfo2);
+	frame_desc_to_vcinfo2(&fd, vcinfo2);
 #else
+	para.u64[1] = (u64)vcinfo2;
 	subdrv_call(ctx, feature_control,
 		SENSOR_FEATURE_GET_VC_INFO2,
 		para.u8, &len);
 
-	if (!vcinfo2.updated) {
+	if (!vcinfo2->updated) {
 		struct SENSOR_VC_INFO_STRUCT vcinfo;
 
 		para.u64[1] = (u64)&vcinfo;
@@ -588,16 +595,20 @@ static int g_vcinfo_by_scenario(struct adaptor_ctx *ctx, void *arg)
 		subdrv_call(ctx, feature_control,
 			SENSOR_FEATURE_GET_VC_INFO,
 			para.u8, &len);
-		vcinfo_to_vcinfo2(&vcinfo, &vcinfo2);
+		vcinfo_to_vcinfo2(&vcinfo, vcinfo2);
 	}
 #endif
 
-	vcinfo2_fill_output_format(&vcinfo2, sinfo.SensorOutputDataFormat);
-	vcinfo2_fill_pad(&vcinfo2);
+	vcinfo2_fill_output_format(vcinfo2, sinfo.SensorOutputDataFormat);
+	vcinfo2_fill_pad(vcinfo2);
 
-	if (copy_to_user((void *)info->p_vcinfo, &vcinfo2, sizeof(vcinfo2)))
+	if (copy_to_user((void *)info->p_vcinfo, vcinfo2, sizeof(struct SENSOR_VC_INFO2_STRUCT))) {
+		kfree(vcinfo2);
+		adaptor_logi(ctx, "[%s] copy_to_user fail\n", __func__);
 		return -EFAULT;
+	}
 
+	kfree(vcinfo2);
 	return 0;
 }
 
@@ -962,11 +973,9 @@ static int g_feature_info(struct adaptor_ctx *ctx, void *arg)
 		info->scenario_id, workbuf1.kbuf, workbuf2.kbuf);
 
 	ret = workbuf_put(&workbuf1);
-
-	ret = workbuf_put(&workbuf2);
-
+	ret |= workbuf_put(&workbuf2);
 	if (ret)
-		return ret;
+		return -EFAULT;
 
 	if (info->p_resolution)
 		ret = g_resolution(ctx, info->p_resolution);

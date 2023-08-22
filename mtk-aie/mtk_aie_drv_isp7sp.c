@@ -489,6 +489,8 @@ static void aie_irqhandle(struct mtk_aie_dev *fd);
 static void aie_arrange_config(struct mtk_aie_dev *fd);
 static void aie_arrange_network(struct mtk_aie_dev *fd);
 
+static void aie_dump_cg_reg(struct mtk_aie_dev *fd);
+
 static void FDVT_DumpDRAMOut(struct mtk_aie_dev *fd, unsigned int *hw, unsigned int size)
 {
 	unsigned int i;
@@ -506,6 +508,8 @@ static void aie_fdvt_dump_reg(struct mtk_aie_dev *fd)
 	//int fld_face_num = fd->aie_cfg->fld_face_num;
 	unsigned int loop_num = 1;
 	int i = 0;
+
+	aie_dump_cg_reg(fd);
 
 	aie_dev_info(fd->dev, "%s result result1: %x, %x, %x", __func__,
 		 readl(fd->fd_base + AIE_RESULT_0_REG),
@@ -709,6 +713,9 @@ static void aie_fdvt_dump_reg(struct mtk_aie_dev *fd)
 		aie_dev_info(fd->dev, "FLD_FLD_SH_DBG_DATA7[0x%08X %08X]\n",
 				(unsigned int) FLD_FLD_SH_DBG_DATA7,
 				(unsigned int) readl(fd->fd_base + FLD_FLD_SH_DBG_DATA7));
+		aie_dev_info(fd->dev, "FDVT Check if AIE is on\n");
+		aie_dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int)0x118,
+			(unsigned int)readl(fd->fd_base + 0x118));
 	} else {
 		aie_dev_info(fd->dev, "- E.");
 		aie_dev_info(fd->dev, "FDVT Config Info\n");
@@ -936,6 +943,13 @@ static void aie_fdvt_dump_reg(struct mtk_aie_dev *fd)
 			aie_dev_info(fd->dev, "[FDVT_DMA_DEBUG_DATA_WDMA_3_3]: 0x%08X %08X\n",
 			  FDVT_DMA_DEBUG_DATA_WDMA_3_3,
 			  (unsigned int)readl(fd->fd_base + FDVT_DMA_DEBUG_DATA_WDMA_3_3));
+			aie_dev_info(fd->dev, "FDVT Check if AIE is on\n");
+			aie_dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int)0x118,
+				(unsigned int)readl(fd->fd_base + 0x118));
+			aie_dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int)0x11c,
+				(unsigned int)readl(fd->fd_base + 0x11c));
+			aie_dev_info(fd->dev, "[0x%08X %08X]\n", (unsigned int)0x158,
+				(unsigned int)readl(fd->fd_base + 0x158));
 		}
 	}
 }

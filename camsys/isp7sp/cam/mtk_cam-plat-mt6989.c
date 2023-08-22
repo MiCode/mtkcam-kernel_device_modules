@@ -354,82 +354,87 @@ static int get_sv_two_smi_setting(int *sv_two_smi_en)
 	return 0;
 }
 
-static int get_sv_dmao_common_setting(struct sv_dma_th_setting *sv_th_setting,
-	struct sv_cq_th_setting *sv_cq_setting)
+static int get_sv_dma_th_setting(unsigned int dev_id, unsigned int fifo_img_p1,
+	unsigned int fifo_img_p2, unsigned int fifo_len_p1, unsigned int fifo_len_p2,
+	struct sv_dma_th_setting *th_setting)
 {
-	sv_th_setting[CAMSV_0].urgent_th = 1<<31|FIFO_THRESHOLD(3412, 4/10, 3/10);
-	sv_th_setting[CAMSV_0].ultra_th = 1<<28|FIFO_THRESHOLD(3412, 2/10, 1/10);
-	sv_th_setting[CAMSV_0].pultra_th = 1<<28|FIFO_THRESHOLD(3412, 2/10, 1/10);
-	sv_th_setting[CAMSV_0].dvfs_th = 1<<31|FIFO_THRESHOLD(3412, 1/10, 0);
-	sv_th_setting[CAMSV_0].urgent_th2 = 1<<31|FIFO_THRESHOLD(2132, 4/10, 3/10);
-	sv_th_setting[CAMSV_0].ultra_th2 = 1<<28|FIFO_THRESHOLD(2132, 2/10, 1/10);
-	sv_th_setting[CAMSV_0].pultra_th2 = 1<<28|FIFO_THRESHOLD(2132, 2/10, 1/10);
-	sv_th_setting[CAMSV_0].dvfs_th2 = 1<<31|FIFO_THRESHOLD(2132, 1/10, 0);
-	sv_th_setting[CAMSV_0].urgent_len1_th = 1<<31|FIFO_THRESHOLD(128, 4/10, 3/10);
-	sv_th_setting[CAMSV_0].ultra_len1_th = 1<<28|FIFO_THRESHOLD(128, 2/10, 1/10);
-	sv_th_setting[CAMSV_0].pultra_len1_th = 1<<28|FIFO_THRESHOLD(128, 2/10, 1/10);
-	sv_th_setting[CAMSV_0].dvfs_len1_th = 1<<31|FIFO_THRESHOLD(128, 1/10, 0);
-	sv_th_setting[CAMSV_0].urgent_len2_th = 1<<31|FIFO_THRESHOLD(64, 4/10, 3/10);
-	sv_th_setting[CAMSV_0].ultra_len2_th = 1<<28|FIFO_THRESHOLD(64, 2/10, 1/10);
-	sv_th_setting[CAMSV_0].pultra_len2_th = 1<<28|FIFO_THRESHOLD(64, 2/10, 1/10);
-	sv_th_setting[CAMSV_0].dvfs_len2_th = 1<<31|FIFO_THRESHOLD(64, 1/10, 0);
+	const unsigned int max_fifo_img_p1[CAMSV_END] = {3412, 3412, 2560, 1600, 440, 440};
+	const unsigned int max_fifo_img_p2[CAMSV_END] = {2132, 2132, 0, 0, 0, 0};
+	const unsigned int max_fifo_len_p1[CAMSV_END] = {128, 128, 128, 64, 0, 0};
+	const unsigned int max_fifo_len_p2[CAMSV_END] = {64, 64, 0, 0, 0, 0};
+	const unsigned int max_fifo_cq1 = 64;
+	const unsigned int max_fifo_cq2 = 64;
+	unsigned int img_p1, img_p2, len_p1, len_p2;
 
-	sv_th_setting[CAMSV_1].urgent_th = 1<<31|FIFO_THRESHOLD(3412, 4/10, 3/10);
-	sv_th_setting[CAMSV_1].ultra_th = 1<<28|FIFO_THRESHOLD(3412, 2/10, 1/10);
-	sv_th_setting[CAMSV_1].pultra_th = 1<<28|FIFO_THRESHOLD(3412, 2/10, 1/10);
-	sv_th_setting[CAMSV_1].dvfs_th = 1<<31|FIFO_THRESHOLD(3412, 1/10, 0);
-	sv_th_setting[CAMSV_1].urgent_th2 = 1<<31|FIFO_THRESHOLD(2132, 4/10, 3/10);
-	sv_th_setting[CAMSV_1].ultra_th2 = 1<<28|FIFO_THRESHOLD(2132, 2/10, 1/10);
-	sv_th_setting[CAMSV_1].pultra_th2 = 1<<28|FIFO_THRESHOLD(2132, 2/10, 1/10);
-	sv_th_setting[CAMSV_1].dvfs_th2 = 1<<31|FIFO_THRESHOLD(2132, 1/10, 0);
-	sv_th_setting[CAMSV_1].urgent_len1_th = 1<<31|FIFO_THRESHOLD(128, 4/10, 3/10);
-	sv_th_setting[CAMSV_1].ultra_len1_th = 1<<28|FIFO_THRESHOLD(128, 2/10, 1/10);
-	sv_th_setting[CAMSV_1].pultra_len1_th = 1<<28|FIFO_THRESHOLD(128, 2/10, 1/10);
-	sv_th_setting[CAMSV_1].dvfs_len1_th = 1<<31|FIFO_THRESHOLD(128, 1/10, 0);
-	sv_th_setting[CAMSV_1].urgent_len2_th = 1<<31|FIFO_THRESHOLD(64, 4/10, 3/10);
-	sv_th_setting[CAMSV_1].ultra_len2_th = 1<<28|FIFO_THRESHOLD(64, 2/10, 1/10);
-	sv_th_setting[CAMSV_1].pultra_len2_th = 1<<28|FIFO_THRESHOLD(64, 2/10, 1/10);
-	sv_th_setting[CAMSV_1].dvfs_len2_th = 1<<31|FIFO_THRESHOLD(64, 1/10, 0);
+	if (dev_id >= CAMSV_END)
+		return 0;
+	else {
+		img_p1 = (fifo_img_p1 && fifo_img_p1 <= max_fifo_img_p1[dev_id]) ?
+			fifo_img_p1 : max_fifo_img_p1[dev_id];
+		img_p2 = (fifo_img_p2 && fifo_img_p2 <= max_fifo_img_p2[dev_id]) ?
+			fifo_img_p2 : max_fifo_img_p2[dev_id];
+		len_p1 = (fifo_len_p1 && fifo_len_p1 <= max_fifo_len_p1[dev_id]) ?
+			fifo_len_p1 : max_fifo_len_p1[dev_id];
+		len_p2 = (fifo_len_p2 && fifo_len_p2 <= max_fifo_len_p2[dev_id]) ?
+			fifo_len_p2 : max_fifo_len_p2[dev_id];
+	}
 
-	sv_th_setting[CAMSV_2].urgent_th = 1<<31|FIFO_THRESHOLD(2560, 4/10, 3/10);
-	sv_th_setting[CAMSV_2].ultra_th = 1<<28|FIFO_THRESHOLD(2560, 2/10, 1/10);
-	sv_th_setting[CAMSV_2].pultra_th = 1<<28|FIFO_THRESHOLD(2560, 2/10, 1/10);
-	sv_th_setting[CAMSV_2].dvfs_th = 1<<31|FIFO_THRESHOLD(2560, 1/10, 0);
-	sv_th_setting[CAMSV_2].urgent_len1_th = 1<<31|FIFO_THRESHOLD(128, 4/10, 3/10);
-	sv_th_setting[CAMSV_2].ultra_len1_th = 1<<28|FIFO_THRESHOLD(128, 2/10, 1/10);
-	sv_th_setting[CAMSV_2].pultra_len1_th = 1<<28|FIFO_THRESHOLD(128, 2/10, 1/10);
-	sv_th_setting[CAMSV_2].dvfs_len1_th = 1<<31|FIFO_THRESHOLD(128, 1/10, 0);
+	th_setting->urgent_th =
+		1 << 31 | FIFO_THRESHOLD(img_p1, 4/10, 3/10);
+	th_setting->ultra_th =
+		1 << 28 | FIFO_THRESHOLD(img_p1, 2/10, 1/10);
+	th_setting->pultra_th =
+		1 << 28 | FIFO_THRESHOLD(img_p1, 2/10, 1/10);
+	th_setting->dvfs_th =
+		1 << 31 | FIFO_THRESHOLD(img_p1, 1/10, 0);
 
-	sv_th_setting[CAMSV_3].urgent_th = 1<<31|FIFO_THRESHOLD(1600, 4/10, 3/10);
-	sv_th_setting[CAMSV_3].ultra_th = 1<<28|FIFO_THRESHOLD(1600, 2/10, 1/10);
-	sv_th_setting[CAMSV_3].pultra_th = 1<<28|FIFO_THRESHOLD(1600, 2/10, 1/10);;
-	sv_th_setting[CAMSV_3].dvfs_th = 1<<31|FIFO_THRESHOLD(1600, 1/10, 0);
-	sv_th_setting[CAMSV_3].urgent_len1_th = 1<<31|FIFO_THRESHOLD(64, 4/10, 3/10);
-	sv_th_setting[CAMSV_3].ultra_len1_th = 1<<28|FIFO_THRESHOLD(64, 2/10, 1/10);
-	sv_th_setting[CAMSV_3].pultra_len1_th = 1<<28|FIFO_THRESHOLD(64, 2/10, 1/10);
-	sv_th_setting[CAMSV_3].dvfs_len1_th = 1<<31|FIFO_THRESHOLD(64, 1/10, 0);
+	th_setting->urgent_th2 =
+		1 << 31 | FIFO_THRESHOLD(img_p2, 4/10, 3/10);
+	th_setting->ultra_th2 =
+		1 << 28 | FIFO_THRESHOLD(img_p2, 2/10, 1/10);
+	th_setting->pultra_th2 =
+		1 << 28 | FIFO_THRESHOLD(img_p2, 2/10, 1/10);
+	th_setting->dvfs_th2 =
+		1 << 31 | FIFO_THRESHOLD(img_p2, 1/10, 0);
 
-	sv_th_setting[CAMSV_4].urgent_th = 1<<31|FIFO_THRESHOLD(440, 4/10, 3/10);
-	sv_th_setting[CAMSV_4].ultra_th = 1<<28|FIFO_THRESHOLD(440, 2/10, 1/10);
-	sv_th_setting[CAMSV_4].pultra_th = 1<<28|FIFO_THRESHOLD(440, 2/10, 1/10);
-	sv_th_setting[CAMSV_4].dvfs_th = 1<<31|FIFO_THRESHOLD(440, 1/10, 0);
+	th_setting->urgent_len1_th =
+		1 << 31 | FIFO_THRESHOLD(len_p1, 4/10, 3/10);
+	th_setting->ultra_len1_th =
+		1 << 28 | FIFO_THRESHOLD(len_p1, 2/10, 1/10);
+	th_setting->pultra_len1_th =
+		1 << 28 | FIFO_THRESHOLD(len_p1, 2/10, 1/10);
+	th_setting->dvfs_len1_th =
+		1 << 31 | FIFO_THRESHOLD(len_p1, 1/10, 0);
 
-	sv_th_setting[CAMSV_5].urgent_th = 1<<31|FIFO_THRESHOLD(440, 4/10, 3/10);
-	sv_th_setting[CAMSV_5].ultra_th = 1<<28|FIFO_THRESHOLD(440, 2/10, 1/10);
-	sv_th_setting[CAMSV_5].pultra_th = 1<<28|FIFO_THRESHOLD(440, 2/10, 1/10);
-	sv_th_setting[CAMSV_5].dvfs_th = 1<<31|FIFO_THRESHOLD(440, 1/10, 0);
+	th_setting->urgent_len2_th =
+		1 << 31 | FIFO_THRESHOLD(len_p2, 4/10, 3/10);
+	th_setting->ultra_len2_th =
+		1 << 28 | FIFO_THRESHOLD(len_p2, 2/10, 1/10);
+	th_setting->pultra_len2_th =
+		1 << 28 | FIFO_THRESHOLD(len_p2, 2/10, 1/10);
+	th_setting->dvfs_len2_th =
+		1 << 31 | FIFO_THRESHOLD(len_p2, 1/10, 0);
 
-	sv_cq_setting->cq1_fifo_size = (0x10 << 24) | 64;
-	sv_cq_setting->cq1_urgent_th = 1<<31|FIFO_THRESHOLD(64, 4/10, 3/10);
-	sv_cq_setting->cq1_ultra_th = 1<<28|FIFO_THRESHOLD(64, 2/10, 1/10);
-	sv_cq_setting->cq1_pultra_th = 1<<28|FIFO_THRESHOLD(64, 2/10, 1/10);
-	sv_cq_setting->cq1_dvfs_th = 1<<31|FIFO_THRESHOLD(64, 1/10, 0);
+	th_setting->cq1_fifo_size = (0x10 << 24) | max_fifo_cq1;
+	th_setting->cq1_urgent_th =
+		1 << 31 | FIFO_THRESHOLD(max_fifo_cq1, 4/10, 3/10);
+	th_setting->cq1_ultra_th =
+		1 << 28 | FIFO_THRESHOLD(max_fifo_cq1, 2/10, 1/10);
+	th_setting->cq1_pultra_th =
+		1 << 28 | FIFO_THRESHOLD(max_fifo_cq1, 2/10, 1/10);
+	th_setting->cq1_dvfs_th =
+		1 << 31 | FIFO_THRESHOLD(max_fifo_cq1, 1/10, 0);
 
-	sv_cq_setting->cq2_fifo_size = (0x10 << 24) | 64;
-	sv_cq_setting->cq2_urgent_th = 1<<31|FIFO_THRESHOLD(64, 4/10, 3/10);
-	sv_cq_setting->cq2_ultra_th = 1<<28|FIFO_THRESHOLD(64, 2/10, 1/10);
-	sv_cq_setting->cq2_pultra_th = 1<<28|FIFO_THRESHOLD(64, 2/10, 1/10);
-	sv_cq_setting->cq2_dvfs_th = 1<<31|FIFO_THRESHOLD(64, 1/10, 0);
+	th_setting->cq2_fifo_size = (0x10 << 24) | max_fifo_cq2;
+	th_setting->cq2_urgent_th =
+		1 << 31 | FIFO_THRESHOLD(max_fifo_cq2, 4/10, 3/10);
+	th_setting->cq2_ultra_th =
+		1 << 28 | FIFO_THRESHOLD(max_fifo_cq2, 2/10, 1/10);
+	th_setting->cq2_pultra_th =
+		1 << 28 | FIFO_THRESHOLD(max_fifo_cq2, 2/10, 1/10);
+	th_setting->cq2_dvfs_th =
+		1 << 31 | FIFO_THRESHOLD(max_fifo_cq2, 1/10, 0);
+
 	return 0;
 }
 
@@ -761,7 +766,7 @@ static const struct plat_v4l2_data mt6989_v4l2_data = {
 	.get_meta_stats_port_size = get_meta_stats_port_size,
 
 	.set_sv_meta_stats_info = set_sv_meta_stats_info,
-	.get_sv_dmao_common_setting = get_sv_dmao_common_setting,
+	.get_sv_dma_th_setting = get_sv_dma_th_setting,
 	.get_sv_two_smi_setting = get_sv_two_smi_setting,
 	.get_mraw_dmao_common_setting = get_mraw_dmao_common_setting,
 	.set_mraw_meta_stats_info = set_mraw_meta_stats_info,

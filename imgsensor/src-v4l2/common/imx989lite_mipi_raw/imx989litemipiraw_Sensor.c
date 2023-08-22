@@ -29,6 +29,8 @@ static u16 get_gain2reg(u32 gain);
 static int imx989lite_seamless_switch(struct subdrv_ctx *ctx, u8 *para, u32 *len);
 static int imx989lite_set_test_pattern(struct subdrv_ctx *ctx, u8 *para, u32 *len);
 static int imx989lite_set_test_pattern_data(struct subdrv_ctx *ctx, u8 *para, u32 *len);
+static int get_imgsensor_id(struct subdrv_ctx *ctx, u32 *sensor_id);
+static int open(struct subdrv_ctx *ctx);
 static int init_ctx(struct subdrv_ctx *ctx,	struct i2c_client *i2c_client, u8 i2c_write_id);
 static int vsync_notify(struct subdrv_ctx *ctx,	unsigned int sof_cnt);
 
@@ -2664,9 +2666,9 @@ static struct subdrv_static_ctx static_ctx = {
 };
 
 static struct subdrv_ops ops = {
-	.get_id = common_get_imgsensor_id,
+	.get_id = get_imgsensor_id,
 	.init_ctx = init_ctx,
-	.open = common_open,
+	.open = open,
 	.get_info = common_get_info,
 	.get_resolution = common_get_resolution,
 	.control = common_control,
@@ -2898,6 +2900,40 @@ static int imx989lite_set_test_pattern_data(struct subdrv_ctx *ctx, u8 *para, u3
 	return ERROR_NONE;
 }
 
+static int get_imgsensor_id(struct subdrv_ctx *ctx, u32 *sensor_id)
+{
+	u8 i = 0;
+	u8 retry = 2;
+	u32 addr_h = ctx->s_ctx.reg_addr_sensor_id.addr[0];
+	u32 addr_l = ctx->s_ctx.reg_addr_sensor_id.addr[1];
+	u32 addr_ll = ctx->s_ctx.reg_addr_sensor_id.addr[2];
+
+	while (ctx->s_ctx.i2c_addr_table[i] != 0xFF) {
+		ctx->i2c_write_id = ctx->s_ctx.i2c_addr_table[i];
+		do {
+			*sensor_id = (subdrv_i2c_rd_u8(ctx, addr_h) << 8) |
+				subdrv_i2c_rd_u8(ctx, addr_l);
+			if (addr_ll)
+				*sensor_id = ((*sensor_id) << 8) | subdrv_i2c_rd_u8(ctx, addr_ll);
+			*sensor_id +=1;
+			DRV_LOG(ctx, "i2c_write_id(0x%x) sensor_id(0x%x/0x%x)\n",
+				ctx->i2c_write_id, *sensor_id, ctx->s_ctx.sensor_id);
+			if (*sensor_id == IMX598LITE_SENSOR_ID) {
+				*sensor_id = ctx->s_ctx.sensor_id;
+				return ERROR_NONE;
+			}
+			retry--;
+		} while (retry > 0);
+		i++;
+		retry = 2;
+	}
+	if (*sensor_id != ctx->s_ctx.sensor_id) {
+		*sensor_id = 0xFFFFFFFF;
+		return ERROR_SENSOR_CONNECT_FAIL;
+	}
+	return ERROR_NONE;
+}
+
 static int init_ctx(struct subdrv_ctx *ctx,	struct i2c_client *i2c_client, u8 i2c_write_id)
 {
 	memcpy(&(ctx->s_ctx), &static_ctx, sizeof(struct subdrv_static_ctx));
@@ -2905,6 +2941,77 @@ static int init_ctx(struct subdrv_ctx *ctx,	struct i2c_client *i2c_client, u8 i2
 	ctx->i2c_client = i2c_client;
 	ctx->i2c_write_id = i2c_write_id;
 	return 0;
+}
+
+static int open(struct subdrv_ctx *ctx)
+{
+	u32 sensor_id = 0;
+	u32 scenario_id = 0;
+
+	/* get sensor id */
+	if (get_imgsensor_id(ctx, &sensor_id) != ERROR_NONE)
+		return ERROR_SENSOR_CONNECT_FAIL;
+
+	/* initail setting */
+	if (ctx->s_ctx.aov_sensor_support && !ctx->s_ctx.init_in_open)
+		DRV_LOG_MUST(ctx, "sensor init not in open stage!\n");
+	else
+		sensor_init(ctx);
+
+	if (ctx->s_ctx.s_cali != NULL)
+		ctx->s_ctx.s_cali((void *) ctx);
+	else
+		write_sensor_Cali(ctx);
+
+	memset(ctx->exposure, 0, sizeof(ctx->exposure));
+	memset(ctx->ana_gain, 0, sizeof(ctx->gain));
+	ctx->exposure[0] = ctx->s_ctx.exposure_def;
+	ctx->ana_gain[0] = ctx->s_ctx.ana_gain_def;
+	ctx->current_scenario_id = scenario_id;
+	ctx->pclk = ctx->s_ctx.mode[scenario_id].pclk;
+	ctx->line_length = ctx->s_ctx.mode[scenario_id].linelength;
+	ctx->frame_length = ctx->s_ctx.mode[scenario_id].framelength;
+	ctx->frame_length_rg = ctx->frame_length;
+	ctx->current_fps = ctx->pclk / ctx->line_length * 10 / ctx->frame_length;
+	ctx->readout_length = ctx->s_ctx.mode[scenario_id].readout_length;
+	ctx->read_margin = ctx->s_ctx.mode[scenario_id].read_margin;
+	ctx->min_frame_length = ctx->frame_length;
+	ctx->autoflicker_en = FALSE;
+	ctx->test_pattern = 0;
+	ctx->ihdr_mode = 0;
+	ctx->pdaf_mode = 0;
+	ctx->hdr_mode = 0;
+	ctx->extend_frame_length_en = 0;
+	ctx->is_seamless = 0;
+	ctx->fast_mode_on = 0;
+	ctx->sof_cnt = 0;
+	ctx->ref_sof_cnt = 0;
+	ctx->is_streaming = 0;
+	if (ctx->s_ctx.mode[ctx->current_scenario_id].hdr_mode == HDR_RAW_LBMF) {
+		memset(ctx->frame_length_in_lut, 0,
+			sizeof(ctx->frame_length_in_lut));
+
+		switch (ctx->s_ctx.mode[ctx->current_scenario_id].exp_cnt) {
+		case 2:
+			ctx->frame_length_in_lut[0] = ctx->readout_length + ctx->read_margin;
+			ctx->frame_length_in_lut[1] = ctx->frame_length -
+				ctx->frame_length_in_lut[0];
+			break;
+		case 3:
+			ctx->frame_length_in_lut[0] = ctx->readout_length + ctx->read_margin;
+			ctx->frame_length_in_lut[1] = ctx->readout_length + ctx->read_margin;
+			ctx->frame_length_in_lut[2] = ctx->frame_length -
+				ctx->frame_length_in_lut[1] - ctx->frame_length_in_lut[0];
+			break;
+		default:
+			break;
+		}
+
+		memcpy(ctx->frame_length_in_lut_rg, ctx->frame_length_in_lut,
+			sizeof(ctx->frame_length_in_lut_rg));
+	}
+
+	return ERROR_NONE;
 }
 
 static int vsync_notify(struct subdrv_ctx *ctx,	unsigned int sof_cnt)

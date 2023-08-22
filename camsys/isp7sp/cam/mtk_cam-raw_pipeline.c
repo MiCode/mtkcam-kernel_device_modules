@@ -123,6 +123,10 @@ struct raw_resource_stepper {
 	int pixel_mode_min;
 	int pixel_mode_max;
 
+	/* frontal pixel mode */
+	int frontal_pixel_mode_min;
+	int frontal_pixel_mode_max;
+
 	/* raw num */
 	int num_raw_min;
 	int num_raw_max;
@@ -132,6 +136,7 @@ struct raw_resource_stepper {
 	const struct camsys_opp_table *tbl;
 	int min_opp_idx;
 
+	int frontal_pixel_mode;
 	int pixel_mode;
 	int num_raw;
 	int opp_idx;
@@ -167,6 +172,16 @@ static int step_next_pixel_mode(struct raw_resource_stepper *stepper)
 	return -1;
 }
 
+static int step_next_frontal_pixel_mode(struct raw_resource_stepper *stepper)
+{
+	if (stepper->frontal_pixel_mode < stepper->frontal_pixel_mode_max) {
+		stepper->frontal_pixel_mode += 8;
+		return 0;
+	}
+	stepper->frontal_pixel_mode = stepper->frontal_pixel_mode_min;
+	return -1;
+}
+
 typedef int (*step_fn_t)(struct raw_resource_stepper *stepper);
 
 static bool valid_resouce_set(struct raw_resource_stepper *s)
@@ -192,7 +207,7 @@ static int loop_resource_till_valid(struct mtk_cam_res_calc *c,
 
 		i = 0;
 		if (valid_resouce_set(stepper)) {
-
+			c->frontal_pixel_mode = stepper->frontal_pixel_mode;
 			c->raw_pixel_mode = stepper->pixel_mode;
 			c->raw_num = stepper->num_raw;
 			c->clk = stepper->tbl[stepper->opp_idx].freq_hz;
@@ -233,6 +248,7 @@ static inline int mtk_raw_find_combination(struct mtk_cam_res_calc *c,
 				    struct raw_resource_stepper *stepper)
 {
 	static const step_fn_t policy[] = {
+		step_next_frontal_pixel_mode,
 		step_next_pixel_mode,
 		step_next_raw_num,
 		step_next_opp
@@ -241,6 +257,7 @@ static inline int mtk_raw_find_combination(struct mtk_cam_res_calc *c,
 	stepper->min_opp_idx = _get_min_opp_idx(stepper);
 
 	/* initial value */
+	stepper->frontal_pixel_mode = stepper->frontal_pixel_mode_min;
 	stepper->pixel_mode = stepper->pixel_mode_min;
 	stepper->num_raw = stepper->num_raw_min;
 	stepper->opp_idx = stepper->min_opp_idx;
@@ -489,6 +506,22 @@ static void res_sensor_info_validate(
 	}
 }
 
+//Todo: move it to platfrom
+static bool frontal_pixmode_validate(struct mtk_cam_res_calc *c,
+				struct mtk_cam_resource_raw_v2 *r)
+{
+	bool valid = true;
+
+	if (res_raw_is_dc_mode(r)) {
+		if (c->frontal_pixel_mode == 16 && r->raws == 0x4)
+			return false;
+
+		r->camsv_pixel_mode = c->frontal_pixel_mode;
+	}
+
+	return valid;
+}
+
 static inline int mtk_pixelmode_val(int pxl_mode)
 {
 	WARN(pxl_mode & (pxl_mode - 1), "wrong pixel mode %d\n", pxl_mode);
@@ -639,6 +672,10 @@ static int mtk_raw_calc_raw_resource(struct mtk_raw_pipeline *pipeline,
 
 CALC_RESOURCE:
 	memset(&stepper, 0, sizeof(stepper));
+	/* frontal pixel mode */
+	stepper.frontal_pixel_mode_min = 8;
+	stepper.frontal_pixel_mode_max = res_raw_is_dc_mode(r) ? 16 : 8;
+
 	/* constraints */
 	/* always 2 pixel mode, beside sensor size <= 1920 */
 	stepper.pixel_mode_min = (s->width <= PIX_MODE_SIZE_CONSTRAIN) ? 1 : 2;
@@ -696,11 +733,18 @@ CALC_RESOURCE:
 	}
 
 	r->raws = raws_driver_selected;
+	if (!frontal_pixmode_validate(&c, r)) {
+		dev_info(cam->dev, "invalid frontal pixel mode\n");
+		ret = -EBUSY;
+		goto EXIT;
+	}
+
 	if (drv_data) {
 		drv_data->user_data = *user_ctrl;
 		drv_data->tgo_pxl_mode =
 			mtk_pixelmode_val(mtk_raw_overall_pixel_mode(&c));
-		drv_data->tgo_pxl_mode_before_raw = mtk_pixelmode_val(8);
+		drv_data->tgo_pxl_mode_before_raw =
+			mtk_pixelmode_val(c.frontal_pixel_mode);
 	}
 
 	/* if s_ctrl check if need to  request for slb directly */
@@ -717,11 +761,11 @@ EXIT:
 		raw_res_to_str(str, sizeof(str), r);
 
 		dev_info(cam->dev,
-			 "calc_resource: sensor fps %u/%u %dx%d blank %u/%u prate %llu linet %ld num %d %s\n",
+			 "calc_resource: sensor fps %u/%u %dx%d blank %u/%u prate %llu linet %ld num %d f_pixmode %d %s\n",
 			 s->interval.denominator, s->interval.numerator,
 			 s->width, s->height, s->hblank, s->vblank,
 			 s->pixel_rate,
-			 c.line_time, c.raw_num,
+			 c.line_time, c.raw_num, c.frontal_pixel_mode,
 			 str);
 	}
 	return ret;

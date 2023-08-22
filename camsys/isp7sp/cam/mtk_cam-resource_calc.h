@@ -18,6 +18,7 @@ struct mtk_cam_res_calc {
 
 	int raw_num;		/* [1..3] */
 	int raw_pixel_mode;	/* [1,2] */
+	int frontal_pixel_mode;	/* [8,16] */
 	int clk;		/* Hz */
 
 	int cbn_type : 4; /* 0: disable, 1: 2x2, 2: 3x3 3: 4x4 */
@@ -182,12 +183,12 @@ static inline int _xbin_scale_ratio(struct mtk_cam_res_calc *c)
 static inline bool mtk_cam_check_mipi_pixel_rate(struct mtk_cam_res_calc *c,
 						 bool enable_log)
 {
-	s64 frontal_throughput = (s64)c->clk * (100 - _clk_hopping()) / 100 * 8;
+	s64 frontal_throughput = (s64)c->clk * (100 - _clk_hopping()) / 100 * c->frontal_pixel_mode;
 	bool valid = frontal_throughput > c->mipi_pixel_rate;
 
 	if (!valid && enable_log)
-		pr_info("%s: clk %d is not enough for mipi pixel rate %lld\n",
-			__func__,  c->clk, c->mipi_pixel_rate);
+		pr_info("%s: clk %d is not enough for mipi pixel rate %lld, pixel mode %d\n",
+			__func__,  c->clk, c->mipi_pixel_rate, c->frontal_pixel_mode);
 
 	return valid;
 }

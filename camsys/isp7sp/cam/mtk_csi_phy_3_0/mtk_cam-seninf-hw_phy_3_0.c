@@ -4602,11 +4602,12 @@ static int mtk_cam_seninf_debug(struct seninf_ctx *ctx)
 	unsigned int mipi_packet_cnt = 0;
 	unsigned int tmp_mipi_packet_cnt = 0;
 	unsigned long total_delay = 0;
+	unsigned long max_delay = 0;
 	unsigned long long enabled = 0;
 	int ret = 0;
 	int j, i, k;
 	unsigned long debug_ft = FT_30_FPS * SCAN_TIME;	// FIXME
-	unsigned long debug_vb = 3 * SCAN_TIME;	// FIXME
+	unsigned long debug_vb = 1;	// 1ms for min readout time
 	enum CSI_PORT csi_port = CSI_PORT_0;
 	unsigned int tag_03_vc, tag_03_dt, tag_47_vc, tag_47_dt;
 	char *fmeter_dbg = kzalloc(sizeof(char) * 256, GFP_KERNEL);
@@ -4616,9 +4617,6 @@ static int mtk_cam_seninf_debug(struct seninf_ctx *ctx)
 
 	if (ctx->dbg_timeout != 0)
 		debug_ft = ctx->dbg_timeout / 1000;
-
-	if (debug_ft > FT_30_FPS)
-		debug_vb = debug_ft / 10;
 
 	if (fmeter_dbg && mtk_cam_dbg_fmeter(ctx->core, fmeter_dbg, sizeof(char) * 256) == 0)
 		dev_info(ctx->dev, "%s\n", fmeter_dbg);
@@ -4776,28 +4774,33 @@ static int mtk_cam_seninf_debug(struct seninf_ctx *ctx)
 			    RG_CSI2_DBG_PACKET_CNT_EN, 1);
 		mipi_packet_cnt = SENINF_READ_REG(base_csi_mac,
 					CSIRX_MAC_CSI2_PACKET_CNT_STATUS);
+		max_delay = debug_ft * PKT_CNT_CHK_MARGIN / 100;
 		dev_info(ctx->dev,
-			"total_delay %lu SENINF%d_PkCnt(0x%x)\n",
-			total_delay, ctx->seninfIdx, mipi_packet_cnt);
+			"total_delay %lums/%lums SENINF%d_PkCnt(0x%x) ret=%d\n",
+			total_delay, max_delay, ctx->seninfIdx, mipi_packet_cnt, ret);
 
-		while (total_delay <= ((debug_ft * PKT_CNT_CHK_MARGIN) / 100)) {
+		while (total_delay < max_delay) {
 			tmp_mipi_packet_cnt = mipi_packet_cnt & 0xFFFF;
 			if (!delay_with_stream_check(ctx, debug_vb))
 				return ret; // has been stream off
 			total_delay += debug_vb;
 			mipi_packet_cnt = SENINF_READ_REG(base_csi_mac,
 						CSIRX_MAC_CSI2_PACKET_CNT_STATUS);
-			dev_info(ctx->dev,
-				"total_delay %lu SENINF%d_PkCnt(0x%x)\n",
-				total_delay, ctx->seninfIdx, mipi_packet_cnt);
 			if (tmp_mipi_packet_cnt != (mipi_packet_cnt & 0xFFFF)) {
+				dev_info(ctx->dev,
+					"total_delay %lums/%lums SENINF%d_PkCnt(0x%x) ret=%d\n",
+					total_delay, max_delay, ctx->seninfIdx, mipi_packet_cnt, ret);
 				pkg_cnt_changed = 1;
 				break;
 			}
 		}
 	}
-	if (!pkg_cnt_changed)
+	if (!pkg_cnt_changed) {
 		ret = -1;
+		dev_info(ctx->dev,
+			"total_delay %lums/%lums SENINF%d_PkCnt(0x%x) ret=%d\n",
+			total_delay, max_delay, ctx->seninfIdx, mipi_packet_cnt, ret);
+	}
 
 	/* Check csi status again */
 	if (debug_ft > total_delay) {

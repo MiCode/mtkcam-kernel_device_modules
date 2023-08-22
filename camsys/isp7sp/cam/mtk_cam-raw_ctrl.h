@@ -41,6 +41,15 @@ static inline bool scen_is_dcg_sensor_merge(const struct mtk_cam_scen *scen)
 	return false;
 }
 
+static inline bool scen_is_dcg_ap_merge(const struct mtk_cam_scen *scen)
+{
+	if (scen_is_normal(scen))
+		return (scen->scen.normal.stagger_type ==
+				MTK_CAM_STAGGER_DCG_AP_MERGE);
+
+	return false;
+}
+
 static inline bool scen_is_vhdr(const struct mtk_cam_scen *scen)
 {
 	switch (scen->id) {

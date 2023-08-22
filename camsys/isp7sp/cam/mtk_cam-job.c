@@ -4050,6 +4050,7 @@ static int mtk_cam_job_fill_ipi_config(struct mtk_cam_job *job,
 				sv_input->tag_order = job->tag_info[i].tag_order;
 				sv_input->is_first_frame =
 					(job->first_job || job->raw_switch) ? 1 : 0;
+				sv_input->is_last_order_meta_off = (is_dcg_ap_merge(job)) ? 1 : 0;
 				sv_input->input = job->ipi_config.sv_input[0][i].input;
 				if (sv_two_smi_en)
 					sv_input->is_two_smi_out = 1;

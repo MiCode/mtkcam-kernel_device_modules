@@ -150,18 +150,18 @@ static void init_camsys_settings(struct mtk_raw_device *dev, bool is_srt, bool i
 	if (is_srt) {
 		writel_relaxed(0x0, cam_dev->base + reg_raw_urgent);
 		writel_relaxed(0x0, cam_dev->base + reg_yuv_urgent);
-		if (dev->larbs[0])
+		if (dev->num_larbs && dev->larbs[0])
 			mtk_smi_larb_ultra_dis(&dev->larbs[0]->dev, !is_slb);
 
-		if (yuv_dev->larbs[0])
+		if (yuv_dev->num_larbs && yuv_dev->larbs[0])
 			mtk_smi_larb_ultra_dis(&yuv_dev->larbs[0]->dev, true);
 	} else {
 		writel_relaxed(raw_urgent, cam_dev->base + reg_raw_urgent);
 		writel_relaxed(yuv_urgent, cam_dev->base + reg_yuv_urgent);
-		if (dev->larbs[0])
+		if (dev->num_larbs && dev->larbs[0])
 			mtk_smi_larb_ultra_dis(&dev->larbs[0]->dev, false);
 
-		if (yuv_dev->larbs[0])
+		if (yuv_dev->num_larbs && yuv_dev->larbs[0])
 			mtk_smi_larb_ultra_dis(&yuv_dev->larbs[0]->dev, false);
 	}
 

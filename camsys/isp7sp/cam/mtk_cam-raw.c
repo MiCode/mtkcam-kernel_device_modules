@@ -442,6 +442,24 @@ void update_scq_start_period(struct mtk_raw_device *dev, int scq_ms)
 	dev_info(dev->dev, "[%s] REG_CAMCQ_SCQ_START_PERIOD:0x%08x (%dms)\n",
 		 __func__, readl(dev->base + REG_CAMCQ_SCQ_START_PERIOD), scq_ms);
 }
+static bool not_support_rwfbc(struct mtk_raw_device *dev)
+{
+	return cur_platform->hw->platform_id == 6897;
+}
+void rwfbc_inc_setup(struct mtk_raw_device *dev)
+{
+	u32 wfbc_en_raw, wfbc_en_yuv;
+	if (not_support_rwfbc(dev)) {
+		dev_info(dev->dev, "[%s] bypass using RWFBC\n", __func__);
+	} else {
+		wfbc_en_raw = readl_relaxed(dev->base + REG_CAMCTL_WFBC_EN);
+		writel_relaxed(wfbc_en_raw, dev->base + REG_CAMCTL_WFBC_INC);
+		wfbc_en_yuv = readl_relaxed(dev->yuv_base + REG_CAMCTL_WFBC_EN);
+		writel_relaxed(wfbc_en_yuv, dev->yuv_base + REG_CAMCTL_WFBC_INC);
+		dev_info(dev->dev, "[%s] WFBC_INC camctl/camctl2:0x%x/0x%x\n",
+			__func__, wfbc_en_raw, wfbc_en_yuv);
+	}
+}
 
 void stream_on(struct mtk_raw_device *dev, int on)
 {
@@ -449,7 +467,7 @@ void stream_on(struct mtk_raw_device *dev, int on)
 		/* toggle db before stream-on */
 		enable_tg_db(dev, 0);
 		enable_tg_db(dev, 1);
-
+		rwfbc_inc_setup(dev);
 		set_tg_vfdata_en(dev, 1);
 		set_topdebug_rdyreq(dev, TG_OVERRUN);
 	} else {
@@ -887,7 +905,15 @@ static irqreturn_t mtk_irq_raw(int irq, void *data)
 		raw_dev->sof_count++;
 		raw_dev->cur_vsync_idx = 0;
 
-		irq_info.fbc_empty = is_fbc_empty(raw_dev);
+		if (not_support_rwfbc(raw_dev)) {
+			irq_info.fbc_empty = is_fbc_empty(raw_dev);
+		} else {
+			if (irq_status & FBIT(CAMCTL_SW_ENQUE_ERR_ST))
+				irq_info.fbc_empty = 1;
+			else
+				irq_info.fbc_empty = 0;
+		}
+
 		if (tg_cnt < raw_dev->tg_count)
 			raw_dev->tg_count = tg_cnt + BIT(8);
 		else

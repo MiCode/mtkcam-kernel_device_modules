@@ -904,9 +904,10 @@ _stream_on(struct mtk_cam_job *job, bool on)
 		if (ctx->hw_raw[i]) {
 			raw_dev = dev_get_drvdata(ctx->hw_raw[i]);
 
-			if (raw_dev->is_slave)
+			if (raw_dev->is_slave) {
+				rwfbc_inc_setup(raw_dev);
 				continue;
-
+			}
 			if (job->enable_hsf_raw) {
 				ccu_stream_on(ctx, on);
 			} else {

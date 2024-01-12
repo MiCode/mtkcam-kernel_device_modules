@@ -133,7 +133,8 @@ void apply_cq(struct mtk_raw_device *dev,
 void dbload_force(struct mtk_raw_device *dev);
 void toggle_db(struct mtk_raw_device *dev);
 void enable_tg_db(struct mtk_raw_device *dev, int en);
-
+/* fbc */
+void rwfbc_inc_setup(struct mtk_raw_device *dev);
 
 /* trigger */
 void stream_on(struct mtk_raw_device *dev, int on);

@@ -2828,20 +2828,20 @@ static int mtk_imgsys_worker_hcp_init(struct mtk_imgsys_dev *imgsys_dev)
             (!imgsys_dev->imgsys_pipe[0].capture_alloc)) {
             mode = imgsys_capture;
             ret = mtk_hcp_allocate_working_buffer(imgsys_dev->scp_pdev, mode, gce_buf_en);
-            imgsys_dev->imgsys_pipe[0].capture_alloc = 1;
+            imgsys_dev->imgsys_pipe[0].capture_alloc++;
             imgsys_dev->imgsys_pipe[0].imgsys_user_count++;
         } else {
             if ((imgsys_dev->imgsys_pipe[0].meminfo.is_smvr) &&
                 (!imgsys_dev->imgsys_pipe[0].smvr_alloc)) {
 				mode = imgsys_smvr;
                 ret = mtk_hcp_allocate_working_buffer(imgsys_dev->scp_pdev, mode, gce_buf_en);
-                imgsys_dev->imgsys_pipe[0].smvr_alloc = 1;
+                imgsys_dev->imgsys_pipe[0].smvr_alloc++;
                 imgsys_dev->imgsys_pipe[0].imgsys_user_count++;
             } else {
                 if(!imgsys_dev->imgsys_pipe[0].streaming_alloc) {
 					mode = imgsys_streaming;
 					ret = mtk_hcp_allocate_working_buffer(imgsys_dev->scp_pdev, mode, gce_buf_en);
-                    imgsys_dev->imgsys_pipe[0].streaming_alloc = 1;
+                    imgsys_dev->imgsys_pipe[0].streaming_alloc++;
                     imgsys_dev->imgsys_pipe[0].imgsys_user_count++;
                 }
             }
@@ -3044,7 +3044,7 @@ static void mtk_imgsys_hw_disconnect(struct mtk_imgsys_dev *imgsys_dev)
 	#if SMVR_DECOUPLE
     info.is_capture = 0;
     info.smvr_mode = 0;
-imgsys_dev->imgsys_pipe[0].imgsys_user_count = 0;
+	imgsys_dev->imgsys_pipe[0].imgsys_user_count = 0;
 	#endif
 
 	ret = imgsys_send(imgsys_dev->scp_pdev, HCP_IMGSYS_DEINIT_ID,
@@ -3062,19 +3062,19 @@ imgsys_dev->imgsys_pipe[0].imgsys_user_count = 0;
 
 	/* RELEASE IMGSYS WORKING BUFFER FIRST */
 #if SMVR_DECOUPLE
-ret = mtk_hcp_release_gce_working_buffer(imgsys_dev->scp_pdev);
-if (imgsys_dev->imgsys_pipe[0].capture_alloc != 0) {
-    mtk_hcp_ioc_release_working_buffer(imgsys_dev->scp_pdev, imgsys_capture);
-    imgsys_dev->imgsys_pipe[0].capture_alloc = 0;
-}
-if (imgsys_dev->imgsys_pipe[0].streaming_alloc != 0) {
-    mtk_hcp_ioc_release_working_buffer(imgsys_dev->scp_pdev, imgsys_streaming);
-    imgsys_dev->imgsys_pipe[0].streaming_alloc = 0;
-}
-if (imgsys_dev->imgsys_pipe[0].smvr_alloc != 0) {
-    mtk_hcp_ioc_release_working_buffer(imgsys_dev->scp_pdev, imgsys_smvr);
-    imgsys_dev->imgsys_pipe[0].smvr_alloc = 0;
-}
+	ret = mtk_hcp_release_gce_working_buffer(imgsys_dev->scp_pdev);
+	if (imgsys_dev->imgsys_pipe[0].capture_alloc != 0) {
+	    mtk_hcp_ioc_release_working_buffer(imgsys_dev->scp_pdev, imgsys_capture);
+	    imgsys_dev->imgsys_pipe[0].capture_alloc = 0;
+	}
+	if (imgsys_dev->imgsys_pipe[0].streaming_alloc != 0) {
+	    mtk_hcp_ioc_release_working_buffer(imgsys_dev->scp_pdev, imgsys_streaming);
+	    imgsys_dev->imgsys_pipe[0].streaming_alloc = 0;
+	}
+	if (imgsys_dev->imgsys_pipe[0].smvr_alloc != 0) {
+	    mtk_hcp_ioc_release_working_buffer(imgsys_dev->scp_pdev, imgsys_smvr);
+	    imgsys_dev->imgsys_pipe[0].smvr_alloc = 0;
+	}
 
 #else
 	ret = mtk_hcp_release_working_buffer(imgsys_dev->scp_pdev);

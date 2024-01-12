@@ -3165,9 +3165,6 @@ int common_control(struct subdrv_ctx *ctx,
 				ctx->s_ctx.mode[scenario_id].mode_setting_len);
 			break;
 		case AOV_MODE_CTRL_OPS_MONTION_DETECTION_CTRL:
-			i2c_table_write(ctx,
-				ctx->s_ctx.mode[scenario_id].mode_setting_table_for_md,
-				ctx->s_ctx.mode[scenario_id].mode_setting_len_for_md);
 			/* set eint gpio */
 			ret = pinctrl_select_state(
 				_adaptor_ctx->pinctrl,
@@ -3178,6 +3175,10 @@ int common_control(struct subdrv_ctx *ctx,
 					state_names[STATE_EINT], ret);
 			else
 				DRV_LOG(ctx, "select(%s)(correct)\n", state_names[STATE_EINT]);
+
+			i2c_table_write(ctx,
+				ctx->s_ctx.mode[scenario_id].mode_setting_table_for_md,
+				ctx->s_ctx.mode[scenario_id].mode_setting_len_for_md);
 			break;
 		}
 

@@ -871,6 +871,7 @@ static int mtk_cam_req_collect_vb_bufs(struct mtk_cam_request *req,
 static void mark_each_buffer_done(struct list_head *done_list,
 				  int buf_state, u64 ts_boot, u64 ts_mono)
 {
+	struct mtk_cam_video_device *node;
 	struct mtk_cam_buffer *buf, *buf_next;
 
 	list_for_each_entry_safe(buf, buf_next, done_list, list) {
@@ -879,6 +880,8 @@ static void mark_each_buffer_done(struct list_head *done_list,
 			buf->vbb.vb2_buf.timestamp = ts_mono;
 		else
 			buf->vbb.vb2_buf.timestamp = ts_boot;
+		node = mtk_cam_buf_to_vdev(buf);
+		atomic_dec(&node->queued_cnt);
 		vb2_buffer_done(&buf->vbb.vb2_buf, buf_state);
 	}
 }

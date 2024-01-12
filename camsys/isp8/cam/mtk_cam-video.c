@@ -549,16 +549,19 @@ static void mtk_cam_vb2_stop_streaming(struct vb2_queue *vq)
 		// TODO: clean pending?
 		return;
 	}
-
-	if (mtk_cam_ctx_all_nodes_streaming(ctx))
+	dev_info(cam->dev, "%s:streaming_node cnt:%d node_name:%s, queued_cnt:%d",
+		__func__, ctx->streaming_node_cnt, node->desc.name, atomic_read(&node->queued_cnt));
+	if (atomic_read(&node->queued_cnt))
 		mtk_cam_ctx_stream_off(ctx);
 
 	--ctx->streaming_node_cnt;
-
+	atomic_set(&node->queued_cnt, 0);
 	// TODO: clean pending req?
 
 	if (!mtk_cam_ctx_all_nodes_idle(ctx))
 		return;
+	/* for no req in driver and stream off case */
+	mtk_cam_ctx_stream_off(ctx);
 	mtk_cam_stop_ctx(ctx, &node->vdev.entity);
 
 }
@@ -572,7 +575,7 @@ static void mtk_cam_vb2_buf_queue(struct vb2_buffer *vb)
 
 	if (WARN_ON(!req))
 		return;
-
+	atomic_inc(&node->queued_cnt);
 	if (node->desc.image)
 		mtk_cam_vb2_buf_collect_image_info(vb);
 	else
@@ -896,7 +899,7 @@ int mtk_cam_video_register(struct mtk_cam_video_device *video,
 		video->enabled = false;
 
 	mutex_init(&video->q_lock);
-
+	atomic_set(&video->queued_cnt, 0);
 	/* initialize vb2_queue */
 	q->type = video->desc.buf_type;
 	q->io_modes = VB2_MMAP | VB2_DMABUF;

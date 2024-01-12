@@ -140,6 +140,7 @@ struct mtk_cam_video_device {
 	/* TODO: debug only */
 	struct v4l2_format prev_fmt;
 	struct v4l2_selection prev_crop;
+	atomic_t queued_cnt;
 };
 
 #define media_entity_to_mtk_vdev(ent)	\

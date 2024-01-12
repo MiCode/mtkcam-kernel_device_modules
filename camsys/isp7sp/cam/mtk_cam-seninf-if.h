@@ -128,6 +128,7 @@ struct mtk_seninf_active_line_info {
  * @return 0 if success, and negative number if error occur
  */
 int mtk_cam_seninf_get_active_line_info(struct v4l2_subdev *sd,
+				unsigned int mbus_code,
 				struct mtk_seninf_active_line_info *result);
 
 void

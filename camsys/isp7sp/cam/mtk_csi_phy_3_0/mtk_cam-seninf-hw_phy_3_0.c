@@ -5123,7 +5123,7 @@ static int mtk_cam_seninf_debug_current_status(struct seninf_ctx *ctx)
 	return ret;
 }
 
-int mtk_cam_seninf_get_tsrec_timestamp(struct seninf_ctx *ctx, void *arg)
+static int mtk_cam_seninf_get_tsrec_timestamp(struct seninf_ctx *ctx, void *arg)
 {
 	int ret = 0;
 	unsigned int tsrec_no = 0;

@@ -2259,9 +2259,10 @@ static int csirx_mac_top_setting(struct seninf_ctx *ctx)
 {
 	void *csirx_mac_top;
 
-	if (ctx->port < 0) {
-		dev_info(ctx->dev, "[%s][Error] ctx->port (%d) is < 0\n",
+	if ((ctx->port < 0) || (ctx->port >= CSI_PORT_MAX_NUM)) {
+		dev_info(ctx->dev, "[%s][Error] ctx->port (%d) is invalid\n",
 			__func__, ctx->port);
+		return 	-EINVAL;
 	}
 
 	csirx_mac_top = ctx->reg_csirx_mac_top[ctx->port];
@@ -4012,10 +4013,16 @@ static int csirx_phy_setting(struct seninf_ctx *ctx)
 
 static int mtk_cam_seninf_set_csi_mipi(struct seninf_ctx *ctx)
 {
+	int ret = 0;
+
 	csirx_phy_init(ctx);
 
 	/* csi_mac_top */
-	csirx_mac_top_setting(ctx);
+	ret = csirx_mac_top_setting(ctx);
+	if (ret) {
+		dev_info(ctx->dev, "[%s][Error] ret(%d)\n", __func__, ret);
+		return ret;
+	}
 
 	/* csi_mac_CSI2 */
 	csirx_mac_csi_setting(ctx);
@@ -4901,6 +4908,216 @@ static int mtk_cam_seninf_debug(struct seninf_ctx *ctx)
 	else
 		dev_info(ctx->dev, "sensor is streaming, frame_cnt1: %d, frame_cnt2: %d", frame_cnt1, frame_cnt2);
 
+	dev_info(ctx->dev, "ret = %d", ret);
+
+	return ret;
+}
+
+static int mtk_cam_seninf_debug_current_status(struct seninf_ctx *ctx)
+{
+	void *base_ana, *base_cphy, *base_dphy, *base_seninf, *base_csi_mac, *base_mux;
+	unsigned int mac_irq = 0;
+	unsigned int seninf_irq = 0;
+	unsigned long long enabled = 0;
+	int ret = 0;
+	int j, i, k;
+	enum CSI_PORT csi_port = CSI_PORT_0;
+	unsigned int tag_03_vc, tag_03_dt, tag_47_vc, tag_47_dt;
+	char *fmeter_dbg = kzalloc(sizeof(char) * 256, GFP_KERNEL);
+
+	if (fmeter_dbg && mtk_cam_dbg_fmeter(ctx->core, fmeter_dbg, sizeof(char) * 256) == 0)
+		dev_info(ctx->dev, "%s\n", fmeter_dbg);
+	kfree(fmeter_dbg);
+
+	for (csi_port = CSI_PORT_0A; csi_port <= CSI_PORT_5B; csi_port++) {
+		if (csi_port != ctx->portA &&
+			csi_port != ctx->portB)
+			continue;
+
+		base_ana = ctx->reg_ana_csi_rx[csi_port];
+		dev_info(ctx->dev,
+			"MipiRx_ANA%d: CDPHY_RX_ANA_SETTING_1(0x%08x) CDPHY_RX_ANA_0(0x%08x) ANA_1(0x%08x) ANA_2(0x%08x) ANA_3(0x%08x) ANA_4(0x%08x) ANA_5(0x%08x) ANA_6(0x%08x) ANA_7(0x%08x) ANA_8(0x%08x)\n",
+			csi_port - CSI_PORT_0A,
+			SENINF_READ_REG(base_ana, CDPHY_RX_ANA_SETTING_1),
+			SENINF_READ_REG(base_ana, CDPHY_RX_ANA_0),
+			SENINF_READ_REG(base_ana, CDPHY_RX_ANA_1),
+			SENINF_READ_REG(base_ana, CDPHY_RX_ANA_2),
+			SENINF_READ_REG(base_ana, CDPHY_RX_ANA_3),
+			SENINF_READ_REG(base_ana, CDPHY_RX_ANA_4),
+			SENINF_READ_REG(base_ana, CDPHY_RX_ANA_5),
+			SENINF_READ_REG(base_ana, CDPHY_RX_ANA_6),
+			SENINF_READ_REG(base_ana, CDPHY_RX_ANA_7),
+			SENINF_READ_REG(base_ana, CDPHY_RX_ANA_8));
+		dev_info(ctx->dev,
+			"MipiRx_ANA%d: CDPHY_RX_ANA_AD_0(0x%x) AD_HS_0(0x%x) AD_HS_1(0x%x)\n",
+			csi_port - CSI_PORT_0A,
+			SENINF_READ_REG(base_ana, CDPHY_RX_ANA_AD_0),
+			SENINF_READ_REG(base_ana, CDPHY_RX_ANA_AD_HS_0),
+			SENINF_READ_REG(base_ana, CDPHY_RX_ANA_AD_HS_1));
+	}
+
+	for (csi_port = CSI_PORT_0; csi_port <= CSI_PORT_5; csi_port++) {
+		if (csi_port != ctx->port)
+			continue;
+
+		base_cphy = ctx->reg_ana_cphy_top[csi_port];
+		base_dphy = ctx->reg_ana_dphy_top[csi_port];
+		dev_info(ctx->dev,
+			"Csi%d_Dphy_Top: LANE_EN(0x%x) LANE_SELECT(0x%x) CLK_LANE0_HS(0x%x) CLK_LANE1_HS(0x%x) DATA_LANE0_HS(0x%x) DATA_LANE1_HS(0x%x) DATA_LANE2_HS(0x%x) DATA_LANE3_HS(0x%x) DPHY_RX_SPARE0(0x%x)\n",
+			csi_port,
+			SENINF_READ_REG(base_dphy, DPHY_RX_LANE_EN),
+			SENINF_READ_REG(base_dphy, DPHY_RX_LANE_SELECT),
+			SENINF_READ_REG(base_dphy,
+					DPHY_RX_CLOCK_LANE0_HS_PARAMETER),
+			SENINF_READ_REG(base_dphy,
+					DPHY_RX_CLOCK_LANE1_HS_PARAMETER),
+			SENINF_READ_REG(base_dphy,
+					DPHY_RX_DATA_LANE0_HS_PARAMETER),
+			SENINF_READ_REG(base_dphy,
+					DPHY_RX_DATA_LANE1_HS_PARAMETER),
+			SENINF_READ_REG(base_dphy,
+					DPHY_RX_DATA_LANE2_HS_PARAMETER),
+			SENINF_READ_REG(base_dphy,
+					DPHY_RX_DATA_LANE3_HS_PARAMETER),
+			SENINF_READ_REG(base_dphy,
+					DPHY_RX_SPARE0));
+		dev_info(ctx->dev,
+			"Csi%d_Dphy_Top: DPHY_RX_DESKEW_CTRL(0x%08x) DPHY_RX_DESKEW_TIMING_CTRL(0x%08x) DPHY_RX_DESKEW_LANE0_CTRL(0x%08x) DPHY_RX_DESKEW_LANE1_CTRL(0x%08x) DPHY_RX_DESKEW_LANE2_CTRL(0x%08x) DPHY_RX_DESKEW_LANE3_CTRL(0x%08x)\n",
+			csi_port,
+			SENINF_READ_REG(base_dphy, DPHY_RX_DESKEW_CTRL),
+			SENINF_READ_REG(base_dphy, DPHY_RX_DESKEW_TIMING_CTRL),
+				SENINF_READ_REG(base_dphy,
+					DPHY_RX_DESKEW_LANE0_CTRL),
+			SENINF_READ_REG(base_dphy,
+					DPHY_RX_DESKEW_LANE1_CTRL),
+			SENINF_READ_REG(base_dphy,
+					DPHY_RX_DESKEW_LANE2_CTRL),
+			SENINF_READ_REG(base_dphy,
+					DPHY_RX_DESKEW_LANE3_CTRL));
+		dev_info(ctx->dev,
+			"Csi%d_Dphy_Top: DPHY_RX_DESKEW_IRQ_EN(0x%08x) DPHY_RX_DESKEW_IRQ_CLR(0x%08x) DPHY_RX_DESKEW_IRQ_STATUS(0x%08x)\n",
+			csi_port,
+			SENINF_READ_REG(base_dphy, DPHY_RX_DESKEW_IRQ_EN),
+			SENINF_READ_REG(base_dphy, DPHY_RX_DESKEW_IRQ_CLR),
+			SENINF_READ_REG(base_dphy, DPHY_RX_DESKEW_IRQ_STATUS));
+
+		dev_info(ctx->dev,
+			"Csi%d_Cphy_Top: CPHY_RX_CTRL(0x%x) CPHY_RX_DETECT_CTRL_POST(0x%x)\n",
+			csi_port,
+			SENINF_READ_REG(base_cphy, CPHY_RX_CTRL),
+			SENINF_READ_REG(base_cphy, CPHY_RX_DETECT_CTRL_POST));
+	}
+
+
+	dev_info(ctx->dev,
+		"TOP_CTRL2(0x%x),TOP_MUX_CTRL_0(0x%x),TOP_MUX_CTRL_1(0x%x),TOP_MUX_CTRL_2(0x%x),TOP_MUX_CTRL_3(0x%x),TOP_MUX_CTRL_4(0x%x),TOP_MUX_CTRL_5(0x%x),\n",
+		SENINF_READ_REG(ctx->reg_if_top, SENINF_TOP_CTRL2),
+		SENINF_READ_REG(ctx->reg_if_top, SENINF_TOP_MUX_CTRL_0),
+		SENINF_READ_REG(ctx->reg_if_top, SENINF_TOP_MUX_CTRL_1),
+		SENINF_READ_REG(ctx->reg_if_top, SENINF_TOP_MUX_CTRL_2),
+		SENINF_READ_REG(ctx->reg_if_top, SENINF_TOP_MUX_CTRL_3),
+		SENINF_READ_REG(ctx->reg_if_top, SENINF_TOP_MUX_CTRL_4),
+		SENINF_READ_REG(ctx->reg_if_top, SENINF_TOP_MUX_CTRL_5));
+
+
+	enabled = ((unsigned long long)SENINF_READ_REG(ctx->reg_if_cam_mux_gcsr,
+						SENINF_CAM_MUX_GCSR_MUX_EN_H) << 32) |
+		SENINF_READ_REG(ctx->reg_if_cam_mux_gcsr, SENINF_CAM_MUX_GCSR_MUX_EN);
+
+	/* Seninf_csi status IRQ */
+	base_seninf = ctx->reg_if_csi2[(uint32_t)ctx->seninfIdx];
+	base_csi_mac = ctx->reg_csirx_mac_csi[(uint32_t)ctx->port];
+	mac_irq = SENINF_READ_REG(base_csi_mac, CSIRX_MAC_CSI2_IRQ_STATUS);
+	seninf_irq = SENINF_READ_REG(base_seninf, SENINF_CSI2_IRQ_STATUS);
+	if ((mac_irq & ~(0x324)) || (seninf_irq & ~(0x10000000))) {
+		SENINF_WRITE_REG(base_csi_mac, CSIRX_MAC_CSI2_IRQ_STATUS, 0xffffffff);
+		SENINF_WRITE_REG(base_seninf, SENINF_CSI2_IRQ_STATUS, 0xffffffff);
+	}
+	dev_info(ctx->dev,
+		"SENINF%d_CSI2_PRBS_EN(0x%x) SENINF_CSI2_OPT(0x%x) CSIRX_MAC_CSI2_EN(0x%x) CSIRX_MAC_CSI2_OPT(0x%x) CSIRX_MAC_CSI2_IRQ_STATUS(0x%x), SENINF_CSI2_IRQ_STATUS(0x%x), CSIRX_MAC_CSI2_RESYNC_MERGE_CTRL(0x%x)\n",
+		(uint32_t)ctx->seninfIdx,
+		SENINF_READ_REG(base_seninf, SENINF_CSI2_EN),
+		SENINF_READ_REG(base_seninf, SENINF_CSI2_OPT),
+		SENINF_READ_REG(base_csi_mac, CSIRX_MAC_CSI2_EN),
+		SENINF_READ_REG(base_csi_mac, CSIRX_MAC_CSI2_OPT),
+		mac_irq,
+		seninf_irq,
+		SENINF_READ_REG(base_csi_mac, CSIRX_MAC_CSI2_RESYNC_MERGE_CTRL));
+
+	if ((mac_irq & 0xD0) || (seninf_irq & 0x10000000))
+		ret = -2; //multi lanes sync error, crc error, ecc error
+
+	/* SENINF_MUX */
+	for (j = SENINF_MUX1; j < _seninf_ops->mux_num; j++) {
+		base_mux = ctx->reg_if_mux[j];
+		if (SENINF_READ_REG(base_mux, SENINF_MUX_CTRL_0) & 0x1) {
+			dev_info(ctx->dev,
+				"%sSENINF%d_MUX_CTRL0(0x%x) SENINF%d_MUX_CTRL1(0x%x) SENINF_MUX_IRQ_STATUS(0x%x) SENINF%d_MUX_SIZE(0x%x) SENINF_MUX_ERR_SIZE(0x%x) SENINF_MUX_EXP_SIZE(0x%x)\n",
+				(mtk_cam_seninf_get_top_mux_ctrl(ctx, j) == ctx->seninfIdx) ?
+				"*" : "",
+				j,
+				SENINF_READ_REG(base_mux, SENINF_MUX_CTRL_0),
+				j,
+				SENINF_READ_REG(base_mux, SENINF_MUX_CTRL_1),
+				SENINF_READ_REG(base_mux, SENINF_MUX_IRQ_STATUS),
+				j,
+				SENINF_READ_REG(base_mux, SENINF_MUX_SIZE),
+				SENINF_READ_REG(base_mux, SENINF_MUX_ERR_SIZE),
+				SENINF_READ_REG(base_mux, SENINF_MUX_IMG_SIZE));
+		}
+	}
+
+	/* check SENINF_CAM_MUX size */
+	for (j = 0; j < ctx->vcinfo.cnt; j++) {
+		if (ctx->vcinfo.vc[j].enable) {
+			for (k = 0; k < ctx->vcinfo.vc[j].dest_cnt; k++) {
+				for (i = 0; i < _seninf_ops->cam_mux_num; i++) {
+					unsigned int used_cammux = ctx->vcinfo.vc[j].dest[k].cam;
+
+					if ((used_cammux == i) && ((enabled >> i) & 1)) {
+
+						SENINF_BITS(ctx->reg_if_cam_mux_pcsr[i],
+							SENINF_CAM_MUX_PCSR_OPT,
+							RG_SENINF_CAM_MUX_PCSR_TAG_VC_DT_PAGE_SEL,
+							0);
+						tag_03_vc = SENINF_READ_REG(
+							ctx->reg_if_cam_mux_pcsr[i],
+							SENINF_CAM_MUX_PCSR_TAG_VC_SEL);
+						tag_03_dt = SENINF_READ_REG(
+							ctx->reg_if_cam_mux_pcsr[i],
+							SENINF_CAM_MUX_PCSR_TAG_DT_SEL);
+						SENINF_BITS(ctx->reg_if_cam_mux_pcsr[i],
+							SENINF_CAM_MUX_PCSR_OPT,
+							RG_SENINF_CAM_MUX_PCSR_TAG_VC_DT_PAGE_SEL,
+							1);
+						tag_47_vc = SENINF_READ_REG(
+							ctx->reg_if_cam_mux_pcsr[i],
+							SENINF_CAM_MUX_PCSR_TAG_VC_SEL);
+						tag_47_dt = SENINF_READ_REG(
+							ctx->reg_if_cam_mux_pcsr[i],
+							SENINF_CAM_MUX_PCSR_TAG_DT_SEL);
+
+						dev_info(ctx->dev,
+						"cam_mux_%d CTRL(0x%x) RES(0x%x) EXP(0x%x) ERR(0x%x) OPT(0x%x) IRQ(0x%x) tag03(0x%x/0x%x), tag47(0x%x/0x%x)\n",
+						i,
+						SENINF_READ_REG(ctx->reg_if_cam_mux_pcsr[i],
+								SENINF_CAM_MUX_PCSR_CTRL),
+						SENINF_READ_REG(ctx->reg_if_cam_mux_pcsr[i],
+								SENINF_CAM_MUX_PCSR_CHK_RES),
+						SENINF_READ_REG(ctx->reg_if_cam_mux_pcsr[i],
+								SENINF_CAM_MUX_PCSR_CHK_CTL),
+						SENINF_READ_REG(ctx->reg_if_cam_mux_pcsr[i],
+								SENINF_CAM_MUX_PCSR_CHK_ERR_RES),
+						SENINF_READ_REG(ctx->reg_if_cam_mux_pcsr[i],
+								SENINF_CAM_MUX_PCSR_OPT),
+						SENINF_READ_REG(ctx->reg_if_cam_mux_pcsr[i],
+								SENINF_CAM_MUX_PCSR_IRQ_STATUS),
+						tag_03_vc, tag_03_dt, tag_47_vc, tag_47_dt);
+					}
+				}
+			}
+		}
+	}
 	dev_info(ctx->dev, "ret = %d", ret);
 
 	return ret;
@@ -6527,4 +6744,5 @@ struct mtk_cam_seninf_ops mtk_csi_phy_3_1 = {
 	._enable_stream_err_detect = mtk_cam_enable_stream_err_detect,
 	._debug_init_deskew_irq = debug_init_deskew_irq,
 	._debug_init_deskew_begin_end_apply_code = debug_init_deskew_begin_end_apply_code,
+	._debug_current_status = mtk_cam_seninf_debug_current_status,
 };

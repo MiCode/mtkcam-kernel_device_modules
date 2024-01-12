@@ -264,14 +264,13 @@ void dump_topdebug_rdyreq(struct mtk_raw_device *dev)
 	}
 }
 
+#define MAX_DEBUG_SIZE (32)
 void mtk_cam_dump_dma_debug(struct mtk_raw_device *raw_dev,
 			    void __iomem *dmatop_base,
 			    const char *dma_name,
 			    struct dma_debug_item *items, int n)
 {
 	struct device *dev = raw_dev->dev;
-#define MAX_DEBUG_SIZE (32)
-
 	void __iomem *dbg_sel = dmatop_base + 0x70;
 	void __iomem *dbg_port = dmatop_base + 0x74;
 	int i = 0;
@@ -306,4 +305,40 @@ void mtk_cam_dump_dma_debug(struct mtk_raw_device *raw_dev,
 	for (i = 0; i < n; i++)
 		dev_info(dev, "%08x: %08x [%s]\n",
 			 crc_en | items[i].debug_sel, vals[i], items[i].msg);
+}
+
+void mtk_cam_dump_ufd_debug(struct mtk_raw_device *raw_dev,
+			    const char *mod_name,
+			    struct dma_debug_item *items, int n)
+{
+	struct device *dev = raw_dev->dev;
+	void __iomem *dbg_sel =  raw_dev->base + REG_CAMCTL_DBG_SET;
+	void __iomem *dbg_port = raw_dev->base + REG_CAMCTL_DBG_PORT;
+	int i = 0;
+	unsigned int vals[MAX_DEBUG_SIZE];
+
+	if (n >= MAX_DEBUG_SIZE) {
+		dev_info(dev, "%s: should enlarge array size for n(%d)\n",
+			__func__, n);
+		return;
+	}
+
+	for (i = 0; i < n; i++) {
+		int cur_sel, actual_sel;
+
+		cur_sel = items[i].debug_sel;
+		writel(cur_sel, dbg_sel);
+
+		actual_sel = readl(dbg_sel);
+		if ((actual_sel ^ cur_sel) & 0xffffff)
+			dev_info(dev, "failed to write dbg_sel %08x actual %08x\n",
+				 cur_sel, actual_sel);
+
+		vals[i] = readl(dbg_port);
+	};
+
+	dev_info(dev, "%s: %s\n", __func__, mod_name);
+	for (i = 0; i < n; i++)
+		dev_info(dev, "%08x: %08x [%s]\n",
+			 items[i].debug_sel, vals[i], items[i].msg);
 }

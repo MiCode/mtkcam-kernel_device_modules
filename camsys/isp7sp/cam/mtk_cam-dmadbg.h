@@ -8,9 +8,32 @@
 
 #include "mtk_cam-raw_debug.h"
 
-static __maybe_unused struct dma_debug_item dbg_UFD[] = {
-	{0x00002001, "ufd r2 debug"},
-	{0x00002009, "ufd r5 debug"},
+static __maybe_unused struct dma_debug_item dbg_UFD_R2[] = {
+	{0x00002101, "ufd_r2_status"},
+	{0x00002201, "ufd_r2_ufdg_crop_cnt"},
+	{0x00002301, "ufd_r2_ufdb_crop_cnt"},
+	{0x00002401, "ufd_r2_kernel_pixel_number_eq"},
+	{0x00002501, "ufd_r2_error"},
+	{0x00002601, "ufd_r2_ufdg_kernel_line_cnt"},
+	{0x00002701, "ufd_r2_ufdb_kernel_line_cnt"},
+	{0x00002801, "ufd_r2_state_checksum"},
+	{0x00002901, "ufd_r2_line_pix_cnt_tmp"},
+	{0x00002A01, "ufd_r2_line_pix_cnt"},
+	{0x00002B01, "ufd_r2_ufod_gr_crc"},
+};
+
+static __maybe_unused struct dma_debug_item dbg_UFD_R5[] = {
+	{0x00002109, "ufd_r5_status"},
+	{0x00002209, "ufd_r5_ufdg_crop_cnt"},
+	{0x00002309, "ufd_r5_ufdb_crop_cnt"},
+	{0x00002409, "ufd_r5_kernel_pixel_number_eq"},
+	{0x00002509, "ufd_r5_error"},
+	{0x00002609, "ufd_r5_ufdg_kernel_line_cnt"},
+	{0x00002709, "ufd_r5_ufdb_kernel_line_cnt"},
+	{0x00002809, "ufd_r5_state_checksum"},
+	{0x00002909, "ufd_r5_line_pix_cnt_tmp"},
+	{0x00002A09, "ufd_r5_line_pix_cnt"},
+	{0x00002B09, "ufd_r5_ufod_gr_crc"},
 };
 
 static __maybe_unused struct dma_debug_item dbg_RAWI_R2[] = {

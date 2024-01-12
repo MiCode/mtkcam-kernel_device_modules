@@ -4298,6 +4298,7 @@ static void mtk_cam_shutdown(struct platform_device *pdev)
 
 #define CAM_MAIN_LOW_POWER_CTRL    0x390
 #define CAM_MAIN_CAM_SPM_ACK    0x42C
+#ifdef CAM_EP_READY
 static void camsys_main_lp_ctrl(struct mtk_cam_device *cam_dev, bool on)
 {
 	int spm_ack = 0;
@@ -4322,14 +4323,18 @@ static void camsys_main_lp_ctrl(struct mtk_cam_device *cam_dev, bool on)
 	dev_info(cam_dev->dev, "%s: ctrl: 0x%x ack: 0x%x\n", __func__,
 		readl(cam_dev->base + CAM_MAIN_LOW_POWER_CTRL), spm_ack);
 }
+#endif
 
 static int mtk_cam_runtime_suspend(struct device *dev)
 {
+#ifdef CAM_LOWPOWER_CTRL
 	struct mtk_cam_device *cam_dev = dev_get_drvdata(dev);
 
 	dev_dbg(dev, "- %s\n", __func__);
 
+
 	camsys_main_lp_ctrl(cam_dev, false);
+#endif
 
 	return 0;
 }
@@ -4371,8 +4376,10 @@ static void adlwr_reset(struct mtk_cam_device *cam_dev)
 }
 #endif
 
+#ifdef CAM_EP_READY
 static void init_camsys_main_adl_setting(struct mtk_cam_device *cam_dev)
 {
+
 	/* CAM_MAIN_ADLWR_CTRL set RAWA/B/C CQ to super priority */
 	writel_relaxed(0xe0, cam_dev->base + 0x328);
 
@@ -4387,16 +4394,20 @@ static void init_camsys_main_adl_setting(struct mtk_cam_device *cam_dev)
 	writel_relaxed(0, cam_dev->base + 0x3b8);
 	writel_relaxed(0, cam_dev->base + 0x3bc);
 }
+#endif
 
 static int mtk_cam_runtime_resume(struct device *dev)
 {
+#ifdef CAM_EP_READY
 	struct mtk_cam_device *cam_dev = dev_get_drvdata(dev);
-
+#endif
 	dev_dbg(dev, "- %s\n", __func__);
 
+#ifdef CAM_EP_READY
 	camsys_main_lp_ctrl(cam_dev, true);
-
 	init_camsys_main_adl_setting(cam_dev);
+#endif
+
 #ifdef DO_ADLWR_RESET
 	adlwr_reset(cam_dev);
 #endif

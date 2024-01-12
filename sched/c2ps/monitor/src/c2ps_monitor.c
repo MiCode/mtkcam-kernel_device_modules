@@ -73,9 +73,11 @@ static void reset_task_eas_setting(struct c2ps_task_info *tsk_info)
 			   SCHED_FLAG_RESET_ON_FORK;
 
 	attr.sched_util_min = 1;
-	attr.sched_util_max = max(glb_info->max_uclamp_cluster0,
-		max(glb_info->max_uclamp_cluster1, glb_info->max_uclamp_cluster2));
-	attr.sched_util_max = clamp(attr.sched_util_max, 1U, 1024U);
+	if (glb_info != NULL) {
+		attr.sched_util_max = max(glb_info->max_uclamp_cluster0,
+			max(glb_info->max_uclamp_cluster1, glb_info->max_uclamp_cluster2));
+		attr.sched_util_max = clamp(attr.sched_util_max, 1U, 1024U);
+	}
 
 	rcu_read_lock();
 	p = find_task_by_vpid(pid);

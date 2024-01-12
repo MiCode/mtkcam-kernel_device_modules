@@ -109,9 +109,9 @@ static u64 settle_formula(u64 settle_ns, u64 seninf_ck)
 	u64 _val = (settle_ns * seninf_ck);
 
 	if (_val % 1000000000)
-		_val = 1 + (_val / 1000000000) - 3;
+		_val = 1 + (_val / 1000000000) - 6;
 	else
-		_val = (_val / 1000000000) - 3;
+		_val = (_val / 1000000000) - 6;
 
 	return _val;
 }
@@ -1964,7 +1964,7 @@ static int csirx_dphy_init(struct seninf_ctx *ctx)
 		if (ctx->csi_param.not_fixed_trail_settle) {
 			data_rate = ctx->mipi_pixel_rate * bit_per_pixel;
 			do_div(data_rate, ctx->num_data_lanes);
-			hs_trail_en = data_rate < SENINF_HS_TRAIL_EN_CONDITION;
+			hs_trail_en = data_rate <= SENINF_HS_TRAIL_EN_CONDITION;
 			if (ctx->csi_param.dphy_trail != 0) {
 				hs_trail_en = 1;
 				dev_info(ctx->dev, "hs_trail = %llu\n", hs_trail);
@@ -1997,6 +1997,33 @@ static int csirx_dphy_init(struct seninf_ctx *ctx)
 				DPHY_RX_DESKEW_L2_DELAY_EN, 0);
 		SENINF_BITS(base, DPHY_RX_DESKEW_LANE3_CTRL,
 				DPHY_RX_DESKEW_L3_DELAY_EN, 0);
+
+		SENINF_BITS(base, DPHY_RX_DATA_LANE0_HS_PARAMETER,
+			    RG_CDPHY_RX_LD0_TRIO0_HS_PREPARE_EN,
+			    0x01);
+		SENINF_BITS(base, DPHY_RX_DATA_LANE1_HS_PARAMETER,
+			    RG_CDPHY_RX_LD1_TRIO1_HS_PREPARE_EN,
+			    0x01);
+		SENINF_BITS(base, DPHY_RX_DATA_LANE2_HS_PARAMETER,
+			    RG_CDPHY_RX_LD2_TRIO2_HS_PREPARE_EN,
+			    0x01);
+		SENINF_BITS(base, DPHY_RX_DATA_LANE3_HS_PARAMETER,
+			    RG_CDPHY_RX_LD3_TRIO3_HS_PREPARE_EN,
+			    0x01);
+
+		SENINF_BITS(base, DPHY_RX_CLOCK_LANE0_HS_PARAMETER,
+			    RG_DPHY_RX_LC0_HS_PREPARE_PARAMETER,
+			    0x0);
+		SENINF_BITS(base, DPHY_RX_CLOCK_LANE0_HS_PARAMETER,
+			    RG_DPHY_RX_LC0_HS_PREPARE_EN,
+			    0x1);
+
+		SENINF_BITS(base, DPHY_RX_CLOCK_LANE1_HS_PARAMETER,
+			    RG_DPHY_RX_LC1_HS_PREPARE_PARAMETER,
+			    0x0);
+		SENINF_BITS(base, DPHY_RX_CLOCK_LANE1_HS_PARAMETER,
+			    RG_DPHY_RX_LC1_HS_PREPARE_EN,
+			    0x1);
 	} else {
 		SENINF_BITS(base, DPHY_RX_DATA_LANE0_HS_PARAMETER,
 			    RG_CDPHY_RX_LD0_TRIO0_HS_TRAIL_EN, 0);
@@ -2006,6 +2033,13 @@ static int csirx_dphy_init(struct seninf_ctx *ctx)
 			    RG_CDPHY_RX_LD2_TRIO2_HS_TRAIL_EN, 0);
 		SENINF_BITS(base, DPHY_RX_DATA_LANE3_HS_PARAMETER,
 			    RG_CDPHY_RX_LD3_TRIO3_HS_TRAIL_EN, 0);
+
+		SENINF_BITS(base, DPHY_RX_CLOCK_LANE0_HS_PARAMETER,
+			    RG_DPHY_RX_LC0_HS_PREPARE_EN,
+			    0x0);
+		SENINF_BITS(base, DPHY_RX_CLOCK_LANE1_HS_PARAMETER,
+			    RG_DPHY_RX_LC1_HS_PREPARE_EN,
+			    0x0);
 	}
 
 	return 0;
@@ -2596,7 +2630,7 @@ static int csirx_phyA_setting(struct seninf_ctx *ctx)
 #else
 static int csirx_phyA_setting(struct seninf_ctx *ctx)
 {
-	void *base, *baseA, *baseB;
+	void *base, *baseA, *baseB, *dphy_base;
 	struct seninf_vc *vc = mtk_cam_seninf_get_vc_by_pad(ctx, PAD_SRC_RAW0);
 	struct seninf_vc *vc1 = mtk_cam_seninf_get_vc_by_pad(ctx, PAD_SRC_RAW_EXT0);
 	int bit_per_pixel = 10;
@@ -2609,35 +2643,48 @@ static int csirx_phyA_setting(struct seninf_ctx *ctx)
 	base = ctx->reg_ana_csi_rx[(unsigned int)ctx->port];
 	baseA = ctx->reg_ana_csi_rx[(unsigned int)ctx->portA];
 	baseB = ctx->reg_ana_csi_rx[(unsigned int)ctx->portB];
+	dphy_base = ctx->reg_ana_dphy_top[(unsigned int)ctx->port];
 
 
 	//dev_info(ctx->dev, "port %d A %d B %d\n", ctx->port, ctx->portA, ctx->portB);
 
 	if (!ctx->is_cphy) { //Dphy
 		u64 data_rate = ctx->mipi_pixel_rate * bit_per_pixel;
+		u32 pn_swap_en = SENINF_READ_BITS(dphy_base,
+						DPHY_RX_HS_RX_EN_SW,
+						RG_DPHY_PHY_PN_SWAP_EN);
 
 		do_div(data_rate, ctx->num_data_lanes);
 		//dev_info(ctx->dev, "data_rate %llu bps\n", data_rate);
 
-		if (!ctx->csi_param.legacy_phy) {
-			SENINF_BITS(baseA, CDPHY_RX_ANA_SETTING_1,
-			    RG_AFIFO_DUMMY_VALID_EN, 0x1);
-			SENINF_BITS(baseA, CDPHY_RX_ANA_SETTING_1,
-			    RG_CSI0_ASYNC_OPTION, 0x5);
-			SENINF_BITS(baseA, CDPHY_RX_ANA_SETTING_1,
-			    RG_AFIFO_DUMMY_VALID_PREPARE_NUM, 0x4);
-			SENINF_BITS(baseA, CDPHY_RX_ANA_SETTING_1,
-				RG_AFIFO_DUMMY_VALID_NUM, 0x1);
-		} else {
-			SENINF_BITS(baseA, CDPHY_RX_ANA_SETTING_1,
-			    RG_AFIFO_DUMMY_VALID_EN, 0x0);
-			SENINF_BITS(baseA, CDPHY_RX_ANA_SETTING_1,
-			    RG_CSI0_ASYNC_OPTION, 0x5);
-			SENINF_BITS(baseA, CDPHY_RX_ANA_SETTING_1,
-			    RG_AFIFO_DUMMY_VALID_PREPARE_NUM, 0x3);
-			SENINF_BITS(baseA, CDPHY_RX_ANA_SETTING_1,
-				RG_AFIFO_DUMMY_VALID_NUM, 0x5);
-		}
+		SENINF_BITS(baseA,
+				CDPHY_RX_ANA_SETTING_1,
+				RG_CSI0_ASYNC_OPTION,
+				(pn_swap_en && (data_rate < 4000000000)) ? 0x4 : 0x0);
+
+		SENINF_BITS(baseA,
+					CDPHY_RX_ANA_SETTING_1,
+					RG_AFIFO_DUMMY_VALID_NUM,
+					(ctx->num_data_lanes > 1) ? 0x3 : 0x5);
+
+		SENINF_BITS(baseA, CDPHY_RX_ANA_SETTING_1,
+		    RG_AFIFO_DUMMY_VALID_EN, 0x1);
+
+		SENINF_BITS(baseA, CDPHY_RX_ANA_SETTING_1,
+		    RG_AFIFO_DUMMY_VALID_PREPARE_NUM, 0x4);
+
+		SENINF_BITS(baseA, CDPHY_RX_ANA_SETTING_1,
+			AFIFO_DUMMY_VALID_GAP_NUM, 0x4);
+
+		SENINF_BITS(baseA, CDPHY_RX_ASYM_AFIFO_CTRL_0,
+		    L0_AFIFO_FLUSH_EN, 0x1);
+		SENINF_BITS(baseA, CDPHY_RX_ASYM_AFIFO_CTRL_0,
+		    L1_AFIFO_FLUSH_EN, 0x1);
+		SENINF_BITS(baseA, CDPHY_RX_ASYM_AFIFO_CTRL_0,
+		    L2_AFIFO_FLUSH_EN, 0x1);
+		SENINF_BITS(baseA, CDPHY_RX_ANA_SETTING_0,
+		    CSR_ASYNC_FIFO_GATING_SEL, 0x2);
+
 		if (ctx->is_4d1c) {
 			SENINF_BITS(baseA, CDPHY_RX_ANA_0,
 				    RG_CSI0_CPHY_EN, 0);
@@ -2935,26 +2982,21 @@ static int csirx_phyA_setting(struct seninf_ctx *ctx)
 			SENINF_WRITE_REG(baseB, CDPHY_RX_ANA_SETTING_0, 0x322);
 #endif
 
-			if (!ctx->csi_param.legacy_phy) {
-				SENINF_BITS(baseA, CDPHY_RX_ANA_SETTING_1,
-				    RG_AFIFO_DUMMY_VALID_EN, 0x1);
-				SENINF_BITS(baseA, CDPHY_RX_ANA_SETTING_1,
-				    RG_CSI0_ASYNC_OPTION, 0xC);
-				SENINF_BITS(baseA, CDPHY_RX_ANA_SETTING_1,
-				    RG_AFIFO_DUMMY_VALID_PREPARE_NUM, 0x2);
-				SENINF_BITS(baseA, CDPHY_RX_ANA_SETTING_1,
-					RG_AFIFO_DUMMY_VALID_NUM, 0x1);
-			} else {
-				SENINF_BITS(baseA, CDPHY_RX_ANA_SETTING_1,
-				    RG_AFIFO_DUMMY_VALID_EN, 0x0);
-				SENINF_BITS(baseA, CDPHY_RX_ANA_SETTING_1,
-				    RG_CSI0_ASYNC_OPTION, 0xC);
-				SENINF_BITS(baseA, CDPHY_RX_ANA_SETTING_1,
-				    RG_AFIFO_DUMMY_VALID_PREPARE_NUM, 0x3);
-				SENINF_BITS(baseA, CDPHY_RX_ANA_SETTING_1,
-					RG_AFIFO_DUMMY_VALID_NUM, 0x5);
-			}
 
+			SENINF_BITS(baseA, CDPHY_RX_ANA_SETTING_1,
+			    RG_AFIFO_DUMMY_VALID_EN, 0x1);
+			SENINF_BITS(baseA, CDPHY_RX_ANA_SETTING_1,
+			    RG_CSI0_ASYNC_OPTION, 0xC);
+			SENINF_BITS(baseA, CDPHY_RX_ANA_SETTING_1,
+			    RG_AFIFO_DUMMY_VALID_PREPARE_NUM,
+				(ctx->num_data_lanes > 1) ? 0x5 : 0x6);
+
+			SENINF_BITS(baseA, CDPHY_RX_ANA_SETTING_1,
+				RG_AFIFO_DUMMY_VALID_NUM, 0x1);
+			SENINF_BITS(baseA, CDPHY_RX_ANA_SETTING_1,
+			AFIFO_DUMMY_VALID_GAP_NUM, 0x4);
+			SENINF_BITS(baseA, CDPHY_RX_ANA_SETTING_0,
+		    CSR_ASYNC_FIFO_GATING_SEL, 0x0);
 
 			SENINF_BITS(baseA, CDPHY_RX_ANA_3,
 				    RG_CSI0_EQ_DES_VREF_SEL, 0x2E);
@@ -3139,10 +3181,8 @@ static int csirx_dphy_setting(struct seninf_ctx *ctx)
 	}
 
 	SENINF_BITS(base, DPHY_RX_LANE_SELECT, DPHY_RX_CK_DATA_MUX_EN, 1);
-	if (!ctx->csi_param.legacy_phy)
-		SENINF_WRITE_REG(base, DPHY_RX_SPARE0, 0xf1);
-	else
-		SENINF_WRITE_REG(base, DPHY_RX_SPARE0, 0xf0);
+	SENINF_BITS(base, DPHY_DPHYV21_CTRL, RG_DPHY_RX_SYNC_METH_SEL, 0x1);
+	SENINF_WRITE_REG(base, DPHY_RX_SPARE0, 0xf1);
 
 	return 0;
 }
@@ -3192,12 +3232,35 @@ static int csirx_cphy_setting(struct seninf_ctx *ctx)
 			SENINF_BITS(base, CPHY_RX_CTRL, CPHY_RX_TR2_LPRX_EN, 1);
 		break;
 	default:
+		dev_info(ctx->dev, "[error][%s] invalid ctx->port: %d\n",
+				__func__, ctx->port);
 		break;
 	}
 	if (!ctx->csi_param.legacy_phy)
 		SENINF_WRITE_REG(dphy_base, DPHY_RX_SPARE0, 0xf1);
 	else
 		SENINF_WRITE_REG(dphy_base, DPHY_RX_SPARE0, 0xf0);
+
+	switch (ctx->num_data_lanes) {
+	case 3:
+		SENINF_BITS(base, CPHY_VALID_PIPE_EN, CPHY_TRIO0_VALID_PIPE_EN, 1);
+		SENINF_BITS(base, CPHY_VALID_PIPE_EN, CPHY_TRIO1_VALID_PIPE_EN, 1);
+		SENINF_BITS(base, CPHY_VALID_PIPE_EN, CPHY_TRIO2_VALID_PIPE_EN, 1);
+		break;
+	case 2:
+		SENINF_BITS(base, CPHY_VALID_PIPE_EN, CPHY_TRIO0_VALID_PIPE_EN, 1);
+		SENINF_BITS(base, CPHY_VALID_PIPE_EN, CPHY_TRIO1_VALID_PIPE_EN, 1);
+		break;
+	case 1:
+		SENINF_BITS(base, CPHY_VALID_PIPE_EN, CPHY_TRIO0_VALID_PIPE_EN, 1);
+		break;
+
+	default:
+		dev_info(ctx->dev, "[error][%s] invalid ctx->num_data_lanes: %d\n",
+				__func__, ctx->num_data_lanes);
+		break;
+
+	}
 
 	return 0;
 }

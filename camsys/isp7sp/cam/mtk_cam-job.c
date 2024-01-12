@@ -3936,14 +3936,14 @@ static int job_sen_req_pack(struct mtk_cam_job *job)
 		return -1;
 	/* switch scenario */
 	sensor_change = is_sensor_changed(job);
-
+	if (update_job_raw_switch(job))
+		return -1;
 	job->first_frm_switch =
 		(job->first_job || sensor_change) && is_sensor_mode_update(job);
 	job->seamless_switch =
 		(!job->first_job && !sensor_change) && is_sensor_mode_update(job);
 	/* determine if it is a raw switch job */
-	if (update_job_raw_switch(job))
-		return -1;
+
 	if (CAM_DEBUG_ENABLED(JOB))
 		pr_info("[%s] ctx:%d|type:%d|%s|exp(cur:%d,prev:%d)|sw/scene:%d/%d",
 				__func__,

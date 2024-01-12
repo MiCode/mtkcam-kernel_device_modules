@@ -1320,6 +1320,7 @@ void fs_alg_sa_dump_dynamic_para(const unsigned int idx)
 static unsigned int fs_alg_chk_if_need_to_setup_fl_restore_ctrl(
 	const unsigned int idx, const struct FrameSyncDynamicPara *p_para)
 {
+#if !defined(FS_FL_AUTO_RESTORE_DISABLE)
 	struct fs_fl_restore_info_st fl_restore_info = {0};
 	const unsigned int line_time = fs_inst[idx].lineTimeInNs;
 	unsigned int fl_lc = convert2LineCount(line_time, p_para->stable_fl_us);
@@ -1345,6 +1346,9 @@ static unsigned int fs_alg_chk_if_need_to_setup_fl_restore_ctrl(
 	fs_setup_fl_restore_status(idx, &fl_restore_info);
 
 	return 1;
+#else
+	return 0;
+#endif
 }
 /******************************************************************************/
 

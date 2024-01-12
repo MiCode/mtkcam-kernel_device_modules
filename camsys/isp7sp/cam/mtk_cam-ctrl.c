@@ -542,7 +542,8 @@ static void ctrl_vsync_preprocess(struct mtk_cam_ctrl *ctrl,
 	long inner_not_ready;
 	struct apply_cq_ref *cq_ref;
 
-	if (vsync_update(&ctrl->vsync_col, engine_type, engine_id, vsync_res))
+	if (vsync_update(&ctrl->vsync_col, engine_type,
+			irq_info->irq_type, engine_id, vsync_res))
 		return;
 
 	cq_ref = READ_ONCE(ctrl->cur_cq_ref);
@@ -713,7 +714,8 @@ static int mtk_camsys_event_handle_camsv(struct mtk_cam_ctrl *ctrl,
 				  seq_from_fh_cookie(irq_info->cookie_done));
 
 	/* camsv's SOF (proc engine frame start) */
-	if (irq_info->irq_type & BIT(CAMSYS_IRQ_FRAME_START)) {
+	if (irq_info->irq_type & BIT(CAMSYS_IRQ_FRAME_START) ||
+		irq_info->irq_type & BIT(CAMSYS_IRQ_FRAME_START_DCIF_MAIN)) {
 		struct vsync_result vsync_res;
 
 		ctrl_vsync_preprocess(ctrl,
@@ -1414,8 +1416,8 @@ void mtk_cam_ctrl_stop(struct mtk_cam_ctrl *cam_ctrl)
 }
 
 int vsync_update(struct vsync_collector *c,
-		  int engine_type, int idx,
-		  struct vsync_result *res)
+		  int engine_type, int irq_type,
+		  int idx, struct vsync_result *res)
 {
 	unsigned int coming;
 
@@ -1424,13 +1426,15 @@ int vsync_update(struct vsync_collector *c,
 	if (!(coming & c->desired))
 		goto SKIP_VSYNC;
 
-	c->collected |= (coming & c->desired);
+	if (irq_type & BIT(CAMSYS_IRQ_FRAME_START))
+		c->collected |= (coming & c->desired);
 
 	if (CAM_DEBUG_ENABLED(CTRL))
 		pr_info("%s: vsync desired/collected/coming %x/%x/%x\n",
 			__func__, c->desired, c->collected, (coming & c->desired));
 
-	res->is_first = !(c->collected & (c->collected - 1));
+	res->is_first = !(c->collected & (c->collected - 1)) ||
+		(!c->collected && (irq_type & BIT(CAMSYS_IRQ_FRAME_START_DCIF_MAIN)));
 	res->is_last = c->collected == c->desired;
 
 	if (res->is_last)

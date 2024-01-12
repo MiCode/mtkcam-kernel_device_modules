@@ -171,15 +171,18 @@ static int sv_process_fsm(struct mtk_camsv_device *sv_dev,
 
 	sof_type = irq_info->irq_type & BIT(CAMSYS_IRQ_FRAME_START);
 	if (sof_type) {
-		/* when first tag comes: 1. update used group 2. update last done tag */
+		irq_info->irq_type &= ~sof_type;
+
+		/* when first tag comes: 1. update irq_type 2. update used_tags */
 		if (irq_info->sof_tags & sv_dev->first_tag) {
+			irq_info->irq_type |= BIT(CAMSYS_IRQ_FRAME_START_DCIF_MAIN);
 			for (i = 0; i < MAX_SV_HW_GROUPS; i++)
 				sv_dev->used_tags |= sv_dev->active_group_info[i];
-		} else
-			irq_info->irq_type &= ~sof_type;
+		}
 
-		/* update fsm */
+		/* when last tag comes: 1. update irq_type 2. update fsm */
 		if (irq_info->sof_tags & sv_dev->last_tag) {
+			irq_info->irq_type |= BIT(CAMSYS_IRQ_FRAME_START);
 			for (i = 0; i < MAX_SV_HW_GROUPS; i++) {
 				if (sv_dev->last_tag & sv_dev->active_group_info[i]) {
 
@@ -1294,6 +1297,30 @@ static irqreturn_t mtk_irq_camsv_done(int irq, void *data)
 	return wake_thread ? IRQ_WAKE_THREAD : IRQ_HANDLED;
 }
 
+bool is_all_tag_setting_to_inner(struct mtk_camsv_device *sv_dev,
+	unsigned int frm_seq_no_inner)
+{
+	unsigned int i, j, grp_seq_no_inner;
+
+	for (i = 0; i < MAX_SV_HW_GROUPS; i++) {
+		if (!sv_dev->active_group_info[i])
+			continue;
+		for (j = 0; j < CAMSV_MAX_TAGS; j++) {
+			if (sv_dev->active_group_info[i] & BIT(j)) {
+				grp_seq_no_inner =
+					readl_relaxed(sv_dev->base_inner +
+						REG_CAMSVCENTRAL_FH_SPARE_TAG_1 +
+						CAMSVCENTRAL_FH_SPARE_SHIFT * j);
+				if (grp_seq_no_inner != frm_seq_no_inner)
+					return false;
+				break;
+			}
+		}
+	}
+
+	return true;
+}
+
 static irqreturn_t mtk_irq_camsv_sof(int irq, void *data)
 {
 	struct mtk_camsv_device *sv_dev = (struct mtk_camsv_device *)data;
@@ -1381,10 +1408,12 @@ static irqreturn_t mtk_irq_camsv_sof(int irq, void *data)
 	else
 		sv_dev->tg_cnt = tg_cnt;
 
-	if (irq_info.sof_tags & sv_dev->first_tag)
+	if ((irq_info.sof_tags & sv_dev->last_tag) &&
+		is_all_tag_setting_to_inner(sv_dev, frm_seq_no_inner)) {
 		engine_handle_sof(&sv_dev->cq_ref,
 				  bit_map_bit(MAP_HW_CAMSV, sv_dev->id),
 				  irq_info.frame_idx_inner);
+	}
 
 	if (push_msgfifo(sv_dev, &irq_info) == 0)
 		wake_thread = true;

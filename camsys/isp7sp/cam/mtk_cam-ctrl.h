@@ -43,7 +43,7 @@ static inline void vsync_set_desired(struct vsync_collector *c,
 }
 
 int vsync_update(struct vsync_collector *c,
-		  int engine_type, int idx,
+		  int engine_type, int irq_type, int idx,
 		  struct vsync_result *res);
 
 struct mtk_cam_watchdog {

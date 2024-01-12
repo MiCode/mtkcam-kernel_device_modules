@@ -52,7 +52,7 @@ struct imgsys_mtcmos_data {
 	u32 hwv_shift;
 	u32 hwv_gce_ofst;
 	/* Related clocks in power domain */
-	void (*cg_ungating)(struct cmdq_pkt *pkt, const struct imgsys_cg_data *cg);
+	void (*cg_ungating)(struct cmdq_pkt *pkt, const struct imgsys_cg_data *cg, dma_addr_t qof_work_buf_pa);
 	const struct imgsys_cg_data *cg_data;
 	void (*set_larb_golden)(struct cmdq_pkt *pkt);
 	void (*direct_link_reset)(struct cmdq_pkt *pkt);

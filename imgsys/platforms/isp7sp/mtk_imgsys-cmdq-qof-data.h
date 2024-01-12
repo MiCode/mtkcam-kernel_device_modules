@@ -1,3 +1,4 @@
+
 /* SPDX-License-Identifier: GPL-2.0 */
 /*
  * Copyright (c) 2023 MediaTek Inc.
@@ -24,10 +25,15 @@
 #define ISP_TRAW_MODULES ( \
 		BIT(IMGSYS_MOD_TRAW))
 
-#define IMG_TRAW_PWR_CON		(0x1EC00000+0x3EE40)
-#define IMG_ISP_DIP_PWR_CON		(0x1EC00000+0x3EE44)
-#define IMG_CCF_MTCMOS_SET_STA	(0x1ec3b46c)
-#define IMG_CCF_MTCMOS_CLR_STA	(0x1ec3b470)
+#define IMG_TRAW_PWR_CON				(0x1EC00000+0x3EE40)
+#define IMG_ISP_DIP_PWR_CON				(0x1EC00000+0x3EE44)
+#define IMG_CCF_MTCMOS_SET_STA			(0x1ec3b46c)
+#define IMG_CCF_MTCMOS_CLR_STA			(0x1ec3b470)
+#define IMG_HWV_SW_RECORD				(0x1ec3bf98)
+#define IMG_HW_CCF_MTCMOS_STATUS		(0x1ec3b414)
+#define IMG_HW_CCF_MTCMOS_STATUS_CLR	(0x1ec3b454)
+#define IMG_HW_CCF_MTCMOS_ENABLE		(0x1ec3b410)
+#define IMG_HW_CCF_INT_STATUS			(0x1ec3b500)
 
 /* CG macro */
 #define IMG_CG_IMGSYS_MAIN 	(0x15000000)

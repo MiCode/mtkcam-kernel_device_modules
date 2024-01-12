@@ -1332,6 +1332,8 @@ void imgsys_cmdq_task_cb_plat7sp(struct cmdq_cb_data data)
 			mtk_smi_dbg_dump_for_isp_fast(IMGSYS_SMIDUMP_QOF_TRAW);
 		if ((isHWhang | isQOFhang) && mtk_imgsys_cmdq_qof_get_pwr_status(ISP7SP_ISP_DIP))
 			mtk_smi_dbg_dump_for_isp_fast(IMGSYS_SMIDUMP_QOF_DIP);
+		if (isQOFhang)
+			mtk_imgsys_cmdq_qof_dump(cb_param->hw_comb);
 	}
 	cb_param->cmdqTs.tsCmdqCbEnd = ktime_get_boottime_ns()/1000;
 

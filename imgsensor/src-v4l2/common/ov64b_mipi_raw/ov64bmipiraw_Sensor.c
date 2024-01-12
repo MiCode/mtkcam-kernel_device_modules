@@ -1029,6 +1029,8 @@ static struct subdrv_pw_seq_entry pw_seq[] = {
 	{HW_ID_AFVDD1, 1800000, 1}, // pmic_gpo(3.1V ldo) for afvdd
 	{HW_ID_DVDD, 1100000, 1}, // pmic_ldo/gpio(1.1V ldo) for dvdd
 	{HW_ID_DOVDD, 1800000, 1}, // pmic_ldo/gpio(1.8V ldo) for dovdd
+	{HW_ID_OISVDD, 3100000, 0}, // pmic_ldo for oisvdd
+	{HW_ID_OISEN, 3100000, 0}, // gpio for oisen
 	{HW_ID_MCLK_DRIVING_CURRENT, 8, 5},
 	{HW_ID_RST, 1, 5}
 };

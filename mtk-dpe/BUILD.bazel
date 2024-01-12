@@ -8,6 +8,7 @@ mgk_dpe_outs = [
     # keep sorted
     "camera_dpe_isp7s.ko",
     "camera_dpe_isp7sp.ko",
+    "camera_dpe_isp8.ko",
 ]
 
 # TODO: enable this part later

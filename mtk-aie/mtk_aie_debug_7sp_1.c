@@ -14,6 +14,7 @@
 #include "mtk_aie.h"
 #include "iommu_debug.h"
 
+#ifdef AIE_TF_DUMP_7SP_1
 static void aie_tf_dump(struct mtk_aie_dev *fd)
 {
     /* init param */
@@ -50,6 +51,7 @@ static int FDVT_M4U_TranslationFault_callback(int port,
 
 	return 1;
 }
+#endif
 
 void mtk_aie_register_tf_cb_7sp_1(void *data)
 {

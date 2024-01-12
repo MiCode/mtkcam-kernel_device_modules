@@ -4047,12 +4047,12 @@ static int mtk_cam_probe(struct platform_device *pdev)
 	dev_dbg(dev, "registered adl irq=%d\n", irq);
 	//enable_irq(irq);
 
-SKIP_ADLRD_IRQ:
 	cam_dev->cmdq_clt = cmdq_mbox_create(dev, 0);
 
 	if (!cam_dev->cmdq_clt)
 		pr_err("probe cmdq_mbox_create fail\n");
 
+SKIP_ADLRD_IRQ:
 	cam_dev->dev = dev;
 	dev_set_drvdata(dev, cam_dev);
 

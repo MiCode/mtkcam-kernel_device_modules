@@ -575,12 +575,11 @@ mtk_cam_job_initialize_engines(struct mtk_cam_ctx *ctx,
 		if (job->enable_hsf_raw)
 			mtk_cam_hsf_init(ctx);
 
-		if (ctx->slb_addr && ctx->aid_feature) {
-			//unsigned long raw_engines;
+		if (ctx->slb_addr && ctx->set_adl_aid)
+			mtk_cam_hsf_aid(ctx, 1, AID_VAINR, engines);
 
-			//raw_engines = bit_map_subset_of(MAP_HW_RAW, engines);
-			mtk_cam_hsf_aid(ctx, 1, ctx->aid_feature);
-		}
+		if (mtk_cam_is_dcif_slb_supported())
+			mtk_cam_hsf_aid(ctx, 1, AID_CAM_DC, engines);
 	}
 
 	/* camsv */

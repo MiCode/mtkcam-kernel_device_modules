@@ -627,48 +627,27 @@ int mtk_cam_hsf_uninit(struct mtk_cam_ctx *ctx)
 	return 0;
 }
 
-int mtk_cam_hsf_aid(struct mtk_cam_ctx *ctx, unsigned int enable, unsigned int feature)
+int mtk_cam_hsf_aid(struct mtk_cam_ctx *ctx, unsigned int enable,
+		    unsigned int feature, unsigned int used_engine)
 {
 	struct mtk_cam_device *cam = ctx->cam;
-	struct mtk_cam_hsf_ctrl *hsf_config = NULL;
 	struct aid_info pData;
-	int ret = 0;
-
+	int ret;
 
 	pData.enable = enable;
 	pData.feature = feature;
-	dev_info(cam->dev, "set AID, enable:%d feature:%d\n", enable, feature);
+	pData.used_engine = used_engine;
+	dev_info(cam->dev, "%s: set AID, enable:%d feature:%d eng:0x%x\n",
+		 __func__, enable, feature, used_engine);
 
-	if (enable) {
-		hsf_config = ctx->hsf = kmalloc(sizeof(struct mtk_cam_hsf_ctrl), GFP_KERNEL);
-		if (ctx->hsf == NULL) {
-			dev_info(cam->dev, "ctx->hsf is NULL\n");
-			return -1;
-		}
+	if (WARN_ON(!cam->ccu_pdev))
+		return -1;
 
-		get_ccu_device(hsf_config);
-		mtk_cam_power_on_ccu(hsf_config, 1);
-
-		ret = mtk_ccu_rproc_ipc_send(
-			hsf_config->ccu_pdev,
-			MTK_CCU_FEATURE_CAMSYS,
-			MSG_TO_CCU_AID,
-			(void *)&pData, sizeof(struct aid_info));
-	} else {
-		hsf_config = ctx->hsf;
-		if (hsf_config == NULL) {
-			dev_info(cam->dev, "hsf_config is NULL\n");
-			return -1;
-		}
-		ret = mtk_ccu_rproc_ipc_send(
-			hsf_config->ccu_pdev,
-			MTK_CCU_FEATURE_CAMSYS,
-			MSG_TO_CCU_AID,
-			(void *)&pData, sizeof(struct aid_info));
-
-		mtk_cam_power_on_ccu(hsf_config, 0);
-		kfree(ctx->hsf);
-	}
+	ret = mtk_ccu_rproc_ipc_send(
+		cam->ccu_pdev,
+		MTK_CCU_FEATURE_CAMSYS,
+		MSG_TO_CCU_AID,
+		(void *)&pData, sizeof(struct aid_info));
 
 	if (ret != 0) {
 		dev_info(cam->dev, "set AID fail, enable:%d feature:%d\n", enable, feature);

@@ -83,11 +83,13 @@ struct mtk_cam_hsf_ctrl {
 struct aid_info {
 	uint32_t enable;
 	uint32_t feature;
+	uint32_t used_engine;
 };
 
 enum mtk_cam_aid_feature {
 	AID_START = 0,
 	AID_VAINR,
+	AID_CAM_DC,
 	AID_END,
 };
 

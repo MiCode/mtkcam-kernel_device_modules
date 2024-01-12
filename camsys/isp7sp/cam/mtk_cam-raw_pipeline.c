@@ -183,7 +183,8 @@ static int loop_resource_till_valid(struct mtk_cam_res_calc *c,
 
 			pass = mtk_cam_check_mipi_pixel_rate(c, enable_log) &&
 				mtk_cam_raw_check_line_buffer(c, enable_log) &&
-				mtk_cam_raw_check_throughput(c, enable_log);
+				mtk_cam_raw_check_throughput(c, enable_log) &&
+				mtk_cam_raw_check_slb_size(c, enable_log);
 			if (pass) {
 				ret = 0;
 				break;
@@ -278,7 +279,7 @@ mtk_cam_resource_update_slb_size(struct mtk_cam_resource_v2 *user_ctrl)
 {
 	struct mtk_cam_resource_raw_v2 *res_raw = &user_ctrl->raw_res;
 
-	if (!res_raw_is_dc_mode(res_raw))
+	if (!res_raw_is_dc_mode(res_raw) || !mtk_cam_is_dcif_slb_supported())
 		res_raw->slb_size = 0;
 }
 
@@ -496,7 +497,6 @@ static int mtk_raw_calc_raw_resource(struct mtk_raw_pipeline *pipeline,
 	unsigned int raws_driver_selected;
 
 	memset(&c, 0, sizeof(c));
-	memset(&stepper, 0, sizeof(stepper));
 
 	if (debug_user_raws_must[pipeline->id] != -1) {
 		dev_info(cam->dev,
@@ -519,6 +519,9 @@ static int mtk_raw_calc_raw_resource(struct mtk_raw_pipeline *pipeline,
 	if (ret)
 		return -EINVAL;
 
+	mtk_cam_resource_update_work_buf(user_ctrl);
+	mtk_cam_resource_update_slb_size(user_ctrl);
+
 	res_sensor_info_validate(s, r);
 	res_calc_fill_sensor(&c, s, r);
 	c.cbn_type = mtk_cbn_type(user_ctrl->raw_res.bin);
@@ -528,6 +531,10 @@ static int mtk_raw_calc_raw_resource(struct mtk_raw_pipeline *pipeline,
 	c.qbn_type = 0; /* 0: disable, 1: w/2, 2: w/4 */
 	c.bin_en = (user_ctrl->raw_res.bin == MTK_CAM_BIN_ON) ? 1 : 0;
 
+	c.slb_size = r->slb_size;
+
+CALC_RESOURCE:
+	memset(&stepper, 0, sizeof(stepper));
 	/* constraints */
 	/* always 2 pixel mode, beside sensor size <= 1920 */
 	stepper.pixel_mode_min = (s->width <= PIX_MODE_SIZE_CONSTRAIN) ? 1 : 2;
@@ -551,6 +558,18 @@ static int mtk_raw_calc_raw_resource(struct mtk_raw_pipeline *pipeline,
 	} else
 		ret = mtk_raw_find_combination(&c, &stepper);
 
+	if (ret && c.slb_size) {
+		dev_info(cam->dev, "%s: failed with slb_size %u, retry without it\n",
+			 __func__, c.slb_size);
+
+		// retry with slb_size = 0
+		c.slb_size = 0;
+		goto CALC_RESOURCE;
+	}
+
+	/* feedback to user if slb_size is changed */
+	user_ctrl->raw_res.slb_size = c.slb_size;
+
 	if (ret) {
 		dev_info(cam->dev, "failed to find valid resource\n");
 		ret = -EBUSY;
@@ -559,9 +578,6 @@ static int mtk_raw_calc_raw_resource(struct mtk_raw_pipeline *pipeline,
 
 	r->raw_pixel_mode = c.raw_pixel_mode;
 	r->freq = c.clk;
-
-	mtk_cam_resource_update_work_buf(user_ctrl);
-	mtk_cam_resource_update_slb_size(user_ctrl);
 
 	final_raw_num = (debug_raw_num == -1) ? c.raw_num : debug_raw_num;
 

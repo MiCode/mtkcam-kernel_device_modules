@@ -16,6 +16,7 @@
 #include <linux/regulator/consumer.h>
 #include <uapi/linux/sched/types.h>
 #include <linux/sched.h>
+#include <linux/version.h>
 #include <soc/mediatek/mmdvfs_v3.h>
 
 #ifdef CONFIG_COMPAT
@@ -1913,7 +1914,11 @@ static const struct media_entity_operations seninf_media_ops = {
 
 static int seninf_notifier_bound(struct v4l2_async_notifier *notifier,
 				 struct v4l2_subdev *sd,
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(6, 6, 0))
 					 struct v4l2_async_subdev *asd)
+#else
+					 struct v4l2_async_connection *asd)
+#endif
 {
 	struct seninf_ctx *ctx = notifier_to_ctx(notifier);
 	int ret;
@@ -1946,7 +1951,11 @@ static int seninf_notifier_bound(struct v4l2_async_notifier *notifier,
 
 static void seninf_notifier_unbind(struct v4l2_async_notifier *notifier,
 				   struct v4l2_subdev *sd,
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(6, 6, 0))
 					   struct v4l2_async_subdev *asd)
+#else
+					   struct v4l2_async_connection *asd)
+#endif
 {
 	struct seninf_ctx *ctx = notifier_to_ctx(notifier);
 
@@ -2420,6 +2429,7 @@ static int register_subdev(struct seninf_ctx *ctx, struct v4l2_device *v4l2_dev)
 		return ret;
 	}
 
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(6, 6, 0))
 	v4l2_async_nf_init(notifier);
 	ret = v4l2_async_nf_parse_fwnode_endpoints
 		(dev, notifier, sizeof(struct v4l2_async_subdev), NULL);
@@ -2428,6 +2438,16 @@ static int register_subdev(struct seninf_ctx *ctx, struct v4l2_device *v4l2_dev)
 
 	notifier->ops = &seninf_async_ops;
 	ret = v4l2_async_nf_register(v4l2_dev, notifier);
+#else
+	v4l2_async_nf_init(notifier, v4l2_dev);
+	// ret = v4l2_async_nf_parse_fwnode_endpoints
+	// 	(dev, notifier, sizeof(struct v4l2_async_connection), NULL);
+	// if (ret < 0)
+	// 	dev_info(dev, "no endpoint\n");
+
+	notifier->ops = &seninf_async_ops;
+	ret = v4l2_async_nf_register(notifier);
+#endif
 	if (ret < 0) {
 		dev_info(dev, "failed to register notifier\n");
 		goto err_unregister_subdev;

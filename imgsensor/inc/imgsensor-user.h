@@ -751,4 +751,9 @@ struct mtk_sensor_vc_info_by_scenario {
 #define VIDIOC_MTK_S_SENTEST_LBMF_DELAY_DO_AE_EN \
 	_IOW('M', BASE_VIDIOC_PRIVATE + 112, int)
 
+#ifdef __XIAOMI_CAMERA__
+#define VIDIOC_XIAOMI_S_LOCK_SETTING_WORK_QUEUE \
+	_IOW('M', BASE_VIDIOC_PRIVATE + 300, __u32)
+#endif
+
 #endif

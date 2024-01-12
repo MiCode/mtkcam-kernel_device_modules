@@ -1653,11 +1653,12 @@ static int apply_efuse_data(struct seninf_ctx *ctx)
 		SENINF_BITS(base, CDPHY_RX_ANA_4,
 			RG_CSI0_L2N_T1C_HSRT_CODE, (m_csi_efuse >> 17) & 0x1f);
 		dev_info(ctx->dev,
-			"CSI%dA CDPHY_RX_ANA_2(0x%x) CDPHY_RX_ANA_3(0x%x) CDPHY_RX_ANA_4(0x%x)",
+			"CSI%dA,CDPHY_RX_ANA_2/3/4:(0x%x)/(0x%x)/(0x%x),Efuse Data:(0x%08x)",
 			ctx->portNum,
 			SENINF_READ_REG(base, CDPHY_RX_ANA_2),
 			SENINF_READ_REG(base, CDPHY_RX_ANA_3),
-			SENINF_READ_REG(base, CDPHY_RX_ANA_4));
+			SENINF_READ_REG(base, CDPHY_RX_ANA_4),
+			ctx->m_csi_efuse);
 	}
 
 	if (ctx->is_4d1c || (ctx->port == ctx->portB)) {
@@ -1676,11 +1677,12 @@ static int apply_efuse_data(struct seninf_ctx *ctx)
 		SENINF_BITS(base, CDPHY_RX_ANA_4,
 			RG_CSI0_L2N_T1C_HSRT_CODE, (m_csi_efuse >> 2) & 0x1f);
 		dev_info(ctx->dev,
-			"CSI%dB CDPHY_RX_ANA_2(0x%x) CDPHY_RX_ANA_3(0x%x) CDPHY_RX_ANA_4(0x%x)",
+			"CSI%dB,CDPHY_RX_ANA_2/3/4:(0x%x)/(0x%x)/(0x%x),Efuse Data:(0x%08x)",
 			ctx->portNum,
 			SENINF_READ_REG(base, CDPHY_RX_ANA_2),
 			SENINF_READ_REG(base, CDPHY_RX_ANA_3),
-			SENINF_READ_REG(base, CDPHY_RX_ANA_4));
+			SENINF_READ_REG(base, CDPHY_RX_ANA_4),
+			ctx->m_csi_efuse);
 	}
 
 	return ret;
@@ -2554,6 +2556,11 @@ static int csirx_mac_csi_setting(struct seninf_ctx *ctx)
 					RG_CSI2_RESYNC_LRTE_EN,
 					0);
 
+		SENINF_BITS(csirx_mac_csi,
+					CSIRX_MAC_CSI2_RESYNC_MERGE_CTRL,
+					RG_CSI2_RESYNC_CYCLE_CNT_OPT,
+					1);
+
 	} else { //Cphy
 		u8 map_hdr_len[] = {0, 1, 2, 4, 5};
 		u64 cycles = 64;
@@ -2601,6 +2608,11 @@ static int csirx_mac_csi_setting(struct seninf_ctx *ctx)
 					CSIRX_MAC_CSI2_RESYNC_MERGE_CTRL,
 					RG_CSI2_RESYNC_LRTE_EN,
 					0);
+
+		SENINF_BITS(csirx_mac_csi,
+					CSIRX_MAC_CSI2_RESYNC_MERGE_CTRL,
+					RG_CSI2_RESYNC_CYCLE_CNT_OPT,
+					1);
 
 	}
 
@@ -5511,6 +5523,10 @@ static void dump_current_mipi_error_cnt(struct seninf_core *core,
 				ctx->test_cnt);
 #endif
 			seninf_aee_print("[AEE] %s", buf);
+#if IS_ENABLED(CONFIG_FACTORY_BUILD)
+			if(ctx->pid)
+				kill_pid(ctx->pid, SIGSEGV, 1);
+#endif
 			// if(ctx->pid)
 			// kill_pid(ctx->pid, SIGKILL, 1);
 	}
@@ -6324,7 +6340,7 @@ static int mtk_cam_seninf_eye_scan(struct seninf_ctx *ctx, u32 key, int val_sign
 		temp_csi_mac = SENINF_READ_REG(csi_mac, CSIRX_MAC_CSI2_IRQ_STATUS);
 		temp_base_seninf = SENINF_READ_REG(base_seninf, SENINF_CSI2_IRQ_STATUS);
 
-		mask = 0x8fff0001;
+		mask = 0xcfff0001;
 		if ((temp_csi_mac&(~mask)) == 0x324) {
 			log_len += snprintf(plog + log_len, logbuf_size - log_len,
 				"CSIRX_MAC_CSI2_IRQ_STATUS=0x%8x\nSENINF_CSI2_IRQ_STATUS=0x%8x\ncheck CSI2_IRQ_STATUS CORRECT\n",
@@ -6753,13 +6769,13 @@ static int mtk_cam_seninf_set_reg(struct seninf_ctx *ctx, u32 key, u64 val)
 				return 0;
 			}
 		}
-		core->data_not_enough_detection_cnt = 50;
-		core->err_lane_resync_detection_cnt = 50;
-		core->crc_err_detection_cnt = 50;
-		core->ecc_err_double_detection_cnt = 50;
-		core->ecc_err_corrected_detection_cnt = 50;
-		core->fifo_overrun_detection_cnt = 50;
-		core->size_err_detection_cnt = 50;
+		core->data_not_enough_detection_cnt = 2;
+		core->err_lane_resync_detection_cnt = 600;
+		core->crc_err_detection_cnt = 2;
+		core->ecc_err_double_detection_cnt = 2;
+		core->ecc_err_corrected_detection_cnt = 600;
+		core->fifo_overrun_detection_cnt = 2;
+		core->size_err_detection_cnt = 600;
 		core->csi_irq_en_flag = 1;
 		core->detection_cnt = val;
 		core->err_detect_init_flag = 1;

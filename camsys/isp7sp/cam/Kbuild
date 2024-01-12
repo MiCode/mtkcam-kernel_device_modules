@@ -37,6 +37,13 @@ ccflags-y += -DSENSOR_SECURE_MTEE_SUPPORT
 ccflags-y += -I$(DEVICE_MODULES_PATH)/drivers/misc/mediatek/tee_gp/include
 # ccflags-y += -DSECURE_UT
 
+#XIAOMI ADD
+subdir-ccflags-y += -D__XIAOMI_CAMERA__
+ifeq ($(CONFIG_BUILD_XIAOMI_CAMERA_IMAGE_NAMES),"duchamp")
+subdir-ccflags-y += -DDUCHAMP_CAM
+endif
+#XIAOMI END
+
 $(CAM_MODULE)-objs := \
     mtk_cam.o \
     mtk_cam-request.o \

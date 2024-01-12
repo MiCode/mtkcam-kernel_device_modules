@@ -16,6 +16,13 @@ subdir-ccflags-y += -I$(MTK_CUSTOM_PATH)/imgsensor/inc \
                     -I$(CAM_CAL_CUSTOM_SRC_PATH) \
                     -I$(CAM_CAL_SRC_PATH)/common/$(COMMON_VERSION)
 
+# XIAOMI ADD
+subdir-ccflags-y += -D__XIAOMI_CAMERA__
+ifeq ($(CONFIG_BUILD_XIAOMI_CAMERA_IMAGE_NAMES),"duchamp")
+subdir-ccflags-y += -DDUCHAMP_CAM
+endif
+# XIAOMI END
+
 # Common code
 obj-m += camera_eeprom_v4l2.o
 camera_eeprom_v4l2-objs := ../common/$(COMMON_VERSION)/eeprom_driver.o
@@ -25,6 +32,7 @@ camera_eeprom_v4l2-objs += ../common/$(COMMON_VERSION)/eeprom_utils.o
 # Platform code
 camera_eeprom_v4l2-objs += eeprom_i2c_custom_driver.o
 camera_eeprom_v4l2-objs += cam_cal_list.o
+camera_eeprom_v4l2-objs += xiaomi_cam_cal_config.o
 
 comma := ,
 empty :=

@@ -1654,6 +1654,29 @@ static int g_sensor_profile(struct adaptor_ctx *ctx, void *arg)
 	return 0;
 }
 
+#ifdef __XIAOMI_CAMERA__
+static int s_lock_setting_work_queue(struct adaptor_ctx *ctx, void *arg)
+{
+	u32 *lock = arg;
+	union feature_para para;
+	u32 len;
+
+	para.u32[0] = *lock;
+
+	if (para.u32[0]) {
+		subdrv_call(ctx, feature_control,
+			XIAOMI_FEATURE_LOCK_SETTING_WORK_QUEUE,
+			para.u8, &len);
+	} else {
+		subdrv_call(ctx, feature_control,
+			XIAOMI_FEATURE_UNLOCK_SETTING_WORK_QUEUE,
+			para.u8, &len);
+	}
+
+	return 0;
+}
+#endif
+
 static int g_multi_exp_gain_range_by_scenario(struct adaptor_ctx *ctx, void *arg)
 {
 	struct mtk_multi_exp_gain_range_by_scenario *info = arg;
@@ -1771,6 +1794,9 @@ static const struct ioctl_entry ioctl_list[] = {
 	{VIDIOC_MTK_S_CONTROL, s_control},
 	{VIDIOC_MTK_S_TG, s_tg},
 	{VIDIOC_MTK_S_SENSOR_PROFILE_EN, s_sensor_profile_en},
+#ifdef __XIAOMI_CAMERA__
+	{VIDIOC_XIAOMI_S_LOCK_SETTING_WORK_QUEUE, s_lock_setting_work_queue},
+#endif
 	{VIDIOC_MTK_S_SENTEST_LBMF_DELAY_DO_AE_EN, s_sentest_lbmf_delay_do_ae_en},
 };
 

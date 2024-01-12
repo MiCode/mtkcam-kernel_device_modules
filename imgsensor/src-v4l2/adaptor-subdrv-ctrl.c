@@ -230,10 +230,18 @@ bool probe_eeprom(struct subdrv_ctx *ctx)
 	for (idx = 0; idx < eeprom_num; idx++) {
 		ctx->eeprom_index = idx;
 		addr_header_id = info[idx].addr_header_id;
-		header_id =	i2c_read_eeprom(ctx, addr_header_id) |
+#ifdef __XIAOMI_CAMERA__
+		if (0 == info[idx].header_id) {
+			DRV_LOG(ctx, "xiaomi probe done. index:%u\n", idx);
+			return TRUE;
+		}
+		header_id = i2c_read_eeprom(ctx, addr_header_id);
+#else
+		header_id = i2c_read_eeprom(ctx, addr_header_id) |
 			(i2c_read_eeprom(ctx, addr_header_id + 1) << 8) |
 			(i2c_read_eeprom(ctx, addr_header_id + 2) << 16) |
 			(i2c_read_eeprom(ctx, addr_header_id + 3) << 24);
+#endif
 		DRV_LOG(ctx, "eeprom index[cur/total]:%u/%u, header id[cur/exp]:0x%08x/0x%08x\n",
 			idx, eeprom_num, header_id, info[idx].header_id);
 		if (header_id == info[idx].header_id) {
@@ -350,7 +358,15 @@ void read_sensor_Cali(struct subdrv_ctx *ctx)
 
 void write_sensor_Cali(struct subdrv_ctx *ctx)
 {
+#ifdef __XIAOMI_CAMERA__
+	if (ctx->s_ctx.s_cali != NULL) {
+		ctx->s_ctx.s_cali((void *) ctx);
+	} else {
+		DRV_LOG(ctx, "no calibration data applied to sensor.");
+	}
+#else
 	DRV_LOG(ctx, "no calibration data applied to sensor.");
+#endif
 }
 
 void check_frame_length_limitation(struct subdrv_ctx *ctx)
@@ -511,6 +527,12 @@ void write_frame_length_in_lut(struct subdrv_ctx *ctx, u32 fll, u32 *fll_in_lut)
 void set_dummy(struct subdrv_ctx *ctx)
 {
 	bool gph = !ctx->is_seamless && (ctx->s_ctx.s_gph != NULL);
+
+#ifdef __XIAOMI_CAMERA__
+	if (ctx->s_ctx.mi_disable_set_dummy) {
+		return;
+	}
+#endif
 
 	if (gph)
 		ctx->s_ctx.s_gph((void *)ctx, 1);
@@ -759,6 +781,12 @@ void set_max_framerate_by_scenario(struct subdrv_ctx *ctx,
 	u32 frame_length_step;
 	u32 frame_length_min;
 	u32 frame_length_max;
+
+#ifdef __XIAOMI_CAMERA__
+	if (ctx->s_ctx.mi_evaluate_frame_rate_by_scenario) {
+		framerate = ctx->s_ctx.mi_evaluate_frame_rate_by_scenario((void *)ctx, scenario_id, framerate);
+	}
+#endif
 
 	if (scenario_id >= ctx->s_ctx.sensor_mode_num) {
 		DRV_LOG(ctx, "invalid sid:%u, mode_num:%u\n",
@@ -2503,6 +2531,11 @@ void preload_eeprom_data(struct subdrv_ctx *ctx, u32 *is_read)
 	*is_read = ctx->is_read_preload_eeprom;
 	if (!ctx->is_read_preload_eeprom) {
 		DRV_LOG(ctx, "start to preload\n");
+#ifdef __XIAOMI_CAMERA__
+		/* get vendor id */
+		ctx->s_ctx.mi_vendor_id = i2c_read_eeprom(ctx, 0x0001);
+		DRV_LOG_MUST(ctx, "get vendor id : 0x%02x\n", ctx->s_ctx.mi_vendor_id);
+#endif
 		if (ctx->s_ctx.g_cali != NULL)
 			ctx->s_ctx.g_cali((void *) ctx);
 		else
@@ -2735,7 +2768,7 @@ void subdrv_ctx_init(struct subdrv_ctx *ctx)
 		if (!ctx->s_ctx.mode[i].dig_gain_max)
 			ctx->s_ctx.mode[i].dig_gain_max = ctx->s_ctx.dig_gain_max;
 		if (!ctx->s_ctx.mode[i].min_exposure_line)
-			ctx->exposure_min = ctx->s_ctx.mode[i].min_exposure_line;
+			ctx->s_ctx.mode[i].min_exposure_line = ctx->exposure_min;
 		if (!ctx->s_ctx.mode[i].saturation_info)
 			ctx->s_ctx.mode[i].saturation_info = ctx->s_ctx.saturation_info;
 		exp_cnt = ctx->s_ctx.mode[i].exp_cnt ?
@@ -2777,7 +2810,15 @@ void sensor_init(struct subdrv_ctx *ctx)
 		if (ctx->power_on_profile_en)
 			time_boot_begin = ktime_get_boottime_ns();
 
+#ifdef __XIAOMI_CAMERA__
+		if (ctx->s_ctx.s_mi_init_setting) {
+			ctx->s_ctx.s_mi_init_setting((void *)ctx);
+		} else {
+			i2c_table_write(ctx, ctx->s_ctx.init_setting_table, ctx->s_ctx.init_setting_len);
+		}
+#else
 		i2c_table_write(ctx, ctx->s_ctx.init_setting_table, ctx->s_ctx.init_setting_len);
+#endif
 
 		if (ctx->power_on_profile_en) {
 			ctx->sensor_pw_on_profile.i2c_init_period =
@@ -2802,11 +2843,60 @@ int common_open(struct subdrv_ctx *ctx)
 {
 	u32 sensor_id = 0;
 	u32 scenario_id = 0;
+#ifdef __XIAOMI_CAMERA__
+	struct v4l2_subdev *sd = NULL;
+	struct adaptor_ctx *adaptor_ctx = NULL;
+#endif
 
 	/* get sensor id */
 	if (common_get_imgsensor_id(ctx, &sensor_id) != ERROR_NONE)
 		return ERROR_SENSOR_CONNECT_FAIL;
 
+#ifdef __XIAOMI_CAMERA__
+	if (ctx->i2c_client) {
+		sd = i2c_get_clientdata(ctx->i2c_client);
+	}
+	if (sd) {
+		adaptor_ctx = to_ctx(sd);
+	}
+	if (adaptor_ctx && adaptor_ctx->subdrv && ctx->s_ctx.mi_enable_async) {
+		if (ctx->s_ctx.workqueue == NULL) {
+			ctx->s_ctx.workqueue = create_setting_workqueue(adaptor_ctx->subdrv->name);
+			DRV_LOG_MUST(ctx, "create_setting_workqueue ok : %s\n",
+				adaptor_ctx->subdrv->name);
+		}
+	} else {
+		DRV_LOG_MUST(ctx, "mi_enable_async(%d), disable async setting : %s\n",
+			ctx->s_ctx.mi_enable_async, adaptor_ctx->subdrv->name);
+	}
+#endif
+
+#ifdef __XIAOMI_CAMERA__
+	/* initail setting */
+	if (ctx->s_ctx.aov_sensor_support && !ctx->s_ctx.init_in_open) {
+		DRV_LOG_MUST(ctx, "sensor init not in open stage!\n");
+	} else if (ctx->s_ctx.workqueue) {
+		create_and_queue_setting_work(
+					ctx->s_ctx.workqueue,
+					"sensor_init",
+					INIT_SETTING,
+					sensor_init,
+					ctx);
+	} else {
+		sensor_init(ctx);
+	}
+
+	if (ctx->s_ctx.workqueue) {
+		create_and_queue_setting_work(
+					ctx->s_ctx.workqueue,
+					"write_sensor_Cali",
+					INIT_SETTING,
+					write_sensor_Cali,
+					ctx);
+	} else {
+		write_sensor_Cali(ctx);
+	}
+#else
 	/* initail setting */
 	if (ctx->s_ctx.aov_sensor_support && !ctx->s_ctx.init_in_open)
 		DRV_LOG_MUST(ctx, "sensor init not in open stage!\n");
@@ -2817,6 +2907,8 @@ int common_open(struct subdrv_ctx *ctx)
 		ctx->s_ctx.s_cali((void *) ctx);
 	else
 		write_sensor_Cali(ctx);
+#endif
+
 
 	memset(ctx->exposure, 0, sizeof(ctx->exposure));
 	memset(ctx->ana_gain, 0, sizeof(ctx->gain));
@@ -3131,6 +3223,14 @@ int common_control(struct subdrv_ctx *ctx,
 	struct eeprom_info_struct *info = ctx->s_ctx.eeprom_info;
 	struct adaptor_ctx *_adaptor_ctx = NULL;
 	struct v4l2_subdev *sd = NULL;
+
+#ifdef __XIAOMI_CAMERA__
+	if (ctx->s_ctx.workqueue) {
+		DRV_LOG_MUST(ctx, "setting workqueue wait!\n");
+		wait_workqueue_done(ctx->s_ctx.workqueue);
+		DRV_LOG_MUST(ctx, "setting workqueue done!\n");
+	}
+#endif
 
 	if (ctx->i2c_client)
 		sd = i2c_get_clientdata(ctx->i2c_client);
@@ -3601,6 +3701,18 @@ int common_feature_control(struct subdrv_ctx *ctx, MSDK_SENSOR_FEATURE_ENUM feat
 			"[%s] SENSOR_FEATURE_SET_AOV_CSI_CLK(%u)\n",
 			__func__, *feature_data_32);
 		break;
+#ifdef __XIAOMI_CAMERA__
+	case XIAOMI_FEATURE_LOCK_SETTING_WORK_QUEUE:
+		DRV_LOG_MUST(ctx,"lock setting work queue +");
+		lock_setting_work(ctx->s_ctx.workqueue);
+		DRV_LOG_MUST(ctx,"lock setting work queue -");
+		break;
+	case XIAOMI_FEATURE_UNLOCK_SETTING_WORK_QUEUE:
+		DRV_LOG_MUST(ctx,"unlock setting work queue +");
+		unlock_setting_work(ctx->s_ctx.workqueue);
+		DRV_LOG_MUST(ctx,"unlock setting work queue -");
+		break;
+#endif
 	case SENSOR_FEATURE_GET_MULTI_EXP_GAIN_RANGE_BY_SCENARIO:
 		get_multi_exp_gain_range_by_scenario(ctx,
 			(enum SENSOR_SCENARIO_ID_ENUM)*(feature_data),

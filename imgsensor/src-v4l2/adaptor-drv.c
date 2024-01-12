@@ -10,6 +10,7 @@
 #include <linux/of.h>
 #include <linux/of_graph.h>
 #include <linux/thermal.h>
+#include <linux/version.h>
 
 #include "kd_imgsensor_define_v4l2.h"
 
@@ -1717,7 +1718,11 @@ static struct i2c_driver imgsensor_i2c_driver = {
 		.pm = &imgsensor_pm_ops,
 #endif
 	},
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 6, 0)
+	.probe = imgsensor_probe,
+#else
 	.probe_new = imgsensor_probe,
+#endif
 	.remove = imgsensor_remove,
 	.shutdown = imgsensor_shutdown,
 	.id_table = imgsensor_id,

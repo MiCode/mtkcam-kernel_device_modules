@@ -32,6 +32,7 @@ struct mtk_raw_device {
 	void __iomem *base_inner;
 	void __iomem *dmatop_base;
 	void __iomem *dmatop_base_inner;
+	void __iomem *qof_base;
 	void __iomem *yuv_base;
 	void __iomem *yuv_base_inner;
 	void __iomem *rms_base;

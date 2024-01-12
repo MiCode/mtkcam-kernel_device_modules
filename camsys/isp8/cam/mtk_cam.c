@@ -4030,9 +4030,22 @@ static irqreturn_t mtk_irq_adlrd(int irq, void *data)
 
 	unsigned int irq_status;
 
-	irq_status = readl_relaxed(drvdata->adl_base + 0x18a0);
+	irq_status = readl_relaxed(drvdata->adlrd_base + 0x08a4);
 
 	dev_info(dev, "ADL-INT: INT 0x%x\n", irq_status);
+
+	return IRQ_HANDLED;
+}
+static irqreturn_t mtk_irq_qof(int irq, void *data)
+{
+	struct mtk_cam_device *drvdata = (struct mtk_cam_device *)data;
+	struct device *dev = drvdata->dev;
+
+	unsigned int irq_status;
+
+	irq_status = readl_relaxed(drvdata->qoftop_base + 0x000c);
+
+	dev_info(dev, "QOFTOP-INT: INT 0x%x\n", irq_status);
 
 	return IRQ_HANDLED;
 }
@@ -4102,14 +4115,39 @@ static int mtk_cam_probe(struct platform_device *pdev)
 		WRAP_AEE_EXCEPTION("mtk_cam_probe", "ioremap base");
 		return PTR_ERR(cam_dev->base);
 	}
-
-	cam_dev->adl_base = devm_platform_ioremap_resource_byname(pdev, "adl");
-	if (IS_ERR(cam_dev->adl_base)) {
-		dev_err(dev, "%s: failed to map adl_base\n", __func__);
-		cam_dev->adl_base = NULL;
+	cam_dev->adlwr_base = devm_platform_ioremap_resource_byname(pdev, "adlwr");
+	if (IS_ERR(cam_dev->adlwr_base)) {
+		dev_err(dev, "%s: failed to map adlwr_base\n", __func__);
+		cam_dev->adlwr_base = NULL;
+	}
+	cam_dev->adlrd_base = devm_platform_ioremap_resource_byname(pdev, "adlrd");
+	if (IS_ERR(cam_dev->adlrd_base)) {
+		dev_err(dev, "%s: failed to map adlrd_base\n", __func__);
+		cam_dev->adlrd_base = NULL;
+	}
+	cam_dev->qoftop_base = devm_platform_ioremap_resource_byname(pdev, "qof_base");
+	if (IS_ERR(cam_dev->qoftop_base)) {
+		dev_err(dev, "%s: failed to map qoftop_base\n", __func__);
+		cam_dev->qoftop_base = NULL;
+	}
+	// adlrd_rdone
+	irq = platform_get_irq_byname(pdev, "adlrd_rdone");
+	if (irq < 0) {
+		dev_err(dev, "%s: failed to get adlrd_rdone irq\n", __func__);
+		goto SKIP_ADLRD_IRQ;
 	}
 
-	irq = platform_get_irq(pdev, 0);
+	ret = devm_request_irq(dev, irq, mtk_irq_adlrd, IRQF_NO_AUTOEN,
+			       dev_name(dev), cam_dev);
+	if (ret) {
+		dev_err(dev, "%s: Request adlrd_rdone failed\n", __func__);
+		WRAP_AEE_EXCEPTION("mtk_cam_probe", "Request IRQF_NO_AUTOEN");
+		return ret;
+	}
+	dev_dbg(dev, "registered adlrd_rdone irq=%d\n", irq);
+	//enable_irq(irq);
+	// adlrd
+	irq = platform_get_irq_byname(pdev, "adlrd");
 	if (irq < 0) {
 		dev_err(dev, "%s: failed to get adlrd irq\n", __func__);
 		goto SKIP_ADLRD_IRQ;
@@ -4118,13 +4156,28 @@ static int mtk_cam_probe(struct platform_device *pdev)
 	ret = devm_request_irq(dev, irq, mtk_irq_adlrd, IRQF_NO_AUTOEN,
 			       dev_name(dev), cam_dev);
 	if (ret) {
-		dev_err(dev, "%s: Request IRQF_NO_AUTOEN failed\n", __func__);
-		WRAP_AEE_EXCEPTION("seninf_core_probe", "Request IRQF_NO_AUTOEN");
+		dev_err(dev, "%s: Request adlrd failed\n", __func__);
+		WRAP_AEE_EXCEPTION("mtk_cam_probe", "Request IRQF_NO_AUTOEN");
 		return ret;
 	}
-	dev_dbg(dev, "registered adl irq=%d\n", irq);
+	dev_dbg(dev, "registered adlrd irq=%d\n", irq);
 	//enable_irq(irq);
+	// qof
+	irq = platform_get_irq_byname(pdev, "qoftop");
+	if (irq < 0) {
+		dev_err(dev, "%s: failed to get qoftop irq\n", __func__);
+		goto SKIP_ADLRD_IRQ;
+	}
 
+	ret = devm_request_irq(dev, irq, mtk_irq_qof, IRQF_NO_AUTOEN,
+			       dev_name(dev), cam_dev);
+	if (ret) {
+		dev_err(dev, "%s: Request qoftop failed\n", __func__);
+		WRAP_AEE_EXCEPTION("mtk_cam_probe", "Request IRQF_NO_AUTOEN");
+		return ret;
+	}
+	dev_dbg(dev, "registered qoftop irq=%d\n", irq);
+	//enable_irq(irq);
 	cam_dev->cmdq_clt = cmdq_mbox_create(dev, 0);
 
 	if (!cam_dev->cmdq_clt)
@@ -4264,22 +4317,22 @@ static int mtk_cam_runtime_suspend(struct device *dev)
 //#define DO_ADLWR_RESET
 
 #ifdef DO_ADLWR_RESET
-#define ADLWR_ADL_RESET 0x800
+#define ADLWR_ADL_RESET 0x300
 static void adlwr_reset(struct mtk_cam_device *cam_dev)
 {
 	int sw_ctl;
 	int ret;
 
-	if (IS_ERR_OR_NULL(cam_dev->adl_base)) {
+	if (IS_ERR_OR_NULL(cam_dev->adlwr_base)) {
 		dev_info(cam_dev->dev, "%s: skipped\n", __func__);
 		return;
 	}
 
-	writel(0, cam_dev->adl_base + ADLWR_ADL_RESET);
-	writel(BIT(1), cam_dev->adl_base + ADLWR_ADL_RESET);
+	writel(0, cam_dev->adlwr_base + ADLWR_ADL_RESET);
+	writel(BIT(1), cam_dev->adlwr_base + ADLWR_ADL_RESET);
 	wmb(); /* make sure committed */
 
-	ret = readx_poll_timeout(readl, cam_dev->adl_base + ADLWR_ADL_RESET,
+	ret = readx_poll_timeout(readl, cam_dev->adlwr_base + ADLWR_ADL_RESET,
 				 sw_ctl,
 				 sw_ctl & BIT(0),
 				 1 /* delay, us */,
@@ -4290,8 +4343,8 @@ static void adlwr_reset(struct mtk_cam_device *cam_dev)
 	}
 
 	/* do hw rst */
-	writel(0x3c, cam_dev->adl_base + ADLWR_ADL_RESET);
-	writel(0, cam_dev->adl_base + ADLWR_ADL_RESET);
+	writel(0x3c, cam_dev->adlwr_base + ADLWR_ADL_RESET);
+	writel(0, cam_dev->adlwr_base + ADLWR_ADL_RESET);
 }
 #endif
 

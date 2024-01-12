@@ -237,8 +237,9 @@ struct mtk_cam_device {
 	struct device *dev;
 	struct device *smmu_dev;
 	void __iomem *base;
-	void __iomem *adl_base;
-
+	void __iomem *adlwr_base;
+	void __iomem *adlrd_base;
+	void __iomem *qoftop_base;
 	struct v4l2_device v4l2_dev;
 	struct v4l2_async_notifier notifier;
 	struct media_device media_dev;

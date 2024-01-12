@@ -1821,11 +1821,11 @@ static void mtk_cam_ctrl_wait_list_empty(struct mtk_cam_ctrl *ctrl)
 void disable_adlrd(struct mtk_cam_ctx *ctx)
 {
 	/* set ADLRD trigger src to local */
-	writel(1, ctx->cam->adl_base + 0x1884);
+	writel(1, ctx->cam->adlrd_base + 0x0888);
 	/* set ADLRD enable to 0 */
-	writel(0, ctx->cam->adl_base + 0x1804);
+	writel(0, ctx->cam->adlrd_base + 0x0804);
 	/* toggle DB */
-	writel(1, ctx->cam->adl_base + 0x1888);
+	writel(1, ctx->cam->adlrd_base + 0x088C);
 }
 
 void mtk_cam_ctrl_stop(struct mtk_cam_ctrl *cam_ctrl)

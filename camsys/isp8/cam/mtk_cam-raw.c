@@ -185,7 +185,7 @@ static void init_camsys_settings(struct mtk_raw_device *dev, bool is_srt, bool i
 static void init_ADLWR_settings(struct mtk_cam_device *cam)
 {
 	/* CAMADLWR_CAMADLWR_ADL_CTRL_FIELD_ID_GROUP_2 */
-	writel_relaxed(0x440, cam->adl_base + 0x850);
+	writel_relaxed(0x440, cam->adlwr_base + 0x350);
 }
 
 static void dump_cq_setting(struct mtk_raw_device *dev)
@@ -1522,7 +1522,42 @@ static int mtk_raw_of_probe(struct platform_device *pdev,
 		dev_dbg(dev, "failed to map register inner base\n");
 		return PTR_ERR(raw->base_inner);
 	}
+	/* dmatop base register */
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "dmatop_base");
+	if (!res) {
+		dev_dbg(dev, "failed to get mem\n");
+		return -ENODEV;
+	}
 
+	raw->dmatop_base = devm_ioremap_resource(dev, res);
+	if (IS_ERR(raw->dmatop_base)) {
+		dev_dbg(dev, "failed to map register dmatop_base\n");
+		return PTR_ERR(raw->dmatop_base);
+	}
+	/* dmatop base inner register */
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "inner_dmatop_base");
+	if (!res) {
+		dev_dbg(dev, "failed to get mem\n");
+		return -ENODEV;
+	}
+
+	raw->dmatop_base_inner = devm_ioremap_resource(dev, res);
+	if (IS_ERR(raw->dmatop_base_inner)) {
+		dev_dbg(dev, "failed to map register dmatop_base_inner\n");
+		return PTR_ERR(raw->dmatop_base_inner);
+	}
+	/* qof base register */
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "qof_base");
+	if (!res) {
+		dev_dbg(dev, "failed to get mem\n");
+		return -ENODEV;
+	}
+
+	raw->qof_base = devm_ioremap_resource(dev, res);
+	if (IS_ERR(raw->qof_base)) {
+		dev_dbg(dev, "failed to map register qof_base\n");
+		return PTR_ERR(raw->qof_base);
+	}
 	/* will be assigned later */
 	raw->yuv_base = NULL;
 
@@ -1932,7 +1967,31 @@ static int mtk_yuv_of_probe(struct platform_device *pdev,
 		dev_dbg(dev, "failed to map register inner base\n");
 		return PTR_ERR(drvdata->base_inner);
 	}
+	/* dmatop base outer register */
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "dmatop_base");
+	if (!res) {
+		dev_info(dev, "failed to get mem\n");
+		return -ENODEV;
+	}
 
+	drvdata->dmatop_base = devm_ioremap_resource(dev, res);
+	if (IS_ERR(drvdata->dmatop_base)) {
+		dev_dbg(dev, "failed to map register dmatop_base\n");
+		return PTR_ERR(drvdata->dmatop_base);
+	}
+
+	/* base inner register */
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "inner_dmatop_base");
+	if (!res) {
+		dev_dbg(dev, "failed to get mem\n");
+		return -ENODEV;
+	}
+
+	drvdata->dmatop_base_inner = devm_ioremap_resource(dev, res);
+	if (IS_ERR(drvdata->dmatop_base_inner)) {
+		dev_dbg(dev, "failed to map register dmatop_base_inner\n");
+		return PTR_ERR(drvdata->dmatop_base_inner);
+	}
 	clks = of_count_phandle_with_args(pdev->dev.of_node, "clocks",
 			"#clock-cells");
 

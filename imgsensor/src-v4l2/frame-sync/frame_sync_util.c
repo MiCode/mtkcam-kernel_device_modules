@@ -14,6 +14,7 @@
 
 #define REDUCE_FS_UTIL_LOG
 #define PFX "FrameSyncUtil"
+#define FS_LOG_DBG_DEF_CAT LOG_FS_UTIL
 /******************************************************************************/
 
 

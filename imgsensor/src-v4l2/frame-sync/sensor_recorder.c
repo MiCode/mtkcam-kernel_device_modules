@@ -22,6 +22,7 @@
 /******************************************************************************/
 #define REDUCE_SEN_REC_LOG
 #define PFX "SensorRecorder"
+#define FS_LOG_DBG_DEF_CAT LOG_SEN_REC
 
 
 #define RING_BACK(x, n) \
@@ -1667,7 +1668,7 @@ static void frec_chk_fl_info_predicted_match_actual(const unsigned int idx)
 	pfrec->is_ts_info_updated = 0;
 
 #ifndef FS_UT
-	if (unlikely(pf_log_tracer))
+	if (unlikely(_FS_LOG_ENABLED(LOG_FS_PF)))
 #endif
 		frec_dump_recorder(idx, __func__);
 }

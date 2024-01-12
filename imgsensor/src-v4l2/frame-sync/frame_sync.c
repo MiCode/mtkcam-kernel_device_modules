@@ -29,6 +29,7 @@
 
 #define REDUCE_FS_DRV_LOG
 #define PFX "FrameSync"
+#define FS_LOG_DBG_DEF_CAT LOG_FS
 /******************************************************************************/
 
 
@@ -3378,7 +3379,7 @@ void fs_receive_tsrec_timestamp_info(const unsigned int ident,
 	/* call this function after receive TSREC timestamp info */
 	fs_alg_sa_notify_vsync(idx);
 
-	if (unlikely(pf_log_tracer))
+	if (unlikely(_FS_LOG_ENABLED(LOG_FS_PF)))
 		if (FS_CHECK_BIT(idx, &fs_mgr.enSync_bits))
 			fs_alg_sa_dump_dynamic_para(idx);
 }
@@ -3432,7 +3433,7 @@ unsigned int fs_sync_frame(unsigned int flag)
 			return 0;
 		}
 
-		if (unlikely(pf_log_tracer))
+		if (unlikely(_FS_LOG_ENABLED(LOG_FS_PF)))
 			fs_dump_status(-1, flag, __func__, "Start:1");
 
 		/* return the number of valid sync sensors */
@@ -3452,7 +3453,7 @@ unsigned int fs_sync_frame(unsigned int flag)
 
 		if (likely(fs_mgr.trigger_ctrl_bits)) {
 			/* framesync trigger DONE */
-			if (pf_log_tracer)
+			if (unlikely(_FS_LOG_ENABLED(LOG_FS_PF)))
 				fs_dump_status(-1, flag, __func__, "Start:0 DONE");
 		} else {
 			/* framesync trigger FAIL */

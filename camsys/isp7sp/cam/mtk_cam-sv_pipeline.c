@@ -50,6 +50,7 @@ static int mtk_camsv_sd_s_stream(struct v4l2_subdev *sd, int enable)
 		atomic_set(&pipe->is_sentest_param_updated, 0);
 		memset(&pipe->sentest_param, 0,
 			sizeof(struct mtk_cam_seninf_sentest_param));
+		pipe->feature_pending = 0;
 	}
 
 	return 0;

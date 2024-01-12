@@ -52,7 +52,8 @@ struct mtk_cam_device;
 struct mtk_rpmsg_device;
 
 #define CQ_BUF_SIZE  0x10000
-#define CAM_CQ_BUF_NUM  (JOB_NUM_PER_STREAM * 2) /* 2 for mstream */
+#define CAM_CQ_BUF_NUM \
+			max(JOB_NUM_PER_STREAM * 2, JOB_NUM_PER_STREAM_DISPLAY_IC) /* 2 for mstream */
 
 #define SENSOR_META_BUF_SIZE 0x8000
 #define SENSOR_META_BUF_NUM 8
@@ -95,7 +96,7 @@ struct mtk_cam_ctx {
 	bool ctrldata_stored;
 	struct mtk_raw_ctrl_data ctrldata;
 	/* job pool */
-	struct mtk_cam_job_data jobs[JOB_NUM_PER_STREAM];
+	struct mtk_cam_job_data jobs[MAX_JOB_NUM_PER_STREAM];
 	struct mtk_cam_pool job_pool;
 	int available_jobs; /* cached value for enque */
 

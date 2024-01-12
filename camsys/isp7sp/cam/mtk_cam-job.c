@@ -1766,7 +1766,7 @@ static int apply_engines_cq_extisp(struct mtk_cam_job *job,
 	}
 
 
-	dev_info(ctx->cam->dev, "[%s] ctx:%d CQ-0x%x eng 0x%lx/0x%lx cq_addr: %pad, data:0x%lx, job's tg_cnt:%d [%d][%d][%d]\n",
+	dev_info(ctx->cam->dev, "[%s] ctx-%d CQ-0x%x eng 0x%lx/0x%lx cq_addr: %pad, data:0x%lx, job's tg_cnt:%d [%d][%d][%d]\n",
 		 __func__, ctx->stream_id, frame_seq_no, cq_engine, cq_engine_for_extisp,
 		 &cq->daddr, extisp_data, job->job_state.tg_cnt,
 		 ctx->cam_ctrl.r_info.extisp_tg_cnt[EXTISP_DATA_PD],
@@ -1828,7 +1828,7 @@ static int apply_engines_cq(struct mtk_cam_job *job,
 
 	mtk_cam_apply_qos(job);
 
-	dev_info(ctx->cam->dev, "[%s] ctx:%d CQ-0x%x cq_eng 0x%lx used_eng 0x%lx (%s)\n",
+	dev_info(ctx->cam->dev, "[%s] ctx-%d CQ-0x%x cq_eng 0x%lx used_eng 0x%lx (%s)\n",
 		__func__, ctx->stream_id, frame_seq_no, cq_engine,
 		used_engine, job->scen_str);
 	return 0;
@@ -4805,8 +4805,10 @@ static void job_dump_engines_debug_status(struct mtk_cam_job *job)
 	bool is_srt = is_dc_mode(job) || is_m2m(job);
 
 	mtk_engine_dump_debug_status(cam, job->used_engine, is_srt);
-	if (ctx->seninf)
+	if (ctx->seninf) {
 		mtk_cam_seninf_dump(ctx->seninf, job->frame_seq_no, false);
+		vsync_collector_dump(&ctx->cam_ctrl.vsync_col);
+	}
 }
 
 #define ARR_U64x4_LEN (2 + 10*4 + 3)
@@ -4972,8 +4974,9 @@ int job_handle_done(struct mtk_cam_job *job)
 		debug_ts[0] = '\0';
 		debug_str_sensor_apply_ts(job, debug_ts, sizeof(debug_ts));
 
-		dev_info(ctx->cam->dev, "%s: ctx-%d req:%s(%d) pipe:0x%x ts:%lld%s%s\n",
+		dev_info(ctx->cam->dev, "%s: ctx-%d f_seq:0x%x req:%s(%d) pipe:0x%x ts:%lld%s%s\n",
 			 __func__, ctx->stream_id,
+			 job->frame_seq_no,
 			 job->req->debug_str, job->req_seq,
 			 job->done_pipe, job->timestamp,
 			 debug_ts,

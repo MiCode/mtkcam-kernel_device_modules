@@ -1449,6 +1449,42 @@ unsigned long engines_to_trigger_cq(struct mtk_cam_job *job,
 	return cq_engine;
 }
 
+static
+unsigned long engines_to_check_inner(struct mtk_cam_job *job)
+{
+	struct mtk_cam_ctx *ctx = job->src_ctx;
+	unsigned long used_engine = 0, subset;
+	int dev_idx;
+	int i;
+
+	/* raw */
+	subset = bit_map_subset_of(MAP_HW_RAW, job->used_engine);
+	if (subset) {
+		dev_idx = find_first_bit_set(subset);
+		used_engine |= bit_map_bit(MAP_HW_RAW, dev_idx);
+	}
+
+	/* camsv */
+	subset = bit_map_subset_of(MAP_HW_CAMSV, job->used_engine);
+	if (subset) {
+		dev_idx = find_first_bit_set(subset);
+		used_engine |= bit_map_bit(MAP_HW_CAMSV, dev_idx);
+	}
+
+	/* mraw */
+	subset = bit_map_subset_of(MAP_HW_MRAW, job->used_engine);
+	if (subset) {
+		for (i = 0; i < ctx->num_mraw_subdevs; i++) {
+			dev_idx = ctx->mraw_subdev_idx[i];
+			if (!(subset & BIT(dev_idx)))
+				continue;
+			used_engine |= bit_map_bit(MAP_HW_MRAW, dev_idx);
+		}
+	}
+
+	return used_engine;
+}
+
 static int _apply_raw_cq(struct mtk_cam_job *job,
 			 unsigned long raw_engines,
 			 struct mtk_cam_pool_buffer *cq,
@@ -1675,7 +1711,7 @@ static int apply_engines_cq(struct mtk_cam_job *job,
 	unsigned long subset;
 
 	cq_engine = engines_to_trigger_cq(job, cq_rst);
-	used_engine = job->used_engine;
+	used_engine = engines_to_check_inner(job);
 
 	apply_cq_ref_init(&job->cq_ref,
 			  to_fh_cookie(ctx->stream_id, frame_seq_no),

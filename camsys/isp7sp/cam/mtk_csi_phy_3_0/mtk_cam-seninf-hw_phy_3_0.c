@@ -491,8 +491,8 @@ static int mtk_cam_seninf_disable_all_cammux(struct seninf_ctx *ctx)
 	return 0;
 }
 
-static int mtk_cam_seninf_set_top_mux_ctrl(struct seninf_ctx *ctx,
-				    int mux_idx, int seninf_src)
+static int mtk_cam_seninf_set_top_mux_ctrl(
+	struct seninf_ctx *ctx, int mux_idx, int seninf_src)
 {
 	void *pSeninf = ctx->reg_if_top;
 	struct seninf_core *core = ctx->core;
@@ -601,7 +601,7 @@ static int mtk_cam_seninf_set_top_mux_ctrl(struct seninf_ctx *ctx,
 	mutex_unlock(&core->seninf_top_mux_mutex);
 
 	dev_info(ctx->dev,
-		"mux %d TOP_MUX_CTRL_0(0x%x) TOP_MUX_CTRL_1(0x%x) TOP_MUX_CTRL_2(0x%x) TOP_MUX_CTRL_3(0x%x) TOP_MUX_CTRL_4(0x%x) TOP_MUX_CTRL_5(0x%x)\n",
+		"mux:%d,TOP_MUX_CTRL_0(0x%x),TOP_MUX_CTRL_1(0x%x),TOP_MUX_CTRL_2(0x%x),TOP_MUX_CTRL_3(0x%x),TOP_MUX_CTRL_4(0x%x),TOP_MUX_CTRL_5(0x%x)\n",
 		mux_idx,
 		SENINF_READ_REG(pSeninf, SENINF_TOP_MUX_CTRL_0),
 		SENINF_READ_REG(pSeninf, SENINF_TOP_MUX_CTRL_1),
@@ -2134,12 +2134,75 @@ static int csirx_phy_init(struct seninf_ctx *ctx)
 static int seninf1_setting(struct seninf_ctx *ctx)
 {
 	void *pSeninf = ctx->reg_if_ctrl[(unsigned int)ctx->seninfIdx];
+	void *pSeninf_top = ctx->reg_if_top;
+	int port;
+	u32 tmp;
+
+	/* afifo pop out splited from 1T to 2T */
+	port = ctx->port;
+	tmp = SENINF_READ_REG(pSeninf_top, SENINF_TOP_CTRL2);
+
+	switch (port) {
+	case CSI_PORT_0:
+	case CSI_PORT_0A:
+		SENINF_WRITE_REG(pSeninf_top, SENINF_TOP_CTRL2, (tmp | (1 << 0)));
+		break;
+	case CSI_PORT_0B:
+		SENINF_WRITE_REG(pSeninf_top, SENINF_TOP_CTRL2, (tmp | (1 << 8)));
+		break;
+	case CSI_PORT_1:
+	case CSI_PORT_1A:
+		SENINF_WRITE_REG(pSeninf_top, SENINF_TOP_CTRL2, (tmp | (1 << 1)));
+		break;
+	case CSI_PORT_1B:
+		SENINF_WRITE_REG(pSeninf_top, SENINF_TOP_CTRL2, (tmp | (1 << 9)));
+		break;
+	case CSI_PORT_2:
+	case CSI_PORT_2A:
+		SENINF_WRITE_REG(pSeninf_top, SENINF_TOP_CTRL2, (tmp | (1 << 2)));
+		break;
+	case CSI_PORT_2B:
+		SENINF_WRITE_REG(pSeninf_top, SENINF_TOP_CTRL2, (tmp | (1 << 10)));
+		break;
+	case CSI_PORT_3:
+	case CSI_PORT_3A:
+		SENINF_WRITE_REG(pSeninf_top, SENINF_TOP_CTRL2, (tmp | (1 << 3)));
+		break;
+	case CSI_PORT_3B:
+		SENINF_WRITE_REG(pSeninf_top, SENINF_TOP_CTRL2, (tmp | (1 << 11)));
+		break;
+	case CSI_PORT_4:
+	case CSI_PORT_4A:
+		SENINF_WRITE_REG(pSeninf_top, SENINF_TOP_CTRL2, (tmp | (1 << 4)));
+		break;
+	case CSI_PORT_4B:
+		SENINF_WRITE_REG(pSeninf_top, SENINF_TOP_CTRL2, (tmp | (1 << 12)));
+		break;
+	case CSI_PORT_5:
+	case CSI_PORT_5A:
+		SENINF_WRITE_REG(pSeninf_top, SENINF_TOP_CTRL2, (tmp | (1 << 5)));
+		break;
+	case CSI_PORT_5B:
+		SENINF_WRITE_REG(pSeninf_top, SENINF_TOP_CTRL2, (tmp | (1 << 13)));
+		break;
+	default:
+		dev_info(ctx->dev, "invalid port %d\n", port);
+		return -EINVAL;
+	}
 
 	// enable/disable seninf csi2
 	SENINF_BITS(pSeninf, SENINF_CSI2_CTRL, RG_SENINF_CSI2_EN, 1);
 
 	// enable/disable seninf, enable after csi2, testmdl is done.
 	SENINF_BITS(pSeninf, SENINF_CTRL, SENINF_EN, 1);
+
+	dev_info(ctx->dev,
+		"[%s] port:%d,TOP_CTRL2(0x%x),SENINF_CSI2_CTRL(0x%x),SENINF_CTRL(0x%x)",
+		__func__,
+		port,
+		SENINF_READ_REG(pSeninf_top, SENINF_TOP_CTRL2),
+		SENINF_READ_REG(pSeninf, SENINF_CSI2_CTRL),
+		SENINF_READ_REG(pSeninf, SENINF_CTRL));
 
 	return 0;
 }
@@ -4587,7 +4650,8 @@ static int mtk_cam_seninf_debug(struct seninf_ctx *ctx)
 
 
 	dev_info(ctx->dev,
-		"TOP_MUX_CTRL_0(0x%x) TOP_MUX_CTRL_1(0x%x) TOP_MUX_CTRL_2(0x%x) TOP_MUX_CTRL_3(0x%x) TOP_MUX_CTRL_4(0x%x) TOP_MUX_CTRL_5(0x%x) debug_vb %lu debug_ft %lu\n",
+		"TOP_CTRL2(0x%x),TOP_MUX_CTRL_0(0x%x),TOP_MUX_CTRL_1(0x%x),TOP_MUX_CTRL_2(0x%x),TOP_MUX_CTRL_3(0x%x),TOP_MUX_CTRL_4(0x%x),TOP_MUX_CTRL_5(0x%x),debug_vb:%lu,debug_ft:%lu\n",
+		SENINF_READ_REG(ctx->reg_if_top, SENINF_TOP_CTRL2),
 		SENINF_READ_REG(ctx->reg_if_top, SENINF_TOP_MUX_CTRL_0),
 		SENINF_READ_REG(ctx->reg_if_top, SENINF_TOP_MUX_CTRL_1),
 		SENINF_READ_REG(ctx->reg_if_top, SENINF_TOP_MUX_CTRL_2),

@@ -4626,9 +4626,9 @@ static int job_dump_aa_info(struct mtk_cam_job *job)
 	n += scnprintf(str_buf + n, str_buf_size - n, "|");
 	ae_data_to_str(str_buf + n, str_buf_size - n, &ae_data_w);
 
-	pr_info("%s:%s:ctx(%d),seq(%d),size(%d,%d),%s\n",
+	pr_info("%s:%s:ctx(%d):pipe(%d),seq(%d),size(%d,%d),%s\n",
 		__func__, job->req->debug_str,
-		ctx->stream_id, job->req_seq,
+		ctx->stream_id, ctx->raw_subdev_idx, job->req_seq,
 		sink->width, sink->height, str_buf);
 
 	return 0;

@@ -229,6 +229,15 @@ static int ut_raw_initialize(struct device *dev, void *ext_params)
 	raw->is_initial_cq = 1;
 	raw->cq_done_mask = 0;
 
+	/* Workaround: disable AAO/AAHO error: double sof error for smvr
+	 *  HW would send double sof to aao/aaho in subsample mode
+	 *  disable it to bypass
+	 */
+	writel_relaxed(0xFFFE0000,
+		       base + REG_AAO_R1_ERR_STAT);
+	writel_relaxed(0xFFFE0000,
+		       base + REG_AAHO_R1_ERR_STAT);
+
 	return 0;
 }
 

@@ -1367,12 +1367,12 @@ static struct subdrv_ops ops = {
 
 static struct subdrv_pw_seq_entry pw_seq[] = {
 	{HW_ID_MCLK, 24, 0},
-	{HW_ID_RST, 0, 1},
-	{HW_ID_MCLK_DRIVING_CURRENT, 8, 0},
+	{HW_ID_RST, 0, 0},
+	{HW_ID_MCLK_DRIVING_CURRENT, 8, 1},
 	{HW_ID_DOVDD, 1800000, 0}, // pmic_ldo/gpio(1.8V ldo) for dovdd
 	{HW_ID_AVDD, 2800000, 0}, // pmic_ldo for avdd
-	{HW_ID_DVDD, 1090000, 5}, // pmic_ldo for dvdd
-	{HW_ID_RST, 1, 5},
+	{HW_ID_DVDD, 1090000, 1}, // pmic_ldo for dvdd
+	{HW_ID_RST, 1, 1},
 };
 
 const struct subdrv_entry ov48b_mipi_raw_entry = {

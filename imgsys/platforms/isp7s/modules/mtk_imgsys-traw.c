@@ -429,6 +429,21 @@ static void imgsys_traw_dump_drzh2n(struct mtk_imgsys_dev *a_pDev,
 
 }
 
+static void imgsys_traw_dump_smi_interface(struct mtk_imgsys_dev *a_pDev,
+				void __iomem *a_pRegBA,
+				unsigned int a_DdbSel,
+				unsigned int a_DbgOut)
+{
+	unsigned int DbgCmd = 0x80; // DMA start cmd
+	unsigned int End = 0x93; // DMA end cmd
+
+	for (int i = 0x80; i < End; i++) {
+		DbgCmd = i;
+		pr_info("[SMI-latency Monitor] %d\n", DbgCmd);
+		ExeDbgCmd(a_pDev, a_pRegBA, a_DdbSel, a_DbgOut, DbgCmd);
+    }
+}
+
 static void imgsys_traw_dump_smto(struct mtk_imgsys_dev *a_pDev,
 				void __iomem *a_pRegBA,
 				unsigned int a_DdbSel,
@@ -882,6 +897,8 @@ void imgsys_traw_debug_dump(struct mtk_imgsys_dev *imgsys_dev,
 	imgsys_traw_dump_cq(imgsys_dev, trawRegBA, CtlDdbSel, CtlDbgOut);
 	/* DRZH2N debug data */
 	imgsys_traw_dump_drzh2n(imgsys_dev, trawRegBA, CtlDdbSel, CtlDbgOut);
+	/* SMI interface debug data */
+	imgsys_traw_dump_smi_interface(imgsys_dev, trawRegBA, DMADdbSel, DMADbgOut);
 	/* SMTO debug data */
 	imgsys_traw_dump_smto(imgsys_dev, trawRegBA, CtlDdbSel, CtlDbgOut);
 #endif

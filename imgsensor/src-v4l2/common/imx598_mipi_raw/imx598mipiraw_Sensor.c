@@ -232,6 +232,7 @@ static struct subdrv_mode_struct mode_struct[] = {
 			.dphy_data_settle = 59,
 			.dphy_clk_settle = 59,
 		},
+		.sensor_output_dataformat = SENSOR_OUTPUT_FORMAT_RAW_4CELL_HW_BAYER_R,
 	},
 	{
 		.frame_desc = frame_desc_cap,
@@ -281,6 +282,7 @@ static struct subdrv_mode_struct mode_struct[] = {
 			.dphy_data_settle = 59,
 			.dphy_clk_settle = 59,
 		},
+		.sensor_output_dataformat = SENSOR_OUTPUT_FORMAT_RAW_4CELL_HW_BAYER_R,
 	},
 	{
 		.frame_desc = frame_desc_vid,
@@ -330,6 +332,7 @@ static struct subdrv_mode_struct mode_struct[] = {
 			.dphy_data_settle = 59,
 			.dphy_clk_settle = 59,
 		},
+		.sensor_output_dataformat = SENSOR_OUTPUT_FORMAT_RAW_4CELL_HW_BAYER_R,
 	},
 	{
 		.frame_desc = frame_desc_hs_vid,
@@ -379,6 +382,7 @@ static struct subdrv_mode_struct mode_struct[] = {
 			.dphy_data_settle = 59,
 			.dphy_clk_settle = 59,
 		},
+		.sensor_output_dataformat = SENSOR_OUTPUT_FORMAT_RAW_4CELL_HW_BAYER_R,
 	},
 	{
 		.frame_desc = frame_desc_slim_vid,
@@ -428,6 +432,7 @@ static struct subdrv_mode_struct mode_struct[] = {
 			.dphy_data_settle = 59,
 			.dphy_clk_settle = 59,
 		},
+		.sensor_output_dataformat = SENSOR_OUTPUT_FORMAT_RAW_4CELL_HW_BAYER_R,
 	},
 	{
 		.frame_desc = frame_desc_cus1,
@@ -477,6 +482,7 @@ static struct subdrv_mode_struct mode_struct[] = {
 			.dphy_data_settle = 59,
 			.dphy_clk_settle = 59,
 		},
+		.sensor_output_dataformat = SENSOR_OUTPUT_FORMAT_RAW_4CELL_HW_BAYER_R,
 	},
 	{
 		.frame_desc = frame_desc_cus2,
@@ -526,6 +532,7 @@ static struct subdrv_mode_struct mode_struct[] = {
 			.dphy_data_settle = 59,
 			.dphy_clk_settle = 59,
 		},
+		.sensor_output_dataformat = SENSOR_OUTPUT_FORMAT_RAW_4CELL_HW_BAYER_R,
 	},
 	{
 		.frame_desc = frame_desc_cus3,
@@ -575,6 +582,7 @@ static struct subdrv_mode_struct mode_struct[] = {
 			.dphy_data_settle = 59,
 			.dphy_clk_settle = 59,
 		},
+		.sensor_output_dataformat = SENSOR_OUTPUT_FORMAT_RAW_4CELL_HW_BAYER_R,
 	},
 };
 
@@ -596,7 +604,7 @@ static struct subdrv_static_ctx static_ctx = {
 	.mipi_lane_num = SENSOR_MIPI_4_LANE,
 	.ob_pedestal = 0x40,
 
-	.sensor_output_dataformat = SENSOR_OUTPUT_FORMAT_RAW_4CELL_HW_BAYER_B,
+	.sensor_output_dataformat = SENSOR_OUTPUT_FORMAT_RAW_4CELL_HW_BAYER_R,
 	.ana_gain_def = BASEGAIN * 4,
 	.ana_gain_min = 1150,
 	.ana_gain_max = BASEGAIN * 64,
@@ -732,7 +740,8 @@ static void set_group_hold(void *arg, u8 en)
 
 static u16 get_gain2reg(u32 gain)
 {
-	return (1024 - (1024 * BASEGAIN) / gain);
+	/*the below formula is unconditional carry */
+	return (1024 - (1024 * BASEGAIN + (gain >> 1)) / gain);
 }
 
 static int imx598_set_test_pattern(struct subdrv_ctx *ctx, u8 *para, u32 *len)

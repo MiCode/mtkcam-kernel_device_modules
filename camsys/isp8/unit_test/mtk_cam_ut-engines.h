@@ -235,7 +235,12 @@ enum mux_status {
 };
 struct mtk_ut_seninf_device {
 	struct device *dev;
-	void __iomem *base;
+	void __iomem *base_top;
+	void __iomem *base_async;
+	void __iomem *base_tm;
+	void __iomem *base_outmux[SENINF_MUX_NUM];
+
+	unsigned int num_outmux;
 
 	unsigned int num_clks;
 	struct clk **clks;
@@ -244,30 +249,16 @@ struct mtk_ut_seninf_device {
 
 	unsigned int seninf_mux_status[SENINF_MUX_NUM];
 	unsigned int seninf_status[SENINF_NUM];
-
-	int mux_camsv_sat_range[2];
-	int mux_camsv_range[2];
-	int mux_raw_range[2];
-	int mux_pdp_range[2];
-
-	int cammux_camsv_sat_range[2];
-	int cammux_camsv_range[2];
-	int cammux_raw_range[2];
-	int cammux_pdp_range[2];
 };
 
 static inline int seninf_mux_raw(struct device *dev, int raw_idx)
 {
-	struct mtk_ut_seninf_device *seninf = dev_get_drvdata(dev);
-
-	return  seninf->mux_raw_range[0] + raw_idx;
+	return 0;
 }
 
 static inline int seninf_cammux_raw(struct device *dev, int raw_idx)
 {
-	struct mtk_ut_seninf_device *seninf = dev_get_drvdata(dev);
-
-	return  seninf->cammux_raw_range[0] + raw_idx;
+	return 0;
 }
 
 #define CALL_SENINF_OPS(dev, op, ...) \

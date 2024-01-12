@@ -64,315 +64,7 @@ static int get_test_hmargin(int w, int h, int clk_cnt, int clk_mhz, int fps)
 	return max(target_h - h, 0x80);
 }
 
-#define SENINF_OFFSET 0x1000
-
-static int get_seninf_by_mux_id(int mux_id)
-{
-	int seninf_id;
-
-	switch (mux_id) {
-	case SENINF_MUX1:
-	case SENINF_MUX7:
-	case SENINF_MUX11:
-		seninf_id = SENINF_1; //using seninf_1
-		break;
-	case SENINF_MUX2:
-	case SENINF_MUX8:
-	case SENINF_MUX12:
-		seninf_id = SENINF_2; //using seninf_2
-		break;
-	case SENINF_MUX3:
-	case SENINF_MUX9:
-	case SENINF_MUX13:
-		seninf_id = SENINF_3; //using seninf_3
-		break;
-	case SENINF_MUX4:
-	case SENINF_MUX10:
-	case SENINF_MUX14:
-		seninf_id = SENINF_4; //using seninf_4
-		break;
-	case SENINF_MUX5:
-		seninf_id = SENINF_5; //using seninf_5
-		break;
-	case SENINF_MUX6:
-		seninf_id = SENINF_6; //using seninf_6
-		break;
-	case SENINF_MUX15:
-		seninf_id = SENINF_7; //using seninf_7
-		break;
-	default:
-		return -EINVAL;
-	}
-	return seninf_id;
-}
-
-static int check_is_seninf_idle(
-	struct mtk_ut_seninf_device *seninf, int seninf_idx)
-{
-	int i;
-
-	for (i = 0; i < SENINF_NUM; i++) {
-		if (i != seninf_idx)
-			continue;
-
-		return (seninf->seninf_status[i] == USING) ? USING : IDLE;
-	}
-
-	return -EINVAL;
-}
-
-static int get_mux_by_tg_idx(struct device *dev, int tg_idx)
-{
-	struct mtk_ut_seninf_device *seninf = dev_get_drvdata(dev);
-	int cam_type = -1;
-	int range_begin, range_end;
-	int mux_id, seninf_idx;
-
-	if (tg_idx >= seninf->cammux_camsv_sat_range[0] &&
-		tg_idx <= seninf->cammux_camsv_sat_range[1]) {
-		cam_type = TYPE_CAMSV_SAT;
-
-	} else if (tg_idx >= seninf->cammux_camsv_range[0] &&
-			   tg_idx <= seninf->cammux_camsv_range[1]) {
-		cam_type = TYPE_CAMSV_NORMAL;
-
-	} else if (tg_idx >= seninf->cammux_raw_range[0] &&
-			   tg_idx <= seninf->cammux_raw_range[1]) {
-		cam_type = TYPE_RAW;
-
-	} else if (tg_idx >= seninf->cammux_pdp_range[0] &&
-			   tg_idx <= seninf->cammux_pdp_range[1]) {
-		cam_type = TYPE_PDP;
-	}
-
-	dev_info(dev, "[%s] cam_type %d tg_idx %d\n",
-		__func__, cam_type, tg_idx);
-
-	switch (cam_type) {
-	case TYPE_CAMSV_SAT:
-		range_begin = seninf->mux_camsv_sat_range[0];
-		range_end = seninf->mux_camsv_sat_range[1];
-		break;
-
-	case TYPE_CAMSV_NORMAL:
-		range_begin = seninf->mux_camsv_range[0];
-		range_end = seninf->mux_camsv_range[1];
-		break;
-
-	case TYPE_RAW:
-		range_begin = seninf->mux_raw_range[0];
-		range_end = seninf->mux_raw_range[1];
-		break;
-
-	case TYPE_PDP:
-		range_begin = seninf->mux_pdp_range[0];
-		range_end = seninf->mux_pdp_range[1];
-		break;
-
-	default:
-		dev_info(dev, "[%s] error: invailed cammux_range_id %d\n",
-		 __func__, cam_type);
-		return -ENODEV;
-	}
-
-	for (mux_id = range_begin; mux_id <= range_end; mux_id++) {
-		if (seninf->seninf_mux_status[mux_id] != IDLE)
-			continue;
-
-		dev_info(dev, "[%s] target idle mux %d with cam_type %d\n",
-			__func__, mux_id, cam_type);
-
-		seninf_idx = get_seninf_by_mux_id(mux_id);
-		if (seninf_idx < 0) {
-			dev_info(dev,
-				"%s error get_seninf_by_mux_id return failed\n", __func__);
-			return -ENODEV;
-		}
-
-		if (check_is_seninf_idle(seninf, seninf_idx) != IDLE)
-			continue;
-
-		dev_info(dev, "[%s] target idle seninf %d with mux %d cam_type %d\n",
-			__func__, seninf_idx, mux_id, cam_type);
-
-		seninf->seninf_mux_status[mux_id] = USING;
-		return mux_id;
-	}
-
-	dev_info(dev, "[%s] error: cannot get idle seninf_mux in cam_tpye %d\n",
-			 __func__, cam_type);
-
-	return -EINVAL;
-}
-
-static int ut_seninf_set_top_mux(struct device *dev, void __iomem *seninf_base,
-			int mux_idx, int seninf_src)
-{
-
-	switch (mux_idx) {
-	case SENINF_MUX1:
-	case SENINF_MUX2:
-	case SENINF_MUX3:
-	case SENINF_MUX4:
-		WRITE_SENINF_TOP_MUX_BITS(
-				ISP_SENINF_TOP_MUX_CTRL_0(seninf_base),
-				mux_idx,
-				seninf_src);
-		break;
-	case SENINF_MUX5:
-	case SENINF_MUX6:
-	case SENINF_MUX7:
-	case SENINF_MUX8:
-		WRITE_SENINF_TOP_MUX_BITS(
-				ISP_SENINF_TOP_MUX_CTRL_1(seninf_base),
-				mux_idx,
-				seninf_src);
-		break;
-
-	case SENINF_MUX9:
-	case SENINF_MUX10:
-	case SENINF_MUX11:
-	case SENINF_MUX12:
-		WRITE_SENINF_TOP_MUX_BITS(
-				ISP_SENINF_TOP_MUX_CTRL_2(seninf_base),
-				mux_idx,
-				seninf_src);
-		break;
-	case SENINF_MUX13:
-	case SENINF_MUX14:
-	case SENINF_MUX15:
-	case SENINF_MUX16:
-		WRITE_SENINF_TOP_MUX_BITS(
-				ISP_SENINF_TOP_MUX_CTRL_3(seninf_base),
-				mux_idx,
-				seninf_src);
-		break;
-	case SENINF_MUX17:
-	case SENINF_MUX18:
-	case SENINF_MUX19:
-	case SENINF_MUX20:
-		WRITE_SENINF_TOP_MUX_BITS(
-				ISP_SENINF_TOP_MUX_CTRL_4(seninf_base),
-				mux_idx,
-				seninf_src);
-		break;
-	case SENINF_MUX21:
-	case SENINF_MUX22:
-		WRITE_SENINF_TOP_MUX_BITS(
-				ISP_SENINF_TOP_MUX_CTRL_5(seninf_base),
-				mux_idx,
-				seninf_src);
-		break;
-	default:
-		dev_info(dev, "invalid mux_idx %d\n", mux_idx);
-		return -EINVAL;
-	}
-
-
-	dev_info(dev,
-	"top_mux_ctrl_0: 0x%x   top_mux_ctrl_1: 0x%x   top_mux_ctrl_2: 0x%x   top_mux_ctrl_3: 0x%x   top_mux_ctrl_4: 0x%x   top_mux_ctrl_5: 0x%x\n",
-		readl(ISP_SENINF_TOP_MUX_CTRL_0(seninf_base)),
-		readl(ISP_SENINF_TOP_MUX_CTRL_1(seninf_base)),
-		readl(ISP_SENINF_TOP_MUX_CTRL_2(seninf_base)),
-		readl(ISP_SENINF_TOP_MUX_CTRL_3(seninf_base)),
-		readl(ISP_SENINF_TOP_MUX_CTRL_4(seninf_base)),
-		readl(ISP_SENINF_TOP_MUX_CTRL_5(seninf_base)));
-	return 0;
-}
-
-static int ut_seninf_set_cammux_tag(struct device *dev,
-		void __iomem *seninf_base, int tg_idx, int tag)
-{
-		int page, tag_sel;
-		void __iomem *cam_mux_addr = (void *)(seninf_base + tg_idx * 0x40);
-
-	if (tag >= 0 && tag <= 31) {
-		page = tag / 4;
-		tag_sel = tag % 4;
-		SET_TAG(cam_mux_addr, page, tag_sel, 0, 0, 1);
-/*
-		dev_info(dev,
-			"[before] cam_mux_base: 0x%p   CAM_MUX_TAG_VC_SEL_addr: 0x%p   CAM_MUX_TAG_VC_SEL: 0x%x   CAM_MUX_TAG_DT_SEL: 0x%x\n",
-		(unsigned int *)cam_mux_addr,
-		ISP_SENINF_CAM_MUX_PCSR_VC_SEL((unsigned int *)cam_mux_addr),
-		readl(ISP_SENINF_CAM_MUX_PCSR_VC_SEL((unsigned int *)cam_mux_addr)),
-		readl(ISP_SENINF_CAM_MUX_PCSR_DT_SEL((unsigned int *)cam_mux_addr)));
-*/
-		dev_info(dev, "page = %d, tag_sel=%d\n", page, tag_sel);
-/*
-		dev_info(dev,
-			"[after] cam_mux_base: 0x%p   CAM_MUX_TAG_VC_SEL_addr: 0x%p   CAM_MUX_TAG_VC_SEL: 0x%x   CAM_MUX_TAG_DT_SEL: 0x%x\n",
-		(unsigned int *)cam_mux_addr,
-		ISP_SENINF_CAM_MUX_PCSR_VC_SEL((unsigned int *)cam_mux_addr),
-		readl(ISP_SENINF_CAM_MUX_PCSR_VC_SEL((unsigned int *)cam_mux_addr)),
-		readl(ISP_SENINF_CAM_MUX_PCSR_DT_SEL((unsigned int *)cam_mux_addr)));
-*/
-	}
-
-	return 0;
-}
-
-static int ut_seninf_get_muxvr_by_mux(struct device *dev, unsigned int mux)
-{
-	struct mtk_ut_seninf_device *seninf = dev_get_drvdata(dev);
-	unsigned int const sat_mux_factor = 8;
-	unsigned int const raw_mux_factor = 4;
-	int mux_vr = mux;
-	int mux_sat_range_begin = seninf->mux_camsv_sat_range[0];
-	int mux_sat_range_end = seninf->mux_camsv_sat_range[1];
-	int muxvr_sat_range_begin = mux_sat_range_begin;
-	int muxvr_sat_range_end = muxvr_sat_range_begin
-				+ (mux_sat_range_end - mux_sat_range_begin + 1) * sat_mux_factor;
-
-	int mux_camsv_range_begin = seninf->mux_camsv_range[0];
-	int mux_camsv_range_end = seninf->mux_camsv_range[1];
-	int muxvr_sv_range_begin = muxvr_sat_range_end;
-	int muxvr_sv_range_end = muxvr_sv_range_begin
-				+ (mux_camsv_range_end - mux_camsv_range_begin + 1);
-
-	int mux_raw_range_begin = seninf->mux_raw_range[0];
-	int mux_raw_range_end = seninf->mux_raw_range[1];
-	int muxvr_raw_range_begin = muxvr_sv_range_end;
-	int muxvr_raw_range_end = muxvr_raw_range_begin
-				+ (mux_raw_range_end - mux_raw_range_begin + 1) * raw_mux_factor;
-
-	int mux_pdp_range_begin = seninf->mux_pdp_range[0];
-	int muxvr_pdp_range_begin = muxvr_raw_range_end;
-
-	int cammux_sat_range_begin = seninf->cammux_camsv_sat_range[0];
-	int cammux_raw_range_end = seninf->cammux_raw_range[1];
-
-	dev_info(dev, "%s muxvr_sat_b %d, muxvr_sv_b %d, muxvr_raw_b %d, muxvr_pdp_b %d,\n",
-		__func__,
-		muxvr_sat_range_begin,
-		muxvr_sv_range_begin,
-		muxvr_raw_range_begin,
-		muxvr_pdp_range_begin);
-
-	if (mux < mux_sat_range_begin)
-		mux_vr = mux;
-	else if (mux >= mux_sat_range_begin && mux <= mux_sat_range_end) {
-		mux_vr =
-			cammux_sat_range_begin + ((mux - mux_sat_range_begin) * sat_mux_factor);
-	} else if (mux >= mux_camsv_range_begin && mux <= mux_camsv_range_end) {
-		mux_vr = muxvr_sv_range_begin + (mux - mux_camsv_range_begin);
-
-	} else if (mux >= mux_raw_range_begin && mux <= mux_raw_range_end) {
-		mux_vr =
-			muxvr_raw_range_begin + ((mux - mux_raw_range_begin) * raw_mux_factor);
-
-			// due to seninf_mux 10 has no camtg
-		if (mux_vr >= cammux_raw_range_end)
-			mux_vr = cammux_raw_range_end;
-	} else {
-
-		mux_vr = muxvr_pdp_range_begin + (mux - mux_pdp_range_begin);
-	}
-
-	dev_info(dev, "%s mux_vr %d with mux %d\n", __func__, mux_vr, mux);
-
-	return mux_vr;
-}
+#define SENINF_TM_OFFSET 0x200
 
 static int ut_seninf_set_testmdl(struct device *dev,
 				 int width, int height,
@@ -382,123 +74,71 @@ static int ut_seninf_set_testmdl(struct device *dev,
 				 int tag)
 {
 	struct mtk_ut_seninf_device *seninf = dev_get_drvdata(dev);
-	unsigned int cam_mux_ctrl;
-	int mux_idx;
-	int seninf_idx, mux_vr;
-	void __iomem *cam_mux_ctrl_addr;
-	void __iomem *seninf_base;
-	void __iomem *mux_base;
+	int seninf_idx, outmux_idx;
+	void __iomem *seninf_top;
+	void __iomem *seninf_async;
+	void __iomem *seninf_tm;
+	void __iomem *outmux_base;
 	const u16 dummy_pxl = testmdl_hblank, h_margin = 0x1000;
 	const u8 clk_div_cnt = (16 >> (pixmode_lg2 ? 1 : 0)) - 1;
 	const u16 dum_vsync = get_test_hmargin(width + dummy_pxl,
 					      height + h_margin,
 					      clk_div_cnt, 416, 30);
+	int width_tm = (width >> 1);
 
-	mux_idx = get_mux_by_tg_idx(dev, tg_idx);
-	if (mux_idx < 0) {
-		dev_info(dev, "%s error get_mux_by_tg_idx return failed\n", __func__);
-		return -ENODEV;
-	}
+	if (width_tm % 8) // width_tm must be 8x, ceil to 8x
+		width_tm = ((width_tm >> 3) + 1) << 3;
 
-	seninf_idx = get_seninf_by_mux_id(mux_idx);
-	if (seninf_idx < 0) {
-		dev_info(dev, "%s error get_seninf_by_mux_id return failed\n", __func__);
-		return -ENODEV;
-	}
+	// hard code seninf idx use first seninf_idx
+	outmux_idx = tg_idx;
+	seninf_idx = 0;
 
-	dev_info(dev, "%s width %d x height %d dum_vsync %d pixmode_lg2 %d clk_div_cnt %d\n",
+	dev_info(dev, "%s width %d x height %d dum_vsync %d pixmode_lg2 %d clk_div_cnt %d, to width_tm %d\n",
 		 __func__, width, height, dum_vsync,
-		 pixmode_lg2, clk_div_cnt);
-	dev_info(dev, "%s seninf_idx %d tg_idx %d\n", __func__, seninf_idx, tg_idx);
+		 pixmode_lg2, clk_div_cnt, width_tm);
+	dev_info(dev, "%s seninf_idx %d outmux_idx %d tg_idx %d tag %d\n",
+		 __func__, seninf_idx, outmux_idx, tg_idx, tag);
+
+	if (tag >= 8) {
+		dev_info(dev, "%s invalid tag\n", __func__);
+		return -1;
+	}
 
 	/* test mdl */
 	seninf->seninf_status[seninf_idx] = USING;
-	seninf_base = seninf->base + seninf_idx * SENINF_OFFSET;
-	writel((height + h_margin) << 16 | width, ISP_SENINF_TM_SIZE(seninf_base));
-	writel(clk_div_cnt, ISP_SENINF_TM_CLK(seninf_base));
-	writel(dum_vsync << 16 | dummy_pxl, ISP_SENINF_TM_DUM(seninf_base));
-	writel(0xa0a << 12 | pattern << 4 | 0x1, ISP_SENINF_TM_CTL(seninf_base));
-	writel(0x1, ISP_SENINF_TSETMDL_CTRL(seninf_base));
-	writel(0x1, ISP_SENINF_CTRL(seninf_base));
+	seninf_top = seninf->base_top;
+	seninf_async = seninf->base_async;
+	seninf_tm = seninf->base_tm + seninf_idx * SENINF_TM_OFFSET;
 
-	/* set seninf_top_mux */
-	if (ut_seninf_set_top_mux(dev, seninf->base, mux_idx, seninf_idx)) {
-		dev_info(dev, "ut_seninf_set_top_mux return failed\n");
-		return -EINVAL;
-	}
+	//writel((height + h_margin) << 16 | width, ISP_SENINF_TM_SIZE(seninf_base));
+	writel(height << 16 | width_tm, ISP_SENINF_TM_SIZE(seninf_tm));
+	//writel(clk_div_cnt, ISP_SENINF_TM_CLK(seninf_tm));
+	writel(clk_div_cnt << 16 | 0x801, ISP_SENINF_TM_CORE0_CTL(seninf_tm));
+	writel(dum_vsync << 16 | dummy_pxl, ISP_SENINF_TM_DUM(seninf_tm));
+	//writel(0xa0a << 12 | pattern << 4 | 0x1, ISP_SENINF_TM_CTL(seninf_base));
+	//writel(0x1, ISP_SENINF_TSETMDL_CTRL(seninf_base));
+	writel(0x2b, ISP_SENINF_TM_CON0(seninf_tm));// dt
 
-	/* set seninf_mux */
-	mux_base = seninf->base + mux_idx * SENINF_OFFSET;
-	if ((tg_idx >= raw_tg_0) && (tg_idx <= raw_tg_2))
-		writel(0x1f << 16 | 3 << 8 | 0x1, ISP_SENINF_MUX_CTRL_1(mux_base));
-	else
-		writel(0x1f << 16 | pixmode_lg2 << 8 | 0x1, ISP_SENINF_MUX_CTRL_1(mux_base));
-	writel(0x1, ISP_SENINF_MUX_CTRL_0(mux_base));
-	writel(0x1 << 3, ISP_SENINF_MUX_OPT(mux_base));  // EN VC split
+	/* seninf async */
+	writel(0x1, ISP_SENINF_ASYNC_CFG(seninf_async));
 
-	/* cam mux ctrl */
-	cam_mux_ctrl_addr =
-		(void *)(ISP_SENINF_CAM_MUX_PCSR_CTRL(seninf->base) + tg_idx * 0x40);
+	/* seninf top */
+	writel(0x1000000, ISP_SENINF_TOP_CTL(seninf_top));
 
-	if (ut_seninf_set_cammux_tag(dev, seninf->base, tg_idx, tag)) {
-		dev_info(dev, "ut_seninf_set_cammux_tag return failed\n");
-		return -EINVAL;
-	}
+	/* outmux */
+	outmux_base = seninf->base_outmux[outmux_idx];
+	writel(0x0, ISP_SENINF_OUTMUX_SOURCE_CFG0(outmux_base));
+	writel(0x0, ISP_SENINF_OUTMUX_SRC_SEL(outmux_base));
+	writel(0x2b0001, ISP_SENINF_OUTMUX_TAG_VCDT(outmux_base, tag));
+	writel(0x1, ISP_SENINF_OUTMUX_CFG_RDY(outmux_base));
+	writel(0x1, ISP_SENINF_OUTMUX_CFG_DONE(outmux_base));
 
-	mux_vr = ut_seninf_get_muxvr_by_mux(dev, mux_idx);
-	if (mux_vr < 0) {
-		dev_info(dev, "ut_seninf_get_muxvr_by_mux return failed\n");
-		return -EINVAL;
-	}
-
-	cam_mux_ctrl = readl(cam_mux_ctrl_addr);
-	cam_mux_ctrl &= 0xFFFF7800;
-	cam_mux_ctrl |= mux_vr;
-	if ((tg_idx >= raw_tg_0) && (tg_idx <= raw_tg_2))
-		cam_mux_ctrl |= (2 << 8); /* chk pix mode */
-	else
-		cam_mux_ctrl |= (pixmode_lg2 << 8); /* chk pix mode */
-	cam_mux_ctrl |= 0x80; /* cam mux en */
-	cam_mux_ctrl |= 0x8000; /* cam mux check en */
-	writel(cam_mux_ctrl, cam_mux_ctrl_addr);
-	dev_info(dev, "CAM_MUX_PCSR_%d: 0x%x\n", tg_idx, cam_mux_ctrl);
 
 	return 0;
 }
 
 static int ut_seninf_reset(struct device *dev)
 {
-	struct mtk_ut_seninf_device *seninf = dev_get_drvdata(dev);
-	int min_seninfmux = 0;
-	int max_seninfmux = 0;
-	int i;
-
-	max_seninfmux = seninf->mux_pdp_range[1];
-
-	min_seninfmux = seninf->mux_camsv_sat_range[0];
-
-	writel(0x3, ISP_SENINF_CAM_MUX_GCSR_CTRL(seninf->base));
-	udelay(1);
-	writel(0x0, ISP_SENINF_CAM_MUX_GCSR_CTRL(seninf->base));
-	dev_info(dev, "cam_mux reset done\n");
-
-	for (i = min_seninfmux; i < max_seninfmux; i++) {
-		writel(0x04, (ISP_SENINF_MUX_CTRL_0(seninf->base) + i * 0x1000));
-		udelay(1);
-		writel(0x00, (ISP_SENINF_MUX_CTRL_0(seninf->base) + i * 0x1000));
-		seninf->seninf_mux_status[i] = IDLE;
-		dev_info(dev, "seninf_mux_%d reset done\n", i);
-	}
-
-	writel(0x01, seninf->base);
-	udelay(1);
-	writel(0x00, seninf->base);
-	dev_info(dev, "seninf_top reset done\n");
-
-	for (i = 0; i < SENINF_NUM; i++)
-		seninf->seninf_status[i] = IDLE;
-	dev_info(dev, "seninf reset done\n");
-
 	return 0;
 }
 
@@ -537,49 +177,77 @@ static const struct component_ops mtk_ut_seninf_component_ops = {
 	.unbind = mtk_ut_seninf_component_unbind,
 };
 
-static int seninf_of_probe_range(struct device *dev, const char *range_prop,
-				 int range[2])
-{
-	int i, ret;
-
-	for (i = 0; i < 2; i++) {
-
-		ret = of_property_read_u32_index(dev->of_node, range_prop,
-						 i, range + i);
-		if (ret) {
-			dev_info(dev,
-				 "%s: ERROR: read property %s, index %d failed, ret:%d\n",
-				 __func__, range_prop, i, ret);
-			return -1;
-		}
-	}
-
-	dev_info(dev, "%s: %s: range [%d, %d]\n",
-		 __func__, range_prop, range[0], range[1]);
-
-	return 0;
-}
-
 static int mtk_ut_seninf_of_probe(struct platform_device *pdev,
 			    struct mtk_ut_seninf_device *seninf)
 {
 	struct device *dev = &pdev->dev;
 	struct resource *res;
 	int i, clks;
+	struct device_node *tmp_node = NULL;
+	int index;
 
-	/* base register */
-	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+	/* top base register */
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "seninf-top");
 	if (!res) {
 		dev_info(dev, "failed to get mem\n");
 		return -ENODEV;
 	}
 
-	seninf->base = devm_ioremap_resource(dev, res);
-	if (IS_ERR(seninf->base)) {
-		dev_info(dev, "failed to map register base\n");
-		return PTR_ERR(seninf->base);
+	seninf->base_top = devm_ioremap_resource(dev, res);
+	if (IS_ERR(seninf->base_top)) {
+		dev_info(dev, "failed to map register base top\n");
+		return PTR_ERR(seninf->base_top);
 	}
-	dev_info(dev, "seninf, map_addr=0x%lx\n", (unsigned long)seninf->base);
+	dev_info(dev, "seninf, map_addr=0x%lx\n", (unsigned long)seninf->base_top);
+
+	/* async base register */
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "seninf-async-top");
+	if (!res) {
+		dev_info(dev, "failed to get mem\n");
+		return -ENODEV;
+	}
+
+	seninf->base_async = devm_ioremap_resource(dev, res);
+	if (IS_ERR(seninf->base_async)) {
+		dev_info(dev, "failed to map register base async\n");
+		return PTR_ERR(seninf->base_async);
+	}
+	dev_info(dev, "seninf, map_addr=0x%lx\n", (unsigned long)seninf->base_async);
+
+	/* tm base register */
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "seninf-tm");
+	if (!res) {
+		dev_info(dev, "failed to get mem\n");
+		return -ENODEV;
+	}
+
+	seninf->base_tm = devm_ioremap_resource(dev, res);
+	if (IS_ERR(seninf->base_tm)) {
+		dev_info(dev, "failed to map register base tm\n");
+		return PTR_ERR(seninf->base_tm);
+	}
+	dev_info(dev, "seninf, map_addr=0x%lx\n", (unsigned long)seninf->base_tm);
+
+	/* outmux base register */
+	i = 0;
+	while ((tmp_node = of_find_compatible_node(tmp_node, NULL, "mediatek,seninf-outmux"))) {
+		index = of_property_match_string(tmp_node, "reg-names", "base");
+		if (index < 0) {
+			/* Fail */
+			dev_info(dev, "get seninf outmux reg base failed\n");
+		} else {
+			/* Success */
+			dev_info(dev, "get seninf outmux reg base succeeded\n");
+
+			seninf->base_outmux[i] = devm_of_iomap(dev, tmp_node, index, NULL);
+			if (IS_ERR(seninf->base_outmux[i]))
+				dev_info(dev, "seninf outmux[%d] ioremap failed\n", i);
+			else
+				i++;
+		}
+	}
+	seninf->num_outmux = i;
+
 
 	clks = of_count_phandle_with_args(pdev->dev.of_node,
 				"clocks", "#clock-cells");
@@ -601,41 +269,6 @@ static int mtk_ut_seninf_of_probe(struct platform_device *pdev,
 			return -ENODEV;
 		}
 	}
-
-	/* mux */
-	if (seninf_of_probe_range(dev, "mux-camsv-sat-range",
-				  seninf->mux_camsv_sat_range))
-		return -ENODEV;
-
-	if (seninf_of_probe_range(dev, "mux-camsv-normal-range",
-				  seninf->mux_camsv_range))
-		return -ENODEV;
-
-	if (seninf_of_probe_range(dev, "mux-raw-range",
-				  seninf->mux_raw_range))
-		return -ENODEV;
-
-	if (seninf_of_probe_range(dev, "mux-pdp-range",
-				  seninf->mux_pdp_range))
-		return -ENODEV;
-
-	/* cammux */
-	if (seninf_of_probe_range(dev, "cammux-camsv-sat-range",
-				  seninf->cammux_camsv_sat_range))
-		return -ENODEV;
-
-	if (seninf_of_probe_range(dev, "cammux-camsv-normal-range",
-			  seninf->cammux_camsv_range))
-		return -ENODEV;
-
-	if (seninf_of_probe_range(dev, "cammux-raw-range",
-				  seninf->cammux_raw_range))
-		return -ENODEV;
-
-	if (seninf_of_probe_range(dev, "cammux-pdp-range",
-				  seninf->cammux_pdp_range))
-		return -ENODEV;
-
 
 	// init mux_status as all mux are free to used
 	for (i = 0; i < SENINF_MUX_NUM; i++)

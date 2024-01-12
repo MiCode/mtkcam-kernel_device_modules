@@ -93,9 +93,10 @@ int mtk_cam_dvfs_probe(struct device *dev,
 	for (i = 0; i < dvfs->opp_num; i++)
 		dev_info(dev, "[%s] idx=%d, clk=%d volt=%d\n", __func__,
 			 i, dvfs->opp[i].freq_hz, dvfs->opp[i].volt_uv);
-
+#ifdef NOT_FPGA_STAGE
 	dvfs->mmdvfs_clk = devm_clk_get(dev, !mmdvfs_get_version() ?
 					"mmdvfs_clk" : "mmdvfs_mux");
+#endif
 	if (IS_ERR(dvfs->mmdvfs_clk)) {
 		dvfs->mmdvfs_clk = NULL;
 		dev_info(dev, "failed to get mmdvfs_clk\n");
@@ -1113,8 +1114,9 @@ int mtk_cam_apply_qos(struct mtk_cam_job *job)
 	}
 
 	//thottling
+#ifdef NOT_FPGA_STAGE
 	mtk_mmqos_wait_throttle_done();
-
+#endif
 	return 0;
 }
 
@@ -1140,6 +1142,8 @@ int mtk_cam_reset_qos(struct device *dev, struct mtk_camsys_qos *qos)
 
 int mtk_cam_qos_wait_throttle_done(void)
 {
+#ifdef NOT_FPGA_STAGE
 	mtk_mmqos_wait_throttle_done();
+#endif
 	return 0;
 }

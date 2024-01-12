@@ -3948,7 +3948,6 @@ static int register_sub_drivers(struct device *dev)
 		goto REGISTER_SENINF_CORE_FAIL;
 	}
 
-
 	ret = platform_driver_register(&mtk_cam_sv_driver);
 	if (ret) {
 		dev_err(dev, "%s mtk_cam_sv_driver fail\n", __func__);
@@ -4177,8 +4176,9 @@ static int mtk_cam_probe(struct platform_device *pdev)
 	}
 	dev_dbg(dev, "registered qoftop irq=%d\n", irq);
 	//enable_irq(irq);
+#ifdef NOT_FPGA_STAGE
 	cam_dev->cmdq_clt = cmdq_mbox_create(dev, 0);
-
+#endif
 	if (!cam_dev->cmdq_clt)
 		pr_err("probe cmdq_mbox_create fail\n");
 

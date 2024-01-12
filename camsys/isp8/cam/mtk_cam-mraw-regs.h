@@ -79,6 +79,32 @@ union MRAW_CTL_MISC {
 
 #define REG_MRAW_CTL_SW_CTL						0x0058
 
+#define REG_MRAW_CTL_DDREN_CTL					0x0080
+union MRAW_CTL_DDREN_CTL {
+	struct {
+		unsigned int MRAWCTL_DDREN_HW_EN		:  1;
+		unsigned int rsv_1						:  3;
+		unsigned int MRAWCTL_DDREN_SW_SET		:  1;
+		unsigned int rsv_5						:  3;
+		unsigned int MRAWCTL_DDREN_SW_CLR		:  1;
+		unsigned int rsv_9						: 23;
+	} Bits;
+	unsigned int Raw;
+};
+
+#define REG_MRAW_CTL_BW_QOS_CTL					0x0088
+union MRAW_CTL_BW_QOS_CTL {
+	struct {
+		unsigned int MRAWCTL_BW_QOS_HW_EN		:  1;
+		unsigned int rsv_1						:  3;
+		unsigned int MRAWCTL_BW_QOS_SW_SET		:  1;
+		unsigned int rsv_5						:  3;
+		unsigned int MRAWCTL_BW_QOS_SW_CLR		:  1;
+		unsigned int rsv_9						: 23;
+	} Bits;
+	unsigned int Raw;
+};
+
 #define REG_MRAW_CTL_INT_EN						0x0100
 #define REG_MRAW_CTL_INT_STATUS					0x0104
 #define MRAWCTL_VS_INT_ST						BIT(0)
@@ -118,33 +144,6 @@ union MRAW_CTL_MISC {
 #define MRAWCQ_SOF_SEL							BIT(2)
 #define MRAWCQ_DB_EN							BIT(4)
 #define MRAWSCQ_SUBSAMPLE_EN					BIT(21)
-union MRAW_MRAWCQ_CQ_EN {
-	struct {
-		unsigned int MRAWCQ_CQ_APB_2T			:  1;
-		unsigned int MRAWCQ_CQ_DROP_FRAME_EN	:  1;
-		unsigned int MRAWCQ_CQ_SOF_SEL			:  1;
-		unsigned int rsv_3						:  1;
-		unsigned int MRAWCQ_CQ_DB_EN			:  1;
-		unsigned int rsv_5						:  3;
-		unsigned int MRAWCQ_CQ_DB_LOAD_MODE		:  1;
-		unsigned int rsv_9						:  3;
-		unsigned int MRAWCQ_SCQ_STAGGER_MODE	:  1;
-		unsigned int MRAWCQ_SCQ_INVLD_CLR_SEL	:  1;
-		unsigned int MRAWCQ_SCQ_CAMSV_ENQ_FAIL_TRIG_EN	:  1;
-		unsigned int MRAWCQ_SCQ_LAST_FRAME_TRIG_EN		:  1;
-		unsigned int MRAWCQ_CQ_RESET			:  1;
-		unsigned int MRAWCQ_SCQ_INVLD_CLR_CHK	:  1;
-		unsigned int MRAWCQ_VHDR_LAST_FRAME_TRIG_EN		:  1;
-		unsigned int rsv_19						:  2;
-		unsigned int MRAWCQ_SCQ_SUBSAMPLE_EN	:  1;
-		unsigned int MRAWCQ_CQ_DB_LOAD_SEL		:  1;
-		unsigned int rsv_23						:  5;
-		unsigned int MRAWCQ_CQ_DBG_SEL			:  1;
-		unsigned int MRAWCQ_CQ_DBG_MAIN_SUB_SEL	:  1;
-		unsigned int rsv_30						:  2;
-	} Bits;
-	unsigned int Raw;
-};
 
 #define REG_MRAW_SCQ_START_PERIOD				0x0408
 
@@ -154,17 +153,6 @@ union MRAW_MRAWCQ_CQ_EN {
 #define REG_MRAW_CQ_SUB_THR0_CTL				0x0440
 #define MRAWCQ_SUB_THR0_EN						BIT(0)
 #define MRAWCQ_SUB_THR0_MODE_IMMEDIATE			BIT(4)
-union MRAW_MRAWCQ_CQ_SUB_THR0_CTL {
-	struct {
-		unsigned int MRAWCQ_CQ_SUB_THR0_EN		:  1;
-		unsigned int rsv_1						:  3;
-		unsigned int MRAWCQ_CQ_SUB_THR0_MODE	:  2;
-		unsigned int rsv_6						:  2;
-		unsigned int MRAWCQ_CQ_SUB_THR0_DONE_SEL		:  1;
-		unsigned int rsv_9						: 23;
-	} Bits;
-	unsigned int Raw;
-};
 
 #define REG_MRAW_CQ_SUB_THR0_BASEADDR_2		    0x044C
 #define REG_MRAW_CQ_SUB_THR0_BASEADDR_2_MSB	    0x0450

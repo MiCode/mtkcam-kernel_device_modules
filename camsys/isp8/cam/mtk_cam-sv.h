@@ -15,7 +15,7 @@
 #include "mtk_cam-plat.h"
 
 #define MAX_SV_HW_GROUPS 4
-#define CAMSV_IRQ_NUM 3
+#define CAMSV_IRQ_NUM 2
 #define MAX_SV_HW_NUM 6
 
 enum SV_SMI_PORT_ID {
@@ -203,9 +203,10 @@ void sv_reset(struct mtk_camsv_device *sv_dev);
 void mtk_cam_sv_debug_dump(struct mtk_camsv_device *sv_dev, unsigned int dump_tags);
 int mtk_cam_sv_dev_config(struct mtk_camsv_device *sv_dev, unsigned int sub_ratio);
 int mtk_cam_sv_cq_config(struct mtk_camsv_device *sv_dev, unsigned int sub_ratio);
+int mtk_cam_sv_ddren_config(struct mtk_camsv_device *sv_dev);
+int mtk_cam_sv_bw_qos_config(struct mtk_camsv_device *sv_dev);
 void mtk_cam_sv_update_start_period(struct mtk_camsv_device *sv_dev, int scq_ms);
 int mtk_cam_sv_cq_disable(struct mtk_camsv_device *sv_dev);
-int mtk_cam_get_sv_cammux_id(struct mtk_camsv_device *sv_dev, int tag_idx);
 int mtk_cam_sv_dev_pertag_stream_on(
 	struct mtk_camsv_device *sv_dev, unsigned int tag_idx, bool on);
 int mtk_cam_sv_dev_stream_on(struct mtk_camsv_device *sv_dev, bool on,

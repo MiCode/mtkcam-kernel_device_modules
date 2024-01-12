@@ -2800,16 +2800,13 @@ int ctx_stream_on_seninf_sensor(struct mtk_cam_job *job,
 		sv_dev = dev_get_drvdata(ctx->hw_sv);
 		for (i = SVTAG_START; i < SVTAG_END; i++) {
 			if (job->enabled_tags & (1 << i)) {
-				unsigned int sv_cammux_id =
-					mtk_cam_get_sv_cammux_id(sv_dev, i);
-
 				mtk_cam_seninf_set_camtg_camsv(seninf,
 					job->tag_info[i].seninf_padidx,
-					sv_cammux_id, i);
+					sv_dev->cammux_id, i);
 				mtk_cam_seninf_set_pixelmode_camsv(seninf,
 					job->tag_info[i].seninf_padidx,
 					job->tag_info[i].pixel_mode,
-					sv_cammux_id);
+					sv_dev->cammux_id);
 			}
 		}
 	}

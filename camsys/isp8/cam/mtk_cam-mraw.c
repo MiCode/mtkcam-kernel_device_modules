@@ -913,6 +913,24 @@ int mtk_cam_mraw_cq_config(struct mtk_mraw_device *mraw_dev,
 	return 0;
 }
 
+int mtk_cam_mraw_ddren_config(struct mtk_mraw_device *mraw_dev)
+{
+	/* sw ddr en */
+	MRAW_WRITE_BITS(mraw_dev->base + REG_MRAW_CTL_DDREN_CTL,
+		MRAW_CTL_DDREN_CTL, MRAWCTL_DDREN_SW_SET, 1);
+
+	return 0;
+}
+
+int mtk_cam_mraw_bw_qos_config(struct mtk_mraw_device *mraw_dev)
+{
+	/* sw bw_qos en */
+	MRAW_WRITE_BITS(mraw_dev->base + REG_MRAW_CTL_BW_QOS_CTL,
+		MRAW_CTL_BW_QOS_CTL, MRAWCTL_BW_QOS_SW_SET, 1);
+
+	return 0;
+}
+
 #define MRAW_TS_CNT 0x2
 void mtk_cam_mraw_update_start_period(
 	struct mtk_mraw_device *mraw_dev, int scq_ms)
@@ -1045,6 +1063,8 @@ int mtk_cam_mraw_dev_config(struct mtk_mraw_device *mraw_dev,
 	mtk_cam_mraw_fbc_config(mraw_dev);
 	mtk_cam_mraw_fbc_enable(mraw_dev);
 	mtk_cam_mraw_cq_config(mraw_dev, sub_ratio);
+	mtk_cam_mraw_ddren_config(mraw_dev);
+	mtk_cam_mraw_bw_qos_config(mraw_dev);
 
 	dev_info(mraw_dev->dev, "[%s] sub_ratio:%d\n", __func__, sub_ratio);
 

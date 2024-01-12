@@ -79,6 +79,36 @@ union CAMSVCENTRAL_PATH_CFG {
 	unsigned int Raw;
 };
 
+#define REG_CAMSVCENTRAL_DDR_CFG				0x0150
+union CAMSVCENTRAL_DDR_CFG {
+	struct {
+		unsigned int DDR_TIMER_EN				:  1;
+		unsigned int DDR_OR_CQ_EN				:  1;
+		unsigned int DDR_MODE_SEL				:  2;
+		unsigned int DDR_SET					:  1;
+		unsigned int DDR_CLEAR					:  1;
+		unsigned int rsv_6						: 10;
+		unsigned int DDR_SW_R					:  1;
+		unsigned int rsv_17						: 15;
+	} Bits;
+	unsigned int Raw;
+};
+
+#define REG_CAMSVCENTRAL_BW_QOS_CFG				0x0158
+union CAMSVCENTRAL_BW_QOS_CFG {
+	struct {
+		unsigned int BW_QOS_TIMER_EN			:  1;
+		unsigned int BW_QOS_OR_CQ_EN			:  1;
+		unsigned int BW_QOS_MODE_SEL			:  2;
+		unsigned int BW_QOS_SET					:  1;
+		unsigned int BW_QOS_CLEAR				:  1;
+		unsigned int rsv_6						: 10;
+		unsigned int BW_QOS_SW_R				:  1;
+		unsigned int rsv_17						: 15;
+	} Bits;
+	unsigned int Raw;
+};
+
 #define REG_CAMSVCENTRAL_TAG_R_SEL				0x0174
 
 #define REG_CAMSVCENTRAL_FRMSIZE_ST_R			0x0180

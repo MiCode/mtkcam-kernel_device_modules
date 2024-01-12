@@ -632,7 +632,7 @@ int mtk_cam_hsf_aid(struct mtk_cam_ctx *ctx, unsigned int enable,
 {
 	struct mtk_cam_device *cam = ctx->cam;
 	struct aid_info pData;
-	int ret;
+	int ret = 0;
 
 	pData.enable = enable;
 	pData.feature = feature;
@@ -640,8 +640,13 @@ int mtk_cam_hsf_aid(struct mtk_cam_ctx *ctx, unsigned int enable,
 	dev_info(cam->dev, "%s: set AID, enable:%d feature:%d eng:0x%x\n",
 		 __func__, enable, feature, used_engine);
 
-	if (WARN_ON(!cam->ccu_pdev))
+	if (mtk_cam_power_ctrl_ccu(cam->dev, 1))
 		return -1;
+
+	if (WARN_ON(!cam->ccu_pdev)) {
+		ret = -1;
+		goto FAILED;
+	}
 
 	ret = mtk_ccu_rproc_ipc_send(
 		cam->ccu_pdev,
@@ -649,10 +654,11 @@ int mtk_cam_hsf_aid(struct mtk_cam_ctx *ctx, unsigned int enable,
 		MSG_TO_CCU_AID,
 		(void *)&pData, sizeof(struct aid_info));
 
-	if (ret != 0) {
-		dev_info(cam->dev, "set AID fail, enable:%d feature:%d\n", enable, feature);
-		return -1;
-	}
+	if (ret != 0)
+		dev_info(cam->dev, "set AID fail, enable:%d feature:%d, ret = %d\n",
+			 enable, feature, ret);
 
-	return 0;
+FAILED:
+	mtk_cam_power_ctrl_ccu(cam->dev, 0);
+	return ret;
 }

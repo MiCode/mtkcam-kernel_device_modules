@@ -1091,6 +1091,7 @@ bool set_auto_flicker(struct subdrv_ctx *ctx, bool min_framelength_en)
 void set_long_exposure(struct subdrv_ctx *ctx)
 {
 	u32 shutter = ctx->exposure[IMGSENSOR_STAGGER_EXPOSURE_LE];
+	u32 l_shutter = 0;
 	u16 l_shift = 0;
 
 	if (shutter > (ctx->s_ctx.frame_length_max - ctx->s_ctx.exposure_margin)) {
@@ -1103,7 +1104,8 @@ void set_long_exposure(struct subdrv_ctx *ctx)
 			return;
 		}
 		for (l_shift = 1; l_shift < 7; l_shift++) {
-			if ((shutter >> l_shift)
+			l_shutter = ((shutter - 1) >> l_shift) + 1;
+			if (l_shutter
 				< (ctx->s_ctx.frame_length_max - ctx->s_ctx.exposure_margin))
 				break;
 		}
@@ -1111,7 +1113,7 @@ void set_long_exposure(struct subdrv_ctx *ctx)
 			DRV_LOGE(ctx, "unable to set exposure:%u, set to max\n", shutter);
 			l_shift = 7;
 		}
-		shutter = shutter >> l_shift;
+		shutter = ((shutter - 1) >> l_shift) + 1;
 		if (!ctx->s_ctx.reg_addr_auto_extend)
 			ctx->frame_length = shutter + ctx->s_ctx.exposure_margin;
 		DRV_LOG(ctx, "long exposure mode: lshift %u times", l_shift);

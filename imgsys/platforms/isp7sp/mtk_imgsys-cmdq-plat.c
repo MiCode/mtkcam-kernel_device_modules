@@ -1125,6 +1125,35 @@ void imgsys_cmdq_task_cb_plat7sp(struct cmdq_cb_data data)
 				event_hist[event_sft].wait.req_no,
 				event_hist[event_sft].wait.frm_no,
 				event_hist[event_sft].wait.ts);
+		} else if ((event >= IMGSYS_CMDQ_SW_EVENT6_BEGIN) &&
+				(event <= IMGSYS_CMDQ_SW_EVENT6_END)) {
+				event_sft = event - IMGSYS_CMDQ_SW_EVENT6_BEGIN +
+					(IMGSYS_CMDQ_SW_EVENT5_END - IMGSYS_CMDQ_SW_EVENT5_BEGIN + 1) +
+					(IMGSYS_CMDQ_SW_EVENT4_END - IMGSYS_CMDQ_SW_EVENT4_BEGIN + 1) +
+					(IMGSYS_CMDQ_SW_EVENT3_END - IMGSYS_CMDQ_SW_EVENT3_BEGIN + 1) +
+					(IMGSYS_CMDQ_SW_EVENT2_END - IMGSYS_CMDQ_SW_EVENT2_BEGIN + 1) +
+					(IMGSYS_CMDQ_SW_EVENT1_END - IMGSYS_CMDQ_SW_EVENT1_BEGIN + 1);
+				event_diff = event_hist[event_sft].set.ts >
+							event_hist[event_sft].wait.ts ?
+							(event_hist[event_sft].set.ts -
+							event_hist[event_sft].wait.ts) :
+							(event_hist[event_sft].wait.ts -
+							event_hist[event_sft].set.ts);
+				pr_info(
+					"%s: [ERROR] SW event6 timeout! wfe(%d) event(%d) isHW(%d); event st(%d)_ts(%lld)_set(%d/%d/%d/%lld)_wait(%d/%d/%d/%lld)",
+					__func__,
+					cb_param->pkt->err_data.wfe_timeout,
+					cb_param->pkt->err_data.event, isHWhang,
+					event_hist[event_sft].st, event_diff,
+					event_hist[event_sft].set.req_fd,
+					event_hist[event_sft].set.req_no,
+					event_hist[event_sft].set.frm_no,
+					event_hist[event_sft].set.ts,
+					event_hist[event_sft].wait.req_fd,
+					event_hist[event_sft].wait.req_no,
+					event_hist[event_sft].wait.frm_no,
+					event_hist[event_sft].wait.ts);
+
 		} else if ((event >= IMGSYS_CMDQ_GPR_EVENT_BEGIN) &&
 			(event <= IMGSYS_CMDQ_GPR_EVENT_END)) {
 			isHWhang = 1;
@@ -1368,6 +1397,35 @@ int imgsys_cmdq_task_aee_cb_plat7sp(struct cmdq_cb_data data)
 		ret = CMDQ_NO_AEE;
 		pr_info(
 			"%s: [ERROR] SW event5 timeout! wfe(%d) event(%d) isHW(%d); event st(%d)_ts(%lld)_set(%d/%d/%d/%lld)_wait(%d/%d/%d/%lld)",
+			__func__,
+			cb_param->pkt->err_data.wfe_timeout,
+			cb_param->pkt->err_data.event, isHWhang,
+			event_hist[event_sft].st, event_diff,
+			event_hist[event_sft].set.req_fd,
+			event_hist[event_sft].set.req_no,
+			event_hist[event_sft].set.frm_no,
+			event_hist[event_sft].set.ts,
+			event_hist[event_sft].wait.req_fd,
+			event_hist[event_sft].wait.req_no,
+			event_hist[event_sft].wait.frm_no,
+			event_hist[event_sft].wait.ts);
+	} else if ((event >= IMGSYS_CMDQ_SW_EVENT6_BEGIN) &&
+		(event <= IMGSYS_CMDQ_SW_EVENT6_END)) {
+		event_sft = event - IMGSYS_CMDQ_SW_EVENT6_BEGIN +
+			(IMGSYS_CMDQ_SW_EVENT5_END - IMGSYS_CMDQ_SW_EVENT5_BEGIN + 1) +
+			(IMGSYS_CMDQ_SW_EVENT4_END - IMGSYS_CMDQ_SW_EVENT4_BEGIN + 1) +
+			(IMGSYS_CMDQ_SW_EVENT3_END - IMGSYS_CMDQ_SW_EVENT3_BEGIN + 1) +
+			(IMGSYS_CMDQ_SW_EVENT2_END - IMGSYS_CMDQ_SW_EVENT2_BEGIN + 1) +
+			(IMGSYS_CMDQ_SW_EVENT1_END - IMGSYS_CMDQ_SW_EVENT1_BEGIN + 1);
+		event_diff = event_hist[event_sft].set.ts >
+					event_hist[event_sft].wait.ts ?
+					(event_hist[event_sft].set.ts -
+					event_hist[event_sft].wait.ts) :
+					(event_hist[event_sft].wait.ts -
+					event_hist[event_sft].set.ts);
+		ret = CMDQ_NO_AEE;
+		pr_info(
+			"%s: [ERROR] SW event6 timeout! wfe(%d) event(%d) isHW(%d); event st(%d)_ts(%lld)_set(%d/%d/%d/%lld)_wait(%d/%d/%d/%lld)",
 			__func__,
 			cb_param->pkt->err_data.wfe_timeout,
 			cb_param->pkt->err_data.event, isHWhang,

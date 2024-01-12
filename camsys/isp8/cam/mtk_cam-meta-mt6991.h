@@ -766,9 +766,9 @@ struct mtk_cam_uapi_timestamp {
 /**
  *  T O N E
  */
-#define MTK_CAM_UAPI_LTMSBO_SIZE (12 * 9 * 19 * 8)
+#define MTK_CAM_UAPI_LTMSBO_SIZE (12 * 9 * 28 * 8)
 #define MTK_CAM_UAPI_LTMSGO_SIZE (130 * 8)
-#define MTK_CAM_UAPI_TCYSO_SIZE (68)
+#define MTK_CAM_UAPI_TCYSO_SIZE (68 * 3)
 
 /**
  * struct mtk_cam_uapi_ltm_stats - Tone1 statistic data for
@@ -969,7 +969,7 @@ struct mtk_cam_uapi_meta_camsv_stats_0 {
 };
 
 #define MTK_CAM_META_VERSION_MAJOR 1
-#define MTK_CAM_META_VERSION_MINOR 0
+#define MTK_CAM_META_VERSION_MINOR 1
 #define MTK_CAM_META_PLATFORM_NAME "isp80"
 #define MTK_CAM_META_CHIP_NAME "mt6991"
 

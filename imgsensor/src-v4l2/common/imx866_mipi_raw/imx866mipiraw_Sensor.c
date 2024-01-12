@@ -427,7 +427,7 @@ static struct SENSOR_VC_INFO2_STRUCT SENSOR_VC_INFO2[11] = {
 	},
 };
 
-static MUINT32 fine_integ_line_table[11] = {
+static MUINT32 fine_integ_line_table[IMGSENSOR_MODE_MAX] = {
 	335,	//mode 0
 	335,	//mode 1
 	335,	//mode 2
@@ -441,7 +441,7 @@ static MUINT32 fine_integ_line_table[11] = {
 	335,	//mode 10
 };
 
-static MUINT32 exposure_step_table[11] = {
+static MUINT32 exposure_step_table[IMGSENSOR_MODE_MAX] = {
 	4,	//mode 0
 	4,	//mode 1
 	4,	//mode 2
@@ -455,7 +455,7 @@ static MUINT32 exposure_step_table[11] = {
 	4,	//mode 10
 };
 
-static enum IMGSENSOR_HDR_MODE_ENUM hdr_mode_table[11] = {
+static enum IMGSENSOR_HDR_MODE_ENUM hdr_mode_table[IMGSENSOR_MODE_MAX] = {
 	HDR_NONE,	//mode 0
 	HDR_NONE,	//mode 1
 	HDR_NONE,	//mode 2
@@ -469,7 +469,7 @@ static enum IMGSENSOR_HDR_MODE_ENUM hdr_mode_table[11] = {
 	HDR_NONE,	//mode 10
 };
 
-static MUINT32 raw_cnt_table[11] = {
+static MUINT32 raw_cnt_table[IMGSENSOR_MODE_MAX] = {
 	1,	//mode 0
 	1,	//mode 1
 	1,	//mode 2
@@ -483,7 +483,7 @@ static MUINT32 raw_cnt_table[11] = {
 	1,	//mode 10
 };
 
-static MUINT32 exp_cnt_table[11] = {
+static MUINT32 exp_cnt_table[IMGSENSOR_MODE_MAX] = {
 	1,	//mode 0
 	1,	//mode 1
 	1,	//mode 2
@@ -2108,7 +2108,7 @@ static int get_info(struct subdrv_ctx *ctx,
 	sensor_info->SensorPacketECCOrder = 1;
 	sensor_info->FrameTimeDelayFrame = imgsensor_info.frame_time_delay_frame;
 	sensor_info->OB_pedestal = imgsensor_info.ob_pedestal;
-	for (i = 0; i < SENSOR_SCENARIO_ID_MAX; i++) {
+	for (i = 0; i < IMGSENSOR_MODE_MAX; i++) {
 		sensor_info->gain_ratio[i] = 1000;
 		sensor_info->OB_pedestals[i] = imgsensor_info.ob_pedestal;
 		sensor_info->saturation_level[i] = 1023;

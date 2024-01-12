@@ -104,7 +104,7 @@ static int mtk_cam_exception_dump_init(struct mtk_cam_exception *exp)
 	memset(exp, 0, sizeof(*exp));
 
 	/* proc file system */
-	exp->dump_entry = proc_create_data("mtk_cam_exp_dump", 0644, NULL,
+	exp->dump_entry = proc_create_data("mtk_cam_exp_dump", 0640, NULL,
 					   &exp_fops, exp);
 	if (!exp->dump_entry) {
 		dev_info(dbg->cam->dev, "Can't create proc fs\n");
@@ -516,7 +516,7 @@ static int dump_ctrl_init(struct dump_ctrl *ctrl,
 		return -ENOMEM;
 	}
 
-	ctrl->ctrl_entry = proc_create_data("ctrl", 0664,
+	ctrl->ctrl_entry = proc_create_data("ctrl", 0660,
 					    ctrl->dir_entry,
 					    &dbg_ctrl_fops, ctrl);
 	if (!ctrl->ctrl_entry) {
@@ -524,7 +524,7 @@ static int dump_ctrl_init(struct dump_ctrl *ctrl,
 		return -ENOMEM;
 	}
 
-	ctrl->data_entry = proc_create_data("data", 0444,
+	ctrl->data_entry = proc_create_data("data", 0440,
 					    ctrl->dir_entry,
 					    &dbg_data_fops, ctrl);
 	if (!ctrl->data_entry) {

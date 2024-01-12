@@ -351,6 +351,7 @@ enum {
 	CLK_CAM_CAMTG,
 	/* csi clk */
 	CLK_TOP_SENINF,
+	CLK_TOP_SENINF0 = CLK_TOP_SENINF,
 	CLK_TOP_SENINF1,
 	CLK_TOP_SENINF2,
 	CLK_TOP_SENINF3,
@@ -361,6 +362,7 @@ enum {
 	CLK_TOP_CAMTM = CLK_TOP_SENINF_END,
 	CLK_TOP_OSC_D4,					// aov 130M seninf csi clk on scp
 	CLK_TOP_MAINPLL2_D9,			// default 242M seninf csi clk on apmcu
+	CLK_TOP_UNIVPLL_D4_D2,			// default 312M seninf csi clk on apmcu
 	CLK_TOP_CAMTM_END,
 	/* analog phyD clk */
 	CLK_TOP_CAMTG = CLK_TOP_CAMTM_END,
@@ -385,6 +387,7 @@ enum {
 	"clk_top_camtm", \
 	"clk_top_osc_d4", \
 	"clk_top_mainpll2_d9", \
+	"clk_top_univpll_d4_d2", \
 	"clk_top_camtg", \
 	"clk_top_osc_d20", \
 	"clk_top_tck_26m_mx9", \

@@ -37,7 +37,7 @@
 	var = readl_relaxed(RegAddr);\
 	var;\
 })
-#define CAMSV_IRQ_NUM 4
+#define CAMSV_IRQ_NUM 2
 enum camsv_db_load_src {
 	SV_DB_SRC_SUB_P1_DONE = 0,
 	SV_DB_SRC_SOF         = 1,
@@ -222,20 +222,29 @@ int ut_mtk_camsv_central_common_disable(struct device *dev)
 {
 	int ret = 0;
 	struct mtk_ut_camsv_device *sv_dev = dev_get_drvdata(dev);
+
 	/* disable dma dcm before do dma reset */
 	writel(1, sv_dev->base + REG_CAMSVCENTRAL_DCM_DIS);
-	/* bypass tg_mode function before vf off */
-	CAMSV_WRITE_BITS(sv_dev->base + REG_CAMSVCENTRAL_SEN_MODE,
-		CAMSVCENTRAL_SEN_MODE, TG_MODE_OFF, 1);
-	CAMSV_WRITE_BITS(sv_dev->base + REG_CAMSVCENTRAL_VF_CON,
-		CAMSVCENTRAL_VF_CON, VFDATA_EN, 0);
-	ut_mtk_cam_sv_toggle_tg_db(dev);
+
+	/* turn off interrupt */
 	CAMSV_WRITE_REG(sv_dev->base + REG_CAMSVCENTRAL_DONE_STATUS_EN, 0);
 	CAMSV_WRITE_REG(sv_dev->base + REG_CAMSVCENTRAL_ERR_STATUS_EN, 0);
 	CAMSV_WRITE_REG(sv_dev->base + REG_CAMSVCENTRAL_SOF_STATUS_EN, 0);
+
+	/* bypass tg_mode function before vf off */
+	CAMSV_WRITE_BITS(sv_dev->base + REG_CAMSVCENTRAL_SEN_MODE,
+		CAMSVCENTRAL_SEN_MODE, TG_MODE_OFF, 1);
+
+	CAMSV_WRITE_BITS(sv_dev->base + REG_CAMSVCENTRAL_VF_CON,
+		CAMSVCENTRAL_VF_CON, VFDATA_EN, 0);
+
+	ut_mtk_cam_sv_toggle_tg_db(dev);
+
 	CAMSV_WRITE_BITS(sv_dev->base + REG_CAMSVCENTRAL_SEN_MODE,
 		CAMSVCENTRAL_SEN_MODE, CMOS_EN, 0);
+
 	ut_sv_reset(dev);
+
 	CAMSV_WRITE_REG(sv_dev->base + REG_CAMSVCENTRAL_DMA_EN_IMG, 0);
 	CAMSV_WRITE_REG(sv_dev->base + REG_CAMSVCENTRAL_DCIF_SET, 0);
 	CAMSV_WRITE_REG(sv_dev->base + REG_CAMSVCENTRAL_DCIF_SEL, 0);
@@ -247,30 +256,9 @@ int ut_mtk_camsv_cq_disable(
 {
 	int ret = 0;
 	struct mtk_ut_camsv_device *sv_dev = dev_get_drvdata(dev);
-	/* camsv todo : camsv support subsample
-	 *int i, subsample = 0;
-	 *
-	 *for (i = SVTAG_START; i < SVTAG_END; i++) {
-	 *	if (camsv_dev->enabled_tags & (1 << i)) {
-	 *		subsample = camsv_dev->tag_info[i].cfg_in_param.subsample;
-	 *		break;
-	 *	}
-	 *}
-	 *
-	 *if (subsample) {
-	 *	CAMSV_WRITE_BITS(camsv_dev->base_scq + REG_CAMSVCQ_CQ_EN,
-	 *		CAMSVCQ_CQ_EN, CAMSVCQ_SCQ_SUBSAMPLE_EN, 0);
-	 *}
-	 */
+
 	CAMSV_WRITE_BITS(sv_dev->base_scq + REG_CAMSVCQ_CQ_SUB_THR0_CTL,
 		CAMSVCQ_CQ_SUB_THR0_CTL, CAMSVCQ_CQ_SUB_THR0_EN, 0);
-	CAMSV_WRITE_BITS(sv_dev->base_scq + REG_CAMSVCQ_CQ_EN,
-		CAMSVCQ_CQ_EN, CAMSVCQ_SCQ_STAGGER_MODE, 0);
-	CAMSV_WRITE_BITS(sv_dev->base_scq + REG_CAMSVCQ_CQ_SUB_THR0_CTL,
-		CAMSVCQ_CQ_SUB_THR0_CTL, CAMSVCQ_CQ_SUB_THR0_MODE, 0);
-	CAMSV_WRITE_REG(sv_dev->base_scq  + REG_CAMSVCQ_SCQ_START_PERIOD, 0);
-	CAMSV_WRITE_BITS(sv_dev->base_scq + REG_CAMSVCQTOP_INT_0_EN,
-		CAMSVCQTOP_INT_0_EN, CAMSVCQTOP_CSR_SCQ_SUB_THR_DONE_INT_EN, 0);
 	return ret;
 }
 int ut_mtk_camsv_central_common_enable(
@@ -278,59 +266,97 @@ int ut_mtk_camsv_central_common_enable(
 {
 	int ret = 0;
 	struct mtk_ut_camsv_device *sv_dev = dev_get_drvdata(dev);
-	ut_mtk_cam_sv_toggle_db(dev);
-	ut_mtk_cam_sv_toggle_tg_db(dev);
+
 	CAMSV_WRITE_BITS(sv_dev->base + REG_CAMSVCENTRAL_SEN_MODE,
 		CAMSVCENTRAL_SEN_MODE, CMOS_EN, 1);
 	CAMSV_WRITE_BITS(sv_dev->base + REG_CAMSVCENTRAL_VF_CON,
 		CAMSVCENTRAL_VF_CON, VFDATA_EN, 1);
+
 	dev_info(sv_dev->dev, "%s sen_mode:0x%x vf_con:0x%x\n",
 		__func__,
 		CAMSV_READ_REG(sv_dev->base + REG_CAMSVCENTRAL_SEN_MODE),
 		CAMSV_READ_REG(sv_dev->base + REG_CAMSVCENTRAL_VF_CON));
 	return ret;
 }
-int ut_mtk_cam_sv_cq_enable(struct device *dev)
-{
-	int ret = 0;
-	struct mtk_ut_camsv_device *sv_dev = dev_get_drvdata(dev);
-	/* camsv todo: support subsample
-	 *int i, subsample = 0;
-	 *
-	 *for (i = SVTAG_START; i < SVTAG_END; i++) {
-	 *	if (camsv_dev->enabled_tags & (1 << i)) {
-	 *		subsample = camsv_dev->tag_info[i].cfg_in_param.subsample;
-	 *		break;
-	 *	}
-	 *}
-	 *
-	 *if (subsample)
-	 *	CAMSV_WRITE_BITS(camsv_dev->base_scq + REG_CAMSVCQ_CQ_EN,
-	 *		CAMSVCQ_CQ_EN, CAMSVCQ_SCQ_SUBSAMPLE_EN, 1);
-	 */
-	CAMSV_WRITE_BITS(sv_dev->base_scq + REG_CAMSVCQ_CQ_SUB_THR0_CTL,
-		CAMSVCQ_CQ_SUB_THR0_CTL, CAMSVCQ_CQ_SUB_THR0_EN, 1);
-	CAMSV_WRITE_BITS(sv_dev->base_scq + REG_CAMSVCQTOP_INT_0_EN,
-		CAMSVCQTOP_INT_0_EN, CAMSVCQTOP_CSR_SCQ_SUB_THR_DONE_INT_EN, 1);
-	return ret;
-}
-int ut_mtk_cam_sv_cq_config(
-	struct device *dev)
+
+int ut_mtk_cam_sv_cq_config(struct device *dev)
 {
 	struct mtk_ut_camsv_device *camsv_dev = dev_get_drvdata(dev);
-	/* camsv todo: db en */
+	/* cq en */
 	CAMSV_WRITE_BITS(camsv_dev->base_scq + REG_CAMSVCQ_CQ_EN,
-		CAMSVCQ_CQ_EN, CAMSVCQ_CQ_DB_EN, 0);
-	/* reset stagger mode */
+		CAMSVCQ_CQ_EN, CAMSVCQ_CQ_DB_EN, 1);
 	CAMSV_WRITE_BITS(camsv_dev->base_scq + REG_CAMSVCQ_CQ_EN,
-		CAMSVCQ_CQ_EN, CAMSVCQ_SCQ_STAGGER_MODE, 1);
-	CAMSV_WRITE_BITS(camsv_dev->base_scq + REG_CAMSVCQ_CQ_SUB_THR0_CTL,
-		CAMSVCQ_CQ_SUB_THR0_CTL, CAMSVCQ_CQ_SUB_THR0_MODE, 1);
-	/* camsv todo: start period need to be calculated */
+		CAMSVCQ_CQ_EN, CAMSVCQ_SCQ_STAGGER_MODE, 0);
+	/* todo: cq subsample mode */
+	CAMSV_WRITE_BITS(camsv_dev->base_scq + REG_CAMSVCQ_CQ_EN,
+		CAMSVCQ_CQ_EN, CAMSVCQ_SCQ_SUBSAMPLE_EN, 0);
+
+	/* cq sub en */
+	CAMSV_WRITE_BITS(camsv_dev->base_scq + REG_CAMSVCQ_CQ_SUB_EN,
+		CAMSVCQ_CQ_SUB_EN, CAMSVCQ_CQ_SUB_DB_EN, 1);
+
+	/* scq start period */
 	CAMSV_WRITE_REG(camsv_dev->base_scq  + REG_CAMSVCQ_SCQ_START_PERIOD,
 		0xFFFFFFFF);
+
+	/* cq sub thr0 ctl */
+	CAMSV_WRITE_BITS(camsv_dev->base_scq + REG_CAMSVCQ_CQ_SUB_THR0_CTL,
+		CAMSVCQ_CQ_SUB_THR0_CTL, CAMSVCQ_CQ_SUB_THR0_MODE, 1);
+	CAMSV_WRITE_BITS(camsv_dev->base_scq + REG_CAMSVCQ_CQ_SUB_THR0_CTL,
+		CAMSVCQ_CQ_SUB_THR0_CTL, CAMSVCQ_CQ_SUB_THR0_EN, 1);
+
+	/* cq int en */
+	CAMSV_WRITE_BITS(camsv_dev->base_scq + REG_CAMSVCQTOP_INT_0_EN,
+		CAMSVCQTOP_INT_0_EN, CAMSVCQTOP_CSR_SCQ_SUB_THR_DONE_INT_EN, 1);
+	wmb(); /* TBC */
+
+	dev_info(camsv_dev->dev, "[%s] cq_en:0x%x_%x start_period:0x%x cq_sub_thr0_ctl:0x%x cq_int_en:0x%x\n",
+		__func__,
+		CAMSV_READ_REG(camsv_dev->base_scq + REG_CAMSVCQ_CQ_EN),
+		CAMSV_READ_REG(camsv_dev->base_scq + REG_CAMSVCQ_CQ_SUB_EN),
+		CAMSV_READ_REG(camsv_dev->base_scq + REG_CAMSVCQ_SCQ_START_PERIOD),
+		CAMSV_READ_REG(camsv_dev->base_scq + REG_CAMSVCQ_CQ_SUB_THR0_CTL),
+		CAMSV_READ_REG(camsv_dev->base_scq + REG_CAMSVCQTOP_INT_0_EN));
+
 	return 0;
 }
+
+int ut_mtk_cam_sv_ddren_config(struct device *dev)
+{
+	struct mtk_ut_camsv_device *camsv_dev = dev_get_drvdata(dev);
+	/* sw mode */
+	CAMSV_WRITE_BITS(camsv_dev->base + REG_CAMSVCENTRAL_DDR_CFG,
+		CAMSVCENTRAL_DDR_CFG, DDR_MODE_SEL, 1);
+
+	/* sw ddr en */
+	CAMSV_WRITE_BITS(camsv_dev->base + REG_CAMSVCENTRAL_DDR_CFG,
+		CAMSVCENTRAL_DDR_CFG, DDR_SET, 1);
+
+	/* cq en */
+	CAMSV_WRITE_BITS(camsv_dev->base + REG_CAMSVCENTRAL_DDR_CFG,
+		CAMSVCENTRAL_DDR_CFG, DDR_OR_CQ_EN, 1);
+
+	return 0;
+}
+
+int ut_mtk_cam_sv_bw_qos_config(struct device *dev)
+{
+	struct mtk_ut_camsv_device *camsv_dev = dev_get_drvdata(dev);
+	/* sw mode */
+	CAMSV_WRITE_BITS(camsv_dev->base + REG_CAMSVCENTRAL_BW_QOS_CFG,
+		CAMSVCENTRAL_BW_QOS_CFG, BW_QOS_MODE_SEL, 1);
+
+	/* sw bw_qos en */
+	CAMSV_WRITE_BITS(camsv_dev->base + REG_CAMSVCENTRAL_BW_QOS_CFG,
+		CAMSVCENTRAL_BW_QOS_CFG, BW_QOS_SET, 1);
+
+	/* cq en */
+	CAMSV_WRITE_BITS(camsv_dev->base + REG_CAMSVCENTRAL_BW_QOS_CFG,
+		CAMSVCENTRAL_BW_QOS_CFG, BW_QOS_OR_CQ_EN, 1);
+
+	return 0;
+}
+
 int ut_mtk_cam_sv_dmao_common_config(
 	struct device *dev)
 {
@@ -427,8 +453,9 @@ static int ut_camsv_apply_cq(struct device *dev,
 static int ut_camsv_initialize(struct device *dev, void *ext_params)
 {
 	ut_mtk_cam_sv_dmao_common_config(dev);
+	ut_mtk_cam_sv_ddren_config(dev);
+	ut_mtk_cam_sv_bw_qos_config(dev);
 	ut_mtk_cam_sv_cq_config(dev);
-	ut_mtk_cam_sv_cq_enable(dev);
 	return 0;
 }
 static int ut_camsv_s_stream(struct device *dev, enum streaming_enum on)
@@ -508,49 +535,40 @@ static irqreturn_t ut_mtk_irq_camsv_sof(int irq, void *data)
 	dev_info(camsv->dev, "irq_sof_status:0x%x", irq_sof_status);
 	return IRQ_HANDLED;
 }
-static irqreturn_t ut_mtk_irq_camsv_done(int irq, void *data)
+static irqreturn_t ut_mtk_irq_camsv_hybrid(int irq, void *data)
 {
 	struct mtk_ut_camsv_device *camsv = data;
 	struct ut_event event;
-	unsigned int irq_done_status;
+	unsigned int err_status, done_status, cq_done_status;
 
-	irq_done_status = readl_relaxed(camsv->base + REG_CAMSVCENTRAL_DONE_STATUS);
-	event.mask = 0;
-	if (irq_done_status && !camsv->is_dc_mode)
-		event.mask |= EVENT_SW_P1_DONE;
-	if (event.mask) {
-		dev_dbg(camsv->dev, "send event 0x%x\n", event.mask);
-		send_event(&camsv->event_src, event);
+	err_status =
+		readl_relaxed(camsv->base_inner + REG_CAMSVCENTRAL_ERR_STATUS);
+	done_status	=
+		readl_relaxed(camsv->base + REG_CAMSVCENTRAL_DONE_STATUS);
+	cq_done_status =
+		readl_relaxed(camsv->base_scq + REG_CAMSVCQTOP_INT_0_STATUS);
+
+	if (err_status) {
+		dev_info(camsv->dev, "err_status:0x%x", err_status);
+		return IRQ_HANDLED;
 	}
-	dev_info(camsv->dev, "irq_done_status:0x%x", irq_done_status);
-	return IRQ_HANDLED;
-}
-static irqreturn_t ut_mtk_irq_camsv_cq_done(int irq, void *data)
-{
-	struct mtk_ut_camsv_device *camsv = data;
-	struct ut_event event;
-	unsigned int cq_done_status;
 
-	cq_done_status = readl_relaxed(camsv->base_scq + REG_CAMSVCQTOP_INT_0_STATUS);
 	event.mask = 0;
-	if (cq_done_status & CAMSVCQTOP_SCQ_SUB_THR_DONE)
+	if (cq_done_status & CAMSVCQTOP_SCQ_SUB_THR_DONE) {
 		event.mask |= EVENT_CQ_DONE;
+		dev_info(camsv->dev, "cq_done_status:0x%x", cq_done_status);
+	}
+	if (done_status && !camsv->is_dc_mode) {
+		event.mask |= EVENT_SW_P1_DONE;
+		dev_info(camsv->dev, "irq_done_status:0x%x", done_status);
+	}
 	if (event.mask) {
 		dev_dbg(camsv->dev, "send event 0x%x\n", event.mask);
 		send_event(&camsv->event_src, event);
 	}
-	dev_info(camsv->dev, "cq_done_status:0x%x", cq_done_status);
 	return IRQ_HANDLED;
 }
-static irqreturn_t ut_mtk_irq_camsv_err(int irq, void *data)
-{
-	struct mtk_ut_camsv_device *camsv = data;
-	unsigned int err_status;
 
-	err_status = readl_relaxed(camsv->base_inner + REG_CAMSVCENTRAL_ERR_STATUS);
-	dev_info(camsv->dev, "err_status:0x%x", err_status);
-	return IRQ_HANDLED;
-}
 static int mtk_ut_camsv_of_probe(struct platform_device *pdev,
 			    struct mtk_ut_camsv_device *camsv)
 {
@@ -654,19 +672,11 @@ static int mtk_ut_camsv_of_probe(struct platform_device *pdev,
 	for (i = 0; i < CAMSV_IRQ_NUM; i++) {
 		if (i == 0)
 			ret = devm_request_irq(dev, irq[i],
-						ut_mtk_irq_camsv_done,
-						0, dev_name(dev), camsv);
-		else if (i == 1)
-			ret = devm_request_irq(dev, irq[i],
-						ut_mtk_irq_camsv_err,
-						0, dev_name(dev), camsv);
-		else if (i == 2)
-			ret = devm_request_irq(dev, irq[i],
-						ut_mtk_irq_camsv_sof,
+						ut_mtk_irq_camsv_hybrid,
 						0, dev_name(dev), camsv);
 		else
 			ret = devm_request_irq(dev, irq[i],
-						ut_mtk_irq_camsv_cq_done,
+						ut_mtk_irq_camsv_sof,
 						0, dev_name(dev), camsv);
 		if (ret) {
 			dev_info(dev, "failed to request irq=%d\n", irq[i]);

@@ -1204,6 +1204,11 @@ static int cam_open(struct inode *inode, struct file *filp)
 		pm_runtime_get_sync(ut->camsv[i]);
 	}
 
+	for (i = 0; i < ut->num_mraw; i++) {
+		pr_info("get_sync mraw %d\n", i);
+		pm_runtime_get_sync(ut->mraw[i]);
+	}
+
 	/* Note: seninf's dts have no power-domains now, so do it after raw's */
 	pm_runtime_get_sync(ut->seninf);
 #endif
@@ -1223,6 +1228,9 @@ static int cam_release(struct inode *inode, struct file *filp)
 	cam_composer_uninit(ut);
 #if WITH_POWER_DRIVER
 	pm_runtime_put(ut->seninf);
+
+	for (i = 0; i < ut->num_mraw; i++)
+		pm_runtime_put(ut->mraw[i]);
 
 	for (i = 0; i < ut->num_camsv; i++)
 		pm_runtime_put(ut->camsv[i]);

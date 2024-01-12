@@ -2581,6 +2581,7 @@ static int vsync_notify(struct subdrv_ctx *ctx,	unsigned int sof_cnt)
 		ctx->fast_mode_on = FALSE;
 		ctx->ref_sof_cnt = 0;
 		DRV_LOG(ctx, "seamless_switch disabled.");
+		subdrv_i2c_wr_u8(ctx, ctx->s_ctx.reg_addr_prsh_mode, 0x00);
 		set_i2c_buffer(ctx, 0x3010, 0x00);
 		commit_i2c_buffer(ctx);
 	}

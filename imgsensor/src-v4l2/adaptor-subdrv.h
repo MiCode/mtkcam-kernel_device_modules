@@ -181,7 +181,7 @@ struct dcg_info_struct {
 };
 
 
-#define MAX_EBD_PIXEL_OFFSET_NUM 2
+#define MAX_EBD_PIXEL_OFFSET_NUM 4
 struct ebd_loc {
 	u16 loc_line;
 	u16 loc_pix[MAX_EBD_PIXEL_OFFSET_NUM];

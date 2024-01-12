@@ -419,7 +419,12 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.fine_integ_line = 363,
 		.delay_frame = 3,
 		.csi_param = {
-			.dphy_init_deskew_support = 1,
+			.dphy_init_deskew_support = 0,
+			.not_fixed_dphy_settle = 1,
+			.not_fixed_trail_settle = 1,
+			.dphy_trail = 26,
+			.dphy_data_settle = 10,
+			.dphy_clk_settle = 10,
 		},
 		.sensor_output_dataformat = SENSOR_OUTPUT_FORMAT_RAW_4CELL_HW_BAYER_B,
 	},
@@ -468,7 +473,7 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.fine_integ_line = 0,
 		.delay_frame = 3,
 		.csi_param = {
-			.dphy_init_deskew_support = 1,
+			.dphy_init_deskew_support = 0,
 		},
 		.sensor_output_dataformat = SENSOR_OUTPUT_FORMAT_RAW_4CELL_HW_BAYER_B,
 	},

@@ -3810,7 +3810,13 @@ static int csirx_dphy_init_deskew_setting(struct seninf_ctx *ctx, u64 seninf_ck)
 		debug_init_deskew_begin_end_apply_code(ctx);
 #endif /* INIT_DESKEW_DEBUG */
 	} else {
-		dev_info(ctx->dev, "Data rate = %llu < 1.5G, skip init deskew\n", data_rate);
+		/* Disable DESKEW LANE0~3 CTRL */
+		SENINF_BITS(base, DPHY_RX_DESKEW_LANE0_CTRL, DPHY_RX_DESKEW_L0_DELAY_EN, 0);
+		SENINF_BITS(base, DPHY_RX_DESKEW_LANE1_CTRL, DPHY_RX_DESKEW_L1_DELAY_EN, 0);
+		SENINF_BITS(base, DPHY_RX_DESKEW_LANE2_CTRL, DPHY_RX_DESKEW_L2_DELAY_EN, 0);
+		SENINF_BITS(base, DPHY_RX_DESKEW_LANE3_CTRL, DPHY_RX_DESKEW_L3_DELAY_EN, 0);
+		seninf_aee_print("[AEE] error, [%s] Data rate (%llu) < 1.5G, no need deskew",
+			__func__, data_rate);
 	}
 	return 0;
 }

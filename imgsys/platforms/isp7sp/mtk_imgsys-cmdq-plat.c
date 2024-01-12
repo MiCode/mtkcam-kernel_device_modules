@@ -978,7 +978,7 @@ void imgsys_cmdq_task_cb_plat7sp(struct cmdq_cb_data data)
 				me_check_reg[2], me_check_reg[3]);
 			if (((me_check_reg[0] & 0x0000000F) == 0x0000000B)
 			&& (me_check_reg[1] == 0x00000008)
-			&& ((me_check_reg[2] & 0xFF000000) == 0x18000000)
+			&& (((me_check_reg[2] & 0xFF000000) == 0x18000000) || ((me_check_reg[2] & 0xFF000000) == 0x00000000))
 			&& ((me_check_reg[3] & 0xFF000000) == 0x4A000000)) {
 				if (imgsys_dev->modules[IMGSYS_MOD_ME].set) {
 					imgsys_dev->modules[IMGSYS_MOD_ME].set(imgsys_dev);

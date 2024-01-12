@@ -874,6 +874,14 @@ static int _aov_switch_i2c_bus_scl_aux(struct v4l2_ctrl *ctrl)
 	switch (aux) {
 	case SCL4:
 	case SCL13:
+		if (IS_ERR(ctx->pinctrl)) {
+			dev_info(ctx->dev, "[%s] error: no pinctrl\n", __func__);
+			return PTR_ERR(ctx->pinctrl);
+		}
+		if (IS_ERR(ctx->state[STATE_SCL_AP])) {
+			dev_info(ctx->dev, "[%s] error: no state[STATE_SCL_AP]\n", __func__);
+			return PTR_ERR(ctx->state[STATE_SCL_AP]);
+		}
 		ret = pinctrl_select_state(ctx->pinctrl, ctx->state[STATE_SCL_AP]);
 		if (ret < 0) {
 			dev_info(ctx->dev, "[%s] select(%s)(fail) %d\n",
@@ -886,6 +894,14 @@ static int _aov_switch_i2c_bus_scl_aux(struct v4l2_ctrl *ctrl)
 		break;
 	case SCL7:
 	case SCL3:
+		if (IS_ERR(ctx->pinctrl)) {
+			dev_info(ctx->dev, "[%s] error: no pinctrl\n", __func__);
+			return PTR_ERR(ctx->pinctrl);
+		}
+		if (IS_ERR(ctx->state[STATE_SCL_SCP])) {
+			dev_info(ctx->dev, "[%s] error: no state[STATE_SCL_SCP]\n", __func__);
+			return PTR_ERR(ctx->state[STATE_SCL_SCP]);
+		}
 		ret = pinctrl_select_state(ctx->pinctrl, ctx->state[STATE_SCL_SCP]);
 		if (ret < 0) {
 			dev_info(ctx->dev, "[%s] select(%s)(fail) %d\n",
@@ -917,6 +933,14 @@ static int _aov_switch_i2c_bus_sda_aux(struct v4l2_ctrl *ctrl)
 	switch (aux) {
 	case SDA4:
 	case SDA13:
+		if (IS_ERR(ctx->pinctrl)) {
+			dev_info(ctx->dev, "[%s] error: no pinctrl\n", __func__);
+			return PTR_ERR(ctx->pinctrl);
+		}
+		if (IS_ERR(ctx->state[STATE_SDA_AP])) {
+			dev_info(ctx->dev, "[%s] error: no state[STATE_SDA_AP]\n", __func__);
+			return PTR_ERR(ctx->state[STATE_SDA_AP]);
+		}
 		ret = pinctrl_select_state(ctx->pinctrl, ctx->state[STATE_SDA_AP]);
 		if (ret < 0) {
 			dev_info(ctx->dev, "[%s] select(%s)(fail) %d\n",
@@ -929,6 +953,14 @@ static int _aov_switch_i2c_bus_sda_aux(struct v4l2_ctrl *ctrl)
 		break;
 	case SDA7:
 	case SDA3:
+		if (IS_ERR(ctx->pinctrl)) {
+			dev_info(ctx->dev, "[%s] error: no pinctrl\n", __func__);
+			return PTR_ERR(ctx->pinctrl);
+		}
+		if (IS_ERR(ctx->state[STATE_SDA_SCP])) {
+			dev_info(ctx->dev, "[%s] error: no state[STATE_SDA_SCP]\n", __func__);
+			return PTR_ERR(ctx->state[STATE_SDA_SCP]);
+		}
 		ret = pinctrl_select_state(ctx->pinctrl, ctx->state[STATE_SDA_SCP]);
 		if (ret < 0) {
 			dev_info(ctx->dev, "[%s] select(%s)(fail) %d\n",
@@ -1783,15 +1815,25 @@ static int imgsensor_set_ctrl(struct v4l2_ctrl *ctrl)
 		break;
 	case V4L2_CID_MTK_AOV_SWITCH_RX_PARAM:
 		ret = _aov_switch_rx_param(ctrl);
-		dev_info(dev,
-			"[%s] _aov_switch_rx_param(correct),ret(%d)\n",
-			__func__, ret);
+		if (ret < 0)
+			dev_info(dev,
+				"[%s] _aov_switch_rx_param(fail),ret(%d)\n",
+				__func__, ret);
+		else
+			dev_info(dev,
+				"[%s] _aov_switch_rx_param(correct),ret(%d)\n",
+				__func__, ret);
 		break;
 	case V4L2_CID_MTK_AOV_SWITCH_PM_OPS:
 		ret = _aov_switch_pm_ops(ctrl);
-		dev_info(dev,
-			"[%s] _aov_switch_pm_ops(correct),ret(%d)\n",
-			__func__, ret);
+		if (ret < 0)
+			dev_info(dev,
+				"[%s] _aov_switch_pm_ops(fail),ret(%d)\n",
+				__func__, ret);
+		else
+			dev_info(dev,
+				"[%s] _aov_switch_pm_ops(correct),ret(%d)\n",
+				__func__, ret);
 		break;
 	case V4L2_CID_MTK_AOV_SWITCH_MCLK_ULPOSC:
 		dev_dbg(dev,

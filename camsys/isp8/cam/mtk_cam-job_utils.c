@@ -1030,19 +1030,23 @@ int add_ufbc_header_entry(struct req_buffer_helper *helper,
 		struct mtk_cam_buffer *buf, int plane, unsigned int offset)
 {
 	struct mtkcam_ipi_frame_param *fp = helper->fp;
+	void *vaddr;
 	int ret = 0;
 
+	vaddr = vb2_plane_vaddr(&buf->vbb.vb2_buf, plane);
+	if (!vaddr)
+		return -1;
 	if (is_raw_ufo(pixelformat)) {
 		switch (ipi_video_id) {
 		case MTKCAM_IPI_RAW_IMGO:
 		case MTKCAM_IPI_RAW_IMGO_W:
 			ret = _add_entry_to_ufbc_header(helper->ufbc_header, ipi_video_id,
-							   vb2_plane_vaddr(&buf->vbb.vb2_buf, plane) + offset,
+							   vaddr + offset,
 							   &fp->img_ufdo_params.imgo);
 			break;
 		case MTKCAM_IPI_CAMSV_MAIN_OUT:
 			ret = _add_entry_to_ufbc_header(helper->ufbc_header, ipi_video_id,
-						   vb2_plane_vaddr(&buf->vbb.vb2_buf, plane) + offset,
+						   vaddr + offset,
 						   NULL);
 			break;
 		default:
@@ -1052,12 +1056,12 @@ int add_ufbc_header_entry(struct req_buffer_helper *helper,
 		switch (ipi_video_id) {
 		case MTKCAM_IPI_RAW_YUVO_1:
 			ret = _add_entry_to_ufbc_header(helper->ufbc_header, ipi_video_id,
-							   vb2_plane_vaddr(&buf->vbb.vb2_buf, plane) + offset,
+							   vaddr + offset,
 							   &fp->img_ufdo_params.yuvo1);
 			break;
 		case MTKCAM_IPI_RAW_YUVO_3:
 			ret = _add_entry_to_ufbc_header(helper->ufbc_header, ipi_video_id,
-							   vb2_plane_vaddr(&buf->vbb.vb2_buf, plane) + offset,
+							   vaddr + offset,
 							   &fp->img_ufdo_params.yuvo3);
 			break;
 		default:

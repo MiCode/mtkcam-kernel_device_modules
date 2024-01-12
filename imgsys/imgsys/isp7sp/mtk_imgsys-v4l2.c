@@ -16,6 +16,7 @@
 #include <linux/rtc.h>
 //#include <linux/remoteproc/mtk_scp.h>
 #include <linux/videodev2.h>
+#include <linux/version.h>
 #include <media/videobuf2-dma-contig.h>
 #include <media/v4l2-ioctl.h>
 #include <media/v4l2-subdev.h>
@@ -28,8 +29,6 @@
 #include "mtk_imgsys-hw.h"
 #include "mtk_imgsys-requesttrack.h"
 #include "mtk-hcp.h"
-#include "mtk-hcp_kernelfence.h"
-//#include "mtk_imgsys-data-7sp.h"
 #include "mtk_imgsys_v4l2_vnode.h"
 #include "mtk_imgsys-v4l2-debug.h"
 
@@ -614,9 +613,13 @@ static void *mtk_imgsys_vb2_vaddr(struct vb2_buffer *vb, void *buf_priv)
 	if (buf->db_attach) {
 		struct iosys_map map;
 
+		#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 4, 0)
+		if (!dma_buf_vmap_unlocked(buf->db_attach->dmabuf, &map))
+			buf->vaddr = map.vaddr;
+		#else
 		if (!dma_buf_vmap(buf->db_attach->dmabuf, &map))
 			buf->vaddr = map.vaddr;
-
+		#endif
 		return buf->vaddr;
 	}
 
@@ -683,7 +686,11 @@ static int mtk_imgsys_vb2_map_dmabuf(void *mem_priv)
 	}
 
 	/* get the associated scatterlist for this buffer */
+	#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 4, 0)
+	sgt = dma_buf_map_attachment_unlocked(buf->db_attach, buf->dma_dir);
+	#else
 	sgt = dma_buf_map_attachment(buf->db_attach, buf->dma_dir);
+	#endif
 	if (IS_ERR(sgt)) {
 		pr_err("Error getting dmabuf scatterlist\n");
 		return -EINVAL;
@@ -694,7 +701,11 @@ static int mtk_imgsys_vb2_map_dmabuf(void *mem_priv)
 	if (contig_size < buf->size) {
 		pr_err("contiguous chunk is too small %lu/%lu\n",
 		       contig_size, buf->size);
+		#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 4, 0)
+		dma_buf_unmap_attachment_unlocked(buf->db_attach, sgt, buf->dma_dir);
+		#else
 		dma_buf_unmap_attachment(buf->db_attach, sgt, buf->dma_dir);
+		#endif
 		return -EFAULT;
 	}
 
@@ -722,10 +733,18 @@ static void mtk_imgsys_vb2_unmap_dmabuf(void *mem_priv)
 	}
 
 	if (buf->vaddr) {
+		#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 4, 0)
+		dma_buf_vunmap_unlocked(buf->db_attach->dmabuf, &map);
+		#else
 		dma_buf_vunmap(buf->db_attach->dmabuf, &map);
+		#endif
 		buf->vaddr = NULL;
 	}
+	#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 4, 0)
+	dma_buf_unmap_attachment_unlocked(buf->db_attach, sgt, buf->dma_dir);
+	#else
 	dma_buf_unmap_attachment(buf->db_attach, sgt, buf->dma_dir);
+	#endif
 
 	buf->dma_addr = 0;
 	buf->dma_sgt = NULL;
@@ -831,9 +850,6 @@ static int mtk_imgsys_vb2_start_streaming(struct vb2_queue *vq,
 	if (pipe->nodes_streaming == pipe->nodes_enabled) {
 		/* Start streaming of the whole pipeline */
 		ret = v4l2_subdev_call(&pipe->subdev, video, s_stream, 1);
-         dev_info(pipe->imgsys_dev->dev,
-				"%s:%s: sub dev s_stream(1)\n",
-				pipe->desc->name, node->desc->name);
 		if (ret < 0) {
 			dev_info(pipe->imgsys_dev->dev,
 				"%s:%s: sub dev s_stream(1) failed(%d)\n",
@@ -1782,7 +1798,11 @@ static int mtkdip_ioc_add_kva(struct v4l2_subdev *subdev, void *arg)
 		fd_info->fds_size[i] = dmabuf->size;
 
 		dma_buf_begin_cpu_access(dmabuf, DMA_BIDIRECTIONAL);
+		#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 4, 0)
+		ret = dma_buf_vmap_unlocked(dmabuf, &map);
+		#else
 		ret = dma_buf_vmap(dmabuf, &map);
+		#endif
 		if (ret)
 			pr_info("%s, map kernel va failed\n", __func__);
 		buf_va_info->kva = (u64)map.vaddr;
@@ -1791,7 +1811,11 @@ static int mtkdip_ioc_add_kva(struct v4l2_subdev *subdev, void *arg)
 
 		attach = dma_buf_attach(dmabuf, imgsys_pipe->imgsys_dev->smmu_dev);
 		if (IS_ERR(attach)) {
+			#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 4, 0)
+			dma_buf_vunmap_unlocked(dmabuf, &buf_va_info->map);
+			#else
 			dma_buf_vunmap(dmabuf, &buf_va_info->map);
+			#endif
 			dma_buf_end_cpu_access(dmabuf, DMA_BIDIRECTIONAL);
 			dma_buf_put(dmabuf);
 			vfree(buf_va_info);
@@ -1799,9 +1823,17 @@ static int mtkdip_ioc_add_kva(struct v4l2_subdev *subdev, void *arg)
 			continue;
 		}
 
+		#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 4, 0)
+		sgt = dma_buf_map_attachment_unlocked(attach, DMA_BIDIRECTIONAL);
+		#else
 		sgt = dma_buf_map_attachment(attach, DMA_BIDIRECTIONAL);
+		#endif
 		if (IS_ERR(sgt)) {
+			#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 4, 0)
+			dma_buf_vunmap_unlocked(dmabuf, &buf_va_info->map);
+			#else
 			dma_buf_vunmap(dmabuf, &buf_va_info->map);
+			#endif
 			dma_buf_end_cpu_access(dmabuf, DMA_BIDIRECTIONAL);
 			dma_buf_detach(dmabuf, attach);
 			dma_buf_put(dmabuf);
@@ -1870,11 +1902,21 @@ static int mtkdip_ioc_del_kva(struct v4l2_subdev *subdev, void *arg)
 		mutex_unlock(&(kva_list->mymutex));
 
 		dmabuf = buf_va_info->dma_buf_putkva;
+		#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 4, 0)
+		dma_buf_vunmap_unlocked(dmabuf, &buf_va_info->map);
+
+		dma_buf_end_cpu_access(dmabuf, DMA_BIDIRECTIONAL);
+
+		dma_buf_unmap_attachment_unlocked(buf_va_info->attach, buf_va_info->sgt,
+			DMA_BIDIRECTIONAL);
+		#else
 		dma_buf_vunmap(dmabuf, &buf_va_info->map);
+
 		dma_buf_end_cpu_access(dmabuf, DMA_BIDIRECTIONAL);
 
 		dma_buf_unmap_attachment(buf_va_info->attach, buf_va_info->sgt,
 			DMA_BIDIRECTIONAL);
+		#endif
 		dma_buf_detach(dmabuf, buf_va_info->attach);
 		fd_info->fds_size[i] = dmabuf->size;
 		dma_buf_put(dmabuf);
@@ -1958,7 +2000,11 @@ static int mtkdip_ioc_add_iova(struct v4l2_subdev *subdev, void *arg)
 			return -ENOMEM;
 		}
 
+		#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 4, 0)
+		sgt = dma_buf_map_attachment_unlocked(attach, DMA_BIDIRECTIONAL);
+		#else
 		sgt = dma_buf_map_attachment(attach, DMA_BIDIRECTIONAL);
+		#endif
 		if (IS_ERR(sgt)) {
 			dma_buf_detach(dmabuf, attach);
 			dma_buf_put(dmabuf);
@@ -2077,93 +2123,6 @@ static int mtkdip_ioc_del_iova(struct v4l2_subdev *subdev, void *arg)
 	return 0;
 }
 
-static int mtkdip_ioc_add_fence(struct v4l2_subdev *subdev, void *arg)
-{
-	struct mtk_imgsys_pipe *pipe = mtk_imgsys_subdev_to_pipe(subdev);
-	struct fd_tbl *fd_tbl = (struct fd_tbl *)arg;
-	unsigned int *kfd;
-	size_t size;
-	int ret, get, i;
-
-	if ((!fd_tbl->fds) || (!fd_tbl->fd_num)) {
-		dev_info(pipe->imgsys_dev->dev, "%s:NULL usrptr\n", __func__);
-		return -EINVAL;
-	}
-
-	size = sizeof(*kfd) * fd_tbl->fd_num;
-	kfd = vzalloc(size);
-	if (kfd == NULL)
-		return -ENOMEM;
-	ret = copy_from_user(kfd, (void *)fd_tbl->fds, size);
-	get = 1;
-	if (ret != 0) {
-		dev_info(pipe->imgsys_dev->dev,
-			"[%s]%s:copy_from_user fail !!!\n",
-			__func__,
-			pipe->desc->name);
-		vfree(kfd);
-		return -EINVAL;
-	}
-
-	ret = mtk_hcp_set_KernelFence(kfd, fd_tbl->fd_num, get);
-
-	if (ret < 0)
-		return ret;
-
-	for (i = 0; i < fd_tbl->fd_num; i++)
-		pr_info("add imgsys_kernel kernel_fence(%d)\n", kfd[i]);
-
-	ret = copy_to_user((void *)fd_tbl->fds, kfd, size);
-
-	if (ret != 0) {
-		dev_info(pipe->imgsys_dev->dev,
-			"[%s]%s:copy_to_user fail !!!\n",
-			__func__,
-			pipe->desc->name);
-
-		return -EINVAL;
-	}
-	vfree(kfd);
-	return 0;
-}
-
-static int mtkdip_ioc_del_fence(struct v4l2_subdev *subdev, void *arg)
-{
-	struct mtk_imgsys_pipe *pipe = mtk_imgsys_subdev_to_pipe(subdev);
-	struct fd_tbl *fd_tbl = (struct fd_tbl *)arg;
-	unsigned int *kfd;
-	size_t size;
-	int ret, release, i;
-
-	if ((!fd_tbl->fds) || (!fd_tbl->fd_num)) {
-		dev_info(pipe->imgsys_dev->dev, "%s:NULL usrptr\n", __func__);
-		return -EINVAL;
-	}
-
-	size = sizeof(*kfd) * fd_tbl->fd_num;
-	kfd = vzalloc(size);
-	if (kfd == NULL)
-		return -ENOMEM;
-	ret = copy_from_user(kfd, (void *)fd_tbl->fds, size);
-	release = 0;
-	if (ret != 0) {
-		dev_info(pipe->imgsys_dev->dev,
-			"[%s]%s:copy_from_user fail !!!\n",
-			__func__,
-			pipe->desc->name);
-		vfree(kfd);
-		return -EINVAL;
-	}
-	for (i = 0; i < fd_tbl->fd_num; i++)
-		pr_info("del imgsys_kernel kernel_fence(%d)\n", kfd[i]);
-
-	ret = mtk_hcp_set_KernelFence(kfd, fd_tbl->fd_num, release);
-	if (ret < 0)
-		return ret;
-
-	vfree(kfd);
-	return 0;
-}
 #if SMVR_DECOUPLE
 static int imgsys_send(struct platform_device *pdev, enum hcp_id id,
 		    void *buf, unsigned int  len, int req_fd, unsigned int wait)
@@ -2434,10 +2393,6 @@ long mtk_imgsys_subdev_ioctl(struct v4l2_subdev *subdev, unsigned int cmd,
 		return mtkdip_ioc_add_iova(subdev, arg);
 	case MTKDIP_IOC_DEL_IOVA:
 		return mtkdip_ioc_del_iova(subdev, arg);
-	case MTKDIP_IOC_ADD_FENCE:
-		return mtkdip_ioc_add_fence(subdev, arg);
-	case MTKDIP_IOC_DEL_FENCE:
-		return mtkdip_ioc_del_fence(subdev, arg);
 	case MTKDIP_IOC_S_INIT_INFO:
 		return mtkdip_ioc_s_init_info(subdev, arg);
 	case MTKDIP_IOC_SET_CONTROL:
@@ -2465,9 +2420,6 @@ static struct media_request *mtk_imgsys_request_alloc(struct media_device *mdev)
 	size_t bufs_size;
 
 	imgsys_req = vzalloc(sizeof(*imgsys_req));
-
-    pr_info("imgsys_fw: %s-queue(%d)-node(%s)", __func__,
-        imgsys->imgsys_pipe[0].desc->total_queues, imgsys->imgsys_pipe[0].nodes->desc->name);
 
 	if (imgsys_req) {
 		bufs_size = imgsys->imgsys_pipe[0].desc->total_queues *
@@ -2975,9 +2927,6 @@ int mtk_imgsys_pipe_v4l2_register(struct mtk_imgsys_pipe *pipe,
 
 	/* Create video nodes and links */
 	for (i = 0; i < pipe->desc->total_queues; i++) {
-        dev_info(pipe->imgsys_dev->dev,
-			"%s:%s: invalid idx(%d), must < num_fmts(%d)\n",
-			__func__, pipe->nodes[i].desc->name, i, pipe->nodes[i].desc->num_fmts);
 		ret = mtk_imgsys_video_device_v4l2_register(pipe,
 							 &pipe->nodes[i]);
 		if (ret)
@@ -3355,7 +3304,6 @@ int mtk_imgsys_probe(struct platform_device *pdev)
 	if (!imgsys_dev)
 		return -ENOMEM;
 
-	dev_info(imgsys_dev->dev, "%s-7sp +\n", __func__);
 
 	data = of_device_get_match_data(&pdev->dev);
 
@@ -3559,7 +3507,6 @@ bypass_larbs:
 		return ret;
 	}
 #endif
-dev_info(imgsys_dev->dev, "%s-7sp -\n", __func__);
 	return 0;
 
 err_release_deinit_v4l2:

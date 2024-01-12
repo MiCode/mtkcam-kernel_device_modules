@@ -11,6 +11,7 @@
 #include <linux/dma-mapping.h>
 #include <linux/hashtable.h>
 #include <linux/platform_device.h>
+#include <linux/version.h>
 #include <media/videobuf2-dma-contig.h>
 #include <media/v4l2-event.h>
 #include <mtk_imgsys-requesttrack.h>
@@ -656,7 +657,11 @@ u64 mtk_imgsys_get_iova(struct dma_buf *dma_buf, s32 ionFd,
 	if (IS_ERR(attach))
 		goto err_attach;
 
+	#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 4, 0)
+	sgt = dma_buf_map_attachment_unlocked(attach, DMA_BIDIRECTIONAL);
+	#else
 	sgt = dma_buf_map_attachment(attach, DMA_BIDIRECTIONAL);
+	#endif
 
 	if (IS_ERR(sgt))
 		goto err_map;
@@ -710,8 +715,13 @@ void mtk_imgsys_put_dma_buf(struct dma_buf *dma_buf,
 				struct sg_table *sgt)
 {
 	if (!IS_ERR(dma_buf)) {
+		#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 4, 0)
+		dma_buf_unmap_attachment_unlocked(attach, sgt,
+			DMA_BIDIRECTIONAL);
+		#else
 		dma_buf_unmap_attachment(attach, sgt,
 			DMA_BIDIRECTIONAL);
+		#endif
 		dma_buf_detach(dma_buf, attach);
 		dma_buf_put(dma_buf);
 	}
@@ -737,7 +747,11 @@ void *get_kva(struct mtk_imgsys_dev_buffer *buf, struct iosys_map *imap)
 	}
 
 	dma_buf_begin_cpu_access(dmabuf, DMA_BIDIRECTIONAL);
+	#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 4, 0)
+	ret = dma_buf_vmap_unlocked(dmabuf, &map);
+	#else
 	ret = dma_buf_vmap(dmabuf, &map);
+	#endif
 	if (ret) {
 		pr_info("%s, map kernel va failed\n", __func__);
 		ret = -ENOMEM;
@@ -767,10 +781,17 @@ static void put_kva(struct buf_va_info_t *buf_va_info)
 
 	dmabuf = buf_va_info->dma_buf_putkva;
 	if (!IS_ERR(dmabuf)) {
+		#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 4, 0)
+		dma_buf_vunmap_unlocked(dmabuf, &buf_va_info->map);
+		dma_buf_end_cpu_access(dmabuf, DMA_BIDIRECTIONAL);
+		dma_buf_unmap_attachment_unlocked(buf_va_info->attach, buf_va_info->sgt,
+			DMA_BIDIRECTIONAL);
+		#else
 		dma_buf_vunmap(dmabuf, &buf_va_info->map);
 		dma_buf_end_cpu_access(dmabuf, DMA_BIDIRECTIONAL);
 		dma_buf_unmap_attachment(buf_va_info->attach, buf_va_info->sgt,
 			DMA_BIDIRECTIONAL);
+		#endif
 		dma_buf_detach(dmabuf, buf_va_info->attach);
 		dma_buf_put(dmabuf);
 	}

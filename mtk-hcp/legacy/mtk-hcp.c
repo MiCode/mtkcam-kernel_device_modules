@@ -196,9 +196,13 @@ static void *mtk_hcp_vb2_vaddr(struct vb2_buffer *vb, void *buf_priv)
 	if (buf->db_attach) {
 		struct iosys_map map;
 
+		#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 4, 0)
+		if (!dma_buf_vmap_unlocked(buf->db_attach->dmabuf, &map))
+			buf->vaddr = map.vaddr;
+		#else
 		if (!dma_buf_vmap(buf->db_attach->dmabuf, &map))
 			buf->vaddr = map.vaddr;
-
+		#endif
 		return buf->vaddr;
 	}
 
@@ -265,7 +269,11 @@ static int mtk_hcp_vb2_map_dmabuf(void *mem_priv)
 	}
 
 	/* get the associated scatterlist for this buffer */
+	#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 4, 0)
+	sgt = dma_buf_map_attachment_unlocked(buf->db_attach, buf->dma_dir);
+	#else
 	sgt = dma_buf_map_attachment(buf->db_attach, buf->dma_dir);
+	#endif
 	if (IS_ERR(sgt)) {
 		pr_err("Error getting dmabuf scatterlist\n");
 		return -EINVAL;
@@ -276,7 +284,11 @@ static int mtk_hcp_vb2_map_dmabuf(void *mem_priv)
 	if (contig_size < buf->size) {
 		pr_err("contiguous chunk is too small %lu/%lu\n",
 		       contig_size, buf->size);
+		#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 4, 0)
+		dma_buf_unmap_attachment_unlocked(buf->db_attach, sgt, buf->dma_dir);
+		#else
 		dma_buf_unmap_attachment(buf->db_attach, sgt, buf->dma_dir);
+		#endif
 		return -EFAULT;
 	}
 
@@ -304,10 +316,18 @@ static void mtk_hcp_vb2_unmap_dmabuf(void *mem_priv)
 	}
 
 	if (buf->vaddr) {
+		#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 4, 0)
+		dma_buf_vunmap_unlocked(buf->db_attach->dmabuf, &map);
+		#else
 		dma_buf_vunmap(buf->db_attach->dmabuf, &map);
+		#endif
 		buf->vaddr = NULL;
 	}
+	#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 4, 0)
+	dma_buf_unmap_attachment_unlocked(buf->db_attach, sgt, buf->dma_dir);
+	#else
 	dma_buf_unmap_attachment(buf->db_attach, sgt, buf->dma_dir);
+	#endif
 
 	buf->dma_addr = 0;
 	buf->dma_sgt = NULL;
@@ -2045,7 +2065,12 @@ struct mtk_hcp_streaming_reserve_mblock *mblock = NULL;
 					return -1;
 				}
 
+				#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 4, 0)
+				mblock[id].sgt =
+					dma_buf_map_attachment_unlocked(attach, DMA_TO_DEVICE);
+				#else
 				mblock[id].sgt = dma_buf_map_attachment(attach, DMA_TO_DEVICE);
+				#endif
 				sgt = mblock[id].sgt;
 				if (IS_ERR(sgt)) {
 					dma_buf_detach(mblock[id].d_buf, attach);
@@ -2055,7 +2080,11 @@ struct mtk_hcp_streaming_reserve_mblock *mblock = NULL;
 				}
 				mblock[id].start_phys = sg_dma_address(sgt->sgl);
 				mblock[id].start_dma = mblock[id].start_phys;
+				#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 4, 0)
+				ret = dma_buf_vmap_unlocked(mblock[id].d_buf, &map);
+				#else
 				ret = dma_buf_vmap(mblock[id].d_buf, &map);
+				#endif
 				if (ret) {
 					pr_info("sg_dma_address fail\n");
 					return ret;
@@ -2103,12 +2132,21 @@ struct mtk_hcp_streaming_reserve_mblock *mblock = NULL;
 		if (mblock[id].is_dma_buf) {
 			switch (id) {
 			default:
+				#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 4, 0)
+				/* free va */
+				dma_buf_vunmap_unlocked(mblock[id].d_buf,
+				mblock[id].start_virt);
+				/* free iova */
+				dma_buf_unmap_attachment_unlocked(mblock[id].attach,
+				mblock[id].sgt, DMA_TO_DEVICE);
+				#else
 				/* free va */
 				dma_buf_vunmap(mblock[id].d_buf,
 				mblock[id].start_virt);
 				/* free iova */
 				dma_buf_unmap_attachment(mblock[id].attach,
 				mblock[id].sgt, DMA_TO_DEVICE);
+				#endif
 				dma_buf_detach(mblock[id].d_buf,
 				mblock[id].attach);
 				dma_buf_put(mblock[id].d_buf);

@@ -4,6 +4,7 @@
  */
 #include <linux/slab.h>
 #include <linux/kref.h>
+#include <linux/version.h>
 #include <mtk_heap.h>
 #include "mtk-hcp_isp7sp.h"
 
@@ -1391,9 +1392,13 @@ static int isp7sp_module_driver_allocate_working_buffer_streaming(struct mtk_hcp
                             PTR_ERR(attach));
                             return -1;
                         }
-
-                        str_mblock[id].sgt =
-                        dma_buf_map_attachment(attach, DMA_BIDIRECTIONAL);
+						#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 4, 0)
+						str_mblock[id].sgt =
+							dma_buf_map_attachment_unlocked(attach, DMA_BIDIRECTIONAL);
+						#else
+						str_mblock[id].sgt =
+							dma_buf_map_attachment(attach, DMA_BIDIRECTIONAL);
+						#endif
                         sgt = str_mblock[id].sgt;
                         if (IS_ERR(sgt)) {
                                 dma_buf_detach(str_mblock[id].d_buf, attach);
@@ -1403,7 +1408,11 @@ static int isp7sp_module_driver_allocate_working_buffer_streaming(struct mtk_hcp
                         }
                         str_mblock[id].start_phys = sg_dma_address(sgt->sgl);
                         str_mblock[id].start_dma = str_mblock[id].start_phys;
-                        ret = dma_buf_vmap(str_mblock[id].d_buf, &map);
+						#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 4, 0)
+						ret = dma_buf_vmap_unlocked(str_mblock[id].d_buf, &map);
+						#else
+						ret = dma_buf_vmap(str_mblock[id].d_buf, &map);
+						#endif
                         if (ret) {
                             pr_info("sg_dma_address fail\n");
                             return ret;
@@ -1463,8 +1472,13 @@ static int isp7sp_module_driver_allocate_working_buffer_streaming(struct mtk_hcp
                         PTR_ERR(attach));
                         return -1;
                     }
-
-                    str_mblock[id].sgt = dma_buf_map_attachment(attach, DMA_BIDIRECTIONAL);
+					#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 4, 0)
+					str_mblock[id].sgt =
+						dma_buf_map_attachment_unlocked(attach, DMA_BIDIRECTIONAL);
+					#else
+					str_mblock[id].sgt =
+						dma_buf_map_attachment(attach, DMA_BIDIRECTIONAL);
+					#endif
                     sgt = str_mblock[id].sgt;
                     if (IS_ERR(sgt)) {
                         dma_buf_detach(str_mblock[id].d_buf, attach);
@@ -1474,7 +1488,11 @@ static int isp7sp_module_driver_allocate_working_buffer_streaming(struct mtk_hcp
                     }
                     str_mblock[id].start_phys = sg_dma_address(sgt->sgl);
                     str_mblock[id].start_dma = str_mblock[id].start_phys;
-                    ret = dma_buf_vmap(str_mblock[id].d_buf, &map);
+					#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 4, 0)
+					ret = dma_buf_vmap_unlocked(str_mblock[id].d_buf, &map);
+					#else
+					ret = dma_buf_vmap(str_mblock[id].d_buf, &map);
+					#endif
                     if (ret) {
                         pr_info("sg_dma_address fail\n");
                         return ret;
@@ -1523,8 +1541,13 @@ static int isp7sp_module_driver_allocate_working_buffer_streaming(struct mtk_hcp
                         PTR_ERR(attach));
                         return -1;
                     }
-
-                    str_mblock[id].sgt = dma_buf_map_attachment(attach, DMA_BIDIRECTIONAL);
+					#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 4, 0)
+					str_mblock[id].sgt =
+						dma_buf_map_attachment_unlocked(attach, DMA_BIDIRECTIONAL);
+					#else
+					str_mblock[id].sgt =
+						dma_buf_map_attachment(attach, DMA_BIDIRECTIONAL);
+					#endif
                     sgt = str_mblock[id].sgt;
                     if (IS_ERR(sgt)) {
                         dma_buf_detach(str_mblock[id].d_buf, attach);
@@ -1534,7 +1557,11 @@ static int isp7sp_module_driver_allocate_working_buffer_streaming(struct mtk_hcp
                     }
                     str_mblock[id].start_phys = sg_dma_address(sgt->sgl);
                     str_mblock[id].start_dma = str_mblock[id].start_phys;
-                    ret = dma_buf_vmap(str_mblock[id].d_buf, &map);
+					#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 4, 0)
+					ret = dma_buf_vmap_unlocked(str_mblock[id].d_buf, &map);
+					#else
+					ret = dma_buf_vmap(str_mblock[id].d_buf, &map);
+					#endif
                     if (ret) {
                         pr_info("sg_dma_address fail\n");
                         return ret;
@@ -1626,9 +1653,13 @@ static int isp7sp_module_driver_allocate_working_buffer_capture(struct mtk_hcp *
                             PTR_ERR(attach));
                             return -1;
                         }
-
-                        cap_mblock[id].sgt =
-                        dma_buf_map_attachment(attach, DMA_BIDIRECTIONAL);
+						#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 4, 0)
+						cap_mblock[id].sgt =
+							dma_buf_map_attachment_unlocked(attach, DMA_BIDIRECTIONAL);
+						#else
+						cap_mblock[id].sgt =
+							dma_buf_map_attachment(attach, DMA_BIDIRECTIONAL);
+						#endif
                         sgt = cap_mblock[id].sgt;
                         if (IS_ERR(sgt)) {
                                 dma_buf_detach(cap_mblock[id].d_buf, attach);
@@ -1638,7 +1669,11 @@ static int isp7sp_module_driver_allocate_working_buffer_capture(struct mtk_hcp *
                         }
                         cap_mblock[id].start_phys = sg_dma_address(sgt->sgl);
                         cap_mblock[id].start_dma = cap_mblock[id].start_phys;
-                        ret = dma_buf_vmap(cap_mblock[id].d_buf, &map);
+						#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 4, 0)
+						ret = dma_buf_vmap_unlocked(cap_mblock[id].d_buf, &map);
+						#else
+						ret = dma_buf_vmap(cap_mblock[id].d_buf, &map);
+						#endif
                         if (ret) {
                             pr_info("sg_dma_address fail\n");
                             return ret;
@@ -1698,8 +1733,13 @@ static int isp7sp_module_driver_allocate_working_buffer_capture(struct mtk_hcp *
                         PTR_ERR(attach));
                         return -1;
                     }
-
-                    cap_mblock[id].sgt = dma_buf_map_attachment(attach, DMA_BIDIRECTIONAL);
+					#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 4, 0)
+					cap_mblock[id].sgt =
+						dma_buf_map_attachment_unlocked(attach, DMA_BIDIRECTIONAL);
+					#else
+					cap_mblock[id].sgt =
+						dma_buf_map_attachment(attach, DMA_BIDIRECTIONAL);
+					#endif
                     sgt = cap_mblock[id].sgt;
                     if (IS_ERR(sgt)) {
                         dma_buf_detach(cap_mblock[id].d_buf, attach);
@@ -1709,7 +1749,11 @@ static int isp7sp_module_driver_allocate_working_buffer_capture(struct mtk_hcp *
                     }
                     cap_mblock[id].start_phys = sg_dma_address(sgt->sgl);
                     cap_mblock[id].start_dma = cap_mblock[id].start_phys;
-                    ret = dma_buf_vmap(cap_mblock[id].d_buf, &map);
+					#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 4, 0)
+					ret = dma_buf_vmap_unlocked(cap_mblock[id].d_buf, &map);
+					#else
+					ret = dma_buf_vmap(cap_mblock[id].d_buf, &map);
+					#endif
                     if (ret) {
                         pr_info("sg_dma_address fail\n");
                         return ret;
@@ -1758,8 +1802,13 @@ static int isp7sp_module_driver_allocate_working_buffer_capture(struct mtk_hcp *
                         PTR_ERR(attach));
                         return -1;
                     }
-
-                    cap_mblock[id].sgt = dma_buf_map_attachment(attach, DMA_BIDIRECTIONAL);
+					#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 4, 0)
+					cap_mblock[id].sgt =
+						dma_buf_map_attachment_unlocked(attach, DMA_BIDIRECTIONAL);
+					#else
+					cap_mblock[id].sgt =
+						dma_buf_map_attachment(attach, DMA_BIDIRECTIONAL);
+					#endif
                     sgt = cap_mblock[id].sgt;
                     if (IS_ERR(sgt)) {
                         dma_buf_detach(cap_mblock[id].d_buf, attach);
@@ -1769,7 +1818,11 @@ static int isp7sp_module_driver_allocate_working_buffer_capture(struct mtk_hcp *
                     }
                     cap_mblock[id].start_phys = sg_dma_address(sgt->sgl);
                     cap_mblock[id].start_dma = cap_mblock[id].start_phys;
-                    ret = dma_buf_vmap(cap_mblock[id].d_buf, &map);
+					#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 4, 0)
+					ret = dma_buf_vmap_unlocked(cap_mblock[id].d_buf, &map);
+					#else
+					ret = dma_buf_vmap(cap_mblock[id].d_buf, &map);
+					#endif
                     if (ret) {
                         pr_info("sg_dma_address fail\n");
                         return ret;
@@ -1862,9 +1915,13 @@ static int isp7sp_module_driver_allocate_working_buffer_smvr(struct mtk_hcp *hcp
                             PTR_ERR(attach));
                             return -1;
                         }
-
-                        smvr_mblock[id].sgt =
-                        dma_buf_map_attachment(attach, DMA_BIDIRECTIONAL);
+						#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 4, 0)
+						smvr_mblock[id].sgt =
+							dma_buf_map_attachment_unlocked(attach, DMA_BIDIRECTIONAL);
+						#else
+						smvr_mblock[id].sgt =
+							dma_buf_map_attachment(attach, DMA_BIDIRECTIONAL);
+						#endif
                         sgt = smvr_mblock[id].sgt;
                         if (IS_ERR(sgt)) {
                                 dma_buf_detach(smvr_mblock[id].d_buf, attach);
@@ -1874,11 +1931,15 @@ static int isp7sp_module_driver_allocate_working_buffer_smvr(struct mtk_hcp *hcp
                         }
                         smvr_mblock[id].start_phys = sg_dma_address(sgt->sgl);
                         smvr_mblock[id].start_dma = smvr_mblock[id].start_phys;
-                        ret = dma_buf_vmap(smvr_mblock[id].d_buf, &map);
-                        if (ret) {
-                            pr_info("sg_dma_address fail\n");
-                            return ret;
-                        }
+						#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 4, 0)
+						ret = dma_buf_vmap_unlocked(smvr_mblock[id].d_buf, &map);
+						#else
+						ret = dma_buf_vmap(smvr_mblock[id].d_buf, &map);
+						#endif
+						if (ret) {
+							pr_info("sg_dma_address fail\n");
+							return ret;
+						}
                         smvr_mblock[id].start_virt = (void *)map.vaddr;
                         smvr_mblock[id].map = map;
                         get_dma_buf(smvr_mblock[id].d_buf);
@@ -1934,8 +1995,13 @@ static int isp7sp_module_driver_allocate_working_buffer_smvr(struct mtk_hcp *hcp
                         PTR_ERR(attach));
                         return -1;
                     }
-
-                    smvr_mblock[id].sgt = dma_buf_map_attachment(attach, DMA_BIDIRECTIONAL);
+					#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 4, 0)
+					smvr_mblock[id].sgt =
+						dma_buf_map_attachment_unlocked(attach, DMA_BIDIRECTIONAL);
+					#else
+					smvr_mblock[id].sgt =
+						dma_buf_map_attachment(attach, DMA_BIDIRECTIONAL);
+					#endif
                     sgt = smvr_mblock[id].sgt;
                     if (IS_ERR(sgt)) {
                         dma_buf_detach(smvr_mblock[id].d_buf, attach);
@@ -1945,7 +2011,11 @@ static int isp7sp_module_driver_allocate_working_buffer_smvr(struct mtk_hcp *hcp
                     }
                     smvr_mblock[id].start_phys = sg_dma_address(sgt->sgl);
                     smvr_mblock[id].start_dma = smvr_mblock[id].start_phys;
-                    ret = dma_buf_vmap(smvr_mblock[id].d_buf, &map);
+					#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 4, 0)
+					ret = dma_buf_vmap_unlocked(smvr_mblock[id].d_buf, &map);
+					#else
+					ret = dma_buf_vmap(smvr_mblock[id].d_buf, &map);
+					#endif
                     if (ret) {
                         pr_info("sg_dma_address fail\n");
                         return ret;
@@ -1994,8 +2064,13 @@ static int isp7sp_module_driver_allocate_working_buffer_smvr(struct mtk_hcp *hcp
                         PTR_ERR(attach));
                         return -1;
                     }
-
-                    smvr_mblock[id].sgt = dma_buf_map_attachment(attach, DMA_BIDIRECTIONAL);
+					#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 4, 0)
+					smvr_mblock[id].sgt =
+						dma_buf_map_attachment_unlocked(attach, DMA_BIDIRECTIONAL);
+					#else
+					smvr_mblock[id].sgt =
+						dma_buf_map_attachment(attach, DMA_BIDIRECTIONAL);
+					#endif
                     sgt = smvr_mblock[id].sgt;
                     if (IS_ERR(sgt)) {
                         dma_buf_detach(smvr_mblock[id].d_buf, attach);
@@ -2005,7 +2080,11 @@ static int isp7sp_module_driver_allocate_working_buffer_smvr(struct mtk_hcp *hcp
                     }
                     smvr_mblock[id].start_phys = sg_dma_address(sgt->sgl);
                     smvr_mblock[id].start_dma = smvr_mblock[id].start_phys;
-                    ret = dma_buf_vmap(smvr_mblock[id].d_buf, &map);
+					#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 4, 0)
+					ret = dma_buf_vmap_unlocked(smvr_mblock[id].d_buf, &map);
+					#else
+					ret = dma_buf_vmap(smvr_mblock[id].d_buf, &map);
+					#endif
                     if (ret) {
                         pr_info("sg_dma_address fail\n");
                         return ret;
@@ -2057,20 +2136,20 @@ static int isp7sp_module_driver_allocate_working_buffer_smvr(struct mtk_hcp *hcp
 
 int isp7sp_allocate_gce_working_buffer(struct mtk_hcp *hcp_dev, unsigned int mode)
 {
-        unsigned int block_num_gce = 0;
-        unsigned int g_id = 0;
-        struct mtk_hcp_gce_token_reserve_mblock *gmblock = NULL;
-        struct sg_table *sgt = NULL;
-        struct dma_buf_attachment *attach = NULL;
-        struct dma_heap *pdma_heap = NULL;
-        struct iosys_map map = {0};
-        int ret = 0;
+	unsigned int block_num_gce = 0;
+	unsigned int g_id = 0;
+	struct mtk_hcp_gce_token_reserve_mblock *gmblock = NULL;
+	struct sg_table *sgt = NULL;
+	struct dma_buf_attachment *attach = NULL;
+	struct dma_heap *pdma_heap = NULL;
+	struct iosys_map map = {0};
+	int ret = 0;
 
-        gmblock = hcp_dev->data->gmblock;
-        gmb = gmblock;
-        block_num_gce = hcp_dev->data->block_num_gce;
+	gmblock = hcp_dev->data->gmblock;
+	gmb = gmblock;
+	block_num_gce = hcp_dev->data->block_num_gce;
 
-        for (g_id = 0; g_id < block_num_gce; g_id++) {
+	for (g_id = 0; g_id < block_num_gce; g_id++) {
                 if (gmblock[g_id].is_dma_buf) {
                     switch (g_id + IMG_MEM_FOR_HW_ID) {
                     case IMG_MEM_FOR_HW_ID:
@@ -2103,70 +2182,78 @@ int isp7sp_allocate_gce_working_buffer(struct mtk_hcp *hcp_dev, unsigned int mod
                             PTR_ERR(attach));
                             return -1;
                         }
-
-                        gmblock[g_id].sgt =
-                        dma_buf_map_attachment(attach, DMA_BIDIRECTIONAL);
-                            sgt = gmblock[g_id].sgt;
-                        if (IS_ERR(sgt)) {
-                                dma_buf_detach(gmblock[g_id].d_buf, attach);
-                            pr_info("dma_buf_map_attachment fail sgt:%ld\n",
-                            PTR_ERR(sgt));
-                            return -1;
-                        }
-                        gmblock[g_id].start_phys = sg_dma_address(sgt->sgl);
-                        gmblock[g_id].start_dma = gmblock[g_id].start_phys;
-                        ret = dma_buf_vmap(gmblock[g_id].d_buf, &map);
-                        if (ret) {
-                            pr_info("sg_dma_address fail\n");
-                            return ret;
-                        }
-                        gmblock[g_id].start_virt = (void *)map.vaddr;
-                        gmblock[g_id].map = map;
-                        get_dma_buf(gmblock[g_id].d_buf);
-                        gmblock[g_id].fd =
-                            dma_buf_fd(gmblock[g_id].d_buf, O_RDWR | O_CLOEXEC);
-                        dma_buf_begin_cpu_access(gmblock[g_id].d_buf, DMA_BIDIRECTIONAL);
-                        kref_init(&gmblock[g_id].kref);
-                        if (hcp_dbg_enable()) {
-                            pr_debug("%s:[HCP_GCE_TOKEN][%s] phys:0x%llx, virt:0x%p, dma:0x%llx,"
-                                " size:0x%llx, is_dma_buf:%d, fd:%d, d_buf:0x%p\n",
-                                __func__, gmblock[g_id].name,
-                                isp7sp_get_reserve_mem_phys(g_id + IMG_MEM_FOR_HW_ID, mode),
-                                isp7sp_get_reserve_mem_virt(g_id + IMG_MEM_FOR_HW_ID, mode),
-                                isp7sp_get_reserve_mem_dma(g_id + IMG_MEM_FOR_HW_ID, mode),
-                                isp7sp_get_reserve_mem_size(g_id + IMG_MEM_FOR_HW_ID, mode),
-                                gmblock[g_id].is_dma_buf,
-                                isp7sp_get_reserve_mem_fd(g_id + IMG_MEM_FOR_HW_ID, mode),
-                                gmblock[g_id].d_buf);
-                        }
-                        break;
-                    default:
-                        break;
-                }
-            } else {
-                gmblock[g_id].start_virt =
-                    kzalloc(gmblock[g_id].size,
-                        GFP_KERNEL);
-                gmblock[g_id].start_phys =
-                    virt_to_phys(
-                        gmblock[g_id].start_virt);
-                gmblock[g_id].start_dma = 0;
-            }
-            if (hcp_dbg_enable()) {
-                pr_debug(
-                    "%s: [HCP_GCE_TOKEN][gce_mem_reserve-%d] phys:0x%llx, virt:0x%p,"
-                    " dma:0x%llx, size:0x%llx, is_dma_buf:%d, fd:%d, d_buf:0x%p\n",
-                    __func__, g_id,
-                    isp7sp_get_reserve_mem_phys(g_id + IMG_MEM_FOR_HW_ID, mode),
-                    isp7sp_get_reserve_mem_virt(g_id + IMG_MEM_FOR_HW_ID, mode),
-                    isp7sp_get_reserve_mem_dma(g_id + IMG_MEM_FOR_HW_ID, mode),
-                    isp7sp_get_reserve_mem_size(g_id + IMG_MEM_FOR_HW_ID, mode),
-                    gmblock[g_id].is_dma_buf,
-                    isp7sp_get_reserve_mem_fd(g_id + IMG_MEM_FOR_HW_ID, mode),
-                    gmblock[g_id].d_buf);
-            }
-        }
-        return 0;
+						#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 4, 0)
+						gmblock[g_id].sgt =
+							dma_buf_map_attachment_unlocked(attach, DMA_BIDIRECTIONAL);
+						#else
+						gmblock[g_id].sgt =
+							dma_buf_map_attachment(attach, DMA_BIDIRECTIONAL);
+						#endif
+						sgt = gmblock[g_id].sgt;
+						if (IS_ERR(sgt)) {
+							dma_buf_detach(gmblock[g_id].d_buf, attach);
+							pr_info("dma_buf_map_attachment fail sgt:%ld\n",
+							PTR_ERR(sgt));
+							return -1;
+						}
+						gmblock[g_id].start_phys = sg_dma_address(sgt->sgl);
+						gmblock[g_id].start_dma = gmblock[g_id].start_phys;
+						#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 4, 0)
+						ret = dma_buf_vmap_unlocked(gmblock[g_id].d_buf, &map);
+						#else
+						ret = dma_buf_vmap(gmblock[g_id].d_buf, &map);
+						#endif
+						if (ret) {
+							pr_info("sg_dma_address fail\n");
+							return ret;
+						}
+						gmblock[g_id].start_virt = (void *)map.vaddr;
+						gmblock[g_id].map = map;
+						get_dma_buf(gmblock[g_id].d_buf);
+						gmblock[g_id].fd =
+							dma_buf_fd(gmblock[g_id].d_buf, O_RDWR | O_CLOEXEC);
+						dma_buf_begin_cpu_access(gmblock[g_id].d_buf, DMA_BIDIRECTIONAL);
+						kref_init(&gmblock[g_id].kref);
+						if (hcp_dbg_enable()) {
+							pr_debug("%s:[HCP_GCE_TOKEN][%s] phys:0x%llx, virt:0x%p, dma:0x%llx,"
+								" size:0x%llx, is_dma_buf:%d, fd:%d, d_buf:0x%p\n",
+								__func__, gmblock[g_id].name,
+								isp7sp_get_reserve_mem_phys(g_id + IMG_MEM_FOR_HW_ID, mode),
+								isp7sp_get_reserve_mem_virt(g_id + IMG_MEM_FOR_HW_ID, mode),
+								isp7sp_get_reserve_mem_dma(g_id + IMG_MEM_FOR_HW_ID, mode),
+								isp7sp_get_reserve_mem_size(g_id + IMG_MEM_FOR_HW_ID, mode),
+								gmblock[g_id].is_dma_buf,
+								isp7sp_get_reserve_mem_fd(g_id + IMG_MEM_FOR_HW_ID, mode),
+								gmblock[g_id].d_buf);
+						}
+						break;
+					default:
+						break;
+				}
+			} else {
+				gmblock[g_id].start_virt =
+					kzalloc(gmblock[g_id].size,
+						GFP_KERNEL);
+				gmblock[g_id].start_phys =
+					virt_to_phys(
+						gmblock[g_id].start_virt);
+				gmblock[g_id].start_dma = 0;
+			}
+			if (hcp_dbg_enable()) {
+				pr_debug(
+					"%s: [HCP_GCE_TOKEN][gce_mem_reserve-%d] phys:0x%llx, virt:0x%p,"
+					" dma:0x%llx, size:0x%llx, is_dma_buf:%d, fd:%d, d_buf:0x%p\n",
+					__func__, g_id,
+					isp7sp_get_reserve_mem_phys(g_id + IMG_MEM_FOR_HW_ID, mode),
+					isp7sp_get_reserve_mem_virt(g_id + IMG_MEM_FOR_HW_ID, mode),
+					isp7sp_get_reserve_mem_dma(g_id + IMG_MEM_FOR_HW_ID, mode),
+					isp7sp_get_reserve_mem_size(g_id + IMG_MEM_FOR_HW_ID, mode),
+					gmblock[g_id].is_dma_buf,
+					isp7sp_get_reserve_mem_fd(g_id + IMG_MEM_FOR_HW_ID, mode),
+					gmblock[g_id].d_buf);
+			}
+	}
+	return 0;
 }
 
 int isp7sp_allocate_working_buffer(struct mtk_hcp *hcp_dev, unsigned int mode, unsigned int gmb_en)
@@ -2239,13 +2326,19 @@ static void gce_release_streaming(struct kref *ref)
 	    mblock->sgt = NULL;
         return;
     } else {
-    	dma_buf_vunmap(mblock->d_buf, &mblock->map);
-    	/* free iova */
-    	dma_buf_unmap_attachment(mblock->attach, mblock->sgt, DMA_BIDIRECTIONAL);
-    	dma_buf_detach(mblock->d_buf, mblock->attach);
-    	dma_buf_end_cpu_access(mblock->d_buf, DMA_BIDIRECTIONAL);
-    	dma_buf_put(mblock->d_buf);
-    }
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 4, 0)
+		dma_buf_vunmap_unlocked(mblock->d_buf, &mblock->map);
+		/* free iova */
+		dma_buf_unmap_attachment_unlocked(mblock->attach, mblock->sgt, DMA_BIDIRECTIONAL);
+#else
+		dma_buf_vunmap(mblock->d_buf, &mblock->map);
+		/* free iova */
+		dma_buf_unmap_attachment(mblock->attach, mblock->sgt, DMA_BIDIRECTIONAL);
+#endif
+		dma_buf_detach(mblock->d_buf, mblock->attach);
+		dma_buf_end_cpu_access(mblock->d_buf, DMA_BIDIRECTIONAL);
+		dma_buf_put(mblock->d_buf);
+	}
 
     if (hcp_dbg_enable()) {
 	    pr_debug("%s:[HCP][%s] phys:0x%llx, virt:0x%p, dma:0x%llx, size:0x%llx,"
@@ -2304,13 +2397,19 @@ static void gce_release_capture(struct kref *ref)
 	    mblock->sgt = NULL;
         return;
     } else {
-    	dma_buf_vunmap(mblock->d_buf, &mblock->map);
-    	/* free iova */
-    	dma_buf_unmap_attachment(mblock->attach, mblock->sgt, DMA_BIDIRECTIONAL);
-    	dma_buf_detach(mblock->d_buf, mblock->attach);
-    	dma_buf_end_cpu_access(mblock->d_buf, DMA_BIDIRECTIONAL);
-    	dma_buf_put(mblock->d_buf);
-    }
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 4, 0)
+		dma_buf_vunmap_unlocked(mblock->d_buf, &mblock->map);
+		/* free iova */
+		dma_buf_unmap_attachment_unlocked(mblock->attach, mblock->sgt, DMA_BIDIRECTIONAL);
+#else
+		dma_buf_vunmap(mblock->d_buf, &mblock->map);
+		/* free iova */
+		dma_buf_unmap_attachment(mblock->attach, mblock->sgt, DMA_BIDIRECTIONAL);
+#endif
+		dma_buf_detach(mblock->d_buf, mblock->attach);
+		dma_buf_end_cpu_access(mblock->d_buf, DMA_BIDIRECTIONAL);
+		dma_buf_put(mblock->d_buf);
+	}
 
     if (hcp_dbg_enable()) {
 	    pr_debug("%s:[HCP][%s] phys:0x%llx, virt:0x%p, dma:0x%llx, size:0x%llx,"
@@ -2354,113 +2453,71 @@ static void gce_release_smvr(struct kref *ref)
 	struct mtk_hcp_smvr_reserve_mblock *mblock =
 		container_of(ref, struct mtk_hcp_smvr_reserve_mblock, kref);
 
-    if (IS_ERR(mblock->d_buf)) {
-        pr_info("smvr gce dma_heap_buffer_alloc fail :%ld\n",
-                      PTR_ERR(mblock->d_buf));
-        mblock->mem_priv = NULL;
-	    mblock->mmap_cnt = 0;
-	    mblock->start_dma = 0x0;
-	    mblock->start_virt = 0x0;
-	    mblock->start_phys = 0x0;
-	    mblock->d_buf = NULL;
-	    mblock->fd = -1;
-	    mblock->pIonHandle = NULL;
-	    mblock->attach = NULL;
-	    mblock->sgt = NULL;
-        return;
-    } else {
-    	dma_buf_vunmap(mblock->d_buf, &mblock->map);
-    	/* free iova */
-    	dma_buf_unmap_attachment(mblock->attach, mblock->sgt, DMA_BIDIRECTIONAL);
-    	dma_buf_detach(mblock->d_buf, mblock->attach);
-    	dma_buf_end_cpu_access(mblock->d_buf, DMA_BIDIRECTIONAL);
-    	dma_buf_put(mblock->d_buf);
-    }
-
-    if (hcp_dbg_enable()) {
-	    pr_debug("%s:[HCP][%s] phys:0x%llx, virt:0x%p, dma:0x%llx, size:0x%llx,"
-            " is_dma_buf:%d, fd:%d, d_buf:0x%p\n",
-    		__func__, mblock->name,
-    		#if SMVR_DECOUPLE
-    		isp7sp_get_reserve_mem_phys(IMG_MEM_G_ID, imgsys_smvr),
-    		isp7sp_get_reserve_mem_virt(IMG_MEM_G_ID, imgsys_smvr),
-    		isp7sp_get_reserve_mem_dma(IMG_MEM_G_ID, imgsys_smvr),
-    		isp7sp_get_reserve_mem_size(IMG_MEM_G_ID, imgsys_smvr),
-    		mblock->is_dma_buf,
-    		isp7sp_get_reserve_mem_fd(IMG_MEM_G_ID, imgsys_smvr),
-    		#else
-    		isp7sp_get_reserve_mem_phys(IMG_MEM_G_ID),
-    		isp7sp_get_reserve_mem_virt(IMG_MEM_G_ID),
-    		isp7sp_get_reserve_mem_dma(IMG_MEM_G_ID),
-    		isp7sp_get_reserve_mem_size(IMG_MEM_G_ID),
-    		mblock->is_dma_buf,
-    		isp7sp_get_reserve_mem_fd(IMG_MEM_G_ID),
-    		#endif
-    		mblock->d_buf);
-    }
-	// close fd in user space driver, you can't close fd in kernel site
-	// dma_heap_buffer_free(mblock[id].d_buf);
-	//dma_buf_put(my_dma_buf);
-	//also can use this api, but not recommended
-	mblock->mem_priv = NULL;
-	mblock->mmap_cnt = 0;
-	mblock->start_dma = 0x0;
-	mblock->start_virt = 0x0;
-	mblock->start_phys = 0x0;
-	mblock->d_buf = NULL;
-	mblock->fd = -1;
-	mblock->pIonHandle = NULL;
-	mblock->attach = NULL;
-	mblock->sgt = NULL;
-}
-
-#if 0
-static void gce_release_token(struct kref *ref)
-{
-	struct mtk_hcp_gce_token_reserve_mblock *mblock =
-		container_of(ref, struct mtk_hcp_gce_token_reserve_mblock, kref);
-
-    if (IS_ERR(mblock->d_buf)) {
-        pr_info("dma_heap_buffer_alloc fail :%ld\n",
-                      PTR_ERR(mblock->d_buf));
-        return;
-    } else {
-    	dma_buf_vunmap(mblock->d_buf, &mblock->map);
-    	/* free iova */
-    	dma_buf_unmap_attachment(mblock->attach, mblock->sgt, DMA_BIDIRECTIONAL);
-    	dma_buf_detach(mblock->d_buf, mblock->attach);
-    	dma_buf_end_cpu_access(mblock->d_buf, DMA_BIDIRECTIONAL);
-    	dma_buf_put(mblock->d_buf);
-    }
-
-    if (hcp_dbg_enable()) {
-	    pr_debug("%s:[HCP][%s] phys:0x%llx, virt:0x%p, dma:0x%llx, size:0x%llx,"
-            " is_dma_buf:%d, fd:%d, d_buf:0x%p\n",
-    		__func__, mblock->name,
-    		isp7sp_get_reserve_mem_phys(IMG_MEM_G_TOKEN_ID, imgsys_streaming),
-    		isp7sp_get_reserve_mem_virt(IMG_MEM_G_TOKEN_ID, imgsys_streaming),
-    		isp7sp_get_reserve_mem_dma(IMG_MEM_G_TOKEN_ID, imgsys_streaming),
-    		isp7sp_get_reserve_mem_size(IMG_MEM_G_TOKEN_ID, imgsys_streaming),
-    		mblock->is_dma_buf,
-    		isp7sp_get_reserve_mem_fd(IMG_MEM_G_TOKEN_ID, imgsys_streaming),
-    		mblock->d_buf);
-    }
-	// close fd in user space driver, you can't close fd in kernel site
-	// dma_heap_buffer_free(mblock[id].d_buf);
-	//dma_buf_put(my_dma_buf);
-	//also can use this api, but not recommended
-	mblock->mem_priv = NULL;
-	mblock->mmap_cnt = 0;
-	mblock->start_dma = 0x0;
-	mblock->start_virt = 0x0;
-	mblock->start_phys = 0x0;
-	mblock->d_buf = NULL;
-	mblock->fd = -1;
-	mblock->pIonHandle = NULL;
-	mblock->attach = NULL;
-	mblock->sgt = NULL;
-}
+	if (IS_ERR(mblock->d_buf)) {
+		pr_info("smvr gce dma_heap_buffer_alloc fail :%ld\n",
+			PTR_ERR(mblock->d_buf));
+		mblock->mem_priv = NULL;
+		mblock->mmap_cnt = 0;
+		mblock->start_dma = 0x0;
+		mblock->start_virt = 0x0;
+		mblock->start_phys = 0x0;
+		mblock->d_buf = NULL;
+		mblock->fd = -1;
+		mblock->pIonHandle = NULL;
+		mblock->attach = NULL;
+		mblock->sgt = NULL;
+		return;
+	} else {
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 4, 0)
+		dma_buf_vunmap_unlocked(mblock->d_buf, &mblock->map);
+		/* free iova */
+		dma_buf_unmap_attachment_unlocked(mblock->attach, mblock->sgt, DMA_BIDIRECTIONAL);
+#else
+		dma_buf_vunmap(mblock->d_buf, &mblock->map);
+		/* free iova */
+		dma_buf_unmap_attachment(mblock->attach, mblock->sgt, DMA_BIDIRECTIONAL);
 #endif
+		dma_buf_detach(mblock->d_buf, mblock->attach);
+		dma_buf_end_cpu_access(mblock->d_buf, DMA_BIDIRECTIONAL);
+		dma_buf_put(mblock->d_buf);
+	}
+
+	if (hcp_dbg_enable()) {
+		pr_debug("%s:[HCP][%s] phys:0x%llx, virt:0x%p, dma:0x%llx, size:0x%llx,"
+			" is_dma_buf:%d, fd:%d, d_buf:0x%p\n",
+			__func__, mblock->name,
+			#if SMVR_DECOUPLE
+			isp7sp_get_reserve_mem_phys(IMG_MEM_G_ID, imgsys_smvr),
+			isp7sp_get_reserve_mem_virt(IMG_MEM_G_ID, imgsys_smvr),
+			isp7sp_get_reserve_mem_dma(IMG_MEM_G_ID, imgsys_smvr),
+			isp7sp_get_reserve_mem_size(IMG_MEM_G_ID, imgsys_smvr),
+			mblock->is_dma_buf,
+			isp7sp_get_reserve_mem_fd(IMG_MEM_G_ID, imgsys_smvr),
+			#else
+			isp7sp_get_reserve_mem_phys(IMG_MEM_G_ID),
+			isp7sp_get_reserve_mem_virt(IMG_MEM_G_ID),
+			isp7sp_get_reserve_mem_dma(IMG_MEM_G_ID),
+			isp7sp_get_reserve_mem_size(IMG_MEM_G_ID),
+			mblock->is_dma_buf,
+			isp7sp_get_reserve_mem_fd(IMG_MEM_G_ID),
+			#endif
+			mblock->d_buf);
+	}
+	// close fd in user space driver, you can't close fd in kernel site
+	// dma_heap_buffer_free(mblock[id].d_buf);
+	//dma_buf_put(my_dma_buf);
+	//also can use this api, but not recommended
+	mblock->mem_priv = NULL;
+	mblock->mmap_cnt = 0;
+	mblock->start_dma = 0x0;
+	mblock->start_virt = 0x0;
+	mblock->start_phys = 0x0;
+	mblock->d_buf = NULL;
+	mblock->fd = -1;
+	mblock->pIonHandle = NULL;
+	mblock->attach = NULL;
+	mblock->sgt = NULL;
+}
 #else
 phys_addr_t isp7sp_get_reserve_mem_phys(unsigned int id)
 {
@@ -2649,8 +2706,13 @@ int isp7sp_allocate_working_buffer(struct mtk_hcp *hcp_dev, unsigned int mode)
 					return -1;
 				}
 
+				#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 4, 0)
+				mblock[id].sgt =
+					dma_buf_map_attachment_unlocked(attach, DMA_BIDIRECTIONAL);
+				#else
 				mblock[id].sgt =
 					dma_buf_map_attachment(attach, DMA_BIDIRECTIONAL);
+				#endif
 				sgt = mblock[id].sgt;
 				if (IS_ERR(sgt)) {
 					dma_buf_detach(mblock[id].d_buf, attach);
@@ -2660,7 +2722,11 @@ int isp7sp_allocate_working_buffer(struct mtk_hcp *hcp_dev, unsigned int mode)
 				}
 				mblock[id].start_phys = sg_dma_address(sgt->sgl);
 				mblock[id].start_dma = mblock[id].start_phys;
+				#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 4, 0)
+				ret = dma_buf_vmap_unlocked(mblock[id].d_buf, &map);
+				#else
 				ret = dma_buf_vmap(mblock[id].d_buf, &map);
+				#endif
 				if (ret) {
 					pr_info("sg_dma_address fail\n");
 					return ret;
@@ -2719,7 +2785,12 @@ int isp7sp_allocate_working_buffer(struct mtk_hcp *hcp_dev, unsigned int mode)
 					return -1;
 				}
 
+				#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 4, 0)
+				mblock[id].sgt = 
+					dma_buf_map_attachment_unlocked(attach, DMA_BIDIRECTIONAL);
+				#else
 				mblock[id].sgt = dma_buf_map_attachment(attach, DMA_BIDIRECTIONAL);
+				#endif
 				sgt = mblock[id].sgt;
 				if (IS_ERR(sgt)) {
 					dma_buf_detach(mblock[id].d_buf, attach);
@@ -2729,7 +2800,11 @@ int isp7sp_allocate_working_buffer(struct mtk_hcp *hcp_dev, unsigned int mode)
 				}
 				mblock[id].start_phys = sg_dma_address(sgt->sgl);
 				mblock[id].start_dma = mblock[id].start_phys;
+				#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 4, 0)
+				ret = dma_buf_vmap_unlocked(mblock[id].d_buf, &map);
+				#else
 				ret = dma_buf_vmap(mblock[id].d_buf, &map);
+				#endif
 				if (ret) {
 					pr_info("sg_dma_address fail\n");
 					return ret;
@@ -2741,7 +2816,6 @@ int isp7sp_allocate_working_buffer(struct mtk_hcp *hcp_dev, unsigned int mode)
 					dma_buf_fd(mblock[id].d_buf, O_RDWR | O_CLOEXEC);
 				break;
 			default:
-
 				/* all supported heap name you can find with cmd */
 				/* (ls /dev/dma_heap/) in shell */
 				pdma_heap = dma_heap_find("mtk_mm-uncached");
@@ -2768,7 +2842,12 @@ int isp7sp_allocate_working_buffer(struct mtk_hcp *hcp_dev, unsigned int mode)
 					return -1;
 				}
 
+				#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 4, 0)
+				mblock[id].sgt = 
+					dma_buf_map_attachment_unlocked(attach, DMA_BIDIRECTIONAL);
+				#else
 				mblock[id].sgt = dma_buf_map_attachment(attach, DMA_BIDIRECTIONAL);
+				#endif
 				sgt = mblock[id].sgt;
 				if (IS_ERR(sgt)) {
 					dma_buf_detach(mblock[id].d_buf, attach);
@@ -2778,7 +2857,11 @@ int isp7sp_allocate_working_buffer(struct mtk_hcp *hcp_dev, unsigned int mode)
 				}
 				mblock[id].start_phys = sg_dma_address(sgt->sgl);
 				mblock[id].start_dma = mblock[id].start_phys;
+				#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 4, 0)
+				ret = dma_buf_vmap_unlocked(mblock[id].d_buf, &map);
+				#else
 				ret = dma_buf_vmap(mblock[id].d_buf, &map);
+				#endif
 				if (ret) {
 					pr_info("sg_dma_address fail\n");
 					return ret;
@@ -2824,9 +2907,15 @@ static void gce_release(struct kref *ref)
 	struct mtk_hcp_reserve_mblock *mblock =
 		container_of(ref, struct mtk_hcp_reserve_mblock, kref);
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 4, 0)
+	dma_buf_vunmap_unlocked(mblock->d_buf, &mblock->map);
+	/* free iova */
+	dma_buf_unmap_attachment_unlocked(mblock->attach, mblock->sgt, DMA_BIDIRECTIONAL);
+#else
 	dma_buf_vunmap(mblock->d_buf, &mblock->map);
 	/* free iova */
 	dma_buf_unmap_attachment(mblock->attach, mblock->sgt, DMA_BIDIRECTIONAL);
+#endif
 	dma_buf_detach(mblock->d_buf, mblock->attach);
 	dma_buf_end_cpu_access(mblock->d_buf, DMA_BIDIRECTIONAL);
 	dma_buf_put(mblock->d_buf);
@@ -2906,11 +2995,19 @@ static int isp7sp_module_driver_release_working_buffer_streaming(struct mtk_hcp 
                         str_mblock[id].sgt = NULL;
                          return -1;
                     } else {
-                        /* free va */
-                        dma_buf_vunmap(str_mblock[id].d_buf, &str_mblock[id].map);
-                        /* free iova */
-                        dma_buf_unmap_attachment(str_mblock[id].attach,
-                        str_mblock[id].sgt, DMA_BIDIRECTIONAL);
+						#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 4, 0)
+						/* free va */
+						dma_buf_vunmap_unlocked(str_mblock[id].d_buf, &str_mblock[id].map);
+						/* free iova */
+						dma_buf_unmap_attachment_unlocked(str_mblock[id].attach,
+							str_mblock[id].sgt, DMA_BIDIRECTIONAL);
+						#else
+						/* free va */
+						dma_buf_vunmap(str_mblock[id].d_buf, &str_mblock[id].map);
+						/* free iova */
+						dma_buf_unmap_attachment(str_mblock[id].attach,
+							str_mblock[id].sgt, DMA_BIDIRECTIONAL);
+						#endif
                         dma_buf_detach(str_mblock[id].d_buf,
                         str_mblock[id].attach);
                         dma_buf_put(str_mblock[id].d_buf);
@@ -2993,11 +3090,19 @@ static int isp7sp_module_driver_release_working_buffer_capture(struct mtk_hcp *h
                          cap_mblock[id].sgt = NULL;
                          return -1;
                     } else {
-                        /* free va */
-                        dma_buf_vunmap(cap_mblock[id].d_buf, &cap_mblock[id].map);
-                        /* free iova */
-                        dma_buf_unmap_attachment(cap_mblock[id].attach,
-                            cap_mblock[id].sgt, DMA_BIDIRECTIONAL);
+						#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 4, 0)
+						/* free va */
+						dma_buf_vunmap_unlocked(cap_mblock[id].d_buf, &cap_mblock[id].map);
+						/* free iova */
+						dma_buf_unmap_attachment_unlocked(cap_mblock[id].attach,
+							cap_mblock[id].sgt, DMA_BIDIRECTIONAL);
+						#else
+						/* free va */
+						dma_buf_vunmap(cap_mblock[id].d_buf, &cap_mblock[id].map);
+						/* free iova */
+						dma_buf_unmap_attachment(cap_mblock[id].attach,
+							cap_mblock[id].sgt, DMA_BIDIRECTIONAL);
+						#endif
                         dma_buf_detach(cap_mblock[id].d_buf,
                             cap_mblock[id].attach);
                         dma_buf_put(cap_mblock[id].d_buf);
@@ -3080,11 +3185,19 @@ static int isp7sp_module_driver_release_working_buffer_smvr(struct mtk_hcp *hcp_
                          smvr_mblock[id].sgt = NULL;
                          return -1;
                     } else {
-                        /* free va */
-                        dma_buf_vunmap(smvr_mblock[id].d_buf, &smvr_mblock[id].map);
-                        /* free iova */
-                        dma_buf_unmap_attachment(smvr_mblock[id].attach,
-                        smvr_mblock[id].sgt, DMA_BIDIRECTIONAL);
+						#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 4, 0)
+						/* free va */
+						dma_buf_vunmap_unlocked(smvr_mblock[id].d_buf, &smvr_mblock[id].map);
+						/* free iova */
+						dma_buf_unmap_attachment_unlocked(smvr_mblock[id].attach,
+						smvr_mblock[id].sgt, DMA_BIDIRECTIONAL);
+						#else
+						/* free va */
+						dma_buf_vunmap(smvr_mblock[id].d_buf, &smvr_mblock[id].map);
+						/* free iova */
+						dma_buf_unmap_attachment(smvr_mblock[id].attach,
+						smvr_mblock[id].sgt, DMA_BIDIRECTIONAL);
+						#endif
                         dma_buf_detach(smvr_mblock[id].d_buf,
                         smvr_mblock[id].attach);
                         dma_buf_put(smvr_mblock[id].d_buf);
@@ -3159,15 +3272,23 @@ int isp7sp_release_gce_working_buffer(struct mtk_hcp *hcp_dev)
                          gmblock[gid].sgt = NULL;
                           return -1;
                     } else {
-                        /* free va */
-                        dma_buf_vunmap(gmblock[gid].d_buf, &gmblock[gid].map);
-                        /* free iova */
-                        dma_buf_unmap_attachment(gmblock[gid].attach,
-                            gmblock[gid].sgt, DMA_BIDIRECTIONAL);
-                        dma_buf_detach(gmblock[gid].d_buf,
-                            gmblock[gid].attach);
-                        dma_buf_end_cpu_access(gmblock[gid].d_buf, DMA_BIDIRECTIONAL);
-                        dma_buf_put(gmblock[gid].d_buf);
+						#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 4, 0)
+						/* free va */
+						dma_buf_vunmap_unlocked(gmblock[gid].d_buf, &gmblock[gid].map);
+						/* free iova */
+						dma_buf_unmap_attachment_unlocked(gmblock[gid].attach,
+						    gmblock[gid].sgt, DMA_BIDIRECTIONAL);
+						#else
+						/* free va */
+						dma_buf_vunmap(gmblock[gid].d_buf, &gmblock[gid].map);
+						/* free iova */
+						dma_buf_unmap_attachment(gmblock[gid].attach,
+						    gmblock[gid].sgt, DMA_BIDIRECTIONAL);
+						#endif
+						dma_buf_detach(gmblock[gid].d_buf,
+						    gmblock[gid].attach);
+						dma_buf_end_cpu_access(gmblock[gid].d_buf, DMA_BIDIRECTIONAL);
+						dma_buf_put(gmblock[gid].d_buf);
                         // close fd in user space driver, you can't close fd in kernel site
                         // dma_heap_buffer_free(mblock[id].d_buf);
                         //dma_buf_put(my_dma_buf);
@@ -3706,11 +3827,19 @@ int isp7sp_release_working_buffer(struct mtk_hcp *hcp_dev)
 				kref_put(&mblock[id].kref, gce_release);
 				break;
 			default:
+				#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 4, 0)
+				/* free va */
+				dma_buf_vunmap_unlocked(mblock[id].d_buf, &mblock[id].map);
+				/* free iova */
+				dma_buf_unmap_attachment_unlocked(mblock[id].attach,
+				mblock[id].sgt, DMA_BIDIRECTIONAL);
+				#else
 				/* free va */
 				dma_buf_vunmap(mblock[id].d_buf, &mblock[id].map);
 				/* free iova */
 				dma_buf_unmap_attachment(mblock[id].attach,
 				mblock[id].sgt, DMA_BIDIRECTIONAL);
+				#endif
 				dma_buf_detach(mblock[id].d_buf,
 				mblock[id].attach);
 				dma_buf_put(mblock[id].d_buf);

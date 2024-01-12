@@ -16,6 +16,7 @@
 #include <linux/rtc.h>
 //#include <linux/remoteproc/mtk_scp.h>
 #include <linux/videodev2.h>
+#include <linux/version.h>
 #include <media/videobuf2-dma-contig.h>
 #include <media/v4l2-ioctl.h>
 #include <media/v4l2-subdev.h>
@@ -611,10 +612,13 @@ static void *mtk_imgsys_vb2_vaddr(struct vb2_buffer *vb, void *buf_priv)
 
 	if (buf->db_attach) {
 		struct iosys_map map;
-
+		#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 4, 0)
+		if (!dma_buf_vmap_unlocked(buf->db_attach->dmabuf, &map))
+			buf->vaddr = map.vaddr;
+		#else
 		if (!dma_buf_vmap(buf->db_attach->dmabuf, &map))
 			buf->vaddr = map.vaddr;
-
+		#endif
 		return buf->vaddr;
 	}
 
@@ -681,7 +685,11 @@ static int mtk_imgsys_vb2_map_dmabuf(void *mem_priv)
 	}
 
 	/* get the associated scatterlist for this buffer */
+	#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 4, 0)
+	sgt = dma_buf_map_attachment_unlocked(buf->db_attach, buf->dma_dir);
+	#else
 	sgt = dma_buf_map_attachment(buf->db_attach, buf->dma_dir);
+	#endif
 	if (IS_ERR(sgt)) {
 		pr_err("Error getting dmabuf scatterlist\n");
 		return -EINVAL;
@@ -692,7 +700,11 @@ static int mtk_imgsys_vb2_map_dmabuf(void *mem_priv)
 	if (contig_size < buf->size) {
 		pr_err("contiguous chunk is too small %lu/%lu\n",
 		       contig_size, buf->size);
+		#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 4, 0)
+		dma_buf_unmap_attachment_unlocked(buf->db_attach, sgt, buf->dma_dir);
+		#else
 		dma_buf_unmap_attachment(buf->db_attach, sgt, buf->dma_dir);
+		#endif
 		return -EFAULT;
 	}
 
@@ -720,10 +732,18 @@ static void mtk_imgsys_vb2_unmap_dmabuf(void *mem_priv)
 	}
 
 	if (buf->vaddr) {
+		#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 4, 0)
+		dma_buf_vunmap_unlocked(buf->db_attach->dmabuf, &map);
+		#else
 		dma_buf_vunmap(buf->db_attach->dmabuf, &map);
+		#endif
 		buf->vaddr = NULL;
 	}
+	#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 4, 0)
+	dma_buf_unmap_attachment_unlocked(buf->db_attach, sgt, buf->dma_dir);
+	#else
 	dma_buf_unmap_attachment(buf->db_attach, sgt, buf->dma_dir);
+	#endif
 
 	buf->dma_addr = 0;
 	buf->dma_sgt = NULL;
@@ -1777,7 +1797,11 @@ static int mtkdip_ioc_add_kva(struct v4l2_subdev *subdev, void *arg)
 		fd_info->fds_size[i] = dmabuf->size;
 
 		dma_buf_begin_cpu_access(dmabuf, DMA_BIDIRECTIONAL);
+		#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 4, 0)
+		ret = dma_buf_vmap_unlocked(dmabuf, &map);
+		#else
 		ret = dma_buf_vmap(dmabuf, &map);
+		#endif
 		if (ret)
 			pr_info("%s, map kernel va failed\n", __func__);
 		buf_va_info->kva = (u64)map.vaddr;
@@ -1786,7 +1810,11 @@ static int mtkdip_ioc_add_kva(struct v4l2_subdev *subdev, void *arg)
 
 		attach = dma_buf_attach(dmabuf, imgsys_pipe->imgsys_dev->smmu_dev);
 		if (IS_ERR(attach)) {
+			#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 4, 0)
+			dma_buf_vunmap_unlocked(dmabuf, &buf_va_info->map);
+			#else
 			dma_buf_vunmap(dmabuf, &buf_va_info->map);
+			#endif
 			dma_buf_end_cpu_access(dmabuf, DMA_BIDIRECTIONAL);
 			dma_buf_put(dmabuf);
 			vfree(buf_va_info);
@@ -1794,9 +1822,17 @@ static int mtkdip_ioc_add_kva(struct v4l2_subdev *subdev, void *arg)
 			continue;
 		}
 
+		#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 4, 0)
+		sgt = dma_buf_map_attachment_unlocked(attach, DMA_BIDIRECTIONAL);
+		#else
 		sgt = dma_buf_map_attachment(attach, DMA_BIDIRECTIONAL);
+		#endif
 		if (IS_ERR(sgt)) {
+			#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 4, 0)
+			dma_buf_vunmap_unlocked(dmabuf, &buf_va_info->map);
+			#else
 			dma_buf_vunmap(dmabuf, &buf_va_info->map);
+			#endif
 			dma_buf_end_cpu_access(dmabuf, DMA_BIDIRECTIONAL);
 			dma_buf_detach(dmabuf, attach);
 			dma_buf_put(dmabuf);
@@ -1865,11 +1901,21 @@ static int mtkdip_ioc_del_kva(struct v4l2_subdev *subdev, void *arg)
 		mutex_unlock(&(kva_list->mymutex));
 
 		dmabuf = buf_va_info->dma_buf_putkva;
+		#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 4, 0)
+		dma_buf_vunmap_unlocked(dmabuf, &buf_va_info->map);
+
+		dma_buf_end_cpu_access(dmabuf, DMA_BIDIRECTIONAL);
+
+		dma_buf_unmap_attachment_unlocked(buf_va_info->attach, buf_va_info->sgt,
+			DMA_BIDIRECTIONAL);
+		#else
 		dma_buf_vunmap(dmabuf, &buf_va_info->map);
+
 		dma_buf_end_cpu_access(dmabuf, DMA_BIDIRECTIONAL);
 
 		dma_buf_unmap_attachment(buf_va_info->attach, buf_va_info->sgt,
 			DMA_BIDIRECTIONAL);
+		#endif
 		dma_buf_detach(dmabuf, buf_va_info->attach);
 		fd_info->fds_size[i] = dmabuf->size;
 		dma_buf_put(dmabuf);
@@ -1953,7 +1999,11 @@ static int mtkdip_ioc_add_iova(struct v4l2_subdev *subdev, void *arg)
 			return -ENOMEM;
 		}
 
+		#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 4, 0)
+		sgt = dma_buf_map_attachment_unlocked(attach, DMA_BIDIRECTIONAL);
+		#else
 		sgt = dma_buf_map_attachment(attach, DMA_BIDIRECTIONAL);
+		#endif
 		if (IS_ERR(sgt)) {
 			dma_buf_detach(dmabuf, attach);
 			dma_buf_put(dmabuf);

@@ -273,24 +273,23 @@ static int set_reg_pmic_wakeup(struct adaptor_ctx *ctx, unsigned long long data)
 	 ctx->regulator[idx] = devm_regulator_get_optional(ctx->dev, reg_names[idx]);
 	if (IS_ERR(ctx->regulator[idx])) {
 		ctx->regulator[idx] = NULL;
-		dev_dbg(ctx->dev, "no reg %s\n", reg_names[idx]);
+		adaptor_loge(ctx, "no reg %s\n", reg_names[idx]);
 		return -EINVAL;
 	}
 
 	reg = ctx->regulator[idx];
 	ret = regulator_enable(reg);
 	if (ret) {
-		dev_dbg(ctx->dev,
+		adaptor_loge(ctx,
 		"regulator_enable(%s),ret(%llu)(fail)\n",
 		reg_names[idx], ret);
 		return ret;
 	}
 	ctx->pmic_on_tick = ktime_get_boottime_ns();
-#if IMGSENSOR_LOG_MORE
-	dev_info(ctx->dev,
-		"[%s]- regulator_enable(%s),ret(%llu)(correct)\n",
-		__func__, reg_names[idx], ret);
-#endif
+
+	adaptor_logi(ctx,
+		"- regulator_enable(%s),ret(%llu)(correct)\n",
+		reg_names[idx], ret);
 
 	return 0;
 }
@@ -302,23 +301,23 @@ static int set_reg_pmic_sleep(struct adaptor_ctx *ctx, unsigned long long data)
 
 	idx = data;
 	reg = ctx->regulator[idx];
-#if IMGSENSOR_LOG_MORE
-	dev_info(ctx->dev, "[%s]+ idx(%llu)\n", __func__, idx);
-#endif
+	adaptor_logm(ctx, "[%s]+ idx(%llu)\n", __func__, idx);
+	if (IS_ERR_OR_NULL(ctx->regulator[idx])) {
+		adaptor_loge(ctx, "no reg %s\n", reg_names[idx]);
+		return -EINVAL;
+	}
 	ret = regulator_disable(reg);
 	if (ret) {
-		dev_dbg(ctx->dev,
+		adaptor_loge(ctx,
 		"disable(%s),ret(%llu)(fail)\n",
 		reg_names[idx], ret);
 		return ret;
 	}
 	// always put reg due to pmic limitation
 	devm_regulator_put(ctx->regulator[idx]);
-#if IMGSENSOR_LOG_MORE
-	dev_info(ctx->dev,
-	 "[%s]- disable(%s),ret(%llu)(correct)\n",
-	__func__, reg_names[idx], ret);
-#endif
+	adaptor_logm(ctx,
+		"disable(%s),ret(%llu)(correct)\n",
+		reg_names[idx], ret);
 
 	return 0;
 }
@@ -355,7 +354,7 @@ int do_cam_pmic_on(struct adaptor_ctx *ctx)
 int adaptor_cam_pmic_on(struct adaptor_ctx *ctx)
 {
 	pmic_wake_en = 1;
-	dev_info(ctx->dev, "pmic_wake_en = true\n");
+	adaptor_logi(ctx, "pmic_wake_en = true\n");
 	return do_cam_pmic_on(ctx);
 }
 
@@ -546,10 +545,10 @@ int do_hw_power_off(struct adaptor_ctx *ctx)
 		for (i = 0; i < ctx->mclk_refcnt; i++) {
 			// enable mclk
 			if (clk_prepare_enable(ctx->clk[CLK1_MCLK1]))
-				dev_info(ctx->dev,
+				adaptor_logi(ctx,
 				"clk_prepare_enable CLK1_MCLK1(fail)\n");
 		}
-		dev_info(ctx->dev, "[%s] rosc_mode recover. enable aov mclk.\n", __func__);
+		adaptor_logi(ctx, "[%s] rosc_mode recover. enable aov mclk.\n", __func__);
 		ctx->mclk_refcnt = 0;
 	}
 

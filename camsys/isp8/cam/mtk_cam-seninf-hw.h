@@ -161,6 +161,12 @@ enum MTK_CAM_OUTMUX_CFG_MODE {
 
 extern int update_isp_clk(struct seninf_ctx *ctx);
 
+#define MAX_SENINF_DEV_GRP_CNT 4
+struct mtk_cam_seninf_dev {
+	unsigned int count;
+	unsigned int val[MAX_SENINF_DEV_GRP_CNT];
+};
+
 struct mtk_cam_seninf_ops {
 	int (*_init_iomem)(struct seninf_ctx *ctx,
 			      void __iomem *if_top_base, void __iomem *if_async_base,
@@ -214,6 +220,7 @@ struct mtk_cam_seninf_ops {
 	int (*_set_csi_afifo_pop)(struct seninf_ctx *ctx);
 	int (*_get_csi_irq_status)(struct seninf_ctx *ctx);
 	int (*_common_reg_setup)(struct seninf_ctx *ctx);
+	int (*_get_device_sel_setting)(struct device *dev, struct mtk_cam_seninf_dev *dev_setting);
 	unsigned int async_num;
 	unsigned int outmux_num;
 	const char *iomem_ver;

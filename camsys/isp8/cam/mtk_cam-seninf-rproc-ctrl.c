@@ -8,6 +8,7 @@
 
 #include "mtk_cam-seninf-rproc-ctrl.h"
 #include "mtk_cam-seninf-tsrec.h"
+#include "mtk_cam-seninf-hw.h"
 
 
 static struct device_node *seninf_rproc_node;
@@ -227,13 +228,15 @@ void mtk_cam_seninf_rproc_init_ccu_ctrl(struct device *dev,
 /******************************************************************************/
 // public / user define function
 /******************************************************************************/
-void mtk_cam_seninf_rproc_ccu_tsrec_ctrl(struct device *dev,
-	struct seninf_rproc_ccu_ctrl *p_ccu_ctrl, const unsigned int ccu_msg_id,
-	const char *caller)
+void mtk_cam_seninf_rproc_ccu_ctrl(struct device *dev,
+	struct seninf_rproc_ccu_ctrl *p_ccu_ctrl, const unsigned int ccu_msg_id[],
+	const unsigned int msg_id_cnt, const char *caller)
 {
-	struct tsrec_irq_sel_info tsrec_irq_sel = {0};
 	const int curr_pwn_cnt = atomic_read(&p_ccu_ctrl->pwn_cnt);
-	int ret, is_msg_id_valid = 1;
+	void *p_data = NULL;
+	unsigned int i = 0;
+	unsigned int data_size = 0;
+	int ret;
 
 	/* first, check if seninf rproc exist */
 	if (unlikely(is_seninf_rproc_node_valid(dev, __func__) != 0))
@@ -244,24 +247,42 @@ void mtk_cam_seninf_rproc_ccu_tsrec_ctrl(struct device *dev,
 	if (unlikely(ret != 0))
 		return;
 
-	/* by id choose correct work */
-	switch (ccu_msg_id) {
-	case MSG_TO_CCU_SENINF_TSREC_IRQ_SEL_CTRL:
-		mtk_cam_seninf_tsrec_g_irq_sel_info(&tsrec_irq_sel);
-		break;
-	default:
-		is_msg_id_valid = 0;
-		dev_info(dev,
-			"[%s] ERROR: unknown msg_id:%u => is_msg_id_valid:%u, skip ipc send\n",
-			__func__, ccu_msg_id, is_msg_id_valid);
-		break;
-	}
+	for (i = 0; i < msg_id_cnt; i ++) {
+		/* by id choose correct work */
+		switch (ccu_msg_id[i]) {
+		case MSG_TO_CCU_SENINF_TSREC_IRQ_SEL_CTRL:
+			{
+				struct tsrec_irq_sel_info tsrec_irq_sel = {0};
 
-	/* send ipc msg to ccu */
-	if (likely(is_msg_id_valid)) {
-		mtk_cam_seninf_rproc_ccu_ipc_send(dev,
-			p_ccu_ctrl, MSG_TO_CCU_SENINF_TSREC_IRQ_SEL_CTRL,
-			&tsrec_irq_sel, sizeof(tsrec_irq_sel), __func__);
+				mtk_cam_seninf_tsrec_g_irq_sel_info(&tsrec_irq_sel);
+
+				p_data = &tsrec_irq_sel;
+				data_size = sizeof(tsrec_irq_sel);
+			}
+			break;
+		case MSG_TO_CCU_SENINF_DEVICE_GRP_SEL_CTRL:
+			{
+				struct mtk_cam_seninf_dev seninf_dev_sel = {0};
+
+				g_seninf_ops->_get_device_sel_setting(dev, &seninf_dev_sel);
+
+				p_data = &seninf_dev_sel;
+				data_size = sizeof(seninf_dev_sel);
+			}
+			break;
+		default:
+			dev_info(dev,
+				"[%s] ERROR: unknown msg_id:%u, skip ipc send\n",
+				__func__, ccu_msg_id[i]);
+			break;
+		}
+
+		/* send ipc msg to ccu */
+		if (likely(p_data)) {
+			mtk_cam_seninf_rproc_ccu_ipc_send(dev,
+				p_ccu_ctrl, ccu_msg_id[i],
+				p_data, data_size, __func__);
+		}
 	}
 
 	/* shutdown ccu */
@@ -269,7 +290,8 @@ void mtk_cam_seninf_rproc_ccu_tsrec_ctrl(struct device *dev,
 
 	// dev_dbg(dev,
 	dev_info(dev,
-		"[%s] pwn_cnt:(%d => %d), ccu_msg_id:%u(valid:%u)\n",
+		"[%s] pwn_cnt:(%d => %d), ccu_msg_id_cnt:%u\n",
 		__func__, curr_pwn_cnt, atomic_read(&p_ccu_ctrl->pwn_cnt),
-		ccu_msg_id, is_msg_id_valid);
+		msg_id_cnt);
 }
+

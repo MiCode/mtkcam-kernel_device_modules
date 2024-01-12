@@ -6723,6 +6723,21 @@ static int mtk_cam_seninf_common_reg_setup(struct seninf_ctx *ctx)
 	return 0;
 }
 
+static int mtk_cam_seninf_device_sel_setting(struct device *dev,
+			struct mtk_cam_seninf_dev *dev_setting)
+{
+	if (!dev_setting) {
+		dev_info(dev, "[%s] parameter dev_setting is null", __func__);
+		return -EINVAL;
+	}
+
+	// Allocate all outmux to dev0
+	dev_setting->count = 1;
+	dev_setting->val[0] = 0x7FFFFF;
+
+	return 0;
+}
+
 struct mtk_cam_seninf_ops mtk_csi_phy_3_0 = {
 	._init_iomem = mtk_cam_seninf_init_iomem,
 	._init_port = mtk_cam_seninf_init_port,
@@ -6776,4 +6791,5 @@ struct mtk_cam_seninf_ops mtk_csi_phy_3_0 = {
 	._set_csi_afifo_pop = mtk_cam_seninf_set_csi_afifo_pop,
 	._get_csi_irq_status = mtk_cam_get_csi_irq_status,
 	._common_reg_setup = mtk_cam_seninf_common_reg_setup,
+	._get_device_sel_setting = mtk_cam_seninf_device_sel_setting,
 };

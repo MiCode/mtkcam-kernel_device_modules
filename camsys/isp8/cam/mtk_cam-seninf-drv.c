@@ -3603,6 +3603,15 @@ static int set_vcore_power(struct seninf_ctx *ctx, u64 data_rate)
 
 static int core_common_reg_setup(struct seninf_ctx *ctx)
 {
+	const unsigned int ccu_msg_id[] = {
+		MSG_TO_CCU_SENINF_TSREC_IRQ_SEL_CTRL, /* tsrec device irq sel */
+		MSG_TO_CCU_SENINF_DEVICE_GRP_SEL_CTRL, /* seninf outmux device sel */
+	};
+
+	/* setup reg control by ccu */
+	mtk_cam_seninf_rproc_ccu_ctrl(ctx->dev, &ctx->core->ccu_rproc_ctrl,
+		ccu_msg_id, ARRAY_SIZE(ccu_msg_id), __func__);
+
 	g_seninf_ops->_common_reg_setup(ctx);
 	return 0;
 }
@@ -3767,10 +3776,6 @@ static int runtime_resume(struct device *dev)
 
 			/* enable tsrec timer clk */
 			mtk_cam_seninf_tsrec_timer_enable(1);
-
-			/* setup default tsrec device irq sel by ccu */
-			mtk_cam_seninf_rproc_ccu_tsrec_ctrl(dev, &core->ccu_rproc_ctrl,
-				MSG_TO_CCU_SENINF_TSREC_IRQ_SEL_CTRL, __func__);
 
 			/* setup common reg */
 			core_common_reg_setup(ctx);

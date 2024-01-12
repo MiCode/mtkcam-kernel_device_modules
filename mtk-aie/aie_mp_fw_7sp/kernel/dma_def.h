@@ -346,4 +346,4 @@ extern char fdvt_kernel_bias_loop85_0_frame01_7sp[];
 extern char fdvt_kernel_bias_loop85_1_frame01_7sp[];
 #define fdvt_kernel_bias_loop85_1_frame01_size 1040
 
-#endif /*__MTK_AIE_7SP_KERNEL_DMA_DEF_H__*/
+#endif /*__MTK_AIE_frame01_7sp_KERNEL_DMA_DEF_H__*/

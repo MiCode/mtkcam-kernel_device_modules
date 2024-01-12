@@ -2844,11 +2844,13 @@ signed int dpe_deque_cb(struct frame *frames, void *req)
 			kfree((struct tee_mmu *)SrcImg_C_mmu);
 			kfree((struct tee_mmu *)InBuf_OCC_mmu);
 			kfree((struct tee_mmu *)OutBuf_CRM_mmu);
+			kfree((struct tee_mmu *)ASF_RM_mmu);
 			kfree((struct tee_mmu *)ASF_RD_mmu);
 			kfree((struct tee_mmu *)ASF_HF_mmu);
 			kfree((struct tee_mmu *)WMF_RD_mmu);
 			kfree((struct tee_mmu *)WMF_FILT_mmu);
 			kfree((struct tee_mmu *)InBuf_OCC_Ext_mmu);
+			kfree((struct tee_mmu *)ASF_RM_Ext_mmu);
 			kfree((struct tee_mmu *)ASF_RD_Ext_mmu);
 			kfree((struct tee_mmu *)ASF_HF_Ext_mmu);
 			DVP_Num = 0;

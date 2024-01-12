@@ -196,8 +196,8 @@ static inline bool mtk_cam_check_mipi_pixel_rate(struct mtk_cam_res_calc *c,
 static inline bool mtk_cam_raw_check_line_buffer(struct mtk_cam_res_calc *c,
 						 bool enable_log)
 {
-	const int max_main_pipe_w = 6632;
-	const int max_main_pipe_twin_w = 6200;
+	const int max_main_pipe_w = GET_PLAT_HW(max_main_pipe_w);
+	const int max_main_pipe_twin_w = GET_PLAT_HW(max_main_pipe_twin_w);
 	int max_width;
 	bool valid;
 

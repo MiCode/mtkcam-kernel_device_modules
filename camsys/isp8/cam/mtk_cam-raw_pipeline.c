@@ -682,6 +682,7 @@ static int mtk_raw_calc_raw_resource(struct mtk_raw_pipeline *pipeline,
 
 CALC_RESOURCE:
 	memset(&stepper, 0, sizeof(stepper));
+
 	/* frontal pixel mode */
 #if CAMSV_16P_ENABLE
 	stepper.frontal_pixel_mode_max =
@@ -693,8 +694,12 @@ CALC_RESOURCE:
 
 	/* constraints */
 	/* always 2 pixel mode, beside sensor size <= 1920 */
-	stepper.pixel_mode_min = (s->width <= PIX_MODE_SIZE_CONSTRAIN) ? 1 : 2;
-	stepper.pixel_mode_max = 2;
+	if (GET_PLAT_HW(has_pixel_mode_contraints))
+		stepper.pixel_mode_min = (s->width <= PIX_MODE_SIZE_CONSTRAIN) ? 1 : 2;
+	else
+		stepper.pixel_mode_min = 1;
+
+	stepper.pixel_mode_max = GET_PLAT_HW(pixel_mode_max);
 
 	mtk_raw_calc_num_raw_max_min(r,
 				     &stepper.num_raw_min,

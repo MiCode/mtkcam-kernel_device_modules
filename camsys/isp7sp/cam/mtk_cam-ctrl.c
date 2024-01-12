@@ -1925,8 +1925,10 @@ static void mtk_cam_watchdog_sensor_worker(struct work_struct *work)
 	mtk_dump_debug_for_no_vsync(ctx);
 	vsync_collector_dump(&ctrl->vsync_col);
 
-	mtk_cam_event_error(ctrl, MSG_VSYNC_TIMEOUT);
-	WRAP_AEE_EXCEPTION(MSG_VSYNC_TIMEOUT, "watchdog timeout");
+	if (!mtk_cam_is_display_ic(ctx)) {
+		mtk_cam_event_error(ctrl, MSG_VSYNC_TIMEOUT);
+		WRAP_AEE_EXCEPTION(MSG_VSYNC_TIMEOUT, "watchdog timeout");
+	}
 
 EXIT_WORK:
 	complete(&wd->work_complete);

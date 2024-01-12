@@ -18,6 +18,8 @@
 #include <linux/slab.h>
 #include <linux/ioctl.h>
 
+#define MAX_TASK_NAME_SIZE 10
+
 extern int debug_log_on;
 
 typedef struct C2PS_INIT_PARAM {
@@ -40,6 +42,7 @@ typedef struct C2PS_TASK_INIT_PARAMS {
 	u32 perf_prefer_ratio;
 	bool is_vip_task;
 	bool is_dynamic_tid;
+	char task_name[MAX_TASK_NAME_SIZE];
 } C2PS_TASK_INIT_PARAMS;
 
 typedef struct C2PS_PACKAGE {

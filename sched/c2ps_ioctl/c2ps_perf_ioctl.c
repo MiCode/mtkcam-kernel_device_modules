@@ -15,7 +15,8 @@ EXPORT_SYMBOL_GPL(c2ps_notify_uninit_fp);
 int (*c2ps_notify_add_task_fp)(
     u32 task_id, u32 task_target_time, u32 default_uclamp,
 	int group_head, u32 task_group_target_time,
-	bool is_vip_task, bool is_dynamic_tid);
+	bool is_vip_task, bool is_dynamic_tid,
+	const char *task_name);
 EXPORT_SYMBOL_GPL(c2ps_notify_add_task_fp);
 int (*c2ps_notify_task_start_fp)(int pid, int task_id);
 EXPORT_SYMBOL_GPL(c2ps_notify_task_start_fp);
@@ -105,7 +106,8 @@ static long device_ioctl(
 			(&c2ps_tsk_init_param)->task_group_head,
 			(&c2ps_tsk_init_param)->task_group_target_time,
 			(&c2ps_tsk_init_param)->is_vip_task,
-			(&c2ps_tsk_init_param)->is_dynamic_tid);
+			(&c2ps_tsk_init_param)->is_dynamic_tid,
+			(&c2ps_tsk_init_param)->task_name);
 		break;
 	case C2PS_TASK_START:
 		C2PS_LOGD("C2PS_TASK_START");

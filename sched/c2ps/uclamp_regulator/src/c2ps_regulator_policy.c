@@ -151,7 +151,7 @@ void c2ps_regulator_policy_simple(struct regulator_req *req)
 		req->tsk_info->latest_uclamp);
 
 	/* debug tool tag */
-	c2ps_systrace_d(
+	c2ps_main_systrace(
 		"c2ps simple policy: task: %d average_proc_time: %llu, "
 		"realtime_proc_time: %llu",
 		req->tsk_info->task_id, average_proc_time,
@@ -216,11 +216,14 @@ void c2ps_regulator_bgpolicy_simple(struct regulator_req *req)
 		set_gear_uclamp_max(cluster_index, *_cur_bg_uclamp);
 	}
 
-	c2ps_systrace_d(
-		"background uclamp max cluster_0: %d, cluster_1: %d, cluster_2: %d",
-		req->glb_info->curr_max_uclamp[0],
-		req->glb_info->curr_max_uclamp[1],
-		req->glb_info->curr_max_uclamp[2]);
+	c2ps_bg_info_systrace(
+		"cluster_0_util=%d cluster_1_util=%d cluster_2_util=%d "
+		"cluster_0_freq=%ld cluster_1_freq=%ld cluster_2_freq=%ld",
+		req->glb_info->curr_max_uclamp[0], req->glb_info->curr_max_uclamp[1],
+		req->glb_info->curr_max_uclamp[2],
+		pd_get_util_freq(LCORE_ID, req->glb_info->curr_max_uclamp[0]),
+		pd_get_util_freq(MCORE_ID, req->glb_info->curr_max_uclamp[1]),
+		pd_get_util_freq(BCORE_ID, req->glb_info->curr_max_uclamp[2]));
 
 	C2PS_LOGD("debug: c2ps_regulator_bgpolicy_simple set"
 			  "uclamp max: %d, %d, %d",

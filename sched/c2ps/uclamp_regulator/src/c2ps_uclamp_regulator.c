@@ -16,14 +16,15 @@ static DEFINE_MUTEX(regulator_notifier_wq_lock);
 static DEFINE_MUTEX(regulator_notifier_flush_lock);
 static DECLARE_WAIT_QUEUE_HEAD(regulator_notifier_wq_queue);
 static int c2ps_regulator_process_mode = 0;
-static unsigned int c2ps_remote_monitor_task = 0;
 static unsigned int c2ps_remote_monitor_proc_time = 0;
 static unsigned int c2ps_remote_monitor_uclamp = 0;
+static char c2ps_remote_monitor_task[30] = "None";
 
 module_param(c2ps_regulator_process_mode, int, 0644);
-module_param(c2ps_remote_monitor_task, int, 0644);
 module_param(c2ps_remote_monitor_proc_time, int, 0644);
 module_param(c2ps_remote_monitor_uclamp, int, 0644);
+module_param_string(c2ps_remote_monitor_task,
+			c2ps_remote_monitor_task, 30, 0644);
 
 
 #define WAIT_FLUSH_START()                              \
@@ -55,7 +56,8 @@ static void regulator_process(struct regulator_req *req)
 		return;
 	}
 
-	if (req->tsk_info && c2ps_remote_monitor_task == req->tsk_info->task_id) {
+	if (req->tsk_info &&
+		strstr(c2ps_remote_monitor_task, req->tsk_info->task_name)) {
 		c2ps_remote_monitor_uclamp = req->tsk_info->latest_uclamp;
 		c2ps_remote_monitor_proc_time = req->tsk_info->hist_proc_time_sum /
 							proc_time_window_size;;

@@ -1561,10 +1561,20 @@ void mtk_cam_ctrl_sensor_job_enque(struct mtk_cam_ctrl *cam_ctrl,
 
 	if (job->seamless_switch)
 		mtk_cam_job_set_fsm(job, 0);
-
+	if (job->raw_switch)
+		atomic_inc(&cam_ctrl->stream_on_cnt);
 	/* add to statemachine */
 	write_lock(&cam_ctrl->list_lock);
-
+	/* note:
+	 *	 fsm enabling is part of statemachine.
+	 *	 should be protected by 'cam_ctrl->list_lock'
+	 */
+	if (atomic_read(&cam_ctrl->stream_on_cnt)) {
+		mtk_cam_job_set_fsm(job, 0);
+		if (CAM_DEBUG_ENABLED(CTRL))
+			pr_info("disable job #%d's fsm, stream_on_cnt(%d)\n",
+				job->req_seq, atomic_read(&cam_ctrl->stream_on_cnt));
+	}
 	list_add_tail(&job->job_state.list, &cam_ctrl->camsys_state_list);
 	write_unlock(&cam_ctrl->list_lock);
 
@@ -1581,9 +1591,6 @@ void mtk_cam_ctrl_isp_job_enque(struct mtk_cam_ctrl *cam_ctrl,
 
 	if (job->seamless_switch)
 		mtk_cam_job_set_fsm(job, 0);
-
-	if (job->raw_switch)
-		atomic_inc(&cam_ctrl->stream_on_cnt);
 
 	/* initial request */
 	if (cam_ctrl->initial_req) {
@@ -1602,22 +1609,6 @@ void mtk_cam_ctrl_isp_job_enque(struct mtk_cam_ctrl *cam_ctrl,
 				__func__, cam_ctrl->ctx->stream_id, cam_ctrl->r_info.extisp_enable);
 		}
 	}
-
-	/* add to statemachine */
-	write_lock(&cam_ctrl->list_lock);
-
-	/* note:
-	 *   fsm enabling is part of statemachine.
-	 *   should be protected by 'cam_ctrl->list_lock'
-	 */
-	if (atomic_read(&cam_ctrl->stream_on_cnt)) {
-		mtk_cam_job_set_fsm(job, 0);
-		if (CAM_DEBUG_ENABLED(CTRL))
-			pr_info("disable job #%d's fsm, stream_on_cnt(%d)\n",
-				job->req_seq, atomic_read(&cam_ctrl->stream_on_cnt));
-	}
-
-	write_unlock(&cam_ctrl->list_lock);
 
 	/* following would trigger actions */
 	mtk_cam_job_set_fsm_compose(job, 1);

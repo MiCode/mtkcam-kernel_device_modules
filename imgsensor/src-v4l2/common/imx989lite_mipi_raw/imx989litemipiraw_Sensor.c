@@ -2918,7 +2918,7 @@ static int get_imgsensor_id(struct subdrv_ctx *ctx, u32 *sensor_id)
 			*sensor_id +=1;
 			DRV_LOG(ctx, "i2c_write_id(0x%x) sensor_id(0x%x/0x%x)\n",
 				ctx->i2c_write_id, *sensor_id, ctx->s_ctx.sensor_id);
-			if (*sensor_id == IMX598LITE_SENSOR_ID) {
+			if (*sensor_id == IMX989LITE_SENSOR_ID) {
 				*sensor_id = ctx->s_ctx.sensor_id;
 				return ERROR_NONE;
 			}

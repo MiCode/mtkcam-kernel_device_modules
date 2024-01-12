@@ -22,6 +22,8 @@
  ****************************************************************************/
 #include "imx766dualmipiraw_Sensor.h"
 
+#define IMX766DUAL_EMBEDDED_DATA_EN 0
+
 static void set_sensor_cali(void *arg);
 static int get_sensor_temperature(void *arg);
 static void set_group_hold(void *arg, u8 en);
@@ -95,6 +97,7 @@ static struct mtk_mbus_frame_desc_entry frame_desc_prev[] = {
 			.is_active_line = TRUE,
 		},
 	},
+#if IMX766DUAL_EMBEDDED_DATA_EN
 	{
 		.bus.csi2 = {
 			.channel = 0,
@@ -105,6 +108,7 @@ static struct mtk_mbus_frame_desc_entry frame_desc_prev[] = {
 			.ebd_parsing_type = MTK_EBD_PARSING_TYPE_MIPI_RAW10,
 		},
 	},
+#endif
 };
 static struct mtk_mbus_frame_desc_entry frame_desc_cap[] = {
 	{
@@ -128,6 +132,7 @@ static struct mtk_mbus_frame_desc_entry frame_desc_cap[] = {
 			.is_active_line = TRUE,
 		},
 	},
+#if IMX766DUAL_EMBEDDED_DATA_EN
 	{
 		.bus.csi2 = {
 			.channel = 0,
@@ -138,6 +143,7 @@ static struct mtk_mbus_frame_desc_entry frame_desc_cap[] = {
 			.ebd_parsing_type = MTK_EBD_PARSING_TYPE_MIPI_RAW10,
 		},
 	},
+#endif
 };
 static struct mtk_mbus_frame_desc_entry frame_desc_vid[] = {
 	{
@@ -161,6 +167,7 @@ static struct mtk_mbus_frame_desc_entry frame_desc_vid[] = {
 			.is_active_line = TRUE,
 		},
 	},
+#if IMX766DUAL_EMBEDDED_DATA_EN
 	{
 		.bus.csi2 = {
 			.channel = 0,
@@ -171,6 +178,7 @@ static struct mtk_mbus_frame_desc_entry frame_desc_vid[] = {
 			.ebd_parsing_type = MTK_EBD_PARSING_TYPE_MIPI_RAW10,
 		},
 	},
+#endif
 };
 static struct mtk_mbus_frame_desc_entry frame_desc_hs_vid[] = {
 	{
@@ -194,6 +202,7 @@ static struct mtk_mbus_frame_desc_entry frame_desc_hs_vid[] = {
 			.is_active_line = TRUE,
 		},
 	},
+#if IMX766DUAL_EMBEDDED_DATA_EN
 	{
 		.bus.csi2 = {
 			.channel = 0,
@@ -204,6 +213,7 @@ static struct mtk_mbus_frame_desc_entry frame_desc_hs_vid[] = {
 			.ebd_parsing_type = MTK_EBD_PARSING_TYPE_MIPI_RAW10,
 		},
 	},
+#endif
 };
 static struct mtk_mbus_frame_desc_entry frame_desc_slim_vid[] = {
 	{
@@ -227,6 +237,7 @@ static struct mtk_mbus_frame_desc_entry frame_desc_slim_vid[] = {
 			.is_active_line = TRUE,
 		},
 	},
+#if IMX766DUAL_EMBEDDED_DATA_EN
 	{
 		.bus.csi2 = {
 			.channel = 0,
@@ -237,6 +248,7 @@ static struct mtk_mbus_frame_desc_entry frame_desc_slim_vid[] = {
 			.ebd_parsing_type = MTK_EBD_PARSING_TYPE_MIPI_RAW10,
 		},
 	},
+#endif
 };
 static struct mtk_mbus_frame_desc_entry frame_desc_cus1[] = {
 	{
@@ -260,6 +272,7 @@ static struct mtk_mbus_frame_desc_entry frame_desc_cus1[] = {
 			.is_active_line = TRUE,
 		},
 	},
+#if IMX766DUAL_EMBEDDED_DATA_EN
 	{
 		.bus.csi2 = {
 			.channel = 0,
@@ -270,6 +283,7 @@ static struct mtk_mbus_frame_desc_entry frame_desc_cus1[] = {
 			.ebd_parsing_type = MTK_EBD_PARSING_TYPE_MIPI_RAW10,
 		},
 	},
+#endif
 };
 static struct mtk_mbus_frame_desc_entry frame_desc_cus2[] = {
 	{
@@ -293,6 +307,7 @@ static struct mtk_mbus_frame_desc_entry frame_desc_cus2[] = {
 			.is_active_line = TRUE,
 		},
 	},
+#if IMX766DUAL_EMBEDDED_DATA_EN
 	{
 		.bus.csi2 = {
 			.channel = 0,
@@ -303,6 +318,7 @@ static struct mtk_mbus_frame_desc_entry frame_desc_cus2[] = {
 			.ebd_parsing_type = MTK_EBD_PARSING_TYPE_MIPI_RAW10,
 		},
 	},
+#endif
 };
 static struct mtk_mbus_frame_desc_entry frame_desc_cus3[] = {
 	{
@@ -326,6 +342,7 @@ static struct mtk_mbus_frame_desc_entry frame_desc_cus3[] = {
 			.is_active_line = TRUE,
 		},
 	},
+#if IMX766DUAL_EMBEDDED_DATA_EN
 	{
 		.bus.csi2 = {
 			.channel = 0,
@@ -336,6 +353,7 @@ static struct mtk_mbus_frame_desc_entry frame_desc_cus3[] = {
 			.ebd_parsing_type = MTK_EBD_PARSING_TYPE_MIPI_RAW10,
 		},
 	},
+#endif
 };
 static struct mtk_mbus_frame_desc_entry frame_desc_cus4[] = {
 	{
@@ -380,6 +398,7 @@ static struct mtk_mbus_frame_desc_entry frame_desc_cus4[] = {
 			.is_active_line = TRUE,
 		},
 	},
+#if IMX766DUAL_EMBEDDED_DATA_EN
 	{
 		.bus.csi2 = {
 			.channel = 0,
@@ -390,6 +409,7 @@ static struct mtk_mbus_frame_desc_entry frame_desc_cus4[] = {
 			.ebd_parsing_type = MTK_EBD_PARSING_TYPE_MIPI_RAW10,
 		},
 	},
+#endif
 };
 static struct mtk_mbus_frame_desc_entry frame_desc_cus5[] = {
 	{
@@ -413,6 +433,7 @@ static struct mtk_mbus_frame_desc_entry frame_desc_cus5[] = {
 			.is_active_line = TRUE,
 		},
 	},
+#if IMX766DUAL_EMBEDDED_DATA_EN
 	{
 		.bus.csi2 = {
 			.channel = 0,
@@ -423,6 +444,7 @@ static struct mtk_mbus_frame_desc_entry frame_desc_cus5[] = {
 			.ebd_parsing_type = MTK_EBD_PARSING_TYPE_MIPI_RAW10,
 		},
 	},
+#endif
 };
 static struct mtk_mbus_frame_desc_entry frame_desc_cus6[] = {
 	{
@@ -435,6 +457,7 @@ static struct mtk_mbus_frame_desc_entry frame_desc_cus6[] = {
 			.is_active_line = TRUE,
 		},
 	},
+#if IMX766DUAL_EMBEDDED_DATA_EN
 	{
 		.bus.csi2 = {
 			.channel = 0,
@@ -445,6 +468,7 @@ static struct mtk_mbus_frame_desc_entry frame_desc_cus6[] = {
 			.ebd_parsing_type = MTK_EBD_PARSING_TYPE_MIPI_RAW10,
 		},
 	},
+#endif
 };
 static struct mtk_mbus_frame_desc_entry frame_desc_cus7[] = {
 	{
@@ -457,6 +481,7 @@ static struct mtk_mbus_frame_desc_entry frame_desc_cus7[] = {
 			.is_active_line = TRUE,
 		},
 	},
+#if IMX766DUAL_EMBEDDED_DATA_EN
 	{
 		.bus.csi2 = {
 			.channel = 0,
@@ -467,6 +492,7 @@ static struct mtk_mbus_frame_desc_entry frame_desc_cus7[] = {
 			.ebd_parsing_type = MTK_EBD_PARSING_TYPE_MIPI_RAW10,
 		},
 	},
+#endif
 };
 static struct mtk_mbus_frame_desc_entry frame_desc_cus8[] = {
 	{
@@ -490,6 +516,7 @@ static struct mtk_mbus_frame_desc_entry frame_desc_cus8[] = {
 			.is_active_line = TRUE,
 		},
 	},
+#if IMX766DUAL_EMBEDDED_DATA_EN
 	{
 		.bus.csi2 = {
 			.channel = 0,
@@ -500,6 +527,7 @@ static struct mtk_mbus_frame_desc_entry frame_desc_cus8[] = {
 			.ebd_parsing_type = MTK_EBD_PARSING_TYPE_MIPI_RAW10,
 		},
 	},
+#endif
 };
 static struct mtk_mbus_frame_desc_entry frame_desc_cus9[] = {
 	{
@@ -523,6 +551,7 @@ static struct mtk_mbus_frame_desc_entry frame_desc_cus9[] = {
 			.is_active_line = TRUE,
 		},
 	},
+#if IMX766DUAL_EMBEDDED_DATA_EN
 	{
 		.bus.csi2 = {
 			.channel = 0,
@@ -533,6 +562,7 @@ static struct mtk_mbus_frame_desc_entry frame_desc_cus9[] = {
 			.ebd_parsing_type = MTK_EBD_PARSING_TYPE_MIPI_RAW10,
 		},
 	},
+#endif
 };
 static struct mtk_mbus_frame_desc_entry frame_desc_cus10[] = {
 	{
@@ -556,6 +586,7 @@ static struct mtk_mbus_frame_desc_entry frame_desc_cus10[] = {
 			.is_active_line = TRUE,
 		},
 	},
+#if IMX766DUAL_EMBEDDED_DATA_EN
 	{
 		.bus.csi2 = {
 			.channel = 0,
@@ -566,6 +597,7 @@ static struct mtk_mbus_frame_desc_entry frame_desc_cus10[] = {
 			.ebd_parsing_type = MTK_EBD_PARSING_TYPE_MIPI_RAW10,
 		},
 	},
+#endif
 };
 static struct mtk_mbus_frame_desc_entry frame_desc_cus11[] = {
 	{
@@ -589,6 +621,7 @@ static struct mtk_mbus_frame_desc_entry frame_desc_cus11[] = {
 			.is_active_line = TRUE,
 		},
 	},
+#if IMX766DUAL_EMBEDDED_DATA_EN
 	{
 		.bus.csi2 = {
 			.channel = 0,
@@ -599,6 +632,7 @@ static struct mtk_mbus_frame_desc_entry frame_desc_cus11[] = {
 			.ebd_parsing_type = MTK_EBD_PARSING_TYPE_MIPI_RAW10,
 		},
 	},
+#endif
 };
 static struct mtk_mbus_frame_desc_entry frame_desc_cus12[] = {
 	{
@@ -643,6 +677,7 @@ static struct mtk_mbus_frame_desc_entry frame_desc_cus12[] = {
 			.is_active_line = TRUE,
 		},
 	},
+#if IMX766DUAL_EMBEDDED_DATA_EN
 	{
 		.bus.csi2 = {
 			.channel = 0,
@@ -653,6 +688,7 @@ static struct mtk_mbus_frame_desc_entry frame_desc_cus12[] = {
 			.ebd_parsing_type = MTK_EBD_PARSING_TYPE_MIPI_RAW10,
 		},
 	},
+#endif
 };
 static struct mtk_mbus_frame_desc_entry frame_desc_cus13[] = {
 	{
@@ -676,6 +712,7 @@ static struct mtk_mbus_frame_desc_entry frame_desc_cus13[] = {
 			.is_active_line = TRUE,
 		},
 	},
+#if IMX766DUAL_EMBEDDED_DATA_EN
 	{
 		.bus.csi2 = {
 			.channel = 0,
@@ -686,6 +723,7 @@ static struct mtk_mbus_frame_desc_entry frame_desc_cus13[] = {
 			.ebd_parsing_type = MTK_EBD_PARSING_TYPE_MIPI_RAW10,
 		},
 	},
+#endif
 };
 static struct mtk_mbus_frame_desc_entry frame_desc_cus14[] = {
 	{
@@ -709,6 +747,7 @@ static struct mtk_mbus_frame_desc_entry frame_desc_cus14[] = {
 			.is_active_line = TRUE,
 		},
 	},
+#if IMX766DUAL_EMBEDDED_DATA_EN
 	{
 		.bus.csi2 = {
 			.channel = 0,
@@ -719,6 +758,7 @@ static struct mtk_mbus_frame_desc_entry frame_desc_cus14[] = {
 			.ebd_parsing_type = MTK_EBD_PARSING_TYPE_MIPI_RAW10,
 		},
 	},
+#endif
 };
 static struct mtk_mbus_frame_desc_entry frame_desc_cus15[] = {
 	{
@@ -742,6 +782,7 @@ static struct mtk_mbus_frame_desc_entry frame_desc_cus15[] = {
 			.is_active_line = TRUE,
 		},
 	},
+#if IMX766DUAL_EMBEDDED_DATA_EN
 	{
 		.bus.csi2 = {
 			.channel = 0,
@@ -752,6 +793,7 @@ static struct mtk_mbus_frame_desc_entry frame_desc_cus15[] = {
 			.ebd_parsing_type = MTK_EBD_PARSING_TYPE_MIPI_RAW10,
 		},
 	},
+#endif
 };
 static struct mtk_mbus_frame_desc_entry frame_desc_cus16[] = {
 	{
@@ -796,6 +838,7 @@ static struct mtk_mbus_frame_desc_entry frame_desc_cus16[] = {
 			.is_active_line = TRUE,
 		},
 	},
+#if IMX766DUAL_EMBEDDED_DATA_EN
 	{
 		.bus.csi2 = {
 			.channel = 0,
@@ -806,6 +849,7 @@ static struct mtk_mbus_frame_desc_entry frame_desc_cus16[] = {
 			.ebd_parsing_type = MTK_EBD_PARSING_TYPE_MIPI_RAW10,
 		},
 	},
+#endif
 };
 static struct mtk_mbus_frame_desc_entry frame_desc_cus17[] = {
 	{
@@ -818,6 +862,7 @@ static struct mtk_mbus_frame_desc_entry frame_desc_cus17[] = {
 			.is_active_line = TRUE,
 		},
 	},
+#if IMX766DUAL_EMBEDDED_DATA_EN
 	{
 		.bus.csi2 = {
 			.channel = 0,
@@ -828,6 +873,7 @@ static struct mtk_mbus_frame_desc_entry frame_desc_cus17[] = {
 			.ebd_parsing_type = MTK_EBD_PARSING_TYPE_MIPI_RAW10,
 		},
 	},
+#endif
 };
 static struct mtk_mbus_frame_desc_entry frame_desc_cus18[] = {
 	{
@@ -851,6 +897,7 @@ static struct mtk_mbus_frame_desc_entry frame_desc_cus18[] = {
 			.is_active_line = TRUE,
 		},
 	},
+#if IMX766DUAL_EMBEDDED_DATA_EN
 	{
 		.bus.csi2 = {
 			.channel = 0,
@@ -861,6 +908,7 @@ static struct mtk_mbus_frame_desc_entry frame_desc_cus18[] = {
 			.ebd_parsing_type = MTK_EBD_PARSING_TYPE_MIPI_RAW10,
 		},
 	},
+#endif
 };
 static struct mtk_mbus_frame_desc_entry frame_desc_cus19[] = {
 	{
@@ -884,6 +932,7 @@ static struct mtk_mbus_frame_desc_entry frame_desc_cus19[] = {
 			.is_active_line = TRUE,
 		},
 	},
+#if IMX766DUAL_EMBEDDED_DATA_EN
 	{
 		.bus.csi2 = {
 			.channel = 0,
@@ -894,6 +943,7 @@ static struct mtk_mbus_frame_desc_entry frame_desc_cus19[] = {
 			.ebd_parsing_type = MTK_EBD_PARSING_TYPE_MIPI_RAW10,
 		},
 	},
+#endif
 };
 
 static struct subdrv_mode_struct mode_struct[] = {

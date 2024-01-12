@@ -137,6 +137,8 @@ static u32 imx989_dcg_ratio_table_12bit[] = {4000};
 
 static u32 imx989_dcg_ratio_table_14bit[] = {16000};
 
+static u32 imx989_dcg_ratio_table_ratio4[] = {4000};
+
 static struct mtk_sensor_saturation_info imgsensor_saturation_info_10bit = {
 	.gain_ratio = 1000,
 	.OB_pedestal = 64,
@@ -2287,13 +2289,15 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.saturation_info = &imgsensor_saturation_info_10bit,
 		.dcg_info = {
 			.dcg_mode = IMGSENSOR_DCG_RAW,
-			.dcg_gain_mode = IMGSENSOR_DCG_DIRECT_MODE,
-			.dcg_gain_ratio_min = 0,
-			.dcg_gain_ratio_max = 0,
+			.dcg_gain_mode = IMGSENSOR_DCG_RATIO_MODE,
+			.dcg_gain_ratio_min = 4000,
+			.dcg_gain_ratio_max = 4000,
 			.dcg_gain_ratio_step = 0,
-			.dcg_gain_table = PARAM_UNDEFINED,
-			.dcg_gain_table_size = PARAM_UNDEFINED,
+			.dcg_gain_table = imx989_dcg_ratio_table_ratio4,
+			.dcg_gain_table_size = sizeof(imx989_dcg_ratio_table_ratio4),
 		},
+		.multi_exposure_ana_gain_range[IMGSENSOR_EXPOSURE_LE].min = BASEGAIN * 4,
+		.multi_exposure_ana_gain_range[IMGSENSOR_EXPOSURE_ME].max = BASEGAIN * 16,
 	},
 	{
 		.frame_desc = frame_desc_cus25,
@@ -2344,13 +2348,15 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.saturation_info = &imgsensor_saturation_info_10bit,
 		.dcg_info = {
 			.dcg_mode = IMGSENSOR_DCG_RAW,
-			.dcg_gain_mode = IMGSENSOR_DCG_DIRECT_MODE,
-			.dcg_gain_ratio_min = 0,
-			.dcg_gain_ratio_max = 0,
+			.dcg_gain_mode = IMGSENSOR_DCG_RATIO_MODE,
+			.dcg_gain_ratio_min = 4000,
+			.dcg_gain_ratio_max = 4000,
 			.dcg_gain_ratio_step = 0,
-			.dcg_gain_table = PARAM_UNDEFINED,
-			.dcg_gain_table_size = PARAM_UNDEFINED,
+			.dcg_gain_table = imx989_dcg_ratio_table_ratio4,
+			.dcg_gain_table_size = sizeof(imx989_dcg_ratio_table_ratio4),
 		},
+		.multi_exposure_ana_gain_range[IMGSENSOR_EXPOSURE_LE].min = BASEGAIN * 4,
+		.multi_exposure_ana_gain_range[IMGSENSOR_EXPOSURE_ME].max = BASEGAIN * 16,
 	},
 };
 

@@ -16,6 +16,7 @@
 #include <linux/of_platform.h>
 #include <linux/dma-heap.h>
 #include <uapi/linux/dma-heap.h>
+#include <linux/pm_runtime.h>
 
 #include <linux/device.h>
 #include <media/v4l2-ctrls.h>
@@ -92,15 +93,28 @@ static const struct v4l2_pix_format_mplane mtk_mae_img_fmts[] = {
 };
 #define NUM_FORMATS ARRAY_SIZE(mtk_mae_img_fmts)
 
-	// MAE_TO_DO: Clk and PWR
-static struct mae_data data_isp8;
-// static struct mae_data data_isp8 = {
-// 	.clks = ipesys_isp7s_aie_clks,
-// 	.clk_num = ARRAY_SIZE(ipesys_isp7s_aie_clks),
-// };
+struct mae_data {
+	struct clk_bulk_data *clks;
+	unsigned int clk_num;
+	const struct mtk_mae_drv_ops *drv_ops;
+};
+
+static struct clk_bulk_data isp8_mae_clks[] = {
+	{ .id = "VCORE_GALS_DISP" },
+	{ .id = "VCORE_MAIN" },
+	{ .id = "VCORE_SUB0_CAMERA_P2" },
+	{ .id = "VCORE_SUB1_CAMERA_P2" },
+	{ .id = "FDVT_CAMERA_P2" },
+	{ .id = "LARB12_CAMERA_P2" },
+	{ .id = "IPE_CAMERA_P2" },
+	{ .id = "SUB_COMMON2_CAMERA_P2" },
+	{ .id = "SUB_COMMON3_CAMERA_P2" },
+	{ .id = "GALS_TRX_IPE0_CAMERA_P2" },
+	{ .id = "GALS_TRX_IPE1_CAMERA_P2" },
+	{ .id = "GALS_CAMERA_P2" },
+};
 
 static struct mtk_mae_drv_ops drv_ops;
-
 void mtk_mae_register_drv_ops(const struct mtk_mae_drv_ops *ops) {
 	drv_ops.set_dma_address = ops->set_dma_address;
 	drv_ops.config_hw = ops->config_hw;
@@ -110,6 +124,12 @@ void mtk_mae_register_drv_ops(const struct mtk_mae_drv_ops *ops) {
 	drv_ops.get_fd_result = ops->get_fd_result;
 }
 EXPORT_SYMBOL(mtk_mae_register_drv_ops);
+
+static struct mae_data data_isp8 = {
+	.clks = isp8_mae_clks,
+	.clk_num = ARRAY_SIZE(isp8_mae_clks),
+	.drv_ops = &drv_ops,
+};
 
 void aov_notify_register(aov_notify aov_notify_fn)
 {
@@ -122,6 +142,57 @@ enum MAE_BUF_TYPE {
 	CACHED_BUF,
 	UNCACHED_BUF
 };
+
+static int mtk_mae_dev_larb_init(struct mtk_mae_dev *fd)
+{
+	struct device_node *node;
+	struct platform_device *pdev;
+	struct device_link *link;
+
+	node = of_parse_phandle(fd->dev->of_node, "mediatek,larb", 0);
+	if (!node)
+		return -EINVAL;
+	pdev = of_find_device_by_node(node);
+	if (WARN_ON(!pdev)) {
+		of_node_put(node);
+		return -EINVAL;
+	}
+	of_node_put(node);
+
+	fd->larb = &pdev->dev;
+
+	link = device_link_add(fd->dev, &pdev->dev,
+					DL_FLAG_PM_RUNTIME | DL_FLAG_STATELESS);
+	if (!link) {
+		dev_info(fd->dev, "unable to link SMI LARB idx\n");
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
+static int mtk_mae_ccf_enable(struct device *dev)
+{
+	struct mtk_mae_dev *mae_dev = dev_get_drvdata(dev);
+	int ret;
+
+	ret = clk_bulk_prepare_enable(mae_dev->clks_data.clk_num,
+			mae_dev->clks_data.clks);
+	if (ret) {
+		dev_info(mae_dev->dev, "failed to enable mae clock:%d\n", ret);
+		return ret;
+	}
+
+	return 0;
+}
+
+static void mtk_mae_ccf_disable(struct device *dev)
+{
+	struct mtk_mae_dev *mae_dev = dev_get_drvdata(dev);
+
+	clk_bulk_disable_unprepare(mae_dev->clks_data.clk_num,
+			mae_dev->clks_data.clks);
+}
 
 static struct dma_buf *mae_imem_sec_alloc(struct mtk_mae_dev *mae_dev,
 						uint32_t size,
@@ -566,15 +637,20 @@ static void mtk_mae_vb2_buf_queue(struct vb2_buffer *vb)
 static int mtk_mae_hw_connect(struct mtk_mae_dev *mae_dev)
 {
 	struct dmabuf_info *buf_info = &mae_dev->map_table->internal_dmabuf_info;
+	struct device *dev = mae_dev->dev;
 	int ret;
 
 	mae_dev_info(mae_dev->dev, "%s+ count(%d)", __func__, mae_dev->mae_stream_count);
 
+	/* unavailable: 0 available: 1 */
 	if (m_aov_notify != NULL)
-		m_aov_notify(mae_dev->aov_pdev, AOV_NOTIFY_AIE_AVAIL, 0); //unavailable: 0 available: 1
+		m_aov_notify(mae_dev->aov_pdev, AOV_NOTIFY_AIE_AVAIL, 0);
 
 	mae_dev->mae_stream_count++;
 	if (mae_dev->mae_stream_count == 1) {
+		/* power on */
+		pm_runtime_get_sync(dev);
+		mtk_mae_ccf_enable(dev);
 	// MAE_TO_DO: shutdown flow
 		cmdq_mbox_enable(mae_dev->mae_clt->chan);
 		cmdq_clear_event(mae_dev->mae_clt->chan, mae_dev->mae_event_id);
@@ -641,14 +717,12 @@ static void mtk_mae_hw_disconnect(struct mtk_mae_dev *mae_dev)
 	// DEBUG_ONLY
 	mae_dev_info(mae_dev->dev, "%s+ count(%d)", __func__, mae_dev->mae_stream_count);
 
-	// MAE_TO_DO: secure
-	// MAE_TO_DO: pm runtime put sync
-
-
 	mae_dev->mae_stream_count--;
 	if (mae_dev->mae_stream_count == 0) {
 		// MAE_TO_DO:
 		// cmdq_mbox_disable(mae_dev->mae_clt->chan);
+		mtk_mae_ccf_disable(mae_dev->dev);
+		pm_runtime_put_sync(mae_dev->dev);
 
 		// MAE_TO_DO: unmap buffer
 		mtk_mae_umap_detach(mae_dev, &mae_dev->map_table->model_table_dmabuf_info);
@@ -1571,6 +1645,7 @@ int mtk_mae_probe(struct platform_device *pdev)
 	struct device *dev = &pdev->dev;
 	int ret;
 	struct resource *res;
+	const struct mae_data *data;
 
 	mae_dev_info(dev ,"%s+", __func__);
 
@@ -1580,7 +1655,11 @@ int mtk_mae_probe(struct platform_device *pdev)
 
 	memset(mae_dev, 0, sizeof(*mae_dev));
 
-	// MAE_TO_DO: get Data
+	data = of_device_get_match_data(&pdev->dev);
+	if (!data) {
+		dev_info(dev, "match data is NULL\n");
+		return PTR_ERR(data);
+	}
 
 	if (dma_set_mask_and_coherent(dev, DMA_BIT_MASK(34)))
 		mae_dev_info(dev, "%s: No suitable DMA available\n", __func__);
@@ -1606,9 +1685,23 @@ int mtk_mae_probe(struct platform_device *pdev)
 		return PTR_ERR(mae_dev->mae_base);
 	}
 
-	// MAE_TO_DO: Larb init
+	/* Larb init */
+	ret = mtk_mae_dev_larb_init(mae_dev);
+	if (ret) {
+		dev_info(dev, "Failed to init larb : %d\n", ret);
+		return ret;
+	}
 
-	// MAE_TO_DO: Clk get
+	/* Clock get */
+	mae_dev->clks_data.clk_num = data->clk_num;
+	mae_dev->clks_data.clks = data->clks;
+	ret = devm_clk_bulk_get(dev,
+			mae_dev->clks_data.clk_num,
+			mae_dev->clks_data.clks);
+	if (ret) {
+		dev_info(dev, "Failed to get clks: %d\n", ret);
+		return ret;
+	}
 
 	mae_dev->mae_clt = cmdq_mbox_create(dev, 0);
 	if (!mae_dev->mae_clt)
@@ -1650,7 +1743,7 @@ int mtk_mae_probe(struct platform_device *pdev)
 
 	mae_dev->aov_pdev = pdev;
 
-	// MAE_TO_DO: pm_runtime_enable
+	pm_runtime_enable(dev);
 
 	ret = mtk_mae_dev_v4l2_init(mae_dev);
 	if (ret) {
@@ -1670,6 +1763,7 @@ int mtk_mae_probe(struct platform_device *pdev)
 	return 0;
 
 err_destroy_mutex:
+	pm_runtime_disable(dev);
 	destroy_workqueue(mae_dev->frame_done_wq);
 	mutex_destroy(&mae_dev->vdev_lock);
 
@@ -1689,7 +1783,7 @@ int mtk_mae_remove(struct platform_device *pdev)
 	v4l2_device_unregister(&mae_dev->v4l2_dev);
 
 	// MAE_TO_DO
-	// pm_runtime_disable(&pdev->dev);
+	pm_runtime_disable(&pdev->dev);
 	// fd->frame_done_wq = NULL;
 
 	mutex_destroy(&mae_dev->vdev_lock);

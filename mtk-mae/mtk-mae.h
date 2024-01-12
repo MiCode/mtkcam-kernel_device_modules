@@ -423,7 +423,7 @@ struct rsz_setting_out {
 	int32_t reg_cb_factor_ve;
 };
 
-struct mae_data {
+struct mae_clocks {
 	struct clk_bulk_data *clks;
 	unsigned int clk_num;
 };
@@ -438,6 +438,8 @@ struct mtk_mae_dev {
 	struct device *smmu_dev;
 	struct media_device mdev;
 	struct v4l2_device v4l2_dev;
+	struct device *larb;
+	struct mae_clocks clks_data;
 #if M2M_ENABLE
 	struct v4l2_m2m_dev *m2m_dev;
 	uint64_t mae_out;

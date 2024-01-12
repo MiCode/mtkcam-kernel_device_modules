@@ -4330,3 +4330,64 @@ int mtk_cam_seninf_aov_runtime_resume(unsigned int sensor_id,
 	return 0;
 }
 EXPORT_SYMBOL(mtk_cam_seninf_aov_runtime_resume);
+
+int mtk_cam_seninf_aov_reset_sensor(unsigned int sensor_id)
+{
+	struct seninf_ctx *ctx = NULL;
+	unsigned int real_sensor_id = 0;
+	struct seninf_core *core = NULL;
+	int reset_by_user = 0;
+
+	pr_info("[%s] sensor_id(%d)\n", __func__, sensor_id);
+
+	if (g_aov_param.is_test_model) {
+		real_sensor_id = 5;
+	} else {
+		if (sensor_id == g_aov_param.sensor_idx) {
+			real_sensor_id = g_aov_param.sensor_idx;
+			pr_info("input sensor id(%u)(success)\n", real_sensor_id);
+		} else {
+			real_sensor_id = sensor_id;
+			pr_info("input sensor id(%u)(fail)\n", real_sensor_id);
+			seninf_aee_print(
+				"[AEE] [%s] input sensor id(%u)(fail)",
+				__func__, real_sensor_id);
+			return -ENODEV;
+		}
+	}
+	/* debug use
+	 * if (g_aov_param.sensor_idx)
+	 *	pr_info("g_aov_param.sensor_idx %d\n",
+	 *		g_aov_param.sensor_idx);
+	 */
+	if (aov_ctx[real_sensor_id] != NULL) {
+		pr_info("[%s] sensor idx(%u)\n", __func__, real_sensor_id);
+		ctx = aov_ctx[real_sensor_id];
+	} else {
+		pr_info("[%s] Can't find ctx from input sensor id!\n", __func__);
+		return -ENODEV;
+	}
+
+	core = ctx->core;
+	mutex_lock(&core->mutex);
+
+	reset_by_user = is_reset_by_user(ctx);
+	if (!reset_by_user && !g_aov_param.is_test_model) {
+		/* switch i2c bus scl from scp to apmcu */
+		aov_switch_i2c_bus_scl_aux(ctx, SCL13);
+		/* switch i2c bus sda from scp to apmcu */
+		aov_switch_i2c_bus_sda_aux(ctx, SDA13);
+		/* restore aov pm ops: pm_stay_awake */
+		aov_switch_pm_ops(ctx, AOV_PM_STAY_AWAKE);
+		reset_sensor(ctx);
+		/* switch i2c bus scl from apmcu to scp */
+		aov_switch_i2c_bus_scl_aux(ctx, SCL3);
+		/* switch i2c bus sda from apmcu to scp */
+		aov_switch_i2c_bus_sda_aux(ctx, SDA3);
+	}
+
+	mutex_unlock(&core->mutex);
+
+	return 0;
+}
+EXPORT_SYMBOL(mtk_cam_seninf_aov_reset_sensor);

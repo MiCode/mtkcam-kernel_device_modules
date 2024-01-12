@@ -450,6 +450,8 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.ae_binning_ratio = 1420,
 		.fine_integ_line = 0,
 		.delay_frame = 2,
+		.dpc_enabled = TRUE,
+		.pdc_enabled = TRUE,
 	},
 	// mode 1: same as preview mode
 	{
@@ -493,6 +495,8 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.ae_binning_ratio = 1420,
 		.fine_integ_line = 0,
 		.delay_frame = 3,
+		.dpc_enabled = TRUE,
+		.pdc_enabled = TRUE,
 	},
 	// mode 2: 4624*2604@30fps, noraml video + pd
 	{
@@ -536,6 +540,8 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.ae_binning_ratio = 1420,
 		.fine_integ_line = 0,
 		.delay_frame = 3,
+		.dpc_enabled = TRUE,
+		.pdc_enabled = TRUE,
 	},
 	// mode 3: 4624*2604@60fps, m-stream
 	{
@@ -579,6 +585,8 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.ae_binning_ratio = 1420,
 		.fine_integ_line = 0,
 		.delay_frame = 3,
+		.dpc_enabled = TRUE,
+		.pdc_enabled = FALSE,
 	},
 	// mode 4: 4624*2604@30fps, stagger 2exp, non-pd
 	{
@@ -624,6 +632,8 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.ae_binning_ratio = 1420,
 		.fine_integ_line = 0,
 		.delay_frame = 3,
+		.dpc_enabled = TRUE,
+		.pdc_enabled = FALSE,
 	},
 	// mode 5: 4624*3472@30fps, stagger 2exp, non-pd
 	{
@@ -669,6 +679,8 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.ae_binning_ratio = 1420,
 		.fine_integ_line = 0,
 		.delay_frame = 3,
+		.dpc_enabled = TRUE,
+		.pdc_enabled = FALSE,
 	},
 	// mode 6: 4624*2604@25fps, stagger 2exp + pd
 	{
@@ -714,6 +726,8 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.ae_binning_ratio = 1420,
 		.fine_integ_line = 0,
 		.delay_frame = 3,
+		.dpc_enabled = TRUE,
+		.pdc_enabled = TRUE,
 	},
 	// mode 7: 4624*3472@20fps, stagger 2exp + pd
 	{
@@ -759,6 +773,8 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.ae_binning_ratio = 1420,
 		.fine_integ_line = 0,
 		.delay_frame = 3,
+		.dpc_enabled = TRUE,
+		.pdc_enabled = TRUE,
 	},
 	// mode 8: 4624*3472@30fps, full size + center crop + pd
 	{
@@ -800,6 +816,8 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.ae_binning_ratio = 1420,
 		.fine_integ_line = 0,
 		.delay_frame = 3,
+		.dpc_enabled = TRUE,
+		.pdc_enabled = TRUE,
 	},
 	// mode 9: 4624*3472@30fps, 4-cell pattern, full size + center crop + pd
 	{
@@ -844,6 +862,8 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.fine_integ_line = 0,
 		.delay_frame = 3,
 		.sensor_output_dataformat = SENSOR_OUTPUT_FORMAT_RAW_4CELL_B,
+		.dpc_enabled = TRUE,
+		.pdc_enabled = TRUE,
 	},
 	// mode 10: 9248*6944@15fps, full size + pd
 	{
@@ -887,6 +907,8 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.ae_binning_ratio = 1420,
 		.fine_integ_line = 0,
 		.delay_frame = 3,
+		.dpc_enabled = TRUE,
+		.pdc_enabled = TRUE,
 	},
 	// mode 11: 9248*6944@15fps, 4-cell pattern, full size + pd
 	{
@@ -931,6 +953,8 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.fine_integ_line = 0,
 		.delay_frame = 3,
 		.sensor_output_dataformat = SENSOR_OUTPUT_FORMAT_RAW_4CELL_B,
+		.dpc_enabled = TRUE,
+		.pdc_enabled = TRUE,
 	},
 };
 

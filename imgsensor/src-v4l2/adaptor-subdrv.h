@@ -161,6 +161,24 @@ struct dcg_info_struct {
 	u32 dcg_gain_table_size;
 };
 
+
+#define MAX_EBD_PIXEL_OFFSET_NUM 2
+struct ebd_loc {
+	u16 loc_line;
+	u16 loc_pix[MAX_EBD_PIXEL_OFFSET_NUM];
+};
+
+struct ebd_info_struct {
+	struct ebd_loc frm_cnt_loc;
+	struct ebd_loc coarse_integ_loc[IMGSENSOR_STAGGER_EXPOSURE_CNT];
+	struct ebd_loc ana_gain_loc[IMGSENSOR_STAGGER_EXPOSURE_CNT];
+	struct ebd_loc dig_gain_loc[IMGSENSOR_STAGGER_EXPOSURE_CNT];
+	struct ebd_loc coarse_integ_shift_loc;
+	struct ebd_loc dol_loc;
+	struct ebd_loc framelength_loc;
+	struct ebd_loc temperature_loc;
+};
+
 struct subdrv_mode_struct {
 	u16 *mode_setting_table;
 	u32 mode_setting_len;
@@ -324,6 +342,9 @@ struct subdrv_static_ctx {
 
 	/* custom stream control delay timing for hw limitation */
 	u64 custom_stream_ctrl_delay;
+
+	/* embedded data line parsing */
+	struct ebd_info_struct ebd_info;
 };
 
 #define HDR_CAP_IHDR 0x1
@@ -463,6 +484,9 @@ struct subdrv_ops {
 
 	int (*power_on)(struct subdrv_ctx *ctx, void *data);
 	int (*power_off)(struct subdrv_ctx *ctx, void *data);
+	int (*parse_ebd_line)(struct subdrv_ctx *ctx,
+		struct mtk_recv_sensor_ebd_line *data,
+		struct mtk_ebd_dump *obj);
 };
 
 struct subdrv_entry {

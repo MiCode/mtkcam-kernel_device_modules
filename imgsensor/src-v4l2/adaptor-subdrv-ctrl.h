@@ -193,4 +193,6 @@ int common_get_csi_param(struct subdrv_ctx *ctx,
 	enum SENSOR_SCENARIO_ID_ENUM scenario_id,
 	struct mtk_csi_param *csi_param);
 int common_update_sof_cnt(struct subdrv_ctx *ctx, u32 sof_cnt);
+int common_parse_ebd_line(struct subdrv_ctx *ctx, struct mtk_recv_sensor_ebd_line *data,
+	struct mtk_ebd_dump *obj);
 #endif

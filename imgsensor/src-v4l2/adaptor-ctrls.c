@@ -12,6 +12,7 @@
 #include "adaptor-fsync-ctrls.h"
 #include "adaptor-hw.h"
 #include "adaptor-trace.h"
+#include "adaptor-util.h"
 
 #define ctrl_to_ctx(ctrl) \
 	container_of(ctrl->handler, struct adaptor_ctx, ctrls)
@@ -124,12 +125,52 @@ static void dump_perframe_info(struct adaptor_ctx *ctx, struct mtk_hdr_ae *ae_ct
 {
 	const unsigned long long curr_sys_ts = ktime_get_boottime_ns();
 	unsigned int delta_ae_ctrl_sof_cnt_ms = 0, delta_curr_ae_ctrl_ms = 0;
+	struct mtk_ebd_dump *obj;
+	char *ebd_msg = NULL;
+	int sret;
 
 	calc_ae_ctrl_dbg_info_ts_diff(ctx, curr_sys_ts,
 		&delta_ae_ctrl_sof_cnt_ms, &delta_curr_ae_ctrl_ms);
 
+	mutex_lock(&ctx->ebd_lock);
+	if (ctx->latest_ebd.recv_ts) {
+		obj = &ctx->latest_ebd.record;
+		ebd_msg = kzalloc(ADAPTOR_LOG_BUF_SZ + 1, GFP_KERNEL);
+
+		if (ebd_msg) {
+			sret = snprintf(ebd_msg, ADAPTOR_LOG_BUF_SZ,
+				"| ebd: req#%u req_fd(%s) sys_ts %llu frm_cnt/cit_sft/dol/fll/temp_rg(%u/%u/0x%x/%u/0x%x) cit(%u,%u,%u,%u,%u) again_rg(0x%x,0x%x,0x%x,0x%x,0x%x) dgain_rg(0x%x,0x%x,0x%x,0x%x,0x%x)",
+				ctx->latest_ebd.req_no,
+				ctx->latest_ebd.req_fd_desc,
+				ctx->latest_ebd.recv_ts,
+				obj->frm_cnt, obj->cit_shift, obj->dol, obj->fll, obj->temperature,
+				obj->cit[IMGSENSOR_STAGGER_EXPOSURE_LE],
+				obj->cit[IMGSENSOR_STAGGER_EXPOSURE_ME],
+				obj->cit[IMGSENSOR_STAGGER_EXPOSURE_SE],
+				obj->cit[IMGSENSOR_STAGGER_EXPOSURE_SSE],
+				obj->cit[IMGSENSOR_STAGGER_EXPOSURE_SSSE],
+				obj->again[IMGSENSOR_STAGGER_EXPOSURE_LE],
+				obj->again[IMGSENSOR_STAGGER_EXPOSURE_ME],
+				obj->again[IMGSENSOR_STAGGER_EXPOSURE_SE],
+				obj->again[IMGSENSOR_STAGGER_EXPOSURE_SSE],
+				obj->again[IMGSENSOR_STAGGER_EXPOSURE_SSSE],
+				obj->dgain[IMGSENSOR_STAGGER_EXPOSURE_LE],
+				obj->dgain[IMGSENSOR_STAGGER_EXPOSURE_ME],
+				obj->dgain[IMGSENSOR_STAGGER_EXPOSURE_SE],
+				obj->dgain[IMGSENSOR_STAGGER_EXPOSURE_SSE],
+				obj->dgain[IMGSENSOR_STAGGER_EXPOSURE_SSSE]);
+
+			if (sret <= 0) {
+				dev_info(ctx->dev, "show ebd log failed\n");
+				kfree(ebd_msg);
+				ebd_msg = NULL;
+			}
+		}
+	}
+	mutex_unlock(&ctx->ebd_lock);
+
 	dev_info(ctx->dev,
-		"[%s][%s][inf:%d] idx:%d, req_no:%u, sof_cnt:%u, req_id:%d, [LLLE->SSSE] 64bit s(%llu/%llu/%llu/%llu/%llu) g(%d/%d/%d/%d/%d), w(%llu/%llu/%llu/%llu/%llu,%d/%d/%d/%d/%d) sub_tag:%u, ctx:(fl:(%u,lut:%u/%u/%u)/RG:(%u,%u/%u/%u/%u/%u), min_fl:%u, flick_en:%u, fsync(%d):(%u,%u/%u/%u/%u/%u), mode:(line_time:%u, margin:%u, scen:%u; STG:(rout_l:%u, r_margin:%u, ext_fl:%u)), fast_mode:%u), sys_ts:(%llu->%llu/%llu(+%u)/%llu(+%u))\n",
+		"[%s][%s][inf:%d] idx:%d, req_no:%u, sof_cnt:%u, req_id:%d, [LLLE->SSSE] 64bit s(%llu/%llu/%llu/%llu/%llu) g(%d/%d/%d/%d/%d), w(%llu/%llu/%llu/%llu/%llu,%d/%d/%d/%d/%d) sub_tag:%u, ctx:(fl:(%u,lut:%u/%u/%u)/RG:(%u,%u/%u/%u/%u/%u), min_fl:%u, flick_en:%u, fsync(%d):(%u,%u/%u/%u/%u/%u), mode:(line_time:%u, margin:%u, scen:%u; STG:(rout_l:%u, r_margin:%u, ext_fl:%u)), fast_mode:%u), sys_ts:(%llu->%llu/%llu(+%u)/%llu(+%u))%s\n",
 		ctx->sd.name,
 		(ctx->subdrv) ? (ctx->subdrv->name) : "null",
 		ctx->seninf_idx,
@@ -189,7 +230,10 @@ static void dump_perframe_info(struct adaptor_ctx *ctx, struct mtk_hdr_ae *ae_ct
 		ctx->ae_ctrl_dbg_info.sys_ts_g_ae_ctrl,
 		delta_ae_ctrl_sof_cnt_ms,
 		curr_sys_ts,
-		delta_curr_ae_ctrl_ms);
+		delta_curr_ae_ctrl_ms,
+		ebd_msg ? ebd_msg : "");
+
+	kfree(ebd_msg);
 }
 
 static int set_hdr_exposure_tri(struct adaptor_ctx *ctx, struct mtk_hdr_exposure *info)

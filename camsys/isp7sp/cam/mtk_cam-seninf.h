@@ -32,6 +32,13 @@
 	} \
 } while (0)
 
+#define seninf_logd(_ctx, format, args...) do { \
+	if ((_ctx) && (_ctx)->sensor_sd && unlikely(*((_ctx)->core->seninf_dbg_log))) { \
+		dev_info((_ctx)->dev, "[%s][%s] " format, \
+			(_ctx)->sensor_sd->name, __func__, ##args); \
+	} \
+} while (0)
+
 struct seninf_ctx;
 
 /* aov sensor use */
@@ -157,6 +164,9 @@ struct seninf_core {
 
 	/* debug flag for vsync */
 	u32 *seninf_vsync_debug_flag;
+
+	/* debug log flag */
+	u32 *seninf_dbg_log;
 
 	/* debug flag for aov csi clk */
 	enum mtk_cam_seninf_csi_clk_for_param aov_csi_clk_switch_flag;

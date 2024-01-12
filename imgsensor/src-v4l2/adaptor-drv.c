@@ -830,6 +830,11 @@ static int imgsensor_stop_streaming(struct adaptor_ctx *ctx)
 	u32 len;
 	union feature_para para;
 
+	/* clear ebd record */
+	mutex_lock(&ctx->ebd_lock);
+	memset(&ctx->latest_ebd, 0, sizeof(ctx->latest_ebd));
+	mutex_unlock(&ctx->ebd_lock);
+
 	subdrv_call(ctx, feature_control,
 		SENSOR_FEATURE_SET_STREAMING_SUSPEND,
 		(u8 *)data, &len);
@@ -908,7 +913,6 @@ static int imgsensor_set_stream(struct v4l2_subdev *sd, int enable)
 			goto err_unlock;
 		}
 #endif
-
 		/*
 		 * Apply default & customized values
 		 * and then start streaming.
@@ -1408,6 +1412,7 @@ static int imgsensor_probe(struct i2c_client *client)
 		return -ENOMEM;
 
 	mutex_init(&ctx->mutex);
+	mutex_init(&ctx->ebd_lock);
 	ctx->open_refcnt = 0;
 	ctx->power_refcnt = 0;
 

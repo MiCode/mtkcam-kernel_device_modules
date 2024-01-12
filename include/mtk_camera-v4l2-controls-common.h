@@ -406,6 +406,9 @@ struct mtk_cam_seninf_tsrec_cb_info {
 #define V4L2_CID_UPDATE_SOF_CNT \
 	(V4L2_CID_USER_MTK_SENINF_BASE + 7)
 
+#define V4L2_CID_GET_CSI2_IRQ_STATUS \
+	(V4L2_CID_USER_MTK_SENINF_BASE + 8)
+
 /* C A M S Y S */
 
 #define V4L2_MBUS_FRAMEFMT_PAD_ENABLE  BIT(1)

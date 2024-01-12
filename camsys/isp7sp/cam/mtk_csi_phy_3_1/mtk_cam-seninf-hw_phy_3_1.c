@@ -5247,6 +5247,22 @@ static int mtk_cam_seninf_debug_current_status(struct seninf_ctx *ctx)
 	return ret;
 }
 
+static int mtk_cam_get_csi_irq_status(struct seninf_ctx *ctx)
+{
+	void *base_csi_mac;
+	int ret = 0;
+
+	if (!ctx->streaming)
+		return 0;
+
+	base_csi_mac = ctx->reg_csirx_mac_csi[(uint32_t)ctx->port];
+	ret = SENINF_READ_REG(base_csi_mac, CSIRX_MAC_CSI2_IRQ_STATUS);
+	//dev_info(ctx->dev,"CSI_RX%d_MAC_CSI2_IRQ_STATUS(0x%x)\n", ctx->port, ret);
+	SENINF_WRITE_REG(base_csi_mac, CSIRX_MAC_CSI2_IRQ_STATUS, 0xffffffff);
+
+	return ret;
+}
+
 static int mtk_cam_seninf_get_tsrec_timestamp(struct seninf_ctx *ctx, void *arg)
 {
 	int ret = 0;
@@ -7028,4 +7044,5 @@ struct mtk_cam_seninf_ops mtk_csi_phy_3_1 = {
 	._debug_init_deskew_begin_end_apply_code = debug_init_deskew_begin_end_apply_code,
 	._debug_current_status = mtk_cam_seninf_debug_current_status,
 	._set_csi_afifo_pop = mtk_cam_seninf_set_csi_afifo_pop,
+	._get_csi_irq_status = mtk_cam_get_csi_irq_status,
 };

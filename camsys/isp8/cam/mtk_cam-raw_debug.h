@@ -24,10 +24,6 @@ struct reg_to_dump {
 };
 
 #define ADD_DMA_ERR(name) { #name, REG_ ## name ## _BASE + DMA_OFFSET_ERR_STAT }
-#define ADD_DMA_FBC(name) { #name, REG_FBC_ ## name ## _CTL2 }
-
-void dump_raw_dma_fbc(struct mtk_raw_device *raw);
-void dump_yuv_dma_fbc(struct mtk_yuv_device *yuv);
 
 void dump_raw_dma_err_st(struct mtk_raw_device *raw);
 void dump_yuv_dma_err_st(struct mtk_yuv_device *yuv);

@@ -30,6 +30,8 @@ struct mtk_raw_device {
 	int irq;
 	void __iomem *base;
 	void __iomem *base_inner;
+	void __iomem *dmatop_base;
+	void __iomem *dmatop_base_inner;
 	void __iomem *yuv_base;
 	void __iomem *yuv_base_inner;
 	void __iomem *rms_base;
@@ -86,6 +88,8 @@ struct mtk_yuv_device {
 	unsigned int id;
 	void __iomem *base;
 	void __iomem *base_inner;
+	void __iomem *dmatop_base;
+	void __iomem *dmatop_base_inner;
 	unsigned int num_clks;
 	struct clk **clks;
 #ifdef CONFIG_PM_SLEEP

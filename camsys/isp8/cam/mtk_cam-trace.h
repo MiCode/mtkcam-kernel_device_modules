@@ -26,59 +26,65 @@ TRACE_EVENT(tracing_mark_write,
 TRACE_EVENT_CONDITION(raw_irq,
 	TP_PROTO(struct device *dev,
 		 unsigned int cookie,
-		 unsigned int irq,
+		 unsigned int frame,
+		 unsigned int tg1,
+		 unsigned int cq,
 		 unsigned int dmao_done,
 		 unsigned int dmai_done,
-		 unsigned int cq_done,
-		 unsigned int dcif_status
-		),
+		 unsigned int dcif_status),
 	TP_ARGS(dev,
 		cookie,
-		irq,
+		frame,
+		tg1,
+		cq,
 		dmao_done,
 		dmai_done,
-		cq_done,
-		dcif_status
-	       ),
-	TP_CONDITION(irq || dmao_done || dmai_done || cq_done || dcif_status),
+		dcif_status),
+	TP_CONDITION(frame || tg1 || cq || dmao_done || dmai_done || dcif_status),
 	TP_STRUCT__entry(
 		__string(device, dev_name(dev))
 		__field(unsigned int, cookie)
-		__field(unsigned int, irq)
+		__field(unsigned int, frame)
+		__field(unsigned int, tg1)
+		__field(unsigned int, cq)
 		__field(unsigned int, dmao_done)
 		__field(unsigned int, dmai_done)
-		__field(unsigned int, cq_done)
 		__field(unsigned int, dcif_status)
 	),
 	TP_fast_assign(
 		__assign_str(device, dev_name(dev));
 		__entry->cookie = cookie;
-		__entry->irq = irq;
+		__entry->frame = frame;
+		__entry->tg1 = tg1;
+		__entry->cq = cq;
 		__entry->dmao_done = dmao_done;
 		__entry->dmai_done = dmai_done;
-		__entry->cq_done = cq_done;
 		__entry->dcif_status = dcif_status;
 	),
-	TP_printk("%s c=0x%x irq=0x%08x dmao=0x%08x dmai=0x%08x cq=0x%08x dcif=0x%08x %s",
+	TP_printk("%s c=0x%x frame=0x%08x tg1=0x%08x cq=0x%08x dmao/i=0x%08x/0x%08x dcif=0x%08x %s %s %s",
 		  __get_str(device),
 		  __entry->cookie,
-		  __entry->irq,
+		  __entry->frame,
+		  __entry->tg1,
+		  __entry->cq,
 		  __entry->dmao_done,
 		  __entry->dmai_done,
-		  __entry->cq_done,
 		  __entry->dcif_status,
-		  __print_flags(__entry->irq & 0x21fe0c0, "|",
-				{ BIT(6),	"TG_OVERRUN" },
+		  __print_flags(__entry->frame & 0x50, "|",
+				{ BIT(6),	"RAW_INCOMPLETE_BY_CFG_SW" },
+				{ BIT(4),	"DMA_ERR" }),
+		  __print_flags(__entry->tg1 & 0xc0, "|",
 				{ BIT(7),	"TG_GRABERR" },
-				{ BIT(13),	"CQ_DB_LOAD_ERR" },
-				{ BIT(14),	"MAX_START_SMALL" },
-				{ BIT(15),	"MAX_START_DLY_ERR" },
-				{ BIT(16),	"CQ_MAIN_CODE_ERR" },
-				{ BIT(17),	"CQ_MAIN_VS_ERR" },
-				{ BIT(18),	"CQ_MAIN_TRIG_DLY" },
-				{ BIT(19),	"CQ_SUB_CODE_ERR" },
-				{ BIT(20),	"CQ_SUB_VS_ERR" },
-				{ BIT(25),	"DMA_ERR" })
+				{ BIT(6),	"TG_OVERRUN" }),
+		  __print_flags(__entry->cq & 0xff0000, "|",
+				{ BIT(16),	"CQ_DB_LOAD_ERR" },
+				{ BIT(17),	"MAX_START_SMALL" },
+				{ BIT(18),	"MAX_START_DLY_ERR" },
+				{ BIT(19),	"CQ_MAIN_CODE_ERR" },
+				{ BIT(20),	"CQ_MAIN_VS_ERR" },
+				{ BIT(21),	"CQ_MAIN_TRIG_DLY" },
+				{ BIT(22),	"CQ_SUB_CODE_ERR" },
+				{ BIT(23),	"CQ_SUB_VS_ERR" })
 	)
 );
 
@@ -86,29 +92,29 @@ TRACE_EVENT_CONDITION(yuv_irq,
 	TP_PROTO(struct device *dev,
 		 unsigned int irq,
 		 unsigned int dmao_done,
-		 unsigned int dmai_done),
+		 unsigned int tsm_mismatch),
 	TP_ARGS(dev,
 		irq,
 		dmao_done,
-		dmai_done),
-	TP_CONDITION(irq || dmao_done || dmai_done),
+		tsm_mismatch),
+	TP_CONDITION(irq || dmao_done || tsm_mismatch),
 	TP_STRUCT__entry(
 		__string(device, dev_name(dev))
 		__field(unsigned int, irq)
 		__field(unsigned int, dmao_done)
-		__field(unsigned int, dmai_done)
+		__field(unsigned int, tsm_mismatch)
 	),
 	TP_fast_assign(
 		__assign_str(device, dev_name(dev));
 		__entry->irq = irq;
 		__entry->dmao_done = dmao_done;
-		__entry->dmai_done = dmai_done;
+		__entry->tsm_mismatch = tsm_mismatch;
 	),
-	TP_printk("%s irq=0x%08x dmao=0x%08x dmai=0x%08x %s",
+	TP_printk("%s irq=0x%08x dmao=0x%08x tfm_mismatch=0x%08x %s",
 		  __get_str(device),
 		  __entry->irq,
 		  __entry->dmao_done,
-		  __entry->dmai_done,
+		  __entry->tsm_mismatch,
 		  __print_flags(__entry->irq & 0x4, "|",
 				{ BIT(2),	"DMA_ERR" })
 	)
@@ -116,30 +122,30 @@ TRACE_EVENT_CONDITION(yuv_irq,
 
 TRACE_EVENT_CONDITION(raw_dma_status,
 	TP_PROTO(struct device *dev,
-		 unsigned int drop,
+		 unsigned int frame,
 		 unsigned int overflow,
 		 unsigned int underflow
 		),
 	TP_ARGS(dev,
-		drop,
+		frame,
 		overflow,
 		underflow),
-	TP_CONDITION(drop || overflow || underflow),
+	TP_CONDITION(frame || overflow || underflow),
 	TP_STRUCT__entry(
 		__string(device, dev_name(dev))
-		__field(unsigned int, drop)
+		__field(unsigned int, frame)
 		__field(unsigned int, overflow)
 		__field(unsigned int, underflow)
 	),
 	TP_fast_assign(
 		__assign_str(device, dev_name(dev));
-		__entry->drop = drop;
+		__entry->frame = frame;
 		__entry->overflow = overflow;
 		__entry->underflow = underflow;
 	),
-	TP_printk("%s drop=0x%08x overflow=0x%08x underflow=0x%08x",
+	TP_printk("%s frame=0x%08x overflow=0x%08x (raw)underflow(yuv)tfm_mismatch=0x%08x",
 		  __get_str(device),
-		  __entry->drop,
+		  __entry->frame,
 		  __entry->overflow,
 		  __entry->underflow
 	)

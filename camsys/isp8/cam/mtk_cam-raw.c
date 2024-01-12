@@ -43,9 +43,6 @@
 
 #define RAW_DEBUG 0
 
-/* use spare register FHG/FH_SPARE_7 */
-#define REG_FRAME_SEQ_NUM					0x2c40
-
 static int reset_msgfifo(struct mtk_raw_device *dev);
 
 #define FIFO_THRESHOLD(FIFO_SIZE, HEIGHT_RATIO, LOW_RATIO) \
@@ -76,6 +73,16 @@ static struct mtk_yuv_device *get_yuv_dev(struct mtk_raw_device *raw_dev)
 	return dev_get_drvdata(dev);
 }
 
+static struct mtk_rms_device *get_rms_dev(struct mtk_raw_device *raw_dev)
+{
+	struct device *dev;
+	struct mtk_cam_device *cam = raw_dev->cam;
+
+	dev = cam->engines.rms_devs[raw_dev->id];
+
+	return dev_get_drvdata(dev);
+}
+
 static struct mtk_raw_device *get_raw_dev(struct mtk_yuv_device *yuv_dev)
 {
 	struct device *dev;
@@ -98,10 +105,14 @@ static void init_camsys_settings(struct mtk_raw_device *dev, bool is_srt, bool i
 	set_topdebug_rdyreq(dev, is_srt ? ALL_THE_TIME : TG_OVERRUN);
 
 	//Set CQI sram size
-	set_fifo_threshold(dev->base + REG_CQI_R1_BASE, 64);
-	set_fifo_threshold(dev->base + REG_CQI_R2_BASE, 64);
-	set_fifo_threshold(dev->base + REG_CQI_R3_BASE, 64);
-	set_fifo_threshold(dev->base + REG_CQI_R4_BASE, 64);
+	set_fifo_threshold(dev->dmatop_base + REG_CQI_R1_BASE, 64);
+	set_fifo_threshold(dev->dmatop_base + REG_CQI_R2_BASE, 64);
+	set_fifo_threshold(dev->dmatop_base + REG_CQI_R3_BASE, 64);
+	set_fifo_threshold(dev->dmatop_base + REG_CQI_R4_BASE, 64);
+	set_fifo_threshold(dev->dmatop_base + REG_CQI_R5_BASE, 64);
+	set_fifo_threshold(dev->dmatop_base + REG_CQI_R6_BASE, 64);
+	set_fifo_threshold(dev->dmatop_base + REG_CQI_R7_BASE, 64);
+	set_fifo_threshold(dev->dmatop_base + REG_CQI_R8_BASE, 64);
 
 	// TODO: move HALT1,2,13 to camsv
 	writel_relaxed(HALT1_EN, cam_dev->base + REG_HALT1_EN);
@@ -109,19 +120,20 @@ static void init_camsys_settings(struct mtk_raw_device *dev, bool is_srt, bool i
 	writel_relaxed(HALT13_EN, cam_dev->base + REG_HALT13_EN);
 
 	//Disable low latency
+	/*
 	writel_relaxed(0xffff,
-		dev->base + REG_CAMRAWDMATOP_LOW_LATENCY_LINE_CNT_IMGO_R1);
+		dev->dmatop_base + REG_CAMRAWDMATOP_LOW_LATENCY_LINE_CNT_IMGO_R1);
 	writel_relaxed(0xffff,
-		yuv_dev->base + REG_CAMYUVDMATOP_LOW_LATENCY_LINE_CNT_YUVO_R1);
+		yuv_dev->dmatop_base + REG_CAMYUVDMATOP_LOW_LATENCY_LINE_CNT_YUVO_R1);
 	writel_relaxed(0xffff,
-		yuv_dev->base + REG_CAMYUVDMATOP_LOW_LATENCY_LINE_CNT_YUVO_R3);
+		yuv_dev->dmatop_base + REG_CAMYUVDMATOP_LOW_LATENCY_LINE_CNT_YUVO_R3);
 	writel_relaxed(0xffff,
-		yuv_dev->base + REG_CAMYUVDMATOP_LOW_LATENCY_LINE_CNT_DRZS4NO_R1);
-
+		yuv_dev->dmatop_base + REG_CAMYUVDMATOP_LOW_LATENCY_LINE_CNT_DRZS4NO_R1);
+	*/
 #ifdef DEBUG_DMA_ENABLE_CRC_EN
 	/* for debug: crc_en */
-	writel(BIT(24), dev->base + REG_CAMRAWDMATOP_DMA_DBG_SEL);
-	writel(BIT(24), dev->base + REG_CAMYUVDMATOP_DMA_DBG_SEL);
+	writel(BIT(24), dev->base_dmatop + REG_CAMRAWDMATOP_DMA_DBG_SEL);
+	writel(BIT(24), dev->base_dmatop + REG_CAMYUVDMATOP_DMA_DBG_SEL);
 #endif
 
 	switch (dev->id) {
@@ -219,8 +231,8 @@ static void dump_tg_setting(struct mtk_raw_device *dev, const char *msg)
 static void dump_seqence(struct mtk_raw_device *dev)
 {
 	dev_info(dev->dev, "in 0x%08x out 0x%08x\n",
-		 readl_relaxed(dev->base_inner + REG_FRAME_SEQ_NUM),
-		 readl_relaxed(dev->base + REG_FRAME_SEQ_NUM));
+		 readl_relaxed(dev->base_inner + REG_FHG_FHG_SPARE_1),
+		 readl_relaxed(dev->base + REG_FHG_FHG_SPARE_1));
 }
 
 static void reset_error_handling(struct mtk_raw_device *dev)
@@ -566,7 +578,7 @@ void m2m_update_sof_state(struct mtk_raw_device *dev)
 	int cookie;
 
 	/* update fsm's cookie_inner since m2m flow has no sof to update it */
-	cookie = readl(dev->base_inner + REG_FRAME_SEQ_NUM);
+	cookie = readl(dev->base_inner + REG_FHG_FHG_SPARE_1);
 	engine_fsm_sof(&dev->fsm, cookie, 0, NULL);
 
 	engine_handle_sof(&dev->cq_ref,
@@ -577,7 +589,7 @@ void m2m_update_sof_state(struct mtk_raw_device *dev)
 static inline void trigger_rawi(struct mtk_raw_device *dev, u32 val)
 {
 	//dev_info(dev->dev, "%s: 0x%x\n", __func__, val);
-	writel(val, dev->base + REG_CAMCTL_RAWI_TRIG);
+	writel(val, dev->base + REG_CAMCTL_RAW_TRIG);
 }
 
 void trigger_rawi_r2(struct mtk_raw_device *dev)
@@ -632,7 +644,7 @@ static void write_pkt_apu_raw(struct mtk_raw_device *dev,
 	cmdq_pkt_write(pkt, NULL, 0x1a00032c, adlrd_ctrl, 0xffffffff);
 
 	/* CAMCTL_RAWI_TRIG: CAMCTL_APU_TRIG */
-	cmdq_pkt_write(pkt, NULL, raw_base + REG_CAMCTL_RAWI_TRIG, trig,
+	cmdq_pkt_write(pkt, NULL, raw_base + REG_CAMCTL_RAW_TRIG, trig,
 		       0xffffffff);
 
 	if (CAM_DEBUG_ENABLED(RAW_INT))
@@ -659,21 +671,19 @@ void write_pkt_trigger_apu_frame_mode(struct mtk_raw_device *dev,
 	write_pkt_apu_raw(dev, pkt, false /* is_apu_dc */);
 }
 
-#define REG_DMA_SOFT_RST_STAT               0x4068
-#define REG_DMA_SOFT_RST_STAT2              0x406C
-#define REG_DMA_DBG_CHASING_STATUS          0x4098
-#define REG_DMA_DBG_CHASING_STATUS2         0x409c
 #define RAW_RST_STAT_CHECK		0x37ffffff
 #define RAW_RST_STAT2_CHECK		0x1ff
 #define YUV_RST_STAT_CHECK		0x1efffff
 /* check again for rawi dcif case */
 bool is_all_dma_idle(struct mtk_raw_device *dev)
 {
-	u32 chasing_stat = readl(dev->base + REG_DMA_DBG_CHASING_STATUS);
-	u32 chasing_stat2 = readl(dev->base + REG_DMA_DBG_CHASING_STATUS2);
-	u32 raw_rst_stat = readl(dev->base + REG_DMA_SOFT_RST_STAT);
-	u32 raw_rst_stat2 = readl(dev->base + REG_DMA_SOFT_RST_STAT2);
-	u32 yuv_rst_stat = readl(dev->yuv_base + REG_DMA_SOFT_RST_STAT);
+	struct mtk_yuv_device *yuv = get_yuv_dev(dev);
+
+	u32 chasing_stat = readl(dev->dmatop_base + REG_CAMRAWDMATOP_DC_DBG_CHASING_STATUS);
+	u32 chasing_stat2 = readl(dev->dmatop_base + REG_CAMRAWDMATOP_DC_DBG_CHASING_STATUS2);
+	u32 raw_rst_stat = readl(dev->dmatop_base + REG_CAMRAWDMATOP_DMA_SOFT_RST_STAT);
+	u32 raw_rst_stat2 = readl(dev->dmatop_base + REG_CAMRAWDMATOP_DMA_SOFT_RST_STAT2);
+	u32 yuv_rst_stat = readl(yuv->dmatop_base + REG_CAMYUVDMATOP_DMA_SOFT_RST_STAT);
 
 	if (READ_FIELD(raw_rst_stat,
 			CAMRAWDMATOP_RAWI_R2_SOFT_RST_STAT) == 0 &&
@@ -702,25 +712,25 @@ bool is_all_dma_idle(struct mtk_raw_device *dev)
 	if (READ_FIELD(raw_rst_stat2,
 			CAMRAWDMATOP_RAWI_R4_SOFT_RST_STAT) == 0 &&
 		(READ_FIELD(chasing_stat2,
-			CAMRAWDMATOP_DC_DBG_CHASING_STATUS2_RAWI_R4) & BIT(0)) == 0)
+			CAMRAWDMATOP_DC_DBG_CHASING_STATUS_RAWI_R4) & BIT(0)) == 0)
 		SET_FIELD(&raw_rst_stat2, CAMRAWDMATOP_RAWI_R4_SOFT_RST_STAT, 1);
 
 	if (READ_FIELD(raw_rst_stat2,
 			CAMRAWDMATOP_UFDI_R4_SOFT_RST_STAT) == 0 &&
 		(READ_FIELD(chasing_stat2,
-			CAMRAWDMATOP_DC_DBG_CHASING_STATUS2_UFDI_R4) & BIT(0)) == 0)
+			CAMRAWDMATOP_DC_DBG_CHASING_STATUS_UFDI_R4) & BIT(0)) == 0)
 		SET_FIELD(&raw_rst_stat2, CAMRAWDMATOP_UFDI_R4_SOFT_RST_STAT, 1);
 
 	if (READ_FIELD(raw_rst_stat,
 			CAMRAWDMATOP_RAWI_R5_SOFT_RST_STAT) == 0 &&
 		(READ_FIELD(chasing_stat2,
-			CAMRAWDMATOP_DC_DBG_CHASING_STATUS2_RAWI_R5) & BIT(0)) == 0)
+			CAMRAWDMATOP_DC_DBG_CHASING_STATUS_RAWI_R5) & BIT(0)) == 0)
 		SET_FIELD(&raw_rst_stat, CAMRAWDMATOP_RAWI_R5_SOFT_RST_STAT, 1);
 
 	if (READ_FIELD(raw_rst_stat,
 			CAMRAWDMATOP_UFDI_R5_SOFT_RST_STAT) == 0 &&
 		(READ_FIELD(chasing_stat2,
-			CAMRAWDMATOP_DC_DBG_CHASING_STATUS2_UFDI_R5) & BIT(0)) == 0)
+			CAMRAWDMATOP_DC_DBG_CHASING_STATUS_UFDI_R5) & BIT(0)) == 0)
 		SET_FIELD(&raw_rst_stat, CAMRAWDMATOP_UFDI_R5_SOFT_RST_STAT, 1);
 
 	if (raw_rst_stat == RAW_RST_STAT_CHECK &&
@@ -733,9 +743,11 @@ bool is_all_dma_idle(struct mtk_raw_device *dev)
 
 void dump_dma_soft_rst_stat(struct mtk_raw_device *dev)
 {
-	int raw_rst_stat = readl(dev->base + REG_DMA_SOFT_RST_STAT);
-	int raw_rst_stat2 = readl(dev->base + REG_DMA_SOFT_RST_STAT2);
-	int yuv_rst_stat = readl(dev->yuv_base + REG_DMA_SOFT_RST_STAT);
+	struct mtk_yuv_device *yuv = get_yuv_dev(dev);
+
+	int raw_rst_stat = readl(dev->dmatop_base + REG_CAMRAWDMATOP_DMA_SOFT_RST_STAT);
+	int raw_rst_stat2 = readl(dev->dmatop_base + REG_CAMRAWDMATOP_DMA_SOFT_RST_STAT2);
+	int yuv_rst_stat = readl(yuv->dmatop_base + REG_CAMYUVDMATOP_DMA_SOFT_RST_STAT);
 
 	dev_info(dev->dev, "%s: rst_stat: 0x%08x 0x%08x 0x%08x\n",
 		 __func__, raw_rst_stat, raw_rst_stat2, yuv_rst_stat);
@@ -900,12 +912,12 @@ static void raw_handle_ringbuffer_ofl(struct mtk_raw_device *raw_dev,
 
 	dev_info(raw_dev->dev, "%s: fh_cookie: 0x%x, chasing_status 0x%x, 0x%x line_cnt:0x%x 0x%x 0x%x 0x%x\n",
 		 __func__, fh_cookie,
-		 readl_relaxed(raw_dev->base + REG_CAMRAWDMATOP_DC_DBG_CHASING_STATUS),
-		 readl_relaxed(raw_dev->base + REG_CAMRAWDMATOP_DC_DBG_CHASING_STATUS2),
-		 readl_relaxed(raw_dev->base + REG_CAMRAWDMATOP_DC_DBG_LINE_CNT_RAWI_R2),
-		 readl_relaxed(raw_dev->base + REG_CAMRAWDMATOP_DC_DBG_LINE_CNT_UFDI_R2),
-		 readl_relaxed(raw_dev->base + REG_CAMRAWDMATOP_DC_DBG_LINE_CNT_RAWI_R5),
-		 readl_relaxed(raw_dev->base + REG_CAMRAWDMATOP_DC_DBG_LINE_CNT_UFDI_R5));
+		 readl_relaxed(raw_dev->dmatop_base + REG_CAMRAWDMATOP_DC_DBG_CHASING_STATUS),
+		 readl_relaxed(raw_dev->dmatop_base + REG_CAMRAWDMATOP_DC_DBG_CHASING_STATUS2),
+		 readl_relaxed(raw_dev->dmatop_base + REG_CAMRAWDMATOP_DC_DBG_LINE_CNT_RAWI_R2),
+		 readl_relaxed(raw_dev->dmatop_base + REG_CAMRAWDMATOP_DC_DBG_LINE_CNT_UFDI_R2),
+		 readl_relaxed(raw_dev->dmatop_base + REG_CAMRAWDMATOP_DC_DBG_LINE_CNT_RAWI_R5),
+		 readl_relaxed(raw_dev->dmatop_base + REG_CAMRAWDMATOP_DC_DBG_LINE_CNT_UFDI_R5));
 
 	WRAP_AEE_EXCEPTION(MSG_RINGBUFFER_OFL, dev_name(raw_dev->dev));
 }
@@ -915,20 +927,36 @@ static bool is_sub_sample_sensor_timing(struct mtk_raw_device *dev)
 	return dev->cur_vsync_idx >= dev->set_sensor_idx;
 }
 
-/* IRQ Error Mask */
-#define INT_ST_MASK_CAM_ERR					\
-	(FBIT(CAMCTL_TG_OVRUN_ST)			|	\
-	 FBIT(CAMCTL_TG_GRABERR_ST)			|	\
-	 FBIT(CAMCTL_TG_SOF_DROP_ST)			|	\
-	 FBIT(CAMCTL_CQ_MAX_START_DLY_SMALL_INT_ST)	|	\
+/* Frame IRQ Error Mask */
+#define INT_ST_MASK_CAM_ERR_FRAME					\
+	(FBIT(CAMCTL_DMA_ERR_ST)				|	\
+	 FBIT(CAMCTL_CFG_SW_INCOMP_INT_ST))
+
+
+/* CQ IRQ Error Mask */
+#define INT_ST_MASK_CAM_ERR_CQ					\
+	(FBIT(CAMCTL_CQ_MAX_START_DLY_SMALL_INT_ST)	|	\
 	 FBIT(CAMCTL_CQ_MAX_START_DLY_ERR_INT_ST)	|	\
 	 FBIT(CAMCTL_CQ_MAIN_CODE_ERR_ST)		|	\
 	 FBIT(CAMCTL_CQ_MAIN_VS_ERR_ST)			|	\
 	 FBIT(CAMCTL_CQ_MAIN_VS_ERR_ST)			|	\
 	 FBIT(CAMCTL_CQ_TRIG_DLY_INT_ST)		|	\
 	 FBIT(CAMCTL_CQ_SUB_CODE_ERR_ST)		|	\
-	 FBIT(CAMCTL_CQ_SUB_VS_ERR_ST)			|	\
-	 FBIT(CAMCTL_DMA_ERR_ST))
+	 FBIT(CAMCTL_CQ_SUB_VS_ERR_ST))
+
+/* TG IRQ Error Mask */
+#define INT_ST_MASK_CAM_ERR_TG2					\
+	(FBIT(CAMCTL_TG2_OVRUN_ST)			|	\
+	 FBIT(CAMCTL_TG2_GRABERR_ST)			|	\
+	 FBIT(CAMCTL_TG2_SOF_DROP_ST))
+
+
+/* TG IRQ Error Mask */
+#define INT_ST_MASK_CAM_ERR_TG1					\
+	(FBIT(CAMCTL_TG_OVRUN_ST)			|	\
+	 FBIT(CAMCTL_TG_GRABERR_ST)			|	\
+	 FBIT(CAMCTL_TG_SOF_DROP_ST))
+
 
 #define DCIF_SKIP_MASK \
 	(FBIT(CAMCTL_P1_SKIP_FRAME_ADL_INT_ST)			|	\
@@ -977,83 +1005,80 @@ static void mtk_raw_log_tg_timestamp(struct mtk_raw_device *raw_dev)
 }
 #endif
 
-static inline int is_fbc_empty(struct mtk_raw_device *raw_dev)
-{
-	int ctl2 = readl_relaxed(raw_dev->base + REG_FBC_FHO_R1_CTL2);
-
-	return !((ctl2 >> 16) & 0xFF);
-}
-
 static irqreturn_t mtk_irq_raw_yuv(int irq, void *data)
 {
 	struct mtk_raw_device *raw_dev = (struct mtk_raw_device *)data;
 	struct mtk_yuv_device *yuv = get_yuv_dev(raw_dev);
 	struct device *dev = raw_dev->dev;
 	struct mtk_camsys_irq_info irq_info;
+	/* raw part */
 	unsigned int frame_idx, frame_idx_inner;
-	unsigned int irq_status, err_status, dmao_done_status, dmai_done_status;
-	unsigned int drop_status, dma_ofl_status, cq_done_status, dcif_status;
-	unsigned int dma_ufl_status;
-	unsigned int tg_cnt;
+	unsigned int frame_status, tg1_status, tg2_status, cq_status, dcif_status;
+	unsigned int frame_e_status, tg1_e_status, tg2_e_status, cq_e_status;
+	unsigned int dma_ofl_status, dmao_done_status, dmai_done_status;
+	unsigned int dma_ufl_status, dma_ring_ufl_status, tfm_mismatch_status;
+	unsigned int tg_cnt, err_status;
 	bool wake_thread = 0;
+	/* yuv part */
+	unsigned int frame_status_y, err_status_y, wdma_done_status_y;
+	unsigned int dma_ofl_status_y, tfm_mismatch_status_y;
 
 	/* yuv part */
-	unsigned int irq_status_y, err_status_y, wdma_done_status_y, rdma_done_status_y;
-	unsigned int drop_status_y, dma_ofl_status_y, dma_ufl_status_y;
-
-	irq_status_y =
-		readl_relaxed(yuv->base + REG_CAMCTL2_INT_STATUS);
+	frame_status_y =
+		readl_relaxed(yuv->base + REG_CAMCTL2_INT17_STATUS);
 	wdma_done_status_y =
 		readl_relaxed(yuv->base + REG_CAMCTL2_INT2_STATUS);
-	rdma_done_status_y =
-		readl_relaxed(yuv->base + REG_CAMCTL2_INT3_STATUS);
-	drop_status_y =
-		readl_relaxed(yuv->base + REG_CAMCTL2_INT4_STATUS);
 	dma_ofl_status_y =
 		readl_relaxed(yuv->base + REG_CAMCTL2_INT5_STATUS);
-	dma_ufl_status_y =
+	tfm_mismatch_status_y =
 		readl_relaxed(yuv->base + REG_CAMCTL2_INT8_STATUS);
-
-	err_status_y = irq_status_y & 0x4; // bit2: DMA_ERR
+	err_status_y = frame_status_y & 0x4; // bit2: DMA_ERR
 
 	//if (unlikely(debug_raw))
 	if (CAM_DEBUG_ENABLED(RAW_INT))
-		if (irq_status_y || err_status_y)
-			dev_info(yuv->dev, "YUV-INT:0x%x(err:0x%x) INT2/4/5 0x%x/0x%x/0x%x\n",
-			irq_status_y, err_status_y,
-			wdma_done_status_y, drop_status_y, dma_ofl_status_y);
+		dev_info(yuv->dev, "YUV-INT: 17/2/5/8:0x%x(err:0x%x)/0x%x/0x%x/0x%x\n",
+			frame_status_y, err_status_y,
+			wdma_done_status_y, dma_ofl_status_y, tfm_mismatch_status_y);
 
 	if (CAM_DEBUG_ENABLED(RAW_INT))
 		if (err_status_y)
 			dump_yuv_dma_err_st(yuv);
 
 	/* trace */
-	trace_yuv_irq(yuv->dev, irq_status_y, wdma_done_status_y, rdma_done_status_y);
-	trace_raw_dma_status(yuv->dev, drop_status_y,
-			     dma_ofl_status_y, dma_ufl_status_y);
+	trace_yuv_irq(yuv->dev, frame_status_y, wdma_done_status_y,
+				tfm_mismatch_status_y);
+	trace_raw_dma_status(yuv->dev, frame_status_y,
+				dma_ofl_status_y, tfm_mismatch_status_y);
 	/* raw part */
-	irq_status	 = readl_relaxed(raw_dev->base + REG_CAMCTL_INT_STATUS);
 	dmao_done_status = readl_relaxed(raw_dev->base + REG_CAMCTL_INT2_STATUS);
 	dmai_done_status = readl_relaxed(raw_dev->base + REG_CAMCTL_INT3_STATUS);
-	drop_status	 = readl_relaxed(raw_dev->base + REG_CAMCTL_INT4_STATUS);
 	dma_ofl_status	 = readl_relaxed(raw_dev->base + REG_CAMCTL_INT5_STATUS);
-	cq_done_status	 = readl_relaxed(raw_dev->base + REG_CAMCTL_INT6_STATUS);
-	dcif_status	 = readl_relaxed(raw_dev->base + REG_CAMCTL_INT7_STATUS);
-	dma_ufl_status	 = readl_relaxed(raw_dev->base + REG_CAMCTL_INT8_STATUS);
+	dma_ufl_status	 = readl_relaxed(raw_dev->base + REG_CAMCTL_INT6_STATUS);
+	dma_ring_ufl_status	 = readl_relaxed(raw_dev->base + REG_CAMCTL_INT7_STATUS);
+	tfm_mismatch_status	 = readl_relaxed(raw_dev->base + REG_CAMCTL_INT8_STATUS);
+	frame_status	 = readl_relaxed(raw_dev->base + REG_CAMCTL_INT17_STATUS);
+	tg1_status		 = readl_relaxed(raw_dev->base + REG_CAMCTL_INT18_STATUS);
+	tg2_status		 = readl_relaxed(raw_dev->base + REG_CAMCTL_INT19_STATUS);
+	dcif_status		 = readl_relaxed(raw_dev->base + REG_CAMCTL_INT20_STATUS);
+	cq_status		 = readl_relaxed(raw_dev->base + REG_CAMCTL_INT21_STATUS);
 
-	frame_idx	= readl_relaxed(raw_dev->base + REG_FRAME_SEQ_NUM);
-	frame_idx_inner	= readl_relaxed(raw_dev->base_inner + REG_FRAME_SEQ_NUM);
+
+	frame_idx	= readl_relaxed(raw_dev->base + REG_FHG_FHG_SPARE_1);
+	frame_idx_inner	= readl_relaxed(raw_dev->base_inner + REG_FHG_FHG_SPARE_1);
 	tg_cnt = readl_relaxed(raw_dev->base + REG_TG_INTER_ST);
 	tg_cnt = (raw_dev->tg_count & 0xffffff00) + ((tg_cnt & 0xff000000) >> 24);
-	err_status = irq_status & INT_ST_MASK_CAM_ERR;
 
+	frame_e_status = frame_status & INT_ST_MASK_CAM_ERR_FRAME;
+	tg1_e_status = tg1_status & INT_ST_MASK_CAM_ERR_TG1;
+	tg2_e_status = tg2_status & INT_ST_MASK_CAM_ERR_TG2;
+	cq_e_status = cq_status & INT_ST_MASK_CAM_ERR_CQ;
+	err_status = frame_e_status | tg1_e_status | cq_e_status;
 	if (CAM_DEBUG_ENABLED(RAW_INT))
 		dev_info(dev,
-			 "INT:0x%x(err:0x%x) 2~7 0x%x/0x%x/0x%x/0x%x/0x%x/0x%x (in:0x%x) tg_cnt:%d/%lld\n",
-			 irq_status, err_status,
-			 dmao_done_status, dmai_done_status, drop_status,
-			 dma_ofl_status, cq_done_status, dcif_status,
-			 frame_idx_inner, tg_cnt, raw_dev->sof_count);
+			"RAW-INT: 17/18/19/20/21/2/3/8 0x%x(err:0x%x)/0x%x/0x%x/0x%x/0x%x/0x%x/0x%x/0x%x, in:0x%x\n",
+			frame_status, err_status, tg1_status, tg2_status, dcif_status, cq_status,
+			dmao_done_status, dmai_done_status, tfm_mismatch_status,
+			frame_idx_inner);
 
 	irq_info.irq_type = 0;
 	irq_info.ts_ns = ktime_get_boottime_ns();
@@ -1062,7 +1087,7 @@ static irqreturn_t mtk_irq_raw_yuv(int irq, void *data)
 	irq_info.fbc_empty = 0;
 
 	/* CQ done */
-	if (cq_done_status & FBIT(CAMCTL_CQ_THR0_DONE_ST)) {
+	if (cq_status & FBIT(CAMCTL_CQ_THR0_DONE_ST)) {
 		if (raw_dev->cq_ref != NULL) {
 			long mask = bit_map_bit(MAP_HW_RAW, raw_dev->id);
 
@@ -1087,26 +1112,22 @@ static irqreturn_t mtk_irq_raw_yuv(int irq, void *data)
 		irq_info.irq_type |= 1 << CAMSYS_IRQ_RINGBUFFER_OVERFLOW;
 
 	/* Frame done */
-	if (irq_status & FBIT(CAMCTL_SW_PASS1_DONE_ST))
+	if (frame_status & FBIT(CAMCTL_SW_PASS1_DONE_ST))
 		irq_info.irq_type |= 1 << CAMSYS_IRQ_FRAME_DONE;
 
 	/* Frame start */
-	if (irq_status & FBIT(CAMCTL_TG_SOF_INT_ST) ||
+	if (tg1_status & FBIT(CAMCTL_TG_SOF_INT_ST) ||
 		dcif_status & FBIT(CAMCTL_DCIF_LAST_SOF_INT_ST) ||
 		dcif_status & FBIT(CAMCTL_DCIF_LAST_CQ_START_INT_ST)) {
 		irq_info.irq_type |= 1 << CAMSYS_IRQ_FRAME_START;
 		raw_dev->sof_count++;
 		raw_dev->cur_vsync_idx = 0;
 
-		if (not_support_rwfbc(raw_dev)) {
-			irq_info.fbc_empty = is_fbc_empty(raw_dev);
-		} else {
-			if (irq_status & FBIT(CAMCTL_SW_ENQUE_ERR_ST) ||
-				dcif_status & FBIT(CAMCTL_DCIF_LAST_CQ_START_INT_ST))
-				irq_info.fbc_empty = 1;
-			else
-				irq_info.fbc_empty = 0;
-		}
+		if (frame_status & FBIT(CAMCTL_SW_ENQUE_ERR_ST) ||
+			dcif_status & FBIT(CAMCTL_DCIF_LAST_CQ_START_INT_ST))
+			irq_info.fbc_empty = 1;
+		else
+			irq_info.fbc_empty = 0;
 
 		if (tg_cnt < raw_dev->tg_count)
 			raw_dev->tg_count = tg_cnt + BIT(8);
@@ -1126,11 +1147,11 @@ static irqreturn_t mtk_irq_raw_yuv(int irq, void *data)
 		irq_info.irq_type |= 1 << CAMSYS_IRQ_FRAME_START_DCIF_MAIN;
 
 	/* Vsync interrupt */
-	if (irq_status & FBIT(CAMCTL_TG_VS_INT_ST))
+	if (tg1_status & FBIT(CAMCTL_TG_VS_INT_ST))
 		raw_dev->vsync_count++;
 
 	if (raw_dev->sub_sensor_ctrl_en
-	    && irq_status & FBIT(CAMCTL_TG_VS_INT_ORG_ST)
+	    && tg1_status & FBIT(CAMCTL_TG_VS_INT_ORG_ST)
 	    && raw_dev->cur_vsync_idx >= 0) {
 		if (is_sub_sample_sensor_timing(raw_dev)) {
 			raw_dev->cur_vsync_idx = -1;
@@ -1164,12 +1185,12 @@ static irqreturn_t mtk_irq_raw_yuv(int irq, void *data)
 
 	/* trace */
 	trace_raw_irq(dev, frame_idx_inner,
-		      irq_status, dmao_done_status, dmai_done_status,
-		      cq_done_status, dcif_status);
-	trace_raw_dma_status(dev, drop_status, dma_ofl_status, dma_ufl_status);
+		      frame_status, tg1_status, cq_status,
+		      dmao_done_status, dmai_done_status, dcif_status);
+	trace_raw_dma_status(dev, frame_status, dma_ofl_status, dma_ufl_status);
 
 #ifdef NOT_READY
-	if (MTK_CAM_TRACE_ENABLED(FBC) && (irq_status & TG_VS_INT_ORG_ST)) {
+	if (MTK_CAM_TRACE_ENABLED(FBC) && (tg1_status & TG_VS_INT_ORG_ST)) {
 #ifdef DUMP_FBC_SEL_OUTER
 		MTK_CAM_TRACE(FBC, "frame %d FBC_SEL 0x% 8x/0x% 8x (outer)",
 			irq_info.frame_idx_inner,
@@ -2146,9 +2167,8 @@ void print_dma_settings(void __iomem *base, u32 dmao_base)
 int mtk_raw_translation_fault_cb(int port, dma_addr_t mva, void *data)
 {
 	struct mtk_raw_device *raw_dev = (struct mtk_raw_device *)data;
-	struct mtk_yuv_device *yuv_dev = get_yuv_dev(raw_dev);
 	unsigned int fh_cookie =
-			readl_relaxed(raw_dev->base_inner + REG_FRAME_SEQ_NUM);
+			readl_relaxed(raw_dev->base_inner + REG_FHG_FHG_SPARE_1);
 	unsigned int m4u_port = MTK_M4U_TO_PORT(port);
 	u32 group[CAMSYS_DMA_GROUP_SIZE];
 	int i;
@@ -2164,10 +2184,8 @@ int mtk_raw_translation_fault_cb(int port, dma_addr_t mva, void *data)
 		if (group[i] == 0x0)
 			continue;
 
-		print_dma_settings(raw_dev->base_inner, group[i]);
+		print_dma_settings(raw_dev->dmatop_base_inner, group[i]);
 	}
-	dump_raw_dma_fbc(raw_dev);
-	dump_yuv_dma_fbc(yuv_dev);
 
 	do_engine_callback(raw_dev->engine_cb, dump_request,
 		   raw_dev->cam, CAMSYS_ENGINE_RAW, raw_dev->id,
@@ -2181,7 +2199,7 @@ int mtk_yuv_translation_fault_cb(int port, dma_addr_t mva, void *data)
 	struct mtk_yuv_device *yuv_dev = (struct mtk_yuv_device *)data;
 	struct mtk_raw_device *raw_dev = get_raw_dev(yuv_dev);
 	unsigned int fh_cookie =
-			readl_relaxed(raw_dev->base_inner + REG_FRAME_SEQ_NUM);
+			readl_relaxed(raw_dev->base_inner + REG_FHG_FHG_SPARE_1);
 	unsigned int m4u_port = MTK_M4U_TO_PORT(port);
 	u32 group[CAMSYS_DMA_GROUP_SIZE];
 	int i;
@@ -2193,11 +2211,8 @@ int mtk_yuv_translation_fault_cb(int port, dma_addr_t mva, void *data)
 		if (group[i] == 0x0)
 			continue;
 
-		print_dma_settings(yuv_dev->base_inner, group[i]);
+		print_dma_settings(yuv_dev->dmatop_base_inner, group[i]);
 	}
-	dump_raw_dma_fbc(raw_dev);
-	dump_yuv_dma_fbc(yuv_dev);
-
 	do_engine_callback(raw_dev->engine_cb, dump_request,
 		   raw_dev->cam, CAMSYS_ENGINE_RAW, raw_dev->id,
 		   fh_cookie, MSG_M4U_TF);
@@ -2208,15 +2223,17 @@ int mtk_yuv_translation_fault_cb(int port, dma_addr_t mva, void *data)
 void fill_aa_info(struct mtk_raw_device *raw_dev,
 				  struct mtk_ae_debug_data *ae_info)
 {
+	struct mtk_rms_device *rms = get_rms_dev(raw_dev);
+
 	ae_info->OBC_R1_Sum[0] +=
 		((u64)readl(raw_dev->base + OFFSET_OBC_R1_R_SUM_H) << 32) |
 		readl(raw_dev->base + OFFSET_OBC_R1_R_SUM_L);
 	ae_info->OBC_R2_Sum[0] +=
-		((u64)readl(raw_dev->base + OFFSET_OBC_R2_R_SUM_H) << 32) |
-		readl(raw_dev->base + OFFSET_OBC_R2_R_SUM_L);
+		((u64)readl(rms->base + OFFSET_OBC_R2_R_SUM_H) << 32) |
+		readl(rms->base + OFFSET_OBC_R2_R_SUM_L);
 	ae_info->OBC_R3_Sum[0] +=
-		((u64)readl(raw_dev->base + OFFSET_OBC_R3_R_SUM_H) << 32) |
-		readl(raw_dev->base + OFFSET_OBC_R3_R_SUM_L);
+		((u64)readl(rms->base + OFFSET_OBC_R3_R_SUM_H) << 32) |
+		readl(rms->base + OFFSET_OBC_R3_R_SUM_L);
 	ae_info->LTM_Sum[0] +=
 		((u64)readl(raw_dev->base + REG_LTM_AE_DEBUG_R_MSB) << 32) |
 		readl(raw_dev->base + REG_LTM_AE_DEBUG_R_LSB);
@@ -2228,11 +2245,11 @@ void fill_aa_info(struct mtk_raw_device *raw_dev,
 		((u64)readl(raw_dev->base + OFFSET_OBC_R1_B_SUM_H) << 32) |
 		readl(raw_dev->base + OFFSET_OBC_R1_B_SUM_L);
 	ae_info->OBC_R2_Sum[1] +=
-		((u64)readl(raw_dev->base + OFFSET_OBC_R2_B_SUM_H) << 32) |
-		readl(raw_dev->base + OFFSET_OBC_R2_B_SUM_L);
+		((u64)readl(rms->base + OFFSET_OBC_R2_B_SUM_H) << 32) |
+		readl(rms->base + OFFSET_OBC_R2_B_SUM_L);
 	ae_info->OBC_R3_Sum[1] +=
-		((u64)readl(raw_dev->base + OFFSET_OBC_R3_B_SUM_H) << 32) |
-		readl(raw_dev->base + OFFSET_OBC_R3_B_SUM_L);
+		((u64)readl(rms->base + OFFSET_OBC_R3_B_SUM_H) << 32) |
+		readl(rms->base + OFFSET_OBC_R3_B_SUM_L);
 	ae_info->LTM_Sum[1] +=
 		((u64)readl(raw_dev->base + REG_LTM_AE_DEBUG_B_MSB) << 32) |
 		readl(raw_dev->base + REG_LTM_AE_DEBUG_B_LSB);
@@ -2244,11 +2261,11 @@ void fill_aa_info(struct mtk_raw_device *raw_dev,
 		((u64)readl(raw_dev->base + OFFSET_OBC_R1_GR_SUM_H) << 32) |
 		readl(raw_dev->base + OFFSET_OBC_R1_GR_SUM_L);
 	ae_info->OBC_R2_Sum[2] +=
-		((u64)readl(raw_dev->base + OFFSET_OBC_R2_GR_SUM_H) << 32) |
-		readl(raw_dev->base + OFFSET_OBC_R2_GR_SUM_L);
+		((u64)readl(rms->base + OFFSET_OBC_R2_GR_SUM_H) << 32) |
+		readl(rms->base + OFFSET_OBC_R2_GR_SUM_L);
 	ae_info->OBC_R3_Sum[2] +=
-		((u64)readl(raw_dev->base + OFFSET_OBC_R3_GR_SUM_H) << 32) |
-		readl(raw_dev->base + OFFSET_OBC_R3_GR_SUM_L);
+		((u64)readl(rms->base + OFFSET_OBC_R3_GR_SUM_H) << 32) |
+		readl(rms->base + OFFSET_OBC_R3_GR_SUM_L);
 	ae_info->LTM_Sum[2] +=
 		((u64)readl(raw_dev->base + REG_LTM_AE_DEBUG_GR_MSB) << 32) |
 		readl(raw_dev->base + REG_LTM_AE_DEBUG_GR_LSB);
@@ -2260,11 +2277,11 @@ void fill_aa_info(struct mtk_raw_device *raw_dev,
 		((u64)readl(raw_dev->base + OFFSET_OBC_R1_GB_SUM_H) << 32) |
 		readl(raw_dev->base + OFFSET_OBC_R1_GB_SUM_L);
 	ae_info->OBC_R2_Sum[3] +=
-		((u64)readl(raw_dev->base + OFFSET_OBC_R2_GB_SUM_H) << 32) |
-		readl(raw_dev->base + OFFSET_OBC_R2_GB_SUM_L);
+		((u64)readl(rms->base + OFFSET_OBC_R2_GB_SUM_H) << 32) |
+		readl(rms->base + OFFSET_OBC_R2_GB_SUM_L);
 	ae_info->OBC_R3_Sum[3] +=
-		((u64)readl(raw_dev->base + OFFSET_OBC_R3_GB_SUM_H) << 32) |
-		readl(raw_dev->base + OFFSET_OBC_R3_GB_SUM_L);
+		((u64)readl(rms->base + OFFSET_OBC_R3_GB_SUM_H) << 32) |
+		readl(rms->base + OFFSET_OBC_R3_GB_SUM_L);
 	ae_info->LTM_Sum[3] +=
 		((u64)readl(raw_dev->base + REG_LTM_AE_DEBUG_GB_MSB) << 32) |
 		readl(raw_dev->base + REG_LTM_AE_DEBUG_GB_LSB);

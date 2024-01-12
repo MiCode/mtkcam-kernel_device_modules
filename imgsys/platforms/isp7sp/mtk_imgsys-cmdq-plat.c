@@ -24,6 +24,7 @@
 #if DVFS_QOS_READY
 #include "mtk-smi-dbg.h"
 #endif
+#include "smi.h"
 
 #if IMGSYS_SECURE_ENABLE
 #include "cmdq-sec.h"
@@ -804,6 +805,8 @@ static void imgsys_cmdq_cb_work_plat7sp(struct work_struct *work)
 			__func__,
 			cb_param->pkt->err_data.wfe_timeout,
 			cb_param->pkt->err_data.event);
+		cmdq_pkt_dump_buf(cb_param->pkt, 0);
+		mtk_smi_dbg_hang_detect("IMGSYS_ME");
 		imgsys_cmdq_cmd_dump_plat7sp(cb_param->frm_info, cb_param->frm_idx);
 		if (cb_param->user_cmdq_err_cb) {
 			struct cmdq_cb_data user_cb_data;

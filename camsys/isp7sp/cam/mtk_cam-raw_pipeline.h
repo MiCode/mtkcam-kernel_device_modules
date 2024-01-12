@@ -145,6 +145,7 @@ struct mtk_raw_request_data {
 	struct mtk_raw_ctrl_data ctrl;
 };
 
+struct slbc_data;
 /*
  * struct mtk_raw_pipeline - sub dev to use raws.
  */
@@ -156,6 +157,12 @@ struct mtk_raw_pipeline {
 	struct mtk_raw_pad_config pad_cfg[MTK_RAW_PIPELINE_PADS_NUM];
 	struct v4l2_ctrl_handler ctrl_handler;
 
+	/* special resource management
+	 * some resources may be required before stream-on, should handle cases
+	 * like sd being closed without stream-on/off.
+	 */
+	atomic_t open_cnt;
+	struct slbc_data *early_request_slb_data;
 
 	/*** v4l2 ctrl related data ***/
 	/* changed with request */
@@ -221,5 +228,7 @@ void mtk_raw_hdr_tsfifo_push(struct mtk_raw_pipeline *pipex,
 						struct mtk_cam_hdr_timestamp_info *ts_info);
 void mtk_raw_hdr_tsfifo_pop(struct mtk_raw_pipeline *pipe,
 						struct mtk_cam_hdr_timestamp_info *ts_info);
+
+void mtk_raw_reset_early_slb(struct mtk_raw_pipeline *pipe);
 
 #endif /*__MTK_CAM_RAW_PIPELINE_H*/

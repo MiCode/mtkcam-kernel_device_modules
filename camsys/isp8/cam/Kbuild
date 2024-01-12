@@ -62,6 +62,8 @@ $(CAM_MODULE)-objs := \
     mtk_cam-seninf-tsrec-regs.o \
     mtk_cam-seninf-tsrec.o \
     mtk_cam-seninf-ca.o \
+    mtk_cam-seninf-sentest-ctrl.o\
+    mtk_cam-seninf-sentest-ioctrl.o\
     mtk_cam-timesync.o \
     mtk_cam-plat.o \
     mtk_cam-raw.o \

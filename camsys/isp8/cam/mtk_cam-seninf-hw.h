@@ -199,7 +199,8 @@ struct mtk_cam_seninf_ops {
 	int (*_enable_cam_mux_vsync_irq)(struct seninf_ctx *ctx, bool enable, int cam_mux);
 	int (*_set_all_cam_mux_vsync_irq)(struct seninf_ctx *ctx, bool enable);
 	int (*_debug)(struct seninf_ctx *ctx);
-	int (*_get_debug_reg_result)(struct seninf_ctx *ctx, void *arg);
+	int (*get_seninf_debug_core_dump)(struct seninf_ctx *ctx,
+										  struct mtk_cam_seninf_debug *arg);
 	int (*_get_tsrec_timestamp)(struct seninf_ctx *ctx, void *arg);
 	int (*_eye_scan)(struct seninf_ctx *ctx, u32 key, int val, char *plog, int logbuf_size);
 	int (*_set_reg)(struct seninf_ctx *ctx, u32 key, u64 val);

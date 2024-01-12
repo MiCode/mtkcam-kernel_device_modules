@@ -20,7 +20,7 @@
 #include "mtk_csi_phy_3_0/mtk_cam-seninf-csirx_mac_csi0.h"
 #include "mtk_csi_phy_3_0/mtk_cam-seninf-csirx_mac_top.h"
 
-#include "mtk_cam-seninf_control.h"
+#include "mtk_cam-seninf_control-7sp.h"
 #include "mtk_cam-seninf-route.h"
 #include "mtk_cam-seninf-tsrec.h"
 #include "imgsensor-user.h"

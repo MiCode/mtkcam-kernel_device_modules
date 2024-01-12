@@ -19,9 +19,10 @@
 #include "mtk_csi_phy_3_0/mtk_cam-seninf-csirx_mac_csi0.h"
 #include "mtk_csi_phy_3_0/mtk_cam-seninf-csirx_mac_top.h"
 
-#include "mtk_cam-seninf_control.h"
+#include "mtk_cam-seninf_control-8.h"
 #include "mtk_cam-seninf-route.h"
 #include "mtk_cam-seninf-tsrec.h"
+#include "mtk_cam-seninf-sentest-ioctrl.h"
 #include "imgsensor-user.h"
 #define SENINF_CK 312000000
 #define CYCLE_MARGIN 1
@@ -3859,7 +3860,7 @@ static int mtk_cam_seninf_get_mux_meter(struct seninf_ctx *ctx, int mux,
 	return 0;
 }
 
-/*static */int mtk_cam_seninf_debug_core_dump(struct seninf_ctx *ctx,
+static int mtk_cam_seninf_debug_core_dump(struct seninf_ctx *ctx,
 				   struct mtk_cam_seninf_debug *debug_result)
 {
 	int i, j, dbg_timeout = 0;
@@ -4900,85 +4901,6 @@ static int mtk_cam_seninf_get_tsrec_timestamp(struct seninf_ctx *ctx, void *arg)
 	info->ts_us[3] = ts_info.exp_recs[0].ts_us[3];
 	return ret;
 }
-
-static int mtk_cam_seninf_get_debug_reg_result(struct seninf_ctx *ctx, void *arg)
-{
-#if PORTING_FIXME
-	int ret = 0;
-	int i;
-	struct seninf_core *core = ctx->core;
-	struct mtk_seninf_debug_result *target = arg;
-	struct mtk_cam_seninf_debug debug_result;
-	struct mtk_cam_seninf_mux_meter *meter;
-	struct mtk_cam_seninf_vcinfo_debug *vcinfo_debug;
-	struct mux_debug_result *mux_result;
-	static __u16 last_pkCnt;
-
-	if (target == NULL) {
-		dev_info(ctx->dev, "mux_debug_result arg is null");
-		return -1;
-	}
-
-	memset(&debug_result, 0, sizeof(struct mtk_cam_seninf_debug));
-	mutex_lock(&core->mutex);
-
-	list_for_each_entry(ctx, &core->list, list) {
-		if (!ctx->streaming)
-			continue;
-
-		target->is_cphy = ctx->is_cphy;
-		target->csi_port = ctx->port;
-		target->seninf = ctx->seninfAsyncIdx;
-		target->data_lanes = ctx->num_data_lanes;
-
-		mtk_cam_seninf_debug_core_dump(ctx, &debug_result);
-		target->mux_result_cnt = debug_result.mux_result_cnt;
-		target->csi_irq_status = debug_result.csi_irq_status;
-		target->csi_mac_irq_status = debug_result.csi_mac_irq_status;
-
-		if (last_pkCnt != debug_result.packet_cnt_status) {
-			last_pkCnt = debug_result.packet_cnt_status;
-			target->packet_status_err = 0;
-		} else {
-			target->packet_status_err = 1;
-		}
-
-		for (i = 0; i <= debug_result.mux_result_cnt; i++) {
-			vcinfo_debug = &debug_result.vcinfo_debug[i];
-			meter = &debug_result.meter[i];
-			mux_result = &target->mux_result[i];
-
-			mux_result->vc_feature = vcinfo_debug->vc_feature;
-			mux_result->vc = vcinfo_debug->vc;
-			mux_result->dt = vcinfo_debug->dt;
-			mux_result->seninf_mux = vcinfo_debug->seninf_mux;
-			mux_result->seninf_mux_en = vcinfo_debug->seninf_mux_en;
-			mux_result->seninf_mux_src = vcinfo_debug->seninf_mux_src;
-			mux_result->seninf_mux_irq = vcinfo_debug->seninf_mux_irq;
-			mux_result->cam_mux = vcinfo_debug->cam_mux;
-			mux_result->cam_mux_en = vcinfo_debug->cam_mux_en;
-			mux_result->cam_mux_src = vcinfo_debug->cam_mux_src;
-			mux_result->cam_mux_irq = vcinfo_debug->cam_mux_irq;
-			mux_result->frame_mointor_err = vcinfo_debug->frame_mointor_err;
-			mux_result->exp_size = vcinfo_debug->exp_size;
-			mux_result->rec_size = vcinfo_debug->rec_size;
-			mux_result->v_valid = meter->v_valid;
-			mux_result->h_valid = meter->h_valid;
-			mux_result->v_blank = meter->v_blank;
-			mux_result->h_blank = meter->h_blank;
-			mux_result->mipi_pixel_rate = meter->mipi_pixel_rate;
-			mux_result->vb_in_us = meter->vb_in_us;
-			mux_result->hb_in_us = meter->hb_in_us;
-			mux_result->line_time_in_us = meter->line_time_in_us;
-		}
-	}
-	mutex_unlock(&core->mutex);
-	return ret;
-#else
-	return 0;
-#endif
-}
-
 static ssize_t mtk_cam_seninf_show_err_status(struct device *dev,
 				   struct device_attribute *attr,
 		char *buf)
@@ -6781,7 +6703,7 @@ struct mtk_cam_seninf_ops mtk_csi_phy_3_0 = {
 #else
 	._debug = mtk_cam_seninf_debug,
 #endif
-	._get_debug_reg_result = mtk_cam_seninf_get_debug_reg_result,
+	.get_seninf_debug_core_dump = mtk_cam_seninf_debug_core_dump,
 	._get_tsrec_timestamp = mtk_cam_seninf_get_tsrec_timestamp,
 	._eye_scan = mtk_cam_seninf_eye_scan,
 	._set_reg = mtk_cam_seninf_set_reg,

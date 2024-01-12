@@ -20,63 +20,62 @@
  ***
  ****************************************************************************
  ****************************************************************************/
-#ifndef __MTK_CAM_SENINF_CONTROL_H__
-#define __MTK_CAM_SENINF_CONTROL_H__
+#ifndef __MTK_CAM_SENINF_CONTROL_8_H__
+#define __MTK_CAM_SENINF_CONTROL_8_H__
 
 #include <linux/videodev2.h>
 
-#define MAX_MUX_DEBUG_RESULT 15
+#define MAX_OUTMUX_DEBUG_RESULT 15
 
-struct mux_debug_result {
-	__u8 seninf_mux;
-	__u32 seninf_mux_en;
-	__u32 seninf_mux_src;
-	__u32 seninf_mux_irq;
-	__u8 cam_mux;
-	__u32 cam_mux_en;
-	__u32 cam_mux_src;
-	__u32 cam_mux_irq;
-	__u32 exp_size;
-	__u32 rec_size;
-	__u32 frame_mointor_err;
-	__u32 vc_feature;
-	__u32 vc;
-	__u32 dt;
-	__u32 v_valid;
-	__u32 h_valid;
-	__u32 v_blank;
-	__u32 h_blank;
-	__u64 mipi_pixel_rate;
-	__u64 vb_in_us;
-	__u64 hb_in_us;
-	__u64 line_time_in_us;
+enum seninf_sentest_ctrl_id {
+	/* GET CTRL */
+	SENINF_SENTEST_G_CTRL_ID_MIN,
+	SENINF_SENTEST_G_DEBUG_RESULT = SENINF_SENTEST_G_CTRL_ID_MIN,
+	SENINF_SENTEST_G_MIPI_RESULT,
+	SENINF_SENTEST_G_CTRL_ID_MAX,
+
+	/* SET CTRL */
+	SENINF_SENTEST_S_CTRL_ID_MIN,
+	SENINF_SENTEST_S_MAX_ISP_EN = SENINF_SENTEST_S_CTRL_ID_MIN,
+	SENINF_SENTEST_S_SINGLE_STREAM_RAW,
+	SENINF_SENTEST_S_CTRL_ID_MAX,
+};
+
+struct mtk_seninf_sentest_ctrl {
+	enum seninf_sentest_ctrl_id ctrl_id;
+	void *param_ptr;
+};
+
+struct outmux_debug_result {
+	u32 vc_feature;
+	u32 tag_id;
+	u32 vc;
+	u32 dt;
+	u32 exp_size_h;
+	u32 exp_size_v;
+	u32 outmux_id;
+	u32 done_irq_status;
+	u32 oversize_irq_status;
+	u32 incomplete_frame_status;
+	u32 ref_vsync_irq_status;
 };
 
 struct mtk_seninf_debug_result {
-	__u8 mux_result_cnt;
+	__u8 valid_result_cnt;
 	__u8 csi_port;
-	__u8 seninf;
+	__u8 seninfAsyncIdx;
 	__u8 data_lanes;
 	__u8 packet_status_err;
 	__u32 csi_mac_irq_status;
-	__u32 csi_irq_status;
+	__u32 seninf_async_irq;
 	__u64 mipi_rate;
 	bool is_cphy;
-	struct mux_debug_result mux_result[MAX_MUX_DEBUG_RESULT];
+	struct outmux_debug_result outmux_result[MAX_OUTMUX_DEBUG_RESULT];
 };
 
-/* GET */
-#define VIDIOC_MTK_G_SENINF_DEBUG_RESULT \
-	_IOWR('M', BASE_VIDIOC_PRIVATE + 1, struct mtk_seninf_debug_result)
-
-#define VIDIOC_MTK_G_TSREC_TIMESTAMP \
-	_IOWR('M', BASE_VIDIOC_PRIVATE + 2, struct mtk_tsrec_timestamp_by_sensor_id)
-
 /* SET */
-#define VIDIOC_MTK_S_UPDATE_ISP_EN \
+
+#define VIDIOC_MTK_S_SENINF_SENTEST_CTRL \
 	_IOWR('M', BASE_VIDIOC_PRIVATE + 50, int)
 
-#define VIDIOC_MTK_S_TEST_STREAM_RAW0_EN \
-    _IOWR('M', BASE_VIDIOC_PRIVATE + 51, int)
-
-#endif  // __MTK_CAM_SENINF_CONTROL_H__
+#endif  // __MTK_CAM_SENINF_CONTROL_8_H__

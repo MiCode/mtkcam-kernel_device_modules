@@ -38,7 +38,8 @@
 #include "mtk_cam-seninf-tsrec.h"
 #include "imgsensor-user.h"
 #include "mtk_cam-seninf-ca.h"
-#include "mtk_cam-seninf_control.h"
+#include "mtk_cam-seninf_control-8.h"
+#include "mtk_cam-seninf-sentest-ioctrl.h"
 
 #define is_irq_ready 1
 
@@ -2348,42 +2349,7 @@ static int seninf_s_stream(struct v4l2_subdev *sd, int enable)
 	}
 
 	/* reset all sentest flag */
-	ctx->allow_adjust_isp_en = false;
-	ctx->single_raw_streaming_en = false;
-
-	return 0;
-}
-
-static int s_update_isp_clk_en(struct seninf_ctx *ctx, void *arg)
-{
-	int *en = arg;
-
-	if (en == NULL) {
-		dev_info(ctx->dev, "%s: en is NULL\n", __func__);
-		return -EINVAL;
-	}
-
-	ctx->allow_adjust_isp_en = *en;
-
-	dev_info(ctx->dev, "en: %d, allow_adjust_isp_en  is %d\n",
-				*en, ctx->allow_adjust_isp_en);
-
-	return 0;
-}
-
-static int s_single_raw_setreaming_en(struct seninf_ctx *ctx, void *arg)
-{
-	int *en = arg;
-
-	if (en == NULL) {
-		dev_info(ctx->dev, "%s: en is NULL\n", __func__);
-		return -EINVAL;
-	}
-
-	ctx->single_raw_streaming_en = *en;
-
-	dev_info(ctx->dev, "en: %d, single_raw_streaming_en  is %d\n",
-				*en, ctx->single_raw_streaming_en);
+	seninf_sentest_flag_init(ctx);
 
 	return 0;
 }
@@ -2395,17 +2361,8 @@ long mtk_cam_seninf_ioctl(struct v4l2_subdev *sd, unsigned int cmd, void *arg)
 
 	/* dispatch ioctl request */
 	switch (cmd) {
-	case VIDIOC_MTK_G_SENINF_DEBUG_RESULT:
-		ret = g_seninf_ops->_get_debug_reg_result(ctx, arg);
-		break;
-	case VIDIOC_MTK_G_TSREC_TIMESTAMP:
-		ret = g_seninf_ops->_get_tsrec_timestamp(ctx, arg);
-		break;
-	case VIDIOC_MTK_S_UPDATE_ISP_EN:
-		ret = s_update_isp_clk_en(ctx, arg);
-		break;
-	case VIDIOC_MTK_S_TEST_STREAM_RAW0_EN:
-		ret = s_single_raw_setreaming_en(ctx, arg);
+	case VIDIOC_MTK_S_SENINF_SENTEST_CTRL:
+		ret = seninf_sentest_ioctl_entry(ctx, arg);
 		break;
 	default:
 		dev_info(ctx->dev, "ioctl cmd(%d) is invalid\n", cmd);

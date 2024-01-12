@@ -38,7 +38,7 @@
 #include "mtk_cam-seninf-tsrec.h"
 #include "imgsensor-user.h"
 #include "mtk_cam-seninf-ca.h"
-#include "mtk_cam-seninf_control.h"
+#include "mtk_cam-seninf_control-7sp.h"
 
 #define is_irq_ready 1
 

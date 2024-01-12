@@ -782,7 +782,7 @@ static int s_ae_ctrl(struct v4l2_ctrl *ctrl)
 	case HDR_RAW_DCG_COMPOSE:
 		return do_set_dcg_ae_ctrl(ctx, ae_ctrl);
 	default:
-		if (ctx->sentest_lbmf_delay_do_ae_en)
+		if (ctx->sentest_cfg_info.lbmf_delay_do_ae_en)
 			return push_do_ae_ctrl_delay_work(ctx, get_lbmf_lut_a_delay_time(ctx));
 		else
 			return do_set_ae_ctrl(ctx, ae_ctrl);

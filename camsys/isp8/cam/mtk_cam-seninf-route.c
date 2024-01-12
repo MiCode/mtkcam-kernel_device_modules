@@ -53,9 +53,6 @@ void mtk_cam_seninf_alloc_outmux(struct seninf_ctx *ctx)
 
 	mutex_lock(&core->mutex);
 
-	if (ctx->single_raw_streaming_en)
-		vcinfo->cnt = 1;
-
 	/* allocate outmuxs if assigned */
 	for (i = 0; i < vcinfo->cnt; i++) {
 		auto_alloc = true;

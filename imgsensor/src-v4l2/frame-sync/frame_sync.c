@@ -5,6 +5,7 @@
 
 #if !defined(FS_UT)
 #include <linux/init.h>
+#include <linux/delay.h>        /* for get ktime */
 #include <linux/module.h>
 #include <linux/kernel.h>
 #endif // FS_UT
@@ -3193,14 +3194,19 @@ static void fs_do_fl_restore_proc_if_needed(const unsigned int idx)
 {
 	struct fs_fl_restore_info_st fl_restore_info = {0};
 	const unsigned int cmd_id = FSYNC_CTRL_FL_CMD_ID_FL;
+	unsigned long long curr_sys_ts = 0;
 
 	if (chk_xchg_bit_atomic(idx, 0, &fs_mgr.fl_restore_ctrl_bits) == 0)
 		return;
 
 	fs_get_fl_restore_info(idx, &fl_restore_info);
 
+#ifndef FS_UT
+	curr_sys_ts = ktime_get_boottime_ns();
+#endif
+
 	LOG_MUST(
-		"NOTICE: [%u] ID:%#x(sidx:%u), do FL restore, cmd_id:%u(NONE:%u/shutter_with_FL:%u/FL:%u), (%#x, #%u, req_id:%d, %u, %u/%u/%u/%u/%u)\n",
+		"NOTICE: [%u] ID:%#x(sidx:%u), do FL restore, cmd_id:%u(NONE:%u/shutter_with_FL:%u/FL:%u), (%#x, #%u, req_id:%d, %u, %u/%u/%u/%u/%u), curr_sys_ts:%llu\n",
 		idx,
 		fs_get_reg_sensor_id(idx),
 		fs_get_reg_sensor_idx(idx),
@@ -3216,7 +3222,8 @@ static void fs_do_fl_restore_proc_if_needed(const unsigned int idx)
 		fl_restore_info.restored_fl_lc_arr[1],
 		fl_restore_info.restored_fl_lc_arr[2],
 		fl_restore_info.restored_fl_lc_arr[3],
-		fl_restore_info.restored_fl_lc_arr[4]);
+		fl_restore_info.restored_fl_lc_arr[4],
+		curr_sys_ts);
 
 	/* call back to set FL */
 	fs_cb_fsync_ctrl_to_set_fl_info(idx, cmd_id,

@@ -28,6 +28,7 @@ subdir-ccflags-y += \
 	-I$(IMGSENSOR_DRIVER_PATH)/../inc \
 	-I$(MTK_ISP_DRIVER_PATH)/ \
 	-I$(MTK_ISP_DRIVER_PATH)/include/ \
+	-I$(DEVICE_MODULES_PATH)/drivers/misc/mediatek/include/mt-plat/ \
 
 obj-y += imgsensor-glue/
 

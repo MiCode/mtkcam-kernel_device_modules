@@ -115,6 +115,7 @@ static int set_mclk(struct adaptor_ctx *ctx, void *data, int val)
 		dev_info(ctx->dev,
 			"mclk(%s) clk_set_parent (%s),ret(%d)(fail)\n",
 			__clk_get_name(mclk), __clk_get_name(mclk_src), ret);
+		WRAP_AEE_EXCEPTION("clk_set_parent", "Err");
 		return ret;
 	}
 #if IMGSENSOR_LOG_MORE

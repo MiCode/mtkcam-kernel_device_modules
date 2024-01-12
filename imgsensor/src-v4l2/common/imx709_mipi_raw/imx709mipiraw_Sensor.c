@@ -2063,6 +2063,7 @@ static int pwr_seq_common_enable_for_mode_transition(struct adaptor_ctx *ctx)
 	ret = clk_set_parent(ctx->clk[CLK1_MCLK1], ctx->clk[CLK1_26M]);
 	if (ret) {
 		DRV_LOG_MUST(ctx, "enable mclk's parent(fail),ret(%d)\n", ret);
+		WRAP_AEE_EXCEPTION("clk_set_parent", "Err");
 		return ret;
 	}
 	DRV_LOG_MUST(ctx, "enable mclk's parent(correct)\n");

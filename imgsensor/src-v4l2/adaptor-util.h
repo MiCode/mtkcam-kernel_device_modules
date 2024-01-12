@@ -8,6 +8,7 @@
 #define _ADAPTOR_UTIL_H__
 
 #include "adaptor.h"
+#include <aee.h>
 
 #define ADAPTOR_LOG_BUF_SZ 256
 
@@ -24,5 +25,18 @@ void adaptor_log_buf_flush(struct adaptor_ctx *ctx, const char *caller,
 int adaptor_log_buf_gather(struct adaptor_ctx *ctx, const char *caller,
 			struct adaptor_log_buf *buf,
 			char *fmt, ...);
+
+/* AEE */
+#if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
+#define WRAP_AEE_EXCEPTION(module, msg)					\
+	aee_kernel_exception_api(__FILE__, __LINE__,			\
+				 DB_OPT_DEFAULT | DB_OPT_FTRACE,	\
+				 module, msg)
+
+#else
+#define WRAP_AEE_EXCEPTION(module, msg)	\
+	WARN_ON(1, "<%s:%d> %s: %s\n", __FILE__, __LINE__, module, msg)
+
+#endif //IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
 
 #endif

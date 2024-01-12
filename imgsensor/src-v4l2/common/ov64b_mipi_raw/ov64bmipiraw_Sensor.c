@@ -283,8 +283,8 @@ static struct mtk_mbus_frame_desc_entry frame_desc_cus4[] = {
 	},
 	{
 		.bus.csi2 = {
-			.channel = 1,
-			.data_type = 0x2b,
+			.channel = 0,
+			.data_type = 0x30,
 			.hsize = 0x0240,
 			.vsize = 0x0364,
 			.dt_remap_to_type = MTK_MBUS_FRAME_DESC_REMAP_TO_RAW10,

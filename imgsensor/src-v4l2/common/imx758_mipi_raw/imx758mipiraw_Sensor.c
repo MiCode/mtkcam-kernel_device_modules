@@ -315,7 +315,7 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.pdaf_cap = TRUE,
 		.imgsensor_pd_info = &imgsensor_pd_info,
 		.ae_binning_ratio = 1000,
-		.fine_integ_line = 826,//sensor verify to modify
+		.fine_integ_line = 363,
 		.delay_frame = 3,
 		.csi_param = {
 			//.cphy_settle = 73,
@@ -364,7 +364,7 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.pdaf_cap = TRUE,
 		.imgsensor_pd_info = &imgsensor_pd_info,
 		.ae_binning_ratio = 1000,
-		.fine_integ_line = 826,//sensor verify to modify
+		.fine_integ_line = 363,
 		.delay_frame = 3,
 		.csi_param = {
 			//.cphy_settle = 73,
@@ -413,7 +413,7 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.pdaf_cap = TRUE,
 		.imgsensor_pd_info = &imgsensor_pd_info,
 		.ae_binning_ratio = 1000,
-		.fine_integ_line = 826,//sensor verify to modify
+		.fine_integ_line = 571,
 		.delay_frame = 3,
 		.csi_param = {
 			//.cphy_settle = 73,
@@ -462,7 +462,7 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.pdaf_cap = TRUE,
 		.imgsensor_pd_info = &imgsensor_pd_info,
 		.ae_binning_ratio = 1000,
-		.fine_integ_line = 2555,//sensor verify to modify
+		.fine_integ_line = 0,
 		.delay_frame = 3,
 		.csi_param = {
 			//.cphy_settle = 76,
@@ -511,7 +511,7 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.pdaf_cap = TRUE,
 		.imgsensor_pd_info = &imgsensor_pd_info,
 		.ae_binning_ratio = 1000,
-		.fine_integ_line = 826,//sensor verify to modify
+		.fine_integ_line = 551,
 		.delay_frame = 3,
 		.csi_param = {
 			//.cphy_settle = 65,
@@ -560,7 +560,7 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.pdaf_cap = TRUE,
 		.imgsensor_pd_info = &imgsensor_pd_info,
 		.ae_binning_ratio = 1000,
-		.fine_integ_line = 502,//sensor verify to modify
+		.fine_integ_line = 551,
 		.delay_frame = 3,
 		.csi_param = {
 			//.cphy_settle = 69,
@@ -609,7 +609,7 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.pdaf_cap = TRUE,
 		.imgsensor_pd_info = &imgsensor_pd_info_fullsize,
 		.ae_binning_ratio = 1000,
-		.fine_integ_line = 2826,//sensor verify to modify
+		.fine_integ_line = 551,
 		.delay_frame = 3,
 		.csi_param = {
 			//.cphy_settle = 73,
@@ -659,7 +659,7 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.pdaf_cap = TRUE,
 		.imgsensor_pd_info = &imgsensor_pd_info_fullsize,
 		.ae_binning_ratio = 1000,
-		.fine_integ_line = 2555,//sensor verify to modify
+		.fine_integ_line = 551,
 		.delay_frame = 3,
 		.csi_param = {
 			//.cphy_settle = 69,
@@ -861,7 +861,7 @@ static void set_group_hold(void *arg, u8 en)
 
 static u16 get_gain2reg(u32 gain)
 {
-	return (16384 - (16384 * BASEGAIN) / gain);
+	return (1024 - (1024 * BASEGAIN) / gain);
 }
 
 static int imx758_seamless_switch(struct subdrv_ctx *ctx, u8 *para, u32 *len)

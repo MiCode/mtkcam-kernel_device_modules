@@ -31,6 +31,7 @@
 #include <linux/sched/clock.h>
 #include <linux/dma-mapping.h>
 #include <linux/pm_runtime.h>
+#include <linux/clk.h>
 #include <linux/suspend.h>
 #include <linux/rtc.h>
 #include <linux/mutex.h>
@@ -61,6 +62,7 @@
 #include <linux/of_address.h>
 #include <linux/of_irq.h>
 #include <linux/of_platform.h>
+#include <linux/pm_runtime.h>
 //#include <cmdq_core.h>
 //#include <cmdq_record.h>
 #include <linux/soc/mediatek/mtk-cmdq-ext.h>
@@ -149,15 +151,12 @@
 #if !IS_ENABLED(CONFIG_MTK_LEGACY) && IS_ENABLED(CONFIG_COMMON_CLK) /*CCF*/
 #include <linux/clk.h>
 struct DPE_CLK_STRUCT {
-	struct clk *CLK_TOP_DPE_SEL;
-	struct clk *CLK_CAM_MAIN_CON_0;
-	struct clk *CLK_CAM_MRAW_CON_0;
-	struct clk *CLK_CAM_DPE_CON_0;
-	struct clk *IPE_LARB19;
-	struct clk *CLK_CAMSYS_DPE;
-	struct clk *CLK_CAMSYS_FUS;
-	struct clk *CLK_CAMSYS_DHZE;
-	struct clk *CLK_CAMSYS_GALS;
+	struct clk *CLK_CK2_DPE_SEL;
+	struct clk *CLK_CAM_MAIN_CAM;
+	struct clk *CLK_CAMSYS_IPE_DPE_CAMERA_P2;
+	struct clk *CLK_CAMSYS_IPE_FUS_CAMERA_P2;
+	struct clk *CLK_CAMSYS_IPE_DHZE_CAMERA_P2;
+	struct clk *CLK_CAMSYS_IPE_GALS_CAMERA_P2;
 };
 
 struct DPE_CLK_STRUCT dpe_clk;
@@ -292,7 +291,10 @@ struct DPE_device {
 	void __iomem *regs;
 	struct device *dev;
 	struct device *larb19;
+	struct device *camisp_vcore;
 	struct device *smmu_dev;
+	struct clk_bulk_data *clks;
+	unsigned int clk_num;
 	int irq;
 // V4L2
 	struct v4l2_device v4l2_dev;
@@ -483,6 +485,7 @@ struct CAM_device {
 		void __iomem *regs;
 	struct device *dev;
 	struct device *larb19;
+	struct device *camisp_vcore;
 	struct device *smmu_dev;
 	int irq;
 // V4L2
@@ -494,6 +497,7 @@ struct IPE_device {
 		void __iomem *regs;
 	struct device *dev;
 	struct device *larb19;
+	struct device *camisp_vcore;
 	struct device *smmu_dev;
 	int irq;
 // V4L2
@@ -1464,6 +1468,16 @@ static struct SV_LOG_STR gSvLog[DPE_IRQ_TYPE_AMOUNT];
 #define DVGF_CORE_17_REG              (ISP_DPE_BASE + 0xE44)
 #define DVGF_CORE_18_REG              (ISP_DPE_BASE + 0xE48)
 #define DPE_MAX_REG_CNT              (0xBE0 >> 2)
+
+static struct clk_bulk_data isp8_dpe_clks[] = {
+	{ .id = "CLK_CK2_DPE_SEL" },
+	{ .id = "CLK_CAM_MAIN_CAM" },
+	{ .id = "CLK_CAMSYS_IPE_DPE" },
+	{ .id = "CLK_CAMSYS_IPE_FUS" },
+	{ .id = "CLK_CAMSYS_IPE_DHZE" },
+	{ .id = "CLK_CAMSYS_IPE_GALS" },
+};
+
 /**************************************************************
  *
  **************************************************************/
@@ -6337,79 +6351,76 @@ static signed int DPE_Dump_kernelReg(struct DPE_Config_ISP8 *cfg)
 	return 0;
 }
 
-#if !IS_ENABLED(CONFIG_MTK_LEGACY) && IS_ENABLED(CONFIG_COMMON_CLK) /*CCF*/
-static inline void DPE_Prepare_Enable_ccf_clock(void)
+static inline int DPE_Prepare_Enable_ccf_clock(void)
 {
-	// int ret;
+	int ret;
+	struct device *dev = gdev;
+	// struct DPE_device *dpe_dev = dev_get_drvdata(dev);
 
 	LOG_INF("DPE_Prepare_Enable_ccf_clock_star\n");
-	// mtk_mmdvfs_enable_vcp(true, VCP_PWR_USR_CAM);
-#if CHECK_SERVICE_IF_0
-	if (pm_runtime_get_sync(gdev))
-		LOG_INF("pm_runtime_get_sync fail\n");
+	/* mtk_mmdvfs_enable_vcp(true, VCP_PWR_USR_CAM); */
 
-	ret = clk_prepare_enable(dpe_clk.CLK_TOP_DPE_SEL);
+	ret = pm_runtime_get_sync(dev);
+	if (ret) {
+		dev_info(dev, "pm_runtime_get_sync fail\n");
+		return ret;
+	}
+
+	// dev_info(dev, "enable DPE clock:%d\n", dpe_dev->clk_num);
+	// ret = clk_bulk_prepare_enable(dpe_dev->clk_num, dpe_dev->clks);
+	// if (ret) {
+		// dev_info(dev, "failed to enable DPE clock:%d\n", ret);
+		// return ret;
+	// }
+
+	ret = clk_prepare_enable(dpe_clk.CLK_CK2_DPE_SEL);
 	if (ret)
-		LOG_INF("cannot prepare and enable CLK_TOP_DPE_SEL clock\n");
+		LOG_INF("cannot prepare and enable CLK_CK2_DPE_SEL clock\n");
 
-	ret = clk_prepare_enable(dpe_clk.CLK_CAM_MAIN_CON_0);
+	ret = clk_prepare_enable(dpe_clk.CLK_CAM_MAIN_CAM);
 	if (ret)
-		LOG_INF("cannot prepare and enable CLK_CAM_MAIN_CON_0 clock\n");
+		LOG_INF("cannot prepare and enable CLK_CAM_MAIN_CAM clock\n");
 
-	ret = clk_prepare_enable(dpe_clk.CLK_CAM_MRAW_CON_0);
+	ret = clk_prepare_enable(dpe_clk.CLK_CAMSYS_IPE_DPE_CAMERA_P2);
 	if (ret)
-		LOG_INF("cannot prepare and enable CLK_CAM_MRAW_CON_0 clock\n");
+		LOG_INF("cannot prepare and enable CLK_CAMSYS_IPE_DPE_CAMERA_P2 clock\n");
 
-	ret = clk_prepare_enable(dpe_clk.CLK_CAM_DPE_CON_0);
+	ret = clk_prepare_enable(dpe_clk.CLK_CAMSYS_IPE_FUS_CAMERA_P2);
 	if (ret)
-		LOG_INF("cannot prepare and enable CLK_CAM_DPE_CON_0 clock\n");
+		LOG_INF("cannot prepare and enable CLK_CAMSYS_IPE_FUS_CAMERA_P2 clock\n");
 
-	ret = clk_prepare_enable(dpe_clk.IPE_LARB19);
+	ret = clk_prepare_enable(dpe_clk.CLK_CAMSYS_IPE_DHZE_CAMERA_P2);
 	if (ret)
-		LOG_INF("cannot prepare and enable IPE_LARB19 clock\n");
+		LOG_INF("cannot prepare and enable CLK_CAMSYS_IPE_DHZE_CAMERA_P2 clock\n");
 
-	ret = clk_prepare_enable(dpe_clk.CLK_CAMSYS_DPE);
+	ret = clk_prepare_enable(dpe_clk.CLK_CAMSYS_IPE_GALS_CAMERA_P2);
 	if (ret)
-		LOG_INF("cannot prepare and enable CLK_CAMSYS_DPE clock\n");
+		LOG_INF("cannot prepare and enable CLK_CAMSYS_IPE_GALS_CAMERA_P2 clock\n");
 
-	ret = clk_prepare_enable(dpe_clk.CLK_CAMSYS_FUS);
-	if (ret)
-		LOG_INF("cannot prepare and enable CLK_CAMSYS_FUS clock\n");
-
-	ret = clk_prepare_enable(dpe_clk.CLK_CAMSYS_DHZE);
-	if (ret)
-		LOG_INF("cannot prepare and enable CLK_CAMSYS_DHZE clock\n");
-
-	ret = clk_prepare_enable(dpe_clk.CLK_CAMSYS_GALS);
-	if (ret)
-		LOG_INF("cannot prepare and enable CLK_CAMSYS_GALS clock\n");
-#endif
-
-	LOG_INF("DPE_Prepare_Enable_ccf_clock_end\n");
-
+	return ret;
 }
 static inline void DPE_Disable_Unprepare_ccf_clock(void)
 {
+	// struct device *dev = gdev;
+	// struct DPE_device *dpe_dev = dev_get_drvdata(dev);
 
 	LOG_INF("Disable_Unprepare_ccf_clock start\n");
-#if CHECK_SERVICE_IF_0
-	clk_disable_unprepare(dpe_clk.CLK_CAMSYS_GALS);
-	clk_disable_unprepare(dpe_clk.CLK_CAMSYS_DHZE);
-	clk_disable_unprepare(dpe_clk.CLK_CAMSYS_FUS);
-	clk_disable_unprepare(dpe_clk.CLK_CAMSYS_DPE);
-	clk_disable_unprepare(dpe_clk.IPE_LARB19);
-	clk_disable_unprepare(dpe_clk.CLK_CAM_DPE_CON_0);
-	clk_disable_unprepare(dpe_clk.CLK_CAM_MRAW_CON_0);
-	clk_disable_unprepare(dpe_clk.CLK_CAM_MAIN_CON_0);
-	clk_disable_unprepare(dpe_clk.CLK_TOP_DPE_SEL);
+
+	// clk_bulk_disable_unprepare(dpe_dev->clk_num, dpe_dev->clks);
+
+	clk_disable_unprepare(dpe_clk.CLK_CAMSYS_IPE_GALS_CAMERA_P2);
+	clk_disable_unprepare(dpe_clk.CLK_CAMSYS_IPE_DHZE_CAMERA_P2);
+	clk_disable_unprepare(dpe_clk.CLK_CAMSYS_IPE_FUS_CAMERA_P2);
+	clk_disable_unprepare(dpe_clk.CLK_CAMSYS_IPE_DPE_CAMERA_P2);
+	clk_disable_unprepare(dpe_clk.CLK_CAM_MAIN_CAM);
+	clk_disable_unprepare(dpe_clk.CLK_CK2_DPE_SEL);
 
 	pm_runtime_put_sync(gdev);
-#endif
 	// mtk_mmdvfs_enable_vcp(false, VCP_PWR_USR_CAM);
 
 	LOG_INF("Disable_Unprepare_ccf_clock end\n");
 }
-#endif
+
 /**************************************************************
  *
  **************************************************************/
@@ -6429,30 +6440,11 @@ static void DPE_EnableClock(bool En)
 		switch (g_u4EnableClockCount) {
 		case 0:
 			spin_unlock(&(DPEInfo.SpinLockDPE));
-#if !IS_ENABLED(CONFIG_MTK_LEGACY) && IS_ENABLED(CONFIG_COMMON_CLK) /*CCF*/
-#ifndef EP_NO_CLKMGR
+
 			LOG_INF("[Debug]DPE_EnClock CLK OPEN");
 			DPE_Prepare_Enable_ccf_clock();
 			//mutex_unlock(&gDpeMutex);//!
-#else
-			/* Enable clock by hardcode:
-			 * 1. CAMSYS_CG_CLR (0x1A000008) = 0xffffffff;
-			 * 2. IMG_CG_CLR (0x15000008) = 0xffffffff;
-			 */
-			LOG_INF("[Debug] It's LDVT load, EP_NO_CLKMGR");
-			setReg = 0xFFFFFFFF;
-			DPE_WR32(IPESYS_REG_CG_CLR, setReg);
-#endif
-#else
-			enable_clock(MT_CG_DDPE0_SMI_COMMON, "CAMERA");
-			enable_clock(MT_CG_IMAGE_CAM_SMI, "CAMERA");
-			enable_clock(MT_CG_IMAGE_CAM_CAM, "CAMERA");
-			enable_clock(MT_CG_IMAGE_SEN_TG, "CAMERA");
-			enable_clock(MT_CG_IMAGE_SEN_CAM, "CAMERA");
-			enable_clock(MT_CG_IMAGE_CAM_SV, "CAMERA");
-			/* enable_clock(MT_CG_IMAGE_FD, "CAMERA"); */
-			enable_clock(MT_CG_IMAGE_LARB2_SMI, "CAMERA");
-#endif
+
 			spin_lock(&(DPEInfo.SpinLockDPE));
 			g_u4EnableClockCount++;
 			spin_unlock(&(DPEInfo.SpinLockDPE));
@@ -6483,28 +6475,7 @@ static void DPE_EnableClock(bool En)
 		switch (g_u4EnableClockCount) {
 		case 0:
 			spin_unlock(&(DPEInfo.SpinLockDPE));
-#if !IS_ENABLED(CONFIG_MTK_LEGACY) && IS_ENABLED(CONFIG_COMMON_CLK) /*CCF*/
-#ifndef EP_NO_CLKMGR
 			DPE_Disable_Unprepare_ccf_clock();
-#else
-			/* Disable clock by hardcode:
-			 *  1. CAMSYS_CG_SET (0x1A000004) = 0xffffffff;
-			 *  2. IMG_CG_SET (0x15000004) = 0xffffffff;
-			 */
-			setReg = 0xFFFFFFFF;
-			DPE_WR32(IPESYS_REG_CG_SET, setReg);
-#endif
-#else
-			/* do disable clock */
-			disable_clock(MT_CG_IMAGE_CAM_SMI, "CAMERA");
-			disable_clock(MT_CG_IMAGE_CAM_CAM, "CAMERA");
-			disable_clock(MT_CG_IMAGE_SEN_TG, "CAMERA");
-			disable_clock(MT_CG_IMAGE_SEN_CAM, "CAMERA");
-			disable_clock(MT_CG_IMAGE_CAM_SV, "CAMERA");
-			/* disable_clock(MT_CG_IMAGE_FD, "CAMERA"); */
-			disable_clock(MT_CG_IMAGE_LARB2_SMI, "CAMERA");
-			disable_clock(MT_CG_DDPE0_SMI_COMMON, "CAMERA");
-#endif
 			break;
 		default:
 			spin_unlock(&(DPEInfo.SpinLockDPE));
@@ -8223,10 +8194,10 @@ static signed int DPE_probe(struct platform_device *pDev)
 	struct IPE_device *_ipe_dev;
 #endif
 
-	//struct device_link *link;
+	struct device_link *link;
 	struct video_device *vfd = NULL;
 #ifndef EP_NO_CLKMGR
-	//struct device_node *node;
+	struct device_node *node;
 #endif
 	int ret;
 #if IS_ENABLED(CONFIG_OF)
@@ -8385,9 +8356,8 @@ if (DPE_dev->irq > 0) {
 	}
 #endif
 #endif
-	pm_runtime_enable(DPE_dev->dev);
-	if (!pm_runtime_enabled(DPE_dev->dev))
-		goto EXIT;
+	// if (!pm_runtime_enabled(DPE_dev->dev))
+		// goto EXIT;
 	ret = dma_set_max_seg_size(DPE_dev->dev, (unsigned int)DMA_BIT_MASK(34));
 	if (ret) {
 		dev_dbg(DPE_dev->dev, "Failed to set DMA segment size\n");
@@ -8395,6 +8365,11 @@ if (DPE_dev->irq > 0) {
 	}
 	/* Only register char driver in the 1st time */
 	if (nr_DPE_devs == 3) {
+		DPE_dev->clks = isp8_dpe_clks;
+		DPE_dev->clk_num = ARRAY_SIZE(isp8_dpe_clks);
+		dev_set_drvdata(&pDev->dev, DPE_dev);
+		pm_runtime_enable(DPE_dev->dev);
+
 		/* Register char driver */
 		Ret = DPE_RegCharDev();
 		if (Ret) {
@@ -8404,10 +8379,33 @@ if (DPE_dev->irq > 0) {
 #ifndef EP_NO_CLKMGR
 #if !IS_ENABLED(CONFIG_MTK_LEGACY) && IS_ENABLED(CONFIG_COMMON_CLK) /*CCF*/
 #ifdef SMI_CLK
-#if CHECK_SERVICE_IF_0
-		LOG_INF("2 nr_DPE_devs=%d, devnode(%s)\n", nr_DPE_devs,
+		LOG_INF("nr_DPE_devs=%d, devnode(%s)\n", nr_DPE_devs,
 		pDev->dev.of_node->name);
+#if CHECK_SERVICE_IF_0
+		node = of_parse_phandle(pDev->dev.of_node, "mediatek,camisp-vcore", 0);
+		LOG_INF("camisp_vcore node get\n");
+		if (!node) {
+			LOG_INF("no get camisp_vcore node\n");
+			return -EINVAL;
+		}
 
+		DPE_pdev = of_find_device_by_node(node);
+		if (WARN_ON(!DPE_pdev)) {
+			of_node_put(node);
+			return -EINVAL;
+		}
+		of_node_put(node);
+		DPE_devs->camisp_vcore = &DPE_pdev->dev;
+
+		LOG_INF("Get camisp_vcore device link\n");
+		link = device_link_add(&pDev->dev, &DPE_pdev->dev,
+		DL_FLAG_PM_RUNTIME | DL_FLAG_STATELESS);
+
+		if (!link) {
+			LOG_INF("%s camisp_vcore device link fail", __func__);
+			return -EPROBE_DEFER;
+		}
+#endif
 		node = of_parse_phandle(pDev->dev.of_node, "mediatek-larb-supply", 0);
 		LOG_INF("larb19 node get\n");
 		if (!node) {
@@ -8423,7 +8421,7 @@ if (DPE_dev->irq > 0) {
 		of_node_put(node);
 		DPE_devs->larb19 = &DPE_pdev->dev;
 
-		LOG_INF("Get device link\n");
+		LOG_INF("Get larb19 device link\n");
 		link = device_link_add(&pDev->dev, &DPE_pdev->dev,
 		DL_FLAG_PM_RUNTIME | DL_FLAG_STATELESS);
 
@@ -8432,59 +8430,41 @@ if (DPE_dev->irq > 0) {
 			return -EPROBE_DEFER;
 		}
 #endif
-#endif
 		/*CCF: Grab clock pointer (struct clk*) */
 		LOG_INF(" get clock node star\n");
 ///
 
-		dpe_clk.CLK_TOP_DPE_SEL = devm_clk_get(&pDev->dev,
-							"CLK_TOP_DPE_SEL");
-		if (IS_ERR(dpe_clk.CLK_TOP_DPE_SEL))
-			LOG_ERR("cannot get CLK_TOP_DPE_SEL clock\n");
+// #if CHECK_SERVICE_IF_0
+		dpe_clk.CLK_CK2_DPE_SEL = devm_clk_get(&pDev->dev,
+							"CLK_CK2_DPE_SEL");
+		if (IS_ERR(dpe_clk.CLK_CK2_DPE_SEL))
+			LOG_ERR("cannot get CLK_CK2_DPE_SEL clock\n");
 
-		dpe_clk.CLK_CAM_MAIN_CON_0 = devm_clk_get(&pDev->dev,
-							"CLK_CAM_MAIN_CON_0");
-		if (IS_ERR(dpe_clk.CLK_CAM_MAIN_CON_0))
-			LOG_ERR("cannot get CLK_CAM_MAIN_CON_0 clock\n");
+		dpe_clk.CLK_CAM_MAIN_CAM = devm_clk_get(&pDev->dev,
+							"CLK_CAM_MAIN_CAM");
+		if (IS_ERR(dpe_clk.CLK_CAM_MAIN_CAM))
+			LOG_ERR("cannot get CLK_CAM_MAIN_CAM clock\n");
 
-		dpe_clk.CLK_CAM_MRAW_CON_0 = devm_clk_get(&pDev->dev,
-							"CLK_CAM_MRAW_CON_0");
-		if (IS_ERR(dpe_clk.CLK_CAM_MRAW_CON_0))
-			LOG_ERR("cannot get CLK_CAM_MRAW_CON_0 clock\n");
+		dpe_clk.CLK_CAMSYS_IPE_DPE_CAMERA_P2 = devm_clk_get(&pDev->dev,
+							"CLK_CAMSYS_IPE_DPE");
+		if (IS_ERR(dpe_clk.CLK_CAMSYS_IPE_DPE_CAMERA_P2))
+			LOG_ERR("cannot get CLK_CAMSYS_IPE_DPE clock\n");
 
-		dpe_clk.CLK_CAM_DPE_CON_0 = devm_clk_get(&pDev->dev,
-							"CLK_CAM_DPE_CON_0");
-		if (IS_ERR(dpe_clk.CLK_CAM_DPE_CON_0))
-			LOG_ERR("cannot get CLK_CAM_DPE_CON_0 clock\n");
+		dpe_clk.CLK_CAMSYS_IPE_FUS_CAMERA_P2 = devm_clk_get(&pDev->dev,
+							"CLK_CAMSYS_IPE_FUS");
+		if (IS_ERR(dpe_clk.CLK_CAMSYS_IPE_FUS_CAMERA_P2))
+			LOG_ERR("cannot get CLK_CAMSYS_IPE_FUS clock\n");
 
-		dpe_clk.IPE_LARB19 = devm_clk_get(&pDev->dev,
-							"IPE_LARB19");
-		if (IS_ERR(dpe_clk.IPE_LARB19))
-			LOG_ERR("cannot get IPE_LARB19 clock\n");
-			//return PTR_ERR(dpe_clk.IPE_LARB19);
+		dpe_clk.CLK_CAMSYS_IPE_DHZE_CAMERA_P2 = devm_clk_get(&pDev->dev,
+							"CLK_CAMSYS_IPE_DHZE");
+		if (IS_ERR(dpe_clk.CLK_CAMSYS_IPE_DHZE_CAMERA_P2))
+			LOG_ERR("cannot get CLK_CAMSYS_IPE_DHZE clock\n");
 
-		dpe_clk.CLK_CAMSYS_DPE = devm_clk_get(&pDev->dev,
-							"CLK_CAMSYS_DPE");
-		if (IS_ERR(dpe_clk.CLK_CAMSYS_DPE))
-			LOG_ERR("cannot get CLK_CAMSYS_DPE clock\n");
-
-
-		dpe_clk.CLK_CAMSYS_FUS = devm_clk_get(&pDev->dev,
-							"CLK_CAMSYS_FUS");
-		if (IS_ERR(dpe_clk.CLK_CAMSYS_FUS))
-			LOG_ERR("cannot get CLK_CAMSYS_FUS clock\n");
-
-
-		dpe_clk.CLK_CAMSYS_DHZE = devm_clk_get(&pDev->dev,
-							"CLK_CAMSYS_DHZE");
-		if (IS_ERR(dpe_clk.CLK_CAMSYS_DHZE))
-			LOG_ERR("cannot get CLK_CAMSYS_DHZE clock\n");
-
-
-		dpe_clk.CLK_CAMSYS_GALS = devm_clk_get(&pDev->dev,
-							"CLK_CAMSYS_GALS");
-		if (IS_ERR(dpe_clk.CLK_CAMSYS_GALS))
-			LOG_ERR("cannot get CLK_CAMSYS_GALS clock\n");
+		dpe_clk.CLK_CAMSYS_IPE_GALS_CAMERA_P2 = devm_clk_get(&pDev->dev,
+							"CLK_CAMSYS_IPE_GALS");
+		if (IS_ERR(dpe_clk.CLK_CAMSYS_IPE_GALS_CAMERA_P2))
+			LOG_ERR("cannot get CLK_CAMSYS_IPE_GALS clock\n");
+// #endif
 #endif
 #endif
 		/* Create class register */

@@ -44,6 +44,18 @@ static inline void vsync_set_desired(struct vsync_collector *c,
 	c->collected = 0;
 	c->collected_first = 0;
 }
+
+static inline void vsync_clear_collected(struct vsync_collector *c)
+{
+	c->collected = c->collected_first = 0;
+}
+
+static inline void vsync_rewait(struct vsync_collector *c,
+				     unsigned int rewait)
+{
+	c->collected &= ~rewait;
+}
+
 int vsync_update(struct vsync_collector *c,
 		  int engine_type, int irq_type, int idx,
 		  struct vsync_result *res);

@@ -4920,7 +4920,7 @@ static int mtk_cam_seninf_debug_current_status(struct seninf_ctx *ctx)
 	unsigned int seninf_irq = 0;
 	unsigned long long enabled = 0;
 	int ret = 0;
-	int j, i, k;
+	int j, i;
 	enum CSI_PORT csi_port = CSI_PORT_0;
 	unsigned int tag_03_vc, tag_03_dt, tag_47_vc, tag_47_dt;
 	char *fmeter_dbg = kzalloc(sizeof(char) * 256, GFP_KERNEL);
@@ -5067,56 +5067,45 @@ static int mtk_cam_seninf_debug_current_status(struct seninf_ctx *ctx)
 		}
 	}
 
-	/* check SENINF_CAM_MUX size */
-	for (j = 0; j < ctx->vcinfo.cnt; j++) {
-		if (ctx->vcinfo.vc[j].enable) {
-			for (k = 0; k < ctx->vcinfo.vc[j].dest_cnt; k++) {
-				for (i = 0; i < _seninf_ops->cam_mux_num; i++) {
-					unsigned int used_cammux = ctx->vcinfo.vc[j].dest[k].cam;
+	/* check SENINF_CAM_MUX size, dump all cam mux */
+	for (i = 0; i < _seninf_ops->cam_mux_num; i++) {
+		SENINF_BITS(ctx->reg_if_cam_mux_pcsr[i],
+			SENINF_CAM_MUX_PCSR_OPT,
+			RG_SENINF_CAM_MUX_PCSR_TAG_VC_DT_PAGE_SEL,
+			0);
+		tag_03_vc = SENINF_READ_REG(
+			ctx->reg_if_cam_mux_pcsr[i],
+			SENINF_CAM_MUX_PCSR_TAG_VC_SEL);
+		tag_03_dt = SENINF_READ_REG(
+			ctx->reg_if_cam_mux_pcsr[i],
+			SENINF_CAM_MUX_PCSR_TAG_DT_SEL);
+		SENINF_BITS(ctx->reg_if_cam_mux_pcsr[i],
+			SENINF_CAM_MUX_PCSR_OPT,
+			RG_SENINF_CAM_MUX_PCSR_TAG_VC_DT_PAGE_SEL,
+			1);
+		tag_47_vc = SENINF_READ_REG(
+			ctx->reg_if_cam_mux_pcsr[i],
+			SENINF_CAM_MUX_PCSR_TAG_VC_SEL);
+		tag_47_dt = SENINF_READ_REG(
+			ctx->reg_if_cam_mux_pcsr[i],
+			SENINF_CAM_MUX_PCSR_TAG_DT_SEL);
 
-					if ((used_cammux == i) && ((enabled >> i) & 1)) {
-
-						SENINF_BITS(ctx->reg_if_cam_mux_pcsr[i],
-							SENINF_CAM_MUX_PCSR_OPT,
-							RG_SENINF_CAM_MUX_PCSR_TAG_VC_DT_PAGE_SEL,
-							0);
-						tag_03_vc = SENINF_READ_REG(
-							ctx->reg_if_cam_mux_pcsr[i],
-							SENINF_CAM_MUX_PCSR_TAG_VC_SEL);
-						tag_03_dt = SENINF_READ_REG(
-							ctx->reg_if_cam_mux_pcsr[i],
-							SENINF_CAM_MUX_PCSR_TAG_DT_SEL);
-						SENINF_BITS(ctx->reg_if_cam_mux_pcsr[i],
-							SENINF_CAM_MUX_PCSR_OPT,
-							RG_SENINF_CAM_MUX_PCSR_TAG_VC_DT_PAGE_SEL,
-							1);
-						tag_47_vc = SENINF_READ_REG(
-							ctx->reg_if_cam_mux_pcsr[i],
-							SENINF_CAM_MUX_PCSR_TAG_VC_SEL);
-						tag_47_dt = SENINF_READ_REG(
-							ctx->reg_if_cam_mux_pcsr[i],
-							SENINF_CAM_MUX_PCSR_TAG_DT_SEL);
-
-						dev_info(ctx->dev,
-						"cam_mux_%d CTRL(0x%x) RES(0x%x) EXP(0x%x) ERR(0x%x) OPT(0x%x) IRQ(0x%x) tag03(0x%x/0x%x), tag47(0x%x/0x%x)\n",
-						i,
-						SENINF_READ_REG(ctx->reg_if_cam_mux_pcsr[i],
-								SENINF_CAM_MUX_PCSR_CTRL),
-						SENINF_READ_REG(ctx->reg_if_cam_mux_pcsr[i],
-								SENINF_CAM_MUX_PCSR_CHK_RES),
-						SENINF_READ_REG(ctx->reg_if_cam_mux_pcsr[i],
-								SENINF_CAM_MUX_PCSR_CHK_CTL),
-						SENINF_READ_REG(ctx->reg_if_cam_mux_pcsr[i],
-								SENINF_CAM_MUX_PCSR_CHK_ERR_RES),
-						SENINF_READ_REG(ctx->reg_if_cam_mux_pcsr[i],
-								SENINF_CAM_MUX_PCSR_OPT),
-						SENINF_READ_REG(ctx->reg_if_cam_mux_pcsr[i],
-								SENINF_CAM_MUX_PCSR_IRQ_STATUS),
-						tag_03_vc, tag_03_dt, tag_47_vc, tag_47_dt);
-					}
-				}
-			}
-		}
+		dev_info(ctx->dev,
+		"cam_mux_%d CTRL(0x%x) RES(0x%x) EXP(0x%x) ERR(0x%x) OPT(0x%x) IRQ(0x%x) tag03(0x%x/0x%x), tag47(0x%x/0x%x)\n",
+		i,
+		SENINF_READ_REG(ctx->reg_if_cam_mux_pcsr[i],
+			SENINF_CAM_MUX_PCSR_CTRL),
+		SENINF_READ_REG(ctx->reg_if_cam_mux_pcsr[i],
+				SENINF_CAM_MUX_PCSR_CHK_RES),
+		SENINF_READ_REG(ctx->reg_if_cam_mux_pcsr[i],
+				SENINF_CAM_MUX_PCSR_CHK_CTL),
+		SENINF_READ_REG(ctx->reg_if_cam_mux_pcsr[i],
+				SENINF_CAM_MUX_PCSR_CHK_ERR_RES),
+		SENINF_READ_REG(ctx->reg_if_cam_mux_pcsr[i],
+				SENINF_CAM_MUX_PCSR_OPT),
+		SENINF_READ_REG(ctx->reg_if_cam_mux_pcsr[i],
+				SENINF_CAM_MUX_PCSR_IRQ_STATUS),
+		tag_03_vc, tag_03_dt, tag_47_vc, tag_47_dt);
 	}
 	dev_info(ctx->dev, "ret = %d", ret);
 

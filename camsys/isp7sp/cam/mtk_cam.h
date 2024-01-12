@@ -158,6 +158,7 @@ struct mtk_cam_ctx {
 
 	bool not_first_job;
 	bool configured;
+	struct mtk_raw_sink_data configured_raw_sink;
 	struct mtkcam_ipi_config_param ipi_config;
 
 	/* cached for stream_off */
@@ -442,6 +443,19 @@ int mtk_cam_alloc_img_pool(struct device *dev_to_attach,
 int mtk_cam_ctx_alloc_img_pool(struct mtk_cam_ctx *ctx, struct mtk_raw_ctrl_data *ctrl_data);
 
 void mtk_cam_destroy_img_pool(struct mtk_cam_pool_wrapper *pool_wrapper);
+
+static inline void mtk_cam_ctx_set_raw_sink(struct mtk_cam_ctx *ctx,
+					    struct mtk_raw_sink_data *sink)
+{
+	if (!sink) {
+		memset(&ctx->configured_raw_sink, 0, sizeof(*sink));
+		return;
+	}
+	ctx->configured_raw_sink = *sink;
+}
+
+bool mtk_cam_ctx_is_raw_sink_changed(struct mtk_cam_ctx *ctx,
+				     struct mtk_raw_sink_data *sink);
 
 bool mtk_cam_is_dcif_slb_supported(void);
 void

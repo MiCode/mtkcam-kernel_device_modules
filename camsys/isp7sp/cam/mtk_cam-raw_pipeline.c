@@ -58,6 +58,18 @@ MODULE_PARM_DESC(debug_disable_twin_dc_scen, "debug: disable twin dc scen");
 #define sizeof_u32(__struct__) ((sizeof(__struct__) + sizeof(u32) - 1)/ \
 				sizeof(u32))
 
+inline bool is_raw_sink_eq(struct mtk_raw_sink_data *a,
+			   struct mtk_raw_sink_data *b)
+{
+	return a->width == b->width &&
+		a->height == b->height &&
+		mbus_code_fmt(a->mbus_code) == mbus_code_fmt(b->mbus_code) &&
+		a->crop.left == b->crop.left &&
+		a->crop.top == b->crop.top &&
+		a->crop.width == b->crop.width &&
+		a->crop.height == b->crop.height;
+}
+
 struct mbus_config_getter {
 	struct v4l2_mbus_framefmt *(*get_fmt)(struct v4l2_subdev *sd,
 					      struct v4l2_subdev_state *state,
@@ -231,6 +243,21 @@ static inline int mtk_raw_find_combination(struct mtk_cam_res_calc *c,
 
 	return loop_resource_till_valid(c, stepper,
 					policy, ARRAY_SIZE(policy));
+}
+
+static void scen_validate_exp_num(struct mtk_cam_scen *scen)
+{
+	if (scen_is_normal(scen)) {
+		/* to avoid invalid exp num */
+		if (!scen->scen.normal.exp_num ||
+		    !scen->scen.normal.max_exp_num) {
+			scen->scen.normal.exp_num = 1;
+			scen->scen.normal.max_exp_num = 1;
+
+			if (CAM_DEBUG_ENABLED(V4L2))
+				pr_info("%s: warn. set exp to 1\n", __func__);
+		}
+	}
 }
 
 static void
@@ -519,6 +546,7 @@ static int mtk_raw_calc_raw_resource(struct mtk_raw_pipeline *pipeline,
 	if (ret)
 		return -EINVAL;
 
+	scen_validate_exp_num(&r->scen);
 	mtk_cam_resource_update_work_buf(user_ctrl);
 	mtk_cam_resource_update_slb_size(user_ctrl);
 
@@ -785,7 +813,7 @@ static int mtk_raw_set_ctrl(struct v4l2_ctrl *ctrl)
 			*apu_info = *(struct mtk_cam_apu_info *)ctrl->p_new.p;
 			ctrl_data->valid_apu_info = 1;
 
-			if (1 || CAM_DEBUG_ENABLED(V4L2))
+			if (CAM_DEBUG_ENABLED(V4L2))
 				dev_info(dev, "%s: apu_info: path %d i,o=%d,%d sysram %d opp_idx=%d blk_y_size %d\n",
 					 __func__,
 					 apu_info->apu_path,
@@ -1164,53 +1192,6 @@ static int mtk_raw_init_cfg(struct v4l2_subdev *sd,
 	}
 	return 0;
 }
-
-#ifdef NOT_READY
-unsigned int mtk_cam_get_rawi_sensor_pixel_fmt(unsigned int fmt)
-{
-	// return V4L2_PIX_FMT_MTISP for matching
-	// length returned by mtk_cam_get_pixel_bits()
-	// with ipi_fmt returned by mtk_cam_get_sensor_fmt()
-
-	switch (fmt & SENSOR_FMT_MASK) {
-	case MEDIA_BUS_FMT_SBGGR8_1X8:
-		return V4L2_PIX_FMT_SBGGR8;
-	case MEDIA_BUS_FMT_SGBRG8_1X8:
-		return V4L2_PIX_FMT_SGBRG8;
-	case MEDIA_BUS_FMT_SGRBG8_1X8:
-		return V4L2_PIX_FMT_SGRBG8;
-	case MEDIA_BUS_FMT_SRGGB8_1X8:
-		return V4L2_PIX_FMT_SRGGB8;
-	case MEDIA_BUS_FMT_SBGGR10_1X10:
-		return V4L2_PIX_FMT_MTISP_SBGGR10;
-	case MEDIA_BUS_FMT_SGBRG10_1X10:
-		return V4L2_PIX_FMT_MTISP_SGBRG10;
-	case MEDIA_BUS_FMT_SGRBG10_1X10:
-		return V4L2_PIX_FMT_MTISP_SGRBG10;
-	case MEDIA_BUS_FMT_SRGGB10_1X10:
-		return V4L2_PIX_FMT_MTISP_SGRBG10;
-	case MEDIA_BUS_FMT_SBGGR12_1X12:
-		return V4L2_PIX_FMT_MTISP_SBGGR12;
-	case MEDIA_BUS_FMT_SGBRG12_1X12:
-		return V4L2_PIX_FMT_MTISP_SGBRG12;
-	case MEDIA_BUS_FMT_SGRBG12_1X12:
-		return V4L2_PIX_FMT_MTISP_SGRBG12;
-	case MEDIA_BUS_FMT_SRGGB12_1X12:
-		return V4L2_PIX_FMT_MTISP_SRGGB12;
-	case MEDIA_BUS_FMT_SBGGR14_1X14:
-		return V4L2_PIX_FMT_MTISP_SBGGR14;
-	case MEDIA_BUS_FMT_SGBRG14_1X14:
-		return V4L2_PIX_FMT_MTISP_SGBRG14;
-	case MEDIA_BUS_FMT_SGRBG14_1X14:
-		return V4L2_PIX_FMT_MTISP_SGRBG14;
-	case MEDIA_BUS_FMT_SRGGB14_1X14:
-		return V4L2_PIX_FMT_MTISP_SRGGB14;
-	default:
-		break;
-	}
-	return V4L2_PIX_FMT_MTISP_SBGGR14;
-}
-#endif
 
 static struct v4l2_mbus_framefmt *
 raw_try_fmt_getter(struct v4l2_subdev *sd,

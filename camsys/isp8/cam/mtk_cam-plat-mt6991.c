@@ -15,14 +15,13 @@
 #define RAW_STATS_CFG_SIZE \
 	ALIGN(sizeof(struct mtk_cam_uapi_meta_raw_stats_cfg), SZ_4K)
 
-#define RAW_STATS_CFG_SIZE_RGBW \
-	ALIGN(sizeof(struct mtk_cam_uapi_meta_raw_stats_rgbw_cfg), SZ_4K)
-
 #define RAW_STAT_0_BUF_SIZE_STATIC \
-			(MTK_CAM_UAPI_AAO_MAX_BUF_SIZE + \
-			MTK_CAM_UAPI_AAHO_MAX_BUF_SIZE + \
-			MTK_CAM_UAPI_LTMSO_SIZE + \
-			MTK_CAM_UAPI_LTMSHO_SIZE + \
+			(MTK_CAM_UAPI_AWBO_R1_MAX_BUF_SIZE + \
+			MTK_CAM_UAPI_AWBO_R2_MAX_BUF_SIZE + \
+			MTK_CAM_UAPI_AEO_MAX_BUF_SIZE + \
+			MTK_CAM_UAPI_AEHO_MAX_BUF_SIZE + \
+			MTK_CAM_UAPI_LTMSBO_SIZE + \
+			MTK_CAM_UAPI_LTMSGO_SIZE + \
 			MTK_CAM_UAPI_TSFSO_SIZE + \
 			MTK_CAM_UAPI_TCYSO_SIZE)
 
@@ -96,23 +95,16 @@ static void meta_state0_reset_all(struct mtk_cam_uapi_meta_raw_stats_0 *stats)
 {
 	size_t offset = sizeof(*stats);
 
-	set_payload(&stats->ae_awb_stats.aao_buf, 0, &offset);
-	set_payload(&stats->ae_awb_stats.aaho_buf, 0, &offset);
-	set_payload(&stats->ltm_stats.ltmso_buf, 0, &offset);
-	set_payload(&stats->ltm_stats.ltmsho_buf, 0, &offset);
+	set_payload(&stats->awb_stats.awbo1_buf, 0, &offset);
+	set_payload(&stats->awb_stats.awbo2_buf, 0, &offset);
+	set_payload(&stats->ae_stats.aeo_buf, 0, &offset);
+	set_payload(&stats->ae_stats.aeho_buf, 0, &offset);
+	set_payload(&stats->ltm_stats.ltmsbo_buf, 0, &offset);
+	set_payload(&stats->ltm_stats.ltmsgo_buf, 0, &offset);
 	set_payload(&stats->flk_stats.flko_buf, 0, &offset);
 	set_payload(&stats->tsf_stats.tsfo_r1_buf, 0, &offset);
 	set_payload(&stats->tcys_stats.tcyso_buf, 0, &offset);
 	set_payload(&stats->pde_stats.pdo_buf, 0, &offset);
-
-	set_payload(&stats->ae_awb_stats_w.aao_buf, 0, &offset);
-	set_payload(&stats->ae_awb_stats_w.aaho_buf, 0, &offset);
-	set_payload(&stats->ltm_stats_w.ltmso_buf, 0, &offset);
-	set_payload(&stats->ltm_stats_w.ltmsho_buf, 0, &offset);
-	set_payload(&stats->flk_stats_w.flko_buf, 0, &offset);
-	set_payload(&stats->tsf_stats_w.tsfo_r1_buf, 0, &offset);
-	set_payload(&stats->tcys_stats_w.tcyso_buf, 0, &offset);
-	set_payload(&stats->pde_stats_w.pdo_buf, 0, &offset);
 }
 
 static int set_meta_stat0_info(struct mtk_cam_uapi_meta_raw_stats_0 *stats,
@@ -137,45 +129,27 @@ static int set_meta_stat0_info(struct mtk_cam_uapi_meta_raw_stats_0 *stats,
 #endif
 	pdo_size = cfg->pde_enable ? cfg->pde_param.pdo_max_size : 0;
 
-	set_payload(&stats->ae_awb_stats.aao_buf,
-		    MTK_CAM_UAPI_AAO_MAX_BUF_SIZE, &offset);
-	set_payload(&stats->ae_awb_stats.aaho_buf,
-		    (p->rgbw) ? MTK_CAM_UAPI_AAHO_HIST_SIZE :
-				MTK_CAM_UAPI_AAHO_MAX_BUF_SIZE,
+	set_payload(&stats->awb_stats.awbo1_buf,
+		    MTK_CAM_UAPI_AWBO_R1_MAX_BUF_SIZE, &offset);
+	set_payload(&stats->awb_stats.awbo2_buf,
+		    MTK_CAM_UAPI_AWBO_R2_MAX_BUF_SIZE, &offset);
+	set_payload(&stats->ae_stats.aeo_buf,
+			MTK_CAM_UAPI_AEO_MAX_BUF_SIZE,
 			&offset);
-	set_payload(&stats->ltm_stats.ltmso_buf,
-		    MTK_CAM_UAPI_LTMSO_SIZE, &offset);
-	set_payload(&stats->ltm_stats.ltmsho_buf,
-		    MTK_CAM_UAPI_LTMSHO_SIZE, &offset);
+	set_payload(&stats->ae_stats.aeho_buf,
+			MTK_CAM_UAPI_AEHO_MAX_BUF_SIZE,
+			&offset);
+	set_payload(&stats->ltm_stats.ltmsbo_buf,
+		    MTK_CAM_UAPI_LTMSBO_SIZE, &offset);
+	set_payload(&stats->ltm_stats.ltmsgo_buf,
+		    MTK_CAM_UAPI_LTMSGO_SIZE, &offset);
 	set_payload(&stats->flk_stats.flko_buf,
-		    (p->rgbw) ? 0 : flko_size, &offset);
+		    flko_size, &offset);
 	set_payload(&stats->tsf_stats.tsfo_r1_buf,
 		    MTK_CAM_UAPI_TSFSO_SIZE, &offset);
 	set_payload(&stats->tcys_stats.tcyso_buf,
 		    MTK_CAM_UAPI_TCYSO_SIZE, &offset);
 	set_payload(&stats->pde_stats.pdo_buf, pdo_size, &offset);
-
-	set_payload(&stats->ae_awb_stats_w.aao_buf,
-				(p->rgbw) ? MTK_CAM_UAPI_AAO_MAX_BUF_SIZE : 0,
-				&offset);
-	set_payload(&stats->ae_awb_stats_w.aaho_buf,
-				(p->rgbw) ? MTK_CAM_UAPI_AAHO_HIST_SIZE : 0,
-				&offset);
-	set_payload(&stats->ltm_stats_w.ltmso_buf,
-				(p->rgbw) ? MTK_CAM_UAPI_LTMSO_SIZE : 0,
-				&offset);
-	set_payload(&stats->ltm_stats_w.ltmsho_buf,
-				(p->rgbw) ? MTK_CAM_UAPI_LTMSHO_SIZE : 0,
-				&offset);
-	set_payload(&stats->flk_stats_w.flko_buf,
-				(p->rgbw) ? flko_size : 0,
-				&offset);
-	set_payload(&stats->tsf_stats_w.tsfo_r1_buf,
-				(p->rgbw) ? MTK_CAM_UAPI_TSFSO_SIZE : 0,
-				&offset);
-	set_payload(&stats->tcys_stats_w.tcyso_buf,
-				(p->rgbw) ? MTK_CAM_UAPI_TCYSO_SIZE : 0,
-				&offset);
 
 	if (offset > size) {
 		pr_info("%s: required %zu > buffer size %zu\n",
@@ -194,11 +168,6 @@ static int set_meta_stat1_info(struct mtk_cam_uapi_meta_raw_stats_1 *stats,
 
 	set_payload(&stats->af_stats.afo_buf,
 		    MTK_CAM_UAPI_AFO_MAX_BUF_SIZE, &offset);
-
-	/* w part */
-	set_payload(&stats->af_stats_w.afo_buf,
-			(p->rgbw) ? MTK_CAM_UAPI_AFO_MAX_BUF_SIZE : 0,
-			&offset);
 
 	if (offset > size) {
 		pr_info("%s: required %zu > buffer size %zu\n",
@@ -258,15 +227,15 @@ static int get_meta_stats0_port_size(
 {
 	switch (dma_port) {
 	case PORT_AAO:
-		return stats_0->ae_awb_stats.aao_buf.size;
+		return stats_0->ae_stats.aeo_buf.size;
 	case PORT_AAHO:
-		return stats_0->ae_awb_stats.aaho_buf.size;
+		return stats_0->ae_stats.aeho_buf.size;
 	case PORT_TSFSO:
 		return stats_0->tsf_stats.tsfo_r1_buf.size;
 	case PORT_LTMSO:
-		return stats_0->ltm_stats.ltmso_buf.size;
+		return stats_0->ltm_stats.ltmsbo_buf.size;
 	case PORT_LTMSHO:
-		return stats_0->ltm_stats.ltmsho_buf.size;
+		return stats_0->ltm_stats.ltmsgo_buf.size;
 	case PORT_FLKO:
 		return stats_0->flk_stats.flko_buf.size;
 	case PORT_TCYSO:
@@ -797,11 +766,8 @@ static const struct plat_v4l2_data mt6991_v4l2_data = {
 	.meta_minor = MTK_CAM_META_VERSION_MINOR,
 
 	.meta_cfg_size = RAW_STATS_CFG_SIZE,
-	.meta_cfg_size_rgbw = RAW_STATS_CFG_SIZE_RGBW,
 	.meta_stats0_size = RAW_STATS_0_SIZE,
-	.meta_stats0_size_rgbw = RAW_STATS_0_SIZE_RGBW,
 	.meta_stats1_size = RAW_STATS_1_SIZE,
-	.meta_stats1_size_rgbw = RAW_STATS_1_SIZE_RGBW,
 	.meta_sv_ext_size = SV_STATS_0_SIZE,
 	.meta_mraw_ext_size = MRAW_STATS_0_SIZE,
 

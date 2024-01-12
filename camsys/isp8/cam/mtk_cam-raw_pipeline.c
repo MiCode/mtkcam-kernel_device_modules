@@ -3562,24 +3562,13 @@ static void update_platform_meta_size(struct mtk_cam_format_desc *fmts,
 		case  V4L2_META_FMT_MTISP_PARAMS:
 			size = GET_PLAT_V4L2(meta_cfg_size);
 			break;
-		case  V4L2_META_FMT_MTISP_PARAMS_RGBW:
-			size = GET_PLAT_V4L2(meta_cfg_size_rgbw);
-			break;
 		case  V4L2_META_FMT_MTISP_3A:
 			/* workaround */
 			size = !sv ? GET_PLAT_V4L2(meta_stats0_size) :
 				GET_PLAT_V4L2(meta_sv_ext_size);
 			break;
-		case  V4L2_META_FMT_MTISP_3A_RGBW:
-			/* workaround */
-			size = !sv ? GET_PLAT_V4L2(meta_stats0_size_rgbw) :
-				GET_PLAT_V4L2(meta_sv_ext_size);
-			break;
 		case  V4L2_META_FMT_MTISP_AF:
 			size = GET_PLAT_V4L2(meta_stats1_size);
-			break;
-		case  V4L2_META_FMT_MTISP_AF_RGBW:
-			size = GET_PLAT_V4L2(meta_stats1_size_rgbw);
 			break;
 		default:
 			size = 0;

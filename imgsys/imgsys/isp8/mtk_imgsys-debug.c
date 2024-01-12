@@ -1079,6 +1079,18 @@ void imgsys_dl_debug_dump(struct mtk_imgsys_dev *imgsys_dev, unsigned int hw_com
 		imgsys_dl_checksum_dump(imgsys_dev, hw_comb,
 			logBuf_path, logBuf_inport, logBuf_outport, dl_path);
 		break;
+	case (IMGSYS_ENG_WPE_LITE | IMGSYS_ENG_PQDIP_A):
+	case (IMGSYS_ENG_WPE_LITE | IMGSYS_ENG_PQDIP_B):
+	case (IMGSYS_ENG_WPE_LITE | IMGSYS_ENG_PQDIP_A |
+		IMGSYS_ENG_PQDIP_B):
+		dl_path = IMGSYS_DL_WPE_LITE_TO_PQDIP_A_B;
+		snprintf(logBuf_inport, sizeof(logBuf_inport), "%s",
+			"WPE_LITE");
+		snprintf(logBuf_outport, sizeof(logBuf_outport), "%s",
+			"PQDIP");
+		imgsys_dl_checksum_dump(imgsys_dev, hw_comb,
+			logBuf_path, logBuf_inport, logBuf_outport, dl_path);
+		break;
 	case (IMGSYS_ENG_OMC_TNR | IMGSYS_ENG_PQDIP_A):
 	case (IMGSYS_ENG_OMC_TNR | IMGSYS_ENG_PQDIP_B):
 	case (IMGSYS_ENG_OMC_TNR | IMGSYS_ENG_PQDIP_A |
@@ -1142,6 +1154,57 @@ void imgsys_dl_debug_dump(struct mtk_imgsys_dev *imgsys_dev, unsigned int hw_com
 		imgsys_dl_checksum_dump(imgsys_dev, hw_comb,
 			logBuf_path, logBuf_inport, logBuf_outport, dl_path);
 		break;
+	case (IMGSYS_ENG_WPE_EIS | IMGSYS_ENG_LTR | IMGSYS_ENG_DIP):
+	case (IMGSYS_ENG_WPE_EIS | IMGSYS_ENG_LTR | IMGSYS_ENG_DIP |
+		IMGSYS_ENG_PQDIP_A):
+	case (IMGSYS_ENG_WPE_EIS | IMGSYS_ENG_LTR | IMGSYS_ENG_DIP |
+		IMGSYS_ENG_PQDIP_B):
+	case (IMGSYS_ENG_WPE_EIS | IMGSYS_ENG_LTR | IMGSYS_ENG_DIP |
+		IMGSYS_ENG_PQDIP_A | IMGSYS_ENG_PQDIP_B):
+		dl_path = IMGSYS_DL_WPE_EIS_TO_TRAW_LTRAW;
+		snprintf(logBuf_inport, sizeof(logBuf_inport), "%s",
+			"WPE_EIS");
+		snprintf(logBuf_outport, sizeof(logBuf_outport), "%s",
+			"LTRAW");
+		imgsys_dl_checksum_dump(imgsys_dev, hw_comb,
+			logBuf_path, logBuf_inport, logBuf_outport, dl_path);
+		/**/
+		memset((char *)logBuf_inport, 0x0, sizeof(logBuf_inport));
+		logBuf_inport[strlen(logBuf_inport)] = '\0';
+		memset((char *)logBuf_outport, 0x0, sizeof(logBuf_outport));
+		logBuf_outport[strlen(logBuf_outport)] = '\0';
+		dl_path = IMGSYS_DL_LTRAW_TO_DIP;
+		snprintf(logBuf_inport, sizeof(logBuf_inport), "%s",
+			"LTRAW");
+		snprintf(logBuf_outport, sizeof(logBuf_outport), "%s",
+			"DIP");
+		imgsys_dl_checksum_dump(imgsys_dev, hw_comb,
+			logBuf_path, logBuf_inport, logBuf_outport, dl_path);
+		/**/
+		memset((char *)logBuf_inport, 0x0, sizeof(logBuf_inport));
+		logBuf_inport[strlen(logBuf_inport)] = '\0';
+		memset((char *)logBuf_outport, 0x0, sizeof(logBuf_outport));
+		logBuf_outport[strlen(logBuf_outport)] = '\0';
+		dl_path = IMGSYS_DL_DIP_TO_PQDIP_A;
+		snprintf(logBuf_inport, sizeof(logBuf_inport), "%s",
+			"DIP");
+		snprintf(logBuf_outport, sizeof(logBuf_outport), "%s",
+			"PQDIPA");
+		imgsys_dl_checksum_dump(imgsys_dev, hw_comb,
+			logBuf_path, logBuf_inport, logBuf_outport, dl_path);
+		/**/
+		memset((char *)logBuf_inport, 0x0, sizeof(logBuf_inport));
+		logBuf_inport[strlen(logBuf_inport)] = '\0';
+		memset((char *)logBuf_outport, 0x0, sizeof(logBuf_outport));
+		logBuf_outport[strlen(logBuf_outport)] = '\0';
+		dl_path = IMGSYS_DL_DIP_TO_PQDIP_B;
+		snprintf(logBuf_inport, sizeof(logBuf_inport), "%s",
+			"DIP");
+		snprintf(logBuf_outport, sizeof(logBuf_outport), "%s",
+			"PQDIPB");
+		imgsys_dl_checksum_dump(imgsys_dev, hw_comb,
+			logBuf_path, logBuf_inport, logBuf_outport, dl_path);
+		break;
 	case (IMGSYS_ENG_OMC_TNR | IMGSYS_ENG_TRAW | IMGSYS_ENG_DIP):
 	case (IMGSYS_ENG_OMC_TNR | IMGSYS_ENG_TRAW | IMGSYS_ENG_DIP |
 		IMGSYS_ENG_PQDIP_A):
@@ -1149,7 +1212,7 @@ void imgsys_dl_debug_dump(struct mtk_imgsys_dev *imgsys_dev, unsigned int hw_com
 		IMGSYS_ENG_PQDIP_B):
 	case (IMGSYS_ENG_OMC_TNR | IMGSYS_ENG_TRAW | IMGSYS_ENG_DIP |
 		IMGSYS_ENG_PQDIP_A | IMGSYS_ENG_PQDIP_B):
-		dl_path = IMGSYS_DL_OMC_TNR_TO_TRAW;
+		dl_path = IMGSYS_DL_OMC_TNR_TO_TRAW_LTRAW;
 		snprintf(logBuf_inport, sizeof(logBuf_inport), "%s",
 			"OMC_TNR");
 		snprintf(logBuf_outport, sizeof(logBuf_outport), "%s",
@@ -1162,8 +1225,59 @@ void imgsys_dl_debug_dump(struct mtk_imgsys_dev *imgsys_dev, unsigned int hw_com
 		memset((char *)logBuf_outport, 0x0, sizeof(logBuf_outport));
 		logBuf_outport[strlen(logBuf_outport)] = '\0';
 		dl_path = IMGSYS_DL_TRAW_TO_DIP;
+			snprintf(logBuf_inport, sizeof(logBuf_inport), "%s",
+				"TRAW");
+		snprintf(logBuf_outport, sizeof(logBuf_outport), "%s",
+			"DIP");
+		imgsys_dl_checksum_dump(imgsys_dev, hw_comb,
+			logBuf_path, logBuf_inport, logBuf_outport, dl_path);
+		/**/
+		memset((char *)logBuf_inport, 0x0, sizeof(logBuf_inport));
+		logBuf_inport[strlen(logBuf_inport)] = '\0';
+		memset((char *)logBuf_outport, 0x0, sizeof(logBuf_outport));
+		logBuf_outport[strlen(logBuf_outport)] = '\0';
+		dl_path = IMGSYS_DL_DIP_TO_PQDIP_A;
 		snprintf(logBuf_inport, sizeof(logBuf_inport), "%s",
-			"TRAW");
+			"DIP");
+		snprintf(logBuf_outport, sizeof(logBuf_outport), "%s",
+			"PQDIPA");
+		imgsys_dl_checksum_dump(imgsys_dev, hw_comb,
+			logBuf_path, logBuf_inport, logBuf_outport, dl_path);
+		/**/
+		memset((char *)logBuf_inport, 0x0, sizeof(logBuf_inport));
+		logBuf_inport[strlen(logBuf_inport)] = '\0';
+		memset((char *)logBuf_outport, 0x0, sizeof(logBuf_outport));
+		logBuf_outport[strlen(logBuf_outport)] = '\0';
+		dl_path = IMGSYS_DL_DIP_TO_PQDIP_B;
+		snprintf(logBuf_inport, sizeof(logBuf_inport), "%s",
+			"DIP");
+		snprintf(logBuf_outport, sizeof(logBuf_outport), "%s",
+			"PQDIPB");
+		imgsys_dl_checksum_dump(imgsys_dev, hw_comb,
+			logBuf_path, logBuf_inport, logBuf_outport, dl_path);
+		break;
+	case (IMGSYS_ENG_OMC_TNR | IMGSYS_ENG_LTR | IMGSYS_ENG_DIP):
+	case (IMGSYS_ENG_OMC_TNR | IMGSYS_ENG_LTR | IMGSYS_ENG_DIP |
+		IMGSYS_ENG_PQDIP_A):
+	case (IMGSYS_ENG_OMC_TNR | IMGSYS_ENG_LTR | IMGSYS_ENG_DIP |
+		IMGSYS_ENG_PQDIP_B):
+	case (IMGSYS_ENG_OMC_TNR | IMGSYS_ENG_LTR | IMGSYS_ENG_DIP |
+		IMGSYS_ENG_PQDIP_A | IMGSYS_ENG_PQDIP_B):
+		dl_path = IMGSYS_DL_OMC_TNR_TO_TRAW_LTRAW;
+		snprintf(logBuf_inport, sizeof(logBuf_inport), "%s",
+			"OMC_TNR");
+		snprintf(logBuf_outport, sizeof(logBuf_outport), "%s",
+			"LTRAW");
+		imgsys_dl_checksum_dump(imgsys_dev, hw_comb,
+			logBuf_path, logBuf_inport, logBuf_outport, dl_path);
+		/**/
+		memset((char *)logBuf_inport, 0x0, sizeof(logBuf_inport));
+		logBuf_inport[strlen(logBuf_inport)] = '\0';
+		memset((char *)logBuf_outport, 0x0, sizeof(logBuf_outport));
+		logBuf_outport[strlen(logBuf_outport)] = '\0';
+		dl_path = IMGSYS_DL_LTRAW_TO_DIP;
+		snprintf(logBuf_inport, sizeof(logBuf_inport), "%s",
+			"LTRAW");
 		snprintf(logBuf_outport, sizeof(logBuf_outport), "%s",
 			"DIP");
 		imgsys_dl_checksum_dump(imgsys_dev, hw_comb,
@@ -1214,6 +1328,56 @@ void imgsys_dl_debug_dump(struct mtk_imgsys_dev *imgsys_dev, unsigned int hw_com
 		dl_path = IMGSYS_DL_TRAW_TO_DIP;
 		snprintf(logBuf_inport, sizeof(logBuf_inport), "%s",
 			"TRAW");
+		snprintf(logBuf_outport, sizeof(logBuf_outport), "%s",
+			"DIP");
+		imgsys_dl_checksum_dump(imgsys_dev, hw_comb,
+			logBuf_path, logBuf_inport, logBuf_outport, dl_path);
+		/**/
+		memset((char *)logBuf_inport, 0x0, sizeof(logBuf_inport));
+		logBuf_inport[strlen(logBuf_inport)] = '\0';
+		memset((char *)logBuf_outport, 0x0, sizeof(logBuf_outport));
+		logBuf_outport[strlen(logBuf_outport)] = '\0';
+		dl_path = IMGSYS_DL_DIP_TO_PQDIP_A;
+		snprintf(logBuf_inport, sizeof(logBuf_inport), "%s",
+			"DIP");
+		snprintf(logBuf_outport, sizeof(logBuf_outport), "%s",
+			"PQDIPA");
+		imgsys_dl_checksum_dump(imgsys_dev, hw_comb,
+			logBuf_path, logBuf_inport, logBuf_outport, dl_path);
+		/**/
+		memset((char *)logBuf_inport, 0x0, sizeof(logBuf_inport));
+		logBuf_inport[strlen(logBuf_inport)] = '\0';
+		memset((char *)logBuf_outport, 0x0, sizeof(logBuf_outport));
+		logBuf_outport[strlen(logBuf_outport)] = '\0';
+		dl_path = IMGSYS_DL_DIP_TO_PQDIP_B;
+		snprintf(logBuf_inport, sizeof(logBuf_inport), "%s",
+			"DIP");
+		snprintf(logBuf_outport, sizeof(logBuf_outport), "%s",
+			"PQDIPB");
+		imgsys_dl_checksum_dump(imgsys_dev, hw_comb,
+			logBuf_path, logBuf_inport, logBuf_outport, dl_path);
+		break;
+	case (IMGSYS_ENG_WPE_LITE | IMGSYS_ENG_LTR | IMGSYS_ENG_DIP):
+	case (IMGSYS_ENG_WPE_LITE | IMGSYS_ENG_LTR | IMGSYS_ENG_DIP |
+		IMGSYS_ENG_PQDIP_A):
+	case (IMGSYS_ENG_WPE_LITE | IMGSYS_ENG_LTR | IMGSYS_ENG_DIP |
+		IMGSYS_ENG_PQDIP_B):
+	case (IMGSYS_ENG_WPE_LITE | IMGSYS_ENG_LTR | IMGSYS_ENG_DIP |
+		IMGSYS_ENG_PQDIP_A | IMGSYS_ENG_PQDIP_B):
+		dl_path = IMGSYS_DL_WPE_LITE_TO_TRAW_LTRAW;
+		snprintf(logBuf_inport, sizeof(logBuf_inport), "%s",
+			"WPE_LITE");
+		snprintf(logBuf_outport, sizeof(logBuf_outport), "%s",
+			"LTRAW");
+		imgsys_dl_checksum_dump(imgsys_dev, hw_comb,
+			logBuf_path, logBuf_inport, logBuf_outport, dl_path);
+		memset((char *)logBuf_inport, 0x0, sizeof(logBuf_inport));
+		logBuf_inport[strlen(logBuf_inport)] = '\0';
+		memset((char *)logBuf_outport, 0x0, sizeof(logBuf_outport));
+		logBuf_outport[strlen(logBuf_outport)] = '\0';
+		dl_path = IMGSYS_DL_LTRAW_TO_DIP;
+		snprintf(logBuf_inport, sizeof(logBuf_inport), "%s",
+			"LTRAW");
 		snprintf(logBuf_outport, sizeof(logBuf_outport), "%s",
 			"DIP");
 		imgsys_dl_checksum_dump(imgsys_dev, hw_comb,
@@ -1294,6 +1458,126 @@ void imgsys_dl_debug_dump(struct mtk_imgsys_dev *imgsys_dev, unsigned int hw_com
 		imgsys_dl_checksum_dump(imgsys_dev, hw_comb,
 			logBuf_path, logBuf_inport, logBuf_outport, dl_path);
 		break;
+	case (IMGSYS_ENG_WPE_EIS | IMGSYS_ENG_WPE_LITE | IMGSYS_ENG_TRAW |
+		IMGSYS_ENG_DIP):
+	case (IMGSYS_ENG_WPE_EIS | IMGSYS_ENG_WPE_LITE | IMGSYS_ENG_TRAW |
+		IMGSYS_ENG_DIP | IMGSYS_ENG_PQDIP_A):
+	case (IMGSYS_ENG_WPE_EIS | IMGSYS_ENG_WPE_LITE | IMGSYS_ENG_TRAW |
+		IMGSYS_ENG_DIP | IMGSYS_ENG_PQDIP_B):
+	case (IMGSYS_ENG_WPE_EIS | IMGSYS_ENG_WPE_LITE | IMGSYS_ENG_TRAW |
+		IMGSYS_ENG_DIP | IMGSYS_ENG_PQDIP_A | IMGSYS_ENG_PQDIP_B):
+		dl_path = IMGSYS_DL_WPE_EIS_TO_TRAW_LTRAW;
+		snprintf(logBuf_inport, sizeof(logBuf_inport), "%s",
+			"WPE_EIS");
+		snprintf(logBuf_outport, sizeof(logBuf_outport), "%s",
+			"TRAW");
+		memset((char *)logBuf_inport, 0x0, sizeof(logBuf_inport));
+		logBuf_inport[strlen(logBuf_inport)] = '\0';
+		memset((char *)logBuf_outport, 0x0, sizeof(logBuf_outport));
+		logBuf_outport[strlen(logBuf_outport)] = '\0';
+		dl_path = IMGSYS_DL_WPE_LITE_TO_TRAW_LTRAW;
+		snprintf(logBuf_inport, sizeof(logBuf_inport), "%s",
+			"WPE_LITE");
+		snprintf(logBuf_outport, sizeof(logBuf_outport), "%s",
+			"TRAW");
+		imgsys_dl_checksum_dump(imgsys_dev, hw_comb,
+			logBuf_path, logBuf_inport, logBuf_outport, dl_path);
+		memset((char *)logBuf_inport, 0x0, sizeof(logBuf_inport));
+		logBuf_inport[strlen(logBuf_inport)] = '\0';
+		memset((char *)logBuf_outport, 0x0, sizeof(logBuf_outport));
+		logBuf_outport[strlen(logBuf_outport)] = '\0';
+		dl_path = IMGSYS_DL_TRAW_TO_DIP;
+		snprintf(logBuf_inport, sizeof(logBuf_inport), "%s",
+			"TRAW");
+		snprintf(logBuf_outport, sizeof(logBuf_outport), "%s",
+			"DIP");
+		imgsys_dl_checksum_dump(imgsys_dev, hw_comb,
+			logBuf_path, logBuf_inport, logBuf_outport, dl_path);
+		/**/
+		memset((char *)logBuf_inport, 0x0, sizeof(logBuf_inport));
+		logBuf_inport[strlen(logBuf_inport)] = '\0';
+		memset((char *)logBuf_outport, 0x0, sizeof(logBuf_outport));
+		logBuf_outport[strlen(logBuf_outport)] = '\0';
+		dl_path = IMGSYS_DL_DIP_TO_PQDIP_A;
+		snprintf(logBuf_inport, sizeof(logBuf_inport), "%s",
+			"DIP");
+		snprintf(logBuf_outport, sizeof(logBuf_outport), "%s",
+			"PQDIPA");
+		imgsys_dl_checksum_dump(imgsys_dev, hw_comb,
+			logBuf_path, logBuf_inport, logBuf_outport, dl_path);
+		/**/
+		memset((char *)logBuf_inport, 0x0, sizeof(logBuf_inport));
+		logBuf_inport[strlen(logBuf_inport)] = '\0';
+		memset((char *)logBuf_outport, 0x0, sizeof(logBuf_outport));
+		logBuf_outport[strlen(logBuf_outport)] = '\0';
+		dl_path = IMGSYS_DL_DIP_TO_PQDIP_B;
+		snprintf(logBuf_inport, sizeof(logBuf_inport), "%s",
+			"DIP");
+		snprintf(logBuf_outport, sizeof(logBuf_outport), "%s",
+			"PQDIPB");
+		imgsys_dl_checksum_dump(imgsys_dev, hw_comb,
+			logBuf_path, logBuf_inport, logBuf_outport, dl_path);
+		break;
+	case (IMGSYS_ENG_WPE_EIS | IMGSYS_ENG_WPE_LITE | IMGSYS_ENG_LTR |
+		IMGSYS_ENG_DIP):
+	case (IMGSYS_ENG_WPE_EIS | IMGSYS_ENG_WPE_LITE | IMGSYS_ENG_LTR |
+		IMGSYS_ENG_DIP | IMGSYS_ENG_PQDIP_A):
+	case (IMGSYS_ENG_WPE_EIS | IMGSYS_ENG_WPE_LITE | IMGSYS_ENG_LTR |
+		IMGSYS_ENG_DIP | IMGSYS_ENG_PQDIP_B):
+	case (IMGSYS_ENG_WPE_EIS | IMGSYS_ENG_WPE_LITE | IMGSYS_ENG_LTR |
+		IMGSYS_ENG_DIP | IMGSYS_ENG_PQDIP_A | IMGSYS_ENG_PQDIP_B):
+		dl_path = IMGSYS_DL_WPE_EIS_TO_TRAW_LTRAW;
+		snprintf(logBuf_inport, sizeof(logBuf_inport), "%s",
+			"WPE_EIS");
+		snprintf(logBuf_outport, sizeof(logBuf_outport), "%s",
+			"LTRAW");
+		memset((char *)logBuf_inport, 0x0, sizeof(logBuf_inport));
+		logBuf_inport[strlen(logBuf_inport)] = '\0';
+		memset((char *)logBuf_outport, 0x0, sizeof(logBuf_outport));
+		logBuf_outport[strlen(logBuf_outport)] = '\0';
+		dl_path = IMGSYS_DL_WPE_LITE_TO_TRAW_LTRAW;
+		snprintf(logBuf_inport, sizeof(logBuf_inport), "%s",
+			"WPE_LITE");
+		snprintf(logBuf_outport, sizeof(logBuf_outport), "%s",
+			"LTRAW");
+		imgsys_dl_checksum_dump(imgsys_dev, hw_comb,
+			logBuf_path, logBuf_inport, logBuf_outport, dl_path);
+		memset((char *)logBuf_inport, 0x0, sizeof(logBuf_inport));
+		logBuf_inport[strlen(logBuf_inport)] = '\0';
+		memset((char *)logBuf_outport, 0x0, sizeof(logBuf_outport));
+		logBuf_outport[strlen(logBuf_outport)] = '\0';
+		dl_path = IMGSYS_DL_LTRAW_TO_DIP;
+		snprintf(logBuf_inport, sizeof(logBuf_inport), "%s",
+			"LTRAW");
+		snprintf(logBuf_outport, sizeof(logBuf_outport), "%s",
+			"DIP");
+		imgsys_dl_checksum_dump(imgsys_dev, hw_comb,
+			logBuf_path, logBuf_inport, logBuf_outport, dl_path);
+		/**/
+		memset((char *)logBuf_inport, 0x0, sizeof(logBuf_inport));
+		logBuf_inport[strlen(logBuf_inport)] = '\0';
+		memset((char *)logBuf_outport, 0x0, sizeof(logBuf_outport));
+		logBuf_outport[strlen(logBuf_outport)] = '\0';
+		dl_path = IMGSYS_DL_DIP_TO_PQDIP_A;
+		snprintf(logBuf_inport, sizeof(logBuf_inport), "%s",
+			"DIP");
+		snprintf(logBuf_outport, sizeof(logBuf_outport), "%s",
+			"PQDIPA");
+		imgsys_dl_checksum_dump(imgsys_dev, hw_comb,
+			logBuf_path, logBuf_inport, logBuf_outport, dl_path);
+		/**/
+		memset((char *)logBuf_inport, 0x0, sizeof(logBuf_inport));
+		logBuf_inport[strlen(logBuf_inport)] = '\0';
+		memset((char *)logBuf_outport, 0x0, sizeof(logBuf_outport));
+		logBuf_outport[strlen(logBuf_outport)] = '\0';
+		dl_path = IMGSYS_DL_DIP_TO_PQDIP_B;
+		snprintf(logBuf_inport, sizeof(logBuf_inport), "%s",
+			"DIP");
+		snprintf(logBuf_outport, sizeof(logBuf_outport), "%s",
+			"PQDIPB");
+		imgsys_dl_checksum_dump(imgsys_dev, hw_comb,
+			logBuf_path, logBuf_inport, logBuf_outport, dl_path);
+		break;
 	case (IMGSYS_ENG_WPE_EIS | IMGSYS_ENG_OMC_TNR | IMGSYS_ENG_TRAW |
 		IMGSYS_ENG_DIP):
 	case (IMGSYS_ENG_WPE_EIS | IMGSYS_ENG_OMC_TNR | IMGSYS_ENG_TRAW |
@@ -1301,6 +1585,18 @@ void imgsys_dl_debug_dump(struct mtk_imgsys_dev *imgsys_dev, unsigned int hw_com
 	case (IMGSYS_ENG_WPE_EIS | IMGSYS_ENG_OMC_TNR | IMGSYS_ENG_TRAW |
 		IMGSYS_ENG_DIP | IMGSYS_ENG_PQDIP_B):
 	case (IMGSYS_ENG_WPE_EIS | IMGSYS_ENG_OMC_TNR | IMGSYS_ENG_TRAW |
+		IMGSYS_ENG_DIP | IMGSYS_ENG_PQDIP_A | IMGSYS_ENG_PQDIP_B):
+		dev_info(imgsys_dev->dev,
+			"%s: TOBE CHECKED SELECTION BASED ON FMT..\n",
+			__func__);
+		break;
+	case (IMGSYS_ENG_WPE_EIS | IMGSYS_ENG_OMC_TNR | IMGSYS_ENG_LTR |
+		IMGSYS_ENG_DIP):
+	case (IMGSYS_ENG_WPE_EIS | IMGSYS_ENG_OMC_TNR | IMGSYS_ENG_LTR |
+		IMGSYS_ENG_DIP | IMGSYS_ENG_PQDIP_A):
+	case (IMGSYS_ENG_WPE_EIS | IMGSYS_ENG_OMC_TNR | IMGSYS_ENG_LTR |
+		IMGSYS_ENG_DIP | IMGSYS_ENG_PQDIP_B):
+	case (IMGSYS_ENG_WPE_EIS | IMGSYS_ENG_OMC_TNR | IMGSYS_ENG_LTR |
 		IMGSYS_ENG_DIP | IMGSYS_ENG_PQDIP_A | IMGSYS_ENG_PQDIP_B):
 		dev_info(imgsys_dev->dev,
 			"%s: TOBE CHECKED SELECTION BASED ON FMT..\n",
@@ -1314,6 +1610,43 @@ void imgsys_dl_debug_dump(struct mtk_imgsys_dev *imgsys_dev, unsigned int hw_com
 		dl_path = IMGSYS_DL_TRAW_TO_DIP;
 		snprintf(logBuf_inport, sizeof(logBuf_inport), "%s",
 			"TRAW");
+		snprintf(logBuf_outport, sizeof(logBuf_outport), "%s",
+			"DIP");
+		imgsys_dl_checksum_dump(imgsys_dev, hw_comb,
+			logBuf_path, logBuf_inport, logBuf_outport, dl_path);
+		/**/
+		memset((char *)logBuf_inport, 0x0, sizeof(logBuf_inport));
+		logBuf_inport[strlen(logBuf_inport)] = '\0';
+		memset((char *)logBuf_outport, 0x0, sizeof(logBuf_outport));
+		logBuf_outport[strlen(logBuf_outport)] = '\0';
+		dl_path = IMGSYS_DL_DIP_TO_PQDIP_A;
+		snprintf(logBuf_inport, sizeof(logBuf_inport), "%s",
+			"DIP");
+		snprintf(logBuf_outport, sizeof(logBuf_outport), "%s",
+			"PQDIPA");
+		imgsys_dl_checksum_dump(imgsys_dev, hw_comb,
+			logBuf_path, logBuf_inport, logBuf_outport, dl_path);
+		/**/
+		memset((char *)logBuf_inport, 0x0, sizeof(logBuf_inport));
+		logBuf_inport[strlen(logBuf_inport)] = '\0';
+		memset((char *)logBuf_outport, 0x0, sizeof(logBuf_outport));
+		logBuf_outport[strlen(logBuf_outport)] = '\0';
+		dl_path = IMGSYS_DL_DIP_TO_PQDIP_B;
+		snprintf(logBuf_inport, sizeof(logBuf_inport), "%s",
+			"DIP");
+		snprintf(logBuf_outport, sizeof(logBuf_outport), "%s",
+			"PQDIPB");
+		imgsys_dl_checksum_dump(imgsys_dev, hw_comb,
+			logBuf_path, logBuf_inport, logBuf_outport, dl_path);
+		break;
+	case (IMGSYS_ENG_LTR | IMGSYS_ENG_DIP):
+	case (IMGSYS_ENG_LTR | IMGSYS_ENG_DIP | IMGSYS_ENG_PQDIP_A):
+	case (IMGSYS_ENG_LTR | IMGSYS_ENG_DIP | IMGSYS_ENG_PQDIP_B):
+	case (IMGSYS_ENG_LTR | IMGSYS_ENG_DIP | IMGSYS_ENG_PQDIP_A |
+		IMGSYS_ENG_PQDIP_B):
+		dl_path = IMGSYS_DL_LTRAW_TO_DIP;
+		snprintf(logBuf_inport, sizeof(logBuf_inport), "%s",
+			"LTRAW");
 		snprintf(logBuf_outport, sizeof(logBuf_outport), "%s",
 			"DIP");
 		imgsys_dl_checksum_dump(imgsys_dev, hw_comb,

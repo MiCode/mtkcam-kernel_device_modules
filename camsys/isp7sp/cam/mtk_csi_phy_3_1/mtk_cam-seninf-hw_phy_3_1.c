@@ -2844,7 +2844,7 @@ static int csirx_phyA_setting(struct seninf_ctx *ctx)
 			if (data_rate < 1500000000) {
 				/* DPHY non-split mode < 1.5G */
 				SENINF_BITS(baseA, CDPHY_RX_ANA_5,
-					    RG_CSI0_CDPHY_EQ_BW, 0x0);
+					    RG_CSI0_CDPHY_EQ_BW, 0x1);
 				SENINF_BITS(baseA, CDPHY_RX_ANA_5,
 					    RG_CSI0_CDPHY_EQ_DG0_EN, 0x0);
 				SENINF_BITS(baseA, CDPHY_RX_ANA_5,
@@ -2855,7 +2855,7 @@ static int csirx_phyA_setting(struct seninf_ctx *ctx)
 					    RG_CSI0_CDPHY_EQ_OS_IS, 0x1);
 
 				SENINF_BITS(baseB, CDPHY_RX_ANA_5,
-					    RG_CSI0_CDPHY_EQ_BW, 0x0);
+					    RG_CSI0_CDPHY_EQ_BW, 0x1);
 				SENINF_BITS(baseB, CDPHY_RX_ANA_5,
 					    RG_CSI0_CDPHY_EQ_DG0_EN, 0x0);
 				SENINF_BITS(baseB, CDPHY_RX_ANA_5,
@@ -2890,7 +2890,7 @@ static int csirx_phyA_setting(struct seninf_ctx *ctx)
 			} else if (data_rate < 4500000000)  {
 				/* DPHY non-split mode 2.5G ~ 4.5G */
 				SENINF_BITS(baseA, CDPHY_RX_ANA_5,
-					    RG_CSI0_CDPHY_EQ_BW, 0x2);
+					    RG_CSI0_CDPHY_EQ_BW, 0x3);
 				SENINF_BITS(baseA, CDPHY_RX_ANA_5,
 					    RG_CSI0_CDPHY_EQ_DG0_EN, 0x1);
 				SENINF_BITS(baseA, CDPHY_RX_ANA_5,
@@ -2901,7 +2901,7 @@ static int csirx_phyA_setting(struct seninf_ctx *ctx)
 					    RG_CSI0_CDPHY_EQ_OS_IS, 0x0);
 
 				SENINF_BITS(baseB, CDPHY_RX_ANA_5,
-					    RG_CSI0_CDPHY_EQ_BW, 0x2);
+					    RG_CSI0_CDPHY_EQ_BW, 0x3);
 				SENINF_BITS(baseB, CDPHY_RX_ANA_5,
 					    RG_CSI0_CDPHY_EQ_DG0_EN, 0x1);
 				SENINF_BITS(baseB, CDPHY_RX_ANA_5,
@@ -2948,7 +2948,7 @@ static int csirx_phyA_setting(struct seninf_ctx *ctx)
 			if (data_rate < 1500000000) {
 				/* DPHY split mode < 1.5G */
 				SENINF_BITS(base, CDPHY_RX_ANA_5,
-					    RG_CSI0_CDPHY_EQ_BW, 0x0);
+					    RG_CSI0_CDPHY_EQ_BW, 0x1);
 				SENINF_BITS(base, CDPHY_RX_ANA_5,
 					    RG_CSI0_CDPHY_EQ_DG0_EN, 0x0);
 				SENINF_BITS(base, CDPHY_RX_ANA_5,
@@ -3052,7 +3052,7 @@ static int csirx_phyA_setting(struct seninf_ctx *ctx)
 				/* CPHY non-split mode < 1.5G */
 				/* baseA */
 				SENINF_BITS(baseA, CDPHY_RX_ANA_5,
-					RG_CSI0_CDPHY_EQ_BW, 0x0);
+					RG_CSI0_CDPHY_EQ_BW, 0x1);
 				SENINF_BITS(baseA, CDPHY_RX_ANA_5,
 					RG_CSI0_CDPHY_EQ_DG0_EN, 0x0);
 				SENINF_BITS(baseA, CDPHY_RX_ANA_5,
@@ -3070,7 +3070,7 @@ static int csirx_phyA_setting(struct seninf_ctx *ctx)
 
 				/* baseB */
 				SENINF_BITS(baseB, CDPHY_RX_ANA_5,
-					RG_CSI0_CDPHY_EQ_BW, 0x0);
+					RG_CSI0_CDPHY_EQ_BW, 0x1);
 				SENINF_BITS(baseB, CDPHY_RX_ANA_5,
 					RG_CSI0_CDPHY_EQ_DG0_EN, 0x0);
 				SENINF_BITS(baseB, CDPHY_RX_ANA_5,
@@ -3185,7 +3185,7 @@ static int csirx_phyA_setting(struct seninf_ctx *ctx)
 			if (data_rate < 1500000000) {
 				/* CPHY split mode < 1.5G */
 				SENINF_BITS(base, CDPHY_RX_ANA_5,
-						RG_CSI0_CDPHY_EQ_BW, 0x0);
+						RG_CSI0_CDPHY_EQ_BW, 0x1);
 				SENINF_BITS(base, CDPHY_RX_ANA_5,
 						RG_CSI0_CDPHY_EQ_DG0_EN, 0x0);
 				SENINF_BITS(base, CDPHY_RX_ANA_5,

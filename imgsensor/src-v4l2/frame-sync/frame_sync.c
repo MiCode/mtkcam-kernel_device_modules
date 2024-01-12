@@ -10,6 +10,7 @@
 #include <linux/kernel.h>
 #endif // FS_UT
 
+#include "frame_sync_trace.h"
 #include "frame_sync.h"
 #include "frame_sync_camsys.h"
 #include "frame_sync_algo.h"
@@ -322,6 +323,7 @@ static void fs_dump_status(const int idx, const int flag, const char *caller,
 #endif
 
 	LOG_MUST_LOCK("%s\n", log_buf);
+	FS_TRACE_PR_LOG_INF("%s", log_buf);
 
 	FS_FREE(log_buf);
 }

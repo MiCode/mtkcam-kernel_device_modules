@@ -14,6 +14,7 @@
 #include <linux/string.h>
 #endif
 
+#include "frame_sync_trace.h"
 #include "frame_sync_algo.h"
 #include "frame_monitor.h"
 #include "sensor_recorder.h"
@@ -1377,6 +1378,7 @@ void fs_alg_sa_dump_dynamic_para(const unsigned int idx)
 		log_str_len, log_buf, len, __func__);
 
 	LOG_MUST_LOCK("%s\n", log_buf);
+	FS_TRACE_PR_LOG_INF("%s", log_buf);
 
 	FS_FREE(log_buf);
 }
@@ -2602,6 +2604,7 @@ static long long fs_alg_sa_adjust_slave_diff_resolver(
 		log_str_len, log_buf, len, __func__);
 
 	LOG_MUST_LOCK("%s\n", log_buf);
+	FS_TRACE_PR_LOG_INF("%s", log_buf);
 
 	FS_FREE(log_buf);
 
@@ -4065,6 +4068,7 @@ static unsigned int do_fps_sync_sa(const struct fs_sa_cfg *p_sa_cfg,
 			log_str_len, log_buf, len, __func__);
 
 		LOG_MUST_LOCK("%s\n", log_buf);
+		FS_TRACE_PR_LOG_INF("%s", log_buf);
 		FS_FREE(log_buf);
 	}
 end_do_fps_sync_sa:
@@ -4344,6 +4348,7 @@ static void adjust_async_vsync_diff_sa(
 		log_str_len, log_buf, len, __func__);
 
 	LOG_MUST_LOCK("%s\n", log_buf);
+	FS_TRACE_PR_LOG_INF("%s", log_buf);
 
 	FS_FREE(log_buf);
 

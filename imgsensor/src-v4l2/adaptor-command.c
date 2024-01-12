@@ -4,6 +4,7 @@
 
 #include "mtk_camera-v4l2-controls.h"
 #include "adaptor.h"
+#include "adaptor-trace.h"
 #include "adaptor-fsync-ctrls.h"
 #include "adaptor-common-ctrl.h"
 #include "adaptor-tsrec-cb-ctrl-impl.h"
@@ -357,7 +358,7 @@ static int s_cmd_tsrec_notify_sensor_hw_pre_latch(
 	struct adaptor_ctx *ctx, void *arg)
 {
 	struct mtk_cam_seninf_tsrec_timestamp_info *ts_info = NULL;
-	// unsigned long long sys_ts;
+	unsigned long long sys_ts;
 	int ret = 0;
 
 	/* unexpected case, arg is nullptr */
@@ -365,11 +366,10 @@ static int s_cmd_tsrec_notify_sensor_hw_pre_latch(
 		return ret;
 
 	ts_info = (struct mtk_cam_seninf_tsrec_timestamp_info *)arg;
-	// sys_ts = ktime_get_boottime_ns();
+	sys_ts = ktime_get_boottime_ns();
 
-#ifndef REDUCE_ADAPTOR_COMMAND_LOG
-	adaptor_logd(ctx,
-		"V4L2_CMD_TSREC_NOTIFY_SENSOR_HW_PRE_LATCH, idx:%d, ts_info(tsrec_no:%u, seninf_idx:%u, tick_factor:%u, sys_ts:%llu(ns), tsrec_ts:%llu(us), tick:%llu, ts(0:(%llu/%llu/%llu/%llu), 1:(%llu/%llu/%llu/%llu), 2:(%llu/%llu/%llu/%llu)), curr_sys_ts:%llu(ns)\n",
+	ADAPTOR_SYSTRACE_BEGIN(
+		"imgsensor::V4L2_CMD_TSREC_NOTIFY_SENSOR_HW_PRE_LATCH, idx:%d, ts_info(tsrec_no:%u, seninf_idx:%u, tick_factor:%u, sys_ts:%llu(ns), tsrec_ts:%llu(us), tick:%llu, ts(0:(%llu/%llu/%llu/%llu), 1:(%llu/%llu/%llu/%llu), 2:(%llu/%llu/%llu/%llu)), curr_sys_ts:%llu(ns)",
 		ctx->idx,
 		ts_info->tsrec_no,
 		ts_info->seninf_idx,
@@ -390,10 +390,11 @@ static int s_cmd_tsrec_notify_sensor_hw_pre_latch(
 		ts_info->exp_recs[2].ts_us[2],
 		ts_info->exp_recs[2].ts_us[3],
 		sys_ts);
-#endif
 
 	/* tsrec notify sensor hw pre-latch, call all APIs that needed this info */
 	notify_fsync_mgr_sensor_hw_pre_latch_by_tsrec(ctx, ts_info);
+
+	ADAPTOR_SYSTRACE_END();
 
 	return ret;
 }

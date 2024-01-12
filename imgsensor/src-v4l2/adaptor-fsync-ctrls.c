@@ -16,6 +16,7 @@
 
 #include "adaptor.h"
 #include "adaptor-def.h"
+#include "adaptor-trace.h"
 #include "adaptor-common-ctrl.h"
 #include "adaptor-subdrv-ctrl.h"
 #include "adaptor-fsync-ctrls.h"
@@ -48,6 +49,34 @@
 #define FSYNC_MGR_LOGD(ctx, format, ...)
 #define FSYNC_MGR_LOGI(ctx, format, ...)
 #endif // !FORCE_DISABLE_FSYNC_MGR
+
+
+#define FSYNC_TRACE_BEGIN(fmt, args...) \
+do { \
+	if (adaptor_trace_enabled()) { \
+		__adaptor_systrace( \
+			"B|%d|%s::" fmt, task_tgid_nr(current), PFX, ##args); \
+	} \
+} while (0)
+
+#define FSYNC_TRACE_FUNC_BEGIN() \
+	FSYNC_TRACE_BEGIN("%s", __func__)
+
+#define FSYNC_TRACE_END() \
+do { \
+	if (adaptor_trace_enabled()) { \
+		__adaptor_systrace("E|%d", task_tgid_nr(current)); \
+	} \
+} while (0)
+
+#define FSYNC_TRACE_PR_LOG_INF(fmt, args...) \
+do { \
+	if (adaptor_trace_enabled()) { \
+		__adaptor_systrace( \
+			"B|%d|%s[%s]" fmt, task_tgid_nr(current), PFX, __func__, ##args); \
+		__adaptor_systrace("E|%d", task_tgid_nr(current)); \
+	} \
+} while (0)
 
 
 /*******************************************************************************
@@ -302,7 +331,14 @@ static void fsync_mgr_s_frame_length(struct adaptor_ctx *ctx)
 		? SENSOR_FEATURE_SET_FRAMELENGTH_IN_LUT
 		: SENSOR_FEATURE_SET_FRAMELENGTH;
 
+	FSYNC_TRACE_BEGIN(
+		"%s::imgsensor:subdrv_call, cmd:%u(SET_FL:%u/SET_FL_IN_LUT:%u)",
+		__func__,
+		cmd,
+		SENSOR_FEATURE_SET_FRAMELENGTH,
+		SENSOR_FEATURE_SET_FRAMELENGTH_IN_LUT);
 	subdrv_call(ctx, feature_control, cmd, para.u8, &len);
+	FSYNC_TRACE_END();
 }
 
 static void fsync_mgr_s_multi_shutter_frame_length(
@@ -332,7 +368,14 @@ static void fsync_mgr_s_multi_shutter_frame_length(
 		? SENSOR_FEATURE_SET_MULTI_SHUTTER_FRAME_TIME_IN_LUT
 		: SENSOR_FEATURE_SET_MULTI_SHUTTER_FRAME_TIME;
 
+	FSYNC_TRACE_BEGIN(
+		"%s::imgsensor:subdrv_call, cmd:%u(SET_EXP_FL:%u/SET_EXP_FL_IN_LUT:%u)",
+		__func__,
+		cmd,
+		SENSOR_FEATURE_SET_MULTI_SHUTTER_FRAME_TIME,
+		SENSOR_FEATURE_SET_MULTI_SHUTTER_FRAME_TIME_IN_LUT);
 	subdrv_call(ctx, feature_control, cmd, para.u8, &len);
+	FSYNC_TRACE_END();
 }
 
 
@@ -624,15 +667,31 @@ int cb_func_fsync_mgr_set_fl_info(void *p_ctx, const unsigned int cmd_id,
 
 #ifndef REDUCE_FSYNC_CTRLS_DBG_LOG
 	FSYNC_MGR_LOGI(ctx,
-		"sidx:%d, update fsync_out_fl(lc):(%u, %u/%u/%u/%u/%u)\n",
+		"sidx:%d, update fsync_out_fl(lc):(%u, %u/%u/%u/%u/%u), cb_cmd_id:%u(EXP_WITH_FL:%u/FL:%u)\n",
 		ctx->idx,
 		ctx->fsync_out_fl,
 		ctx->fsync_out_fl_arr[0],
 		ctx->fsync_out_fl_arr[1],
 		ctx->fsync_out_fl_arr[2],
 		ctx->fsync_out_fl_arr[3],
-		ctx->fsync_out_fl_arr[4]);
+		ctx->fsync_out_fl_arr[4],
+		cmd_id,
+		FSYNC_CTRL_FL_CMD_ID_EXP_WITH_FL,
+		FSYNC_CTRL_FL_CMD_ID_FL);
 #endif
+
+	FSYNC_TRACE_PR_LOG_INF(
+		"sidx:%d, update fsync_out_fl(lc):(%u, %u/%u/%u/%u/%u), cb_cmd_id:%u(EXP_WITH_FL:%u/FL:%u)",
+		ctx->idx,
+		ctx->fsync_out_fl,
+		ctx->fsync_out_fl_arr[0],
+		ctx->fsync_out_fl_arr[1],
+		ctx->fsync_out_fl_arr[2],
+		ctx->fsync_out_fl_arr[3],
+		ctx->fsync_out_fl_arr[4],
+		cmd_id,
+		FSYNC_CTRL_FL_CMD_ID_EXP_WITH_FL,
+		FSYNC_CTRL_FL_CMD_ID_FL);
 
 
 	switch (cmd_id) {
@@ -1001,6 +1060,18 @@ int chk_if_need_to_use_s_multi_exp_fl_by_fsync_mgr(struct adaptor_ctx *ctx,
 				ctx->fsync_out_fl_arr[2],
 				ctx->fsync_out_fl_arr[3],
 				ctx->fsync_out_fl_arr[4]);
+			FSYNC_TRACE_PR_LOG_INF(
+				"NOTICE: sidx:%d, detect fast_mode_on:%u, return:0  [en_fsync:%#x, fsync(%d):(%u,%u/%u/%u/%u/%u)]",
+				ctx->idx,
+				ctx->subctx.fast_mode_on,
+				en_fsync,
+				ctx->needs_fsync_assign_fl,
+				ctx->fsync_out_fl,
+				ctx->fsync_out_fl_arr[0],
+				ctx->fsync_out_fl_arr[1],
+				ctx->fsync_out_fl_arr[2],
+				ctx->fsync_out_fl_arr[3],
+				ctx->fsync_out_fl_arr[4]);
 			return 0;
 		}
 
@@ -1008,6 +1079,10 @@ int chk_if_need_to_use_s_multi_exp_fl_by_fsync_mgr(struct adaptor_ctx *ctx,
 		if (atomic_read(&long_exp_mode_bits) != 0) {
 			FSYNC_MGR_LOGI(ctx,
 				"NOTICE: sidx:%d, detect enable fsync sensor in long exp mode, long_exp_mode_bits:%#x => CTRL flow for sensor drv, return:0\n",
+				ctx->idx,
+				atomic_read(&long_exp_mode_bits));
+			FSYNC_TRACE_PR_LOG_INF(
+				"NOTICE: sidx:%d, detect enable fsync sensor in long exp mode, long_exp_mode_bits:%#x => CTRL flow for sensor drv, return:0",
 				ctx->idx,
 				atomic_read(&long_exp_mode_bits));
 			return 0;
@@ -1161,6 +1236,7 @@ void notify_fsync_mgr_seamless_switch(struct adaptor_ctx *ctx,
 			ctx->idx, ctx->fsync_mgr);
 		return;
 	}
+	FSYNC_TRACE_FUNC_BEGIN();
 
 
 	/* !!! start here !!! */
@@ -1180,6 +1256,8 @@ void notify_fsync_mgr_seamless_switch(struct adaptor_ctx *ctx,
 	ctx->fsync_mgr->fs_seamless_switch(ctx->idx,
 		&seamless_info, ctx->sof_cnt);
 
+
+	FSYNC_TRACE_END();
 
 // #ifndef REDUCE_FSYNC_CTRLS_DBG_LOG
 	fsync_mgr_dump_fs_seamless_st(ctx,
@@ -1272,8 +1350,10 @@ void notify_fsync_mgr_set_shutter(struct adaptor_ctx *ctx,
 	/* !!! MUST call this after setup exp data !!! */
 	fsync_mgr_setup_cb_func_cmd_id(ctx, &pf_ctrl);
 
+	FSYNC_TRACE_BEGIN("%s::fs_set_shutter", __func__);
 	/* call frame-sync fs set shutter */
 	ctx->fsync_mgr->fs_set_shutter(&pf_ctrl);
+	FSYNC_TRACE_END();
 	if (ctx->needs_fsync_assign_fl) {
 		/* Enable frame-sync && using SW sync (SA algo) solution */
 		/* set exp with fl (ctx->fsync_out_fl) */

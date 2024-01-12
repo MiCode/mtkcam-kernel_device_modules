@@ -5,6 +5,7 @@
 
 
 #include "frame_sync_console.h"
+#include "frame_sync_trace.h"
 
 
 
@@ -60,6 +61,8 @@ enum fs_console_cmd_id {
 	FS_CON_AUTO_LISTEN_EXT_VSYNC = 30,
 	FS_CON_FORCE_LISTEN_EXT_VSYNC = 31,
 
+	FS_CON_TRACE_TAGS = 41,
+
 	/* last one (max value is 42) */
 	FS_CON_LOG_TRACER = 42
 };
@@ -79,6 +82,7 @@ enum fs_console_cmd_id {
 DEFINE_MUTEX(fs_log_concurrency_lock);
 
 unsigned int fs_log_tracer;
+unsigned int fs_trace_tags;
 
 
 struct fs_con_usr_cfg {
@@ -130,6 +134,7 @@ static inline void fs_console_init_def_value(void)
 {
 	// *pdev = NULL;
 	fs_log_tracer = LOG_TRACER_DEF;
+	fs_trace_tags = TRACE_FS_DEF;
 
 	fs_con_mgr.force_to_ignore_set_sync = 0;
 	fs_con_mgr.default_en_set_sync = 0;
@@ -354,6 +359,12 @@ static ssize_t fsync_console_show(
 
 
 	SHOW(buf, len,
+		"\t\t[ %2u : FS_TRACE_TAGS ] fs_trace_tags : %u\n",
+		(unsigned int)FS_CON_TRACE_TAGS,
+		fs_trace_tags);
+
+
+	SHOW(buf, len,
 		"\t\t[ %2u : FS_LOG_TRACER ] fs_log_tracer : %u\n",
 		(unsigned int)FS_CON_LOG_TRACER,
 		fs_log_tracer);
@@ -421,6 +432,10 @@ static ssize_t fsync_console_store(
 	case FS_CON_FORCE_LISTEN_EXT_VSYNC:
 		fs_console_setup_cmd_value(cmd,
 			&fs_con_mgr.listen_ext_vsync);
+		break;
+
+	case FS_CON_TRACE_TAGS:
+		fs_console_setup_cmd_value(cmd, &fs_trace_tags);
 		break;
 
 	case FS_CON_LOG_TRACER:

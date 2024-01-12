@@ -1501,22 +1501,40 @@ static int imgsensor_set_ctrl(struct v4l2_ctrl *ctrl)
 			"V4L2_CID_FRAME_SYNC (set_sync), idx:%d, value:%d(%#x)\n",
 			ctx->idx, ctrl->val, ctrl->val);
 
+		ADAPTOR_SYSTRACE_BEGIN(
+			"imgsensor::V4L2_CID_FRAME_SYNC (set_sync), idx:%d, val:%d(%#x)",
+			ctx->idx, ctrl->val, ctrl->val);
 		notify_fsync_mgr_set_sync(ctx, (u64)ctrl->val);
+		ADAPTOR_SYSTRACE_END();
 		break;
 
 	case V4L2_CID_FSYNC_ASYNC_MASTER:
 		dev_info(dev,
 			"V4L2_CID_FSYNC_ASYNC_MASTER, idx:%d, value:%d\n",
 			ctx->idx, ctrl->val);
+
+		ADAPTOR_SYSTRACE_BEGIN(
+			"imgsensor::V4L2_CID_FSYNC_ASYNC_MASTER, idx:%d, val:%d",
+			ctx->idx, ctrl->val);
 		notify_fsync_mgr_set_async_master(ctx, ctrl->val);
+		ADAPTOR_SYSTRACE_END();
 		break;
 
 	case V4L2_CID_FSYNC_MAP_ID:
+		ADAPTOR_SYSTRACE_BEGIN(
+			"imgsensor::V4L2_CID_FSYNC_MAP_ID, idx:%d, val:%d",
+			ctx->idx, ctrl->val);
 		notify_fsync_mgr_update_tg(ctx, (u64)ctrl->val);
+		ADAPTOR_SYSTRACE_END();
 		break;
 
 	case V4L2_CID_FSYNC_LISTEN_TARGET:
+		ADAPTOR_SYSTRACE_BEGIN(
+			"imgsensor::V4L2_CID_FSYNC_LISTEN_TARGET (update_tg), idx:%d, val:%d",
+			ctx->idx, ctrl->val);
 		notify_fsync_mgr_update_target_tg(ctx, (u64)ctrl->val);
+		ADAPTOR_SYSTRACE_END();
+
 		dev_info(dev,
 			"V4L2_CID_FSYNC_LISTEN_TARGET (update_tg), idx:%d, value:%d\n",
 			ctx->idx, ctrl->val);
@@ -1781,7 +1799,12 @@ static int imgsensor_set_ctrl(struct v4l2_ctrl *ctrl)
 		dev_info(dev,
 			"V4L2_CID_MTK_MSTREAM_MODE, idx:%d, value:%d\n",
 			ctx->idx, ctrl->val);
+
+		ADAPTOR_SYSTRACE_BEGIN(
+			"imgsensor::V4L2_CID_MTK_MSTREAM_MODE, idx:%d, val:%d",
+			ctx->idx, ctrl->val);
 		notify_fsync_mgr_mstream_en(ctx, ctrl->val);
+		ADAPTOR_SYSTRACE_END();
 		break;
 	case V4L2_CID_MTK_N_1_MODE:
 		{
@@ -1790,7 +1813,12 @@ static int imgsensor_set_ctrl(struct v4l2_ctrl *ctrl)
 			dev_info(dev,
 				"V4L2_CID_MTK_N_1_MODE, idx:%d, n:%u, en:%u\n",
 				ctx->idx, info->n, info->en);
+
+			ADAPTOR_SYSTRACE_BEGIN(
+				"imgsensor::V4L2_CID_MTK_N_1_MODE, idx:%d, n:%u, en:%u",
+				ctx->idx, info->n, info->en);
 			notify_fsync_mgr_n_1_en(ctx, info->n, info->en);
+			ADAPTOR_SYSTRACE_END();
 		}
 		break;
 

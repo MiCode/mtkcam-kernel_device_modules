@@ -11,6 +11,7 @@
 #include "frame_sync.h"
 #include "frame_sync_log.h"
 #include "frame_sync_def.h"
+#include "frame_sync_trace.h"
 /* TODO: check below files, after refactor some files should not include */
 #include "frame_sync_algo.h"
 #include "frame_sync_util.h"
@@ -400,6 +401,7 @@ void frec_dump_recorder(const unsigned int idx, const char *caller)
 	}
 
 	LOG_MUST_LOCK("%s\n", log_buf);
+	FS_TRACE_PR_LOG_INF("%s", log_buf);
 
 	FS_FREE(log_buf);
 }
@@ -1597,11 +1599,14 @@ static unsigned int frec_calc_seamless_frame_length(const unsigned int idx,
 	const int first_exp_idx =
 		g_exp_order_idx_mapping(idx,
 			frame_rec->exp_order, frame_rec->mode_exp_cnt, 0, __func__);
+	const unsigned int log_str_len = 512;
 	unsigned int fl_us_composition[3] = {0};
 	unsigned int curr_exp_read_offset;
 	unsigned int depth_idx, seamless_shutter_lc = 0;
 	unsigned int result = 0;
 	int orig_last_exp_idx;
+	int len = 0, ret;
+	char *log_buf = NULL;
 
 	/* Part-1: calculate end of readout time us */
 	depth_idx = FS_ATOMIC_READ(&pfrec->depth_idx);
@@ -1684,8 +1689,17 @@ static unsigned int frec_calc_seamless_frame_length(const unsigned int idx,
 		fl_us_composition[1] +
 		fl_us_composition[2];
 
-	LOG_MUST(
-		"NOTICE: [%u] ID:%#x(sidx:%u/inf:%u), seamless_fl_us:%u(%u/%u/%u(%u)), new_mode_line_t:%u, r_offset[%u]:%u, type_id:%u, orig_readout_t:%u, hw_re_init_t:%u, prsh_length_lc:%u, (exp_lc:%u, (a:%u/m:%u(%u,%u), exp:%u/%u/%u/%u/%u)\n",
+	/* for print info */
+	ret = alloc_log_buf(log_str_len, &log_buf);
+	if (unlikely(ret != 0)) {
+		LOG_MUST(
+			"ERROR: [%u] log_buf allocate memory failed, only return result:%u\n",
+			idx, result);
+		return result;
+	}
+
+	FS_SNPRF(log_str_len, log_buf, len,
+		"NOTICE: [%u] ID:%#x(sidx:%u/inf:%u), seamless_fl_us:%u(%u/%u/%u(%u)), new_mode_line_t:%u, r_offset[%u]:%u, type_id:%u, orig_readout_t:%u, hw_re_init_t:%u, prsh_length_lc:%u, (exp_lc:%u, (a:%u/m:%u(%u,%u), exp:%u/%u/%u/%u/%u)",
 		idx,
 		fs_get_reg_sensor_id(idx),
 		fs_get_reg_sensor_idx(idx),
@@ -1712,6 +1726,10 @@ static unsigned int frec_calc_seamless_frame_length(const unsigned int idx,
 		p_seamless_rec->frame_rec.exp_lc_arr[2],
 		p_seamless_rec->frame_rec.exp_lc_arr[3],
 		p_seamless_rec->frame_rec.exp_lc_arr[4]);
+	LOG_MUST("%s\n", log_buf);
+	FS_TRACE_PR_LOG_INF("%s", log_buf);
+
+	FS_FREE(log_buf);
 
 	return result;
 }

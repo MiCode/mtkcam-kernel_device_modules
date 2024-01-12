@@ -2,6 +2,7 @@
 # Copyright (C) 2020 MediaTek Inc.
 
 subdir-ccflags-y += \
+	-I$(IMGSENSOR_DRIVER_PATH)/ \
 	-I$(IMGSENSOR_DRIVER_PATH)/$(FRAME_SYNC) \
 
 imgsensor-objs += \

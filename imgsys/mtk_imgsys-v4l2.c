@@ -2592,14 +2592,18 @@ static int mtk_imgsys_video_device_v4l2_register(struct mtk_imgsys_pipe *pipe,
 	dev_dbg(pipe->imgsys_dev->dev, "registered vdev: %s\n",
 		vdev->name);
 
-	if (V4L2_TYPE_IS_OUTPUT(node->desc->buf_type))
+	if (V4L2_TYPE_IS_OUTPUT(node->desc->buf_type)) {
+        //coverity[callee_ptr_arith : SUPPRESS]
 		ret = media_create_pad_link(&vdev->entity, 0,
 					    &pipe->subdev.entity,
 					    node->desc->id, node->flags);
-	else
+	}
+	else {
+        //coverity[callee_ptr_arith : SUPPRESS]
 		ret = media_create_pad_link(&pipe->subdev.entity,
 					    node->desc->id, &vdev->entity,
 					    0, node->flags);
+	}
 	if (ret)
 		goto err_video_unregister_device;
 
@@ -3369,6 +3373,19 @@ int mtk_imgsys_remove(struct platform_device *pdev)
 }
 EXPORT_SYMBOL(mtk_imgsys_remove);
 
+void mtk_imgsys_shutdown(struct platform_device *pdev)
+{
+	struct mtk_imgsys_dev *imgsys_dev = dev_get_drvdata(&pdev->dev);
+    struct mtk_imgsys_pipe *pipe = &imgsys_dev->imgsys_pipe[0];
+
+	dev_info(imgsys_dev->dev, "%s shutdown +\n", __func__);
+    if (pipe->streaming != 0) {
+        mtk_imgsys_hw_streamoff(pipe);
+    }
+    dev_info(imgsys_dev->dev, "%s shutdown -\n", __func__);
+}
+EXPORT_SYMBOL(mtk_imgsys_shutdown);
+
 int mtk_imgsys_runtime_suspend(struct device *dev)
 {
 	struct mtk_imgsys_dev *imgsys_dev = dev_get_drvdata(dev);
@@ -3438,6 +3455,7 @@ MODULE_DEVICE_TABLE(of, mtk_imgsys_of_match);
 static struct platform_driver mtk_imgsys_driver = {
 	.probe   = mtk_imgsys_probe,
 	.remove  = mtk_imgsys_remove,
+	.shutdown = NULL,
 	.driver  = {
 		.name = "camera-dip",
 		.owner	= THIS_MODULE,

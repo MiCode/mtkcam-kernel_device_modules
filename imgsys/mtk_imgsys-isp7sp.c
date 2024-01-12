@@ -41,6 +41,7 @@ MODULE_DEVICE_TABLE(of, mtk_imgsys_of_match);
 static struct platform_driver mtk_imgsys_driver = {
 	.probe   = mtk_imgsys_probe,
 	.remove  = mtk_imgsys_remove,
+	.shutdown = mtk_imgsys_shutdown,
 	.driver  = {
 		.name = "imgisp7sp",
 		.owner	= THIS_MODULE,

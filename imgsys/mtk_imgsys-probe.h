@@ -13,5 +13,7 @@ int mtk_imgsys_runtime_suspend(struct device *dev);
 
 int mtk_imgsys_probe(struct platform_device *pdev);
 int mtk_imgsys_remove(struct platform_device *pdev);
+void mtk_imgsys_shutdown(struct platform_device *pdev);
+
 
 #endif

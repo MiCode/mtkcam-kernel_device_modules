@@ -106,20 +106,6 @@ void imgsys_me_set_initial_value(struct mtk_imgsys_dev *imgsys_dev)
 	g_meRegBA = of_iomap(imgsys_dev->dev->of_node, REG_MAP_E_ME);
 	g_mmgRegBA = of_iomap(imgsys_dev->dev->of_node, REG_MAP_E_ME_MMG);
 
-#if defined(WPE_TF_DUMP_7S_1) || defined(WPE_TF_DUMP_7S_2)
-	mtk_iommu_register_fault_callback(M4U_PORT_L12_ME_RDMA_0,
-	(mtk_iommu_fault_callback_t)ME_TranslationFault_callback,
-	NULL, false);
-	mtk_iommu_register_fault_callback(M4U_PORT_L12_ME_WDMA_0,
-	(mtk_iommu_fault_callback_t)ME_TranslationFault_callback,
-	NULL, false);
-	mtk_iommu_register_fault_callback(M4U_PORT_L12_MEMMG_RDMA_0,
-	(mtk_iommu_fault_callback_t)MMG_TranslationFault_callback,
-	NULL, false);
-	mtk_iommu_register_fault_callback(M4U_PORT_L12_MEMMG_WDMA_0,
-	(mtk_iommu_fault_callback_t)MMG_TranslationFault_callback,
-	NULL, false);
-#endif
 	pr_info("%s: -\n", __func__);
 }
 //EXPORT_SYMBOL(imgsys_me_set_initial_value);

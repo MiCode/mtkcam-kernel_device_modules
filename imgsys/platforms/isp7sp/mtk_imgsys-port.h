@@ -11,6 +11,7 @@
 
 struct mtk_imgsys_port_table;
 #include "modules/mtk_imgsys-pqdip.h"
+#include "modules/mtk_imgsys-me.h"
 
 #ifdef IMGSYS_TF_DUMP_7SP_L
 #include <dt-bindings/memory/mt6989-larb-port.h>
@@ -51,6 +52,11 @@ static struct mtk_imgsys_port_table imgsys_dma_port_mt6989[] = {
 	{SMMU_L23_P8_WPE_WDMA_0       , imgsys_wpe_tfault_callback},
 	{SMMU_L23_P9_WROT_P1          , NULL},
 	{SMMU_L23_P10_TCCSO_P1        , NULL},
+	/* Larb12 */
+	{SMMU_L12_P2_ME_RDMA_0        , ME_TranslationFault_callback},
+	{SMMU_L12_P3_ME_WDMA_0        , ME_TranslationFault_callback},
+	{SMMU_L12_P4_MEMMG_RDMA_0     , MMG_TranslationFault_callback},
+	{SMMU_L12_P5_MEMMG_WDMA_0     , MMG_TranslationFault_callback},
 };
 #endif
 
@@ -84,6 +90,11 @@ static struct mtk_imgsys_port_table imgsys_dma_port_mt6897[] = {
 	{M4U_L23_P5_WPE_WDMA_0  , imgsys_wpe_tfault_callback},
 	{M4U_L23_P6_WROT_P1     , NULL},
 	{M4U_L23_P7_TCCSO_P1    , NULL},
+	/* Larb12 */
+	{M4U_L12_P2_ME_RDMA_0        , ME_TranslationFault_callback},
+	{M4U_L12_P3_ME_WDMA_0        , ME_TranslationFault_callback},
+	{M4U_L12_P4_MEMMG_RDMA_0     , MMG_TranslationFault_callback},
+	{M4U_L12_P5_MEMMG_WDMA_0     , MMG_TranslationFault_callback},
 };
 #endif
 

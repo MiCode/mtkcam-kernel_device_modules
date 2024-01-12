@@ -1116,6 +1116,14 @@ static int cam_open(struct inode *inode, struct file *filp)
 		pr_info("get_sync raw %d\n", i);
 		pm_runtime_get_sync(ut->raw[i]);
 	}
+	for (i = 0; i < ut->num_rms; i++) {
+		pr_info("get_sync rms %d\n", i);
+		pm_runtime_get_sync(ut->rms[i]);
+	}
+	for (i = 0; i < ut->num_yuv; i++) {
+		pr_info("get_sync yuv %d\n", i);
+		pm_runtime_get_sync(ut->yuv[i]);
+	}
 
 	for (i = 0; i < ut->num_camsv; i++) {
 		pr_info("get_sync camsv %d\n", i);
@@ -1144,6 +1152,12 @@ static int cam_release(struct inode *inode, struct file *filp)
 
 	for (i = 0; i < ut->num_camsv; i++)
 		pm_runtime_put(ut->camsv[i]);
+
+	for (i = 0; i < ut->num_yuv; i++)
+		pm_runtime_put(ut->yuv[i]);
+
+	for (i = 0; i < ut->num_rms; i++)
+		pm_runtime_put(ut->rms[i]);
 
 	for (i = 0; i < ut->num_raw; i++)
 		pm_runtime_put(ut->raw[i]);
@@ -1651,6 +1665,7 @@ static const struct dev_pm_ops mtk_cam_pm_ops = {
 
 static const struct of_device_id cam_ut_driver_dt_match[] = {
 	{ .compatible = "mediatek,mt6897-camisp", },
+	{ .compatible = "mediatek,mt6989-camisp", },
 	{}
 };
 MODULE_DEVICE_TABLE(of, cam_ut_driver_dt_match);

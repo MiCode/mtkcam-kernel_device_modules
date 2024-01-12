@@ -326,6 +326,23 @@ struct seninf_ctx {
 	u32 vcore_step_index;
 	u32 clk_index;
 	u32 clk_src_index;
+	/* debug_current_status */
+	u64 debug_cur_sys_time_in_ns;
+	u32 debug_cur_dphy_irq;
+	u32 debug_cur_cphy_irq;
+	u32 debug_cur_mac_irq;
+	u32 debug_cur_seninf_irq;
+	u32 debug_cur_temp;
+	u32 debug_cur_mac_csi2_size_chk_ctrl0;
+	u32 debug_cur_mac_csi2_size_chk_ctrl1;
+	u32 debug_cur_mac_csi2_size_chk_ctrl2;
+	u32 debug_cur_mac_csi2_size_chk_ctrl3;
+	u32 debug_cur_mac_csi2_size_chk_ctrl4;
+	u32 debug_cur_mac_csi2_size_chk_rcv0;
+	u32 debug_cur_mac_csi2_size_chk_rcv1;
+	u32 debug_cur_mac_csi2_size_chk_rcv2;
+	u32 debug_cur_mac_csi2_size_chk_rcv3;
+	u32 debug_cur_mac_csi2_size_chk_rcv4;
 };
 
 struct mtk_cam_seninf_irq_event_st {

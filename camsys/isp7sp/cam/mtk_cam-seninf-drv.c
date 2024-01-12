@@ -2039,6 +2039,23 @@ static int debug_err_detect_initialize(struct seninf_ctx *ctx)
 #ifdef ERR_DETECT_TEST
 		ctx_->test_cnt = 0;
 #endif
+		/* debug dump cur status initialize */
+		ctx->debug_cur_sys_time_in_ns = 0;
+		ctx->debug_cur_dphy_irq = 0;
+		ctx->debug_cur_cphy_irq = 0;
+		ctx->debug_cur_mac_irq = 0;
+		ctx->debug_cur_temp = 0;
+		ctx->debug_cur_seninf_irq = 0;
+		ctx->debug_cur_mac_csi2_size_chk_ctrl0 = 0;
+		ctx->debug_cur_mac_csi2_size_chk_ctrl1 = 0;
+		ctx->debug_cur_mac_csi2_size_chk_ctrl2 = 0;
+		ctx->debug_cur_mac_csi2_size_chk_ctrl3 = 0;
+		ctx->debug_cur_mac_csi2_size_chk_ctrl4 = 0;
+		ctx->debug_cur_mac_csi2_size_chk_rcv0 = 0;
+		ctx->debug_cur_mac_csi2_size_chk_rcv1 = 0;
+		ctx->debug_cur_mac_csi2_size_chk_rcv2 = 0;
+		ctx->debug_cur_mac_csi2_size_chk_rcv3 = 0;
+		ctx->debug_cur_mac_csi2_size_chk_rcv4 = 0;
 	}
 
 	return 0;

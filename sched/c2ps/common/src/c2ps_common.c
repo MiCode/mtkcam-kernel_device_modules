@@ -342,6 +342,28 @@ inline void set_config_camfps(int camfps)
 	c2ps_info_unlock(&glb_info->mlock);
 }
 
+inline void set_special_uclamp_max(int camfps)
+{
+	int cluster_index = NUMBER_OF_CLUSTER - 1;
+	if (!glb_info) {
+		C2PS_LOGE("glb_info is null\n");
+		return;
+	}
+
+	c2ps_info_lock(&glb_info->mlock);
+	glb_info->use_special_uclamp_max = false;
+	for (; cluster_index >= 0; --cluster_index) {
+		glb_info->special_uclamp_max[cluster_index] = (camfps & (MAX_UCLAMP - 1));
+		camfps >>= 10;
+	}
+	c2ps_info_unlock(&glb_info->mlock);
+	C2PS_LOGD(
+		"special_cluster_0_util=%d special_cluster_1_util=%d "
+		"special_cluster_2_util=%d\n",
+		glb_info->special_uclamp_max[0], glb_info->special_uclamp_max[1],
+		glb_info->special_uclamp_max[2]);
+}
+
 inline void set_glb_info_bg_uclamp_max(void)
 {
 	if (!glb_info) {
@@ -619,12 +641,16 @@ inline bool need_update_background(void)
 	// temp solution, use alert = 100 to indicate release background uclamp max
 	if (background_idlerate_alert >= 100) {
 		is_release_uclamp_max = true;
+		glb_info->use_special_uclamp_max = true;
 		glb_info->need_update_uclamp[0] = 1;
 		glb_info->need_update_uclamp[1] = 1;
 		glb_info->need_update_uclamp[2] = 1;
 		glb_info->need_update_uclamp[3] = 1;
 		return true;
 	}
+
+	if (is_release_uclamp_max)
+		reset_need_update_status();
 
 	return glb_info->need_update_uclamp[0];
 }
@@ -645,6 +671,7 @@ inline void reset_need_update_status(void)
 				glb_info->curr_max_uclamp[_idx] = glb_info->max_uclamp[_idx];
 			}
 		}
+		glb_info->use_special_uclamp_max = false;
 		c2ps_info_unlock(&glb_info->mlock);
 		is_release_uclamp_max = false;
 	}
@@ -750,7 +777,7 @@ static ssize_t gear_uclamp_max_show(struct kobject *kobj,
 
 static KOBJ_ATTR_RW(gear_uclamp_max);
 
-int init_c2ps_common(void)
+int init_c2ps_common(int camfps)
 {
 	int ret = 0;
 
@@ -771,6 +798,8 @@ int init_c2ps_common(void)
 	}
 
 	set_glb_info_bg_uclamp_max();
+	// FIXME: temp solution to set special Uclamp max
+	set_special_uclamp_max(camfps);
 
 	return ret;
 }

@@ -28,6 +28,7 @@
 #define BCORE_ID 7
 #define BACKGROUND_UCLAMPMAX_ALERT 10
 #define MAX_TASK_NAME_SIZE 10
+#define MAX_UCLAMP 1024
 
 extern int proc_time_window_size;
 extern int debug_log_on;
@@ -100,6 +101,8 @@ struct global_info {
 	 */
 	int need_update_uclamp[1 + NUMBER_OF_CLUSTER];
 	int curr_max_uclamp[NUMBER_OF_CLUSTER];
+	bool use_special_uclamp_max;
+	int special_uclamp_max[NUMBER_OF_CLUSTER];
 	struct mutex mlock;
 };
 
@@ -129,7 +132,7 @@ struct regulator_req {
 #define C2PS_LOGE(fmt, ...) pr_err("[C2PS]: %s %s %d " fmt, \
 	__FILE__, __func__, __LINE__, ##__VA_ARGS__)
 
-int init_c2ps_common(void);
+int init_c2ps_common(int camfps);
 void exit_c2ps_common(void);
 int set_curr_uclamp_hint(int pid, int set);
 int set_curr_uclamp_hint_wo_lock(struct task_struct *p, int set);
@@ -152,6 +155,7 @@ u64 c2ps_get_time(void);
 void c2ps_update_task_info_hist(struct c2ps_task_info *tsk_info);
 struct global_info *get_glb_info(void);
 void set_config_camfps(int camfps);
+void set_special_uclamp_max(int camfps);
 void update_vsync_time(u64 ts);
 void update_camfps(int camfps);
 bool is_group_head(struct c2ps_task_info *tsk_info);

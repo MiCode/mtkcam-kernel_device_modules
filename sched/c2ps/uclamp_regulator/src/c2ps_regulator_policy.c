@@ -193,15 +193,24 @@ void c2ps_regulator_bgpolicy_simple(struct regulator_req *req)
 		int *_cur_bg_uclamp = &(req->glb_info->curr_max_uclamp[cluster_index]);
 
 		if ((*_bg_uclamp_up_margin[cluster_index]) == 0 &&
-			 req->glb_info->need_update_uclamp[1 + cluster_index] != -1)
+			 req->glb_info->need_update_uclamp[1 + cluster_index] != -1 &&
+			 !req->glb_info->special_uclamp_max[cluster_index])
 			continue;
 
 		if (req->glb_info->need_update_uclamp[1 + cluster_index] == 1) {
+			int _max_uclamp_max = (int)(req->glb_info->max_uclamp[cluster_index]
+				      * (100 + (*_bg_uclamp_up_margin[cluster_index])) / 100);
+
+			if (req->glb_info->use_special_uclamp_max) {
+				_max_uclamp_max =
+							req->glb_info->special_uclamp_max[cluster_index];
+				_max_uclamp_max =
+				max(_max_uclamp_max, req->glb_info->max_uclamp[cluster_index]);
+			}
+
 			*_cur_bg_uclamp += c2ps_regulator_bg_update_uclamp;
 
-			*_cur_bg_uclamp = min(*_cur_bg_uclamp,
-						(int)(req->glb_info->max_uclamp[cluster_index] *
-						(100 + (*_bg_uclamp_up_margin[cluster_index])) / 100));
+			*_cur_bg_uclamp = min(*_cur_bg_uclamp, _max_uclamp_max);
 		} else if (req->glb_info->need_update_uclamp[1 + cluster_index] == -1) {
 			*_cur_bg_uclamp -= c2ps_regulator_bg_update_uclamp;
 			*_cur_bg_uclamp = max(*_cur_bg_uclamp,
@@ -221,10 +230,17 @@ void c2ps_regulator_bgpolicy_simple(struct regulator_req *req)
 		c2ps_get_uclamp_freq(LCORE_ID, req->glb_info->curr_max_uclamp[0]),
 		c2ps_get_uclamp_freq(MCORE_ID, req->glb_info->curr_max_uclamp[1]),
 		c2ps_get_uclamp_freq(BCORE_ID, req->glb_info->curr_max_uclamp[2]));
-
+	c2ps_main_systrace(
+		"special_cluster_0_util=%d special_cluster_1_util=%d special_cluster_2_util=%d ",
+		req->glb_info->special_uclamp_max[0], req->glb_info->special_uclamp_max[1],
+		req->glb_info->special_uclamp_max[2]);
 	C2PS_LOGD("debug: c2ps_regulator_bgpolicy_simple set"
-			  "uclamp max: %d, %d, %d",
+			  "uclamp max: %d, %d, %d "
+			  "special uclamp max: %d, %d, %d",
 			  req->glb_info->curr_max_uclamp[0],
 			  req->glb_info->curr_max_uclamp[1],
-			  req->glb_info->curr_max_uclamp[2]);
+			  req->glb_info->curr_max_uclamp[2],
+			  req->glb_info->special_uclamp_max[0],
+			  req->glb_info->special_uclamp_max[1],
+			  req->glb_info->special_uclamp_max[2]);
 }

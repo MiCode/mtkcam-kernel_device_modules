@@ -127,8 +127,6 @@ struct seninf_core {
 	struct kthread_worker seninf_worker;
 	struct task_struct *seninf_kworker_task;
 
-	/* record pid */
-	struct pid *pid;
 	/* mipi error detection count */
 	unsigned int detection_cnt;
 	/* enable csi irq flag */
@@ -265,6 +263,9 @@ struct seninf_ctx {
 
 	/* cammux switch debug element */
 	struct mtk_cam_seninf_mux_param *dbg_chmux_param;
+
+	/* record pid */
+	struct pid *pid;
 };
 
 #endif

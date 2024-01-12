@@ -5121,7 +5121,8 @@ static void dump_current_mipi_error_cnt(struct seninf_core *core,
 				ctx->test_cnt);
 #endif
 			seninf_aee_print("[AEE] %s", buf);
-			//kill_pid(ctx_->pid, SIGKILL, 1);
+			// if(ctx->pid)
+			// kill_pid(ctx->pid, SIGKILL, 1);
 	}
 	kfree(buf);
 }

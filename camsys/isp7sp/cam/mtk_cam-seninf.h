@@ -144,8 +144,6 @@ struct seninf_core {
 	struct kthread_worker seninf_worker;
 	struct task_struct *seninf_kworker_task;
 
-	/* record pid */
-	struct pid *pid;
 	unsigned int data_not_enough_detection_cnt;
 	unsigned int err_lane_resync_detection_cnt;
 	unsigned int crc_err_detection_cnt;

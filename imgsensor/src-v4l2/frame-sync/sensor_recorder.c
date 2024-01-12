@@ -379,9 +379,7 @@ void frec_dump_recorder(const unsigned int idx, const char *caller)
 
 	fs_util_tsrec_dynamic_msg_connector(idx, log_buf, len, __func__);
 
-	frec_spin_lock(&fs_log_concurrency_lock);
-	LOG_MUST("%s\n", log_buf);
-	frec_spin_unlock(&fs_log_concurrency_lock);
+	LOG_MUST_SPIN("%s\n", log_buf);
 
 	FS_FREE(log_buf);
 }
@@ -1647,8 +1645,7 @@ static void frec_chk_fl_info_predicted_match_actual(const unsigned int idx)
 		: (pfrec->act_fl_us - pfrec->prev_predicted_fl_us);
 
 	if (unlikely(diff > diff_th)) {
-		frec_spin_lock(&fs_log_concurrency_lock);
-		LOG_MUST(
+		LOG_MUST_SPIN(
 			"WARNING: [%u] ID:%#x(sidx:%u/inf:%u), frame length (fdelay:%u): pr(p)(%u(%u)/act:%u) seems not match, plz check manually\n",
 			idx,
 			fs_get_reg_sensor_id(idx),
@@ -1658,7 +1655,6 @@ static void frec_chk_fl_info_predicted_match_actual(const unsigned int idx)
 			pfrec->prev_predicted_fl_us,
 			pfrec->prev_predicted_fl_lc,
 			pfrec->act_fl_us);
-		frec_spin_unlock(&fs_log_concurrency_lock);
 
 		frec_dump_recorder(idx, __func__);
 	}

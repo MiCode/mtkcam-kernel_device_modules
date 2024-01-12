@@ -319,9 +319,7 @@ static void fs_dump_status(const int idx, const int flag, const char *caller,
 		frm_get_ccu_pwn_cnt());
 #endif
 
-	fs_spin_lock(&fs_log_concurrency_lock);
-	LOG_MUST("%s\n", log_buf);
-	fs_spin_unlock(&fs_log_concurrency_lock);
+	LOG_MUST_SPIN("%s\n", log_buf);
 
 	FS_FREE(log_buf);
 }

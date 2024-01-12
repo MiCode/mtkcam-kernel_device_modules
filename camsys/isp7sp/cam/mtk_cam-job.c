@@ -46,7 +46,7 @@ static inline int job_debug_exception_dump(struct mtk_cam_job *job,
 					   const char *desc)
 {
 	/* don't care raw_pipe_idx */
-	return job_debug_dump(job, desc, 1, -1);
+	return (job->src_ctx->has_raw_subdev) ? job_debug_dump(job, desc, 1, -1) : 0;
 }
 
 static struct mtk_raw_request_data *req_get_raw_data(struct mtk_cam_ctx *ctx,
@@ -3545,7 +3545,7 @@ static struct mtk_cam_job_ops mstream_job_ops = {
 
 static struct mtk_cam_job_ops otf_only_sv_job_ops = {
 	.cancel = job_cancel,
-	//.dump
+	.dump = job_dump,
 	.finalize = job_finalize,
 	.compose_done = _compose_done,
 	.compose = _compose,

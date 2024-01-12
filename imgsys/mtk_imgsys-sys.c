@@ -123,172 +123,6 @@ struct list_head *head = NULL;
 	return 0;
 }
 
-int mtk_imgsys_hw_working_buf_pool_init(struct mtk_imgsys_dev *imgsys_dev)
-{
-	int i;
-	const int working_buf_size = round_up(DIP_FRM_SZ, PAGE_SIZE);
-	phys_addr_t working_buf_paddr;
-	const u32 scp_workingbuf_offset = 0;
-
-	INIT_LIST_HEAD(&imgsys_dev->imgsys_freebufferlist.list);
-	spin_lock_init(&imgsys_dev->imgsys_freebufferlist.lock);
-	imgsys_dev->imgsys_freebufferlist.cnt = 0;
-
-	INIT_LIST_HEAD(&imgsys_dev->imgsys_usedbufferlist.list);
-	spin_lock_init(&imgsys_dev->imgsys_usedbufferlist.lock);
-	imgsys_dev->imgsys_usedbufferlist.cnt = 0;
-
-#if MTK_CM4_SUPPORT
-	scp_workingbuf_offset = DIP_SCP_WORKINGBUF_OFFSET;
-	imgsys_dev->working_buf_mem_size = DIP_SUB_FRM_DATA_NUM *
-		working_buf_size + DIP_SCP_WORKINGBUF_OFFSET;
-	imgsys_dev->working_buf_mem_vaddr =
-		dma_alloc_coherent(&imgsys_dev->scp_pdev->dev,
-				   imgsys_dev->working_buf_mem_size,
-				   &imgsys_dev->working_buf_mem_scp_daddr,
-				   GFP_KERNEL);
-	if (!imgsys_dev->working_buf_mem_vaddr) {
-		dev_info(imgsys_dev->dev,
-			"memory alloc size %ld failed\n",
-			imgsys_dev->working_buf_mem_size);
-		return -ENOMEM;
-	}
-
-	/*
-	 * We got the incorrect physical address mapped when
-	 * using dma_map_single() so I used dma_map_page_attrs()
-	 * directly to workaround here.
-	 *
-	 * When I use dma_map_single() to map the address, the
-	 * physical address retrieved back with iommu_get_domain_for_dev()
-	 * and iommu_iova_to_phys() was not equal to the
-	 * SCP dma address (it should be the same as the physical address
-	 * since we don't have iommu), and was shifted by 0x4000000.
-	 */
-	working_buf_paddr = imgsys_dev->working_buf_mem_scp_daddr;
-	imgsys_dev->working_buf_mem_isp_daddr =
-		dma_map_page_attrs(imgsys_dev->dev,
-				   phys_to_page(working_buf_paddr),
-				   0, imgsys_dev->working_buf_mem_size,
-				   DMA_BIDIRECTIONAL,
-				   DMA_ATTR_SKIP_CPU_SYNC);
-	if (dma_mapping_error(imgsys_dev->dev,
-			      imgsys_dev->working_buf_mem_isp_daddr)) {
-		dev_info(imgsys_dev->dev,
-			"failed to map buffer: s_daddr(%pad)\n",
-			&imgsys_dev->working_buf_mem_scp_daddr);
-		dma_free_coherent(&imgsys_dev->scp_pdev->dev,
-				  imgsys_dev->working_buf_mem_size,
-				  imgsys_dev->working_buf_mem_vaddr,
-				  imgsys_dev->working_buf_mem_scp_daddr);
-
-		return -ENOMEM;
-	}
-#else
-	/* TODO: only for header_desc mode; not sigdev */
-#ifdef USE_KERNEL_ION_BUFFER
-	imgsys_dev->working_buf_mem_size =
-				mtk_hcp_get_reserve_mem_size(IMG_MEM_FOR_HW_ID);
-	hcp_allocate_buffer(imgsys_dev->scp_pdev, IMG_MEM_FOR_HW_ID,
-		imgsys_dev->working_buf_mem_size);
-	imgsys_dev->working_buf_mem_scp_daddr =
-				mtk_hcp_get_reserve_mem_phys(IMG_MEM_FOR_HW_ID);
-	imgsys_dev->working_buf_mem_vaddr =
-				mtk_hcp_get_reserve_mem_virt(IMG_MEM_FOR_HW_ID);
-	imgsys_dev->working_buf_mem_isp_daddr =
-				mtk_hcp_get_reserve_mem_dma(IMG_MEM_FOR_HW_ID);
-	if (!imgsys_dev->working_buf_mem_vaddr) {
-		dev_info(imgsys_dev->dev,
-			"(hcp)memory alloc size %ld failed\n",
-			imgsys_dev->working_buf_mem_size);
-		return -ENOMEM;
-	}
-#endif
-	working_buf_paddr = imgsys_dev->working_buf_mem_scp_daddr;
-#endif
-    if (imgsys_dbg_enable()) {
-	dev_dbg(imgsys_dev->dev,
-		"%s: working_buf_mem: vaddr(0x%lx), scp_daddr(%pad)\n",
-		__func__,
-		(unsigned long)imgsys_dev->working_buf_mem_vaddr,
-		&imgsys_dev->working_buf_mem_scp_daddr);
-    }
-
-	pr_info("%s: working buffer size 0x%lx, pool size should be 0x%lx\n",
-		__func__, DIP_FRM_SZ, (DIP_FRM_SZ * DIP_SUB_FRM_DATA_NUM));
-	for (i = 0; i < DIP_SUB_FRM_DATA_NUM; i++) {
-		struct mtk_imgsys_hw_subframe *buf =
-						&imgsys_dev->working_buf[i];
-
-		/*
-		 * Total: 0 ~ 72 KB
-		 * SubFrame: 0 ~ 16 KB
-		 */
-		buf->buffer.scp_daddr = imgsys_dev->working_buf_mem_scp_daddr +
-			scp_workingbuf_offset + i * working_buf_size;
-		buf->buffer.vaddr = imgsys_dev->working_buf_mem_vaddr +
-			scp_workingbuf_offset + i * working_buf_size;
-		buf->buffer.isp_daddr = imgsys_dev->working_buf_mem_isp_daddr +
-			scp_workingbuf_offset + i * working_buf_size;
-		buf->size = working_buf_size;
-
-        if (imgsys_dbg_enable()) {
-		dev_dbg(imgsys_dev->dev,
-			"%s: buf(%d), scp_daddr(%pad), isp_daddr(%pad)\n",
-			__func__, i, &buf->buffer.scp_daddr,
-			&buf->buffer.isp_daddr);
-        }
-
-		/* Tuning: 16 ~ 48 KB */
-		buf->tuning_buf.scp_daddr =
-			buf->buffer.scp_daddr + DIP_TUNING_OFFSET;
-		buf->tuning_buf.vaddr =
-			buf->buffer.vaddr + DIP_TUNING_OFFSET;
-		buf->tuning_buf.isp_daddr =
-			buf->buffer.isp_daddr + DIP_TUNING_OFFSET;
-
-        if (imgsys_dbg_enable()) {
-		dev_dbg(imgsys_dev->dev,
-			"%s: tuning_buf(%d), scp_daddr(%pad), isp_daddr(%pad)\n",
-			__func__, i, &buf->tuning_buf.scp_daddr,
-			&buf->tuning_buf.isp_daddr);
-        }
-
-		/* Config_data: 48 ~ 72 KB */
-		buf->config_data.scp_daddr =
-			buf->buffer.scp_daddr + DIP_COMP_OFFSET;
-		buf->config_data.vaddr = buf->buffer.vaddr + DIP_COMP_OFFSET;
-
-        if (imgsys_dbg_enable()) {
-		dev_dbg(imgsys_dev->dev,
-			"%s: config_data(%d), scp_daddr(%pad), vaddr(0x%lx)\n",
-			__func__, i, &buf->config_data.scp_daddr,
-			(unsigned long)buf->config_data.vaddr);
-        }
-
-		/* Frame parameters: 72 ~ 76 KB */
-		buf->frameparam.scp_daddr =
-			buf->buffer.scp_daddr + DIP_FRAMEPARAM_OFFSET;
-		buf->frameparam.vaddr =
-			buf->buffer.vaddr + DIP_FRAMEPARAM_OFFSET;
-
-		pr_info("DIP_FRAMEPARAM_SZ:%lu",
-			(unsigned long)sizeof(struct img_ipi_frameparam));
-        if (imgsys_dbg_enable()) {
-		dev_dbg(imgsys_dev->dev,
-			"%s: frameparam(%d), scp_daddr(%pad), vaddr(0x%lx)\n",
-			__func__, i, &buf->frameparam.scp_daddr,
-			(unsigned long)buf->frameparam.vaddr);
-        }
-
-		list_add_tail(&buf->list_entry,
-			      &imgsys_dev->imgsys_freebufferlist.list);
-		imgsys_dev->imgsys_freebufferlist.cnt++;
-	}
-
-	return 0;
-}
-
 void mtk_imgsys_hw_working_buf_pool_release(struct mtk_imgsys_dev *imgsys_dev)
 {
 	/* All the buffer should be in the freebufferlist when release */
@@ -819,8 +653,8 @@ release_req:
 	} else {
 		//INIT_WORK(&swork->work, cmdq_cb_timeout_worker);
 		if (!work_pending(&swork->work)) {
-		queue_work(req->imgsys_pipe->imgsys_dev->mdpcb_wq,
-			&swork->work);
+			queue_work(req->imgsys_pipe->imgsys_dev->mdpcb_wq,
+				&swork->work);
 		} else {
             media_request_put(&req->req);
 #if SMVR_DECOUPLE
@@ -1344,6 +1178,176 @@ static void imgsys_mdp_cb_func(struct cmdq_cb_data data,
 	}
 
 	IMGSYS_SYSTRACE_END();
+}
+
+int mtk_imgsys_hw_working_buf_pool_init(struct mtk_imgsys_dev *imgsys_dev)
+{
+	int i;
+	const int working_buf_size = round_up(DIP_FRM_SZ, PAGE_SIZE);
+	phys_addr_t working_buf_paddr;
+	const u32 scp_workingbuf_offset = 0;
+
+	INIT_LIST_HEAD(&imgsys_dev->imgsys_freebufferlist.list);
+	spin_lock_init(&imgsys_dev->imgsys_freebufferlist.lock);
+	imgsys_dev->imgsys_freebufferlist.cnt = 0;
+
+	INIT_LIST_HEAD(&imgsys_dev->imgsys_usedbufferlist.list);
+	spin_lock_init(&imgsys_dev->imgsys_usedbufferlist.lock);
+	imgsys_dev->imgsys_usedbufferlist.cnt = 0;
+
+#if MTK_CM4_SUPPORT
+	scp_workingbuf_offset = DIP_SCP_WORKINGBUF_OFFSET;
+	imgsys_dev->working_buf_mem_size = DIP_SUB_FRM_DATA_NUM *
+		working_buf_size + DIP_SCP_WORKINGBUF_OFFSET;
+	imgsys_dev->working_buf_mem_vaddr =
+		dma_alloc_coherent(&imgsys_dev->scp_pdev->dev,
+				   imgsys_dev->working_buf_mem_size,
+				   &imgsys_dev->working_buf_mem_scp_daddr,
+				   GFP_KERNEL);
+	if (!imgsys_dev->working_buf_mem_vaddr) {
+		dev_info(imgsys_dev->dev,
+			"memory alloc size %ld failed\n",
+			imgsys_dev->working_buf_mem_size);
+		return -ENOMEM;
+	}
+
+	/*
+	 * We got the incorrect physical address mapped when
+	 * using dma_map_single() so I used dma_map_page_attrs()
+	 * directly to workaround here.
+	 *
+	 * When I use dma_map_single() to map the address, the
+	 * physical address retrieved back with iommu_get_domain_for_dev()
+	 * and iommu_iova_to_phys() was not equal to the
+	 * SCP dma address (it should be the same as the physical address
+	 * since we don't have iommu), and was shifted by 0x4000000.
+	 */
+	working_buf_paddr = imgsys_dev->working_buf_mem_scp_daddr;
+	imgsys_dev->working_buf_mem_isp_daddr =
+		dma_map_page_attrs(imgsys_dev->dev,
+				   phys_to_page(working_buf_paddr),
+				   0, imgsys_dev->working_buf_mem_size,
+				   DMA_BIDIRECTIONAL,
+				   DMA_ATTR_SKIP_CPU_SYNC);
+	if (dma_mapping_error(imgsys_dev->dev,
+			      imgsys_dev->working_buf_mem_isp_daddr)) {
+		dev_info(imgsys_dev->dev,
+			"failed to map buffer: s_daddr(%pad)\n",
+			&imgsys_dev->working_buf_mem_scp_daddr);
+		dma_free_coherent(&imgsys_dev->scp_pdev->dev,
+				  imgsys_dev->working_buf_mem_size,
+				  imgsys_dev->working_buf_mem_vaddr,
+				  imgsys_dev->working_buf_mem_scp_daddr);
+
+		return -ENOMEM;
+	}
+#else
+	/* TODO: only for header_desc mode; not sigdev */
+#ifdef USE_KERNEL_ION_BUFFER
+	imgsys_dev->working_buf_mem_size =
+				mtk_hcp_get_reserve_mem_size(IMG_MEM_FOR_HW_ID);
+	hcp_allocate_buffer(imgsys_dev->scp_pdev, IMG_MEM_FOR_HW_ID,
+		imgsys_dev->working_buf_mem_size);
+	imgsys_dev->working_buf_mem_scp_daddr =
+				mtk_hcp_get_reserve_mem_phys(IMG_MEM_FOR_HW_ID);
+	imgsys_dev->working_buf_mem_vaddr =
+				mtk_hcp_get_reserve_mem_virt(IMG_MEM_FOR_HW_ID);
+	imgsys_dev->working_buf_mem_isp_daddr =
+				mtk_hcp_get_reserve_mem_dma(IMG_MEM_FOR_HW_ID);
+	if (!imgsys_dev->working_buf_mem_vaddr) {
+		dev_info(imgsys_dev->dev,
+			"(hcp)memory alloc size %ld failed\n",
+			imgsys_dev->working_buf_mem_size);
+		return -ENOMEM;
+	}
+#endif
+	working_buf_paddr = imgsys_dev->working_buf_mem_scp_daddr;
+#endif
+    if (imgsys_dbg_enable()) {
+	dev_dbg(imgsys_dev->dev,
+		"%s: working_buf_mem: vaddr(0x%lx), scp_daddr(%pad)\n",
+		__func__,
+		(unsigned long)imgsys_dev->working_buf_mem_vaddr,
+		&imgsys_dev->working_buf_mem_scp_daddr);
+    }
+
+	pr_info("%s: working buffer size 0x%lx, pool size should be 0x%lx\n",
+		__func__, DIP_FRM_SZ, (DIP_FRM_SZ * DIP_SUB_FRM_DATA_NUM));
+	for (i = 0; i < DIP_SUB_FRM_DATA_NUM; i++) {
+		struct mtk_imgsys_hw_subframe *buf =
+						&imgsys_dev->working_buf[i];
+
+		/*
+		 * Total: 0 ~ 72 KB
+		 * SubFrame: 0 ~ 16 KB
+		 */
+		buf->buffer.scp_daddr = imgsys_dev->working_buf_mem_scp_daddr +
+			scp_workingbuf_offset + i * working_buf_size;
+		buf->buffer.vaddr = imgsys_dev->working_buf_mem_vaddr +
+			scp_workingbuf_offset + i * working_buf_size;
+		buf->buffer.isp_daddr = imgsys_dev->working_buf_mem_isp_daddr +
+			scp_workingbuf_offset + i * working_buf_size;
+		buf->size = working_buf_size;
+
+        if (imgsys_dbg_enable()) {
+		dev_dbg(imgsys_dev->dev,
+			"%s: buf(%d), scp_daddr(%pad), isp_daddr(%pad)\n",
+			__func__, i, &buf->buffer.scp_daddr,
+			&buf->buffer.isp_daddr);
+        }
+
+		/* Tuning: 16 ~ 48 KB */
+		buf->tuning_buf.scp_daddr =
+			buf->buffer.scp_daddr + DIP_TUNING_OFFSET;
+		buf->tuning_buf.vaddr =
+			buf->buffer.vaddr + DIP_TUNING_OFFSET;
+		buf->tuning_buf.isp_daddr =
+			buf->buffer.isp_daddr + DIP_TUNING_OFFSET;
+
+        if (imgsys_dbg_enable()) {
+		dev_dbg(imgsys_dev->dev,
+			"%s: tuning_buf(%d), scp_daddr(%pad), isp_daddr(%pad)\n",
+			__func__, i, &buf->tuning_buf.scp_daddr,
+			&buf->tuning_buf.isp_daddr);
+        }
+
+		/* Config_data: 48 ~ 72 KB */
+		buf->config_data.scp_daddr =
+			buf->buffer.scp_daddr + DIP_COMP_OFFSET;
+		buf->config_data.vaddr = buf->buffer.vaddr + DIP_COMP_OFFSET;
+
+        if (imgsys_dbg_enable()) {
+		dev_dbg(imgsys_dev->dev,
+			"%s: config_data(%d), scp_daddr(%pad), vaddr(0x%lx)\n",
+			__func__, i, &buf->config_data.scp_daddr,
+			(unsigned long)buf->config_data.vaddr);
+        }
+
+		/* Frame parameters: 72 ~ 76 KB */
+		buf->frameparam.scp_daddr =
+			buf->buffer.scp_daddr + DIP_FRAMEPARAM_OFFSET;
+		buf->frameparam.vaddr =
+			buf->buffer.vaddr + DIP_FRAMEPARAM_OFFSET;
+
+		pr_info("DIP_FRAMEPARAM_SZ:%lu",
+			(unsigned long)sizeof(struct img_ipi_frameparam));
+        if (imgsys_dbg_enable()) {
+		dev_dbg(imgsys_dev->dev,
+			"%s: frameparam(%d), scp_daddr(%pad), vaddr(0x%lx)\n",
+			__func__, i, &buf->frameparam.scp_daddr,
+			(unsigned long)buf->frameparam.vaddr);
+        }
+
+		list_add_tail(&buf->list_entry,
+			      &imgsys_dev->imgsys_freebufferlist.list);
+		imgsys_dev->imgsys_freebufferlist.cnt++;
+	}
+
+	for (i = 0; i < VIDEO_MAX_FRAME;i++) {
+		INIT_WORK(&imgsys_timeout_winfo[i].work, cmdq_cb_timeout_worker);
+	}
+
+	return 0;
 }
 #else
 

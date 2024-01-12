@@ -5899,7 +5899,7 @@ void Get_Tile_Info(struct DPE_Config_V2 *pDpeConfig)
 }
 
 
-
+#if CHECK_SERVICE_IF_0
 static signed int DPE_Dump_kernelReg(struct DPE_Config_V2 *cfg)
 {
 	//DVS Register
@@ -6348,6 +6348,7 @@ static signed int DPE_Dump_kernelReg(struct DPE_Config_V2 *cfg)
 
 	return 0;
 }
+#endif
 
 #if !IS_ENABLED(CONFIG_MTK_LEGACY) && IS_ENABLED(CONFIG_COMMON_CLK) /*CCF*/
 static inline void DPE_Prepare_Enable_ccf_clock(void)
@@ -8170,8 +8171,8 @@ static int vidioc_dqbuf(struct file *file, void *priv, struct v4l2_buffer *p)
 		//LOG_INF("[vidioc dqbuf] b Dpe_RegDump = %d\n",
 		//cfgs[0].Dpe_RegDump);
 
-		if (cfgs[0].Dpe_RegDump == 1)
-			DPE_Dump_kernelReg(&cfgs[0]);//!Kernel Dump
+		// if (cfgs[0].Dpe_RegDump == 1)
+			// DPE_Dump_kernelReg(&cfgs[0]);//!Kernel Dump
 
 		//LOG_INF("[vidioc dqbuf] b DVS_CTRL00 = 0x%x\n",
 		//cfgs[0].DPE_Kernel_DpeConfig.DVS_CTRL00);

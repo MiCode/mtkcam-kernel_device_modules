@@ -5417,7 +5417,7 @@ static void seninf_record_cammux_info(struct seninf_core *core,
 	struct seninf_vc_out_dest *dest;
 
 	 list_for_each_entry(ctx_, &core->list, list) {
-		if (ctx_->streaming) {
+		if (ctx_->streaming && ctx_->power_status_flag) {
 			csirx_mac_csi = ctx_->reg_csirx_mac_csi[(uint32_t)ctx_->port];
 			vsync_info->csi_irq_st[vsync_info->used_csi_port_num] =
 				SENINF_READ_REG(csirx_mac_csi, CSIRX_MAC_CSI2_IRQ_STATUS);

@@ -3494,6 +3494,7 @@ static int runtime_suspend(struct device *dev)
 	struct seninf_ctx *ctx = dev_get_drvdata(dev);
 	struct seninf_core *core = ctx->core;
 	int i = 0;
+	unsigned long flags;
 
 	mutex_lock(&core->mutex);
 
@@ -3507,6 +3508,10 @@ static int runtime_suspend(struct device *dev)
 			seninf_logi(ctx,
 				"multi user(%d),cnt(%d)\n",
 				core->current_sensor_id, core->refcnt);
+
+		spin_lock_irqsave(&core->spinlock_irq, flags);
+		ctx->power_status_flag = 0;
+		spin_unlock_irqrestore(&core->spinlock_irq, flags);
 
 		/* disable camtg_sel as phya clk */
 		disable_phya_clk(ctx);
@@ -3589,6 +3594,7 @@ static int runtime_resume(struct device *dev)
 	struct seninf_vc *vc1 = mtk_cam_seninf_get_vc_by_pad(ctx, PAD_SRC_RAW_EXT0);
 	int bit_per_pixel = 10;
 	u64 data_rate = 0;
+	unsigned long flags;
 
 	mutex_lock(&core->mutex);
 
@@ -3695,6 +3701,10 @@ static int runtime_resume(struct device *dev)
 			mutex_unlock(&core->mutex);
 			return ret;
 		}
+
+		spin_lock_irqsave(&core->spinlock_irq, flags);
+		ctx->power_status_flag = 1;
+		spin_unlock_irqrestore(&core->spinlock_irq, flags);
 
 		if (core->refcnt == 1) {
 			if (core->pwr_refcnt_for_aov &&

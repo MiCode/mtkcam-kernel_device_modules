@@ -3709,14 +3709,14 @@ void mtk_raw_unregister_entities(struct mtk_raw_pipeline *arr_pipe, int num)
 
 struct mtk_raw_pad_config *mtk_raw_current_sink(struct mtk_raw_pipeline *pipe)
 {
-	struct mtk_cam_resource_raw_v2 *raw_res;
 	int sink_id;
+	struct media_pad *remote_pad;
 
 	/*
 	 * choose pad from seninf or rawi
 	 */
-	raw_res = &pipe->ctrl_data.resource.user_data.raw_res;
-	sink_id = scen_is_m2m(&raw_res->scen) ?
-		MTK_RAW_RAWI_2_IN : MTK_RAW_SINK;
+
+	remote_pad = media_pad_remote_pad_unique(pipe->pads + MTK_RAW_SINK);
+	sink_id = IS_ERR_OR_NULL(remote_pad) ? MTK_RAW_RAWI_2_IN : MTK_RAW_SINK;
 	return &pipe->pad_cfg[sink_id];
 }

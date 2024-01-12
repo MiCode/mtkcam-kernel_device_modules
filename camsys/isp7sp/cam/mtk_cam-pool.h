@@ -63,6 +63,12 @@ struct mtk_cam_pool_wrapper {
 	struct mtk_cam_device_buf mem;
 };
 
+struct mtk_cam_device_refcnt_buf {
+	struct kref refcount;
+	struct mtk_cam_device_buf buf;
+};
+
+
 /* alloc/destroy */
 int mtk_cam_pool_alloc(struct mtk_cam_pool *pool,
 		       size_t element_size, int n_element);

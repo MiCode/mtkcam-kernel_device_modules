@@ -1699,41 +1699,30 @@ static void _destroy_pool(struct mtk_cam_device_buf *buf,
 	mtk_cam_device_buf_uninit(buf);
 }
 
-static int mtk_cam_ctx_alloc_rgbw_caci_buf(struct mtk_cam_ctx *ctx, int w, int h)
+int mtk_cam_ctx_alloc_rgbw_caci_buf(struct mtk_cam_ctx *ctx, int w, int h)
 {
 	struct device *dev_to_attach;
-	struct mtk_cam_device_buf *buf;
-	struct dma_buf *dbuf;
+
 	size_t caci_size = 0;
-	int ret;
 
 	dev_to_attach = get_dev_to_attach(ctx);
-	buf = &ctx->w_caci_buf;
 
 	if (CALL_PLAT_HW(query_caci_size, w, h, &caci_size) || caci_size == 0)
-		return -1;
+		return -EINVAL;
 
-	dbuf = _alloc_dma_buf("CAM_W_CACI_ID", caci_size, false);
-	ret = (!dbuf) ? -1 : 0;
-
-	ret = ret
-		|| mtk_cam_device_buf_init(buf, dbuf, dev_to_attach, caci_size)
-		|| mtk_cam_device_buf_vmap(buf);
-
-	dma_heap_buffer_free(dbuf);
-
-	if (!ret)
-		memset(ctx->w_caci_buf.vaddr, 0, ctx->w_caci_buf.size);
-
-	return ret;
+	ctx->w_caci_buf = mtk_cam_device_refcnt_buf_create(dev_to_attach, caci_size);
+	if (ctx->w_caci_buf)
+		return 0;
+	else
+		return -ENOMEM;
 }
 
-static int mtk_cam_ctx_destroy_rgbw_caci_buf(struct mtk_cam_ctx *ctx)
+void mtk_cam_ctx_clean_rgbw_caci_buf(struct mtk_cam_ctx *ctx)
 {
-	if (ctx->w_caci_buf.size)
-		mtk_cam_device_buf_uninit(&ctx->w_caci_buf);
-
-	return 0;
+	if (ctx->w_caci_buf) {
+		mtk_cam_device_refcnt_buf_put(ctx->w_caci_buf);
+		ctx->w_caci_buf = NULL;
+	}
 }
 
 static void mtk_cam_ctx_reset_slb(struct mtk_cam_ctx *ctx)
@@ -2013,6 +2002,82 @@ int mtk_cam_alloc_img_pool(struct device *dev_to_attach,
 		raw_res->img_wbuf_size);
 
 	return ret;
+}
+
+static void
+mtk_cam_device_refcnt_buf_free(struct kref *ref)
+{
+	struct mtk_cam_device_refcnt_buf *refcnt_buf;
+
+	refcnt_buf = container_of(ref, struct mtk_cam_device_refcnt_buf, refcount);
+	kfree(refcnt_buf);
+	if (CAM_DEBUG_ENABLED(IPI_BUF))
+		pr_info("%s:free object\n", __func__);
+}
+
+void
+mtk_cam_device_refcnt_buf_destroy(struct kref *ref)
+{
+	struct mtk_cam_device_refcnt_buf *refcnt_buf;
+
+	refcnt_buf = container_of(ref, struct mtk_cam_device_refcnt_buf, refcount);
+	if (refcnt_buf->buf.size)
+		mtk_cam_device_buf_uninit(&refcnt_buf->buf);
+	else
+		pr_info("%s: refcnt_buf(%p) size is 0, uninit not called",
+			__func__, refcnt_buf);
+
+	mtk_cam_device_refcnt_buf_free(ref);
+}
+
+struct mtk_cam_device_refcnt_buf*
+mtk_cam_device_refcnt_buf_create(struct device *dev_to_attach, size_t caci_size)
+{
+	struct mtk_cam_device_refcnt_buf *refcnt_buf;
+	int ret;
+
+	refcnt_buf = kmalloc(sizeof(*refcnt_buf), GFP_KERNEL);
+	if (!refcnt_buf)
+		return NULL;
+
+	kref_init(&refcnt_buf->refcount);
+
+	refcnt_buf->buf.dbuf = _alloc_dma_buf("CAM_W_CACI_ID", caci_size, false);
+	ret = (!refcnt_buf->buf.dbuf) ? -1 : 0;
+
+	ret = ret
+		|| mtk_cam_device_buf_init(&refcnt_buf->buf, refcnt_buf->buf.dbuf,
+					   dev_to_attach, caci_size)
+		|| mtk_cam_device_buf_vmap(&refcnt_buf->buf);
+
+	dma_heap_buffer_free(refcnt_buf->buf.dbuf);
+
+	if (!ret) {
+		memset(refcnt_buf->buf.vaddr, 0, refcnt_buf->buf.size);
+	} else {
+		if (CAM_DEBUG_ENABLED(IPI_BUF))
+			pr_info("%s:kref_put:%p\n", __func__, refcnt_buf);
+		kref_put(&refcnt_buf->refcount, mtk_cam_device_refcnt_buf_free);
+
+		return NULL;
+	}
+
+	return refcnt_buf;
+}
+
+void mtk_cam_device_refcnt_buf_get(struct mtk_cam_device_refcnt_buf *buf)
+{
+	if (CAM_DEBUG_ENABLED(IPI_BUF))
+		pr_info("%s:kref_get:%p\n", __func__, buf);
+	kref_get(&buf->refcount);
+
+}
+
+void mtk_cam_device_refcnt_buf_put(struct mtk_cam_device_refcnt_buf *buf)
+{
+	if (CAM_DEBUG_ENABLED(IPI_BUF))
+		pr_info("%s kref_put:%p\n", __func__, buf);
+	kref_put(&buf->refcount, mtk_cam_device_refcnt_buf_destroy);
 }
 
 static void
@@ -2408,7 +2473,7 @@ void mtk_cam_stop_ctx(struct mtk_cam_ctx *ctx, struct media_entity *entity)
 	mtk_cam_ctx_destroy_sensor_meta_pool(ctx);
 	mtk_cam_ctx_destroy_pool(ctx);
 	mtk_cam_ctx_clean_img_pool(ctx);
-	mtk_cam_ctx_destroy_rgbw_caci_buf(ctx);
+	mtk_cam_ctx_clean_rgbw_caci_buf(ctx);
 	mtk_cam_ctx_release_slb(ctx);
 
 	if (ctx->cmdq_enabled)

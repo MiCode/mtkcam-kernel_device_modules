@@ -130,7 +130,7 @@ struct mtk_cam_ctx {
 	 * scenario dependent
 	 */
 	bool scenario_init;
-	struct mtk_cam_device_buf w_caci_buf;
+	struct mtk_cam_device_refcnt_buf *w_caci_buf;
 
 	/* slb */
 	int slb_uid;
@@ -377,8 +377,9 @@ int mtk_cam_ctx_queue_done_worker(struct mtk_cam_ctx *ctx,
 
 int mtk_cam_ctx_fetch_devices(struct mtk_cam_ctx *ctx, unsigned long engines);
 void mtk_cam_ctx_clean_img_pool(struct mtk_cam_ctx *ctx);
-void mtk_cam_ctx_update_img_pool(struct mtk_cam_ctx *ctx,
-				 struct mtk_cam_pool_wrapper *pool_wrapper);
+
+int mtk_cam_ctx_alloc_rgbw_caci_buf(struct mtk_cam_ctx *ctx, int w, int h);
+void mtk_cam_ctx_clean_rgbw_caci_buf(struct mtk_cam_ctx *ctx);
 
 int mtk_cam_ctx_flush_session(struct mtk_cam_ctx *ctx);
 
@@ -450,7 +451,12 @@ mtk_cam_pool_wrapper_create(struct device *dev_to_attach,
 			    struct v4l2_mbus_framefmt *mf,
 			    struct mtk_cam_driver_buf_desc *desc);
 
-void
-mtk_cam_pool_wrapper_destroy(struct kref *ref);
+void mtk_cam_pool_wrapper_destroy(struct kref *ref);
+
+struct mtk_cam_device_refcnt_buf*
+mtk_cam_device_refcnt_buf_create(struct device *dev_to_attach, size_t caci_size);
+void mtk_cam_device_refcnt_buf_destroy(struct kref *ref);
+void mtk_cam_device_refcnt_buf_get(struct mtk_cam_device_refcnt_buf *buf);
+void mtk_cam_device_refcnt_buf_put(struct mtk_cam_device_refcnt_buf *buf);
 
 #endif /*__MTK_CAM_H*/

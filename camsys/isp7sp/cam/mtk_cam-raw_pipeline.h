@@ -120,6 +120,9 @@ struct mtk_raw_ctrl_data {
 	struct mtk_cam_apu_info apu_info;
 	bool valid_apu_info;
 
+	struct mtk_cam_req_info req_info;
+	bool valid_req_info;
+
 	struct mtk_cam_internal_mem pre_alloc_mem;
 	struct dma_buf *pre_alloc_dbuf;
 

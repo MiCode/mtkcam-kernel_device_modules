@@ -246,6 +246,7 @@ static int extisp_send_event(struct mtk_cam_job_state *s,
 	s_acc.seq_no = s->seq_no;
 	s_acc.ops = &extisp_acc_ops;
 	p->s_params = &s->s_params;
+	p->cq_trigger_thres = s->cq_trigger_thres_ns;
 
 	ret = loop_each_transition(&extisp_sensor_tbl, &s_acc, SENSOR_STATE, p);
 
@@ -292,6 +293,7 @@ int mtk_cam_job_state_init_extisp(struct mtk_cam_job_state *s,
 
 	s->cb = cb;
 	s->apply_by_fsm = 1;
+	s->compose_by_fsm = 1;
 
 	return 0;
 }

@@ -7,7 +7,7 @@
 #define __MTK_CAM_JOB_STATE_IMPL_GUARD_H
 
 #define I2C_THRES_FROM_L_SOF_NS 3000000
-#define SCQ_THRES_FROM_F_SOF_NS 8000000
+#define SCQ_THRES_FROM_F_SOF_NS 15000000
 
 struct state_accessor;
 struct state_accessor_ops {
@@ -106,11 +106,16 @@ static inline int sf_cur_isp_state(struct state_accessor *s_acc)
 /*
  * guard functions
  */
+static inline bool allow_composing(struct state_accessor *s_acc)
+{
+	return s_acc->s->compose_by_fsm;
+}
 
 static inline int guard_next_compose(struct state_accessor *s_acc,
 			       struct transition_param *p)
 {
-	return (unsigned int)(cur_seq_no(s_acc) - p->info->ack_seq_no) == 1;
+	return allow_composing(s_acc) &&
+		(unsigned int)(cur_seq_no(s_acc) - p->info->ack_seq_no) == 1;
 }
 
 static inline int guard_ack_eq(struct state_accessor *s_acc,
@@ -174,7 +179,7 @@ static inline bool valid_cq_execution(struct transition_param *p)
 	if (unlikely(!p->s_params))
 		return false;
 
-	return (p->event_ts - p->info->sof_ts_ns) < SCQ_THRES_FROM_F_SOF_NS;
+	return (p->event_ts - p->info->sof_ts_ns) < p->cq_trigger_thres;
 }
 
 static inline int guard_apply_sensor_subsample(struct state_accessor *s_acc,

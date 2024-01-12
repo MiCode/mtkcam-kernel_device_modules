@@ -405,6 +405,7 @@ int get_subsample_ratio(struct mtk_cam_scen *scen)
 #define SENSOR_I2C_TIME_NS		(6 * 1000000ULL)
 #define SENSOR_I2C_TIME_NS_60FPS	(6 * 1000000ULL)
 #define SENSOR_I2C_TIME_NS_HIGH_FPS	(3 * 1000000ULL)
+#define CQ_PROCESSING_TIME_NS	(2 * 1000000ULL)
 
 #define INTERVAL_NS(fps)	(1000000000ULL / fps)
 
@@ -435,6 +436,16 @@ u64 infer_i2c_deadline_ns(struct mtk_cam_job *job, u64 frame_interval_ns)
 		return frame_interval_ns / 2 - reserved_i2c_time(frame_interval_ns);
 	else
 		return frame_interval_ns - reserved_i2c_time(frame_interval_ns);
+}
+u64 infer_cq_trigger_deadline_ns(struct mtk_cam_job *job, u64 frame_interval_ns)
+{
+	struct mtk_cam_scen *scen = &job->job_scen;
+
+	/* consider vsync is subsampled */
+	if (scen->id == MTK_CAM_SCEN_SMVR)
+		return frame_interval_ns * (scen->scen.smvr.subsample_num - 1) - CQ_PROCESSING_TIME_NS;
+	else
+		return frame_interval_ns / 2 - CQ_PROCESSING_TIME_NS;
 }
 
 unsigned int get_master_engines(unsigned int used_engine)

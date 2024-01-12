@@ -219,9 +219,29 @@ static void update_ctxs_available_jobs(struct mtk_cam_device *cam)
 		ctx->available_jobs = mtk_cam_pool_available_cnt(&ctx->job_pool);
 	}
 }
+static int get_req_type(struct mtk_cam_ctx *ctx,
+	struct mtk_cam_request *req)
+{
+	unsigned long raw_pipe_idx;
+
+	raw_pipe_idx = get_raw_subdev_idx(ctx->used_pipe);
+	if (raw_pipe_idx == -1)
+		return 0;
+	return req->raw_data[raw_pipe_idx].ctrl.req_info.req_type;
+}
+static unsigned int get_req_sync_id(struct mtk_cam_ctx *ctx,
+	struct mtk_cam_request *req)
+{
+	unsigned long raw_pipe_idx;
+
+	raw_pipe_idx = get_raw_subdev_idx(ctx->used_pipe);
+	if (raw_pipe_idx == -1)
+		return 0;
+	return req->raw_data[raw_pipe_idx].ctrl.req_info.req_sync_id;
+}
 
 static bool mtk_cam_test_available_jobs(struct mtk_cam_device *cam,
-					unsigned long stream_mask)
+			struct mtk_cam_request *req, unsigned long stream_mask)
 {
 	struct mtk_cam_ctx *ctx;
 	int i;
@@ -234,6 +254,10 @@ static bool mtk_cam_test_available_jobs(struct mtk_cam_device *cam,
 
 		if (!ctx->available_jobs)
 			goto fail_to_fetch_job;
+
+		/* 2nd enque request won't be involved in job create */
+		if (get_req_type(ctx, req) == ISP_REQUEST)
+			continue;
 
 		--ctx->available_jobs;
 	}
@@ -279,7 +303,7 @@ static int mtk_cam_get_reqs_to_enque(struct mtk_cam_device *cam,
 		if (!mtk_cam_are_all_streaming(cam, used_ctx))
 			continue;
 
-		if (!mtk_cam_test_available_jobs(cam, used_ctx))
+		if (!mtk_cam_test_available_jobs(cam, req, used_ctx))
 			continue;
 
 		cnt++;
@@ -296,7 +320,6 @@ static int mtk_cam_enque_list(struct mtk_cam_device *cam,
 	struct mtk_cam_request *req, *req_prev;
 
 	list_for_each_entry_safe(req, req_prev, enqueue_list, list) {
-
 		append_to_running_list(cam, req);
 		mtk_cam_dev_req_enqueue(cam, req);
 	}
@@ -322,7 +345,6 @@ void mtk_cam_dev_req_try_queue(struct mtk_cam_device *cam)
 		goto put_permit;
 
 	mtk_cam_enque_list(cam, &enqueue_list);
-
 put_permit:
 	_put_permit_to_queue(cam);
 }
@@ -707,6 +729,8 @@ int mtk_cam_dev_req_enqueue(struct mtk_cam_device *cam,
 	int job_cnt;
 	int i;
 	unsigned int stream_bit;
+	int req_type;
+	int ret = 0;
 
 	WARN_ON(!used_ctx);
 
@@ -732,20 +756,41 @@ int mtk_cam_dev_req_enqueue(struct mtk_cam_device *cam,
 
 		ctx = &cam->ctxs[i];
 
-		job = mtk_cam_ctx_fetch_job(ctx);
+		req_type = get_req_type(ctx, req);
+		/* using request type to find job or fetch new job */
+		if (req_type == NORMAL_REQUEST)
+			job = mtk_cam_ctx_fetch_job(ctx);
+		else if (req_type == SENSOR_REQUEST)
+			job = mtk_cam_ctx_fetch_job(ctx);
+		else if (req_type == ISP_REQUEST)
+			job = mtk_cam_ctrl_get_job_by_req_id(&ctx->cam_ctrl,
+				get_req_sync_id(ctx, req));
+		else
+			dev_info(cam->dev, "failed to get valid req_info from ctx %d, type:%d\n",
+				 ctx->stream_id, req_type);
 		if (!job) {
 			dev_info(cam->dev, "failed to get job from ctx %d\n",
 				 ctx->stream_id);
 			return -1;
 		}
-
-		mtk_cam_update_wbuf_fmt_desc(ctx);
-
-		if (!ctx->scenario_init)
-			WARN_ON(mtk_cam_ctx_init_scenario(ctx));
-
+		if (req_type == NORMAL_REQUEST ||
+			req_type == ISP_REQUEST) {
+			mtk_cam_update_wbuf_fmt_desc(ctx);
+			if (!ctx->scenario_init)
+				WARN_ON(mtk_cam_ctx_init_scenario(ctx));
+		}
 		/* TODO(AY): return buffer in failed case */
-		if (mtk_cam_job_pack(job, ctx, req)) {
+		if (req_type == NORMAL_REQUEST)
+			ret = mtk_cam_job_pack(job, ctx, req);
+		else if (req_type == SENSOR_REQUEST)
+			ret = mtk_cam_sensor_job_pack(job, ctx, req);
+		else if (req_type == ISP_REQUEST)
+			ret = mtk_cam_isp_job_pack(job, ctx, req);
+		else
+			dev_info(cam->dev, "failed to get valid req_info from ctx %d, type:%d\n",
+				 ctx->stream_id, req_type);
+
+		if (ret) {
 			mtk_cam_job_return(job);
 			return -1;
 		}
@@ -761,9 +806,17 @@ int mtk_cam_dev_req_enqueue(struct mtk_cam_device *cam,
 	list_for_each_entry(job, &job_list, list) {
 
 		ctx = job->src_ctx;
-
+		req_type = get_req_type(ctx, req);
 		// enque to ctrl ; job will send ipi
-		mtk_cam_ctrl_job_enque(&ctx->cam_ctrl, job);
+		if (req_type == NORMAL_REQUEST)
+			mtk_cam_ctrl_job_enque(&ctx->cam_ctrl, job);
+		else if (req_type == SENSOR_REQUEST)
+			mtk_cam_ctrl_sensor_job_enque(&ctx->cam_ctrl, job);
+		else if (req_type == ISP_REQUEST)
+			mtk_cam_ctrl_isp_job_enque(&ctx->cam_ctrl, job);
+		else
+			dev_info(cam->dev, "failed to get valid req_info from ctx %d, type:%d\n",
+				 ctx->stream_id, req_type);
 	}
 
 	return 0;
@@ -805,7 +858,9 @@ static int mtk_cam_req_collect_vb_bufs(struct mtk_cam_request *req,
 			pure_raw_skipped = true;
 			continue;
 		}
-
+		if (CAM_DEBUG_ENABLED(JOB))
+			pr_info("%s: req:%s pipe_id:%d node:%s\n",
+			__func__, req->debug_str, pipe_id, node->desc.name);
 		list_move_tail(&buf->list, done_list);
 		*ids |= BIT(node->uid.id);
 	}
@@ -834,7 +889,49 @@ static void mark_each_buffer_done(struct list_head *done_list,
 		vb2_buffer_done(&buf->vbb.vb2_buf, buf_state);
 	}
 }
+void mtk_cam_sensor_req_buffer_done(struct mtk_cam_job *job,
+			     int pipe_id, int node_id, int buf_state,
+			     bool is_proc)
+{
+	struct mtk_cam_request *req = job->req_sensor;
+	struct device *dev = req->req.mdev->dev;
+	struct list_head done_list_sensor;
+	unsigned long ids_sensor;
+	bool is_buf_empty_sensor;
 
+	if (node_id != -1 ||
+		pipe_id >= MTKCAM_SUBDEV_RAW_END)
+		return;
+
+	media_request_get(&req->req);
+	INIT_LIST_HEAD(&done_list_sensor);
+	ids_sensor = 0;
+	is_buf_empty_sensor = !mtk_cam_req_collect_vb_bufs(req,
+			pipe_id, node_id,
+			is_sv_pure_raw(job) && is_proc,
+			&done_list_sensor, &ids_sensor);
+	if (unlikely(list_empty(&done_list_sensor))) {
+		dev_info(dev,
+			 "%s: req:%s failed to find pipe_id:%d node_id:%d%s\n",
+			 __func__, req->debug_str,
+			 pipe_id, node_id,
+			 is_buf_empty_sensor ? " (empty)" : "");
+		goto REQ_PUT;
+	}
+	if (is_buf_empty_sensor)
+		remove_from_running_list(dev_get_drvdata(dev), req);
+	mark_each_buffer_done(&done_list_sensor, buf_state,
+		job->timestamp, job->timestamp_mono);
+	if (is_buf_empty_sensor)
+		mtk_cam_req_dump_incomplete_ctrl(req);
+	if (CAM_DEBUG_ENABLED(JOB))
+		dev_info(dev,
+		"%s: req:%s pipe_id:%d sensor req done and completed\n",
+		__func__, job->req_sensor->debug_str, pipe_id);
+REQ_PUT:
+	media_request_put(&req->req);
+
+}
 void mtk_cam_req_buffer_done(struct mtk_cam_job *job,
 			     int pipe_id, int node_id, int buf_state,
 			     bool is_proc)
@@ -875,10 +972,12 @@ void mtk_cam_req_buffer_done(struct mtk_cam_job *job,
 			 is_buf_empty ? " (empty)" : "");
 		goto REQ_PUT;
 	}
+	if (job->req_sensor)
+		mtk_cam_sensor_req_buffer_done(job, pipe_id, node_id,
+			buf_state, is_proc);
 
 	if (is_buf_empty) {
 		/* assume: all ctrls are finished before buffers */
-
 		req->is_buf_empty = 1;
 		// remove from running job list
 		remove_from_running_list(dev_get_drvdata(dev), req);

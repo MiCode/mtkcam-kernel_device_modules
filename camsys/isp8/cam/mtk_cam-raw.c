@@ -41,7 +41,7 @@
 
 #define DMA_OFFSET_ERR_STAT	0x34
 
-#define RAW_DEBUG 0
+#define RAW_DEBUG 1
 
 static int reset_msgfifo(struct mtk_raw_device *dev);
 
@@ -758,7 +758,7 @@ void dump_dma_soft_rst_stat(struct mtk_raw_device *dev)
 void reset(struct mtk_raw_device *dev)
 {
 	int sw_ctl;
-	u32 mod6_en, val;
+	u32 mod10_en, val;
 	int ret;
 
 	dev_info(dev->dev, "%s\n", __func__);
@@ -770,26 +770,24 @@ void reset(struct mtk_raw_device *dev)
 	writel(0xffffffff, dev->yuv_base + REG_CAMCTL2_MOD6_DCM_DIS);
 
 	/* enable CQI_R1 ~ R4 before reset and make sure loaded to inner */
-	mod6_en = readl(dev->base + REG_CAMCTL_MOD6_EN);
-	val = mod6_en
-		| FBIT(CAMCTL_CQI_R1_EN)
-		| FBIT(CAMCTL_CQI_R2_EN)
-		| FBIT(CAMCTL_CQI_R3_EN)
-		| FBIT(CAMCTL_CQI_R4_EN);
-	writel(val, dev->base + REG_CAMCTL_MOD6_EN);
-	writel(val, dev->base_inner + REG_CAMCTL_MOD6_EN);
-
+	mod10_en = readl(dev->base + REG_CAMCTL_MOD10_EN);
+	val = mod10_en | FBIT(CAMCTL_CQI_R1_EN) |
+		FBIT(CAMCTL_CQI_R2_EN) |
+		FBIT(CAMCTL_CQI_R3_EN) |
+		FBIT(CAMCTL_CQI_R4_EN);
+	writel(val, dev->base + REG_CAMCTL_MOD10_EN);
+	writel(val, dev->base_inner + REG_CAMCTL_MOD10_EN);
+	dev_info(dev->dev, "%s mod10_en/val:0x%x/0x%x\n", __func__, mod10_en, val);
 	writel(0, dev->base + REG_CAMCTL_SW_CTL);
 	writel(FBIT(CAMCTL_SW_RST_TRIG), dev->base + REG_CAMCTL_SW_CTL);
 	wmb(); /* make sure committed */
 
 	ret = readx_poll_timeout(readl, dev->base + REG_CAMCTL_SW_CTL, sw_ctl,
-				 sw_ctl & FBIT(CAMCTL_SW_RST_ST) || is_all_dma_idle(dev),
-				 50 /* delay, us */,
-				 5000 /* timeout, us */);
+				sw_ctl & FBIT(CAMCTL_SW_RST_ST) || is_all_dma_idle(dev),
+				50 /* delay, us */,
+				5000 /* timeout, us */);
 	if (ret < 0) {
-		dev_info(dev->dev, "%s: error: reset timeout!\n",
-			 __func__);
+		dev_info(dev->dev, "%s: error: timeout!\n", __func__);
 		dump_dma_soft_rst_stat(dev);
 		mtk_smi_dbg_hang_detect("camsys-raw");
 		goto RESET_FAILURE;
@@ -801,8 +799,8 @@ void reset(struct mtk_raw_device *dev)
 
 RESET_FAILURE:
 
-	writel(mod6_en, dev->base + REG_CAMCTL_MOD6_EN);
-	writel(mod6_en, dev->base_inner + REG_CAMCTL_MOD6_EN);
+	writel(mod10_en, dev->base + REG_CAMCTL_MOD10_EN);
+	writel(mod10_en, dev->base_inner + REG_CAMCTL_MOD10_EN);
 
 	/* Enable all DMA DCM back */
 	writel(0x0, dev->base + REG_CAMCTL_MOD5_DCM_DIS);
@@ -1270,7 +1268,7 @@ static irqreturn_t mtk_thread_irq_raw(int irq, void *data)
 		WARN_ON(len != sizeof(irq_info));
 
 #if RAW_DEBUG
-		dev_info(raw_dev->dev, "ts=%lu irq_type %d, req:0x%x/0x%x tg_cnt:%d\n",
+		dev_info(raw_dev->dev, "ts=%llu irq_type %d, req:0x%x/0x%x tg_cnt:%d\n",
 			irq_info.ts_ns / 1000,
 			irq_info.irq_type,
 			irq_info.frame_idx_inner,
@@ -1573,7 +1571,7 @@ static int mtk_raw_of_probe(struct platform_device *pdev,
 	ret = devm_request_threaded_irq(dev, raw->irq,
 					mtk_irq_raw_yuv,
 					mtk_thread_irq_raw,
-					IRQF_NO_AUTOEN, dev_name(dev), raw);
+					/*IRQF_NO_AUTOEN*/ 0, dev_name(dev), raw);
 	if (ret) {
 		dev_dbg(dev, "failed to request irq=%d\n", raw->irq);
 		return ret;
@@ -1760,7 +1758,7 @@ static int mtk_raw_remove(struct platform_device *pdev)
 	return 0;
 }
 
-static int mtk_raw_runtime_suspend(struct device *dev)
+int mtk_raw_runtime_suspend(struct device *dev)
 {
 	struct mtk_raw_device *drvdata = dev_get_drvdata(dev);
 	int i;
@@ -1783,16 +1781,17 @@ static int mtk_raw_runtime_suspend(struct device *dev)
 	return 0;
 }
 
-static int mtk_raw_runtime_resume(struct device *dev)
+int mtk_raw_runtime_resume(struct device *dev)
 {
 	struct mtk_raw_device *drvdata = dev_get_drvdata(dev);
 	int i, ret;
-	unsigned int pr_detect_count;
+	//unsigned int pr_detect_count;
 
 	/* reset_msgfifo before enable_irq */
 	ret = reset_msgfifo(drvdata);
 	if (ret)
 		return ret;
+#ifdef NOT_FPGA_STAGE
 
 	enable_irq(drvdata->irq);
 
@@ -1801,9 +1800,10 @@ static int mtk_raw_runtime_resume(struct device *dev)
 		set_detect_count(KERNEL_LOG_MAX);
 
 	dev_dbg(dev, "%s:enable clock\n", __func__);
-#ifdef NOT_FPGA_STAGE
+
 	mtk_mmdvfs_enable_vcp(true, VCP_PWR_USR_CAM);
 #endif
+
 	for (i = 0; i < drvdata->num_clks; i++) {
 		ret = clk_prepare_enable(drvdata->clks[i]);
 		if (ret) {
@@ -1816,6 +1816,7 @@ static int mtk_raw_runtime_resume(struct device *dev)
 			return ret;
 		}
 	}
+
 
 	reset(drvdata);
 
@@ -2149,7 +2150,7 @@ static int mtk_yuv_remove(struct platform_device *pdev)
 }
 
 /* driver for yuv part */
-static int mtk_yuv_runtime_suspend(struct device *dev)
+int mtk_yuv_runtime_suspend(struct device *dev)
 {
 	struct mtk_yuv_device *drvdata = dev_get_drvdata(dev);
 	int i;
@@ -2164,7 +2165,7 @@ static int mtk_yuv_runtime_suspend(struct device *dev)
 	return 0;
 }
 
-static int mtk_yuv_runtime_resume(struct device *dev)
+int mtk_yuv_runtime_resume(struct device *dev)
 {
 	struct mtk_yuv_device *drvdata = dev_get_drvdata(dev);
 	int i, ret;
@@ -2568,7 +2569,7 @@ static int mtk_rms_remove(struct platform_device *pdev)
 	return 0;
 }
 
-static int mtk_rms_runtime_suspend(struct device *dev)
+int mtk_rms_runtime_suspend(struct device *dev)
 {
 	struct mtk_rms_device *drvdata = dev_get_drvdata(dev);
 	int i;
@@ -2581,7 +2582,7 @@ static int mtk_rms_runtime_suspend(struct device *dev)
 	return 0;
 }
 
-static int mtk_rms_runtime_resume(struct device *dev)
+int mtk_rms_runtime_resume(struct device *dev)
 {
 	struct mtk_rms_device *drvdata = dev_get_drvdata(dev);
 	int i, ret;
@@ -2629,7 +2630,7 @@ int raw_to_tg_idx(int raw_id)
 {
 	int cammux_id_raw_start = GET_PLAT_HW(cammux_id_raw_start);
 
-	return raw_id * 2 + cammux_id_raw_start;
+	return raw_id + cammux_id_raw_start;
 }
 
 //#define DEBUG_RAWI_R5

@@ -1695,7 +1695,7 @@ static int mtk_mraw_remove(struct platform_device *pdev)
 	return 0;
 }
 
-static int mtk_mraw_runtime_suspend(struct device *dev)
+int mtk_mraw_runtime_suspend(struct device *dev)
 {
 	struct mtk_mraw_device *mraw_dev = dev_get_drvdata(dev);
 	int i;
@@ -1710,7 +1710,7 @@ static int mtk_mraw_runtime_suspend(struct device *dev)
 	return 0;
 }
 
-static int mtk_mraw_runtime_resume(struct device *dev)
+int mtk_mraw_runtime_resume(struct device *dev)
 {
 	struct mtk_mraw_device *mraw_dev = dev_get_drvdata(dev);
 	int i, ret;
@@ -1734,10 +1734,10 @@ static int mtk_mraw_runtime_resume(struct device *dev)
 		}
 	}
 	mraw_reset_by_mraw_top(mraw_dev);
-
+#ifdef NOT_FPGA_STAGE
 	enable_irq(mraw_dev->irq);
 	dev_info(dev, "%s:enable irq\n", __func__);
-
+#endif
 	return 0;
 }
 

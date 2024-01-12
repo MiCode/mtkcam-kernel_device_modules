@@ -793,7 +793,7 @@ static const struct plat_v4l2_data mt6991_v4l2_data = {
 };
 
 static const struct plat_data_hw mt6991_hw_data = {
-	.cammux_id_raw_start = 34,  /* TBC(AY) */
+	.cammux_id_raw_start = 6,  /* TBC(AY) */
 	.raw_icc_path_num = RAW_ICC_PATH_NUM,
 	.yuv_icc_path_num = YUV_ICC_PATH_NUM,
 	.platform_id = 6991,

@@ -60,7 +60,6 @@ static const struct of_device_id mtk_cam_of_ids[] = {
 #endif
 	{}
 };
-
 MODULE_DEVICE_TABLE(of, mtk_cam_of_ids);
 
 static struct device *camsys_root_dev;
@@ -1319,7 +1318,7 @@ static int mtk_cam_initialize(struct mtk_cam_device *cam)
 
 	mtk_cam_dvfs_reset_runtime_info(&cam->dvfs);
 
-	if (WARN_ON(pm_runtime_resume_and_get(cam->dev)))
+	if (WARN_ON(pm_runtime_get_sync(cam->dev)))
 		return -1;
 
 	ret = mtk_cam_power_rproc(cam, 1);
@@ -3845,30 +3844,55 @@ int mtk_cam_update_engine_status(struct mtk_cam_device *cam,
 
 static int loop_each_engine(struct mtk_cam_engines *eng,
 			    unsigned long engine_mask,
-			    int (*func)(struct device *dev))
+			    int (*func)(struct device *dev), int enable)
 {
+
 	unsigned long submask;
 	int i;
+
 
 	submask = bit_map_subset_of(MAP_HW_RAW, engine_mask);
 	for (i = 0; i < eng->num_raw_devices && submask; i++, submask >>= 1) {
 		if (!(submask & 0x1))
 			continue;
-		func(eng->raw_devs[i]);
+		//func(eng->raw_devs[i]);
+		if (enable) {
+			mtk_raw_runtime_resume(eng->raw_devs[i]);
+			mtk_yuv_runtime_resume(eng->yuv_devs[i]);
+			if (1)
+				mtk_rms_runtime_resume(eng->rms_devs[i]);
+		} else {
+			mtk_raw_runtime_suspend(eng->raw_devs[i]);
+			mtk_yuv_runtime_suspend(eng->yuv_devs[i]);
+			if (1)
+				mtk_rms_runtime_suspend(eng->rms_devs[i]);
+		}
 	}
 
 	submask = bit_map_subset_of(MAP_HW_CAMSV, engine_mask);
 	for (i = 0; i < eng->num_camsv_devices && submask; i++, submask >>= 1) {
 		if (!(submask & 0x1))
 			continue;
-		func(eng->sv_devs[i]);
+		//func(eng->sv_devs[i]);
+#ifdef NOT_FPGA_STAGE
+		if (enable)
+			mtk_camsv_runtime_resume(eng->sv_devs[i]);
+		else
+			mtk_camsv_runtime_suspend(eng->sv_devs[i]);
+#endif
 	}
 
 	submask = bit_map_subset_of(MAP_HW_MRAW, engine_mask);
 	for (i = 0; i < eng->num_mraw_devices && submask; i++, submask >>= 1) {
 		if (!(submask & 0x1))
 			continue;
-		func(eng->mraw_devs[i]);
+		//func(eng->mraw_devs[i]);
+#ifdef NOT_FPGA_STAGE
+		if (enable)
+			mtk_mraw_runtime_resume(eng->mraw_devs[i]);
+		else
+			mtk_mraw_runtime_suspend(eng->mraw_devs[i]);
+#endif
 	}
 
 	return 0;
@@ -3877,11 +3901,15 @@ static int loop_each_engine(struct mtk_cam_engines *eng,
 int mtk_cam_pm_runtime_engines(struct mtk_cam_engines *eng,
 			       unsigned long engine_mask, int enable)
 {
-	if (enable)
-		loop_each_engine(eng, engine_mask, pm_runtime_resume_and_get);
-	else
-		loop_each_engine(eng, engine_mask, pm_runtime_put_sync);
-
+	if (enable) {
+		loop_each_engine(eng, engine_mask, pm_runtime_get_sync, enable);
+		pr_info("%s:get: engine_mask:0x%lx", __func__,
+			engine_mask);
+	} else {
+		loop_each_engine(eng, engine_mask, pm_runtime_put_sync, enable);
+		pr_info("%s:put: engine_mask:0x%lx", __func__,
+			engine_mask);
+	}
 	return 0;
 }
 

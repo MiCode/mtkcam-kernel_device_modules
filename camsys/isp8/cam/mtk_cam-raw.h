@@ -165,6 +165,13 @@ void reset(struct mtk_raw_device *dev);
 /* iommu debug */
 int mtk_raw_translation_fault_cb(int port, dma_addr_t mva, void *data);
 int mtk_yuv_translation_fault_cb(int port, dma_addr_t mva, void *data);
+int mtk_raw_runtime_suspend(struct device *dev);
+int mtk_raw_runtime_resume(struct device *dev);
+int mtk_yuv_runtime_suspend(struct device *dev);
+int mtk_yuv_runtime_resume(struct device *dev);
+int mtk_rms_runtime_suspend(struct device *dev);
+int mtk_rms_runtime_resume(struct device *dev);
+
 
 /* aa debug info */
 void fill_aa_info(struct mtk_raw_device *raw_dev,

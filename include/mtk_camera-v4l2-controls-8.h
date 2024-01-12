@@ -210,6 +210,7 @@ struct mtk_cam_resource_raw_v2 {
 	__u32 img_wbuf_size;
 	__u32 img_wbuf_num;
 	__u32 slb_size;
+	__u8 rms_saving;
 };
 
 struct mtk_cam_resource_v2 {

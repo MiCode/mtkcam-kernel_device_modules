@@ -2188,7 +2188,7 @@ static int mtk_camsv_remove(struct platform_device *pdev)
 	return 0;
 }
 
-static int mtk_camsv_runtime_suspend(struct device *dev)
+int mtk_camsv_runtime_suspend(struct device *dev)
 {
 	struct mtk_camsv_device *sv_dev = dev_get_drvdata(dev);
 	int i;
@@ -2204,7 +2204,7 @@ static int mtk_camsv_runtime_suspend(struct device *dev)
 	return 0;
 }
 
-static int mtk_camsv_runtime_resume(struct device *dev)
+int mtk_camsv_runtime_resume(struct device *dev)
 {
 	struct mtk_camsv_device *sv_dev = dev_get_drvdata(dev);
 	int i, ret;
@@ -2233,7 +2233,6 @@ static int mtk_camsv_runtime_resume(struct device *dev)
 		enable_irq(sv_dev->irq[i]);
 		dev_dbg(dev, "%s:enable irq %d\n", __func__, sv_dev->irq[i]);
 	}
-
 
 	dev_info(dev, "%s:enable irq\n", __func__);
 

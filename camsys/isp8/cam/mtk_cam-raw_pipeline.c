@@ -317,6 +317,7 @@ mtk_cam_resource_update_work_buf(struct mtk_cam_resource_v2 *user_ctrl)
 	mf.height = s->height;
 
 	memset(&desc, 0, sizeof(desc));
+
 	update_buf_fmt_desc(&desc, &mf);
 
 	r->img_wbuf_size = desc.max_size;
@@ -763,6 +764,8 @@ CALC_RESOURCE:
 		drv_data->user_data = *user_ctrl;
 		drv_data->tgo_pxl_mode =
 			mtk_pixelmode_val(mtk_raw_overall_pixel_mode(&c));
+		// fix me
+		drv_data->tgo_pxl_mode = 0;
 		drv_data->tgo_pxl_mode_before_raw =
 			mtk_pixelmode_val(c.frontal_pixel_mode);
 	}
@@ -2012,7 +2015,7 @@ static struct mtk_cam_format_desc meta_stats1_fmts[] = {
 static struct mtk_cam_format_desc meta_ext_fmts[] = {
 	{
 		.vfmt.fmt.meta = {
-			.dataformat = V4L2_META_FMT_MTISP_3A,
+			.dataformat = V4L2_META_FMT_MTISP_EXT,
 			.buffersize = 0,
 		},
 	},
@@ -2020,7 +2023,7 @@ static struct mtk_cam_format_desc meta_ext_fmts[] = {
 static struct mtk_cam_format_desc meta_gmp_fmts[] = {
 	{
 		.vfmt.fmt.meta = {
-			.dataformat = V4L2_META_FMT_MTISP_3A,
+			.dataformat = V4L2_META_FMT_MTISP_GMP,
 			.buffersize = 0,
 		},
 	},
@@ -3569,6 +3572,12 @@ static void update_platform_meta_size(struct mtk_cam_format_desc *fmts,
 			break;
 		case  V4L2_META_FMT_MTISP_AF:
 			size = GET_PLAT_V4L2(meta_stats1_size);
+			break;
+		case  V4L2_META_FMT_MTISP_EXT:
+			size = 16;
+			break;
+		case  V4L2_META_FMT_MTISP_GMP:
+			size = 16;
 			break;
 		default:
 			size = 0;

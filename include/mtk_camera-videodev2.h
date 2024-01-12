@@ -72,6 +72,8 @@ struct mtk_cam_event_frame_sync_data {
 #define V4L2_META_FMT_MTISP_AF_RGBW     v4l2_fourcc('M', 'T', 'f', 'r')
 #define V4L2_META_FMT_MTISP_LCS    v4l2_fourcc('M', 'T', 'f', 'c')
 #define V4L2_META_FMT_MTISP_LMV    v4l2_fourcc('M', 'T', 'f', 'm')
+#define V4L2_META_FMT_MTISP_EXT          v4l2_fourcc('M', 'T', 'f', 'e')
+#define V4L2_META_FMT_MTISP_GMP          v4l2_fourcc('M', 'T', 'f', 'g')
 #define V4L2_PIX_FMT_YUYV10  v4l2_fourcc('Y', 'U', 'Y', 'A')
 #define V4L2_PIX_FMT_YVYU10  v4l2_fourcc('Y', 'V', 'Y', 'A')
 #define V4L2_PIX_FMT_UYVY10  v4l2_fourcc('U', 'Y', 'V', 'A')

@@ -1102,11 +1102,11 @@ int mtk_cam_ctrl_isr_event(struct mtk_cam_device *cam,
 static u64 query_interval_from_sensor(struct v4l2_subdev *sensor)
 {
 	struct v4l2_subdev_frame_interval fi; /* in seconds */
-	u64 frame_interval_ns;
+	u64 frame_interval_ns = 1000000000ULL / 30ULL;
 
 	if (!sensor) {
 		pr_info("%s: warn. without sensor\n", __func__);
-		return 0;
+		return frame_interval_ns;
 	}
 
 	memset(&fi, 0, sizeof(fi));

@@ -249,6 +249,8 @@ int mtk_camsv_translation_fault_callback(int port, dma_addr_t mva, void *data);
 void mtk_cam_sv_backup(struct mtk_camsv_device *sv_dev);
 void mtk_cam_sv_restore(struct mtk_camsv_device *sv_dev);
 int mtk_cam_sv_golden_set(struct mtk_camsv_device *sv_dev, bool is_golden_set);
+int mtk_camsv_runtime_suspend(struct device *dev);
+int mtk_camsv_runtime_resume(struct device *dev);
 
 extern struct platform_driver mtk_cam_sv_driver;
 

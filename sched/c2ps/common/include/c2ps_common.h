@@ -107,7 +107,7 @@ struct regulator_req {
 	struct c2ps_task_info *tsk_info;
 	struct global_info *glb_info;
 	struct list_head queue_list;
-	struct mutex* flush_lock;
+	bool is_flush;
 };
 
 

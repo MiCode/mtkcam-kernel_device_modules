@@ -119,6 +119,7 @@ int c2ps_create_task_group(int group_head, u64 task_group_target_time)
 
 	tsk_grp_info->group_head = group_head;
 	tsk_grp_info->group_target_time = task_group_target_time * NSEC_PER_MSEC;
+	mutex_init(&tsk_grp_info->mlock);
 
 	c2ps_task_group_info_tbl_lock(__func__);
 	hash_add(
@@ -719,6 +720,8 @@ int init_c2ps_common(void)
 		C2PS_LOGE("OOM\n");
 		ret = -ENOMEM;
 	}
+
+	mutex_init(&glb_info->mlock);
 
 	if (!(ret = c2ps_sysfs_create_dir(NULL, "common", &base_kobj))) {
 		c2ps_sysfs_create_file(base_kobj, &kobj_attr_task_info);

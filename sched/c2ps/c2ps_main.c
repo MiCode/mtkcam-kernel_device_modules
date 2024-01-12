@@ -111,6 +111,7 @@ static void c2ps_notifier_wq_cb_add_task(
 	tsk_info->default_uclamp = default_uclamp;
 	tsk_info->is_vip_task = is_vip_task;
 	tsk_info->is_dynamic_tid = is_dynamic_tid;
+	mutex_init(&tsk_info->mlock);
 	strncpy(tsk_info->task_name, task_name, sizeof(tsk_info->task_name));
 
 	if (unlikely(c2ps_add_task_info(tsk_info))) {

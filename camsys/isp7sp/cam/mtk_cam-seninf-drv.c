@@ -825,8 +825,10 @@ static int get_seninf_ops(struct device *dev, struct seninf_core *core)
 				// Support phy 3.0 & phy 3.1
 				if (i == SENINF_PHY_3_1) {
 					g_seninf_ops = &mtk_csi_phy_3_1;
+					core->is_smt_stage = true;
 					dev_info(dev, "%s: INFO: phy config mtk-csi-phy-3-1\n", __func__);
 				} else {
+					core->is_smt_stage = false;
 					g_seninf_ops = &mtk_csi_phy_3_0;
 					dev_info(dev, "%s: INFO: phy config mtk-csi-phy-3-0\n", __func__);
 				}
@@ -3612,6 +3614,9 @@ static int runtime_suspend(struct device *dev)
 	int i = 0;
 	unsigned long flags;
 
+	if (core->is_smt_stage)
+		return 0;
+
 	mutex_lock(&core->mutex);
 
 	core->refcnt--;
@@ -3711,6 +3716,9 @@ static int runtime_resume(struct device *dev)
 	int bit_per_pixel = 10;
 	u64 data_rate = 0;
 	unsigned long flags;
+
+	if (core->is_smt_stage)
+		return 0;
 
 	mutex_lock(&core->mutex);
 

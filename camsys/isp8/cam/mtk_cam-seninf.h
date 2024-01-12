@@ -62,6 +62,7 @@ struct seninf_struct_map {
 struct seninf_outmux {
 	struct list_head list;
 	int idx;
+	enum CAM_TYPE_ENUM cam_type;
 };
 
 struct clk_fmeter_info {
@@ -144,7 +145,6 @@ struct seninf_core {
 	struct list_head list;
 #ifdef SENINF_DEBUG
 	struct list_head list_outmux;
-	struct seninf_struct_pair outmux_range[TYPE_MAX_NUM];
 	struct seninf_outmux outmux[SENINF_OUTMUX_NUM];
 #endif
 	struct mutex mutex;

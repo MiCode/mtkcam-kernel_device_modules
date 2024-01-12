@@ -873,7 +873,7 @@ static int mtk_cam_seninf_disable_all_outmux(struct seninf_ctx *ctx)
 	return 0;
 }
 
-static int mtk_cam_seninf_set_outmux_chk_pixel_mode(struct seninf_ctx *ctx,
+static int mtk_cam_seninf_set_outmux_pixel_mode(struct seninf_ctx *ctx,
 					     int outmux, int pixel_mode)
 {
 	void *pSeninf_outmux = NULL;
@@ -6651,7 +6651,7 @@ struct mtk_cam_seninf_ops mtk_csi_phy_3_0 = {
 	._wait_outmux_cfg_done = mtk_cam_seninf_wait_outmux_cfg_done,
 	._config_outmux = mtk_cam_seninf_config_outmux,
 	._set_outmux_cfg_done = mtk_cam_seninf_set_outmux_cfg_done,
-	._set_outmux_chk_pixel_mode = mtk_cam_seninf_set_outmux_chk_pixel_mode,
+	._set_outmux_pixel_mode = mtk_cam_seninf_set_outmux_pixel_mode,
 	._set_test_model = mtk_cam_seninf_set_test_model,
 	._set_csi_mipi = mtk_cam_seninf_set_csi_mipi,
 	._poweroff = mtk_cam_seninf_poweroff,

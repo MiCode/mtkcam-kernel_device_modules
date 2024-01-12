@@ -129,8 +129,8 @@ static const char * const eye_scan_names[] = {
 	EYE_SCAN_KEYS_NAMES
 };
 
-static const char * const outmux_range_name[] = {
-	OUTMUX_RANGE_NAMES
+static const char * const outmux_cam_type_name[] = {
+	OUTMUX_CONNECTED_CAM_TYPE_NAMES
 };
 
 static const char * const clk_fmeter_names[] = {
@@ -806,7 +806,7 @@ static irqreturn_t mtk_thread_irq_seninf(int irq, void *data)
 
 static int get_seninf_ops(struct device *dev, struct seninf_core *core)
 {
-	int i, ret, cam_type_cnt = 0;
+	int i, ret;
 	//const char *ver;
 
 	//ret = of_property_read_string(dev->of_node, "mtk-csi-phy-ver", &ver);
@@ -850,11 +850,6 @@ static int get_seninf_ops(struct device *dev, struct seninf_core *core)
 			__func__, ret);
 	}
 
-
-	for (i = 0; i < cam_type_cnt; i++) {
-		ret = of_property_read_u32_index(dev->of_node, outmux_range_name[i],
-						   0, &core->outmux_range[i].first);
-	}
 
 	for (i = CDPHY_DVFS_STEP_0; i < CDPHY_DVFS_STEP_MAX_NUM; i++) {
 		/* cphy 4d1c data rate maximum */
@@ -998,11 +993,6 @@ static int seninf_core_probe(struct platform_device *pdev)
 	if (IS_ERR(core->reg_seninf_tm))
 		return PTR_ERR(core->reg_seninf_tm);
 
-	//res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "ana-rx");
-	//core->reg_ana = devm_ioremap_resource(dev, res);
-	//if (IS_ERR(core->reg_ana))
-	//	return PTR_ERR(core->reg_ana);
-
 	ret = get_seninf_ops(dev, core);
 	if (ret) {
 		dev_info(dev, "failed to get seninf ops\n");
@@ -1010,7 +1000,6 @@ static int seninf_core_probe(struct platform_device *pdev)
 	}
 
 	// init outmux list
-	//mtk_cam_seninf_init_res(core);
 	i = 0;
 	INIT_LIST_HEAD(&core->list_outmux);
 	while ((tmp_node = of_find_compatible_node(tmp_node, NULL, "mediatek,seninf-outmux"))) {
@@ -1027,8 +1016,19 @@ static int seninf_core_probe(struct platform_device *pdev)
 				dev_info(dev, "seninf outmux[%d] index %d ioremap failed\n", i, index);
 			else {
 				core->outmux[i].idx = i;
+
+				of_property_read_string(tmp_node,
+						"connected-cam-type", &str);
+				for (j = 0; (str) && (j < ARRAY_SIZE(outmux_cam_type_name)); j++) {
+					if (strncmp(str, outmux_cam_type_name[j], strlen(str)) == 0) {
+						core->outmux[i].cam_type = j;
+						break;
+					}
+				}
+
 				list_add_tail(&core->outmux[i].list, &core->list_outmux);
-				dev_info(dev, "outmux full_name=%s\n", tmp_node->full_name);
+				dev_info(dev, "outmux full_name=%s cam type = %d\n",
+					 tmp_node->full_name, core->outmux[i].cam_type);
 
 				i++;
 			}

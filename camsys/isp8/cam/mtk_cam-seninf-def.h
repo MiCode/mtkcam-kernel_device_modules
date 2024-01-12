@@ -246,20 +246,18 @@ enum SENINF_OUTMUX_ENUM {
 };
 
 enum CAM_TYPE_ENUM {
-	TYPE_CAMSV_SAT,
-	TYPE_CAMSV_NORMAL,
+	TYPE_CAMSV,
 	TYPE_RAW,
 	TYPE_PDP,
 	TYPE_UISP,
 	TYPE_MAX_NUM,
 };
 
-#define OUTMUX_RANGE_NAMES \
-	"outmux-camsv-sat-range", \
-	"outmux-camsv-normal-range", \
-	"outmux-raw-range", \
-	"outmux-pdp-range", \
-	"outmux-uisp-range", \
+#define OUTMUX_CONNECTED_CAM_TYPE_NAMES \
+	"camsv", \
+	"raw", \
+	"pdp", \
+	"uisp", \
 
 #define VC_STREAM_MAX_NUM 8
 

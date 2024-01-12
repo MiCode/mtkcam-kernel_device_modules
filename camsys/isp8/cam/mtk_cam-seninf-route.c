@@ -40,24 +40,6 @@
 
 #define PORTING_FIXME 0
 
-//void mtk_cam_seninf_init_res(struct seninf_core *core)
-//{
-//#ifdef SENINF_DEBUG
-//	int i;
-//
-//	INIT_LIST_HEAD(&core->list_outmux);
-//	for (i = 0; i < g_seninf_ops->outmux_num; i++) {
-//		core->outmux[i].idx = i;
-//		list_add_tail(&core->outmux[i].list, &core->list_outmux);
-//	}
-//#endif
-//}
-
-//static enum CAM_TYPE_ENUM mtk_cam_seninf_get_vc_type(u8 out_pad)
-//{
-//	return TYPE_CAMSV_SAT;
-//}
-
 void mtk_cam_seninf_alloc_outmux(struct seninf_ctx *ctx)
 {
 	int i;
@@ -143,44 +125,11 @@ void mtk_cam_seninf_alloc_outmux(struct seninf_ctx *ctx)
 	pr_info("[%s]-\n", __func__);
 }
 
-struct seninf_mux *mtk_cam_seninf_mux_get_by_type(struct seninf_ctx *ctx,
-						enum CAM_TYPE_ENUM cam_type)
-{
-//	struct seninf_core *core = ctx->core;
-//	struct seninf_mux *ent = NULL;
-//
-//	mutex_lock(&core->mutex);
-//
-//	list_for_each_entry(ent, &core->list_mux, list) {
-//		if (ent->idx >= core->mux_range[cam_type].first
-//		    && ent->idx <= core->mux_range[cam_type].second) {
-//			list_move_tail(&ent->list,
-//				       &ctx->list_mux);
-//			mutex_unlock(&core->mutex);
-//			return ent;
-//		}
-//	}
-//
-//	mutex_unlock(&core->mutex);
-
-	return NULL;
-}
-
 enum CAM_TYPE_ENUM outmux2camtype(struct seninf_ctx *ctx, int outmux)
 {
 	struct seninf_core *core = ctx->core;
-	enum CAM_TYPE_ENUM type = TYPE_CAMSV_SAT;
-	int i;
 
-	for (i = 0; i < TYPE_MAX_NUM; i++) {
-		if (outmux >= core->outmux_range[i].first
-		    && outmux <= core->outmux_range[i].second) {
-			type = (enum CAM_TYPE_ENUM) i;
-			break;
-		}
-	}
-
-	return type;
+	return core->outmux[outmux].cam_type;
 }
 
 static int cammux_tag_2_fsync_target_id(struct seninf_ctx *ctx, int cammux, int tag)
@@ -1252,10 +1201,10 @@ int mtk_cam_seninf_is_di_enabled(struct seninf_ctx *ctx, u8 ch, u8 dt)
 int mtk_cam_seninf_set_pixelmode_camsv(struct v4l2_subdev *sd,
 				 int pad_id, int pixelMode, int camtg)
 {
-#if PORTING_FIXME
 	struct seninf_ctx *ctx = container_of(sd, struct seninf_ctx, subdev);
 	struct seninf_vc *vc;
 	int i;
+	int outmux;
 
 	if (pad_id < PAD_SRC_RAW0 || pad_id >= PAD_MAXCNT) {
 		pr_info("[%s][err]: no such pad id:%d\n", __func__, pad_id);
@@ -1277,8 +1226,8 @@ int mtk_cam_seninf_set_pixelmode_camsv(struct v4l2_subdev *sd,
 				i,
 				ctx->pad2cam[pad_id][i]);
 
-		if (ctx->streaming && (cammux2camtype(ctx, camtg) !=
-			cammux2camtype(ctx, ctx->pad2cam[pad_id][i]))) {
+		if ((outmux2camtype(ctx, camtg) !=
+			outmux2camtype(ctx, ctx->pad2cam[pad_id][i]))) {
 			dev_info(ctx->dev,
 			"%s camtg %d camtype is mismatch ctx->pad2cam[pad:%d][des_cnt:%d] %d\n",
 			__func__, camtg, pad_id, i, ctx->pad2cam[pad_id][i]);
@@ -1293,24 +1242,29 @@ int mtk_cam_seninf_set_pixelmode_camsv(struct v4l2_subdev *sd,
 
 		if (ctx->streaming) {
 			update_isp_clk(ctx);
-			if (vc->dest[i].mux == 0xFF) {
-				dev_info(ctx->dev, "%s dest[%d].mux == 0xFF\n", __func__, i);
+			if (vc->dest[i].outmux == 0xFF) {
+				dev_info(ctx->dev, "%s dest[%d].outmux == 0xFF\n", __func__, i);
 			} else {
-				//g_seninf_ops->_update_mux_pixel_mode(
-				//			ctx,
-				//			vc->dest[i].mux,
-				//			vc->dest[i].pix_mode);
+				outmux = vc->dest[i].outmux;
+
+				g_seninf_ops->_wait_outmux_cfg_done(ctx, outmux);
+				g_seninf_ops->_set_outmux_pixel_mode(
+							ctx, outmux,
+							vc->dest[i].pix_mode);
+
+				// Program csr_config_mode. Fix config mode 0
+
+				//Program csr_sw_cfg_done to 1
+				g_seninf_ops->_set_outmux_cfg_done(ctx, outmux);
 
 				dev_info(ctx->dev,
-					"%s set mux%d pixel_mode %d done\n",
-					__func__,
-					vc->dest[i].mux,
+					"%s set outmux%d pixel_mode %d done\n",
+					__func__, outmux,
 					vc->dest[i].pix_mode);
 			}
 		}
 	}
 	// if streaming, update ispclk and update pixle mode seninf mux and reset
-#endif
 
 	return 0;
 }
@@ -1320,6 +1274,8 @@ int mtk_cam_seninf_set_pixelmode(struct v4l2_subdev *sd,
 {
 	struct seninf_ctx *ctx = container_of(sd, struct seninf_ctx, subdev);
 	struct seninf_core *core;
+	int first_raw_outmux = 0;
+	int i;
 
 	if (ctx == NULL) {
 		pr_info("%s [ERROR] ctx is NULL\n", __func__);
@@ -1332,9 +1288,15 @@ int mtk_cam_seninf_set_pixelmode(struct v4l2_subdev *sd,
 		return -EINVAL;
 	}
 
-	//return mtk_cam_seninf_set_pixelmode_camsv(
-	//			sd, pad_id, pixelMode, core->cammux_range[TYPE_RAW].first);
-	return 0;
+	for (i = 0; i < SENINF_OUTMUX_NUM; i++) {
+		if (core->outmux[i].cam_type == TYPE_RAW) {
+			first_raw_outmux = i;
+			break;
+		}
+	}
+
+	return mtk_cam_seninf_set_pixelmode_camsv(
+				sd, pad_id, pixelMode, first_raw_outmux);
 }
 
 static int mtk_cam_seninf_outmux_switch(struct seninf_ctx *ctx, struct outmux_cfg *cfg)
@@ -1357,7 +1319,7 @@ static int mtk_cam_seninf_outmux_switch(struct seninf_ctx *ctx, struct outmux_cf
 	g_seninf_ops->_config_outmux(ctx, outmux_idx, src_mipi, src_sen, cfg->tag_cfg);
 
 	// pixel mode
-	g_seninf_ops->_set_outmux_chk_pixel_mode(ctx, outmux_idx, pix_mode);
+	g_seninf_ops->_set_outmux_pixel_mode(ctx, outmux_idx, pix_mode);
 
 	// Program csr_config_mode. Fix config mode 0
 
@@ -1524,7 +1486,7 @@ int _mtk_cam_seninf_set_camtg_with_dest_idx(struct v4l2_subdev *sd, int pad_id,
 					vc->out_pad, cfg->src_mipi, cfg->src_sen, dest->outmux,
 					dest->tag, vc->vc, vc->dt);
 
-				//g_seninf_ops->_set_outmux_chk_pixel_mode(ctx,
+				//g_seninf_ops->_set_outmux_pixel_mode(ctx,
 				//				dest->outmux,
 				//				dest->pix_mode);
 				if (old_outmux != 0xff && disable_last) {

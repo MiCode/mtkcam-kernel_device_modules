@@ -4,10 +4,7 @@
 #ifndef __MTK_CAM_SENINF_ROUTE_H__
 #define __MTK_CAM_SENINF_ROUTE_H__
 
-//void mtk_cam_seninf_init_res(struct seninf_core *core);
 
-struct seninf_mux *mtk_cam_seninf_mux_get_by_type(struct seninf_ctx *ctx,
-						enum CAM_TYPE_ENUM cam_type);
 void mtk_cam_seninf_alloc_outmux(struct seninf_ctx *ctx);
 void mtk_cam_seninf_outmux_put(struct seninf_ctx *ctx, struct seninf_outmux *outmux);
 void mtk_cam_seninf_release_outmux(struct seninf_ctx *ctx);

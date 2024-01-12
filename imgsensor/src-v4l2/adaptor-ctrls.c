@@ -492,7 +492,7 @@ static int do_set_dcg_ae_ctrl(struct adaptor_ctx *ctx,
 		break;
 	}
 	if (ae_ctrl->actions & IMGSENSOR_EXTEND_FRAME_LENGTH_TO_DOL) {
-		para.u64[0] = 0;
+		para.u64[0] = 10000000;
 		ADAPTOR_SYSTRACE_BEGIN("imgsensor::set_extend_frame_length");
 		subdrv_call(ctx, feature_control,
 					SENSOR_FEATURE_SET_SEAMLESS_EXTEND_FRAME_LENGTH,
@@ -617,7 +617,7 @@ static int do_set_ae_ctrl(struct adaptor_ctx *ctx,
 	}
 
 	if (ae_ctrl->actions & IMGSENSOR_EXTEND_FRAME_LENGTH_TO_DOL) {
-		para.u64[0] = 0;
+		para.u64[0] = 10000000;
 		ADAPTOR_SYSTRACE_BEGIN("imgsensor::set_extend_frame_length");
 		subdrv_call(ctx, feature_control,
 					SENSOR_FEATURE_SET_SEAMLESS_EXTEND_FRAME_LENGTH,

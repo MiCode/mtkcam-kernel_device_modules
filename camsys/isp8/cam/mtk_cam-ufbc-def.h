@@ -63,50 +63,8 @@
  *        real buffer layout.
  */
 
-struct UfbcBufHeader {
-	/** Describe image resolution, unit in pixel. */
-	uint32_t width;
-
-	/** Describe image resolution, unit in pixel. */
-	uint32_t height;
-
-	/** Describe UFBC data plane count, UFBC supports maximum 2 planes. */
-	uint32_t planeCount;
-
-	/** Describe the original image data bits per pixel of the given plane. */
-	uint32_t bitsPerPixel[3];
-
-	/**
-	 * Describe the offset of the given plane bit stream data in bytes,
-	 * including header size.
-	 */
-	uint32_t bitStreamOffset[3];
-
-	/** Describe the bit stream data size in bytes of the given plane. */
-	uint32_t bitStreamSize[3];
-
-	/** Describe the encoded data size in bytes of the given plane. */
-	uint32_t bitStreamDataSize[3];
-
-	/**
-	 * Describe the offset of length table of the given plane, including
-	 * header size.
-	 */
-	uint32_t tableOffset[3];
-
-	/** Describe the length table size of the given plane */
-	uint32_t tableSize[3];
-
-	/** Describe the total buffer size, including buffer header. */
-	uint32_t bufferSize;
-};
-
-
 struct UfbcBufferHeader {
-	union {
-		struct UfbcBufHeader header;
-		uint8_t reserved[4096];
-	};
+	uint8_t reserved[4096];
 };
 
 struct IMG_META_INFO {
@@ -138,7 +96,6 @@ union UFDStruct {
 };
 
 struct UFO_META_INFO {
-	struct UfbcBufHeader ImgInfo;
 	unsigned int AUWriteBySW;
 	union UFDStruct UFD;
 };
@@ -162,7 +119,6 @@ union YUFDStruct {
 };
 
 struct YUFO_META_INFO {
-	struct UfbcBufHeader ImgInfo;
 	unsigned int AUWriteBySW;
 	union YUFDStruct YUFD;
 };

@@ -507,6 +507,11 @@ static void res_sensor_info_validate(
 	}
 }
 
+static inline int is_single_rawc(int raws)
+{
+	return raws == 0x4;
+}
+
 //Todo: move it to platfrom
 static bool frontal_pixmode_validate(struct mtk_cam_res_calc *c,
 				struct mtk_cam_resource_raw_v2 *r)
@@ -514,7 +519,7 @@ static bool frontal_pixmode_validate(struct mtk_cam_res_calc *c,
 	bool valid = true;
 
 	if (res_raw_is_dc_mode(r)) {
-		if (c->frontal_pixel_mode == 16 && r->raws == 0x4)
+		if (c->frontal_pixel_mode == 16 && is_single_rawc(r->raws))
 			return false;
 
 		r->camsv_pixel_mode = c->frontal_pixel_mode;
@@ -675,7 +680,8 @@ CALC_RESOURCE:
 	memset(&stepper, 0, sizeof(stepper));
 	/* frontal pixel mode */
 #if CAMSV_16P_ENABLE
-	stepper.frontal_pixel_mode_max = res_raw_is_dc_mode(r) ? 16 : 8;
+	stepper.frontal_pixel_mode_max =
+		res_raw_is_dc_mode(r) && !is_single_rawc(r->raws) ? 16 : 8;
 #else
 	stepper.frontal_pixel_mode_max = 8;
 #endif

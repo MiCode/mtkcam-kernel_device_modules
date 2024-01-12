@@ -106,14 +106,26 @@ static struct mtk_mbus_frame_desc_entry frame_desc_slim_vid[] = {
 	},
 };
 
-#if  USING_DPHY_N_LANE != 4
+#if  USING_DPHY_N_LANE == 1
 static struct mtk_mbus_frame_desc_entry frame_desc_cust1[] = {
 	{
 		.bus.csi2 = {
 			.channel = 0,
 			.data_type = 0x2b,
-			.hsize = 0x0280,
-			.vsize = 0x01e0,
+			.hsize = 0x780,
+			.vsize = 0x438,
+		},
+	},
+};
+
+#elif USING_DPHY_N_LANE == 2
+static struct mtk_mbus_frame_desc_entry frame_desc_cust1[] = {
+	{
+		.bus.csi2 = {
+			.channel = 0,
+			.data_type = 0x2b,
+			.hsize = 0x910,
+			.vsize = 0x6d0,
 		},
 	},
 };
@@ -396,26 +408,26 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.linelength = 5088,
 		.framelength = 1834,
 		.max_framerate = 300,
-		.mipi_pixel_rate = 2100000000,
+		.mipi_pixel_rate = 210000000,
 		.readout_length = 0,
 		.read_margin = 0,
 		.imgsensor_winsize_info = {
 			.full_w = 4640,
 			.full_h = 3488,
-			.x0_offset = 400,
-			.y0_offset = 664,
-			.w0_size = 3840,
-			.h0_size = 2160,
-			.scale_w = 1920,
-			.scale_h = 1080,
+			.x0_offset = 0,
+			.y0_offset = 0,
+			.w0_size = 2320,
+			.h0_size = 1744,
+			.scale_w = 2320,
+			.scale_h = 1744,
 			.x1_offset = 0,
 			.y1_offset = 0,
-			.w1_size = 1920,
-			.h1_size = 1080,
+			.w1_size = 2320,
+			.h1_size = 1744,
 			.x2_tg_offset = 0,
 			.y2_tg_offset = 0,
-			.w2_tg_size = 1920,
-			.h2_tg_size = 1080,
+			.w2_tg_size = 2320,
+			.h2_tg_size = 1744,
 		},
 		.pdaf_cap = FALSE,
 		.imgsensor_pd_info = PARAM_UNDEFINED,

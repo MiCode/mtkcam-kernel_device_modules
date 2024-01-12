@@ -1299,6 +1299,7 @@ static int imgsensor_set_ctrl(struct v4l2_ctrl *ctrl)
 		return 0;
 #endif
 
+	ADAPTOR_SYSTRACE_BEGIN("SensorWorker::%s %d", __func__, ctrl->id);
 	switch (ctrl->id) {
 	case V4L2_CID_UPDATE_SOF_CNT:
 		/* update ctx sof cnt */
@@ -1338,9 +1339,18 @@ static int imgsensor_set_ctrl(struct v4l2_ctrl *ctrl)
 		}
 		break;
 	case V4L2_CID_MTK_STAGGER_AE_CTRL:
-		ADAPTOR_SYSTRACE_BEGIN("SensorWorker::s_ae_ctrl");
-		s_ae_ctrl(ctrl);
-		ADAPTOR_SYSTRACE_END();
+		{
+			struct mtk_hdr_ae *ae_ctrl = ctrl->p_new.p;
+			ADAPTOR_SYSTRACE_BEGIN("SensorWorker::s_ae_ctrl %d %d %d %d %d %d",
+				ae_ctrl->req_id,
+				ae_ctrl->exposure.le_exposure,
+				ae_ctrl->exposure.me_exposure,
+				ae_ctrl->gain.le_gain,
+				ae_ctrl->gain.me_gain,
+				CALC_LINE_TIME_IN_NS(ctx->subctx.pclk, ctx->subctx.line_length));
+			s_ae_ctrl(ctrl);
+			ADAPTOR_SYSTRACE_END();
+		}
 		break;
 	case V4L2_CID_EXPOSURE_ABSOLUTE:
 		{
@@ -1788,6 +1798,7 @@ static int imgsensor_set_ctrl(struct v4l2_ctrl *ctrl)
 	pm_runtime_put(dev);
 #endif
 
+	ADAPTOR_SYSTRACE_END();
 	return ret;
 }
 

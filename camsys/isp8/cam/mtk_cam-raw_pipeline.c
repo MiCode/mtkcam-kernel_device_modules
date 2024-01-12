@@ -764,8 +764,6 @@ CALC_RESOURCE:
 		drv_data->user_data = *user_ctrl;
 		drv_data->tgo_pxl_mode =
 			mtk_pixelmode_val(mtk_raw_overall_pixel_mode(&c));
-		// fix me
-		drv_data->tgo_pxl_mode = 0;
 		drv_data->tgo_pxl_mode_before_raw =
 			mtk_pixelmode_val(c.frontal_pixel_mode);
 	}

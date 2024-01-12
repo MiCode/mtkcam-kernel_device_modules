@@ -201,8 +201,8 @@ static void dump_cq_setting(struct mtk_raw_device *dev)
 
 static void dump_interrupt(struct mtk_raw_device *dev)
 {
-	dev_info(dev->dev, "CAMCTL INT_EN 0x%08x\n",
-		 readl_relaxed(dev->base + REG_CAMCTL_INT_EN));
+	dev_info(dev->dev, "CAMCTL INT21_EN 0x%08x\n",
+		 readl_relaxed(dev->base + REG_CAMCTL_INT21_EN));
 }
 
 static void dump_tg_setting(struct mtk_raw_device *dev, const char *msg)
@@ -262,10 +262,13 @@ void initialize(struct mtk_raw_device *dev, int is_slave, int is_srt, int is_slb
 	writel_relaxed(val, dev->base + REG_CAMCQ_CQ_SUB_THR0_CTL);
 
 	/* enable interrupt */
-	val = FBIT(CAMCTL_CQ_THR0_DONE_EN) | FBIT(CAMCTL_CQ_THRSUB_DONE_EN);
-	writel_relaxed(val, dev->base + REG_CAMCTL_INT6_EN);
+	val = FBIT(CAMCTL_CQ_THR0_DONE_EN) | FBIT(CAMCTL_CQ_THRSUB_DONE_EN) |
+		FBIT(CAMCTL_CQ_ALL_THR_DONE_EN)| FBIT(CAMCTL_CQ_MAIN_VS_ERR_EN) |
+		FBIT(CAMCTL_CQ_SUB_VS_ERR_EN)| FBIT(CAMCTL_CQ_SUB_CODE_ERR_EN);
+	writel_relaxed(val, dev->base + REG_CAMCTL_INT21_EN);
 
 #if RAW_DEBUG
+	dump_interrupt(dev);
 	dump_cq_setting(dev);
 #endif
 

@@ -4330,7 +4330,12 @@ static int raw_set_ipi_input_param(struct mtkcam_ipi_input_param *input,
 	input->pixel_mode_before_raw = dc_sv_pixel_mode;
 	input->subsample = subsample - 1; /* TODO(AY): remove -1 */
 	input->in_crop = v4l2_rect_to_ipi_crop(&sink->crop);
-
+	if (CAM_DEBUG_ENABLED(IPI_BUF))
+		pr_info("%s: fmt:%d, pixel_id:%d pm:%d/%d, subm:%d, %d,%d - %dx%d\n",
+			__func__, input->fmt, input->raw_pixel_id,
+			input->pixel_mode, input->pixel_mode_before_raw,
+			input->subsample, input->in_crop.p.x, input->in_crop.p.y,
+			input->in_crop.s.w, input->in_crop.s.h);
 	return 0;
 }
 
@@ -4346,7 +4351,12 @@ static int mraw_set_ipi_input_param(struct mtkcam_ipi_input_param *input,
 	input->pixel_mode_before_raw = dc_sv_pixel_mode;
 	input->subsample = subsample - 1; /* TODO(AY): remove -1 */
 	input->in_crop = v4l2_rect_to_ipi_crop(&sink->crop);
-
+	if (CAM_DEBUG_ENABLED(IPI_BUF))
+		pr_info("%s: fmt:%d, pixel_id:%d pm:%d/%d, subm:%d, %d,%d - %dx%d\n",
+			__func__, input->fmt, input->raw_pixel_id,
+			input->pixel_mode, input->pixel_mode_before_raw,
+			input->subsample, input->in_crop.p.x, input->in_crop.p.y,
+			input->in_crop.s.w, input->in_crop.s.h);
 	return 0;
 }
 
@@ -4877,11 +4887,13 @@ static int update_cam_buf_to_ipi_frame(struct req_buffer_helper *helper,
 			__func__, pipe_id, node->desc.name);
 	if (CAM_DEBUG_ENABLED(IPI_BUF)) {
 		if (node->desc.image)
-			pr_info("%s:image pipe %x buf %s remap:%d v4l2_buffer_index:%d\n",
-				__func__, pipe_id, node->desc.name, buf->image_info.remap, buf->v4l2_buffer_idx);
+			pr_info("%s:image pipe %x buf %s remap:%d v4l2_buffer_index:%d iova:0x%llx\n",
+				__func__, pipe_id, node->desc.name, buf->image_info.remap,
+				buf->v4l2_buffer_idx, buf->daddr);
 		else
-			pr_info("%s:meta pipe %x buf %s remap:%d v4l2_buffer_index:%d\n",
-				__func__, pipe_id, node->desc.name, buf->meta_info.remap, buf->v4l2_buffer_idx);
+			pr_info("%s:meta pipe %x buf %s remap:%d v4l2_buffer_index:%d iova:0x%llx\n",
+				__func__, pipe_id, node->desc.name, buf->meta_info.remap,
+				buf->v4l2_buffer_idx, buf->daddr);
 	}
 	if (is_raw_subdev(pipe_id)) {
 		if (node->desc.image)
@@ -5058,9 +5070,9 @@ static int update_job_buffer_to_ipi_frame(struct mtk_cam_job *job,
 		ret = ret || job_helper->append_work_buf_to_ipi(&helper);
 
 	reset_unused_io_of_ipi_frame(&helper);
-
+#ifdef QOS_READY
 	mtk_cam_fill_qos(&helper);
-
+#endif
 	return ret;
 }
 

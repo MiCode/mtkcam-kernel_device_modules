@@ -130,7 +130,7 @@ struct mtk_raw_ctrl_data {
 	struct v4l2_subdev *seninf;
 
 	u32 enable_hsf_raw;
-
+	u32 trigger_cq_deadline;
 	struct mtk_raw_ctrl_data_read_clear rc_data;
 };
 

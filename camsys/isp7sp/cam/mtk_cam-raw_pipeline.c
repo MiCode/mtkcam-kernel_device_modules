@@ -1000,6 +1000,15 @@ static int mtk_raw_set_ctrl(struct v4l2_ctrl *ctrl)
 					 req_info->req_sync_id);
 		}
 		break;
+	case V4L2_CID_MTK_CAM_CQ_TRIGGER_DEADLINE:
+		{
+			ctrl_data->trigger_cq_deadline = ctrl->val;
+
+			if (CAM_DEBUG_ENABLED(V4L2))
+				dev_info(dev, "%s: trigger_cq: %d ns\n",
+					 __func__, ctrl_data->trigger_cq_deadline);
+		}
+		break;
 	case V4L2_CID_MTK_CAM_RAW_RESOURCE_UPDATE:
 		ctrl_data->rc_data.sensor_mode_update = ctrl->val;
 		dev_info(dev, "%s:pipe(%d):sensor_mode_update(%d)\n",
@@ -1236,6 +1245,17 @@ static const struct v4l2_ctrl_config cfg_req_info = {
 	.step = 1,
 	.def = 0,
 	.dims = {sizeof_u32(struct mtk_cam_req_info)},
+};
+static const struct v4l2_ctrl_config cfg_cq_deadline = {
+	.ops = &cam_ctrl_ops,
+	.id = V4L2_CID_MTK_CAM_CQ_TRIGGER_DEADLINE,
+	.name = "cq trigger deadline ns",
+	.type = V4L2_CTRL_TYPE_INTEGER,
+	.flags = V4L2_CTRL_FLAG_VOLATILE | V4L2_CTRL_FLAG_EXECUTE_ON_WRITE,
+	.min = 0,
+	.max = 0x1fca055,
+	.step = 1,
+	.def = 0,
 };
 
 static const struct v4l2_ctrl_config mtk_cam_tg_flash_enable = {
@@ -3714,6 +3734,9 @@ static void mtk_raw_pipeline_ctrl_setup(struct mtk_raw_pipeline *pipe)
 
 	/* req_info */
 	v4l2_ctrl_new_custom(ctrl_hdlr, &cfg_req_info, NULL);
+
+	/* req_info */
+	v4l2_ctrl_new_custom(ctrl_hdlr, &cfg_cq_deadline, NULL);
 
 	ctrl = v4l2_ctrl_new_custom(ctrl_hdlr, &cfg_hdr_timestamp_info, NULL);
 	if (ctrl)

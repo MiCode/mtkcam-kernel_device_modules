@@ -97,7 +97,7 @@ static struct state_transition STATE_TRANS(basic, S_ISP_APPLYING)[] = {
 static struct state_transition STATE_TRANS(basic, S_ISP_OUTER)[] = {
 	{
 		S_ISP_PROCESSING, CAMSYS_EVENT_IRQ_L_SOF,
-		guard_inner_eq, 0
+		guard_inner_eq, ACTION_CHECK_PROCESSING
 	},
 	{
 		S_ISP_ABORTED, CAMSYS_EVENT_HW_HANG,

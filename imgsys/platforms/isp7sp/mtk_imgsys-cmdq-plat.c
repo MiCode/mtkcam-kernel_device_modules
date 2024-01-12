@@ -929,6 +929,7 @@ void imgsys_cmdq_task_cb_plat7sp(struct cmdq_cb_data data)
 	u32 idx = 0, err_idx = 0, real_frm_idx = 0;
 	u16 event = 0, event_sft = 0;
 	u64 event_diff = 0;
+	u32 event_val = 0L;
 	bool isHWhang = 0;
 #ifdef IMGSYS_ME_CHECK_FUNC_EN
 	u32 me_done_reg = 0;
@@ -1208,11 +1209,12 @@ void imgsys_cmdq_task_cb_plat7sp(struct cmdq_cb_data data)
 				cb_param->pkt->err_data.event, isHWhang);
 		} else {
 			isHWhang = 1;
+			event_val = cmdq_get_event(imgsys_clt[0]->chan, event);
 			pr_info(
-				"%s: [ERROR] HW event timeout! wfe(%d) event(%d) isHW(%d)",
+				"%s: [ERROR] HW event timeout! wfe(%d) event(%d/%d) isHW(%d)",
 				__func__,
 				cb_param->pkt->err_data.wfe_timeout,
-				cb_param->pkt->err_data.event, isHWhang);
+				cb_param->pkt->err_data.event, event_val, isHWhang);
 		}
 
 		imgsys_cmdq_cmd_dump_plat7sp(cb_param->frm_info, real_frm_idx);
@@ -1225,6 +1227,13 @@ void imgsys_cmdq_task_cb_plat7sp(struct cmdq_cb_data data)
 			cb_param->user_cmdq_err_cb(
 				user_cb_data, real_frm_idx, isHWhang,
 				event_sft + IMGSYS_CMDQ_SYNC_TOKEN_IMGSYS_POOL_START);
+			if (isHWhang) {
+				event_val = cmdq_get_event(imgsys_clt[0]->chan, event);
+				pr_info(
+					"%s: [ERROR] HW event after reg dump is (%d/%d)",
+					__func__,
+					cb_param->pkt->err_data.event, event_val);
+			}
 		}
 
 		if (isHWhang && mtk_imgsys_cmdq_qof_get_pwr_status(ISP7SP_ISP_TRAW))

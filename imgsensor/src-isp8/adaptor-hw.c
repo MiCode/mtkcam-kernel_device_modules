@@ -533,8 +533,9 @@ int do_hw_power_off(struct adaptor_ctx *ctx)
 	struct adaptor_hw_ops *op;
 
 	adaptor_logm(ctx, "+\n");
-	/* call subdrv close function before pwr off */
-	subdrv_call(ctx, close);
+	/* call subdrv close function if sensor is streaming */
+	if (ctx->subctx.is_streaming)
+		subdrv_call(ctx, close);
 
 	if (ctx->subdrv->ops->power_off)
 		subdrv_call(ctx, power_off, NULL);

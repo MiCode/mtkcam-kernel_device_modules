@@ -74,7 +74,7 @@ static struct SET_PD_BLOCK_INFO_T imgsensor_pd_info = {
 		{0, 0}, {0, 0}, {0, 0},
 	},
 	.iMirrorFlip = 3,
-	.i4FullRawW = 4092,
+	.i4FullRawW = 4096,
 	.i4FullRawH = 3072,
 	.sPDMapInfo[0] = {
 		.i4PDPattern = 2,

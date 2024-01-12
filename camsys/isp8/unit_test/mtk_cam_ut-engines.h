@@ -8,15 +8,16 @@
 
 #include <linux/kfifo.h>
 #include "mtk_cam_ut-event.h"
+#include "mtk_cam_ut-seninf.h"
 
 struct engine_ops {
 	/* test mdl, optional */
 	int (*set_size)(struct device *dev,
 			int width, int height,
-			int pixmode_lg2,
 			int pattern,
-			int tg_idx,
-			int tag);
+			u8 exp_num,
+			struct mtk_cam_ut_tm_para *tm_para,
+			int para_cnt);
 
 	int (*initialize)(struct device *dev, void *ext_params);
 	int (*reset)(struct device *dev);
@@ -216,14 +217,6 @@ enum SENINF_MUX_ENUM {
 	SENINF_MUX12,
 	SENINF_MUX13,
 	SENINF_MUX14,
-	SENINF_MUX15,
-	SENINF_MUX16,
-	SENINF_MUX17,
-	SENINF_MUX18,
-	SENINF_MUX19,
-	SENINF_MUX20,
-	SENINF_MUX21,
-	SENINF_MUX22,
 	SENINF_MUX_NUM,
 
 	SENINF_MUX_ERROR = -1,

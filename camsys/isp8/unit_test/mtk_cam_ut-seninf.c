@@ -68,41 +68,44 @@ static int get_test_hmargin(int w, int h, int clk_cnt, int clk_mhz, int fps)
 
 static int ut_seninf_set_testmdl(struct device *dev,
 				 int width, int height,
-				 int pixmode_lg2,
-				 int pattern,
-				 int tg_idx,
-				 int tag)
+				 int pattern,/*unused*/
+				 u8 exp_num,
+				 struct mtk_cam_ut_tm_para *tm_para,
+				 int para_cnt)
 {
+	int i;
+	struct mtk_cam_ut_tm_para *para;
 	struct mtk_ut_seninf_device *seninf = dev_get_drvdata(dev);
-	int seninf_idx, outmux_idx;
+	int seninf_idx, outmux_idx, tag, exp_no;
 	void __iomem *seninf_top;
 	void __iomem *seninf_async;
 	void __iomem *seninf_tm;
 	void __iomem *outmux_base;
 	const u16 dummy_pxl = testmdl_hblank, h_margin = 0x1000;
-	const u8 clk_div_cnt = (16 >> (pixmode_lg2 ? 1 : 0)) - 1;
+	//const u8 clk_div_cnt = (16 >> (pixmode_lg2 ? 1 : 0)) - 1;
+	const u8 clk_div_cnt = 0xF;
 	const u16 dum_vsync = get_test_hmargin(width + dummy_pxl,
 					      height + h_margin,
 					      clk_div_cnt, 416, 30);
 	int width_tm = (width >> 1);
+	u8 set_outmux_list[SENINF_MUX_NUM];
+	u8 pix_m = 0;
+	u8 last_vc = 0;
+
+	memset(set_outmux_list, 0, sizeof(set_outmux_list));
 
 	if (width_tm % 8) // width_tm must be 8x, ceil to 8x
 		width_tm = ((width_tm >> 3) + 1) << 3;
 
 	// hard code seninf idx use first seninf_idx
-	outmux_idx = tg_idx;
 	seninf_idx = 0;
 
-	dev_info(dev, "%s width %d x height %d dum_vsync %d pixmode_lg2 %d clk_div_cnt %d, to width_tm %d\n",
+	dev_info(dev, "%s width %d x height %d dum_vsync %d clk_div_cnt %d, to width_tm %d\n",
 		 __func__, width, height, dum_vsync,
-		 pixmode_lg2, clk_div_cnt, width_tm);
-	dev_info(dev, "%s seninf_idx %d outmux_idx %d tg_idx %d tag %d\n",
-		 __func__, seninf_idx, outmux_idx, tg_idx, tag);
+		 clk_div_cnt, width_tm);
 
-	if (tag >= 8) {
-		dev_info(dev, "%s invalid tag\n", __func__);
-		return -1;
-	}
+	if (!exp_num)// exp_num is 0, set to 1
+		exp_num = 1;
 
 	/* test mdl */
 	seninf->seninf_status[seninf_idx] = USING;
@@ -110,14 +113,20 @@ static int ut_seninf_set_testmdl(struct device *dev,
 	seninf_async = seninf->base_async;
 	seninf_tm = seninf->base_tm + seninf_idx * SENINF_TM_OFFSET;
 
-	//writel((height + h_margin) << 16 | width, ISP_SENINF_TM_SIZE(seninf_base));
 	writel(height << 16 | width_tm, ISP_SENINF_TM_SIZE(seninf_tm));
-	//writel(clk_div_cnt, ISP_SENINF_TM_CLK(seninf_tm));
-	writel(clk_div_cnt << 16 | 0x801, ISP_SENINF_TM_CORE0_CTL(seninf_tm));
+	writel((clk_div_cnt << 16 | 0x801) | (((exp_num - 1) & 0x7) << 12), ISP_SENINF_TM_CORE0_CTL(seninf_tm));
 	writel(dum_vsync << 16 | dummy_pxl, ISP_SENINF_TM_DUM(seninf_tm));
-	//writel(0xa0a << 12 | pattern << 4 | 0x1, ISP_SENINF_TM_CTL(seninf_base));
-	//writel(0x1, ISP_SENINF_TSETMDL_CTRL(seninf_base));
 	writel(0x2b, ISP_SENINF_TM_CON0(seninf_tm));// dt
+	if (exp_num > 1) {
+		writel(0x1012b, ISP_SENINF_TM_CON1(seninf_tm));// vcdt
+		writel((0x64 << 4) | (0x1 << 30), ISP_SENINF_TM_EXP1_CTRL(seninf_tm));// sof offset 100 and dedicated fs
+		last_vc = 1;
+	}
+	if (exp_num > 2) {
+		writel(0x2022b, ISP_SENINF_TM_CON2(seninf_tm));// vcdt
+		writel((0xc8 << 4) | (0x1 << 30), ISP_SENINF_TM_EXP2_CTRL(seninf_tm));// sof offset 200 and dedicated fs
+		last_vc = 2;
+	}
 
 	/* seninf async */
 	writel(0x1, ISP_SENINF_ASYNC_CFG(seninf_async));
@@ -125,13 +134,41 @@ static int ut_seninf_set_testmdl(struct device *dev,
 	/* seninf top */
 	writel(0x1000000, ISP_SENINF_TOP_CTL(seninf_top));
 
-	/* outmux */
-	outmux_base = seninf->base_outmux[outmux_idx];
-	writel(0x0, ISP_SENINF_OUTMUX_SOURCE_CFG0(outmux_base));
-	writel(0x0, ISP_SENINF_OUTMUX_SRC_SEL(outmux_base));
-	writel(0x2b0001, ISP_SENINF_OUTMUX_TAG_VCDT(outmux_base, tag));
-	writel(0x1, ISP_SENINF_OUTMUX_CFG_RDY(outmux_base));
-	writel(0x1, ISP_SENINF_OUTMUX_CFG_DONE(outmux_base));
+	for (i = 0; i < para_cnt; i++) {
+		para = tm_para + i;
+		outmux_idx = para->tg_idx;
+		exp_no = para->exp_no;
+		tag = para->tag;
+		pix_m = (para->pixmode == tm_pix_mode_16) ? 1 : 0;
+		dev_info(dev, "%s seninf_idx %d outmux_idx %d tag %d pixmode %d\n",
+			 __func__, seninf_idx, outmux_idx, tag, para->pixmode);
+
+		if (outmux_idx >= SENINF_MUX_NUM)
+			continue;
+
+		set_outmux_list[outmux_idx] = 1;
+
+		/* outmux */
+		outmux_base = seninf->base_outmux[outmux_idx];
+		writel(pix_m, ISP_SENINF_OUTMUX_PIX_MODE(outmux_base));
+		writel(0x0 | (last_vc << 16), ISP_SENINF_OUTMUX_SOURCE_CFG0(outmux_base));
+		writel(0x0, ISP_SENINF_OUTMUX_SRC_SEL(outmux_base));
+		writel(0x2b0001 | (exp_no << 8), ISP_SENINF_OUTMUX_TAG_VCDT(outmux_base, tag));
+
+		if (tag >= tag_0 && tag <= tag_3)
+			writel((exp_no << (tag * 8)), ISP_SENINF_OUTMUX_SOURCE_CFG1(outmux_base));
+		else if (tag >= tag_4 && tag <= tag_7)
+			writel((exp_no << ((tag - tag_4) * 8)), ISP_SENINF_OUTMUX_SOURCE_CFG2(outmux_base));
+	}
+
+	for (i = 0; i < SENINF_MUX_NUM; i++) {
+		if (set_outmux_list[i]) {
+			outmux_base = seninf->base_outmux[i];
+			writel(0x1, ISP_SENINF_OUTMUX_CFG_RDY(outmux_base));
+			writel(0x1, ISP_SENINF_OUTMUX_CFG_DONE(outmux_base));
+		}
+
+	}
 
 
 	return 0;

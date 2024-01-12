@@ -12,6 +12,7 @@
 
 #include "camsys/isp7sp/cam/mtk_cam-ipi.h"
 #include "mtk_cam_ut-event.h"
+#include "mtk_cam_ut-seninf.h"
 #include "mtk_cam_ut-utils.h"
 
 #define IPI_FRAME_BUF_SIZE		ALIGN(sizeof(struct mtkcam_ipi_frame_param), SZ_1K)
@@ -20,62 +21,6 @@
 
 #define CAM_MAX_DMA (CAM_MAX_IMAGE_OUTPUT * CAM_MAX_PLANENUM \
 			+ CAM_MAX_META_OUTPUT + CAM_MAX_PIPE_USED)
-
-enum seninf_enum {
-	seninf_0 = 0,
-	seninf_1,
-	seninf_2,
-	seninf_3,
-	seninf_4,
-	seninf_5
-};
-
-enum tg_enum {
-	camsv_tg_0,
-	camsv_tg_1,
-	camsv_tg_2,
-	camsv_tg_3,
-	camsv_tg_4,
-	camsv_tg_5,
-	camsv_tg_6,
-	camsv_tg_7,
-	camsv_tg_8,
-	camsv_tg_9,
-	camsv_tg_10,
-	camsv_tg_11,
-	camsv_tg_12,
-	camsv_tg_13,
-	camsv_tg_14,
-	camsv_tg_15,
-	camsv_tg_16,
-	camsv_tg_17,
-	camsv_tg_18,
-	camsv_tg_19,
-	camsv_tg_20,
-	camsv_tg_21,
-	camsv_tg_22,
-	camsv_tg_23,
-	camsv_tg_24,
-	camsv_tg_25,
-	camsv_tg_26,
-	camsv_tg_27,
-	camsv_tg_28,
-	camsv_tg_29,
-	camsv_tg_30,
-	camsv_tg_31,
-	camsv_tg_32,
-	camsv_tg_33,
-	raw_tg_0,
-	raw_tg_1,
-	raw_tg_2,
-	raw_tg_3,
-	raw_tg_4,
-	raw_tg_5,
-	pdp_tg_0,
-	pdp_tg_1,
-	pdp_tg_2,
-	camsys_tg_max,
-};
 
 // align TestMdlMode in testPlan.h
 enum testmdl_enum {

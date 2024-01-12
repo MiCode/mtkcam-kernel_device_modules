@@ -629,7 +629,6 @@ static int set_test_mdl(struct mtk_cam_ut *ut,
 	int width, height;
 	int pixel_mode;
 	int pattern;
-	int tag;
 	struct mtk_ut_camsv_device *camsv_dev = NULL;
 
 	if (CAMSV_HW_ID < ut->num_camsv)
@@ -668,103 +667,151 @@ static int set_test_mdl(struct mtk_cam_ut *ut,
 		camsv_dev->is_dc_mode = 1;
 
 		if (testmdl->mode == testmdl_stagger_3exp) {
-			tag = 0;
+			struct mtk_cam_ut_tm_para para[3];
+
+			para[0].tg_idx = camsv_tg_0;
+			para[0].exp_no = testmdl_exp1;
+			para[0].tag = tag_0;
+			para[0].pixmode = pixel_mode;
+
+			para[1].tg_idx = camsv_tg_0;
+			para[1].exp_no = testmdl_exp2;
+			para[1].tag = tag_1;
+			para[1].pixmode = pixel_mode;
+
+			para[2].tg_idx = raw_tg_0;
+			para[2].exp_no = testmdl_exp3;
+			para[2].tag = tag_0;
+			para[2].pixmode = pixel_mode;
+
 			CALL_SENINF_OPS(seninf, set_size,
 					width, height,
-					pixel_mode, pattern,
-					camsv_tg_0, tag);
-			mdelay(1);
-			tag = 1;
-			CALL_SENINF_OPS(seninf, set_size,
-					width, height,
-					pixel_mode, pattern,
-					camsv_tg_1, tag);
-			mdelay(1);
-			tag = 255;
-			CALL_SENINF_OPS(seninf, set_size,
-					width, height,
-					pixel_mode, pattern,
-					raw_tg_0, tag);
+					pattern, 3,
+					para, ARRAY_SIZE(para));
+
 		} else if (testmdl->mode == testmdl_stagger_2exp) {
-			tag = 0;
+			struct mtk_cam_ut_tm_para para[2];
+
+			para[0].tg_idx = camsv_tg_0;
+			para[0].exp_no = testmdl_exp1;
+			para[0].tag = tag_0;
+			para[0].pixmode = pixel_mode;
+
+			para[1].tg_idx = raw_tg_0;
+			para[1].exp_no = testmdl_exp2;
+			para[1].tag = tag_0;
+			para[1].pixmode = pixel_mode;
+
 			CALL_SENINF_OPS(seninf, set_size,
 					width, height,
-					pixel_mode, pattern,
-					camsv_tg_0, tag);
-			mdelay(1);
-			tag = 255;
-			CALL_SENINF_OPS(seninf, set_size,
-					width, height,
-					pixel_mode, pattern,
-					raw_tg_0, tag);
+					pattern, 2,
+					para, ARRAY_SIZE(para));
+
 		} else if (testmdl->mode == testmdl_stagger_1exp) {
-			camsv_dev->is_dc_mode = 0;
-			tag = 255;
+			struct mtk_cam_ut_tm_para para[1];
+
+			para[0].tg_idx = raw_tg_0;
+			para[0].exp_no = testmdl_exp1;
+			para[0].tag = tag_0;
+			para[0].pixmode = pixel_mode;
+
 			CALL_SENINF_OPS(seninf, set_size,
 					width, height,
-					pixel_mode, pattern,
-					raw_tg_0, tag);
+					pattern, 1,
+					para, ARRAY_SIZE(para));
+
+			camsv_dev->is_dc_mode = 0;
 		}
 		break;
 	case MTKCAM_IPI_HW_PATH_DC_STAGGER:
 		camsv_dev->is_dc_mode = 1;
 
 		if (testmdl->mode == testmdl_stagger_2exp) {
-			tag = 0;
+			struct mtk_cam_ut_tm_para para[2];
+
+			para[0].tg_idx = camsv_tg_0;
+			para[0].exp_no = testmdl_exp1;
+			para[0].tag = tag_0;
+			para[0].pixmode = pixel_mode;
+
+			para[1].tg_idx = camsv_tg_0;
+			para[1].exp_no = testmdl_exp2;
+			para[1].tag = tag_2;
+			para[1].pixmode = pixel_mode;
+
 			CALL_SENINF_OPS(seninf, set_size,
 					width, height,
-					pixel_mode, pattern,
-					camsv_tg_0, tag);
-			mdelay(10);
-			tag = 2;
-			CALL_SENINF_OPS(seninf, set_size,
-					width, height,
-					pixel_mode, pattern,
-					camsv_tg_2, tag);
+					pattern, 2,
+					para, ARRAY_SIZE(para));
+
 		} else if (testmdl->mode == testmdl_stagger_3exp) {
-			tag = 0;
+			struct mtk_cam_ut_tm_para para[3];
+
+			para[0].tg_idx = camsv_tg_0;
+			para[0].exp_no = testmdl_exp1;
+			para[0].tag = tag_0;
+			para[0].pixmode = pixel_mode;
+
+			para[1].tg_idx = camsv_tg_0;
+			para[1].exp_no = testmdl_exp2;
+			para[1].tag = tag_1;
+			para[1].pixmode = pixel_mode;
+
+			para[2].tg_idx = camsv_tg_0;
+			para[2].exp_no = testmdl_exp3;
+			para[2].tag = tag_2;
+			para[2].pixmode = pixel_mode;
+
 			CALL_SENINF_OPS(seninf, set_size,
 					width, height,
-					pixel_mode, pattern,
-					camsv_tg_0, tag);
-			mdelay(10);
-			tag = 1;
-			CALL_SENINF_OPS(seninf, set_size,
-					width, height,
-					pixel_mode, pattern,
-					camsv_tg_1, tag);
-			mdelay(10);
-			tag = 2;
-			CALL_SENINF_OPS(seninf, set_size,
-					width, height,
-					pixel_mode, pattern,
-					camsv_tg_2, tag);
+					pattern, 3,
+					para, ARRAY_SIZE(para));
+
 		} else if (testmdl->mode == testmdl_stagger_1exp) {
-			tag = 2;
+			struct mtk_cam_ut_tm_para para[1];
+
+			para[0].tg_idx = camsv_tg_0;
+			para[0].exp_no = testmdl_exp1;
+			para[0].tag = tag_2;
+			para[0].pixmode = pixel_mode;
+
 			CALL_SENINF_OPS(seninf, set_size,
 					width, height,
-					pixel_mode, pattern,
-					camsv_tg_2, tag);
+					pattern, 1,
+					para, ARRAY_SIZE(para));
 		}
 		break;
 	case MTKCAM_IPI_HW_PATH_DC:
 		if (testmdl->mode == testmdl_normal) {
-			camsv_dev->is_dc_mode = 1;
-			tag = 2;
+			struct mtk_cam_ut_tm_para para[1];
+
+			para[0].tg_idx = camsv_tg_0;
+			para[0].exp_no = testmdl_exp1;
+			para[0].tag = tag_2;
+			para[0].pixmode = pixel_mode;
+
 			CALL_SENINF_OPS(seninf, set_size,
 					width, height,
-					pixel_mode, pattern,
-					camsv_tg_2, tag);
+					pattern, 1,
+					para, ARRAY_SIZE(para));
+
+			camsv_dev->is_dc_mode = 1;
 		}
 		break;
 #if SUPPORT_RAWB
 	case MTKCAM_IPI_HW_PATH_ON_THE_FLY_RAWB:
 		if (ut->with_testmdl == 1) {
+			struct mtk_cam_ut_tm_para para[1];
+
+			para[0].tg_idx = seninf_mux_raw(seninf, 0);
+			para[0].exp_no = testmdl_exp1;
+			para[0].tag = seninf_cammux_raw(seninf, 1);
+			para[0].pixmode = pixel_mode;
+
 			CALL_SENINF_OPS(seninf, set_size,
 					width, height,
-					pixel_mode, pattern,
-					seninf_mux_raw(seninf, 0),
-					seninf_cammux_raw(seninf, 1));
+					pattern, 1,
+					para, ARRAY_SIZE(para));
 		}
 		break;
 #endif
@@ -776,28 +823,43 @@ static int set_test_mdl(struct mtk_cam_ut *ut,
 	default:
 		if (ut->with_testmdl == 1) {
 			if (ut->isp_hardware & WITH_RAW) {
-				tag = 255;
+				struct mtk_cam_ut_tm_para para[1];
+
+				para[0].tg_idx = raw_tg_0;
+				para[0].exp_no = testmdl_exp1;
+				para[0].tag = tag_0;
+				para[0].pixmode = pixel_mode;
+
 				CALL_SENINF_OPS(seninf, set_size,
 						width, height,
-						pixel_mode, pattern,
-						raw_tg_0,
-						tag);
+						pattern, 1,
+						para, ARRAY_SIZE(para));
 			}
 			if (ut->isp_hardware & SINGLE_SV) {
-				tag = 0;
+				struct mtk_cam_ut_tm_para para[1];
+
+				para[0].tg_idx = camsv_tg_3;
+				para[0].exp_no = testmdl_exp1;
+				para[0].tag = tag_0;
+				para[0].pixmode = pixel_mode;
+
 				CALL_SENINF_OPS(seninf, set_size,
 						width, height,
-						pixel_mode, pattern,
-						camsv_tg_24,
-						tag);
+						pattern, 1,
+						para, ARRAY_SIZE(para));
 			}
 			if (ut->isp_hardware & SINGLE_MRAW) {
-				tag = 255;
+				struct mtk_cam_ut_tm_para para[1];
+
+				para[0].tg_idx = pdp_tg_0;
+				para[0].exp_no = testmdl_exp1;
+				para[0].tag = tag_0;
+				para[0].pixmode = pixel_mode;
+
 				CALL_SENINF_OPS(seninf, set_size,
 						width, height,
-						pixel_mode, pattern,
-						pdp_tg_0,
-						tag);
+						pattern, 1,
+						para, ARRAY_SIZE(para));
 			}
 		}
 	}

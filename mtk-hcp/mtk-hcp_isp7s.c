@@ -51,7 +51,7 @@ static struct mtk_hcp_reserve_mblock isp7s_smvr_mblock[] = {
 		.start_phys = 0x0,
 		.start_virt = 0x0,
 		.start_dma  = 0x0,
-		.size = 0x322000, //align_4096(0x25D700)
+		.size = 0x322000, //align_4096(0x321C90)
 		.is_dma_buf = true,
 		.mmap_cnt = 0,
 		.mem_priv = NULL,
@@ -67,7 +67,7 @@ static struct mtk_hcp_reserve_mblock isp7s_smvr_mblock[] = {
 		.start_phys = 0x0,
 		.start_virt = 0x0,
 		.start_dma  = 0x0,
-		.size = 0xB7C000, /*align_4096(0x8AC000) */
+		.size = 0xB7C000, /*align_4096(0xB7C000) */
 		.is_dma_buf = true,
 		.mmap_cnt = 0,
 		.mem_priv = NULL,
@@ -1055,6 +1055,6 @@ struct mtk_hcp_data isp7s_hcp_data = {
 	.get_pqdip_virt = isp7s_get_pqdip_virt,
 	.get_pqdip_cq_fd = isp7s_get_pqdip_cq_fd,
 	.get_pqdip_tdr_fd = isp7s_get_pqdip_tdr_fd,
-	.partial_flush = isp7s_partial_flush,
+	.partial_flush = NULL,
 };
 MODULE_IMPORT_NS(DMA_BUF);

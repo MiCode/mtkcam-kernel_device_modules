@@ -16,3 +16,4 @@ subdir-ccflags-y += -I$(KO_IMGSENSOR_CODE_PATH)/
 
 obj-y += src-v4l2/
 obj-y += src-isp8/
+obj-y += src_spm-isp8/

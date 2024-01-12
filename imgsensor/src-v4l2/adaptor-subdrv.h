@@ -226,7 +226,7 @@ struct subdrv_mode_struct {
 	u8 pdaf_cap;
 	struct SET_PD_BLOCK_INFO_T *imgsensor_pd_info;
 	u32 ae_binning_ratio;
-	u32 fine_integ_line;
+	int fine_integ_line;
 	u8 delay_frame;
 	struct mtk_csi_param csi_param;
 	struct mtk_mbus_frame_desc_entry *frame_desc;
@@ -585,9 +585,9 @@ struct subdrv_entry {
 
 #define FINE_INTEG_CONVERT(_shutter, _fine_integ) \
 ( \
-	((_fine_integ) <= 0) ? \
+	!(_fine_integ) ? \
 	(_shutter) : \
-	(((_shutter) > (_fine_integ)) ? (((_shutter) - (_fine_integ)) / 1000) : 0) \
+	((((_shutter) - (_fine_integ)) > 0) ? (((_shutter) - (_fine_integ)) / 1000) : 0) \
 )
 
 #define CALC_LINE_TIME_IN_NS(pclk, linelength) \

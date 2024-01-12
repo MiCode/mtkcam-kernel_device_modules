@@ -454,7 +454,7 @@ struct mtk_test_pattern_data {
 
 struct mtk_fine_integ_line {
 	__u32 scenario_id;
-	__u32 fine_integ_line;
+	int fine_integ_line;
 };
 
 struct mtk_sensor_mode_info {

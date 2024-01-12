@@ -113,7 +113,7 @@ void get_pixel_clock_freq(struct subdrv_ctx *ctx, u64 *pclk);
 void get_default_framerate_by_scenario(struct subdrv_ctx *ctx,
 		enum SENSOR_SCENARIO_ID_ENUM scenario_id, u32 *framerate);
 void get_fine_integ_line_by_scenario(struct subdrv_ctx *ctx,
-		enum SENSOR_SCENARIO_ID_ENUM scenario_id, u32 *fine_integ_line);
+		enum SENSOR_SCENARIO_ID_ENUM scenario_id, int *fine_integ_line);
 void set_test_pattern(struct subdrv_ctx *ctx, u32 mode);
 void set_test_pattern_data(struct subdrv_ctx *ctx, struct mtk_test_pattern_data *data);
 void get_test_pattern_checksum_value(struct subdrv_ctx *ctx, u32 *checksum);

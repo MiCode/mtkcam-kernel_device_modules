@@ -1146,7 +1146,7 @@ void set_shutter(struct subdrv_ctx *ctx, u64 shutter)
 
 void set_shutter_frame_length(struct subdrv_ctx *ctx, u64 shutter, u32 frame_length)
 {
-	u32 fine_integ_line = 0;
+	int fine_integ_line = 0;
 	bool gph = !ctx->is_seamless && (ctx->s_ctx.s_gph != NULL);
 
 	ctx->frame_length = frame_length ? frame_length : ctx->min_frame_length;
@@ -1225,7 +1225,7 @@ void set_multi_shutter_frame_length(struct subdrv_ctx *ctx,
 		u64 *shutters, u16 exp_cnt,	u16 frame_length)
 {
 	int i = 0;
-	u32 fine_integ_line = 0;
+	int fine_integ_line = 0;
 	u16 last_exp_cnt = 1;
 	u32 calc_fl[3] = {0};
 	int readout_diff = 0;
@@ -1370,7 +1370,7 @@ void set_multi_shutter_frame_length_in_lut(struct subdrv_ctx *ctx,
 {
 	int i = 0;
 	u16 last_exp_cnt = 1;
-	u32 fine_integ_line = 0;
+	int fine_integ_line = 0;
 	u32 cit_step = 0;
 	u32 cit_in_lut[IMGSENSOR_STAGGER_EXPOSURE_CNT] = {0};
 	u32 calc_fl_in_lut[IMGSENSOR_STAGGER_EXPOSURE_CNT] = {0};
@@ -2207,7 +2207,7 @@ void get_default_framerate_by_scenario(struct subdrv_ctx *ctx,
 }
 
 void get_fine_integ_line_by_scenario(struct subdrv_ctx *ctx,
-		enum SENSOR_SCENARIO_ID_ENUM scenario_id, u32 *fine_integ_line)
+		enum SENSOR_SCENARIO_ID_ENUM scenario_id, int *fine_integ_line)
 {
 	if (scenario_id >= ctx->s_ctx.sensor_mode_num) {
 		DRV_LOG(ctx, "invalid sid:%u, mode_num:%u\n",
@@ -3335,7 +3335,7 @@ int common_feature_control(struct subdrv_ctx *ctx, MSDK_SENSOR_FEATURE_ENUM feat
 	case SENSOR_FEATURE_GET_FINE_INTEG_LINE_BY_SCENARIO:
 		get_fine_integ_line_by_scenario(ctx,
 			(enum SENSOR_SCENARIO_ID_ENUM)*feature_data,
-			(u32 *)(uintptr_t)(*(feature_data + 1)));
+			(int *)(uintptr_t)(*(feature_data + 1)));
 		break;
 	case SENSOR_FEATURE_SET_TEST_PATTERN:
 		set_test_pattern(ctx, *feature_data);

@@ -367,7 +367,7 @@ static void fsync_mgr_chk_long_exposure(struct adaptor_ctx *ctx,
 {
 	unsigned int i = 0;
 	int has_long_exp = 0;
-	u32 fine_integ_line = 0;
+	int fine_integ_line = 0;
 
 	fine_integ_line =
 		g_sensor_fine_integ_line(ctx, ctx->subctx.current_scenario_id);
@@ -464,7 +464,7 @@ static void fsync_mgr_setup_sensor_hdr_info(struct adaptor_ctx *ctx,
 static void fsync_mgr_set_hdr_exp_data(struct adaptor_ctx *ctx,
 	struct fs_hdr_exp_st *p_hdr_exp,
 	u64 *ae_exp_arr, u32 ae_exp_cnt,
-	u32 fine_integ_line, const u32 mode_id)
+	int fine_integ_line, const u32 mode_id)
 {
 	struct mtk_stagger_info info = {0};
 	unsigned int i = 0;
@@ -515,7 +515,7 @@ static void fsync_mgr_set_hdr_exp_data(struct adaptor_ctx *ctx,
 
 #ifndef REDUCE_FSYNC_CTRLS_DBG_LOG
 				FSYNC_MGR_LOGI(ctx,
-					"ae_exp_arr[%u]:%u, fine_integ_line:%u, p_hdr_exp(exp_lc[%d]:%u, fl_lc[%d]:%u)\n",
+					"ae_exp_arr[%u]:%u, fine_integ_line:%d, p_hdr_exp(exp_lc[%d]:%u, fl_lc[%d]:%u)\n",
 					i, ae_exp_arr[i], fine_integ_line,
 					idx, p_hdr_exp->exp_lc[idx],
 					fl_idx, p_hdr_exp->fl_lc[fl_idx]);
@@ -534,7 +534,7 @@ static void fsync_mgr_setup_exp_data(struct adaptor_ctx *ctx,
 	struct fs_perframe_st *p_pf_ctrl, const u32 mode_id,
 	u64 *ae_exp_arr, int ae_exp_cnt)
 {
-	u32 fine_integ_line = 0;
+	int fine_integ_line = 0;
 	u64 ae_exp;
 	int i;
 

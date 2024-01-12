@@ -70,7 +70,7 @@ struct sensor_mode {
 	u64 pclk;
 	u64 linetime_in_ns;
 	u64 linetime_in_ns_readout;
-	u64 fine_intg_line;
+	int fine_intg_line;
 	struct mtk_csi_param csi_param;
 	u8 esd_reset_by_user;
 	u32 active_line_num;

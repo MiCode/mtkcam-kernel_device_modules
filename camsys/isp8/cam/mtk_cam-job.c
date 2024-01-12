@@ -24,7 +24,7 @@
 #include "mtk_cam-trace.h"
 #include "mtk_cam-raw_ctrl.h"
 
-#define SCQ_DEADLINE_US(fi)		((fi) * 3 / 4) // 0.75 frame interval
+#define SCQ_DEADLINE_US(fi)		((fi) * 9 / 10) // 0.9 frame interval
 
 static unsigned int debug_buf_fmt_sel = -1;
 module_param(debug_buf_fmt_sel, int, 0644);

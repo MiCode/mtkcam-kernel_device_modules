@@ -1208,6 +1208,8 @@ void imgsys_cmdq_task_cb_plat7sp(struct cmdq_cb_data data)
 		}
 
 		imgsys_cmdq_cmd_dump_plat7sp(cb_param->frm_info, real_frm_idx);
+		if (isHWhang)
+			mtk_imgsys_cmdq_qof_dump();
 
 		if (cb_param->user_cmdq_err_cb) {
 			struct cmdq_cb_data user_cb_data;
@@ -3113,12 +3115,7 @@ void mtk_imgsys_main_power_ctrl_plat7sp(struct mtk_imgsys_dev *imgsys_dev, bool 
 	int i;
 	const u32 img_main_modules
 			= BIT(IMGSYS_MOD_ADL) |
-			BIT(IMGSYS_MOD_ME) |
-			BIT(IMGSYS_MOD_IMGMAIN)|
-			BIT(IMGSYS_MOD_WPE)|
-			BIT(IMGSYS_MOD_DIP)|
-			BIT(IMGSYS_MOD_PQDIP)|
-			BIT(IMGSYS_MOD_LTRAW);
+			BIT(IMGSYS_MOD_ME);
 
 	if (isPowerOn) {
 		for (i = 0; i < imgsys_dev->modules_num; i++) {

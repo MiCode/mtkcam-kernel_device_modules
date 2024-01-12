@@ -842,7 +842,6 @@ void imgsys_traw_cmdq_set_initial_value_hw(struct mtk_imgsys_dev *imgsys_dev,
 		return;
 	}
 
-#if 0
 	/* move from main */
 	cmdq_pkt_write(package, NULL,
 		      (trawRegBA + SW_RST) /*address*/, 0xFFFFFFFF,
@@ -850,7 +849,6 @@ void imgsys_traw_cmdq_set_initial_value_hw(struct mtk_imgsys_dev *imgsys_dev,
 	cmdq_pkt_write(package, NULL,
 		       (trawRegBA + SW_RST) /*address*/, 0x0,
 		       0xffffffff);
-#endif
 
 	/* ori traw set */
 	for (i = 0 ; i < TRAW_INIT_ARRAY_COUNT ; i++) {
@@ -878,7 +876,7 @@ void imgsys_ltraw_cmdq_set_initial_value_hw(struct mtk_imgsys_dev *imgsys_dev,
 		pr_info("%s: TRAW hw null reg base\n", __func__);
 		return;
 	}
-#if 0
+
 	/* move from main */
 	cmdq_pkt_write(package, NULL,
 		    	(trawRegBA + SW_RST) /*address*/, 0xFFFFFFFF,
@@ -886,7 +884,7 @@ void imgsys_ltraw_cmdq_set_initial_value_hw(struct mtk_imgsys_dev *imgsys_dev,
 	cmdq_pkt_write(package, NULL,
 		    	(trawRegBA + SW_RST) /*address*/, 0x0,
 		    	0xffffffff);
-#endif
+
 	/* ori traw set */
 	for (i = 0 ; i < TRAW_INIT_ARRAY_COUNT ; i++) {
 		ofset = trawRegBA + mtk_imgsys_traw_init_ary[i].ofset;

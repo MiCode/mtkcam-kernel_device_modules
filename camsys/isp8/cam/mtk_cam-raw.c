@@ -359,7 +359,9 @@ void initialize(struct mtk_raw_device *dev, struct engine_callback *cb,
 	init_camsys_settings(dev, is_srt);
 	init_ADLWR_settings(dev->cam);
 	init_raw_ddren(dev, is_srt, frm_time_us);
-
+#if RAW_DEBUG
+	dump_topdebug_rdyreq_status(dev);
+#endif
 	dev->engine_cb = cb;
 	engine_fsm_reset(&dev->fsm, dev->dev);
 	dev->cq_ref = NULL;
@@ -1490,7 +1492,7 @@ static void raw_handle_tg_overrun_err(struct mtk_raw_device *raw_dev,
 			     __func__, cnt, fh_cookie);
 
 	if (cnt < OVERRUN_DUMP_CNT)
-		dump_topdebug_rdyreq(raw_dev);
+		dump_topdebug_rdyreq_status(raw_dev);
 
 	if (cnt < MAX_RETRY_SENSOR_CNT)
 		do_engine_callback(raw_dev->engine_cb, reset_sensor,
@@ -2800,7 +2802,7 @@ void raw_dump_debug_status(struct mtk_raw_device *dev, bool is_srt)
 	dump_interrupt(dev);
 
 	if (is_srt)
-		dump_topdebug_rdyreq(dev);
+		dump_topdebug_rdyreq_status(dev);
 
 #ifdef DEBUG_RAWI_R5
 	mtk_cam_dump_dma_debug(dev,

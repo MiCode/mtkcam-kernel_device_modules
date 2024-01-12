@@ -32,6 +32,8 @@ void dump_dmatop_dc_st(struct mtk_raw_device *raw);
 
 void set_topdebug_rdyreq(struct mtk_raw_device *dev, u32 event);
 void dump_topdebug_rdyreq(struct mtk_raw_device *dev);
+void dump_topdebug_rdyreq_status(struct mtk_raw_device *dev);
+
 
 struct dma_debug_item {
 	unsigned int	debug_sel;

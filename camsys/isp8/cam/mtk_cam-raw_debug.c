@@ -193,6 +193,9 @@ void set_topdebug_rdyreq(struct mtk_raw_device *dev, u32 event)
 	writel(event, dev->base + REG_CAMCTL_DBG_SET2);
 	writel(val, dev->yuv_base + REG_CAMCTL_DBG_SET);
 	writel(event, dev->yuv_base + REG_CAMCTL_DBG_SET2);
+	/*ISP8 new*/
+	writel(event, dev->base + REG_CAMCTL_DBG_SET3);
+	writel(event, dev->yuv_base + REG_CAMCTL2_DBG_SET3);
 }
 
 void dump_topdebug_rdyreq(struct mtk_raw_device *dev)
@@ -227,6 +230,36 @@ void dump_topdebug_rdyreq(struct mtk_raw_device *dev)
 		writel(set | debug_sel[i] << 8, dbg_set);
 		dev_info(dev->dev, "YUV debug_set 0x%08x port 0x%08x\n",
 			 readl(dbg_set), readl(dbg_port));
+	}
+}
+
+void dump_topdebug_rdyreq_status(struct mtk_raw_device *dev)
+{
+	static const u32 debug_sel[] = {
+		/* req group 1~7,10,11 */
+		0x0, 0x4, 0x8, 0xc, 0x10, 0x14, 0x18, 0x24, 0x28,
+	};
+	void __iomem *dbg_rdy, *dbg_req;
+	int i;
+
+	dbg_req = dev->base + REG_CAMCTL_MOD_REQ_STATUS;
+	dbg_rdy = dev->base + REG_CAMCTL_MOD_RDY_STATUS;
+
+	for (i = 0; i < ARRAY_SIZE(debug_sel); i++) {
+		dbg_req = dbg_req + debug_sel[i];
+		dbg_rdy = dbg_rdy + debug_sel[i];
+		dev_info(dev->dev, "RAW debug_req 0x%08x debug_rdy 0x%08x\n",
+			 readl(dbg_req), readl(dbg_rdy));
+	}
+
+	dbg_req = dev->yuv_base + REG_CAMCTL2_MOD_REQ_STATUS;
+	dbg_rdy = dev->yuv_base + REG_CAMCTL2_MOD_RDY_STATUS;
+
+	for (i = 0; i < ARRAY_SIZE(debug_sel); i++) {
+		dbg_req = dbg_req + debug_sel[i];
+		dbg_rdy = dbg_rdy + debug_sel[i];
+		dev_info(dev->dev, "YUV debug_req 0x%08x debug_rdy 0x%08x\n",
+			 readl(dbg_req), readl(dbg_rdy));
 	}
 }
 

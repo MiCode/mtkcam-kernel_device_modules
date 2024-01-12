@@ -30,6 +30,7 @@ mgk_camsys_outs = [
 #        "**/Makefile",
 #    ]) + [
 #        "//vendor/mediatek/kernel_modules/mtkcam:public_headers",
+#        "//vendor/mediatek/kernel_modules/mtkcam/imgsensor/src-v4l2:public_headers",
 #        "//vendor/mediatek/kernel_modules/mtkcam:kbuild_makefiles",
 #    ],
 #    outs = mgk_camsys_outs,

@@ -5,6 +5,14 @@ package(
         "//visibility:public",
     ],
 )
+
+filegroup(
+    name = "public_headers",
+    srcs = glob([
+        "frame-sync/*.h",
+    ]),
+)
+
 define_mgk_ko(
     name = "mtk_imgsensor",
     srcs = glob([

@@ -98,21 +98,27 @@ enum topdebug_event {
 #define CAMSYS_MAIN_REG_HALT6_EN(regs)			(regs + 0x00D8)
 
 /* camsv_a/b */
-#define HALT1_EN					0x2
-#define HALT2_EN					0x2
+#define HALT1_EN					0x6
+#define HALT2_EN					0x6
+/* mraw/pda */
+#define HALT3_EN					0xA
+#define HALT4_EN					0xA
 /* raw_a/yuv_a */
-#define HALT5_EN					0xF860
-#define HALT6_EN					0x6F
+#define HALT5_EN					0xBC00
+#define HALT6_EN					0x3
 /* raw_b/yuv_b */
-#define HALT7_EN					0xF860
-#define HALT8_EN					0x6F
+#define HALT7_EN					0xBC00
+#define HALT8_EN					0x3
 /* raw_c/yuv_c */
-#define HALT9_EN					0xF860
-#define HALT10_EN					0x6F
+#define HALT9_EN					0xBC00
+#define HALT10_EN					0x3
 /* camsv_c/d/e/f */
 #define HALT13_EN					0xF0
+
 #define REG_HALT1_EN					0x00c4
 #define REG_HALT2_EN					0x00c8
+#define REG_HALT3_EN					0x00cc
+#define REG_HALT4_EN					0x00cd
 #define REG_HALT5_EN					0x00d4
 #define REG_HALT6_EN					0x00d8
 #define REG_HALT7_EN					0x00dc

@@ -35,6 +35,10 @@
 //module_param(debug_dump_fbc, int, 0644);
 //MODULE_PARM_DESC(debug_dump_fbc, "debug: dump fbc");
 
+static int debug_ddren_sw_mode = 1;
+module_param(debug_ddren_sw_mode, int, 0644);
+MODULE_PARM_DESC(debug_ddren_sw_mode, "debug: 1 : active sw mode");
+
 #define MTK_RAW_STOP_HW_TIMEOUT			(33)
 
 #define KERNEL_LOG_MAX	                400
@@ -93,10 +97,9 @@ static struct mtk_raw_device *get_raw_dev(struct mtk_yuv_device *yuv_dev)
 	return dev_get_drvdata(dev);
 }
 
-static void init_camsys_settings(struct mtk_raw_device *dev, bool is_srt, bool is_slb)
+static void init_camsys_settings(struct mtk_raw_device *dev, bool is_srt)
 {
 	struct mtk_cam_device *cam_dev = dev->cam;
-	struct mtk_yuv_device *yuv_dev = get_yuv_dev(dev);
 	unsigned int reg_raw_urgent, reg_yuv_urgent;
 	unsigned int raw_urgent, yuv_urgent;
 
@@ -113,9 +116,11 @@ static void init_camsys_settings(struct mtk_raw_device *dev, bool is_srt, bool i
 	set_fifo_threshold(dev->dmatop_base + REG_CQI_R7_BASE, 64);
 	set_fifo_threshold(dev->dmatop_base + REG_CQI_R8_BASE, 64);
 
-	// TODO: move HALT1,2,13 to camsv
+	// TODO: move HALT1,2,3,4,13 to camsv/mraw
 	writel_relaxed(HALT1_EN, cam_dev->base + REG_HALT1_EN);
 	writel_relaxed(HALT2_EN, cam_dev->base + REG_HALT2_EN);
+	writel_relaxed(HALT3_EN, cam_dev->base + REG_HALT3_EN);
+	writel_relaxed(HALT4_EN, cam_dev->base + REG_HALT4_EN);
 	writel_relaxed(HALT13_EN, cam_dev->base + REG_HALT13_EN);
 
 	//Disable low latency
@@ -162,21 +167,21 @@ static void init_camsys_settings(struct mtk_raw_device *dev, bool is_srt, bool i
 	if (is_srt) {
 		writel_relaxed(0x0, cam_dev->base + reg_raw_urgent);
 		writel_relaxed(0x0, cam_dev->base + reg_yuv_urgent);
-		if (dev->num_larbs && dev->larbs[0])
-			mtk_smi_larb_ultra_dis(&dev->larbs[0]->dev, !is_slb);
-		if (yuv_dev->num_larbs && yuv_dev->larbs[0])
-			mtk_smi_larb_ultra_dis(&yuv_dev->larbs[0]->dev, true);
 	} else {
 		writel_relaxed(raw_urgent, cam_dev->base + reg_raw_urgent);
 		writel_relaxed(yuv_urgent, cam_dev->base + reg_yuv_urgent);
-		if (dev->num_larbs && dev->larbs[0])
-			mtk_smi_larb_ultra_dis(&dev->larbs[0]->dev, false);
-		if (yuv_dev->num_larbs && yuv_dev->larbs[0])
-			mtk_smi_larb_ultra_dis(&yuv_dev->larbs[0]->dev, false);
 	}
 
 	wmb(); /* TBC */
-	dev_info(dev->dev, "%s: is srt:%d\n", __func__, is_srt);
+
+	dev_info(dev->dev, "%s: is srt:%d halt1~10,13:0x%x/0x%x/0x%x/0x%x/0x%x/0x%x/0x%x/0x%x/0x%x/0x%x/0x%x\n",
+		__func__, is_srt,
+		readl(cam_dev->base + REG_HALT1_EN), readl(cam_dev->base + REG_HALT2_EN),
+		readl(cam_dev->base + REG_HALT3_EN), readl(cam_dev->base + REG_HALT4_EN),
+		readl(cam_dev->base + REG_HALT5_EN), readl(cam_dev->base + REG_HALT6_EN),
+		readl(cam_dev->base + REG_HALT7_EN), readl(cam_dev->base + REG_HALT8_EN),
+		readl(cam_dev->base + REG_HALT9_EN), readl(cam_dev->base + REG_HALT10_EN),
+		readl(cam_dev->base + REG_HALT13_EN));
 }
 
 static void init_ADLWR_settings(struct mtk_cam_device *cam)
@@ -269,9 +274,54 @@ static void reset_error_handling(struct mtk_raw_device *dev)
 	dev->tg_overrun_handle_cnt = 0;
 }
 
+#define HW_TIMER_INC_PERIOD   0x2
+#define DDR_GEN_BEFORE_US     4
+#define QOS_GEN_BEFORE_US     100
+static void init_raw_ddren(struct mtk_raw_device *dev, int is_srt, int frm_time_us)
+{
+	int ddr_gen_pulse, qos_gen_pulse;
+	int val = 0;
+
+	if (debug_ddren_sw_mode) {
+		SET_FIELD(&val, CAMCTL_DDREN_SW_SET, 1);
+		writel_relaxed(val, dev->base + REG_CAMCTL_DDREN_CTL);
+	} else {
+		SET_FIELD(&val, CAMCTL_DDREN_HW_EN, 1);
+		writel_relaxed(val, dev->base + REG_CAMCTL_DDREN_CTL);
+	}
+
+	//hrt ddren timer for master
+	if (!dev->is_slave && !is_srt) {
+		ddr_gen_pulse =
+			(frm_time_us - DDR_GEN_BEFORE_US) * SCQ_DEFAULT_CLK_RATE /
+			(HW_TIMER_INC_PERIOD + 1) - 1;
+		qos_gen_pulse =
+			(frm_time_us - QOS_GEN_BEFORE_US) * SCQ_DEFAULT_CLK_RATE /
+			(HW_TIMER_INC_PERIOD + 1) - 1;
+
+		writel_relaxed(0x1, dev->base + REG_TG_HW_TIMER_CTL);
+		writel_relaxed(HW_TIMER_INC_PERIOD,
+				dev->base + REG_TG_HW_TIMER_INC_PERIOD);
+		writel_relaxed(ddr_gen_pulse, dev->base + REG_TG_HW_DDR_GEN_PULSE_CNT);
+		writel_relaxed(qos_gen_pulse, dev->base + REG_TG_HW_QOS_GEN_PULSE_CNT);
+	}
+
+	wmb(); /* make sure committed */
+
+	dev_info(dev->dev, "is_srt:%d frm_time_us:%d ddren_sw_mode:%d\n",
+		is_srt, frm_time_us, debug_ddren_sw_mode);
+}
+
+#ifdef QOF_READY
+static void init_qof_ddren(struct mtk_raw_device *dev, int is_srt, int frm_time_us)
+{
+	/* todo */
+}
+#endif
+
 #define CAMCQ_CQ_EN_DEFAULT	0x14
-void initialize(struct mtk_raw_device *dev, int is_slave, int is_srt, int is_slb,
-		struct engine_callback *cb)
+void initialize(struct mtk_raw_device *dev, struct engine_callback *cb,
+			    int is_slave, int is_srt, int frm_time_us)
 {
 	u32 val;
 
@@ -306,8 +356,9 @@ void initialize(struct mtk_raw_device *dev, int is_slave, int is_srt, int is_slb
 	atomic_set(&dev->vf_en, 0);
 	reset_msgfifo(dev);
 
-	init_camsys_settings(dev, is_srt, is_slb);
+	init_camsys_settings(dev, is_srt);
 	init_ADLWR_settings(dev->cam);
+	init_raw_ddren(dev, is_srt, frm_time_us);
 
 	dev->engine_cb = cb;
 	engine_fsm_reset(&dev->fsm, dev->dev);
@@ -351,7 +402,7 @@ static void subsample_set_sensor_time(struct mtk_raw_device *dev,
 
 static void reset_reg(struct mtk_raw_device *dev)
 {
-	u32 cq_en, sw_done, sw_sub_ctl;
+	u32 cq_en, sw_done, sw_sub_ctl, ddren_ctl;
 
 	cq_en = readl_relaxed(dev->base_inner + REG_CAMCQ_CQ_EN);
 	sw_done = readl_relaxed(dev->base_inner + REG_CAMCTL_SW_PASS1_DONE);
@@ -369,18 +420,25 @@ static void reset_reg(struct mtk_raw_device *dev)
 	writel(0, dev->base_inner + REG_CAMCTL_SW_SUB_CTL);
 	writel(0, dev->base + REG_CAMCTL_SW_SUB_CTL);
 
+	if (debug_ddren_sw_mode) {
+		SET_FIELD(&ddren_ctl, CAMCTL_DDREN_SW_CLR, 1);
+		writel_relaxed(ddren_ctl, dev->base + REG_CAMCTL_DDREN_CTL);
+	}
+
 	wmb(); /* make sure committed */
 
 	if (CAM_DEBUG_ENABLED(RAW_INT))
 		dev_info(dev->dev,
-			 "[%s] CQ_EN/SW_SUB_CTL/SW_DONE [in] 0x%x/0x%x/0x%x [out] 0x%x/0x%x/0x%x\n",
+			 "[%s] CQ_EN/SW_SUB_CTL/SW_DONE/DDREN_ST [in] 0x%x/0x%x/0x%x/0x%x [out] 0x%x/0x%x/0x%x/0x%x\n",
 			 __func__,
 			 readl_relaxed(dev->base_inner + REG_CAMCQ_CQ_EN),
 			 readl_relaxed(dev->base_inner + REG_CAMCTL_SW_SUB_CTL),
 			 readl_relaxed(dev->base_inner + REG_CAMCTL_SW_PASS1_DONE),
+			 readl_relaxed(dev->base_inner + REG_CAMCTL_DDREN_ST),
 			 readl_relaxed(dev->base + REG_CAMCQ_CQ_EN),
 			 readl_relaxed(dev->base + REG_CAMCTL_SW_SUB_CTL),
-			 readl_relaxed(dev->base + REG_CAMCTL_SW_PASS1_DONE));
+			 readl_relaxed(dev->base + REG_CAMCTL_SW_PASS1_DONE),
+			 readl_relaxed(dev->base + REG_CAMCTL_DDREN_ST));
 }
 
 void subsample_enable(struct mtk_raw_device *dev, int subsample_ratio)
@@ -1798,7 +1856,6 @@ int mtk_raw_runtime_suspend(struct device *dev)
 	if (pr_detect_count > drvdata->default_printk_cnt)
 		set_detect_count(drvdata->default_printk_cnt);
 
-	// reset(drvdata);
 	mtk_cam_reset_qos(dev, &drvdata->qos);
 
 	for (i = 0; i < drvdata->num_clks; i++)

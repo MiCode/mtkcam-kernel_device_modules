@@ -59,6 +59,10 @@ struct mtk_rpmsg_device;
 #define SENSOR_META_BUF_NUM 8
 #define RUN_ADL_FRAME_MODE_FROM_RAWI
 
+#define CAM_VCORE_BASE       0x3c805000
+#define CAM_VCORE_DDREN_EN   0x38
+#define CAM_VCORE_DDREN_ACK  0x38
+
 struct mtk_cam_adl_work {
 	struct work_struct work;
 	struct mtk_raw_device *raw_dev;
@@ -240,6 +244,8 @@ struct mtk_cam_device {
 	void __iomem *adlwr_base;
 	void __iomem *adlrd_base;
 	void __iomem *qoftop_base;
+	void __iomem *vcore_ddren_en;
+	void __iomem *vcore_ddren_ack;
 	struct v4l2_device v4l2_dev;
 	struct v4l2_async_notifier notifier;
 	struct media_device media_dev;

@@ -1307,6 +1307,30 @@ EXIT:
 }
 #endif
 
+static void mtk_cam_plat_resource_ctrl(struct mtk_cam_device *cam, int on_off)
+{
+	int ret, ack = 0;
+
+	writel(on_off ? 0x1fd : 0x0, cam->vcore_ddren_en);
+
+	if (on_off) {
+		ret = readx_poll_timeout(readl, cam->vcore_ddren_ack,
+					 ack,
+					 ack & 0x1fc,
+					 1 /* delay, us */,
+					 2000 /* timeout, us */);
+		if (ret < 0) {
+			dev_info(cam->dev, "%s: error: timeout!, (ack 0x%x)\n",
+				__func__, ack);
+			return;
+		}
+	}
+
+	dev_info(cam->dev, "%s: ddren:0x%x, ack:0x%x", __func__,
+		readl_relaxed(cam->vcore_ddren_en),
+		readl_relaxed(cam->vcore_ddren_ack));
+}
+
 static int mtk_cam_initialize(struct mtk_cam_device *cam)
 {
 	int ret;
@@ -1320,6 +1344,8 @@ static int mtk_cam_initialize(struct mtk_cam_device *cam)
 
 	if (WARN_ON(pm_runtime_get_sync(cam->dev)))
 		return -1;
+
+	mtk_cam_plat_resource_ctrl(cam, 1);
 
 	ret = mtk_cam_power_rproc(cam, 1);
 	if (ret)
@@ -1338,6 +1364,7 @@ static int mtk_cam_uninitialize(struct mtk_cam_device *cam)
 	dev_info(cam->dev, "camsys uninitialize\n");
 
 	mtk_cam_power_rproc(cam, 0);
+	mtk_cam_plat_resource_ctrl(cam, 0);
 	pm_runtime_put_sync(cam->dev);
 
 	wake_up(&cam->shutdown_wq);
@@ -4152,6 +4179,16 @@ static int mtk_cam_probe(struct platform_device *pdev)
 		dev_err(dev, "%s: failed to map qoftop_base\n", __func__);
 		cam_dev->qoftop_base = NULL;
 	}
+	cam_dev->vcore_ddren_en = ioremap(CAM_VCORE_BASE + CAM_VCORE_DDREN_EN, 0x4);
+	if (IS_ERR(cam_dev->vcore_ddren_en)) {
+		dev_err(dev, "%s: failed to map vcore_ddren_en\n", __func__);
+		cam_dev->vcore_ddren_en = NULL;
+	}
+	cam_dev->vcore_ddren_ack = ioremap(CAM_VCORE_BASE + CAM_VCORE_DDREN_ACK, 0x4);
+	if (IS_ERR(cam_dev->vcore_ddren_ack)) {
+		dev_err(dev, "%s: failed to map vcore_ddren_ack\n", __func__);
+		cam_dev->vcore_ddren_ack = NULL;
+	}
 	// adlrd_rdone
 	irq = platform_get_irq_byname(pdev, "adlrd_rdone");
 	if (irq < 0) {
@@ -4296,45 +4333,9 @@ static void mtk_cam_shutdown(struct platform_device *pdev)
 	}
 }
 
-#define CAM_MAIN_LOW_POWER_CTRL    0x390
-#define CAM_MAIN_CAM_SPM_ACK    0x42C
-#ifdef CAM_EP_READY
-static void camsys_main_lp_ctrl(struct mtk_cam_device *cam_dev, bool on)
-{
-	int spm_ack = 0;
-	int ret;
-
-	writel_relaxed(on ? BIT(0) | BIT(1) | BIT(2) : 0x0,
-		cam_dev->base + CAM_MAIN_LOW_POWER_CTRL);
-
-	if (on) {
-		ret = readx_poll_timeout(readl, cam_dev->base + CAM_MAIN_CAM_SPM_ACK,
-					 spm_ack,
-					 spm_ack & (BIT(0) | BIT(1) | BIT(2)),
-					 1 /* delay, us */,
-					 2000 /* timeout, us */);
-		if (ret < 0) {
-			dev_info(cam_dev->dev, "%s: error: timeout!, (ack 0x%x)\n",
-				__func__, spm_ack);
-			return;
-		}
-	}
-
-	dev_info(cam_dev->dev, "%s: ctrl: 0x%x ack: 0x%x\n", __func__,
-		readl(cam_dev->base + CAM_MAIN_LOW_POWER_CTRL), spm_ack);
-}
-#endif
-
 static int mtk_cam_runtime_suspend(struct device *dev)
 {
-#ifdef CAM_LOWPOWER_CTRL
-	struct mtk_cam_device *cam_dev = dev_get_drvdata(dev);
-
 	dev_dbg(dev, "- %s\n", __func__);
-
-
-	camsys_main_lp_ctrl(cam_dev, false);
-#endif
 
 	return 0;
 }
@@ -4404,7 +4405,6 @@ static int mtk_cam_runtime_resume(struct device *dev)
 	dev_dbg(dev, "- %s\n", __func__);
 
 #ifdef CAM_EP_READY
-	camsys_main_lp_ctrl(cam_dev, true);
 	init_camsys_main_adl_setting(cam_dev);
 #endif
 

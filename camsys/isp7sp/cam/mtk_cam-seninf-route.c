@@ -1384,8 +1384,8 @@ int mtk_cam_seninf_set_pixelmode_camsv(struct v4l2_subdev *sd,
 				i,
 				ctx->pad2cam[pad_id][i]);
 
-		if (cammux2camtype(ctx, camtg) !=
-			cammux2camtype(ctx, ctx->pad2cam[pad_id][i])) {
+		if (ctx->streaming && (cammux2camtype(ctx, camtg) !=
+			cammux2camtype(ctx, ctx->pad2cam[pad_id][i]))) {
 			dev_info(ctx->dev,
 			"%s camtg %d camtype is mismatch ctx->pad2cam[pad:%d][des_cnt:%d] %d\n",
 			__func__, camtg, pad_id, i, ctx->pad2cam[pad_id][i]);

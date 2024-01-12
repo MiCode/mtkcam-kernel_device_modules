@@ -461,13 +461,13 @@ static void fsync_mgr_setup_sensor_hdr_info(struct adaptor_ctx *ctx,
 #endif
 }
 
-static void fsync_mgr_set_hdr_exp_data(struct adaptor_ctx *ctx,
-	struct fs_hdr_exp_st *p_hdr_exp,
-	u64 *ae_exp_arr, u32 ae_exp_cnt,
-	int fine_integ_line, const u32 mode_id)
+static void fsync_mgr_setup_all_exp_data(struct adaptor_ctx *ctx,
+	unsigned int *p_shutter_lc, struct fs_hdr_exp_st *p_hdr_exp,
+	const u64 *ae_exp_arr, const u32 ae_exp_cnt, const u32 mode_id)
 {
 	struct mtk_stagger_info info = {0};
 	unsigned int i = 0;
+	int fine_integ_line;
 	int ret = 0;
 	u64 ae_exp;
 
@@ -479,11 +479,11 @@ static void fsync_mgr_set_hdr_exp_data(struct adaptor_ctx *ctx,
 		return;
 	}
 
+	/* !!! start setup all exp data (shutter_lc & fs_hdr_exp_st) !!! */
+	fine_integ_line = g_sensor_fine_integ_line(ctx, mode_id);
 
+	/* ==> for hdr-exp settings, e.g. STG sensor */
 	info.scenario_id = SENSOR_SCENARIO_ID_NONE;
-
-	/* for hdr-exp settings, e.g. STG sensor */
-	// ret = g_stagger_info(ctx, ctx->cur_mode->id, &info);
 	ret = g_stagger_info(ctx, mode_id, &info);
 	if (!ret) {
 		fsync_mgr_setup_sensor_hdr_info(ctx, p_hdr_exp, mode_id);
@@ -528,14 +528,18 @@ static void fsync_mgr_set_hdr_exp_data(struct adaptor_ctx *ctx,
 			}
 		}
 	}
+
+	/* ==> for ae_exp_cnt == 1 or mode_exp_cnt == 1, e.g. DCG (ae:2/mode:1) */
+	ae_exp = (ae_exp_cnt == 1 || p_hdr_exp->mode_exp_cnt == 1)
+		? *(ae_exp_arr + 0) : 0;
+	*p_shutter_lc = (fine_integ_line)
+		? FINE_INTEG_CONVERT(ae_exp, fine_integ_line) : (u32)ae_exp;
 }
 
 static void fsync_mgr_setup_exp_data(struct adaptor_ctx *ctx,
 	struct fs_perframe_st *p_pf_ctrl, const u32 mode_id,
 	u64 *ae_exp_arr, int ae_exp_cnt)
 {
-	int fine_integ_line = 0;
-	u64 ae_exp;
 	int i;
 
 	/* error handle */
@@ -554,17 +558,9 @@ static void fsync_mgr_setup_exp_data(struct adaptor_ctx *ctx,
 		}
 	}
 
-
-	fine_integ_line = g_sensor_fine_integ_line(ctx, mode_id);
-	ae_exp = (ae_exp_cnt == 1) ? *(ae_exp_arr + 0) : 0;
-	if (fine_integ_line) {
-		p_pf_ctrl->shutter_lc =
-			FINE_INTEG_CONVERT(ae_exp, fine_integ_line);
-	} else
-		p_pf_ctrl->shutter_lc = (u32) ae_exp;
-
-	fsync_mgr_set_hdr_exp_data(ctx, &p_pf_ctrl->hdr_exp,
-		ae_exp_arr, ae_exp_cnt, fine_integ_line, mode_id);
+	fsync_mgr_setup_all_exp_data(ctx,
+		&p_pf_ctrl->shutter_lc, &p_pf_ctrl->hdr_exp,
+		ae_exp_arr, ae_exp_cnt, mode_id);
 }
 
 

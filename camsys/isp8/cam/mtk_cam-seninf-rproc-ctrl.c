@@ -21,8 +21,8 @@ static inline int is_seninf_rproc_node_valid(struct device *dev,
 {
 	if (unlikely(seninf_rproc_node == NULL)) {
 		dev_info(dev,
-			"[%s][%s] ERROR: seninf rproc node is null\n",
-			__func__, caller);
+			"[%s][%s] ERROR: seninf rproc node is null because the DTS compatiable node:'%s' can't be found\n",
+			__func__, caller, SENINF_RPROC_COMP_NAME);
 		return -1;
 	}
 	return 0;
@@ -234,6 +234,10 @@ void mtk_cam_seninf_rproc_ccu_tsrec_ctrl(struct device *dev,
 	struct tsrec_irq_sel_info tsrec_irq_sel = {0};
 	const int curr_pwn_cnt = atomic_read(&p_ccu_ctrl->pwn_cnt);
 	int ret, is_msg_id_valid = 1;
+
+	/* first, check if seninf rproc exist */
+	if (unlikely(is_seninf_rproc_node_valid(dev, __func__) != 0))
+		return;
 
 	/* boot ccu */
 	ret = mtk_cam_seninf_rproc_ccu_pwr_en(dev, p_ccu_ctrl, 1, __func__);

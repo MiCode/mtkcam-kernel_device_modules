@@ -11,6 +11,7 @@
 #include <linux/pm_opp.h>
 #include <linux/regulator/consumer.h>
 #include <linux/types.h>
+#include <linux/time.h>
 #include <media/v4l2-ctrls.h>
 #include <media/v4l2-device.h>
 #include <media/videobuf2-v4l2.h>
@@ -233,6 +234,8 @@ do {								\
 
 #define POSE_LOOP_NUM 3
 #define FLD_MAX_OUT 1680
+
+#define MAX_DEBUG_TIMEVAL 7
 
 extern struct mtk_aie_user_para g_user_param;
 
@@ -717,6 +720,9 @@ struct mtk_aie_dev {
 
 	/* option for ldvt */
 	bool larb_clk_ready;
+
+	/* time for debug */
+	long long tv[MAX_DEBUG_TIMEVAL];
 };
 
 struct mtk_aie_ctx {
@@ -734,7 +740,7 @@ extern const struct mtk_aie_drv_ops aie_ops_isp7sp;
 /**************************************************************************/
 /*                   C L A S S    D E C L A R A T I O N                   */
 /**************************************************************************/
-
+void aie_get_time(long long *tv, unsigned int idx);
 void config_aie_cmdq_secure_init(struct mtk_aie_dev *fd);
 void aie_enable_secure_domain(struct mtk_aie_dev *fd);
 void aie_disable_secure_domain(struct mtk_aie_dev *fd);

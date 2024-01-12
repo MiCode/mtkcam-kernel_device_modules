@@ -152,6 +152,15 @@ static struct aie_data data_isp7sp_1 = {
 	.larb_clk_ready = true,
 };
 
+void aie_get_time(long long *tv, unsigned int idx)
+{
+	if (idx < MAX_DEBUG_TIMEVAL)
+		tv[idx] = ktime_get_boottime_ns();
+	else
+		pr_info("[%s] over max debug timeval (%d/%d)\n",
+			__func__, idx, MAX_DEBUG_TIMEVAL);
+}
+
 void aov_notify_register(aov_notify aov_notify_fn)
 {
 	m_aov_notify = aov_notify_fn;
@@ -545,6 +554,8 @@ static void mtk_aie_hw_done(struct mtk_aie_dev *fd,
 	if (!cancel_delayed_work(&fd->job_timeout_work))
 		return;
 
+	aie_get_time(fd->tv, 5);
+
 	mtk_aie_hw_job_finish(fd, vb_state);
 	atomic_dec(&fd->num_composing);
 	wake_up(&fd->flushing_waitq);
@@ -776,6 +787,7 @@ static void mtk_aie_job_timeout_work(struct work_struct *work)
 {
 	struct mtk_aie_dev *fd =
 		container_of(work, struct mtk_aie_dev, job_timeout_work.work);
+	unsigned int i;
 
 	aie_dev_info(fd->dev, "FD Job timeout!");
 
@@ -802,7 +814,12 @@ static void mtk_aie_job_timeout_work(struct work_struct *work)
 		 fd->aie_cfg->src_padding.up,
 		 fd->aie_cfg->freq_level);
 
+	aie_get_time(fd->tv, 6);
 	fd->drv_ops->fdvt_dump_reg(fd);
+
+	for (i = 0; i < MAX_DEBUG_TIMEVAL; i++)
+		aie_dev_info(fd->dev, "tv[%d], %lld.%lld s",
+			i, fd->tv[i] / 1000000000, fd->tv[i] % 1000000000);
 
 	fd->drv_ops->irq_handle(fd);
 	fd->drv_ops->reset(fd);
@@ -1493,6 +1510,7 @@ static void mtk_aie_device_run(void *priv)
 	atomic_inc(&fd->num_composing);
 
 	mtk_aie_hw_job_exec(fd, &fd_param);
+	aie_get_time(fd->tv, 0);
 
 	if (ret) {
 		aie_dev_info(fd->dev, "Failed to prepare aie setting\n");
@@ -1650,6 +1668,7 @@ static void mtk_aie_frame_done_worker(struct work_struct *work)
 	struct mtk_aie_req_work *req_work = (struct mtk_aie_req_work *)work;
 	struct mtk_aie_dev *fd = (struct mtk_aie_dev *)req_work->fd_dev;
 
+	aie_get_time(fd->tv, 4);
 	switch (fd->aie_cfg->sel_mode) {
 	case FDMODE:
 		fd->drv_ops->get_fd_result(fd, fd->aie_cfg);
@@ -1663,6 +1682,7 @@ static void mtk_aie_frame_done_worker(struct work_struct *work)
 	default:
 	break;
 	}
+
 
 	mtk_aie_hw_done(fd, VB2_BUF_STATE_DONE);
 }

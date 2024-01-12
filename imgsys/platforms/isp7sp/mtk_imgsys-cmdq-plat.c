@@ -2368,14 +2368,21 @@ void mtk_imgsys_mmdvfs_init_plat7sp(struct mtk_imgsys_dev *imgsys_dev)
 			"%s: [ERROR] Failed to get dvfsrc-vmm\n", __func__);
 		dvfs_info->reg = NULL;
 		if (!mmdvfs_get_version())
-		dvfs_info->mmdvfs_clk = devm_clk_get(dvfs_info->dev, "mmdvfs_clk");
-		else
+			dvfs_info->mmdvfs_clk = devm_clk_get(dvfs_info->dev, "mmdvfs_clk");
+		else {
 			dvfs_info->mmdvfs_clk = devm_clk_get(dvfs_info->dev, "mmdvfs_mux");
+			dvfs_info->mmdvfs_clk_smi = devm_clk_get(dvfs_info->dev, "mmdvfs_mux_smi");
+		}
 		if (IS_ERR_OR_NULL(dvfs_info->mmdvfs_clk)) {
 			dev_info(dvfs_info->dev,
 				"%s: [ERROR] Failed to get mmdvfs_clk\n", __func__);
 			dvfs_info->mmdvfs_clk = NULL;
 			return;
+		}
+		if (IS_ERR_OR_NULL(dvfs_info->mmdvfs_clk_smi)) {
+			dev_info(dvfs_info->dev,
+				"%s: [ERROR] Failed to get mmdvfs_clk_smi\n", __func__);
+			dvfs_info->mmdvfs_clk_smi = NULL;
 		}
 	}
 
@@ -2475,6 +2482,7 @@ void mtk_imgsys_mmdvfs_init_plat7sp(struct mtk_imgsys_dev *imgsys_dev)
 
 	dvfs_info->cur_volt = 0;
 	dvfs_info->cur_freq = 0;
+	dvfs_info->cur_freq_smi = 0;
 	dvfs_info->vss_task_cnt = 0;
 	dvfs_info->smvr_task_cnt = 0;
 	dvfs_info->opp_num = opp_num;
@@ -2489,6 +2497,7 @@ void mtk_imgsys_mmdvfs_uninit_plat7sp(struct mtk_imgsys_dev *imgsys_dev)
 
 	dvfs_info->cur_volt = volt;
 	dvfs_info->cur_freq = freq;
+	dvfs_info->cur_freq_smi = freq;
 
 	if (dvfs_info->reg) {
 		ret = regulator_set_voltage(dvfs_info->reg, volt, INT_MAX);
@@ -2502,6 +2511,13 @@ void mtk_imgsys_mmdvfs_uninit_plat7sp(struct mtk_imgsys_dev *imgsys_dev)
 			dev_info(dvfs_info->dev,
 				"[%s] Failed to set mmdvfs rate(%ld) with ret(%d)\n",
 				__func__, freq, ret);
+		if (dvfs_info->mmdvfs_clk_smi) {
+			ret = clk_set_rate(dvfs_info->mmdvfs_clk_smi, freq);
+			if (ret)
+				dev_info(dvfs_info->dev,
+					"[%s] Failed to set mmdvfs_smi rate(%ld) with ret(%d)\n",
+					__func__, freq, ret);
+		}
 	} else
 		dev_info(dvfs_info->dev,
 			"%s: [ERROR] reg and clk is err or null\n", __func__);
@@ -2514,7 +2530,7 @@ void mtk_imgsys_mmdvfs_set_plat7sp(struct mtk_imgsys_dev *imgsys_dev,
 {
 	struct mtk_imgsys_dvfs *dvfs_info = &imgsys_dev->dvfs_info;
 	int volt = 0, ret = 0, idx = 0, opp_idx = 0;
-	unsigned long freq = 0;
+	unsigned long freq = 0, freq_smi = 0;
 	/* u32 hw_comb = frm_info->user_info[0].hw_comb; */
 
 	freq = dvfs_info->freq;
@@ -2550,14 +2566,50 @@ void mtk_imgsys_mmdvfs_set_plat7sp(struct mtk_imgsys_dev *imgsys_dev,
 						"[%s] Failed to set regulator voltage(%d) with ret(%d)\n",
 						__func__, volt, ret);
 			} else if (dvfs_info->mmdvfs_clk) {
-				ret = clk_set_rate(dvfs_info->mmdvfs_clk, freq);
-				if (ret)
-					dev_info(dvfs_info->dev,
-						"[%s] Failed to set mmdvfs rate(%ld) with ret(%d)\n",
-						__func__, freq, ret);
+				/* imgsys to mminfra clk mapping table */
+				if (freq >= IMGSYS_IMG_CLK_LV1)
+					freq_smi = IMGSYS_SMI_CLK_LV1;
+				else if (freq >= IMGSYS_IMG_CLK_LV2)
+					freq_smi = IMGSYS_SMI_CLK_LV2;
+				else if (freq >= IMGSYS_IMG_CLK_LV3)
+					freq_smi = IMGSYS_SMI_CLK_LV3;
+				else
+					freq_smi = IMGSYS_SMI_CLK_LV4;
+				if (dvfs_info->cur_volt < volt) { // increase: mminfra -> img
+					if (dvfs_info->mmdvfs_clk_smi) {
+						ret = clk_set_rate(dvfs_info->mmdvfs_clk_smi, freq_smi);
+						if (ret)
+							dev_info(dvfs_info->dev,
+								"[%s] Failed to set mmdvfs_smi rate(%ld) with ret(%d)\n",
+								__func__, freq, ret);
+					}
+					if (dvfs_info->mmdvfs_clk) {
+						ret = clk_set_rate(dvfs_info->mmdvfs_clk, freq);
+						if (ret)
+							dev_info(dvfs_info->dev,
+								"[%s] Failed to set mmdvfs rate(%ld) with ret(%d)\n",
+								__func__, freq, ret);
+					}
+				} else { //decrease: img -> mminfra
+					if (dvfs_info->mmdvfs_clk) {
+						ret = clk_set_rate(dvfs_info->mmdvfs_clk, freq);
+						if (ret)
+							dev_info(dvfs_info->dev,
+								"[%s] Failed to set mmdvfs rate(%ld) with ret(%d)\n",
+								__func__, freq, ret);
+					}
+					if (dvfs_info->mmdvfs_clk_smi) {
+						ret = clk_set_rate(dvfs_info->mmdvfs_clk_smi, freq_smi);
+						if (ret)
+							dev_info(dvfs_info->dev,
+								"[%s] Failed to set mmdvfs_smi rate(%ld) with ret(%d)\n",
+								__func__, freq, ret);
+					}
+				}
 			}
 			dvfs_info->cur_volt = volt;
 			dvfs_info->cur_freq = freq;
+			dvfs_info->cur_freq_smi = freq_smi;
 		}
 	}
 }
@@ -2617,12 +2669,20 @@ void mtk_imgsys_mmdvfs_reset_plat7sp(struct mtk_imgsys_dev *imgsys_dev)
 					dev_info(dvfs_info->dev,
 						"[%s] Failed to set mmdvfs rate(%ld) with ret(%d)\n",
 						__func__, freq, ret);
+				if (dvfs_info->mmdvfs_clk_smi) {
+					ret = clk_set_rate(dvfs_info->mmdvfs_clk_smi, freq);
+					if (ret)
+						dev_info(dvfs_info->dev,
+							"[%s] Failed to set mmdvfs_smi rate(%ld) with ret(%d)\n",
+							__func__, freq, ret);
+				}
 			}
 		}
 	}
 
 	dvfs_info->cur_volt = volt;
 	dvfs_info->cur_freq = freq;
+	dvfs_info->cur_freq_smi = freq;
 	dvfs_info->vss_task_cnt = 0;
 	dvfs_info->smvr_task_cnt = 0;
 }

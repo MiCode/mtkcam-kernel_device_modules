@@ -248,6 +248,7 @@ struct mtk_imgsys_dvfs {
 	struct device *dev;
 	struct regulator *reg;
 	struct clk *mmdvfs_clk;
+	struct clk *mmdvfs_clk_smi;
 	unsigned int opp_num;
 	unsigned int clklv_num_dts[MTK_IMGSYS_OPP_SET];
 	unsigned int clklv_dts[MTK_IMGSYS_OPP_SET][MTK_IMGSYS_CLK_LEVEL_CNT];
@@ -262,6 +263,7 @@ struct mtk_imgsys_dvfs {
 	unsigned int clklv_target[MTK_IMGSYS_OPP_SET];
 	unsigned int cur_volt;
 	unsigned long cur_freq;
+	unsigned long cur_freq_smi;
 	unsigned long pixel_size[MTK_IMGSYS_DVFS_GROUP];
 	unsigned long freq;
 	unsigned int vss_task_cnt;

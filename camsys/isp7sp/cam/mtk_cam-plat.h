@@ -9,23 +9,6 @@
 #include <linux/types.h>
 #include <linux/media.h>
 
-enum STATS_DMA_PORT {
-	PORT_UNKNOWN = 0,
-	PORT_CQI,
-	PORT_CACI,
-	PORT_BPCI,
-	PORT_PDI,
-	PORT_PDO,
-	PORT_AAO,
-	PORT_AAHO,
-	PORT_TSFSO,
-	PORT_LTMSO,
-	PORT_LTMSHO,
-	PORT_FLKO,
-	PORT_TCYSO,
-	PORT_AFO,
-};
-
 enum mraw_dmao_id {
 	imgo_m1 = 0,
 	imgbo_m1,
@@ -181,12 +164,16 @@ struct plat_v4l2_data {
 struct plat_data_hw {
 	u32 camsys_axi_mux;
 	int cammux_id_raw_start;
+	int raw_icc_path_num;
+	int yuv_icc_path_num;
 
 	int (*query_raw_dma_group)(int m4u_id, u32 group[4]);
 	int (*query_yuv_dma_group)(int m4u_id, u32 group[4]);
 
 	int (*query_caci_size)(int w, int h, size_t *size);
 	int (*query_max_exp_support)(u32 raw_idx);
+
+	int (*query_icc_path_idx)(int domain, int smi_port);
 };
 
 struct camsys_platform_data {

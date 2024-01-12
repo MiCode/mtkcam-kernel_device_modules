@@ -1395,7 +1395,8 @@ static int mtk_raw_probe(struct platform_device *pdev)
 	if (ret)
 		return ret;
 
-	ret = mtk_cam_qos_probe(dev, &raw_dev->qos, SMI_PORT_RAW_NUM);
+	ret = mtk_cam_qos_probe(dev, &raw_dev->qos,
+				GET_PLAT_HW(raw_icc_path_num));
 	if (ret)
 		return ret;
 
@@ -1789,7 +1790,8 @@ static int mtk_yuv_probe(struct platform_device *pdev)
 		return ret;
 	}
 
-	ret = mtk_cam_qos_probe(dev, &drvdata->qos, SMI_PORT_YUV_NUM);
+	ret = mtk_cam_qos_probe(dev, &drvdata->qos,
+				GET_PLAT_HW(yuv_icc_path_num));
 	if (ret)
 		return ret;
 

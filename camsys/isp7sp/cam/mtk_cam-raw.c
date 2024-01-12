@@ -171,6 +171,12 @@ static void init_camsys_settings(struct mtk_raw_device *dev, bool is_srt, bool i
 
 static void init_ADLWR_settings(struct mtk_cam_device *cam)
 {
+	if (IS_ERR_OR_NULL(cam->adl_base)) {
+		if (CAM_DEBUG_ENABLED(JOB))
+			dev_info(cam->dev, "%s: skipped\n", __func__);
+		return;
+	}
+
 	/* CAMADLWR_CAMADLWR_ADL_CTRL_FIELD_ID_GROUP_2 */
 	writel_relaxed(0x440, cam->adl_base + 0x850);
 }

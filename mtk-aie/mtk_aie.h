@@ -650,7 +650,6 @@ struct mtk_aie_dev {
 	u32 fdvt_sec_wait;
 	u32 fd_stream_count;
 	struct completion fd_job_finished;
-	struct delayed_work job_timeout_work;
 
 	struct aie_enq_info *aie_cfg;
 	struct aie_reg_cfg reg_cfg;
@@ -742,6 +741,9 @@ struct mtk_aie_dev {
 	bool is_cmdq_polling;
 	bool is_shutdown;
 	unsigned int aie_cmdq_event;
+
+	struct cmdq_pkt *pkt;
+	bool isHwHang;
 };
 
 struct mtk_aie_ctx {

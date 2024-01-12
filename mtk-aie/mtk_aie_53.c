@@ -104,7 +104,6 @@ struct aie_data {
 	struct aie_reg_map *reg_map;
 	unsigned int reg_map_num;
 	bool is_cmdq_polling;
-	unsigned int aie_cmdq_event;
 };
 
 static struct clk_bulk_data ipesys_isp7s_aie_clks[] = {
@@ -167,7 +166,6 @@ static struct aie_data data_isp7sp = {
 	.reg_map = isp7sp_aie_reg_map,
 	.reg_map_num = ARRAY_SIZE(isp7sp_aie_reg_map),
 	.is_cmdq_polling = false,
-	.aie_cmdq_event = 374,
 };
 
 static struct aie_data data_isp7sp_1 = {
@@ -178,7 +176,6 @@ static struct aie_data data_isp7sp_1 = {
 	.reg_map = isp7sp_aie_reg_map,
 	.reg_map_num = ARRAY_SIZE(isp7sp_aie_reg_map),
 	.is_cmdq_polling = true,
-	.aie_cmdq_event = 375,
 };
 
 static struct aie_data data_isp7sp_2 = {
@@ -189,7 +186,6 @@ static struct aie_data data_isp7sp_2 = {
 	.reg_map = isp7sp_aie_reg_map,
 	.reg_map_num = ARRAY_SIZE(isp7sp_aie_reg_map),
 	.is_cmdq_polling = false,
-	.aie_cmdq_event = 374,
 };
 
 void aie_get_time(long long *tv, unsigned int idx)
@@ -595,8 +591,6 @@ static void mtk_aie_hw_job_finish(struct mtk_aie_dev *fd,
 static void mtk_aie_hw_done(struct mtk_aie_dev *fd,
 			    enum vb2_buffer_state vb_state)
 {
-	if (!cancel_delayed_work(&fd->job_timeout_work))
-		return;
 
 	aie_get_time(fd->tv, 6);
 
@@ -715,8 +709,6 @@ static int mtk_aie_hw_job_exec(struct mtk_aie_dev *fd,
 			       struct fd_enq_param *fd_param)
 {
 	reinit_completion(&fd->fd_job_finished);
-	schedule_delayed_work(&fd->job_timeout_work,
-				msecs_to_jiffies(MTK_FD_HW_TIMEOUT));
 
 	return 0;
 }
@@ -838,56 +830,6 @@ static int mtk_aie_vb2_start_streaming(struct vb2_queue *vq, unsigned int count)
 		return mtk_aie_hw_connect(ctx->fd_dev);
 
 	return 0;
-}
-
-static void mtk_aie_job_timeout_work(struct work_struct *work)
-{
-	struct mtk_aie_dev *fd =
-		container_of(work, struct mtk_aie_dev, job_timeout_work.work);
-	unsigned int i;
-
-	AIE_SYSTRACE_BEGIN("%s", __func__);
-
-	aie_dev_info(fd->dev, "FD Job timeout!");
-
-	aie_dev_info(fd->dev, "AIE mode:%d fmt:%d w:%d h:%d s:%d pw%d ph%d np%d dg%d",
-		 fd->aie_cfg->sel_mode,
-		 fd->aie_cfg->src_img_fmt,
-		 fd->aie_cfg->src_img_width,
-		 fd->aie_cfg->src_img_height,
-		 fd->aie_cfg->src_img_stride,
-		 fd->aie_cfg->pyramid_base_width,
-		 fd->aie_cfg->pyramid_base_height,
-		 fd->aie_cfg->number_of_pyramid,
-		 fd->aie_cfg->rotate_degree);
-	aie_dev_info(fd->dev, "roi%d x1:%d y1:%d x2:%d y2:%d pad%d l%d r%d d%d u%d f%d",
-		 fd->aie_cfg->en_roi,
-		 fd->aie_cfg->src_roi.x1,
-		 fd->aie_cfg->src_roi.y1,
-		 fd->aie_cfg->src_roi.x2,
-		 fd->aie_cfg->src_roi.y2,
-		 fd->aie_cfg->en_padding,
-		 fd->aie_cfg->src_padding.left,
-		 fd->aie_cfg->src_padding.right,
-		 fd->aie_cfg->src_padding.down,
-		 fd->aie_cfg->src_padding.up,
-		 fd->aie_cfg->freq_level);
-
-	aie_get_time(fd->tv, 7);
-	fd->drv_ops->fdvt_dump_reg(fd);
-
-	for (i = 0; i < MAX_DEBUG_TIMEVAL; i++)
-		aie_dev_info(fd->dev, "tv[%d], %lld.%lld s",
-			i, fd->tv[i] / 1000000000, fd->tv[i] % 1000000000);
-
-	fd->drv_ops->irq_handle(fd);
-	fd->drv_ops->reset(fd);
-
-	mtk_aie_hw_job_finish(fd, VB2_BUF_STATE_ERROR);
-	atomic_dec(&fd->num_composing);
-	wake_up(&fd->flushing_waitq);
-
-	AIE_SYSTRACE_END();
 }
 
 static int mtk_aie_job_wait_finish(struct mtk_aie_dev *fd)
@@ -1754,22 +1696,29 @@ static void mtk_aie_frame_done_worker(struct work_struct *work)
 
 	AIE_SYSTRACE_BEGIN("%s", __func__);
 
-	aie_get_time(fd->tv, 5);
-	switch (fd->aie_cfg->sel_mode) {
-	case FDMODE:
-		fd->drv_ops->get_fd_result(fd, fd->aie_cfg);
-	break;
-	case ATTRIBUTEMODE:
-		fd->drv_ops->get_attr_result(fd, fd->aie_cfg);
-	break;
-	case FLDMODE:
-		fd->drv_ops->get_fld_result(fd, fd->aie_cfg);
-	break;
-	default:
-	break;
-	}
+	cmdq_pkt_wait_complete(fd->pkt);
+	cmdq_pkt_destroy(fd->pkt);
 
-	mtk_aie_hw_done(fd, VB2_BUF_STATE_DONE);
+	if (fd->isHwHang) {
+		mtk_aie_hw_done(fd, VB2_BUF_STATE_ERROR);
+	} else {
+		aie_get_time(fd->tv, 5);
+		switch (fd->aie_cfg->sel_mode) {
+		case FDMODE:
+			fd->drv_ops->get_fd_result(fd, fd->aie_cfg);
+		break;
+		case ATTRIBUTEMODE:
+			fd->drv_ops->get_attr_result(fd, fd->aie_cfg);
+		break;
+		case FLDMODE:
+			fd->drv_ops->get_fld_result(fd, fd->aie_cfg);
+		break;
+		default:
+		break;
+		}
+
+		mtk_aie_hw_done(fd, VB2_BUF_STATE_DONE);
+	}
 
 	AIE_SYSTRACE_END();
 }
@@ -1804,7 +1753,6 @@ static int mtk_aie_probe(struct platform_device *pdev)
 	fd->is_cmdq_polling = data->is_cmdq_polling;
 	reg_map = data->reg_map;
 	fd->is_shutdown = false;
-	fd->aie_cmdq_event = data->aie_cmdq_event;
 
 	if (dma_set_mask_and_coherent(dev, DMA_BIT_MASK(34)))
 		aie_dev_info(dev, "%s: No suitable DMA available\n", __func__);
@@ -1895,7 +1843,6 @@ static int mtk_aie_probe(struct platform_device *pdev)
 
 	mutex_init(&fd->vfd_lock);
 	init_completion(&fd->fd_job_finished);
-	INIT_DELAYED_WORK(&fd->job_timeout_work, mtk_aie_job_timeout_work);
 	init_waitqueue_head(&fd->flushing_waitq);
 	atomic_set(&fd->num_composing, 0);
 

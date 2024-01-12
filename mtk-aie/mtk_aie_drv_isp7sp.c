@@ -509,7 +509,6 @@ static void aie_fdvt_dump_reg(struct mtk_aie_dev *fd)
 	//int fld_face_num = fd->aie_cfg->fld_face_num;
 	unsigned int loop_num = 1;
 	int i = 0;
-	unsigned int event_val = 0;
 
 	if (fd->is_shutdown) {
 		aie_dev_info(fd->dev, "%s: skip for shutdown", __func__);
@@ -964,12 +963,6 @@ static void aie_fdvt_dump_reg(struct mtk_aie_dev *fd)
 				(unsigned int)readl(fd->fd_base + 0x158));
 		}
 	}
-
-	cmdq_mbox_enable(fd->fdvt_clt->chan);
-	event_val = cmdq_get_event(fd->fdvt_clt->chan, fd->aie_cmdq_event);
-	aie_dev_info(fd->dev, "FDVT cmdq event id: %d, status: %d\n",
-		fd->aie_cmdq_event, event_val);
-	cmdq_mbox_disable(fd->fdvt_clt->chan);
 }
 
 static void aie_free_dmabuf(struct mtk_aie_dev *fd, struct imem_buf_info *bufinfo)
@@ -3464,9 +3457,59 @@ static int aie_prepare(struct mtk_aie_dev *fd, struct aie_enq_info *aie_cfg)
 }
 
 #ifdef FDVT_USE_GCE
+static void mtk_aie_job_timeout_work(struct mtk_aie_dev *fd)
+{
+	unsigned int i;
+
+	AIE_SYSTRACE_BEGIN("%s", __func__);
+
+	aie_dev_info(fd->dev, "FD Job timeout!");
+
+	aie_dev_info(fd->dev, "AIE mode:%d fmt:%d w:%d h:%d s:%d pw%d ph%d np%d dg%d",
+		 fd->aie_cfg->sel_mode,
+		 fd->aie_cfg->src_img_fmt,
+		 fd->aie_cfg->src_img_width,
+		 fd->aie_cfg->src_img_height,
+		 fd->aie_cfg->src_img_stride,
+		 fd->aie_cfg->pyramid_base_width,
+		 fd->aie_cfg->pyramid_base_height,
+		 fd->aie_cfg->number_of_pyramid,
+		 fd->aie_cfg->rotate_degree);
+	aie_dev_info(fd->dev, "roi%d x1:%d y1:%d x2:%d y2:%d pad%d l%d r%d d%d u%d f%d",
+		 fd->aie_cfg->en_roi,
+		 fd->aie_cfg->src_roi.x1,
+		 fd->aie_cfg->src_roi.y1,
+		 fd->aie_cfg->src_roi.x2,
+		 fd->aie_cfg->src_roi.y2,
+		 fd->aie_cfg->en_padding,
+		 fd->aie_cfg->src_padding.left,
+		 fd->aie_cfg->src_padding.right,
+		 fd->aie_cfg->src_padding.down,
+		 fd->aie_cfg->src_padding.up,
+		 fd->aie_cfg->freq_level);
+
+	aie_get_time(fd->tv, 7);
+	aie_fdvt_dump_reg(fd);
+
+	for (i = 0; i < MAX_DEBUG_TIMEVAL; i++)
+		aie_dev_info(fd->dev, "tv[%d], %lld.%lld s",
+			i, fd->tv[i] / 1000000000, fd->tv[i] % 1000000000);
+
+	aie_irqhandle(fd);
+	aie_reset(fd);
+
+	AIE_SYSTRACE_END();
+}
+
 static void AIECmdqCB(struct cmdq_cb_data data)
 {
 	struct mtk_aie_dev *fd = (struct mtk_aie_dev *)data.data;
+	bool isHwHang = (data.err == 0) ? false : true;
+
+	fd->isHwHang = isHwHang;
+
+	if (isHwHang)
+		mtk_aie_job_timeout_work(fd);
 
 	queue_work(fd->frame_done_wq, &fd->req_work.work);
 }
@@ -3536,6 +3579,9 @@ static void config_aie_cmdq_hw(struct mtk_aie_dev *fd, struct aie_enq_info *aie_
 	aie_get_time(fd->tv, 1);
 	pkt = cmdq_pkt_create(fd->fdvt_clt);
 	aie_get_time(fd->tv, 2);
+
+	fd->pkt = pkt;
+
 	/*for early porting*/
 	if (aie_cfg->sel_mode == FDMODE) {
 		cmdq_pkt_write(pkt, NULL, FDVT_ENABLE_HW, 0x00000111,
@@ -3644,13 +3690,9 @@ static void config_aie_cmdq_hw(struct mtk_aie_dev *fd, struct aie_enq_info *aie_
 		cmdq_pkt_write(pkt, NULL, FDVT_START_HW, 0x0, CMDQ_REG_MASK);
 	}
 
-	//cmdq_pkt_flush(pkt);
 	aie_get_time(fd->tv, 3);
 	cmdq_pkt_flush_async(pkt, AIECmdqCB, (void *)fd);	/* flush and destry in cmdq*/
-	cmdq_pkt_wait_complete(pkt);
 	aie_get_time(fd->tv, 4);
-	/* release resource */
-	cmdq_pkt_destroy(pkt);
 
 	AIE_SYSTRACE_END();
 }

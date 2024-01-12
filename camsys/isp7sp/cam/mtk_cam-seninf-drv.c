@@ -1686,6 +1686,7 @@ static int config_hw_csi(struct seninf_ctx *ctx)
 #if AOV_GET_PARAM
 	struct seninf_core *core = ctx->core;
 #endif
+	int ret = 0;
 
 	memset(&glpinfo, 0, sizeof(struct seninf_glp_dt));
 
@@ -1715,7 +1716,11 @@ static int config_hw_csi(struct seninf_ctx *ctx)
 
 	g_seninf_ops->_set_vc(ctx, intf, vcinfo, &glpinfo);
 
-	g_seninf_ops->_set_csi_mipi(ctx);
+	ret = g_seninf_ops->_set_csi_mipi(ctx);
+	if (ret) {
+		dev_info(ctx->dev, "[%s][Error] ret(%d)\n", __func__, ret);
+		return ret;
+	}
 
 	return 0;
 }

@@ -351,6 +351,9 @@ enum mtk_mbus_frame_desc_dt_remap_type {
 	MTK_MBUS_FRAME_DESC_REMAP_TO_RAW10,
 	MTK_MBUS_FRAME_DESC_REMAP_TO_RAW12,
 	MTK_MBUS_FRAME_DESC_REMAP_TO_RAW14,
+	MTK_MBUS_FRAME_DESC_REMAP_TO_RAW16,
+	MTK_MBUS_FRAME_DESC_REMAP_TO_RAW20,
+	MTK_MBUS_FRAME_DESC_REMAP_TO_RAW24,
 };
 
 enum mtk_frame_desc_parsing_type {
@@ -359,6 +362,13 @@ enum mtk_frame_desc_parsing_type {
 	MTK_EBD_PARSING_TYPE_MIPI_RAW10,
 	MTK_EBD_PARSING_TYPE_MIPI_RAW12,
 	MTK_EBD_PARSING_TYPE_MIPI_RAW14,
+};
+
+enum mtk_frame_desc_fs_seq {
+	MTK_FRAME_DESC_FS_SEQ_UNKNOWN = 0,
+	MTK_FRAME_DESC_FS_SEQ_ONLY_ONE,
+	MTK_FRAME_DESC_FS_SEQ_FIRST = MTK_FRAME_DESC_FS_SEQ_ONLY_ONE,
+	MTK_FRAME_DESC_FS_SEQ_LAST,
 };
 
 struct mtk_mbus_frame_desc_entry_csi2 {
@@ -374,6 +384,7 @@ struct mtk_mbus_frame_desc_entry_csi2 {
 	u16 valid_bit;
 	u8 is_active_line;
 	u8 ebd_parsing_type; // for ebd parser query how to parse content
+	enum mtk_frame_desc_fs_seq fs_seq;
 };
 
 struct mtk_mbus_frame_desc_entry {
@@ -415,6 +426,8 @@ struct mtk_sensor_saturation_info {
 	__u32 gain_ratio;
 	__u32 OB_pedestal;
 	__u32 saturation_level;
+	/* The merged raw by the dcg sensor merging mode is merged from several bits of raws */
+	__u32 adc_bit;
 };
 
 struct mtk_n_1_mode {

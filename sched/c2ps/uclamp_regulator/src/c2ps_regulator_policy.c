@@ -11,7 +11,6 @@
 static unsigned int c2ps_regulator_debug_max_uclamp = 1000;
 static unsigned int c2ps_regulator_debug_min_uclamp = 1000;
 static unsigned int c2ps_regulator_base_update_uclamp = 0;
-static unsigned int c2ps_regulator_simple_min_uclamp = 50;
 static unsigned int c2ps_uclamp_up_margin = 0;
 static unsigned int c2ps_uclamp_down_margin = 0;
 static unsigned int c2ps_regulator_bg_update_uclamp = 20;
@@ -22,7 +21,6 @@ static unsigned int c2ps_uclamp_bg_up_margin_cluster2 = 0;
 module_param(c2ps_regulator_debug_max_uclamp, int, 0644);
 module_param(c2ps_regulator_debug_min_uclamp, int, 0644);
 module_param(c2ps_regulator_base_update_uclamp, int, 0644);
-module_param(c2ps_regulator_simple_min_uclamp, int, 0644);
 module_param(c2ps_uclamp_up_margin, int, 0644);
 module_param(c2ps_uclamp_down_margin, int, 0644);
 module_param(c2ps_regulator_bg_update_uclamp, int, 0644);
@@ -97,7 +95,6 @@ void c2ps_regulator_policy_fix_uclamp(struct regulator_req *req)
  * 	- c2ps_regulator_base_update_uclamp
  * 	- c2ps_uclamp_down_margin
  *  - c2ps_uclamp_up_margin
- *  - c2ps_regulator_simple_min_uclamp
  */
 void c2ps_regulator_policy_simple(struct regulator_req *req)
 {
@@ -141,8 +138,7 @@ void c2ps_regulator_policy_simple(struct regulator_req *req)
 						  (100 + c2ps_uclamp_up_margin) / 100),
 				 new_uclamp));
 
-	new_uclamp = max((int)c2ps_regulator_simple_min_uclamp,
-					 min(1024, new_uclamp));
+	new_uclamp = max(0, min(1024, new_uclamp));
 	req->tsk_info->latest_uclamp = new_uclamp;
 
 

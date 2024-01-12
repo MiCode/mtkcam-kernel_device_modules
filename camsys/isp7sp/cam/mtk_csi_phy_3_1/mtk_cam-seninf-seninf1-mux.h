@@ -3,8 +3,8 @@
  * Copyright (c) 2020 MediaTek Inc.
  */
 
-#ifndef __SENINF1_MUX_H__
-#define __SENINF1_MUX_H__
+#ifndef __SENINF1_MUX_C_HEADER_H__
+#define __SENINF1_MUX_C_HEADER_H__
 
 #define SENINF_MUX_CTRL_0 0x0000
 #define SENINF_MUX_EN_SHIFT 0

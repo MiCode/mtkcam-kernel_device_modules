@@ -393,6 +393,8 @@ static void fsync_mgr_setup_sensor_hdr_info(struct adaptor_ctx *ctx,
 
 	/* set mode exp cnt (e.g., stagger: 1 ~ 3) */
 	p_hdr_exp->mode_exp_cnt = g_scenario_exposure_cnt(ctx, mode_id);
+	p_hdr_exp->readout_len_lc = ctx->subctx.readout_length;
+	p_hdr_exp->read_margin_lc = ctx->subctx.read_margin;
 
 	/* setup multi exp type (HDR type, e.g., stagger, LB-MF, etc.) */
 	if (g_sensor_lbmf_property(ctx, mode_id, &lbmf_prop)) {
@@ -464,9 +466,6 @@ static void fsync_mgr_set_hdr_exp_data(struct adaptor_ctx *ctx,
 
 		// p_hdr_exp->mode_exp_cnt = info.count;
 		p_hdr_exp->ae_exp_cnt = ae_exp_cnt;
-		p_hdr_exp->readout_len_lc = ctx->subctx.readout_length;
-		p_hdr_exp->read_margin_lc = ctx->subctx.read_margin;
-
 		for (i = 0; i < ae_exp_cnt; ++i) {
 			const int idx = hdr_exp_idx_map[ae_exp_cnt][i];
 
@@ -678,6 +677,9 @@ void fsync_mgr_dump_fs_streaming_st(struct adaptor_ctx *ctx,
 static void fsync_mgr_setup_fs_streaming_st(struct adaptor_ctx *ctx,
 	struct fs_streaming_st *s_info)
 {
+	const unsigned int mode_id = ctx->subctx.current_scenario_id;
+	unsigned int i;
+
 	memset(s_info, 0, sizeof(*s_info));
 
 	s_info->sensor_id = ctx->subdrv->id;
@@ -703,6 +705,33 @@ static void fsync_mgr_setup_fs_streaming_st(struct adaptor_ctx *ctx,
 	/* for any settings before streaming on */
 	s_info->def_shutter_lc = ctx->subctx.shutter;
 	s_info->margin_lc = g_sensor_margin(ctx, ctx->subctx.current_scenario_id);
+
+	fsync_mgr_setup_sensor_hdr_info(ctx, &s_info->hdr_exp, mode_id);
+	if (s_info->hdr_exp.mode_exp_cnt > 1) {
+		for (i = 0; i < s_info->hdr_exp.mode_exp_cnt; ++i) {
+			const int idx =
+				hdr_exp_idx_map[s_info->hdr_exp.mode_exp_cnt][i];
+
+			if (unlikely(idx < 0)) {
+				FSYNC_MGR_LOGI(ctx,
+					"ERROR: idx:%d (< 0) = hdr_exp_idx_map[%u][%u]\n",
+					idx, s_info->hdr_exp.mode_exp_cnt, i);
+				continue;
+			}
+
+			s_info->hdr_exp.exp_lc[idx] = ctx->subctx.exposure[i];
+			if (s_info->hdr_exp.multi_exp_type == MULTI_EXP_TYPE_LBMF) {
+#ifdef FL_ARR_IN_LUT_ORDER
+				const int fl_idx = i;
+#else
+				const int fl_idx = idx;
+#endif
+
+				s_info->hdr_exp.fl_lc[fl_idx] =
+					ctx->subctx.frame_length_in_lut_rg[i];
+			}
+		}
+	}
 
 
 	/* sensor mode info */

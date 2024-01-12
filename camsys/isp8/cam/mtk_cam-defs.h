@@ -120,6 +120,7 @@ enum mtkcam_ipi_video_id {
 	MTKCAM_IPI_RAW_RAWI_3,		/* RAWI_R3 */
 	MTKCAM_IPI_RAW_RAWI_5,		/* RAWI_R5 */
 	MTKCAM_IPI_RAW_IPUI,		/* ADLRD */
+	MTKCAM_IPI_RAW_GRMGI,		/* GRMGI_R1 */
 	MTKCAM_IPI_RAW_IMGO,		/* IMGO_R1 */
 	/* no need pure raw */
 	MTKCAM_IPI_RAW_YUVO_1,		/* YUVO_R1 */
@@ -134,6 +135,8 @@ enum mtkcam_ipi_video_id {
 	MTKCAM_IPI_RAW_DRZH1NO_1,	/* DRZH1NO_R1 */
 	MTKCAM_IPI_RAW_DRZB2NO_1,	/* DRZB2NO_R1 */
 	MTKCAM_IPI_RAW_IPUO,		/* IPUO_R1 */
+	MTKCAM_IPI_RAW_GMPO,		/* GMPO_R1 */
+	MTKCAM_IPI_RAW_GRMGO,		/* GRMGO_R1 */
 	MTKCAM_IPI_RAW_META_STATS_CFG,	/* All settings */
 	MTKCAM_IPI_RAW_META_STATS_0,	/* statistics */
 

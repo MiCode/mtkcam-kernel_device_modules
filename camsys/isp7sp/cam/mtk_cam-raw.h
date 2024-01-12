@@ -119,7 +119,7 @@ struct mtk_ae_debug_data {
 };
 
 /* CQ setting */
-void initialize(struct mtk_raw_device *dev, int is_slave, int is_srt,
+void initialize(struct mtk_raw_device *dev, int is_slave, int is_srt, int is_slb,
 		struct engine_callback *cb);
 void subsample_enable(struct mtk_raw_device *dev, int ratio);
 void stagger_enable(struct mtk_raw_device *dev, bool is_dc);

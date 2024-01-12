@@ -32,8 +32,6 @@
 
 #include "cam_cal_config.h"
 
-static struct EEPROM_DRV ginst_drv[MAX_EEPROM_NUMBER];
-
 static struct stCAM_CAL_LIST_STRUCT *get_list(struct CAM_CAL_SENSOR_INFO *sinfo)
 {
 	struct stCAM_CAL_LIST_STRUCT *plist;
@@ -338,11 +336,6 @@ static inline int eeprom_driver_register(struct i2c_client *client,
 	char device_drv_name[DEV_NAME_STR_LEN_MAX] = { 0 };
 	char class_drv_name[DEV_NAME_STR_LEN_MAX] = { 0 };
 
-	if (index >= MAX_EEPROM_NUMBER) {
-		pr_err("node index out of bound\n");
-		return -EINVAL;
-	}
-
 	ret = snprintf(device_drv_name, DEV_NAME_STR_LEN_MAX - 1,
 		DEV_NAME_FMT, index);
 	if (ret < 0) {
@@ -359,7 +352,10 @@ static inline int eeprom_driver_register(struct i2c_client *client,
 	}
 
 	ret = 0;
-	pinst = &ginst_drv[index];
+	pinst = devm_kzalloc(&client->dev, sizeof(*pinst), GFP_KERNEL);
+	if (!pinst)
+		return -ENOMEM;
+
 	pinst->dev_no = MKDEV(EEPROM_DEVICE_NNUMBER, index);
 
 	if (alloc_chrdev_region(&pinst->dev_no, 0, 1, device_drv_name)) {
@@ -390,21 +386,20 @@ static inline int eeprom_driver_register(struct i2c_client *client,
 		      device_drv_name);
 
 	pinst->pi2c_client = client;
+
+	i2c_set_clientdata(client, pinst);
+
 	mutex_init(&pinst->eeprom_mutex);
 
 	return ret;
 }
 
-static inline int eeprom_driver_unregister(unsigned int index)
+static inline int eeprom_driver_unregister(struct i2c_client *client)
 {
-	struct EEPROM_DRV *pinst = NULL;
+	struct EEPROM_DRV *pinst = i2c_get_clientdata(client);
 
-	if (index >= MAX_EEPROM_NUMBER) {
-		pr_err("node index out of bound\n");
+	if (!pinst)
 		return -EINVAL;
-	}
-
-	pinst = &ginst_drv[index];
 
 	/* Release char driver */
 	unregister_chrdev_region(pinst->dev_no, 1);
@@ -430,12 +425,9 @@ static int eeprom_probe(struct i2c_client *client,
 
 static void eeprom_remove(struct i2c_client *client)
 {
-	unsigned int index = 0;
-
 	must_log("remove name: %s\n", client->dev.of_node->name);
 
-	if (!(retrieve_index(client, &index) < 0))
-		eeprom_driver_unregister(index);
+	eeprom_driver_unregister(client);
 }
 
 static const struct of_device_id eeprom_of_match[] = {

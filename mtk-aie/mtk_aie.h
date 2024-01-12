@@ -18,6 +18,8 @@
 
 #include "mtk-interconnect.h"
 
+#define MAX_REG_BASE 1
+
 extern int aie_log_level_value;
 
 enum aie_log_level {
@@ -605,6 +607,7 @@ struct mtk_aie_drv_ops {
 	void (*irq_handle)(struct mtk_aie_dev *fd);
 	void (*config_fld_buf_reg)(struct mtk_aie_dev *fd);
 	void (*fdvt_dump_reg)(struct mtk_aie_dev *fd);
+	void (*enable_ddren)(struct mtk_aie_dev *fd);
 };
 
 typedef void (*mtk_aie_register_tf_cb)(void*);
@@ -629,6 +632,7 @@ struct mtk_aie_dev {
 	struct mutex vfd_lock;
 
 	void __iomem *fd_base;
+	void __iomem *reg_base[MAX_REG_BASE];
 
 	u32 fdvt_sec_set;
 	u32 fdvt_sec_wait;
@@ -736,6 +740,7 @@ struct mtk_aie_ctx {
 
 extern const struct mtk_aie_drv_ops aie_ops_isp7s;
 extern const struct mtk_aie_drv_ops aie_ops_isp7sp;
+extern const struct mtk_aie_drv_ops aie_ops_isp7sp_1;
 
 /**************************************************************************/
 /*                   C L A S S    D E C L A R A T I O N                   */

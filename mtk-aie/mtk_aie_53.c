@@ -148,7 +148,7 @@ static struct aie_data data_isp7sp = {
 static struct aie_data data_isp7sp_1 = {
 	.clks = isp7sp_1_aie_clks,
 	.clk_num = ARRAY_SIZE(isp7sp_1_aie_clks),
-	.drv_ops = &aie_ops_isp7sp,
+	.drv_ops = &aie_ops_isp7sp_1,
 	.larb_clk_ready = true,
 };
 
@@ -1693,7 +1693,7 @@ static int mtk_aie_probe(struct platform_device *pdev)
 	struct device *dev = &pdev->dev;
 
 	struct resource *res;
-	int ret;
+	int ret, i;
 	const struct aie_data *data;
 
 	aie_dev_info(dev, "probe start\n");
@@ -1737,6 +1737,20 @@ static int mtk_aie_probe(struct platform_device *pdev)
 	if (IS_ERR(fd->fd_base)) {
 		aie_dev_info(dev, "Failed to get fd reg base\n");
 		return PTR_ERR(fd->fd_base);
+	}
+
+	for(i = 0; i < MAX_REG_BASE; i++) {
+		res = platform_get_resource(pdev, IORESOURCE_MEM, i+1);
+		if (res == NULL) {
+			aie_dev_info(dev, "reg base(%d) is NULL\n", i);
+			break;
+		}
+
+		fd->reg_base[i] = devm_ioremap_resource(dev, res);
+		if (IS_ERR(fd->reg_base[i])) {
+			aie_dev_info(dev, "Failed to get reg base(%i)\n", i);
+			return PTR_ERR(fd->reg_base[i]);
+		}
 	}
 
 	if (fd->larb_clk_ready) {
@@ -1878,8 +1892,13 @@ static int mtk_aie_runtime_suspend(struct device *dev)
 
 static int mtk_aie_runtime_resume(struct device *dev)
 {
+	struct mtk_aie_dev *fd = dev_get_drvdata(dev);
+
 	aie_dev_info(dev, "%s: empty runtime resume aie job)\n", __func__);
 	mtk_aie_ccf_enable(dev);
+
+	if (fd->drv_ops->enable_ddren)
+		fd->drv_ops->enable_ddren(fd);
 
 	return 0;
 }

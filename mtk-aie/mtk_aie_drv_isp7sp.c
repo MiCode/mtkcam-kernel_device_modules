@@ -5289,6 +5289,55 @@ static void aie_arrange_network(struct mtk_aie_dev *fd)
 
 }
 
+static void aie_enable_ddren(struct mtk_aie_dev *fd)
+{
+	void __iomem *ddren_reg = 0L;
+	uint32_t value = 0;
+	int count = 0;
+
+	ddren_reg = fd->reg_base[0];
+	if (ddren_reg != NULL) {
+		value = ioread32((void *)(ddren_reg + 0x10));
+		aie_dev_info(fd->dev, "[%s]  R(0x%x): 0x%x\n\n",
+				__func__, (uint32_t)(uint64_t)(ddren_reg + 0x10), value);
+		value |= 0x1000;
+		iowrite32(value, (void *)(ddren_reg + 0x10));
+
+		count = 0;
+		while (count < 1000000) {
+			value = ioread32((void *)(ddren_reg + 0x14));
+			if ((value & 0x2) == 0x2)
+				break;
+			count++;
+		}
+
+		if (count >= 1000000)
+			aie_dev_info(fd->dev, "[%s] APSRC ACK count(%d)\n",
+				__func__, count);
+
+		value = ioread32((void *)(ddren_reg + 0x10));
+		value |= 0x100;
+		iowrite32(value, (ddren_reg + 0x10));
+		count = 0;
+		while (count < 1000000) {
+			value = ioread32((void *)(ddren_reg + 0x14));
+			if ((value & 0x1) == 0x1)
+				break;
+			count++;
+		}
+
+		if (count >= 1000000)
+			aie_dev_info(fd->dev, "[%s] DDREN ACK count(%d)\n",
+				__func__, count);
+
+		value = ioread32((void *)(ddren_reg + 0x10));
+		aie_dev_info(fd->dev, "[%s]  R(0x%x): 0x%x\n\n",
+				__func__, (uint32_t)(uint64_t)(ddren_reg + 0x10), value);
+	} else {
+		aie_dev_info(fd->dev, "[%s] Failed to enable ddren\n", __func__);
+	}
+}
+
 const struct mtk_aie_drv_ops aie_ops_isp7sp = {
 	.reset = aie_reset,
 	.alloc_buf = aie_alloc_aie_buf,
@@ -5302,6 +5351,22 @@ const struct mtk_aie_drv_ops aie_ops_isp7sp = {
 	.irq_handle = aie_irqhandle,
 	.config_fld_buf_reg = aie_config_fld_buf_reg,
 	.fdvt_dump_reg = aie_fdvt_dump_reg,
+};
+
+const struct mtk_aie_drv_ops aie_ops_isp7sp_1 = {
+	.reset = aie_reset,
+	.alloc_buf = aie_alloc_aie_buf,
+	.init = aie_init,
+	.uninit = aie_uninit,
+	.prepare = aie_prepare,
+	.execute = aie_execute,
+	.get_fd_result = aie_get_fd_result,
+	.get_attr_result = aie_get_attr_result,
+	.get_fld_result = aie_get_fld_result,
+	.irq_handle = aie_irqhandle,
+	.config_fld_buf_reg = aie_config_fld_buf_reg,
+	.fdvt_dump_reg = aie_fdvt_dump_reg,
+	.enable_ddren = aie_enable_ddren,
 };
 
 MODULE_IMPORT_NS(DMA_BUF);

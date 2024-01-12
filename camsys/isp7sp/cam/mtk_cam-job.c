@@ -26,7 +26,6 @@
 
 #define SCQ_DEADLINE_US(fi)		((fi) / 2) // 0.5 frame interval
 #define SCQ_DEADLINE_US_STAGGER(fi)	((fi) - 500) // fi - n us
-#define SCQ_DEADLINE_MS_LONG_PERIOD		30 * 1000
 
 static unsigned int debug_buf_fmt_sel = -1;
 module_param(debug_buf_fmt_sel, int, 0644);
@@ -1424,7 +1423,7 @@ static void set_cq_deadline(struct mtk_cam_job *job, int cq_deadline)
 static int
 _switch_prepare(struct mtk_cam_job *job)
 {
-	set_cq_deadline(job, SCQ_DEADLINE_MS_LONG_PERIOD);
+	set_cq_deadline(job, -1);
 	disable_seninf_cammux(job);
 
 	return 0;

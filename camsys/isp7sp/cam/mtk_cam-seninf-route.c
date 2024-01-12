@@ -2605,11 +2605,11 @@ int mtk_cam_seninf_s_aov_param(unsigned int sensor_id,
 	/* workaround */
 	if (!g_aov_param.is_test_model) {
 		g_aov_param.vc.dest_cnt = 1;
-		g_aov_param.vc.dest[0].mux = 5;
-		g_aov_param.vc.dest[0].mux_vr = 33;
-		g_aov_param.vc.dest[0].cam = 33;
+		g_aov_param.vc.dest[0].mux = 14;
+		g_aov_param.vc.dest[0].mux_vr = 54;
+		g_aov_param.vc.dest[0].cam = 44;
 		g_aov_param.vc.pixel_mode = 3;
-		g_aov_param.camtg = 33;
+		g_aov_param.camtg = 44;
 	}
 
 	if (aov_seninf_param != NULL) {

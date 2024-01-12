@@ -94,6 +94,9 @@ static void init_camsys_settings(struct mtk_raw_device *dev, bool is_srt)
 	unsigned int raw_urgent, yuv_urgent;
 	int i;
 
+	//Set rdy/req snapshot
+	set_topdebug_rdyreq(dev, is_srt ? ALL_THE_TIME : TG_OVERRUN);
+
 	//Set CQI sram size
 	set_fifo_threshold(dev->base + REG_CQI_R1_BASE, 64);
 	set_fifo_threshold(dev->base + REG_CQI_R2_BASE, 64);
@@ -519,7 +522,6 @@ void stream_on(struct mtk_raw_device *dev, int on)
 		enable_tg_db(dev, 0);
 		enable_tg_db(dev, 1);
 		set_tg_vfdata_en(dev, 1);
-		set_topdebug_rdyreq(dev, TG_OVERRUN);
 	} else {
 		set_tg_vfdata_en(dev, 0);
 		enable_tg_db(dev, 0);
@@ -1128,7 +1130,7 @@ static irqreturn_t mtk_thread_irq_raw(int irq, void *data)
 		}
 
 		/* skip frame case */
-		if (unlikely(irq_info.irq_type == (1 << CAMSYS_IRQ_FRAME_SKIPPED)))
+		if (unlikely(irq_info.irq_type & BIT(CAMSYS_IRQ_FRAME_SKIPPED)))
 			raw_handle_skip_frame(raw_dev, &irq_info);
 
 		if (irq_info.irq_type & (1 << CAMSYS_IRQ_FRAME_DONE))
@@ -2482,13 +2484,16 @@ int raw_to_tg_idx(int raw_id)
 }
 
 //#define DEBUG_RAWI_R5
-void raw_dump_debug_status(struct mtk_raw_device *dev)
+void raw_dump_debug_status(struct mtk_raw_device *dev, bool is_srt)
 {
 	dump_seqence(dev);
 	dump_cq_setting(dev);
 	dump_tg_setting(dev, "debug");
 	dump_dmatop_dc_st(dev);
 	dump_interrupt(dev);
+
+	if (is_srt)
+		dump_topdebug_rdyreq(dev);
 
 #ifdef DEBUG_RAWI_R5
 	mtk_cam_dump_dma_debug(dev,

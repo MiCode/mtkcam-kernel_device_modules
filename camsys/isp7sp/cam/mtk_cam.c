@@ -3678,7 +3678,7 @@ int mtk_cam_pm_runtime_engines(struct mtk_cam_engines *eng,
 }
 
 void mtk_engine_dump_debug_status(struct mtk_cam_device *cam,
-				  unsigned long engines)
+				  unsigned long engines, bool is_srt)
 {
 	struct mtk_raw_device *dev;
 	struct mtk_camsv_device *sv_dev;
@@ -3692,7 +3692,7 @@ void mtk_engine_dump_debug_status(struct mtk_cam_device *cam,
 		if (subset & BIT(i)) {
 			dev = dev_get_drvdata(cam->engines.raw_devs[i]);
 
-			raw_dump_debug_status(dev);
+			raw_dump_debug_status(dev, is_srt);
 		}
 	}
 

@@ -425,7 +425,7 @@ int mtk_cam_mraw_link_validate(struct v4l2_subdev *sd,
 			  struct v4l2_subdev_format *sink_fmt);
 
 void mtk_engine_dump_debug_status(struct mtk_cam_device *cam,
-				  unsigned long engines);
+				  unsigned long engines, bool is_srt);
 
 struct v4l2_subdev
 *mtk_cam_find_sensor_seninf(struct v4l2_subdev *subdev, int media_func);

@@ -1671,7 +1671,7 @@ static inline u64 mtk_cam_ctrl_latest_sof(struct mtk_cam_ctrl *ctrl)
 	u64 ts_ns;
 
 	spin_lock(&ctrl->info_lock);
-	ts_ns = ctrl->r_info.sof_ts_ns;
+	ts_ns = ctrl->r_info.sof_l_ts_ns;
 	spin_unlock(&ctrl->info_lock);
 
 	return ts_ns;
@@ -1714,10 +1714,10 @@ static void mtk_dump_debug_for_no_vsync(struct mtk_cam_ctx *ctx)
 
 	job = mtk_cam_ctrl_get_job(ctrl, cond_first_job, 0);
 	if (job) {
-		mtk_engine_dump_debug_status(cam, job->used_engine);
+		mtk_engine_dump_debug_status(cam, job->used_engine, false);
 		mtk_cam_job_put(job);
 	} else {
-		mtk_engine_dump_debug_status(cam, ctx->used_engine);
+		mtk_engine_dump_debug_status(cam, ctx->used_engine, false);
 	}
 }
 

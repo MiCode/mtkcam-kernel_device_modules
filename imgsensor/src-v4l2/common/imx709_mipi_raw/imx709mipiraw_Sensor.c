@@ -29,9 +29,6 @@
 #define LOG_INF(format, args...) pr_info(PFX "[%s] " format, __func__, ##args)
 #define LOG_DEBUG(...) do { if ((DEBUG_LOG_EN)) LOG_INF(__VA_ARGS__); } while (0)
 
-#define MT6985_PHY_CTRL_VERSIONS "mt6985"
-#define MT6989_PHY_CTRL_VERSIONS "mt6989"
-
 static const char * const clk_names[] = {
 	ADAPTOR_CLK_NAMES
 };

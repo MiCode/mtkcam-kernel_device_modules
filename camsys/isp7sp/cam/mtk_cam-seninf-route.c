@@ -1838,8 +1838,10 @@ int mtk_cam_seninf_s_stream_mux(struct seninf_ctx *ctx)
 	int en_tag = 0;
 	struct seninf_core *core = ctx->core;
 #ifdef SENSOR_SECURE_MTEE_SUPPORT
+#ifndef SECURE_UT
 	int raw_cammux_first = core->cammux_range[TYPE_RAW].first;
 	int raw_cammux_second = core->cammux_range[TYPE_RAW].second;
+#endif
 #endif
 
 	for (i = 0; i < vcinfo->cnt; i++) {
@@ -1964,12 +1966,14 @@ int mtk_cam_seninf_s_stream_mux(struct seninf_ctx *ctx)
 				if (vc->out_pad == PAD_SRC_RAW0 ||
 					vc->out_pad == PAD_SRC_RAW1 ||
 					vc->out_pad == PAD_SRC_RAW2) {
+#ifndef SECURE_UT
 					if (dest->cam < raw_cammux_first ||
 						dest->cam > raw_cammux_second) {
 						dev_info(ctx->dev,
 							"cam not secure path, ignore ca_checkpipe");
 						continue;
 					}
+#endif
 					if (!seninf_ca_open_session())
 						dev_info(ctx->dev, "seninf_ca_open_session fail");
 

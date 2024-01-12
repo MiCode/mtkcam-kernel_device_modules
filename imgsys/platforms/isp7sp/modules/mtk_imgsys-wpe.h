@@ -35,5 +35,7 @@ void imgsys_wpe_uninit(struct mtk_imgsys_dev *imgsys_dev);
 void imgsys_wpe_updatecq(struct mtk_imgsys_dev *imgsys_dev,
 			struct img_swfrm_info *user_info, int req_fd, u64 tuning_iova,
 			unsigned int mode);
+int imgsys_wpe_tfault_callback(int port,
+			dma_addr_t mva, void *data);
 
 #endif /* _MTK_IMGSYS_WPE_H_ */

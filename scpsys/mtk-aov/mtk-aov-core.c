@@ -1460,7 +1460,8 @@ int aov_core_reset(struct mtk_aov *aov_dev)
 		ret = send_cmd_internal(core_info, AOV_SCP_CMD_STOP, 0, 0, true, true);
 		if (ret != 0) {
 			dev_info(aov_dev->dev, "%s: send_cmd_internal ret(%d) != 0.\n", __func__, ret);
-			return ret;
+			// sleep 100 ms to wait scp stop done.
+			msleep(100);
 		}
 
 		AOV_DEBUG_LOG(*(aov_dev->enable_aov_log_flag),

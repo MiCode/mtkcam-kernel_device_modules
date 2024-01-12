@@ -292,9 +292,6 @@ static int mtk_aov_release(struct inode *inode, struct file *file)
 		vmm_isp_ctrl_notify(0);
 		mtk_mmdvfs_aov_enable(0);
 		dev_info(aov_dev->dev, "AOV force disable vmm-\n");
-	} else if (ret < 0) {
-		dev_info(aov_dev->dev, "%s: aov_core_reset ret(%d).\n", __func__, ret);
-		return ret;
 	}
 
 	aov_dev->user_cnt--;

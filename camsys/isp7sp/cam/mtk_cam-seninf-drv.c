@@ -542,7 +542,7 @@ static int seninf_dfs_set(struct seninf_ctx *ctx, unsigned long freq)
 	}
 
 	mutex_lock(&core->mutex);
-	if (core->allow_adjust_isp_en)
+	if (ctx->allow_adjust_isp_en)
 		ret = __seninf_dfs_set(ctx, freq);
 	mutex_unlock(&core->mutex);
 
@@ -1687,9 +1687,9 @@ int update_isp_clk(struct seninf_ctx *ctx)
 		return -EINVAL;
 	}
 
-	if (!core->allow_adjust_isp_en) {
+	if (!ctx->allow_adjust_isp_en) {
 		dev_info(ctx->dev, "%s adjust_isp_en %d, skip update isp clk flow\n",
-			__func__, core->allow_adjust_isp_en);
+			__func__, ctx->allow_adjust_isp_en);
 		return 0;
 	}
 
@@ -2058,28 +2058,44 @@ static int seninf_s_stream(struct v4l2_subdev *sd, int enable)
 		dev_info(ctx->dev, "[%s] _enable_stream_err_detect enable(%d)\n", __func__, enable);
 		g_seninf_ops->_enable_stream_err_detect(ctx);
 	}
+
+	/* reset all sentest flag */
+	ctx->allow_adjust_isp_en = false;
+	ctx->single_raw_streaming_en = false;
+
 	return 0;
 }
 
 static int s_update_isp_clk_en(struct seninf_ctx *ctx, void *arg)
 {
-	struct seninf_core *core = ctx->core;
 	int *en = arg;
-
-	if (core == NULL) {
-		dev_info(ctx->dev, "%s: core is NULL\n", __func__);
-		return -EINVAL;
-	}
 
 	if (en == NULL) {
 		dev_info(ctx->dev, "%s: en is NULL\n", __func__);
 		return -EINVAL;
 	}
 
-	core->allow_adjust_isp_en = *en;
+	ctx->allow_adjust_isp_en = *en;
 
 	dev_info(ctx->dev, "en: %d, allow_adjust_isp_en  is %d\n",
-				*en, core->allow_adjust_isp_en);
+				*en, ctx->allow_adjust_isp_en);
+
+	return 0;
+}
+
+static int s_single_raw_setreaming_en(struct seninf_ctx *ctx, void *arg)
+{
+	int *en = arg;
+
+	if (en == NULL) {
+		dev_info(ctx->dev, "%s: en is NULL\n", __func__);
+		return -EINVAL;
+	}
+
+	ctx->single_raw_streaming_en = *en;
+
+	dev_info(ctx->dev, "en: %d, single_raw_streaming_en  is %d\n",
+				*en, ctx->single_raw_streaming_en);
 
 	return 0;
 }
@@ -2099,6 +2115,9 @@ long mtk_cam_seninf_ioctl(struct v4l2_subdev *sd, unsigned int cmd, void *arg)
 		break;
 	case VIDIOC_MTK_S_UPDATE_ISP_EN:
 		ret = s_update_isp_clk_en(ctx, arg);
+		break;
+	case VIDIOC_MTK_S_TEST_STREAM_RAW0_EN:
+		ret = s_single_raw_setreaming_en(ctx, arg);
 		break;
 	default:
 		dev_info(ctx->dev, "ioctl cmd(%d) is invalid\n", cmd);

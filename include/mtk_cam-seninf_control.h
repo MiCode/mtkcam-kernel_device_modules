@@ -76,4 +76,7 @@ struct mtk_seninf_debug_result {
 #define VIDIOC_MTK_S_UPDATE_ISP_EN \
 	_IOWR('M', BASE_VIDIOC_PRIVATE + 50, int)
 
+#define VIDIOC_MTK_S_TEST_STREAM_RAW0_EN \
+    _IOWR('M', BASE_VIDIOC_PRIVATE + 51, int)
+
 #endif  // __MTK_CAM_SENINF_CONTROL_H__

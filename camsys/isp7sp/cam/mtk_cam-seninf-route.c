@@ -2962,13 +2962,13 @@ int aov_switch_pm_ops(struct seninf_ctx *ctx,
  *
  */
 int mtk_cam_seninf_s_aov_param(unsigned int sensor_id,
-	struct mtk_seninf_aov_param *aov_seninf_param,
-	enum AOV_INIT_TYPE aov_seninf_init_type)
+	void *param, enum AOV_INIT_TYPE aov_seninf_init_type)
 {
 	unsigned int real_sensor_id = 0;
 	struct seninf_ctx *ctx = NULL;
 	struct seninf_vc *vc;
 	struct seninf_core *core = NULL;
+	struct mtk_seninf_aov_param *aov_seninf_param = (struct mtk_seninf_aov_param *)param;
 
 	pr_info("[%s]+ sensor_id(%d),aov_seninf_init_type(%u)\n",
 		__func__, sensor_id, aov_seninf_init_type);

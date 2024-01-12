@@ -1165,7 +1165,7 @@ static void tsrec_work_handler(struct tsrec_work_request *req)
 	if (unlikely(work == NULL))
 		return;
 	/* convert/cast work_struct */
-	req = container_of_safe(work, struct tsrec_work_request, work);
+	req = container_of(work, struct tsrec_work_request, work);
 	if (unlikely(req == NULL)) {
 		TSREC_LOG_INF(
 			"ERROR: container_of_safe() casting failed, return\n");

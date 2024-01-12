@@ -1202,12 +1202,15 @@ void imgsys_cmdq_task_cb_plat7sp(struct cmdq_cb_data data)
 
 		} else if ((event >= IMGSYS_CMDQ_QOF_EVENT_BEGIN) &&
 			(event <= IMGSYS_CMDQ_QOF_EVENT_END)) {
+			dma_addr_t err_pc;
 			isQOFhang = 1;
 			pr_info(
 				"%s: [ERROR] QOF event timeout! wfe(%d) event(%d) isQOF(%d)",
 				__func__,
 				cb_param->pkt->err_data.wfe_timeout,
 				cb_param->pkt->err_data.event, isQOFhang);
+			err_pc = cmdq_pkt_get_pa_by_offset(cb_param->pkt, cb_param->pkt->err_data.offset);
+			cmdq_pkt_dump_buf(cb_param->pkt, err_pc);
 		} else if ((event >= IMGSYS_CMDQ_GPR_EVENT_BEGIN) &&
 			(event <= IMGSYS_CMDQ_GPR_EVENT_END)) {
 			isHWhang = 1;

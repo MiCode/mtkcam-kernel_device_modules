@@ -602,9 +602,9 @@ int mtk_cam_hsf_uninit(struct mtk_cam_ctx *ctx)
 		dev_info(cam->dev, "HSF camera unint fail ret = %d\n", ret);
 		return -1;
 	}
-	arm_smccc_smc(MTK_SIP_KERNEL_DAPC_CAM_CONTROL, 0, 0, 0, 0, 0, 0, 0, &res);
 
 	ccu_hsf_config(ctx, 0);
+	arm_smccc_smc(MTK_SIP_KERNEL_DAPC_CAM_CONTROL, 0, 0, 0, 0, 0, 0, 0, &res);
 	mtk_cam_dmabuf_free_iova(ctx, hsf_config->cq_buf);
 	mtk_cam_dmabuf_free_iova(ctx, hsf_config->chk_buf);
 

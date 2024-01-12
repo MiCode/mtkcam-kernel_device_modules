@@ -2525,7 +2525,7 @@ int mtk_cam_ctx_init_scenario(struct mtk_cam_ctx *ctx)
 	res = &ctrl_data->resource.user_data.raw_res;
 	scen = &res->scen;
 
-	if (scen_is_rgbw(scen)) {
+	if (scen_support_rgbw(scen)) {
 		int sink_w, sink_h;
 
 		sink_w = raw_pipe->pad_cfg[MTK_RAW_SINK].mbus_fmt.width;

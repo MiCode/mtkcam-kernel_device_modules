@@ -679,7 +679,7 @@ int mtk_cam_sv_dmao_common_config(struct mtk_camsv_device *sv_dev,
 	return ret;
 }
 
-int mtk_cam_sv_smi_path_sel(struct mtk_camsv_device *sv_dev, bool is_16p)
+int mtk_cam_sv_smi_path_sel(struct mtk_camsv_device *sv_dev, bool is_two_smi_comm)
 {
 	int ret = 0;
 
@@ -697,7 +697,7 @@ int mtk_cam_sv_smi_path_sel(struct mtk_camsv_device *sv_dev, bool is_16p)
 	case CAMSV_3:
 	case CAMSV_4:
 	case CAMSV_5:
-		WARN_ON(is_16p);
+		WARN_ON(is_two_smi_comm);
 		/* default disp */
 		smi_sysram_enable(&sv_dev->larb_pdev->dev,
 			sv_dev->larb_master_id[SMI_PORT0_SV_CQI], false, "camsys-camsv");
@@ -1079,7 +1079,7 @@ void mtk_cam_sv_fill_tag_info(struct mtk_camsv_tag_info *arr_tag,
 	cfg_in_param->in_crop.s.h = mbus_height;
 	cfg_in_param->fmt = sensor_mbus_to_ipi_fmt(mbus_code);
 	cfg_in_param->raw_pixel_id = sensor_mbus_to_ipi_pixel_id(mbus_code);
-	cfg_in_param->subsample = sub_ratio - 1; /* TODO(AY): remove -1 */
+	cfg_in_param->subsample = sub_ratio;
 }
 
 int mtk_cam_sv_get_tag_param(struct mtk_camsv_tag_param *arr_tag_param,
@@ -1674,6 +1674,7 @@ static irqreturn_t mtk_irq_camsv_err(int irq, void *data)
 	return wake_thread ? IRQ_WAKE_THREAD : IRQ_HANDLED;
 }
 
+#ifdef HS_TODO
 static irqreturn_t mtk_irq_camsv_cq_done(int irq, void *data)
 {
 	struct mtk_camsv_device *sv_dev = (struct mtk_camsv_device *)data;
@@ -1727,6 +1728,7 @@ static irqreturn_t mtk_irq_camsv_cq_done(int irq, void *data)
 
 	return wake_thread ? IRQ_WAKE_THREAD : IRQ_HANDLED;
 }
+#endif
 
 static irqreturn_t mtk_thread_irq_camsv(int irq, void *data)
 {
@@ -1989,6 +1991,7 @@ static int mtk_camsv_of_probe(struct platform_device *pdev,
 		}
 	}
 
+	/* HS_TODO: correct handler due to irq merged */
 	for (i = 0; i < CAMSV_IRQ_NUM; i++) {
 		if (i == 0)
 			ret = devm_request_threaded_irq(dev, sv_dev->irq[i],
@@ -1997,17 +2000,12 @@ static int mtk_camsv_of_probe(struct platform_device *pdev,
 						0, dev_name(dev), sv_dev);
 		else if (i == 1)
 			ret = devm_request_threaded_irq(dev, sv_dev->irq[i],
-						mtk_irq_camsv_err,
-						mtk_thread_irq_camsv,
-						0, dev_name(dev), sv_dev);
-		else if (i == 2)
-			ret = devm_request_threaded_irq(dev, sv_dev->irq[i],
 						mtk_irq_camsv_sof,
 						mtk_thread_irq_camsv,
 						0, dev_name(dev), sv_dev);
 		else
 			ret = devm_request_threaded_irq(dev, sv_dev->irq[i],
-						mtk_irq_camsv_cq_done,
+						mtk_irq_camsv_err,
 						mtk_thread_irq_camsv,
 						0, dev_name(dev), sv_dev);
 		if (ret) {

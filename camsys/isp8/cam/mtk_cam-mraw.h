@@ -90,6 +90,12 @@ enum mraw_int_en5 {
 	MRAW_INT_EN5_CPIO_M1_ERR_EN              = (1L<<2),
 };
 
+enum mraw_wfbc {
+	MRAW_WFBC_IMGO                           = (1L<<0),
+	MRAW_WFBC_IMGBO                          = (1L<<1),
+	MRAW_WFBC_CPIO                           = (1L<<2),
+};
+
 enum mqe_mode {
 	UL_MODE = 0,
 	UR_MODE,
@@ -164,6 +170,7 @@ int mtk_cam_mraw_vf_on(struct mtk_mraw_device *mraw_dev, bool on);
 int mtk_cam_mraw_is_vf_on(struct mtk_mraw_device *mraw_dev);
 int mtk_cam_mraw_toggle_tg_db(struct mtk_mraw_device *mraw_dev);
 int mtk_cam_mraw_toggle_db(struct mtk_mraw_device *mraw_dev);
+int mtk_cam_mraw_trigger_wfbc_inc(struct mtk_mraw_device *mraw_dev);
 void apply_mraw_cq(struct mtk_mraw_device *mraw_dev,
 	      dma_addr_t cq_addr, unsigned int cq_size, unsigned int cq_offset,
 	      int initial);
@@ -180,7 +187,6 @@ void mtk_cam_mraw_get_cpi_size(struct mtk_cam_device *cam, unsigned int pipe_id,
 	unsigned int *width, unsigned int *height);
 void mtk_cam_mraw_get_dbg_size(struct mtk_cam_device *cam, unsigned int pipe_id,
 	unsigned int *width, unsigned int *height);
-int mtk_cam_mraw_is_zero_fbc_cnt(struct mtk_mraw_device *mraw_dev);
 int mtk_mraw_translation_fault_callback(int port, dma_addr_t mva, void *data);
 void mtk_cam_mraw_debug_dump(struct mtk_mraw_device *mraw_dev);
 

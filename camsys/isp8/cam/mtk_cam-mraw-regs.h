@@ -72,6 +72,9 @@ union MRAW_CTL_MISC {
 
 #define REG_MRAW_CTL_FBC_GROUP					0x0040
 
+#define REG_MRAW_CTL_WFBC_EN					0x0048
+#define REG_MRAW_CTL_WFBC_INC					0x004C
+
 #define REG_MRAW_CTL_START						0x0050
 
 #define REG_MRAW_CTL_SW_CTL						0x0058

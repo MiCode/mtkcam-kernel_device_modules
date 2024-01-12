@@ -104,16 +104,6 @@ int mtk_mraw_translation_fault_callback(int port, dma_addr_t mva, void *data)
 		readl_relaxed(mraw_dev->base_inner + REG_MRAW_CQ_SUB_THR0_BASEADDR_2),
 		readl_relaxed(mraw_dev->base_inner + REG_MRAW_CQ_SUB_THR0_DESC_SIZE_2));
 
-#ifdef HS_TODO
-	dev_info_ratelimited(mraw_dev->dev, "imgo_fbc_ctrl1:0x%x imgo_fbc_ctrl2:0x%x imgBo_fbc_ctrl1:0x%x imgBo_fbc_ctrl2:0x%x cpio_fbc_ctrl1:0x%x cpio_fbc_ctrl2:0x%x\n",
-		readl_relaxed(mraw_dev->base_inner + REG_MRAW_FBC_IMGO_CTL1),
-		readl_relaxed(mraw_dev->base_inner + REG_MRAW_FBC_IMGO_CTL2),
-		readl_relaxed(mraw_dev->base_inner + REG_MRAW_FBC_IMGBO_CTL1),
-		readl_relaxed(mraw_dev->base_inner + REG_MRAW_FBC_IMGBO_CTL2),
-		readl_relaxed(mraw_dev->base_inner + REG_MRAW_FBC_CPIO_CTL1),
-		readl_relaxed(mraw_dev->base_inner + REG_MRAW_FBC_CPIO_CTL2));
-#endif
-
 	dev_info_ratelimited(mraw_dev->dev, "imgo_xsize:0x%x imgo_ysize:0x%x imgo_stride:0x%x imgo_addr:0x%x_%x imgo_ofst_addr:0x%x_%x\n",
 		readl_relaxed(mraw_dev->base_inner + REG_MRAW_IMGO_XSIZE),
 		readl_relaxed(mraw_dev->base_inner + REG_MRAW_IMGO_YSIZE),
@@ -173,7 +163,7 @@ void apply_mraw_cq(struct mtk_mraw_device *mraw_dev,
 
 static unsigned int mtk_cam_mraw_powi(unsigned int x, unsigned int n)
 {
-	unsigned int rst = 1.0;
+	unsigned int rst = 1;
 	unsigned int m = n;
 
 	while (m--)
@@ -253,27 +243,6 @@ static void mtk_cam_mraw_set_dense_fmt(
 			return;
 		}
 	}
-}
-
-int mtk_cam_mraw_is_zero_fbc_cnt(struct mtk_mraw_device *mraw_dev)
-{
-#ifdef HS_TODO
-	unsigned int imgo_fbc_cnt = 0, imgbo_fbc_cnt = 0, cpio_fbc_cnt = 0;
-
-	imgo_fbc_cnt = MRAW_READ_BITS(
-		mraw_dev->base_inner + REG_MRAW_FBC_IMGO_CTL2,
-		MRAW_FBC_IMGO_M1_CTRL2, FBC_IMGO_M1_FBC_CNT);
-	imgbo_fbc_cnt =  MRAW_READ_BITS(
-		mraw_dev->base_inner + REG_MRAW_FBC_IMGBO_CTL2,
-		MRAW_FBC_IMGBO_M1_CTRL2, FBC_IMGBO_M1_FBC_CNT);
-	cpio_fbc_cnt = MRAW_READ_BITS(
-		mraw_dev->base_inner + REG_MRAW_FBC_CPIO_CTL2,
-		MRAW_FBC_CPIO_M1_CTRL2, FBC_CPIO_M1_FBC_CNT);
-
-	if (!(imgo_fbc_cnt || imgbo_fbc_cnt || cpio_fbc_cnt))
-		return 1;
-#endif
-	return 0;
 }
 
 static void mtk_cam_mraw_set_concatenation_fmt(
@@ -515,7 +484,7 @@ void mtk_cam_mraw_get_mqe_size(struct mtk_cam_device *cam, unsigned int pipe_id,
 	*width = param->crop_width;
 	*height = param->crop_height;
 
-	if (param->lm_en) {
+	if (param->lm_en && param->lm_mode_ctrl) {
 		*width = param->crop_width * (2 * param->lm_mode_ctrl);
 		*height = param->crop_height / (2 * param->lm_mode_ctrl);
 	}
@@ -533,8 +502,10 @@ void mtk_cam_mraw_get_mqe_size(struct mtk_cam_device *cam, unsigned int pipe_id,
 		case PD_R_MODE:
 		case PD_M_MODE:
 		case PD_B01_MODE:
-		case PD_B02_MODE:
 			*width /= 2;
+			break;
+		case PD_B02_MODE:
+			*height /= 2;
 			break;
 		default:
 			dev_info(cam->dev, "%s:MQE-Mode %d %s fail\n",
@@ -712,7 +683,8 @@ int mtk_cam_mraw_top_config(struct mtk_mraw_device *mraw_dev)
 							MRAW_INT_EN1_CQ_SUB_VS_ERR_EN |
 							MRAW_INT_EN1_CQ_TRIG_DLY_INT_EN |
 							MRAW_INT_EN1_SW_PASS1_DONE_EN |
-							MRAW_INT_EN1_DMA_ERR_EN
+							MRAW_INT_EN1_DMA_ERR_EN |
+							MRAW_INT_EN1_SW_ENQUE_ERR_EN
 							);
 
 	unsigned int int_en5 = (MRAW_INT_EN5_IMGO_M1_ERR_EN |
@@ -811,13 +783,10 @@ int mtk_cam_mraw_fbc_config(
 {
 	int ret = 0;
 
-#ifdef HS_TODO
-	MRAW_WRITE_REG(mraw_dev->base + REG_MRAW_FBC_IMGO_CTL1, 0);
-	MRAW_WRITE_REG(mraw_dev->base + REG_MRAW_FBC_IMGBO_CTL1, 0);
-	MRAW_WRITE_REG(mraw_dev->base + REG_MRAW_FBC_CPIO_CTL1, 0);
-#endif
+	MRAW_WRITE_REG(mraw_dev->base + REG_MRAW_CTL_WFBC_EN, 0);
+	MRAW_WRITE_REG(mraw_dev->base + REG_MRAW_CTL_FBC_GROUP,
+		(MRAW_WFBC_IMGO | MRAW_WFBC_IMGBO | MRAW_WFBC_CPIO));
 
-	MRAW_WRITE_REG(mraw_dev->base + REG_MRAW_CTL_FBC_GROUP, 7);
 	return ret;
 }
 
@@ -841,12 +810,23 @@ int mtk_cam_mraw_toggle_db(struct mtk_mraw_device *mraw_dev)
 	return 0;
 }
 
+int mtk_cam_mraw_trigger_wfbc_inc(struct mtk_mraw_device *mraw_dev)
+{
+	MRAW_WRITE_REG(mraw_dev->base + REG_MRAW_CTL_WFBC_INC,
+		(MRAW_WFBC_IMGO | MRAW_WFBC_IMGBO | MRAW_WFBC_CPIO));
+
+	return 0;
+}
+
 int mtk_cam_mraw_top_enable(struct mtk_mraw_device *mraw_dev)
 {
 	int ret = 0;
 
 	/* toggle db */
 	mtk_cam_mraw_toggle_db(mraw_dev);
+
+	/* re-trigger wfbc inc due to inner csr becomes zero after db load */
+	mtk_cam_mraw_trigger_wfbc_inc(mraw_dev);
 
 	/* toggle tg db */
 	mtk_cam_mraw_toggle_tg_db(mraw_dev);
@@ -881,23 +861,8 @@ int mtk_cam_mraw_fbc_enable(struct mtk_mraw_device *mraw_dev)
 		goto EXIT;
 	}
 
-#ifdef HS_TODO
-	MRAW_WRITE_BITS(mraw_dev->base + REG_MRAW_FBC_IMGO_CTL1,
-		MRAW_FBC_IMGO_CTL1, FBC_IMGO_FBC_EN, 1);
-
-	MRAW_WRITE_BITS(mraw_dev->base + REG_MRAW_FBC_IMGBO_CTL1,
-		MRAW_FBC_IMGBO_CTL1, FBC_IMGBO_FBC_EN, 1);
-
-	MRAW_WRITE_BITS(mraw_dev->base + REG_MRAW_FBC_CPIO_CTL1,
-		MRAW_FBC_CPIO_CTL1, FBC_CPIO_FBC_EN, 1);
-
-	MRAW_WRITE_BITS(mraw_dev->base + REG_MRAW_FBC_IMGO_CTL1,
-		MRAW_FBC_IMGO_CTL1, FBC_IMGO_FBC_DB_EN, 1);
-	MRAW_WRITE_BITS(mraw_dev->base + REG_MRAW_FBC_IMGBO_CTL1,
-		MRAW_FBC_IMGBO_CTL1, FBC_IMGBO_FBC_DB_EN, 1);
-	MRAW_WRITE_BITS(mraw_dev->base + REG_MRAW_FBC_CPIO_CTL1,
-		MRAW_FBC_CPIO_CTL1, FBC_CPIO_FBC_DB_EN, 1);
-#endif
+	MRAW_WRITE_REG(mraw_dev->base + REG_MRAW_CTL_WFBC_EN,
+		(MRAW_WFBC_IMGO | MRAW_WFBC_IMGBO | MRAW_WFBC_CPIO));
 
 EXIT:
 	return ret;
@@ -1013,11 +978,6 @@ int mtk_cam_mraw_top_disable(struct mtk_mraw_device *mraw_dev)
 	MRAW_WRITE_REG(mraw_dev->base + REG_MRAW_CTL_FMT_SEL, 0);
 	MRAW_WRITE_REG(mraw_dev->base + REG_MRAW_CTL_INT_EN, 0);
 	MRAW_WRITE_REG(mraw_dev->base + REG_MRAW_CTL_INT5_EN, 0);
-#ifdef HS_TODO
-	MRAW_WRITE_REG(mraw_dev->base + REG_MRAW_FBC_IMGO_CTL1, 0);
-	MRAW_WRITE_REG(mraw_dev->base + REG_MRAW_FBC_IMGBO_CTL1, 0);
-	MRAW_WRITE_REG(mraw_dev->base + REG_MRAW_FBC_CPIO_CTL1, 0);
-#endif
 
 	MRAW_WRITE_BITS(mraw_dev->base + REG_MRAW_CTL_MISC,
 		MRAW_CTL_MISC, MRAWCTL_DB_EN, 1);
@@ -1037,12 +997,7 @@ int mtk_cam_mraw_fbc_disable(struct mtk_mraw_device *mraw_dev)
 {
 	int ret = 0;
 
-#ifdef HS_TODO
-	MRAW_WRITE_REG(mraw_dev->base + REG_MRAW_FBC_IMGO_CTL1, 0);
-	MRAW_WRITE_REG(mraw_dev->base + REG_MRAW_FBC_IMGBO_CTL1, 0);
-	MRAW_WRITE_REG(mraw_dev->base + REG_MRAW_FBC_CPIO_CTL1, 0);
-#endif
-
+	MRAW_WRITE_REG(mraw_dev->base + REG_MRAW_CTL_WFBC_EN, 0);
 	MRAW_WRITE_REG(mraw_dev->base + REG_MRAW_CTL_FBC_GROUP, 0);
 
 	return ret;
@@ -1143,16 +1098,6 @@ void mtk_cam_mraw_debug_dump(struct mtk_mraw_device *mraw_dev)
 		readl_relaxed(mraw_dev->base_inner + REG_MRAW_CTL_FMT_SEL),
 		readl_relaxed(mraw_dev->base_inner + REG_MRAW_CTL_DONE_SEL));
 
-#ifdef HS_TODO
-	dev_info_ratelimited(mraw_dev->dev, "imgo_fbc_ctrl1:0x%x imgo_fbc_ctrl2:0x%x imgbo_fbc_ctrl1:0x%x imgbo_fbc_ctrl2:0x%x cpio_fbc_ctrl1:0x%x cpio_fbc_ctrl2:0x%x\n",
-		readl_relaxed(mraw_dev->base_inner + REG_MRAW_FBC_IMGO_CTL1),
-		readl_relaxed(mraw_dev->base_inner + REG_MRAW_FBC_IMGO_CTL2),
-		readl_relaxed(mraw_dev->base_inner + REG_MRAW_FBC_IMGBO_CTL1),
-		readl_relaxed(mraw_dev->base_inner + REG_MRAW_FBC_IMGBO_CTL2),
-		readl_relaxed(mraw_dev->base_inner + REG_MRAW_FBC_CPIO_CTL1),
-		readl_relaxed(mraw_dev->base_inner + REG_MRAW_FBC_CPIO_CTL2));
-#endif
-
 	dev_info_ratelimited(mraw_dev->dev, "imgo_xsize:0x%x imgo_ysize:0x%x imgo_stride:0x%x imgo_addr:0x%x_%x imgo_ofst_addr:0x%x_%x\n",
 		readl_relaxed(mraw_dev->base_inner + REG_MRAW_IMGO_XSIZE),
 		readl_relaxed(mraw_dev->base_inner + REG_MRAW_IMGO_YSIZE),
@@ -1236,6 +1181,9 @@ void mraw_handle_error(struct mtk_mraw_device *mraw_dev,
 
 	/* dump mraw debug data */
 	mtk_cam_mraw_debug_dump(mraw_dev);
+
+	dev_info_ratelimited(mraw_dev->dev, "fbc empty or not:%d\n",
+		(data->fbc_empty) ? 1 : 0);
 }
 
 static irqreturn_t mtk_irq_mraw(int irq, void *data)
@@ -1246,7 +1194,7 @@ static irqreturn_t mtk_irq_mraw(int irq, void *data)
 	unsigned int dequeued_imgo_seq_no, dequeued_imgo_seq_no_inner;
 	unsigned int irq_status, irq_status2, irq_status3;
 	unsigned int irq_status5, irq_status6;
-	unsigned int err_status, dma_err_status;
+	unsigned int err_status, dma_err_status, sw_enque_err_status;
 	unsigned int imgo_overr_status, imgbo_overr_status, cpio_overr_status;
 	unsigned int irq_flag = 0;
 	bool wake_thread = 0;
@@ -1267,6 +1215,7 @@ static irqreturn_t mtk_irq_mraw(int irq, void *data)
 
 	err_status = irq_status & INT_ST_MASK_MRAW_ERR;
 	dma_err_status = irq_status & MRAWCTL_DMA_ERR_ST;
+	sw_enque_err_status = irq_status & MRAWCTL_SW_ENQUE_ERR_ST;
 	imgo_overr_status = irq_status5 & MRAWCTL_IMGO_M1_OTF_OVERFLOW_ST;
 	imgbo_overr_status = irq_status5 & MRAWCTL_IMGBO_M1_OTF_OVERFLOW_ST;
 	cpio_overr_status = irq_status5 & MRAWCTL_CPIO_M1_OTF_OVERFLOW_ST;
@@ -1281,24 +1230,10 @@ static irqreturn_t mtk_irq_mraw(int irq, void *data)
 		       dma_err_status,
 		       dequeued_imgo_seq_no_inner, dequeued_imgo_seq_no);
 
-#ifdef HS_TODO
 	dev_dbg(dev,
-		"%i dma_overr:0x%x_0x%x_0x%x fbc_ctrl:0x%x_0x%x_0x%x dma_addr:0x%x%x_0x%x%x_0x%x%x\n",
-		mraw_dev->id, imgo_overr_status, imgbo_overr_status, cpio_overr_status,
-		readl_relaxed(mraw_dev->base + REG_MRAW_FBC_IMGO_CTL2),
-		readl_relaxed(mraw_dev->base + REG_MRAW_FBC_IMGBO_CTL2),
-		readl_relaxed(mraw_dev->base + REG_MRAW_FBC_CPIO_CTL2),
-		readl_relaxed(mraw_dev->base_inner + REG_MRAW_IMGO_BASE_ADDR_MSB),
-		readl_relaxed(mraw_dev->base_inner + REG_MRAW_IMGO_BASE_ADDR),
-		readl_relaxed(mraw_dev->base_inner + REG_MRAW_IMGBO_BASE_ADDR_MSB),
-		readl_relaxed(mraw_dev->base_inner + REG_MRAW_IMGBO_BASE_ADDR),
-		readl_relaxed(mraw_dev->base_inner + REG_MRAW_CPIO_BASE_ADDR_MSB),
-		readl_relaxed(mraw_dev->base_inner + REG_MRAW_CPIO_BASE_ADDR));
-#endif
-
-	dev_dbg(dev,
-		"%i dma_overr:0x%x_0x%x_0x%x dma_addr:0x%x%x_0x%x%x_0x%x%x\n",
-		mraw_dev->id, imgo_overr_status, imgbo_overr_status, cpio_overr_status,
+		"%i sw_enque_err:%d dma_overr:0x%x_0x%x_0x%x dma_addr:0x%x%x_0x%x%x_0x%x%x\n",
+		mraw_dev->id, sw_enque_err_status,
+		imgo_overr_status, imgbo_overr_status, cpio_overr_status,
 		readl_relaxed(mraw_dev->base_inner + REG_MRAW_IMGO_BASE_ADDR_MSB),
 		readl_relaxed(mraw_dev->base_inner + REG_MRAW_IMGO_BASE_ADDR),
 		readl_relaxed(mraw_dev->base_inner + REG_MRAW_IMGBO_BASE_ADDR_MSB),
@@ -1331,7 +1266,7 @@ static irqreturn_t mtk_irq_mraw(int irq, void *data)
 		mraw_dev->sof_count++;
 		dev_dbg(dev, "sof cnt:%d\n", mraw_dev->sof_count);
 
-		irq_info.fbc_empty = mtk_cam_mraw_is_zero_fbc_cnt(mraw_dev);
+		irq_info.fbc_empty = (sw_enque_err_status) ? 1 : 0;
 		engine_handle_sof(&mraw_dev->cq_ref,
 				  bit_map_bit(MAP_HW_MRAW, mraw_dev->id),
 				  irq_info.frame_idx_inner);

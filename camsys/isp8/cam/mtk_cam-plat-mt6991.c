@@ -347,9 +347,13 @@ static int set_sv_meta_stats_info(
 	return 0;
 }
 
-static int get_sv_two_smi_setting(int *sv_two_smi_en)
+static int get_sv_max_pixel_mode(unsigned int dev_id,
+	unsigned int *max_pixel_mode)
 {
-	*sv_two_smi_en = 1;
+	if (dev_id < MULTI_SMI_SV_HW_NUM)
+		*max_pixel_mode = 4;
+	else
+		*max_pixel_mode = 3;
 
 	return 0;
 }
@@ -441,17 +445,17 @@ static int get_sv_dma_th_setting(unsigned int dev_id, unsigned int fifo_img_p1,
 static int get_mraw_dmao_common_setting(struct mraw_dma_th_setting *mraw_th_setting,
 	struct mraw_cq_th_setting *mraw_cq_setting)
 {
-	mraw_th_setting[imgo_m1].urgent_th = 1<<31|FIFO_THRESHOLD(472, 6/10, 5/10);
-	mraw_th_setting[imgo_m1].ultra_th = 1<<28|FIFO_THRESHOLD(472, 4/10, 3/10);
-	mraw_th_setting[imgo_m1].pultra_th = 1<<28|FIFO_THRESHOLD(472, 2/10, 1/10);
-	mraw_th_setting[imgo_m1].dvfs_th = 1<<31|FIFO_THRESHOLD(472, 1/10, 0);
-	mraw_th_setting[imgo_m1].fifo_size = (0x10 << 24) | 472;
+	mraw_th_setting[imgo_m1].urgent_th = 1<<31|FIFO_THRESHOLD(488, 6/10, 5/10);
+	mraw_th_setting[imgo_m1].ultra_th = 1<<28|FIFO_THRESHOLD(488, 4/10, 3/10);
+	mraw_th_setting[imgo_m1].pultra_th = 1<<28|FIFO_THRESHOLD(488, 2/10, 1/10);
+	mraw_th_setting[imgo_m1].dvfs_th = 1<<31|FIFO_THRESHOLD(488, 1/10, 0);
+	mraw_th_setting[imgo_m1].fifo_size = (0x10 << 24) | 488;
 
-	mraw_th_setting[imgbo_m1].urgent_th = 1<<31|FIFO_THRESHOLD(376, 6/10, 5/10);
-	mraw_th_setting[imgbo_m1].ultra_th = 1<<28|FIFO_THRESHOLD(376, 4/10, 3/10);
-	mraw_th_setting[imgbo_m1].pultra_th = 1<<28|FIFO_THRESHOLD(376, 2/10, 1/10);
-	mraw_th_setting[imgbo_m1].dvfs_th = 1<<31|FIFO_THRESHOLD(376, 1/10, 0);
-	mraw_th_setting[imgbo_m1].fifo_size = (0x10 << 24) | 376;
+	mraw_th_setting[imgbo_m1].urgent_th = 1<<31|FIFO_THRESHOLD(392, 6/10, 5/10);
+	mraw_th_setting[imgbo_m1].ultra_th = 1<<28|FIFO_THRESHOLD(392, 4/10, 3/10);
+	mraw_th_setting[imgbo_m1].pultra_th = 1<<28|FIFO_THRESHOLD(392, 2/10, 1/10);
+	mraw_th_setting[imgbo_m1].dvfs_th = 1<<31|FIFO_THRESHOLD(392, 1/10, 0);
+	mraw_th_setting[imgbo_m1].fifo_size = (0x10 << 24) | 392;
 
 	mraw_th_setting[cpio_m1].urgent_th = 1<<31|FIFO_THRESHOLD(64, 6/10, 5/10);
 	mraw_th_setting[cpio_m1].ultra_th = 1<<28|FIFO_THRESHOLD(64, 4/10, 3/10);
@@ -537,9 +541,9 @@ static int get_mraw_stats_cfg_param(
 	param->lm_en = stats_cfg->lm_enable;
 
 	param->crop_width = stats_cfg->crop_param.crop_x_end -
-		stats_cfg->crop_param.crop_x_start;
+		stats_cfg->crop_param.crop_x_start + 1;
 	param->crop_height = stats_cfg->crop_param.crop_y_end -
-		stats_cfg->crop_param.crop_y_start;
+		stats_cfg->crop_param.crop_y_start + 1;
 
 	param->mqe_mode = stats_cfg->mqe_param.mqe_mode;
 
@@ -796,7 +800,7 @@ static const struct plat_v4l2_data mt6991_v4l2_data = {
 
 	.set_sv_meta_stats_info = set_sv_meta_stats_info,
 	.get_sv_dma_th_setting = get_sv_dma_th_setting,
-	.get_sv_two_smi_setting = get_sv_two_smi_setting,
+	.get_sv_max_pixel_mode = get_sv_max_pixel_mode,
 	.get_mraw_dmao_common_setting = get_mraw_dmao_common_setting,
 	.set_mraw_meta_stats_info = set_mraw_meta_stats_info,
 	.get_mraw_stats_cfg_param = get_mraw_stats_cfg_param,

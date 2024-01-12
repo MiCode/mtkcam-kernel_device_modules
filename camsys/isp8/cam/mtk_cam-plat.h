@@ -11,6 +11,8 @@
 #include <media/v4l2-subdev.h>
 #include "mtk_cam-raw_pads.h"
 
+#define MULTI_SMI_SV_HW_NUM 2
+
 enum mraw_dmao_id {
 	imgo_m1 = 0,
 	imgbo_m1,
@@ -170,7 +172,7 @@ struct plat_v4l2_data {
 	int (*get_sv_dma_th_setting)(unsigned int dev_id, unsigned int fifo_img_p1,
 		unsigned int fifo_img_p2, unsigned int fifo_len_p1, unsigned int fifo_len_p2,
 		struct sv_dma_th_setting *th_setting);
-	int (*get_sv_two_smi_setting)(int *sv_two_smi_en);
+	int (*get_sv_max_pixel_mode)(unsigned int dev_id, unsigned int *max_pixel_mode);
 	int (*get_mraw_dmao_common_setting)(struct mraw_dma_th_setting *mraw_th_setting,
 		struct mraw_cq_th_setting *mraw_cq_setting);
 	int (*set_mraw_meta_stats_info)(int ipi_id, void *addr, struct dma_info *info);

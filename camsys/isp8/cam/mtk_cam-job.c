@@ -348,13 +348,9 @@ static bool is_4cell_sensor(struct mtk_cam_job *job)
 
 static bool is_sv_support_ufbc(struct mtk_cam_job *job)
 {
-#if 1
 	bool use_ufbc = !job->is_sv_pure_raw;
 
-	return use_ufbc && !is_camsv_16p(job);
-#else
-	return false;
-#endif
+	return use_ufbc;
 }
 
 static void update_buf_fmt_sel(struct mtk_cam_job *job)
@@ -659,11 +655,10 @@ mtk_cam_job_initialize_engines(struct mtk_cam_ctx *ctx,
 	if (ctx->hw_sv) {
 		struct mtk_camsv_device *sv = dev_get_drvdata(ctx->hw_sv);
 
-		/* HS_TODO: to support camsv subsample mode */
-		mtk_cam_sv_dev_config(sv, 0);
+		mtk_cam_sv_dev_config(sv, job->sub_ratio - 1);  /* TODO(AY): remove -1 */
 
 		/* smi path sel */
-		mtk_cam_sv_smi_path_sel(sv, is_camsv_16p(job) ? true : false);
+		mtk_cam_sv_smi_path_sel(sv, false);
 	}
 
 	/* mraw */
@@ -2261,6 +2256,11 @@ _job_pack_subsample(struct mtk_cam_job *job,
 		ctx->configured = false;
 	}
 	if (!ctx->configured) {
+		/* handle camsv tags */
+		if (handle_sv_tag(job)) {
+			dev_info(ctx->cam->dev, "tag handle failed");
+			return -1;
+		}
 		/* if has raw */
 		if (bit_map_subset_of(MAP_HW_RAW, ctx->used_engine)) {
 			/* ipi_config_param */
@@ -2276,6 +2276,13 @@ _job_pack_subsample(struct mtk_cam_job *job,
 	}
 	/* clone into job for debug dump */
 	job->ipi_config = ctx->ipi_config;
+
+	job->is_sensor_meta_dump = ctx->is_sensor_meta_dump;
+	job->seninf_meta_buf_desc = ctx->seninf_meta_buf_desc;
+	job->used_tag_cnt = ctx->used_tag_cnt;
+	job->enabled_tags = ctx->enabled_tags;
+	memcpy(job->tag_info, ctx->tag_info,
+		sizeof(struct mtk_camsv_tag_info) * CAMSV_MAX_TAGS);
 
 	ret = mtk_cam_job_fill_ipi_frame(job, job_helper);
 
@@ -4434,11 +4441,7 @@ static int mtk_cam_job_fill_ipi_config(struct mtk_cam_job *job,
 
 	/* camsv */
 	if (ctx->hw_sv) {
-		int sv_two_smi_en = 0;
 		struct mtk_camsv_device *sv_dev = dev_get_drvdata(ctx->hw_sv);
-
-		CALL_PLAT_V4L2(
-			get_sv_two_smi_setting, &sv_two_smi_en);
 
 		for (i = SVTAG_START; i < SVTAG_END; i++) {
 			if (job->enabled_tags & (1 << i)) {
@@ -4451,10 +4454,8 @@ static int mtk_cam_job_fill_ipi_config(struct mtk_cam_job *job,
 					(job->first_job || job->raw_switch) ? 1 : 0;
 				sv_input->is_last_order_meta_off = (is_dcg_ap_merge(job)) ? 1 : 0;
 				sv_input->input = job->ipi_config.sv_input[0][i].input;
-				WARN_ON(sv_dev->id >= MULTI_SMI_SV_HW_NUM &&
-					is_camsv_16p(job));
-				if (sv_dev->id < MULTI_SMI_SV_HW_NUM &&
-					(sv_two_smi_en || is_camsv_16p(job)))
+
+				if (sv_dev->id < MULTI_SMI_SV_HW_NUM)
 					sv_input->is_two_smi_out = 1;
 				else
 					sv_input->is_two_smi_out = 0;
@@ -4476,11 +4477,11 @@ static int mtk_cam_job_fill_ipi_config(struct mtk_cam_job *job,
 
 		pipe->res_config.tg_crop = v4l2_rect_to_ipi_crop(&sink->crop);
 		pipe->res_config.tg_fmt = sensor_mbus_to_ipi_pixel_id(sink->mbus_code);
-		pipe->res_config.pixel_mode = is_camsv_16p(job) ? 4 : 3;
+		pipe->res_config.pixel_mode = 4;
 		atomic_set(&pipe->res_config.is_fmt_change, 1);
 
 		mraw_set_ipi_input_param(&mraw_input->input,
-			sink, is_camsv_16p(job) ? 4 : 3, 1, job->sub_ratio);
+			sink, 4, 1, job->sub_ratio);
 	}
 
 	return 0;

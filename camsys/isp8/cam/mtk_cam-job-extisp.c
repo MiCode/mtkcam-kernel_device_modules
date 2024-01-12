@@ -5,6 +5,7 @@ int handle_sv_tag_extisp(struct mtk_cam_job *job)
 {
 	struct mtk_cam_ctx *ctx = job->src_ctx;
 	struct mtk_raw_sink_data *raw_sink;
+	struct mtk_camsv_device *sv_dev;
 	struct mtk_camsv_pipeline *sv_pipe;
 	struct mtk_camsv_sink_data *sv_sink;
 	struct mtk_camsv_tag_param img_tag_param[SVTAG_IMG_END];
@@ -13,8 +14,14 @@ int handle_sv_tag_extisp(struct mtk_cam_job *job)
 	struct mtk_raw_sink_data preisp_sink_data;
 	u32 vdev_id;
 	unsigned int tag_idx, sv_pipe_idx, hw_scen;
-	unsigned int exp_no, req_amount;
+	unsigned int exp_no, req_amount, max_pixel_mode = 3;
 	int ret = 0, i;
+
+	if (ctx->hw_sv) {
+		sv_dev = dev_get_drvdata(ctx->hw_sv);
+		CALL_PLAT_V4L2(
+			get_sv_max_pixel_mode, sv_dev->id, &max_pixel_mode);
+	}
 
 	/* reset tag info */
 	mtk_cam_sv_reset_tag_info(job);
@@ -42,7 +49,8 @@ int handle_sv_tag_extisp(struct mtk_cam_job *job)
 			img_tag_param[i].tag_order = MTKCAM_IPI_ORDER_LAST_TAG;
 		mtk_cam_sv_fill_tag_info(job->tag_info,
 			&job->ipi_config,
-			&img_tag_param[i], hw_scen, 3,
+			&img_tag_param[i], hw_scen,
+			max_pixel_mode,
 			job->sub_ratio,
 			raw_sink->width, raw_sink->height,
 			raw_sink->mbus_code, NULL);
@@ -50,11 +58,12 @@ int handle_sv_tag_extisp(struct mtk_cam_job *job)
 		job->used_tag_cnt++;
 		job->enabled_tags |= (1 << img_tag_param[i].tag_idx);
 
-		pr_info("[%s] tag_idx:%d seninf_padidx:%d tag_order:%d width/height/mbus_code:0x%x_0x%x_0x%x\n",
+		pr_info("[%s] tag_idx:%d seninf_padidx:%d tag_order:%d pixel_mode:%d width/height/mbus_code:0x%x_0x%x_0x%x\n",
 			__func__,
 			img_tag_param[i].tag_idx,
 			img_tag_param[i].seninf_padidx,
 			img_tag_param[i].tag_order,
+			max_pixel_mode,
 			raw_sink->width,
 			raw_sink->height,
 			raw_sink->mbus_code);
@@ -77,7 +86,8 @@ int handle_sv_tag_extisp(struct mtk_cam_job *job)
 			job->seninf, sv_sink->mbus_code, sv_pipe->seninf_padidx);
 		mtk_cam_sv_fill_tag_info(job->tag_info,
 			&job->ipi_config,
-			&meta_tag_param, 1, 3, job->sub_ratio,
+			&meta_tag_param, 1,
+			max_pixel_mode, job->sub_ratio,
 			sv_sink->width, sv_sink->height,
 			sv_sink->mbus_code, sv_pipe);
 
@@ -85,11 +95,12 @@ int handle_sv_tag_extisp(struct mtk_cam_job *job)
 		job->enabled_tags |= (1 << tag_idx);
 		tag_idx++;
 
-		pr_info("[%s] tag_idx:%d seninf_padidx:%d tag_order:%d width/height/mbus_code:0x%x_0x%x_0x%x\n",
+		pr_info("[%s] tag_idx:%d seninf_padidx:%d tag_order:%d pixel_mode:%d width/height/mbus_code:0x%x_0x%x_0x%x\n",
 			__func__,
 			meta_tag_param.tag_idx,
 			meta_tag_param.seninf_padidx,
 			meta_tag_param.tag_order,
+			max_pixel_mode,
 			sv_sink->width,
 			sv_sink->height,
 			sv_sink->mbus_code);

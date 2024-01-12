@@ -21,6 +21,9 @@
 #include "mtk-aov-data.h"
 #include "mtk-aov-trace.h"
 
+#include "mtk-vmm-notifier.h"
+#include "mtk_mmdvfs.h"
+
 #include "slbc_ops.h"
 #include "scp.h"
 #include <soc/mediatek/smi.h>
@@ -557,8 +560,18 @@ int aov_core_send_cmd(struct mtk_aov *aov_dev, uint32_t cmd,
 		atomic_set(&(core_info->aov_ready), 1);
 	} else if (cmd == AOV_SCP_CMD_PWR_OFF) {
 		atomic_set(&(core_info->disp_mode), AOV_DISP_MODE_OFF);
+		if (*(aov_dev->enable_aov_ut_flag)) {
+			vmm_isp_ctrl_notify(1);
+			mtk_mmdvfs_aov_enable(1);
+			send_cmd_internal(core_info, AOV_SCP_CMD_OFF_UT, 0, 0, false, true);
+		}
 	} else if (cmd == AOV_SCP_CMD_PWR_ON) {
 		atomic_set(&(core_info->disp_mode), AOV_DiSP_MODE_ON);
+		if (*(aov_dev->enable_aov_ut_flag)) {
+			vmm_isp_ctrl_notify(1);
+			mtk_mmdvfs_aov_enable(1);
+			send_cmd_internal(core_info, AOV_SCP_CMD_ON_UT, 0, 0, false, true);
+		}
 	} else if (cmd == AOV_SCP_CMD_NOTIFY) {
 		struct aov_notify *notify = (struct aov_notify *)buf;
 

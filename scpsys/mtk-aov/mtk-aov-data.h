@@ -39,7 +39,9 @@
 #define AOV_SCP_CMD_STOP             (6)
 #define AOV_SCP_CMD_AIE_HANG         (7)
 #define AOV_SCP_CMD_AIE_HANG_DONE    (8)
-#define AOV_SCP_CMD_MAX              (9)
+#define AOV_SCP_CMD_ON_UT            (9)
+#define AOV_SCP_CMD_OFF_UT           (10)
+#define AOV_SCP_CMD_MAX              (11)
 #define AOV_SCP_CMD_ACK              (0x80000000)
 
 #define AOV_DEBUG_MODE_DUMP       (1)  // General debug

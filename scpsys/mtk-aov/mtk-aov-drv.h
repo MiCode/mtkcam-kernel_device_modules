@@ -35,6 +35,7 @@ struct mtk_aov {
 	bool is_open;
 	uint32_t op_mode;
 	unsigned int user_cnt;
+	uint32_t *enable_aov_ut_flag;
 };
 
 #endif /* MTK_AOV_DRV_H */

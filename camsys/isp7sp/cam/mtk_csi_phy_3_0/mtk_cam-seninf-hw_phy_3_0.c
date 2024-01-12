@@ -2489,13 +2489,13 @@ static int csirx_mac_csi_setting(struct seninf_ctx *ctx)
 
 	SENINF_BITS(csirx_mac_csi,
 				CSIRX_MAC_CSI2_RESYNC_MERGE_CTRL,
-				RG_CSI2_RESYNC_DATAOUT_OPT,
+				RG_CSI2_RESYNC_CYCLE_CNT_OPT,
 				1);
 
 	/* Enable CSI2 interrupt */
 	SENINF_WRITE_REG(csirx_mac_csi,
 					CSIRX_MAC_CSI2_IRQ_EN,
-					0xFFFFFFFF);
+					0x80000000);
 
 
 	SENINF_BITS(csirx_mac_csi,

@@ -328,7 +328,7 @@ static ssize_t debug_ops_store(struct device *dev,
 	char *token = NULL;
 	char *sbuf = kzalloc(sizeof(char) * (count + 1), GFP_KERNEL);
 	char *s = sbuf;
-	int ret, i, csi_port, val_signed, rg_idx = -1, eye_scan_rg_idx = -1;
+	int ret, i, csi_port, val_signed = -1, rg_idx = -1, eye_scan_rg_idx = -1;
 	unsigned int num_para = 0;
 	char *arg[REG_OPS_CMD_MAX_NUM];
 	struct seninf_core *core = dev_get_drvdata(dev);

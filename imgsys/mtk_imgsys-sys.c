@@ -1821,8 +1821,11 @@ static void imgsys_runner_func(void *data)
 	}
 
 #ifdef MTK_IOVA_SINK2KERNEL
-	mode = (frm_info->batchnum > 0 ? imgsys_smvr :
-		(frm_info->is_capture == 1 ? imgsys_capture : imgsys_streaming));
+	if (frm_info->is_capture)
+	    mode = imgsys_capture;
+	else
+	    mode = (frm_info->batchnum > 0 ? imgsys_smvr : imgsys_streaming);
+
 	for (subfidx = 0 ; subfidx < frm_info->total_frmnum ; subfidx++) {
 		iova_addr = transform_tuning_iova(imgsys_dev, req, &module_tuning_info,
 					frm_info->user_info[subfidx].subfrm_idx);

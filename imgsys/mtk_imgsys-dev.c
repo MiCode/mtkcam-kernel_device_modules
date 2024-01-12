@@ -638,9 +638,8 @@ u64 mtk_imgsys_get_iova(struct dma_buf *dma_buf, s32 ionFd,
 		return dma_addr;
 	}
 
-	if (IS_ERR(dma_buf)) {
-        if (imgsys_dbg_enable())
-		dev_dbg(imgsys_dev->dev, "%s: dma_buf 0x%lx",
+	if (IS_ERR_OR_NULL(dma_buf)) {
+		dev_info(imgsys_dev->dev, "%s: dma_buf 0x%lx",
 						__func__, (unsigned long)dma_buf);
 		return 0;
 	}

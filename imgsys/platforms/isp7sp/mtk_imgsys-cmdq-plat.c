@@ -210,6 +210,8 @@ void imgsys_cmdq_streamon_plat7sp(struct mtk_imgsys_dev *imgsys_dev)
 		idx <= IMGSYS_CMDQ_SYNC_TOKEN_IMGSYS_END; idx++)
 		cmdq_clear_event(imgsys_clt[0]->chan, imgsys_event[idx].event);
 
+	cmdq_mbox_disable(imgsys_clt[0]->chan);
+
 	MTK_IMGSYS_QOF_NEED_RUN(imgsys_dev->qof_ver, mtk_imgsys_cmdq_qof_streamon(imgsys_dev));
 
 	memset((void *)event_hist, 0x0,
@@ -3424,6 +3426,8 @@ void mtk_imgsys_power_ctrl_plat7sp(struct mtk_imgsys_dev *imgsys_dev, bool isPow
 					__func__, isPowerOn, user_cnt);
 
 			mutex_lock(&(imgsys_dev->power_ctrl_lock));
+
+			cmdq_mbox_enable(imgsys_clt[0]->chan);
 
 			pm_runtime_get_sync(imgsys_dev->dev);
 

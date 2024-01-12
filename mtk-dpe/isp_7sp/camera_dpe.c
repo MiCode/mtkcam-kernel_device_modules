@@ -1635,6 +1635,15 @@ signed int dpe_enque_cb(struct frame *frames, void *req)
 		}
 		mutex_unlock(&gFDMutex);
 
+		LOG_INF("YL:%d,YR:%d,OCC:%d,OCC_E:%d,OCC_H:%d,YL_Pre:%d,YT_Pre:%d\n",
+			_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_InBuf_SrcImg_Y_L_fd,
+			_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_InBuf_SrcImg_Y_R_fd,
+			_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_OutBuf_OCC_fd,
+			_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_OutBuf_OCC_Ext_fd,
+			_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_Output_OCC_Hist_fd,
+			_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_InBuf_SrcImg_Y_L_Pre_fd,
+			_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_InBuf_SrcImg_Y_R_Pre_fd);
+
 		if (!SrcImg_Y_L_mmu)
 			return -1;
 
@@ -1909,6 +1918,15 @@ signed int dpe_enque_cb(struct frame *frames, void *req)
 			ASF_HF_Ext_mmu = kzalloc(sizeof(struct tee_mmu) * 4, GFP_KERNEL);
 		}
 		mutex_unlock(&gFDMutex);
+		LOG_INF("Y:%d,C:%d,OCC:%d,CRM:%d,OCC_E:%d,WT_RD:%d,ASF_HF:%d,FILT:%d\n",
+			_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_InBuf_SrcImg_Y_fd,
+			_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_InBuf_SrcImg_C_fd,
+			_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_InBuf_OCC_fd,
+			_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_OutBuf_CRM_fd,
+			_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_OutBuf_OCC_Ext_fd,
+			_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_OutBuf_WMF_RD_fd,
+			_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_OutBuf_ASF_HF_fd,
+			_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_OutBuf_WMF_FILT_fd);
 
 		if (!SrcImg_Y_mmu)
 			return -1;
@@ -2295,6 +2313,18 @@ signed int dpe_enque_cb(struct frame *frames, void *req)
 			SrcImg_Y_Pre_mmu = kzalloc(sizeof(struct tee_mmu) * 4, GFP_KERNEL);
 			SrcImg_C_Pre_mmu = kzalloc(sizeof(struct tee_mmu) * 4, GFP_KERNEL);
 		}
+		LOG_INF("Yfd:%d,Cfd:%d,Y_P:%d,C_P:%d,OCC_E:%d,WT_Fnl:%d,IIR:%d,FILT:%d\n",
+			_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_InBuf_SrcImg_Y_fd,
+			_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_InBuf_SrcImg_C_fd,
+			_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_InBuf_SrcImg_Y_Pre_fd,
+			_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_InBuf_SrcImg_C_Pre_fd,
+			_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_OutBuf_OCC_Ext_fd,
+			_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_OutBuf_WT_Fnl_fd,
+			_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_OutBuf_RW_IIR_fd,
+			_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_OutBuf_WMF_FILT_fd);
+
+		if (!DVGF_SrcImg_Y_mmu)
+			return -1;
 
 		DVGF_only_en++;
 		DVGF_Num++;
@@ -7699,6 +7729,8 @@ static signed int DPE_open(struct inode *pInode, struct file *pFile)
 	DVS_Num = 0;
 	DVP_only_en = 0;
 	DVP_Num = 0;
+	DVGF_only_en = 0;
+	DVGF_Num = 0;
 
 	for (i = 0 ; i < 10 ; i++) {
 		get_dvs_iova[i] = 0;
@@ -7875,7 +7907,7 @@ unsigned int dpe_fop_poll(struct file *file, poll_table *wait)
 				pUserInfo->Pid);
 
 	p = pUserInfo->Pid % IRQ_USER_NUM_MAX;
-	LOG_INF("buf_rdy = %d\n", buf_rdy);
+	LOG_INF("buf_rdy = %d, p=%d\n", buf_rdy, p);
 	// LOG_INF("DVS_buf_rdy = %d, DVP_buf_rdy = %d, DVGF_buf_rdy = %d\n",
 	// DVS_buf_rdy, DVP_buf_rdy, DVGF_buf_rdy);
 	//LOG_INF("poll DpeIrqCnt = %d p = %d\n", DPEInfo.IrqInfo.DpeIrqCnt[p], p);
@@ -9458,7 +9490,7 @@ static irqreturn_t ISP_Irq_DVP(signed int Irq, void *DeviceId)
 		DPE_IRQ_TYPE_INT_DVP_ST,
 		m_CurrentPPB,
 		_LOG_INF,
-		"IrqCnt[%d]:0x%x,WReq:0x%x,RReq:0x%x\n",
+		"DVP_IRQ:IrqCnt[%d]:0x%x,WReq:0x%x,RReq:0x%x\n",
 		p, DPEInfo.IrqInfo.DpeIrqCnt[p],
 		DPEInfo.WriteReqIdx,
 		DPEInfo.ReadReqIdx);
@@ -9567,7 +9599,7 @@ static irqreturn_t ISP_Irq_DVS(signed int Irq, void *DeviceId)
 		DPE_IRQ_TYPE_INT_DVS_ST,
 		m_CurrentPPB,
 		_LOG_INF,
-		"IrqCnt[%d]:0x%x,WReq:0x%x,RReq:0x%x\n",
+		"DVS_IRQ:IrqCnt[%d]:0x%x,WReq:0x%x,RReq:0x%x\n",
 		p, DPEInfo.IrqInfo.DpeIrqCnt[p],
 		DPEInfo.WriteReqIdx,
 		DPEInfo.ReadReqIdx);
@@ -9623,7 +9655,7 @@ static irqreturn_t ISP_Irq_DVGF(signed int Irq, void *DeviceId)
 
 		isDvsDone = MTRUE;
 	/* } */
-	spin_lock(&(DPEInfo.SpinLockIrq[DPE_IRQ_TYPE_INT_DVGF_ST]));
+	spin_lock(&(DPEInfo.SpinLockIrq[DPE_IRQ_TYPE_INT_DVP_ST]));
 	if (isDvsDone == MTRUE) {
 		/* Update the frame status. */
 #ifdef __DPE_KERNEL_PERFORMANCE_MEASURE__
@@ -9631,6 +9663,7 @@ static irqreturn_t ISP_Irq_DVGF(signed int Irq, void *DeviceId)
 #endif
 		if (dpe_update_request_isp7s(&dpe_reqs_dvgf, &ProcessID) == 0)
 			bResulst = MTRUE;
+
 		if (bResulst == MTRUE) {
 			#if REQUEST_REGULATION == REQUEST_BASE_REGULATION
 			/* schedule_work(&DPEInfo.ScheduleDpeWork); */
@@ -9641,6 +9674,7 @@ static irqreturn_t ISP_Irq_DVGF(signed int Irq, void *DeviceId)
 				DPE_INT_ST;
 			DPEInfo.IrqInfo.ProcessID[p] =
 			ProcessID;
+
 			DPEInfo.IrqInfo.DpeIrqCnt[p]++;
 			//Get_DVGF_IRQ++;
 			//LOG_INF("DVGF DPEInfo.IrqInfo.DpeIrqCnt[p] =%d,p =%d\n",
@@ -9656,7 +9690,7 @@ static irqreturn_t ISP_Irq_DVGF(signed int Irq, void *DeviceId)
 #endif
 		/* Config the Next frame */
 	}
-	spin_unlock(&(DPEInfo.SpinLockIrq[DPE_IRQ_TYPE_INT_DVGF_ST]));
+	spin_unlock(&(DPEInfo.SpinLockIrq[DPE_IRQ_TYPE_INT_DVP_ST]));
 	if (bResulst == MTRUE)
 		wake_up_interruptible(&DPEInfo.WaitQueueHead);
 	/* dump log, use tasklet */
@@ -9675,7 +9709,7 @@ static irqreturn_t ISP_Irq_DVGF(signed int Irq, void *DeviceId)
 		DPE_IRQ_TYPE_INT_DVGF_ST,
 		m_CurrentPPB,
 		_LOG_INF,
-		"IrqCnt[%d]:0x%x,WReq:0x%x,RReq:0x%x\n",
+		"DVGF_IRQ:IrqCnt[%d]:0x%x,WReq:0x%x,RReq:0x%x\n",
 		p, DPEInfo.IrqInfo.DpeIrqCnt[p],
 		DPEInfo.WriteReqIdx,
 		DPEInfo.ReadReqIdx);

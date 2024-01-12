@@ -1070,8 +1070,15 @@ static int mtk_aie_g_fmt_meta_cap(struct file *file, void *fh,
 int mtk_aie_vidioc_qbuf(struct file *file, void *priv,
 				  struct v4l2_buffer *buf)
 {
-	struct mtk_aie_dev *fd = video_drvdata(file);
+	struct mtk_aie_dev *fd;
 	int ret = 0, idx = 0;
+
+	if (file == NULL || buf == NULL) {
+		pr_info("%s, AIE TF Dump param is NULL\n", __func__);
+		return -EFAULT;
+	}
+
+	fd = video_drvdata(file);
 
 	AIE_SYSTRACE_BEGIN("%s", __func__);
 

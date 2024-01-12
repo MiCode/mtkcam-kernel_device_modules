@@ -4,7 +4,7 @@ ifneq ($(KERNELRELEASE),)
 include Kbuild
 
 else
-obj-y += camsys/
+#obj-y += camsys/
 obj-m += scpsys/
 #obj-m += cam_cal/
 #obj-m += imgsys/

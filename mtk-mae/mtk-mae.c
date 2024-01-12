@@ -34,7 +34,18 @@
 
 #include "mtk-mae.h"
 #include "mtk_notify_aov.h"
+#include "./mae_mm16_fd/fdvt_FPGA_coef.h"
+#include "./mae_mm16_fd/fdvt_FPGA_config.h"
 
+#ifdef GOLDEN
+#include "./mae_mm16_fd/fdvt_FPGA_DMA0_outer0_input.h"
+#include "./mae_mm16_fd/fdvt_FPGA_DMA0_outer0_input1.h"
+#include "./mae_mm16_fd/fdvt_FPGA_DMA0_outer0_output.h"
+#include "./mae_mm16_fd/fdvt_FPGA_DMA1_outer0_output.h"
+#include "./mae_mm16_fd/fdvt_FPGA_DMA2_outer0_output.h"
+#include "./mae_mm16_fd/fdvt_FPGA_DMA3_outer0_output.h"
+#include "./mae_mm16_fd/fdvt_FPGA_DMA4_outer0_output.h"
+#endif
 // DEBUG_ONLY
 #include <linux/delay.h>
 
@@ -137,6 +148,36 @@ void aov_notify_register(aov_notify aov_notify_fn)
 	m_aov_notify = aov_notify_fn;
 }
 EXPORT_SYMBOL(aov_notify_register);
+
+void mtk_aie_aov_memcpy(char *buffer)
+{
+	char *tmp = buffer;
+
+	memcpy(tmp, &fdvt_FPGA_coef_frame01[0], sizeof(fdvt_FPGA_coef_frame01));
+	tmp += sizeof(fdvt_FPGA_coef_frame01);
+
+	memcpy(tmp, &fdvt_FPGA_config_frame01[0], sizeof(fdvt_FPGA_config_frame01));
+#ifdef GOLDEN
+	tmp += sizeof(fdvt_FPGA_config_frame01);
+	memcpy(tmp, &fdvt_FPGA_DMA0_outer0_input_frame01[0], sizeof(fdvt_FPGA_DMA0_outer0_input_frame01));
+	tmp += sizeof(fdvt_FPGA_DMA0_outer0_input_frame01);
+
+	memcpy(tmp, &fdvt_FPGA_DMA0_outer0_input1_frame01[0], sizeof(fdvt_FPGA_DMA0_outer0_input1_frame01));
+	tmp += sizeof(fdvt_FPGA_DMA0_outer0_input1_frame01);
+
+	memcpy(tmp, &fdvt_FPGA_DMA1_outer0_output_frame01[0],  sizeof(fdvt_FPGA_DMA1_outer0_output_frame01));
+	tmp += sizeof(fdvt_FPGA_DMA1_outer0_output_frame01);
+
+	memcpy(tmp, &fdvt_FPGA_DMA2_outer0_output_frame01[0],  sizeof(fdvt_FPGA_DMA2_outer0_output_frame01));
+	tmp += sizeof(fdvt_FPGA_DMA2_outer0_output_frame01);
+
+	memcpy(tmp, &fdvt_FPGA_DMA3_outer0_output_frame01[0],  sizeof(fdvt_FPGA_DMA3_outer0_output_frame01));
+	tmp += sizeof(fdvt_FPGA_DMA3_outer0_output_frame01);
+
+	memcpy(tmp, &fdvt_FPGA_DMA4_outer0_output_frame01[0],  sizeof(fdvt_FPGA_DMA4_outer0_output_frame01));
+#endif
+}
+EXPORT_SYMBOL(mtk_aie_aov_memcpy);
 
 enum MAE_BUF_TYPE {
 	SECURE_BUF,

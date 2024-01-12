@@ -792,9 +792,6 @@ void write_pkt_trigger_apu_frame_mode(struct mtk_raw_device *dev,
 	write_pkt_apu_raw(dev, pkt, false /* is_apu_dc */);
 }
 
-#define RAW_RST_STAT_CHECK		0x37ffffff
-#define RAW_RST_STAT2_CHECK		0x1ff
-#define YUV_RST_STAT_CHECK		0x1efffff
 /* check again for rawi dcif case */
 bool is_all_dma_idle(struct mtk_raw_device *dev)
 {
@@ -854,9 +851,9 @@ bool is_all_dma_idle(struct mtk_raw_device *dev)
 			CAMRAWDMATOP_DC_DBG_CHASING_STATUS_UFDI_R5) & BIT(0)) == 0)
 		SET_FIELD(&raw_rst_stat, CAMRAWDMATOP_UFDI_R5_SOFT_RST_STAT, 1);
 
-	if (raw_rst_stat == RAW_RST_STAT_CHECK &&
-		raw_rst_stat2 == RAW_RST_STAT2_CHECK &&
-		yuv_rst_stat == YUV_RST_STAT_CHECK)
+	if (raw_rst_stat == REG_CAMRAWDMATOP_DMA_SOFT_RST_STAT_MASK &&
+		raw_rst_stat2 == REG_CAMRAWDMATOP_DMA_SOFT_RST2_STAT_MASK &&
+		yuv_rst_stat == REG_CAMYUVDMATOP_DMA_SOFT_RST_STAT_MASK)
 		return true;
 
 	return false;

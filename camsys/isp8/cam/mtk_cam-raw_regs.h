@@ -10162,9 +10162,6 @@ static inline u32 _set_field(u32 *val, int pos, int width, u32 fval)
 #define F_CAMYUVDMATOP_TCYSO_R1_AXSLC_WIDTH                          5
 
 
-
-
-
 /* manually added */
 #define DMA_OFFSET_CON0        0x020
 #define DMA_OFFSET_CON1        0x024
@@ -10181,6 +10178,9 @@ static inline u32 _set_field(u32 *val, int pos, int width, u32 fval)
 #define REG_CQI_R7_BASE		   0x4a0
 #define REG_CQI_R8_BASE		   0x510
 
+#define REG_CAMRAWDMATOP_DMA_SOFT_RST_STAT_MASK     0x1fffffff
+#define REG_CAMRAWDMATOP_DMA_SOFT_RST2_STAT_MASK    0x7fffff
+#define REG_CAMYUVDMATOP_DMA_SOFT_RST_STAT_MASK     0xffffff
 
 #define REG_HALT1_EN					0x00c4
 #define REG_HALT2_EN					0x00c8

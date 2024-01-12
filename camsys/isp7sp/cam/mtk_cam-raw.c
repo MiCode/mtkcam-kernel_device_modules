@@ -25,6 +25,7 @@
 #include "mtk_cam-dvfs_qos.h"
 #include "mtk_cam-raw.h"
 #include "mtk_cam-raw_debug.h"
+#include "mtk_cam-dmadbg.h"
 #include "mtk_cam-raw_regs.h"
 //#include "mtk_cam-hsf.h"
 #include "mtk_cam-trace.h"
@@ -114,6 +115,12 @@ static void init_camsys_settings(struct mtk_raw_device *dev, bool is_srt)
 	writel_relaxed(0xffff,
 		yuv_dev->base + REG_CAMYUVDMATOP_LOW_LATENCY_LINE_CNT_DRZS4NO_R1);
 
+#ifdef DEBUG_DMA_ENABLE_CRC_EN
+	/* for debug: crc_en */
+	writel(BIT(24), dev->base + REG_CAMRAWDMATOP_DMA_DBG_SEL);
+	writel(BIT(24), dev->base + REG_CAMYUVDMATOP_DMA_DBG_SEL);
+#endif
+
 	switch (dev->id) {
 	case RAW_A:
 		reg_raw_urgent = REG_HALT5_EN;
@@ -184,7 +191,7 @@ static void dump_interrupt(struct mtk_raw_device *dev)
 static void dump_tg_setting(struct mtk_raw_device *dev, const char *msg)
 {
 	dev_info(dev->dev,
-		 "%s [outer] TG SENMODE/VFCON/PATHCFG/VSEOL_SUB: FRMSIZE/R GRABPXL/LIN :%x/%x/%x/%x: %x/%x %x/%x\n",
+		 "%s [outer] TG SENMODE/VFCON/PATHCFG/VSEOL_SUB: %x/%x/%x/%x FRMSIZE/R GRABPXL/LIN: %x/%x %x/%x\n",
 		 msg,
 		 readl_relaxed(dev->base + REG_TG_SEN_MODE),
 		 readl_relaxed(dev->base + REG_TG_VF_CON),
@@ -196,7 +203,7 @@ static void dump_tg_setting(struct mtk_raw_device *dev, const char *msg)
 		 readl_relaxed(dev->base + REG_TG_SEN_GRAB_LIN));
 
 	dev_info(dev->dev,
-		 "%s [inner] TG SENMODE/VFCON/PATHCFG/VSEOL_SUB: GRABPXL/LIN :%x/%x/%x/%x: %x/%x\n",
+		 "%s [inner] TG SENMODE/VFCON/PATHCFG/VSEOL_SUB: %x/%x/%x/%x GRABPXL/LIN: %x/%x\n",
 		 msg,
 		 readl_relaxed(dev->base_inner + REG_TG_SEN_MODE),
 		 readl_relaxed(dev->base_inner + REG_TG_VF_CON),
@@ -2433,10 +2440,19 @@ int raw_to_tg_idx(int raw_id)
 	return raw_id * 2 + cammux_id_raw_start;
 }
 
+//#define DEBUG_RAWI_R5
 void raw_dump_debug_status(struct mtk_raw_device *dev)
 {
 	dump_seqence(dev);
 	dump_cq_setting(dev);
 	dump_tg_setting(dev, "debug");
+	dump_dmatop_dc_st(dev);
 	dump_interrupt(dev);
+
+#ifdef DEBUG_RAWI_R5
+	mtk_cam_dump_dma_debug(dev,
+			       dev->base + 0x4000, /* DMATOP_BASE */
+			       "RAWI_R5",
+			       dbg_RAWI_R5, ARRAY_SIZE(dbg_RAWI_R5));
+#endif
 }

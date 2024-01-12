@@ -1644,11 +1644,11 @@ static int set_test_model(struct seninf_ctx *ctx, char enable)
 
 	if (enable) {
 		ret = pm_runtime_get_sync(ctx->dev);
-		//if (ret < 0) {
-		//	dev_info(ctx->dev, "[%s] pm_runtime_get_sync ret %d\n", __func__, ret);
-		//	pm_runtime_put_noidle(ctx->dev);
-		//	return ret;
-		//}
+		if (ret < 0) {
+			dev_info(ctx->dev, "[%s] pm_runtime_get_sync ret %d\n", __func__, ret);
+			pm_runtime_put_noidle(ctx->dev);
+			return ret;
+		}
 
 		if (dfs->cnt)
 			seninf_dfs_set(ctx, dfs->freqs[dfs->cnt - 1]);
@@ -2141,11 +2141,11 @@ static int seninf_csi_s_stream(struct v4l2_subdev *sd, int enable)
 
 		get_customized_pixel_rate(ctx, ctx->sensor_sd, &ctx->customized_pixel_rate);
 		ret = pm_runtime_get_sync(ctx->dev);
-		//if (ret < 0) {
-		//	dev_info(ctx->dev, "%s pm_runtime_get_sync ret %d\n", __func__, ret);
-		//	pm_runtime_put_noidle(ctx->dev);
-		//	return ret;
-		//}
+		if (ret < 0) {
+			dev_info(ctx->dev, "%s pm_runtime_get_sync ret %d\n", __func__, ret);
+			pm_runtime_put_noidle(ctx->dev);
+			return ret;
+		}
 
 		update_isp_clk(ctx);
 #if AOV_GET_PARAM
@@ -3731,9 +3731,6 @@ static int runtime_resume(struct device *dev)
 			}
 			seninf_logd(ctx, "seninf_core_pm_runtime_get_sync(success),ret(%d)\n", ret);
 
-			/* setup common reg */
-			core_common_reg_setup(ctx);
-
 			/*
 			 * enable seninf cg
 			 * including cam, seninf, camtg
@@ -3774,6 +3771,9 @@ static int runtime_resume(struct device *dev)
 			/* setup default tsrec device irq sel by ccu */
 			mtk_cam_seninf_rproc_ccu_tsrec_ctrl(dev, &core->ccu_rproc_ctrl,
 				MSG_TO_CCU_SENINF_TSREC_IRQ_SEL_CTRL, __func__);
+
+			/* setup common reg */
+			core_common_reg_setup(ctx);
 		} else
 			seninf_logi(ctx,
 				"multi user(%d),cnt(%d)\n",

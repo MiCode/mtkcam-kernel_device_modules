@@ -355,6 +355,7 @@ dma_addr_t *g_dpewb_wmfhf_Buffer_pa;
 struct device *gdev;
 struct device *smmudev;
 #endif
+static unsigned int g_isshutdown;
 static unsigned int g_u4EnableClockCount;
 static unsigned int g_SuspendCnt;
 /* maximum number for supporting user to do interrupt operation */
@@ -5206,7 +5207,7 @@ void DPE_callback_func(struct cmdq_cb_data data)
     struct my_callback_data *my_data = (struct my_callback_data *)data.data;
 
     if ((data.err < 0)) {
-      if (g_u4EnableClockCount > 0) {
+      if (g_u4EnableClockCount > 0 && !g_isshutdown) {
         LOG_INF("DPE_callback_func 2\n");
             #ifdef CMASYS_CLK_Debug
 			LOG_INF("cmd_pkt[0x1A000000 %08X]\n",
@@ -5220,7 +5221,7 @@ void DPE_callback_func(struct cmdq_cb_data data)
         // do error handling
        cmdq_dump_pkt(my_data->pkt, 0 , 1);
       } else {
-        LOG_INF("DPE Power not Enable\n");
+        LOG_INF("DPE Power not Enable or is shutdown(%d)\n", g_isshutdown);
       }
     }
 }
@@ -5255,9 +5256,15 @@ signed int CmdqDPEHW(struct frame *frame)
 
 	//LOG_INF("%s CmdqtoHw statr", __func__);
 
+	if (g_isshutdown) {
+		LOG_INF("%s : system is shutdown: %d", __func__, g_isshutdown);
+		kfree((struct my_callback_data *)my_data);
+		return -1;
+	}
+
 	if (frame == NULL || frame->data == NULL || my_data == NULL) {
-    LOG_INF("frame->data = NULL or my_date = NULL");
-    kfree((struct my_callback_data *)my_data);
+		LOG_INF("frame->data = NULL or my_date = NULL");
+		kfree((struct my_callback_data *)my_data);
 		return -1;
 	}
 
@@ -6477,6 +6484,11 @@ static void DPE_EnableClock(bool En)
 #if IS_ENABLED(CONFIG_MTK_IOMMU_V2)
 	int ret = 0;
 #endif
+	if (g_isshutdown) {
+		LOG_INF("%s : system is shutdown: %d", __func__, g_isshutdown);
+		return;
+	}
+
 	if (En) {		/* Enable clock. */
  /* LOG_DBG("clock enbled. g_u4EnableClockCount: %d.", g_u4EnableClockCount); */
 		//mutex_lock(&gDpeMutex);	//!
@@ -8750,6 +8762,7 @@ if (DPE_dev->irq > 0) {
 			LOG_INF("video_register_device failed\n");
 		}
 	}
+	g_isshutdown = 0;
 	g_DPE_PMState = 0;
 	//Get_DVS_IRQ = 0;
 	//Get_DVP_IRQ = 0;
@@ -8771,6 +8784,7 @@ static signed int DPE_remove(struct platform_device *pDev)
 	int i;
 	/*  */
 	LOG_DBG("- E.");
+	pm_runtime_disable(&pDev->dev);
 	/* wait for unfinished works in the workqueue. */
 	destroy_workqueue(DPEInfo.wkqueue);
 	DPEInfo.wkqueue = NULL;
@@ -8837,6 +8851,18 @@ static signed int DPE_resume(struct platform_device *pDev)
 {
 
 	return 0;
+}
+
+static void DPE_shutdown(struct platform_device *pdev)
+{
+	g_isshutdown = 1;
+
+	if (dpe_clt)
+		cmdq_mbox_stop(dpe_clt);
+	else
+		dev_info(&pdev->dev, "%s: dpe cmdq client is NULL\n", __func__);
+
+	LOG_INF("DPE shutdown callback: %d", g_isshutdown);
 }
 /*---------------------------------------------------------------------------*/
 #if IS_ENABLED(CONFIG_PM)
@@ -8951,6 +8977,7 @@ const struct dev_pm_ops DPE_pm_ops = {
 static struct platform_driver DPEDriver = {
 	.probe = DPE_probe,
 	.remove = DPE_remove,
+	.shutdown = DPE_shutdown,
 	.suspend = DPE_suspend,
 	.resume = DPE_resume,
 	.driver = {

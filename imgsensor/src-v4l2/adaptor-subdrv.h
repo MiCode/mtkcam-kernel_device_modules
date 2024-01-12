@@ -104,6 +104,16 @@ struct subdrv_pw_seq_entry {
 	int delay;
 };
 
+struct u32_min_max {
+	u32 min;
+	u32 max;
+};
+
+struct u64_min_max {
+	u64 min;
+	u64 max;
+};
+
 struct eeprom_info_struct {
 	u32 header_id;
 	u32 addr_header_id;
@@ -198,6 +208,8 @@ struct subdrv_mode_struct {
 	u32 dig_gain_min;
 	u32 dig_gain_max;
 	u32 dig_gain_step;
+	struct u32_min_max multi_exposure_ana_gain_range[IMGSENSOR_EXPOSURE_CNT];
+	struct u64_min_max multi_exposure_shutter_range[IMGSENSOR_EXPOSURE_CNT];
 
 	bool dpc_enabled; /* defect pixel correction */
 	bool pdc_enabled; /* pd correction */

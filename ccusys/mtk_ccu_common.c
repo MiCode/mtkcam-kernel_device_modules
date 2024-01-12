@@ -18,6 +18,8 @@
 #define LOG_ERR(format, args...) \
 	pr_err(MTK_CCU_TAG "[%s] " format, __func__, ##args)
 
+uint32_t ccu_mailbox_max;
+
 static inline unsigned int mtk_ccu_mstojiffies(unsigned int Ms)
 {
 	return ((Ms * HZ + 512) >> 10);
@@ -32,24 +34,38 @@ void mtk_ccu_memclr(void *dst, int len)
 		writel(0, dstPtr + i);
 }
 
+void mtk_ccu_readl(void *dst, const void *src, uint32_t len)
+{
+	int i, copy_len;
+	char data[4];
+
+	for (i = 0; i < (len >> 2); ++i)
+		*((uint32_t *)dst + i) = readl((uint32_t *)src + i);
+
+	if ((len & 3) != 0) {
+		copy_len = len & ~(0x3);
+		*((uint32_t *)data) = readl((char *)src + copy_len);
+		for (i = 0; i < (len & 3); ++i)
+			*((char *)dst + copy_len + i) = data[i];
+	}
+}
+
 void mtk_ccu_memcpy(void *dst, const void *src, uint32_t len)
 {
 	int i, copy_len;
 	uint32_t data = 0;
 	uint32_t align_data = 0;
 
-	for (i = 0; i < len/4; ++i)
-		writel(*((uint32_t *)src+i), (uint32_t *)dst+i);
+	for (i = 0; i < (len >> 2); ++i)
+		writel(*((uint32_t *)src + i), (uint32_t *)dst + i);
 
-	if ((len % 4) != 0) {
+	if ((len & 3) != 0) {
 		copy_len = len & ~(0x3);
-		for (i = 0; i < 4; ++i) {
-			if (i < (len%4)) {
-				data = *((char *)src + copy_len + i);
-				align_data += data << (8 * i);
-			}
+		for (i = 0; i < (len & 3); ++i) {
+			data = *((char *)src + copy_len + i);
+			align_data += data << (i << 3);
 		}
-		writel(align_data, (uint32_t *)dst + len/4);
+		writel(align_data, (uint32_t *)dst + (len >> 2));
 	}
 }
 

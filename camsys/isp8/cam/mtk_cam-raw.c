@@ -24,9 +24,11 @@
 #include "mtk_cam-debug.h"
 #include "mtk_cam-dvfs_qos.h"
 #include "mtk_cam-raw.h"
+#include "mtk_cam-qof.h"
 #include "mtk_cam-raw_debug.h"
 #include "mtk_cam-dmadbg.h"
 #include "mtk_cam-raw_regs.h"
+#include "mtk_cam-reg_utils.h"
 //#include "mtk_cam-hsf.h"
 #include "mtk_cam-trace.h"
 #include "iommu_debug.h"
@@ -52,6 +54,26 @@ static int reset_msgfifo(struct mtk_raw_device *dev);
 #define FIFO_THRESHOLD(FIFO_SIZE, HEIGHT_RATIO, LOW_RATIO) \
 	(((FIFO_SIZE * HEIGHT_RATIO) & 0xFFF) << 16 | \
 	((FIFO_SIZE * LOW_RATIO) & 0xFFF))
+
+#define raw_readl(raw, base, off) \
+({\
+		raw->io_ops->readl(raw, base, off); \
+})
+
+#define raw_readl_relaxed(raw, base, off) \
+({\
+		raw->io_ops->readl_relaxed(raw, base, off); \
+})
+
+#define raw_writel(val, raw, base, off) \
+({\
+	raw->io_ops->writel(raw, val, base, off); \
+})
+
+#define raw_writel_relaxed(val, raw, base, off) \
+({\
+	raw->io_ops->writel_relaxed(raw, val, base, off); \
+})
 
 static void set_fifo_threshold(void __iomem *dma_base, unsigned int fifo_size)
 {
@@ -104,9 +126,11 @@ static void init_camsys_settings(struct mtk_raw_device *dev, bool is_srt)
 	unsigned int raw_urgent, yuv_urgent;
 
 	//Set rdy/req snapshot
+	// TODO: QOF io ops?
 	set_topdebug_rdyreq(dev, is_srt ? ALL_THE_TIME : TG_OVERRUN);
 
 	//Set CQI sram size
+	// TODO: QOF io ops?
 	set_fifo_threshold(dev->dmatop_base + REG_CQI_R1_BASE, 64);
 	set_fifo_threshold(dev->dmatop_base + REG_CQI_R2_BASE, 64);
 	set_fifo_threshold(dev->dmatop_base + REG_CQI_R3_BASE, 64);
@@ -125,19 +149,19 @@ static void init_camsys_settings(struct mtk_raw_device *dev, bool is_srt)
 
 	//Disable low latency
 	/*
-	writel_relaxed(0xffff,
-		dev->dmatop_base + REG_CAMRAWDMATOP_LOW_LATENCY_LINE_CNT_IMGO_R1);
-	writel_relaxed(0xffff,
-		yuv_dev->dmatop_base + REG_CAMYUVDMATOP_LOW_LATENCY_LINE_CNT_YUVO_R1);
-	writel_relaxed(0xffff,
-		yuv_dev->dmatop_base + REG_CAMYUVDMATOP_LOW_LATENCY_LINE_CNT_YUVO_R3);
-	writel_relaxed(0xffff,
-		yuv_dev->dmatop_base + REG_CAMYUVDMATOP_LOW_LATENCY_LINE_CNT_DRZS4NO_R1);
+	raw_writel_relaxed(0xffff,
+		dev, dev->dmatop_base, REG_CAMRAWDMATOP_LOW_LATENCY_LINE_CNT_IMGO_R1);
+	raw_writel_relaxed(0xffff,
+		dev, yuv_dev->dmatop_base, REG_CAMYUVDMATOP_LOW_LATENCY_LINE_CNT_YUVO_R1);
+	raw_writel_relaxed(0xffff,
+		dev, yuv_dev->dmatop_base, REG_CAMYUVDMATOP_LOW_LATENCY_LINE_CNT_YUVO_R3);
+	raw_writel_relaxed(0xffff,
+		dev, yuv_dev->dmatop_base, REG_CAMYUVDMATOP_LOW_LATENCY_LINE_CNT_DRZS4NO_R1);
 	*/
 #ifdef DEBUG_DMA_ENABLE_CRC_EN
 	/* for debug: crc_en */
-	writel(BIT(24), dev->base_dmatop + REG_CAMRAWDMATOP_DMA_DBG_SEL);
-	writel(BIT(24), dev->base_dmatop + REG_CAMYUVDMATOP_DMA_DBG_SEL);
+	raw_writel(BIT(24), dev, dev->base_dmatop, REG_CAMRAWDMATOP_DMA_DBG_SEL);
+	raw_writel(BIT(24), dev, dev->base_dmatop, REG_CAMYUVDMATOP_DMA_DBG_SEL);
 #endif
 
 	switch (dev->id) {
@@ -198,41 +222,41 @@ static void init_ADLWR_settings(struct mtk_cam_device *cam)
 static void dump_dc_setting(struct mtk_raw_device *dev)
 {
 	dev_info(dev->dev, "[outer] CAMCTL_SCENARIO_CTL/MODE 0x%08x/0x%08x DCIF_CTL/2:0x%08x/0x%08x, CHASING_SRC_SEL:0x%08x, TG_DCIF_CTL:0x%08x\n",
-		 readl(dev->base + REG_CAMCTL_SCENARIO_CTL),
-		 readl(dev->base + REG_CAMCTL_SCENARIO_MODE),
-		 readl(dev->base + REG_CAMCTL_DCIF_CTL),
-		 readl(dev->base + REG_CAMCTL_DCIF2_CTL),
-		 readl(dev->base + REG_CAMCTL_DCIF_CHASING_SRC_SEL),
-		 readl(dev->base + REG_TG_DCIF_CTL));
+		 raw_readl(dev, dev->base, REG_CAMCTL_SCENARIO_CTL),
+		 raw_readl(dev, dev->base, REG_CAMCTL_SCENARIO_MODE),
+		 raw_readl(dev, dev->base, REG_CAMCTL_DCIF_CTL),
+		 raw_readl(dev, dev->base, REG_CAMCTL_DCIF2_CTL),
+		 raw_readl(dev, dev->base, REG_CAMCTL_DCIF_CHASING_SRC_SEL),
+		 raw_readl(dev, dev->base, REG_TG_DCIF_CTL));
 	dev_info(dev->dev, "[inner] CAMCTL_SCENARIO_CTL/MODE 0x%08x/0x%08x DCIF_CTL/2:0x%08x/0x%08x, CHASING_SRC_SEL:0x%08x, TG_DCIF_CTL:0x%08x\n",
-		 readl(dev->base_inner + REG_CAMCTL_SCENARIO_CTL),
-		 readl(dev->base_inner + REG_CAMCTL_SCENARIO_MODE),
-		 readl(dev->base_inner + REG_CAMCTL_DCIF_CTL),
-		 readl(dev->base_inner + REG_CAMCTL_DCIF2_CTL),
-		 readl(dev->base_inner + REG_CAMCTL_DCIF_CHASING_SRC_SEL),
-		 readl(dev->base_inner + REG_TG_DCIF_CTL));
+		 raw_readl(dev, dev->base_inner, REG_CAMCTL_SCENARIO_CTL),
+		 raw_readl(dev, dev->base_inner, REG_CAMCTL_SCENARIO_MODE),
+		 raw_readl(dev, dev->base_inner, REG_CAMCTL_DCIF_CTL),
+		 raw_readl(dev, dev->base_inner, REG_CAMCTL_DCIF2_CTL),
+		 raw_readl(dev, dev->base_inner, REG_CAMCTL_DCIF_CHASING_SRC_SEL),
+		 raw_readl(dev, dev->base_inner, REG_TG_DCIF_CTL));
 }
 
 
 static void dump_cq_setting(struct mtk_raw_device *dev)
 {
 	dev_info(dev->dev, "CQ_EN 0x%08x THR_CTL 0x%08x 0x%08x, 0x%08x\n",
-		 readl(dev->base + REG_CAMCQ_CQ_EN),
-		 readl(dev->base + REG_CAMCQ_CQ_THR0_CTL),
-		 readl(dev->base + REG_CAMCQ_CQ_SUB_THR0_CTL),
-		 readl(dev->base + REG_CAMCQ_SCQ_START_PERIOD));
+		 raw_readl(dev, dev->base, REG_CAMCQ_CQ_EN),
+		 raw_readl(dev, dev->base, REG_CAMCQ_CQ_THR0_CTL),
+		 raw_readl(dev, dev->base, REG_CAMCQ_CQ_SUB_THR0_CTL),
+		 raw_readl(dev, dev->base, REG_CAMCQ_SCQ_START_PERIOD));
 }
 
 static void dump_interrupt(struct mtk_raw_device *dev)
 {
 	dev_info(dev->dev, "CAMCTL INT17_EN 0x%08x\n",
-		 readl_relaxed(dev->base + REG_CAMCTL_INT17_EN));
+		 raw_readl_relaxed(dev, dev->base, REG_CAMCTL_INT17_EN));
 	dev_info(dev->dev, "CAMCTL INT18_EN 0x%08x\n",
-		 readl_relaxed(dev->base + REG_CAMCTL_INT18_EN));
+		 raw_readl_relaxed(dev, dev->base, REG_CAMCTL_INT18_EN));
 	dev_info(dev->dev, "CAMCTL INT20_EN 0x%08x\n",
-		 readl_relaxed(dev->base + REG_CAMCTL_INT20_EN));
+		 raw_readl_relaxed(dev, dev->base, REG_CAMCTL_INT20_EN));
 	dev_info(dev->dev, "CAMCTL INT21_EN 0x%08x\n",
-		 readl_relaxed(dev->base + REG_CAMCTL_INT21_EN));
+		 raw_readl_relaxed(dev, dev->base, REG_CAMCTL_INT21_EN));
 }
 
 static void dump_tg_setting(struct mtk_raw_device *dev, const char *msg)
@@ -240,31 +264,31 @@ static void dump_tg_setting(struct mtk_raw_device *dev, const char *msg)
 	dev_info(dev->dev,
 		 "%s [outer] TG SENMODE/VFCON/PATHCFG/VSEOL_SUB: %x/%x/%x/%x FRMSIZE/R GRABPXL/LIN: %x/%x %x/%x\n",
 		 msg,
-		 readl_relaxed(dev->base + REG_TG_SEN_MODE),
-		 readl_relaxed(dev->base + REG_TG_VF_CON),
-		 readl_relaxed(dev->base + REG_TG_PATH_CFG),
-		 readl_relaxed(dev->base + REG_TG_VSEOL_SUB_CTL),
-		 readl_relaxed(dev->base + REG_TG_FRMSIZE_ST),
-		 readl_relaxed(dev->base + REG_TG_FRMSIZE_ST_R),
-		 readl_relaxed(dev->base + REG_TG_SEN_GRAB_PXL),
-		 readl_relaxed(dev->base + REG_TG_SEN_GRAB_LIN));
+		 raw_readl_relaxed(dev, dev->base, REG_TG_SEN_MODE),
+		 raw_readl_relaxed(dev, dev->base, REG_TG_VF_CON),
+		 raw_readl_relaxed(dev, dev->base, REG_TG_PATH_CFG),
+		 raw_readl_relaxed(dev, dev->base, REG_TG_VSEOL_SUB_CTL),
+		 raw_readl_relaxed(dev, dev->base, REG_TG_FRMSIZE_ST),
+		 raw_readl_relaxed(dev, dev->base, REG_TG_FRMSIZE_ST_R),
+		 raw_readl_relaxed(dev, dev->base, REG_TG_SEN_GRAB_PXL),
+		 raw_readl_relaxed(dev, dev->base, REG_TG_SEN_GRAB_LIN));
 
 	dev_info(dev->dev,
 		 "%s [inner] TG SENMODE/VFCON/PATHCFG/VSEOL_SUB: %x/%x/%x/%x GRABPXL/LIN: %x/%x\n",
 		 msg,
-		 readl_relaxed(dev->base_inner + REG_TG_SEN_MODE),
-		 readl_relaxed(dev->base_inner + REG_TG_VF_CON),
-		 readl_relaxed(dev->base_inner + REG_TG_PATH_CFG),
-		 readl_relaxed(dev->base_inner + REG_TG_VSEOL_SUB_CTL),
-		 readl_relaxed(dev->base_inner + REG_TG_SEN_GRAB_PXL),
-		 readl_relaxed(dev->base_inner + REG_TG_SEN_GRAB_LIN));
+		 raw_readl_relaxed(dev, dev->base_inner, REG_TG_SEN_MODE),
+		 raw_readl_relaxed(dev, dev->base_inner, REG_TG_VF_CON),
+		 raw_readl_relaxed(dev, dev->base_inner, REG_TG_PATH_CFG),
+		 raw_readl_relaxed(dev, dev->base_inner, REG_TG_VSEOL_SUB_CTL),
+		 raw_readl_relaxed(dev, dev->base_inner, REG_TG_SEN_GRAB_PXL),
+		 raw_readl_relaxed(dev, dev->base_inner, REG_TG_SEN_GRAB_LIN));
 }
 
 static void dump_seqence(struct mtk_raw_device *dev)
 {
 	dev_info(dev->dev, "in 0x%08x out 0x%08x\n",
-		 readl_relaxed(dev->base_inner + REG_FHG_FHG_SPARE_1),
-		 readl_relaxed(dev->base + REG_FHG_FHG_SPARE_1));
+		 raw_readl_relaxed(dev, dev->base_inner, REG_FHG_FHG_SPARE_1),
+		 raw_readl_relaxed(dev, dev->base, REG_FHG_FHG_SPARE_1));
 }
 
 static void reset_error_handling(struct mtk_raw_device *dev)
@@ -284,10 +308,10 @@ static void init_raw_ddren(struct mtk_raw_device *dev, int is_srt, int frm_time_
 
 	if (debug_ddren_sw_mode) {
 		SET_FIELD(&val, CAMCTL_DDREN_SW_SET, 1);
-		writel_relaxed(val, dev->base + REG_CAMCTL_DDREN_CTL);
+		raw_writel_relaxed(val, dev, dev->base, REG_CAMCTL_DDREN_CTL);
 	} else {
 		SET_FIELD(&val, CAMCTL_DDREN_HW_EN, 1);
-		writel_relaxed(val, dev->base + REG_CAMCTL_DDREN_CTL);
+		raw_writel_relaxed(val, dev, dev->base, REG_CAMCTL_DDREN_CTL);
 	}
 
 	//hrt ddren timer for master
@@ -299,11 +323,11 @@ static void init_raw_ddren(struct mtk_raw_device *dev, int is_srt, int frm_time_
 			(frm_time_us - QOS_GEN_BEFORE_US) * SCQ_DEFAULT_CLK_RATE /
 			(HW_TIMER_INC_PERIOD + 1) - 1;
 
-		writel_relaxed(0x1, dev->base + REG_TG_HW_TIMER_CTL);
-		writel_relaxed(HW_TIMER_INC_PERIOD,
-				dev->base + REG_TG_HW_TIMER_INC_PERIOD);
-		writel_relaxed(ddr_gen_pulse, dev->base + REG_TG_HW_DDR_GEN_PULSE_CNT);
-		writel_relaxed(qos_gen_pulse, dev->base + REG_TG_HW_QOS_GEN_PULSE_CNT);
+		raw_writel_relaxed(0x1, dev, dev->base, REG_TG_HW_TIMER_CTL);
+		raw_writel_relaxed(HW_TIMER_INC_PERIOD,
+				dev, dev->base, REG_TG_HW_TIMER_INC_PERIOD);
+		raw_writel_relaxed(ddr_gen_pulse, dev, dev->base, REG_TG_HW_DDR_GEN_PULSE_CNT);
+		raw_writel_relaxed(qos_gen_pulse, dev, dev->base, REG_TG_HW_QOS_GEN_PULSE_CNT);
 	}
 
 	wmb(); /* make sure committed */
@@ -327,20 +351,20 @@ void initialize(struct mtk_raw_device *dev, struct engine_callback *cb,
 
 	val = CAMCQ_CQ_EN_DEFAULT;
 	SET_FIELD(&val, CAMCQ_CQ_DROP_FRAME_EN, 1);
-	writel_relaxed(val, dev->base + REG_CAMCQ_CQ_EN);
+	raw_writel_relaxed(val, dev, dev->base, REG_CAMCQ_CQ_EN);
 
-	writel_relaxed(0xffffffff, dev->base + REG_CAMCQ_SCQ_START_PERIOD);
+	raw_writel_relaxed(0xffffffff, dev, dev->base, REG_CAMCQ_SCQ_START_PERIOD);
 	val = FBIT(CAMCQ_CQ_THR0_EN);
 	SET_FIELD(&val, CAMCQ_CQ_THR0_MODE, 1);
 
-	writel_relaxed(val, dev->base + REG_CAMCQ_CQ_THR0_CTL);
-	writel_relaxed(val, dev->base + REG_CAMCQ_CQ_SUB_THR0_CTL);
+	raw_writel_relaxed(val, dev, dev->base, REG_CAMCQ_CQ_THR0_CTL);
+	raw_writel_relaxed(val, dev, dev->base, REG_CAMCQ_CQ_SUB_THR0_CTL);
 
 	/* enable interrupt */
 	val = FBIT(CAMCTL_CQ_THR0_DONE_EN) | FBIT(CAMCTL_CQ_THRSUB_DONE_EN) |
 		FBIT(CAMCTL_CQ_ALL_THR_DONE_EN)| FBIT(CAMCTL_CQ_MAIN_VS_ERR_EN) |
 		FBIT(CAMCTL_CQ_SUB_VS_ERR_EN)| FBIT(CAMCTL_CQ_SUB_CODE_ERR_EN);
-	writel_relaxed(val, dev->base + REG_CAMCTL_INT21_EN);
+	raw_writel_relaxed(val, dev, dev->base, REG_CAMCTL_INT21_EN);
 
 #if RAW_DEBUG
 	dump_interrupt(dev);
@@ -378,20 +402,20 @@ void initialize(struct mtk_raw_device *dev, struct engine_callback *cb,
 	 * double SOF DMA error if they write out interleavingly,
 	 * ex. mstream w/ UFO
 	 */
-	writel_relaxed(0xFFFE0000,
-		       dev->base + REG_FLKO_R1_BASE + DMA_OFFSET_ERR_STAT);
-	writel_relaxed(0xFFFE0000,
-		       dev->base + REG_UFEO_R1_BASE + DMA_OFFSET_ERR_STAT);
-	writel_relaxed(0xFFFE0000,
-		       dev->base + REG_PDO_R1_BASE + DMA_OFFSET_ERR_STAT);
+	raw_writel_relaxed(0xFFFE0000,
+		       dev, dev->base, REG_FLKO_R1_BASE + DMA_OFFSET_ERR_STAT);
+	raw_writel_relaxed(0xFFFE0000,
+		       dev, dev->base, REG_UFEO_R1_BASE + DMA_OFFSET_ERR_STAT);
+	raw_writel_relaxed(0xFFFE0000,
+		       dev, dev->base, REG_PDO_R1_BASE + DMA_OFFSET_ERR_STAT);
 	/* Workaround: disable AAO/AAHO error: double sof error for smvr
 	 *  HW would send double sof to aao/aaho in subsample mode
 	 *  disable it to bypass
 	 */
-	writel_relaxed(0xFFFE0000,
-		       dev->base + REG_AEO_R1_BASE + DMA_OFFSET_ERR_STAT);
-	writel_relaxed(0xFFFE0000,
-		       dev->base + REG_AEHO_R1_BASE + DMA_OFFSET_ERR_STAT);
+	raw_writel_relaxed(0xFFFE0000,
+		       dev, dev->base, REG_AEO_R1_BASE + DMA_OFFSET_ERR_STAT);
+	raw_writel_relaxed(0xFFFE0000,
+		       dev, dev->base, REG_AEHO_R1_BASE + DMA_OFFSET_ERR_STAT);
 }
 static void subsample_set_sensor_time(struct mtk_raw_device *dev,
 	u32 subsample_ratio)
@@ -405,25 +429,25 @@ static void reset_reg(struct mtk_raw_device *dev)
 {
 	u32 cq_en, sw_done, sw_sub_ctl, ddren_ctl;
 
-	cq_en = readl_relaxed(dev->base_inner + REG_CAMCQ_CQ_EN);
-	sw_done = readl_relaxed(dev->base_inner + REG_CAMCTL_SW_PASS1_DONE);
-	sw_sub_ctl = readl_relaxed(dev->base_inner + REG_CAMCTL_SW_SUB_CTL);
+	cq_en = raw_readl_relaxed(dev, dev->base_inner, REG_CAMCQ_CQ_EN);
+	sw_done = raw_readl_relaxed(dev, dev->base_inner, REG_CAMCTL_SW_PASS1_DONE);
+	sw_sub_ctl = raw_readl_relaxed(dev, dev->base_inner, REG_CAMCTL_SW_SUB_CTL);
 
 	SET_FIELD(&cq_en, CAMCQ_SCQ_SUBSAMPLE_EN, 0);
 	SET_FIELD(&cq_en, CAMCQ_SCQ_STAGGER_MODE, 0);
-	writel(cq_en, dev->base_inner + REG_CAMCQ_CQ_EN);
-	writel(cq_en, dev->base + REG_CAMCQ_CQ_EN);
+	raw_writel(cq_en, dev, dev->base_inner, REG_CAMCQ_CQ_EN);
+	raw_writel(cq_en, dev, dev->base, REG_CAMCQ_CQ_EN);
 
 	SET_FIELD(&sw_done, CAMCTL_DOWN_SAMPLE_EN, 0);
-	writel(sw_done, dev->base_inner + REG_CAMCTL_SW_PASS1_DONE);
-	writel(sw_done, dev->base + REG_CAMCTL_SW_PASS1_DONE);
+	raw_writel(sw_done, dev, dev->base_inner, REG_CAMCTL_SW_PASS1_DONE);
+	raw_writel(sw_done, dev, dev->base, REG_CAMCTL_SW_PASS1_DONE);
 
-	writel(0, dev->base_inner + REG_CAMCTL_SW_SUB_CTL);
-	writel(0, dev->base + REG_CAMCTL_SW_SUB_CTL);
+	raw_writel(0, dev, dev->base_inner, REG_CAMCTL_SW_SUB_CTL);
+	raw_writel(0, dev, dev->base, REG_CAMCTL_SW_SUB_CTL);
 
 	if (debug_ddren_sw_mode) {
 		SET_FIELD(&ddren_ctl, CAMCTL_DDREN_SW_CLR, 1);
-		writel_relaxed(ddren_ctl, dev->base + REG_CAMCTL_DDREN_CTL);
+		raw_writel_relaxed(ddren_ctl, dev, dev->base, REG_CAMCTL_DDREN_CTL);
 	}
 
 	wmb(); /* make sure committed */
@@ -432,14 +456,14 @@ static void reset_reg(struct mtk_raw_device *dev)
 		dev_info(dev->dev,
 			 "[%s] CQ_EN/SW_SUB_CTL/SW_DONE/DDREN_ST [in] 0x%x/0x%x/0x%x/0x%x [out] 0x%x/0x%x/0x%x/0x%x\n",
 			 __func__,
-			 readl_relaxed(dev->base_inner + REG_CAMCQ_CQ_EN),
-			 readl_relaxed(dev->base_inner + REG_CAMCTL_SW_SUB_CTL),
-			 readl_relaxed(dev->base_inner + REG_CAMCTL_SW_PASS1_DONE),
-			 readl_relaxed(dev->base_inner + REG_CAMCTL_DDREN_ST),
-			 readl_relaxed(dev->base + REG_CAMCQ_CQ_EN),
-			 readl_relaxed(dev->base + REG_CAMCTL_SW_SUB_CTL),
-			 readl_relaxed(dev->base + REG_CAMCTL_SW_PASS1_DONE),
-			 readl_relaxed(dev->base + REG_CAMCTL_DDREN_ST));
+			 raw_readl_relaxed(dev, dev->base_inner, REG_CAMCQ_CQ_EN),
+			 raw_readl_relaxed(dev, dev->base_inner, REG_CAMCTL_SW_SUB_CTL),
+			 raw_readl_relaxed(dev, dev->base_inner, REG_CAMCTL_SW_PASS1_DONE),
+			 raw_readl_relaxed(dev, dev->base_inner, REG_CAMCTL_DDREN_ST),
+			 raw_readl_relaxed(dev, dev->base, REG_CAMCQ_CQ_EN),
+			 raw_readl_relaxed(dev, dev->base, REG_CAMCTL_SW_SUB_CTL),
+			 raw_readl_relaxed(dev, dev->base, REG_CAMCTL_SW_PASS1_DONE),
+			 raw_readl_relaxed(dev, dev->base, REG_CAMCTL_DDREN_ST));
 }
 
 void subsample_enable(struct mtk_raw_device *dev, int subsample_ratio)
@@ -449,20 +473,20 @@ void subsample_enable(struct mtk_raw_device *dev, int subsample_ratio)
 
 	subsample_set_sensor_time(dev, subsample_ratio);
 
-	val = readl_relaxed(dev->base + REG_CAMCQ_CQ_EN);
+	val = raw_readl_relaxed(dev, dev->base, REG_CAMCQ_CQ_EN);
 	SET_FIELD(&val, CAMCQ_SCQ_SUBSAMPLE_EN, 1);
-	writel_relaxed(val, dev->base + REG_CAMCQ_CQ_EN);
+	raw_writel_relaxed(val, dev, dev->base, REG_CAMCQ_CQ_EN);
 
 	val = FBIT(CAMCTL_DOWN_SAMPLE_EN);
 	SET_FIELD(&val, CAMCTL_DOWN_SAMPLE_PERIOD, sub_ratio);
-	writel_relaxed(val, dev->base + REG_CAMCTL_SW_PASS1_DONE);
-	writel_relaxed(val, dev->base_inner + REG_CAMCTL_SW_PASS1_DONE);
+	raw_writel_relaxed(val, dev, dev->base, REG_CAMCTL_SW_PASS1_DONE);
+	raw_writel_relaxed(val, dev, dev->base_inner, REG_CAMCTL_SW_PASS1_DONE);
 
 	if (CAM_DEBUG_ENABLED(RAW_INT))
 		dev_info(dev->dev,
 			 "[%s] raw%d - CQ_EN:0x%x ratio %d\n",
 			 __func__, dev->id,
-			 readl_relaxed(dev->base + REG_CAMCQ_CQ_EN),
+			 raw_readl_relaxed(dev, dev->base, REG_CAMCQ_CQ_EN),
 			 subsample_ratio);
 }
 
@@ -471,24 +495,24 @@ void stagger_enable(struct mtk_raw_device *dev, bool is_dc)
 {
 	u32 val;
 
-	val = readl_relaxed(dev->base + REG_CAMCQ_CQ_EN);
+	val = raw_readl_relaxed(dev, dev->base, REG_CAMCQ_CQ_EN);
 	SET_FIELD(&val, CAMCQ_SCQ_STAGGER_MODE, 1);
 	SET_FIELD(&val, CAMCQ_SCQ_INVLD_CLR_CHK, is_dc ? 1 : 0);
-	writel_relaxed(val, dev->base + REG_CAMCQ_CQ_EN);
+	raw_writel_relaxed(val, dev, dev->base, REG_CAMCQ_CQ_EN);
 
 	if (CAM_DEBUG_ENABLED(RAW_INT))
 		dev_info(dev->dev,
 			 "[%s] raw%d - CQ_EN:0x%x\n",
-			 __func__, dev->id, readl_relaxed(dev->base + REG_CAMCQ_CQ_EN));
+			 __func__, dev->id, raw_readl_relaxed(dev, dev->base, REG_CAMCQ_CQ_EN));
 }
 
 void ae_disable(struct mtk_raw_device *dev)
 {
 	u32 val_mod5, val_mod10, val_mod11;
 
-	val_mod5 = readl_relaxed(dev->base + REG_CAMCTL_MOD5_EN);
-	val_mod10 = readl_relaxed(dev->base + REG_CAMCTL_MOD10_EN);
-	val_mod11 = readl_relaxed(dev->base + REG_CAMCTL_MOD11_EN);
+	val_mod5 = raw_readl_relaxed(dev, dev->base, REG_CAMCTL_MOD5_EN);
+	val_mod10 = raw_readl_relaxed(dev, dev->base, REG_CAMCTL_MOD10_EN);
+	val_mod11 = raw_readl_relaxed(dev, dev->base, REG_CAMCTL_MOD11_EN);
 
 	if (CAM_DEBUG_ENABLED(RAW_INT))
 		dev_info(dev->dev,
@@ -497,16 +521,16 @@ void ae_disable(struct mtk_raw_device *dev)
 
 	/* disable CAMCTL_AESTAT_R1_EN*/
 	SET_FIELD(&val_mod5, CAMCTL_AESTAT_R1_EN, 0);
-	writel_relaxed(val_mod5, dev->base + REG_CAMCTL_MOD5_EN);
+	raw_writel_relaxed(val_mod5, dev, dev->base, REG_CAMCTL_MOD5_EN);
 
 	/* disable CAMCTL_AEI_R1_EN*/
 	//SET_FIELD(&val_mod10, CAMCTL_AEI_R1_EN, 0);
-	//writel_relaxed(val_mod10, dev->base + REG_CAMCTL_MOD10_EN);
+	//raw_writel_relaxed(val_mod10, dev, dev->base, REG_CAMCTL_MOD10_EN);
 
 	/* disable CAMCTL_AEHO_R1_EN/CAMCTL_AEO_R1_EN*/
 	//SET_FIELD(&val_mod11, CAMCTL_AEHO_R1_EN, 0);
 	//SET_FIELD(&val_mod11, CAMCTL_AEO_R1_EN, 0);
-	//writel_relaxed(val_mod11, dev->base + REG_CAMCTL_MOD11_EN);
+	//raw_writel_relaxed(val_mod11, dev, dev->base, REG_CAMCTL_MOD11_EN);
 
 	if (CAM_DEBUG_ENABLED(RAW_INT))
 		dev_info(dev->dev,
@@ -518,15 +542,15 @@ void stagger_disable(struct mtk_raw_device *dev)
 {
 	u32 val;
 
-	val = readl_relaxed(dev->base + REG_CAMCQ_CQ_EN);
+	val = raw_readl_relaxed(dev, dev->base, REG_CAMCQ_CQ_EN);
 	SET_FIELD(&val, CAMCQ_SCQ_STAGGER_MODE, 0);
 	SET_FIELD(&val, CAMCQ_SCQ_INVLD_CLR_CHK, 0);
-	writel_relaxed(val, dev->base + REG_CAMCQ_CQ_EN);
+	raw_writel_relaxed(val, dev, dev->base, REG_CAMCQ_CQ_EN);
 
 	if (CAM_DEBUG_ENABLED(RAW_INT))
 		dev_info(dev->dev,
 			 "[%s] raw%d - CQ_EN:0x%x\n",
-			 __func__, dev->id, readl_relaxed(dev->base + REG_CAMCQ_CQ_EN));
+			 __func__, dev->id, raw_readl_relaxed(dev, dev->base, REG_CAMCQ_CQ_EN));
 }
 
 void apply_cq(struct mtk_raw_device *dev,
@@ -536,10 +560,14 @@ void apply_cq(struct mtk_raw_device *dev,
 {
 	dma_addr_t main, sub;
 
+	qof_dump_voter(dev);
+	qof_dump_power_state(dev);
+
 	if (CAM_DEBUG_ENABLED(RAW_INT))
 		dev_info(dev->dev,
 			 "apply raw%d cq - addr:0x%llx, size:%d/%d, offset:%d\n",
 			 dev->id, cq_addr, cq_size, sub_cq_size, sub_cq_offset);
+
 
 	/* note: apply cq with size = 0, will cause cq hang */
 	if (WARN_ON(!cq_size || !sub_cq_size))
@@ -548,31 +576,31 @@ void apply_cq(struct mtk_raw_device *dev,
 	main = cq_addr + cq_offset;
 	sub = cq_addr + sub_cq_offset;
 
-	writel_relaxed(dmaaddr_lsb(main),
-		       dev->base + REG_CAMCQ_CQ_THR0_BASEADDR);
-	writel_relaxed(dmaaddr_msb(main),
-		       dev->base + REG_CAMCQ_CQ_THR0_BASEADDR_MSB);
-	writel_relaxed(cq_size,
-		       dev->base + REG_CAMCQ_CQ_THR0_DESC_SIZE);
+	raw_writel_relaxed(dmaaddr_lsb(main),
+		       dev, dev->base, REG_CAMCQ_CQ_THR0_BASEADDR);
+	raw_writel_relaxed(dmaaddr_msb(main),
+		       dev, dev->base, REG_CAMCQ_CQ_THR0_BASEADDR_MSB);
+	raw_writel_relaxed(cq_size,
+		       dev, dev->base, REG_CAMCQ_CQ_THR0_DESC_SIZE);
 
-	writel_relaxed(dmaaddr_lsb(sub),
-		       dev->base + REG_CAMCQ_CQ_SUB_THR0_BASEADDR_2);
-	writel_relaxed(dmaaddr_msb(sub),
-		       dev->base + REG_CAMCQ_CQ_SUB_THR0_BASEADDR_2_MSB);
-	writel_relaxed(sub_cq_size,
-		       dev->base + REG_CAMCQ_CQ_SUB_THR0_DESC_SIZE_2);
+	raw_writel_relaxed(dmaaddr_lsb(sub),
+		       dev, dev->base, REG_CAMCQ_CQ_SUB_THR0_BASEADDR_2);
+	raw_writel_relaxed(dmaaddr_msb(sub),
+		       dev, dev->base, REG_CAMCQ_CQ_SUB_THR0_BASEADDR_2_MSB);
+	raw_writel_relaxed(sub_cq_size,
+		       dev, dev->base, REG_CAMCQ_CQ_SUB_THR0_DESC_SIZE_2);
 
-	writel(FBIT(CAMCTL_CQ_THR0_START), dev->base + REG_CAMCTL_START);
+	raw_writel(FBIT(CAMCTL_CQ_THR0_START), dev, dev->base, REG_CAMCTL_START);
 }
 
 void dbload_force(struct mtk_raw_device *dev)
 {
 	u32 val;
 
-	val = readl_relaxed(dev->base + REG_CAMCTL_DB_LOAD_CTL2);
+	val = raw_readl_relaxed(dev, dev->base, REG_CAMCTL_DB_LOAD_CTL2);
 	SET_FIELD(&val, CAMCTL_DB_LOAD_FORCE, 1);
-	writel_relaxed(val, dev->base + REG_CAMCTL_DB_LOAD_CTL2);
-	writel_relaxed(val, dev->base_inner + REG_CAMCTL_DB_LOAD_CTL2);
+	raw_writel_relaxed(val, dev, dev->base, REG_CAMCTL_DB_LOAD_CTL2);
+	raw_writel_relaxed(val, dev, dev->base_inner, REG_CAMCTL_DB_LOAD_CTL2);
 	wmb(); /* TBC */
 	dev_info(dev->dev, "%s: 0x%x\n", __func__, val);
 }
@@ -581,21 +609,21 @@ void toggle_db(struct mtk_raw_device *dev)
 {
 	u32 val;
 
-	val = readl(dev->base + REG_CAMCTL_DB_LOAD_CTL1);
-	writel(val & ~FBIT(CAMCTL_DB_EN), dev->base + REG_CAMCTL_DB_LOAD_CTL1);
+	val = raw_readl(dev, dev->base, REG_CAMCTL_DB_LOAD_CTL1);
+	raw_writel(val & ~FBIT(CAMCTL_DB_EN), dev, dev->base, REG_CAMCTL_DB_LOAD_CTL1);
 
 	/* read back to make sure committed */
-	val = readl(dev->base + REG_CAMCTL_DB_LOAD_CTL1);
-	writel(val | FBIT(CAMCTL_DB_EN), dev->base + REG_CAMCTL_DB_LOAD_CTL1);
+	val = raw_readl(dev, dev->base, REG_CAMCTL_DB_LOAD_CTL1);
+	raw_writel(val | FBIT(CAMCTL_DB_EN), dev, dev->base, REG_CAMCTL_DB_LOAD_CTL1);
 }
 
 void enable_tg_db(struct mtk_raw_device *dev, int en)
 {
 	u32 val;
 
-	val = readl(dev->base + REG_TG_PATH_CFG);
+	val = raw_readl(dev, dev->base, REG_TG_PATH_CFG);
 	SET_FIELD(&val, TG_DB_LOAD_DIS, !en);
-	writel(val, dev->base + REG_TG_PATH_CFG);
+	raw_writel(val, dev, dev->base, REG_TG_PATH_CFG);
 }
 
 static void set_tg_vfdata_en(struct mtk_raw_device *dev, int on)
@@ -604,12 +632,12 @@ static void set_tg_vfdata_en(struct mtk_raw_device *dev, int on)
 
 	atomic_set(&dev->vf_en, !!on);
 
-	val = readl(dev->base + REG_TG_VF_CON);
+	val = raw_readl(dev, dev->base, REG_TG_VF_CON);
 	SET_FIELD(&val, TG_VFDATA_EN, on);
-	writel(val, dev->base + REG_TG_VF_CON);
+	raw_writel(val, dev, dev->base, REG_TG_VF_CON);
 
 	dev_info(dev->dev, "%s: 0x%08x\n",
-		 __func__, readl(dev->base + REG_TG_VF_CON));
+		 __func__, raw_readl(dev, dev->base, REG_TG_VF_CON));
 }
 
 static u32 scq_cnt_rate_khz(u32 time_stamp_cnt)
@@ -621,14 +649,14 @@ void update_scq_start_period(struct mtk_raw_device *dev, int scq_ms)
 {
 	u32 val, start_period;
 
-	val = readl_relaxed(dev->base + REG_TG_TIME_STAMP_CNT);
+	val = raw_readl_relaxed(dev, dev->base, REG_TG_TIME_STAMP_CNT);
 	start_period = (scq_ms == -1) ? 0xFFFFFFFF :
 		scq_ms * scq_cnt_rate_khz(val);
 
-	writel_relaxed(start_period,
-		       dev->base + REG_CAMCQ_SCQ_START_PERIOD);
+	raw_writel_relaxed(start_period,
+		       dev, dev->base, REG_CAMCQ_SCQ_START_PERIOD);
 	dev_info(dev->dev, "[%s] REG_CAMCQ_SCQ_START_PERIOD:0x%08x (%dms)\n",
-		 __func__, readl(dev->base + REG_CAMCQ_SCQ_START_PERIOD), scq_ms);
+		 __func__, raw_readl(dev, dev->base, REG_CAMCQ_SCQ_START_PERIOD), scq_ms);
 }
 
 #define MAX_P1_DELAY_RATIO 80
@@ -637,13 +665,13 @@ void update_done_tolerance(struct mtk_raw_device *dev, int delay_ms)
 	u32 val;
 	int tolerance_ms;
 
-	val = readl_relaxed(dev->base + REG_TG_TIME_STAMP_CNT);
+	val = raw_readl_relaxed(dev, dev->base, REG_TG_TIME_STAMP_CNT);
 	tolerance_ms = delay_ms * MAX_P1_DELAY_RATIO / 100;
-	writel_relaxed(tolerance_ms * scq_cnt_rate_khz(val),
-			dev->base + REG_CAMCTL_DC_STAG_CTL);
+	raw_writel_relaxed(tolerance_ms * scq_cnt_rate_khz(val),
+			dev, dev->base, REG_CAMCTL_DC_STAG_CTL);
 
 	dev_info(dev->dev, "[%s] REG_CAMCTL_DC_STAG_CTL:0x%08x (%dms)\n",
-		 __func__, readl(dev->base + REG_CAMCTL_DC_STAG_CTL), tolerance_ms);
+		 __func__, raw_readl(dev, dev->base, REG_CAMCTL_DC_STAG_CTL), tolerance_ms);
 }
 
 static bool not_support_rwfbc(struct mtk_raw_device *dev)
@@ -658,10 +686,10 @@ void rwfbc_inc_setup(struct mtk_raw_device *dev)
 	if (not_support_rwfbc(dev))
 		return;
 
-	wfbc_en_raw = readl_relaxed(dev->base + REG_CAMCTL_WFBC_EN);
-	wfbc_en_yuv = readl_relaxed(dev->yuv_base + REG_CAMCTL_WFBC_EN);
-	writel(wfbc_en_raw, dev->base + REG_CAMCTL_WFBC_INC);
-	writel(wfbc_en_yuv, dev->yuv_base + REG_CAMCTL_WFBC_INC);
+	wfbc_en_raw = raw_readl_relaxed(dev, dev->base, REG_CAMCTL_WFBC_EN);
+	wfbc_en_yuv = raw_readl_relaxed(dev, dev->yuv_base, REG_CAMCTL_WFBC_EN);
+	raw_writel(wfbc_en_raw, dev, dev->base, REG_CAMCTL_WFBC_INC);
+	raw_writel(wfbc_en_yuv, dev, dev->yuv_base, REG_CAMCTL_WFBC_INC);
 
 	if (CAM_DEBUG_ENABLED(RAW_INT))
 		dev_info(dev->dev, "[%s] WFBC_INC camctl/camctl2:0x%x/0x%x\n",
@@ -699,7 +727,7 @@ void m2m_update_sof_state(struct mtk_raw_device *dev)
 	int cookie;
 
 	/* update fsm's cookie_inner since m2m flow has no sof to update it */
-	cookie = readl(dev->base_inner + REG_FHG_FHG_SPARE_1);
+	cookie = raw_readl(dev, dev->base_inner, REG_FHG_FHG_SPARE_1);
 	engine_fsm_sof(&dev->fsm, cookie, 0, NULL);
 
 	engine_handle_sof(&dev->cq_ref,
@@ -710,7 +738,7 @@ void m2m_update_sof_state(struct mtk_raw_device *dev)
 static inline void trigger_rawi(struct mtk_raw_device *dev, u32 val)
 {
 	//dev_info(dev->dev, "%s: 0x%x\n", __func__, val);
-	writel(val, dev->base + REG_CAMCTL_RAW_TRIG);
+	raw_writel(val, dev, dev->base, REG_CAMCTL_RAW_TRIG);
 }
 
 void trigger_rawi_r2(struct mtk_raw_device *dev)
@@ -732,7 +760,7 @@ void trigger_adl(struct mtk_raw_device *dev)
 		(dev->id << 1) | /* ADLRD_MUX_SEL */
 		0x1; /* ADLRD_EN */
 
-	writel(adlrd_ctrl, dev->cam->base + CAM_MAIN_ADLRD_CTRL);
+	raw_writel(adlrd_ctrl, dev, dev->cam->base, CAM_MAIN_ADLRD_CTRL);
 	trigger_rawi(dev, FBIT(CAMCTL_APU_TRIG) | FBIT(CAMCTL_RAW_TRIG));
 }
 
@@ -797,11 +825,11 @@ bool is_all_dma_idle(struct mtk_raw_device *dev)
 {
 	struct mtk_yuv_device *yuv = get_yuv_dev(dev);
 
-	u32 chasing_stat = readl(dev->dmatop_base + REG_CAMRAWDMATOP_DC_DBG_CHASING_STATUS);
-	u32 chasing_stat2 = readl(dev->dmatop_base + REG_CAMRAWDMATOP_DC_DBG_CHASING_STATUS2);
-	u32 raw_rst_stat = readl(dev->dmatop_base + REG_CAMRAWDMATOP_DMA_SOFT_RST_STAT);
-	u32 raw_rst_stat2 = readl(dev->dmatop_base + REG_CAMRAWDMATOP_DMA_SOFT_RST_STAT2);
-	u32 yuv_rst_stat = readl(yuv->dmatop_base + REG_CAMYUVDMATOP_DMA_SOFT_RST_STAT);
+	u32 chasing_stat = raw_readl(dev, dev->dmatop_base, REG_CAMRAWDMATOP_DC_DBG_CHASING_STATUS);
+	u32 chasing_stat2 = raw_readl(dev, dev->dmatop_base, REG_CAMRAWDMATOP_DC_DBG_CHASING_STATUS2);
+	u32 raw_rst_stat = raw_readl(dev, dev->dmatop_base, REG_CAMRAWDMATOP_DMA_SOFT_RST_STAT);
+	u32 raw_rst_stat2 = raw_readl(dev, dev->dmatop_base, REG_CAMRAWDMATOP_DMA_SOFT_RST_STAT2);
+	u32 yuv_rst_stat = raw_readl(dev, yuv->dmatop_base, REG_CAMYUVDMATOP_DMA_SOFT_RST_STAT);
 
 	if (READ_FIELD(raw_rst_stat,
 			CAMRAWDMATOP_RAWI_R2_SOFT_RST_STAT) == 0 &&
@@ -863,9 +891,9 @@ void dump_dma_soft_rst_stat(struct mtk_raw_device *dev)
 {
 	struct mtk_yuv_device *yuv = get_yuv_dev(dev);
 
-	int raw_rst_stat = readl(dev->dmatop_base + REG_CAMRAWDMATOP_DMA_SOFT_RST_STAT);
-	int raw_rst_stat2 = readl(dev->dmatop_base + REG_CAMRAWDMATOP_DMA_SOFT_RST_STAT2);
-	int yuv_rst_stat = readl(yuv->dmatop_base + REG_CAMYUVDMATOP_DMA_SOFT_RST_STAT);
+	int raw_rst_stat = raw_readl(dev, dev->dmatop_base, REG_CAMRAWDMATOP_DMA_SOFT_RST_STAT);
+	int raw_rst_stat2 = raw_readl(dev, dev->dmatop_base, REG_CAMRAWDMATOP_DMA_SOFT_RST_STAT2);
+	int yuv_rst_stat = raw_readl(dev, yuv->dmatop_base, REG_CAMYUVDMATOP_DMA_SOFT_RST_STAT);
 
 	dev_info(dev->dev, "%s: rst_stat: 0x%08x 0x%08x 0x%08x\n",
 		 __func__, raw_rst_stat, raw_rst_stat2, yuv_rst_stat);
@@ -880,22 +908,22 @@ void reset(struct mtk_raw_device *dev)
 	dev_info(dev->dev, "%s\n", __func__);
 
 	/* Disable all DMA DCM before reset */
-	writel(0xffffffff, dev->base + REG_CAMCTL_MOD5_DCM_DIS);
-	writel(0xffffffff, dev->base + REG_CAMCTL_MOD6_DCM_DIS);
-	writel(0xffffffff, dev->yuv_base + REG_CAMCTL2_MOD5_DCM_DIS);
-	writel(0xffffffff, dev->yuv_base + REG_CAMCTL2_MOD6_DCM_DIS);
+	raw_writel(0xffffffff, dev, dev->base, REG_CAMCTL_MOD5_DCM_DIS);
+	raw_writel(0xffffffff, dev, dev->base, REG_CAMCTL_MOD6_DCM_DIS);
+	raw_writel(0xffffffff, dev, dev->yuv_base, REG_CAMCTL2_MOD5_DCM_DIS);
+	raw_writel(0xffffffff, dev, dev->yuv_base, REG_CAMCTL2_MOD6_DCM_DIS);
 
 	/* enable CQI_R1 ~ R4 before reset and make sure loaded to inner */
-	mod10_en = readl(dev->base + REG_CAMCTL_MOD10_EN);
+	mod10_en = raw_readl(dev, dev->base, REG_CAMCTL_MOD10_EN);
 	val = mod10_en | FBIT(CAMCTL_CQI_R1_EN) |
 		FBIT(CAMCTL_CQI_R2_EN) |
 		FBIT(CAMCTL_CQI_R3_EN) |
 		FBIT(CAMCTL_CQI_R4_EN);
-	writel(val, dev->base + REG_CAMCTL_MOD10_EN);
-	writel(val, dev->base_inner + REG_CAMCTL_MOD10_EN);
+	raw_writel(val, dev, dev->base, REG_CAMCTL_MOD10_EN);
+	raw_writel(val, dev, dev->base_inner, REG_CAMCTL_MOD10_EN);
 	dev_info(dev->dev, "%s mod10_en/val:0x%x/0x%x\n", __func__, mod10_en, val);
-	writel(0, dev->base + REG_CAMCTL_SW_CTL);
-	writel(FBIT(CAMCTL_SW_RST_TRIG), dev->base + REG_CAMCTL_SW_CTL);
+	raw_writel(0, dev, dev->base, REG_CAMCTL_SW_CTL);
+	raw_writel(FBIT(CAMCTL_SW_RST_TRIG), dev, dev->base, REG_CAMCTL_SW_CTL);
 	wmb(); /* make sure committed */
 
 	ret = readx_poll_timeout(readl, dev->base + REG_CAMCTL_SW_CTL, sw_ctl,
@@ -910,19 +938,19 @@ void reset(struct mtk_raw_device *dev)
 	}
 
 	/* do hw rst */
-	writel(FBIT(CAMCTL_HW_RST), dev->base + REG_CAMCTL_SW_CTL);
-	writel(0, dev->base + REG_CAMCTL_SW_CTL);
+	raw_writel(FBIT(CAMCTL_HW_RST), dev, dev->base, REG_CAMCTL_SW_CTL);
+	raw_writel(0, dev, dev->base, REG_CAMCTL_SW_CTL);
 
 RESET_FAILURE:
 
-	writel(mod10_en, dev->base + REG_CAMCTL_MOD10_EN);
-	writel(mod10_en, dev->base_inner + REG_CAMCTL_MOD10_EN);
+	raw_writel(mod10_en, dev, dev->base, REG_CAMCTL_MOD10_EN);
+	raw_writel(mod10_en, dev, dev->base_inner, REG_CAMCTL_MOD10_EN);
 
 	/* Enable all DMA DCM back */
-	writel(0x0, dev->base + REG_CAMCTL_MOD5_DCM_DIS);
-	writel(0x0, dev->base + REG_CAMCTL_MOD6_DCM_DIS);
-	writel(0x0, dev->yuv_base + REG_CAMCTL2_MOD5_DCM_DIS);
-	writel(0x0, dev->yuv_base + REG_CAMCTL2_MOD6_DCM_DIS);
+	raw_writel(0x0, dev, dev->base, REG_CAMCTL_MOD5_DCM_DIS);
+	raw_writel(0x0, dev, dev->base, REG_CAMCTL_MOD6_DCM_DIS);
+	raw_writel(0x0, dev, dev->yuv_base, REG_CAMCTL2_MOD5_DCM_DIS);
+	raw_writel(0x0, dev, dev->yuv_base, REG_CAMCTL2_MOD6_DCM_DIS);
 
 	wmb(); /* make sure committed */
 }
@@ -1022,21 +1050,21 @@ static void raw_handle_skip_frame(struct mtk_raw_device *raw_dev,
 	}
 }
 
-static void raw_handle_ringbuffer_ofl(struct mtk_raw_device *raw_dev,
+static void raw_handle_ringbuffer_ofl(struct mtk_raw_device *raw,
 				      struct mtk_camsys_irq_info *data)
 {
 	unsigned int fh_cookie = data->frame_idx_inner;
 
-	dev_info(raw_dev->dev, "%s: fh_cookie: 0x%x, chasing_status 0x%x, 0x%x line_cnt:0x%x 0x%x 0x%x 0x%x\n",
+	dev_info(raw->dev, "%s: fh_cookie: 0x%x, chasing_status 0x%x, 0x%x line_cnt:0x%x 0x%x 0x%x 0x%x\n",
 		 __func__, fh_cookie,
-		 readl_relaxed(raw_dev->dmatop_base + REG_CAMRAWDMATOP_DC_DBG_CHASING_STATUS),
-		 readl_relaxed(raw_dev->dmatop_base + REG_CAMRAWDMATOP_DC_DBG_CHASING_STATUS2),
-		 readl_relaxed(raw_dev->dmatop_base + REG_CAMRAWDMATOP_DC_DBG_LINE_CNT_RAWI_R2),
-		 readl_relaxed(raw_dev->dmatop_base + REG_CAMRAWDMATOP_DC_DBG_LINE_CNT_UFDI_R2),
-		 readl_relaxed(raw_dev->dmatop_base + REG_CAMRAWDMATOP_DC_DBG_LINE_CNT_RAWI_R5),
-		 readl_relaxed(raw_dev->dmatop_base + REG_CAMRAWDMATOP_DC_DBG_LINE_CNT_UFDI_R5));
+		 raw_readl_relaxed(raw, raw->dmatop_base, REG_CAMRAWDMATOP_DC_DBG_CHASING_STATUS),
+		 raw_readl_relaxed(raw, raw->dmatop_base, REG_CAMRAWDMATOP_DC_DBG_CHASING_STATUS2),
+		 raw_readl_relaxed(raw, raw->dmatop_base, REG_CAMRAWDMATOP_DC_DBG_LINE_CNT_RAWI_R2),
+		 raw_readl_relaxed(raw, raw->dmatop_base, REG_CAMRAWDMATOP_DC_DBG_LINE_CNT_UFDI_R2),
+		 raw_readl_relaxed(raw, raw->dmatop_base, REG_CAMRAWDMATOP_DC_DBG_LINE_CNT_RAWI_R5),
+		 raw_readl_relaxed(raw, raw->dmatop_base, REG_CAMRAWDMATOP_DC_DBG_LINE_CNT_UFDI_R5));
 
-	WRAP_AEE_EXCEPTION(MSG_RINGBUFFER_OFL, dev_name(raw_dev->dev));
+	WRAP_AEE_EXCEPTION(MSG_RINGBUFFER_OFL, dev_name(raw->dev));
 }
 
 static bool is_sub_sample_sensor_timing(struct mtk_raw_device *dev)
@@ -1098,35 +1126,35 @@ static bool is_sub_sample_sensor_timing(struct mtk_raw_device *dev)
 #define CNT_BIT_MASK				0xFF0000
 
 #ifdef READ_TG_TIMESTAMP
-static void mtk_raw_log_tg_timestamp(struct mtk_raw_device *raw_dev)
+static void mtk_raw_log_tg_timestamp(struct mtk_raw_device *raw)
 {
 	u32 ts_ctl;
 	u64 ts;
 
-	dev_info(raw_dev->dev, "ctl 0x%x before lock, tg timestamp msb 0x%08x lsb 0x%08x\n",
-		 readl_relaxed(raw_dev->base + REG_TG_TIME_STAMP_CTL),
-		 readl_relaxed(raw_dev->base + REG_TG_TIME_STAMP_MSB),
-		 readl_relaxed(raw_dev->base + REG_TG_TIME_STAMP));
+	dev_info(raw->dev, "ctl 0x%x before lock, tg timestamp msb 0x%08x lsb 0x%08x\n",
+		 raw_readl_relaxed(raw, raw->base, REG_TG_TIME_STAMP_CTL),
+		 raw_readl_relaxed(raw, raw->base, REG_TG_TIME_STAMP_MSB),
+		 raw_readl_relaxed(raw, raw->base, REG_TG_TIME_STAMP));
 
-	ts_ctl = readl_relaxed(raw_dev->base + REG_TG_TIME_STAMP_CTL) | BIT(4);
-	writel(ts_ctl, raw_dev->base + REG_TG_TIME_STAMP_CTL);
+	ts_ctl = raw_readl_relaxed(raw, raw->base, REG_TG_TIME_STAMP_CTL) | BIT(4);
+	raw_writel(ts_ctl, raw, raw->base, REG_TG_TIME_STAMP_CTL);
 
-	ts = (u64)readl(raw_dev->base + REG_TG_TIME_STAMP_MSB) << 32;
-	ts += (u64)readl(raw_dev->base + REG_TG_TIME_STAMP);
+	ts = (u64)raw_readl(raw, raw->base, REG_TG_TIME_STAMP_MSB) << 32;
+	ts += (u64)raw_readl(raw, raw->base, REG_TG_TIME_STAMP);
 
-	dev_info(raw_dev->dev, "ctl 0x%x after lock, tg timestamp %llu msb 0x%08x lsb 0x%08x\n",
-		 readl_relaxed(raw_dev->base + REG_TG_TIME_STAMP_CTL),
+	dev_info(raw->dev, "ctl 0x%x after lock, tg timestamp %llu msb 0x%08x lsb 0x%08x\n",
+		 raw_readl_relaxed(raw, raw->base, REG_TG_TIME_STAMP_CTL),
 		 ts,
-		 readl_relaxed(raw_dev->base + REG_TG_TIME_STAMP_MSB),
-		 readl_relaxed(raw_dev->base + REG_TG_TIME_STAMP));
+		 raw_readl_relaxed(raw, raw->base, REG_TG_TIME_STAMP_MSB),
+		 raw_readl_relaxed(raw, raw->base, REG_TG_TIME_STAMP));
 }
 #endif
 
 static irqreturn_t mtk_irq_raw_yuv(int irq, void *data)
 {
-	struct mtk_raw_device *raw_dev = (struct mtk_raw_device *)data;
-	struct mtk_yuv_device *yuv = get_yuv_dev(raw_dev);
-	struct device *dev = raw_dev->dev;
+	struct mtk_raw_device *raw = (struct mtk_raw_device *)data;
+	struct mtk_yuv_device *yuv = get_yuv_dev(raw);
+	struct device *dev = raw->dev;
 	struct mtk_camsys_irq_info irq_info;
 	/* raw part */
 	unsigned int frame_idx, frame_idx_inner;
@@ -1142,13 +1170,13 @@ static irqreturn_t mtk_irq_raw_yuv(int irq, void *data)
 
 	/* yuv part */
 	frame_status_y =
-		readl_relaxed(yuv->base + REG_CAMCTL2_INT17_STATUS);
+		raw_readl_relaxed(raw, yuv->base, REG_CAMCTL2_INT17_STATUS);
 	wdma_done_status_y =
-		readl_relaxed(yuv->base + REG_CAMCTL2_INT2_STATUS);
+		raw_readl_relaxed(raw, yuv->base, REG_CAMCTL2_INT2_STATUS);
 	dma_ofl_status_y =
-		readl_relaxed(yuv->base + REG_CAMCTL2_INT5_STATUS);
+		raw_readl_relaxed(raw, yuv->base, REG_CAMCTL2_INT5_STATUS);
 	tfm_mismatch_status_y =
-		readl_relaxed(yuv->base + REG_CAMCTL2_INT8_STATUS);
+		raw_readl_relaxed(raw, yuv->base, REG_CAMCTL2_INT8_STATUS);
 	err_status_y = frame_status_y & 0x4; // bit2: DMA_ERR
 
 	//if (unlikely(debug_raw))
@@ -1167,23 +1195,22 @@ static irqreturn_t mtk_irq_raw_yuv(int irq, void *data)
 	trace_raw_dma_status(yuv->dev, frame_status_y,
 				dma_ofl_status_y, tfm_mismatch_status_y);
 	/* raw part */
-	dmao_done_status = readl_relaxed(raw_dev->base + REG_CAMCTL_INT2_STATUS);
-	dmai_done_status = readl_relaxed(raw_dev->base + REG_CAMCTL_INT3_STATUS);
-	dma_ofl_status	 = readl_relaxed(raw_dev->base + REG_CAMCTL_INT5_STATUS);
-	dma_ufl_status	 = readl_relaxed(raw_dev->base + REG_CAMCTL_INT6_STATUS);
-	dma_ring_ufl_status	 = readl_relaxed(raw_dev->base + REG_CAMCTL_INT7_STATUS);
-	tfm_mismatch_status	 = readl_relaxed(raw_dev->base + REG_CAMCTL_INT8_STATUS);
-	frame_status	 = readl_relaxed(raw_dev->base + REG_CAMCTL_INT17_STATUS);
-	tg1_status		 = readl_relaxed(raw_dev->base + REG_CAMCTL_INT18_STATUS);
-	tg2_status		 = readl_relaxed(raw_dev->base + REG_CAMCTL_INT19_STATUS);
-	dcif_status		 = readl_relaxed(raw_dev->base + REG_CAMCTL_INT20_STATUS);
-	cq_status		 = readl_relaxed(raw_dev->base + REG_CAMCTL_INT21_STATUS);
+	dmao_done_status = raw_readl_relaxed(raw, raw->base, REG_CAMCTL_INT2_STATUS);
+	dmai_done_status = raw_readl_relaxed(raw, raw->base, REG_CAMCTL_INT3_STATUS);
+	dma_ofl_status	 = raw_readl_relaxed(raw, raw->base, REG_CAMCTL_INT5_STATUS);
+	dma_ufl_status	 = raw_readl_relaxed(raw, raw->base, REG_CAMCTL_INT6_STATUS);
+	dma_ring_ufl_status	 = raw_readl_relaxed(raw, raw->base, REG_CAMCTL_INT7_STATUS);
+	tfm_mismatch_status	 = raw_readl_relaxed(raw, raw->base, REG_CAMCTL_INT8_STATUS);
+	frame_status	 = raw_readl_relaxed(raw, raw->base, REG_CAMCTL_INT17_STATUS);
+	tg1_status		 = raw_readl_relaxed(raw, raw->base, REG_CAMCTL_INT18_STATUS);
+	tg2_status		 = raw_readl_relaxed(raw, raw->base, REG_CAMCTL_INT19_STATUS);
+	dcif_status		 = raw_readl_relaxed(raw, raw->base, REG_CAMCTL_INT20_STATUS);
+	cq_status		 = raw_readl_relaxed(raw, raw->base, REG_CAMCTL_INT21_STATUS);
 
-
-	frame_idx	= readl_relaxed(raw_dev->base + REG_FHG_FHG_SPARE_1);
-	frame_idx_inner	= readl_relaxed(raw_dev->base_inner + REG_FHG_FHG_SPARE_1);
-	tg_cnt = readl_relaxed(raw_dev->base + REG_TG_INTER_ST);
-	tg_cnt = (raw_dev->tg_count & 0xffffff00) + ((tg_cnt & 0xff000000) >> 24);
+	frame_idx	= raw_readl_relaxed(raw, raw->base, REG_FHG_FHG_SPARE_1);
+	frame_idx_inner	= raw_readl_relaxed(raw, raw->base_inner, REG_FHG_FHG_SPARE_1);
+	tg_cnt = raw_readl_relaxed(raw, raw->base, REG_TG_INTER_ST);
+	tg_cnt = (raw->tg_count & 0xffffff00) + ((tg_cnt & 0xff000000) >> 24);
 
 	frame_e_status = frame_status & INT_ST_MASK_CAM_ERR_FRAME;
 	tg1_e_status = tg1_status & INT_ST_MASK_CAM_ERR_TG1;
@@ -1205,11 +1232,14 @@ static irqreturn_t mtk_irq_raw_yuv(int irq, void *data)
 
 	/* CQ done */
 	if (cq_status & FBIT(CAMCTL_CQ_THR0_DONE_ST)) {
-		if (raw_dev->cq_ref != NULL) {
-			long mask = bit_map_bit(MAP_HW_RAW, raw_dev->id);
+		if (raw->cq_ref != NULL) {
+			long mask = bit_map_bit(MAP_HW_RAW, raw->id);
 
-			if (engine_handle_cq_done(&raw_dev->cq_ref, mask))
+			if (engine_handle_cq_done(&raw->cq_ref, mask)) {
 				irq_info.irq_type |= 1 << CAMSYS_IRQ_SETTING_DONE;
+				qof_dump_voter(raw);
+				qof_dump_power_state(raw);
+			}
 		}
 	}
 
@@ -1229,16 +1259,19 @@ static irqreturn_t mtk_irq_raw_yuv(int irq, void *data)
 		irq_info.irq_type |= 1 << CAMSYS_IRQ_RINGBUFFER_OVERFLOW;
 
 	/* Frame done */
-	if (frame_status & FBIT(CAMCTL_SW_PASS1_DONE_ST))
+	if (frame_status & FBIT(CAMCTL_SW_PASS1_DONE_ST)) {
 		irq_info.irq_type |= 1 << CAMSYS_IRQ_FRAME_DONE;
+		qof_dump_voter(raw);
+		qof_dump_power_state(raw);
+	}
 
 	/* Frame start */
 	if (tg1_status & FBIT(CAMCTL_TG_SOF_INT_ST) ||
 		dmao_done_status & FBIT(CAMCTL_FHO_R1_DONE_ST) ||
 		dcif_status & FBIT(CAMCTL_DCIF_LAST_CQ_START_INT_ST)) {
 		irq_info.irq_type |= 1 << CAMSYS_IRQ_FRAME_START;
-		raw_dev->sof_count++;
-		raw_dev->cur_vsync_idx = 0;
+		raw->sof_count++;
+		raw->cur_vsync_idx = 0;
 
 		if (frame_status & FBIT(CAMCTL_SW_ENQUE_ERR_ST) ||
 			dcif_status & FBIT(CAMCTL_DCIF_LAST_CQ_START_INT_ST))
@@ -1246,20 +1279,24 @@ static irqreturn_t mtk_irq_raw_yuv(int irq, void *data)
 		else
 			irq_info.fbc_empty = 0;
 
-		if (tg_cnt < raw_dev->tg_count)
-			raw_dev->tg_count = tg_cnt + BIT(8);
+		if (tg_cnt < raw->tg_count)
+			raw->tg_count = tg_cnt + BIT(8);
 		else
-			raw_dev->tg_count = tg_cnt;
-		irq_info.tg_cnt = raw_dev->tg_count;
+			raw->tg_count = tg_cnt;
+		irq_info.tg_cnt = raw->tg_count;
 		if (CAM_DEBUG_ENABLED(EXTISP_SW_CNT))
-			irq_info.tg_cnt = raw_dev->sof_count - 2;
+			irq_info.tg_cnt = raw->sof_count - 2;
 		/* make sure no cq applied by hw postpone */
 		if (tg1_status & FBIT(CAMCTL_TG_SOF_INT_ST) && frame_idx <= frame_idx_inner)
-			do_engine_callback(raw_dev->engine_cb, do_workaround_at_sof,
-				   raw_dev->cam, CAMSYS_ENGINE_RAW, raw_dev->id, frame_idx);
-		engine_handle_sof(&raw_dev->cq_ref,
-				  bit_map_bit(MAP_HW_RAW, raw_dev->id),
+			do_engine_callback(raw->engine_cb, do_workaround_at_sof,
+				   raw->cam, CAMSYS_ENGINE_RAW, raw->id, frame_idx);
+		engine_handle_sof(&raw->cq_ref,
+				  bit_map_bit(MAP_HW_RAW, raw->id),
 				  irq_info.frame_idx_inner);
+
+		qof_dump_trigger_cnt(raw);
+		qof_dump_voter(raw);
+		qof_dump_power_state(raw);
 	}
 
 	/* DCIF main sof */
@@ -1268,20 +1305,20 @@ static irqreturn_t mtk_irq_raw_yuv(int irq, void *data)
 
 	/* Vsync interrupt */
 	if (tg1_status & FBIT(CAMCTL_TG_VS_INT_ST))
-		raw_dev->vsync_count++;
+		raw->vsync_count++;
 
-	if (raw_dev->sub_sensor_ctrl_en
+	if (raw->sub_sensor_ctrl_en
 	    && tg1_status & FBIT(CAMCTL_TG_VS_INT_ORG_ST)
-	    && raw_dev->cur_vsync_idx >= 0) {
-		if (is_sub_sample_sensor_timing(raw_dev)) {
-			raw_dev->cur_vsync_idx = -1;
+	    && raw->cur_vsync_idx >= 0) {
+		if (is_sub_sample_sensor_timing(raw)) {
+			raw->cur_vsync_idx = -1;
 			irq_info.irq_type |= 1 << CAMSYS_IRQ_TRY_SENSOR_SET;
 		}
-		++raw_dev->cur_vsync_idx;
+		++raw->cur_vsync_idx;
 	}
 
-	if (irq_info.irq_type && !raw_dev->is_slave) {
-		if (push_msgfifo(raw_dev, &irq_info) == 0)
+	if (irq_info.irq_type && !raw->is_slave) {
+		if (push_msgfifo(raw, &irq_info) == 0)
 			wake_thread = 1;
 	}
 
@@ -1295,7 +1332,7 @@ static irqreturn_t mtk_irq_raw_yuv(int irq, void *data)
 		err_info.frame_idx_inner = irq_info.frame_idx_inner;
 		err_info.e.err_status = err_status;
 
-		if (push_msgfifo(raw_dev, &err_info) == 0)
+		if (push_msgfifo(raw, &err_info) == 0)
 			wake_thread = 1;
 	}
 
@@ -1314,10 +1351,10 @@ static irqreturn_t mtk_irq_raw_yuv(int irq, void *data)
 #ifdef DUMP_FBC_SEL_OUTER
 		MTK_CAM_TRACE(FBC, "frame %d FBC_SEL 0x% 8x/0x% 8x (outer)",
 			irq_info.frame_idx_inner,
-			readl_relaxed(raw_dev->base + REG_CAMCTL_FBC_SEL),
-			readl_relaxed(raw_dev->yuv_base + REG_CAMCTL_FBC_SEL));
+			raw_readl_relaxed(raw, raw->base, REG_CAMCTL_FBC_SEL),
+			raw_readl_relaxed(raw, raw->yuv_base, REG_CAMCTL_FBC_SEL));
 #endif
-		mtk_cam_raw_dump_fbc(dev, raw_dev->base, raw_dev->yuv_base);
+		mtk_cam_raw_dump_fbc(dev, raw->base, raw->yuv_base);
 	}
 #endif
 
@@ -1502,6 +1539,41 @@ static void raw_handle_tg_overrun_err(struct mtk_raw_device *raw_dev,
 				   fh_cookie, MSG_TG_OVERRUN);
 }
 
+static u32 basic_readl(struct mtk_raw_device *raw, void __iomem *base, u32 offset)
+{
+	(void)raw;
+
+	return readl(base + offset);
+}
+
+static u32 basic_readl_relaxed(struct mtk_raw_device *raw, void __iomem *base, u32 offset)
+{
+	(void)raw;
+
+	return readl_relaxed(base + offset);
+}
+
+static void basic_writel(struct mtk_raw_device *raw, u32 val, void __iomem *base, u32 offset)
+{
+	(void)raw;
+
+	writel(val, base + offset);
+}
+
+static void basic_writel_relaxed(struct mtk_raw_device *raw, u32 val, void __iomem *base, u32 offset)
+{
+	(void)raw;
+
+	writel_relaxed(val, base + offset);
+}
+
+struct raw_io_ops basic_io_ops = {
+	.readl = basic_readl,
+	.readl_relaxed = basic_readl_relaxed,
+	.writel = basic_writel,
+	.writel_relaxed = basic_writel_relaxed,
+};
+
 static int mtk_raw_pm_suspend_prepare(struct mtk_raw_device *dev)
 {
 //	u32 val;
@@ -1515,8 +1587,8 @@ static int mtk_raw_pm_suspend_prepare(struct mtk_raw_device *dev)
 	/* Disable ISP's view finder and wait for TG idle */
 	dev_dbg(dev->dev, "cam suspend, disable VF\n");
 #ifdef NOT_READY
-	val = readl(dev->base + REG_TG_VF_CON);
-	writel(val & (~TG_VFDATA_EN), dev->base + REG_TG_VF_CON);
+	val = raw_readl(dev, dev->base, REG_TG_VF_CON);
+	raw_writel(val & (~TG_VFDATA_EN), dev, dev->base, REG_TG_VF_CON);
 	ret = readl_poll_timeout_atomic(dev->base + REG_TG_INTER_ST, val,
 					(val & TG_CAM_CS_MASK) == TG_IDLE_ST,
 					USEC_PER_MSEC, MTK_RAW_STOP_HW_TIMEOUT);
@@ -1524,8 +1596,8 @@ static int mtk_raw_pm_suspend_prepare(struct mtk_raw_device *dev)
 		dev_dbg(dev->dev, "can't stop HW:%d:0x%x\n", ret, val);
 
 	/* Disable CMOS */
-	val = readl(dev->base + REG_TG_SEN_MODE);
-	writel(val & (~TG_SEN_MODE_CMOS_EN), dev->base + REG_TG_SEN_MODE);
+	val = raw_readl(dev, dev->base, REG_TG_SEN_MODE);
+	raw_writel(val & (~TG_SEN_MODE_CMOS_EN), dev, dev->base, REG_TG_SEN_MODE);
 #endif
 
 	/* Force ISP HW to idle */
@@ -1551,12 +1623,12 @@ static int mtk_raw_pm_post_suspend(struct mtk_raw_device *dev)
 #ifdef NOT_READY
 	/* Enable CMOS */
 	dev_dbg(dev->dev, "cam resume, enable CMOS/VF\n");
-	val = readl(dev->base + REG_TG_SEN_MODE);
-	writel(val | TG_SEN_MODE_CMOS_EN, dev->base + REG_TG_SEN_MODE);
+	val = raw_readl(dev, dev->base, REG_TG_SEN_MODE);
+	raw_writel(val | TG_SEN_MODE_CMOS_EN, dev, dev->base, REG_TG_SEN_MODE);
 
 	/* Enable VF */
-	val = readl(dev->base + REG_TG_VF_CON);
-	writel(val | TG_VFDATA_EN, dev->base + REG_TG_VF_CON);
+	val = raw_readl(dev->base + REG_TG_VF_CON);
+	raw_writel(val | TG_VFDATA_EN, dev, dev->base, REG_TG_VF_CON);
 #endif
 
 	return 0;
@@ -1895,6 +1967,8 @@ static int mtk_raw_probe(struct platform_device *pdev)
 	if (ret)
 		goto UNREGISTER_PM_NOTIFIER;
 
+	raw_dev->io_ops = &basic_io_ops;
+
 	raw_dev->fifo_size =
 		roundup_pow_of_two(8 * sizeof(struct mtk_camsys_irq_info));
 
@@ -1905,6 +1979,9 @@ static int mtk_raw_probe(struct platform_device *pdev)
 	}
 
 	raw_dev->default_printk_cnt = get_detect_count();
+
+	raw_dev->apmcu_voter_cnt = 0;
+	mutex_init(&raw_dev->apmcu_voter_lock);
 
 	pm_runtime_enable(dev);
 
@@ -2372,20 +2449,20 @@ int mtk_yuv_runtime_resume(struct device *dev)
 	return 0;
 }
 
-void print_cq_settings(void __iomem *base)
+void print_cq_settings(struct mtk_raw_device *raw, void __iomem *base)
 {
 	unsigned int inner_addr, inner_addr_msb, size;
 
-	inner_addr = readl_relaxed(base + REG_CAMCQ_CQ_THR0_BASEADDR);
-	inner_addr_msb = readl_relaxed(base + REG_CAMCQ_CQ_THR0_BASEADDR_MSB);
-	size = readl_relaxed(base + REG_CAMCQ_CQ_THR0_DESC_SIZE);
+	inner_addr = raw_readl_relaxed(raw, base, REG_CAMCQ_CQ_THR0_BASEADDR);
+	inner_addr_msb = raw_readl_relaxed(raw, base, REG_CAMCQ_CQ_THR0_BASEADDR_MSB);
+	size = raw_readl_relaxed(raw, base, REG_CAMCQ_CQ_THR0_DESC_SIZE);
 
 	pr_info("CQ_THR0_inner_addr_msb:0x%x, CQ_THR0_inner_addr:%08x, size:0x%x\n",
 		inner_addr_msb, inner_addr, size);
 
-	inner_addr = readl_relaxed(base + REG_CAMCQ_CQ_SUB_THR0_BASEADDR_2);
-	inner_addr_msb = readl_relaxed(base + REG_CAMCQ_CQ_SUB_THR0_BASEADDR_2_MSB);
-	size = readl_relaxed(base + REG_CAMCQ_CQ_SUB_THR0_DESC_SIZE_2);
+	inner_addr = raw_readl_relaxed(raw, base, REG_CAMCQ_CQ_SUB_THR0_BASEADDR_2);
+	inner_addr_msb = raw_readl_relaxed(raw, base, REG_CAMCQ_CQ_SUB_THR0_BASEADDR_2_MSB);
+	size = raw_readl_relaxed(raw, base, REG_CAMCQ_CQ_SUB_THR0_DESC_SIZE_2);
 
 	pr_info("CQ_SUB_THR0_2: inner_addr_msb:0x%x, inner_addr:%08x, size:0x%x\n",
 		inner_addr_msb, inner_addr, size);
@@ -2400,6 +2477,7 @@ void print_dma_settings(void __iomem *base, u32 dmao_base)
 #define REG_YSIZE        0x14
 #define REG_STRIDE       0x18
 
+	// TODO: QOF readl ops?
 	pr_info("0x%x: addr:0x%08x, addr_msb:%08x, addr_offset:0x%08x, addr_msb_offset:%08x, xsize:0x%08x, ysize:0x%08x, stride:0x%08x\n",
 		dmao_base,
 		readl_relaxed(base + dmao_base),
@@ -2413,15 +2491,15 @@ void print_dma_settings(void __iomem *base, u32 dmao_base)
 
 int mtk_raw_translation_fault_cb(int port, dma_addr_t mva, void *data)
 {
-	struct mtk_raw_device *raw_dev = (struct mtk_raw_device *)data;
+	struct mtk_raw_device *raw = (struct mtk_raw_device *)data;
 	unsigned int fh_cookie =
-			readl_relaxed(raw_dev->base_inner + REG_FHG_FHG_SPARE_1);
+			raw_readl_relaxed(raw, raw->base_inner, REG_FHG_FHG_SPARE_1);
 	unsigned int m4u_port = MTK_M4U_TO_PORT(port);
 	struct dma_group group;
 	int i;
 
 	if (m4u_port == 0 || m4u_port == 1) { /* cq info */
-		print_cq_settings(raw_dev->dmatop_base_inner);
+		print_cq_settings(raw, raw->dmatop_base_inner);
 	}
 
 	if (CALL_PLAT_HW(query_raw_dma_group, m4u_port, &group))
@@ -2431,11 +2509,11 @@ int mtk_raw_translation_fault_cb(int port, dma_addr_t mva, void *data)
 		if (group.dma[i] == 0x0)
 			continue;
 
-		print_dma_settings(raw_dev->dmatop_base_inner,  group.dma[i]);
+		print_dma_settings(raw->dmatop_base_inner,  group.dma[i]);
 	}
 
-	do_engine_callback(raw_dev->engine_cb, dump_request,
-		   raw_dev->cam, CAMSYS_ENGINE_RAW, raw_dev->id,
+	do_engine_callback(raw->engine_cb, dump_request,
+		   raw->cam, CAMSYS_ENGINE_RAW, raw->id,
 		   fh_cookie, MSG_M4U_TF);
 
 	return 0;
@@ -2443,10 +2521,10 @@ int mtk_raw_translation_fault_cb(int port, dma_addr_t mva, void *data)
 
 int mtk_yuv_translation_fault_cb(int port, dma_addr_t mva, void *data)
 {
-	struct mtk_yuv_device *yuv_dev = (struct mtk_yuv_device *)data;
-	struct mtk_raw_device *raw_dev = get_raw_dev(yuv_dev);
+	struct mtk_yuv_device *yuv = (struct mtk_yuv_device *)data;
+	struct mtk_raw_device *raw = get_raw_dev(yuv);
 	unsigned int fh_cookie =
-			readl_relaxed(raw_dev->base_inner + REG_FHG_FHG_SPARE_1);
+			raw_readl_relaxed(raw, raw->base_inner, REG_FHG_FHG_SPARE_1);
 	unsigned int m4u_port = MTK_M4U_TO_PORT(port);
 	struct dma_group group;
 	int i;
@@ -2458,124 +2536,124 @@ int mtk_yuv_translation_fault_cb(int port, dma_addr_t mva, void *data)
 		if (group.dma[i] == 0x0)
 			continue;
 
-		print_dma_settings(yuv_dev->dmatop_base_inner, group.dma[i]);
+		print_dma_settings(yuv->dmatop_base_inner, group.dma[i]);
 	}
 
-	do_engine_callback(raw_dev->engine_cb, dump_request,
-		   raw_dev->cam, CAMSYS_ENGINE_RAW, raw_dev->id,
+	do_engine_callback(raw->engine_cb, dump_request,
+		   raw->cam, CAMSYS_ENGINE_RAW, raw->id,
 		   fh_cookie, MSG_M4U_TF);
 
 	return 0;
 }
 
-void fill_aa_info(struct mtk_raw_device *raw_dev,
+void fill_aa_info(struct mtk_raw_device *raw,
 				  struct mtk_ae_debug_data *ae_info)
 {
-	struct mtk_rms_device *rms = get_rms_dev(raw_dev);
+	struct mtk_rms_device *rms = get_rms_dev(raw);
 
 	ae_info->OBC_R1_Sum[0] +=
-		((u64)readl(raw_dev->base + OFFSET_OBC_R1_R_SUM_H) << 32) |
-		readl(raw_dev->base + OFFSET_OBC_R1_R_SUM_L);
+		((u64)raw_readl(raw, raw->base, OFFSET_OBC_R1_R_SUM_H) << 32) |
+		raw_readl(raw, raw->base, OFFSET_OBC_R1_R_SUM_L);
 	ae_info->OBC_R2_Sum[0] +=
-		((u64)readl(rms->base + OFFSET_OBC_R2_R_SUM_H) << 32) |
-		readl(rms->base + OFFSET_OBC_R2_R_SUM_L);
+		((u64)raw_readl(raw, rms->base, OFFSET_OBC_R2_R_SUM_H) << 32) |
+		raw_readl(raw, rms->base, OFFSET_OBC_R2_R_SUM_L);
 	ae_info->OBC_R3_Sum[0] +=
-		((u64)readl(rms->base + OFFSET_OBC_R3_R_SUM_H) << 32) |
-		readl(rms->base + OFFSET_OBC_R3_R_SUM_L);
+		((u64)raw_readl(raw, rms->base, OFFSET_OBC_R3_R_SUM_H) << 32) |
+		raw_readl(raw, rms->base, OFFSET_OBC_R3_R_SUM_L);
 	ae_info->LTM_Sum[0] +=
-		((u64)readl(raw_dev->base + REG_LTM_AE_DEBUG_R_MSB) << 32) |
-		readl(raw_dev->base + REG_LTM_AE_DEBUG_R_LSB);
+		((u64)raw_readl(raw, raw->base, REG_LTM_AE_DEBUG_R_MSB) << 32) |
+		raw_readl(raw, raw->base, REG_LTM_AE_DEBUG_R_LSB);
 
 
 	ae_info->OBC_R1_Sum[1] +=
-		((u64)readl(raw_dev->base + OFFSET_OBC_R1_B_SUM_H) << 32) |
-		readl(raw_dev->base + OFFSET_OBC_R1_B_SUM_L);
+		((u64)raw_readl(raw, raw->base, OFFSET_OBC_R1_B_SUM_H) << 32) |
+		raw_readl(raw, raw->base, OFFSET_OBC_R1_B_SUM_L);
 	ae_info->OBC_R2_Sum[1] +=
-		((u64)readl(rms->base + OFFSET_OBC_R2_B_SUM_H) << 32) |
-		readl(rms->base + OFFSET_OBC_R2_B_SUM_L);
+		((u64)raw_readl(raw, rms->base, OFFSET_OBC_R2_B_SUM_H) << 32) |
+		raw_readl(raw, rms->base, OFFSET_OBC_R2_B_SUM_L);
 	ae_info->OBC_R3_Sum[1] +=
-		((u64)readl(rms->base + OFFSET_OBC_R3_B_SUM_H) << 32) |
-		readl(rms->base + OFFSET_OBC_R3_B_SUM_L);
+		((u64)raw_readl(raw, rms->base, OFFSET_OBC_R3_B_SUM_H) << 32) |
+		raw_readl(raw, rms->base, OFFSET_OBC_R3_B_SUM_L);
 	ae_info->LTM_Sum[1] +=
-		((u64)readl(raw_dev->base + REG_LTM_AE_DEBUG_B_MSB) << 32) |
-		readl(raw_dev->base + REG_LTM_AE_DEBUG_B_LSB);
+		((u64)raw_readl(raw, raw->base, REG_LTM_AE_DEBUG_B_MSB) << 32) |
+		raw_readl(raw, raw->base, REG_LTM_AE_DEBUG_B_LSB);
 
 
 	ae_info->OBC_R1_Sum[2] +=
-		((u64)readl(raw_dev->base + OFFSET_OBC_R1_GR_SUM_H) << 32) |
-		readl(raw_dev->base + OFFSET_OBC_R1_GR_SUM_L);
+		((u64)raw_readl(raw, raw->base, OFFSET_OBC_R1_GR_SUM_H) << 32) |
+		raw_readl(raw, raw->base, OFFSET_OBC_R1_GR_SUM_L);
 	ae_info->OBC_R2_Sum[2] +=
-		((u64)readl(rms->base + OFFSET_OBC_R2_GR_SUM_H) << 32) |
-		readl(rms->base + OFFSET_OBC_R2_GR_SUM_L);
+		((u64)raw_readl(raw, rms->base, OFFSET_OBC_R2_GR_SUM_H) << 32) |
+		raw_readl(raw, rms->base, OFFSET_OBC_R2_GR_SUM_L);
 	ae_info->OBC_R3_Sum[2] +=
-		((u64)readl(rms->base + OFFSET_OBC_R3_GR_SUM_H) << 32) |
-		readl(rms->base + OFFSET_OBC_R3_GR_SUM_L);
+		((u64)raw_readl(raw, rms->base, OFFSET_OBC_R3_GR_SUM_H) << 32) |
+		raw_readl(raw, rms->base, OFFSET_OBC_R3_GR_SUM_L);
 	ae_info->LTM_Sum[2] +=
-		((u64)readl(raw_dev->base + REG_LTM_AE_DEBUG_GR_MSB) << 32) |
-		readl(raw_dev->base + REG_LTM_AE_DEBUG_GR_LSB);
+		((u64)raw_readl(raw, raw->base, REG_LTM_AE_DEBUG_GR_MSB) << 32) |
+		raw_readl(raw, raw->base, REG_LTM_AE_DEBUG_GR_LSB);
 
 
 	ae_info->OBC_R1_Sum[3] +=
-		((u64)readl(raw_dev->base + OFFSET_OBC_R1_GB_SUM_H) << 32) |
-		readl(raw_dev->base + OFFSET_OBC_R1_GB_SUM_L);
+		((u64)raw_readl(raw, raw->base, OFFSET_OBC_R1_GB_SUM_H) << 32) |
+		raw_readl(raw, raw->base, OFFSET_OBC_R1_GB_SUM_L);
 	ae_info->OBC_R2_Sum[3] +=
-		((u64)readl(rms->base + OFFSET_OBC_R2_GB_SUM_H) << 32) |
-		readl(rms->base + OFFSET_OBC_R2_GB_SUM_L);
+		((u64)raw_readl(raw, rms->base, OFFSET_OBC_R2_GB_SUM_H) << 32) |
+		raw_readl(raw, rms->base, OFFSET_OBC_R2_GB_SUM_L);
 	ae_info->OBC_R3_Sum[3] +=
-		((u64)readl(rms->base + OFFSET_OBC_R3_GB_SUM_H) << 32) |
-		readl(rms->base + OFFSET_OBC_R3_GB_SUM_L);
+		((u64)raw_readl(raw, rms->base, OFFSET_OBC_R3_GB_SUM_H) << 32) |
+		raw_readl(raw, rms->base, OFFSET_OBC_R3_GB_SUM_L);
 	ae_info->LTM_Sum[3] +=
-		((u64)readl(raw_dev->base + REG_LTM_AE_DEBUG_GB_MSB) << 32) |
-		readl(raw_dev->base + REG_LTM_AE_DEBUG_GB_LSB);
+		((u64)raw_readl(raw, raw->base, REG_LTM_AE_DEBUG_GB_MSB) << 32) |
+		raw_readl(raw, raw->base, REG_LTM_AE_DEBUG_GB_LSB);
 
 	ae_info->AESTAT_Sum[0] +=
-		((u64)readl(raw_dev->base + REG_AA_R_CLIP_SUM_L) << 32) |
-		readl(raw_dev->base + REG_AA_R_SUM_L);
+		((u64)raw_readl(raw, raw->base, REG_AA_R_CLIP_SUM_L) << 32) |
+		raw_readl(raw, raw->base, REG_AA_R_SUM_L);
 	ae_info->AESTAT_Sum[1] +=
-		((u64)readl(raw_dev->base + REG_AA_R_CLIP_SUM_H) << 32) |
-		readl(raw_dev->base + REG_AA_R_SUM_H);
+		((u64)raw_readl(raw, raw->base, REG_AA_R_CLIP_SUM_H) << 32) |
+		raw_readl(raw, raw->base, REG_AA_R_SUM_H);
 	ae_info->AESTAT_Sum[2] +=
-		((u64)readl(raw_dev->base + REG_AA_B_CLIP_SUM_L) << 32) |
-		readl(raw_dev->base + REG_AA_B_SUM_L);
+		((u64)raw_readl(raw, raw->base, REG_AA_B_CLIP_SUM_L) << 32) |
+		raw_readl(raw, raw->base, REG_AA_B_SUM_L);
 	ae_info->AESTAT_Sum[3] +=
-		((u64)readl(raw_dev->base + REG_AA_B_CLIP_SUM_H) << 32) |
-		readl(raw_dev->base + REG_AA_B_SUM_H);
+		((u64)raw_readl(raw, raw->base, REG_AA_B_CLIP_SUM_H) << 32) |
+		raw_readl(raw, raw->base, REG_AA_B_SUM_H);
 	ae_info->AESTAT_Sum[4] +=
-		((u64)readl(raw_dev->base + REG_AA_GR_CLIP_SUM_L) << 32) |
-		readl(raw_dev->base + REG_AA_GR_SUM_L);
+		((u64)raw_readl(raw, raw->base, REG_AA_GR_CLIP_SUM_L) << 32) |
+		raw_readl(raw, raw->base, REG_AA_GR_SUM_L);
 	ae_info->AESTAT_Sum[5] +=
-		((u64)readl(raw_dev->base + REG_AA_GR_CLIP_SUM_H) << 32) |
-		readl(raw_dev->base + REG_AA_GR_SUM_H);
+		((u64)raw_readl(raw, raw->base, REG_AA_GR_CLIP_SUM_H) << 32) |
+		raw_readl(raw, raw->base, REG_AA_GR_SUM_H);
 	ae_info->AESTAT_Sum[6] +=
-		((u64)readl(raw_dev->base + REG_AA_GB_CLIP_SUM_L) << 32) |
-		readl(raw_dev->base + REG_AA_GB_SUM_L);
+		((u64)raw_readl(raw, raw->base, REG_AA_GB_CLIP_SUM_L) << 32) |
+		raw_readl(raw, raw->base, REG_AA_GB_SUM_L);
 	ae_info->AESTAT_Sum[7] +=
-		((u64)readl(raw_dev->base + REG_AA_GB_CLIP_SUM_H) << 32) |
-		readl(raw_dev->base + REG_AA_GB_SUM_H);
+		((u64)raw_readl(raw, raw->base, REG_AA_GB_CLIP_SUM_H) << 32) |
+		raw_readl(raw, raw->base, REG_AA_GB_SUM_H);
 	ae_info->DGN_Sum[0] +=
-		((u64)readl(raw_dev->base + REG_DGN_R_CLIP_SUM_L) << 32) |
-		readl(raw_dev->base + REG_DGN_R_SUM_L);
+		((u64)raw_readl(raw, raw->base, REG_DGN_R_CLIP_SUM_L) << 32) |
+		raw_readl(raw, raw->base, REG_DGN_R_SUM_L);
 	ae_info->DGN_Sum[1] +=
-		((u64)readl(raw_dev->base + REG_DGN_R_CLIP_SUM_H) << 32) |
-		readl(raw_dev->base + REG_DGN_R_SUM_H);
+		((u64)raw_readl(raw, raw->base, REG_DGN_R_CLIP_SUM_H) << 32) |
+		raw_readl(raw, raw->base, REG_DGN_R_SUM_H);
 	ae_info->DGN_Sum[2] +=
-		((u64)readl(raw_dev->base + REG_DGN_B_CLIP_SUM_L) << 32) |
-		readl(raw_dev->base + REG_DGN_B_SUM_L);
+		((u64)raw_readl(raw, raw->base, REG_DGN_B_CLIP_SUM_L) << 32) |
+		raw_readl(raw, raw->base, REG_DGN_B_SUM_L);
 	ae_info->DGN_Sum[3] +=
-		((u64)readl(raw_dev->base + REG_DGN_B_CLIP_SUM_H) << 32) |
-		readl(raw_dev->base + REG_DGN_B_SUM_H);
+		((u64)raw_readl(raw, raw->base, REG_DGN_B_CLIP_SUM_H) << 32) |
+		raw_readl(raw, raw->base, REG_DGN_B_SUM_H);
 	ae_info->DGN_Sum[4] +=
-		((u64)readl(raw_dev->base + REG_DGN_GR_CLIP_SUM_L) << 32) |
-		readl(raw_dev->base + REG_DGN_GR_SUM_L);
+		((u64)raw_readl(raw, raw->base, REG_DGN_GR_CLIP_SUM_L) << 32) |
+		raw_readl(raw, raw->base, REG_DGN_GR_SUM_L);
 	ae_info->DGN_Sum[5] +=
-		((u64)readl(raw_dev->base + REG_DGN_GR_CLIP_SUM_H) << 32) |
-		readl(raw_dev->base + REG_DGN_GR_SUM_H);
+		((u64)raw_readl(raw, raw->base, REG_DGN_GR_CLIP_SUM_H) << 32) |
+		raw_readl(raw, raw->base, REG_DGN_GR_SUM_H);
 	ae_info->DGN_Sum[6] +=
-		((u64)readl(raw_dev->base + REG_DGN_GB_CLIP_SUM_L) << 32) |
-		readl(raw_dev->base + REG_DGN_GB_SUM_L);
+		((u64)raw_readl(raw, raw->base, REG_DGN_GB_CLIP_SUM_L) << 32) |
+		raw_readl(raw, raw->base, REG_DGN_GB_SUM_L);
 	ae_info->DGN_Sum[7] +=
-		((u64)readl(raw_dev->base + REG_DGN_GB_CLIP_SUM_H) << 32) |
-		readl(raw_dev->base + REG_DGN_GB_SUM_H);
+		((u64)raw_readl(raw, raw->base, REG_DGN_GB_CLIP_SUM_H) << 32) |
+		raw_readl(raw, raw->base, REG_DGN_GB_SUM_H);
 }
 
 static const struct dev_pm_ops mtk_yuv_pm_ops = {
@@ -2885,3 +2963,4 @@ void raw_dump_debug_status(struct mtk_raw_device *dev, bool is_srt)
 			       dbg_RAWI_R5, ARRAY_SIZE(dbg_RAWI_R5));
 #endif
 }
+

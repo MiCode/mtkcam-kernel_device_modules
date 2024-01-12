@@ -7,6 +7,7 @@
 
 #include "mtk_cam-raw.h"
 #include "mtk_cam-raw_regs.h"
+#include "mtk_cam-reg_utils.h"
 #include "mtk_cam-raw_debug.h"
 
 #define DMA_OFFSET_ERR_STAT	0x34

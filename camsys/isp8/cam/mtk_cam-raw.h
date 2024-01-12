@@ -23,6 +23,13 @@ enum raw_module_id {
 struct mtk_cam_dev;
 struct mtk_cam_ctx;
 
+#define call_io_ops(raw, func, ...) \
+({\
+	typeof(raw) _raw = (raw);\
+	typeof(_raw->io_ops) _io_ops = _raw->io_ops;\
+	_io_ops && _io_ops->func ? _io_ops->func(_raw, ##__VA_ARGS__) : 0;\
+})
+
 struct mtk_raw_device {
 	struct device *dev;
 	struct mtk_cam_device *cam;
@@ -81,6 +88,11 @@ struct mtk_raw_device {
 	int default_printk_cnt;
 	/* preisp synchronized used */
 	int tg_count;
+
+	/* QOF */
+	const struct raw_io_ops *io_ops;
+	int apmcu_voter_cnt;
+	struct mutex apmcu_voter_lock;
 };
 
 struct mtk_yuv_device {
@@ -100,6 +112,15 @@ struct mtk_yuv_device {
 	struct platform_device **larbs;
 	struct mtk_camsys_qos qos;
 };
+
+struct raw_io_ops {
+	u32 (*readl)(struct mtk_raw_device *raw, void __iomem *base, u32 offset);
+	u32 (*readl_relaxed)(struct mtk_raw_device *raw, void __iomem *base, u32 offset);
+	void (*writel)(struct mtk_raw_device *raw, u32 val, void __iomem *base, u32 offset);
+	void (*writel_relaxed)(struct mtk_raw_device *raw, u32 val, void __iomem *base, u32 offset);
+};
+
+extern struct raw_io_ops basic_io_ops;
 
 struct mtk_rms_device {
 	struct device *dev;

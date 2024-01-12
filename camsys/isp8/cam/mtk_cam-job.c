@@ -21,6 +21,7 @@
 #include "mtk_cam-debug.h"
 #include "mtk_cam-timesync.h"
 #include "mtk_cam-hsf.h"
+#include "mtk_cam-qof.h"
 #include "mtk_cam-trace.h"
 #include "mtk_cam-raw_ctrl.h"
 
@@ -30,6 +31,9 @@ static unsigned int debug_buf_fmt_sel = -1;
 module_param(debug_buf_fmt_sel, int, 0644);
 MODULE_PARM_DESC(debug_buf_fmt_sel, "working fmt select: 0->bayer, 1->ufbc");
 
+static unsigned int disable_qof = 1;
+module_param(disable_qof, int, 0644);
+MODULE_PARM_DESC(disable_qof, "disable QOF");
 
 /* forward declarations */
 static void reset_unused_io_of_ipi_frame(struct req_buffer_helper *helper);
@@ -641,9 +645,17 @@ mtk_cam_job_initialize_engines(struct mtk_cam_ctx *ctx,
 			initialize(raw, &engine_cb, !is_master, is_srt,
 				get_sensor_interval_us(job));
 
-			if (is_master && opt && opt->master_raw_init)
-				opt->master_raw_init(ctx->hw_raw[i], job);
+			if (is_master)
+				call_init_ops(job, master_raw_init, ctx->hw_raw[i]);
+
+			if (!disable_qof) {
+				int ret = call_init_ops(job, qof_init, ctx->hw_raw[i], is_master);
+
+				if (!ret)
+					qof_enable(raw, true);
+			}
 		}
+
 
 		if (job->enable_hsf_raw)
 			mtk_cam_hsf_init(ctx);
@@ -829,8 +841,27 @@ handle_raw_frame_done(struct mtk_cam_job *job)
 		}
 	}
 
-	if (ctx->has_raw_subdev && CAM_DEBUG_ENABLED(AA))
+	if (ctx->has_raw_subdev && job->src_ctx->enable_luma_dump) {
 		call_jobop(job, dump_aa_info);
+		qof_mtcmos_voter(job->src_ctx, false);
+		// TODO: not support per frame changing luma dump enable now;
+		// check SOF-Frame done racing if have to support
+		//job->src_ctx->enable_luma_dump =
+			//job->src_ctx->ctrldata.resource.user_data.raw_res.luma_debug;
+	}
+
+	if (CAM_DEBUG_ENABLED(QOF)) {
+		for (i = 0; i < ARRAY_SIZE(ctx->hw_raw); i++) {
+			if (ctx->hw_raw[i]) {
+				struct mtk_raw_device *raw_dev =
+					dev_get_drvdata(ctx->hw_raw[i]);
+
+				qof_dump_voter(raw_dev);
+				qof_dump_power_state(raw_dev);
+				break;
+			}
+		}
+	}
 
 	return 0;
 }
@@ -2197,7 +2228,7 @@ _compose_done(struct mtk_cam_job *job,
 		normal_dump_if_enable(job);
 }
 
-int master_raw_set_subsample(struct device *dev, struct mtk_cam_job *job)
+static int master_raw_set_subsample(struct mtk_cam_job *job, struct device *dev)
 {
 	struct mtk_raw_device *raw;
 
@@ -2265,15 +2296,26 @@ static int job_raw_change_hw_init(struct mtk_cam_job *job)
 			int i;
 			int is_srt = (is_dc_mode(job) /*&& !ctx->slb_addr*/) /* dc */
 				|| is_m2m(job); /* m2m */
+			int raw_master_id = get_master_raw_id(ctx->used_engine);
+
 			for (i = 0 ; i < ARRAY_SIZE(ctx->hw_raw); i++) {
 				struct mtk_raw_device *raw;
 				if (!ctx->hw_raw[i])
 					continue;
 				raw = dev_get_drvdata(ctx->hw_raw[i]);
+				// TODO: replace "0x7"
 				if (BIT(raw->id) == (selected_need_init & 0x7))
 					initialize(raw, &engine_cb, 1, is_srt,
 								get_sensor_interval_us(job));
+				if (!disable_qof) {
+					int ret = call_init_ops(job, qof_init, ctx->hw_raw[i],
+								  raw->id == raw_master_id);
+
+					if (!ret)
+						qof_enable(raw, true);
+				}
 			}
+
 			if (job->enable_hsf_raw)
 				mtk_cam_hsf_init(ctx);
 			if (is_dc_mode(job) && ctx->slb_addr)
@@ -2351,7 +2393,7 @@ _job_pack_subsample(struct mtk_cam_job *job,
 	return ret;
 }
 
-int master_raw_set_stagger(struct device *dev, struct mtk_cam_job *job)
+static int master_raw_set_stagger(struct mtk_cam_job *job, struct device *dev)
 {
 	struct mtk_raw_device *raw;
 	bool is_dc = is_dc_mode(job);
@@ -3867,8 +3909,54 @@ static void update_job_state_init_sensor_param(struct mtk_cam_job *job)
 			job->job_state.cq_trigger_thres_ns);
 }
 
+static bool is_dcif_required(struct mtk_cam_job *job)
+{
+	const struct mtk_cam_resource_v2 *res;
+	int hw_scen = get_hw_scenario(job);
+	struct mtk_raw_ctrl_data *ctrl = get_raw_ctrl_data(job);
+
+	if (!ctrl) {
+		pr_info("%s: warn. should not be called\n", __func__);
+		return false;
+	}
+
+	res = &ctrl->resource.user_data;
+
+	return (res_raw_is_dc_mode(&res->raw_res) ||
+			(hw_scen == MTKCAM_IPI_HW_PATH_STAGGER) ||
+			(hw_scen == MTKCAM_IPI_HW_PATH_OTF_RGBW_DOL));
+}
+
+static int raw_qof_init(struct mtk_cam_job *job, struct device *dev, bool is_master)
+{
+	struct mtk_raw_device *raw = dev_get_drvdata(dev);
+	struct mtk_raw_ctrl_data *ctrl = get_raw_ctrl_data(job);
+	const struct mtk_cam_resource_v2 *res;
+
+	if (!ctrl) {
+		pr_info("%s: warn. should not be called\n", __func__);
+		return -1;
+	}
+
+	res = &ctrl->resource.user_data;
+
+	qof_sof_src_sel(raw, is_dcif_required(job),
+					!res_raw_is_dc_mode(&res->raw_res),
+					job_exp_num(job));
+	qof_setup_hw_timer(raw, get_sensor_interval_us(job));
+	qof_setup_twin(raw, is_master);
+	qof_setup_rtc(raw);
+
+	return 0;
+}
+
+struct initialize_params basic_init = {
+	.qof_init = raw_qof_init,
+};
+
 struct initialize_params stagger_init = {
 	.master_raw_init = master_raw_set_stagger,
+	.qof_init = raw_qof_init,
 };
 
 struct initialize_params subsample_init = {
@@ -4155,6 +4243,7 @@ static int job_sen_req_pack(struct mtk_cam_job *job)
 					     !!job->sensor_hdl_obj);
 		pack_helper = &otf_pack_helper;
 		job->ops = &basic_job_ops;
+		job->init_params = &basic_init;
 		break;
 	case JOB_TYPE_STAGGER:
 		mtk_cam_job_state_init_basic(&job->job_state, &sf_state_cb,
@@ -4174,6 +4263,7 @@ static int job_sen_req_pack(struct mtk_cam_job *job)
 					       has_valid_mstream_exp(job));
 		pack_helper = &mstream_pack_helper;
 		job->ops = &mstream_job_ops;
+		job->init_params = &basic_init;
 		break;
 	case JOB_TYPE_HW_SUBSAMPLE:
 		mtk_cam_job_state_init_subsample(&job->job_state, &sf_state_cb,
@@ -4230,6 +4320,7 @@ static int job_isp_req_pack(struct mtk_cam_job *job)
 	switch (job->job_type) {
 	case JOB_TYPE_BASIC:
 		pack_helper = &otf_pack_helper;
+		job->init_params = &basic_init;
 
 		break;
 	case JOB_TYPE_STAGGER:
@@ -4243,11 +4334,11 @@ static int job_isp_req_pack(struct mtk_cam_job *job)
 		break;
 	case JOB_TYPE_MSTREAM:
 		pack_helper = &mstream_pack_helper;
+		job->init_params = &basic_init;
 
 		break;
 	case JOB_TYPE_HW_SUBSAMPLE:
 		pack_helper = &subsample_pack_helper;
-
 		job->init_params = &subsample_init;
 		break;
 	case JOB_TYPE_ONLY_SV:

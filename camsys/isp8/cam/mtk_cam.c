@@ -45,6 +45,9 @@
 #include "mtk_cam-job_utils.h"
 #include "mtk_cam-raw_ctrl.h"
 #include "mtk_cam-hsf.h"
+#include "mtk_cam-qof.h"
+#include "mtk_cam-qof_regs.h"
+#include "mtk_cam-reg_utils.h"
 #include "iommu_debug.h"
 
 static unsigned int debug_sensor_meta_dump = 0;
@@ -619,6 +622,17 @@ static void mtk_cam_store_pipe_data_to_ctx(
 
 	data = &req->raw_data[raw_pipe_idx];
 	ctx->ctrldata = data->ctrl;
+
+	if (!ctx->ctrldata_stored) {
+		// NOTE: update "enable_luma_dump" in request enque stage
+		// only for the first time; later, it should be updated
+		// after frame done to avoid QOF voter-- skipped due to
+		// ctrldata changed in between SOF and frame done
+		ctx->enable_luma_dump =
+			CAM_DEBUG_ENABLED(AA) && // TODO: remove CAM_DEBUG_AA?
+			ctx->ctrldata.resource.user_data.raw_res.luma_debug;
+	}
+
 	ctx->ctrldata_stored = true;
 }
 
@@ -2953,6 +2967,29 @@ int mtk_cam_ctx_stream_off(struct mtk_cam_ctx *ctx)
 	return 0;
 }
 
+static void mtk_cam_ctx_raw_qof_disable(struct mtk_cam_ctx *ctx)
+{
+	int i;
+	struct mtk_raw_device *raw;
+
+	qof_mtcmos_voter(ctx, true);
+	for (i = 0; i < ARRAY_SIZE(ctx->hw_raw); i++) {
+		if (!ctx->hw_raw[i])
+			continue;
+
+		raw = dev_get_drvdata(ctx->hw_raw[i]);
+		qof_enable(raw, false);
+	}
+
+	qof_reset_mtcmos_voter(ctx);
+	for (i = 0; i < ARRAY_SIZE(ctx->hw_raw); i++) {
+		if (!ctx->hw_raw[i])
+			continue;
+		raw = dev_get_drvdata(ctx->hw_raw[i]);
+		qof_reset(raw);
+	}
+}
+
 void mtk_cam_ctx_engine_off(struct mtk_cam_ctx *ctx)
 {
 	struct mtk_raw_device *raw_dev;
@@ -2976,6 +3013,7 @@ void mtk_cam_ctx_engine_off(struct mtk_cam_ctx *ctx)
 		}
 	}
 
+	mtk_cam_ctx_raw_qof_disable(ctx);
 	for (i = 0; i < ARRAY_SIZE(ctx->hw_raw); i++) {
 		if (ctx->hw_raw[i]) {
 			raw_dev = dev_get_drvdata(ctx->hw_raw[i]);

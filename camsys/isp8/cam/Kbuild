@@ -67,6 +67,7 @@ $(CAM_MODULE)-objs := \
     mtk_cam-timesync.o \
     mtk_cam-plat.o \
     mtk_cam-raw.o \
+    mtk_cam-qof.o \
     mtk_cam-raw_debug.o \
     mtk_cam-raw_pipeline.o \
     mtk_cam-sv.o \

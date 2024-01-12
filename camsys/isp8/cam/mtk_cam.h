@@ -204,6 +204,8 @@ struct mtk_cam_ctx {
 	struct mtk_cam_pool sensor_meta_pool;
 
 	u64 sw_recovery_ts;
+
+	bool enable_luma_dump;
 };
 
 struct mtk_cam_v4l2_pipelines {

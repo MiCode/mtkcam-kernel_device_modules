@@ -318,7 +318,8 @@ struct mtk_cam_job_ops {
 };
 
 struct initialize_params {
-	int (*master_raw_init)(struct device *dev, struct mtk_cam_job *job);
+	int (*master_raw_init)(struct mtk_cam_job *job, struct device *dev);
+	int (*qof_init)(struct mtk_cam_job *job, struct device *dev, bool is_master);
 };
 
 struct mtk_cam_job {
@@ -482,6 +483,13 @@ static inline bool mtk_cam_job_is_done(struct mtk_cam_job *job)
 	typeof(job) _job = (job);\
 	typeof(_job->ops) _ops = _job->ops;\
 	_ops && _job->ops->func ? _ops->func(_job, ##__VA_ARGS__) : 0;\
+})
+
+#define call_init_ops(job, func, ...) \
+({\
+	typeof(job) _job = (job);\
+	typeof(_job->init_params) _init_p = _job->init_params;\
+	_init_p && _init_p->func ? _init_p->func(_job, ##__VA_ARGS__) : 0;\
 })
 
 enum MTK_CAMSYS_JOB_TYPE {

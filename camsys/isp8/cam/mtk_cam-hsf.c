@@ -669,3 +669,40 @@ FAILED:
 	mtk_cam_power_ctrl_ccu(cam->dev, 0);
 	return ret;
 }
+
+#ifdef QOF_CCU_READY
+int mtk_cam_hsf_qof_config(struct mtk_raw_device *raw,
+						   bool on_lock, bool off_lock, bool out_lock)
+{
+	struct qof_config config;
+	int ret = 0;
+
+	struct mtk_cam_device *cam = raw->cam;
+
+	config.raw_id = raw->id;
+	config.on_lock = on_lock;
+	config.off_lock = off_lock;
+	config.out_lock = out_lock;
+
+	if (mtk_cam_power_ctrl_ccu(cam->dev, 1))
+		return -1;
+
+	if (WARN_ON(!cam->ccu_pdev)) {
+		ret = -1;
+		goto FAILED;
+	}
+
+	ret = mtk_ccu_rproc_ipc_send(
+		cam->ccu_pdev,
+		MTK_CCU_FEATURE_CAMSYS,
+		MSG_TO_CCU_QOF_CONFIG,
+		(void *)&config, sizeof(struct qof_config));
+
+	if (ret != 0)
+		dev_info(cam->dev, "%s: failed\n", __func__);
+
+FAILED:
+	mtk_cam_power_ctrl_ccu(cam->dev, 0);
+	return ret;
+}
+#endif

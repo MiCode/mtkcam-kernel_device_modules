@@ -22,6 +22,7 @@
 #include "mtk_camera-v4l2-controls-8.h"
 #include "mtk_camera-videodev2.h"
 #include "mtk_cam-trace.h"
+#include "mtk_cam-qof.h"
 #include "mtk_cam-job_utils.h"
 
 #define WATCHDOG_INTERVAL_MS		400
@@ -903,7 +904,6 @@ static int mtk_cam_event_handle_raw(struct mtk_cam_ctrl *ctrl,
 				       unsigned int engine_id,
 				       struct mtk_camsys_irq_info *irq_info)
 {
-
 	MTK_CAM_TRACE_FUNC_BEGIN(BASIC);
 
 	/* raw's DMA done, we only allow AFO done here */
@@ -937,6 +937,9 @@ static int mtk_cam_event_handle_raw(struct mtk_cam_ctrl *ctrl,
 
 		handle_engine_frame_start(ctrl, irq_info,
 					  &vsync_res);
+
+		if (ctrl->ctx->has_raw_subdev && ctrl->ctx->enable_luma_dump)
+			qof_mtcmos_voter(ctrl->ctx, true);
 	}
 
 	/* note: should handle SOF before CQ done for trigger delay cases */
@@ -1283,6 +1286,7 @@ static void mtk_cam_ctrl_seamless_switch_flow(struct mtk_cam_job *job)
 		goto SWITCH_FAILURE;
 	}
 
+	qof_mtcmos_voter(job->src_ctx, true);
 	mtk_cam_job_update_clk_switching(job, 1);
 	call_job_seamless_ops(job, before_sensor);
 
@@ -1316,6 +1320,7 @@ static void mtk_cam_ctrl_seamless_switch_flow(struct mtk_cam_job *job)
 	}
 
 	mtk_cam_job_update_clk_switching(job, 0);
+	qof_mtcmos_voter(job->src_ctx, false);
 
 	dev_info(dev, "[%s] finish, used_engine:0x%x\n",
 		 __func__, job->used_engine);
@@ -1326,6 +1331,7 @@ SWITCH_FAILURE:
 		 __func__, ctx->stream_id, job->req_seq, job->frame_seq_no);
 
 	WRAP_AEE_EXCEPTION(MSG_SWITCH_FAILURE, __func__);
+	qof_mtcmos_voter(job->src_ctx, false);
 }
 
 static void mtk_cam_ctrl_raw_switch_flow(struct mtk_cam_job *job)
@@ -1714,7 +1720,6 @@ void mtk_cam_ctrl_handle_done_loop(struct mtk_cam_ctrl *ctrl)
 		ret = job_handle_done(job);
 		if (ret > 0)
 			mtk_cam_job_put(job);
-
 	} while (1);
 
 	if (CAM_DEBUG_ENABLED(CTRL))
@@ -2409,6 +2414,7 @@ int mtk_cam_ctrl_ae_workaround(struct mtk_cam_device *cam,
 	if (mtk_cam_ctrl_get(ctrl))
 		return 0;
 	for (i = 0; i < ARRAY_SIZE(ctx->hw_raw); i++) {
+		// TODO: QOF voter
 		if (ctx->hw_raw[i]) {
 			raw_dev = dev_get_drvdata(ctx->hw_raw[i]);
 			ae_disable(raw_dev);

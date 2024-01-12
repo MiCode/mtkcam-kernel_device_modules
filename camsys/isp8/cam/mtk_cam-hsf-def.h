@@ -18,6 +18,7 @@
 
 #define MAX_INIT_REQUEST_NUM                3
 #define USING_CCU
+//#define QOF_CCU_READY
 //#define MTEE_USE
 //#define PERFORMANCE_HSF
 #define USING_HSF_SENSOR
@@ -27,6 +28,10 @@
 #define MSG_TO_CCU_STREAM_ON 2
 #define MSG_TO_CCU_HSF_CONFIG 3
 #define MSG_TO_CCU_AID 4
+
+#ifdef QOF_CCU_READY
+#define MSG_TO_CCU_QOF_CONFIG 5
+#endif
 
 struct mtk_cam_hsf_info {
 	u32 cq_size;
@@ -93,6 +98,14 @@ enum mtk_cam_aid_feature {
 	AID_END,
 };
 
+#ifdef QOF_CCU_READY
+struct qof_config {
+	uint32_t raw_id;
+	bool on_lock;
+	bool off_lock;
+	bool out_lock;
+};
+#endif
 
 #define CMD_INIT 1
 #define CMD_UNINIT 2

@@ -1288,8 +1288,8 @@ static int ov64b_set_test_pattern(struct subdrv_ctx *ctx, u8 *para, u32 *len)
 		subdrv_i2c_wr_u8(ctx, 0x50c1, 0x01);
 		break;
 	case 5:
-		subdrv_i2c_wr_u8(ctx, 0x3019, 0xF0);
-		subdrv_i2c_wr_u8(ctx, 0x4308, 0x01);
+		subdrv_i2c_wr_u8(ctx, 0x350a, 0x00);
+		subdrv_i2c_wr_u8(ctx, 0x401a, 0x00);
 		break;
 	default:
 		break;
@@ -1301,8 +1301,8 @@ static int ov64b_set_test_pattern(struct subdrv_ctx *ctx, u8 *para, u32 *len)
 			subdrv_i2c_wr_u8(ctx, 0x50c1, 0x00);
 			break;
 		case 5:
-			subdrv_i2c_wr_u8(ctx, 0x3019, 0xD2);
-			subdrv_i2c_wr_u8(ctx, 0x4308, 0x00);
+			subdrv_i2c_wr_u8(ctx, 0x350a, 0x01);
+			subdrv_i2c_wr_u8(ctx, 0x401a, 0x40);
 			break;
 		default:
 			break;

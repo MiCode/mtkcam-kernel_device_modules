@@ -61,6 +61,7 @@
 #include <linux/of_address.h>
 #include <linux/of_irq.h>
 #include <linux/of_platform.h>
+#include <linux/container_of.h>
 //#include <cmdq_core.h>
 //#include <cmdq_record.h>
 #include <linux/soc/mediatek/mtk-cmdq-ext.h>
@@ -244,6 +245,7 @@ static irqreturn_t ISP_Irq_DVGF(signed int Irq, void *DeviceId);
 static void DPE_ScheduleWork(struct work_struct *data);
 static void DVP_ScheduleWork(struct work_struct *data);
 static void DVGF_ScheduleWork(struct work_struct *data);
+static void CMDQ_ScheduleWork(struct work_struct *data);//!
 typedef irqreturn_t (*IRQ_CB)(signed int, void *);
 struct ISR_TABLE {
 	IRQ_CB isr_fp;
@@ -538,9 +540,11 @@ static struct MRAW_device *MRAW_devs;
 #endif
 
 //!
-struct my_callback_data {
-    struct cmdq_pkt *pkt;
-};
+//struct my_callback_data {
+//		wait_queue_head_t WaitQueueHead;
+//		struct work_struct CMDQData;
+//    struct cmdq_pkt *pkt;
+//};
 
 /**************************************************************
  *
@@ -572,7 +576,10 @@ struct DPE_INFO_STRUCT {
 	struct work_struct ScheduleDpeWork;
 	struct work_struct DVP_ScheduleDpeWork;
 	struct work_struct DVGF_ScheduleDpeWork;
+	struct work_struct CMDQ_ScheduleDpeWork;
 	struct workqueue_struct *wkqueue;
+	struct workqueue_struct *waitqueue;
+	struct cmdq_pkt *pkt;
 	unsigned int UserCount; /* User Count */
 	unsigned int DebugMask; /* Debug Mask */
 	signed int IrqNum;
@@ -5198,10 +5205,27 @@ void cmdq_cb_destroy(struct cmdq_cb_data data)
 	//LOG_INF("%s DPE cmdq_cb_Dump statr", __func__);
 	cmdq_pkt_destroy((struct cmdq_pkt *)data.data);
 }
+void my_wait(struct DPE_INFO_STRUCT *my_data)
+{
+    cmdq_pkt_wait_complete(my_data->pkt);
+    cmdq_pkt_destroy(my_data->pkt);
+    kfree(my_data);
 
+}
+
+void CMDQ_ScheduleWork(struct work_struct *data)
+{
+	struct DPE_INFO_STRUCT *my_data =
+	container_of(data, struct DPE_INFO_STRUCT, CMDQ_ScheduleDpeWork);
+
+
+	my_wait(my_data);
+
+}
 void DPE_callback_func(struct cmdq_cb_data data)
 {
-    struct my_callback_data *my_data = (struct my_callback_data *)data.data;
+    //struct my_callback_data *my_data = (struct my_callback_data *)data.data;
+		struct DPE_INFO_STRUCT *my_data = (struct DPE_INFO_STRUCT *)data.data;
 
     if ((data.err < 0)) {
       if (g_u4EnableClockCount > 0) {
@@ -5221,14 +5245,11 @@ void DPE_callback_func(struct cmdq_cb_data data)
         LOG_INF("DPE Power not Enable\n");
       }
     }
+    queue_work(DPEInfo.waitqueue, &my_data->CMDQ_ScheduleDpeWork);	//!
+
 }
 
-void my_wait(struct my_callback_data *my_data)
-{
-    cmdq_pkt_wait_complete(my_data->pkt);
-    cmdq_pkt_destroy(my_data->pkt);
-    kfree(my_data);
-}
+
 
 
 signed int CmdqDPEHW(struct frame *frame)
@@ -5241,7 +5262,7 @@ signed int CmdqDPEHW(struct frame *frame)
 	struct cmdq_pkt *handle;
 	#endif
 	//!
-	struct my_callback_data *my_data = kzalloc(sizeof(*my_data), GFP_KERNEL);
+	struct DPE_INFO_STRUCT *my_data = kzalloc(sizeof(*my_data), GFP_KERNEL);
 
 	//struct cmdqRecStruct *handle;
 	//uint64_t engineFlag = (uint64_t)(1LL << CMDQ_ENG_DPE);
@@ -5730,7 +5751,7 @@ cmdq_pkt_write(handle, dpe_clt_base, DVS_CTRL00_HW, 0x20000000, 0x20000000);
 
   my_data->pkt = handle;
   cmdq_pkt_flush_async(handle, DPE_callback_func, (void *)my_data);
-  my_wait(my_data);
+  //my_wait(my_data);
 
 //#ifdef CMdq_en
 //	cmdq_pkt_flush_threaded(handle,
@@ -8684,9 +8705,14 @@ if (DPE_dev->irq > 0) {
 		INIT_WORK(&DPEInfo.ScheduleDpeWork, DPE_ScheduleWork);
 		INIT_WORK(&DPEInfo.DVP_ScheduleDpeWork, DVP_ScheduleWork);
 		INIT_WORK(&DPEInfo.DVGF_ScheduleDpeWork, DVGF_ScheduleWork);
+		INIT_WORK(&DPEInfo.CMDQ_ScheduleDpeWork, CMDQ_ScheduleWork);//!&my_data->CMDQData
 		DPEInfo.wkqueue = create_singlethread_workqueue("DPE-CMDQ-WQ");
 		if (!DPEInfo.wkqueue)
 			LOG_ERR("NULL DPE-CMDQ-WQ\n");
+
+		DPEInfo.waitqueue = create_singlethread_workqueue("DPE-CMDQ-Wait");
+		if (!DPEInfo.waitqueue)
+			LOG_ERR("NULL DPE-CMDQ-Wait\n");
 		//!wakeup_source_init(&DPE_wake_lock, "dpe_lock_wakelock"); //!
 		INIT_WORK(&logWork, logPrint);
 		for (i = 0; i < DPE_IRQ_TYPE_AMOUNT; i++)

@@ -1337,7 +1337,7 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.csi_param = {
 			.cphy_settle = 69,
 		},
-		.ana_gain_max = BASEGAIN * 16,
+		.multi_exposure_ana_gain_range[IMGSENSOR_EXPOSURE_LE].max = BASEGAIN * 16,
 		.dpc_enabled = true,
 	},
 	{
@@ -1360,7 +1360,8 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.read_margin = 10*2,
 		.framelength_step = 4*2,
 		.coarse_integ_step = 4 * 2,
-		.min_exposure_line = 8 * 2,
+		.multi_exposure_shutter_range[IMGSENSOR_EXPOSURE_LE].min = 8*2,
+		.multi_exposure_shutter_range[IMGSENSOR_EXPOSURE_ME].min = 8*2,
 		.imgsensor_winsize_info = {
 			.full_w = 8192,
 			.full_h = 6144,
@@ -1681,7 +1682,7 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.csi_param = {
 			.cphy_settle = 65,
 		},
-		.ana_gain_max = BASEGAIN * 16,
+		.multi_exposure_ana_gain_range[IMGSENSOR_EXPOSURE_LE].max = BASEGAIN * 16,
 		.dpc_enabled = true,
 	},
 	{
@@ -1731,7 +1732,7 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.csi_param = {
 			.cphy_settle = 65,
 		},
-		.ana_gain_max = BASEGAIN * 16,
+		.multi_exposure_ana_gain_range[IMGSENSOR_EXPOSURE_LE].max = BASEGAIN * 16,
 		.dpc_enabled = true,
 	},
 	{
@@ -1754,7 +1755,8 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.read_margin = 10*2,
 		.framelength_step = 4*2,
 		.coarse_integ_step = 4 * 2,
-		.min_exposure_line = 8 * 2,
+		.multi_exposure_shutter_range[IMGSENSOR_EXPOSURE_LE].min = 8*2,
+		.multi_exposure_shutter_range[IMGSENSOR_EXPOSURE_ME].min = 8*2,
 		.imgsensor_winsize_info = {
 			.full_w = 8192,
 			.full_h = 6144,
@@ -1880,7 +1882,7 @@ static struct subdrv_mode_struct mode_struct[] = {
 			.cphy_settle = 71,
 		},
 		.sensor_output_dataformat = SENSOR_OUTPUT_FORMAT_RAW_4CELL_Gb,
-		.ana_gain_max = BASEGAIN * 16,
+		.multi_exposure_ana_gain_range[IMGSENSOR_EXPOSURE_LE].max = BASEGAIN * 16,
 		.dpc_enabled = true,
 	},
 	{
@@ -1952,7 +1954,8 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.read_margin = 10*2,
 		.framelength_step = 4*2,
 		.coarse_integ_step = 4 * 2,
-		.min_exposure_line = 8 * 2,
+		.multi_exposure_shutter_range[IMGSENSOR_EXPOSURE_LE].min = 8*2,
+		.multi_exposure_shutter_range[IMGSENSOR_EXPOSURE_ME].min = 8*2,
 		.imgsensor_winsize_info = {
 			.full_w = 8192,
 			.full_h = 6144,
@@ -2077,7 +2080,7 @@ static struct subdrv_mode_struct mode_struct[] = {
 			.cphy_settle = 65,
 		},
 		.sensor_output_dataformat = SENSOR_OUTPUT_FORMAT_RAW_4CELL_R,
-		.ana_gain_max = BASEGAIN * 16,
+		.multi_exposure_ana_gain_range[IMGSENSOR_EXPOSURE_LE].max = BASEGAIN * 16,
 		.dpc_enabled = true,
 	},
 	{
@@ -2128,7 +2131,7 @@ static struct subdrv_mode_struct mode_struct[] = {
 			.cphy_settle = 65,
 		},
 		.sensor_output_dataformat = SENSOR_OUTPUT_FORMAT_RAW_4CELL_R,
-		.ana_gain_max = BASEGAIN * 16,
+		.multi_exposure_ana_gain_range[IMGSENSOR_EXPOSURE_LE].max = BASEGAIN * 16,
 		.dpc_enabled = true,
 	},
 };

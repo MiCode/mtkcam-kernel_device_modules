@@ -662,6 +662,8 @@ static void mtk_aie_hw_disconnect(struct mtk_aie_dev *fd)
 #endif
 	}
 
+	fd->drv_ops->irq_handle(fd);
+
 	if (fd->larb_clk_ready && !fd->is_shutdown)
 		pm_runtime_put_sync(fd->dev);
 

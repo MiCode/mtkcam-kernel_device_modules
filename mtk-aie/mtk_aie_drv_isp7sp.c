@@ -523,8 +523,13 @@ static void aie_fdvt_dump_reg(struct mtk_aie_dev *fd)
 		 readl(fd->fd_base + AIE_RESULT_1_REG),
 		 readl(fd->fd_base + AIE_DMA_CTL_REG));
 
-	aie_dev_info(fd->dev, "%s interrupt status: %x", __func__,
+	aie_dev_info(fd->dev, "%s interrupt enable: %x", __func__,
 		 readl(fd->fd_base + AIE_INT_EN_REG));
+
+	writel(0x11, fd->fd_base + AIE_INT_EN_REG);
+	aie_dev_info(fd->dev, "%s interrupt status: %x", __func__,
+		 readl(fd->fd_base + AIE_INT_REG));
+
 	if (fd->aie_cfg->sel_mode == ATTRIBUTEMODE) {
 		aie_dev_info(fd->dev, "[ATTRMODE] w_idx = %d, r_idx = %d\n",
 			 fd->attr_para->w_idx, fd->attr_para->r_idx);
@@ -3463,7 +3468,6 @@ static void AIECmdqCB(struct cmdq_cb_data data)
 {
 	struct mtk_aie_dev *fd = (struct mtk_aie_dev *)data.data;
 
-	aie_irqhandle(fd);
 	queue_work(fd->frame_done_wq, &fd->req_work.work);
 }
 
@@ -3541,7 +3545,10 @@ static void config_aie_cmdq_hw(struct mtk_aie_dev *fd, struct aie_enq_info *aie_
 			(aie_cfg->number_of_pyramid - 1);
 		cmdq_pkt_write(pkt, NULL, FDVT_LOOP_HW, loop_reg_val, CMDQ_REG_MASK);
 
-		cmdq_pkt_write(pkt, NULL, FDVT_INT_EN_HW, 0x1, CMDQ_REG_MASK);
+		/* write clear irq */
+		cmdq_pkt_write(pkt, NULL, FDVT_INT_EN_HW, 0x11, CMDQ_REG_MASK);
+		cmdq_pkt_write(pkt, NULL, FDVT_INT_HW, 0x1, CMDQ_REG_MASK);
+
 		cmdq_pkt_write(pkt, NULL, FDVT_RS_CON_BASE_ADR_HW,
 				fd->reg_cfg.rs_adr, CMDQ_REG_MASK);
 		cmdq_pkt_write(pkt, NULL, FDVT_FD_CON_BASE_ADR_HW,
@@ -3566,7 +3573,11 @@ static void config_aie_cmdq_hw(struct mtk_aie_dev *fd, struct aie_enq_info *aie_
 			       CMDQ_REG_MASK);
 		cmdq_pkt_write(pkt, NULL, FDVT_LOOP_HW, 0x00001A00,
 			       CMDQ_REG_MASK);
-		cmdq_pkt_write(pkt, NULL, FDVT_INT_EN_HW, 0x1, CMDQ_REG_MASK);
+
+		/* write clear irq */
+		cmdq_pkt_write(pkt, NULL, FDVT_INT_EN_HW, 0x11, CMDQ_REG_MASK);
+		cmdq_pkt_write(pkt, NULL, FDVT_INT_HW, 0x1, CMDQ_REG_MASK);
+
 		cmdq_pkt_write(pkt, NULL, FDVT_RS_CON_BASE_ADR_HW,
 			       fd->reg_cfg.rs_adr,
 			       CMDQ_REG_MASK);
@@ -3615,6 +3626,10 @@ static void config_aie_cmdq_hw(struct mtk_aie_dev *fd, struct aie_enq_info *aie_
 		cmdq_pkt_write(pkt, NULL, FLD_CMDQ_SRC_PITCH,
 				aie_cfg->src_img_stride,
 				CMDQ_REG_MASK);
+
+		/* write clear irq */
+		cmdq_pkt_write(pkt, NULL, FDVT_INT_EN_HW, 0x11, CMDQ_REG_MASK);
+		cmdq_pkt_write(pkt, NULL, FDVT_INT_HW, 0x1, CMDQ_REG_MASK);
 
 		/*fld mode + trigger start*/
 		cmdq_pkt_write(pkt, NULL, FDVT_BASE_HW + AIE_START_REG, 0x11, CMDQ_REG_MASK);
@@ -3754,8 +3769,6 @@ static void aie_execute(struct mtk_aie_dev *fd, struct aie_enq_info *aie_cfg)
 
 static void aie_irqhandle(struct mtk_aie_dev *fd)
 {
-	int status;
-
 	if (fd->is_shutdown) {
 		aie_dev_info(fd->dev, "%s: skip for shutdown", __func__);
 		return;
@@ -3763,8 +3776,9 @@ static void aie_irqhandle(struct mtk_aie_dev *fd)
 
 	writel(0x0, fd->fd_base + AIE_START_REG);
 
-	/* interrupt read clear */
-	status = readl(fd->fd_base + AIE_INT_REG);
+	/* write clear irq */
+	writel(0x11, fd->fd_base + AIE_INT_EN_REG);
+	writel(0x1, fd->fd_base + AIE_INT_REG);
 }
 
 /* return aie_cfg to user space */

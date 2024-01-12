@@ -1870,6 +1870,7 @@ static int apply_engines_cq(struct mtk_cam_job *job,
 	struct mtk_cam_ctx *ctx = job->src_ctx;
 	unsigned long cq_engine, used_engine;
 	unsigned long subset;
+	u64 ts;
 
 	cq_engine = engines_to_trigger_cq(job, cq_rst);
 	used_engine = engines_to_check_inner(job);
@@ -1891,11 +1892,12 @@ static int apply_engines_cq(struct mtk_cam_job *job,
 	if (subset)
 		_apply_mraw_cq(job, subset, cq, cq_rst);
 
+	ts = local_clock();
 	mtk_cam_apply_qos(job);
 
-	dev_info(ctx->cam->dev, "[%s] ctx-%d CQ-0x%x cq_eng 0x%lx used_eng 0x%lx (%s) cq_trigger_thres(%llu)\n",
+	dev_info(ctx->cam->dev, "[%s] ctx-%d CQ-0x%x cq_eng 0x%lx used_eng 0x%lx (%s) cq_thr(%llu) ts(%llu)\n",
 		__func__, ctx->stream_id, frame_seq_no, cq_engine,
-		used_engine, job->scen_str, job->job_state.cq_trigger_thres_ns);
+		used_engine, job->scen_str, job->job_state.cq_trigger_thres_ns, ts);
 	return 0;
 }
 
@@ -3261,7 +3263,7 @@ static int apply_cq_mstream(struct mtk_cam_job *job)
 	if (mjob->apply_isp_idx == 0) {
 		if (WARN_ON(!mjob->composed_1st))
 			return -1;
-
+		++mjob->apply_isp_idx;
 		ret = apply_engines_cq(job, job->frame_seq_no,
 				       &mjob->cq, &mjob->cq_rst);
 	} else {
@@ -3272,7 +3274,6 @@ static int apply_cq_mstream(struct mtk_cam_job *job)
 				       &job->cq, &job->cq_rst);
 	}
 
-	++mjob->apply_isp_idx;
 	return ret;
 }
 

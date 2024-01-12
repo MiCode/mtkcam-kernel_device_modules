@@ -16,10 +16,14 @@ filegroup(
 define_mgk_ko(
     name = "mtk_imgsensor",
     srcs = glob([
-        "**",
+        "**/*.c",
+        "**/*.h",
+        "**/Kbuild",
+        "**/Makefile",
     ]) + [
         "//vendor/mediatek/kernel_modules/mtkcam:public_headers",
         "//vendor/mediatek/kernel_modules/mtkcam/imgsensor:public_headers",
+        "//vendor/mediatek/kernel_modules/mtkcam:kbuild_makefiles",
     ],
     outs = [
         "imgsensor-glue/imgsensor-glue.ko",

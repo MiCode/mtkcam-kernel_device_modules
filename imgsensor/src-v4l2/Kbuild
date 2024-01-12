@@ -25,6 +25,7 @@ subdir-ccflags-y += \
 	-I$(DEVICE_MODULES_PATH)/include \
 	-I$(MTK_DRIVER_PATH)/imgsensor/inc \
 	-I$(IMGSENSOR_DRIVER_PATH)/ \
+	-I$(IMGSENSOR_DRIVER_PATH)/../inc \
 	-I$(MTK_ISP_DRIVER_PATH)/ \
 	-I$(MTK_ISP_DRIVER_PATH)/include/ \
 

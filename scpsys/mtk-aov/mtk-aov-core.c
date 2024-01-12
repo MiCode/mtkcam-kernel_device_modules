@@ -1457,7 +1457,11 @@ int aov_core_reset(struct mtk_aov *aov_dev)
 
 		dev_info(aov_dev->dev, "%s: force aov deinit+\n", __func__);
 
-		(void)send_cmd_internal(core_info, AOV_SCP_CMD_STOP, 0, 0, true, true);
+		ret = send_cmd_internal(core_info, AOV_SCP_CMD_STOP, 0, 0, true, true);
+		if (ret != 0) {
+			dev_info(aov_dev->dev, "%s: send_cmd_internal ret(%d) != 0.\n", __func__, ret);
+			return ret;
+		}
 
 		AOV_DEBUG_LOG(*(aov_dev->enable_aov_log_flag),
 			"mtk_cam_seninf_aov_runtime_resume(%d/%d)+\n",

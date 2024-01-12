@@ -4,6 +4,14 @@
 #ifndef __ADAPTOR_COMMON_CTRL_H__
 #define __ADAPTOR_COMMON_CTRL_H__
 
+
+struct adaptor_sensor_lbmf_property_st {
+	enum IMGSENSOR_LBMF_EXPOSURE_ORDER exp_order;
+	enum IMGSENSOR_LBMF_MODE_TYPE mode_type;
+	unsigned int exp_cnt;
+};
+
+
 int g_stagger_info(struct adaptor_ctx *ctx,
 				   int scenario,
 				   struct mtk_stagger_info *info);
@@ -26,5 +34,9 @@ u32 g_sensor_margin(struct adaptor_ctx *ctx, unsigned int scenario);
 
 u32 g_sensor_fine_integ_line(struct adaptor_ctx *ctx,
 	const unsigned int scenario);
+
+/* return: 0 => NON LBMF; 1 => LBMF */
+u32 g_sensor_lbmf_property(struct adaptor_ctx *ctx, const int scenario_id,
+	struct adaptor_sensor_lbmf_property_st *prop);
 
 #endif

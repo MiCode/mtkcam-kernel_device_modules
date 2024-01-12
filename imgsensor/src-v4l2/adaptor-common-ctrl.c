@@ -190,3 +190,43 @@ u32 g_sensor_fine_integ_line(struct adaptor_ctx *ctx,
 
 	return fine_integ_line;
 }
+
+u32 g_sensor_lbmf_property(struct adaptor_ctx *ctx, const int scenario_id,
+	struct adaptor_sensor_lbmf_property_st *prop)
+{
+	const struct subdrv_mode_struct *mode_st = NULL;
+
+	if (unlikely(scenario_id >= ctx->subctx.s_ctx.sensor_mode_num)) {
+		adaptor_logi(ctx,
+			"invalid scenario_id:%u, sensor_mode_num:%u\n",
+			scenario_id, ctx->subctx.s_ctx.sensor_mode_num);
+		return 0;
+	}
+
+	/* get the mode's const pointer of the scenario_id */
+	mode_st = &ctx->subctx.s_ctx.mode[scenario_id];
+
+	if (mode_st->hdr_mode != HDR_RAW_LBMF)
+		return 0;
+
+	/* fill in the lbmf property st */
+	prop->exp_cnt = g_scenario_exposure_cnt(ctx, scenario_id);
+	prop->exp_order = mode_st->exposure_order_in_lbmf;
+	prop->mode_type = mode_st->mode_type_in_lbmf;
+
+	/* checking property */
+	if (unlikely(prop->exp_order == IMGSENSOR_LBMF_EXPOSURE_ORDER_SUPPORT_NONE)) {
+		adaptor_logi(ctx,
+			"ERROR: s_ctx.mode[%u]:(hdr_mode:%u (HDR_RAW_LBMF:%u), but exposure_order_in_lbmf:%u (SUPPORT_NONE:%u/LE:%u/SE:%u)), return 0\n",
+			scenario_id,
+			mode_st->hdr_mode,
+			HDR_RAW_LBMF,
+			mode_st->exposure_order_in_lbmf,
+			IMGSENSOR_LBMF_EXPOSURE_ORDER_SUPPORT_NONE,
+			IMGSENSOR_LBMF_EXPOSURE_LE_FIRST,
+			IMGSENSOR_LBMF_EXPOSURE_SE_FIRST);
+		return 0;
+	}
+
+	return 1;
+}

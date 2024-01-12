@@ -588,7 +588,7 @@ static void mtk_cam_store_pipe_data_to_ctx(
 	unsigned long raw_pipe_idx;
 
 	raw_pipe_idx = get_raw_subdev_idx(ctx->used_pipe);
-	if (raw_pipe_idx == -1)
+	if (raw_pipe_idx >= MTKCAM_SUBDEV_RAW_NUM)
 		return;
 
 	data = &req->raw_data[raw_pipe_idx];
@@ -2066,9 +2066,8 @@ mtk_cam_device_refcnt_buf_create(struct device *dev_to_attach, size_t caci_size)
 		memset(refcnt_buf->buf.vaddr, 0, refcnt_buf->buf.size);
 	} else {
 		if (CAM_DEBUG_ENABLED(IPI_BUF))
-			pr_info("%s:kref_put:%p\n", __func__, refcnt_buf);
-		kref_put(&refcnt_buf->refcount, mtk_cam_device_refcnt_buf_free);
-
+			pr_info("%s:kfree:%p\n", __func__, refcnt_buf);
+		kfree(refcnt_buf);
 		return NULL;
 	}
 
@@ -2149,9 +2148,8 @@ mtk_cam_pool_wrapper_create(struct device *dev_to_attach,
 				     desc, &wrapper->mem, &wrapper->pool);
 	if (ret) {
 		if (CAM_DEBUG_ENABLED(IPI_BUF))
-			pr_info("%s kref_put:%p\n", __func__, wrapper);
-		kref_put(&wrapper->refcount, mtk_cam_pool_wrapper_free);
-
+			pr_info("%s kfree:%p\n", __func__, wrapper);
+		kfree(wrapper);
 		return NULL;
 	}
 
@@ -3103,7 +3101,7 @@ static int mtk_cam_create_links(struct mtk_cam_device *cam)
 {
 	struct v4l2_subdev *sd;
 	int i, num;
-	int ret;
+	int ret = 0;
 
 	num = cam->engines.num_seninf_devices;
 	i = 0;

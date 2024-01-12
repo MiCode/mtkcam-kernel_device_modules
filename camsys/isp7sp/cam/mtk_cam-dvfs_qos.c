@@ -518,7 +518,6 @@ static int fill_raw_out_qos(struct mtk_cam_job *job,
 		peak_bw = is_dc_mode(job) ?
 				0 : calc_bw(size, linet, active_h);
 
-		dst_port = qos_desc->dma_desc[i].dst_port;
 		switch (qos_desc->dma_desc[i].domain) {
 		case RAW_DOMAIN:
 			job->raw_mmqos[dst_port].peak_bw += to_qos_icc(peak_bw);
@@ -620,7 +619,6 @@ static int fill_raw_in_qos(struct mtk_cam_job *job,
 
 		/* for mstream 1st ipi */
 		if (imgo_qos_desc) {
-			dst_port = imgo_qos_desc->dma_desc[i].dst_port;
 			job->raw_mmqos[dst_port].peak_bw = to_qos_icc(peak_bw);
 			job->raw_mmqos[dst_port].avg_bw = to_qos_icc_ratio(avg_bw);
 
@@ -989,10 +987,16 @@ int mtk_cam_apply_qos(struct mtk_cam_job *job)
 	bool apply, is_w_plane;
 	int i, j, port_num;
 
-	used_raw_num = is_rgbw(job) ? 1 : get_used_raw_num(job);
-
 	submask = bit_map_subset_of(MAP_HW_RAW, ctx->used_engine);
 	for (i = 0; i < raw_num && submask; i++, submask >>= 1) {
+		used_raw_num = is_rgbw(job) ? 1 : get_used_raw_num(job);
+		if (WARN_ON(used_raw_num == 0)) {
+			WARN_ON(1);
+			pr_info("%s: req_seq(%d) wrong used raw number\n",
+				__func__, job->req_seq);
+			continue;
+		}
+
 		if (!(submask & 0x1))
 			continue;
 

@@ -722,7 +722,6 @@ handle_raw_frame_done(struct mtk_cam_job *job)
 	struct mtk_cam_ctx *ctx = job->src_ctx;
 	struct mtk_cam_device *cam = ctx->cam;
 	unsigned int used_pipe = job->req->used_pipe & job->src_ctx->used_pipe;
-	bool is_normal = true;
 	int i;
 
 	if (used_pipe == 0)
@@ -747,20 +746,16 @@ handle_raw_frame_done(struct mtk_cam_job *job)
 	}
 
 	if (CAM_DEBUG_ENABLED(JOB))
-		dev_info(cam->dev, "%s:%s:ctx(%d): seq_no:0x%x, state:0x%x, is_normal:%d, B/M ts:%lld/%lld\n",
+		dev_info(cam->dev, "%s:%s:ctx(%d): seq_no:0x%x, state:0x%x, B/M ts:%lld/%lld\n",
 			 __func__, job->req->debug_str, job->src_ctx->stream_id,
 			 job->frame_seq_no,
 			 mtk_cam_job_state_get(&job->job_state, ISP_STATE),
-			 is_normal, job->timestamp, job->timestamp_mono);
+			 job->timestamp, job->timestamp_mono);
 
 	for (i = MTKCAM_SUBDEV_RAW_START; i < MTKCAM_SUBDEV_RAW_END; i++) {
 		if (used_pipe & (1 << i)) {
-			if (is_normal)
-				mtk_cam_req_buffer_done(job, i, -1,
-					VB2_BUF_STATE_DONE, true);
-			else
-				mtk_cam_req_buffer_done(job, i, -1,
-					VB2_BUF_STATE_ERROR, true);
+			mtk_cam_req_buffer_done(job, i, -1,
+						VB2_BUF_STATE_DONE, true);
 		}
 	}
 
@@ -778,25 +773,23 @@ handle_sv_frame_done(struct mtk_cam_job *job)
 	struct mtk_raw_sink_data *raw_sink;
 	struct mtk_camsv_sink_data *sv_sink;
 	unsigned int used_pipe = job->req->used_pipe & job->src_ctx->used_pipe;
-	bool is_normal = true;
 	int i, pipe_id;
 
 	if (used_pipe == 0)
 		return 0;
 
 	if (CAM_DEBUG_ENABLED(JOB))
-		dev_info(cam->dev, "%s:%s:ctx(%d): seq_no:0x%x, state:0x%x, is_normal:%d, B/M ts:%lld/%lld\n",
+		dev_info(cam->dev, "%s:%s:ctx(%d): seq_no:0x%x, state:0x%x, B/M ts:%lld/%lld\n",
 			 __func__, job->req->debug_str, job->src_ctx->stream_id,
 			 job->frame_seq_no,
 			 mtk_cam_job_state_get(&job->job_state, ISP_STATE),
-			 is_normal, job->timestamp, job->timestamp_mono);
+			 job->timestamp, job->timestamp_mono);
 
 	/* sv pure raw */
 	if (ctx->has_raw_subdev && is_sv_pure_raw(job)) {
 		pipe_id = get_raw_subdev_idx(ctx->used_pipe);
 		mtk_cam_req_buffer_done(job, pipe_id, MTK_RAW_PURE_RAW_OUT,
-			is_normal ? VB2_BUF_STATE_DONE : VB2_BUF_STATE_ERROR,
-			true);
+					VB2_BUF_STATE_DONE, true);
 	}
 
 	if (job->is_sensor_meta_dump) {
@@ -832,18 +825,17 @@ handle_sv_frame_done(struct mtk_cam_job *job)
 	for (i = MTKCAM_SUBDEV_CAMSV_START; i < MTKCAM_SUBDEV_CAMSV_END; i++) {
 		if (used_pipe & (1 << i)) {
 			mtk_cam_req_buffer_done(job, i, -1,
-				is_normal ? VB2_BUF_STATE_DONE :
-					    VB2_BUF_STATE_ERROR,
-				true);
+						VB2_BUF_STATE_DONE, true);
 		}
 	}
 	if (is_extisp(job)) {
 		for (i = MTKCAM_SUBDEV_RAW_START; i < MTKCAM_SUBDEV_RAW_END; i++) {
 			if (used_pipe & (1 << i)) {
 				job->timestamp = job->job_state.extisp_data_timestamp[EXTISP_DATA_PD];
-				mtk_cam_req_buffer_done(job, i, MTK_RAW_META_SV_OUT_0,
-						is_normal ? VB2_BUF_STATE_DONE :
-					    VB2_BUF_STATE_ERROR, true);
+				mtk_cam_req_buffer_done(job, i,
+							MTK_RAW_META_SV_OUT_0,
+							VB2_BUF_STATE_DONE,
+							true);
 
 			}
 		}
@@ -857,7 +849,6 @@ handle_mraw_frame_done(struct mtk_cam_job *job, unsigned int pipe_id)
 	struct mtk_cam_ctx *ctx = job->src_ctx;
 	struct mtk_cam_device *cam = ctx->cam;
 	unsigned int used_pipe = job->req->used_pipe & job->src_ctx->used_pipe;
-	bool is_normal = true;
 
 	if ((used_pipe & (1 << pipe_id)) == 0) {
 		dev_info(cam->dev, "%s: done but not found in req(used_pipe:0x%x/pipe_id:0x%x)",
@@ -866,15 +857,14 @@ handle_mraw_frame_done(struct mtk_cam_job *job, unsigned int pipe_id)
 	}
 
 	if (CAM_DEBUG_ENABLED(JOB))
-		dev_info(cam->dev, "%s:%s:ctx(%d): seq_no:0x%x, state:0x%x, is_normal:%d, B/M ts:%lld/%lld\n",
+		dev_info(cam->dev, "%s:%s:ctx(%d): seq_no:0x%x, state:0x%x, B/M ts:%lld/%lld\n",
 			 __func__, job->req->debug_str, job->src_ctx->stream_id,
 			 job->frame_seq_no,
 			 mtk_cam_job_state_get(&job->job_state, ISP_STATE),
-			 is_normal, job->timestamp, job->timestamp_mono);
+			 job->timestamp, job->timestamp_mono);
 
-	mtk_cam_req_buffer_done(job, pipe_id, -1,
-			is_normal ? VB2_BUF_STATE_DONE : VB2_BUF_STATE_ERROR,
-			true);
+	mtk_cam_req_buffer_done(job, pipe_id, -1, VB2_BUF_STATE_DONE, true);
+
 	return 0;
 }
 
@@ -2368,7 +2358,7 @@ static int fill_1st_ipi_mstream(struct mtk_cam_job *job)
 	fp_2nd = (struct mtkcam_ipi_frame_param *)job->ipi.vaddr;
 	fp_1st = (struct mtkcam_ipi_frame_param *)mjob->ipi.vaddr;
 
-	update_cq_buffer_to_ipi_frame(&mjob->cq, fp_1st);
+	NO_CHECK_RETURN(update_cq_buffer_to_ipi_frame(&mjob->cq, fp_1st));
 
 	fp_1st->raw_param = fp_2nd->raw_param;
 	fp_1st->raw_param.imgo_path_sel = MTKCAM_IPI_IMGO_UNPROCESSED;
@@ -2746,7 +2736,7 @@ static int fill_raw_img_buffer_to_ipi_frame(
 {
 	struct mtk_cam_job *job = helper->job;
 	struct mtkcam_ipi_frame_param *fp = helper->fp;
-	int ret = -1;
+	int ret = 0;
 	bool is_pure_imgo = is_pure_raw_node(job, node);
 
 	if (is_pure_imgo && is_sv_pure_raw(job)) {
@@ -2770,7 +2760,7 @@ static int fill_raw_img_buffer_to_ipi_frame(
 	}
 
 	/* fill sv image fp */
-	ret = fill_sv_img_fp(helper, buf, node);
+	ret = ret || fill_sv_img_fp(helper, buf, node);
 
 	if (ret)
 		pr_info("%s: failed\n", __func__);
@@ -4353,18 +4343,17 @@ static int update_mraw_meta_buf_to_ipi_frame(
 	if (atomic_read(&mraw_pipe->res_config.enque_node_num) ==
 			MTK_MRAW_TOTAL_NODES) {
 		struct mtk_mraw_sink_data *sink;
+		int data_idx = ctx->mraw_subdev_idx[param_idx];
 
-		if (ctx->mraw_subdev_idx[param_idx] < 0 ||
-			ctx->mraw_subdev_idx[param_idx] >=
-				ARRAY_SIZE(helper->job->req->mraw_data)) {
+		if (data_idx < 0 ||
+		    data_idx >= ARRAY_SIZE(helper->job->req->mraw_data)) {
 			ret = -1;
 			pr_info("%s %s: mraw subdev idx out of bound(subdev idx:%d)\n",
-				__FILE__, __func__, ctx->mraw_subdev_idx[param_idx]);
+				__FILE__, __func__, data_idx);
 			goto EXIT;
 		}
 
-		sink =
-			&helper->job->req->mraw_data[ctx->mraw_subdev_idx[param_idx]].sink;
+		sink = &helper->job->req->mraw_data[data_idx].sink;
 		mtk_cam_mraw_cal_cfg_info(ctx->cam,
 			node->uid.pipe_id, &fp->mraw_param[param_idx],
 			sensor_mbus_to_ipi_fmt(sink->mbus_code));
@@ -4937,7 +4926,7 @@ int job_handle_done(struct mtk_cam_job *job)
 
 	if (atomic_long_read(&job->afo_done) == BIT(0)) {
 		_meta1_done(job);
-		atomic_long_fetch_or(BIT(1), &job->afo_done);
+		NO_CHECK_RETURN(atomic_long_fetch_or(BIT(1), &job->afo_done));
 	}
 
 	/* handle_raw */

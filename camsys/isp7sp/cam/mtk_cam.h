@@ -40,7 +40,7 @@
 #include "mtk_cam-hsf-def.h"
 
 #define CCD_READY 1
-
+#define NO_CHECK_RETURN(ret) (void) ret
 
 struct mtk_cam_debug_fs;
 struct mtk_cam_request;

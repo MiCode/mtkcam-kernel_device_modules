@@ -273,7 +273,7 @@ void imgsys_cmdq_streamoff_plat7sp(struct mtk_imgsys_dev *imgsys_dev)
 	#endif
 
 	MTK_IMGSYS_QOF_NEED_RUN(imgsys_dev->qof_ver, mtk_imgsys_cmdq_qof_streamoff(imgsys_dev));
-	cmdq_mbox_disable(imgsys_clt[0]->chan);
+	//cmdq_mbox_disable(imgsys_clt[0]->chan);
 
 	#if DVFS_QOS_READY
 	mtk_imgsys_mmdvfs_reset_plat7sp(imgsys_dev);
@@ -3319,6 +3319,8 @@ void mtk_imgsys_power_ctrl_plat7sp(struct mtk_imgsys_dev *imgsys_dev, bool isPow
 			pm_runtime_put_sync(imgsys_dev->dev);
 			//pm_runtime_mark_last_busy(imgsys_dev->dev);
 			//pm_runtime_put_autosuspend(imgsys_dev->dev);
+
+			cmdq_mbox_disable(imgsys_clt[0]->chan);
 
 			mutex_unlock(&(imgsys_dev->power_ctrl_lock));
 		}

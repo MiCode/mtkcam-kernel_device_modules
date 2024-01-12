@@ -40,13 +40,22 @@
 #define M2M_ENABLE 1
 #define AOV_NOTIFY_AIE_AVAIL 1
 
-int delay_en = 1;
-int dump_reg_en = 0;
+/*
+ * MAE Debug level:
+ * MAE_INFO = 0
+ * MAE_DEBUG = 1
+ */
+int mae_log_level_value;
+int delay_time = 10;
+int dump_reg_en;
 int irq_handler_en = 1;
+int umap_debug;
+
 module_param(mae_log_level_value, int, 0644);
-module_param(delay_en, int, 0644);
+module_param(delay_time, int, 0644);
 module_param(dump_reg_en, int, 0644);
 module_param(irq_handler_en, int, 0644);
+module_param(umap_debug, int, 0644);
 
 aov_notify m_aov_notify = NULL;
 
@@ -98,6 +107,7 @@ void mtk_mae_register_drv_ops(const struct mtk_mae_drv_ops *ops) {
 	drv_ops.dump_reg = ops->dump_reg;
 	drv_ops.irq_handle = ops->irq_handle;
 	drv_ops.config_fld = ops->config_fld;
+	drv_ops.get_fd_result = ops->get_fd_result;
 }
 EXPORT_SYMBOL(mtk_mae_register_drv_ops);
 
@@ -152,7 +162,7 @@ static struct dma_buf *mae_imem_sec_alloc(struct mtk_mae_dev *mae_dev,
 }
 
 static int mtk_mae_get_map_info(struct mtk_mae_dev *mae_dev,
-						struct dmabuf_info *info)
+				struct dmabuf_info *info)
 {
 	int ret;
 
@@ -180,7 +190,7 @@ ERROR_PARA_PUTBUF:
 }
 
 static int mtk_mae_get_attach_info(struct mtk_mae_dev *mae_dev,
-						struct dmabuf_info *info)
+					struct dmabuf_info *info)
 {
 	int ret;
 
@@ -220,14 +230,11 @@ ERROR_PARA_PUTBUF:
 }
 
 static void mtk_mae_hw_done(struct mtk_mae_dev *mae_dev,
-							enum vb2_buffer_state vb_state)
+			enum vb2_buffer_state vb_state)
 {
 #if M2M_ENABLE
 	struct mtk_mae_ctx *ctx;
 	struct vb2_v4l2_buffer *src_vbuf = NULL, *dst_vbuf = NULL;
-
-	// DEBUG_ONLY
-	pr_info("%s+", __func__);
 
 	ctx = v4l2_m2m_get_curr_priv(mae_dev->m2m_dev);
 	if (ctx == NULL)
@@ -247,8 +254,6 @@ static void mtk_mae_hw_done(struct mtk_mae_dev *mae_dev,
 	v4l2_m2m_buf_done(dst_vbuf, vb_state);
 	v4l2_m2m_job_finish(mae_dev->m2m_dev, ctx->fh.m2m_ctx);
 
-	// DEBUG_ONLY
-	pr_info("%s-", __func__);
 	// complete_all(&fd->fd_job_finished);
 #else
 	// MAE_TO_DO
@@ -259,10 +264,9 @@ static void mtk_mae_frame_done_worker(struct work_struct *work)
 {
 	struct mtk_mae_req_work *req_work = (struct mtk_mae_req_work *)work;
 	struct mtk_mae_dev *mae_dev = (struct mtk_mae_dev *)req_work->mae_dev;
-	// DEBUG_ONLY
+	struct EnqueParam *param =
+		(struct EnqueParam *)mae_dev->map_table->param_dmabuf_info[0].kva;
 	uint32_t *dump;
-	pr_info("%s+", __func__);
-	pr_info("dump_reg_en(%d), irq_handler_en(%d)", dump_reg_en, irq_handler_en);
 
 	// MAE_TO_DO: support multiple users by multiple works
 	cmdq_pkt_wait_complete(mae_dev->pkt[0]);
@@ -273,19 +277,30 @@ static void mtk_mae_frame_done_worker(struct work_struct *work)
 		mtk_mae_hw_done(mae_dev, VB2_BUF_STATE_ERROR);
 	} else {
 		// MAE_TO_DO: parsing flow
-		dma_buf_begin_cpu_access(mae_dev->map_table->output_dmabuf_info[0][0].dmabuf,
-									DMA_BIDIRECTIONAL);
-		// DEBUG_ONLY: sleep 10ms
-		if (delay_en)
-			msleep(500);
+		// dma_buf_begin_cpu_access(mae_dev->map_table->output_dmabuf_info[0][0].dmabuf,
+		//							DMA_BIDIRECTIONAL);
+		// DEBUG_ONLY: default 100ms
+		if (delay_time != 0)
+			msleep(delay_time);
 
-		// DEBUG_ONLY: print output
-		dump = (uint32_t*)mae_dev->map_table->output_dmabuf_info[0][0].kva;
+		dump = (uint32_t *)mae_dev->map_table->output_dmabuf_info[0][0].kva;
 
-		// DEBUG_ONLY: To check hw wdma.
-		mae_dev_info(mae_dev->dev, "%s, output 0x%llx (0x%x_%x)(0x%x_%x)\n",
+		mae_dev_dbg(mae_dev->dev, "%s, output 0x%llx (0x%x_%x)(0x%x_%x)\n",
 			__func__, (uint64_t)dump, *(dump), *(dump+1), *(dump+2), *(dump+3));
-		// mae_dev_info(mae_dev->dev, "[%s] dump output (0x%x)", __func__, *dump);
+
+		switch (param->maeMode) {
+		case FD_V0:
+			drv_ops.get_fd_result(mae_dev, 0);
+			break;
+		case ATTR_V0:
+			// fd->drv_ops->get_attr_result(fd, fd->aie_cfg);
+			break;
+		case FLD_V0:
+			// fd->drv_ops->get_fld_result(fd, fd->aie_cfg);
+			break;
+		default:
+			break;
+		}
 
 		if (dump_reg_en)
 			drv_ops.dump_reg(mae_dev);
@@ -327,9 +342,6 @@ static void mtk_mae_device_run(void *priv)
 
 	int idx;
 
-	// DEBUG_ONLY
-	pr_info("%s+", __func__);
-
 	src_buf = v4l2_m2m_next_src_buf(ctx->fh.m2m_ctx);
 	if (src_buf == NULL)
 		return;
@@ -354,18 +366,16 @@ static void mtk_mae_device_run(void *priv)
 		drv_ops.set_dma_address(mae_dev, idx);
 		drv_ops.config_hw(mae_dev, idx);
 	}
-	// DEBUG_ONLY
-    pr_info("%s-", __func__);
 }
 
 static struct v4l2_m2m_ops mae_m2m_ops = {
-    .device_run = mtk_mae_device_run,
+	.device_run = mtk_mae_device_run,
 };
 #endif
 
 static const struct media_device_ops mae_m2m_media_ops = {
-    .req_validate = vb2_request_validate,
-    .req_queue = v4l2_m2m_request_queue,
+	.req_validate = vb2_request_validate,
+	.req_queue = v4l2_m2m_request_queue,
 };
 
 static void mtk_mae_fill_pixfmt_mp(struct v4l2_pix_format_mplane *dfmt,
@@ -380,9 +390,9 @@ static void mtk_mae_fill_pixfmt_mp(struct v4l2_pix_format_mplane *dfmt,
 
 	/* Keep user setting as possible */
 	dfmt->width = clamp(dfmt->width, MTK_MAE_OUTPUT_MIN_WIDTH,
-			    MTK_MAE_OUTPUT_MAX_WIDTH);
+				MTK_MAE_OUTPUT_MAX_WIDTH);
 	dfmt->height = clamp(dfmt->height, MTK_MAE_OUTPUT_MIN_HEIGHT,
-			     MTK_MAE_OUTPUT_MAX_HEIGHT);
+				 MTK_MAE_OUTPUT_MAX_HEIGHT);
 
 	if (sfmt->num_planes == 2) {
 		dfmt->plane_fmt[0].sizeimage =
@@ -405,20 +415,18 @@ static void mtk_mae_fill_pixfmt_mp(struct v4l2_pix_format_mplane *dfmt,
 
 static void mtk_mae_init_v4l2_fmt(struct mtk_mae_ctx *ctx)
 {
-    struct v4l2_pix_format_mplane *src_fmt = &ctx->src_fmt;
-    struct v4l2_meta_format *dst_fmt = &ctx->dst_fmt;
+	struct v4l2_pix_format_mplane *src_fmt = &ctx->src_fmt;
+	struct v4l2_meta_format *dst_fmt = &ctx->dst_fmt;
 
-    /* Initialize source fmt */
-    src_fmt->width = MTK_MAE_OUTPUT_MAX_WIDTH;
-    src_fmt->height = MTK_MAE_OUTPUT_MAX_HEIGHT;
-    mtk_mae_fill_pixfmt_mp(src_fmt, &mtk_mae_img_fmts[0]);
+	/* Initialize source fmt */
+	src_fmt->width = MTK_MAE_OUTPUT_MAX_WIDTH;
+	src_fmt->height = MTK_MAE_OUTPUT_MAX_HEIGHT;
+	mtk_mae_fill_pixfmt_mp(src_fmt, &mtk_mae_img_fmts[0]);
 
 #if M2M_ENABLE
-    /* Initialize destination fmt */
-    dst_fmt->buffersize = sizeof(struct mtk_mae_enq_info);
-	// DEBUG_ONLY
-	pr_info("struct mtk_mae_enq_info (%d)", dst_fmt->buffersize);
-    dst_fmt->dataformat = V4L2_META_FMT_MTFD_RESULT;
+	/* Initialize destination fmt */
+	dst_fmt->buffersize = sizeof(struct mtk_mae_enq_info);
+	dst_fmt->dataformat = V4L2_META_FMT_MTFD_RESULT;
 #endif
 
 }
@@ -427,18 +435,14 @@ static void mtk_mae_init_v4l2_fmt(struct mtk_mae_ctx *ctx)
  * vb2_ops: queue_setup
  */
 static int mtk_mae_vb2_queue_setup(struct vb2_queue *vq,
-                                   unsigned int *num_buffers,
-                                   unsigned int *num_planes,
-                                   unsigned int sizes[],
-                                   struct device *alloc_devs[])
+				unsigned int *num_buffers,
+				unsigned int *num_planes,
+				unsigned int sizes[],
+				struct device *alloc_devs[])
 {
 	struct mtk_mae_ctx *ctx = vb2_get_drv_priv(vq);
 	unsigned int size[2];
 	unsigned int plane;
-
-	// DEBUG_ONLY
-	pr_info("%s: num_planes(%d), num_buffers(%d), ctx->dst_fmt.buffersize(%d)\n",
-		__func__, *num_planes, *num_buffers, ctx->dst_fmt.buffersize);
 
 	switch (vq->type) {
 #if M2M_ENABLE
@@ -469,8 +473,6 @@ static int mtk_mae_vb2_queue_setup(struct vb2_queue *vq,
 			return -EINVAL;
 		for (plane = 0; plane < *num_planes; plane++) {
 			sizes[plane] = ctx->src_fmt.plane_fmt[plane].sizeimage;
-			pr_info("%s: plane = %d, size = %d\n",
-				__func__, plane, sizes[plane]);
 		}
 		return 0;
 	}
@@ -498,55 +500,51 @@ static int mtk_mae_vb2_buf_out_validate(struct vb2_buffer *vb)
  */
 static int mtk_mae_vb2_buf_prepare(struct vb2_buffer *vb)
 {
-    struct vb2_v4l2_buffer *vbuf = to_vb2_v4l2_buffer(vb);
-    struct vb2_queue *vq = vb->vb2_queue;
-    struct mtk_mae_ctx *ctx = vb2_get_drv_priv(vq);
-    struct device *dev = ctx->dev;
-    struct v4l2_pix_format_mplane *pixfmt;
+	struct vb2_v4l2_buffer *vbuf = to_vb2_v4l2_buffer(vb);
+	struct vb2_queue *vq = vb->vb2_queue;
+	struct mtk_mae_ctx *ctx = vb2_get_drv_priv(vq);
+	struct device *dev = ctx->dev;
+	struct v4l2_pix_format_mplane *pixfmt;
 
-	// DEBUG_ONLY
-    pr_info("%s+", __func__);
-
-    switch (vq->type) {
+	switch (vq->type) {
 #if M2M_ENABLE
-    case V4L2_BUF_TYPE_META_CAPTURE:
-        if (vb2_plane_size(vb, 0) < ctx->dst_fmt.buffersize) {
-            mae_dev_info(dev, "meta size %lu is too small\n",
-                         vb2_plane_size(vb, 0));
-            return -EINVAL;
-        }
-        break;
+	case V4L2_BUF_TYPE_META_CAPTURE:
+		if (vb2_plane_size(vb, 0) < ctx->dst_fmt.buffersize) {
+			mae_dev_info(dev, "meta size %lu is too small\n",
+						 vb2_plane_size(vb, 0));
+			return -EINVAL;
+		}
+		break;
 #endif
-    case V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE:
-        pixfmt = &ctx->src_fmt;
+	case V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE:
+		pixfmt = &ctx->src_fmt;
 
-        if (vbuf->field == V4L2_FIELD_ANY)
-            vbuf->field = V4L2_FIELD_NONE;
+		if (vbuf->field == V4L2_FIELD_ANY)
+			vbuf->field = V4L2_FIELD_NONE;
 
-        if (vb->num_planes > 2 || vbuf->field != V4L2_FIELD_NONE) {
-            mae_dev_info(dev, "plane %d or field %d not supported\n",
-                         vb->num_planes, vbuf->field);
-            return -EINVAL;
-        }
+		if (vb->num_planes > 2 || vbuf->field != V4L2_FIELD_NONE) {
+			mae_dev_info(dev, "plane %d or field %d not supported\n",
+						 vb->num_planes, vbuf->field);
+			return -EINVAL;
+		}
 
-        if (vb2_plane_size(vb, 0) < pixfmt->plane_fmt[0].sizeimage) {
-            mae_dev_info(dev, "plane 0 %lu is too small than %x\n",
-                         vb2_plane_size(vb, 0),
-                         pixfmt->plane_fmt[0].sizeimage);
-            return -EINVAL;
-        }
+		if (vb2_plane_size(vb, 0) < pixfmt->plane_fmt[0].sizeimage) {
+			mae_dev_info(dev, "plane 0 %lu is too small than %x\n",
+						 vb2_plane_size(vb, 0),
+						 pixfmt->plane_fmt[0].sizeimage);
+			return -EINVAL;
+		}
 
-        if (pixfmt->num_planes == 2 &&
-            vb2_plane_size(vb, 1) < pixfmt->plane_fmt[1].sizeimage) {
-                mae_dev_info(dev, "plane 1 %lu is too small than %x\n",
-                             vb2_plane_size(vb, 1),
-                             pixfmt->plane_fmt[1].sizeimage);
-            return -EINVAL;
-        }
-        break;
-    }
+		if (pixfmt->num_planes == 2 && (vb2_plane_size(vb, 1) < pixfmt->plane_fmt[1].sizeimage)) {
+			mae_dev_info(dev, "plane 1 %lu is too small than %x\n",
+							vb2_plane_size(vb, 1),
+							pixfmt->plane_fmt[1].sizeimage);
+			return -EINVAL;
+		}
+		break;
+	}
 
-    return 0;
+	return 0;
 }
 
 /*
@@ -555,13 +553,13 @@ static int mtk_mae_vb2_buf_prepare(struct vb2_buffer *vb)
 static void mtk_mae_vb2_buf_queue(struct vb2_buffer *vb)
 {
 #if M2M_ENABLE
-    struct mtk_mae_ctx *ctx = vb2_get_drv_priv(vb->vb2_queue);
-    struct vb2_v4l2_buffer *vbuf = to_vb2_v4l2_buffer(vb);
+	struct mtk_mae_ctx *ctx = vb2_get_drv_priv(vb->vb2_queue);
+	struct vb2_v4l2_buffer *vbuf = to_vb2_v4l2_buffer(vb);
 
-    v4l2_m2m_buf_queue(ctx->fh.m2m_ctx, vbuf);
+	v4l2_m2m_buf_queue(ctx->fh.m2m_ctx, vbuf);
 #else
-    // MAE_TO_DO: add buffer to ready queue
-    pr_info("%s: +\n", __func__);
+	// MAE_TO_DO: add buffer to ready queue
+	pr_info("%s: +\n", __func__);
 #endif
 }
 
@@ -570,8 +568,7 @@ static int mtk_mae_hw_connect(struct mtk_mae_dev *mae_dev)
 	struct dmabuf_info *buf_info = &mae_dev->map_table->internal_dmabuf_info;
 	int ret;
 
-	// DEBUG_ONLY
-	pr_info("%s+", __func__);
+	mae_dev_info(mae_dev->dev, "%s+ count(%d)", __func__, mae_dev->mae_stream_count);
 
 	if (m_aov_notify != NULL)
 		m_aov_notify(mae_dev->aov_pdev, AOV_NOTIFY_AIE_AVAIL, 0); //unavailable: 0 available: 1
@@ -596,8 +593,6 @@ static int mtk_mae_hw_connect(struct mtk_mae_dev *mae_dev)
 
 	}
 
-	// DEBUG_ONLY
-	pr_info("%s-", __func__);
 	return 0;
 }
 
@@ -608,18 +603,12 @@ static int mtk_mae_vb2_start_streaming(struct vb2_queue *vq, unsigned int count)
 {
 	struct mtk_mae_ctx *ctx = vb2_get_drv_priv(vq);
 
-	// DEBUG_ONLY
-	pr_info("%s+", __func__);
-
 #if M2M_ENABLE
-    if (vq->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE)
-        return mtk_mae_hw_connect(ctx->mae_dev);
+	if (vq->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE)
+		return mtk_mae_hw_connect(ctx->mae_dev);
 #else
 	return mtk_mae_hw_connect(ctx->mae_dev);
 #endif
-
-	// DEBUG_ONLY
-	pr_info("%s-", __func__);
 
 	return 0;
 }
@@ -650,7 +639,7 @@ static void mtk_mae_umap_detach(struct mtk_mae_dev *mae_dev,
 static void mtk_mae_hw_disconnect(struct mtk_mae_dev *mae_dev)
 {
 	// DEBUG_ONLY
-	pr_info("%s+", __func__);
+	mae_dev_info(mae_dev->dev, "%s+ count(%d)", __func__, mae_dev->mae_stream_count);
 
 	// MAE_TO_DO: secure
 	// MAE_TO_DO: pm runtime put sync
@@ -674,8 +663,6 @@ static void mtk_mae_hw_disconnect(struct mtk_mae_dev *mae_dev)
 
 		// MAE_TO_DO: fd->drv_ops->uninit(fd);
 	}
-	// DEBUG_ONLY
-	pr_info("%s-", __func__);
 }
 
 
@@ -693,12 +680,12 @@ static void mtk_mae_vb2_stop_streaming(struct vb2_queue *vq)
 #else
 	struct vb2_buffer *b;
 #endif
-    // MAE_TO_DO: wait job finish before stopping streaming
+	// MAE_TO_DO: wait job finish before stopping streaming
 	// int ret;
 
 	mae_dev_info(mae_dev->dev, "STREAM STOP\n");
 
-    // MAE_TO_DO: wait job finish before stopping streaming
+	// MAE_TO_DO: wait job finish before stopping streaming
 	// ret = mtk_aie_job_wait_finish(fd);
 	// if (!ret)
 	// 	aie_dev_info(fd->dev, "wait job finish timeout\n");
@@ -715,7 +702,7 @@ static void mtk_mae_vb2_stop_streaming(struct vb2_queue *vq)
 	list_for_each_entry(b, &vq->queued_list, queued_entry)
 		vb2_buffer_done(b, VB2_BUF_STATE_ERROR);
 
-    MAE_TO_DO: stopping stream flow
+	// MAE_TO_DO: stopping stream flow
 	// mtk_aie_hw_disconnect(fd);
 #endif
 }
@@ -744,7 +731,7 @@ static const struct vb2_ops mtk_mae_vb2_ops = {
 
 #if M2M_ENABLE
 static int mtk_mae_queue_init(void *priv, struct vb2_queue *src_vq,
-			      struct vb2_queue *dst_vq)
+				  struct vb2_queue *dst_vq)
 {
 	struct mtk_mae_ctx *ctx = priv;
 	int ret;
@@ -809,33 +796,28 @@ static int mtk_mae_queue_init(struct mtk_mae_ctx *ctx)
  */
 static int mtk_mae_video_device_open(struct file *filp)
 {
-    struct mtk_mae_dev *mae_dev = video_drvdata(filp);
-    struct video_device *vdev = video_devdata(filp);
-    struct mtk_mae_ctx *ctx;
-    struct mtk_mae_map_table *map_table;
-    int ret;
+	struct mtk_mae_dev *mae_dev = video_drvdata(filp);
+	struct video_device *vdev = video_devdata(filp);
+	struct mtk_mae_ctx *ctx;
+	struct mtk_mae_map_table *map_table;
+	int ret;
 
-	// DEBUG_ONLY
-    pr_info("%s +\n", __func__);
+	ctx = kzalloc(sizeof(*ctx), GFP_KERNEL);
+	if (!ctx)
+		return -ENOMEM;
 
-    ctx = kzalloc(sizeof(*ctx), GFP_KERNEL);
-    if (!ctx) {
-        pr_info("%s: ctx kzalloc fail\n", __func__);
-        return -ENOMEM;
-    }
-    ctx->mae_dev = mae_dev;
-    ctx->dev = mae_dev->dev;
-    mae_dev->ctx = ctx;
+	ctx->mae_dev = mae_dev;
+	ctx->dev = mae_dev->dev;
+	mae_dev->ctx = ctx;
 
-    map_table = kzalloc(sizeof(*map_table), GFP_KERNEL);
-    if (!map_table) {
-        pr_info("%s: map_table kzalloc fail\n", __func__);
-        return -ENOMEM;
-    }
-    memset(map_table, 0, sizeof(*map_table));
+	map_table = kzalloc(sizeof(*map_table), GFP_KERNEL);
+	if (!map_table)
+		return -ENOMEM;
+
+	memset(map_table, 0, sizeof(*map_table));
 	mae_dev->map_table = map_table;
 
-    v4l2_fh_init(&ctx->fh, vdev);
+	v4l2_fh_init(&ctx->fh, vdev);
 	filp->private_data = &ctx->fh;
 
 	mtk_mae_init_v4l2_fmt(ctx);
@@ -854,8 +836,6 @@ static int mtk_mae_video_device_open(struct file *filp)
 #endif
 	v4l2_fh_add(&ctx->fh);
 
-	// DEBUG_ONLY
-    pr_info("%s -\n", __func__);
 	return 0;
 
 err_free_ctrl_handler:
@@ -875,9 +855,6 @@ static int mtk_mae_video_device_release(struct file *filp)
 		container_of(filp->private_data, struct mtk_mae_ctx, fh);
 	struct mtk_mae_dev *mae_dev = video_drvdata(filp);
 
-	// DEBUG_ONLY
-	pr_info("%s+", __func__);
-
 #if M2M_ENABLE
 	v4l2_m2m_ctx_release(ctx->fh.m2m_ctx);
 #endif
@@ -892,8 +869,6 @@ static int mtk_mae_video_device_release(struct file *filp)
 
 	kfree(ctx);
 	kfree(mae_dev->map_table);
-	// DEBUG_ONLY
-	pr_info("%s-", __func__);
 
 	return 0;
 }
@@ -909,7 +884,7 @@ static __poll_t mtk_mae_video_device_poll(struct file *file, poll_table *wait)
 
 	// pr_info("%s+\n", __func__);
 
-    // MAE_TO_DO: frame done notify
+	// MAE_TO_DO: frame done notify
 	// ret = mtk_aie_job_wait_finish(ctx->mae_dev);
 	// if (!ret) {
 	// 	mae_dev_info(ctx->dev, "wait job finish timeout\n");
@@ -944,7 +919,7 @@ static const struct v4l2_file_operations mae_video_fops = {
  * V4L2 ioctl operations: vidioc_querycap
  */
 static int mtk_mae_querycap(struct file *file, void *fh,
-			    struct v4l2_capability *cap)
+				struct v4l2_capability *cap)
 {
 	struct mtk_mae_dev *mae_dev = video_drvdata(file);
 	struct device *dev = mae_dev->dev;
@@ -999,17 +974,11 @@ static int mtk_mae_try_fmt_out_mp(struct file *file, void *fh,
 	struct v4l2_pix_format_mplane *pix_mp = &f->fmt.pix_mp;
 	const struct v4l2_pix_format_mplane *fmt;
 
-	// DEBUG_ONLY
-	pr_info("%s+\n", __func__);
-
 	fmt = mtk_mae_find_fmt(pix_mp->pixelformat);
 	if (!fmt)
 		fmt = &mtk_mae_img_fmts[0]; /* Get default img fmt */
 
 	mtk_mae_fill_pixfmt_mp(pix_mp, fmt);
-
-	// DEBUG_ONLY
-	pr_info("%s-\n", __func__);
 
 	return 0;
 }
@@ -1022,9 +991,6 @@ static int mtk_mae_s_fmt_out_mp(struct file *file, void *fh,
 {
 	struct mtk_mae_ctx *ctx;
 	struct vb2_queue *vq;
-
-	// DEBUG_ONLY
-	pr_info("%s+\n", __func__);
 
 	ctx = fh_to_ctx(fh);
 	if (ctx == NULL)
@@ -1046,9 +1012,6 @@ static int mtk_mae_s_fmt_out_mp(struct file *file, void *fh,
 	mtk_mae_try_fmt_out_mp(file, fh, f);
 	ctx->src_fmt = f->fmt.pix_mp;
 
-	// DEBUG_ONLY
-	pr_info("%s-\n", __func__);
-
 	return 0;
 }
 
@@ -1057,7 +1020,7 @@ static int mtk_mae_s_fmt_out_mp(struct file *file, void *fh,
  * V4L2 ioctl operations: vidioc_enum_fmt_meta_cap
  */
 static int mtk_mae_enum_fmt_meta_cap(struct file *file, void *fh,
-				     struct v4l2_fmtdesc *f)
+					 struct v4l2_fmtdesc *f)
 {
 	if (f->index)
 		return -EINVAL;
@@ -1091,26 +1054,21 @@ static int mtk_mae_g_fmt_meta_cap(struct file *file, void *fh,
  * V4L2 ioctl operations: vidioc_qbuf
  */
 int mtk_mae_vidioc_qbuf(struct file *file, void *priv,
-                        struct v4l2_buffer *buf)
+			struct v4l2_buffer *buf)
 {
-    struct mtk_mae_dev *mae_dev;
+	struct mtk_mae_dev *mae_dev = video_drvdata(file);
 	struct mtk_mae_map_table *map_table;
 	uint32_t idx = buf->index;
 	int ret;
-	struct ModelTable* model_table;
-	struct EnqueParam* param;
-
-
-	// DEBUG_ONLY
+	struct ModelTable *model_table;
+	struct EnqueParam *param;
 	uint32_t *debug_dump;
-	pr_info("%s+ buffer index(%d)", __func__, idx);
-	// MAE_TO_DO
 
-	if (file == NULL || buf == NULL) {
-		pr_info("%s, input param is NULL, file(0x%llx), buf(0x%llx)\n",
-				__func__, (uint64_t)file, (uint64_t)buf);
+	mae_dev_dbg(mae_dev->dev, "%s+ buffer index(%d)", __func__, idx);
+
+	if (file == NULL || buf == NULL)
 		return -EFAULT;
-	}
+
 
 #if M2M_ENABLE
 	if (buf->type != V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
@@ -1152,7 +1110,7 @@ int mtk_mae_vidioc_qbuf(struct file *file, void *priv,
 					__func__, idx, MODEL_TABLE_PLANE);
 		return -ENOMEM;
 	}
-	model_table = (struct ModelTable*)map_table->model_table_dmabuf_info.kva;
+	model_table = (struct ModelTable *)map_table->model_table_dmabuf_info.kva;
 
 	// get va of param plane
 	if (!map_table->param_dmabuf_info[idx].is_map) {
@@ -1181,23 +1139,24 @@ int mtk_mae_vidioc_qbuf(struct file *file, void *priv,
 					__func__, idx, PARAM_PLANE);
 		return -ENOMEM;
 	}
-	param = (struct EnqueParam*)map_table->param_dmabuf_info[idx].kva;
-	// DEBUG_ONLY
-	mae_dev_dbg(mae_dev->dev, "%s, [check param] user(%d), imgMaxWidth(%d), "
-				"imgMaxHeight(%d), isSecure(%d), FDModelSel(%d), FACModelSel(%d), "
-				"pyramidNumber(%d), fdInputDegree(%d), maeMode(%d), requestNum(%d), "
-				"image[0].srcImgFmt(%d), image[0].imgWidth(%d), image[0].imgHeight(%d), "
-				"image[0].enResize(%d), image[0].resizeWidth(%d), image[0].resizeHeight(%d)\n",
-				__func__, param->user, param->imgMaxWidth,
-				param->imgMaxHeight, param->isSecure, param->FDModelSel, param->FACModelSel,
-				param->pyramidNumber, param->fdInputDegree, param->maeMode, param->requestNum,
-				param->image[0].srcImgFmt, param->image[0].imgWidth, param->image[0].imgHeight,
+	param = (struct EnqueParam *)map_table->param_dmabuf_info[idx].kva;
+
+	mae_dev_dbg(mae_dev->dev, "%s, [check param] user(%d), imgMaxWidth(%d)",
+				__func__, param->user, param->imgMaxWidth);
+	mae_dev_dbg(mae_dev->dev, "imgMaxHeight(%d), isSecure(%d), FDModelSel(%d), FACModelSel(%d), ",
+				param->imgMaxHeight, param->isSecure, param->FDModelSel, param->FACModelSel);
+	mae_dev_dbg(mae_dev->dev, "pyramidNumber(%d), fdInputDegree(%d), maeMode(%d), requestNum(%d), ",
+				param->pyramidNumber, param->fdInputDegree, param->maeMode, param->requestNum);
+	mae_dev_dbg(mae_dev->dev, "image[0].srcImgFmt(%d), image[0].imgWidth(%d), image[0].imgHeight(%d), ",
+				param->image[0].srcImgFmt, param->image[0].imgWidth, param->image[0].imgHeight);
+	mae_dev_dbg(mae_dev->dev, "image[0].enResize(%d), image[0].resizeWidth(%d), image[0].resizeHeight(%d)\n",
 				param->image[0].enResize, param->image[0].resizeWidth, param->image[0].resizeHeight);
 
 	// MAE_TO_DO: select specific config/coef
 	// get pa of FD V0 config buf
 	if (model_table->configTable[MODEL_TYPE_FD_V0].fd > 0) {
-		mtk_mae_umap_detach(mae_dev, &mae_dev->map_table->config_dmabuf_info[MODEL_TYPE_FD_V0]);
+		if (umap_debug == 1)
+			mtk_mae_umap_detach(mae_dev, &mae_dev->map_table->config_dmabuf_info[MODEL_TYPE_FD_V0]);
 		map_table->config_dmabuf_info[MODEL_TYPE_FD_V0].dmabuf =
 			dma_buf_get(model_table->configTable[MODEL_TYPE_FD_V0].fd);
 		if (IS_ERR(map_table->config_dmabuf_info[MODEL_TYPE_FD_V0].dmabuf) ||
@@ -1225,28 +1184,28 @@ int mtk_mae_vidioc_qbuf(struct file *file, void *priv,
 			return ret;
 		}
 		debug_dump =
-			(uint32_t*)map_table->config_dmabuf_info[MODEL_TYPE_FD_V0].kva;
-		mae_dev_info(mae_dev->dev, "%s, 640x480 config(0x%x_%x )(0x%x_%x)\n",
+			(uint32_t *)map_table->config_dmabuf_info[MODEL_TYPE_FD_V0].kva;
+		mae_dev_dbg(mae_dev->dev, "%s, 640x480 config(0x%x_%x )(0x%x_%x)\n",
 			__func__, *debug_dump, *(debug_dump+1), *(debug_dump+2), *(debug_dump+3));
 
 		debug_dump += round_up(V0_FD_640_480_CONFIG_SIZE, MAE_BASE_ADDR_ALIGN) / 4;
-		mae_dev_info(mae_dev->dev, "%s, 480x360 config(0x%x_%x )(0x%x_%x)\n",
+		mae_dev_dbg(mae_dev->dev, "%s, 480x360 config(0x%x_%x )(0x%x_%x)\n",
 			__func__, *debug_dump, *(debug_dump+1), *(debug_dump+2), *(debug_dump+3));
 
 		debug_dump += round_up(V0_FD_480_360_CONFIG_SIZE, MAE_BASE_ADDR_ALIGN) / 4;
-		mae_dev_info(mae_dev->dev, "%s, 480x360 config(0x%x_%x )(0x%x_%x)\n",
+		mae_dev_dbg(mae_dev->dev, "%s, 480x360 config(0x%x_%x )(0x%x_%x)\n",
 			__func__, *debug_dump, *(debug_dump+1), *(debug_dump+2), *(debug_dump+3));
 
 		debug_dump += round_up(V0_FD_240_180_CONFIG_SIZE, MAE_BASE_ADDR_ALIGN) / 4;
-		mae_dev_info(mae_dev->dev, "%s, 240x180 config(0x%x_%x )(0x%x_%x)\n",
+		mae_dev_dbg(mae_dev->dev, "%s, 240x180 config(0x%x_%x )(0x%x_%x)\n",
 			__func__, *debug_dump, *(debug_dump+1), *(debug_dump+2), *(debug_dump+3));
 
 	}
 
 	// get pa of FAC&FLD config buf
-	// if (!map_table->config_dmabuf_info[MODEL_TYPE_FLD_FAC_V0].is_attach &&
 	if (model_table->configTable[MODEL_TYPE_FLD_FAC_V0].fd > 0) {
-		mtk_mae_umap_detach(mae_dev, &mae_dev->map_table->config_dmabuf_info[MODEL_TYPE_FLD_FAC_V0]);
+		if (umap_debug == 1)
+			mtk_mae_umap_detach(mae_dev, &mae_dev->map_table->config_dmabuf_info[MODEL_TYPE_FLD_FAC_V0]);
 		map_table->config_dmabuf_info[MODEL_TYPE_FLD_FAC_V0].dmabuf =
 			dma_buf_get(model_table->configTable[MODEL_TYPE_FLD_FAC_V0].fd);
 		if (IS_ERR(map_table->config_dmabuf_info[MODEL_TYPE_FLD_FAC_V0].dmabuf) ||
@@ -1265,7 +1224,7 @@ int mtk_mae_vidioc_qbuf(struct file *file, void *priv,
 			return ret;
 		}
 
-        // DEBUG_ONLY: get va of config
+		// DEBUG_ONLY: get va of config
 		ret = mtk_mae_get_map_info(mae_dev,
 				&map_table->config_dmabuf_info[MODEL_TYPE_FLD_FAC_V0]);
 		if (ret) {
@@ -1274,14 +1233,15 @@ int mtk_mae_vidioc_qbuf(struct file *file, void *priv,
 			return ret;
 		}
 		debug_dump =
-			(uint32_t*)map_table->config_dmabuf_info[MODEL_TYPE_FLD_FAC_V0].kva;
-		mae_dev_info(mae_dev->dev, "%s, MODEL_TYPE_FLD_FAC_V0 config(0x%x_%x )(0x%x_%x)\n",
+			(uint32_t *)map_table->config_dmabuf_info[MODEL_TYPE_FLD_FAC_V0].kva;
+		mae_dev_dbg(mae_dev->dev, "%s, MODEL_TYPE_FLD_FAC_V0 config(0x%x_%x )(0x%x_%x)\n",
 			__func__, *debug_dump, *(debug_dump+1), *(debug_dump+2), *(debug_dump+3));
-    }
+	}
 
 	// get pa of FD V0 coef buf
 	if (model_table->coefTable[MODEL_TYPE_FD_V0].fd > 0) {
-		mtk_mae_umap_detach(mae_dev, &mae_dev->map_table->coef_dmabuf_info[MODEL_TYPE_FD_V0]);
+		if (umap_debug == 1)
+			mtk_mae_umap_detach(mae_dev, &mae_dev->map_table->coef_dmabuf_info[MODEL_TYPE_FD_V0]);
 		map_table->coef_dmabuf_info[MODEL_TYPE_FD_V0].dmabuf =
 			dma_buf_get(model_table->coefTable[MODEL_TYPE_FD_V0].fd);
 		if (IS_ERR(map_table->coef_dmabuf_info[MODEL_TYPE_FD_V0].dmabuf) ||
@@ -1309,27 +1269,28 @@ int mtk_mae_vidioc_qbuf(struct file *file, void *priv,
 			return ret;
 		}
 		debug_dump =
-			(uint32_t*)map_table->coef_dmabuf_info[MODEL_TYPE_FD_V0].kva;
-		mae_dev_info(mae_dev->dev, "%s, coef(0x%x_%x )(0x%x_%x)\n",
+			(uint32_t *)map_table->coef_dmabuf_info[MODEL_TYPE_FD_V0].kva;
+		mae_dev_dbg(mae_dev->dev, "%s, coef(0x%x_%x )(0x%x_%x)\n",
 			__func__, *debug_dump, *(debug_dump+1), *(debug_dump+2), *(debug_dump+3));
 
 		debug_dump += round_up(V0_FD_640_480_COEF_SIZE, MAE_BASE_ADDR_ALIGN) / 4;
-		mae_dev_info(mae_dev->dev, "%s, 480x360 coef(0x%x_%x )(0x%x_%x)\n",
+		mae_dev_dbg(mae_dev->dev, "%s, 480x360 coef(0x%x_%x )(0x%x_%x)\n",
 			__func__, *debug_dump, *(debug_dump+1), *(debug_dump+2), *(debug_dump+3));
 
 		debug_dump += round_up(V0_FD_480_360_COEF_SIZE, MAE_BASE_ADDR_ALIGN) / 4;
-		mae_dev_info(mae_dev->dev, "%s, 480x360 coef(0x%x_%x )(0x%x_%x)\n",
+		mae_dev_dbg(mae_dev->dev, "%s, 480x360 coef(0x%x_%x )(0x%x_%x)\n",
 			__func__, *debug_dump, *(debug_dump+1), *(debug_dump+2), *(debug_dump+3));
 
 		debug_dump += round_up(V0_FD_240_180_COEF_SIZE, MAE_BASE_ADDR_ALIGN) / 4;
-		mae_dev_info(mae_dev->dev, "%s, 240x180 coef(0x%x_%x )(0x%x_%x)\n",
+		mae_dev_dbg(mae_dev->dev, "%s, 240x180 coef(0x%x_%x )(0x%x_%x)\n",
 			__func__, *debug_dump, *(debug_dump+1), *(debug_dump+2), *(debug_dump+3));
 
 	}
 
 	// get pa of FAC&FLD coef buf
 	if (model_table->coefTable[MODEL_TYPE_FLD_FAC_V0].fd > 0) {
-		mtk_mae_umap_detach(mae_dev, &mae_dev->map_table->coef_dmabuf_info[MODEL_TYPE_FLD_FAC_V0]);
+		if (umap_debug == 1)
+			mtk_mae_umap_detach(mae_dev, &mae_dev->map_table->coef_dmabuf_info[MODEL_TYPE_FLD_FAC_V0]);
 		map_table->coef_dmabuf_info[MODEL_TYPE_FLD_FAC_V0].dmabuf =
 			dma_buf_get(model_table->coefTable[MODEL_TYPE_FLD_FAC_V0].fd);
 		if (IS_ERR(map_table->coef_dmabuf_info[MODEL_TYPE_FLD_FAC_V0].dmabuf) ||
@@ -1348,7 +1309,7 @@ int mtk_mae_vidioc_qbuf(struct file *file, void *priv,
 			return ret;
 		}
 
-        // DEBUG_ONLY: get va of coef
+		// DEBUG_ONLY: get va of coef
 		ret = mtk_mae_get_map_info(mae_dev,
 				&map_table->coef_dmabuf_info[MODEL_TYPE_FLD_FAC_V0]);
 		if (ret) {
@@ -1357,14 +1318,15 @@ int mtk_mae_vidioc_qbuf(struct file *file, void *priv,
 			return ret;
 		}
 		debug_dump =
-			(uint32_t*)map_table->coef_dmabuf_info[MODEL_TYPE_FLD_FAC_V0].kva;
-		mae_dev_info(mae_dev->dev, "%s, MODEL_TYPE_FLD_FAC_V0 coef(0x%x_%x )(0x%x_%x)\n",
+			(uint32_t *)map_table->coef_dmabuf_info[MODEL_TYPE_FLD_FAC_V0].kva;
+		mae_dev_dbg(mae_dev->dev, "%s, MODEL_TYPE_FLD_FAC_V0 coef(0x%x_%x )(0x%x_%x)\n",
 			__func__, *debug_dump, *(debug_dump+1), *(debug_dump+2), *(debug_dump+3));
-    }
+	}
 
 	// MAE_TO_DO: only support one image now
 	// get pa of image
-	mtk_mae_umap_detach(mae_dev, &mae_dev->map_table->image_dmabuf_info[idx][IMAGE_PLANE_0]);
+	if (umap_debug == 1)
+		mtk_mae_umap_detach(mae_dev, &mae_dev->map_table->image_dmabuf_info[idx][IMAGE_PLANE_0]);
 	map_table->image_dmabuf_info[idx][IMAGE_PLANE_0].dmabuf =
 		dma_buf_get(buf->m.planes[IMAGE_PLANE_0].m.fd);
 	if (IS_ERR(map_table->image_dmabuf_info[idx][IMAGE_PLANE_0].dmabuf) ||
@@ -1376,7 +1338,7 @@ int mtk_mae_vidioc_qbuf(struct file *file, void *priv,
 	}
 
 	ret = mtk_mae_get_attach_info(mae_dev,
-						&map_table->image_dmabuf_info[idx][IMAGE_PLANE_0]);
+		&map_table->image_dmabuf_info[idx][IMAGE_PLANE_0]);
 	if (ret) {
 		mae_dev_info(mae_dev->dev, "%s, attach buffer fail (%d,%d)",
 					__func__, idx, IMAGE_PLANE_0);
@@ -1391,19 +1353,13 @@ int mtk_mae_vidioc_qbuf(struct file *file, void *priv,
 				__func__, idx, IMAGE_PLANE_0);
 		return ret;
 	}
-	debug_dump =
-			(uint32_t*)map_table->image_dmabuf_info[idx][IMAGE_PLANE_0].kva;
-	mae_dev_info(mae_dev->dev, "%s, plane0 (0x%x_%x)(0x%x_%x)\n",
+	debug_dump = (uint32_t *)map_table->image_dmabuf_info[idx][IMAGE_PLANE_0].kva;
+	mae_dev_dbg(mae_dev->dev, "%s, plane0 (0x%x_%x)(0x%x_%x)\n",
 		__func__, *debug_dump, *(debug_dump+1), *(debug_dump+2), *(debug_dump+3));
-	// debug_dump += (param->image[0].imgWidth * param->image[0].imgHeight / 4);
-	// mae_dev_info(mae_dev->dev, "%s, plane1 size (%d)(%d)\n",
-	// 	__func__, buf->m.planes[IMAGE_PLANE_0].bytesused / 4,
-	// 	param->image[0].imgWidth * param->image[0].imgHeight / 4);
-	// mae_dev_info(mae_dev->dev, "%s, plane1 (0x%x_%x)(0x%x_%x)\n",
-	// 	__func__, *debug_dump, *(debug_dump+1), *(debug_dump+2), *(debug_dump+3));
 
 	// DEBUG_ONLY: get output pa
-	mtk_mae_umap_detach(mae_dev, &mae_dev->map_table->output_dmabuf_info[idx][0]);
+	if (umap_debug == 1)
+		mtk_mae_umap_detach(mae_dev, &mae_dev->map_table->output_dmabuf_info[idx][0]);
 	map_table->output_dmabuf_info[idx][0].dmabuf =
 		dma_buf_get(buf->m.planes[OUTPUT_PLANE].m.fd);
 	if (IS_ERR(map_table->output_dmabuf_info[idx][0].dmabuf) ||
@@ -1414,8 +1370,7 @@ int mtk_mae_vidioc_qbuf(struct file *file, void *priv,
 		return -ENOMEM;
 	}
 
-	ret = mtk_mae_get_attach_info(mae_dev,
-						&map_table->output_dmabuf_info[idx][0]);
+	ret = mtk_mae_get_attach_info(mae_dev, &map_table->output_dmabuf_info[idx][0]);
 	if (ret) {
 		mae_dev_info(mae_dev->dev, "%s, attach buffer fail (%d,%d)",
 					__func__, idx, OUTPUT_PLANE);
@@ -1431,18 +1386,16 @@ int mtk_mae_vidioc_qbuf(struct file *file, void *priv,
 		return ret;
 	}
 	// DEBUG_ONLY: To check hw wdma.
-  	memset((void*)map_table->output_dmabuf_info[idx][0].kva, 0xff, FD_OUTPUT_SIZE);
-	debug_dump = (uint32_t*)map_table->output_dmabuf_info[idx][0].kva;
+	memset((void *)map_table->output_dmabuf_info[idx][0].kva, 0xff, FD_OUTPUT_SIZE);
+	debug_dump = (uint32_t *)map_table->output_dmabuf_info[idx][0].kva;
 	mae_dev_info(mae_dev->dev, "%s, output 0x%llx (0x%x_%x)(0x%x_%x)\n",
 		__func__, (uint64_t)debug_dump, *(debug_dump), *(debug_dump+1), *(debug_dump+2), *(debug_dump+3));
 
 #if M2M_ENABLE
-    // DEBUG_ONLY
-    pr_info("%s-", __func__);
 	return v4l2_m2m_ioctl_qbuf(file, priv, buf);
 #else
-    // DEBUG_ONLY
-    pr_info("%s-", __func__);
+	// DEBUG_ONLY
+	pr_info("%s-", __func__);
 	return vb2_ioctl_qbuf(file, priv, buf);
 #endif
 }
@@ -1483,9 +1436,9 @@ static const struct v4l2_ioctl_ops mtk_mae_v4l2_video_out_ioctl_ops = {
 
 static int mtk_mae_video_device_register(struct mtk_mae_dev *mae_dev)
 {
-    struct video_device *vdev = &mae_dev->vdev;
+	struct video_device *vdev = &mae_dev->vdev;
 #if M2M_ENABLE
-    struct v4l2_m2m_dev *m2m_dev = mae_dev->m2m_dev;
+	struct v4l2_m2m_dev *m2m_dev = mae_dev->m2m_dev;
 #endif
 	struct device *dev = mae_dev->dev;
 	int ret;
@@ -1534,52 +1487,52 @@ err_unreg_video:
 
 static int mtk_mae_dev_v4l2_init(struct mtk_mae_dev *mae_dev)
 {
-    struct media_device *mdev = &mae_dev->mdev;
-    struct device *dev = mae_dev->dev;
-    int ret;
+	struct media_device *mdev = &mae_dev->mdev;
+	struct device *dev = mae_dev->dev;
+	int ret;
 
-    ret = v4l2_device_register(dev, &mae_dev->v4l2_dev);
-    if (ret) {
-        mae_dev_info(dev, "Failed to register v4l2 device\n");
-        return ret;
-    }
+	ret = v4l2_device_register(dev, &mae_dev->v4l2_dev);
+	if (ret) {
+		mae_dev_info(dev, "Failed to register v4l2 device\n");
+		return ret;
+	}
 
 #if M2M_ENABLE
-    mae_dev->m2m_dev = v4l2_m2m_init(&mae_m2m_ops);
-    if (IS_ERR(mae_dev->m2m_dev)) {
-        mae_dev_info(dev, "Failed to init mem2mem device\n");
-        ret = PTR_ERR(mae_dev->m2m_dev);
-        goto err_unreg_v4l2_dev;
-    }
+	mae_dev->m2m_dev = v4l2_m2m_init(&mae_m2m_ops);
+	if (IS_ERR(mae_dev->m2m_dev)) {
+		mae_dev_info(dev, "Failed to init mem2mem device\n");
+		ret = PTR_ERR(mae_dev->m2m_dev);
+		goto err_unreg_v4l2_dev;
+	}
 #endif
 
-    mdev->dev = dev;
-    ret = strscpy(mdev->model, dev_driver_string(dev), sizeof(mdev->model));
-    if (ret < 0) {
-        mae_dev_info(dev, "strscpy fail\n");
+	mdev->dev = dev;
+	ret = strscpy(mdev->model, dev_driver_string(dev), sizeof(mdev->model));
+	if (ret < 0) {
+		mae_dev_info(dev, "strscpy fail\n");
 #if M2M_ENABLE
-        goto err_unreg_v4l2_m2m_dev;
+		goto err_unreg_v4l2_m2m_dev;
 #else
-        goto err_unreg_v4l2_dev;
+		goto err_unreg_v4l2_dev;
 #endif
-    }
+	}
 
-    ret = snprintf(mdev->bus_info, sizeof(mdev->bus_info), "platform:%s",
-         dev_name(dev));
-    if (ret < 0) {
-        mae_dev_info(dev, "snprintf fail\n");
+	ret = snprintf(mdev->bus_info, sizeof(mdev->bus_info), "platform:%s",
+		 dev_name(dev));
+	if (ret < 0) {
+		mae_dev_info(dev, "snprintf fail\n");
 #if M2M_ENABLE
-        goto err_unreg_v4l2_m2m_dev;
+		goto err_unreg_v4l2_m2m_dev;
 #else
-        goto err_unreg_v4l2_dev;
+		goto err_unreg_v4l2_dev;
 #endif
-    }
+	}
 
-    media_device_init(mdev);
-    mdev->ops = &mae_m2m_media_ops;
-    mae_dev->v4l2_dev.mdev = mdev;
+	media_device_init(mdev);
+	mdev->ops = &mae_m2m_media_ops;
+	mae_dev->v4l2_dev.mdev = mdev;
 
-    ret = mtk_mae_video_device_register(mae_dev);
+	ret = mtk_mae_video_device_register(mae_dev);
 	if (ret) {
 		mae_dev_info(dev, "Failed to register video device\n");
 		goto err_cleanup_mdev;
@@ -1591,7 +1544,7 @@ static int mtk_mae_dev_v4l2_init(struct mtk_mae_dev *mae_dev)
 		goto err_unreg_vdev;
 	}
 
-    return 0;
+	return 0;
 
 err_unreg_vdev:
 #if M2M_ENABLE
@@ -1604,48 +1557,47 @@ err_cleanup_mdev:
 
 #if M2M_ENABLE
 err_unreg_v4l2_m2m_dev:
-    v4l2_m2m_release(mae_dev->m2m_dev);
+	v4l2_m2m_release(mae_dev->m2m_dev);
 #endif
 
 err_unreg_v4l2_dev:
 	v4l2_device_unregister(&mae_dev->v4l2_dev);
-    return ret;
+	return ret;
 }
 
 int mtk_mae_probe(struct platform_device *pdev)
 {
-    struct mtk_mae_dev *mae_dev;
-    struct device *dev = &pdev->dev;
-    int ret;
+	struct mtk_mae_dev *mae_dev;
+	struct device *dev = &pdev->dev;
+	int ret;
 	struct resource *res;
 
-    mae_dev_info(dev ,"%s+", __func__);
+	mae_dev_info(dev ,"%s+", __func__);
 
-    mae_dev = devm_kzalloc(dev, sizeof(*mae_dev), GFP_KERNEL);
-    if (!mae_dev) {
-        mae_dev_info(dev, "devm_kzalloc fail!\n");
-        return -ENOMEM;
-    }
-    memset(mae_dev, 0, sizeof(*mae_dev));
+	mae_dev = devm_kzalloc(dev, sizeof(*mae_dev), GFP_KERNEL);
+	if (!mae_dev)
+		return -ENOMEM;
 
-    // MAE_TO_DO: get Data
+	memset(mae_dev, 0, sizeof(*mae_dev));
 
-    if (dma_set_mask_and_coherent(dev, DMA_BIT_MASK(34)))
-        mae_dev_info(dev, "%s: No suitable DMA available\n", __func__);
+	// MAE_TO_DO: get Data
 
-    if (!dev->dma_parms) {
-        dev->dma_parms =
-            devm_kzalloc(dev, sizeof(*dev->dma_parms), GFP_KERNEL);
-        if (!dev->dma_parms)
-            return -ENOMEM;
+	if (dma_set_mask_and_coherent(dev, DMA_BIT_MASK(34)))
+		mae_dev_info(dev, "%s: No suitable DMA available\n", __func__);
+
+	if (!dev->dma_parms) {
+		dev->dma_parms =
+			devm_kzalloc(dev, sizeof(*dev->dma_parms), GFP_KERNEL);
+		if (!dev->dma_parms)
+			return -ENOMEM;
 	}
 
-    ret = dma_set_max_seg_size(dev, UINT_MAX);
-    if (ret)
-        mae_dev_info(dev, "Failed to set DMA segment size\n");
+	ret = dma_set_max_seg_size(dev, UINT_MAX);
+	if (ret)
+		mae_dev_info(dev, "Failed to set DMA segment size\n");
 
-    dev_set_drvdata(dev, mae_dev);
-    mae_dev->dev = dev;
+	dev_set_drvdata(dev, mae_dev);
+	mae_dev->dev = dev;
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	mae_dev->mae_base = devm_ioremap_resource(dev, res);
@@ -1654,9 +1606,9 @@ int mtk_mae_probe(struct platform_device *pdev)
 		return PTR_ERR(mae_dev->mae_base);
 	}
 
-    // MAE_TO_DO: Larb init
+	// MAE_TO_DO: Larb init
 
-    // MAE_TO_DO: Clk get
+	// MAE_TO_DO: Clk get
 
 	mae_dev->mae_clt = cmdq_mbox_create(dev, 0);
 	if (!mae_dev->mae_clt)
@@ -1681,10 +1633,10 @@ int mtk_mae_probe(struct platform_device *pdev)
 #endif
 
 	of_property_read_u32(pdev->dev.of_node, "fdvt-frame-done",
-                         &(mae_dev->mae_event_id));
+						 &(mae_dev->mae_event_id));
 
 	mutex_init(&mae_dev->vdev_lock);
-    // MAE_TO_DO: Init workqueue
+	// MAE_TO_DO: Init workqueue
 	mae_dev->frame_done_wq =
 			alloc_ordered_workqueue(dev_name(mae_dev->dev),
 						WQ_HIGHPRI | WQ_FREEZABLE);
@@ -1698,13 +1650,13 @@ int mtk_mae_probe(struct platform_device *pdev)
 
 	mae_dev->aov_pdev = pdev;
 
-    // MAE_TO_DO: pm_runtime_enable
+	// MAE_TO_DO: pm_runtime_enable
 
-    ret = mtk_mae_dev_v4l2_init(mae_dev);
-    if (ret) {
-        mae_dev_info(dev, "Failed to init v4l2 device: %d\n", ret);
-        goto err_destroy_mutex;
-    }
+	ret = mtk_mae_dev_v4l2_init(mae_dev);
+	if (ret) {
+		mae_dev_info(dev, "Failed to init v4l2 device: %d\n", ret);
+		goto err_destroy_mutex;
+	}
 
 	mae_dev->smmu_dev = mtk_smmu_get_shared_device(dev);
 	if (!mae_dev->smmu_dev) {
@@ -1714,14 +1666,14 @@ int mtk_mae_probe(struct platform_device *pdev)
 		return -EINVAL;
 	}
 
-    mae_dev_info(dev ,"%s-", __func__);
-    return 0;
+	mae_dev_info(dev ,"%s-", __func__);
+	return 0;
 
 err_destroy_mutex:
 	destroy_workqueue(mae_dev->frame_done_wq);
 	mutex_destroy(&mae_dev->vdev_lock);
 
-    return ret;
+	return ret;
 }
 
 int mtk_mae_remove(struct platform_device *pdev)
@@ -1741,7 +1693,7 @@ int mtk_mae_remove(struct platform_device *pdev)
 	// fd->frame_done_wq = NULL;
 
 	mutex_destroy(&mae_dev->vdev_lock);
-    return 0;
+	return 0;
 }
 
 static const struct of_device_id mtk_mae_of_ids[] = {
@@ -1755,17 +1707,17 @@ static const struct of_device_id mtk_mae_of_ids[] = {
 MODULE_DEVICE_TABLE(of, mtk_mae_of_ids);
 
 static struct platform_driver mtk_mae_driver = {
-    .probe = mtk_mae_probe,
-    .remove = mtk_mae_remove,
-    // MAE_TO_DO
-    // .shutdown = mtk_aie_shutdown,
+	.probe = mtk_mae_probe,
+	.remove = mtk_mae_remove,
+	// MAE_TO_DO
+	// .shutdown = mtk_aie_shutdown,
 
-    .driver = {
-        .name = "mtk-mae",
-        .of_match_table = of_match_ptr(mtk_mae_of_ids),
-        // MAE_TO_DO
-        // .pm = &mtk_aie_pm_ops,
-    }
+	.driver = {
+		.name = "mtk-mae",
+		.of_match_table = of_match_ptr(mtk_mae_of_ids),
+		// MAE_TO_DO
+		// .pm = &mtk_aie_pm_ops,
+	}
 };
 
 module_platform_driver(mtk_mae_driver);

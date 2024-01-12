@@ -516,6 +516,4 @@ static const unsigned int fld_face_info_idx_1[MAX_FLD_V0_FACE_NUM] = {
 #define fdvt_fld_tree_forest14_cv_weight_size 1072
 #define fdvt_fld_tree_forest14_tree_node_size 16000
 
-void mtk_mae_resize(const struct rsz_setting_in *in, struct rsz_setting_out *out);
-
 #endif /* __MTK_MAE_ISP8_H__ */

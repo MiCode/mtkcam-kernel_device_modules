@@ -3213,11 +3213,12 @@ static int csirx_dphy_init_deskew_setting(struct seninf_ctx *ctx, u64 seninf_ck)
 			__func__, ctx->csi_param.dphy_init_deskew_support);
 
 	if (!ctx->csi_param.dphy_init_deskew_support) {
+		//porting for rayas, after check can remove, ponsot cdphy page13
 		/* Disable DESKEW LANE0~3 CTRL */
-		SENINF_BITS(base, DPHY_RX_DESKEW_LANE0_CTRL, DPHY_RX_DESKEW_L0_DELAY_EN, 0);
-		SENINF_BITS(base, DPHY_RX_DESKEW_LANE1_CTRL, DPHY_RX_DESKEW_L1_DELAY_EN, 0);
-		SENINF_BITS(base, DPHY_RX_DESKEW_LANE2_CTRL, DPHY_RX_DESKEW_L2_DELAY_EN, 0);
-		SENINF_BITS(base, DPHY_RX_DESKEW_LANE3_CTRL, DPHY_RX_DESKEW_L3_DELAY_EN, 0);
+		SENINF_BITS(base, DPHY_RX_DESKEW_LANE0_CTRL, DPHY_RX_DESKEW_L0_DELAY_EN, 0);//porting for rayas, after check can remove, rayas cdphy page13
+		SENINF_BITS(base, DPHY_RX_DESKEW_LANE1_CTRL, DPHY_RX_DESKEW_L1_DELAY_EN, 0);//porting for rayas, after check can remove, rayas cdphy page13
+		SENINF_BITS(base, DPHY_RX_DESKEW_LANE2_CTRL, DPHY_RX_DESKEW_L2_DELAY_EN, 0);//porting for rayas, after check can remove, rayas cdphy page13
+		SENINF_BITS(base, DPHY_RX_DESKEW_LANE3_CTRL, DPHY_RX_DESKEW_L3_DELAY_EN, 0);//porting for rayas, after check can remove, rayas cdphy page13
 		return 0;
 	}
 
@@ -3264,19 +3265,16 @@ static int csirx_dphy_init_deskew_setting(struct seninf_ctx *ctx, u64 seninf_ck)
 		SENINF_BITS(base, DPHY_RX_DESKEW_CTRL, RG_DPHY_RX_DESKEW_INITIAL_SETUP, 0);
 		SENINF_BITS(base, DPHY_RX_DESKEW_CTRL, RG_DPHY_RX_DESKEW_EN, 1);
 
-		if (data_rate > SENINF_DESKEW_DATA_RATE_6500M)
-			SENINF_BITS(base, DPHY_RX_DESKEW_CTRL, RG_DPHY_RX_DESKEW_CODE_UNIT_SEL, 0);
-		else if (data_rate > SENINF_DESKEW_DATA_RATE_3200M)
-			SENINF_BITS(base, DPHY_RX_DESKEW_CTRL, RG_DPHY_RX_DESKEW_CODE_UNIT_SEL, 1);
+		if (data_rate < SENINF_DESKEW_DATA_RATE_3200M)
+			SENINF_BITS(base, DPHY_RX_DESKEW_CTRL, RG_DPHY_RX_DESKEW_CODE_UNIT_SEL, 2);//porting for rayas, after check can remove, rayas cdphy page13
 		else
-			SENINF_BITS(base, DPHY_RX_DESKEW_CTRL, RG_DPHY_RX_DESKEW_CODE_UNIT_SEL, 2);
+			SENINF_BITS(base, DPHY_RX_DESKEW_CTRL, RG_DPHY_RX_DESKEW_CODE_UNIT_SEL, 1);//porting for rayas, after check can remove, rayas cdphy page13
 		/* RG_DPHY_RX_DESKEW_CODE_UNIT_SEL */
-		/* Date rate > 6.5G :				    set 'b0 */
-		/* Date rate < 6.5G & Date rate > 3.2G : set 'b01 */
-		/* Date rate < 3.2G :				    set 'b10 */
+		/* Date rate < 3.2G : set 'b10 */
+		/* Date rate > 3.2G : set 'b01 */
 
 		SENINF_BITS(base, DPHY_RX_DESKEW_CTRL, RG_DPHY_RX_DESKEW_DELAY_APPLY_OPT, 1);
-		SENINF_BITS(base, DPHY_RX_DESKEW_CTRL, RG_DPHY_RX_DESKEW_ACC_MODE, 1);
+		SENINF_BITS(base, DPHY_RX_DESKEW_CTRL, RG_DPHY_RX_DESKEW_ACC_MODE, 0);//porting for rayas, after check can remove, rayas cdphy page13
 
 		/* DESKEW LANE0~3 CTRL */
 		SENINF_BITS(base, DPHY_RX_DESKEW_LANE0_CTRL, DPHY_RX_DESKEW_L0_DELAY_EN, 1);
@@ -3292,51 +3290,39 @@ static int csirx_dphy_init_deskew_setting(struct seninf_ctx *ctx, u64 seninf_ck)
 		/* RG_DPHY_RX_DESKEW_SETUP_CNT setting by csi_clk default 312MHZ & data rate */
 		switch (seninf_ck) {
 		case SENINF_CLK_499_2MHZ:
-			if (data_rate > SENINF_DESKEW_DATA_RATE_6500M) {
+			if (data_rate < SENINF_DESKEW_DATA_RATE_3200M) {
 				SENINF_BITS(base, DPHY_RX_DESKEW_TIMING_CTRL,
-					RG_DPHY_RX_DESKEW_SETUP_CNT, 12);
-			} else if (data_rate > SENINF_DESKEW_DATA_RATE_3200M) {
-				SENINF_BITS(base, DPHY_RX_DESKEW_TIMING_CTRL,
-					RG_DPHY_RX_DESKEW_SETUP_CNT, 19);
+					RG_DPHY_RX_DESKEW_SETUP_CNT, 20);//porting for rayas, after check can remove, rayas cdphy page13
 			} else {
 				SENINF_BITS(base, DPHY_RX_DESKEW_TIMING_CTRL,
-					RG_DPHY_RX_DESKEW_SETUP_CNT, 36);
+					RG_DPHY_RX_DESKEW_SETUP_CNT, 12);//porting for rayas, after check can remove, rayas cdphy page13
 			}
 			break;
 		case SENINF_CLK_416_MHZ:
-			if (data_rate > SENINF_DESKEW_DATA_RATE_6500M) {
+			if (data_rate < SENINF_DESKEW_DATA_RATE_3200M) {
 				SENINF_BITS(base, DPHY_RX_DESKEW_TIMING_CTRL,
-					RG_DPHY_RX_DESKEW_SETUP_CNT, 11);
-			} else if (data_rate > SENINF_DESKEW_DATA_RATE_3200M) {
-				SENINF_BITS(base, DPHY_RX_DESKEW_TIMING_CTRL,
-					RG_DPHY_RX_DESKEW_SETUP_CNT, 17);
+					RG_DPHY_RX_DESKEW_SETUP_CNT, 18);//porting for rayas, after check can remove, rayas cdphy page13
 			} else {
 				SENINF_BITS(base, DPHY_RX_DESKEW_TIMING_CTRL,
-					RG_DPHY_RX_DESKEW_SETUP_CNT, 31);
+					RG_DPHY_RX_DESKEW_SETUP_CNT, 11);//porting for rayas, after check can remove, rayas cdphy page13
 			}
 			break;
-		case SENINF_CLK_356_MHZ:
-			if (data_rate > SENINF_DESKEW_DATA_RATE_6500M) {
+		case SENINF_CLK_343_MHZ://porting for rayas, after check can remove, rayas cdphy page13
+			if (data_rate < SENINF_DESKEW_DATA_RATE_3200M) {
 				SENINF_BITS(base, DPHY_RX_DESKEW_TIMING_CTRL,
-					RG_DPHY_RX_DESKEW_SETUP_CNT, 10);
-			} else if (data_rate > SENINF_DESKEW_DATA_RATE_3200M) {
-				SENINF_BITS(base, DPHY_RX_DESKEW_TIMING_CTRL,
-					RG_DPHY_RX_DESKEW_SETUP_CNT, 15);
+					RG_DPHY_RX_DESKEW_SETUP_CNT, 15);//porting for rayas, after check can remove, rayas cdphy page13
 			} else {
 				SENINF_BITS(base, DPHY_RX_DESKEW_TIMING_CTRL,
-					RG_DPHY_RX_DESKEW_SETUP_CNT, 27);
+					RG_DPHY_RX_DESKEW_SETUP_CNT, 10);//porting for rayas, after check can remove, rayas cdphy page13
 			}
 			break;
 		case SENINF_CLK_312_MHZ:
-			if (data_rate > SENINF_DESKEW_DATA_RATE_6240M) {
-				dev_info(ctx->dev,
-					"ERROR cis_clk 312MHZ not support data rate > 6240Mbps\n");
-			} else if (data_rate > SENINF_DESKEW_DATA_RATE_3200M) {
+			if (data_rate < SENINF_DESKEW_DATA_RATE_3200M) {
 				SENINF_BITS(base, DPHY_RX_DESKEW_TIMING_CTRL,
-					RG_DPHY_RX_DESKEW_SETUP_CNT, 14);
+					RG_DPHY_RX_DESKEW_SETUP_CNT, 14);//porting for rayas, after check can remove, rayas cdphy page13
 			} else {
 				SENINF_BITS(base, DPHY_RX_DESKEW_TIMING_CTRL,
-					RG_DPHY_RX_DESKEW_SETUP_CNT, 24);
+					RG_DPHY_RX_DESKEW_SETUP_CNT, 9);//porting for rayas, after check can remove, rayas cdphy page13
 			}
 			break;
 		default:
@@ -3354,6 +3340,10 @@ static int csirx_dphy_init_deskew_setting(struct seninf_ctx *ctx, u64 seninf_ck)
 			RG_DPHY_RX_LD_SYNC_SEQ_PAT_DESKEW, 0xFF);
 		SENINF_BITS(base, DPHY_RX_DATA_LANE_SYNC_DETECT_DESKEW,
 			RG_DPHY_RX_LD_SYNC_SEQ_MASK_DESKEW, 0x00);
+
+		/* lp11 idle en (new)*/
+		SENINF_BITS(base, DPHY_RX_DESKEW_CTRL,
+			DPHY_RX_DESKEW_LP11_IDLE_EN, 0x1);//porting for rayas, after check can remove, rayas cdphy page13
 
 		/* enable deskew irq*/
 		SENINF_WRITE_REG(base, DPHY_RX_DESKEW_IRQ_EN, 0xffffffff);
@@ -3404,15 +3394,53 @@ static int csirx_dphy_setting(struct seninf_ctx *ctx)
 	void *baseB = ctx->reg_ana_csi_rx[(unsigned int)ctx->portB];
 	struct seninf_core *core = ctx->core;
 	u64 csi_clk = SENINF_CK;
+	int temp_RESERVE_0 = 0x0;
 
 	csi_clk =
 		core->cdphy_dvfs_step[ctx->vcore_step_index].csi_clk ?
 		(u64)core->cdphy_dvfs_step[ctx->vcore_step_index].csi_clk * CSI_CLK_FREQ_MULTIPLIER :
 		SENINF_CK;
 
+	/* dummp_valid_num */
+	SENINF_BITS(baseA, CDPHY_RX_ANA_SETTING_1,
+				RG_AFIFO_DUMMY_VALID_NUM,
+				(ctx->is_4d1c) ? ((ctx->num_data_lanes > 1) ? 3: 5) : 5);//porting for rayas, after check can remove, rayas cdphy page11
+	SENINF_BITS(baseB, CDPHY_RX_ANA_SETTING_1,
+				RG_AFIFO_DUMMY_VALID_NUM,
+				(ctx->is_4d1c) ? ((ctx->num_data_lanes > 1) ? 3: 5) : 5);//porting for rayas, after check can remove, rayas cdphy page11
+
+	/* dphy_ln*_flush_en all lane on */
+	SENINF_BITS(base, CPHY_FSM_FLUSH_CTRL, CSI_DPHY_LN0_FLUSH_EN, 0x1);//porting for rayas, after check can remove, ponsot cdphy page9
+	SENINF_BITS(base, CPHY_FSM_FLUSH_CTRL, CSI_DPHY_LN1_FLUSH_EN, 0x1);//porting for rayas, after check can remove, ponsot cdphy page9
+	SENINF_BITS(base, CPHY_FSM_FLUSH_CTRL, CSI_DPHY_LN2_FLUSH_EN, 0x1);//porting for rayas, after check can remove, ponsot cdphy page9
+	SENINF_BITS(base, CPHY_FSM_FLUSH_CTRL, CSI_DPHY_LN3_FLUSH_EN, 0x1);//porting for rayas, after check can remove, ponsot cdphy page9
+
+	/* set only csiA RG_CSI0_RESERVE[0] */
+	temp_RESERVE_0 = SENINF_READ_BITS(baseA, CDPHY_RX_ANA_8, RG_CSI0_RESERVE);
+	temp_RESERVE_0 = temp_RESERVE_0 | 0x1;
+	SENINF_BITS(baseA, CDPHY_RX_ANA_8,
+						RG_CSI0_RESERVE, temp_RESERVE_0);//porting for rayas, after check can remove, rayas cdphy page11
+
 	if (ctx->is_4d1c) {
+		/* DPHY non-split mode */
+		SENINF_BITS(baseA, CDPHY_RX_ANA_SETTING_1,
+							AFIFO_DUMMY_VALID_GAP_NUM, 0x3);//porting for rayas, after check can remove, rayas cdphy page11
+		SENINF_BITS(baseA, CDPHY_RX_ANA_SETTING_1,
+							RG_AFIFO_DUMMY_VALID_PREPARE_NUM, 0x0);//porting for rayas, after check can remove, rayas cdphy page11
+		SENINF_BITS(baseA, CDPHY_RX_ANA_SETTING_1,
+							AFIFO_DUMMY_VALID_DESKEW_EN, 0x1);//porting for rayas, after check can remove, rayas cdphy page11
+		SENINF_BITS(baseA, CDPHY_RX_ANA_SETTING_1,
+							RG_SPLIT_EN, 0x0);//porting for rayas, after check can remove, rayas cdphy page11
+
+		SENINF_BITS(baseB, CDPHY_RX_ANA_SETTING_1,
+							AFIFO_DUMMY_VALID_GAP_NUM, 0x3);//porting for rayas, after check can remove, rayas cdphy page11
+		SENINF_BITS(baseB, CDPHY_RX_ANA_SETTING_1,
+							RG_AFIFO_DUMMY_VALID_PREPARE_NUM, 0x0);//porting for rayas, after check can remove, rayas cdphy page11
+		SENINF_BITS(baseB, CDPHY_RX_ANA_SETTING_1,
+							AFIFO_DUMMY_VALID_DESKEW_EN, 0x1);//porting for rayas, after check can remove, rayas cdphy page11
 		switch(ctx->num_data_lanes) {
-		case 1:
+		/* DPHY non-split mode lane 1 */
+		case 1:/* 1D1C must !is_4d1c */
 			SENINF_BITS(base, DPHY_RX_LANE_EN, DPHY_RX_LC0_EN, 1);
 			SENINF_BITS(base, DPHY_RX_LANE_EN, DPHY_RX_LC1_EN, 0);
 			SENINF_BITS(base, DPHY_RX_LANE_EN, DPHY_RX_LD0_EN, 1);
@@ -3428,10 +3456,12 @@ static int csirx_dphy_setting(struct seninf_ctx *ctx)
 			SENINF_BITS(base, DPHY_RX_LANE_SELECT, RG_DPHY_RX_LD3_SEL, 0);
 
 			SENINF_BITS(baseA, CDPHY_RX_ASYM_AFIFO_CTRL_0,
-								L1_AFIFO_FLUSH_EN, 0x1);
+								L0_AFIFO_FLUSH_EN, 0x1);//porting for rayas, after check can remove, ponsot cdphy page11
+			dev_info(ctx->dev, "[%s]: ERROR: 1D1C must split\n", __func__);
 			break;
 
-		case 2:
+		/* DPHY non-split mode lane 2 */
+		case 2:/* 2D1C-AB */
 			SENINF_BITS(base, DPHY_RX_LANE_EN, DPHY_RX_LC0_EN, 1);
 			SENINF_BITS(base, DPHY_RX_LANE_EN, DPHY_RX_LC1_EN, 0);
 			SENINF_BITS(base, DPHY_RX_LANE_EN, DPHY_RX_LD0_EN, 1);
@@ -3448,12 +3478,12 @@ static int csirx_dphy_setting(struct seninf_ctx *ctx)
 
 			SENINF_BITS(baseA, CDPHY_RX_ASYM_AFIFO_CTRL_0,
 								L1_AFIFO_FLUSH_EN, 0x1);
-
 			SENINF_BITS(baseB, CDPHY_RX_ASYM_AFIFO_CTRL_0,
 								L0_AFIFO_FLUSH_EN, 0x1);
 			break;
 
-		case 4:
+		/* DPHY non-split mode lane 4 */
+		case 4:/* 4D1C */
 			SENINF_BITS(base, DPHY_RX_LANE_EN, DPHY_RX_LC0_EN, 1);
 			SENINF_BITS(base, DPHY_RX_LANE_EN, DPHY_RX_LC1_EN, 0);
 			SENINF_BITS(base, DPHY_RX_LANE_EN, DPHY_RX_LD0_EN, 1);
@@ -3470,13 +3500,10 @@ static int csirx_dphy_setting(struct seninf_ctx *ctx)
 
 			SENINF_BITS(baseA, CDPHY_RX_ASYM_AFIFO_CTRL_0,
 								L0_AFIFO_FLUSH_EN, 0x1);
-
 			SENINF_BITS(baseA, CDPHY_RX_ASYM_AFIFO_CTRL_0,
 								L1_AFIFO_FLUSH_EN, 0x1);
-
 			SENINF_BITS(baseB, CDPHY_RX_ASYM_AFIFO_CTRL_0,
 								L0_AFIFO_FLUSH_EN, 0x1);
-
 			SENINF_BITS(baseB, CDPHY_RX_ASYM_AFIFO_CTRL_0,
 								L1_AFIFO_FLUSH_EN, 0x1);
 			break;
@@ -3487,8 +3514,10 @@ static int csirx_dphy_setting(struct seninf_ctx *ctx)
 			break;
 		}
 	} else {
+		/* DPHY split mode */
 		switch(ctx->num_data_lanes) {
-		case 1:
+		/* DPHY split mode lane 1 */
+		case 1:/* 1D1C-A or 1D1C-B */
 			switch(ctx->port) {
 			case CSI_PORT_0A:
 			case CSI_PORT_1A:
@@ -3512,8 +3541,16 @@ static int csirx_dphy_setting(struct seninf_ctx *ctx)
 
 				SENINF_BITS(baseA, CDPHY_RX_ASYM_AFIFO_CTRL_0,
 								L0_AFIFO_FLUSH_EN, 0x1);
-				break;
 
+				SENINF_BITS(baseA, CDPHY_RX_ANA_SETTING_1,
+									AFIFO_DUMMY_VALID_GAP_NUM, 0x3);//porting for rayas, after check can remove, rayas cdphy page11
+				SENINF_BITS(baseA, CDPHY_RX_ANA_SETTING_1,
+									RG_AFIFO_DUMMY_VALID_PREPARE_NUM, 0x0);//porting for rayas, after check can remove, rayas cdphy page11
+				SENINF_BITS(baseA, CDPHY_RX_ANA_SETTING_1,
+									AFIFO_DUMMY_VALID_DESKEW_EN, 0x1);//porting for rayas, after check can remove, rayas cdphy page11
+				SENINF_BITS(baseA, CDPHY_RX_ANA_SETTING_1,
+									RG_SPLIT_EN, 0x1);//porting for rayas, after check can remove, rayas cdphy page11
+				break;
 			case CSI_PORT_0B:
 			case CSI_PORT_1B:
 			case CSI_PORT_2B:
@@ -3536,6 +3573,15 @@ static int csirx_dphy_setting(struct seninf_ctx *ctx)
 
 				SENINF_BITS(baseB, CDPHY_RX_ASYM_AFIFO_CTRL_0,
 								L0_AFIFO_FLUSH_EN, 0x1);
+
+				SENINF_BITS(baseB, CDPHY_RX_ANA_SETTING_1,
+									AFIFO_DUMMY_VALID_GAP_NUM, 0x3);//porting for rayas, after check can remove, rayas cdphy page11
+				SENINF_BITS(baseB, CDPHY_RX_ANA_SETTING_1,
+									RG_AFIFO_DUMMY_VALID_PREPARE_NUM, 0x0);//porting for rayas, after check can remove, rayas cdphy page11
+				SENINF_BITS(baseB, CDPHY_RX_ANA_SETTING_1,
+									AFIFO_DUMMY_VALID_DESKEW_EN, 0x1);//porting for rayas, after check can remove, rayas cdphy page11
+				SENINF_BITS(baseB, CDPHY_RX_ANA_SETTING_1,
+									RG_SPLIT_EN, 0x1);//porting for rayas, after check can remove, rayas cdphy page11
 				break;
 			default:
 				dev_info(ctx->dev, "[%s][ERROR] invalid port(%d on lane %d\n",
@@ -3547,7 +3593,8 @@ static int csirx_dphy_setting(struct seninf_ctx *ctx)
 
 			break;
 
-		case 2:
+		/* DPHY split mode lane 2 */
+		case 2:/* 2D1C-A */
 			switch(ctx->port) {
 			case CSI_PORT_0A:
 			case CSI_PORT_1A:
@@ -3571,9 +3618,17 @@ static int csirx_dphy_setting(struct seninf_ctx *ctx)
 
 				SENINF_BITS(baseA, CDPHY_RX_ASYM_AFIFO_CTRL_0,
 								L0_AFIFO_FLUSH_EN, 0x1);
-
 				SENINF_BITS(baseA, CDPHY_RX_ASYM_AFIFO_CTRL_0,
 								L2_AFIFO_FLUSH_EN, 0x1);
+
+				SENINF_BITS(baseA, CDPHY_RX_ANA_SETTING_1,
+									AFIFO_DUMMY_VALID_GAP_NUM, 0x3);//porting for rayas, after check can remove, rayas cdphy page11
+				SENINF_BITS(baseA, CDPHY_RX_ANA_SETTING_1,
+									RG_AFIFO_DUMMY_VALID_PREPARE_NUM, 0x0);//porting for rayas, after check can remove, rayas cdphy page11
+				SENINF_BITS(baseA, CDPHY_RX_ANA_SETTING_1,
+									AFIFO_DUMMY_VALID_DESKEW_EN, 0x1);//porting for rayas, after check can remove, rayas cdphy page11
+				SENINF_BITS(baseA, CDPHY_RX_ANA_SETTING_1,
+									RG_SPLIT_EN, 0x1);//porting for rayas, after check can remove, rayas cdphy page11
 				break;
 
 			default:
@@ -3618,8 +3673,10 @@ static int csirx_dphy_setting(struct seninf_ctx *ctx)
 
 static int csirx_cphy_setting(struct seninf_ctx *ctx)
 {
-	void *base = ctx->reg_ana_cphy_top[(unsigned int)ctx->port];
+	void *cphy_base = ctx->reg_ana_cphy_top[(unsigned int)ctx->port];
 	void *dphy_base = ctx->reg_ana_dphy_top[(unsigned int)ctx->port];
+	void *baseA = ctx->reg_ana_csi_rx[(unsigned int)ctx->portA];
+	void *baseB = ctx->reg_ana_csi_rx[(unsigned int)ctx->portB];
 
 	switch (ctx->port) {
 	case CSI_PORT_0:
@@ -3628,23 +3685,112 @@ static int csirx_cphy_setting(struct seninf_ctx *ctx)
 	case CSI_PORT_3:
 	case CSI_PORT_4:
 	case CSI_PORT_5:
+		SENINF_BITS(baseA, CDPHY_RX_ANA_SETTING_1,
+						RG_CSI0_ASYNC_OPTION, 0xC);
+		SENINF_BITS(baseA, CDPHY_RX_ANA_SETTING_1,
+						RG_AFIFO_DUMMY_VALID_EN, 0x1);
+		SENINF_BITS(baseA, CDPHY_RX_ANA_SETTING_1,
+						RG_AFIFO_DUMMY_VALID_NUM,
+						(ctx->is_4d1c) ? ((ctx->num_data_lanes > 1) ? 0x4: 0x6) : 0x6);
+		SENINF_BITS(baseA, CDPHY_RX_ANA_SETTING_1,
+							AFIFO_DUMMY_VALID_GAP_NUM, 0x1);//porting for rayas, after check can remove, rayas cdphy page11
+		SENINF_BITS(baseA, CDPHY_RX_ANA_SETTING_1,
+							RG_AFIFO_DUMMY_VALID_PREPARE_NUM, 0x0);//porting for rayas, after check can remove, rayas cdphy page11
+		SENINF_BITS(baseA, CDPHY_RX_ANA_SETTING_1,
+							AFIFO_DUMMY_VALID_DESKEW_EN, 0x1);//porting for rayas, after check can remove, rayas cdphy page11
+		SENINF_BITS(baseA, CDPHY_RX_ANA_SETTING_1,
+						RG_SPLIT_EN, 0x0);
+
+		SENINF_BITS(baseB, CDPHY_RX_ANA_SETTING_1,
+						RG_CSI0_ASYNC_OPTION, 0xC);
+		SENINF_BITS(baseB, CDPHY_RX_ANA_SETTING_1,
+						RG_AFIFO_DUMMY_VALID_EN, 0x1);
+		SENINF_BITS(baseB, CDPHY_RX_ANA_SETTING_1,
+						RG_AFIFO_DUMMY_VALID_NUM,
+						(ctx->is_4d1c) ? ((ctx->num_data_lanes > 1) ? 0x4: 0x6) : 0x6);
+		SENINF_BITS(baseB, CDPHY_RX_ANA_SETTING_1,
+							AFIFO_DUMMY_VALID_GAP_NUM, 0x1);//porting for rayas, after check can remove, rayas cdphy page11
+		SENINF_BITS(baseB, CDPHY_RX_ANA_SETTING_1,
+							RG_AFIFO_DUMMY_VALID_PREPARE_NUM, 0x0);//porting for rayas, after check can remove, rayas cdphy page11
+		SENINF_BITS(baseB, CDPHY_RX_ANA_SETTING_1,
+							AFIFO_DUMMY_VALID_DESKEW_EN, 0x0);//porting for rayas, after check can remove, rayas cdphy page11
+
+		if (ctx->num_data_lanes == 3) {
+			/* Lane AFIFO_FLUSH setting */
+			SENINF_BITS(baseA, CDPHY_RX_ASYM_AFIFO_CTRL_0, L0_AFIFO_FLUSH_EN, 0X1);
+			SENINF_BITS(baseA, CDPHY_RX_ASYM_AFIFO_CTRL_0, L2_AFIFO_FLUSH_EN, 0X1);
+			SENINF_BITS(baseB, CDPHY_RX_ASYM_AFIFO_CTRL_0, L0_AFIFO_FLUSH_EN, 0X1);
+
+			SENINF_BITS(cphy_base, CPHY_VALID_PIPE_EN, CPHY_TRIO0_VALID_PIPE_EN, 1);
+			SENINF_BITS(cphy_base, CPHY_VALID_PIPE_EN, CPHY_TRIO1_VALID_PIPE_EN, 1);
+			SENINF_BITS(cphy_base, CPHY_VALID_PIPE_EN, CPHY_TRIO2_VALID_PIPE_EN, 1);
+			SENINF_BITS(cphy_base, CPHY_RX_CTRL, CPHY_RX_TR0_LPRX_EN, 1);
+			SENINF_BITS(cphy_base, CPHY_RX_CTRL, CPHY_RX_TR1_LPRX_EN, 1);
+			SENINF_BITS(cphy_base, CPHY_RX_CTRL, CPHY_RX_TR2_LPRX_EN, 1);
+			SENINF_BITS(cphy_base, CPHY_RX_CTRL, CPHY_RX_TR3_LPRX_EN, 0);
+
+		} else if (ctx->num_data_lanes == 2) {
+			SENINF_BITS(baseA, CDPHY_RX_ASYM_AFIFO_CTRL_0, L0_AFIFO_FLUSH_EN, 0X1);
+			SENINF_BITS(baseA, CDPHY_RX_ASYM_AFIFO_CTRL_0, L2_AFIFO_FLUSH_EN, 0X1);
+
+			SENINF_BITS(cphy_base, CPHY_VALID_PIPE_EN, CPHY_TRIO0_VALID_PIPE_EN, 1);
+			SENINF_BITS(cphy_base, CPHY_VALID_PIPE_EN, CPHY_TRIO1_VALID_PIPE_EN, 1);
+			SENINF_BITS(cphy_base, CPHY_RX_CTRL, CPHY_RX_TR0_LPRX_EN, 1);
+			SENINF_BITS(cphy_base, CPHY_RX_CTRL, CPHY_RX_TR1_LPRX_EN, 1);
+
+		} else if (ctx->num_data_lanes == 1) {
+			SENINF_BITS(baseA, CDPHY_RX_ANA_SETTING_1,
+						RG_SPLIT_EN, 0x1);
+			SENINF_BITS(baseA, CDPHY_RX_ASYM_AFIFO_CTRL_0, L0_AFIFO_FLUSH_EN, 0X1);
+
+			SENINF_BITS(cphy_base, CPHY_VALID_PIPE_EN, CPHY_TRIO0_VALID_PIPE_EN, 1);
+			SENINF_BITS(cphy_base, CPHY_RX_CTRL, CPHY_RX_TR0_LPRX_EN, 1);
+		} else {
+			dev_info(ctx->dev, "[error][%s] invalid ctx->num_data_lanes: %d\n",
+				__func__, ctx->num_data_lanes);
+		}
+		break;
 	case CSI_PORT_0A:
 	case CSI_PORT_1A:
 	case CSI_PORT_2A:
 	case CSI_PORT_3A:
 	case CSI_PORT_4A:
 	case CSI_PORT_5A:
+		SENINF_BITS(baseA, CDPHY_RX_ANA_SETTING_1,
+						RG_CSI0_ASYNC_OPTION, 0xC);
+		SENINF_BITS(baseA, CDPHY_RX_ANA_SETTING_1,
+						RG_AFIFO_DUMMY_VALID_EN, 0x1);
+		SENINF_BITS(baseA, CDPHY_RX_ANA_SETTING_1,
+						RG_AFIFO_DUMMY_VALID_NUM,
+						(ctx->is_4d1c) ? ((ctx->num_data_lanes > 1) ? 0x4: 0x6) : 0x6);
+		SENINF_BITS(baseA, CDPHY_RX_ANA_SETTING_1,
+							AFIFO_DUMMY_VALID_GAP_NUM, 0x1);
+		SENINF_BITS(baseA, CDPHY_RX_ANA_SETTING_1,
+							RG_AFIFO_DUMMY_VALID_PREPARE_NUM, 0x0);
+		SENINF_BITS(baseA, CDPHY_RX_ANA_SETTING_1,
+							AFIFO_DUMMY_VALID_DESKEW_EN, 0x1);
 
-		if (ctx->num_data_lanes == 3) {
-			SENINF_BITS(base, CPHY_RX_CTRL, CPHY_RX_TR0_LPRX_EN, 1);
-			SENINF_BITS(base, CPHY_RX_CTRL, CPHY_RX_TR1_LPRX_EN, 1);
-			SENINF_BITS(base, CPHY_RX_CTRL, CPHY_RX_TR2_LPRX_EN, 1);
-			SENINF_BITS(base, CPHY_RX_CTRL, CPHY_RX_TR3_LPRX_EN, 0);
-		} else if (ctx->num_data_lanes == 2) {
-			SENINF_BITS(base, CPHY_RX_CTRL, CPHY_RX_TR0_LPRX_EN, 1);
-			SENINF_BITS(base, CPHY_RX_CTRL, CPHY_RX_TR1_LPRX_EN, 1);
+		if (ctx->num_data_lanes == 2) {
+			SENINF_BITS(baseA, CDPHY_RX_ANA_SETTING_1,
+						RG_SPLIT_EN, 0x1);
+			SENINF_BITS(baseA, CDPHY_RX_ASYM_AFIFO_CTRL_0, L0_AFIFO_FLUSH_EN, 0X1);
+			SENINF_BITS(baseA, CDPHY_RX_ASYM_AFIFO_CTRL_0, L2_AFIFO_FLUSH_EN, 0X1);
+
+			SENINF_BITS(cphy_base, CPHY_VALID_PIPE_EN, CPHY_TRIO0_VALID_PIPE_EN, 1);
+			SENINF_BITS(cphy_base, CPHY_VALID_PIPE_EN, CPHY_TRIO1_VALID_PIPE_EN, 1);
+			SENINF_BITS(cphy_base, CPHY_RX_CTRL, CPHY_RX_TR0_LPRX_EN, 1);
+			SENINF_BITS(cphy_base, CPHY_RX_CTRL, CPHY_RX_TR1_LPRX_EN, 1);
+		} else if (ctx->num_data_lanes == 1) {
+			SENINF_BITS(baseA, CDPHY_RX_ANA_SETTING_1,
+						RG_SPLIT_EN, 0x1);
+			SENINF_BITS(baseA, CDPHY_RX_ASYM_AFIFO_CTRL_0, L0_AFIFO_FLUSH_EN, 0X1);
+
+			SENINF_BITS(cphy_base, CPHY_VALID_PIPE_EN, CPHY_TRIO0_VALID_PIPE_EN, 1);
+			SENINF_BITS(cphy_base, CPHY_RX_CTRL, CPHY_RX_TR0_LPRX_EN, 1);
+
 		} else {
-			SENINF_BITS(base, CPHY_RX_CTRL, CPHY_RX_TR0_LPRX_EN, 1);
+			dev_info(ctx->dev, "[error][%s] invalid ctx->num_data_lanes: %d\n",
+				__func__, ctx->num_data_lanes);
 		}
 		break;
 	case CSI_PORT_0B:
@@ -3653,53 +3799,40 @@ static int csirx_cphy_setting(struct seninf_ctx *ctx)
 	case CSI_PORT_3B:
 	case CSI_PORT_4B:
 	case CSI_PORT_5B:
+		SENINF_BITS(baseB, CDPHY_RX_ANA_SETTING_1,
+						RG_CSI0_ASYNC_OPTION, 0xC);
+		SENINF_BITS(baseB, CDPHY_RX_ANA_SETTING_1,
+						RG_AFIFO_DUMMY_VALID_EN, 0x1);
+		SENINF_BITS(baseB, CDPHY_RX_ANA_SETTING_1,
+						RG_AFIFO_DUMMY_VALID_NUM,
+						(ctx->is_4d1c) ? ((ctx->num_data_lanes > 1) ? 0x4: 0x6) : 0x6);
+		SENINF_BITS(baseB, CDPHY_RX_ANA_SETTING_1,
+							AFIFO_DUMMY_VALID_GAP_NUM, 0x1);
+		SENINF_BITS(baseB, CDPHY_RX_ANA_SETTING_1,
+							RG_AFIFO_DUMMY_VALID_PREPARE_NUM, 0x0);
+		SENINF_BITS(baseB, CDPHY_RX_ANA_SETTING_1,
+							AFIFO_DUMMY_VALID_DESKEW_EN, 0x1);
 
-		if (ctx->num_data_lanes == 2) {
-			SENINF_BITS(base, CPHY_RX_CTRL, CPHY_RX_TR2_LPRX_EN, 1);
-			SENINF_BITS(base, CPHY_RX_CTRL, CPHY_RX_TR3_LPRX_EN, 1);
-		} else
-			SENINF_BITS(base, CPHY_RX_CTRL, CPHY_RX_TR2_LPRX_EN, 1);
+		if (ctx->num_data_lanes == 1) {
+			SENINF_BITS(baseB, CDPHY_RX_ASYM_AFIFO_CTRL_0, L0_AFIFO_FLUSH_EN, 0X1);
+
+			SENINF_BITS(cphy_base, CPHY_VALID_PIPE_EN, CPHY_TRIO2_VALID_PIPE_EN, 1);
+			SENINF_BITS(cphy_base, CPHY_RX_CTRL, CPHY_RX_TR2_LPRX_EN, 1);
+		} else {
+			dev_info(ctx->dev, "[error][%s] invalid ctx->num_data_lanes: %d\n",
+				__func__, ctx->num_data_lanes);
+		}
 		break;
 	default:
 		dev_info(ctx->dev, "[error][%s] invalid ctx->port: %d\n",
 				__func__, ctx->port);
 		break;
 	}
+
 	if (!ctx->csi_param.legacy_phy)
 		SENINF_WRITE_REG(dphy_base, DPHY_RX_SPARE0, 0xf1);
 	else
 		SENINF_WRITE_REG(dphy_base, DPHY_RX_SPARE0, 0xf0);
-
-	switch (ctx->num_data_lanes) {
-	case 3:
-		SENINF_BITS(base, CPHY_VALID_PIPE_EN, CPHY_TRIO0_VALID_PIPE_EN, 1);
-		SENINF_BITS(base, CPHY_VALID_PIPE_EN, CPHY_TRIO1_VALID_PIPE_EN, 1);
-		SENINF_BITS(base, CPHY_VALID_PIPE_EN, CPHY_TRIO2_VALID_PIPE_EN, 1);
-		break;
-	case 2:
-		SENINF_BITS(base, CPHY_VALID_PIPE_EN, CPHY_TRIO0_VALID_PIPE_EN, 1);
-		SENINF_BITS(base, CPHY_VALID_PIPE_EN, CPHY_TRIO1_VALID_PIPE_EN, 1);
-		break;
-	case 1:
-		SENINF_BITS(base, CPHY_VALID_PIPE_EN, CPHY_TRIO0_VALID_PIPE_EN, 1);
-		break;
-
-	default:
-		dev_info(ctx->dev, "[error][%s] invalid ctx->num_data_lanes: %d\n",
-				__func__, ctx->num_data_lanes);
-		break;
-
-	}
-
-	/* CPHY_RX_IRQ_EN */
-	SENINF_WRITE_REG(base, CPHY_RX_IRQ_EN, 0xF);
-
-	dev_info(ctx->dev,
-			"[%s][Done] with is_4d1c(%d),num_data_lanes(%d),port(%d),CPHY_RX_IRQ_EN\n",
-			__func__,
-			ctx->is_4d1c,
-			ctx->num_data_lanes,
-			ctx->port);
 
 	return 0;
 }

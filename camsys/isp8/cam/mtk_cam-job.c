@@ -607,6 +607,7 @@ static struct engine_callback engine_cb = {
 	.isr_event = mtk_cam_ctrl_isr_event,
 	.reset_sensor = mtk_cam_ctrl_reset_sensor,
 	.dump_request = mtk_cam_ctrl_dump_request,
+	.do_workaround_at_sof = mtk_cam_ctrl_ae_workaround,
 };
 
 int

@@ -46,7 +46,7 @@ MODULE_PARM_DESC(debug_ddren_sw_mode, "debug: 1 : active sw mode");
 #define DMA_OFFSET_ERR_STAT	0x34
 
 #define RAW_DEBUG 1
-
+#define AEO_SW_WORKAROUND 1
 static int reset_msgfifo(struct mtk_raw_device *dev);
 
 #define FIFO_THRESHOLD(FIFO_SIZE, HEIGHT_RATIO, LOW_RATIO) \
@@ -382,7 +382,6 @@ void initialize(struct mtk_raw_device *dev, struct engine_callback *cb,
 		       dev->base + REG_UFEO_R1_BASE + DMA_OFFSET_ERR_STAT);
 	writel_relaxed(0xFFFE0000,
 		       dev->base + REG_PDO_R1_BASE + DMA_OFFSET_ERR_STAT);
-
 	/* Workaround: disable AAO/AAHO error: double sof error for smvr
 	 *  HW would send double sof to aao/aaho in subsample mode
 	 *  disable it to bypass
@@ -479,6 +478,38 @@ void stagger_enable(struct mtk_raw_device *dev, bool is_dc)
 		dev_info(dev->dev,
 			 "[%s] raw%d - CQ_EN:0x%x\n",
 			 __func__, dev->id, readl_relaxed(dev->base + REG_CAMCQ_CQ_EN));
+}
+
+void ae_disable(struct mtk_raw_device *dev)
+{
+	u32 val_mod5, val_mod10, val_mod11;
+
+	val_mod5 = readl_relaxed(dev->base + REG_CAMCTL_MOD5_EN);
+	val_mod10 = readl_relaxed(dev->base + REG_CAMCTL_MOD10_EN);
+	val_mod11 = readl_relaxed(dev->base + REG_CAMCTL_MOD11_EN);
+
+	if (CAM_DEBUG_ENABLED(RAW_INT))
+		dev_info(dev->dev,
+			 "[%s++] raw%d - MOD5/MOD10/MOD11:0x%x/0x%x/0x%x\n",
+			 __func__, dev->id, val_mod5, val_mod10, val_mod11);
+
+	/* disable CAMCTL_AESTAT_R1_EN*/
+	SET_FIELD(&val_mod5, CAMCTL_AESTAT_R1_EN, 0);
+	writel_relaxed(val_mod5, dev->base + REG_CAMCTL_MOD5_EN);
+
+	/* disable CAMCTL_AEI_R1_EN*/
+	//SET_FIELD(&val_mod10, CAMCTL_AEI_R1_EN, 0);
+	//writel_relaxed(val_mod10, dev->base + REG_CAMCTL_MOD10_EN);
+
+	/* disable CAMCTL_AEHO_R1_EN/CAMCTL_AEO_R1_EN*/
+	//SET_FIELD(&val_mod11, CAMCTL_AEHO_R1_EN, 0);
+	//SET_FIELD(&val_mod11, CAMCTL_AEO_R1_EN, 0);
+	//writel_relaxed(val_mod11, dev->base + REG_CAMCTL_MOD11_EN);
+
+	if (CAM_DEBUG_ENABLED(RAW_INT))
+		dev_info(dev->dev,
+			 "[%s--] raw%d - MOD5/MOD10/MOD11:0x%x/0x%x/0x%x\n",
+			 __func__, dev->id, val_mod5, val_mod10, val_mod11);
 }
 
 void stagger_disable(struct mtk_raw_device *dev)
@@ -1223,7 +1254,9 @@ static irqreturn_t mtk_irq_raw_yuv(int irq, void *data)
 		irq_info.tg_cnt = raw_dev->tg_count;
 		if (CAM_DEBUG_ENABLED(EXTISP_SW_CNT))
 			irq_info.tg_cnt = raw_dev->sof_count - 2;
-
+		if (tg1_status & FBIT(CAMCTL_TG_SOF_INT_ST))
+			do_engine_callback(raw_dev->engine_cb, do_workaround_at_sof,
+				   raw_dev->cam, CAMSYS_ENGINE_RAW, raw_dev->id, frame_idx);
 		engine_handle_sof(&raw_dev->cq_ref,
 				  bit_map_bit(MAP_HW_RAW, raw_dev->id),
 				  irq_info.frame_idx_inner);

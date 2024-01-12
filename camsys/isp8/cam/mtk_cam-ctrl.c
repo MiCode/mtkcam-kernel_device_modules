@@ -2396,6 +2396,28 @@ void mtk_cam_watchdog_stop(struct mtk_cam_watchdog *wd)
 	wait_for_completion(&wd->work_complete);
 }
 
+int mtk_cam_ctrl_ae_workaround(struct mtk_cam_device *cam,
+			      int engine_type, unsigned int engine_id,
+			      unsigned int inner_cookie)
+{
+	unsigned int ctx_id = ctx_from_fh_cookie(inner_cookie);
+	struct mtk_cam_ctx *ctx = &cam->ctxs[ctx_id];
+	struct mtk_cam_ctrl *ctrl = &cam->ctxs[ctx_id].cam_ctrl;
+	struct mtk_raw_device *raw_dev;
+	int i = 0;
+
+	if (mtk_cam_ctrl_get(ctrl))
+		return 0;
+	for (i = 0; i < ARRAY_SIZE(ctx->hw_raw); i++) {
+		if (ctx->hw_raw[i]) {
+			raw_dev = dev_get_drvdata(ctx->hw_raw[i]);
+			ae_disable(raw_dev);
+		}
+	}
+	mtk_cam_ctrl_put(ctrl);
+	return 0;
+}
+
 int mtk_cam_ctrl_reset_sensor(struct mtk_cam_device *cam,
 			      int engine_type, unsigned int engine_id,
 			      int inner_cookie)

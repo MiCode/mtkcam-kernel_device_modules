@@ -157,6 +157,9 @@ int mtk_cam_ctrl_dump_request(struct mtk_cam_device *cam,
 int mtk_cam_ctrl_notify_hw_hang(struct mtk_cam_device *cam,
 				int engine_type, unsigned engine_id,
 				int inner_cookie);
+int mtk_cam_ctrl_ae_workaround(struct mtk_cam_device *cam,
+			      int engine_type, unsigned int engine_id,
+			      unsigned int inner_cookie);
 
 /* ctx_stream_on */
 void mtk_cam_ctrl_start(struct mtk_cam_ctrl *cam_ctrl,
@@ -188,6 +191,7 @@ void mtk_cam_event_frame_sync(struct mtk_cam_ctrl *cam_ctrl,
 void mtk_cam_event_error(struct mtk_cam_ctrl *cam_ctrl, const char *msg);
 void mtk_cam_event_request_dumped(struct mtk_cam_ctrl *cam_ctrl,
 				  unsigned int frame_seq_no);
+
 /* extisp specifically used */
 void mtk_cam_event_sensor_trigger(struct mtk_cam_ctrl *cam_ctrl,
 			      unsigned int frame_seq_no);

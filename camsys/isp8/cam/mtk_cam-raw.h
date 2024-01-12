@@ -163,6 +163,9 @@ void raw_dump_debug_status(struct mtk_raw_device *dev, bool is_srt);
 /* reset */
 void reset(struct mtk_raw_device *dev);
 
+/* workaround */
+void ae_disable(struct mtk_raw_device *dev);
+
 /* iommu debug */
 int mtk_raw_translation_fault_cb(int port, dma_addr_t mva, void *data);
 int mtk_yuv_translation_fault_cb(int port, dma_addr_t mva, void *data);

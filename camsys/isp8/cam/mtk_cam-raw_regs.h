@@ -966,14 +966,14 @@ static inline u32 _set_field(u32 *val, int pos, int width, u32 fval)
 #define F_CAMCTL_REF_DCIF_LAST_SOF_SUB_WIDTH                         1
 #define F_CAMCTL_REF_DCIF_LAST_SOF_POS                               4
 #define F_CAMCTL_REF_DCIF_LAST_SOF_WIDTH                             1
-#define F_CAMCTL_DCIF_EN_POS                                         0
-#define F_CAMCTL_DCIF_EN_WIDTH                                       1
 
 #define REG_CAMCTL_DCIF2_CTL                        0x11C
-#define F_CAMCTL_2ND_PASS_WCNT_SRC_POS                               2
+#define F_CAMCTL_2ND_PASS_WCNT_SRC_POS                               6
 #define F_CAMCTL_2ND_PASS_WCNT_SRC_WIDTH                             2
-#define F_CAMCTL_1ST_PASS_WCNT_SRC_POS                               0
+#define F_CAMCTL_1ST_PASS_WCNT_SRC_POS                               4
 #define F_CAMCTL_1ST_PASS_WCNT_SRC_WIDTH                             2
+#define F_CAMCTL_DCIF_EN_POS                                         0
+#define F_CAMCTL_DCIF_EN_WIDTH                                       1
 
 #define REG_CAMCTL_RFBC_EN                          0x120
 #define F_CAMCTL_MLSCI_R1_RFBC_EN_POS                                28
@@ -1523,7 +1523,7 @@ static inline u32 _set_field(u32 *val, int pos, int width, u32 fval)
 #define F_CAMCTL_STG_DLY_CNT_SRC_SEL_POS                             0
 #define F_CAMCTL_STG_DLY_CNT_SRC_SEL_WIDTH                           4
 
-#define REG_CAMCTL_TFMR_PIX_ID                      0x500
+#define REG_CAMCTL_VPU_PIX_ID                       0x500
 #define F_CAMCTL_VPU_PIX_ID_POS                                      0
 #define F_CAMCTL_VPU_PIX_ID_WIDTH                                    2
 
@@ -2141,6 +2141,10 @@ static inline u32 _set_field(u32 *val, int pos, int width, u32 fval)
 #define F_CAMCTL_TFM_MSK_BCL_R6_WIDTH                                1
 #define F_CAMCTL_TFM_MSK_BCL_R2_POS                                  0
 #define F_CAMCTL_TFM_MSK_BCL_R2_WIDTH                                1
+
+#define REG_CAMCTL_TFM_MSK_VPU_PIX_ID               0x6A0
+#define F_CAMCTL_TFM_MSK_VPU_PIX_ID_POS                              0
+#define F_CAMCTL_TFM_MSK_VPU_PIX_ID_WIDTH                            1
 
 #define REG_CAMCTL_TFM_MSK_FR                       0x6F0
 #define F_CAMCTL_TFM_MSK_R_POS                                       1
@@ -4938,12 +4942,12 @@ static inline u32 _set_field(u32 *val, int pos, int width, u32 fval)
 #define REG_CAMCTL_SPARE2                           0xFF8
 #define REG_CAMCTL_PROJ_CODE                        0xFFC
 
+
 /* module: FHG_R1A */
 #define REG_FHG_FHG_SPARE_1                        0x41C0
 #define REG_FHG_FHG_SPARE_2                        0x41C4
 #define REG_FHG_FHG_SPARE_3                        0x41C8
 #define REG_FHG_FHG_SPARE_4                        0x41CC
-
 
 /* module: CAMCQ_R1A */
 #define REG_CAMCQ_CQ_EN                            0x1000
@@ -5075,6 +5079,7 @@ static inline u32 _set_field(u32 *val, int pos, int width, u32 fval)
 #define F_CAMCQ_CQ_APB_SELF_TRIG_ADDR_WIDTH                          21
 
 #define REG_CAMCQ_CQ_APB_SELF_TRIG_DATA            0x1078
+
 
 /* module: TG_R1A */
 #define REG_TG_SEN_MODE                            0x1200
@@ -5417,6 +5422,7 @@ static inline u32 _set_field(u32 *val, int pos, int width, u32 fval)
 #define REG_TG_HW_DDR_GEN_PULSE_CNT                0x12C8
 #define REG_TG_HW_QOS_GEN_PULSE_CNT                0x12CC
 #define REG_TG_HW_TIMER_CNT                        0x12D0
+
 
 /* baseaddr 0x3A810000 */
 
@@ -6311,6 +6317,7 @@ static inline u32 _set_field(u32 *val, int pos, int width, u32 fval)
 #define F_CAMRAWDMATOP_RAWI_R3_DYNMC_AXSLC_CFG4_WIDTH                5
 #define F_CAMRAWDMATOP_RAWI_R2_DYNMC_AXSLC_CFG4_POS                  0
 #define F_CAMRAWDMATOP_RAWI_R2_DYNMC_AXSLC_CFG4_WIDTH                5
+
 
 
 /* baseaddr 0x3A840000 */
@@ -7464,6 +7471,7 @@ static inline u32 _set_field(u32 *val, int pos, int width, u32 fval)
 #define REG_CAMCTL3_SPARE4                          0xFF0
 #define REG_CAMCTL3_SPARE5                          0xFF4
 #define REG_CAMCTL3_SPARE2                          0xFF8
+
 
 /* baseaddr 0x3A880000 */
 
@@ -9776,6 +9784,7 @@ static inline u32 _set_field(u32 *val, int pos, int width, u32 fval)
 #define REG_CAMCTL2_SPARE5                          0xFF4
 #define REG_CAMCTL2_SPARE2                          0xFF8
 
+
 /* baseaddr 0x3A890000 */
 
 /* module: CAMYUVDMATOP_R1A */
@@ -10151,6 +10160,7 @@ static inline u32 _set_field(u32 *val, int pos, int width, u32 fval)
 #define F_CAMYUVDMATOP_FHO_R3_AXSLC_WIDTH                            5
 #define F_CAMYUVDMATOP_TCYSO_R1_AXSLC_POS                            0
 #define F_CAMYUVDMATOP_TCYSO_R1_AXSLC_WIDTH                          5
+
 
 
 

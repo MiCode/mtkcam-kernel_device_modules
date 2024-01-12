@@ -190,6 +190,25 @@ static void init_ADLWR_settings(struct mtk_cam_device *cam)
 	writel_relaxed(0x440, cam->adlwr_base + 0x350);
 }
 
+static void dump_dc_setting(struct mtk_raw_device *dev)
+{
+	dev_info(dev->dev, "[outer] CAMCTL_SCENARIO_CTL/MODE 0x%08x/0x%08x DCIF_CTL/2:0x%08x/0x%08x, CHASING_SRC_SEL:0x%08x, TG_DCIF_CTL:0x%08x\n",
+		 readl(dev->base + REG_CAMCTL_SCENARIO_CTL),
+		 readl(dev->base + REG_CAMCTL_SCENARIO_MODE),
+		 readl(dev->base + REG_CAMCTL_DCIF_CTL),
+		 readl(dev->base + REG_CAMCTL_DCIF2_CTL),
+		 readl(dev->base + REG_CAMCTL_DCIF_CHASING_SRC_SEL),
+		 readl(dev->base + REG_TG_DCIF_CTL));
+	dev_info(dev->dev, "[inner] CAMCTL_SCENARIO_CTL/MODE 0x%08x/0x%08x DCIF_CTL/2:0x%08x/0x%08x, CHASING_SRC_SEL:0x%08x, TG_DCIF_CTL:0x%08x\n",
+		 readl(dev->base_inner + REG_CAMCTL_SCENARIO_CTL),
+		 readl(dev->base_inner + REG_CAMCTL_SCENARIO_MODE),
+		 readl(dev->base_inner + REG_CAMCTL_DCIF_CTL),
+		 readl(dev->base_inner + REG_CAMCTL_DCIF2_CTL),
+		 readl(dev->base_inner + REG_CAMCTL_DCIF_CHASING_SRC_SEL),
+		 readl(dev->base_inner + REG_TG_DCIF_CTL));
+}
+
+
 static void dump_cq_setting(struct mtk_raw_device *dev)
 {
 	dev_info(dev->dev, "CQ_EN 0x%08x THR_CTL 0x%08x 0x%08x, 0x%08x\n",
@@ -201,6 +220,12 @@ static void dump_cq_setting(struct mtk_raw_device *dev)
 
 static void dump_interrupt(struct mtk_raw_device *dev)
 {
+	dev_info(dev->dev, "CAMCTL INT17_EN 0x%08x\n",
+		 readl_relaxed(dev->base + REG_CAMCTL_INT17_EN));
+	dev_info(dev->dev, "CAMCTL INT18_EN 0x%08x\n",
+		 readl_relaxed(dev->base + REG_CAMCTL_INT18_EN));
+	dev_info(dev->dev, "CAMCTL INT20_EN 0x%08x\n",
+		 readl_relaxed(dev->base + REG_CAMCTL_INT20_EN));
 	dev_info(dev->dev, "CAMCTL INT21_EN 0x%08x\n",
 		 readl_relaxed(dev->base + REG_CAMCTL_INT21_EN));
 }
@@ -453,10 +478,10 @@ void dbload_force(struct mtk_raw_device *dev)
 {
 	u32 val;
 
-	val = readl_relaxed(dev->base + REG_CAMCTL_MISC);
+	val = readl_relaxed(dev->base + REG_CAMCTL_DB_LOAD_CTL2);
 	SET_FIELD(&val, CAMCTL_DB_LOAD_FORCE, 1);
-	writel_relaxed(val, dev->base + REG_CAMCTL_MISC);
-	writel_relaxed(val, dev->base_inner + REG_CAMCTL_MISC);
+	writel_relaxed(val, dev->base + REG_CAMCTL_DB_LOAD_CTL2);
+	writel_relaxed(val, dev->base_inner + REG_CAMCTL_DB_LOAD_CTL2);
 	wmb(); /* TBC */
 	dev_info(dev->dev, "%s: 0x%x\n", __func__, val);
 }
@@ -465,12 +490,12 @@ void toggle_db(struct mtk_raw_device *dev)
 {
 	u32 val;
 
-	val = readl(dev->base + REG_CAMCTL_MISC);
-	writel(val & ~FBIT(CAMCTL_DB_EN), dev->base + REG_CAMCTL_MISC);
+	val = readl(dev->base + REG_CAMCTL_DB_LOAD_CTL1);
+	writel(val & ~FBIT(CAMCTL_DB_EN), dev->base + REG_CAMCTL_DB_LOAD_CTL1);
 
 	/* read back to make sure committed */
-	val = readl(dev->base + REG_CAMCTL_MISC);
-	writel(val | FBIT(CAMCTL_DB_EN), dev->base + REG_CAMCTL_MISC);
+	val = readl(dev->base + REG_CAMCTL_DB_LOAD_CTL1);
+	writel(val | FBIT(CAMCTL_DB_EN), dev->base + REG_CAMCTL_DB_LOAD_CTL1);
 }
 
 void enable_tg_db(struct mtk_raw_device *dev, int en)
@@ -554,6 +579,7 @@ void rwfbc_inc_setup(struct mtk_raw_device *dev)
 
 void stream_on(struct mtk_raw_device *dev, int on, bool reset_at_off)
 {
+	dump_dc_setting(dev);
 	if (on) {
 		/* toggle db before stream-on */
 		enable_tg_db(dev, 0);
@@ -568,7 +594,6 @@ void stream_on(struct mtk_raw_device *dev, int on, bool reset_at_off)
 		if (reset_at_off)
 			reset_reg(dev);
 	}
-
 	//dev_info(dev->dev, "%s: %d\n", __func__, on);
 }
 
@@ -2678,6 +2703,7 @@ int raw_to_tg_idx(int raw_id)
 void raw_dump_debug_status(struct mtk_raw_device *dev, bool is_srt)
 {
 	dump_seqence(dev);
+	dump_dc_setting(dev);
 	dump_cq_setting(dev);
 	dump_tg_setting(dev, "debug");
 	dump_dmatop_dc_st(dev);

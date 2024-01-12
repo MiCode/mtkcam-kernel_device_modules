@@ -359,7 +359,7 @@ static void update_buf_fmt_sel(struct mtk_cam_job *job)
 	// everytime packing a new job
 	struct mtk_cam_driver_buf_desc *desc =
 		&job->src_ctx->img_work_buf_desc;
-	bool use_ufbc = true;
+	bool use_ufbc = false;
 
 	use_ufbc = use_ufbc
 		&& is_sv_support_ufbc(job)
@@ -758,7 +758,7 @@ static void convert_fho_timestamp_to_meta(struct mtk_cam_job *job)
 	u64 hw_timestamp;
 
 	subsample = job->sub_ratio;
-	fho_va = (u32 *)(job->cq.vaddr + job->cq.size - 64 * subsample);
+	fho_va = (u32 *)(job->cq.vaddr + job->cq.size - 128 * subsample);
 
 	for (i = 0; i < subsample; i++) {
 		hw_timestamp = (u64) *(fho_va + i*16);
@@ -5136,7 +5136,7 @@ int mtk_cam_job_fill_dump_param(struct mtk_cam_job *job,
 	/* Common Debug Information*/
 	strncpy(p->desc, desc, sizeof(p->desc) - 1);
 
-	p->request_fd = -1; /* TODO */
+	p->request_fd = job->req_info_id; /* TODO */
 	p->stream_id = job->src_ctx->stream_id;
 	p->timestamp = job->timestamp;
 	p->sequence = job->req_seq;

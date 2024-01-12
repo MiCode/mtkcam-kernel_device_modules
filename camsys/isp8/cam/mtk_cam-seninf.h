@@ -302,6 +302,7 @@ struct seninf_ctx {
 	/* resources */
 	struct list_head list_outmux;
 	//struct seninf_mux *mux_by[VC_CH_GROUP_MAX_NUM][TYPE_MAX_NUM];
+	bool outmux_disable_list[SENINF_OUTMUX_NUM];
 
 	/* flags */
 	unsigned int csi_streaming:1;

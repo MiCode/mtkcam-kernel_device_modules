@@ -161,6 +161,14 @@ static ssize_t err_status_show(struct device *dev,
 
 static DEVICE_ATTR_RO(err_status);
 
+static ssize_t outmux_status_show(struct device *dev,
+			   struct device_attribute *attr, char *buf)
+{
+	return g_seninf_ops->_show_outmux_status(dev, attr, buf);
+}
+
+static DEVICE_ATTR_RO(outmux_status);
+
 static ssize_t debug_ops_show(struct device *dev,
 			   struct device_attribute *attr, char *buf)
 {
@@ -1219,6 +1227,11 @@ static int seninf_core_probe(struct platform_device *pdev)
 	if (ret)
 		dev_err(dev, "%s: failed to create sysfs status\n", __func__);
 
+	ret = device_create_file(dev, &dev_attr_outmux_status);
+	if (ret)
+		dev_err(dev, "%s: failed to create sysfs status\n", __func__);
+
+
 	seninf_core_pm_runtime_enable(core);
 
 	kthread_init_worker(&core->seninf_worker);
@@ -1248,6 +1261,7 @@ static int seninf_core_remove(struct platform_device *pdev)
 	device_remove_file(dev, &dev_attr_status);
 	device_remove_file(dev, &dev_attr_debug_ops);
 	device_remove_file(dev, &dev_attr_err_status);
+	device_remove_file(dev, &dev_attr_outmux_status);
 
 	mtk_cam_seninf_tsrec_uninit();
 

@@ -230,5 +230,65 @@ static struct mtk_imgsys_port_table imgsys_dma_port_mt6897[] = {
 };
 #endif
 
+#ifdef IMGSYS_TF_DUMP_7SP_R
+#ifndef IMGSYS_TF_DUMP_7SP_P
+#include <dt-bindings/memory/mt6878-larb-port.h>
+#endif
+static struct mtk_imgsys_port_table imgsys_dma_port_mt6878[] = {
+	/* larb9 */
+	{M4U_L9_P0_IMGI_T1_B    , imgsys_traw_tfault_callback},
+	{M4U_L9_P1_IMGI_T1_N_B  , imgsys_traw_tfault_callback},
+	{M4U_L9_P2_IMGCI_T1_B   , imgsys_traw_tfault_callback},
+	{M4U_L9_P3_IMGCI_T1_N_B , imgsys_traw_tfault_callback},
+	{M4U_L9_P4_SMTI_T1_B    , imgsys_traw_tfault_callback},
+	{M4U_L9_P5_YUVO_T1_B    , imgsys_traw_tfault_callback},
+	{M4U_L9_P6_YUVO_T1_N_B  , imgsys_traw_tfault_callback},
+	{M4U_L9_P7_YUVCO_T1_B   , imgsys_traw_tfault_callback},
+	{M4U_L9_P8_YUVO_T2_B    , imgsys_traw_tfault_callback},
+	{M4U_L9_P9_YUVO_T3_B    , imgsys_traw_tfault_callback},
+	{M4U_L9_P10_TNCSTO_T1_B , imgsys_traw_tfault_callback},
+	{M4U_L9_P14_SMTO_T1_B   , imgsys_traw_tfault_callback},
+	/* larb11 */
+	{M4U_L11_P0_WPE_RDMA_0  , imgsys_wpe_tfault_callback},
+	{M4U_L11_P1_WPE_RDMA_1  , imgsys_wpe_tfault_callback},
+	{M4U_L11_P2_WPE_RDMA_2  , imgsys_wpe_tfault_callback},
+	{M4U_L11_P3_PIMGI_P1    , imgsys_pqdip_tfault_callback},
+	{M4U_L11_P4_PIMGBI_P1   , imgsys_pqdip_tfault_callback},
+	{M4U_L11_P5_WPE_WDMA_0  , imgsys_wpe_tfault_callback},
+	{M4U_L11_P6_WROT_P1     , imgsys_pqdip_tfault_callback},
+	{M4U_L11_P7_TCCSO_P1    , imgsys_pqdip_tfault_callback},
+	/* larb22 */
+	{M4U_L22_P0_WPE_RDMA_0  , imgsys_wpe_tfault_callback},
+	{M4U_L22_P1_WPE_RDMA_1  , imgsys_wpe_tfault_callback},
+	{M4U_L22_P2_WPE_RDMA_2  , imgsys_wpe_tfault_callback},
+	{M4U_L22_P3_PIMGI_P1    , imgsys_pqdip_tfault_callback},
+	{M4U_L22_P4_PIMGBI_P1   , imgsys_pqdip_tfault_callback},
+	{M4U_L22_P5_WPE_WDMA_0  , imgsys_wpe_tfault_callback},
+	{M4U_L22_P6_WROT_P1     , imgsys_pqdip_tfault_callback},
+	{M4U_L22_P7_TCCSO_P1    , imgsys_pqdip_tfault_callback},
+	/* Larb12 */
+	{M4U_L12_P2_ME_RDMA_0        , ME_TranslationFault_callback},
+	{M4U_L12_P3_ME_WDMA_0        , ME_TranslationFault_callback},
+	{M4U_L12_P4_MEMMG_RDMA_0     , MMG_TranslationFault_callback},
+	{M4U_L12_P5_MEMMG_WDMA_0     , MMG_TranslationFault_callback},
+	/* larb28 */
+	{M4U_L28_P1_IMGI_T1_N_A  , imgsys_traw_tfault_callback},
+	{M4U_L28_P2_IMGCI_T1_A   , imgsys_traw_tfault_callback},
+	{M4U_L28_P3_IMGCI_T1_N_A , imgsys_traw_tfault_callback},
+	{M4U_L28_P4_YUVO_T1_A    , imgsys_traw_tfault_callback},
+	{M4U_L28_P5_YUVO_T1_N_A  , imgsys_traw_tfault_callback},
+	{M4U_L28_P6_YUVO_T2_A    , imgsys_traw_tfault_callback},
+	{M4U_L28_P7_YUVO_T3_A    , imgsys_traw_tfault_callback},
+	{M4U_L28_P12_SMTI_T1_A   , imgsys_traw_tfault_callback},
+	{M4U_L28_P13_SMTI_T4_A   , imgsys_traw_tfault_callback},
+	{M4U_L28_P14_TNCSTI_T1_A , imgsys_traw_tfault_callback},
+	{M4U_L28_P15_TNCSTI_T4_A , imgsys_traw_tfault_callback},
+	{M4U_L28_P16_LTMSTI_T1_A , imgsys_traw_tfault_callback},
+	{M4U_L28_P18_TNCSTO_T1_A , imgsys_traw_tfault_callback},
+	{M4U_L28_P22_SMTO_T1_A   , imgsys_traw_tfault_callback},
+	{M4U_L28_P23_SMTO_T4_A   , imgsys_traw_tfault_callback},
+	{M4U_L28_P24_LTMSO_T1_A   , imgsys_traw_tfault_callback},
+};
+#endif
 
 #endif /* _MTK_IMGSYS_PORT_H_ */

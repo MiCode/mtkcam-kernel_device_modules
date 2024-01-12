@@ -60,5 +60,26 @@ const struct cust_data imgsys_data_mt6989[] = {
 #endif
 	},
 };
+
+const struct cust_data imgsys_data_mt6878[] = {
+	[0] = {
+	.clks = imgsys_isp7_clks_mt6878,
+	.clk_num = MTK_IMGSYS_CLK_NUM_MT6878,
+	.module_pipes = module_pipe_isp7,
+	.mod_num = ARRAY_SIZE(module_pipe_isp7),
+	.pipe_settings = pipe_settings_isp7,
+	.pipe_num = ARRAY_SIZE(pipe_settings_isp7),
+	.imgsys_modules = imgsys_isp7_modules,
+	.imgsys_modules_num = MTK_IMGSYS_MODULE_NUM,
+	.dump = imgsys_debug_dump_routine,
+#ifdef IMGSYS_TF_DUMP_7SP_R
+	.imgsys_ports = imgsys_dma_port_mt6878,
+	.imgsys_ports_num = ARRAY_SIZE(imgsys_dma_port_mt6878),
+#else
+	.imgsys_ports_num = 0,
+#endif
+	},
+};
+
 #endif /* _MTK_IMGSYS_DATA_H_ */
 

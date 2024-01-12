@@ -3849,50 +3849,50 @@ static int register_sub_drivers(struct device *dev)
 
 	ret = platform_driver_register(&mtk_cam_larb_driver);
 	if (ret) {
-		dev_info(dev, "%s mtk_cam_larb_driver fail\n", __func__);
+		dev_err(dev, "%s mtk_cam_larb_driver fail\n", __func__);
 		goto REGISTER_LARB_FAIL;
 	}
 
 	ret = platform_driver_register(&seninf_pdrv);
 	if (ret) {
-		dev_info(dev, "%s seninf_pdrv fail\n", __func__);
+		dev_err(dev, "%s seninf_pdrv fail\n", __func__);
 		goto REGISTER_SENINF_FAIL;
 	}
 
 	ret = platform_driver_register(&seninf_core_pdrv);
 	if (ret) {
-		dev_info(dev, "%s seninf_core_pdrv fail\n", __func__);
+		dev_err(dev, "%s seninf_core_pdrv fail\n", __func__);
 		goto REGISTER_SENINF_CORE_FAIL;
 	}
 
 
 	ret = platform_driver_register(&mtk_cam_sv_driver);
 	if (ret) {
-		dev_info(dev, "%s mtk_cam_sv_driver fail\n", __func__);
+		dev_err(dev, "%s mtk_cam_sv_driver fail\n", __func__);
 		goto REGISTER_CAMSV_FAIL;
 	}
 
 	ret = platform_driver_register(&mtk_cam_mraw_driver);
 	if (ret) {
-		dev_info(dev, "%s mtk_cam_mraw_driver fail\n", __func__);
+		dev_err(dev, "%s mtk_cam_mraw_driver fail\n", __func__);
 		goto REGISTER_MRAW_FAIL;
 	}
 
 	ret = platform_driver_register(&mtk_cam_raw_driver);
 	if (ret) {
-		dev_info(dev, "%s mtk_cam_raw_driver fail\n", __func__);
+		dev_err(dev, "%s mtk_cam_raw_driver fail\n", __func__);
 		goto REGISTER_RAW_FAIL;
 	}
 
 	ret = platform_driver_register(&mtk_cam_yuv_driver);
 	if (ret) {
-		dev_info(dev, "%s mtk_cam_raw_driver fail\n", __func__);
+		dev_err(dev, "%s mtk_cam_raw_driver fail\n", __func__);
 		goto REGISTER_YUV_FAIL;
 	}
 
 	ret = platform_driver_register(&mtk_cam_rms_driver);
 	if (ret) {
-		dev_info(dev, "%s mtk_cam_rms_driver fail\n", __func__);
+		dev_err(dev, "%s mtk_cam_rms_driver fail\n", __func__);
 		goto REGISTER_RMS_FAIL;
 	}
 
@@ -3966,7 +3966,8 @@ static int mtk_cam_probe(struct platform_device *pdev)
 	//dev_info(dev, "%s\n", __func__);
 	platform_data = of_device_get_match_data(dev);
 	if (!platform_data) {
-		dev_info(dev, "Error: failed to get match data\n");
+		dev_err(dev, "%s: of_device_get_match_data failed\n", __func__);
+		WRAP_AEE_EXCEPTION("mtk_cam_probe", "Get Match Data");
 		return -ENODEV;
 	}
 	set_platform_data(platform_data);
@@ -3976,56 +3977,65 @@ static int mtk_cam_probe(struct platform_device *pdev)
 
 	/* initialize structure */
 	cam_dev = devm_kzalloc(dev, sizeof(*cam_dev), GFP_KERNEL);
-	if (!cam_dev)
+	if (!cam_dev) {
+		dev_err(dev, "%s: kzalloc cam_dev failed\n", __func__);
+		WRAP_AEE_EXCEPTION("mtk_cam_probe", "Kzalloc");
 		return -ENOMEM;
+	}
 
 	if (smmu_v3_enabled()) {
 		cam_dev->smmu_dev = mtk_smmu_get_shared_device(&pdev->dev);
 		if (!cam_dev->smmu_dev) {
-			dev_info(dev, "failed to get smmu device\n");
+			dev_err(dev, "%s: Get SMMU Device failed\n", __func__);
+			WRAP_AEE_EXCEPTION("mtk_cam_probe", "Get SMMU Device");
 			return -ENODEV;
 		}
 	}
 
 	alloc_dev = cam_dev->smmu_dev ? : dev;
 	if (dma_set_mask_and_coherent(alloc_dev, DMA_BIT_MASK(34)))
-		dev_info(dev, "%s: No suitable DMA available\n", __func__);
+		dev_err(dev, "%s: No suitable DMA available\n", __func__);
 
 	if (!alloc_dev->dma_parms) {
 		alloc_dev->dma_parms =
 			devm_kzalloc(alloc_dev, sizeof(*alloc_dev->dma_parms), GFP_KERNEL);
-		if (!dev->dma_parms)
+		if (!dev->dma_parms) {
+			dev_err(dev, "%s: kzalloc alloc_dev->dma_parms failed\n", __func__);
+			WRAP_AEE_EXCEPTION("mtk_cam_probe", "Kzalloc");
 			return -ENOMEM;
+		}
 	}
 
 	if (alloc_dev->dma_parms) {
 		ret = dma_set_max_seg_size(alloc_dev, UINT_MAX);
 		if (ret)
-			dev_info(dev, "Failed to set DMA segment size\n");
+			dev_err(dev, "%s: Failed to set DMA segment size\n", __func__);
 	}
 
 	cam_dev->base =  devm_platform_ioremap_resource_byname(pdev, "base");
 	if (IS_ERR(cam_dev->base)) {
-		dev_dbg(dev, "failed to map register base\n");
+		dev_err(dev, "%s: ioremap base failed\n", __func__);
+		WRAP_AEE_EXCEPTION("mtk_cam_probe", "ioremap base");
 		return PTR_ERR(cam_dev->base);
 	}
 
 	cam_dev->adl_base = devm_platform_ioremap_resource_byname(pdev, "adl");
 	if (IS_ERR(cam_dev->adl_base)) {
-		dev_dbg(dev, "failed to map adl_base\n");
+		dev_err(dev, "%s: failed to map adl_base\n", __func__);
 		cam_dev->adl_base = NULL;
 	}
 
 	irq = platform_get_irq(pdev, 0);
 	if (irq < 0) {
-		dev_info(dev, "failed to get adlrd irq\n");
+		dev_err(dev, "%s: failed to get adlrd irq\n", __func__);
 		goto SKIP_ADLRD_IRQ;
 	}
 
 	ret = devm_request_irq(dev, irq, mtk_irq_adlrd, IRQF_NO_AUTOEN,
 			       dev_name(dev), cam_dev);
 	if (ret) {
-		dev_info(dev, "failed to request irq=%d\n", irq);
+		dev_err(dev, "%s: Request IRQF_NO_AUTOEN failed\n", __func__);
+		WRAP_AEE_EXCEPTION("seninf_core_probe", "Request IRQF_NO_AUTOEN");
 		return ret;
 	}
 	dev_dbg(dev, "registered adl irq=%d\n", irq);
@@ -4034,7 +4044,7 @@ SKIP_ADLRD_IRQ:
 	cam_dev->cmdq_clt = cmdq_mbox_create(dev, 0);
 
 	if (!cam_dev->cmdq_clt)
-		pr_info("probe cmdq_mbox_create fail\n");
+		pr_err("probe cmdq_mbox_create fail\n");
 
 	cam_dev->dev = dev;
 	dev_set_drvdata(dev, cam_dev);
@@ -4043,8 +4053,11 @@ SKIP_ADLRD_IRQ:
 	cam_dev->max_stream_num = 8; /* TODO: how */
 	cam_dev->ctxs = devm_kcalloc(dev, cam_dev->max_stream_num,
 				     sizeof(*cam_dev->ctxs), GFP_KERNEL);
-	if (!cam_dev->ctxs)
+	if (!cam_dev->ctxs) {
+		dev_err(dev, "%s: kcalloc cam_dev->ctxs failed\n", __func__);
+		WRAP_AEE_EXCEPTION("mtk_cam_probe", "Kcalloc");
 		return -ENOMEM;
+	}
 
 	for (i = 0; i < cam_dev->max_stream_num; i++)
 		mtk_cam_ctx_init(cam_dev->ctxs + i, cam_dev, i);
@@ -4063,7 +4076,7 @@ SKIP_ADLRD_IRQ:
 
 	ret = register_sub_drivers(dev);
 	if (ret) {
-		dev_info(dev, "fail to register_sub_drivers\n");
+		dev_err(dev, "%s: fail to register_sub_drivers\n", __func__);
 		goto fail_return;
 	}
 
@@ -4072,6 +4085,8 @@ SKIP_ADLRD_IRQ:
 	return 0;
 
 fail_return:
+	dev_err(dev, "%s: fail_return\n", __func__);
+	WRAP_AEE_EXCEPTION("mtk_cam_probe", "fail_return");
 
 	return ret;
 }

@@ -1011,9 +1011,14 @@ static int seninf_core_probe(struct platform_device *pdev)
 	u32 tmp_no = 0;
 	struct device_node *tmp_node;
 
+	device_enable_async_suspend(dev);
+
 	core = devm_kzalloc(&pdev->dev, sizeof(*core), GFP_KERNEL);
-	if (!core)
+	if (!core) {
+		dev_err(dev, "%s: kzalloc core failed\n", __func__);
+		WRAP_AEE_EXCEPTION("seninf_core_probe", "Kzalloc");
 		return -ENOMEM;
+	}
 
 	dev_set_drvdata(dev, core);
 	core->dev = dev;
@@ -1024,17 +1029,24 @@ static int seninf_core_probe(struct platform_device *pdev)
 
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "base");
 	core->reg_if = devm_ioremap_resource(dev, res);
-	if (IS_ERR(core->reg_if))
+	if (IS_ERR(core->reg_if)) {
+		dev_err(dev, "%s: ioremap core->reg_if failed\n", __func__);
+		WRAP_AEE_EXCEPTION("seninf_core_probe", "ioremap reg_if");
 		return PTR_ERR(core->reg_if);
+	}
 
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "ana-rx");
 	core->reg_ana = devm_ioremap_resource(dev, res);
-	if (IS_ERR(core->reg_ana))
+	if (IS_ERR(core->reg_ana)) {
+		dev_err(dev, "%s: ioremap core->reg_ana failed\n", __func__);
+		WRAP_AEE_EXCEPTION("seninf_core_probe", "ioremap reg_ana");
 		return PTR_ERR(core->reg_ana);
+	}
 
 	ret = get_seninf_ops(dev, core);
 	if (ret) {
-		dev_info(dev, "failed to get seninf ops\n");
+		dev_err(dev, "%s: get_seninf_ops failed\n", __func__);
+		WRAP_AEE_EXCEPTION("seninf_core_probe", "Get Seninf Ops");
 		return ret;
 	}
 	mtk_cam_seninf_init_res(core);
@@ -1047,15 +1059,14 @@ static int seninf_core_probe(struct platform_device *pdev)
 	/* Return: non-zero IRQ number on success, negative error number on failure. */
 	irq = platform_get_irq_byname(pdev, "seninf-irq");
 	if (irq <= 0) {
-		dev_info(dev,
-			"failed to get seninf-irq number, ret:%d\n",
-			irq);
+		dev_err(dev, "%s: failed to get seninf-irq number, ret:%d\n", __func__, irq);
 		//return -ENODEV;
 	} else {
 		ret = devm_request_threaded_irq(dev, irq, mtk_irq_seninf,
 					mtk_thread_irq_seninf, 0, dev_name(dev), core);
 		if (ret) {
-			dev_info(dev, "failed to request seninf-irq=%d\n", irq);
+			dev_err(dev, "%s: Request seninf-irq failed\n", __func__);
+			WRAP_AEE_EXCEPTION("seninf_core_probe", "Request seninf-irq");
 			return ret;
 		}
 		dev_info(dev, "registered seninf-irq=%d\n", irq);
@@ -1063,9 +1074,7 @@ static int seninf_core_probe(struct platform_device *pdev)
 
 	irq = platform_get_irq_byname(pdev, "tsrec-irq");
 	if (irq <= 0) {
-		dev_info(dev,
-			"failed to get tsrec-irq number, ret:%d\n",
-			irq);
+		dev_err(dev, "%s: failed to get tsrec-irq number, ret:%d\n", __func__, irq);
 		//return -ENODEV;
 	} else
 		mtk_cam_seninf_tsrec_irq_init(core, irq);
@@ -1101,7 +1110,7 @@ static int seninf_core_probe(struct platform_device *pdev)
 	/* vcore node get */
 	core->dvfsrc_vcore_power = devm_regulator_get_optional(dev, "dvfsrc-vcore");
 	if (IS_ERR(core->dvfsrc_vcore_power)) {
-		dev_info(dev, "failed to get dvfsrc-vcore\n");
+		dev_err(dev, "%s: failed to get dvfsrc-vcore\n", __func__);
 		core->dvfsrc_vcore_power = NULL;
 	}
 
@@ -1109,7 +1118,7 @@ static int seninf_core_probe(struct platform_device *pdev)
 	for (i = 0; i < CLK_MAXCNT; i++) {
 		core->clk[i] = devm_clk_get(dev, clk_names[i]);
 		if (IS_ERR(core->clk[i])) {
-			dev_info(dev, "failed to get %s\n", clk_names[i]);
+			dev_err(dev, "%s: failed to get %s\n", __func__, clk_names[i]);
 			core->clk[i] = NULL;
 			//return -EINVAL;
 		}
@@ -1144,39 +1153,38 @@ static int seninf_core_probe(struct platform_device *pdev)
 
 	ret = of_platform_populate(dev->of_node, NULL, NULL, dev);
 	if (ret) {
-		dev_info(dev, "%s: failed to create sub devices\n", __func__);
+		dev_err(dev, "%s: create sub devices failed\n", __func__);
+		WRAP_AEE_EXCEPTION("seninf_core_probe", "Create Sub Devices");
 		return ret;
 	}
 
 #ifdef SENINF_DVFS_READY
 	ret = seninf_dfs_init(&core->dfs, dev);
 	if (ret) {
-		dev_info(dev, "%s: failed to init dfs\n", __func__);
+		dev_err(dev, "%s: failed to init dfs\n", __func__);
 		//return ret;
 	}
 #endif
 
 	ret = device_create_file(dev, &dev_attr_status);
 	if (ret)
-		dev_info(dev, "failed to create sysfs status\n");
+		dev_err(dev, "%s: failed to create sysfs status\n", __func__);
 
 	ret = device_create_file(dev, &dev_attr_debug_ops);
 	if (ret)
-		dev_info(dev, "failed to create sysfs debug ops\n");
+		dev_err(dev, "%s: failed to create sysfs debug ops\n", __func__);
 
 	ret = device_create_file(dev, &dev_attr_err_status);
 	if (ret)
-		dev_info(dev, "failed to create sysfs status\n");
+		dev_err(dev, "%s: failed to create sysfs status\n", __func__);
 
 	seninf_core_pm_runtime_enable(core);
-	device_enable_async_suspend(dev);
 
 	kthread_init_worker(&core->seninf_worker);
 	core->seninf_kworker_task = kthread_run(kthread_worker_fn,
 				&core->seninf_worker, "seninf_worker");
 	if (IS_ERR(core->seninf_kworker_task)) {
-		dev_info(dev, "%s: failed to start seninf kthread worker\n",
-			__func__);
+		dev_err(dev, "%s: failed to start seninf kthread worker\n", __func__);
 		core->seninf_kworker_task = NULL;
 	} else {
 		dev_info(dev, "%s: seninf kthread worker set prio to fifo\n", __func__);

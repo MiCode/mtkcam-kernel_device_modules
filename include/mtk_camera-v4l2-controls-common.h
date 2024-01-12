@@ -175,6 +175,9 @@
 #define V4L2_CID_MTK_AOV_SWITCH_MCLK_ULPOSC \
 	(V4L2_CID_USER_MTK_SENSOR_BASE + 38)
 
+#define V4L2_CID_MTK_DO_NOT_POWER_ON \
+	(V4L2_CID_USER_MTK_SENSOR_BASE + 39)
+
 /**
  * enum scl for imgsensor gpio aux function.
  */

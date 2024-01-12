@@ -1126,13 +1126,16 @@ void set_long_exposure(struct subdrv_ctx *ctx)
 			ctx->frame_length = shutter + ctx->s_ctx.exposure_margin;
 		DRV_LOG(ctx, "long exposure mode: lshift %u times", l_shift);
 		set_i2c_buffer(ctx, ctx->s_ctx.reg_addr_exposure_lshift, l_shift);
+		ctx->l_shift = l_shift;
 		/* Frame exposure mode customization for LE*/
 		ctx->ae_frm_mode.frame_mode_1 = IMGSENSOR_AE_MODE_SE;
 		ctx->ae_frm_mode.frame_mode_2 = IMGSENSOR_AE_MODE_SE;
 		ctx->current_ae_effective_frame = 2;
 	} else {
-		if (ctx->s_ctx.reg_addr_exposure_lshift != PARAM_UNDEFINED)
+		if (ctx->s_ctx.reg_addr_exposure_lshift != PARAM_UNDEFINED) {
 			set_i2c_buffer(ctx, ctx->s_ctx.reg_addr_exposure_lshift, l_shift);
+			ctx->l_shift = l_shift;
+		}
 		ctx->current_ae_effective_frame = 2;
 	}
 
@@ -1311,8 +1314,10 @@ void set_multi_shutter_frame_length(struct subdrv_ctx *ctx,
 	default:
 		break;
 	}
-	if (ctx->s_ctx.reg_addr_exposure_lshift != PARAM_UNDEFINED)
+	if (ctx->s_ctx.reg_addr_exposure_lshift != PARAM_UNDEFINED) {
 		set_i2c_buffer(ctx, ctx->s_ctx.reg_addr_exposure_lshift, 0);
+		ctx->l_shift = 0;
+	}
 	for (i = 0; i < 3; i++) {
 		if (rg_shutters[i]) {
 			if (ctx->s_ctx.reg_addr_exposure[i].addr[2]) {
@@ -1550,8 +1555,10 @@ void set_multi_shutter_frame_length_in_lut(struct subdrv_ctx *ctx,
 	set_auto_flicker(ctx, 0);
 	write_frame_length_in_lut(ctx, ctx->frame_length, ctx->frame_length_in_lut);
 	/* write shutter: LUT register differs from DOL */
-	if (ctx->s_ctx.reg_addr_exposure_lshift != PARAM_UNDEFINED)
+	if (ctx->s_ctx.reg_addr_exposure_lshift != PARAM_UNDEFINED) {
 		set_i2c_buffer(ctx, ctx->s_ctx.reg_addr_exposure_lshift, 0);
+		ctx->l_shift = 0;
+	}
 	for (i = 0; i < 3; i++) {
 		if (cit_in_lut[i]) {
 			if (ctx->s_ctx.reg_addr_exposure_in_lut[i].addr[2]) {
@@ -2708,6 +2715,7 @@ void subdrv_ctx_init(struct subdrv_ctx *ctx)
 	ctx->current_ae_effective_frame = ctx->s_ctx.ae_effective_frame;
 	ctx->extend_frame_length_en = FALSE;
 	ctx->ae_ctrl_gph_en = FALSE;
+	ctx->l_shift = 0;
 	for (i = 0; i < ctx->s_ctx.sensor_mode_num ; i++) {
 		if (!ctx->s_ctx.mode[i].sensor_output_dataformat)
 			ctx->s_ctx.mode[i].sensor_output_dataformat =
@@ -3063,6 +3071,7 @@ void update_mode_info(struct subdrv_ctx *ctx, enum SENSOR_SCENARIO_ID_ENUM scena
 	ctx->read_margin = ctx->s_ctx.mode[scenario_id].read_margin;
 	ctx->min_frame_length = ctx->frame_length;
 	ctx->autoflicker_en = FALSE;
+	ctx->l_shift = 0;
 	if (ctx->s_ctx.mode[scenario_id].hdr_mode == HDR_RAW_LBMF) {
 		memset(ctx->frame_length_in_lut, 0,
 			sizeof(ctx->frame_length_in_lut));

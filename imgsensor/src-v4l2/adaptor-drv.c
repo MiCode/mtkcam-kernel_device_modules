@@ -833,6 +833,9 @@ static int imgsensor_start_streaming(struct adaptor_ctx *ctx)
 
 	/* update timeout value after reset*/
 	update_shutter_for_timeout_by_ae_ctrl(ctx, &ctx->ae_memento);
+	/* 1st/2nd framelength */
+	ctx->last_framelength = ctx->subctx.frame_length_rg;
+	update_framelength_for_timeout(ctx);
 
 	/* notify frame-sync streaming ON */
 	notify_fsync_mgr_streaming(ctx, 1);

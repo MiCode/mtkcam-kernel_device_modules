@@ -182,6 +182,7 @@ static inline int guard_apply_sensor_subsample(struct state_accessor *s_acc,
 {
 	/* TODO: add ts check */
 	return allow_applying_hw(s_acc) &&
+		ops_call(s_acc, prev_allow_apply_sensor) &&
 		ops_call(s_acc, cur_isp_state) >= S_ISP_APPLYING;
 }
 
@@ -204,6 +205,11 @@ static inline int guard_apply_sensor_l(struct state_accessor *s_acc,
 static inline bool is_sensor_set(int sensor_state)
 {
 	return sensor_state >= S_SENSOR_LATCHED;
+}
+
+static inline bool is_sensor_ge_applied(int sensor_state)
+{
+	return sensor_state >= S_SENSOR_APPLIED;
 }
 
 static inline bool is_isp_ge_outer(int isp_state)

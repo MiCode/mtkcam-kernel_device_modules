@@ -131,9 +131,10 @@ static int subsample_send_event(struct mtk_cam_job_state *s,
 static int _is_next_sensor_applicable(struct mtk_cam_job_state *s)
 {
 	/* since in subsample, sensor setting is applied after cq
-	 * we don't need to consider previous job.
+	 * we don't need to consider previous job's isp status.
+	 * make sure previous job's sensor i2c transmission is done.
 	 */
-	return 1;
+	return is_sensor_ge_applied(mtk_cam_job_state_get(s, SENSOR_STATE));
 }
 
 static int _is_next_isp_applicable(struct mtk_cam_job_state *s)

@@ -60,25 +60,70 @@ static struct eeprom_info_struct eeprom_info[] = {
 };
 
 static struct SET_PD_BLOCK_INFO_T imgsensor_pd_info = {
-	.i4OffsetX = 0,
-	.i4OffsetY = 0,
-	.i4PitchX = 0,
-	.i4PitchY = 0,
-	.i4PairNum = 0,
-	.i4SubBlkW = 0,
-	.i4SubBlkH = 0,
-	.i4PosL = {{0, 0} },
-	.i4PosR = {{0, 0} },
-	.i4BlockNumX = 0,
-	.i4BlockNumY = 0,
+	.i4OffsetX = 40,
+	.i4OffsetY = 14,
+	.i4PitchX = 16,
+	.i4PitchY = 16,
+	.i4PairNum = 8,
+	.i4SubBlkW = 8,
+	.i4SubBlkH = 4,
+	.i4PosL = {{47, 16}, {55, 16}, {43, 20}, {51, 20},
+	           {47, 24}, {55, 24}, {43, 28}, {51, 28}},
+	.i4PosR = {{46, 16}, {54, 16}, {42, 20}, {50, 20},
+	           {46, 24}, {54, 24}, {42, 28}, {50, 28}},
+	.i4BlockNumX = 284,
+	.i4BlockNumY = 215,
 	.i4LeFirst = 0,
 	.i4Crop = {
-		{0, 0}, {0, 0}, {0, 384}, {0, 384}, {0, 0},
-		{0, 0}, {0, 384}, {0, 0}, {0, 384}, {0, 384}
+		// <prev> <cap> <vid> <hs_vid> <slim_vid>
+		{0, 0}, {0, 0}, {0, 434}, {0, 434}, {0, 434},
+		// <cust1> <cust2> <cust3> <cust4> <cust5>
+		{0, 0}, {0, 434}, {0, 0}, {0, 0}, {0, 0},
+		// <cust6> <cust7>
+		{0, 0}, {0, 0},
 	},
-	.iMirrorFlip = 3,
+	.iMirrorFlip = 0,
+
+	.i4FullRawW = 4624,
+	.i4FullRawH = 3472,
+	.sPDMapInfo[0] = {
+		.i4PDPattern = 2,
+		.i4PDRepetition = 4,
+		.i4PDOrder = {1}, // R = 1, L = 0
+	},
 };
 
+static struct SET_PD_BLOCK_INFO_T imgsensor_pd_info_fullsize = {
+	.i4OffsetX = 32,
+	.i4OffsetY = 32,
+	.i4PitchX = 16,
+	.i4PitchY = 16,
+	.i4PairNum = 2,
+	.i4SubBlkW = 16,
+	.i4SubBlkH = 8,
+	.i4PosL = {{46, 37}, {39, 45}},
+	.i4PosR = {{45, 37}, {38, 45}},
+	.i4BlockNumX = 568,
+	.i4BlockNumY = 430,
+	.i4LeFirst = 0,
+	.i4Crop = {
+		// <prev> <cap> <vid> <hs_vid> <slim_vid>
+		{0, 0}, {0, 0}, {0, 434}, {0, 434}, {0, 434},
+		// <cust1> <cust2> <cust3> <cust4> <cust5>
+		{0, 0}, {0, 434}, {0, 0}, {0, 0}, {0, 0},
+		// <cust6> <cust7>
+		{0, 0}, {0, 0},
+	},
+	.iMirrorFlip = 0,
+
+	.i4FullRawW = 9248,
+	.i4FullRawH = 6944,
+	.sPDMapInfo[0] = {
+		.i4PDPattern = 2,
+		.i4PDRepetition = 1,
+		.i4PDOrder = {1}, // R = 1, L = 0
+	},
+};
 
 // mode 0: 4624*3472@30fps, normal preview + PD 1136 x 860
 static struct mtk_mbus_frame_desc_entry frame_desc_prev[] = {
@@ -834,7 +879,7 @@ static struct subdrv_mode_struct mode_struct[] = {
 			.h2_tg_size = 6944,
 		},
 		.pdaf_cap = FALSE,
-		.imgsensor_pd_info = &imgsensor_pd_info,
+		.imgsensor_pd_info = &imgsensor_pd_info_fullsize,
 		.ae_binning_ratio = 1420,
 		.fine_integ_line = 0,
 		.delay_frame = 3,
@@ -877,7 +922,7 @@ static struct subdrv_mode_struct mode_struct[] = {
 			.h2_tg_size = 6944,
 		},
 		.pdaf_cap = FALSE,
-		.imgsensor_pd_info = &imgsensor_pd_info,
+		.imgsensor_pd_info = &imgsensor_pd_info_fullsize,
 		.ae_binning_ratio = 1420,
 		.fine_integ_line = 0,
 		.delay_frame = 3,

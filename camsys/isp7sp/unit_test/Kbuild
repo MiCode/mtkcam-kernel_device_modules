@@ -4,6 +4,7 @@ ccflags-y += -I$(DEVICE_MODULES_PATH)/drivers/media/platform/mtk-isp \
 	     -I$(DEVICE_MODULES_PATH)/drivers/media/platform/mtk-isp/camsys/isp7sp \
 		 -I$(DEVICE_MODULES_PATH)/drivers/rpmsg/ \
 		 -I$(DEVICE_MODULES_PATH)/drivers/remoteproc/ \
+		 -I$(DEVICE_MODULES_PATH)/include/ \
 		 -I$(srctree)/drivers/rpmsg/ \
 		 -I$(srctree)/drivers/remoteproc/
 cam-ut-objs := mtk_cam_ut-cam.o \

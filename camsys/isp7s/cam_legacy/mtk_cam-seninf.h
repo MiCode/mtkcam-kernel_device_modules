@@ -13,7 +13,7 @@
 #include "mtk_cam-seninf-def.h"
 #include "imgsensor-user.h"
 #include "mtk_cam-seninf-regs.h"
-#include "mtk_cam-aov.h"
+#include "scpsys/mtk_cam-aov.h"
 
 /* def V4L2_MBUS_CSI2_IS_USER_DEFINED_DATA */
 #define SENINF_VC_ROUTING

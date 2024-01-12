@@ -2627,6 +2627,16 @@ void get_multi_exp_shutter_range_by_scenario(struct subdrv_ctx *ctx,
 		sizeof(struct u64_min_max)*IMGSENSOR_EXPOSURE_CNT);
 }
 
+void get_sensor_frame_count(struct subdrv_ctx *ctx, u32 *frame_cnt)
+{
+	u32 framecnt = 0;
+
+	if (!ctx->s_ctx.reg_addr_frame_count)
+		return;
+	framecnt = subdrv_i2c_rd_u8(ctx, ctx->s_ctx.reg_addr_frame_count);
+	*frame_cnt = framecnt;
+}
+
 int common_get_imgsensor_id(struct subdrv_ctx *ctx, u32 *sensor_id)
 {
 	u8 i = 0;
@@ -3542,6 +3552,9 @@ int common_feature_control(struct subdrv_ctx *ctx, MSDK_SENSOR_FEATURE_ENUM feat
 		get_multi_exp_shutter_range_by_scenario(ctx,
 			(enum SENSOR_SCENARIO_ID_ENUM)*(feature_data),
 			feature_data + 1, (void *)(uintptr_t)(*(feature_data + 2)));
+		break;
+	case SENSOR_FEATURE_GET_FRAME_CNT:
+		get_sensor_frame_count(ctx, (u32 *) feature_data);
 		break;
 	default:
 		DRV_LOGE(ctx, "feature_id %u is invalid\n", feature_id);

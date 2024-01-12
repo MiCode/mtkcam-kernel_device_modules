@@ -2267,6 +2267,23 @@ int reset_sensor(struct seninf_ctx *ctx)
 	return 0;
 }
 
+void mtk_cam_sensor_get_frame_cnt(struct seninf_ctx *ctx, u32 *frame_cnt)
+{
+	if (!ctx)
+		return;
+
+	if (ctx->sensor_sd &&
+	    ctx->sensor_sd->ops &&
+	    ctx->sensor_sd->ops->core &&
+	    ctx->sensor_sd->ops->core->command) {
+		ctx->sensor_sd->ops->core->command(ctx->sensor_sd,
+						V4L2_CMD_G_SENSOR_FRAME_CNT,
+						frame_cnt);
+	} else {
+		dev_info(ctx->dev,
+			"%s: find sensor command failed\n",	__func__);
+	}
+}
 
 int notify_fsync_listen_target(struct seninf_ctx *ctx)
 {

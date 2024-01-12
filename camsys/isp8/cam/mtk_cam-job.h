@@ -271,6 +271,12 @@ struct mmqos_bw {
 	u32 avg_bw;
 };
 
+struct mtk_cam_seamless_ops {
+	int (*before_sensor)(struct mtk_cam_job *s);
+	int (*after_sensor)(struct mtk_cam_job *s);
+	int (*after_prev_frame_done)(struct mtk_cam_job *s);
+};
+
 struct mtk_cam_job_ops {
 	/* job control */
 	void (*cancel)(struct mtk_cam_job *job);
@@ -294,13 +300,12 @@ struct mtk_cam_job_ops {
 	int (*mark_engine_done)(struct mtk_cam_job *s,
 				int engine_type, int engine_id,
 				int seq_no);
-	int (*switch_prepare)(struct mtk_cam_job *s);
-	int (*apply_switch)(struct mtk_cam_job *s);
 	int (*dump_aa_info)(struct mtk_cam_job *s);
 	int (*apply_extisp_meta_pd)(struct mtk_cam_job *s); /* extisp use */
 	int (*apply_extisp_procraw)(struct mtk_cam_job *s); /* extisp use */
 
 	int (*sw_recovery)(struct mtk_cam_job *s);
+	struct mtk_cam_seamless_ops *seamless_ops;
 };
 
 struct initialize_params {
@@ -445,6 +450,14 @@ static inline bool mtk_cam_job_is_done(struct mtk_cam_job *job)
 	typeof(job) _job = (job);\
 	typeof(_job->ops) _ops = _job->ops;\
 	_ops && _ops->func ? _ops->func(_job, ##__VA_ARGS__) : -EINVAL;\
+})
+
+#define call_job_seamless_ops(job, func, ...) \
+({\
+	typeof(job) _job = (job);\
+	typeof(_job->ops) _ops = _job->ops;\
+	_ops && _ops->seamless_ops && _ops->seamless_ops->func ?\
+		_ops->seamless_ops->func(_job, ##__VA_ARGS__) : 0;\
 })
 
 #define call_jobop_opt(job, func, ...)\

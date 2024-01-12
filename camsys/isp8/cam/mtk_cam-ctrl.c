@@ -524,7 +524,6 @@ static int mtk_cam_ctrl_send_event(struct mtk_cam_ctrl *ctrl, int event)
 	if (CAM_DEBUG_ENABLED(STATE))
 		debug_send_event(&p);
 
-
 	ctrl_send_event(ctrl, &p);
 
 	mtk_cam_ctrl_wake_up_on_event(ctrl, event);
@@ -1217,19 +1216,30 @@ static void mtk_cam_ctrl_seamless_switch_flow(struct mtk_cam_job *job)
 	}
 
 	mtk_cam_job_update_clk_switching(job, 1);
-	call_jobop(job, switch_prepare);
+	call_job_seamless_ops(job, before_sensor);
 
 	mtk_cam_job_manually_apply_sensor(job);
 
-	if (mtk_cam_job_manually_apply_isp_sync(job))
+	/* should set ts for next job's apply_sensor */
+	ctrl->r_info.sof_ts_ns = ktime_get_boottime_ns();
+	ctrl->r_info.sof_l_ts_ns = ktime_get_boottime_ns();
+
+	if (call_job_seamless_ops(job, after_sensor))
 		goto SWITCH_FAILURE;
 
-	call_jobop(job, apply_switch);
 	vsync_set_desired(&ctrl->vsync_col, job->master_engine);
+
+	if (mtk_cam_ctrl_wait_event(ctrl, check_done, &prev_seq, 999)) {
+		dev_info(dev, "[%s] check_done timeout: prev_seq=0x%x\n",
+			 __func__, prev_seq);
+		goto SWITCH_FAILURE;
+	}
+
+	call_job_seamless_ops(job, after_prev_frame_done);
 
 	check_args.expect_inner = job->frame_seq_no;
 	if (mtk_cam_ctrl_wait_event(ctrl, check_for_inner, &check_args,
-				    999)) {
+				    1001)) {
 		dev_info(dev, "[%s] check_for_inner timeout: expected in=0x%x\n",
 			 __func__, check_args.expect_inner);
 		goto SWITCH_FAILURE;

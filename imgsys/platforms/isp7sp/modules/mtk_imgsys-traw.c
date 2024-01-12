@@ -51,7 +51,7 @@
  ********************************************************************/
 const struct mtk_imgsys_init_array
 			mtk_imgsys_traw_init_ary[TRAW_INIT_ARRAY_COUNT] = {
-	{0x00F8, 0x80000000}, /* TRAWCTL_INT1_EN */
+	{0x00D4, 0x80000000}, /* TRAWCTL_INT1_EN */
 };
 
 #if IF_0_DEFINE //YWTBD K DBG
@@ -116,7 +116,7 @@ static struct TRAWDmaDebugInfo g_DMADbgIfo[] = {
 
 static unsigned int g_RegBaseAddr = TRAW_A_BASE_ADDR;
 
-static void __iomem *g_trawRegBA, *g_ltrawRegBA;
+static void __iomem *g_trawRegBA, *g_ltrawRegBA, *g_ispMainRegBA;
 
 static unsigned int g_IOMMUDumpPort;
 
@@ -782,6 +782,7 @@ void imgsys_traw_set_initial_value(struct mtk_imgsys_dev *imgsys_dev)
 	/* iomap reg base */
 	g_trawRegBA = of_iomap(imgsys_dev->dev->of_node, REG_MAP_E_TRAW);
 	g_ltrawRegBA = of_iomap(imgsys_dev->dev->of_node, REG_MAP_E_LTRAW);
+	g_ispMainRegBA = of_iomap(imgsys_dev->dev->of_node, REG_MAP_E_TOP);
 	imgsys_traw_reg_iommu_cb();
 	/* Register IOMMU Callback */
 	g_IOMMUDumpPort = 0;
@@ -962,6 +963,12 @@ void imgsys_traw_debug_dump(struct mtk_imgsys_dev *imgsys_dev,
 			(unsigned int)ioread32((void *)(trawRegBA + i + 12))) > 0)
 			pr_info("%s\n", DbgStr);
 	}
+	if (sprintf(DbgStr, "[0x%08X] 0x%08X [0x%08X] 0x%08X\n",
+			(unsigned int)0x15000000,
+			(unsigned int)ioread32((void *)(g_ispMainRegBA)),
+			(unsigned int)0x15001200,
+			(unsigned int)ioread32((void *)(g_ispMainRegBA + 0x1200))) > 0)
+			pr_info("%s\n", DbgStr);
 #if IF_0_DEFINE //YWTBD K DBG
 	/* DMA debug data */
 	imgsys_traw_dump_dma(imgsys_dev, trawRegBA, DMADdbSel, DMADbgOut);
@@ -985,5 +992,9 @@ void imgsys_traw_uninit(struct mtk_imgsys_dev *imgsys_dev)
 	if (g_ltrawRegBA) {
 		iounmap(g_ltrawRegBA);
 		g_ltrawRegBA = 0L;
+	}
+	if (g_ispMainRegBA) {
+		iounmap(g_ispMainRegBA);
+		g_ispMainRegBA = 0L;
 	}
 }

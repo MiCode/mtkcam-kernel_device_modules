@@ -1055,6 +1055,7 @@ int get_bayer_ufbc_stride_and_size(u32 w, u32 h,
 			u32 *stride, u32 *bufsize)
 {
 	u32 aligned_width;
+	u32 aligned_len_w;
 
 	if (!info)
 		return -1;
@@ -1064,10 +1065,10 @@ int get_bayer_ufbc_stride_and_size(u32 w, u32 h,
 	*stride = aligned_width * info->bitpp[0] / 8;
 
 	*bufsize = (*stride) * h;
-	*bufsize += ALIGN((aligned_width / 64),
-		UFBC_TABLE_STRIDE_ALIGNMENT) * h;
-	// workaround for P2/WPE require len table size to align 64
-	*bufsize += 64;
+	aligned_len_w = ALIGN((aligned_width / 64),
+		  UFBC_TABLE_STRIDE_ALIGNMENT);
+	/* NOTE: size of P2/WPE len table to be aligned to 64 */
+	*bufsize += ALIGN(aligned_len_w * h, 64);
 	*bufsize += sizeof(struct UfbcBufferHeader);
 
 	*stride = max(byteperline, *stride);

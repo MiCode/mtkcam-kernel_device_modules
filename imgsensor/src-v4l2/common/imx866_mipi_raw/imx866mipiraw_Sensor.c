@@ -963,7 +963,7 @@ static struct subdrv_static_ctx static_ctx = {
 	.min_gain_iso = 100,
 	.exposure_def = 0x3D0,
 	.exposure_min = 24,
-	.exposure_max = 65532 - 48,
+	.exposure_max = 128 * (0xFFFC - 48),
 	.exposure_step = 4,
 	.exposure_margin = 48,
 

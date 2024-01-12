@@ -18,9 +18,11 @@
 
 #include "mtk-interconnect.h"
 
-#define MAX_REG_BASE 1
+#define MAX_REG_BASE 4
 
 extern int aie_log_level_value;
+extern int aie_cg_debug_open_en;
+extern int aie_cg_debug_perframe_en;
 
 enum aie_log_level {
 	AIE_DEFLAUT_ON = 0,
@@ -240,6 +242,11 @@ do {								\
 #define MAX_DEBUG_TIMEVAL 7
 
 extern struct mtk_aie_user_para g_user_param;
+
+struct aie_reg_map {
+	unsigned int base;
+	unsigned int offset;
+};
 
 struct aie_static_info {
 	unsigned int fd_wdma_size[fd_loop_num][output_WDMA_WRA_num];
@@ -607,6 +614,7 @@ struct mtk_aie_drv_ops {
 	void (*irq_handle)(struct mtk_aie_dev *fd);
 	void (*config_fld_buf_reg)(struct mtk_aie_dev *fd);
 	void (*fdvt_dump_reg)(struct mtk_aie_dev *fd);
+	void (*dump_cg_reg)(struct mtk_aie_dev *fd);
 	void (*enable_ddren)(struct mtk_aie_dev *fd);
 };
 
@@ -633,6 +641,7 @@ struct mtk_aie_dev {
 
 	void __iomem *fd_base;
 	void __iomem *reg_base[MAX_REG_BASE];
+	unsigned int reg_map_num;
 
 	u32 fdvt_sec_set;
 	u32 fdvt_sec_wait;

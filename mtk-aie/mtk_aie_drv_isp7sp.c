@@ -5289,23 +5289,53 @@ static void aie_arrange_network(struct mtk_aie_dev *fd)
 
 }
 
-static void aie_enable_ddren(struct mtk_aie_dev *fd)
+static void aie_dump_cg_reg(struct mtk_aie_dev *fd)
 {
-	void __iomem *ddren_reg = 0L;
+	void __iomem *isp_main_reg = fd->reg_base[0];
+	void __iomem *isp_vcore_reg = fd->reg_base[1];
+	void __iomem *sys_spm_reg = fd->reg_base[2];
+	void __iomem *top_ck_gen_reg = fd->reg_base[3];
+
+	aie_dev_info(fd->dev, "Dump AIE CG/PG:\n");
+
+	if (isp_main_reg != NULL)
+		aie_dev_info(fd->dev, "[0x%08X] 0x%08X\n",
+			(unsigned int)(unsigned long long)(void *)isp_main_reg,
+			(unsigned int)ioread32((void *)(isp_main_reg)));
+
+	if (isp_vcore_reg != NULL)
+		aie_dev_info(fd->dev, "[0x%08X] 0x%08X\n",
+			(unsigned int)(unsigned long long)(void *)isp_vcore_reg,
+			(unsigned int)ioread32((void *)(isp_vcore_reg)));
+
+	if (sys_spm_reg != NULL)
+		aie_dev_info(fd->dev, "[0x%08X] 0x%08X\n",
+			(unsigned int)(unsigned long long)(void *)(sys_spm_reg + 0xe48),
+			(unsigned int)ioread32((void *)(sys_spm_reg + 0xe48)));
+
+	if (top_ck_gen_reg != NULL)
+		aie_dev_info(fd->dev, "[0x%08X] 0x%08X\n",
+			(unsigned int)(unsigned long long)(void *)(top_ck_gen_reg + 0x840),
+			(unsigned int)ioread32((void *)(top_ck_gen_reg + 0x840)));
+}
+
+static void aie_enable_ddren_7sp_1(struct mtk_aie_dev *fd)
+{
+	void __iomem *isp_vcore_reg = 0L;
 	uint32_t value = 0;
 	int count = 0;
 
-	ddren_reg = fd->reg_base[0];
-	if (ddren_reg != NULL) {
-		value = ioread32((void *)(ddren_reg + 0x10));
+	isp_vcore_reg = fd->reg_base[1];
+	if (isp_vcore_reg != NULL) {
+		value = ioread32((void *)(isp_vcore_reg + 0x10));
 		aie_dev_info(fd->dev, "[%s]  R(0x%x): 0x%x\n\n",
-				__func__, (uint32_t)(uint64_t)(ddren_reg + 0x10), value);
+				__func__, (uint32_t)(uint64_t)(isp_vcore_reg + 0x10), value);
 		value |= 0x1000;
-		iowrite32(value, (void *)(ddren_reg + 0x10));
+		iowrite32(value, (void *)(isp_vcore_reg + 0x10));
 
 		count = 0;
 		while (count < 1000000) {
-			value = ioread32((void *)(ddren_reg + 0x14));
+			value = ioread32((void *)(isp_vcore_reg + 0x14));
 			if ((value & 0x2) == 0x2)
 				break;
 			count++;
@@ -5315,12 +5345,12 @@ static void aie_enable_ddren(struct mtk_aie_dev *fd)
 			aie_dev_info(fd->dev, "[%s] APSRC ACK count(%d)\n",
 				__func__, count);
 
-		value = ioread32((void *)(ddren_reg + 0x10));
+		value = ioread32((void *)(isp_vcore_reg + 0x10));
 		value |= 0x100;
-		iowrite32(value, (ddren_reg + 0x10));
+		iowrite32(value, (isp_vcore_reg + 0x10));
 		count = 0;
 		while (count < 1000000) {
-			value = ioread32((void *)(ddren_reg + 0x14));
+			value = ioread32((void *)(isp_vcore_reg + 0x14));
 			if ((value & 0x1) == 0x1)
 				break;
 			count++;
@@ -5330,9 +5360,9 @@ static void aie_enable_ddren(struct mtk_aie_dev *fd)
 			aie_dev_info(fd->dev, "[%s] DDREN ACK count(%d)\n",
 				__func__, count);
 
-		value = ioread32((void *)(ddren_reg + 0x10));
+		value = ioread32((void *)(isp_vcore_reg + 0x10));
 		aie_dev_info(fd->dev, "[%s]  R(0x%x): 0x%x\n\n",
-				__func__, (uint32_t)(uint64_t)(ddren_reg + 0x10), value);
+				__func__, (uint32_t)(uint64_t)(isp_vcore_reg + 0x10), value);
 	} else {
 		aie_dev_info(fd->dev, "[%s] Failed to enable ddren\n", __func__);
 	}
@@ -5351,6 +5381,7 @@ const struct mtk_aie_drv_ops aie_ops_isp7sp = {
 	.irq_handle = aie_irqhandle,
 	.config_fld_buf_reg = aie_config_fld_buf_reg,
 	.fdvt_dump_reg = aie_fdvt_dump_reg,
+	.dump_cg_reg = aie_dump_cg_reg,
 };
 
 const struct mtk_aie_drv_ops aie_ops_isp7sp_1 = {
@@ -5366,7 +5397,8 @@ const struct mtk_aie_drv_ops aie_ops_isp7sp_1 = {
 	.irq_handle = aie_irqhandle,
 	.config_fld_buf_reg = aie_config_fld_buf_reg,
 	.fdvt_dump_reg = aie_fdvt_dump_reg,
-	.enable_ddren = aie_enable_ddren,
+	.dump_cg_reg = aie_dump_cg_reg,
+	.enable_ddren = aie_enable_ddren_7sp_1,
 };
 
 MODULE_IMPORT_NS(DMA_BUF);

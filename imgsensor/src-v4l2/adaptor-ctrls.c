@@ -501,7 +501,10 @@ static int do_set_dcg_ae_ctrl(struct adaptor_ctx *ctx,
 
 		notify_fsync_mgr_set_extend_framelength(ctx, para.u64[0]);
 	}
-
+	if (ae_ctrl->actions & IMGSENSOR_EXTEND_FRAME_LENGTH_TO_DOL_DISABLE) {
+		ctx->subctx.extend_frame_length_en = FALSE;
+		dev_info(ctx->dev, "Disabled extend framelength.");
+	}
 	ctx->exposure->val = FINE_INTEG_CONVERT(ae_ctrl->exposure.le_exposure, ctx->cur_mode->fine_intg_line);
 	ctx->analogue_gain->val = ae_ctrl->gain.le_gain;
 	ctx->subctx.ae_ctrl_gph_en = 0;
@@ -623,7 +626,10 @@ static int do_set_ae_ctrl(struct adaptor_ctx *ctx,
 
 		notify_fsync_mgr_set_extend_framelength(ctx, para.u64[0]);
 	}
-
+	if (ae_ctrl->actions & IMGSENSOR_EXTEND_FRAME_LENGTH_TO_DOL_DISABLE) {
+		ctx->subctx.extend_frame_length_en = FALSE;
+		dev_info(ctx->dev, "Disabled extend framelength.");
+	}
 	ctx->exposure->val = FINE_INTEG_CONVERT(ae_ctrl->exposure.le_exposure, ctx->cur_mode->fine_intg_line);
 	ctx->analogue_gain->val = ae_ctrl->gain.le_gain;
 	ctx->subctx.ae_ctrl_gph_en = 0;

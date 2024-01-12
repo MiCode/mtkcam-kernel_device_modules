@@ -433,8 +433,7 @@ signed int dpe_request_handler_isp7s(struct engine_requests *eng, spinlock_t *lo
 		ret = eng->ops->frame_handler(&eng->reqs[r].frames[f]);
 			spin_lock_irqsave(lock, flags);
 		if (ret)
-			LOG_WRN("[%s]failed:frame %d of request %d",
-						__func__, f, r);
+			LOG_WRN("[%s]failed:frame", __func__);
 
 	} else {
 		spin_unlock_irqrestore(lock, flags);

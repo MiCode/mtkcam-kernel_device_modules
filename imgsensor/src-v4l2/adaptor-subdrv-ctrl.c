@@ -1978,7 +1978,7 @@ void get_lens_driver_id(struct subdrv_ctx *ctx, u32 *lens_id)
 void check_stream_off(struct subdrv_ctx *ctx)
 {
 	u32 i = 0, framecnt = 0;
-	int timeout = 0;
+	u32 timeout = 0;
 
 	ctx->current_fps = ctx->pclk / ctx->line_length * 10 / ctx->frame_length;
 	timeout = ctx->current_fps ? (10000 / ctx->current_fps) + 1 : 101;
@@ -1991,7 +1991,8 @@ void check_stream_off(struct subdrv_ctx *ctx)
 			return;
 		mdelay(1);
 	}
-	DRV_LOGE(ctx, "stream off fail!\n");
+	DRV_LOGE(ctx, "stream off fail!,cur_fps:%u,timeout:%u\n",
+		ctx->current_fps, timeout);
 }
 
 void streaming_control(struct subdrv_ctx *ctx, bool enable)
@@ -2794,7 +2795,7 @@ void sensor_init(struct subdrv_ctx *ctx)
 
 		DRV_LOG(ctx, "X: size:%u\n", ctx->s_ctx.init_setting_len);
 	} else {
-		DRV_LOGE(ctx, "please implement initial setting!\n");
+		DRV_LOG_MUST(ctx, "please implement initial setting!\n");
 	}
 	/* enable temperature sensor */
 #if IMGSENSOR_AOV_EINT_UT

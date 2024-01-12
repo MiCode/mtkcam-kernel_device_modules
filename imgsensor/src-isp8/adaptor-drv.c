@@ -1468,8 +1468,10 @@ static int imgsensor_probe(struct i3c_i2c_device *client)
 		else
 			is_multicam = 0;
 		if (ctx->phy_ctrl_ver) {
-			if (is_multicam && !strcasecmp(ctx->phy_ctrl_ver,
-				MT6989_PHY_CTRL_VERSIONS))
+			if (is_multicam &&
+				(!strcasecmp(ctx->phy_ctrl_ver, MT6989_PHY_CTRL_VERSIONS) ||
+				!strcasecmp(ctx->phy_ctrl_ver, MT6878_PHY_CTRL_VERSIONS) ||
+				!strcasecmp(ctx->phy_ctrl_ver, MT6991_PHY_CTRL_VERSIONS)))
 				is_imgsensor_fusion_test_workaround = 1;
 		} else
 			is_imgsensor_fusion_test_workaround = 0;

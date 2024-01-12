@@ -81,28 +81,24 @@ static void get_outfmt_code(struct adaptor_ctx *ctx)
 		case SENSOR_OUTPUT_FORMAT_RAW_4CELL_B:
 		case SENSOR_OUTPUT_FORMAT_RAW_4CELL_BAYER_B:
 		case SENSOR_OUTPUT_FORMAT_RAW_4CELL_HW_BAYER_B:
-			dev_info(ctx->dev, "unsupported 4cell output_format %d\n", outfmt);
 			ctx->fmt_code[i] = MEDIA_BUS_FMT_SBGGR10_1X10;
 			break;
 
 		case SENSOR_OUTPUT_FORMAT_RAW_4CELL_Gb:
 		case SENSOR_OUTPUT_FORMAT_RAW_4CELL_BAYER_Gb:
 		case SENSOR_OUTPUT_FORMAT_RAW_4CELL_HW_BAYER_Gb:
-			dev_info(ctx->dev, "unsupported 4cell output_format %d\n", outfmt);
 			ctx->fmt_code[i] = MEDIA_BUS_FMT_SGBRG10_1X10;
 			break;
 
 		case SENSOR_OUTPUT_FORMAT_RAW_4CELL_Gr:
 		case SENSOR_OUTPUT_FORMAT_RAW_4CELL_BAYER_Gr:
 		case SENSOR_OUTPUT_FORMAT_RAW_4CELL_HW_BAYER_Gr:
-			dev_info(ctx->dev, "unsupported 4cell output_format %d\n", outfmt);
 			ctx->fmt_code[i] = MEDIA_BUS_FMT_SGRBG10_1X10;
 			break;
 
 		case SENSOR_OUTPUT_FORMAT_RAW_4CELL_R:
 		case SENSOR_OUTPUT_FORMAT_RAW_4CELL_BAYER_R:
 		case SENSOR_OUTPUT_FORMAT_RAW_4CELL_HW_BAYER_R:
-			dev_info(ctx->dev, "unsupported 4cell output_format %d\n", outfmt);
 			ctx->fmt_code[i] = MEDIA_BUS_FMT_SRGGB10_1X10;
 			break;
 
@@ -158,11 +154,15 @@ static void get_outfmt_code(struct adaptor_ctx *ctx)
 			ctx->fmt_code[i] = MEDIA_BUS_FMT_SBGGR10_1X10;
 			break;
 		default:
-			dev_info(ctx->dev, "unknown output format %d\n", outfmt);
+			dev_info(ctx->dev,
+				"E! [%s] unknown output format:%d\n",
+				__func__, outfmt);
 			ctx->fmt_code[i] = MEDIA_BUS_FMT_SBGGR10_1X10;
 			break;
 		}
-		dev_info(ctx->dev, "scenario id : %d, fmt_code = 0x%04x\n", i, ctx->fmt_code[i]);
+		dev_info(ctx->dev,
+			"X! [%s] scenario id:%d,outfmt/fmt_code:(%d/0x%04x)\n",
+			__func__, i, outfmt, ctx->fmt_code[i]);
 	}
 }
 
@@ -296,7 +296,8 @@ static void add_sensor_mode(struct adaptor_ctx *ctx,
 	mode->active_line_num = get_active_line_num(ctx, mode->id);
 
 
-	dev_dbg(ctx->dev, "%s [%d] id %d %dx%d %dx%d px %d fps %d tLine %lld|%lld fintl %d\n",
+	dev_dbg(ctx->dev,
+		"X! [%s] mode_cnt:%d,id:%d,w/h:(%d/%d),llp/fll:(%d/%d),px:%d,fps:%d,tLine/RO:(%lld|%lld),fintl:%d\n",
 		__func__,
 		idx, id, width, height,
 		mode->llp, mode->fll,
@@ -334,11 +335,15 @@ static void control_sensor(struct adaptor_ctx *ctx)
 	u64 data[4];
 	u32 len;
 
-#if IMGSENSOR_LOG_MORE
-	dev_info(ctx->dev,
-		"[%s]+ is_sensor_scenario_inited(%u),is_streaming(%u)\n",
-		__func__, ctx->is_sensor_scenario_inited, ctx->is_streaming);
-#endif
+	adaptor_logd(ctx,
+		"E! is_sensor_scenario_inited(%u),is_streaming(%u)\n",
+		ctx->is_sensor_scenario_inited, ctx->is_streaming);
+
+	if (!ctx) {
+		pr_info("[%s] ctx might be null!\n", __func__);
+		return;
+	}
+
 	if (!ctx->is_sensor_scenario_inited && !ctx->is_streaming) {
 		subdrv_call(ctx, control,
 				ctx->cur_mode->id,
@@ -351,11 +356,11 @@ static void control_sensor(struct adaptor_ctx *ctx)
 				(u8 *)data, &len);
 		ctx->is_sensor_scenario_inited = 1;
 	}
+
 	if (!ctx->is_streaming) // no need to restore ae when seamless
 		restore_ae_ctrl(ctx);
-#if IMGSENSOR_LOG_MORE
-	dev_info(ctx->dev, "[%s]-\n", __func__);
-#endif
+
+	adaptor_logd(ctx, "X!\n");
 }
 
 static int set_sensor_mode(struct adaptor_ctx *ctx,
@@ -399,7 +404,9 @@ static int set_sensor_mode(struct adaptor_ctx *ctx,
 		control_sensor(ctx);
 	}
 
-	dev_dbg(ctx->dev, "select %dx%d@%d %dx%d px %d\n",
+	dev_dbg(ctx->dev,
+		"X! [%s] select w/h:(%d/%d)@fps:%d,llp/fll:(%d/%d),px:%d\n",
+		__func__,
 		mode->width, mode->height, mode->max_framerate,
 		mode->llp, mode->fll, mode->mipi_pixel_rate);
 
@@ -427,13 +434,16 @@ static int search_sensor(struct adaptor_ctx *ctx)
 	of_sensor_names_cnt = of_property_read_string_array(ctx->dev->of_node,
 		"sensor-names", of_sensor_names, ARRAY_SIZE(of_sensor_names));
 
-	subdrv_name_ret = of_property_read_string(ctx->dev->of_node,
-						  "subdrv-name", &of_subdrv_name);
+	subdrv_name_ret = of_property_read_string(
+		ctx->dev->of_node, "subdrv-name", &of_subdrv_name);
 
-	dev_info(ctx->dev, "subdrv_name_ret %d\n", subdrv_name_ret);
+	dev_info(ctx->dev,
+		"E! [%s] subdrv_name_ret:%d\n",
+		__func__, subdrv_name_ret);
 
 	if (!subdrv_name_ret)
-		dev_info(ctx->dev, "subdrv name %s found\n", of_subdrv_name);
+		dev_info(ctx->dev,
+			"[%s] subdrv name:%s found\n", __func__, of_subdrv_name);
 
 	/* try to load custom list from DT */
 	if (of_sensor_names_cnt > 0) {
@@ -441,8 +451,9 @@ static int search_sensor(struct adaptor_ctx *ctx)
 		subdrvs_cnt = 0;
 		for (i = 0; i < of_sensor_names_cnt; i++) {
 #if IMGSENSOR_LOG_MORE
-			dev_info(ctx->dev, "sensor_name %s\n",
-				of_sensor_names[i]);
+			dev_info(ctx->dev,
+				"[%s] sensor_name:%s\n",
+				__func__, of_sensor_names[i]);
 #endif
 			for (j = 0; j < ARRAY_SIZE(imgsensor_subdrvs); j++) {
 				subdrv = imgsensor_subdrvs[j];
@@ -453,8 +464,8 @@ static int search_sensor(struct adaptor_ctx *ctx)
 				}
 			}
 			if (j == ARRAY_SIZE(imgsensor_subdrvs)) {
-				dev_warn(ctx->dev, "%s not found\n",
-					of_sensor_names[i]);
+				dev_warn(ctx->dev,
+					"[%s] %s not found\n", __func__, of_sensor_names[i]);
 			}
 		}
 	} else if (!subdrv_name_ret) {
@@ -464,7 +475,8 @@ static int search_sensor(struct adaptor_ctx *ctx)
 		if (of_subdrvs[0]) {
 			subdrvs_cnt = 1;
 			subdrvs = of_subdrvs;
-			dev_info(ctx->dev, "subdrv name %s found\n", of_subdrv_name);
+			dev_info(ctx->dev,
+				"[%s] subdrv name:%s found\n", __func__, of_subdrv_name);
 		}
 	} else {
 		subdrvs = imgsensor_subdrvs;
@@ -482,8 +494,9 @@ static int search_sensor(struct adaptor_ctx *ctx)
 		ret = subdrv_call(ctx, get_id, &sensor_id);
 		adaptor_hw_power_off(ctx);
 		if (!ret) {
-			dev_info(ctx->dev, "sensor %s found\n",
-				ctx->subdrv->name);
+			dev_info(ctx->dev,
+				"[%s] sensor:%s found\n",
+				__func__, ctx->subdrv->name);
 			subdrv_call(ctx, init_ctx, ctx->i2c_client,
 				ctx->subctx.i2c_write_id);
 			ctx->ctx_pw_seq = kmalloc_array(ctx->subdrv->pw_seq_cnt,
@@ -491,26 +504,26 @@ static int search_sensor(struct adaptor_ctx *ctx)
 					GFP_KERNEL);
 			if (ctx->ctx_pw_seq) {
 				memcpy(ctx->ctx_pw_seq, ctx->subdrv->pw_seq,
-				       ctx->subdrv->pw_seq_cnt *
-				       sizeof(struct subdrv_pw_seq_entry));
+					ctx->subdrv->pw_seq_cnt *
+					sizeof(struct subdrv_pw_seq_entry));
 			}
 			if (ctx->subctx.aov_sensor_support && ctx->cust_aov_csi_clk) {
 				ctx->subctx.aov_csi_clk = ctx->cust_aov_csi_clk;
 				dev_info(ctx->dev,
-					"aov_csi_clk:%u\n",
-					ctx->subctx.aov_csi_clk);
+					"[%s] aov_csi_clk:%u\n",
+					__func__, ctx->subctx.aov_csi_clk);
 			}
 			if (ctx->subctx.aov_sensor_support && ctx->phy_ctrl_ver) {
 				ctx->subctx.aov_phy_ctrl_ver = ctx->phy_ctrl_ver;
 				dev_info(ctx->dev,
-					"aov_phy_ctrl_ver:%s\n",
-					ctx->subctx.aov_phy_ctrl_ver);
+					"[%s] aov_phy_ctrl_ver:%s\n",
+					__func__, ctx->subctx.aov_phy_ctrl_ver);
 			}
 			return 0;
 		}
 #if IMGSENSOR_LOG_MORE
-		dev_info(ctx->dev, "sensor %s not found\n",
-			ctx->subdrv->name);
+		dev_info(ctx->dev,
+			"[%s] sensor:%s not found\n", __func__, ctx->subdrv->name);
 #endif
 	}
 
@@ -523,7 +536,7 @@ static int imgsensor_open(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 	struct v4l2_mbus_framefmt *try_fmt =
 		v4l2_subdev_get_try_format(sd, fh->state, 0);
 #if IMGSENSOR_LOG_MORE
-	dev_info(ctx->dev, "[%s]+\n", __func__);
+	adaptor_logd(ctx, "E!\n");
 #endif
 	mutex_lock(&ctx->mutex);
 
@@ -537,10 +550,10 @@ static int imgsensor_open(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 
 #ifdef POWERON_ONCE_OPENED
 #ifdef IMGSENSOR_USE_PM_FRAMEWORK
-	dev_info(ctx->dev, "%s use IMGSENSOR_USE_PM_FRAMEWORK\n", __func__);
+	adaptor_logi(ctx, "use IMGSENSOR_USE_PM_FRAMEWORK\n");
 	pm_runtime_get_sync(ctx->dev);
 #else
-	dev_info(ctx->dev, "%s use self ref cnt\n", __func__);
+	adaptor_logi(ctx, "use self ref cnt\n");
 	adaptor_hw_power_on(ctx);
 #endif
 	adaptor_sensor_init(ctx);
@@ -548,7 +561,7 @@ static int imgsensor_open(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 
 	mutex_unlock(&ctx->mutex);
 #if IMGSENSOR_LOG_MORE
-	dev_info(ctx->dev, "[%s]-\n", __func__);
+	adaptor_logd(ctx, "X!\n");
 #endif
 	return 0;
 }
@@ -558,16 +571,16 @@ static int imgsensor_close(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 	struct adaptor_ctx *ctx = to_ctx(sd);
 	int i;
 #if IMGSENSOR_LOG_MORE
-	dev_info(ctx->dev, "[%s]+\n", __func__);
+	adaptor_logd(ctx, "E!\n");
 #endif
 	mutex_lock(&ctx->mutex);
 
 #ifdef POWERON_ONCE_OPENED
 #ifdef IMGSENSOR_USE_PM_FRAMEWORK
-	dev_info(ctx->dev, "%s use IMGSENSOR_USE_PM_FRAMEWORK\n", __func__);
+	adaptor_logi(ctx, "use IMGSENSOR_USE_PM_FRAMEWORK\n");
 	pm_runtime_put(ctx->dev);
 #else
-	dev_info(ctx->dev, "%s use self ref cnt\n", __func__);
+	adaptor_logi(ctx, "use self ref cnt\n");
 	adaptor_hw_power_off(ctx);
 #endif
 #endif
@@ -581,7 +594,7 @@ static int imgsensor_close(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 
 	mutex_unlock(&ctx->mutex);
 #if IMGSENSOR_LOG_MORE
-	dev_info(ctx->dev, "[%s]-\n", __func__);
+	adaptor_logd(ctx, "X!\n");
 #endif
 	return 0;
 }
@@ -597,7 +610,8 @@ static int imgsensor_enum_mbus_code(struct v4l2_subdev *sd,
 
 	code->code = to_mtk_ext_fmt_code(ctx->fmt_code[ctx->mode[code->index].id],
 			ctx->mode[code->index].id);
-	// dev_info(ctx->dev, "enum mbus fmt code = 0x%x\n", code->code);
+
+	adaptor_logd(ctx, "X! enum mbus fmt code = 0x%x\n", code->code);
 
 	return 0;
 }
@@ -730,8 +744,8 @@ static int imgsensor_set_pad_format(struct v4l2_subdev *sd,
 	}
 
 	if (mode == NULL) {
-		dev_info(ctx->dev,
-			"set fmt code = 0x%x, which %d ctx->mode_cnt = %d\n",
+		adaptor_logi(ctx,
+			"X! [error] mode==NULL,set fmt code:0x%x,which:%d,ctx->mode_cnt:%d\n",
 			fmt->format.code, fmt->which, ctx->mode_cnt);
 
 		mutex_unlock(&ctx->mutex);
@@ -745,8 +759,8 @@ static int imgsensor_set_pad_format(struct v4l2_subdev *sd,
 
 		ctx->try_format_mode = mode;
 	} else {
-		dev_info(ctx->dev,
-			"set fmt code = 0x%x, which %d sensor_mode_id = %u\n",
+		adaptor_logi(ctx,
+			"set fmt code:0x%x,which:%d,sensor_mode_id:%u\n",
 			fmt->format.code, fmt->which, mode->id);
 
 #ifndef POWERON_ONCE_OPENED
@@ -816,9 +830,8 @@ static int imgsensor_start_streaming(struct adaptor_ctx *ctx)
 //	int ret;
 	u64 data[4];
 	u32 len;
-#if IMGSENSOR_LOG_MORE
-	dev_info(ctx->dev, "[%s]+\n", __func__);
-#endif
+
+	adaptor_logd(ctx, "E!\n");
 
 	adaptor_sensor_init(ctx);
 
@@ -828,16 +841,16 @@ static int imgsensor_start_streaming(struct adaptor_ctx *ctx)
 	/* Apply customized values from user */
 	ret =  __v4l2_ctrl_handler_setup(ctx->sd.ctrl_handler);
 	if (ret)
-		dev_info(ctx->dev, "failed to apply customized values\n");
+		adaptor_logi(ctx, "failed to apply customized values\n");
 #endif
 
 	data[0] = 0; // shutter
 	subdrv_call(ctx, feature_control,
 		SENSOR_FEATURE_SET_STREAMING_RESUME,
 		(u8 *)data, &len);
-#if IMGSENSOR_LOG_MORE
-	dev_info(ctx->dev, "[%s] [SENSOR_FEATURE_SET_STREAMING_RESUME]-\n", __func__);
-#endif
+
+	adaptor_logd(ctx,
+		"X! [SENSOR_FEATURE_SET_STREAMING_RESUME]\n");
 
 	/* update timeout value after reset*/
 	update_shutter_for_timeout_by_ae_ctrl(ctx, &ctx->ae_memento);
@@ -847,9 +860,9 @@ static int imgsensor_start_streaming(struct adaptor_ctx *ctx)
 
 	/* notify frame-sync streaming ON */
 	notify_fsync_mgr_streaming(ctx, 1);
-#if IMGSENSOR_LOG_MORE
-	dev_info(ctx->dev, "[%s]-\n", __func__);
-#endif
+
+	adaptor_logd(ctx, "X!\n");
+
 	return 0;
 }
 
@@ -913,7 +926,7 @@ static int imgsensor_set_frame_interval(struct v4l2_subdev *sd,
 {
 	struct adaptor_ctx *ctx = to_ctx(sd);
 
-	dev_info(ctx->dev, "set_frame_interval = %u\n", fi->interval.denominator);
+	adaptor_logi(ctx, "E! set_frame_interval:%u\n", fi->interval.denominator);
 
 	return imgsensor_get_frame_interval(sd, fi);
 }
@@ -925,11 +938,8 @@ static int imgsensor_set_stream(struct v4l2_subdev *sd, int enable)
 
 	mutex_lock(&ctx->mutex);
 	if (ctx->is_streaming == enable) {
-#if IMGSENSOR_LOG_MORE
-		dev_info(ctx->dev,
-			"[%s]+ is_streaming(%d)\n",
-			__func__, ctx->is_streaming);
-#endif
+		adaptor_logd(ctx, "X! is_streaming(%d)\n", ctx->is_streaming);
+
 		mutex_unlock(&ctx->mutex);
 		return 0;
 	}
@@ -959,7 +969,7 @@ static int imgsensor_set_stream(struct v4l2_subdev *sd, int enable)
 	ctx->is_streaming = enable;
 	mutex_unlock(&ctx->mutex);
 
-	adaptor_logi(ctx, "en %d\n", enable);
+	adaptor_logi(ctx, "X! en:%d\n", enable);
 
 	return 0;
 
@@ -1224,7 +1234,8 @@ static ssize_t debug_i2c_ops_store(struct device *dev,
 	}
 
 	if (num_para > DBG_ARG_IDX_MAX_NUM) {
-		dev_info(dev, "Wrong command parameter number %u\n", num_para);
+		adaptor_logi(ctx,
+			"E! Wrong command parameter number:%u\n", num_para);
 		goto ERR_DEBUG_OPS_STORE;
 	}
 	ret = kstrtouint(arg[DBG_ARG_IDX_I2C_ADDR], 0, &reg);
@@ -1241,23 +1252,23 @@ static ssize_t debug_i2c_ops_store(struct device *dev,
 		ret = subdrv_call(ctx, feature_control, SENSOR_FEATURE_SET_REGISTER,
 					(MUINT8 *) &ctx->sensorReg,
 					(MUINT32 *) sizeof(MSDK_SENSOR_REG_INFO_STRUCT));
-		dev_info(dev, "%s i2c write 0x%08x = 0x%08x ret = %d\n",
-			__func__,
+		adaptor_logi(ctx,
+			"i2c write 0x%08x = 0x%08x,ret:%d\n",
 			ctx->sensorReg.RegAddr, ctx->sensorReg.RegData, ret);
 	}
 
 	ret = subdrv_call(ctx, feature_control, SENSOR_FEATURE_GET_REGISTER,
 				(MUINT8 *) &ctx->sensorReg,
 				(MUINT32 *) sizeof(MSDK_SENSOR_REG_INFO_STRUCT));
-		dev_info(dev, "%s i2c read 0x%08x = 0x%08x  ret = %d\n",
-			__func__,
+		adaptor_logi(ctx,
+			"i2c read 0x%08x = 0x%08x,ret:%d\n",
 			ctx->sensorReg.RegAddr, ctx->sensorReg.RegData, ret);
 
 
 ERR_DEBUG_OPS_STORE:
 
 	kfree(sbuf);
-	dev_dbg(dev, "exit %s\n", __func__);
+	adaptor_logd(ctx, "X!\n");
 
 	return count;
 }
@@ -1317,7 +1328,7 @@ static ssize_t debug_pwr_ops_store(struct device *dev,
 		goto ERR_DEBUG_PWR_OPS_STORE;
 
 	if (!ctx->ctx_pw_seq) {
-		dev_info(dev, "ctx pw seq is null\n");
+		adaptor_logi(ctx, "E! ctx pw seq is null\n");
 		goto ERR_DEBUG_PWR_OPS_STORE;
 	}
 
@@ -1334,7 +1345,7 @@ static ssize_t debug_pwr_ops_store(struct device *dev,
 	}
 
 	if (num_para > DBG_PWR_ARG_IDX_MAX_NUM) {
-		dev_info(dev, "Wrong command parameter number %u\n", num_para);
+		adaptor_logi(ctx, "Wrong command parameter number:%u\n", num_para);
 		goto ERR_DEBUG_PWR_OPS_STORE;
 	}
 	ret = kstrtouint(arg[DBG_PWR_ARG_IDX_SEQ_IDX], 0, &seq_idx);
@@ -1413,7 +1424,7 @@ static ssize_t debug_sensor_mode_ops_store(struct device *dev,
 		ctx->subctx.sensor_debug_dphy_global_timing_continuous_clk = false;
 		break;
 	default:
-		dev_info(dev, "Wrong command parameter number (%u)\n", val);
+		adaptor_logi(ctx, "X! Wrong command parameter number:%u\n", val);
 		break;
 	}
 
@@ -1506,8 +1517,10 @@ static int imgsensor_probe(struct i2c_client *client)
 		else
 			is_multicam = 0;
 		if (ctx->phy_ctrl_ver) {
-			if (is_multicam && !strcasecmp(ctx->phy_ctrl_ver,
-				MT6989_PHY_CTRL_VERSIONS))
+			if (is_multicam &&
+				(!strcasecmp(ctx->phy_ctrl_ver, MT6989_PHY_CTRL_VERSIONS) ||
+				!strcasecmp(ctx->phy_ctrl_ver, MT6878_PHY_CTRL_VERSIONS) ||
+				!strcasecmp(ctx->phy_ctrl_ver, MT6991_PHY_CTRL_VERSIONS)))
 				is_imgsensor_fusion_test_workaround = 1;
 		} else
 			is_imgsensor_fusion_test_workaround = 0;
@@ -1681,14 +1694,14 @@ static void imgsensor_shutdown(struct i2c_client *client)
 	struct adaptor_ctx *ctx = to_ctx(sd);
 	int i;
 
-	dev_info(ctx->dev, "[%s]+\n", __func__);
+	adaptor_logi(ctx, "E!\n");
 	mutex_lock(&ctx->mutex);
 
 	for (i = 0; ctx->power_refcnt; i++)
 		adaptor_hw_power_off(ctx);
 
 	mutex_unlock(&ctx->mutex);
-	dev_info(ctx->dev, "[%s]-\n", __func__);
+	adaptor_logi(ctx, "X!\n");
 }
 
 #ifdef IMGSENSOR_USE_PM_FRAMEWORK

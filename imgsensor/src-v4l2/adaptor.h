@@ -28,7 +28,7 @@
 #define adaptor_logd(_ctx, format, args...) do { \
 	if ((_ctx) && unlikely(*((_ctx)->sensor_debug_flag))) { \
 		dev_info((_ctx)->dev, "[%s][%s][%s] " format, \
-			(_ctx)->sd.name, \
+			((_ctx)->sd.name) ? ((_ctx)->sd.name) : "null", \
 			((_ctx)->subdrv) ? ((_ctx)->subdrv->name) : "null", __func__, ##args); \
 	} \
 } while (0)
@@ -36,7 +36,7 @@
 #define adaptor_logi(_ctx, format, args...) do { \
 	if (_ctx) { \
 		dev_info((_ctx)->dev, "[%s][%s][%s] " format, \
-			(_ctx)->sd.name, \
+			((_ctx)->sd.name) ? ((_ctx)->sd.name) : "null", \
 			((_ctx)->subdrv) ? ((_ctx)->subdrv->name) : "null", __func__, ##args); \
 	} \
 } while (0)

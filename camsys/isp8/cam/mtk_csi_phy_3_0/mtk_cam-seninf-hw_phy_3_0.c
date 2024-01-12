@@ -36,6 +36,7 @@
 //#define SCAN_SETTLE
 
 #define MT6989_IOMOM_VERSIONS "mt6989"
+#define MT6991_IOMOM_VERSIONS "mt6991"
 
 static struct mtk_cam_seninf_ops *_seninf_ops = &mtk_csi_phy_3_0;
 static struct mtk_cam_seninf_irq_event_st vsync_detect_seninf_irq_event;
@@ -1312,6 +1313,10 @@ static int csirx_phyA_init(struct seninf_ctx *ctx)
 			/* Disable non-ULPS mode */
 			SENINF_BITS(base, CDPHY_RX_ANA_8,
 					RG_CSI0_RESERVE, 0x400);
+		} else if (!strcasecmp(_seninf_ops->iomem_ver, MT6991_IOMOM_VERSIONS)) {
+			/* Disable non-ULPS mode */
+			SENINF_BITS(base, CDPHY_RX_ANA_8,
+					RG_CSI0_RESERVE, 0x400);
 		} else if (!strcasecmp(_seninf_ops->iomem_ver, MT6989_IOMOM_VERSIONS)) {
 			/*
 			 * RG_CSI0_RESERVE[10]:Disable non-ULPS mode
@@ -1929,6 +1934,11 @@ static int csirx_mac_csi_setting(struct seninf_ctx *ctx)
 				0);
 
 	if (_seninf_ops->iomem_ver == NULL) {
+		SENINF_BITS(csirx_mac_csi,
+					CSIRX_MAC_CSI2_RESYNC_MERGE_CTRL,
+					RG_CSI2_RESYNC_CYCLE_CNT,
+					0x1f);
+	} else if (!strcasecmp(_seninf_ops->iomem_ver, MT6991_IOMOM_VERSIONS)) {
 		SENINF_BITS(csirx_mac_csi,
 					CSIRX_MAC_CSI2_RESYNC_MERGE_CTRL,
 					RG_CSI2_RESYNC_CYCLE_CNT,
@@ -4220,6 +4230,8 @@ static int mtk_cam_seninf_debug(struct seninf_ctx *ctx)
 
 	if (_seninf_ops->iomem_ver == NULL) {
 		dev_dbg(ctx->dev, "no mac checker implementation\n");
+	} else if (!strcasecmp(_seninf_ops->iomem_ver, MT6991_IOMOM_VERSIONS)) {
+		dev_dbg(ctx->dev, "no mac checker implementation\n");
 	} else if (!strcasecmp(_seninf_ops->iomem_ver, MT6989_IOMOM_VERSIONS)) {
 		dev_info(ctx->dev,
 			"CSIRX_MAC_CSI2_SIZE_CHK_CTRL0/_CTRL1/_CTRL2/_CTRL3/_CTRL4:(0x%x)/(0x%x)/(0x%x)/(0x%x)/(0x%x)\n",
@@ -4307,6 +4319,8 @@ static int mtk_cam_seninf_debug(struct seninf_ctx *ctx)
 		ret = -2; //multi lanes sync error, crc error, ecc error
 
 	if (_seninf_ops->iomem_ver == NULL) {
+		dev_dbg(ctx->dev, "no mac checker implementation\n");
+	} else if (!strcasecmp(_seninf_ops->iomem_ver, MT6991_IOMOM_VERSIONS)) {
 		dev_dbg(ctx->dev, "no mac checker implementation\n");
 	} else if (!strcasecmp(_seninf_ops->iomem_ver, MT6989_IOMOM_VERSIONS)) {
 		dev_info(ctx->dev,
@@ -4606,6 +4620,8 @@ static int mtk_cam_seninf_debug_current_status(struct seninf_ctx *ctx)
 		SENINF_READ_REG(base_csi_mac, CSIRX_MAC_CSI2_RESYNC_MERGE_CTRL));
 
 	if (_seninf_ops->iomem_ver == NULL) {
+		dev_dbg(ctx->dev, "no mac checker implementation\n");
+	} else if (!strcasecmp(_seninf_ops->iomem_ver, MT6991_IOMOM_VERSIONS)) {
 		dev_dbg(ctx->dev, "no mac checker implementation\n");
 	} else if (!strcasecmp(_seninf_ops->iomem_ver, MT6989_IOMOM_VERSIONS)) {
 		ctx->debug_cur_mac_csi2_size_chk_ctrl0 =
@@ -6351,8 +6367,10 @@ static int mtk_cam_set_phya_clock_src(struct seninf_ctx *ctx, u64 val)
 		if (_seninf_ops->iomem_ver == NULL) {
 			dev_info(ctx->dev, "[%s] phya clk set to 0\n", __func__);
 			return 0;
-		}
-		else if (!strcasecmp(_seninf_ops->iomem_ver, MT6989_IOMOM_VERSIONS))
+		} else if (!strcasecmp(_seninf_ops->iomem_ver, MT6991_IOMOM_VERSIONS)) {
+			dev_info(ctx->dev, "[%s] phya clk set to 0\n", __func__);
+			return 0;
+		} else if (!strcasecmp(_seninf_ops->iomem_ver, MT6989_IOMOM_VERSIONS))
 			SENINF_BITS(base, CDPHY_RX_ANA_SETTING_0, CSR_ANA_REF_CK_SEL, val);
 		else {
 			dev_info(ctx->dev,

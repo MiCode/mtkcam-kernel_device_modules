@@ -15,6 +15,8 @@
 #define MT6985_PHY_CTRL_VERSIONS "mt6985"
 #define MT6897_PHY_CTRL_VERSIONS "mt6897"
 #define MT6989_PHY_CTRL_VERSIONS "mt6989"
+#define MT6878_PHY_CTRL_VERSIONS "mt6878"
+#define MT6991_PHY_CTRL_VERSIONS "mt6991"
 
 #define DEBUG_LOG(ctx, ...) do { \
 	if (ctx->i2c_client) \

@@ -130,6 +130,17 @@ static inline int guard_outer_eq(struct state_accessor *s_acc,
 	return p->info->outer_seq_no == cur_seq_no(s_acc);
 }
 
+static inline int guard_outer_eq_subsample(struct state_accessor *s_acc,
+				 struct transition_param *p)
+{
+	/* outer regs doesn't updated when cq done in subsample mode */
+	int cur_seq = p->info->outer_seq_no == p->info->inner_seq_no ?
+			p->info->outer_seq_no + 1 : p->info->outer_seq_no;
+
+	return ( cur_seq == cur_seq_no(s_acc)) &&
+		ops_call(s_acc, cur_isp_state) >= S_ISP_APPLYING;
+}
+
 static inline int guard_inner_eq(struct state_accessor *s_acc,
 				 struct transition_param *p)
 {
@@ -253,6 +264,13 @@ static inline int guard_ack_apply_directly(struct state_accessor *s_acc,
 					   struct transition_param *p)
 {
 	return guard_ack_eq(s_acc, p) && guard_apply_isp(s_acc, p) &&
+			valid_cq_execution(p);
+}
+
+static inline int guard_ack_apply_directly_subsample(struct state_accessor *s_acc,
+					   struct transition_param *p)
+{
+	return guard_ack_eq(s_acc, p) && guard_apply_isp_subsample(s_acc, p) &&
 			valid_cq_execution(p);
 }
 

@@ -217,8 +217,9 @@ static void log_event(const char *func, int ctx_id, struct v4l2_event *e)
 		break;
 	case V4L2_EVENT_FRAME_SYNC:
 	case V4L2_EVENT_REQUEST_DUMPED:
-		pr_info("%s: ctx-%d seq %u/%u\n", func, ctx_id,
-			e->u.frame_sync.frame_sequence, (unsigned int)e->u.data[4]);
+		pr_info("%s: ctx-%d seq %u/%u/%u/%u\n", func, ctx_id,
+			e->u.frame_sync.frame_sequence, (unsigned int)e->u.data[4],
+			(unsigned int)e->u.data[8], (unsigned int)e->u.data[12]);
 		break;
 	case V4L2_EVENT_REQUEST_SENSOR_TRIGGER:
 		pr_info("%s: ctx-%d tg_cnt:%d frame_seq:%d\n", func, ctx_id,

@@ -25,7 +25,7 @@ static struct state_transition STATE_TRANS(subsample, S_ISP_NOT_SET)[] = {
 static struct state_transition STATE_TRANS(subsample, S_ISP_COMPOSING)[] = {
 	{
 		S_ISP_APPLYING, CAMSYS_EVENT_ACK,
-		guard_ack_apply_directly, ACTION_APPLY_ISP
+		guard_ack_apply_directly_subsample, ACTION_APPLY_ISP
 	},
 	{
 		S_ISP_COMPOSED, CAMSYS_EVENT_ACK,
@@ -43,7 +43,7 @@ static struct state_transition STATE_TRANS(subsample, S_ISP_COMPOSED)[] = {
 static struct state_transition STATE_TRANS(subsample, S_ISP_APPLYING)[] = {
 	{
 		S_ISP_OUTER, CAMSYS_EVENT_IRQ_L_CQ_DONE,
-		guard_outer_eq, 0
+		guard_outer_eq_subsample, ACTION_CQ_DONE
 	},
 	{
 		S_ISP_PROCESSING, CAMSYS_EVENT_IRQ_L_SOF,

@@ -1607,7 +1607,7 @@ static int mtk_cam_ctx_alloc_workers(struct mtk_cam_ctx *ctx)
 	kthread_init_worker(&ctx->done_worker);
 	ctx->done_task =
 		mtk_cam_ctx_create_task(ctx, "camsys_done",
-					     &ctx->done_worker, false);
+					     &ctx->done_worker, true);
 	if (!ctx->done_task)
 		goto fail_uninit_flow_worker_task;
 

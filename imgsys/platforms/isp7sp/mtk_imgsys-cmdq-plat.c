@@ -8,6 +8,7 @@
 
 #include <linux/platform_device.h>
 #include <dt-bindings/interconnect/mtk,mmqos.h>
+#include <mt-plat/aee.h>
 //#include <linux/soc/mediatek/mtk-cmdq-ext.h>
 #include <linux/pm_opp.h>
 #include <linux/pm_runtime.h>
@@ -2041,7 +2042,8 @@ int imgsys_cmdq_parser_plat7sp(struct mtk_imgsys_dev *imgsys_dev,
 				cmd->u.fd, cmd->u.ofst, cmd->u.right_shift);
 			}
 			if (cmd->u.fd <= 0) {
-				pr_info("%s: [ERROR] WRITE_FD with FD(%d)!\n", __func__, cmd->u.fd);
+				pr_info("%s: [ERROR] WRITE_FD with FD(%d)! req_fd/no(%d/%d) frame_no(%d)\n",
+					__func__, cmd->u.fd, req_fd, req_no, frm_no);
 				return -1;
 			}
 			//
@@ -2052,12 +2054,83 @@ int imgsys_cmdq_parser_plat7sp(struct mtk_imgsys_dev *imgsys_dev,
 				dev_b = req->buf_map[is_singledev_mode(req)];
 				iova_addr = imgsys_get_iova(dbuf, cmd->u.fd, imgsys_dev, dev_b);
 				pre_fd = cmd->u.fd;
+
+				if (iova_addr <= 0) {
+					u32 dma_addr_msb = (cmd->u.dma_addr >> 16);
+
+					pr_info(
+						"%s: [ERROR] WRITE_FD map iova fail (%llu)! with req_fd/no(%d/%d) frame_no(%d) fd(%d) addr(0x%08lx)\n",
+						__func__, iova_addr, req_fd, req_no, frm_no, cmd->u.fd,
+						(unsigned long)cmd->u.dma_addr);
+
+					switch (dma_addr_msb) {
+					case 0x1510:
+					case 0x1515:
+					case 0x1516:
+						aee_kernel_exception("CRDISPATCH_KEY:IMGSYS_DIP",
+							"DISPATCH:IMGSYS_DIP map iova fail, addr:0x%08llx",
+							(unsigned long)cmd->u.dma_addr);
+						break;
+					case 0x1570:
+						aee_kernel_exception("CRDISPATCH_KEY:IMGSYS_TRAW",
+							"DISPATCH:IMGSYS_TRAW map iova fail, addr:0x%08llx",
+							(unsigned long)cmd->u.dma_addr);
+						break;
+					case 0x1504:
+						aee_kernel_exception("CRDISPATCH_KEY:IMGSYS_LTRAW",
+							"DISPATCH:IMGSYS_LTRAW map iova fail, addr:0x%08llx",
+							(unsigned long)cmd->u.dma_addr);
+						break;
+					case 0x1520:
+						aee_kernel_exception("CRDISPATCH_KEY:IMGSYS_WPE_EIS",
+							"DISPATCH:IMGSYS_WPE_EIS map iova fail, addr:0x%08llx",
+							(unsigned long)cmd->u.dma_addr);
+						break;
+					case 0x1550:
+						aee_kernel_exception("CRDISPATCH_KEY:IMGSYS_WPE_TNR",
+							"DISPATCH:IMGSYS_WPE_TNR map iova fail, addr:0x%08llx",
+							(unsigned long)cmd->u.dma_addr);
+						break;
+					case 0x1560:
+						aee_kernel_exception("CRDISPATCH_KEY:IMGSYS_WPE_LITE",
+							"DISPATCH:IMGSYS_WPE_LITE map iova fail, addr:0x%08llx",
+							(unsigned long)cmd->u.dma_addr);
+						break;
+					case 0x1521:
+						aee_kernel_exception("CRDISPATCH_KEY:IMGSYS_PQDIP_A",
+							"DISPATCH:IMGSYS_PQDIP_A map iova fail, addr:0x%08llx",
+							 (unsigned long)cmd->u.dma_addr);
+						break;
+					case 0x1551:
+						aee_kernel_exception("CRDISPATCH_KEY:IMGSYS_PQDIP_B",
+							"DISPATCH:IMGSYS_PQDIP_B map iova fail, addr:0x%08llx",
+							(unsigned long)cmd->u.dma_addr);
+						break;
+					case 0x1532:
+						aee_kernel_exception("CRDISPATCH_KEY:IMGSYS_ME",
+							"DISPATCH:IMGSYS_ME map iova fail, addr:0x%08llx",
+							(unsigned long)cmd->u.dma_addr);
+						break;
+					case 0x1533:
+						aee_kernel_exception("CRDISPATCH_KEY:IMGSYS_MMG",
+							"DISPATCH:IMGSYS_MMG map iova fail, addr:0x%08llx",
+							(unsigned long)cmd->u.dma_addr);
+						break;
+					default:
+						aee_kernel_exception("CRDISPATCH_KEY:IMGSYS",
+							"DISPATCH:IMGSYS map iova fail, addr:0x%08llx",
+							(unsigned long)cmd->u.dma_addr);
+						break;
+					}
+
+					return -1;
+				}
 			} else {
-			if (imgsys_cmdq_dbg_enable_plat7sp()) {
-				pr_debug(
-					"%s: Current fd(0x%08x) is the same with previous fd(0x%08x) with iova(0x%08llx), bypass map iova operation\n",
-					__func__, cmd->u.fd, pre_fd, iova_addr);
-			}
+				if (imgsys_cmdq_dbg_enable_plat7sp()) {
+					pr_info(
+						"%s: Current fd(0x%08x) is the same with previous fd(0x%08x) with iova(0x%08llx), bypass map iova operation\n",
+						__func__, cmd->u.fd, pre_fd, iova_addr);
+				}
 			}
 			cur_iova_addr = iova_addr + cmd->u.ofst;
 			//

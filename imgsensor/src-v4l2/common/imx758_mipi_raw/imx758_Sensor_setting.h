@@ -192,6 +192,10 @@ static u16 imx758_preview_setting[] = {
 	/*PDAF TYPE2 data type Setting*/
 	0x3072, 0x00,
 	0x3073, 0x30,
+
+	/*init deskew test*/
+	0x0830, 0x00,//disable periodic deskew
+	0x0832, 0x01,//enable init deskew
 };
 
 static u16 imx758_capture_setting[] = {
@@ -297,6 +301,10 @@ static u16 imx758_capture_setting[] = {
 	/*PDAF TYPE2 data type Setting*/
 	0x3072, 0x00,
 	0x3073, 0x30,
+
+	/*init deskew test*/
+	0x0830, 0x00,//disable periodic deskew
+	0x0832, 0x01,//enable init deskew
 };
 
 static u16 imx758_normal_video_setting[] = {
@@ -402,8 +410,11 @@ static u16 imx758_normal_video_setting[] = {
 	/*PDAF TYPE2 data type Setting*/
 	0x3072, 0x00,
 	0x3073, 0x30,
-};
 
+	/*init deskew test*/
+	0x0830, 0x00,//disable periodic deskew
+	0x0832, 0x01,//enable init deskew
+};
 
 static u16 imx758_hs_video_setting[] = {
 	/*reg_C*/
@@ -508,9 +519,11 @@ static u16 imx758_hs_video_setting[] = {
 	/*PDAF TYPE2 data type Setting*/
 	0x3072, 0x00,
 	0x3073, 0x30,
+
+	/*init deskew test*/
+	0x0830, 0x00,//disable periodic deskew
+	0x0832, 0x01,//enable init deskew
 };
-
-
 
 static u16 imx758_slim_video_setting[] = {
 	/*reg_F*/
@@ -615,6 +628,10 @@ static u16 imx758_slim_video_setting[] = {
 	/*PDAF TYPE2 data type Setting*/
 	0x3072, 0x00,
 	0x3073, 0x30,
+
+	/*init deskew test*/
+	0x0830, 0x00,//disable periodic deskew
+	0x0832, 0x01,//enable init deskew
 };
 
 static u16 imx758_custom1_setting[] = {
@@ -720,6 +737,10 @@ static u16 imx758_custom1_setting[] = {
 	/*PDAF TYPE2 data type Setting*/
 	0x3072, 0x00,
 	0x3073, 0x30,
+
+	/*init deskew test*/
+	0x0830, 0x00,//disable periodic deskew
+	0x0832, 0x01,//enable init deskew
 };
 
 static u16 imx758_custom2_setting[] = {
@@ -825,6 +846,10 @@ static u16 imx758_custom2_setting[] = {
 	/*PDAF TYPE2 data type Setting*/
 	0x3072, 0x00,
 	0x3073, 0x30,
+
+	/*init deskew test*/
+	0x0830, 0x00,//disable periodic deskew
+	0x0832, 0x01,//enable init deskew
 };
 static u16 imx758_custom3_setting[] = {
 	/*reg_I*/
@@ -929,6 +954,10 @@ static u16 imx758_custom3_setting[] = {
 	/*PDAF TYPE2 data type Setting*/
 	0x3072, 0x00,
 	0x3073, 0x30,
+
+	/*init deskew test*/
+	0x0830, 0x00,//disable periodic deskew
+	0x0832, 0x01,//enable init deskew
 };
 
 /* seamless_switch */

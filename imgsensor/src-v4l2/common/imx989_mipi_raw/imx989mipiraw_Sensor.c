@@ -921,6 +921,7 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.fine_integ_line = 0,
 		.delay_frame = 3,
 		.csi_param = {},
+		.dpc_enabled = true,
 	},
 	{
 		.frame_desc = frame_desc_cap,
@@ -967,6 +968,7 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.fine_integ_line = 0,
 		.delay_frame = 3,
 		.csi_param = {},
+		.dpc_enabled = true,
 	},
 	{
 		.frame_desc = frame_desc_vid,
@@ -1013,6 +1015,7 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.fine_integ_line = 0,
 		.delay_frame = 3,
 		.csi_param = {},
+		.dpc_enabled = true,
 	},
 	{
 		.frame_desc = frame_desc_hs_vid,
@@ -1059,6 +1062,7 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.fine_integ_line = 0,
 		.delay_frame = 3,
 		.csi_param = {},
+		.dpc_enabled = true,
 	},
 	{
 		.frame_desc = frame_desc_slim_vid,
@@ -1105,6 +1109,7 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.fine_integ_line = 0,
 		.delay_frame = 3,
 		.csi_param = {},
+		.dpc_enabled = true,
 	},
 	{
 		.frame_desc = frame_desc_cus1,
@@ -1151,6 +1156,7 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.fine_integ_line = 0,
 		.delay_frame = 3,
 		.csi_param = {},
+		.dpc_enabled = true,
 	},
 	{
 		.frame_desc = frame_desc_cus2,
@@ -1197,6 +1203,7 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.fine_integ_line = 0,
 		.delay_frame = 3,
 		.csi_param = {},
+		.dpc_enabled = true,
 	},
 	{
 		.frame_desc = frame_desc_cus3,
@@ -1243,6 +1250,7 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.fine_integ_line = 0,
 		.delay_frame = 3,
 		.csi_param = {},
+		.dpc_enabled = true,
 	},
 	{
 		.frame_desc = frame_desc_cus4,
@@ -1303,6 +1311,7 @@ static struct subdrv_mode_struct mode_struct[] = {
 		},
 		.multi_exposure_ana_gain_range[IMGSENSOR_EXPOSURE_LE].min = BASEGAIN * 4,
 		.multi_exposure_ana_gain_range[IMGSENSOR_EXPOSURE_ME].max = BASEGAIN * 16,
+		.dpc_enabled = true,
 	},
 	{
 		.frame_desc = frame_desc_cus5,
@@ -1363,6 +1372,7 @@ static struct subdrv_mode_struct mode_struct[] = {
 		},
 		.multi_exposure_ana_gain_range[IMGSENSOR_EXPOSURE_LE].min = BASEGAIN * 16,
 		.multi_exposure_ana_gain_range[IMGSENSOR_EXPOSURE_ME].max = BASEGAIN * 4,
+		.dpc_enabled = true,
 	},
 	{
 		.frame_desc = frame_desc_cus6,
@@ -1412,6 +1422,7 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.csi_param = {},
 		.exposure_order_in_lbmf = IMGSENSOR_LBMF_EXPOSURE_SE_FIRST,
 		.mode_type_in_lbmf = IMGSENSOR_LBMF_MODE_MANUAL,
+		.dpc_enabled = true,
 	},
 	{
 		.frame_desc = frame_desc_cus7,
@@ -1459,6 +1470,7 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.fine_integ_line = 0,
 		.delay_frame = 3,
 		.csi_param = {},
+		.dpc_enabled = true,
 	},
 	{
 		.frame_desc = frame_desc_cus8,
@@ -1505,6 +1517,7 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.fine_integ_line = 0,
 		.delay_frame = 3,
 		.csi_param = {},
+		.dpc_enabled = true,
 	},
 	{
 		.frame_desc = frame_desc_cus9,
@@ -1553,6 +1566,7 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.csi_param = {},
 		.multi_exposure_ana_gain_range[IMGSENSOR_EXPOSURE_LE].max = BASEGAIN * 16,
 		.sensor_output_dataformat = SENSOR_OUTPUT_FORMAT_RAW_4CELL_R,
+		.dpc_enabled = true,
 	},
 	{
 		.frame_desc = frame_desc_cus10,
@@ -1600,6 +1614,7 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.delay_frame = 3,
 		.csi_param = {},
 		.multi_exposure_ana_gain_range[IMGSENSOR_EXPOSURE_LE].max = BASEGAIN * 16,
+		.dpc_enabled = true,
 	},
 	{
 		.frame_desc = frame_desc_cus11,
@@ -1648,6 +1663,7 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.csi_param = {},
 		.multi_exposure_ana_gain_range[IMGSENSOR_EXPOSURE_LE].max = BASEGAIN * 16,
 		.sensor_output_dataformat = SENSOR_OUTPUT_FORMAT_RAW_4CELL_R,
+		.dpc_enabled = true,
 	},
 	{
 		.frame_desc = frame_desc_cus12,
@@ -1695,6 +1711,7 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.delay_frame = 3,
 		.csi_param = {},
 		.multi_exposure_ana_gain_range[IMGSENSOR_EXPOSURE_LE].max = BASEGAIN * 16,
+		.dpc_enabled = true,
 	},
 	{
 		.frame_desc = frame_desc_cus13,
@@ -1743,6 +1760,7 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.csi_param = {},
 		.multi_exposure_ana_gain_range[IMGSENSOR_EXPOSURE_LE].max = BASEGAIN * 16,
 		.sensor_output_dataformat = SENSOR_OUTPUT_FORMAT_RAW_4CELL_R,
+		.dpc_enabled = true,
 	},
 	{
 		.frame_desc = frame_desc_cus14,
@@ -1790,6 +1808,7 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.fine_integ_line = 0,
 		.delay_frame = 3,
 		.csi_param = {},
+		.dpc_enabled = true,
 	},
 	{
 		.frame_desc = frame_desc_cus15,
@@ -1838,6 +1857,7 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.fine_integ_line = 0,
 		.delay_frame = 3,
 		.csi_param = {},
+		.dpc_enabled = true,
 	},
 	{
 		.frame_desc = frame_desc_cus16,
@@ -1898,6 +1918,7 @@ static struct subdrv_mode_struct mode_struct[] = {
 		},
 		.multi_exposure_ana_gain_range[IMGSENSOR_EXPOSURE_LE].min = BASEGAIN * 4,
 		.multi_exposure_ana_gain_range[IMGSENSOR_EXPOSURE_ME].max = BASEGAIN * 16,
+		.dpc_enabled = true,
 	},
 	{
 		.frame_desc = frame_desc_cus17,
@@ -1958,6 +1979,7 @@ static struct subdrv_mode_struct mode_struct[] = {
 		},
 		.multi_exposure_ana_gain_range[IMGSENSOR_EXPOSURE_LE].min = BASEGAIN * 16,
 		.multi_exposure_ana_gain_range[IMGSENSOR_EXPOSURE_ME].max = BASEGAIN * 4,
+		.dpc_enabled = true,
 	},
 	{
 		.frame_desc = frame_desc_cus18,
@@ -2007,6 +2029,7 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.csi_param = {},
 		.exposure_order_in_lbmf = IMGSENSOR_LBMF_EXPOSURE_SE_FIRST,
 		.mode_type_in_lbmf = IMGSENSOR_LBMF_MODE_MANUAL,
+		.dpc_enabled = true,
 	},
 	{
 		.frame_desc = frame_desc_cus19,
@@ -2053,6 +2076,7 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.fine_integ_line = 0,
 		.delay_frame = 3,
 		.csi_param = {},
+		.dpc_enabled = true,
 	},
 	{
 		.frame_desc = frame_desc_cus20,
@@ -2101,6 +2125,7 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.csi_param = {},
 		.multi_exposure_ana_gain_range[IMGSENSOR_EXPOSURE_LE].max = BASEGAIN * 16,
 		.sensor_output_dataformat = SENSOR_OUTPUT_FORMAT_RAW_4CELL_R,
+		.dpc_enabled = true,
 	},
 	{
 		.frame_desc = frame_desc_cus21,
@@ -2147,6 +2172,7 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.fine_integ_line = 0,
 		.delay_frame = 3,
 		.csi_param = {},
+		.dpc_enabled = true,
 	},
 	{
 		.frame_desc = frame_desc_cus22,
@@ -2193,6 +2219,7 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.fine_integ_line = 0,
 		.delay_frame = 3,
 		.csi_param = {},
+		.dpc_enabled = true,
 	},
 	{
 		.frame_desc = frame_desc_cus23,
@@ -2239,6 +2266,7 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.fine_integ_line = 0,
 		.delay_frame = 3,
 		.csi_param = {},
+		.dpc_enabled = true,
 	},
 		{
 		.frame_desc = frame_desc_cus24,
@@ -2296,6 +2324,7 @@ static struct subdrv_mode_struct mode_struct[] = {
 			.dcg_gain_table = imx989_dcg_ratio_table_ratio4,
 			.dcg_gain_table_size = sizeof(imx989_dcg_ratio_table_ratio4),
 		},
+		.dpc_enabled = true,
 		.multi_exposure_ana_gain_range[IMGSENSOR_EXPOSURE_LE].min = BASEGAIN * 4,
 		.multi_exposure_ana_gain_range[IMGSENSOR_EXPOSURE_ME].max = BASEGAIN * 16,
 	},
@@ -2355,6 +2384,7 @@ static struct subdrv_mode_struct mode_struct[] = {
 			.dcg_gain_table = imx989_dcg_ratio_table_ratio4,
 			.dcg_gain_table_size = sizeof(imx989_dcg_ratio_table_ratio4),
 		},
+		.dpc_enabled = true,
 		.multi_exposure_ana_gain_range[IMGSENSOR_EXPOSURE_LE].min = BASEGAIN * 4,
 		.multi_exposure_ana_gain_range[IMGSENSOR_EXPOSURE_ME].max = BASEGAIN * 16,
 	},

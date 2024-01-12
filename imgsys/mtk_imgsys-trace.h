@@ -20,15 +20,16 @@
 #define IMGSYS_TRACE_LEN 1024
 
 TRACE_EVENT(tracing_mark_write,
-	TP_PROTO(const char *fmt, va_list *va),
-	TP_ARGS(fmt, va),
+	TP_PROTO(char *s),
+	TP_ARGS(s),
 	TP_STRUCT__entry(
-		__vstring(vstr, fmt, va)
+		__array(char, s, IMGSYS_TRACE_LEN)
 	),
 	TP_fast_assign(
-		__assign_vstr(vstr, fmt, va);
+	if (snprintf(__entry->s, IMGSYS_TRACE_LEN, "%s", s) < 0)
+		__entry->s[0] = '\0';
 	),
-	TP_printk("%s", __get_str(vstr))
+	TP_printk("%s", __entry->s)
 );
 
 #define IMGSYS_TRACE_FORCE_BEGIN(fmt, args...) \

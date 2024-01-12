@@ -408,11 +408,13 @@ void imgsys_wpe_updatecq(struct mtk_imgsys_dev *imgsys_dev,
 			u_iova_addr = imgsys_dev->imgsys_get_iova(dbuf,
 					user_info->priv[i].buf_fd,
 					imgsys_dev, dev_b) + user_info->priv[i].buf_offset;
-
-			u_cq_desc =
-				(u64 *)((void *)(mtk_hcp_get_wpe_mem_virt(imgsys_dev->scp_pdev) +
-				user_info->priv[i].desc_offset + (WPE_UFOD_P2_DESC_OFST *
-				(sizeof(struct mtk_imgsys_wpe_dtable)))));
+			#if SMVR_DECOUPLE
+			u_cq_desc = (u64 *)((void *)(mtk_hcp_get_wpe_mem_virt(imgsys_dev->scp_pdev, mode) +
+			#else
+			u_cq_desc = (u64 *)((void *)(mtk_hcp_get_wpe_mem_virt(imgsys_dev->scp_pdev) +
+			#endif
+						user_info->priv[i].desc_offset + (WPE_UFOD_P2_DESC_OFST
+						* (sizeof(struct mtk_imgsys_wpe_dtable)))));
 
 			dtable = (struct mtk_imgsys_wpe_dtable *)u_cq_desc;
 			dtable->addr = u_iova_addr & 0xFFFFFFFF;
@@ -429,9 +431,13 @@ void imgsys_wpe_updatecq(struct mtk_imgsys_dev *imgsys_dev,
 		}
 
 		if (tuning_iova) {
-			u_cq_desc =
-				(u64 *)((void *)(mtk_hcp_get_wpe_mem_virt(imgsys_dev->scp_pdev) +
+			#if SMVR_DECOUPLE
+			u_cq_desc = (u64 *)((void *)(mtk_hcp_get_wpe_mem_virt(imgsys_dev->scp_pdev, mode) +
+						user_info->priv[i].desc_offset));
+			#else
+			u_cq_desc = (u64 *)((void *)(mtk_hcp_get_wpe_mem_virt(imgsys_dev->scp_pdev) +
 				user_info->priv[i].desc_offset));
+			#endif
 			dtable = (struct mtk_imgsys_wpe_dtable *)u_cq_desc;
 			for (j = 0; j < WPE_CQ_DESC_NUM; j++) {
 				if ((dtable->addr_msb & PSEUDO_DESC_TUNING) == PSEUDO_DESC_TUNING) {
@@ -451,7 +457,11 @@ void imgsys_wpe_updatecq(struct mtk_imgsys_dev *imgsys_dev,
 			}
 		}
 		//
+		#if SMVR_DECOUPLE
+		wpe_buf_info.fd = mtk_hcp_get_wpe_mem_cq_fd(imgsys_dev->scp_pdev, mode);
+		#else
 		wpe_buf_info.fd = mtk_hcp_get_wpe_mem_cq_fd(imgsys_dev->scp_pdev);
+		#endif
 		wpe_buf_info.offset = user_info->priv[i].desc_offset;
 		wpe_buf_info.len =
 			((sizeof(struct mtk_imgsys_wpe_dtable) * WPE_CQ_DESC_NUM) + WPE_REG_SIZE);
@@ -470,7 +480,11 @@ void imgsys_wpe_updatecq(struct mtk_imgsys_dev *imgsys_dev,
 			continue;
 
 		// tdr buffer
+		#if SMVR_DECOUPLE
+		wpe_buf_info.fd = mtk_hcp_get_wpe_mem_tdr_fd(imgsys_dev->scp_pdev, mode);
+		#else
 		wpe_buf_info.fd = mtk_hcp_get_wpe_mem_tdr_fd(imgsys_dev->scp_pdev);
+		#endif
 		wpe_buf_info.offset = user_info->priv[i].tdr_offset;
 		wpe_buf_info.len = WPE_TDR_BUF_MAXSZ;
 		wpe_buf_info.mode = mode;

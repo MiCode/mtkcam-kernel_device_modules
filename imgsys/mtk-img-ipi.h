@@ -45,7 +45,7 @@ typedef int64_t s64;
 #define IMG_IPI_DEBUG   4
 
 #define IMG_MODULE_SET 5
-
+#define SMVR_DECOUPLE 0
 // Definition about supported hw engines, aligned with hw_definition.h
 enum IMGSYS_ENG {
 	IMGSYS_WPE_EIS = 0,
@@ -63,6 +63,13 @@ enum IMGSYS_ENG {
 	IMGSYS_MAX,
 };
 
+enum Mem_Mode {
+     imgsys_streaming = 0,
+     imgsys_capture,
+     imgsys_smvr,
+     imgsys_mem_max,
+};
+
 struct module_init_info {
 	uint64_t	c_wbuf;
 	uint64_t	c_wbuf_dma;
@@ -73,7 +80,13 @@ struct module_init_info {
 	uint32_t	t_wbuf_sz;
 	uint32_t	t_wbuf_fd;
 } __packed;
-
+#if SMVR_DECOUPLE
+struct gce_init_info {
+	uint32_t	g_wbuf_fd;
+	uint64_t	g_wbuf;
+	uint32_t	g_wbuf_sz;
+} __packed;
+#endif
 struct img_init_info {
 	uint32_t	header_version;
 	uint32_t	isp_version;
@@ -91,7 +104,13 @@ struct img_init_info {
 	uint32_t	cq_size;
 	uint64_t	drv_data;
 	/*new add, need refine*/
-	struct module_init_info module_info[IMG_MODULE_SET];
+#if SMVR_DECOUPLE
+	struct module_init_info module_info_streaming[IMG_MODULE_SET];
+        struct module_init_info module_info_capture[IMG_MODULE_SET];
+        struct module_init_info module_info_smvr[IMG_MODULE_SET];
+#else
+    struct module_init_info module_info[IMG_MODULE_SET];
+	#endif
 	uint32_t    g_wbuf_fd;
 	uint64_t	g_wbuf;
 	uint32_t	g_wbuf_sz;
@@ -99,6 +118,13 @@ struct img_init_info {
 	uint16_t	full_wd;
 	uint16_t	full_ht;
 	uint32_t	smvr_mode;
+        #if SMVR_DECOUPLE
+            struct gce_init_info gce_info[imgsys_mem_max];
+    uint32_t	g_token_wbuf_fd;
+	uint64_t	g_token_wbuf;
+	uint32_t	g_token_wbuf_sz;
+uint32_t	is_capture;
+        #endif
 } __packed;
 
 #define KFENCE_MAX 4

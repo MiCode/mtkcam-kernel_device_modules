@@ -695,7 +695,11 @@ void imgsys_traw_updatecq(struct mtk_imgsys_dev *imgsys_dev,
 	struct mtk_imgsys_traw_dtable *dtable = NULL;
 	unsigned int i = 0, j = 0, tun_ofst = 0;
 	struct flush_buf_info traw_buf_info;
+        #if SMVR_DECOUPLE
+	void *virt_mem_base = mtk_hcp_get_traw_mem_virt(imgsys_dev->scp_pdev, mode);
+	#else
 	void *virt_mem_base = mtk_hcp_get_traw_mem_virt(imgsys_dev->scp_pdev);
+        #endif
 	size_t dtbl_sz = sizeof(struct mtk_imgsys_traw_dtable);
 
 	/* HWID defined in hw_definition.h */
@@ -724,7 +728,11 @@ void imgsys_traw_updatecq(struct mtk_imgsys_dev *imgsys_dev,
 			}
 			}
 			//
+			#if SMVR_DECOUPLE
+			traw_buf_info.fd = mtk_hcp_get_traw_mem_cq_fd(imgsys_dev->scp_pdev, mode);
+			#else
 			traw_buf_info.fd = mtk_hcp_get_traw_mem_cq_fd(imgsys_dev->scp_pdev);
+			#endif
 			traw_buf_info.offset = user_info->priv[i].desc_offset;
 			traw_buf_info.len =
 				((dtbl_sz * TRAW_CQ_DESC_NUM) + TRAW_REG_SIZE);
@@ -742,7 +750,11 @@ void imgsys_traw_updatecq(struct mtk_imgsys_dev *imgsys_dev,
 	for (i = IMGSYS_TRAW; i <= IMGSYS_LTR; i++) {
 		if (user_info->priv[i].need_flush_tdr) {
 			// tdr buffer
+			#if SMVR_DECOUPLE
+			traw_buf_info.fd = mtk_hcp_get_traw_mem_tdr_fd(imgsys_dev->scp_pdev, mode);
+			#else
 			traw_buf_info.fd = mtk_hcp_get_traw_mem_tdr_fd(imgsys_dev->scp_pdev);
+			#endif
 			traw_buf_info.offset = user_info->priv[i].tdr_offset;
 			traw_buf_info.len = TRAW_TDR_BUF_MAXSZ;
 			traw_buf_info.mode = mode;

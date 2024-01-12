@@ -150,8 +150,13 @@ void imgsys_dip_updatecq(struct mtk_imgsys_dev *imgsys_dev,
 	/* HWID defined in hw_definition.h */
 	if (user_info->priv[IMGSYS_DIP].need_update_desc) {
 		if (iova_addr) {
+			#if SMVR_DECOUPLE
+			cq_desc = (u64 *)((void *)(mtk_hcp_get_dip_mem_virt(imgsys_dev->scp_pdev, mode) +
+					user_info->priv[IMGSYS_DIP].desc_offset));
+			#else
 			cq_desc = (u64 *)((void *)(mtk_hcp_get_dip_mem_virt(imgsys_dev->scp_pdev) +
 					user_info->priv[IMGSYS_DIP].desc_offset));
+			#endif
 			for (i = 0; i < DIP_CQ_DESC_NUM; i++) {
 				dtable = (struct mtk_imgsys_dip_dtable *)cq_desc + i;
 				if ((dtable->addr_msb & PSEUDO_DESC_TUNING) == PSEUDO_DESC_TUNING) {
@@ -170,7 +175,11 @@ void imgsys_dip_updatecq(struct mtk_imgsys_dev *imgsys_dev,
 		}
 		}
 		//
+		#if SMVR_DECOUPLE
+		dip_buf_info.fd = mtk_hcp_get_dip_mem_cq_fd(imgsys_dev->scp_pdev, mode);
+		#else
 		dip_buf_info.fd = mtk_hcp_get_dip_mem_cq_fd(imgsys_dev->scp_pdev);
+		#endif
 		dip_buf_info.offset = user_info->priv[IMGSYS_DIP].desc_offset;
 		dip_buf_info.len =
 			(sizeof(struct mtk_imgsys_dip_dtable) * DIP_CQ_DESC_NUM) + DIP_REG_SIZE;
@@ -186,7 +195,11 @@ void imgsys_dip_updatecq(struct mtk_imgsys_dev *imgsys_dev,
 
 	if (user_info->priv[IMGSYS_DIP].need_flush_tdr) {
 		// tdr buffer
+		#if SMVR_DECOUPLE
+		dip_buf_info.fd = mtk_hcp_get_dip_mem_tdr_fd(imgsys_dev->scp_pdev, mode);
+		#else
 		dip_buf_info.fd = mtk_hcp_get_dip_mem_tdr_fd(imgsys_dev->scp_pdev);
+		#endif
 		dip_buf_info.offset = user_info->priv[IMGSYS_DIP].tdr_offset;
 		dip_buf_info.len = DIP_TDR_BUF_MAXSZ;
 		dip_buf_info.mode = mode;

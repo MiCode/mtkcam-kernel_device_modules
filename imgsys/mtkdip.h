@@ -50,11 +50,24 @@ struct sensor_info {
 struct init_info {
 	struct sensor_info sensor;
 	uint32_t sec_tag;
-	uint32_t is_smvr;
+	#if !SMVR_DECOUPLE
+            uint8_t  is_smvr;
+	#else
+	#endif
 };
+
+#if SMVR_DECOUPLE
+struct mem_info {
+	uint8_t  is_smvr;
+    uint8_t  is_capture;
+};
+#endif
 #define MTKDIP_IOC_S_INIT_INFO \
 			_IOW('V', BASE_VIDIOC_PRIVATE + 12, struct init_info)
-
+#if SMVR_DECOUPLE
+#define MTKDIP_IOC_ALOC_BUF _IOW('V', BASE_VIDIOC_PRIVATE + 17, struct mem_info)
+#define MTKDIP_IOC_FREE_BUF _IOW('V', BASE_VIDIOC_PRIVATE + 18, struct mem_info)
+#endif
 #define V4L2_CID_IMGSYS_OFFSET	(0xC000)
 #define V4L2_CID_IMGSYS_BASE    (V4L2_CID_USER_BASE + V4L2_CID_IMGSYS_OFFSET)
 #define V4L2_CID_IMGSYS_APU_DC  (V4L2_CID_IMGSYS_BASE + 1)

@@ -397,9 +397,11 @@ struct mtk_cam_job {
 	unsigned int enabled_tags;
 	struct mtk_camsv_tag_info tag_info[CAMSV_MAX_TAGS];
 
-	/* use local_clock() to be consitent with printk */
-	u64 local_apply_sensor_ts;
 	struct mtk_cam_ufbc_header ufbc_header;
+
+	/* debug only: use local_clock() to be consitent with printk */
+	u64 local_enqueue_ts;
+	u64 local_apply_sensor_ts;
 };
 
 static inline struct mtk_cam_job *mtk_cam_job_get(struct mtk_cam_job *job)

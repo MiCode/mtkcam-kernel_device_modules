@@ -398,10 +398,12 @@ static int mtk_cam_job_pack_init(struct mtk_cam_job *job,
 	job->timestamp_buf = NULL;
 	job->raw_switch = false;
 
-	job->local_apply_sensor_ts = 0;
 	memset(&job->ufbc_header, 0, sizeof(job->ufbc_header));
 
-    return ret;
+	job->local_enqueue_ts = local_clock();
+	job->local_apply_sensor_ts = 0;
+
+	return ret;
 }
 
 static unsigned long mtk_cam_select_hw(struct mtk_cam_job *job)
@@ -4909,13 +4911,17 @@ static size_t print_time(u64 ts, char *buff, size_t size)
 			 (unsigned long)ts, rem_nsec / 1000);
 }
 
-static int debug_str_sensor_apply_ts(struct mtk_cam_job *job,
-				     char *buff, size_t size)
+static int debug_str_local_ts(struct mtk_cam_job *job,
+			      char *buff, size_t size)
 {
 	int n = 0;
 
+	n = scnprintf(buff + n, size - n, " q@");
+	n += print_time(job->local_enqueue_ts,
+			buff + n, size - n);
+
 	if (job->local_apply_sensor_ts) {
-		n = scnprintf(buff + n, size - n, " s@");
+		n += scnprintf(buff + n, size - n, " s@");
 		n += print_time(job->local_apply_sensor_ts,
 				buff + n, size - n);
 	}
@@ -4967,10 +4973,10 @@ int job_handle_done(struct mtk_cam_job *job)
 	if (ret) {
 		struct mtk_cam_ctx *ctx = job->src_ctx;
 		unsigned int used_pipe = job->req->used_pipe & ctx->used_pipe;
-		char debug_ts[24];
+		char debug_ts[36];
 
 		debug_ts[0] = '\0';
-		debug_str_sensor_apply_ts(job, debug_ts, sizeof(debug_ts));
+		debug_str_local_ts(job, debug_ts, sizeof(debug_ts));
 
 		dev_info(ctx->cam->dev, "%s: ctx-%d f_seq:0x%x req:%s(%d) pipe:0x%x ts:%lld%s%s\n",
 			 __func__, ctx->stream_id,

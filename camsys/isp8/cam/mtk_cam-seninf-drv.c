@@ -1128,6 +1128,8 @@ static int seninf_core_probe(struct platform_device *pdev)
 
 	mtk_cam_seninf_tsrec_irq_init(core);
 #endif
+	/* init rproc ctrl */
+	mtk_cam_seninf_rproc_init_ccu_ctrl(dev, &core->ccu_rproc_ctrl);
 
 	/* default platform properties */
 	core->cphy_settle_delay_dt = SENINF_CPHY_SETTLE_DELAY_DT;
@@ -3811,6 +3813,10 @@ static int runtime_resume(struct device *dev)
 
 			/* enable tsrec timer clk */
 			mtk_cam_seninf_tsrec_timer_enable(1);
+
+			/* setup default tsrec device irq sel by ccu */
+			mtk_cam_seninf_rproc_ccu_tsrec_ctrl(dev, &core->ccu_rproc_ctrl,
+				MSG_TO_CCU_SENINF_TSREC_IRQ_SEL_CTRL, __func__);
 		} else
 			seninf_logi(ctx,
 				"multi user(%d),cnt(%d)\n",

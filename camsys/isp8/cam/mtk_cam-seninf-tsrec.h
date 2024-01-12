@@ -42,6 +42,23 @@ struct mtk_cam_seninf_tsrec_vc_dt_info {
 };
 
 
+/*----------------------------------------------------------------------------*/
+// tsrec device irq select
+/*----------------------------------------------------------------------------*/
+#define TSREC_IRQ_SEL_ARR_SIZE    (8)
+
+enum tsrec_irq_sel_type {
+	TSREC_IRQ_SEL_TYPE_NONE = 0,
+	TSREC_IRQ_SEL_TYPE_FROM_0,    /* from REG_TSREC_TOP_DEVICE_IRQ_SEL_0 */
+};
+
+struct tsrec_irq_sel_info {
+	enum tsrec_irq_sel_type type;
+	unsigned int mask;
+	unsigned int val[TSREC_IRQ_SEL_ARR_SIZE];
+};
+
+
 /******************************************************************************
  * TSREC basic/utilities functions
  *****************************************************************************/
@@ -98,6 +115,12 @@ void notify_tsrec_update_tsrec_n_exp_vc_dt(const unsigned int tsrec_no,
  * call this API when seninf runtime resume/suspend.
  */
 void mtk_cam_seninf_tsrec_timer_enable(const unsigned int en);
+
+
+/*
+ * call this API to get device irq select info.
+ */
+void mtk_cam_seninf_tsrec_g_irq_sel_info(struct tsrec_irq_sel_info *p_irq_info);
 
 
 /*

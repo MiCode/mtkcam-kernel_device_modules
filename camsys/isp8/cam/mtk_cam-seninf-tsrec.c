@@ -270,11 +270,6 @@ struct tsrec_status_st {
 	/* tsrec regs settings & timestamp records */
 	/* array size is by tsrec_hw_cnt got from dts */
 	struct tsrec_n_regs_st **tsrec_n_regs;
-
-
-	/* for custom using/property */
-	/* SB test => read and set from dts property */
-	unsigned int does_set_device_irq_sel_in_kernel;
 };
 static struct tsrec_status_st tsrec_status;
 
@@ -2186,24 +2181,6 @@ static inline int chk_tsrec_irq_valid(const unsigned int idx,
 }
 
 
-static void tsrec_setup_default_device_irq_sel(const unsigned int flag)
-{
-#if (TSREC_HW_VER_ISP_8)
-	const unsigned int val = flag
-		? (0xffffffff & TSREC_BIT_MASK(tsrec_status.tsrec_hw_cnt)) : 0;
-	const unsigned int no = 0;
-
-	if (likely(tsrec_status.does_set_device_irq_sel_in_kernel == 0))
-		return;
-
-	/* default select all tsrec IRQ to device 0 */
-	mtk_cam_seninf_tsrec_s_device_irq_sel(no, val);
-
-	TSREC_LOG_INF("NOTICE: set device irq sel:(no:%u/val:%#x)\n", no, val);
-#endif
-}
-
-
 static void tsrec_irq_enable(const unsigned int en, const unsigned int idx)
 {
 	if (unlikely(chk_tsrec_irq_valid(idx, __func__) == 0))
@@ -2236,8 +2213,6 @@ static void tsrec_irq_enable(const unsigned int en, const unsigned int idx)
 static inline void tsrec_irq_all_enable(const unsigned int en)
 {
 	int i;
-
-	tsrec_setup_default_device_irq_sel(en);
 
 	for (i = 0; i < tsrec_status.irq_cnt; ++i)
 		tsrec_irq_enable(en, i);
@@ -3032,6 +3007,24 @@ void mtk_cam_seninf_tsrec_timer_enable(const unsigned int en)
 
 	TSREC_LOG_INF("NOTICE: %s\n", log_buf);
 	TSREC_KFREE(log_buf);
+}
+
+
+void mtk_cam_seninf_tsrec_g_irq_sel_info(struct tsrec_irq_sel_info *p_irq_info)
+{
+	memset(p_irq_info, 0, sizeof(*p_irq_info));
+
+	/* TODO: currently, default set all tsrecs to one irq line. (maybe by VM cfg) */
+	p_irq_info->type = TSREC_IRQ_SEL_TYPE_FROM_0;
+	p_irq_info->mask = 0x1;    // only first register has valid setting.
+	p_irq_info->val[0] =
+		(0xffffffff & TSREC_BIT_MASK(tsrec_status.tsrec_hw_cnt));
+
+	TSREC_LOG_INF(
+		"NOTICE: irq_info:(type:%u, mask:%#x, val:(%#x/%#x/%#x/%#x))\n",
+		p_irq_info->type, p_irq_info->mask,
+		p_irq_info->val[0], p_irq_info->val[1],
+		p_irq_info->val[2], p_irq_info->val[3]);
 }
 
 
@@ -4257,22 +4250,6 @@ static void mtk_cam_seninf_tsrec_remove_sysfs_file(struct device *dev)
 #endif
 }
 /*---------------------------------------------------------------------------*/
-#ifndef FS_UT
-static void tsrec_get_custom_property(struct device_node *tsrecs_node)
-{
-	unsigned int val = 0;
-	int ret = 0;
-
-	/* !!! SW custom property !!! */
-	ret = of_property_read_u32(tsrecs_node, "s-dev-irq-sel-in-krn", &val);
-	if (unlikely(ret == 0)) {
-		tsrec_status.does_set_device_irq_sel_in_kernel = val;
-		TSREC_LOG_INF(
-			"NOTICE: get dts property name:'s-dev-irq-sel-in-krn', val:%u, from node:'%s'\n",
-			val, tsrecs_node->full_name);
-	}
-}
-#endif
 
 
 static void mtk_cam_seninf_tsrec_get_property(struct device *dev)
@@ -4312,8 +4289,6 @@ static void mtk_cam_seninf_tsrec_get_property(struct device *dev)
 			"WARNING: SENINF HW cnt is %u, this will cause TSREC flow NOT running\n",
 			tsrec_status.seninf_hw_cnt);
 	}
-
-	tsrec_get_custom_property(tsrecs_node);
 #else
 	/* !!!! only for FS_UT => hardcode for testing SW flow & logic !!! */
 	tsrec_status.tsrec_hw_cnt = ut_fs_tsrec_g_tsrec_max_cnt();

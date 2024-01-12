@@ -12,6 +12,7 @@
 
 #include "clk-fmeter.h"
 #include "mtk_cam-seninf-def.h"
+#include "mtk_cam-seninf-rproc-ctrl.h"
 #include "imgsensor-user.h"
 #include "mtk_cam-seninf-regs.h"
 #include "mtk_cam-aov.h"
@@ -161,9 +162,8 @@ struct seninf_core {
 	//void __iomem *reg_ana;
 	int refcnt;
 
-	/* CCU control flow */
-	phandle rproc_ccu_phandle;
-	struct rproc *rproc_ccu_handle;
+	/* CCU rproc ctrl */
+	struct seninf_rproc_ccu_ctrl ccu_rproc_ctrl;
 
 	/* platform properties */
 	int cphy_settle_delay_dt;

@@ -1610,7 +1610,11 @@ int reset_sensor_flow(void *arg)
 		}
 
 		dev_info(aov_dev->dev, "%s: do reset sensor flow+", __func__);
-		/* Call reset sensor API here */
+		ret = mtk_cam_seninf_aov_reset_sensor(core_info->sensor_id);
+		if (ret < 0)
+			dev_info(aov_dev->dev,
+				"mtk_cam_seninf_aov_reset_sensor(%d) fail, ret: %d\n",
+				core_info->sensor_id, ret);
 		dev_info(aov_dev->dev, "%s: do reset sensor flow-", __func__);
 
 		ret = send_cmd_internal(core_info, AOV_SCP_CMD_RESET_SENSOR_END, 0, 0, false, false);

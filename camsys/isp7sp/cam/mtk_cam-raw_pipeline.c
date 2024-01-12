@@ -571,8 +571,12 @@ static int mtk_raw_slb_request_early(struct mtk_raw_pipeline *pipeline,
 	struct slbc_data *slb;
 	int ret;
 
-	if (WARN_ON(pipeline->early_request_slb_data))
-		return -1;
+	if (pipeline->early_request_slb_data) {
+		dev_info(dev, "%s: slb_data requested %s\n", __func__,
+			 pipeline->early_request_slb_data->uid == uid ?
+			 "" : "warn: uid differs!");
+		return 0;
+	}
 
 	slb = kmalloc(sizeof(*slb), GFP_KERNEL);
 	if (!slb) {

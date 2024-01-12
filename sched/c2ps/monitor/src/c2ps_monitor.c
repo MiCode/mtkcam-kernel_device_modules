@@ -67,10 +67,8 @@ static void reset_task_eas_setting(struct c2ps_task_info *tsk_info)
 	set_curr_uclamp_hint(pid, 0);
 
 	attr.sched_policy = SCHED_NORMAL;
-	attr.sched_flags = 0;
 	attr.sched_flags = SCHED_FLAG_KEEP_ALL   |
-			   SCHED_FLAG_UTIL_CLAMP |
-			   SCHED_FLAG_RESET_ON_FORK;
+			   SCHED_FLAG_UTIL_CLAMP;
 
 	attr.sched_util_min = 1;
 	if (glb_info != NULL) {

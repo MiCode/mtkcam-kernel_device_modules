@@ -14,6 +14,7 @@ static unsigned int c2ps_regulator_base_update_uclamp = 0;
 static unsigned int c2ps_uclamp_up_margin = 0;
 static unsigned int c2ps_uclamp_down_margin = 0;
 static unsigned int c2ps_regulator_bg_update_uclamp = 20;
+static unsigned int c2ps_regulator_bg_update_uclamp_fast;
 static unsigned int c2ps_uclamp_bg_up_margin_cluster0 = 60;
 static unsigned int c2ps_uclamp_bg_up_margin_cluster1 = 40;
 static unsigned int c2ps_uclamp_bg_up_margin_cluster2 = 0;
@@ -24,6 +25,7 @@ module_param(c2ps_regulator_base_update_uclamp, int, 0644);
 module_param(c2ps_uclamp_up_margin, int, 0644);
 module_param(c2ps_uclamp_down_margin, int, 0644);
 module_param(c2ps_regulator_bg_update_uclamp, int, 0644);
+module_param(c2ps_regulator_bg_update_uclamp_fast, int, 0644);
 module_param(c2ps_uclamp_bg_up_margin_cluster0, int, 0644);
 module_param(c2ps_uclamp_bg_up_margin_cluster1, int, 0644);
 module_param(c2ps_uclamp_bg_up_margin_cluster2, int, 0644);
@@ -42,10 +44,8 @@ void set_uclamp(const int pid, unsigned int max_util, unsigned int min_util)
 	max_util = clamp(max_util, 1U, 1024U);
 
 	attr.sched_policy = SCHED_NORMAL;
-	attr.sched_flags = 0;
 	attr.sched_flags = SCHED_FLAG_KEEP_ALL   |
-			   SCHED_FLAG_UTIL_CLAMP |
-			   SCHED_FLAG_RESET_ON_FORK;
+			   SCHED_FLAG_UTIL_CLAMP;
 
 	attr.sched_util_min = min_util;
 	attr.sched_util_max = max_util;
@@ -189,28 +189,39 @@ void c2ps_regulator_bgpolicy_simple(struct regulator_req *req)
 	if (!req->glb_info)
 		return;
 
-	for (; cluster_index < NUMBER_OF_CLUSTER; cluster_index++) {
+	for (; cluster_index < c2ps_nr_clusters; cluster_index++) {
 		int *_cur_bg_uclamp = &(req->glb_info->curr_max_uclamp[cluster_index]);
+		int cpu = c2ps_get_first_cpu_of_cluster(cluster_index);
+
+		if (unlikely(cpu < 0))
+			continue;
 
 		if ((*_bg_uclamp_up_margin[cluster_index]) == 0 &&
-			 req->glb_info->need_update_uclamp[1 + cluster_index] != -1 &&
+			 req->glb_info->need_update_uclamp[1 + cluster_index] >= 0 &&
 			 !req->glb_info->special_uclamp_max[cluster_index])
 			continue;
 
-		if (req->glb_info->need_update_uclamp[1 + cluster_index] == 1) {
+		if (req->glb_info->need_update_uclamp[1 + cluster_index] == 2) {
+			*_cur_bg_uclamp = (int)(req->glb_info->max_uclamp[cluster_index]
+				      * (100 + (*_bg_uclamp_up_margin[cluster_index])) / 100);
+		} else if (req->glb_info->use_special_uclamp_max &&
+				req->glb_info->special_uclamp_max[cluster_index] > 0) {
+			*_cur_bg_uclamp = max(req->glb_info->special_uclamp_max[cluster_index],
+								req->glb_info->max_uclamp[cluster_index]);
+		} else if (req->glb_info->need_update_uclamp[1 + cluster_index] == 1) {
 			int _max_uclamp_max = (int)(req->glb_info->max_uclamp[cluster_index]
 				      * (100 + (*_bg_uclamp_up_margin[cluster_index])) / 100);
-
-			if (req->glb_info->use_special_uclamp_max) {
-				_max_uclamp_max =
-							req->glb_info->special_uclamp_max[cluster_index];
-				_max_uclamp_max =
-				max(_max_uclamp_max, req->glb_info->max_uclamp[cluster_index]);
-			}
 
 			*_cur_bg_uclamp += c2ps_regulator_bg_update_uclamp;
 
 			*_cur_bg_uclamp = min(*_cur_bg_uclamp, _max_uclamp_max);
+		} else if (req->glb_info->need_update_uclamp[1 + cluster_index] == -2) {
+			if (c2ps_regulator_bg_update_uclamp_fast <= 0)
+				c2ps_regulator_bg_update_uclamp_fast =
+									c2ps_regulator_bg_update_uclamp;
+			*_cur_bg_uclamp -= c2ps_regulator_bg_update_uclamp_fast;
+			*_cur_bg_uclamp = max(*_cur_bg_uclamp,
+						req->glb_info->max_uclamp[cluster_index]);
 		} else if (req->glb_info->need_update_uclamp[1 + cluster_index] == -1) {
 			*_cur_bg_uclamp -= c2ps_regulator_bg_update_uclamp;
 			*_cur_bg_uclamp = max(*_cur_bg_uclamp,
@@ -218,7 +229,7 @@ void c2ps_regulator_bgpolicy_simple(struct regulator_req *req)
 		} else {
 			continue;
 		}
-
+		*_cur_bg_uclamp = min(*_cur_bg_uclamp, c2ps_get_cpu_max_uclamp(cpu));
 		set_gear_uclamp_max(cluster_index, *_cur_bg_uclamp);
 	}
 
@@ -227,9 +238,9 @@ void c2ps_regulator_bgpolicy_simple(struct regulator_req *req)
 		"cluster_0_freq=%ld cluster_1_freq=%ld cluster_2_freq=%ld",
 		req->glb_info->curr_max_uclamp[0], req->glb_info->curr_max_uclamp[1],
 		req->glb_info->curr_max_uclamp[2],
-		c2ps_get_uclamp_freq(LCORE_ID, req->glb_info->curr_max_uclamp[0]),
-		c2ps_get_uclamp_freq(MCORE_ID, req->glb_info->curr_max_uclamp[1]),
-		c2ps_get_uclamp_freq(BCORE_ID, req->glb_info->curr_max_uclamp[2]));
+		c2ps_get_cluster_uclamp_freq(0, req->glb_info->curr_max_uclamp[0]),
+		c2ps_get_cluster_uclamp_freq(1, req->glb_info->curr_max_uclamp[1]),
+		c2ps_get_cluster_uclamp_freq(2, req->glb_info->curr_max_uclamp[2]));
 	c2ps_main_systrace(
 		"special_cluster_0_util=%d special_cluster_1_util=%d special_cluster_2_util=%d ",
 		req->glb_info->special_uclamp_max[0], req->glb_info->special_uclamp_max[1],

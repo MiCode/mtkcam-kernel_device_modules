@@ -24,6 +24,7 @@ enum C2PS_NOTIFIER_PUSH_TYPE {
 	C2PS_NOTIFIER_SCENE_CHANGE  = 0x05,
 	C2PS_NOTIFIER_CAMFPS        = 0x06,
 	C2PS_NOTIFIER_VSYNC         = 0x07,
+	C2PS_NOTIFIER_TASK_SINGLE_SHOT = 0x08,
 };
 
 struct C2PS_NOTIFIER_PUSH_TAG {
@@ -40,6 +41,13 @@ struct C2PS_NOTIFIER_PUSH_TAG {
 	bool is_vip_task;
 	bool is_dynamic_tid;
 	char task_name[MAX_TASK_NAME_SIZE];
+	int overwrite_uclamp_max[MAX_NUMBER_OF_CLUSTERS];
+	int idle_rate_alert;
+	int timeout;
+	int uclamp_max_placeholder1[MAX_NUMBER_OF_CLUSTERS];
+	int uclamp_max_placeholder2[MAX_NUMBER_OF_CLUSTERS];
+	int uclamp_max_placeholder3[MAX_NUMBER_OF_CLUSTERS];
+	bool reset_param;
 	struct list_head queue_list;
 };
 
@@ -51,21 +59,26 @@ static DEFINE_MUTEX(notifier_wq_lock);
 static DECLARE_WAIT_QUEUE_HEAD(notifier_wq_queue);
 static void self_uninit_timer_callback(struct timer_list *t);
 static int picked_wl_table = 0;
+static unsigned int background_monitor_duration = BACKGROUND_MONITOR_DURATION;
+unsigned int c2ps_nr_clusters;
 
 struct timer_list backgroup_info_update_timer;
 struct timer_list self_uninit_timer;
 
 module_param(picked_wl_table, int, 0644);
+module_param(background_monitor_duration, int, 0644);
 
 static void backgroup_info_update_timer_callback(struct timer_list *t)
 {
-	mod_timer(t, jiffies + BACKGROUND_MONITOR_DURATION*HZ / 1000);
+	if (unlikely(background_monitor_duration == 0))
+		background_monitor_duration = BACKGROUND_MONITOR_DURATION;
+	mod_timer(t, jiffies + background_monitor_duration*HZ / 1000);
 	update_cpu_idle_rate();
 }
 
-static void c2ps_notifier_wq_cb_init(int camfps)
+static void c2ps_notifier_wq_cb_init(void)
 {
-	if (unlikely(init_c2ps_common(camfps))) {
+	if (unlikely(init_c2ps_common())) {
 		C2PS_LOGD("init_c2ps_common failed\n");
 		return;
 	}
@@ -74,7 +87,7 @@ static void c2ps_notifier_wq_cb_init(int camfps)
 	timer_setup(&self_uninit_timer, self_uninit_timer_callback, 0);
 	add_timer(&self_uninit_timer);
 
-	backgroup_info_update_timer.expires = jiffies + 2*HZ;
+	backgroup_info_update_timer.expires = jiffies;
 	timer_setup(&backgroup_info_update_timer,
 				backgroup_info_update_timer_callback, 0);
 	add_timer(&backgroup_info_update_timer);
@@ -189,6 +202,33 @@ static void c2ps_notifier_wq_cb_scene_change(int task_id, int scene_mode)
 		C2PS_LOGE("notify_task_scene_change failed\n");
 }
 
+static void c2ps_notifier_wq_cb_task_single_shot(
+	int *uclamp_max, int idle_rate_alert, int timeout,
+	int *uclamp_max_placeholder1, int *uclamp_max_placeholder2,
+	int *uclamp_max_placeholder3, bool reset_param)
+{
+	struct global_info *g_info = get_glb_info();
+
+	if (!g_info) {
+		C2PS_LOGE("glb_info is null\n");
+		return;
+	}
+
+	if (need_update_single_shot_uclamp_max(uclamp_max))
+		memcpy(g_info->overwrite_uclamp_max, uclamp_max,
+			c2ps_nr_clusters * sizeof(int));
+	if (unlikely(need_update_single_shot_uclamp_max(uclamp_max_placeholder1)))
+		memcpy(g_info->uclamp_max_placeholder1, uclamp_max_placeholder1,
+			c2ps_nr_clusters * sizeof(int));
+	if (unlikely(need_update_single_shot_uclamp_max(uclamp_max_placeholder2)))
+		memcpy(g_info->uclamp_max_placeholder2, uclamp_max_placeholder2,
+			c2ps_nr_clusters * sizeof(int));
+	if (unlikely(need_update_single_shot_uclamp_max(uclamp_max_placeholder3)))
+		memcpy(g_info->uclamp_max_placeholder3, uclamp_max_placeholder3,
+			c2ps_nr_clusters * sizeof(int));
+
+}
+
 static void c2ps_queue_work(struct C2PS_NOTIFIER_PUSH_TAG *vpPush)
 {
 	if (timer_pending(&self_uninit_timer))
@@ -260,7 +300,7 @@ static void c2ps_notifier_wq_cb(void)
 
 	switch (vpPush->ePushType) {
 	case C2PS_NOTIFIER_INIT:
-		c2ps_notifier_wq_cb_init(vpPush->camfps);
+		c2ps_notifier_wq_cb_init();
 		break;
 	case C2PS_NOTIFIER_UNINIT:
 		c2ps_notifier_wq_cb_uninit();
@@ -288,6 +328,13 @@ static void c2ps_notifier_wq_cb(void)
 	case C2PS_NOTIFIER_VSYNC:
 		c2ps_notifier_wq_cb_vsync(vpPush->cur_ts);
 		break;
+	case C2PS_NOTIFIER_TASK_SINGLE_SHOT:
+		c2ps_notifier_wq_cb_task_single_shot(
+			vpPush->overwrite_uclamp_max, vpPush->idle_rate_alert,
+			vpPush->timeout, vpPush->uclamp_max_placeholder1,
+			vpPush->uclamp_max_placeholder2, vpPush->uclamp_max_placeholder3,
+			vpPush->reset_param);
+		break;
 	default:
 		C2PS_LOGE("unhandled push type = %d\n",
 				vpPush->ePushType);
@@ -296,13 +343,19 @@ static void c2ps_notifier_wq_cb(void)
 	c2ps_free(vpPush, sizeof(*vpPush));
 
 	if (need_update_background()) {
-		struct regulator_req *req = get_regulator_req();
+		struct global_info *g_info = get_glb_info();
 
-		if (req != NULL) {
-			req->glb_info = get_glb_info();
-			send_regulator_req(req);
-			reset_need_update_status();
+		if (unlikely(!g_info))
+			return;
+		if (need_send_regulator_req(g_info)) {
+			struct regulator_req *req = get_regulator_req();
+
+			if (req != NULL) {
+				req->glb_info = g_info;
+				send_regulator_req(req);
+			}
 		}
+		reset_need_update_status();
 	}
 }
 
@@ -602,6 +655,64 @@ out:
 	return ret;
 }
 
+int c2ps_notify_task_single_shot(
+	int *uclamp_max, int idle_rate_alert, int timeout,
+	int *uclamp_max_placeholder1, int *uclamp_max_placeholder2,
+	int *uclamp_max_placeholder3, bool reset_param)
+{
+	struct C2PS_NOTIFIER_PUSH_TAG *vpPush = NULL;
+	int ret = 0;
+
+	if (!uclamp_max || !uclamp_max_placeholder1 ||
+		!uclamp_max_placeholder2 || !uclamp_max_placeholder3) {
+		C2PS_LOGE("null uclamp max pointer\n");
+		ret = -EINVAL;
+		goto out;
+	}
+
+	vpPush = (struct C2PS_NOTIFIER_PUSH_TAG *)
+		c2ps_alloc_atomic(sizeof(*vpPush));
+
+	if (!vpPush) {
+		C2PS_LOGE("OOM\n");
+		ret = -ENOMEM;
+		goto out;
+	}
+
+	if (!c2ps_tsk) {
+		C2PS_LOGE("NULL WorkQueue\n");
+		c2ps_free(vpPush, sizeof(*vpPush));
+		ret = -EINVAL;
+		goto out;
+	}
+
+	memset(vpPush->overwrite_uclamp_max, 0,
+		MAX_NUMBER_OF_CLUSTERS * sizeof(int));
+	memcpy(vpPush->overwrite_uclamp_max, uclamp_max,
+		MAX_NUMBER_OF_CLUSTERS * sizeof(int));
+	memset(vpPush->uclamp_max_placeholder1, 0,
+		MAX_NUMBER_OF_CLUSTERS * sizeof(int));
+	memcpy(vpPush->uclamp_max_placeholder1, uclamp_max_placeholder1,
+		MAX_NUMBER_OF_CLUSTERS * sizeof(int));
+	memset(vpPush->uclamp_max_placeholder2, 0,
+		MAX_NUMBER_OF_CLUSTERS * sizeof(int));
+	memcpy(vpPush->uclamp_max_placeholder2, uclamp_max_placeholder2,
+		MAX_NUMBER_OF_CLUSTERS * sizeof(int));
+	memset(vpPush->uclamp_max_placeholder3, 0,
+		MAX_NUMBER_OF_CLUSTERS * sizeof(int));
+	memcpy(vpPush->uclamp_max_placeholder3, uclamp_max_placeholder3,
+		MAX_NUMBER_OF_CLUSTERS * sizeof(int));
+	vpPush->idle_rate_alert = idle_rate_alert;
+	vpPush->timeout = timeout;
+	vpPush->reset_param = reset_param;
+	vpPush->ePushType = C2PS_NOTIFIER_TASK_SINGLE_SHOT;
+
+	c2ps_queue_work(vpPush);
+
+out:
+	return ret;
+}
+
 static void self_uninit_timer_callback(struct timer_list *t)
 {
 	C2PS_LOGD("uninit expired");
@@ -612,6 +723,7 @@ static int __init c2ps_init(void)
 {
 	C2PS_LOGD("+ \n");
 
+	c2ps_nr_clusters = get_nr_gears();
 	c2ps_tsk = kthread_create(c2ps_thread_loop, NULL, "c2ps_thread_loop");
 
 	if (c2ps_tsk == NULL)
@@ -626,6 +738,7 @@ static int __init c2ps_init(void)
 	c2ps_notify_vsync_fp = c2ps_notify_vsync;
 	c2ps_notify_camfps_fp = c2ps_notify_camfps;
 	c2ps_notify_task_scene_change_fp = c2ps_notify_task_scene_change;
+	c2ps_notify_task_single_shot_fp = c2ps_notify_task_single_shot;
 
 	c2ps_sysfs_init();
 	if (unlikely(uclamp_regulator_init())) {

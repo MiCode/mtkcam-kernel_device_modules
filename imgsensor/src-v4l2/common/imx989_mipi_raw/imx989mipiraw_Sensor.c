@@ -2484,15 +2484,15 @@ static struct subdrv_ops ops = {
 
 static struct subdrv_pw_seq_entry pw_seq[] = {
 	{HW_ID_MCLK, 19, 0},
-	{HW_ID_RST, 0, 1},
+	{HW_ID_RST, 0, 0},
+	{HW_ID_MCLK_DRIVING_CURRENT, 4, 1},
 	{HW_ID_AVDD, 2900000, 0}, // pmic_ldo for avdd
 	{HW_ID_AVDD2, 1800000, 0}, // pmic_ldo/gpio(1.8V ldo) for avdd1
 	{HW_ID_AFVDD, 3100000, 0}, // pmic_ldo for afvdd
 	{HW_ID_AFVDD1, 1800000, 0}, // pmic_gpo(3.1V ldo) for afvdd
-	{HW_ID_DOVDD, 1800000, 1}, // pmic_ldo/gpio(1.8V ldo) for dovdd
+	{HW_ID_DOVDD, 1800000, 0}, // pmic_ldo/gpio(1.8V ldo) for dovdd
 	{HW_ID_DVDD, 1100000, 1}, // pmic_ldo for dvdd
 	{HW_ID_OISVDD, 3100000, 1},
-	{HW_ID_MCLK_DRIVING_CURRENT, 4, 1},
 	{HW_ID_RST, 1, 2}
 };
 

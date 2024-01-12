@@ -1983,6 +1983,7 @@ int mtk_cam_alloc_img_pool(struct device *dev_to_attach,
 
 static int mtk_cam_ctx_alloc_img_pool(struct mtk_cam_ctx *ctx)
 {
+	struct device *dev_to_attach;
 	struct mtk_cam_driver_buf_desc *desc = &ctx->img_work_buf_desc;
 	struct mtk_raw_pipeline *raw_pipe;
 	struct v4l2_mbus_framefmt *mf;
@@ -2009,7 +2010,8 @@ static int mtk_cam_ctx_alloc_img_pool(struct mtk_cam_ctx *ctx)
 		goto EXIT_NO_POOL;
 	}
 
-	ret = mtk_cam_alloc_img_pool(ctx->cam->engines.raw_devs[0],
+	dev_to_attach = get_dev_to_attach(ctx);
+	ret = mtk_cam_alloc_img_pool(dev_to_attach,
 				     &raw_pipe->ctrl_data,
 				     mf,
 				     desc,
@@ -3666,7 +3668,7 @@ static int mtk_cam_probe(struct platform_device *pdev)
 	}
 
 	if (alloc_dev->dma_parms) {
-		ret = dma_set_max_seg_size(dev, UINT_MAX);
+		ret = dma_set_max_seg_size(alloc_dev, UINT_MAX);
 		if (ret)
 			dev_info(dev, "Failed to set DMA segment size\n");
 	}

@@ -366,7 +366,7 @@ void initialize(struct mtk_raw_device *dev, struct engine_callback *cb,
 		FBIT(CAMCTL_CQ_SUB_VS_ERR_EN)| FBIT(CAMCTL_CQ_SUB_CODE_ERR_EN);
 	raw_writel_relaxed(val, dev, dev->base, REG_CAMCTL_INT21_EN);
 
-#if RAW_DEBUG
+#ifdef RAW_DEBUG_INIT
 	dump_interrupt(dev);
 	dump_cq_setting(dev);
 #endif
@@ -383,7 +383,7 @@ void initialize(struct mtk_raw_device *dev, struct engine_callback *cb,
 	init_camsys_settings(dev, is_srt);
 	init_ADLWR_settings(dev->cam);
 	init_raw_ddren(dev, is_srt, frm_time_us);
-#if RAW_DEBUG
+#ifdef RAW_DEBUG_INIT
 	dump_topdebug_rdyreq_status(dev);
 #endif
 	dev->engine_cb = cb;
@@ -1003,26 +1003,28 @@ static void raw_handle_error(struct mtk_raw_device *raw_dev,
 
 static void raw_dump_debug_ufbc_status(struct mtk_raw_device *dev)
 {
+#ifdef UFD_DEBUG
 	mtk_cam_dump_ufd_debug(dev,
 			       "UFD_R2",
 			       dbg_UFD_R2, ARRAY_SIZE(dbg_UFD_R2));
 	mtk_cam_dump_ufd_debug(dev,
 			       "UFD_R5",
 			       dbg_UFD_R5, ARRAY_SIZE(dbg_UFD_R5));
+#endif
 	mtk_cam_dump_dma_debug(dev,
-			       dev->base + 0x4000, /* DMATOP_BASE */
+			       dev->dmatop_base, /* DMATOP_BASE */
 			       "RAWI_R2",
 			       dbg_RAWI_R2, ARRAY_SIZE(dbg_RAWI_R2));
 	mtk_cam_dump_dma_debug(dev,
-			       dev->base + 0x4000, /* DMATOP_BASE */
+			       dev->dmatop_base, /* DMATOP_BASE */
 			       "RAWI_R2_UFD",
 			       dbg_RAWI_R2_UFD, ARRAY_SIZE(dbg_RAWI_R2_UFD));
 	mtk_cam_dump_dma_debug(dev,
-			       dev->base + 0x4000, /* DMATOP_BASE */
+			       dev->dmatop_base, /* DMATOP_BASE */
 			       "RAWI_R5",
 			       dbg_RAWI_R5, ARRAY_SIZE(dbg_RAWI_R5));
 	mtk_cam_dump_dma_debug(dev,
-			       dev->base + 0x4000, /* DMATOP_BASE */
+			       dev->dmatop_base, /* DMATOP_BASE */
 			       "RAWI_R5_UFD",
 			       dbg_RAWI_R5_UFD, ARRAY_SIZE(dbg_RAWI_R5_UFD));
 
@@ -1038,13 +1040,12 @@ static void raw_handle_skip_frame(struct mtk_raw_device *raw_dev,
 			__func__, err_status, fh_cookie);
 
 	if (err_status & FBIT(CAMCTL_P1_SKIP_FRAME_DC_STAG_INT_ST)) {
+		dump_topdebug_rdyreq_status(raw_dev);
 		raw_dump_debug_ufbc_status(raw_dev);
-
-		mtk_smi_dbg_hang_detect("camsys-raw");
-
 		do_engine_callback(raw_dev->engine_cb, dump_request,
 				raw_dev->cam, CAMSYS_ENGINE_RAW, raw_dev->id,
 				fh_cookie, MSG_DC_SKIP_FRAME);
+		mtk_smi_dbg_hang_detect("camsys-raw");
 	}
 }
 
@@ -1256,6 +1257,8 @@ static irqreturn_t mtk_irq_raw_yuv(int irq, void *data)
 	if (dma_ufl_status & RING_BUFFER_OFL_MASK)
 		irq_info.irq_type |= 1 << CAMSYS_IRQ_RINGBUFFER_OVERFLOW;
 
+	if (wdma_done_status_y & FBIT(CAMCTL2_TCYSO_R1_DONE_ST))
+		irq_info.irq_type |= 1 << CAMSYS_IRQ_DEBUG_1;
 	/* Frame done */
 	if (frame_status & FBIT(CAMCTL_SW_PASS1_DONE_ST)) {
 		irq_info.irq_type |= 1 << CAMSYS_IRQ_FRAME_DONE;
@@ -1422,7 +1425,11 @@ static irqreturn_t mtk_thread_irq_raw(int irq, void *data)
 		WARN_ON(len != sizeof(irq_info));
 
 #if RAW_DEBUG
-		dev_info(raw_dev->dev, "ts=%llu irq_type %d, req:0x%x/0x%x ctl_mod_5:0x%x diff:%llu (0x%x/0x%x/0x%x)\n",
+		if (irq_info.irq_type & BIT(CAMSYS_IRQ_FRAME_START) ||
+			irq_info.irq_type & BIT(CAMSYS_IRQ_SETTING_DONE) ||
+			irq_info.irq_type & BIT(CAMSYS_IRQ_DEBUG_1) ||
+			irq_info.irq_type & BIT(CAMSYS_IRQ_ERROR))
+			dev_info(raw_dev->dev, "ts=%llu irq_type %d, req:0x%x/0x%x ctl_mod_5:0x%x diff:%llu (0x%x/0x%x/0x%x)\n",
 			irq_info.ts_ns / 1000,
 			irq_info.irq_type,
 			irq_info.frame_idx_inner,
@@ -1512,6 +1519,7 @@ static void raw_handle_dma_err(struct mtk_raw_device *raw_dev,
 	if (cnt <= 3) {
 		struct mtk_yuv_device *yuv_dev = get_yuv_dev(raw_dev);
 
+		dump_topdebug_rdyreq_status(raw_dev);
 		dump_raw_dma_err_st(raw_dev);
 		dump_yuv_dma_err_st(yuv_dev);
 	}

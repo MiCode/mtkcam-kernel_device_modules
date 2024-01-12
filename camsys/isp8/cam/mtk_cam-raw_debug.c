@@ -269,8 +269,8 @@ void mtk_cam_dump_dma_debug(struct mtk_raw_device *raw_dev,
 			    struct dma_debug_item *items, int n)
 {
 	struct device *dev = raw_dev->dev;
-	void __iomem *dbg_sel = dmatop_base + 0x70;
-	void __iomem *dbg_port = dmatop_base + 0x74;
+	void __iomem *dbg_sel = dmatop_base + 0x88;
+	void __iomem *dbg_port = dmatop_base + 0x8c;
 	int i = 0;
 	unsigned int vals[MAX_DEBUG_SIZE];
 	int crc_en;

@@ -180,6 +180,14 @@ struct plat_data_hw {
 	int cammux_id_raw_start;
 	int raw_icc_path_num;
 	int yuv_icc_path_num;
+	int max_main_pipe_w;
+	int max_main_pipe_twin_w;
+	int pixel_mode_max;
+	/**
+	 * In 6989 and 6897, if the width < 1920, hw can't accept 2 pixel mode.
+	 * pixel_mode_contraints is to enable the corrosponding protection.
+	 */
+	bool has_pixel_mode_contraints;
 
 	int (*query_raw_dma_group)(int m4u_id, u32 group[4]);
 	int (*query_yuv_dma_group)(int m4u_id, u32 group[4]);

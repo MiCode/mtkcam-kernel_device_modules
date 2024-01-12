@@ -251,19 +251,10 @@ struct clk_bulk_data imgsys_isp7_clks_mt6878[] = {
 		.id = "IMGSYS_CG_IMG_WPE2",
 	},
 	{
-		.id = "IMGSYS_CG_IMG_AVS",
-	},
-	{
-		.id = "IMGSYS_CG_IMG_IPS",
-	},
-	{
 		.id = "IMGSYS_CG_SUB_COMMON0",
 	},
 	{
 		.id = "IMGSYS_CG_SUB_COMMON1",
-	},
-	{
-		.id = "IMGSYS_CG_SUB_COMMON2",
 	},
 	{
 		.id = "IMGSYS_CG_SUB_COMMON3",
@@ -287,19 +278,10 @@ struct clk_bulk_data imgsys_isp7_clks_mt6878[] = {
 		.id = "IMGSYS_CG_GALS_RX_WPE1",
 	},
 	{
-		.id = "IMGSYS_CG_GALS_RX_WPE2",
-	},
-	{
 		.id = "IMGSYS_CG_GALS_RX_IPE0",
 	},
 	{
 		.id = "IMGSYS_CG_GALS_TX_IPE0",
-	},
-	{
-		.id = "IMGSYS_CG_GALS_RX_IPE1",
-	},
-	{
-		.id = "IMGSYS_CG_GALS_TX_IPE1",
 	},
 	{
 		.id = "IMGSYS_CG_IMG_GALS",
@@ -339,12 +321,6 @@ struct clk_bulk_data imgsys_isp7_clks_mt6878[] = {
 	},
 	{
 		.id = "WPE2_CG_DIP1_GALS0",
-	},
-	{
-		.id = "WPE3_CG_DIP1_WPE",
-	},
-	{
-		.id = "WPE3_CG_DIP1_GALS0",
 	},
 	{
 		.id = "TRAW_CG_DIP1_TRAW",

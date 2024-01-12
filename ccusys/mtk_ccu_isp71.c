@@ -33,6 +33,7 @@
 #if IS_ENABLED(CONFIG_MTK_AEE_IPANIC)
 #include <mt-plat/mrdump.h>
 #endif
+#include <linux/version.h>
 
 #include "mtk_ccu_isp71.h"
 #include "mtk_ccu_common.h"
@@ -120,12 +121,21 @@ mtk_ccu_deallocate_mem(struct device *dev, struct mtk_ccu_mem_handle *memHandle,
 
 dealloc_with_smmu:
 	if ((memHandle->dmabuf) && (memHandle->meminfo.va)) {
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 4, 0)
+		dma_buf_vunmap_unlocked(memHandle->dmabuf, &memHandle->map);
+#else
 		dma_buf_vunmap(memHandle->dmabuf, &memHandle->map);
+#endif
 		memHandle->meminfo.va = NULL;
 	}
 	if ((memHandle->attach) && (memHandle->sgt)) {
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 4, 0)
+		dma_buf_unmap_attachment_unlocked(memHandle->attach, memHandle->sgt,
+			DMA_FROM_DEVICE);
+#else
 		dma_buf_unmap_attachment(memHandle->attach, memHandle->sgt,
 			DMA_FROM_DEVICE);
+#endif
 		memHandle->sgt = NULL;
 	}
 	if ((memHandle->dmabuf) && (memHandle->attach)) {
@@ -204,7 +214,11 @@ alloc_with_smmu:
 		goto err_out;
 	}
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 4, 0)
+	memHandle->sgt = dma_buf_map_attachment_unlocked(memHandle->attach, DMA_FROM_DEVICE);
+#else
 	memHandle->sgt = dma_buf_map_attachment(memHandle->attach, DMA_FROM_DEVICE);
+#endif
 	if (IS_ERR(memHandle->sgt)) {
 		dev_err(dev, "fail to map attachment");
 		memHandle->sgt = NULL;
@@ -213,7 +227,11 @@ alloc_with_smmu:
 
 	memHandle->meminfo.mva = sg_dma_address(memHandle->sgt->sgl);
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 4, 0)
+	ret = dma_buf_vmap_unlocked(memHandle->dmabuf, &memHandle->map);
+#else
 	ret = dma_buf_vmap(memHandle->dmabuf, &memHandle->map);
+#endif
 	memHandle->meminfo.va = memHandle->map.vaddr;
 	if ((ret) || (memHandle->meminfo.va == NULL)) {
 		dev_err(dev, "fail to map va");

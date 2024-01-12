@@ -1667,6 +1667,8 @@ static int set_test_model(struct seninf_ctx *ctx, char enable)
 			seninf_dfs_set(ctx, 0);
 
 		pm_runtime_put_sync(ctx->dev);
+		ctx->is_test_model = 0;
+		dev_info(ctx->dev, "[%s] test pattern off\n", __func__);
 	}
 
 	ctx->streaming = enable;

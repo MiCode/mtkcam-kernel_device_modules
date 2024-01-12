@@ -130,6 +130,7 @@ int mtk_cam_debug_exp_dump(struct mtk_cam_debug *dbg,
 
 #define MSG_VSYNC_TIMEOUT	"Camsys: Vsync timeout"
 #define MSG_COMPOSE_ERROR	"Camsys: compose error"
+#define MSG_STREAM_ON_ERROR	"Camsys: 1st CQ done timeout"
 #define MSG_DEQUE_ERROR		"Camsys: No P1 done"
 #define MSG_TG_OVERRUN		"Camsys: TG Overrun Err"
 #define MSG_TG_GRAB_ERROR	"Camsys: TG Grab Err"
@@ -142,4 +143,3 @@ int mtk_cam_debug_exp_dump(struct mtk_cam_debug *dbg,
 #define MSG_DC_SKIP_FRAME	"Camsys: dc mode skip frame"
 
 #endif /* __MTK_CAM_DEBUG__ */
-

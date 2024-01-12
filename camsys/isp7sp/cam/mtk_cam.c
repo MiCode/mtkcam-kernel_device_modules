@@ -2853,6 +2853,42 @@ void mtk_cam_ctx_engine_off(struct mtk_cam_ctx *ctx)
 	}
 }
 
+/* note: only raw switch using */
+void mtk_cam_ctx_engine_enable_irq(struct mtk_cam_ctx *ctx)
+{
+	struct mtk_cam_device *cam;
+	struct mtk_raw_device *raw_dev;
+	struct mtk_yuv_device *yuv_dev;
+	struct mtk_camsv_device *sv_dev;
+	struct mtk_mraw_device *mraw_dev;
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(ctx->hw_raw); i++) {
+		if (ctx->hw_raw[i]) {
+			raw_dev = dev_get_drvdata(ctx->hw_raw[i]);
+			enable_irq(raw_dev->irq);
+
+			cam = raw_dev->cam;
+			yuv_dev = dev_get_drvdata(
+				cam->engines.yuv_devs[raw_dev->id]);
+			enable_irq(yuv_dev->irq);
+		}
+	}
+
+	if (ctx->hw_sv) {
+		sv_dev = dev_get_drvdata(ctx->hw_sv);
+		for (i = 0; i < ARRAY_SIZE(sv_dev->irq); i++)
+			enable_irq(sv_dev->irq[i]);
+	}
+
+	for (i = 0; i < ARRAY_SIZE(ctx->hw_mraw); i++) {
+		if (ctx->hw_mraw[i]) {
+			mraw_dev = dev_get_drvdata(ctx->hw_mraw[i]);
+			enable_irq(mraw_dev->irq);
+		}
+	}
+}
+
 void mtk_cam_ctx_engine_disable_irq(struct mtk_cam_ctx *ctx)
 {
 	struct mtk_cam_device *cam;

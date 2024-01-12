@@ -1268,6 +1268,8 @@ static void mtk_cam_ctrl_raw_switch_flow(struct mtk_cam_job *job)
 
 	mtk_cam_ctx_engine_off(ctx);
 	mtk_cam_watchdog_stop(&ctrl->watchdog);
+	/* disable irq first */
+	mtk_cam_ctx_engine_disable_irq(ctx);
 	mtk_cam_ctx_engine_reset(ctx);
 
 	/* re-initialized the new stream required engines with raw switch flow */
@@ -1302,6 +1304,8 @@ static void mtk_cam_ctrl_raw_switch_flow(struct mtk_cam_job *job)
 
 	mtk_cam_job_update_clk(job);
 
+	/* enable irq before stream on */
+	mtk_cam_ctx_engine_enable_irq(ctx);
 	/**
 	 * Reuse stream on flow to start the new stream of the new sensor
 	 */

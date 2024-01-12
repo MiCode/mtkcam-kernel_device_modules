@@ -38,7 +38,6 @@
 /*
  * ISP8  : TSREC HW changed and supported VM architecture.
  */
-// #define TSREC_HW_VER_ISP_8           (0)
 #define TSREC_HW_VER_ISP_8           (1)
 /*---------------------------------------------------------------------------*/
 
@@ -75,12 +74,7 @@
 
 
 #define TSREC_INT_EN_VSYNC_BASE_BIT  (0)
-
-#if (TSREC_HW_VER_ISP_8)
 #define TSREC_INT_EN_HSYNC_BASE_BIT  (3)
-#else
-#define TSREC_INT_EN_HSYNC_BASE_BIT  (16)
-#endif
 
 
 /******************************************************************************

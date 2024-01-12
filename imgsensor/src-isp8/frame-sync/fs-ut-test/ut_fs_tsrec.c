@@ -17,23 +17,11 @@
 #define PFX "UT_FS_TSREC"
 
 
-#if (TSREC_HW_VER_ISP_8)
 #define SENINF_BASE                  (0x3A300000)
 #define UT_TSREC_RG_LAST             (0x3A3d0084)   // ISP8
 
 #define TSREC_MAX_CNT                (12)
 #define TSREC_IRQ_MAX_CNT            (4)    /* HW support up to 4 VM devices */
-#else	// => ISP7sp/ISP7
-#define SENINF_BASE                  (0x1A00E000)
-#if !(TSREC_WITH_64_BITS_TIMER_RG)
-#define UT_TSREC_RG_LAST             (0x1A02481C)   // ISP7s
-#else
-#define UT_TSREC_RG_LAST             (0x1A02484C)   // ISP7sp --- 64 bits ts
-#endif
-
-#define TSREC_MAX_CNT                (6)
-#define TSREC_IRQ_MAX_CNT            (1)
-#endif
 
 
 #define UT_TSREC_REGS_SIZE           (UT_TSREC_RG_LAST - TSREC_BASE + 1)
@@ -190,8 +178,6 @@ static void ut_fs_tsrec_chk_regs_addr(void)
 	UT_FUNC_START();
 
 	UT_INF("==> Print TSREC SW/HW spec. define:\n");
-	UT_INF("%30s%3u\n", "TSREC_HW_VER_ISP_8:",
-		TSREC_HW_VER_ISP_8);
 	UT_INF("\n");
 	UT_INF("%30s%3u\n", "TSREC_MAX_CNT:",
 		TSREC_MAX_CNT);
@@ -240,21 +226,6 @@ static void ut_fs_tsrec_chk_regs_addr(void)
 		TSREC_ADDR(-1, TSREC_TIMER_LAT_OFFSET),
 		TSREC_TIMER_LAT_OFFSET);
 
-#if (!TSREC_HW_VER_ISP_8)
-	UT_INF("%30s %#10X(+%#6X)\n", "TSREC_INT_EN:",
-		TSREC_ADDR(-1, TSREC_INT_EN_OFFSET),
-		TSREC_INT_EN_OFFSET);
-	UT_INF("%30s %#10X(+%#6X)\n", "TSREC_INT_STATUS:",
-		TSREC_ADDR(-1, TSREC_INT_STATUS_OFFSET),
-		TSREC_INT_STATUS_OFFSET);
-	UT_INF("%30s %#10X(+%#6X)\n", "TSREC_INT_EN_2:",
-		TSREC_ADDR(-1, TSREC_INT_EN_2_OFFSET),
-		TSREC_INT_EN_2_OFFSET);
-	UT_INF("%30s %#10X(+%#6X)\n", "TSREC_INT_STATUS_2:",
-		TSREC_ADDR(-1, TSREC_INT_STATUS_2_OFFSET),
-		TSREC_INT_STATUS_2_OFFSET);
-#endif
-
 #if (TSREC_WITH_64_BITS_TIMER_RG)
 	UT_INF("%30s %#10X(+%#6X)\n", "TSREC_TIMER_LAT_M:",
 		TSREC_ADDR(-1, TSREC_TIMER_LAT_M_OFFSET),
@@ -268,7 +239,6 @@ static void ut_fs_tsrec_chk_regs_addr(void)
 			TSREC_ADDR(i,
 				TSREC_CFG_OFFSET(i)),
 			TSREC_CFG_OFFSET(i));
-#if (TSREC_HW_VER_ISP_8)
 		UT_INF("[%2u]%26s %#10X(+%#6X)\n", i, "TSREC_n_INT_EN_OFFSET:",
 			TSREC_ADDR(i,
 				TSREC_N_INT_EN_OFFSET),
@@ -277,7 +247,6 @@ static void ut_fs_tsrec_chk_regs_addr(void)
 			TSREC_ADDR(i,
 				TSREC_N_INT_STATUS_OFFSET),
 			TSREC_N_INT_STATUS_OFFSET);
-#endif
 		UT_INF("[%2u]%26s %#10X(+%#6X)\n", i, "TSREC_n_SW_RST:",
 			TSREC_ADDR(i,
 				TSREC_SW_RST_OFFSET(i)),
@@ -473,215 +442,6 @@ static void ut_fs_tsrec_latch_time(void)
 }
 
 
-#if !(TSREC_HW_VER_ISP_8)
-static void ut_fs_tsrec_int_en_proc(
-	const unsigned int exp0, const unsigned int exp1, const unsigned int exp2,
-	const unsigned int trig_src, const unsigned int flag)
-{
-	unsigned int i = 0;
-
-	for (i = 0; i < TSREC_MAX_CNT; ++i) {
-		unsigned int intr_en = 0, intr_en_2 = 0;
-
-		/* set */
-		/* vsync or 1st-Hsync / Enable */
-		mtk_cam_seninf_s_tsrec_intr_en(i,
-			exp0, exp1, exp2,
-			trig_src, flag);
-		mtk_cam_seninf_s_tsrec_intr_en_2(i,
-			exp0, exp1, exp2,
-			trig_src, flag);
-		mtk_cam_seninf_s_tsrec_intr_wclr_en(1);
-
-		/* read back and check */
-		intr_en = mtk_cam_seninf_g_tsrec_intr_en();
-		intr_en_2 = mtk_cam_seninf_g_tsrec_intr_en_2();
-		if (intr_en == regs[TSREC_INT_EN_OFFSET]
-				&& intr_en_2 == regs[TSREC_INT_EN_2_OFFSET]) {
-			UT_INF(
-				"PASS: get (intr_en/intr_en_2) : (%#x/%#x) matches to UT read %#x/%#x\n",
-				intr_en, intr_en_2,
-				regs[TSREC_INT_EN_OFFSET],
-				regs[TSREC_INT_EN_2_OFFSET]);
-		} else {
-			UT_ERR(
-				"ERROR: get (intr_en/intr_en_2) : (%#x/%#x) does NOT matches to UT read %#x/%#x\n",
-				intr_en, intr_en_2,
-				regs[TSREC_INT_EN_OFFSET],
-				regs[TSREC_INT_EN_2_OFFSET]);
-		}
-	}
-}
-
-
-static void ut_fs_tsrec_int_en(void)
-{
-	/* custom config */
-	const unsigned int exp0_en = 1;
-	const unsigned int exp1_en = 0;
-	const unsigned int exp2_en = 0;
-	unsigned int i = 0;
-
-	UT_FUNC_START();
-
-	/* Vsync:0 / 1st-Hsync:1 */
-	for (i = 0; i < 2; ++i) {
-		UT_INF(
-			"UT Test => (Vsync:0/1st-Hsync:1):(%u) / enable INTR (for each tsrec) ...\n",
-			i);
-		UT_INF(
-			"UT Cofig: exp_en(%u/%u/%u), trig_src:%u(Vsync:0/1st-Hsync:1), enable:%u ...\n",
-			exp0_en, exp1_en, exp2_en, i, 1);
-
-		/* main test procedure */
-		for (i = 0; i < TSREC_MAX_CNT; ++i)
-			ut_fs_tsrec_int_en_proc(exp0_en, exp1_en, exp2_en, i, 1);
-
-
-		UT_INF("\n");
-		UT_INF(
-			"UT Reset: (Vsync:0/1st-Hsync:1):(%u) / disable INTR (for each tsrec) ...\n",
-			i);
-		UT_INF(
-			"UT Config => exp_en(%u/%u/%u), trig_src:%u(Vsync:0/1st-Hsync:1), enable:%u ...\n",
-			exp0_en, exp1_en, exp2_en, i, 0);
-
-		/* main test procedure */
-		for (i = 0; i < TSREC_MAX_CNT; ++i)
-			ut_fs_tsrec_int_en_proc(exp0_en, exp1_en, exp2_en, i, 0);
-
-
-		/* for reset */
-		mtk_cam_seninf_s_tsrec_intr_wclr_en(0);
-
-
-		UT_INF("\n");
-		UT_INF("\n");
-		UT_INF("\n");
-	}
-
-	UT_FUNC_END();
-}
-
-
-static void ut_fs_tsrec_int_status_proc(const unsigned int n,
-	const unsigned int val)
-{
-	const unsigned int addr_offset[2] = {
-		TSREC_INT_STATUS_OFFSET,
-		TSREC_INT_STATUS_2_OFFSET,
-	};
-	unsigned int ret = 0;
-
-	/* error handling, check n range (how many int_en/int_status RGs) */
-	if (n > 2) {
-		UT_ERR(
-			"ERROR: for error handling, plz check n:%u range (how many int_en/int_status RGs)\n",
-			n);
-		return;
-	}
-
-
-	/* set UT RG val */
-	regs[addr_offset[n]] = val;
-	UT_INF("UT Test => get (n:%u, val:%#x), set int_status(+%#x):%#x ...\n",
-		n, val,
-		addr_offset[n], regs[addr_offset[n]]);
-
-	/* get int status */
-	switch (n) {
-	case 0:
-		ret = mtk_cam_seninf_g_tsrec_intr_status();
-		break;
-
-	case 1:
-		ret = mtk_cam_seninf_g_tsrec_intr_status_2();
-		break;
-
-	default:
-		break;
-	}
-
-	/* check result */
-	if (ret != val) {
-		UT_ERR(
-			"ERROR: func return ret:%#x (int_status) does not match to UT val:%#x\n",
-			ret, val);
-	} else {
-		UT_INF(
-			"PASS: func return ret:%#x (int_status) matches to UT val:%#x\n",
-			ret, val);
-	}
-	UT_INF("\n");
-
-	/* test clear status */
-	ret = val;
-	// val = 0;
-	UT_INF("UT Test => for testing write clear, enable write clear ...\n");
-	mtk_cam_seninf_s_tsrec_intr_wclr_en(1);
-
-	UT_INF("\n");
-	UT_INF("UT Test => write clear, write val:%#x ...\n", val);
-	/* call for write clear */
-	switch (n) {
-	case 0:
-		mtk_cam_seninf_clr_tsrec_intr_status(val);
-		break;
-
-	case 1:
-		mtk_cam_seninf_clr_tsrec_intr_status_2(val);
-		break;
-
-	default:
-		break;
-	}
-
-	/* check result */
-	ret = regs[addr_offset[n]];
-	regs[addr_offset[n]] ^= val;
-	if (regs[addr_offset[n]]) {
-		UT_ERR("ERROR: int_status(+%#x):%#x => %#x, is not cleared ...\n",
-			addr_offset[n], ret, regs[addr_offset[n]]);
-	} else {
-		UT_INF("PASS: int_status(+%#x):%#x => %#x, is cleared ...\n",
-			addr_offset[n], ret, regs[addr_offset[n]]);
-	}
-
-	UT_INF("\n");
-	UT_INF("\n");
-	UT_INF("\n");
-}
-
-
-static void ut_fs_tsrec_int_status(void)
-{
-	const unsigned int test_val[2] = {0xAAB, 0x2A};
-	unsigned int i = 0;
-
-	UT_FUNC_START();
-
-	/* main test procedure */
-	for (i = 0; i < 2; ++i)
-		ut_fs_tsrec_int_status_proc(i, test_val[i]);
-
-	/* reset status */
-	regs[TSREC_INT_STATUS_OFFSET] = 0;
-	regs[TSREC_INT_STATUS_2_OFFSET] = 0;
-	UT_INF("\n");
-	UT_INF(
-		"UT Reset => ALL int_status RGs (TSREC & UT) reset to 0, UT RGs:(%#x/%#x)\n",
-		regs[TSREC_INT_STATUS_OFFSET],
-		regs[TSREC_INT_STATUS_2_OFFSET]);
-	mtk_cam_seninf_clr_tsrec_intr_status(0);
-	mtk_cam_seninf_clr_tsrec_intr_status_2(0);
-
-	UT_INF("\n");
-	UT_INF("UT Reset => w_clr set to disable\n");
-	mtk_cam_seninf_s_tsrec_intr_wclr_en(0);
-
-	UT_FUNC_END();
-}
-#else
 static void ut_fs_tsrec_device_irq_sel(void)
 {
 	const unsigned int irq_sel_val[TSREC_IRQ_MAX_CNT] = {0xf, 0xf0, 0xf00, 0xf000};
@@ -697,7 +457,6 @@ static void ut_fs_tsrec_device_irq_sel(void)
 
 	UT_FUNC_END();
 }
-#endif // !TSREC_HW_VER_ISP_8
 
 
 static void ut_fs_tsrec_n_cfg(void)
@@ -724,7 +483,6 @@ static void ut_fs_tsrec_n_cfg(void)
 }
 
 
-#if (TSREC_HW_VER_ISP_8)
 static void ut_fs_tsrec_n_int_en_proc(const unsigned int n,
 	const unsigned int exp_en[],
 	const unsigned int intr_en_true, const unsigned int flag,
@@ -881,7 +639,6 @@ static void ut_fs_tsrec_n_int_status(void)
 
 	UT_FUNC_END();
 }
-#endif // TSREC_HW_VER_ISP_8
 
 
 static void ut_fs_tsrec_sw_rst(void)
@@ -1067,21 +824,13 @@ static void ut_fs_tsrec_reg_api(void)
 
 	ut_fs_tsrec_latch_time();
 
-#if !(TSREC_HW_VER_ISP_8)
-	ut_fs_tsrec_int_en();
-
-	ut_fs_tsrec_int_status();
-#else
 	ut_fs_tsrec_device_irq_sel();
-#endif
 
 	ut_fs_tsrec_n_cfg();
 
-#if (TSREC_HW_VER_ISP_8)
 	ut_fs_tsrec_n_int_en();
 
 	ut_fs_tsrec_n_int_status();
-#endif
 
 	ut_fs_tsrec_sw_rst();
 
@@ -1333,7 +1082,6 @@ static void ut_fs_tsrec_query_ts_records(void)
 }
 
 
-#if (TSREC_HW_VER_ISP_8)
 static void ut_fs_tsrec_irq_handler_isp8(void)
 {
 	/* coustom config */
@@ -1367,43 +1115,11 @@ static void ut_fs_tsrec_irq_handler_isp8(void)
 
 	UT_FUNC_END();
 }
-#else
-static void ut_fs_tsrec_irq_handler_isp7sp(void)
-{
-	/* coustom config */
-	// const unsigned int int_status = 0x400008;
-	const unsigned int int_status = 0x400048;
-	const unsigned int int_status_2 = 0x40000;
-
-	UT_FUNC_START();
-
-	/* setup status for testing */
-	regs[TSREC_INT_STATUS_OFFSET] = int_status;
-	UT_INF("UT Test => set INT_STATUS:%#x\n",
-		regs[TSREC_INT_STATUS_OFFSET]);
-	regs[TSREC_INT_STATUS_2_OFFSET] = int_status_2;
-	UT_INF("UT Test => set INT_STATUS_2:%#x\n",
-		regs[TSREC_INT_STATUS_2_OFFSET]);
-
-	/* TODO: complete this UT API */
-	mtk_cam_seninf_tsrec_ut_dbg_irq_seninf_tsrec();
-
-	/* reset/clear status */
-	regs[TSREC_INT_STATUS_OFFSET] = 0;
-	regs[TSREC_INT_STATUS_2_OFFSET] = 0;
-
-	UT_FUNC_END();
-}
-#endif // TSREC_HW_VER_ISP_8
 
 
 static void ut_fs_tsrec_irq_handler(void)
 {
-#if (TSREC_HW_VER_ISP_8)
 	ut_fs_tsrec_irq_handler_isp8();
-#else
-	ut_fs_tsrec_irq_handler_isp7sp();
-#endif
 }
 
 

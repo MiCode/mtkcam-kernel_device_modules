@@ -475,442 +475,14 @@ unsigned long long mtk_cam_seninf_tsrec_latch_time(void)
 
 void mtk_cam_seninf_s_tsrec_intr_wclr_en(const unsigned int wclr_en)
 {
-#if (TSREC_HW_VER_ISP_8)
 	TSREC_LOG_DBG(
 		"NOTICE: set INTR wclr_en:(%u => %u)\n",
 		tsrec_intr_write_clr, wclr_en);
 
 	tsrec_intr_write_clr = wclr_en;
-#else
-	struct tsrec_w_buffer w_buf = {0};
-	union REG_TSREC_INT_EN reg = {0};
-
-	/* setup intr write clr cfg */
-	reg.bits.TSREC_INT_WCLR_EN = 1;
-	tsrec_intr_write_clr = wclr_en;
-
-	/* prepare for write register */
-	w_buf.tsrec_no = -1; // tsrec_top
-	w_buf.base_addr = g_tsrec_top_base_addr();
-	w_buf.shift = TSREC_INT_EN_OFFSET;
-	w_buf.mask = (wclr_en) ? (reg.val) : ~(reg.val);
-	w_buf.op = (wclr_en) ? 1 : 0;
-	if (unlikely(!chk_tsrec_w_buffer_valid(&w_buf, __func__)))
-		return;
-
-	tsrec_write_reg(&w_buf, __func__);
-
-	/* sync reg ctrl info to tsrec_status */
-	notify_tsrec_update_intr_en(w_buf.after);
-
-	if (unlikely(_TSREC_LOG_ENABLED(LOG_TSREC_REG))) {
-		char msg[TSREC_MSG_LOG_STR_LEN] = {0};
-		int len = 0;
-
-		TSREC_SNPRF(TSREC_MSG_LOG_STR_LEN, msg, len,
-			"[wclr_en:%u]",
-			wclr_en);
-		tsrec_dump_w_buf(&w_buf, msg, __func__);
-	}
-#endif
 }
 
 
-#if !(TSREC_HW_VER_ISP_8)
-unsigned int mtk_cam_seninf_g_tsrec_intr_en(void)
-{
-	struct tsrec_r_buffer r_buf = {0};
-
-	/* prepare for read register */
-	r_buf.tsrec_no = -1; // tsrec_top
-	r_buf.base_addr = g_tsrec_top_base_addr();
-	r_buf.shift = TSREC_INT_EN_OFFSET;
-	if (unlikely(!chk_tsrec_r_buffer_valid(&r_buf, __func__)))
-		return 0;
-
-	tsrec_read_reg(&r_buf, __func__);
-
-	/* sync reg ctrl info to tsrec_status */
-	notify_tsrec_update_intr_en(r_buf.val);
-
-	if (unlikely(_TSREC_LOG_ENABLED(LOG_TSREC_REG)))
-		tsrec_dump_r_buf(&r_buf, "", __func__);
-
-	return r_buf.val;
-}
-
-
-void mtk_cam_seninf_s_tsrec_intr_en(const unsigned int tsrec_n,
-	const unsigned int exp0, const unsigned int exp1, const unsigned int exp2,
-	const unsigned int trig_src, const unsigned int en)
-{
-	struct tsrec_w_buffer w_buf = {0};
-	union REG_TSREC_INT_EN reg = {0};
-
-	/* check case / error handling */
-	if (unlikely(!chk_tsrec_no_valid(tsrec_n, __func__))) {
-		TSREC_LOG_INF(
-			"ERROR: get non-valid tsrec_n, force return   [tsrec_n:%u, exp_en(%u/%u/%u), trig_src:%u, en:%u]\n",
-			tsrec_n,
-			exp0, exp1, exp2,
-			trig_src,
-			en);
-		return;
-	}
-
-	/* this RG control tsrec a~d */
-	if (tsrec_n >= 4) {
-		TSREC_LOG_INF(
-			"ERROR: get wrong tsrec_n (this RG ctrl tsrec 0~3), force return   [tsrec_n:%u, exp_en(%u/%u/%u), trig_src:%u, en:%u]\n",
-			tsrec_n,
-			exp0, exp1, exp2,
-			trig_src,
-			en);
-		return;
-	}
-
-	/* INTR ctrl for tsrec a~d (0~3) */
-	switch (tsrec_n) {
-	case 0:
-		/* trig_src: 1 => 1st-Hsync / 0 => Vsync */
-		if (trig_src) {
-			reg.bits.TSREC_A_EXP0_HSYNC_INT_EN = (exp0) ? 1 : 0;
-			reg.bits.TSREC_A_EXP1_HSYNC_INT_EN = (exp1) ? 1 : 0;
-			reg.bits.TSREC_A_EXP2_HSYNC_INT_EN = (exp2) ? 1 : 0;
-		} else {
-			reg.bits.TSREC_A_EXP0_VSYNC_INT_EN = (exp0) ? 1 : 0;
-			reg.bits.TSREC_A_EXP1_VSYNC_INT_EN = (exp1) ? 1 : 0;
-			reg.bits.TSREC_A_EXP2_VSYNC_INT_EN = (exp2) ? 1 : 0;
-		}
-		break;
-	case 1:
-		/* trig_src: 1 => 1st-Hsync / 0 => Vsync */
-		if (trig_src) {
-			reg.bits.TSREC_B_EXP0_HSYNC_INT_EN = (exp0) ? 1 : 0;
-			reg.bits.TSREC_B_EXP1_HSYNC_INT_EN = (exp1) ? 1 : 0;
-			reg.bits.TSREC_B_EXP2_HSYNC_INT_EN = (exp2) ? 1 : 0;
-		} else {
-			reg.bits.TSREC_B_EXP0_VSYNC_INT_EN = (exp0) ? 1 : 0;
-			reg.bits.TSREC_B_EXP1_VSYNC_INT_EN = (exp1) ? 1 : 0;
-			reg.bits.TSREC_B_EXP2_VSYNC_INT_EN = (exp2) ? 1 : 0;
-		}
-		break;
-	case 2:
-		/* trig_src: 1 => 1st-Hsync / 0 => Vsync */
-		if (trig_src) {
-			reg.bits.TSREC_C_EXP0_HSYNC_INT_EN = (exp0) ? 1 : 0;
-			reg.bits.TSREC_C_EXP1_HSYNC_INT_EN = (exp1) ? 1 : 0;
-			reg.bits.TSREC_C_EXP2_HSYNC_INT_EN = (exp2) ? 1 : 0;
-		} else {
-			reg.bits.TSREC_C_EXP0_VSYNC_INT_EN = (exp0) ? 1 : 0;
-			reg.bits.TSREC_C_EXP1_VSYNC_INT_EN = (exp1) ? 1 : 0;
-			reg.bits.TSREC_C_EXP2_VSYNC_INT_EN = (exp2) ? 1 : 0;
-		}
-		break;
-	case 3:
-		/* trig_src: 1 => 1st-Hsync / 0 => Vsync */
-		if (trig_src) {
-			reg.bits.TSREC_D_EXP0_HSYNC_INT_EN = (exp0) ? 1 : 0;
-			reg.bits.TSREC_D_EXP1_HSYNC_INT_EN = (exp1) ? 1 : 0;
-			reg.bits.TSREC_D_EXP2_HSYNC_INT_EN = (exp2) ? 1 : 0;
-		} else {
-			reg.bits.TSREC_D_EXP0_VSYNC_INT_EN = (exp0) ? 1 : 0;
-			reg.bits.TSREC_D_EXP1_VSYNC_INT_EN = (exp1) ? 1 : 0;
-			reg.bits.TSREC_D_EXP2_VSYNC_INT_EN = (exp2) ? 1 : 0;
-		}
-		break;
-	default:
-		/* should be detected at before case handling */
-		break;
-	}
-
-	/* prepare for write register */
-	w_buf.tsrec_no = -1; // tsrec_top
-	w_buf.base_addr = g_tsrec_top_base_addr();
-	w_buf.shift = TSREC_INT_EN_OFFSET;
-	w_buf.mask = (en) ? (reg.val) : ~(reg.val);
-	w_buf.op = (en) ? 1 : 0;
-	if (unlikely(!chk_tsrec_w_buffer_valid(&w_buf, __func__)))
-		return;
-
-	tsrec_write_reg(&w_buf, __func__);
-
-	/* sync reg ctrl info to tsrec_status */
-	notify_tsrec_update_intr_en(w_buf.after);
-
-	if (unlikely(_TSREC_LOG_ENABLED(LOG_TSREC_REG))) {
-		char msg[TSREC_MSG_LOG_STR_LEN] = {0};
-		int len = 0;
-
-		TSREC_SNPRF(TSREC_MSG_LOG_STR_LEN, msg, len,
-			"[tsrec_n:%u, exp_en(%u/%u/%u), trig_src:%u, en:%u]",
-			tsrec_n,
-			exp0, exp1, exp2,
-			trig_src,
-			en);
-		tsrec_dump_w_buf(&w_buf, msg, __func__);
-	}
-}
-
-
-unsigned int mtk_cam_seninf_g_tsrec_intr_status(void)
-{
-	struct tsrec_r_buffer r_buf = {0};
-
-	/* prepare for read register */
-	r_buf.tsrec_no = -1; // tsrec_top
-	r_buf.base_addr = g_tsrec_top_base_addr();
-	r_buf.shift = TSREC_INT_STATUS_OFFSET;
-	if (unlikely(!chk_tsrec_r_buffer_valid(&r_buf, __func__)))
-		return 0;
-
-	tsrec_read_reg(&r_buf, __func__);
-
-	/* sync reg ctrl info to tsrec_status */
-	notify_tsrec_update_intr_status(r_buf.val);
-
-#if !defined(REDUCE_TSREC_LOG_IN_ISR_FUNC)
-	if (unlikely(_TSREC_LOG_ENABLED(LOG_TSREC_REG)))
-		tsrec_dump_r_buf(&r_buf, "", __func__);
-#endif
-
-	return r_buf.val;
-}
-
-
-void mtk_cam_seninf_clr_tsrec_intr_status(const unsigned int mask)
-{
-	struct tsrec_w_buffer w_buf = {0};
-
-	/* case handling for not using intr write clr */
-	if (!tsrec_intr_write_clr) {
-		/* sync reg ctrl info to tsrec_status */
-		notify_tsrec_update_intr_status(0);
-
-#if !defined(REDUCE_TSREC_LOG_IN_ISR_FUNC)
-		TSREC_LOG_DBG(
-			"NOTICE: tsrec_intr_write_clr:%u, call notify tsrec update intr status to 0 for dbg and sync reg value, skip   [mask:%#x]\n",
-			tsrec_intr_write_clr,
-			mask);
-#endif
-
-		return;
-	}
-
-	/* prepare for write register */
-	w_buf.tsrec_no = -1; // tsrec_top
-	w_buf.base_addr = g_tsrec_top_base_addr();
-	w_buf.shift = TSREC_INT_STATUS_OFFSET;
-	w_buf.mask = mask;
-	w_buf.op = 2; // overwrite
-	if (unlikely(!chk_tsrec_w_buffer_valid(&w_buf, __func__)))
-		return;
-
-	tsrec_write_reg(&w_buf, __func__);
-
-	/* sync reg ctrl info to tsrec_status */
-	notify_tsrec_update_intr_status(w_buf.after);
-
-#if !defined(REDUCE_TSREC_LOG_IN_ISR_FUNC)
-	if (unlikely(_TSREC_LOG_ENABLED(LOG_TSREC_REG))) {
-		char msg[TSREC_MSG_LOG_STR_LEN] = {0};
-		int len = 0;
-
-		TSREC_SNPRF(TSREC_MSG_LOG_STR_LEN, msg, len,
-			"[mask:%#x]",
-			mask);
-		tsrec_dump_w_buf(&w_buf, msg, __func__);
-	}
-#endif
-}
-
-
-unsigned int mtk_cam_seninf_g_tsrec_intr_en_2(void)
-{
-	struct tsrec_r_buffer r_buf = {0};
-
-	/* prepare for read register */
-	r_buf.tsrec_no = -1; // tsrec_top
-	r_buf.base_addr = g_tsrec_top_base_addr();
-	r_buf.shift = TSREC_INT_EN_2_OFFSET;
-	if (unlikely(!chk_tsrec_r_buffer_valid(&r_buf, __func__)))
-		return 0;
-
-	tsrec_read_reg(&r_buf, __func__);
-
-	/* sync reg ctrl info to tsrec_status */
-	notify_tsrec_update_intr_en_2(r_buf.val);
-
-	if (unlikely(_TSREC_LOG_ENABLED(LOG_TSREC_REG)))
-		tsrec_dump_r_buf(&r_buf, "", __func__);
-
-	return r_buf.val;
-}
-
-
-void mtk_cam_seninf_s_tsrec_intr_en_2(const unsigned int tsrec_n,
-	const unsigned int exp0, const unsigned int exp1, const unsigned int exp2,
-	const unsigned int trig_src, const unsigned int en)
-{
-	struct tsrec_w_buffer w_buf = {0};
-	union REG_TSREC_INT_EN_2 reg = {0};
-
-	/* check case / error handling */
-	if (unlikely(!chk_tsrec_no_valid(tsrec_n, __func__))) {
-		TSREC_LOG_INF(
-			"ERROR: get non-valid tsrec_n, force return   [tsrec_n:%u, exp_en(%u/%u/%u), trig_src:%u, en:%u]\n",
-			tsrec_n,
-			exp0, exp1, exp2,
-			trig_src,
-			en);
-		return;
-	}
-
-	/* this RG control tsrec e~f */
-	if (tsrec_n <= 3) {
-		TSREC_LOG_INF(
-			"ERROR: get wrong tsrec_n (this RG ctrl tsrec 4~5), force return   [tsrec_n:%u, exp_en(%u/%u/%u), trig_src:%u, en:%u]\n",
-			tsrec_n,
-			exp0, exp1, exp2,
-			trig_src,
-			en);
-		return;
-	}
-
-	/* INTR ctrl for tsrec e~f (4~5) */
-	switch (tsrec_n) {
-	case 4:
-		/* trig_src: 1 => 1st-Hsync / 0 => Vsync */
-		if (trig_src) {
-			reg.bits.TSREC_E_EXP0_HSYNC_INT_EN = (exp0) ? 1 : 0;
-			reg.bits.TSREC_E_EXP1_HSYNC_INT_EN = (exp1) ? 1 : 0;
-			reg.bits.TSREC_E_EXP2_HSYNC_INT_EN = (exp2) ? 1 : 0;
-		} else {
-			reg.bits.TSREC_E_EXP0_VSYNC_INT_EN = (exp0) ? 1 : 0;
-			reg.bits.TSREC_E_EXP1_VSYNC_INT_EN = (exp1) ? 1 : 0;
-			reg.bits.TSREC_E_EXP2_VSYNC_INT_EN = (exp2) ? 1 : 0;
-		}
-		break;
-	case 5:
-		/* trig_src: 1 => 1st-Hsync / 0 => Vsync */
-		if (trig_src) {
-			reg.bits.TSREC_F_EXP0_HSYNC_INT_EN = (exp0) ? 1 : 0;
-			reg.bits.TSREC_F_EXP1_HSYNC_INT_EN = (exp1) ? 1 : 0;
-			reg.bits.TSREC_F_EXP2_HSYNC_INT_EN = (exp2) ? 1 : 0;
-		} else {
-			reg.bits.TSREC_F_EXP0_VSYNC_INT_EN = (exp0) ? 1 : 0;
-			reg.bits.TSREC_F_EXP1_VSYNC_INT_EN = (exp1) ? 1 : 0;
-			reg.bits.TSREC_F_EXP2_VSYNC_INT_EN = (exp2) ? 1 : 0;
-		}
-		break;
-	default:
-		/* should be detected at before case handling */
-		break;
-	}
-
-	/* prepare for write register */
-	w_buf.tsrec_no = -1; // tsrec_top
-	w_buf.base_addr = g_tsrec_top_base_addr();
-	w_buf.shift = TSREC_INT_EN_2_OFFSET;
-	w_buf.mask = (en) ? (reg.val) : ~(reg.val);
-	w_buf.op = (en) ? 1 : 0;
-	if (unlikely(!chk_tsrec_w_buffer_valid(&w_buf, __func__)))
-		return;
-
-	tsrec_write_reg(&w_buf, __func__);
-
-	/* sync reg ctrl info to tsrec_status */
-	notify_tsrec_update_intr_en_2(w_buf.after);
-
-	if (unlikely(_TSREC_LOG_ENABLED(LOG_TSREC_REG))) {
-		char msg[TSREC_MSG_LOG_STR_LEN] = {0};
-		int len = 0;
-
-		TSREC_SNPRF(TSREC_MSG_LOG_STR_LEN, msg, len,
-			"[tsrec_n:%u, exp_en(%u/%u/%u), trig_src:%u, en:%u]",
-			tsrec_n,
-			exp0, exp1, exp2,
-			trig_src,
-			en);
-		tsrec_dump_w_buf(&w_buf, msg, __func__);
-	}
-}
-
-
-unsigned int mtk_cam_seninf_g_tsrec_intr_status_2(void)
-{
-	struct tsrec_r_buffer r_buf = {0};
-
-	/* prepare for read register */
-	r_buf.tsrec_no = -1; // tsrec_top
-	r_buf.base_addr = g_tsrec_top_base_addr();
-	r_buf.shift = TSREC_INT_STATUS_2_OFFSET;
-	if (unlikely(!chk_tsrec_r_buffer_valid(&r_buf, __func__)))
-		return 0;
-
-	tsrec_read_reg(&r_buf, __func__);
-
-	/* sync reg ctrl info to tsrec_status */
-	notify_tsrec_update_intr_status_2(r_buf.val);
-
-#if !defined(REDUCE_TSREC_LOG_IN_ISR_FUNC)
-	if (unlikely(_TSREC_LOG_ENABLED(LOG_TSREC_REG)))
-		tsrec_dump_r_buf(&r_buf, "", __func__);
-#endif
-
-	return r_buf.val;
-}
-
-
-void mtk_cam_seninf_clr_tsrec_intr_status_2(const unsigned int mask)
-{
-	struct tsrec_w_buffer w_buf = {0};
-
-	/* case handling for not using intr write clr */
-	if (!tsrec_intr_write_clr) {
-		/* sync reg ctrl info to tsrec_status */
-		notify_tsrec_update_intr_status_2(0);
-
-#if !defined(REDUCE_TSREC_LOG_IN_ISR_FUNC)
-		TSREC_LOG_DBG(
-			"NOTICE: tsrec_intr_write_clr:%u, call notify tsrec update intr status 2 to 0 for dbg and sync reg value, skip   [mask:%#x]\n",
-			tsrec_intr_write_clr,
-			mask);
-#endif
-
-		return;
-	}
-
-	/* prepare for write register */
-	w_buf.tsrec_no = -1; // tsrec_top
-	w_buf.base_addr = g_tsrec_top_base_addr();
-	w_buf.shift = TSREC_INT_STATUS_2_OFFSET;
-	w_buf.mask = mask;
-	w_buf.op = 2; // overwrite
-	if (unlikely(!chk_tsrec_w_buffer_valid(&w_buf, __func__)))
-		return;
-
-	tsrec_write_reg(&w_buf, __func__);
-
-	/* sync reg ctrl info to tsrec_status */
-	notify_tsrec_update_intr_status_2(w_buf.after);
-
-#if !defined(REDUCE_TSREC_LOG_IN_ISR_FUNC)
-	if (unlikely(_TSREC_LOG_ENABLED(LOG_TSREC_REG))) {
-		char msg[TSREC_MSG_LOG_STR_LEN] = {0};
-		int len = 0;
-
-		TSREC_SNPRF(TSREC_MSG_LOG_STR_LEN, msg, len,
-			"[mask:%#x]",
-			mask);
-		tsrec_dump_w_buf(&w_buf, msg, __func__);
-	}
-#endif
-}
-#endif // !TSREC_HW_VER_ISP_8
-
-
-#if (TSREC_HW_VER_ISP_8)
 void mtk_cam_seninf_tsrec_s_device_irq_sel(const unsigned int irq_id,
 	const unsigned int val)
 {
@@ -937,7 +509,6 @@ void mtk_cam_seninf_tsrec_s_device_irq_sel(const unsigned int irq_id,
 		tsrec_dump_w_buf(&w_buf, msg, __func__);
 	}
 }
-#endif
 
 
 /*---------------------------------------------------------------------------*/
@@ -984,7 +555,6 @@ void mtk_cam_seninf_s_tsrec_n_cfg(const unsigned int tsrec_n,
 }
 
 
-#if (TSREC_HW_VER_ISP_8)
 unsigned int mtk_cam_seninf_g_tsrec_n_intr_en(const unsigned int tsrec_n)
 {
 	struct tsrec_r_buffer r_buf = {0};
@@ -1142,7 +712,6 @@ void mtk_cam_seninf_clr_tsrec_n_intr_status(const unsigned int tsrec_n,
 	}
 #endif
 }
-#endif // TSREC_HW_VER_ISP_8
 
 
 void mtk_cam_seninf_s_tsrec_sw_rst(const unsigned int tsrec_n,
@@ -1503,7 +1072,8 @@ static void tsrec_regs_dbg_dump_iomem_info(
 
 	/* show log info format msg */
 	TSREC_SNPRF(log_str_len, log_buf, len,
-		"iomem:(tsrec_top:%p(seninf_top:%p)",
+		"iomem(unify_mapping:%u):(tsrec_top:%p(seninf_top:%p)",
+		p_iomem_info->using_unify_iomem,
 		tsrec_top_base_addr,
 		p_iomem_info->seninf_top_base_addr);
 
@@ -1519,19 +1089,17 @@ static void tsrec_regs_dbg_dump_iomem_info(
 	if (likely(tsrec_base_addr_arr != NULL)) {
 		for (i = 0; i < tsrec_hw_cnt; ++i) {
 			TSREC_SNPRF(log_str_len, log_buf, len,
-				"[%u]:%p",
-				i, tsrec_base_addr_arr[i]);
-
+				"[%u]:", i);
+#ifdef TSREC_DBG_PRINT_IOMEM_ADDR
 			TSREC_SNPRF(log_str_len, log_buf, len,
-				"(+%#x)",
+				"%p", tsrec_base_addr_arr[i]);
+#endif
+			TSREC_SNPRF(log_str_len, log_buf, len,
+				"(+%#x)/",
 				p_iomem_info->base_shift_arr[i]);
-
-			TSREC_SNPRF(log_str_len, log_buf, len, "/");
 		}
 	}
-	TSREC_SNPRF(log_str_len, log_buf, len,
-		"), using_unify_iomem:%u",
-		p_iomem_info->using_unify_iomem);
+	TSREC_SNPRF(log_str_len, log_buf, len, ")");
 
 	TSREC_LOG_INF("NOTICE: %s\n", log_buf);
 	TSREC_KFREE(log_buf);

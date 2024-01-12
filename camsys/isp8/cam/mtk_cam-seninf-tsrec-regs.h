@@ -12,9 +12,6 @@
 #endif // !FS_UT
 
 
-#include "mtk_cam-seninf-tsrec-def.h"	// for TSREC_HW_VER_ISP_8 macro
-
-
 /******************************************************************************
  * TSREC registers CTRL/operation function
  *****************************************************************************/
@@ -40,39 +37,8 @@ unsigned long long mtk_cam_seninf_tsrec_latch_time(void);
 void mtk_cam_seninf_s_tsrec_intr_wclr_en(const unsigned int wclr_en);
 
 
-#if !(TSREC_HW_VER_ISP_8)
-/*
- * TSREC_INT_EN -- interrupt enable. (for tsrec a ~ d)
- */
-unsigned int mtk_cam_seninf_g_tsrec_intr_en(void);
-void mtk_cam_seninf_s_tsrec_intr_en(const unsigned int tsrec_n,
-	const unsigned int exp0, const unsigned int exp1, const unsigned int exp2,
-	const unsigned int trig_src, const unsigned int en);
-
-/*
- * TSREC_INT_STATUS -- interrupt status. (for tsrec a ~ d)
- */
-unsigned int mtk_cam_seninf_g_tsrec_intr_status(void);
-void mtk_cam_seninf_clr_tsrec_intr_status(const unsigned int mask);
-
-
-/*
- * TSREC_INT_EN_2 -- interrupt enable. (for tsrec e ~ f)
- */
-unsigned int mtk_cam_seninf_g_tsrec_intr_en_2(void);
-void mtk_cam_seninf_s_tsrec_intr_en_2(const unsigned int tsrec_n,
-	const unsigned int exp0, const unsigned int exp1, const unsigned int exp2,
-	const unsigned int trig_src, const unsigned int en);
-
-/*
- * TSREC_INT_STATUS_2 -- interrupt status. (for tsrec e ~ f)
- */
-unsigned int mtk_cam_seninf_g_tsrec_intr_status_2(void);
-void mtk_cam_seninf_clr_tsrec_intr_status_2(const unsigned int mask);
-#else
 void mtk_cam_seninf_tsrec_s_device_irq_sel(const unsigned int irq_id,
 	const unsigned int val);
-#endif
 
 
 /*---------------------------------------------------------------------------*/
@@ -85,7 +51,6 @@ void mtk_cam_seninf_s_tsrec_n_cfg(const unsigned int tsrec_n,
 	const int clr_exp_cnt_n);
 
 
-#if (TSREC_HW_VER_ISP_8)
 /*
  * TSREC_n_INT_EN -- interrupt enable.
  */
@@ -101,7 +66,6 @@ void mtk_cam_seninf_s_tsrec_n_intr_en(const unsigned int tsrec_n,
 unsigned int mtk_cam_seninf_g_tsrec_n_intr_status(const unsigned int tsrec_n);
 void mtk_cam_seninf_clr_tsrec_n_intr_status(const unsigned int tsrec_n,
 	const unsigned int mask);
-#endif
 
 
 /*

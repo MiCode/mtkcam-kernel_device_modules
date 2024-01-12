@@ -12,7 +12,6 @@
  *****************************************************************************/
 /* for iomem operation type/method */
 #define SENINF_UNIFY_IOMEM_MAPPING        (0)	// for isp8 and after
-// #define SENINF_UNIFY_IOMEM_MAPPING        (1)	// for before isp7sp
 
 #if (SENINF_UNIFY_IOMEM_MAPPING)
 #define ADDR_SHIFT_FROM_TSREC_TOP         (0)	// (1)
@@ -20,11 +19,12 @@
 #define ADDR_SHIFT_FROM_TSREC_TOP         (0)	// this case must set to false
 #endif
 
+// #define TSREC_DBG_PRINT_IOMEM_ADDR
+
 
 /*--------------------------------------------------------------------------*/
 // tsrec_top related address shift define
 /*--------------------------------------------------------------------------*/
-#if (TSREC_HW_VER_ISP_8)
 #define TSREC_BASE                        0x3A310000
 
 #define TSREC_TIMER_CFG_OFFSET            0x0
@@ -37,29 +37,10 @@
 
 #define TSREC_DEVICE_IRQ_SEL_0_OFFSET     0x20
 
-#else	// => ISP7sp/ISP7s
-#define TSREC_BASE                        0x1A024000
-
-#define TSREC_TOP_CFG_OFFSET              0x0
-#define TSREC_TIMER_CFG_OFFSET            0x4
-#define TSREC_TIMER_LAT_OFFSET            0x8
-
-#define TSREC_INT_EN_OFFSET               0x10
-#define TSREC_INT_STATUS_OFFSET           0x14
-
-#define TSREC_INT_EN_2_OFFSET             0x1C
-#define TSREC_INT_STATUS_2_OFFSET         0x20
-
-#if (TSREC_WITH_64_BITS_TIMER_RG)
-#define TSREC_TIMER_LAT_M_OFFSET          0x28
-#endif
-#endif
-
 
 /*--------------------------------------------------------------------------*/
 // per tsrec related address shift define
 /*--------------------------------------------------------------------------*/
-#if (TSREC_HW_VER_ISP_8)
 #define TSREC_N_1ST_BASE_OFFSET           0x10000
 #define TSREC_N_OFFSET                    0x10000
 
@@ -76,22 +57,6 @@
 #if (TSREC_WITH_64_BITS_TIMER_RG)
 #define TSREC_N_EXP_CNT_M_BASE_OFFSET     0x58
 #endif
-#else	// => ISP7sp/ISP7s
-#define TSREC_N_1ST_BASE_OFFSET           0x40
-#define TSREC_N_OFFSET                    0x180
-
-#define TSREC_N_CFG_OFFSET                0x0		// 0x40
-#define TSREC_N_SW_RST_OFFSET             0x4		// 0x44
-#define TSREC_N_TS_CNT_OFFSET             0x8		// 0x48
-#define TSREC_N_TRIG_SRC_OFFSET           0xC		// 0x4C
-
-#define TSREC_N_EXP_VC_DT_BASE_OFFSET     0x10		// 0x50
-#define TSREC_N_EXP_CNT_BASE_OFFSET       0x30		// 0x70
-
-#if (TSREC_WITH_64_BITS_TIMER_RG)
-#define TSREC_N_EXP_CNT_M_BASE_OFFSET     0x60		// 0xA0
-#endif
-#endif
 
 
 /*--------------------------------------------------------------------------*/
@@ -106,10 +71,8 @@
 #define TSREC_ADDR(n, shift)       (TSREC_BASE+(shift))
 #define TSREC_CFG_OFFSET(n)        (TSREC_N_BASE_SHIFT((n))+TSREC_N_CFG_OFFSET)
 
-#if (TSREC_HW_VER_ISP_8)
 #define TSREC_INT_EN_OFFSET(n)     (TSREC_N_BASE_SHIFT((n))+TSREC_N_INT_EN_OFFSET)
 #define TSREC_INT_STATUS_OFFSET(n) (TSREC_N_BASE_SHIFT((n))+TSREC_N_INT_STATUS_OFFSET)
-#endif
 
 #define TSREC_SW_RST_OFFSET(n)     (TSREC_N_BASE_SHIFT((n))+TSREC_N_SW_RST_OFFSET)
 #define TSREC_TS_CNT_OFFSET(n)     (TSREC_N_BASE_SHIFT((n))+TSREC_N_TS_CNT_OFFSET)
@@ -134,10 +97,8 @@
 #define TSREC_ADDR(n, shift)       (TSREC_BASE+TSREC_N_BASE_SHIFT((n))+(shift))
 #define TSREC_CFG_OFFSET(n)        (TSREC_N_CFG_OFFSET)
 
-#if (TSREC_HW_VER_ISP_8)
 #define TSREC_INT_EN_OFFSET(n)     (TSREC_N_INT_EN_OFFSET)
 #define TSREC_INT_STATUS_OFFSET(n) (TSREC_N_INT_STATUS_OFFSET)
-#endif
 
 #define TSREC_SW_RST_OFFSET(n)     (TSREC_N_SW_RST_OFFSET)
 #define TSREC_TS_CNT_OFFSET(n)     (TSREC_N_TS_CNT_OFFSET)
@@ -180,117 +141,6 @@ union REG_TSREC_TIMER_CFG { /* 0x1A024004 or 0x3A310000 */
 	} bits;
 	unsigned int val;
 };
-
-
-#if !(TSREC_HW_VER_ISP_8)
-union REG_TSREC_INT_EN { /* 0x1A024010 */
-	struct {
-		unsigned int TSREC_A_EXP0_VSYNC_INT_EN   :  1;  /*  0.. 0, 0x00000001 */
-		unsigned int TSREC_A_EXP1_VSYNC_INT_EN   :  1;  /*  1.. 1, 0x00000002 */
-		unsigned int TSREC_A_EXP2_VSYNC_INT_EN   :  1;  /*  2.. 2, 0x00000004 */
-		unsigned int TSREC_B_EXP0_VSYNC_INT_EN   :  1;  /*  3.. 3, 0x00000008 */
-		unsigned int TSREC_B_EXP1_VSYNC_INT_EN   :  1;  /*  4.. 4, 0x00000010 */
-		unsigned int TSREC_B_EXP2_VSYNC_INT_EN   :  1;  /*  5.. 5, 0x00000020 */
-		unsigned int TSREC_C_EXP0_VSYNC_INT_EN   :  1;  /*  6.. 6, 0x00000040 */
-		unsigned int TSREC_C_EXP1_VSYNC_INT_EN   :  1;  /*  7.. 7, 0x00000080 */
-		unsigned int TSREC_C_EXP2_VSYNC_INT_EN   :  1;  /*  8.. 8, 0x00000100 */
-		unsigned int TSREC_D_EXP0_VSYNC_INT_EN   :  1;  /*  9.. 9, 0x00000200 */
-		unsigned int TSREC_D_EXP1_VSYNC_INT_EN   :  1;  /* 10..10, 0x00000400 */
-		unsigned int TSREC_D_EXP2_VSYNC_INT_EN   :  1;  /* 11..11, 0x00000800 */
-		unsigned int rsv_12                      :  4;  /* 12..15, 0x0000F000 */
-		unsigned int TSREC_A_EXP0_HSYNC_INT_EN   :  1;  /* 16..16, 0x00010000 */
-		unsigned int TSREC_A_EXP1_HSYNC_INT_EN   :  1;  /* 17..17, 0x00020000 */
-		unsigned int TSREC_A_EXP2_HSYNC_INT_EN   :  1;  /* 18..18, 0x00040000 */
-		unsigned int TSREC_B_EXP0_HSYNC_INT_EN   :  1;  /* 19..19, 0x00080000 */
-		unsigned int TSREC_B_EXP1_HSYNC_INT_EN   :  1;  /* 20..20, 0x00100000 */
-		unsigned int TSREC_B_EXP2_HSYNC_INT_EN   :  1;  /* 21..21, 0x00200000 */
-		unsigned int TSREC_C_EXP0_HSYNC_INT_EN   :  1;  /* 22..22, 0x00400000 */
-		unsigned int TSREC_C_EXP1_HSYNC_INT_EN   :  1;  /* 23..23, 0x00800000 */
-		unsigned int TSREC_C_EXP2_HSYNC_INT_EN   :  1;  /* 24..24, 0x01000000 */
-		unsigned int TSREC_D_EXP0_HSYNC_INT_EN   :  1;  /* 25..25, 0x02000000 */
-		unsigned int TSREC_D_EXP1_HSYNC_INT_EN   :  1;  /* 26..26, 0x04000000 */
-		unsigned int TSREC_D_EXP2_HSYNC_INT_EN   :  1;  /* 27..27, 0x08000000 */
-		unsigned int rsv_28                      :  3;  /* 28..30, 0x70000000 */
-		unsigned int TSREC_INT_WCLR_EN           :  1;  /* 31..31, 0x80000000 */
-	} bits;
-	unsigned int val;
-};
-
-
-union REG_TSREC_INT_STATUS { /* 0x1A024014 */
-	struct {
-		unsigned int TSREC_A_EXP0_VSYNC_INT      :  1;  /*  0.. 0, 0x00000001 */
-		unsigned int TSREC_A_EXP1_VSYNC_INT      :  1;  /*  1.. 1, 0x00000002 */
-		unsigned int TSREC_A_EXP2_VSYNC_INT      :  1;  /*  2.. 2, 0x00000004 */
-		unsigned int TSREC_B_EXP0_VSYNC_INT      :  1;  /*  3.. 3, 0x00000008 */
-		unsigned int TSREC_B_EXP1_VSYNC_INT      :  1;  /*  4.. 4, 0x00000010 */
-		unsigned int TSREC_B_EXP2_VSYNC_INT      :  1;  /*  5.. 5, 0x00000020 */
-		unsigned int TSREC_C_EXP0_VSYNC_INT      :  1;  /*  6.. 6, 0x00000040 */
-		unsigned int TSREC_C_EXP1_VSYNC_INT      :  1;  /*  7.. 7, 0x00000080 */
-		unsigned int TSREC_C_EXP2_VSYNC_INT      :  1;  /*  8.. 8, 0x00000100 */
-		unsigned int TSREC_D_EXP0_VSYNC_INT      :  1;  /*  9.. 9, 0x00000200 */
-		unsigned int TSREC_D_EXP1_VSYNC_INT      :  1;  /* 10..10, 0x00000400 */
-		unsigned int TSREC_D_EXP2_VSYNC_INT      :  1;  /* 11..11, 0x00000800 */
-		unsigned int rsv_12                      :  4;  /* 12..15, 0x0000F000 */
-		unsigned int TSREC_A_EXP0_HSYNC_INT      :  1;  /* 16..16, 0x00010000 */
-		unsigned int TSREC_A_EXP1_HSYNC_INT      :  1;  /* 17..17, 0x00020000 */
-		unsigned int TSREC_A_EXP2_HSYNC_INT      :  1;  /* 18..18, 0x00040000 */
-		unsigned int TSREC_B_EXP0_HSYNC_INT      :  1;  /* 19..19, 0x00080000 */
-		unsigned int TSREC_B_EXP1_HSYNC_INT      :  1;  /* 20..20, 0x00100000 */
-		unsigned int TSREC_B_EXP2_HSYNC_INT      :  1;  /* 21..21, 0x00200000 */
-		unsigned int TSREC_C_EXP0_HSYNC_INT      :  1;  /* 22..22, 0x00400000 */
-		unsigned int TSREC_C_EXP1_HSYNC_INT      :  1;  /* 23..23, 0x00800000 */
-		unsigned int TSREC_C_EXP2_HSYNC_INT      :  1;  /* 24..24, 0x01000000 */
-		unsigned int TSREC_D_EXP0_HSYNC_INT      :  1;  /* 25..25, 0x02000000 */
-		unsigned int TSREC_D_EXP1_HSYNC_INT      :  1;  /* 26..26, 0x04000000 */
-		unsigned int TSREC_D_EXP2_HSYNC_INT      :  1;  /* 27..27, 0x08000000 */
-		unsigned int rsv_28                      :  4;  /* 28..31, 0xF0000000 */
-	} bits;
-	unsigned int val;
-};
-
-
-union REG_TSREC_INT_EN_2 { /* 0x1A02401C */
-	struct {
-		unsigned int TSREC_E_EXP0_VSYNC_INT_EN   :  1;  /*  0.. 0, 0x00000001 */
-		unsigned int TSREC_E_EXP1_VSYNC_INT_EN   :  1;  /*  1.. 1, 0x00000002 */
-		unsigned int TSREC_E_EXP2_VSYNC_INT_EN   :  1;  /*  2.. 2, 0x00000004 */
-		unsigned int TSREC_F_EXP0_VSYNC_INT_EN   :  1;  /*  3.. 3, 0x00000008 */
-		unsigned int TSREC_F_EXP1_VSYNC_INT_EN   :  1;  /*  4.. 4, 0x00000010 */
-		unsigned int TSREC_F_EXP2_VSYNC_INT_EN   :  1;  /*  5.. 5, 0x00000020 */
-		unsigned int rsv_6                       : 10;  /*  6..15, 0x0000FFC0 */
-		unsigned int TSREC_E_EXP0_HSYNC_INT_EN   :  1;  /* 16..16, 0x00010000 */
-		unsigned int TSREC_E_EXP1_HSYNC_INT_EN   :  1;  /* 17..17, 0x00020000 */
-		unsigned int TSREC_E_EXP2_HSYNC_INT_EN   :  1;  /* 18..18, 0x00040000 */
-		unsigned int TSREC_F_EXP0_HSYNC_INT_EN   :  1;  /* 19..19, 0x00080000 */
-		unsigned int TSREC_F_EXP1_HSYNC_INT_EN   :  1;  /* 20..20, 0x00100000 */
-		unsigned int TSREC_F_EXP2_HSYNC_INT_EN   :  1;  /* 21..21, 0x00200000 */
-		unsigned int rsv_22                      : 10;  /* 22..31, 0xFFC00000 */
-	} bits;
-	unsigned int val;
-};
-
-
-union REG_TSREC_INT_STATUS_2 { /* 0x1A024020 */
-	struct {
-		unsigned int TSREC_E_EXP0_VSYNC_INT      :  1;  /*  0.. 0, 0x00000001 */
-		unsigned int TSREC_E_EXP1_VSYNC_INT      :  1;  /*  1.. 1, 0x00000002 */
-		unsigned int TSREC_E_EXP2_VSYNC_INT      :  1;  /*  2.. 2, 0x00000004 */
-		unsigned int TSREC_F_EXP0_VSYNC_INT      :  1;  /*  3.. 3, 0x00000008 */
-		unsigned int TSREC_F_EXP1_VSYNC_INT      :  1;  /*  4.. 4, 0x00000010 */
-		unsigned int TSREC_F_EXP2_VSYNC_INT      :  1;  /*  5.. 5, 0x00000020 */
-		unsigned int rsv_6                       : 10;  /*  6..15, 0x0000FFC0 */
-		unsigned int TSREC_E_EXP0_HSYNC_INT      :  1;  /* 16..16, 0x00010000 */
-		unsigned int TSREC_E_EXP1_HSYNC_INT      :  1;  /* 17..17, 0x00020000 */
-		unsigned int TSREC_E_EXP2_HSYNC_INT      :  1;  /* 18..18, 0x00040000 */
-		unsigned int TSREC_F_EXP0_HSYNC_INT      :  1;  /* 19..19, 0x00080000 */
-		unsigned int TSREC_F_EXP1_HSYNC_INT      :  1;  /* 20..20, 0x00100000 */
-		unsigned int TSREC_F_EXP2_HSYNC_INT      :  1;  /* 21..21, 0x00200000 */
-		unsigned int rsv_22                      : 10;  /* 22..31, 0xFFC00000 */
-	} bits;
-	unsigned int val;
-};
-#endif // !TSREC_HW_VER_ISP_8
 
 
 /******************************************************************************

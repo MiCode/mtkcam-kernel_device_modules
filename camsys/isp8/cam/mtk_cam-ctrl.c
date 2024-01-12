@@ -1207,6 +1207,55 @@ static void mtk_cam_ctrl_stream_on_flow(struct mtk_cam_job *job)
 
 	dev_info(dev, "[%s] ctx %d finish\n", __func__, ctrl->ctx->stream_id);
 }
+static void mtk_cam_ctrl_dynamic_raws_change_flow(struct mtk_cam_job *job)
+{
+	struct mtk_cam_ctx *ctx = job->src_ctx;
+	struct mtk_cam_ctrl *ctrl = &ctx->cam_ctrl;
+	struct device *dev = ctx->cam->dev;
+	struct mtk_cam_device *cam = ctx->cam;
+	struct seamless_check_args check_args;
+	int i;
+
+	dev_info(dev, "[%s] begin waiting dynamic raw changes no:%d seq 0x%x\n",
+		__func__, job->req_seq, job->frame_seq_no);
+
+	check_args.expect_inner = job->frame_seq_no;
+	check_args.expect_ack = job->frame_seq_no;
+
+	if (mtk_cam_ctrl_wait_event(ctrl, check_for_inner, &check_args, 1000)) {
+		dev_info(dev, "[%s] check for dynamic_raws_change timeout: expected in=0x%x ack=0x%x\n",
+			 __func__,
+			 check_args.expect_inner, check_args.expect_ack);
+		goto SWITCH_FAILURE;
+	}
+	dev_info(dev, "[%s] begin waiting uninit raw:0x%x\n",
+		__func__, job->raw_change_uninit_engine);
+	/* disable raw/yuv irq and reset */
+	for (i = 0; i < cam->engines.num_raw_devices; i++) {
+		if (BIT(i) & job->raw_change_uninit_engine) {
+			struct mtk_raw_device *raw_dev;
+			struct mtk_yuv_device *yuv_dev;
+
+			raw_dev = dev_get_drvdata(cam->engines.raw_devs[i]);
+			disable_irq(raw_dev->irq);
+			cam = raw_dev->cam;
+			yuv_dev = dev_get_drvdata(cam->engines.yuv_devs[i]);
+			disable_irq(yuv_dev->irq);
+			reset(raw_dev);
+		}
+	}
+	mtk_cam_pm_runtime_engines(&ctx->cam->engines, job->raw_change_uninit_engine, 0);
+	mtk_cam_job_update_clk(job);
+	dev_info(dev, "[%s] finish, uninit raw:0x%x\n",
+		__func__, job->raw_change_uninit_engine);
+	return;
+
+SWITCH_FAILURE:
+	dev_info(dev, "[%s] failed: ctx-%d job %d frame_seq 0x%x\n",
+		 __func__, ctx->stream_id, job->req_seq, job->frame_seq_no);
+
+	WRAP_AEE_EXCEPTION(MSG_RAW_CHANGE_FAILURE, __func__);
+}
 
 static void mtk_cam_ctrl_seamless_switch_flow(struct mtk_cam_job *job)
 {
@@ -1419,13 +1468,17 @@ static void mtk_cam_ctrl_queue_for_flow_control(struct mtk_cam_ctrl *ctrl,
 	if (job->raw_switch)
 		func = mtk_cam_ctrl_raw_switch_flow;
 
-	if (CAM_DEBUG_ENABLED(CTRL) && func)
-		pr_info("%s: job #%d %d/%d/%d %ps\n",
+	if (job->raw_change)
+		func = mtk_cam_ctrl_dynamic_raws_change_flow;
+
+	if (CAM_DEBUG_ENABLED(CTRL) || func)
+		pr_info("%s: job #%d %d/%d/%d/%d %ps\n",
 			__func__,
 			job->req_seq,
 			job->stream_on_seninf,
 			job->seamless_switch,
 			job->raw_switch,
+			job->raw_change,
 			func);
 
 	if (func)

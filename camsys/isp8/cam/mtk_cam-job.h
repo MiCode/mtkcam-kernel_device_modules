@@ -199,6 +199,11 @@ enum state_type {
 
 	NR_STATE_TYPE,
 };
+enum MTK_CAMSYS_JOB_DYNAMIC_RAWS_CHANGE_TYPE {
+	JOB_RAW_NO_CHANGE,
+	JOB_RAW_MASTER_UNCHANGED,
+	JOB_RAW_MASTER_CHANGED,
+};
 
 /* callback to job */
 struct mtk_cam_job_state_cb {
@@ -348,6 +353,8 @@ struct mtk_cam_job {
 	struct mtkcam_ipi_config_param ipi_config;
 	bool stream_on_seninf;
 	bool seamless_switch;
+	int raw_change;
+	int raw_change_uninit_engine;
 	bool first_frm_switch;
 	bool first_job;
 

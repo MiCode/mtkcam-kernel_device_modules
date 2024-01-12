@@ -135,6 +135,7 @@ int mtk_cam_debug_exp_dump(struct mtk_cam_debug *dbg,
 #define MSG_TG_GRAB_ERROR	"Camsys: TG Grab Err"
 #define MSG_M4U_TF		"Camsys: M4U TF"
 #define MSG_SWITCH_FAILURE	"Camsys: switch error"
+#define MSG_RAW_CHANGE_FAILURE	"Camsys: dynamic raw changes error"
 #define MSG_NORMAL_DUMP		"Camsys: normal dump"
 #define MSG_CAMSV_ERROR		"Camsys: camsv error"
 #define MSG_CAMSV_SEAMLESS_ERROR	"Camsys: camsv seamless error"

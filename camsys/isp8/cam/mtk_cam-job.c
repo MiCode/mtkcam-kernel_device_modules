@@ -126,6 +126,23 @@ static int apply_sensor_async(struct mtk_cam_job *job)
 
 	return mtk_cam_ctx_queue_sensor_worker(ctx, &job->sensor_work);
 }
+static void job_raw_change_hw_toggle_db(struct mtk_cam_ctx *ctx)
+{
+	struct mtk_raw_device *raw_dev;
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(ctx->hw_raw); i++) {
+		if (ctx->hw_raw[i]) {
+			raw_dev = dev_get_drvdata(ctx->hw_raw[i]);
+			if (raw_dev->is_slave) {
+				dev_info(ctx->cam->dev, "%s slave toggle db and rwfbc inc (raw_id:%d)",
+					__func__, raw_dev->id);
+				toggle_db(raw_dev);
+				rwfbc_inc_setup(raw_dev);
+			}
+		}
+	}
+}
 
 static int check_processing(struct mtk_cam_job *job)
 {
@@ -153,7 +170,9 @@ static int handle_cq_done(struct mtk_cam_job *job)
 	ctx->cam_ctrl.frame_sync_id = job->req_info_id;
 	if (job->first_job || job->first_frm_switch)
 		goto EXIT;
-
+	if (job->raw_change) {
+		job_raw_change_hw_toggle_db(ctx);
+	}
 	/* turn on mraw vf when first frame setting applied */
 	for (i = 0; i < ctx->num_mraw_subdevs; i++) {
 		mraw_idx = ctx->mraw_subdev_idx[i];
@@ -1886,6 +1905,7 @@ static int _apply_cq(struct mtk_cam_job *job)
 		return -1;
 	job->local_trigger_cq_ts = local_clock();
 	apply_engines_cq(job, job->frame_seq_no, &job->cq, &job->cq_rst);
+
 	return 0;
 }
 
@@ -2158,6 +2178,53 @@ static int job_related_hw_init(struct mtk_cam_job *job)
 
 	return 0;
 }
+static int job_raw_change_hw_init(struct mtk_cam_job *job)
+{
+	struct mtk_cam_ctx *ctx = job->src_ctx;
+	unsigned long selected;
+	unsigned long selected_need_init;
+	unsigned long unselected_need_uninit;
+
+	if (mtk_cam_release_engine(ctx->cam, ctx->used_engine))
+		dev_info(ctx->cam->dev, "%s warning: release resource prev:0x%x",
+			__func__, ctx->used_engine);
+	selected = mtk_cam_select_hw(job);
+	if (!selected)
+		return -1;
+	if (mtk_cam_occupy_engine(ctx->cam, selected))
+		dev_info(ctx->cam->dev, "%s warning: occupy resource prev:0x%x/cur:0x%lx",
+		__func__, ctx->used_engine, selected);
+	/* eg. a->ab , b'0011 & b'1110 = b'0010 */
+	selected_need_init = selected & ~ctx->used_engine;
+	/* eg. ab->a , b'0011 & b'1110 = b'0010 */
+	unselected_need_uninit = ctx->used_engine & ~selected;
+	dev_info(ctx->cam->dev, "%s raw resource 0x%x->0x%lx , need init:0x%lx, need uninit:0x%lx",
+		__func__, ctx->used_engine, selected, selected_need_init, unselected_need_uninit);
+	if (selected_need_init) {
+		mtk_cam_pm_runtime_engines(&ctx->cam->engines, selected_need_init, 1);
+		if (job->raw_change == JOB_RAW_MASTER_UNCHANGED) {
+			int i;
+			int is_srt = (is_dc_mode(job) /*&& !ctx->slb_addr*/) /* dc */
+				|| is_m2m(job); /* m2m */
+			for (i = 0 ; i < ARRAY_SIZE(ctx->hw_raw); i++) {
+				struct mtk_raw_device *raw;
+				if (!ctx->hw_raw[i])
+					continue;
+				raw = dev_get_drvdata(ctx->hw_raw[i]);
+				if (BIT(raw->id) == (selected_need_init & 0x7))
+					initialize(raw, 1, is_srt, ctx->slb_addr ? 1 : 0, &engine_cb);
+			}
+			if (job->enable_hsf_raw)
+				mtk_cam_hsf_init(ctx);
+			if (is_dc_mode(job) && ctx->slb_addr)
+				mtk_cam_hsf_aid(ctx, 1, AID_CAM_DC, selected);
+		}
+	}
+	job->raw_change_uninit_engine = unselected_need_uninit;
+	ctx->used_engine = selected;
+
+	return 0;
+}
 
 static int
 _job_pack_subsample(struct mtk_cam_job *job,
@@ -2239,7 +2306,7 @@ static bool is_sensor_changed(struct mtk_cam_job *job)
 }
 
 bool check_if_need_configure(bool ctx_has_configured,
-			     bool seamless_switch, bool raw_switch)
+			     bool seamless_switch, bool raw_switch, bool dynamic_raw_changed)
 {
 	if (!ctx_has_configured)
 		return true;
@@ -2248,7 +2315,7 @@ bool check_if_need_configure(bool ctx_has_configured,
 	 * In raw switch case, the camsv restart flow needs the config
 	 * ipi, so we return true directly.
 	 */
-	if (seamless_switch || raw_switch)
+	if (seamless_switch || raw_switch || dynamic_raw_changed)
 		return true;
 
 	return false;
@@ -2282,10 +2349,13 @@ _job_pack_otf_stagger(struct mtk_cam_job *job,
 
 		job->stream_on_seninf = true;
 	}
-
+	if (job->raw_change) {
+		/* check if slave raw need to init or uninit */
+		job_raw_change_hw_init(job);
+	}
 	job->do_ipi_config = false;
 	if (check_if_need_configure(ctx->configured, job->seamless_switch,
-				    job->raw_switch)) {
+				    job->raw_switch, job->raw_change)) {
 		/* handle camsv tags */
 		if (handle_sv_tag(job)) {
 			dev_info(cam->dev, "tag handle failed");
@@ -2445,7 +2515,8 @@ _job_pack_mstream(struct mtk_cam_job *job,
 	}
 
 	job->do_ipi_config = false;
-	if (check_if_need_configure(ctx->configured, false, job->raw_switch)) {
+	if (check_if_need_configure(ctx->configured,
+			false, job->raw_switch, job->raw_change)) {
 		/* handle camsv tags */
 		if (handle_sv_tag(job)) {
 			dev_info(cam->dev, "tag handle failed");
@@ -2499,11 +2570,14 @@ _job_pack_normal(struct mtk_cam_job *job,
 
 		job->stream_on_seninf = true;
 	}
-
+	if (job->raw_change) {
+		/* check if slave raw need to init or uninit */
+		job_raw_change_hw_init(job);
+	}
 	job->do_ipi_config = false;
 	if (check_if_need_configure(ctx->configured,
 				    job->seamless_switch,
-				    job->raw_switch)) {
+				    job->raw_switch, job->raw_change)) {
 		/* handle camsv tags */
 		if (handle_sv_tag(job)) {
 			dev_info(cam->dev, "tag handle failed");
@@ -3708,6 +3782,7 @@ static void update_job_state_init_sensor_param(struct mtk_cam_job *job)
 
 	job->job_state.cq_trigger_thres_ns = ctrl_data->trigger_cq_deadline > 0 ?
 		ctrl_data->trigger_cq_deadline : infer_cq_trigger_deadline_ns(job, ctrl->frame_interval_ns);
+
 	if (CAM_DEBUG_ENABLED(JOB))
 		pr_info("%s: job i2c_thres_ns %llu, latched_timing:%d, cq_trigger_thres:%llu\n",
 			__func__,
@@ -3723,6 +3798,37 @@ struct initialize_params stagger_init = {
 struct initialize_params subsample_init = {
 	.master_raw_init = master_raw_set_subsample,
 };
+#define DYNAMIC_TWIN_DRV_TRIGGER 0
+static int update_job_raw_change(struct mtk_cam_job *job)
+{
+	struct mtk_cam_ctx *ctx = job->src_ctx;
+	struct mtk_raw_ctrl_data *ctrl_data = get_raw_ctrl_data(job);
+	struct mtk_cam_resource_raw_v2 *res;
+	int cur_raws;
+
+	if (ctx->has_raw_subdev && ctrl_data && job->sensor && job->seninf) {
+		res = &ctrl_data->resource.user_data.raw_res;
+		dev_info(ctx->cam->dev,
+			"%s:ctx(%d): (%s/%s) check raw resource(hwmode:%d/ctx used:0x%x) : raw_must/raws (pipe, ctx):(0x%x/0x%x, 0x%x/0x%x) enquecnt:%d freq:%d\n",
+			__func__,
+			ctx->stream_id, job->sensor->entity.name, job->seninf->entity.name,
+			res->hw_mode, ctx->used_engine,
+			ctx->cam->pipelines.raw[ctx->raw_subdev_idx].ctrl_data.resource.user_data.raw_res.raws_must,
+			ctx->cam->pipelines.raw[ctx->raw_subdev_idx].ctrl_data.resource.user_data.raw_res.raws,
+			res->raws_must, res->raws, ctx->cam_ctrl.enqueued_req_cnt, res->freq);
+		cur_raws = (int)bit_map_subset_of(MAP_HW_RAW, ctx->used_engine);
+		if (cur_raws &&
+			cur_raws != res->raws) {
+			job->raw_change = JOB_RAW_MASTER_UNCHANGED;
+			dev_info(ctx->cam->dev,
+				"%s:ctx(%d): change raw resource(hwmode:%d/engine:%x) enquecnt:%d\n",
+				__func__, ctx->stream_id,
+				res->hw_mode, ctx->used_engine, ctx->cam_ctrl.enqueued_req_cnt);
+		}
+	}
+
+	return 0;
+}
 
 void mtk_cam_job_clean_prev_img_pool(struct mtk_cam_job *job)
 {
@@ -3957,6 +4063,7 @@ static int job_sen_req_pack(struct mtk_cam_job *job)
 		NULL;
 	job->composed = false;
 	job->seamless_switch = false;
+	job->raw_change = JOB_RAW_NO_CHANGE;
 	job->first_frm_switch = false;
 	job->scq_period = SCQ_DEADLINE_US(get_sensor_interval_us(job)) / 1000;
 
@@ -4083,7 +4190,9 @@ static int job_isp_req_pack(struct mtk_cam_job *job)
 
 	if (WARN_ON(!pack_helper))
 		return -1;
-
+	/* determine if it is a raw change job */
+	if (update_job_raw_change(job))
+		return -1;
 	ret = pack_helper->pack_job(job, pack_helper);
 
 	if (CAM_DEBUG_ENABLED(JOB))
@@ -4289,6 +4398,8 @@ static int mtk_cam_job_fill_ipi_config(struct mtk_cam_job *job,
 
 		if (job->seamless_switch || job->raw_switch)
 			config->flags = MTK_CAM_IPI_CONFIG_TYPE_REINIT;
+		else if (job->raw_change)
+			config->flags = MTK_CAM_IPI_CONFIG_TYPE_INPUT_CHANGE;
 		else
 			config->flags = MTK_CAM_IPI_CONFIG_TYPE_INIT;
 

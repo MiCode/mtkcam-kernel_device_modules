@@ -1262,8 +1262,7 @@ void set_long_exposure(struct subdrv_ctx *ctx)
 			l_shift = 7;
 		}
 		shutter = ((shutter - 1) >> l_shift) + 1;
-		if (!ctx->s_ctx.reg_addr_auto_extend)
-			ctx->frame_length = shutter + ctx->s_ctx.exposure_margin;
+		ctx->frame_length = shutter + ctx->s_ctx.exposure_margin;
 		DRV_LOG(ctx, "long exposure mode: lshift %u times", l_shift);
 		set_i2c_buffer(ctx, ctx->s_ctx.reg_addr_exposure_lshift, l_shift);
 		ctx->l_shift = l_shift;

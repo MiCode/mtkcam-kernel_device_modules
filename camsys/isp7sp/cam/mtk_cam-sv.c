@@ -2275,7 +2275,6 @@ static int mtk_camsv_runtime_suspend(struct device *dev)
 	dev_dbg(dev, "%s:disable clock\n", __func__);
 
 	mtk_cam_reset_qos(dev, &sv_dev->qos);
-	mtk_cam_sv_golden_set(sv_dev, false);
 
 	for (i = 0; i < sv_dev->num_clks; i++)
 		clk_disable_unprepare(sv_dev->clks[i]);

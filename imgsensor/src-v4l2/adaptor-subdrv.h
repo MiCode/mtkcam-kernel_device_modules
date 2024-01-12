@@ -309,6 +309,9 @@ struct subdrv_static_ctx {
 	u16 reg_addr_aov_mode_mirror_flip;
 	u8 init_in_open;
 	u8 streaming_ctrl_imp;
+
+	/* custom stream control delay timing for hw limitation */
+	u64 custom_stream_ctrl_delay;
 };
 
 #define HDR_CAP_IHDR 0x1
@@ -405,6 +408,10 @@ struct subdrv_ctx {
 	bool sensor_debug_dphy_global_timing_continuous_clk;
 	bool power_on_profile_en;
 	struct mtk_sensor_profile sensor_pw_on_profile;
+
+	/* for custom stream control delay timing */
+	u64 stream_ctrl_start_time;
+	u64 stream_ctrl_end_time;
 };
 
 struct subdrv_feature_control {

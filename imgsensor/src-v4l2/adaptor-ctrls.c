@@ -665,6 +665,10 @@ static int s_ae_ctrl(struct v4l2_ctrl *ctrl)
 	struct mtk_hdr_ae *ae_ctrl = ctrl->p_new.p;
 	enum IMGSENSOR_HDR_MODE_ENUM hdr_mode;
 
+#if IMGSENSOR_LOG_MORE
+	dev_info(ctx->dev, "[%s][%s]+\n",
+		__func__, (ctx->subdrv) ? (ctx->subdrv->name) : "null");
+#endif
 	hdr_mode = (ctx->subctx.s_ctx.mode == NULL)
 		? HDR_NONE
 		: ctx->subctx.s_ctx.mode[ctx->cur_mode->id].hdr_mode;
@@ -698,10 +702,10 @@ static int _sensor_reset_s_stream(struct v4l2_ctrl *ctrl)
 	u64 data[4];
 	u32 len;
 
-	//dev_info(ctx->dev, "%s val: %d, stream_off_state: %d\n",
-	//	 __func__, ctrl->val,
-	//	 ctx->is_sensor_reset_stream_off);
-
+#if IMGSENSOR_LOG_MORE
+	dev_info(ctx->dev, "%s val: %d, stream_off_state: %d\n",
+		__func__, ctrl->val, ctx->is_sensor_reset_stream_off);
+#endif
 	if (ctrl->val && ctx->is_sensor_reset_stream_off) {
 		subdrv_call(ctx, feature_control,
 			    SENSOR_FEATURE_SET_STREAMING_RESUME,

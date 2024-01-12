@@ -10,6 +10,7 @@
 #include <linux/fs.h>
 #include <linux/atomic.h>
 #include <linux/types.h>
+#include <linux/timer.h>
 
 #include "kd_camera_typedef.h"
 #include "kd_imgsensor.h"
@@ -1948,6 +1949,9 @@ void check_stream_off(struct subdrv_ctx *ctx)
 
 void streaming_control(struct subdrv_ctx *ctx, bool enable)
 {
+	u64 stream_ctrl_delay_timing = 0;
+
+	DRV_LOG(ctx, "E! enable:%u\n", enable);
 	check_current_scenario_id_bound(ctx);
 	if (ctx->s_ctx.aov_sensor_support && ctx->s_ctx.streaming_ctrl_imp) {
 		if (ctx->s_ctx.s_streaming_control != NULL)
@@ -1972,7 +1976,21 @@ void streaming_control(struct subdrv_ctx *ctx, bool enable)
 	if (enable) {
 		set_dummy(ctx);
 		subdrv_i2c_wr_u8(ctx, ctx->s_ctx.reg_addr_stream, 0x01);
+		ctx->stream_ctrl_start_time = ktime_get_boottime_ns();
 	} else {
+		ctx->stream_ctrl_end_time = ktime_get_boottime_ns();
+		if (ctx->s_ctx.custom_stream_ctrl_delay &&
+			ctx->stream_ctrl_start_time && ctx->stream_ctrl_end_time) {
+			stream_ctrl_delay_timing =
+				(ctx->stream_ctrl_end_time - ctx->stream_ctrl_start_time) / 1000000;
+			DRV_LOG(ctx,
+				"custom_stream_ctrl_delay/stream_ctrl_delay_timing:%llu/%llu\n",
+				ctx->s_ctx.custom_stream_ctrl_delay,
+				stream_ctrl_delay_timing);
+			if (stream_ctrl_delay_timing < ctx->s_ctx.custom_stream_ctrl_delay)
+				mdelay(
+					ctx->s_ctx.custom_stream_ctrl_delay - stream_ctrl_delay_timing);
+		}
 		subdrv_i2c_wr_u8(ctx, ctx->s_ctx.reg_addr_stream, 0x00);
 		if (ctx->s_ctx.reg_addr_fast_mode && ctx->fast_mode_on) {
 			ctx->fast_mode_on = FALSE;
@@ -1988,9 +2006,11 @@ void streaming_control(struct subdrv_ctx *ctx, bool enable)
 		ctx->is_seamless = 0;
 		if (ctx->s_ctx.chk_s_off_end)
 			check_stream_off(ctx);
+		ctx->stream_ctrl_start_time = 0;
+		ctx->stream_ctrl_end_time = 0;
 	}
 	ctx->is_streaming = enable;
-	DRV_LOG(ctx, "enable:%u\n", enable);
+	DRV_LOG(ctx, "X! enable:%u\n", enable);
 }
 
 void set_video_mode(struct subdrv_ctx *ctx, u16 framerate)

@@ -2595,13 +2595,15 @@ static int imx989_seamless_switch(struct subdrv_ctx *ctx, u8 *para, u32 *len)
 
 	exp_cnt = ctx->s_ctx.mode[scenario_id].exp_cnt;
 	ctx->is_seamless = TRUE;
-	update_mode_info(ctx, scenario_id);
 
 	subdrv_i2c_wr_u8(ctx, 0x0104, 0x01);
 	subdrv_i2c_wr_u8(ctx, ctx->s_ctx.reg_addr_fast_mode, 0x02);
-	if (ctx->s_ctx.mode[scenario_id].hdr_mode == HDR_RAW_LBMF)
+	if (ctx->s_ctx.reg_addr_fast_mode_in_lbmf &&
+		(ctx->s_ctx.mode[scenario_id].hdr_mode == HDR_RAW_LBMF ||
+		ctx->s_ctx.mode[ctx->current_scenario_id].hdr_mode == HDR_RAW_LBMF))
 		subdrv_i2c_wr_u8(ctx, ctx->s_ctx.reg_addr_fast_mode_in_lbmf, 0x4);
 
+	update_mode_info(ctx, scenario_id);
 	i2c_table_write(ctx,
 		ctx->s_ctx.mode[scenario_id].seamless_switch_mode_setting_table,
 		ctx->s_ctx.mode[scenario_id].seamless_switch_mode_setting_len);

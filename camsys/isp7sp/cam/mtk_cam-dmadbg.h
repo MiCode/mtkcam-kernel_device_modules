@@ -8,6 +8,11 @@
 
 #include "mtk_cam-raw_debug.h"
 
+static __maybe_unused struct dma_debug_item dbg_UFD[] = {
+	{0x00002001, "ufd r2 debug"},
+	{0x00002009, "ufd r5 debug"},
+};
+
 static __maybe_unused struct dma_debug_item dbg_RAWI_R2[] = {
 	{0x00000006, "rawi_r2 32(hex) 0000"},
 	{0x00000106, "rawi_r2 state_checksum"},
@@ -29,6 +34,10 @@ static __maybe_unused struct dma_debug_item dbg_RAWI_R2_UFD[] = {
 	{0x00000107, "rawi_r2 ufd state_checksum"},
 	{0x00000207, "rawi_r2 ufd line_pix_cnt_tmp"},
 	{0x00000307, "rawi_r2 ufd line_pix_cnt"},
+	{0x01000048, "rawi_r2_smi_port / plane-1 / data-crc"},
+	{0x000000A5, "rawi_r2_smi_port / plane-1 / { len-cnt, dle-cnt }"},
+	{0x000005C0, "rawi_r2_smi_port / plane-1 / maddr_max record"},
+	{0x000005C1, "rawi_r2_smi_port / plane-1 / maddr_min record"},
 };
 
 static __maybe_unused struct dma_debug_item dbg_RAWI_R3[] = {
@@ -47,6 +56,17 @@ static __maybe_unused struct dma_debug_item dbg_RAWI_R3[] = {
 	{0x000006C1, "rawi_r3_smi_port / plane-0 / maddr_min record"},
 };
 
+static __maybe_unused struct dma_debug_item dbg_RAWI_R3_UFD[] = {
+	{0x0000000A, "rawi_r3 ufd 32(hex) 0000"},
+	{0x0000010A, "rawi_r3 ufd state_checksum"},
+	{0x0000020A, "rawi_r3 ufd line_pix_cnt_tmp"},
+	{0x0000030A, "rawi_r3 ufd line_pix_cnt"},
+	{0x0100004B, "rawi_r3_smi_port / plane-1 / data-crc"},
+	{0x000000A7, "rawi_r3_smi_port / plane-1 / { len-cnt, dle-cnt }"},
+	{0x000007C0, "rawi_r3_smi_port / plane-1 / maddr_max record"},
+	{0x000007C1, "rawi_r3_smi_port / plane-1 / maddr_min record"},
+};
+
 static __maybe_unused struct dma_debug_item dbg_RAWI_R5[] = {
 	{0x0000000C, "rawi_r5 32(hex) 0000"},
 	{0x0000010C, "rawi_r5 state_checksum"},
@@ -61,6 +81,17 @@ static __maybe_unused struct dma_debug_item dbg_RAWI_R5[] = {
 	{0x000000A8, "rawi_r5_smi_port / plane-0 / { len-cnt, dle-cnt }"},
 	{0x000008C0, "rawi_r5_smi_port / plane-0 / maddr_max record"},
 	{0x000008C1, "rawi_r5_smi_port / plane-0 / maddr_min record"},
+};
+
+static __maybe_unused struct dma_debug_item dbg_RAWI_R5_UFD[] = {
+	{0x0000000D, "rawi_r5 ufd 32(hex) 0000"},
+	{0x0000010D, "rawi_r5 ufd state_checksum"},
+	{0x0000020D, "rawi_r5 ufd line_pix_cnt_tmp"},
+	{0x0000030D, "rawi_r5 ufd line_pix_cnt"},
+	{0x0100004E, "rawi_r5_smi_port / plane-1 / data-crc"},
+	{0x000000A9, "rawi_r5_smi_port / plane-1 / { len-cnt, dle-cnt }"},
+	{0x000009C0, "rawi_r5_smi_port / plane-1 / maddr_max record"},
+	{0x000009C1, "rawi_r5_smi_port / plane-1 / maddr_min record"},
 };
 
 static __maybe_unused struct dma_debug_item dbg_IMGO_R1[] = {

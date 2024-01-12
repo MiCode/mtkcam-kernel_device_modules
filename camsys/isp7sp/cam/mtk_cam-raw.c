@@ -846,6 +846,31 @@ static void raw_handle_error(struct mtk_raw_device *raw_dev,
 			__func__, err_status, fh_cookie);
 }
 
+static void raw_dump_debug_ufbc_status(struct mtk_raw_device *dev)
+{
+	mtk_cam_dump_dma_debug(dev,
+			       dev->base + 0x4000, /* DMATOP_BASE */
+			       "UFD",
+			       dbg_UFD, ARRAY_SIZE(dbg_UFD));
+	mtk_cam_dump_dma_debug(dev,
+			       dev->base + 0x4000, /* DMATOP_BASE */
+			       "RAWI_R2",
+			       dbg_RAWI_R2, ARRAY_SIZE(dbg_RAWI_R2));
+	mtk_cam_dump_dma_debug(dev,
+			       dev->base + 0x4000, /* DMATOP_BASE */
+			       "RAWI_R2_UFD",
+			       dbg_RAWI_R2_UFD, ARRAY_SIZE(dbg_RAWI_R2_UFD));
+	mtk_cam_dump_dma_debug(dev,
+			       dev->base + 0x4000, /* DMATOP_BASE */
+			       "RAWI_R5",
+			       dbg_RAWI_R5, ARRAY_SIZE(dbg_RAWI_R5));
+	mtk_cam_dump_dma_debug(dev,
+			       dev->base + 0x4000, /* DMATOP_BASE */
+			       "RAWI_R5_UFD",
+			       dbg_RAWI_R5_UFD, ARRAY_SIZE(dbg_RAWI_R5_UFD));
+
+}
+
 static void raw_handle_skip_frame(struct mtk_raw_device *raw_dev,
 			     struct mtk_camsys_irq_info *data)
 {
@@ -856,7 +881,10 @@ static void raw_handle_skip_frame(struct mtk_raw_device *raw_dev,
 			__func__, err_status, fh_cookie);
 
 	if (err_status & FBIT(CAMCTL_P1_SKIP_FRAME_DC_STAG_INT_ST)) {
+		raw_dump_debug_ufbc_status(raw_dev);
+
 		mtk_smi_dbg_hang_detect("camsys-raw");
+
 		do_engine_callback(raw_dev->engine_cb, dump_request,
 				raw_dev->cam, CAMSYS_ENGINE_RAW, raw_dev->id,
 				fh_cookie, MSG_DC_SKIP_FRAME);

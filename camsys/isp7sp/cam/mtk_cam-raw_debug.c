@@ -195,7 +195,7 @@ void dump_yuv_dma_fbc(struct mtk_yuv_device *yuv)
 
 void dump_dmatop_dc_st(struct mtk_raw_device *raw)
 {
-	char str[128];
+	char str[256];
 	int n;
 
 	str[0] = '\0';
@@ -209,8 +209,12 @@ void dump_dmatop_dc_st(struct mtk_raw_device *raw)
 	n += scnprintf(str + n, sizeof(str) - n, ", DC DBG LINE CNT:");
 	n += scnprintf(str + n, sizeof(str) - n, " RAWI_R5:0x%08x",
 		      readl(raw->base + REG_CAMRAWDMATOP_DC_DBG_LINE_CNT_RAWI_R5));
+	n += scnprintf(str + n, sizeof(str) - n, " UFDI_R5:0x%08x",
+		      readl(raw->base + REG_CAMRAWDMATOP_DC_DBG_LINE_CNT_UFDI_R5));
 	n += scnprintf(str + n, sizeof(str) - n, " RAWI_R2:0x%08x",
 		      readl(raw->base + REG_CAMRAWDMATOP_DC_DBG_LINE_CNT_RAWI_R2));
+	n += scnprintf(str + n, sizeof(str) - n, " UFDI_R2:0x%08x",
+		      readl(raw->base + REG_CAMRAWDMATOP_DC_DBG_LINE_CNT_UFDI_R2));
 
 	dev_info(raw->dev, "%s: %s\n", __func__, str);
 }

@@ -32,6 +32,9 @@
 		dev_info((_ctx)->dev, "[%s][%s] " format, \
 			((_ctx)->sensor_sd) ? (_ctx)->sensor_sd->name : "none", \
 			 __func__, ##args); \
+	} else { \
+		pr_info("[no_seninf_ctx][%s] " format, \
+			 __func__, ##args); \
 	} \
 } while (0)
 

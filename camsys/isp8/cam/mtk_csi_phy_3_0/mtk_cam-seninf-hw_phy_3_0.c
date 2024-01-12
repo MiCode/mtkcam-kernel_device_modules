@@ -514,7 +514,7 @@ static int mtk_cam_seninf_disable_outmux(struct seninf_ctx *ctx, int outmux, boo
 		ctx->outmux_disable_list[outmux] = true;
 	}
 
-	seninf_logd(ctx, "clear outmux:%d immediately(%d)\n", outmux, immed);
+	seninf_logi(ctx, "clear outmux:%d immediately(%d)\n", outmux, immed);
 
 	return 0;
 }
@@ -533,17 +533,31 @@ static int mtk_cam_seninf_get_outmux_irq_st(struct seninf_ctx *ctx, int outmux_i
 
 	pSeninf_outmux = ctx->reg_if_outmux[outmux_idx];
 
-	val = SENINF_READ_BITS(pSeninf_outmux, SENINF_OUTMUX_IRQ_STATUS,
-				SENINF_OUTMUX_REF_VSYNC_IRQ_STATUS);
+	val = SENINF_READ_REG(pSeninf_outmux, SENINF_OUTMUX_IRQ_STATUS);
 
 	if (clear)
-		SENINF_BITS(pSeninf_outmux, SENINF_OUTMUX_IRQ_STATUS,
-			    SENINF_OUTMUX_REF_VSYNC_IRQ_STATUS, val);
+		SENINF_WRITE_REG(pSeninf_outmux, SENINF_OUTMUX_IRQ_STATUS, val);
 
 	dev_info(ctx->dev, "%s get outmux%d irq_st 0x%x clear(%d)\n",
 		__func__, outmux_idx, val, clear);
 
 	return val;
+}
+
+static u32 seninf_get_outmux_rg_val(struct seninf_ctx *ctx, int outmux_idx,
+		u32 rg)
+{
+	void *pSeninf_outmux = NULL;
+
+	/* test parameter */
+	if (outmux_idx >= _seninf_ops->outmux_num) {
+		dev_info(ctx->dev, "%s invalid outmux %d\n", __func__, outmux_idx);
+		return -EINVAL;
+	}
+
+	pSeninf_outmux = ctx->reg_if_outmux[outmux_idx];
+
+	return SENINF_READ_REG(pSeninf_outmux, rg);
 }
 
 static int mtk_cam_get_outmux_sel(struct seninf_ctx *ctx, int outmux_idx,
@@ -567,7 +581,7 @@ static int mtk_cam_get_outmux_sel(struct seninf_ctx *ctx, int outmux_idx,
 	*sensorSel = SENINF_READ_BITS(pSeninf_outmux, SENINF_OUTMUX_SRC_SEL,
 				SENINF_OUTMUX_SRC_SEL_SEN);
 
-	dev_info(ctx->dev, "%s get asyncIdx %d sensorSel %d\n",
+	seninf_logd(ctx, "%s get asyncIdx %d sensorSel %d\n",
 		__func__, *asyncIdx, *sensorSel);
 
 	return 0;
@@ -3809,7 +3823,16 @@ static int mtk_cam_seninf_set_idle(struct seninf_ctx *ctx)
 		for (j = 0; j < MAX_DEST_NUM; j++)
 			ctx->pad2cam[i][j] = 0xff;
 
-	seninf_logd(ctx, "%s release all mux & cam mux set all pd2cam to 0xff\n", __func__);
+	/* Clear disabled outmux */
+	for (i = 0; i < SENINF_OUTMUX_NUM; i++) {
+		if (ctx->outmux_disable_list[i]) {
+			// disable outmux if already disabled
+			mtk_cam_seninf_disable_outmux(ctx, i, true);
+			ctx->outmux_disable_list[i] = false;
+		}
+	}
+
+	seninf_logi(ctx, "%s release all outmux set all pd2cam to 0xff\n", __func__);
 
 	return 0;
 }
@@ -4394,7 +4417,7 @@ static int mtk_cam_seninf_debug(struct seninf_ctx *ctx)
 		SENINF_WRITE_REG(base_cphy, CPHY_RX_IRQ_CLR, 0xFF0000);
 	}
 
-	/* clear cam mux irq */
+	/* clear outmux irq */
 	for (j = 0; j < ctx->vcinfo.cnt; j++) {
 		if (ctx->vcinfo.vc[j].enable) {
 			for (k = 0; k < ctx->vcinfo.vc[j].dest_cnt; k++) {
@@ -4409,8 +4432,23 @@ static int mtk_cam_seninf_debug(struct seninf_ctx *ctx)
 
 						irq_st = mtk_cam_seninf_get_outmux_irq_st(ctx, used_outmux, 1);
 						dev_info(ctx->dev,
-							"before clear cam mux%u,recSize = 0x%x,irq = 0x%x|0x%x",
-							i, res, irq_st,
+							"dump outmux%u,tag%u,CFG_M/PIX_M/CFG0/CFG1/CFG2/SRC/CFG_DONE:(0x%x/0x%x/0x%x/0x%x/0x%x/0x%x/0x%x),dbgRecSize=0x%x,irq=0x%x|0x%x",
+							i, used_tag,
+							seninf_get_outmux_rg_val(ctx, used_outmux,
+								SENINF_OUTMUX_SW_CONFIG_MODE),
+							seninf_get_outmux_rg_val(ctx, used_outmux,
+								SENINF_OUTMUX_PIX_MODE),
+							seninf_get_outmux_rg_val(ctx, used_outmux,
+								SENINF_OUTMUX_SOURCE_CONFIG_0),
+							seninf_get_outmux_rg_val(ctx, used_outmux,
+								SENINF_OUTMUX_SOURCE_CONFIG_1),
+							seninf_get_outmux_rg_val(ctx, used_outmux,
+								SENINF_OUTMUX_SOURCE_CONFIG_2),
+							seninf_get_outmux_rg_val(ctx, used_outmux,
+								SENINF_OUTMUX_SRC_SEL),
+							seninf_get_outmux_rg_val(ctx, used_outmux,
+								SENINF_OUTMUX_SW_CFG_DONE),
+							res, irq_st,
 							mtk_cam_seninf_get_outmux_irq_st(ctx, used_outmux, 0));
 					}
 				}
@@ -4577,8 +4615,23 @@ static int mtk_cam_seninf_debug(struct seninf_ctx *ctx)
 
 						irq_st = mtk_cam_seninf_get_outmux_irq_st(ctx, used_outmux, 1);
 						dev_info(ctx->dev,
-							"before clear cam mux%u,recSize = 0x%x,irq = 0x%x|0x%x",
-							i, res, irq_st,
+							"dump outmux%u,tag%u,CFG_M/PIX_M/CFG0/CFG1/CFG2/SRC/CFG_DONE:(0x%x/0x%x/0x%x/0x%x/0x%x/0x%x/0x%x),dbgRecSize=0x%x,irq=0x%x|0x%x",
+							i, used_tag,
+							seninf_get_outmux_rg_val(ctx, used_outmux,
+								SENINF_OUTMUX_SW_CONFIG_MODE),
+							seninf_get_outmux_rg_val(ctx, used_outmux,
+								SENINF_OUTMUX_PIX_MODE),
+							seninf_get_outmux_rg_val(ctx, used_outmux,
+								SENINF_OUTMUX_SOURCE_CONFIG_0),
+							seninf_get_outmux_rg_val(ctx, used_outmux,
+								SENINF_OUTMUX_SOURCE_CONFIG_1),
+							seninf_get_outmux_rg_val(ctx, used_outmux,
+								SENINF_OUTMUX_SOURCE_CONFIG_2),
+							seninf_get_outmux_rg_val(ctx, used_outmux,
+								SENINF_OUTMUX_SRC_SEL),
+							seninf_get_outmux_rg_val(ctx, used_outmux,
+								SENINF_OUTMUX_SW_CFG_DONE),
+							res, irq_st,
 							mtk_cam_seninf_get_outmux_irq_st(ctx, used_outmux, 0));
 					}
 				}

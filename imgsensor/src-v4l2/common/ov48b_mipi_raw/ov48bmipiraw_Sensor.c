@@ -1311,7 +1311,7 @@ static struct subdrv_static_ctx static_ctx = {
 
 	.frame_length_max = 0xFFFFFF,
 	.ae_effective_frame = 2,
-	.frame_time_delay_frame = 3,
+	.frame_time_delay_frame = 2,
 	.start_exposure_offset = 0,
 
 	.pdaf_type = PDAF_SUPPORT_CAMSV,

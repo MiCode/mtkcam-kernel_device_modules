@@ -4,9 +4,9 @@ package(
         "//visibility:public",
     ],
 )
-mgk_me_outs = [
+mgk_hcp_outs = [
     # keep sorted
-    "mtk-ipesys-me.ko",
+    "mtk_hcp_isp8.ko",
 ]
 
 filegroup(
@@ -26,17 +26,21 @@ filegroup(
 
 # TODO: enable this part later
 define_mgk_ko(
-    name = "mtk-ipesys-me",
+    name = "mtk-hcp-isp8",
     srcs = glob([
-        "**",
-    ]) + [
-        "//vendor/mediatek/kernel_modules/mtkcam/mtk-hcp/legacy:public_headers",
+        "**/*.c",
+        "**/*.h",
+        "**/Kbuild",
+        "**/Makefile",
+    ]) +[
         "//vendor/mediatek/kernel_modules/mtkcam/imgsys/common:public_headers",
-        "//vendor/mediatek/kernel_modules/mtkcam/imgsys/imgsys/isp71:public_headers",
-#        "//vendor/mediatek/kernel_modules/mtkcam/mtk-hcp/legacy:kbuild_makefiles",
-#       "//vendor/mediatek/kernel_modules/mtkcam/imgsys/common:kbuild_makefiles",
+        "//vendor/mediatek/kernel_modules/mtkcam/imgsys/imgsys/isp8:public_headers",
     ],
 
+   # deps = [
+   #     "//vendor/mediatek/kernel_modules/mtkcam/imgsys:imgsys",
+   #      "//vendor/mediatek/kernel_modules/mtkcam/mtk-ipesys-me:mtk-ipesys-me",
+   # ],
 
-    outs = mgk_me_outs,
+    outs = mgk_hcp_outs,
 )

@@ -2689,28 +2689,15 @@ void mtk_imgsys_mod_get(struct mtk_imgsys_dev *imgsys_dev)
 	kref_get(kref);
 }
 
-static int mtk_imgsys_hw_connect(struct mtk_imgsys_dev *imgsys_dev)
+static int mtk_imgsys_worker_power_on(void *data)
 {
 	int ret, i;
-#ifndef USE_KERNEL_ION_BUFFER
-	struct buf_va_info_t *buf;
-	struct dma_buf *dbuf;
-#else
-	int fd;
-#endif
-	u32 user_cnt = 0;
-	unsigned int mode = imgsys_streaming;
+	struct mtk_imgsys_dev *imgsys_dev = data;
 	struct mtk_imgsys_dvfs *dvfs_info = &imgsys_dev->dvfs_info;
     ret = 0;
-
-	user_cnt = atomic_read(&imgsys_dev->imgsys_user_cnt);
-	if (user_cnt != 0)
-		dev_info(imgsys_dev->dev,
-			"%s: [ERROR] imgsys user count is not zero(%d)\n",
-			__func__, user_cnt);
-
-	atomic_set(&imgsys_dev->imgsys_user_cnt, 0);
-	mtk_imgsys_power_ctrl_ccu(imgsys_dev, 1);
+	i= 0;
+	dev_info(imgsys_dev->dev, "%s+", __func__);
+		mtk_imgsys_power_ctrl_ccu(imgsys_dev, 1);
 	if (IS_ERR_OR_NULL(dvfs_info->mmdvfs_clk)) {
         if (imgsys_dbg_enable())
 		dev_dbg(dvfs_info->dev,
@@ -2754,6 +2741,21 @@ static int mtk_imgsys_hw_connect(struct mtk_imgsys_dev *imgsys_dev)
 				"%s: imgsys_quick_onoff_enable(%d)\n",
 				__func__, imgsys_quick_onoff_enable());
 	}
+	complete(&imgsys_dev->comp);
+	dev_info(imgsys_dev->dev, "%s-", __func__);
+	return 0;
+}
+
+static int mtk_imgsys_worker_hcp_init(struct mtk_imgsys_dev *imgsys_dev)
+{
+	int ret = 0;
+#ifndef USE_KERNEL_ION_BUFFER
+	struct buf_va_info_t *buf;
+	struct dma_buf *dbuf;
+#else
+	int fd;
+#endif
+	unsigned int mode = imgsys_streaming;
 
 #if MTK_CM4_SUPPORT
 	struct img_ipi_param ipi_param;
@@ -2787,20 +2789,19 @@ static int mtk_imgsys_hw_connect(struct mtk_imgsys_dev *imgsys_dev)
         } else {
             if ((imgsys_dev->imgsys_pipe[0].meminfo.is_smvr) &&
                 (!imgsys_dev->imgsys_pipe[0].smvr_alloc)) {
-			mode = imgsys_smvr;
+				mode = imgsys_smvr;
                 ret = mtk_hcp_allocate_working_buffer(imgsys_dev->scp_pdev, mode, gce_buf_en);
                 imgsys_dev->imgsys_pipe[0].smvr_alloc = 1;
                 imgsys_dev->imgsys_pipe[0].imgsys_user_count++;
             } else {
                 if(!imgsys_dev->imgsys_pipe[0].streaming_alloc) {
-			mode = imgsys_streaming;
-		ret = mtk_hcp_allocate_working_buffer(imgsys_dev->scp_pdev, mode, gce_buf_en);
+					mode = imgsys_streaming;
+					ret = mtk_hcp_allocate_working_buffer(imgsys_dev->scp_pdev, mode, gce_buf_en);
                     imgsys_dev->imgsys_pipe[0].streaming_alloc = 1;
                     imgsys_dev->imgsys_pipe[0].imgsys_user_count++;
                 }
             }
         }
-
         pr_info("imgsys_fw: cap/smvr(%d/%d)"
             "hw_connect_mode/cap_count/smvr_count/streaming_count/user_count(%d/%d/%d/%d/%d)",
             imgsys_dev->imgsys_pipe[0].meminfo.is_capture,
@@ -2816,7 +2817,8 @@ static int mtk_imgsys_hw_connect(struct mtk_imgsys_dev *imgsys_dev)
             if (imgsys_dbg_enable())
 			dev_dbg(imgsys_dev->dev, "%s: mtk_hcp_allocate_working_buffer failed %d\n",
 				__func__, ret);
-			goto err_power_off;
+			return -1;
+			//goto err_power_off;
 		}
 
 		mtk_hcp_purge_msg(imgsys_dev->scp_pdev);
@@ -2841,7 +2843,7 @@ static int mtk_imgsys_hw_connect(struct mtk_imgsys_dev *imgsys_dev)
 		buf = get_first_sd_buf();
 		if (!buf) {
             if (imgsys_dbg_enable()) {
-			pr_debug("%s: no single device buff added\n", __func__);
+				pr_debug("%s: no single device buff added\n", __func__);
             }
 		} else {
 			dbuf = (struct dma_buf *)buf->dma_buf_putkva;
@@ -2870,9 +2872,10 @@ static int mtk_imgsys_hw_connect(struct mtk_imgsys_dev *imgsys_dev)
 
 	if (ret) {
         if (imgsys_dbg_enable())
-		dev_dbg(imgsys_dev->dev, "%s: send SCP_IPI_DIP_FRAME failed %d\n",
-			__func__, ret);
-		goto err_power_off;
+			dev_dbg(imgsys_dev->dev, "%s: send SCP_IPI_DIP_FRAME failed %d\n",
+				__func__, ret);
+		return -1;
+		//goto err_power_off;
 	}
 
 	//FD cache
@@ -2884,14 +2887,16 @@ static int mtk_imgsys_hw_connect(struct mtk_imgsys_dev *imgsys_dev)
 	if (ret) {
 		dev_info(imgsys_dev->dev, "%s: gce work pool allocate failed %d\n",
 			__func__, ret);
-		goto err_power_off;
+		return -1;
+		//goto err_power_off;
 	}
 
 	ret = reqfd_cbinfo_work_pool_init(imgsys_dev);
 	if (ret) {
 		dev_info(imgsys_dev->dev, "%s: reqafd cbinfo work pool allocate failed %d\n",
 			__func__, ret);
-		goto err_power_off;
+		return -1;
+		//goto err_power_off;
 	}
 
 	imgsys_timeout_idx = 0;
@@ -2912,6 +2917,43 @@ static int mtk_imgsys_hw_connect(struct mtk_imgsys_dev *imgsys_dev)
 		imgsys_aee_handler, "imgsys_aee_handler", imgsys_dev);
 
 	return 0;
+}
+
+static int mtk_imgsys_hw_connect(struct mtk_imgsys_dev *imgsys_dev)
+{
+	int ret = 0;
+	u32 user_cnt = 0;
+	struct task_struct *power_task;
+
+IMGSYS_SYSTRACE_BEGIN("imgsys_fw-init:\n");
+	user_cnt = atomic_read(&imgsys_dev->imgsys_user_cnt);
+	if (user_cnt != 0)
+		dev_info(imgsys_dev->dev,
+			"%s: [ERROR] imgsys user count is not zero(%d)\n",
+			__func__, user_cnt);
+
+	atomic_set(&imgsys_dev->imgsys_user_cnt, 0);
+#if 1
+	init_completion(&imgsys_dev->comp);
+	power_task =
+		kthread_create(mtk_imgsys_worker_power_on, (void *)imgsys_dev, "imgsys_power_on");
+	if (!IS_ERR_OR_NULL(power_task)) {
+		sched_set_normal(power_task, -20);
+		wake_up_process(power_task);
+	} else
+		mtk_imgsys_worker_power_on((void *)imgsys_dev);
+	ret = mtk_imgsys_worker_hcp_init(imgsys_dev);
+	wait_for_completion(&imgsys_dev->comp);
+
+	IMGSYS_SYSTRACE_END();
+	if (ret != 0) {
+		dev_info(imgsys_dev->dev, "hcp init fail");
+		goto err_power_off;
+	}
+
+	dev_info(imgsys_dev->dev, "%s-", __func__);
+	return 0;
+#endif
 
 err_power_off:
 	if (imgsys_dev->qof_ver != MTK_IMGSYS_QOF_FUNCTION_OFF)

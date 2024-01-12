@@ -316,9 +316,27 @@ static int scen_exp_num(struct mtk_cam_scen *scen)
 	return exp;
 }
 
+int job_prev_exp_num_seamless(struct mtk_cam_job *job)
+{
+	int prev;
+
+	//NOTE: for legacy issue, it is assumed that
+	//in stagger scenario, it will start from the sensor mode of max exp
+
+	if (job->first_job)
+		prev = scen_max_exp_num(&job->job_scen);
+	else
+		prev = job_prev_exp_num(job);
+
+	return prev;
+}
+
 int job_prev_exp_num(struct mtk_cam_job *job)
 {
 	struct mtk_cam_scen *scen = &job->prev_scen;
+
+	//NOTE: prev_scen of first job comes from req
+	//which is equal to job_scen of first req
 
 	return scen_exp_num(scen);
 }
@@ -1288,7 +1306,7 @@ int fill_sv_img_fp(
 	int tag_idx, i, j, ret = 0;
 	bool is_w;
 
-	if (node->desc.id != MTK_RAW_PURE_RAW_OUT)
+	if (!is_pure_raw_node(job, node))
 		goto EXIT;
 
 	if (ctx->hw_sv == NULL)
@@ -1352,7 +1370,7 @@ int fill_imgo_buf_as_working_buf(
 	int index = 0, ii_inc = 0, ret = 0;
 	bool sv_pure_raw;
 
-	if (node->desc.id != MTK_RAW_PURE_RAW_OUT) {
+	if (!is_pure_raw_node(job, node)) {
 		pr_info("%s: expect PURE-RAW node only", __func__);
 		WARN_ON(1);
 		return -1;

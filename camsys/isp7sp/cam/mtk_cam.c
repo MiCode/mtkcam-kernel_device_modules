@@ -618,6 +618,23 @@ static void mtk_cam_store_pipe_data_to_ctx(
 	ctx->ctrldata_stored = true;
 }
 
+static void mtk_cam_update_wbuf_fmt_desc(struct mtk_cam_ctx *ctx)
+{
+	struct mtk_raw_pipeline *pipe = NULL;
+	struct mtk_raw_pad_config *sink_pad = NULL;
+
+	if (!ctx)
+		return;
+
+	pipe = &ctx->cam->pipelines.raw[ctx->raw_subdev_idx];
+	sink_pad = &pipe->pad_cfg[MTK_RAW_SINK];
+
+	if (!ctx->configured ||
+		(ctx->ipi_config.input.fmt !=
+		 sensor_mbus_to_ipi_fmt(sink_pad->mbus_fmt.code)))
+		update_buf_fmt_desc(&ctx->img_work_buf_desc, &sink_pad->mbus_fmt);
+}
+
 static void mtk_cam_req_queue(struct media_request *req)
 {
 	struct mtk_cam_request *cam_req = to_mtk_cam_req(req);
@@ -766,6 +783,8 @@ int mtk_cam_dev_req_enqueue(struct mtk_cam_device *cam,
 				 ctx->stream_id);
 			return -1;
 		}
+
+		mtk_cam_update_wbuf_fmt_desc(ctx);
 
 		if (!ctx->scenario_init)
 			WARN_ON(mtk_cam_ctx_init_scenario(ctx));
@@ -1819,7 +1838,7 @@ static int update_from_mbus_bayer(struct mtk_cam_buf_fmt_desc *fmt_desc,
 	fmt_desc->width = mf->width;
 	fmt_desc->height = mf->height;
 
-	return (fmt_desc->ipi_fmt == MTKCAM_IPI_IMG_FMT_UNKNOWN) ? 1 : 0;
+	return (fmt_desc->ipi_fmt == MTKCAM_IPI_IMG_FMT_UNKNOWN) ? -1 : 0;
 }
 
 static int calc_buf_param_bayer(struct mtk_cam_buf_fmt_desc *fmt_desc)
@@ -1841,7 +1860,7 @@ static int update_from_mbus_ufbc(struct mtk_cam_buf_fmt_desc *fmt_desc,
 	fmt_desc->width = mf->width;
 	fmt_desc->height = mf->height;
 
-	return (fmt_desc->ipi_fmt == MTKCAM_IPI_IMG_FMT_UNKNOWN) ? 1 : 0;
+	return (fmt_desc->ipi_fmt == MTKCAM_IPI_IMG_FMT_UNKNOWN) ? -1 : 0;
 }
 
 static int calc_buf_param_ufbc(struct mtk_cam_buf_fmt_desc *fmt_desc)

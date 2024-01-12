@@ -99,6 +99,7 @@ struct pack_job_ops_helper {
 void _set_timestamp(struct mtk_cam_job *job,
 	u64 time_boot, u64 time_mono);
 
+int job_prev_exp_num_seamless(struct mtk_cam_job *job);
 int job_prev_exp_num(struct mtk_cam_job *job);
 int job_exp_num(struct mtk_cam_job *job);
 int scen_max_exp_num(struct mtk_cam_scen *scen);

@@ -92,7 +92,6 @@ static void init_camsys_settings(struct mtk_raw_device *dev, bool is_srt, bool i
 	struct mtk_yuv_device *yuv_dev = get_yuv_dev(dev);
 	unsigned int reg_raw_urgent, reg_yuv_urgent;
 	unsigned int raw_urgent, yuv_urgent;
-	int i;
 
 	//Set rdy/req snapshot
 	set_topdebug_rdyreq(dev, is_srt ? ALL_THE_TIME : TG_OVERRUN);
@@ -151,19 +150,19 @@ static void init_camsys_settings(struct mtk_raw_device *dev, bool is_srt, bool i
 	if (is_srt) {
 		writel_relaxed(0x0, cam_dev->base + reg_raw_urgent);
 		writel_relaxed(0x0, cam_dev->base + reg_yuv_urgent);
-		for (i = 0; i < dev->num_larbs && dev->larbs[i]; i++)
-			mtk_smi_larb_ultra_dis(&dev->larbs[i]->dev, !is_slb);
+		if (dev->larbs[0])
+			mtk_smi_larb_ultra_dis(&dev->larbs[0]->dev, !is_slb);
 
-		for (i = 0; i < yuv_dev->num_larbs && yuv_dev->larbs[i]; i++)
-			mtk_smi_larb_ultra_dis(&yuv_dev->larbs[i]->dev, true);
+		if (yuv_dev->larbs[0])
+			mtk_smi_larb_ultra_dis(&yuv_dev->larbs[0]->dev, true);
 	} else {
 		writel_relaxed(raw_urgent, cam_dev->base + reg_raw_urgent);
 		writel_relaxed(yuv_urgent, cam_dev->base + reg_yuv_urgent);
-		for (i = 0; i < dev->num_larbs && dev->larbs[i]; i++)
-			mtk_smi_larb_ultra_dis(&dev->larbs[i]->dev, false);
+		if (dev->larbs[0])
+			mtk_smi_larb_ultra_dis(&dev->larbs[0]->dev, false);
 
-		for (i = 0; i < yuv_dev->num_larbs && yuv_dev->larbs[i]; i++)
-			mtk_smi_larb_ultra_dis(&yuv_dev->larbs[i]->dev, false);
+		if (yuv_dev->larbs[0])
+			mtk_smi_larb_ultra_dis(&yuv_dev->larbs[0]->dev, false);
 	}
 
 	wmb(); /* TBC */

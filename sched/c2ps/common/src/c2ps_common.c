@@ -556,7 +556,9 @@ unsigned long c2ps_get_uclamp_freq(int cpu,  unsigned int uclamp)
 void update_cpu_idle_rate(void)
 {
 	u64 idle_time, wall_time;
-	unsigned int _cpu_index = 0;
+	unsigned int _cpu_index = 0, _cluster_index = 0;
+	unsigned int _num_of_cpu[NUMBER_OF_CLUSTER] = {0};
+	unsigned int _sum_of_idlerate[NUMBER_OF_CLUSTER] = {0};
 
 	if (!glb_info)
 		return;
@@ -583,13 +585,19 @@ void update_cpu_idle_rate(void)
 		else if (_cpu_index <= BCORE_ID)
 			_cluster_idx = 2;
 
-		if (idle_rate->idle < background_idlerate_alert) {
+		_num_of_cpu[_cluster_idx]++;
+		_sum_of_idlerate[_cluster_idx] += idle_rate->idle;
+	}
+
+	for (; _cluster_index < NUMBER_OF_CLUSTER; _cluster_index++) {
+		if (_sum_of_idlerate[_cluster_index] <
+			background_idlerate_alert * _num_of_cpu[_cluster_index]) {
 			glb_info->need_update_uclamp[0] = 1;
-			glb_info->need_update_uclamp[1 + _cluster_idx] = 1;
-		} else if (glb_info->curr_max_uclamp[_cluster_idx] >
-					glb_info->max_uclamp[_cluster_idx]) {
+			glb_info->need_update_uclamp[1 + _cluster_index] = 1;
+		} else if (glb_info->curr_max_uclamp[_cluster_index] >
+					glb_info->max_uclamp[_cluster_index]) {
 			glb_info->need_update_uclamp[0] = 1;
-			glb_info->need_update_uclamp[1 + _cluster_idx] = -1;
+			glb_info->need_update_uclamp[1 + _cluster_index] = -1;
 		}
 	}
 

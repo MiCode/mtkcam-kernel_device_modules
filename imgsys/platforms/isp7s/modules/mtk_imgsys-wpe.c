@@ -22,6 +22,8 @@
 
 #include "mtk_imgsys-wpe.h"
 #include "mtk-hcp.h"
+#include "mtk_imgsys-v4l2-debug.h"
+
 
 #define WPE_A_BASE        (0x15200000)
 const unsigned int mtk_imgsys_wpe_base_ofst[] = {0x0, 0x300000, 0x400000};
@@ -271,6 +273,7 @@ void imgsys_wpe_set_initial_value(struct mtk_imgsys_dev *imgsys_dev)
 {
 	unsigned int hw_idx = 0, ary_idx = 0;
 
+    if (imgsys_wpe_7s_dbg_enable())
 	dev_dbg(imgsys_dev->dev, "%s: +\n", __func__);
 
 	for (hw_idx = REG_MAP_E_WPE_EIS; hw_idx <= REG_MAP_E_WPE_LITE; hw_idx++) {
@@ -354,6 +357,7 @@ void imgsys_wpe_set_hw_initial_value(struct mtk_imgsys_dev *imgsys_dev)
 	unsigned int i = 0;
 	unsigned int hw_idx = 0, ary_idx = 0;
 
+    if (imgsys_wpe_7s_dbg_enable())
 	dev_dbg(imgsys_dev->dev, "%s: +\n", __func__);
 
 	for (hw_idx = REG_MAP_E_WPE_EIS; hw_idx <= REG_MAP_E_WPE_LITE; hw_idx++) {
@@ -373,44 +377,110 @@ void imgsys_wpe_set_hw_initial_value(struct mtk_imgsys_dev *imgsys_dev)
 
 	}
 
+    if (imgsys_wpe_7s_dbg_enable())
 	dev_dbg(imgsys_dev->dev, "%s: -\n", __func__);
 }
 
 void imgsys_wpe_updatecq(struct mtk_imgsys_dev *imgsys_dev,
-			struct img_swfrm_info *user_info, int req_fd)
+			struct img_swfrm_info *user_info, int req_fd, u64 tuning_iova,
+			unsigned int mode)
 {
-	unsigned int i;
-	u64 iova_addr = 0;
+	unsigned int i = 0, j = 0;
+	u64 u_iova_addr = 0;
 	struct mtk_imgsys_req_fd_info *fd_info = NULL;
 	struct dma_buf *dbuf = NULL;
 	struct mtk_imgsys_request *req = NULL;
 	struct mtk_imgsys_dev_buffer *dev_b = 0;
-	u64 *cq_desc = NULL;
+	u64 *u_cq_desc = NULL;
 	struct mtk_imgsys_wpe_dtable *dtable = NULL;
+	unsigned int tun_ofst = 0;
+	struct flush_buf_info wpe_buf_info;
 
-	for (i = 0; i <= 1; i++) {
+	for (i = IMGSYS_WPE_EIS; i <= IMGSYS_WPE_LITE; i++) {
 		if (!user_info->priv[i].need_update_desc)
 			continue;
 
+		if (user_info->priv[i].buf_fd) {
 		dbuf = dma_buf_get(user_info->priv[i].buf_fd);
 		fd_info = &imgsys_dev->req_fd_cache.info_array[req_fd];
 		req = (struct mtk_imgsys_request *) fd_info->req_addr_va;
 		dev_b = req->buf_map[imgsys_dev->is_singledev_mode(req)];
-		iova_addr = imgsys_dev->imgsys_get_iova(dbuf,
+			u_iova_addr = imgsys_dev->imgsys_get_iova(dbuf,
 					user_info->priv[i].buf_fd,
 					imgsys_dev, dev_b) + user_info->priv[i].buf_offset;
 
-		cq_desc = (u64 *)((void *)(mtk_hcp_get_wpe_mem_virt(imgsys_dev->scp_pdev) +
-					user_info->priv[i].desc_offset));
+			u_cq_desc =
+				(u64 *)((void *)(mtk_hcp_get_wpe_mem_virt(imgsys_dev->scp_pdev) +
+				user_info->priv[i].desc_offset + (WPE_UFOD_P2_DESC_OFST *
+				(sizeof(struct mtk_imgsys_wpe_dtable)))));
 
-		dtable = (struct mtk_imgsys_wpe_dtable *)cq_desc;
-		dtable->addr = iova_addr & 0xFFFFFFFF;
-		dtable->addr_msb = (iova_addr >> 32) & 0xF;
-		//
+			dtable = (struct mtk_imgsys_wpe_dtable *)u_cq_desc;
+			dtable->addr = u_iova_addr & 0xFFFFFFFF;
+			dtable->addr_msb = (u_iova_addr >> 32) & 0xF;
+        if (imgsys_wpe_7s_dbg_enable()) {
 		pr_debug(
 			"%s: buf_fd(0x%08x) buf_ofst(0x%08x) buf_iova(0x%llx) des_ofst(0x%08x) cq_kva(0x%p) dtable(0x%x/0x%x/0x%x)\n",
-			__func__, user_info->priv[i].buf_fd, user_info->priv[i].buf_offset,
-			iova_addr, user_info->priv[i].desc_offset, cq_desc, dtable->empty, dtable->addr, dtable->addr_msb);
+				__func__, user_info->priv[i].buf_fd,
+				user_info->priv[i].buf_offset,
+				u_iova_addr, user_info->priv[i].desc_offset,
+				u_cq_desc, dtable->empty,
+				dtable->addr, dtable->addr_msb);
+		}
+		}
+
+		if (tuning_iova) {
+			u_cq_desc =
+				(u64 *)((void *)(mtk_hcp_get_wpe_mem_virt(imgsys_dev->scp_pdev) +
+				user_info->priv[i].desc_offset));
+			dtable = (struct mtk_imgsys_wpe_dtable *)u_cq_desc;
+			for (j = 0; j < WPE_CQ_DESC_NUM; j++) {
+				if ((dtable->addr_msb & PSEUDO_DESC_TUNING) == PSEUDO_DESC_TUNING) {
+					tun_ofst = dtable->addr;
+					dtable->addr = (tun_ofst + tuning_iova) & 0xFFFFFFFF;
+					dtable->addr_msb = ((tun_ofst + tuning_iova) >> 32) & 0xF;
+                    if (imgsys_wpe_7s_dbg_enable()) {
+					pr_debug(
+						"%s: tuning_buf_iova(0x%llx) tun_ofst(0x%08x) des_ofst(0x%08x) cq_kva(0x%p) dtable(0x%x/0x%x/0x%x)\n",
+						__func__, tuning_iova, tun_ofst,
+						user_info->priv[i].desc_offset,
+						u_cq_desc, dtable->empty,
+						dtable->addr, dtable->addr_msb);
+				}
+				}
+				dtable++;
+			}
+		}
+		//
+		wpe_buf_info.fd = mtk_hcp_get_wpe_mem_cq_fd(imgsys_dev->scp_pdev);
+		wpe_buf_info.offset = user_info->priv[i].desc_offset;
+		wpe_buf_info.len =
+			((sizeof(struct mtk_imgsys_wpe_dtable) * WPE_CQ_DESC_NUM) + WPE_REG_SIZE);
+		wpe_buf_info.mode = mode;
+		wpe_buf_info.is_tuning = false;
+        if (imgsys_wpe_7s_dbg_enable()) {
+		pr_debug("imgsys_fw cq wpe_buf_info (%d/%d/%d), mode(%d)",
+			wpe_buf_info.fd, wpe_buf_info.len,
+			wpe_buf_info.offset, wpe_buf_info.mode);
+        }
+		mtk_hcp_partial_flush(imgsys_dev->scp_pdev, &wpe_buf_info);
+	}
+
+	for (i = IMGSYS_WPE_EIS; i <= IMGSYS_WPE_LITE; i++) {
+		if (!user_info->priv[i].need_flush_tdr)
+			continue;
+
+		// tdr buffer
+		wpe_buf_info.fd = mtk_hcp_get_wpe_mem_tdr_fd(imgsys_dev->scp_pdev);
+		wpe_buf_info.offset = user_info->priv[i].tdr_offset;
+		wpe_buf_info.len = WPE_TDR_BUF_MAXSZ;
+		wpe_buf_info.mode = mode;
+		wpe_buf_info.is_tuning = false;
+        if (imgsys_wpe_7s_dbg_enable()) {
+		pr_debug("imgsys_fw tdr wpe_buf_info (%d/%d/%d), mode(%d)",
+			wpe_buf_info.fd, wpe_buf_info.len,
+			wpe_buf_info.offset, wpe_buf_info.mode);
+        }
+		mtk_hcp_partial_flush(imgsys_dev->scp_pdev, &wpe_buf_info);
 	}
 }
 
@@ -603,6 +673,7 @@ void imgsys_wpe_debug_dump(struct mtk_imgsys_dev *imgsys_dev,
 	unsigned int wpeBase = 0;
 	unsigned int startHw = REG_MAP_E_WPE_EIS, endHW = REG_MAP_E_WPE_TNR;
 
+    if (imgsys_wpe_7s_dbg_enable())
 	dev_dbg(imgsys_dev->dev, "%s: +\n", __func__);
 
 	if ((engine & IMGSYS_ENG_WPE_EIS) && !(engine & IMGSYS_ENG_WPE_TNR))
@@ -677,6 +748,7 @@ void imgsys_wpe_debug_dump(struct mtk_imgsys_dev *imgsys_dev,
 
 	}
 	//
+	if (imgsys_wpe_7s_dbg_enable())
 	dev_dbg(imgsys_dev->dev, "%s: -\n", __func__);
 }
 
@@ -684,13 +756,10 @@ void imgsys_wpe_uninit(struct mtk_imgsys_dev *imgsys_dev)
 {
 	unsigned int i;
 
-	pr_debug("%s: +\n", __func__);
-
 	for (i = 0; i < WPE_HW_NUM; i++) {
 		iounmap(gWpeRegBA[i]);
 		gWpeRegBA[i] = 0L;
 	}
 
-	pr_debug("%s: -\n", __func__);
 }
 MODULE_IMPORT_NS(DMA_BUF);

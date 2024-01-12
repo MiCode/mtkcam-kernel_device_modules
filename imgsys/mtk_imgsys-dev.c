@@ -18,6 +18,8 @@
 #include "mtk_header_desc.h"
 #include "mtk_imgsys-requesttrack.h"
 #include "mtk_imgsys-trace.h"
+#include "mtk_imgsys-v4l2-debug.h"
+
 
 struct fd_kva_list_t fd_kva_info_list = {
 	.mymutex = __MUTEX_INITIALIZER(fd_kva_info_list.mymutex),
@@ -177,10 +179,12 @@ void mtk_imgsys_pipe_remove_job(struct mtk_imgsys_request *req)
 	req->imgsys_pipe->num_jobs--;
 	spin_unlock_irqrestore(&req->imgsys_pipe->running_job_lock, flag);
 
+    if (imgsys_dbg_enable()) {
 	dev_dbg(req->imgsys_pipe->imgsys_dev->dev,
 		"%s:%s:req->id(%d),num of running jobs(%d) entry(0x%lx)\n", __func__,
 		req->imgsys_pipe->desc->name, req->id,
 		req->imgsys_pipe->num_jobs, (unsigned long)entry);
+}
 }
 
 void mtk_imgsys_pipe_debug_job(struct mtk_imgsys_pipe *pipe,
@@ -188,15 +192,19 @@ void mtk_imgsys_pipe_debug_job(struct mtk_imgsys_pipe *pipe,
 {
 	int i;
 
+    if (imgsys_dbg_enable()) {
 	dev_dbg(pipe->imgsys_dev->dev, "%s:%s: pipe-job(%p),id(%d)\n",
 		__func__, pipe->desc->name, req, req->id);
+    }
 
 	for (i = 0; i < pipe->desc->total_queues ; i++) {
-		if (req->buf_map[i])
+		if (req->buf_map[i]) {
+            if (imgsys_dbg_enable())
 			dev_dbg(pipe->imgsys_dev->dev, "%s:%s:buf(%p)\n",
 				pipe->desc->name, pipe->nodes[i].desc->name,
 				req->buf_map[i]);
 	}
+}
 }
 
 #ifdef BATCH_MODE_V3
@@ -299,14 +307,18 @@ void mtk_imgsys_pipe_job_finish(struct mtk_imgsys_request *req,
 		/*  vb2_buf is changed after below function  */
 		vb2_buffer_done(&dev_buf->vbb.vb2_buf, vbf_state);
 
+        if (imgsys_dbg_enable())
 		dev_dbg(pipe->imgsys_dev->dev,
 			"%s:%s:%s: return buf, idx(%d), state(%d)\n",
 			__func__, pipe->desc->name, node->desc->name,
 			vb2_buffer_index, vbf_state);
 	}
 done:
+#ifdef REQ_TIMESTAMP
 	req->tstate.time_notify2vb2done = ktime_get_boottime_ns()/1000;
+#endif
 	complete(&req->done);
+        if (imgsys_dbg_enable()) {
 		dev_dbg(pipe->imgsys_dev->dev,
 			"[KT]%s:%d:%6lld,%6lld,%6lld,%6lld,%6lld,%6lld,%6lld,%6lld,%6lld,%6lld,%6lld,%6lld,%6lld,%6lld\n",
 			__func__, req->tstate.req_fd,
@@ -325,7 +337,9 @@ done:
 			req->tstate.time_notifyStart,
 			req->tstate.time_unmapiovaEnd,
 			req->tstate.time_notify2vb2done);
+        }
 
+    if (imgsys_dbg_enable())
 	dev_dbg(pipe->imgsys_dev->dev,
 		"%s:%s: finished job id(%d), vbf_state(%d)\n",
 		__func__, pipe->desc->name, req_id, vbf_state);
@@ -385,6 +399,7 @@ static int mtk_imgsys_pipe_get_stride(struct mtk_imgsys_pipe *pipe,
 	else
 		bpl = dip_mdp_fmt_get_stride(mfmt, dfmt, plane);
 
+    if (imgsys_dbg_enable())
 	dev_dbg(pipe->imgsys_dev->dev,
 		"%s:%s:%s: plane(%d), pixelformat(%x) width(%d), stride(%d)",
 		__func__, pipe->desc->name, buf_name, plane, mfmt->pixelformat,
@@ -461,6 +476,7 @@ static void set_meta_fmt(struct mtk_imgsys_pipe *pipe,
 	fmt->dataformat = dev_fmt->format;
 
 	if (dev_fmt->buffer_size <= 0) {
+        if (imgsys_dbg_enable())
 		dev_dbg(pipe->imgsys_dev->dev,
 			"%s: Invalid meta buf size(%u), use default(%u)\n",
 			pipe->desc->name, dev_fmt->buffer_size,
@@ -607,11 +623,13 @@ u64 mtk_imgsys_get_iova(struct dma_buf *dma_buf, s32 ionFd,
 	spin_unlock(&pipe->iova_cache.lock);
 
 	if (cache) {
+        if (imgsys_dbg_enable())
 		dev_dbg(imgsys_dev->dev, "%s fd:%d cache hit\n", __func__, ionFd);
 		return dma_addr;
 	}
 
 	if (IS_ERR(dma_buf)) {
+        if (imgsys_dbg_enable())
 		dev_dbg(imgsys_dev->dev, "%s: dma_buf 0x%lx",
 						__func__, (unsigned long)dma_buf);
 		return 0;
@@ -631,6 +649,7 @@ u64 mtk_imgsys_get_iova(struct dma_buf *dma_buf, s32 ionFd,
 
 	dma_addr = sg_dma_address(sgt->sgl);
 
+    if (imgsys_dbg_enable())
 	dev_dbg(imgsys_dev->dev,
 		"%s - sg_dma_address : ionFd(%d)-dma_addr:%lx\n",
 		__func__, ionFd, (unsigned long)dma_addr);
@@ -646,8 +665,10 @@ u64 mtk_imgsys_get_iova(struct dma_buf *dma_buf, s32 ionFd,
 		ion->dma_buf = dma_buf;
 		ion->attach = attach;
 		ion->sgt = sgt;
+        if (imgsys_dbg_enable()) {
 		pr_debug("mtk_imgsys_dma_buf_iova_get_info:dma_buf:%lx,attach:%lx,sgt:%lx\n",
 			(unsigned long)ion->dma_buf, (unsigned long)ion->attach, (unsigned long)ion->sgt);
+        }
 
 		// add data to list head
 		spin_lock(&dev_buf->iova_map_table.lock);
@@ -743,6 +764,7 @@ void flush_fd_kva_list(struct mtk_imgsys_dev *imgsys_dev)
 {
 	struct buf_va_info_t *buf_va_info = NULL;
 
+    if (imgsys_dbg_enable())
 	dev_dbg(imgsys_dev->dev, "%s+\n", __func__);
 	mutex_lock(&(fd_kva_info_list.mymutex));
 	while (!list_empty(&fd_kva_info_list.mylist)) {
@@ -758,6 +780,7 @@ void flush_fd_kva_list(struct mtk_imgsys_dev *imgsys_dev)
 	}
 	mutex_unlock(&(fd_kva_info_list.mymutex));
 
+    if (imgsys_dbg_enable())
 	dev_dbg(imgsys_dev->dev, "%s -\n", __func__);
 }
 
@@ -810,6 +833,7 @@ static void mtk_imgsys_desc_fill_dmabuf(struct mtk_imgsys_pipe *pipe,
 			plane->reserved[1] = (u64)dbuf->size;
 			if (isMENode)
 				dma_buf_put(dbuf);
+            if (imgsys_dbg_enable())
 			dev_dbg(dev,
 				"%s - bufs[%d].buf.planes[%d]: fd(%d), dmabuf(%llx)\n",
 				__func__, i, j,
@@ -837,11 +861,13 @@ static void mtk_imgsys_kva_cache(struct mtk_imgsys_dev_buffer *dev_buf)
 	if (find) {
 		dev_buf->va_daddr[0] = buf_va_info->kva + dev_buf->dataofst;
 		mutex_unlock(&(fd_kva_info_list.mymutex));
+        if (imgsys_dbg_enable()) {
 		pr_debug(
 			"%s : fd(%d), find kva(0x%lx), offset(0x%x) -> (0x%lx)\n",
 				__func__, dev_buf->vbb.vb2_buf.planes[0].m.fd,
 				buf_va_info->kva, dev_buf->dataofst,
 				(unsigned long)dev_buf->va_daddr[0]);
+        }
 	} else {
 		mutex_unlock(&(fd_kva_info_list.mymutex));
 		dev_buf->va_daddr[0] = (u64)get_kva(dev_buf, &map);
@@ -896,6 +922,7 @@ static void mtk_imgsys_desc_iova(struct mtk_imgsys_pipe *pipe,
 			mtk_imgsys_get_iova(dmabuf,
 			fparams->bufs[i].buf.planes[j].m.dma_buf.fd,
 					pipe->imgsys_dev, dev_buf);
+            if (imgsys_dbg_enable())
 			dev_dbg(dev,
 				"%s - bufs[%d].buf.planes[%d]: fd(%d), iova(%llx)\n",
 				__func__, i, j,
@@ -918,6 +945,7 @@ static void mtk_imgsys_desc_fill_ipi_param(struct mtk_imgsys_pipe *pipe,
 
 	if (dev_buf->vbb.vb2_buf.memory == VB2_MEMORY_DMABUF) {
 		if (!req->buf_same) {
+            if (imgsys_dbg_enable())
 			dev_dbg(dev,
 			"%s : fd(%d)\n",
 				__func__, dev_buf->vbb.vb2_buf.planes[0].m.fd);
@@ -929,6 +957,7 @@ static void mtk_imgsys_desc_fill_ipi_param(struct mtk_imgsys_pipe *pipe,
 	}
 	/* TODO:  MMAP imgbuffer path vaddr = 0 */
 
+    if (imgsys_dbg_enable())
 	dev_dbg(dev,
 		"%s : scp_daddr(0x%llx),isp_daddr(0x%llx),va_daddr(0x%llx)\n",
 		__func__,
@@ -964,8 +993,10 @@ static void mtk_imgsys_desc_fill_ipi_param(struct mtk_imgsys_pipe *pipe,
 	/*fd2iova : need 2D array parsing*/
 	if (tnum >= tmax) {
 		tnum = tmax;
+        if (imgsys_dbg_enable()) {
 		pr_debug("%s: %d bufinfo enqueued exceeds %d\n", __func__,
 			tnum, tmax);
+	}
 	}
 
 	if (desc_norm) {
@@ -996,6 +1027,7 @@ void mtk_imgsys_desc_ipi_params_config(struct mtk_imgsys_request *req)
 	int i = 0;
 	bool isMENode = false;
 
+    if (imgsys_dbg_enable())
 	dev_dbg(dev, "%s:%s: pipe-job id(%d)\n", __func__,
 		pipe->desc->name, req->id);
 
@@ -1004,6 +1036,7 @@ void mtk_imgsys_desc_ipi_params_config(struct mtk_imgsys_request *req)
 
 		if (i == MTK_IMGSYS_VIDEO_NODE_TUNING_OUT) {
 			if (!buf_dma) {
+                if (imgsys_dbg_enable())
 				dev_dbg(dev, "No enqueued tuning buffer\n");
 				continue;
 			}
@@ -1059,8 +1092,10 @@ static void mtk_imgsys_desc_set(struct mtk_imgsys_pipe *pipe,
 	/*fd2iova : need 2D array parsing*/
 	if (tnum >= tmax) {
 		tnum = tmax;
+        if (imgsys_dbg_enable()) {
 		pr_debug("%s: %d bufinfo enqueued exceeds %d\n", __func__,
 			tnum, tmax);
+	}
 	}
 
 	if (input_smvr) {
@@ -1131,8 +1166,10 @@ static void mtk_imgsys_desc_set_skip(struct mtk_imgsys_pipe *pipe,
 	/*fd2iova : need 2D array parsing*/
 	if (tnum >= tmax) {
 		tnum = tmax;
+        if (imgsys_dbg_enable()) {
 		pr_debug("%s: %d bufinfo enqueued exceeds %d\n", __func__,
 			tnum, tmax);
+	}
 	}
 
 	if (input_smvr) {
@@ -1185,9 +1222,11 @@ void mtk_imgsys_desc_map_iova(struct mtk_imgsys_request *req)
 	struct header_desc *desc;
 	void *desc_dma = NULL;
 	bool need_iova = true;
+#ifdef REQ_TIMESTAMP
 	unsigned int s, e;
 
 	s = ktime_get_boottime_ns()/1000;
+#endif
 	for (i = 0; i < pipe->desc->total_queues; i++) {
 
 		buf_dma = req->buf_map[i];
@@ -1222,8 +1261,12 @@ void mtk_imgsys_desc_map_iova(struct mtk_imgsys_request *req)
 
 		mtk_imgsys_desc_set(pipe, desc_dma, desc, need_iova, buf_dma);
 	}
+#ifdef REQ_TIMESTAMP
 	e = ktime_get_boottime_ns()/1000;
+    if (imgsys_dbg_enable()) {
 	pr_debug("%s takes %d ms\n", __func__, (e - s));
+    }
+#endif
 }
 
 void mtk_imgsys_sd_desc_map_iova(struct mtk_imgsys_request *req)
@@ -1294,8 +1337,6 @@ void mtk_imgsys_sd_desc_map_iova(struct mtk_imgsys_request *req)
 	else
 		dst = &dip_param->tuning_meta;
 
-	if ((src == NULL) || (dst == NULL))
-		return;
 
 	mtk_imgsys_desc_set_skip(pipe,
 		MTK_IMGSYS_VIDEO_NODE_TUNING_OUT, src, dst, 1, buf_sd);
@@ -1347,14 +1388,17 @@ static void mtk_imgsys_std2desc_fill_bufinfo(struct mtk_imgsys_pipe *pipe,
 	ipidma->fparams[0][0].bufs[0].hflip = dev_buf->hflip;
 	ipidma->fparams[0][0].bufs[0].vflip = dev_buf->vflip;
 
+    if (imgsys_dbg_enable()) {
 	dev_dbg(pipe->imgsys_dev->dev,
 		"[%s] rotat(%d), hflip(%d), vflip(%d)\n",
 		__func__,
 		ipidma->fparams[0][0].bufs[0].rotation,
 		ipidma->fparams[0][0].bufs[0].hflip,
 		ipidma->fparams[0][0].bufs[0].vflip);
+    }
 
 	for (i = 0; i < dev_buf->fmt.fmt.pix_mp.num_planes; i++) {
+        if (imgsys_dbg_enable()) {
 		dev_dbg(pipe->imgsys_dev->dev,
 			"[%s] multi-planes : width(%d), width(%d), pixelformat(%d), sizeimage(%d), bytesperline(%d)\n",
 			__func__,
@@ -1365,6 +1409,7 @@ static void mtk_imgsys_std2desc_fill_bufinfo(struct mtk_imgsys_pipe *pipe,
 	ipidma->fparams[0][0].bufs[0].fmt.fmt.pix_mp.plane_fmt[i].bytesperline);
 	}
 }
+}
 
 static void mtk_imgsys_meta_std2desc_fill_extbuf(struct mtk_imgsys_pipe *pipe,
 					struct header_desc *ipidma,
@@ -1372,12 +1417,14 @@ static void mtk_imgsys_meta_std2desc_fill_extbuf(struct mtk_imgsys_pipe *pipe,
 {
 	struct device *dev = pipe->imgsys_dev->dev;
 
+    if (imgsys_dbg_enable()) {
 	dev_dbg(dev,
 		"%s : scp_daddr(0x%llx),isp_daddr(0x%llx),va_daddr(0x%llx)\n",
 		__func__,
 		dev_buf->scp_daddr[0],
 		dev_buf->isp_daddr[0],
 		dev_buf->va_daddr[0]);
+    }
 
 	ipidma->fparams[0][0].bufs[0].buf.planes[0].m.dma_buf.fd =
 		dev_buf->vbb.vb2_buf.planes[0].m.fd;
@@ -1385,12 +1432,14 @@ static void mtk_imgsys_meta_std2desc_fill_extbuf(struct mtk_imgsys_pipe *pipe,
 		dev_buf->vbb.vb2_buf.planes[0].m.offset;
 	ipidma->fparams[0][0].bufs[0].buf.planes[0].reserved[0] =
 		(uint32_t)dev_buf->isp_daddr[0];
+    if (imgsys_dbg_enable()) {
 	dev_dbg(dev,
 		"[%s]multi-plane[%d]:fd(%d),offset(%d),iova(0x%llx)\n",
 		__func__, 0,
 	ipidma->fparams[0][0].bufs[0].buf.planes[0].m.dma_buf.fd,
 	ipidma->fparams[0][0].bufs[0].buf.planes[0].m.dma_buf.offset,
 	ipidma->fparams[0][0].bufs[0].buf.planes[0].reserved[0]);
+}
 }
 
 
@@ -1401,12 +1450,14 @@ static void mtk_imgsys_std2desc_fill_extbuf(struct mtk_imgsys_pipe *pipe,
 	struct device *dev = pipe->imgsys_dev->dev;
 	int i = 0;
 
+    if (imgsys_dbg_enable()) {
 	dev_dbg(dev,
 		"%s : scp_daddr(0x%llx),isp_daddr(0x%llx),va_daddr(0x%llx)\n",
 		__func__,
 		dev_buf->scp_daddr[0],
 		dev_buf->isp_daddr[0],
 		dev_buf->va_daddr[0]);
+    }
 
 	for (i = 0; i < dev_buf->fmt.fmt.pix_mp.num_planes; i++) {
 		ipidma->fparams[0][0].bufs[0].buf.planes[i].m.dma_buf.fd =
@@ -1415,12 +1466,14 @@ static void mtk_imgsys_std2desc_fill_extbuf(struct mtk_imgsys_pipe *pipe,
 			dev_buf->vbb.vb2_buf.planes[i].m.offset;
 		ipidma->fparams[0][0].bufs[0].buf.planes[i].reserved[0] =
 			(uint32_t)dev_buf->isp_daddr[i];
+        if (imgsys_dbg_enable()) {
 		dev_dbg(dev,
 			"[%s]multi-plane[%d]:fd(%d),offset(%d),iova(0x%llx)\n",
 			__func__, i,
 		ipidma->fparams[0][0].bufs[0].buf.planes[i].m.dma_buf.fd,
 		ipidma->fparams[0][0].bufs[0].buf.planes[i].m.dma_buf.offset,
 		ipidma->fparams[0][0].bufs[0].buf.planes[i].reserved[0]);
+	}
 	}
 
 }
@@ -1435,8 +1488,10 @@ void mtk_imgsys_std_ipi_params_config(struct mtk_imgsys_request *req)
 	struct mtk_imgsys_dev_buffer *buf_ctrlmeta;
 	int i = 0;
 
+    if (imgsys_dbg_enable()) {
 	dev_dbg(dev, "%s:%s: pipe-job id(%d)\n", __func__,
 		pipe->desc->name, req->id);
+    }
 
 	memset(dip_param, 0, sizeof(*dip_param));
 
@@ -1444,29 +1499,35 @@ void mtk_imgsys_std_ipi_params_config(struct mtk_imgsys_request *req)
 	buf_tuning =
 		req->buf_map[MTK_IMGSYS_VIDEO_NODE_TUNING_OUT];
 	if (buf_tuning) {
+        if (imgsys_dbg_enable()) {
 		dev_dbg(dev,
 			"Tuning buf queued: scp_daddr(0x%llx),isp_daddr(0x%llx),va_daddr(0x%llx)\n",
 			buf_tuning->scp_daddr[0],
 			buf_tuning->isp_daddr[0],
 			buf_tuning->va_daddr[0]);
+        }
 
 		mtk_imgsys_meta_std2desc_fill_extbuf(pipe,
 			&dip_param->tuning_meta,
 			buf_tuning);
 
 	} else {
+	    if (imgsys_dbg_enable()) {
 		dev_dbg(dev,
 			"No enqueued tuning buffer\n");
+	}
 	}
 
 	buf_ctrlmeta = req->buf_map[MTK_IMGSYS_VIDEO_NODE_CTRLMETA_OUT];
 	if (buf_ctrlmeta) {
 		/* TODO: kva */
+        if (imgsys_dbg_enable()) {
 		dev_dbg(dev,
 			"Ctrlmeta buf queued: scp_daddr(0x%llx),isp_daddr(0x%llx),va_daddr(0x%llx)\n",
 			buf_ctrlmeta->scp_daddr[0],
 			buf_ctrlmeta->isp_daddr[0],
 			buf_ctrlmeta->va_daddr[0]);
+        }
 
 		mtk_imgsys_meta_std2desc_fill_extbuf(pipe,
 			&dip_param->ctrl_meta,
@@ -1516,8 +1577,10 @@ static void mtk_imgsys_singledevice_fill_ipi_param(struct mtk_imgsys_pipe *pipe,
 	/*fd2iova : need 2D array parsing*/
 	if (tnum >= tmax) {
 		tnum = tmax;
+        if (imgsys_dbg_enable()) {
 		pr_debug("%s: %d bufinfo enqueued exceeds %d\n", __func__,
 			tnum, tmax);
+	}
 	}
 
 	if (input_norm) {
@@ -1567,8 +1630,10 @@ static void mtk_imgsys_sd_fill_dmas(struct mtk_imgsys_pipe *pipe, unsigned int d
 	/*fd2iova : need 2D array parsing*/
 	if (tnum >= tmax) {
 		tnum = tmax;
+        if (imgsys_dbg_enable()) {
 		pr_debug("%s: %d bufinfo enqueued exceeds %d\n", __func__,
 			tnum, tmax);
+	}
 	}
 
 	if (input_norm) {
@@ -1604,8 +1669,10 @@ void mtk_imgsys_singledevice_ipi_params_config(struct mtk_imgsys_request *req)
 	int i = 0;
 	bool isMENode = false;
 
+    if (imgsys_dbg_enable()) {
 	dev_dbg(dev, "%s:%s: pipe-job id(%d)\n", __func__,
 		pipe->desc->name, req->id);
+    }
 
 	i = is_singledev_mode(req);
 	buf_in = req->buf_map[i];
@@ -1616,12 +1683,14 @@ void mtk_imgsys_singledevice_ipi_params_config(struct mtk_imgsys_request *req)
 		mtk_imgsys_kva_cache(buf_in);
 	/* TODO:  MMAP imgbuffer path vaddr = 0 */
 
+    if (imgsys_dbg_enable()) {
 	dev_dbg(dev,
 		"%s : scp_daddr(0x%llx),isp_daddr(0x%llx),va_daddr(0x%llx)\n",
 		__func__,
 		buf_in->scp_daddr[0],
 		buf_in->isp_daddr[0],
 		buf_in->va_daddr[0]);
+    }
 
 	/*getKVA*/
 	if (!buf_in->va_daddr[0]) {
@@ -1715,9 +1784,11 @@ void mtk_imgsys_pipe_try_enqueue(struct mtk_imgsys_pipe *pipe)
 	spin_unlock_irqrestore(&pipe->running_job_lock, flag);
 
 	mtk_imgsys_hw_enqueue(pipe->imgsys_dev, req);
+    if (imgsys_dbg_enable()) {
 	dev_dbg(pipe->imgsys_dev->dev,
 		"%s:%s: pending jobs(%d), running jobs(%d)\n",
 		__func__, pipe->desc->name, pipe->num_pending_jobs,
 		pipe->num_jobs);
+}
 }
 MODULE_IMPORT_NS(DMA_BUF);

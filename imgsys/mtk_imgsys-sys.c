@@ -27,6 +27,8 @@
 #include "mtk_imgsys-trace.h"
 #include "mtk-hcp_kernelfence.h"
 #include "mtk_imgsys-engine.h"
+#include "mtk_imgsys-v4l2-debug.h"
+
 
 #if MTK_CM4_SUPPORT
 #include <linux/remoteproc/mtk_scp.h>
@@ -44,6 +46,9 @@ static struct reqfd_cbinfo_list_t reqfd_cbinfo_list = {
 	.mylist = LIST_HEAD_INIT(reqfd_cbinfo_list.mylist)
 };
 DECLARE_WAIT_QUEUE_HEAD(frm_info_waitq);
+
+#define	MTK_IMGSYS_VIDEO_NODE_TUNING_OUT	(nodes_num - 5)
+
 static inline bool info_list_is_empty(struct info_list_t *info_list)
 {
 	bool is_empty = true;
@@ -55,6 +60,7 @@ static inline bool info_list_is_empty(struct info_list_t *info_list)
 	mutex_unlock(&(info_list->mymutex));
 	return is_empty;
 };
+static void reqfd_cbinfo_put_work(struct reqfd_cbinfo_t *work);
 
 static int imgsys_send(struct platform_device *pdev, enum hcp_id id,
 		    void *buf, unsigned int  len, int req_fd, unsigned int wait)
@@ -80,6 +86,9 @@ static void imgsys_init_handler(void *data, unsigned int len, void *priv)
 int mtk_imgsys_hw_working_buf_pool_reinit(struct mtk_imgsys_dev *imgsys_dev)
 {
 	int i;
+struct list_head *head = NULL;
+	struct list_head *temp = NULL;
+	struct reqfd_cbinfo_t *reqfdcb_info = NULL;
 
 	spin_lock(&imgsys_dev->imgsys_usedbufferlist.lock);
 	INIT_LIST_HEAD(&imgsys_dev->imgsys_usedbufferlist.list);
@@ -99,6 +108,17 @@ int mtk_imgsys_hw_working_buf_pool_reinit(struct mtk_imgsys_dev *imgsys_dev)
 		imgsys_dev->imgsys_freebufferlist.cnt++;
 	}
 	spin_unlock(&imgsys_dev->imgsys_freebufferlist.lock);
+        mutex_lock(&(reqfd_cbinfo_list.mymutex));
+	list_for_each_safe(head, temp, &(reqfd_cbinfo_list.mylist)) {
+		reqfdcb_info = vlist_node_of(head, struct reqfd_cbinfo_t);
+		reqfdcb_info->cur_cnt += 1;
+		if (reqfdcb_info->cur_cnt == reqfdcb_info->exp_cnt) {
+			list_del(head);
+			reqfd_cbinfo_put_work(reqfdcb_info);
+		}
+	}
+	INIT_LIST_HEAD(&(reqfd_cbinfo_list.mylist));
+	mutex_unlock(&(reqfd_cbinfo_list.mymutex));
 
 	return 0;
 }
@@ -186,11 +206,13 @@ int mtk_imgsys_hw_working_buf_pool_init(struct mtk_imgsys_dev *imgsys_dev)
 #endif
 	working_buf_paddr = imgsys_dev->working_buf_mem_scp_daddr;
 #endif
+    if (imgsys_dbg_enable()) {
 	dev_dbg(imgsys_dev->dev,
 		"%s: working_buf_mem: vaddr(0x%lx), scp_daddr(%pad)\n",
 		__func__,
 		(unsigned long)imgsys_dev->working_buf_mem_vaddr,
 		&imgsys_dev->working_buf_mem_scp_daddr);
+    }
 
 	pr_info("%s: working buffer size 0x%lx, pool size should be 0x%lx\n",
 		__func__, DIP_FRM_SZ, (DIP_FRM_SZ * DIP_SUB_FRM_DATA_NUM));
@@ -210,10 +232,12 @@ int mtk_imgsys_hw_working_buf_pool_init(struct mtk_imgsys_dev *imgsys_dev)
 			scp_workingbuf_offset + i * working_buf_size;
 		buf->size = working_buf_size;
 
+        if (imgsys_dbg_enable()) {
 		dev_dbg(imgsys_dev->dev,
 			"%s: buf(%d), scp_daddr(%pad), isp_daddr(%pad)\n",
 			__func__, i, &buf->buffer.scp_daddr,
 			&buf->buffer.isp_daddr);
+        }
 
 		/* Tuning: 16 ~ 48 KB */
 		buf->tuning_buf.scp_daddr =
@@ -223,20 +247,24 @@ int mtk_imgsys_hw_working_buf_pool_init(struct mtk_imgsys_dev *imgsys_dev)
 		buf->tuning_buf.isp_daddr =
 			buf->buffer.isp_daddr + DIP_TUNING_OFFSET;
 
+        if (imgsys_dbg_enable()) {
 		dev_dbg(imgsys_dev->dev,
 			"%s: tuning_buf(%d), scp_daddr(%pad), isp_daddr(%pad)\n",
 			__func__, i, &buf->tuning_buf.scp_daddr,
 			&buf->tuning_buf.isp_daddr);
+        }
 
 		/* Config_data: 48 ~ 72 KB */
 		buf->config_data.scp_daddr =
 			buf->buffer.scp_daddr + DIP_COMP_OFFSET;
 		buf->config_data.vaddr = buf->buffer.vaddr + DIP_COMP_OFFSET;
 
+        if (imgsys_dbg_enable()) {
 		dev_dbg(imgsys_dev->dev,
 			"%s: config_data(%d), scp_daddr(%pad), vaddr(0x%lx)\n",
 			__func__, i, &buf->config_data.scp_daddr,
 			(unsigned long)buf->config_data.vaddr);
+        }
 
 		/* Frame parameters: 72 ~ 76 KB */
 		buf->frameparam.scp_daddr =
@@ -246,10 +274,12 @@ int mtk_imgsys_hw_working_buf_pool_init(struct mtk_imgsys_dev *imgsys_dev)
 
 		pr_info("DIP_FRAMEPARAM_SZ:%lu",
 			(unsigned long)sizeof(struct img_ipi_frameparam));
+        if (imgsys_dbg_enable()) {
 		dev_dbg(imgsys_dev->dev,
 			"%s: frameparam(%d), scp_daddr(%pad), vaddr(0x%lx)\n",
 			__func__, i, &buf->frameparam.scp_daddr,
 			(unsigned long)buf->frameparam.vaddr);
+        }
 
 		list_add_tail(&buf->list_entry,
 			      &imgsys_dev->imgsys_freebufferlist.list);
@@ -295,9 +325,11 @@ static void mtk_imgsys_hw_working_buf_free(struct mtk_imgsys_dev *imgsys_dev,
 	spin_lock(&imgsys_dev->imgsys_usedbufferlist.lock);
 	list_del(&working_buf->list_entry);
 			imgsys_dev->imgsys_usedbufferlist.cnt--;
+    if (imgsys_dbg_enable()) {
 	dev_dbg(imgsys_dev->dev,
 		"%s: Free used buffer(%pad)\n",
 		__func__, &working_buf->buffer.scp_daddr);
+    }
 	spin_unlock(&imgsys_dev->imgsys_usedbufferlist.lock);
 
 	spin_lock(&imgsys_dev->imgsys_freebufferlist.lock);
@@ -347,11 +379,13 @@ static void mtk_imgsys_iova_map_tbl_unmap(struct mtk_imgsys_request *req)
 		if (dev_buf) {
 			list_for_each_entry_safe(dmabufiovainfo, temp,
 				&dev_buf->iova_map_table.list, list_entry) {
+				if (imgsys_dbg_enable()) {
 				dev_dbg(imgsys_dev->dev,
 					"%s:list put(deleted) ionFd(%d)-dma_addr:%pad\n",
 					__func__,
 					dmabufiovainfo->ionfd,
 					&dmabufiovainfo->dma_addr);
+				}
 				//put dmabuf(iova)
 				mtk_imgsys_put_dma_buf(dmabufiovainfo->dma_buf,
 						dmabufiovainfo->attach,
@@ -378,11 +412,13 @@ static void mtk_imgsys_iova_map_tbl_unmap_sd(struct mtk_imgsys_request *req)
 	if (dev_buf) {
 		list_for_each_entry_safe(dmabufiovainfo, temp,
 			&dev_buf->iova_map_table.list, list_entry) {
+			if (imgsys_dbg_enable()) {
 			dev_dbg(imgsys_dev->dev,
 				"%s:list put(deleted) ionFd(%d)-dma_addr:%pad\n",
 				__func__,
 				dmabufiovainfo->ionfd,
 				&dmabufiovainfo->dma_addr);
+			}
 			//put dmabuf(iova)
 			mtk_imgsys_put_dma_buf(dmabufiovainfo->dma_buf,
 					dmabufiovainfo->attach,
@@ -488,10 +524,12 @@ static void mtk_imgsys_early_notify(struct mtk_imgsys_request *req,
 	status->frame_number = ev->frame_number;
 	v4l2_event_queue(pipe->subdev.devnode, &event);
 
+    if (imgsys_dbg_enable()) {
 	dev_dbg(imgsys_dev->dev,
 		"%s:%s: job id(%d), frame_no(%d), early_no(%d:%d), finished\n",
 		__func__, pipe->desc->name, index, frame_no, ev->req_fd,
 							ev->frame_number);
+    }
 	IMGSYS_SYSTRACE_END();
 
 }
@@ -507,9 +545,9 @@ static void mtk_imgsys_notify(struct mtk_imgsys_request *req, uint64_t frm_owner
 	u64 req_enq, req_done, imgenq;
 
 	IMGSYS_SYSTRACE_BEGIN("ReqFd:%d Own:%s\n", req->tstate.req_fd, ((char *)&frm_owner));
-
+#ifdef REQ_TIMESTAMP
 	req->tstate.time_notifyStart = ktime_get_boottime_ns()/1000;
-
+#endif
 	if (!pipe->streaming)
 		goto notify;
 
@@ -536,8 +574,10 @@ notify:
 	if (vbf_state == VB2_BUF_STATE_DONE)
 		mtk_imgsys_pipe_job_finish(req, vbf_state);
 	mtk_imgsys_pipe_remove_job(req);
-
+#ifdef REQ_TIMESTAMP
 	req->tstate.time_unmapiovaEnd = ktime_get_boottime_ns()/1000;
+#endif
+    if (imgsys_dbg_enable()) {
 	dev_dbg(imgsys_dev->dev,
 			"[K]%s:%d:%s:%6lld %6lld %6lld %6lld %6lld %6lld %6lld %6lld %6lld %6lld %6lld %6lld %6lld %6lld %6lld %6lld %6lld\n",
 			__func__, req->tstate.req_fd, ((char *)(&frm_owner)),
@@ -559,11 +599,14 @@ notify:
 			(req->tstate.time_notify2vb2done-req->tstate.time_reddonescpStart),
 			(req->tstate.time_ipisendStart-req->tstate.time_composingStart)
 			);
+    }
 
 	wake_up(&imgsys_dev->flushing_waitq);
+    if (imgsys_dbg_enable()) {
 	dev_dbg(imgsys_dev->dev,
 		"%s:%s:(reqfd-%d) job id(%d), frame_no(%d) finished\n",
 		__func__, pipe->desc->name, req->tstate.req_fd, index, frame_no);
+    }
 
 	IMGSYS_SYSTRACE_END();
 	imgenq = req->tstate.time_qreq - req->tstate.time_qbuf;
@@ -740,6 +783,15 @@ static void cmdq_cb_done_worker(struct work_struct *work)
 	/* send to HCP after frame done & del node from list */
 	gwfrm_info = (struct swfrm_info_t *)gwork->req_sbuf_kva;
 	swbuf_data.offset = gwfrm_info->req_sbuf_goft;
+	if (gwfrm_info->is_ndd)
+		imgsys_send(pipe->imgsys_dev->scp_pdev, HCP_IMGSYS_DEQUE_DUMP_ID,
+			&swbuf_data, sizeof(struct img_sw_buffer),
+			gwork->reqfd, 0);
+	else if (gwfrm_info->batchnum > 1)
+		imgsys_send(pipe->imgsys_dev->scp_pdev, HCP_IMGSYS_ASYNC_DEQUE_DONE_ID,
+			&swbuf_data, sizeof(struct img_sw_buffer),
+			gwork->reqfd, 0);
+	else
 	imgsys_send(pipe->imgsys_dev->scp_pdev, HCP_IMGSYS_DEQUE_DONE_ID,
 		&swbuf_data, sizeof(struct img_sw_buffer),
 		gwork->reqfd, 0);
@@ -802,10 +854,14 @@ static void imgsys_mdp_cb_func(struct cmdq_cb_data data,
 							((char *)&swfrminfo_cb->frm_owner));
 
 	imgsys_dev = req->imgsys_pipe->imgsys_dev;
+#ifdef REQ_TIMESTAMP
 	req->tstate.time_mdpcbStart = ktime_get_boottime_ns()/1000;
+#endif
+    if (imgsys_dbg_enable()) {
 	dev_dbg(imgsys_dev->dev, "%s:(reqfd-%d)frame_no(%d) +", __func__,
 		req->tstate.req_fd,
 		req->img_fparam.frameparam.frame_no);
+    }
 
 
 #if MTK_CM4_SUPPORT == 0
@@ -815,6 +871,7 @@ static void imgsys_mdp_cb_func(struct cmdq_cb_data data,
 		struct mtk_imgsys_hw_subframe *working_buf;
 		struct img_ipi_frameparam *frame;
 
+        if (imgsys_dbg_enable())
 		dev_dbg(imgsys_dev->dev, "%s:req(%p)", __func__, req);
 		working_buf = list_first_entry(&req->runner_done_list,
 					       struct mtk_imgsys_hw_subframe,
@@ -860,6 +917,7 @@ static void imgsys_mdp_cb_func(struct cmdq_cb_data data,
 
 		frame = (struct img_ipi_frameparam *)
 						working_buf->frameparam.vaddr;
+        if (imgsys_dbg_enable()) {
 		dev_dbg(imgsys_dev->dev,
 			 "%s: req(%p), idx(%d), no(%d), n_in(%d), n_out(%d)\n",
 			 __func__,
@@ -868,6 +926,7 @@ static void imgsys_mdp_cb_func(struct cmdq_cb_data data,
 			 frame->frame_no,
 			 frame->num_inputs,
 			 frame->num_outputs);
+        }
 
 		if (data.sta != CMDQ_CB_NORMAL) {
 			dev_info(imgsys_dev->dev, "%s: frame no(%d) HW timeout\n",
@@ -883,6 +942,7 @@ static void imgsys_mdp_cb_func(struct cmdq_cb_data data,
 	// } V3 batch mode added
 	#endif
 #endif
+    if (imgsys_dbg_enable()) {
 	dev_dbg(imgsys_dev->dev, "%s: req(%p), idx(%d), no(%d), s(%d), n_in(%d), n_out(%d)\n",
 		__func__,
 		req,
@@ -891,6 +951,7 @@ static void imgsys_mdp_cb_func(struct cmdq_cb_data data,
 		req->img_fparam.frameparam.state,
 		req->img_fparam.frameparam.num_inputs,
 		req->img_fparam.frameparam.num_outputs);
+    }
 
 	/*check gce cb cnt*/
 	mutex_lock(&(reqfd_cbinfo_list.mymutex));
@@ -906,7 +967,11 @@ static void imgsys_mdp_cb_func(struct cmdq_cb_data data,
 			if (reqfdcb_info->cur_cnt == reqfdcb_info->exp_cnt) {
 				can_notify_imgsys = true;
 				list_del(head);
+#ifdef REQFD_CBINFO
 				vfree(reqfdcb_info);
+#else
+				reqfd_cbinfo_put_work(reqfdcb_info);
+#endif
 			}
 			reqfd_record_find = true;
 		}
@@ -927,6 +992,7 @@ static void imgsys_mdp_cb_func(struct cmdq_cb_data data,
 			swfrminfo_cb->is_earlycb,
 			swfrminfo_cb->is_lastfrm,
 			isLastTaskInReq, lastfrmInMWReq);
+             return;
 	}
 	/**/
 	if (swfrminfo_cb->fail_isHWhang >= 0) {
@@ -1000,6 +1066,7 @@ static void imgsys_mdp_cb_func(struct cmdq_cb_data data,
 				swfrminfo_cb->user_info[0].subfrm_idx,
 				swfrminfo_cb->total_frmnum);
 			} else {
+			    if (imgsys_dbg_enable()) {
 				dev_dbg(imgsys_dev->dev,
 				"%s:%s:req fd/no(%d/%d)frame no(%d)done, kva(0x%lx)lst(%d)e_cb(%d/%d)sidx(%d)tfrm(%d)\n",
 				__func__, (char *)(&(swfrminfo_cb->frm_owner)),
@@ -1013,6 +1080,7 @@ static void imgsys_mdp_cb_func(struct cmdq_cb_data data,
 				swfrminfo_cb->user_info[0].subfrm_idx,
 				swfrminfo_cb->total_frmnum);
 			}
+		}
 		}
 		if (swfrminfo_cb->group_id >= 0) {
 			if (!pipe->streaming) {
@@ -1033,6 +1101,7 @@ static void imgsys_mdp_cb_func(struct cmdq_cb_data data,
 				isLastTaskInReq, can_notify_imgsys,
 				cur_cnt, exp_cnt);
 			} else {
+			    if (imgsys_dbg_enable()) {
 				dev_dbg(imgsys_dev->dev,
 				"%s:%s:%d:req fd/no(%d/%d)frame no(%d)done, kva(0x%lx)group ID/L(%d/%d)e_cb(idx_%d:%d)tfrm(%d) cb/lst(%d/%d):%d,%d(%d/%d)\n",
 				__func__, (char *)(&(swfrminfo_cb->frm_owner)), pipe->streaming,
@@ -1049,6 +1118,7 @@ static void imgsys_mdp_cb_func(struct cmdq_cb_data data,
 				swfrminfo_cb->is_lastfrm,
 				isLastTaskInReq, can_notify_imgsys,
 				cur_cnt, exp_cnt);
+			}
 			}
 
 			if (swfrminfo_cb->user_info[subfidx].is_earlycb) {
@@ -1075,12 +1145,14 @@ static void imgsys_mdp_cb_func(struct cmdq_cb_data data,
 			}
 			need_notify_daemon = true;
 		}
+        if (imgsys_dbg_enable()) {
 		dev_dbg(imgsys_dev->dev,
 			"%s:%s:req fd/no(%d/%d)frame no(%d)done, kva(0x%lx)lastfrmInMWReq:%d\n",
 			__func__, (char *)(&(swfrminfo_cb->frm_owner)), swfrminfo_cb->request_fd,
 			swfrminfo_cb->request_no,
 			swfrminfo_cb->frame_no,
 			(unsigned long)swfrminfo_cb, lastfrmInMWReq);
+        }
 		/* call dip notify when all package done */
 		if (/*pipe->streaming && */can_notify_imgsys/*lastfrmInMWReq*/)
 			mtk_imgsys_notify(req, swfrminfo_cb->frm_owner);
@@ -1119,6 +1191,7 @@ static void dip_fake_mdp_cb_func(struct cmdq_cb_data data)
 
 	req = data.data;
 	imgsys_dev = req->imgsys_pipe->imgsys_dev;
+    if (imgsys_dbg_enable())
 	dev_dbg(imgsys_dev->dev, "%s:req(%p)", __func__, req);
 
 	if (list_empty(&req->runner_done_list.list)) {
@@ -1148,6 +1221,7 @@ static void dip_fake_mdp_cb_func(struct cmdq_cb_data data)
 	spin_unlock(&req->mdp_done_list.lock);
 
 	frame = (struct img_ipi_frameparam *)working_buf->frameparam.vaddr;
+    if (imgsys_dbg_enable()) {
 	dev_dbg(imgsys_dev->dev,
 		 "%s: req(%p), idx(%d), no(%d), s(%d), n_in(%d), n_out(%d)\n",
 		 __func__,
@@ -1157,12 +1231,14 @@ static void dip_fake_mdp_cb_func(struct cmdq_cb_data data)
 		 frame->state,
 		 frame->num_inputs,
 		 frame->num_outputs);
+    }
 	if (data.sta != CMDQ_CB_NORMAL) {
 		dev_info(imgsys_dev->dev, "%s: frame no(%d) HW timeout\n",
 			__func__, req->img_fparam.frameparam.frame_no);
 		/* Skip some action since this is UT purpose. */
 	} else {
 		mtk_imgsys_notify_batch(req);
+        if (imgsys_dbg_enable())
 		dev_dbg(imgsys_dev->dev, "%s: -\n", __func__);
 	}
 }
@@ -1190,6 +1266,7 @@ static void dip_fake_mdp_cmdq_sendtask(struct mtk_imgsys_request *req)
 	// } V3 batch mode added
 	#endif
 
+    if (imgsys_dbg_enable()) {
 	dev_dbg(imgsys_dev->dev, "%s: req(%p), idx(%d), no(%d), s(%d), n_in(%d), n_out(%d)\n",
 		__func__,
 		req,
@@ -1198,6 +1275,7 @@ static void dip_fake_mdp_cmdq_sendtask(struct mtk_imgsys_request *req)
 		req->img_fparam.frameparam.state,
 		req->img_fparam.frameparam.num_inputs,
 		req->img_fparam.frameparam.num_outputs);
+    }
 
 	mtk_imgsys_notify(req, 0);
 }
@@ -1220,6 +1298,7 @@ static void dip_runner_func_batch(struct work_struct *work)
 	 */
 	pm_runtime_get_sync(imgsys_dev->dev);
 
+    if (imgsys_dbg_enable())
 	dev_dbg(imgsys_dev->dev, "%s +", __func__);
 	spin_lock(&req->scp_done_list.lock);
 
@@ -1229,6 +1308,7 @@ static void dip_runner_func_batch(struct work_struct *work)
 	if (!working_buf)
 		return;
 
+    if (imgsys_dbg_enable())
 	dev_dbg(imgsys_dev->dev, "%s ++", __func__);
 
 	list_del(&working_buf->list_entry);
@@ -1251,6 +1331,7 @@ static void dip_runner_func_batch(struct work_struct *work)
 	//			NULL, false,
 	//			imgsys_mdp_cb_func, req);
 	dip_fake_mdp_cmdq_sendtask(req);
+    if (imgsys_dbg_enable())
 	dev_dbg(imgsys_dev->dev, "%s -", __func__);
 	vfree(work);
 	return;
@@ -1259,46 +1340,30 @@ static void dip_runner_func_batch(struct work_struct *work)
 #endif
 #endif
 
-static int gce_work_pool_init(struct mtk_imgsys_dev *dev)
+static void work_pool_init(struct work_pool *work_pool, void *cookie)
 {
-	struct gce_work *gwork = NULL;
-	struct work_pool *gwork_pool;
-	signed int i;
-	int ret = 0;
+	spin_lock_init(&work_pool->lock);
+	INIT_LIST_HEAD(&work_pool->free_list);
+	INIT_LIST_HEAD(&work_pool->used_list);
 
-	gwork_pool = &dev->gwork_pool;
-	spin_lock_init(&gwork_pool->lock);
-	INIT_LIST_HEAD(&gwork_pool->free_list);
-	INIT_LIST_HEAD(&gwork_pool->used_list);
-	gwork = vzalloc(sizeof(struct gce_work) * GCE_WORK_NR);
-	if (!gwork)
-		return -ENOMEM;
-
-	gwork_pool->_cookie = (void *)gwork;
-	for (i = 0; i < GCE_WORK_NR; i++) {
-		list_add_tail(&gwork[i].entry, &gwork_pool->free_list);
-		gwork[i].pool = gwork_pool;
-	}
-	atomic_set(&gwork_pool->num, i);
-	init_waitqueue_head(&gwork_pool->waitq);
-	kref_init(&gwork_pool->kref);
-
-	return ret;
+	work_pool->_cookie = cookie;
+	init_waitqueue_head(&work_pool->waitq);
+	kref_init(&work_pool->kref);
 }
 
 static void pool_release(struct kref *kref)
 {
-	struct gce_work *gwork, *g0;
+	struct list_head *gwork, *g0;
 	struct work_pool *pool = container_of(kref, struct work_pool, kref);
 	struct mtk_imgsys_dev *dev = container_of(pool, struct mtk_imgsys_dev, gwork_pool);
 
 	spin_lock(&pool->lock);
-	list_for_each_entry_safe(gwork, g0, &pool->free_list, entry) {
-		list_del(&gwork->entry);
+	list_for_each_safe(gwork, g0, &pool->free_list) {
+		list_del(gwork);
 		atomic_dec(&pool->num);
 	}
-	list_for_each_entry_safe(gwork, g0, &pool->used_list, entry) {
-		list_del(&gwork->entry);
+	list_for_each_safe(gwork, g0, &pool->used_list) {
+		list_del(gwork);
 		atomic_dec(&pool->num);
 	}
 	spin_unlock(&pool->lock);
@@ -1314,55 +1379,91 @@ static void pool_release(struct kref *kref)
 
 }
 
-static void gce_work_pool_uninit(struct mtk_imgsys_dev *dev)
+static void work_pool_uninit(struct work_pool *pool)
 {
-	struct work_pool *pool;
 
-	pool = &dev->gwork_pool;
+	if (!pool)
+		return;
+
 	kref_put(&pool->kref, pool_release);
-
 }
 
-static bool work_pool_avail(struct work_pool *pool)
+static struct list_head *work_pool_get(struct work_pool *pool)
 {
-	bool empty;
+	struct list_head *work = NULL;
 
 	spin_lock(&pool->lock);
-	empty = list_empty(&pool->free_list);
+	if (!list_empty(&pool->free_list)) {
+		work = pool->free_list.next;
+		list_del(work);
+		list_add_tail(work, &pool->used_list);
+		kref_get(&pool->kref);
+	}
 	spin_unlock(&pool->lock);
 
-	return !empty;
+	return work;
 }
 
-static struct gce_work *get_gce_work(struct mtk_imgsys_dev *dev)
+static struct list_head *get_work(struct work_pool *gwork_pool)
 {
-	struct gce_work *gwork = NULL;
-	struct work_pool *gwork_pool;
+	struct list_head *work = NULL;
 	int ret;
 
-	gwork_pool = &dev->gwork_pool;
-	ret = wait_event_interruptible_timeout(gwork_pool->waitq, work_pool_avail(gwork_pool),
+	ret = wait_event_interruptible_timeout(gwork_pool->waitq,
+				((work = work_pool_get(gwork_pool)) != NULL),
 								msecs_to_jiffies(3000));
-
 	if (!ret) {
-		dev_info(dev->dev, "%s wait for gce pool timeout\n", __func__);
+		pr_info("%s wait for pool timeout\n", __func__);
 		return NULL;
 	} else if (-ERESTARTSYS == ret) {
-		dev_info(dev->dev, "%s wait for gce pool interrupted !\n", __func__);
+		pr_info("%s wait for pool interrupted !\n", __func__);
 		return NULL;
 	}
 
-	spin_lock(&gwork_pool->lock);
-	gwork = list_first_entry(&gwork_pool->free_list, struct gce_work, entry);
-	list_del(&gwork->entry);
-	list_add_tail(&gwork->entry, &gwork_pool->used_list);
-	kref_get(&gwork->pool->kref);
-	spin_unlock(&gwork_pool->lock);
+	return work;
+}
+
+static int gce_work_pool_init(struct mtk_imgsys_dev *dev)
+{
+	struct gce_work *gwork = NULL;
+	struct work_pool *gwork_pool;
+	signed int i;
+	int ret = 0;
+
+	gwork_pool = &dev->gwork_pool;
+
+	gwork = vzalloc(sizeof(struct gce_work) * GCE_WORK_NR);
+	if (!gwork)
+		return -ENOMEM;
+
+	work_pool_init(gwork_pool, (void *)gwork);
+	for (i = 0; i < GCE_WORK_NR; i++) {
+		list_add_tail(&gwork[i].entry, &gwork_pool->free_list);
+		gwork[i].pool = gwork_pool;
+	}
+	atomic_set(&gwork_pool->num, i);
+
+	return ret;
+}
+
+static struct gce_work *gce_get_work(struct mtk_imgsys_dev *dev)
+{
+	struct list_head *work = NULL;
+	struct gce_work *gwork = NULL;
+	struct work_pool *gwork_pool;
+
+	gwork_pool = &dev->gwork_pool;
+
+	work = get_work(gwork_pool);
+	if (!work)
+		return NULL;
+
+	gwork = container_of(work, struct gce_work, entry);
 
 	return gwork;
 }
 
-static void put_gce_work(struct gce_work *gwork)
+static void gce_put_work(struct gce_work *gwork)
 {
 	struct work_pool *gwork_pool;
 
@@ -1370,9 +1471,142 @@ static void put_gce_work(struct gce_work *gwork)
 	spin_lock(&gwork_pool->lock);
 	list_del(&gwork->entry);
 	list_add_tail(&gwork->entry, &gwork_pool->free_list);
-	kref_put(&gwork->pool->kref, pool_release);
 	spin_unlock(&gwork_pool->lock);
+	kref_put(&gwork_pool->kref, pool_release);
 
+}
+
+#define REQCB_WORK_NR (64)
+static int reqfd_cbinfo_work_pool_init(struct mtk_imgsys_dev *dev)
+{
+	vlist_type(struct reqfd_cbinfo_t) * work = NULL;
+	struct work_pool *work_pool;
+	signed int i;
+	int ret = 0;
+
+	work_pool = &dev->reqfd_cbinfo_pool;
+
+	work = vzalloc(sizeof(vlist_type(struct reqfd_cbinfo_t)) * REQCB_WORK_NR);
+	if (!work)
+		return -ENOMEM;
+
+	work_pool_init(work_pool, (void *)work);
+	for (i = 0; i < REQCB_WORK_NR; i++) {
+		list_add_tail(&work[i].entry, &work_pool->free_list);
+		work[i].pool = work_pool;
+	}
+	atomic_set(&work_pool->num, i);
+
+	return ret;
+}
+
+#ifndef REQFD_CBINFO
+static struct reqfd_cbinfo_t *reqfd_cbinfo_get_work(struct mtk_imgsys_dev *dev)
+{
+	vlist_type(struct reqfd_cbinfo_t) * gwork = NULL;
+	struct list_head *work = NULL;
+	struct work_pool *gwork_pool;
+
+	gwork_pool = &dev->reqfd_cbinfo_pool;
+
+	work = get_work(gwork_pool);
+	if (!work)
+		return NULL;
+
+	gwork = container_of(work, vlist_type(struct reqfd_cbinfo_t), entry);
+
+	return (struct reqfd_cbinfo_t *)gwork;
+}
+
+static void reqfd_cbinfo_put_work(struct reqfd_cbinfo_t *work)
+{
+	vlist_type(struct reqfd_cbinfo_t) * gwork;
+	struct work_pool *work_pool;
+
+	gwork = (vlist_type(struct reqfd_cbinfo_t) *)work;
+	work_pool = gwork->pool;
+
+	spin_lock(&work_pool->lock);
+	list_del(&gwork->entry);
+	list_add_tail(&gwork->entry, &work_pool->free_list);
+	spin_unlock(&work_pool->lock);
+	kref_put(&work_pool->kref, pool_release);
+
+}
+#endif
+
+static u64 transform_tuning_iova(struct mtk_imgsys_dev *imgsys_dev, struct mtk_imgsys_request *req,
+	struct tuning_meta_info *tuning_info, int frm_index)
+{
+	//struct dma_buf *dbuf = NULL;
+	struct mtk_imgsys_dev_buffer *dev_b = 0;
+	struct singlenode_desc *desc_sd = NULL;
+	struct singlenode_desc_norm *desc_sd_norm = NULL;
+	//int buf_fd;
+	//u64 iova_addr = 0;
+	//unsigned int tmax, tnum;
+	struct header_desc *input_smvr = NULL;
+	struct header_desc_norm *input_norm = NULL;
+	unsigned int j = 0;
+	//buf_fd = frm_info->user_info[frm_index]->priv[IMGSYS_DIP].buf_fd;
+
+	dev_b = req->buf_map[is_singledev_mode(req)];
+	switch (dev_b->dev_fmt->format) {
+	default:
+	case V4L2_META_FMT_MTISP_SD:
+		desc_sd = (struct singlenode_desc *)dev_b->va_daddr[0];
+		input_smvr = (struct header_desc *)(&desc_sd->tuning_meta);
+		break;
+	case V4L2_META_FMT_MTISP_SDNORM:
+		desc_sd_norm =
+			(struct singlenode_desc_norm *)dev_b->va_daddr[0];
+		input_norm = (struct header_desc_norm *)(&desc_sd_norm->tuning_meta);
+		break;
+	}
+	if (input_smvr) {
+		if (desc_sd->dmas_enable[MTK_IMGSYS_VIDEO_NODE_TUNING_OUT][frm_index]) {
+			for (j = 0; j < input_smvr->fparams[frm_index][0].bufs[0].buf.num_planes;
+				j++) {
+				tuning_info->buf_fd =
+			input_smvr->fparams[frm_index][0].bufs[0].buf.planes[j].m.dma_buf.fd;
+				tuning_info->offset =
+			input_smvr->fparams[frm_index][0].bufs[0].buf.planes[j].m.dma_buf.offset;
+				tuning_info->dbuf = dma_buf_get(tuning_info->buf_fd);
+				tuning_info->iova_addr =
+					imgsys_dev->imgsys_get_iova(
+					tuning_info->dbuf, tuning_info->buf_fd, imgsys_dev, dev_b);
+                if (imgsys_dbg_enable()) {
+				pr_debug("imgsys_fw: smvr iova addr(0x%llx/%d/0x%x)",
+					tuning_info->iova_addr, tuning_info->buf_fd,
+					tuning_info->offset);
+			}
+		}
+		}
+	} else {
+		if (desc_sd_norm->dmas_enable[MTK_IMGSYS_VIDEO_NODE_TUNING_OUT][frm_index]) {
+			for (j = 0; j < input_norm->fparams[frm_index][0].bufs[0].buf.num_planes;
+				j++) {
+				tuning_info->buf_fd =
+			input_norm->fparams[frm_index][0].bufs[0].buf.planes[j].m.dma_buf.fd;
+				tuning_info->offset =
+			input_norm->fparams[frm_index][0].bufs[0].buf.planes[j].m.dma_buf.offset;
+				tuning_info->dbuf = dma_buf_get(tuning_info->buf_fd);
+				tuning_info->iova_addr =
+					imgsys_dev->imgsys_get_iova(
+					tuning_info->dbuf, tuning_info->buf_fd, imgsys_dev, dev_b);
+                if (imgsys_dbg_enable()) {
+				pr_debug("imgsys_fw: normal iova addr(0x%llx/%d/0x%x)",
+					tuning_info->iova_addr, tuning_info->buf_fd,
+					tuning_info->offset);
+			}
+		}
+	}
+	}
+    if (imgsys_dbg_enable()) {
+	pr_debug("imgsys_fw: iova addr(0x%llx/%d/0x%x)",
+		tuning_info->iova_addr, tuning_info->buf_fd, tuning_info->offset);
+    }
+	return tuning_info->iova_addr;
 }
 
 static void imgsys_runner_func(void *data)
@@ -1383,11 +1617,20 @@ static void imgsys_runner_func(void *data)
 	struct mtk_imgsys_dev *imgsys_dev = req->imgsys_pipe->imgsys_dev;
 	union request_track *req_track = NULL;
 	struct swfrm_info_t *frm_info;
-	int swfrm_cnt, stime;
-	int ret;
+	int swfrm_cnt;
+	int i, ret;
 	unsigned int subfidx;
+#ifdef MTK_IOVA_SINK2KERNEL
+	struct tuning_meta_info module_tuning_info;
+	/* mark by bj due to buffer usage need to do further discuss */
+	/* struct flush_buf_info tuning_meta_buf_info; */
+	unsigned int mode;
+	u64 iova_addr = 0;
+#endif
 
+#ifdef REQ_TIMESTAMP
 	req->tstate.time_runnerStart = ktime_get_boottime_ns()/1000;
+#endif
 	swfrm_cnt = atomic_read(&req->swfrm_cnt);
 	/* get corresponding setting, adopt is_sent to judge different frames
 	 * in same package/mtk_dip_request
@@ -1400,12 +1643,39 @@ static void imgsys_runner_func(void *data)
 	}
 
 #ifdef MTK_IOVA_SINK2KERNEL
+	mode = (frm_info->batchnum > 0 ? imgsys_smvr :
+		(frm_info->is_capture == 1 ? imgsys_capture : imgsys_streaming));
 	for (subfidx = 0 ; subfidx < frm_info->total_frmnum ; subfidx++) {
-		//for (i = 0; i < (imgsys_dev->num_mods); i++)
-		if (imgsys_dev->modules[/*i*/IMGSYS_MOD_WPE].updatecq) {
-			imgsys_dev->modules[IMGSYS_MOD_WPE].updatecq(imgsys_dev,
-				&frm_info->user_info[subfidx], frm_info->request_fd);
+		iova_addr = transform_tuning_iova(imgsys_dev, req, &module_tuning_info,
+					frm_info->user_info[subfidx].subfrm_idx);
+        if (imgsys_dbg_enable()) {
+		pr_debug("imgsys_fw:tuning_index/frm_num/index/sub_frm(%d/%d/%d/%d)",
+		MTK_IMGSYS_VIDEO_NODE_TUNING_OUT, frm_info->total_frmnum, subfidx,
+		frm_info->user_info[subfidx].subfrm_idx);
+		pr_debug("imgsys_fw:module tuning iova addr(0x%llx/%d/0x%x), mode(%d), hw_comb(0x%x)",
+			module_tuning_info.iova_addr, module_tuning_info.buf_fd,
+			module_tuning_info.offset, mode, frm_info->user_info[subfidx].hw_comb);
+        }
+		for (i = 0; i < (imgsys_dev->num_mods); i++) {
+			if (imgsys_dev->modules[i].updatecq) {
+				imgsys_dev->modules[i].updatecq(imgsys_dev,
+					&frm_info->user_info[subfidx], frm_info->request_fd,
+					iova_addr, mode);
 		}
+	}
+		/* mark by bj due to buffer usage need to do further discuss */
+		/* if ((frm_info->user_info[subfidx].hw_comb != IMGSYS_ENG_ME) &&
+		 *	(module_tuning_info.iova_addr != 0)) {
+		 *	tuning_meta_buf_info.fd = module_tuning_info.buf_fd;
+		 *	tuning_meta_buf_info.offset = module_tuning_info.offset;
+		 *	tuning_meta_buf_info.len =
+		 *		frm_info->user_info[subfidx].tunmeta_size;//0x3e450;
+		 *	tuning_meta_buf_info.mode = mode;
+		 *	tuning_meta_buf_info.is_tuning = true;
+		 *	tuning_meta_buf_info.dbuf = module_tuning_info.dbuf;
+		 *	mtk_hcp_partial_flush(imgsys_dev->scp_pdev, &tuning_meta_buf_info);
+		 *}
+		 */
 	}
 #endif
 	/*
@@ -1413,9 +1683,11 @@ static void imgsys_runner_func(void *data)
 	 * Pass the framejob to MDP driver
 	 */
 	/*call gce communicator api*/
+#ifdef REQ_TIMESTAMP
 	if (!frm_info->user_info[0].subfrm_idx)
 		req->tstate.time_send2cmq = ktime_get_boottime_ns()/1000;
 	stime = ktime_get_boottime_ns()/1000;
+#endif
 	IMGSYS_SYSTRACE_BEGIN("MWFrame:#%d MWReq:#%d ReqFd:%d owner:%s subfrm_idx:%d\n",
 			frm_info->frame_no, frm_info->request_no, req->tstate.req_fd,
 		((char *)&frm_info->frm_owner), frm_info->user_info[0].subfrm_idx);
@@ -1424,9 +1696,12 @@ static void imgsys_runner_func(void *data)
 	ret = imgsys_cmdq_sendtask(imgsys_dev, frm_info, imgsys_mdp_cb_func,
 		imgsys_cmdq_timeout_cb_func, mtk_imgsys_get_iova, is_singledev_mode);
 	IMGSYS_SYSTRACE_END();
+#ifdef REQ_TIMESTAMP
 	req->tstate.time_cmqret = ktime_get_boottime_ns()/1000;
 	req->tstate.time_sendtask +=
 		(req->tstate.time_cmqret - stime);
+#endif
+    if (imgsys_dbg_enable())
 	dev_dbg(imgsys_dev->dev,
 		"%s:(reqfd-%d) send2GCE tfnum/fidx(%d/%d)\n",
 		__func__, req->tstate.req_fd,
@@ -1440,7 +1715,7 @@ static void imgsys_runner_func(void *data)
 	if (req_track)
 		req_track->subflow_kernel++;
 
-	put_gce_work(work);
+	gce_put_work(work);
 	mtk_hcp_put_gce_buffer(imgsys_dev->scp_pdev);
 }
 
@@ -1549,6 +1824,7 @@ static void imgsys_scp_handler(void *data, unsigned int len, void *priv)
 		if (!frameparam->dip_param.next_frame)
 			num = atomic_dec_return(&imgsys_dev->num_composing);
 		up(&imgsys_dev->sem);
+        if (imgsys_dbg_enable())
 		dev_dbg(imgsys_dev->dev,
 			 "%s: frame_no(%d) back, idx(%d), composing num(%d)\n",
 			 __func__, frameparam->frame_no, frameparam->index,
@@ -1557,6 +1833,7 @@ static void imgsys_scp_handler(void *data, unsigned int len, void *priv)
 		runner_work->req = req;
 		INIT_WORK(&runner_work->frame_work, dip_runner_func_batch);
 		queue_work(imgsys_dev->mdp_wq, &runner_work->frame_work);
+        if (imgsys_dbg_enable())
 		dev_dbg(imgsys_dev->dev,
 			 "%s return batch_mode(-)\n", __func__);
 		return;
@@ -1565,7 +1842,11 @@ static void imgsys_scp_handler(void *data, unsigned int len, void *priv)
 	#endif
 
 #endif
+
+#ifdef REQ_TIMESTAMP
 	time_local_reddonescpStart = ktime_get_boottime_ns()/1000;
+#endif
+
 #ifndef MTK_IOVA_SINK2KERNEL
 	job_id = swfrm_info->handle;
 #else
@@ -1605,23 +1886,27 @@ static void imgsys_scp_handler(void *data, unsigned int len, void *priv)
 		req->tstate.time_reddonescpStart = time_local_reddonescpStart;
 
 	swfrm_cnt = atomic_inc_return(&req->swfrm_cnt);
-	if (swfrm_cnt == 1)
+	if (swfrm_cnt == 1) {
+        if (imgsys_dbg_enable())
 		dev_dbg(imgsys_dev->dev,
 		"%d:%d:%s: request num(%d)/frame no(%d), request fd(%d) kva(0x%lx) tfnum(%d) sidx(%d)\n",
 		current->pid, current->tgid, __func__, swfrm_info->request_no,
 		swfrm_info->frame_no, swfrm_info->request_fd, (unsigned long)swfrm_info,
 		swfrm_info->total_frmnum, swfrm_info->user_info[0].subfrm_idx);
+	}
 
-	up(&imgsys_dev->sem);
+	/* up(&imgsys_dev->sem);*/
 	/* TODO: log only safe to remove */
 	if (!req->working_buf) {
+        if (imgsys_dbg_enable())
 		dev_dbg(imgsys_dev->dev,
 			"%s: (reqfd-%d) composing\n",
 			__func__, req->tstate.req_fd);
 	}
 
+#ifdef REQ_TIMESTAMP
 	req->tstate.time_doframeinfo = ktime_get_boottime_ns()/1000;
-
+#endif
 	/**/
 	swfrm_info->is_sent = false;
 	swfrm_info->req = (void *)req;
@@ -1662,6 +1947,7 @@ static void imgsys_scp_handler(void *data, unsigned int len, void *priv)
 					swfrm_info->request_fd, i, f_lop_idx, fence_evt->fence_fd);
 				continue;
 			}
+            if (imgsys_dbg_enable())
 			dev_dbg(imgsys_dev->dev,
 				"%s: Own:%s MWFrame:#%d MWReq:#%d ReqFd:%d:[Frm%d-n#%d]0x%lx,fencefd:%d\n",
 				__func__, (char *)(&(swfrm_info->frm_owner)),
@@ -1697,6 +1983,7 @@ static void imgsys_scp_handler(void *data, unsigned int len, void *priv)
 					swfrm_info->request_fd, i, f_lop_idx, fence_evt->fence_fd);
 				continue;
 			}
+            if (imgsys_dbg_enable())
 			dev_dbg(imgsys_dev->dev,
 				"%s: Own:%s MWFrame:#%d MWReq:#%d ReqFd:%d:[Frm%d-w#%d]0x%lx,fencefd:%d,event:%d\n",
 				__func__, (char *)(&(swfrm_info->frm_owner)),
@@ -1708,13 +1995,18 @@ static void imgsys_scp_handler(void *data, unsigned int len, void *priv)
 
 	/*first group in request*/
 	if (!swfrm_info->user_info[0].subfrm_idx) {
+#ifdef REQ_TIMESTAMP
 		req->tstate.time_qw2runner = ktime_get_boottime_ns()/1000;
+#endif
 		if (swfrm_info->exp_totalcb_cnt > 0) {
 			reqfd_find = false;
 			mutex_lock(&(reqfd_cbinfo_list.mymutex));
 			list_for_each_safe(head, temp, &(reqfd_cbinfo_list.mylist)) {
 				reqfdcb_info = vlist_node_of(head, struct reqfd_cbinfo_t);
-				if (reqfdcb_info->req_fd == swfrm_info->request_fd) {
+				if ((reqfdcb_info->req_fd == swfrm_info->request_fd) &&
+					(reqfdcb_info->req_no == swfrm_info->request_no) &&
+					(reqfdcb_info->frm_no == swfrm_info->frame_no) &&
+					(reqfdcb_info->frm_owner == swfrm_info->frm_owner)) {
 					dev_info(imgsys_dev->dev,
 					"%s:remaining(%s/%d/%d/%d) in gcecbcnt list. new enque(%s/%d/%d/%d)\n",
 					__func__, ((char *)&reqfdcb_info->frm_owner),
@@ -1733,8 +2025,12 @@ static void imgsys_scp_handler(void *data, unsigned int len, void *priv)
 				}
 			}
 			if (!reqfd_find) {
+#ifdef REQFD_CBINFO
 				cb_info = vmalloc(
 					sizeof(vlist_type(struct reqfd_cbinfo_t)));
+#else
+				cb_info	= reqfd_cbinfo_get_work(imgsys_dev);
+#endif
 				if (!cb_info) {
 					mutex_unlock(&(reqfd_cbinfo_list.mymutex));
 					return;
@@ -1753,7 +2049,7 @@ static void imgsys_scp_handler(void *data, unsigned int len, void *priv)
 		}
 	}
 
-	gwork = get_gce_work(imgsys_dev);
+	gwork = gce_get_work(imgsys_dev);
 	if (!gwork) {
 		dev_info(imgsys_dev->dev,
 		"%s:own(%llx/%s)req fd/no(%d/%d) frame no(%d) group_id(%d): fidx/tfnum(%d/%d) No GceWork max(%d).\n",
@@ -1868,14 +2164,16 @@ static void imgsys_composer_workfunc(struct work_struct *work)
 
 	IMGSYS_SYSTRACE_BEGIN("ReqFd:%d\n", req->tstate.req_fd);
 
+#ifdef REQ_TIMESTAMP
 	req->tstate.time_compfuncStart = ktime_get_boottime_ns()/1000;
-
+#endif
+    if (imgsys_dbg_enable())
 	dev_dbg(imgsys_dev->dev,
 		"%s:(reqfd-%d) to send frame_no(%d)\n",
 		__func__, req->tstate.req_fd,
 		req->img_fparam.frameparam.frame_no);
 	media_request_get(&req->req);
-	down(&imgsys_dev->sem);
+	/* down(&imgsys_dev->sem);*/
 #if MTK_CM4_SUPPORT == 0
 
 	#ifdef BATCH_MODE_V3
@@ -1966,6 +2264,7 @@ static void imgsys_composer_workfunc(struct work_struct *work)
 		ipi_param.frm_param.offset = (u32)(buf->frameparam.vaddr -
 			mtk_hcp_get_hwid_mem_virt(imgsys_dev->scp_pdev));
 
+    if (imgsys_dbg_enable())
 	dev_dbg(imgsys_dev->dev, "req-fd:%d, va:0x%lx,sva:0x%lx, offset:%d, fd:%d\n",
 		req->tstate.req_fd,
 		(unsigned long)buf->frameparam.vaddr,
@@ -1976,7 +2275,9 @@ static void imgsys_composer_workfunc(struct work_struct *work)
 	mutex_lock(&imgsys_dev->hw_op_lock);
 	atomic_inc(&imgsys_dev->num_composing);
 
+#ifdef REQ_TIMESTAMP
 	req->tstate.time_ipisendStart = ktime_get_boottime_ns()/1000;
+#endif
 
 #ifndef MTK_IOVA_SINK2KERNEL
 	ret = imgsys_send(imgsys_dev->scp_pdev, HCP_DIP_FRAME_ID,
@@ -2004,6 +2305,7 @@ static void imgsys_composer_workfunc(struct work_struct *work)
 	}
 	mutex_unlock(&imgsys_dev->hw_op_lock);
 
+    if (imgsys_dbg_enable())
 	dev_dbg(imgsys_dev->dev, "%s:(reqfd-%d) sent\n", __func__,
 							req->tstate.req_fd);
 
@@ -2049,6 +2351,7 @@ static int mtk_imgsys_hw_flush_pipe_jobs(struct mtk_imgsys_pipe *pipe)
 			VB2_BUF_STATE_ERROR, pipe->num_jobs);
 	}
 
+    if (imgsys_dbg_enable())
 	dev_dbg(pipe->imgsys_dev->dev,
 		"%s: wakeup num(%d)\n", __func__, num);
 	return 0;
@@ -2100,9 +2403,11 @@ static void module_uninit(struct kref *kref)
 		if (imgsys_dev->modules[i].uninit)
 			imgsys_dev->modules[i].uninit(imgsys_dev);
 
-	if (IS_ERR_OR_NULL(dvfs_info->reg) || !regulator_is_enabled(dvfs_info->reg))
+	if (IS_ERR_OR_NULL(dvfs_info->reg) || !regulator_is_enabled(dvfs_info->reg)) {
+        if (imgsys_dbg_enable())
 		dev_dbg(dvfs_info->dev,
 			"%s: [ERROR] reg is null or disabled\n", __func__);
+	}
 	else {
 		ret = regulator_disable(dvfs_info->reg);
 		if (ret)
@@ -2112,9 +2417,11 @@ static void module_uninit(struct kref *kref)
 
 	mtk_imgsys_power_ctrl_ccu(imgsys_dev, 0);
 
-	if (IS_ERR_OR_NULL(dvfs_info->mmdvfs_clk))
+	if (IS_ERR_OR_NULL(dvfs_info->mmdvfs_clk)) {
+        if (imgsys_dbg_enable())
 		dev_dbg(dvfs_info->dev,
 			"%s: [ERROR] mmdvfs_clk is null\n", __func__);
+	}
 	else {
 		mtk_mmdvfs_enable_ccu(false, CCU_PWR_USR_IMG);
 		mtk_mmdvfs_enable_vcp(false, VCP_PWR_USR_IMG);
@@ -2158,16 +2465,20 @@ static int mtk_imgsys_hw_connect(struct mtk_imgsys_dev *imgsys_dev)
 
 	atomic_set(&imgsys_dev->imgsys_user_cnt, 0);
 	mtk_imgsys_power_ctrl_ccu(imgsys_dev, 1);
-	if (IS_ERR_OR_NULL(dvfs_info->mmdvfs_clk))
+	if (IS_ERR_OR_NULL(dvfs_info->mmdvfs_clk)) {
+        if (imgsys_dbg_enable())
 		dev_dbg(dvfs_info->dev,
 			"%s: [ERROR] mmdvfs_clk is null\n", __func__);
+	}
 	else {
 		mtk_mmdvfs_enable_vcp(true, VCP_PWR_USR_IMG);
 		mtk_mmdvfs_enable_ccu(true, CCU_PWR_USR_IMG);
 	}
-	if (IS_ERR_OR_NULL(dvfs_info->reg))
+	if (IS_ERR_OR_NULL(dvfs_info->reg)) {
+        if (imgsys_dbg_enable())
 		dev_dbg(dvfs_info->dev,
 			"%s: [ERROR] reg is err or null\n", __func__);
+	}
 	else {
 		ret = regulator_enable(dvfs_info->reg);
 		if (ret)
@@ -2210,6 +2521,7 @@ static int mtk_imgsys_hw_connect(struct mtk_imgsys_dev *imgsys_dev)
 		mode = imgsys_dev->imgsys_pipe[0].init_info.is_smvr;
 		ret = mtk_hcp_allocate_working_buffer(imgsys_dev->scp_pdev, mode);
 		if (ret) {
+            if (imgsys_dbg_enable())
 			dev_dbg(imgsys_dev->dev, "%s: mtk_hcp_allocate_working_buffer failed %d\n",
 				__func__, ret);
 			goto err_power_off;
@@ -2236,7 +2548,9 @@ static int mtk_imgsys_hw_connect(struct mtk_imgsys_dev *imgsys_dev)
 #else
 		buf = get_first_sd_buf();
 		if (!buf) {
+            if (imgsys_dbg_enable()) {
 			pr_debug("%s: no single device buff added\n", __func__);
+            }
 		} else {
 			dbuf = (struct dma_buf *)buf->dma_buf_putkva;
 			info.hw_buf_size = dbuf->size;
@@ -2254,6 +2568,7 @@ static int mtk_imgsys_hw_connect(struct mtk_imgsys_dev *imgsys_dev)
 #endif
 
 	if (ret) {
+        if (imgsys_dbg_enable())
 		dev_dbg(imgsys_dev->dev, "%s: send SCP_IPI_DIP_FRAME failed %d\n",
 			__func__, ret);
 		goto err_power_off;
@@ -2267,6 +2582,13 @@ static int mtk_imgsys_hw_connect(struct mtk_imgsys_dev *imgsys_dev)
 	ret = gce_work_pool_init(imgsys_dev);
 	if (ret) {
 		dev_info(imgsys_dev->dev, "%s: gce work pool allocate failed %d\n",
+			__func__, ret);
+		goto err_power_off;
+	}
+
+	ret = reqfd_cbinfo_work_pool_init(imgsys_dev);
+	if (ret) {
+		dev_info(imgsys_dev->dev, "%s: reqafd cbinfo work pool allocate failed %d\n",
 			__func__, ret);
 		goto err_power_off;
 	}
@@ -2361,7 +2683,8 @@ static void mtk_imgsys_hw_disconnect(struct mtk_imgsys_dev *imgsys_dev)
 	mtk_hcp_purge_msg(imgsys_dev->scp_pdev);
 
 	mutex_destroy(&imgsys_dev->req_fd_cache.lock);
-	gce_work_pool_uninit(imgsys_dev);
+	work_pool_uninit(&imgsys_dev->gwork_pool);
+	work_pool_uninit(&imgsys_dev->reqfd_cbinfo_pool);
 
 	if (!imgsys_quick_onoff_enable()) {
 		#if DVFS_QOS_READY
@@ -2407,6 +2730,7 @@ int mtk_imgsys_hw_streamon(struct mtk_imgsys_pipe *pipe)
 	mutex_unlock(&imgsys_dev->hw_op_lock);
 
 	pipe->streaming = 1;
+    if (imgsys_dbg_enable())
 	dev_dbg(pipe->imgsys_dev->dev,
 		"%s:%s: started stream, id(%d), stream cnt(%d)\n",
 		__func__, pipe->desc->name, pipe->desc->id, count);
@@ -2420,6 +2744,7 @@ int mtk_imgsys_hw_streamoff(struct mtk_imgsys_pipe *pipe)
 	/* struct mtk_imgsys_dma_buf_iova_get_info *iova_info, *tmp; */
 	int ret;
 
+    if (imgsys_dbg_enable())
 	dev_dbg(imgsys_dev->dev,
 		"%s:%s: streamoff, removing all running jobs\n",
 		__func__, pipe->desc->name);
@@ -2457,20 +2782,8 @@ int mtk_imgsys_hw_streamoff(struct mtk_imgsys_pipe *pipe)
 			__func__, imgsys_dev->imgsys_stream_cnt);
 
 		flush_fd_kva_list(imgsys_dev);
-	/*
-	 *	list_for_each_entry_safe(iova_info, tmp,
-	 *				&pipe->iova_cache.list, list_entry) {
-	 *		mtk_imgsys_put_dma_buf(iova_info->dma_buf,
-	 *				iova_info->attach,
-	 *				iova_info->sgt);
-	 *		spin_lock(&pipe->iova_cache.lock);
-	 *		list_del(&iova_info->list_entry);
-	 *		hash_del(&iova_info->hnode);
-	 *		spin_unlock(&pipe->iova_cache.lock);
-	 *		vfree(iova_info);
-	 *	}
-	 */
 	}
+    if (imgsys_dbg_enable())
 	dev_dbg(pipe->imgsys_dev->dev,
 		"%s:%s: stopped stream id(%d), stream cnt(%d)\n",
 		__func__, pipe->desc->name, pipe->desc->id,
@@ -2490,8 +2803,10 @@ static void iova_worker(struct work_struct *work)
 	struct img_ipi_frameparam *param;
 
 	req = container_of(work, struct mtk_imgsys_request, iova_work);
-	req->tstate.time_iovaworkp = ktime_get_boottime_ns()/1000;
 
+#ifdef REQ_TIMESTAMP
+	req->tstate.time_iovaworkp = ktime_get_boottime_ns()/1000;
+#endif
 	IMGSYS_SYSTRACE_BEGIN("ReqFd:%d\n", req->tstate.req_fd);
 
 	if (is_singledev_mode(req)) {
@@ -2516,8 +2831,9 @@ static void iova_worker(struct work_struct *work)
 	req_frame->state = FRAME_STATE_INIT;
 	req_frame->frame_no =
 			atomic_inc_return(&imgsys_dev->imgsys_enqueue_cnt);
+#ifdef REQ_TIMESTAMP
 	req->tstate.time_qw2composer = ktime_get_boottime_ns()/1000;
-
+#endif
 	imgsys_composer_workfunc(&req->fw_work);
 
 	IMGSYS_SYSTRACE_END();
@@ -2531,10 +2847,13 @@ void mtk_imgsys_hw_enqueue(struct mtk_imgsys_dev *imgsys_dev,
 
 	IMGSYS_SYSTRACE_BEGIN("ReqFd:%d\n", req->tstate.req_fd);
 
+#ifdef REQ_TIMESTAMP
 	req->tstate.time_composingStart = ktime_get_boottime_ns()/1000;
+#endif
 	/* TODO: use user fd + offset */
 	buf = mtk_imgsys_hw_working_buf_alloc(req->imgsys_pipe->imgsys_dev);
 	if (!buf) {
+        if (imgsys_dbg_enable())
 		dev_dbg(req->imgsys_pipe->imgsys_dev->dev,
 			"%s:%s:req(0x%lx): no free working buffer available\n",
 			__func__, req->imgsys_pipe->desc->name, (unsigned long)req);
@@ -2559,8 +2878,9 @@ void mtk_imgsys_hw_enqueue(struct mtk_imgsys_dev *imgsys_dev,
 #endif
 	}
 
+#ifdef REQ_TIMESTAMP
 	req->tstate.time_composingEnd = ktime_get_boottime_ns()/1000;
-
+#endif
 	INIT_WORK(&req->iova_work, iova_worker);
 #ifdef MTK_IOVA_SINK2KERNEL
 	iova_worker(&req->iova_work);

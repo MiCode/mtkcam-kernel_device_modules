@@ -123,7 +123,6 @@ void imgsys_me_set_initial_value(struct mtk_imgsys_dev *imgsys_dev)
 
 void imgsys_me_uninit(struct mtk_imgsys_dev *imgsys_dev)
 {
-	pr_debug("%s: +\n", __func__);
 	if (g_meRegBA) {
 		iounmap(g_meRegBA);
 		g_meRegBA = 0L;
@@ -132,7 +131,6 @@ void imgsys_me_uninit(struct mtk_imgsys_dev *imgsys_dev)
 		iounmap(g_mmgRegBA);
 		g_mmgRegBA = 0L;
 	}
-	pr_debug("%s: -\n", __func__);
 }
 //EXPORT_SYMBOL(ipesys_me_uninit);
 

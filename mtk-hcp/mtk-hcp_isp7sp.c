@@ -51,7 +51,7 @@ static struct mtk_hcp_reserve_mblock isp7sp_smvr_mblock[] = {
 		.start_phys = 0x0,
 		.start_virt = 0x0,
 		.start_dma  = 0x0,
-		.size = 0x13E800,   /*1MB + 250KB*/
+		.size = 0x19B000,   /*1MB + 250KB*/
 		.is_dma_buf = true,
 		.mmap_cnt = 0,
 		.mem_priv = NULL,
@@ -67,7 +67,7 @@ static struct mtk_hcp_reserve_mblock isp7sp_smvr_mblock[] = {
 		.start_phys = 0x0,
 		.start_virt = 0x0,
 		.start_dma  = 0x0,
-		.size = 0x28E800,  /*2MB + 570KB*/
+		.size = 0x233000,  /*2MB + 570KB*/
 		.is_dma_buf = true,
 		.mmap_cnt = 0,
 		.mem_priv = NULL,
@@ -83,7 +83,7 @@ static struct mtk_hcp_reserve_mblock isp7sp_smvr_mblock[] = {
 		.start_phys = 0x0,
 		.start_virt = 0x0,
 		.start_dma  = 0x0,
-		.size = 0x746000,  /*7MB + 280KB*/
+		.size = 0x71F000,  /*7MB + 280KB*/
 		.is_dma_buf = true,
 		.mmap_cnt = 0,
 		.mem_priv = NULL,
@@ -99,7 +99,7 @@ static struct mtk_hcp_reserve_mblock isp7sp_smvr_mblock[] = {
 		.start_phys = 0x0,
 		.start_virt = 0x0,
 		.start_dma  = 0x0,
-		.size = 0x1EC3000,  /*30MB + 780KB*/
+		.size = 0x16F4000,  /*30MB + 780KB*/
 		.is_dma_buf = true,
 		.mmap_cnt = 0,
 		.mem_priv = NULL,
@@ -115,7 +115,7 @@ static struct mtk_hcp_reserve_mblock isp7sp_smvr_mblock[] = {
 		.start_phys = 0x0,
 		.start_virt = 0x0,
 		.start_dma  = 0x0,
-		.size = 0xAC8000,  /*10MB + 800KB*/
+		.size = 0xA91000,  /*10MB + 800KB*/
 		.is_dma_buf = true,
 		.mmap_cnt = 0,
 		.mem_priv = NULL,
@@ -131,7 +131,7 @@ static struct mtk_hcp_reserve_mblock isp7sp_smvr_mblock[] = {
 		.start_phys = 0x0,
 		.start_virt = 0x0,
 		.start_dma  = 0x0,
-		.size = 0x248C000,  /*36MB + 560KB*/
+		.size = 0x17D5000,  /*36MB + 560KB*/
 		.is_dma_buf = true,
 		.mmap_cnt = 0,
 		.mem_priv = NULL,
@@ -147,7 +147,7 @@ static struct mtk_hcp_reserve_mblock isp7sp_smvr_mblock[] = {
 		.start_phys = 0x0,
 		.start_virt = 0x0,
 		.start_dma  = 0x0,
-		.size = 0x175800,  /*1MB + 470KB*/
+		.size = 0x16E000,  /*1MB + 470KB*/
 		.is_dma_buf = true,
 		.mmap_cnt = 0,
 		.mem_priv = NULL,
@@ -163,7 +163,7 @@ static struct mtk_hcp_reserve_mblock isp7sp_smvr_mblock[] = {
 		.start_phys = 0x0,
 		.start_virt = 0x0,
 		.start_dma  = 0x0,
-		.size = 0x125800,  /*1MB + 150KB*/
+		.size = 0x11E000,  /*1MB + 150KB*/
 		.is_dma_buf = true,
 		.mmap_cnt = 0,
 		.mem_priv = NULL,
@@ -207,7 +207,8 @@ static struct mtk_hcp_reserve_mblock isp7sp_smvr_mblock[] = {
 		.start_phys = 0x0,
 		.start_virt = 0x0,
 		.start_dma  = 0x0,
-		.size = 0x1885E00, //0x17F5E00, //0x3400000
+		/* align with isp7s for newp2 change */
+		.size = 0x1F45E00, //0x1F21E00, //0x1885E00,//0x17F5E00, //0x3400000
 		.is_dma_buf = true,
 		.mmap_cnt = 0,
 		.mem_priv = NULL,
@@ -260,7 +261,7 @@ struct mtk_hcp_reserve_mblock isp7sp_reserve_mblock[] = {
 		.start_phys = 0x0,
 		.start_virt = 0x0,
 		.start_dma  = 0x0,
-		.size = 0xED800,   /*950KB, 570KB*/
+		.size = 0x9E000,   /*950KB, 570KB*/
 		.is_dma_buf = true,
 		.mmap_cnt = 0,
 		.mem_priv = NULL,
@@ -276,7 +277,7 @@ struct mtk_hcp_reserve_mblock isp7sp_reserve_mblock[] = {
 		.start_phys = 0x0,
 		.start_virt = 0x0,
 		.start_dma  = 0x0,
-		.size = 0x396000,   /*3MB + 600KB*/
+		.size = 0x380000,   /*3MB + 600KB*/
 		.is_dma_buf = true,
 		.mmap_cnt = 0,
 		.mem_priv = NULL,
@@ -292,7 +293,7 @@ struct mtk_hcp_reserve_mblock isp7sp_reserve_mblock[] = {
 		.start_phys = 0x0,
 		.start_virt = 0x0,
 		.start_dma  = 0x0,
-		.size = 0x1902800,   /*25MB + 10KB*/
+		.size = 0x1484000,   /*25MB + 10KB*/
 		.is_dma_buf = true,
 		.mmap_cnt = 0,
 		.mem_priv = NULL,
@@ -308,7 +309,7 @@ struct mtk_hcp_reserve_mblock isp7sp_reserve_mblock[] = {
 		.start_phys = 0x0,
 		.start_virt = 0x0,
 		.start_dma  = 0x0,
-		.size = 0x596000,   /*5MB + 600KB*/
+		.size = 0x564000,   /*5MB + 600KB*/
 		.is_dma_buf = true,
 		.mmap_cnt = 0,
 		.mem_priv = NULL,
@@ -324,7 +325,7 @@ struct mtk_hcp_reserve_mblock isp7sp_reserve_mblock[] = {
 		.start_phys = 0x0,
 		.start_virt = 0x0,
 		.start_dma  = 0x0,
-		.size = 0x1E00000,   /*30MB*/
+		.size = 0x1463000,   /*30MB*/
 		.is_dma_buf = true,
 		.mmap_cnt = 0,
 		.mem_priv = NULL,
@@ -340,7 +341,7 @@ struct mtk_hcp_reserve_mblock isp7sp_reserve_mblock[] = {
 		.start_phys = 0x0,
 		.start_virt = 0x0,
 		.start_dma  = 0x0,
-		.size = 0xDE800,   /*890KB*/
+		.size = 0xDC000,   /*890KB*/
 		.is_dma_buf = true,
 		.mmap_cnt = 0,
 		.mem_priv = NULL,
@@ -356,7 +357,7 @@ struct mtk_hcp_reserve_mblock isp7sp_reserve_mblock[] = {
 		.start_phys = 0x0,
 		.start_virt = 0x0,
 		.start_dma  = 0x0,
-		.size = 0xAC800,   /*690KB*/
+		.size = 0xAC000,   /*690KB*/
 		.is_dma_buf = true,
 		.mmap_cnt = 0,
 		.mem_priv = NULL,
@@ -400,7 +401,8 @@ struct mtk_hcp_reserve_mblock isp7sp_reserve_mblock[] = {
 		.start_phys = 0x0,
 		.start_virt = 0x0,
 		.start_dma  = 0x0,
-		.size = 0xF98400, //0xF68400, //0x2000000,
+		/* align with isp7s for newp2 change */
+		.size = 0x11D8400, //0x11CC400, //0xF98400,//0xF68400, //0x2000000,
 		.is_dma_buf = true,
 		.mmap_cnt = 0,
 		.mem_priv = NULL,
@@ -477,6 +479,71 @@ void *isp7sp_get_wpe_virt(void)
 }
 EXPORT_SYMBOL(isp7sp_get_wpe_virt);
 
+int isp7sp_get_wpe_cq_fd(void)
+{
+	return mb[WPE_MEM_C_ID].fd;
+}
+EXPORT_SYMBOL(isp7sp_get_wpe_cq_fd);
+
+int isp7sp_get_wpe_tdr_fd(void)
+{
+	return mb[WPE_MEM_T_ID].fd;
+}
+EXPORT_SYMBOL(isp7sp_get_wpe_tdr_fd);
+
+void *isp7sp_get_dip_virt(void)
+{
+	return mb[DIP_MEM_C_ID].start_virt;
+}
+EXPORT_SYMBOL(isp7sp_get_dip_virt);
+
+int isp7sp_get_dip_cq_fd(void)
+{
+	return mb[DIP_MEM_C_ID].fd;
+}
+EXPORT_SYMBOL(isp7sp_get_dip_cq_fd);
+
+int isp7sp_get_dip_tdr_fd(void)
+{
+	return mb[DIP_MEM_T_ID].fd;
+}
+EXPORT_SYMBOL(isp7sp_get_dip_tdr_fd);
+
+void *isp7sp_get_traw_virt(void)
+{
+	return mb[TRAW_MEM_C_ID].start_virt;
+}
+EXPORT_SYMBOL(isp7sp_get_traw_virt);
+
+int isp7sp_get_traw_cq_fd(void)
+{
+	return mb[TRAW_MEM_C_ID].fd;
+}
+EXPORT_SYMBOL(isp7sp_get_traw_cq_fd);
+
+int isp7sp_get_traw_tdr_fd(void)
+{
+	return mb[TRAW_MEM_T_ID].fd;
+}
+EXPORT_SYMBOL(isp7sp_get_traw_tdr_fd);
+
+void *isp7sp_get_pqdip_virt(void)
+{
+	return mb[PQDIP_MEM_C_ID].start_virt;
+}
+EXPORT_SYMBOL(isp7sp_get_pqdip_virt);
+
+int isp7sp_get_pqdip_cq_fd(void)
+{
+	return mb[PQDIP_MEM_C_ID].fd;
+}
+EXPORT_SYMBOL(isp7sp_get_pqdip_cq_fd);
+
+int isp7sp_get_pqdip_tdr_fd(void)
+{
+	return mb[PQDIP_MEM_T_ID].fd;
+}
+EXPORT_SYMBOL(isp7sp_get_pqdip_tdr_fd);
 void *isp7sp_get_hwid_virt(void)
 {
 	return mb[DIP_MEM_FOR_HW_ID].start_virt;
@@ -569,6 +636,61 @@ int isp7sp_allocate_working_buffer(struct mtk_hcp *hcp_dev, unsigned int mode)
 					isp7sp_get_reserve_mem_fd(id),
 					mblock[id].d_buf);
 				break;
+			case WPE_MEM_C_ID:
+			case WPE_MEM_T_ID:
+			case DIP_MEM_C_ID:
+			case DIP_MEM_T_ID:
+			case TRAW_MEM_C_ID:
+			case TRAW_MEM_T_ID:
+			case PQDIP_MEM_C_ID:
+			case PQDIP_MEM_T_ID:
+				/* all supported heap name you can find with cmd */
+				/* (ls /dev/dma_heap/) in shell */
+				pdma_heap = dma_heap_find("mtk_mm-uncached");
+				if (!pdma_heap) {
+					pr_info("pdma_heap find fail\n");
+					return -1;
+				}
+				mblock[id].d_buf = dma_heap_buffer_alloc(
+					pdma_heap,
+					mblock[id].size, O_RDWR | O_CLOEXEC,
+					DMA_HEAP_VALID_HEAP_FLAGS);
+				if (IS_ERR(mblock[id].d_buf)) {
+					pr_info("dma_heap_buffer_alloc fail :%ld\n",
+					PTR_ERR(mblock[id].d_buf));
+					return -1;
+				}
+				mtk_dma_buf_set_name(mblock[id].d_buf, mblock[id].name);
+				mblock[id].attach = dma_buf_attach(
+				mblock[id].d_buf, hcp_dev->smmu_dev);
+				attach = mblock[id].attach;
+				if (IS_ERR(attach)) {
+					pr_info("dma_buf_attach fail :%ld\n",
+					PTR_ERR(attach));
+					return -1;
+				}
+
+				mblock[id].sgt = dma_buf_map_attachment(attach, DMA_BIDIRECTIONAL);
+				sgt = mblock[id].sgt;
+				if (IS_ERR(sgt)) {
+					dma_buf_detach(mblock[id].d_buf, attach);
+					pr_info("dma_buf_map_attachment fail sgt:%ld\n",
+					PTR_ERR(sgt));
+					return -1;
+				}
+				mblock[id].start_phys = sg_dma_address(sgt->sgl);
+				mblock[id].start_dma = mblock[id].start_phys;
+				ret = dma_buf_vmap(mblock[id].d_buf, &map);
+				if (ret) {
+					pr_info("sg_dma_address fail\n");
+					return ret;
+				}
+				mblock[id].start_virt = (void *)map.vaddr;
+				mblock[id].map = map;
+				get_dma_buf(mblock[id].d_buf);
+				mblock[id].fd =
+					dma_buf_fd(mblock[id].d_buf, O_RDWR | O_CLOEXEC);
+				break;
 			default:
 
 				/* all supported heap name you can find with cmd */
@@ -617,6 +739,7 @@ int isp7sp_allocate_working_buffer(struct mtk_hcp *hcp_dev, unsigned int mode)
 				get_dma_buf(mblock[id].d_buf);
 				mblock[id].fd =
 					dma_buf_fd(mblock[id].d_buf, O_RDWR | O_CLOEXEC);
+				//dma_buf_begin_cpu_access(mblock[id].d_buf, DMA_BIDIRECTIONAL);
 				break;
 			}
 		} else {
@@ -628,6 +751,7 @@ int isp7sp_allocate_working_buffer(struct mtk_hcp *hcp_dev, unsigned int mode)
 					mblock[id].start_virt);
 			mblock[id].start_dma = 0;
 		}
+        if (hcp_dbg_enable()) {
 		pr_debug(
 			"%s: [HCP][mem_reserve-%d] phys:0x%llx, virt:0x%p, dma:0x%llx, size:0x%llx, is_dma_buf:%d, fd:%d, d_buf:0x%p\n",
 			__func__, id,
@@ -638,6 +762,7 @@ int isp7sp_allocate_working_buffer(struct mtk_hcp *hcp_dev, unsigned int mode)
 			mblock[id].is_dma_buf,
 			isp7sp_get_reserve_mem_fd(id),
 			mblock[id].d_buf);
+	}
 	}
 
 	return 0;
@@ -732,6 +857,7 @@ int isp7sp_release_working_buffer(struct mtk_hcp *hcp_dev)
 			mblock[id].start_dma = 0x0;
 			mblock[id].mmap_cnt = 0;
 		}
+        if (hcp_dbg_enable()) {
 		pr_debug(
 			"%s: [HCP][mem_reserve-%d] phys:0x%llx, virt:0x%p, dma:0x%llx, size:0x%llx, is_dma_buf:%d, fd:%d\n",
 			__func__, id,
@@ -741,6 +867,7 @@ int isp7sp_release_working_buffer(struct mtk_hcp *hcp_dev)
 			isp7sp_get_reserve_mem_size(id),
 			mblock[id].is_dma_buf,
 			isp7sp_get_reserve_mem_fd(id));
+	}
 	}
 
 	return 0;
@@ -847,10 +974,10 @@ int isp7sp_get_init_info(struct img_init_info *info)
 				isp7sp_get_reserve_mem_fd(PQDIP_MEM_T_ID);
 
 	/*common*/
-	/* info->g_wbuf_fd = isp7s_get_reserve_mem_fd(IMG_MEM_G_ID); */
+	/* info->g_wbuf_fd = isp7sp_get_reserve_mem_fd(IMG_MEM_G_ID); */
 	info->g_wbuf_fd = isp7sp_get_reserve_mem_fd(IMG_MEM_G_ID);
 	info->g_wbuf = isp7sp_get_reserve_mem_phys(IMG_MEM_G_ID);
-	/*info->g_wbuf_sw = isp7s_get_reserve_mem_virt(IMG_MEM_G_ID);*/
+	/*info->g_wbuf_sw = isp7sp_get_reserve_mem_virt(IMG_MEM_G_ID);*/
 	info->g_wbuf_sz = isp7sp_get_reserve_mem_size(IMG_MEM_G_ID);
 
 	return 0;
@@ -868,6 +995,44 @@ static int isp7sp_get_gce(void)
 	return 0;
 }
 
+int isp7sp_partial_flush(struct mtk_hcp *hcp_dev, struct flush_buf_info *b_info)
+{
+	struct mtk_hcp_reserve_mblock *mblock = NULL;
+	unsigned int block_num = 0;
+	unsigned int id = 0;
+	unsigned int mode = 0;
+
+	if (b_info->is_tuning)
+		dma_buf_end_cpu_access_partial(b_info->dbuf,
+					       DMA_BIDIRECTIONAL,
+					       b_info->offset,
+					       b_info->len);
+	else {
+		mode = b_info->mode;
+		if (mode == imgsys_smvr)
+			mblock = hcp_dev->data->smblock;
+		else if (mode == imgsys_capture)
+			mblock = hcp_dev->data->mblock;
+		else
+			mblock = hcp_dev->data->mblock;
+
+		block_num = hcp_dev->data->block_num;
+		for (id = 0; id < block_num; id++) {
+			if (b_info->fd == mblock[id].fd) {
+				dma_buf_end_cpu_access_partial(mblock[id].d_buf,
+							       DMA_BIDIRECTIONAL,
+							       b_info->offset,
+							       b_info->len);
+				break;
+			}
+		}
+	}
+    if (hcp_dbg_enable()) {
+	pr_debug("imgsys_fw partial flush info(%d/0x%x/0x%x), mode(%d), is_tuning(%d)",
+		b_info->fd, b_info->len, b_info->offset, b_info->mode, b_info->is_tuning);
+    }
+	return 0;
+}
 struct mtk_hcp_data isp7sp_hcp_data = {
 	.mblock = isp7sp_reserve_mblock,
 	.block_num = ARRAY_SIZE(isp7sp_reserve_mblock),
@@ -880,5 +1045,17 @@ struct mtk_hcp_data isp7sp_hcp_data = {
 	.put_gce = isp7sp_put_gce,
 	.get_hwid_virt = isp7sp_get_hwid_virt,
 	.get_wpe_virt = isp7sp_get_wpe_virt,
+	.get_wpe_cq_fd = isp7sp_get_wpe_cq_fd,
+	.get_wpe_tdr_fd = isp7sp_get_wpe_tdr_fd,
+	.get_dip_virt = isp7sp_get_dip_virt,
+	.get_dip_cq_fd = isp7sp_get_dip_cq_fd,
+	.get_dip_tdr_fd = isp7sp_get_dip_tdr_fd,
+	.get_traw_virt = isp7sp_get_traw_virt,
+	.get_traw_cq_fd = isp7sp_get_traw_cq_fd,
+	.get_traw_tdr_fd = isp7sp_get_traw_tdr_fd,
+	.get_pqdip_virt = isp7sp_get_pqdip_virt,
+	.get_pqdip_cq_fd = isp7sp_get_pqdip_cq_fd,
+	.get_pqdip_tdr_fd = isp7sp_get_pqdip_tdr_fd,
+	.partial_flush = isp7sp_partial_flush,
 };
 MODULE_IMPORT_NS(DMA_BUF);

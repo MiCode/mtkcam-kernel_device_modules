@@ -801,9 +801,6 @@ static int imgsensor_start_streaming(struct adaptor_ctx *ctx)
 	dev_info(ctx->dev, "[%s]+\n", __func__);
 #endif
 
-	/* reset sof_no for set_ctrl_locker */
-	ctx->sof_no = 0;
-
 	adaptor_sensor_init(ctx);
 
 	control_sensor(ctx);
@@ -868,7 +865,6 @@ static int imgsensor_stop_streaming(struct adaptor_ctx *ctx)
 	memset(&ctx->ae_ctrl_dbg_info, 0, sizeof(ctx->ae_ctrl_dbg_info));
 	ctx->sys_ts_update_sof_cnt = 0;
 	ctx->sof_cnt = 0;
-	ctx->sof_no = 0;
 
 	/* reset sentest flag */
 	ctx->sentest_lbmf_delay_do_ae_en = false;

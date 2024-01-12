@@ -31,6 +31,7 @@ static int s5k3p9sp_set_test_pattern_data(struct subdrv_ctx *ctx, u8 *para, u32 
 static int init_ctx(struct subdrv_ctx *ctx,	struct i2c_client *i2c_client, u8 i2c_write_id);
 static void s5k3p9sp_sensor_init(struct subdrv_ctx *ctx);
 static int open(struct subdrv_ctx *ctx);
+static int s5k3p9sp_set_ctrl_locker(struct subdrv_ctx *ctx, u32 cid, bool *is_lock);
 
 /* STRUCT */
 
@@ -517,6 +518,7 @@ static struct subdrv_ops ops = {
 	.get_frame_desc = common_get_frame_desc,
 	.get_csi_param = common_get_csi_param,
 	.update_sof_cnt = common_update_sof_cnt,
+	.set_ctrl_locker = s5k3p9sp_set_ctrl_locker,
 };
 
 static struct subdrv_pw_seq_entry pw_seq[] = {
@@ -790,3 +792,35 @@ static int open(struct subdrv_ctx *ctx)
 
 	return ERROR_NONE;
 } /* open */
+
+static int s5k3p9sp_set_ctrl_locker(struct subdrv_ctx *ctx,
+		u32 cid, bool *is_lock)
+{
+	bool lock_set_ctrl = false;
+
+	if (unlikely(is_lock == NULL)) {
+		pr_info("[%s][ERROR] is_lock %p is NULL\n", __func__, is_lock);
+		return -EINVAL;
+	}
+
+	switch (cid) {
+	case V4L2_CID_MTK_STAGGER_AE_CTRL:
+	case V4L2_CID_MTK_MAX_FPS:
+		if ((ctx->sof_no == 0) && (ctx->is_streaming)) {
+			lock_set_ctrl = true;
+			DRV_LOG(ctx,
+				"[%s] Target lock cid(%u) lock_set_ctrl(%d), sof_no(%d) is_streaming(%d)\n",
+				__func__,
+				cid,
+				lock_set_ctrl,
+				ctx->sof_no,
+				ctx->is_streaming);
+		}
+		break;
+	default:
+		break;
+	}
+
+	*is_lock = lock_set_ctrl;
+	return ERROR_NONE;
+} /* s5k3p9sp_set_ctrl_locker */

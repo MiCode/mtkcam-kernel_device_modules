@@ -2015,6 +2015,7 @@ void streaming_control(struct subdrv_ctx *ctx, bool enable)
 		ctx->stream_ctrl_start_time = 0;
 		ctx->stream_ctrl_end_time = 0;
 	}
+	ctx->sof_no = 0;
 	ctx->is_streaming = enable;
 	DRV_LOG(ctx, "X! enable:%u\n", enable);
 }
@@ -3564,6 +3565,7 @@ int common_update_sof_cnt(struct subdrv_ctx *ctx, u32 sof_cnt)
 {
 	DRV_LOG(ctx, "update ctx->sof_cnt(%u)", sof_cnt);
 	ctx->sof_cnt = sof_cnt;
+	ctx->sof_no++;
 	return 0;
 }
 

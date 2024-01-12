@@ -65,48 +65,6 @@ static int g_pd_pixel_region(struct adaptor_ctx *ctx, struct v4l2_ctrl *ctrl)
 }
 #endif
 
-static bool imgsensor_set_ctrl_locker(struct v4l2_ctrl *ctrl)
-{
-	struct adaptor_ctx *ctx = ctrl_to_ctx(ctrl);
-	bool lock_set_ctrl = true;
-
-	switch (ctrl->id) {
-	case V4L2_CID_UPDATE_SOF_CNT:
-	case V4L2_CID_VSYNC_NOTIFY:
-	case V4L2_CID_MTK_ANTI_FLICKER:
-	case V4L2_CID_FRAME_SYNC:
-	case V4L2_CID_FSYNC_ASYNC_MASTER:
-	case V4L2_CID_FSYNC_MAP_ID:
-	case V4L2_CID_FSYNC_LISTEN_TARGET:
-	case V4L2_CID_SEAMLESS_SCENARIOS:
-	case V4L2_CID_MTK_SENSOR_POWER:
-	case V4L2_CID_MTK_MSTREAM_MODE:
-	case V4L2_CID_MTK_N_1_MODE:
-	case V4L2_CID_MTK_SENSOR_RESET:
-	case V4L2_CID_MTK_SENSOR_RESET_S_STREAM:
-	case V4L2_CID_MTK_AOV_SWITCH_I2C_BUS_SCL_AUX:
-	case V4L2_CID_MTK_AOV_SWITCH_I2C_BUS_SDA_AUX:
-	case V4L2_CID_MTK_AOV_SWITCH_RX_PARAM:
-	case V4L2_CID_MTK_AOV_SWITCH_PM_OPS:
-	case V4L2_CID_MTK_AOV_SWITCH_MCLK_ULPOSC:
-		lock_set_ctrl = false;
-		break;
-	default:
-		break;
-	}
-
-	if (!ctx->is_streaming) // allow i2c operation when streaming off
-		lock_set_ctrl = false;
-
-	if (ctx->sof_no)
-		lock_set_ctrl = false;
-
-	if (*ctx->p_set_ctrl_unlock_flag)
-		lock_set_ctrl = false;
-
-	return lock_set_ctrl;
-}
-
 static void calc_ae_ctrl_dbg_info_ts_diff(struct adaptor_ctx *ctx, const u64 curr_sys_ts,
 	u32 *p_delta_ae_ctrl_sof_cnt_ms, u32 *p_delta_curr_ae_ctrl_ms)
 {
@@ -180,13 +138,13 @@ static void dump_perframe_info(struct adaptor_ctx *ctx, struct mtk_hdr_ae *ae_ct
 	mutex_unlock(&ctx->ebd_lock);
 
 	dev_info(ctx->dev,
-		"[%s][%s][inf:%d] idx:%d, req_no:%u, sof_cnt:%u, req_id:%d, [LLLE->SSSE] 64bit s(%llu/%llu/%llu/%llu/%llu) g(%d/%d/%d/%d/%d), w(%llu/%llu/%llu/%llu/%llu,%d/%d/%d/%d/%d) sub_tag:%u, ctx:(fl:(%u,lut:%u/%u/%u)/RG:(%u,%u/%u/%u/%u/%u), min_fl:%u, flick_en:%u, fsync(%d):(%u,%u/%u/%u/%u/%u), mode:(line_time:%u, margin:%u, scen:%u; STG:(rout_l:%u, r_margin:%u, ext_fl:%u)), fast_mode:%u), sys_ts:(%llu->%llu/%llu(+%u)/%llu(+%u))%s\n",
+		"[%s][%s][inf:%d] idx:%d, req_no:%u, sub_sof_no:%u, req_id:%d, [LLLE->SSSE] 64bit s(%llu/%llu/%llu/%llu/%llu) g(%d/%d/%d/%d/%d), w(%llu/%llu/%llu/%llu/%llu,%d/%d/%d/%d/%d) sub_tag:%u, ctx:(fl:(%u,lut:%u/%u/%u)/RG:(%u,%u/%u/%u/%u/%u), min_fl:%u, flick_en:%u, fsync(%d):(%u,%u/%u/%u/%u/%u), mode:(line_time:%u, margin:%u, scen:%u; STG:(rout_l:%u, r_margin:%u, ext_fl:%u)), fast_mode:%u), sys_ts:(%llu->%llu/%llu(+%u)/%llu(+%u))%s\n",
 		ctx->sd.name,
 		(ctx->subdrv) ? (ctx->subdrv->name) : "null",
 		ctx->seninf_idx,
 		ctx->idx,
 		ctx->sof_cnt,
-		ctx->sof_no,
+		ctx->subctx.sof_no,
 		ae_ctrl->req_id,
 		ae_ctrl->exposure.le_exposure,
 		ae_ctrl->exposure.me_exposure,
@@ -728,7 +686,7 @@ static int push_do_ae_ctrl_delay_work(struct adaptor_ctx *ctx,
 	if (!ctx->is_streaming) {
 		dev_info(ctx->dev, "%s ctx->is_streaming if %d, skip the func\n",
 					__func__, ctx->is_streaming);
-		kfree(_adaptor_work);			
+		kfree(_adaptor_work);
 		return 0;
 	}
 
@@ -1315,13 +1273,16 @@ static int imgsensor_set_ctrl(struct v4l2_ctrl *ctrl)
 	int ret = 0;
 	u32 len;
 	int i;
+	bool is_lock = false;
 
-	if (imgsensor_set_ctrl_locker(ctrl)) {
+
+	subdrv_call(ctx, set_ctrl_locker, ctrl->id, &is_lock);
+	if (is_lock) {
 		dev_info(ctx->dev,
 		"[%s] skip imgsensor_set_ctrl with ctrl_id_offset(%u), sof_cnt(%u) p_set_ctrl_unlock_flag(%u) \n",
 			__func__,
 			ctrl->id - V4L2_CID_USER_MTK_SENSOR_BASE,
-			ctx->sof_no,
+			ctx->subctx.sof_cnt,
 			*ctx->p_set_ctrl_unlock_flag);
 		return ret;
 	}
@@ -1339,7 +1300,6 @@ static int imgsensor_set_ctrl(struct v4l2_ctrl *ctrl)
 	case V4L2_CID_UPDATE_SOF_CNT:
 		/* update ctx sof cnt */
 		ctx->sof_cnt = ctrl->val;
-		ctx->sof_no++;
 		ctx->sys_ts_update_sof_cnt = ktime_get_boottime_ns();
 		subdrv_call(ctx, update_sof_cnt, (u64)ctrl->val);
 		notify_fsync_mgr_update_sof_cnt(ctx, (u32)ctrl->val);
@@ -1617,9 +1577,6 @@ static int imgsensor_set_ctrl(struct v4l2_ctrl *ctrl)
 			u64 time_boot = ktime_get_boottime_ns();
 			u64 time_mono = ktime_get_ns();
 
-			/* reset sof_no for set_ctrl_locker */
-			ctx->sof_no = 0;
-
 			/* first, notify fsync cancel FL restore proc if needed */
 			notify_fsync_mgr_clear_fl_restore_info_if_needed(ctx);
 
@@ -1631,13 +1588,13 @@ static int imgsensor_set_ctrl(struct v4l2_ctrl *ctrl)
 			para.u64[2] = (uintptr_t)&info->ae_ctrl[1];
 
 			dev_info(dev,
-				"[%s][%s][inf:%d] idx:%d, req_no:%u, sof_cnt:%u, seamless scen(%u => %u), [0](req_id:%d s(%llu/%llu/%llu/%llu/%llu) g(%u/%u/%u/%u/%u)), [1](req_id:%d s(%llu/%llu/%llu/%llu/%llu) g(%u/%u/%u/%u/%u)), sys_ts:(%llu/%llu|%llu)\n",
+				"[%s][%s][inf:%d] idx:%d, req_no:%u, sub_sof_no:%u, seamless scen(%u => %u), [0](req_id:%d s(%llu/%llu/%llu/%llu/%llu) g(%u/%u/%u/%u/%u)), [1](req_id:%d s(%llu/%llu/%llu/%llu/%llu) g(%u/%u/%u/%u/%u)), sys_ts:(%llu/%llu|%llu)\n",
 				ctx->sd.name,
 				(ctx->subdrv) ? (ctx->subdrv->name) : "null",
 				ctx->seninf_idx,
 				ctx->idx,
 				ctx->sof_cnt,
-				ctx->sof_no,
+				ctx->subctx.sof_no,
 				orig_scen_id,
 				info->target_scenario_id,
 				info->ae_ctrl[0].req_id,

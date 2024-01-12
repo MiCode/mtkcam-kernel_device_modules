@@ -1103,7 +1103,7 @@ static inline void fs_alg_sa_adjust_diff_m_s_general_msg_connector(
 	const char *caller)
 {
 	FS_SNPRF(log_str_len, log_buf, len,
-		", [((%u:%u)c:%u/n:%u/o:%u/s:%u/e:%u/t:%u(%u/%u),%u)/((%u:%u)c:%u/n:%u/o:%u/s:%u/e:%u/t:%u(%u/%u),%u)], lineT:%u/%u, routT:%u/%u",
+		", [((%u:%u)c:%u/n:%u/o:%u/s:%u/e:%u/t:%u(%u/%u),%u)/((%u:%u)c:%u/n:%u/o:%u/s:%u/e:%u/t:%u(%u/%u),%u)], minFL:%u/%u, lineT:%u/%u, routT:%u/%u",
 		fs_inst[s_idx].fl_active_delay,
 		p_para_s->delta,
 		p_para_s->pred_fl_us[0],
@@ -1126,6 +1126,8 @@ static inline void fs_alg_sa_adjust_diff_m_s_general_msg_connector(
 		p_para_m->f_tag,
 		get_valid_frame_cell_size(m_idx),
 		p_para_m->target_min_fl_us,
+		fs_inst[s_idx].min_fl_lc,
+		fs_inst[m_idx].min_fl_lc,
 		fs_inst[s_idx].lineTimeInNs,
 		fs_inst[m_idx].lineTimeInNs,
 		fs_inst[s_idx].readout_time_us,
@@ -2400,20 +2402,42 @@ static long long fs_alg_sa_calc_adjust_diff_async(
 	if (fs_inst[m_idx].flicker_en) {
 		const unsigned int flk_diff =
 			p_para_m->stable_fl_us - p_para_m->pure_min_fl_us;
+		unsigned int complement_flk_diff =
+			(flk_diff * quotient * 3 / 10);
 
-		LOG_INF(
-			"NOTICE: [%u] ID:%#x(sidx:%u), #%u/#%u(m_idx:%u), predict flk operation, original adjust_diff:%lld, flk_diff:%u, flk_ratio:3/10, quotient:%lld\n",
-			s_idx,
-			fs_inst[s_idx].sensor_id,
-			fs_inst[s_idx].sensor_idx,
-			p_para_s->magic_num,
-			p_para_m->magic_num,
-			m_idx,
-			adjust_diff_s,
-			flk_diff,
-			quotient);
+		if (likely(complement_flk_diff < p_para_m->pure_min_fl_us)) {
+			LOG_INF(
+				"NOTICE: [%u] ID:%#x(sidx:%u), #%u/#%u(m_idx:%u), predict flk operation, complement flk_diff:%u (original adjust_diff:%lld, flk_diff:%u, flk_ratio:3/10, quotient:%lld, m_pure_min_fl_us:%u)\n",
+				s_idx,
+				fs_inst[s_idx].sensor_id,
+				fs_inst[s_idx].sensor_idx,
+				p_para_s->magic_num,
+				p_para_m->magic_num,
+				m_idx,
+				complement_flk_diff,
+				adjust_diff_s,
+				flk_diff,
+				quotient,
+				p_para_m->pure_min_fl_us);
+		} else {
+			LOG_MUST(
+				"ERROR: [%u] ID:%#x(sidx:%u), #%u/#%u(m_idx:%u), predict flk operation, complement flk_diff:%u unreasonable => not apply (original adjust_diff:%lld, flk_diff:%u, flk_ratio:3/10, quotient:%lld, m_pure_min_fl_us:%u)\n",
+				s_idx,
+				fs_inst[s_idx].sensor_id,
+				fs_inst[s_idx].sensor_idx,
+				p_para_s->magic_num,
+				p_para_m->magic_num,
+				m_idx,
+				complement_flk_diff,
+				adjust_diff_s,
+				flk_diff,
+				quotient,
+				p_para_m->pure_min_fl_us);
 
-		adjust_diff_s += (long long)(flk_diff * quotient * 3 / 10);
+			complement_flk_diff = 0;
+		}
+
+		adjust_diff_s += (long long)(complement_flk_diff);
 	}
 
 	return adjust_diff_s;
@@ -2750,9 +2774,6 @@ void fs_alg_seamless_switch(const unsigned int idx,
 
 	/* prepare new dynamic para */
 	fs_alg_sa_init_new_ctrl(p_sa_cfg, &para);
-	para.stable_fl_us = convert2TotalTime(
-		p_seamless_info->seamless_pf_ctrl.lineTimeInNs,
-		p_seamless_info->seamless_pf_ctrl.out_fl_lc);
 
 	/* get Vsync data by Frame Monitor */
 	fs_alg_sa_get_timestamp_info(idx, &para);

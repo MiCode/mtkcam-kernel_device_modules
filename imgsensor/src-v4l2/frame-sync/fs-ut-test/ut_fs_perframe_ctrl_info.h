@@ -356,6 +356,69 @@ struct fs_perframe_st imx516_sensor_mode[] = {
 };
 
 
+struct fs_perframe_st ov64b_sensor_mode[] = {
+	/* Head */
+	{
+		.sensor_idx = 0,
+		.sensor_id = 0x64,
+		.min_fl_lc = US_TO_LC(33350, 4584),
+		// .shutter_lc = 0,
+		.hdr_exp.mode_exp_cnt = 3,
+		.hdr_exp.ae_exp_cnt = 3,
+		.hdr_exp.exp_lc = {
+			US_TO_LC(10002, 4584),
+			US_TO_LC(5000, 4584),
+			US_TO_LC(2500, 4584),
+			0,
+			0
+		},
+		.hdr_exp.readout_len_lc = 5208,
+		.hdr_exp.read_margin_lc = 30,
+		.flicker_en = 0,
+		.pclk = 115200000,
+		.linelength = 528,
+		.margin_lc = 24,
+		.lineTimeInNs = 4584,
+	},
+
+	{
+		.sensor_idx = 0,
+		.sensor_id = 0x64,
+		.min_fl_lc = US_TO_LC(33350, 4584),
+		// .shutter_lc = 0,
+		.hdr_exp.mode_exp_cnt = 2,
+		.hdr_exp.ae_exp_cnt = 2,
+		.hdr_exp.exp_lc = {
+			US_TO_LC(10002, 4584),
+			US_TO_LC(2500, 4584),
+			0,
+			0,
+			0
+		},
+		.hdr_exp.readout_len_lc = 5208,
+		.hdr_exp.read_margin_lc = 20,
+		.flicker_en = 0,
+		.pclk = 115200000,
+		.linelength = 528,
+		.margin_lc = 24,
+		.lineTimeInNs = 4584,
+	},
+
+	/* End */
+	{
+		.sensor_idx = -1,
+		.sensor_id = 0x0,
+		.min_fl_lc = 0,
+		.shutter_lc = 0,
+		.flicker_en = 0,
+		.pclk = 0,
+		.linelength = 0,
+		.margin_lc = 0,
+		.lineTimeInNs = 0,
+	},
+};
+
+
 /******************************************************************************/
 struct ut_fs_perframe_sensor_mode_list ut_fs_pf_s_mode_list[] = {
 	/* Head */
@@ -377,6 +440,16 @@ struct ut_fs_perframe_sensor_mode_list ut_fs_pf_s_mode_list[] = {
 	{
 		.sensor_name = "imx766",
 		.mode_list = imx766_sensor_mode,
+	},
+
+	{
+		.sensor_name = "imx516",
+		.mode_list = imx516_sensor_mode,
+	},
+
+	{
+		.sensor_name = "ov64b",
+		.mode_list = ov64b_sensor_mode,
 	},
 
 	/* End */

@@ -99,7 +99,6 @@ enum fs_timestamp_src_type {
 
 #endif // SUPPORT_FS_NEW_METHOD
 
-#if defined(SUPPORT_FS_NEW_METHOD)
 #ifdef FS_UT
 #include <stdatomic.h>
 #define FS_Atomic_T atomic_int
@@ -121,7 +120,6 @@ enum fs_timestamp_src_type {
 #define FS_ATOMIC_XCHG(n, p)      (atomic_xchg((p), (n)))
 #define FS_ATOMIC_CMPXCHG(n, m, p) (atomic_cmpxchg((p), (n), (m)) == (n))
 #endif // FS_UT
-#endif // SUPPORT_FS_NEW_METHOD
 
 
 /*
@@ -131,10 +129,11 @@ enum fs_timestamp_src_type {
 #define likely(x)          (__builtin_expect((x), 1))
 #define unlikely(x)        (__builtin_expect((x), 0))
 #define FS_POPCOUNT(n)     (__builtin_popcount(n))
-#define FS_SPIN_LOCK(p)
-#define FS_SPIN_UNLOCK(p)
-#define FS_MUTEX_LOCK(p)   (pthread_mutex_lock(p))
-#define FS_MUTEX_UNLOCK(p) (pthread_mutex_unlock(p))
+#define fs_spin_init(p)
+#define fs_spin_lock(p)
+#define fs_spin_unlock(p)
+#define fs_mutex_lock(p)
+#define fs_mutex_unlock(p)
 #define FS_CALLOC(LEN, T)  (calloc((LEN), (T)))
 #define FS_DEV_ZALLOC(dev, T)    (calloc((1), (T)))
 #define FS_DEV_CALLOC(dev, n, T) (calloc((n), (T)))
@@ -153,16 +152,19 @@ enum fs_timestamp_src_type {
 })
 
 #else
+
 #define FS_POPCOUNT(n)     (hweight32(n))
-#define FS_SPIN_LOCK(p)    (spin_lock(p))
-#define FS_SPIN_UNLOCK(p)  (spin_unlock(p))
-#define FS_MUTEX_LOCK(p)   (mutex_lock(p))
-#define FS_MUTEX_UNLOCK(p) (mutex_unlock(p))
+#define fs_spin_init(p)    (spin_lock_init(p))
+#define fs_spin_lock(p)    (spin_lock(p))
+#define fs_spin_unlock(p)  (spin_unlock(p))
+#define fs_mutex_lock(p)   (mutex_lock(p))
+#define fs_mutex_unlock(p) (mutex_unlock(p))
 #define FS_CALLOC(LEN, T)  (kcalloc((LEN), (T), (GFP_ATOMIC)))
 #define FS_DEV_ZALLOC(dev, T)    (devm_kzalloc((dev), (T), GFP_ATOMIC))
 #define FS_DEV_CALLOC(dev, n, T) (devm_kcalloc((dev), (n), (T), GFP_ATOMIC))
 #define FS_FREE(buf)       (kfree(buf))
 #endif // FS_UT
+
 
 #define FS_CHECK_BIT(n, p)    (check_bit_atomic((n), (p)))
 #define FS_WRITE_BIT(n, i, p) (write_bit_atomic((n), (i), (p)))

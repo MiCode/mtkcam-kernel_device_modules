@@ -28,7 +28,7 @@ extern spinlock_t fs_log_concurrency_lock;
 /******************************************************************************/
 // Log message
 /******************************************************************************/
-#define LOG_BUF_STR_LEN 1024
+#define LOG_BUF_STR_LEN 2048
 
 #ifdef FS_UT
 #include <stdio.h>

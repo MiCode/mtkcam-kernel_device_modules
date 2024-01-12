@@ -28,6 +28,12 @@
 #endif
 
 
+enum predicted_fl_label {
+	PREDICT_NEXT_FL = 0,
+	PREDICT_STABLE_FL,
+};
+
+
 /*----------------------------------------------------------------------------*/
 /*
  * when the sensor mode's exp cnt is larger then 1 !!!
@@ -195,8 +201,8 @@ void frec_get_predicted_frame_length_info(const unsigned int idx,
 	const char *caller);
 
 unsigned int frec_g_valid_min_fl_lc_for_shutters_by_frame_rec(
-	const unsigned int idx,
-	const struct FrameRecord *curr_rec, const unsigned int min_fl_lc);
+	const unsigned int idx, const struct FrameRecord *curr_rec,
+	const unsigned int min_fl_lc, const enum predicted_fl_label label);
 /*----------------------------------------------------------------------------*/
 
 

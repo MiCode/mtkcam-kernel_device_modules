@@ -697,6 +697,74 @@ struct ut_fs_test_sensor_cfg sensor_cfg_16[] = {
 		.mode = NULL,
 	}
 };
+
+
+/* FL_act_delay : STG-3-exp(N+1) with Normal(N+1) */
+struct ut_fs_test_sensor_cfg sensor_cfg_17[] = {
+	{
+		.sensor_name = "ov64b",
+		.sensor_idx = 0,
+		.tg = 2,
+		.sensor = &ov64b,
+		.mode = ov64b_sensor_mode,
+		.mode_idx = 0, // 3-exp
+		//.first_vts_value = 100000,
+		.first_vts_value = 105000,
+	},
+
+	{
+		.sensor_name = "s5k3m5sx",
+		.sensor_idx = 2,
+		.tg = 1,
+		.sensor = &s5k3m5sx,
+		.mode = s5k3m5sx_sensor_mode,
+		.mode_idx = 0,
+		//.first_vts_value = 110000,
+		.first_vts_value = 100000,
+	},
+
+	/* End */
+	{
+		.sensor_idx = 255,
+		.tg = 255,
+		.sensor = NULL,
+		.mode = NULL,
+	}
+};
+
+
+/* FL_act_delay : STG-2-exp(N+1) with Normal(N+1) */
+struct ut_fs_test_sensor_cfg sensor_cfg_18[] = {
+	{
+		.sensor_name = "ov64b",
+		.sensor_idx = 0,
+		.tg = 2,
+		.sensor = &ov64b,
+		.mode = ov64b_sensor_mode,
+		.mode_idx = 1, // 2-exp
+		//.first_vts_value = 100000,
+		.first_vts_value = 105000,
+	},
+
+	{
+		.sensor_name = "s5k3m5sx",
+		.sensor_idx = 2,
+		.tg = 1,
+		.sensor = &s5k3m5sx,
+		.mode = s5k3m5sx_sensor_mode,
+		.mode_idx = 0,
+		//.first_vts_value = 110000,
+		.first_vts_value = 100000,
+	},
+
+	/* End */
+	{
+		.sensor_idx = 255,
+		.tg = 255,
+		.sensor = NULL,
+		.mode = NULL,
+	}
+};
 /******************************************************************************/
 
 
@@ -1317,6 +1385,54 @@ struct ut_fs_test_list test_list[] = {
 		.sync_type = {1, 1},
 		.sensor_cfg = sensor_cfg_16,
 		.env_cfg = &env_cfg_05,
+	},
+
+	{
+		/* 29 */
+		.test_name =
+			"STG 3-exp-LE N+1 / Normal N+1, per-frame CTRL (NO lock exp / NO lock flk)",
+		.auto_test_must_run = 1,
+		.sync_type = {FS_SYNC_TYPE_LE|FS_SYNC_TYPE_VSYNC, 1},
+		.sensor_cfg = sensor_cfg_17,
+		.env_cfg = &env_cfg_01,
+	},
+
+	{
+		/* 30 */
+		.test_name =
+#if !defined(FORCE_ADJUST_SMALLER_DIFF)
+			"STG 3-exp-SE N+1 / Normal N+1, per-frame CTRL (LOCK exp-40005us / NO lock flk)",
+#else
+			"STG 3-exp-SE N+1 / Normal N+1, per-frame CTRL (LOCK exp-10002us / NO lock flk)",
+#endif // FORCE_ADJUST_SMALLER_DIFF
+		.auto_test_must_run = 1,
+		.sync_type = {FS_SYNC_TYPE_SE|FS_SYNC_TYPE_VSYNC, 1},
+		.sensor_cfg = sensor_cfg_17,
+#if !defined(FORCE_ADJUST_SMALLER_DIFF)
+		.env_cfg = &env_cfg_04,
+#else
+		.env_cfg = &env_cfg_05,
+#endif // FORCE_ADJUST_SMALLER_DIFF
+	},
+
+	{
+		/* 31 */
+		.test_name =
+			"STG 2-exp-LE N+1 / Normal N+1, per-frame CTRL (NO lock exp / NO lock flk)",
+		.auto_test_must_run = 1,
+		.sync_type = {FS_SYNC_TYPE_LE|FS_SYNC_TYPE_VSYNC, 1},
+		.sensor_cfg = sensor_cfg_18,
+		.env_cfg = &env_cfg_01,
+	},
+
+	{
+		/* 32 */
+		.test_name =
+			"STG 2-exp-SE N+1 / Normal N+1, per-frame CTRL (LOCK exp-40005us / NO lock flk)",
+		.auto_test_must_run = 1,
+		.sync_type = {FS_SYNC_TYPE_SE|FS_SYNC_TYPE_VSYNC, 1},
+		.sensor_cfg = sensor_cfg_18,
+		.env_cfg = &env_cfg_04,
 	},
 
 	/* NOT per-frame CTRL case (auto test not must run) */

@@ -84,6 +84,9 @@ void fs_alg_set_preset_perframe_streaming_st_data(const unsigned int idx,
 	struct fs_streaming_st *p_stream_data,
 	struct fs_perframe_st *p_pf_ctrl_data);
 
+void fs_alg_sa_update_dynamic_infos(const unsigned int idx,
+	const unsigned int is_pf_ctrl);
+
 void fs_alg_set_debug_info_sof_cnt(const unsigned int idx,
 	const unsigned int sof_cnt);
 

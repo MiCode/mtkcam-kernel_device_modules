@@ -782,6 +782,7 @@ void reset(struct mtk_raw_device *dev)
 		dev_info(dev->dev, "%s: error: reset timeout!\n",
 			 __func__);
 		dump_dma_soft_rst_stat(dev);
+		mtk_smi_dbg_hang_detect("camsys-raw");
 		goto RESET_FAILURE;
 	}
 

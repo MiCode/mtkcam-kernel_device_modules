@@ -1543,8 +1543,7 @@ static void fs_sa_update_async_master_idx(const unsigned int idx,
 	/* case handling */
 	/* --- check user input value is valid or not */
 	if (unlikely((user_async_m_sidx != MASTER_IDX_NONE)
-		&& (user_async_m_sidx < 0
-			|| user_async_m_sidx >= SENSOR_MAX_NUM))) {
+			&& (user_async_m_sidx < 0))) {
 		LOG_MUST(
 			"[%u] ERROR: ID:%#x(sidx:%u), invalid user_async_master_sidx:%d value, return\n",
 			idx,

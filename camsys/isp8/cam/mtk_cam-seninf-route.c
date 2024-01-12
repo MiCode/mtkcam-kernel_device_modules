@@ -125,8 +125,12 @@ void mtk_cam_seninf_alloc_outmux(struct seninf_ctx *ctx)
 enum CAM_TYPE_ENUM outmux2camtype(struct seninf_ctx *ctx, int outmux)
 {
 	struct seninf_core *core = ctx->core;
+	enum CAM_TYPE_ENUM ret = TYPE_CAMSV;
 
-	return core->outmux[outmux].cam_type;
+	if (outmux >= 0 && outmux < SENINF_OUTMUX_NUM)
+		ret = core->outmux[outmux].cam_type;
+
+	return ret;
 }
 
 static int cammux_tag_2_fsync_target_id(struct seninf_ctx *ctx, int cammux, int tag)
@@ -1264,11 +1268,17 @@ int mtk_cam_seninf_set_pixelmode(struct v4l2_subdev *sd,
 {
 	struct seninf_ctx *ctx = container_of(sd, struct seninf_ctx, subdev);
 	struct seninf_core *core;
-	int first_raw_outmux = 0;
+	struct seninf_vc *vc;
+	int dest_outmux;
 	int i;
 
 	if (ctx == NULL) {
 		pr_info("%s [ERROR] ctx is NULL\n", __func__);
+		return -EINVAL;
+	}
+
+	if (ctx->streaming) {
+		seninf_logi(ctx, "Unsupport to change in streaming state");
 		return -EINVAL;
 	}
 
@@ -1278,15 +1288,26 @@ int mtk_cam_seninf_set_pixelmode(struct v4l2_subdev *sd,
 		return -EINVAL;
 	}
 
-	for (i = 0; i < SENINF_OUTMUX_NUM; i++) {
-		if (core->outmux[i].cam_type == TYPE_RAW) {
-			first_raw_outmux = i;
-			break;
+	vc = mtk_cam_seninf_get_vc_by_pad(ctx, pad_id);
+	if (!vc) {
+		dev_info(ctx->dev, "no such vc by pad id:%d\n", pad_id);
+		return -EINVAL;
+	}
+
+	for (i = 0; i < vc->dest_cnt; i++) {
+		dest_outmux = ctx->pad2cam[pad_id][i];
+
+		// Only available for raw and mraw in stream off state
+		if (outmux2camtype(ctx, dest_outmux) != TYPE_CAMSV) {
+			vc->dest[i].pix_mode = pixelMode;
+			dev_info(ctx->dev, "%s update pixel mode %d for cam %d\n",
+				__func__,
+				vc->dest[i].pix_mode,
+				dest_outmux);
 		}
 	}
 
-	return mtk_cam_seninf_set_pixelmode_camsv(
-				sd, pad_id, pixelMode, first_raw_outmux);
+	return 0;
 }
 
 static int mtk_cam_seninf_outmux_switch(struct seninf_ctx *ctx, struct outmux_cfg *cfg)

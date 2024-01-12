@@ -1896,17 +1896,25 @@ static void fs_alg_sa_pre_set_dynamic_paras(const unsigned int idx,
 	/* sync current settings */
 	fs_alg_sa_sync_settings_for_dynamic_paras(idx, p_para);
 
+	/* init FL info */
+	p_para->pure_min_fl_us = (fl_us * f_cell);
+	p_para->min_fl_us = (fl_us * f_cell);
 	p_para->target_min_fl_us = (fl_us * f_cell);
+	p_para->stable_fl_us = fl_us;
+	p_para->out_fl_us_init = fl_us;
+
 	fs_alg_sa_update_fl_us(idx, fl_us, p_para);
 	fs_alg_sa_get_timestamp_info(idx, p_para);
 
 	LOG_MUST(
-		"NOTICE: #%u, out_fl:%u(%u), frec(0:%u/%u), %u, pr_fl(c:%u(%u)/n:%u(%u)), ts_bias(exp:%u/tag:%u(%u/%u)), delta:%u(fdelay:%u), tg:%u, ts(%llu/%llu/%u)\n",
+		"NOTICE: #%u, fl:(p_min:%u/min:%u/target_min:%u/o:%u,%u/s:%u), frec(0:%u/%u), %u, pr_fl(c:%u(%u)/n:%u(%u)), ts_bias(exp:%u/tag:%u(%u/%u)), delta:%u(fdelay:%u), tg:%u, ts(%llu/%llu/%u)\n",
 		p_para->magic_num,
+		p_para->pure_min_fl_us,
+		p_para->min_fl_us,
+		p_para->target_min_fl_us,
+		p_para->out_fl_us,
+		p_para->out_fl_us_init,
 		p_para->stable_fl_us,
-		convert2LineCount(
-			fs_inst[idx].lineTimeInNs,
-			p_para->stable_fl_us),
 		fs_inst[idx].p_frecs[0]->framelength_lc,
 		fs_inst[idx].p_frecs[0]->shutter_lc,
 		fs_inst[idx].lineTimeInNs,

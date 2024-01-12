@@ -1044,10 +1044,12 @@ int mtk_cam_sv_dev_config(struct mtk_camsv_device *sv_dev,
 	sv_dev->sof_count = 0;
 	sv_dev->tg_cnt = 0;
 
+	atomic_set(&sv_dev->is_seamless, 0);
+
 	mtk_cam_sv_dmao_common_config(sv_dev, 0, 0, 0, 0);
 	mtk_cam_sv_cq_config(sv_dev, sub_ratio);
 
-	dev_info(sv_dev->dev, "[%s] sub_ratio:%d\n", __func__, sub_ratio);
+	dev_info(sv_dev->dev, "[%s] sub_ratio:%d set seamless check\n", __func__, sub_ratio);
 
 	return 0;
 }
@@ -1400,8 +1402,13 @@ void camsv_handle_err(
 		dev_info_ratelimited(sv_dev->dev, "camsv dma fifo full\n");
 		mtk_cam_seninf_dump_current_status(ctx->seninf);
 		mtk_smi_dbg_hang_detect("camsys-camsv");
-		mtk_cam_ctrl_dump_request(sv_dev->cam, CAMSYS_ENGINE_CAMSV, sv_dev->id,
-			frame_idx_inner, MSG_CAMSV_ERROR);
+
+		if (atomic_read(&sv_dev->is_seamless))
+			mtk_cam_ctrl_dump_request(sv_dev->cam, CAMSYS_ENGINE_CAMSV, sv_dev->id,
+				frame_idx_inner, MSG_CAMSV_SEAMLESS_ERROR);
+		else
+			mtk_cam_ctrl_dump_request(sv_dev->cam, CAMSYS_ENGINE_CAMSV, sv_dev->id,
+				frame_idx_inner, MSG_CAMSV_ERROR);
 
 		mtk_cam_ctrl_notify_hw_hang(sv_dev->cam,
 					    CAMSYS_ENGINE_CAMSV, sv_dev->id,

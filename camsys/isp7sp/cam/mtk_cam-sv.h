@@ -195,6 +195,8 @@ struct mtk_camsv_device {
 
 	/* for backup/restore in recovery flow */
 	struct mtk_camsv_backup_setting backup_setting;
+
+	atomic_t is_seamless;
 };
 
 void sv_reset(struct mtk_camsv_device *sv_dev);

@@ -1647,6 +1647,11 @@ static int _apply_sv_cq(struct mtk_cam_job *job,
 
 	sv_dev = dev_get_drvdata(cam->engines.sv_devs[sv_dev_id]);
 
+	if (job->seamless_switch)
+		atomic_set(&sv_dev->is_seamless, 1);
+	else
+		atomic_set(&sv_dev->is_seamless, 0);
+
 	apply_camsv_cq(sv_dev,
 		       cq->daddr,
 		       cq_rst->camsv[0].size,

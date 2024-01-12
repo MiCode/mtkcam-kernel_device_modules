@@ -4669,8 +4669,6 @@ static int update_sv_image_buf_to_ipi_frame(struct req_buffer_helper *helper,
 		ret = fill_sv_ext_img_buffer_to_ipi_frame_display_ic(helper, buf, node);
 		break;
 	case MTK_RAW_META_SV_OUT_0:
-	case MTK_RAW_META_SV_OUT_1:
-	case MTK_RAW_META_SV_OUT_2:
 		ret = fill_sv_ext_img_buffer_to_ipi_frame_extisp(helper, buf, node);
 		break;
 	default:
@@ -4794,8 +4792,6 @@ static int update_raw_meta_buf_to_ipi_frame(struct req_buffer_helper *helper,
 
 	switch (node->desc.id) {
 	case MTK_RAW_META_SV_OUT_0:
-	case MTK_RAW_META_SV_OUT_1:
-	case MTK_RAW_META_SV_OUT_2:
 		ret = update_sv_image_buf_to_ipi_frame(helper,
 							buf, node, NULL);
 		WARN_ON(ret);

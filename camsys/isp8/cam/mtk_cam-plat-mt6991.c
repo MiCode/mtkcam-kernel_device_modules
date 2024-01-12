@@ -739,6 +739,32 @@ static int query_icc_path_idx(int domain, int smi_port)
 	else
 		return map_raw_icc_path(smi_port);
 }
+static u8 vb2_queues_support_list[] = {
+	/* capture queues */
+	MTK_RAW_MAIN_STREAM_OUT,
+	MTK_RAW_PURE_RAW_OUT,
+	MTK_RAW_YUVO_1_OUT,
+	MTK_RAW_YUVO_2_OUT,
+	MTK_RAW_YUVO_3_OUT,
+	MTK_RAW_YUVO_4_OUT,
+	MTK_RAW_YUVO_5_OUT,
+	MTK_RAW_DRZH2NO_1_OUT,
+	MTK_RAW_DRZS4NO_3_OUT,
+	MTK_RAW_DRZH1NO_1_OUT,
+	MTK_RAW_RZH1N2TO_2_OUT,
+	MTK_RAW_DRZH1NO_3_OUT,
+	MTK_RAW_DRZB2NO_1_OUT,
+	MTK_RAW_IPU_OUT,
+	MTK_RAW_META_OUT_0,
+	MTK_RAW_META_OUT_1,
+	MTK_RAW_META_SV_OUT_0,
+	MTK_RAW_META_GMPO_OUT,
+	MTK_RAW_META_GRMGO_OUT,
+	/* output queues*/
+	MTK_RAW_META_IN,
+	MTK_RAW_RAWI_2_IN,
+	MTK_RAW_GRMGI_IN,
+};
 
 static const struct plat_v4l2_data mt6991_v4l2_data = {
 	.raw_pipeline_num = 3,
@@ -761,6 +787,9 @@ static const struct plat_v4l2_data mt6991_v4l2_data = {
 					  timestamp),
 
 	.reserved_camsv_dev_id = 3,
+
+	.vb2_queues_support_list = vb2_queues_support_list,
+	.vb2_queues_support_list_num = ARRAY_SIZE(vb2_queues_support_list),
 
 	.set_meta_stats_info = set_meta_stats_info,
 	.get_meta_stats_port_size = get_meta_stats_port_size,

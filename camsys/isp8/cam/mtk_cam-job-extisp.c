@@ -179,28 +179,6 @@ int get_extisp_meta_info(struct mtk_cam_job *job, int pad_src)
 				result.exp_hsize, result.exp_vsize,
 				img_fmt->fmt.meta.buffersize);
 		}
-		if (pad_src == PAD_SRC_RAW0) {
-			vdev_id = MTK_RAW_MAIN_STREAM_SV_1_OUT - MTK_RAW_SINK_NUM;
-			img_fmt = &ctx->cam->pipelines.raw[ctx->raw_subdev_idx]
-				.vdev_nodes[vdev_id].active_fmt;
-			if (img_fmt->fmt.pix_mp.width != result.exp_hsize ||
-				img_fmt->fmt.pix_mp.height != result.exp_vsize) {
-				result.exp_hsize = 0;
-				result.exp_vsize = 0;
-			}
-			dev_info(ctx->cam->dev, "[%s:PAD_SRC_RAW0] vdev_nodes:%d, w/h/size:%d/%d/%d\n",
-				__func__, vdev_id,
-				img_fmt->fmt.pix_mp.width, img_fmt->fmt.pix_mp.height,
-				img_fmt->fmt.pix_mp.width * img_fmt->fmt.pix_mp.height);
-		}
-		if (pad_src == PAD_SRC_RAW_EXT0) {
-			vdev_id = MTK_RAW_MAIN_STREAM_SV_1_OUT - MTK_RAW_SINK_NUM;
-			dev_info(ctx->cam->dev, "[%s:PAD_SRC_RAW_EXT0] vdev_nodes:%d, w/h/size:%d/%d/%d\n",
-				__func__, vdev_id,
-				result.exp_hsize, result.exp_vsize,
-				result.exp_hsize * result.exp_vsize);
-			job->extisp_data |= BIT(EXTISP_DATA_PROCRAW);
-		}
 		return result.exp_hsize * result.exp_vsize;
 	}
 	return CAMSV_EXT_META_0_WIDTH * CAMSV_EXT_META_0_HEIGHT;

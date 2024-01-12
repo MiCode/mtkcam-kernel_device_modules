@@ -2017,6 +2017,14 @@ static struct mtk_cam_format_desc meta_ext_fmts[] = {
 		},
 	},
 };
+static struct mtk_cam_format_desc meta_gmp_fmts[] = {
+	{
+		.vfmt.fmt.meta = {
+			.dataformat = V4L2_META_FMT_MTISP_3A,
+			.buffersize = 0,
+		},
+	},
+};
 
 static struct mtk_cam_format_desc stream_out_fmts[] = {
 	/* This is a default image format */
@@ -2982,7 +2990,7 @@ static const struct mtk_cam_format_desc ipu_out_fmts[] = {
 	}
 };
 
-#define MTK_RAW_TOTAL_OUTPUT_QUEUES 2
+#define MTK_RAW_TOTAL_OUTPUT_QUEUES 3
 
 static const struct
 mtk_cam_dev_node_desc output_queues[] = {
@@ -3031,19 +3039,36 @@ mtk_cam_dev_node_desc output_queues[] = {
 			},
 		},
 	},
+	{
+		.id = MTK_RAW_GRMGI_IN,
+		.name = "grmgi",
+		.cap = V4L2_CAP_META_OUTPUT,
+		.buf_type = V4L2_BUF_TYPE_META_OUTPUT,
+		.link_flags = MEDIA_LNK_FL_ENABLED |  MEDIA_LNK_FL_IMMUTABLE,
+		.image = false,
+#ifdef CONFIG_MTK_SCP
+		.smem_alloc = true,
+#else
+		.smem_alloc = false,
+#endif
+		.dma_port = MTKCAM_IPI_RAW_META_STATS_CFG, // fixme
+		.fmts = meta_gmp_fmts,
+		.num_fmts = ARRAY_SIZE(meta_gmp_fmts),
+		.default_fmt_idx = 0,
+		.max_buf_count = 16,
+		.ioctl_ops = &mtk_cam_v4l2_meta_out_ioctl_ops,
+	},
 };
 
 static const char *output_queue_names[RAW_PIPELINE_NUM][MTK_RAW_TOTAL_OUTPUT_QUEUES] = {
-	{"mtk-cam raw-0 meta-input", "mtk-cam raw-0 rawi-2"},
-	{"mtk-cam raw-1 meta-input", "mtk-cam raw-1 rawi-2"},
-	{"mtk-cam raw-2 meta-input", "mtk-cam raw-2 rawi-2"},
+	{"mtk-cam raw-0 meta-input", "mtk-cam raw-0 rawi-2", "mtk-cam raw-0 grmgi"},
+	{"mtk-cam raw-1 meta-input", "mtk-cam raw-1 rawi-2", "mtk-cam raw-1 grmgi"},
+	{"mtk-cam raw-2 meta-input", "mtk-cam raw-2 rawi-2", "mtk-cam raw-2 grmgi"},
 };
 
-#ifndef PREISP
-#define MTK_RAW_TOTAL_CAPTURE_QUEUES 16 //todo :check backend node size
-#else
-#define MTK_RAW_TOTAL_CAPTURE_QUEUES 21 //todo :check backend node size
-#endif
+
+#define MTK_RAW_TOTAL_CAPTURE_QUEUES 19 //todo :check backend node size
+
 static const struct
 mtk_cam_dev_node_desc capture_queues[] = {
 	{
@@ -3229,8 +3254,8 @@ mtk_cam_dev_node_desc capture_queues[] = {
 		},
 	},
 	{
-		.id = MTK_RAW_DRZS4NO_1_OUT,
-		.name = "drzs4no 1",
+		.id = MTK_RAW_DRZH2NO_1_OUT,
+		.name = "drzh2no 1",
 		.cap = V4L2_CAP_VIDEO_CAPTURE_MPLANE,
 		.buf_type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE,
 		.link_flags = MEDIA_LNK_FL_ENABLED |  MEDIA_LNK_FL_IMMUTABLE,
@@ -3281,8 +3306,8 @@ mtk_cam_dev_node_desc capture_queues[] = {
 		},
 	},
 	{
-		.id = MTK_RAW_RZH1N2TO_1_OUT,
-		.name = "rzh1n2to 1",
+		.id = MTK_RAW_DRZH1NO_1_OUT,
+		.name = "drzh1no 1",
 		.cap = V4L2_CAP_VIDEO_CAPTURE_MPLANE,
 		.buf_type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE,
 		.link_flags = MEDIA_LNK_FL_ENABLED |  MEDIA_LNK_FL_IMMUTABLE,
@@ -3333,8 +3358,8 @@ mtk_cam_dev_node_desc capture_queues[] = {
 		},
 	},
 	{
-		.id = MTK_RAW_RZH1N2TO_3_OUT,
-		.name = "rzh1n2to 3",
+		.id = MTK_RAW_DRZH1NO_3_OUT,
+		.name = "drzh1no 3",
 		.cap = V4L2_CAP_VIDEO_CAPTURE_MPLANE,
 		.buf_type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE,
 		.link_flags = MEDIA_LNK_FL_ENABLED |  MEDIA_LNK_FL_IMMUTABLE,
@@ -3411,58 +3436,6 @@ mtk_cam_dev_node_desc capture_queues[] = {
 		},
 	},
 	{
-		.id = MTK_RAW_MAIN_STREAM_SV_1_OUT,
-		.name = "sv imgo 1",
-		.cap = V4L2_CAP_VIDEO_CAPTURE_MPLANE,
-		.buf_type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE,
-		.link_flags = MEDIA_LNK_FL_ENABLED |  MEDIA_LNK_FL_IMMUTABLE,
-		.image = true,
-		.smem_alloc = false,
-		.dma_port = MTKCAM_IPI_CAMSV_MAIN_OUT,
-		.fmts = stream_out_fmts,
-		.num_fmts = ARRAY_SIZE(stream_out_fmts),
-		.default_fmt_idx = 0,
-		.ioctl_ops = &mtk_cam_v4l2_vcap_ioctl_ops,
-		.frmsizes = &(struct v4l2_frmsizeenum) {
-			.index = 0,
-			.type = V4L2_FRMSIZE_TYPE_CONTINUOUS,
-			.stepwise = {
-				.max_width = IMG_MAX_WIDTH,
-				.min_width = IMG_MIN_WIDTH,
-				.max_height = IMG_MAX_HEIGHT,
-				.min_height = IMG_MIN_HEIGHT,
-				.step_height = 1,
-				.step_width = 1,
-			},
-		},
-	},
-	{
-		.id = MTK_RAW_MAIN_STREAM_SV_2_OUT,
-		.name = "sv imgo 2",
-		.cap = V4L2_CAP_VIDEO_CAPTURE_MPLANE,
-		.buf_type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE,
-		.link_flags = MEDIA_LNK_FL_ENABLED |  MEDIA_LNK_FL_IMMUTABLE,
-		.image = true,
-		.smem_alloc = false,
-		.dma_port = MTKCAM_IPI_CAMSV_MAIN_OUT,
-		.fmts = stream_out_fmts,
-		.num_fmts = ARRAY_SIZE(stream_out_fmts),
-		.default_fmt_idx = 0,
-		.ioctl_ops = &mtk_cam_v4l2_vcap_ioctl_ops,
-		.frmsizes = &(struct v4l2_frmsizeenum) {
-			.index = 0,
-			.type = V4L2_FRMSIZE_TYPE_CONTINUOUS,
-			.stepwise = {
-				.max_width = IMG_MAX_WIDTH,
-				.min_width = IMG_MIN_WIDTH,
-				.max_height = IMG_MAX_HEIGHT,
-				.min_height = IMG_MIN_HEIGHT,
-				.step_height = 1,
-				.step_width = 1,
-			},
-		},
-	},
-	{
 		.id = MTK_RAW_META_OUT_0,
 		.name = "partial meta 0",
 		.cap = V4L2_CAP_META_CAPTURE,
@@ -3508,31 +3481,31 @@ mtk_cam_dev_node_desc capture_queues[] = {
 		.ioctl_ops = &mtk_cam_v4l2_meta_cap_ioctl_ops,
 	},
 	{
-		.id = MTK_RAW_META_SV_OUT_1,
-		.name = "external meta 1",
+		.id = MTK_RAW_META_GMPO_OUT,
+		.name = "gmpo",
 		.cap = V4L2_CAP_META_CAPTURE,
 		.buf_type = V4L2_BUF_TYPE_META_CAPTURE,
 		.link_flags = MEDIA_LNK_FL_ENABLED |  MEDIA_LNK_FL_IMMUTABLE,
 		.image = false,
 		.smem_alloc = false,
-		.dma_port = MTKCAM_IPI_CAMSV_MAIN_OUT,
-		.fmts = meta_ext_fmts,
-		.num_fmts = ARRAY_SIZE(meta_ext_fmts),
+		.dma_port = MTKCAM_IPI_RAW_META_STATS_0,
+		.fmts = meta_gmp_fmts,
+		.num_fmts = ARRAY_SIZE(meta_gmp_fmts),
 		.default_fmt_idx = 0,
 		.max_buf_count = 16,
 		.ioctl_ops = &mtk_cam_v4l2_meta_cap_ioctl_ops,
 	},
 	{
-		.id = MTK_RAW_META_SV_OUT_2,
-		.name = "external meta 2",
+		.id = MTK_RAW_META_GRMGO_OUT,
+		.name = "grmgo",
 		.cap = V4L2_CAP_META_CAPTURE,
 		.buf_type = V4L2_BUF_TYPE_META_CAPTURE,
 		.link_flags = MEDIA_LNK_FL_ENABLED |  MEDIA_LNK_FL_IMMUTABLE,
 		.image = false,
 		.smem_alloc = false,
-		.dma_port = MTKCAM_IPI_CAMSV_MAIN_OUT,
-		.fmts = meta_ext_fmts,
-		.num_fmts = ARRAY_SIZE(meta_ext_fmts),
+		.dma_port = MTKCAM_IPI_RAW_META_STATS_0,
+		.fmts = meta_gmp_fmts,
+		.num_fmts = ARRAY_SIZE(meta_gmp_fmts),
 		.default_fmt_idx = 0,
 		.max_buf_count = 16,
 		.ioctl_ops = &mtk_cam_v4l2_meta_cap_ioctl_ops,
@@ -3545,40 +3518,37 @@ static const char *capture_queue_names[RAW_PIPELINE_NUM][MTK_RAW_TOTAL_CAPTURE_Q
 	 "mtk-cam raw-0 yuvo-1", "mtk-cam raw-0 yuvo-2",
 	 "mtk-cam raw-0 yuvo-3", "mtk-cam raw-0 yuvo-4",
 	 "mtk-cam raw-0 yuvo-5",
-	 "mtk-cam raw-0 drzs4no-1", "mtk-cam raw-0 drzs4no-3",
-	 "mtk-cam raw-0 rzh1n2to-1", "mtk-cam raw-0 rzh1n2to-2", "mtk-cam raw-0 rzh1n2to-3",
+	 "mtk-cam raw-0 drzh2no-1", "mtk-cam raw-0 drzs4no-3",
+	 "mtk-cam raw-0 drzh1no-1", "mtk-cam raw-0 rzh1n2to-2", "mtk-cam raw-0 drzh1no-3",
 	 "mtk-cam raw-0 drzb2no-1",
 	 "mtk-cam raw-0 ipuo",
-	 "mtk-cam raw-0 sv-imgo-1", "mtk-cam raw-0 sv-imgo-2",
 	 "mtk-cam raw-0 partial-meta-0", "mtk-cam raw-0 partial-meta-1",
-	 "mtk-cam raw-0 ext-meta-0", "mtk-cam raw-0 ext-meta-1",
-	 "mtk-cam raw-0 ext-meta-2"},
+	 "mtk-cam raw-0 ext-meta-0",
+	 "mtk-cam raw-0 gmpo","mtk-cam raw-0 grmgo"},
 
 	{"mtk-cam raw-1 main-stream", "mtk-cam raw-1 pure-raw",
 	 "mtk-cam raw-1 yuvo-1", "mtk-cam raw-1 yuvo-2",
 	 "mtk-cam raw-1 yuvo-3", "mtk-cam raw-1 yuvo-4",
 	 "mtk-cam raw-1 yuvo-5",
-	 "mtk-cam raw-1 drzs4no-1", "mtk-cam raw-1 drzs4no-3",
-	 "mtk-cam raw-1 rzh1n2to-1", "mtk-cam raw-1 rzh1n2to-2", "mtk-cam raw-1 rzh1n2to-3",
+	 "mtk-cam raw-1 drzh2no-1", "mtk-cam raw-1 drzs4no-3",
+	 "mtk-cam raw-1 drzh1no-1", "mtk-cam raw-1 rzh1n2to-2", "mtk-cam raw-1 drzh1no-3",
 	 "mtk-cam raw-1 drzb2no-1",
 	 "mtk-cam raw-1 ipuo",
-	 "mtk-cam raw-1 sv-imgo-1", "mtk-cam raw-1 sv-imgo-2",
 	 "mtk-cam raw-1 partial-meta-0", "mtk-cam raw-1 partial-meta-1",
-	 "mtk-cam raw-1 ext-meta-0", "mtk-cam raw-1 ext-meta-1",
-	 "mtk-cam raw-1 ext-meta-2"},
+	 "mtk-cam raw-1 ext-meta-0",
+	 "mtk-cam raw-1 gmpo","mtk-cam raw-1 grmgo"},
 
 	{"mtk-cam raw-2 main-stream", "mtk-cam raw-2 pure-raw",
 	 "mtk-cam raw-2 yuvo-1", "mtk-cam raw-2 yuvo-2",
 	 "mtk-cam raw-2 yuvo-3", "mtk-cam raw-2 yuvo-4",
 	 "mtk-cam raw-2 yuvo-5",
-	 "mtk-cam raw-2 drzs4no-1", "mtk-cam raw-2 drzs4no-3",
-	 "mtk-cam raw-2 rzh1n2to-1", "mtk-cam raw-2 rzh1n2to-2", "mtk-cam raw-2 rzh1n2to-3",
+	 "mtk-cam raw-2 drzh2no-1", "mtk-cam raw-2 drzs4no-3",
+	 "mtk-cam raw-2 drzh1no-1", "mtk-cam raw-2 rzh1n2to-2", "mtk-cam raw-2 drzh1no-3",
 	 "mtk-cam raw-2 drzb2no-1",
 	 "mtk-cam raw-2 ipuo",
-	 "mtk-cam raw-2 sv-imgo-1", "mtk-cam raw-2 sv-imgo-2",
 	 "mtk-cam raw-2 partial-meta-0", "mtk-cam raw-2 partial-meta-1",
-	 "mtk-cam raw-2 ext-meta-0", "mtk-cam raw-2 ext-meta-1",
-	 "mtk-cam raw-2 ext-meta-2"},
+	 "mtk-cam raw-2 ext-meta-0",
+	 "mtk-cam raw-2 gmpo","mtk-cam raw-2 grmgo"},
 };
 
 static void update_platform_meta_size(struct mtk_cam_format_desc *fmts,
@@ -3645,7 +3615,8 @@ static void mtk_raw_pipeline_queue_setup(struct mtk_raw_pipeline *pipe)
 	//			  ARRAY_SIZE(meta_stats2_fmts), 0);
 	update_platform_meta_size(meta_ext_fmts,
 				  ARRAY_SIZE(meta_ext_fmts), 1);
-
+	update_platform_meta_size(meta_gmp_fmts,
+				  ARRAY_SIZE(meta_gmp_fmts), 1);
 	/* Setup the output queue */
 	for (i = 0; i < MTK_RAW_TOTAL_OUTPUT_QUEUES; i++) {
 		vdev = &pipe->vdev_nodes[node_idx];
@@ -3763,6 +3734,19 @@ static const struct v4l2_subdev_internal_ops mtk_raw_internal_ops = {
 	.open = mtk_raw_open,
 	.close = mtk_raw_close,
 };
+static bool check_vb2_queue_support(u8 id, u8 *vb2_q_support_list, int vb2_q_support_list_num)
+{
+	int i;
+	u8 id_chk;
+
+	for (i = 0; i < vb2_q_support_list_num; i++) {
+		id_chk = *(vb2_q_support_list + i);
+		if (id_chk == id)
+			return true;
+	}
+
+	return false;
+}
 
 static int mtk_raw_pipeline_register(const char *str, unsigned int id,
 				     struct mtk_raw_pipeline *pipe,
@@ -3772,6 +3756,8 @@ static int mtk_raw_pipeline_register(const char *str, unsigned int id,
 	struct mtk_cam_video_device *video;
 	int i;
 	int ret;
+	u8 *vb2_queue_support_list = GET_PLAT_V4L2(vb2_queues_support_list);
+	int vb2_queue_support_list_num = GET_PLAT_V4L2(vb2_queues_support_list_num);
 
 	pipe->id = id;
 
@@ -3809,7 +3795,9 @@ static int mtk_raw_pipeline_register(const char *str, unsigned int id,
 
 		video->uid.pipe_id = pipe->id;
 		video->uid.id = video->desc.dma_port;
-
+		if (!check_vb2_queue_support(video->desc.id, vb2_queue_support_list,
+			vb2_queue_support_list_num))
+			continue;
 		ret = mtk_cam_video_register(video, v4l2_dev);
 		if (ret)
 			goto fail_unregister_video;

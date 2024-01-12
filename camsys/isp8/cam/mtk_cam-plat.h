@@ -8,6 +8,8 @@
 
 #include <linux/types.h>
 #include <linux/media.h>
+#include <media/v4l2-subdev.h>
+#include "mtk_cam-raw_pads.h"
 
 enum mraw_dmao_id {
 	imgo_m1 = 0,
@@ -159,7 +161,8 @@ struct plat_v4l2_data {
 
 	int timestamp_buffer_ofst;
 	int reserved_camsv_dev_id;
-
+	u8 *vb2_queues_support_list;
+	int vb2_queues_support_list_num;
 	int (*set_meta_stats_info)(int ipi_id, void *addr, size_t size,
 				   const struct set_meta_stats_info_param *p);
 	int (*get_meta_stats_port_size)(int ipi_id, void *addr, int dma_port, int *size);

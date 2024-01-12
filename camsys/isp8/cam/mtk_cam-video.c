@@ -940,11 +940,11 @@ int mtk_cam_video_register(struct mtk_cam_video_device *video,
 			case MTK_RAW_YUVO_3_OUT:
 			case MTK_RAW_YUVO_4_OUT:
 			case MTK_RAW_YUVO_5_OUT:
-			case MTK_RAW_DRZS4NO_1_OUT:
+			case MTK_RAW_DRZH2NO_1_OUT:
 			case MTK_RAW_DRZS4NO_3_OUT:
-			case MTK_RAW_RZH1N2TO_1_OUT:
+			case MTK_RAW_DRZH1NO_1_OUT:
 			case MTK_RAW_RZH1N2TO_2_OUT:
-			case MTK_RAW_RZH1N2TO_3_OUT:
+			case MTK_RAW_DRZH1NO_3_OUT:
 				/* should have a better implementation here */
 				q->dev = cam->engines.yuv_devs[0];
 				break;
@@ -1206,8 +1206,6 @@ int mtk_cam_vidioc_g_meta_fmt(struct file *file, void *fh,
 
 	switch (node->desc.id) {
 	case MTK_RAW_META_SV_OUT_0:
-	case MTK_RAW_META_SV_OUT_1:
-	case MTK_RAW_META_SV_OUT_2:
 		node->active_fmt.fmt.meta.buffersize =
 				CAMSV_EXT_META_0_WIDTH * CAMSV_EXT_META_0_HEIGHT;
 		dev_dbg(cam->dev,

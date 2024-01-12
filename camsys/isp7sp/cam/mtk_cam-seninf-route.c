@@ -860,7 +860,7 @@ int mtk_cam_seninf_get_csi_param(struct seninf_ctx *ctx)
 	if (!ctx->sensor_sd)
 		return -EINVAL;
 
-	if (ctx->is_aov_real_sensor || core->aov_ut_debug_for_get_csi_param) {
+	if (ctx->is_aov_real_sensor) {
 		switch (core->aov_csi_clk_switch_flag) {
 		case CSI_CLK_52:
 		case CSI_CLK_65:

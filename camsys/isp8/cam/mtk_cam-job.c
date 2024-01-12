@@ -1545,9 +1545,40 @@ static int send_ipi_frame(struct mtk_cam_job *job,
 			 job->req->debug_str, ctx->stream_id, frame_seq_no);
 	return 0;
 }
+static void check_ipi_before_compose(struct mtk_cam_job *job)
+{
+	struct mtkcam_ipi_frame_param *fp;
+
+	fp = (struct mtkcam_ipi_frame_param *)job->ipi.vaddr;
+	if (job->job_state.compose_by_fsm != 1 ||
+		fp->cur_workbuf_size == 0 ||
+		job->ipi.size == 0) {
+		unsigned long raw_pipe_idx;
+
+		raw_pipe_idx = get_raw_subdev_idx(job->src_ctx->used_pipe);
+		dev_info(job->src_ctx->cam->dev, "[%s]:error: pipe/seq:%lu/%d\n",
+			__func__, raw_pipe_idx, job->req_seq);
+		if (raw_pipe_idx == -1)
+			return;
+		dev_info(job->src_ctx->cam->dev, "[%s]:error:%d/%d/%d 1st/s/2nd:%llu/%llu/%llu, ctx's data:%d/%d, req's data:%d/%d\n",
+			__func__, job->job_state.compose_by_fsm, fp->cur_workbuf_size, job->ipi.size,
+			job->local_enqueue_ts, job->local_apply_sensor_ts, job->local_enqueue_isp_ts,
+			job->src_ctx->ctrldata.req_info.req_type,
+			job->src_ctx->ctrldata.req_info.req_sync_id,
+			job->req->raw_data[raw_pipe_idx].ctrl.req_info.req_type,
+			job->req->raw_data[raw_pipe_idx].ctrl.req_info.req_sync_id);
+		dev_info(job->src_ctx->cam->dev, "[%s]:error job_type:%d scen:%d exp:%d/%d raw_path:%d",
+			__func__, job->job_type,
+			job->req->raw_data[raw_pipe_idx].ctrl.resource.user_data.raw_res.scen.id,
+			fp->raw_param.exposure_num, fp->raw_param.previous_exposure_num,
+			fp->raw_param.imgo_path_sel);
+		WRAP_AEE_EXCEPTION(MSG_RAW_CHANGE_FAILURE, __func__);
+	}
+}
 
 static int _compose(struct mtk_cam_job *job)
 {
+	check_ipi_before_compose(job);
 	if (job->do_ipi_config && ipi_config(job))
 		return -1;
 
@@ -4074,7 +4105,7 @@ static int job_factory(struct mtk_cam_job *job)
 	return ret;
 }
 #endif
-
+#define JOB_DEBUG 1
 static int job_sen_req_pack(struct mtk_cam_job *job)
 {
 	struct mtk_cam_ctx *ctx = job->src_ctx;
@@ -4170,12 +4201,12 @@ static int job_sen_req_pack(struct mtk_cam_job *job)
 		(job->first_job || sensor_change) && is_sensor_mode_update(job);
 	job->seamless_switch =
 		(!job->first_job && !sensor_change) && is_sensor_mode_update(job);
-	if (CAM_DEBUG_ENABLED(JOB))
-		pr_info("[%s] ctx:%d|type:%d|%s|exp(cur:%d,prev:%d)|sw/scene:%d/%d",
+	if (CAM_DEBUG_ENABLED(JOB) || JOB_DEBUG)
+		pr_info("[%s] ctx:%d|type:%d|%s|exp(cur:%d,prev:%d)|sw/scene:%d/%d, req_id:%d",
 				__func__,
 				ctx->stream_id, job->job_type, job->scen_str,
 				job_exp_num(job), job_prev_exp_num(job),
-				get_sw_feature(job), get_hw_scenario(job));
+				get_sw_feature(job), get_hw_scenario(job), job->req_info_id);
 
 	return ret;
 }
@@ -4229,12 +4260,12 @@ static int job_isp_req_pack(struct mtk_cam_job *job)
 		return -1;
 	ret = pack_helper->pack_job(job, pack_helper);
 
-	if (CAM_DEBUG_ENABLED(JOB))
-		pr_info("[%s] ctx:%d|type:%d|%s|exp(cur:%d,prev:%d)|sw/scene:%d/%d",
+	if (CAM_DEBUG_ENABLED(JOB) || JOB_DEBUG)
+		pr_info("[%s] ctx:%d|type:%d|%s|exp(cur:%d,prev:%d)|sw/scene:%d/%d, req_id:%d",
 				__func__,
 				ctx->stream_id, job->job_type, job->scen_str,
 				job_exp_num(job), job_prev_exp_num(job),
-				get_sw_feature(job), get_hw_scenario(job));
+				get_sw_feature(job), get_hw_scenario(job), job->req_info_id);
 
 	return ret;
 }
@@ -4251,14 +4282,10 @@ int mtk_cam_job_pack(struct mtk_cam_job *job, struct mtk_cam_ctx *ctx,
 	ret = update_job_type_feature(job);
 	if (ret)
 		return ret;
-#if 0
-	ret = job_factory(job);
-#else
 	ret = job_sen_req_pack(job);
 	if (ret)
 		return ret;
 	ret = job_isp_req_pack(job);
-#endif
 	return ret;
 }
 int mtk_cam_sensor_job_pack(struct mtk_cam_job *job, struct mtk_cam_ctx *ctx,

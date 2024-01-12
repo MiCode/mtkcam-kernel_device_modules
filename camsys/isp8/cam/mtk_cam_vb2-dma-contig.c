@@ -81,7 +81,10 @@ static void *mtk_cam_vb2_vaddr(struct vb2_buffer *vb, void *buf_priv)
 	MTK_CAM_TRACE_FUNC_BEGIN(BUFFER);
 	if (!buf->vaddr && buf->db_attach)
 		ret = dma_buf_vmap(buf->db_attach->dmabuf, &buf->map);
-	buf->vaddr = WARN_ON(ret) ? NULL : buf->map.vaddr;
+	if (buf->sync)
+		buf->vaddr = WARN_ON(ret) ? NULL : buf->map.vaddr;
+	else
+		buf->vaddr = buf->map.vaddr;
 	MTK_CAM_TRACE_END(BUFFER);
 	return buf->vaddr;
 }

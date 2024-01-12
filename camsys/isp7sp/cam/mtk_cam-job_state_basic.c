@@ -86,7 +86,7 @@ static struct state_transition STATE_TRANS(basic, S_ISP_APPLYING)[] = {
 #endif
 	{
 		S_ISP_OUTER, CAMSYS_EVENT_IRQ_L_CQ_DONE,
-		guard_outer_eq, 0
+		guard_outer_eq, ACTION_CQ_DONE
 	},
 };
 

@@ -143,7 +143,7 @@ struct mtk_mraw_device {
 	unsigned int frame_wait_to_process;
 	struct notifier_block notifier_blk;
 
-	atomic_t is_enqueued;
+	atomic_t is_vf_on;
 
 	/* mmqos */
 	struct mtk_camsys_qos qos;

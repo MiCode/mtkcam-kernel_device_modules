@@ -849,13 +849,14 @@ int mtk_cam_mraw_top_enable(struct mtk_mraw_device *mraw_dev)
 
 	/* enable vf */
 	if (MRAW_READ_BITS(mraw_dev->base + REG_MRAW_TG_SEN_MODE,
-		MRAW_TG_SEN_MODE, TG_CMOS_EN))
+			MRAW_TG_SEN_MODE, TG_CMOS_EN) &&
+		atomic_read(&mraw_dev->is_vf_on))
 		mtk_cam_mraw_vf_on(mraw_dev, true);
 	else
-		dev_info(mraw_dev->dev, "%s, cmos_en:%d is_enqueued:%d\n", __func__,
+		dev_info(mraw_dev->dev, "%s, cmos_en:%d is_vf_on:%d\n", __func__,
 			MRAW_READ_BITS(mraw_dev->base + REG_MRAW_TG_SEN_MODE,
 				MRAW_TG_SEN_MODE, TG_CMOS_EN),
-			atomic_read(&mraw_dev->is_enqueued));
+			atomic_read(&mraw_dev->is_vf_on));
 
 	return ret;
 }
@@ -1073,8 +1074,8 @@ int mtk_cam_mraw_dev_config(struct mtk_mraw_device *mraw_dev,
 	engine_fsm_reset(&mraw_dev->fsm, mraw_dev->dev);
 	mraw_dev->cq_ref = NULL;
 
-	/* reset enqueued status */
-	atomic_set(&mraw_dev->is_enqueued, 0);
+	/* reset vf on status */
+	atomic_set(&mraw_dev->is_vf_on, 0);
 
 	mtk_cam_mraw_top_config(mraw_dev);
 	mtk_cam_mraw_dma_config(mraw_dev);
@@ -1094,8 +1095,8 @@ int mtk_cam_mraw_dev_stream_on(struct mtk_mraw_device *mraw_dev, bool on)
 	if (on)
 		ret = mtk_cam_mraw_top_enable(mraw_dev);
 	else {
-		/* reset enqueued status */
-		atomic_set(&mraw_dev->is_enqueued, 0);
+		/* reset vf on status */
+		atomic_set(&mraw_dev->is_vf_on, 0);
 		/* reset format status */
 		atomic_set(&mraw_dev->pipeline->res_config.is_fmt_change, 0);
 

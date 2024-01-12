@@ -2351,6 +2351,13 @@ void mtk_imgsys_mmdvfs_init_plat7sp(struct mtk_imgsys_dev *imgsys_dev)
 		}
 	}
 
+	if (of_property_read_u32(dvfs_info->dev->of_node,
+		"mediatek,imgsys-dvfs-pix-mode", &ret) != 0) {
+		dev_info(dvfs_info->dev, "mmdvfs pix mode is not exist\n");
+	} else {
+		dvfs_info->pix_mode = ret;
+	}
+
 	dvfs_info->cur_volt = 0;
 	dvfs_info->cur_freq = 0;
 	dvfs_info->vss_task_cnt = 0;
@@ -2929,19 +2936,30 @@ void mtk_imgsys_mmdvfs_mmqos_cal_plat7sp(struct mtk_imgsys_dev *imgsys_dev,
 
 			if (batch_num > 1) {
 				dvfs_info->smvr_task_cnt++;
-				if (qos_info->sc_monitor == 1)
+				if (dvfs_info->pix_mode == 4) {
+					if ((fps_smvr >= IMGSYS_SMVR_FPS_FLOOR4) ||
+						((smvr_size >= IMGSYS_SMVR_SIZE_FLOOR2) &&
+						(fps_smvr >= IMGSYS_SMVR_FPS_FLOOR3)))
+						smvr_freq_floor = IMGSYS_SMVR_FREQ_FLOOR3;
+					else if ((smvr_size >= IMGSYS_SMVR_SIZE_FLOOR3) &&
+						(fps_smvr >= IMGSYS_SMVR_FPS_FLOOR1))
+						smvr_freq_floor = IMGSYS_SMVR_FREQ_FLOOR2;
+					else if (fps_smvr >= IMGSYS_SMVR_FPS_FLOOR1)
+						smvr_freq_floor = dvfs_info->freq;
+					else
+						smvr_freq_floor = IMGSYS_SMVR_FREQ_FLOOR1;
+				} else if (dvfs_info->pix_mode == 2) {
+					if (((smvr_size >= IMGSYS_SMVR_SIZE_FLOOR2) &&
+						(fps_smvr >= IMGSYS_SMVR_FPS_FLOOR2)) ||
+						((smvr_size >= IMGSYS_SMVR_SIZE_FLOOR1) &&
+						(fps_smvr >= IMGSYS_SMVR_FPS_FLOOR3)))
+						smvr_freq_floor = IMGSYS_SMVR_FREQ_FLOOR2;
+					else if (fps_smvr >= IMGSYS_SMVR_FPS_FLOOR1)
+						smvr_freq_floor = dvfs_info->freq;
+					else
+						smvr_freq_floor = IMGSYS_SMVR_FREQ_FLOOR1;
+				} else
 					smvr_freq_floor = IMGSYS_SMVR_FREQ_FLOOR3;
-				else if ((smvr_size >= IMGSYS_SMVR_SIZE_FLOOR2) &&
-					(fps_smvr >= IMGSYS_SMVR_FPS_FLOOR2))
-					smvr_freq_floor = IMGSYS_SMVR_FREQ_FLOOR2;
-				else if ((smvr_size >= IMGSYS_SMVR_SIZE_FLOOR1) &&
-					(fps_smvr >= IMGSYS_SMVR_FPS_FLOOR1))
-					smvr_freq_floor = IMGSYS_SMVR_FREQ_FLOOR1;
-				else if ((fps_smvr >= IMGSYS_SMVR_FPS_FLOOR1) ||
-					(fps_smvr >= IMGSYS_SMVR_FPS_FLOOR2))
-					smvr_freq_floor = dvfs_info->freq;
-				else
-					smvr_freq_floor = IMGSYS_SMVR_FREQ_FLOOR0;
 				if (pixel_total_max < smvr_freq_floor)
 					freq = smvr_freq_floor;
 				else
@@ -2969,19 +2987,30 @@ void mtk_imgsys_mmdvfs_mmqos_cal_plat7sp(struct mtk_imgsys_dev *imgsys_dev,
 
 			if (batch_num > 1) {
 				dvfs_info->smvr_task_cnt--;
-				if (qos_info->sc_monitor == 1)
+				if (dvfs_info->pix_mode == 4) {
+					if ((fps_smvr >= IMGSYS_SMVR_FPS_FLOOR4) ||
+						((smvr_size >= IMGSYS_SMVR_SIZE_FLOOR2) &&
+						(fps_smvr >= IMGSYS_SMVR_FPS_FLOOR3)))
+						smvr_freq_floor = IMGSYS_SMVR_FREQ_FLOOR3;
+					else if ((smvr_size >= IMGSYS_SMVR_SIZE_FLOOR3) &&
+						(fps_smvr >= IMGSYS_SMVR_FPS_FLOOR1))
+						smvr_freq_floor = IMGSYS_SMVR_FREQ_FLOOR2;
+					else if (fps_smvr >= IMGSYS_SMVR_FPS_FLOOR1)
+						smvr_freq_floor = dvfs_info->freq;
+					else
+						smvr_freq_floor = IMGSYS_SMVR_FREQ_FLOOR1;
+				} else if (dvfs_info->pix_mode == 2) {
+					if (((smvr_size >= IMGSYS_SMVR_SIZE_FLOOR2) &&
+						(fps_smvr >= IMGSYS_SMVR_FPS_FLOOR2)) ||
+						((smvr_size >= IMGSYS_SMVR_SIZE_FLOOR1) &&
+						(fps_smvr >= IMGSYS_SMVR_FPS_FLOOR3)))
+						smvr_freq_floor = IMGSYS_SMVR_FREQ_FLOOR2;
+					else if (fps_smvr >= IMGSYS_SMVR_FPS_FLOOR1)
+						smvr_freq_floor = dvfs_info->freq;
+					else
+						smvr_freq_floor = IMGSYS_SMVR_FREQ_FLOOR1;
+				} else
 					smvr_freq_floor = IMGSYS_SMVR_FREQ_FLOOR3;
-				else if ((smvr_size >= IMGSYS_SMVR_SIZE_FLOOR2) &&
-					(fps_smvr >= IMGSYS_SMVR_FPS_FLOOR2))
-					smvr_freq_floor = IMGSYS_SMVR_FREQ_FLOOR2;
-				else if ((smvr_size >= IMGSYS_SMVR_SIZE_FLOOR1) &&
-					(fps_smvr >= IMGSYS_SMVR_FPS_FLOOR1))
-					smvr_freq_floor = IMGSYS_SMVR_FREQ_FLOOR1;
-				else if ((fps_smvr >= IMGSYS_SMVR_FPS_FLOOR1) ||
-					(fps_smvr >= IMGSYS_SMVR_FPS_FLOOR2))
-					smvr_freq_floor = dvfs_info->freq;
-				else
-					smvr_freq_floor = IMGSYS_SMVR_FREQ_FLOOR0;
 				if (pixel_total_max < smvr_freq_floor)
 					freq = smvr_freq_floor;
 				else

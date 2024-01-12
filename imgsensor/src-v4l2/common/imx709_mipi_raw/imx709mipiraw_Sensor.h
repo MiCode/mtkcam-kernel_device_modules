@@ -46,5 +46,7 @@
 
 // #define it to debug for power sequence if needed
 #undef PWR_SEQ_ALL_USE_FOR_AOV_MODE_TRANSITION
-
+// #deinfe it to do AOV EINT UT under sensing mode
+#undef AOV_EINT_UT
+//#define AOV_EINT_UT
 #endif

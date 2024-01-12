@@ -11,6 +11,7 @@
 #define OF_SENSOR_NAME_PREFIX "sensor"
 
 #define IMGSENSOR_LOG_MORE 0
+#define IMGSENSOR_AOV_EINT_UT 0
 
 enum {
 	CLK_6M = 0,

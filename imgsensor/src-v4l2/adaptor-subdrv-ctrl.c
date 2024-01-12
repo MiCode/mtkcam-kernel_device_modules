@@ -2794,10 +2794,13 @@ void sensor_init(struct subdrv_ctx *ctx)
 		DRV_LOGE(ctx, "please implement initial setting!\n");
 	}
 	/* enable temperature sensor */
+#if IMGSENSOR_AOV_EINT_UT
+#else
 	if (ctx->s_ctx.temperature_support && ctx->s_ctx.reg_addr_temp_en)
 		subdrv_i2c_wr_u8(ctx, ctx->s_ctx.reg_addr_temp_en, 0x01);
 	/* enable mirror or flip */
 	set_mirror_flip(ctx, ctx->mirror);
+#endif
 }
 
 int common_open(struct subdrv_ctx *ctx)

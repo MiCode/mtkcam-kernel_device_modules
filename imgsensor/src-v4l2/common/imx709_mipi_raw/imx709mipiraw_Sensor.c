@@ -1197,8 +1197,11 @@ static struct subdrv_static_ctx static_ctx = {
 	.eeprom_num = ARRAY_SIZE(eeprom_info),
 	.resolution = {6560, 4928},
 	.mirror = IMAGE_HV_MIRROR,
-
+#ifdef AOV_EINT_UT
+	.mclk = 24,
+#else
 	.mclk = 26,
+#endif
 	.isp_driving_current = ISP_DRIVING_6MA,
 	.sensor_interface_type = SENSOR_INTERFACE_TYPE_MIPI,
 	.mipi_sensor_type = MIPI_OPHY_NCSI2,
@@ -1243,7 +1246,12 @@ static struct subdrv_static_ctx static_ctx = {
 	.s_streaming_control = set_streaming_control,
 
 	.reg_addr_stream = 0x0100,
+#ifdef AOV_EINT_UT
+	.reg_addr_mirror_flip = PARAM_UNDEFINED,
+#else
 	.reg_addr_mirror_flip = 0x0101,
+#endif
+
 	.reg_addr_exposure = {
 			{0x0202, 0x0203},
 			{0x0224, 0x0225},
@@ -1298,7 +1306,11 @@ static struct subdrv_ops ops = {
 static struct subdrv_pw_seq_entry pw_seq[] = {
 	{HW_ID_SCL, 0, 0},	/* default i2c bus scl 4 on apmcu side */
 	{HW_ID_SDA, 0, 0},	/* default i2c bus sda 4 on apmcu side */
+#ifdef AOV_EINT_UT
+	{HW_ID_MCLK1, 24, 0},
+#else
 	{HW_ID_MCLK1, 26, 0},
+#endif
 	{HW_ID_PONV, 0, 1},
 	{HW_ID_RST1, 0, 1},
 	{HW_ID_AVDD, 2900000, 1}, // pmic_ldo for avdd
@@ -1306,7 +1318,11 @@ static struct subdrv_pw_seq_entry pw_seq[] = {
 	{HW_ID_DOVDD, 1800000, 1}, // pmic_ldo/gpio(1.8V ldo) for dovdd
 	{HW_ID_DVDD2, 855000, 1}, // pmic_ldo for dvdd
 	{HW_ID_MCLK1_DRIVING_CURRENT, 6, 1},
+#ifdef AOV_EINT_UT
+	{HW_ID_PONV, 0, 1},
+#else
 	{HW_ID_PONV, 1, 1},
+#endif
 	{HW_ID_RST1, 1, 4}
 };
 
@@ -1845,6 +1861,7 @@ static void set_data_rate_global_timing_phy_ctrl(void *arg)
 		subdrv_i2c_wr_u8(ctx, 0x0827, 0x0F);	// TCLK_PRE_EX[7:0]
 		break;
 	case SENSOR_SCENARIO_ID_CUSTOM1:
+#ifndef AOV_EINT_UT
 		subdrv_i2c_wr_u8(ctx, 0x0808, 0x02);	// PHY_CTRL
 		if (!ctx->sensor_debug_dphy_global_timing_continuous_clk) {
 			subdrv_i2c_wr_u8(ctx, 0x080A, 0x00);
@@ -1876,6 +1893,7 @@ static void set_data_rate_global_timing_phy_ctrl(void *arg)
 		}
 		subdrv_i2c_wr_u8(ctx, 0x0826, 0x00);	// TCLK_PRE_EX[9:8]
 		subdrv_i2c_wr_u8(ctx, 0x0827, 0x0F);	// TCLK_PRE_EX[7:0]
+#endif
 		break;
 	case SENSOR_SCENARIO_ID_CUSTOM2:
 		subdrv_i2c_wr_u8(ctx, 0x0808, 0x02);	// PHY_CTRL
@@ -2144,6 +2162,9 @@ static int pwr_seq_common_enable_for_mode_transition(struct adaptor_ctx *ctx)
 
 static int set_pwr_seq_reset_view_to_sensing(void *arg)
 {
+#ifdef AOV_EINT_UT
+	return 0;
+#else
 	struct subdrv_ctx *ctx = (struct subdrv_ctx *)arg;
 
 	int ret = 0;
@@ -2216,6 +2237,7 @@ static int set_pwr_seq_reset_view_to_sensing(void *arg)
 	mdelay(4);	// response time T7 in datasheet
 
 	return ret;
+#endif
 }
 
 static int pwr_seq_reset_sens_to_viewing(struct subdrv_ctx *ctx)
@@ -2335,10 +2357,12 @@ static int set_streaming_control(void *arg, bool enable)
 			DRV_LOG_MUST(ctx,
 				"on(correct),stream_refcnt_for_aov(%d)\n",
 				stream_refcnt_for_aov);
+#ifndef AOV_EINT_UT
 			if (ctx->s_ctx.mode[ctx->current_scenario_id].aov_mode) {
 				// subdrv_i2c_wr_u8(ctx, 0x32A0, 0x01);
 				subdrv_i2c_wr_u8(ctx, 0x42B0, 0x00);
 			}
+#endif
 		}
 		subdrv_i2c_wr_u8(ctx, 0x0100, 0X01);
 		DRV_LOG_MUST(ctx,

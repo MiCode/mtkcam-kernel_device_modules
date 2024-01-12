@@ -69,10 +69,14 @@ static struct clk *get_clk_by_idx_freq(struct adaptor_ctx *ctx,
 		case 19:
 			return ctx->clk[CLK1_19_2M];
 		case 24:
+#if IMGSENSOR_AOV_EINT_UT
+			return ctx->clk[CLK_24M];
+#else
 			if (ctx->aov_mclk_ulposc_flag)
 				return ctx->clk[CLK1_26M_ULPOSC];
 			else
 				return ctx->clk[CLK1_24M];
+#endif
 		case 26:
 			if (ctx->aov_mclk_ulposc_flag)
 				return ctx->clk[CLK1_26M_ULPOSC];

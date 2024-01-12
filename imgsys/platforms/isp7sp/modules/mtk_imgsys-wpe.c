@@ -11,6 +11,9 @@
 #include <linux/pm_runtime.h>
 #include <linux/remoteproc.h>
 
+// GCE header
+#include <linux/soc/mediatek/mtk-cmdq-ext.h>
+
 #include "iommu_debug.h"
 #ifdef WPE_TF_DUMP_7SP_1
 #include <dt-bindings/memory/mt6897-larb-port.h>
@@ -178,6 +181,7 @@ struct mtk_imgsys_wpe_dtable {
 };
 
 void __iomem *gWpeRegBA[WPE_HW_NUM] = {0L};
+unsigned int gWpeRegBase[WPE_HW_NUM] = {0x15200000, 0x15500000, 0x15600000};
 
 int imgsys_wpe_tfault_callback(int port,
 	dma_addr_t mva, void *data)
@@ -285,8 +289,8 @@ void imgsys_wpe_set_hw_initial_value(struct mtk_imgsys_dev *imgsys_dev)
 	unsigned int i = 0;
 	unsigned int hw_idx = 0, ary_idx = 0;
 
-    if (imgsys_wpe_7sp_dbg_enable())
-	dev_dbg(imgsys_dev->dev, "%s: +\n", __func__);
+	if (imgsys_wpe_7sp_dbg_enable())
+		dev_dbg(imgsys_dev->dev, "%s: +\n", __func__);
 
 	for (hw_idx = REG_MAP_E_WPE_EIS; hw_idx <= REG_MAP_E_WPE_LITE; hw_idx++) {
 		/* iomap registers */
@@ -305,8 +309,8 @@ void imgsys_wpe_set_hw_initial_value(struct mtk_imgsys_dev *imgsys_dev)
 
 	}
 
-    if (imgsys_wpe_7sp_dbg_enable())
-	dev_dbg(imgsys_dev->dev, "%s: -\n", __func__);
+	if (imgsys_wpe_7sp_dbg_enable())
+		dev_dbg(imgsys_dev->dev, "%s: -\n", __func__);
 }
 
 void imgsys_wpe_updatecq(struct mtk_imgsys_dev *imgsys_dev,
@@ -424,6 +428,45 @@ void imgsys_wpe_updatecq(struct mtk_imgsys_dev *imgsys_dev,
         }
 		mtk_hcp_partial_flush(imgsys_dev->scp_pdev, &wpe_buf_info);
 	}
+}
+
+void imgsys_wpe_cmdq_set_hw_initial_value(struct mtk_imgsys_dev *imgsys_dev,
+		void *pkt)
+{
+	unsigned int ofset;
+	unsigned int i = 0;
+	unsigned int hw_idx = 0, ary_idx = 0;
+	struct cmdq_pkt *package = NULL;
+
+	if (imgsys_dev == NULL || pkt == NULL) {
+		dump_stack();
+		pr_err("[%s][%d] param fatal error!", __func__, __LINE__);
+		return;
+	}
+	package = (struct cmdq_pkt *)pkt;
+
+	dev_dbg(imgsys_dev->dev, "%s: +\n", __func__);
+
+	for (hw_idx = REG_MAP_E_WPE_EIS; hw_idx <= REG_MAP_E_WPE_LITE; hw_idx++) {
+		/* iomap registers */
+		ary_idx = hw_idx - REG_MAP_E_WPE_EIS;
+		if (hw_idx < REG_MAP_E_WPE_LITE) {
+			for (i = 0 ; i < WPE_INIT_ARRAY_COUNT ; i++) {
+				ofset = gWpeRegBase[ary_idx] + mtk_imgsys_wpe_init_ary[i].ofset;
+				cmdq_pkt_write(package, NULL, ofset /*address*/,
+						mtk_imgsys_wpe_init_ary[i].val, 0xffffffff);
+			}
+		} else {
+			for (i = 0 ; i < WPE_INIT_ARRAY_COUNT_2P ; i++) {
+				ofset = gWpeRegBase[ary_idx] + mtk_imgsys_wpe_init_ary_2p[i].ofset;
+				cmdq_pkt_write(package, NULL, ofset /*address*/,
+						mtk_imgsys_wpe_init_ary_2p[i].val, 0xffffffff);
+			}
+		}
+
+	}
+
+	dev_dbg(imgsys_dev->dev, "%s: -\n", __func__);
 }
 
 void imgsys_wpe_debug_ufo_dump(struct mtk_imgsys_dev *imgsys_dev,

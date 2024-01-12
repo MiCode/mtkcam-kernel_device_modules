@@ -32,7 +32,8 @@ static const struct dev_pm_ops mtk_imgsys_pm_ops = {
 };
 
 static const struct of_device_id mtk_imgsys_of_match[] = {
-	{ .compatible = "mediatek,imgsys-isp7sp", .data = (void *)&imgsys_data},
+	{ .compatible = "mediatek,imgsys-isp7sp-mt6897", .data = (void *)&imgsys_data_mt6897},
+	{ .compatible = "mediatek,imgsys-isp7sp-mt6989", .data = (void *)&imgsys_data_mt6989},
 	{}
 };
 MODULE_DEVICE_TABLE(of, mtk_imgsys_of_match);

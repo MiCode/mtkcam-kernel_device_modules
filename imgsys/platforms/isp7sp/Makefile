@@ -13,6 +13,7 @@ ccflags-y += -I$(DEVICE_MODULES_PATH)/drivers/media/platform/mtk-isp/imgsys/
 ccflags-y += -I$(DEVICE_MODULES_PATH)/drivers/misc/mediatek/mtk-interconnect/
 ccflags-y += -I$(DEVICE_MODULES_PATH)/drivers/misc/mediatek/m4u/$(MTK_PLATFORM)
 ccflags-y += -I$(srctree)/drivers/iommu
+ccflags-y += -I$(srctree)/include/soc/mediatek
 endif
 # mtk_imgsys_hw-objs := \
 # mtk_imgsys-debug.o \

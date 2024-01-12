@@ -1782,7 +1782,7 @@ static void imgsys_runner_func(void *data)
 			module_tuning_info.iova_addr, module_tuning_info.buf_fd,
 			module_tuning_info.offset, mode, frm_info->user_info[subfidx].hw_comb);
         }
-		for (i = 0; i < (imgsys_dev->num_mods); i++) {
+		for (i = 0; i < (imgsys_dev->modules_num); i++) {
 			if (imgsys_dev->modules[i].updatecq) {
 				imgsys_dev->modules[i].updatecq(imgsys_dev,
 					&frm_info->user_info[subfidx], frm_info->request_fd,
@@ -2604,7 +2604,7 @@ static void module_uninit(struct kref *kref)
 	imgsys_dev = container_of(kref, struct mtk_imgsys_dev, init_kref);
 	dvfs_info = &imgsys_dev->dvfs_info;
 
-	for (i = 0; i < (imgsys_dev->num_mods); i++)
+	for (i = 0; i < (imgsys_dev->modules_num); i++)
 		if (imgsys_dev->modules[i].uninit)
 			imgsys_dev->modules[i].uninit(imgsys_dev);
 
@@ -2692,21 +2692,28 @@ static int mtk_imgsys_hw_connect(struct mtk_imgsys_dev *imgsys_dev)
 	}
 	pm_runtime_get_sync(imgsys_dev->dev);
 	/*set default value for hw module*/
-	for (i = 0; i < (imgsys_dev->num_mods); i++)
+	for (i = 0; i < (imgsys_dev->modules_num); i++)
 		imgsys_dev->modules[i].init(imgsys_dev);
 	kref_init(&imgsys_dev->init_kref);
 
-	pm_runtime_put_sync(imgsys_dev->dev);
-	if (!imgsys_quick_onoff_enable()) {
+	if (imgsys_dev->qof_ver != MTK_IMGSYS_QOF_FUNCTION_OFF) {
 		#if DVFS_QOS_READY
-		mtk_imgsys_power_ctrl(imgsys_dev, true);
-		#else
-		pm_runtime_get_sync(imgsys_dev->dev);
+		mtk_imgsys_main_power_ctrl(imgsys_dev, true);
 		#endif
-	} else
-		dev_info(imgsys_dev->dev,
-			"%s: imgsys_quick_onoff_enable(%d)\n",
-			__func__, imgsys_quick_onoff_enable());
+		dev_info(imgsys_dev->dev, "%s: Start imgsys qof", __func__);
+	} else {
+		pm_runtime_put_sync(imgsys_dev->dev);
+		if (!imgsys_quick_onoff_enable()) {
+			#if DVFS_QOS_READY
+			mtk_imgsys_power_ctrl(imgsys_dev, true);
+			#else
+			pm_runtime_get_sync(imgsys_dev->dev);
+			#endif
+		} else
+			dev_info(imgsys_dev->dev,
+				"%s: imgsys_quick_onoff_enable(%d)\n",
+				__func__, imgsys_quick_onoff_enable());
+	}
 
 #if MTK_CM4_SUPPORT
 	struct img_ipi_param ipi_param;
@@ -2867,16 +2874,21 @@ static int mtk_imgsys_hw_connect(struct mtk_imgsys_dev *imgsys_dev)
 	return 0;
 
 err_power_off:
-	if (!imgsys_quick_onoff_enable()) {
-	#if DVFS_QOS_READY
-		mtk_imgsys_power_ctrl(imgsys_dev, false);
-	#else
+	if (imgsys_dev->qof_ver != MTK_IMGSYS_QOF_FUNCTION_OFF)
 		pm_runtime_put_sync(imgsys_dev->dev);
-	#endif
-	} else
-		dev_info(imgsys_dev->dev,
-			"%s: imgsys_quick_onoff_enable(%d)\n",
-			__func__, imgsys_quick_onoff_enable());
+	else {
+		if (!imgsys_quick_onoff_enable()) {
+		#if DVFS_QOS_READY
+			mtk_imgsys_power_ctrl(imgsys_dev, false);
+		#else
+			pm_runtime_put_sync(imgsys_dev->dev);
+		#endif
+		} else
+			dev_info(imgsys_dev->dev,
+				"%s: imgsys_quick_onoff_enable(%d)\n",
+				__func__, imgsys_quick_onoff_enable());
+	}
+
 	mtk_imgsys_mod_put(imgsys_dev);
 
 	user_cnt = atomic_read(&imgsys_dev->imgsys_user_cnt);
@@ -2962,16 +2974,22 @@ if (imgsys_dev->imgsys_pipe[0].smvr_alloc != 0) {
 	work_pool_uninit(&imgsys_dev->gwork_pool);
 	work_pool_uninit(&imgsys_dev->reqfd_cbinfo_pool);
 
-	if (!imgsys_quick_onoff_enable()) {
-		#if DVFS_QOS_READY
-		mtk_imgsys_power_ctrl(imgsys_dev, false);
-		#else
+	if (imgsys_dev->qof_ver != MTK_IMGSYS_QOF_FUNCTION_OFF) {
 		pm_runtime_put_sync(imgsys_dev->dev);
-		#endif
-	} else
-		dev_info(imgsys_dev->dev,
-			"%s: imgsys_quick_onoff_enable(%d)\n",
-			__func__, imgsys_quick_onoff_enable());
+	}
+	else {
+		if (!imgsys_quick_onoff_enable()) {
+			#if DVFS_QOS_READY
+			mtk_imgsys_power_ctrl(imgsys_dev, false);
+			#else
+			pm_runtime_put_sync(imgsys_dev->dev);
+			#endif
+		} else
+			dev_info(imgsys_dev->dev,
+				"%s: imgsys_quick_onoff_enable(%d)\n",
+				__func__, imgsys_quick_onoff_enable());
+	}
+
 	mtk_imgsys_mod_put(imgsys_dev);
 
 	user_cnt = atomic_read(&imgsys_dev->imgsys_user_cnt);

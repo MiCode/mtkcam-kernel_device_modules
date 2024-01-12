@@ -245,6 +245,7 @@ void mtk_imgsys_mmqos_ts_cal(struct mtk_imgsys_dev *imgsys_dev,
 				struct mtk_imgsys_cb_param *cb_param, uint32_t hw_comb);
 */
 void mtk_imgsys_power_ctrl(struct mtk_imgsys_dev *imgsys_dev, bool isPowerOn);
+void mtk_imgsys_main_power_ctrl(struct mtk_imgsys_dev *imgsys_dev, bool isPowerOn);
 
 void mtk_imgsys_mmqos_monitor(struct mtk_imgsys_dev *imgsys_dev, u32 state);
 #endif
@@ -305,6 +306,7 @@ struct imgsys_cmdq_cust_data {
 	void (*mmqos_ts_cal)(struct mtk_imgsys_dev *imgsys_dev,
 			struct mtk_imgsys_cb_param *cb_param, uint32_t hw_comb);
 	void (*power_ctrl)(struct mtk_imgsys_dev *imgsys_dev, bool isPowerOn);
+	void (*main_power_ctrl)(struct mtk_imgsys_dev *imgsys_dev, bool isPowerOn);
 	void (*mmqos_monitor)(struct mtk_imgsys_dev *imgsys_dev, u32 state);
 #endif
 

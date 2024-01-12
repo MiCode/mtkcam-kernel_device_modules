@@ -168,9 +168,9 @@ void imgsys_dip_updatecq(struct mtk_imgsys_dev *imgsys_dev,
 						user_info->priv[IMGSYS_DIP].desc_offset,
 						cq_desc, dtable->empty, dtable->addr,
 						dtable->addr_msb);
+					}
 				}
 			}
-		}
 		}
 		//
 		#if SMVR_DECOUPLE

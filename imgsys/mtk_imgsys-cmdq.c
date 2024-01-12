@@ -152,7 +152,7 @@ static void module_uninit(struct kref *kref)
 	imgsys_dev = container_of(kref, struct mtk_imgsys_dev, init_kref);
 	dvfs_info = &imgsys_dev->dvfs_info;
 
-	for (i = 0; i < (imgsys_dev->num_mods); i++)
+	for (i = 0; i < (imgsys_dev->modules_num); i++)
 		if (imgsys_dev->modules[i].uninit)
 			imgsys_dev->modules[i].uninit(imgsys_dev);
 
@@ -298,6 +298,14 @@ void mtk_imgsys_power_ctrl(struct mtk_imgsys_dev *imgsys_dev, bool isPowerOn)
 	cmdq_dev->cust_data->power_ctrl(imgsys_dev, isPowerOn);
 }
 EXPORT_SYMBOL(mtk_imgsys_power_ctrl);
+
+void mtk_imgsys_main_power_ctrl(struct mtk_imgsys_dev *imgsys_dev, bool isPowerOn)
+{
+	struct mtk_imgcmdq_dev *cmdq_dev = platform_get_drvdata(imgsys_dev->imgcmdq_pdev);
+
+	cmdq_dev->cust_data->main_power_ctrl(imgsys_dev, isPowerOn);
+}
+EXPORT_SYMBOL(mtk_imgsys_main_power_ctrl);
 
 #endif
 

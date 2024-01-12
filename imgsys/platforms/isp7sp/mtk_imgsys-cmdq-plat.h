@@ -26,9 +26,17 @@
 #define GCE_REC_MAX_LABEL_COUNT     (2048)
 #endif
 
-#define IMGSYS_NOR_THD 14
+enum ISP7S_IMG_PWR {
+	ISP7SP_ISP_DIP = 0,
+	ISP7SP_ISP_TRAW,
+	ISP7SP_PWR_NUM
+};
+
+#define IMGSYS_NOR_THD			(14)
+#define	IMGSYS_PWR_THD			(4)
+#define IMGSYS_SEC_THD			(2)
+
 #define IMGSYS_QOS_MAX 56
-#define IMGSYS_SEC_THD 2
 #define IMGSYS_MAX_FPS 60
 
 #define IMGSYS_VSS_FREQ_FLOOR	660000000
@@ -1061,6 +1069,17 @@ static struct imgsys_dvfs_group  qos_group[MTK_IMGSYS_QOS_GROUP] = {
 			|IMGSYS_ENG_DIP
 			|IMGSYS_ENG_PQDIP_B
 			|IMGSYS_ENG_ME)}
+};
+
+static const u32 pwr_group[ISP7SP_PWR_NUM] = {
+	[ISP7SP_ISP_DIP] = (IMGSYS_ENG_WPE_EIS
+			|IMGSYS_ENG_WPE_LITE
+			|IMGSYS_ENG_WPE_TNR
+			|IMGSYS_ENG_DIP
+			|IMGSYS_ENG_PQDIP_B
+			|IMGSYS_ENG_PQDIP_A
+			|IMGSYS_ENG_LTR),
+	[ISP7SP_ISP_TRAW] = (IMGSYS_ENG_TRAW),
 };
 
 struct smi_port_t {

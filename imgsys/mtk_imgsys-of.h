@@ -28,6 +28,7 @@ struct cust_data {
 	const struct mtk_imgsys_pipe_desc *pipe_settings;
 	unsigned int pipe_num;
 	const struct module_ops *imgsys_modules;
+	unsigned int imgsys_modules_num;
 	debug_dump dump;
 };
 

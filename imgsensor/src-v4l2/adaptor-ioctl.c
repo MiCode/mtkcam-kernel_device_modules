@@ -573,7 +573,7 @@ static int g_vcinfo_by_scenario(struct adaptor_ctx *ctx, void *arg)
 		adaptor_logi(ctx, "[%s] kmalloc fail\n", __func__);
 		return -ENOIOCTLCMD;
 	} else {
-		memset(vcinfo2, 0, sizeof(vcinfo2));
+		memset(vcinfo2, 0, sizeof(struct SENSOR_VC_INFO2_STRUCT));
 	}
 
 	subdrv_call(ctx, get_info, info->scenario_id, &sinfo, &config);

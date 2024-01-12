@@ -18,6 +18,15 @@ ccflags-y += -I$(srctree)/$(src)/../imgsys/
 ccflags-y += -I$(srctree)/$(src)/../include/
 ccflags-y += -I$(DEVICE_MODULES_PATH)/drivers/iommu
 ccflags-y += -I$(DEVICE_MODULES_PATH)/drivers/misc/mediatek/iommu
+ccflags-y += -I$(DEVICE_MODULES_PATH)/include/
+
+ifneq ($(wildcard $(DEVICE_MODULES_PATH)/include/dt-bindings/memory/mt6897-larb-port.h),)
+ccflags-y += -DAIE_TF_DUMP_7SP
+endif
+
+ifneq ($(wildcard $(DEVICE_MODULES_PATH)/include/dt-bindings/memory/mt6989-larb-port.h),)
+ccflags-y += -DAIE_TF_DUMP_7SP_1
+endif
 
 $(AIE_MODULE)-objs := \
 mem/aie_videobuf2-dma-contig.o\

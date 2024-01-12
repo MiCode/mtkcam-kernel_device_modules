@@ -706,7 +706,7 @@ static void fsync_mgr_setup_fs_streaming_st(struct adaptor_ctx *ctx,
 
 	memset(s_info, 0, sizeof(*s_info));
 
-	s_info->sensor_id = ctx->subdrv->id;
+	s_info->sensor_id = (ctx->subdrv) ? (ctx->subdrv->id) : 0;
 	s_info->sensor_idx = ctx->idx;
 
 	/* fsync_map_id is cam_mux no */
@@ -914,7 +914,7 @@ static void fsync_mgr_setup_basic_fs_perframe_st(struct adaptor_ctx *ctx,
 
 	pf_ctrl->req_id = ctx->req_id;
 
-	pf_ctrl->sensor_id = ctx->subdrv->id;
+	pf_ctrl->sensor_id = (ctx->subdrv) ? (ctx->subdrv->id) : 0;
 	pf_ctrl->sensor_idx = ctx->idx;
 
 	pf_ctrl->min_fl_lc = ctx->subctx.min_frame_length;
@@ -1437,7 +1437,7 @@ int notify_fsync_mgr(struct adaptor_ctx *ctx, const int on)
 	char c_ab;
 
 	/* setup some sensor info st (w/o seninf idx) for fsync mgr using */
-	info.sensor_id = ctx->subdrv->id;
+	info.sensor_id = (ctx->subdrv) ? (ctx->subdrv->id) : 0;
 	info.sensor_idx = ctx->idx;
 	info.dev = (void *)ctx->dev;
 

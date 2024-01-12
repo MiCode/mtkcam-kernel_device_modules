@@ -151,7 +151,7 @@ static struct mtk_mbus_frame_desc_entry frame_desc_slim_vid[] = {
 			.channel = 0,
 			.data_type = 0x2b,
 			.hsize = 0x0FA0,
-			.vsize = 0x08D0,
+			.vsize = 0x0BB8,
 			.user_data_desc = VC_STAGGER_NE,
 		},
 	},
@@ -169,11 +169,11 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.hdr_mode = HDR_NONE,
 		.raw_cnt = 1,
 		.exp_cnt = 1,
-		.pclk = 777000000,
+		.pclk = 777600000,
 		.linelength = 7872,
 		.framelength = 3292,
 		.max_framerate = 300,
-		.mipi_pixel_rate = 493000000,
+		.mipi_pixel_rate = 493200000,
 		.readout_length = 0,
 		.read_margin = 10,
 		.framelength_step = 1,
@@ -203,8 +203,6 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.fine_integ_line = 634,
 		.delay_frame = 3,
 		.csi_param = {
-			.dphy_data_settle = 59,
-			.dphy_clk_settle = 59,
 		},
 		.sensor_output_dataformat = SENSOR_OUTPUT_FORMAT_RAW_4CELL_HW_BAYER_R,
 	},
@@ -219,11 +217,11 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.hdr_mode = HDR_NONE,
 		.raw_cnt = 1,
 		.exp_cnt = 1,
-		.pclk = 777000000,
+		.pclk = 777600000,
 		.linelength = 7872,
 		.framelength = 3292,
 		.max_framerate = 300,
-		.mipi_pixel_rate = 493000000,
+		.mipi_pixel_rate = 493200000,
 		.readout_length = 0,
 		.read_margin = 10,
 		.framelength_step = 1,
@@ -253,8 +251,6 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.fine_integ_line = 634,
 		.delay_frame = 3,
 		.csi_param = {
-			.dphy_data_settle = 59,
-			.dphy_clk_settle = 59,
 		},
 		.sensor_output_dataformat = SENSOR_OUTPUT_FORMAT_RAW_4CELL_HW_BAYER_R,
 	},
@@ -273,7 +269,7 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.linelength = 4592,
 		.framelength = 2526,
 		.max_framerate = 300,
-		.mipi_pixel_rate = 320000000,
+		.mipi_pixel_rate = 320400000,
 		.readout_length = 0,
 		.read_margin = 10,
 		.framelength_step = 1,
@@ -303,8 +299,11 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.fine_integ_line = 357,
 		.delay_frame = 3,
 		.csi_param = {
-			.dphy_data_settle = 59,
-			.dphy_clk_settle = 59,
+			.not_fixed_dphy_settle = 1,
+			.not_fixed_trail_settle = 1,
+			.dphy_trail = 19,
+			.dphy_data_settle = 39,//(55+1)/0.8 = 70
+			.dphy_clk_settle = 39,//(55+1)/0.8  = 70
 		},
 		.sensor_output_dataformat = SENSOR_OUTPUT_FORMAT_RAW_4CELL_HW_BAYER_R,
 	},
@@ -319,11 +318,11 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.hdr_mode = HDR_NONE,
 		.raw_cnt = 1,
 		.exp_cnt = 1,
-		.pclk = 633000000,
+		.pclk = 633600000,
 		.linelength = 4592,
 		.framelength = 2298,
 		.max_framerate = 600,
-		.mipi_pixel_rate = 571000000,
+		.mipi_pixel_rate = 571600000,
 		.readout_length = 0,
 		.read_margin = 10,
 		.framelength_step = 1,
@@ -353,8 +352,6 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.fine_integ_line = 357,
 		.delay_frame = 3,
 		.csi_param = {
-			.dphy_data_settle = 59,
-			.dphy_clk_settle = 59,
 		},
 		.sensor_output_dataformat = SENSOR_OUTPUT_FORMAT_RAW_4CELL_HW_BAYER_R,
 	},
@@ -369,7 +366,7 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.hdr_mode = HDR_NONE,
 		.raw_cnt = 1,
 		.exp_cnt = 1,
-		.pclk = 453000000,
+		.pclk = 453600000,
 		.linelength = 4592,
 		.framelength = 3292,
 		.max_framerate = 300,
@@ -403,8 +400,6 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.fine_integ_line = 357,
 		.delay_frame = 3,
 		.csi_param = {
-			.dphy_data_settle = 59,
-			.dphy_clk_settle = 59,
 		},
 		.sensor_output_dataformat = SENSOR_OUTPUT_FORMAT_RAW_4CELL_HW_BAYER_R,
 	},
@@ -548,7 +543,7 @@ static int get_sensor_temperature(void *arg)
 	else
 		temperature_convert = (char)temperature;
 
-	DRV_LOG(ctx, "temperature: %d degrees\n", temperature_convert);
+	DRV_LOG_MUST(ctx, "temperature: %d degrees\n", temperature_convert);
 	return temperature_convert;
 }
 
@@ -622,7 +617,7 @@ static int get_imgsensor_id(struct subdrv_ctx *ctx, u32 *sensor_id)
 			if (addr_ll)
 				*sensor_id = ((*sensor_id) << 8) | subdrv_i2c_rd_u8(ctx, addr_ll);
 			*sensor_id +=1;
-			DRV_LOG(ctx, "i2c_write_id(0x%x) sensor_id(0x%x/0x%x)\n",
+			DRV_LOG_MUST(ctx, "i2c_write_id(0x%x) sensor_id(0x%x/0x%x)\n",
 				ctx->i2c_write_id, *sensor_id, ctx->s_ctx.sensor_id);
 			if (*sensor_id == IMX598LITE_SENSOR_ID) {
 				*sensor_id = ctx->s_ctx.sensor_id;
@@ -716,7 +711,6 @@ static int open(struct subdrv_ctx *ctx)
 		memcpy(ctx->frame_length_in_lut_rg, ctx->frame_length_in_lut,
 			sizeof(ctx->frame_length_in_lut_rg));
 	}
-
 	return ERROR_NONE;
 }
 

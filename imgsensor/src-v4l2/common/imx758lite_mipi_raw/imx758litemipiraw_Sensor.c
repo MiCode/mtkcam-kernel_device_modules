@@ -291,7 +291,7 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.linelength = 7920,
 		.framelength = 3484,
 		.max_framerate = 300,
-		.mipi_pixel_rate = 881000000,
+		.mipi_pixel_rate = 881600000,
 		.readout_length = 0,
 		.read_margin = 10,
 		.framelength_step = 1,
@@ -340,7 +340,7 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.linelength = 7920,
 		.framelength = 3484,
 		.max_framerate = 300,
-		.mipi_pixel_rate = 881000000,
+		.mipi_pixel_rate = 881600000,
 		.readout_length = 0,
 		.read_margin = 10,
 		.framelength_step = 1,
@@ -385,7 +385,7 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.hdr_mode = HDR_NONE,
 		.raw_cnt = 1,
 		.exp_cnt = 1,
-		.pclk = 585000000,
+		.pclk = 585600000,
 		.linelength = 7920,
 		.framelength = 2464,
 		.max_framerate = 300,
@@ -416,7 +416,7 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.pdaf_cap = TRUE,
 		.imgsensor_pd_info = &imgsensor_pd_info,
 		.ae_binning_ratio = 1000,
-		.fine_integ_line = 571,
+		.fine_integ_line = 363,
 		.delay_frame = 3,
 		.csi_param = {
 			.dphy_init_deskew_support = 1,
@@ -438,7 +438,7 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.linelength = 5036,
 		.framelength = 2303,
 		.max_framerate = 600,
-		.mipi_pixel_rate = 582000000,
+		.mipi_pixel_rate = 582400000,
 		.readout_length = 0,
 		.read_margin = 10,
 		.framelength_step = 1,
@@ -487,7 +487,7 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.linelength = 8808,
 		.framelength = 3916,
 		.max_framerate = 240,
-		.mipi_pixel_rate = 881000000,
+		.mipi_pixel_rate = 881600000,
 		.readout_length = 0,
 		.read_margin = 10,
 		.framelength_step = 1,
@@ -536,7 +536,7 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.linelength = 8808,
 		.framelength = 3916,
 		.max_framerate = 240,
-		.mipi_pixel_rate = 881000000,
+		.mipi_pixel_rate = 881600000,
 		.readout_length = 0,
 		.read_margin = 10,
 		.framelength_step = 1,
@@ -585,7 +585,7 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.linelength = 8808,
 		.framelength = 6267,
 		.max_framerate = 150,
-		.mipi_pixel_rate = 881000000,
+		.mipi_pixel_rate = 881600000,
 		.readout_length = 0,
 		.read_margin = 10,
 		.framelength_step = 1,
@@ -635,7 +635,7 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.linelength = 8808,
 		.framelength = 6267,
 		.max_framerate = 150,
-		.mipi_pixel_rate = 881000000,
+		.mipi_pixel_rate = 881600000,
 		.readout_length = 0,
 		.read_margin = 10,
 		.framelength_step = 1,
@@ -825,7 +825,7 @@ static void set_sensor_cali(void *arg)
 		if (pbuf != NULL && addr > 0 && size > 0) {
 			subdrv_i2c_wr_seq_p8(ctx, addr, pbuf, size);
 			subdrv_i2c_wr_u8(ctx, 0x32D6, 0x01);
-			DRV_LOG(ctx, "set QSC calibration data done.");
+			DRV_LOG_MUST(ctx, "set QSC calibration data done.");
 		} else {
 			subdrv_i2c_wr_u8(ctx, 0x32D6, 0x00);
 		}
@@ -849,7 +849,7 @@ static int get_sensor_temperature(void *arg)
 	else
 		temperature_convert = (char)temperature;
 
-	DRV_LOG(ctx, "temperature: %d degrees\n", temperature_convert);
+	DRV_LOG_MUST(ctx, "temperature: %d degrees\n", temperature_convert);
 	return temperature_convert;
 }
 
@@ -1014,7 +1014,7 @@ static int get_imgsensor_id(struct subdrv_ctx *ctx, u32 *sensor_id)
 			if (addr_ll)
 				*sensor_id = ((*sensor_id) << 8) | subdrv_i2c_rd_u8(ctx, addr_ll);
 			*sensor_id +=1;
-			DRV_LOG(ctx, "i2c_write_id(0x%x) sensor_id(0x%x/0x%x)\n",
+			DRV_LOG_MUST(ctx, "i2c_write_id(0x%x) sensor_id(0x%x/0x%x)\n",
 				ctx->i2c_write_id, *sensor_id, ctx->s_ctx.sensor_id);
 			if (*sensor_id == IMX758LITE_SENSOR_ID) {
 				*sensor_id = ctx->s_ctx.sensor_id;
@@ -1114,12 +1114,12 @@ static int open(struct subdrv_ctx *ctx)
 
 static int vsync_notify(struct subdrv_ctx *ctx,	unsigned int sof_cnt)
 {
-	DRV_LOG(ctx, "sof_cnt(%u) ctx->ref_sof_cnt(%u) ctx->fast_mode_on(%d)",
+	DRV_LOG_MUST(ctx, "sof_cnt(%u) ctx->ref_sof_cnt(%u) ctx->fast_mode_on(%d)",
 		sof_cnt, ctx->ref_sof_cnt, ctx->fast_mode_on);
 	if (ctx->fast_mode_on && (sof_cnt > ctx->ref_sof_cnt)) {
 		ctx->fast_mode_on = FALSE;
 		ctx->ref_sof_cnt = 0;
-		DRV_LOG(ctx, "seamless_switch disabled.");
+		DRV_LOG_MUST(ctx, "seamless_switch disabled.");
 		set_i2c_buffer(ctx, 0x3010, 0x00);
 		commit_i2c_buffer(ctx);
 	}

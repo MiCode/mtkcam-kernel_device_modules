@@ -802,6 +802,52 @@ int update_work_buffer_to_ipi_frame(struct req_buffer_helper *helper)
 	return ret;
 }
 
+int update_sensor_meta_buffer_to_ipi_frame(struct mtk_cam_job *job,
+	struct mtkcam_ipi_frame_param *fp)
+{
+	struct mtk_cam_ctx *ctx = job->src_ctx;
+	struct mtk_cam_buf_fmt_desc fmt_desc;
+	struct mtk_camsv_device *sv_dev;
+	struct mtkcam_ipi_img_output *out;
+	struct mtkcam_ipi_uid uid;
+	unsigned int tag_idx;
+	int ret = 0;
+
+	if (!job->is_sensor_meta_dump)
+		goto EXIT;
+
+	if (ctx->hw_sv == NULL)
+		goto EXIT;
+
+	ret = mtk_cam_buffer_pool_fetch(
+			&ctx->sensor_meta_pool, &job->sensor_meta_buf);
+	if (ret) {
+		pr_info("[%s] fail to fetch\n", __func__);
+		return ret;
+	}
+
+	fmt_desc = job->seninf_meta_buf_desc.fmt_desc[MTKCAM_BUF_FMT_TYPE_BAYER];
+
+	sv_dev = dev_get_drvdata(ctx->hw_sv);
+	tag_idx = SVTAG_SENSOR_META;
+
+	uid.pipe_id = sv_dev->id + MTKCAM_SUBDEV_CAMSV_START;
+	uid.id = MTKCAM_IPI_CAMSV_MAIN_OUT;
+
+	fp->camsv_param[0][tag_idx].pipe_id = uid.pipe_id;
+	fp->camsv_param[0][tag_idx].tag_id = tag_idx;
+	fp->camsv_param[0][tag_idx].hardware_scenario = 0;
+
+	out = &fp->camsv_param[0][tag_idx].camsv_img_outputs[0];
+	ret = fill_img_out_driver_buf(out, uid,
+			&fmt_desc, &job->sensor_meta_buf);
+
+	mtk_cam_buffer_pool_return(&job->sensor_meta_buf);
+
+EXIT:
+	return ret;
+}
+
 static int fill_ufbc_header_yuvo(struct mtk_cam_buffer *buf,
 			struct mtkcam_ipi_img_ufo_param *ufo_param)
 {
@@ -1815,6 +1861,18 @@ struct mtk_raw_sink_data *get_raw_sink_data(struct mtk_cam_job *job)
 	return &req->raw_data[raw_pipe_idx].sink;
 }
 
+struct mtk_camsv_sink_data *get_sv_sink_data(struct mtk_cam_job *job)
+{
+	struct mtk_cam_request *req = job->req;
+	int sv_pipe_idx;
+
+	sv_pipe_idx = get_sv_subdev_idx(job->src_ctx->used_pipe);
+	if (sv_pipe_idx < 0)
+		return NULL;
+
+	return &req->sv_data[sv_pipe_idx].sink;
+}
+
 bool has_valid_mstream_exp(struct mtk_cam_job *job)
 {
 	struct mtk_raw_ctrl_data *ctrl;
@@ -1842,6 +1900,37 @@ void mtk_cam_sv_reset_tag_info(struct mtk_cam_job *job)
 	}
 }
 
+int update_sensor_meta_buf_desc(struct mtk_cam_job *job,
+	unsigned int mbus_code,
+	struct mtk_seninf_pad_data_info *pad_data_info)
+{
+	struct mtk_cam_driver_buf_desc *desc = &job->seninf_meta_buf_desc;
+
+	if (has_embedded_parser(job->seninf) &&
+		mtk_cam_seninf_get_ebd_info_by_scenario(job->seninf,
+			mbus_code, pad_data_info) == 0) {
+		desc->fmt_desc[0].ipi_fmt =
+			sensor_mbus_to_ipi_fmt(pad_data_info->mbus_code);
+		if (WARN_ON_ONCE(desc->fmt_desc[0].ipi_fmt ==
+			MTKCAM_IPI_BAYER_PXL_ID_UNKNOWN))
+			return 0;
+
+		desc->fmt_desc[0].width = pad_data_info->exp_hsize;
+		desc->fmt_desc[0].height = pad_data_info->exp_vsize;
+		desc->fmt_desc[0].stride[0] =
+			mtk_cam_dmao_xsize(
+				desc->fmt_desc[0].width, desc->fmt_desc[0].ipi_fmt, 4);
+		desc->fmt_desc[0].stride[1] = 0;
+		desc->fmt_desc[0].stride[2] = 0;
+		desc->fmt_desc[0].size =
+			desc->fmt_desc[0].stride[0] * desc->fmt_desc[0].height;
+
+		return 1;
+	}
+
+	return 0;
+}
+
 int handle_sv_tag(struct mtk_cam_job *job)
 {
 	struct mtk_cam_ctx *ctx = job->src_ctx;
@@ -1850,6 +1939,7 @@ int handle_sv_tag(struct mtk_cam_job *job)
 	struct mtk_camsv_sink_data *sv_sink;
 	struct mtk_camsv_tag_param img_tag_param[SVTAG_IMG_END];
 	struct mtk_camsv_tag_param meta_tag_param;
+	struct mtk_seninf_pad_data_info pad_data_info;
 	unsigned int tag_idx, sv_pipe_idx, hw_scen;
 	unsigned int exp_no, req_amount;
 	int ret = 0, i;
@@ -1946,6 +2036,50 @@ int handle_sv_tag(struct mtk_cam_job *job)
 			sv_sink->mbus_code);
 	}
 
+	/* sensor meta */
+	if (ctx->enable_sensor_meta_dump &&
+		tag_idx < SVTAG_END &&
+		update_sensor_meta_buf_desc(
+			job, raw_sink->mbus_code, &pad_data_info)) {
+		pr_info("[%s] sensor meta dump is on\n", __func__);
+		job->is_sensor_meta_dump = true;
+
+		tag_idx = SVTAG_SENSOR_META;
+
+		meta_tag_param.tag_idx = tag_idx;
+		meta_tag_param.seninf_padidx = PAD_SRC_GENERAL0;
+		meta_tag_param.tag_order = mtk_cam_seninf_get_tag_order(
+			ctx->seninf, raw_sink->mbus_code,
+			meta_tag_param.seninf_padidx);
+		mtk_cam_sv_fill_tag_info(job->tag_info,
+			&job->ipi_config,
+			&meta_tag_param, 1, 3, job->sub_ratio,
+			pad_data_info.exp_hsize,
+			pad_data_info.exp_vsize,
+			pad_data_info.mbus_code,
+			NULL);
+
+		job->used_tag_cnt++;
+		job->enabled_tags |= (1 << tag_idx);
+
+		pr_info("[%s] tag_idx:%d seninf_padidx:%d tag_order:%d width/height/mbus_code:0x%x_0x%x_0x%x\n",
+			__func__,
+			meta_tag_param.tag_idx,
+			meta_tag_param.seninf_padidx,
+			meta_tag_param.tag_order,
+			pad_data_info.exp_hsize,
+			pad_data_info.exp_vsize,
+			pad_data_info.mbus_code);
+	} else {
+		job->is_sensor_meta_dump = false;
+		pr_info("[%s] sensor meta dump is off(enable:%d/tag_idx:%d)\n",
+			__func__,
+			(ctx->enable_sensor_meta_dump) ? 1 : 0,
+			tag_idx);
+	}
+
+	ctx->is_sensor_meta_dump = job->is_sensor_meta_dump;
+	ctx->seninf_meta_buf_desc = job->seninf_meta_buf_desc;
 	ctx->used_tag_cnt = job->used_tag_cnt;
 	ctx->enabled_tags = job->enabled_tags;
 	memcpy(ctx->tag_info, job->tag_info,
@@ -2009,8 +2143,18 @@ int handle_sv_tag_display_ic(struct mtk_cam_job *job)
 
 		job->used_tag_cnt++;
 		job->enabled_tags |= (1 << tag_param[i].tag_idx);
+
+		pr_info("[%s] tag_idx:%d seninf_padidx:%d tag_order:%d width/height/mbus_code:0x%x_0x%x_0x%x\n",
+			__func__,
+			tag_param[i].tag_idx,
+			tag_param[i].seninf_padidx,
+			tag_param[i].tag_order,
+			width,
+			height,
+			mbus_code);
 	}
 
+	ctx->is_sensor_meta_dump = job->is_sensor_meta_dump = false;
 	ctx->used_tag_cnt = job->used_tag_cnt;
 	ctx->enabled_tags = job->enabled_tags;
 	memcpy(ctx->tag_info, job->tag_info,
@@ -2023,8 +2167,9 @@ int handle_sv_tag_only_sv(struct mtk_cam_job *job)
 {
 	struct mtk_cam_ctx *ctx = job->src_ctx;
 	struct mtk_camsv_pipeline *sv_pipe;
-	struct mtk_camsv_sink_data *sv_sink;
+	struct mtk_camsv_sink_data *sv_sink = NULL;
 	struct mtk_camsv_tag_param tag_param;
+	struct mtk_seninf_pad_data_info pad_data_info;
 	unsigned int tag_idx, sv_pipe_idx;
 	int ret = 0, i;
 
@@ -2052,8 +2197,62 @@ int handle_sv_tag_only_sv(struct mtk_cam_job *job)
 		job->used_tag_cnt++;
 		job->enabled_tags |= (1 << tag_idx);
 		tag_idx++;
+
+		pr_info("[%s] tag_idx:%d seninf_padidx:%d tag_order:%d width/height/mbus_code:0x%x_0x%x_0x%x\n",
+			__func__,
+			tag_param.tag_idx,
+			tag_param.seninf_padidx,
+			tag_param.tag_order,
+			sv_sink->width,
+			sv_sink->height,
+			sv_sink->mbus_code);
 	}
 
+	/* sensor meta */
+	if (ctx->enable_sensor_meta_dump &&
+		tag_idx < SVTAG_END &&
+		sv_sink &&
+		update_sensor_meta_buf_desc(
+			job, sv_sink->mbus_code, &pad_data_info)) {
+		pr_info("[%s] sensor meta dump is on\n", __func__);
+		job->is_sensor_meta_dump = true;
+
+		tag_idx = SVTAG_SENSOR_META;
+
+		tag_param.tag_idx = tag_idx;
+		tag_param.seninf_padidx = PAD_SRC_GENERAL0;
+		tag_param.tag_order = mtk_cam_seninf_get_tag_order(
+			ctx->seninf, sv_sink->mbus_code,
+			tag_param.seninf_padidx);
+		mtk_cam_sv_fill_tag_info(job->tag_info,
+			&job->ipi_config,
+			&tag_param, 1, 3, job->sub_ratio,
+			pad_data_info.exp_hsize,
+			pad_data_info.exp_vsize,
+			pad_data_info.mbus_code,
+			NULL);
+
+		job->used_tag_cnt++;
+		job->enabled_tags |= (1 << tag_idx);
+
+		pr_info("[%s] tag_idx:%d seninf_padidx:%d tag_order:%d width/height/mbus_code:0x%x_0x%x_0x%x\n",
+			__func__,
+			tag_param.tag_idx,
+			tag_param.seninf_padidx,
+			tag_param.tag_order,
+			pad_data_info.exp_hsize,
+			pad_data_info.exp_vsize,
+			pad_data_info.mbus_code);
+	} else {
+		job->is_sensor_meta_dump = false;
+		pr_info("[%s] sensor meta dump is off(enable:%d/tag_idx:%d)\n",
+			__func__,
+			(ctx->enable_sensor_meta_dump) ? 1 : 0,
+			tag_idx);
+	}
+
+	ctx->is_sensor_meta_dump = job->is_sensor_meta_dump;
+	ctx->seninf_meta_buf_desc = job->seninf_meta_buf_desc;
 	ctx->used_tag_cnt = job->used_tag_cnt;
 	ctx->enabled_tags = job->enabled_tags;
 	memcpy(ctx->tag_info, job->tag_info,
@@ -2066,15 +2265,16 @@ bool is_sv_img_tag_used(struct mtk_cam_job *job)
 {
 	bool rst = false;
 
-	/* HS_TODO: check all features */
-	/* FIXME(AY): should check scen id before accessing */
-	if (job->job_scen.scen.normal.exp_num > 1)
+	if (job->job_scen.id == MTK_CAM_SCEN_NORMAL &&
+		job->job_scen.scen.normal.exp_num > 1)
 		rst = !is_m2m(job);
 	if (is_dc_mode(job))
 		rst = true;
 	if (is_sv_pure_raw(job))
 		rst = true;
 	if (is_extisp(job))
+		rst = true;
+	if (job->is_sensor_meta_dump)
 		rst = true;
 
 	return rst;

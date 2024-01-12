@@ -14,6 +14,7 @@
 #include <linux/vmalloc.h>
 
 #include <soc/mediatek/smi.h>
+#include <soc/mediatek/mmdvfs_v3.h>
 
 #include "mtk_cam.h"
 #include "mtk_cam-sv-regs.h"
@@ -1002,43 +1003,11 @@ struct mtk_cam_seninf_sentest_param *
 int mtk_cam_sv_golden_set(struct mtk_camsv_device *sv_dev, bool is_golden_set)
 {
 	int ret = 0;
-	unsigned int larb_id, wdma1_id, wdma2_id;
 
-	larb_id =
-		(sv_dev->larb_master_id[SMI_PORT1_SV_WDMA] >> 5) & 0x3F;
-	wdma1_id =
-		sv_dev->larb_master_id[SMI_PORT1_SV_WDMA] & 0x1F;
-	wdma2_id =
-		sv_dev->larb_master_id[SMI_PORT2_SV_WDMA] & 0x1F;
+	mtk_mmdvfs_camsv_dc_enable(sv_dev->id, is_golden_set);
 
-	switch (sv_dev->id) {
-	case CAMSV_0:
-	case CAMSV_1:
-		/* force ultra */
-		mtk_smi_golden_set(is_golden_set, true, larb_id, wdma1_id);
-		mtk_smi_golden_set(is_golden_set, true, larb_id, wdma2_id);
-		/* ostd */
-		if (is_golden_set) {
-			mtk_smi_larb_bw_set(&sv_dev->larb_pdev->dev, wdma1_id, 0x40);
-			mtk_smi_larb_bw_set(&sv_dev->larb_pdev->dev, wdma2_id, 0x40);
-		}
-		/* cmd th */
-		mtk_smi_golden_set(is_golden_set, false, 0, 0);
-		break;
-	case CAMSV_2:
-	case CAMSV_3:
-	case CAMSV_4:
-	case CAMSV_5:
-		/* force ultra */
-		mtk_smi_golden_set(is_golden_set, true, larb_id, wdma1_id);
-		/* ostd */
-		if (is_golden_set)
-			mtk_smi_larb_bw_set(&sv_dev->larb_pdev->dev, wdma1_id, 0x40);
-		break;
-	}
-
-	dev_info(sv_dev->dev, "%s: is_golden_set:%d larb_id:%d wdma1_id:%d wdma2_id:%d",
-		__func__, (is_golden_set) ? 1 : 0, larb_id, wdma1_id, wdma2_id);
+	dev_info(sv_dev->dev, "%s: is_golden_set:%d",
+		__func__, (is_golden_set) ? 1 : 0);
 
 	return ret;
 }
@@ -2275,6 +2244,7 @@ static int mtk_camsv_runtime_suspend(struct device *dev)
 	dev_dbg(dev, "%s:disable clock\n", __func__);
 
 	mtk_cam_reset_qos(dev, &sv_dev->qos);
+	mtk_cam_sv_golden_set(sv_dev, false);
 
 	for (i = 0; i < sv_dev->num_clks; i++)
 		clk_disable_unprepare(sv_dev->clks[i]);

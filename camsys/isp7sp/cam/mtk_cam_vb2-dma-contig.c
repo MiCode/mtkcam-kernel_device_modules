@@ -76,12 +76,12 @@ static void *mtk_cam_vb2_cookie(struct vb2_buffer *vb, void *buf_priv)
 static void *mtk_cam_vb2_vaddr(struct vb2_buffer *vb, void *buf_priv)
 {
 	struct mtk_cam_vb2_buf *buf = buf_priv;
-	int ret;
+	int ret = 0;
 
 	MTK_CAM_TRACE_FUNC_BEGIN(BUFFER);
 	if (!buf->vaddr && buf->db_attach)
 		ret = dma_buf_vmap(buf->db_attach->dmabuf, &buf->map);
-	buf->vaddr = buf->map.vaddr;
+	buf->vaddr = WARN_ON(ret) ? NULL : buf->map.vaddr;
 	MTK_CAM_TRACE_END(BUFFER);
 	return buf->vaddr;
 }

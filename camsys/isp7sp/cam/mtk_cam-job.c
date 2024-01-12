@@ -2849,8 +2849,11 @@ static int fill_sv_img_buffer_to_ipi_frame(
 		info.width = buf->image_info.width;
 		info.height = buf->image_info.height;
 		info.stride = buf->image_info.bytesperline[0];
-		CALL_PLAT_V4L2(
-			set_sv_meta_stats_info, node->desc.dma_port, vaddr, &info);
+		if (!vaddr)
+			ret = -1;
+		else
+			CALL_PLAT_V4L2(set_sv_meta_stats_info,
+				       node->desc.dma_port, vaddr, &info);
 	}
 
 	return ret;
@@ -4361,6 +4364,11 @@ static int update_mraw_meta_buf_to_ipi_frame(
 			FILL_META_IN_OUT(in, buf, node->uid);
 
 			vaddr = vb2_plane_vaddr(&buf->vbb.vb2_buf, 0);
+			if (!vaddr) {
+				ret = -1;
+				goto EXIT;
+			}
+
 			mraw_pipe->res_config.vaddr[MTKCAM_IPI_MRAW_META_STATS_CFG
 				- MTKCAM_IPI_MRAW_ID_START] = vaddr;
 			mraw_pipe->res_config.daddr[MTKCAM_IPI_MRAW_META_STATS_CFG
@@ -4374,6 +4382,11 @@ static int update_mraw_meta_buf_to_ipi_frame(
 			void *vaddr;
 
 			vaddr = vb2_plane_vaddr(&buf->vbb.vb2_buf, 0);
+			if (!vaddr) {
+				ret = -1;
+				goto EXIT;
+			}
+
 			mraw_pipe->res_config.vaddr[MTKCAM_IPI_MRAW_META_STATS_0
 				- MTKCAM_IPI_MRAW_ID_START] = vaddr;
 			mraw_pipe->res_config.daddr[MTKCAM_IPI_MRAW_META_STATS_0
@@ -4564,7 +4577,7 @@ static int fill_raw_stats_header(struct mtk_cam_buffer *buf,
 	node = mtk_cam_buf_to_vdev(buf);
 
 	vaddr = vb2_plane_vaddr(&buf->vbb.vb2_buf, 0);
-	if (WARN_ON(!vaddr))
+	if (!vaddr)
 		return -1;
 
 	ret = CALL_PLAT_V4L2(set_meta_stats_info,
@@ -4583,6 +4596,7 @@ static int fill_raw_meta_header(struct req_buffer_helper *helper)
 	struct mtk_cam_job *job = helper->job;
 	struct set_meta_stats_info_param p;
 	struct mtk_cam_buffer *buf;
+	void *vaddr;
 	int ret = 0;
 
 	memset(&p, 0, sizeof(p));
@@ -4592,8 +4606,12 @@ static int fill_raw_meta_header(struct req_buffer_helper *helper)
 		struct mtk_cam_resource_v2 *res;
 
 		buf = helper->meta_cfg_buf;
+		vaddr = vb2_plane_vaddr(&buf->vbb.vb2_buf, 0);
+		if (!vaddr)
+			return -1;
+
 		p.cfg_dataformat = buf->meta_info.v4l2_pixelformat;
-		p.meta_cfg = vb2_plane_vaddr(&buf->vbb.vb2_buf, 0);
+		p.meta_cfg = vaddr;
 		p.meta_cfg_size = buf->meta_info.buffersize;
 
 		raw_data = req_get_raw_data(job->src_ctx, job->req);
@@ -4702,6 +4720,7 @@ int mtk_cam_job_fill_dump_param(struct mtk_cam_job *job,
 {
 	struct mtk_cam_request *req;
 	struct mtk_cam_buffer *buf;
+	void *vaddr;
 	int pipe_id;
 
 	req = job->req;
@@ -4739,7 +4758,10 @@ int mtk_cam_job_fill_dump_param(struct mtk_cam_job *job,
 	/* meta in */
 	buf = mtk_cam_req_find_buffer(req, pipe_id, MTK_RAW_META_IN);
 	if (buf) {
-		p->meta_in_cpu_addr = vb2_plane_vaddr(&buf->vbb.vb2_buf, 0);
+		vaddr = vb2_plane_vaddr(&buf->vbb.vb2_buf, 0);
+		if (!vaddr)
+			return -1;
+		p->meta_in_cpu_addr = vaddr;
 		p->meta_in_dump_buf_size = buf->meta_info.buffersize;
 		p->meta_in_iova = buf->daddr;
 	} else

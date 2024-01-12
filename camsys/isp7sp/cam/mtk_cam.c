@@ -372,7 +372,7 @@ static int mtk_cam_req_try_update_used_ctx(struct media_request *req)
 			continue;
 
 		ctx = mtk_cam_find_ctx(cam, &ppls->raw[i].subdev.entity);
-		if (!ctx) {
+		if (!ctx || !atomic_read(&ctx->streaming)) {
 			/* not all pipes are stream-on */
 			not_streamon_yet = true;
 			break;
@@ -388,7 +388,7 @@ static int mtk_cam_req_try_update_used_ctx(struct media_request *req)
 			continue;
 
 		ctx = mtk_cam_find_ctx(cam, &ppls->camsv[i].subdev.entity);
-		if (!ctx) {
+		if (!ctx || !atomic_read(&ctx->streaming)) {
 			/* not all pipes are stream-on */
 			not_streamon_yet = true;
 			break;
@@ -404,7 +404,7 @@ static int mtk_cam_req_try_update_used_ctx(struct media_request *req)
 			continue;
 
 		ctx = mtk_cam_find_ctx(cam, &ppls->mraw[i].subdev.entity);
-		if (!ctx) {
+		if (!ctx || !atomic_read(&ctx->streaming)) {
 			/* not all pipes are stream-on */
 			not_streamon_yet = true;
 			break;

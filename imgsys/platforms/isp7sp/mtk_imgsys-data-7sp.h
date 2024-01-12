@@ -34,7 +34,7 @@ const struct cust_data imgsys_data_mt6897[] = {
 	.imgsys_ports = imgsys_dma_port_mt6897,
 	.imgsys_ports_num = ARRAY_SIZE(imgsys_dma_port_mt6897),
 #else
-	.imgsys_ports_num = 0;
+	.imgsys_ports_num = 0,
 #endif
 	},
 	/* ISP 7.1 */
@@ -56,7 +56,7 @@ const struct cust_data imgsys_data_mt6989[] = {
 	.imgsys_ports = imgsys_dma_port_mt6989,
 	.imgsys_ports_num = ARRAY_SIZE(imgsys_dma_port_mt6989),
 #else
-	.imgsys_ports_num = 0;
+	.imgsys_ports_num = 0,
 #endif
 	},
 };

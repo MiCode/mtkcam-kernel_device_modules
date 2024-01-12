@@ -126,7 +126,7 @@ static inline int scen_to_str(char *buff, size_t size,
 		n = scnprintf(buff, size, "scen:id=%d smvr:sub=%d%s",
 			      scen->id,
 			      scen->scen.smvr.subsample_num,
-			      scen->scen.smvr.output_first_frame_only ? "1st-only" : "");
+			      scen->scen.smvr.output_first_frame_only ? " 1st-only" : "");
 
 	return n;
 }

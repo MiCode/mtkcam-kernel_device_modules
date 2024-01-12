@@ -4,6 +4,7 @@
 
 #include <linux/rpmsg/mtk_ccd_rpmsg.h>
 #include <linux/pm_runtime.h>
+#include <linux/sched/clock.h>
 
 #include <linux/soc/mediatek/mtk-cmdq-ext.h>
 
@@ -343,6 +344,7 @@ static int mtk_cam_job_pack_init(struct mtk_cam_job *job,
 	job->timestamp_buf = NULL;
 	job->raw_switch = false;
 
+	job->local_apply_sensor_ts = 0;
 	return ret;
 }
 
@@ -1149,6 +1151,8 @@ _apply_sensor(struct mtk_cam_job *job)
 	if (CAM_DEBUG_ENABLED(JOB_ACTION))
 		dev_info(cam->dev, "[%s] ctx:%d seq 0x%x\n",
 			 __func__, ctx->stream_id, job->frame_seq_no);
+	else
+		job->local_apply_sensor_ts = local_clock();
 
 	frame_sync_end(job);
 
@@ -4626,6 +4630,28 @@ bool job_has_done_pending(struct mtk_cam_job *job)
 		atomic_long_read(&job->afo_done) == 1;
 }
 
+/* consistent with printk */
+static size_t print_time(u64 ts, char *buff, size_t size)
+{
+	unsigned long rem_nsec = do_div(ts, 1000000000);
+
+	return scnprintf(buff, size, "[%lu.%06lu]",
+			 (unsigned long)ts, rem_nsec / 1000);
+}
+
+static int debug_str_sensor_apply_ts(struct mtk_cam_job *job,
+				     char *buff, size_t size)
+{
+	int n = 0;
+
+	if (job->local_apply_sensor_ts) {
+		n = scnprintf(buff + n, size - n, " s@");
+		n += print_time(job->local_apply_sensor_ts,
+				buff + n, size - n);
+	}
+	return n;
+}
+
 int job_handle_done(struct mtk_cam_job *job)
 {
 	unsigned long cur_handle;
@@ -4671,12 +4697,17 @@ int job_handle_done(struct mtk_cam_job *job)
 	if (ret) {
 		struct mtk_cam_ctx *ctx = job->src_ctx;
 		unsigned int used_pipe = job->req->used_pipe & ctx->used_pipe;
+		char debug_ts[24];
 
-		dev_info(ctx->cam->dev, "%s: ctx-%d req:%s(%d) pipe:0x%x ts:%lld%s\n",
+		debug_ts[0] = '\0';
+		debug_str_sensor_apply_ts(job, debug_ts, sizeof(debug_ts));
+
+		dev_info(ctx->cam->dev, "%s: ctx-%d req:%s(%d) pipe:0x%x ts:%lld%s%s\n",
 			 __func__, ctx->stream_id,
 			 job->req->debug_str, job->req_seq,
 			 job->done_pipe, job->timestamp,
-			 job->req->is_buf_empty ? "(empty)" : "");
+			 debug_ts,
+			 job->req->is_buf_empty ? " (empty)" : "");
 
 		if (job->done_pipe != used_pipe)
 			dev_info(ctx->cam->dev, "%s: warn. done mismatched. used_pipe:0x%x\n",

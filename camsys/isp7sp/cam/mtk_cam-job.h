@@ -341,6 +341,9 @@ struct mtk_cam_job {
 	unsigned int used_tag_cnt;
 	unsigned int enabled_tags;
 	struct mtk_camsv_tag_info tag_info[CAMSV_MAX_TAGS];
+
+	/* use local_clock() to be consitent with printk */
+	u64 local_apply_sensor_ts;
 };
 
 static inline struct mtk_cam_job *mtk_cam_job_get(struct mtk_cam_job *job)

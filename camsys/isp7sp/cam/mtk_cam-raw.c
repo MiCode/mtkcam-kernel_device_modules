@@ -1213,7 +1213,7 @@ static int mtk_raw_of_probe(struct platform_device *pdev,
 	struct of_phandle_args args;
 	struct resource *res;
 	unsigned int i;
-	int clks, larbs, iommus, ret;
+	int clks, larbs, iommus, smmus, ret;
 
 	ret = of_property_read_u32(dev->of_node, "mediatek,cam-id",
 				   &raw->id);
@@ -1345,12 +1345,26 @@ static int mtk_raw_of_probe(struct platform_device *pdev,
 
 	iommus = of_count_phandle_with_args(
 		pdev->dev.of_node, "iommus", "#iommu-cells");
-	iommus = (iommus == -ENOENT) ? 0 : iommus;
+	iommus = (iommus > 0) ? : 0;
 	for (i = 0; i < iommus; i++) {
 		if (!of_parse_phandle_with_args(pdev->dev.of_node,
 			"iommus", "#iommu-cells", i, &args)) {
 			mtk_iommu_register_fault_callback(
 				args.args[0], mtk_raw_translation_fault_cb,
+				(void *)raw, false);
+		}
+	}
+
+	smmus = of_property_count_u32_elems(
+		pdev->dev.of_node, "mediatek,smmu-dma-axid");
+	smmus = (smmus > 0) ? : 0;
+	for (i = 0; i < smmus; i++) {
+		u32 axid;
+
+		if (!of_property_read_u32_index(
+			pdev->dev.of_node, "mediatek,smmu-dma-axid", i, &axid)) {
+			mtk_iommu_register_fault_callback(
+				axid, mtk_raw_translation_fault_cb,
 				(void *)raw, false);
 		}
 	}
@@ -1639,9 +1653,10 @@ static int mtk_yuv_of_probe(struct platform_device *pdev,
 	struct platform_device *larb_pdev;
 	struct device_node *larb_node;
 	struct device_link *link;
+	struct of_phandle_args args;
 	struct resource *res;
 	unsigned int i;
-	int clks, larbs, ret;
+	int clks, larbs, iommus, smmus, ret;
 
 	ret = of_property_read_u32(dev->of_node, "mediatek,cam-id",
 				   &drvdata->id);
@@ -1767,6 +1782,32 @@ static int mtk_yuv_of_probe(struct platform_device *pdev,
 	}
 #endif
 
+	iommus = of_count_phandle_with_args(
+		pdev->dev.of_node, "iommus", "#iommu-cells");
+	iommus = (iommus > 0) ? : 0;
+	for (i = 0; i < iommus; i++) {
+		if (!of_parse_phandle_with_args(pdev->dev.of_node,
+			"iommus", "#iommu-cells", i, &args)) {
+			mtk_iommu_register_fault_callback(
+				args.args[0], mtk_yuv_translation_fault_cb,
+				(void *)drvdata, false);
+		}
+	}
+
+	smmus = of_property_count_u32_elems(
+		pdev->dev.of_node, "mediatek,smmu-dma-axid");
+	smmus = (smmus > 0) ? : 0;
+	for (i = 0; i < smmus; i++) {
+		u32 axid;
+
+		if (!of_property_read_u32_index(
+			pdev->dev.of_node, "mediatek,smmu-dma-axid", i, &axid)) {
+			mtk_iommu_register_fault_callback(
+				axid, mtk_yuv_translation_fault_cb,
+				(void *)drvdata, false);
+		}
+	}
+
 	return 0;
 }
 
@@ -1774,8 +1815,7 @@ static int mtk_yuv_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
 	struct mtk_yuv_device *drvdata;
-	struct of_phandle_args args;
-	int i, iommus, ret;
+	int ret;
 
 	drvdata = devm_kzalloc(dev, sizeof(*drvdata), GFP_KERNEL);
 	if (!drvdata)
@@ -1796,18 +1836,6 @@ static int mtk_yuv_probe(struct platform_device *pdev)
 		return ret;
 
 	pm_runtime_enable(dev);
-
-	iommus = of_count_phandle_with_args(
-		pdev->dev.of_node, "iommus", "#iommu-cells");
-	iommus = (iommus == -ENOENT) ? 0 : iommus;
-	for (i = 0; i < iommus; i++) {
-		if (!of_parse_phandle_with_args(pdev->dev.of_node,
-			"iommus", "#iommu-cells", i, &args)) {
-			mtk_iommu_register_fault_callback(
-				args.args[0], mtk_yuv_translation_fault_cb,
-				(void *)drvdata, false);
-		}
-	}
 
 	return component_add(dev, &mtk_yuv_component_ops);
 }

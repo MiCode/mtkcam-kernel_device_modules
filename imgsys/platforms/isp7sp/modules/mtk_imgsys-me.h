@@ -24,6 +24,6 @@ void imgsys_me_set_initial_value(struct mtk_imgsys_dev *imgsys_dev);
 void imgsys_me_debug_dump(struct mtk_imgsys_dev *imgsys_dev,
 							unsigned int engine);
 void imgsys_me_uninit(struct mtk_imgsys_dev *imgsys_dev);
-
+void ME_mode3_reset(struct mtk_imgsys_dev *imgsys_dev);
 
 #endif /* _MTK_IMGSYS_ME_H_ */

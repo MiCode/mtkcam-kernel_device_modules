@@ -5930,24 +5930,40 @@ static int mtk_cam_seninf_set_reg(struct seninf_ctx *ctx, u32 key, u64 val)
 		switch (val) {
 		case 130:
 			core->aov_csi_clk_switch_flag = CSI_CLK_130;
-			dev_info(ctx->dev,
-				"[%s] set aov csi clk (%llu)\n",
-				__func__, val);
 			break;
 		case 242:
-		default:
 			core->aov_csi_clk_switch_flag = CSI_CLK_242;
-			dev_info(ctx->dev,
-				"[%s] set aov csi clk (%llu)\n",
-				__func__, val);
+			break;
+		case 312:
+		default:
+			core->aov_csi_clk_switch_flag = CSI_CLK_312;
 			break;
 		}
+		dev_info(ctx->dev, "[%s] set aov csi clk (%llu)\n",
+			__func__, val);
 		break;
 	}
 
 	return 0;
 }
 
+static int mtk_cam_set_scp_phya_clock(struct seninf_ctx *ctx, u64 val)
+{
+	void *base = ctx->reg_ana_csi_rx[(unsigned int)ctx->port];
+
+	switch (val) {
+	case 1:
+	case 0:
+		SENINF_BITS(base, CDPHY_RX_ANA_SETTING_0, CSR_ANA_REF_CK_SEL, val);
+		break;
+	default:
+		dev_info(ctx->dev, "[%s] mtk_cam_seninf_set_reg not set\n", __func__);
+		return -1;
+	}
+	dev_info(ctx->dev, "[%s] mtk_cam_seninf_set_reg set to %llu\n", __func__, val);
+
+	return 0;
+}
 
 static int debug_init_deskew_irq(struct seninf_ctx *ctx)
 {
@@ -6027,6 +6043,7 @@ struct mtk_cam_seninf_ops mtk_csi_phy_3_0 = {
 	._get_tsrec_timestamp = mtk_cam_seninf_get_tsrec_timestamp,
 	._eye_scan = mtk_cam_seninf_eye_scan,
 	._set_reg = mtk_cam_seninf_set_reg,
+	._set_scp_phya_clock = mtk_cam_set_scp_phya_clock,
 	.seninf_num = 12,
 	.mux_num = 22,
 	.cam_mux_num = 41,

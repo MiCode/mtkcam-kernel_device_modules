@@ -2266,47 +2266,6 @@ static int csirx_mac_csi_setting(struct seninf_ctx *ctx)
 						CSIRX_MAC_CSI2_RESYNC_MERGE_CTRL,
 						0x2020f106);
 
-#if __SMT == 0
-		SENINF_BITS(csirx_mac_csi,
-					CSIRX_MAC_CSI2_RESYNC_MERGE_CTRL,
-					RG_CSI2_RESYNC_DMY_CYCLE,
-					cycles);
-
-		SENINF_BITS(csirx_mac_csi,
-					CSIRX_MAC_CSI2_RESYNC_MERGE_CTRL,
-					RG_CSI2_RESYNC_DMY_CNT,
-					RESYNC_DMY_CNT);
-
-		if (!ctx->csi_param.legacy_phy) {
-			SENINF_BITS(csirx_mac_csi,
-						CSIRX_MAC_CSI2_RESYNC_MERGE_CTRL,
-						RG_CSI2_RESYNC_DMY_CNT,
-						3);
-
-			if (ctx->num_data_lanes == 2) {
-				SENINF_BITS(csirx_mac_csi,
-							CSIRX_MAC_CSI2_RESYNC_MERGE_CTRL,
-							RG_CSI2_RESYNC_DMY_EN,
-							0x3);
-			} else {
-				SENINF_BITS(csirx_mac_csi,
-							CSIRX_MAC_CSI2_RESYNC_MERGE_CTRL,
-							RG_CSI2_RESYNC_DMY_EN,
-							0xf);
-			}
-		} else {
-			SENINF_BITS(csirx_mac_csi,
-						CSIRX_MAC_CSI2_RESYNC_MERGE_CTRL,
-						RG_CSI2_RESYNC_DMY_CNT,
-						4);
-
-			SENINF_BITS(csirx_mac_csi,
-						CSIRX_MAC_CSI2_RESYNC_MERGE_CTRL,
-						RG_CSI2_RESYNC_DMY_EN,
-						0xF);
-		}
-
-#endif
 	} else { //Cphy
 		u8 map_hdr_len[] = {0, 1, 2, 4, 5};
 		u64 cycles = 64;
@@ -2338,47 +2297,7 @@ static int csirx_mac_csi_setting(struct seninf_ctx *ctx)
 		SENINF_WRITE_REG(csirx_mac_csi,
 						CSIRX_MAC_CSI2_RESYNC_MERGE_CTRL,
 						0x20207106);
-#if __SMT == 0
-		SENINF_BITS(csirx_mac_csi,
-					CSIRX_MAC_CSI2_RESYNC_MERGE_CTRL,
-					RG_CSI2_RESYNC_DMY_CYCLE,
-					cycles);
 
-		SENINF_BITS(csirx_mac_csi,
-					CSIRX_MAC_CSI2_RESYNC_MERGE_CTRL,
-					RG_CSI2_RESYNC_DMY_CNT,
-					RESYNC_DMY_CNT);
-
-		if (!ctx->csi_param.legacy_phy) {
-			SENINF_BITS(csirx_mac_csi,
-						CSIRX_MAC_CSI2_RESYNC_MERGE_CTRL,
-						RG_CSI2_RESYNC_DMY_CNT,
-						3);
-
-			if (ctx->num_data_lanes == 3) {
-				SENINF_BITS(csirx_mac_csi,
-							CSIRX_MAC_CSI2_RESYNC_MERGE_CTRL,
-							RG_CSI2_RESYNC_DMY_EN,
-							0x7);
-			} else {
-				SENINF_BITS(csirx_mac_csi,
-							CSIRX_MAC_CSI2_RESYNC_MERGE_CTRL,
-							RG_CSI2_RESYNC_DMY_EN,
-							0x3);
-			}
-		} else {
-			SENINF_BITS(csirx_mac_csi,
-						CSIRX_MAC_CSI2_RESYNC_MERGE_CTRL,
-						RG_CSI2_RESYNC_DMY_CNT,
-						4);
-
-			SENINF_BITS(csirx_mac_csi,
-						CSIRX_MAC_CSI2_RESYNC_MERGE_CTRL,
-						RG_CSI2_RESYNC_DMY_EN,
-						0x7);
-		}
-
-#endif
 	}
 
 	return 0;
@@ -2673,7 +2592,7 @@ static int csirx_phyA_setting(struct seninf_ctx *ctx)
 		SENINF_BITS(baseA,
 				CDPHY_RX_ANA_SETTING_1,
 				RG_CSI0_ASYNC_OPTION,
-				(pn_swap_en && (data_rate < 4000000000)) ? 0x4 : 0x0);
+				((!pn_swap_en) && (data_rate < 4000000000)) ? 0x4 : 0x0);
 
 		SENINF_BITS(baseA,
 					CDPHY_RX_ANA_SETTING_1,
@@ -5759,12 +5678,6 @@ static int mtk_cam_seninf_set_reg(struct seninf_ctx *ctx, u32 key, u64 val)
 			return 0;
 		SENINF_WRITE_REG(base_csi_mac, CSIRX_MAC_CSI2_IRQ_STATUS,
 				 val & 0xFFFFFFFF);
-		break;
-	case REG_KEY_CSI_RESYNC_CYCLE:
-		if (!ctx->streaming)
-			return 0;
-		SENINF_BITS(base_csi_mac, CSIRX_MAC_CSI2_RESYNC_MERGE_CTRL,
-			   RG_CSI2_RESYNC_DMY_CYCLE, val);
 		break;
 	case REG_KEY_MUX_IRQ_STAT:
 		if (!ctx->streaming)

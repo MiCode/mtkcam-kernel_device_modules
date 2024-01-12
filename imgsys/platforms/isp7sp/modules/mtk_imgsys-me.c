@@ -22,14 +22,6 @@
 #include "iommu_debug.h"
 #include "mtk_imgsys-v4l2-debug.h"
 
-
-#ifdef WPE_TF_DUMP_7S_1
-#include <dt-bindings/memory/mt6985-larb-port.h>
-#elif defined(WPE_TF_DUMP_7S_2)
-#include <dt-bindings/memory/mt6886-larb-port.h>
-#endif
-
-
 struct clk_bulk_data imgsys_isp7_me_clks[] = {
 	{ .id = "ME_CG_IPE" },
 	{ .id = "ME_CG_IPE_TOP" },
@@ -42,8 +34,6 @@ struct clk_bulk_data imgsys_isp7_me_clks[] = {
 static void __iomem *g_meRegBA;
 static void __iomem *g_mmgRegBA;
 
-
-#if defined(WPE_TF_DUMP_7S_1) || defined(WPE_TF_DUMP_7S_2)
 int ME_TranslationFault_callback(int port, dma_addr_t mva, void *data)
 {
 
@@ -93,7 +83,6 @@ int MMG_TranslationFault_callback(int port, dma_addr_t mva, void *data)
 
 	return 1;
 }
-#endif
 
 void imgsys_me_set_initial_value(struct mtk_imgsys_dev *imgsys_dev)
 {

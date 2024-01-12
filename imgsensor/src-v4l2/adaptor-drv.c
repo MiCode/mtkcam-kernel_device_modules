@@ -41,6 +41,7 @@ static struct subdrv_entry *imgsensor_subdrvs[] = {
 };
 
 module_param(sensor_debug, uint, 0644);
+module_param(set_ctrl_unlock, uint, 0644);
 MODULE_PARM_DESC(sensor_debug, "imgsensor_debug");
 
 static void get_outfmt_code(struct adaptor_ctx *ctx)
@@ -784,6 +785,10 @@ static int imgsensor_start_streaming(struct adaptor_ctx *ctx)
 #if IMGSENSOR_LOG_MORE
 	dev_info(ctx->dev, "[%s]+\n", __func__);
 #endif
+
+	/* reset sof_no for set_ctrl_locker */
+	ctx->sof_no = 0;
+
 	adaptor_sensor_init(ctx);
 
 	control_sensor(ctx);
@@ -843,6 +848,7 @@ static int imgsensor_stop_streaming(struct adaptor_ctx *ctx)
 	memset(&ctx->ae_ctrl_dbg_info, 0, sizeof(ctx->ae_ctrl_dbg_info));
 	ctx->sys_ts_update_sof_cnt = 0;
 	ctx->sof_cnt = 0;
+	ctx->sof_no = 0;
 
 	/* reset sentest flag */
 	ctx->sentest_lbmf_delay_do_ae_en = false;
@@ -1408,6 +1414,7 @@ static int imgsensor_probe(struct i2c_client *client)
 	ctx->i2c_client = client;
 	ctx->dev = dev;
 	ctx->sensor_debug_flag = &sensor_debug;
+	ctx->p_set_ctrl_unlock_flag = &set_ctrl_unlock;
 	ctx->aov_pm_ops_flag = 0;
 	ctx->aov_mclk_ulposc_flag = 0;
 

@@ -5150,7 +5150,7 @@ int mtk_cam_job_manually_apply_sensor(struct mtk_cam_job *job)
 
 int mtk_cam_job_manually_apply_isp(struct mtk_cam_job *job, bool wait_completion)
 {
-	unsigned long timeout = msecs_to_jiffies(1000);
+	unsigned long timeout = msecs_to_jiffies(2000);
 
 	if (!wait_for_completion_timeout(&job->compose_completion, timeout)) {
 		pr_info("[%s] error: wait for job composed timeout\n",
@@ -5264,4 +5264,3 @@ int mtk_cam_job_update_clk_switching(struct mtk_cam_job *job, bool begin)
 	return mtk_cam_dvfs_switch_begin(&cam->dvfs, ctx->stream_id,
 					 freq_hz, boostable);
 }
-

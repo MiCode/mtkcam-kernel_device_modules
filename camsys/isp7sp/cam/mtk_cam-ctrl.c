@@ -1635,6 +1635,16 @@ static void mtk_cam_ctrl_wait_list_empty(struct mtk_cam_ctrl *ctrl)
 		return;
 }
 
+void disable_adlrd(struct mtk_cam_ctx *ctx)
+{
+	/* set ADLRD trigger src to local */
+	writel(1, ctx->cam->adl_base + 0x1884);
+	/* set ADLRD enable to 0 */
+	writel(0, ctx->cam->adl_base + 0x1804);
+	/* toggle DB */
+	writel(1, ctx->cam->adl_base + 0x1888);
+}
+
 void mtk_cam_ctrl_stop(struct mtk_cam_ctrl *cam_ctrl)
 {
 	struct mtk_cam_ctx *ctx = cam_ctrl->ctx;
@@ -1643,9 +1653,10 @@ void mtk_cam_ctrl_stop(struct mtk_cam_ctrl *cam_ctrl)
 	struct list_head job_list;
 
 	// if adl flow, await all job done to avoid hw abnormal issue
-	if (mtk_cam_ctx_is_adl_flow(ctx))
+	if (mtk_cam_ctx_is_adl_flow(ctx)) {
 		mtk_cam_ctrl_wait_list_empty(cam_ctrl);
-
+		disable_adlrd(ctx);
+	}
 	/* should wait stream-on/seamless switch finished before stopping */
 	kthread_flush_worker(&ctx->flow_worker);
 

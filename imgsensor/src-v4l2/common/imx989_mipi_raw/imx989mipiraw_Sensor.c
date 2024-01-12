@@ -2399,7 +2399,7 @@ static struct subdrv_static_ctx static_ctx = {
 			{0x0E70, 0x0E71},
 	},
 	.long_exposure_support = TRUE,
-	.reg_addr_exposure_lshift = 0x3128,
+	.reg_addr_exposure_lshift = 0x3150,
 	.reg_addr_ana_gain = {
 			{0x0204, 0x0205},
 			{0x3164, 0x3165},

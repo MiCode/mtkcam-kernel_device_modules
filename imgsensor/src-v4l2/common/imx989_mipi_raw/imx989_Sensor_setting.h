@@ -2135,6 +2135,9 @@ static u16 imx989_custom1_setting[] = {
 	0x0855, 0x29,
 	0x0858, 0x00,
 	0x0859, 0x1F,
+	// Workaround - stream on 2 times
+	0x0100, 0x01,
+	0x0100, 0x00,
 };
 static u16 imx989_custom2_setting[] = {
 /* Reg_G: V2H2_FHD_1920_1080_480FPS */
@@ -2435,6 +2438,9 @@ static u16 imx989_custom2_setting[] = {
 	0x0855, 0x29,
 	0x0858, 0x00,
 	0x0859, 0x1F,
+	// Workaround - stream on 2 times
+	0x0100, 0x01,
+	0x0100, 0x00,
 };
 static u16 imx989_custom3_setting[] = {
 /* Reg_H: V2H2_HD_1280_720_480FPS */

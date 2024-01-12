@@ -199,6 +199,16 @@ static inline bool valid_cq_execution(struct transition_param *p)
 	return (p->event_ts - p->info->sof_ts_ns) < p->cq_trigger_thres;
 }
 
+static inline bool valid_cq_execution_avoid_race_with_topirq(
+	struct transition_param *p)
+{
+	if (unlikely(!p->s_params))
+		return false;
+
+	return (p->event_ts - p->info->sof_ts_ns) > 1000000;
+}
+
+
 static inline int guard_apply_sensor_subsample(struct state_accessor *s_acc,
 					       struct transition_param *p)
 {
@@ -276,7 +286,8 @@ static inline int guard_ack_apply_directly(struct state_accessor *s_acc,
 					   struct transition_param *p)
 {
 	return guard_ack_eq(s_acc, p) && guard_apply_isp(s_acc, p) &&
-			valid_cq_execution(p);
+			valid_cq_execution(p) &&
+			valid_cq_execution_avoid_race_with_topirq(p);
 }
 
 static inline int guard_ack_apply_directly_subsample(struct state_accessor *s_acc,

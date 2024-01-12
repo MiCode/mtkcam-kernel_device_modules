@@ -48,7 +48,8 @@ void fs_alg_dump_all_fs_inst_data(void);
 void fs_alg_sa_dump_dynamic_para(const unsigned int idx);
 
 void fs_alg_sa_ts_info_dynamic_msg_connector(const unsigned int idx,
-	char *log_buf, int len, const char *caller);
+	const unsigned int log_str_len, char *log_buf, int len,
+	const char *caller);
 
 void fs_alg_get_fl_rec_st_info(const unsigned int idx,
 	unsigned int *p_target_min_fl_us, unsigned int *p_out_fl_us);

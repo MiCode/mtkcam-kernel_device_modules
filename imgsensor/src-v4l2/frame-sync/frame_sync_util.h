@@ -13,8 +13,18 @@
 /*******************************************************************************
  * Frame Sync Util functions.
  ******************************************************************************/
+/*
+ * 1. act_fl_arr array length is ts_arr array length minus 1.
+ * 2. ts_arr is from newest record to oldest record.
+ */
+void fs_util_calc_act_fl(const unsigned long long ts_arr[],
+	unsigned int act_fl_arr[], const unsigned int arr_len,
+	const unsigned int tick_factor);
+
+
 void fs_util_tsrec_dynamic_msg_connector(const unsigned int idx,
-	char *log_buf, int len, const char *caller);
+	const unsigned int log_str_len, char *log_buf, int len,
+	const char *caller);
 
 
 static inline int alloc_log_buf(const unsigned int alloc_len, char **p_p_buf)

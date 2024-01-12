@@ -31,7 +31,9 @@ extern struct mutex fs_log_concurrency_lock;
 /******************************************************************************/
 // Log CTRL define/enum/macro
 /******************************************************************************/
-#define LOG_TRACER_DEF 0
+// guess the max length of the mobile log is 1000 characters
+// , reserve 200 characters (for time, func name, etc.) first.
+#define LOG_BUF_STR_LEN 800
 
 #if defined(FS_UT)
 #define TRACE_FS_FREC_LOG
@@ -59,6 +61,8 @@ enum fs_log_ctrl_category {
 	LOG_FS_CTRL_CAT_MAX = 26
 };
 
+#define LOG_TRACER_DEF 0
+
 #define _FS_LOG_ENABLED(category) \
 	((fs_log_tracer) & (1UL << (category)))
 
@@ -66,8 +70,6 @@ enum fs_log_ctrl_category {
 /******************************************************************************/
 // Log message macro
 /******************************************************************************/
-#define LOG_BUF_STR_LEN 2048
-
 #ifdef FS_UT
 #define LOG_INF(format, args...) printf(PFX "[%s] " format, __func__, ##args)
 #define LOG_INF_CAT(log_cat, format, args...) printf(PFX "[%s] " format, __func__, ##args)
@@ -117,9 +119,19 @@ do { \
 #endif // FS_UT
 
 
-#define FS_SNPRINTF(buf, len, fmt, ...) { \
-	len += snprintf(buf + len, LOG_BUF_STR_LEN - len, fmt, ##__VA_ARGS__); \
-}
+#define FS_SNPRF(buf_len, buf, len, fmt, ...) \
+do { \
+	int ret; \
+	ret = snprintf((buf + len), (buf_len - len), fmt, ##__VA_ARGS__); \
+	if (unlikely((ret < 0) || (ret >= (buf_len - len)))) { \
+		LOG_PF_INF( \
+			"WARNING: snprintf ret:%d, space:%u(truncated), set len to buf_len:%u\n", \
+			ret, buf_len - len, buf_len); \
+		len = buf_len; \
+	} else \
+		len += ret; \
+} while (0)
+
 /******************************************************************************/
 
 

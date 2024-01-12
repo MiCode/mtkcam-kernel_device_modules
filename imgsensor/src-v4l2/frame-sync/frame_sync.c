@@ -236,10 +236,11 @@ static inline unsigned int fs_user_sa_config(void)
 static void fs_dump_status(const int idx, const int flag, const char *caller,
 	const char *msg)
 {
+	const unsigned int log_str_len = 1024;
 	char *log_buf = NULL;
 	int len = 0, ret;
 
-	ret = alloc_log_buf(LOG_BUF_STR_LEN, &log_buf);
+	ret = alloc_log_buf(log_str_len, &log_buf);
 	if (unlikely(ret != 0)) {
 		LOG_MUST(
 			"[%s]: ERROR: [%u] flag:%u, log_buf allocate memory failed\n",
@@ -247,7 +248,7 @@ static void fs_dump_status(const int idx, const int flag, const char *caller,
 		return;
 	}
 
-	FS_SNPRINTF(log_buf, len,
+	FS_SNPRF(log_str_len, log_buf, len,
 		"[%s:%d/%d %s]: stat:%u, stream:%#x/enSync:%#x(%#x/%#x/%#x/%#x/%#x/%#x)/valid:%#x",
 		caller, idx, flag, msg,
 		get_fs_status(),
@@ -263,7 +264,7 @@ static void fs_dump_status(const int idx, const int flag, const char *caller,
 
 	/* has sensor in HW sync mode ==> add more info */
 	if (FS_POPCOUNT(FS_ATOMIC_READ(&fs_mgr.hw_sync_bits))) {
-		FS_SNPRINTF(log_buf, len,
+		FS_SNPRF(log_str_len, log_buf, len,
 			", hw_sync:%#x(%#x)(%#x/%#x/%#x/%#x/%#x/%#x), trigger:%#x, pf_ctrl:%#x(%#x), complete:%#x(%#x)(hw:%#x/%#x/%#x/%#x/%#x/%#x), act(%u/%u/%u/%u/%u/%u)",
 			FS_ATOMIC_READ(&fs_mgr.hw_sync_bits),
 			FS_ATOMIC_READ(&fs_mgr.hw_sync_non_valid_group_bits),
@@ -292,7 +293,7 @@ static void fs_dump_status(const int idx, const int flag, const char *caller,
 			fs_mgr.act_cnt[FS_HW_SYNC_GROUP_ID_5]);
 	}
 
-	FS_SNPRINTF(log_buf, len,
+	FS_SNPRF(log_str_len, log_buf, len,
 		", SA(%d):(%#x/m_idx:%d, async(%#x, m_idx:%d(sidx:%d))), seamless:%#x, hdr_ft_mode(%u/%u/%u/%u/%u/%u)",
 		FS_ATOMIC_READ(&fs_mgr.using_sa_ver),
 		FS_ATOMIC_READ(&fs_mgr.sa_bits),
@@ -308,12 +309,12 @@ static void fs_dump_status(const int idx, const int flag, const char *caller,
 		fs_mgr.hdr_ft_mode[4],
 		fs_mgr.hdr_ft_mode[5]);
 
-	FS_SNPRINTF(log_buf, len,
+	FS_SNPRF(log_str_len, log_buf, len,
 		", ts_src_type:%d(0:unknown/1:CCU/2:TSREC)",
 		frm_get_ts_src_type());
 
 #if defined(SUPPORT_USING_CCU)
-	FS_SNPRINTF(log_buf, len,
+	FS_SNPRF(log_str_len, log_buf, len,
 		", pw_ccu:%#x(cnt:%d)",
 		FS_ATOMIC_READ(&fs_mgr.power_on_ccu_bits),
 		frm_get_ccu_pwn_cnt());
@@ -401,12 +402,13 @@ unsigned int fs_get_reg_sensor_inf_idx(const unsigned int idx)
 
 void fs_dump_all_registered_sensor_info(const char *caller)
 {
+	const unsigned int log_str_len = 512;
 	const int reg_cnt = FS_ATOMIC_READ(&fs_mgr.reg_table.reg_cnt);
 	unsigned int i;
 	int len = 0, ret;
 	char *log_buf = NULL;
 
-	ret = alloc_log_buf(LOG_BUF_STR_LEN, &log_buf);
+	ret = alloc_log_buf(log_str_len, &log_buf);
 	if (unlikely(ret != 0)) {
 		LOG_MUST(
 			"[%s]: ERROR: log_buf allocate memory failed\n",
@@ -414,18 +416,18 @@ void fs_dump_all_registered_sensor_info(const char *caller)
 		return;
 	}
 
-	FS_SNPRINTF(log_buf, len,
+	FS_SNPRF(log_str_len, log_buf, len,
 		"[%s] sensor registered cnt:%d, sensor info:(",
 		caller, reg_cnt);
 	for (i = 0; i < reg_cnt; ++i) {
-		FS_SNPRINTF(log_buf, len,
-			"[%u] ID:%#x(sidx:%u/inf:%u) / ",
+		FS_SNPRF(log_str_len, log_buf, len,
+			"[%u] ID:%#x(sidx:%u/inf:%u)/",
 			i,
 			fs_get_reg_sensor_id(i),
 			fs_get_reg_sensor_idx(i),
 			fs_get_reg_sensor_inf_idx(i));
 	}
-	FS_SNPRINTF(log_buf, len, ")");
+	FS_SNPRF(log_str_len, log_buf, len, ")");
 
 	LOG_MUST("%s\n", log_buf);
 	FS_FREE(log_buf);
@@ -2103,6 +2105,8 @@ void fs_set_frame_tag(unsigned int ident, unsigned int f_tag)
 	/* get registered idx and check if it is valid */
 	if (unlikely(fs_g_registered_idx_by_ident(ident, &idx, __func__)))
 		return;
+	if (FS_CHECK_BIT(idx, &fs_mgr.validSync_bits) == 0)
+		return;
 
 
 	if ((fs_mgr.hdr_ft_mode[idx] & FS_HDR_FT_MODE_ASSIGN_FRAME_TAG)
@@ -3291,7 +3295,9 @@ void fs_notify_vsync(const unsigned int ident)
 	frec_notify_vsync(idx);
 	fs_alg_sa_notify_vsync(idx);
 	frec_chk_fl_pr_match_act(idx);
-	fs_alg_sa_dump_dynamic_para(idx);
+
+	if (unlikely(_FS_LOG_ENABLED(LOG_FS_PF)))
+		fs_alg_sa_dump_dynamic_para(idx);
 
 	fs_do_fl_restore_proc_if_needed(idx);
 

@@ -24,44 +24,54 @@
 /******************************************************************************/
 // Frame Sync Utilities function
 /******************************************************************************/
+void fs_util_calc_act_fl(const unsigned long long ts_arr[],
+	unsigned int act_fl_arr[], const unsigned int arr_len,
+	const unsigned int tick_factor)
+{
+	unsigned int i;
+
+	/* error handling */
+	if (unlikely((ts_arr == NULL) || (act_fl_arr == NULL)))
+		return;
+
+	for (i = 0; i < (arr_len - 1); ++i) {
+		fs_timestamp_t tick_a, tick_b;
+
+		/* check if tick factor is valid */
+		if (unlikely(tick_factor == 0))
+			break;
+
+		/* update actual frame length by timestamp diff */
+		tick_a = (tick_factor * ts_arr[i]);
+		tick_b = (tick_factor * ts_arr[i+1]);
+
+		act_fl_arr[i] = (tick_b != 0)
+			? ((tick_a - tick_b) / tick_factor) : 0;
+	}
+}
+
+
 void fs_util_tsrec_dynamic_msg_connector(const unsigned int idx,
-	char *log_buf, int len, const char *caller)
+	const unsigned int log_str_len, char *log_buf, int len,
+	const char *caller)
 {
 #if defined(USING_TSREC)
 	const struct mtk_cam_seninf_tsrec_timestamp_info
 		*p_ts_info = frm_get_tsrec_timestamp_info_ptr(idx);
 	const unsigned int exp_id = TSREC_1ST_EXP_ID;
-	unsigned int act_fl_arr[VSYNCS_MAX-1] = {0};
-	unsigned int i;
 
 	if (frm_get_ts_src_type() != FS_TS_SRC_TSREC)
 		return;
 	if (unlikely(p_ts_info == NULL)) {
 		LOG_MUST(
-			"[%s] ERROR: USING_TSREC timestamp, but get p_ts_info:%p, skip dump tsrec ts info part\n",
+			"[%s] ERROR: USING_TSREC timestamp, but get p_ts_info:%p, skip dump tsrec ts info\n",
 			caller, p_ts_info);
 		return;
 	}
 
-	/* prepare information for printing */
-	for (i = 0; i < VSYNCS_MAX-1; ++i) {
-		fs_timestamp_t tick_a, tick_b;
-
-		/* check if this is first timestamp & get tick factor */
-		if (unlikely((!p_ts_info->exp_recs[exp_id].ts_us[1])
-				|| (!p_ts_info->tick_factor)))
-			break;
-		/* update actual frame length by timestamp diff */
-		tick_a = (p_ts_info->tick_factor *
-			p_ts_info->exp_recs[exp_id].ts_us[i]);
-		tick_b = (p_ts_info->tick_factor *
-			p_ts_info->exp_recs[exp_id].ts_us[i+1]);
-		act_fl_arr[i] = ((tick_a - tick_b) / p_ts_info->tick_factor);
-	}
-
 	/* print TSREC info */
-	FS_SNPRINTF(log_buf, len,
-		", tsrec[(no:%u/inf:%u,irq(%llu/%llu)(+%llu)), act_fl(%u/%u/%u), (0:(%llu/%llu/%llu/%llu)/1:(%llu/%llu/%llu/%llu)/2:(%llu/%llu/%llu/%llu))]",
+	FS_SNPRF(log_str_len, log_buf, len,
+		", tsrec[(%u/inf:%u,irq(%llu/%llu)(+%llu)):(0:(%llu/%llu/%llu/%llu)/1:(%llu/%llu/%llu/%llu)/2:(%llu/%llu/%llu/%llu))]",
 		p_ts_info->tsrec_no, p_ts_info->seninf_idx,
 		p_ts_info->irq_sys_time_ns/1000,
 		p_ts_info->irq_tsrec_ts_us,
@@ -70,9 +80,6 @@ void fs_util_tsrec_dynamic_msg_connector(const unsigned int idx,
 				- (p_ts_info->exp_recs[exp_id].ts_us[0]
 					* p_ts_info->tick_factor)),
 			p_ts_info->tick_factor)),
-		act_fl_arr[0],
-		act_fl_arr[1],
-		act_fl_arr[2],
 		p_ts_info->exp_recs[0].ts_us[0],
 		p_ts_info->exp_recs[0].ts_us[1],
 		p_ts_info->exp_recs[0].ts_us[2],
@@ -85,7 +92,7 @@ void fs_util_tsrec_dynamic_msg_connector(const unsigned int idx,
 		p_ts_info->exp_recs[2].ts_us[1],
 		p_ts_info->exp_recs[2].ts_us[2],
 		p_ts_info->exp_recs[2].ts_us[3]);
-#endif // USING_TSREC
+#endif
 }
 
 

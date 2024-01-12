@@ -43,6 +43,7 @@ static void regulator_process(struct regulator_req *req)
 	if (req->is_flush) {
 		regulator_flush_finish = true;
 		wake_up_interruptible(&regulator_flush_wq);
+		kmem_cache_free(regulator_reqs, req);
 		return;
 	}
 

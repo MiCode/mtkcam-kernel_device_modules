@@ -410,8 +410,12 @@ static inline int eeprom_driver_unregister(struct i2c_client *client)
 	return 0;
 }
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 4, 0)
+static int eeprom_probe(struct i2c_client *client)
+#else
 static int eeprom_probe(struct i2c_client *client,
 			const struct i2c_device_id *id)
+#endif
 {
 	unsigned int index = 0;
 

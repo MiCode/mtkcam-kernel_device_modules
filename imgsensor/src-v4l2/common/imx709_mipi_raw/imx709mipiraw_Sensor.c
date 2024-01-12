@@ -2260,20 +2260,6 @@ static int pwr_seq_reset_sens_to_viewing(struct subdrv_ctx *ctx)
 
 	subdrv_i2c_wr_u8(ctx, 0x0100, 0x00);
 	DRV_LOG_MUST(ctx, "MODE_SEL(%08x)\n", subdrv_i2c_rd_u8(ctx, 0x0100));
-	/* switch sensing mode sw stand-by to hw stand-by */
-	// 1. set gpio
-	// xclr(reset) = 0
-	ret = pinctrl_select_state(
-		_adaptor_ctx->pinctrl,
-		_adaptor_ctx->state[STATE_RST1_LOW]);
-	if (ret < 0) {
-		DRV_LOG_MUST(ctx,
-			"select(%s)(fail),ret(%d)\n",
-			state_names[STATE_RST1_LOW], ret);
-		return ret;
-	}
-	DRV_LOG(ctx, "select(%s)(correct)\n", state_names[STATE_RST1_LOW]);
-	mdelay(1);	// response time T2 in datasheet
 #ifdef PWR_SEQ_ALL_USE_FOR_AOV_MODE_TRANSITION
 	ret = pwr_seq_common_disable_for_mode_transition(_adaptor_ctx);
 	if (ret < 0) {
@@ -2294,27 +2280,6 @@ static int pwr_seq_reset_sens_to_viewing(struct subdrv_ctx *ctx)
 	}
 	DRV_LOG(ctx, "pwr_seq_common_enable_for_mode_transition(correct)\n");
 #endif
-	/* switch hw stand-by to viewing mode sw stand-by */
-	// ponv = 1
-	ret = pinctrl_select_state(_adaptor_ctx->pinctrl, _adaptor_ctx->state[STATE_PONV_HIGH]);
-	if (ret < 0) {
-		DRV_LOG_MUST(ctx,
-			"select(%s)(fail),ret(%d)\n",
-			state_names[STATE_PONV_HIGH], ret);
-		return ret;
-	}
-	DRV_LOG(ctx, "select(%s)(correct)\n", state_names[STATE_PONV_HIGH]);
-	mdelay(1);
-	// xclr(reset) = 1
-	ret = pinctrl_select_state(_adaptor_ctx->pinctrl, _adaptor_ctx->state[STATE_RST1_HIGH]);
-	if (ret < 0) {
-		DRV_LOG_MUST(ctx,
-			"select(%s)(fail),ret(%d)\n",
-			state_names[STATE_RST1_HIGH], ret);
-		return ret;
-	}
-	DRV_LOG(ctx, "select(%s)(correct)\n", state_names[STATE_RST1_HIGH]);
-	mdelay(4);	// response time T7 in datasheet
 
 	return ret;
 }

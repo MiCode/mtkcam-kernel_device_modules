@@ -325,7 +325,7 @@ static void imgsys_cmdq_modules_cg_ungating(struct cmdq_pkt *pkt,
 	reg = addr + sta_ofs;
 
 	cmdq_pkt_poll_timeout(pkt, 0/*poll val*/, SUBSYS_NO_SUPPORT, (reg)/*addr*/,
-			BIT(0) /*mask*/, IMG_CG_UNGATING_DELAY_CNT /*delay cnt*/,
+			val /*mask*/, IMG_CG_UNGATING_DELAY_CNT /*delay cnt*/,
 			CMDQ_GPR_R13 /*GPR*/);
 
 	imgsys_set_footprint(pkt, qof_work_buf_pa, imgsys_get_cg_fp(addr), CMDQ_LOGIC_OR);
@@ -630,6 +630,8 @@ static void imgsys_cmdq_power_off_locked(struct mtk_imgsys_dev *imgsys_dev,
 	/* now fill in code that condition match, here is nop jump */
 	/* case: counter == 0 */
 	mtk_imgsys_cmdq_power_ctrl(imgsys_dev, false, pkt, pwr);
+	/* Reset footprint */
+	imgsys_set_footprint(pkt, imgsys_dev->qof_work_buf_pa, 0, CMDQ_LOGIC_AND);
 
 	/* this is end of whole condition, thus condition FALSE part should jump here */
 	jump_pa = cmdq_pkt_get_pa_by_offset(pkt, pkt->cmd_buf_size);
@@ -688,22 +690,22 @@ static void imgsys_cmdq_start_power_on_task(struct mtk_imgsys_dev *imgsys_dev,
 	/* Wait for power on event */
 	cmdq_pkt_wfe(pwr_on_pkt, event->trig_pwr_on);
 
-	/* Reset footprint */
-	imgsys_set_footprint(pwr_on_pkt, imgsys_dev->qof_work_buf_pa, 0, CMDQ_LOGIC_AND);
-
 	/* Increase user counter */
 	//work_buf_pa = imgsys_dev->work_buf_pa + pwr_id * sizeof(struct qof_state);
 	if (pwr_id == ISP7SP_ISP_DIP) {
 		work_buf_pa = imgsys_dev->work_buf_pa;
-		imgsys_set_footprint(pwr_on_pkt, imgsys_dev->qof_work_buf_pa, (QOF_FP_USER_DIP|QOF_FP_PWR_ON), CMDQ_LOGIC_OR);
 	} else {
 		work_buf_pa = imgsys_dev->traw_work_buf_pa;
-		imgsys_set_footprint(pwr_on_pkt, imgsys_dev->qof_work_buf_pa, (QOF_FP_USER_TRAW|QOF_FP_PWR_ON), CMDQ_LOGIC_OR);
 	}
 	imgsys_user_count_operation(pwr_on_pkt, work_buf_pa, CMDQ_LOGIC_ADD);
 
 	imgsys_cmdq_power_on_locked(imgsys_dev, pwr_on_pkt,
 			work_buf_pa, &isp7sp_mtcmos_data[pwr_id]);
+	if (pwr_id == ISP7SP_ISP_DIP) {
+		imgsys_set_footprint(pwr_on_pkt, imgsys_dev->qof_work_buf_pa, (QOF_FP_USER_DIP|QOF_FP_PWR_ON), CMDQ_LOGIC_OR);
+	} else {
+		imgsys_set_footprint(pwr_on_pkt, imgsys_dev->qof_work_buf_pa, (QOF_FP_USER_TRAW|QOF_FP_PWR_ON), CMDQ_LOGIC_OR);
+	}
 
 	/* MTCMOS is power on, notify caller thread */
 	cmdq_pkt_clear_event(pwr_on_pkt, event->trig_pwr_on);
@@ -743,9 +745,6 @@ static void imgsys_cmdq_start_power_off_task(struct mtk_imgsys_dev *imgsys_dev,
 
 	/* Program start */
 	cmdq_pkt_wfe(pwr_off_pkt, event->trig_pwr_off);
-
-	/* Reset footprint */
-	imgsys_set_footprint(pwr_off_pkt, imgsys_dev->qof_work_buf_pa, 0, CMDQ_LOGIC_AND);
 
 	/* Decrease user counter */
 	//work_buf_pa = imgsys_dev->work_buf_pa + pwr_id * sizeof(struct qof_state);

@@ -24,6 +24,7 @@
 #include "adaptor-ioctl.h"
 #include "adaptor-trace.h"
 #include "adaptor-tsrec-cb-ctrl-impl.h"
+#include "adaptor-sentest-ctrl.h"
 #include "imgsensor-glue/imgsensor-glue.h"
 #include "virt-sensor/virt-sensor-entry.h"
 
@@ -782,7 +783,7 @@ static int imgsensor_stop_streaming(struct adaptor_ctx *ctx)
 	ctx->sof_cnt = 0;
 
 	/* reset sentest flag */
-	ctx->sentest_lbmf_delay_do_ae_en = false;
+	sentest_flag_init(ctx);
 
 	return 0;
 }
@@ -1403,6 +1404,10 @@ static int imgsensor_probe(struct i3c_i2c_device *client)
 
 	mutex_init(&ctx->mutex);
 	mutex_init(&ctx->ebd_lock);
+
+	if (sentest_probe_init(ctx))
+		adaptor_loge(ctx, "sentest_probe_init return failed\n");
+
 	ctx->open_refcnt = 0;
 	ctx->power_refcnt = 0;
 	ctx->mclk_refcnt = 0;

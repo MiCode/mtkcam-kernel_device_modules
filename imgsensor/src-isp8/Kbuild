@@ -41,6 +41,8 @@ imgsensor_isp8-objs += \
 	adaptor-drv.o \
 	adaptor-i2c.o \
 	adaptor-ctrls.o \
+	adaptor-sentest-ctrl.o \
+	adaptor-sentest-ioctrl.o \
 	adaptor-ioctl.o \
 	adaptor-command.o \
 	adaptor-common-ctrl.o \

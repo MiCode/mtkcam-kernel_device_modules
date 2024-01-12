@@ -488,7 +488,7 @@ struct subdrv_ctx {
 	bool sensor_debug_sensing_ut_on_scp;
 	bool sensor_debug_dphy_global_timing_continuous_clk;
 
-	bool power_on_profile_en;
+	bool *power_on_profile_en;
 	struct mtk_sensor_profile sensor_pw_on_profile;
 
 	/* for custom stream control delay timing */

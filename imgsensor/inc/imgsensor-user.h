@@ -38,6 +38,21 @@ enum {
 	PAD_ERR = 0xffff,
 };
 
+enum sentest_ctrl_id {
+	/* GET CTRL */
+	SENTEST_G_CTRL_ID_MIN,
+	SENTEST_G_SENSOR_PROFILE = SENTEST_G_CTRL_ID_MIN,
+	SENTEST_G_TSREC_TIME_STAMP,
+	SENTEST_G_CTRL_ID_MAX,
+
+	/* SET CTRL */
+	SENTEST_S_CTRL_ID_MIN,
+	SENTEST_S_SENSOR_PROFILE_EN = SENTEST_S_CTRL_ID_MIN,
+	SENTEST_S_SENSOR_LBMF_DO_DELAY_AE_EN,
+	SENTEST_S_TSREC_TRAGET_FRAME_ID,
+	SENTEST_S_CTRL_ID_MAX,
+};
+
 struct mtk_awb_gain {
 	__u32 abs_gain_gr;
 	__u32 abs_gain_r;
@@ -509,6 +524,12 @@ struct mtk_sensor_profile {
 	__u64 hw_power_on_period;
 };
 
+
+struct mtk_adaptor_sentest_ctrl {
+	enum sentest_ctrl_id ctrl_id;
+	void *param_ptr;
+};
+
 struct mtk_gain_range {
 	__u32 min;
 	__u32 max;
@@ -772,5 +793,8 @@ struct mtk_exp_line_by_scenario {
 
 #define VIDIOC_MTK_S_SENTEST_LBMF_DELAY_DO_AE_EN \
 	_IOW('M', BASE_VIDIOC_PRIVATE + 112, int)
+
+#define VIDIOC_MTK_S_SENSOR_SENTEST_CTRL \
+	_IOWR('M', BASE_VIDIOC_PRIVATE + 113, int)
 
 #endif

@@ -10,6 +10,7 @@
 #include "adaptor-common-ctrl.h"
 #include "adaptor-fsync-ctrls.h"
 #include "adaptor-i2c.h"
+#include "adaptor-sentest-ioctrl.h"
 
 #define GAIN_TBL_SIZE 32768
 #define sd_to_ctx(__sd) container_of(__sd, struct adaptor_ctx, sd)
@@ -1583,83 +1584,6 @@ static int s_tg(struct adaptor_ctx *ctx, void *arg)
 	return 0;
 }
 
-static int s_sensor_profile_en(struct adaptor_ctx *ctx, void *arg)
-{
-	int *en = arg;
-	struct subdrv_ctx *subctx = &ctx->subctx;
-
-	if (subctx == NULL) {
-		adaptor_loge(ctx, "subdrv_ctx is NULL\n");
-		return -EFAULT;
-	}
-
-	if (en == NULL) {
-		adaptor_loge(ctx, "en is NULL\n");
-		return -EFAULT;
-	}
-
-	subctx->power_on_profile_en =  (*en) ? true : false;
-
-	adaptor_logi(ctx, "en: %d, power_on_profile_en  is %d\n",
-				*en, subctx->power_on_profile_en);
-
-	return 0;
-}
-
-static int s_sentest_lbmf_delay_do_ae_en(struct adaptor_ctx *ctx, void *arg)
-{
-	int *en = arg;
-
-	if (en == NULL) {
-		adaptor_loge(ctx, "en is NULL\n");
-		return -EFAULT;
-	}
-
-	ctx->sentest_lbmf_delay_do_ae_en =  (*en) ? true : false;
-
-	adaptor_logi(ctx, "en: %d, set sentest lbmf delay do ae en is %d\n",
-				*en, ctx->sentest_lbmf_delay_do_ae_en);
-
-	return 0;
-}
-
-static int g_sensor_profile(struct adaptor_ctx *ctx, void *arg)
-{
-	struct subdrv_ctx *subctx = &ctx->subctx;
-	struct mtk_sensor_profile *user_sensor_profile = arg;
-	struct mtk_sensor_profile sensor_profile;
-
-	if (subctx == NULL) {
-		adaptor_loge(ctx, "subdrv_ctx is NULL\n");
-		return -EFAULT;
-	}
-
-	if (user_sensor_profile == NULL) {
-		adaptor_loge(ctx, "sensor_profile is NULL\n");
-		return -EFAULT;
-	}
-
-	if (!subctx->power_on_profile_en) {
-		memset((void *)user_sensor_profile, 0, sizeof(sensor_profile));
-		adaptor_loge(ctx,
-			"power_on_profile_en is not enabled, init the sensor_profile\n");
-
-		return -EFAULT;
-	}
-
-	sensor_profile = subctx->sensor_pw_on_profile;
-
-	user_sensor_profile->i2c_init_period = sensor_profile.i2c_init_period;
-	user_sensor_profile->i2c_init_table_len = sensor_profile.i2c_init_table_len;
-	user_sensor_profile->i2c_cfg_period = sensor_profile.i2c_cfg_period;
-	user_sensor_profile->i2c_cfg_table_len = sensor_profile.i2c_cfg_table_len;
-	user_sensor_profile->hw_power_on_period = sensor_profile.hw_power_on_period;
-
-	adaptor_logi(ctx, "sensor_profile copy_to_user is done\n");
-
-	return 0;
-}
-
 static int g_multi_exp_gain_range_by_scenario(struct adaptor_ctx *ctx, void *arg)
 {
 	struct mtk_multi_exp_gain_range_by_scenario *info = arg;
@@ -1776,7 +1700,6 @@ static const struct ioctl_entry ioctl_list[] = {
 	{VIDIOC_MTK_G_DIG_GAIN_RANGE_BY_SCENARIO, g_dig_gain_range_by_scenario},
 	{VIDIOC_MTK_G_DIG_GAIN_STEP, g_dig_gain_step},
 	{VIDIOC_MTK_G_FS_FRAME_LENGTH_INFO, g_fsync_frame_length_info},
-	{VIDIOC_MTK_G_SENSOR_PROFILE, g_sensor_profile},
 	{VIDIOC_MTK_G_DCG_GAIN_RATIO_TABLE_SIZE_BY_SCENARIO,
 		g_dcg_gain_ratio_table_size_by_scenario},
 	{VIDIOC_MTK_G_DCG_GAIN_RATIO_TABLE_BY_SCENARIO, g_dcg_gain_ratio_table_by_scenario},
@@ -1796,8 +1719,7 @@ static const struct ioctl_entry ioctl_list[] = {
 	{VIDIOC_MTK_S_LSC_TBL, s_lsc_tbl},
 	{VIDIOC_MTK_S_CONTROL, s_control},
 	{VIDIOC_MTK_S_TG, s_tg},
-	{VIDIOC_MTK_S_SENSOR_PROFILE_EN, s_sensor_profile_en},
-	{VIDIOC_MTK_S_SENTEST_LBMF_DELAY_DO_AE_EN, s_sentest_lbmf_delay_do_ae_en},
+	{VIDIOC_MTK_S_SENSOR_SENTEST_CTRL, sentest_ioctl_entry},
 };
 
 long adaptor_ioctl(struct v4l2_subdev *sd, unsigned int cmd, void *arg)

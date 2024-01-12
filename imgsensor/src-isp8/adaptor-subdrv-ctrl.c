@@ -2975,12 +2975,14 @@ void sensor_init(struct subdrv_ctx *ctx)
 	/* write init setting */
 	if (ctx->s_ctx.init_setting_table != NULL) {
 		DRV_LOG(ctx, "S: size:%u\n", ctx->s_ctx.init_setting_len);
-		if (ctx->power_on_profile_en)
+		if ((ctx->power_on_profile_en != NULL) &&
+			(*ctx->power_on_profile_en))
 			time_boot_begin = ktime_get_boottime_ns();
 
 		ixc_time = ixc_table_write(ctx, ctx->s_ctx.init_setting_table, ctx->s_ctx.init_setting_len);
 
-		if (ctx->power_on_profile_en) {
+		if ((ctx->power_on_profile_en != NULL) &&
+			(*ctx->power_on_profile_en)) {
 			ctx->sensor_pw_on_profile.i2c_init_period =
 				ktime_get_boottime_ns() - time_boot_begin;
 
@@ -3372,7 +3374,8 @@ int common_control(struct subdrv_ctx *ctx,
 	if (ctx->s_ctx.mode[scenario_id].mode_setting_table != NULL) {
 		DRV_LOG(ctx, "E: sid:%u size:%u\n", scenario_id,
 			ctx->s_ctx.mode[scenario_id].mode_setting_len);
-		if (ctx->power_on_profile_en)
+		if ((ctx->power_on_profile_en != NULL) &&
+			(*ctx->power_on_profile_en))
 			time_boot_begin = ktime_get_boottime_ns();
 
 		/* initail setting */
@@ -3408,7 +3411,8 @@ int common_control(struct subdrv_ctx *ctx,
 			break;
 		}
 
-		if (ctx->power_on_profile_en) {
+		if ((ctx->power_on_profile_en != NULL) &&
+			(*ctx->power_on_profile_en)) {
 			ctx->sensor_pw_on_profile.i2c_cfg_period =
 					ktime_get_boottime_ns() - time_boot_begin;
 

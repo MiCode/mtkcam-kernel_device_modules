@@ -18,6 +18,7 @@
 #include "adaptor-def.h"
 #include "adaptor-subdrv.h"
 #include "adaptor-tsrec-cb-ctrl.h"
+#include "adaptor-sentest.h"
 #include "imgsensor-user.h"
 #include "mtk-i3c-i2c-wrap.h"
 
@@ -193,7 +194,7 @@ struct adaptor_ctx {
 	u32 rotation;
 
 	/* sentest */
-	bool sentest_lbmf_delay_do_ae_en;
+	struct mtk_cam_sentest_cfg_info sentest_cfg_info;
 
 	/* frame-sync */
 	struct FrameSync *fsync_mgr;

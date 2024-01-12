@@ -457,7 +457,8 @@ int do_hw_power_on(struct adaptor_ctx *ctx)
 	if (op->set)
 		op->set(ctx, op->data, 0);
 
-	if (subctx->power_on_profile_en)
+	if ((subctx->power_on_profile_en != NULL) &&
+		(*subctx->power_on_profile_en))
 		time_boot_begin = ktime_get_boottime_ns();
 
 	adaptor_pmic_ctrl(ctx, true);
@@ -500,7 +501,8 @@ int do_hw_power_on(struct adaptor_ctx *ctx)
 			udelay(ent->delay);
 	}
 
-	if (subctx->power_on_profile_en) {
+	if ((subctx->power_on_profile_en != NULL) &&
+		(*subctx->power_on_profile_en)) {
 		subctx->sensor_pw_on_profile.hw_power_on_period =
 			ktime_get_boottime_ns() - time_boot_begin;
 	}

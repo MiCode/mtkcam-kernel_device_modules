@@ -8,6 +8,7 @@
 #include "adaptor-fsync-ctrls.h"
 #include "adaptor-common-ctrl.h"
 #include "adaptor-tsrec-cb-ctrl-impl.h"
+#include "adaptor-sentest-ctrl.h"
 
 #include "adaptor-command.h"
 
@@ -411,6 +412,9 @@ static int s_cmd_tsrec_send_timestamp_info(struct adaptor_ctx *ctx, void *arg)
 
 	buf = (struct mtk_cam_seninf_tsrec_timestamp_info *)arg;
 	memcpy(&ctx->ts_info, buf, sizeof(ctx->ts_info));
+
+	if (unlikely(notify_sentest_tsrec_time_stamp(ctx, buf)))
+		return -EINVAL;
 
 	return ret;
 }

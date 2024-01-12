@@ -7,6 +7,8 @@
 
 #include "mtk-mae.h"
 
+#define FACE_NUM_REG_OFFSET              (0xC)
+
 /* Reg address */
 #define MAE_BASE                         (0x34310000)
 #define FDVT_START                       (0x000)

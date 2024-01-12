@@ -58,10 +58,10 @@ int mae_trigger_cmdq_timeout;
 int fld_debug_1;
 int rsz_debug_on;
 int mae_dbf_on;
-int attr_debug;
 int set_default_value = 1;
 int fld_reset_en = 1;
 int crop_dbg_en;
+int aiseg_pat_en;
 
 module_param(mae_log_level_value, int, 0644);
 module_param(mae_fd_post_on, int, 0644);
@@ -69,10 +69,14 @@ module_param(mae_trigger_cmdq_timeout, int, 0644);
 module_param(fld_debug_1, int, 0644);
 module_param(rsz_debug_on, int, 0644);
 module_param(mae_dbf_on, int, 0644);
-module_param(attr_debug, int, 0644);
 module_param(set_default_value, int, 0644);
 module_param(fld_reset_en, int, 0644);
 module_param(crop_dbg_en, int, 0644);
+module_param(aiseg_pat_en, int, 0644);
+
+static void mtk_mae_dump_reg(struct mtk_mae_dev *mae_dev);
+static void mtk_mae_fld_reset(struct mtk_mae_dev *mae_dev);
+static void mtk_mae_aiseg_pat(struct cmdq_pkt *pkt);
 
 static void mtk_mae_dump_reg(struct mtk_mae_dev *mae_dev);
 static void mtk_mae_fld_reset(struct mtk_mae_dev *mae_dev);
@@ -190,21 +194,25 @@ static void mtk_mae_config_dma(struct mtk_mae_dev *mae_dev, int idx)
 	uint32_t loop = 0;
 	uint32_t i = 0;
 	uint32_t wdma_base_addr_reg_offset = 0;
+	struct ModelTable *model_table = (struct ModelTable *)mae_dev->map_table->model_table_dmabuf_info.kva;
 
 	mae_dev_dbg(mae_dev->dev, "%s+", __func__);
 	if (set_default_value)
 		mtk_mae_set_default_value(mae_dev, mae_dev->pkt[idx]);
 
 	switch (param->maeMode) {
-		case FD_V0:
-		case ATTR_V0:
-			outer_loop = param->pyramidNumber;
-			break;
-		default:
-			mae_dev_info(mae_dev->dev, "[%s] unsupport mode(%d)",
-						__func__, param->maeMode);
-			return;
-			break;
+	case FD_V0:
+	case ATTR_V0:
+	case FD_V1_IPN:
+		outer_loop = param->pyramidNumber;
+		break;
+	case AISEG:
+		outer_loop = 1;
+		break;
+	default:
+		mae_dev_info(mae_dev->dev, "[%s] unsupport mode(%d)",
+				__func__, param->maeMode);
+		return;
 	}
 
 	if (outer_loop > MAX_OUTER_LOOP_NUM) {
@@ -288,13 +296,33 @@ static void mtk_mae_config_dma(struct mtk_mae_dev *mae_dev, int idx)
 
 		//----------------------- output base ------------------------------
 		// addr = mae_dev->mae_out;
-		addr = mae_dev->map_table->output_dmabuf_info[idx][loop].pa;
-		if (CHECK_BASE_ADDR(addr) || addr == 0)
-			mae_dev_info(mae_dev->dev, "Loop %d: %s (0x%llx) is not %d-aligned",
-						loop, "output", addr, MAE_BASE_ADDR_ALIGN);
-		mae_dev_dbg(mae_dev->dev, "Loop %d: %s (0x%llx)", loop, "output", addr);
+		if (param->maeMode == AISEG) {
+			for (i = 0; i < AISEG_MAP_NUM; i++) {
+				addr = mae_dev->map_table->aiseg_output_dmabuf_info[idx][i].pa;
+				if (CHECK_BASE_ADDR(addr) || addr == 0)
+					mae_dev_info(mae_dev->dev, "Loop %d: %s %d (0x%llx) is not %d-aligned",
+						loop, "aiseg output", i, addr, MAE_BASE_ADDR_ALIGN);
 
-		switch (param->maeMode) {
+				mae_dev_dbg(mae_dev->dev, "Loop %d: %s %d (0x%llx)", loop, "aiseg output", i, addr);
+
+				wdma_base_addr_reg_offset = BASE_ADDR_REG_SIZE * i;
+
+				MAE_CMDQ_WRITE_REG(mae_dev->pkt[idx],
+					MAE_REG_EXTRN_BASE0_00_0_W + wdma_base_addr_reg_offset,
+					LSB_ADDR(addr));
+
+				MAE_CMDQ_WRITE_REG(mae_dev->pkt[idx],
+					MAE_REG_EXTRN_BASE0_00_1_W + wdma_base_addr_reg_offset,
+					MSB_ADDR(addr));
+			}
+		} else {
+			addr = mae_dev->map_table->output_dmabuf_info[idx][loop].pa;
+			if (CHECK_BASE_ADDR(addr) || addr == 0)
+				mae_dev_info(mae_dev->dev, "Loop %d: %s (0x%llx) is not %d-aligned",
+					loop, "output", addr, MAE_BASE_ADDR_ALIGN);
+			mae_dev_dbg(mae_dev->dev, "Loop %d: %s (0x%llx)", loop, "output", addr);
+
+			switch (param->maeMode) {
 			case FD_V0:
 				wdma_base_addr_reg_offset = BASE_ADDR_REG_SIZE * FD_V0_WDMA_NUM * loop;
 
@@ -306,10 +334,15 @@ static void mtk_mae_config_dma(struct mtk_mae_dev *mae_dev, int idx)
 					MAE_REG_EXTRN_BASE0_00_1_W + wdma_base_addr_reg_offset,
 					MSB_ADDR(addr));
 				break;
-			case ATTR_V0:
-				for (i = 0; i < ATTR_V0_WDMA_NUM; i++) {
+			case FD_V1_IPN:
+				if (loop >= 1) {
+					mae_dev_info(mae_dev->dev, "not support fd ipn more than one loop");
+					return;
+				}
+
+				for (i = 0; i < FD_V1_IPN_WDMA_NUM; i++) {
 					wdma_base_addr_reg_offset =
-						BASE_ADDR_REG_SIZE * (ATTR_V0_WDMA_NUM * loop + i);
+						BASE_ADDR_REG_SIZE * (FD_V1_IPN_WDMA_NUM * loop + i);
 
 					MAE_CMDQ_WRITE_REG(mae_dev->pkt[idx],
 						MAE_REG_EXTRN_BASE0_00_0_W + wdma_base_addr_reg_offset,
@@ -319,28 +352,37 @@ static void mtk_mae_config_dma(struct mtk_mae_dev *mae_dev, int idx)
 						MAE_REG_EXTRN_BASE0_00_1_W + wdma_base_addr_reg_offset,
 						MSB_ADDR(addr));
 
-					 addr += ATTR_V0_WDMA_SIZE * WDMA_DATA_UNIT;
+					addr += FD_V1_IPN_WDMA_SIZE;
+				}
+				break;
+			case ATTR_V0:
+				for (i = 0; i < ATTR_V0_WDMA_NUM; i++) {
+					wdma_base_addr_reg_offset =
+					BASE_ADDR_REG_SIZE * (ATTR_V0_WDMA_NUM * loop + i);
+
+					MAE_CMDQ_WRITE_REG(mae_dev->pkt[idx],
+						MAE_REG_EXTRN_BASE0_00_0_W + wdma_base_addr_reg_offset,
+						LSB_ADDR(addr));
+
+					MAE_CMDQ_WRITE_REG(mae_dev->pkt[idx],
+						MAE_REG_EXTRN_BASE0_00_1_W + wdma_base_addr_reg_offset,
+						MSB_ADDR(addr));
+
+					addr += ATTR_V0_WDMA_SIZE * WDMA_DATA_UNIT;
 				}
 
 				if (loop == 0) {
-					if (attr_debug == 1) {
-						MAE_CMDQ_WRITE_REG(mae_dev->pkt[idx], MAE_REG_EXTRN_LN_OFFSET_00_W, 4);
-						MAE_CMDQ_WRITE_REG(mae_dev->pkt[idx], MAE_REG_EXTRN_LN_OFFSET_01_W, 4);
-						MAE_CMDQ_WRITE_REG(mae_dev->pkt[idx], MAE_REG_EXTRN_LN_OFFSET_02_W, 4);
-						MAE_CMDQ_WRITE_REG(mae_dev->pkt[idx], MAE_REG_EXTRN_LN_OFFSET_03_W, 4);
-					} else {
-						MAE_CMDQ_WRITE_REG(mae_dev->pkt[idx], MAE_REG_EXTRN_LN_OFFSET_00_W, 1);
-						MAE_CMDQ_WRITE_REG(mae_dev->pkt[idx], MAE_REG_EXTRN_LN_OFFSET_01_W, 1);
-						MAE_CMDQ_WRITE_REG(mae_dev->pkt[idx], MAE_REG_EXTRN_LN_OFFSET_02_W, 1);
-						MAE_CMDQ_WRITE_REG(mae_dev->pkt[idx], MAE_REG_EXTRN_LN_OFFSET_03_W, 1);
-					}
+					MAE_CMDQ_WRITE_REG(mae_dev->pkt[idx], MAE_REG_EXTRN_LN_OFFSET_00_W, 1);
+					MAE_CMDQ_WRITE_REG(mae_dev->pkt[idx], MAE_REG_EXTRN_LN_OFFSET_01_W, 1);
+					MAE_CMDQ_WRITE_REG(mae_dev->pkt[idx], MAE_REG_EXTRN_LN_OFFSET_02_W, 1);
+					MAE_CMDQ_WRITE_REG(mae_dev->pkt[idx], MAE_REG_EXTRN_LN_OFFSET_03_W, 1);
 				}
 				break;
 			default:
 				mae_dev_info(mae_dev->dev, "[%s] unsupport mode(%d)",
-							__func__, param->maeMode);
+					__func__, param->maeMode);
 				return;
-				break;
+			}
 		}
 
 		//------------------- calculate the offset and size of binary file ---------------------
@@ -373,12 +415,41 @@ static void mtk_mae_config_dma(struct mtk_mae_dev *mae_dev, int idx)
 				coef_addr =
 					mae_dev->map_table->coef_dmabuf_info[MODEL_TYPE_FD_V0].pa + coef_offset;
 				break;
+			case FD_V1_IPN:
+				core_sel = mtk_mae_fd_core_sel(mae_dev, param->image[loop].resizeWidth,
+										param->image[loop].resizeHeight);
+				if (core_sel < 0 || core_sel >= FD_PATTERN_NUM) {
+					mae_dev_info(mae_dev->dev, "Loop %d: invalid core_sel: %d",
+								loop, core_sel);
+					return;
+				}
+
+				config_offset = v1_fd_ipn_config_offset[core_sel];
+				coef_offset = v1_fd_ipn_coef_offset[core_sel];
+
+				if (param->fdInputDegree == DEGREE_90 ||
+					param->fdInputDegree == DEGREE_270) {
+					config_rt_offset = fd_v1_ipn_config_info[core_sel].rotate_offset;
+					config_size = fd_v1_ipn_config_info[core_sel].rotate_size;
+				} else {
+					config_rt_offset = 0;
+					config_size = fd_v1_ipn_config_info[core_sel].size;
+				}
+
+				coef_size = fd_v1_ipn_coef_info[core_sel].size;
+
+				config_addr =
+					mae_dev->map_table->config_dmabuf_info[MODEL_TYPE_FD_V1_IPN].pa + config_offset;
+				coef_addr =
+					mae_dev->map_table->coef_dmabuf_info[MODEL_TYPE_FD_V1_IPN].pa + coef_offset;
+				break;
 			case ATTR_V0:
 				config_offset = 0;
 				coef_offset = 0;
 
 				if (param->fdInputDegree == DEGREE_90 ||
 					param->fdInputDegree == DEGREE_270) {
+					// MAE_TO_CHECK: rotate_offset is 16B align but offset is not
 					config_rt_offset = attr_v0_config_info.rotate_offset;
 					config_size = attr_v0_config_info.rotate_size;
 				} else {
@@ -389,9 +460,30 @@ static void mtk_mae_config_dma(struct mtk_mae_dev *mae_dev, int idx)
 				coef_size = attr_v0_coef_info.size;
 
 				config_addr =
-					mae_dev->map_table->config_dmabuf_info[MODEL_TYPE_FLD_FAC_V0].pa + config_offset;
+					mae_dev->map_table->config_dmabuf_info[MODEL_TYPE_FLD_FAC_V0].pa +
+					config_offset;
 				coef_addr =
-					mae_dev->map_table->coef_dmabuf_info[MODEL_TYPE_FLD_FAC_V0].pa + coef_offset;
+					mae_dev->map_table->coef_dmabuf_info[MODEL_TYPE_FLD_FAC_V0].pa +
+					coef_offset;
+				break;
+			case AISEG:
+				config_rt_offset = 0;
+				config_offset =
+					model_table->configTable[MODEL_TYPE_AISEG].offset;
+				coef_offset =
+					model_table->coefTable[MODEL_TYPE_AISEG].offset;
+
+				config_size =
+					model_table->configTable[MODEL_TYPE_AISEG].size >> LSB_ADDR_SHIFT_BITS;
+				coef_size =
+					model_table->coefTable[MODEL_TYPE_AISEG].size >> LSB_ADDR_SHIFT_BITS;
+
+				config_addr =
+					mae_dev->map_table->config_dmabuf_info[MODEL_TYPE_AISEG].pa +
+					config_offset ;
+				coef_addr =
+					mae_dev->map_table->coef_dmabuf_info[MODEL_TYPE_AISEG].pa +
+					coef_offset;
 				break;
 			default:
 				mae_dev_info(mae_dev->dev, "[%s] unsupport mode(%d)",
@@ -472,9 +564,15 @@ void mtk_mae_crop(struct mtk_mae_dev *mae_dev,
 	int32_t crop_down_y;
 	int32_t crop_up_y;
 
-	mae_dev_dbg(mae_dev->dev, "[%s] s_x(%d), e_x(%d), s_y(%d), e_y(%d), input_h_size(%d), input_v_size(%d)\n",
-		__func__, in->start_x, in->end_x, in->start_y, in->end_y,
-		in->input_h_size, in->input_v_size);
+
+	mae_dev_dbg(mae_dev->dev, "[%s] x1(%d), x2(%d), y1(%d), y2(%d), input_h/w(%d,%d)\n",
+		__func__,
+		in->start_x,
+		in->end_x,
+		in->start_y,
+		in->end_y,
+		in->input_h_size,
+		in->input_v_size);
 
 	crop_x_size = in->end_x - in->start_x;
 	crop_y_size = in->end_y - in->start_y;
@@ -519,21 +617,15 @@ void mtk_mae_crop(struct mtk_mae_dev *mae_dev,
 	out->reg_pre_crop_h_crop_en = 1;
 	out->reg_pre_crop_v_crop_en = 1;
 
-	mae_dev_dbg(mae_dev->dev, "[%s] reg_pre_crop_h_st(%d), "
-			"reg_pre_crop_h_length(%d), "
-			"reg_pre_crop_hfde_size(%d), "
-			"reg_pre_crop_v_st(%d), "
-			"reg_pre_crop_v_length(%d), "
-			"reg_pre_crop_vfde_size(%d), "
-			"reg_ins_path(%d), "
-			"reg_pre_crop_h_crop_en(%d), "
-			"reg_pre_crop_v_crop_en(%d)\n",
+	mae_dev_dbg(mae_dev->dev, "[%s] reg_pre_crop_h_st(%d), reg_pre_crop_h_length(%d), ",
 			__func__,
 			out->reg_pre_crop_h_st,
-			out->reg_pre_crop_h_length,
+			out->reg_pre_crop_h_length);
+	mae_dev_dbg(mae_dev->dev, "reg_pre_crop_hfde_size(%d), reg_pre_crop_v_st(%d), reg_pre_crop_v_length(%d), ",
 			out->reg_pre_crop_hfde_size,
 			out->reg_pre_crop_v_st,
-			out->reg_pre_crop_v_length,
+			out->reg_pre_crop_v_length);
+	mae_dev_dbg(mae_dev->dev, "pre_crop_vfde_size(%d), ins_path(%d), pre_crop_h_crop_en(%d), pre_crop_v_crop_en(%d)\n",
 			out->reg_pre_crop_vfde_size,
 			out->reg_ins_path,
 			out->reg_pre_crop_h_crop_en,
@@ -595,7 +687,10 @@ void mtk_mae_padding(struct mtk_mae_dev *mae_dev,
 
 	mae_dev_dbg(mae_dev->dev, "[%s] l(%d), r(%d), d(%d), u(%d), crop_output_h_size(%d), crop_output_v_size(%d)\n",
 		__func__,
-		in->left, in->right, in->down, in->up,
+		in->left,
+		in->right,
+		in->down,
+		in->up,
 		in->crop_output_h_size,
 		in->crop_output_v_size);
 
@@ -625,22 +720,16 @@ void mtk_mae_padding(struct mtk_mae_dev *mae_dev,
 			out->reg_h_size = out->reg_post_ins_h_length + ABS(pad_right_x) + 4;
 		}
 
-	mae_dev_dbg(mae_dev->dev, "[%s] reg_post_ins_blk_hpre(%d), "
-			"reg_post_ins_h_length(%d), "
-			"reg_post_ins_hfde_size(%d), "
-			"reg_post_ins_blk_vpre(%d), "
-			"reg_post_ins_v_length(%d), "
-			"reg_post_ins_vfde_size(%d), "
-			"reg_h_size(%d), "
-			"reg_v_size(%d), "
-			"reg_post_ins_hv_insert_en(%d)\n",
+	mae_dev_dbg(mae_dev->dev, "[%s] reg_post_ins_blk_hpre(%d), reg_post_ins_h_length(%d), reg_post_ins_hfde_size(%d), ",
 			__func__,
 			out->reg_post_ins_blk_hpre,
 			out->reg_post_ins_h_length,
-			out->reg_post_ins_hfde_size,
+			out->reg_post_ins_hfde_size);
+	mae_dev_dbg(mae_dev->dev, "reg_post_ins_blk_vpre(%d), reg_post_ins_v_length(%d), reg_post_ins_vfde_size(%d), ",
 			out->reg_post_ins_blk_vpre,
 			out->reg_post_ins_v_length,
-			out->reg_post_ins_vfde_size,
+			out->reg_post_ins_vfde_size);
+	mae_dev_dbg(mae_dev->dev, "reg_h_size(%d), reg_v_size(%d), reg_post_ins_hv_insert_en(%d)\n",
 			out->reg_h_size,
 			out->reg_v_size,
 			out->reg_post_ins_hv_insert_en);
@@ -988,6 +1077,30 @@ static void mtk_mae_fd_post(struct mtk_mae_dev *mae_dev,
 			}
 
 			break;
+		case FD_V1_IPN:
+			if (core_sel == 0) {
+				;
+			} else if (core_sel == 1) {
+				cmdq_pkt_write(pkt, NULL,
+					MAE_BASE + MAE_REG_MMFD_O_SCALE_0, 0x0200,
+					CMDQ_REG_MASK);
+				cmdq_pkt_write(pkt, NULL, MAE_BASE + MAE_REG_H_SIZE0,
+						0x01E0, CMDQ_REG_MASK);
+				cmdq_pkt_write(pkt, NULL, MAE_BASE + MAE_REG_V_SIZE0,
+						0x0168, CMDQ_REG_MASK);
+				cmdq_pkt_write(pkt, NULL, MAE_BASE + MAE_REG_SCORE_TH0,
+						0x000A, CMDQ_REG_MASK);
+				cmdq_pkt_write(pkt, NULL, MAE_BASE + MAE_REG_H_MAX0,
+						0x01F4, CMDQ_REG_MASK);
+				cmdq_pkt_write(pkt, NULL, MAE_BASE + MAE_REG_V_MAX0,
+						0x01F4, CMDQ_REG_MASK);
+			} else if (core_sel == 2) {
+				;
+			} else if (core_sel == 3) {
+				;
+			}
+
+			break;
 		case ATTR_V0:
 			cmdq_pkt_write(pkt, NULL,
 				MAE_BASE + MAE_REG_MMFD_O_SCALE_0, 0x00000AA8,
@@ -1036,10 +1149,10 @@ static void mtk_mae_config_hw(struct mtk_mae_dev *mae_dev, int idx)
 	mae_dev_dbg(mae_dev->dev, "adb: fld_debug_1(%d)\n", fld_debug_1);
 	mae_dev_dbg(mae_dev->dev, "adb: rsz_debug_on(%d)\n", rsz_debug_on);
 	mae_dev_dbg(mae_dev->dev, "adb: mae_dbf_on(%d)\n", mae_dbf_on);
-	mae_dev_dbg(mae_dev->dev, "adb: attr_debug(%d)\n", attr_debug);
 	mae_dev_dbg(mae_dev->dev, "adb: set_default_value(%d)\n", set_default_value);
 	mae_dev_dbg(mae_dev->dev, "adb: fld_reset_en(%d)\n", fld_reset_en);
 	mae_dev_dbg(mae_dev->dev, "adb: crop_dbg_en(%d)\n", crop_dbg_en);
+	mae_dev_dbg(mae_dev->dev, "adb: aiseg_pat_en(%d)\n", aiseg_pat_en);
 
 	if (param->image[0].srcImgFmt == NV12 &&
 		param->image[0].imgHeight % 2 != 0) {
@@ -1072,10 +1185,11 @@ static void mtk_mae_config_hw(struct mtk_mae_dev *mae_dev, int idx)
 	MAE_CMDQ_WRITE_REG(mae_dev->pkt[idx], MAE_SYS_SHADOW_CTRL, 0x0000);
 
 	switch (param->maeMode) {
-		case FD_V0:
-			core_sel = mtk_mae_fd_core_sel(mae_dev, param->image[0].resizeWidth,
-				param->image[0].resizeHeight);
-			switch (core_sel) {
+	case FD_V0:
+	case FD_V1_IPN:
+		core_sel = mtk_mae_fd_core_sel(mae_dev, param->image[0].resizeWidth,
+			param->image[0].resizeHeight);
+		switch (core_sel) {
 			case 0:
 			case 1:
 				rsz_offset = 0;
@@ -1088,63 +1202,97 @@ static void mtk_mae_config_hw(struct mtk_mae_dev *mae_dev, int idx)
 				break;
 			default:
 				break;
-			}
+		}
 
-			if (param->image[0].srcImgFmt == NV12) {
-				MAE_CMDQ_WRITE_REG(mae_dev->pkt[idx], MAE_REG_EXTRN_MEM_CONFIG, 0x000C);
-				MAE_CMDQ_WRITE_REG(mae_dev->pkt[idx], MAE_REG_RESERVE, 0x0007);
-			} else {
-				mae_dev_info(mae_dev->dev, "wrong img fmt(%d) for fd_v0\n", param->image[0].srcImgFmt);
-				return;
-			}
+		if (param->image[0].srcImgFmt == NV12) {
+			MAE_CMDQ_WRITE_REG(mae_dev->pkt[idx], MAE_REG_EXTRN_MEM_CONFIG, 0x000C);
+			MAE_CMDQ_WRITE_REG(mae_dev->pkt[idx], MAE_REG_RESERVE, 0x0007);
+		} else {
+			mae_dev_info(mae_dev->dev, "wrong img fmt(%d) for fd mode(%d)\n",
+				param->image[0].srcImgFmt, param->maeMode);
+			return;
+		}
 
-			MAE_CMDQ_WRITE_REG(mae_dev->pkt[idx], MAE_COEF_ROTATE, param->fdInputDegree);
+		MAE_CMDQ_WRITE_REG(mae_dev->pkt[idx], MAE_COEF_ROTATE, param->fdInputDegree);
 
-			mtk_mae_fd_post(mae_dev, param, mae_dev->pkt[idx], core_sel, FD_V0);
+		mtk_mae_fd_post(mae_dev, param, mae_dev->pkt[idx], core_sel, param->maeMode);
 
 
-			if (param->image[0].enRoi)
-				mtk_mae_config_crop(mae_dev, param, mae_dev->pkt[idx], rsz_offset);
+		if (param->image[0].enRoi)
+			mtk_mae_config_crop(mae_dev, param, mae_dev->pkt[idx], rsz_offset);
 
-			if (param->image[0].enPadding)
-				mtk_mae_config_padding(mae_dev, param, mae_dev->pkt[idx], rsz_offset);
+		if (param->image[0].enPadding)
+			mtk_mae_config_padding(mae_dev, param, mae_dev->pkt[idx], rsz_offset);
 
-			mtk_mae_config_rsz(mae_dev, param, mae_dev->pkt[idx], rsz_offset);
+		mtk_mae_config_rsz(mae_dev, param, mae_dev->pkt[idx], rsz_offset);
 
-			MAE_CMDQ_WRITE_REG(mae_dev->pkt[idx],
-					REG_0184_RSZ1 + rsz_offset,
-					(param->image[0].enRoi << 3) + 0x3);
-			break;
-		case ATTR_V0:
-			if (param->image[0].srcImgFmt == NV12) {
-				MAE_CMDQ_WRITE_REG(mae_dev->pkt[idx], MAE_REG_EXTRN_MEM_CONFIG, 0x000C);
-				MAE_CMDQ_WRITE_REG(mae_dev->pkt[idx], MAE_REG_RESERVE, 0x0007);
-			} else {
-				mae_dev_info(mae_dev->dev,
-					"wrong img fmt(%d) for attr_v0\n", param->image[0].srcImgFmt);
-				return;
-			}
-
-			MAE_CMDQ_WRITE_REG(mae_dev->pkt[idx], MAE_COEF_ROTATE, param->fdInputDegree);
-
-			mtk_mae_fd_post(mae_dev, param, mae_dev->pkt[idx], 0, ATTR_V0);
-
-			// force rsz_offset
-			rsz_offset = 0;
-			if (param->image[0].enRoi)
-				mtk_mae_config_crop(mae_dev, param, mae_dev->pkt[idx], rsz_offset);
-
-			if (param->image[0].enPadding)
-				mtk_mae_config_padding(mae_dev, param, mae_dev->pkt[idx], rsz_offset);
-
-			mtk_mae_config_rsz(mae_dev, param, mae_dev->pkt[idx], rsz_offset);
-
-			MAE_CMDQ_WRITE_REG(mae_dev->pkt[idx],
+		MAE_CMDQ_WRITE_REG(mae_dev->pkt[idx],
 				REG_0184_RSZ1 + rsz_offset,
 				(param->image[0].enRoi << 3) + 0x3);
-			break;
-		default:
-			break;
+
+		break;
+	case ATTR_V0:
+		if (param->image[0].srcImgFmt == NV12) {
+			MAE_CMDQ_WRITE_REG(mae_dev->pkt[idx], MAE_REG_EXTRN_MEM_CONFIG, 0x000C);
+			MAE_CMDQ_WRITE_REG(mae_dev->pkt[idx], MAE_REG_RESERVE, 0x0007);
+		} else {
+			mae_dev_info(mae_dev->dev,
+				"wrong img fmt(%d) for attr_v0\n", param->image[0].srcImgFmt);
+			return;
+		}
+
+		MAE_CMDQ_WRITE_REG(mae_dev->pkt[idx], MAE_COEF_ROTATE, param->fdInputDegree);
+
+		mtk_mae_fd_post(mae_dev, param, mae_dev->pkt[idx], 0, ATTR_V0);
+
+		// force rsz_offset
+		rsz_offset = 0;
+		if (param->image[0].enRoi)
+			mtk_mae_config_crop(mae_dev, param, mae_dev->pkt[idx], rsz_offset);
+
+		if (param->image[0].enPadding)
+			mtk_mae_config_padding(mae_dev, param, mae_dev->pkt[idx], rsz_offset);
+
+		mtk_mae_config_rsz(mae_dev, param, mae_dev->pkt[idx], rsz_offset);
+
+		MAE_CMDQ_WRITE_REG(mae_dev->pkt[idx],
+			REG_0184_RSZ1 + rsz_offset,
+			(param->image[0].enRoi << 3) + 0x3);
+		break;
+	case AISEG:
+		if (param->image[0].srcImgFmt == YUYV) {
+			if (aiseg_pat_en)
+				MAE_CMDQ_WRITE_REG(mae_dev->pkt[idx], MAE_REG_EXTRN_MEM_CONFIG, 0x0014);
+			else
+				MAE_CMDQ_WRITE_REG(mae_dev->pkt[idx], MAE_REG_EXTRN_MEM_CONFIG, 0x0005);
+			MAE_CMDQ_WRITE_REG(mae_dev->pkt[idx], MAE_REG_RESERVE, 0x0006);
+		} else {
+			mae_dev_info(mae_dev->dev,
+				"wrong img fmt(%d) for attr_v0\n", param->image[0].srcImgFmt);
+			return;
+		}
+
+		MAE_CMDQ_WRITE_REG(mae_dev->pkt[idx], MAE_REG_EXTRN_LN_OFFSET_00_W, 0x000c);
+		MAE_CMDQ_WRITE_REG(mae_dev->pkt[idx], MAE_REG_EXTRN_LN_OFFSET_01_W, 0x0008);
+		MAE_CMDQ_WRITE_REG(mae_dev->pkt[idx], MAE_REG_EXTRN_LN_OFFSET_02_W, 0x0004);
+
+		MAE_CMDQ_WRITE_REG(mae_dev->pkt[idx], MAE_REG_EXTRN_LN_OFFSET_03_W, 0x0008);
+		MAE_CMDQ_WRITE_REG(mae_dev->pkt[idx], MAE_REG_EXTRN_LN_OFFSET_04_W, 0x0008);
+		MAE_CMDQ_WRITE_REG(mae_dev->pkt[idx], MAE_REG_EXTRN_LN_OFFSET_05_W, 0x0008);
+		MAE_CMDQ_WRITE_REG(mae_dev->pkt[idx], MAE_REG_EXTRN_LN_OFFSET_06_W, 0x0008);
+
+		MAE_CMDQ_WRITE_REG(mae_dev->pkt[idx], MAE_REG_EXTRN_LN_OFFSET_07_W, 0x0014);
+		MAE_CMDQ_WRITE_REG(mae_dev->pkt[idx], MAE_REG_EXTRN_LN_OFFSET_08_W, 0x0014);
+		MAE_CMDQ_WRITE_REG(mae_dev->pkt[idx], MAE_REG_EXTRN_LN_OFFSET_09_W, 0x0014);
+		MAE_CMDQ_WRITE_REG(mae_dev->pkt[idx], MAE_REG_EXTRN_LN_OFFSET_10_W, 0x0014);
+
+		MAE_CMDQ_WRITE_REG(mae_dev->pkt[idx], MAE_COEF_ROTATE, param->fdInputDegree);
+
+		if (aiseg_pat_en)
+			mtk_mae_aiseg_pat(mae_dev->pkt[idx]);
+		break;
+	default:
+		break;
 	}
 
 	MAE_CMDQ_WRITE_REG(mae_dev->pkt[idx], MAE_REG_0004_MAE_RDMA_5, 0x6221);
@@ -1163,35 +1311,6 @@ static void mtk_mae_config_hw(struct mtk_mae_dev *mae_dev, int idx)
 	cmdq_pkt_wfe(mae_dev->pkt[idx], mae_dev->mae_event_id);
 
 	cmdq_pkt_flush_async(mae_dev->pkt[idx], MAECmdqCB, (void *)mae_dev);
-
-// if (fd or attr)
-	// write MAE_SYS_SHADOW_CTRL
-	// write MAE_REG_EXTRN_MEM_CONFIG 0x000C // [0:8]extrn_mem_config
-	// write MAE_REG_RESERVE 0x0007 // [0]cup_420_en [1]csc_enable [2:3]reg_422to444_md
-	// write MAE_COEF_ROTATE
-// else if (aiseg)
-	// write MAE_SYS_SHADOW_CTRL
-	// write MAE_REG_RESERVE 0x0006 // [1]csc_enable [2:3]reg_422to444_md
-	// write MAE_COEF_ROTATE
-
-// else if (old fld)
-	// write MAE_SYS_SHADOW_CTRL
-// endif
-
-	// write MAE_REG_0004_MAE_RDMA_5 0x6221
-
-
-	// write MAE_IRQ_DDREN_CMDQ_CTRL 0x2200 // [13]ddren_en [9]AOV irq mask
-
-
-	// ddren should set 100ns earlier than sw trig
-	// write MAE_TRIG_RST_CTRL 0x0100 // [8]ddren_set
-	// write MAE_TRIG_RST_CTRL 0x0000 // [8]ddren_set
-
-	// write MAE_TRIG_RST_CTRL 0x8000 // [15]sw trigger
-
-	// write MAE_TRIG_RST_CTRL 0x0200 // [9]ddren_clr
-	// write MAE_TRIG_RST_CTRL 0x0000 // [8]ddren_clr
 
 	// DEBUG_ONLY
 	mae_dev_dbg(mae_dev->dev, "%s-", __func__);
@@ -1505,37 +1624,6 @@ static void mtk_mae_dump_reg(struct mtk_mae_dev *mae_dev)
 
 	}
 
-	mae_dev_info(mae_dev->dev, "Dump user setting\n");
-	mae_dev_info(mae_dev->dev, "user(%d) Max W/H(%d/%d) Sec(%d) FD/FAC Model SEL(%d/%d)\n",
-		param->user, param->imgMaxWidth, param->imgMaxHeight ,param->isSecure,
-		param->FDModelSel, param->FACModelSel);
-
-	mae_dev_info(mae_dev->dev, "py num(%d) rot(%d) mode(%d) reqNum(%d)\n",
-		param->pyramidNumber, param->fdInputDegree, param->maeMode ,param->requestNum);
-
-	if (param->maeMode == FLD_V0) {
-		mae_dev_info(mae_dev->dev, "fmt(%d) fldFaceNum(%d) img W/H(%d/%d)\n",
-			param->image[0].srcImgFmt, param->fldConfig.fldFaceNum,
-			param->image[0].imgWidth, param->image[0].imgHeight);
-		for (i = 0; i < MAX_FLD_V0_FACE_NUM; i++) {
-			mae_dev_info(mae_dev->dev, "roi(%d,%d->%d,%d), rip(%d), rop(%d)\n",
-				param->fldConfig.fldSetting[i].roi.x1, param->fldConfig.fldSetting[i].roi.y1,
-				param->fldConfig.fldSetting[i].roi.x2, param->fldConfig.fldSetting[i].roi.y2,
-				param->fldConfig.fldSetting[i].rip, param->fldConfig.fldSetting[i].rop);
-		}
-	} else {
-		for (i = 0; i < param->pyramidNumber; i++) {
-			mae_dev_info(mae_dev->dev, "fmt(%d), img W/H(%d/%d), roi(%d)(%d,%d->%d,%d), rsz W/H(%d/%d)\n",
-				param->image[i].srcImgFmt, param->image[i].imgWidth, param->image[i].imgHeight,
-				param->image[i].enRoi, param->image[i].roi.x1, param->image[i].roi.y1,
-				param->image[i].roi.x2, param->image[i].roi.y2, param->image[i].resizeWidth,
-				param->image[i].resizeHeight);
-			mae_dev_info(mae_dev->dev, "pad(%d) (l,r,d,u)=(%d,%d->%d,%d)", param->image[i].enPadding,
-				param->image[i].padding.left, param->image[i].padding.right,
-				param->image[i].padding.down, param->image[i].padding.up);
-		}
-	}
-
 	mae_dev_info(mae_dev->dev, "%s -\n", __func__);
 }
 
@@ -1550,11 +1638,7 @@ static void mtk_mae_config_fld_v0(struct mtk_mae_dev *mae_dev, int idx)
 	struct EnqueParam *param =
 		(struct EnqueParam*)mae_dev->map_table->param_dmabuf_info[idx].kva;
 	uint64_t addr = 0;
-	uint32_t *debug_dump;
 	uint8_t i;
-
-	mae_dev_info(mae_dev->dev, "%s +\n", __func__);
-
 
 	MAE_CMDQ_WRITE_REG(mae_dev->pkt[idx], FDVT_ENABLE, 0x4000000);	// [26] ddren set for v0 fld
 
@@ -1579,60 +1663,36 @@ static void mtk_mae_config_fld_v0(struct mtk_mae_dev *mae_dev, int idx)
 		mae_dev_info(mae_dev->dev, "%s(0x%llx) is not %d-aligned or zero",
 									"FLD_BS_BASE_ADDR", addr, MAE_BASE_ADDR_ALIGN);
 	MAE_CMDQ_WRITE_REG(mae_dev->pkt[idx], FLD_BS_BASE_ADDR, addr >> 4);	// 0x418
-	debug_dump = (uint32_t*)mae_dev->map_table->coef_dmabuf_info[MODEL_TYPE_FLD_FAC_V0].kva +
-		round_up(V0_ATTR_128_128_COEF_SIZE, MAE_BASE_ADDR_ALIGN) / 4;
-	mae_dev_dbg(mae_dev->dev, "%s(0x%llx) (0x%8x_%8x )(0x%8x_%8x)",
-				"FLD_BS_BASE_ADDR", addr, *debug_dump, *(debug_dump+1), *(debug_dump+2), *(debug_dump+3));
 
 	addr += round_up(fdvt_fld_blink_weight_forest14_size, MAE_BASE_ADDR_ALIGN);
 	if (CHECK_BASE_ADDR(addr) || addr == 0)
 		mae_dev_info(mae_dev->dev, "%s(0x%llx) is not %d-aligned or zero",
 									"FLD_FP_BASE_ADDR", addr, MAE_BASE_ADDR_ALIGN);
 	MAE_CMDQ_WRITE_REG(mae_dev->pkt[idx], FLD_FP_BASE_ADDR, addr >> 4);	// 0x408
-	debug_dump +=
-		round_up(fdvt_fld_blink_weight_forest14_size, MAE_BASE_ADDR_ALIGN) / 4;
-	mae_dev_dbg(mae_dev->dev, "%s(0x%llx) (0x%8x_%8x )(0x%8x_%8x)",
-				"FLD_FP_BASE_ADDR", addr, *debug_dump, *(debug_dump+1), *(debug_dump+2), *(debug_dump+3));
 
 	addr += round_up(fdvt_fld_fp_forest00_om45_size, MAE_BASE_ADDR_ALIGN) * 15;
 	if (CHECK_BASE_ADDR(addr) || addr == 0)
 		mae_dev_info(mae_dev->dev, "%s(0x%llx) is not %d-aligned or zero",
 									"FLD_SH_BASE_ADDR", addr, MAE_BASE_ADDR_ALIGN);
 	MAE_CMDQ_WRITE_REG(mae_dev->pkt[idx], FLD_SH_BASE_ADDR, addr >> 4);	// 0x410
-	debug_dump +=
-		(round_up(fdvt_fld_fp_forest00_om45_size, MAE_BASE_ADDR_ALIGN) * 15) / 4;
-	mae_dev_dbg(mae_dev->dev, "%s(0x%llx) (0x%8x_%8x )(0x%8x_%8x)",
-				"FLD_SH_BASE_ADDR", addr, *debug_dump, *(debug_dump+1), *(debug_dump+2), *(debug_dump+3));
 
 	addr += round_up(fdvt_fld_leafnode_forest00_size, MAE_BASE_ADDR_ALIGN) * 15;
 	if (CHECK_BASE_ADDR(addr) || addr == 0)
 		mae_dev_info(mae_dev->dev, "%s(0x%llx) is not %d-aligned or zero",
 									"FLD_CV_BASE_ADDR", addr, MAE_BASE_ADDR_ALIGN);
 	MAE_CMDQ_WRITE_REG(mae_dev->pkt[idx], FLD_CV_BASE_ADDR, addr >> 4);	// 0x414
-	debug_dump +=
-		(round_up(fdvt_fld_leafnode_forest00_size, MAE_BASE_ADDR_ALIGN) * 15) / 4;
-	mae_dev_dbg(mae_dev->dev, "%s(0x%llx) (0x%8x_%8x )(0x%8x_%8x)",
-				"FLD_CV_BASE_ADDR", addr, *debug_dump, *(debug_dump+1), *(debug_dump+2), *(debug_dump+3));
 
 	addr += round_up(fdvt_fld_tree_forest00_cv_weight_size, MAE_BASE_ADDR_ALIGN) * 15;
 	if (CHECK_BASE_ADDR(addr) || addr == 0)
 		mae_dev_info(mae_dev->dev, "%s(0x%llx) is not %d-aligned or zero",
 									"FLD_MS_BASE_ADDR", addr, MAE_BASE_ADDR_ALIGN);
 	MAE_CMDQ_WRITE_REG(mae_dev->pkt[idx], FLD_MS_BASE_ADDR, addr >> 4);	// 0x404
-	debug_dump +=
-		(round_up(fdvt_fld_tree_forest00_cv_weight_size, MAE_BASE_ADDR_ALIGN) * 15) / 4;
-	mae_dev_dbg(mae_dev->dev, "%s(0x%llx) (0x%8x_%8x )(0x%8x_%8x)",
-				"FLD_MS_BASE_ADDR", addr, *debug_dump, *(debug_dump+1), *(debug_dump+2), *(debug_dump+3));
 
 	addr += round_up(fdvt_fld_tree_forest00_init_shape_size, MAE_BASE_ADDR_ALIGN);
 	if (CHECK_BASE_ADDR(addr) || addr == 0)
 		mae_dev_info(mae_dev->dev, "%s(0x%llx) is not %d-aligned or zero",
 									"FLD_TR_BASE_ADDR", addr, MAE_BASE_ADDR_ALIGN);
 	MAE_CMDQ_WRITE_REG(mae_dev->pkt[idx], FLD_TR_BASE_ADDR, addr >> 4);	// 0x40C
-	debug_dump +=
-		round_up(fdvt_fld_tree_forest00_init_shape_size, MAE_BASE_ADDR_ALIGN) / 4;
-	mae_dev_dbg(mae_dev->dev, "%s(0x%llx) (0x%8x_%8x )(0x%8x_%8x)",
-				"FLD_TR_BASE_ADDR", addr, *debug_dump, *(debug_dump+1), *(debug_dump+2), *(debug_dump+3));
 
 	addr = mae_dev->map_table->output_dmabuf_info[idx][0].pa;
 	if (CHECK_BASE_ADDR(addr) || addr == 0)
@@ -1720,11 +1780,9 @@ static void mtk_mae_config_fld_v0(struct mtk_mae_dev *mae_dev, int idx)
 
 	cmdq_pkt_wfe(mae_dev->pkt[idx], mae_dev->mae_event_id);
 	cmdq_pkt_flush_async(mae_dev->pkt[idx], MAECmdqCB, (void *)mae_dev);
-
-	mae_dev_info(mae_dev->dev, "%s -\n", __func__);
 }
 
-static void mtk_mae_get_fd_result(struct mtk_mae_dev *mae_dev, int idx)
+static void mtk_mae_get_fd_v0_result(struct mtk_mae_dev *mae_dev, int idx)
 {
 	struct EnqueParam *param =
 		(struct EnqueParam *)mae_dev->map_table->param_dmabuf_info[idx].kva;
@@ -1736,25 +1794,59 @@ static void mtk_mae_get_fd_result(struct mtk_mae_dev *mae_dev, int idx)
 		switch (core_sel) {
 		case 0:
 		case 1:
-			param->faceNum[i] =
+			param->faceNum[i][0] =
 				(uint32_t)readl(mae_dev->mae_base + MAE_REG_FACE_NUM0);
-			mae_dev_info(mae_dev->dev, "%s + face_num(%d)\n", __func__, param->faceNum[i]);
+			mae_dev_dbg(mae_dev->dev, "%s + face_num(%d)\n", __func__, param->faceNum[i][0]);
 			break;
 		case 2:
-			param->faceNum[i] =
+			param->faceNum[i][0] =
 				(uint32_t)readl(mae_dev->mae_base + MAE_REG_FACE_NUM1);
-			mae_dev_info(mae_dev->dev, "%s + face_num(%d)\n", __func__, param->faceNum[i]);
+			mae_dev_dbg(mae_dev->dev, "%s + face_num(%d)\n", __func__, param->faceNum[i][0]);
 			break;
 		case 3:
-			param->faceNum[i] =
+			param->faceNum[i][0] =
 				(uint32_t)readl(mae_dev->mae_base + MAE_REG_FACE_NUM2);
-			mae_dev_info(mae_dev->dev, "%s + face_num(%d)\n", __func__, param->faceNum[i]);
+			mae_dev_dbg(mae_dev->dev, "%s + face_num(%d)\n", __func__, param->faceNum[i][0]);
 			break;
 		default:
 			mae_dev_info(mae_dev->dev, "[%s] unsupport core_sel(%d)",
 						__func__, core_sel);
 			break;
 		}
+	}
+}
+
+static void mtk_mae_get_fd_v1_result(struct mtk_mae_dev *mae_dev, int idx)
+{
+	struct EnqueParam *param =
+		(struct EnqueParam *)mae_dev->map_table->param_dmabuf_info[idx].kva;
+	uint32_t i, j, core_sel;
+	uint32_t reg_base = 0;
+
+	for (i = 0; i < param->pyramidNumber; i++) {
+		core_sel = mtk_mae_fd_core_sel(mae_dev, param->image[i].resizeWidth,
+						param->image[i].resizeHeight);
+		switch (core_sel) {
+		case 0:
+		case 1:
+			reg_base = MAE_REG_FACE_NUM0;
+			break;
+		case 2:
+			reg_base = MAE_REG_FACE_NUM1;
+			break;
+		case 3:
+			reg_base = MAE_REG_FACE_NUM2;
+			break;
+		default:
+			mae_dev_info(mae_dev->dev, "[%s] unsupport core_sel(%d)",
+						__func__, core_sel);
+			reg_base = MAE_REG_FACE_NUM0;
+			break;
+		}
+
+		for (j = 0; j < FD_V1_IPN_WDMA_NUM; j++)
+			param->faceNum[i][j] =
+					(uint32_t)readl(mae_dev->mae_base + reg_base + j * FACE_NUM_REG_OFFSET);
 	}
 }
 
@@ -1783,7 +1875,8 @@ const struct mtk_mae_drv_ops mae_ops_isp8 = {
 	.set_dma_address = mtk_mae_config_dma,
 	.config_hw = mtk_mae_config_hw,
 	.config_fld = mtk_mae_config_fld_v0,
-	.get_fd_result = mtk_mae_get_fd_result,
+	.get_fd_v0_result = mtk_mae_get_fd_v0_result,
+	.get_fd_v1_result = mtk_mae_get_fd_v1_result,
 	// .get_attr_result = aie_get_attr_result,
 	// .get_fld_result = aie_get_fld_result,
 	.irq_handle = mtk_mae_irq_handle,
@@ -1811,13 +1904,193 @@ int mtk_mae_isp8_remove(struct platform_device *pdev)
 	return 0;
 }
 
+static void mtk_mae_aiseg_pat(struct cmdq_pkt *pkt)
+{
+	// POST
+	MAE_CMDQ_WRITE_REG(pkt, 0x61a0, 0x00000100);
+	MAE_CMDQ_WRITE_REG(pkt, 0x61a4, 0x00000302);
+	MAE_CMDQ_WRITE_REG(pkt, 0x61a8, 0x00000504);
+	MAE_CMDQ_WRITE_REG(pkt, 0x61ac, 0x00000706);
+	MAE_CMDQ_WRITE_REG(pkt, 0x61b0, 0x00000908);
+	MAE_CMDQ_WRITE_REG(pkt, 0x61b4, 0x00000b0a);
+	MAE_CMDQ_WRITE_REG(pkt, 0x61b8, 0x00000d0c);
+	MAE_CMDQ_WRITE_REG(pkt, 0x61bc, 0x00000f0e);
+	MAE_CMDQ_WRITE_REG(pkt, 0x61c0, 0x00000b00);
+	MAE_CMDQ_WRITE_REG(pkt, 0x61c4, 0x00000d0c);
+	MAE_CMDQ_WRITE_REG(pkt, 0x61c8, 0x00000f0e);
+	MAE_CMDQ_WRITE_REG(pkt, 0x61cc, 0x00001110);
+	MAE_CMDQ_WRITE_REG(pkt, 0x61d0, 0x00001111);
+	MAE_CMDQ_WRITE_REG(pkt, 0x61d4, 0x00001111);
+	MAE_CMDQ_WRITE_REG(pkt, 0x61d8, 0x00001111);
+	MAE_CMDQ_WRITE_REG(pkt, 0x61dc, 0x00001111);
+	MAE_CMDQ_WRITE_REG(pkt, 0x61e0, 0x00001e00);
+	MAE_CMDQ_WRITE_REG(pkt, 0x61e4, 0x0000140a);
+	MAE_CMDQ_WRITE_REG(pkt, 0x61e8, 0x0000c81e);
+	MAE_CMDQ_WRITE_REG(pkt, 0x61ec, 0x00003200);
+	MAE_CMDQ_WRITE_REG(pkt, 0x61f0, 0x00000000);
+	MAE_CMDQ_WRITE_REG(pkt, 0x61f4, 0x00000000);
+	MAE_CMDQ_WRITE_REG(pkt, 0x61f8, 0x00000000);
+	MAE_CMDQ_WRITE_REG(pkt, 0x61fc, 0x00000000);
+	MAE_CMDQ_WRITE_REG(pkt, 0x63a0, 0x00000100);
+	MAE_CMDQ_WRITE_REG(pkt, 0x63a4, 0x00000302);
+	MAE_CMDQ_WRITE_REG(pkt, 0x63a8, 0x00000504);
+	MAE_CMDQ_WRITE_REG(pkt, 0x63ac, 0x00000706);
+	MAE_CMDQ_WRITE_REG(pkt, 0x63b0, 0x00000908);
+	MAE_CMDQ_WRITE_REG(pkt, 0x63b4, 0x00000b0a);
+	MAE_CMDQ_WRITE_REG(pkt, 0x63b8, 0x00000d0c);
+	MAE_CMDQ_WRITE_REG(pkt, 0x63bc, 0x00000f0e);
+	MAE_CMDQ_WRITE_REG(pkt, 0x63c0, 0x00000b00);
+	MAE_CMDQ_WRITE_REG(pkt, 0x63c4, 0x00000b0b);
+	MAE_CMDQ_WRITE_REG(pkt, 0x63c8, 0x00000b0b);
+	MAE_CMDQ_WRITE_REG(pkt, 0x63cc, 0x00000d0c);
+	MAE_CMDQ_WRITE_REG(pkt, 0x63d0, 0x00000e0e);
+	MAE_CMDQ_WRITE_REG(pkt, 0x63d4, 0x00000e0e);
+	MAE_CMDQ_WRITE_REG(pkt, 0x63d8, 0x00000e0e);
+	MAE_CMDQ_WRITE_REG(pkt, 0x63dc, 0x00000e0e);
+	MAE_CMDQ_WRITE_REG(pkt, 0x63e0, 0x00003c0a);
+	MAE_CMDQ_WRITE_REG(pkt, 0x63e4, 0x00003c3c);
+	MAE_CMDQ_WRITE_REG(pkt, 0x63e8, 0x00003c3c);
+	MAE_CMDQ_WRITE_REG(pkt, 0x63ec, 0x00003c3c);
+	MAE_CMDQ_WRITE_REG(pkt, 0x63f0, 0x00000000);
+	MAE_CMDQ_WRITE_REG(pkt, 0x63f4, 0x00000000);
+	MAE_CMDQ_WRITE_REG(pkt, 0x63f8, 0x00000000);
+	MAE_CMDQ_WRITE_REG(pkt, 0x63fc, 0x00000000);
+	MAE_CMDQ_WRITE_REG(pkt, 0x65a0, 0x00000100);
+	MAE_CMDQ_WRITE_REG(pkt, 0x65a4, 0x00000302);
+	MAE_CMDQ_WRITE_REG(pkt, 0x65a8, 0x00000504);
+	MAE_CMDQ_WRITE_REG(pkt, 0x65ac, 0x00000706);
+	MAE_CMDQ_WRITE_REG(pkt, 0x65b0, 0x00000908);
+	MAE_CMDQ_WRITE_REG(pkt, 0x65b4, 0x00000b0a);
+	MAE_CMDQ_WRITE_REG(pkt, 0x65b8, 0x00000f0f);
+	MAE_CMDQ_WRITE_REG(pkt, 0x65bc, 0x00000f0f);
+	MAE_CMDQ_WRITE_REG(pkt, 0x65c0, 0x00001100);
+	MAE_CMDQ_WRITE_REG(pkt, 0x65c4, 0x00000f10);
+	MAE_CMDQ_WRITE_REG(pkt, 0x65c8, 0x00000d0e);
+	MAE_CMDQ_WRITE_REG(pkt, 0x65cc, 0x00000b0c);
+	MAE_CMDQ_WRITE_REG(pkt, 0x65d0, 0x00000b0b);
+	MAE_CMDQ_WRITE_REG(pkt, 0x65d4, 0x00000b0b);
+	MAE_CMDQ_WRITE_REG(pkt, 0x65d8, 0x00000b0b);
+	MAE_CMDQ_WRITE_REG(pkt, 0x65dc, 0x00000b0b);
+	MAE_CMDQ_WRITE_REG(pkt, 0x65e0, 0x00003200);
+	MAE_CMDQ_WRITE_REG(pkt, 0x65e4, 0x00001e14);
+	MAE_CMDQ_WRITE_REG(pkt, 0x65e8, 0x00000078);
+	MAE_CMDQ_WRITE_REG(pkt, 0x65ec, 0x00001400);
+	MAE_CMDQ_WRITE_REG(pkt, 0x65f0, 0x00000000);
+	MAE_CMDQ_WRITE_REG(pkt, 0x65f4, 0x00000000);
+	MAE_CMDQ_WRITE_REG(pkt, 0x65f8, 0x00000000);
+	MAE_CMDQ_WRITE_REG(pkt, 0x65fc, 0x00000000);
 
-// AOV case
-// {
-	// write MAE_IRQ_DDREN_CMDQ_CTRL 0x2110 // [13]ddren_en [8]cam irq mask [4]cmdq mask
-// }
+	// RSZ 1
+	MAE_CMDQ_WRITE_REG(pkt, 0x6004, 0x00000000);
+	MAE_CMDQ_WRITE_REG(pkt, 0x6008, 0x00000000);
+	MAE_CMDQ_WRITE_REG(pkt, 0x600c, 0x00000000);
+	MAE_CMDQ_WRITE_REG(pkt, 0x6010, 0x00000000);
+	MAE_CMDQ_WRITE_REG(pkt, 0x601c, 0x0000e9d4);
+	MAE_CMDQ_WRITE_REG(pkt, 0x6020, 0x00000104);
+	MAE_CMDQ_WRITE_REG(pkt, 0x6024, 0x0000e9d4);
+	MAE_CMDQ_WRITE_REG(pkt, 0x6028, 0x00000104);
+	MAE_CMDQ_WRITE_REG(pkt, 0x602c, 0x00000101);
+	MAE_CMDQ_WRITE_REG(pkt, 0x6034, 0x00000001);
+	MAE_CMDQ_WRITE_REG(pkt, 0x605c, 0x00000000);
+	MAE_CMDQ_WRITE_REG(pkt, 0x6060, 0x00000000);
+	MAE_CMDQ_WRITE_REG(pkt, 0x6064, 0x00000000);
+	MAE_CMDQ_WRITE_REG(pkt, 0x6068, 0x00000000);
+	MAE_CMDQ_WRITE_REG(pkt, 0x60a0, 0x00008028);
+	MAE_CMDQ_WRITE_REG(pkt, 0x60a4, 0x00008028);
+	MAE_CMDQ_WRITE_REG(pkt, 0x60a8, 0x00000080);
+	MAE_CMDQ_WRITE_REG(pkt, 0x60ac, 0x00000080);
+	MAE_CMDQ_WRITE_REG(pkt, 0x60c0, 0x00000080);
+	MAE_CMDQ_WRITE_REG(pkt, 0x60c4, 0x00000000);
+	MAE_CMDQ_WRITE_REG(pkt, 0x60c8, 0x00000000);
+	MAE_CMDQ_WRITE_REG(pkt, 0x60cc, 0x00000000);
+	MAE_CMDQ_WRITE_REG(pkt, 0x60d0, 0x00000028);
+	MAE_CMDQ_WRITE_REG(pkt, 0x60d4, 0x00000000);
+	MAE_CMDQ_WRITE_REG(pkt, 0x60d8, 0x00000000);
+	MAE_CMDQ_WRITE_REG(pkt, 0x6104, 0x00000002);
+	MAE_CMDQ_WRITE_REG(pkt, 0x6108, 0x00000000);
+	MAE_CMDQ_WRITE_REG(pkt, 0x610c, 0x00000000);
+	MAE_CMDQ_WRITE_REG(pkt, 0x6110, 0x00000000);
+	MAE_CMDQ_WRITE_REG(pkt, 0x6114, 0x00000017);
+	MAE_CMDQ_WRITE_REG(pkt, 0x6118, 0x00000000);
+	MAE_CMDQ_WRITE_REG(pkt, 0x611c, 0x00000000);
+	MAE_CMDQ_WRITE_REG(pkt, 0x6120, 0x00000017);
+	MAE_CMDQ_WRITE_REG(pkt, 0x6180, 0x00000004);
+	MAE_CMDQ_WRITE_REG(pkt, 0x6184, 0x00000007);
 
-// MAE_TO_DO: FRAME DONE CLEAR IRQ
+	// RSZ 2
+	MAE_CMDQ_WRITE_REG(pkt, 0x6204, 0x00000000);
+	MAE_CMDQ_WRITE_REG(pkt, 0x6208, 0x00000000);
+	MAE_CMDQ_WRITE_REG(pkt, 0x620c, 0x00000000);
+	MAE_CMDQ_WRITE_REG(pkt, 0x6210, 0x00000000);
+	MAE_CMDQ_WRITE_REG(pkt, 0x621c, 0x0000f4c4);
+	MAE_CMDQ_WRITE_REG(pkt, 0x6220, 0x00000101);
+	MAE_CMDQ_WRITE_REG(pkt, 0x6224, 0x0000f4c4);
+	MAE_CMDQ_WRITE_REG(pkt, 0x6228, 0x00000101);
+	MAE_CMDQ_WRITE_REG(pkt, 0x622c, 0x00000101);
+	MAE_CMDQ_WRITE_REG(pkt, 0x6234, 0x00000001);
+	MAE_CMDQ_WRITE_REG(pkt, 0x625c, 0x00000000);
+	MAE_CMDQ_WRITE_REG(pkt, 0x6260, 0x00000000);
+	MAE_CMDQ_WRITE_REG(pkt, 0x6264, 0x00000000);
+	MAE_CMDQ_WRITE_REG(pkt, 0x6268, 0x00000000);
+	MAE_CMDQ_WRITE_REG(pkt, 0x62a0, 0x00008028);
+	MAE_CMDQ_WRITE_REG(pkt, 0x62a4, 0x00008028);
+	MAE_CMDQ_WRITE_REG(pkt, 0x62a8, 0x00000140);
+	MAE_CMDQ_WRITE_REG(pkt, 0x62ac, 0x00000140);
+	MAE_CMDQ_WRITE_REG(pkt, 0x62c0, 0x00000080);
+	MAE_CMDQ_WRITE_REG(pkt, 0x62c4, 0x00000000);
+	MAE_CMDQ_WRITE_REG(pkt, 0x62c8, 0x00000000);
+	MAE_CMDQ_WRITE_REG(pkt, 0x62cc, 0x00000000);
+	MAE_CMDQ_WRITE_REG(pkt, 0x62d0, 0x00000028);
+	MAE_CMDQ_WRITE_REG(pkt, 0x62d4, 0x00000000);
+	MAE_CMDQ_WRITE_REG(pkt, 0x62d8, 0x00000000);
+	MAE_CMDQ_WRITE_REG(pkt, 0x6304, 0x00000000);
+	MAE_CMDQ_WRITE_REG(pkt, 0x6308, 0x00000000);
+	MAE_CMDQ_WRITE_REG(pkt, 0x630c, 0x00000000);
+	MAE_CMDQ_WRITE_REG(pkt, 0x6310, 0x00000000);
+	MAE_CMDQ_WRITE_REG(pkt, 0x6314, 0x00000040);
+	MAE_CMDQ_WRITE_REG(pkt, 0x6318, 0x00000000);
+	MAE_CMDQ_WRITE_REG(pkt, 0x631c, 0x00000000);
+	MAE_CMDQ_WRITE_REG(pkt, 0x6320, 0x00000040);
+	MAE_CMDQ_WRITE_REG(pkt, 0x6380, 0x00000004);
+	MAE_CMDQ_WRITE_REG(pkt, 0x6384, 0x00000007);
+
+	// RSZ 3
+	MAE_CMDQ_WRITE_REG(pkt, 0x6404, 0x00000000);
+	MAE_CMDQ_WRITE_REG(pkt, 0x6408, 0x00000000);
+	MAE_CMDQ_WRITE_REG(pkt, 0x640c, 0x00000000);
+	MAE_CMDQ_WRITE_REG(pkt, 0x6410, 0x00000000);
+	MAE_CMDQ_WRITE_REG(pkt, 0x641c, 0x0000f4c4);
+	MAE_CMDQ_WRITE_REG(pkt, 0x6420, 0x00000101);
+	MAE_CMDQ_WRITE_REG(pkt, 0x6424, 0x0000f4c4);
+	MAE_CMDQ_WRITE_REG(pkt, 0x6428, 0x00000101);
+	MAE_CMDQ_WRITE_REG(pkt, 0x642c, 0x00000101);
+	MAE_CMDQ_WRITE_REG(pkt, 0x6434, 0x00000001);
+	MAE_CMDQ_WRITE_REG(pkt, 0x645c, 0x00000000);
+	MAE_CMDQ_WRITE_REG(pkt, 0x6460, 0x00000000);
+	MAE_CMDQ_WRITE_REG(pkt, 0x6464, 0x00000000);
+	MAE_CMDQ_WRITE_REG(pkt, 0x6468, 0x00000000);
+	MAE_CMDQ_WRITE_REG(pkt, 0x64a0, 0x00008028);
+	MAE_CMDQ_WRITE_REG(pkt, 0x64a4, 0x00008028);
+	MAE_CMDQ_WRITE_REG(pkt, 0x64a8, 0x00000140);
+	MAE_CMDQ_WRITE_REG(pkt, 0x64ac, 0x00000140);
+	MAE_CMDQ_WRITE_REG(pkt, 0x64c0, 0x00000080);
+	MAE_CMDQ_WRITE_REG(pkt, 0x64c4, 0x00000000);
+	MAE_CMDQ_WRITE_REG(pkt, 0x64c8, 0x00000000);
+	MAE_CMDQ_WRITE_REG(pkt, 0x64cc, 0x00000000);
+	MAE_CMDQ_WRITE_REG(pkt, 0x64d0, 0x00000028);
+	MAE_CMDQ_WRITE_REG(pkt, 0x64d4, 0x00000000);
+	MAE_CMDQ_WRITE_REG(pkt, 0x64d8, 0x00000000);
+	MAE_CMDQ_WRITE_REG(pkt, 0x6504, 0x00000000);
+	MAE_CMDQ_WRITE_REG(pkt, 0x6508, 0x00000000);
+	MAE_CMDQ_WRITE_REG(pkt, 0x650c, 0x00000000);
+	MAE_CMDQ_WRITE_REG(pkt, 0x6510, 0x00000000);
+	MAE_CMDQ_WRITE_REG(pkt, 0x6514, 0x00000040);
+	MAE_CMDQ_WRITE_REG(pkt, 0x6518, 0x00000000);
+	MAE_CMDQ_WRITE_REG(pkt, 0x651c, 0x00000000);
+	MAE_CMDQ_WRITE_REG(pkt, 0x6520, 0x00000040);
+	MAE_CMDQ_WRITE_REG(pkt, 0x6580, 0x00000004);
+	MAE_CMDQ_WRITE_REG(pkt, 0x6584, 0x00000007);
+}
 
 static const struct of_device_id of_match_mtk_mae_isp8_drv[] = {
 	{

@@ -36,36 +36,37 @@
 /* ============ should align userspace define (start) ================== */
 #define MAE_BASE_ADDR_ALIGN 16
 
-#define V0_FD_640_480_COEF_SIZE         183664
-#define V0_FD_640_480_CONFIG_SIZE       65376
+#define V0_FD_640_480_COEF_SIZE     (11479 * MAE_BASE_ADDR_ALIGN)
+#define V0_FD_640_480_CONFIG_SIZE   (4086 * MAE_BASE_ADDR_ALIGN)
 #define V0_FD_640_480_COEF_PAT_OFFSET   0
 #define V0_FD_640_480_CONFIG_PAT_OFFSET 0
 
-#define V0_FD_480_360_COEF_SIZE         183536
-#define V0_FD_480_360_CONFIG_SIZE       45792
+#define V0_FD_480_360_COEF_SIZE     (11471 * MAE_BASE_ADDR_ALIGN)
+#define V0_FD_480_360_CONFIG_SIZE   (2862 * MAE_BASE_ADDR_ALIGN)
 #define V0_FD_480_360_COEF_PAT_OFFSET   \
-	(V0_FD_640_480_COEF_PAT_OFFSET + round_up(V0_FD_640_480_COEF_SIZE, MAE_BASE_ADDR_ALIGN))
+		(V0_FD_640_480_COEF_PAT_OFFSET + round_up(V0_FD_640_480_COEF_SIZE, MAE_BASE_ADDR_ALIGN))
 #define V0_FD_480_360_CONFIG_PAT_OFFSET \
-	(V0_FD_640_480_CONFIG_PAT_OFFSET + round_up(V0_FD_640_480_CONFIG_SIZE, MAE_BASE_ADDR_ALIGN))
+		(V0_FD_640_480_CONFIG_PAT_OFFSET + round_up(V0_FD_640_480_CONFIG_SIZE, MAE_BASE_ADDR_ALIGN))
 
-#define V0_FD_240_180_COEF_SIZE         183536
-#define V0_FD_240_180_CONFIG_SIZE       34880
+#define V0_FD_240_180_COEF_SIZE     (11471 * MAE_BASE_ADDR_ALIGN)
+#define V0_FD_240_180_CONFIG_SIZE   (2180 * MAE_BASE_ADDR_ALIGN)
 #define V0_FD_240_180_COEF_PAT_OFFSET   \
-	(V0_FD_480_360_COEF_PAT_OFFSET + round_up(V0_FD_480_360_COEF_SIZE, MAE_BASE_ADDR_ALIGN))
+		(V0_FD_480_360_COEF_PAT_OFFSET + round_up(V0_FD_480_360_COEF_SIZE, MAE_BASE_ADDR_ALIGN))
 #define V0_FD_240_180_CONFIG_PAT_OFFSET \
-	(V0_FD_480_360_CONFIG_PAT_OFFSET + round_up(V0_FD_480_360_CONFIG_SIZE, MAE_BASE_ADDR_ALIGN))
+		(V0_FD_480_360_CONFIG_PAT_OFFSET + round_up(V0_FD_480_360_CONFIG_SIZE, MAE_BASE_ADDR_ALIGN))
 
-#define V0_FD_120_90_COEF_SIZE          183536
-#define V0_FD_120_90_CONFIG_SIZE        29344
+#define V0_FD_120_90_COEF_SIZE      (11471 * MAE_BASE_ADDR_ALIGN)
+#define V0_FD_120_90_CONFIG_SIZE    (1834 * MAE_BASE_ADDR_ALIGN)
 #define V0_FD_120_90_COEF_PAT_OFFSET   \
-	(V0_FD_240_180_COEF_PAT_OFFSET + round_up(V0_FD_240_180_COEF_SIZE, MAE_BASE_ADDR_ALIGN))
+		(V0_FD_240_180_COEF_PAT_OFFSET + round_up(V0_FD_240_180_COEF_SIZE, MAE_BASE_ADDR_ALIGN))
 #define V0_FD_120_90_CONFIG_PAT_OFFSET \
-	(V0_FD_240_180_CONFIG_PAT_OFFSET + round_up(V0_FD_240_180_CONFIG_SIZE, MAE_BASE_ADDR_ALIGN))
+		(V0_FD_240_180_CONFIG_PAT_OFFSET + round_up(V0_FD_240_180_CONFIG_SIZE, MAE_BASE_ADDR_ALIGN))
 
-#define V0_ATTR_128_128_COEF_SIZE   244640
-#define V0_ATTR_128_128_CONFIG_SIZE 32032
+#define V0_ATTR_128_128_COEF_SIZE   (15290 * MAE_BASE_ADDR_ALIGN)
+#define V0_ATTR_128_128_CONFIG_SIZE (2002 * MAE_BASE_ADDR_ALIGN)
 
-#define V0_ATTR_128_128_COEF_SIZE   244640
+#define V1_FD_IPN_480_360_COEF_SIZE (10964 * MAE_BASE_ADDR_ALIGN)
+#define V1_FD_IPN_480_360_CONFIG_SIZE (7616 * MAE_BASE_ADDR_ALIGN)
 
 
 #define MAX_OUTER_LOOP_NUM 3
@@ -74,7 +75,7 @@
 #define MAX_PYRAMID_NUM 3
 #define MAX_FACE_NUM 1024
 #define DATA_SIZE 16
-#define FD_OUTPUT_SIZE (MAX_FACE_NUM * 2 * DATA_SIZE)
+#define FD_OUTPUT_SIZE ((round_up(MAX_FACE_NUM, DATA_SIZE) * 2 + 1) * DATA_SIZE)
 
 #define FD_PATTERN_NUM 4
 #define FD_PYRAMID_MIN_WIDTH  64
@@ -83,6 +84,9 @@
 #define FD_V0_WDMA_NUM 1
 #define ATTR_V0_WDMA_NUM 4
 #define ATTR_V0_WDMA_SIZE 1
+#define FD_V1_IPN_WDMA_NUM 5
+#define FD_V1_IPN_WDMA_SIZE FD_OUTPUT_SIZE
+#define HW_OUTPUT_SIZE (FD_V1_IPN_WDMA_NUM * FD_OUTPUT_SIZE)
 
 #define BASE_ADDR_REG_SIZE 8
 #define COMMON_REG_SIZE 4
@@ -92,6 +96,8 @@
 
 #define MAX_FLD_V0_FACE_NUM 15
 #define FLD_V0_POINT 500
+
+#define AISEG_MAP_NUM 11
 
 const uint32_t fd_pattern_width[FD_PATTERN_NUM] = {640, 480, 240, 120};
 const uint32_t fd_pattern_height[FD_PATTERN_NUM] = {480, 360, 180, 90};
@@ -108,6 +114,11 @@ const uint32_t v0_fd_config_offset[] = {V0_FD_640_480_CONFIG_PAT_OFFSET,
 					V0_FD_120_90_CONFIG_PAT_OFFSET
 					};
 
+
+const uint32_t v1_fd_ipn_coef_offset[FD_PATTERN_NUM] = {0, 0, 0, 0};
+
+const uint32_t v1_fd_ipn_config_offset[] = {0, 0, 0, 0};
+
 struct config_info {
 	const uint32_t size;
 	const uint32_t rotate_offset;
@@ -120,24 +131,84 @@ struct coef_info {
 
 const struct config_info fd_v0_config_info[FD_PATTERN_NUM] = {
 	{
-	.size = 1004,
-	.rotate_offset = 2043,
-	.rotate_size = 1004,
+		.size = 1004,
+		.rotate_offset = 2043,
+		.rotate_size = 1004,
 	},
 	{
-	.size = 968,
-	.rotate_offset = 1431,
-	.rotate_size = 968,
+		.size = 968,
+		.rotate_offset = 1431,
+		.rotate_size = 968,
 	},
 	{
-	.size = 671,
-	.rotate_offset = 1090,
-	.rotate_size = 671,
+		.size = 671,
+		.rotate_offset = 1090,
+		.rotate_size = 671,
 	},
 	{
-	.size = 543,
-	.rotate_offset = 917,
-	.rotate_size = 543,
+		.size = 543,
+		.rotate_offset = 917,
+		.rotate_size = 543,
+	}
+};
+
+const struct coef_info fd_v0_coef_info[FD_PATTERN_NUM] = {
+	{
+		.size = 1309,
+	},
+	{
+		.size = 5583,
+	},
+	{
+		.size = 5583,
+	},
+	{
+		.size = 9540,
+	}
+};
+
+// fd_v1_ipn size and rotate offset
+const struct config_info fd_v1_ipn_config_info[FD_PATTERN_NUM] = {
+	{
+		// MAE_TO_DO
+		.size = 0,
+		.rotate_offset = 0,
+		.rotate_size = 0,
+	},
+	{
+		.size = 895,
+		.rotate_offset = 3807,
+		.rotate_size = 897,
+	},
+	{
+		// MAE_TO_DO
+		.size = 0,
+		.rotate_offset = 0,
+		.rotate_size = 0,
+	},
+	{
+		// MAE_TO_DO
+		.size = 0,
+		.rotate_offset = 0,
+		.rotate_size = 0,
+	}
+};
+
+const struct coef_info fd_v1_ipn_coef_info[FD_PATTERN_NUM] = {
+	{
+		// MAE_TO_DO
+		.size = 0,
+	},
+	{
+		.size = 1312,
+	},
+	{
+		// MAE_TO_DO
+		.size = 0,
+	},
+	{
+		// MAE_TO_DO
+		.size = 0,
 	}
 };
 
@@ -145,21 +216,6 @@ const struct config_info attr_v0_config_info = {
 	.size = 558,
 	.rotate_offset = 1000,
 	.rotate_size = 560,
-};
-
-const struct coef_info fd_v0_coef_info[FD_PATTERN_NUM] = {
-	{
-	.size = 1309,
-	},
-	{
-	.size = 5583,
-	},
-	{
-	.size = 5583,
-	},
-	{
-	.size = 9540,
-	}
 };
 
 const struct coef_info attr_v0_coef_info = {
@@ -189,17 +245,23 @@ typedef enum {
 	MODEL_TYPE_FD_V1_FPN = 2,
 	MODEL_TYPE_FLD_FAC_V0 = 3,
 	MODEL_TYPE_FLD_FAC_V1 = 4,
+	MODEL_TYPE_AISEG = 5,
 	MODEL_TYPE_MAX
 } MODEL_TYPE;
 
 struct ModelEntry {
 	int fd;
 	size_t size;
+	size_t offset;
+	int isReady;
 };
 
 struct ModelTable {
 	struct ModelEntry configTable[MODEL_TYPE_MAX];
 	struct ModelEntry coefTable[MODEL_TYPE_MAX];
+
+	// MAE_TO_DO: rearrange the usage of the buffers
+	struct ModelEntry aisegOutput[AISEG_MAP_NUM];
 };
 
 #if MEMCPY_KERNEL_STRUCT_ENABLE
@@ -210,12 +272,19 @@ typedef enum {
 	USER_MAX
 } MAE_USER;
 
-typedef enum {
+enum FD_INPUT_DEGREE {
 	DEGREE_0 = 0,
 	DEGREE_90 = 1,
 	DEGREE_180 = 2,
 	DEGREE_270 = 3
-} FD_INPUT_DEGREE;
+};
+
+enum AISEG_INPUT_DEGREE {
+	AISEG_ROT_DEGREE_0 = 0,
+	AISEG_ROT_DEGREE_90 = 1,
+	AISEG_ROT_DEGREE_180 = 2,
+	AISEG_ROT_DEGREE_270 = 3
+};
 
 typedef enum {
 	FD_V0 = 0,
@@ -307,7 +376,8 @@ struct EnqueParam {
 
 	// perframe Parameters
 	int32_t pyramidNumber;
-	FD_INPUT_DEGREE fdInputDegree;
+	enum FD_INPUT_DEGREE fdInputDegree;
+	enum AISEG_INPUT_DEGREE aisegInputDegree;
 
 	MAE_MODE maeMode;
 	int32_t requestNum;
@@ -317,13 +387,13 @@ struct EnqueParam {
 
 	struct EnqueImage image[MAX_IMG_NUM];
 
-	int32_t faceNum[MAX_OUTER_LOOP_NUM];
+	int32_t faceNum[MAX_OUTER_LOOP_NUM][FD_V1_IPN_WDMA_NUM];
 };
 #endif
 
 #if M2M_ENABLE
 struct fd_result {
-	uint8_t result[MAX_PYRAMID_NUM][FD_OUTPUT_SIZE]  __aligned(32);
+	// uint8_t result[MAX_PYRAMID_NUM][FD_OUTPUT_SIZE]  __aligned(32);
 	int16_t fd_total_num;
 	uint16_t fd_pyramid_num[MAX_PYRAMID_NUM];
 };
@@ -487,6 +557,12 @@ struct mtk_mae_ctx {
 	struct v4l2_ctrl_handler hdl;
 };
 
+enum MAE_ADDR_TYPE {
+	GET_VA = 0,
+	GET_PA = 1,
+	GET_BOTH = 2
+};
+
 struct dmabuf_info {
 	struct dma_buf *dmabuf;
 	bool is_map;
@@ -505,6 +581,7 @@ struct mtk_mae_map_table {
 	struct dmabuf_info image_dmabuf_info[REQUEST_BUFFER_NUM][MAX_IMG_NUM];
 	struct dmabuf_info param_dmabuf_info[REQUEST_BUFFER_NUM];
 	struct dmabuf_info output_dmabuf_info[REQUEST_BUFFER_NUM][MAX_PYRAMID_NUM];
+	struct dmabuf_info aiseg_output_dmabuf_info[REQUEST_BUFFER_NUM][AISEG_MAP_NUM];
 	struct dmabuf_info internal_dmabuf_info;
 };
 
@@ -517,7 +594,8 @@ struct mtk_mae_drv_ops {
 	void (*set_dma_address)(struct mtk_mae_dev *mae_dev, int idx);
 	void (*config_hw)(struct mtk_mae_dev *mae_dev, int idx);
 	void (*config_fld)(struct mtk_mae_dev *mae_dev, int idx);
-	void (*get_fd_result)(struct mtk_mae_dev *mae_dev, int idx);
+	void (*get_fd_v0_result)(struct mtk_mae_dev *mae_dev, int idx);
+	void (*get_fd_v1_result)(struct mtk_mae_dev *mae_dev, int idx);
 	// void (*get_attr_result)(struct mtk_aie_dev *fd,
 	// 		struct aie_enq_info *aie_cfg);
 	// void (*get_fld_result)(struct mtk_aie_dev *fd,

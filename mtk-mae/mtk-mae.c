@@ -47,7 +47,7 @@
  * MAE_DEBUG = 1
  */
 int mae_log_level_value;
-int delay_time = 10;
+int delay_time = 1;
 int dump_reg_en;
 int irq_handler_en = 1;
 int umap_debug;
@@ -121,7 +121,8 @@ void mtk_mae_register_drv_ops(const struct mtk_mae_drv_ops *ops) {
 	drv_ops.dump_reg = ops->dump_reg;
 	drv_ops.irq_handle = ops->irq_handle;
 	drv_ops.config_fld = ops->config_fld;
-	drv_ops.get_fd_result = ops->get_fd_result;
+	drv_ops.get_fd_v0_result = ops->get_fd_v0_result;
+	drv_ops.get_fd_v1_result = ops->get_fd_v1_result;
 }
 EXPORT_SYMBOL(mtk_mae_register_drv_ops);
 
@@ -232,70 +233,67 @@ static struct dma_buf *mae_imem_sec_alloc(struct mtk_mae_dev *mae_dev,
 	return my_dma_buf;
 }
 
-static int mtk_mae_get_map_info(struct mtk_mae_dev *mae_dev,
-				struct dmabuf_info *info)
+static int mtk_mae_set_dmabuf_info(struct mtk_mae_dev *mae_dev,
+							int fd,
+							struct dmabuf_info *info,
+							enum MAE_ADDR_TYPE addr_type)
 {
 	int ret;
 
+	info->dmabuf = dma_buf_get(fd);
 	if (IS_ERR(info->dmabuf) || info->dmabuf == NULL) {
-		mae_dev_info(mae_dev->dev, "%s, dmabuf is invalid\n", __func__);
+		mae_dev_info(mae_dev->dev, "%s, dma_buf_get failed fd(%d)\n",
+					__func__, fd);
 		return -ENOMEM;
 	}
 
-	ret = (uint64_t)dma_buf_vmap(info->dmabuf, &info->map);
-	if (ret) {
-		mae_dev_info(mae_dev->dev, "%s, map kernel va failed\n", __func__);
+	if (addr_type == GET_VA || addr_type == GET_BOTH) {
+		ret = (uint64_t)dma_buf_vmap(info->dmabuf, &info->map);
+		if (ret) {
+			mae_dev_info(mae_dev->dev, "%s, map kernel va failed fd(%d)\n",
+					__func__, fd);
+				ret = -ENOMEM;
+				goto ERROR_DMA_BUF_VMAP_FAIL;
+		}
+		info->kva = (unsigned long long)info->map.vaddr;
+
+		info->is_map = true;
+	}
+
+	if (addr_type == GET_PA || addr_type == GET_BOTH) {
+		info->attach =
+			dma_buf_attach(info->dmabuf, mae_dev->smmu_dev);
+		if (IS_ERR(info->attach)) {
+			mae_dev_info(mae_dev->dev, "%s, dmabuf attach fail fd(%d)\n",
+					__func__, fd);
 			ret = -ENOMEM;
-			goto ERROR_PARA_PUTBUF;
-	}
-	info->kva = (unsigned long long)info->map.vaddr;
+			goto ERROR_DMA_BUF_ATTACH_FAIL;
+		}
 
-	info->is_map = true;
+		info->sg_table =
+			dma_buf_map_attachment(info->attach, DMA_BIDIRECTIONAL);
+		if (IS_ERR(info->sg_table)) {
+			mae_dev_info(mae_dev->dev, "%s, dmabuf map attach fail fd(%d)\n",
+					__func__, fd);
+			ret = -ENOMEM;
+			goto ERROR_DMA_BUF_MAP_ATTACHMENT_FAIL;
+		}
+		info->pa = sg_dma_address(info->sg_table->sgl);
+
+		info->is_attach = true;
+	}
+
 	return 0;
 
-ERROR_PARA_PUTBUF:
-	if (!info->is_attach)
-		dma_buf_put(info->dmabuf);
-
-	return ret;
-}
-
-static int mtk_mae_get_attach_info(struct mtk_mae_dev *mae_dev,
-					struct dmabuf_info *info)
-{
-	int ret;
-
-	if (IS_ERR(info->dmabuf) || info->dmabuf == NULL) {
-		mae_dev_info(mae_dev->dev, "%s, dmabuf is invalid\n", __func__);
-		return -ENOMEM;
-	}
-
-	info->attach =
-		dma_buf_attach(info->dmabuf, mae_dev->smmu_dev);
-	if (IS_ERR(info->attach)) {
-		mae_dev_info(mae_dev->dev, "%s, dmabuf attach fail\n", __func__);
-		ret = -ENOMEM;
-		goto ERROR_PARA_PUTBUF;
-	}
-
-	info->sg_table =
-		dma_buf_map_attachment(info->attach, DMA_BIDIRECTIONAL);
-	if (IS_ERR(info->sg_table)) {
-		mae_dev_info(mae_dev->dev, "%s, dmabuf map attach fail\n", __func__);
-		ret = -ENOMEM;
-		goto ERROR_CONFIG_DETACH;
-	}
-	info->pa = sg_dma_address(info->sg_table->sgl);
-
-	info->is_attach = true;
-	return 0;
-
-ERROR_CONFIG_DETACH:
+ERROR_DMA_BUF_MAP_ATTACHMENT_FAIL:
 	dma_buf_detach(info->dmabuf, info->attach);
 
-ERROR_PARA_PUTBUF:
-	if (!info->is_map)
-		dma_buf_put(info->dmabuf);
+ERROR_DMA_BUF_ATTACH_FAIL:
+	if (addr_type == GET_BOTH)
+		return ret;
+
+ERROR_DMA_BUF_VMAP_FAIL:
+	dma_buf_put(info->dmabuf);
 
 	return ret;
 }
@@ -361,7 +359,10 @@ static void mtk_mae_frame_done_worker(struct work_struct *work)
 
 		switch (param->maeMode) {
 		case FD_V0:
-			drv_ops.get_fd_result(mae_dev, 0);
+			drv_ops.get_fd_v0_result(mae_dev, 0);
+			break;
+		case FD_V1_IPN:
+			drv_ops.get_fd_v1_result(mae_dev, 0);
 			break;
 		case ATTR_V0:
 			// fd->drv_ops->get_attr_result(fd, fd->aie_cfg);
@@ -423,8 +424,6 @@ static void mtk_mae_device_run(void *priv)
 
 	idx = src_buf->vb2_buf.index;
 	param = (struct EnqueParam*)mae_dev->map_table->param_dmabuf_info[idx].kva;
-	// DEBUG_ONLY
-	mae_dev_info(mae_dev->dev, "[%s] buffer index(%d)", __func__, idx);
 
 	mae_dev->mae_out = vb2_dma_contig_plane_dma_addr(&dst_buf->vb2_buf, 0);
 	// plane_vaddr = vb2_plane_vaddr(&dst_buf->vb2_buf, 0);
@@ -452,7 +451,7 @@ static const struct media_device_ops mae_m2m_media_ops = {
 };
 
 static void mtk_mae_fill_pixfmt_mp(struct v4l2_pix_format_mplane *dfmt,
-				   const struct v4l2_pix_format_mplane *sfmt)
+				const struct v4l2_pix_format_mplane *sfmt)
 {
 	dfmt->field = V4L2_FIELD_NONE;
 	dfmt->colorspace = V4L2_COLORSPACE_BT2020;
@@ -663,17 +662,37 @@ static int mtk_mae_hw_connect(struct mtk_mae_dev *mae_dev)
 			return -ENOMEM;
 		}
 
-		ret = mtk_mae_get_attach_info(mae_dev, buf_info);
-		if (ret) {
-			mae_dev_info(mae_dev->dev, "%s, attach internal buffer fail\n", __func__);
-			return ret;
+
+		buf_info->attach =
+			dma_buf_attach(buf_info->dmabuf, mae_dev->smmu_dev);
+		if (IS_ERR(buf_info->attach)) {
+			mae_dev_info(mae_dev->dev, "%s, internal buf attach fail\n", __func__);
+			ret = -ENOMEM;
+			goto ERROR_DMA_BUF_ATTACH_FAIL;
 		}
 
+		buf_info->sg_table =
+			dma_buf_map_attachment(buf_info->attach, DMA_BIDIRECTIONAL);
+		if (IS_ERR(buf_info->sg_table)) {
+			mae_dev_info(mae_dev->dev, "%s, dmabuf map attach fail\n", __func__);
+			ret = -ENOMEM;
+			goto ERROR_DMA_BUF_MAP_ATTACHMENT_FAIL;
+		}
+		buf_info->pa = sg_dma_address(buf_info->sg_table->sgl);
+
+		buf_info->is_attach = true;
 	}
 
 	return 0;
-}
 
+ERROR_DMA_BUF_MAP_ATTACHMENT_FAIL:
+	dma_buf_detach(buf_info->dmabuf, buf_info->attach);
+
+ERROR_DMA_BUF_ATTACH_FAIL:
+	dma_buf_put(buf_info->dmabuf);
+
+	return ret;
+}
 /*
  * vb2_ops: start_streaming
  */
@@ -1168,7 +1187,7 @@ int mtk_mae_vidioc_qbuf(struct file *file, void *priv,
 	int ret;
 	struct ModelTable *model_table;
 	struct EnqueParam *param;
-	uint32_t *debug_dump;
+	uint32_t i;
 
 	mae_dev_dbg(mae_dev->dev, "%s+ buffer index(%d)", __func__, idx);
 
@@ -1191,22 +1210,12 @@ int mtk_mae_vidioc_qbuf(struct file *file, void *priv,
 	// MAE_TO_DO: lock for shared variable
 	// get va of model table
 	if (!map_table->model_table_dmabuf_info.is_map) {
-		map_table->model_table_dmabuf_info.dmabuf =
-			dma_buf_get(buf->m.planes[MODEL_TABLE_PLANE].m.fd);
-		if (IS_ERR(map_table->model_table_dmabuf_info.dmabuf) ||
-			map_table->model_table_dmabuf_info.dmabuf == NULL) {
-			mae_dev_info(mae_dev->dev, "%s, dma_buf_get (%d,%d,%d) failed\n",
-						__func__, idx, MODEL_TABLE_PLANE,
-						buf->m.planes[MODEL_TABLE_PLANE].m.fd);
-			return -ENOMEM;
-		}
-
-		ret = mtk_mae_get_map_info(mae_dev, &map_table->model_table_dmabuf_info);
-		if (ret) {
-			mae_dev_info(mae_dev->dev, "%s, map buffer fail (%d,%d)",
-						__func__, idx, MODEL_TABLE_PLANE);
+		ret = mtk_mae_set_dmabuf_info(mae_dev,
+					buf->m.planes[MODEL_TABLE_PLANE].m.fd,
+					&map_table->model_table_dmabuf_info,
+					GET_VA);
+		if (ret)
 			return ret;
-		}
 	}
 
 	ret = dma_buf_begin_cpu_access(map_table->model_table_dmabuf_info.dmabuf,
@@ -1220,22 +1229,12 @@ int mtk_mae_vidioc_qbuf(struct file *file, void *priv,
 
 	// get va of param plane
 	if (!map_table->param_dmabuf_info[idx].is_map) {
-		map_table->param_dmabuf_info[idx].dmabuf =
-			dma_buf_get(buf->m.planes[PARAM_PLANE].m.fd);
-		if (IS_ERR(map_table->param_dmabuf_info[idx].dmabuf) ||
-			map_table->param_dmabuf_info[idx].dmabuf == NULL) {
-			mae_dev_info(mae_dev->dev, "%s, dma_buf_get (%d,%d,%d) failed\n",
-						__func__, idx, PARAM_PLANE,
-						buf->m.planes[PARAM_PLANE].m.fd);
-			return -ENOMEM;
-		}
-
-		ret = mtk_mae_get_map_info(mae_dev, &map_table->param_dmabuf_info[idx]);
-		if (ret) {
-			mae_dev_info(mae_dev->dev, "%s, map buffer fail (%d,%d)",
-						__func__, idx, PARAM_PLANE);
+		ret = mtk_mae_set_dmabuf_info(mae_dev,
+					buf->m.planes[PARAM_PLANE].m.fd,
+					&map_table->param_dmabuf_info[idx],
+					GET_VA);
+		if (ret)
 			return ret;
-		}
 	}
 
 	ret = dma_buf_begin_cpu_access(map_table->param_dmabuf_info[idx].dmabuf,
@@ -1258,244 +1257,66 @@ int mtk_mae_vidioc_qbuf(struct file *file, void *priv,
 	mae_dev_dbg(mae_dev->dev, "image[0].enResize(%d), image[0].resizeWidth(%d), image[0].resizeHeight(%d)\n",
 				param->image[0].enResize, param->image[0].resizeWidth, param->image[0].resizeHeight);
 
-	// MAE_TO_DO: select specific config/coef
-	// get pa of FD V0 config buf
-	if (model_table->configTable[MODEL_TYPE_FD_V0].fd > 0) {
-		if (umap_debug == 1)
-			mtk_mae_umap_detach(mae_dev, &mae_dev->map_table->config_dmabuf_info[MODEL_TYPE_FD_V0]);
-		map_table->config_dmabuf_info[MODEL_TYPE_FD_V0].dmabuf =
-			dma_buf_get(model_table->configTable[MODEL_TYPE_FD_V0].fd);
-		if (IS_ERR(map_table->config_dmabuf_info[MODEL_TYPE_FD_V0].dmabuf) ||
-			map_table->config_dmabuf_info[MODEL_TYPE_FD_V0].dmabuf == NULL) {
-			mae_dev_info(mae_dev->dev, "%s, dma_buf_get config(%d,%d,%d) failed\n",
-						__func__, idx, MODEL_TYPE_FD_V0,
-						model_table->configTable[MODEL_TYPE_FD_V0].fd);
-			return -ENOMEM;
+	// get pa of model
+	for (i = 0; i < MODEL_TYPE_MAX; i++) {
+		if (model_table->configTable[i].fd > 0 && model_table->configTable[i].isReady == 0) {
+			mtk_mae_umap_detach(mae_dev, &map_table->config_dmabuf_info[i]);
+			ret = mtk_mae_set_dmabuf_info(mae_dev,
+						model_table->configTable[i].fd,
+						&map_table->config_dmabuf_info[i],
+						GET_PA);
+			if (ret)
+				return ret;
+
+			if (i != MODEL_TYPE_AISEG)	// AISEG Model should update perframe
+				model_table->configTable[i].isReady = 1;
 		}
 
-		ret = mtk_mae_get_attach_info(mae_dev,
-					&map_table->config_dmabuf_info[MODEL_TYPE_FD_V0]);
-		if (ret) {
-			mae_dev_info(mae_dev->dev, "%s, attach config buf fail (%d,%d)",
-						__func__, idx, MODEL_TYPE_FD_V0);
-			return ret;
+		if (model_table->coefTable[i].fd > 0 && model_table->coefTable[i].isReady == 0) {
+			mtk_mae_umap_detach(mae_dev, &map_table->coef_dmabuf_info[i]);
+			ret = mtk_mae_set_dmabuf_info(mae_dev,
+						model_table->coefTable[i].fd,
+						&map_table->coef_dmabuf_info[i],
+						GET_PA);
+			if (ret)
+				return ret;
+			if (i != MODEL_TYPE_AISEG)	// AISEG Model should update perframe
+				model_table->coefTable[i].isReady = 1;
 		}
-
-		// DEBUG_ONLY: get va of config
-		ret = mtk_mae_get_map_info(mae_dev,
-				&map_table->config_dmabuf_info[MODEL_TYPE_FD_V0]);
-		if (ret) {
-			mae_dev_info(mae_dev->dev, "%s, map config buf fail (%d,%d)",
-					__func__, idx, MODEL_TYPE_FD_V0);
-			return ret;
-		}
-		debug_dump =
-			(uint32_t *)map_table->config_dmabuf_info[MODEL_TYPE_FD_V0].kva;
-		mae_dev_dbg(mae_dev->dev, "%s, 640x480 config(0x%x_%x )(0x%x_%x)\n",
-			__func__, *debug_dump, *(debug_dump+1), *(debug_dump+2), *(debug_dump+3));
-
-		debug_dump += round_up(V0_FD_640_480_CONFIG_SIZE, MAE_BASE_ADDR_ALIGN) / 4;
-		mae_dev_dbg(mae_dev->dev, "%s, 480x360 config(0x%x_%x )(0x%x_%x)\n",
-			__func__, *debug_dump, *(debug_dump+1), *(debug_dump+2), *(debug_dump+3));
-
-		debug_dump += round_up(V0_FD_480_360_CONFIG_SIZE, MAE_BASE_ADDR_ALIGN) / 4;
-		mae_dev_dbg(mae_dev->dev, "%s, 480x360 config(0x%x_%x )(0x%x_%x)\n",
-			__func__, *debug_dump, *(debug_dump+1), *(debug_dump+2), *(debug_dump+3));
-
-		debug_dump += round_up(V0_FD_240_180_CONFIG_SIZE, MAE_BASE_ADDR_ALIGN) / 4;
-		mae_dev_dbg(mae_dev->dev, "%s, 240x180 config(0x%x_%x )(0x%x_%x)\n",
-			__func__, *debug_dump, *(debug_dump+1), *(debug_dump+2), *(debug_dump+3));
-
 	}
 
-	// get pa of FAC&FLD config buf
-	if (model_table->configTable[MODEL_TYPE_FLD_FAC_V0].fd > 0) {
-		if (umap_debug == 1)
-			mtk_mae_umap_detach(mae_dev, &mae_dev->map_table->config_dmabuf_info[MODEL_TYPE_FLD_FAC_V0]);
-		map_table->config_dmabuf_info[MODEL_TYPE_FLD_FAC_V0].dmabuf =
-			dma_buf_get(model_table->configTable[MODEL_TYPE_FLD_FAC_V0].fd);
-		if (IS_ERR(map_table->config_dmabuf_info[MODEL_TYPE_FLD_FAC_V0].dmabuf) ||
-			map_table->config_dmabuf_info[MODEL_TYPE_FLD_FAC_V0].dmabuf == NULL) {
-			mae_dev_info(mae_dev->dev, "%s, dma_buf_get config(%d,%d,%d) failed\n",
-						__func__, idx, MODEL_TYPE_FLD_FAC_V0,
-						model_table->configTable[MODEL_TYPE_FLD_FAC_V0].fd);
-			return -ENOMEM;
-		}
-
-		ret = mtk_mae_get_attach_info(mae_dev,
-					&map_table->config_dmabuf_info[MODEL_TYPE_FLD_FAC_V0]);
-		if (ret) {
-			mae_dev_info(mae_dev->dev, "%s, attach config buf fail (%d,%d)",
-						__func__, idx, MODEL_TYPE_FLD_FAC_V0);
-			return ret;
-		}
-
-		// DEBUG_ONLY: get va of config
-		ret = mtk_mae_get_map_info(mae_dev,
-				&map_table->config_dmabuf_info[MODEL_TYPE_FLD_FAC_V0]);
-		if (ret) {
-			mae_dev_info(mae_dev->dev, "%s, map config buf fail (%d,%d)",
-					__func__, idx, MODEL_TYPE_FLD_FAC_V0);
-			return ret;
-		}
-		debug_dump =
-			(uint32_t *)map_table->config_dmabuf_info[MODEL_TYPE_FLD_FAC_V0].kva;
-		mae_dev_dbg(mae_dev->dev, "%s, MODEL_TYPE_FLD_FAC_V0 config(0x%x_%x )(0x%x_%x)\n",
-			__func__, *debug_dump, *(debug_dump+1), *(debug_dump+2), *(debug_dump+3));
-	}
-
-	// get pa of FD V0 coef buf
-	if (model_table->coefTable[MODEL_TYPE_FD_V0].fd > 0) {
-		if (umap_debug == 1)
-			mtk_mae_umap_detach(mae_dev, &mae_dev->map_table->coef_dmabuf_info[MODEL_TYPE_FD_V0]);
-		map_table->coef_dmabuf_info[MODEL_TYPE_FD_V0].dmabuf =
-			dma_buf_get(model_table->coefTable[MODEL_TYPE_FD_V0].fd);
-		if (IS_ERR(map_table->coef_dmabuf_info[MODEL_TYPE_FD_V0].dmabuf) ||
-			map_table->coef_dmabuf_info[MODEL_TYPE_FD_V0].dmabuf == NULL) {
-			mae_dev_info(mae_dev->dev, "%s, dma_buf_get coef(%d,%d,%d) failed\n",
-						__func__, idx, MODEL_TYPE_FD_V0,
-						model_table->coefTable[MODEL_TYPE_FD_V0].fd);
-			return -ENOMEM;
-		}
-
-		ret = mtk_mae_get_attach_info(mae_dev,
-					&map_table->coef_dmabuf_info[MODEL_TYPE_FD_V0]);
-		if (ret) {
-			mae_dev_info(mae_dev->dev, "%s, attach coef buf fail (%d,%d)",
-						__func__, idx, MODEL_TYPE_FD_V0);
-			return ret;
-		}
-
-		// DEBUG_ONLY: get va of coef
-		ret = mtk_mae_get_map_info(mae_dev,
-				&map_table->coef_dmabuf_info[MODEL_TYPE_FD_V0]);
-		if (ret) {
-			mae_dev_info(mae_dev->dev, "%s, map coef buf fail (%d,%d)",
-					__func__, idx, MODEL_TYPE_FD_V0);
-			return ret;
-		}
-		debug_dump =
-			(uint32_t *)map_table->coef_dmabuf_info[MODEL_TYPE_FD_V0].kva;
-		mae_dev_dbg(mae_dev->dev, "%s, coef(0x%x_%x )(0x%x_%x)\n",
-			__func__, *debug_dump, *(debug_dump+1), *(debug_dump+2), *(debug_dump+3));
-
-		debug_dump += round_up(V0_FD_640_480_COEF_SIZE, MAE_BASE_ADDR_ALIGN) / 4;
-		mae_dev_dbg(mae_dev->dev, "%s, 480x360 coef(0x%x_%x )(0x%x_%x)\n",
-			__func__, *debug_dump, *(debug_dump+1), *(debug_dump+2), *(debug_dump+3));
-
-		debug_dump += round_up(V0_FD_480_360_COEF_SIZE, MAE_BASE_ADDR_ALIGN) / 4;
-		mae_dev_dbg(mae_dev->dev, "%s, 480x360 coef(0x%x_%x )(0x%x_%x)\n",
-			__func__, *debug_dump, *(debug_dump+1), *(debug_dump+2), *(debug_dump+3));
-
-		debug_dump += round_up(V0_FD_240_180_COEF_SIZE, MAE_BASE_ADDR_ALIGN) / 4;
-		mae_dev_dbg(mae_dev->dev, "%s, 240x180 coef(0x%x_%x )(0x%x_%x)\n",
-			__func__, *debug_dump, *(debug_dump+1), *(debug_dump+2), *(debug_dump+3));
-
-	}
-
-	// get pa of FAC&FLD coef buf
-	if (model_table->coefTable[MODEL_TYPE_FLD_FAC_V0].fd > 0) {
-		if (umap_debug == 1)
-			mtk_mae_umap_detach(mae_dev, &mae_dev->map_table->coef_dmabuf_info[MODEL_TYPE_FLD_FAC_V0]);
-		map_table->coef_dmabuf_info[MODEL_TYPE_FLD_FAC_V0].dmabuf =
-			dma_buf_get(model_table->coefTable[MODEL_TYPE_FLD_FAC_V0].fd);
-		if (IS_ERR(map_table->coef_dmabuf_info[MODEL_TYPE_FLD_FAC_V0].dmabuf) ||
-			map_table->coef_dmabuf_info[MODEL_TYPE_FLD_FAC_V0].dmabuf == NULL) {
-			mae_dev_info(mae_dev->dev, "%s, dma_buf_get coef(%d,%d,%d) failed\n",
-						__func__, idx, MODEL_TYPE_FLD_FAC_V0,
-						model_table->coefTable[MODEL_TYPE_FLD_FAC_V0].fd);
-			return -ENOMEM;
-		}
-
-		ret = mtk_mae_get_attach_info(mae_dev,
-					&map_table->coef_dmabuf_info[MODEL_TYPE_FLD_FAC_V0]);
-		if (ret) {
-			mae_dev_info(mae_dev->dev, "%s, attach coef buf fail (%d,%d)",
-						__func__, idx, MODEL_TYPE_FLD_FAC_V0);
-			return ret;
-		}
-
-		// DEBUG_ONLY: get va of coef
-		ret = mtk_mae_get_map_info(mae_dev,
-				&map_table->coef_dmabuf_info[MODEL_TYPE_FLD_FAC_V0]);
-		if (ret) {
-			mae_dev_info(mae_dev->dev, "%s, map coef buf fail (%d,%d)",
-					__func__, idx, MODEL_TYPE_FLD_FAC_V0);
-			return ret;
-		}
-		debug_dump =
-			(uint32_t *)map_table->coef_dmabuf_info[MODEL_TYPE_FLD_FAC_V0].kva;
-		mae_dev_dbg(mae_dev->dev, "%s, MODEL_TYPE_FLD_FAC_V0 coef(0x%x_%x )(0x%x_%x)\n",
-			__func__, *debug_dump, *(debug_dump+1), *(debug_dump+2), *(debug_dump+3));
-	}
-
-	// MAE_TO_DO: only support one image now
 	// get pa of image
-	if (umap_debug == 1)
-		mtk_mae_umap_detach(mae_dev, &mae_dev->map_table->image_dmabuf_info[idx][IMAGE_PLANE_0]);
-	map_table->image_dmabuf_info[idx][IMAGE_PLANE_0].dmabuf =
-		dma_buf_get(buf->m.planes[IMAGE_PLANE_0].m.fd);
-	if (IS_ERR(map_table->image_dmabuf_info[idx][IMAGE_PLANE_0].dmabuf) ||
-		map_table->image_dmabuf_info[idx][IMAGE_PLANE_0].dmabuf == NULL) {
-		mae_dev_info(mae_dev->dev, "%s, dma_buf_get (%d,%d, %d) failed\n",
-					__func__, idx, IMAGE_PLANE_0,
-					buf->m.planes[IMAGE_PLANE_0].m.fd);
-		return -ENOMEM;
-	}
-
-	ret = mtk_mae_get_attach_info(mae_dev,
-		&map_table->image_dmabuf_info[idx][IMAGE_PLANE_0]);
-	if (ret) {
-		mae_dev_info(mae_dev->dev, "%s, attach buffer fail (%d,%d)",
-					__func__, idx, IMAGE_PLANE_0);
+	mtk_mae_umap_detach(mae_dev, &map_table->image_dmabuf_info[idx][IMAGE_PLANE_0]);
+	ret = mtk_mae_set_dmabuf_info(mae_dev,
+						buf->m.planes[IMAGE_PLANE_0].m.fd,
+						&map_table->image_dmabuf_info[idx][IMAGE_PLANE_0],
+						GET_PA);
+	if (ret)
 		return ret;
+
+
+	// get output pa
+	if (!map_table->output_dmabuf_info[idx][0].is_attach) {
+		ret = mtk_mae_set_dmabuf_info(mae_dev,
+						buf->m.planes[OUTPUT_PLANE].m.fd,
+						&map_table->output_dmabuf_info[idx][0],
+						GET_BOTH); // DEBUG_ONLY
+		if (ret)
+			return ret;
 	}
 
-	// DEBUG_ONLY: get va of image
-	ret = mtk_mae_get_map_info(mae_dev,
-				&map_table->image_dmabuf_info[idx][IMAGE_PLANE_0]);
-	if (ret) {
-		mae_dev_info(mae_dev->dev, "%s, map image buf fail (%d,%d)",
-				__func__, idx, IMAGE_PLANE_0);
-		return ret;
+	// get AISEG output
+	for (i = 0; i < AISEG_MAP_NUM; i++) {
+		if (model_table->aisegOutput[i].fd > 0) {
+			mtk_mae_umap_detach(mae_dev, &map_table->aiseg_output_dmabuf_info[idx][i]);
+			ret = mtk_mae_set_dmabuf_info(mae_dev,
+						model_table->aisegOutput[i].fd,
+						&map_table->aiseg_output_dmabuf_info[idx][i],
+						GET_PA);
+			if (ret)
+				return ret;
+		}
 	}
-	debug_dump = (uint32_t *)map_table->image_dmabuf_info[idx][IMAGE_PLANE_0].kva;
-	mae_dev_dbg(mae_dev->dev, "%s, plane0 (0x%x_%x)(0x%x_%x)\n",
-		__func__, *debug_dump, *(debug_dump+1), *(debug_dump+2), *(debug_dump+3));
-
-	// DEBUG_ONLY: get output pa
-	if (umap_debug == 1)
-		mtk_mae_umap_detach(mae_dev, &mae_dev->map_table->output_dmabuf_info[idx][0]);
-	map_table->output_dmabuf_info[idx][0].dmabuf =
-		dma_buf_get(buf->m.planes[OUTPUT_PLANE].m.fd);
-	if (IS_ERR(map_table->output_dmabuf_info[idx][0].dmabuf) ||
-		map_table->output_dmabuf_info[idx][0].dmabuf == NULL) {
-		mae_dev_info(mae_dev->dev, "%s, dma_buf_get (%d,%d, %d) failed\n",
-					__func__, idx, OUTPUT_PLANE,
-					buf->m.planes[OUTPUT_PLANE].m.fd);
-		return -ENOMEM;
-	}
-
-	ret = mtk_mae_get_attach_info(mae_dev, &map_table->output_dmabuf_info[idx][0]);
-	if (ret) {
-		mae_dev_info(mae_dev->dev, "%s, attach buffer fail (%d,%d)",
-					__func__, idx, OUTPUT_PLANE);
-		return ret;
-	}
-
-	// DEBUG_ONLY: get output va
-	ret = mtk_mae_get_map_info(mae_dev,
-				&map_table->output_dmabuf_info[idx][0]);
-	if (ret) {
-		mae_dev_info(mae_dev->dev, "%s, map image buf fail (%d,%d)",
-				__func__, idx, OUTPUT_PLANE);
-		return ret;
-	}
-	// DEBUG_ONLY: To check hw wdma.
-	memset((void *)map_table->output_dmabuf_info[idx][0].kva, 0xff, FD_OUTPUT_SIZE);
-	debug_dump = (uint32_t *)map_table->output_dmabuf_info[idx][0].kva;
-	mae_dev_info(mae_dev->dev, "%s, output 0x%llx (0x%x_%x)(0x%x_%x)\n",
-		__func__, (uint64_t)debug_dump, *(debug_dump), *(debug_dump+1), *(debug_dump+2), *(debug_dump+3));
 
 #if M2M_ENABLE
 	return v4l2_m2m_ioctl_qbuf(file, priv, buf);

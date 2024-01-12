@@ -989,6 +989,8 @@ int mtk_cam_apply_qos(struct mtk_cam_job *job)
 	u32 a_bw, p_bw, used_raw_num;
 	bool apply, is_w_plane;
 	int i, j, port_num;
+	unsigned int fifo_img_p1, fifo_img_p2, fifo_len_p1, fifo_len_p2;
+	bool apply_sv_th = false;
 
 	submask = bit_map_subset_of(MAP_HW_RAW, ctx->used_engine);
 	for (i = 0; i < raw_num && submask; i++, submask >>= 1) {
@@ -1065,8 +1067,10 @@ int mtk_cam_apply_qos(struct mtk_cam_job *job)
 			apply = apply_qos_chk(a_bw, p_bw,
 					&sv_dev->qos.cam_path[i].applied_bw,
 					&sv_dev->qos.cam_path[i].pending_bw);
-			if (apply)
+			if (apply) {
 				mtk_icc_set_bw(sv_dev->qos.cam_path[i].path, a_bw, p_bw);
+				apply_sv_th = true;
+			}
 
 			if (CAM_DEBUG_ENABLED(MMQOS))
 				pr_info("%s: req_seq:%d %s sv-%d icc_path:%s avg/peak:%u/%u applied/pending:%lld/%lld\n",
@@ -1075,6 +1079,18 @@ int mtk_cam_apply_qos(struct mtk_cam_job *job)
 						sv_dev->qos.cam_path[i].name, a_bw, p_bw,
 						sv_dev->qos.cam_path[i].applied_bw,
 						sv_dev->qos.cam_path[i].pending_bw);
+		}
+
+		if (apply_sv_th) {
+			fifo_img_p1 =
+				(job->sv_mmqos[SMI_PORT_SV_DISP_WDMA_0].peak_bw +
+				job->sv_mmqos[SMI_PORT_SV_MDP_WDMA_0].peak_bw) * 64 * 12 / 1000000;
+			fifo_img_p2 =
+				(job->sv_mmqos[SMI_PORT_SV_DISP_WDMA_1].peak_bw +
+				job->sv_mmqos[SMI_PORT_SV_MDP_WDMA_1].peak_bw) * 64 * 12 / 1000000;
+			fifo_len_p1 = fifo_img_p1 / 80;
+			fifo_len_p2 = fifo_img_p2 / 80;
+			mtk_cam_sv_dmao_common_config(sv_dev, fifo_img_p1, fifo_img_p2, fifo_len_p1, fifo_len_p2);
 		}
 	}
 

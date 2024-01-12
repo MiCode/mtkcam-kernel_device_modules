@@ -83,9 +83,7 @@ struct sv_dma_th_setting {
 	u32 ultra_len2_th;
 	u32 pultra_len2_th;
 	u32 dvfs_len2_th;
-};
 
-struct sv_cq_th_setting {
 	u32 cq1_fifo_size;
 	u32 cq1_urgent_th;
 	u32 cq1_ultra_th;
@@ -166,8 +164,9 @@ struct plat_v4l2_data {
 				   const struct set_meta_stats_info_param *p);
 	int (*get_meta_stats_port_size)(int ipi_id, void *addr, int dma_port, int *size);
 	int (*set_sv_meta_stats_info)(int ipi_id, void *addr, struct dma_info *info);
-	int (*get_sv_dmao_common_setting)(struct sv_dma_th_setting *sv_th_setting,
-		struct sv_cq_th_setting *sv_cq_setting);
+	int (*get_sv_dma_th_setting)(unsigned int dev_id, unsigned int fifo_img_p1,
+		unsigned int fifo_img_p2, unsigned int fifo_len_p1, unsigned int fifo_len_p2,
+		struct sv_dma_th_setting *th_setting);
 	int (*get_sv_two_smi_setting)(int *sv_two_smi_en);
 	int (*get_mraw_dmao_common_setting)(struct mraw_dma_th_setting *mraw_th_setting,
 		struct mraw_cq_th_setting *mraw_cq_setting);

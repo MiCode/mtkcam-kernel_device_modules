@@ -796,6 +796,26 @@ static void imgsys_cmdq_cb_work_plat7sp(struct work_struct *work)
 		cb_frm_cnt);
     }
 
+	/* For ME hang flow */
+#ifdef IMGSYS_ME_CHECK_FUNC_EN
+	if ((cb_param->err == -800) && (cb_param->hw_comb == 0x800)) {
+		pr_info(
+			"%s: [ERROR] ME HW timeout! wfe(%d) event(%d)",
+			__func__,
+			cb_param->pkt->err_data.wfe_timeout,
+			cb_param->pkt->err_data.event);
+		imgsys_cmdq_cmd_dump_plat7sp(cb_param->frm_info, cb_param->frm_idx);
+		if (cb_param->user_cmdq_err_cb) {
+			struct cmdq_cb_data user_cb_data;
+
+			user_cb_data.err = cb_param->err;
+			user_cb_data.data = (void *)cb_param->frm_info;
+			cb_param->user_cmdq_err_cb(
+				user_cb_data, cb_param->frm_idx, 1, 0);
+		}
+	}
+#endif
+
 	if (cb_param->isBlkLast && cb_param->user_cmdq_cb &&
 		((cb_param->frm_info->total_taskcnt == cb_frm_cnt) || cb_param->is_earlycb)) {
 		struct cmdq_cb_data user_cb_data;
@@ -956,7 +976,7 @@ void imgsys_cmdq_task_cb_plat7sp(struct cmdq_cb_data data)
 	}
 #endif
 
-	if (cb_param->err != 0) {
+	if ((cb_param->err != 0) && (cb_param->err != -800)) {
 		err_ofst = cb_param->pkt->err_data.offset;
 		err_idx = 0;
 		for (idx = 0; idx < cb_param->task_cnt; idx++)
@@ -1178,16 +1198,6 @@ void imgsys_cmdq_task_cb_plat7sp(struct cmdq_cb_data data)
 				__func__, is_stream_off,
 				cb_param->pkt->err_data.wfe_timeout,
 				cb_param->pkt->err_data.event, isHWhang);
-#ifdef IMGSYS_ME_CHECK_FUNC_EN
-		} else if (cb_param->err == -800) {
-			isHWhang = 1;
-			real_frm_idx = cb_param->frm_idx;
-			pr_info(
-				"%s: [ERROR] ME HW timeout! wfe(%d) event(%d) isHW(%d)",
-				__func__,
-				cb_param->pkt->err_data.wfe_timeout,
-				cb_param->pkt->err_data.event, isHWhang);
-#endif
 		} else {
 			isHWhang = 1;
 			pr_info(

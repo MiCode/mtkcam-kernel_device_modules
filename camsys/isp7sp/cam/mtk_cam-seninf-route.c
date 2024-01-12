@@ -895,7 +895,7 @@ int mtk_cam_seninf_get_csi_param(struct seninf_ctx *ctx)
 	ctrl->p_new.p = csi_param;
 
 	ret = get_ctrl(ctrl);
-	dev_info(ctx->dev, "%s get_ctrl ret:%d %d|%d|%d|%d|%d|%d|%d|%d\n",
+	dev_info(ctx->dev, "%s get_ctrl ret:%d %d|%d|%d|%d|%d|%d|%d|%d|%d\n",
 		__func__,
 		ret, csi_param->cphy_settle,
 		csi_param->dphy_clk_settle,
@@ -904,7 +904,8 @@ int mtk_cam_seninf_get_csi_param(struct seninf_ctx *ctx)
 		csi_param->not_fixed_trail_settle,
 		csi_param->legacy_phy,
 		csi_param->dphy_csi2_resync_dmy_cycle,
-		csi_param->not_fixed_dphy_settle);
+		csi_param->not_fixed_dphy_settle,
+		csi_param->dphy_init_deskew_support);
 
 #if AOV_GET_PARAM
 	if (!(core->aov_sensor_id < 0) &&

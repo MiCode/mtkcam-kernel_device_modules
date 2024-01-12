@@ -102,6 +102,19 @@
 #define SENINF_DEBUG_FL_ALLOC_CAM_MUX 2
 #endif
 
+/* define data rate for deskew */
+#define SENINF_DESKEW_DATA_RATE_6500M 6500000000
+#define SENINF_DESKEW_DATA_RATE_6240M 6240000000
+#define SENINF_DESKEW_DATA_RATE_3200M 3200000000
+#define SENINF_DESKEW_DATA_RATE_2500M 2500000000
+#define SENINF_DESKEW_DATA_RATE_1500M 1500000000
+
+/* define csi ck for deskew */
+#define SENINF_CLK_312_MHZ 312000000
+#define SENINF_CLK_356_MHZ 356000000
+#define SENINF_CLK_416_MHZ 416000000
+#define SENINF_CLK_499_2MHZ 499200000
+
 //	FIX ME: #define it to get aov parameters
 #define AOV_GET_PARAM 1
 //	FIX ME: #define it to switch i2c bus aux function on/off when gpio pin ready

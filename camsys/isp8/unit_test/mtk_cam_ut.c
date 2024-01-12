@@ -29,6 +29,7 @@
 #include <linux/rpmsg/mtk_ccd_rpmsg.h>
 #include <linux/slab.h>
 #include <linux/uaccess.h>
+#include <linux/version.h>
 
 #include "mtk_cam_ut.h"
 #include "mtk_isp_ut_ioctl.h"
@@ -629,10 +630,12 @@ static int set_test_mdl(struct mtk_cam_ut *ut,
 	int width, height;
 	int pixel_mode;
 	int pattern;
+#if WITH_CAMSV_DRIVER
 	struct mtk_ut_camsv_device *camsv_dev = NULL;
 
 	if (CAMSV_HW_ID < ut->num_camsv)
 		camsv_dev = dev_get_drvdata(ut->camsv[CAMSV_HW_ID]);
+#endif
 	width = testmdl->width;
 	height = testmdl->height;
 	pattern = testmdl->pattern;
@@ -650,10 +653,12 @@ static int set_test_mdl(struct mtk_cam_ut *ut,
 		dev_info(dev, "seninf is null, testmdl fail!\n");
 		return -1;
 	}
+#if WITH_CAMSV_DRIVER
 	if (!camsv_dev) {
 		dev_info(dev, "camsv_dev is null, testmdl fail!\n");
 		return -1;
 	}
+#endif
 	if (testmdl->mode == testmdl_disable)
 		dev_info(dev, "without testmdl\n");
 	else {
@@ -663,6 +668,7 @@ static int set_test_mdl(struct mtk_cam_ut *ut,
 	}
 
 	switch (testmdl->hwScenario) {
+#if WITH_CAMSV_DRIVER
 	case MTKCAM_IPI_HW_PATH_STAGGER:
 		camsv_dev->is_dc_mode = 1;
 
@@ -798,6 +804,7 @@ static int set_test_mdl(struct mtk_cam_ut *ut,
 			camsv_dev->is_dc_mode = 1;
 		}
 		break;
+#endif
 #if SUPPORT_RAWB
 	case MTKCAM_IPI_HW_PATH_ON_THE_FLY_RAWB:
 		if (ut->with_testmdl == 1) {
@@ -815,8 +822,6 @@ static int set_test_mdl(struct mtk_cam_ut *ut,
 		}
 		break;
 #endif
-	case MTKCAM_IPI_HW_PATH_OTF_STAGGER_LN_INTL:
-		fallthrough;
 	case MTKCAM_IPI_HW_PATH_OTF_RGBW:
 		height *= 2;
 		fallthrough;
@@ -863,7 +868,9 @@ static int set_test_mdl(struct mtk_cam_ut *ut,
 			}
 		}
 	}
+#if WITH_CAMSV_DRIVER
 	dev_info(dev, "camsv_dev->is_dc_mode=%d\n", camsv_dev->is_dc_mode);
+#endif
 	return 0;
 }
 
@@ -877,6 +884,7 @@ static long cam_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 	switch (cmd) {
 	case ISP_UT_IOCTL_SET_TESTMDL: {
 		struct cam_ioctl_set_testmdl testmdl;
+#if WITH_CAMSV_DRIVER
 		struct mtk_ut_camsv_device *camsv_dev = NULL;
 
 		if (CAMSV_HW_ID < ut->num_camsv)
@@ -885,11 +893,14 @@ static long cam_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 			dev_info(dev, "camsv_dev or ut is null! \n");
 			return -EFAULT;
 		}
+#endif
 		LOG_CMD(ISP_UT_IOCTL_SET_TESTMDL);
 
 		ut->with_testmdl = 0;
 		ut->isp_hardware = WITH_NONE;
+#if WITH_CAMSV_DRIVER
 		camsv_dev->is_dc_mode = 0;
+#endif
 		if (copy_from_user(&testmdl, (void *)arg,
 				   sizeof(struct cam_ioctl_set_testmdl)) != 0) {
 			dev_dbg(dev, "Fail to get testmdl parameter\n");
@@ -1347,7 +1358,11 @@ static inline int cam_reg_char_dev(struct mtk_cam_ut *ut)
 		goto EXIT;
 	}
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 4, 0)
+	ut->class = class_create(CAM_DEV_NAME);
+#else
 	ut->class = class_create(THIS_MODULE, CAM_DEV_NAME);
+#endif
 	if (IS_ERR(ut->class)) {
 		ret = PTR_ERR(ut->class);
 		dev_dbg(ut->dev, "Fail to create class, %d\n", ret);
@@ -1460,6 +1475,7 @@ static int bind_cam_sub_pipes(struct mtk_cam_ut *ut)
 		rms = dev_get_drvdata(supplier2);
 
 		raw->yuv_base = yuv->base;
+		raw->yuv_dma_base = yuv->dma_base;
 
 		link = device_link_add(consumer, supplier,
 				       DL_FLAG_AUTOREMOVE_CONSUMER |
@@ -1519,7 +1535,7 @@ static int mtk_cam_ut_master_bind(struct device *dev)
 		ut->rms = devm_kcalloc(dev, ut->num_rms, sizeof(*ut->rms),
 				       GFP_KERNEL);
 		if (!ut->rms) {
-			/* dev_info(dev, "kcalloc rms fail\n"); */
+			dev_info(dev, "kcalloc rms fail\n");
 			return -ENOMEM;
 		}
 	}
@@ -1529,6 +1545,7 @@ static int mtk_cam_ut_master_bind(struct device *dev)
 			 ut->num_raw, ut->num_yuv, ut->num_rms);
 		return -ENODEV;
 	}
+
 #if WITH_CAMSV_DRIVER
 	if (ut->num_camsv) {
 		ut->camsv = devm_kcalloc(dev, ut->num_camsv, sizeof(*ut->camsv),
@@ -1830,16 +1847,12 @@ static const struct dev_pm_ops mtk_cam_pm_ops = {
 struct mtk_cam_ut_data mt6989_data = {
 	.platform = "mt6989",
 };
-struct mtk_cam_ut_data mt6897_data = {
-	.platform = "mt6897",
-};
-struct mtk_cam_ut_data mt6878_data = {
-	.platform = "mt6878",
+struct mtk_cam_ut_data mt6991_data = {
+	.platform = "mt6991",
 };
 
 static const struct of_device_id cam_ut_driver_dt_match[] = {
-	{ .compatible = "mediatek,mt6878-camisp", .data = &mt6878_data },
-	{ .compatible = "mediatek,mt6897-camisp", .data = &mt6897_data },
+	{ .compatible = "mediatek,mt6991-camisp", .data = &mt6991_data },
 	{ .compatible = "mediatek,mt6989-camisp", .data = &mt6989_data },
 	{}
 };

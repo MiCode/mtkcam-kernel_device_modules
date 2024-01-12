@@ -37,6 +37,7 @@ MODULE_PARM_DESC(dump_cmd, "dump cmd");
 struct ut_raw_status {
 	/* raw INT1~7 */
 	u32 irq;
+	u32 done;
 	u32 wdma;
 	u32 rdma;
 	u32 drop;
@@ -128,12 +129,15 @@ static void raw_set_camctl_toggle_db(struct mtk_ut_raw_device *raw);
 static int ut_raw_initialize(struct device *dev, void *ext_params)
 {
 	struct mtk_ut_raw_device *raw = dev_get_drvdata(dev);
-	struct mtk_cam_ut *ut = raw->ut;
+//	struct mtk_cam_ut *ut = raw->ut;
 	struct mtk_ut_raw_initial_params *p = ext_params;
 	void __iomem *base = raw->base;
-	void __iomem *yuv_base = raw->yuv_base;
+	void __iomem *dma_base = raw->dma_base;
+	//void __iomem *yuv_base = raw->yuv_base;
+	/*
 	unsigned int reg_raw_urgent, reg_yuv_urgent;
 	unsigned int raw_urgent, yuv_urgent;
+	*/
 	u32 val;
 
 	if (!p)
@@ -159,16 +163,16 @@ static int ut_raw_initialize(struct device *dev, void *ext_params)
 	writel_relaxed(0xffffffff, base + REG_SCQ_START_PERIOD);
 	writel_relaxed(0xffffffff, raw->base_inner + REG_SCQ_START_PERIOD);
 
-	writel_relaxed((0x10 << 24) | 64, base + REG_CQI_R1A_CON0);
+	writel_relaxed((0x10 << 24) | 64, dma_base + REG_CQI_R1A_CON0);
 	writel_relaxed((0x1 << 28) | FIFO_THRESHOLD(64, 2/10, 1/10),
-			base + REG_CQI_R1A_CON1);
+			dma_base + REG_CQI_R1A_CON1);
 	writel_relaxed((0x1 << 28) | FIFO_THRESHOLD(64, 4/10, 3/10),
-			base + REG_CQI_R1A_CON2);
+			dma_base + REG_CQI_R1A_CON2);
 	writel_relaxed((0x1 << 31) | FIFO_THRESHOLD(64, 6/10, 5/10),
-			base + REG_CQI_R1A_CON3);
+			dma_base + REG_CQI_R1A_CON3);
 	writel_relaxed((0x1 << 31) | FIFO_THRESHOLD(64, 1/10, 0),
-			base + REG_CQI_R1A_CON4);
-
+			dma_base + REG_CQI_R1A_CON4);
+/*
 	writel_relaxed(HALT1_EN, ut->base + REG_HALT1_EN);
 	writel_relaxed(HALT2_EN, ut->base + REG_HALT2_EN);
 	writel_relaxed(HALT13_EN, ut->base + REG_HALT13_EN);
@@ -220,6 +224,7 @@ static int ut_raw_initialize(struct device *dev, void *ext_params)
 		dev_info(dev, "%s: is hrt, raw 0x%x.\n",
 			__func__, readl_relaxed(ut->base + reg_raw_urgent));
 	}
+	*/
 	wmb();
 
 	set_steamon_handle(dev, p->streamon_type);
@@ -272,7 +277,7 @@ static int ut_raw_s_stream(struct device *dev, enum streaming_enum on)
 		(void)base;
 		(void)val;
 		raw_set_camctl_toggle_db(raw); /* toggle db first. */
-		raw_set_topdebug_rdyreq(raw, ALL_THE_TIME);
+		//raw_set_topdebug_rdyreq(raw, ALL_THE_TIME);
 		rwfbc_inc_setup(dev);
 
 	} else if (on == streaming_vf) {
@@ -606,8 +611,8 @@ void mtk_ut_dump_module_dbg_data(struct device *dev,
 }
 static void raw_handle_dma_err(struct mtk_ut_raw_device *raw)
 {
-	void __iomem *base = raw->base;
-	void __iomem *yuv_base = raw->yuv_base;
+	void __iomem *base = raw->dma_base;
+	void __iomem *yuv_base = raw->yuv_dma_base;
 
 	dev_info_ratelimited(raw->dev,
 			    "IMGO:%x,YUVO_R1/R2/R3/R4/R5:%x/%x/%x/%x/%x\n",
@@ -659,7 +664,7 @@ static void raw_set_topdebug_rdyreq(struct mtk_ut_raw_device *raw, u32 event)
 	u32 val = 0xa << 12;
 
 	writel(val, base + REG_CTL_DBG_SET);
-	writel(event, base + REG_CTL_DBG_SET2);
+	writel(event, base + REG_CTL_DBG_SET3);
 	writel(val, yuv_base + REG_CTL_DBG_SET);
 	dev_info(raw->dev, "set CAMCTL_DBG_SET2/CAMCTL_DBG_SET (RAW/YUV) 0x%08x/0x%08x\n",
 		event, val);
@@ -668,13 +673,13 @@ static void raw_set_topdebug_rdyreq(struct mtk_ut_raw_device *raw, u32 event)
 static void raw_set_camctl_toggle_db(struct mtk_ut_raw_device *raw)
 {
 	void __iomem *base = raw->base;
-	unsigned int misc = readl_relaxed(base + CAM_REG_CTL_MISC);
+	unsigned int misc = readl_relaxed(base + REG_CTL_DB_LOAD_CTL1);
 	unsigned int misc_db_off = misc & ~0x10;
 
 	misc |= 0x10;
 
-	writel(misc_db_off, base + CAM_REG_CTL_MISC);
-	writel(misc, base + CAM_REG_CTL_MISC);
+	writel(misc_db_off, base + REG_CTL_DB_LOAD_CTL1);
+	writel(misc, base + REG_CTL_DB_LOAD_CTL1);
 	wmb();
 }
 
@@ -739,13 +744,13 @@ static void raw_dump_stx(struct mtk_ut_raw_device *raw)
 	struct ut_raw_status statusx;
 
 	/* raw */
-	statusx.irq = readl_relaxed(CAM_REG_CTL_RAW_INT_STATUSX(base));
+	statusx.irq = readl_relaxed(CAM_REG_CTL_RAW_INT18_STATUSX(base));
 	statusx.wdma = readl_relaxed(CAM_REG_CTL_RAW_INT2_STATUSX(base));
 	statusx.rdma = readl_relaxed(CAM_REG_CTL_RAW_INT3_STATUSX(base));
-	statusx.drop = readl_relaxed(CAM_REG_CTL_RAW_INT4_STATUSX(base));
+//statusx.drop = readl_relaxed(CAM_REG_CTL_RAW_INT4_STATUSX(base));
 	statusx.ofl = readl_relaxed(CAM_REG_CTL_RAW_INT5_STATUSX(base));
-	statusx.cq_done = readl_relaxed(CAM_REG_CTL_RAW_INT6_STATUSX(base));
-	statusx.dcif = readl_relaxed(CAM_REG_CTL_RAW_INT7_STATUSX(base));
+	statusx.cq_done = readl_relaxed(CAM_REG_CTL_RAW_INT21_STATUSX(base));
+	statusx.dcif = readl_relaxed(CAM_REG_CTL_RAW_INT20_STATUSX(base));
 
 	dev_info(raw->dev,
 		 "STATUSX INT1-7 0x%x/0x%x/0x%x/0x%x/0x%x/0x%x/0x%x\n",
@@ -778,6 +783,69 @@ static void raw_dump_fbc(struct mtk_ut_raw_device *raw)
 	}
 }
 
+static void yuv_handle_dma_err(struct mtk_ut_yuv_device *raw)
+{
+	//void __iomem *base = raw->base;
+	void __iomem *yuv_dma_base = raw->dma_base;
+
+	dev_info_ratelimited(raw->dev,
+			    "YUVO_R1/R2/R3/R4/R5:%x/%x/%x/%x/%x\n",
+			    readl_relaxed(yuv_dma_base + REG_YUVO_R1_ERR_STAT),
+			    readl_relaxed(yuv_dma_base + REG_YUVO_R2_ERR_STAT),
+			    readl_relaxed(yuv_dma_base + REG_YUVO_R3_ERR_STAT),
+			    readl_relaxed(yuv_dma_base + REG_YUVO_R4_ERR_STAT),
+			    readl_relaxed(yuv_dma_base + REG_YUVO_R5_ERR_STAT)
+			   );
+
+	dev_info_ratelimited(raw->dev,
+			    "RZH1N2TO_R1/R2/R3:%x/%x/%x,DRZS4NO_R1/R2/R3:%x/%x/%x\n",
+			    readl_relaxed(yuv_dma_base + REG_RZH1N2TO_R1_ERR_STAT),
+			    readl_relaxed(yuv_dma_base + REG_RZH1N2TO_R2_ERR_STAT),
+			    readl_relaxed(yuv_dma_base + REG_RZH1N2TO_R3_ERR_STAT),
+			    readl_relaxed(yuv_dma_base + REG_DRZS4NO_R1_ERR_STAT),
+			    readl_relaxed(yuv_dma_base + REG_DRZS4NO_R2_ERR_STAT),
+			    readl_relaxed(yuv_dma_base + REG_DRZS4NO_R3_ERR_STAT)
+			   );
+}
+
+static irqreturn_t mtk_ut_yuv_irq(int irq, void *data)
+{
+	struct mtk_ut_raw_device *drvdata = data;
+	void __iomem *base = drvdata->yuv_base;
+	struct ut_yuv_status status;
+
+	/* yuv */
+	status.irq = readl_relaxed(CAM_REG_CTL2_RAW_INT17_STATUS(base));
+	status.wdma = readl_relaxed(CAM_REG_CTL2_RAW_INT2_STATUS(base));
+	//status.drop = readl_relaxed(CAM_REG_CTL2_RAW_INT4_STATUS(base));
+	status.ofl = readl_relaxed(CAM_REG_CTL2_RAW_INT5_STATUS(base));
+
+	if (status.irq & YUV_DMA_ERR_ST)
+		yuv_handle_dma_err(data);
+
+	if ((dump_cmd & DUMP_STX) && (status.irq & YUV_PASS1_DON_ST)) {
+		struct ut_yuv_status statusx;
+
+		statusx.irq = readl_relaxed(CAM_REG_CTL2_RAW_INT17_STATUSX(base));
+		statusx.wdma = readl_relaxed(CAM_REG_CTL2_RAW_INT2_STATUSX(base));
+		//statusx.drop = readl_relaxed(CAM_REG_CTL2_RAW_INT4_STATUSX(base));
+		statusx.ofl = readl_relaxed(CAM_REG_CTL2_RAW_INT5_STATUSX(base));
+
+		dev_info(drvdata->dev, "STATUSX INT-DONE 1245 0x%x/0x%x/0x%x/0x%x\n",
+			 statusx.irq, statusx.wdma, statusx.drop, statusx.ofl);
+	}
+
+	/* overflow interrupts may be annoying */
+	dev_info_ratelimited(drvdata->dev, "INT5 overflow 0x%x\n",
+			     status.ofl);
+
+	if (status.irq || status.wdma)
+		dev_info(drvdata->dev, "INT 1245 0x%x/0x%x/0x%x/0x%x\n",
+			 status.irq, status.wdma, status.drop, status.ofl);
+
+	return IRQ_HANDLED;
+}
+
 #define RAW_DEBUG 0
 static irqreturn_t mtk_ut_raw_irq(int irq, void *data)
 {
@@ -793,13 +861,14 @@ static irqreturn_t mtk_ut_raw_irq(int irq, void *data)
 	msg.ts_ns = ktime_get_boottime_ns();
 
 	/* raw */
-	status.irq = readl_relaxed(CAM_REG_CTL_RAW_INT_STATUS(base));
+	status.irq = readl_relaxed(CAM_REG_CTL_RAW_INT18_STATUS(base));
+	status.done = readl_relaxed(CAM_REG_CTL_RAW_INT17_STATUS(base));
 	status.wdma = readl_relaxed(CAM_REG_CTL_RAW_INT2_STATUS(base));
 	status.rdma = readl_relaxed(CAM_REG_CTL_RAW_INT3_STATUS(base));
-	status.drop = readl_relaxed(CAM_REG_CTL_RAW_INT4_STATUS(base));
+	//status.drop = readl_relaxed(CAM_REG_CTL_RAW_INT4_STATUS(base));
 	status.ofl = readl_relaxed(CAM_REG_CTL_RAW_INT5_STATUS(base));
-	status.cq_done = readl_relaxed(CAM_REG_CTL_RAW_INT6_STATUS(base));
-	status.dcif = readl_relaxed(CAM_REG_CTL_RAW_INT7_STATUS(base));
+	status.cq_done = readl_relaxed(CAM_REG_CTL_RAW_INT21_STATUS(base));
+	status.dcif = readl_relaxed(CAM_REG_CTL_RAW_INT20_STATUS(base));
 
 	event->mask = 0;
 	cmd->any_debug = 0;
@@ -809,7 +878,7 @@ static irqreturn_t mtk_ut_raw_irq(int irq, void *data)
 		(status.dcif & DCIF_LAST_CQ_START_INT_ST))
 		event->mask |= EVENT_SOF;
 
-	if (status.irq & SW_PASS1_DON_ST) {
+	if (status.done & SW_PASS1_DON_ST) {
 		event->mask |= EVENT_SW_P1_DONE;
 
 		if (dump_cmd & DUMP_STX)
@@ -836,14 +905,14 @@ static irqreturn_t mtk_ut_raw_irq(int irq, void *data)
 		event->mask |= EVENT_CQ_DONE;
 	}
 
-	if (status.irq & CQ_MAIN_TRIG_DLY_ST)
+	if (status.cq_done & CQ_MAIN_TRIG_DLY_ST)
 		event->mask |= EVENT_CQ_MAIN_TRIG_DLY;
 
-	if (status.irq & INT_ST_MASK_CAM_ERR) {
+	if (status.irq & INT_ST_MASK_CAM_ERR || status.done & DMA_ERR_ST ) {
 		dev_info(raw->dev, "int_err: 0x%lx\n",
 			 status.irq & INT_ST_MASK_CAM_ERR);
 
-		if (status.irq & DMA_ERR_ST)
+		if (status.done & DMA_ERR_ST)
 			cmd->dump_dma_err = 1;
 
 		if (status.irq & TG_GBERR_ST)
@@ -872,12 +941,12 @@ static irqreturn_t mtk_ut_raw_irq(int irq, void *data)
 			msg.ts_ns,
 			event->mask, cmd->any_debug);
 	}
-
+	mtk_ut_yuv_irq(irq,data);
 nomem:
 
 	dev_info(raw->dev, "INT1-7 0x%x/0x%x/0x%x/0x%x/0x%x/0x%x/0x%x\n",
-		 status.irq, status.wdma, status.rdma, status.drop,
-		 status.ofl, status.cq_done, status.dcif);
+		 status.irq, status.done, status.wdma, status.rdma, status.drop,
+		 status.ofl, status.cq_done);
 
 	return wake_thread ? IRQ_WAKE_THREAD : IRQ_HANDLED;
 }
@@ -957,6 +1026,19 @@ static int mtk_ut_raw_of_probe(struct platform_device *pdev,
 		return PTR_ERR(raw->base);
 	}
 	dev_dbg(dev, "raw, map_addr=0x%lx\n", (unsigned long)raw->base);
+
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "dmatop_base");
+	if (!res) {
+		dev_info(dev, "failed to get mem\n");
+		return -ENODEV;
+	}
+
+	raw->dma_base = devm_ioremap_resource(dev, res);
+	if (IS_ERR(raw->dma_base)) {
+		dev_info(dev, "failed to map register dma_base\n");
+		return PTR_ERR(raw->dma_base);
+	}
+	dev_dbg(dev, "raw top, map_addr=0x%lx\n", (unsigned long)raw->dma_base);
 	/* base inner register */
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "inner_base");
 	if (!res) {
@@ -970,8 +1052,20 @@ static int mtk_ut_raw_of_probe(struct platform_device *pdev,
 		return PTR_ERR(raw->base_inner);
 	}
 
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "inner_dmatop_base");
+	if (!res) {
+		dev_info(dev, "failed to get mem\n");
+		return -ENODEV;
+	}
+
+	raw->dma_base_inner = devm_ioremap_resource(dev, res);
+	if (IS_ERR(raw->dma_base_inner)) {
+		dev_info(dev, "failed to map register dma inner base\n");
+		return PTR_ERR(raw->dma_base_inner);
+	}
 	/* will be assigned later */
 	raw->yuv_base = NULL;
+	raw->yuv_dma_base = NULL;
 
 	irq = platform_get_irq(pdev, 0);
 	if (irq < 0) {
@@ -1263,69 +1357,6 @@ static const struct component_ops mtk_ut_yuv_component_ops = {
 	.unbind = mtk_ut_yuv_component_unbind,
 };
 
-static void yuv_handle_dma_err(struct mtk_ut_yuv_device *raw)
-{
-	//void __iomem *base = raw->base;
-	void __iomem *yuv_base = raw->base;
-
-	dev_info_ratelimited(raw->dev,
-			    "YUVO_R1/R2/R3/R4/R5:%x/%x/%x/%x/%x\n",
-			    readl_relaxed(yuv_base + REG_YUVO_R1_ERR_STAT),
-			    readl_relaxed(yuv_base + REG_YUVO_R2_ERR_STAT),
-			    readl_relaxed(yuv_base + REG_YUVO_R3_ERR_STAT),
-			    readl_relaxed(yuv_base + REG_YUVO_R4_ERR_STAT),
-			    readl_relaxed(yuv_base + REG_YUVO_R5_ERR_STAT)
-			   );
-
-	dev_info_ratelimited(raw->dev,
-			    "RZH1N2TO_R1/R2/R3:%x/%x/%x,DRZS4NO_R1/R2/R3:%x/%x/%x\n",
-			    readl_relaxed(yuv_base + REG_RZH1N2TO_R1_ERR_STAT),
-			    readl_relaxed(yuv_base + REG_RZH1N2TO_R2_ERR_STAT),
-			    readl_relaxed(yuv_base + REG_RZH1N2TO_R3_ERR_STAT),
-			    readl_relaxed(yuv_base + REG_DRZS4NO_R1_ERR_STAT),
-			    readl_relaxed(yuv_base + REG_DRZS4NO_R2_ERR_STAT),
-			    readl_relaxed(yuv_base + REG_DRZS4NO_R3_ERR_STAT)
-			   );
-}
-
-static irqreturn_t mtk_ut_yuv_irq(int irq, void *data)
-{
-	struct mtk_ut_yuv_device *drvdata = data;
-	void __iomem *base = drvdata->base;
-	struct ut_yuv_status status;
-
-	/* yuv */
-	status.irq = readl_relaxed(CAM_REG_CTL2_RAW_INT_STATUS(base));
-	status.wdma = readl_relaxed(CAM_REG_CTL2_RAW_INT2_STATUS(base));
-	status.drop = readl_relaxed(CAM_REG_CTL2_RAW_INT4_STATUS(base));
-	status.ofl = readl_relaxed(CAM_REG_CTL2_RAW_INT5_STATUS(base));
-
-	if (status.irq & YUV_DMA_ERR_ST)
-		yuv_handle_dma_err(data);
-
-	if ((dump_cmd & DUMP_STX) && (status.irq & YUV_PASS1_DON_ST)) {
-		struct ut_yuv_status statusx;
-
-		statusx.irq = readl_relaxed(CAM_REG_CTL2_RAW_INT_STATUSX(base));
-		statusx.wdma = readl_relaxed(CAM_REG_CTL2_RAW_INT2_STATUSX(base));
-		statusx.drop = readl_relaxed(CAM_REG_CTL2_RAW_INT4_STATUSX(base));
-		statusx.ofl = readl_relaxed(CAM_REG_CTL2_RAW_INT5_STATUSX(base));
-
-		dev_info(drvdata->dev, "STATUSX INT-DONE 1245 0x%x/0x%x/0x%x/0x%x\n",
-			 statusx.irq, statusx.wdma, statusx.drop, statusx.ofl);
-	}
-
-	/* overflow interrupts may be annoying */
-	dev_info_ratelimited(drvdata->dev, "INT5 overflow 0x%x\n",
-			     status.ofl);
-
-	if (status.irq || status.wdma || status.drop)
-		dev_info(drvdata->dev, "INT 1245 0x%x/0x%x/0x%x/0x%x\n",
-			 status.irq, status.wdma, status.drop, status.ofl);
-
-	return IRQ_HANDLED;
-}
-
 static int mtk_ut_yuv_of_probe(struct platform_device *pdev,
 			    struct mtk_ut_yuv_device *drvdata)
 {
@@ -1358,20 +1389,36 @@ static int mtk_ut_yuv_of_probe(struct platform_device *pdev,
 		return PTR_ERR(drvdata->base);
 	}
 
-	irq = platform_get_irq(pdev, 0);
-	if (irq < 0) {
-		dev_info(dev, "failed to get irq\n");
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "dmatop_base");
+	if (!res) {
+		dev_info(dev, "failed to get mem\n");
 		return -ENODEV;
 	}
 
-	ret = devm_request_threaded_irq(dev, irq,
-					NULL, mtk_ut_yuv_irq,
-					IRQF_ONESHOT, dev_name(dev), drvdata);
+	drvdata->dma_base = devm_ioremap_resource(dev, res);
+	if (IS_ERR(drvdata->dma_base)) {
+		dev_info(dev, "failed to map register dma_base\n");
+		return PTR_ERR(drvdata->dma_base);
+	}
+
+	irq = platform_get_irq(pdev, 0);
+	if (irq < 0) {
+		dev_info(dev, "failed to get irq\n");
+		//return -ENODEV;
+	}
+
+	if (irq >= 0) {
+
+		ret = devm_request_threaded_irq(dev, irq,
+						NULL, mtk_ut_yuv_irq,
+						IRQF_ONESHOT, dev_name(dev), drvdata);
+	}
+
 	if (ret) {
 		dev_info(dev, "failed to request irq=%d\n", irq);
 		return ret;
 	}
-	dev_dbg(dev, "registered irq=%d\n", irq);
+	//dev_dbg(dev, "registered irq=%d\n", irq);
 
 	clks = of_count_phandle_with_args(pdev->dev.of_node,
 				"clocks", "#clock-cells");

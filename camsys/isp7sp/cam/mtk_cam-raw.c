@@ -1814,8 +1814,6 @@ static int mtk_yuv_pm_suspend_prepare(struct mtk_yuv_device *dev)
 {
 	int ret;
 
-	dev_dbg(dev->dev, "- %s\n", __func__);
-
 	if (pm_runtime_suspended(dev->dev))
 		return 0;
 
@@ -1827,8 +1825,6 @@ static int mtk_yuv_pm_suspend_prepare(struct mtk_yuv_device *dev)
 static int mtk_yuv_pm_post_suspend(struct mtk_yuv_device *dev)
 {
 	int ret;
-
-	dev_dbg(dev->dev, "- %s\n", __func__);
 
 	if (pm_runtime_suspended(dev->dev))
 		return 0;
@@ -2346,8 +2342,6 @@ static int mtk_rms_pm_suspend_prepare(struct mtk_rms_device *dev)
 {
 	int ret;
 
-	dev_dbg(dev->dev, "- %s\n", __func__);
-
 	if (pm_runtime_suspended(dev->dev))
 		return 0;
 
@@ -2359,8 +2353,6 @@ static int mtk_rms_pm_suspend_prepare(struct mtk_rms_device *dev)
 static int mtk_rms_pm_post_suspend(struct mtk_rms_device *dev)
 {
 	int ret;
-
-	dev_dbg(dev->dev, "- %s\n", __func__);
 
 	if (pm_runtime_suspended(dev->dev))
 		return 0;

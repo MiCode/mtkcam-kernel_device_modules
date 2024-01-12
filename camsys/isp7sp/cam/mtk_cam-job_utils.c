@@ -1871,6 +1871,11 @@ bool is_dcg_sensor_merge(struct mtk_cam_job *job)
 	return scen_is_dcg_sensor_merge(&job->job_scen);
 }
 
+bool is_dcg_ap_merge(struct mtk_cam_job *job)
+{
+	return scen_is_dcg_ap_merge(&job->job_scen);
+}
+
 bool is_m2m(struct mtk_cam_job *job)
 {
 	return scen_is_m2m(&job->job_scen);

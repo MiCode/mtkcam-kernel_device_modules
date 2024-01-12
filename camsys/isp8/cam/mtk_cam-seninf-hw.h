@@ -179,6 +179,7 @@ struct mtk_cam_seninf_ops {
 	int (*_wait_outmux_cfg_done)(struct seninf_ctx *ctx, u8 outmux_idx);
 	int (*_config_outmux)(struct seninf_ctx *ctx, u8 outmux_idx, u8 src_mipi, u8 src_sen,
 			u8 cfg_mode, struct outmux_tag_cfg *tag_cfg);
+	int (*_set_outmux_ref_vsync)(struct seninf_ctx *ctx, u8 outmux_idx);
 	int (*_set_outmux_cfg_done)(struct seninf_ctx *ctx, u8 outmux_idx);
 	int (*_set_outmux_pixel_mode)(struct seninf_ctx *ctx,
 							 int outmux, int pixelMode);

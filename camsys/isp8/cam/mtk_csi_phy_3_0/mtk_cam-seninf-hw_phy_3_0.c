@@ -93,7 +93,7 @@ static struct mtk_cam_seninf_irq_event_st vsync_detect_seninf_irq_event;
 } while (0)
 
 
-#define SET_TAG(ptr, cfgn, sel, vc, dt, hsize, vsize) do { \
+#define SET_TAG(ctx, ptr, cfgn, sel, vc, dt, hsize, vsize) do { \
 	SENINF_BITS(ptr, SENINF_OUTMUX_SOURCE_CONFIG_##cfgn, \
 		    SENINF_OUTMUX_TAG_VC_##sel, vc); \
 	SENINF_BITS(ptr, SENINF_OUTMUX_TAG_VCDT_FILT_##sel, \
@@ -106,6 +106,12 @@ static struct mtk_cam_seninf_irq_event_st vsync_detect_seninf_irq_event;
 		    SENINF_OUTMUX_HSIZE_##sel, hsize); \
 	SENINF_BITS(ptr, SENINF_OUTMUX_TAG_SIZE_##sel, \
 		    SENINF_OUTMUX_VSIZE_##sel, vsize - 1); \
+	seninf_logd(ctx, "reg SENINF_OUTMUX_SOURCE_CONFIG_%d::SENINF_OUTMUX_TAG_VC_%d = 0x%x", \
+		    cfgn, sel, \
+		    SENINF_READ_REG(ptr, SENINF_OUTMUX_SOURCE_CONFIG_##cfgn)); \
+	seninf_logd(ctx, "reg SENINF_OUTMUX_TAG_VCDT_FILT_%d = 0x%x", \
+		    sel, \
+		    SENINF_READ_REG(ptr, SENINF_OUTMUX_TAG_VCDT_FILT_##sel)); \
 } while (0)
 
 #define SET_TM_VC_DT(ptr, s, vc, dt) do { \
@@ -6591,47 +6597,39 @@ int mtk_cam_seninf_config_outmux(struct seninf_ctx *ctx, u8 outmux_idx, u8 src_m
 
 	for (i = 0; i < MAX_OUTMUX_TAG_NUM; i++) {
 		if (tag_cfg[i].enable) {
-			SENINF_BITS(pSeninf_mux, SENINF_OUTMUX_SOURCE_CONFIG_1,
-							SENINF_OUTMUX_VSYNC_SRC_SEL_MIPI, src_mipi);
-			SENINF_BITS(pSeninf_mux, SENINF_OUTMUX_SOURCE_CONFIG_1,
-							SENINF_OUTMUX_VSYNC_SRC_SEL_SEN, src_sen);
-			SENINF_BITS(pSeninf_mux, SENINF_OUTMUX_SRC_SEL,
-							SENINF_OUTMUX_SRC_SEL_MIPI, src_mipi);
-			SENINF_BITS(pSeninf_mux, SENINF_OUTMUX_SRC_SEL,
-							SENINF_OUTMUX_SRC_SEL_SEN, src_sen);
 			mtk_cam_seninf_set_out_mux_irq_en_by_tag(ctx, outmux_idx, i, true);
 
 			switch (i) {
 			case 0:
-				SET_TAG(pSeninf_mux, 1, 0, tag_cfg[i].filt_vc, tag_cfg[i].filt_dt,
+				SET_TAG(ctx, pSeninf_mux, 1, 0, tag_cfg[i].filt_vc, tag_cfg[i].filt_dt,
 					tag_cfg[i].exp_hsize, tag_cfg[i].exp_vsize);
 				break;
 			case 1:
-				SET_TAG(pSeninf_mux, 1, 1, tag_cfg[i].filt_vc, tag_cfg[i].filt_dt,
+				SET_TAG(ctx, pSeninf_mux, 1, 1, tag_cfg[i].filt_vc, tag_cfg[i].filt_dt,
 					tag_cfg[i].exp_hsize, tag_cfg[i].exp_vsize);
 				break;
 			case 2:
-				SET_TAG(pSeninf_mux, 1, 2, tag_cfg[i].filt_vc, tag_cfg[i].filt_dt,
+				SET_TAG(ctx, pSeninf_mux, 1, 2, tag_cfg[i].filt_vc, tag_cfg[i].filt_dt,
 					tag_cfg[i].exp_hsize, tag_cfg[i].exp_vsize);
 				break;
 			case 3:
-				SET_TAG(pSeninf_mux, 1, 3, tag_cfg[i].filt_vc, tag_cfg[i].filt_dt,
+				SET_TAG(ctx, pSeninf_mux, 1, 3, tag_cfg[i].filt_vc, tag_cfg[i].filt_dt,
 					tag_cfg[i].exp_hsize, tag_cfg[i].exp_vsize);
 				break;
 			case 4:
-				SET_TAG(pSeninf_mux, 2, 4, tag_cfg[i].filt_vc, tag_cfg[i].filt_dt,
+				SET_TAG(ctx, pSeninf_mux, 2, 4, tag_cfg[i].filt_vc, tag_cfg[i].filt_dt,
 					tag_cfg[i].exp_hsize, tag_cfg[i].exp_vsize);
 				break;
 			case 5:
-				SET_TAG(pSeninf_mux, 2, 5, tag_cfg[i].filt_vc, tag_cfg[i].filt_dt,
+				SET_TAG(ctx, pSeninf_mux, 2, 5, tag_cfg[i].filt_vc, tag_cfg[i].filt_dt,
 					tag_cfg[i].exp_hsize, tag_cfg[i].exp_vsize);
 				break;
 			case 6:
-				SET_TAG(pSeninf_mux, 2, 6, tag_cfg[i].filt_vc, tag_cfg[i].filt_dt,
+				SET_TAG(ctx, pSeninf_mux, 2, 6, tag_cfg[i].filt_vc, tag_cfg[i].filt_dt,
 					tag_cfg[i].exp_hsize, tag_cfg[i].exp_vsize);
 				break;
 			case 7:
-				SET_TAG(pSeninf_mux, 2, 7, tag_cfg[i].filt_vc, tag_cfg[i].filt_dt,
+				SET_TAG(ctx, pSeninf_mux, 2, 7, tag_cfg[i].filt_vc, tag_cfg[i].filt_dt,
 					tag_cfg[i].exp_hsize, tag_cfg[i].exp_vsize);
 				break;
 			default:
@@ -6639,6 +6637,31 @@ int mtk_cam_seninf_config_outmux(struct seninf_ctx *ctx, u8 outmux_idx, u8 src_m
 			}
 		}
 	}
+
+	return 0;
+}
+
+int mtk_cam_seninf_set_outmux_ref_vsync(struct seninf_ctx *ctx, u8 outmux_idx)
+{
+	void *pSeninf_mux;
+	int first_vs, last_vs;
+
+	if (unlikely(outmux_idx > _seninf_ops->outmux_num)) {
+		dev_info(ctx->dev, "[Error][%s] invalid outmux_idx (%d)\n", __func__, outmux_idx);
+		return -EINVAL;
+	}
+
+	first_vs = ctx->cur_first_vs;
+	last_vs = ctx->cur_last_vs;
+
+	seninf_logi(ctx, "set outmux%u reference vsync to first/last: %d/%d", outmux_idx, first_vs, last_vs);
+
+	pSeninf_mux = ctx->reg_if_outmux[outmux_idx];
+
+	SENINF_BITS(pSeninf_mux, SENINF_OUTMUX_SOURCE_CONFIG_0,
+					SENINF_OUTMUX_REF_VC, first_vs);
+	SENINF_BITS(pSeninf_mux, SENINF_OUTMUX_SOURCE_CONFIG_0,
+					SENINF_OUTMUX_LAST_VC, last_vs);
 
 	return 0;
 }
@@ -6680,6 +6703,7 @@ struct mtk_cam_seninf_ops mtk_csi_phy_3_0 = {
 	._disable_all_outmux = mtk_cam_seninf_disable_all_outmux,
 	._wait_outmux_cfg_done = mtk_cam_seninf_wait_outmux_cfg_done,
 	._config_outmux = mtk_cam_seninf_config_outmux,
+	._set_outmux_ref_vsync = mtk_cam_seninf_set_outmux_ref_vsync,
 	._set_outmux_cfg_done = mtk_cam_seninf_set_outmux_cfg_done,
 	._set_outmux_pixel_mode = mtk_cam_seninf_set_outmux_pixel_mode,
 	._set_test_model = mtk_cam_seninf_set_test_model,

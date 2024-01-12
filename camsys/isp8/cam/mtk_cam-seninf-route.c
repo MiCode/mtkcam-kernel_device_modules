@@ -2042,6 +2042,12 @@ mtk_cam_seninf_streaming_mux_change(struct mtk_cam_seninf_mux_param *param)
 			continue;
 		}
 
+		if (camtg < 0 || camtg >= g_seninf_ops->outmux_num) {
+			dev_info(ctx->dev, "[%s] skip pad_id %d camtg %d\n",
+				 __func__, pad_id, camtg);
+			continue;
+		}
+
 		if (tag_id < 0 || tag_id >= 8) {
 			dev_info(ctx->dev, "[%s] pad_id%d camtg%d, tag_id is %d, fallback to 0\n",
 				 __func__, pad_id, camtg, tag_id);
@@ -2101,6 +2107,7 @@ mtk_cam_seninf_streaming_mux_change(struct mtk_cam_seninf_mux_param *param)
 		/* Perform disable outmux */
 		for (i = 0; i < SENINF_OUTMUX_NUM; i++) {
 			if (ctx->outmux_disable_list[i]) {
+				g_seninf_ops->_set_outmux_ref_vsync(ctx, i);
 				g_seninf_ops->_set_outmux_cfg_done(ctx, i);
 				ctx->outmux_disable_list[i] = false;
 			}

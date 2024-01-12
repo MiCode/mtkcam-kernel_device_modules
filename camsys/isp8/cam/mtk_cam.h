@@ -38,6 +38,7 @@
 #include "mtk_cam-debug.h"
 
 #include "mtk_cam-hsf-def.h"
+#include "mtk_cam-bwr.h"
 
 #define CCD_READY 1
 #define NO_CHECK_RETURN(ret) (void) ret
@@ -321,6 +322,8 @@ struct mtk_cam_device {
 	struct mtk_camsys_dvfs dvfs;
 
 	struct mtk_cam_debug dbg;
+
+	struct mtk_bwr_device bwr;
 
 	/* shutdown flow */
 	wait_queue_head_t shutdown_wq;

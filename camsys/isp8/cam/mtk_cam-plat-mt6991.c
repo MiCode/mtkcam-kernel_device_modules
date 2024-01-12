@@ -54,35 +54,6 @@
 
 #define DYNAMIC_SIZE
 
-enum RAW_ICC_PATH_IDX {
-	ICC_PATH_CQI_R1 = 0,
-	ICC_PATH_RAWI_R2,
-	ICC_PATH_RAWI_R3,
-	ICC_PATH_RAWI_R5,
-	ICC_PATH_IMGO_R1,
-	ICC_PATH_FPRI_R1,
-	ICC_PATH_BPCI_R1,
-	ICC_PATH_BPCI_R4,
-	ICC_PATH_LSCI_R1,
-	ICC_PATH_UFEO_R1,
-	ICC_PATH_LTMSO_R1,
-	ICC_PATH_DRZB2NO_R1,
-	ICC_PATH_AFO_R1,
-	ICC_PATH_AAO_R1,
-	RAW_ICC_PATH_NUM,
-};
-
-enum YUV_ICC_PATH_IDX {
-	ICC_PATH_YUVO_R1 = 0,
-	ICC_PATH_YUVO_R3,
-	ICC_PATH_YUVO_R2,
-	ICC_PATH_YUVO_R5,
-	ICC_PATH_RGBWI_R1,
-	ICC_PATH_TSYSO_R1,
-	ICC_PATH_DRZHNO_R3,
-	YUV_ICC_PATH_NUM,
-};
-
 static void set_payload(struct mtk_cam_uapi_meta_hw_buf *buf,
 			unsigned int size, size_t *offset)
 {
@@ -226,15 +197,19 @@ static int get_meta_stats0_port_size(
 	struct mtk_cam_uapi_meta_raw_stats_0 *stats_0, int dma_port)
 {
 	switch (dma_port) {
-	case PORT_AAO:
+	case PORT_AEO:
 		return stats_0->ae_stats.aeo_buf.size;
-	case PORT_AAHO:
+	case PORT_AEHO:
 		return stats_0->ae_stats.aeho_buf.size;
+	case PORT_AWBO:
+		return stats_0->awb_stats.awbo1_buf.size;
+	case PORT_AWBO_R2:
+		return stats_0->awb_stats.awbo2_buf.size;
 	case PORT_TSFSO:
 		return stats_0->tsf_stats.tsfo_r1_buf.size;
-	case PORT_LTMSO:
+	case PORT_LTMSBO:
 		return stats_0->ltm_stats.ltmsbo_buf.size;
-	case PORT_LTMSHO:
+	case PORT_LTMSGO:
 		return stats_0->ltm_stats.ltmsgo_buf.size;
 	case PORT_FLKO:
 		return stats_0->flk_stats.flko_buf.size;
@@ -272,18 +247,18 @@ static int get_meta_stats_port_size(
 	switch (ipi_id) {
 	case MTKCAM_IPI_RAW_META_STATS_CFG:
 		*size = get_meta_cfg_port_size(addr, dma_port);
-		return 0;
+		break;
 	case MTKCAM_IPI_RAW_META_STATS_0:
 		*size = get_meta_stats0_port_size(addr, dma_port);
-		return 0;
+		break;
 	case MTKCAM_IPI_RAW_META_STATS_1:
 		*size = get_meta_stats1_port_size(addr, dma_port);
-		return 0;
+		break;
 	default:
-		pr_info("%s: %s: not supported: %d\n",
-			__FILE__, __func__, ipi_id);
-		return -1;
+		*size = 0;
+		break;
 	}
+
 	return 0;
 }
 
@@ -665,60 +640,12 @@ static int query_max_exp_support(u32 raw_idx)
 
 static int map_raw_icc_path(int smi_port)
 {
-	switch (smi_port) {
-	case SMI_PORT_CQI_R1:
-		return ICC_PATH_CQI_R1;
-	case SMI_PORT_RAWI_R2:
-		return ICC_PATH_RAWI_R2;
-	case SMI_PORT_RAWI_R3:
-		return ICC_PATH_RAWI_R3;
-	case SMI_PORT_RAWI_R5:
-		return ICC_PATH_RAWI_R5;
-	case SMI_PORT_IMGO_R1:
-		return ICC_PATH_IMGO_R1;
-	case SMI_PORT_FPRI_R1:
-		return ICC_PATH_FPRI_R1;
-	case SMI_PORT_BPCI_R1:
-		return ICC_PATH_BPCI_R1;
-	case SMI_PORT_BPCI_R4:
-		return ICC_PATH_BPCI_R4;
-	case SMI_PORT_LSCI_R1:
-		return ICC_PATH_LSCI_R1;
-	case SMI_PORT_UFEO_R1:
-		return ICC_PATH_UFEO_R1;
-	case SMI_PORT_LTMSO_R1:
-		return ICC_PATH_LTMSO_R1;
-	case SMI_PORT_DRZB2NO_R1:
-		return ICC_PATH_DRZB2NO_R1;
-	case SMI_PORT_AFO_R1:
-		return ICC_PATH_AFO_R1;
-	case SMI_PORT_AAO_R1:
-		return ICC_PATH_AAO_R1;
-	default:
-		return -1;
-	}
+	return smi_port;
 }
 
 static int map_yuv_icc_path(int smi_port)
 {
-	switch (smi_port) {
-	case SMI_PORT_YUVO_R1:
-		return ICC_PATH_YUVO_R1;
-	case SMI_PORT_YUVO_R3:
-		return ICC_PATH_YUVO_R3;
-	case SMI_PORT_YUVO_R2:
-		return ICC_PATH_YUVO_R2;
-	case SMI_PORT_YUVO_R5:
-		return ICC_PATH_YUVO_R5;
-	case SMI_PORT_RGBWI_R1:
-		return ICC_PATH_RGBWI_R1;
-	case SMI_PORT_TCYSO_R1:
-		return ICC_PATH_TSYSO_R1;
-	case SMI_PORT_DRZHNO_R3:
-		return ICC_PATH_DRZHNO_R3;
-	default:
-		return -1;
-	}
+	return smi_port;
 }
 
 static int query_icc_path_idx(int domain, int smi_port)
@@ -792,8 +719,8 @@ static const struct plat_v4l2_data mt6991_v4l2_data = {
 
 static const struct plat_data_hw mt6991_hw_data = {
 	.cammux_id_raw_start = 6,  /* TBC(AY) */
-	.raw_icc_path_num = RAW_ICC_PATH_NUM,
-	.yuv_icc_path_num = YUV_ICC_PATH_NUM,
+	.raw_icc_path_num = 17,
+	.yuv_icc_path_num = 6,
 	.platform_id = 6991,
 	.query_raw_dma_group = query_raw_dma_group,
 	.query_yuv_dma_group = query_yuv_dma_group,

@@ -2037,6 +2037,9 @@ int mtk_raw_runtime_suspend(struct device *dev)
 		set_detect_count(drvdata->default_printk_cnt);
 
 	mtk_cam_reset_qos(dev, &drvdata->qos);
+	mtk_cam_bwr_clr_bw(&drvdata->cam->bwr,
+		get_bwr_engine(drvdata->id), get_axi_port(drvdata->id, true));
+
 	if (CAM_DEBUG_ENABLED(RAW_CG))
 		cg_dump_and_test(dev, CG_RAW, 0);
 	for (i = drvdata->num_clks - 1; i >= 0; i--)
@@ -2424,7 +2427,10 @@ int mtk_yuv_runtime_suspend(struct device *dev)
 	dev_dbg(dev, "%s:disable clock\n", __func__);
 	if (CAM_DEBUG_ENABLED(RAW_CG))
 		cg_dump_and_test(dev, CG_YUV, 0);
+
 	mtk_cam_reset_qos(dev, &drvdata->qos);
+	mtk_cam_bwr_clr_bw(&drvdata->cam->bwr,
+		get_bwr_engine(drvdata->id), get_axi_port(drvdata->id, false));
 
 	for (i = drvdata->num_clks - 1; i >= 0; i--)
 		clk_disable_unprepare(drvdata->clks[i]);

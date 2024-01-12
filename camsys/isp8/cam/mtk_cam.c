@@ -1375,6 +1375,8 @@ static int mtk_cam_initialize(struct mtk_cam_device *cam)
 
 	mtk_cam_debug_exp_reset(&cam->dbg);
 
+	mtk_cam_bwr_enable(&cam->bwr);
+
 	return ret;
 }
 
@@ -1385,6 +1387,7 @@ static int mtk_cam_uninitialize(struct mtk_cam_device *cam)
 
 	dev_info(cam->dev, "camsys uninitialize\n");
 
+	mtk_cam_bwr_disable(&cam->bwr);
 	mtk_cam_power_rproc(cam, 0);
 	mtk_cam_plat_resource_ctrl(cam, 0);
 	pm_runtime_put_sync(cam->dev);
@@ -3526,6 +3529,8 @@ static int mtk_cam_master_bind(struct device *dev)
 	mtk_cam_dvfs_probe(cam_dev->dev,
 			   &cam_dev->dvfs, cam_dev->max_stream_num);
 
+	mtk_cam_bwr_probe(cam_dev->dev, &cam_dev->bwr);
+
 	mtk_raw_hdr_tsfifo_init(cam_dev->pipelines.raw,
 					cam_dev->pipelines.num_raw);
 
@@ -3578,6 +3583,7 @@ static void mtk_cam_master_unbind(struct device *dev)
 				    cam_dev->pipelines.num_mraw);
 
 	mtk_cam_dvfs_remove(&cam_dev->dvfs);
+
 	component_unbind_all(dev, cam_dev);
 
 	media_device_unregister(&cam_dev->media_dev);

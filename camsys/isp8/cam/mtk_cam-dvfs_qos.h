@@ -73,10 +73,37 @@ static inline u32 to_qos_icc(unsigned long Bps)
 	return kBps_to_icc(Bps / 1024);
 }
 
-/* for srt occupied ratio */
-static inline u32 to_qos_icc_ratio(unsigned long Bps)
+static inline u32 KBps_to_bwr(unsigned long KBps)
 {
-	return kBps_to_icc(Bps * 6 / 5 / 1024);
+	return KBps / 1024;
+}
+
+/* for srt occupied ratio */
+static inline u32 to_qos_occ_ratio(unsigned long Bps)
+{
+	return kBps_to_icc(Bps * 6 / 5);
+}
+
+static inline int is_w_merge_port(int id, enum PORT_DOMAIN domain)
+{
+	if (domain == RAW_DOMAIN) {
+		switch(id) {
+		case SMI_PORT_CQI_R1:
+		case SMI_PORT_CQI_R2:
+		case SMI_PORT_RAWI_R2:
+		case SMI_PORT_RAWI_R3:
+		case SMI_PORT_RAWI_R4:
+		case SMI_PORT_RAWI_R5:
+		case SMI_PORT_BPCI_R1:
+		case SMI_PORT_BPCI_R3:
+		case SMI_PORT_GMGI_R1:
+		case SMI_PORT_LSCI_R1:
+			return 0;
+		default:
+			return 1;
+		}
+	} else
+		return 1;
 }
 
 struct mtk_cam_job;

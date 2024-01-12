@@ -11,19 +11,22 @@
 enum SMI_RAW_MERGE_PORT_ID {
 	/* raw domain */
 	SMI_PORT_CQI_R1 = 0,
+	SMI_PORT_CQI_R2,
 	SMI_PORT_RAWI_R2,
 	SMI_PORT_RAWI_R3,
+	SMI_PORT_RAWI_R4,
 	SMI_PORT_RAWI_R5,
-	SMI_PORT_IMGO_R1,
-	SMI_PORT_FPRI_R1,
 	SMI_PORT_BPCI_R1,
-	SMI_PORT_BPCI_R4,
+	SMI_PORT_BPCI_R3,
+	SMI_PORT_GMGI_R1,
 	SMI_PORT_LSCI_R1,
-	SMI_PORT_UFEO_R1,
-	SMI_PORT_LTMSO_R1,
+	SMI_PORT_IMGO_R1,
+	SMI_PORT_IMGO_R2,
 	SMI_PORT_DRZB2NO_R1,
-	SMI_PORT_AFO_R1,
-	SMI_PORT_AAO_R1,
+	SMI_PORT_DRZB2NBO_R1,
+	SMI_PORT_GMPO_R1,
+	SMI_PORT_DRZB2NCO_R1,
+	SMI_PORT_AWBO_R1,
 	SMI_PORT_RAW_NUM,
 };
 
@@ -32,10 +35,9 @@ enum SMI_YUV_MERGE_PORT_ID {
 	SMI_PORT_YUVO_R1 = 0,
 	SMI_PORT_YUVO_R3,
 	SMI_PORT_YUVO_R2,
-	SMI_PORT_YUVO_R5,
-	SMI_PORT_RGBWI_R1,
-	SMI_PORT_TCYSO_R1,
-	SMI_PORT_DRZHNO_R3,
+	SMI_PORT_DRZH2NO_R1,
+	SMI_PORT_YUVO_R4,
+	SMI_PORT_DRZH1NO_R1,
 	SMI_PORT_YUV_NUM,
 };
 
@@ -48,18 +50,32 @@ enum PORT_DOMAIN {
 enum STATS_DMA_PORT {
 	PORT_UNKNOWN = 0,
 	PORT_CQI,
+	//meta-0
+	PORT_AWBO,
+	PORT_AWBO_R2,
+	PORT_AEO,
+	PORT_AEHO,
+	PORT_LTMSBO,
+	PORT_LTMSGO,
+	PORT_TSFSO,
+	PORT_AFO,
+	PORT_TCYSO,
+	PORT_FLKO,
+	PORT_PDO,
+	//meta-cfg
 	PORT_CACI,
 	PORT_BPCI,
 	PORT_PDI,
-	PORT_PDO,
-	PORT_AAO,
-	PORT_AAHO,
-	PORT_TSFSO,
-	PORT_LTMSO,
-	PORT_LTMSHO,
-	PORT_FLKO,
-	PORT_TCYSO,
-	PORT_AFO,
+	PORT_LSCI,
+	PORT_AEI,
+	//todo
+	PORT_FPRI,
+	PORT_LTMSCTI,
+	PORT_LSCI_R2,
+	PORT_MLSCI,
+	PORT_GMPO,
+	PORT_GRMGI,
+	PORT_MGGMO,
 };
 
 /* for yuv */
@@ -82,7 +98,6 @@ struct qos_dma_desc {
 struct mtkcam_qos_desc {
 	u8 id;
 	u8 desc_size;
-
 	struct qos_dma_desc *dma_desc;
 };
 
@@ -97,7 +112,7 @@ static struct qos_dma_desc stats_cfg_dmas[] = {
 		.dma_name = "caci_r1",
 		.domain = RAW_DOMAIN,
 		.src_port = PORT_CACI,
-		.dst_port = SMI_PORT_FPRI_R1,
+		.dst_port = SMI_PORT_BPCI_R3,
 	},
 	{
 		.dma_name = "bpci_r1",
@@ -113,67 +128,94 @@ static struct qos_dma_desc stats_cfg_dmas[] = {
 		.dst_port = SMI_PORT_BPCI_R1,
 	},
 	{
-		.dma_name = "bpci_r3",
+		.dma_name = "pdi_r1",
 		.domain = RAW_DOMAIN,
-		.src_port = PORT_BPCI,
-		.exp_num = 3,
-		.dst_port = SMI_PORT_BPCI_R4,
+		.src_port = PORT_PDI,
+		.dst_port = SMI_PORT_BPCI_R3,
 	},
 	{
 		.dma_name = "pdi_r1",
 		.domain = RAW_DOMAIN,
 		.src_port = PORT_PDI,
-		.dst_port = SMI_PORT_LSCI_R1,
+		.dst_port = SMI_PORT_BPCI_R3,
 	},
+#ifdef QOS_READY
+	{
+		.dma_name = "lsci_r1",
+		.domain = RAW_DOMAIN,
+		.src_port = PORT_LSCI,
+		.dst_port = SMI_PORT_BPCI_R3,
+	},
+	{
+		.dma_name = "aei_r1",
+		.domain = RAW_DOMAIN,
+		.src_port = PORT_AEI,
+		.dst_port = SMI_PORT_BPCI_R3,
+	},
+#endif
 };
 
 static struct qos_dma_desc stats_0_dmas[] = {
 	{
-		.dma_name = "aao_r1",
+		.dma_name = "awbo_r1",
 		.domain = RAW_DOMAIN,
-		.src_port = PORT_AAO,
-		.dst_port = SMI_PORT_AAO_R1,
+		.src_port = PORT_AWBO,
+		.dst_port = SMI_PORT_AWBO_R1,
 	},
 	{
-		.dma_name = "aaho_r1",
+		.dma_name = "awbo_r2",
 		.domain = RAW_DOMAIN,
-		.src_port = PORT_AAHO,
-		.dst_port = SMI_PORT_AAO_R1,
+		.src_port = PORT_AWBO_R2,
+		.dst_port = SMI_PORT_AWBO_R1,
+	},
+	{
+		.dma_name = "aeo_r1",
+		.domain = RAW_DOMAIN,
+		.src_port = PORT_AEO,
+		.dst_port = SMI_PORT_DRZB2NO_R1,
+	},
+	{
+		.dma_name = "aeho_r1",
+		.domain = RAW_DOMAIN,
+		.src_port = PORT_AEHO,
+		.dst_port = SMI_PORT_AWBO_R1,
 	},
 	{
 		.dma_name = "tsfso_r1",
 		.domain = RAW_DOMAIN,
 		.src_port = PORT_TSFSO,
-		.dst_port = SMI_PORT_AFO_R1,
+		.dst_port = SMI_PORT_DRZB2NBO_R1,
 	},
 	{
-		.dma_name = "ltmso_r1",
+		.dma_name = "ltmsbo_r1",
 		.domain = RAW_DOMAIN,
-		.src_port = PORT_LTMSO,
-		.dst_port = SMI_PORT_LTMSO_R1,
+		.src_port = PORT_LTMSBO,
+		.dst_port = SMI_PORT_DRZB2NO_R1,
 	},
+	//need to check
 	{
-		.dma_name = "ltmsho_r1",
-		.src_port = PORT_LTMSHO,
-		.dst_port = SMI_PORT_LTMSO_R1,
+		.dma_name = "ltmsgo_r1",
+		.src_port = PORT_LTMSGO,
+		.dst_port = SMI_PORT_DRZB2NO_R1,
 	},
 	{
 		.dma_name = "flko_r1",
 		.domain = RAW_DOMAIN,
 		.src_port = PORT_FLKO,
-		.dst_port = SMI_PORT_UFEO_R1,
+		.dst_port = SMI_PORT_GMPO_R1,
 	},
+	//need to check
 	{
 		.dma_name = "tcyso_r1",
 		.domain = YUV_DOMAIN,
 		.src_port = PORT_TCYSO,
-		.dst_port = SMI_PORT_TCYSO_R1,
+		.dst_port = SMI_PORT_YUVO_R4,
 	},
 	{
 		.dma_name = "pdo_r1",
 		.domain = RAW_DOMAIN,
 		.src_port = PORT_PDO,
-		.dst_port = SMI_PORT_UFEO_R1,
+		.dst_port = SMI_PORT_GMPO_R1,
 	},
 };
 
@@ -182,7 +224,7 @@ static struct qos_dma_desc stats_1_dmas[] = {
 		.dma_name = "afo_r1",
 		.domain = RAW_DOMAIN,
 		.src_port = PORT_AFO,
-		.dst_port = SMI_PORT_AFO_R1,
+		.dst_port = SMI_PORT_DRZB2NBO_R1,
 	},
 };
 
@@ -260,7 +302,7 @@ static struct qos_dma_desc imgo_dmas[] = {
 	{
 		.dma_name = "ufeo_r1",
 		.domain = RAW_DOMAIN,
-		.dst_port = SMI_PORT_UFEO_R1,
+		.dst_port = SMI_PORT_IMGO_R1,
 		.ufbc_type = UFBC_TABLE_0,
 	},
 };
@@ -345,71 +387,58 @@ static struct qos_dma_desc yuvo_4_dmas[] = {
 	},
 };
 
-static struct qos_dma_desc yuvo_5_dmas[] = {
-	{
-		.dma_name = "yuvo_r5",
-		.domain = YUV_DOMAIN,
-		.dst_port = SMI_PORT_YUVO_R5,
-	},
-	{
-		.dma_name = "yuvbo_r5",
-		.domain = YUV_DOMAIN,
-		.dst_port = SMI_PORT_YUVO_R5,
-	},
-};
-
 static struct qos_dma_desc rzh1n2to_2_dmas[] = {
 	{
 		.dma_name = "rzh1n2to_r2",
 		.domain = YUV_DOMAIN,
-		.dst_port = SMI_PORT_TCYSO_R1,
+		.dst_port = SMI_PORT_DRZH2NO_R1,
 	},
 };
 
-static struct qos_dma_desc drzs4no_1_dmas[] = {
+static struct qos_dma_desc drzh2no_1_dmas[] = {
 	{
-		.dma_name = " drzs4no_r1",
+		.dma_name = "drzh2no_r1",
 		.domain = YUV_DOMAIN,
-		.dst_port = SMI_PORT_TCYSO_R1,
+		.dst_port = SMI_PORT_DRZH2NO_R1,
 	},
 	{
-		.dma_name = " drzh2no_r8",
+		.dma_name = "drzh2no_r8",
 		.domain = YUV_DOMAIN,
-		.dst_port = SMI_PORT_TCYSO_R1,
+		.dst_port = SMI_PORT_DRZH2NO_R1,
 	},
 };
 
 static struct qos_dma_desc drzs4no_3_dmas[] = {
 	{
-		.dma_name = " drzs4no_r3",
+		.dma_name = "drzs4no_r3",
 		.domain = YUV_DOMAIN,
-		.dst_port = SMI_PORT_DRZHNO_R3,
+		.dst_port = SMI_PORT_YUVO_R2,
 	},
 };
 
-static struct qos_dma_desc rzh1n2to_3_dmas[] = {
+static struct qos_dma_desc drzh1no_3_dmas[] = {
 	{
-		.dma_name = "rzh1n2to_r3",
+		.dma_name = "drzh1no_r3",
 		.domain = YUV_DOMAIN,
-		.dst_port = SMI_PORT_DRZHNO_R3,
+		.dst_port = SMI_PORT_DRZH1NO_R1,
 	},
 	{
-		.dma_name = "rzh1n2tbo_r3",
+		.dma_name = "drzh1nbo_r3",
 		.domain = YUV_DOMAIN,
-		.dst_port = SMI_PORT_YUVO_R5,
+		.dst_port = SMI_PORT_DRZH1NO_R1,
 	},
 };
 
-static struct qos_dma_desc rzh1n2to_1_dmas[] = {
+static struct qos_dma_desc drzh1no_1_dmas[] = {
 	{
-		.dma_name = "rzh1n2to_r1",
+		.dma_name = "drzh1no_r1",
 		.domain = YUV_DOMAIN,
-		.dst_port = SMI_PORT_DRZHNO_R3,
+		.dst_port = SMI_PORT_DRZH1NO_R1,
 	},
 	{
-		.dma_name = "rzh1n2tbo_r1",
+		.dma_name = "drzh1nbo_r1",
 		.domain = YUV_DOMAIN,
-		.dst_port = SMI_PORT_YUVO_R5,
+		.dst_port = SMI_PORT_DRZH1NO_R1,
 	},
 };
 
@@ -422,12 +451,17 @@ static struct qos_dma_desc drzb2no_1_dmas[] = {
 	{
 		.dma_name = "drzb2nbo_r1",
 		.domain = RAW_DOMAIN,
-		.dst_port = SMI_PORT_DRZB2NO_R1,
+		.dst_port = SMI_PORT_DRZB2NBO_R1,
 	},
 	{
 		.dma_name = " drzb2nco_r1",
 		.domain = RAW_DOMAIN,
-		.dst_port = SMI_PORT_DRZB2NO_R1,
+		.dst_port = SMI_PORT_DRZB2NCO_R1,
+	},
+	{
+		.dma_name = " drzb2ndo_r1",
+		.domain = RAW_DOMAIN,
+		.dst_port = SMI_PORT_DRZB2NCO_R1,
 	},
 };
 
@@ -441,7 +475,7 @@ static struct qos_dma_desc imgo_w_dmas[] = {
 	{
 		.dma_name = "ufeo_r1_w",
 		.domain = RAW_W_DOMAIN,
-		.dst_port = SMI_PORT_UFEO_R1,
+		.dst_port = SMI_PORT_IMGO_R1,
 		.ufbc_type = UFBC_TABLE_0,
 	},
 };
@@ -539,8 +573,7 @@ static struct mtkcam_qos_desc mmqos_img_table[MTKCAM_IPI_RAW_NUM] = {
 	},
 	{
 		.id = MTKCAM_IPI_RAW_YUVO_5,
-		.dma_desc = yuvo_5_dmas,
-		.desc_size = ARRAY_SIZE(yuvo_5_dmas),
+		.dma_desc = 0,
 	},
 	{
 		.id = MTKCAM_IPI_RAW_RZH1N2TO_2,
@@ -549,8 +582,8 @@ static struct mtkcam_qos_desc mmqos_img_table[MTKCAM_IPI_RAW_NUM] = {
 	},
 	{
 		.id = MTKCAM_IPI_RAW_DRZH2NO_1,
-		.dma_desc = drzs4no_1_dmas,
-		.desc_size = ARRAY_SIZE(drzs4no_1_dmas),
+		.dma_desc = drzh2no_1_dmas,
+		.desc_size = ARRAY_SIZE(drzh2no_1_dmas),
 	},
 	{
 		.id = MTKCAM_IPI_RAW_DRZS4NO_3,
@@ -559,13 +592,13 @@ static struct mtkcam_qos_desc mmqos_img_table[MTKCAM_IPI_RAW_NUM] = {
 	},
 	{
 		.id = MTKCAM_IPI_RAW_DRZH1NO_3,
-		.dma_desc = rzh1n2to_3_dmas,
-		.desc_size = ARRAY_SIZE(rzh1n2to_3_dmas),
+		.dma_desc = drzh1no_3_dmas,
+		.desc_size = ARRAY_SIZE(drzh1no_3_dmas),
 	},
 	{
 		.id = MTKCAM_IPI_RAW_DRZH1NO_1,
-		.dma_desc = rzh1n2to_1_dmas,
-		.desc_size = ARRAY_SIZE(rzh1n2to_1_dmas),
+		.dma_desc = drzh1no_1_dmas,
+		.desc_size = ARRAY_SIZE(drzh1no_1_dmas),
 	},
 	{
 		.id = MTKCAM_IPI_RAW_DRZB2NO_1,

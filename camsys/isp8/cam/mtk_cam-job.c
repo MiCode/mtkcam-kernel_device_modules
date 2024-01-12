@@ -5200,9 +5200,8 @@ static int update_job_buffer_to_ipi_frame(struct mtk_cam_job *job,
 		ret = ret || job_helper->append_work_buf_to_ipi(&helper);
 
 	reset_unused_io_of_ipi_frame(&helper);
-#ifdef QOS_READY
 	mtk_cam_fill_qos(&helper);
-#endif
+
 	return ret;
 }
 

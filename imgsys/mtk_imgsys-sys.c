@@ -3045,8 +3045,8 @@ err_power_off:
     mtk_hcp_purge_msg(imgsys_dev->scp_pdev);
 
 	mutex_destroy(&imgsys_dev->req_fd_cache.lock);
-	work_pool_uninit(&imgsys_dev->gwork_pool);
-	work_pool_uninit(&imgsys_dev->reqfd_cbinfo_pool);
+	//work_pool_uninit(&imgsys_dev->gwork_pool);
+	//work_pool_uninit(&imgsys_dev->reqfd_cbinfo_pool);
 	mtk_imgsys_mod_put(imgsys_dev);
 
 	user_cnt = atomic_read(&imgsys_dev->imgsys_user_cnt);

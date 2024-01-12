@@ -1869,6 +1869,23 @@ u16 addr_data_pair_init_ov48b2q[] = {
 	0x4883, 0x23,//CPHY control
 	0x4888, 0x80,//CPHY control
 	0x4889, 0x01,//CPHY control
+	// emb
+	0x3680, 0x00,
+	0x3685, 0x92, /* [7] emb_en [5:0] emb_dt                     */
+	//0x3685, 0xb0, /* [7] emb_en [5:0] emb_dt                     */
+	0x3216, 0x02, /* emb_line_num                                */
+	0x3208, 0x04, /* group4 used for SOF embedded line record    */
+	0x387E, 0x02, /* contents from 387E~387F, total 0x02 bytes. frame_cnt */
+	0x3500, 0x03, /* contents from 3500~3502, total 0x03 bytes. cit */
+	0x3508, 0x02, /* contents from 3508~3509, total 0x02 bytes. again */
+	0x3840, 0x01, /* contents from 3840~3840, total 0x01 bytes. vts */
+	0x380E, 0x02, /* contents from 380E~380F, total 0x02 bytes. vts */
+	0x4D13, 0x02, /* contents from 4D13~4D14, total 0x02 bytes. thermal */
+	0x3208, 0x14, /* group4 record end                           */
+	0x3208, 0x05, /* group5 used for EOF embedded line record    */
+	0x387E, 0x02, /* contents from 387E~387F, total 0x02 bytes. frame_cnt */
+	0x3208, 0x15, /* group5 record end */
+	0x3218, 0x02, /* [1] sof trigger, [0] tag_en */
 };
 /* Binning 4000*3000@60fps PD disabled */
 u16 addr_data_pair_preview_ov48b2q[] = {

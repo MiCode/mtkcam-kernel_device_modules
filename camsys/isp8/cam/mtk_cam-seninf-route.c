@@ -799,18 +799,18 @@ static u16 conv_ebd_hsize_raw14(u16 exp_hsize, u8 ebd_parsing_type)
 	switch (ebd_parsing_type) {
 	case MTK_EBD_PARSING_TYPE_MIPI_RAW10:
 		result = (result * 10 + 13) / 14;
-		result = (result + 7) & (~0x7);
+		//result = (result + 7) & (~0x7);
 		break;
 	case MTK_EBD_PARSING_TYPE_MIPI_RAW12:
 		result = (result * 12 + 13) / 14;
-		result = (result + 7) & (~0x7);
+		//result = (result + 7) & (~0x7);
 		break;
 	case MTK_EBD_PARSING_TYPE_MIPI_RAW14:
 		// do nothing
 		break;
 	default: // 8
 		result = (result * 8 + 13) / 14;
-		result = (result + 7) & (~0x7);
+		//result = (result + 7) & (~0x7);
 		break;
 	}
 

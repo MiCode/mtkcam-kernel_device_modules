@@ -22,6 +22,8 @@
  ****************************************************************************/
 #include "imx989litemipiraw_Sensor.h"
 
+#define IMX989LITE_EMBEDDED_DATA_EN 1
+
 static void set_sensor_cali(void *arg);
 static int get_sensor_temperature(void *arg);
 static void set_group_hold(void *arg, u8 en);
@@ -180,6 +182,18 @@ static struct mtk_mbus_frame_desc_entry frame_desc_prev[] = {
 			.user_data_desc = VC_PDAF_STATS_NE_PIX_1,
 		},
 	},
+#if IMX989LITE_EMBEDDED_DATA_EN
+	{
+		.bus.csi2 = {
+			.channel = 0,
+			.data_type = 0x12,
+			.hsize = 0x1000,
+			.vsize = 0x2,
+			.user_data_desc = VC_GENERAL_EMBEDDED,
+			.ebd_parsing_type = MTK_EBD_PARSING_TYPE_MIPI_RAW10,
+		},
+	},
+#endif
 };
 static struct mtk_mbus_frame_desc_entry frame_desc_cap[] = {
 	{
@@ -202,6 +216,18 @@ static struct mtk_mbus_frame_desc_entry frame_desc_cap[] = {
 			.user_data_desc = VC_PDAF_STATS_NE_PIX_1,
 		},
 	},
+#if IMX989LITE_EMBEDDED_DATA_EN
+	{
+		.bus.csi2 = {
+			.channel = 0,
+			.data_type = 0x12,
+			.hsize = 0x1000,
+			.vsize = 0x2,
+			.user_data_desc = VC_GENERAL_EMBEDDED,
+			.ebd_parsing_type = MTK_EBD_PARSING_TYPE_MIPI_RAW10,
+		},
+	},
+#endif
 };
 static struct mtk_mbus_frame_desc_entry frame_desc_vid[] = {
 	{
@@ -224,6 +250,18 @@ static struct mtk_mbus_frame_desc_entry frame_desc_vid[] = {
 			.user_data_desc = VC_PDAF_STATS_NE_PIX_1,
 		},
 	},
+#if IMX989LITE_EMBEDDED_DATA_EN
+	{
+		.bus.csi2 = {
+			.channel = 0,
+			.data_type = 0x12,
+			.hsize = 0x1000,
+			.vsize = 0x2,
+			.user_data_desc = VC_GENERAL_EMBEDDED,
+			.ebd_parsing_type = MTK_EBD_PARSING_TYPE_MIPI_RAW10,
+		},
+	},
+#endif
 };
 static struct mtk_mbus_frame_desc_entry frame_desc_hs_vid[] = {
 	{
@@ -236,6 +274,18 @@ static struct mtk_mbus_frame_desc_entry frame_desc_hs_vid[] = {
 			.fs_seq = MTK_FRAME_DESC_FS_SEQ_ONLY_ONE,
 		},
 	},
+#if IMX989LITE_EMBEDDED_DATA_EN
+	{
+		.bus.csi2 = {
+			.channel = 0,
+			.data_type = 0x12,
+			.hsize = 0x0780,
+			.vsize = 0x2,
+			.user_data_desc = VC_GENERAL_EMBEDDED,
+			.ebd_parsing_type = MTK_EBD_PARSING_TYPE_MIPI_RAW10,
+		},
+	},
+#endif
 };
 static struct mtk_mbus_frame_desc_entry frame_desc_slim_vid[] = {
 	{
@@ -248,6 +298,18 @@ static struct mtk_mbus_frame_desc_entry frame_desc_slim_vid[] = {
 			.fs_seq = MTK_FRAME_DESC_FS_SEQ_ONLY_ONE,
 		},
 	},
+#if IMX989LITE_EMBEDDED_DATA_EN
+	{
+		.bus.csi2 = {
+			.channel = 0,
+			.data_type = 0x12,
+			.hsize = 0x0500,
+			.vsize = 0x2,
+			.user_data_desc = VC_GENERAL_EMBEDDED,
+			.ebd_parsing_type = MTK_EBD_PARSING_TYPE_MIPI_RAW10,
+		},
+	},
+#endif
 };
 static struct mtk_mbus_frame_desc_entry frame_desc_cus1[] = {
 	{
@@ -270,6 +332,18 @@ static struct mtk_mbus_frame_desc_entry frame_desc_cus1[] = {
 			.user_data_desc = VC_PDAF_STATS_NE_PIX_1,
 		},
 	},
+#if IMX989LITE_EMBEDDED_DATA_EN
+	{
+		.bus.csi2 = {
+			.channel = 0,
+			.data_type = 0x12,
+			.hsize = 0x0f00,
+			.vsize = 0x2,
+			.user_data_desc = VC_GENERAL_EMBEDDED,
+			.ebd_parsing_type = MTK_EBD_PARSING_TYPE_MIPI_RAW10,
+		},
+	},
+#endif
 };
 static struct mtk_mbus_frame_desc_entry frame_desc_cus2[] = {
 	{
@@ -302,6 +376,18 @@ static struct mtk_mbus_frame_desc_entry frame_desc_cus2[] = {
 			.user_data_desc = VC_PDAF_STATS_NE_PIX_1,
 		},
 	},
+#if IMX989LITE_EMBEDDED_DATA_EN
+	{
+		.bus.csi2 = {
+			.channel = 0,
+			.data_type = 0x12,
+			.hsize = 0x0f00,
+			.vsize = 0x2,
+			.user_data_desc = VC_GENERAL_EMBEDDED,
+			.ebd_parsing_type = MTK_EBD_PARSING_TYPE_MIPI_RAW10,
+		},
+	},
+#endif
 };
 static struct mtk_mbus_frame_desc_entry frame_desc_cus3[] = {
 	{
@@ -344,13 +430,25 @@ static struct mtk_mbus_frame_desc_entry frame_desc_cus3[] = {
 			.user_data_desc = VC_PDAF_STATS_NE_PIX_1,
 		},
 	},
+#if IMX989LITE_EMBEDDED_DATA_EN
+	{
+		.bus.csi2 = {
+			.channel = 0,
+			.data_type = 0x12,
+			.hsize = 0x0f00,
+			.vsize = 0x2,
+			.user_data_desc = VC_GENERAL_EMBEDDED,
+			.ebd_parsing_type = MTK_EBD_PARSING_TYPE_MIPI_RAW10,
+		},
+	},
+#endif
 };
 static struct mtk_mbus_frame_desc_entry frame_desc_cus4[] = {
 	{
 		.bus.csi2 = {
 			.channel = 0,
 			.data_type = 0x2b,
-			.hsize = 0x0cd0,
+			.hsize = 0x0ce0,
 			.vsize = 0x099c,
 			.user_data_desc = VC_STAGGER_NE,
 			.fs_seq = MTK_FRAME_DESC_FS_SEQ_ONLY_ONE,
@@ -360,19 +458,31 @@ static struct mtk_mbus_frame_desc_entry frame_desc_cus4[] = {
 		.bus.csi2 = {
 			.channel = 0,
 			.data_type = 0x30,
-			.hsize = 0x0cd0,
+			.hsize = 0x0ce0,
 			.vsize = 0x0267,
 			.dt_remap_to_type = MTK_MBUS_FRAME_DESC_REMAP_TO_RAW10,
 			.user_data_desc = VC_PDAF_STATS_NE_PIX_1,
 		},
 	},
+#if IMX989LITE_EMBEDDED_DATA_EN
+	{
+		.bus.csi2 = {
+			.channel = 0,
+			.data_type = 0x12,
+			.hsize = 0x0ce0,
+			.vsize = 0x2,
+			.user_data_desc = VC_GENERAL_EMBEDDED,
+			.ebd_parsing_type = MTK_EBD_PARSING_TYPE_MIPI_RAW10,
+		},
+	},
+#endif
 };
 static struct mtk_mbus_frame_desc_entry frame_desc_cus5[] = {
 	{
 		.bus.csi2 = {
 			.channel = 0,
 			.data_type = 0x2b,
-			.hsize = 0x0cd0,
+			.hsize = 0x0ce0,
 			.vsize = 0x099c,
 			.user_data_desc = VC_STAGGER_NE,
 			.fs_seq = MTK_FRAME_DESC_FS_SEQ_ONLY_ONE,
@@ -382,19 +492,31 @@ static struct mtk_mbus_frame_desc_entry frame_desc_cus5[] = {
 		.bus.csi2 = {
 			.channel = 0,
 			.data_type = 0x30,
-			.hsize = 0x0668,
+			.hsize = 0x0670,
 			.vsize = 0x0267,
 			.dt_remap_to_type = MTK_MBUS_FRAME_DESC_REMAP_TO_RAW10,
 			.user_data_desc = VC_PDAF_STATS_NE_PIX_1,
 		},
 	},
+#if IMX989LITE_EMBEDDED_DATA_EN
+	{
+		.bus.csi2 = {
+			.channel = 0,
+			.data_type = 0x12,
+			.hsize = 0x0ce0,
+			.vsize = 0x2,
+			.user_data_desc = VC_GENERAL_EMBEDDED,
+			.ebd_parsing_type = MTK_EBD_PARSING_TYPE_MIPI_RAW10,
+		},
+	},
+#endif
 };
 static struct mtk_mbus_frame_desc_entry frame_desc_cus6[] = {
 	{
 		.bus.csi2 = {
 			.channel = 0,
 			.data_type = 0x2b,
-			.hsize = 0x0cd0,
+			.hsize = 0x0ce0,
 			.vsize = 0x099c,
 			.user_data_desc = VC_STAGGER_NE,
 			.fs_seq = MTK_FRAME_DESC_FS_SEQ_ONLY_ONE,
@@ -404,19 +526,31 @@ static struct mtk_mbus_frame_desc_entry frame_desc_cus6[] = {
 		.bus.csi2 = {
 			.channel = 0,
 			.data_type = 0x30,
-			.hsize = 0x0668,
+			.hsize = 0x0670,
 			.vsize = 0x0267,
 			.dt_remap_to_type = MTK_MBUS_FRAME_DESC_REMAP_TO_RAW10,
 			.user_data_desc = VC_PDAF_STATS_NE_PIX_1,
 		},
 	},
+#if IMX989LITE_EMBEDDED_DATA_EN
+	{
+		.bus.csi2 = {
+			.channel = 0,
+			.data_type = 0x12,
+			.hsize = 0x0ce0,
+			.vsize = 0x2,
+			.user_data_desc = VC_GENERAL_EMBEDDED,
+			.ebd_parsing_type = MTK_EBD_PARSING_TYPE_MIPI_RAW10,
+		},
+	},
+#endif
 };
 static struct mtk_mbus_frame_desc_entry frame_desc_cus7[] = {
 	{
 		.bus.csi2 = {
 			.channel = 0,
 			.data_type = 0x2b,
-			.hsize = 0x19a0,
+			.hsize = 0x19c0,
 			.vsize = 0x1338,
 			.user_data_desc = VC_STAGGER_NE,
 			.fs_seq = MTK_FRAME_DESC_FS_SEQ_ONLY_ONE,
@@ -426,19 +560,31 @@ static struct mtk_mbus_frame_desc_entry frame_desc_cus7[] = {
 		.bus.csi2 = {
 			.channel = 0,
 			.data_type = 0x30,
-			.hsize = 0x0cd0,
+			.hsize = 0x0ce0,
 			.vsize = 0x04ce,
 			.dt_remap_to_type = MTK_MBUS_FRAME_DESC_REMAP_TO_RAW10,
 			.user_data_desc = VC_PDAF_STATS_NE_PIX_1,
 		},
 	},
+#if IMX989LITE_EMBEDDED_DATA_EN
+	{
+		.bus.csi2 = {
+			.channel = 0,
+			.data_type = 0x12,
+			.hsize = 0x19c0,
+			.vsize = 0x2,
+			.user_data_desc = VC_GENERAL_EMBEDDED,
+			.ebd_parsing_type = MTK_EBD_PARSING_TYPE_MIPI_RAW10,
+		},
+	},
+#endif
 };
 static struct mtk_mbus_frame_desc_entry frame_desc_cus8[] = {
 	{
 		.bus.csi2 = {
 			.channel = 0,
 			.data_type = 0x2b,
-			.hsize = 0x19a0,
+			.hsize = 0x19c0,
 			.vsize = 0x1338,
 			.user_data_desc = VC_STAGGER_NE,
 			.fs_seq = MTK_FRAME_DESC_FS_SEQ_ONLY_ONE,
@@ -448,19 +594,31 @@ static struct mtk_mbus_frame_desc_entry frame_desc_cus8[] = {
 		.bus.csi2 = {
 			.channel = 0,
 			.data_type = 0x30,
-			.hsize = 0x0cd0,
+			.hsize = 0x0ce0,
 			.vsize = 0x04ce,
 			.dt_remap_to_type = MTK_MBUS_FRAME_DESC_REMAP_TO_RAW10,
 			.user_data_desc = VC_PDAF_STATS_NE_PIX_1,
 		},
 	},
+#if IMX989LITE_EMBEDDED_DATA_EN
+	{
+		.bus.csi2 = {
+			.channel = 0,
+			.data_type = 0x12,
+			.hsize = 0x19c0,
+			.vsize = 0x2,
+			.user_data_desc = VC_GENERAL_EMBEDDED,
+			.ebd_parsing_type = MTK_EBD_PARSING_TYPE_MIPI_RAW10,
+		},
+	},
+#endif
 };
 static struct mtk_mbus_frame_desc_entry frame_desc_cus9[] = {
 	{
 		.bus.csi2 = {
 			.channel = 0,
 			.data_type = 0x2b,
-			.hsize = 0x0cd0,
+			.hsize = 0x0ce0,
 			.vsize = 0x099c,
 			.user_data_desc = VC_STAGGER_NE,
 			.fs_seq = MTK_FRAME_DESC_FS_SEQ_FIRST,
@@ -470,7 +628,7 @@ static struct mtk_mbus_frame_desc_entry frame_desc_cus9[] = {
 		.bus.csi2 = {
 			.channel = 1,
 			.data_type = 0x2b,
-			.hsize = 0x0cd0,
+			.hsize = 0x0ce0,
 			.vsize = 0x099c,
 			.user_data_desc = VC_STAGGER_ME,
 			.fs_seq = MTK_FRAME_DESC_FS_SEQ_LAST,
@@ -480,7 +638,7 @@ static struct mtk_mbus_frame_desc_entry frame_desc_cus9[] = {
 		.bus.csi2 = {
 			.channel = 0,
 			.data_type = 0x30,
-			.hsize = 0x0cd0,
+			.hsize = 0x0ce0,
 			.vsize = 0x0267,
 			.dt_remap_to_type = MTK_MBUS_FRAME_DESC_REMAP_TO_RAW10,
 			.user_data_desc = VC_PDAF_STATS_NE_PIX_1,
@@ -490,19 +648,31 @@ static struct mtk_mbus_frame_desc_entry frame_desc_cus9[] = {
 		.bus.csi2 = {
 			.channel = 1,
 			.data_type = 0x30,
-			.hsize = 0x0cd0,
+			.hsize = 0x0ce0,
 			.vsize = 0x0267,
 			.dt_remap_to_type = MTK_MBUS_FRAME_DESC_REMAP_TO_RAW10,
-			.user_data_desc = VC_PDAF_STATS_NE_PIX_1,
+			.user_data_desc = VC_PDAF_STATS_ME_PIX_1,
 		},
 	},
+#if IMX989LITE_EMBEDDED_DATA_EN
+	{
+		.bus.csi2 = {
+			.channel = 0,
+			.data_type = 0x12,
+			.hsize = 0x0ce0,
+			.vsize = 0x2,
+			.user_data_desc = VC_GENERAL_EMBEDDED,
+			.ebd_parsing_type = MTK_EBD_PARSING_TYPE_MIPI_RAW10,
+		},
+	},
+#endif
 };
 static struct mtk_mbus_frame_desc_entry frame_desc_cus10[] = {
 	{
 		.bus.csi2 = {
 			.channel = 0,
 			.data_type = 0x2c,
-			.hsize = 0x0cd0,
+			.hsize = 0x0ce0,
 			.vsize = 0x099c,
 			.user_data_desc = VC_STAGGER_NE,
 			.fs_seq = MTK_FRAME_DESC_FS_SEQ_ONLY_ONE,
@@ -512,20 +682,32 @@ static struct mtk_mbus_frame_desc_entry frame_desc_cus10[] = {
 		.bus.csi2 = {
 			.channel = 0,
 			.data_type = 0x31,
-			.hsize = 0x0cd0,
+			.hsize = 0x0ce0,
 			.vsize = 0x0267,
 			.dt_remap_to_type = MTK_MBUS_FRAME_DESC_REMAP_TO_RAW12,
 			.user_data_desc = VC_PDAF_STATS_NE_PIX_1,
 			.valid_bit = 10,
 		},
 	},
+#if IMX989LITE_EMBEDDED_DATA_EN
+	{
+		.bus.csi2 = {
+			.channel = 0,
+			.data_type = 0x12,
+			.hsize = 0x0ce0,
+			.vsize = 0x2,
+			.user_data_desc = VC_GENERAL_EMBEDDED,
+			.ebd_parsing_type = MTK_EBD_PARSING_TYPE_MIPI_RAW12,
+		},
+	},
+#endif
 };
 static struct mtk_mbus_frame_desc_entry frame_desc_cus11[] = {
 	{
 		.bus.csi2 = {
 			.channel = 0,
 			.data_type = 0x2d,
-			.hsize = 0x0cd0,
+			.hsize = 0x0ce0,
 			.vsize = 0x099c,
 			.user_data_desc = VC_STAGGER_NE,
 			.fs_seq = MTK_FRAME_DESC_FS_SEQ_ONLY_ONE,
@@ -535,20 +717,32 @@ static struct mtk_mbus_frame_desc_entry frame_desc_cus11[] = {
 		.bus.csi2 = {
 			.channel = 0,
 			.data_type = 0x32,
-			.hsize = 0x0cd0,
+			.hsize = 0x0ce0,
 			.vsize = 0x0267,
 			.dt_remap_to_type = MTK_MBUS_FRAME_DESC_REMAP_TO_RAW14,
 			.user_data_desc = VC_PDAF_STATS_NE_PIX_1,
 			.valid_bit = 10,
 		},
 	},
+#if IMX989LITE_EMBEDDED_DATA_EN
+	{
+		.bus.csi2 = {
+			.channel = 0,
+			.data_type = 0x12,
+			.hsize = 0x0ce0,
+			.vsize = 0x2,
+			.user_data_desc = VC_GENERAL_EMBEDDED,
+			.ebd_parsing_type = MTK_EBD_PARSING_TYPE_MIPI_RAW14,
+		},
+	},
+#endif
 };
 static struct mtk_mbus_frame_desc_entry frame_desc_cus12[] = {
 	{
 		.bus.csi2 = {
 			.channel = 0,
 			.data_type = 0x2b,
-			.hsize = 0x0cd0,
+			.hsize = 0x0ce0,
 			.vsize = 0x099c,
 			.user_data_desc = VC_STAGGER_NE,
 			.fs_seq = MTK_FRAME_DESC_FS_SEQ_FIRST,
@@ -558,7 +752,7 @@ static struct mtk_mbus_frame_desc_entry frame_desc_cus12[] = {
 		.bus.csi2 = {
 			.channel = 1,
 			.data_type = 0x2b,
-			.hsize = 0x0cd0,
+			.hsize = 0x0ce0,
 			.vsize = 0x099c,
 			.user_data_desc = VC_STAGGER_ME,
 			.fs_seq = MTK_FRAME_DESC_FS_SEQ_LAST,
@@ -568,19 +762,31 @@ static struct mtk_mbus_frame_desc_entry frame_desc_cus12[] = {
 		.bus.csi2 = {
 			.channel = 0,
 			.data_type = 0x30,
-			.hsize = 0x0cd0,
+			.hsize = 0x0ce0,
 			.vsize = 0x0267,
 			.dt_remap_to_type = MTK_MBUS_FRAME_DESC_REMAP_TO_RAW10,
 			.user_data_desc = VC_PDAF_STATS_NE_PIX_1,
 		},
 	},
+#if IMX989LITE_EMBEDDED_DATA_EN
+	{
+		.bus.csi2 = {
+			.channel = 0,
+			.data_type = 0x12,
+			.hsize = 0x0ce0,
+			.vsize = 0x2,
+			.user_data_desc = VC_GENERAL_EMBEDDED,
+			.ebd_parsing_type = MTK_EBD_PARSING_TYPE_MIPI_RAW10,
+		},
+	},
+#endif
 };
 static struct mtk_mbus_frame_desc_entry frame_desc_cus13[] = {
 	{
 		.bus.csi2 = {
 			.channel = 0,
 			.data_type = 0x2b,
-			.hsize = 0x0cd0,
+			.hsize = 0x0ce0,
 			.vsize = 0x099c,
 			.user_data_desc = VC_STAGGER_NE,
 			.fs_seq = MTK_FRAME_DESC_FS_SEQ_FIRST,
@@ -590,7 +796,7 @@ static struct mtk_mbus_frame_desc_entry frame_desc_cus13[] = {
 		.bus.csi2 = {
 			.channel = 1,
 			.data_type = 0x2b,
-			.hsize = 0x0cd0,
+			.hsize = 0x0ce0,
 			.vsize = 0x099c,
 			.user_data_desc = VC_STAGGER_ME,
 			.fs_seq = MTK_FRAME_DESC_FS_SEQ_LAST,
@@ -600,19 +806,42 @@ static struct mtk_mbus_frame_desc_entry frame_desc_cus13[] = {
 		.bus.csi2 = {
 			.channel = 0,
 			.data_type = 0x30,
-			.hsize = 0x0cd0,
+			.hsize = 0x0ce0,
 			.vsize = 0x0267,
 			.dt_remap_to_type = MTK_MBUS_FRAME_DESC_REMAP_TO_RAW10,
 			.user_data_desc = VC_PDAF_STATS_NE_PIX_1,
 		},
 	},
+/* not support */
+	//{
+	//	.bus.csi2 = {
+	//		.channel = 1,
+	//		.data_type = 0x30,
+	//		.hsize = 0x0cd0,
+	//		.vsize = 0x0267,
+	//		.dt_remap_to_type = MTK_MBUS_FRAME_DESC_REMAP_TO_RAW10,
+	//		.user_data_desc = VC_PDAF_STATS_ME_PIX_1,
+	//	},
+	//},
+#if IMX989LITE_EMBEDDED_DATA_EN
+	{
+		.bus.csi2 = {
+			.channel = 0,
+			.data_type = 0x12,
+			.hsize = 0x0ce0,
+			.vsize = 0x2,
+			.user_data_desc = VC_GENERAL_EMBEDDED,
+			.ebd_parsing_type = MTK_EBD_PARSING_TYPE_MIPI_RAW10,
+		},
+	},
+#endif
 };
 static struct mtk_mbus_frame_desc_entry frame_desc_cus14[] = {
 	{
 		.bus.csi2 = {
 			.channel = 0,
 			.data_type = 0x2b,
-			.hsize = 0x0cd0,
+			.hsize = 0x0ce0,
 			.vsize = 0x099c,
 			.user_data_desc = VC_STAGGER_NE,
 			.fs_seq = MTK_FRAME_DESC_FS_SEQ_FIRST,
@@ -622,7 +851,7 @@ static struct mtk_mbus_frame_desc_entry frame_desc_cus14[] = {
 		.bus.csi2 = {
 			.channel = 1,
 			.data_type = 0x2b,
-			.hsize = 0x0cd0,
+			.hsize = 0x0ce0,
 			.vsize = 0x099c,
 			.user_data_desc = VC_STAGGER_ME,
 		},
@@ -631,9 +860,9 @@ static struct mtk_mbus_frame_desc_entry frame_desc_cus14[] = {
 		.bus.csi2 = {
 			.channel = 2,
 			.data_type = 0x2b,
-			.hsize = 0x0cd0,
+			.hsize = 0x0ce0,
 			.vsize = 0x099c,
-			.user_data_desc = VC_STAGGER_ME,
+			.user_data_desc = VC_STAGGER_SE,
 			.fs_seq = MTK_FRAME_DESC_FS_SEQ_LAST,
 		},
 	},
@@ -641,7 +870,7 @@ static struct mtk_mbus_frame_desc_entry frame_desc_cus14[] = {
 		.bus.csi2 = {
 			.channel = 0,
 			.data_type = 0x30,
-			.hsize = 0x0cd0,
+			.hsize = 0x0ce0,
 			.vsize = 0x0267,
 			.dt_remap_to_type = MTK_MBUS_FRAME_DESC_REMAP_TO_RAW10,
 			.user_data_desc = VC_PDAF_STATS_NE_PIX_1,
@@ -651,19 +880,42 @@ static struct mtk_mbus_frame_desc_entry frame_desc_cus14[] = {
 		.bus.csi2 = {
 			.channel = 1,
 			.data_type = 0x30,
-			.hsize = 0x0cd0,
+			.hsize = 0x0ce0,
 			.vsize = 0x0267,
 			.dt_remap_to_type = MTK_MBUS_FRAME_DESC_REMAP_TO_RAW10,
-			.user_data_desc = VC_PDAF_STATS_NE_PIX_1,
+			.user_data_desc = VC_PDAF_STATS_ME_PIX_1,
 		},
 	},
+// MRAW not support; HW number not enough
+	// {
+		// .bus.csi2 = {
+			// .channel = 2,
+			// .data_type = 0x30,
+			// .hsize = 0x0cd0,
+			// .vsize = 0x0267,
+			// .dt_remap_to_type = MTK_MBUS_FRAME_DESC_REMAP_TO_RAW10,
+			// .user_data_desc = VC_PDAF_STATS_SE_PIX_1,
+		// },
+	// },
+#if IMX989LITE_EMBEDDED_DATA_EN
+	{
+		.bus.csi2 = {
+			.channel = 0,
+			.data_type = 0x12,
+			.hsize = 0x0ce0,
+			.vsize = 0x2,
+			.user_data_desc = VC_GENERAL_EMBEDDED,
+			.ebd_parsing_type = MTK_EBD_PARSING_TYPE_MIPI_RAW10,
+		},
+	},
+#endif
 };
 static struct mtk_mbus_frame_desc_entry frame_desc_cus15[] = {
 	{
 		.bus.csi2 = {
 			.channel = 0,
 			.data_type = 0x2b,
-			.hsize = 0x0cd0,
+			.hsize = 0x0ce0,
 			.vsize = 0x099c,
 			.user_data_desc = VC_STAGGER_NE,
 			.fs_seq = MTK_FRAME_DESC_FS_SEQ_ONLY_ONE,
@@ -673,12 +925,24 @@ static struct mtk_mbus_frame_desc_entry frame_desc_cus15[] = {
 		.bus.csi2 = {
 			.channel = 0,
 			.data_type = 0x30,
-			.hsize = 0x0cd0,
+			.hsize = 0x0ce0,
 			.vsize = 0x0267,
 			.dt_remap_to_type = MTK_MBUS_FRAME_DESC_REMAP_TO_RAW10,
 			.user_data_desc = VC_PDAF_STATS_NE_PIX_1,
 		},
 	},
+#if IMX989LITE_EMBEDDED_DATA_EN
+	{
+		.bus.csi2 = {
+			.channel = 0,
+			.data_type = 0x12,
+			.hsize = 0x0ce0,
+			.vsize = 0x2,
+			.user_data_desc = VC_GENERAL_EMBEDDED,
+			.ebd_parsing_type = MTK_EBD_PARSING_TYPE_MIPI_RAW10,
+		},
+	},
+#endif
 };
 static struct mtk_mbus_frame_desc_entry frame_desc_cus16[] = {
 	{
@@ -701,6 +965,18 @@ static struct mtk_mbus_frame_desc_entry frame_desc_cus16[] = {
 			.user_data_desc = VC_PDAF_STATS_NE_PIX_1,
 		},
 	},
+#if IMX989LITE_EMBEDDED_DATA_EN
+	{
+		.bus.csi2 = {
+			.channel = 0,
+			.data_type = 0x12,
+			.hsize = 0x2000,
+			.vsize = 0x2,
+			.user_data_desc = VC_GENERAL_EMBEDDED,
+			.ebd_parsing_type = MTK_EBD_PARSING_TYPE_MIPI_RAW10,
+		},
+	},
+#endif
 };
 static struct mtk_mbus_frame_desc_entry frame_desc_cus17[] = {
 	{
@@ -723,6 +999,18 @@ static struct mtk_mbus_frame_desc_entry frame_desc_cus17[] = {
 			.user_data_desc = VC_PDAF_STATS_NE_PIX_1,
 		},
 	},
+#if IMX989LITE_EMBEDDED_DATA_EN
+	{
+		.bus.csi2 = {
+			.channel = 0,
+			.data_type = 0x12,
+			.hsize = 0x2000,
+			.vsize = 0x2,
+			.user_data_desc = VC_GENERAL_EMBEDDED,
+			.ebd_parsing_type = MTK_EBD_PARSING_TYPE_MIPI_RAW10,
+		},
+	},
+#endif
 };
 static struct mtk_mbus_frame_desc_entry frame_desc_cus18[] = {
 	{
@@ -745,6 +1033,18 @@ static struct mtk_mbus_frame_desc_entry frame_desc_cus18[] = {
 			.user_data_desc = VC_PDAF_STATS_NE_PIX_1,
 		},
 	},
+#if IMX989LITE_EMBEDDED_DATA_EN
+	{
+		.bus.csi2 = {
+			.channel = 0,
+			.data_type = 0x12,
+			.hsize = 0x0e80,
+			.vsize = 0x2,
+			.user_data_desc = VC_GENERAL_EMBEDDED,
+			.ebd_parsing_type = MTK_EBD_PARSING_TYPE_MIPI_RAW10,
+		},
+	},
+#endif
 };
 static struct mtk_mbus_frame_desc_entry frame_desc_cus19[] = {
 	{
@@ -763,7 +1063,7 @@ static struct mtk_mbus_frame_desc_entry frame_desc_cus19[] = {
 			.data_type = 0x2b,
 			.hsize = 0x0e80,
 			.vsize = 0x0828,
-			.user_data_desc = VC_STAGGER_NE,
+			.user_data_desc = VC_STAGGER_ME,
 			.fs_seq = MTK_FRAME_DESC_FS_SEQ_LAST,
 		},
 	},
@@ -777,6 +1077,7 @@ static struct mtk_mbus_frame_desc_entry frame_desc_cus19[] = {
 			.user_data_desc = VC_PDAF_STATS_NE_PIX_1,
 		},
 	},
+/* not support */
 	// {
 		// .bus.csi2 = {
 			// .channel = 1,
@@ -787,6 +1088,18 @@ static struct mtk_mbus_frame_desc_entry frame_desc_cus19[] = {
 			// .user_data_desc = VC_PDAF_STATS_ME_PIX_1,
 		// },
 	// },
+#if IMX989LITE_EMBEDDED_DATA_EN
+	{
+		.bus.csi2 = {
+			.channel = 0,
+			.data_type = 0x12,
+			.hsize = 0x0e80,
+			.vsize = 0x2,
+			.user_data_desc = VC_GENERAL_EMBEDDED,
+			.ebd_parsing_type = MTK_EBD_PARSING_TYPE_MIPI_RAW10,
+		},
+	},
+#endif
 };
 static struct mtk_mbus_frame_desc_entry frame_desc_cus20[] = {
 	{
@@ -810,6 +1123,18 @@ static struct mtk_mbus_frame_desc_entry frame_desc_cus20[] = {
 			.valid_bit = 10,
 		},
 	},
+#if IMX989LITE_EMBEDDED_DATA_EN
+	{
+		.bus.csi2 = {
+			.channel = 0,
+			.data_type = 0x12,
+			.hsize = 0x0e80,
+			.vsize = 0x2,
+			.user_data_desc = VC_GENERAL_EMBEDDED,
+			.ebd_parsing_type = MTK_EBD_PARSING_TYPE_MIPI_RAW12,
+		},
+	},
+#endif
 };
 static struct mtk_mbus_frame_desc_entry frame_desc_cus21[] = {
 	{
@@ -832,6 +1157,18 @@ static struct mtk_mbus_frame_desc_entry frame_desc_cus21[] = {
 			.user_data_desc = VC_PDAF_STATS_NE_PIX_1,
 		},
 	},
+#if IMX989LITE_EMBEDDED_DATA_EN
+	{
+		.bus.csi2 = {
+			.channel = 0,
+			.data_type = 0x12,
+			.hsize = 0x0800,
+			.vsize = 0x2,
+			.user_data_desc = VC_GENERAL_EMBEDDED,
+			.ebd_parsing_type = MTK_EBD_PARSING_TYPE_MIPI_RAW10,
+		},
+	},
+#endif
 };
 
 static struct subdrv_mode_struct mode_struct[] = {
@@ -1242,7 +1579,7 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.linelength = 44672,
 		.framelength = 2648,
 		.max_framerate = 300,
-		.mipi_pixel_rate = 1391750000,
+		.mipi_pixel_rate = 1398680000,
 		.readout_length = 0,
 		.read_margin = 64,
 		.framelength_step = 8,
@@ -1257,13 +1594,13 @@ static struct subdrv_mode_struct mode_struct[] = {
 			.h0_size = 4928,
 			.scale_w = 4096,
 			.scale_h = 2464,
-			.x1_offset = 408,
+			.x1_offset = 400,
 			.y1_offset = 2,
-			.w1_size = 3280,
+			.w1_size = 3296,
 			.h1_size = 2460,
 			.x2_tg_offset = 0,
 			.y2_tg_offset = 0,
-			.w2_tg_size = 3280,
+			.w2_tg_size = 3296,
 			.h2_tg_size = 2460,
 		},
 		.pdaf_cap = TRUE,
@@ -1271,8 +1608,11 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.ae_binning_ratio = 1000,
 		.fine_integ_line = 0,
 		.delay_frame = 3,
-		.csi_param = {},
+		.csi_param = {
+			.dphy_init_deskew_support = 0,
+		},
 		.dpc_enabled = true,
+		.sensor_output_dataformat = SENSOR_OUTPUT_FORMAT_RAW_4CELL_HW_BAYER_R,
 	},
 	{
 		.frame_desc = frame_desc_cus5,
@@ -1289,7 +1629,7 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.linelength = 43072,
 		.framelength = 2752,
 		.max_framerate = 300,
-		.mipi_pixel_rate = 1391750000,
+		.mipi_pixel_rate = 1398680000,
 		.readout_length = 0,
 		.read_margin = 64,
 		.framelength_step = 8,
@@ -1304,13 +1644,13 @@ static struct subdrv_mode_struct mode_struct[] = {
 			.h0_size = 2496,
 			.scale_w = 4608,
 			.scale_h = 2496,
-			.x1_offset = 664,
+			.x1_offset = 656,
 			.y1_offset = 18,
-			.w1_size = 3280,
+			.w1_size = 3296,
 			.h1_size = 2460,
 			.x2_tg_offset = 0,
 			.y2_tg_offset = 0,
-			.w2_tg_size = 3280,
+			.w2_tg_size = 3296,
 			.h2_tg_size = 2460,
 		},
 		.pdaf_cap = TRUE,
@@ -1318,7 +1658,10 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.ae_binning_ratio = 1000,
 		.fine_integ_line = 0,
 		.delay_frame = 3,
-		.csi_param = {},
+		.csi_param = {
+			.dphy_init_deskew_support = 0,
+		},
+		.sensor_output_dataformat = SENSOR_OUTPUT_FORMAT_RAW_4CELL_HW_BAYER_R,
 		.multi_exposure_ana_gain_range[IMGSENSOR_EXPOSURE_LE].max = BASEGAIN * 16,
 		.dpc_enabled = true,
 	},
@@ -1337,7 +1680,7 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.linelength = 43072,
 		.framelength = 2752,
 		.max_framerate = 300,
-		.mipi_pixel_rate = 1391750000,
+		.mipi_pixel_rate = 1398680000,
 		.readout_length = 0,
 		.read_margin = 64,
 		.framelength_step = 8,
@@ -1352,13 +1695,13 @@ static struct subdrv_mode_struct mode_struct[] = {
 			.h0_size = 2496,
 			.scale_w = 4608,
 			.scale_h = 2496,
-			.x1_offset = 664,
+			.x1_offset = 656,
 			.y1_offset = 16,
-			.w1_size = 3280,
+			.w1_size = 3296,
 			.h1_size = 2460,
 			.x2_tg_offset = 0,
 			.y2_tg_offset = 0,
-			.w2_tg_size = 3280,
+			.w2_tg_size = 3296,
 			.h2_tg_size = 2460,
 		},
 		.pdaf_cap = TRUE,
@@ -1366,7 +1709,9 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.ae_binning_ratio = 1000,
 		.fine_integ_line = 0,
 		.delay_frame = 3,
-		.csi_param = {},
+		.csi_param = {
+			.dphy_init_deskew_support = 0,
+		},
 		.multi_exposure_ana_gain_range[IMGSENSOR_EXPOSURE_LE].max = BASEGAIN * 16,
 		.sensor_output_dataformat = SENSOR_OUTPUT_FORMAT_RAW_4CELL_R,
 		.dpc_enabled = true,
@@ -1386,7 +1731,7 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.linelength = 21536,
 		.framelength = 6880,
 		.max_framerate = 240,
-		.mipi_pixel_rate = 1391750000,
+		.mipi_pixel_rate = 1398680000,
 		.readout_length = 0,
 		.read_margin = 64,
 		.framelength_step = 8,
@@ -1401,13 +1746,13 @@ static struct subdrv_mode_struct mode_struct[] = {
 			.h0_size = 4928,
 			.scale_w = 8192,
 			.scale_h = 4928,
-			.x1_offset = 816,
+			.x1_offset = 800,
 			.y1_offset = 4,
-			.w1_size = 6560,
+			.w1_size = 6592,
 			.h1_size = 4920,
 			.x2_tg_offset = 0,
 			.y2_tg_offset = 0,
-			.w2_tg_size = 6560,
+			.w2_tg_size = 6592,
 			.h2_tg_size = 4920,
 		},
 		.pdaf_cap = TRUE,
@@ -1415,7 +1760,10 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.ae_binning_ratio = 1000,
 		.fine_integ_line = 0,
 		.delay_frame = 3,
-		.csi_param = {},
+		.csi_param = {
+			.dphy_init_deskew_support = 0,
+		},
+		.sensor_output_dataformat = SENSOR_OUTPUT_FORMAT_RAW_4CELL_HW_BAYER_R,
 		.multi_exposure_ana_gain_range[IMGSENSOR_EXPOSURE_LE].max = BASEGAIN * 16,
 		.dpc_enabled = true,
 	},
@@ -1434,7 +1782,7 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.linelength = 21536,
 		.framelength = 6880,
 		.max_framerate = 240,
-		.mipi_pixel_rate = 1391750000,
+		.mipi_pixel_rate = 1398680000,
 		.readout_length = 0,
 		.read_margin = 64,
 		.framelength_step = 8,
@@ -1449,13 +1797,13 @@ static struct subdrv_mode_struct mode_struct[] = {
 			.h0_size = 4928,
 			.scale_w = 8192,
 			.scale_h = 4928,
-			.x1_offset = 816,
+			.x1_offset = 800,
 			.y1_offset = 4,
-			.w1_size = 6560,
+			.w1_size = 6592,
 			.h1_size = 4920,
 			.x2_tg_offset = 0,
 			.y2_tg_offset = 0,
-			.w2_tg_size = 6560,
+			.w2_tg_size = 6592,
 			.h2_tg_size = 4920,
 		},
 		.pdaf_cap = TRUE,
@@ -1463,7 +1811,9 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.ae_binning_ratio = 1000,
 		.fine_integ_line = 0,
 		.delay_frame = 3,
-		.csi_param = {},
+		.csi_param = {
+			.dphy_init_deskew_support = 0,
+		},
 		.multi_exposure_ana_gain_range[IMGSENSOR_EXPOSURE_LE].max = BASEGAIN * 16,
 		.sensor_output_dataformat = SENSOR_OUTPUT_FORMAT_RAW_4CELL_R,
 		.dpc_enabled = true,
@@ -1483,8 +1833,8 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.linelength = 22336,
 		.framelength = 2648*2,
 		.max_framerate = 300,
-		.mipi_pixel_rate = 1391750000,
-		.readout_length = 2584*2, // 32+(112+Y_ADD_END-Y_ADD_STA+1+64)/2
+		.mipi_pixel_rate = 1398680000,
+		.readout_length = 3192, // 32+(112+Y_ADD_END-Y_ADD_STA+1+64)/2
 		.read_margin = 64,
 		.framelength_step = 8*2,
 		.coarse_integ_step = 8*2,
@@ -1501,13 +1851,13 @@ static struct subdrv_mode_struct mode_struct[] = {
 			.h0_size = 4928,
 			.scale_w = 4096,
 			.scale_h = 2464,
-			.x1_offset = 408,
+			.x1_offset = 400,
 			.y1_offset = 2,
-			.w1_size = 3280,
+			.w1_size = 3296,
 			.h1_size = 2460,
 			.x2_tg_offset = 0,
 			.y2_tg_offset = 0,
-			.w2_tg_size = 3280,
+			.w2_tg_size = 3296,
 			.h2_tg_size = 2460,
 		},
 		.pdaf_cap = TRUE,
@@ -1515,7 +1865,10 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.ae_binning_ratio = 1000,
 		.fine_integ_line = 0,
 		.delay_frame = 3,
-		.csi_param = {},
+		.csi_param = {
+			.dphy_init_deskew_support = 0,
+		},
+		.sensor_output_dataformat = SENSOR_OUTPUT_FORMAT_RAW_4CELL_HW_BAYER_R,
 		.dpc_enabled = true,
 	},
 	{
@@ -1533,7 +1886,7 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.linelength = 42400,
 		.framelength = 2792,
 		.max_framerate = 300,
-		.mipi_pixel_rate = 1159800000,
+		.mipi_pixel_rate = 1165570000,
 		.readout_length = 0,
 		.read_margin = 64,
 		.framelength_step = 8,
@@ -1549,13 +1902,13 @@ static struct subdrv_mode_struct mode_struct[] = {
 			.h0_size = 4928,
 			.scale_w = 4096,
 			.scale_h = 2464,
-			.x1_offset = 408,
+			.x1_offset = 400,
 			.y1_offset = 2,
-			.w1_size = 3280,
+			.w1_size = 3296,
 			.h1_size = 2460,
 			.x2_tg_offset = 0,
 			.y2_tg_offset = 0,
-			.w2_tg_size = 3280,
+			.w2_tg_size = 3296,
 			.h2_tg_size = 2460,
 		},
 		.pdaf_cap = TRUE,
@@ -1563,7 +1916,9 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.ae_binning_ratio = 1000,
 		.fine_integ_line = 0,
 		.delay_frame = 3,
-		.csi_param = {},
+		.csi_param = {
+			.dphy_init_deskew_support = 0,
+		},
 		.sensor_output_dataformat = SENSOR_OUTPUT_FORMAT_RAW12_R,
 		.saturation_info = &imgsensor_saturation_info_12bit,
 		.dcg_info = {
@@ -1594,7 +1949,7 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.linelength = 42400,
 		.framelength = 2792,
 		.max_framerate = 300,
-		.mipi_pixel_rate = 994110000,
+		.mipi_pixel_rate = 999060000,
 		.readout_length = 0,
 		.read_margin = 64,
 		.framelength_step = 8,
@@ -1610,13 +1965,13 @@ static struct subdrv_mode_struct mode_struct[] = {
 			.h0_size = 4928,
 			.scale_w = 4096,
 			.scale_h = 2464,
-			.x1_offset = 408,
+			.x1_offset = 400,
 			.y1_offset = 2,
-			.w1_size = 3280,
+			.w1_size = 3296,
 			.h1_size = 2460,
 			.x2_tg_offset = 0,
 			.y2_tg_offset = 0,
-			.w2_tg_size = 3280,
+			.w2_tg_size = 3296,
 			.h2_tg_size = 2460,
 		},
 		.pdaf_cap = TRUE,
@@ -1624,7 +1979,9 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.ae_binning_ratio = 1000,
 		.fine_integ_line = 0,
 		.delay_frame = 3,
-		.csi_param = {},
+		.csi_param = {
+			.dphy_init_deskew_support = 0,
+		},
 		.sensor_output_dataformat = SENSOR_OUTPUT_FORMAT_RAW14_R,
 		.saturation_info = &imgsensor_saturation_info_14bit,
 		.dcg_info = {
@@ -1655,7 +2012,7 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.linelength = 42400,
 		.framelength = 2792,
 		.max_framerate = 300,
-		.mipi_pixel_rate = 1391750000,
+		.mipi_pixel_rate = 1398680000,
 		.readout_length = 0,
 		.read_margin = 64,
 		.framelength_step = 8,
@@ -1671,13 +2028,13 @@ static struct subdrv_mode_struct mode_struct[] = {
 			.h0_size = 4928,
 			.scale_w = 4096,
 			.scale_h = 2464,
-			.x1_offset = 408,
+			.x1_offset = 400,
 			.y1_offset = 2,
-			.w1_size = 3280,
+			.w1_size = 3296,
 			.h1_size = 2460,
 			.x2_tg_offset = 0,
 			.y2_tg_offset = 0,
-			.w2_tg_size = 3280,
+			.w2_tg_size = 3296,
 			.h2_tg_size = 2460,
 		},
 		.pdaf_cap = TRUE,
@@ -1685,7 +2042,10 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.ae_binning_ratio = 1000,
 		.fine_integ_line = 0,
 		.delay_frame = 3,
-		.csi_param = {},
+		.csi_param = {
+			.dphy_init_deskew_support = 0,
+		},
+		.sensor_output_dataformat = SENSOR_OUTPUT_FORMAT_RAW_4CELL_HW_BAYER_R,
 		.saturation_info = &imgsensor_saturation_info_10bit,
 		.dcg_info = {
 			.dcg_mode = IMGSENSOR_DCG_RAW,
@@ -1713,9 +2073,9 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.exp_cnt = 2,
 		.pclk = 3558400000,
 		.linelength = 22336,
-		.framelength = 2648*2,
+		.framelength = 2648,
 		.max_framerate = 300,
-		.mipi_pixel_rate = 1391750000,
+		.mipi_pixel_rate = 1398680000,
 		.readout_length = 2524,
 		.read_margin = 64*2,
 		.framelength_step = 8,
@@ -1733,13 +2093,13 @@ static struct subdrv_mode_struct mode_struct[] = {
 			.h0_size = 4928,
 			.scale_w = 4096,
 			.scale_h = 2464,
-			.x1_offset = 408,
+			.x1_offset = 400,
 			.y1_offset = 2,
-			.w1_size = 3280,
+			.w1_size = 3296,
 			.h1_size = 2460,
 			.x2_tg_offset = 0,
 			.y2_tg_offset = 0,
-			.w2_tg_size = 3280,
+			.w2_tg_size = 3296,
 			.h2_tg_size = 2460,
 		},
 		.pdaf_cap = TRUE,
@@ -1747,7 +2107,10 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.ae_binning_ratio = 1000,
 		.fine_integ_line = 0,
 		.delay_frame = 3,
-		.csi_param = {},
+		.csi_param = {
+			.dphy_init_deskew_support = 0,
+		},
+		.sensor_output_dataformat = SENSOR_OUTPUT_FORMAT_RAW_4CELL_HW_BAYER_R,
 		.exposure_order_in_lbmf = IMGSENSOR_LBMF_EXPOSURE_SE_FIRST,
 		.mode_type_in_lbmf = IMGSENSOR_LBMF_MODE_MANUAL,
 		.multi_exposure_ana_gain_range[IMGSENSOR_EXPOSURE_LE].max = BASEGAIN * 16,
@@ -1767,10 +2130,10 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.exp_cnt = 3,
 		.pclk = 3558400000,
 		.linelength = 13632,
-		.framelength = 2896*3,
+		.framelength = 2896,
 		.max_framerate = 300,
-		.mipi_pixel_rate = 1391750000,
-		.readout_length = 2584*3, // 32+(112+Y_ADD_END-Y_ADD_STA+1+64)/2
+		.mipi_pixel_rate = 1398680000,
+		.readout_length = 3192, // 32+(112+Y_ADD_END-Y_ADD_STA+1+64)/2
 		.read_margin = 64,
 		.framelength_step = 8*3,
 		.coarse_integ_step = 8*3,
@@ -1789,13 +2152,13 @@ static struct subdrv_mode_struct mode_struct[] = {
 			.h0_size = 4928,
 			.scale_w = 4096,
 			.scale_h = 2464,
-			.x1_offset = 408,
+			.x1_offset = 400,
 			.y1_offset = 2,
-			.w1_size = 3280,
+			.w1_size = 3296,
 			.h1_size = 2460,
 			.x2_tg_offset = 0,
 			.y2_tg_offset = 0,
-			.w2_tg_size = 3280,
+			.w2_tg_size = 3296,
 			.h2_tg_size = 2460,
 		},
 		.pdaf_cap = TRUE,
@@ -1803,7 +2166,10 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.ae_binning_ratio = 1000,
 		.fine_integ_line = 0,
 		.delay_frame = 3,
-		.csi_param = {},
+		.csi_param = {
+			.dphy_init_deskew_support = 0,
+		},
+		.sensor_output_dataformat = SENSOR_OUTPUT_FORMAT_RAW_4CELL_HW_BAYER_R,
 		.dpc_enabled = true,
 	},
 	{
@@ -1821,7 +2187,7 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.linelength = 22336,
 		.framelength = 2648,
 		.max_framerate = 601,
-		.mipi_pixel_rate = 1391750000,
+		.mipi_pixel_rate = 1398680000,
 		.readout_length = 0,
 		.read_margin = 64,
 		.framelength_step = 8,
@@ -1836,13 +2202,13 @@ static struct subdrv_mode_struct mode_struct[] = {
 			.h0_size = 4928,
 			.scale_w = 4096,
 			.scale_h = 2464,
-			.x1_offset = 408,
+			.x1_offset = 400,
 			.y1_offset = 2,
-			.w1_size = 3280,
+			.w1_size = 3296,
 			.h1_size = 2460,
 			.x2_tg_offset = 0,
 			.y2_tg_offset = 0,
-			.w2_tg_size = 3280,
+			.w2_tg_size = 3296,
 			.h2_tg_size = 2460,
 		},
 		.pdaf_cap = TRUE,
@@ -1850,7 +2216,10 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.ae_binning_ratio = 1000,
 		.fine_integ_line = 0,
 		.delay_frame = 3,
-		.csi_param = {},
+		.csi_param = {
+			.dphy_init_deskew_support = 0,
+		},
+		.sensor_output_dataformat = SENSOR_OUTPUT_FORMAT_RAW_4CELL_HW_BAYER_R,
 		.dpc_enabled = true,
 	},
 	{
@@ -1975,19 +2344,19 @@ static struct subdrv_mode_struct mode_struct[] = {
 			.full_w = 8192,
 			.full_h = 6144,
 			.x0_offset = 0,
-			.y0_offset = 768,
+			.y0_offset = 960,
 			.w0_size = 8192,
-			.h0_size = 4608,
+			.h0_size = 4224,
 			.scale_w = 4096,
-			.scale_h = 2304,
-			.x1_offset = 0,
-			.y1_offset = 0,
-			.w1_size = 4096,
-			.h1_size = 2304,
+			.scale_h = 2112,
+			.x1_offset = 192,
+			.y1_offset = 12,
+			.w1_size = 3712,
+			.h1_size = 2088,
 			.x2_tg_offset = 0,
 			.y2_tg_offset = 0,
-			.w2_tg_size = 4096,
-			.h2_tg_size = 2304,
+			.w2_tg_size = 3712,
+			.h2_tg_size = 2088,
 		},
 		.pdaf_cap = TRUE,
 		.imgsensor_pd_info = &imgsensor_pd_info,
@@ -2271,6 +2640,71 @@ static struct subdrv_static_ctx static_ctx = {
 	.chk_s_off_end = 0,
 
 	.checksum_value = 0xd086e5a5,
+
+	.ebd_info = {
+		.frm_cnt_loc = {
+			.loc_line = 1,
+			.loc_pix = {7},
+		},
+		.coarse_integ_loc = {
+			{  // NE
+				.loc_line = 1,
+				.loc_pix = {47, 49},
+			},
+			{  // ME
+				.loc_line = 2,
+				.loc_pix = {47, 49},
+			},
+			{  // SE
+				.loc_line = 1,
+				.loc_pix = {81, 83},
+			},
+		},
+		.ana_gain_loc = {
+			{  // NE
+				.loc_line = 1,
+				.loc_pix = {51, 53},
+			},
+			{  // ME
+				.loc_line = 2,
+				.loc_pix = {51, 53},
+			},
+			{  // SE
+				.loc_line = 1,
+				.loc_pix = {63, 65},
+			},
+		},
+		.dig_gain_loc = {
+			{  // NE
+				.loc_line = 1,
+				.loc_pix = {57, 59},
+			},
+			{  // ME
+				.loc_line = 2,
+				.loc_pix = {55, 57},
+			},
+			{  // SE
+				.loc_line = 1,
+				.loc_pix = {67, 69},
+			},
+		},
+		.coarse_integ_shift_loc = {
+			.loc_line = 2,
+			.loc_pix = {37},
+		},
+		.dol_loc = {
+			.loc_line = 2,
+			.loc_pix = {81, 83}, // dol_en and dol_mode
+		},
+		.framelength_loc = {
+			.loc_line = 1,
+			.loc_pix = {121, 123},
+		},
+		.temperature_loc = {
+			.loc_line = 1,
+			.loc_pix = {37},
+		},
+	},
 };
 
 static struct subdrv_ops ops = {
@@ -2287,6 +2721,7 @@ static struct subdrv_ops ops = {
 	.get_csi_param = common_get_csi_param,
 	.vsync_notify = vsync_notify,
 	.update_sof_cnt = common_update_sof_cnt,
+	.parse_ebd_line = common_parse_ebd_line,
 };
 
 static struct subdrv_pw_seq_entry pw_seq[] = {

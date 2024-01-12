@@ -22,6 +22,8 @@
  ****************************************************************************/
 #include "imx598mipiraw_Sensor.h"
 
+#define IMX598_EMBEDDED_DATA_EN 1
+
 static int get_sensor_temperature(void *arg);
 static void set_group_hold(void *arg, u8 en);
 static u16 get_gain2reg(u32 gain);
@@ -96,6 +98,18 @@ static struct mtk_mbus_frame_desc_entry frame_desc_prev[] = {
 			.user_data_desc = VC_PDAF_STATS_PIX_1,
 		},
 	},
+#if IMX598_EMBEDDED_DATA_EN
+	{
+		.bus.csi2 = {
+			.channel = 0,
+			.data_type = 0x12,
+			.hsize = 0x0FA0,
+			.vsize = 0x2,
+			.user_data_desc = VC_GENERAL_EMBEDDED,
+			.ebd_parsing_type = MTK_EBD_PARSING_TYPE_MIPI_RAW10,
+		},
+	},
+#endif
 };
 static struct mtk_mbus_frame_desc_entry frame_desc_cap[] = {
 	{
@@ -118,6 +132,18 @@ static struct mtk_mbus_frame_desc_entry frame_desc_cap[] = {
 			.user_data_desc = VC_PDAF_STATS_PIX_1,
 		},
 	},
+#if IMX598_EMBEDDED_DATA_EN
+	{
+		.bus.csi2 = {
+			.channel = 0,
+			.data_type = 0x12,
+			.hsize = 0x0FA0,
+			.vsize = 0x2,
+			.user_data_desc = VC_GENERAL_EMBEDDED,
+			.ebd_parsing_type = MTK_EBD_PARSING_TYPE_MIPI_RAW10,
+		},
+	},
+#endif
 };
 static struct mtk_mbus_frame_desc_entry frame_desc_vid[] = {
 	{
@@ -130,6 +156,18 @@ static struct mtk_mbus_frame_desc_entry frame_desc_vid[] = {
 			.fs_seq = MTK_FRAME_DESC_FS_SEQ_ONLY_ONE,
 		},
 	},
+#if IMX598_EMBEDDED_DATA_EN
+	{
+		.bus.csi2 = {
+			.channel = 0,
+			.data_type = 0x12,
+			.hsize = 0x0FA0,
+			.vsize = 0x2,
+			.user_data_desc = VC_GENERAL_EMBEDDED,
+			.ebd_parsing_type = MTK_EBD_PARSING_TYPE_MIPI_RAW10,
+		},
+	},
+#endif
 };
 static struct mtk_mbus_frame_desc_entry frame_desc_hs_vid[] = {
 	{
@@ -142,6 +180,18 @@ static struct mtk_mbus_frame_desc_entry frame_desc_hs_vid[] = {
 			.fs_seq = MTK_FRAME_DESC_FS_SEQ_ONLY_ONE,
 		},
 	},
+#if IMX598_EMBEDDED_DATA_EN
+	{
+		.bus.csi2 = {
+			.channel = 0,
+			.data_type = 0x12,
+			.hsize = 0x0FA0,
+			.vsize = 0x2,
+			.user_data_desc = VC_GENERAL_EMBEDDED,
+			.ebd_parsing_type = MTK_EBD_PARSING_TYPE_MIPI_RAW10,
+		},
+	},
+#endif
 };
 static struct mtk_mbus_frame_desc_entry frame_desc_slim_vid[] = {
 	{
@@ -154,6 +204,18 @@ static struct mtk_mbus_frame_desc_entry frame_desc_slim_vid[] = {
 			.fs_seq = MTK_FRAME_DESC_FS_SEQ_ONLY_ONE,
 		},
 	},
+#if IMX598_EMBEDDED_DATA_EN
+	{
+		.bus.csi2 = {
+			.channel = 0,
+			.data_type = 0x12,
+			.hsize = 0x0FA0,
+			.vsize = 0x2,
+			.user_data_desc = VC_GENERAL_EMBEDDED,
+			.ebd_parsing_type = MTK_EBD_PARSING_TYPE_MIPI_RAW10,
+		},
+	},
+#endif
 };
 static struct mtk_mbus_frame_desc_entry frame_desc_cus1[] = {
 	{
@@ -166,6 +228,18 @@ static struct mtk_mbus_frame_desc_entry frame_desc_cus1[] = {
 			.fs_seq = MTK_FRAME_DESC_FS_SEQ_ONLY_ONE,
 		},
 	},
+#if IMX598_EMBEDDED_DATA_EN
+	{
+		.bus.csi2 = {
+			.channel = 0,
+			.data_type = 0x12,
+			.hsize = 0x0FA0,
+			.vsize = 0x2,
+			.user_data_desc = VC_GENERAL_EMBEDDED,
+			.ebd_parsing_type = MTK_EBD_PARSING_TYPE_MIPI_RAW10,
+		},
+	},
+#endif
 };
 static struct mtk_mbus_frame_desc_entry frame_desc_cus2[] = {
 	{
@@ -178,6 +252,18 @@ static struct mtk_mbus_frame_desc_entry frame_desc_cus2[] = {
 			.fs_seq = MTK_FRAME_DESC_FS_SEQ_ONLY_ONE,
 		},
 	},
+#if IMX598_EMBEDDED_DATA_EN
+	{
+		.bus.csi2 = {
+			.channel = 0,
+			.data_type = 0x12,
+			.hsize = 0x07D0,
+			.vsize = 0x2,
+			.user_data_desc = VC_GENERAL_EMBEDDED,
+			.ebd_parsing_type = MTK_EBD_PARSING_TYPE_MIPI_RAW10,
+		},
+	},
+#endif
 };
 static struct mtk_mbus_frame_desc_entry frame_desc_cus3[] = {
 	{
@@ -190,6 +276,18 @@ static struct mtk_mbus_frame_desc_entry frame_desc_cus3[] = {
 			.fs_seq = MTK_FRAME_DESC_FS_SEQ_ONLY_ONE,
 		},
 	},
+#if IMX598_EMBEDDED_DATA_EN
+	{
+		.bus.csi2 = {
+			.channel = 0,
+			.data_type = 0x12,
+			.hsize = 0x07D0,
+			.vsize = 0x2,
+			.user_data_desc = VC_GENERAL_EMBEDDED,
+			.ebd_parsing_type = MTK_EBD_PARSING_TYPE_MIPI_RAW10,
+		},
+	},
+#endif
 };
 static struct mtk_mbus_frame_desc_entry frame_desc_cus4[] = {
 	{
@@ -202,6 +300,18 @@ static struct mtk_mbus_frame_desc_entry frame_desc_cus4[] = {
 			.fs_seq = MTK_FRAME_DESC_FS_SEQ_ONLY_ONE,
 		},
 	},
+#if IMX598_EMBEDDED_DATA_EN
+	{
+		.bus.csi2 = {
+			.channel = 0,
+			.data_type = 0x12,
+			.hsize = 0x07D0,
+			.vsize = 0x2,
+			.user_data_desc = VC_GENERAL_EMBEDDED,
+			.ebd_parsing_type = MTK_EBD_PARSING_TYPE_MIPI_RAW10,
+		},
+	},
+#endif
 };
 static struct subdrv_mode_struct mode_struct[] = {
 	{
@@ -736,6 +846,43 @@ static struct subdrv_static_ctx static_ctx = {
 	.chk_s_off_end = 0,
 
 	.checksum_value = 0xecaae2a0,
+
+	.ebd_info = {
+		.frm_cnt_loc = {
+			.loc_line = 1,
+			.loc_pix = {7},
+		},
+		.coarse_integ_loc = {
+			{  // NE
+				.loc_line = 1,
+				.loc_pix = {47, 49},
+			},
+		},
+		.ana_gain_loc = {
+			{  // NE
+				.loc_line = 1,
+				.loc_pix = {51, 53},
+			},
+		},
+		.dig_gain_loc = {
+			{  // NE
+				.loc_line = 1,
+				.loc_pix = {57, 59},
+			},
+		},
+		.coarse_integ_shift_loc = {
+			.loc_line = 2,
+			.loc_pix = {97},
+		},
+		.framelength_loc = {
+			.loc_line = 1,
+			.loc_pix = {135, 137},
+		},
+		.temperature_loc = {
+			.loc_line = 1,
+			.loc_pix = {37},
+		},
+	},
 };
 
 static struct subdrv_ops ops = {
@@ -752,6 +899,7 @@ static struct subdrv_ops ops = {
 	.get_csi_param = common_get_csi_param,
 	.vsync_notify = vsync_notify,
 	.update_sof_cnt = common_update_sof_cnt,
+	.parse_ebd_line = common_parse_ebd_line,
 };
 
 static struct subdrv_pw_seq_entry pw_seq[] = {

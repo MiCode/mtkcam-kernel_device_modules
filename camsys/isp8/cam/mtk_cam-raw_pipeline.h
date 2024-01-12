@@ -195,7 +195,7 @@ mtk_cam_ctrl_handler_to_raw_pipeline(struct v4l2_ctrl_handler *handler)
 struct mtk_raw_pipeline *mtk_raw_pipeline_create(struct device *dev, int n);
 
 struct mtk_cam_engines;
-int mtk_raw_setup_dependencies(struct mtk_cam_engines *eng);
+int mtk_raw_setup_dependencies(struct mtk_cam_device *cam);
 
 int mtk_raw_register_entities(struct mtk_raw_pipeline *arr_pipe, int num,
 			      struct v4l2_device *v4l2_dev);

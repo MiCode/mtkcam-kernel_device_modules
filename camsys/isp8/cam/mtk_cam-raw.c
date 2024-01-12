@@ -1560,11 +1560,8 @@ static int mtk_raw_pm_post_suspend(struct mtk_raw_device *dev)
 
 	return 0;
 }
-#define CG_RAW 0
-#define CG_YUV 1
-#define CG_RMS 2
 
-static int cg_dump_and_test(struct device *dev, int type, bool test)
+int cg_dump_and_test(struct device *dev, int type, bool test)
 {
 	struct mtk_raw_device *raw;
 	struct mtk_raw_device *yuv;

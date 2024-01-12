@@ -248,6 +248,12 @@ struct mtk_cam_engines {
 };
 
 struct cmdq_client;
+struct mtk_cam_vcore_device {
+	struct device *dev;
+	struct clk **clks;
+	unsigned int num_clks;
+};
+
 struct mtk_cam_device {
 	struct device *dev;
 	struct device *smmu_dev;
@@ -270,6 +276,8 @@ struct mtk_cam_device {
 	struct v4l2_device v4l2_dev;
 	struct v4l2_async_notifier notifier;
 	struct media_device media_dev;
+	struct clk **clks;
+	unsigned int num_clks;
 
 	atomic_t initialize_cnt;
 

@@ -3868,10 +3868,11 @@ struct mtk_raw_pipeline *mtk_raw_pipeline_create(struct device *dev, int n)
 			    GFP_KERNEL);
 }
 
-int mtk_raw_setup_dependencies(struct mtk_cam_engines *eng)
+int mtk_raw_setup_dependencies(struct mtk_cam_device *cam_dev)
 {
 	struct device *consumer, *supplier, *supplier2;
 	struct device_link *link;
+	struct mtk_cam_engines *eng = &cam_dev->engines;
 	struct mtk_raw_device *raw_dev;
 	struct mtk_yuv_device *yuv_dev;
 	struct mtk_rms_device *rms_dev;
@@ -3911,6 +3912,14 @@ int mtk_raw_setup_dependencies(struct mtk_cam_engines *eng)
 		if (!link) {
 			pr_info("Unable to create link between %s and %s\n",
 				 dev_name(consumer), dev_name(supplier2));
+			return -ENODEV;
+		}
+		link = device_link_add(consumer, cam_dev->dev,
+			DL_FLAG_AUTOREMOVE_CONSUMER |
+			DL_FLAG_PM_RUNTIME);
+		if (!link) {
+			pr_info("Unable to create link between %s and %s\n",
+				dev_name(consumer), dev_name(cam_dev->dev));
 			return -ENODEV;
 		}
 	}

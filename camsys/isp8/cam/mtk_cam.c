@@ -62,6 +62,14 @@ static const struct of_device_id mtk_cam_of_ids[] = {
 };
 MODULE_DEVICE_TABLE(of, mtk_cam_of_ids);
 
+static const struct of_device_id mtk_cam_vcore_of_ids[] = {
+#ifdef CAMSYS_ISP8_MT6991
+		{.compatible = "mediatek,mt6991-camisp-vcore",},
+#endif
+	{}
+};
+MODULE_DEVICE_TABLE(of, mtk_cam_vcore_of_ids);
+
 static struct device *camsys_root_dev;
 struct device *mtk_cam_root_dev(void)
 {
@@ -3431,7 +3439,7 @@ static int mtk_cam_master_bind(struct device *dev)
 		goto fail_media_device_unreg;
 	}
 
-	ret = mtk_raw_setup_dependencies(&cam_dev->engines);
+	ret = mtk_raw_setup_dependencies(cam_dev);
 	if (ret) {
 		dev_dbg(dev, "Failed to mtk_raw_setup_dependencies: %d\n", ret);
 		goto fail_unbind_all;
@@ -4090,14 +4098,87 @@ static irqreturn_t mtk_irq_qof(int irq, void *data)
 
 	return IRQ_HANDLED;
 }
+static int mtk_cam_vcore_probe(struct platform_device *pdev)
+{
+	struct device *dev = &pdev->dev;
+	struct mtk_cam_vcore_device *drvdata;
+	int i, clks;
 
+	dev_info(dev, "%s++\n", __func__);
+
+	drvdata = devm_kzalloc(dev, sizeof(*drvdata), GFP_KERNEL);
+	if (!drvdata)
+		return -ENOMEM;
+
+	clks = of_count_phandle_with_args(
+				pdev->dev.of_node, "clocks", "#clock-cells");
+	drvdata->num_clks = (clks == -ENOENT) ? 0 : clks;
+	dev_info(dev, "clk_num:%d\n", drvdata->num_clks);
+
+	if (drvdata->num_clks) {
+		drvdata->clks = devm_kcalloc(
+				dev, drvdata->num_clks, sizeof(*drvdata->clks), GFP_KERNEL);
+		if (!drvdata->clks)
+			return -ENOMEM;
+	}
+
+	for (i = 0; i < drvdata->num_clks; i++) {
+		drvdata->clks[i] = of_clk_get(pdev->dev.of_node, i);
+		if (IS_ERR(drvdata->clks[i])) {
+			dev_info(dev, "failed to get clk %d\n", i);
+			return -ENODEV;
+		}
+	}
+
+	drvdata->dev = &pdev->dev;
+	dev_set_drvdata(dev, drvdata);
+
+	pm_runtime_enable(dev);
+
+	return 0;
+}
+
+static int mtk_cam_vcore_remove(struct platform_device *pdev)
+{
+	struct device *dev = &pdev->dev;
+
+	pm_runtime_disable(dev);
+
+	return 0;
+}
+
+static int mtk_cam_vcore_runtime_suspend(struct device *dev)
+{
+	struct mtk_cam_vcore_device *cam_vcore  = dev_get_drvdata(dev);
+	int i;
+
+	dev_info(dev, "- %s\n", __func__);
+	for (i = cam_vcore->num_clks - 1; i >= 0; i--)
+		clk_disable_unprepare(cam_vcore->clks[i]);
+
+	return 0;
+}
+
+static int mtk_cam_vcore_runtime_resume(struct device *dev)
+{
+	struct mtk_cam_vcore_device *cam_vcore  = dev_get_drvdata(dev);
+	int i;
+
+	for (i = 0; i < cam_vcore->num_clks; i++)
+		clk_prepare_enable(cam_vcore->clks[i]);
+
+	return 0;
+}
 static int mtk_cam_probe(struct platform_device *pdev)
 {
+	struct platform_device *vcore_pdev;
 	struct mtk_cam_device *cam_dev;
 	struct device *dev = &pdev->dev;
 	struct device *alloc_dev;
+	struct device_node *node;
+	struct device_link *link;
 	int ret;
-	unsigned int i;
+	unsigned int i, clks;
 	const struct camsys_platform_data *platform_data;
 	int irq;
 
@@ -4285,6 +4366,45 @@ static int mtk_cam_probe(struct platform_device *pdev)
 #endif
 	if (!cam_dev->cmdq_clt)
 		pr_err("probe cmdq_mbox_create fail\n");
+	clks = of_count_phandle_with_args(
+					pdev->dev.of_node, "clocks", "#clock-cells");
+	cam_dev->num_clks = (clks == -ENOENT) ? 0 : clks;
+	dev_info(dev, "clk_num:%d\n", cam_dev->num_clks);
+
+	if (cam_dev->num_clks) {
+		cam_dev->clks = devm_kcalloc(
+					dev, cam_dev->num_clks, sizeof(*cam_dev->clks), GFP_KERNEL);
+		if (!cam_dev->clks)
+			return -ENOMEM;
+	}
+
+	for (i = 0; i < cam_dev->num_clks; i++) {
+		cam_dev->clks[i] = of_clk_get(pdev->dev.of_node, i);
+		if (IS_ERR(cam_dev->clks[i])) {
+			dev_info(dev, "failed to get clk %d\n", i);
+			return -ENODEV;
+		}
+	}
+
+	node = of_parse_phandle(
+				pdev->dev.of_node, "mediatek,camisp-vcore", 0);
+	if (!node) {
+		dev_info(dev, "failed to get camisp vcore phandle\n");
+		return -ENODEV;
+	}
+
+	vcore_pdev = of_find_device_by_node(node);
+	if (WARN_ON(!vcore_pdev)) {
+		of_node_put(node);
+		dev_info(dev, "failed to get camisp vcore pdev\n");
+		return -ENODEV;
+	}
+	of_node_put(node);
+
+	link = device_link_add(dev, &vcore_pdev->dev,
+					DL_FLAG_PM_RUNTIME | DL_FLAG_STATELESS);
+	if (!link)
+		dev_info(dev, "unable to link cam vcore\n");
 
 SKIP_ADLRD_IRQ:
 	cam_dev->dev = dev;
@@ -4309,8 +4429,6 @@ SKIP_ADLRD_IRQ:
 	INIT_LIST_HEAD(&cam_dev->pending_job_list);
 	INIT_LIST_HEAD(&cam_dev->running_job_list);
 
-	pm_runtime_enable(dev);
-
 	ret = mtk_cam_of_rproc(cam_dev);
 	if (ret)
 		goto fail_return;
@@ -4320,6 +4438,9 @@ SKIP_ADLRD_IRQ:
 		dev_err(dev, "%s: fail to register_sub_drivers\n", __func__);
 		goto fail_return;
 	}
+	/* after v4l2_device_register to avoid get_sync/put_sync ops */
+	/* for freerun mtcmos/cg check by ccf */
+	pm_runtime_enable(dev);
 
 	mtk_cam_debug_init(&cam_dev->dbg, cam_dev);
 	init_waitqueue_head(&cam_dev->shutdown_wq);
@@ -4378,7 +4499,19 @@ static void mtk_cam_shutdown(struct platform_device *pdev)
 
 static int mtk_cam_runtime_suspend(struct device *dev)
 {
-	dev_dbg(dev, "- %s\n", __func__);
+	struct mtk_cam_device *cam_dev  = dev_get_drvdata(dev);
+	int i;
+
+	dev_dbg(dev, "%s++:get: vcore cg/main cg0 cg1:0x%x/0x%x/0x%x", __func__,
+		readl(cam_dev->vcore_cg_con + 0x00),
+		readl(cam_dev->base + 0x00),
+		readl(cam_dev->base + 0x4c));
+	for (i = cam_dev->num_clks - 1; i >= 0; i--)
+		clk_disable_unprepare(cam_dev->clks[i]);
+	dev_dbg(dev, "%s--:get: vcore cg/main cg0 cg1:0x%x/0x%x/0x%x", __func__,
+		readl(cam_dev->vcore_cg_con + 0x00),
+		readl(cam_dev->base + 0x00),
+		readl(cam_dev->base + 0x4c));
 
 	return 0;
 }
@@ -4442,10 +4575,19 @@ static void init_camsys_main_adl_setting(struct mtk_cam_device *cam_dev)
 
 static int mtk_cam_runtime_resume(struct device *dev)
 {
-#ifdef CAM_EP_READY
-	struct mtk_cam_device *cam_dev = dev_get_drvdata(dev);
-#endif
-	dev_dbg(dev, "- %s\n", __func__);
+	struct mtk_cam_device *cam_dev  = dev_get_drvdata(dev);
+	int i;
+
+	dev_dbg(dev, "%s++:get: vcore cg/main cg0 cg1:0x%x/0x%x/0x%x", __func__,
+		readl(cam_dev->vcore_cg_con + 0x00),
+		readl(cam_dev->base + 0x00),
+		readl(cam_dev->base + 0x4c));
+	for (i = 0; i < cam_dev->num_clks; i++)
+		clk_prepare_enable(cam_dev->clks[i]);
+	dev_dbg(dev,"%s--:get: vcore cg/main cg0 cg1:0x%x/0x%x/0x%x", __func__,
+		readl(cam_dev->vcore_cg_con + 0x00),
+		readl(cam_dev->base + 0x00),
+		readl(cam_dev->base + 0x4c));
 
 #ifdef CAM_EP_READY
 	init_camsys_main_adl_setting(cam_dev);
@@ -4460,6 +4602,20 @@ static int mtk_cam_runtime_resume(struct device *dev)
 	return 0;
 }
 
+static const struct dev_pm_ops mtk_cam_vcore_pm_ops = {
+	SET_RUNTIME_PM_OPS(mtk_cam_vcore_runtime_suspend,
+					   mtk_cam_vcore_runtime_resume, NULL)
+};
+
+static struct platform_driver mtk_cam_vcore_driver = {
+	.probe   = mtk_cam_vcore_probe,
+	.remove  = mtk_cam_vcore_remove,
+	.driver  = {
+		.name  = "mtk-cam-vcore",
+		.of_match_table = of_match_ptr(mtk_cam_vcore_of_ids),
+		.pm     = &mtk_cam_vcore_pm_ops,
+	}
+};
 static const struct dev_pm_ops mtk_cam_pm_ops = {
 	SET_RUNTIME_PM_OPS(mtk_cam_runtime_suspend, mtk_cam_runtime_resume,
 			   NULL)
@@ -4480,13 +4636,21 @@ static int __init mtk_cam_init(void)
 {
 	int ret;
 
+	ret = platform_driver_register(&mtk_cam_vcore_driver);
+	if (ret)
+		pr_info("%s camisp vcore register fail\n", __func__);
+
 	ret = platform_driver_register(&mtk_cam_driver);
+	if (ret)
+		pr_info("%s camisp register fail\n", __func__);
+
 	return ret;
 }
 
 static void __exit mtk_cam_exit(void)
 {
 	platform_driver_unregister(&mtk_cam_driver);
+	platform_driver_unregister(&mtk_cam_vcore_driver);
 }
 
 bool mtk_cam_is_dcif_slb_supported(void)

@@ -202,4 +202,11 @@ static inline int is_subsample_en(struct mtk_raw_device *dev)
 
 int raw_to_tg_idx(int raw_id);
 
+#define CG_RAW 0
+#define CG_YUV 1
+#define CG_RMS 2
+
+int cg_dump_and_test(struct device *dev, int type, bool test);
+
+
 #endif /*__MTK_CAM_RAW_H*/

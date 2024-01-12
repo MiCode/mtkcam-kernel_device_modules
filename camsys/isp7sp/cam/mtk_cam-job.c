@@ -98,6 +98,11 @@ void _on_job_last_ref(struct mtk_cam_job *job)
 void mtk_cam_ctx_job_finish(struct mtk_cam_job *job)
 {
 	call_jobop(job, finalize);
+	if (job->img_wbuf_pool_wrapper) {
+		mtk_cam_pool_wrapper_put(job->img_wbuf_pool_wrapper);
+		job->img_wbuf_pool_wrapper = NULL;
+	}
+
 	mtk_cam_job_return(job);
 }
 
@@ -349,8 +354,7 @@ static int mtk_cam_job_pack_init(struct mtk_cam_job *job,
 
 	job->req = req;
 	job->src_ctx = ctx;
-	job->img_wbuf_pool_wrapper = ctx->pack_job_img_wbuf_pool_wrapper;
-
+	job->img_wbuf_pool_wrapper = NULL;
 	job->first_job = !ctx->not_first_job;
 	ctx->not_first_job = true;
 
@@ -2173,111 +2177,6 @@ static bool is_sensor_changed(struct mtk_cam_job *job)
 	return false;
 }
 
-/**
- * To check and update job->raw_switch, job->img_work_pool and
- * job->img_work_buf_mem.
- * Must be called after job->stream_on_seninf is determined and
- * before ipi config/ input change parameter is prepared
- */
-static void update_job_raw_switch(struct mtk_cam_job *job)
-{
-	struct mtk_cam_ctx *ctx = job->src_ctx;
-	struct mtk_cam_driver_buf_desc *desc = &ctx->img_work_buf_desc;
-	struct mtk_raw_ctrl_data *ctrl_data = get_raw_ctrl_data(job);
-	struct mtk_raw_pipeline *raw_pipe;
-	struct mtk_cam_pool_wrapper *img_wbuf_pool;
-	bool raw_switch = false;
-	struct v4l2_mbus_framefmt *mf;
-	int r;
-
-	/* No sensor change happened */
-	if (!is_sensor_changed(job))
-		goto EXIT_SET_RAW_SWITCH;
-
-	dev_info(ctx->cam->dev,
-		 "%s:ctx(%d): change sensor:(%s) --> (%s/%s)\n", __func__,
-		 ctx->stream_id, job->seninf_prev->entity.name,
-		 job->sensor->entity.name, job->seninf->entity.name);
-
-	/* update pipeline cached pads and v4l2 internal data here */
-	media_pipeline_stop(&job->seninf_prev->entity.pads[0]);
-	r = media_pipeline_start(&job->seninf->entity.pads[0], &ctx->pipeline);
-	if (r)
-		dev_info(ctx->cam->dev,
-			 "%s:ctx-%d failed in media_pipeline_start:%d\n",
-			 __func__, ctx->stream_id, r);
-
-	/* sensor changed, create the new image buf pool and save in job */
-	ctx->pack_job_img_wbuf_pool_wrapper = NULL;
-	if (ctx->has_raw_subdev && ctrl_data) {
-		raw_pipe = &ctx->cam->pipelines.raw[ctx->raw_subdev_idx];
-		/* For BAYER10_MIPI, use MTK_RAW_MAIN_STREAM_OUT fmt instead */
-		mf = &raw_pipe->pad_cfg[MTK_RAW_SINK].mbus_fmt;
-		if (mtk_cam_check_img_pool_need(ctx->cam->engines.raw_devs[0],
-						ctrl_data, mf, desc)) {
-			/**
-			 * We need to create a new image working buffer pool for
-			 * the new stream
-			 */
-			img_wbuf_pool =
-				kmalloc(sizeof(struct mtk_cam_pool_wrapper), GFP_KERNEL);
-			if (!img_wbuf_pool) {
-				dev_info(ctx->cam->dev,
-					 "%s:ctx-%d failed in alloc pack_job_img_wbuf_pool_wrapper, can't be recovered\n",
-					 __func__, ctx->stream_id);
-				goto EXIT_CLEAN_PACK_JOB_IMG_POOL;
-			}
-
-			ctx->pack_job_img_wbuf_pool_wrapper = img_wbuf_pool;
-			r = mtk_cam_alloc_img_pool(
-					 ctx->cam->smmu_dev ? : ctx->cam->engines.raw_devs[0],
-					 ctrl_data, mf, desc,
-					 &img_wbuf_pool->mem,
-					 &img_wbuf_pool->pool);
-			if (r) {
-				dev_info(ctx->cam->dev,
-					 "%s:ctx-%d failed in mtk_cam_alloc_img_pool:%d, can't be recovered\n",
-					 __func__, ctx->stream_id, r);
-				goto EXIT_CLEAN_PACK_JOB_IMG_POOL;
-			}
-
-			if (CAM_DEBUG_ENABLED(IPI_BUF))
-				dev_info(ctx->cam->dev,
-					 "%s: ctx-%d img_wbuf_pool_wrapper(%p) created\n",
-					 __func__, ctx->stream_id, img_wbuf_pool);
-		}
-	}
-
-	/* The user changed the sensor in the first request */
-	if (job->stream_on_seninf) {
-		/* It is not real raw switch, just update the ctx' sensor */
-		ctx->sensor = job->sensor;
-		ctx->seninf = job->seninf;
-
-		/* update the ctx's img working buf pool */
-		mtk_cam_ctx_update_img_pool(ctx,
-					    ctx->pack_job_img_wbuf_pool_wrapper);
-
-		goto EXIT_SET_RAW_SWITCH;
-	}
-
-	raw_switch = true;
-
-EXIT_SET_RAW_SWITCH:
-	job->raw_switch = raw_switch;
-	job->img_wbuf_pool_wrapper = ctx->pack_job_img_wbuf_pool_wrapper;
-
-	return;
-
-EXIT_CLEAN_PACK_JOB_IMG_POOL:
-	kfree(ctx->pack_job_img_wbuf_pool_wrapper);
-	ctx->pack_job_img_wbuf_pool_wrapper = NULL;
-	job->img_wbuf_pool_wrapper = ctx->pack_job_img_wbuf_pool_wrapper;
-	job->raw_switch = false;
-
-	return;
-}
-
 bool check_if_need_configure(bool ctx_has_configured,
 			     bool seamless_switch, bool raw_switch)
 {
@@ -2326,9 +2225,6 @@ _job_pack_otf_stagger(struct mtk_cam_job *job,
 
 		job->stream_on_seninf = true;
 	}
-
-	/* determine if it is a raw switch job */
-	update_job_raw_switch(job);
 
 	job->do_ipi_config = false;
 	if (check_if_need_configure(ctx->configured, job->seamless_switch,
@@ -2490,9 +2386,6 @@ _job_pack_mstream(struct mtk_cam_job *job,
 		job->stream_on_seninf = true;
 	}
 
-	/* determine if it is a raw switch job */
-	update_job_raw_switch(job);
-
 	job->do_ipi_config = false;
 	if (check_if_need_configure(ctx->configured, false, job->raw_switch)) {
 		/* handle camsv tags */
@@ -2621,9 +2514,6 @@ _job_pack_normal(struct mtk_cam_job *job,
 		job->stream_on_seninf = true;
 	}
 
-	/* determine if it is a raw switch job */
-	update_job_raw_switch(job);
-
 	job->do_ipi_config = false;
 	if (check_if_need_configure(ctx->configured,
 				    seamless_config_changed(job),
@@ -2680,8 +2570,6 @@ _job_pack_extisp(struct mtk_cam_job *job,
 
 		job->stream_on_seninf = true;
 	}
-	/* determine if it is a raw switch job */
-	update_job_raw_switch(job);
 
 	ctx->configured = (ctx->configured && !seamless_config_changed(job));
 	job->do_ipi_config = false;
@@ -3728,6 +3616,69 @@ struct initialize_params subsample_init = {
 	.master_raw_init = master_raw_set_subsample,
 };
 
+/**
+ * To check and update job->raw_switch, job->img_work_pool and
+ * job->img_work_buf_mem. Use ctx->used_engine to determine if
+ * it need stream_on_seninf or raw_switch flow.
+ */
+static int update_job_raw_switch(struct mtk_cam_job *job)
+{
+	struct mtk_cam_ctx *ctx = job->src_ctx;
+	struct mtk_raw_ctrl_data *ctrl_data = get_raw_ctrl_data(job);
+	bool raw_switch = false;
+	int r;
+
+	/* No sensor change happened */
+	if (!is_sensor_changed(job))
+		goto EXIT_SET_RAW_SWITCH;
+
+	dev_info(ctx->cam->dev,
+		 "%s:ctx(%d): change sensor:(%s) --> (%s/%s)\n", __func__,
+		 ctx->stream_id, job->seninf_prev->entity.name,
+		 job->sensor->entity.name, job->seninf->entity.name);
+
+	/* update pipeline cached pads and v4l2 internal data here */
+	media_pipeline_stop(&job->seninf_prev->entity.pads[0]);
+	r = media_pipeline_start(&job->seninf->entity.pads[0], &ctx->pipeline);
+	if (r)
+		dev_info(ctx->cam->dev,
+			 "%s:ctx-%d failed in media_pipeline_start:%d\n",
+			 __func__, ctx->stream_id, r);
+
+	/* sensor changed, create the new image buf pool and save in job */
+	mtk_cam_ctx_clean_img_pool(ctx);
+	if (ctx->has_raw_subdev && ctrl_data) {
+		if (mtk_cam_ctx_alloc_img_pool(ctx, ctrl_data))
+			goto EXIT_CLEAN_PACK_JOB_IMG_POOL;
+	}
+
+	/* The user changed the sensor in the first request */
+	if (!ctx->used_engine) {
+		/* It is not real raw switch, just update the ctx' sensor */
+		ctx->sensor = job->sensor;
+		ctx->seninf = job->seninf;
+
+		goto EXIT_SET_RAW_SWITCH;
+	}
+
+	raw_switch = true;
+
+EXIT_SET_RAW_SWITCH:
+	job->raw_switch = raw_switch;
+	job->img_wbuf_pool_wrapper = ctx->pack_job_img_wbuf_pool_wrapper;
+	if (job->img_wbuf_pool_wrapper)
+		mtk_cam_pool_wrapper_get(job->img_wbuf_pool_wrapper);
+
+	return 0;
+
+EXIT_CLEAN_PACK_JOB_IMG_POOL:
+	ctx->pack_job_img_wbuf_pool_wrapper = NULL;
+	job->img_wbuf_pool_wrapper = NULL;
+	job->raw_switch = false;
+
+	return -EBUSY;
+}
+
 static int job_factory(struct mtk_cam_job *job)
 {
 	struct mtk_cam_ctx *ctx = job->src_ctx;
@@ -3820,6 +3771,10 @@ static int job_factory(struct mtk_cam_job *job)
 		return -1;
 
 	if (pack_helper->job_init && pack_helper->job_init(job))
+		return -1;
+
+	/* determine if it is a raw switch job */
+	if (update_job_raw_switch(job))
 		return -1;
 
 	ret = pack_helper->pack_job(job, pack_helper);

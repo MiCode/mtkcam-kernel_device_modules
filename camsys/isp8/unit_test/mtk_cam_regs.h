@@ -65,6 +65,8 @@ enum topdebug_event {
 #define INT21_ST_MASK_CAM_ERR (CQ_MAIN_CODE_ERR_ST	 |\
 					 CQ_MAIN_VS_ERR_S)
 
+#define ISP_SENINF_TOP_ASYNC_CG(regs)			(regs + 0x0008)
+#define ISP_SENINF_TOP_OUTMUX_CG(regs)			(regs + 0x000C)
 #define ISP_SENINF_TOP_CTL(regs)			(regs + 0x0018)
 
 #define ISP_SENINF_ASYNC_CFG(regs)			(regs + 0x0000)

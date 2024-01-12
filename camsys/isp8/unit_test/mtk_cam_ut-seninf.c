@@ -133,6 +133,8 @@ static int ut_seninf_set_testmdl(struct device *dev,
 
 	/* seninf top */
 	writel(0x1000000, ISP_SENINF_TOP_CTL(seninf_top));
+	writel(0x0000003F, ISP_SENINF_TOP_ASYNC_CG(seninf_top));
+	writel(0x7FFFFF, ISP_SENINF_TOP_OUTMUX_CG(seninf_top));
 
 	for (i = 0; i < para_cnt; i++) {
 		para = tm_para + i;

@@ -1542,11 +1542,12 @@ static int mtk_cam_seninf_get_fmt(struct v4l2_subdev *sd,
 	return 0;
 }
 
-static int set_aov_test_model_param(struct seninf_ctx *ctx,
-	struct seninf_vc **vc, char enable, int vc_used)
+static int set_aov_test_model_param(struct seninf_ctx *ctx, char enable)
 {
 	int i = 0;
 	int ret = 0;
+	struct seninf_vcinfo *vcinfo = &ctx->vcinfo;
+	struct seninf_vc *vc;
 
 	pr_info("[%s]+\n", __func__);
 
@@ -1558,7 +1559,7 @@ static int set_aov_test_model_param(struct seninf_ctx *ctx,
 		g_aov_param.portB = ctx->portB;
 		g_aov_param.is_4d1c = ctx->is_4d1c;
 		g_aov_param.seninfAsyncIdx = ctx->seninfAsyncIdx;
-		g_aov_param.cnt = vc_used;
+		g_aov_param.cnt = vcinfo->cnt;
 		g_aov_param.is_test_model = ctx->is_aov_test_model;
 
 		/* must enable mux(clk) before clk_set_parent
@@ -1573,19 +1574,19 @@ static int set_aov_test_model_param(struct seninf_ctx *ctx,
 
 		g_aov_param.isp_freq = ISP_CLK_LOW;
 
-		for (i = 0; i < vc_used; ++i) {
-			vc[i]->enable = 1;
-			vc[i]->dest[0].pix_mode = 2;
+		for (i = 0; i < vcinfo->cnt; ++i) {
+			vc = &vcinfo->vc[i];
 
-			vc[i]->dest_cnt = 1;
-			//vc[i]->dest[0].cam = 33;
-			//vc[i]->dest[0].mux = 5;
-			//vc[i]->dest[0].mux_vr = 33;
+			vc->enable = 1;
+			vc->dest[0].pix_mode = 2;
+
+			vc->dest_cnt = 1;
+			vc->dest[0].outmux = 13;
 
 			//dev_info(ctx->dev,
 			//	"test mode mux %d, cam %d, pixel mode %d, vc = %d, dt = 0x%x\n",
-			//	vc[i]->dest[0].mux, vc[i]->dest[0].cam, vc[i]->dest[0].pix_mode,
-			//	vc[i]->vc, vc[i]->dt);
+			//	vc->dest[0].mux, vc->dest[0].cam, vc->dest[0].pix_mode,
+			//	vc->vc, vc->dt);
 
 			g_aov_param.height = 480;
 			g_aov_param.width = 640;
@@ -1611,46 +1612,17 @@ static int set_aov_test_model_param(struct seninf_ctx *ctx,
 
 static int set_test_model(struct seninf_ctx *ctx, char enable)
 {
-	struct seninf_vc *vc[] = {NULL, NULL, NULL, NULL, NULL};
-	int i = 0, vc_used = 0;
+	struct seninf_vcinfo *vcinfo = &ctx->vcinfo;
+	struct seninf_vc *vc;
 	struct seninf_dfs *dfs = &ctx->core->dfs;
+	int i = 0;
 	int ret = 0;
 
-	pr_info("[%s]+\n", __func__);
-
-	if (ctx->is_test_model == 1) {
-		vc[vc_used++] = mtk_cam_seninf_get_vc_by_pad(ctx, PAD_SRC_RAW0);
-	} else if (ctx->is_test_model == 2) {
-		vc[vc_used++] = mtk_cam_seninf_get_vc_by_pad(ctx, PAD_SRC_RAW0);
-		vc[vc_used++] = mtk_cam_seninf_get_vc_by_pad(ctx, PAD_SRC_RAW1);
-		vc[vc_used++] = mtk_cam_seninf_get_vc_by_pad(ctx, PAD_SRC_RAW2);
-	} else if (ctx->is_test_model == 3) {
-		vc[vc_used++] = mtk_cam_seninf_get_vc_by_pad(ctx, PAD_SRC_RAW0);
-		vc[vc_used++] = mtk_cam_seninf_get_vc_by_pad(ctx, PAD_SRC_PDAF0);
-	} else if (ctx->is_test_model == 4) {
-		vc[vc_used++] = mtk_cam_seninf_get_vc_by_pad(ctx, PAD_SRC_RAW0);
-		vc[vc_used++] = mtk_cam_seninf_get_vc_by_pad(ctx, PAD_SRC_RAW1);
-		vc[vc_used++] = mtk_cam_seninf_get_vc_by_pad(ctx, PAD_SRC_RAW2);
-		vc[vc_used++] = mtk_cam_seninf_get_vc_by_pad(ctx, PAD_SRC_PDAF0);
-		vc[vc_used++] = mtk_cam_seninf_get_vc_by_pad(ctx, PAD_SRC_PDAF1);
-	} else if (ctx->is_test_model == 5) {
-		vc[vc_used++] = mtk_cam_seninf_get_vc_by_pad(ctx, PAD_SRC_RAW0);
-		vc[vc_used++] = mtk_cam_seninf_get_vc_by_pad(ctx, PAD_SRC_RAW_W0);
-	} else {
-		dev_info(ctx->dev, "testmodel %d invalid\n", ctx->is_test_model);
-		return -1;
-	}
-
-	for (; i < vc_used; ++i) {
-		if (!vc[i]) {
-			dev_info(ctx->dev, "vc not found\n");
-			return -1;
-		}
-	}
+	dev_info(ctx->dev, "[%s]+\n", __func__);
 
 	if (ctx->is_aov_test_model) {
 		ctx->streaming = enable;
-		return set_aov_test_model_param(ctx, &vc[0], enable, vc_used);
+		return set_aov_test_model_param(ctx, enable);
 	}
 
 	if (enable) {
@@ -1666,33 +1638,28 @@ static int set_test_model(struct seninf_ctx *ctx, char enable)
 
 		mtk_cam_seninf_tsrec_reset_vc_dt_info(ctx, ctx->tsrec_idx);
 
-		for (i = 0; i < vc_used; ++i) {
+		for (i = 0; i < vcinfo->cnt; ++i) {
 			struct mtk_cam_seninf_tsrec_vc_dt_info tsrec_vc_dt_info = {0};
 
-			vc[i]->dest_cnt = 1;
-			vc[i]->dest[0].outmux = ctx->pad2cam[vc[i]->out_pad][0];
-			vc[i]->enable = 1;
+			vc = &vcinfo->vc[i];
+
+			vc->dest_cnt = 1;
+			vc->dest[0].outmux = ctx->pad2cam[vc->out_pad][0];
+			vc->enable = 1;
 
 			dev_info(ctx->dev,
 				"test mode asyncIdx %d outmux %d, pixel mode %d, vc = %d, dt = 0x%x\n",
-				ctx->seninfAsyncIdx, vc[i]->dest[0].outmux, vc[i]->dest[0].pix_mode,
-				vc[i]->vc, vc[i]->dt);
+				ctx->seninfAsyncIdx, vc->dest[0].outmux, vc->dest[0].pix_mode,
+				vc->vc, vc->dt);
 
 			/* update final vc dt info to tsrec */
-			tsrec_vc_dt_info.vc = vc[i]->vc;
-			tsrec_vc_dt_info.dt = vc[i]->dt;
-			tsrec_vc_dt_info.out_pad = vc[i]->out_pad;
+			tsrec_vc_dt_info.vc = vc->vc;
+			tsrec_vc_dt_info.dt = vc->dt;
+			tsrec_vc_dt_info.out_pad = vc->out_pad;
 			mtk_cam_seninf_tsrec_update_vc_dt_info(ctx,
 				ctx->tsrec_idx, &tsrec_vc_dt_info);
-
-			g_seninf_ops->_set_test_model(ctx, ctx->seninfAsyncIdx,
-					vc[i]->dest[0].outmux, vc[i]->dest[0].pix_mode,
-					vc[i]->vc, vc[i]->dt);
-			if (vc[i]->out_pad == PAD_SRC_PDAF0)
-				mdelay(40);
-			else
-				udelay(40);
 		}
+		g_seninf_ops->_set_test_model(ctx, ctx->seninfAsyncIdx);
 
 		mtk_cam_seninf_tsrec_dbg_dump_vc_dt_info(ctx->tsrec_idx, __func__);
 		/* notify tsrec seninf_csi relationship & start tsrec using test mode settings */
@@ -2288,8 +2255,10 @@ static int seninf_s_stream(struct v4l2_subdev *sd, int enable)
 
 	dev_info(ctx->dev, "[%s] enable(%d)\n", __func__, enable);
 
-	if (ctx->is_test_model)
-		return set_test_model(ctx, enable);
+	if (ctx->is_test_model) {
+		set_test_model(ctx, enable);
+		return mtk_cam_seninf_s_stream_mux(ctx);
+	}
 
 	if (ctx->is_aov_real_sensor && !enable) {
 		if (!core->pwr_refcnt_for_aov)

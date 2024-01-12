@@ -6,6 +6,7 @@
 #include <linux/minmax.h>
 
 #include "mtk_cam-seninf.h"
+#include "mtk_cam-seninf-if.h"
 #include "mtk_cam-seninf-hw.h"
 #include "mtk_cam-seninf-regs.h"
 #include "mtk_csi_phy_3_0/mtk_cam-seninf-top.h"
@@ -56,37 +57,43 @@ static struct mtk_cam_seninf_irq_event_st vsync_detect_seninf_irq_event;
 			RG_CSI2_S##s##_VC_INTERLEAVE_EN, 1); \
 } while (0)
 
-#define DUMP_DEBUG_REG_INFO_BY_TAG(tag_id) do { \
-	vcinfo_debug->exp_size_h = \
-		SENINF_READ_BITS(outmux, \
-			 SENINF_OUTMUX_TAG_SIZE_##tag_id, \
-			 SENINF_OUTMUX_HSIZE_##tag_id); \
-	vcinfo_debug->exp_size_v = \
-		SENINF_READ_BITS(outmux, \
-			 SENINF_OUTMUX_TAG_SIZE_##tag_id, \
-			 SENINF_OUTMUX_VSIZE_##tag_id); \
-	vcinfo_debug->done_irq_status = \
-		SENINF_READ_BITS(outmux, \
-			 SENINF_OUTMUX_IRQ_STATUS, \
-			 SENINF_OUTMUX_TAG_DONE_IRQ_STATUS_##tag_id); \
-	vcinfo_debug->incomplete_frame_status = \
-		SENINF_READ_BITS(outmux, \
-			 SENINF_OUTMUX_IRQ_STATUS, \
-			 SENINF_OUTMUX_INCOMP_IRQ_STATUS_##tag_id); \
-	vcinfo_debug->oversize_irq_status = \
-		SENINF_READ_BITS(outmux, \
-			 SENINF_OUTMUX_IRQ_STATUS, \
-			 SENINF_OUTMUX_OVERSIZE_IRQ_STATUS_##tag_id); \
+#define SET_OUT_MUX_IRQ_EN_BY_TAG(pOutMux, tag_id, en) do { \
+	SENINF_BITS(pOutMux, SENINF_OUTMUX_IRQ_EN, SENINF_OUTMUX_INCOMP_IRQ_EN_##tag_id, en); \
+	SENINF_BITS(pOutMux, SENINF_OUTMUX_IRQ_EN, SENINF_OUTMUX_OVERSIZE_IRQ_EN_##tag_id, en); \
+	SENINF_BITS(pOutMux, SENINF_OUTMUX_IRQ_EN, SENINF_OUTMUX_TAG_DONE_IRQ_EN_##tag_id, en); \
 } while (0)
 
-#define SET_TAG(ptr, sel, vc, dt, hsize, vsize) do { \
-	if (sel < 4) { \
-		SENINF_BITS(ptr, SENINF_OUTMUX_SOURCE_CONFIG_1, \
+#define DUMP_DEBUG_REG_INFO_BY_TAG(tag_id) do {			\
+	vcinfo_debug->exp_size_h =							\
+			SENINF_READ_BITS(outmux,					\
+					SENINF_OUTMUX_TAG_SIZE_##tag_id,	\
+					SENINF_OUTMUX_HSIZE_##tag_id);		\
+\
+	vcinfo_debug->exp_size_v =							\
+			SENINF_READ_BITS(outmux,					\
+					SENINF_OUTMUX_TAG_SIZE_##tag_id,	\
+					SENINF_OUTMUX_VSIZE_##tag_id);		\
+\
+	vcinfo_debug->done_irq_status =						\
+			SENINF_READ_BITS(outmux,					\
+					SENINF_OUTMUX_IRQ_STATUS,			\
+					SENINF_OUTMUX_TAG_DONE_IRQ_STATUS_##tag_id);	\
+\
+	vcinfo_debug->incomplete_frame_status =				\
+			SENINF_READ_BITS(outmux,					\
+					SENINF_OUTMUX_IRQ_STATUS,			\
+					SENINF_OUTMUX_INCOMP_IRQ_STATUS_##tag_id);		\
+\
+	vcinfo_debug->oversize_irq_status =					\
+			SENINF_READ_BITS(outmux,					\
+					SENINF_OUTMUX_IRQ_STATUS,			\
+					SENINF_OUTMUX_OVERSIZE_IRQ_STATUS_##tag_id);	\
+} while (0)
+
+
+#define SET_TAG(ptr, cfgn, sel, vc, dt, hsize, vsize) do { \
+	SENINF_BITS(ptr, SENINF_OUTMUX_SOURCE_CONFIG_##cfgn, \
 		    SENINF_OUTMUX_TAG_VC_##sel, vc); \
-	} else if (sel < 8) { \
-		SENINF_BITS(ptr, SENINF_OUTMUX_SOURCE_CONFIG_2, \
-		    SENINF_OUTMUX_TAG_VC_##sel, vc); \
-	} \
 	SENINF_BITS(ptr, SENINF_OUTMUX_TAG_VCDT_FILT_##sel, \
 		    SENINF_OUTMUX_FILT_EN_##sel, 1); \
 	SENINF_BITS(ptr, SENINF_OUTMUX_TAG_VCDT_FILT_##sel, \
@@ -96,7 +103,7 @@ static struct mtk_cam_seninf_irq_event_st vsync_detect_seninf_irq_event;
 	SENINF_BITS(ptr, SENINF_OUTMUX_TAG_SIZE_##sel, \
 		    SENINF_OUTMUX_HSIZE_##sel, hsize); \
 	SENINF_BITS(ptr, SENINF_OUTMUX_TAG_SIZE_##sel, \
-		    SENINF_OUTMUX_VSIZE_##sel, vsize); \
+		    SENINF_OUTMUX_VSIZE_##sel, vsize - 1); \
 } while (0)
 
 #define SET_TM_VC_DT(ptr, s, vc, dt) do { \
@@ -880,69 +887,228 @@ static int mtk_cam_seninf_set_outmux_chk_pixel_mode(struct seninf_ctx *ctx,
 	}
 	pSeninf_outmux = ctx->reg_if_outmux[outmux];
 
-	//SENINF_BITS(pSeninf_outmux, SENINF_OUTMUX_PIX_MODE,
-	//			SENINF_OUTMUX_PIX_MODE, (pixel_mode & 0x1));
+	SENINF_BITS(pSeninf_outmux, SENINF_OUTMUX_PIX_MODE, SENINF_OUTMUX_PIX_MODE,
+		    (pixel_mode == pix_mode_16p));
 
 	return 0;
 }
 
-static int mtk_cam_seninf_set_test_model(struct seninf_ctx *ctx,
-				  int intf, int outmux, int pixel_mode,
-				  int vc, int dt)
+static int mtk_cam_seninf_set_async_cg(struct seninf_ctx *ctx, int async, int en)
+{
+	void *pSeninf_top = ctx->reg_if_top;
+	int val = 0;
+
+	if (async >= _seninf_ops->async_num)
+		return false;
+
+	val = SENINF_READ_BITS(pSeninf_top, SENINF_TOP_ASYNC_CG_EN, SENINF_TOP_ASYNC_CG_EN);
+
+	if (en)
+		val |= (0x1 << async);
+	else
+		val &= (~(0x1 << async));
+
+	SENINF_BITS(pSeninf_top, SENINF_TOP_ASYNC_CG_EN, SENINF_TOP_ASYNC_CG_EN, val);
+
+	seninf_logd(ctx, "write ASYNC_CG: 0x%x\n", val);
+
+	return 0;
+}
+
+static int mtk_cam_seninf_set_async(struct seninf_ctx *ctx, int async, int split, int tm)
+{
+	void *pSeninf;
+	int val = 0;
+
+	if (async >= _seninf_ops->async_num)
+		return false;
+
+	pSeninf = ctx->reg_if_async;
+
+	// set if split
+	val = SENINF_READ_BITS(pSeninf, SENINF_ASYTOP_SENINF_ASYNC_CFG,
+			       SENINF_ASYTOP_MIPI_SPLIT);
+	if (split)
+		val |= (0x1 << (async << 1));
+	else
+		val &= (~(0x3 << (async << 1)));
+
+	SENINF_BITS(pSeninf, SENINF_ASYTOP_SENINF_ASYNC_CFG,
+		    SENINF_ASYTOP_MIPI_SPLIT, val);
+
+	// set if test model
+	val = SENINF_READ_BITS(pSeninf, SENINF_ASYTOP_SENINF_ASYNC_CFG,
+			       SENINF_ASYTOP_TESTMDL_SEL);
+	if (tm)
+		val |= (0x1 << async);
+	else
+		val &= (~(0x1 << async));
+
+	SENINF_BITS(pSeninf, SENINF_ASYTOP_SENINF_ASYNC_CFG,
+		    SENINF_ASYTOP_TESTMDL_SEL, val);
+
+	dev_info(ctx->dev, "%s: ASYNC CFG = 0x%x\n", __func__,
+		 SENINF_READ_REG(pSeninf, SENINF_ASYTOP_SENINF_ASYNC_CFG));
+
+	return true;
+}
+
+static int mtk_cam_seninf_set_test_model(struct seninf_ctx *ctx, int intf)
 {
 	void *pSeninf;
 	void *pSeninf_tg;
-	void *pSeninf_mux;
-	struct outmux_cfg cfg;
-	int tag = 0;
+	int i;
+	int tm_width = TEST_MODEL_HSIZE;
+	int tm_height = TEST_MODEL_VSIZE;
+	struct seninf_vcinfo *vcinfo = &ctx->vcinfo;
+	struct seninf_vc *vc;
+	int vs_diff = 0x10;
 
 	pSeninf = ctx->reg_if_async;
 	pSeninf_tg = ctx->reg_if_tg[(unsigned int)intf];
-	pSeninf_mux = ctx->reg_if_outmux[(unsigned int)outmux];
 
-	cfg.src_mipi = intf;
-	cfg.src_sen = 0;
-	cfg.tag_cfg[tag].enable = true;
-	cfg.tag_cfg[tag].filt_vc = vc;
-	cfg.tag_cfg[tag].filt_dt = dt;
-
+	mtk_cam_seninf_set_async_cg(ctx, intf, 1);
 	_seninf_ops->_reset(ctx, intf);
 
-	g_seninf_ops->_wait_outmux_cfg_done(ctx, outmux);
-	g_seninf_ops->_config_outmux(ctx, outmux,
-		cfg.src_mipi, cfg.src_sen, cfg.tag_cfg);
-	g_seninf_ops->_set_outmux_cfg_done(ctx, outmux);
+	mtk_cam_seninf_set_async(ctx, intf, 0, 1);
 
-	SENINF_BITS(pSeninf, SENINF_ASYTOP_SENINF_ASYNC_CFG,
-		    SENINF_ASYTOP_TESTMDL_SEL, 1 << intf);
+	// tm size
+	SENINF_BITS(pSeninf_tg, SENINF_TG_SENINF_TG_TM_SIZE,
+		    SENINF_TG_SENINF_TG_TM_LINE, tm_height);
+	SENINF_BITS(pSeninf_tg, SENINF_TG_SENINF_TG_TM_SIZE,
+		    SENINF_TG_SENINF_TG_TM_PXL, (tm_width >> 1));
 
-	SENINF_BITS(pSeninf_tg, SENINF_TG_SENINF_TG_TM_SIZE,
-		    SENINF_TG_SENINF_TG_TM_LINE, 4224);
-	SENINF_BITS(pSeninf_tg, SENINF_TG_SENINF_TG_TM_SIZE,
-		    SENINF_TG_SENINF_TG_TM_PXL, (5632 >> 1));
 	SENINF_BITS(pSeninf_tg, SENINF_TG_SENINF_TG_TM_CORE0_CTL,
 		    SENINF_TG_SENINF_TG_TM_CORE0_CLK_CNT, 0x1f);
 
+	// tm vb hb
 	SENINF_BITS(pSeninf_tg, SENINF_TG_SENINF_TG_TM_DUM,
 		    SENINF_TG_SENINF_TG_TM_VB, 100);
 	SENINF_BITS(pSeninf_tg, SENINF_TG_SENINF_TG_TM_DUM,
 		    SENINF_TG_SENINF_TG_TM_HB, 100);
 
-	SENINF_BITS(pSeninf_tg, SENINF_TG_SENINF_TG_TM_STAGGER_CON0,
-		    SENINF_TG_SENINF_TG_TM_EXP0_DT, 0x2b);
+	// vc dt setup
+	SENINF_BITS(pSeninf_tg, SENINF_TG_SENINF_TG_TM_CORE0_CTL,
+		    SENINF_TG_SENINF_TG_TM_CORE0_EXP_NUM,
+		    (vcinfo->cnt - 1));
+	for (i = 0 ; i < vcinfo->cnt; i++) {
+		vc = &vcinfo->vc[i];
+		dev_info(ctx->dev, "%s: vc[%d] vcid:%d vcdt:0x%x\n", __func__, i, vc->vc, vc->dt);
+		switch (i) {
+		case 0:
+			SENINF_BITS(pSeninf_tg, SENINF_TG_SENINF_TG_TM_STAGGER_CON0,
+				    SENINF_TG_SENINF_TG_TM_EXP0_HSYNC_VC, vc->vc);
+			SENINF_BITS(pSeninf_tg, SENINF_TG_SENINF_TG_TM_STAGGER_CON0,
+				    SENINF_TG_SENINF_TG_TM_EXP0_VSYNC_VC, vc->vc);
+			SENINF_BITS(pSeninf_tg, SENINF_TG_SENINF_TG_TM_STAGGER_CON0,
+				    SENINF_TG_SENINF_TG_TM_EXP0_DT, vc->dt);
+			break;
+		case 1:
+			SENINF_BITS(pSeninf_tg, SENINF_TG_SENINF_TG_TM_STAGGER_CON1,
+				    SENINF_TG_SENINF_TG_TM_EXP1_HSYNC_VC, vc->vc);
+			SENINF_BITS(pSeninf_tg, SENINF_TG_SENINF_TG_TM_STAGGER_CON1,
+				    SENINF_TG_SENINF_TG_TM_EXP1_VSYNC_VC, vc->vc);
+			SENINF_BITS(pSeninf_tg, SENINF_TG_SENINF_TG_TM_STAGGER_CON1,
+				    SENINF_TG_SENINF_TG_TM_EXP1_DT, vc->dt);
+			SENINF_BITS(pSeninf_tg, SENINF_TG_SENINF_TG_TM_EXP1_CTL,
+				    SENINF_TG_SENINF_TG_TM_EXP1_VC_MODE, 1);
+			SENINF_BITS(pSeninf_tg, SENINF_TG_SENINF_TG_TM_EXP1_CTL,
+				    SENINF_TG_SENINF_TG_TM_EXP1_DELAY, (vs_diff * i));
+			break;
+		case 2:
+			SENINF_BITS(pSeninf_tg, SENINF_TG_SENINF_TG_TM_STAGGER_CON2,
+				    SENINF_TG_SENINF_TG_TM_EXP2_HSYNC_VC, vc->vc);
+			SENINF_BITS(pSeninf_tg, SENINF_TG_SENINF_TG_TM_STAGGER_CON2,
+				    SENINF_TG_SENINF_TG_TM_EXP2_VSYNC_VC, vc->vc);
+			SENINF_BITS(pSeninf_tg, SENINF_TG_SENINF_TG_TM_STAGGER_CON2,
+				    SENINF_TG_SENINF_TG_TM_EXP2_DT, vc->dt);
+			SENINF_BITS(pSeninf_tg, SENINF_TG_SENINF_TG_TM_EXP2_CTL,
+				    SENINF_TG_SENINF_TG_TM_EXP2_VC_MODE, 1);
+			SENINF_BITS(pSeninf_tg, SENINF_TG_SENINF_TG_TM_EXP2_CTL,
+				    SENINF_TG_SENINF_TG_TM_EXP2_DELAY, (vs_diff * i));
+			break;
+		case 3:
+			SENINF_BITS(pSeninf_tg, SENINF_TG_SENINF_TG_TM_STAGGER_CON3,
+				    SENINF_TG_SENINF_TG_TM_EXP3_HSYNC_VC, vc->vc);
+			SENINF_BITS(pSeninf_tg, SENINF_TG_SENINF_TG_TM_STAGGER_CON3,
+				    SENINF_TG_SENINF_TG_TM_EXP3_VSYNC_VC, vc->vc);
+			SENINF_BITS(pSeninf_tg, SENINF_TG_SENINF_TG_TM_STAGGER_CON3,
+				    SENINF_TG_SENINF_TG_TM_EXP3_DT, vc->dt);
+			SENINF_BITS(pSeninf_tg, SENINF_TG_SENINF_TG_TM_EXP3_CTL,
+				    SENINF_TG_SENINF_TG_TM_EXP3_VC_MODE, 1);
+			SENINF_BITS(pSeninf_tg, SENINF_TG_SENINF_TG_TM_EXP3_CTL,
+				    SENINF_TG_SENINF_TG_TM_EXP3_DELAY, (vs_diff * i));
+			break;
+		case 4:
+			SENINF_BITS(pSeninf_tg, SENINF_TG_SENINF_TG_TM_STAGGER_CON4,
+				    SENINF_TG_SENINF_TG_TM_EXP4_HSYNC_VC, vc->vc);
+			SENINF_BITS(pSeninf_tg, SENINF_TG_SENINF_TG_TM_STAGGER_CON4,
+				    SENINF_TG_SENINF_TG_TM_EXP4_VSYNC_VC, vc->vc);
+			SENINF_BITS(pSeninf_tg, SENINF_TG_SENINF_TG_TM_STAGGER_CON4,
+				    SENINF_TG_SENINF_TG_TM_EXP4_DT, vc->dt);
+			SENINF_BITS(pSeninf_tg, SENINF_TG_SENINF_TG_TM_EXP4_CTL,
+				    SENINF_TG_SENINF_TG_TM_EXP4_VC_MODE, 1);
+			SENINF_BITS(pSeninf_tg, SENINF_TG_SENINF_TG_TM_EXP4_CTL,
+				    SENINF_TG_SENINF_TG_TM_EXP4_DELAY, (vs_diff * i));
+			break;
+		case 5:
+			SENINF_BITS(pSeninf_tg, SENINF_TG_SENINF_TG_TM_STAGGER_CON5,
+				    SENINF_TG_SENINF_TG_TM_EXP5_HSYNC_VC, vc->vc);
+			SENINF_BITS(pSeninf_tg, SENINF_TG_SENINF_TG_TM_STAGGER_CON5,
+				    SENINF_TG_SENINF_TG_TM_EXP5_VSYNC_VC, vc->vc);
+			SENINF_BITS(pSeninf_tg, SENINF_TG_SENINF_TG_TM_STAGGER_CON5,
+				    SENINF_TG_SENINF_TG_TM_EXP5_DT, vc->dt);
+			SENINF_BITS(pSeninf_tg, SENINF_TG_SENINF_TG_TM_EXP5_CTL,
+				    SENINF_TG_SENINF_TG_TM_EXP5_VC_MODE, 1);
+			SENINF_BITS(pSeninf_tg, SENINF_TG_SENINF_TG_TM_EXP5_CTL,
+				    SENINF_TG_SENINF_TG_TM_EXP5_DELAY, (vs_diff * i));
+			break;
+		case 6:
+			SENINF_BITS(pSeninf_tg, SENINF_TG_SENINF_TG_TM_STAGGER_CON6,
+				    SENINF_TG_SENINF_TG_TM_EXP6_HSYNC_VC, vc->vc);
+			SENINF_BITS(pSeninf_tg, SENINF_TG_SENINF_TG_TM_STAGGER_CON6,
+				    SENINF_TG_SENINF_TG_TM_EXP6_VSYNC_VC, vc->vc);
+			SENINF_BITS(pSeninf_tg, SENINF_TG_SENINF_TG_TM_STAGGER_CON6,
+				    SENINF_TG_SENINF_TG_TM_EXP6_DT, vc->dt);
+			SENINF_BITS(pSeninf_tg, SENINF_TG_SENINF_TG_TM_EXP6_CTL,
+				    SENINF_TG_SENINF_TG_TM_EXP6_VC_MODE, 1);
+			SENINF_BITS(pSeninf_tg, SENINF_TG_SENINF_TG_TM_EXP6_CTL,
+				    SENINF_TG_SENINF_TG_TM_EXP6_DELAY, (vs_diff * i));
+			break;
+		case 7:
+			SENINF_BITS(pSeninf_tg, SENINF_TG_SENINF_TG_TM_STAGGER_CON7,
+				    SENINF_TG_SENINF_TG_TM_EXP7_HSYNC_VC, vc->vc);
+			SENINF_BITS(pSeninf_tg, SENINF_TG_SENINF_TG_TM_STAGGER_CON7,
+				    SENINF_TG_SENINF_TG_TM_EXP7_VSYNC_VC, vc->vc);
+			SENINF_BITS(pSeninf_tg, SENINF_TG_SENINF_TG_TM_STAGGER_CON7,
+				    SENINF_TG_SENINF_TG_TM_EXP7_DT, vc->dt);
+			SENINF_BITS(pSeninf_tg, SENINF_TG_SENINF_TG_TM_EXP7_CTL,
+				    SENINF_TG_SENINF_TG_TM_EXP7_VC_MODE, 1);
+			SENINF_BITS(pSeninf_tg, SENINF_TG_SENINF_TG_TM_EXP7_CTL,
+				    SENINF_TG_SENINF_TG_TM_EXP7_DELAY, (vs_diff * i));
+			break;
+		default:
+			break;
+		}
+	}
 
+	// tm pattern
 	SENINF_BITS(pSeninf_tg, SENINF_TG_SENINF_TG_TM_CORE0_CTL,
 		    SENINF_TG_SENINF_TG_TM_CORE0_PAT, 0x8);
+	// tm rst
 	SENINF_BITS(pSeninf_tg, SENINF_TG_SENINF_TG_TM_CORE0_CTL,
 		    SENINF_TG_SENINF_TG_TM_CORE0_RST, 1);
 	udelay(1);
 	SENINF_BITS(pSeninf_tg, SENINF_TG_SENINF_TG_TM_CORE0_CTL,
 		    SENINF_TG_SENINF_TG_TM_CORE0_RST, 0);
+	// tm enable
 	SENINF_BITS(pSeninf_tg, SENINF_TG_SENINF_TG_TM_CORE0_CTL,
 		    SENINF_TG_SENINF_TG_TM_CORE0_EN, 1);
 
+	// Set as non single mode
 	SENINF_BITS(pSeninf_tg, SENINF_TG_SENINF_TG_TM_CORE0_CTL,
-		    SENINF_TG_SENINF_TG_TM_CORE0_SINGLE, 1);
+		    SENINF_TG_SENINF_TG_TM_CORE0_SINGLE, 0);
+
 
 	return 0;
 }
@@ -3349,31 +3515,10 @@ static int mtk_cam_seninf_set_csi_mipi(struct seninf_ctx *ctx)
 
 	/* seninf async */
 	seninf_async_setting(ctx);
+	mtk_cam_seninf_set_async(ctx, ctx->seninfAsyncIdx, ctx->is_4d1c, ctx->is_test_model);
 
 	/* phy */
 	csirx_phy_setting(ctx);
-
-	return 0;
-}
-
-static int mtk_cam_seninf_set_async_cg(struct seninf_ctx *ctx, int async, int en)
-{
-	void *pSeninf_top = ctx->reg_if_top;
-	int val = 0;
-
-	if (async >= _seninf_ops->async_num)
-		return false;
-
-	val = SENINF_READ_BITS(pSeninf_top, SENINF_TOP_ASYNC_CG_EN, SENINF_TOP_ASYNC_CG_EN);
-
-	if (en)
-		val |= (0x1 << async);
-	else
-		val &= (~(0x1 << async));
-
-	SENINF_BITS(pSeninf_top, SENINF_TOP_ASYNC_CG_EN, SENINF_TOP_ASYNC_CG_EN, val);
-
-	seninf_logd(ctx, "write ASYNC_CG: 0x%x\n", val);
 
 	return 0;
 }
@@ -6318,6 +6463,66 @@ int mtk_cam_seninf_wait_outmux_cfg_done(struct seninf_ctx *ctx, u8 outmux_idx)
 	return 0;
 }
 
+int mtk_cam_seninf_set_out_mux_irq_en_by_tag(struct seninf_ctx *ctx, u8 outmux_idx, u8 tag_id, bool en)
+{
+	void *pOutMux;
+
+	if (unlikely(outmux_idx > _seninf_ops->outmux_num)) {
+		dev_info(ctx->dev, "[Error][%s] invalid tag_id (%d)\n", __func__, tag_id);
+		return -EINVAL;
+	}
+
+	pOutMux = ctx->reg_if_outmux[outmux_idx];
+
+	if (unlikely(pOutMux == NULL)) {
+		dev_info(ctx->dev, "[Error][%s] pOutMux is NULL\n", __func__);
+		return -EINVAL;
+	}
+
+
+	/* SET IRQ STATUS AS WRITE CLEAR*/
+	SENINF_BITS(pOutMux, SENINF_OUTMUX_CSR_CFG_CTRL, SENINF_OUTMUX_INT_WCLR_EN, 1);
+
+	SENINF_BITS(pOutMux, SENINF_OUTMUX_IRQ_EN, SENINF_OUTMUX_CFG_DONE_IRQ_EN, en);
+	SENINF_BITS(pOutMux, SENINF_OUTMUX_IRQ_EN, SENINF_OUTMUX_REF_VSYNC_IRQ_EN, en);
+	SENINF_BITS(pOutMux, SENINF_OUTMUX_IRQ_EN, SENINF_OUTMUX_CFG_OVERLAP_IRQ_EN, en);
+	SENINF_BITS(pOutMux, SENINF_OUTMUX_IRQ_EN, SENINF_OUTMUX_CFG_LAG_HANG_IRQ_EN, en);
+	SENINF_BITS(pOutMux, SENINF_OUTMUX_IRQ_EN, SENINF_OUTMUX_PIXCVT_OVERRUN_IRQ_EN, en);
+
+
+	switch(tag_id) {
+	case 0:
+		SET_OUT_MUX_IRQ_EN_BY_TAG(pOutMux, 0, en);
+		break;
+	case 1:
+		SET_OUT_MUX_IRQ_EN_BY_TAG(pOutMux, 1, en);
+		break;
+	case 2:
+		SET_OUT_MUX_IRQ_EN_BY_TAG(pOutMux, 2, en);
+		break;
+	case 3:
+		SET_OUT_MUX_IRQ_EN_BY_TAG(pOutMux, 3, en);
+		break;
+	case 4:
+		SET_OUT_MUX_IRQ_EN_BY_TAG(pOutMux, 4, en);
+		break;
+	case 5:
+		SET_OUT_MUX_IRQ_EN_BY_TAG(pOutMux, 5, en);
+		break;
+	case 6:
+		SET_OUT_MUX_IRQ_EN_BY_TAG(pOutMux, 6, en);
+		break;
+	case 7:
+		SET_OUT_MUX_IRQ_EN_BY_TAG(pOutMux, 7, en);
+		break;
+	default:
+		dev_info(ctx->dev, "[Error][%s] tag_id(%d) is invalid", __func__, tag_id);
+		return -EINVAL;
+
+	}
+	return 0;
+}
+
 int mtk_cam_seninf_config_outmux(struct seninf_ctx *ctx, u8 outmux_idx, u8 src_mipi, u8 src_sen,
 			struct outmux_tag_cfg *tag_cfg)
 {
@@ -6326,56 +6531,63 @@ int mtk_cam_seninf_config_outmux(struct seninf_ctx *ctx, u8 outmux_idx, u8 src_m
 
 	pSeninf_mux = ctx->reg_if_outmux[outmux_idx];
 
-	SENINF_BITS(pSeninf_mux, SENINF_OUTMUX_SOURCE_CONFIG_0, SENINF_OUTMUX_VSYNC_SRC_SEL_MIPI, src_mipi);
-	SENINF_BITS(pSeninf_mux, SENINF_OUTMUX_SOURCE_CONFIG_0, SENINF_OUTMUX_VSYNC_SRC_SEL_SEN, src_sen);
-	SENINF_BITS(pSeninf_mux, SENINF_OUTMUX_SOURCE_CONFIG_0, SENINF_OUTMUX_REF_VC, ctx->cur_first_vs);
-	SENINF_BITS(pSeninf_mux, SENINF_OUTMUX_SOURCE_CONFIG_0, SENINF_OUTMUX_LAST_VC, ctx->cur_last_vs);
-	SENINF_BITS(pSeninf_mux, SENINF_OUTMUX_SRC_SEL, SENINF_OUTMUX_SRC_SEL_MIPI, src_mipi);
-	SENINF_BITS(pSeninf_mux, SENINF_OUTMUX_SRC_SEL, SENINF_OUTMUX_SRC_SEL_SEN, src_sen);
+	SENINF_BITS(pSeninf_mux, SENINF_OUTMUX_SOURCE_CONFIG_0,
+					SENINF_OUTMUX_VSYNC_SRC_SEL_MIPI, src_mipi);
+	SENINF_BITS(pSeninf_mux, SENINF_OUTMUX_SOURCE_CONFIG_0,
+					SENINF_OUTMUX_VSYNC_SRC_SEL_SEN, src_sen);
+	SENINF_BITS(pSeninf_mux, SENINF_OUTMUX_SOURCE_CONFIG_0,
+					SENINF_OUTMUX_REF_VC, ctx->cur_first_vs);
+	SENINF_BITS(pSeninf_mux, SENINF_OUTMUX_SOURCE_CONFIG_0,
+					SENINF_OUTMUX_LAST_VC, ctx->cur_last_vs);
+	SENINF_BITS(pSeninf_mux, SENINF_OUTMUX_SRC_SEL,
+					SENINF_OUTMUX_SRC_SEL_MIPI, src_mipi);
+	SENINF_BITS(pSeninf_mux, SENINF_OUTMUX_SRC_SEL,
+					SENINF_OUTMUX_SRC_SEL_SEN, src_sen);
 
 	for (i = 0; i < MAX_OUTMUX_TAG_NUM; i++) {
 		if (tag_cfg[i].enable) {
 			SENINF_BITS(pSeninf_mux, SENINF_OUTMUX_SOURCE_CONFIG_1,
-				    SENINF_OUTMUX_VSYNC_SRC_SEL_MIPI, src_mipi);
+							SENINF_OUTMUX_VSYNC_SRC_SEL_MIPI, src_mipi);
 			SENINF_BITS(pSeninf_mux, SENINF_OUTMUX_SOURCE_CONFIG_1,
-				    SENINF_OUTMUX_VSYNC_SRC_SEL_SEN, src_sen);
+							SENINF_OUTMUX_VSYNC_SRC_SEL_SEN, src_sen);
 			SENINF_BITS(pSeninf_mux, SENINF_OUTMUX_SRC_SEL,
-				    SENINF_OUTMUX_SRC_SEL_MIPI, src_mipi);
+							SENINF_OUTMUX_SRC_SEL_MIPI, src_mipi);
 			SENINF_BITS(pSeninf_mux, SENINF_OUTMUX_SRC_SEL,
-				    SENINF_OUTMUX_SRC_SEL_SEN, src_sen);
+							SENINF_OUTMUX_SRC_SEL_SEN, src_sen);
+			mtk_cam_seninf_set_out_mux_irq_en_by_tag(ctx, outmux_idx, i, true);
 		}
 
 		switch (i) {
 		case 0:
-			SET_TAG(pSeninf_mux, 0, tag_cfg[i].filt_vc, tag_cfg[i].filt_dt,
+			SET_TAG(pSeninf_mux, 1, 0, tag_cfg[i].filt_vc, tag_cfg[i].filt_dt,
 				tag_cfg[i].exp_hsize, tag_cfg[i].exp_vsize);
 			break;
 		case 1:
-			SET_TAG(pSeninf_mux, 1, tag_cfg[i].filt_vc, tag_cfg[i].filt_dt,
+			SET_TAG(pSeninf_mux, 1, 1, tag_cfg[i].filt_vc, tag_cfg[i].filt_dt,
 				tag_cfg[i].exp_hsize, tag_cfg[i].exp_vsize);
 			break;
 		case 2:
-			SET_TAG(pSeninf_mux, 2, tag_cfg[i].filt_vc, tag_cfg[i].filt_dt,
+			SET_TAG(pSeninf_mux, 1, 2, tag_cfg[i].filt_vc, tag_cfg[i].filt_dt,
 				tag_cfg[i].exp_hsize, tag_cfg[i].exp_vsize);
 			break;
 		case 3:
-			SET_TAG(pSeninf_mux, 3, tag_cfg[i].filt_vc, tag_cfg[i].filt_dt,
+			SET_TAG(pSeninf_mux, 1, 3, tag_cfg[i].filt_vc, tag_cfg[i].filt_dt,
 				tag_cfg[i].exp_hsize, tag_cfg[i].exp_vsize);
 			break;
 		case 4:
-			SET_TAG(pSeninf_mux, 4, tag_cfg[i].filt_vc, tag_cfg[i].filt_dt,
+			SET_TAG(pSeninf_mux, 2, 4, tag_cfg[i].filt_vc, tag_cfg[i].filt_dt,
 				tag_cfg[i].exp_hsize, tag_cfg[i].exp_vsize);
 			break;
 		case 5:
-			SET_TAG(pSeninf_mux, 5, tag_cfg[i].filt_vc, tag_cfg[i].filt_dt,
+			SET_TAG(pSeninf_mux, 2, 5, tag_cfg[i].filt_vc, tag_cfg[i].filt_dt,
 				tag_cfg[i].exp_hsize, tag_cfg[i].exp_vsize);
 			break;
 		case 6:
-			SET_TAG(pSeninf_mux, 6, tag_cfg[i].filt_vc, tag_cfg[i].filt_dt,
+			SET_TAG(pSeninf_mux, 2, 6, tag_cfg[i].filt_vc, tag_cfg[i].filt_dt,
 				tag_cfg[i].exp_hsize, tag_cfg[i].exp_vsize);
 			break;
 		case 7:
-			SET_TAG(pSeninf_mux, 7, tag_cfg[i].filt_vc, tag_cfg[i].filt_dt,
+			SET_TAG(pSeninf_mux, 2, 7, tag_cfg[i].filt_vc, tag_cfg[i].filt_dt,
 				tag_cfg[i].exp_hsize, tag_cfg[i].exp_vsize);
 			break;
 		default:

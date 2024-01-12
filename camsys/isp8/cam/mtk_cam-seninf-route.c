@@ -53,10 +53,10 @@
 //#endif
 //}
 
-static enum CAM_TYPE_ENUM mtk_cam_seninf_get_vc_type(u8 out_pad)
-{
-	return TYPE_CAMSV_SAT;
-}
+//static enum CAM_TYPE_ENUM mtk_cam_seninf_get_vc_type(u8 out_pad)
+//{
+//	return TYPE_CAMSV_SAT;
+//}
 
 void mtk_cam_seninf_alloc_outmux(struct seninf_ctx *ctx)
 {
@@ -65,7 +65,6 @@ void mtk_cam_seninf_alloc_outmux(struct seninf_ctx *ctx)
 	struct seninf_vcinfo *vcinfo = &ctx->vcinfo;
 	struct seninf_vc *vc;
 	struct seninf_outmux *ent;
-	enum CAM_TYPE_ENUM cam_type;
 	bool auto_alloc;
 
 	pr_info("[%s]+\n", __func__);
@@ -75,7 +74,7 @@ void mtk_cam_seninf_alloc_outmux(struct seninf_ctx *ctx)
 	if (ctx->single_raw_streaming_en)
 		vcinfo->cnt = 1;
 
-	/* allocate cam muxs if assigned */
+	/* allocate outmuxs if assigned */
 	for (i = 0; i < vcinfo->cnt; i++) {
 		auto_alloc = true;
 		vc = &vcinfo->vc[i];
@@ -85,8 +84,10 @@ void mtk_cam_seninf_alloc_outmux(struct seninf_ctx *ctx)
 			// search local ctx
 			list_for_each_entry(ent, &ctx->list_outmux, list) {
 				if (ent->idx == ctx->pad2cam[vc->out_pad][0]) {
-					dev_info(ctx->dev, "pad%d -> cam%d\n",
-						 vc->out_pad, ent->idx);
+					dev_info(ctx->dev, "pad%d -> outmux%d, tag%d\n",
+						 vc->out_pad,
+						 ctx->pad2cam[vc->out_pad][0],
+						 ctx->pad_tag_id[vc->out_pad][0]);
 					auto_alloc = false;
 					break;
 				}
@@ -98,8 +99,10 @@ void mtk_cam_seninf_alloc_outmux(struct seninf_ctx *ctx)
 					if (ent->idx == ctx->pad2cam[vc->out_pad][0]) {
 						list_move_tail(&ent->list,
 							       &ctx->list_outmux);
-						dev_info(ctx->dev, "pad%d -> cam%d\n",
-							 vc->out_pad, ent->idx);
+						dev_info(ctx->dev, "pad%d -> outmux%d, tag%d\n",
+							 vc->out_pad,
+							 ctx->pad2cam[vc->out_pad][0],
+							 ctx->pad_tag_id[vc->out_pad][0]);
 						auto_alloc = false;
 						break;
 					}
@@ -107,45 +110,30 @@ void mtk_cam_seninf_alloc_outmux(struct seninf_ctx *ctx)
 			}
 
 			if (auto_alloc) {
-				dev_info(ctx->dev, "cam%d had been occupied\n",
+				dev_info(ctx->dev, "outmux%d had been occupied\n",
 					 ctx->pad2cam[vc->out_pad][0]);
 				ctx->pad2cam[vc->out_pad][0] = 0xff;
 			}
 		}
 	}
 
-	/* auto allocate cam muxs */
+	/* auto allocate outmuxs */
 	for (i = 0; i < vcinfo->cnt; i++) {
 		vc = &vcinfo->vc[i];
 		if (ctx->pad2cam[vc->out_pad][0] == 0xff) {
-			cam_type = mtk_cam_seninf_get_vc_type(vc->out_pad);
-
-			// alloc from local ctx
-			list_for_each_entry(ent, &ctx->list_outmux, list) {
-				if (ent->idx >= core->outmux_range[(unsigned int)cam_type].first &&
-				    ent->idx <= core->outmux_range[(unsigned int)cam_type].second) {
-					ctx->pad2cam[vc->out_pad][0] = ent->idx;
-					ctx->pad_tag_id[vc->out_pad][0] = ent->idx % 8;
-					vc->dest_cnt = 1;
-					dev_info(ctx->dev, "pad%d -> cam%d\n",
-						 vc->out_pad, ent->idx);
-					break;
-				}
-			}
 
 			// alloc from core
 			list_for_each_entry(ent, &core->list_outmux, list) {
-				if (ent->idx >= core->outmux_range[(unsigned int)cam_type].first &&
-				    ent->idx <= core->outmux_range[(unsigned int)cam_type].second) {
-					list_move_tail(&ent->list,
-						       &ctx->list_outmux);
-					ctx->pad2cam[vc->out_pad][0] = ent->idx;
-					ctx->pad_tag_id[vc->out_pad][0] = ent->idx % 8;
-					vc->dest_cnt = 1;
-					dev_info(ctx->dev, "pad%d -> cam%d\n",
-						 vc->out_pad, ent->idx);
-					break;
-				}
+				list_move_tail(&ent->list,
+					       &ctx->list_outmux);
+				ctx->pad2cam[vc->out_pad][0] = ent->idx;
+				ctx->pad_tag_id[vc->out_pad][0] = 0;//always tag0
+				vc->dest_cnt = 1;
+				dev_info(ctx->dev, "pad%d -> outmux%d, tag%d\n",
+					 vc->out_pad,
+					 ctx->pad2cam[vc->out_pad][0],
+					 ctx->pad_tag_id[vc->out_pad][0]);
+				break;
 			}
 		}
 	}
@@ -367,6 +355,11 @@ void mtk_cam_seninf_get_vcinfo_test(struct seninf_ctx *ctx)
 		vc->feature = VC_RAW_DATA;
 		vc->out_pad = PAD_SRC_RAW0;
 		vc->group = 0;
+		vc->exp_hsize = TEST_MODEL_HSIZE;
+		vc->exp_vsize = TEST_MODEL_VSIZE;
+
+		ctx->cur_first_vs = 0;
+		ctx->cur_last_vs = 0;
 	} else if (ctx->is_test_model == 2) {
 		vc = &vcinfo->vc[vcinfo->cnt++];
 		vc->vc = 0;
@@ -374,20 +367,29 @@ void mtk_cam_seninf_get_vcinfo_test(struct seninf_ctx *ctx)
 		vc->feature = VC_STAGGER_NE;
 		vc->out_pad = PAD_SRC_RAW0;
 		vc->group = 0;
+		vc->exp_hsize = TEST_MODEL_HSIZE;
+		vc->exp_vsize = TEST_MODEL_VSIZE;
 
 		vc = &vcinfo->vc[vcinfo->cnt++];
-		vc->vc = 0;
+		vc->vc = 1;
 		vc->dt = 0x2b;
 		vc->feature = VC_STAGGER_ME;
 		vc->out_pad = PAD_SRC_RAW1;
 		vc->group = 0;
+		vc->exp_hsize = TEST_MODEL_HSIZE;
+		vc->exp_vsize = TEST_MODEL_VSIZE;
 
 		vc = &vcinfo->vc[vcinfo->cnt++];
-		vc->vc = 0;
+		vc->vc = 2;
 		vc->dt = 0x2b;
 		vc->feature = VC_STAGGER_SE;
 		vc->out_pad = PAD_SRC_RAW2;
 		vc->group = 0;
+		vc->exp_hsize = TEST_MODEL_HSIZE;
+		vc->exp_vsize = TEST_MODEL_VSIZE;
+
+		ctx->cur_first_vs = 0;
+		ctx->cur_last_vs = 2;
 	} else if (ctx->is_test_model == 3) {
 		vc = &vcinfo->vc[vcinfo->cnt++];
 		vc->vc = 0;
@@ -395,6 +397,8 @@ void mtk_cam_seninf_get_vcinfo_test(struct seninf_ctx *ctx)
 		vc->feature = VC_RAW_DATA;
 		vc->out_pad = PAD_SRC_RAW0;
 		vc->group = 0;
+		vc->exp_hsize = TEST_MODEL_HSIZE;
+		vc->exp_vsize = TEST_MODEL_VSIZE;
 
 		vc = &vcinfo->vc[vcinfo->cnt++];
 		vc->vc = 0;
@@ -402,6 +406,11 @@ void mtk_cam_seninf_get_vcinfo_test(struct seninf_ctx *ctx)
 		vc->feature = VC_PDAF_STATS;
 		vc->out_pad = PAD_SRC_PDAF0;
 		vc->group = 0;
+		vc->exp_hsize = TEST_MODEL_HSIZE;
+		vc->exp_vsize = TEST_MODEL_VSIZE;
+
+		ctx->cur_first_vs = 0;
+		ctx->cur_last_vs = 0;
 	} else if (ctx->is_test_model == 4) {
 		vc = &vcinfo->vc[vcinfo->cnt++];
 		vc->vc = 0;
@@ -409,34 +418,47 @@ void mtk_cam_seninf_get_vcinfo_test(struct seninf_ctx *ctx)
 		vc->feature = VC_RAW_DATA;
 		vc->out_pad = PAD_SRC_RAW0;
 		vc->group = 0;
+		vc->exp_hsize = TEST_MODEL_HSIZE;
+		vc->exp_vsize = TEST_MODEL_VSIZE;
 
 		vc = &vcinfo->vc[vcinfo->cnt++];
-		vc->vc = 0;
+		vc->vc = 1;
 		vc->dt = 0x2b;
 		vc->feature = VC_RAW_DATA;
 		vc->out_pad = PAD_SRC_RAW1;
 		vc->group = 0;
+		vc->exp_hsize = TEST_MODEL_HSIZE;
+		vc->exp_vsize = TEST_MODEL_VSIZE;
 
 		vc = &vcinfo->vc[vcinfo->cnt++];
-		vc->vc = 0;
+		vc->vc = 2;
 		vc->dt = 0x2b;
 		vc->feature = VC_RAW_DATA;
 		vc->out_pad = PAD_SRC_RAW2;
 		vc->group = 0;
+		vc->exp_hsize = TEST_MODEL_HSIZE;
+		vc->exp_vsize = TEST_MODEL_VSIZE;
 
 		vc = &vcinfo->vc[vcinfo->cnt++];
-		vc->vc = 0;
+		vc->vc = 3;
 		vc->dt = 0x2b;
 		vc->feature = VC_RAW_DATA;
 		vc->out_pad = PAD_SRC_PDAF0;
 		vc->group = 0;
+		vc->exp_hsize = TEST_MODEL_HSIZE;
+		vc->exp_vsize = TEST_MODEL_VSIZE;
 
 		vc = &vcinfo->vc[vcinfo->cnt++];
-		vc->vc = 0;
+		vc->vc = 4;
 		vc->dt = 0x2b;
 		vc->feature = VC_RAW_DATA;
 		vc->out_pad = PAD_SRC_PDAF1;
 		vc->group = 0;
+		vc->exp_hsize = TEST_MODEL_HSIZE;
+		vc->exp_vsize = TEST_MODEL_VSIZE;
+
+		ctx->cur_first_vs = 0;
+		ctx->cur_last_vs = 4;
 	} else if (ctx->is_test_model == 5) {
 		vc = &vcinfo->vc[vcinfo->cnt++];
 		vc->vc = 0;
@@ -444,13 +466,20 @@ void mtk_cam_seninf_get_vcinfo_test(struct seninf_ctx *ctx)
 		vc->feature = VC_RAW_DATA;
 		vc->out_pad = PAD_SRC_RAW0;
 		vc->group = 0;
+		vc->exp_hsize = TEST_MODEL_HSIZE;
+		vc->exp_vsize = TEST_MODEL_VSIZE;
 
 		vc = &vcinfo->vc[vcinfo->cnt++];
-		vc->vc = 0;
+		vc->vc = 1;
 		vc->dt = 0x2b;
 		vc->feature = VC_RAW_W_DATA;
 		vc->out_pad = PAD_SRC_RAW_W0;
 		vc->group = 0;
+		vc->exp_hsize = TEST_MODEL_HSIZE;
+		vc->exp_vsize = TEST_MODEL_VSIZE;
+
+		ctx->cur_first_vs = 0;
+		ctx->cur_last_vs = 1;
 	}
 }
 
@@ -1313,11 +1342,12 @@ static int mtk_cam_seninf_outmux_switch(struct seninf_ctx *ctx, struct outmux_cf
 	int outmux_idx = cfg->outmux_idx;
 	int src_mipi = cfg->src_mipi;
 	int src_sen = cfg->src_sen;
+	int pix_mode = cfg->pix_mode;
 
 	seninf_logi(ctx, "outmux_idx %d, src_mipi %d, src_sen %d", outmux_idx, src_mipi, src_sen);
 
 	// make sure outmux cg enabled
-	if (g_seninf_ops->_is_outmux_used(ctx, outmux_idx))
+	if (!g_seninf_ops->_is_outmux_used(ctx, outmux_idx))
 		g_seninf_ops->_set_outmux_cg(ctx, outmux_idx, 1);
 
 	// Check if csr_sw_cfg_done == 0
@@ -1325,6 +1355,9 @@ static int mtk_cam_seninf_outmux_switch(struct seninf_ctx *ctx, struct outmux_cf
 
 	// Program double buffer register
 	g_seninf_ops->_config_outmux(ctx, outmux_idx, src_mipi, src_sen, cfg->tag_cfg);
+
+	// pixel mode
+	g_seninf_ops->_set_outmux_chk_pixel_mode(ctx, outmux_idx, pix_mode);
 
 	// Program csr_config_mode. Fix config mode 0
 
@@ -1473,6 +1506,7 @@ int _mtk_cam_seninf_set_camtg_with_dest_idx(struct v4l2_subdev *sd, int pad_id,
 
 				cfg->src_mipi = ctx->seninfAsyncIdx;
 				cfg->src_sen = ctx->seninfSelSensor;
+				cfg->pix_mode = dest->pix_mode;
 				cfg->tag_cfg[dest->tag].enable = true;
 				cfg->tag_cfg[dest->tag].filt_vc = vc->vc;
 				cfg->tag_cfg[dest->tag].filt_dt = vc->dt;
@@ -1490,9 +1524,9 @@ int _mtk_cam_seninf_set_camtg_with_dest_idx(struct v4l2_subdev *sd, int pad_id,
 					vc->out_pad, cfg->src_mipi, cfg->src_sen, dest->outmux,
 					dest->tag, vc->vc, vc->dt);
 
-				g_seninf_ops->_set_outmux_chk_pixel_mode(ctx,
-								dest->outmux,
-								dest->pix_mode);
+				//g_seninf_ops->_set_outmux_chk_pixel_mode(ctx,
+				//				dest->outmux,
+				//				dest->pix_mode);
 				if (old_outmux != 0xff && disable_last) {
 					//disable old in next sof
 					g_seninf_ops->_disable_outmux(ctx, old_outmux);
@@ -1946,6 +1980,7 @@ int mtk_cam_seninf_s_stream_mux(struct seninf_ctx *ctx)
 
 				cfg->src_mipi = intf;
 				cfg->src_sen = sen;
+				cfg->pix_mode = dest->pix_mode;
 				cfg->tag_cfg[dest->tag].enable = true;
 				cfg->tag_cfg[dest->tag].filt_vc = vc_sel;
 				cfg->tag_cfg[dest->tag].filt_dt = dt_sel;
@@ -1953,9 +1988,9 @@ int mtk_cam_seninf_s_stream_mux(struct seninf_ctx *ctx)
 				cfg->tag_cfg[dest->tag].exp_vsize = vc->exp_vsize;
 
 				seninf_logi(ctx,
-					"vc[%d] dest[%u] pad %d intf %d sen %d outmux %d tag %d vc 0x%x dt 0x%x\n",
+					"vc[%d] dest[%u] pad %d intf %d sen %d outmux %d tag %d vc 0x%x dt 0x%x pix_mode %u\n",
 					i, j, vc->out_pad, intf, sen, dest->outmux,
-					dest->tag, vc_sel, dt_sel);
+					dest->tag, vc_sel, dt_sel, dest->pix_mode);
 			} else {
 				seninf_logi(ctx, "invalid outmux, vc[%d] pad %d intf %d outmux %d\n",
 					 i, vc->out_pad, intf, dest->outmux);
@@ -2735,7 +2770,7 @@ int mtk_cam_seninf_s_aov_param(unsigned int sensor_id,
 		//g_aov_param.vc.dest[0].mux = 14;
 		//g_aov_param.vc.dest[0].mux_vr = 54;
 		//g_aov_param.vc.dest[0].cam = 44;
-		g_aov_param.vc.dest[0].pix_mode = 3;
+		g_aov_param.vc.dest[0].pix_mode = 0;
 		g_aov_param.camtg = 44;
 	}
 

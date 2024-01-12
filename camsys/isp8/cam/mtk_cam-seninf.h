@@ -131,6 +131,7 @@ struct outmux_cfg {
 	u8 outmux_idx;
 	u8 src_mipi;
 	u8 src_sen;
+	u8 pix_mode;
 	struct outmux_tag_cfg tag_cfg[MAX_OUTMUX_TAG_NUM];
 };
 

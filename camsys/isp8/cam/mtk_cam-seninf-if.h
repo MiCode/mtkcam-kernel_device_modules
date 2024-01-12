@@ -8,6 +8,14 @@
 
 /* ISP8 new API */
 
+enum pix_mode {
+	pix_mode_1p = 0,
+	pix_mode_2p = 1,
+	pix_mode_4p = 2,
+	pix_mode_8p = 3,
+	pix_mode_16p = 4,
+};
+
 /**
  * struct of camtg config setting
  *

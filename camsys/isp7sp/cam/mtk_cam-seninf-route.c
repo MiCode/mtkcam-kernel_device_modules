@@ -1910,12 +1910,6 @@ int mtk_cam_seninf_s_stream_mux(struct seninf_ctx *ctx)
 	struct seninf_mux *mux;
 	int en_tag = 0;
 	struct seninf_core *core = ctx->core;
-#ifdef SENSOR_SECURE_MTEE_SUPPORT
-#ifndef SECURE_UT
-	int raw_cammux_first = core->cammux_range[TYPE_RAW].first;
-	int raw_cammux_second = core->cammux_range[TYPE_RAW].second;
-#endif
-#endif
 
 	for (i = 0; i < vcinfo->cnt; i++) {
 		vc = &vcinfo->vc[i];
@@ -2029,34 +2023,6 @@ int mtk_cam_seninf_s_stream_mux(struct seninf_ctx *ctx)
 					"vc[%d] dest[%u] pad %d intf %d mux %d next/src mux_vr %d cam %d tag %d vc 0x%x dt 0x%x first %d\n",
 					i, j, vc->out_pad, intf, dest->mux, dest->mux_vr,
 					dest->cam, dest->tag, vc_sel, dt_sel, en_tag);
-
-#ifdef SENSOR_SECURE_MTEE_SUPPORT
-				if (ctx->is_secure != 1) {
-					dev_info(ctx->dev,
-						"is not secure, won't Sensor kernel init seninf_ca");
-					continue;
-				}
-				if (vc->out_pad == PAD_SRC_RAW0 ||
-					vc->out_pad == PAD_SRC_RAW1 ||
-					vc->out_pad == PAD_SRC_RAW2) {
-#ifndef SECURE_UT
-					if (dest->cam < raw_cammux_first ||
-						dest->cam > raw_cammux_second) {
-						dev_info(ctx->dev,
-							"cam not secure path, ignore ca_checkpipe");
-						continue;
-					}
-#endif
-					if (!seninf_ca_open_session())
-						dev_info(ctx->dev, "seninf_ca_open_session fail");
-
-					dev_info(ctx->dev, "Sensor kernel ca_checkpipe");
-					seninf_ca_checkpipe(ctx->SecInfo_addr);
-				} else {
-					dev_info(ctx->dev,
-						"pad not secure path, ignore ca_checkpipe");
-				}
-#endif
 			} else {
 				dest->mux_vr = 0xFF;
 				seninf_logi(ctx, "invalid camtg, vc[%d] pad %d intf %d cam %d\n",
@@ -2064,6 +2030,18 @@ int mtk_cam_seninf_s_stream_mux(struct seninf_ctx *ctx)
 			}
 		}
 	}
+#ifdef SENSOR_SECURE_MTEE_SUPPORT
+	if (ctx->is_secure != 1)
+		dev_info(ctx->dev,
+			"is not secure, won't Sensor kernel init seninf_ca");
+	else {
+		if (!seninf_ca_open_session())
+			dev_info(ctx->dev, "seninf_ca_open_session fail");
+
+		dev_info(ctx->dev, "Sensor kernel ca_checkpipe");
+		seninf_ca_checkpipe(ctx->SecInfo_addr);
+	}
+#endif
 
 	return 0;
 }

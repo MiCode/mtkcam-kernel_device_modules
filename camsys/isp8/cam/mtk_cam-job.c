@@ -455,7 +455,8 @@ static int mtk_cam_job_pack_init(struct mtk_cam_job *job,
 	job->local_trigger_cq_ts = 0;
 	job->local_ispdone_ts = 0;
 
-	if (raw_data->ctrl.req_info.req_type == SENSOR_REQUEST) {
+	if (raw_data &&
+		raw_data->ctrl.req_info.req_type == SENSOR_REQUEST) {
 		job->req_info_id = raw_data->ctrl.req_info.req_sync_id;
 		job->req_sensor = req;
 	}
@@ -3784,8 +3785,10 @@ static void update_job_state_init_sensor_param(struct mtk_cam_job *job)
 	job->job_state.s_params.latched_timing =
 		is_stagger_lbmf(job) ? SENSOR_LATCHED_L_SOF : SENSOR_LATCHED_F_SOF;
 
-	job->job_state.cq_trigger_thres_ns = ctrl_data->trigger_cq_deadline > 0 ?
-		ctrl_data->trigger_cq_deadline : infer_cq_trigger_deadline_ns(job, ctrl->frame_interval_ns);
+	job->job_state.cq_trigger_thres_ns =
+		(ctrl_data && ctrl_data->trigger_cq_deadline > 0) ?
+		ctrl_data->trigger_cq_deadline :
+		infer_cq_trigger_deadline_ns(job, ctrl->frame_interval_ns);
 
 	if (CAM_DEBUG_ENABLED(JOB))
 		pr_info("%s: job i2c_thres_ns %llu, latched_timing:%d, cq_trigger_thres:%llu\n",

@@ -50,9 +50,12 @@ static bool condition_notifier_exit;
 static DEFINE_MUTEX(notifier_wq_lock);
 static DECLARE_WAIT_QUEUE_HEAD(notifier_wq_queue);
 static void self_uninit_timer_callback(struct timer_list *t);
+static int picked_wl_table = 0;
 
 struct timer_list backgroup_info_update_timer;
 struct timer_list self_uninit_timer;
+
+module_param(picked_wl_table, int, 0644);
 
 static void backgroup_info_update_timer_callback(struct timer_list *t)
 {
@@ -75,6 +78,10 @@ static void c2ps_notifier_wq_cb_init(void)
 	timer_setup(&backgroup_info_update_timer,
 				backgroup_info_update_timer_callback, 0);
 	add_timer(&backgroup_info_update_timer);
+	if (picked_wl_table < get_nr_wl_type())
+		set_wl_type_manual(picked_wl_table);
+	else
+		set_wl_type_manual(0);
 }
 
 static void c2ps_notifier_wq_cb_uninit(void)
@@ -88,6 +95,7 @@ static void c2ps_notifier_wq_cb_uninit(void)
 	del_timer_sync(&backgroup_info_update_timer);
 	exit_c2ps_common();
 	del_timer_sync(&self_uninit_timer);
+	set_wl_type_manual(-1);
 }
 
 static void c2ps_notifier_wq_cb_add_task(

@@ -172,5 +172,7 @@ extern void set_gear_uclamp_max(int gearid, int val);
 extern int get_gear_uclamp_max(int gearid);
 extern unsigned long pd_get_util_freq(int cpu, unsigned long util);
 extern unsigned int get_nr_gears(void);
+extern void set_wl_type_manual(int val);
+extern int get_nr_wl_type(void);
 
 #endif  // C2PS_COMMON_INCLUDE_C2PS_COMMON_H_

@@ -27,7 +27,10 @@
 #include <linux/slab.h>
 #include <linux/dma-mapping.h>
 #include <linux/videodev2.h>
-#include <videobuf2-dma-contig.h>
+#include <media/videobuf2-dma-contig.h>
+#include <media/videobuf2-core.h>
+#include <media/videobuf2-v4l2.h>
+#include <media/videobuf2-memops.h>
 #include <linux/proc_fs.h>
 #include <linux/slab.h>
 #include <linux/string.h>
@@ -131,6 +134,256 @@ struct msg {
 
 int hcp_dbg_en;
 module_param(hcp_dbg_en, int, 0644);
+
+struct mtk_hcp_vb2_buf {
+	struct device			*dev;
+	void				*vaddr;
+	unsigned long			size;
+	void				*cookie;
+	dma_addr_t			dma_addr;
+	unsigned long			attrs;
+	enum dma_data_direction		dma_dir;
+	struct sg_table			*dma_sgt;
+	struct frame_vector		*vec;
+
+	/* MMAP related */
+	struct vb2_vmarea_handler	handler;
+	refcount_t			refcount;
+	struct sg_table			*sgt_base;
+
+	/* DMABUF related */
+	struct dma_buf_attachment	*db_attach;
+
+	struct vb2_buffer		*vb;
+	bool				non_coherent_mem;
+};
+
+static unsigned long mtk_hcp_vb2_get_contiguous_size(struct sg_table *sgt)
+{
+	struct scatterlist *s;
+	dma_addr_t expected = sg_dma_address(sgt->sgl);
+	unsigned int i;
+	unsigned long size = 0;
+
+	for_each_sgtable_dma_sg(sgt, s, i) {
+		if (sg_dma_address(s) != expected)
+			break;
+		expected += sg_dma_len(s);
+		size += sg_dma_len(s);
+	}
+	return size;
+}
+
+/*********************************************/
+/*         callbacks for all buffers         */
+/*********************************************/
+
+static void *mtk_hcp_vb2_cookie(struct vb2_buffer *vb, void *buf_priv)
+{
+	struct mtk_hcp_vb2_buf *buf = buf_priv;
+
+	return &buf->dma_addr;
+}
+
+static void *mtk_hcp_vb2_vaddr(struct vb2_buffer *vb, void *buf_priv)
+{
+	struct mtk_hcp_vb2_buf *buf = buf_priv;
+
+	if (buf->vaddr)
+		return buf->vaddr;
+
+	if (buf->db_attach) {
+		struct iosys_map map;
+
+		if (!dma_buf_vmap(buf->db_attach->dmabuf, &map))
+			buf->vaddr = map.vaddr;
+
+		return buf->vaddr;
+	}
+
+	if (buf->non_coherent_mem)
+		buf->vaddr = dma_vmap_noncontiguous(buf->dev, buf->size,
+						    buf->dma_sgt);
+	return buf->vaddr;
+}
+
+static void mtk_hcp_vb2_prepare(void *buf_priv)
+{
+	struct mtk_hcp_vb2_buf *buf = buf_priv;
+	struct sg_table *sgt = buf->dma_sgt;
+
+	/* This takes care of DMABUF and user-enforced cache sync hint */
+	if (buf->vb->skip_cache_sync_on_prepare)
+		return;
+
+	if (!buf->non_coherent_mem)
+		return;
+
+	/* Non-coherent MMAP only */
+	if (buf->vaddr)
+		flush_kernel_vmap_range(buf->vaddr, buf->size);
+
+	/* For both USERPTR and non-coherent MMAP */
+	dma_sync_sgtable_for_device(buf->dev, sgt, buf->dma_dir);
+}
+
+static void mtk_hcp_vb2_finish(void *buf_priv)
+{
+	struct mtk_hcp_vb2_buf *buf = buf_priv;
+	struct sg_table *sgt = buf->dma_sgt;
+
+	/* This takes care of DMABUF and user-enforced cache sync hint */
+	if (buf->vb->skip_cache_sync_on_finish)
+		return;
+
+	if (!buf->non_coherent_mem)
+		return;
+
+	/* Non-coherent MMAP only */
+	if (buf->vaddr)
+		invalidate_kernel_vmap_range(buf->vaddr, buf->size);
+
+	/* For both USERPTR and non-coherent MMAP */
+	dma_sync_sgtable_for_cpu(buf->dev, sgt, buf->dma_dir);
+}
+
+static int mtk_hcp_vb2_map_dmabuf(void *mem_priv)
+{
+	struct mtk_hcp_vb2_buf *buf = mem_priv;
+	struct sg_table *sgt;
+	unsigned long contig_size;
+
+	if (WARN_ON(!buf->db_attach)) {
+		pr_err("trying to pin a non attached buffer\n");
+		return -EINVAL;
+	}
+
+	if (WARN_ON(buf->dma_sgt)) {
+		pr_err("dmabuf buffer is already pinned\n");
+		return 0;
+	}
+
+	/* get the associated scatterlist for this buffer */
+	sgt = dma_buf_map_attachment(buf->db_attach, buf->dma_dir);
+	if (IS_ERR(sgt)) {
+		pr_err("Error getting dmabuf scatterlist\n");
+		return -EINVAL;
+	}
+
+	/* checking if dmabuf is big enough to store contiguous chunk */
+	contig_size = mtk_hcp_vb2_get_contiguous_size(sgt);
+	if (contig_size < buf->size) {
+		pr_err("contiguous chunk is too small %lu/%lu\n",
+		       contig_size, buf->size);
+		dma_buf_unmap_attachment(buf->db_attach, sgt, buf->dma_dir);
+		return -EFAULT;
+	}
+
+	buf->dma_addr = sg_dma_address(sgt->sgl);
+	buf->dma_sgt = sgt;
+	buf->vaddr = NULL;
+
+	return 0;
+}
+
+static void mtk_hcp_vb2_unmap_dmabuf(void *mem_priv)
+{
+	struct mtk_hcp_vb2_buf *buf = mem_priv;
+	struct sg_table *sgt = buf->dma_sgt;
+	struct iosys_map map = IOSYS_MAP_INIT_VADDR(buf->vaddr);
+
+	if (WARN_ON(!buf->db_attach)) {
+		pr_err("trying to unpin a not attached buffer\n");
+		return;
+	}
+
+	if (WARN_ON(!sgt)) {
+		pr_err("dmabuf buffer is already unpinned\n");
+		return;
+	}
+
+	if (buf->vaddr) {
+		dma_buf_vunmap(buf->db_attach->dmabuf, &map);
+		buf->vaddr = NULL;
+	}
+	dma_buf_unmap_attachment(buf->db_attach, sgt, buf->dma_dir);
+
+	buf->dma_addr = 0;
+	buf->dma_sgt = NULL;
+}
+
+static void *mtk_hcp_vb2_attach_dmabuf(struct vb2_buffer *vb, struct device *dev,
+				  struct dma_buf *dbuf, unsigned long size)
+{
+	struct mtk_hcp_vb2_buf *buf;
+	struct dma_buf_attachment *dba;
+
+	if (dbuf->size < size)
+		return ERR_PTR(-EFAULT);
+
+	if (WARN_ON(!dev))
+		return ERR_PTR(-EINVAL);
+
+	buf = kzalloc(sizeof(*buf), GFP_KERNEL);
+	if (!buf)
+		return ERR_PTR(-ENOMEM);
+
+	buf->dev = dev;
+	buf->vb = vb;
+
+	/* create attachment for the dmabuf with the user device */
+	dba = dma_buf_attach(dbuf, buf->dev);
+	if (IS_ERR(dba)) {
+		pr_err("failed to attach dmabuf\n");
+		kfree(buf);
+		return dba;
+	}
+
+	buf->dma_dir = vb->vb2_queue->dma_dir;
+	buf->size = size;
+	buf->db_attach = dba;
+
+	return buf;
+}
+
+static void mtk_hcp_vb2_detach_dmabuf(void *mem_priv)
+{
+	struct mtk_hcp_vb2_buf *buf = mem_priv;
+
+	/* if vb2 works correctly you should never detach mapped buffer */
+	if (WARN_ON(buf->dma_addr))
+		mtk_hcp_vb2_unmap_dmabuf(buf);
+
+	/* detach this attachment */
+	dma_buf_detach(buf->db_attach->dmabuf, buf->db_attach);
+	kfree(buf);
+}
+
+static unsigned int mtk_hcp_vb2_num_users(void *buf_priv)
+{
+	struct mtk_hcp_vb2_buf *buf = buf_priv;
+
+	return refcount_read(&buf->refcount);
+}
+
+/*hcp vb2 dma config ops*/
+static const struct vb2_mem_ops mtk_hcp_dma_contig_memops = {
+	/* .alloc		= , */
+	/* .put		= , */
+	/* .get_dmabuf	= , */
+	.cookie		= mtk_hcp_vb2_cookie,
+	.vaddr		= mtk_hcp_vb2_vaddr,
+	/* .mmap		= , */
+	/* .get_userptr	= , */
+	/* .put_userptr	= , */
+	.prepare	= mtk_hcp_vb2_prepare,
+	.finish		= mtk_hcp_vb2_finish,
+	.map_dmabuf	= mtk_hcp_vb2_map_dmabuf,
+	.unmap_dmabuf	= mtk_hcp_vb2_unmap_dmabuf,
+	.attach_dmabuf	= mtk_hcp_vb2_attach_dmabuf,
+	.detach_dmabuf	= mtk_hcp_vb2_detach_dmabuf,
+	.num_users	= mtk_hcp_vb2_num_users,
+};
 
 /**
  * struct my_wq_t - work struct to handle daemon notification
@@ -2118,7 +2371,7 @@ static int mtk_hcp_probe(struct platform_device *pdev)
 
 	hcp_mtkdev = hcp_dev;
 	hcp_dev->dev = &pdev->dev;
-	hcp_dev->mem_ops = &vb2_dma_contig_memops;
+	hcp_dev->mem_ops = &mtk_hcp_dma_contig_memops;
 
 	hcp_dev->data = of_device_get_match_data(&pdev->dev);
 

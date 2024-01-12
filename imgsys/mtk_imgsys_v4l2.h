@@ -18,6 +18,8 @@
 //#include <linux/remoteproc/mtk_scp.h>
 #include <linux/videodev2.h>
 #include <media/videobuf2-dma-contig.h>
+#include <media/videobuf2-v4l2.h>
+#include <media/videobuf2-memops.h>
 #include <media/v4l2-ioctl.h>
 #include <media/v4l2-subdev.h>
 #include <media/v4l2-event.h>
@@ -25,6 +27,29 @@
 #include "mtk_imgsys-hw.h"
 #include "mtk-hcp.h"
 #include "mtkdip.h"
+
+struct mtk_imgsys_vb2_buf {
+	struct device			*dev;
+	void				*vaddr;
+	unsigned long			size;
+	void				*cookie;
+	dma_addr_t			dma_addr;
+	unsigned long			attrs;
+	enum dma_data_direction		dma_dir;
+	struct sg_table			*dma_sgt;
+	struct frame_vector		*vec;
+
+	/* MMAP related */
+	struct vb2_vmarea_handler	handler;
+	refcount_t			refcount;
+	struct sg_table			*sgt_base;
+
+	/* DMABUF related */
+	struct dma_buf_attachment	*db_attach;
+
+	struct vb2_buffer		*vb;
+	bool				non_coherent_mem;
+};
 
 static int mtk_imgsys_sd_subscribe_event(struct v4l2_subdev *subdev,
 				      struct v4l2_fh *fh,
@@ -120,6 +145,27 @@ static int mtk_imgsys_vidioc_qbuf(struct file *file, void *priv,
 				  struct v4l2_buffer *buf);
 
 static int mtk_imgsys_subdev_close(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh);
+
+static void *mtk_imgsys_vb2_cookie(struct vb2_buffer *vb, void *buf_priv);
+
+static void *mtk_imgsys_vb2_vaddr(struct vb2_buffer *vb, void *buf_priv);
+
+static void mtk_imgsys_vb2_prepare(void *buf_priv);
+
+static void mtk_imgsys_vb2_finish(void *buf_priv);
+
+static int mtk_imgsys_vb2_map_dmabuf(void *mem_priv);
+
+static void mtk_imgsys_vb2_unmap_dmabuf(void *mem_priv);
+
+static void *mtk_imgsys_vb2_attach_dmabuf(struct vb2_buffer *vb, struct device *dev,
+				  struct dma_buf *dbuf, unsigned long size);
+
+static void mtk_imgsys_vb2_detach_dmabuf(void *mem_priv);
+
+static unsigned int mtk_imgsys_vb2_num_users(void *buf_priv);
+
+
 
 #ifdef BATCH_MODE_V3
 long mtk_imgsys_vidioc_default(struct file *file, void *fh,
@@ -221,6 +267,24 @@ static const struct v4l2_file_operations mtk_imgsys_v4l2_fops = {
 #ifdef CONFIG_COMPAT
 	.compat_ioctl32 = v4l2_compat_ioctl32,
 #endif
+};
+
+static const struct vb2_mem_ops mtk_imgsys_dma_contig_memops = {
+	/* .alloc		= , */
+	/* .put		= , */
+	/* .get_dmabuf	= , */
+	.cookie		= mtk_imgsys_vb2_cookie,
+	.vaddr		= mtk_imgsys_vb2_vaddr,
+	/* .mmap		= , */
+	/* .get_userptr	= , */
+	/* .put_userptr	= , */
+	.prepare	= mtk_imgsys_vb2_prepare,
+	.finish		= mtk_imgsys_vb2_finish,
+	.map_dmabuf	= mtk_imgsys_vb2_map_dmabuf,
+	.unmap_dmabuf	= mtk_imgsys_vb2_unmap_dmabuf,
+	.attach_dmabuf	= mtk_imgsys_vb2_attach_dmabuf,
+	.detach_dmabuf	= mtk_imgsys_vb2_detach_dmabuf,
+	.num_users	= mtk_imgsys_vb2_num_users,
 };
 
 /********************************************

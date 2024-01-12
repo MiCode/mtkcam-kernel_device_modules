@@ -16,6 +16,8 @@
 #include <uapi/linux/dma-heap.h>
 #include <linux/types.h>
 
+
+
 #include "mtk-hcp-aee.h"
 #include "mtk-img-ipi.h"
 
@@ -87,6 +89,7 @@ enum module_id {
 	MODULE_RSC,
 	MODULE_MAX_ID,
 };
+
 
 /**
  * struct flush_buf_info - DMA buffer need to partial flush

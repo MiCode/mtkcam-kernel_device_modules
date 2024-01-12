@@ -35,6 +35,7 @@
 #include "mtk_cam-seninf.h"
 #include "mtk_cam-seninf-hw.h"
 #include "mtk_cam-seninf-route.h"
+#include "mtk_cam-seninf-event-handle.h"
 #include "mtk_cam-seninf-tsrec.h"
 #include "imgsensor-user.h"
 #include "mtk_cam-seninf-ca.h"

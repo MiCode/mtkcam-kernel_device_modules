@@ -21,7 +21,7 @@
 
 #include "mtk_cam-seninf_control-8.h"
 #include "mtk_cam-seninf-route.h"
-#include "mtk_cam-seninf-tsrec.h"
+#include "mtk_cam-seninf-event-handle.h"
 #include "mtk_cam-seninf-sentest-ioctrl.h"
 #include "imgsensor-user.h"
 #define SENINF_CK 312000000

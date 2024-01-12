@@ -27,6 +27,7 @@ unsigned int mtk_cam_get_img_fmt(unsigned int fourcc);
 
 int is_yuv_ufo(unsigned int pixelformat);
 int is_raw_ufo(unsigned int pixelformat);
+int is_ufo(unsigned int pixelformat);
 int is_fullg_rb(unsigned int pixelformat);
 
 int ipifmt_is_raw_ufo(unsigned int ipi_fmt);

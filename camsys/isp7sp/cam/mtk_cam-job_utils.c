@@ -876,10 +876,53 @@ EXIT:
 	return ret;
 }
 
-static int fill_ufbc_header_yuvo(struct mtk_cam_buffer *buf,
+static int fill_ufbc_header_bayer(void *vaddr,
 			struct mtkcam_ipi_img_ufo_param *ufo_param)
 {
-	struct YUFO_META_INFO *yuvo_meta = buf->vaddr;
+	struct UFO_META_INFO *header = vaddr;
+	struct UFD_META_INFO *ufd_header;
+
+	if (!header) {
+		pr_info("[%s] fail to get buf va\n", __func__);
+		return -1;
+	}
+
+	header->AUWriteBySW = 1;
+
+	ufd_header = &header->UFD.UFD;
+	ufd_header->bUF = 1;
+
+	// Note: ufd_bond_mode[0] is 1 only when it is twin/triple mode
+	// therefore, pure raw with camsv will always go to else.
+	// (mtkcam_ipi_img_ufo_param is reset in reset_img_ufd_io_param().)
+	if (ufo_param && ufo_param->ufd_bond_mode[0]) {
+		ufd_header->UFD_BITSTREAM_OFST_ADDR[0] = ufo_param->ufd_bitstream_ofst_addr[0];
+		ufd_header->UFD_BITSTREAM_OFST_ADDR[1] = ufo_param->ufd_bitstream_ofst_addr[1];
+		ufd_header->UFD_BS_AU_START[0] = ufo_param->ufd_bs_au_start[0];
+		ufd_header->UFD_BS_AU_START[1] = ufo_param->ufd_bs_au_start[1];
+		ufd_header->UFD_AU2_SIZE[0] = ufo_param->ufd_au2_size[0];
+		ufd_header->UFD_AU2_SIZE[1] = ufo_param->ufd_au2_size[1];
+		ufd_header->UFD_BOND_MODE = ufo_param->ufd_bond_mode[0];
+	} else {
+		ufd_header->UFD_BITSTREAM_OFST_ADDR[0] = 0;
+		ufd_header->UFD_BITSTREAM_OFST_ADDR[1] = 0;
+		ufd_header->UFD_BS_AU_START[0] = 0;
+		ufd_header->UFD_BS_AU_START[1] = 0;
+		ufd_header->UFD_AU2_SIZE[0] = 0;
+		ufd_header->UFD_AU2_SIZE[1] = 0;
+		ufd_header->UFD_BOND_MODE = 0;
+	}
+
+	buf_printk("[%s] vaddr 0x%p ufd_bond_mode %d", __func__,
+			   vaddr, ufd_header->UFD_BOND_MODE);
+
+	return 0;
+}
+
+static int fill_ufbc_header_yuvo(void *vaddr,
+			struct mtkcam_ipi_img_ufo_param *ufo_param)
+{
+	struct YUFO_META_INFO *yuvo_meta = vaddr;
 	struct YUFD_META_INFO *yufd_meta;
 
 	if (!yuvo_meta) {
@@ -903,67 +946,103 @@ static int fill_ufbc_header_yuvo(struct mtk_cam_buffer *buf,
 	return 0;
 }
 
-static inline bool is_ufbc_ipi(unsigned int ipi_fmt)
+int write_ufbc_header_to_buf(struct mtk_cam_ufbc_header *ufbc_header)
 {
-	return (ipifmt_is_yuv_ufo(ipi_fmt) || ipifmt_is_raw_ufo(ipi_fmt));
-}
-
-static bool is_ufbc_dmao_port(struct mtkcam_ipi_frame_param *fp, __u8 id)
-{
-	bool is_ufbc = false;
 	int i;
 
-	for (i = 0; i < ARRAY_SIZE(fp->img_outs); ++i) {
-		if (fp->img_outs[i].uid.id == id) {
-			is_ufbc = is_ufbc_ipi(fp->img_outs[i].fmt.format);
+	for (i = 0; i < ufbc_header->used; i++) {
+		struct mtk_cam_ufbc_header_entry *param = &ufbc_header->entry[i];
+
+		switch (param->ipi_id) {
+		case MTKCAM_IPI_RAW_IMGO:
+		case MTKCAM_IPI_RAW_IMGO_W:
+		case MTKCAM_IPI_CAMSV_MAIN_OUT:
+			fill_ufbc_header_bayer(param->vaddr, param->param);
+			break;
+		case MTKCAM_IPI_RAW_YUVO_1:
+		case MTKCAM_IPI_RAW_YUVO_3:
+			fill_ufbc_header_yuvo(param->vaddr, param->param);
+			break;
+		default:
+			pr_info("%s: unknown IPI(%d) to handle ufbc header",
+					__func__, param->ipi_id);
 			break;
 		}
 	}
 
-	return is_ufbc;
+	return 0;
 }
 
-int update_ufbc_header_param(struct mtk_cam_job *job)
+static inline
+int _add_entry_to_ufbc_header(struct mtk_cam_ufbc_header *ufbc_header,
+		int ipi, void *vaddr, struct mtkcam_ipi_img_ufo_param *param)
 {
-	struct mtk_cam_buffer *buf, *buf_next;
-	struct mtk_cam_video_device *node;
-	struct mtkcam_ipi_frame_param *fp;
-	struct mtk_cam_request *req = job->req;
+	struct mtk_cam_ufbc_header_entry *hdr = NULL;
 
-	fp = (struct mtkcam_ipi_frame_param *)job->ipi.vaddr;
+	if (!ufbc_header) {
+		pr_info("%s: ERROR: NULL job_ufbc_header_info", __func__);
+		return -1;
+	}
 
-	spin_lock(&req->buf_lock);
+	if (ufbc_header->used >= UBFC_HEADER_PARAM_MAX || ufbc_header->used < 0) {
+		pr_info("%s: ERROR: info->used(%d) out of size",
+				__func__, ufbc_header->used);
+		return -1;
+	}
 
-	list_for_each_entry_safe(buf, buf_next, &req->buf_list, list) {
-		node = mtk_cam_buf_to_vdev(buf);
+	hdr = &ufbc_header->entry[ufbc_header->used++];
 
-		if (!belong_to_current_ctx(job, node->uid.pipe_id))
-			continue;
+	hdr->ipi_id = ipi;
+	hdr->vaddr = vaddr;
+	hdr->param = param;
 
-		switch (node->desc.id) {
-#ifdef MAIN_UFO_HEADER_READY
-		case MTK_RAW_MAIN_STREAM_OUT:
-			if (is_ufbc_dmao_port(fp, MTKCAM_IPI_RAW_IMGO))
-				fill_ufbc_header(buf, &fp->img_ufdo_params.imgo);
+	return 0;
+}
+
+int add_ufbc_header_entry(struct req_buffer_helper *helper,
+		unsigned int pixelformat, int ipi_video_id,
+		struct mtk_cam_buffer *buf, int plane, unsigned int offset)
+{
+	struct mtkcam_ipi_frame_param *fp = helper->fp;
+	int ret = 0;
+
+	if (is_raw_ufo(pixelformat)) {
+		switch (ipi_video_id) {
+		case MTKCAM_IPI_RAW_IMGO:
+		case MTKCAM_IPI_RAW_IMGO_W:
+			ret = _add_entry_to_ufbc_header(helper->ufbc_header, ipi_video_id,
+							   vb2_plane_vaddr(&buf->vbb.vb2_buf, plane) + offset,
+							   &fp->img_ufdo_params.imgo);
 			break;
-#endif
-		case MTK_RAW_YUVO_1_OUT:
-			if (is_ufbc_dmao_port(fp, MTKCAM_IPI_RAW_YUVO_1))
-				fill_ufbc_header_yuvo(buf, &fp->img_ufdo_params.yuvo1);
+		case MTKCAM_IPI_CAMSV_MAIN_OUT:
+			ret = _add_entry_to_ufbc_header(helper->ufbc_header, ipi_video_id,
+						   vb2_plane_vaddr(&buf->vbb.vb2_buf, plane) + offset,
+						   NULL);
 			break;
-		case MTK_RAW_YUVO_3_OUT:
-			if (is_ufbc_dmao_port(fp, MTKCAM_IPI_RAW_YUVO_3))
-				fill_ufbc_header_yuvo(buf, &fp->img_ufdo_params.yuvo3);
+		default:
+			break;
+		}
+	} else if (is_yuv_ufo(pixelformat)) {
+		switch (ipi_video_id) {
+		case MTKCAM_IPI_RAW_YUVO_1:
+			ret = _add_entry_to_ufbc_header(helper->ufbc_header, ipi_video_id,
+							   vb2_plane_vaddr(&buf->vbb.vb2_buf, plane) + offset,
+							   &fp->img_ufdo_params.yuvo1);
+			break;
+		case MTKCAM_IPI_RAW_YUVO_3:
+			ret = _add_entry_to_ufbc_header(helper->ufbc_header, ipi_video_id,
+							   vb2_plane_vaddr(&buf->vbb.vb2_buf, plane) + offset,
+							   &fp->img_ufdo_params.yuvo3);
 			break;
 		default:
 			break;
 		}
 	}
 
-	spin_unlock(&req->buf_lock);
-
-	return 0;
+	return ret;
 }
+
+
 
 static int fill_img_fmt(struct mtkcam_ipi_pix_fmt *ipi_pfmt,
 			struct mtk_cam_buffer *buf)
@@ -1277,7 +1356,8 @@ bool ipi_crop_eq(const struct mtkcam_ipi_crop *s,
 		(s->s.w == d->s.w) && (s->s.h == d->s.h));
 }
 
-int fill_imgo_out_subsample(struct mtkcam_ipi_img_output *io,
+int fill_imgo_out_subsample(struct req_buffer_helper *helper,
+			struct mtkcam_ipi_img_output *io,
 			struct mtk_cam_buffer *buf,
 			struct mtk_cam_video_device *node,
 			int subsample_ratio)
@@ -1290,6 +1370,9 @@ int fill_imgo_out_subsample(struct mtkcam_ipi_img_output *io,
 
 	/* fmt */
 	fill_img_fmt(&io->fmt, buf);
+
+	add_ufbc_header_entry(helper, buf->image_info.v4l2_pixelformat,
+					  io->uid.id, buf, 0, 0);
 
 	/* addr, 1-plane OR N-plane has same layout */
 	for (i = 0; i < subsample_ratio; i++) {
@@ -1315,7 +1398,8 @@ int fill_imgo_out_subsample(struct mtkcam_ipi_img_output *io,
 	return 0;
 }
 
-int fill_mp_img_out_hdr(struct mtkcam_ipi_img_output *io,
+int fill_mp_img_out_hdr(struct req_buffer_helper *helper,
+			struct mtkcam_ipi_img_output *io,
 			struct mtk_cam_buffer *buf,
 			struct mtk_cam_video_device *node, int id,
 			unsigned int plane,
@@ -1343,6 +1427,9 @@ int fill_mp_img_out_hdr(struct mtkcam_ipi_img_output *io,
 				   is_valid_mp_buf);
 
 	daddr = mtk_cam_buf_is_mp(buf) ? buf->mdaddr[valid_plane] : buf->daddr;
+
+	add_ufbc_header_entry(helper, buf->image_info.v4l2_pixelformat,
+						  id, buf, valid_plane, buf_offset);
 
 	/* FIXME: porting workaround */
 	io->buf[0][0].size = size;
@@ -1395,7 +1482,8 @@ static int mtk_cam_fill_img_out_buf_subsample(struct mtkcam_ipi_img_output *io,
 
 	return 0;
 }
-int fill_yuvo_out_subsample(struct mtkcam_ipi_img_output *io,
+int fill_yuvo_out_subsample(struct req_buffer_helper *helper,
+			struct mtkcam_ipi_img_output *io,
 			struct mtk_cam_buffer *buf,
 			struct mtk_cam_video_device *node,
 			int sub_ratio)
@@ -1405,6 +1493,9 @@ int fill_yuvo_out_subsample(struct mtkcam_ipi_img_output *io,
 
 	/* fmt */
 	fill_img_fmt(&io->fmt, buf);
+
+	add_ufbc_header_entry(helper, buf->image_info.v4l2_pixelformat,
+						  io->uid.id, buf, 0, 0);
 
 	mtk_cam_fill_img_out_buf_subsample(io, buf, sub_ratio);
 
@@ -1441,10 +1532,12 @@ int fill_img_in(struct mtkcam_ipi_img_input *ii,
 	return 0;
 }
 
-static int _fill_mp_img_out(struct mtkcam_ipi_img_output *io,
+static int _fill_mp_img_out(struct req_buffer_helper *helper,
+			    struct mtkcam_ipi_img_output *io,
 			    struct mtk_cam_buffer *buf,
 			    struct mtk_cam_video_device *node,
-			    unsigned int plane, unsigned int offset_cnt)
+			    int ipi_video_id,
+			    unsigned int plane, unsigned int offset)
 {
 	struct mtk_cam_cached_image_info *img_info = &buf->image_info;
 	dma_addr_t daddr;
@@ -1455,6 +1548,7 @@ static int _fill_mp_img_out(struct mtkcam_ipi_img_output *io,
 
 	/* uid */
 	io->uid = node->uid;
+	io->uid.id = ipi_video_id;
 
 	/* fmt */
 	fill_img_fmt(&io->fmt, buf);
@@ -1467,6 +1561,9 @@ static int _fill_mp_img_out(struct mtkcam_ipi_img_output *io,
 		daddr = buf->daddr;
 	}
 
+	add_ufbc_header_entry(helper, img_info->v4l2_pixelformat, ipi_video_id,
+						  buf, valid_plane, offset);
+
 	/* pixel format information, yuv has multi plane img info */
 	for (i = 0; i < ARRAY_SIZE(img_info->bytesperline); i++) {
 		unsigned int size = img_info->size[i];
@@ -1475,17 +1572,17 @@ static int _fill_mp_img_out(struct mtkcam_ipi_img_output *io,
 			break;
 
 		io->buf[0][i].size = size;
-		io->buf[0][i].iova = daddr + (offset_cnt * (dma_addr_t)(size));
+		io->buf[0][i].iova = daddr + (dma_addr_t)(offset);
 		io->buf[0][i].ccd_fd = buf->vbb.vb2_buf.planes[valid_plane].m.fd;
 
-		daddr += (offset_cnt + 1) * (dma_addr_t)(size);
+		daddr += (offset + size);
 	}
 
 	/* crop */
 	io->crop = v4l2_rect_to_ipi_crop(&buf->image_info.crop);
 
-	buf_printk("%s plane %d/%d, offset_cnt %d, iova %llx/%llx/%llx, size %u/%u/%u\n",
-		   node->desc.name, plane, valid_plane, offset_cnt,
+	buf_printk("%s plane %d/%d, offset %u, iova %llx/%llx/%llx, size %u/%u/%u\n",
+		   node->desc.name, plane, valid_plane, offset,
 		   io->buf[0][0].iova, io->buf[0][1].iova, io->buf[0][2].iova,
 		   io->buf[0][0].size, io->buf[0][1].size, io->buf[0][2].size);
 	buf_printk("%s %dx%d @%d,%d-%dx%d\n",
@@ -1496,22 +1593,21 @@ static int _fill_mp_img_out(struct mtkcam_ipi_img_output *io,
 	return 0;
 }
 
-int fill_img_out(struct mtkcam_ipi_img_output *io,
+int fill_img_out(struct req_buffer_helper *helper,
+		 struct mtkcam_ipi_img_output *io,
 		 struct mtk_cam_buffer *buf,
 		 struct mtk_cam_video_device *node)
 {
-	return  _fill_mp_img_out(io, buf, node, 0, 0);
+	return  _fill_mp_img_out(helper, io, buf, node, node->uid.id, 0, 0);
 }
 
-int fill_img_out_w(struct mtkcam_ipi_img_output *io,
+int fill_img_out_w(struct req_buffer_helper *helper,
+		   struct mtkcam_ipi_img_output *io,
 		   struct mtk_cam_buffer *buf,
 		   struct mtk_cam_video_device *node)
 {
-	int ret = _fill_mp_img_out(io, buf, node, 0, 1);
-
-	io->uid.id = raw_video_id_w_port(io->uid.id);
-
-	return ret;
+	return _fill_mp_img_out(helper, io, buf, node,
+				raw_video_id_w_port(node->uid.id), 0, buf->image_info.size[0]);
 }
 
 static int fill_sv_mp_fp(
@@ -1535,15 +1631,13 @@ static int fill_sv_mp_fp(
 		get_buf_offset_idx(plane, plane_per_exp, plane_buf_offset,
 				   is_valid_mp_buf);
 
-	/* no offset here, update later */
-	ret = _fill_mp_img_out(out, buf, node, valid_plane, 0);
+	ret = _fill_mp_img_out(helper, out, buf, node,
+			MTKCAM_IPI_CAMSV_MAIN_OUT, valid_plane, buf_offset);
+	out->uid.pipe_id = pipe_id;
 
 	fp->camsv_param[0][tag_idx].pipe_id = pipe_id;
 	fp->camsv_param[0][tag_idx].tag_id = tag_idx;
 	fp->camsv_param[0][tag_idx].hardware_scenario = 0;
-	out->uid.id = MTKCAM_IPI_CAMSV_MAIN_OUT;
-	out->uid.pipe_id = pipe_id;
-	out->buf[0][0].iova = buf->mdaddr[valid_plane] + buf_offset;
 
 	buf_printk("%s: tag_idx %d, iova %llx, size %u",
 		   __func__, tag_idx, out->buf[0][0].iova, out->buf[0][0].size);
@@ -1679,12 +1773,12 @@ int fill_imgo_buf_as_working_buf(
 	if (is_otf && !sv_pure_raw) {
 		// OTF, raw outputs last exp
 		out = &fp->img_outs[helper->io_idx++];
-		ret = fill_mp_img_out_hdr(out, buf, node, MTKCAM_IPI_RAW_IMGO,
+		ret = fill_mp_img_out_hdr(helper, out, buf, node, MTKCAM_IPI_RAW_IMGO,
 					  (is_w ? 2 : 1), plane_inc, 0);
 
 		if (!ret && is_w) {
 			out = &fp->img_outs[helper->io_idx++];
-			ret = fill_mp_img_out_hdr(out, buf, node,
+			ret = fill_mp_img_out_hdr(helper, out, buf, node,
 						  raw_video_id_w_port(MTKCAM_IPI_RAW_IMGO),
 						  2, plane_inc, 1);
 		}

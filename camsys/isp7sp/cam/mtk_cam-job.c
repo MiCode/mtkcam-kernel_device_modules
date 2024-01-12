@@ -388,7 +388,9 @@ static int mtk_cam_job_pack_init(struct mtk_cam_job *job,
 	job->raw_switch = false;
 
 	job->local_apply_sensor_ts = 0;
-	return ret;
+	memset(&job->ufbc_header, 0, sizeof(job->ufbc_header));
+
+    return ret;
 }
 
 static unsigned long mtk_cam_select_hw(struct mtk_cam_job *job)
@@ -2044,7 +2046,7 @@ _compose_done(struct mtk_cam_job *job,
 	job->cq_rst = *cq_ret;
 
 	if (job->composed)
-		update_ufbc_header_param(job);
+		write_ufbc_header_to_buf(&job->ufbc_header);
 
 	if (compose_ret)
 		trigger_error_dump(job, MSG_COMPOSE_ERROR);
@@ -2844,7 +2846,7 @@ static int fill_raw_img_buffer_to_ipi_frame(
 		/* main-stream + pure raw + others*/
 		out = &fp->img_outs[helper->io_idx++];
 
-		ret = fill_img_out(out, buf, node);
+		ret = fill_img_out(helper, out, buf, node);
 	} else {
 		struct mtkcam_ipi_img_input *in;
 
@@ -2894,7 +2896,7 @@ static int fill_m2m_imgo_to_img_out_ipi(struct req_buffer_helper *helper,
 
 		out = &fp->img_outs[helper->io_idx++];
 
-		ret = fill_img_out_w(out, buf, node);
+		ret = fill_img_out_w(helper, out, buf, node);
 	}
 
 	return ret;
@@ -2932,7 +2934,7 @@ int fill_imgo_buf_to_ipi_mstream(
 	} else {
 		// IMGO is used as the second exp
 		out = &fp->img_outs[helper->io_idx++];
-		fill_mp_img_out_hdr(out, buf, node, MTKCAM_IPI_RAW_IMGO,
+		fill_mp_img_out_hdr(helper, out, buf, node, MTKCAM_IPI_RAW_IMGO,
 				    get_buf_plane(exp_order, 1),
 				    get_plane_per_exp(0),
 				    get_plane_buf_offset(0));
@@ -2966,7 +2968,7 @@ static int fill_sv_img_buffer_to_ipi_frame(
 	tag_idx = mtk_cam_get_sv_tag_index(job->tag_info, node->uid.pipe_id);
 
 	out = &fp->camsv_param[0][tag_idx].camsv_img_outputs[0];
-	ret = fill_img_out(out, buf, node);
+	ret = fill_img_out(helper, out, buf, node);
 
 	fp->camsv_param[0][tag_idx].pipe_id =
 		sv_dev->id + MTKCAM_SUBDEV_CAMSV_START;
@@ -3022,7 +3024,7 @@ static int fill_sv_img_buffer_to_ipi_frame_display_ic(
 		tag_idx = proc_tag[i];
 
 		out = &fp->camsv_param[0][tag_idx].camsv_img_outputs[0];
-		ret = fill_img_out(out, buf, node);
+		ret = fill_img_out(helper, out, buf, node);
 
 		fp->camsv_param[0][tag_idx].pipe_id =
 			sv_dev->id + MTKCAM_SUBDEV_CAMSV_START;
@@ -3067,7 +3069,7 @@ static int fill_sv_ext_img_buffer_to_ipi_frame_display_ic(
 	tag_idx = SVTAG_2;
 
 	out = &fp->camsv_param[0][tag_idx].camsv_img_outputs[0];
-	ret = fill_img_out(out, buf, node);
+	ret = fill_img_out(helper, out, buf, node);
 
 	fp->camsv_param[0][tag_idx].pipe_id =
 		sv_dev->id + MTKCAM_SUBDEV_CAMSV_START;
@@ -3168,7 +3170,7 @@ static void compose_done_mstream(struct mtk_cam_job *job,
 	++mjob->composed_idx;
 
 	if (job->composed)
-		update_ufbc_header_param(job);
+		write_ufbc_header_to_buf(&job->ufbc_header);
 
 	/* TODO: add compose failed dump for 1st frame */
 	if (compose_ret)
@@ -4159,15 +4161,6 @@ static int update_job_raw_param_to_ipi_frame(struct mtk_cam_job *job,
 	return 0;
 }
 
-/* TODO: imgo ufbc */
-static void update_raw_image_buf_vaddr(struct mtk_cam_buffer *buf)
-{
-	struct mtk_cam_cached_image_info *info = &buf->image_info;
-
-	buf->vaddr = is_yuv_ufo(info->v4l2_pixelformat) ?
-		vb2_plane_vaddr(&buf->vbb.vb2_buf, 0) :  NULL;
-}
-
 static int update_raw_image_buf_to_ipi_frame(struct req_buffer_helper *helper,
 		struct mtk_cam_buffer *buf, struct mtk_cam_video_device *node,
 		struct pack_job_ops_helper *job_helper)
@@ -4205,8 +4198,6 @@ static int update_raw_image_buf_to_ipi_frame(struct req_buffer_helper *helper,
 		pr_info("%s %s: not supported port: %d\n",
 			__FILE__, __func__, node->desc.dma_port);
 	}
-
-	update_raw_image_buf_vaddr(buf);
 
 	return update_fn(helper, buf, node);
 }
@@ -4571,6 +4562,7 @@ static int update_job_buffer_to_ipi_frame(struct mtk_cam_job *job,
 	memset(&helper, 0, sizeof(helper));
 	helper.job = job;
 	helper.fp = fp;
+	helper.ufbc_header = &job->ufbc_header;
 
 	list_for_each_entry(buf, &req->buf_list, list) {
 		ret = ret || update_cam_buf_to_ipi_frame(&helper, buf, job_helper);

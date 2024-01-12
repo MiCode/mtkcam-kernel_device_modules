@@ -19,7 +19,7 @@ int fill_imgo_img_buffer_to_ipi_frame_subsample(
 
 	out = &fp->img_outs[helper->io_idx];
 	++helper->io_idx;
-	ret = fill_imgo_out_subsample(out, buf, node, helper->job->sub_ratio);
+	ret = fill_imgo_out_subsample(helper, out, buf, node, helper->job->sub_ratio);
 
 	return ret;
 }
@@ -35,7 +35,7 @@ int fill_yuvo_img_buffer_to_ipi_frame_subsample(
 	out = &fp->img_outs[helper->io_idx];
 	++helper->io_idx;
 
-	ret = fill_yuvo_out_subsample(out, buf, node, helper->job->sub_ratio);
+	ret = fill_yuvo_out_subsample(helper, out, buf, node, helper->job->sub_ratio);
 
 	return ret;
 

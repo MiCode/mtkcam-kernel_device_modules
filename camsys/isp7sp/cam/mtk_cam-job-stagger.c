@@ -20,7 +20,7 @@ int fill_imgo_buf_to_ipi_stagger(
 
 		out = &fp->img_outs[helper->io_idx++];
 
-		ret = fill_img_out(out, buf, node);
+		ret = fill_img_out(helper, out, buf, node);
 	} else {  /* pure raw */
 		ret = fill_imgo_buf_as_working_buf(helper, buf, node);
 	}

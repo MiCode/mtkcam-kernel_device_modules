@@ -133,7 +133,7 @@ int fill_sv_ext_img_buffer_to_ipi_frame_extisp(
 	buf->image_info.crop.top = 0;
 	buf->image_info.crop.width = node->active_fmt.fmt.pix_mp.width;
 	buf->image_info.crop.height = node->active_fmt.fmt.pix_mp.height;
-	ret = fill_img_out(out, buf, node);
+	ret = fill_img_out(helper, out, buf, node);
 
 	fp->camsv_param[0][tag_idx].pipe_id =
 		sv_dev->id + MTKCAM_SUBDEV_CAMSV_START;

@@ -128,6 +128,8 @@ struct mtkcam_ipi_img_ufo_param {
 } __packed;
 
 struct mtkcam_ipi_img_ufdo_params {
+	/* NOTE: "imgo_w" param is not required
+	   until supporting twin mode in RGBW */
 	struct mtkcam_ipi_img_ufo_param imgo;
 	/* struct mtkcam_ipi_img_ufo_param imgo2; */
 	struct mtkcam_ipi_img_ufo_param yuvo1;

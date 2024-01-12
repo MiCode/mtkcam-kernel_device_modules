@@ -11,6 +11,8 @@
 struct mtk_cam_job;
 struct mtk_cam_buffer;
 struct mtk_cam_video_device;
+struct mtk_cam_ufbc_header_entry;
+struct mtk_cam_ufbc_header;
 
 /*For state analysis and controlling for request*/
 enum MTK_CAMSYS_STATE_IDX {
@@ -73,6 +75,8 @@ struct req_buffer_helper {
 
 	/* for stagger case */
 	bool filled_hdr_buffer;
+
+	struct mtk_cam_ufbc_header *ufbc_header;
 };
 struct pack_job_ops_helper {
 	/* specific init for job */
@@ -116,10 +120,12 @@ int fill_img_in(struct mtkcam_ipi_img_input *ii,
 		struct mtk_cam_buffer *buf,
 		struct mtk_cam_video_device *node,
 		int id_overwite);
-int fill_img_out(struct mtkcam_ipi_img_output *io,
+int fill_img_out(struct req_buffer_helper *helper,
+		 struct mtkcam_ipi_img_output *io,
 		 struct mtk_cam_buffer *buf,
 		 struct mtk_cam_video_device *node);
-int fill_img_out_w(struct mtkcam_ipi_img_output *io,
+int fill_img_out_w(struct req_buffer_helper *helper,
+		   struct mtkcam_ipi_img_output *io,
 		   struct mtk_cam_buffer *buf,
 		   struct mtk_cam_video_device *node);
 int get_buf_plane(int exp_order_ipi, int exp_seq_num);
@@ -127,7 +133,8 @@ int get_plane_per_exp(bool is_rgbw);
 int get_plane_buf_offset(bool w_path);
 int get_buf_offset_idx(int plane, int plane_per_exp, int plane_buf_offset,
 		       bool is_valid_mp_buf);
-int fill_mp_img_out_hdr(struct mtkcam_ipi_img_output *io,
+int fill_mp_img_out_hdr(struct req_buffer_helper *helper,
+			struct mtkcam_ipi_img_output *io,
 			struct mtk_cam_buffer *buf,
 			struct mtk_cam_video_device *node, int id,
 			unsigned int plane,
@@ -145,11 +152,13 @@ int fill_img_in_by_exposure(struct req_buffer_helper *helper,
 int fill_m2m_rawi_to_img_in_ipi(struct req_buffer_helper *helper,
 	struct mtk_cam_buffer *buf,
 	struct mtk_cam_video_device *node);
-int fill_imgo_out_subsample(struct mtkcam_ipi_img_output *io,
+int fill_imgo_out_subsample(struct req_buffer_helper *helper,
+			    struct mtkcam_ipi_img_output *io,
 			    struct mtk_cam_buffer *buf,
 			    struct mtk_cam_video_device *node,
 			    int sub_ratio);
-int fill_yuvo_out_subsample(struct mtkcam_ipi_img_output *io,
+int fill_yuvo_out_subsample(struct req_buffer_helper *helper,
+			    struct mtkcam_ipi_img_output *io,
 			    struct mtk_cam_buffer *buf,
 			    struct mtk_cam_video_device *node,
 			    int sub_ratio);
@@ -158,11 +167,14 @@ int fill_sv_img_fp(struct req_buffer_helper *helper,
 int fill_imgo_buf_as_working_buf(
 	struct req_buffer_helper *helper, struct mtk_cam_buffer *buf,
 	struct mtk_cam_video_device *node);
-
 int update_work_buffer_to_ipi_frame(struct req_buffer_helper *helper);
 int update_sensor_meta_buffer_to_ipi_frame(struct mtk_cam_job *job,
 	struct mtkcam_ipi_frame_param *fp);
-int update_ufbc_header_param(struct mtk_cam_job *job);
+
+int write_ufbc_header_to_buf(struct mtk_cam_ufbc_header *ufbc_header);
+int add_ufbc_header_entry(struct req_buffer_helper *helper,
+		unsigned int pixelformat, int ipi_video_id,
+		struct mtk_cam_buffer *buf, int plane, unsigned int offset);
 
 struct mtkcam_ipi_crop v4l2_rect_to_ipi_crop(const struct v4l2_rect *r);
 bool ipi_crop_eq(const struct mtkcam_ipi_crop *s,

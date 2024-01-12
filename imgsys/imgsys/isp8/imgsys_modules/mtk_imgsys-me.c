@@ -237,7 +237,7 @@ bool imgsys_me_done_chk(struct mtk_imgsys_dev *imgsys_dev, uint32_t engine)
 	uint32_t value = 0;
 
 	if (engine & IMGSYS_ENG_ME) {
-		value = (uint32_t)ioread32((void *)(g_meRegBA + 0xec));
+		value = (uint32_t)ioread32((void *)(g_meRegBA + 0x174));
 		if (!(value & 0x1)) {
 			ret = false;
 			pr_info(

@@ -2516,7 +2516,7 @@ static struct subdrv_static_ctx static_ctx = {
 	.dig_gain_step = 4,
 	.saturation_info = &imgsensor_saturation_info_10bit,
 
-	.frame_length_max = 0xFFFC,
+	.frame_length_max = 0xFFF8,
 	.ae_effective_frame = 2,
 	.frame_time_delay_frame = 3,
 	.start_exposure_offset = 5500000,

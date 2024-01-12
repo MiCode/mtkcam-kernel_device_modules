@@ -480,7 +480,14 @@ static ssize_t debug_ops_store(struct device *dev,
 
 		if (!((eye_scan_rg_idx == EYE_SCAN_KEYS_GET_CRC_STATUS) ||\
 			  (eye_scan_rg_idx == EYE_SCAN_KEYS_CDR_DELAY_DPHY_EN) ||\
-			  (eye_scan_rg_idx == EYE_SCAN_KEYS_FLUSH_CRC_STATUS))) {
+			  (eye_scan_rg_idx == EYE_SCAN_KEYS_FLUSH_CRC_STATUS) ||\
+			  (eye_scan_rg_idx == EYE_SCAN_KEYS_GET_EQ_DG0_EN) ||\
+			  (eye_scan_rg_idx == EYE_SCAN_KEYS_GET_EQ_SR0) ||\
+			  (eye_scan_rg_idx == EYE_SCAN_KEYS_GET_EQ_DG1_EN) ||\
+			  (eye_scan_rg_idx == EYE_SCAN_KEYS_GET_EQ_SR1) ||\
+			  (eye_scan_rg_idx == EYE_SCAN_KEYS_GET_EQ_BW) ||\
+			  (eye_scan_rg_idx == EYE_SCAN_KEYS_GET_CDR_DELAY) ||\
+			  (eye_scan_rg_idx == EYE_SCAN_KEYS_GET_EQ_OFFSET))) {
 			ret = kstrtoint(arg[EYE_SCAN_VAL], 0, &val_signed);
 			if (ret){
 				snprintf(debug_ops_show_log, DEBUG_OPS_SHOW_LOG_SIZE, "[EYE_SCAN FAIL] decode value (str2int) fail\n");
@@ -1132,7 +1139,7 @@ static int seninf_core_probe(struct platform_device *pdev)
 			}
 			core->fmeter[i].fmeter_no = tmp_no;
 		}
-		tmp_node = NULL;
+
 	}
 
 	ret = of_platform_populate(dev->of_node, NULL, NULL, dev);

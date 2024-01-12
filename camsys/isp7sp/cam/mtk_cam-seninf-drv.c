@@ -2976,6 +2976,36 @@ err_free_handler:
 	return ret;
 }
 
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 6, 0))
+static int seninf_parse_fwnode(struct device *dev, struct v4l2_async_notifier *notifier)
+{
+	struct fwnode_handle *fwnode;
+	int ret = 0;
+
+	fwnode_graph_for_each_endpoint(dev_fwnode(dev), fwnode) {
+		struct v4l2_async_connection *s_asc;
+		struct fwnode_handle *dev_fwnode;
+		bool is_available;
+
+		dev_fwnode = fwnode_graph_get_port_parent(fwnode);
+		is_available = fwnode_device_is_available(dev_fwnode);
+		fwnode_handle_put(dev_fwnode);
+		if (!is_available)
+			continue;
+
+		s_asc = v4l2_async_nf_add_fwnode_remote(notifier, fwnode, struct v4l2_async_connection);
+		if (IS_ERR(s_asc)) {
+			ret = PTR_ERR(s_asc);
+			break;
+		}
+	}
+
+	fwnode_handle_put(fwnode);
+
+	return ret;
+}
+#endif
+
 static int register_subdev(struct seninf_ctx *ctx, struct v4l2_device *v4l2_dev)
 {
 	int i, j, ret;
@@ -3040,10 +3070,9 @@ static int register_subdev(struct seninf_ctx *ctx, struct v4l2_device *v4l2_dev)
 	ret = v4l2_async_nf_register(v4l2_dev, notifier);
 #else
 	v4l2_async_nf_init(notifier, v4l2_dev);
-	// ret = v4l2_async_nf_parse_fwnode_endpoints
-	// 	(dev, notifier, sizeof(struct v4l2_async_connection), NULL);
-	// if (ret < 0)
-	// 	dev_info(dev, "no endpoint\n");
+	ret = seninf_parse_fwnode(dev, notifier);
+	if (ret < 0)
+		dev_info(dev, "no endpoint\n");
 
 	notifier->ops = &seninf_async_ops;
 	ret = v4l2_async_nf_register(notifier);

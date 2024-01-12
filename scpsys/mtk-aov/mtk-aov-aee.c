@@ -15,6 +15,7 @@
 #include "mtk-aov-drv.h"
 #include "mtk-aov-aee.h"
 #include "mtk-aov-core.h"
+#include "mtk-aov-log.h"
 
 int aov_notify_aee(void)
 {
@@ -112,7 +113,7 @@ int aov_aee_record(struct mtk_aov *aov_dev,
 	unsigned long flag;
 	struct op_data *data;
 
-	dev_dbg(aov_dev->dev, "%s+\n", __func__);
+	AOV_DEBUG_LOG(*(aov_dev->enable_aov_log_flag), "%s+\n", __func__);
 
 	spin_lock_irqsave(&record->lock, flag);
 	data = &record->data[record->tail++];
@@ -130,10 +131,11 @@ int aov_aee_record(struct mtk_aov *aov_dev,
 	data->op_seq  = op_seq;
 	data->op_code = op_code;
 
-	dev_dbg(aov_dev->dev, "%s: record time(%lld), seq(%d), cmd(%d)\n",
+	AOV_DEBUG_LOG(*(aov_dev->enable_aov_log_flag),
+		"%s: record time(%lld), seq(%d), cmd(%d)\n",
 		__func__, data->op_time, data->op_seq, data->op_code);
 
-	dev_dbg(aov_dev->dev, "%s-\n", __func__);
+	AOV_DEBUG_LOG(*(aov_dev->enable_aov_log_flag), "%s-\n", __func__);
 
 	return 0;
 }
@@ -171,14 +173,16 @@ int aov_aee_flush(struct mtk_aov *aov_dev)
 
 		remain = AOV_AEE_MAX_BUFFER_SIZE - offset;
 
-		dev_dbg(aov_dev->dev, "%s: flush offset(%d), remain(%d)\n",
+		AOV_DEBUG_LOG(*(aov_dev->enable_aov_log_flag),
+			"%s: flush offset(%d), remain(%d)\n",
 			__func__, offset, remain);
 
 		if ((index >= 0) && (index < AOV_AEE_MAX_RECORD_COUNT) &&
 				(offset >= 0) && (offset < AOV_AEE_MAX_BUFFER_SIZE) &&
 				(remain > 0)) {
-			dev_dbg(aov_dev->dev, "%s: flush time(%lld), seq(%d), cmd(%d)\n",
-			__func__, record->data[index].op_time,
+			AOV_DEBUG_LOG(*(aov_dev->enable_aov_log_flag),
+				"%s: flush time(%lld), seq(%d), cmd(%d)\n",
+				 __func__, record->data[index].op_time,
 				record->data[index].op_seq, record->data[index].op_code);
 
 			length = snprintf(&(node->buffer[offset]), remain,

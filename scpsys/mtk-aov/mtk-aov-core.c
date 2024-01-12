@@ -20,6 +20,7 @@
 #include "mtk-aov-aee.h"
 #include "mtk-aov-data.h"
 #include "mtk-aov-trace.h"
+#include "mtk-aov-log.h"
 
 #include "mtk-vmm-notifier.h"
 #include "mtk_mmdvfs.h"
@@ -90,13 +91,15 @@ static int send_cmd_internal(struct aov_core *core_info,
 						return -ERESTARTSYS;
 					}
 
-					dev_dbg(aov_dev->dev, "%s: send cmd(%d/%d/%d) interrupted !\n",
+					AOV_DEBUG_LOG(*(aov_dev->enable_aov_log_flag),
+						"%s: send cmd(%d/%d/%d) interrupted !\n",
 						__func__, cmd_code, scp_ready, count);
 
 					// retry again
 					continue;
 				} else {
-					dev_dbg(aov_dev->dev, "%s: send cmd(%d/%d) done\n",
+					AOV_DEBUG_LOG(*(aov_dev->enable_aov_log_flag),
+						"%s: send cmd(%d/%d) done\n",
 						__func__, cmd_code, scp_ready);
 					break;
 				}
@@ -146,13 +149,15 @@ static int send_cmd_internal(struct aov_core *core_info,
 						return -ERESTARTSYS;
 					}
 
-					dev_dbg(aov_dev->dev, "%s: wait cmd(%d/%d) ack interrupted\n",
+					AOV_DEBUG_LOG(*(aov_dev->enable_aov_log_flag),
+						"%s: wait cmd(%d/%d) ack interrupted\n",
 						__func__, cmd_code, count);
 
 					// retry again
 					continue;
 				} else {
-					dev_dbg(aov_dev->dev, "%s: wait cmd(%d) ack done\n",
+					AOV_DEBUG_LOG(*(aov_dev->enable_aov_log_flag),
+						"%s: wait cmd(%d) ack done\n",
 						__func__, cmd_code);
 					ret = 0;
 					break;
@@ -295,7 +300,8 @@ static int ipi_receive(unsigned int id, void *unused,
 		return 0;
 	}
 
-	dev_dbg(aov_dev->dev, "%s: receive id(%d), len(%d)\n",
+	AOV_DEBUG_LOG(*(aov_dev->enable_aov_log_flag),
+		"%s: receive id(%d), len(%d)\n",
 		__func__, id, len);
 
 	packet = (struct packet *)data;
@@ -343,7 +349,7 @@ int aov_core_send_cmd(struct mtk_aov *aov_dev, uint32_t cmd,
 	uint32_t length;
 	int ret;
 
-	dev_dbg(aov_dev->dev, "%s+", __func__);
+	AOV_DEBUG_LOG(*(aov_dev->enable_aov_log_flag), "%s+\n", __func__);
 
 	if (aov_dev->op_mode == 0) {
 		dev_info(aov_dev->dev, "%s: bypass send command(%d)", __func__, cmd);
@@ -358,19 +364,19 @@ int aov_core_send_cmd(struct mtk_aov *aov_dev, uint32_t cmd,
 			}
 
 			AOV_TRACE_BEGIN("AOV Alloc Init");
-			dev_dbg(aov_dev->dev, "aov malloc init+");
+			AOV_DEBUG_LOG(*(aov_dev->enable_aov_log_flag), "aov malloc init+\n");
 			spin_lock_irqsave(&core_info->buf_lock, flag);
 			buf = tlsf_malloc(&(core_info->alloc), sizeof(struct aov_start));
 			spin_unlock_irqrestore(&core_info->buf_lock, flag);
-			dev_dbg(aov_dev->dev, "aov malloc init-");
+			AOV_DEBUG_LOG(*(aov_dev->enable_aov_log_flag), "aov malloc init-\n");
 			AOV_TRACE_END();
 		} else {
 			AOV_TRACE_BEGIN("AOV Alloc Buffer");
-			dev_dbg(aov_dev->dev, "aov malloc buffer+");
+			AOV_DEBUG_LOG(*(aov_dev->enable_aov_log_flag), "aov malloc buffer+\n");
 			spin_lock_irqsave(&core_info->buf_lock, flag);
 			buf = tlsf_malloc(&(core_info->alloc), len);
 			spin_unlock_irqrestore(&core_info->buf_lock, flag);
-			dev_dbg(aov_dev->dev, "aov malloc buffer-");
+			AOV_DEBUG_LOG(*(aov_dev->enable_aov_log_flag), "aov malloc buffer-\n");
 			AOV_TRACE_END();
 		}
 		if (buf) {
@@ -378,15 +384,19 @@ int aov_core_send_cmd(struct mtk_aov *aov_dev, uint32_t cmd,
 				struct aov_user user;
 				struct aov_start *start = (struct aov_start *)buf;
 
-				dev_dbg(aov_dev->dev, "%s: init buffer %p, size (%ld/%ld)\n",
+				AOV_DEBUG_LOG(*(aov_dev->enable_aov_log_flag),
+					"%s: init buffer %p, size (%ld/%ld)\n",
 					__func__, buf, sizeof(struct aov_start),
-						sizeof(struct base_event));
+					sizeof(struct base_event));
 
-				dev_dbg(aov_dev->dev, "%s: copy aov user data %p, %ld+\n",
+				AOV_DEBUG_LOG(*(aov_dev->enable_aov_log_flag),
+					"%s: copy aov user data %p, %ld+\n",
 					__func__, data, sizeof(struct aov_user));
+
 				ret = copy_from_user((void *)&user,
 					(void *)data, sizeof(struct aov_user));
-				dev_dbg(aov_dev->dev, "%s: copy aov user data %p, %ld-\n",
+				AOV_DEBUG_LOG(*(aov_dev->enable_aov_log_flag),
+					"%s: copy aov user data %p, %ld-\n",
 					__func__, data, sizeof(struct aov_user));
 				if (ret) {
 					dev_info(aov_dev->dev, "%s: failed to copy aov user data: %d\n",
@@ -398,11 +408,13 @@ int aov_core_send_cmd(struct mtk_aov *aov_dev, uint32_t cmd,
 
 				if ((user.aaa_size > 0) &&
 					(user.aaa_size <= AOV_MAX_AAA_SIZE)) {
-					dev_dbg(aov_dev->dev, "%s: copy aaa info %p, %d+\n",
+					AOV_DEBUG_LOG(*(aov_dev->enable_aov_log_flag),
+						"%s: copy aaa info %p, %d+\n",
 						__func__, user.aaa_info, user.aaa_size);
 					(void)copy_from_user(&(start->aaa_info),
 						user.aaa_info, user.aaa_size);
-					dev_dbg(aov_dev->dev, "%s: copy aaa info %p, %d-\n",
+					AOV_DEBUG_LOG(*(aov_dev->enable_aov_log_flag),
+						"%s: copy aaa info %p, %d-\n",
 						__func__, user.aaa_info, user.aaa_size);
 				} else if (user.aaa_size > AOV_MAX_AAA_SIZE) {
 					dev_info(aov_dev->dev, "%s: aaa info size(%d) overflow\n",
@@ -412,12 +424,16 @@ int aov_core_send_cmd(struct mtk_aov *aov_dev, uint32_t cmd,
 
 				if ((user.tuning_size > 0) &&
 					(user.tuning_size <= AOV_MAX_TUNING_SIZE)) {
-					dev_dbg(aov_dev->dev, "%s: copy tuning info %p, %d+\n",
-						__func__, user.tuning_info, user.tuning_size);
+					AOV_DEBUG_LOG(*(aov_dev->enable_aov_log_flag),
+						"%s: copy tuning info %p, %d+\n",
+						__func__, user.tuning_info,
+						user.tuning_size);
 					(void)copy_from_user(&(start->tuning_info),
 						user.tuning_info, user.tuning_size);
-					dev_dbg(aov_dev->dev, "%s: copy tuning info %p, %d-\n",
-						__func__, user.tuning_info, user.tuning_size);
+					AOV_DEBUG_LOG(*(aov_dev->enable_aov_log_flag),
+						"%s: copy tuning info %p, %d-\n",
+						__func__, user.tuning_info,
+						user.tuning_size);
 				} else if (user.tuning_size > AOV_MAX_TUNING_SIZE) {
 					dev_info(aov_dev->dev, "%s: tuning info size(%d) overflow\n",
 						__func__, user.tuning_size);
@@ -427,7 +443,7 @@ int aov_core_send_cmd(struct mtk_aov *aov_dev, uint32_t cmd,
 				/* set seninf aov parameters for scp use and
 				 * switch i2c bus aux function here on scp side.
 				 */
-				dev_dbg(aov_dev->dev,
+				AOV_DEBUG_LOG(*(aov_dev->enable_aov_log_flag),
 					"mtk_cam_seninf_s_aov_param(%d/%d)+\n",
 					user.sensor_id, INIT_NORMAL);
 				ret = mtk_cam_seninf_s_aov_param(user.sensor_id,
@@ -436,7 +452,7 @@ int aov_core_send_cmd(struct mtk_aov *aov_dev, uint32_t cmd,
 					dev_info(aov_dev->dev,
 						"mtk_cam_seninf_s_aov_param(%d/%d) fail, ret: %d\n",
 						user.sensor_id, INIT_NORMAL, ret);
-				dev_dbg(aov_dev->dev,
+				AOV_DEBUG_LOG(*(aov_dev->enable_aov_log_flag),
 					"mtk_cam_seninf_s_aov_param(%d/%d)-\n",
 					user.sensor_id, INIT_NORMAL);
 
@@ -445,7 +461,7 @@ int aov_core_send_cmd(struct mtk_aov *aov_dev, uint32_t cmd,
 				/* suspend and set clk parent here to prevent enque
 				 * racing issue when power on/off on scp side.
 				 */
-				dev_dbg(aov_dev->dev,
+				AOV_DEBUG_LOG(*(aov_dev->enable_aov_log_flag),
 					"mtk_cam_seninf_aov_runtime_suspend(%d)+\n",
 					core_info->sensor_id);
 				AOV_TRACE_BEGIN("AOV Seninf Suspend");
@@ -455,21 +471,25 @@ int aov_core_send_cmd(struct mtk_aov *aov_dev, uint32_t cmd,
 					dev_info(aov_dev->dev,
 					"mtk_cam_seninf_aov_runtime_suspend(%d) fail, ret: %d\n",
 					core_info->sensor_id, ret);
-				dev_dbg(aov_dev->dev,
+				AOV_DEBUG_LOG(*(aov_dev->enable_aov_log_flag),
 					"mtk_cam_seninf_aov_runtime_suspend(%d)-\n",
 					core_info->sensor_id);
 
-				dev_dbg(aov_dev->dev, "mtk_aie_aov_memcpy+\n");
+				AOV_DEBUG_LOG(*(aov_dev->enable_aov_log_flag),
+					"mtk_aie_aov_memcpy+\n");
 				AOV_TRACE_BEGIN("AOV Copy AIE");
 				mtk_aie_aov_memcpy((void *)&(start->aie_info));
 				AOV_TRACE_END();
-				dev_dbg(aov_dev->dev, "mtk_aie_aov_memcpy-\n");
+				AOV_DEBUG_LOG(*(aov_dev->enable_aov_log_flag),
+					"mtk_aie_aov_memcpy-\n");
 
-				dev_dbg(aov_dev->dev, "mtk_fld_aov_memcpy+\n");
+				AOV_DEBUG_LOG(*(aov_dev->enable_aov_log_flag),
+					"mtk_fld_aov_memcpy+\n");
 				AOV_TRACE_BEGIN("AOV Copy FLD");
 				mtk_fld_aov_memcpy((void *)&(start->fld_info));
 				AOV_TRACE_END();
-				dev_dbg(aov_dev->dev, "mtk_fld_aov_memcpy-\n");
+				AOV_DEBUG_LOG(*(aov_dev->enable_aov_log_flag),
+					"mtk_fld_aov_memcpy-\n");
 
 				/* debug use
 				 * dev_info(aov_dev->dev, "out_pad %d\n",
@@ -493,7 +513,8 @@ int aov_core_send_cmd(struct mtk_aov *aov_dev, uint32_t cmd,
 			} else if (cmd == AOV_SCP_CMD_NOTIFY) {
 				memcpy(buf, (void *)data, sizeof(struct aov_notify));
 			} else {
-				dev_dbg(aov_dev->dev, "%s: data buffer %p, size %d",
+				AOV_DEBUG_LOG(*(aov_dev->enable_aov_log_flag),
+					"%s: data buffer %p, size %d\n",
 					__func__, buf, len);
 				(void)copy_from_user(buf, (void *)data, len);
 			}
@@ -516,7 +537,8 @@ int aov_core_send_cmd(struct mtk_aov *aov_dev, uint32_t cmd,
 			return ret;
 		}
 
-		dev_dbg(aov_dev->dev, "%s: slb buffer base(0x%x), size(%ld): %x",
+		AOV_DEBUG_LOG(*(aov_dev->enable_aov_log_flag),
+			"%s: slb buffer base(0x%x), size(%ld): %x\n",
 			__func__, (uintptr_t)slb.paddr, slb.size);
 
 		buf = slb.paddr;
@@ -595,7 +617,9 @@ int aov_core_send_cmd(struct mtk_aov *aov_dev, uint32_t cmd,
 
 		(void)send_cmd_internal(core_info, cmd, buffer, length, true, ack);
 	} else {
-		dev_dbg(aov_dev->dev, "%s: aov is not started(%d)\n", __func__, cmd);
+		AOV_DEBUG_LOG(*(aov_dev->enable_aov_log_flag),
+			"%s: aov is not started(%d)\n",
+			__func__, cmd);
 	}
 
 	if (cmd == AOV_SCP_CMD_PWR_ON) {
@@ -627,25 +651,25 @@ int aov_core_send_cmd(struct mtk_aov *aov_dev, uint32_t cmd,
 	} else if (cmd == AOV_SCP_CMD_NOTIFY) {
 		// Free aov_notify buffer
 		AOV_TRACE_BEGIN("AOV Free Buffer");
-		dev_dbg(aov_dev->dev, "aov free buffer+");
+		AOV_DEBUG_LOG(*(aov_dev->enable_aov_log_flag), "aov free buffer+\n");
 		spin_lock_irqsave(&core_info->buf_lock, flag);
 		if (buf != NULL)
 			tlsf_free(&(core_info->alloc), buf);
 		else
 			dev_info(aov_dev->dev, "aov free buffer is NULL");
 		spin_unlock_irqrestore(&core_info->buf_lock, flag);
-		dev_dbg(aov_dev->dev, "aov free buffer-");
+		AOV_DEBUG_LOG(*(aov_dev->enable_aov_log_flag), "aov free buffer-\n");
 		AOV_TRACE_END();
 	} else if (cmd == AOV_SCP_CMD_STOP) {
 		atomic_set(&(core_info->aov_ready), 0);
 
 		// Free aov_start buffer
 		AOV_TRACE_BEGIN("AOV Free Start");
-		dev_dbg(aov_dev->dev, "aov free start+");
+		AOV_DEBUG_LOG(*(aov_dev->enable_aov_log_flag), "aov free start+\n");
 		spin_lock_irqsave(&core_info->buf_lock, flag);
 		tlsf_free(&(core_info->alloc), core_info->aov_start);
 		spin_unlock_irqrestore(&core_info->buf_lock, flag);
-		dev_dbg(aov_dev->dev, "aov free start-");
+		AOV_DEBUG_LOG(*(aov_dev->enable_aov_log_flag), "aov free start-\n");
 		AOV_TRACE_END();
 
 		// Reset queue to empty
@@ -660,15 +684,17 @@ int aov_core_send_cmd(struct mtk_aov *aov_dev, uint32_t cmd,
 		}
 		queue_deinit(&(core_info->queue));
 
-		dev_dbg(aov_dev->dev, "mtk_cam_seninf_aov_runtime_resume(%d/%d)+\n",
+		AOV_DEBUG_LOG(*(aov_dev->enable_aov_log_flag),
+			"mtk_cam_seninf_aov_runtime_resume(%d/%d)+\n",
 			core_info->sensor_id, DEINIT_NORMAL);
 		mtk_cam_seninf_aov_runtime_resume(core_info->sensor_id,
 			DEINIT_NORMAL);
-		dev_dbg(aov_dev->dev, "mtk_cam_seninf_aov_runtime_resume(%d/%d)-\n",
+		AOV_DEBUG_LOG(*(aov_dev->enable_aov_log_flag),
+			"mtk_cam_seninf_aov_runtime_resume(%d/%d)-\n",
 			core_info->sensor_id, DEINIT_NORMAL);
 	}
 
-	dev_dbg(aov_dev->dev, "%s-\n", __func__);
+		AOV_DEBUG_LOG(*(aov_dev->enable_aov_log_flag), "%s-\n", __func__);
 
 	return 0;
 }
@@ -680,7 +706,7 @@ int aov_core_notify(struct mtk_aov *aov_dev,
 	struct sensor_notify notify;
 	// int index;
 
-	dev_dbg(aov_dev->dev, "%s+\n", __func__);
+	AOV_DEBUG_LOG(*(aov_dev->enable_aov_log_flag), "%s+\n", __func__);
 
 	if (aov_dev->op_mode == 0) {
 		dev_info(aov_dev->dev, "%s: bypass notify operation", __func__);
@@ -706,7 +732,7 @@ int aov_core_notify(struct mtk_aov *aov_dev,
 	//    __func__, notify.sensor[index], enable);
 	//}
 
-	dev_dbg(aov_dev->dev, "%s-\n", __func__);
+	AOV_DEBUG_LOG(*(aov_dev->enable_aov_log_flag), "%s-\n", __func__);
 
 	return 0;
 }
@@ -723,11 +749,13 @@ static int aov_core_recover(struct mtk_aov *aov_dev)
 
 	pm_stay_awake(aov_dev->dev);
 
-	dev_dbg(aov_dev->dev, "mtk_cam_seninf_aov_runtime_resume(%d/%d)+\n",
+	AOV_DEBUG_LOG(*(aov_dev->enable_aov_log_flag),
+		"mtk_cam_seninf_aov_runtime_resume(%d/%d)+\n",
 		core_info->sensor_id, DEINIT_ABNORMAL_SCP_STOP);
 	mtk_cam_seninf_aov_runtime_resume(core_info->sensor_id,
 		DEINIT_ABNORMAL_SCP_STOP);
-	dev_dbg(aov_dev->dev, "mtk_cam_seninf_aov_runtime_resume(%d/%d)-\n",
+	AOV_DEBUG_LOG(*(aov_dev->enable_aov_log_flag),
+		"mtk_cam_seninf_aov_runtime_resume(%d/%d)-\n",
 		core_info->sensor_id, DEINIT_ABNORMAL_SCP_STOP);
 
 	start = core_info->aov_start;
@@ -742,7 +770,7 @@ static int aov_core_recover(struct mtk_aov *aov_dev)
 		return -1;
 	}
 
-	dev_dbg(aov_dev->dev,
+	AOV_DEBUG_LOG(*(aov_dev->enable_aov_log_flag),
 		"mtk_cam_seninf_s_aov_param(%d/%d)+\n",
 		core_info->sensor_id, INIT_ABNORMAL_SCP_READY);
 	ret = mtk_cam_seninf_s_aov_param(core_info->sensor_id,
@@ -751,20 +779,19 @@ static int aov_core_recover(struct mtk_aov *aov_dev)
 		dev_info(aov_dev->dev,
 			"mtk_cam_seninf_s_aov_param(%d/%d) fail, ret: %d\n",
 			core_info->sensor_id, INIT_ABNORMAL_SCP_READY, ret);
-
-	dev_dbg(aov_dev->dev,
+	AOV_DEBUG_LOG(*(aov_dev->enable_aov_log_flag),
 		"mtk_cam_seninf_s_aov_param(%d/%d)-\n",
 		core_info->sensor_id, INIT_ABNORMAL_SCP_READY);
 
-	dev_dbg(aov_dev->dev,
-			"mtk_cam_seninf_aov_runtime_suspend(%d)+\n",
-			core_info->sensor_id);
+	AOV_DEBUG_LOG(*(aov_dev->enable_aov_log_flag),
+		"mtk_cam_seninf_aov_runtime_suspend(%d)+\n",
+		core_info->sensor_id);
 	ret = mtk_cam_seninf_aov_runtime_suspend(core_info->sensor_id);
 	if (ret < 0)
 		dev_info(aov_dev->dev,
 			"mtk_cam_seninf_aov_runtime_suspend(%d) fail, ret: %d\n",
 			core_info->sensor_id, ret);
-	dev_dbg(aov_dev->dev,
+	AOV_DEBUG_LOG(*(aov_dev->enable_aov_log_flag),
 		"mtk_cam_seninf_aov_runtime_suspend(%d)-\n",
 		core_info->sensor_id);
 
@@ -886,7 +913,8 @@ int aov_core_init(struct mtk_aov *aov_dev)
 	core_info->buf_va = (void *)scp_get_reserve_mem_virt(SCP_AOV_MEM_ID);
 	core_info->buf_size = scp_get_reserve_mem_size(SCP_AOV_MEM_ID);
 
-	dev_dbg(aov_dev->dev, "%s: scp buffer pa(%p), va(%p), size(0x%lx)\n", __func__,
+	AOV_DEBUG_LOG(*(aov_dev->enable_aov_log_flag),
+		"%s: scp buffer pa(%p), va(%p), size(0x%lx)\n", __func__,
 		(void *)core_info->buf_pa, core_info->buf_va, core_info->buf_size);
 
 	tlsf_init(&(core_info->alloc), core_info->buf_va, core_info->buf_size);
@@ -894,12 +922,12 @@ int aov_core_init(struct mtk_aov *aov_dev)
 	spin_lock_init(&core_info->buf_lock);
 
 	// Allocate aov_notify buffer
-	dev_dbg(aov_dev->dev, "aov notify buffer+");
+	AOV_DEBUG_LOG(*(aov_dev->enable_aov_log_flag), "aov notify buffer+\n");
 	spin_lock_irqsave(&core_info->buf_lock, flag);
 	core_info->notify = (struct aov_notify *)tlsf_malloc(&(core_info->alloc),
 		sizeof(struct aov_notify));
 	spin_unlock_irqrestore(&core_info->buf_lock, flag);
-	dev_dbg(aov_dev->dev, "aov notify buffer-");
+	AOV_DEBUG_LOG(*(aov_dev->enable_aov_log_flag), "aov notify buffer-\n");
 	if (core_info->notify == NULL) {
 		dev_info(aov_dev->dev, "%s: failed to alloc notify info\n", __func__);
 		return -ENOMEM;
@@ -960,7 +988,8 @@ int aov_core_init(struct mtk_aov *aov_dev)
 	core_info->smi_dump_thread = kthread_create(aie_hang_kernel_dump, NULL,
 		"aie_smi_dump_thread");
 	if (IS_ERR(core_info->smi_dump_thread)) {
-		dev_dbg(aov_dev->dev, "%s kthread_create error ret:%ld\n", __func__,
+		AOV_DEBUG_LOG(*(aov_dev->enable_aov_log_flag),
+			"%s kthread_create error ret:%ld\n", __func__,
 			PTR_ERR(core_info->smi_dump_thread));
 	}
 	wake_up_process(core_info->smi_dump_thread);
@@ -977,7 +1006,7 @@ int aov_core_copy(struct mtk_aov *aov_dev, struct aov_dqevent *dequeue)
 	uint32_t power_mode;
 	int ret = 0;
 
-	dev_dbg(aov_dev->dev, "%s: copy aov event+\n", __func__);
+	AOV_DEBUG_LOG(*(aov_dev->enable_aov_log_flag), "%s: copy aov event+\n", __func__);
 
 	if (aov_dev->op_mode == 0) {
 		dev_info(aov_dev->dev, "%s: bypass copy operation", __func__);
@@ -1027,7 +1056,8 @@ int aov_core_copy(struct mtk_aov *aov_dev, struct aov_dqevent *dequeue)
 			get_user(buffer, (void **)((uintptr_t)dequeue +
 				offsetof(struct aov_dqevent, aie_output)));
 
-			dev_dbg(aov_dev->dev, "%s: copy aie output from(%p) to(%p) size(%d)\n",
+			AOV_DEBUG_LOG(*(aov_dev->enable_aov_log_flag),
+				"%s: copy aie output from(%p) to(%p) size(%d)\n",
 				__func__, ALIGN16(&(event->aie_output[0])),
 				buffer, event->aie_size);
 
@@ -1057,7 +1087,8 @@ int aov_core_copy(struct mtk_aov *aov_dev, struct aov_dqevent *dequeue)
 			get_user(buffer, (void **)((uintptr_t)dequeue +
 				offsetof(struct aov_dqevent, fld_output)));
 
-			dev_dbg(aov_dev->dev, "%s: copy fld output from(%p) to(%p) size(%d)\n",
+			AOV_DEBUG_LOG(*(aov_dev->enable_aov_log_flag),
+				"%s: copy fld output from(%p) to(%p) size(%d)\n",
 				__func__, ALIGN16(&(event->fld_output[0])),
 				buffer, event->fld_size);
 
@@ -1087,7 +1118,8 @@ int aov_core_copy(struct mtk_aov *aov_dev, struct aov_dqevent *dequeue)
 			get_user(buffer, (void **)((uintptr_t)dequeue +
 				offsetof(struct aov_dqevent, apu_output)));
 
-			dev_dbg(aov_dev->dev, "%s: copy apu output from(%p) to(%p) size(%d)\n",
+			AOV_DEBUG_LOG(*(aov_dev->enable_aov_log_flag),
+				"%s: copy apu output from(%p) to(%p) size(%d)\n",
 				__func__, ALIGN16(&(event->apu_output[0])),
 				buffer, event->apu_size);
 
@@ -1121,9 +1153,10 @@ int aov_core_copy(struct mtk_aov *aov_dev, struct aov_dqevent *dequeue)
 			get_user(buffer, (void **)((uintptr_t)dequeue +
 				offsetof(struct aov_dqevent, yuvo1_output)));
 
-			dev_dbg(aov_dev->dev, "%s: copy yuvo1 output from(%p) to(%p) size(%d)\n",
-					__func__, ALIGN16(&(event->yuvo1_output[0])),
-					buffer, AOV_MAX_YUVO1_OUTPUT);
+			AOV_DEBUG_LOG(*(aov_dev->enable_aov_log_flag),
+				"%s: copy yuvo1 output from(%p) to(%p) size(%d)\n",
+				__func__, ALIGN16(&(event->yuvo1_output[0])),
+				buffer, AOV_MAX_YUVO1_OUTPUT);
 
 			ret = copy_to_user((void *)buffer,
 				ALIGN16(&(event->yuvo1_output[0])), AOV_MAX_YUVO1_OUTPUT);
@@ -1151,7 +1184,8 @@ int aov_core_copy(struct mtk_aov *aov_dev, struct aov_dqevent *dequeue)
 			get_user(buffer, (void **)((uintptr_t)dequeue +
 				offsetof(struct aov_dqevent, yuvo2_output)));
 
-			dev_dbg(aov_dev->dev, "%s: copy yuvo1 output from(%p) to(%p) size(%d)\n",
+			AOV_DEBUG_LOG(*(aov_dev->enable_aov_log_flag),
+				"%s: copy yuvo1 output from(%p) to(%p) size(%d)\n",
 				__func__, ALIGN16(&(event->yuvo2_output[0])),
 				buffer, AOV_MAX_YUVO2_OUTPUT);
 
@@ -1189,9 +1223,10 @@ int aov_core_copy(struct mtk_aov *aov_dev, struct aov_dqevent *dequeue)
 		get_user(buffer, (void **)((uintptr_t)dequeue +
 			offsetof(struct aov_dqevent, imgo_output)));
 
-		dev_dbg(aov_dev->dev, "%s: copy imgo output from(%p) to(%p) size(%d)\n",
-				__func__, ALIGN16(&(ndd_data->imgo_output[0])),
-				buffer, AOV_MAX_IMGO_OUTPUT);
+		AOV_DEBUG_LOG(*(aov_dev->enable_aov_log_flag),
+			"%s: copy imgo output from(%p) to(%p) size(%d)\n",
+			__func__, ALIGN16(&(ndd_data->imgo_output[0])),
+			buffer, AOV_MAX_IMGO_OUTPUT);
 
 		ret = copy_to_user((void *)buffer,
 			ALIGN16(&(ndd_data->imgo_output[0])), AOV_MAX_IMGO_OUTPUT);
@@ -1218,7 +1253,8 @@ int aov_core_copy(struct mtk_aov *aov_dev, struct aov_dqevent *dequeue)
 			get_user(buffer, (void **)((uintptr_t)dequeue +
 				offsetof(struct aov_dqevent, aao_output)));
 
-			dev_dbg(aov_dev->dev, "%s: copy aao output from(%p) to(%p) size(%d)\n",
+			AOV_DEBUG_LOG(*(aov_dev->enable_aov_log_flag),
+				"%s: copy aao output from(%p) to(%p) size(%d)\n",
 				__func__, ALIGN16(&(ndd_data->aao_output[0])),
 				buffer, ndd_data->aao_size);
 
@@ -1248,7 +1284,8 @@ int aov_core_copy(struct mtk_aov *aov_dev, struct aov_dqevent *dequeue)
 			get_user(buffer, (void **)((uintptr_t)dequeue +
 				offsetof(struct aov_dqevent, aaho_output)));
 
-			dev_dbg(aov_dev->dev, "%s: copy aaho output from(%p) to(%p) size(%d)\n",
+			AOV_DEBUG_LOG(*(aov_dev->enable_aov_log_flag),
+				"%s: copy aaho output from(%p) to(%p) size(%d)\n",
 				__func__, ALIGN16(&(ndd_data->aaho_output[0])),
 				buffer, ndd_data->aaho_size);
 
@@ -1278,7 +1315,8 @@ int aov_core_copy(struct mtk_aov *aov_dev, struct aov_dqevent *dequeue)
 			get_user(buffer, (void **)((uintptr_t)dequeue +
 				offsetof(struct aov_dqevent, meta_output)));
 
-			dev_dbg(aov_dev->dev, "%s: copy meta output from(%p) to(%p) size(%d)\n",
+			AOV_DEBUG_LOG(*(aov_dev->enable_aov_log_flag),
+				"%s: copy meta output from(%p) to(%p) size(%d)\n",
 				__func__, ALIGN16(&(ndd_data->meta_output[0])),
 				buffer, ndd_data->meta_size);
 
@@ -1308,7 +1346,8 @@ int aov_core_copy(struct mtk_aov *aov_dev, struct aov_dqevent *dequeue)
 			get_user(buffer, (void **)((uintptr_t)dequeue +
 				offsetof(struct aov_dqevent, awb_output)));
 
-			dev_dbg(aov_dev->dev, "%s: copy tuning output from(%p) to(%p) size(%d)\n",
+			AOV_DEBUG_LOG(*(aov_dev->enable_aov_log_flag),
+				"%s: copy tuning output from(%p) to(%p) size(%d)\n",
 				__func__, ALIGN16(&(ndd_data->awb_output[0])),
 				buffer, ndd_data->awb_size);
 
@@ -1325,7 +1364,7 @@ int aov_core_copy(struct mtk_aov *aov_dev, struct aov_dqevent *dequeue)
 
 	buffer_release(core_info, event);
 
-	dev_dbg(aov_dev->dev, "%s: copy aov event-\n", __func__);
+	AOV_DEBUG_LOG(*(aov_dev->enable_aov_log_flag), "%s: copy aov event-\n", __func__);
 
 	return ret;
 }
@@ -1337,7 +1376,7 @@ int aov_core_poll(struct mtk_aov *aov_dev, struct file *file,
 	struct base_event *event;
 	int ret;
 
-	dev_dbg(aov_dev->dev, "%s: poll start+\n", __func__);
+	AOV_DEBUG_LOG(*(aov_dev->enable_aov_log_flag), "%s: poll start+\n", __func__);
 
 	if (aov_dev->op_mode == 0) {
 		dev_info(aov_dev->dev, "%s: bypass poll operation", __func__);
@@ -1360,7 +1399,7 @@ int aov_core_poll(struct mtk_aov *aov_dev, struct file *file,
 			return POLLPRI;
 	}
 
-	dev_dbg(aov_dev->dev, "%s: poll start-: 0\n", __func__);
+	AOV_DEBUG_LOG(*(aov_dev->enable_aov_log_flag), "%s: poll start-: 0\n", __func__);
 
 	return 0;
 }
@@ -1386,11 +1425,13 @@ int aov_core_reset(struct mtk_aov *aov_dev)
 
 		(void)send_cmd_internal(core_info, AOV_SCP_CMD_STOP, 0, 0, true, true);
 
-		dev_dbg(aov_dev->dev, "mtk_cam_seninf_aov_runtime_resume(%d/%d)+\n",
+		AOV_DEBUG_LOG(*(aov_dev->enable_aov_log_flag),
+			"mtk_cam_seninf_aov_runtime_resume(%d/%d)+\n",
 			core_info->sensor_id, DEINIT_ABNORMAL_USR_FD_KILL);
 		mtk_cam_seninf_aov_runtime_resume(core_info->sensor_id,
 			DEINIT_ABNORMAL_USR_FD_KILL);
-		dev_dbg(aov_dev->dev, "mtk_cam_seninf_aov_runtime_resume(%d/%d)-\n",
+		AOV_DEBUG_LOG(*(aov_dev->enable_aov_log_flag),
+			"mtk_cam_seninf_aov_runtime_resume(%d/%d)-\n",
 			core_info->sensor_id, DEINIT_ABNORMAL_USR_FD_KILL);
 
 #if AOV_SLB_ALLOC_FREE
@@ -1456,11 +1497,11 @@ int aov_core_uninit(struct mtk_aov *aov_dev)
 	}
 
 	// Free aov_notify buffer
-	dev_dbg(aov_dev->dev, "aov notify buffer+");
+	AOV_DEBUG_LOG(*(aov_dev->enable_aov_log_flag), "aov notify buffer+\n");
 	spin_lock_irqsave(&core_info->buf_lock, flag);
 	tlsf_free(&(core_info->alloc), core_info->notify);
 	spin_unlock_irqrestore(&core_info->buf_lock, flag);
-	dev_dbg(aov_dev->dev, "aov notify buffer-");
+	AOV_DEBUG_LOG(*(aov_dev->enable_aov_log_flag), "aov notify buffer-\n");
 
 	if (core_info->dma_buf) {
 		if (core_info->event_data)

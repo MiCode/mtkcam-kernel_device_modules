@@ -29,7 +29,7 @@
 	if ((_ctx) && unlikely(*((_ctx)->sensor_debug_flag))) { \
 		dev_info((_ctx)->dev, "[%s][%s][%s] " format, \
 			(_ctx)->sd.name, \
-			(_ctx)->subdrv->name, __func__, ##args); \
+			((_ctx)->subdrv) ? ((_ctx)->subdrv->name) : "null", __func__, ##args); \
 	} \
 } while (0)
 
@@ -37,7 +37,7 @@
 	if (_ctx) { \
 		dev_info((_ctx)->dev, "[%s][%s][%s] " format, \
 			(_ctx)->sd.name, \
-			(_ctx)->subdrv->name, __func__, ##args); \
+			((_ctx)->subdrv) ? ((_ctx)->subdrv->name) : "null", __func__, ##args); \
 	} \
 } while (0)
 

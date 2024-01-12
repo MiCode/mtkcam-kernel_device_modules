@@ -949,8 +949,9 @@ void imgsys_cmdq_task_cb_plat7sp(struct cmdq_cb_data data)
 			} else	/* ME hang, and can't recover case */
 				cb_param->err = -800;
 		}
-		cmdq_clear_event(imgsys_clt[0]->chan,
-			imgsys_event[IMGSYS_CMDQ_SYNC_TOKEN_IPESYS_ME].event);
+		if (cb_param->err == 0)
+			cmdq_clear_event(imgsys_clt[0]->chan,
+				imgsys_event[IMGSYS_CMDQ_SYNC_TOKEN_IPESYS_ME].event);
 	}
 #endif
 

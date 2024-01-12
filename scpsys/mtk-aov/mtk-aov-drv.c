@@ -132,7 +132,7 @@ static long mtk_aov_ioctl(struct file *file, unsigned int cmd,
 		unsigned long arg)
 {
 	struct mtk_aov *aov_dev = (struct mtk_aov *)file->private_data;
-	int ret;
+	int ret = 0;
 
 	AOV_DEBUG_LOG(*(aov_dev->enable_aov_log_flag),
 		"%s ioctl aov driver(%d)+\n", __func__, cmd);
@@ -226,6 +226,11 @@ static long mtk_aov_ioctl(struct file *file, unsigned int cmd,
 		}
 
 		dev_info(aov_dev->dev, "AOV stop-(%d)\n", ret);
+		break;
+	case AOV_DEV_QEA:
+		AOV_DEBUG_LOG(*(aov_dev->enable_aov_log_flag), "AOV QEA start\n");
+		ret = aov_core_send_cmd(aov_dev, AOV_SCP_CMD_QEA, NULL, 0, false);
+		AOV_DEBUG_LOG(*(aov_dev->enable_aov_log_flag), "AOV QEA done, ret(%d)\n", ret);
 		break;
 	default:
 		dev_info(aov_dev->dev, "unknown AOV control code(%d)\n", cmd);

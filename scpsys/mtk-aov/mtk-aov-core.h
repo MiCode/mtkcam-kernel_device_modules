@@ -43,6 +43,7 @@ struct aov_core {
 	atomic_t aov_session;
 	atomic_t aov_ready;
 	atomic_t cmd_seq;
+	atomic_t qea_ready;
 
 	uint32_t sensor_id;
 

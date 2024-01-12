@@ -18,6 +18,7 @@
 #define AOV_DEV_SENSOR_OFF        _IOW('H', 2, struct sensor_notify)
 #define AOV_DEV_DQEVENT           _IOR('H', 3, struct aov_dqevent)
 #define AOV_DEV_STOP              _IO('H', 4)
+#define AOV_DEV_QEA               _IO('H', 5)
 
 #if IS_ENABLED(CONFIG_COMPAT)
 #define COMPAT_AOV_DEV_START      _IOW('H', 0, struct aov_user)
@@ -25,6 +26,7 @@
 #define COMPAT_AOV_DEV_SENSOR_ON  _IOW('H', 2, struct sensor_notify)
 #define COMPAT_AOV_DEV_SENSOR_OFF _IOW('H', 3, struct sensor_notify)
 #define COMPAT_AOV_DEV_STOP       _IO('H', 4)
+#define COMPAT_AOV_DEV_QEA        _IO('H', 5)
 #endif
 
 /*
@@ -41,7 +43,8 @@
 #define AOV_SCP_CMD_AIE_HANG_DONE    (8)
 #define AOV_SCP_CMD_ON_UT            (9)
 #define AOV_SCP_CMD_OFF_UT           (10)
-#define AOV_SCP_CMD_MAX              (11)
+#define AOV_SCP_CMD_QEA              (11)
+#define AOV_SCP_CMD_MAX              (12)
 #define AOV_SCP_CMD_ACK              (0x80000000)
 
 #define AOV_DEBUG_MODE_DUMP       (1)  // General debug

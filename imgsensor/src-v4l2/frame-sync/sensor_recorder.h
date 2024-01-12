@@ -131,6 +131,12 @@ struct predicted_fl_info_st {
 };
 
 
+struct frec_seamless_st {
+	struct fs_seamless_property_st prop;
+	struct FrameRecord frame_rec; // new ae ctrl for seamless
+};
+
+
 /******************************************************************************/
 // frame recorder functions
 /******************************************************************************/
@@ -168,6 +174,10 @@ void frec_setup_frame_rec_by_fs_streaming_st(struct FrameRecord *p_frame_rec,
 
 void frec_setup_frame_rec_by_fs_perframe_st(struct FrameRecord *p_frame_rec,
 	const struct fs_perframe_st *pf_ctrl);
+
+void frec_setup_seamless_rec_by_fs_seamless_st(
+	struct frec_seamless_st *p_seamless_rec,
+	const struct fs_seamless_st *p_seamless_info);
 
 void frec_g_valid_min_fl_arr_val_for_lut(const unsigned int idx,
 	const struct FrameRecord *curr_rec,
@@ -209,6 +219,9 @@ void frec_setup_def_records(const unsigned int idx, const unsigned int def_fl_lc
 void frec_init_recorder(const unsigned int idx,
 	const struct FrameRecord *p_frame_rec,
 	const unsigned int def_fl_lc, unsigned int fl_act_delay);
+
+void frec_seamless_switch(const unsigned int idx, const unsigned int def_fl_lc,
+	const struct frec_seamless_st *p_seamless_rec);
 
 void frec_notify_vsync(const unsigned int idx);
 

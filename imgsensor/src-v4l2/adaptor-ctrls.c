@@ -1165,14 +1165,13 @@ static int imgsensor_set_ctrl(struct v4l2_ctrl *ctrl)
 
 	switch (ctrl->id) {
 	case V4L2_CID_UPDATE_SOF_CNT:
+		/* update ctx sof cnt */
+		ctx->sof_cnt = ctrl->val;
 		ctx->sys_ts_update_sof_cnt = ktime_get_boottime_ns();
 		subdrv_call(ctx, update_sof_cnt, (u64)ctrl->val);
 		notify_fsync_mgr_update_sof_cnt(ctx, (u32)ctrl->val);
 		break;
 	case V4L2_CID_VSYNC_NOTIFY:
-		/* update ctx sof cnt */
-		ctx->sof_cnt = ctrl->val;
-
 		subdrv_call(ctx, vsync_notify, (u64)ctrl->val);
 		notify_fsync_mgr_vsync(ctx);
 

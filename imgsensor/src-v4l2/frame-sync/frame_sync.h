@@ -241,9 +241,24 @@ struct fs_perframe_st {
 };
 
 
-struct fs_seamless_st {
-	struct fs_perframe_st seamless_pf_ctrl;
+/* seamless switch infomation */
+enum fs_seamless_switch_type {
+	FREC_SEAMLESS_SWITCH_CUT_VB_INIT_SHUT = 0,
+	FREC_SEAMLESS_SWITCH_ORIG_VB_INIT_SHUT,
+	FREC_SEAMLESS_SWITCH_ORIG_VB_ORIG_IMG,
+};
+
+struct fs_seamless_property_st {
+	enum fs_seamless_switch_type type_id;
+
 	unsigned int orig_readout_time_us;
+	unsigned int hw_re_init_time_us;
+	unsigned int prsh_length_lc; // new mode's prsh length if has
+};
+
+struct fs_seamless_st {
+	struct fs_seamless_property_st prop;
+	struct fs_perframe_st seamless_pf_ctrl;
 };
 
 

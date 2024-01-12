@@ -561,6 +561,23 @@ void frec_setup_frame_rec_by_fs_perframe_st(struct FrameRecord *p_frame_rec,
 }
 
 
+void frec_setup_seamless_rec_by_fs_seamless_st(
+	struct frec_seamless_st *p_seamless_rec,
+	const struct fs_seamless_st *p_seamless_info)
+{
+	memset(p_seamless_rec, 0, sizeof(*p_seamless_rec));
+
+	memcpy(&p_seamless_rec->prop, &p_seamless_info->prop,
+		sizeof(p_seamless_rec->prop));
+
+	/* setup frame record data */
+	frec_setup_frame_rec_by_fs_perframe_st(
+		&p_seamless_rec->frame_rec, &p_seamless_info->seamless_pf_ctrl);
+
+	// frec_dump_frame_record_info(&p_seamless_rec->frame_rec, __func__);
+}
+
+
 /*----------------------------------------------------------------------------*/
 // NDOL / LB-MF utilities functions
 /*----------------------------------------------------------------------------*/
@@ -1440,6 +1457,138 @@ unsigned int frec_g_valid_min_fl_lc_for_shutters_by_frame_rec(
 
 	return result;
 }
+
+
+static unsigned int frec_calc_seamless_frame_length(const unsigned int idx,
+	const struct frec_seamless_st *p_seamless_rec)
+{
+	const struct FrameRecorder *pfrec = frec_g_recorder_ctx(idx, __func__);
+	const struct FrameRecord *frame_rec = &p_seamless_rec->frame_rec;
+	const struct fs_seamless_property_st *ss_prop = &p_seamless_rec->prop;
+	const unsigned int orig_fl_us = pfrec->curr_predicted_fl_us;
+	const unsigned int new_mode_line_time_ns =
+		calcLineTimeInNs(
+			p_seamless_rec->frame_rec.pclk,
+			p_seamless_rec->frame_rec.line_length);
+	const int first_exp_idx =
+		exp_order_idx_map[frame_rec->exp_order][frame_rec->mode_exp_cnt][0];
+	unsigned int fl_us_composition[3] = {0};
+	unsigned int curr_exp_read_offset, orig_mode_exp_cnt;
+	unsigned int depth_idx, seamless_shutter_lc = 0;
+	unsigned int result = 0;
+
+	/* Part-1: calculate end of readout time us */
+	depth_idx = FS_ATOMIC_READ(&pfrec->depth_idx);
+	orig_mode_exp_cnt = pfrec->frame_recs[depth_idx].mode_exp_cnt;
+	curr_exp_read_offset =
+		pfrec->curr_predicted_rd_offset_us[orig_mode_exp_cnt-1];
+	fl_us_composition[0] =
+		curr_exp_read_offset + ss_prop->orig_readout_time_us;
+
+	/* Part-3: calculate seamless (new) mode re-shutter time us */
+	if (unlikely(first_exp_idx < 0)) {
+		seamless_shutter_lc = 0;
+		LOG_MUST(
+			"ERROR: [%u] ID:%#x(sidx:%u/inf:%u), exp_order_idx_map[%u][%u][0]:%d(< 0) => assign seamless_shutter_lc:%u\n",
+			idx,
+			fs_get_reg_sensor_id(idx),
+			fs_get_reg_sensor_idx(idx),
+			fs_get_reg_sensor_inf_idx(idx),
+			frame_rec->exp_order,
+			frame_rec->mode_exp_cnt,
+			first_exp_idx,
+			seamless_shutter_lc);
+	} else {
+		/* check normal or hdr situation (normal: shutter_lc / hdr: hdr_exp) */
+		seamless_shutter_lc = (p_seamless_rec->frame_rec.ae_exp_cnt > 1)
+			? (p_seamless_rec->frame_rec.exp_lc_arr[first_exp_idx])
+			: (p_seamless_rec->frame_rec.shutter_lc);
+	}
+	fl_us_composition[2] =
+		convert2TotalTime(new_mode_line_time_ns, seamless_shutter_lc);
+
+	/* Part-2: by seamless switch type, has different behavior => need differnt process */
+	switch (ss_prop->type_id) {
+	case FREC_SEAMLESS_SWITCH_CUT_VB_INIT_SHUT:
+		if (ss_prop->prsh_length_lc > 0) {
+			if (unlikely(ss_prop->prsh_length_lc < seamless_shutter_lc)) {
+				/* !!! unexpected case !!! */
+				/* dump more info */
+				frec_dump_frame_record_info(
+					&p_seamless_rec->frame_rec, __func__);
+
+				LOG_MUST(
+					"ERROR: [%u] ID:%#x(sidx:%u/inf:%u), get prsh_length_lc:%u but seamless_shutter_lc(NE):%u, prsh_length_lc value may be wrong\n",
+					idx,
+					fs_get_reg_sensor_id(idx),
+					fs_get_reg_sensor_idx(idx),
+					fs_get_reg_sensor_inf_idx(idx),
+					ss_prop->prsh_length_lc,
+					seamless_shutter_lc);
+
+				fl_us_composition[1] =
+					ss_prop->hw_re_init_time_us;
+			} else {
+				fl_us_composition[1] =
+					ss_prop->hw_re_init_time_us +
+					convert2TotalTime(
+						new_mode_line_time_ns,
+						ss_prop->prsh_length_lc
+							- seamless_shutter_lc);
+			}
+		} else {
+			fl_us_composition[1] =
+				ss_prop->hw_re_init_time_us;
+		}
+		break;
+	case FREC_SEAMLESS_SWITCH_ORIG_VB_INIT_SHUT:
+		fl_us_composition[1] =
+			orig_fl_us + ss_prop->hw_re_init_time_us;
+		break;
+	case FREC_SEAMLESS_SWITCH_ORIG_VB_ORIG_IMG:
+		fl_us_composition[1] = orig_fl_us;
+		break;
+	default:
+		break;
+	}
+
+	/* calculate the frame length of seamless switch frame */
+	result =
+		fl_us_composition[0] +
+		fl_us_composition[1] +
+		fl_us_composition[2];
+
+	LOG_MUST(
+		"NOTICE: [%u] ID:%#x(sidx:%u/inf:%u), seamless_fl_us:%u(%u/%u/%u(%u)), new_mode_line_t:%u, r_offset[%u]:%u, type_id:%u, orig_readout_t:%u, hw_re_init_t:%u, prsh_length_lc:%u, (exp_lc:%u, (a:%u/m:%u(%u,%u), exp:%u/%u/%u/%u/%u)\n",
+		idx,
+		fs_get_reg_sensor_id(idx),
+		fs_get_reg_sensor_idx(idx),
+		fs_get_reg_sensor_inf_idx(idx),
+		result,
+		fl_us_composition[0],
+		fl_us_composition[1],
+		fl_us_composition[2],
+		seamless_shutter_lc,
+		new_mode_line_time_ns,
+		orig_mode_exp_cnt-1,
+		curr_exp_read_offset,
+		ss_prop->type_id,
+		ss_prop->orig_readout_time_us,
+		ss_prop->hw_re_init_time_us,
+		ss_prop->prsh_length_lc,
+		p_seamless_rec->frame_rec.shutter_lc,
+		p_seamless_rec->frame_rec.ae_exp_cnt,
+		p_seamless_rec->frame_rec.mode_exp_cnt,
+		p_seamless_rec->frame_rec.m_exp_type,
+		p_seamless_rec->frame_rec.exp_order,
+		p_seamless_rec->frame_rec.exp_lc_arr[0],
+		p_seamless_rec->frame_rec.exp_lc_arr[1],
+		p_seamless_rec->frame_rec.exp_lc_arr[2],
+		p_seamless_rec->frame_rec.exp_lc_arr[3],
+		p_seamless_rec->frame_rec.exp_lc_arr[4]);
+
+	return result;
+}
 /*----------------------------------------------------------------------------*/
 
 
@@ -1574,6 +1723,42 @@ static void frec_init_recorder_fl_related_info(const unsigned int idx,
 		sizeof(unsigned int) * (FS_HDR_MAX));
 	memcpy(pfrec->curr_predicted_rd_offset_us,
 		pfrec->next_predicted_rd_offset_us,
+		sizeof(unsigned int) * (FS_HDR_MAX));
+}
+
+
+static void frec_init_recorder_seamless_fl_related_info(const unsigned int idx,
+	const unsigned int seamless_fl_us,
+	const struct FrameRecord *p_frame_rec)
+{
+	struct FrameRecorder *pfrec = frec_g_recorder_ctx(idx, __func__);
+	struct FrameRecord *curr_rec = NULL;
+	struct predicted_fl_info_st fl_info = {0};
+
+	/* error handle */
+	if (unlikely(pfrec == NULL))
+		return;
+
+	curr_rec = &pfrec->frame_recs[0];
+
+	/* setup predicted frame length (seamless frame) */
+	pfrec->curr_predicted_fl_lc =
+		convert2LineCount(
+			calcLineTimeInNs(
+				p_frame_rec->pclk, p_frame_rec->line_length),
+			seamless_fl_us);
+	pfrec->curr_predicted_fl_us = seamless_fl_us;
+
+	/* trigger calculate newest predicted fl info */
+	frec_get_predicted_frame_length_info(
+		idx, curr_rec, &fl_info, __func__);
+
+	/* copy result of newest next read offset info */
+	memcpy(pfrec->next_predicted_rd_offset_lc,
+		&fl_info.next_exp_rd_offset_lc,
+		sizeof(unsigned int) * (FS_HDR_MAX));
+	memcpy(pfrec->next_predicted_rd_offset_us,
+		&fl_info.next_exp_rd_offset_us,
 		sizeof(unsigned int) * (FS_HDR_MAX));
 }
 
@@ -1857,6 +2042,44 @@ void frec_init_recorder(const unsigned int idx,
 	}
 
 	frec_setup_def_records(idx, def_fl_lc, p_frame_rec);
+}
+
+
+void frec_seamless_switch(const unsigned int idx, const unsigned int def_fl_lc,
+	const struct frec_seamless_st *p_seamless_rec)
+{
+	struct FrameRecorder *pfrec = frec_g_recorder_ctx(idx, __func__);
+	unsigned int seamless_fl_us;
+	unsigned int i;
+
+	/* error handle */
+	if (unlikely(pfrec == NULL))
+		return;
+
+	frec_spin_lock(&pfrec->frame_recs_update_lock);
+
+	frec_dump_recorder(idx, __func__);
+
+	seamless_fl_us =
+		frec_calc_seamless_frame_length(idx, p_seamless_rec);
+
+	FS_ATOMIC_SET(0, &pfrec->depth_idx);
+	for (i = 0; i < RECORDER_DEPTH; ++i) {
+		memcpy(&pfrec->frame_recs[i], &p_seamless_rec->frame_rec,
+			sizeof(pfrec->frame_recs[i]));
+
+		pfrec->sys_ts_recs[i] = 0;
+	}
+	pfrec->def_fl_lc = def_fl_lc;
+	frec_init_recorder_seamless_fl_related_info(
+		idx, seamless_fl_us, &p_seamless_rec->frame_rec);
+
+	frec_dump_recorder(idx, __func__);
+
+	/* set the results to fs algo and frame monitor */
+	frec_notify_setting_frame_record_st_data(idx);
+
+	frec_spin_unlock(&pfrec->frame_recs_update_lock);
 }
 
 

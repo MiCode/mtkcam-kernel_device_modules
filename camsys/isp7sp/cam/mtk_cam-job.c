@@ -5138,6 +5138,19 @@ static int job_fetch_freq(struct mtk_cam_job *job,
 	unsigned int freq;
 	bool is_apu;
 
+	if (job->job_type == JOB_TYPE_ONLY_SV ) {
+		struct mtk_cam_ctx *ctx = job->src_ctx;
+		struct mtk_cam_device *cam = ctx->cam;
+		int opp_idx = 0;
+		unsigned int adj_freq;
+
+		CALL_PLAT_V4L2(get_single_sv_opp_idx, &opp_idx);
+		adj_freq = mtk_cam_dvfs_query(&cam->dvfs, opp_idx);
+		*freq_hz = adj_freq;
+		*boostable = false;
+		return 0;
+	}
+
 	ctrl = get_raw_ctrl_data(job);
 	if (!ctrl) {
 		pr_info("%s: warn. should not be called\n", __func__);

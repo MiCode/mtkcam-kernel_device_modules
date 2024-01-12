@@ -58,7 +58,7 @@ struct mtk_cam_seninf_ops *g_seninf_ops;
 
 /* aov sensor use */
 struct mtk_seninf_aov_param g_aov_param;
-struct seninf_ctx *aov_ctx[6];
+struct seninf_ctx *aov_ctx[AOV_SENINF_NUM];
 
 #ifdef CSI_EFUSE_SET
 #include <linux/nvmem-consumer.h>
@@ -1555,9 +1555,9 @@ static int set_aov_test_model_param(struct seninf_ctx *ctx,
 	} else {
 		pm_runtime_put_sync(ctx->dev);
 		/* array size of aov_ctx[] is
-		 * 6: most number of sensors support
+		 * AOV_SENINF_NUM: most number of sensors support
 		 */
-		if (g_aov_param.sensor_idx < 6) {
+		if (g_aov_param.sensor_idx < AOV_SENINF_NUM) {
 			aov_ctx[g_aov_param.sensor_idx] = NULL;
 			memset(&g_aov_param, 0, sizeof(struct mtk_seninf_aov_param));
 		}
@@ -2293,9 +2293,9 @@ static int seninf_s_stream(struct v4l2_subdev *sd, int enable)
 			dev_info(ctx->dev,
 				"[%s] set aov real sensor off\n", __func__);
 			/* array size of aov_ctx[] is
-			 * 6: most number of sensors support
+			 * AOV_SENINF_NUM: most number of sensors support
 			 */
-			if (g_aov_param.sensor_idx < 6) {
+			if (g_aov_param.sensor_idx < AOV_SENINF_NUM) {
 				aov_ctx[g_aov_param.sensor_idx] = NULL;
 				memset(&g_aov_param, 0,
 					sizeof(struct mtk_seninf_aov_param));
@@ -2501,9 +2501,9 @@ static int seninf_real_sensor_for_aov_param(struct seninf_ctx *ctx, u32 enable)
 		if (!core->pwr_refcnt_for_aov) {
 			dev_info(ctx->dev, "[%s] set aov real sensor off\n", __func__);
 			/* because array size of aov_ctx[] is
-			 * 6: most number of sensors support
+			 * AOV_SENINF_NUM: most number of sensors support
 			 */
-			if (g_aov_param.sensor_idx < 6) {
+			if (g_aov_param.sensor_idx < AOV_SENINF_NUM) {
 				aov_ctx[g_aov_param.sensor_idx] = NULL;
 				memset(&g_aov_param, 0, sizeof(struct mtk_seninf_aov_param));
 			}
@@ -2518,10 +2518,10 @@ static int seninf_real_sensor_for_aov_param(struct seninf_ctx *ctx, u32 enable)
 			/* get aov sensor idx by get_sensor_idx */
 			core->aov_sensor_id = get_sensor_idx(ctx);
 			/* array size of aov_ctx[] is
-			 * 6: most number of sensors support
+			 * AOV_SENINF_NUM: most number of sensors support
 			 */
 			if (core->aov_sensor_id >= 0 &&
-				core->aov_sensor_id < 6) {
+				core->aov_sensor_id < AOV_SENINF_NUM) {
 				g_aov_param.sensor_idx = core->aov_sensor_id;
 				aov_ctx[g_aov_param.sensor_idx] = ctx;
 				g_aov_param.is_test_model = 0;
@@ -2671,10 +2671,10 @@ static int mtk_cam_seninf_set_ctrl(struct v4l2_ctrl *ctrl)
 					/* get aov sensor idx by get_sensor_idx */
 					core->aov_sensor_id = get_sensor_idx(ctx);
 					/* array size of aov_ctx[] is
-					 * 6: most number of sensors support
+					 * AOV_SENINF_NUM: most number of sensors support
 					 */
 					if (core->aov_sensor_id >= 0 &&
-						core->aov_sensor_id < 6) {
+						core->aov_sensor_id < AOV_SENINF_NUM) {
 						g_aov_param.sensor_idx = core->aov_sensor_id;
 						aov_ctx[g_aov_param.sensor_idx] = ctx;
 						g_aov_param.is_test_model = 0;
@@ -2706,9 +2706,9 @@ static int mtk_cam_seninf_set_ctrl(struct v4l2_ctrl *ctrl)
 					dev_info(ctx->dev,
 						"[%s] set aov real sensor off\n", __func__);
 					/* array size of aov_ctx[] is
-					 * 6: most number of sensors support
+					 * AOV_SENINF_NUM: most number of sensors support
 					 */
-					if (g_aov_param.sensor_idx < 6) {
+					if (g_aov_param.sensor_idx < AOV_SENINF_NUM) {
 						aov_ctx[g_aov_param.sensor_idx] = NULL;
 						memset(&g_aov_param, 0,
 							sizeof(struct mtk_seninf_aov_param));
@@ -3126,9 +3126,9 @@ static int seninf_probe(struct platform_device *pdev)
 
 	memset(&g_aov_param, 0, sizeof(struct mtk_seninf_aov_param));
 	/* array size of aov_ctx[] is
-	 * 6: most number of sensors support
+	 * AOV_SENINF_NUM: most number of sensors support
 	 */
-	for (i = 0; i < 6; i++)
+	for (i = 0; i < AOV_SENINF_NUM; i++)
 		aov_ctx[i] = NULL;
 
 	dev_info(dev, "%s: port=%d\n", __func__, ctx->port);

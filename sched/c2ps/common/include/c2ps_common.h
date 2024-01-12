@@ -67,8 +67,9 @@ struct task_group_info {
 
 struct global_info {
     int cfg_camfps;
-    int bg_min_uclamp;
-    int bg_max_uclamp;
+    int max_uclamp_cluster0;
+    int max_uclamp_cluster1;
+    int max_uclamp_cluster2;
 	int camfps;
     u64 vsync_time;
     struct mutex mlock;
@@ -118,8 +119,14 @@ void update_vsync_time(u64 ts);
 void update_camfps(int camfps);
 bool is_group_head(struct c2ps_task_info *tsk_info);
 void c2ps_systrace_c(pid_t pid, int val, const char *name, ...);
-void c2ps_systrace_d(pid_t pid, int val, const char *name, ...);
+void c2ps_systrace_d(const char *name, ...);
 void *c2ps_alloc_atomic(int i32Size);
 void c2ps_free(void *pvBuf, int i32Size);
+void set_glb_info_bg_uclamp_max(void);
+
+extern void set_curr_uclamp_ctrl(int val);
+extern void set_gear_uclamp_ctrl(int val);
+extern void set_gear_uclamp_max(int gearid, int val);
+extern int get_gear_uclamp_max(int gearid);
 
 #endif  // C2PS_COMMON_INCLUDE_C2PS_COMMON_H_

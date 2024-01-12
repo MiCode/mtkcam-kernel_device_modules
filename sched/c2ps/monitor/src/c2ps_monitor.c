@@ -54,6 +54,7 @@ static void reset_task_eas_setting(struct c2ps_task_info *tsk_info)
 	int pid = -1;
 	struct task_struct *p;
 	struct sched_attr attr = {};
+	struct global_info *glb_info = get_glb_info();
 
 	if (!tsk_info) {
 		C2PS_LOGE("tsk_info is null\n");
@@ -63,7 +64,7 @@ static void reset_task_eas_setting(struct c2ps_task_info *tsk_info)
 	pid = tsk_info->pid;
 	if (pid < 0)
 		return;
-	// set_curr_uclamp_hint(pid, 0);
+	set_curr_uclamp_hint(pid, 0);
 
 	attr.sched_policy = SCHED_NORMAL;
 	attr.sched_flags = 0;
@@ -72,7 +73,9 @@ static void reset_task_eas_setting(struct c2ps_task_info *tsk_info)
 			   SCHED_FLAG_RESET_ON_FORK;
 
 	attr.sched_util_min = 1;
-	attr.sched_util_max = 1024;
+	attr.sched_util_max = max(glb_info->max_uclamp_cluster0,
+		max(glb_info->max_uclamp_cluster1, glb_info->max_uclamp_cluster2));
+	attr.sched_util_max = clamp(attr.sched_util_max, 1U, 1024U);
 
 	rcu_read_lock();
 	p = find_task_by_vpid(pid);
@@ -164,7 +167,7 @@ int monitor_task_end(int pid, int task_id)
 	c2ps_update_task_info_hist(tsk_info);
 
 	/* debug tool tag */
-	c2ps_systrace_d(tsk_info->pid, tsk_info->latest_uclamp,
+	c2ps_systrace_d(
 			"c2ps set uclamp: %d to task: %d end, proc_time: %llu, "
 			"real exec_time: %llu",
 			tsk_info->latest_uclamp, tsk_info->task_id,

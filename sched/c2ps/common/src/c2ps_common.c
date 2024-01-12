@@ -332,6 +332,19 @@ inline void set_config_camfps(int camfps)
 	c2ps_info_unlock(&glb_info->mlock);
 }
 
+inline void set_glb_info_bg_uclamp_max(void)
+{
+	if (!glb_info) {
+		C2PS_LOGE("glb_info is null\n");
+		return;
+	}
+	c2ps_info_lock(&glb_info->mlock);
+	glb_info->max_uclamp_cluster0 = get_gear_uclamp_max(0);
+	glb_info->max_uclamp_cluster1 = get_gear_uclamp_max(1);
+	glb_info->max_uclamp_cluster2 = get_gear_uclamp_max(2);
+	c2ps_info_unlock(&glb_info->mlock);
+}
+
 inline void update_vsync_time(u64 ts)
 {
 	if (!glb_info) {
@@ -396,7 +409,7 @@ void c2ps_systrace_c(pid_t pid, int val, const char *fmt, ...)
 	tracing_mark_write(buf);
 }
 
-void c2ps_systrace_d(pid_t pid, int val, const char *fmt, ...)
+void c2ps_systrace_d(const char *fmt, ...)
 {
 	char log[256];
 	va_list args;
@@ -413,7 +426,7 @@ void c2ps_systrace_d(pid_t pid, int val, const char *fmt, ...)
 	else if (unlikely(len == 256))
 		log[255] = '\0';
 
-	len = snprintf(buf, sizeof(buf), "DEBUG|%d|%s|%d\n", pid, log, val);
+	len = snprintf(buf, sizeof(buf), "%s\n", log);
 
 	if (unlikely(len < 0))
 		return;
@@ -461,10 +474,10 @@ static ssize_t task_info_show(struct kobject *kobj,
 		goto out;
 
     length = scnprintf(temp + pos, C2PS_SYSFS_MAX_BUFF_SIZE - pos,
-	    "\nTASKID\tPID\tINIT_UCLAMP\tTASK_TARGET_TIME\t");
+	    "\nTASKID\tPID\tINIT_UCLAMP\tTASK_TARGET_TIME\tVIP_TASK\t");
     pos += length;
     length = scnprintf(temp + pos, C2PS_SYSFS_MAX_BUFF_SIZE - pos,
-	    "START_TIME\tEND_TIME\tPROC_TIME\tEXEC_TIME\n");
+	    "START_TIME\tEND_TIME\tPROC_TIME\tEXEC_TIME\tLATEST_UCLAMP\n");
     pos += length;
 
     c2ps_task_info_tbl_lock(__func__);
@@ -472,15 +485,17 @@ static ssize_t task_info_show(struct kobject *kobj,
     hash_for_each(task_info_tbl, bkt, tsk_info, hlist) {
 		length = scnprintf(temp + pos,
 			C2PS_SYSFS_MAX_BUFF_SIZE - pos,
-			"%-2d\t%-5d\t%-4u\t\t%-8llu\t\t",
+			"%-2d\t%-5d\t%-4u\t\t%-8llu\t\t%d\t\t",
 			tsk_info->task_id, tsk_info->pid,
-			tsk_info->default_uclamp, tsk_info->task_target_time);
+			tsk_info->default_uclamp, tsk_info->task_target_time,
+			tsk_info->is_vip_task);
 		pos += length;
 		length = scnprintf(temp + pos,
 			C2PS_SYSFS_MAX_BUFF_SIZE - pos,
-			"%-12llu\t%-12llu\t%-10llu\t%-10llu\n",
+			"%-12llu\t%-12llu\t%-10llu\t%-10llu\t%-4d\n",
 			tsk_info->start_time, tsk_info->end_time,
-			tsk_info->proc_time, tsk_info->real_exec_runtime);
+			tsk_info->proc_time, tsk_info->real_exec_runtime,
+			tsk_info->latest_uclamp);
 		pos += length;
     }
 
@@ -511,6 +526,8 @@ int init_c2ps_common(void)
 	if (!(ret = c2ps_sysfs_create_dir(NULL, "common", &base_kobj))) {
 		c2ps_sysfs_create_file(base_kobj, &kobj_attr_task_info);
 	}
+
+	set_glb_info_bg_uclamp_max();
 
 	return ret;
 }

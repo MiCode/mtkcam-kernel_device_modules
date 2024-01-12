@@ -12,12 +12,8 @@ static unsigned int c2ps_regulator_debug_max_uclamp = 1000;
 static unsigned int c2ps_regulator_debug_min_uclamp = 1000;
 static unsigned int c2ps_regulator_base_update_uclamp = 0;
 static unsigned int c2ps_regulator_simple_min_uclamp = 50;
-static unsigned int c2ps_remote_monitor_uclamp = 0;
-static unsigned int c2ps_remote_monitor_proc_time = 0;
-static unsigned int c2ps_remote_monitor_proc_time_temp = 0;
 static unsigned int c2ps_uclamp_up_margin = 0;
 static unsigned int c2ps_uclamp_down_margin = 0;
-static char c2ps_remote_monitor_task[30] = "None";
 
 module_param(c2ps_regulator_debug_max_uclamp, int, 0644);
 module_param(c2ps_regulator_debug_min_uclamp, int, 0644);
@@ -25,10 +21,6 @@ module_param(c2ps_regulator_base_update_uclamp, int, 0644);
 module_param(c2ps_uclamp_up_margin, int, 0644);
 module_param(c2ps_uclamp_down_margin, int, 0644);
 module_param(c2ps_regulator_simple_min_uclamp, int, 0644);
-module_param_string(c2ps_remote_monitor_task,
-	                c2ps_remote_monitor_task, 30, 0644);
-module_param(c2ps_remote_monitor_uclamp, int, 0644);
-module_param(c2ps_remote_monitor_proc_time, int, 0644);
 
 void set_uclamp(const int pid, unsigned int max_util, unsigned int min_util)
 {
@@ -62,17 +54,12 @@ void set_uclamp(const int pid, unsigned int max_util, unsigned int min_util)
 		C2PS_LOGD("check pid name: %s, pid: %d", p->comm, pid);
 		ret = sched_setattr_nocheck(p, &attr);
 		/* set this task to break system uclamp max limitation */
-		// set_curr_uclamp_hint(pid, 1);
+		set_curr_uclamp_hint(pid, 1);
 
 		if (ret == 0) {
 			C2PS_LOGD("set uclamp(%d, %d) to %s successfully",
 				      attr.sched_util_min, attr.sched_util_max,
 				      p->comm);
-			if (strstr(c2ps_remote_monitor_task, p->comm)) {
-				c2ps_remote_monitor_uclamp = max_util;
-				c2ps_remote_monitor_proc_time =
-				    c2ps_remote_monitor_proc_time_temp;
-			}
 		} else {
 			C2PS_LOGD("set uclamp(%d, %d) to %s failed",
 				      attr.sched_util_min, attr.sched_util_max,
@@ -108,8 +95,6 @@ void c2ps_regulator_policy_simple(struct regulator_req *req)
 	s64 update_ratio_denom = req->tsk_info->task_target_time;
 	s64 update_uclamp = 0;
 	int new_uclamp = 0;
-
-	c2ps_remote_monitor_proc_time_temp	= average_proc_time;
 
 	C2PS_LOGD("task_id (%d) use simple uclamp policy",
 		  req->tsk_info->task_id);
@@ -153,7 +138,7 @@ void c2ps_regulator_policy_simple(struct regulator_req *req)
 		req->tsk_info->latest_uclamp);
 
 	/* debug tool tag */
-	c2ps_systrace_d(req->tsk_info->pid, 0,
+	c2ps_systrace_d(
 		"c2ps simple policy: task: %d average_proc_time: %llu, "
 		"realtime_proc_time: %llu",
 		req->tsk_info->task_id, average_proc_time,

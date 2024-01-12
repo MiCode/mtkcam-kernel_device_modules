@@ -49,6 +49,9 @@ unsigned long engine_idx_to_bit(int engine_type, int idx)
 
 static int mtk_cam_ctrl_get(struct mtk_cam_ctrl *cam_ctrl)
 {
+	if (!cam_ctrl)
+		return -1;
+
 	atomic_inc(&cam_ctrl->ref_cnt);
 
 	if (unlikely(atomic_read(&cam_ctrl->stopped))) {

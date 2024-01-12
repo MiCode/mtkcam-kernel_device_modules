@@ -184,6 +184,7 @@ static int sv_process_fsm(struct mtk_camsv_device *sv_dev,
 		/* when first tag comes: 1. update irq_type 2. update used_tags */
 		if (irq_info->sof_tags & sv_dev->first_tag) {
 			irq_info->irq_type |= BIT(CAMSYS_IRQ_FRAME_START_DCIF_MAIN);
+			sv_dev->used_tags = 0;
 			for (i = 0; i < MAX_SV_HW_GROUPS; i++)
 				sv_dev->used_tags |= sv_dev->active_group_info[i];
 		}

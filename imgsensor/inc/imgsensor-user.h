@@ -85,7 +85,7 @@ struct mtk_fps_by_scenario {
 
 struct mtk_pclk_by_scenario {
 	__u32 scenario_id;
-	__u32 pclk;
+	__u64 pclk;
 };
 
 struct mtk_llp_fll_by_scenario {
@@ -252,7 +252,7 @@ struct mtk_scenario_timing {
 	__u32 height;
 	__u32 mipi_pixel_rate;
 	__u32 max_framerate;
-	__u32 pclk;
+	__u64 pclk;
 	__u64 linetime_in_ns;
 };
 
@@ -600,7 +600,7 @@ struct mtk_ebd_dump_record {
 	_IOR('M', BASE_VIDIOC_PRIVATE + 12, struct mtk_llp_fll)
 
 #define VIDIOC_MTK_G_PCLK \
-	_IOR('M', BASE_VIDIOC_PRIVATE + 13, unsigned int)
+	_IOR('M', BASE_VIDIOC_PRIVATE + 13, unsigned long long)
 
 #define VIDIOC_MTK_G_PDAF_DATA \
 	_IOWR('M', BASE_VIDIOC_PRIVATE + 14, struct mtk_pdaf_data)

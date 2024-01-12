@@ -108,7 +108,7 @@ static int test_pclk_by_scenario(int fd, int scenario_id)
 		return ret;
 	}
 
-	printf("pclk %d\n",
+	printf("pclk %llu\n",
 		info.pclk);
 
 	return 0;
@@ -196,7 +196,7 @@ static int test_pdaf_info_by_scenario(int fd, int scenario_id)
 static int test_pclk(int fd)
 {
 	int ret;
-	__u32 info;
+	__u64 info;
 
 	ret = ioctl(fd, VIDIOC_MTK_G_PCLK, &info);
 	if (ret) {
@@ -204,7 +204,7 @@ static int test_pclk(int fd)
 		return ret;
 	}
 
-	printf("pclk %d\n", info);
+	printf("pclk %llu\n", info);
 
 	return 0;
 }

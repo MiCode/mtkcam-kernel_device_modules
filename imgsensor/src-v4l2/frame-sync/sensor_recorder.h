@@ -111,7 +111,7 @@ struct FrameRecord {
 	unsigned int m_exp_type;
 	unsigned int exp_order;
 
-	unsigned int pclk;
+	unsigned long long pclk;
 	unsigned int line_length;
 
 	/* info for debug */

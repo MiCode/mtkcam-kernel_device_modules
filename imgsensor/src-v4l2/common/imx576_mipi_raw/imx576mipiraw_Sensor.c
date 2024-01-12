@@ -2159,36 +2159,36 @@ static int feature_control(
 	case SENSOR_FEATURE_GET_PIXEL_CLOCK_FREQ_BY_SCENARIO:
 		switch (*feature_data) {
 		case SENSOR_SCENARIO_ID_NORMAL_CAPTURE:
-			*(MUINT32 *)(uintptr_t)(*(feature_data + 1))
+			*(MUINT64 *)(uintptr_t)(*(feature_data + 1))
 				= imgsensor_info.cap.pclk;
 			break;
 		case SENSOR_SCENARIO_ID_NORMAL_VIDEO:
-			*(MUINT32 *)(uintptr_t)(*(feature_data + 1))
+			*(MUINT64 *)(uintptr_t)(*(feature_data + 1))
 				= imgsensor_info.normal_video.pclk;
 			break;
 		case SENSOR_SCENARIO_ID_HIGHSPEED_VIDEO:
-			*(MUINT32 *)(uintptr_t)(*(feature_data + 1))
+			*(MUINT64 *)(uintptr_t)(*(feature_data + 1))
 				= imgsensor_info.hs_video.pclk;
 			break;
 		case SENSOR_SCENARIO_ID_SLIM_VIDEO:
-			*(MUINT32 *)(uintptr_t)(*(feature_data + 1))
+			*(MUINT64 *)(uintptr_t)(*(feature_data + 1))
 				= imgsensor_info.slim_video.pclk;
 			break;
 		case SENSOR_SCENARIO_ID_NORMAL_PREVIEW:
 #if NO_USE_3HDR
 			if (ctx->hdr_mode)
-				*(MUINT32 *)(uintptr_t)(*(feature_data + 1))
+				*(MUINT64 *)(uintptr_t)(*(feature_data + 1))
 				= imgsensor_info.pre_3HDR.pclk;
 			else
-				*(MUINT32 *)(uintptr_t)(*(feature_data + 1))
+				*(MUINT64 *)(uintptr_t)(*(feature_data + 1))
 				= imgsensor_info.pre.pclk;
 #else
-			*(MUINT32 *)(uintptr_t)(*(feature_data + 1))
+			*(MUINT64 *)(uintptr_t)(*(feature_data + 1))
 			= imgsensor_info.pre.pclk;
 #endif
 			break;
 		default:
-			*(MUINT32 *)(uintptr_t)(*(feature_data + 1))
+			*(MUINT64 *)(uintptr_t)(*(feature_data + 1))
 				= imgsensor_info.pre.pclk;
 			break;
 		}
@@ -2245,9 +2245,9 @@ static int feature_control(
 		break;
 	case SENSOR_FEATURE_GET_PIXEL_CLOCK_FREQ:
 		LOG_INF(
-			"feature_Control ctx->pclk = %d,ctx->current_fps = %d\n",
+			"feature_Control ctx->pclk = %llu,ctx->current_fps = %u\n",
 			ctx->pclk, ctx->current_fps);
-		*feature_return_para_32 = ctx->pclk;
+		*feature_para = ctx->pclk;
 		*feature_para_len = 4;
 		break;
 	case SENSOR_FEATURE_SET_ESHUTTER:

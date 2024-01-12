@@ -67,7 +67,7 @@ struct sensor_mode {
 	u32 mipi_pixel_rate;
 	u32 cust_pixel_rate;
 	u32 max_framerate;
-	u32 pclk;
+	u64 pclk;
 	u64 linetime_in_ns;
 	u64 linetime_in_ns_readout;
 	u64 fine_intg_line;

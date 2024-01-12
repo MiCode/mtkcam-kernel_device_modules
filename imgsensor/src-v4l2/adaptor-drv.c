@@ -187,7 +187,8 @@ static void add_sensor_mode(struct adaptor_ctx *ctx,
 		int id, int width, int height)
 {
 	union feature_para para;
-	u32 idx, val, len, llp_readout;
+	u32 idx, len, llp_readout;
+	u64 val;
 	struct sensor_mode *mode;
 
 	idx = ctx->mode_cnt;

@@ -677,7 +677,7 @@ void fsync_mgr_dump_fs_streaming_st(struct adaptor_ctx *ctx,
 	const char *caller)
 {
 	FSYNC_MGR_LOGI(ctx,
-		"[%s] flag:%u, ID:%#x(sidx:%u), cammux_id:%u/target_tg:%u, fdelay:%u(must be 3 or 2), fl_lc(def:%u/max:%u), def_exp_lc:%u, margin_lc:%u, lineTime:%u(pclk:%u/linelength:%u), hw_sync_mode:%u(N:0/M:1/S:2)\n",
+		"[%s] flag:%u, ID:%#x(sidx:%u), cammux_id:%u/target_tg:%u, fdelay:%u(must be 3 or 2), fl_lc(def:%u/max:%u), def_exp_lc:%u, margin_lc:%u, lineTime:%u(pclk:%llu/linelength:%u), hw_sync_mode:%u(N:0/M:1/S:2)\n",
 		caller,
 		flag,
 		s_info->sensor_id,
@@ -807,7 +807,7 @@ void fsync_mgr_dump_fs_perframe_st(struct adaptor_ctx *ctx,
 	const char *caller)
 {
 	FSYNC_MGR_LOGD(ctx,
-		"[%s] sof_cnt:%u, ID:%#x(sidx:%u), req_id:%d, (a:%u/m:%u(%u/%u)), fl(%u, %u/%u/%u/%u/%u), exp(%u, %u/%u/%u/%u/%u), rout_l:%u, margin:%u(r:%u), min_fl_lc:%u, flk:%u, lineT:%u(ns)(pclk:%u/ll:%u), rout_T(us):%u(mode_id:%u), set_exp_with_fl(%u => %u/%u, %u/%u/%u/%u/%u / %u/%u/%u/%u/%u), cmd_id:%d\n",
+		"[%s] sof_cnt:%u, ID:%#x(sidx:%u), req_id:%d, (a:%u/m:%u(%u/%u)), fl(%u, %u/%u/%u/%u/%u), exp(%u, %u/%u/%u/%u/%u), rout_l:%u, margin:%u(r:%u), min_fl_lc:%u, flk:%u, lineT:%u(ns)(pclk:%llu/ll:%u), rout_T(us):%u(mode_id:%u), set_exp_with_fl(%u => %u/%u, %u/%u/%u/%u/%u / %u/%u/%u/%u/%u), cmd_id:%d\n",
 		caller,
 		ctx->sof_cnt,
 		pf_ctrl->sensor_id,

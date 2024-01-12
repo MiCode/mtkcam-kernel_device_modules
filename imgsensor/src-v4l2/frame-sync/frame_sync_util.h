@@ -82,7 +82,7 @@ static inline void clear_all_bit_atomic(FS_Atomic_T *p_fs_atomic_val)
 // sensor related APIs
 /*----------------------------------------------------------------------------*/
 static inline unsigned int calcLineTimeInNs(
-	const unsigned int pclk, const unsigned int linelength)
+	const unsigned long long pclk, const unsigned int linelength)
 {
 	return (unlikely(pclk/1000 == 0)) ? 0
 		: ((unsigned long long)linelength * 1000000 + ((pclk/1000) - 1))

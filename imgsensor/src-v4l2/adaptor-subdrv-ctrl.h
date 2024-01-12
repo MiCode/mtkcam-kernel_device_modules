@@ -104,12 +104,12 @@ void get_min_shutter_by_scenario(struct subdrv_ctx *ctx,
 		u64 *min_shutter, u64 *exposure_step);
 void get_offset_to_start_of_exposure(struct subdrv_ctx *ctx,	u32 *offset);
 void get_pixel_clock_freq_by_scenario(struct subdrv_ctx *ctx,
-		enum SENSOR_SCENARIO_ID_ENUM scenario_id, u32 *pclk);
+		enum SENSOR_SCENARIO_ID_ENUM scenario_id, u64 *pclk);
 void get_period_by_scenario(struct subdrv_ctx *ctx,
 		enum SENSOR_SCENARIO_ID_ENUM scenario_id, u32 *period, u64 flag);
 void get_period(struct subdrv_ctx *ctx,
 		u16 *line_length, u16 *frame_length);
-void get_pixel_clock_freq(struct subdrv_ctx *ctx, u32 *pclk);
+void get_pixel_clock_freq(struct subdrv_ctx *ctx, u64 *pclk);
 void get_default_framerate_by_scenario(struct subdrv_ctx *ctx,
 		enum SENSOR_SCENARIO_ID_ENUM scenario_id, u32 *framerate);
 void get_fine_integ_line_by_scenario(struct subdrv_ctx *ctx,

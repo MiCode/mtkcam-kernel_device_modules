@@ -140,10 +140,18 @@ static inline int raw_res_to_str(char *buff, size_t size,
 	n = scen_to_str(buff, size, &r->scen);
 
 	n += scnprintf(buff + n, size - n,
-		       " pxlmode=%d freq=%d bin=%d hwmode=%d wbuf=%dx%d raw=(0x%x,0x%x,%d)",
-		       r->raw_pixel_mode, r->freq / 1000000, r->bin, r->hw_mode,
-		       r->img_wbuf_num, r->img_wbuf_size,
+		       " pxlmode=%d freq=%d bin=%d hwmode=%d raw=(0x%x,0x%x,%d)",
+		       r->raw_pixel_mode, r->freq / 1000000,
+		       r->bin, r->hw_mode,
 		       r->raws, r->raws_must, r->raws_max_num);
+
+	if (r->img_wbuf_num || r->img_wbuf_size)
+		n += scnprintf(buff + n, size - n, " wbuf=%dx%d",
+			       r->img_wbuf_num, r->img_wbuf_size);
+
+	if (r->slb_size)
+		n += scnprintf(buff + n, size - n, " slb_s=%u", r->slb_size);
+
 	return n;
 }
 

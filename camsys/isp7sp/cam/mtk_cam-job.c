@@ -30,7 +30,7 @@
 
 static unsigned int debug_buf_fmt_sel = -1;
 module_param(debug_buf_fmt_sel, int, 0644);
-MODULE_PARM_DESC(sv_pure_raw, "working fmt select: 0->bayer, 1->ufbc");
+MODULE_PARM_DESC(debug_buf_fmt_sel, "working fmt select: 0->bayer, 1->ufbc");
 
 
 /* forward declarations */
@@ -274,12 +274,12 @@ static void update_buf_fmt_sel(struct mtk_cam_job *job)
 		&& is_scen_support_ufbc(job);
 
 	if (use_ufbc)
-		set_fmt_select(MTKCAM_BUF_FMT_TYPE_UFBC, desc);
+		desc->fmt_sel = MTKCAM_BUF_FMT_TYPE_UFBC;
 	else
-		set_fmt_select(MTKCAM_BUF_FMT_TYPE_BAYER, desc);
+		desc->fmt_sel = MTKCAM_BUF_FMT_TYPE_BAYER;
 
 	if (debug_buf_fmt_sel != -1)
-		set_fmt_select(debug_buf_fmt_sel, desc);
+		desc->fmt_sel = debug_buf_fmt_sel;
 
 	if (CAM_DEBUG_ENABLED(JOB))
 		pr_info("%s: use_ufbc %d, desc->fmt_sel %d",
@@ -529,8 +529,14 @@ mtk_cam_job_initialize_engines(struct mtk_cam_ctx *ctx,
 
 		if (job->enable_hsf_raw)
 			mtk_cam_hsf_init(ctx);
-	}
 
+		if (ctx->slb_addr && ctx->aid_feature) {
+			//unsigned long raw_engines;
+
+			//raw_engines = bit_map_subset_of(MAP_HW_RAW, engines);
+			mtk_cam_hsf_aid(ctx, 1, ctx->aid_feature);
+		}
+	}
 
 	/* camsv */
 	if (ctx->hw_sv) {
@@ -3418,7 +3424,6 @@ static struct pack_job_ops_helper m2m_pack_helper = {
 	.append_work_buf_to_ipi = NULL,
 };
 
-/* TODO(AY): on-going */
 static struct pack_job_ops_helper mstream_pack_helper = {
 	.job_init = job_init_mstream,
 	.pack_job = _job_pack_mstream,
@@ -4365,12 +4370,15 @@ static int update_job_buffer_to_ipi_frame(struct mtk_cam_job *job,
 	return ret;
 }
 
-static int reset_img_ufd_io_param(struct mtkcam_ipi_frame_param *fp)
+static void reset_img_ufd_io_param(struct mtkcam_ipi_frame_param *fp)
 {
 	memset(&fp->img_ufdi_params, 0, sizeof(fp->img_ufdi_params));
 	memset(&fp->img_ufdo_params, 0, sizeof(fp->img_ufdo_params));
+}
 
-	return 0;
+static void reset_dcif_param(struct mtkcam_ipi_dcif_ring_param *p)
+{
+	memset(p, 0, sizeof(*p));
 }
 
 static int mtk_cam_job_fill_ipi_frame(struct mtk_cam_job *job,
@@ -4381,10 +4389,12 @@ static int mtk_cam_job_fill_ipi_frame(struct mtk_cam_job *job,
 
 	fp = (struct mtkcam_ipi_frame_param *)job->ipi.vaddr;
 
+	reset_img_ufd_io_param(fp);
+	reset_dcif_param(&fp->dcif_param);
+
 	ret = update_cq_buffer_to_ipi_frame(&job->cq, fp)
 		|| update_job_raw_param_to_ipi_frame(job, fp)
-		|| update_job_buffer_to_ipi_frame(job, fp, job_helper)
-		|| reset_img_ufd_io_param(fp);
+		|| update_job_buffer_to_ipi_frame(job, fp, job_helper);
 
 	if (ret)
 		pr_info("%s: failed.\n", __func__);

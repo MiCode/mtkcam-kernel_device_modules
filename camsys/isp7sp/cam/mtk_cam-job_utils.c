@@ -14,6 +14,10 @@ static unsigned int sv_pure_raw = 1;
 module_param(sv_pure_raw, uint, 0644);
 MODULE_PARM_DESC(sv_pure_raw, "enable pure raw dump with casmsv");
 
+static unsigned int debug_dram_ring_mode;
+module_param(debug_dram_ring_mode, uint, 0644);
+MODULE_PARM_DESC(debug_dram_ring_mode, "enable ringbuffer on dram");
+
 #define buf_printk(fmt, arg...)					\
 	do {							\
 		if (unlikely(CAM_DEBUG_ENABLED(IPI_BUF)))	\
@@ -475,11 +479,10 @@ static int mtk_cam_fill_img_in_buf(struct mtkcam_ipi_img_input *ii,
 
 static int fill_img_in_driver_buf(struct mtkcam_ipi_img_input *ii,
 				  struct mtkcam_ipi_uid uid,
-				  struct mtk_cam_driver_buf_desc *desc,
+				  struct mtk_cam_buf_fmt_desc *fmt_desc,
 				  struct mtk_cam_pool_buffer *buf)
 {
 	int i;
-	struct mtk_cam_buf_fmt_desc *fmt_desc = get_fmt_desc(desc);
 
 	/* uid */
 	ii->uid = uid;
@@ -498,7 +501,7 @@ static int fill_img_in_driver_buf(struct mtkcam_ipi_img_input *ii,
 	/* buf */
 	ii->buf[0].size = fmt_desc->size;
 	ii->buf[0].iova = buf->daddr;
-	ii->buf[0].ccd_fd = desc->fd; /* TODO: ufo : desc->fd; */
+	ii->buf[0].ccd_fd = -1;
 
 	buf_printk("%dx%d sz %zu/%d iova %pad\n",
 		   fmt_desc->width, fmt_desc->height,
@@ -509,11 +512,10 @@ static int fill_img_in_driver_buf(struct mtkcam_ipi_img_input *ii,
 
 static int fill_img_out_driver_buf(struct mtkcam_ipi_img_output *io,
 				  struct mtkcam_ipi_uid uid,
-				  struct mtk_cam_driver_buf_desc *desc,
+				  struct mtk_cam_buf_fmt_desc *fmt_desc,
 				  struct mtk_cam_pool_buffer *buf)
 {
 	int i;
-	struct mtk_cam_buf_fmt_desc *fmt_desc = get_fmt_desc(desc);
 
 	/* uid */
 	io->uid = uid;
@@ -532,7 +534,7 @@ static int fill_img_out_driver_buf(struct mtkcam_ipi_img_output *io,
 	/* buf */
 	io->buf[0][0].size = fmt_desc->size;
 	io->buf[0][0].iova = buf->daddr;
-	io->buf[0][0].ccd_fd = desc->fd; /* TODO: ufo : desc->fd; */
+	io->buf[0][0].ccd_fd = -1;
 
 	/* crop */
 	io->crop = (struct mtkcam_ipi_crop) {
@@ -554,7 +556,7 @@ static int fill_img_out_driver_buf(struct mtkcam_ipi_img_output *io,
 }
 
 static int fill_sv_img_fp_working_buffer(struct req_buffer_helper *helper,
-	struct mtk_cam_driver_buf_desc *desc,
+	struct mtk_cam_buf_fmt_desc *fmt_desc,
 	struct mtk_cam_pool_buffer *buf, int exp_no, bool is_w)
 {
 	struct mtkcam_ipi_frame_param *fp = helper->fp;
@@ -597,7 +599,7 @@ static int fill_sv_img_fp_working_buffer(struct req_buffer_helper *helper,
 	fp->camsv_param[0][tag_idx].hardware_scenario = get_hw_scenario(job);
 
 	out = &fp->camsv_param[0][tag_idx].camsv_img_outputs[0];
-	ret = fill_img_out_driver_buf(out, uid, desc, buf);
+	ret = fill_img_out_driver_buf(out, uid, fmt_desc, buf);
 
 EXIT:
 	return ret;
@@ -638,7 +640,7 @@ int raw_video_id_w_port(int rawi_id)
 
 static int fill_sv_to_rawi_wbuf(struct req_buffer_helper *helper,
 		__u8 pipe_id, __u8 ipi, int exp_no, bool is_w,
-		struct mtk_cam_driver_buf_desc *buf_desc,
+		struct mtk_cam_buf_fmt_desc *fmt_desc,
 		struct mtk_cam_pool_buffer *buf)
 {
 	int ret = 0;
@@ -651,11 +653,11 @@ static int fill_sv_to_rawi_wbuf(struct req_buffer_helper *helper,
 	ii = &fp->img_ins[helper->ii_idx];
 	++helper->ii_idx;
 
-	ret = fill_img_in_driver_buf(ii, uid, buf_desc, buf);
+	ret = fill_img_in_driver_buf(ii, uid, fmt_desc, buf);
 
 	if (helper->job->job_type != JOB_TYPE_MSTREAM) {
 		/* HS_TODO: dc? */
-		ret = ret || fill_sv_img_fp_working_buffer(helper, buf_desc, buf, exp_no, is_w);
+		ret = ret || fill_sv_img_fp_working_buffer(helper, fmt_desc, buf, exp_no, is_w);
 	}
 
 	return ret;
@@ -687,32 +689,87 @@ void get_stagger_rawi_table(struct mtk_cam_job *job,
 	}
 }
 
+static int update_dcif_param_to_ipi_frame(struct mtk_cam_job *job,
+					  struct mtkcam_ipi_frame_param *fp)
+{
+	struct mtkcam_ipi_dcif_ring_param *p = &fp->dcif_param;
+	struct mtk_cam_ctx *ctx = job->src_ctx;
+	struct mtk_cam_buf_fmt_desc *fmt_desc;
+
+	p->ring_mode_en = 1;
+	p->ring_start_offset = ctx->ring_start_offset;
+
+	fmt_desc = &ctx->img_work_buf_desc.fmt_desc[MTKCAM_BUF_FMT_TYPE_BAYER];
+	if (ctx->slb_size)
+		ctx->ring_start_offset += fmt_desc->size % ctx->slb_size;
+
+	return 0;
+}
+
+static int update_work_buffer_by_slb(struct req_buffer_helper *helper,
+				     const int *rawi_table, int rawi_table_size)
+{
+	struct mtk_cam_job *job = helper->job;
+	struct mtk_cam_ctx *ctx = job->src_ctx;
+	struct mtk_cam_buf_fmt_desc fmt_desc;
+	struct mtk_cam_pool_buffer img_work_buf;
+	int ret;
+	int i = 0;
+
+	if (!ctx->slb_size)
+		return -1;
+
+	/* support 1exp only now */
+	if (rawi_table_size != 1)
+		return -1;
+
+	fmt_desc = ctx->img_work_buf_desc.fmt_desc[MTKCAM_BUF_FMT_TYPE_BAYER];
+	fmt_desc.size = ctx->slb_size;
+
+	img_work_buf.daddr = (dma_addr_t)ctx->slb_addr;
+	img_work_buf.vaddr = 0;
+	img_work_buf.size = ctx->slb_size;
+
+	ret = fill_sv_to_rawi_wbuf(helper, get_raw_subdev_idx(ctx->used_pipe),
+				   rawi_table[i], i, false,
+				   &fmt_desc, &img_work_buf);
+	ret = ret || update_dcif_param_to_ipi_frame(job, helper->fp);
+	return ret;
+}
+
 int update_work_buffer_to_ipi_frame(struct req_buffer_helper *helper)
 {
 	struct mtk_cam_job *job = helper->job;
 	struct mtk_cam_ctx *ctx = job->src_ctx;
 	const int *rawi_table = NULL;
-	int raw_table_size = 0;
-	int ret = 0;
+	int rawi_table_size = 0;
+	struct mtk_cam_pool_buffer img_work_buf;
+	struct mtk_cam_buf_fmt_desc *fmt_desc;
+	int ret;
 	int i;
 
 	if (helper->filled_hdr_buffer)
 		return 0;
 
-	get_stagger_rawi_table(job, &rawi_table, &raw_table_size);
+	get_stagger_rawi_table(job, &rawi_table, &rawi_table_size);
 
 	/* no need img working buffer */
-	if (!rawi_table)
-		return ret;
+	if (!rawi_table || !rawi_table_size)
+		return 0;
 
-	for (i = 0 ; i < raw_table_size; i++) {
-		if (!job->img_wbuf_pool_wrapper) {
-			pr_info("[%s] fail to fetch, img_wbuf_pool_wrapper is NULL\n", __func__);
-			return -ENOMEM;
-		}
+	if (update_work_buffer_by_slb(helper, rawi_table, rawi_table_size) == 0)
+		return 0;
+
+	if (!job->img_wbuf_pool_wrapper) {
+		pr_info("[%s] fail to fetch, img_wbuf_pool_wrapper is NULL\n", __func__);
+		return -ENOMEM;
+	}
+
+	fmt_desc = get_fmt_desc(&ctx->img_work_buf_desc);
+	for (i = 0 ; i < rawi_table_size; i++) {
 
 		ret = mtk_cam_buffer_pool_fetch(&job->img_wbuf_pool_wrapper->pool,
-						&job->img_work_buf);
+						&img_work_buf);
 		if (ret) {
 			pr_info("[%s] fail to fetch\n", __func__);
 			return ret;
@@ -720,13 +777,13 @@ int update_work_buffer_to_ipi_frame(struct req_buffer_helper *helper)
 
 		ret = fill_sv_to_rawi_wbuf(helper, get_raw_subdev_idx(ctx->used_pipe),
 				rawi_table[i], i, false,
-				&ctx->img_work_buf_desc, &job->img_work_buf);
+				fmt_desc, &img_work_buf);
 
-		mtk_cam_buffer_pool_return(&job->img_work_buf);
+		mtk_cam_buffer_pool_return(&img_work_buf);
 
 		if (!ret && job->job_scen.scen.normal.w_chn_enabled) {
 			ret = mtk_cam_buffer_pool_fetch(&job->img_wbuf_pool_wrapper->pool,
-							&job->img_work_buf);
+							&img_work_buf);
 			if (ret) {
 				pr_info("[%s] fail to fetch\n", __func__);
 				return ret;
@@ -734,12 +791,14 @@ int update_work_buffer_to_ipi_frame(struct req_buffer_helper *helper)
 
 			ret = fill_sv_to_rawi_wbuf(helper, get_raw_subdev_idx(ctx->used_pipe),
 					raw_video_id_w_port(rawi_table[i]), i, true,
-					&ctx->img_work_buf_desc, &job->img_work_buf);
+					fmt_desc, &img_work_buf);
 
-			mtk_cam_buffer_pool_return(&job->img_work_buf);
+			mtk_cam_buffer_pool_return(&img_work_buf);
 		}
 	}
 
+	if (unlikely(debug_dram_ring_mode))
+		update_dcif_param_to_ipi_frame(job, helper->fp);
 	return ret;
 }
 

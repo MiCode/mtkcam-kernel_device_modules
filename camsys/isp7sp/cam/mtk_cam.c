@@ -45,23 +45,8 @@
 #include "mtk_cam-hsf.h"
 #include "iommu_debug.h"
 
-#ifdef CONFIG_VIDEO_MTK_ISP_CAMSYS_DUBUG
-static unsigned int debug_ae = 1;
-#else
-static unsigned int debug_ae;
-#endif
-
-module_param(debug_ae, uint, 0644);
-MODULE_PARM_DESC(debug_ae, "activates debug ae info");
-
 #define CAM_DEBUG 0
 
-/* Zero out the end of the struct pointed to by p.  Everything after, but
- * not including, the specified field is cleared.
- */
-#define CLEAR_AFTER_FIELD(p, field) \
-	memset((u8 *)(p) + offsetof(typeof(*(p)), field) + sizeof((p)->field), \
-	0, sizeof(*(p)) - offsetof(typeof(*(p)), field) -sizeof((p)->field))
 
 static const struct of_device_id mtk_cam_of_ids[] = {
 #ifdef CAMSYS_ISP7SP_MT6897
@@ -1714,27 +1699,31 @@ static int mtk_cam_ctx_destroy_rgbw_caci_buf(struct mtk_cam_ctx *ctx)
 	return 0;
 }
 
-static int mtk_cam_ctx_request_slb(struct mtk_cam_ctx *ctx)
+static int mtk_cam_ctx_request_slb(struct mtk_cam_ctx *ctx, int uid)
 {
 	struct device *dev = ctx->cam->dev;
 	struct slbc_data slb;
 	int ret;
 
-	slb.uid = UID_SH_P1;
+	slb.uid = uid;
 	slb.type = TP_BUFFER;
 
 	ret = slbc_request(&slb);
 	if (ret < 0) {
 		dev_info(dev, "%s: allocate slb fail\n", __func__);
 	} else {
-		dev_info(dev, "%s: slb buffer base(0x%lx), size(%ld)",
-			 __func__, (uintptr_t)slb.paddr, slb.size);
+		dev_info(dev, "%s: slb buffer uid %d base(0x%lx), size(%ld)",
+			 __func__, uid, (uintptr_t)slb.paddr, slb.size);
 		ctx->slb_addr = slb.paddr;
 		ctx->slb_size = slb.size;
 	}
-	mtk_cam_hsf_aid(ctx, 1, AID_VAINR);
 
-	return ret;
+	/*
+	 * set aid after power-on devices
+	 * e.g., mtk_cam_hsf_aid(ctx, 1, AID_VAINR);
+	 */
+
+	return ret < 0 ? -1 : 0;
 }
 
 static void mtk_cam_ctx_release_slb(struct mtk_cam_ctx *ctx)
@@ -1752,7 +1741,10 @@ static void mtk_cam_ctx_release_slb(struct mtk_cam_ctx *ctx)
 	ret = slbc_release(&slb);
 	if (ret < 0)
 		dev_info(dev, "failed to release slb buffer\n");
-	mtk_cam_hsf_aid(ctx, 0, AID_VAINR);
+
+	/* reset aid: may not necessary */
+	if (ctx->aid_feature)
+		mtk_cam_hsf_aid(ctx, 0, ctx->aid_feature);
 }
 
 /* for cq working buffers */
@@ -1788,21 +1780,6 @@ struct mtk_cam_buf_fmt_desc *get_fmt_desc(
 	struct mtk_cam_driver_buf_desc *buf_desc)
 {
 	return &buf_desc->fmt_desc[buf_desc->fmt_sel];
-}
-
-int set_fmt_select(int sel,
-	struct mtk_cam_driver_buf_desc *buf_desc)
-{
-	if (sel >= MTKCAM_BUF_FMT_TYPE_START &&
-		sel < MTKCAM_BUF_FMT_TYPE_CNT)
-		buf_desc->fmt_sel = sel;
-	else {
-		pr_info("%s: error: invalid fmt_sel %d",
-				__func__, sel);
-		return -1;
-	}
-
-	return 0;
 }
 
 static int update_from_mbus_bayer(struct mtk_cam_buf_fmt_desc *fmt_desc,
@@ -1876,12 +1853,12 @@ int update_buf_fmt_desc(struct mtk_cam_driver_buf_desc *desc,
 {
 	int ret = 0, i = 0;
 	size_t max_size = 0;
-	struct buf_fmt_ops *ops[MTKCAM_BUF_FMT_TYPE_CNT] = {
+	struct buf_fmt_ops *ops[] = {
 		&buf_fmt_ops_bayer,
 		&buf_fmt_ops_ufbc
 	};
 
-	for (i = MTKCAM_BUF_FMT_TYPE_START; i < MTKCAM_BUF_FMT_TYPE_CNT && !ret; ++i) {
+	for (i = 0; i < ARRAY_SIZE(ops) && !ret; ++i) {
 		ret = ret || ops[i]->update_input_param(&desc->fmt_desc[i], mf);
 		ret = ret || ops[i]->calc_buf_param(&desc->fmt_desc[i]);
 
@@ -1937,7 +1914,6 @@ int mtk_cam_alloc_img_pool(struct device *dev_to_attach,
 			  ctrl_data->pre_alloc_dbuf,
 			  ctrl_data->pre_alloc_mem.bufs[0].length,
 			  raw_res->img_wbuf_num);
-		desc->fd = ctrl_data->pre_alloc_mem.bufs[0].fd;
 	} else {
 		ret = _alloc_pool(
 			  "CAM_MEM_IMG_ID",
@@ -1945,15 +1921,9 @@ int mtk_cam_alloc_img_pool(struct device *dev_to_attach,
 			  dev_to_attach, desc->max_size,
 			  raw_res->img_wbuf_num,
 			  false);
-#ifdef CLOSE_FD_READY
-		/* FIXME: close fd */
-		desc->fd = mtk_cam_device_buf_fd(&ctx->img_work_buffer);
-#else
-		desc->fd = -1;
-#endif
 	}
 
-	for (i = MTKCAM_BUF_FMT_TYPE_START; i < MTKCAM_BUF_FMT_TYPE_CNT; ++i) {
+	for (i = 0; i < ARRAY_SIZE(desc->fmt_desc); ++i) {
 		struct mtk_cam_buf_fmt_desc *fmt_desc = &desc->fmt_desc[i];
 
 		dev_info(dev_to_attach, "[%s]: fmt_desc[%d](%d/%d/%d/sz:%zu/ipi:%d)",
@@ -2317,6 +2287,7 @@ int mtk_cam_ctx_init_scenario(struct mtk_cam_ctx *ctx)
 	struct mtk_cam_device *cam = ctx->cam;
 	struct mtk_raw_pipeline *raw_pipe;
 	struct mtk_raw_ctrl_data *ctrl_data;
+	struct mtk_cam_resource_raw_v2 *res;
 	struct mtk_cam_scen *scen;
 	int ret = 0;
 
@@ -2329,7 +2300,8 @@ int mtk_cam_ctx_init_scenario(struct mtk_cam_ctx *ctx)
 	raw_pipe = &ctx->cam->pipelines.raw[ctx->raw_subdev_idx];
 	ctrl_data = &raw_pipe->ctrl_data;
 
-	scen = &ctrl_data->resource.user_data.raw_res.scen;
+	res = &ctrl_data->resource.user_data.raw_res;
+	scen = &res->scen;
 
 	if (scen_is_rgbw(scen)) {
 		int sink_w, sink_h;
@@ -2345,11 +2317,31 @@ int mtk_cam_ctx_init_scenario(struct mtk_cam_ctx *ctx)
 	} else if (ctrl_data->valid_apu_info &&
 		   scen_is_m2m_apu(scen, &ctrl_data->apu_info)) {
 
-		if (apu_info_is_dc(&ctrl_data->apu_info))
-			ret = mtk_cam_ctx_request_slb(ctx);
+		if (apu_info_is_dc(&ctrl_data->apu_info)) {
+			ret = mtk_cam_ctx_request_slb(ctx, UID_SH_P1);
+
+			if (!ret)
+				ctx->aid_feature = AID_VAINR;
+		}
 
 		cmdq_mbox_enable(cam->cmdq_clt->chan);
 		ctx->cmdq_enabled = 1;
+	} else if (res_raw_is_dc_mode(res) && res->slb_size) {
+		/* dcif + slb ring buffer case */
+
+		ret = mtk_cam_ctx_request_slb(ctx, UID_SENSOR);
+		if (ctx->slb_size < res->slb_size) {
+			dev_info(cam->dev, "%s: warn. slb size not enough: %u<%u\n",
+				 __func__, ctx->slb_size, res->slb_size);
+
+			mtk_cam_ctx_release_slb(ctx);
+			ctx->slb_addr = 0;
+			ctx->slb_size = 0;
+			ret = -1;
+		}
+
+		if (!ret)
+			ctx->aid_feature = AID_VAINR; /* TODO: new aid */
 	}
 
 	ctx->scenario_init = true;

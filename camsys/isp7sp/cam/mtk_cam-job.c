@@ -3566,7 +3566,7 @@ static void update_job_sensor(struct mtk_cam_job *job)
 	struct mtk_raw_pipeline *raw;
 	struct mtk_raw_ctrl_data *ctrl_data = get_raw_ctrl_data(job);
 
-	if (!ctx->sensor) {
+	if (!ctx->sensor && !ctx->seninf) {
 		job->sensor = NULL;
 		job->seninf = NULL;
 		job->seninf_prev = NULL;

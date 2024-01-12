@@ -447,7 +447,7 @@ static struct subdrv_mode_struct mode_struct[] = {
 		},
 		.pdaf_cap = FALSE,
 		.imgsensor_pd_info = &imgsensor_pd_info,
-		.ae_binning_ratio = 1420,
+		.ae_binning_ratio = 1467,
 		.fine_integ_line = 0,
 		.delay_frame = 2,
 		.dpc_enabled = TRUE,
@@ -492,7 +492,7 @@ static struct subdrv_mode_struct mode_struct[] = {
 		},
 		.pdaf_cap = FALSE,
 		.imgsensor_pd_info = &imgsensor_pd_info,
-		.ae_binning_ratio = 1420,
+		.ae_binning_ratio = 1467,
 		.fine_integ_line = 0,
 		.delay_frame = 3,
 		.dpc_enabled = TRUE,
@@ -537,7 +537,7 @@ static struct subdrv_mode_struct mode_struct[] = {
 		},
 		.pdaf_cap = FALSE,
 		.imgsensor_pd_info = &imgsensor_pd_info,
-		.ae_binning_ratio = 1420,
+		.ae_binning_ratio = 1467,
 		.fine_integ_line = 0,
 		.delay_frame = 3,
 		.dpc_enabled = TRUE,
@@ -582,7 +582,7 @@ static struct subdrv_mode_struct mode_struct[] = {
 		},
 		.pdaf_cap = FALSE,
 		.imgsensor_pd_info = PARAM_UNDEFINED,
-		.ae_binning_ratio = 1420,
+		.ae_binning_ratio = 2940,
 		.fine_integ_line = 0,
 		.delay_frame = 3,
 		.dpc_enabled = TRUE,
@@ -630,7 +630,7 @@ static struct subdrv_mode_struct mode_struct[] = {
 		},
 		.pdaf_cap = FALSE,
 		.imgsensor_pd_info = PARAM_UNDEFINED,
-		.ae_binning_ratio = 1420,
+		.ae_binning_ratio = 2940,
 		.fine_integ_line = 0,
 		.delay_frame = 3,
 		.dpc_enabled = TRUE,
@@ -678,7 +678,7 @@ static struct subdrv_mode_struct mode_struct[] = {
 		},
 		.pdaf_cap = FALSE,
 		.imgsensor_pd_info = PARAM_UNDEFINED,
-		.ae_binning_ratio = 1420,
+		.ae_binning_ratio = 2940,
 		.fine_integ_line = 0,
 		.delay_frame = 3,
 		.dpc_enabled = TRUE,
@@ -726,7 +726,7 @@ static struct subdrv_mode_struct mode_struct[] = {
 		},
 		.pdaf_cap = FALSE,
 		.imgsensor_pd_info = &imgsensor_pd_info,
-		.ae_binning_ratio = 1420,
+		.ae_binning_ratio = 1467,
 		.fine_integ_line = 0,
 		.delay_frame = 3,
 		.dpc_enabled = TRUE,
@@ -774,7 +774,7 @@ static struct subdrv_mode_struct mode_struct[] = {
 		},
 		.pdaf_cap = FALSE,
 		.imgsensor_pd_info = &imgsensor_pd_info,
-		.ae_binning_ratio = 1420,
+		.ae_binning_ratio = 1467,
 		.fine_integ_line = 0,
 		.delay_frame = 3,
 		.dpc_enabled = TRUE,
@@ -817,7 +817,7 @@ static struct subdrv_mode_struct mode_struct[] = {
 		},
 		.pdaf_cap = FALSE,
 		.imgsensor_pd_info = &imgsensor_pd_info,
-		.ae_binning_ratio = 1420,
+		.ae_binning_ratio = 1000,
 		.fine_integ_line = 0,
 		.delay_frame = 3,
 		.dpc_enabled = TRUE,
@@ -862,7 +862,7 @@ static struct subdrv_mode_struct mode_struct[] = {
 		},
 		.pdaf_cap = FALSE,
 		.imgsensor_pd_info = &imgsensor_pd_info,
-		.ae_binning_ratio = 1420,
+		.ae_binning_ratio = 1000,
 		.fine_integ_line = 0,
 		.delay_frame = 3,
 		.sensor_output_dataformat = SENSOR_OUTPUT_FORMAT_RAW_4CELL_B,
@@ -908,7 +908,7 @@ static struct subdrv_mode_struct mode_struct[] = {
 		},
 		.pdaf_cap = FALSE,
 		.imgsensor_pd_info = &imgsensor_pd_info_fullsize,
-		.ae_binning_ratio = 1420,
+		.ae_binning_ratio = 1000,
 		.fine_integ_line = 0,
 		.delay_frame = 3,
 		.dpc_enabled = TRUE,
@@ -953,7 +953,7 @@ static struct subdrv_mode_struct mode_struct[] = {
 		},
 		.pdaf_cap = FALSE,
 		.imgsensor_pd_info = &imgsensor_pd_info_fullsize,
-		.ae_binning_ratio = 1420,
+		.ae_binning_ratio = 1000,
 		.fine_integ_line = 0,
 		.delay_frame = 3,
 		.sensor_output_dataformat = SENSOR_OUTPUT_FORMAT_RAW_4CELL_B,
@@ -1136,6 +1136,8 @@ static void set_group_hold(void *arg, u8 en)
 {
 	struct subdrv_ctx *ctx = (struct subdrv_ctx *)arg;
 
+	if (!ctx->is_streaming || !ctx->sof_cnt)
+		return;
 	if (en) {
 		set_i2c_buffer(ctx, 0x3208, 0x00);
 	} else {
@@ -1162,7 +1164,7 @@ static int ov64b_set_max_framerate_by_scenario(struct subdrv_ctx *ctx, u8 *para,
 	u64 *feature_data = (u64 *)para;
 	enum SENSOR_SCENARIO_ID_ENUM scenario_id = (enum SENSOR_SCENARIO_ID_ENUM)*feature_data;
 	u32 framerate = *(feature_data + 1);
-	u32 frame_length;
+	u32 frame_length, calc_fl, exp_cnt, i;
 
 	if (scenario_id >= ctx->s_ctx.sensor_mode_num) {
 		DRV_LOG(ctx, "invalid sid:%u, mode_num:%u\n",
@@ -1189,6 +1191,11 @@ static int ov64b_set_max_framerate_by_scenario(struct subdrv_ctx *ctx, u8 *para,
 		DRV_LOG(ctx, "ctx->frame_length should not be 0\n");
 		return ERROR_NONE;
 	}
+	exp_cnt = ctx->s_ctx.mode[scenario_id].exp_cnt;
+	calc_fl = ctx->exposure[0];
+	for (i = 1; i < exp_cnt; i++)
+		calc_fl += ctx->exposure[i];
+	calc_fl += ctx->s_ctx.exposure_margin*exp_cnt*exp_cnt;
 
 	frame_length = ctx->s_ctx.mode[scenario_id].pclk / framerate * 10
 		/ ctx->s_ctx.mode[scenario_id].linelength;
@@ -1197,9 +1204,9 @@ static int ov64b_set_max_framerate_by_scenario(struct subdrv_ctx *ctx, u8 *para,
 	ctx->frame_length = min(ctx->frame_length, ctx->s_ctx.frame_length_max);
 	ctx->current_fps = ctx->pclk / ctx->frame_length * 10 / ctx->line_length;
 	ctx->min_frame_length = ctx->frame_length;
-	DRV_LOG(ctx, "max_fps(input/output):%u/%u(sid:%u), min_fl_en:1\n",
-		framerate, ctx->current_fps, scenario_id);
-	if (ctx->frame_length > (ctx->exposure[0] + ctx->s_ctx.exposure_margin))
+	DRV_LOG(ctx, "max_fps(input/output):%u/%u(sid:%u), frame_length:%u, calc_fl:%u, min_fl_en:1\n",
+		framerate, ctx->current_fps, scenario_id, ctx->frame_length, calc_fl);
+	if (ctx->frame_length > calc_fl)
 		ov64b_set_dummy(ctx);
 
 	return ERROR_NONE;
@@ -1360,5 +1367,3 @@ static int vsync_notify(struct subdrv_ctx *ctx,	unsigned int sof_cnt)
 	}
 	return 0;
 }
-
-

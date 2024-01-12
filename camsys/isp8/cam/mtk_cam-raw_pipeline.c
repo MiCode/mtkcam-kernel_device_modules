@@ -2430,6 +2430,23 @@ static struct mtk_cam_format_desc stream_out_fmts[] = {
 	},
 };
 
+static const struct mtk_cam_format_desc gmp_out_fmts[] = {
+	{
+		.vfmt.fmt.pix_mp = {
+			.width = GMP_MAX_WIDTH,
+			.height = GMP_MAX_HEIGHT,
+			.pixelformat = V4L2_PIX_FMT_MTISP_RAW12P,
+		},
+	},
+	{
+		.vfmt.fmt.pix_mp = {
+			.width = GMP_MAX_WIDTH,
+			.height = GMP_MAX_HEIGHT,
+			.pixelformat = V4L2_PIX_FMT_Y16,
+		},
+	},
+};
+
 static const struct mtk_cam_format_desc yuv_out_group1_fmts[] = {
 	{
 		.vfmt.fmt.pix_mp = {
@@ -3066,21 +3083,28 @@ mtk_cam_dev_node_desc output_queues[] = {
 	{
 		.id = MTK_RAW_GRMGI_IN,
 		.name = "grmgi",
-		.cap = V4L2_CAP_META_OUTPUT,
-		.buf_type = V4L2_BUF_TYPE_META_OUTPUT,
+		.cap = V4L2_CAP_VIDEO_OUTPUT_MPLANE,
+		.buf_type = V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE,
 		.link_flags = MEDIA_LNK_FL_ENABLED |  MEDIA_LNK_FL_IMMUTABLE,
-		.image = false,
-#ifdef CONFIG_MTK_SCP
-		.smem_alloc = true,
-#else
+		.image = true,
 		.smem_alloc = false,
-#endif
-		.dma_port = MTKCAM_IPI_RAW_META_STATS_CFG, // fixme
-		.fmts = meta_gmp_fmts,
-		.num_fmts = ARRAY_SIZE(meta_gmp_fmts),
+		.dma_port = MTKCAM_IPI_RAW_GRMGI,
+		.fmts = stream_out_fmts,
+		.num_fmts = ARRAY_SIZE(gmp_out_fmts),
 		.default_fmt_idx = 0,
-		.max_buf_count = 16,
-		.ioctl_ops = &mtk_cam_v4l2_meta_out_ioctl_ops,
+		.ioctl_ops = &mtk_cam_v4l2_vout_ioctl_ops,
+		.frmsizes = &(struct v4l2_frmsizeenum) {
+			.index = 0,
+			.type = V4L2_FRMSIZE_TYPE_CONTINUOUS,
+			.stepwise = {
+				.max_width = IMG_MAX_WIDTH,
+				.min_width = IMG_MIN_WIDTH,
+				.max_height = IMG_MAX_HEIGHT,
+				.min_height = IMG_MIN_HEIGHT,
+				.step_height = 1,
+				.step_width = 1,
+			},
+		},
 	},
 };
 
@@ -3507,32 +3531,54 @@ mtk_cam_dev_node_desc capture_queues[] = {
 	{
 		.id = MTK_RAW_META_GMPO_OUT,
 		.name = "gmpo",
-		.cap = V4L2_CAP_META_CAPTURE,
-		.buf_type = V4L2_BUF_TYPE_META_CAPTURE,
+		.cap = V4L2_CAP_VIDEO_CAPTURE_MPLANE,
+		.buf_type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE,
 		.link_flags = MEDIA_LNK_FL_ENABLED |  MEDIA_LNK_FL_IMMUTABLE,
-		.image = false,
+		.image = true,
 		.smem_alloc = false,
-		.dma_port = MTKCAM_IPI_RAW_META_STATS_0,
-		.fmts = meta_gmp_fmts,
-		.num_fmts = ARRAY_SIZE(meta_gmp_fmts),
+		.dma_port = MTKCAM_IPI_RAW_GMPO,
+		.fmts = gmp_out_fmts,
+		.num_fmts = ARRAY_SIZE(gmp_out_fmts),
 		.default_fmt_idx = 0,
-		.max_buf_count = 16,
-		.ioctl_ops = &mtk_cam_v4l2_meta_cap_ioctl_ops,
+		.ioctl_ops = &mtk_cam_v4l2_vcap_ioctl_ops,
+		.frmsizes = &(struct v4l2_frmsizeenum) {
+			.index = 0,
+			.type = V4L2_FRMSIZE_TYPE_CONTINUOUS,
+			.stepwise = {
+				.max_width = GMP_MAX_WIDTH,
+				.min_width = IMG_MIN_WIDTH,
+				.max_height = GMP_MAX_HEIGHT,
+				.min_height = IMG_MIN_HEIGHT,
+				.step_height = 1,
+				.step_width = 1,
+			},
+		},
 	},
 	{
 		.id = MTK_RAW_META_GRMGO_OUT,
 		.name = "grmgo",
-		.cap = V4L2_CAP_META_CAPTURE,
-		.buf_type = V4L2_BUF_TYPE_META_CAPTURE,
+		.cap = V4L2_CAP_VIDEO_CAPTURE_MPLANE,
+		.buf_type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE,
 		.link_flags = MEDIA_LNK_FL_ENABLED |  MEDIA_LNK_FL_IMMUTABLE,
-		.image = false,
+		.image = true,
 		.smem_alloc = false,
-		.dma_port = MTKCAM_IPI_RAW_META_STATS_0,
-		.fmts = meta_gmp_fmts,
-		.num_fmts = ARRAY_SIZE(meta_gmp_fmts),
+		.dma_port = MTKCAM_IPI_RAW_GRMGO,
+		.fmts = gmp_out_fmts,
+		.num_fmts = ARRAY_SIZE(gmp_out_fmts),
 		.default_fmt_idx = 0,
-		.max_buf_count = 16,
-		.ioctl_ops = &mtk_cam_v4l2_meta_cap_ioctl_ops,
+		.ioctl_ops = &mtk_cam_v4l2_vcap_ioctl_ops,
+		.frmsizes = &(struct v4l2_frmsizeenum) {
+			.index = 0,
+			.type = V4L2_FRMSIZE_TYPE_CONTINUOUS,
+			.stepwise = {
+				.max_width = GMP_MAX_WIDTH,
+				.min_width = IMG_MIN_WIDTH,
+				.max_height =GMP_MAX_HEIGHT,
+				.min_height = IMG_MIN_HEIGHT,
+				.step_height = 1,
+				.step_width = 1,
+			},
+		},
 	},
 };
 

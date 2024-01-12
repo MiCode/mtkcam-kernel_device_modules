@@ -144,6 +144,11 @@ struct mtk_cam_event_frame_sync_data {
 #define V4L2_PIX_FMT_MTISP_PLANAR_GBRG_12P  v4l2_fourcc('M', 'T', 'c', 'g')
 #define V4L2_PIX_FMT_MTISP_PLANAR_GRBG_12P  v4l2_fourcc('M', 'T', 'c', 'G')
 #define V4L2_PIX_FMT_MTISP_PLANAR_RGGB_12P  v4l2_fourcc('M', 'T', 'c', 'R')
+/* MTK Gain map fmt */
+#define V4L2_PIX_FMT_MTISP_RAW8  v4l2_fourcc('M', 'T', 'y', '8')
+#define V4L2_PIX_FMT_MTISP_RAW12  v4l2_fourcc('M', 'T', 'y', 'C')
+#define V4L2_PIX_FMT_MTISP_RAW16  v4l2_fourcc('M', 'T', 'y', 'G')
+#define V4L2_PIX_FMT_MTISP_RAW12P  v4l2_fourcc('M', 'T', 'Y', 'C')
 
 /* To be upstream */
 #define V4L2_BUF_FLAG_TIMESTAMP_BOOT		0x00008000

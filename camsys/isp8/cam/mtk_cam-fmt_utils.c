@@ -181,6 +181,10 @@ void fill_ext_mtkcam_fmtdesc(struct v4l2_fmtdesc *f)
 		descr = "10-bit 3 plane GRB Packed"; break;
 	case V4L2_PIX_FMT_MTISP_SGRB12F:
 		descr = "12-bit 3 plane GRB Packed"; break;
+	case V4L2_PIX_FMT_MTISP_RAW12P:
+		descr = "RAW gmp Y12 Packed"; break;
+	case V4L2_PIX_FMT_Y16:
+		descr = "RAW gmp Y16"; break;
 	default:
 		//pr_info("%s: not-found pixel format " FMT_FOURCC "\n",
 		//	__func__, MEMBER_FOURCC(f->pixelformat));
@@ -218,6 +222,7 @@ unsigned int mtk_cam_get_pixel_bits(unsigned int ipi_fmt)
 	switch (ipi_fmt) {
 	case MTKCAM_IPI_IMG_FMT_BAYER8:
 	case MTKCAM_IPI_IMG_FMT_FG_BAYER8:
+	case MTKCAM_IPI_IMG_FMT_RAW8:
 		return 8;
 	case MTKCAM_IPI_IMG_FMT_BAYER10:
 	case MTKCAM_IPI_IMG_FMT_FG_BAYER10:
@@ -225,6 +230,7 @@ unsigned int mtk_cam_get_pixel_bits(unsigned int ipi_fmt)
 		return 10;
 	case MTKCAM_IPI_IMG_FMT_BAYER12:
 	case MTKCAM_IPI_IMG_FMT_FG_BAYER12:
+	case MTKCAM_IPI_IMG_FMT_RAW12:
 		return 12;
 	case MTKCAM_IPI_IMG_FMT_BAYER14:
 	case MTKCAM_IPI_IMG_FMT_UFBC_BAYER14:
@@ -237,6 +243,8 @@ unsigned int mtk_cam_get_pixel_bits(unsigned int ipi_fmt)
 	case MTKCAM_IPI_IMG_FMT_YVYU:
 	case MTKCAM_IPI_IMG_FMT_UYVY:
 	case MTKCAM_IPI_IMG_FMT_VYUY:
+	case MTKCAM_IPI_IMG_FMT_RAW12_UNPACKED:
+	case MTKCAM_IPI_IMG_FMT_RAW16:
 		return 16;
 	case MTKCAM_IPI_IMG_FMT_Y8:
 	case MTKCAM_IPI_IMG_FMT_YUV_422_2P:
@@ -476,6 +484,15 @@ unsigned int mtk_cam_get_img_fmt(unsigned int fourcc)
 	case V4L2_PIX_FMT_MTISP_SGRBG22:
 	case V4L2_PIX_FMT_MTISP_SRGGB22:
 		return MTKCAM_IPI_IMG_FMT_BAYER22;
+	case V4L2_PIX_FMT_MTISP_RAW8:
+		return MTKCAM_IPI_IMG_FMT_RAW8;
+	case V4L2_PIX_FMT_MTISP_RAW12:
+		return MTKCAM_IPI_IMG_FMT_RAW12_UNPACKED;
+	case V4L2_PIX_FMT_MTISP_RAW12P:
+		return MTKCAM_IPI_IMG_FMT_RAW12;
+	case V4L2_PIX_FMT_MTISP_RAW16:
+	case V4L2_PIX_FMT_Y16:
+		return MTKCAM_IPI_IMG_FMT_RAW16;
 	default:
 		return MTKCAM_IPI_IMG_FMT_UNKNOWN;
 	}
@@ -608,6 +625,9 @@ const struct mtk_format_info *mtk_format_info(u32 format)
 		{ .format = V4L2_PIX_FMT_MTISP_SRGGB12,  .mem_planes = 1, .comp_planes = 1,
 			.bitpp = { 12, 0, 0, 0 }, .hdiv = 1, .vdiv = 1,
 			.bus_align = 2 * 8 /* 8p */ },
+		{ .format = V4L2_PIX_FMT_MTISP_RAW12P,  .mem_planes = 1, .comp_planes = 1,
+			.bitpp = { 12, 0, 0, 0 }, .hdiv = 1, .vdiv = 1,
+			.bus_align = 2 * 8 /* 8p */ },
 		/* bayer14, packed */
 		{ .format = V4L2_PIX_FMT_MTISP_SBGGR14,  .mem_planes = 1, .comp_planes = 1,
 			.bitpp = { 14, 0, 0, 0 }, .hdiv = 1, .vdiv = 1,
@@ -632,6 +652,9 @@ const struct mtk_format_info *mtk_format_info(u32 format)
 			.bitpp = { 16, 0, 0, 0 }, .hdiv = 1, .vdiv = 1,
 			.bus_align = 2 * 8 /* 8p */ },
 		{ .format = V4L2_PIX_FMT_SRGGB16,  .mem_planes = 1, .comp_planes = 1,
+			.bitpp = { 16, 0, 0, 0 }, .hdiv = 1, .vdiv = 1,
+			.bus_align = 2 * 8 /* 8p */ },
+		{ .format = V4L2_PIX_FMT_Y16,  .mem_planes = 1, .comp_planes = 1,
 			.bitpp = { 16, 0, 0, 0 }, .hdiv = 1, .vdiv = 1,
 			.bus_align = 2 * 8 /* 8p */ },
 		/* bayer22, unpacked */

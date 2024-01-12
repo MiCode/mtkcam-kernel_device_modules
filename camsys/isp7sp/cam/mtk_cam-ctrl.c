@@ -2113,15 +2113,32 @@ int mtk_cam_ctrl_dump_request(struct mtk_cam_device *cam,
 {
 	unsigned int ctx_id = ctx_from_fh_cookie(inner_cookie);
 	struct mtk_cam_ctrl *ctrl = &cam->ctxs[ctx_id].cam_ctrl;
+	struct mtk_cam_watchdog *wd = &ctrl->watchdog;
+	bool completed;
 
 	dev_info(cam->dev, "%s: engine %d id %d seq 0x%x\n",
 		 __func__, engine_type, engine_id, inner_cookie);
 
-	if (mtk_cam_ctrl_get(ctrl))
-		return 0;
+	completed = try_wait_for_completion(&wd->work_complete);
+	if (!completed)
+		goto SKIP_SCHEDULE_WORK;
 
-	mtk_cam_watchdog_schedule_job_dump(&ctrl->watchdog, desc);
+	if (atomic_cmpxchg(&wd->dump_job, 0, 1)) {
+		complete(&wd->work_complete);
+		goto SKIP_SCHEDULE_WORK;
+	}
+
+	if (mtk_cam_ctrl_get(ctrl))
+		goto SKIP_SCHEDULE_WORK;
+
+	mtk_cam_watchdog_schedule_job_dump(wd, desc);
 
 	mtk_cam_ctrl_put(ctrl);
+
+	return 0;
+
+SKIP_SCHEDULE_WORK:
+	dev_info_ratelimited(cam->dev, "%s: skip dump for seq 0x%x\n",
+		 __func__, inner_cookie);
 	return 0;
 }

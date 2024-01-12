@@ -14,6 +14,7 @@ struct seninf_vc_out_dest {
 	u8 cam; // assigned by cam driver
 	u8 tag; // assigned by cam driver
 	u8 cam_type; // assigned by cam driver
+	u8 pix_mode;
 };
 
 struct seninf_vc {
@@ -21,7 +22,6 @@ struct seninf_vc {
 	u8 dt;
 	u8 feature;
 	u8 out_pad;
-	u8 pixel_mode;
 	u8 group;
 	u8 dest_cnt;
 	struct seninf_vc_out_dest dest[MAX_DEST_NUM];

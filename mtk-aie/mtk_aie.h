@@ -37,7 +37,6 @@ do {								\
 } while (0)
 
 /* option for ldvt */
-#define AOV_READY 1
 #define CMDQ_SEC_READY 1
 
 #define AIE_IOVA_BITS_SHIFT 4
@@ -734,9 +733,5 @@ extern const struct mtk_aie_drv_ops aie_ops_isp7sp;
 void config_aie_cmdq_secure_init(struct mtk_aie_dev *fd);
 void aie_enable_secure_domain(struct mtk_aie_dev *fd);
 void aie_disable_secure_domain(struct mtk_aie_dev *fd);
-
-#if AOV_READY
-extern int mtk_aov_notify(struct platform_device *pdev, unsigned int notify, unsigned int status);
-#endif
 
 #endif /*__MTK_AIE_H__*/

@@ -35,6 +35,7 @@
 #include "mtk_dma_contig.h"
 #include "mem/aie_videobuf2-dma-contig.h"
 #include "iommu_debug.h"
+#include "mtk_notify_aov.h"
 
 #define FLD
 #define AIE_QOS_MAX 4
@@ -52,6 +53,8 @@
 
 int aie_log_level_value;
 module_param(aie_log_level_value, int, 0644);
+
+aov_notify m_aov_notify = NULL;
 
 struct mtk_aie_user_para g_user_param;
 static struct device *aie_pm_dev;
@@ -165,6 +168,12 @@ static struct aie_data data_isp7sp_1 = {
 	.larb_clk_ready = true,
 };
 
+void aov_notify_register(aov_notify aov_notify_fn)
+{
+	m_aov_notify = aov_notify_fn;
+}
+EXPORT_SYMBOL(aov_notify_register);
+
 static int mtk_aie_suspend(struct device *dev)
 {
 	struct mtk_aie_dev *fd = dev_get_drvdata(dev);
@@ -218,9 +227,8 @@ static int mtk_aie_resume(struct device *dev)
 		}
 	}
 
-#if AOV_READY
-		mtk_aov_notify(gaov_dev, AOV_NOTIFY_AIE_AVAIL, 0); //unavailable: 0 available: 1
-#endif
+	if (m_aov_notify != NULL)
+		m_aov_notify(gaov_dev, AOV_NOTIFY_AIE_AVAIL, 0); //unavailable: 0 available: 1
 
 	if (fd->larb_clk_ready) {
 		ret = pm_runtime_get_sync(dev);
@@ -575,9 +583,8 @@ static int mtk_aie_hw_connect(struct mtk_aie_dev *fd)
 {
 	int ret = 0;
 
-#if AOV_READY
-		mtk_aov_notify(gaov_dev, AOV_NOTIFY_AIE_AVAIL, 0); //unavailable: 0 available: 1
-#endif
+	if (m_aov_notify != NULL)
+		m_aov_notify(gaov_dev, AOV_NOTIFY_AIE_AVAIL, 0); //unavailable: 0 available: 1
 
 	if (fd->larb_clk_ready)
 		pm_runtime_get_sync((fd->dev));
@@ -1704,9 +1711,8 @@ static int mtk_aie_runtime_suspend(struct device *dev)
 	aie_dev_info(dev, "%s: runtime suspend aie job)\n", __func__);
 	mtk_aie_ccf_disable(dev);
 
-#if AOV_READY
-		mtk_aov_notify(gaov_dev, AOV_NOTIFY_AIE_AVAIL, 1); //unavailable: 0 available: 1
-#endif
+	if (m_aov_notify != NULL)
+		m_aov_notify(gaov_dev, AOV_NOTIFY_AIE_AVAIL, 1); //unavailable: 0 available: 1
 
 	return 0;
 }

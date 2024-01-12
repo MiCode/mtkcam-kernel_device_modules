@@ -1493,7 +1493,7 @@ static int mtk_mraw_of_probe(struct platform_device *pdev,
 	struct device_link *link;
 	struct resource *res;
 	unsigned int i;
-	int ret, num_clks, num_larbs, num_ports;
+	int ret, num_clks, num_larbs, num_ports, smmus;
 
 	ret = of_property_read_u32(dev->of_node, "mediatek,mraw-id",
 						       &mraw_dev->id);
@@ -1612,6 +1612,21 @@ static int mtk_mraw_of_probe(struct platform_device *pdev,
 			mtk_iommu_register_fault_callback(
 				args.args[0],
 				mtk_mraw_translation_fault_callback,
+				(void *)mraw_dev, false);
+		}
+	}
+
+	smmus = of_property_count_u32_elems(
+		pdev->dev.of_node, "mediatek,smmu-dma-axid");
+	smmus = (smmus > 0) ? smmus : 0;
+	dev_info(dev, "smmu_num:%d\n", smmus);
+	for (i = 0; i < smmus; i++) {
+		u32 axid;
+
+		if (!of_property_read_u32_index(
+			pdev->dev.of_node, "mediatek,smmu-dma-axid", i, &axid)) {
+			mtk_iommu_register_fault_callback(
+				axid, mtk_mraw_translation_fault_callback,
 				(void *)mraw_dev, false);
 		}
 	}

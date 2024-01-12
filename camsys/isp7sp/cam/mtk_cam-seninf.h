@@ -10,6 +10,7 @@
 #include <media/v4l2-ctrls.h>
 #include <media/v4l2-fwnode.h>
 
+#include "clk-fmeter.h"
 #include "mtk_cam-seninf-def.h"
 #include "imgsensor-user.h"
 #include "mtk_cam-seninf-regs.h"
@@ -42,6 +43,11 @@ struct seninf_struct_pair {
 	u32 second;
 };
 
+struct seninf_struct_map {
+	const char * const key;
+	u32 value;
+};
+
 struct seninf_mux {
 	struct list_head list;
 	int idx;
@@ -50,6 +56,11 @@ struct seninf_mux {
 struct seninf_cam_mux {
 	struct list_head list;
 	int idx;
+};
+
+struct clk_fmeter_info {
+	u8 fmeter_type;
+	u32 fmeter_no;
 };
 
 #define DT_REMAP_MAX_CNT 4
@@ -154,6 +165,8 @@ struct seninf_core {
 	u32 aov_abnormal_deinit_usr_fd_kill_flag;
 	/* abnormal init flag */
 	u32 aov_abnormal_init_flag;
+
+	struct clk_fmeter_info fmeter[CLK_FMETER_MAX];
 };
 
 struct seninf_ctx {

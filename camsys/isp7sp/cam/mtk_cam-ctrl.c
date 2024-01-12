@@ -1227,6 +1227,8 @@ static void mtk_cam_ctrl_seamless_switch_flow(struct mtk_cam_job *job)
 		goto SWITCH_FAILURE;
 	}
 
+	mtk_cam_job_update_clk_switching(job, 1);
+
 	call_job_seamless_ops(job, before_sensor);
 
 	mtk_cam_job_manually_apply_sensor(job);

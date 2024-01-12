@@ -5264,3 +5264,4 @@ int mtk_cam_job_update_clk_switching(struct mtk_cam_job *job, bool begin)
 	return mtk_cam_dvfs_switch_begin(&cam->dvfs, ctx->stream_id,
 					 freq_hz, boostable);
 }
+

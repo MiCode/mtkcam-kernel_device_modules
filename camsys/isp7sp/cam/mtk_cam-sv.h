@@ -164,6 +164,7 @@ struct mtk_camsv_device {
 	struct apply_cq_ref *cq_ref;
 
 	/* for preisp - for sof counter sync.*/
+	u64 sof_count;
 	int tg_cnt;
 	unsigned int frame_wait_to_process;
 	struct notifier_block notifier_blk;

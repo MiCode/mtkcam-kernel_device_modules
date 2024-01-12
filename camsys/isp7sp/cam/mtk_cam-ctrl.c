@@ -198,7 +198,7 @@ mtk_cam_ctrl_fetch_first_unfinished_job(struct mtk_cam_ctrl *ctrl)
 
 	list_for_each_entry(state, &ctrl->camsys_state_list, list) {
 		job = container_of(state, struct mtk_cam_job, job_state);
-		
+
 		found = !mtk_cam_job_is_done(job);
 		if (found)
 			break;
@@ -219,6 +219,10 @@ static void log_event(const char *func, int ctx_id, struct v4l2_event *e)
 	case V4L2_EVENT_REQUEST_DUMPED:
 		pr_info("%s: ctx-%d seq %u\n", func, ctx_id,
 			e->u.frame_sync.frame_sequence);
+		break;
+	case V4L2_EVENT_REQUEST_SENSOR_TRIGGER:
+		pr_info("%s: ctx-%d tg_cnt:%d frame_seq:%d\n", func, ctx_id,
+			(unsigned int)e->u.data[0], (unsigned int)e->u.data[4]);
 		break;
 	case V4L2_EVENT_ERROR:
 		pr_info("%s: ctx-%d %s\n", func, ctx_id, e->u.data);
@@ -243,6 +247,49 @@ static void mtk_cam_event_eos(struct mtk_cam_ctrl *cam_ctrl)
 
 	if (CAM_DEBUG_ENABLED(V4L2_EVENT))
 		log_event(__func__, ctx->stream_id, &event);
+}
+void mtk_cam_event_esd_recovery(struct mtk_cam_ctrl *cam_ctrl,
+				     unsigned int frame_seq_no)
+{
+	struct mtk_cam_ctx *ctx = cam_ctrl->ctx;
+	struct v4l2_event event = {
+		.type = V4L2_EVENT_ESD_RECOVERY,
+		.u.frame_sync.frame_sequence = frame_seq_no,
+	};
+	mtk_cam_ctx_send_raw_event(ctx, &event);
+	log_event(__func__, ctx->stream_id, &event);
+}
+
+void mtk_cam_event_sensor_trigger(struct mtk_cam_ctrl *cam_ctrl,
+			      unsigned int frame_seq_no)
+{
+	struct mtk_cam_ctx *ctx = cam_ctrl->ctx;
+	int tg_cnt = cam_ctrl->r_info.extisp_tg_cnt[EXTISP_DATA_META];
+	struct mtk_cam_event_sensor_trigger data = {
+		.tg_cnt = tg_cnt,
+		.sensor_seq = frame_seq_no,
+	};
+	struct v4l2_event event = {
+		.type = V4L2_EVENT_REQUEST_SENSOR_TRIGGER,
+		.u.frame_sync.frame_sequence = frame_seq_no,
+	};
+	memcpy(event.u.data, &data, 8);
+	if (ctx->has_raw_subdev)
+		mtk_cam_ctx_send_raw_event(ctx, &event);
+	else
+		mtk_cam_ctx_send_sv_event(ctx, &event);
+
+	if (CAM_DEBUG_ENABLED(V4L2_EVENT))
+		log_event(__func__, ctx->stream_id, &event);
+}
+void mtk_cam_event_extisp_camsys_ready(struct mtk_cam_ctrl *cam_ctrl)
+{
+	struct mtk_cam_ctx *ctx = cam_ctrl->ctx;
+	struct v4l2_event event = {
+		.type = V4L2_EVENT_EXTISP_CAMSYS_READY,
+	};
+	mtk_cam_ctx_send_raw_event(ctx, &event);
+	log_event(__func__, ctx->stream_id, &event);
 }
 
 void mtk_cam_event_frame_sync(struct mtk_cam_ctrl *cam_ctrl,
@@ -474,6 +521,10 @@ static int mtk_cam_ctrl_send_event(struct mtk_cam_ctrl *ctrl, int event)
 
 	return 0;
 }
+static void handle_extmeta_setting_done(struct mtk_cam_ctrl *cam_ctrl)
+{
+	mtk_cam_ctrl_send_event(cam_ctrl, CAMSYS_EVENT_IRQ_EXTMETA_CQ_DONE);
+}
 
 static void handle_setting_done(struct mtk_cam_ctrl *cam_ctrl)
 {
@@ -537,6 +588,68 @@ static void handle_frame_done(struct mtk_cam_ctrl *ctrl,
 static void handle_ss_try_set_sensor(struct mtk_cam_ctrl *cam_ctrl)
 {
 	mtk_cam_ctrl_send_event(cam_ctrl, CAMSYS_EVENT_TIMER_SENSOR);
+}
+static void ctrl_vsync_preprocess_extisp(struct mtk_cam_ctrl *ctrl,
+				  enum MTK_CAMSYS_ENGINE_TYPE engine_type,
+				  unsigned int engine_id,
+				  struct mtk_camsys_irq_info *irq_info,
+				  struct vsync_result *vsync_res)
+{
+	bool hint_inner_err = 0;
+	int cookie;
+	long inner_not_ready;
+	struct apply_cq_ref *cq_ref;
+
+	if (vsync_update_extisp(ctrl, engine_type, engine_id, vsync_res))
+		return;
+
+	cq_ref = READ_ONCE(ctrl->cur_cq_ref);
+	vsync_res->inner_cookie =
+		(vsync_res->is_first && cq_ref) ? cq_ref->cookie : -1;
+
+	spin_lock(&ctrl->info_lock);
+
+	if (vsync_res->is_first) {
+		ctrl->r_info.sof_ts_ns = irq_info->ts_ns;
+		ctrl->r_info.sof_ts_mono_ns = ktime_get_ns();
+	}
+
+	if (vsync_res->is_last) {
+		ctrl->r_info.sof_l_ts_ns = irq_info->ts_ns;
+		ctrl->r_info.sof_l_ts_mono_ns = ktime_get_ns();
+
+		if (cq_ref) {
+			if (apply_cq_ref_is_to_inner(cq_ref)) {
+				ctrl->r_info.inner_seq_no =
+					seq_from_fh_cookie(cq_ref->cookie);
+				WRITE_ONCE(ctrl->cur_cq_ref, 0);
+			} else {
+				hint_inner_err = 1;
+				cookie = cq_ref->cookie;
+				inner_not_ready =
+					atomic_long_read(&cq_ref->inner_not_ready);
+			}
+		}
+	}
+	ctrl->r_info.inner_seq_no = seq_from_fh_cookie(irq_info->frame_idx_inner);
+	spin_unlock(&ctrl->info_lock);
+	if (ctrl->r_info.extisp_enable) {
+		if (engine_type == CAMSYS_ENGINE_RAW &&
+			ctrl->r_info.extisp_enable & BIT(EXTISP_DATA_PROCRAW))
+			ctrl->r_info.extisp_tg_cnt[EXTISP_DATA_PROCRAW] = irq_info->tg_cnt;
+		if (engine_type == CAMSYS_ENGINE_CAMSV &&
+			ctrl->r_info.extisp_enable & BIT(EXTISP_DATA_META))
+			ctrl->r_info.extisp_tg_cnt[EXTISP_DATA_META] = irq_info->tg_cnt;
+		if (engine_type == CAMSYS_ENGINE_MRAW &&
+			ctrl->r_info.extisp_enable & BIT(EXTISP_DATA_PD))
+			ctrl->r_info.extisp_tg_cnt[EXTISP_DATA_PD] = irq_info->tg_cnt;
+		pr_info("%s: extisp vysnc engine_type:%d, tg_cnt:%d, pd/meta/procraw:%d/%d/%d\n",
+			__func__, engine_type, irq_info->tg_cnt,
+			vsync_res->is_first, vsync_res->is_extmeta, vsync_res->is_last);
+	}
+	if (hint_inner_err)
+		pr_info("%s: warn. inner not updated to 0x%x, engine not ready: 0x%lx\n",
+			__func__, cookie, inner_not_ready);
 }
 
 static void ctrl_vsync_preprocess(struct mtk_cam_ctrl *ctrl,
@@ -654,6 +767,9 @@ static void handle_engine_frame_start(struct mtk_cam_ctrl *ctrl,
 	if (vsync_res->is_last)
 		mtk_cam_ctrl_send_event(ctrl, CAMSYS_EVENT_IRQ_L_SOF);
 
+	if (vsync_res->is_extmeta)
+		mtk_cam_ctrl_send_event(ctrl, CAMSYS_EVENT_IRQ_EXTMETA_SOF);
+
 }
 
 static int mtk_cam_event_handle_raw(struct mtk_cam_ctrl *ctrl,
@@ -682,7 +798,13 @@ static int mtk_cam_event_handle_raw(struct mtk_cam_ctrl *ctrl,
 	if (irq_info->irq_type & BIT(CAMSYS_IRQ_FRAME_START)) {
 		struct vsync_result vsync_res;
 
-		ctrl_vsync_preprocess(ctrl,
+		memset(&vsync_res, 0, sizeof(vsync_res));
+		if (ctrl->r_info.extisp_enable)
+			ctrl_vsync_preprocess_extisp(ctrl,
+				      CAMSYS_ENGINE_RAW, engine_id, irq_info,
+				      &vsync_res);
+		else
+			ctrl_vsync_preprocess(ctrl,
 				      CAMSYS_ENGINE_RAW, engine_id, irq_info,
 				      &vsync_res);
 
@@ -726,7 +848,13 @@ static int mtk_camsys_event_handle_camsv(struct mtk_cam_ctrl *ctrl,
 		irq_info->irq_type & BIT(CAMSYS_IRQ_FRAME_START_DCIF_MAIN)) {
 		struct vsync_result vsync_res;
 
-		ctrl_vsync_preprocess(ctrl,
+		memset(&vsync_res, 0, sizeof(vsync_res));
+		if (ctrl->r_info.extisp_enable)
+			ctrl_vsync_preprocess_extisp(ctrl,
+				      CAMSYS_ENGINE_CAMSV, engine_id, irq_info,
+				      &vsync_res);
+		else
+			ctrl_vsync_preprocess(ctrl,
 				      CAMSYS_ENGINE_CAMSV, engine_id, irq_info,
 				      &vsync_res);
 
@@ -741,7 +869,10 @@ static int mtk_camsys_event_handle_camsv(struct mtk_cam_ctrl *ctrl,
 		ctrl->r_info.outer_seq_no =
 			seq_from_fh_cookie(irq_info->frame_idx);
 		spin_unlock(&ctrl->info_lock);
-		handle_setting_done(ctrl);
+		if (extisp_listen_each_cq_done(ctrl))
+			handle_extmeta_setting_done(ctrl);
+		else
+			handle_setting_done(ctrl);
 	}
 
 	return 0;
@@ -762,7 +893,13 @@ static int mtk_camsys_event_handle_mraw(struct mtk_cam_ctrl *ctrl,
 	if (irq_info->irq_type & BIT(CAMSYS_IRQ_FRAME_START)) {
 		struct vsync_result vsync_res;
 
-		ctrl_vsync_preprocess(ctrl,
+		memset(&vsync_res, 0, sizeof(vsync_res));
+		if (ctrl->r_info.extisp_enable)
+			ctrl_vsync_preprocess_extisp(ctrl,
+				      CAMSYS_ENGINE_MRAW, engine_id, irq_info,
+				      &vsync_res);
+		else
+			ctrl_vsync_preprocess(ctrl,
 				      CAMSYS_ENGINE_MRAW, engine_id, irq_info,
 				      &vsync_res);
 
@@ -885,7 +1022,8 @@ static int mtk_cam_ctrl_stream_on_job(struct mtk_cam_job *job)
 	ctrl->r_info.sof_l_ts_ns = ktime_get_boottime_ns();
 
 	call_jobop(job, stream_on, true);
-
+	if (ctrl->r_info.extisp_enable)
+		mtk_cam_event_extisp_camsys_ready(ctrl);
 	mtk_cam_watchdog_start(&ctrl->watchdog, 1);
 
 	return 0;
@@ -1168,6 +1306,11 @@ void mtk_cam_ctrl_job_enque(struct mtk_cam_ctrl *cam_ctrl,
 			atomic_set(&cam_ctrl->stream_on_cnt, 0);
 			mtk_cam_watchdog_start(&cam_ctrl->watchdog, 0);
 		}
+		if (is_extisp(job)) {
+			cam_ctrl->r_info.extisp_enable = job->extisp_data;
+			pr_info("[%s:extisp] ctx:%d, extisp_enable:0x%x\n",
+				__func__, cam_ctrl->ctx->stream_id, cam_ctrl->r_info.extisp_enable);
+		}
 	}
 
 	/* add to statemachine */
@@ -1423,6 +1566,31 @@ void mtk_cam_ctrl_stop(struct mtk_cam_ctrl *cam_ctrl)
 
 	dev_info(ctx->cam->dev, "[%s] ctx:%d\n", __func__, ctx->stream_id);
 }
+int extisp_listen_each_cq_done(
+	struct mtk_cam_ctrl *ctrl)
+{
+	return ctrl->r_info.extisp_enable && ctrl->r_info.outer_seq_no > 0;
+}
+
+int vsync_update_extisp(struct mtk_cam_ctrl *ctrl,
+		  int engine_type, int idx,
+		  struct vsync_result *res)
+{
+	if (!res)
+		return 1;
+	if (engine_type == CAMSYS_ENGINE_RAW)
+			res->is_last = 1;
+	if (engine_type == CAMSYS_ENGINE_CAMSV)
+			res->is_extmeta = 1;
+	if (engine_type == CAMSYS_ENGINE_MRAW)
+			res->is_first = 1;
+
+	if ((ctrl->r_info.extisp_enable & BIT(EXTISP_DATA_PD)) == 0 &&
+		engine_type == CAMSYS_ENGINE_CAMSV)
+		res->is_first = 1;
+
+	return 0;
+}
 
 int vsync_update(struct vsync_collector *c,
 		  int engine_type, int irq_type,
@@ -1445,7 +1613,7 @@ int vsync_update(struct vsync_collector *c,
 	res->is_first = !(c->collected & (c->collected - 1)) ||
 		(!c->collected && (irq_type & BIT(CAMSYS_IRQ_FRAME_START_DCIF_MAIN)));
 	res->is_last = c->collected == c->desired;
-
+	res->is_extmeta = 0;
 	if (res->is_last)
 		c->collected = 0;
 
@@ -1453,6 +1621,7 @@ int vsync_update(struct vsync_collector *c,
 
 SKIP_VSYNC:
 	res->is_first = 0;
+	res->is_extmeta = 0;
 	res->is_last = 0;
 	res->inner_cookie = -1;
 	return 1;
@@ -1546,7 +1715,7 @@ static void mtk_cam_watchdog_sensor_worker(struct work_struct *work)
 
 	/* handle timeout */
 	if (mtk_cam_seninf_dump(ctx->seninf, seq_no, true)) {
-		//mtk_cam_event_esd_recovery(ctx->pipe, ctx->dequeued_frame_seq_no);
+		mtk_cam_event_esd_recovery(ctrl, seq_no);
 		pr_info("%s: TODO: add esd event\n", __func__);
 
 	}

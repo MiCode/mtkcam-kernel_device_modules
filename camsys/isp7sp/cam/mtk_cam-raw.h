@@ -75,6 +75,8 @@ struct mtk_raw_device {
 	int tg_overrun_handle_cnt;
 
 	int default_printk_cnt;
+	/* preisp synchronized used */
+	int tg_count;
 };
 
 struct mtk_yuv_device {

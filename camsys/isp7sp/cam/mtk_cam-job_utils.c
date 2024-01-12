@@ -264,6 +264,9 @@ int get_hw_scenario(struct mtk_cam_job *job)
 	case MTK_CAM_SCEN_SMVR:
 		hard_scenario = MTKCAM_IPI_HW_PATH_ON_THE_FLY;
 		break;
+	case MTK_CAM_SCEN_EXT_ISP:
+		hard_scenario = MTKCAM_IPI_HW_PATH_ON_THE_FLY;
+		break;
 	default:
 		pr_info("[%s] failed. un-support scen id:%d",
 			__func__, scen->id);
@@ -307,6 +310,9 @@ static int scen_exp_num(struct mtk_cam_scen *scen)
 		default:
 			break;
 		}
+		break;
+	case MTK_CAM_SCEN_EXT_ISP:
+		exp = 1;
 		break;
 	case MTK_CAM_SCEN_SMVR:
 	default:
@@ -1524,6 +1530,11 @@ bool is_rgbw(struct mtk_cam_job *job)
 	return scen_is_rgbw(&job->job_scen);
 }
 
+bool is_extisp(struct mtk_cam_job *job)
+{
+	return scen_is_extisp(&job->job_scen);
+}
+
 bool is_dcg_sensor_merge(struct mtk_cam_job *job)
 {
 	return scen_is_dcg_sensor_merge(&job->job_scen);
@@ -1814,7 +1825,7 @@ int handle_sv_tag_display_ic(struct mtk_cam_job *job)
 	sv_pipe_idx = ctx->sv_subdev_idx[0];
 	sv_pipe = &ctx->cam->pipelines.camsv[sv_pipe_idx];
 	hw_scen = (1 << MTKCAM_SV_SPECIAL_SCENARIO_DISPLAY_IC);
-	mtk_cam_sv_get_tag_param(tag_param, hw_scen, 1, 3);
+	ret = mtk_cam_sv_get_tag_param(tag_param, hw_scen, 1, 3);
 
 	for (i = 0; i < ARRAY_SIZE(tag_param); i++) {
 		if (tag_param[i].tag_idx == SVTAG_0) {
@@ -1914,6 +1925,8 @@ bool is_sv_img_tag_used(struct mtk_cam_job *job)
 	if (is_dc_mode(job))
 		rst = true;
 	if (is_sv_pure_raw(job))
+		rst = true;
+	if (is_extisp(job))
 		rst = true;
 
 	return rst;

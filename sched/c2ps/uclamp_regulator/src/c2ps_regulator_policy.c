@@ -14,13 +14,21 @@ static unsigned int c2ps_regulator_base_update_uclamp = 0;
 static unsigned int c2ps_regulator_simple_min_uclamp = 50;
 static unsigned int c2ps_uclamp_up_margin = 0;
 static unsigned int c2ps_uclamp_down_margin = 0;
+static unsigned int c2ps_regulator_bg_update_uclamp = 20;
+static unsigned int c2ps_uclamp_bg_up_margin_cluster0 = 60;
+static unsigned int c2ps_uclamp_bg_up_margin_cluster1 = 40;
+static unsigned int c2ps_uclamp_bg_up_margin_cluster2 = 0;
 
 module_param(c2ps_regulator_debug_max_uclamp, int, 0644);
 module_param(c2ps_regulator_debug_min_uclamp, int, 0644);
 module_param(c2ps_regulator_base_update_uclamp, int, 0644);
+module_param(c2ps_regulator_simple_min_uclamp, int, 0644);
 module_param(c2ps_uclamp_up_margin, int, 0644);
 module_param(c2ps_uclamp_down_margin, int, 0644);
-module_param(c2ps_regulator_simple_min_uclamp, int, 0644);
+module_param(c2ps_regulator_bg_update_uclamp, int, 0644);
+module_param(c2ps_uclamp_bg_up_margin_cluster0, int, 0644);
+module_param(c2ps_uclamp_bg_up_margin_cluster1, int, 0644);
+module_param(c2ps_uclamp_bg_up_margin_cluster2, int, 0644);
 
 void set_uclamp(const int pid, unsigned int max_util, unsigned int min_util)
 {
@@ -58,12 +66,12 @@ void set_uclamp(const int pid, unsigned int max_util, unsigned int min_util)
 
 		if (ret == 0) {
 			C2PS_LOGD("set uclamp(%d, %d) to %s successfully",
-				      attr.sched_util_min, attr.sched_util_max,
-				      p->comm);
+					  attr.sched_util_min, attr.sched_util_max,
+					  p->comm);
 		} else {
 			C2PS_LOGD("set uclamp(%d, %d) to %s failed",
-				      attr.sched_util_min, attr.sched_util_max,
-				      p->comm);
+					  attr.sched_util_min, attr.sched_util_max,
+					  p->comm);
 		}
 		put_task_struct(p);
 	}
@@ -85,6 +93,11 @@ void c2ps_regulator_policy_fix_uclamp(struct regulator_req *req)
 
 /**
  * @brief      map to C2PS_REGULATOR_MODE_SIMPLE
+ * Tuning Param:
+ * 	- c2ps_regulator_base_update_uclamp
+ * 	- c2ps_uclamp_down_margin
+ *  - c2ps_uclamp_up_margin
+ *  - c2ps_regulator_simple_min_uclamp
  */
 void c2ps_regulator_policy_simple(struct regulator_req *req)
 {
@@ -123,13 +136,13 @@ void c2ps_regulator_policy_simple(struct regulator_req *req)
 
 	/* limit new_uclamp in default uclamp +- deviation */
 	new_uclamp = max((int)(req->tsk_info->default_uclamp *
-		                  (100 - c2ps_uclamp_down_margin) / 100),
-		         min((int)(req->tsk_info->default_uclamp *
-		         	      (100 + c2ps_uclamp_up_margin) / 100),
-		         new_uclamp));
+						  (100 - c2ps_uclamp_down_margin) / 100),
+				 min((int)(req->tsk_info->default_uclamp *
+						  (100 + c2ps_uclamp_up_margin) / 100),
+				 new_uclamp));
 
 	new_uclamp = max((int)c2ps_regulator_simple_min_uclamp,
-		             min(1024, new_uclamp));
+					 min(1024, new_uclamp));
 	req->tsk_info->latest_uclamp = new_uclamp;
 
 
@@ -147,6 +160,9 @@ void c2ps_regulator_policy_simple(struct regulator_req *req)
 
 /**
  * @brief      map to C2PS_REGULATOR_MODE_DEBUG
+ * Tuning Param:
+ *  - c2ps_regulator_debug_max_uclamp
+ * 	- c2ps_regulator_debug_min_uclamp
  */
 void c2ps_regulator_policy_debug_uclamp(struct regulator_req *req)
 {
@@ -155,4 +171,60 @@ void c2ps_regulator_policy_debug_uclamp(struct regulator_req *req)
 	set_uclamp(req->tsk_info->pid,
 		c2ps_regulator_debug_max_uclamp,
 		c2ps_regulator_debug_min_uclamp);
+}
+
+/**
+ * @brief      map to C2PS_REGULATOR_BGMODE_SIMPLE
+ * Tuning Param:
+ *  - c2ps_uclamp_bg_up_margin
+ *  - c2ps_regulator_bg_update_uclamp
+ *  - c2ps_uclamp_bg_up_margin_cluster0
+ *  - c2ps_uclamp_bg_up_margin_cluster1
+ *  - c2ps_uclamp_bg_up_margin_cluster2
+ */
+void c2ps_regulator_bgpolicy_simple(struct regulator_req *req)
+{
+	int cluster_index = 0;
+	unsigned int *_bg_uclamp_up_margin[3] = {
+			&c2ps_uclamp_bg_up_margin_cluster0,
+			&c2ps_uclamp_bg_up_margin_cluster1,
+			&c2ps_uclamp_bg_up_margin_cluster2};
+
+	if (!req->glb_info)
+		return;
+
+	for (; cluster_index < NUMBER_OF_CLUSTER; cluster_index++) {
+		int *_cur_bg_uclamp = &(req->glb_info->curr_max_uclamp[cluster_index]);
+
+		if ((*_bg_uclamp_up_margin[cluster_index]) == 0)
+			continue;
+
+		if (req->glb_info->need_update_uclamp[1 + cluster_index] == 1) {
+			*_cur_bg_uclamp += c2ps_regulator_bg_update_uclamp;
+
+			*_cur_bg_uclamp = min(*_cur_bg_uclamp,
+						(int)(req->glb_info->max_uclamp[cluster_index] *
+						(100 + (*_bg_uclamp_up_margin[cluster_index])) / 100));
+		} else if (req->glb_info->need_update_uclamp[1 + cluster_index] == -1) {
+			*_cur_bg_uclamp -= c2ps_regulator_bg_update_uclamp;
+			*_cur_bg_uclamp = max(*_cur_bg_uclamp,
+						req->glb_info->max_uclamp[cluster_index]);
+		} else {
+			continue;
+		}
+
+		set_gear_uclamp_max(cluster_index, *_cur_bg_uclamp);
+	}
+
+	c2ps_systrace_d(
+		"background uclamp max cluster_0: %d, cluster_1: %d, cluster_2: %d",
+		req->glb_info->curr_max_uclamp[0],
+		req->glb_info->curr_max_uclamp[1],
+		req->glb_info->curr_max_uclamp[2]);
+
+	C2PS_LOGD("debug: c2ps_regulator_bgpolicy_simple set"
+			  "uclamp max: %d, %d, %d",
+			  req->glb_info->curr_max_uclamp[0],
+			  req->glb_info->curr_max_uclamp[1],
+			  req->glb_info->curr_max_uclamp[2]);
 }

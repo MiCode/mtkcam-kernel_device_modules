@@ -41,12 +41,13 @@ module_param(c2ps_remote_monitor_uclamp, int, 0644);
 static inline enum c2ps_regulator_mode
 decide_process_type(struct regulator_req *req)
 {
-	return c2ps_regulator_process_mode;
+	if (req->tsk_info)
+		return c2ps_regulator_process_mode;
+	return C2PS_REGULATOR_BGMODE_SIMPLE;
 }
 
 static void regulator_process(struct regulator_req *req)
 {
-	u64 average_proc_time = 0;
 	if (req == NULL)
 		return;
 	if (req->flush_lock != NULL) {
@@ -54,12 +55,10 @@ static void regulator_process(struct regulator_req *req)
 		return;
 	}
 
-	average_proc_time = req->tsk_info->hist_proc_time_sum /
-							proc_time_window_size;
-
-	if (c2ps_remote_monitor_task == req->tsk_info->task_id) {
+	if (req->tsk_info && c2ps_remote_monitor_task == req->tsk_info->task_id) {
 		c2ps_remote_monitor_uclamp = req->tsk_info->latest_uclamp;
-		c2ps_remote_monitor_proc_time = average_proc_time;
+		c2ps_remote_monitor_proc_time = req->tsk_info->hist_proc_time_sum /
+							proc_time_window_size;;
 	}
 
 	switch (decide_process_type(req)) {
@@ -73,6 +72,10 @@ static void regulator_process(struct regulator_req *req)
 
 		case C2PS_REGULATOR_MODE_DEBUG:
 			c2ps_regulator_policy_debug_uclamp(req);
+			break;
+
+		case C2PS_REGULATOR_BGMODE_SIMPLE:
+			c2ps_regulator_bgpolicy_simple(req);
 			break;
 
 		default:
@@ -94,7 +97,6 @@ static int c2ps_regulator_loop(void *arg)
 
 		if (regulator_condition_notifier_exit)
 			return 0;
-
 		mutex_lock(&regulator_notifier_wq_lock);
 
 		if (!list_empty(&regulator_wq)) {

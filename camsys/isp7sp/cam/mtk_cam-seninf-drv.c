@@ -3088,6 +3088,7 @@ static int seninf_probe(struct platform_device *pdev)
 
 
 	pm_runtime_enable(dev);
+	device_enable_async_suspend(dev);
 
 	memset(&g_aov_param, 0, sizeof(struct mtk_seninf_aov_param));
 	/* array size of aov_ctx[] is

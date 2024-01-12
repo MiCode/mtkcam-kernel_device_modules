@@ -867,6 +867,53 @@ void mtk_cam_update_sensor_resource(struct mtk_cam_ctx *ctx)
 	}
 }
 
+struct mtk_cam_seninf_sentest_param *
+	mtk_cam_get_sentest_param(struct mtk_cam_ctx *ctx)
+{
+	struct mtk_cam_device *cam = ctx->cam;
+	struct mtk_cam_v4l2_pipelines *ppls = &cam->pipelines;
+	struct mtk_camsv_pipeline *sv_pipe = NULL;
+	struct mtk_camsv_pad_config *pad = NULL;
+	unsigned long submask;
+	int i;
+
+	submask = bit_map_subset_of(MAP_SUBDEV_CAMSV, ctx->used_pipe);
+	for (i = 0; i < ppls->num_camsv && submask; i++, submask >>= 1) {
+		if (!(submask & 0x1))
+			continue;
+
+		sv_pipe = &ppls->camsv[i];
+		pad = &sv_pipe->pad_cfg[MTK_CAMSV_SINK];
+
+		break;
+	}
+
+	if (sv_pipe && pad) {
+		if (atomic_read(&sv_pipe->is_sentest_param_updated))
+			return &sv_pipe->sentest_param;
+
+		memset(&sv_pipe->sentest_param, 0,
+			sizeof(struct mtk_cam_seninf_sentest_param));
+
+		mtk_cam_seninf_get_sentest_param(ctx->seninf,
+			pad->mbus_fmt.code,
+			&sv_pipe->sentest_param);
+		atomic_set(&sv_pipe->is_sentest_param_updated, 1);
+
+		pr_info("%s: mbus_code:0x%x is_lbmf:%d\n",
+			__func__,
+			pad->mbus_fmt.code,
+			sv_pipe->sentest_param.is_lbmf);
+
+		return &sv_pipe->sentest_param;
+	} else {
+		pr_info("%s: sv pipe not found(used_pipe:0x%x)\n",
+			__func__, ctx->used_pipe);
+
+		return NULL;
+	}
+}
+
 unsigned int mtk_cam_get_sv_tag_index(struct mtk_camsv_tag_info *arr_tag,
 	unsigned int pipe_id)
 {

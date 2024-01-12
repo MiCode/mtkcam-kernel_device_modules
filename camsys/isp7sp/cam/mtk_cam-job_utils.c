@@ -416,13 +416,15 @@ static u64 reserved_i2c_time(u64 frame_interval_ns)
 	return i2c_time;
 }
 
-u64 infer_i2c_deadline_ns(struct mtk_cam_scen *scen, u64 frame_interval_ns)
+u64 infer_i2c_deadline_ns(struct mtk_cam_job *job, u64 frame_interval_ns)
 {
+	struct mtk_cam_scen *scen = &job->job_scen;
+
 	/* consider vsync is subsampled */
 	if (scen->id == MTK_CAM_SCEN_SMVR)
 		return frame_interval_ns * (scen->scen.smvr.subsample_num - 1);
 	/* temp to frame/2 */
-	else if (scen_is_stagger_lbmf(scen))
+	else if (is_stagger_lbmf(job))
 		return frame_interval_ns / 2 - reserved_i2c_time(frame_interval_ns);
 	else
 		return frame_interval_ns - reserved_i2c_time(frame_interval_ns);
@@ -1886,7 +1888,17 @@ bool is_m2m_apu_dc(struct mtk_cam_job *job)
 
 bool is_stagger_lbmf(struct mtk_cam_job *job)
 {
-	return scen_is_stagger_lbmf(&job->job_scen);
+	struct mtk_cam_ctx *ctx = job->src_ctx;
+
+	if (ctx->has_raw_subdev)
+		return scen_is_stagger_lbmf(&job->job_scen);
+	else {
+		struct mtk_cam_seninf_sentest_param *param;
+
+		param = mtk_cam_get_sentest_param(ctx);
+
+		return (param && param->is_lbmf) ? true : false;
+	}
 }
 
 int map_ipi_vpu_point(int vpu_point)
@@ -2171,7 +2183,7 @@ int handle_sv_tag(struct mtk_cam_job *job)
 		meta_tag_param.tag_idx = tag_idx;
 		meta_tag_param.seninf_padidx = PAD_SRC_GENERAL0;
 		meta_tag_param.tag_order = mtk_cam_seninf_get_tag_order(
-			ctx->seninf, raw_sink->mbus_code,
+			job->seninf, raw_sink->mbus_code,
 			meta_tag_param.seninf_padidx);
 		mtk_cam_sv_fill_tag_info(job->tag_info,
 			&job->ipi_config,
@@ -2344,7 +2356,7 @@ int handle_sv_tag_only_sv(struct mtk_cam_job *job)
 		tag_param.tag_idx = tag_idx;
 		tag_param.seninf_padidx = PAD_SRC_GENERAL0;
 		tag_param.tag_order = mtk_cam_seninf_get_tag_order(
-			ctx->seninf, sv_sink->mbus_code,
+			job->seninf, sv_sink->mbus_code,
 			tag_param.seninf_padidx);
 		mtk_cam_sv_fill_tag_info(job->tag_info,
 			&job->ipi_config,

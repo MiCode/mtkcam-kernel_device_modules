@@ -108,7 +108,7 @@ int job_prev_exp_num(struct mtk_cam_job *job);
 int job_exp_num(struct mtk_cam_job *job);
 int scen_max_exp_num(struct mtk_cam_scen *scen);
 int get_subsample_ratio(struct mtk_cam_scen *scen);
-u64 infer_i2c_deadline_ns(struct mtk_cam_scen *scen, u64 frame_interval_ns);
+u64 infer_i2c_deadline_ns(struct mtk_cam_job *job, u64 frame_interval_ns);
 
 int get_raw_subdev_idx(unsigned long used_pipe);
 int get_sv_subdev_idx(unsigned long used_pipe);

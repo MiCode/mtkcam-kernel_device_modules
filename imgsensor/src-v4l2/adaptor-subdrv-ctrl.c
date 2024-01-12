@@ -2917,6 +2917,15 @@ int common_get_info(struct subdrv_ctx *ctx,
 			ctx->s_ctx.mode[i].raw_cnt : 1;
 		sensor_info->exp_cnt[i] = ctx->s_ctx.mode[i].exp_cnt ?
 			ctx->s_ctx.mode[i].exp_cnt : 1;
+		sensor_info->max_framelength[i] = ctx->s_ctx.frame_length_max;
+		switch (ctx->s_ctx.frame_time_delay_frame) {
+		case 3:
+			sensor_info->max_framelength[i] /= ctx->s_ctx.reg_addr_exposure_lshift ? 2 : 1;
+			break;
+		default:
+			break;
+		}
+		sensor_info->fine_integ_line[i] = ctx->s_ctx.mode[i].fine_integ_line;
 	}
 	sensor_info->SensorDrivingCurrent = ctx->s_ctx.isp_driving_current;
 	sensor_info->IHDR_Support = 0;

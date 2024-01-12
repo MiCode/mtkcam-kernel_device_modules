@@ -551,8 +551,8 @@ static int g_crop_by_scenario(struct adaptor_ctx *ctx, void *arg)
 static int g_vcinfo_by_scenario(struct adaptor_ctx *ctx, void *arg)
 {
 	struct mtk_vcinfo_by_scenario *info = arg;
-	MSDK_SENSOR_INFO_STRUCT sinfo;
-	MSDK_SENSOR_CONFIG_STRUCT config;
+	MSDK_SENSOR_INFO_STRUCT *sinfo = NULL;
+	MSDK_SENSOR_CONFIG_STRUCT *config = NULL;
 	struct SENSOR_VC_INFO2_STRUCT *vcinfo2 = NULL;
 
 #ifdef IMGSENSOR_VC_ROUTING
@@ -566,17 +566,22 @@ static int g_vcinfo_by_scenario(struct adaptor_ctx *ctx, void *arg)
 	para.u64[0] = info->scenario_id;
 #endif
 
-	memset(&sinfo, 0, sizeof(sinfo));
-	memset(&config, 0, sizeof(config));
+	sinfo = kmalloc(sizeof(MSDK_SENSOR_INFO_STRUCT), GFP_KERNEL);
+	config = kmalloc(sizeof(MSDK_SENSOR_CONFIG_STRUCT), GFP_KERNEL);
 	vcinfo2 = kmalloc(sizeof(struct SENSOR_VC_INFO2_STRUCT), GFP_KERNEL);
-	if (unlikely(vcinfo2 == NULL)) {
-		adaptor_logi(ctx, "[%s] kmalloc fail\n", __func__);
-		return -ENOIOCTLCMD;
-	} else {
-		memset(vcinfo2, 0, sizeof(struct SENSOR_VC_INFO2_STRUCT));
-	}
 
-	subdrv_call(ctx, get_info, info->scenario_id, &sinfo, &config);
+	if (unlikely(sinfo == NULL) || unlikely(config == NULL) || unlikely(vcinfo2 == NULL)) {
+		adaptor_logi(ctx, "[%s] kmalloc fail\n", __func__);
+		kfree(sinfo);
+		kfree(config);
+		kfree(vcinfo2);
+		return -ENOIOCTLCMD;
+	}
+	memset(sinfo, 0, sizeof(MSDK_SENSOR_INFO_STRUCT));
+	memset(config, 0, sizeof(MSDK_SENSOR_CONFIG_STRUCT));
+	memset(vcinfo2, 0, sizeof(struct SENSOR_VC_INFO2_STRUCT));
+
+	subdrv_call(ctx, get_info, info->scenario_id, sinfo, config);
 
 #ifdef IMGSENSOR_VC_ROUTING
 	subdrv_call(ctx, get_frame_desc, info->scenario_id, &fd);
@@ -599,8 +604,11 @@ static int g_vcinfo_by_scenario(struct adaptor_ctx *ctx, void *arg)
 	}
 #endif
 
-	vcinfo2_fill_output_format(vcinfo2, sinfo.SensorOutputDataFormat);
+	vcinfo2_fill_output_format(vcinfo2, sinfo->SensorOutputDataFormat);
 	vcinfo2_fill_pad(vcinfo2);
+
+	kfree(sinfo);
+	kfree(config);
 
 	if (copy_to_user((void *)info->p_vcinfo, vcinfo2, sizeof(struct SENSOR_VC_INFO2_STRUCT))) {
 		kfree(vcinfo2);

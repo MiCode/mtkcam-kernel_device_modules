@@ -1473,15 +1473,34 @@ static unsigned int frec_calc_seamless_frame_length(const unsigned int idx,
 	const int first_exp_idx =
 		exp_order_idx_map[frame_rec->exp_order][frame_rec->mode_exp_cnt][0];
 	unsigned int fl_us_composition[3] = {0};
-	unsigned int curr_exp_read_offset, orig_mode_exp_cnt;
+	unsigned int curr_exp_read_offset, orig_m_exp_cnt, orig_m_exp_order;
 	unsigned int depth_idx, seamless_shutter_lc = 0;
 	unsigned int result = 0;
+	int orig_last_exp_idx;
 
 	/* Part-1: calculate end of readout time us */
 	depth_idx = FS_ATOMIC_READ(&pfrec->depth_idx);
-	orig_mode_exp_cnt = pfrec->frame_recs[depth_idx].mode_exp_cnt;
+
+	orig_m_exp_cnt = pfrec->frame_recs[depth_idx].mode_exp_cnt;
+	orig_m_exp_order = pfrec->frame_recs[depth_idx].exp_order;
+	orig_last_exp_idx =
+		exp_order_idx_map[orig_m_exp_order][orig_m_exp_cnt][orig_m_exp_cnt-1];
+	if (unlikely(orig_last_exp_idx < 0)) {
+		orig_last_exp_idx = 0;
+		LOG_MUST(
+			"ERROR: [%u] ID:%#x(sidx:%u/inf:%u), exp_order_idx_map[%u][%u][%u]:%d(< 0) => assign orig_last_exp_idx:0\n",
+			idx,
+			fs_get_reg_sensor_id(idx),
+			fs_get_reg_sensor_idx(idx),
+			fs_get_reg_sensor_inf_idx(idx),
+			orig_m_exp_order,
+			orig_m_exp_cnt,
+			orig_m_exp_cnt-1,
+			orig_last_exp_idx);
+	}
+
 	curr_exp_read_offset =
-		pfrec->curr_predicted_rd_offset_us[orig_mode_exp_cnt-1];
+		pfrec->curr_predicted_rd_offset_us[orig_last_exp_idx];
 	fl_us_composition[0] =
 		curr_exp_read_offset + ss_prop->orig_readout_time_us;
 
@@ -1570,7 +1589,7 @@ static unsigned int frec_calc_seamless_frame_length(const unsigned int idx,
 		fl_us_composition[2],
 		seamless_shutter_lc,
 		new_mode_line_time_ns,
-		orig_mode_exp_cnt-1,
+		orig_last_exp_idx,
 		curr_exp_read_offset,
 		ss_prop->type_id,
 		ss_prop->orig_readout_time_us,

@@ -360,6 +360,7 @@ static int mtk_cam_job_pack_init(struct mtk_cam_job *job,
 	job->req = req;
 	job->src_ctx = ctx;
 	job->img_wbuf_pool_wrapper = NULL;
+	job->img_wbuf_pool_wrapper_prev = NULL;
 	job->w_caci_buf = NULL;
 	job->first_job = !ctx->not_first_job;
 	ctx->not_first_job = true;
@@ -3627,6 +3628,23 @@ struct initialize_params subsample_init = {
 	.master_raw_init = master_raw_set_subsample,
 };
 
+void mtk_cam_job_clean_prev_img_pool(struct mtk_cam_job *job)
+{
+	struct mtk_cam_ctx *ctx = job->src_ctx;
+
+	if (!job->img_wbuf_pool_wrapper_prev)
+		return;
+
+	if (CAM_DEBUG_ENABLED(IPI_BUF))
+		dev_info(ctx->cam->dev,
+			 "%s: ctx-%d img_wbuf_pool_wrapper(%p): put\n",
+			 __func__, ctx->stream_id,
+			 job->img_wbuf_pool_wrapper_prev);
+
+	mtk_cam_pool_wrapper_put(job->img_wbuf_pool_wrapper_prev);
+	job->img_wbuf_pool_wrapper_prev = NULL;
+}
+
 /**
  * To check and update job->raw_switch, job->img_work_pool and
  * job->img_work_buf_mem. Use ctx->used_engine to determine if
@@ -3659,10 +3677,14 @@ static int update_job_raw_switch(struct mtk_cam_job *job)
 			 "%s:ctx-%d failed in media_pipeline_start:%d\n",
 			 __func__, ctx->stream_id, r);
 
-	/* sensor changed, create the new image buf pool and save in job */
-	mtk_cam_ctx_clean_img_pool(ctx);
+	/**
+	 * Keep the previous stream's img wbuf pool in job and put it
+	 * after streaming off the ISP to avoid M4U violation issue
+	 */
+	job->img_wbuf_pool_wrapper_prev = ctx->pack_job_img_wbuf_pool_wrapper;
 	mtk_cam_ctx_clean_rgbw_caci_buf(ctx);
 
+	/* sensor changed, create the new image buf pool and save in job */
 	if (ctx->has_raw_subdev && ctrl_data) {
 		if (mtk_cam_ctx_alloc_img_pool(ctx, ctrl_data))
 			goto EXIT_CLEAN;
@@ -3685,7 +3707,7 @@ static int update_job_raw_switch(struct mtk_cam_job *job)
 		/* It is not real raw switch, just update the ctx' sensor */
 		ctx->sensor = job->sensor;
 		ctx->seninf = job->seninf;
-
+		mtk_cam_job_clean_prev_img_pool(job);
 		goto EXIT_SET_RAW_SWITCH;
 	}
 

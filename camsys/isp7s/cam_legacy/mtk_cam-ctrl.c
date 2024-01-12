@@ -43,6 +43,13 @@ module_param(debug_cam_ctrl, int, 0644);
 				## arg);	\
 	} while (0)
 
+#undef pr_debug
+#define pr_debug(fmt, arg...)		\
+	do {					\
+		if (debug_cam_ctrl >= 1)		\
+			pr_info(fmt, ## arg);	\
+	} while (0)
+
 #define SENSOR_SET_DEADLINE_MS  18
 #define SENSOR_SET_RESERVED_MS  7
 #define SENSOR_SET_DEADLINE_MS_60FPS  6
@@ -2068,7 +2075,7 @@ mtk_cam_read_hdr_timestamp(struct mtk_cam_ctx *ctx,
 	if (mtk_cam_ctx_has_raw(ctx) &&
 		(mtk_cam_scen_is_hdr(stream_data->feature.scen) &&
 		 !mtk_cam_scen_is_m2m(stream_data->feature.scen))) {
-		dev_info(ctx->cam->dev,
+		dev_dbg(ctx->cam->dev,
 			"[hdr timestamp to subdev pipe] req:%d le/ne/se:%lld/%lld/%lld\n",
 			stream_data->frame_seq_no,
 			stream_data->hdr_timestamp_cache.le,

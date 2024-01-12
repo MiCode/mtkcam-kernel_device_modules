@@ -27,6 +27,12 @@ module_param(debug_cam_video, int, 0644);
 				## arg);	\
 	} while (0)
 
+#undef pr_debug
+#define pr_debug(fmt, arg...)		\
+	do {					\
+		if (debug_cam_video >= 1)		\
+			pr_info(fmt, ## arg);	\
+	} while (0)
 /*
  * Note
  *	differt dma(fmt) would have different bus_size

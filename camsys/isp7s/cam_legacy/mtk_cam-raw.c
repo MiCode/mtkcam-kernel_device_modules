@@ -89,6 +89,13 @@ module_param(debug_cam_raw, int, 0644);
 				## arg);	\
 	} while (0)
 
+#undef pr_debug
+#define pr_debug(fmt, arg...)		\
+	do {					\
+		if (debug_cam_raw >= 1)		\
+			pr_info(fmt, ## arg);	\
+	} while (0)
+
 #define MTK_RAW_STOP_HW_TIMEOUT			(33)
 
 #define MTK_CAMSYS_RES_IDXMASK		0xF0

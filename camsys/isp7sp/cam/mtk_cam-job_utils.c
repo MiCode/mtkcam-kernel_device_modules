@@ -699,6 +699,7 @@ static int update_dcif_param_to_ipi_frame(struct mtk_cam_job *job,
 
 	p->ring_mode_en = 1;
 	p->ring_start_offset = ctx->ring_start_offset;
+	p->dc_path_type = ctx->slb_used_size ? DC_SLB_EMI : DC_DRAM;
 
 	ctx->ring_start_offset =
 		(ctx->ring_start_offset + frame_size) % ring_buffer_size;

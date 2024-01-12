@@ -141,9 +141,16 @@ struct mtkcam_ipi_img_ufdi_params {
 	struct mtkcam_ipi_img_ufo_param rawi5;
 } __packed;
 
+enum dc_path_type {
+	DC_DRAM,
+	DC_SLB_EMI,
+	DC_SLB_DEDICATED_PORT,
+};
+
 struct mtkcam_ipi_dcif_ring_param {
 	__u8	ring_mode_en;
 	__u64	ring_start_offset;
+	__u8	dc_path_type;
 } __packed;
 
 struct mtkcam_ipi_raw_frame_param {

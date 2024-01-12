@@ -7,7 +7,12 @@
 
 #ifndef FS_UT
 #include <linux/io.h>
+#else
+#include "ut_fs_tsrec.h"
 #endif // !FS_UT
+
+
+#include "mtk_cam-seninf-tsrec-def.h"	// for TSREC_HW_VER_ISP_8 macro
 
 
 /******************************************************************************
@@ -32,10 +37,13 @@ void mtk_cam_seninf_s_tsrec_timer_cfg(const unsigned int en);
 unsigned long long mtk_cam_seninf_tsrec_latch_time(void);
 
 
+void mtk_cam_seninf_s_tsrec_intr_wclr_en(const unsigned int wclr_en);
+
+
+#if !(TSREC_HW_VER_ISP_8)
 /*
  * TSREC_INT_EN -- interrupt enable. (for tsrec a ~ d)
  */
-void mtk_cam_seninf_s_tsrec_intr_wclr_en(const unsigned int wclr_en);
 unsigned int mtk_cam_seninf_g_tsrec_intr_en(void);
 void mtk_cam_seninf_s_tsrec_intr_en(const unsigned int tsrec_n,
 	const unsigned int exp0, const unsigned int exp1, const unsigned int exp2,
@@ -61,6 +69,10 @@ void mtk_cam_seninf_s_tsrec_intr_en_2(const unsigned int tsrec_n,
  */
 unsigned int mtk_cam_seninf_g_tsrec_intr_status_2(void);
 void mtk_cam_seninf_clr_tsrec_intr_status_2(const unsigned int mask);
+#else
+void mtk_cam_seninf_tsrec_s_device_irq_sel(const unsigned int irq_id,
+	const unsigned int val);
+#endif
 
 
 /*---------------------------------------------------------------------------*/
@@ -71,6 +83,25 @@ void mtk_cam_seninf_clr_tsrec_intr_status_2(const unsigned int mask);
  */
 void mtk_cam_seninf_s_tsrec_n_cfg(const unsigned int tsrec_n,
 	const int clr_exp_cnt_n);
+
+
+#if (TSREC_HW_VER_ISP_8)
+/*
+ * TSREC_n_INT_EN -- interrupt enable.
+ */
+unsigned int mtk_cam_seninf_g_tsrec_n_intr_en(const unsigned int tsrec_n);
+void mtk_cam_seninf_s_tsrec_n_intr_en(const unsigned int tsrec_n,
+	const unsigned int exp0, const unsigned int exp1, const unsigned int exp2,
+	const unsigned int trig_src, const unsigned int en);
+
+
+/*
+ * TSREC_n_INT_STATUS -- interrupt status.
+ */
+unsigned int mtk_cam_seninf_g_tsrec_n_intr_status(const unsigned int tsrec_n);
+void mtk_cam_seninf_clr_tsrec_n_intr_status(const unsigned int tsrec_n,
+	const unsigned int mask);
+#endif
 
 
 /*
@@ -120,9 +151,9 @@ unsigned long long mtk_cam_seninf_g_tsrec_exp_cnt(const unsigned int tsrec_n,
 /******************************************************************************
  * TSREC registers init function
  *****************************************************************************/
-#ifndef FS_UT
-void mtk_cam_seninf_tsrec_regs_iomem_init(void __iomem *p_seninf_base);
-#endif // !FS_UT
+void mtk_cam_seninf_tsrec_regs_iomem_uninit(void);
+void mtk_cam_seninf_tsrec_regs_iomem_init(void __iomem *p_seninf_base,
+	const unsigned int tsrec_hw_cnt);
 
 
 #endif

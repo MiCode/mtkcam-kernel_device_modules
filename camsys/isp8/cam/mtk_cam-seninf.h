@@ -15,6 +15,7 @@
 #include "imgsensor-user.h"
 #include "mtk_cam-seninf-regs.h"
 #include "mtk_cam-aov.h"
+#include "mtk_cam-aov-data-isp8.h"
 #include <linux/atomic.h>
 #include <linux/kfifo.h>
 
@@ -26,16 +27,18 @@
 #define ERR_DETECT_TEST
 
 #define seninf_logi(_ctx, format, args...) do { \
-	if ((_ctx) && (_ctx)->sensor_sd) { \
+	if ((_ctx)) { \
 		dev_info((_ctx)->dev, "[%s][%s] " format, \
-			(_ctx)->sensor_sd->name, __func__, ##args); \
+			((_ctx)->sensor_sd) ? (_ctx)->sensor_sd->name : "none", \
+			 __func__, ##args); \
 	} \
 } while (0)
 
 #define seninf_logd(_ctx, format, args...) do { \
-	if ((_ctx) && (_ctx)->sensor_sd && unlikely(*((_ctx)->core->seninf_dbg_log))) { \
+	if ((_ctx) && unlikely(*((_ctx)->core->seninf_dbg_log))) { \
 		dev_info((_ctx)->dev, "[%s][%s] " format, \
-			(_ctx)->sensor_sd->name, __func__, ##args); \
+			((_ctx)->sensor_sd) ? (_ctx)->sensor_sd->name : "none", \
+			__func__, ##args); \
 	} \
 } while (0)
 
@@ -56,12 +59,7 @@ struct seninf_struct_map {
 	u32 value;
 };
 
-struct seninf_mux {
-	struct list_head list;
-	int idx;
-};
-
-struct seninf_cam_mux {
+struct seninf_outmux {
 	struct list_head list;
 	int idx;
 };
@@ -113,6 +111,29 @@ struct mtk_seninf_cdphy_dvfs_step {
 	struct seninf_struct_pair cdphy_voltage;
 };
 
+struct csi_reg_base {
+	void __iomem *reg_csi_base[SENINF_CSI_REG_BASE_NUN];
+	enum SENINF_ASYNC_ENUM seninf_async_idx;
+};
+
+#define MAX_OUTMUX_TAG_NUM 8
+
+struct outmux_tag_cfg {
+	bool enable;
+	u8 filt_vc;
+	u8 filt_dt;
+	u32 exp_hsize;
+	u32 exp_vsize;
+};
+
+struct outmux_cfg {
+	struct list_head list;
+	u8 outmux_idx;
+	u8 src_mipi;
+	u8 src_sen;
+	struct outmux_tag_cfg tag_cfg[MAX_OUTMUX_TAG_NUM];
+};
+
 struct seninf_core {
 	struct device *dev;
 	int pm_domain_cnt;
@@ -120,19 +141,23 @@ struct seninf_core {
 	struct clk *clk[CLK_MAXCNT];
 	struct seninf_dfs dfs;
 	struct list_head list;
-	struct list_head list_mux;
-	struct seninf_struct_pair mux_range[TYPE_MAX_NUM];
-	struct seninf_mux mux[SENINF_MUX_NUM];
 #ifdef SENINF_DEBUG
-	struct list_head list_cam_mux;
-	struct seninf_struct_pair cammux_range[TYPE_MAX_NUM];
-	struct seninf_cam_mux cam_mux[SENINF_CAM_MUX_NUM];
+	struct list_head list_outmux;
+	struct seninf_struct_pair outmux_range[TYPE_MAX_NUM];
+	struct seninf_outmux outmux[SENINF_OUTMUX_NUM];
 #endif
 	struct mutex mutex;
+	struct mutex seninf_top_rg_mutex;
 	struct mutex cammux_page_ctrl_mutex;
 	struct mutex seninf_top_mux_mutex;
-	void __iomem *reg_if;
-	void __iomem *reg_ana;
+	void __iomem *reg_seninf_top;
+	void __iomem *reg_seninf_async;
+	void __iomem *reg_seninf_tm;
+	void __iomem *reg_seninf_outmux[SENINF_OUTMUX_NUM];
+
+	struct csi_reg_base reg_csi_base[CSI_PORT_PHYSICAL_MAX_NUM];
+	//void __iomem *reg_if;
+	//void __iomem *reg_ana;
 	int refcnt;
 
 	/* CCU control flow */
@@ -145,6 +170,7 @@ struct seninf_core {
 	int settle_delay_ck;
 	int hs_trail_parameter;
 	unsigned int force_glp_en; /* force enable generic long packet */
+	bool is_porting_muxvr_range;
 
 	spinlock_t spinlock_irq;
 
@@ -233,8 +259,10 @@ struct seninf_ctx {
 	unsigned int m_csi_efuse;
 #endif
 	unsigned int is_secure:1;
+	unsigned int tsrec_idx;
 	u64 SecInfo_addr;
-	int seninfIdx;
+	int seninfAsyncIdx;
+	int seninfSelSensor;
 	int pad2cam[PAD_MAXCNT][MAX_DEST_NUM];
 	int pad_tag_id[PAD_MAXCNT][MAX_DEST_NUM];
 
@@ -253,6 +281,10 @@ struct seninf_ctx {
 	int fps_n;
 	int fps_d;
 
+	/* ref vs */
+	int cur_first_vs;
+	int cur_last_vs;
+
 	/* dfs */
 	int isp_freq;
 
@@ -262,18 +294,13 @@ struct seninf_ctx {
 	void __iomem *reg_csirx_mac_csi[CSI_PORT_MAX_NUM];
 	void __iomem *reg_csirx_mac_top[CSI_PORT_MAX_NUM];
 	void __iomem *reg_if_top;
-	void __iomem *reg_if_ctrl[SENINF_NUM];
-	void __iomem *reg_if_cam_mux;
-	void __iomem *reg_if_cam_mux_gcsr;
-	void __iomem *reg_if_cam_mux_pcsr[SENINF_CAM_MUX_NUM];
-	void __iomem *reg_if_tg[SENINF_NUM];
-	void __iomem *reg_if_csi2[SENINF_NUM];
-	void __iomem *reg_if_mux[SENINF_MUX_NUM];
+	void __iomem *reg_if_async;
+	void __iomem *reg_if_outmux[SENINF_OUTMUX_NUM];
+	void __iomem *reg_if_tg[SENINF_ASYNC_NUM];
 
 	/* resources */
-	struct list_head list_mux;
-	struct list_head list_cam_mux;
-	struct seninf_mux *mux_by[VC_CH_GROUP_MAX_NUM][TYPE_MAX_NUM];
+	struct list_head list_outmux;
+	//struct seninf_mux *mux_by[VC_CH_GROUP_MAX_NUM][TYPE_MAX_NUM];
 
 	/* flags */
 	unsigned int csi_streaming:1;
@@ -311,6 +338,7 @@ struct seninf_ctx {
 	unsigned int dbg_timeout;
 	unsigned int dbg_last_dump_req;
 	unsigned int power_status_flag;
+	unsigned int esd_status_flag;
 
 	/* for sentest use */
 	bool allow_adjust_isp_en;

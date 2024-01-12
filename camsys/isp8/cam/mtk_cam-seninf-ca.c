@@ -13,15 +13,18 @@
 
 #define SRV_NAME(name)   "com.mediatek.geniezone." name
 
+#ifndef REDUCE_KO_DEPENDANCY_FOR_SMT
 static struct SENINF_CA *pca;
 
 static const char imgsensor_srv_name[] =  SRV_NAME("srv.imgsensor");
 #define IMGSENSOR_UUID { 0x7b665120, 0x2121, 0x4487, \
 	{ 0xba, 0x71, 0x0a, 0x51, 0xd7, 0xea, 0x78, 0xfe } }
+#endif
 
 int seninf_ca_open_session(void)
 {
 	int ret = SENINF_CA_RETURN_SUCCESS;
+#ifndef REDUCE_KO_DEPENDANCY_FOR_SMT
 	TZ_RESULT ret_tz = TZ_RESULT_SUCCESS;
 
 	LOG_INF("[%s] +", __func__);
@@ -36,12 +39,14 @@ int seninf_ca_open_session(void)
 	}
 
 	LOG_INF("[%s]-", __func__);
+#endif
 	return ret;
 }
 
 int seninf_ca_close_session(void)
 {
 	int ret = SENINF_CA_RETURN_SUCCESS;
+#ifndef REDUCE_KO_DEPENDANCY_FOR_SMT
 	TZ_RESULT ret_tz = TZ_RESULT_SUCCESS;
 
 	if (pca == NULL)
@@ -56,6 +61,7 @@ int seninf_ca_close_session(void)
 	}
 
 	LOG_INF("[%s] -", __func__);
+#endif
 	return ret;
 }
 
@@ -64,8 +70,9 @@ int seninf_ca_close_session(void)
 int seninf_ca_checkpipe(u64 SecInfo_addr)
 {
 
-	int types = 0;
 	int ret = SENINF_CA_RETURN_SUCCESS;
+#ifndef REDUCE_KO_DEPENDANCY_FOR_SMT
+	int types = 0;
 	TZ_RESULT ret_tz = TZ_RESULT_SUCCESS;
 	union MTEEC_PARAM param[PARAM_SIZE];
 
@@ -83,6 +90,7 @@ int seninf_ca_checkpipe(u64 SecInfo_addr)
 	}
 
 	LOG_INF("[%s] -", __func__);
+#endif
 	return ret;
 }
 
@@ -92,8 +100,9 @@ int seninf_ca_checkpipe(u64 SecInfo_addr)
 
 int seninf_ca_free(void)
 {
-	int types = 0;
 	int ret = SENINF_CA_RETURN_SUCCESS;
+#ifndef REDUCE_KO_DEPENDANCY_FOR_SMT
+	int types = 0;
 	TZ_RESULT ret_tz = TZ_RESULT_SUCCESS;
 	union MTEEC_PARAM param[PARAM_SIZE];
 
@@ -114,6 +123,7 @@ int seninf_ca_free(void)
 	}
 
 	LOG_INF("[%s] -", __func__);
+#endif
 	return ret;
 }
 

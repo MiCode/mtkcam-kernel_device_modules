@@ -108,6 +108,9 @@ static const char * const csi_phy_versions[] = {
 	MTK_CSI_PHY_VERSIONS
 };
 
+static const char * const csi_reg_base_names[] = {
+	CSI_REG_BASE_NAME
+};
 
 static const char * const csi_port_names[] = {
 	SENINF_CSI_PORT_NAMES
@@ -125,12 +128,8 @@ static const char * const eye_scan_names[] = {
 	EYE_SCAN_KEYS_NAMES
 };
 
-static const char * const mux_range_name[] = {
-	MUX_RANGE_NAMES
-};
-
-static const char * const cammux_range_name[] = {
-	CAMMUX_RANGE_NAMES
+static const char * const outmux_range_name[] = {
+	OUTMUX_RANGE_NAMES
 };
 
 static const char * const clk_fmeter_names[] = {
@@ -324,7 +323,7 @@ static ssize_t debug_ops_store(struct device *dev,
 	char *token = NULL;
 	char *sbuf = kzalloc(sizeof(char) * (count + 1), GFP_KERNEL);
 	char *s = sbuf;
-	int ret, i, csi_port, val_signed, rg_idx = -1, eye_scan_rg_idx = -1;
+	int ret, i, csi_port, val_signed = -1, rg_idx = -1, eye_scan_rg_idx = -1;
 	unsigned int num_para = 0;
 	char *arg[REG_OPS_CMD_MAX_NUM];
 	struct seninf_core *core = dev_get_drvdata(dev);
@@ -807,37 +806,36 @@ static irqreturn_t mtk_thread_irq_seninf(int irq, void *data)
 static int get_seninf_ops(struct device *dev, struct seninf_core *core)
 {
 	int i, ret, cam_type_cnt = 0;
-	const char *ver;
-	u32 read_prop_test;
+	//const char *ver;
 
-	ret = of_property_read_string(dev->of_node, "mtk-csi-phy-ver", &ver);
+	//ret = of_property_read_string(dev->of_node, "mtk-csi-phy-ver", &ver);
 
-	if (ret) {
+	//if (ret) {
 		g_seninf_ops = &mtk_csi_phy_3_0;
 		dev_info(dev, "%s: INFO: phy default mtk-csi-phy-3-0\n", __func__);
-	} else {
-		for (i = 0; i < SENINF_PHY_VER_NUM; i++) {
-			if (!strcasecmp(ver, csi_phy_versions[i])) {
-				// Support phy 3.0 & phy 3.1
-				if (i == SENINF_PHY_3_1) {
-					g_seninf_ops = &mtk_csi_phy_3_1;
-					dev_info(dev, "%s: INFO: phy config mtk-csi-phy-3-1\n", __func__);
-				} else {
-					g_seninf_ops = &mtk_csi_phy_3_0;
-					dev_info(dev, "%s: INFO: phy config mtk-csi-phy-3-0\n", __func__);
-				}
-			}
-		}
-	}
+	//} else {
+	//	for (i = 0; i < SENINF_PHY_VER_NUM; i++) {
+	//		if (!strcasecmp(ver, csi_phy_versions[i])) {
+	//			// Support phy 3.0 & phy 3.1
+	//			if (i == SENINF_PHY_3_1) {
+	//				g_seninf_ops = &mtk_csi_phy_3_1;
+	//				dev_info(dev, "%s: INFO: phy config mtk-csi-phy-3-1\n", __func__);
+	//			} else {
+	//				g_seninf_ops = &mtk_csi_phy_3_0;
+	//				dev_info(dev, "%s: INFO: phy config mtk-csi-phy-3-0\n", __func__);
+	//			}
+	//		}
+	//	}
+	//}
 
-	of_property_read_u32(dev->of_node, "seninf-num",
-		&g_seninf_ops->seninf_num);
-	of_property_read_u32(dev->of_node, "mux-num",
-		&g_seninf_ops->mux_num);
-	of_property_read_u32(dev->of_node, "cam-mux-num",
-		&g_seninf_ops->cam_mux_num);
-	of_property_read_u32(dev->of_node, "pref-mux-num",
-		&g_seninf_ops->pref_mux_num);
+	//of_property_read_u32(dev->of_node, "seninf-num",
+	//	&g_seninf_ops->seninf_num);
+	//of_property_read_u32(dev->of_node, "mux-num",
+	//	&g_seninf_ops->mux_num);
+	//of_property_read_u32(dev->of_node, "cam-mux-num",
+	//	&g_seninf_ops->cam_mux_num);
+	//of_property_read_u32(dev->of_node, "pref-mux-num",
+	//	&g_seninf_ops->pref_mux_num);
 	ret = of_property_read_string(dev->of_node, "mtk-iomem-ver",
 		&g_seninf_ops->iomem_ver);
 
@@ -851,57 +849,10 @@ static int get_seninf_ops(struct device *dev, struct seninf_core *core)
 			__func__, ret);
 	}
 
-	for (i = 0; i < TYPE_MAX_NUM; i++) {
-		ret = of_property_read_u32_index(dev->of_node, mux_range_name[i],
-						0, &read_prop_test);
-		if (ret) {
-			dev_info(dev,
-				"%s: ERROR: try get mux_range property '%s' not found with ret %d\n",
-				__func__, mux_range_name[i], ret);
-			continue;
-		}
-		cam_type_cnt++;
-		dev_info(dev,
-				"%s: INFO:  try get mux_range property '%s' is found, cam_type_cnt %d\n",
-				__func__, mux_range_name[i], cam_type_cnt);
-	}
 
 	for (i = 0; i < cam_type_cnt; i++) {
-		ret = of_property_read_u32_index(dev->of_node, mux_range_name[i],
-						0, &core->mux_range[i].first);
-		if (ret) {
-			dev_info(dev,
-				"%s: ERROR: read property index:(mux_range_name[%d] (first)) failed, not modify pointer, ret:%d\n",
-				__func__, i, ret);
-			return -1;
-		}
-
-		ret = of_property_read_u32_index(dev->of_node, mux_range_name[i],
-						1, &core->mux_range[i].second);
-		if (ret) {
-			dev_info(dev,
-				"%s: ERROR: read property index:(mux_range_name[%d] (second)) failed, not modify pointer, ret:%d\n",
-				__func__, i, ret);
-			return -1;
-		}
-
-		ret = of_property_read_u32_index(dev->of_node, cammux_range_name[i],
-						0, &core->cammux_range[i].first);
-		if (ret) {
-			dev_info(dev,
-				"%s: ERROR: read property index:(cammux_range_name[%d] (first)) failed, not modify pointer, ret:%d\n",
-				__func__, i, ret);
-			return -1;
-		}
-
-		ret = of_property_read_u32_index(dev->of_node, cammux_range_name[i],
-						1, &core->cammux_range[i].second);
-		if (ret) {
-			dev_info(dev,
-				"%s: ERROR: read property index:(cammux_range_name[%d] (second)) failed, not modify pointer, ret:%d\n",
-				__func__, i, ret);
-			return -1;
-		}
+		ret = of_property_read_u32_index(dev->of_node, outmux_range_name[i],
+						   0, &core->outmux_range[i].first);
 	}
 
 	for (i = CDPHY_DVFS_STEP_0; i < CDPHY_DVFS_STEP_MAX_NUM; i++) {
@@ -987,13 +938,13 @@ static int get_seninf_ops(struct device *dev, struct seninf_core *core)
 			core->cdphy_dvfs_step[i].cdphy_voltage.second, ret);
 	}
 
-	dev_info(dev,
-		"%s: seninf_num = %d, mux_num = %d, cam_mux_num = %d, pref_mux_num =%d\n",
-		__func__,
-		g_seninf_ops->seninf_num,
-		g_seninf_ops->mux_num,
-		g_seninf_ops->cam_mux_num,
-		g_seninf_ops->pref_mux_num);
+	//dev_info(dev,
+	//	"%s: seninf_num = %d, mux_num = %d, cam_mux_num = %d, pref_mux_num =%d\n",
+	//	__func__,
+	//	g_seninf_ops->seninf_num,
+	//	g_seninf_ops->mux_num,
+	//	g_seninf_ops->cam_mux_num,
+	//	g_seninf_ops->pref_mux_num);
 
 	return 0;
 }
@@ -1009,7 +960,10 @@ static int seninf_core_probe(struct platform_device *pdev)
 	struct device *dev = &pdev->dev;
 	const char *str = NULL;
 	u32 tmp_no = 0;
-	struct device_node *tmp_node;
+	struct device_node *tmp_node = NULL;
+	int index;
+	u32 port_id = 0;
+	u32 seninf_async_idx = 0;
 
 	device_enable_async_suspend(dev);
 
@@ -1023,35 +977,126 @@ static int seninf_core_probe(struct platform_device *pdev)
 	dev_set_drvdata(dev, core);
 	core->dev = dev;
 	mutex_init(&core->mutex);
+	mutex_init(&core->seninf_top_rg_mutex);
 	mutex_init(&core->cammux_page_ctrl_mutex);
 	mutex_init(&core->seninf_top_mux_mutex);
 	INIT_LIST_HEAD(&core->list);
 
-	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "base");
-	core->reg_if = devm_ioremap_resource(dev, res);
-	if (IS_ERR(core->reg_if)) {
-		dev_err(dev, "%s: ioremap core->reg_if failed\n", __func__);
-		WRAP_AEE_EXCEPTION("seninf_core_probe", "ioremap reg_if");
-		return PTR_ERR(core->reg_if);
-	}
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "seninf-top");
+	core->reg_seninf_top = devm_ioremap_resource(dev, res);
+	if (IS_ERR(core->reg_seninf_top))
+		return PTR_ERR(core->reg_seninf_top);
 
-	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "ana-rx");
-	core->reg_ana = devm_ioremap_resource(dev, res);
-	if (IS_ERR(core->reg_ana)) {
-		dev_err(dev, "%s: ioremap core->reg_ana failed\n", __func__);
-		WRAP_AEE_EXCEPTION("seninf_core_probe", "ioremap reg_ana");
-		return PTR_ERR(core->reg_ana);
-	}
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "seninf-async-top");
+	core->reg_seninf_async = devm_ioremap_resource(dev, res);
+	if (IS_ERR(core->reg_seninf_async))
+		return PTR_ERR(core->reg_seninf_async);
+
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "seninf-tm");
+	core->reg_seninf_tm = devm_ioremap_resource(dev, res);
+	if (IS_ERR(core->reg_seninf_tm))
+		return PTR_ERR(core->reg_seninf_tm);
+
+	//res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "ana-rx");
+	//core->reg_ana = devm_ioremap_resource(dev, res);
+	//if (IS_ERR(core->reg_ana))
+	//	return PTR_ERR(core->reg_ana);
 
 	ret = get_seninf_ops(dev, core);
 	if (ret) {
-		dev_err(dev, "%s: get_seninf_ops failed\n", __func__);
-		WRAP_AEE_EXCEPTION("seninf_core_probe", "Get Seninf Ops");
+		dev_info(dev, "failed to get seninf ops\n");
 		return ret;
 	}
-	mtk_cam_seninf_init_res(core);
 
-	mtk_cam_seninf_tsrec_init(dev, core->reg_if);
+	// init outmux list
+	//mtk_cam_seninf_init_res(core);
+	i = 0;
+	INIT_LIST_HEAD(&core->list_outmux);
+	while ((tmp_node = of_find_compatible_node(tmp_node, NULL, "mediatek,seninf-outmux"))) {
+		index = of_property_match_string(tmp_node, "reg-names", "base");
+		if (index < 0) {
+			// Fail
+			dev_info(dev, "get seninf outmux reg base failed\n");
+		} else {
+			// Success
+			dev_info(dev, "get seninf outmux reg base succeeded\n");
+
+			core->reg_seninf_outmux[i] = devm_of_iomap(dev, tmp_node, index, NULL);
+			if (IS_ERR(core->reg_seninf_outmux[i]))
+				dev_info(dev, "seninf outmux[%d] index %d ioremap failed\n", i, index);
+			else {
+				core->outmux[i].idx = i;
+				list_add_tail(&core->outmux[i].list, &core->list_outmux);
+				dev_info(dev, "outmux full_name=%s\n", tmp_node->full_name);
+
+				i++;
+			}
+		}
+		// no need to call of_node_put, due to next
+		// of_find_compatble_node will call it.
+	}
+	g_seninf_ops->outmux_num = i;
+
+	// init csi reg
+	while ((tmp_node = of_find_compatible_node(tmp_node, NULL, "mediatek,seninf-csi"))) {
+
+		if (of_property_read_u32(tmp_node, "csi-port", &port_id) < 0) {
+			dev_info(dev, "get csi port id failed\n");
+			// no need to call of_node_put, due to next
+			// of_find_compatble_node will call it.
+			continue;
+		}
+
+		if (port_id >= CSI_PORT_PHYSICAL_MAX_NUM) {
+			dev_info(dev, "get csi port id %d exceed CSI_PORT_PHYSICAL_MAX_NUM(%d)\n",
+				 port_id, CSI_PORT_PHYSICAL_MAX_NUM);
+			// no need to call of_node_put, due to next
+			// of_find_compatble_node will call it.
+			continue;
+		}
+
+		if (of_property_read_u32(tmp_node, "connect-to-seninf-async", &seninf_async_idx) < 0) {
+			dev_info(dev, "get csi port id failed\n");
+			// no need to call of_node_put, due to next
+			// of_find_compatble_node will call it.
+			continue;
+		}
+
+		if (seninf_async_idx >= SENINF_ASYNC_NUM) {
+			dev_info(dev, "get connected async idx %d exceed SENINF_ASYNC_NUM(%d)\n",
+				 seninf_async_idx, SENINF_ASYNC_NUM);
+			// no need to call of_node_put, due to next
+			// of_find_compatble_node will call it.
+			continue;
+		}
+
+		core->reg_csi_base[port_id].seninf_async_idx = seninf_async_idx;
+
+		for (i = 0; i < SENINF_CSI_REG_BASE_NUN; i++) {
+			index = of_property_match_string(tmp_node,
+						"reg-names", csi_reg_base_names[i]);
+			if (index < 0) {
+				// Fail
+				dev_info(dev, "get seninf csi reg base (%d) failed\n", i);
+			} else {
+				// Success
+				dev_info(dev, "get seninf csi reg base (%d) succeeded\n", i);
+
+				core->reg_csi_base[port_id].reg_csi_base[i] =
+					devm_of_iomap(dev, tmp_node, index, NULL);
+				if (IS_ERR(core->reg_csi_base[port_id].reg_csi_base[i])) {
+					dev_info(dev,
+						"seninf csi[%d] base reg %d index %d ioremap failed\n",
+						port_id, i, index);
+				}
+			}
+		}
+
+		// no need to call of_node_put, due to next
+		// of_find_compatble_node will call it.
+	}
+
+	mtk_cam_seninf_tsrec_init(dev, core->reg_seninf_top);
 
 	spin_lock_init(&core->spinlock_irq);
 
@@ -1072,12 +1117,7 @@ static int seninf_core_probe(struct platform_device *pdev)
 		dev_info(dev, "registered seninf-irq=%d\n", irq);
 	}
 
-	irq = platform_get_irq_byname(pdev, "tsrec-irq");
-	if (irq <= 0) {
-		dev_err(dev, "%s: failed to get tsrec-irq number, ret:%d\n", __func__, irq);
-		//return -ENODEV;
-	} else
-		mtk_cam_seninf_tsrec_irq_init(core, irq);
+	mtk_cam_seninf_tsrec_irq_init(core);
 #endif
 
 	/* default platform properties */
@@ -1148,7 +1188,7 @@ static int seninf_core_probe(struct platform_device *pdev)
 			}
 			core->fmeter[i].fmeter_no = tmp_no;
 		}
-
+		tmp_node = NULL;
 	}
 
 	ret = of_platform_populate(dev->of_node, NULL, NULL, dev);
@@ -1213,7 +1253,7 @@ static int seninf_core_remove(struct platform_device *pdev)
 	if (core->seninf_kworker_task)
 		kthread_stop(core->seninf_kworker_task);
 
-	g_seninf_ops->_uninit_irq_fifo(core);
+	//g_seninf_ops->_uninit_irq_fifo(core);
 
 	return 0;
 }
@@ -1516,7 +1556,7 @@ static int set_aov_test_model_param(struct seninf_ctx *ctx,
 		g_aov_param.portA = ctx->portA;
 		g_aov_param.portB = ctx->portB;
 		g_aov_param.is_4d1c = ctx->is_4d1c;
-		g_aov_param.seninfIdx = ctx->seninfIdx;
+		g_aov_param.seninfAsyncIdx = ctx->seninfAsyncIdx;
 		g_aov_param.cnt = vc_used;
 		g_aov_param.is_test_model = ctx->is_aov_test_model;
 
@@ -1537,14 +1577,14 @@ static int set_aov_test_model_param(struct seninf_ctx *ctx,
 			vc[i]->dest[0].pix_mode = 2;
 
 			vc[i]->dest_cnt = 1;
-			vc[i]->dest[0].cam = 33;
-			vc[i]->dest[0].mux = 5;
-			vc[i]->dest[0].mux_vr = 33;
+			//vc[i]->dest[0].cam = 33;
+			//vc[i]->dest[0].mux = 5;
+			//vc[i]->dest[0].mux_vr = 33;
 
-			dev_info(ctx->dev,
-				"test mode mux %d, cam %d, pixel mode %d, vc = %d, dt = 0x%x\n",
-				vc[i]->dest[0].mux, vc[i]->dest[0].cam, vc[i]->dest[0].pix_mode,
-				vc[i]->vc, vc[i]->dt);
+			//dev_info(ctx->dev,
+			//	"test mode mux %d, cam %d, pixel mode %d, vc = %d, dt = 0x%x\n",
+			//	vc[i]->dest[0].mux, vc[i]->dest[0].cam, vc[i]->dest[0].pix_mode,
+			//	vc[i]->vc, vc[i]->dt);
 
 			g_aov_param.height = 480;
 			g_aov_param.width = 640;
@@ -1572,8 +1612,6 @@ static int set_test_model(struct seninf_ctx *ctx, char enable)
 {
 	struct seninf_vc *vc[] = {NULL, NULL, NULL, NULL, NULL};
 	int i = 0, vc_used = 0;
-	struct seninf_mux *mux, *mux_by_camtype[TYPE_MAX_NUM] = {0};
-	int vc_dt_filter = 1;
 	struct seninf_dfs *dfs = &ctx->core->dfs;
 	int ret = 0;
 
@@ -1616,49 +1654,52 @@ static int set_test_model(struct seninf_ctx *ctx, char enable)
 
 	if (enable) {
 		ret = pm_runtime_get_sync(ctx->dev);
-		if (ret < 0) {
-			dev_info(ctx->dev, "%s pm_runtime_get_sync ret %d\n", __func__, ret);
-			pm_runtime_put_noidle(ctx->dev);
-			return ret;
-		}
+		//if (ret < 0) {
+		//	dev_info(ctx->dev, "%s pm_runtime_get_sync ret %d\n", __func__, ret);
+		//	pm_runtime_put_noidle(ctx->dev);
+		//	return ret;
+		//}
 
 		if (dfs->cnt)
 			seninf_dfs_set(ctx, dfs->freqs[dfs->cnt - 1]);
 
+		mtk_cam_seninf_tsrec_reset_vc_dt_info(ctx, ctx->tsrec_idx);
+
 		for (i = 0; i < vc_used; ++i) {
+			struct mtk_cam_seninf_tsrec_vc_dt_info tsrec_vc_dt_info = {0};
+
 			vc[i]->dest_cnt = 1;
-			vc[i]->dest[0].cam = ctx->pad2cam[vc[i]->out_pad][0];
+			vc[i]->dest[0].outmux = ctx->pad2cam[vc[i]->out_pad][0];
 			vc[i]->enable = 1;
 
-			if (mux_by_camtype[vc[i]->dest[0].cam_type]) {
-				mux = mux_by_camtype[vc[i]->dest[0].cam_type];
-			} else {
-				mux = mtk_cam_seninf_mux_get_by_type(ctx,
-					     cammux2camtype(ctx, vc[i]->dest[0].cam));
-				mux_by_camtype[vc[i]->dest[0].cam_type] = mux;
-			}
-			if (!mux)
-				return -EBUSY;
-
-			vc[i]->dest[0].mux = mux->idx;
-
 			dev_info(ctx->dev,
-				"test mode mux %d, cam %d, pixel mode %d, vc = %d, dt = 0x%x\n",
-				vc[i]->dest[0].mux, vc[i]->dest[0].cam, vc[i]->dest[0].pix_mode,
+				"test mode asyncIdx %d outmux %d, pixel mode %d, vc = %d, dt = 0x%x\n",
+				ctx->seninfAsyncIdx, vc[i]->dest[0].outmux, vc[i]->dest[0].pix_mode,
 				vc[i]->vc, vc[i]->dt);
 
-			g_seninf_ops->_set_test_model(ctx,
-					vc[i]->dest[0].mux, vc[i]->dest[0].cam, vc[i]->dest[0].pix_mode,
-					vc_dt_filter, i, vc[i]->vc, vc[i]->dt, vc[i]->vc);
+			/* update final vc dt info to tsrec */
+			tsrec_vc_dt_info.vc = vc[i]->vc;
+			tsrec_vc_dt_info.dt = vc[i]->dt;
+			tsrec_vc_dt_info.out_pad = vc[i]->out_pad;
+			mtk_cam_seninf_tsrec_update_vc_dt_info(ctx,
+				ctx->tsrec_idx, &tsrec_vc_dt_info);
+
+			g_seninf_ops->_set_test_model(ctx, ctx->seninfAsyncIdx,
+					vc[i]->dest[0].outmux, vc[i]->dest[0].pix_mode,
+					vc[i]->vc, vc[i]->dt);
 			if (vc[i]->out_pad == PAD_SRC_PDAF0)
 				mdelay(40);
 			else
 				udelay(40);
 		}
+
+		mtk_cam_seninf_tsrec_dbg_dump_vc_dt_info(ctx->tsrec_idx, __func__);
+		/* notify tsrec seninf_csi relationship & start tsrec using test mode settings */
+		mtk_cam_seninf_tsrec_n_start(ctx->tsrec_idx, ctx->tsrec_idx);
 	} else {
 		g_seninf_ops->_set_idle(ctx);
-		mtk_cam_seninf_release_mux(ctx);
-		mtk_cam_seninf_tsrec_n_reset(ctx->seninfIdx);
+		mtk_cam_seninf_release_outmux(ctx);
+		mtk_cam_seninf_tsrec_n_reset(ctx->tsrec_idx);
 		if (dfs->cnt)
 			seninf_dfs_set(ctx, 0);
 
@@ -1676,7 +1717,7 @@ static int set_test_model(struct seninf_ctx *ctx, char enable)
 
 static int config_hw_csi(struct seninf_ctx *ctx)
 {
-	int intf = ctx->seninfIdx;
+	int intf = ctx->seninfAsyncIdx;
 	struct seninf_vcinfo *vcinfo = &ctx->vcinfo;
 	struct seninf_glp_dt glpinfo;
 #if AOV_GET_PARAM
@@ -1697,7 +1738,7 @@ static int config_hw_csi(struct seninf_ctx *ctx)
 		g_aov_param.portA = ctx->portA;
 		g_aov_param.portB = ctx->portB;
 		g_aov_param.is_4d1c = ctx->is_4d1c;
-		g_aov_param.seninfIdx = intf;
+		g_aov_param.seninfAsyncIdx = intf;
 		g_aov_param.cnt = vcinfo->cnt;
 		g_aov_param.seninf_dphy_settle_delay_dt =
 			ctx->seninf_dphy_settle_delay_dt;
@@ -2115,11 +2156,11 @@ static int seninf_csi_s_stream(struct v4l2_subdev *sd, int enable)
 
 		get_customized_pixel_rate(ctx, ctx->sensor_sd, &ctx->customized_pixel_rate);
 		ret = pm_runtime_get_sync(ctx->dev);
-		if (ret < 0) {
-			dev_info(ctx->dev, "%s pm_runtime_get_sync ret %d\n", __func__, ret);
-			pm_runtime_put_noidle(ctx->dev);
-			return ret;
-		}
+		//if (ret < 0) {
+		//	dev_info(ctx->dev, "%s pm_runtime_get_sync ret %d\n", __func__, ret);
+		//	pm_runtime_put_noidle(ctx->dev);
+		//	return ret;
+		//}
 
 		update_isp_clk(ctx);
 #if AOV_GET_PARAM
@@ -2128,6 +2169,12 @@ static int seninf_csi_s_stream(struct v4l2_subdev *sd, int enable)
 			(core->current_sensor_id == core->aov_sensor_id))
 			g_aov_param.isp_freq = ISP_CLK_LOW;
 #endif
+
+		if (likely(ctx->is_test_model == 0)) {
+			/* notify tsrec seninf_csi relationship & start tsrec */
+			mtk_cam_seninf_tsrec_n_start(ctx->tsrec_idx, ctx->tsrec_idx);
+		}
+
 		ret = config_hw_csi(ctx);
 		if (ret) {
 			dev_info(ctx->dev, "config_seninf_hw ret %d\n", ret);
@@ -2150,8 +2197,8 @@ static int seninf_csi_s_stream(struct v4l2_subdev *sd, int enable)
 		}
 #endif
 		g_seninf_ops->_set_idle(ctx);
-		mtk_cam_seninf_release_mux(ctx);
-		mtk_cam_seninf_tsrec_n_reset(ctx->seninfIdx);
+		mtk_cam_seninf_release_outmux(ctx);
+		mtk_cam_seninf_tsrec_n_reset(ctx->tsrec_idx);
 		seninf_dfs_set(ctx, 0);
 		g_seninf_ops->_poweroff(ctx);
 		ctx->dbg_last_dump_req = 0;
@@ -2192,13 +2239,14 @@ static int seninf_s_stream(struct v4l2_subdev *sd, int enable)
 #endif /*INIT_DESKEW_DEBUG*/
 
 	/* get current sensor idx by get_sensor_idx */
-	core->current_sensor_id = get_sensor_idx(ctx);
-	if (core->current_sensor_id < 0) {
-		dev_info(ctx->dev,
-			"[%s] get_sensor_idx[%d] fail\n",
-			__func__, core->current_sensor_id);
-		return core->current_sensor_id;
-	}
+	core->current_sensor_id = 1;
+	//1core->current_sensor_id = get_sensor_idx(ctx);
+	//1if (core->current_sensor_id < 0) {
+	//1	dev_info(ctx->dev,
+	//1		"[%s] get_sensor_idx[%d] fail\n",
+	//1		__func__, core->current_sensor_id);
+	//1	return core->current_sensor_id;
+	//1}
 
 	if (core->aov_abnormal_init_flag) {
 		ctx->is_aov_real_sensor = 1;
@@ -2601,11 +2649,11 @@ static int seninf_test_streamon(struct seninf_ctx *ctx, u32 en)
 #endif
 	if (en) {
 		ctx->is_test_streamon = 1;
-		mtk_cam_seninf_alloc_cammux(ctx);
+		mtk_cam_seninf_alloc_outmux(ctx);
 		seninf_s_stream(&ctx->subdev, 1);
 	} else {
 		seninf_s_stream(&ctx->subdev, 0);
-		mtk_cam_seninf_release_cam_mux(ctx);
+		mtk_cam_seninf_release_outmux(ctx);
 		ctx->is_test_streamon = 0;
 	}
 
@@ -2626,13 +2674,14 @@ static int mtk_cam_seninf_set_ctrl(struct v4l2_ctrl *ctrl)
 		break;
 	case V4L2_CID_MTK_SENINF_S_STREAM:
 		/* get current sensor idx by get_sensor_idx */
-		core->current_sensor_id = get_sensor_idx(ctx);
-		if (core->current_sensor_id < 0) {
-			dev_info(ctx->dev,
-				"[%s] get_sensor_idx[%d] fail\n",
-				__func__, core->current_sensor_id);
-			return core->current_sensor_id;
-		}
+		core->current_sensor_id = 1;
+		//core->current_sensor_id = get_sensor_idx(ctx);
+		//if (core->current_sensor_id < 0) {
+		//	dev_info(ctx->dev,
+		//		"[%s] get_sensor_idx[%d] fail\n",
+		//		__func__, core->current_sensor_id);
+		//	return core->current_sensor_id;
+		//}
 		switch (s_stream_ctrl->stream_mode) {
 		case AOV_TEST_MODEL:
 			if (s_stream_ctrl->enable) {
@@ -2744,8 +2793,28 @@ static int mtk_cam_seninf_set_ctrl(struct v4l2_ctrl *ctrl)
 	return ret;
 }
 
+static int mtk_cam_seninf_g_volatile_ctrl(struct v4l2_ctrl *ctrl)
+{
+	struct seninf_ctx *ctx = ctrl_hdl_to_ctx(ctrl->handler);
+	int ret;
+
+	switch (ctrl->id) {
+	case V4L2_CID_GET_CSI2_IRQ_STATUS:
+		ret = mtk_cam_seninf_get_csi_irq_status(&ctx->subdev, ctrl);
+		break;
+	default:
+		ret = 0;
+		dev_info(ctx->dev, "%s Unhandled id:0x%x\n",
+			 __func__, ctrl->id);
+		break;
+	}
+
+	return ret;
+}
+
 static const struct v4l2_ctrl_ops seninf_ctrl_ops = {
 	.s_ctrl = mtk_cam_seninf_set_ctrl,
+	.g_volatile_ctrl = mtk_cam_seninf_g_volatile_ctrl,
 };
 
 static int seninf_open(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
@@ -2857,6 +2926,16 @@ static const struct v4l2_ctrl_config cfg_s_real_sensor_for_aov_param = {
 	.step = 1,
 };
 
+static const struct v4l2_ctrl_config cfg_g_csi2_irq_status = {
+	.ops = &seninf_ctrl_ops,
+	.id = V4L2_CID_GET_CSI2_IRQ_STATUS,
+	.name = "get_csi2_irq_status",
+	.type = V4L2_CTRL_TYPE_INTEGER,
+	.flags = V4L2_CTRL_FLAG_READ_ONLY|V4L2_CTRL_FLAG_VOLATILE,
+	.max = 0x7fffffff,
+	.step = 1,
+};
+
 static int seninf_initialize_controls(struct seninf_ctx *ctx)
 {
 	struct v4l2_ctrl_handler *handler;
@@ -2880,6 +2959,7 @@ static int seninf_initialize_controls(struct seninf_ctx *ctx)
 
 	v4l2_ctrl_new_custom(handler, &cfg_s_test_model_for_aov_param, NULL);
 	v4l2_ctrl_new_custom(handler, &cfg_s_real_sensor_for_aov_param, NULL);
+	v4l2_ctrl_new_custom(handler, &cfg_g_csi2_irq_status, NULL);
 
 	if (handler->error) {
 		ret = handler->error;
@@ -3033,9 +3113,8 @@ static int seninf_probe(struct platform_device *pdev)
 	ctx->dev = dev;
 	ctx->core = core;
 	list_add(&ctx->list, &core->list);
-	INIT_LIST_HEAD(&ctx->list_mux);
-	INIT_LIST_HEAD(&ctx->list_cam_mux);
-	memset(ctx->mux_by, 0, sizeof(ctx->mux_by));
+	INIT_LIST_HEAD(&ctx->list_outmux);
+	//memset(ctx->mux_by, 0, sizeof(ctx->mux_by));
 	ctx->dbg_chmux_param = NULL;
 
 	ctx->open_refcnt = 0;
@@ -3047,12 +3126,16 @@ static int seninf_probe(struct platform_device *pdev)
 		return ret;
 	}
 
-	ret = g_seninf_ops->_init_iomem(ctx, core->reg_if, core->reg_ana);
+	ret = g_seninf_ops->_init_iomem(ctx, core->reg_seninf_top,
+					core->reg_seninf_async,
+					core->reg_seninf_tm,
+					core->reg_seninf_outmux,
+					core->reg_csi_base);
 	if (ret) {
 		dev_info(dev, "g_seninf_ops->_init_iomem failed ret %d\n", ret);
 		return ret;
 	}
-	g_seninf_ops->_init_port(ctx, port);
+	g_seninf_ops->_init_port(ctx, port, core->reg_csi_base);
 	init_fmt(ctx);
 
 	/* default platform properties */
@@ -3102,8 +3185,10 @@ static int seninf_probe(struct platform_device *pdev)
 #endif  /*CSI_EFUSE_VERIFY_GORDAN_TABLE_EN*/
 	if (csi_efuse_value_verify(ctx) < 0) {
 		dev_info(dev, "Failed to verify efuse data\n");
+#ifndef REDUCE_KO_DEPENDANCY_FOR_SMT
 		aee_kernel_warning_api(__FILE__, __LINE__, DB_OPT_DEFAULT,
 		"seninf", "Failed to verify efuse data");
+#endif
 	}
 #endif  /*CSI_EFUSE_VERIFY_EN*/
 #endif  /*CSI_EFUSE_SET*/
@@ -3131,7 +3216,8 @@ static int seninf_probe(struct platform_device *pdev)
 	for (i = 0; i < AOV_SENINF_NUM; i++)
 		aov_ctx[i] = NULL;
 
-	dev_info(dev, "%s: port=%d\n", __func__, ctx->port);
+	dev_info(dev, "%s: port=%d, AsyncIdx=%d, SelSensor=%d, tsrec_idx=%u\n",
+		__func__, ctx->port, ctx->seninfAsyncIdx, ctx->seninfSelSensor, ctx->tsrec_idx);
 
 	return 0;
 
@@ -3249,9 +3335,8 @@ static int set_csi_clk(struct seninf_ctx *ctx, enum CDPHY_DVFS_STEP_ENUM index)
 	struct clk *clk = NULL, *clk_src = NULL;
 	unsigned int clk_index = 0, clk_src_index = 0;
 
-	switch (ctx->seninfIdx) {
-	case SENINF_1:
-	case SENINF_2:
+	switch (ctx->seninfAsyncIdx) {
+	case SENINF_ASYNC_0:
 		if (!core->clk[CLK_TOP_SENINF]) {
 			seninf_logi(ctx, "core->clk[CLK_TOP_SENINF] = NULL\n");
 			return -EINVAL;
@@ -3260,8 +3345,7 @@ static int set_csi_clk(struct seninf_ctx *ctx, enum CDPHY_DVFS_STEP_ENUM index)
 			clk = core->clk[CLK_TOP_SENINF];
 		}
 		break;
-	case SENINF_3:
-	case SENINF_4:
+	case SENINF_ASYNC_1:
 		if (!core->clk[CLK_TOP_SENINF1]) {
 			seninf_logi(ctx, "core->clk[CLK_TOP_SENINF1] = NULL\n");
 			return -EINVAL;
@@ -3270,8 +3354,7 @@ static int set_csi_clk(struct seninf_ctx *ctx, enum CDPHY_DVFS_STEP_ENUM index)
 			clk = core->clk[CLK_TOP_SENINF1];
 		}
 		break;
-	case SENINF_5:
-	case SENINF_6:
+	case SENINF_ASYNC_2:
 		if (!core->clk[CLK_TOP_SENINF2]) {
 			seninf_logi(ctx, "core->clk[CLK_TOP_SENINF2] = NULL\n");
 			return -EINVAL;
@@ -3280,8 +3363,7 @@ static int set_csi_clk(struct seninf_ctx *ctx, enum CDPHY_DVFS_STEP_ENUM index)
 			clk = core->clk[CLK_TOP_SENINF2];
 		}
 		break;
-	case SENINF_7:
-	case SENINF_8:
+	case SENINF_ASYNC_3:
 		if (!core->clk[CLK_TOP_SENINF3]) {
 			seninf_logi(ctx, "core->clk[CLK_TOP_SENINF3] = NULL\n");
 			return -EINVAL;
@@ -3290,8 +3372,7 @@ static int set_csi_clk(struct seninf_ctx *ctx, enum CDPHY_DVFS_STEP_ENUM index)
 			clk = core->clk[CLK_TOP_SENINF3];
 		}
 		break;
-	case SENINF_9:
-	case SENINF_10:
+	case SENINF_ASYNC_4:
 		if (!core->clk[CLK_TOP_SENINF4]) {
 			seninf_logi(ctx, "core->clk[CLK_TOP_SENINF4] = NULL\n");
 			return -EINVAL;
@@ -3300,8 +3381,7 @@ static int set_csi_clk(struct seninf_ctx *ctx, enum CDPHY_DVFS_STEP_ENUM index)
 			clk = core->clk[CLK_TOP_SENINF4];
 		}
 		break;
-	case SENINF_11:
-	case SENINF_12:
+	case SENINF_ASYNC_5:
 		if (!core->clk[CLK_TOP_SENINF5]) {
 			seninf_logi(ctx, "core->clk[CLK_TOP_SENINF5] = NULL\n");
 			return -EINVAL;
@@ -3311,7 +3391,7 @@ static int set_csi_clk(struct seninf_ctx *ctx, enum CDPHY_DVFS_STEP_ENUM index)
 		}
 		break;
 	default:
-		seninf_logi(ctx, "invalid seninfIdx %d\n", ctx->seninfIdx);
+		seninf_logi(ctx, "invalid seninfAsyncIdx %d\n", ctx->seninfAsyncIdx);
 		return -EINVAL;
 	}
 	/* set csi clk from dts according to vcore voltage from dts */
@@ -3535,6 +3615,12 @@ static int set_vcore_power(struct seninf_ctx *ctx, u64 data_rate)
 	return 0;
 }
 
+static int core_common_reg_setup(struct seninf_ctx *ctx)
+{
+	g_seninf_ops->_common_reg_setup(ctx);
+	return 0;
+}
+
 static int runtime_suspend(struct device *dev)
 {
 	struct seninf_ctx *ctx = dev_get_drvdata(dev);
@@ -3562,39 +3648,33 @@ static int runtime_suspend(struct device *dev)
 		/* disable camtg_sel as phya clk */
 		disable_phya_clk(ctx);
 		/* disable seninf csi clk */
-		switch (ctx->seninfIdx) {
-		case SENINF_1:
-		case SENINF_2:
+		switch (ctx->seninfAsyncIdx) {
+		case SENINF_ASYNC_0:
 			if (core->clk[CLK_TOP_SENINF])
 				clk_disable_unprepare(core->clk[CLK_TOP_SENINF]);
 			break;
-		case SENINF_3:
-		case SENINF_4:
+		case SENINF_ASYNC_1:
 			if (core->clk[CLK_TOP_SENINF1])
 				clk_disable_unprepare(core->clk[CLK_TOP_SENINF1]);
 			break;
-		case SENINF_5:
-		case SENINF_6:
+		case SENINF_ASYNC_2:
 			if (core->clk[CLK_TOP_SENINF2])
 				clk_disable_unprepare(core->clk[CLK_TOP_SENINF2]);
 			break;
-		case SENINF_7:
-		case SENINF_8:
+		case SENINF_ASYNC_3:
 			if (core->clk[CLK_TOP_SENINF3])
 				clk_disable_unprepare(core->clk[CLK_TOP_SENINF3]);
 			break;
-		case SENINF_9:
-		case SENINF_10:
+		case SENINF_ASYNC_4:
 			if (core->clk[CLK_TOP_SENINF4])
 				clk_disable_unprepare(core->clk[CLK_TOP_SENINF4]);
 			break;
-		case SENINF_11:
-		case SENINF_12:
+		case SENINF_ASYNC_5:
 			if (core->clk[CLK_TOP_SENINF5])
 				clk_disable_unprepare(core->clk[CLK_TOP_SENINF5]);
 			break;
 		default:
-			seninf_logi(ctx, "invalid seninfIdx(%d)\n", ctx->seninfIdx);
+			seninf_logi(ctx, "invalid seninfAsyncIdx(%d)\n", ctx->seninfAsyncIdx);
 			mutex_unlock(&core->mutex);
 			return -EINVAL;
 		}
@@ -3642,6 +3722,7 @@ static int runtime_resume(struct device *dev)
 	u64 data_rate = 0;
 	unsigned long flags;
 
+
 	mutex_lock(&core->mutex);
 
 	if (vc)
@@ -3663,6 +3744,10 @@ static int runtime_resume(struct device *dev)
 				return ret;
 			}
 			seninf_logd(ctx, "seninf_core_pm_runtime_get_sync(success),ret(%d)\n", ret);
+
+			/* setup common reg */
+			core_common_reg_setup(ctx);
+
 			/*
 			 * enable seninf cg
 			 * including cam, seninf, camtg
@@ -3695,9 +3780,10 @@ static int runtime_resume(struct device *dev)
 				seninf_logd(ctx,
 					"clk_prepare_enable clk[CLK_TOP_CAMTM:%u]:%s(success),ret(%d)\n",
 					CLK_TOP_CAMTM, clk_names[CLK_TOP_CAMTM], ret);
-				/* enable tsrec timer clk */
-				mtk_cam_seninf_tsrec_timer_enable(1);
 			}
+
+			/* enable tsrec timer clk */
+			mtk_cam_seninf_tsrec_timer_enable(1);
 		} else
 			seninf_logi(ctx,
 				"multi user(%d),cnt(%d)\n",
@@ -3760,8 +3846,7 @@ static int runtime_resume(struct device *dev)
 				seninf_logi(ctx, "aov sensor streaming on scp now, won't disable mux/cammux\n");
 			else {
 				seninf_logi(ctx, "common sensor streaming, disable mux/cammux for initialization\n");
-				g_seninf_ops->_disable_all_mux(ctx);
-				g_seninf_ops->_disable_all_cammux(ctx);
+				g_seninf_ops->_disable_all_outmux(ctx);
 			}
 		}
 	} else
@@ -3783,8 +3868,8 @@ static int seninf_remove(struct platform_device *pdev)
 
 	if (ctx->streaming) {
 		g_seninf_ops->_set_idle(ctx);
-		mtk_cam_seninf_release_mux(ctx);
-		mtk_cam_seninf_tsrec_n_reset(ctx->seninfIdx);
+		mtk_cam_seninf_release_outmux(ctx);
+		mtk_cam_seninf_tsrec_n_reset(ctx->tsrec_idx);
 	}
 
 	pm_runtime_disable(ctx->dev);
@@ -3964,8 +4049,10 @@ int mtk_cam_seninf_dump(struct v4l2_subdev *sd, u32 seq_id, bool force_check)
 #if ESD_RESET_SUPPORT
 			if (ret != 0) {
 				reset_by_user = is_reset_by_user(sd_to_ctx(sd));
-				if (!reset_by_user)
+				if (!reset_by_user){
 					reset_sensor(sd_to_ctx(sd));
+					ctx->esd_status_flag = 1;
+				}
 			}
 #endif
 		} else
@@ -3979,6 +4066,18 @@ int mtk_cam_seninf_dump(struct v4l2_subdev *sd, u32 seq_id, bool force_check)
 		 __func__, ret, seq_id, force_check, reset_by_user);
 
 	return (ret && reset_by_user);
+}
+
+int mtk_cam_seninf_get_csi_irq_status(struct v4l2_subdev *sd, struct v4l2_ctrl *ctrl)
+{
+	struct seninf_ctx *ctx = sd_to_ctx(sd);
+
+	ctrl->val  = (g_seninf_ops->_get_csi_irq_status(sd_to_ctx(sd)) & 0x7fff)
+							| (ctx->esd_status_flag << 15);
+	ctx->esd_status_flag = 0;
+	dev_info(ctx->dev,"SENINF%d_CSI2_IRQ_STATUS(0x%x)\n", ctx->seninfAsyncIdx, ctrl->val);
+
+	return 0;
 }
 
 int mtk_cam_seninf_dump_current_status(struct v4l2_subdev *sd)

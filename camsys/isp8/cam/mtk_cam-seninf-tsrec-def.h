@@ -34,9 +34,19 @@
 /******************************************************************************
  * TSREC spec., hardware define
  *****************************************************************************/
+/*---------------------------------------------------------------------------*/
 /*
- * ISP7s : TSREC HW does not have global timer.
- * ISP7s+: TSREC HW with global timer (use global timer => 64-bits timestamp).
+ * ISP8  : TSREC HW changed and supported VM architecture.
+ */
+// #define TSREC_HW_VER_ISP_8           (0)
+#define TSREC_HW_VER_ISP_8           (1)
+/*---------------------------------------------------------------------------*/
+
+
+/*---------------------------------------------------------------------------*/
+/*
+ * ISP7s : TSREC HW does NOT have global timer.
+ * After ISP7sp: TSREC HW with global timer (use global timer => 64-bits ts).
  */
 #define TSREC_WITH_GLOBAL_TIMER      (1)
 
@@ -54,6 +64,8 @@
 #define TSREC_WITH_64_BITS_TIMER_RG  (0)
 #define tsrec_tick_t                 unsigned int
 #endif
+/*---------------------------------------------------------------------------*/
+
 
 #define TSREC_TICK_FACTOR            (208)
 
@@ -62,11 +74,19 @@
 #define TSREC_TS_REC_MAX_CNT         (4)
 
 
+#define TSREC_INT_EN_VSYNC_BASE_BIT  (0)
+
+#if (TSREC_HW_VER_ISP_8)
+#define TSREC_INT_EN_HSYNC_BASE_BIT  (3)
+#else
+#define TSREC_INT_EN_HSYNC_BASE_BIT  (16)
+#endif
+
+
 /******************************************************************************
  * TSREC software define/macro
  *****************************************************************************/
 #define SENINF_IDX_NONE              (255)
-#define TSREC_NO_NONE                (255)
 
 
 #define TSREC_VC_NONE                (0x1f)
@@ -175,6 +195,7 @@ enum tsrec_log_ctrl_category {
 	LOG_TSREC_CB_INFO,
 
 	/* extra category */
+	LOG_TSREC_IRQ_TOP = 24,
 	LOG_TSREC_WITH_RAW_TICK = 26,
 
 	/* max category */
@@ -183,8 +204,12 @@ enum tsrec_log_ctrl_category {
 
 
 /* log macro/define */
+#ifndef FS_UT
 #define _TSREC_LOG_ENABLED(category)	\
 	((tsrec_log_ctrl) & (1UL << (category)))
+#else
+#define _TSREC_LOG_ENABLED(category) (1)
+#endif
 
 
 /*----------------------------------------------------------------------------*/
@@ -315,6 +340,7 @@ do{ \
 #define TSREC_KZALLOC(size)          (calloc(1, (size)))
 #define TSREC_KCALLOC(n, size)       (calloc((n), (size)))
 #define TSREC_KFREE(p)               (free((p)))
+#define TSREC_DEVM_KFREE(p)          (free((p)))
 
 #define TSREC_SPIN_LOCK(p)
 #define TSREC_SPIN_UNLOCK(p)
@@ -330,6 +356,7 @@ extern struct device *seninf_dev;
 #define TSREC_KZALLOC(size)          (devm_kzalloc(seninf_dev, (size), GFP_ATOMIC))
 #define TSREC_KCALLOC(n, size)       (devm_kcalloc(seninf_dev, (n), (size), GFP_ATOMIC))
 #define TSREC_KFREE(p)               (devm_kfree(seninf_dev, (p)))
+#define TSREC_DEVM_KFREE(p)
 
 #define TSREC_SPIN_LOCK(p)           (spin_lock(p))
 #define TSREC_SPIN_UNLOCK(p)         (spin_unlock(p))

@@ -24,6 +24,9 @@
 /******************************************************************************
  * TSREC information structures/enums
  *****************************************************************************/
+#define TSREC_NO_NONE                (255)
+
+
 struct mtk_cam_seninf_tsrec_vc_dt_info {
 	/* general info */
 	unsigned int vc;
@@ -77,6 +80,10 @@ void notify_tsrec_update_intr_en_2(const unsigned int val);
 void notify_tsrec_update_intr_status_2(const unsigned int val);
 
 void notify_tsrec_update_tsrec_n_clk_en_status(const unsigned int tsrec_no,
+	const unsigned int val);
+void notify_tsrec_update_tsrec_n_intr_en(const unsigned int tsrec_no,
+	const unsigned int val);
+void notify_tsrec_update_tsrec_n_intr_status(const unsigned int tsrec_no,
 	const unsigned int val);
 void notify_tsrec_update_tsrec_n_trig_src(const unsigned int tsrec_no,
 	const unsigned int reg_val);
@@ -148,27 +155,17 @@ void mtk_cam_seninf_tsrec_dbg_dump_ts_records(const unsigned int tsrec_no);
 /******************************************************************************
  * TSREC init/sysfs/irq-init functions
  *****************************************************************************/
-#ifndef FS_UT
 /*
- * call this API when seninf core probe.
+ * call this API when seninf core probe / remove (=> in tsrec uninit).
  */
-void mtk_cam_seninf_tsrec_irq_init(struct seninf_core *core, const int irq);
-#endif // !FS_UT
+void mtk_cam_seninf_tsrec_irq_init(struct seninf_core *core);
+void mtk_cam_seninf_tsrec_irq_uninit(void);
 
 
 /*
- * call this API when seninf core probe.
+ * call this API when seninf core probe / remove.
  */
-#ifndef FS_UT
 void mtk_cam_seninf_tsrec_init(struct device *dev, void __iomem *p_seninf_base);
-#else
-void mtk_cam_seninf_tsrec_init(void);
-#endif // !FS_UT
-
-
-/*
- * call this API when seninf core remove.
- */
 void mtk_cam_seninf_tsrec_uninit(void);
 
 
@@ -177,10 +174,10 @@ void mtk_cam_seninf_tsrec_uninit(void);
  *****************************************************************************/
 #ifdef FS_UT
 void mtk_cam_seninf_tsrec_ut_dbg_sysfs_ctrl(const unsigned int cmd_val);
+void mtk_cam_seninf_tsrec_ut_dbg_update_tsrec_intr_en_bits(
+	const unsigned int tsrec_no, const unsigned int flag);
 void mtk_cam_seninf_tsrec_ut_dbg_irq_seninf_tsrec(void);
-void mtk_cam_seninf_tsrec_init_for_ut_test(const unsigned int flag,
-	const unsigned int tsrec_hw_cnt, const unsigned int seninf_hw_cnt);
-#endif // FS_UT
+#endif
 
 
 #endif

@@ -4,16 +4,83 @@
 #ifndef __MTK_CAM_SENINF_IF_H__
 #define __MTK_CAM_SENINF_IF_H__
 
+#include <media/v4l2-ctrls.h>
+
+/* ISP8 new API */
+
+/**
+ * struct of camtg config setting
+ *
+ * @pad_id: source pad id of the seninf subdev, to indicate the image
+ *          processing engine to be conncted
+ * @tag_id: the tag of connected data to be
+ */
+struct mtk_cam_seninf_camtg_param {
+	int pad_id;
+	int tag_id;
+};
+
+/**
+ * set camtg config
+ *
+ * @sd: sensor interface's V4L2 subdev
+ * @camtg: physical image processing engine's id (e.g. raw's connect outmux id)
+ * @params: the parameters of config setting with an struct array
+ * @param_cnt: the array size of {@params}
+ */
+int mtk_cam_seninf_set_camtg_cfg(struct v4l2_subdev *sd, int camtg,
+				struct mtk_cam_seninf_camtg_param *params,
+				int param_cnt);
+
+/**
+ * set config ready
+ *
+ * @sd: sensor interface's V4L2 subdev
+ * @camtg: physical image processing engine's id (e.g. raw's connect outmux id)
+ */
+int mtk_cam_seninf_set_cfg_rdy(struct v4l2_subdev *sd, int camtg);
+
+/**
+ * set camtg pixel mode
+ *
+ * @sd: sensor interface's V4L2 subdev
+ * @camtg: physical image processing engine's id (e.g. raw's connect outmux id)
+ * @pixmode: the pixel mode
+ */
+int mtk_cam_seninf_set_camtg_pixmode(struct v4l2_subdev *sd, int camtg,
+				 int pixmode);
+
+/**
+ * get camtg pixel mode
+ *
+ * @sd: sensor interface's V4L2 subdev
+ * @camtg: physical image processing engine's id (e.g. raw's connect outmux id)
+ * @pixmode: the returned pixel mode
+ */
+int mtk_cam_seninf_get_camtg_pixmode(struct v4l2_subdev *sd, int camtg,
+				 int *pixmode);
+
+/////
+
+/* @Deprecated */
 int mtk_cam_seninf_get_pixelmode(struct v4l2_subdev *sd, int pad_id,
 				 int *pixelmode);
 
+/* @Deprecated */
 int mtk_cam_seninf_set_pixelmode(struct v4l2_subdev *sd, int pad_id,
 				 int pixelmode);
 
+/* @Deprecated */
 int mtk_cam_seninf_set_pixelmode_camsv(struct v4l2_subdev *sd, int pad_id,
 				 int pixelMode, int camtg);
 
+/* @Deprecated */
 int mtk_cam_seninf_set_camtg(struct v4l2_subdev *sd, int pad_id, int camtg);
+
+/* @Deprecated */
+int mtk_cam_seninf_set_camtg_camsv(struct v4l2_subdev *sd, int pad_id, int camtg, int tag_id);
+
+//////
 
 int mtk_cam_seninf_get_pixelrate(struct v4l2_subdev *sd, s64 *pixelrate);
 
@@ -21,13 +88,13 @@ int mtk_cam_seninf_calc_pixelrate(struct device *dev, s64 width, s64 height, s64
 				  s64 vblank, int fps_n, int fps_d, s64 sensor_pixel_rate);
 
 int mtk_cam_seninf_dump(struct v4l2_subdev *sd, u32 seq_id, bool force_check);
+int mtk_cam_seninf_get_csi_irq_status(struct v4l2_subdev *sd, struct v4l2_ctrl *ctrl);
 
 int mtk_cam_seninf_dump_current_status(struct v4l2_subdev *sd);
 
 int mtk_cam_seninf_check_timeout(struct v4l2_subdev *sd, u64 time_waited);
 u64 mtk_cam_seninf_get_frame_time(struct v4l2_subdev *sd, u32 seq_id);
 
-int mtk_cam_seninf_set_camtg_camsv(struct v4l2_subdev *sd, int pad_id, int camtg, int tag_id);
 int mtk_cam_seninf_get_tag_order(struct v4l2_subdev *sd, __u32 fmt_code, int pad_id);
 int mtk_cam_seninf_get_vsync_order(struct v4l2_subdev *sd);
 

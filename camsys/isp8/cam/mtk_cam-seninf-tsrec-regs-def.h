@@ -10,7 +10,34 @@
 /******************************************************************************
  * TSREC registers address & offset
  *****************************************************************************/
-#define SENINF_BASE                       0x1A00E000
+/* for iomem operation type/method */
+#define SENINF_UNIFY_IOMEM_MAPPING        (0)	// for isp8 and after
+// #define SENINF_UNIFY_IOMEM_MAPPING        (1)	// for before isp7sp
+
+#if (SENINF_UNIFY_IOMEM_MAPPING)
+#define ADDR_SHIFT_FROM_TSREC_TOP         (0)	// (1)
+#else
+#define ADDR_SHIFT_FROM_TSREC_TOP         (0)	// this case must set to false
+#endif
+
+
+/*--------------------------------------------------------------------------*/
+// tsrec_top related address shift define
+/*--------------------------------------------------------------------------*/
+#if (TSREC_HW_VER_ISP_8)
+#define TSREC_BASE                        0x3A310000
+
+#define TSREC_TIMER_CFG_OFFSET            0x0
+#define TSREC_TOP_CFG_OFFSET              0x4
+#define TSREC_TIMER_LAT_OFFSET            0x10
+
+#if (TSREC_WITH_64_BITS_TIMER_RG)
+#define TSREC_TIMER_LAT_M_OFFSET          0x14
+#endif
+
+#define TSREC_DEVICE_IRQ_SEL_0_OFFSET     0x20
+
+#else	// => ISP7sp/ISP7s
 #define TSREC_BASE                        0x1A024000
 
 #define TSREC_TOP_CFG_OFFSET              0x0
@@ -26,71 +53,117 @@
 #if (TSREC_WITH_64_BITS_TIMER_RG)
 #define TSREC_TIMER_LAT_M_OFFSET          0x28
 #endif
-
-
-/*--------------------------------------------------------------------------*/
-#define TSREC_N_OFFSET                    0x180
-
-#define TSREC_N_CFG_OFFSET                0x40
-#define TSREC_N_SW_RST_OFFSET             0x44
-#define TSREC_N_TS_CNT_OFFSET             0x48
-#define TSREC_N_TRIG_SRC_OFFSET           0x4C
-
-#define TSREC_N_EXP_VC_DT_BASE_OFFSET     0x50
-#define TSREC_N_EXP_CNT_BASE_OFFSET       0x70
-
-#if (TSREC_WITH_64_BITS_TIMER_RG)
-#define TSREC_N_EXP_CNT_M_BASE_OFFSET     0xA0
 #endif
 
 
-#define TSREC_ADDR_BY_OFFSET(n)    (TSREC_BASE+(n))
-#define TSREC_CFG_OFFSET(n)        ((n)*TSREC_N_OFFSET+TSREC_N_CFG_OFFSET)
-#define TSREC_SW_RST_OFFSET(n)     ((n)*TSREC_N_OFFSET+TSREC_N_SW_RST_OFFSET)
-#define TSREC_TS_CNT_OFFSET(n)     ((n)*TSREC_N_OFFSET+TSREC_N_TS_CNT_OFFSET)
-#define TSREC_TRIG_SRC_OFFSET(n)   ((n)*TSREC_N_OFFSET+TSREC_N_TRIG_SRC_OFFSET)
+/*--------------------------------------------------------------------------*/
+// per tsrec related address shift define
+/*--------------------------------------------------------------------------*/
+#if (TSREC_HW_VER_ISP_8)
+#define TSREC_N_1ST_BASE_OFFSET           0x10000
+#define TSREC_N_OFFSET                    0x10000
+
+#define TSREC_N_CFG_OFFSET                0x0
+#define TSREC_N_INT_EN_OFFSET             0x4
+#define TSREC_N_INT_STATUS_OFFSET         0x8
+#define TSREC_N_SW_RST_OFFSET             0x10
+#define TSREC_N_TS_CNT_OFFSET             0x14
+#define TSREC_N_TRIG_SRC_OFFSET           0x18
+
+#define TSREC_N_EXP_VC_DT_BASE_OFFSET     0x1C
+#define TSREC_N_EXP_CNT_BASE_OFFSET       0x28
+
+#if (TSREC_WITH_64_BITS_TIMER_RG)
+#define TSREC_N_EXP_CNT_M_BASE_OFFSET     0x58
+#endif
+#else	// => ISP7sp/ISP7s
+#define TSREC_N_1ST_BASE_OFFSET           0x40
+#define TSREC_N_OFFSET                    0x180
+
+#define TSREC_N_CFG_OFFSET                0x0		// 0x40
+#define TSREC_N_SW_RST_OFFSET             0x4		// 0x44
+#define TSREC_N_TS_CNT_OFFSET             0x8		// 0x48
+#define TSREC_N_TRIG_SRC_OFFSET           0xC		// 0x4C
+
+#define TSREC_N_EXP_VC_DT_BASE_OFFSET     0x10		// 0x50
+#define TSREC_N_EXP_CNT_BASE_OFFSET       0x30		// 0x70
+
+#if (TSREC_WITH_64_BITS_TIMER_RG)
+#define TSREC_N_EXP_CNT_M_BASE_OFFSET     0x60		// 0xA0
+#endif
+#endif
+
+
+/*--------------------------------------------------------------------------*/
+// register address shift utilities define
+/*--------------------------------------------------------------------------*/
+#define TSREC_N_BASE_SHIFT(n) \
+	((n >= 0) ? (TSREC_N_1ST_BASE_OFFSET+(n)*TSREC_N_OFFSET) : 0)
+
+
+#if (ADDR_SHIFT_FROM_TSREC_TOP)
+
+#define TSREC_ADDR(n, shift)       (TSREC_BASE+(shift))
+#define TSREC_CFG_OFFSET(n)        (TSREC_N_BASE_SHIFT((n))+TSREC_N_CFG_OFFSET)
+
+#if (TSREC_HW_VER_ISP_8)
+#define TSREC_INT_EN_OFFSET(n)     (TSREC_N_BASE_SHIFT((n))+TSREC_N_INT_EN_OFFSET)
+#define TSREC_INT_STATUS_OFFSET(n) (TSREC_N_BASE_SHIFT((n))+TSREC_N_INT_STATUS_OFFSET)
+#endif
+
+#define TSREC_SW_RST_OFFSET(n)     (TSREC_N_BASE_SHIFT((n))+TSREC_N_SW_RST_OFFSET)
+#define TSREC_TS_CNT_OFFSET(n)     (TSREC_N_BASE_SHIFT((n))+TSREC_N_TS_CNT_OFFSET)
+#define TSREC_TRIG_SRC_OFFSET(n)   (TSREC_N_BASE_SHIFT((n))+TSREC_N_TRIG_SRC_OFFSET)
 
 #define TSREC_EXP_VC_DT_OFFSET(n, exp_n) \
-	((n)*TSREC_N_OFFSET+TSREC_N_EXP_VC_DT_BASE_OFFSET \
+	(TSREC_N_BASE_SHIFT((n))+TSREC_N_EXP_VC_DT_BASE_OFFSET \
 	+(exp_n)*(32/8))
 
 #define TSREC_EXP_CNT_OFFSET(n, exp_n, rec_n) \
-	((n)*TSREC_N_OFFSET+TSREC_N_EXP_CNT_BASE_OFFSET \
+	(TSREC_N_BASE_SHIFT((n))+TSREC_N_EXP_CNT_BASE_OFFSET \
 	+((exp_n)*TSREC_TS_REC_MAX_CNT+(rec_n))*(32/8))
 
 #if (TSREC_WITH_64_BITS_TIMER_RG)
 #define TSREC_EXP_CNT_M_OFFSET(n, exp_n, rec_n) \
-	((n)*TSREC_N_OFFSET+TSREC_N_EXP_CNT_M_BASE_OFFSET \
+	(TSREC_N_BASE_SHIFT((n))+TSREC_N_EXP_CNT_M_BASE_OFFSET \
 	+((exp_n)*TSREC_TS_REC_MAX_CNT+(rec_n))*(32/8))
 #endif
+
+#else // => !ADDR_SHIFT_FROM_TSREC_TOP
+
+#define TSREC_ADDR(n, shift)       (TSREC_BASE+TSREC_N_BASE_SHIFT((n))+(shift))
+#define TSREC_CFG_OFFSET(n)        (TSREC_N_CFG_OFFSET)
+
+#if (TSREC_HW_VER_ISP_8)
+#define TSREC_INT_EN_OFFSET(n)     (TSREC_N_INT_EN_OFFSET)
+#define TSREC_INT_STATUS_OFFSET(n) (TSREC_N_INT_STATUS_OFFSET)
+#endif
+
+#define TSREC_SW_RST_OFFSET(n)     (TSREC_N_SW_RST_OFFSET)
+#define TSREC_TS_CNT_OFFSET(n)     (TSREC_N_TS_CNT_OFFSET)
+#define TSREC_TRIG_SRC_OFFSET(n)   (TSREC_N_TRIG_SRC_OFFSET)
+
+#define TSREC_EXP_VC_DT_OFFSET(n, exp_n) \
+	(TSREC_N_EXP_VC_DT_BASE_OFFSET \
+	+(exp_n)*(32/8))
+
+#define TSREC_EXP_CNT_OFFSET(n, exp_n, rec_n) \
+	(TSREC_N_EXP_CNT_BASE_OFFSET \
+	+((exp_n)*TSREC_TS_REC_MAX_CNT+(rec_n))*(32/8))
+
+#if (TSREC_WITH_64_BITS_TIMER_RG)
+#define TSREC_EXP_CNT_M_OFFSET(n, exp_n, rec_n) \
+	(TSREC_N_EXP_CNT_M_BASE_OFFSET \
+	+((exp_n)*TSREC_TS_REC_MAX_CNT+(rec_n))*(32/8))
+#endif
+
+#endif // SENINF_UNIFY_IOMEM_MAPPING
 
 
 /******************************************************************************
  * TSREC registers union structure
  *****************************************************************************/
-#define REG_TSREC_CFG_VALID_MASK          0x111111
-union REG_TSREC_CFG { /* 0x1A02400 */
-	struct {
-		unsigned int TSREC_A_CK_EN               :  1;  /*  0.. 0, 0x00000001 */
-		unsigned int TSREC_B_CK_EN               :  1;  /*  1.. 1, 0x00000002 */
-		unsigned int TSREC_C_CK_EN               :  1;  /*  2.. 2, 0x00000004 */
-		unsigned int TSREC_D_CK_EN               :  1;  /*  3.. 3, 0x00000008 */
-		unsigned int TSREC_E_CK_EN               :  1;  /*  4.. 4, 0x00000010 */
-		unsigned int TSREC_F_CK_EN               :  1;  /*  5.. 5, 0x00000020 */
-		unsigned int rsv_6                       : 10;  /*  6..15, 0x0000FFC0 */
-		unsigned int TSREC_A_SRC_SELECT          :  1;  /* 16..16, 0x00010000 */
-		unsigned int TSREC_B_SRC_SELECT          :  1;  /* 17..17, 0x00020000 */
-		unsigned int TSREC_C_SRC_SELECT          :  1;  /* 18..18, 0x00040000 */
-		unsigned int TSREC_D_SRC_SELECT          :  1;  /* 19..19, 0x00080000 */
-		unsigned int TSREC_E_SRC_SELECT          :  1;  /* 20..20, 0x00100000 */
-		unsigned int TSREC_F_SRC_SELECT          :  1;  /* 21..21, 0x00200000 */
-		unsigned int rsv_22                      : 10;  /* 22..31, 0xFFC00000 */
-	} bits;
-	unsigned int val;
-};
-
-
-union REG_TSREC_TIMER_CFG { /* 0x1A024004 */
+union REG_TSREC_TIMER_CFG { /* 0x1A024004 or 0x3A310000 */
 	struct {
 		unsigned int TSREC_TIMER_FIX_CLK_EN      :  1;  /*  0.. 0, 0x00000001 */
 		unsigned int TSREC_TIMER_CK_EN           :  1;  /*  1.. 1, 0x00000002 */
@@ -109,7 +182,7 @@ union REG_TSREC_TIMER_CFG { /* 0x1A024004 */
 };
 
 
-#define TSREC_INT_WCLR_EN_BIT     BIT(31)
+#if !(TSREC_HW_VER_ISP_8)
 union REG_TSREC_INT_EN { /* 0x1A024010 */
 	struct {
 		unsigned int TSREC_A_EXP0_VSYNC_INT_EN   :  1;  /*  0.. 0, 0x00000001 */
@@ -217,11 +290,15 @@ union REG_TSREC_INT_STATUS_2 { /* 0x1A024020 */
 	} bits;
 	unsigned int val;
 };
+#endif // !TSREC_HW_VER_ISP_8
 
 
 /******************************************************************************
  * TSREC registers general union structure / define
  *****************************************************************************/
+#define TSREC_INT_WCLR_EN_BIT             31
+
+
 union REG_TSREC_N_TS_CNT {
 	struct {
 		unsigned int TSREC_N_EXP0_TS_CNT         :  2;  /*  0.. 1, 0x00000003 */

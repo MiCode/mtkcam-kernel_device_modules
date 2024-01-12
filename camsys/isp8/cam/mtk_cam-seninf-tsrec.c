@@ -2,10 +2,13 @@
 // Copyright (c) 2022 MediaTek Inc.
 
 
+#define PFX "TSREC"
+#define TSREC_LOG_DBG_DEF_CAT LOG_TSREC
+
+
 #ifndef FS_UT
 #include <linux/interrupt.h>    /* for interrupt/irq */
-#include <linux/delay.h>        /* for get ktime */
-#include <linux/of.h>           /* for get property */
+#include <linux/delay.h>        /* for ktime */
 #include <linux/workqueue.h>    /* for workqueue */
 #include <linux/kfifo.h>        /* for kfifo */
 #include <linux/kthread.h>      /* for kthread */
@@ -14,18 +17,16 @@
 #include "mtk_cam-seninf-tsrec.h"
 #include "mtk_cam-seninf-tsrec-regs.h"
 #include "mtk_cam-seninf-tsrec-def.h"
-
-
-#define PFX "TSREC"
-#define TSREC_LOG_DBG_DEF_CAT LOG_TSREC
+#include "mtk_cam-seninf-tsrec-utils-impl.h"
 
 
 /******************************************************************************
  * TSREC member structure/variables
  *****************************************************************************/
-#ifndef FS_UT
 struct device *seninf_dev;
 
+
+#ifndef FS_UT
 DEFINE_MUTEX(tsrec_log_concurrency_lock);
 DEFINE_SPINLOCK(tsrec_ts_data_update_lock);
 #endif
@@ -78,6 +79,10 @@ enum tsrec_intr_status_rg_id {
 
 
 struct tsrec_irq_info_st {
+	unsigned int tsrec_no;
+	unsigned int intr_en;
+	unsigned int status;
+
 	unsigned int intr_status;
 	unsigned int intr_status_2;
 
@@ -219,6 +224,10 @@ struct tsrec_n_regs_st {
 	unsigned int exp_vc_dt[TSREC_EXP_MAX_CNT];
 	unsigned int trig_src;
 
+	/* interrupt info */
+	tsrec_atomic_t intr_en;
+	tsrec_atomic_t intr_status;
+
 	/* timestamp records */
 	struct tsrec_n_timestamp_st ts_recs;
 
@@ -239,8 +248,9 @@ struct tsrec_status_st {
 	unsigned int seninf_hw_cnt;
 
 	/* tsrec IRQ number & IRQ enable/disable status */
-	int tsrec_irq;
-	unsigned int tsrec_irq_en_status;
+	int irq_cnt;
+	int *irq_arr;
+	tsrec_atomic_t irq_en_bits;
 
 	/* tsrec timer cfg */
 	tsrec_atomic_t timer_en_cnt;
@@ -251,6 +261,7 @@ struct tsrec_status_st {
 	tsrec_atomic_t top_cfg;
 
 	/* tsrec interrupt info */
+	tsrec_atomic_t intr_en_bits;
 	tsrec_atomic_t intr_en;
 	tsrec_atomic_t intr_status;
 	tsrec_atomic_t intr_en_2;
@@ -259,6 +270,11 @@ struct tsrec_status_st {
 	/* tsrec regs settings & timestamp records */
 	/* array size is by tsrec_hw_cnt got from dts */
 	struct tsrec_n_regs_st **tsrec_n_regs;
+
+
+	/* for custom using/property */
+	/* SB test => read and set from dts property */
+	unsigned int does_set_device_irq_sel_in_kernel;
 };
 static struct tsrec_status_st tsrec_status;
 
@@ -724,6 +740,42 @@ void notify_tsrec_update_tsrec_n_clk_en_status(const unsigned int tsrec_no,
 }
 
 
+void notify_tsrec_update_tsrec_n_intr_en(const unsigned int tsrec_no,
+	const unsigned int val)
+{
+	struct tsrec_n_regs_st *ptr = NULL;
+
+	if (unlikely(g_tsrec_n_regs_st(tsrec_no, &ptr, __func__) != 0))
+		return;
+	if (unlikely(ptr == NULL)) {
+		TSREC_LOG_INF(
+			"ERROR: tsrec_n_regs[%u] is nullptr (%p), return   [tsrec_no:%u, reg_val:%#x]\n",
+			tsrec_no, ptr, tsrec_no, val);
+		return;
+	}
+
+	TSREC_ATOMIC_SET((int)val, &ptr->intr_en);
+}
+
+
+void notify_tsrec_update_tsrec_n_intr_status(const unsigned int tsrec_no,
+	const unsigned int val)
+{
+	struct tsrec_n_regs_st *ptr = NULL;
+
+	if (unlikely(g_tsrec_n_regs_st(tsrec_no, &ptr, __func__) != 0))
+		return;
+	if (unlikely(ptr == NULL)) {
+		TSREC_LOG_INF(
+			"ERROR: tsrec_n_regs[%u] is nullptr (%p), return   [tsrec_no:%u, reg_val:%#x]\n",
+			tsrec_no, ptr, tsrec_no, val);
+		return;
+	}
+
+	TSREC_ATOMIC_SET((int)val, &ptr->intr_status);
+}
+
+
 void notify_tsrec_update_tsrec_n_trig_src(const unsigned int tsrec_no,
 	const unsigned int reg_val)
 {
@@ -794,10 +846,8 @@ static void tsrec_pop_irq_info_msgfifo(struct tsrec_irq_info_st *irq_info)
 
 	WARN_ON(len != sizeof(*irq_info));
 #else
-	ut_fs_tsrec_fifo_out(
-		&irq_info->intr_status, &irq_info->intr_status_2,
-		&irq_info->tsrec_ts_us);
-#endif // !FS_UT
+	ut_fs_tsrec_fifo_out(irq_info);
+#endif
 }
 
 
@@ -816,10 +866,8 @@ static int tsrec_push_irq_info_msgfifo(struct tsrec_irq_info_st *irq_info)
 
 	WARN_ON(len != sizeof(*irq_info));
 #else
-	ut_fs_tsrec_fifo_in(
-		irq_info->intr_status, irq_info->intr_status_2,
-		irq_info->tsrec_ts_us);
-#endif // !FS_UT
+	ut_fs_tsrec_fifo_in(irq_info);
+#endif
 
 	return 0;
 }
@@ -881,7 +929,7 @@ static void tsrec_irq_event_st_uninit(void)
 	kfifo_free(&tsrec_irq_event.msg_fifo);
 
 	if (likely(tsrec_irq_event.msg_buffer != NULL)) {
-		TSREC_KFREE(tsrec_irq_event.msg_buffer);
+		TSREC_DEVM_KFREE(tsrec_irq_event.msg_buffer);
 		tsrec_irq_event.msg_buffer = NULL;
 
 		TSREC_LOG_INF(
@@ -988,7 +1036,7 @@ static void tsrec_find_seninf_ctx_by_tsrec_no(void *irq_dev_ctx,
 
 	*p_seninf_idx = ptr->seninf_idx;
 	list_for_each_entry(ctx, &core->list, list) {
-		if (ctx->seninfIdx == *p_seninf_idx) {
+		if (ctx->tsrec_idx == *p_seninf_idx) {
 			/* find out */
 			*p_seninf_ctx = ctx;
 			return;
@@ -1174,9 +1222,12 @@ static void tsrec_work_handler(struct tsrec_work_request *req)
 #endif
 	if (unlikely(req->irq_dev_ctx == NULL)) {
 		TSREC_LOG_INF(
-			"ERROR: irq_dev_ctx:%p is nullptr, req:(tsrec_no:%u, irq_info(sys_ts:%llu(ns)(+%llu/+%llu)(ns), tsrec_ts:%llu(us), intr(|%#x/%#x)), work_event_info:%#x), worker_handle_at:%llu(ns), return\n",
+			"ERROR: irq_dev_ctx:%p is nullptr, req:(tsrec_no:%u, irq_info(%u, intr(%#x|status:%#x), sys_ts:%llu(ns)(+%llu/+%llu)(ns), tsrec_ts:%llu(us), intr(|%#x/%#x)), work_event_info:%#x), worker_handle_at:%llu(ns), return\n",
 			req->irq_dev_ctx,
 			req->tsrec_no,
+			req->irq_info.tsrec_no,
+			req->irq_info.intr_en,
+			req->irq_info.status,
 			req->irq_info.sys_ts_ns,
 			req->irq_info.duration_ns,
 			req->irq_info.duration_2_ns,
@@ -1196,8 +1247,11 @@ static void tsrec_work_handler(struct tsrec_work_request *req)
 
 	/* !!! START HERE !!! */
 	TSREC_LOG_DBG_CAT_LOCK(LOG_TSREC_WORK_HANDLE,
-		"Force DUMP: req(tsrec_no:%u, irq_info(sys_ts:%llu(ns)(+%llu/+%llu)(ns), tsrec_ts:%llu(us), intr(%#x/%#x|%#x/%#x)), work_event_info:%#x), worker_handle_at:%llu(ns)\n",
+		"Force DUMP: req(tsrec_no:%u, irq_info(%u, intr(%#x|status:%#x), sys_ts:%llu(ns)(+%llu/+%llu)(ns), tsrec_ts:%llu(us), intr(%#x/%#x|%#x/%#x)), work_event_info:%#x), worker_handle_at:%llu(ns)\n",
 		req->tsrec_no,
+		req->irq_info.tsrec_no,
+		req->irq_info.intr_en,
+		req->irq_info.status,
 		req->irq_info.sys_ts_ns,
 		req->irq_info.duration_ns,
 		req->irq_info.duration_2_ns,
@@ -1240,8 +1294,11 @@ static void tsrec_work_handler(struct tsrec_work_request *req)
 
 	if (req->work_event_info & TSREC_WORK_DBG_DUMP_IRQ_INFO) {
 		TSREC_LOG_INF_LOCK(
-			"req(tsrec_no:%u, irq_info(sys_ts:%llu(ns)(+%llu/+%llu)(ns), tsrec_ts:%llu(us), intr(%#x/%#x|%#x/%#x)), work_event_info:%#x), worker_handle_at:%llu(ns)\n",
+			"req(tsrec_no:%u, irq_info(%u, intr(%#x|status:%#x), sys_ts:%llu(ns)(+%llu/+%llu)(ns), tsrec_ts:%llu(us), intr(%#x/%#x|%#x/%#x)), work_event_info:%#x), worker_handle_at:%llu(ns)\n",
 			req->tsrec_no,
+			req->irq_info.tsrec_no,
+			req->irq_info.intr_en,
+			req->irq_info.status,
 			req->irq_info.sys_ts_ns,
 			req->irq_info.duration_ns,
 			req->irq_info.duration_2_ns,
@@ -1525,7 +1582,7 @@ static void tsrec_worker_st_uninit(void)
 #if defined(TSREC_WORK_USING_KTHREAD)
 
 	if (likely(tsrec_worker.kthreads != NULL)) {
-		TSREC_KFREE(tsrec_worker.kthreads);
+		TSREC_DEVM_KFREE(tsrec_worker.kthreads);
 		tsrec_worker.kthreads = NULL;
 
 		TSREC_LOG_INF(
@@ -1536,7 +1593,7 @@ static void tsrec_worker_st_uninit(void)
 #else /* => using workqueue */
 
 	if (likely(tsrec_worker.workqs != NULL)) {
-		TSREC_KFREE(tsrec_worker.workqs);
+		TSREC_DEVM_KFREE(tsrec_worker.workqs);
 		tsrec_worker.workqs = NULL;
 
 		TSREC_LOG_INF(
@@ -1629,7 +1686,7 @@ static void tsrec_seninf_cfg_st_uninit(const unsigned int idx)
 	}
 
 	/* free the memory on this index of array and reset to NULL */
-	TSREC_KFREE(ptr);
+	TSREC_DEVM_KFREE(ptr);
 	tsrec_src.src_cfg[idx] = NULL;
 
 	TSREC_LOG_INF(
@@ -1746,7 +1803,7 @@ static void tsrec_src_st_uninit(void)
 
 	/* free all dynamic malloc data after each structure been freed */
 	if (tsrec_src.src_cfg != NULL) {
-		TSREC_KFREE(tsrec_src.src_cfg);
+		TSREC_DEVM_KFREE(tsrec_src.src_cfg);
 		tsrec_src.src_cfg = NULL;
 
 		TSREC_LOG_INF(
@@ -1819,7 +1876,7 @@ static void tsrec_n_regs_st_uninit(const unsigned int tsrec_no)
 	}
 
 	/* free the memory on this index of array and reset to NULL */
-	TSREC_KFREE(ptr);
+	TSREC_DEVM_KFREE(ptr);
 	tsrec_status.tsrec_n_regs[tsrec_no] = NULL;
 
 	TSREC_LOG_INF(
@@ -1903,6 +1960,9 @@ static void tsrec_n_regs_st_reset(const unsigned int tsrec_no)
 
 	/* reset/init all needed tsrec_src members/variables */
 	ptr->seninf_idx = SENINF_IDX_NONE;
+
+	TSREC_ATOMIC_INIT(0, &ptr->intr_en);
+	TSREC_ATOMIC_INIT(0, &ptr->intr_status);
 }
 
 
@@ -1930,7 +1990,7 @@ static void tsrec_status_st_uninit(void)
 
 	/* free all dynamic malloc data after each structure been freed */
 	if (likely(tsrec_status.tsrec_n_regs != NULL)) {
-		TSREC_KFREE(tsrec_status.tsrec_n_regs);
+		TSREC_DEVM_KFREE(tsrec_status.tsrec_n_regs);
 		tsrec_status.tsrec_n_regs = NULL;
 
 		TSREC_LOG_INF(
@@ -2061,9 +2121,11 @@ static void tsrec_n_update_irq_info_st(const unsigned int tsrec_no,
 		return;
 	if (unlikely(!chk_tsrec_no_valid(tsrec_no, __func__))) {
 		TSREC_LOG_INF(
-			"ERROR: get non-valid tsrec_no:%u (tsrec_hw_cnt:%u), irq_info(sys_ts:%llu(ns)(+%llu/+%llu)(ns), tsrec_ts:%llu(us), intr(|%#x/%#x)), worker_handle_at:%llu(ns), return\n",
+			"ERROR: get non-valid tsrec_no:%u (tsrec_hw_cnt:%u), irq_info(%u, %#x, sys_ts:%llu(ns)(+%llu/+%llu)(ns), tsrec_ts:%llu(us), intr(|%#x/%#x)), worker_handle_at:%llu(ns), return\n",
 			tsrec_no,
 			tsrec_status.tsrec_hw_cnt,
+			irq_info->tsrec_no,
+			irq_info->status,
 			irq_info->sys_ts_ns,
 			irq_info->duration_ns,
 			irq_info->duration_2_ns,
@@ -2087,38 +2149,117 @@ static void tsrec_n_update_irq_info_st(const unsigned int tsrec_no,
 }
 
 
-static void tsrec_irq_enable(const unsigned int en)
+static inline int chk_tsrec_irq_valid(const unsigned int idx,
+	const char *caller)
 {
-	if (!tsrec_status.tsrec_irq) {
+	if (unlikely((tsrec_status.irq_cnt == 0) || (!tsrec_status.irq_arr))) {
 		TSREC_LOG_INF(
-			"ERROR: TSREC-IRQ non-valid(tsrec_irq:%d), irq_en_status:%u, return   [en:%u]\n",
-			tsrec_status.tsrec_irq,
-			tsrec_status.tsrec_irq_en_status,
-			en);
-		return;
+			"[%s] ERROR: non-valid info:(irq_cnt:%d/irq_arr:%p), idx:%u/irq_en_bits:%#x, return\n",
+			caller,
+			tsrec_status.irq_cnt,
+			tsrec_status.irq_arr,
+			idx,
+			TSREC_ATOMIC_READ(&tsrec_status.irq_en_bits));
+		return 0;
+	}
+	if (unlikely(idx >= tsrec_status.irq_cnt)) {
+		TSREC_LOG_INF(
+			"[%s] ERROR: non-valid IRQ_SEL:(idx:%u/irq_cnt:%d), irq_en_bits:%#x, return\n",
+			caller,
+			idx,
+			tsrec_status.irq_cnt,
+			TSREC_ATOMIC_READ(&tsrec_status.irq_en_bits));
+		return 0;
+	}
+	if (unlikely(tsrec_status.irq_arr[idx] == 0)) {
+		TSREC_LOG_INF(
+			"[%s] ERROR: non-valid IRQ:(irq_arr[%u]:%d), irq_en_bits:%#x, return\n",
+			caller,
+			idx,
+			tsrec_status.irq_arr[idx],
+			TSREC_ATOMIC_READ(&tsrec_status.irq_en_bits));
+		return 0;
 	}
 
-	tsrec_status.tsrec_irq_en_status = (en) ? 1 : 0;
+	return 1;
+}
 
-#ifndef FS_UT
+
+static void tsrec_setup_default_device_irq_sel(const unsigned int flag)
+{
+#if (TSREC_HW_VER_ISP_8)
+	const unsigned int val = flag
+		? (0xffffffff & TSREC_BIT_MASK(tsrec_status.tsrec_hw_cnt)) : 0;
+	const unsigned int no = 0;
+
+	if (likely(tsrec_status.does_set_device_irq_sel_in_kernel == 0))
+		return;
+
+	/* default select all tsrec IRQ to device 0 */
+	mtk_cam_seninf_tsrec_s_device_irq_sel(no, val);
+
+	TSREC_LOG_INF("NOTICE: set device irq sel:(no:%u/val:%#x)\n", no, val);
+#endif
+}
+
+
+static void tsrec_irq_enable(const unsigned int en, const unsigned int idx)
+{
+	if (unlikely(chk_tsrec_irq_valid(idx, __func__) == 0))
+		return;
+
 	if (en) {
-		tsrec_irq_event_st_reset();
-		enable_irq(tsrec_status.tsrec_irq);
-	} else
-		disable_irq(tsrec_status.tsrec_irq);
-#endif // !FS_UT
+		if (TSREC_ATOMIC_READ(&tsrec_status.irq_en_bits) == 0)
+			tsrec_irq_event_st_reset();
+
+		enable_irq(tsrec_status.irq_arr[idx]);
+
+		TSREC_ATOMIC_FETCH_OR(
+			(1UL << idx), &tsrec_status.irq_en_bits);
+	} else {
+		disable_irq(tsrec_status.irq_arr[idx]);
+
+		TSREC_ATOMIC_FETCH_AND(
+			(~(1UL << idx)), &tsrec_status.irq_en_bits);
+	}
 
 	TSREC_LOG_DBG(
-		"TSREC-IRQ(irq:%d, irq_en_status:%u)   [en:%u]\n",
-		tsrec_status.tsrec_irq,
-		tsrec_status.tsrec_irq_en_status,
-		en);
+		"TSREC-IRQ(irq_cnt:%d, irq_no:%d, irq_en_bits:%#x)   [en:%u, idx:%u]\n",
+		tsrec_status.irq_cnt,
+		tsrec_status.irq_arr[idx],
+		TSREC_ATOMIC_READ(&tsrec_status.irq_en_bits),
+		en, idx);
+}
+
+
+static inline void tsrec_irq_all_enable(const unsigned int en)
+{
+	int i;
+
+	tsrec_setup_default_device_irq_sel(en);
+
+	for (i = 0; i < tsrec_status.irq_cnt; ++i)
+		tsrec_irq_enable(en, i);
+}
+
+
+static inline void tsrec_intr_en_bits_update(const unsigned int idx,
+	const unsigned int en)
+{
+	if (en) {
+		TSREC_ATOMIC_FETCH_OR(
+			(1UL << idx), &tsrec_status.intr_en_bits);
+	} else {
+		TSREC_ATOMIC_FETCH_AND(
+			(~(1UL << idx)), &tsrec_status.intr_en_bits);
+	}
 }
 
 
 static void tsrec_intr_reset(const unsigned int tsrec_no)
 {
 	const unsigned int exp_trig_src = g_tsrec_exp_trig_src();
+	struct tsrec_n_regs_st *p_tsrec_n_regs = NULL;
 
 	/* reset/disable tsrec intr ctrl */
 	mtk_cam_seninf_s_tsrec_intr_wclr_en(0);
@@ -2129,7 +2270,22 @@ static void tsrec_intr_reset(const unsigned int tsrec_no)
 			tsrec_con_mgr.exp_trig_src,
 			exp_trig_src);
 	}
+	if (unlikely(g_tsrec_n_regs_st(tsrec_no, &p_tsrec_n_regs, __func__) != 0))
+		return;
+	if (unlikely(p_tsrec_n_regs == NULL)) {
+		TSREC_LOG_INF(
+			"ERROR: tsrec_n_regs[%u] is nullptr (%p), return   [tsrec_no:%u]\n",
+			tsrec_no, p_tsrec_n_regs, tsrec_no);
+		return;
+	}
 
+#if (TSREC_HW_VER_ISP_8)
+	/* disable all exp Vsync & 1st-Hsync interrupt */
+	mtk_cam_seninf_s_tsrec_n_intr_en(tsrec_no,
+		1, 1, 1, 0, 0);
+	mtk_cam_seninf_s_tsrec_n_intr_en(tsrec_no,
+		1, 1, 1, 1, 0);
+#else
 	/* tsrec a~d (0~3), e~f (4~5) are ctrl by different RG */
 	if (tsrec_no < 4) {
 		/* disable all exp Vsync & 1st-Hsync interrupt */
@@ -2144,13 +2300,19 @@ static void tsrec_intr_reset(const unsigned int tsrec_no)
 		mtk_cam_seninf_s_tsrec_intr_en_2(tsrec_no,
 			1, 1, 1, 1, 0);
 	}
+#endif
+
+	/* last, clear intr_en_bits after interrupt be disabled */
+	tsrec_intr_en_bits_update(tsrec_no, 0);
 
 	TSREC_LOG_INF(
-		"tsrec_no:%u, intr reset/disable => intr_en(%#x/%#x), w_clr:%u\n",
+		"tsrec_no:%u, intr reset/disable => intr_en(%#x/%#x, %#x), w_clr:%u => intr_en_bits:%#x\n",
 		tsrec_no,
 		TSREC_ATOMIC_READ(&tsrec_status.intr_en),
 		TSREC_ATOMIC_READ(&tsrec_status.intr_en_2),
-		0);
+		TSREC_ATOMIC_READ(&p_tsrec_n_regs->intr_en),
+		0,
+		TSREC_ATOMIC_READ(&tsrec_status.intr_en_bits));
 }
 
 
@@ -2162,6 +2324,10 @@ static void tsrec_intr_ctrl_exp_vsync_en(
 	switch (target_exp_id) {
 	case TSREC_EXP_ID_1:
 	{
+#if (TSREC_HW_VER_ISP_8)
+		mtk_cam_seninf_s_tsrec_n_intr_en(tsrec_no,
+			exp0, 0, 0, 0, en);
+#else
 		switch (reg_group) {
 		case 0:
 			mtk_cam_seninf_s_tsrec_intr_en(tsrec_no,
@@ -2172,10 +2338,15 @@ static void tsrec_intr_ctrl_exp_vsync_en(
 				exp0, 0, 0, 0, en);
 			break;
 		}
+#endif
 	}
 		break;
 	case TSREC_EXP_ID_2:
 	{
+#if (TSREC_HW_VER_ISP_8)
+		mtk_cam_seninf_s_tsrec_n_intr_en(tsrec_no,
+			0, exp1, 0, 0, en);
+#else
 		switch (reg_group) {
 		case 0:
 			mtk_cam_seninf_s_tsrec_intr_en(tsrec_no,
@@ -2186,10 +2357,15 @@ static void tsrec_intr_ctrl_exp_vsync_en(
 				0, exp1, 0, 0, en);
 			break;
 		}
+#endif
 	}
 		break;
 	case TSREC_EXP_ID_3:
 	{
+#if (TSREC_HW_VER_ISP_8)
+		mtk_cam_seninf_s_tsrec_n_intr_en(tsrec_no,
+			0, 0, exp2, 0, en);
+#else
 		switch (reg_group) {
 		case 0:
 			mtk_cam_seninf_s_tsrec_intr_en(tsrec_no,
@@ -2200,6 +2376,7 @@ static void tsrec_intr_ctrl_exp_vsync_en(
 				0, 0, exp2, 0, en);
 			break;
 		}
+#endif
 	}
 		break;
 	}
@@ -2381,6 +2558,32 @@ static void tsrec_intr_ctrl(const unsigned int tsrec_no,
 			exp_trig_src);
 	}
 
+	/* first, set intr_en_bits before interrupt be enabled */
+	tsrec_intr_en_bits_update(tsrec_no, 1);
+
+#if (TSREC_HW_VER_ISP_8)
+	if (unlikely(user_intr_exp_trig_src_both)) {
+		/* Vsync intr enable */
+		mtk_cam_seninf_s_tsrec_n_intr_en(tsrec_no,
+			exp0, exp1, exp2, 0, 1);
+
+		/* 1st-Hsync intr enable */
+		mtk_cam_seninf_s_tsrec_n_intr_en(tsrec_no,
+			exp0, exp1, exp2, 1, 1);
+
+		TSREC_LOG_INF(
+			"NOTICE: USER set intr_exp_trig_src_both:%#x => EN Vsync & 1st-Hsync interrupt on INTR_EN RG\n",
+			user_intr_exp_trig_src_both);
+	} else {
+		mtk_cam_seninf_s_tsrec_n_intr_en(tsrec_no,
+			exp0, exp1, exp2, exp_trig_src, 1);
+
+		/* enable 1st exp Vsync interrupt */
+		tsrec_intr_ctrl_exp_vsync_setup(tsrec_no, 0,
+			exp0, exp1, exp2,
+			p_tsrec_n_regs->sensor_hw_pre_latch_exp_num, 1);
+	}
+#else
 	/* !!! due to tsrec a~d (0~3), e~f (4~5) are ctrl by different RG !!! */
 	if (tsrec_no < 4) {
 		if (unlikely(user_intr_exp_trig_src_both)) {
@@ -2427,9 +2630,10 @@ static void tsrec_intr_ctrl(const unsigned int tsrec_no,
 				p_tsrec_n_regs->sensor_hw_pre_latch_exp_num, 1);
 		}
 	}
+#endif // TSREC_HW_VER_ISP_8
 
 	TSREC_LOG_INF(
-		"tsrec_no:%u, en:1(%u/%u/%u, code:%#llx/%#llx, sensor pre-latch:%#x), 1st_exp_num:%u => intr_en(%#x/%#x), w_clr:%u\n",
+		"tsrec_no:%u, en:1(%u/%u/%u, code:%#llx/%#llx, sensor pre-latch:%#x), 1st_exp_num:%u => intr_en(%#x/%#x, %#x), w_clr:%u => intr_en_bits:%#x\n",
 		tsrec_no,
 		exp0, exp1, exp2,
 		p_src_cfg->vc_dt_src_code,
@@ -2438,7 +2642,9 @@ static void tsrec_intr_ctrl(const unsigned int tsrec_no,
 		TSREC_1ST_EXP_NUM,
 		TSREC_ATOMIC_READ(&tsrec_status.intr_en),
 		TSREC_ATOMIC_READ(&tsrec_status.intr_en_2),
-		TSREC_INTR_W_CLR_EN);
+		TSREC_ATOMIC_READ(&p_tsrec_n_regs->intr_en),
+		TSREC_INTR_W_CLR_EN,
+		TSREC_ATOMIC_READ(&tsrec_status.intr_en_bits));
 }
 
 
@@ -2740,9 +2946,12 @@ static int tsrec_cb_handler_checker(const unsigned int seninf_idx,
  *****************************************************************************/
 void mtk_cam_seninf_tsrec_timer_enable(const unsigned int en)
 {
-	unsigned int has_reg_op = 0; // 0:NO / 1:set / 2:clr
+	const unsigned int log_str_len = TSREC_LOG_BUF_STR_LEN;
 	const int timer_en_cnt_before =
 		TSREC_ATOMIC_READ(&tsrec_status.timer_en_cnt);
+	unsigned int has_reg_op = 0; // 0:NO / 1:set / 2:clr
+	int i, len = 0, ret;
+	char *log_buf = NULL;
 
 	if (unlikely(!chk_exist_tsrec_hw(__func__, 1)))
 		return;
@@ -2755,7 +2964,7 @@ void mtk_cam_seninf_tsrec_timer_enable(const unsigned int en)
 			notify_tsrec_update_timer_en_status(1);
 
 			mtk_cam_seninf_s_tsrec_timer_cfg(1);
-			tsrec_irq_enable(1);
+			tsrec_irq_all_enable(1);
 
 			// mark as set RG
 			has_reg_op = 1;
@@ -2769,7 +2978,7 @@ void mtk_cam_seninf_tsrec_timer_enable(const unsigned int en)
 
 		/* check if en cnt go back to zero */
 		if (TSREC_ATOMIC_READ(&tsrec_status.timer_en_cnt) == 0) {
-			tsrec_irq_enable(0);
+			tsrec_irq_all_enable(0);
 			tsrec_chk_auto_self_disable();
 			mtk_cam_seninf_s_tsrec_timer_cfg(0);
 
@@ -2791,16 +3000,37 @@ void mtk_cam_seninf_tsrec_timer_enable(const unsigned int en)
 		}
 	}
 
-	TSREC_LOG_INF(
-		"timer_en_cnt:(%d => %d), timer_cfg:%#x, timer_en_status:%u, has_reg_op:%u(0:NO/1:set/2:clr), IRQ:%d(en:%u)   [en:%u]\n",
+
+	ret = alloc_log_buf(log_str_len, &log_buf);
+	if (unlikely(ret != 0)) {
+		TSREC_LOG_INF("ERROR: log_buf allocate memory failed\n");
+		return;
+	}
+
+	TSREC_SNPRF(log_str_len, log_buf, len,
+		"timer_en_cnt:(%d => %d), timer_cfg:%#x, timer_en_status:%u, has_reg_op:%u(0:NO/1:set/2:clr), IRQs:(cnt:%d)(",
 		timer_en_cnt_before,
 		TSREC_ATOMIC_READ(&tsrec_status.timer_en_cnt),
 		TSREC_ATOMIC_READ(&tsrec_status.timer_cfg),
 		tsrec_status.timer_en_status,
 		has_reg_op,
-		tsrec_status.tsrec_irq,
-		tsrec_status.tsrec_irq_en_status,
+		tsrec_status.irq_cnt);
+
+	if (likely(tsrec_status.irq_arr != NULL)) {
+		for (i = 0; i < tsrec_status.irq_cnt; ++i) {
+			TSREC_SNPRF(log_str_len, log_buf, len,
+				"%d/",
+				tsrec_status.irq_arr[i]);
+		}
+	}
+
+	TSREC_SNPRF(log_str_len, log_buf, len,
+		")(en:%#x)   [en:%u]",
+		TSREC_ATOMIC_READ(&tsrec_status.irq_en_bits),
 		en);
+
+	TSREC_LOG_INF("NOTICE: %s\n", log_buf);
+	TSREC_KFREE(log_buf);
 }
 
 
@@ -3356,9 +3586,11 @@ static void tsrec_isr_event_handler(int irq, void *data,
 		return;
 	if (unlikely(p_tsrec_n_regs == NULL)) {
 		TSREC_LOG_INF(
-			"ERROR: tsrec_n_regs_st[%u] is nullptr (%p), return   [tsrec_no:%u, status:%#x, irq_info(sys_ts:%llu(ns)(+%llu/+%llu)(ns), tsrec_ts:%llu(us), intr(|%#x/%#x))]\n",
+			"ERROR: tsrec_n_regs_st[%u] is nullptr (%p), return   [tsrec_no:%u, status:%#x, irq_info(%u, %#x, sys_ts:%llu(ns)(+%llu/+%llu)(ns), tsrec_ts:%llu(us), intr(|%#x/%#x))]\n",
 			tsrec_no, p_tsrec_n_regs,
 			tsrec_no, status,
+			irq_info->tsrec_no,
+			irq_info->status,
 			irq_info->sys_ts_ns,
 			irq_info->duration_ns,
 			irq_info->duration_2_ns,
@@ -3370,11 +3602,12 @@ static void tsrec_isr_event_handler(int irq, void *data,
 
 	pre_latch_exp_num = p_tsrec_n_regs->sensor_hw_pre_latch_exp_num;
 	irq_info->pre_latch_exp_no = pre_latch_exp_num;
+	irq_info->intr_en = TSREC_ATOMIC_READ(&p_tsrec_n_regs->intr_en);
 
 	/* check status and convert to work event info */
 	for (exp_num = 0; exp_num < TSREC_EXP_MAX_CNT; ++exp_num) {
 		const unsigned int vsync_mask = (1U << exp_num);
-		const unsigned int hsync_mask = (1U << exp_num) << 16;
+		const unsigned int hsync_mask = (1U << exp_num) << TSREC_INT_EN_HSYNC_BASE_BIT;
 		const unsigned int exp_num_mask = vsync_mask | hsync_mask;
 
 		/* check exp 0~2 status */
@@ -3439,82 +3672,160 @@ static void tsrec_isr_event_handler(int irq, void *data,
 }
 
 
+#if !(TSREC_HW_VER_ISP_8)
 static unsigned int tsrec_irq_intr_status_checker(int irq, void *data,
-	struct tsrec_irq_info_st *irq_info,
-	const unsigned int intr_status_rg_id)
+	const unsigned int intr_status, const unsigned int intr_status_2,
+	const unsigned int irq_sys_ts, const unsigned int irq_tsrec_tick)
 {
+	const unsigned int tsrec_hw_cnt = tsrec_status.tsrec_hw_cnt;
 	const unsigned int intr_chk_mask = TSREC_INTR_CHK_MASK;
-	unsigned int intr_status, start, end;
-	unsigned int status = 0, done = 0, shift = 0;
-	unsigned int i = 0;
+	const unsigned int intr_en_bits = TSREC_ATOMIC_READ(&tsrec_status.intr_en_bits);
+	unsigned int wake_thread_bits = 0;
+	unsigned int done = 0, done_2 = 0;
+	unsigned int i;
 
-	/* check intr status RG id, get intr status and determin check range */
-	switch (intr_status_rg_id) {
-	case TSREC_RG_INTR_STATUS:
-		/* tsrec_no: a~d (0~3) */
-		start = 0;
-		end = TSREC_INTR_EN_MAX_NUM;
-		intr_status = irq_info->intr_status;
+	/* go through, check/read each tsrec interrupt status if needed */
+	for (i = 0; i < tsrec_hw_cnt; ++i) {
+		if (i < TSREC_INTR_EN_MAX_NUM) {
+			const unsigned int shift = i * TSREC_EXP_MAX_CNT;
+			const unsigned int status = ((intr_status >> shift) & intr_chk_mask);
 
-		break;
-	case TSREC_RG_INTR_STATUS_2:
-		/* tsrec_no: e~f (4~5) */
-		start = TSREC_INTR_EN_MAX_NUM;
-		end = TSREC_INTR_EN_2_MAX_NUM;
-		intr_status = irq_info->intr_status_2;
+			if (status) {
+				struct tsrec_irq_info_st irq_info = {0};
 
-		break;
-	default:
-		TSREC_LOG_INF(
-			"ERROR: get invalid intr_status_rg_id:%u (%u ~ %u), return 0\n",
-			intr_status_rg_id,
-			TSREC_RG_INTR_STATUS, TSREC_RG_INTR_STATUS_2);
-		return 0;
-	}
+				notify_tsrec_update_tsrec_n_intr_status(i, status);
+				done |= (status << shift);
 
-	/* go through, check each tsrec interrupt status */
-	for (i = start; i < end; ++i) {
-		shift = (i - start) * TSREC_EXP_MAX_CNT;
-		status = ((intr_status >> shift) & intr_chk_mask);
-		/* get & check individual TSREC intr status */
-		if (status) {
-			tsrec_isr_event_handler(irq, data, irq_info, i, status);
-			done |= (status << shift);
+				/* setup irq information */
+				irq_info.tsrec_no = i;
+				irq_info.status = status;
+				irq_info.intr_status = intr_status;
+				irq_info.intr_status_2 = intr_status_2;
+				irq_info.tsrec_ts_us = TSREC_TICK_TO_US(irq_tsrec_tick);
+				irq_info.sys_ts_ns = irq_sys_ts;
+				if (likely(tsrec_push_irq_info_msgfifo(&irq_info) == 0))
+					wake_thread_bits |= (1UL << i);
+
+				TSREC_LOG_DBG_CAT(LOG_TSREC_IRQ_TOP,
+					"i:%u, shift:%u, chk_mask:%#x, intr_en:%#x, irq_info(no:%u/status:%#x/intr(%#x|%#x)/ts(%llu(us)/%llu(ns))), wake_thread:%#x\n",
+					i, shift, intr_chk_mask, intr_en_bits,
+					irq_info.tsrec_no,
+					irq_info.status,
+					irq_info.intr_status,
+					irq_info.intr_status_2,
+					irq_info.tsrec_ts_us,
+					irq_info.sys_ts_ns,
+					wake_thread_bits);
+			}
+		} else {
+			const unsigned int shift = (i - TSREC_INTR_EN_MAX_NUM) * TSREC_EXP_MAX_CNT;
+			const unsigned int status = ((intr_status_2 >> shift) & intr_chk_mask);
+
+			if (status) {
+				struct tsrec_irq_info_st irq_info = {0};
+
+				notify_tsrec_update_tsrec_n_intr_status(i, status);
+				done_2 |= (status << shift);
+
+				/* setup irq information */
+				irq_info.tsrec_no = i;
+				irq_info.status = status;
+				irq_info.intr_status = intr_status;
+				irq_info.intr_status_2 = intr_status_2;
+				irq_info.tsrec_ts_us = TSREC_TICK_TO_US(irq_tsrec_tick);
+				irq_info.sys_ts_ns = irq_sys_ts;
+				if (likely(tsrec_push_irq_info_msgfifo(&irq_info) == 0))
+					wake_thread_bits |= (1UL << i);
+
+				TSREC_LOG_DBG_CAT(LOG_TSREC_IRQ_TOP,
+					"i:%u, shift:%u, chk_mask:%#x, intr_en:%#x, irq_info(no:%u/status:%#x/intr(%#x|%#x)/ts(%llu(us)/%llu(ns))), wake_thread:%#x\n",
+					i, shift, intr_chk_mask, intr_en_bits,
+					irq_info.tsrec_no,
+					irq_info.status,
+					irq_info.intr_status,
+					irq_info.intr_status_2,
+					irq_info.tsrec_ts_us,
+					irq_info.sys_ts_ns,
+					wake_thread_bits);
+			}
 		}
 	}
 
 	/* case check for handling all tsrec */
 	if (unlikely(intr_status != done)) {
 		TSREC_LOG_INF(
-			"ERROR: get intr_status:%#x (tsrec_no: %u ~ %u), but only handle/done:%#x\n",
-			intr_status, start, end - 1, done);
+			"ERROR: get intr_status:%#x (tsrec_no: %u ~ %u), but only handle/done:%#x, wake_thread:%#x\n",
+			intr_status, 0, TSREC_INTR_EN_MAX_NUM - 1,
+			done, wake_thread_bits);
+	}
+	/* please call this API whether write clear is enabled or not */
+	mtk_cam_seninf_clr_tsrec_intr_status(done);
+
+	if (unlikely(intr_status_2 != done_2)) {
+		TSREC_LOG_INF(
+			"ERROR: get intr_status_2:%#x (tsrec_no: %u ~ %u), but only handle/done_2:%#x, wake_thread:%#x\n",
+			intr_status_2, TSREC_INTR_EN_MAX_NUM, tsrec_hw_cnt - 1,
+			done_2, wake_thread_bits);
+	}
+	/* please call this API whether write clear is enabled or not */
+	mtk_cam_seninf_clr_tsrec_intr_status_2(done_2);
+
+	return wake_thread_bits;
+}
+#else
+static unsigned int tsrec_irq_intr_status_checker(int irq, void *data,
+	const unsigned int irq_sys_ts, const unsigned int irq_tsrec_tick)
+{
+	const unsigned int tsrec_hw_cnt = tsrec_status.tsrec_hw_cnt;
+	const unsigned int intr_en_bits = TSREC_ATOMIC_READ(&tsrec_status.intr_en_bits);
+	unsigned int wake_thread_bits = 0;
+	unsigned int i;
+
+	/* go through, check/read each tsrec interrupt status if needed */
+	for (i = 0; i < tsrec_hw_cnt; ++i) {
+		unsigned int intr_status;
+
+		/* check whether the interrupt of the tsrec is enabled */
+		if (((intr_en_bits >> i) & 0x1) == 0)
+			continue;
+
+		/* get the tsrec interrupt status and check its value */
+		intr_status = mtk_cam_seninf_g_tsrec_n_intr_status(i);
+		if (intr_status) {
+			struct tsrec_irq_info_st irq_info = {0};
+
+			/* setup irq information */
+			irq_info.tsrec_no = i;
+			irq_info.status = intr_status;
+			irq_info.tsrec_ts_us = TSREC_TICK_TO_US(irq_tsrec_tick);
+			irq_info.sys_ts_ns = irq_sys_ts;
+			if (likely(tsrec_push_irq_info_msgfifo(&irq_info) == 0))
+				wake_thread_bits |= (1UL << i);
+
+			/* please call this API whether write clear is enabled or not */
+			mtk_cam_seninf_clr_tsrec_n_intr_status(i, intr_status);
+
+			TSREC_LOG_DBG_CAT(LOG_TSREC_IRQ_TOP,
+				"i:%u, intr_en:%#x, irq_info(no:%u/status:%#x/ts(%llu(us)/%llu(ns))), wake_thread:%#x\n",
+				i, intr_en_bits,
+				irq_info.tsrec_no,
+				irq_info.status,
+				irq_info.tsrec_ts_us,
+				irq_info.sys_ts_ns,
+				wake_thread_bits);
+		}
 	}
 
-	return done;
+	return wake_thread_bits;
 }
+#endif // !TSREC_HW_VER_ISP_8
 
 
-static void tsrec_irq_handler(int irq, void *data,
+static inline void tsrec_irq_handler(int irq, void *data,
 	struct tsrec_irq_info_st *irq_info)
 {
-	unsigned int done;
-
-	/* check each interrupt status RGs value */
-	if (irq_info->intr_status) {
-		done = tsrec_irq_intr_status_checker(
-			irq, data, irq_info, TSREC_RG_INTR_STATUS);
-
-		/* please call this API whether write clear is enabled or not */
-		mtk_cam_seninf_clr_tsrec_intr_status(done);
-	}
-
-	if (irq_info->intr_status_2) {
-		done = tsrec_irq_intr_status_checker(
-			irq, data, irq_info, TSREC_RG_INTR_STATUS_2);
-
-		/* please call this API whether write clear is enabled or not */
-		mtk_cam_seninf_clr_tsrec_intr_status_2(done);
-	}
+	tsrec_isr_event_handler(irq, data, irq_info,
+		irq_info->tsrec_no, irq_info->status);
 }
 /*---------------------------------------------------------------------------*/
 
@@ -3522,10 +3833,10 @@ static void tsrec_irq_handler(int irq, void *data,
 /*---------------------------------------------------------------------------*/
 // interrupt handler --- top-half (main function)
 /*---------------------------------------------------------------------------*/
+#if !(TSREC_HW_VER_ISP_8)
 static irqreturn_t mtk_irq_seninf_tsrec(int irq, void *data)
 {
-	struct tsrec_irq_info_st irq_info = {0};
-	unsigned long long start, end, tsrec_tick;
+	unsigned long long start, tsrec_tick;
 	unsigned int intr_status, intr_status_2;
 	unsigned int wake_thread = 0;
 
@@ -3536,20 +3847,26 @@ static irqreturn_t mtk_irq_seninf_tsrec(int irq, void *data)
 	intr_status	 = mtk_cam_seninf_g_tsrec_intr_status();
 	intr_status_2	 = mtk_cam_seninf_g_tsrec_intr_status_2();
 
-	end = ktime_get_boottime_ns();
-
-	/* sync irq information */
-	irq_info.intr_status = intr_status;
-	irq_info.intr_status_2 = intr_status_2;
-	irq_info.tsrec_ts_us = TSREC_TICK_TO_US(tsrec_tick);
-	irq_info.sys_ts_ns = start;
-	irq_info.duration_ns = end - start;
-
-	if (likely(tsrec_push_irq_info_msgfifo(&irq_info) == 0))
-		wake_thread = 1;
+	wake_thread = tsrec_irq_intr_status_checker(irq, data,
+		intr_status, intr_status_2, start, tsrec_tick);
 
 	return (wake_thread) ? IRQ_WAKE_THREAD : IRQ_HANDLED;
 }
+#else
+static irqreturn_t mtk_irq_seninf_tsrec(int irq, void *data)
+{
+	unsigned long long start, tsrec_tick;
+	unsigned int wake_thread = 0;
+
+	tsrec_tick = mtk_cam_seninf_tsrec_latch_time();
+	start = ktime_get_boottime_ns();
+
+	/* get TSREC interrupt status info */
+	wake_thread = tsrec_irq_intr_status_checker(irq, data, start, tsrec_tick);
+
+	return (wake_thread) ? IRQ_WAKE_THREAD : IRQ_HANDLED;
+}
+#endif
 
 
 /*---------------------------------------------------------------------------*/
@@ -3661,7 +3978,7 @@ void mtk_cam_seninf_tsrec_dbg_dump_tsrec_n_regs_info(const char *caller)
 
 	/* show log info format msg */
 	TSREC_SNPRF(log_str_len, log_buf, len,
-		"tsrec_no(en):(seninf_idx,exp_vc_dt[%u],trig_src)",
+		"no(en):(inf,VCDT[%u],trig_src,sen_lat_exp,intr(en/stat))",
 		TSREC_EXP_MAX_CNT);
 
 	/* print each tsrec regs values */
@@ -3671,11 +3988,11 @@ void mtk_cam_seninf_tsrec_dbg_dump_tsrec_n_regs_info(const char *caller)
 			return;
 		if (p_no_regs_val == NULL) {
 			TSREC_SNPRF(log_str_len, log_buf, len,
-				", %u(nullptr)",
+				", %u(null)",
 				i);
 		} else {
 			TSREC_SNPRF(log_str_len, log_buf, len,
-				", %u(%u):(%u,(%#x/%#x/%#x),%#x,%u)",
+				", %u(%u):(%u,(%#x/%#x/%#x),%#x,%u,(%#x/%#x))",
 				i,
 				p_no_regs_val->en,
 				p_no_regs_val->seninf_idx,
@@ -3683,7 +4000,9 @@ void mtk_cam_seninf_tsrec_dbg_dump_tsrec_n_regs_info(const char *caller)
 				p_no_regs_val->exp_vc_dt[1],
 				p_no_regs_val->exp_vc_dt[2],
 				p_no_regs_val->trig_src,
-				p_no_regs_val->sensor_hw_pre_latch_exp_num);
+				p_no_regs_val->sensor_hw_pre_latch_exp_num,
+				TSREC_ATOMIC_READ(&p_no_regs_val->intr_en),
+				TSREC_ATOMIC_READ(&p_no_regs_val->intr_status));
 		}
 	}
 
@@ -3760,7 +4079,7 @@ void mtk_cam_seninf_tsrec_dbg_dump_ts_records(const unsigned int tsrec_no)
 	tsrec_n_timestamp_ticks_re_order(p_ts_st, tick_ordered);
 
 	TSREC_SNPRF(log_str_len, log_buf, len,
-		"tsrec_no:%u, seninf_idx:%u, sys_ts:%llu(ns), tsrec_ts:%llu(%llu), intr(%#x/%#x|%#x/%#x), irq_info(%llu(ns)(+%llu/+%llu)(ns), %llu(us), intr(|%#x/%#x)), ",
+		"tsrec_no:%u, seninf_idx:%u, sys_ts:%llu(ns), tsrec_ts:%llu(%llu), intr(%#x/%#x|%#x/%#x), irq_info(%u, intr(%#x|status:%#x), %llu(ns)(+%llu/+%llu)(ns), %llu(us), intr(|%#x/%#x)), ",
 		tsrec_no,
 		p_ts_st->seninf_idx,
 		p_ts_st->curr_sys_time_ns,
@@ -3770,6 +4089,9 @@ void mtk_cam_seninf_tsrec_dbg_dump_ts_records(const unsigned int tsrec_no)
 		TSREC_ATOMIC_READ(&tsrec_status.intr_en_2),
 		TSREC_ATOMIC_READ(&tsrec_status.intr_status),
 		TSREC_ATOMIC_READ(&tsrec_status.intr_status_2),
+		p_tsrec_n_regs->irq_info.tsrec_no,
+		p_tsrec_n_regs->irq_info.intr_en,
+		p_tsrec_n_regs->irq_info.status,
 		p_tsrec_n_regs->irq_info.sys_ts_ns,
 		p_tsrec_n_regs->irq_info.duration_ns,
 		p_tsrec_n_regs->irq_info.duration_2_ns,
@@ -3889,6 +4211,7 @@ static ssize_t tsrec_console_store(struct device *dev,
 
 
 static DEVICE_ATTR_RW(tsrec_console);
+#endif
 /*---------------------------------------------------------------------------*/
 
 
@@ -3897,6 +4220,7 @@ static DEVICE_ATTR_RW(tsrec_console);
 /*---------------------------------------------------------------------------*/
 static void mtk_cam_seninf_tsrec_create_sysfs_file(struct device *dev)
 {
+#ifndef FS_UT
 	int ret = 0;
 
 	/* case handling (unexpected case) */
@@ -3913,11 +4237,13 @@ static void mtk_cam_seninf_tsrec_create_sysfs_file(struct device *dev)
 			"ERROR: call device_create_file() failed, ret:%d\n",
 			ret);
 	}
+#endif
 }
 
 
 static void mtk_cam_seninf_tsrec_remove_sysfs_file(struct device *dev)
 {
+#ifndef FS_UT
 	/* case handling (unexpected case) */
 	if (unlikely(dev == NULL)) {
 		TSREC_LOG_INF(
@@ -3927,123 +4253,200 @@ static void mtk_cam_seninf_tsrec_remove_sysfs_file(struct device *dev)
 
 	/* !!! remove each sysfs file you created !!! */
 	device_remove_file(dev, &dev_attr_tsrec_console);
+#endif
 }
 /*---------------------------------------------------------------------------*/
-
-
-static void mtk_cam_seninf_tsrec_get_property(struct device *dev)
+#ifndef FS_UT
+static void tsrec_get_custom_property(struct device_node *tsrecs_node)
 {
 	unsigned int val = 0;
 	int ret = 0;
 
-	/* read platform properties from device tree */
-	/* return: 0 on succes */
-	/*         , -EINVAL    if the property does not exist */
-	/*         , -ENODATA   if the property does not have a value */
-	/*         , -EOVERFLOW if the property data isn't large enough. */
-	/* get tsrec hw cnt from dts */
-	ret = of_property_read_u32(dev->of_node,
-		"tsrec-num",
-		&val);
-	if (likely(ret == 0)) {
-		tsrec_status.tsrec_hw_cnt = val;
-
-		if (unlikely(tsrec_status.tsrec_hw_cnt == 0)) {
-			TSREC_LOG_INF(
-				"WARNING: TSREC HW cnt is %u, this will cause TSREC flow NOT running\n",
-				tsrec_status.tsrec_hw_cnt);
-		}
-	} else {
-		tsrec_status.tsrec_hw_cnt = 0;
-
+	/* !!! SW custom property !!! */
+	ret = of_property_read_u32(tsrecs_node, "s-dev-irq-sel-in-krn", &val);
+	if (unlikely(ret == 0)) {
+		tsrec_status.does_set_device_irq_sel_in_kernel = val;
 		TSREC_LOG_INF(
-			"WARNING: get property of TSREC HW cnt from dts failed, ret:%d (-EINVAL:%d/-ENODATA:%d/-EOVERFLOW:%d) => tsrec_hw_cnt:%u\n",
-			ret, -EINVAL, -ENODATA, -EOVERFLOW,
+			"NOTICE: get dts property name:'s-dev-irq-sel-in-krn', val:%u, from node:'%s'\n",
+			val, tsrecs_node->full_name);
+	}
+}
+#endif
+
+
+static void mtk_cam_seninf_tsrec_get_property(struct device *dev)
+{
+#ifndef FS_UT
+	struct device_node *tsrecs_node = NULL;
+	unsigned int val = 0;
+	int ret = 0;
+
+	/* find tsrecs group node by name from seninf top node */
+	tsrecs_node = tsrec_utils_of_find_node_by_name(dev->of_node,
+		TSREC_GROUP_NAME, __func__);
+	if (unlikely(tsrecs_node == NULL))
+		return;
+
+	/* !!! read platform properties from device tree !!! */
+	/* on tsrecs group node */
+	/* => get tsrec hw cnt from dts */
+	ret = tsrec_utils_of_prop_r_u32(tsrecs_node, "tsrec-no-max", &val, __func__, 1);
+	tsrec_status.tsrec_hw_cnt = (ret == 0) ? val : 0;
+	if (unlikely(tsrec_status.tsrec_hw_cnt == 0)) {
+		TSREC_LOG_INF(
+			"WARNING: TSREC HW cnt is %u, this will cause TSREC flow NOT running\n",
 			tsrec_status.tsrec_hw_cnt);
 	}
 
-	/* get seninf hw cnt from dts */
-	ret = of_property_read_u32(dev->of_node,
-		"seninf-num",
-		&val);
-	if (likely(ret == 0)) {
-		tsrec_status.seninf_hw_cnt = val;
-
-		if (unlikely(tsrec_status.seninf_hw_cnt == 0)) {
-			TSREC_LOG_INF(
-				"WARNING: SENINF HW cnt is %u, this will cause TSREC flow NOT running\n",
-				tsrec_status.seninf_hw_cnt);
-		}
-	} else {
-		tsrec_status.seninf_hw_cnt = 0;
-
+#if !(TSREC_HW_VER_ISP_8)
+	/* on seninf top node */
+	/* => get seninf hw cnt from dts */
+	ret = tsrec_utils_of_prop_r_u32(dev->of_node, "seninf-num", &val, __func__, 1);
+	tsrec_status.seninf_hw_cnt = (ret == 0) ? val : 0;
+#else
+	tsrec_status.seninf_hw_cnt = tsrec_status.tsrec_hw_cnt;
+#endif
+	if (unlikely(tsrec_status.seninf_hw_cnt == 0)) {
 		TSREC_LOG_INF(
-			"ERROR: get property of SENINF HW cnt from dts failed, ret:%d (-EINVAL:%d/-ENODATA:%d/-EOVERFLOW:%d) => seninf_hw_cnt:%u\n",
-			ret, -EINVAL, -ENODATA, -EOVERFLOW,
+			"WARNING: SENINF HW cnt is %u, this will cause TSREC flow NOT running\n",
 			tsrec_status.seninf_hw_cnt);
 	}
 
+	tsrec_get_custom_property(tsrecs_node);
+#else
+	/* !!!! only for FS_UT => hardcode for testing SW flow & logic !!! */
+	tsrec_status.tsrec_hw_cnt = ut_fs_tsrec_g_tsrec_max_cnt();
+	tsrec_status.seninf_hw_cnt = ut_fs_tsrec_g_seninf_max_cnt();
+#endif
+
 
 	TSREC_LOG_INF(
-		"NOTICE: set HW cnt info from dts, tsrec_hw_cnt:%u/seninf_hw_cnt:%u\n",
+		"NOTICE: set HW cnt info from dts(%s), tsrec_hw_cnt:%u/seninf_hw_cnt:%u\n",
+		dev->of_node->full_name,
 		tsrec_status.tsrec_hw_cnt,
 		tsrec_status.seninf_hw_cnt);
 }
 
 
-void mtk_cam_seninf_tsrec_irq_init(struct seninf_core *core, const int irq)
+void mtk_cam_seninf_tsrec_irq_init(struct seninf_core *core)
 {
-	int ret = 0;
+	struct device_node *p_dev_node = NULL;
+	int i, irq;
+
+	TSREC_ATOMIC_INIT(0, &tsrec_status.irq_en_bits);
 
 	if (unlikely(!chk_exist_tsrec_hw(__func__, 1)))
 		return;
 
 	/* error handling (unexpected case) */
-	if (unlikely(!core || !irq)) {
+	if (unlikely(!core)) {
 		TSREC_LOG_INF(
-			"ERROR: get non-valid input, (addr of seninf_core:%p || irq:%d), return\n",
-			core, irq);
+			"ERROR: get non-valid input, (addr of seninf_core:%p), return\n",
+			core);
 		return;
 	}
-
-	tsrec_status.tsrec_irq = irq;
-
-	ret = devm_request_threaded_irq(seninf_dev, tsrec_status.tsrec_irq,
-					mtk_irq_seninf_tsrec,
-					mtk_thread_irq_seninf_tsrec,
-					0, "seninf-tsrec", core);
-	if (ret) {
-		TSREC_LOG_INF(
-			"ERROR: failed to request TSREC-IRQ:%d\n",
-			tsrec_status.tsrec_irq);
-		return;
-	}
-
-	tsrec_irq_enable(0);
-
-	TSREC_LOG_INF(
-		"NOTICE: registered TSREC-IRQ:%d success, disable IRQ\n",
-		tsrec_status.tsrec_irq);
-}
-#endif // !FS_UT
-
 
 #ifndef FS_UT
-void mtk_cam_seninf_tsrec_init(struct device *dev, void __iomem *p_seninf_base)
-#else
-void mtk_cam_seninf_tsrec_init(void)
+	/* find tsrec_top device node */
+	p_dev_node = tsrec_utils_of_find_comp_node(
+		seninf_dev->of_node, TSREC_TOP_COMP_NAME, __func__, 0);
+	if (unlikely(p_dev_node == NULL))
+		return;
 #endif
-{
+
+	/* check DTS interrupts info */
+	tsrec_status.irq_cnt = tsrec_utils_of_irq_count(p_dev_node);
+	if (unlikely(tsrec_status.irq_cnt == 0)) {
+		TSREC_LOG_INF(
+			"ERROR: can't find dts interrupts info, irq_cnt:%d, return\n",
+			tsrec_status.irq_cnt);
+		return;
+	}
+	/* allocate memory for keeping IRQs number */
+	if (likely(tsrec_status.irq_arr == NULL)) {
+		tsrec_status.irq_arr =
+			TSREC_KCALLOC(tsrec_status.irq_cnt, sizeof(int));
+		if (unlikely(tsrec_status.irq_arr == NULL)) {
+			TSREC_LOG_INF(
+				"ERROR: irq_arr[] array allocate memory failed, irq_cnt:%d, return\n",
+				tsrec_status.irq_cnt);
+			return;
+		}
+	}
+
+	/* parsing and mapping irq */
+	for (i = 0; i < tsrec_status.irq_cnt; ++i) {
+		char irq_name[20] = {0};
+		int len = 0;
 #ifndef FS_UT
+		int ret;
+#endif
+
+		TSREC_SNPRF(20, irq_name, len, "seninf-tsrec");
+		TSREC_SNPRF(20, irq_name, len, "-%d", i);
+
+#ifndef FS_UT
+		irq = irq_of_parse_and_map(p_dev_node, i);
+		if (unlikely(!irq)) {
+			TSREC_LOG_INF(
+				"ERROR: can't parse_and_map irq of idx:%d, irq_cnt:%d\n",
+				i, tsrec_status.irq_cnt);
+			continue;
+		}
+
+		ret = devm_request_threaded_irq(seninf_dev, irq,
+						mtk_irq_seninf_tsrec,
+						mtk_thread_irq_seninf_tsrec,
+						IRQF_NO_AUTOEN, irq_name, core);
+		if (unlikely(ret)) {
+			TSREC_LOG_INF(
+				"ERROR: failed to request idx:%d of IRQ:%d for %s\n",
+				i, irq, irq_name);
+			continue;
+		}
+#else
+		irq = (10 * i + 100);
+#endif
+
+		tsrec_status.irq_arr[i] = irq;
+
+		TSREC_LOG_INF(
+			"NOTICE: registered IRQ, irq_cnt:%d, irq_arr[%d]:%d, with IRQF_NO_AUTOEN for %s\n",
+			tsrec_status.irq_cnt,
+			i, tsrec_status.irq_arr[i],
+			irq_name);
+	}
+}
+
+
+void mtk_cam_seninf_tsrec_irq_uninit(void)
+{
+	if (unlikely(!chk_exist_tsrec_hw(__func__, 1)))
+		return;
+
+	tsrec_irq_all_enable(0);
+
+	if (likely(tsrec_status.irq_arr != NULL)) {
+		TSREC_DEVM_KFREE(tsrec_status.irq_arr);
+		tsrec_status.irq_arr = NULL;
+
+		TSREC_LOG_INF(
+			"irq_arr:%p array is freed\n",
+			tsrec_status.irq_arr);
+	}
+}
+
+
+void mtk_cam_seninf_tsrec_init(struct device *dev, void __iomem *p_seninf_base)
+{
 	seninf_dev = dev;
 
-	mtk_cam_seninf_tsrec_regs_iomem_init(p_seninf_base);
-	mtk_cam_seninf_tsrec_create_sysfs_file(seninf_dev);
 	mtk_cam_seninf_tsrec_get_property(seninf_dev);
+	mtk_cam_seninf_tsrec_regs_iomem_init(p_seninf_base, tsrec_status.tsrec_hw_cnt);
+	mtk_cam_seninf_tsrec_create_sysfs_file(seninf_dev);
 
 	if (unlikely(!chk_exist_tsrec_hw(__func__, 1)))
 		return;
-#endif
 
 	/* init tsrec data */
 	tsrec_data_init();
@@ -4052,13 +4455,12 @@ void mtk_cam_seninf_tsrec_init(void)
 
 void mtk_cam_seninf_tsrec_uninit(void)
 {
-#ifndef FS_UT
-	tsrec_irq_enable(0);
+	mtk_cam_seninf_tsrec_irq_uninit();
 
 	mtk_cam_seninf_tsrec_remove_sysfs_file(seninf_dev);
+	mtk_cam_seninf_tsrec_regs_iomem_uninit();
 
 	seninf_dev = NULL;
-#endif
 
 	/* uninit tsrec data */
 	tsrec_data_uninit();
@@ -4075,12 +4477,20 @@ void mtk_cam_seninf_tsrec_ut_dbg_sysfs_ctrl(const unsigned int cmd_val)
 }
 
 
+void mtk_cam_seninf_tsrec_ut_dbg_update_tsrec_intr_en_bits(
+	const unsigned int tsrec_no, const unsigned int flag)
+{
+	tsrec_intr_en_bits_update(tsrec_no, (flag ? 1 : 0));
+}
+
+
 void mtk_cam_seninf_tsrec_ut_dbg_irq_seninf_tsrec(void)
 {
+	const int irq = (tsrec_status.irq_arr) ? tsrec_status.irq_arr[0] : 255;
 	irqreturn_t irq_ret = IRQ_NONE;
 	void *data = NULL;
 
-	irq_ret = mtk_irq_seninf_tsrec(tsrec_status.tsrec_irq, data);
+	irq_ret = mtk_irq_seninf_tsrec(irq, data);
 	switch (irq_ret) {
 	case IRQ_NONE:
 		TSREC_LOG_INF(
@@ -4095,7 +4505,7 @@ void mtk_cam_seninf_tsrec_ut_dbg_irq_seninf_tsrec(void)
 	case IRQ_WAKE_THREAD:
 		TSREC_LOG_INF(
 			"get irq_ret:IRQ_WAKE_THREAD\n");
-		mtk_thread_irq_seninf_tsrec(tsrec_status.tsrec_irq, data);
+		mtk_thread_irq_seninf_tsrec(irq, data);
 		break;
 
 	default:
@@ -4103,25 +4513,6 @@ void mtk_cam_seninf_tsrec_ut_dbg_irq_seninf_tsrec(void)
 			"ERROR: get irq_ret NO defined, irq_ret:%d\n",
 			irq_ret);
 		break;
-	}
-}
-
-
-void mtk_cam_seninf_tsrec_init_for_ut_test(const unsigned int flag,
-	const unsigned int tsrec_hw_cnt, const unsigned int seninf_hw_cnt)
-{
-	if (flag > 0) {
-		tsrec_status.tsrec_hw_cnt = tsrec_hw_cnt;
-		tsrec_status.seninf_hw_cnt = seninf_hw_cnt;
-		tsrec_status.tsrec_irq = 255;
-
-		tsrec_data_init();
-	} else {
-		tsrec_data_uninit();
-
-		tsrec_status.seninf_hw_cnt = 0;
-		tsrec_status.tsrec_hw_cnt = 0;
-		tsrec_status.tsrec_irq = 0;
 	}
 }
 #endif // FS_UT

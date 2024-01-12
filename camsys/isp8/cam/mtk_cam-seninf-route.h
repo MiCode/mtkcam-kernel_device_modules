@@ -4,13 +4,13 @@
 #ifndef __MTK_CAM_SENINF_ROUTE_H__
 #define __MTK_CAM_SENINF_ROUTE_H__
 
-void mtk_cam_seninf_init_res(struct seninf_core *core);
+//void mtk_cam_seninf_init_res(struct seninf_core *core);
 
 struct seninf_mux *mtk_cam_seninf_mux_get_by_type(struct seninf_ctx *ctx,
 						enum CAM_TYPE_ENUM cam_type);
-void mtk_cam_seninf_alloc_cammux(struct seninf_ctx *ctx);
-void mtk_cam_seninf_mux_put(struct seninf_ctx *ctx, struct seninf_mux *mux);
-void mtk_cam_seninf_release_mux(struct seninf_ctx *ctx);
+void mtk_cam_seninf_alloc_outmux(struct seninf_ctx *ctx);
+void mtk_cam_seninf_outmux_put(struct seninf_ctx *ctx, struct seninf_outmux *outmux);
+void mtk_cam_seninf_release_outmux(struct seninf_ctx *ctx);
 
 void mtk_cam_seninf_get_vcinfo_test(struct seninf_ctx *ctx);
 
@@ -38,7 +38,6 @@ void mtk_cam_sensor_get_glp_dt(struct seninf_ctx *ctx, struct seninf_glp_dt *inf
 void mtk_cam_sensor_get_vc_info_by_scenario(struct seninf_ctx *ctx, u32 code);
 
 #ifdef SENINF_DEBUG
-void mtk_cam_seninf_release_cam_mux(struct seninf_ctx *ctx);
 int mux2mux_vr(struct seninf_ctx *ctx, int mux, int cammux, int vc_idx);
 int mux_vr2mux(struct seninf_ctx *ctx, int mux_vr);
 enum CAM_TYPE_ENUM cammux2camtype(struct seninf_ctx *ctx, int cammux);

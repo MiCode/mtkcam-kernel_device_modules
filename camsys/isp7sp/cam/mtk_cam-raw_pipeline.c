@@ -55,7 +55,7 @@ MODULE_PARM_DESC(debug_disable_twin_dc_scen, "debug: disable twin dc scen");
 
 #define RAW_PIPELINE_NUM 3
 
-#define CAMSV_16P_ENABLE 0
+#define CAMSV_16P_ENABLE 1
 
 #define sizeof_u32(__struct__) ((sizeof(__struct__) + sizeof(u32) - 1)/ \
 				sizeof(u32))

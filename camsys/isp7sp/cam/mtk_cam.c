@@ -53,6 +53,7 @@ MODULE_PARM_DESC(debug_sensor_meta_dump, "activates sensor meta dump");
 
 #define CAM_DEBUG 0
 #define ENABLE_CCU
+#define CAMSV_DEVICE_FULL_SET_NUM 6
 
 static const struct of_device_id mtk_cam_of_ids[] = {
 #ifdef CAMSYS_ISP7SP_MT6878
@@ -3494,7 +3495,7 @@ static struct component_match *mtk_cam_match_add(struct device *dev)
 	struct mtk_cam_device *cam_dev = dev_get_drvdata(dev);
 	struct mtk_cam_engines *eng = &cam_dev->engines;
 	struct component_match *match = NULL;
-	int yuv_num, rms_num;
+	int yuv_num, rms_num, camsv_real_hw_num;
 
 	eng->num_raw_devices =
 		add_match_by_driver(dev, &match, &mtk_cam_raw_driver);
@@ -3506,8 +3507,11 @@ static struct component_match *mtk_cam_match_add(struct device *dev)
 	eng->num_larb_devices =
 		add_match_by_driver(dev, &match, &mtk_cam_larb_driver);
 
-	eng->num_camsv_devices =
+	camsv_real_hw_num =
 		add_match_by_driver(dev, &match, &mtk_cam_sv_driver);
+
+	eng->num_camsv_devices =
+		CAMSV_DEVICE_FULL_SET_NUM;
 
 	eng->num_mraw_devices =
 		add_match_by_driver(dev, &match, &mtk_cam_mraw_driver);
@@ -3521,7 +3525,7 @@ static struct component_match *mtk_cam_match_add(struct device *dev)
 	dev_info(dev, "#: raw %d yuv %d rms %d larb %d, sv %d, seninf %d, mraw %d\n",
 		 eng->num_raw_devices, yuv_num, rms_num,
 		 eng->num_larb_devices,
-		 eng->num_camsv_devices,
+		 camsv_real_hw_num,
 		 eng->num_seninf_devices,
 		 eng->num_mraw_devices);
 

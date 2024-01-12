@@ -923,7 +923,7 @@ static int get_ipi_id(int stream_id)
 {
 	int ipi_id = stream_id + CCD_IPI_ISP_MAIN;
 
-	if (WARN_ON(ipi_id < CCD_IPI_ISP_MAIN || ipi_id > CCD_IPI_ISP_TRICAM))
+	if (WARN_ON(ipi_id < CCD_IPI_ISP_MAIN || ipi_id > CCD_IPI_MRAW_CMD))
 		return -1;
 
 	return ipi_id;

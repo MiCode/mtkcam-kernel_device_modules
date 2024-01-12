@@ -141,20 +141,44 @@ static int sv_process_fsm(struct mtk_camsv_device *sv_dev,
 			  int *recovered_done)
 {
 	struct engine_fsm *fsm = &sv_dev->fsm;
-	unsigned int done_type, sof_type, i;
+	unsigned int i, done_type, sof_type, drop_type, done_tags = 0;
 	int recovered = 0;
+
+	sof_type = irq_info->irq_type & BIT(CAMSYS_IRQ_FRAME_START);
+	if (sof_type) {
+		/* when first tag comes: 1. reset drop tags 2. update used_tags */
+		if (irq_info->sof_tags & sv_dev->first_tag) {
+			sv_dev->drop_tags = 0;
+			sv_dev->used_tags = 0;
+			for (i = 0; i < MAX_SV_HW_GROUPS; i++)
+				sv_dev->used_tags |= sv_dev->active_group_info[i];
+		}
+	}
+
+	drop_type = irq_info->irq_type & BIT(CAMSYS_IRQ_FRAME_DROP);
+	if (drop_type) {
+		irq_info->irq_type &= ~drop_type;
+		sv_dev->drop_tags |= irq_info->done_tags;
+	}
 
 	done_type = irq_info->irq_type & BIT(CAMSYS_IRQ_FRAME_DONE);
 	if (done_type) {
+		irq_info->irq_type &= ~drop_type;
+		done_tags = irq_info->done_tags;
+	}
+
+	if (drop_type || done_type) {
 		int cookie_done;
 		int ret;
 
-		sv_dev->handled_tags |= irq_info->done_tags;
+		sv_dev->handled_tags |= done_tags;
+		sv_dev->handled_tags |= sv_dev->drop_tags;
 		sv_dev->handled_tags &= sv_dev->used_tags;
 
 		if (sv_dev->handled_tags == sv_dev->used_tags) {
 			ret = engine_fsm_hw_done(fsm, &cookie_done);
 			if (ret > 0) {
+				irq_info->irq_type |= BIT(CAMSYS_IRQ_FRAME_DONE);
 				irq_info->cookie_done = cookie_done;
 				sv_dev->handled_tags = 0;
 			} else {
@@ -162,18 +186,16 @@ static int sv_process_fsm(struct mtk_camsv_device *sv_dev,
 				dev_dbg(sv_dev->dev, "warn: fake done in/out: 0x%x 0x%x\n",
 							 irq_info->frame_idx_inner,
 							 irq_info->frame_idx);
-				irq_info->irq_type &= ~done_type;
 				irq_info->cookie_done = 0;
 				sv_dev->handled_tags = 0;
 			}
 		} else {
 			dev_dbg(sv_dev->dev, "%s: not all group done yet: in/out: 0x%x 0x%x tag used/handled: 0x%x 0x%x\n",
 				__func__,
-				irq_info->frame_idx,
 				irq_info->frame_idx_inner,
+				irq_info->frame_idx,
 				sv_dev->used_tags,
 				sv_dev->handled_tags);
-			irq_info->irq_type &= ~done_type;
 			irq_info->cookie_done = 0;
 		}
 	}
@@ -182,13 +204,9 @@ static int sv_process_fsm(struct mtk_camsv_device *sv_dev,
 	if (sof_type) {
 		irq_info->irq_type &= ~sof_type;
 
-		/* when first tag comes: 1. update irq_type 2. update used_tags */
-		if (irq_info->sof_tags & sv_dev->first_tag) {
+		/* when first tag comes: update irq_type */
+		if (irq_info->sof_tags & sv_dev->first_tag)
 			irq_info->irq_type |= BIT(CAMSYS_IRQ_FRAME_START_DCIF_MAIN);
-			sv_dev->used_tags = 0;
-			for (i = 0; i < MAX_SV_HW_GROUPS; i++)
-				sv_dev->used_tags |= sv_dev->active_group_info[i];
-		}
 
 		/* when last tag comes: 1. update irq_type 2. update fsm */
 		if (irq_info->sof_tags & sv_dev->last_tag) {
@@ -1039,6 +1057,7 @@ int mtk_cam_sv_dev_config(struct mtk_camsv_device *sv_dev,
 
 	sv_dev->handled_tags = 0;
 	sv_dev->used_tags = 0;
+	sv_dev->drop_tags = 0;
 
 	sv_dev->streaming_tag_cnt = 0;
 	sv_dev->sof_count = 0;
@@ -1578,7 +1597,7 @@ static irqreturn_t mtk_irq_camsv_sof(int irq, void *data)
 			irq_info.done_tags |= (1 << i);
 	}
 	if (irq_info.done_tags)
-		irq_info.irq_type |= (1 << CAMSYS_IRQ_FRAME_DONE);
+		irq_info.irq_type |= (1 << CAMSYS_IRQ_FRAME_DROP);
 
 	if (tg_cnt < sv_dev->tg_cnt)
 		sv_dev->tg_cnt = tg_cnt + BIT(8);

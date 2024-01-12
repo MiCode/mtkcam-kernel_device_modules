@@ -560,70 +560,68 @@ static int get_mraw_stats_cfg_param(
 	return 0;
 }
 
-/* TODO: iommu debug */
 #define RAW_M4U_PORT_NUM 17
-#define YUV_M4U_PORT_NUM 8
-#define DMA_GROUP_SIZE 4
-static u32 raw_dma_group[RAW_M4U_PORT_NUM][DMA_GROUP_SIZE] = {
+#define YUV_M4U_PORT_NUM 6
+static struct dma_group raw_dma_group[RAW_M4U_PORT_NUM] = {
 	/* port-0 */
-	{0x0, 0x0, 0x0, 0x0},
+	{0x0, 0x0, 0x0, 0x0, 0x0},
 	/* port-1 */
-	{REG_RAWI_R2_BASE, REG_UFDI_R2_BASE, 0x0, 0x0},
+	{0x0, 0x0, 0x0, 0x0, 0x0},
 	/* port-2 */
-	{REG_RAWI_R3_BASE, REG_UFDI_R3_BASE, 0x0, 0x0},
+	{REG_RAWI_R2_BASE, REG_UFDI_R2_BASE, 0x0, 0x0, 0x0},
 	/* port-3 */
-	{0x0, 0x0, 0x0, 0x0},
+	{REG_RAWI_R3_BASE, REG_UFDI_R3_BASE, 0x0, 0x0, 0x0},
 	/* port-4 */
-	{REG_RAWI_R5_BASE, REG_UFDI_R5_BASE, 0x0, 0x0},
+	{REG_RAWI_R4_BASE, REG_UFDI_R4_BASE, 0x0, 0x0, 0x0},
 	/* port-5 */
-	{REG_IMGO_R1_BASE, REG_FHO_R1_BASE, 0x0, 0x0},
+	{REG_RAWI_R5_BASE, REG_UFDI_R5_BASE, 0x0, 0x0, 0x0},
 	/* port-6 */
-	{0x0, 0x0, 0x0, 0x0},
+	{REG_BPCI_R1_BASE, REG_BPCI_R2_BASE, REG_MLSCI_R1_BASE, 0x0, 0x0},
 	/* port-7 */
-	{REG_CACI_R1_BASE, 0x0, 0x0, 0x0},
+	{REG_BPCI_R3_BASE, REG_BPCI_R4_BASE, REG_PDI_R1_BASE, REG_CACI_R1_BASE, 0x0},
 	/* port-8 */
-	{REG_BPCI_R1_BASE, REG_BPCI_R2_BASE, 0x0, 0x0},
+	{REG_GRMGI_R1_BASE, REG_FPRI_R1_BASE, REG_AEI_R1_BASE, 0x0, 0x0},
 	/* port-9 */
-	{REG_BPCI_R3_BASE, 0x0, 0x0, 0x0},
+	{REG_LSCI_R1_BASE, REG_LSCI_R2_BASE, REG_LTMSCTI_R1_BASE, 0x0, 0x0},
 	/* port-10 */
-	{REG_LSCI_R1_BASE, REG_PDI_R1_BASE, REG_AAI_R1_BASE, 0x0},
+	{REG_IMGO_R1_BASE, REG_UFEO_R1_BASE, 0x0, 0x0, 0x0},
 	/* port-11 */
-	{REG_UFEO_R1_BASE, REG_FLKO_R1_BASE, REG_PDO_R1_BASE, 0x0},
-	/* port-12 */
-	{REG_LTMSO_R1_BASE, REG_LTMSHO_R1_BASE, 0x0, 0x0},
-	/* port-13  */
-	{REG_DRZB2NO_R1_BASE, REG_DRZB2NBO_R1_BASE, REG_DRZB2NCO_R1_BASE, 0x0},
+	{REG_IMGO_R2_BASE, REG_UFEO_R2_BASE, REG_MGGMO_R1_BASE, 0x0, 0x0},
+	/* port-12  */
+	{REG_DRZB2NO_R1_BASE, REG_LTMSBO_R1_BASE, REG_LTMSGO_R1_BASE,
+	 REG_AFO_R1_BASE, REG_AEO_R1_BASE},
+	/* port-13 */
+	{REG_DRZB2NBO_R1_BASE, REG_TSFSO_R1_BASE, 0x0, 0x0, 0x0},
 	/* port-14 */
-	{0x0, 0x0, 0x0, 0x0},
+	{REG_GMPO_R1_BASE, REG_GRMGO_R1_BASE, REG_FLKO_R1_BASE,
+	 REG_PDO_R1_BASE, REG_FHO_R2_BASE},
 	/* port-15 */
-	{REG_AFO_R1_BASE, REG_TSFSO_R1_BASE, 0x0, 0x0},
+	{REG_DRZB2NCO_R1_BASE, REG_DRZB2NDO_R1_BASE, REG_FHO_R1_BASE, 0x0, 0x0},
 	/* port-16 */
-	{REG_AAO_R1_BASE, REG_AAHO_R1_BASE, 0x0, 0x0},
+	{REG_AWBO_R1_BASE, REG_AWBO_R2_BASE, REG_AEHO_R1_BASE, 0x0, 0x0},
 };
 
-static u32 yuv_dma_group[YUV_M4U_PORT_NUM][DMA_GROUP_SIZE] = {
+static struct dma_group yuv_dma_group[YUV_M4U_PORT_NUM] = {
 	/* port-0 */
-	{REG_YUVO_R1_BASE, REG_YUVBO_R1_BASE, REG_YUVCO_R1_BASE, REG_YUVDO_R1_BASE},
+	{REG_YUVO_R1_BASE, REG_YUVBO_R1_BASE, REG_YUVCO_R1_BASE, REG_YUVDO_R1_BASE, 0x0},
 	/* port-1 */
-	{REG_YUVO_R3_BASE, REG_YUVBO_R3_BASE, REG_YUVCO_R3_BASE, REG_YUVDO_R3_BASE},
+	{REG_YUVO_R3_BASE, REG_YUVBO_R3_BASE, REG_YUVCO_R3_BASE, REG_YUVDO_R3_BASE, 0x0},
 	/* port-2 */
-	{REG_YUVO_R2_BASE, REG_YUVBO_R2_BASE, REG_YUVO_R4_BASE, REG_YUVBO_R4_BASE},
+	{REG_YUVO_R2_BASE, REG_YUVBO_R2_BASE, REG_DRZS4NO_R3_BASE, 0x0, 0x0},
 	/* port-3 */
-	{REG_YUVO_R5_BASE, REG_YUVBO_R5_BASE, 0x0, 0x0},
+	{REG_DRZH2NO_R1_BASE, REG_DRZH2NO_R8_BASE, REG_RZH1N2TO_R2_BASE, 0x0, 0x0},
 	/* port-4 */
-	{0x0, 0x0, 0x0, 0x0},
+	{REG_YUVO_R4_BASE, REG_YUVBO_R4_BASE, REG_TCYSO_R1_BASE,
+	 REG_YUVO_R5_BASE, REG_YUVBO_R5_BASE},
 	/* port-5 */
-	{0x0, 0x0, 0x0, 0x0},
-	/* port-6 */
-	{REG_TCYSO_R1_BASE, REG_RZH1N2TO_R2_BASE, 0x0, REG_DRZH2NO_R8_BASE},
-	/* port-7 */
-	{REG_DRZS4NO_R3_BASE, 0x0, 0x0, 0x0},
+	{REG_DRZH1NO_R1_BASE, REG_DRZH1NBO_R1_BASE, REG_DRZH1NO_R3_BASE,
+	 REG_DRZH1NBO_R3_BASE, 0x0},
 };
 
-static int query_raw_dma_group(int m4u_id, u32 group[4])
+static int query_raw_dma_group(int m4u_id, struct dma_group *group)
 {
 	if (m4u_id < RAW_M4U_PORT_NUM)
-		memcpy(group, raw_dma_group[m4u_id], sizeof(u32)*4);
+		memcpy(group, &raw_dma_group[m4u_id], sizeof(struct dma_group));
 	else
 		pr_info("%s: %s: not supported: %d\n",
 			__FILE__, __func__, m4u_id);
@@ -631,10 +629,10 @@ static int query_raw_dma_group(int m4u_id, u32 group[4])
 	return 0;
 }
 
-static int query_yuv_dma_group(int m4u_id, u32 group[4])
+static int query_yuv_dma_group(int m4u_id, struct dma_group *group)
 {
 	if (m4u_id < YUV_M4U_PORT_NUM)
-		memcpy(group, yuv_dma_group[m4u_id], sizeof(u32)*4);
+		memcpy(group, &yuv_dma_group[m4u_id], sizeof(struct dma_group));
 	else
 		pr_info("%s: %s: not supported: %d\n",
 			__FILE__, __func__, m4u_id);

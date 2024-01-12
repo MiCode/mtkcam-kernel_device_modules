@@ -10232,7 +10232,7 @@ static inline u32 _set_field(u32 *val, int pos, int width, u32 fval)
 #define REG_LSCI_R2_BASE       0xa80
 
 #define REG_PDI_R1_BASE        0xac0
-#define REG_AAI_R1_BASE        0xb00
+#define REG_AEI_R1_BASE        0xb00
 #define REG_GRMGI_R1_BASE      0xb40
 #define REG_LTMSCTI_R1_BASE    0xb80
 #define REG_CACI_R1_BASE       0xbc0
@@ -10249,14 +10249,14 @@ static inline u32 _set_field(u32 *val, int pos, int width, u32 fval)
 
 #define REG_FLKO_R1_BASE       0x1410
 #define REG_PDO_R1_BASE        0x1460
-#define REG_AAO_R1_BASE        0x14b0
-#define REG_AAHO_R1_BASE       0x1500
+#define REG_AEO_R1_BASE        0x14b0
+#define REG_AEHO_R1_BASE       0x1500
 #define REG_AWBO_R1_BASE       0x1550
 #define REG_AWBO_R2_BASE       0x15a0
 #define REG_AFO_R1_BASE        0x15f0
 #define REG_TSFSO_R1_BASE      0x1640
-#define REG_LTMSO_R1_BASE      0x1690
-#define REG_LTMSHO_R1_BASE     0x16e0
+#define REG_LTMSBO_R1_BASE     0x1690
+#define REG_LTMSGO_R1_BASE     0x16e0
 #define REG_DRZB2NO_R1_BASE    0x1730
 #define REG_DRZB2NBO_R1_BASE   0x1780
 #define REG_DRZB2NCO_R1_BASE   0x17d0

@@ -12,6 +12,7 @@
 #include "mtk_cam-raw_pads.h"
 
 #define MULTI_SMI_SV_HW_NUM 2
+#define DMA_GROUP_SIZE 5
 
 enum mraw_dmao_id {
 	imgo_m1 = 0,
@@ -144,6 +145,10 @@ struct set_meta_stats_info_param {
 	int rgbw;
 };
 
+struct dma_group {
+	u32 dma[DMA_GROUP_SIZE];
+};
+
 struct plat_v4l2_data {
 	int raw_pipeline_num;
 	int camsv_pipeline_num;
@@ -193,8 +198,8 @@ struct plat_data_hw {
 	 */
 	bool has_pixel_mode_contraints;
 
-	int (*query_raw_dma_group)(int m4u_id, u32 group[4]);
-	int (*query_yuv_dma_group)(int m4u_id, u32 group[4]);
+	int (*query_raw_dma_group)(int m4u_id, struct dma_group *group);
+	int (*query_yuv_dma_group)(int m4u_id, struct dma_group *group);
 
 	int (*query_caci_size)(int w, int h, size_t *size);
 	int (*query_max_exp_support)(u32 raw_idx);

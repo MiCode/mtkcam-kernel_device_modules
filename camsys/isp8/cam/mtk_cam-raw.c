@@ -337,9 +337,9 @@ void initialize(struct mtk_raw_device *dev, int is_slave, int is_srt, int is_slb
 	 *  disable it to bypass
 	 */
 	writel_relaxed(0xFFFE0000,
-		       dev->base + REG_AAO_R1_BASE + DMA_OFFSET_ERR_STAT);
+		       dev->base + REG_AEO_R1_BASE + DMA_OFFSET_ERR_STAT);
 	writel_relaxed(0xFFFE0000,
-		       dev->base + REG_AAHO_R1_BASE + DMA_OFFSET_ERR_STAT);
+		       dev->base + REG_AEHO_R1_BASE + DMA_OFFSET_ERR_STAT);
 }
 static void subsample_set_sensor_time(struct mtk_raw_device *dev,
 	u32 subsample_ratio)
@@ -2253,28 +2253,27 @@ void print_dma_settings(void __iomem *base, u32 dmao_base)
 		readl_relaxed(base + dmao_base + REG_STRIDE));
 }
 
-#define CAMSYS_DMA_GROUP_SIZE 4
 int mtk_raw_translation_fault_cb(int port, dma_addr_t mva, void *data)
 {
 	struct mtk_raw_device *raw_dev = (struct mtk_raw_device *)data;
 	unsigned int fh_cookie =
 			readl_relaxed(raw_dev->base_inner + REG_FHG_FHG_SPARE_1);
 	unsigned int m4u_port = MTK_M4U_TO_PORT(port);
-	u32 group[CAMSYS_DMA_GROUP_SIZE];
+	struct dma_group group;
 	int i;
 
-	if (m4u_port == 0) { /* cq info */
-		print_cq_settings(raw_dev->base_inner);
+	if (m4u_port == 0 || m4u_port == 1) { /* cq info */
+		print_cq_settings(raw_dev->dmatop_base_inner);
 	}
 
-	if (CALL_PLAT_HW(query_raw_dma_group, m4u_port, group))
+	if (CALL_PLAT_HW(query_raw_dma_group, m4u_port, &group))
 		return 0;
 
-	for (i = 0; i < CAMSYS_DMA_GROUP_SIZE; i++) {
-		if (group[i] == 0x0)
+	for (i = 0; i < ARRAY_SIZE(group.dma); i++) {
+		if (group.dma[i] == 0x0)
 			continue;
 
-		print_dma_settings(raw_dev->dmatop_base_inner, group[i]);
+		print_dma_settings(raw_dev->dmatop_base_inner,  group.dma[i]);
 	}
 
 	do_engine_callback(raw_dev->engine_cb, dump_request,
@@ -2291,18 +2290,19 @@ int mtk_yuv_translation_fault_cb(int port, dma_addr_t mva, void *data)
 	unsigned int fh_cookie =
 			readl_relaxed(raw_dev->base_inner + REG_FHG_FHG_SPARE_1);
 	unsigned int m4u_port = MTK_M4U_TO_PORT(port);
-	u32 group[CAMSYS_DMA_GROUP_SIZE];
+	struct dma_group group;
 	int i;
 
-	if (CALL_PLAT_HW(query_yuv_dma_group, m4u_port, group))
+	if (CALL_PLAT_HW(query_yuv_dma_group, m4u_port, &group))
 		return 0;
 
-	for (i = 0; i < CAMSYS_DMA_GROUP_SIZE; i++) {
-		if (group[i] == 0x0)
+	for (i = 0; i < ARRAY_SIZE(group.dma); i++) {
+		if (group.dma[i] == 0x0)
 			continue;
 
-		print_dma_settings(yuv_dev->dmatop_base_inner, group[i]);
+		print_dma_settings(yuv_dev->dmatop_base_inner, group.dma[i]);
 	}
+
 	do_engine_callback(raw_dev->engine_cb, dump_request,
 		   raw_dev->cam, CAMSYS_ENGINE_RAW, raw_dev->id,
 		   fh_cookie, MSG_M4U_TF);

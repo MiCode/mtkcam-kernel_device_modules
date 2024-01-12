@@ -36,6 +36,8 @@ int apply_cam_mux_switch(struct mtk_cam_job *job)
 {
 	struct mtk_cam_ctx *ctx = job->src_ctx;
 	struct mtk_camsv_device *sv_dev = dev_get_drvdata(ctx->hw_sv);
+	struct mtk_mraw_device *mraw_dev;
+	struct mtk_mraw_pipeline *mraw_pipe;
 	struct mtk_cam_seninf_mux_param param;
 	struct mtk_cam_seninf_mux_setting settings[4];
 	int prev_exp = job_prev_exp_num_seamless(job);
@@ -44,7 +46,7 @@ int apply_cam_mux_switch(struct mtk_cam_job *job)
 	int raw_id = _get_master_raw_id(job->used_engine);
 	int raw_tg_idx = raw_to_tg_idx(raw_id);
 	int first_tag_idx, second_tag_idx, last_tag_idx;
-	int first_tag_idx_w, last_tag_idx_w;
+	int first_tag_idx_w, last_tag_idx_w, i;
 	bool is_dc = is_dc_mode(job) ? true : false;
 
 	/**
@@ -302,6 +304,29 @@ int apply_cam_mux_switch(struct mtk_cam_job *job)
 			settings[1].source, settings[1].camtg, settings[1].enable,
 			settings[2].source, settings[2].camtg, settings[2].enable,
 			settings[3].source, settings[3].camtg, settings[3].enable);
+	}
+
+	for (i = 0; i < ctx->num_sv_subdevs; i++) {
+		unsigned int tag_idx = mtk_cam_get_sv_tag_index(job->tag_info,
+			ctx->sv_subdev_idx[i] + MTKCAM_SUBDEV_CAMSV_START);
+		unsigned int sv_cammux_id =
+			mtk_cam_get_sv_cammux_id(sv_dev, tag_idx);
+
+		mtk_cam_seninf_set_camtg_camsv(ctx->seninf,
+			job->tag_info[tag_idx].seninf_padidx,
+			sv_cammux_id, tag_idx);
+	}
+
+	for (i = 0; i < ctx->num_mraw_subdevs; i++) {
+		if (ctx->hw_mraw[i]) {
+			mraw_dev =
+				dev_get_drvdata(ctx->hw_mraw[i]);
+			mraw_pipe =
+				&ctx->cam->pipelines.mraw[ctx->mraw_subdev_idx[i]];
+
+			mtk_cam_seninf_set_camtg(ctx->seninf,
+				mraw_pipe->seninf_padidx, mraw_dev->cammux_id);
+		}
 	}
 
 	return 0;

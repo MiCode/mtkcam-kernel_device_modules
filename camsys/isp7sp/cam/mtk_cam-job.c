@@ -50,7 +50,7 @@ static struct mtk_raw_request_data *req_get_raw_data(struct mtk_cam_ctx *ctx,
 						     struct mtk_cam_request *req);
 static bool is_sensor_mode_update(struct mtk_cam_job *job);
 static void mtk_cam_aa_dump_work(struct work_struct *work);
-static int disable_seninf_raw_src_cammux(struct mtk_cam_job *job);
+static int disable_seninf_cammux(struct mtk_cam_job *job);
 
 static int subdev_set_fmt(struct v4l2_subdev *sd, int pad,
 						  const struct v4l2_mbus_framefmt *format)
@@ -867,7 +867,7 @@ _stream_on(struct mtk_cam_job *job, bool on)
 		ctx_stream_on_seninf_sensor(job, seninf_pad, raw_tg_idx);
 
 		if (job->first_frm_switch) {
-			disable_seninf_raw_src_cammux(job);
+			disable_seninf_cammux(job);
 			apply_cam_mux_switch(job);
 		}
 	}
@@ -1181,17 +1181,42 @@ static int update_seninf_fmt(struct mtk_cam_job *job)
 }
 
 static int
-disable_seninf_raw_src_cammux(struct mtk_cam_job *job)
+disable_seninf_cammux(struct mtk_cam_job *job)
 {
 	struct mtk_cam_ctx *ctx = job->src_ctx;
 	struct v4l2_subdev *seninf = ctx->seninf;
+	struct mtk_camsv_device *sv_dev;
+	struct mtk_mraw_pipeline *mraw_pipe;
 	int i, max_exp = scen_max_exp_num(&job->job_scen);
 	bool is_w = is_rgbw(job);
+	unsigned int tag_idx;
 
 	for (i = 0; i < max_exp; ++i) {
 		mtk_cam_seninf_set_camtg(seninf, PAD_SRC_RAW0 + i, 0xFF);
 		if (is_w)
 			mtk_cam_seninf_set_camtg(seninf, PAD_SRC_RAW_W0 + i, 0xFF);
+	}
+
+	if (ctx->hw_sv) {
+		sv_dev = dev_get_drvdata(ctx->hw_sv);
+		for (i = 0; i < ctx->num_sv_subdevs; i++) {
+			tag_idx = mtk_cam_get_sv_tag_index(job->tag_info,
+				ctx->sv_subdev_idx[i] + MTKCAM_SUBDEV_CAMSV_START);
+
+			mtk_cam_seninf_set_camtg_camsv(seninf,
+				job->tag_info[tag_idx].seninf_padidx,
+				0xFF, tag_idx);
+		}
+	}
+
+	for (i = 0; i < ctx->num_mraw_subdevs; i++) {
+		if (ctx->hw_mraw[i]) {
+			mraw_pipe =
+				&ctx->cam->pipelines.mraw[ctx->mraw_subdev_idx[i]];
+
+			mtk_cam_seninf_set_camtg(seninf,
+				mraw_pipe->seninf_padidx, 0xFF);
+		}
 	}
 
 	pr_info("%s: job type:%d, seq:0x%x\n", __func__, job->job_type, job->frame_seq_no);
@@ -1235,7 +1260,7 @@ static int
 _switch_prepare(struct mtk_cam_job *job)
 {
 	set_cq_deadline(job, SCQ_DEADLINE_MAX);
-	disable_seninf_raw_src_cammux(job);
+	disable_seninf_cammux(job);
 
 	return 0;
 }

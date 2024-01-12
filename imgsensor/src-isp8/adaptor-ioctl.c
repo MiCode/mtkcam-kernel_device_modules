@@ -1708,6 +1708,25 @@ static int g_multi_exp_shutter_range_by_scenario(struct adaptor_ctx *ctx, void *
 	return 0;
 }
 
+static int g_exp_line_by_scenario(struct adaptor_ctx *ctx, void *arg)
+{
+	struct mtk_exp_line_by_scenario *info = arg;
+	union feature_para para;
+	u32 len;
+
+	para.u64[0] = info->scenario_id;
+	para.u64[1] = info->fps;
+	para.u64[2] = 0;
+
+	subdrv_call(ctx, feature_control,
+		SENSOR_FEATURE_GET_EXP_LINE_BY_SCENARIO,
+		para.u8, &len);
+
+	info->exp_line = para.u64[2];
+
+	return 0;
+}
+
 struct ioctl_entry {
 	unsigned int cmd;
 	int (*func)(struct adaptor_ctx *ctx, void *arg);
@@ -1765,6 +1784,7 @@ static const struct ioctl_entry ioctl_list[] = {
 	{VIDIOC_MTK_G_DCG_TYPE_BY_SCENARIO, g_dcg_type_by_scenario},
 	{VIDIOC_MTK_G_MULTI_EXP_GAIN_RANGE_BY_SCENARIO, g_multi_exp_gain_range_by_scenario},
 	{VIDIOC_MTK_G_MULTI_EXP_SHUTTER_RANGE_BY_SCENARIO, g_multi_exp_shutter_range_by_scenario},
+	{VIDIOC_MTK_G_EXP_LINE_BY_SCENARIO, g_exp_line_by_scenario},
 	/* SET */
 	{VIDIOC_MTK_S_VIDEO_FRAMERATE, s_video_framerate},
 	{VIDIOC_MTK_S_MAX_FPS_BY_SCENARIO, s_max_fps_by_scenario},

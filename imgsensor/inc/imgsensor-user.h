@@ -581,6 +581,12 @@ struct mtk_sensor_vc_info_by_scenario {
 	struct mtk_mbus_frame_desc fd;
 };
 
+struct mtk_exp_line_by_scenario {
+	__u32 scenario_id;
+	__u32 fps;	// 10-base, ex: 30fps, set .fps = 300
+	__u64 exp_line;
+};
+
 /* GET */
 
 #define VIDIOC_MTK_G_DEF_FPS_BY_SCENARIO \
@@ -726,6 +732,9 @@ struct mtk_sensor_vc_info_by_scenario {
 
 #define VIDIOC_MTK_G_MULTI_EXP_SHUTTER_RANGE_BY_SCENARIO \
 	_IOWR('M', BASE_VIDIOC_PRIVATE + 50, struct mtk_multi_exp_shutter_range_by_scenario)
+
+#define VIDIOC_MTK_G_EXP_LINE_BY_SCENARIO \
+	_IOWR('M', BASE_VIDIOC_PRIVATE + 51, struct mtk_exp_line_by_scenario)
 /* SET */
 
 #define VIDIOC_MTK_S_VIDEO_FRAMERATE \

@@ -2828,6 +2828,34 @@ void get_sensor_frame_count(struct subdrv_ctx *ctx, u32 *frame_cnt)
 	*frame_cnt = framecnt;
 }
 
+void get_exp_line_by_scenario(struct subdrv_ctx *ctx,
+		enum SENSOR_SCENARIO_ID_ENUM scenario_id,
+		u32 framerate, u64 *exposure_line)
+{
+	u64 shutter = 0;
+
+	if (scenario_id >= ctx->s_ctx.sensor_mode_num) {
+		DRV_LOGE(ctx, "invalid sid:%u, mode_num:%u\n",
+			scenario_id, ctx->s_ctx.sensor_mode_num);
+		scenario_id = SENSOR_SCENARIO_ID_NORMAL_PREVIEW;
+	}
+
+	if (framerate > ctx->s_ctx.mode[scenario_id].max_framerate)
+		framerate = ctx->s_ctx.mode[scenario_id].max_framerate;
+	shutter = ctx->s_ctx.mode[scenario_id].pclk / framerate * 10
+	/ ctx->s_ctx.mode[scenario_id].linelength;
+
+	if (ctx->s_ctx.mode[scenario_id].hdr_mode == HDR_RAW_STAGGER) {
+		shutter = shutter -(ctx->s_ctx.mode[scenario_id].readout_length +
+			ctx->s_ctx.mode[scenario_id].read_margin);
+	}
+	shutter = max_t(u64, shutter,
+			(u64)ctx->s_ctx.mode[scenario_id].multi_exposure_shutter_range[0].min);
+	shutter = min_t(u64, shutter,
+			(u64)ctx->s_ctx.mode[scenario_id].multi_exposure_shutter_range[0].max);
+	*exposure_line = shutter;
+}
+
 int common_get_imgsensor_id(struct subdrv_ctx *ctx, u32 *sensor_id)
 {
 	u8 i = 0;
@@ -3803,6 +3831,10 @@ int common_feature_control(struct subdrv_ctx *ctx, MSDK_SENSOR_FEATURE_ENUM feat
 		break;
 	case SENSOR_FEATURE_GET_FRAME_CNT:
 		get_sensor_frame_count(ctx, (u32 *) feature_data);
+		break;
+	case SENSOR_FEATURE_GET_EXP_LINE_BY_SCENARIO:
+		get_exp_line_by_scenario(ctx, *feature_data,
+			*(feature_data + 1), (feature_data + 2));
 		break;
 	default:
 		DRV_LOGE(ctx, "feature_id %u is invalid\n", feature_id);

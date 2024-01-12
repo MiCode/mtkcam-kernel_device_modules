@@ -1673,6 +1673,22 @@ static void imgsensor_remove(struct i2c_client *client)
 
 }
 
+static void imgsensor_shutdown(struct i2c_client *client)
+{
+	struct v4l2_subdev *sd = i2c_get_clientdata(client);
+	struct adaptor_ctx *ctx = to_ctx(sd);
+	int i;
+
+	dev_info(ctx->dev, "[%s]+\n", __func__);
+	mutex_lock(&ctx->mutex);
+
+	for (i = 0; ctx->power_refcnt; i++)
+		adaptor_hw_power_off(ctx);
+
+	mutex_unlock(&ctx->mutex);
+	dev_info(ctx->dev, "[%s]-\n", __func__);
+}
+
 #ifdef IMGSENSOR_USE_PM_FRAMEWORK
 static const struct dev_pm_ops imgsensor_pm_ops = {
 	SET_SYSTEM_SLEEP_PM_OPS(imgsensor_suspend, imgsensor_resume)
@@ -1703,6 +1719,7 @@ static struct i2c_driver imgsensor_i2c_driver = {
 	},
 	.probe_new = imgsensor_probe,
 	.remove = imgsensor_remove,
+	.shutdown = imgsensor_shutdown,
 	.id_table = imgsensor_id,
 };
 

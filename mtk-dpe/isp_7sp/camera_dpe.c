@@ -6375,7 +6375,6 @@ static void DPE_EnableClock(bool En)
 		spin_lock(&(DPEInfo.SpinLockDPE));
 		switch (g_u4EnableClockCount) {
 		case 0:
-			g_u4EnableClockCount++;
 			spin_unlock(&(DPEInfo.SpinLockDPE));
 #if !IS_ENABLED(CONFIG_MTK_LEGACY) && IS_ENABLED(CONFIG_COMMON_CLK) /*CCF*/
 #ifndef EP_NO_CLKMGR
@@ -6401,6 +6400,9 @@ static void DPE_EnableClock(bool En)
 			/* enable_clock(MT_CG_IMAGE_FD, "CAMERA"); */
 			enable_clock(MT_CG_IMAGE_LARB2_SMI, "CAMERA");
 #endif
+			spin_lock(&(DPEInfo.SpinLockDPE));
+			g_u4EnableClockCount++;
+			spin_unlock(&(DPEInfo.SpinLockDPE));
 			break;
 		default:
 			g_u4EnableClockCount++;
@@ -8707,7 +8709,8 @@ static int dpe_suspend_pm_event(struct notifier_block *notifier,
 		}
 		bPass1_On_In_Resume_TG1 = 0;
 		if (g_DPE_PMState == 0) {
-			LOG_INF("%s:g_u4EnableClockCount(%d) g_SuspendCnt(%d).\n", __func__,
+			LOG_INF("%s:suspend g_u4EnableClockCount(%d) g_SuspendCnt(%d).\n",
+				__func__,
 				g_u4EnableClockCount,
 				g_SuspendCnt);
 			g_DPE_PMState = 1;
@@ -8719,7 +8722,8 @@ static int dpe_suspend_pm_event(struct notifier_block *notifier,
 			g_SuspendCnt--;
 		}
 		if (g_DPE_PMState == 1) {
-			LOG_INF("%s:g_u4EnableClockCount(%d) g_SuspendCnt(%d).\n", __func__,
+			LOG_INF("%s:resume g_u4EnableClockCount(%d) g_SuspendCnt(%d).\n",
+				__func__,
 				g_u4EnableClockCount,
 				g_SuspendCnt);
 			g_DPE_PMState = 0;
@@ -9251,7 +9255,7 @@ LOG_INF("- E. MTK_DPE_VER Ster");
 		return Ret;
 	}
 #endif
-	//No_SMMU = 0;
+
 	LOG_INF("- X. DPE Init Ret: %d.", Ret);
 	return Ret;
 }

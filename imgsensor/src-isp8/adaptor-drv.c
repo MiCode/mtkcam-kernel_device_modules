@@ -1454,7 +1454,9 @@ static int imgsensor_probe(struct i3c_i2c_device *client)
 	if (!of_property_read_u32(dev->of_node, "maximum-pmic-delay", &pmic_delayus)) {
 		ctx->pmic_delayus = pmic_delayus;
 		dev_info(dev, "pmic_delayus:%llu\n", ctx->pmic_delayus);
-	}
+	}	else
+		ctx->pmic_delayus = 0;
+
 	ret = search_sensor(ctx);
 	if (ret) {
 		adaptor_loge(ctx, "no sensor found\n");

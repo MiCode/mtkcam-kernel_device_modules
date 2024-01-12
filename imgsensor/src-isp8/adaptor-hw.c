@@ -369,13 +369,18 @@ int adaptor_cam_pmic_off(struct adaptor_ctx *ctx)
 	return do_cam_pmic_off(ctx);
 }
 
-int adaptor_pmic_enable(struct adaptor_ctx *ctx, bool bPmicEnable)
+int adaptor_pmic_ctrl(struct adaptor_ctx *ctx, bool bPmicEnable)
 {
 	static int pmic_enable_cnt;
 	unsigned long long pmic_timedffus;
 
 	adaptor_logi(ctx, "[%s]+ bPmicEnable:%d, pmic_enable_cnt:%d+\n", __func__, bPmicEnable,
 	pmic_enable_cnt);
+	if (ctx->pmic_delayus == 0) {
+		adaptor_logi(ctx, "add extra delay to every sensor driver. pmic_delayus:%llu\n",
+			ctx->pmic_delayus);
+		return 0;
+	}
 	if (bPmicEnable) {
 		if (pmic_enable_cnt == 0) {
 			if (pmic_wake_en) {
@@ -456,7 +461,7 @@ int do_hw_power_on(struct adaptor_ctx *ctx)
 	if (subctx->power_on_profile_en)
 		time_boot_begin = ktime_get_boottime_ns();
 
-	adaptor_pmic_enable(ctx, true);
+	adaptor_pmic_ctrl(ctx, true);
 	for (i = 0; i < ctx->subdrv->pw_seq_cnt; i++) {
 		if (ctx->ctx_pw_seq)
 			ent = &ctx->ctx_pw_seq[i]; // use ctx pw seq
@@ -562,7 +567,7 @@ int do_hw_power_off(struct adaptor_ctx *ctx)
 		op->unset(ctx, op->data, ent->val);
 		//msleep(ent->delay);
 	}
-	adaptor_pmic_enable(ctx, false);
+	adaptor_pmic_ctrl(ctx, false);
 
 	op = &ctx->hw_ops[HW_ID_MIPI_SWITCH];
 	if (op->unset)

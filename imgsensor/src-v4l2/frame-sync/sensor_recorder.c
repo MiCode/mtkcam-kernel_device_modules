@@ -33,10 +33,18 @@
 
 
 #if !defined(FS_UT)
-#define frec_spin_lock_init(p) spin_lock_init(p)
-#define frec_spin_lock(p)      spin_lock(p)
-#define frec_spin_unlock(p)    spin_unlock(p)
+#define frec_mutex_lock_init(p)        mutex_init(p)
+#define frec_mutex_lock(p)             mutex_lock(p)
+#define frec_mutex_unlock(p)           mutex_unlock(p)
+
+#define frec_spin_lock_init(p)         spin_lock_init(p)
+#define frec_spin_lock(p)              spin_lock(p)
+#define frec_spin_unlock(p)            spin_unlock(p)
 #else
+#define frec_mutex_lock_init(p)
+#define frec_mutex_lock(p)
+#define frec_mutex_unlock(p)
+
 #define frec_spin_lock_init(p)
 #define frec_spin_lock(p)
 #define frec_spin_unlock(p)
@@ -58,10 +66,10 @@ struct FrameRecorder {
 	/* sensor record */
 	FS_Atomic_T depth_idx;
 	struct FrameRecord frame_recs[RECORDER_DEPTH];
-#if !defined(FS_UT)
-	spinlock_t frame_recs_update_lock;
-#endif
 
+#if !defined(FS_UT)
+	struct mutex frame_recs_update_lock;
+#endif
 
 	/* !!! frame length related info !!! */
 	/* predict frame length */
@@ -279,20 +287,22 @@ void frec_dump_recorder(const unsigned int idx, const char *caller)
 	}
 
 	FS_SNPRINTF(log_buf, len,
-		"[%s]: [%u] ID:%#x(sidx:%u/inf:%u), def_fl_lc:%u, fdelay:%u, line_t:%u(%u/%u), RECs:(idx:%u",
+		"[%s]: [%u] ID:%#x(sidx:%u/inf:%u), fdelay:%u/def_fl:%u/line_t:%u(%u/%u)/mar(%u,r:%u)/rout_l:%u",
 		caller,
 		idx,
 		fs_get_reg_sensor_id(idx),
 		fs_get_reg_sensor_idx(idx),
 		fs_get_reg_sensor_inf_idx(idx),
-		pfrec->def_fl_lc,
 		pfrec->fl_act_delay,
+		pfrec->def_fl_lc,
 		calcLineTimeInNs(
 			pfrec->frame_recs[depth_idx].pclk,
 			pfrec->frame_recs[depth_idx].line_length),
 		pfrec->frame_recs[depth_idx].line_length,
 		pfrec->frame_recs[depth_idx].pclk,
-		depth_idx);
+		pfrec->frame_recs[idx].margin_lc,
+		pfrec->frame_recs[idx].read_margin_lc,
+		pfrec->frame_recs[idx].readout_len_lc);
 
 	for (i = 0; i < RECORDER_DEPTH; ++i) {
 		/* dump data from newest to old */
@@ -300,9 +310,9 @@ void frec_dump_recorder(const unsigned int idx, const char *caller)
 		const unsigned int idx = RING_BACK(depth_idx, i);
 
 		FS_SNPRINTF(log_buf, len,
-			", ([%u](%llu)(req:%d): (%u/%u), (a:%u/m:%u(%u,%u), %u/%u/%u/%u/%u, %u/%u/%u/%u/%u), margin(%u,r:%u), rout_l:%u)",
+			", ([%u](%llu)(req:%d):(%u/%u),(a:%u/m:%u(t:%u,o:%u),%u/%u/%u/%u/%u,%u/%u/%u/%u/%u))",
 			idx,
-			pfrec->sys_ts_recs[idx],
+			pfrec->sys_ts_recs[idx]/1000,
 			pfrec->frame_recs[idx].mw_req_id,
 			pfrec->frame_recs[idx].shutter_lc,
 			pfrec->frame_recs[idx].framelength_lc,
@@ -319,10 +329,7 @@ void frec_dump_recorder(const unsigned int idx, const char *caller)
 			pfrec->frame_recs[idx].fl_lc_arr[1],
 			pfrec->frame_recs[idx].fl_lc_arr[2],
 			pfrec->frame_recs[idx].fl_lc_arr[3],
-			pfrec->frame_recs[idx].fl_lc_arr[4],
-			pfrec->frame_recs[idx].margin_lc,
-			pfrec->frame_recs[idx].read_margin_lc,
-			pfrec->frame_recs[idx].readout_len_lc);
+			pfrec->frame_recs[idx].fl_lc_arr[4]);
 	}
 
 	FS_SNPRINTF(log_buf, len,
@@ -339,7 +346,7 @@ void frec_dump_recorder(const unsigned int idx, const char *caller)
 		pfrec->curr_predicted_rd_offset_lc[4]);
 
 	FS_SNPRINTF(log_buf, len,
-		", pr(p):%u(%u)/act:%u, pr(c):%u(%u)",
+		", pr(p(%u(%u)/act:%u)/c(%u(%u))",
 		pfrec->prev_predicted_fl_us,
 		pfrec->prev_predicted_fl_lc,
 		pfrec->act_fl_us,
@@ -377,7 +384,7 @@ void frec_dump_recorder(const unsigned int idx, const char *caller)
 
 	fs_util_tsrec_dynamic_msg_connector(idx, log_buf, len, __func__);
 
-	LOG_MUST_SPIN("%s\n", log_buf);
+	LOG_MUST_LOCK("%s\n", log_buf);
 
 	FS_FREE(log_buf);
 }
@@ -395,7 +402,7 @@ static void frec_data_init(const unsigned int idx)
 	if (unlikely(pfrec == NULL))
 		return;
 
-	frec_spin_lock_init(&pfrec->frame_recs_update_lock);
+	frec_mutex_lock_init(&pfrec->frame_recs_update_lock);
 #endif
 }
 
@@ -1711,7 +1718,7 @@ void frec_chk_fl_pr_match_act(const unsigned int idx)
 		: (pfrec->act_fl_us - pfrec->prev_predicted_fl_us);
 
 	if (unlikely(diff > diff_th)) {
-		LOG_MUST_SPIN(
+		LOG_MUST_LOCK(
 			"WARNING: [%u] ID:%#x(sidx:%u/inf:%u), frame length (fdelay:%u): pr(p)(%u(%u)/act:%u) seems not match, plz check manually\n",
 			idx,
 			fs_get_reg_sensor_id(idx),
@@ -1926,7 +1933,7 @@ void frec_update_fl_info(const unsigned int idx, const unsigned int fl_lc,
 		return;
 	}
 
-	frec_spin_lock(&pfrec->frame_recs_update_lock);
+	frec_mutex_lock(&pfrec->frame_recs_update_lock);
 
 	depth_idx = FS_ATOMIC_READ(&pfrec->depth_idx);
 
@@ -1942,7 +1949,7 @@ void frec_update_fl_info(const unsigned int idx, const unsigned int fl_lc,
 	/* set the results to fs algo and frame monitor */
 	frec_notify_setting_frame_record_st_data(idx);
 
-	frec_spin_unlock(&pfrec->frame_recs_update_lock);
+	frec_mutex_unlock(&pfrec->frame_recs_update_lock);
 }
 
 
@@ -1956,7 +1963,7 @@ void frec_update_record(const unsigned int idx,
 	if (unlikely(pfrec == NULL))
 		return;
 
-	frec_spin_lock(&pfrec->frame_recs_update_lock);
+	frec_mutex_lock(&pfrec->frame_recs_update_lock);
 
 	curr_depth_idx = FS_ATOMIC_READ(&pfrec->depth_idx);
 
@@ -1971,7 +1978,7 @@ void frec_update_record(const unsigned int idx,
 	/* set the results to fs algo and frame monitor */
 	frec_notify_setting_frame_record_st_data(idx);
 
-	frec_spin_unlock(&pfrec->frame_recs_update_lock);
+	frec_mutex_unlock(&pfrec->frame_recs_update_lock);
 }
 
 
@@ -1993,7 +2000,7 @@ void frec_push_record(const unsigned int idx)
 			fs_get_reg_sensor_inf_idx(idx));
 	}
 
-	frec_spin_lock(&pfrec->frame_recs_update_lock);
+	frec_mutex_lock(&pfrec->frame_recs_update_lock);
 
 #ifndef FS_UT
 	sys_ts = ktime_get_boottime_ns();
@@ -2037,7 +2044,7 @@ void frec_push_record(const unsigned int idx)
 	/* set the results to fs algo and frame monitor */
 	frec_notify_setting_frame_record_st_data(idx);
 
-	frec_spin_unlock(&pfrec->frame_recs_update_lock);
+	frec_mutex_unlock(&pfrec->frame_recs_update_lock);
 }
 
 
@@ -2050,7 +2057,7 @@ void frec_reset_records(const unsigned int idx)
 	if (unlikely(pfrec == NULL))
 		return;
 
-	frec_spin_lock(&pfrec->frame_recs_update_lock);
+	frec_mutex_lock(&pfrec->frame_recs_update_lock);
 
 	for (i = 0; i < RECORDER_DEPTH; ++i) {
 		memset(&pfrec->frame_recs[i], 0, sizeof(pfrec->frame_recs[i]));
@@ -2065,7 +2072,7 @@ void frec_reset_records(const unsigned int idx)
 	frec_dump_recorder(idx, __func__);
 #endif
 
-	frec_spin_unlock(&pfrec->frame_recs_update_lock);
+	frec_mutex_unlock(&pfrec->frame_recs_update_lock);
 }
 
 
@@ -2088,7 +2095,7 @@ void frec_setup_def_records(const unsigned int idx, const unsigned int def_fl_lc
 		return;
 	}
 
-	frec_spin_lock(&pfrec->frame_recs_update_lock);
+	frec_mutex_lock(&pfrec->frame_recs_update_lock);
 
 	/* init all frec value to default shutter and framelength */
 	pfrec->is_init = 1;
@@ -2102,12 +2109,12 @@ void frec_setup_def_records(const unsigned int idx, const unsigned int def_fl_lc
 	pfrec->def_fl_lc = def_fl_lc;
 	frec_init_recorder_fl_related_info(idx, p_frame_rec);
 
-	frec_dump_recorder(idx, __func__);
-
 	/* set the results to fs algo and frame monitor */
 	frec_notify_setting_frame_record_st_data(idx);
 
-	frec_spin_unlock(&pfrec->frame_recs_update_lock);
+	frec_mutex_unlock(&pfrec->frame_recs_update_lock);
+
+	frec_dump_recorder(idx, __func__);
 }
 
 
@@ -2150,9 +2157,10 @@ void frec_seamless_switch(const unsigned int idx, const unsigned int def_fl_lc,
 	if (unlikely(pfrec == NULL))
 		return;
 
-	frec_spin_lock(&pfrec->frame_recs_update_lock);
+	if (_FS_LOG_ENABLED(LOG_SEN_REC_SEAMLESS_DUMP))
+		frec_dump_recorder(idx, __func__);
 
-	frec_dump_recorder(idx, __func__);
+	frec_mutex_lock(&pfrec->frame_recs_update_lock);
 
 	seamless_fl_us =
 		frec_calc_seamless_frame_length(idx, pfrec, p_seamless_rec);
@@ -2168,12 +2176,13 @@ void frec_seamless_switch(const unsigned int idx, const unsigned int def_fl_lc,
 	frec_init_recorder_seamless_fl_related_info(
 		idx, seamless_fl_us, &p_seamless_rec->frame_rec);
 
-	frec_dump_recorder(idx, __func__);
-
 	/* set the results to fs algo and frame monitor */
 	frec_notify_setting_frame_record_st_data(idx);
 
-	frec_spin_unlock(&pfrec->frame_recs_update_lock);
+	frec_mutex_unlock(&pfrec->frame_recs_update_lock);
+
+	if (_FS_LOG_ENABLED(LOG_SEN_REC_SEAMLESS_DUMP))
+		frec_dump_recorder(idx, __func__);
 }
 
 

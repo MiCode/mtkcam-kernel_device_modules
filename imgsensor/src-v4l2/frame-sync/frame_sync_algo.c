@@ -1306,7 +1306,7 @@ void fs_alg_sa_dump_dynamic_para(const unsigned int idx)
 	/* print timestamp related info */
 	fs_alg_sa_ts_info_dynamic_msg_connector(idx, log_buf, len, __func__);
 
-	LOG_MUST_SPIN("%s\n", log_buf);
+	LOG_MUST_LOCK("%s\n", log_buf);
 
 	FS_FREE(log_buf);
 }
@@ -1472,7 +1472,7 @@ void fs_alg_get_fl_rec_st_info(const unsigned int idx,
 		*p_out_fl_us += fs_inst[idx].fl_rec[i].out_fl_us;
 	}
 
-	LOG_INF_CAT_SPIN(LOG_FS_USER_QUERY_INFO,
+	LOG_INF_CAT_LOCK(LOG_FS_USER_QUERY_INFO,
 		"[%u] ID:%#x(sidx:%u), target_min_fl_us:%u/out_fl_us:%u, fl_rec(0:(#%u, %u/%u), 1:(#%u, %u/%u), 2:(#%u, %u/%u), 3:(#%u, %u/%u), 4:(#%u, %u/%u), (target_min_fl_us/out_fl_us)), f_cell:%u\n",
 		idx,
 		fs_inst[idx].sensor_id,
@@ -2508,7 +2508,7 @@ static long long fs_alg_sa_adjust_slave_diff_resolver(
 		m_idx, s_idx, p_para_m, p_para_s,
 		log_buf, len, __func__);
 
-	LOG_MUST_SPIN("%s\n", log_buf);
+	LOG_MUST_LOCK("%s\n", log_buf);
 
 	FS_FREE(log_buf);
 
@@ -3856,7 +3856,7 @@ static unsigned int do_fps_sync_sa_proc_checker(const unsigned int idx,
 	ret = 1;
 	FS_WRITE_BIT(idx, 1, &fs_sa_inst.unstable_fps_bits);
 
-	LOG_MUST_SPIN(
+	LOG_MUST_LOCK(
 		"WARNING: [%u] ID:%#x(sidx:%u), detect pure min FL for shutter NOT stable, %#x, (#%u/req_id:%d)[%u/%u/%u] => (#%u/req_id:%d)[%u/%u/%u], target min FL:%u, ts:%llu, ret:%u\n",
 		idx,
 		fs_get_reg_sensor_id(idx),
@@ -3979,7 +3979,7 @@ static unsigned int do_fps_sync_sa(const struct fs_sa_cfg *p_sa_cfg,
 			fps_info_arr, last_fps_info_arr, SENSOR_MAX_NUM, valid_bits,
 			log_buf, len, __func__);
 
-		LOG_MUST_SPIN("%s\n", log_buf);
+		LOG_MUST_LOCK("%s\n", log_buf);
 		FS_FREE(log_buf);
 	}
 end_do_fps_sync_sa:
@@ -4259,7 +4259,7 @@ static void adjust_async_vsync_diff_sa(
 		m_idx, idx, p_para_m, p_para,
 		log_buf, len, __func__);
 
-	LOG_MUST_SPIN("%s\n", log_buf);
+	LOG_MUST_LOCK("%s\n", log_buf);
 
 	FS_FREE(log_buf);
 

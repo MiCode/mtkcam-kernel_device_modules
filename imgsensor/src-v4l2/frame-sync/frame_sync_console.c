@@ -76,7 +76,7 @@ enum fs_console_cmd_id {
 
 
 /* log control */
-DEFINE_SPINLOCK(fs_log_concurrency_lock);
+DEFINE_MUTEX(fs_log_concurrency_lock);
 
 unsigned int fs_log_tracer;
 

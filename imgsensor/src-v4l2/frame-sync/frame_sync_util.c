@@ -61,9 +61,10 @@ void fs_util_tsrec_dynamic_msg_connector(const unsigned int idx,
 
 	/* print TSREC info */
 	FS_SNPRINTF(log_buf, len,
-		", tsrec[(no:%u/inf:%u,irq(%llu(ns)/%llu(us)+%llu), act_fl(%u/%u/%u), (0:(%llu/%llu/%llu/%llu), 1:(%llu/%llu/%llu/%llu), 2:(%llu/%llu/%llu/%llu))]",
+		", tsrec[(no:%u/inf:%u,irq(%llu/%llu)(+%llu)), act_fl(%u/%u/%u), (0:(%llu/%llu/%llu/%llu)/1:(%llu/%llu/%llu/%llu)/2:(%llu/%llu/%llu/%llu))]",
 		p_ts_info->tsrec_no, p_ts_info->seninf_idx,
-		p_ts_info->irq_sys_time_ns, p_ts_info->irq_tsrec_ts_us,
+		p_ts_info->irq_sys_time_ns/1000,
+		p_ts_info->irq_tsrec_ts_us,
 		(convert_tick_2_timestamp(
 			(p_ts_info->tsrec_curr_tick
 				- (p_ts_info->exp_recs[exp_id].ts_us[0]

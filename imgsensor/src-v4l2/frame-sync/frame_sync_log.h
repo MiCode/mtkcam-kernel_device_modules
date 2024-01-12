@@ -8,6 +8,7 @@
 
 #ifndef FS_UT
 #include <linux/printk.h>		/* for kernel log reduction */
+#include <linux/mutex.h>
 #include <linux/spinlock.h>
 #else
 #include <stdio.h>			/* printf */
@@ -21,7 +22,7 @@
 /* declare in frame_sync_console.c */
 extern unsigned int fs_log_tracer;
 
-extern spinlock_t fs_log_concurrency_lock;
+extern struct mutex fs_log_concurrency_lock;
 #else /* => FS_UT */
 #define fs_log_tracer 0xffffffff
 #endif
@@ -49,6 +50,7 @@ enum fs_log_ctrl_category {
 
 	/* custom category */
 	LOG_FS_ALGO_FPS_INFO,
+	LOG_SEN_REC_SEAMLESS_DUMP,
 
 	/* extra category */
 	LOG_FS_USER_QUERY_INFO = 26,
@@ -71,9 +73,9 @@ enum fs_log_ctrl_category {
 #define LOG_INF_CAT(log_cat, format, args...) printf(PFX "[%s] " format, __func__, ##args)
 #define LOG_PF_INF(format, args...) printf(PFX "[%s] " format, __func__, ##args)
 #define LOG_MUST(format, args...) printf(PFX "[%s] " format, __func__, ##args)
-#define LOG_INF_CAT_SPIN(log_cat, format, args...) printf(PFX "[%s] " format, __func__, ##args)
-#define LOG_PF_INF_SPIN(format, args...) printf(PFX "[%s] " format, __func__, ##args)
-#define LOG_MUST_SPIN(format, args...) printf(PFX "[%s] " format, __func__, ##args)
+#define LOG_INF_CAT_LOCK(log_cat, format, args...) printf(PFX "[%s] " format, __func__, ##args)
+#define LOG_PF_INF_LOCK(format, args...) printf(PFX "[%s] " format, __func__, ##args)
+#define LOG_MUST_LOCK(format, args...) printf(PFX "[%s] " format, __func__, ##args)
 #define LOG_PR_WARN(format, args...) printf(PFX "[%s] " format, __func__, ##args)
 #define LOG_PR_ERR(format, args...) printf(PFX "[%s] " format, __func__, ##args)
 
@@ -86,12 +88,12 @@ do { \
 	} \
 } while (0)
 
-#define DY_INFO_SPIN(log_cat, format, args...) \
+#define DY_INFO_LOCK(log_cat, format, args...) \
 do { \
 	if (unlikely(_FS_LOG_ENABLED(log_cat))) { \
-		spin_lock(&fs_log_concurrency_lock); \
+		mutex_lock(&fs_log_concurrency_lock); \
 		pr_info(PFX "[%s] " format, __func__, ##args); \
-		spin_unlock(&fs_log_concurrency_lock); \
+		mutex_unlock(&fs_log_concurrency_lock); \
 	} \
 } while (0)
 
@@ -100,13 +102,13 @@ do { \
 #define LOG_PF_INF(format, args...) DY_INFO(LOG_FS_PF, format, args)
 #define LOG_MUST(format, args...) pr_info(PFX "[%s] " format, __func__, ##args)
 
-#define LOG_INF_CAT_SPIN(log_cat, format, args...) DY_INFO_SPIN(log_cat, format, args)
-#define LOG_PF_INF_SPIN(format, args...) DY_INFO_SPIN(LOG_FS_PF, format, args)
-#define LOG_MUST_SPIN(format, args...) \
+#define LOG_INF_CAT_LOCK(log_cat, format, args...) DY_INFO_LOCK(log_cat, format, args)
+#define LOG_PF_INF_LOCK(format, args...) DY_INFO_LOCK(LOG_FS_PF, format, args)
+#define LOG_MUST_LOCK(format, args...) \
 do { \
-	spin_lock(&fs_log_concurrency_lock); \
+	mutex_lock(&fs_log_concurrency_lock); \
 	pr_info(PFX "[%s] " format, __func__, ##args); \
-	spin_unlock(&fs_log_concurrency_lock); \
+	mutex_unlock(&fs_log_concurrency_lock); \
 } while (0)
 
 

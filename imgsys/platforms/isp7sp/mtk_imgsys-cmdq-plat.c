@@ -43,6 +43,7 @@
 #define IMGSYS_SMIDUMP_QOF_DIP	(BIT(1))
 
 #define IMGSYS_QOS_SYNC_OWNER	(0x412d454d5f53)
+#define IMGSYS_QOS_SYNC_VRP1	(0x000031707276)
 #define IMGSYS_QOS_MAX_PERF	(MTK_MMQOS_MAX_SMI_FREQ_BW >> 1)
 
 #if CMDQ_CB_KTHREAD
@@ -3046,7 +3047,9 @@ void mtk_imgsys_mmqos_set_by_scen_plat7sp(struct mtk_imgsys_dev *imgsys_dev,
 			frame_duration = 1000 / (fps << 1);
 			cur_interval = (ktime_get_boottime_ns()/1000000) - qos_info->time_prev_req;
 
-			if (frm_info->frm_owner == IMGSYS_QOS_SYNC_OWNER && sidx == 0 &&
+			if ( (frm_info->frm_owner == IMGSYS_QOS_SYNC_OWNER ||
+			    (frm_info->frm_owner & IMGSYS_QOS_SYNC_VRP1) ==
+			    IMGSYS_QOS_SYNC_VRP1) && sidx == 0 &&
 			    frm_info->frame_no == 0) {
 				qos_info->req_cnt = 0;
 				qos_info->avg_cnt = 0;

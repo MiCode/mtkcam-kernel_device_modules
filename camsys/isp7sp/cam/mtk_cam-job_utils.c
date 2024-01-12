@@ -133,6 +133,20 @@ u32 get_sensor_fps(struct mtk_cam_job *job)
 	return 0;
 }
 
+u32 get_sensor_interval_us(struct mtk_cam_job *job)
+{
+	struct mtk_cam_resource_sensor_v2 *sensor_res;
+
+	sensor_res = _get_job_sensor_res(job);
+	if (!sensor_res) {
+		pr_info_ratelimited("%s: warn. assume 30fps\n", __func__);
+		return 33333;
+	}
+
+	return (u32)(1000000ULL * sensor_res->interval.numerator /
+		     sensor_res->interval.denominator);
+}
+
 u8 get_sensor_data_pattern(struct mtk_cam_job *job)
 {
 	struct mtk_cam_resource_sensor_v2 *sensor_res;
@@ -239,7 +253,7 @@ int get_hw_scenario(struct mtk_cam_job *job)
 			}
 		} else if (is_w) {
 			hard_scenario = MTKCAM_IPI_HW_PATH_OFFLINE_RGBW;
-		} else if (is_vhdr(job))
+		} else if (is_vhdr(job) && !is_dcg_sensor_merge(job))
 			hard_scenario = MTKCAM_IPI_HW_PATH_OFFLINE_STAGGER;
 		else
 			hard_scenario = MTKCAM_IPI_HW_PATH_OFFLINE;
@@ -1413,12 +1427,17 @@ bool is_dc_mode(struct mtk_cam_job *job)
 	if (!res)
 		return false;
 
-	return scen_is_dc_mode(&res->raw_res);
+	return res_raw_is_dc_mode(&res->raw_res);
 }
 
 bool is_rgbw(struct mtk_cam_job *job)
 {
 	return scen_is_rgbw(&job->job_scen);
+}
+
+bool is_dcg_sensor_merge(struct mtk_cam_job *job)
+{
+	return scen_is_dcg_sensor_merge(&job->job_scen);
 }
 
 bool is_m2m(struct mtk_cam_job *job)

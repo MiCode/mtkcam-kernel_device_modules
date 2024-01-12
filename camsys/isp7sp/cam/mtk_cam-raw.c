@@ -153,6 +153,12 @@ static void init_camsys_settings(struct mtk_raw_device *dev, bool is_dc)
 	dev_info(dev->dev, "%s: is dc:%d\n", __func__, is_dc);
 }
 
+static void init_ADLWR_settings(struct mtk_cam_device *cam)
+{
+	/* CAMADLWR_CAMADLWR_ADL_CTRL_FIELD_ID_GROUP_2 */
+	writel_relaxed(0x440, cam->adl_base + 0x850);
+}
+
 static void dump_cq_setting(struct mtk_raw_device *dev)
 {
 	dev_info(dev->dev, "CQ_EN 0x%08x THR_CTL 0x%08x 0x%08x, 0x%08x\n",
@@ -241,6 +247,7 @@ void initialize(struct mtk_raw_device *dev, int is_slave, int is_dc,
 	reset_msgfifo(dev);
 
 	init_camsys_settings(dev, is_dc);
+	init_ADLWR_settings(dev->cam);
 
 	dev->engine_cb = cb;
 	engine_fsm_reset(&dev->fsm, dev->dev);
@@ -435,16 +442,12 @@ void update_scq_start_period(struct mtk_raw_device *dev, int scq_ms)
 void stream_on(struct mtk_raw_device *dev, int on)
 {
 	if (on) {
-		if (!dev->is_slave) {
-			/* toggle db before stream-on */
-			enable_tg_db(dev, 0);
-			enable_tg_db(dev, 1);
-			toggle_db(dev);
+		/* toggle db before stream-on */
+		enable_tg_db(dev, 0);
+		enable_tg_db(dev, 1);
 
-			set_tg_vfdata_en(dev, 1);
-			set_topdebug_rdyreq(dev, TG_OVERRUN);
-		} else
-			toggle_db(dev);
+		set_tg_vfdata_en(dev, 1);
+		set_topdebug_rdyreq(dev, TG_OVERRUN);
 	} else {
 		set_tg_vfdata_en(dev, 0);
 		enable_tg_db(dev, 0);
@@ -465,8 +468,6 @@ void immediate_stream_off(struct mtk_raw_device *dev)
 static inline void trigger_rawi(struct mtk_raw_device *dev, u32 val)
 {
 	int cookie;
-
-	toggle_db(dev);
 
 	/* update fsm's cookie_inner since m2m flow has no sof to update it */
 	cookie = readl(dev->base_inner + REG_FRAME_SEQ_NUM);

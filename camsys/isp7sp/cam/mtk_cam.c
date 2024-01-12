@@ -3983,7 +3983,7 @@ static int mtk_cam_remove(struct platform_device *pdev)
 #define CAM_MAIN_CAM_SPM_ACK    0x42C
 static void camsys_main_lp_ctrl(struct mtk_cam_device *cam_dev, bool on)
 {
-	int spm_ack;
+	int spm_ack = 0;
 	int ret;
 
 	writel_relaxed(on ? BIT(0) | BIT(1) | BIT(2) : 0x0,
@@ -3996,13 +3996,14 @@ static void camsys_main_lp_ctrl(struct mtk_cam_device *cam_dev, bool on)
 					 1 /* delay, us */,
 					 2000 /* timeout, us */);
 		if (ret < 0) {
-			dev_info(cam_dev->dev, "%s: error: timeout!\n", __func__);
+			dev_info(cam_dev->dev, "%s: error: timeout!, (ack 0x%x)\n",
+				__func__, spm_ack);
 			return;
 		}
 	}
 
-	dev_dbg(cam_dev->dev, "%s: 0x%x\n", __func__,
-		readl(cam_dev->base + CAM_MAIN_LOW_POWER_CTRL));
+	dev_info(cam_dev->dev, "%s: ctrl: 0x%x ack: 0x%x\n", __func__,
+		readl(cam_dev->base + CAM_MAIN_LOW_POWER_CTRL), spm_ack);
 }
 
 static int mtk_cam_runtime_suspend(struct device *dev)

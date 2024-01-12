@@ -7481,8 +7481,8 @@ static inline u32 _set_field(u32 *val, int pos, int width, u32 fval)
 
 /* TBC(AY) */
 /* camsv_a/b */
-#define HALT1_EN		0x2
-#define HALT2_EN		0x2
+#define HALT1_EN		0x6
+#define HALT2_EN		0x6
 /* raw_a/yuv_a */
 #define HALT5_EN		0xF860
 #define HALT6_EN		0x6F

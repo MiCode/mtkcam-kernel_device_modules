@@ -152,6 +152,10 @@ struct mtk_mraw_device {
 
 	/* mmqos */
 	struct mtk_camsys_qos qos;
+
+	/* for BWR */
+	int mraw_avg_applied_bw_w;
+	int mraw_peak_applied_bw_w;
 };
 
 void mraw_reset(struct mtk_mraw_device *mraw_dev);

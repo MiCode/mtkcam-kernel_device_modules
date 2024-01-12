@@ -196,6 +196,10 @@ struct mtk_camsv_device {
 	/* for backup/restore in recovery flow */
 	struct mtk_camsv_backup_setting backup_setting;
 
+	/* for BWR */
+	int sv_avg_applied_bw_w;
+	int sv_peak_applied_bw_w;
+
 	atomic_t is_seamless;
 };
 

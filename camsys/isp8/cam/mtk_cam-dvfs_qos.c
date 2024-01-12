@@ -821,10 +821,8 @@ static int fill_mraw_qos(struct mtk_cam_job *job,
 			if (mraw_dev->pipeline->id == mraw_param->pipe_id) {
 				/* wdma */
 				for (k = 0; k < MRAW_MAX_IMAGE_OUTPUT; k++) {
-					if (k == 0)
-						port_id = SMI_PORT_MRAW_IMGO;
-					else
-						port_id = SMI_PORT_MRAW_IMGBO;
+
+					port_id = SMI_PORT_MRAW_IMGO;
 
 					in = &mraw_param->mraw_img_outputs[k];
 					x_size = in->fmt.stride[0];
@@ -1075,12 +1073,14 @@ static void apply_raw_qos(struct mtk_cam_job *job)
 static void apply_sv_qos(struct mtk_cam_job *job)
 {
 	struct mtk_cam_ctx *ctx = job->src_ctx;
+	struct mtk_cam_device *cam = ctx->cam;
 	struct mtk_camsv_device *sv_dev;
 	unsigned int fifo_img_p1, fifo_img_p2, fifo_len_p1, fifo_len_p2;
 	unsigned int is_two_smi_out = 0;
 	u32 a_bw, p_bw;
 	int i, port_num;
-	bool apply, apply_sv_th = false;
+	bool apply, apply_sv_th = false, apply_bwr = false;
+	int sv_avg_bw_w = 0, sv_peak_bw_w = 0, sv_avg_diff_bw_w = 0, sv_peak_diff_bw_w = 0;
 
 	if (ctx->hw_sv) {
 		sv_dev = dev_get_drvdata(ctx->hw_sv);
@@ -1091,9 +1091,13 @@ static void apply_sv_qos(struct mtk_cam_job *job)
 			SMI_PORT_SV_TYPE0_NUM : SMI_PORT_SV_TYPE1_NUM;
 
 		port_num = sv_dev->qos.n_path ? port_num : 0;
+
 		for (i = 0; i < port_num; i++) {
 			a_bw = job->sv_mmqos[i].avg_bw;
 			p_bw = job->sv_mmqos[i].peak_bw;
+			sv_avg_bw_w += a_bw;
+			sv_peak_bw_w += p_bw;
+
 			apply = apply_qos_chk(a_bw, p_bw,
 					&sv_dev->qos.cam_path[i].applied_bw,
 					&sv_dev->qos.cam_path[i].pending_bw);
@@ -1101,6 +1105,7 @@ static void apply_sv_qos(struct mtk_cam_job *job)
 				mtk_icc_set_bw(sv_dev->qos.cam_path[i].path,
 					to_qos_occ_ratio(a_bw), p_bw);
 				apply_sv_th = true;
+				apply_bwr = true;
 			}
 
 			if (CAM_DEBUG_ENABLED(MMQOS))
@@ -1110,6 +1115,22 @@ static void apply_sv_qos(struct mtk_cam_job *job)
 						sv_dev->qos.cam_path[i].name, a_bw, p_bw,
 						sv_dev->qos.cam_path[i].applied_bw,
 						sv_dev->qos.cam_path[i].pending_bw);
+		}
+
+		if (apply_bwr) {
+			sv_avg_diff_bw_w = sv_avg_bw_w - sv_dev->sv_avg_applied_bw_w;
+			sv_peak_diff_bw_w = sv_peak_bw_w - sv_dev->sv_peak_applied_bw_w;
+			sv_dev->sv_avg_applied_bw_w = sv_avg_bw_w;
+			sv_dev->sv_peak_applied_bw_w = sv_peak_bw_w;
+			mtk_cam_bwr_set_chn_bw(&cam->bwr,
+				get_sv_bwr_engine(sv_dev->id), get_sv_axi_port(sv_dev->id),
+				0, KBps_to_bwr(sv_avg_diff_bw_w),
+				0, KBps_to_bwr(sv_peak_diff_bw_w), false);
+
+			mtk_cam_bwr_set_ttl_bw(&cam->bwr,
+				get_sv_bwr_engine(sv_dev->id), KBps_to_bwr(sv_avg_diff_bw_w),
+				KBps_to_bwr(sv_peak_diff_bw_w), false);
+
 		}
 
 		if (apply_sv_th) {
@@ -1134,10 +1155,13 @@ static void apply_sv_qos(struct mtk_cam_job *job)
 static void apply_mraw_qos(struct mtk_cam_job *job)
 {
 	struct mtk_cam_ctx *ctx = job->src_ctx;
+	struct mtk_cam_device *cam = ctx->cam;
 	struct mtk_mraw_device *mraw_dev;
 	u32 a_bw, p_bw;
+	int mraw_avg_bw_w = 0, mraw_peak_bw_w = 0;
+	int mraw_avg_diff_bw_w = 0, mraw_peak_diff_bw_w = 0;
 	int i, j;
-	bool apply;
+	bool apply, apply_bwr = false;
 
 	for (i = 0; i < MAX_MRAW_PIPES_PER_STREAM; i++) {
 		if (ctx->hw_mraw[i]) {
@@ -1145,12 +1169,17 @@ static void apply_mraw_qos(struct mtk_cam_job *job)
 			for (j = 0; j < mraw_dev->qos.n_path; j++) {
 				a_bw = job->mraw_mmqos[i][j].avg_bw;
 				p_bw = job->mraw_mmqos[i][j].peak_bw;
+				mraw_peak_bw_w += p_bw;
+				mraw_avg_bw_w += a_bw;
+
 				apply = apply_qos_chk(a_bw, p_bw,
 						&mraw_dev->qos.cam_path[j].applied_bw,
 						&mraw_dev->qos.cam_path[j].pending_bw);
-				if (apply)
+				if (apply) {
 					mtk_icc_set_bw(mraw_dev->qos.cam_path[j].path,
 						to_qos_occ_ratio(a_bw), p_bw);
+					apply_bwr = true;
+				}
 
 				if (CAM_DEBUG_ENABLED(MMQOS))
 					pr_info("%s: req_seq:%d %s mraw-%d icc_path:%s avg/peak:%u/%u applied/pending:%lld/%lld\n",
@@ -1159,6 +1188,20 @@ static void apply_mraw_qos(struct mtk_cam_job *job)
 							mraw_dev->qos.cam_path[j].name, a_bw, p_bw,
 							mraw_dev->qos.cam_path[j].applied_bw,
 							mraw_dev->qos.cam_path[j].pending_bw);
+			}
+			if (apply_bwr) {
+				mraw_avg_diff_bw_w = mraw_avg_bw_w - mraw_dev->mraw_avg_applied_bw_w;
+				mraw_peak_diff_bw_w = mraw_peak_bw_w - mraw_dev->mraw_peak_applied_bw_w;
+				mraw_dev->mraw_avg_applied_bw_w = mraw_avg_bw_w;
+				mraw_dev->mraw_peak_applied_bw_w = mraw_peak_bw_w;
+				mtk_cam_bwr_set_chn_bw(&cam->bwr,
+					get_bwr_engine(ENGINE_MRAW), get_mraw_axi_port(mraw_dev->id),
+					0, KBps_to_bwr(mraw_avg_diff_bw_w),
+					0, KBps_to_bwr(mraw_peak_diff_bw_w), false);
+
+				mtk_cam_bwr_set_ttl_bw(&cam->bwr,
+					get_bwr_engine(ENGINE_MRAW), KBps_to_bwr(mraw_avg_diff_bw_w),
+					KBps_to_bwr(mraw_peak_diff_bw_w), false);
 			}
 		}
 	}

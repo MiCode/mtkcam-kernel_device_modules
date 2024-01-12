@@ -1044,6 +1044,9 @@ int mtk_cam_sv_dev_config(struct mtk_camsv_device *sv_dev,
 	sv_dev->sof_count = 0;
 	sv_dev->tg_cnt = 0;
 
+	sv_dev->sv_avg_applied_bw_w = 0;
+	sv_dev->sv_peak_applied_bw_w = 0;
+
 	atomic_set(&sv_dev->is_seamless, 0);
 
 	mtk_cam_sv_dmao_common_config(sv_dev, 0, 0, 0, 0);
@@ -2196,6 +2199,16 @@ int mtk_camsv_runtime_suspend(struct device *dev)
 	dev_dbg(dev, "%s:disable clock\n", __func__);
 
 	mtk_cam_reset_qos(dev, &sv_dev->qos);
+
+	mtk_cam_bwr_set_chn_bw(&sv_dev->cam->bwr,
+		get_sv_bwr_engine(sv_dev->id), get_sv_axi_port(sv_dev->id),
+		0, KBps_to_bwr(-(sv_dev->sv_avg_applied_bw_w)),
+		0, KBps_to_bwr(-(sv_dev->sv_peak_applied_bw_w)), false);
+
+	mtk_cam_bwr_set_ttl_bw(&sv_dev->cam->bwr,
+		get_sv_bwr_engine(sv_dev->id), KBps_to_bwr(-(sv_dev->sv_avg_applied_bw_w)),
+		KBps_to_bwr(-(sv_dev->sv_peak_applied_bw_w)), false);
+
 	mtk_cam_sv_golden_set(sv_dev, false);
 
 	for (i = 0; i < sv_dev->num_clks; i++)

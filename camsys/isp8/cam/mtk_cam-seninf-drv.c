@@ -3327,8 +3327,8 @@ static int set_csi_clk(struct seninf_ctx *ctx, enum CDPHY_DVFS_STEP_ENUM index)
 	struct clk *clk = NULL, *clk_src = NULL;
 	unsigned int clk_index = 0, clk_src_index = 0;
 
-	switch (ctx->seninfAsyncIdx) {
-	case SENINF_ASYNC_0:
+	switch (ctx->portNum) {
+	case CSI_PORT_0:
 		if (!core->clk[CLK_TOP_SENINF]) {
 			seninf_logi(ctx, "core->clk[CLK_TOP_SENINF] = NULL\n");
 			return -EINVAL;
@@ -3337,7 +3337,7 @@ static int set_csi_clk(struct seninf_ctx *ctx, enum CDPHY_DVFS_STEP_ENUM index)
 			clk = core->clk[CLK_TOP_SENINF];
 		}
 		break;
-	case SENINF_ASYNC_1:
+	case CSI_PORT_1:
 		if (!core->clk[CLK_TOP_SENINF1]) {
 			seninf_logi(ctx, "core->clk[CLK_TOP_SENINF1] = NULL\n");
 			return -EINVAL;
@@ -3346,7 +3346,7 @@ static int set_csi_clk(struct seninf_ctx *ctx, enum CDPHY_DVFS_STEP_ENUM index)
 			clk = core->clk[CLK_TOP_SENINF1];
 		}
 		break;
-	case SENINF_ASYNC_2:
+	case CSI_PORT_2:
 		if (!core->clk[CLK_TOP_SENINF2]) {
 			seninf_logi(ctx, "core->clk[CLK_TOP_SENINF2] = NULL\n");
 			return -EINVAL;
@@ -3355,7 +3355,7 @@ static int set_csi_clk(struct seninf_ctx *ctx, enum CDPHY_DVFS_STEP_ENUM index)
 			clk = core->clk[CLK_TOP_SENINF2];
 		}
 		break;
-	case SENINF_ASYNC_3:
+	case CSI_PORT_3:
 		if (!core->clk[CLK_TOP_SENINF3]) {
 			seninf_logi(ctx, "core->clk[CLK_TOP_SENINF3] = NULL\n");
 			return -EINVAL;
@@ -3364,7 +3364,7 @@ static int set_csi_clk(struct seninf_ctx *ctx, enum CDPHY_DVFS_STEP_ENUM index)
 			clk = core->clk[CLK_TOP_SENINF3];
 		}
 		break;
-	case SENINF_ASYNC_4:
+	case CSI_PORT_4:
 		if (!core->clk[CLK_TOP_SENINF4]) {
 			seninf_logi(ctx, "core->clk[CLK_TOP_SENINF4] = NULL\n");
 			return -EINVAL;
@@ -3373,7 +3373,7 @@ static int set_csi_clk(struct seninf_ctx *ctx, enum CDPHY_DVFS_STEP_ENUM index)
 			clk = core->clk[CLK_TOP_SENINF4];
 		}
 		break;
-	case SENINF_ASYNC_5:
+	case CSI_PORT_5:
 		if (!core->clk[CLK_TOP_SENINF5]) {
 			seninf_logi(ctx, "core->clk[CLK_TOP_SENINF5] = NULL\n");
 			return -EINVAL;
@@ -3383,7 +3383,7 @@ static int set_csi_clk(struct seninf_ctx *ctx, enum CDPHY_DVFS_STEP_ENUM index)
 		}
 		break;
 	default:
-		seninf_logi(ctx, "invalid seninfAsyncIdx %d\n", ctx->seninfAsyncIdx);
+		seninf_logi(ctx, "invalid portNum %d\n", ctx->portNum);
 		return -EINVAL;
 	}
 	/* set csi clk from dts according to vcore voltage from dts */
@@ -3634,33 +3634,33 @@ static int runtime_suspend(struct device *dev)
 		/* disable camtg_sel as phya clk */
 		disable_phya_clk(ctx);
 		/* disable seninf csi clk */
-		switch (ctx->seninfAsyncIdx) {
-		case SENINF_ASYNC_0:
+		switch (ctx->portNum) {
+		case CSI_PORT_0:
 			if (core->clk[CLK_TOP_SENINF])
 				clk_disable_unprepare(core->clk[CLK_TOP_SENINF]);
 			break;
-		case SENINF_ASYNC_1:
+		case CSI_PORT_1:
 			if (core->clk[CLK_TOP_SENINF1])
 				clk_disable_unprepare(core->clk[CLK_TOP_SENINF1]);
 			break;
-		case SENINF_ASYNC_2:
+		case CSI_PORT_2:
 			if (core->clk[CLK_TOP_SENINF2])
 				clk_disable_unprepare(core->clk[CLK_TOP_SENINF2]);
 			break;
-		case SENINF_ASYNC_3:
+		case CSI_PORT_3:
 			if (core->clk[CLK_TOP_SENINF3])
 				clk_disable_unprepare(core->clk[CLK_TOP_SENINF3]);
 			break;
-		case SENINF_ASYNC_4:
+		case CSI_PORT_4:
 			if (core->clk[CLK_TOP_SENINF4])
 				clk_disable_unprepare(core->clk[CLK_TOP_SENINF4]);
 			break;
-		case SENINF_ASYNC_5:
+		case CSI_PORT_5:
 			if (core->clk[CLK_TOP_SENINF5])
 				clk_disable_unprepare(core->clk[CLK_TOP_SENINF5]);
 			break;
 		default:
-			seninf_logi(ctx, "invalid seninfAsyncIdx(%d)\n", ctx->seninfAsyncIdx);
+			seninf_logi(ctx, "invalid portNum(%d)\n", ctx->portNum);
 			mutex_unlock(&core->mutex);
 			return -EINVAL;
 		}

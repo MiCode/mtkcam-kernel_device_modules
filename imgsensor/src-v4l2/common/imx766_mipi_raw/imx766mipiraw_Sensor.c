@@ -2333,7 +2333,7 @@ static struct subdrv_pw_seq_entry pw_seq[] = {
 	{HW_ID_AFVDD1, 1800000, 0}, // power 1.8V to enable 2.8V ldo
 	{HW_ID_AFVDD, 2800000, 0},
 	{HW_ID_DVDD, 1100000, 0},
-	{HW_ID_DOVDD, 1800000, 3},
+	{HW_ID_DOVDD, 1800000, 5},
 	{HW_ID_PDN, 1, 0},
 	{HW_ID_RST, 1, 2}
 };

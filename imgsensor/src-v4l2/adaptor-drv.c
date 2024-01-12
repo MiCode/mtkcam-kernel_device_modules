@@ -99,6 +99,8 @@ static void get_outfmt_code(struct adaptor_ctx *ctx)
 			break;
 
 		case SENSOR_OUTPUT_FORMAT_RAW8_MONO:
+		case SENSOR_OUTPUT_FORMAT_SENSING_MODE_RAW_MONO:
+		case SENSOR_OUTPUT_FORMAT_VIEWING_MODE_RAW_MONO:
 		case SENSOR_OUTPUT_FORMAT_RAW8_B:
 			ctx->fmt_code[i] = MEDIA_BUS_FMT_SBGGR8_1X8;
 			break;
@@ -471,6 +473,18 @@ static int search_sensor(struct adaptor_ctx *ctx)
 				memcpy(ctx->ctx_pw_seq, ctx->subdrv->pw_seq,
 				       ctx->subdrv->pw_seq_cnt *
 				       sizeof(struct subdrv_pw_seq_entry));
+			}
+			if (ctx->subctx.aov_sensor_support && ctx->cust_aov_csi_clk) {
+				ctx->subctx.aov_csi_clk = ctx->cust_aov_csi_clk;
+				dev_info(ctx->dev,
+					"aov_csi_clk:%u\n",
+					ctx->subctx.aov_csi_clk);
+			}
+			if (ctx->subctx.aov_sensor_support && ctx->phy_ctrl_ver) {
+				ctx->subctx.aov_phy_ctrl_ver = ctx->phy_ctrl_ver;
+				dev_info(ctx->dev,
+					"aov_phy_ctrl_ver:%s\n",
+					ctx->subctx.aov_phy_ctrl_ver);
 			}
 			return 0;
 		}
@@ -1422,6 +1436,14 @@ static int imgsensor_probe(struct i2c_client *client)
 	ctx->p_set_ctrl_unlock_flag = &set_ctrl_unlock;
 	ctx->aov_pm_ops_flag = 0;
 	ctx->aov_mclk_ulposc_flag = 0;
+
+	if (!of_property_read_u32(
+		dev->of_node, "cust-aov-csi-clk", &ctx->cust_aov_csi_clk))
+		dev_info(dev, "cust_aov_csi_clk:%u\n", ctx->cust_aov_csi_clk);
+
+	if (!of_property_read_string(
+		dev->of_node, "phy-ctrl-ver", &ctx->phy_ctrl_ver))
+		dev_info(dev, "phy_ctrl_ver:%s\n", ctx->phy_ctrl_ver);
 
 	endpoint = of_graph_get_next_endpoint(dev->of_node, NULL);
 	if (!endpoint) {

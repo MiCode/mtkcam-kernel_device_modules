@@ -40,7 +40,8 @@ struct mtk_raw_device {
 	struct notifier_block pm_notifier;
 #endif
 	/* larb */
-	struct platform_device *larb_pdev;
+	unsigned int num_larbs;
+	struct platform_device **larbs;
 	struct mtk_camsys_qos qos;
 
 	int		fifo_size;
@@ -91,7 +92,8 @@ struct mtk_yuv_device {
 #ifdef CONFIG_PM_SLEEP
 	struct notifier_block pm_notifier;
 #endif
-	struct platform_device *larb_pdev;
+	unsigned int num_larbs;
+	struct platform_device **larbs;
 	struct mtk_camsys_qos qos;
 };
 

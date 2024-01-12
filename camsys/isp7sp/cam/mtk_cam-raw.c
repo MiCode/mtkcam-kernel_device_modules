@@ -91,6 +91,7 @@ static void init_camsys_settings(struct mtk_raw_device *dev, bool is_srt)
 	struct mtk_yuv_device *yuv_dev = get_yuv_dev(dev);
 	unsigned int reg_raw_urgent, reg_yuv_urgent;
 	unsigned int raw_urgent, yuv_urgent;
+	int i;
 
 	//Set CQI sram size
 	set_fifo_threshold(dev->base + REG_CQI_R1_BASE, 64);
@@ -140,17 +141,19 @@ static void init_camsys_settings(struct mtk_raw_device *dev, bool is_srt)
 	if (is_srt) {
 		writel_relaxed(0x0, cam_dev->base + reg_raw_urgent);
 		writel_relaxed(0x0, cam_dev->base + reg_yuv_urgent);
-		if (dev->larb_pdev)
-			mtk_smi_larb_ultra_dis(&dev->larb_pdev->dev, true);
-		if (yuv_dev->larb_pdev)
-			mtk_smi_larb_ultra_dis(&yuv_dev->larb_pdev->dev, true);
+		for (i = 0; i < dev->num_larbs && dev->larbs[i]; i++)
+			mtk_smi_larb_ultra_dis(&dev->larbs[i]->dev, true);
+
+		for (i = 0; i < dev->num_larbs && yuv_dev->larbs[i]; i++)
+			mtk_smi_larb_ultra_dis(&yuv_dev->larbs[i]->dev, true);
 	} else {
 		writel_relaxed(raw_urgent, cam_dev->base + reg_raw_urgent);
 		writel_relaxed(yuv_urgent, cam_dev->base + reg_yuv_urgent);
-		if (dev->larb_pdev)
-			mtk_smi_larb_ultra_dis(&dev->larb_pdev->dev, false);
-		if (yuv_dev->larb_pdev)
-			mtk_smi_larb_ultra_dis(&yuv_dev->larb_pdev->dev, false);
+		for (i = 0; i < dev->num_larbs && dev->larbs[i]; i++)
+			mtk_smi_larb_ultra_dis(&dev->larbs[i]->dev, false);
+
+		for (i = 0; i < dev->num_larbs && yuv_dev->larbs[i]; i++)
+			mtk_smi_larb_ultra_dis(&yuv_dev->larbs[i]->dev, false);
 	}
 
 	wmb(); /* TBC */
@@ -1317,11 +1320,18 @@ static int mtk_raw_of_probe(struct platform_device *pdev,
 
 	larbs = of_count_phandle_with_args(
 					pdev->dev.of_node, "mediatek,larbs", NULL);
-	larbs = (larbs == -ENOENT) ? 0 : larbs;
+	raw->num_larbs = (larbs < 0) ? 0 : larbs;
 	dev_info(dev, "larb_num:%d\n", larbs);
 
-	raw->larb_pdev = NULL;
-	for (i = 0; i < larbs; i++) {
+	if (raw->num_larbs) {
+		raw->larbs = devm_kcalloc(dev,
+					     raw->num_larbs, sizeof(*raw->larbs),
+					     GFP_KERNEL);
+		if (!raw->larbs)
+			return -ENOMEM;
+	}
+
+	for (i = 0; i < raw->num_larbs; i++) {
 		larb_node = of_parse_phandle(
 					pdev->dev.of_node, "mediatek,larbs", i);
 		if (!larb_node) {
@@ -1337,12 +1347,12 @@ static int mtk_raw_of_probe(struct platform_device *pdev,
 		}
 		of_node_put(larb_node);
 
-		link = device_link_add(&pdev->dev, &larb_pdev->dev,
+		link = device_link_add(dev, &larb_pdev->dev,
 						DL_FLAG_PM_RUNTIME | DL_FLAG_STATELESS);
 		if (!link)
 			dev_info(dev, "unable to link smi larb%d\n", i);
 		else
-			raw->larb_pdev = larb_pdev;
+			raw->larbs[i] = larb_pdev;
 	}
 
 #ifdef CONFIG_PM_SLEEP
@@ -1756,11 +1766,18 @@ static int mtk_yuv_of_probe(struct platform_device *pdev,
 
 	larbs = of_count_phandle_with_args(
 					pdev->dev.of_node, "mediatek,larbs", NULL);
-	larbs = (larbs == -ENOENT) ? 0 : larbs;
+	drvdata->num_larbs = (larbs < 0) ? 0 : larbs;
 	dev_info(dev, "larb_num:%d\n", larbs);
 
-	drvdata->larb_pdev = NULL;
-	for (i = 0; i < larbs; i++) {
+	if (drvdata->num_larbs) {
+		drvdata->larbs = devm_kcalloc(dev,
+					     drvdata->num_larbs, sizeof(*drvdata->larbs),
+					     GFP_KERNEL);
+		if (!drvdata->larbs)
+			return -ENOMEM;
+	}
+
+	for (i = 0; i < drvdata->num_larbs; i++) {
 		larb_node = of_parse_phandle(
 					pdev->dev.of_node, "mediatek,larbs", i);
 		if (!larb_node) {
@@ -1781,7 +1798,7 @@ static int mtk_yuv_of_probe(struct platform_device *pdev,
 		if (!link)
 			dev_info(dev, "unable to link smi larb%d\n", i);
 		else
-			drvdata->larb_pdev = larb_pdev;
+			drvdata->larbs[i] = larb_pdev;
 	}
 
 #ifdef CONFIG_PM_SLEEP

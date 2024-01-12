@@ -200,6 +200,7 @@ static int copy_event_data(struct mtk_aov *aov_dev,
 	struct aov_notify *info;
 	uint32_t frame_mode;
 	uint32_t debug_mode;
+	uint32_t power_mode;
 	uint32_t event_data;
 	void *buffer;
 	int ret;
@@ -240,23 +241,19 @@ static int copy_event_data(struct mtk_aov *aov_dev,
 	}
 
 	debug_mode = atomic_read(&(core_info->debug_mode));
+	power_mode = atomic_read(&(core_info->power_mode));
 	if (debug_mode == AOV_DEBUG_MODE_NDD) {
 		// Copy yuvo1/yuvo2/imgo and etc.
 		memcpy(buffer, (void *)event, sizeof(struct ndd_event));
-#if AOV_EVENT_COPY_IMG
 	} else {
-		// Only copy yuvo1/yuvo2/aie/fld/apu out
-		memcpy(buffer, (void *)event, sizeof(struct base_event));
+		if (!power_mode) {
+			// Only copy yuvo1/yuvo2/aie/fld/apu out
+			memcpy(buffer, (void *)event, sizeof(struct base_event));
+		} else {
+			// Only copy aie/fld/apu output
+			memcpy(buffer, (void *)event, offsetof(struct base_event, yuvo1_width));
+		}
 	}
-#else
-	} else if (debug_mode == AOV_DEBUG_MODE_DUMP) {
-		// Only copy yuvo1/yuvo2/aie/fld/apu out
-		memcpy(buffer, (void *)event, sizeof(struct base_event));
-	} else {
-		// Only copy aie/fld/apu output
-		memcpy(buffer, (void *)event, offsetof(struct base_event, yuvo1_width));
-	}
-#endif  // AOV_EVENT_COPY_IMG
 
 	if (atomic_read(&(core_info->aov_ready))) {
 		dev_info(aov_dev->dev, "%s: release aov event id(%d)\n", __func__, event->event_id);
@@ -550,6 +547,9 @@ int aov_core_send_cmd(struct mtk_aov *aov_dev, uint32_t cmd,
 
 		// Setup aie available
 		start->aie_avail = atomic_read(&(core_info->aie_avail));
+
+		// Setup power mode
+		atomic_set(&(core_info->power_mode), start->power_mode);
 
 		// Record aov_start buffer
 		core_info->aov_start = start;
@@ -957,6 +957,7 @@ int aov_core_copy(struct mtk_aov *aov_dev, struct aov_dqevent *dequeue)
 	struct base_event *event;
 	void *buffer;
 	uint32_t debug_mode;
+	uint32_t power_mode;
 	int ret = 0;
 
 	dev_dbg(aov_dev->dev, "%s: copy aov event+\n", __func__);
@@ -1083,12 +1084,9 @@ int aov_core_copy(struct mtk_aov *aov_dev, struct aov_dqevent *dequeue)
 			}
 		}
 
-#if AOV_EVENT_COPY_IMG
-		if (1) {
-#else
+		power_mode = atomic_read(&(core_info->power_mode));
 		if ((debug_mode == AOV_DEBUG_MODE_DUMP) ||
-				(debug_mode == AOV_DEBUG_MODE_NDD)) {
-#endif  // AOV_EVENT_COPY_IMG
+			(debug_mode == AOV_DEBUG_MODE_NDD) || (!power_mode)) {
 			// Setup yuvo1 stride
 			put_user(event->yuvo1_width, (uint32_t *)((uintptr_t)dequeue +
 				offsetof(struct aov_dqevent, yuvo1_width)));

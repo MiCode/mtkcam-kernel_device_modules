@@ -35,6 +35,7 @@ struct aov_core {
 	atomic_t debug_mode;
 	atomic_t disp_mode;
 	atomic_t aie_avail;
+	atomic_t power_mode;
 
 	wait_queue_head_t scp_queue;
 	atomic_t scp_session;

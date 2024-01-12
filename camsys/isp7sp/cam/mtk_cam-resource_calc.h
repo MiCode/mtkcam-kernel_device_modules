@@ -245,7 +245,9 @@ static inline bool mtk_cam_raw_check_slb_size(struct mtk_cam_res_calc *c,
 		return true;
 
 	processed_w = process_pxl_per_sensor_line(c, 1, enable_log);
-	max_pending = (size_t)max(c->width - processed_w, 0) * c->height;
+
+	/* todo: calculate with bpp */
+	max_pending = (size_t)max(c->width - processed_w, 0) * c->height * 10 / 8;
 
 	/* 5% as margin */
 	valid = (max_pending * 100 < (size_t)c->slb_size * 95);

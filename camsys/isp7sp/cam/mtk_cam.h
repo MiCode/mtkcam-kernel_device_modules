@@ -57,6 +57,7 @@ struct mtk_rpmsg_device;
 
 #define SENSOR_META_BUF_SIZE 0x8000
 #define SENSOR_META_BUF_NUM 8
+#define RUN_ADL_FRAME_MODE_FROM_RAWI
 
 struct mtk_cam_adl_work {
 	struct work_struct work;

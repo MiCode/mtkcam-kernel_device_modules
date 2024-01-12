@@ -3950,7 +3950,7 @@ static irqreturn_t mtk_irq_adlrd(int irq, void *data)
 
 	irq_status = readl_relaxed(drvdata->adl_base + 0x18a0);
 
-	dev_dbg(dev, "ADL-INT: INT 0x%x\n", irq_status);
+	dev_info(dev, "ADL-INT: INT 0x%x\n", irq_status);
 
 	return IRQ_HANDLED;
 }
@@ -4041,6 +4041,7 @@ static int mtk_cam_probe(struct platform_device *pdev)
 		return ret;
 	}
 	dev_dbg(dev, "registered adl irq=%d\n", irq);
+	//enable_irq(irq);
 
 SKIP_ADLRD_IRQ:
 	cam_dev->cmdq_clt = cmdq_mbox_create(dev, 0);

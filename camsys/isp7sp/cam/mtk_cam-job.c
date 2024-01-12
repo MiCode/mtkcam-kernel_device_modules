@@ -1934,7 +1934,11 @@ static int trigger_m2m(struct mtk_cam_job *job)
 	bool is_apu;
 	bool is_apu_dc;
 
+#ifdef RUN_ADL_FRAME_MODE_FROM_RAWI
+	is_apu = is_m2m_apu_dc(job);
+#else
 	is_apu = is_m2m_apu(job);
+#endif
 
 	mtk_cam_event_frame_sync(&ctx->cam_ctrl, job->req_seq);
 
@@ -5130,6 +5134,7 @@ static int job_fetch_freq(struct mtk_cam_job *job,
 	struct mtk_raw_ctrl_data *ctrl;
 	struct mtk_cam_resource_driver *res;
 	unsigned int freq;
+	bool is_apu;
 
 	ctrl = get_raw_ctrl_data(job);
 	if (!ctrl) {
@@ -5140,7 +5145,12 @@ static int job_fetch_freq(struct mtk_cam_job *job,
 	res = &ctrl->resource;
 	freq = res->user_data.raw_res.freq;
 
-	if (is_m2m_apu(job)) {
+#ifdef RUN_ADL_FRAME_MODE_FROM_RAWI
+	is_apu = is_m2m_apu_dc(job);
+#else
+	is_apu = is_m2m_apu(job);
+#endif
+	if (is_apu) {
 		struct mtk_cam_ctx *ctx = job->src_ctx;
 		struct mtk_cam_device *cam = ctx->cam;
 		int opp_idx = ctrl->apu_info.opp_index;

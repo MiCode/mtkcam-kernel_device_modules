@@ -1335,8 +1335,14 @@ int fill_m2m_rawi_to_img_in_ipi(struct req_buffer_helper *helper,
 {
 	int ret = 0;
 	struct mtk_cam_job *job = helper->job;
+	bool is_apu;
 
-	if (is_m2m_apu(job)) {
+#ifdef RUN_ADL_FRAME_MODE_FROM_RAWI
+	is_apu = is_m2m_apu_dc(job);
+#else
+	is_apu = is_m2m_apu(job);
+#endif
+	if (is_apu) {
 		struct mtkcam_ipi_frame_param *fp = helper->fp;
 		struct mtkcam_ipi_img_input *in;
 

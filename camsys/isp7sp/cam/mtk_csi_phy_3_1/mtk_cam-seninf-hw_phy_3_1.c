@@ -2705,7 +2705,7 @@ static int csirx_mac_csi_lrte_setting(struct seninf_ctx *ctx)
 	SENINF_BITS(csirx_mac_csi_A, CSIRX_MAC_CSI2_RESYNC_MERGE_CTRL2, RG_RESYNC_LRTE_WPTR_LENGTH, 0x1);
 	SENINF_BITS(csirx_mac_csi_A, CSIRX_MAC_CSI2_RESYNC_MERGE_CTRL2, RG_RESYNC_LRTE_PKT_HSRST, 0x0);
 	SENINF_BITS(csirx_mac_csi_A, CSIRX_MAC_CSI2_RESYNC_MERGE_CTRL2, RG_RESYNC_LRTE_WC_DMY_OPTION, 0x0);
-	
+
 	SENINF_BITS(csirx_mac_csi_B, CSIRX_MAC_CSI2_RESYNC_MERGE_CTRL, RG_CSI2_RESYNC_LRTE_EN, 0x1);
 	SENINF_BITS(csirx_mac_csi_B, CSIRX_MAC_CSI2_RESYNC_MERGE_CTRL2, RG_RESYNC_LRTE_WPTR_LENGTH, 0x1);
 	SENINF_BITS(csirx_mac_csi_B, CSIRX_MAC_CSI2_RESYNC_MERGE_CTRL2, RG_RESYNC_LRTE_PKT_HSRST, 0x0);
@@ -4238,6 +4238,28 @@ static int csirx_cphy_setting(struct seninf_ctx *ctx)
 	case CSI_PORT_3B:
 	case CSI_PORT_4B:
 	case CSI_PORT_5B:
+
+		if (ctx->num_data_lanes != 1) {
+			dev_info(ctx->dev, "[error][%s] invalid ctx->num_data_lanes: %d\n",
+				__func__, ctx->num_data_lanes);
+			break;
+		}
+
+		SENINF_BITS(baseA, CDPHY_RX_ANA_SETTING_1,
+						RG_CSI0_ASYNC_OPTION, 0xC);
+		SENINF_BITS(baseA, CDPHY_RX_ANA_SETTING_1,
+						RG_AFIFO_DUMMY_VALID_EN, 0x1);
+		SENINF_BITS(baseA, CDPHY_RX_ANA_SETTING_1,
+						RG_AFIFO_DUMMY_VALID_NUM,
+						(ctx->is_4d1c) ? ((ctx->num_data_lanes > 1) ? 0x4: 0x6) : 0x6);
+
+		SENINF_BITS(baseA, CDPHY_RX_ANA_SETTING_1,
+							AFIFO_DUMMY_VALID_GAP_NUM, 0x1);
+		SENINF_BITS(baseA, CDPHY_RX_ANA_SETTING_1,
+							RG_AFIFO_DUMMY_VALID_PREPARE_NUM, 0x0);
+		SENINF_BITS(baseA, CDPHY_RX_ANA_SETTING_1,
+							AFIFO_DUMMY_VALID_DESKEW_EN, 0x1);
+
 		SENINF_BITS(baseB, CDPHY_RX_ANA_SETTING_1,
 						RG_CSI0_ASYNC_OPTION, 0xC);
 		SENINF_BITS(baseB, CDPHY_RX_ANA_SETTING_1,
@@ -4252,15 +4274,11 @@ static int csirx_cphy_setting(struct seninf_ctx *ctx)
 		SENINF_BITS(baseB, CDPHY_RX_ANA_SETTING_1,
 							AFIFO_DUMMY_VALID_DESKEW_EN, 0x1);
 
-		if (ctx->num_data_lanes == 1) {
-			SENINF_BITS(baseB, CDPHY_RX_ASYM_AFIFO_CTRL_0, L0_AFIFO_FLUSH_EN, 0X1);
+		SENINF_BITS(baseB, CDPHY_RX_ASYM_AFIFO_CTRL_0, L0_AFIFO_FLUSH_EN, 0X1);
 
-			SENINF_BITS(cphy_base, CPHY_VALID_PIPE_EN, CPHY_TRIO2_VALID_PIPE_EN, 1);
-			SENINF_BITS(cphy_base, CPHY_RX_CTRL, CPHY_RX_TR2_LPRX_EN, 1);
-		} else {
-			dev_info(ctx->dev, "[error][%s] invalid ctx->num_data_lanes: %d\n",
-				__func__, ctx->num_data_lanes);
-		}
+		SENINF_BITS(cphy_base, CPHY_VALID_PIPE_EN, CPHY_TRIO2_VALID_PIPE_EN, 1);
+		SENINF_BITS(cphy_base, CPHY_RX_CTRL, CPHY_RX_TR2_LPRX_EN, 1);
+
 		break;
 	default:
 		dev_info(ctx->dev, "[error][%s] invalid ctx->port: %d\n",

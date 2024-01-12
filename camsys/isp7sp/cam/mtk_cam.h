@@ -153,6 +153,7 @@ struct mtk_cam_ctx {
 	struct mtk_cam_device_buf w_caci_buf;
 
 	/* slb */
+	int slb_uid;
 	void __iomem *slb_addr;
 	unsigned int slb_size;
 	unsigned int ring_start_offset;

@@ -307,7 +307,7 @@ struct DPE_device {
 	struct mutex mutex;
 	struct video_device vid_dpe_dev;
 };
-static struct DPE_device *DPE_devs;
+static struct DPE_device *DPE_devs = NULL;
 static int nr_DPE_devs;
 /* Get HW modules' base address from device nodes */
 #define DPE_DEV_NODE_IDX 0
@@ -498,6 +498,7 @@ struct CAM_device {
 		void __iomem *regs;
 	struct device *dev;
 	struct device		*larb19;
+	struct device *smmu_dev;
 	int irq;
 // V4L2
 	struct v4l2_device v4l2_dev;
@@ -508,6 +509,7 @@ struct IPE_device {
 		void __iomem *regs;
 	struct device *dev;
 	struct device		*larb19;
+	struct device *smmu_dev;
 	int irq;
 // V4L2
 	struct v4l2_device v4l2_dev;
@@ -518,6 +520,7 @@ struct MRAW_device {
 		void __iomem *regs;
 	struct device *dev;
 	struct device		*larb19;
+	struct device *smmu_dev;
 	int irq;
 // V4L2
 	struct v4l2_device v4l2_dev;
@@ -8331,15 +8334,16 @@ static signed int DPE_probe(struct platform_device *pDev)
 	/* iomap registers */
 	DPE_dev->regs = of_iomap(pDev->dev.of_node, 0);
 		LOG_INF("- E. DPE_dev->regs = 0x%p\n", DPE_dev->regs);
-	#ifdef CMASYS_CLK_Debug
-	Cam_dev->regs = of_iomap(pDev->dev.of_node, 1);
-		LOG_INF("- E. CAM_CLK = 0x%p\n", Cam_dev->regs);
-	Mraw_dev->regs = of_iomap(pDev->dev.of_node, 2);
-		LOG_INF("- E. MRAW_CLK = 0x%p\n", Mraw_dev->regs);
-	Ipe_dev->regs = of_iomap(pDev->dev.of_node, 3);
-		LOG_INF("- E. IPE_CLK = 0x%p\n", Ipe_dev->regs);
-	#endif
-
+	if (nr_DPE_devs == 1) {
+		#ifdef CMASYS_CLK_Debug
+		Cam_dev->regs = of_iomap(pDev->dev.of_node, 1);
+			LOG_INF("- E. CAM_CLK = 0x%p\n", Cam_dev->regs);
+		Mraw_dev->regs = of_iomap(pDev->dev.of_node, 2);
+			LOG_INF("- E. MRAW_CLK = 0x%p\n", Mraw_dev->regs);
+		Ipe_dev->regs = of_iomap(pDev->dev.of_node, 3);
+			LOG_INF("- E. IPE_CLK = 0x%p\n", Ipe_dev->regs);
+		#endif
+	}
 	if (!DPE_dev->regs) {
 		dev_dbg(&pDev->dev,
 			"of_iomap fail, nr_DPE_devs=%d, devnode(%s).\n",

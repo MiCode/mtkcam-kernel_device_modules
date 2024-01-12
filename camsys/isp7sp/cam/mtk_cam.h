@@ -282,6 +282,9 @@ struct mtk_cam_device {
 	struct mtk_camsys_dvfs dvfs;
 
 	struct mtk_cam_debug dbg;
+
+	/* shutdown flow */
+	wait_queue_head_t shutdown_wq;
 };
 
 static inline struct device *subdev_to_cam_dev(struct v4l2_subdev *sd)

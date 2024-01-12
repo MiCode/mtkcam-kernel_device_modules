@@ -1245,6 +1245,8 @@ static int mtk_cam_uninitialize(struct mtk_cam_device *cam)
 	mtk_cam_power_rproc(cam, 0);
 	pm_runtime_put_sync(cam->dev);
 
+	wake_up(&cam->shutdown_wq);
+
 	return 0;
 }
 
@@ -4081,6 +4083,7 @@ SKIP_ADLRD_IRQ:
 	}
 
 	mtk_cam_debug_init(&cam_dev->dbg, cam_dev);
+	init_waitqueue_head(&cam_dev->shutdown_wq);
 
 	return 0;
 
@@ -4111,6 +4114,27 @@ static int mtk_cam_remove(struct platform_device *pdev)
 	platform_driver_unregister(&seninf_pdrv);
 
 	return 0;
+}
+
+#define SHUTDOWN_TIMEOUT 10000
+static void mtk_cam_shutdown(struct platform_device *pdev)
+{
+	struct device *dev = &pdev->dev;
+	struct mtk_cam_device *cam  = dev_get_drvdata(dev);
+	long timeout;
+
+	dev_info(dev, "%s: shutdown\n", __func__);
+
+	timeout = wait_event_timeout(cam->shutdown_wq,
+				 !atomic_read(&cam->initialize_cnt),
+				 msecs_to_jiffies(SHUTDOWN_TIMEOUT));
+
+	if (timeout == 0) {
+		pr_info("%s: wait for shutdown %dms timeout\n",
+			__func__, SHUTDOWN_TIMEOUT);
+
+		//todo: stop all ctx
+	}
 }
 
 #define CAM_MAIN_LOW_POWER_CTRL    0x390
@@ -4231,6 +4255,7 @@ static const struct dev_pm_ops mtk_cam_pm_ops = {
 static struct platform_driver mtk_cam_driver = {
 	.probe   = mtk_cam_probe,
 	.remove  = mtk_cam_remove,
+	.shutdown  = mtk_cam_shutdown,
 	.driver  = {
 		.name  = "mtk-cam",
 		.of_match_table = of_match_ptr(mtk_cam_of_ids),

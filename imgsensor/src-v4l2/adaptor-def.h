@@ -89,6 +89,8 @@ enum {
 	STATE_MCLK1_8MA,
 	STATE_DVDD1_OFF,
 	STATE_DVDD1_ON,
+	STATE_DVDD2_OFF,
+	STATE_DVDD2_ON,
 	STATE_RST1_LOW,
 	STATE_RST1_HIGH,
 	STATE_PONV_LOW,
@@ -138,6 +140,8 @@ enum {
 	"mclk1_8mA", \
 	"dvdd1_off", \
 	"dvdd1_on", \
+	"dvdd2_off", \
+	"dvdd2_on", \
 	"rst1_low", \
 	"rst1_high", \
 	"ponv_low", \
@@ -159,6 +163,7 @@ enum {
 	REGULATOR_AVDD3,
 	REGULATOR_AVDD4,
 	REGULATOR_DVDD1,
+	REGULATOR_DVDD2,
 	REGULATOR_RST,
 	REGULATOR_MAXCNT,
 };
@@ -174,6 +179,7 @@ enum {
 	"avdd3", \
 	"avdd4", \
 	"dvdd1", \
+	"dvdd2", \
 	"rst", \
 
 /* Format code util */

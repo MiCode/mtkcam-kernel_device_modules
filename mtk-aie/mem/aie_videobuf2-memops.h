@@ -9,6 +9,7 @@
 #include <media/videobuf2-v4l2.h>
 #include <linux/mm.h>
 #include <linux/refcount.h>
+#include <linux/version.h>
 
 /**
  * struct vb2_vmarea_handler - common vma refcount tracking handler.
@@ -25,8 +26,14 @@ struct vb2_vmarea_handler {
 
 extern const struct vm_operations_struct aie_vb2_common_vm_ops;
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 2, 0)
+struct frame_vector *aie_vb2_create_framevec(unsigned long start,
+					 unsigned long length,
+					 bool write);
+#else
 struct frame_vector *aie_vb2_create_framevec(unsigned long start,
 					 unsigned long length);
+#endif
 void aie_vb2_destroy_framevec(struct frame_vector *vec);
 
 #endif

@@ -28,8 +28,14 @@
  * returns pointer to the vector on success and error pointer in case of
  * failure. Returned vector needs to be freed via vb2_destroy_pfnvec().
  */
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 2, 0)
+struct frame_vector *aie_vb2_create_framevec(unsigned long start,
+					 unsigned long length,
+					 bool write)
+#else
 struct frame_vector *aie_vb2_create_framevec(unsigned long start,
 					 unsigned long length)
+#endif
 {
 	int ret;
 	unsigned long first, last;
@@ -42,7 +48,11 @@ struct frame_vector *aie_vb2_create_framevec(unsigned long start,
 	vec = frame_vector_create(nr);
 	if (!vec)
 		return ERR_PTR(-ENOMEM);
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 2, 0)
+	ret = get_vaddr_frames(start & PAGE_MASK, nr, write, vec);
+#else
 	ret = get_vaddr_frames(start & PAGE_MASK, nr, vec);
+#endif
 	if (ret < 0)
 		goto out_destroy;
 	/* We accept only complete set of PFNs */

@@ -10,6 +10,7 @@
 #include <linux/sched.h>
 #include <linux/slab.h>
 #include <linux/vmalloc.h>
+#include <linux/version.h>
 
 #include <media/videobuf2-v4l2.h>
 #include <media/videobuf2-vmalloc.h>
@@ -78,7 +79,12 @@ static void *aie_vb2_vmalloc_get_userptr(struct vb2_buffer *vb, struct device *d
 	buf->dma_dir = vb->vb2_queue->dma_dir;
 	offset = vaddr & ~PAGE_MASK;
 	buf->size = size;
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 2, 0)
+	vec = vb2_create_framevec(vaddr, size, buf->dma_dir == DMA_FROM_DEVICE ||
+	                                       buf->dma_dir == DMA_BIDIRECTIONAL);
+#else
 	vec = vb2_create_framevec(vaddr, size);
+#endif
 	if (IS_ERR(vec)) {
 		ret = PTR_ERR(vec);
 		goto fail_pfnvec_create;

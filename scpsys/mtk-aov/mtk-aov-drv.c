@@ -534,8 +534,8 @@ static int mtk_aov_probe(struct platform_device *pdev)
 		dev_info(&pdev->dev, "%s null of node\n", __func__);
 	}
 
-	aov_core_init(aov_dev);
 	aov_aee_init(aov_dev);
+	aov_core_init(aov_dev);
 
 	platform_set_drvdata(pdev, aov_dev);
 	dev_set_drvdata(&pdev->dev, aov_dev);

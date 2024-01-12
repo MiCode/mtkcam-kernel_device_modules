@@ -47,7 +47,7 @@
 #include "mtk_cam-hsf.h"
 #include "iommu_debug.h"
 
-static unsigned int debug_sensor_meta_dump = 1;
+static unsigned int debug_sensor_meta_dump = 0;
 module_param(debug_sensor_meta_dump, uint, 0644);
 MODULE_PARM_DESC(debug_sensor_meta_dump, "activates sensor meta dump");
 

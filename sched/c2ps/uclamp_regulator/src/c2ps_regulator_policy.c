@@ -192,7 +192,8 @@ void c2ps_regulator_bgpolicy_simple(struct regulator_req *req)
 	for (; cluster_index < NUMBER_OF_CLUSTER; cluster_index++) {
 		int *_cur_bg_uclamp = &(req->glb_info->curr_max_uclamp[cluster_index]);
 
-		if ((*_bg_uclamp_up_margin[cluster_index]) == 0)
+		if ((*_bg_uclamp_up_margin[cluster_index]) == 0 &&
+			 req->glb_info->need_update_uclamp[1 + cluster_index] != -1)
 			continue;
 
 		if (req->glb_info->need_update_uclamp[1 + cluster_index] == 1) {

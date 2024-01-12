@@ -30,6 +30,7 @@ static DEFINE_MUTEX(task_group_info_tbl_lock);
 static struct kobject *base_kobj;
 static struct global_info *glb_info;
 
+bool is_release_uclamp_max = false;
 int proc_time_window_size = 1;
 int debug_log_on = 0;
 int background_idlerate_alert = 12;
@@ -606,6 +607,17 @@ inline bool need_update_background(void)
 {
 	if (!glb_info)
 		return false;
+
+	// temp solution, use alert = 100 to indicate release background uclamp max
+	if (background_idlerate_alert >= 100) {
+		is_release_uclamp_max = true;
+		glb_info->need_update_uclamp[0] = 1;
+		glb_info->need_update_uclamp[1] = 1;
+		glb_info->need_update_uclamp[2] = 1;
+		glb_info->need_update_uclamp[3] = 1;
+		return true;
+	}
+
 	return glb_info->need_update_uclamp[0];
 }
 
@@ -614,6 +626,20 @@ inline void reset_need_update_status(void)
 	if (!glb_info)
 		return;
 
+	if (is_release_uclamp_max && background_idlerate_alert < 100) {
+		set_gear_uclamp_max(0, glb_info->max_uclamp[0]);
+		set_gear_uclamp_max(1, glb_info->max_uclamp[1]);
+		set_gear_uclamp_max(2, glb_info->max_uclamp[2]);
+		c2ps_info_lock(&glb_info->mlock);
+		{
+			short _idx = 0;
+			for (; _idx < NUMBER_OF_CLUSTER; _idx++) {
+				glb_info->curr_max_uclamp[_idx] = glb_info->max_uclamp[_idx];
+			}
+		}
+		c2ps_info_unlock(&glb_info->mlock);
+		is_release_uclamp_max = false;
+	}
 	glb_info->need_update_uclamp[0] = 0;
 }
 
@@ -747,7 +773,7 @@ void exit_c2ps_common(void)
 	c2ps_clear_task_group_info_table();
 	kfree(glb_info);
 	glb_info = NULL;
-
+	is_release_uclamp_max = false;
 	c2ps_sysfs_remove_file(base_kobj, &kobj_attr_task_info);
 	c2ps_sysfs_remove_file(base_kobj, &kobj_attr_gear_uclamp_max);
 	c2ps_sysfs_remove_dir(&base_kobj);

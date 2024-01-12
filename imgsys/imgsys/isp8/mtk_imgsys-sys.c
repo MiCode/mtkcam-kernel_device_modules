@@ -775,7 +775,15 @@ static void imgsys_mdp_cb_func(struct cmdq_cb_data data,
 	}
 
 	swfrminfo_cb = data.data;
+	if (swfrminfo_cb == NULL) {
+		pr_info("%s-sw frm info NULL\n", __func__);
+		return;
+	}
 	pipe = (struct mtk_imgsys_pipe *)swfrminfo_cb->pipe;
+	if (pipe == NULL) {
+		pr_info("%s-pipe NULL\n", __func__);
+		return;
+	}
 	if (!pipe->streaming) {
 		pr_info("req track-%s pipe already streamoff %s-%d-%d\n", __func__,
     		((char *)&swfrminfo_cb->frm_owner), swfrminfo_cb->request_fd,
@@ -2826,12 +2834,11 @@ static int mtk_imgsys_worker_hcp_init(struct mtk_imgsys_dev *imgsys_dev)
 		#if SMVR_DECOUPLE
         unsigned int gce_buf_en = 0;
 		#endif
-
-		/*slc init*/
 #if 0
-		if (!imgsys_slc_dbg_enable()) {
+		/*slc init*/
+		if (imgsys_slc_dbg_enable()) {
 			gid = -1;
-			img_slbc_gid_data = kmalloc(sizeof(struct slbc_gid_data), GFP_KERNEL);
+			img_slbc_gid_data = vzalloc(sizeof(struct slbc_gid_data));
 			img_slbc_gid_data->sign = 0x51ca11ca;
 			ret = slbc_gid_request(ID_IMG, &gid, img_slbc_gid_data);
 			if (ret)
@@ -3099,21 +3106,18 @@ static void mtk_imgsys_hw_disconnect(struct mtk_imgsys_dev *imgsys_dev)
     info.smvr_mode = 0;
 	imgsys_dev->imgsys_pipe[0].imgsys_user_count = 0;
 	#endif
-
-	/*slc uninit API*/
 #if 0
-	if (!imgsys_slc_dbg_enable()) {
+	/*slc uninit API*/
+	if (imgsys_slc_dbg_enable()) {
 		ret = slbc_gid_release(ID_IMG, gid);
 		if (ret)
 			dev_info(imgsys_dev->dev, "slc release fail");
 		ret = slbc_invalidate(ID_IMG, gid);
 		if (ret)
 			dev_info(imgsys_dev->dev, "slc invalidate fail");
-		kfree(img_slbc_gid_data);
+		vfree(img_slbc_gid_data);
 	}
 #endif
-	
-
 	ret = imgsys_send(imgsys_dev->scp_pdev, HCP_IMGSYS_DEINIT_ID,
 			(void *)&info, sizeof(info),
 			0, 1);

@@ -608,6 +608,9 @@ mtk_cam_job_initialize_engines(struct mtk_cam_ctx *ctx,
 
 		/* HS_TODO: to support camsv subsample mode */
 		mtk_cam_sv_dev_config(sv, 0);
+
+		/* smi path sel */
+		mtk_cam_sv_smi_path_sel(sv, is_camsv_16p(job) ? true : false);
 	}
 
 	/* mraw */
@@ -4067,7 +4070,10 @@ static int mtk_cam_job_fill_ipi_config(struct mtk_cam_job *job,
 					(job->first_job || job->raw_switch) ? 1 : 0;
 				sv_input->is_last_order_meta_off = (is_dcg_ap_merge(job)) ? 1 : 0;
 				sv_input->input = job->ipi_config.sv_input[0][i].input;
-				if (sv_two_smi_en)
+				WARN_ON(sv_dev->id >= MULTI_SMI_SV_HW_NUM &&
+					is_camsv_16p(job));
+				if (sv_dev->id < MULTI_SMI_SV_HW_NUM &&
+					(sv_two_smi_en || is_camsv_16p(job)))
 					sv_input->is_two_smi_out = 1;
 				else
 					sv_input->is_two_smi_out = 0;
@@ -4089,11 +4095,11 @@ static int mtk_cam_job_fill_ipi_config(struct mtk_cam_job *job,
 
 		pipe->res_config.tg_crop = v4l2_rect_to_ipi_crop(&sink->crop);
 		pipe->res_config.tg_fmt = sensor_mbus_to_ipi_pixel_id(sink->mbus_code);
-		pipe->res_config.pixel_mode = MRAW_TG_PIXEL_MODE;
+		pipe->res_config.pixel_mode = is_camsv_16p(job) ? 4 : 3;
 		atomic_set(&pipe->res_config.is_fmt_change, 1);
 
 		mraw_set_ipi_input_param(&mraw_input->input,
-			sink, MRAW_TG_PIXEL_MODE, 1, job->sub_ratio);
+			sink, is_camsv_16p(job) ? 4 : 3, 1, job->sub_ratio);
 	}
 
 	return 0;

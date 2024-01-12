@@ -214,6 +214,29 @@ static int g_cmd_sensor_ebd_info_by_scenario(struct adaptor_ctx *ctx, void *arg)
 	return ret;
 }
 
+static int g_cmd_sensor_get_lbmf_type_by_secnario(struct adaptor_ctx *ctx, void *arg)
+{
+	int ret = 0;
+	struct mtk_seninf_lbmf_info *info = NULL;
+
+	/* unexpected case, arg is nullptr */
+	if (unlikely((chk_input_arg(ctx, arg, &ret, __func__)) != 0))
+		return ret;
+
+	info = arg;
+	info->is_lbmf = 0;
+
+	if (unlikely(ctx->subctx.s_ctx.mode == NULL))
+		return -EINVAL;
+
+
+	info->is_lbmf =
+			(ctx->subctx.s_ctx.mode[info->scenario].hdr_mode == HDR_RAW_LBMF) ?
+				true : false;
+
+	return ret;
+}
+
 /* SET */
 static int s_cmd_fsync_sync_frame_start_end(struct adaptor_ctx *ctx, void *arg)
 {
@@ -392,6 +415,7 @@ static const struct command_entry command_list[] = {
 	{V4L2_CMD_SENSOR_IN_RESET, g_cmd_sensor_in_reset},
 	{V4L2_CMD_SENSOR_HAS_EBD_PARSER, g_cmd_sensor_has_ebd_parser},
 	{V4L2_CMD_GET_SENSOR_EBD_INFO_BY_SCENARIO, g_cmd_sensor_ebd_info_by_scenario},
+	{V4L2_CMD_SENSOR_GET_LBMF_TYPE_BY_SCENARIO, g_cmd_sensor_get_lbmf_type_by_secnario},
 
 	/* SET */
 	{V4L2_CMD_FSYNC_SYNC_FRAME_START_END, s_cmd_fsync_sync_frame_start_end},

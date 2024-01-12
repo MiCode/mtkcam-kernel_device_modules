@@ -26,7 +26,12 @@ int mtk_cam_seninf_set_camtg_camsv(struct v4l2_subdev *sd, int pad_id, int camtg
 int mtk_cam_seninf_get_tag_order(struct v4l2_subdev *sd, __u32 fmt_code, int pad_id);
 int mtk_cam_seninf_get_vsync_order(struct v4l2_subdev *sd);
 
+struct mtk_cam_seninf_sentest_param {
+	bool is_lbmf;
+};
 
+int mtk_cam_seninf_get_sentest_param(struct v4l2_subdev *sd, __u32 fmt_code,
+	struct mtk_cam_seninf_sentest_param *param);
 
 /**
  * struct mtk_cam_seninf_mux_setting - mux setting change setting

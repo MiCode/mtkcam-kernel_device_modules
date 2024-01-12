@@ -1841,6 +1841,58 @@ int mtk_cam_seninf_get_vsync_order(struct v4l2_subdev *sd)
 	return MTKCAM_IPI_ORDER_BAYER_FIRST;
 }
 
+int mtk_cam_seninf_get_sentest_param(struct v4l2_subdev *sd,
+	__u32 fmt_code,
+	struct mtk_cam_seninf_sentest_param *param)
+{
+	struct seninf_ctx *ctx;
+	struct v4l2_subdev *sensor_sd;
+	struct mtk_seninf_lbmf_info info;
+
+	if (unlikely(sd == 0)) {
+		pr_info("[%s][ERROR] sd is NULL\n", __func__);
+		return -EINVAL;
+	}
+
+	if (unlikely(param == 0)) {
+		pr_info("[%s][ERROR] param is NULL\n", __func__);
+		return -EINVAL;
+	}
+
+	ctx = container_of(sd, struct seninf_ctx, subdev);
+
+	if (unlikely(ctx == 0)) {
+		pr_info("[%s][ERROR] ctx is NULL\n", __func__);
+		return -EINVAL;
+	}
+
+	sensor_sd = ctx->sensor_sd;
+
+	if (unlikely(sensor_sd == 0)) {
+		pr_info("[%s][ERROR] sensor_sd is NULL\n", __func__);
+		return -EINVAL;
+	}
+
+	memset(&info, 0, sizeof(struct mtk_seninf_lbmf_info));
+
+	info.scenario = get_scenario_from_fmt_code(fmt_code);
+
+	if (sensor_sd &&
+	    sensor_sd->ops &&
+	    sensor_sd->ops->core &&
+	    sensor_sd->ops->core->command) {
+
+		sensor_sd->ops->core->command(sensor_sd,
+			V4L2_CMD_SENSOR_GET_LBMF_TYPE_BY_SCENARIO, &info);
+	}
+
+	param->is_lbmf = info.is_lbmf;
+	seninf_logd(ctx, "scenario %u is_lbmf = %d\n",
+				info.scenario, param->is_lbmf);
+
+	return 0;
+}
+
 int mtk_cam_seninf_set_camtg(struct v4l2_subdev *sd, int pad_id, int camtg)
 {
 	return mtk_cam_seninf_set_camtg_camsv(sd, pad_id, camtg, -1);

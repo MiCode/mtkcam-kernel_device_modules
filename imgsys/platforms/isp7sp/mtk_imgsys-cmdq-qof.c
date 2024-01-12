@@ -13,7 +13,9 @@
 #include <linux/kernel.h>
 #include <linux/delay.h>
 
+#if IS_ENABLED(CONFIG_MTK_TINYSYS_VCP_SUPPORT)
 #include "vcp_status.h"
+#endif
 #include "mtk_imgsys-engine.h"
 #include "mtk_imgsys-cmdq.h"
 #include "mtk_imgsys-cmdq-plat.h"
@@ -1067,8 +1069,10 @@ void mtk_imgsys_cmdq_qof_dump(uint32_t hwcomb, bool need_dump_vcp)
 		READ_QOF_RG(DUMP_RG_CG_WPE2_DIP1),
 		READ_QOF_RG(DUMP_RG_CG_WPE3_DIP1));
 
+#if IS_ENABLED(CONFIG_MTK_TINYSYS_VCP_SUPPORT)
 	if (need_dump_vcp == true || g_force_dump_vcp == 1)
 		vcp_cmd_ex(VCP_DUMP, "imgsys_qof");
+#endif
 }
 
 int mtk_query_qof_status(const char *val, const struct kernel_param *kp)

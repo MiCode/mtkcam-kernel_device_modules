@@ -223,6 +223,10 @@ static inline bool mtk_cam_raw_check_throughput(struct mtk_cam_res_calc *c,
 {
 	int processed_w = process_pxl_per_line(c, 1, enable_log);
 
+	if (enable_log)
+		pr_info("%s: c->width %d processed_w %d\n",
+			__func__, c->width, processed_w);
+
 	return c->width <= processed_w;
 }
 

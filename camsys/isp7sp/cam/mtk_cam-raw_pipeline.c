@@ -185,12 +185,27 @@ static int step_next_frontal_pixel_mode(struct raw_resource_stepper *stepper)
 
 typedef int (*step_fn_t)(struct raw_resource_stepper *stepper);
 
-static bool valid_resouce_set(struct raw_resource_stepper *s)
+static bool valid_resouce_set(struct raw_resource_stepper *s, bool enable_log)
 {
-	/* invalid sets */
+	/**
+	 * invalid sets
+	 * NOTE: allow the opp idx to be larger than the minimum one,
+	 * especially for 1 pixel mode, which can have a larger opp idx than 1.
+	 */
+
 	bool invalid =
+		GET_PLAT_HW(pixel_mode_max) == 2 ?
 		(s->pixel_mode == 1 && s->opp_idx != s->min_opp_idx) ||
-		(s->pixel_mode == 1 && s->num_raw > 1);
+		(s->pixel_mode == 1 && s->num_raw > 1) :
+		false;
+
+	if (invalid && enable_log)
+		pr_info("%s: opp_idx(m:%d c:%d) px(f:%d c:%d) num_raw(%d) clk(%u)\n",
+			__func__,
+			s->min_opp_idx, s->opp_idx,
+			s->frontal_pixel_mode, s->pixel_mode,
+			s->num_raw,
+			s->tbl[s->opp_idx].freq_hz);
 
 	return !invalid;
 }
@@ -207,7 +222,7 @@ static int loop_resource_till_valid(struct mtk_cam_res_calc *c,
 		bool pass;
 
 		i = 0;
-		if (valid_resouce_set(stepper)) {
+		if (valid_resouce_set(stepper, enable_log)) {
 			c->frontal_pixel_mode = stepper->frontal_pixel_mode;
 			c->raw_pixel_mode = stepper->pixel_mode;
 			c->raw_num = stepper->num_raw;
@@ -3718,7 +3733,7 @@ static bool check_vb2_queue_support(u8 id, u8 *vb2_queue_support_list, int vb2_q
 
 	for (i = 0; i < vb2_queue_support_list_num; i++) {
 		id_chk = *(vb2_queue_support_list + i);
-		
+
 		if (id_chk == id)
 			return true;
 	}

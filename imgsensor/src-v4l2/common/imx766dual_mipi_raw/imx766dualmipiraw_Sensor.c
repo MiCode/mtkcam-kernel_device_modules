@@ -2486,7 +2486,7 @@ static int imx766dual_seamless_switch(struct subdrv_ctx *ctx, u8 *para, u32 *len
 				ctx->s_ctx.reg_addr_prsh_length_lines.addr[2],
 				(ctx->s_ctx.seamless_switch_prsh_length_lc) & 0xFF);
 
-		DRV_LOG(ctx, "seamless switch pre-shutter set(%u)\n", ctx->s_ctx.seamless_switch_prsh_length_lc);
+		DRV_LOG_MUST(ctx, "seamless switch pre-shutter set(%u)\n", ctx->s_ctx.seamless_switch_prsh_length_lc);
 	} else
 		subdrv_i2c_wr_u8(ctx, ctx->s_ctx.reg_addr_prsh_mode, 0x00);
 

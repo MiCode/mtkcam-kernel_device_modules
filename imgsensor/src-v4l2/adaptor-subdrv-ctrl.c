@@ -2922,12 +2922,41 @@ void common_get_prsh_length_lines(struct subdrv_ctx *ctx,
 
 	current_fps = (u64)ctx->current_fps;
 	frame_duration_us = 10 * (1000000 / current_fps);
-	frame_duration_us -= (ctx->s_ctx.seamless_switch_hw_re_init_time_ns / 1000); // CIS boot time
 	orig_readout_time_us = 1000000
 					* (u64)ctx->s_ctx.mode[pre_seamless_scenario_id].imgsensor_winsize_info.h1_size
 					*ctx->s_ctx.mode[pre_seamless_scenario_id].linelength
 					/ctx->s_ctx.mode[pre_seamless_scenario_id].pclk;
+
+	DRV_LOG_MUST(ctx,
+		"calc_prsh_length_lc(%d->%d): orig:pclk(%llu),linelength(%u),frame_length(%u),fps(%llu),frame_duration_us(%llu),readout_us(%llu) new:pclk(%llu),linelength(%u)\n",
+					pre_seamless_scenario_id,scenario_id,
+					ctx->s_ctx.mode[pre_seamless_scenario_id].pclk,
+					ctx->s_ctx.mode[pre_seamless_scenario_id].linelength,
+					ctx->s_ctx.mode[pre_seamless_scenario_id].framelength,
+					current_fps,
+					10 * (1000000 / current_fps),
+					orig_readout_time_us,
+					ctx->s_ctx.mode[scenario_id].pclk,
+					ctx->s_ctx.mode[scenario_id].linelength);
+
+	if (frame_duration_us < orig_readout_time_us) {
+		DRV_LOG_MUST(ctx, "pre-shutter no need : max_framerate:(%u->%u), current_fl(%llu) < (orig_readout_time(%llu)\n",
+				ctx->s_ctx.mode[pre_seamless_scenario_id].max_framerate,
+				ctx->s_ctx.mode[scenario_id].max_framerate,
+				frame_duration_us,orig_readout_time_us);
+		ctx->s_ctx.seamless_switch_prsh_length_lc = 0;
+		return;
+	}
 	frame_duration_us -= orig_readout_time_us;
+	if (frame_duration_us < (ctx->s_ctx.seamless_switch_hw_re_init_time_ns / 1000)) {
+		DRV_LOG_MUST(ctx,
+			"pre-shutter no need: current_fl(%llu) < (orig_readout_time(%llu) + hw_re_init_time(%u))\n",
+			frame_duration_us,orig_readout_time_us,
+			(ctx->s_ctx.seamless_switch_hw_re_init_time_ns / 1000));
+		ctx->s_ctx.seamless_switch_prsh_length_lc = 0;
+		return;
+	}
+	frame_duration_us -= (ctx->s_ctx.seamless_switch_hw_re_init_time_ns / 1000); // CIS boot time
 
 	hdr_mode = (ctx->s_ctx.mode == NULL)
 		? HDR_NONE
@@ -2976,20 +3005,14 @@ void common_get_prsh_length_lines(struct subdrv_ctx *ctx,
 		prsh_length_lc = round_up(prsh_length_lc, cit_step);
 	}
 
-
-	DRV_LOG(ctx, "calc_prsh_length_lc(%d->%d): orig:pclk(%llu),linelength(%u),frame_length(%u),fps(%llu),frame_duration_us(%llu),readout_us(%llu) new:pclk(%llu),linelength(%u), ae_ctrl_cit(%u(max=%u,min=%u)),prsh_length_lc(%u)\n",
-					pre_seamless_scenario_id,scenario_id,
-					ctx->s_ctx.mode[pre_seamless_scenario_id].pclk,
-					ctx->s_ctx.mode[pre_seamless_scenario_id].linelength,
-					ctx->s_ctx.mode[pre_seamless_scenario_id].framelength,
-					current_fps,
-					10 * (1000000 / current_fps),
-					orig_readout_time_us,
-					ctx->s_ctx.mode[scenario_id].pclk,
-					ctx->s_ctx.mode[scenario_id].linelength,
-					ae_ctrl_cit, ctx->s_ctx.exposure_max, ctx->s_ctx.exposure_min, prsh_length_lc);
-
 	prsh_length_lc = (prsh_length_lc > (ae_ctrl_cit + hw_fixed_value)) ? prsh_length_lc : 0;
+	if (prsh_length_lc < (ae_ctrl_cit + hw_fixed_value)) {
+		DRV_LOG_MUST(ctx,
+			"pre-shutter no need: prsh_length_lc(%u) < (ae_ctrl_cit(%u(max=%u,min=%u)) + hw_fixed_value(%u))\n",
+			prsh_length_lc, ae_ctrl_cit, ctx->s_ctx.exposure_max, ctx->s_ctx.exposure_min, hw_fixed_value);
+		ctx->s_ctx.seamless_switch_prsh_length_lc = 0;
+		return;
+	}
 	ctx->s_ctx.seamless_switch_prsh_length_lc = prsh_length_lc;
 }
 

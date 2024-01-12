@@ -719,14 +719,14 @@ static int fill_sv_qos(struct mtk_cam_job *job,
 	struct mtkcam_ipi_img_output *in;
 	struct mtk_camsv_device *sv_dev;
 	unsigned int i, x_size, img_h, avg_bw, peak_bw;
-	int sv_two_smi_en = 0;
+	int sv_two_smi_en = 0, sv_support_two_smi_out = 0;
 
 	if (ctx->hw_sv == NULL)
 		return 0;
 	sv_dev = dev_get_drvdata(ctx->hw_sv);
 
 	CALL_PLAT_V4L2(
-		get_sv_two_smi_setting, &sv_two_smi_en);
+		get_sv_two_smi_setting, &sv_two_smi_en, &sv_support_two_smi_out);
 
 	/* wdma */
 	for (i = 0; i < CAMSV_MAX_TAGS; i++) {
@@ -757,7 +757,7 @@ static int fill_sv_qos(struct mtk_cam_job *job,
 		}
 
 		/* only first two camsv devices support two smi out */
-		if (sv_dev->id < MULTI_SMI_SV_HW_NUM) {
+		if (sv_support_two_smi_out && sv_dev->id < MULTI_SMI_SV_HW_NUM) {
 			if (is_camsv_16p(job) || sv_two_smi_en) {
 				job->sv_mmqos[SMI_PORT_SV_MDP_WDMA_0].avg_bw +=
 					to_qos_icc_ratio(avg_bw / 2);
@@ -1052,9 +1052,12 @@ int mtk_cam_apply_qos(struct mtk_cam_job *job)
 	}
 
 	if (ctx->hw_sv) {
+		int sv_two_smi_en = 0, sv_support_two_smi_out = 0;
 		sv_dev = dev_get_drvdata(ctx->hw_sv);
 
-		if (sv_dev->id < MULTI_SMI_SV_HW_NUM)
+		CALL_PLAT_V4L2(
+			get_sv_two_smi_setting, &sv_two_smi_en, &sv_support_two_smi_out);
+		if (sv_support_two_smi_out && sv_dev->id < MULTI_SMI_SV_HW_NUM)
 			port_num = SMI_PORT_SV_TYPE0_NUM;
 		else
 			port_num = SMI_PORT_SV_TYPE1_NUM;

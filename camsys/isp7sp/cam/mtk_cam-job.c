@@ -4091,11 +4091,11 @@ static int mtk_cam_job_fill_ipi_config(struct mtk_cam_job *job,
 
 	/* camsv */
 	if (ctx->hw_sv) {
-		int sv_two_smi_en = 0;
+		int sv_two_smi_en = 0, sv_support_two_smi_out = 0;
 		struct mtk_camsv_device *sv_dev = dev_get_drvdata(ctx->hw_sv);
 
 		CALL_PLAT_V4L2(
-			get_sv_two_smi_setting, &sv_two_smi_en);
+			get_sv_two_smi_setting, &sv_two_smi_en, &sv_support_two_smi_out);
 
 		for (i = SVTAG_START; i < SVTAG_END; i++) {
 			if (job->enabled_tags & (1 << i)) {
@@ -4110,7 +4110,7 @@ static int mtk_cam_job_fill_ipi_config(struct mtk_cam_job *job,
 				sv_input->input = job->ipi_config.sv_input[0][i].input;
 				WARN_ON(sv_dev->id >= MULTI_SMI_SV_HW_NUM &&
 					is_camsv_16p(job));
-				if (sv_dev->id < MULTI_SMI_SV_HW_NUM &&
+				if (sv_support_two_smi_out && sv_dev->id < MULTI_SMI_SV_HW_NUM &&
 					(sv_two_smi_en || is_camsv_16p(job)))
 					sv_input->is_two_smi_out = 1;
 				else

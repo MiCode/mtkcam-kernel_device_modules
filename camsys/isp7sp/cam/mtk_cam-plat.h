@@ -172,7 +172,7 @@ struct plat_v4l2_data {
 	int (*get_sv_dma_th_setting)(unsigned int dev_id, unsigned int fifo_img_p1,
 		unsigned int fifo_img_p2, unsigned int fifo_len_p1, unsigned int fifo_len_p2,
 		struct sv_dma_th_setting *th_setting);
-	int (*get_sv_two_smi_setting)(int *sv_two_smi_en);
+	int (*get_sv_two_smi_setting)(int *sv_two_smi_en, int *sv_support_two_smi_out);
 	int (*get_single_sv_opp_idx)(unsigned int * opp_idx);
 	int (*get_mraw_dmao_common_setting)(struct mraw_dma_th_setting *mraw_th_setting,
 		struct mraw_cq_th_setting *mraw_cq_setting);

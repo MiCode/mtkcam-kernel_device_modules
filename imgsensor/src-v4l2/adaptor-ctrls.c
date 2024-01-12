@@ -97,7 +97,7 @@ static void dump_perframe_info(struct adaptor_ctx *ctx, struct mtk_hdr_ae *ae_ct
 		&delta_ae_ctrl_sof_cnt_ms, &delta_curr_ae_ctrl_ms);
 
 	dev_info(ctx->dev,
-		"[%s][%s][inf:%d] idx:%d, sof_cnt:%u, req_id:%d, [LLLE->SSSE] 64bit s(%llu/%llu/%llu/%llu/%llu) g(%d/%d/%d/%d/%d), w(%llu/%llu/%llu/%llu/%llu,%d/%d/%d/%d/%d) sub_tag:%u, ctx:(fl:(%u,lut:%u/%u/%u), min_fl:%u, flick_en:%u, fsync(%d):(%u,%u/%u/%u/%u/%u), mode:(line_time:%u, margin:%u, scen:%u; STG:(rout_l:%u, r_margin:%u, ext_fl:%u)), fast_mode:%u), sys_ts:(%llu->%llu/%llu(+%u)/%llu(+%u))\n",
+		"[%s][%s][inf:%d] idx:%d, sof_cnt:%u, req_id:%d, [LLLE->SSSE] 64bit s(%llu/%llu/%llu/%llu/%llu) g(%d/%d/%d/%d/%d), w(%llu/%llu/%llu/%llu/%llu,%d/%d/%d/%d/%d) sub_tag:%u, ctx:(fl:(%u,lut:%u/%u/%u)/RG:(%u,%u/%u/%u/%u/%u), min_fl:%u, flick_en:%u, fsync(%d):(%u,%u/%u/%u/%u/%u), mode:(line_time:%u, margin:%u, scen:%u; STG:(rout_l:%u, r_margin:%u, ext_fl:%u)), fast_mode:%u), sys_ts:(%llu->%llu/%llu(+%u)/%llu(+%u))\n",
 		ctx->sd.name,
 		(ctx->subdrv) ? (ctx->subdrv->name) : "null",
 		ctx->seninf_idx,
@@ -129,6 +129,12 @@ static void dump_perframe_info(struct adaptor_ctx *ctx, struct mtk_hdr_ae *ae_ct
 		ctx->subctx.frame_length_in_lut[0],
 		ctx->subctx.frame_length_in_lut[1],
 		ctx->subctx.frame_length_in_lut[2],
+		ctx->subctx.frame_length_rg,
+		ctx->subctx.frame_length_in_lut_rg[0],
+		ctx->subctx.frame_length_in_lut_rg[1],
+		ctx->subctx.frame_length_in_lut_rg[2],
+		ctx->subctx.frame_length_in_lut_rg[3],
+		ctx->subctx.frame_length_in_lut_rg[4],
 		ctx->subctx.min_frame_length,
 		ctx->subctx.autoflicker_en,
 		ctx->needs_fsync_assign_fl,

@@ -385,7 +385,12 @@ void write_frame_length(struct subdrv_ctx *ctx, u32 fll)
 			set_i2c_buffer(ctx,	addr_h, (fll >> 8) & 0xFF);
 			set_i2c_buffer(ctx,	addr_l, fll & 0xFF);
 		}
-		DRV_LOG(ctx, "fll[0x%x] multiply %u, fll_step:%u\n", fll, dol_cnt, fll_step);
+		/* update FL RG value after setting buffer for writting RG */
+		ctx->frame_length_rg = ctx->frame_length;
+
+		DRV_LOG(ctx,
+			"ctx:(fl(RG):%u), fll[0x%x] multiply %u, fll_step:%u\n",
+			ctx->frame_length_rg, fll, dol_cnt, fll_step);
 	}
 }
 /**
@@ -400,6 +405,7 @@ void write_frame_length(struct subdrv_ctx *ctx, u32 fll)
 void write_frame_length_in_lut(struct subdrv_ctx *ctx, u32 fll, u32 *fll_in_lut)
 {
 	int i = 0;
+	u32 frame_length_buf;
 	u32 fll_step = 0;
 
 	check_current_scenario_id_bound(ctx);
@@ -446,6 +452,7 @@ void write_frame_length_in_lut(struct subdrv_ctx *ctx, u32 fll, u32 *fll_in_lut)
 	}
 
 	if (ctx->extend_frame_length_en == FALSE) {
+		frame_length_buf = 0;
 		for (i = 0; i < 3; i++) {
 			if (fll_in_lut[i]) {
 				if (ctx->s_ctx.reg_addr_frame_length_in_lut[i].addr[2]) {
@@ -466,10 +473,23 @@ void write_frame_length_in_lut(struct subdrv_ctx *ctx, u32 fll, u32 *fll_in_lut)
 						ctx->s_ctx.reg_addr_frame_length_in_lut[i].addr[1],
 						fll_in_lut[i] & 0xFF);
 				}
+				/* update FL_lut RG value after setting buffer for writting RG */
+				ctx->frame_length_in_lut_rg[i] = fll_in_lut[i];
+				frame_length_buf +=
+					ctx->frame_length_in_lut_rg[i];
 			}
 		}
+		/* update FL RG value simultaneously */
+		ctx->frame_length_rg = frame_length_buf;
+
 		DRV_LOG(ctx,
-			"sid:%u,fll(input/ctx/output_a/b/c/d/e):0x%x/%x/%x/%x/%x/%x/%x,fll_step:%u\n",
+			"ctx:(fl(RG):%u,%u/%u/%u/%u/%u), scen_id:%u,fll(input/ctx/output_a/b/c/d/e):0x%x/%x/%x/%x/%x/%x/%x,fll_step:%u\n",
+			ctx->frame_length_rg,
+			ctx->frame_length_in_lut_rg[0],
+			ctx->frame_length_in_lut_rg[1],
+			ctx->frame_length_in_lut_rg[2],
+			ctx->frame_length_in_lut_rg[3],
+			ctx->frame_length_in_lut_rg[4],
 			ctx->current_scenario_id,
 			fll,
 			ctx->frame_length,
@@ -2676,6 +2696,7 @@ int common_open(struct subdrv_ctx *ctx)
 	ctx->pclk = ctx->s_ctx.mode[scenario_id].pclk;
 	ctx->line_length = ctx->s_ctx.mode[scenario_id].linelength;
 	ctx->frame_length = ctx->s_ctx.mode[scenario_id].framelength;
+	ctx->frame_length_rg = ctx->frame_length;
 	ctx->current_fps = 10 * ctx->pclk / ctx->line_length / ctx->frame_length;
 	ctx->readout_length = ctx->s_ctx.mode[scenario_id].readout_length;
 	ctx->read_margin = ctx->s_ctx.mode[scenario_id].read_margin;
@@ -2692,6 +2713,9 @@ int common_open(struct subdrv_ctx *ctx)
 	ctx->ref_sof_cnt = 0;
 	ctx->is_streaming = 0;
 	if (ctx->s_ctx.mode[ctx->current_scenario_id].hdr_mode == HDR_RAW_LBMF) {
+		memset(ctx->frame_length_in_lut, 0,
+			sizeof(ctx->frame_length_in_lut));
+
 		switch (ctx->s_ctx.mode[ctx->current_scenario_id].exp_cnt) {
 		case 2:
 			ctx->frame_length_in_lut[0] = ctx->readout_length + ctx->read_margin;
@@ -2707,6 +2731,9 @@ int common_open(struct subdrv_ctx *ctx)
 		default:
 			break;
 		}
+
+		memcpy(ctx->frame_length_in_lut_rg, ctx->frame_length_in_lut,
+			sizeof(ctx->frame_length_in_lut_rg));
 	}
 
 	return ERROR_NONE;
@@ -2801,6 +2828,7 @@ void update_mode_info(struct subdrv_ctx *ctx, enum SENSOR_SCENARIO_ID_ENUM scena
 	ctx->pclk = ctx->s_ctx.mode[scenario_id].pclk;
 	ctx->line_length = ctx->s_ctx.mode[scenario_id].linelength;
 	ctx->frame_length = ctx->s_ctx.mode[scenario_id].framelength;
+	ctx->frame_length_rg = ctx->frame_length;
 	ctx->current_fps = 10 * ctx->pclk / ctx->line_length / ctx->frame_length;
 	ctx->readout_length = ctx->s_ctx.mode[scenario_id].readout_length;
 	ctx->read_margin = ctx->s_ctx.mode[scenario_id].read_margin;

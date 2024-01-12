@@ -35,6 +35,8 @@ u32 g_sensor_margin(struct adaptor_ctx *ctx, unsigned int scenario);
 u32 g_sensor_fine_integ_line(struct adaptor_ctx *ctx,
 	const unsigned int scenario);
 
+/* return: 0 => NON DCG; 1 => DCG */
+u32 g_sensor_dcg_property(struct adaptor_ctx *ctx, const int scenario_id);
 /* return: 0 => NON LBMF; 1 => LBMF */
 u32 g_sensor_lbmf_property(struct adaptor_ctx *ctx, const int scenario_id,
 	struct adaptor_sensor_lbmf_property_st *prop);

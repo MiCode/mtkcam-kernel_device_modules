@@ -29,8 +29,6 @@
 	if ((_ctx) && (_ctx)->sensor_sd) { \
 		dev_info((_ctx)->dev, "[%s][%s] " format, \
 			(_ctx)->sensor_sd->name, __func__, ##args); \
-	} else { \
-		pr_info("ctx or subdev == NULL, please check!\n"); \
 	} \
 } while (0)
 
@@ -38,8 +36,6 @@
 	if ((_ctx) && (_ctx)->sensor_sd && unlikely(*((_ctx)->core->seninf_dbg_log))) { \
 		dev_info((_ctx)->dev, "[%s][%s] " format, \
 			(_ctx)->sensor_sd->name, __func__, ##args); \
-	} else { \
-		pr_info("ctx or subdev == NULL, please check!\n"); \
 	} \
 } while (0)
 

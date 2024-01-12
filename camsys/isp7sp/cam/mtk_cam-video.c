@@ -383,10 +383,12 @@ static int mtk_cam_vb2_buf_prepare(struct vb2_buffer *vb)
 	else
 		size = fmt->fmt.pix_mp.plane_fmt[0].sizeimage;
 
+#ifdef PURE_RAW_SUPPORT
 	if (node->desc.id == MTK_RAW_PURE_RAW_OUT)
 		dev_dbg(vb->vb2_queue->dev,
 			"[PURE-RAW]%s:%s handle multi plane\n",
 			__func__, node->desc.name);
+#endif
 
 	if (vb2_plane_size(vb, 0) < size) {
 		dev_info_ratelimited(vb->vb2_queue->dev, "%s: plane size is too small:%lu<%u\n",

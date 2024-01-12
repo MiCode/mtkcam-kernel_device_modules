@@ -183,7 +183,7 @@ static void append_to_running_list(struct mtk_cam_device *cam,
 
 	if (CAM_DEBUG || cnt == 1)
 		dev_info(cam->dev, "%s: req:%s running cnt %d\n",
-			 __func__, req->req.debug_str, cnt);
+			 __func__, req->debug_str, cnt);
 }
 
 static void remove_from_running_list(struct mtk_cam_device *cam,
@@ -198,7 +198,7 @@ static void remove_from_running_list(struct mtk_cam_device *cam,
 
 	if (CAM_DEBUG || !cnt)
 		dev_info(cam->dev, "%s: req:%s running cnt %d\n",
-			 __func__, req->req.debug_str, cnt);
+			 __func__, req->debug_str, cnt);
 
 	media_request_put(&req->req);
 }
@@ -351,19 +351,6 @@ static void mtk_cam_req_free(struct media_request *req)
 	struct mtk_cam_request *cam_req = to_mtk_cam_req(req);
 
 	vfree(cam_req);
-}
-
-static void mtk_cam_req_reset(struct media_request *req)
-{
-	struct mtk_cam_request *cam_req = to_mtk_cam_req(req);
-
-	INIT_LIST_HEAD(&cam_req->list);
-
-	cam_req->used_ctx = 0;
-	cam_req->used_pipe = 0;
-
-	INIT_LIST_HEAD(&cam_req->buf_list);
-	/* todo: init fs */
 }
 
 /* may fail to get contexts if not stream-on yet */
@@ -861,7 +848,7 @@ static int mtk_cam_req_collect_vb_bufs(struct mtk_cam_request *req,
 
 	if (CAM_DEBUG_ENABLED(JOB) && pure_raw_skipped)
 		pr_info("%s: req:%s pipe_id:%d bypass pure raw node\n",
-			__func__, req->req.debug_str, pipe_id);
+			__func__, req->debug_str, pipe_id);
 	return ret;
 }
 
@@ -882,10 +869,10 @@ void mtk_cam_req_buffer_done(struct mtk_cam_job *job,
 {
 	struct mtk_cam_request *req = job->req;
 	struct device *dev = req->req.mdev->dev;
+	bool buf_error = buf_state == VB2_BUF_STATE_ERROR;
 	struct list_head done_list;
 	unsigned long ids;
 	bool is_buf_empty;
-	bool do_print;
 
 	media_request_get(&req->req);
 
@@ -896,21 +883,23 @@ void mtk_cam_req_buffer_done(struct mtk_cam_job *job,
 				is_sv_pure_raw(job) && is_proc,
 				&done_list, &ids);
 
-	do_print = node_id == -1 || CAM_DEBUG_ENABLED(V4L2);
-	if (do_print)
+	if (node_id == -1)
+		job->done_pipe |= BIT(pipe_id);
+
+	if (job->timestamp == 0 || buf_error || CAM_DEBUG_ENABLED(V4L2))
 		dev_info(dev, "%s: ctx-%d req:%s(%d) pipe_id:%d node_id:%d bufs:0x%lx ts:%lld%s%s\n",
 			 __func__, job->src_ctx->stream_id,
-			 req->req.debug_str, job->req_seq,
+			 req->debug_str, job->req_seq,
 			 pipe_id, node_id, ids,
 			 job->timestamp,
-			 buf_state == VB2_BUF_STATE_ERROR ? " error" : "",
+			 buf_error ? " error" : "",
 			 is_buf_empty ? " (empty)" : "");
 
 	if (unlikely(list_empty(&done_list))) {
 		dev_info(dev,
-			 "%s: req:%s failed to find pipe_id:%d node_id:%d ts:%lld%s\n",
-			 __func__, req->req.debug_str,
-			 pipe_id, node_id, job->timestamp,
+			 "%s: req:%s failed to find pipe_id:%d node_id:%d%s\n",
+			 __func__, req->debug_str,
+			 pipe_id, node_id,
 			 is_buf_empty ? " (empty)" : "");
 		goto REQ_PUT;
 	}
@@ -918,6 +907,7 @@ void mtk_cam_req_buffer_done(struct mtk_cam_job *job,
 	if (is_buf_empty) {
 		/* assume: all ctrls are finished before buffers */
 
+		req->is_buf_empty = 1;
 		// remove from running job list
 		remove_from_running_list(dev_get_drvdata(dev), req);
 	}

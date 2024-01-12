@@ -86,7 +86,7 @@ void _on_job_last_ref(struct mtk_cam_job *job)
 
 	if (CAM_DEBUG_ENABLED(CTRL) || is_last)
 		pr_info("%s: ctx %d job #%d %s%s\n", __func__,
-			ctx->stream_id, job->req_seq, job->req->req.debug_str,
+			ctx->stream_id, job->req_seq, job->req->debug_str,
 			is_last ? "(last)" : "");
 
 	mtk_cam_ctx_job_finish(job);
@@ -326,6 +326,7 @@ static int mtk_cam_job_pack_init(struct mtk_cam_job *job,
 	atomic_long_set(&job->afo_done, 0);
 	atomic_long_set(&job->done_set, 0);
 	job->done_handled = 0;
+	job->done_pipe = 0;
 
 	/* aa dump info */
 	INIT_WORK(&job->aa_dump_work, mtk_cam_aa_dump_work);
@@ -382,7 +383,7 @@ static unsigned long mtk_cam_select_hw(struct mtk_cam_job *job)
 				 job->job_scen.id);
 	} else if (selected) {
 		/* if has raw */
-		int raw_idx = _get_master_raw_id(selected);
+		int raw_idx = get_master_raw_id(selected);
 
 		dev_info(cam->dev,
 			 "select sv hw start (raw_idx:%d/sv_available:0x%lx)\n",
@@ -477,6 +478,7 @@ static int update_job_used_engine(struct mtk_cam_job *job)
 	}
 
 	job->used_engine = used_engine;
+	job->master_engine = get_master_engines(used_engine);
 
 	return 0;
 }
@@ -499,7 +501,7 @@ mtk_cam_job_initialize_engines(struct mtk_cam_ctx *ctx,
 	engines = ctx->used_engine;
 
 	/* raw */
-	raw_master_id = _get_master_raw_id(engines);
+	raw_master_id = get_master_raw_id(engines);
 	if (raw_master_id >= 0) {
 		int is_srt = is_dc_mode(job) || is_m2m(job);
 
@@ -592,7 +594,7 @@ _meta1_done(struct mtk_cam_job *job)
 
 	if (CAM_DEBUG_ENABLED(JOB))
 		dev_info(cam->dev, "%s:%s:ctx(%d): seq_no:0x%x, state:0x%x\n",
-			 __func__, job->req->req.debug_str, job->src_ctx->stream_id,
+			 __func__, job->req->debug_str, job->src_ctx->stream_id,
 			 job->frame_seq_no,
 			 mtk_cam_job_state_get(&job->job_state, ISP_STATE));
 
@@ -678,7 +680,7 @@ handle_raw_frame_done(struct mtk_cam_job *job)
 
 	if (CAM_DEBUG_ENABLED(JOB))
 		dev_info(cam->dev, "%s:%s:ctx(%d): seq_no:0x%x, state:0x%x, is_normal:%d, B/M ts:%lld/%lld\n",
-			 __func__, job->req->req.debug_str, job->src_ctx->stream_id,
+			 __func__, job->req->debug_str, job->src_ctx->stream_id,
 			 job->frame_seq_no,
 			 mtk_cam_job_state_get(&job->job_state, ISP_STATE),
 			 is_normal, job->timestamp, job->timestamp_mono);
@@ -711,7 +713,7 @@ handle_sv_frame_done(struct mtk_cam_job *job)
 
 	if (CAM_DEBUG_ENABLED(JOB))
 		dev_info(cam->dev, "%s:%s:ctx(%d): seq_no:0x%x, state:0x%x, is_normal:%d, B/M ts:%lld/%lld\n",
-			 __func__, job->req->req.debug_str, job->src_ctx->stream_id,
+			 __func__, job->req->debug_str, job->src_ctx->stream_id,
 			 job->frame_seq_no,
 			 mtk_cam_job_state_get(&job->job_state, ISP_STATE),
 			 is_normal, job->timestamp, job->timestamp_mono);
@@ -752,7 +754,7 @@ handle_mraw_frame_done(struct mtk_cam_job *job, unsigned int pipe_id)
 
 	if (CAM_DEBUG_ENABLED(JOB))
 		dev_info(cam->dev, "%s:%s:ctx(%d): seq_no:0x%x, state:0x%x, is_normal:%d, B/M ts:%lld/%lld\n",
-			 __func__, job->req->req.debug_str, job->src_ctx->stream_id,
+			 __func__, job->req->debug_str, job->src_ctx->stream_id,
 			 job->frame_seq_no,
 			 mtk_cam_job_state_get(&job->job_state, ISP_STATE),
 			 is_normal, job->timestamp, job->timestamp_mono);
@@ -784,7 +786,7 @@ static int job_mark_engine_done(struct mtk_cam_job *job,
 	unsigned long old;
 	unsigned int master_engine;
 
-	master_engine = _get_master_engines(job->used_engine);
+	master_engine = job->master_engine;
 	coming = engine_idx_to_bit(engine_type, engine_id);
 
 	if (!(coming & master_engine))
@@ -941,7 +943,7 @@ static bool mtk_cam_fs_sync_frame(struct mtk_cam_job *job, int state)
 		ret = true;
 	} else {
 		pr_info("%s:%s: find sensor command failed, state(%d)\n",
-			__func__, req->req.debug_str, state);
+			__func__, req->debug_str, state);
 	}
 
 	return ret;
@@ -964,7 +966,7 @@ static bool frame_sync_start(struct mtk_cam_job *job)
 
 	if (ret)
 		dev_dbg(cam->dev, "req(%s) %s by ctx:%d\n",
-			req->req.debug_str, __func__, job->ctx_id);
+			req->debug_str, __func__, job->ctx_id);
 	return ret;
 }
 
@@ -985,7 +987,7 @@ static bool frame_sync_end(struct mtk_cam_job *job)
 
 	if (ret)
 		dev_dbg(cam->dev, "req(%s) %s by ctx:%d\n",
-			req->req.debug_str, __func__, job->ctx_id);
+			req->debug_str, __func__, job->ctx_id);
 
 	return ret;
 }
@@ -1110,7 +1112,7 @@ static int apply_cam_switch_stagger(struct mtk_cam_job *job)
 {
 	struct mtk_cam_ctx *ctx = job->src_ctx;
 	struct mtk_cam_device *cam = ctx->cam;
-	int raw_id = _get_master_raw_id(job->used_engine);
+	int raw_id = get_master_raw_id(job->used_engine);
 	struct mtk_raw_device *raw_dev = NULL;
 	int prev_exp = job_prev_exp_num_seamless(job);
 	int cur_exp = job_exp_num(job);
@@ -1321,7 +1323,7 @@ static int send_ipi_frame(struct mtk_cam_job *job,
 		dev_info(ctx->cam->dev,
 			 "[%s id:%d] req:%s ctx:%d seq:0x%x\n",
 			 __func__, session->session_id,
-			 job->req->req.debug_str, ctx->stream_id, frame_seq_no);
+			 job->req->debug_str, ctx->stream_id, frame_seq_no);
 	return 0;
 }
 
@@ -1549,7 +1551,7 @@ static int trigger_m2m(struct mtk_cam_job *job)
 {
 	struct mtk_cam_ctx *ctx = job->src_ctx;
 	struct mtk_cam_device *cam = ctx->cam;
-	int raw_id = _get_master_raw_id(job->used_engine);
+	int raw_id = get_master_raw_id(job->used_engine);
 	struct mtk_raw_device *raw_dev =
 		dev_get_drvdata(cam->engines.raw_devs[raw_id]);
 	bool is_apu;
@@ -1590,7 +1592,7 @@ static int job_print_warn_desc(struct mtk_cam_job *job, const char *desc,
 	struct mtk_cam_ctx *ctx = job->src_ctx;
 
 	return snprintf(warn_desc, 64, "%s:ctx-%d:req-%d:seq-0x%x:%s",
-			job->req->req.debug_str, ctx->stream_id,
+			job->req->debug_str, ctx->stream_id,
 			job->req_seq, job->frame_seq_no, desc);
 }
 
@@ -2442,7 +2444,7 @@ static int fill_raw_img_buffer_to_ipi_frame(
 		/* pure raw */
 		if (CAM_DEBUG_ENABLED(JOB))
 			pr_info("%s:req:%s bypass pure raw node\n",
-				__func__, job->req->req.debug_str);
+				__func__, job->req->debug_str);
 	} else if (V4L2_TYPE_IS_CAPTURE(buf->vbb.vb2_buf.type)) {
 		struct mtkcam_ipi_img_output *out;
 		/* main-stream + pure raw + others*/
@@ -4332,7 +4334,7 @@ static void mtk_cam_aa_dump_work(struct work_struct *work)
 	ae_data_to_str(str_buf + n, str_buf_size - n, &ae_data_w);
 
 	pr_info("%s:%s:ctx(%d),seq(%d),size(%d,%d),%s\n",
-		__func__, job->req->req.debug_str,
+		__func__, job->req->debug_str,
 		ctx->stream_id, job->req_seq,
 		sink->width, sink->height, str_buf);
 
@@ -4348,11 +4350,10 @@ bool job_has_done_pending(struct mtk_cam_job *job)
 
 int job_handle_done(struct mtk_cam_job *job)
 {
-	unsigned long cur_handle, engine_to_handle;
+	unsigned long cur_handle;
 	int i;
 	int ret;
 
-	engine_to_handle = _get_master_engines(job->used_engine);
 	cur_handle = atomic_long_read(&job->done_set) & ~job->done_handled;
 
 	MTK_CAM_TRACE_BEGIN(BASIC, "%s #%d cur=0x%lx", __func__,
@@ -4388,7 +4389,21 @@ int job_handle_done(struct mtk_cam_job *job)
 	job->done_handled |= cur_handle;
 
 	/* note: return 1 for success, 0 for continue */
-	ret = (job->done_handled == engine_to_handle) ? 1 : 0;
+	ret = mtk_cam_job_is_done(job) ? 1 : 0;
+	if (ret) {
+		struct mtk_cam_ctx *ctx = job->src_ctx;
+		unsigned int used_pipe = job->req->used_pipe & ctx->used_pipe;
+
+		dev_info(ctx->cam->dev, "%s: ctx-%d req:%s(%d) pipe:0x%x ts:%lld%s\n",
+			 __func__, ctx->stream_id,
+			 job->req->debug_str, job->req_seq,
+			 job->done_pipe, job->timestamp,
+			 job->req->is_buf_empty ? "(empty)" : "");
+
+		if (job->done_pipe != used_pipe)
+			dev_info(ctx->cam->dev, "%s: warn. done mismatched. used_pipe:0x%x\n",
+				 __func__, used_pipe);
+	}
 
 	MTK_CAM_TRACE_END(BASIC);
 	return ret;

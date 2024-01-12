@@ -6,6 +6,23 @@
 
 #include "mtk_cam-request.h"
 
+void mtk_cam_req_reset(struct media_request *req)
+{
+	struct mtk_cam_request *cam_req = to_mtk_cam_req(req);
+
+	INIT_LIST_HEAD(&cam_req->list);
+
+	strncpy(cam_req->debug_str, req->debug_str,
+		sizeof(cam_req->debug_str) - 1);
+	cam_req->debug_str[sizeof(cam_req->debug_str) - 1] = '\0';
+
+	cam_req->is_buf_empty = 0;
+	cam_req->used_ctx = 0;
+	cam_req->used_pipe = 0;
+
+	INIT_LIST_HEAD(&cam_req->buf_list);
+}
+
 struct media_request_object *
 mtk_cam_req_find_ctrl_obj(struct mtk_cam_request *cam_req, void *ctrl_hdl)
 {

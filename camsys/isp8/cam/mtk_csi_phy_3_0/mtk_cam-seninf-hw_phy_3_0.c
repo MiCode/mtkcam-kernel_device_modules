@@ -66,30 +66,35 @@ static struct mtk_cam_seninf_irq_event_st vsync_detect_seninf_irq_event;
 } while (0)
 
 #define DUMP_DEBUG_REG_INFO_BY_TAG(tag_id) do {			\
-	vcinfo_debug->exp_size_h =							\
-			SENINF_READ_BITS(outmux,					\
-					SENINF_OUTMUX_TAG_SIZE_##tag_id,	\
-					SENINF_OUTMUX_HSIZE_##tag_id);		\
-\
-	vcinfo_debug->exp_size_v =							\
-			SENINF_READ_BITS(outmux,					\
-					SENINF_OUTMUX_TAG_SIZE_##tag_id,	\
-					SENINF_OUTMUX_VSIZE_##tag_id);		\
-\
-	vcinfo_debug->done_irq_status =						\
-			SENINF_READ_BITS(outmux,					\
-					SENINF_OUTMUX_IRQ_STATUS,			\
-					SENINF_OUTMUX_TAG_DONE_IRQ_STATUS_##tag_id);	\
-\
-	vcinfo_debug->incomplete_frame_status =				\
-			SENINF_READ_BITS(outmux,					\
-					SENINF_OUTMUX_IRQ_STATUS,			\
-					SENINF_OUTMUX_INCOMP_IRQ_STATUS_##tag_id);		\
-\
-	vcinfo_debug->oversize_irq_status =					\
-			SENINF_READ_BITS(outmux,					\
-					SENINF_OUTMUX_IRQ_STATUS,			\
-					SENINF_OUTMUX_OVERSIZE_IRQ_STATUS_##tag_id);	\
+	u32 irq_status;						\
+									\
+	vcinfo_debug->exp_size_h = \
+			SENINF_READ_BITS(outmux, \
+					SENINF_OUTMUX_TAG_SIZE_##tag_id, \
+					SENINF_OUTMUX_HSIZE_##tag_id); \
+									\
+	vcinfo_debug->exp_size_v = \
+			SENINF_READ_BITS(outmux, \
+					SENINF_OUTMUX_TAG_SIZE_##tag_id, \
+					SENINF_OUTMUX_VSIZE_##tag_id); \
+									\
+	irq_status = SENINF_READ_REG(outmux, SENINF_OUTMUX_IRQ_STATUS); \
+									\
+	vcinfo_debug->done_irq_status =	0x01 & \
+		(irq_status >> SENINF_OUTMUX_TAG_DONE_IRQ_STATUS_##tag_id##_SHIFT); \
+									\
+	vcinfo_debug->incomplete_frame_status =	0x01 & \
+		(irq_status >> SENINF_OUTMUX_INCOMP_IRQ_STATUS_##tag_id##_SHIFT); \
+									\
+	vcinfo_debug->oversize_irq_status =	0x01 & \
+		(irq_status >> SENINF_OUTMUX_OVERSIZE_IRQ_STATUS_##tag_id##_SHIFT); \
+									\
+	irq_status = 0x00;\
+	irq_status |= SENINF_OUTMUX_TAG_DONE_IRQ_STATUS_##tag_id##_MASK; \
+									\
+	SENINF_WRITE_REG(outmux, \
+					SENINF_OUTMUX_IRQ_STATUS, \
+					irq_status); \
 } while (0)
 
 
@@ -4016,6 +4021,10 @@ static int mtk_cam_seninf_debug_core_dump(struct seninf_ctx *ctx,
 
 			vc_vaild_cnt++;
 			debug_result->valid_result_cnt = vc_vaild_cnt;
+
+			SENINF_WRITE_REG(outmux,
+							SENINF_OUTMUX_IRQ_STATUS,
+							0x00000002);
 		}
 	}
 

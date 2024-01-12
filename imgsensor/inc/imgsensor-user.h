@@ -795,6 +795,6 @@ struct mtk_exp_line_by_scenario {
 	_IOW('M', BASE_VIDIOC_PRIVATE + 112, int)
 
 #define VIDIOC_MTK_S_SENSOR_SENTEST_CTRL \
-	_IOWR('M', BASE_VIDIOC_PRIVATE + 113, int)
+	_IOWR('M', BASE_VIDIOC_PRIVATE + 113, struct mtk_adaptor_sentest_ctrl)
 
 #endif

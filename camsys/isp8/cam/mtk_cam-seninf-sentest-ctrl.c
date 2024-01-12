@@ -14,26 +14,32 @@ int seninf_sentest_get_debug_reg_result(struct seninf_ctx *ctx, void *arg)
 	int i;
 	struct seninf_core *core;
 	struct seninf_ctx *ctx_;
-	struct mtk_seninf_debug_result *result = arg;
 	struct mtk_cam_seninf_vcinfo_debug *vcinfo_debug;
 	struct outmux_debug_result *outmux_result;
 	struct mtk_cam_seninf_debug debug_result;
 	static __u16 last_pkCnt;
+	struct mtk_seninf_debug_result *result =
+					kmalloc(sizeof(struct mtk_seninf_debug_result), GFP_KERNEL);
+
+	if (unlikely(result == NULL)) {
+		pr_info("[%s][ERROR] result is NULL\n", __func__);
+		return -EFAULT;
+	}
 
 	if (unlikely(ctx == NULL)) {
 		pr_info("[%s][ERROR] ctx is NULL\n", __func__);
-		return -EINVAL;
+		goto SENTEST_GET_DBG_ERR_EXIT;
 	}
 
 	core = ctx->core;
 	if (unlikely(core == NULL)) {
 		pr_info("[%s][ERROR] core is NULL\n", __func__);
-		return -EINVAL;
+		goto SENTEST_GET_DBG_ERR_EXIT;
 	}
 
-	if (unlikely(result == NULL)) {
-		pr_info("[%s][ERROR] result is NULL\n", __func__);
-		return -EINVAL;
+	if (copy_from_user(result, arg, sizeof(struct mtk_seninf_debug_result))) {
+		pr_info("[%s][ERROR] copy_from_user return failed\n", __func__);
+		goto SENTEST_GET_DBG_ERR_EXIT;
 	}
 
 	memset(&debug_result, 0, sizeof(struct mtk_cam_seninf_debug));
@@ -41,7 +47,7 @@ int seninf_sentest_get_debug_reg_result(struct seninf_ctx *ctx, void *arg)
 	list_for_each_entry(ctx_, &core->list, list) {
 		if (unlikely(ctx_ == NULL)) {
 			pr_info("[%s][ERROR] ctx_ is NULL\n", __func__);
-			return -EINVAL;
+			goto SENTEST_GET_DBG_ERR_EXIT;
 		}
 
 		if (!ctx_->streaming)
@@ -66,34 +72,43 @@ int seninf_sentest_get_debug_reg_result(struct seninf_ctx *ctx, void *arg)
 			result->packet_status_err = 1;
 		}
 
-
 		for (i = 0; i <= debug_result.valid_result_cnt; i++) {
 			vcinfo_debug = &debug_result.vcinfo_debug[i];
 			outmux_result = &result->outmux_result[i];
 
 			if (unlikely(vcinfo_debug == NULL)) {
 				pr_info("[%s][ERROR] vcinfo_debug is NULL\n", __func__);
-				return -EINVAL;
+				goto SENTEST_GET_DBG_ERR_EXIT;
 			}
 
 			if (unlikely(outmux_result == NULL)) {
 				pr_info("[%s][ERROR] outmux_result is NULL\n", __func__);
-				return -EINVAL;
+				goto SENTEST_GET_DBG_ERR_EXIT;
 			}
 
-			outmux_result->vc_feature   = vcinfo_debug->vc_feature;
-			outmux_result->tag_id	   = vcinfo_debug->tag_id;
-			outmux_result->vc		   = vcinfo_debug->vc;
-			outmux_result->dt		   = vcinfo_debug->dt;
-			outmux_result->exp_size_h   = vcinfo_debug->exp_size_h;
-			outmux_result->exp_size_v   = vcinfo_debug->exp_size_v;
+			outmux_result->vc_feature	= vcinfo_debug->vc_feature;
+			outmux_result->tag_id	= vcinfo_debug->tag_id;
+			outmux_result->vc		= vcinfo_debug->vc;
+			outmux_result->dt		= vcinfo_debug->dt;
+			outmux_result->exp_size_h	= vcinfo_debug->exp_size_h;
+			outmux_result->exp_size_v	= vcinfo_debug->exp_size_v;
 			outmux_result->outmux_id	= vcinfo_debug->outmux_id;
 
-			outmux_result->done_irq_status		  = vcinfo_debug->done_irq_status;
-			outmux_result->oversize_irq_status	  = vcinfo_debug->oversize_irq_status;
-			outmux_result->incomplete_frame_status  = vcinfo_debug->incomplete_frame_status;
-			outmux_result->ref_vsync_irq_status	 = vcinfo_debug->ref_vsync_irq_status;
+			outmux_result->done_irq_status		= vcinfo_debug->done_irq_status;
+			outmux_result->oversize_irq_status	= vcinfo_debug->oversize_irq_status;
+			outmux_result->incomplete_frame_status	= vcinfo_debug->incomplete_frame_status;
+			outmux_result->ref_vsync_irq_status	= vcinfo_debug->ref_vsync_irq_status;
+		}
+
+		if (copy_to_user(arg, result, sizeof(struct mtk_seninf_debug_result))) {
+			pr_info("[%s][ERROR] copy_to_user return failed\n", __func__);
+			goto SENTEST_GET_DBG_ERR_EXIT;
 		}
 	}
+	kfree(result);
 	return 0;
+
+SENTEST_GET_DBG_ERR_EXIT:
+	kfree(result);
+	return -EFAULT;
 }

@@ -29,15 +29,16 @@ int seninf_sentest_flag_init(struct seninf_ctx *ctx)
 
 static int s_sentest_max_isp_clk_en(struct seninf_ctx *ctx, void *arg)
 {
-	int *en = arg;
-
-	if (unlikely(ctx == NULL)) {
-		pr_info("[%s][ERROR] ctx is NULL\n", __func__);
-		return -EINVAL;
-	}
+	int *en = kmalloc(sizeof(int), GFP_KERNEL);
 
 	if (unlikely(en == NULL)) {
 		pr_info("[%s][ERROR] en is NULL\n", __func__);
+		return -EINVAL;
+	}
+
+	if (unlikely(ctx == NULL)) {
+		pr_info("[%s][ERROR] ctx is NULL\n", __func__);
+		kfree(en);
 		return -EINVAL;
 	}
 
@@ -45,7 +46,14 @@ static int s_sentest_max_isp_clk_en(struct seninf_ctx *ctx, void *arg)
 		dev_info(ctx->dev,
 				"[ERROR][%s] set max_clk_en failed, due to streaming is %d\n",
 				__func__, ctx->streaming);
+		kfree(en);
 		return -EINVAL;
+	}
+
+	if (copy_from_user(en, arg, sizeof(int))) {
+		pr_info("[%s][ERROR] copy_from_user return failed\n", __func__);
+		kfree(en);
+		return -EFAULT;
 	}
 
 	ctx->allow_adjust_isp_en = *en;
@@ -53,20 +61,22 @@ static int s_sentest_max_isp_clk_en(struct seninf_ctx *ctx, void *arg)
 	dev_info(ctx->dev, "[%s] en: %d, allow_adjust_isp_en is %d\n",
 				__func__, *en, ctx->allow_adjust_isp_en);
 
+	kfree(en);
 	return 0;
 }
 
 static int s_sentest_single_raw_streaming_en(struct seninf_ctx *ctx, void *arg)
 {
-	int *en = arg;
-
-	if (unlikely(ctx == NULL)) {
-		pr_info("[%s][ERROR] ctx is NULL\n", __func__);
-		return -EINVAL;
-	}
+	int *en = kmalloc(sizeof(int), GFP_KERNEL);
 
 	if (unlikely(en == NULL)) {
 		pr_info("[%s][ERROR] en is NULL\n", __func__);
+		return -EINVAL;
+	}
+
+	if (unlikely(ctx == NULL)) {
+		pr_info("[%s][ERROR] ctx is NULL\n", __func__);
+		kfree(en);
 		return -EINVAL;
 	}
 
@@ -74,7 +84,14 @@ static int s_sentest_single_raw_streaming_en(struct seninf_ctx *ctx, void *arg)
 		dev_info(ctx->dev,
 				"[ERROR][%s] set max_clk_en failed, due to streaming is %d\n",
 				__func__, ctx->streaming);
+		kfree(en);
 		return -EINVAL;
+	}
+
+	if (copy_from_user(en, arg, sizeof(int))) {
+		pr_info("[%s][ERROR] copy_from_user return failed\n", __func__);
+		kfree(en);
+		return -EFAULT;
 	}
 
 	ctx->single_raw_streaming_en = *en;
@@ -82,6 +99,7 @@ static int s_sentest_single_raw_streaming_en(struct seninf_ctx *ctx, void *arg)
 	dev_info(ctx->dev, "[%s] en: %d, single_raw_streaming_en is %d\n",
 				__func__, *en, ctx->single_raw_streaming_en);
 
+	kfree(en);
 	return 0;
 }
 
@@ -123,7 +141,7 @@ int seninf_sentest_ioctl_entry(struct seninf_ctx *ctx, void *arg)
 
 	for (i = SENINF_SENTEST_G_CTRL_ID_MIN; i < SENINF_SENTEST_S_CTRL_ID_MAX; i ++) {
 		if (ctrl_info->ctrl_id == sentest_ioctl_table[i].ctrl_id)
-			return sentest_ioctl_table[i].func(ctx, (void *)ctrl_info->param_ptr);
+			return sentest_ioctl_table[i].func(ctx, ctrl_info->param_ptr);
 	}
 
 	pr_info("[ERROR][%s] ctrl_id %d not found\n", __func__, ctrl_info->ctrl_id);

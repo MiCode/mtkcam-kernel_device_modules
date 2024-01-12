@@ -76,6 +76,6 @@ struct mtk_seninf_debug_result {
 /* SET */
 
 #define VIDIOC_MTK_S_SENINF_SENTEST_CTRL \
-	_IOWR('M', BASE_VIDIOC_PRIVATE + 50, int)
+	_IOWR('M', BASE_VIDIOC_PRIVATE + 50, struct mtk_seninf_sentest_ctrl)
 
 #endif  // __MTK_CAM_SENINF_CONTROL_8_H__

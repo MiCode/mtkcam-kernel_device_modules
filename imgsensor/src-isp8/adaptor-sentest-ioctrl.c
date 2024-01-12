@@ -12,20 +12,14 @@ struct adaptor_sentest_ioctl {
 	int (*func)(struct adaptor_ctx *ctx, void *arg);
 };
 
-static int sentest_g_sensor_profile(struct adaptor_ctx *ctx, void *arg)
+static int sentest_g_sensor_profile(struct adaptor_ctx *ctx, void *user_buf)
 {
 	struct subdrv_ctx *subctx;
-	struct mtk_sensor_profile *user_sensor_profile = arg;
 	struct mtk_sensor_profile sensor_profile;
 	struct mtk_cam_sentest_cfg_info *sentest_cfg_info;
 
 	if (unlikely(ctx == NULL)) {
 		pr_info("[%s][ERROR] ctx is NULL\n", __func__);
-		return -EINVAL;
-	}
-
-	if (unlikely(user_sensor_profile == NULL)) {
-		pr_info("[%s][ERROR] user_sensor_profile is NULL\n", __func__);
 		return -EINVAL;
 	}
 
@@ -42,24 +36,28 @@ static int sentest_g_sensor_profile(struct adaptor_ctx *ctx, void *arg)
 	}
 
 	if (!sentest_cfg_info->power_on_profile_en) {
-		memset((void *)user_sensor_profile, 0, sizeof(struct mtk_sensor_profile));
-		dev_info(ctx->dev,
-			"[%s] power_on_profile_en is %d, init the sensor_profile\n",
+		dev_info(ctx->dev, "[%s] power_on_profile_en is %d, set\n",
 				__func__, sentest_cfg_info->power_on_profile_en);
 
 		return -EFAULT;
 	}
 
+	if (!ctx->is_streaming) {
+		dev_info(ctx->dev,
+			"[%s][ERR] ctx->is_streaming %d, cleaer the result to 0\n",
+			__func__, ctx->is_streaming);
+		return -EFAULT;
+	}
+
 	sensor_profile = subctx->sensor_pw_on_profile;
 
-	user_sensor_profile->i2c_init_period = sensor_profile.i2c_init_period;
-	user_sensor_profile->i2c_init_table_len = sensor_profile.i2c_init_table_len;
-	user_sensor_profile->i2c_cfg_period = sensor_profile.i2c_cfg_period;
-	user_sensor_profile->i2c_cfg_table_len = sensor_profile.i2c_cfg_table_len;
-	user_sensor_profile->hw_power_on_period = sensor_profile.hw_power_on_period;
+	if (copy_to_user(user_buf, &sensor_profile, sizeof(struct mtk_sensor_profile))) {
+		dev_info(ctx->dev,
+			"[%s][ERR] copy_to_user return failed\n", __func__);
+		return -EFAULT;
+	}
 
 	dev_info(ctx->dev, "sensor_profile copy_to_user is done\n");
-
 	return 0;
 }
 
@@ -71,7 +69,7 @@ static int sentest_g_tsrec_info(struct adaptor_ctx *ctx, void *arg)
 
 static int sentest_s_tsrec_traget_frame_id(struct adaptor_ctx *ctx, void *arg)
 {
-	u32 *frame_id = arg;
+	u32 *frame_id = kmalloc(sizeof(u32), GFP_KERNEL);
 	struct mtk_cam_sentest_cfg_info *sentest_info;
 
 	if (unlikely(ctx == NULL)) {
@@ -90,17 +88,22 @@ static int sentest_s_tsrec_traget_frame_id(struct adaptor_ctx *ctx, void *arg)
 		return -EINVAL;
 	}
 
+	if (copy_from_user(frame_id, arg, sizeof(u32))) {
+		pr_info("[%s][ERROR] copy_from_user return failed\n", __func__);
+		kfree(frame_id);
+		return -EFAULT;
+	}
+
 	sentest_info->listen_tsrec_frame_id = *frame_id;
-
-	dev_info(ctx->dev, "listen_tsrec_frame_id: %u\n",
-				 sentest_info->listen_tsrec_frame_id);
-
+	dev_info(ctx->dev,
+		"listen_tsrec_frame_id: %u\n", sentest_info->listen_tsrec_frame_id);
+	kfree(frame_id);
 	return 0;
 }
 
 static int sentest_s_sensor_profile_en(struct adaptor_ctx *ctx, void *arg)
 {
-	int *en = arg;
+	int *en = kmalloc(sizeof(int), GFP_KERNEL);
 	struct mtk_cam_sentest_cfg_info *sentest_cfg_info;
 
 	if (unlikely(ctx == NULL)) {
@@ -117,6 +120,12 @@ static int sentest_s_sensor_profile_en(struct adaptor_ctx *ctx, void *arg)
 	if (unlikely(sentest_cfg_info == NULL)) {
 		pr_info("[%s][ERROR] sentest_cfg_info is NULL\n", __func__);
 		return -EINVAL;
+	}
+
+	if (copy_from_user(en, arg, sizeof(int))) {
+		pr_info("[%s][ERROR] copy_from_user return failed\n", __func__);
+		kfree(en);
+		return -EFAULT;
 	}
 
 	sentest_cfg_info->power_on_profile_en = (*en) ? true : false;
@@ -124,12 +133,13 @@ static int sentest_s_sensor_profile_en(struct adaptor_ctx *ctx, void *arg)
 	dev_info(ctx->dev, "[%s] en: %d, power_on_profile_en is %d\n",
 				__func__, *en, sentest_cfg_info->power_on_profile_en);
 
+	kfree(en);
 	return 0;
 }
 
 static int sentest_s_lbmf_delay_do_ae_en(struct adaptor_ctx *ctx, void *arg)
 {
-	int *en = arg;
+	int *en = kmalloc(sizeof(int), GFP_KERNEL);
 	struct mtk_cam_sentest_cfg_info *sentest_cfg_info;
 
 	if (unlikely(ctx == NULL)) {
@@ -148,11 +158,18 @@ static int sentest_s_lbmf_delay_do_ae_en(struct adaptor_ctx *ctx, void *arg)
 		return -EINVAL;
 	}
 
+	if (copy_from_user(en, arg, sizeof(int))) {
+		pr_info("[%s][ERROR] copy_from_user return failed\n", __func__);
+		kfree(en);
+		return -EFAULT;
+	}
+
 	sentest_cfg_info->lbmf_delay_do_ae_en = (*en) ? true : false;
 
 	dev_info(ctx->dev, "[%s] en: %d, lbmf_delay_do_ae_en is %d\n",
 				__func__, *en, sentest_cfg_info->lbmf_delay_do_ae_en);
 
+	kfree(en);
 	return 0;
 }
 
@@ -182,7 +199,7 @@ int sentest_ioctl_entry(struct adaptor_ctx *ctx, void *arg)
 
 	for (i = SENTEST_G_CTRL_ID_MIN; i < SENTEST_S_CTRL_ID_MAX; i ++) {
 		if (ctrl_info->ctrl_id == sentest_ioctl_table[i].ctrl_id)
-			return sentest_ioctl_table[i].func(ctx, (void *)ctrl_info->param_ptr);
+			return sentest_ioctl_table[i].func(ctx, ctrl_info->param_ptr);
 	}
 
 	pr_info("[ERROR][%s] ctrl_id %d not found\n", __func__, ctrl_info->ctrl_id);

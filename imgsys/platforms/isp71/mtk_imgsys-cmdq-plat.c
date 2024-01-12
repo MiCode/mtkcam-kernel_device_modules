@@ -913,6 +913,7 @@ int imgsys_cmdq_sendtask_plat71(struct mtk_imgsys_dev *imgsys_dev,
 	size_t pkt_ofst[MAX_FRAME_IN_TASK] = {0};
 	char logBuf_temp[MTK_IMGSYS_LOG_LENGTH];
 	bool isTimeShared = 0;
+	u32 log_sz = 0;
 
 	/* PMQOS API */
 	tsDvfsQosStart = ktime_get_boottime_ns()/1000;
@@ -949,8 +950,9 @@ int imgsys_cmdq_sendtask_plat71(struct mtk_imgsys_dev *imgsys_dev,
 	if (imgsys_cmdq_ts_enable_plat71() || imgsys_wpe_bwlog_enable_plat71()) {
 		pkt_ts_va = cmdq_mbox_buf_alloc(imgsys_clt[0], &pkt_ts_pa);
 		if (imgsys_cmdq_ts_dbg_enable_plat71()) {
-			frm_info->hw_ts_log = vzalloc(sizeof(char)*MTK_IMGSYS_LOG_LENGTH*4);
-			memset((char *)frm_info->hw_ts_log, 0x0, MTK_IMGSYS_LOG_LENGTH*4);
+			log_sz = ((frm_num / 10) + 1) * 4;
+			frm_info->hw_ts_log = vzalloc(sizeof(char)*MTK_IMGSYS_LOG_LENGTH*log_sz);
+			memset((char *)frm_info->hw_ts_log, 0x0, MTK_IMGSYS_LOG_LENGTH*log_sz);
 			frm_info->hw_ts_log[strlen(frm_info->hw_ts_log)] = '\0';
 			memset((char *)logBuf_temp, 0x0, MTK_IMGSYS_LOG_LENGTH);
 			logBuf_temp[strlen(logBuf_temp)] = '\0';

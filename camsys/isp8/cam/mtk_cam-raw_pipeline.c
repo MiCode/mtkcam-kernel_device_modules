@@ -841,6 +841,8 @@ static int mtk_raw_try_ctrl(struct v4l2_ctrl *ctrl)
 	case V4L2_CID_MTK_CAM_HSF_EN:
 	case V4L2_CID_MTK_CAM_INTERNAL_MEM_CTRL:
 	case V4L2_CID_MTK_CAM_REQ_INFO:
+	case V4L2_CID_MTK_CAM_CQ_TRIGGER_DEADLINE:
+	case V4L2_CID_MTK_CAM_LTMS_LOW_LATENCY:
 		ret = 0;
 		break;
 	default:
@@ -995,6 +997,15 @@ static int mtk_raw_set_ctrl(struct v4l2_ctrl *ctrl)
 			if (CAM_DEBUG_ENABLED(V4L2))
 				dev_info(dev, "%s: trigger_cq: %d ns\n",
 					 __func__, ctrl_data->trigger_cq_deadline);
+		}
+		break;
+	case V4L2_CID_MTK_CAM_LTMS_LOW_LATENCY:
+		{
+			ctrl_data->ltms_low_latency = ctrl->val;
+
+			if (CAM_DEBUG_ENABLED(V4L2))
+				dev_info(dev, "%s: ltms_low_latency: %d\n",
+					__func__, ctrl_data->ltms_low_latency);
 		}
 		break;
 	case V4L2_CID_MTK_CAM_RAW_RESOURCE_UPDATE:
@@ -1242,6 +1253,18 @@ static const struct v4l2_ctrl_config cfg_cq_deadline = {
 	.flags = V4L2_CTRL_FLAG_VOLATILE | V4L2_CTRL_FLAG_EXECUTE_ON_WRITE,
 	.min = 0,
 	.max = 0x1fca055,
+	.step = 1,
+	.def = 0,
+};
+
+static const struct v4l2_ctrl_config ltms_low_latency = {
+	.ops = &cam_ctrl_ops,
+	.id = V4L2_CID_MTK_CAM_LTMS_LOW_LATENCY,
+	.name = "ltms low latency",
+	.type = V4L2_CTRL_TYPE_INTEGER,
+	.flags = V4L2_CTRL_FLAG_VOLATILE | V4L2_CTRL_FLAG_EXECUTE_ON_WRITE,
+	.min = 0,
+	.max = 0x1fffffff,
 	.step = 1,
 	.def = 0,
 };
@@ -3689,8 +3712,11 @@ static void mtk_raw_pipeline_ctrl_setup(struct mtk_raw_pipeline *pipe)
 	/* req_info */
 	v4l2_ctrl_new_custom(ctrl_hdlr, &cfg_req_info, NULL);
 
-	/* req_info */
+	/* cq_deadline */
 	v4l2_ctrl_new_custom(ctrl_hdlr, &cfg_cq_deadline, NULL);
+
+	/* ltms low latency */
+	v4l2_ctrl_new_custom(ctrl_hdlr, &ltms_low_latency, NULL);
 
 	ctrl = v4l2_ctrl_new_custom(ctrl_hdlr, &cfg_hdr_timestamp_info, NULL);
 	if (ctrl)

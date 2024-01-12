@@ -37,6 +37,7 @@
 #define V4L2_CID_MTK_CAM_CAMSYS_VF_RESET (V4L2_CID_USER_MTK_CAM_BASE + 27)
 #define V4L2_CID_MTK_CAM_REQ_INFO (V4L2_CID_USER_MTK_CAM_BASE + 28)
 #define V4L2_CID_MTK_CAM_CQ_TRIGGER_DEADLINE (V4L2_CID_USER_MTK_CAM_BASE + 29)
+#define V4L2_CID_MTK_CAM_LTMS_LOW_LATENCY (V4L2_CID_USER_MTK_CAM_BASE + 30)
 
 #define V4L2_CID_MTK_CAM_RAW_RESOURCE_CALC_TEST (V4L2_CID_USER_MTK_CAM_BASE + 47)
 
@@ -179,6 +180,12 @@ enum mtk_cam_data_pattern {
 	MTK_CAM_PATTERN_4CELL,
 };
 
+enum mtk_cam_slc_mode {
+	NO_SLC,
+	SLC_NO_DISCARD,
+	SLC_WITH_DISCARD,
+};
+
 struct mtk_cam_resource_sensor_v2 {
 	__u32 width;
 	__u32 height;
@@ -211,6 +218,8 @@ struct mtk_cam_resource_raw_v2 {
 	__u32 img_wbuf_num;
 	__u32 slb_size;
 	__u8 rms_saving;
+	__u8 slc_mode;
+	__u8 luma_debug;
 };
 
 struct mtk_cam_resource_v2 {

@@ -131,6 +131,7 @@ struct mtk_raw_ctrl_data {
 
 	u32 enable_hsf_raw;
 	u32 trigger_cq_deadline;
+	u8 ltms_low_latency;
 	struct mtk_raw_ctrl_data_read_clear rc_data;
 };
 

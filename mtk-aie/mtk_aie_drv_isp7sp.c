@@ -486,7 +486,8 @@ static unsigned int g_fd_fd_config_offset;
 
 static void aie_irqhandle(struct mtk_aie_dev *fd);
 
-static void aie_arrange_config_network(struct mtk_aie_dev *fd);
+static void aie_arrange_config(struct mtk_aie_dev *fd);
+static void aie_arrange_network(struct mtk_aie_dev *fd);
 
 static void FDVT_DumpDRAMOut(struct mtk_aie_dev *fd, unsigned int *hw, unsigned int size)
 {
@@ -2419,7 +2420,7 @@ static int aie_config_y2r(struct mtk_aie_dev *fd, struct aie_enq_info *aie_cfg,
 			((src_crop_h - 1) << 15) / (pym0_out_h - 1);
 	}
 
-	dma_buf_end_cpu_access_partial(fd->config_model_dmabuf,
+	dma_buf_end_cpu_access_partial(fd->config_dmabuf,
 		DMA_BIDIRECTIONAL, flush_offset, flush_len);
 
 	return 0;
@@ -2453,6 +2454,7 @@ static int aie_config_rs(struct mtk_aie_dev *fd, struct aie_enq_info *aie_cfg)
 
 	if (src_crop_w)
 		pym_out_h[0] = pym_out_w[0] * src_crop_h / src_crop_w;
+
 	pym_out_h[1] = pym_out_h[0] >> 1;
 	pym_out_h[2] = pym_out_h[1] >> 1;
 
@@ -2536,7 +2538,7 @@ static int aie_config_rs(struct mtk_aie_dev *fd, struct aie_enq_info *aie_cfg)
 			(xmag_0 & 0x3FFF) | ((ymag_0 << 16) & 0x3FFF0000);
 	}
 
-	dma_buf_end_cpu_access_partial(fd->config_model_dmabuf,
+	dma_buf_end_cpu_access_partial(fd->config_dmabuf,
 		DMA_BIDIRECTIONAL, g_fd_rs_config_offset,
 		AIE_ALIGN32(fdvt_rs_confi_frame01_size));
 
@@ -2584,13 +2586,6 @@ static int aie_config_network(struct mtk_aie_dev *fd,
 	pyramid0_out_w = fd->base_para->pyramid_width;
 	if (src_crop_w)
 		pyramid0_out_h = pyramid0_out_w * src_crop_h / src_crop_w;
-
-	if (pyramid0_out_h > MAX_PYRAMID_HEIGHT) {
-		pyramid0_out_w = pyramid0_out_w * MAX_PYRAMID_HEIGHT / pyramid0_out_h;
-		pyramid0_out_h = MAX_PYRAMID_HEIGHT;
-		aie_dev_info(fd->dev, "pyramid size waring: w: %d, h: %d",
-					pyramid0_out_w, pyramid0_out_h);
-	}
 
 	pyramid1_out_h = pyramid0_out_h / 2;
 	pyramid2_out_h = pyramid1_out_h / 2;
@@ -2887,7 +2882,7 @@ static int aie_config_network(struct mtk_aie_dev *fd,
 		fd_cur_cfg[POS_FDCON_KERNEL_BA_MSB] = (u32)((msb_bit_1 << 8) | (msb_bit_0));
 	}
 
-	dma_buf_end_cpu_access_partial(fd->config_model_dmabuf,
+	dma_buf_end_cpu_access_partial(fd->config_dmabuf,
 		DMA_BIDIRECTIONAL, flush_offset, flush_len);
 
 	return 0;
@@ -3121,7 +3116,7 @@ static int aie_config_attr_network(struct mtk_aie_dev *fd,
 		}
 	}
 
-	dma_buf_end_cpu_access_partial(fd->config_model_dmabuf,
+	dma_buf_end_cpu_access_partial(fd->config_dmabuf,
 		DMA_BIDIRECTIONAL, flush_offset, flush_len);
 
 	return 0;
@@ -3203,7 +3198,8 @@ static int aie_alloc_aie_buf(struct mtk_aie_dev *fd)
 	if (ret)
 		goto fddma_fail;
 
-	aie_arrange_config_network(fd);
+	aie_arrange_config(fd);
+	aie_arrange_network(fd);
 
 	aie_dev_info(fd->dev,
 	"c(%llx/%llx/%llx)o(%llx/%llx/%llx/%llx)f(%llx/%llx/%llx/%llx/%llx/%llx)\n",
@@ -3775,13 +3771,12 @@ static void aie_config_fld_buf_reg(struct mtk_aie_dev *fd)
 		fd->fd_base + FLD_PP_BASE_ADDR);
 }
 
-static void aie_arrange_config_network(struct mtk_aie_dev *fd)
+static void aie_arrange_config(struct mtk_aie_dev *fd)
 {
-	unsigned char *va = (unsigned char *)fd->config_model_kva;
-	unsigned long long pa = fd->config_model_pa;
+	unsigned char *va = (unsigned char *)fd->config_kva;
+	unsigned long long pa = fd->config_pa;
 	unsigned int i;
 	unsigned int msb_bit = 0;
-
 	g_fd_rs_config_offset = 0;
 
 	/* arrange iova */
@@ -3822,6 +3817,37 @@ static void aie_arrange_config_network(struct mtk_aie_dev *fd)
 		pa += AIE_ALIGN32(attr_fd_confi_frame01_size);
 	}
 
+	/* arrange va */
+	/* rs config */
+	fd->base_para->fd_rs_cfg_va = va;
+	va += AIE_ALIGN32(fdvt_rs_confi_frame01_size);
+
+	/* yuv2rgb config */
+	fd->base_para->fd_yuv2rgb_cfg_va = va;
+	va += AIE_ALIGN32(fdvt_yuv2rgb_confi_frame01_size);
+
+	for (i = 0; i < MAX_ENQUE_FRAME_NUM; i++) {
+		fd->base_para->attr_yuv2rgb_cfg_va[i] = va;
+		va += AIE_ALIGN32(attr_yuv2rgb_confi_frame01_size);
+	}
+
+	/* fd config */
+	fd->base_para->fd_fd_cfg_va = va;
+	va += AIE_ALIGN32(fdvt_fd_confi_frame01_size);
+
+	for (i = 0; i < MAX_ENQUE_FRAME_NUM; i++) {
+		fd->base_para->attr_fd_cfg_va[i] = va;
+		va += AIE_ALIGN32(attr_fd_confi_frame01_size);
+	}
+}
+
+static void aie_arrange_network(struct mtk_aie_dev *fd)
+{
+	unsigned char *va = (unsigned char *)fd->model_kva;
+	unsigned long long pa = fd->model_pa;
+	unsigned int i;
+
+	/* arrange iova */
 	/* fd kernel model */
 	fd->dma_para->fd_kernel_pa[0][0] = pa;
 	pa += AIE_ALIGN32(fdvt_kernel_bias_loop00_0_frame01_size);
@@ -4523,28 +4549,6 @@ static void aie_arrange_config_network(struct mtk_aie_dev *fd)
 	}
 
 	/* arrange va */
-	/* rs config */
-	fd->base_para->fd_rs_cfg_va = va;
-	va += AIE_ALIGN32(fdvt_rs_confi_frame01_size);
-
-	/* yuv2rgb config */
-	fd->base_para->fd_yuv2rgb_cfg_va = va;
-	va += AIE_ALIGN32(fdvt_yuv2rgb_confi_frame01_size);
-
-	for (i = 0; i < MAX_ENQUE_FRAME_NUM; i++) {
-		fd->base_para->attr_yuv2rgb_cfg_va[i] = va;
-		va += AIE_ALIGN32(attr_yuv2rgb_confi_frame01_size);
-	}
-
-	/* fd config */
-	fd->base_para->fd_fd_cfg_va = va;
-	va += AIE_ALIGN32(fdvt_fd_confi_frame01_size);
-
-	for (i = 0; i < MAX_ENQUE_FRAME_NUM; i++) {
-		fd->base_para->attr_fd_cfg_va[i] = va;
-		va += AIE_ALIGN32(attr_fd_confi_frame01_size);
-	}
-
 	/* fd kernel model */
 	fd->dma_para->fd_kernel_va[0][0] = va;
 	va += AIE_ALIGN32(fdvt_kernel_bias_loop00_0_frame01_size);

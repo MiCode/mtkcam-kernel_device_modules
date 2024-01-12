@@ -679,12 +679,21 @@ struct mtk_aie_dev {
 	struct dma_buf *para_dmabuf;
 	unsigned long long para_kva;
 	struct iosys_map para_map;
-	struct dma_buf *config_model_dmabuf;
-	unsigned long long config_model_kva;
-	struct iosys_map config_model_map;
-	unsigned long long config_model_pa;
-	struct dma_buf_attachment *config_model_attach;
-	struct sg_table *config_model_sgt;
+
+	struct dma_buf *config_dmabuf;
+	unsigned long long config_kva;
+	struct iosys_map config_map;
+	unsigned long long config_pa;
+	struct dma_buf_attachment *config_attach;
+	struct sg_table *config_sgt;
+
+	struct dma_buf *model_dmabuf;
+	unsigned long long model_kva;
+	struct iosys_map model_map;
+	unsigned long long model_pa;
+	struct dma_buf_attachment *model_attach;
+	struct sg_table *model_sgt;
+
 	int map_count;
 
 	struct aie_para *base_para;

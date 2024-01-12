@@ -56,6 +56,12 @@ static u32 g_cb_param_idx;
 static struct mutex g_cb_param_lock;
 #endif
 
+#ifdef IMGSYS_ME_CHECK_FUNC_EN
+static u32 is_me_read_cmd = 0;
+static dma_addr_t g_pkt_me_pa = 0;
+static u32 *g_pkt_me_va = NULL;
+#endif
+
 enum SMI_MONITOR_STATE {
 	SMI_MONITOR_IDLE_STATE = 0,
 	SMI_MONITOR_START_STATE,
@@ -211,6 +217,9 @@ void imgsys_cmdq_streamon_plat7sp(struct mtk_imgsys_dev *imgsys_dev)
     }
 #endif
 
+#ifdef IMGSYS_ME_CHECK_FUNC_EN
+	g_pkt_me_va = cmdq_mbox_buf_alloc(imgsys_clt[0], &g_pkt_me_pa);
+#endif
 }
 
 void imgsys_cmdq_streamoff_plat7sp(struct mtk_imgsys_dev *imgsys_dev)
@@ -232,6 +241,12 @@ void imgsys_cmdq_streamoff_plat7sp(struct mtk_imgsys_dev *imgsys_dev)
 	}
 	}
 	#endif
+
+	#ifdef IMGSYS_ME_CHECK_FUNC_EN
+	cmdq_mbox_buf_free(imgsys_clt[0], g_pkt_me_va, g_pkt_me_pa);
+	is_me_read_cmd = 0;
+	#endif
+
 	#if IMGSYS_SECURE_ENABLE
 	if (is_sec_task_create) {
 		cmdq_sec_mbox_stop(imgsys_sec_clt[0]);
@@ -870,13 +885,18 @@ static void imgsys_cmdq_cb_work_plat7sp(struct work_struct *work)
 
 void imgsys_cmdq_task_cb_plat7sp(struct cmdq_cb_data data)
 {
-	struct mtk_imgsys_cb_param *cb_param;
-	struct mtk_imgsys_pipe *pipe;
+	struct mtk_imgsys_cb_param *cb_param = NULL;
+	struct mtk_imgsys_pipe *pipe = NULL;
+	struct mtk_imgsys_dev *imgsys_dev = NULL;
 	size_t err_ofst;
 	u32 idx = 0, err_idx = 0, real_frm_idx = 0;
 	u16 event = 0, event_sft = 0;
 	u64 event_diff = 0;
 	bool isHWhang = 0;
+#ifdef IMGSYS_ME_CHECK_FUNC_EN
+	u32 me_done_reg = 0;
+	u32 me_check_reg[4] = {0};
+#endif
 
     if (imgsys_cmdq_dbg_enable_plat7sp()) {
 	pr_debug("%s: +\n", __func__);
@@ -890,12 +910,41 @@ void imgsys_cmdq_task_cb_plat7sp(struct cmdq_cb_data data)
 	cb_param = (struct mtk_imgsys_cb_param *)data.data;
 	cb_param->err = data.err;
 	cb_param->cmdqTs.tsCmdqCbStart = ktime_get_boottime_ns()/1000;
+	imgsys_dev = cb_param->imgsys_dev;
 
     if (imgsys_cmdq_dbg_enable_plat7sp()) {
 	pr_debug(
 		"%s: Receive cb(%p) with err(%d) for frm(%d/%d)\n",
 		__func__, cb_param, data.err, cb_param->frm_idx, cb_param->frm_num);
     }
+
+#ifdef IMGSYS_ME_CHECK_FUNC_EN
+	if ((cb_param->err == 0) && (cb_param->hw_comb == 0x800)
+		&& (is_me_read_cmd == 1) && (is_stream_off == 0)) {
+		me_done_reg = g_pkt_me_va[0];
+		for (idx = 0; idx < IMGSYS_ME_CHECK_REG_NUM; idx++)
+			me_check_reg[idx] = g_pkt_me_va[idx+1];
+		if ((me_done_reg & 0x00000001) == 0) {
+			pr_info("%s: [ERROR] ME hang detected! done_reg(0x%x) check_reg(0x%x/0x%x/0x%x/0x%x)\n",
+				__func__, me_done_reg, me_check_reg[0], me_check_reg[1],
+				me_check_reg[2], me_check_reg[3]);
+			if (((me_check_reg[0] & 0x0000000F) == 0x0000000B)
+			&& (me_check_reg[1] == 0x00000008)
+			&& ((me_check_reg[2] & 0xFF000000) == 0x18000000)
+			&& ((me_check_reg[3] & 0xFF000000) == 0x4A000000)) {
+				if (imgsys_dev->modules[IMGSYS_MOD_ME].set) {
+					imgsys_dev->modules[IMGSYS_MOD_ME].set(imgsys_dev);
+					cb_param->frm_info->user_info[cb_param->frm_idx].priv[IMGSYS_ME].need_update_desc = 1;
+					pr_info("%s: [WARN] Do ME reset flow\n", __func__);
+				} else	/* ME set function is not implement */
+					cb_param->err = -800;
+			} else	/* ME hang, and can't recover case */
+				cb_param->err = -800;
+		}
+		cmdq_clear_event(imgsys_clt[0]->chan,
+			imgsys_event[IMGSYS_CMDQ_SYNC_TOKEN_IPESYS_ME].event);
+	}
+#endif
 
 	if (cb_param->err != 0) {
 		err_ofst = cb_param->pkt->err_data.offset;
@@ -1090,6 +1139,15 @@ void imgsys_cmdq_task_cb_plat7sp(struct cmdq_cb_data data)
 				__func__, is_stream_off,
 				cb_param->pkt->err_data.wfe_timeout,
 				cb_param->pkt->err_data.event, isHWhang);
+#ifdef IMGSYS_ME_CHECK_FUNC_EN
+		} else if (cb_param->err == -800) {
+			isHWhang = 1;
+			pr_info(
+				"%s: [ERROR] ME HW timeout! wfe(%d) event(%d) isHW(%d)",
+				__func__,
+				cb_param->pkt->err_data.wfe_timeout,
+				cb_param->pkt->err_data.event, isHWhang);
+#endif
 		} else {
 			isHWhang = 1;
 			pr_info(
@@ -1432,6 +1490,8 @@ int imgsys_cmdq_sendtask_plat7sp(struct mtk_imgsys_dev *imgsys_dev,
 		/* if (imgsys_cmdq_ts_dbg_enable_plat7sp()) { */
 			log_sz = ((frm_num / 10) + 1) * 4;
 			frm_info->hw_ts_log = vzalloc(sizeof(char)*MTK_IMGSYS_LOG_LENGTH*log_sz);
+			if (frm_info->hw_ts_log == NULL)
+				return -ENOMEM;
 			memset((char *)frm_info->hw_ts_log, 0x0, MTK_IMGSYS_LOG_LENGTH*log_sz);
 			frm_info->hw_ts_log[strlen(frm_info->hw_ts_log)] = '\0';
 			memset((char *)logBuf_temp, 0x0, MTK_IMGSYS_LOG_LENGTH);
@@ -1789,6 +1849,9 @@ int imgsys_cmdq_parser_plat7sp(struct mtk_imgsys_dev *imgsys_dev,
 	bool iova_dbg = false;
 	u16 pre_fd = 0;
 #endif
+#ifdef IMGSYS_ME_CHECK_FUNC_EN
+	u32 me_read_num = 0;
+#endif
 
 	req_fd = frm_info->request_fd;
 	req_no = frm_info->request_no;
@@ -1806,10 +1869,17 @@ int imgsys_cmdq_parser_plat7sp(struct mtk_imgsys_dev *imgsys_dev,
 				"%s: READ with source(0x%08x) target(0x%08x) mask(0x%08x)\n",
 				__func__, cmd->u.source, cmd->u.target, cmd->u.mask);
             }
-			if (imgsys_wpe_bwlog_enable_plat7sp()) {
+			if (imgsys_wpe_bwlog_enable_plat7sp() && (hw_comb != 0x800)) {
 				cmdq_pkt_mem_move(pkt, NULL, (dma_addr_t)cmd->u.source,
 					dma_pa + (4*(*num)), CMDQ_THR_SPR_IDX3);
 				(*num)++;
+#ifdef IMGSYS_ME_CHECK_FUNC_EN
+			} else if (hw_comb == 0x800) {
+				cmdq_pkt_mem_move(pkt, NULL, (dma_addr_t)cmd->u.source,
+					g_pkt_me_pa + (4 * me_read_num), CMDQ_THR_SPR_IDX3);
+				me_read_num++;
+				is_me_read_cmd = 1;
+#endif
 			} else
 				pr_info(
 					"%s: [ERROR]Not enable imgsys read cmd!!\n",
@@ -1888,8 +1958,15 @@ int imgsys_cmdq_parser_plat7sp(struct mtk_imgsys_dev *imgsys_dev,
             }
 			/* cmdq_pkt_poll(pkt, NULL, cmd->u.value, cmd->u.address, */
 			/* cmd->u.mask, CMDQ_GPR_R15); */
+			#ifdef IMGSYS_ME_CHECK_FUNC_EN
 			cmdq_pkt_poll_timeout(pkt, cmd->u.value, SUBSYS_NO_SUPPORT,
-				cmd->u.address, cmd->u.mask, 0xFFFF, CMDQ_GPR_R03+thd_idx);
+				cmd->u.address, cmd->u.mask, IMGSYS_POLL_TIME_20MS,
+				CMDQ_GPR_R03+thd_idx);
+			#else
+			cmdq_pkt_poll_timeout(pkt, cmd->u.value, SUBSYS_NO_SUPPORT,
+				cmd->u.address, cmd->u.mask, IMGSYS_POLL_TIME_INFINI,
+				CMDQ_GPR_R03+thd_idx);
+			#endif
 			break;
 		case IMGSYS_CMD_WAIT:
             if (imgsys_cmdq_dbg_enable_plat7sp()) {

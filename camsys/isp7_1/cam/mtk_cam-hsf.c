@@ -16,6 +16,8 @@
 #include <linux/remoteproc.h>
 #include <linux/types.h>
 #include <linux/videodev2.h>
+#include <linux/version.h>
+
 #include <media/videobuf2-v4l2.h>
 #include <media/v4l2-fwnode.h>
 #include <media/v4l2-mc.h>
@@ -112,7 +114,11 @@ void mtk_cam_dmabuf_free_iova(struct mtk_cam_ctx *ctx, struct mtk_cam_dma_map *d
 		//dev_info(cam->dev, "dmap is null\n");
 		return;
 	}
-	dma_buf_unmap_attachment(dmap->attach, dmap->table, DMA_TO_DEVICE);
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 6, 0)
+		dma_buf_unmap_attachment_unlocked(dmap->attach, dmap->table, DMA_TO_DEVICE);
+#else
+		dma_buf_unmap_attachment(dmap->attach, dmap->table, DMA_TO_DEVICE);
+#endif
 	dma_buf_detach(dmap->dbuf, dmap->attach);
 	dma_heap_buffer_free(dmap->dbuf);
 }

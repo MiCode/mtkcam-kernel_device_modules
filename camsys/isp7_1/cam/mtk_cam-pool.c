@@ -11,6 +11,7 @@
 #include <linux/mm.h>
 #include <linux/remoteproc.h>
 #include <linux/spinlock.h>
+#include <linux/version.h>
 
 #include "mtk_cam.h"
 #include "mtk_cam-smem.h"

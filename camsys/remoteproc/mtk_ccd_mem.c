@@ -18,6 +18,8 @@
 #include <linux/platform_data/mtk_ccd.h>
 #include <linux/remoteproc/mtk_ccd_mem.h>
 #include <linux/rpmsg/mtk_ccd_rpmsg.h>
+#include <linux/version.h>
+
 #include <uapi/linux/mtk_ccd_controls.h>
 #include <uapi/linux/dma-heap.h>
 
@@ -41,7 +43,8 @@ static struct mtk_ccd_buf *mtk_ccd_buf_alloc(
 {
 	struct mtk_ccd_buf *buf;
 	struct dma_heap *dma_heap;
-	struct iosys_map map = {}; 
+	struct iosys_map map = {};
+	int ret = 0;
 
 	buf = kzalloc(sizeof(*buf), GFP_KERNEL);
 	if (!buf)
@@ -72,8 +75,12 @@ static struct mtk_ccd_buf *mtk_ccd_buf_alloc(
 		pr_info("dma_heap map failed\n");
 		goto fail_map_attach;
 	}
-
-	if (dma_buf_vmap(buf->dbuf, &map) < 0) {
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 6, 0)
+		ret = dma_buf_vmap_unlocked(buf->dbuf, &map);
+#else
+		ret = dma_buf_vmap(buf->dbuf, &map);
+#endif
+	if (ret < 0) {
 		pr_info("dma_heap vmap failed\n");
 		goto fail_vmap;
 	}
@@ -86,8 +93,13 @@ static struct mtk_ccd_buf *mtk_ccd_buf_alloc(
 	return buf;
 
 fail_vmap:
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 6, 0)
+	dma_buf_unmap_attachment_unlocked(
+		buf->db_attach, buf->dma_sgt, DMA_BIDIRECTIONAL);
+#else
 	dma_buf_unmap_attachment(
 		buf->db_attach, buf->dma_sgt, DMA_BIDIRECTIONAL);
+#endif
 fail_map_attach:
 	dma_buf_detach(buf->dbuf, buf->db_attach);
 fail_alloc:
@@ -99,14 +111,23 @@ static void mtk_ccd_buf_put(struct mtk_ccd_buf *buf)
 {
 	/* free va */
 	if (buf->vaddr) {
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 6, 0)
+		dma_buf_vunmap_unlocked(buf->dbuf, &buf->map);
+#else
 		dma_buf_vunmap(buf->dbuf, &buf->map);
+#endif
 	}
 
 	/* free iova */
-	if (buf->db_attach && buf->dma_sgt)
-		dma_buf_unmap_attachment(
-			buf->db_attach, buf->dma_sgt, DMA_BIDIRECTIONAL);
-
+	if (buf->db_attach && buf->dma_sgt) {
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 6, 0)
+	dma_buf_unmap_attachment_unlocked(
+		buf->db_attach, buf->dma_sgt, DMA_BIDIRECTIONAL);
+#else
+	dma_buf_unmap_attachment(
+		buf->db_attach, buf->dma_sgt, DMA_BIDIRECTIONAL);
+#endif
+	}
 	if (buf->dbuf && buf->db_attach)
 		dma_buf_detach(buf->dbuf, buf->db_attach);
 
@@ -124,8 +145,15 @@ static dma_addr_t mtk_ccd_buf_get_daddr(struct mtk_ccd_buf *buf)
 
 static void *mtk_ccd_buf_get_vaddr(struct mtk_ccd_buf *buf)
 {
+	int ret = 0;
+
 	if (!buf->vaddr && buf->db_attach) {
-		if (dma_buf_vmap(buf->db_attach->dmabuf, &buf->map) < 0) {
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 6, 0)
+		ret = dma_buf_vmap_unlocked(buf->dbuf, &buf->map);
+#else
+		ret = dma_buf_vmap(buf->dbuf, &buf->map);
+#endif
+		if (ret < 0) {
 			pr_info("dma_heap vmap failed\n");
 			return NULL;
 		}

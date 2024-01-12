@@ -11,6 +11,7 @@
 #include <linux/mm.h>
 #include <linux/remoteproc.h>
 #include <linux/spinlock.h>
+#include <linux/version.h>
 
 #include "mtk_cam.h"
 #include "mtk_cam-feature.h"
@@ -280,9 +281,13 @@ static int mtk_cam_device_buf_init(struct mtk_cam_device_buf *buf,
 		dev_info(dev, "failed to attach dbuf: %s\n", dev_name(dev));
 		return -1;
 	}
-
-	buf->dma_sgt = dma_buf_map_attachment(buf->db_attach,
-					      DMA_BIDIRECTIONAL);
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 6, 0)
+		buf->dma_sgt = dma_buf_map_attachment_unlocked(buf->db_attach,
+							  DMA_BIDIRECTIONAL);
+#else
+		buf->dma_sgt = dma_buf_map_attachment(buf->db_attach,
+							  DMA_BIDIRECTIONAL);
+#endif
 	if (IS_ERR(buf->dma_sgt)) {
 		dev_info(dev, "failed to map attachment\n");
 		goto fail_detach;
@@ -303,8 +308,13 @@ static int mtk_cam_device_buf_init(struct mtk_cam_device_buf *buf,
 	return 0;
 
 fail_attach_unmap:
-	dma_buf_unmap_attachment(buf->db_attach, buf->dma_sgt,
-				 DMA_BIDIRECTIONAL);
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 6, 0)
+		dma_buf_unmap_attachment_unlocked(buf->db_attach, buf->dma_sgt,
+						 DMA_BIDIRECTIONAL);
+#else
+		dma_buf_unmap_attachment(buf->db_attach, buf->dma_sgt,
+						 DMA_BIDIRECTIONAL);
+#endif
 	buf->dma_sgt = NULL;
 fail_detach:
 	dma_buf_detach(buf->dbuf, buf->db_attach);
@@ -319,8 +329,13 @@ static void mtk_cam_device_buf_uninit(struct mtk_cam_device_buf *buf)
 
 	WARN_ON(!buf->dbuf || !buf->size);
 	if (buf->dma_sgt) {
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 6, 0)
+		dma_buf_unmap_attachment_unlocked(buf->db_attach, buf->dma_sgt,
+						 DMA_BIDIRECTIONAL);
+#else
 		dma_buf_unmap_attachment(buf->db_attach, buf->dma_sgt,
-					 DMA_BIDIRECTIONAL);
+						 DMA_BIDIRECTIONAL);
+#endif
 		buf->dma_sgt = NULL;
 		buf->daddr = 0;
 	} else {
@@ -328,7 +343,11 @@ static void mtk_cam_device_buf_uninit(struct mtk_cam_device_buf *buf)
 	}
 
 	if (buf->vaddr) {
-		dma_buf_vunmap(buf->dbuf, &map);
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 6, 0)
+				dma_buf_vunmap_unlocked(buf->dbuf, &map);
+#else
+				dma_buf_vunmap(buf->dbuf, &map);
+#endif
 		buf->vaddr = NULL;
 	}
 

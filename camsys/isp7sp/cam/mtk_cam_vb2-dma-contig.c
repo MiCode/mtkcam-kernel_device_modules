@@ -10,6 +10,7 @@
 #include <linux/sched.h>
 #include <linux/slab.h>
 #include <linux/dma-mapping.h>
+#include <linux/version.h>
 
 #include <media/videobuf2-v4l2.h>
 #include <media/videobuf2-memops.h>
@@ -79,8 +80,13 @@ static void *mtk_cam_vb2_vaddr(struct vb2_buffer *vb, void *buf_priv)
 	int ret = 0;
 
 	MTK_CAM_TRACE_FUNC_BEGIN(BUFFER);
-	if (!buf->vaddr && buf->db_attach)
+	if (!buf->vaddr && buf->db_attach) {
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 6, 0)
+		ret = dma_buf_vmap_unlocked(buf->db_attach->dmabuf, &buf->map);
+#else
 		ret = dma_buf_vmap(buf->db_attach->dmabuf, &buf->map);
+#endif
+	}
 	buf->vaddr = WARN_ON(ret) ? NULL : buf->map.vaddr;
 	MTK_CAM_TRACE_END(BUFFER);
 	return buf->vaddr;
@@ -160,7 +166,11 @@ static int mtk_cam_vb2_map_dmabuf(void *mem_priv)
 	if (contig_size < buf->size) {
 		pr_info("contiguous chunk is too small %lu/%lu\n",
 		       contig_size, buf->size);
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 6, 0)
+		dma_buf_unmap_attachment_unlocked(buf->db_attach, sgt, buf->dma_dir);
+#else
 		dma_buf_unmap_attachment(buf->db_attach, sgt, buf->dma_dir);
+#endif
 		return -EFAULT;
 	}
 
@@ -190,10 +200,18 @@ static void mtk_cam_vb2_unmap_dmabuf(void *mem_priv)
 	MTK_CAM_TRACE_FUNC_BEGIN(BUFFER);
 
 	if (buf->vaddr) {
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 6, 0)
+		dma_buf_vunmap_unlocked(buf->db_attach->dmabuf, &buf->map);
+#else
 		dma_buf_vunmap(buf->db_attach->dmabuf, &buf->map);
+#endif
 		buf->vaddr = NULL;
 	}
-	dma_buf_unmap_attachment(buf->db_attach, sgt, buf->dma_dir);
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 6, 0)
+			dma_buf_unmap_attachment_unlocked(buf->db_attach, sgt, buf->dma_dir);
+#else
+			dma_buf_unmap_attachment(buf->db_attach, sgt, buf->dma_dir);
+#endif
 
 	buf->dma_addr = 0;
 	buf->dma_sgt = NULL;

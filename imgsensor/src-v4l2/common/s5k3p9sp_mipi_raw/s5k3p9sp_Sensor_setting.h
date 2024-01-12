@@ -2842,6 +2842,8 @@ static u16 addr_data_pair_cust2[] = {
 	0x0112,	0x0A0A,
 	0x0804, 0x0200,
 	0x0810, 0x0020,
+	// non-continuous_clock
+	0x011E, 0x0000,
 };
 static u16 addr_data_pair_cust3[] = {
 	0x6028,	0x4000,
@@ -2919,6 +2921,8 @@ static u16 addr_data_pair_cust3[] = {
 	0x0112,	0x0A0A,
 	0x0804, 0x0200,
 	0x0810, 0x0020,
+	// non-continuous_clock
+	0x011E, 0x0000,
 };
 
 static u16 addr_data_pair_cust4[] = {
@@ -2997,6 +3001,8 @@ static u16 addr_data_pair_cust4[] = {
 	0x0112,	0x0A0A,
 	0x0804, 0x0200,
 	0x0810, 0x0020,
+	// non-continuous_clock
+	0x011E, 0x0000,
 };
 
 static u16 addr_data_pair_cust5[] = {
@@ -3075,6 +3081,8 @@ static u16 addr_data_pair_cust5[] = {
 	0x0112,	0x0A0A,
 	0x0804, 0x0200,
 	0x0810, 0x0020,
+	// non-continuous_clock
+	0x011E, 0x0000,
 };
 
 static u16 addr_data_pair_cust6[] = {
@@ -3153,6 +3161,8 @@ static u16 addr_data_pair_cust6[] = {
 	0x0112,	0x0A0A,
 	0x0804, 0x0200,
 	0x0810, 0x0020,
+	// non-continuous_clock
+	0x011E, 0x0000,
 };
 
 static u16 addr_data_pair_cust7[] = {
@@ -3231,6 +3241,8 @@ static u16 addr_data_pair_cust7[] = {
 	0x0112,	0x0A0A,
 	0x0804, 0x0200,
 	0x0810, 0x0020,
+	// non-continuous_clock
+	0x011E, 0x0000,
 };
 
 

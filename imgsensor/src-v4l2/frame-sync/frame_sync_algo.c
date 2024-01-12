@@ -1402,6 +1402,9 @@ static unsigned int fs_alg_chk_if_need_to_setup_fl_restore_ctrl(
 	/* check case */
 	if (p_para->adj_diff_final < FS_FL_AUTO_RESTORE_TH)
 		return 0;
+	/* !!! FL auto restore mechanism not support LB-MF mode !!! */
+	if (fs_inst[idx].p_frecs[0]->m_exp_type == MULTI_EXP_TYPE_LBMF)
+		return 0;
 
 	get_valid_fl_lc_info(idx, &fl_lc, fl_lc_arr, FS_HDR_MAX);
 

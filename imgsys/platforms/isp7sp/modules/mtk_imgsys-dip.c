@@ -107,6 +107,213 @@ struct mtk_imgsys_dip_dtable {
 static void __iomem *gdipRegBA[DIP_HW_SET] = {0L};
 static unsigned int g_RegBaseAddr = DIP_TOP_ADDR;
 
+int imgsys_dip_tfault_callback(int port,
+	dma_addr_t mva, void *data)
+{
+	void __iomem *dipRegBA = 0L;
+	unsigned larb = 0;
+	unsigned int i = 0;
+
+	pr_debug("%s: +\n", __func__);
+
+	larb = ((port>>5) & 0x3F);
+	pr_info("%s: iommu port:0x%x, larb:%d, idx:%d, addr:0x%08lx\n", __func__,
+		port, larb, (port & 0x1F), (unsigned long)mva);
+
+	/* 0x15100000~ */
+	dipRegBA = gdipRegBA[0];
+
+	/* ctrl reg */
+	for (i = TOP_CTL_OFT; i <= (TOP_CTL_OFT + TOP_CTL_SZ); i += 0x10) {
+		pr_info("[0x%08X] 0x%08X 0x%08X 0x%08X 0x%08X",
+			(unsigned int)(DIP_TOP_ADDR + i),
+			(unsigned int)ioread32((void *)(dipRegBA + i)),
+			(unsigned int)ioread32((void *)(dipRegBA + i + 0x4)),
+			(unsigned int)ioread32((void *)(dipRegBA + i + 0x8)),
+			(unsigned int)ioread32((void *)(dipRegBA + i + 0xc)));
+	}
+	/* DMA reg */
+	for (i = DMATOP_OFT; i <= (DMATOP_OFT + DMATOP_SZ); i += 0x10) {
+		pr_info("[0x%08X] 0x%08X 0x%08X 0x%08X 0x%08X",
+			(unsigned int)(DIP_TOP_ADDR + i),
+			(unsigned int)ioread32((void *)(dipRegBA + i)),
+			(unsigned int)ioread32((void *)(dipRegBA + i + 0x4)),
+			(unsigned int)ioread32((void *)(dipRegBA + i + 0x8)),
+			(unsigned int)ioread32((void *)(dipRegBA + i + 0xc)));
+	}
+	/* NR3D */
+	for (i = NR3D_CTL_OFT; i <= (NR3D_CTL_OFT + NR3D_CTL_SZ); i += 0x10) {
+		pr_info("[0x%08X] 0x%08X 0x%08X 0x%08X 0x%08X",
+			(unsigned int)(DIP_TOP_ADDR + i),
+			(unsigned int)ioread32((void *)(dipRegBA + i)),
+			(unsigned int)ioread32((void *)(dipRegBA + i + 0x4)),
+			(unsigned int)ioread32((void *)(dipRegBA + i + 0x8)),
+			(unsigned int)ioread32((void *)(dipRegBA + i + 0xc)));
+	}
+	/* SNRS */
+	for (i = SNRS_CTL_OFT; i <= (SNRS_CTL_OFT + SNRS_CTL_SZ); i += 0x10) {
+		pr_info("[0x%08X] 0x%08X 0x%08X 0x%08X 0x%08X",
+			(unsigned int)(DIP_TOP_ADDR + i),
+			(unsigned int)ioread32((void *)(dipRegBA + i)),
+			(unsigned int)ioread32((void *)(dipRegBA + i + 0x4)),
+			(unsigned int)ioread32((void *)(dipRegBA + i + 0x8)),
+			(unsigned int)ioread32((void *)(dipRegBA + i + 0xc)));
+	}
+	/* UNP_D1~C20_D1 */
+	for (i = UNP_D1_CTL_OFT; i <= (UNP_D1_CTL_OFT + UNP_D1_CTL_SZ); i += 0x10) {
+		pr_info("[0x%08X] 0x%08X 0x%08X 0x%08X 0x%08X",
+			(unsigned int)(DIP_TOP_ADDR + i),
+			(unsigned int)ioread32((void *)(dipRegBA + i)),
+			(unsigned int)ioread32((void *)(dipRegBA + i + 0x4)),
+			(unsigned int)ioread32((void *)(dipRegBA + i + 0x8)),
+			(unsigned int)ioread32((void *)(dipRegBA + i + 0xc)));
+	}
+	/* SMT_D1~PAK_D2 */
+	for (i = SMT_D1_CTL_OFT; i <= (SMT_D1_CTL_OFT + SMT_D1_CTL_SZ); i += 0x10) {
+		pr_info("[0x%08X] 0x%08X 0x%08X 0x%08X 0x%08X",
+			(unsigned int)(DIP_TOP_ADDR + i),
+			(unsigned int)ioread32((void *)(dipRegBA + i)),
+			(unsigned int)ioread32((void *)(dipRegBA + i + 0x4)),
+			(unsigned int)ioread32((void *)(dipRegBA + i + 0x8)),
+			(unsigned int)ioread32((void *)(dipRegBA + i + 0xc)));
+	}
+
+	/* 0x15154000~ */
+	dipRegBA = gdipRegBA[1];
+	/* SNR_D1~PCRP_D16*/
+	for (i = SNR_D1_CTL_OFT; i <= (SNR_D1_CTL_OFT + SNR_D1_CTL_SZ); i += 0x10) {
+		pr_info("[0x%08X] 0x%08X 0x%08X 0x%08X 0x%08X",
+			(unsigned int)(DIP_NR1_ADDR + i),
+			(unsigned int)ioread32((void *)(dipRegBA + i)),
+			(unsigned int)ioread32((void *)(dipRegBA + i + 0x4)),
+			(unsigned int)ioread32((void *)(dipRegBA + i + 0x8)),
+			(unsigned int)ioread32((void *)(dipRegBA + i + 0xc)));
+	}
+	/* EE_D1~URZS2T_D5*/
+	for (i = EE_D1_CTL_OFT; i <= (EE_D1_CTL_OFT + EE_D1_CTL_SZ); i += 0x10) {
+		pr_info("[0x%08X] 0x%08X 0x%08X 0x%08X 0x%08X",
+			(unsigned int)(DIP_NR1_ADDR + i),
+			(unsigned int)ioread32((void *)(dipRegBA + i)),
+			(unsigned int)ioread32((void *)(dipRegBA + i + 0x4)),
+			(unsigned int)ioread32((void *)(dipRegBA + i + 0x8)),
+			(unsigned int)ioread32((void *)(dipRegBA + i + 0xc)));
+	}
+	/* TNC_BCE */
+	for (i = TNC_BCE_CTL_OFT; i <= (TNC_BCE_CTL_OFT + TNC_BCE_CTL_SZ); i += 0x10) {
+		pr_info("[0x%08X] 0x%08X 0x%08X 0x%08X 0x%08X",
+			(unsigned int)(DIP_NR1_ADDR + i),
+			(unsigned int)ioread32((void *)(dipRegBA + i)),
+			(unsigned int)ioread32((void *)(dipRegBA + i + 0x4)),
+			(unsigned int)ioread32((void *)(dipRegBA + i + 0x8)),
+			(unsigned int)ioread32((void *)(dipRegBA + i + 0xc)));
+	}
+	/* TNC_TILE */
+	for (i = TNC_TILE_CTL_OFT; i <= (TNC_TILE_CTL_OFT + TNC_TILE_CTL_SZ); i += 0x10) {
+		pr_info("[0x%08X] 0x%08X 0x%08X 0x%08X 0x%08X",
+			(unsigned int)(DIP_NR1_ADDR + i),
+			(unsigned int)ioread32((void *)(dipRegBA + i)),
+			(unsigned int)ioread32((void *)(dipRegBA + i + 0x4)),
+			(unsigned int)ioread32((void *)(dipRegBA + i + 0x8)),
+			(unsigned int)ioread32((void *)(dipRegBA + i + 0xc)));
+	}
+	/* TNC_C2G~TNC_TNC_CTL */
+	for (i = TNC_C2G_CTL_OFT; i <= (TNC_C2G_CTL_OFT + TNC_C2G_CTL_SZ); i += 0x10) {
+		pr_info("[0x%08X] 0x%08X 0x%08X 0x%08X 0x%08X",
+			(unsigned int)(DIP_NR1_ADDR + i),
+			(unsigned int)ioread32((void *)(dipRegBA + i)),
+			(unsigned int)ioread32((void *)(dipRegBA + i + 0x4)),
+			(unsigned int)ioread32((void *)(dipRegBA + i + 0x8)),
+			(unsigned int)ioread32((void *)(dipRegBA + i + 0xc)));
+	}
+	/* TNC_C3D */
+	for (i = TNC_C3D_CTL_OFT; i <= (TNC_C3D_CTL_OFT + TNC_C3D_CTL_SZ); i += 0x10) {
+		pr_info("[0x%08X] 0x%08X 0x%08X 0x%08X 0x%08X",
+			(unsigned int)(DIP_NR1_ADDR + i),
+			(unsigned int)ioread32((void *)(dipRegBA + i)),
+			(unsigned int)ioread32((void *)(dipRegBA + i + 0x4)),
+			(unsigned int)ioread32((void *)(dipRegBA + i + 0x8)),
+			(unsigned int)ioread32((void *)(dipRegBA + i + 0xc)));
+	}
+
+	/* 0x15161000~ */
+	dipRegBA = gdipRegBA[2];
+	/* VIPI_D1~SMTCI_D9 */
+	for (i = VIPI_D1_CTL_OFT; i <= (VIPI_D1_CTL_OFT + VIPI_D1_CTL_SZ); i += 0x10) {
+		pr_info("[0x%08X] 0x%08X 0x%08X 0x%08X 0x%08X",
+			(unsigned int)(DIP_NR2_ADDR + i),
+			(unsigned int)ioread32((void *)(dipRegBA + i)),
+			(unsigned int)ioread32((void *)(dipRegBA + i + 0x4)),
+			(unsigned int)ioread32((void *)(dipRegBA + i + 0x8)),
+			(unsigned int)ioread32((void *)(dipRegBA + i + 0xc)));
+	}
+	/* SNRCSI_D1~SMTO_D9 */
+	for (i = SNRCSI_D1_CTL_OFT; i <= (SNRCSI_D1_CTL_OFT + SNRCSI_D1_CTL_SZ); i += 0x10) {
+		pr_info("[0x%08X] 0x%08X 0x%08X 0x%08X 0x%08X",
+			(unsigned int)(DIP_NR2_ADDR + i),
+			(unsigned int)ioread32((void *)(dipRegBA + i)),
+			(unsigned int)ioread32((void *)(dipRegBA + i + 0x4)),
+			(unsigned int)ioread32((void *)(dipRegBA + i + 0x8)),
+			(unsigned int)ioread32((void *)(dipRegBA + i + 0xc)));
+	}
+	/* SMTCO_D4~BOKPCI_D1 */
+	for (i = SMTCO_D4_CTL_OFT; i <= (SMTCO_D4_CTL_OFT + SMTCO_D4_CTL_SZ); i += 0x10) {
+		pr_info("[0x%08X] 0x%08X 0x%08X 0x%08X 0x%08X",
+			(unsigned int)(DIP_NR2_ADDR + i),
+			(unsigned int)ioread32((void *)(dipRegBA + i)),
+			(unsigned int)ioread32((void *)(dipRegBA + i + 0x4)),
+			(unsigned int)ioread32((void *)(dipRegBA + i + 0x8)),
+			(unsigned int)ioread32((void *)(dipRegBA + i + 0xc)));
+	}
+	/* SMT_D5~MCRP_D1 */
+	for (i = SMT_D5_CTL_OFT; i <= (SMT_D5_CTL_OFT + SMT_D5_CTL_SZ); i += 0x10) {
+		pr_info("[0x%08X] 0x%08X 0x%08X 0x%08X 0x%08X",
+			(unsigned int)(DIP_NR2_ADDR + i),
+			(unsigned int)ioread32((void *)(dipRegBA + i)),
+			(unsigned int)ioread32((void *)(dipRegBA + i + 0x4)),
+			(unsigned int)ioread32((void *)(dipRegBA + i + 0x8)),
+			(unsigned int)ioread32((void *)(dipRegBA + i + 0xc)));
+	}
+	/* URZS2T_D12~PCRP_D39 */
+	for (i = URZS2T_D12_CTL_OFT; i <= (URZS2T_D12_CTL_OFT + URZS2T_D12_CTL_SZ); i += 0x10) {
+		pr_info("[0x%08X] 0x%08X 0x%08X 0x%08X 0x%08X",
+			(unsigned int)(DIP_NR2_ADDR + i),
+			(unsigned int)ioread32((void *)(dipRegBA + i)),
+			(unsigned int)ioread32((void *)(dipRegBA + i + 0x4)),
+			(unsigned int)ioread32((void *)(dipRegBA + i + 0x8)),
+			(unsigned int)ioread32((void *)(dipRegBA + i + 0xc)));
+	}
+	/* DRZH2N_D2 */
+	for (i = DRZH2N_D2_CTL_OFT; i <= (DRZH2N_D2_CTL_OFT + DRZH2N_D2_CTL_SZ); i += 0x10) {
+		pr_info("[0x%08X] 0x%08X 0x%08X 0x%08X 0x%08X",
+			(unsigned int)(DIP_NR2_ADDR + i),
+			(unsigned int)ioread32((void *)(dipRegBA + i)),
+			(unsigned int)ioread32((void *)(dipRegBA + i + 0x4)),
+			(unsigned int)ioread32((void *)(dipRegBA + i + 0x8)),
+			(unsigned int)ioread32((void *)(dipRegBA + i + 0xc)));
+	}
+	/* BOK_D1 */
+	for (i = BOK_D1_CTL_OFT; i <= (BOK_D1_CTL_OFT + BOK_D1_CTL_SZ); i += 0x10) {
+		pr_info("[0x%08X] 0x%08X 0x%08X 0x%08X 0x%08X",
+			(unsigned int)(DIP_NR2_ADDR + i),
+			(unsigned int)ioread32((void *)(dipRegBA + i)),
+			(unsigned int)ioread32((void *)(dipRegBA + i + 0x4)),
+			(unsigned int)ioread32((void *)(dipRegBA + i + 0x8)),
+			(unsigned int)ioread32((void *)(dipRegBA + i + 0xc)));
+	}
+	/* TCY_D2 */
+	for (i = TCY_D2_CTL_OFT; i <= (TCY_D2_CTL_OFT + TCY_D2_CTL_SZ); i += 0x10) {
+		pr_info("[0x%08X] 0x%08X 0x%08X 0x%08X 0x%08X",
+			(unsigned int)(DIP_NR2_ADDR + i),
+			(unsigned int)ioread32((void *)(dipRegBA + i)),
+			(unsigned int)ioread32((void *)(dipRegBA + i + 0x4)),
+			(unsigned int)ioread32((void *)(dipRegBA + i + 0x8)),
+			(unsigned int)ioread32((void *)(dipRegBA + i + 0xc)));
+	}
+
+	pr_info("%s: -\n", __func__);
+	return 1;
+}
+
 void imgsys_dip_set_initial_value(struct mtk_imgsys_dev *imgsys_dev)
 {
 	unsigned int hw_idx = 0, ary_idx = 0;

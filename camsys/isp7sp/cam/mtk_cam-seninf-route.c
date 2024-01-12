@@ -2285,6 +2285,37 @@ void mtk_cam_sensor_get_frame_cnt(struct seninf_ctx *ctx, u32 *frame_cnt)
 	}
 }
 
+void mtk_cam_sensor_get_glp_dt(struct seninf_ctx *ctx, struct seninf_glp_dt *info)
+{
+	u32 *glp = NULL;
+	u32 cnt = 0;
+	int i;
+
+	if (!ctx || !info)
+		return;
+	glp = info->dt;
+
+	if (ctx->sensor_sd &&
+	    ctx->sensor_sd->ops &&
+	    ctx->sensor_sd->ops->core &&
+	    ctx->sensor_sd->ops->core->command) {
+		ctx->sensor_sd->ops->core->command(ctx->sensor_sd,
+						V4L2_CMD_G_SENSOR_GLP_DT,
+						glp);
+	} else {
+		dev_info(ctx->dev,
+			"%s: find sensor command failed\n",	__func__);
+	}
+
+	for (i=0; i<SEQ_DT_MAX_CNT; i++ ){
+		if(glp[i])
+			cnt++;
+		dev_info(ctx->dev,
+			"%s: glp[%d]: 0x%x, cnt:%d\n", __func__, i , glp[i], cnt);
+	}
+	info->cnt = cnt;
+}
+
 int notify_fsync_listen_target(struct seninf_ctx *ctx)
 {
 	int cam_idx = mtk_cam_seninf_get_fsync_vsync_src_cam_info(ctx);

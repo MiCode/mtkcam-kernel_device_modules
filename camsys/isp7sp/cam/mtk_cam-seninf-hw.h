@@ -168,7 +168,7 @@ struct mtk_cam_seninf_ops {
 	int (*_set_cammux_src)(struct seninf_ctx *ctx, int src,
 					  int target, int exp_hsize, int exp_vsize, int dt);
 	int (*_set_vc)(struct seninf_ctx *ctx, int seninfIdx,
-				  struct seninf_vcinfo *vcinfo);
+				  struct seninf_vcinfo *vcinfo, struct seninf_glp_dt *glpinfo);
 	int (*_set_mux_ctrl)(struct seninf_ctx *ctx, int mux,
 					int hsPol, int vsPol, int src_sel,
 					int pixel_mode);

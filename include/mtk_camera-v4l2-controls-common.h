@@ -298,6 +298,9 @@ struct mtk_seninf_lbmf_info {
 #define V4L2_CMD_G_SENSOR_FRAME_CNT \
 	(V4L2_CMD_USER_MTK_SENSOR_BASE + 13)
 
+#define V4L2_CMD_G_SENSOR_GLP_DT \
+    (V4L2_CMD_USER_MTK_SENSOR_BASE + 14)
+
 /**
  * TSREC - notify vsync structure
  *         V4L2_CMD_TSREC_NOTIFY_VSYNC

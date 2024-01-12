@@ -26,6 +26,7 @@
 
 #define PARAM_DEFAULT 0
 #define PARAM_UNDEFINED 0
+#define GLP_DT_MAX_CNT 4
 enum {
 	I2C_DT_ADDR_16_DATA_8 = 0,
 	I2C_DT_ADDR_16_DATA_16,
@@ -96,6 +97,18 @@ enum AOV_MODE_CTRL_OPS {
 	AOV_MODE_CTRL_OPS_DPHY_GLOBAL_TIMING_CONTINUOUS_CLK,
 	AOV_MODE_CTRL_OPS_DPHY_GLOBAL_TIMING_NON_CONTINUOUS_CLK,
 	AOV_MODE_CTRL_OPS_MAX_NUM,
+};
+
+enum GENERI_LONG_PACKET_DT {
+	GLP_DT_0X10 = 0x10,
+	GLP_DT_0X11,
+	GLP_DT_0X12,
+	GLP_EBD_DT = GLP_DT_0X12,
+	GLP_DT_0X13,
+	GLP_DT_0X14,
+	GLP_DT_0X15,
+	GLP_DT_0X16,
+	GLP_DT_0X17,
 };
 
 struct subdrv_pw_seq_entry {
@@ -352,6 +365,9 @@ struct subdrv_static_ctx {
 
 	/* embedded data line parsing */
 	struct ebd_info_struct ebd_info;
+
+	/* record glp data type */
+	u32 glp_dt[GLP_DT_MAX_CNT];
 };
 
 #define HDR_CAP_IHDR 0x1

@@ -499,7 +499,7 @@ static int do_set_dcg_ae_ctrl(struct adaptor_ctx *ctx,
 					para.u8, &len);
 		ADAPTOR_SYSTRACE_END();
 
-		notify_fsync_mgr_set_extend_framelength(ctx, para.u64[0]);
+		notify_fsync_mgr_set_extend_framelength(ctx, 0);
 	}
 	if (ae_ctrl->actions & IMGSENSOR_EXTEND_FRAME_LENGTH_TO_DOL_DISABLE) {
 		ctx->subctx.extend_frame_length_en = FALSE;
@@ -624,7 +624,7 @@ static int do_set_ae_ctrl(struct adaptor_ctx *ctx,
 					para.u8, &len);
 		ADAPTOR_SYSTRACE_END();
 
-		notify_fsync_mgr_set_extend_framelength(ctx, para.u64[0]);
+		notify_fsync_mgr_set_extend_framelength(ctx, 0);
 	}
 	if (ae_ctrl->actions & IMGSENSOR_EXTEND_FRAME_LENGTH_TO_DOL_DISABLE) {
 		ctx->subctx.extend_frame_length_en = FALSE;

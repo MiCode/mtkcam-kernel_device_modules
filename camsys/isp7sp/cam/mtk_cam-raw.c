@@ -828,6 +828,23 @@ static void raw_handle_skip_frame(struct mtk_raw_device *raw_dev,
 			__func__, err_status, fh_cookie);
 }
 
+static void raw_handle_ringbuffer_ofl(struct mtk_raw_device *raw_dev,
+				      struct mtk_camsys_irq_info *data)
+{
+	unsigned int fh_cookie = data->frame_idx_inner;
+
+	dev_info(raw_dev->dev, "%s: fh_cookie: 0x%x, chasing_status 0x%x, 0x%x line_cnt:0x%x 0x%x 0x%x 0x%x\n",
+		 __func__, fh_cookie,
+		 readl_relaxed(raw_dev->base + REG_CAMRAWDMATOP_DC_DBG_CHASING_STATUS),
+		 readl_relaxed(raw_dev->base + REG_CAMRAWDMATOP_DC_DBG_CHASING_STATUS2),
+		 readl_relaxed(raw_dev->base + REG_CAMRAWDMATOP_DC_DBG_LINE_CNT_RAWI_R2),
+		 readl_relaxed(raw_dev->base + REG_CAMRAWDMATOP_DC_DBG_LINE_CNT_UFDI_R2),
+		 readl_relaxed(raw_dev->base + REG_CAMRAWDMATOP_DC_DBG_LINE_CNT_RAWI_R5),
+		 readl_relaxed(raw_dev->base + REG_CAMRAWDMATOP_DC_DBG_LINE_CNT_UFDI_R5));
+
+	WRAP_AEE_EXCEPTION(MSG_RINGBUFFER_OFL, dev_name(raw_dev->dev));
+}
+
 static bool is_sub_sample_sensor_timing(struct mtk_raw_device *dev)
 {
 	return dev->cur_vsync_idx >= dev->set_sensor_idx;
@@ -855,6 +872,16 @@ static bool is_sub_sample_sensor_timing(struct mtk_raw_device *dev)
 	 FBIT(CAMCTL_P1_SKIP_FRAME_2ND_PASS_RGBW_VHDR_INT_ST)	|	\
 	 FBIT(CAMCTL_P1_SKIP_FRAME_1ST_PASS_RGBW_VHDR_INT_ST)	|	\
 	 FBIT(CAMCTL_P1_SKIP_FRAME_DC_STAG_INT_ST))
+
+#define RING_BUFFER_OFL_MASK \
+	(FBIT(CAMCTL_UFDI_R5_RING_BUFFER_OVERFLOW_ST)		|	\
+	 FBIT(CAMCTL_RAWI_R5_RING_BUFFER_OVERFLOW_ST)		|	\
+	 FBIT(CAMCTL_UFDI_R4_RING_BUFFER_OVERFLOW_ST)		|	\
+	 FBIT(CAMCTL_RAWI_R4_RING_BUFFER_OVERFLOW_ST)		|	\
+	 FBIT(CAMCTL_UFDI_R3_RING_BUFFER_OVERFLOW_ST)		|	\
+	 FBIT(CAMCTL_RAWI_R3_RING_BUFFER_OVERFLOW_ST)		|	\
+	 FBIT(CAMCTL_UFDI_R2_RING_BUFFER_OVERFLOW_ST)		|	\
+	 FBIT(CAMCTL_RAWI_R2_RING_BUFFER_OVERFLOW_ST))
 
 /* TMP for FBC, to be removed */
 #define WCNT_BIT_MASK				0xFF00
@@ -954,6 +981,9 @@ static irqreturn_t mtk_irq_raw(int irq, void *data)
 		irq_info.irq_type |= 1 << CAMSYS_IRQ_FRAME_SKIPPED;
 		irq_info.e.err_status = dcif_status;
 	}
+
+	if (dma_ufl_status & RING_BUFFER_OFL_MASK)
+		irq_info.irq_type |= 1 << CAMSYS_IRQ_RINGBUFFER_OVERFLOW;
 
 	/* Frame done */
 	if (irq_status & FBIT(CAMCTL_SW_PASS1_DONE_ST))
@@ -1132,6 +1162,10 @@ static irqreturn_t mtk_thread_irq_raw(int irq, void *data)
 		/* skip frame case */
 		if (unlikely(irq_info.irq_type & BIT(CAMSYS_IRQ_FRAME_SKIPPED)))
 			raw_handle_skip_frame(raw_dev, &irq_info);
+
+		/* ringbuffer overflow case */
+		if (unlikely(irq_info.irq_type & BIT(CAMSYS_IRQ_RINGBUFFER_OVERFLOW)))
+			raw_handle_ringbuffer_ofl(raw_dev, &irq_info);
 
 		if (irq_info.irq_type & (1 << CAMSYS_IRQ_FRAME_DONE))
 			reset_error_handling(raw_dev);

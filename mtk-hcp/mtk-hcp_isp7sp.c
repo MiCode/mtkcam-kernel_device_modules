@@ -3556,24 +3556,48 @@ int isp7sp_get_mem_info(struct img_init_info *info)
 }
 static int isp7sp_put_gce(unsigned int mode)
 {
-    if (mode == imgsys_streaming)
+    if (mode == imgsys_streaming) {
 		kref_put(&mb[IMG_MEM_G_ID].kref, gce_release_streaming);
-	else if(mode == imgsys_capture)
+		if (hcp_dbg_enable()) {
+			pr_info("put-streaming gce count(%d)\n", kref_read(&mb[IMG_MEM_G_ID].kref));
+		}
+    }
+	else if(mode == imgsys_capture) {
 		kref_put(&cmb[IMG_MEM_G_ID].kref, gce_release_capture);
-	else
+		if (hcp_dbg_enable()) {
+			pr_info("put-capture gce count(%d)\n", kref_read(&cmb[IMG_MEM_G_ID].kref));
+		}
+	}
+	else {
 		kref_put(&smb[IMG_MEM_G_ID].kref, gce_release_smvr);
+		if (hcp_dbg_enable()) {
+			pr_info("put-smvr gce count(%d)\n", kref_read(&smb[IMG_MEM_G_ID].kref));
+		}
+	}
 
 	return 0;
 }
 
 static int isp7sp_get_gce(unsigned int mode)
 {
-    if (mode == imgsys_streaming)
+    if (mode == imgsys_streaming) {
 		kref_get(&mb[IMG_MEM_G_ID].kref);
-	else if(mode == imgsys_capture)
+		if (hcp_dbg_enable()) {
+			pr_info("get-streaming gce count(%d)\n", kref_read(&mb[IMG_MEM_G_ID].kref));
+		}
+    }
+	else if(mode == imgsys_capture) {
 		kref_get(&cmb[IMG_MEM_G_ID].kref);
-	else
+		if (hcp_dbg_enable()) {
+			pr_info("get-capture gce count(%d)\n", kref_read(&cmb[IMG_MEM_G_ID].kref));
+		}
+	}
+	else {
 		kref_get(&smb[IMG_MEM_G_ID].kref);
+		if (hcp_dbg_enable()) {
+			pr_info("get-smvr gce count(%d)\n", kref_read(&smb[IMG_MEM_G_ID].kref));
+		}
+	}
 	//kref_get(&gmb[IMG_MEM_G_ID - IMG_MEM_FOR_HW_ID].kref);
 	return 0;
 }

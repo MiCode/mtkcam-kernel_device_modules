@@ -841,7 +841,8 @@ static void imgsys_cmdq_cb_work_plat7sp(struct work_struct *work)
 			__func__, "user_cb", cb_param->frm_info->frame_no,
 			cb_param->frm_info->request_no, cb_param->frm_info->request_fd,
 			cb_param->frm_info->frm_owner);
-		cb_param->user_cmdq_cb(user_cb_data, cb_param->frm_idx, isLastTaskInReq);
+		cb_param->user_cmdq_cb(user_cb_data, cb_param->frm_idx, isLastTaskInReq,
+			cb_param->batchnum, cb_param->is_capture);
 		IMGSYS_CMDQ_SYSTRACE_END();
 		cb_param->cmdqTs.tsUserCbEnd = ktime_get_boottime_ns()/1000;
 	}
@@ -1481,7 +1482,8 @@ int imgsys_cmdq_task_aee_cb_plat7sp(struct cmdq_cb_data data)
 int imgsys_cmdq_sendtask_plat7sp(struct mtk_imgsys_dev *imgsys_dev,
 				struct swfrm_info_t *frm_info,
 				void (*cmdq_cb)(struct cmdq_cb_data data,
-					uint32_t subfidx, bool isLastTaskInReq),
+					uint32_t subfidx, bool isLastTaskInReq,
+					uint32_t batchnum, uint32_t is_capture),
 				void (*cmdq_err_cb)(struct cmdq_cb_data data,
 					uint32_t fail_subfidx, bool isHWhang, uint32_t hangEvent),
 				u64 (*imgsys_get_iova)(struct dma_buf *dma_buf, s32 ionFd,
@@ -1828,6 +1830,8 @@ int imgsys_cmdq_sendtask_plat7sp(struct mtk_imgsys_dev *imgsys_dev,
 					cb_param->isTaskLast = 0;
 					cb_param->task_num = 0;
 				}
+				cb_param->batchnum = frm_info->batchnum;
+				cb_param->is_capture = frm_info->is_capture;
 
 				imgsys_cmdq_fence_set_plat7sp(imgsys_dev, frm_info, cb_param,
 					frm_idx, thd_idx);

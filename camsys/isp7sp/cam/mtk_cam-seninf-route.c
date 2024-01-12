@@ -1304,7 +1304,7 @@ int mtk_cam_seninf_get_vcinfo(struct seninf_ctx *ctx)
 		vc->exp_hsize = fd.entry[i].bus.csi2.hsize;
 		vc->exp_vsize = fd.entry[i].bus.csi2.vsize;
 
-		if (desc == VC_GENERAL_EMBEDDED) {
+		if (vc->dt >= 0x10 && vc->dt <= 0x17) {
 			vc->exp_hsize = conv_ebd_hsize_raw14(vc->exp_hsize,
 						fd.entry[i].bus.csi2.ebd_parsing_type);
 		}
@@ -2793,9 +2793,11 @@ int mtk_cam_seninf_get_ebd_info_by_scenario(struct v4l2_subdev *sd,
 		result->mbus_code = get_mbus_format_by_dt(ebd_info.data_type,
 						ebd_info.dt_remap_to_type);
 
-		result->mbus_code = MEDIA_BUS_FMT_SBGGR14_1X14;
-		result->exp_hsize = conv_ebd_hsize_raw14(result->exp_hsize,
+		if (ebd_info.data_type >= 0x10 && ebd_info.data_type <= 0x17) {
+			result->mbus_code = MEDIA_BUS_FMT_SBGGR14_1X14;
+			result->exp_hsize = conv_ebd_hsize_raw14(result->exp_hsize,
 					ebd_info.ebd_parsing_type);
+		}
 
 		seninf_logd(ctx, "mode = %u, result(%u,%u,%u,0x%x)\n",
 			    ebd_info.input_scenario_id,

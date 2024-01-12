@@ -3711,6 +3711,21 @@ static const struct v4l2_subdev_internal_ops mtk_raw_internal_ops = {
 	.close = mtk_raw_close,
 };
 
+static bool check_vb2_queue_support(u8 id, u8 *vb2_queue_support_list, int vb2_queue_support_list_num)
+{
+	int i;
+	u8 id_chk;
+
+	for (i = 0; i < vb2_queue_support_list_num; i++) {
+		id_chk = *(vb2_queue_support_list + i);
+		
+		if (id_chk == id)
+			return true;
+	}
+
+	return false;
+}
+
 static int mtk_raw_pipeline_register(const char *str, unsigned int id,
 				     struct mtk_raw_pipeline *pipe,
 				     struct v4l2_device *v4l2_dev)
@@ -3719,6 +3734,8 @@ static int mtk_raw_pipeline_register(const char *str, unsigned int id,
 	struct mtk_cam_video_device *video;
 	int i;
 	int ret;
+	u8 *vb2_queue_support_list = GET_PLAT_V4L2(vb2_queues_support_list);
+	int vb2_queue_support_list_num = GET_PLAT_V4L2(vb2_queues_support_list_num);
 
 	pipe->id = id;
 
@@ -3756,6 +3773,10 @@ static int mtk_raw_pipeline_register(const char *str, unsigned int id,
 
 		video->uid.pipe_id = pipe->id;
 		video->uid.id = video->desc.dma_port;
+
+		if (!check_vb2_queue_support(video->desc.id, vb2_queue_support_list,
+					     vb2_queue_support_list_num))
+			continue;
 
 		ret = mtk_cam_video_register(video, v4l2_dev);
 		if (ret)

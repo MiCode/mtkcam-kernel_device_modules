@@ -188,6 +188,9 @@ int mtk_raw_register_entities(struct mtk_raw_pipeline *arr_pipe, int num,
 			      struct v4l2_device *v4l2_dev);
 void mtk_raw_unregister_entities(struct mtk_raw_pipeline *arr_pipe, int num);
 
+/* choose from seninf or rawi */
+struct mtk_raw_pad_config *mtk_raw_current_sink(struct mtk_raw_pipeline *pipe);
+
 /* TODO: move to cam */
 struct v4l2_subdev *mtk_cam_find_sensor(struct mtk_cam_ctx *ctx,
 					struct media_entity *entity);

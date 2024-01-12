@@ -214,14 +214,8 @@ void set_platform_data(const struct camsys_platform_data *platform_data);
 #define GET_PLAT_HW(member) (cur_platform->hw->member)
 
 /* platform data list */
-#ifdef CAMSYS_ISP7SP_MT6878
-extern struct camsys_platform_data mt6878_data;
-#endif
-#ifdef CAMSYS_ISP7SP_MT6897
-extern struct camsys_platform_data mt6897_data;
-#endif
-#ifdef CAMSYS_ISP7SP_MT6989
-extern struct camsys_platform_data mt6989_data;
+#ifdef CAMSYS_ISP8_MT6991
+	extern struct camsys_platform_data mt6991_data;
 #endif
 
 #define FIFO_THRESHOLD(FIFO_SIZE, HEIGHT_RATIO, LOW_RATIO) \

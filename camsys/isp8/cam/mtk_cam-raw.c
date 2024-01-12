@@ -984,9 +984,10 @@ static inline int is_fbc_empty(struct mtk_raw_device *raw_dev)
 	return !((ctl2 >> 16) & 0xFF);
 }
 
-static irqreturn_t mtk_irq_raw(int irq, void *data)
+static irqreturn_t mtk_irq_raw_yuv(int irq, void *data)
 {
 	struct mtk_raw_device *raw_dev = (struct mtk_raw_device *)data;
+	struct mtk_yuv_device *yuv = get_yuv_dev(raw_dev);
 	struct device *dev = raw_dev->dev;
 	struct mtk_camsys_irq_info irq_info;
 	unsigned int frame_idx, frame_idx_inner;
@@ -996,6 +997,41 @@ static irqreturn_t mtk_irq_raw(int irq, void *data)
 	unsigned int tg_cnt;
 	bool wake_thread = 0;
 
+	/* yuv part */
+	unsigned int irq_status_y, err_status_y, wdma_done_status_y, rdma_done_status_y;
+	unsigned int drop_status_y, dma_ofl_status_y, dma_ufl_status_y;
+
+	irq_status_y =
+		readl_relaxed(yuv->base + REG_CAMCTL2_INT_STATUS);
+	wdma_done_status_y =
+		readl_relaxed(yuv->base + REG_CAMCTL2_INT2_STATUS);
+	rdma_done_status_y =
+		readl_relaxed(yuv->base + REG_CAMCTL2_INT3_STATUS);
+	drop_status_y =
+		readl_relaxed(yuv->base + REG_CAMCTL2_INT4_STATUS);
+	dma_ofl_status_y =
+		readl_relaxed(yuv->base + REG_CAMCTL2_INT5_STATUS);
+	dma_ufl_status_y =
+		readl_relaxed(yuv->base + REG_CAMCTL2_INT8_STATUS);
+
+	err_status_y = irq_status_y & 0x4; // bit2: DMA_ERR
+
+	//if (unlikely(debug_raw))
+	if (CAM_DEBUG_ENABLED(RAW_INT))
+		if (irq_status_y || err_status_y)
+			dev_info(yuv->dev, "YUV-INT:0x%x(err:0x%x) INT2/4/5 0x%x/0x%x/0x%x\n",
+			irq_status_y, err_status_y,
+			wdma_done_status_y, drop_status_y, dma_ofl_status_y);
+
+	if (CAM_DEBUG_ENABLED(RAW_INT))
+		if (err_status_y)
+			dump_yuv_dma_err_st(yuv);
+
+	/* trace */
+	trace_yuv_irq(yuv->dev, irq_status_y, wdma_done_status_y, rdma_done_status_y);
+	trace_raw_dma_status(yuv->dev, drop_status_y,
+			     dma_ofl_status_y, dma_ufl_status_y);
+	/* raw part */
 	irq_status	 = readl_relaxed(raw_dev->base + REG_CAMCTL_INT_STATUS);
 	dmao_done_status = readl_relaxed(raw_dev->base + REG_CAMCTL_INT2_STATUS);
 	dmai_done_status = readl_relaxed(raw_dev->base + REG_CAMCTL_INT3_STATUS);
@@ -1476,7 +1512,7 @@ static int mtk_raw_of_probe(struct platform_device *pdev,
 	}
 
 	ret = devm_request_threaded_irq(dev, raw->irq,
-					mtk_irq_raw,
+					mtk_irq_raw_yuv,
 					mtk_thread_irq_raw,
 					IRQF_NO_AUTOEN, dev_name(dev), raw);
 	if (ret) {
@@ -1768,48 +1804,6 @@ static const struct component_ops mtk_yuv_component_ops = {
 	.unbind = mtk_yuv_component_unbind,
 };
 
-static irqreturn_t mtk_irq_yuv(int irq, void *data)
-{
-	struct mtk_yuv_device *yuv = (struct mtk_yuv_device *)data;
-	//struct device *dev = drvdata->dev;
-
-	unsigned int irq_status, err_status, wdma_done_status, rdma_done_status;
-	unsigned int drop_status, dma_ofl_status, dma_ufl_status;
-
-	irq_status =
-		readl_relaxed(yuv->base + REG_CAMCTL2_INT_STATUS);
-	wdma_done_status =
-		readl_relaxed(yuv->base + REG_CAMCTL2_INT2_STATUS);
-	rdma_done_status =
-		readl_relaxed(yuv->base + REG_CAMCTL2_INT3_STATUS);
-	drop_status =
-		readl_relaxed(yuv->base + REG_CAMCTL2_INT4_STATUS);
-	dma_ofl_status =
-		readl_relaxed(yuv->base + REG_CAMCTL2_INT5_STATUS);
-	dma_ufl_status =
-		readl_relaxed(yuv->base + REG_CAMCTL2_INT8_STATUS);
-
-	err_status = irq_status & 0x4; // bit2: DMA_ERR
-
-	//if (unlikely(debug_raw))
-	if (CAM_DEBUG_ENABLED(RAW_INT))
-		if (irq_status || err_status)
-			dev_info(yuv->dev, "YUV-INT:0x%x(err:0x%x) INT2/4/5 0x%x/0x%x/0x%x\n",
-			irq_status, err_status,
-			wdma_done_status, drop_status, dma_ofl_status);
-
-	if (CAM_DEBUG_ENABLED(RAW_INT))
-		if (err_status)
-			dump_yuv_dma_err_st(yuv);
-
-	/* trace */
-	trace_yuv_irq(yuv->dev, irq_status, wdma_done_status, rdma_done_status);
-	trace_raw_dma_status(yuv->dev, drop_status,
-			     dma_ofl_status, dma_ufl_status);
-
-	return IRQ_HANDLED;
-}
-
 static int mtk_yuv_pm_suspend_prepare(struct mtk_yuv_device *dev)
 {
 	int ret;
@@ -1917,20 +1911,6 @@ static int mtk_yuv_of_probe(struct platform_device *pdev,
 		dev_dbg(dev, "failed to map register inner base\n");
 		return PTR_ERR(drvdata->base_inner);
 	}
-
-	drvdata->irq = platform_get_irq(pdev, 0);
-	if (drvdata->irq < 0) {
-		dev_dbg(dev, "failed to get irq\n");
-		return -ENODEV;
-	}
-
-	ret = devm_request_irq(dev, drvdata->irq, mtk_irq_yuv,
-			IRQF_NO_AUTOEN, dev_name(dev), drvdata);
-	if (ret) {
-		dev_dbg(dev, "failed to request irq=%d\n", drvdata->irq);
-		return ret;
-	}
-	dev_dbg(dev, "registered irq=%d\n", drvdata->irq);
 
 	clks = of_count_phandle_with_args(pdev->dev.of_node, "clocks",
 			"#clock-cells");
@@ -2106,8 +2086,6 @@ static int mtk_yuv_runtime_resume(struct device *dev)
 	int i, ret;
 
 	dev_dbg(dev, "%s:enable clock\n", __func__);
-
-	enable_irq(drvdata->irq);
 
 	for (i = 0; i < drvdata->num_clks; i++) {
 		ret = clk_prepare_enable(drvdata->clks[i]);

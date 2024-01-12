@@ -84,7 +84,6 @@ struct mtk_yuv_device {
 	struct device *dev;
 	struct mtk_cam_device *cam;
 	unsigned int id;
-	int irq;
 	void __iomem *base;
 	void __iomem *base_inner;
 	unsigned int num_clks;

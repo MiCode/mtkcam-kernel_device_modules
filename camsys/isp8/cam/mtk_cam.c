@@ -55,14 +55,8 @@ MODULE_PARM_DESC(debug_sensor_meta_dump, "activates sensor meta dump");
 #define ENABLE_CCU
 
 static const struct of_device_id mtk_cam_of_ids[] = {
-#ifdef CAMSYS_ISP7SP_MT6878
-	{.compatible = "mediatek,mt6878-camisp", .data = &mt6878_data},
-#endif
-#ifdef CAMSYS_ISP7SP_MT6897
-	{.compatible = "mediatek,mt6897-camisp", .data = &mt6897_data},
-#endif
-#ifdef CAMSYS_ISP7SP_MT6989
-	{.compatible = "mediatek,mt6989-camisp", .data = &mt6989_data},
+#ifdef CAMSYS_ISP8_MT6991
+		{.compatible = "mediatek,mt6991-camisp", .data = &mt6991_data},
 #endif
 	{}
 };
@@ -2861,9 +2855,7 @@ void mtk_cam_ctx_engine_off(struct mtk_cam_ctx *ctx)
 /* note: only raw switch using */
 void mtk_cam_ctx_engine_enable_irq(struct mtk_cam_ctx *ctx)
 {
-	struct mtk_cam_device *cam;
 	struct mtk_raw_device *raw_dev;
-	struct mtk_yuv_device *yuv_dev;
 	struct mtk_camsv_device *sv_dev;
 	struct mtk_mraw_device *mraw_dev;
 	int i;
@@ -2872,11 +2864,6 @@ void mtk_cam_ctx_engine_enable_irq(struct mtk_cam_ctx *ctx)
 		if (ctx->hw_raw[i]) {
 			raw_dev = dev_get_drvdata(ctx->hw_raw[i]);
 			enable_irq(raw_dev->irq);
-
-			cam = raw_dev->cam;
-			yuv_dev = dev_get_drvdata(
-				cam->engines.yuv_devs[raw_dev->id]);
-			enable_irq(yuv_dev->irq);
 		}
 	}
 
@@ -2896,9 +2883,7 @@ void mtk_cam_ctx_engine_enable_irq(struct mtk_cam_ctx *ctx)
 
 void mtk_cam_ctx_engine_disable_irq(struct mtk_cam_ctx *ctx)
 {
-	struct mtk_cam_device *cam;
 	struct mtk_raw_device *raw_dev;
-	struct mtk_yuv_device *yuv_dev;
 	struct mtk_camsv_device *sv_dev;
 	struct mtk_mraw_device *mraw_dev;
 	int i;
@@ -2907,11 +2892,6 @@ void mtk_cam_ctx_engine_disable_irq(struct mtk_cam_ctx *ctx)
 		if (ctx->hw_raw[i]) {
 			raw_dev = dev_get_drvdata(ctx->hw_raw[i]);
 			disable_irq(raw_dev->irq);
-
-			cam = raw_dev->cam;
-			yuv_dev = dev_get_drvdata(
-				cam->engines.yuv_devs[raw_dev->id]);
-			disable_irq(yuv_dev->irq);
 		}
 	}
 

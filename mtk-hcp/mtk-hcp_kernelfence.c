@@ -98,6 +98,7 @@ static int mtk_hcp_acquire_KernelFence(unsigned int *fds, int fd_num)
 		sync_file = sync_file_create(&f_entry->kFence);
 		if (sync_file == NULL) {
 			pr_info("sync_file create fail\n");
+			kfree(f_entry);
             mutex_unlock(&fence_info_list->fence_lock);
 			return -EINVAL;
 		}

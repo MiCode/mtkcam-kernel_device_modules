@@ -13,7 +13,7 @@
 
 #include "mtk_cam-pool.h"
 #include "mtk_cam-ipi.h"
-#include "mtk_camera-v4l2-controls-7sp.h"
+#include "mtk_camera-v4l2-controls-8.h"
 #include "mtk_cam-engine.h"
 #include "mtk_cam-dvfs_qos.h"
 

@@ -23,6 +23,13 @@ struct mtk_cam_event_sensor_trigger {
 	__u32	sensor_seq;
 	__u32	reserved[14];
 };
+struct mtk_cam_event_frame_sync_data {
+	__u32	frame_sequence;
+	__u32	sensor_sequence;
+	__u32	frame_sync_id;
+	__u32	sensor_sync_id;
+	__u32	reserved[12];
+};
 
 
 #define V4L2_PIX_FMT_MTISP_SBGGR10  v4l2_fourcc('M', 'B', 'B', 'A')

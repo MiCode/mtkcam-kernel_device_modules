@@ -6,7 +6,7 @@
 #ifndef __MTK_CAM_RAW_CTRL_H
 #define __MTK_CAM_RAW_CTRL_H
 
-#include "mtk_camera-v4l2-controls-7sp.h"
+#include "mtk_camera-v4l2-controls-8.h"
 
 static inline
 bool res_raw_is_dc_mode(const struct mtk_cam_resource_raw_v2 *res_raw)

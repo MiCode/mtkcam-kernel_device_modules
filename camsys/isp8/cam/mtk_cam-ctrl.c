@@ -17,7 +17,7 @@
 #include "mtk_cam-hsf.h"
 #include "mtk_cam-pool.h"
 //#include "mtk_cam-tg-flash.h"
-#include "mtk_camera-v4l2-controls-7sp.h"
+#include "mtk_camera-v4l2-controls-8.h"
 #include "mtk_camera-videodev2.h"
 #include "mtk_cam-trace.h"
 #include "mtk_cam-job_utils.h"
@@ -1234,13 +1234,9 @@ static void mtk_cam_ctrl_dynamic_raws_change_flow(struct mtk_cam_job *job)
 	for (i = 0; i < cam->engines.num_raw_devices; i++) {
 		if (BIT(i) & job->raw_change_uninit_engine) {
 			struct mtk_raw_device *raw_dev;
-			struct mtk_yuv_device *yuv_dev;
 
 			raw_dev = dev_get_drvdata(cam->engines.raw_devs[i]);
 			disable_irq(raw_dev->irq);
-			cam = raw_dev->cam;
-			yuv_dev = dev_get_drvdata(cam->engines.yuv_devs[i]);
-			disable_irq(yuv_dev->irq);
 			reset(raw_dev);
 		}
 	}

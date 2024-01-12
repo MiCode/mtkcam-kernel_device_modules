@@ -31,6 +31,13 @@
 #define to_std_fmt_code(code) \
 	((code) & 0xFFFF)
 
+#define get_scenario_from_fmt_code(code) \
+({ \
+	int __val = 0; \
+	__val = ((code) >> 16) & 0xFF; \
+	__val; \
+})
+
 void mtk_cam_seninf_init_res(struct seninf_core *core)
 {
 	int i;
@@ -1647,16 +1654,19 @@ int mtk_cam_seninf_set_camtg_camsv(struct v4l2_subdev *sd, int pad_id, int camtg
 	return _mtk_cam_seninf_set_camtg(sd, pad_id, camtg, tag_id, true);
 }
 
-int mtk_cam_seninf_get_tag_order(struct v4l2_subdev *sd, int pad_id)
+int mtk_cam_seninf_get_tag_order(struct v4l2_subdev *sd,
+		__u32 fmt_code, int pad_id)
 {
 	/* seninf todo: tag order */
 	/* 0: first exposure 1: second exposure 2: last exposure */
-	struct seninf_ctx *ctx = container_of(sd, struct seninf_ctx, subdev);
-	struct seninf_vcinfo *vcinfo = &ctx->vcinfo;
-	struct seninf_vc *vc;
-	int ret = 0, i = 0, j = 0, map_cnt = 0;
+	struct seninf_ctx *ctx;
+	struct v4l2_subdev *sensor_sd;
+	struct mtk_sensor_mode_config_info info;
+	int ret = 2;  /* default return last exposure */
+	int i = 0;
 	int exposure_num = 0;
-	int *out_pad_map = NULL;
+	int scenario = 0;
+
 
 	if (sd == NULL) {
 		pr_info("[%s][ERROR] sd is NULL\n", __func__);
@@ -1670,41 +1680,28 @@ int mtk_cam_seninf_get_tag_order(struct v4l2_subdev *sd, int pad_id)
 		return -EINVAL;
 	}
 
-	vcinfo = &ctx->vcinfo;
-
-	if (vcinfo == NULL) {
-		pr_info("[%s][ERROR] vcinfo is NULL\n", __func__);
+	sensor_sd = ctx->sensor_sd;
+	if (sensor_sd == NULL) {
+		pr_info("[%s][ERROR] sensor_sd is NULL\n", __func__);
 		return -EINVAL;
 	}
 
-	out_pad_map = kmalloc_array(vcinfo->cnt, sizeof(int), GFP_KERNEL);
+	sensor_sd->ops->core->command(sensor_sd, V4L2_CMD_GET_SENSOR_MODE_CONFIG_INFO, &info);
+	scenario = get_scenario_from_fmt_code(fmt_code);
 
-	if (out_pad_map == NULL) {
-		pr_info("[%s][ERROR] out_pad_map is NULL\n", __func__);
-		return -EINVAL;
-	}
-
-	for (i = 0; i < vcinfo->cnt; i++) {
-		vc = &vcinfo->vc[i];
-
-		if (vc->out_pad == PAD_SRC_RAW0  ||
-			vc->out_pad == PAD_SRC_RAW1  ||
-			vc->out_pad == PAD_SRC_RAW2) {
-
-			for (j = 0; j < map_cnt; j++) { /* find pad if already in map */
-				if (out_pad_map[j] == vc->out_pad)
-					break;
-			}
-
-			if (map_cnt == j) { /* if not found in pad map */
-				out_pad_map[j] = vc->out_pad;
-				map_cnt = j + 1;
-			}
-			exposure_num = map_cnt;
+	for (i = 0; i < info.count; i++) {
+		if (info.seamless_scenario_infos[i].scenario_id == scenario) {
+			exposure_num = info.seamless_scenario_infos[i].mode_exposure_num;
+			break;
 		}
 	}
 
 	switch (pad_id) {
+	case PAD_SRC_RAW0:
+	case PAD_SRC_RAW_W0:
+	case PAD_SRC_PDAF1:
+		ret = 0;
+		break;
 	case PAD_SRC_RAW1:
 	case PAD_SRC_RAW_W1:
 	case PAD_SRC_PDAF3:
@@ -1712,30 +1709,27 @@ int mtk_cam_seninf_get_tag_order(struct v4l2_subdev *sd, int pad_id)
 		case 3:
 			ret = 1;
 			break;
-		case 2:
-			ret = 2;
-			break;
+
 		default:
-			ret = 0;
 			break;
 		}
 		break;
 	case PAD_SRC_RAW2:
 	case PAD_SRC_RAW_W2:
 	case PAD_SRC_PDAF5:
-		ret = (exposure_num == 3) ? 2 : 0;
+		ret = 2;
 		break;
 	default:
-		ret = 0;
 		break;
 	}
 	dev_info(ctx->dev,
-			"[%s][23161] input pad_id (%d) return tag_order(%d)\n",
+			"[%s] input:pad_id(%d),scen(%d),exp_num(%d) output:tag_order(%d)\n",
 			__func__,
 			pad_id,
+			scenario,
+			exposure_num,
 			ret);
 
-	kfree(out_pad_map);
 	return ret;
 }
 

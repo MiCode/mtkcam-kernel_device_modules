@@ -23,7 +23,7 @@ int mtk_cam_seninf_check_timeout(struct v4l2_subdev *sd, u64 time_waited);
 u64 mtk_cam_seninf_get_frame_time(struct v4l2_subdev *sd, u32 seq_id);
 
 int mtk_cam_seninf_set_camtg_camsv(struct v4l2_subdev *sd, int pad_id, int camtg, int tag_id);
-int mtk_cam_seninf_get_tag_order(struct v4l2_subdev *sd, int pad_id);
+int mtk_cam_seninf_get_tag_order(struct v4l2_subdev *sd, __u32 fmt_code, int pad_id);
 int mtk_cam_seninf_get_vsync_order(struct v4l2_subdev *sd);
 
 

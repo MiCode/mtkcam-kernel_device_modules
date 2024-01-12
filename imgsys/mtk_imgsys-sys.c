@@ -65,7 +65,7 @@ static void reqfd_cbinfo_put_work(struct reqfd_cbinfo_t *work);
 static int imgsys_send(struct platform_device *pdev, enum hcp_id id,
 		    void *buf, unsigned int  len, int req_fd, unsigned int wait)
 {
-	int ret;
+	int ret = 0;
 #if MTK_CM4_SUPPORT
 	ret = scp_ipi_send(imgsys_dev->scp_pdev, SCP_IPI_DIP, &ipi_param,
 			   sizeof(ipi_param), 0);
@@ -75,7 +75,7 @@ static int imgsys_send(struct platform_device *pdev, enum hcp_id id,
 	else
 		ret = mtk_hcp_send_async(pdev, id, buf, len, req_fd);
 #endif
-	return 0;
+	return ret;
 }
 
 static void imgsys_init_handler(void *data, unsigned int len, void *priv)
@@ -2925,7 +2925,7 @@ static int mtk_imgsys_worker_hcp_init(struct mtk_imgsys_dev *imgsys_dev)
         if (imgsys_dbg_enable())
 			dev_dbg(imgsys_dev->dev, "%s: send SCP_IPI_DIP_FRAME failed %d\n",
 				__func__, ret);
-		return -1;
+		return ret;
 		//goto err_power_off;
 	}
 
@@ -2938,7 +2938,7 @@ static int mtk_imgsys_worker_hcp_init(struct mtk_imgsys_dev *imgsys_dev)
 	if (ret) {
 		dev_info(imgsys_dev->dev, "%s: gce work pool allocate failed %d\n",
 			__func__, ret);
-		return -1;
+		return ret;
 		//goto err_power_off;
 	}
 
@@ -2946,7 +2946,7 @@ static int mtk_imgsys_worker_hcp_init(struct mtk_imgsys_dev *imgsys_dev)
 	if (ret) {
 		dev_info(imgsys_dev->dev, "%s: reqafd cbinfo work pool allocate failed %d\n",
 			__func__, ret);
-		return -1;
+		return ret;
 		//goto err_power_off;
 	}
 

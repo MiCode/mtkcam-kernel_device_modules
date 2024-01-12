@@ -1737,7 +1737,7 @@ static int mtkdip_ioc_add_iova(struct v4l2_subdev *subdev, void *arg)
 
 		dmabuf = dma_buf_get(kfd[i]);
 		if (IS_ERR(dmabuf))
-			continue;
+			return -ENOMEM;
 #ifdef IMG_MEM_G_ID_DEBUG
 		spin_lock(&dmabuf->name_lock);
 		if (!strncmp("IMG_MEM_G_ID", dmabuf->name, 12))
@@ -1749,7 +1749,7 @@ static int mtkdip_ioc_add_iova(struct v4l2_subdev *subdev, void *arg)
 		if (IS_ERR(attach)) {
 			dma_buf_put(dmabuf);
 			pr_info("dma_buf_attach fail fd:%d\n", kfd[i]);
-			continue;
+			return -ENOMEM;
 		}
 
 		sgt = dma_buf_map_attachment(attach, DMA_BIDIRECTIONAL);
@@ -1758,7 +1758,7 @@ static int mtkdip_ioc_add_iova(struct v4l2_subdev *subdev, void *arg)
 			dma_buf_put(dmabuf);
 			pr_info("%s:dma_buf_map_attachment sgt err: fd %d\n",
 						__func__, kfd[i]);
-			continue;
+			return -ENOMEM;
 		}
 
 		dma_addr = sg_dma_address(sgt->sgl);
@@ -1962,7 +1962,7 @@ static int mtkdip_ioc_del_fence(struct v4l2_subdev *subdev, void *arg)
 static int imgsys_send(struct platform_device *pdev, enum hcp_id id,
 		    void *buf, unsigned int  len, int req_fd, unsigned int wait)
 {
-	int ret;
+	int ret = 0;
 #if MTK_CM4_SUPPORT
 	ret = scp_ipi_send(imgsys_dev->scp_pdev, SCP_IPI_DIP, &ipi_param,
 			   sizeof(ipi_param), 0);
@@ -1972,7 +1972,7 @@ static int imgsys_send(struct platform_device *pdev, enum hcp_id id,
 	else
 		ret = mtk_hcp_send_async(pdev, id, buf, len, req_fd);
 #endif
-	return 0;
+	return ret;
 }
 #endif
 static int mtkdip_ioc_s_init_info(struct v4l2_subdev *subdev, void *arg)
@@ -2001,7 +2001,7 @@ static int mtkdip_ioc_alloc_buffer(struct v4l2_subdev *subdev, void *arg)
 	struct mem_info *info = (struct mem_info *)arg;
 	struct mtk_imgsys_pipe *pipe;
     struct img_init_info working_buf_info;
-    int ret;
+    int ret = 0;
 	struct resource *imgsys_resource;
 	struct buf_va_info_t *buf;
 	struct dma_buf *dbuf;
@@ -2099,7 +2099,7 @@ static int mtkdip_ioc_alloc_buffer(struct v4l2_subdev *subdev, void *arg)
 				pipe->imgsys_dev->imgsys_pipe[0].streaming_alloc,
 				pipe->imgsys_dev->imgsys_pipe[0].imgsys_user_count);
 
-	return 0;
+	return ret;
 }
 
 static int mtkdip_ioc_free_buffer(struct v4l2_subdev *subdev, void *arg)

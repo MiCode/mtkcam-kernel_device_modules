@@ -8,6 +8,9 @@
 
 #include "mtk-aov-queue.h"
 
+// FIXME: cmpxchg_double() has been removed
+#undef CONFIG_HAVE_CMPXCHG_DOUBLE
+
 #if defined(CONFIG_HAVE_CMPXCHG_DOUBLE)
 
 /*
@@ -161,6 +164,7 @@ int32_t queue_push(struct queue *queue, void *data)
 	if (queue->size >= QUEUE_MAX_SIZE) {
 		spin_unlock_irqrestore(&queue->lock, flag);
 		return -1;
+	}
 
 	queue->data[queue->rear] = (uintptr_t)data;
 	queue->rear = (queue->rear + 1) % QUEUE_MAX_SIZE;
@@ -186,6 +190,7 @@ void *queue_pop(struct queue *queue)
 	if (queue->size == 0) {
 		spin_unlock_irqrestore(&queue->lock, flag);
 		return NULL;
+	}
 
 	data = (void *)queue->data[queue->front];
 	queue->front = (queue->front + 1) % QUEUE_MAX_SIZE;

@@ -12,6 +12,9 @@
 
 #define QUEUE_MAX_SIZE    (32)
 
+// FIXME: cmpxchg_double() has been removed
+#undef CONFIG_HAVE_CMPXCHG_DOUBLE
+
 #if defined(CONFIG_HAVE_CMPXCHG_DOUBLE)
 struct queue_node {
 		uintptr_t ptr;

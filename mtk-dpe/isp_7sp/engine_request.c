@@ -33,26 +33,28 @@ MODULE_PARM_DESC(dpe_egn_debug, " activates debug info");
 	do {							 \
 		if (dpe_egn_debug >= 2)				 \
 			pr_info(MyTag "[%s] " format, __func__, ##args); \
-	} while (0)
+} while (0)
 
-#define LOG_INF(format, args...)				 \
+/*#define LOG_INF(format, args...)				 \
 	do {							 \
 		if (dpe_egn_debug >= 1)				 \
 			pr_info(MyTag "[%s] " format, __func__, ##args);\
-	} while (0)
+	} while (0)*/
+#define LOG_INF(format, args...) pr_info(MyTag format, ##args)
 
-#define LOG_WRN(format, args...)				 \
+/*#define LOG_WRN(format, args...)				 \
 	do {							 \
 		if (dpe_egn_debug >= 1)				 \
 			pr_info(MyTag "[%s] " format, __func__, ##args); \
-	} while (0)
+	} while (1)*/
+#define LOG_WRN(format, args...) pr_info(MyTag format, ##args)
 
-#define LOG_ERR(format, args...)				 \
+/*#define LOG_ERR(format, args...)				 \
 	do {							 \
 		if (dpe_egn_debug >= 1)				 \
 			pr_info(MyTag "[%s] " format, __func__, ##args); \
-	} while (0)
-
+	} while (1)*/
+#define LOG_ERR(format, args...) pr_info(MyTag format, ##args)
 
 /*
  * Single ring ctl init
@@ -335,6 +337,7 @@ signed int dpe_request_handler_isp7s(struct engine_requests *eng, spinlock_t *lo
 	LOG_DBG("[%s] processing request(%d)\n", __func__, r);
 
 	rstate = eng->reqs[r].state;
+	LOG_INF("[%s] processing request(%d),rstate(%d)\n", __func__,r, rstate);
 #if REQUEST_REGULATION
 	(void) fn;
 	if (rstate != REQUEST_STATE_PENDING) {
@@ -422,13 +425,22 @@ signed int dpe_request_handler_isp7s(struct engine_requests *eng, spinlock_t *lo
 
 	fstate = eng->reqs[r].frames[f].state;
 	if (fstate == FRAME_STATUS_ENQUE) {
-		LOG_DBG("[%s]Processing request(%d) of frame(%d)\n",
+		LOG_INF("[%s]Processing request(%d) of frame(%d)\n",
 						__func__,  r, f);
 		write_seqlock(&eng->seqlock);
 		eng->req_running = true;
 		write_sequnlock(&eng->seqlock);
 
 		eng->reqs[r].frames[f].state = FRAME_STATUS_RUNNING;
+		//!
+		fn = (f + 1) % MAX_FRAMES_PER_REQUEST;
+		fstate = eng->reqs[r].frames[fn].state;
+		if (fstate == FRAME_STATUS_EMPTY || fn == 0) {
+			eng->reqs[r].pending_run = false;
+			eng->req_ctl.gcnt = (r + 1) % MAX_REQUEST_SIZE_PER_ENGINE;
+		} else
+			eng->reqs[r].fctl.gcnt = fn;
+		//!
 		spin_unlock_irqrestore(lock, flags);
 		ret = eng->ops->frame_handler(&eng->reqs[r].frames[f]);
 			spin_lock_irqsave(lock, flags);
@@ -446,14 +458,15 @@ signed int dpe_request_handler_isp7s(struct engine_requests *eng, spinlock_t *lo
 		return 1;
 	}
 
-	fn = (f + 1) % MAX_FRAMES_PER_REQUEST;
+/*	fn = (f + 1) % MAX_FRAMES_PER_REQUEST;
 	fstate = eng->reqs[r].frames[fn].state;
 	if (fstate == FRAME_STATUS_EMPTY || fn == 0) {
 		eng->reqs[r].pending_run = false;
 	eng->req_ctl.gcnt = (r + 1) % MAX_REQUEST_SIZE_PER_ENGINE;
 	} else
 		eng->reqs[r].fctl.gcnt = fn;
-
+*/
+//LOG_INF("[%s] 6 gcnt(%d) r:%d, f:%d\n", __func__, eng->reqs[r].fctl.gcnt, r, f);
 #endif
 
 	spin_unlock_irqrestore(lock, flags);

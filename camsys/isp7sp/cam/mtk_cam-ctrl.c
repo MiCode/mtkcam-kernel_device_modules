@@ -188,17 +188,25 @@ static struct mtk_cam_job *mtk_cam_ctrl_get_job(struct mtk_cam_ctrl *ctrl,
 
 /* note: without 'get' */
 static struct mtk_cam_job *
-mtk_cam_ctrl_fetch_first_job(struct mtk_cam_ctrl *ctrl)
+mtk_cam_ctrl_fetch_first_unfinished_job(struct mtk_cam_ctrl *ctrl)
 {
+	struct mtk_cam_job *job = NULL;
 	struct mtk_cam_job_state *state;
+	bool found = 0;
 
 	read_lock(&ctrl->list_lock);
-	state = list_first_entry_or_null(&ctrl->camsys_state_list,
-					 struct mtk_cam_job_state, list);
+
+	list_for_each_entry(state, &ctrl->camsys_state_list, list) {
+		job = container_of(state, struct mtk_cam_job, job_state);
+		
+		found = !mtk_cam_job_is_done(job);
+		if (found)
+			break;
+	}
+
 	read_unlock(&ctrl->list_lock);
 
-	return state ?
-		container_of(state, struct mtk_cam_job, job_state) : NULL;
+	return found ? job : NULL;
 }
 
 static void log_event(const char *func, int ctx_id, struct v4l2_event *e)
@@ -1234,7 +1242,8 @@ static bool handle_job_done_or_stopped(struct mtk_cam_ctrl *ctrl,
 	if (*stopped)
 		return true;
 
-	local_job = mtk_cam_ctrl_fetch_first_job(ctrl);
+	local_job = mtk_cam_ctrl_fetch_first_unfinished_job(ctrl);
+
 	if (!local_job)
 		return false;
 

@@ -1621,6 +1621,8 @@ int imgsys_cmdq_sendtask_plat7s(struct mtk_imgsys_dev *imgsys_dev,
 						__func__, g_cb_param_idx, blk_idx,
 						frm_idx, frm_num);
 					mutex_unlock(&g_cb_param_lock);
+					if (isTimeShared)
+						mutex_unlock(&(imgsys_dev->vss_blk_lock));
 					return -1;
 				}
 				cb_param->isOccupy = true;

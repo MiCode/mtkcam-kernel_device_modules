@@ -33,10 +33,6 @@
 #define WATCHDOG_MAX_HWTIME_MS		(WATCHDOG_INTERVAL_MS * 2)
 #define WATCHDOG_MAX_SENSOR_RETRY_CNT	3
 
-static int set_sensor_bf_first_vsync;
-module_param(set_sensor_bf_first_vsync, int, 0644);
-MODULE_PARM_DESC(set_sensor_bf_first_vsync, "set sensor before 1st vsync");
-
 unsigned long engine_idx_to_bit(int engine_type, int idx)
 {
 	unsigned int map_hw = 0;
@@ -1047,21 +1043,8 @@ STREAM_ON_FAIL:
 	return -1;
 }
 
-static void mtk_cam_ctrl_stream_on_flow(struct mtk_cam_job *job)
+static void trigger_fake_sof_event(struct mtk_cam_ctrl *ctrl)
 {
-	struct mtk_cam_ctx *ctx = job->src_ctx;
-	struct mtk_cam_ctrl *ctrl = &ctx->cam_ctrl;
-	struct device *dev = ctx->cam->dev;
-
-	dev_info(dev, "[%s] ctx %d begin\n", __func__, ctrl->ctx->stream_id);
-
-	mtk_cam_job_update_clk(job);
-	if (mtk_cam_ctrl_stream_on_job(job))
-		return;
-
-	atomic_dec(&ctrl->stream_on_cnt);
-	mtk_cam_ctrl_loop_job(ctrl, ctrl_enable_job_fsm_until_switch, NULL);
-
 	/*
 	 * 'Fake' sof event to trigger next 'enqueued' job's apply sensor.
 	 *
@@ -1084,8 +1067,25 @@ static void mtk_cam_ctrl_stream_on_flow(struct mtk_cam_job *job)
 	 */
 
 	/* note: on purpose not to update ctrl's runtime info */
-	if (set_sensor_bf_first_vsync)
-		mtk_cam_ctrl_send_event(ctrl, CAMSYS_EVENT_IRQ_L_SOF);
+	mtk_cam_ctrl_send_event(ctrl, CAMSYS_EVENT_IRQ_L_SOF);
+}
+
+static void mtk_cam_ctrl_stream_on_flow(struct mtk_cam_job *job)
+{
+	struct mtk_cam_ctx *ctx = job->src_ctx;
+	struct mtk_cam_ctrl *ctrl = &ctx->cam_ctrl;
+	struct device *dev = ctx->cam->dev;
+
+	dev_info(dev, "[%s] ctx %d begin\n", __func__, ctrl->ctx->stream_id);
+
+	mtk_cam_job_update_clk(job);
+	if (mtk_cam_ctrl_stream_on_job(job))
+		return;
+
+	atomic_dec(&ctrl->stream_on_cnt);
+	mtk_cam_ctrl_loop_job(ctrl, ctrl_enable_job_fsm_until_switch, NULL);
+
+	trigger_fake_sof_event(ctrl);
 
 	dev_info(dev, "[%s] ctx %d finish\n", __func__, ctrl->ctx->stream_id);
 }

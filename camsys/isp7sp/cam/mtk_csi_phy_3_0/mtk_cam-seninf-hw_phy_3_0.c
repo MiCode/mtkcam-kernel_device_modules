@@ -3601,8 +3601,14 @@ static int csirx_dphy_init_deskew_setting(struct seninf_ctx *ctx, u64 seninf_ck)
 	dev_info(ctx->dev, "[%s] dphy_init_deskew_support = %d\n",
 			__func__, ctx->csi_param.dphy_init_deskew_support);
 
-	if (!ctx->csi_param.dphy_init_deskew_support)
+	if (!ctx->csi_param.dphy_init_deskew_support) {
+		/* Disable DESKEW LANE0~3 CTRL */
+		SENINF_BITS(base, DPHY_RX_DESKEW_LANE0_CTRL, DPHY_RX_DESKEW_L0_DELAY_EN, 0);
+		SENINF_BITS(base, DPHY_RX_DESKEW_LANE1_CTRL, DPHY_RX_DESKEW_L1_DELAY_EN, 0);
+		SENINF_BITS(base, DPHY_RX_DESKEW_LANE2_CTRL, DPHY_RX_DESKEW_L2_DELAY_EN, 0);
+		SENINF_BITS(base, DPHY_RX_DESKEW_LANE3_CTRL, DPHY_RX_DESKEW_L3_DELAY_EN, 0);
 		return 0;
+	}
 
 	if (vc)
 		bit_per_pixel = vc->bit_depth;

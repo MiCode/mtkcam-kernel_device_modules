@@ -38,6 +38,7 @@
 #define WPE_BWLOG_HW_COMB_ninD (IMGSYS_ENG_WPE_LITE | IMGSYS_ENG_LTR)
 
 #define IMGSYS_SMIDUMP_QOF_TRAW	(BIT(0))
+#define IMGSYS_SMIDUMP_QOF_DIP	(BIT(1))
 
 #define IMGSYS_QOS_SYNC_OWNER	(0x412d454d5f53)
 #define IMGSYS_QOS_MAX_PERF	(MTK_MMQOS_MAX_SMI_FREQ_BW >> 1)
@@ -639,6 +640,7 @@ static void imgsys_cmdq_cb_work_plat7sp(struct work_struct *work)
 	cb_param->cmdqTs.tsCmdqCbWorkStart = ktime_get_boottime_ns()/1000;
 	imgsys_dev = cb_param->imgsys_dev;
 
+
     if (imgsys_cmdq_dbg_enable_plat7sp()) {
 	dev_dbg(imgsys_dev->dev,
 		"%s: cb(%p) gid(%d) in block(%d/%d) for frm(%d/%d) lst(%d/%d/%d) task(%d/%d/%d) ofst(%lx/%lx/%lx/%lx/%lx)\n",
@@ -1238,6 +1240,8 @@ void imgsys_cmdq_task_cb_plat7sp(struct cmdq_cb_data data)
 
 		if (isHWhang && mtk_imgsys_cmdq_qof_get_pwr_status(ISP7SP_ISP_TRAW))
 			mtk_smi_dbg_dump_for_isp_fast(IMGSYS_SMIDUMP_QOF_TRAW);
+		if (isHWhang && mtk_imgsys_cmdq_qof_get_pwr_status(ISP7SP_ISP_DIP))
+			mtk_smi_dbg_dump_for_isp_fast(IMGSYS_SMIDUMP_QOF_DIP);
 	}
 	cb_param->cmdqTs.tsCmdqCbEnd = ktime_get_boottime_ns()/1000;
 
@@ -1715,6 +1719,7 @@ int imgsys_cmdq_sendtask_plat7sp(struct mtk_imgsys_dev *imgsys_dev,
 				/* Reset pkt timestamp num */
 				pkt_ts_num = 0;
 			}
+
 			MTK_IMGSYS_QOF_NEED_RUN(imgsys_dev->qof_ver,
 					mtk_imgsys_cmdq_qof_add(pkt, frm_info->user_info[frm_idx].hw_comb, qof_need_sub));
 
@@ -3122,11 +3127,7 @@ void mtk_imgsys_power_ctrl_plat7sp(struct mtk_imgsys_dev *imgsys_dev, bool isPow
 	if (imgsys_dev->qof_ver != MTK_IMGSYS_QOF_FUNCTION_OFF) {
 		img_main_modules = BIT(IMGSYS_MOD_ADL) |
 			BIT(IMGSYS_MOD_ME) |
-			BIT(IMGSYS_MOD_IMGMAIN)|
-			BIT(IMGSYS_MOD_WPE)|
-			BIT(IMGSYS_MOD_DIP)|
-			BIT(IMGSYS_MOD_PQDIP)|
-			BIT(IMGSYS_MOD_LTRAW);
+			BIT(IMGSYS_MOD_IMGMAIN);
 	}
 
 	if (isPowerOn) {
@@ -3175,11 +3176,7 @@ void mtk_imgsys_main_power_ctrl_plat7sp(struct mtk_imgsys_dev *imgsys_dev, bool 
 	const u32 img_main_modules
 			= BIT(IMGSYS_MOD_ADL) |
 			BIT(IMGSYS_MOD_ME) |
-			BIT(IMGSYS_MOD_IMGMAIN)|
-			BIT(IMGSYS_MOD_WPE)|
-			BIT(IMGSYS_MOD_DIP)|
-			BIT(IMGSYS_MOD_PQDIP)|
-			BIT(IMGSYS_MOD_LTRAW);
+			BIT(IMGSYS_MOD_IMGMAIN);
 
 	if (isPowerOn) {
 		for (i = 0; i < imgsys_dev->modules_num; i++) {

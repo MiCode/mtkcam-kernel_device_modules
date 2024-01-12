@@ -27,6 +27,7 @@
  ********************************************************************/
 /* DIP */
 #define DIP_TOP_ADDR	0x15100000
+#define IMGSYS_DIP_BASE (0x15110000)
 #define TOP_CTL_OFT	0x0000
 #define TOP_CTL_SZ	0x0334
 #define DMATOP_OFT	0x1200

@@ -205,13 +205,6 @@ static void imgsys_cmdq_modules_cg_ungating(struct cmdq_pkt *pkt,
 	unsigned int clr_ofs = cg->clr_ofs;
 	unsigned int sta_ofs = cg->sta_ofs;
 
-#if 0
-	/* Wait CG stable */
-	reg = addr + sta_ofs;
-	cmdq_pkt_poll_timeout(pkt, MTK_CG_RST_VAL/*poll val*/, SUBSYS_NO_SUPPORT, (reg)/*addr*/,
-			MTK_CG_RST_VAL /*mask*/, IMG_CG_UNGATING_DELAY_CNT /*delay cnt*/,
-			CMDQ_GPR_R13 /*GPR*/);
-#endif
 	/* Clock un-gating */
 	reg = addr + clr_ofs;
 	cmdq_pkt_write(pkt, NULL, (reg) /* address*/ ,
@@ -353,6 +346,26 @@ static void mtk_imgsys_set_traw_larb_golden(struct cmdq_pkt *pkt)
 	imgsys_cmdq_set_larb_golden(qof_larb40_info, pkt);
 }
 
+static void mtk_imgsys_dip_direct_link_reset(struct cmdq_pkt *pkt)
+{
+	cmdq_pkt_write(pkt, NULL,
+			(IMG_MAIN_BASE + 0x260) /*address*/, 0x17F,
+			0xffffffff);
+	cmdq_pkt_write(pkt, NULL,
+			(IMG_MAIN_BASE + 0x260) /*address*/, 0x0,
+			0xffffffff);
+}
+
+static void mtk_imgsys_traw_direct_link_reset(struct cmdq_pkt *pkt)
+{
+	cmdq_pkt_write(pkt, NULL,
+			(IMG_MAIN_BASE + 0x260) /*address*/, 0xB2,
+			0xffffffff);
+	cmdq_pkt_write(pkt, NULL,
+			(IMG_MAIN_BASE + 0x260) /*address*/, 0x0,
+			0xffffffff);
+}
+
 /* mtcmos data */
 static const struct imgsys_mtcmos_data isp7sp_mtcmos_data[] = {
 	[ISP7SP_ISP_DIP] = {
@@ -365,6 +378,7 @@ static const struct imgsys_mtcmos_data isp7sp_mtcmos_data[] = {
 		.cg_ungating = imgsys_cmdq_dip_cg_unating,
 		.cg_data = &dip_cg_data,
 		.set_larb_golden = mtk_imgsys_set_dip_larb_golden,
+		.direct_link_reset = mtk_imgsys_dip_direct_link_reset,
 	},
 	[ISP7SP_ISP_TRAW] = {
 		.module_list = ISP_TRAW_MODULES,
@@ -376,6 +390,7 @@ static const struct imgsys_mtcmos_data isp7sp_mtcmos_data[] = {
 		.cg_ungating = imgsys_cmdq_traw_cg_unating,
 		.cg_data = &traw_cg_data,
 		.set_larb_golden = mtk_imgsys_set_traw_larb_golden,
+		.direct_link_reset = mtk_imgsys_traw_direct_link_reset,
 	},
 };
 #define isp7sp_mtcmos_data_SIZE (ARRAY_SIZE(isp7sp_mtcmos_data))
@@ -388,6 +403,7 @@ static void mtk_imgsys_cmdq_power_ctrl(struct mtk_imgsys_dev *imgsys_dev,
 
 	if (isPowerOn) {
 		mtk_imgsys_qof_mtcmos_ctrl(isPowerOn, pkt, pwr);
+
 		pwr->cg_ungating(pkt, pwr->cg_data);
 		pwr->set_larb_golden(pkt);
 
@@ -397,6 +413,9 @@ static void mtk_imgsys_cmdq_power_ctrl(struct mtk_imgsys_dev *imgsys_dev,
 				imgsys_dev->modules[i].cmdq_set(imgsys_dev, (void*)pkt);
 			}
 		}
+
+		/* We need to reset direct link path after macro reset */
+		pwr->direct_link_reset(pkt);
 	} else {
 		mtk_imgsys_qof_mtcmos_ctrl(isPowerOn, pkt, pwr);
 	}
@@ -766,7 +785,7 @@ void mtk_imgsys_cmdq_qof_add(struct cmdq_pkt *pkt, u32 hwcomb, bool *qof_need_su
 	}
 
 	if (g_dbg_log_on == 1)
-		mtk_imgsys_cmdq_qof_dump();
+		mtk_imgsys_cmdq_qof_dump(hwcomb);
 	for (pwr = ISP7SP_ISP_DIP; pwr < ISP7SP_PWR_NUM; pwr++) {
 		if (qof_need_sub[pwr] == false) {
 			if (hwcomb & pwr_group[pwr]) {
@@ -839,7 +858,7 @@ bool mtk_imgsys_cmdq_qof_get_pwr_status(u32 pwr)
 	return cnt > 0;
 }
 
-void mtk_imgsys_cmdq_qof_dump(void)
+void mtk_imgsys_cmdq_qof_dump(uint32_t hwcomb)
 {
 	if (g_qof_ver == MTK_IMGSYS_QOF_FUNCTION_OFF){
 		pr_err("[%s] qof ver = %d\n", __func__, g_qof_ver);
@@ -854,27 +873,28 @@ void mtk_imgsys_cmdq_qof_dump(void)
 			(g_traw_work_buf_va == NULL || *g_traw_work_buf_va == NULL) ? IMG_NULL_MAGINC_NUM : **((int**)g_traw_work_buf_va)
 		);
 	} else {
-		pr_info("[%s] ver:%d,[cnt:%d/cnt:%d]dip=0x%x,traw=0x%x,cg[main:0x%x,traw(0x%x,0x%x),nr(0x%x,0x%x),td0x%x,w(0x%x/0x%x/0x%x)],hwccf[0x%x/0x%x],HW(0x%x,0x%x,0x%x)\n",
-		__func__,
-		g_qof_ver,
-		(g_dip_work_buf_va == NULL || *g_dip_work_buf_va == NULL) ? IMG_NULL_MAGINC_NUM : **((int**)g_dip_work_buf_va),
-		(g_traw_work_buf_va == NULL || *g_traw_work_buf_va == NULL) ? IMG_NULL_MAGINC_NUM : **((int**)g_traw_work_buf_va),
-		readl(ioremap(IMG_ISP_DIP_PWR_CON, 4)),
-		readl(ioremap(IMG_TRAW_PWR_CON, 4)),
-		readl(ioremap(IMG_CG_IMGSYS_MAIN, 4)),
-		readl(ioremap(IMG_CG_TRAW_DIP1, 4)),
-		readl(ioremap(IMG_CG_TRAW_CAP_DIP, 4)),
-		readl(ioremap(IMG_CG_DIP_NR1_DIP1, 4)),
-		readl(ioremap(IMG_CG_DIP_NR2_DIP1, 4)),
-		readl(ioremap(IMG_CG_DIP_TOP_DIP1, 4)),
-		readl(ioremap(IMG_CG_WPE1_DIP1, 4)),
-		readl(ioremap(IMG_CG_WPE2_DIP1, 4)),
-		readl(ioremap(IMG_CG_WPE3_DIP1, 4)),
-		readl(ioremap(HWCCF_BASE + HWCCF_GCE_OFST + isp7sp_mtcmos_data[ISP7SP_ISP_DIP].vote_on_ofs, 4)),
-		readl(ioremap(HWCCF_BASE + HWCCF_GCE_OFST + isp7sp_mtcmos_data[ISP7SP_ISP_DIP].vote_off_ofs, 4)),
-		readl(ioremap(HWCCF_BASE + isp7sp_mtcmos_data[ISP7SP_ISP_DIP].hwv_done_ofs, 4)),
-		readl(ioremap(IMG_CCF_MTCMOS_SET_STA, 4)),
-		readl(ioremap(IMG_CCF_MTCMOS_CLR_STA, 4)));
+		pr_info("[%s] ver:%d,qof_hwcomb=%d,[cnt:%d/cnt:%d]dip=0x%x,traw=0x%x,cg[main:0x%x,traw(0x%x,0x%x),nr(0x%x,0x%x),td0x%x,w(0x%x/0x%x/0x%x)],hwccf[0x%x/0x%x],HW(0x%x,0x%x,0x%x)\n",
+			__func__,
+			g_qof_ver,
+			hwcomb,
+			(g_dip_work_buf_va == NULL || *g_dip_work_buf_va == NULL) ? IMG_NULL_MAGINC_NUM : **((int**)g_dip_work_buf_va),
+			(g_traw_work_buf_va == NULL || *g_traw_work_buf_va == NULL) ? IMG_NULL_MAGINC_NUM : **((int**)g_traw_work_buf_va),
+			readl(ioremap(IMG_ISP_DIP_PWR_CON, 4)),
+			readl(ioremap(IMG_TRAW_PWR_CON, 4)),
+			readl(ioremap(IMG_CG_IMGSYS_MAIN, 4)),
+			readl(ioremap(IMG_CG_TRAW_DIP1, 4)),
+			readl(ioremap(IMG_CG_TRAW_CAP_DIP, 4)),
+			readl(ioremap(IMG_CG_DIP_NR1_DIP1, 4)),
+			readl(ioremap(IMG_CG_DIP_NR2_DIP1, 4)),
+			readl(ioremap(IMG_CG_DIP_TOP_DIP1, 4)),
+			readl(ioremap(IMG_CG_WPE1_DIP1, 4)),
+			readl(ioremap(IMG_CG_WPE2_DIP1, 4)),
+			readl(ioremap(IMG_CG_WPE3_DIP1, 4)),
+			readl(ioremap(HWCCF_BASE + HWCCF_GCE_OFST + isp7sp_mtcmos_data[ISP7SP_ISP_DIP].vote_on_ofs, 4)),
+			readl(ioremap(HWCCF_BASE + HWCCF_GCE_OFST + isp7sp_mtcmos_data[ISP7SP_ISP_DIP].vote_off_ofs, 4)),
+			readl(ioremap(HWCCF_BASE + isp7sp_mtcmos_data[ISP7SP_ISP_DIP].hwv_done_ofs, 4)),
+			readl(ioremap(IMG_CCF_MTCMOS_SET_STA, 4)),
+			readl(ioremap(IMG_CCF_MTCMOS_CLR_STA, 4)));
 	}
 }
 

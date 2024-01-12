@@ -1075,7 +1075,13 @@ static struct imgsys_dvfs_group  qos_group[MTK_IMGSYS_QOS_GROUP] = {
 };
 
 static const u32 pwr_group[ISP7SP_PWR_NUM] = {
-	[ISP7SP_ISP_DIP] = (0),
+	[ISP7SP_ISP_DIP] = (IMGSYS_ENG_WPE_EIS
+			|IMGSYS_ENG_WPE_LITE
+			|IMGSYS_ENG_WPE_TNR
+			|IMGSYS_ENG_DIP
+			|IMGSYS_ENG_PQDIP_B
+			|IMGSYS_ENG_PQDIP_A
+			|IMGSYS_ENG_LTR),
 	[ISP7SP_ISP_TRAW] = (IMGSYS_ENG_TRAW),
 };
 

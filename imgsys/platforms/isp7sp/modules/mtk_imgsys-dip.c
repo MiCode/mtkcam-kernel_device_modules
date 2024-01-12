@@ -99,7 +99,7 @@ struct mtk_imgsys_dip_dtable {
 };
 
 #define DIP_HW_SET 3
-
+#define SW_RST   (0x000C)
 #define DIP_INIT_ARRAY_COUNT 1
 
 static void __iomem *gdipRegBA[DIP_HW_SET] = {0L};
@@ -227,6 +227,12 @@ void imgsys_dip_cmdq_set_hw_initial_value(struct mtk_imgsys_dev *imgsys_dev, voi
 		return;
 	}
 	package = (struct cmdq_pkt *)pkt;
+
+	cmdq_pkt_write(package, NULL, (IMGSYS_DIP_BASE + SW_RST) /*address*/,
+			       0x3FC03, 0xffffffff);
+	cmdq_pkt_write(package, NULL, (IMGSYS_DIP_BASE + SW_RST) /*address*/,
+			       0x0, 0xffffffff);
+
 	/* iomap registers */
 	dipRegBA = DIP_TOP_ADDR;
 	for (i = 0 ; i < DIP_INIT_ARRAY_COUNT; i++) {

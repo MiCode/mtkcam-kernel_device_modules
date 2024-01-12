@@ -4440,6 +4440,8 @@ int mtk_cam_seninf_aov_reset_sensor(unsigned int sensor_id)
 		aov_switch_i2c_bus_scl_aux(ctx, SCL3);
 		/* switch i2c bus sda from apmcu to scp */
 		aov_switch_i2c_bus_sda_aux(ctx, SDA3);
+		/* switch aov pm ops: pm_relax */
+		aov_switch_pm_ops(ctx, AOV_PM_RELAX);
 	}
 
 	mutex_unlock(&core->mutex);

@@ -25,6 +25,7 @@
 #include "mtk_heap.h"
 #include <linux/soc/mediatek/mtk_sip_svc.h>
 #include <linux/arm-smccc.h>
+#include "iommu_debug.h"
 
 struct dma_buf *mtk_cam_dmabuf_alloc(struct mtk_cam_ctx *ctx, unsigned int size)
 {
@@ -32,7 +33,7 @@ struct dma_buf *mtk_cam_dmabuf_alloc(struct mtk_cam_ctx *ctx, unsigned int size)
 	struct dma_heap *heap_type;
 	struct dma_buf *dbuf;
 
-	heap_type = dma_heap_find("mtk_prot_region-aligned");
+	heap_type = dma_heap_find("mtk_prot_region");
 
 	if (!heap_type) {
 		dev_info(cam->dev, "heap type error\n");
@@ -68,7 +69,8 @@ int mtk_cam_dmabuf_get_iova(struct mtk_cam_ctx *ctx,
 	}
 
 	attach = dma_buf_attach(dmap->dbuf, dev);
-		dev_info(cam->dev, "get dbuf dma_buf_attach done\n");
+	dev_info(cam->dev, "get dbuf dma_buf_attach done(%s)\n",
+		smmu_v3_enabled() ? "SMMU" : "IOMMU");
 	if (IS_ERR(attach)) {
 		dev_info(cam->dev, "dma_buf_attach failed\n");
 		return -1;
@@ -310,7 +312,7 @@ void ccu_apply_cq(struct mtk_cam_job *job, unsigned long raw_engines, dma_addr_t
 	struct mtk_cam_device *cam = job->src_ctx->cam;
 	struct mtk_raw_device *raw_dev;
 	int raw_id;
-	struct apply_cq_ref *ref = &job->cq_ref;
+	//struct apply_cq_ref *ref = &job->cq_ref;
 #ifdef PERFORMANCE_HSF
 	int ms_0 = 0, ms_1 = 0, ms = 0;
 	struct timeval time;
@@ -331,8 +333,8 @@ void ccu_apply_cq(struct mtk_cam_job *job, unsigned long raw_engines, dma_addr_t
 	if (WARN_ON(!cq_size || !sub_cq_size))
 		return;
 
-	if (WARN_ON(assign_apply_cq_ref(&raw_dev->cq_ref, ref)))
-		return;
+	//if (WARN_ON(assign_apply_cq_ref(&raw_dev->cq_ref, ref)))
+	//	return;
 
 	hsf_config = job->src_ctx->hsf;
 	if (hsf_config == NULL) {
@@ -461,7 +463,7 @@ int mtk_cam_hsf_config(struct mtk_cam_ctx *ctx, unsigned int raw_id)
 	struct mtk_cam_hsf_info *share_buf = NULL;
 	struct mtk_cam_dma_map *dma_map_cq = NULL;
 	struct mtk_cam_dma_map *dma_map_chk = NULL;
-	//struct device *dev;
+	struct device *dev_to_attach;
 	//struct mtk_raw_device *raw_dev;
 	struct arm_smccc_res res;
 
@@ -519,7 +521,12 @@ int mtk_cam_hsf_config(struct mtk_cam_ctx *ctx, unsigned int raw_id)
 	}
 
 	dev_info(cam->dev, "mtk_cam_dmabuf_alloc Done\n");
-	if (mtk_cam_dmabuf_get_iova(ctx, &(hsf_config->ccu_pdev->dev), dma_map_cq) != 0) {
+	if (smmu_v3_enabled())
+		dev_to_attach = ctx->cam->smmu_dev;
+	else
+		dev_to_attach = &(hsf_config->ccu_pdev->dev);
+
+	if (mtk_cam_dmabuf_get_iova(ctx, dev_to_attach, dma_map_cq) != 0) {
 		dev_info(cam->dev, "Get cq iova failed\n");
 		return -1;
 	}
@@ -535,7 +542,7 @@ int mtk_cam_hsf_config(struct mtk_cam_ctx *ctx, unsigned int raw_id)
 	}
 
 	dev_info(cam->dev, "mtk_cam_dmabuf_alloc ccu Done\n");
-	if (mtk_cam_dmabuf_get_iova(ctx, &(hsf_config->ccu_pdev->dev), dma_map_chk) != 0) {
+	if (mtk_cam_dmabuf_get_iova(ctx, dev_to_attach, dma_map_chk) != 0) {
 		dev_info(cam->dev, "Get chk iova failed\n");
 		return -1;
 	}

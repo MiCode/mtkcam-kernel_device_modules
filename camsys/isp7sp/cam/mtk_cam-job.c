@@ -976,7 +976,8 @@ _stream_on(struct mtk_cam_job *job, bool on)
 		}
 	}
 
-	toggle_raw_engines_db(ctx);
+	if (!job->enable_hsf_raw)
+		toggle_raw_engines_db(ctx);
 
 	for (i = 0; i < ARRAY_SIZE(ctx->hw_raw); i++) {
 		if (ctx->hw_raw[i]) {

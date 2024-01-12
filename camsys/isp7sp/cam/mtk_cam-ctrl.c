@@ -1620,14 +1620,17 @@ static bool ctrl_is_state_list_empty(struct mtk_cam_ctrl *ctrl)
 static void mtk_cam_ctrl_wait_list_empty(struct mtk_cam_ctrl *ctrl)
 {
 	int timeout_ms = 200;
-	long timeout;
+	long ret;
 
-	timeout = wait_event_interruptible_timeout(ctrl->state_list_wq,
+	ret = wait_event_interruptible_timeout(ctrl->state_list_wq,
 					ctrl_is_state_list_empty(ctrl),
 					msecs_to_jiffies(timeout_ms));
-	if (timeout == 0)
+	if (ret == 0)
 		pr_info("%s: error: wait for list empty: %dms timeout\n",
 			__func__, timeout_ms);
+	else if (ret < 0) {
+		pr_info("%s: error: %ld\n", __func__, ret);
+	}
 }
 
 void mtk_cam_ctrl_stop(struct mtk_cam_ctrl *cam_ctrl)

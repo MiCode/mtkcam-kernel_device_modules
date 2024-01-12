@@ -3992,7 +3992,7 @@ static void camsys_main_lp_ctrl(struct mtk_cam_device *cam_dev, bool on)
 	if (on) {
 		ret = readx_poll_timeout(readl, cam_dev->base + CAM_MAIN_CAM_SPM_ACK,
 					 spm_ack,
-					 spm_ack & BIT(0) | BIT(1) | BIT(2),
+					 spm_ack & (BIT(0) | BIT(1) | BIT(2)),
 					 1 /* delay, us */,
 					 2000 /* timeout, us */);
 		if (ret < 0) {

@@ -720,8 +720,7 @@ void reset(struct mtk_raw_device *dev)
 		| FBIT(CAMCTL_CQI_R3_EN)
 		| FBIT(CAMCTL_CQI_R4_EN);
 	writel(val, dev->base + REG_CAMCTL_MOD6_EN);
-
-	toggle_db(dev);
+	writel(val, dev->base_inner + REG_CAMCTL_MOD6_EN);
 
 	writel(0, dev->base + REG_CAMCTL_SW_CTL);
 	writel(FBIT(CAMCTL_SW_RST_TRIG), dev->base + REG_CAMCTL_SW_CTL);

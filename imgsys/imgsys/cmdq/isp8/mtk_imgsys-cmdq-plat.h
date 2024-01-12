@@ -9,6 +9,9 @@
 #ifndef _MTK_IMGSYS_CMDQ_PLAT_8_H_
 #define _MTK_IMGSYS_CMDQ_PLAT_8_H_
 
+#include "mtk_imgsys-cmdq.h"
+#include "mtk_imgsys-engine-isp8.h"
+
 #define IMGSYS_QOS_SET_BY_SCEN (1)
 
 #define IMGSYS_SECURE_ENABLE   (0)
@@ -33,6 +36,7 @@ enum ISP7S_IMG_PWR {
 
 #define IMGSYS_NOR_THD			(14)
 #define	IMGSYS_PWR_THD			(4)
+#define IMGSYS_QOS_THD			(1)
 #define IMGSYS_SEC_THD			(2)
 
 #define IMGSYS_QOS_MAX 56

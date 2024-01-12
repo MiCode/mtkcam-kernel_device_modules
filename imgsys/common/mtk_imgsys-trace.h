@@ -53,6 +53,49 @@ TRACE_EVENT(tracing_mark_write,
 bool imgsys_core_ftrace_enabled(void);
 void __imgsys_systrace(const char *fmt, ...);
 
+
+DECLARE_EVENT_CLASS(imgsys_hwqos_event,
+	TP_PROTO(struct va_format *vaf),
+	TP_ARGS(vaf),
+	TP_STRUCT__entry(__vstring(msg, vaf->fmt, vaf->va)),
+	TP_fast_assign(
+		__assign_vstr(msg, vaf->fmt, vaf->va);
+	),
+	TP_printk("%s", __get_str(msg))
+);
+
+#define DEFINE_IMGSYS_HWQOS_EVENT(name) \
+	DEFINE_EVENT(imgsys_hwqos_event, imgsys__hwqos_##name, \
+		TP_PROTO(struct va_format *vaf), \
+		TP_ARGS(vaf) \
+	)
+
+DEFINE_IMGSYS_HWQOS_EVENT(bwr);
+DEFINE_IMGSYS_HWQOS_EVENT(bls);
+DEFINE_IMGSYS_HWQOS_EVENT(ostdl);
+
+void ftrace_imgsys_hwqos_bwr(const char *fmt, ...);
+void ftrace_imgsys_hwqos_bls(const char *fmt, ...);
+void ftrace_imgsys_hwqos_ostdl(const char *fmt, ...);
+
+TRACE_EVENT(imgsys__hwqos_dbg_reg_read,
+	TP_PROTO(u32 pa, u32 value),
+	TP_ARGS(pa, value),
+	TP_STRUCT__entry(
+		__field(u32, pa)
+		__field(u32, value)
+	),
+	TP_fast_assign(
+		__entry->pa = pa;
+		__entry->value = value;
+	),
+	TP_printk("addr:0x%08X, value:0x%08X",
+		(int)__entry->pa,
+		(int)__entry->value)
+);
+
+void ftrace_imgsys_hwqos_dbg_reg_read(u32 pa, u32 value);
+
 #else
 
 #define IMGSYS_SYSTRACE_BEGIN(fmt, args...)

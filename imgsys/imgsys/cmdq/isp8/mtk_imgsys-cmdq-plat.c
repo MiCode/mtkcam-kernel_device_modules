@@ -23,6 +23,7 @@
 #include "mtk_imgsys-cmdq-ext.h"
 #include "mtk_imgsys-cmdq-qof.h"
 #include "mtk_imgsys-cmdq-dvfs.h"
+#include "mtk_imgsys-cmdq-hwqos.h"
 #include "mtk_imgsys-cmdq-qos.h"
 #include "mtk_imgsys-trace.h"
 #include "mtk-interconnect.h"
@@ -37,6 +38,8 @@
 #include "cmdq-sec.h"
 #include "cmdq-sec-iwc-common.h"
 #endif
+
+#define IMGSYS_SEC_THD_IDX_START (IMGSYS_NOR_THD + IMGSYS_PWR_THD + IMGSYS_QOS_THD)
 
 #define WPE_BWLOG_HW_COMB (IMGSYS_ENG_WPE_TNR | IMGSYS_ENG_DIP)
 #define WPE_BWLOG_HW_COMB_ninA (IMGSYS_ENG_WPE_EIS | IMGSYS_ENG_PQDIP_A)
@@ -112,11 +115,11 @@ void imgsys_cmdq_init_plat8(struct mtk_imgsys_dev *imgsys_dev, const int nr_imgs
 		}
 		#if IMGSYS_SECURE_ENABLE
 		/* request for imgsys secure gce thread */
-		for (idx = IMGSYS_NOR_THD + IMGSYS_PWR_THD; idx < (IMGSYS_NOR_THD + IMGSYS_PWR_THD + IMGSYS_SEC_THD); idx++) {
-			imgsys_sec_clt[idx-IMGSYS_NOR_THD - IMGSYS_PWR_THD] = cmdq_mbox_create(dev, idx);
+		for (idx = IMGSYS_SEC_THD_IDX_START; idx < (IMGSYS_SEC_THD_IDX_START + IMGSYS_SEC_THD); idx++) {
+			imgsys_sec_clt[idx - IMGSYS_SEC_THD_IDX_START] = cmdq_mbox_create(dev, idx);
 			pr_info(
 				"%s: cmdq_mbox_create sec_thd(%d, 0x%lx)\n",
-				__func__, idx, (unsigned long)imgsys_sec_clt[idx-IMGSYS_NOR_THD - IMGSYS_PWR_THD]);
+				__func__, idx, (unsigned long)imgsys_sec_clt[idx - IMGSYS_SEC_THD_IDX_START]);
 		}
 		#endif
 		/* parse hardware event */
@@ -134,6 +137,7 @@ void imgsys_cmdq_init_plat8(struct mtk_imgsys_dev *imgsys_dev, const int nr_imgs
 	}
 
 	mtk_imgsys_cmdq_qof_init(imgsys_dev, imgsys_clt[0]);
+	mtk_imgsys_cmdq_hwqos_init(imgsys_dev);
 
 	mutex_init(&imgsys_dev->dvfs_qos_lock);
 	mutex_init(&imgsys_dev->power_ctrl_lock);
@@ -163,6 +167,9 @@ void imgsys_cmdq_release_plat8(struct mtk_imgsys_dev *imgsys_dev)
 	#endif
 
 	MTK_IMGSYS_QOF_NEED_RUN(imgsys_dev->qof_ver, mtk_imgsys_cmdq_qof_release(imgsys_dev, imgsys_clt[0]));
+	MTK_IMGSYS_QOS_ENABLE(imgsys_dev->hwqos_info.hwqos_support,
+		mtk_imgsys_cmdq_hwqos_release();
+	);
 
 	/* Release work_quque */
 #if CMDQ_CB_KTHREAD
@@ -200,13 +207,18 @@ void imgsys_cmdq_streamon_plat8(struct mtk_imgsys_dev *imgsys_dev)
 	cmdq_mbox_disable(imgsys_clt[0]->chan);
 
 	MTK_IMGSYS_QOF_NEED_RUN(imgsys_dev->qof_ver, mtk_imgsys_cmdq_qof_streamon(imgsys_dev));
+	MTK_IMGSYS_QOS_ENABLE(imgsys_dev->hwqos_info.hwqos_support,
+		mtk_imgsys_cmdq_hwqos_streamon(&imgsys_dev->hwqos_info);
+	);
 
 	memset((void *)event_hist, 0x0,
 		sizeof(struct imgsys_event_history)*IMGSYS_CMDQ_SYNC_POOL_NUM);
 #if DVFS_QOS_READY
 	mtk_imgsys_mmdvfs_reset_plat8(imgsys_dev);
-	mtk_imgsys_mmqos_reset_plat8(imgsys_dev);
-	mtk_imgsys_mmqos_monitor_plat8(imgsys_dev, SMI_MONITOR_START_STATE);
+	MTK_IMGSYS_QOS_ENABLE(!imgsys_dev->hwqos_info.hwqos_support,
+		mtk_imgsys_mmqos_reset_plat8(imgsys_dev);
+		mtk_imgsys_mmqos_monitor_plat8(imgsys_dev, SMI_MONITOR_START_STATE);
+	);
 #endif
 
 #ifdef IMGSYS_CMDQ_CBPARAM_NUM
@@ -254,12 +266,17 @@ void imgsys_cmdq_streamoff_plat8(struct mtk_imgsys_dev *imgsys_dev)
 	#endif
 
 	MTK_IMGSYS_QOF_NEED_RUN(imgsys_dev->qof_ver, mtk_imgsys_cmdq_qof_streamoff(imgsys_dev));
+	MTK_IMGSYS_QOS_ENABLE(imgsys_dev->hwqos_info.hwqos_support,
+		mtk_imgsys_cmdq_hwqos_streamoff();
+	);
 	//cmdq_mbox_disable(imgsys_clt[0]->chan);
 
 	#if DVFS_QOS_READY
 	mtk_imgsys_mmdvfs_reset_plat8(imgsys_dev);
-	mtk_imgsys_mmqos_reset_plat8(imgsys_dev);
-	mtk_imgsys_mmqos_monitor_plat8(imgsys_dev, SMI_MONITOR_STOP_STATE);
+	MTK_IMGSYS_QOS_ENABLE(!imgsys_dev->hwqos_info.hwqos_support,
+		mtk_imgsys_mmqos_reset_plat8(imgsys_dev);
+		mtk_imgsys_mmqos_monitor_plat8(imgsys_dev, SMI_MONITOR_STOP_STATE);
+	);
 	#endif
 }
 
@@ -1591,7 +1608,9 @@ int imgsys_cmdq_sendtask_plat8(struct mtk_imgsys_dev *imgsys_dev,
 	u64 tsflushStart = 0, tsFlushEnd = 0;
 	bool isTimeShared = 0;
 	u32 log_sz = 0;
+	bool is_report_max = false;
 
+	dvfs_info = &imgsys_dev->dvfs_info;
 	/* PMQOS API */
 	tsDvfsQosStart = ktime_get_boottime_ns()/1000;
 	IMGSYS_CMDQ_SYSTRACE_BEGIN("%s_%s|Imgsys MWFrame:#%d MWReq:#%d ReqFd:%d Own:%llx",
@@ -1601,8 +1620,14 @@ int imgsys_cmdq_sendtask_plat8(struct mtk_imgsys_dev *imgsys_dev,
 	#if DVFS_QOS_READY
 	mtk_imgsys_mmdvfs_mmqos_cal_plat8(imgsys_dev, frm_info, 1);
 	mtk_imgsys_mmdvfs_set_plat8(imgsys_dev, frm_info, 1);
-	mtk_imgsys_mmqos_set_by_scen_plat8(imgsys_dev, frm_info, 1);
+	MTK_IMGSYS_QOS_ENABLE(!imgsys_dev->hwqos_info.hwqos_support,
+		mtk_imgsys_mmqos_set_by_scen_plat8(imgsys_dev, frm_info, 1);
+	);
 	#endif
+	MTK_IMGSYS_QOS_ENABLE(imgsys_dev->hwqos_info.hwqos_support,
+		mtk_imgsys_cmdq_hwqos_is_report_max(
+			dvfs_info->vss_task_cnt, &is_report_max);
+	);
 	mutex_unlock(&(imgsys_dev->dvfs_qos_lock));
 	IMGSYS_CMDQ_SYSTRACE_END();
 	tsDvfsQosEnd = ktime_get_boottime_ns()/1000;
@@ -1612,7 +1637,6 @@ int imgsys_cmdq_sendtask_plat8(struct mtk_imgsys_dev *imgsys_dev,
 	frm_info->cb_frmcnt = 0;
 	frm_info->total_taskcnt = 0;
 	cmd_ofst = sizeof(struct GCERecoder);
-	dvfs_info = &imgsys_dev->dvfs_info;
 
 	#if IMGSYS_SECURE_ENABLE
 	mutex_lock(&(imgsys_dev->sec_task_lock));
@@ -1770,6 +1794,11 @@ int imgsys_cmdq_sendtask_plat8(struct mtk_imgsys_dev *imgsys_dev,
 			if (frm_info->user_info[frm_idx].is_secFrm)
 				imgsys_cmdq_sec_cmd_plat8(pkt);
 			#endif
+
+			MTK_IMGSYS_QOS_ENABLE(imgsys_dev->hwqos_info.hwqos_support,
+				mtk_imgsys_cmdq_hwqos_report(
+					pkt, &imgsys_dev->hwqos_info, &is_report_max);
+			);
 			ret = imgsys_cmdq_parser_plat8(imgsys_dev, frm_info, pkt,
 				&cmd[cmd_idx], hw_comb, frm_info->user_info[frm_idx].sw_ridx,
 				(pkt_ts_pa + 4 * pkt_ts_ofst), &pkt_ts_num, thd_idx,

@@ -67,6 +67,13 @@
 #define MTK_IMGSYS_QOF_FUNCTION_OFF		(0)
 #define MTK_IMGSYS_QOF_NEED_RUN(ver, qof_func) if (ver != MTK_IMGSYS_QOF_FUNCTION_OFF) qof_func
 
+#define MTK_IMGSYS_QOS_ENABLE(enable, args...) \
+	do { \
+		if (enable) { \
+			args \
+		} \
+	} while (0)
+
 enum imgsys_user_state {
 	DIP_STATE_INIT	= 0,
 	DIP_STATE_STREAMON,
@@ -292,6 +299,11 @@ struct mtk_imgsys_qos {
 	bool isIdle;
 };
 
+struct mtk_imgsys_hwqos {
+	bool hwqos_support;
+	u16 hwqos_sync_token;
+};
+
 struct gce_work {
 	struct list_head entry;
 	struct work_pool *pool;
@@ -378,6 +390,7 @@ struct mtk_imgsys_dev {
 	const struct module_ops *modules;
 	struct mtk_imgsys_dvfs dvfs_info;
 	struct mtk_imgsys_qos qos_info;
+	struct mtk_imgsys_hwqos hwqos_info;
 	struct mutex dvfs_qos_lock;
 	struct mutex power_ctrl_lock;
 	struct mutex vss_blk_lock;

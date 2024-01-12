@@ -39,3 +39,29 @@ bool imgsys_core_ftrace_enabled(void)
 }
 EXPORT_SYMBOL(imgsys_core_ftrace_enabled);
 
+#define FTRACE_IMGSYS_HWQOS(name) \
+	void ftrace_imgsys_hwqos_##name(const char *fmt, ...) \
+	{ \
+		struct va_format vaf; \
+		va_list args; \
+		va_start(args, fmt); \
+		vaf.fmt = fmt; \
+		vaf.va = &args; \
+		trace_imgsys__hwqos_##name(&vaf); \
+		va_end(args); \
+	}
+
+FTRACE_IMGSYS_HWQOS(bwr);
+EXPORT_SYMBOL(ftrace_imgsys_hwqos_bwr);
+
+FTRACE_IMGSYS_HWQOS(bls);
+EXPORT_SYMBOL(ftrace_imgsys_hwqos_bls);
+
+FTRACE_IMGSYS_HWQOS(ostdl);
+EXPORT_SYMBOL(ftrace_imgsys_hwqos_ostdl);
+
+void ftrace_imgsys_hwqos_dbg_reg_read(u32 pa, u32 value)
+{
+	trace_imgsys__hwqos_dbg_reg_read(pa, value);
+}
+EXPORT_SYMBOL(ftrace_imgsys_hwqos_dbg_reg_read);

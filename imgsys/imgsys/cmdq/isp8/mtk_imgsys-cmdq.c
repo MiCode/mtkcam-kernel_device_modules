@@ -279,7 +279,9 @@ void mtk_imgsys_mmqos_init(struct mtk_imgsys_dev *imgsys_dev)
 {
 	struct mtk_imgcmdq_dev *cmdq_dev = platform_get_drvdata(imgsys_dev->imgcmdq_pdev);
 
-	cmdq_dev->cust_data->mmqos_init(imgsys_dev);
+	MTK_IMGSYS_QOS_ENABLE(!imgsys_dev->hwqos_info.hwqos_support,
+		cmdq_dev->cust_data->mmqos_init(imgsys_dev);
+	);
 }
 EXPORT_SYMBOL(mtk_imgsys_mmqos_init);
 
@@ -287,7 +289,9 @@ void mtk_imgsys_mmqos_uninit(struct mtk_imgsys_dev *imgsys_dev)
 {
 	struct mtk_imgcmdq_dev *cmdq_dev = platform_get_drvdata(imgsys_dev->imgcmdq_pdev);
 
-	cmdq_dev->cust_data->mmqos_init(imgsys_dev);
+	MTK_IMGSYS_QOS_ENABLE(!imgsys_dev->hwqos_info.hwqos_support,
+		cmdq_dev->cust_data->mmqos_init(imgsys_dev);
+	);
 }
 EXPORT_SYMBOL(mtk_imgsys_mmqos_uninit);
 

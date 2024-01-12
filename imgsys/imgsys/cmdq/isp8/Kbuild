@@ -46,6 +46,7 @@ mtk_imgsys-cmdq.o \
 mtk_imgsys-cmdq-plat.o \
 mtk_imgsys-cmdq-qof.o  \
 mtk_imgsys-cmdq-dvfs.o \
+mtk_imgsys-cmdq-hwqos.o \
 mtk_imgsys-cmdq-qos.o \
 mtk_imgsys_cmdq_token.o
 

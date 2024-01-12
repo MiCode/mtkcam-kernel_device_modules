@@ -12,6 +12,8 @@
 #include <linux/workqueue.h>    /* for workqueue */
 #include <linux/kfifo.h>        /* for kfifo */
 #include <linux/kthread.h>      /* for kthread */
+
+#include "mtk_cam-seninf-event-handle.h"    /* broadcast irq info for seninf */
 #endif //!FS_UT
 
 #include "mtk_cam-seninf-tsrec.h"
@@ -3454,6 +3456,59 @@ tsrec_cb_handler_end:
 /******************************************************************************
  * TSREC ISR functions
  *****************************************************************************/
+/*---------------------------------------------------------------------------*/
+// interrupt broadcast to seninf --- at bottom-half
+/*---------------------------------------------------------------------------*/
+static void tsrec_broadcast_info_setup(void *data,
+	struct tsrec_irq_info_st *irq_info,
+	const unsigned int tsrec_no, const unsigned int status)
+{
+#ifndef FS_UT
+	const unsigned long long time_th = 50000; // 50 us
+	const unsigned int mask = TSREC_BIT_MASK(TSREC_EXP_MAX_CNT);
+	struct mtk_cam_seninf_tsrec_irq_notify_info info = {0};
+	struct seninf_ctx *seninf_ctx = NULL;
+	unsigned long long start, end;
+	unsigned int seninf_idx = SENINF_IDX_NONE;
+
+	tsrec_find_seninf_ctx_by_tsrec_no(
+		data, tsrec_no, &seninf_ctx, &seninf_idx, __func__);
+	/* case check */
+	// if (unlikely(seninf_ctx == NULL))
+	//	return;
+
+	/* setup info for seninf */
+	info.inf_ctx = seninf_ctx;
+	info.tsrec_no = tsrec_no;
+	info.status = status;
+	info.vsync_status = (status & mask);
+	info.hsync_status = ((status >> TSREC_INT_EN_HSYNC_BASE_BIT) & mask);
+	info.sys_ts_ns = irq_info->sys_ts_ns;
+
+	TSREC_LOG_DBG_CAT(LOG_TSREC_BROADCAST_INFO,
+		"info(inf_ctx:%p/no:%u/status:%#x(v:%#x/h:%#x)/sys_ts_ns:%llu)\n",
+		info.inf_ctx,
+		info.tsrec_no,
+		info.status,
+		info.vsync_status,
+		info.hsync_status,
+		info.sys_ts_ns);
+
+	start = ktime_get_boottime_ns();
+
+	/* broadcast info for seninf */
+	mtk_cam_seninf_tsrec_irq_notify(&info);
+
+	end = ktime_get_boottime_ns();
+	if (unlikely((end - start) >= time_th)) {
+		TSREC_LOG_INF(
+			"WARNING: seninf took to much time in doing mtk_cam_seninf_tsrec_irq_notify function, %llu >= th:%llu (%llu ~ %llu)(us)\n",
+			(end - start)/1000, time_th/1000,
+			start/1000, end/1000);
+	}
+#endif
+}
+
 
 /*---------------------------------------------------------------------------*/
 // interrupt handler --- bottom-half (sub functions)
@@ -3558,6 +3613,7 @@ static void tsrec_isr_event_handler(int irq, void *data,
 	}
 
 	tsrec_work_setup(irq, data, irq_info, tsrec_no, work_event_info);
+	tsrec_broadcast_info_setup(data, irq_info, tsrec_no, status);
 }
 
 

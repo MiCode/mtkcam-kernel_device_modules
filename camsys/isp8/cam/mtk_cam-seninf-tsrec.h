@@ -42,6 +42,18 @@ struct mtk_cam_seninf_tsrec_vc_dt_info {
 };
 
 
+struct mtk_cam_seninf_tsrec_irq_notify_info {
+	struct seninf_ctx *inf_ctx;
+
+	unsigned int tsrec_no;
+	unsigned int status;		// INTR status (raw info)
+	unsigned int vsync_status;	// INTR status (convert to vsync)
+	unsigned int hsync_status;	// INTR status (convert to hsync)
+
+	unsigned long long sys_ts_ns;
+};
+
+
 /*----------------------------------------------------------------------------*/
 // tsrec device irq select
 /*----------------------------------------------------------------------------*/

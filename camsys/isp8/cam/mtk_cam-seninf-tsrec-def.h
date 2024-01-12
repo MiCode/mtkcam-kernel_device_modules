@@ -187,6 +187,7 @@ enum tsrec_log_ctrl_category {
 	/* special category */
 	LOG_TSREC_WORK_HANDLE,
 	LOG_TSREC_CB_INFO,
+	LOG_TSREC_BROADCAST_INFO,
 
 	/* extra category */
 	LOG_TSREC_IRQ_TOP = 24,

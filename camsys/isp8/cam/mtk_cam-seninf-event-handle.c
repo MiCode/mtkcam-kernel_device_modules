@@ -554,6 +554,11 @@ void notify_fsync_listen_target_with_kthread(struct seninf_ctx *ctx,
 /*----------------------------------------------------------------------------*/
 // => tsrec event/handle
 /*----------------------------------------------------------------------------*/
+void mtk_cam_seninf_tsrec_irq_notify(
+	const struct mtk_cam_seninf_tsrec_irq_notify_info *p_info)
+{
+	/* Please add your handler function here carefully */
+}
 
 
 /*----------------------------------------------------------------------------*/

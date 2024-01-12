@@ -2330,7 +2330,7 @@ static int mtk_imgsys_video_device_v4l2_register(struct mtk_imgsys_pipe *pipe,
 			pipe->desc->name, node->desc->name,
 			vdev->queue->dev);
 	} else {
-		vdev->queue->dev = pipe->imgsys_dev->dev;
+		vdev->queue->dev = pipe->imgsys_dev->smmu_dev;
         if (imgsys_dbg_enable())
 		dev_dbg(pipe->imgsys_dev->dev,
 			"%s:%s: select default_vb2_alloc_ctx(%p)\n",

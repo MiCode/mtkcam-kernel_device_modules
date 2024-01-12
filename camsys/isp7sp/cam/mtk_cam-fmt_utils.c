@@ -776,7 +776,7 @@ const struct mtk_format_info *mtk_format_info(u32 format)
 		{ .format = V4L2_PIX_FMT_MTISP_BAYER12_UFBC, .mem_planes = 1, .comp_planes = 1,
 			.bitpp = { 12, 0, 0, 0 }, .hdiv = 1, .vdiv = 1, },
 		{ .format = V4L2_PIX_FMT_MTISP_BAYER14_UFBC, .mem_planes = 1, .comp_planes = 1,
-			.bitpp = { 16, 0, 0, 0 }, .hdiv = 1, .vdiv = 1, },
+			.bitpp = { 14, 0, 0, 0 }, .hdiv = 1, .vdiv = 1, },
 		/* Full-G RGB formats */
 		{ .format = V4L2_PIX_FMT_MTISP_SGRB8F, .mem_planes = 1, .comp_planes = 3,
 			.bitpp = { 8, 8, 8, 0 }, .hdiv = 2, .vdiv = 2,

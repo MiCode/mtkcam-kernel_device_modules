@@ -1571,7 +1571,7 @@ static int mtk_raw_of_probe(struct platform_device *pdev,
 	ret = devm_request_threaded_irq(dev, raw->irq,
 					mtk_irq_raw_yuv,
 					mtk_thread_irq_raw,
-					/*IRQF_NO_AUTOEN*/ 0, dev_name(dev), raw);
+					IRQF_NO_AUTOEN, dev_name(dev), raw);
 	if (ret) {
 		dev_dbg(dev, "failed to request irq=%d\n", raw->irq);
 		return ret;
@@ -1775,9 +1775,9 @@ int mtk_raw_runtime_suspend(struct device *dev)
 
 	for (i = 0; i < drvdata->num_clks; i++)
 		clk_disable_unprepare(drvdata->clks[i]);
-#ifdef NOT_FPGA_STAGE
+
 	mtk_mmdvfs_enable_vcp(false, VCP_PWR_USR_CAM);
-#endif
+
 	return 0;
 }
 
@@ -1785,13 +1785,12 @@ int mtk_raw_runtime_resume(struct device *dev)
 {
 	struct mtk_raw_device *drvdata = dev_get_drvdata(dev);
 	int i, ret;
-	//unsigned int pr_detect_count;
+	unsigned int pr_detect_count;
 
 	/* reset_msgfifo before enable_irq */
 	ret = reset_msgfifo(drvdata);
 	if (ret)
 		return ret;
-#ifdef NOT_FPGA_STAGE
 
 	enable_irq(drvdata->irq);
 
@@ -1800,9 +1799,8 @@ int mtk_raw_runtime_resume(struct device *dev)
 		set_detect_count(KERNEL_LOG_MAX);
 
 	dev_dbg(dev, "%s:enable clock\n", __func__);
-
 	mtk_mmdvfs_enable_vcp(true, VCP_PWR_USR_CAM);
-#endif
+
 
 	for (i = 0; i < drvdata->num_clks; i++) {
 		ret = clk_prepare_enable(drvdata->clks[i]);
@@ -2301,9 +2299,7 @@ void fill_aa_info(struct mtk_raw_device *raw_dev,
 	ae_info->LTM_Sum[0] +=
 		((u64)readl(raw_dev->base + REG_LTM_AE_DEBUG_R_MSB) << 32) |
 		readl(raw_dev->base + REG_LTM_AE_DEBUG_R_LSB);
-	ae_info->AA_Sum[0] +=
-		((u64)readl(raw_dev->base + REG_AA_R_SUM_H) << 32) |
-		readl(raw_dev->base + REG_AA_R_SUM_L);
+
 
 	ae_info->OBC_R1_Sum[1] +=
 		((u64)readl(raw_dev->base + OFFSET_OBC_R1_B_SUM_H) << 32) |
@@ -2317,9 +2313,7 @@ void fill_aa_info(struct mtk_raw_device *raw_dev,
 	ae_info->LTM_Sum[1] +=
 		((u64)readl(raw_dev->base + REG_LTM_AE_DEBUG_B_MSB) << 32) |
 		readl(raw_dev->base + REG_LTM_AE_DEBUG_B_LSB);
-	ae_info->AA_Sum[1] +=
-		((u64)readl(raw_dev->base + REG_AA_B_SUM_H) << 32) |
-		readl(raw_dev->base + REG_AA_B_SUM_L);
+
 
 	ae_info->OBC_R1_Sum[2] +=
 		((u64)readl(raw_dev->base + OFFSET_OBC_R1_GR_SUM_H) << 32) |
@@ -2333,9 +2327,7 @@ void fill_aa_info(struct mtk_raw_device *raw_dev,
 	ae_info->LTM_Sum[2] +=
 		((u64)readl(raw_dev->base + REG_LTM_AE_DEBUG_GR_MSB) << 32) |
 		readl(raw_dev->base + REG_LTM_AE_DEBUG_GR_LSB);
-	ae_info->AA_Sum[2] +=
-		((u64)readl(raw_dev->base + REG_AA_GR_SUM_H) << 32) |
-		readl(raw_dev->base + REG_AA_GR_SUM_L);
+
 
 	ae_info->OBC_R1_Sum[3] +=
 		((u64)readl(raw_dev->base + OFFSET_OBC_R1_GB_SUM_H) << 32) |
@@ -2349,9 +2341,55 @@ void fill_aa_info(struct mtk_raw_device *raw_dev,
 	ae_info->LTM_Sum[3] +=
 		((u64)readl(raw_dev->base + REG_LTM_AE_DEBUG_GB_MSB) << 32) |
 		readl(raw_dev->base + REG_LTM_AE_DEBUG_GB_LSB);
-	ae_info->AA_Sum[3] +=
-		((u64)readl(raw_dev->base + REG_AA_GB_SUM_H) << 32) |
+
+	ae_info->AESTAT_Sum[0] +=
+		((u64)readl(raw_dev->base + REG_AA_R_CLIP_SUM_L) << 32) |
+		readl(raw_dev->base + REG_AA_R_SUM_L);
+	ae_info->AESTAT_Sum[1] +=
+		((u64)readl(raw_dev->base + REG_AA_R_CLIP_SUM_H) << 32) |
+		readl(raw_dev->base + REG_AA_R_SUM_H);
+	ae_info->AESTAT_Sum[2] +=
+		((u64)readl(raw_dev->base + REG_AA_B_CLIP_SUM_L) << 32) |
+		readl(raw_dev->base + REG_AA_B_SUM_L);
+	ae_info->AESTAT_Sum[3] +=
+		((u64)readl(raw_dev->base + REG_AA_B_CLIP_SUM_H) << 32) |
+		readl(raw_dev->base + REG_AA_B_SUM_H);
+	ae_info->AESTAT_Sum[4] +=
+		((u64)readl(raw_dev->base + REG_AA_GR_CLIP_SUM_L) << 32) |
+		readl(raw_dev->base + REG_AA_GR_SUM_L);
+	ae_info->AESTAT_Sum[5] +=
+		((u64)readl(raw_dev->base + REG_AA_GR_CLIP_SUM_H) << 32) |
+		readl(raw_dev->base + REG_AA_GR_SUM_H);
+	ae_info->AESTAT_Sum[6] +=
+		((u64)readl(raw_dev->base + REG_AA_GB_CLIP_SUM_L) << 32) |
 		readl(raw_dev->base + REG_AA_GB_SUM_L);
+	ae_info->AESTAT_Sum[7] +=
+		((u64)readl(raw_dev->base + REG_AA_GB_CLIP_SUM_H) << 32) |
+		readl(raw_dev->base + REG_AA_GB_SUM_H);
+	ae_info->DGN_Sum[0] +=
+		((u64)readl(raw_dev->base + REG_DGN_R_CLIP_SUM_L) << 32) |
+		readl(raw_dev->base + REG_DGN_R_SUM_L);
+	ae_info->DGN_Sum[1] +=
+		((u64)readl(raw_dev->base + REG_DGN_R_CLIP_SUM_H) << 32) |
+		readl(raw_dev->base + REG_DGN_R_SUM_H);
+	ae_info->DGN_Sum[2] +=
+		((u64)readl(raw_dev->base + REG_DGN_B_CLIP_SUM_L) << 32) |
+		readl(raw_dev->base + REG_DGN_B_SUM_L);
+	ae_info->DGN_Sum[3] +=
+		((u64)readl(raw_dev->base + REG_DGN_B_CLIP_SUM_H) << 32) |
+		readl(raw_dev->base + REG_DGN_B_SUM_H);
+	ae_info->DGN_Sum[4] +=
+		((u64)readl(raw_dev->base + REG_DGN_GR_CLIP_SUM_L) << 32) |
+		readl(raw_dev->base + REG_DGN_GR_SUM_L);
+	ae_info->DGN_Sum[5] +=
+		((u64)readl(raw_dev->base + REG_DGN_GR_CLIP_SUM_H) << 32) |
+		readl(raw_dev->base + REG_DGN_GR_SUM_H);
+	ae_info->DGN_Sum[6] +=
+		((u64)readl(raw_dev->base + REG_DGN_GB_CLIP_SUM_L) << 32) |
+		readl(raw_dev->base + REG_DGN_GB_SUM_L);
+	ae_info->DGN_Sum[7] +=
+		((u64)readl(raw_dev->base + REG_DGN_GB_CLIP_SUM_H) << 32) |
+		readl(raw_dev->base + REG_DGN_GB_SUM_H);
 }
 
 static const struct dev_pm_ops mtk_yuv_pm_ops = {

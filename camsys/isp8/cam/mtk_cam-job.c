@@ -4620,11 +4620,11 @@ static int update_job_raw_param_to_ipi_frame(struct mtk_cam_job *job,
 		update_adl_param(job, ctrl, &fp->adl_param);
 
 	if (CAM_DEBUG_ENABLED(IPI_BUF))
-		pr_info("[%s] job_type:%d scen:%d exp:%d/%d raw_path:%d", __func__,
+		pr_info("[%s] job_type:%d scen:%d exp:%d/%d raw_path:%d hw_scene:%d", __func__,
 			job->job_type,
 			ctrl->resource.user_data.raw_res.scen.id,
 			p->exposure_num, p->previous_exposure_num,
-			p->imgo_path_sel);
+			p->imgo_path_sel, p->hardware_scenario);
 	return 0;
 }
 
@@ -5246,7 +5246,9 @@ static void job_dump_engines_debug_status(struct mtk_cam_job *job)
 
 	mtk_engine_dump_debug_status(cam, job->used_engine, is_srt);
 	if (ctx->seninf) {
+#ifdef NOT_FPGA_STAGE
 		mtk_cam_seninf_dump(ctx->seninf, job->frame_seq_no, false);
+#endif
 		vsync_collector_dump(&ctx->cam_ctrl.vsync_col);
 	}
 }
@@ -5259,7 +5261,7 @@ static int arr_u64x4_to_str(char *buff, size_t size,
 			 arr[0], arr[1], arr[2], arr[3]);
 }
 
-#define AE_DATA_LEN (ARR_U64x4_LEN * 5) /* w.o. '\0' */
+#define AE_DATA_LEN (ARR_U64x4_LEN * 8) /* w.o. '\0' */
 static int ae_data_to_str(char *buff, size_t size,
 			  const struct mtk_ae_debug_data *ae_data)
 {
@@ -5269,9 +5271,11 @@ static int ae_data_to_str(char *buff, size_t size,
 	n = arr_u64x4_to_str(buff + n, size - n, ae_data->OBC_R1_Sum);
 	n += arr_u64x4_to_str(buff + n, size - n, ae_data->OBC_R2_Sum);
 	n += arr_u64x4_to_str(buff + n, size - n, ae_data->OBC_R3_Sum);
-	n += arr_u64x4_to_str(buff + n, size - n, ae_data->AA_Sum);
 	n += arr_u64x4_to_str(buff + n, size - n, ae_data->LTM_Sum);
-
+	n += arr_u64x4_to_str(buff + n, size - n, ae_data->AESTAT_Sum);
+	n += arr_u64x4_to_str(buff + n, size - n, &ae_data->AESTAT_Sum[4]);
+	n += arr_u64x4_to_str(buff + n, size - n, ae_data->DGN_Sum);
+	n += arr_u64x4_to_str(buff + n, size - n, &ae_data->DGN_Sum[4]);
 	return n;
 }
 

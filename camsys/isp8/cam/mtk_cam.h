@@ -116,7 +116,7 @@ struct mtk_cam_ctx {
 	struct kthread_worker flow_worker;
 	struct task_struct *done_task;
 	struct kthread_worker done_worker;
-	char str_ae_data[512];
+	char str_ae_data[1024];
 
 	struct mtk_cam_device_buf cq_buffer;
 	struct mtk_cam_device_buf ipi_buffer;

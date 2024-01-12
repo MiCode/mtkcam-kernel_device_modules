@@ -10381,6 +10381,32 @@ static inline u32 _set_field(u32 *val, int pos, int width, u32 fval)
 #define REG_AA_GR_SUM_H                0x59b0
 #define REG_AA_GB_SUM_L                0x59b4
 #define REG_AA_GB_SUM_H                0x59b8
+#define REG_AA_R_CLIP_SUM_L            0x59bc
+#define REG_AA_R_CLIP_SUM_H            0x59c0
+#define REG_AA_B_CLIP_SUM_L            0x59c4
+#define REG_AA_B_CLIP_SUM_H            0x59c8
+#define REG_AA_GR_CLIP_SUM_L           0x59cc
+#define REG_AA_GR_CLIP_SUM_H           0x59d0
+#define REG_AA_GB_CLIP_SUM_L           0x59d4
+#define REG_AA_GB_CLIP_SUM_H           0x59d8
+
+#define REG_DGN_R_SUM_L                 0x309c
+#define REG_DGN_R_SUM_H                 0x30a0
+#define REG_DGN_B_SUM_L                 0x30a4
+#define REG_DGN_B_SUM_H                 0x30a8
+#define REG_DGN_GR_SUM_L                0x30ac
+#define REG_DGN_GR_SUM_H                0x30b0
+#define REG_DGN_GB_SUM_L                0x30b4
+#define REG_DGN_GB_SUM_H                0x30b8
+#define REG_DGN_R_CLIP_SUM_L            0x30bc
+#define REG_DGN_R_CLIP_SUM_H            0x30c0
+#define REG_DGN_B_CLIP_SUM_L            0x30c4
+#define REG_DGN_B_CLIP_SUM_H            0x30c8
+#define REG_DGN_GR_CLIP_SUM_L           0x30cc
+#define REG_DGN_GR_CLIP_SUM_H           0x30d0
+#define REG_DGN_GB_CLIP_SUM_L           0x30d4
+#define REG_DGN_GB_CLIP_SUM_H           0x30d8
+
 #define REG_AA_ACT_WIN_X               0x59dc
 #define REG_AA_ACT_WIN_Y               0x59e0
 #endif	/* _MTK_CAM_RAW_REGS_H */

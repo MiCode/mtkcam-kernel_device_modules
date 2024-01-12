@@ -34,6 +34,7 @@ struct mtk_aov {
 	struct device *aov_device;
 	bool is_open;
 	uint32_t op_mode;
+	uint32_t fd_version;
 	unsigned int user_cnt;
 	uint32_t *bypass_aov_kernel_flag;
 	uint32_t *bypass_aov_scp_flag;

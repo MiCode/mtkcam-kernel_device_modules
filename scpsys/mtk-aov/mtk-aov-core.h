@@ -52,7 +52,7 @@ struct aov_core {
 	size_t buf_size;
 	struct tlsf_info alloc;
 	spinlock_t buf_lock;
-	struct aov_start *aov_start;
+	void *aov_start;
 
 	struct dma_buf *dma_buf;
 	struct iosys_map dma_map;

@@ -71,6 +71,8 @@
 #define AOV_MAX_TUNING_SIZE       (2 * 1024)
 #define AOV_MAX_AIE_SIZE          (162 * 1024)
 #define AOV_MAX_FLD_SIZE          (3 * 1024 * 1024)	// 3MB
+#define AOV_MAX_AIE_SIZE_V2       (280 * 1024)
+#define AOV_MAX_FLD_SIZE_V2       (1 * 1024 * 1024)	// 1MB
 
 #define AOV_MAX_YUVO1_OUTPUT      (737280 + 32)  // 640 x 480, nv12 12-bit
 #define AOV_MAX_YUVO2_OUTPUT      (184320 + 32)  // 320 x 240, nv12 12-bit
@@ -375,6 +377,72 @@ struct aov_start {
 
 	///fld info
 	struct fld_start fld_info;
+
+	// aov event
+	union {
+		struct base_event base_event[AOV_MAX_BASE_EVENT];
+		struct ndd_event ndd_event[AOV_MAX_NDD_EVENT];
+	};
+};
+
+struct aie_start_v2 {
+	uint8_t data[AOV_MAX_AIE_SIZE_V2];
+} __aligned(8);
+
+struct fld_start_v2 {
+	uint8_t data[AOV_MAX_FLD_SIZE_V2];
+} __aligned(8);
+
+struct aov_start_v2 {
+	// user parameter
+	uint32_t session;
+	uint32_t sensor_id;
+	uint32_t sensor_scene;
+	int32_t  sensor_orient;
+	uint32_t sensor_face;
+	uint32_t sensor_type;
+	uint32_t sensor_bit;
+	uint32_t sensor_ae;
+	uint32_t format_order;
+	uint32_t main_width;
+	uint32_t main_height;
+	uint32_t main_format;
+	uint32_t sub_width;
+	uint32_t sub_height;
+	uint32_t sub_format;
+	uint32_t frame_rate;
+	uint32_t frame_mode;
+	uint32_t power_mode;
+	uint32_t debug_mode;
+	uint32_t debug_level[AOV_LOG_ID_MAX];
+	uint32_t trace_perf;
+	uint32_t disable_fusion;
+	uint32_t debug_drv_clk;
+	uint32_t debug_drv_spm;
+	uint32_t debug_drv_time;
+	uint32_t debug_drv_bypass;
+	uint32_t reserved[5];
+
+	// display on/off
+	uint32_t disp_mode;
+
+	// aie available
+	uint32_t aie_avail;
+
+	// seninf/sensor
+	struct senif_start senif_info;
+
+	// aaa info
+	struct aaa_start aaa_info;
+
+	// tuning data
+	struct tuning tuning_info;
+
+	///aie info
+	struct aie_start_v2 aie_info;
+
+	///fld info
+	struct fld_start_v2 fld_info;
 
 	// aov event
 	union {

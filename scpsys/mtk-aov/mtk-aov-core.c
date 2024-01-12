@@ -352,6 +352,8 @@ int aov_core_send_cmd(struct mtk_aov *aov_dev, uint32_t cmd,
 	uint32_t buffer;
 	uint32_t length;
 	int ret;
+	struct aov_start *start = NULL;
+	struct aov_start_v2 *start_v2 = NULL;
 
 	AOV_DEBUG_LOG(*(aov_dev->enable_aov_log_flag), "%s+\n", __func__);
 
@@ -370,7 +372,10 @@ int aov_core_send_cmd(struct mtk_aov *aov_dev, uint32_t cmd,
 			AOV_TRACE_BEGIN("AOV Alloc Init");
 			AOV_DEBUG_LOG(*(aov_dev->enable_aov_log_flag), "aov malloc init+\n");
 			spin_lock_irqsave(&core_info->buf_lock, flag);
-			buf = tlsf_malloc(&(core_info->alloc), sizeof(struct aov_start));
+			if (aov_dev->fd_version == 2)
+				buf = tlsf_malloc(&(core_info->alloc), sizeof(struct aov_start_v2));
+			else
+				buf = tlsf_malloc(&(core_info->alloc), sizeof(struct aov_start));
 			spin_unlock_irqrestore(&core_info->buf_lock, flag);
 			AOV_DEBUG_LOG(*(aov_dev->enable_aov_log_flag), "aov malloc init-\n");
 			AOV_TRACE_END();
@@ -386,12 +391,21 @@ int aov_core_send_cmd(struct mtk_aov *aov_dev, uint32_t cmd,
 		if (buf) {
 			if (cmd == AOV_SCP_CMD_START) {
 				struct aov_user user;
-				struct aov_start *start = (struct aov_start *)buf;
+				if (aov_dev->fd_version == 2) {
+					start_v2 = (struct aov_start_v2 *)buf;
 
-				AOV_DEBUG_LOG(*(aov_dev->enable_aov_log_flag),
-					"%s: init buffer %p, size (%ld/%ld)\n",
-					__func__, buf, sizeof(struct aov_start),
-					sizeof(struct base_event));
+					AOV_DEBUG_LOG(*(aov_dev->enable_aov_log_flag),
+						"%s: init buffer %p, size (%ld/%ld)\n",
+						__func__, buf, sizeof(struct aov_start_v2),
+						sizeof(struct base_event));
+				} else {
+					start = (struct aov_start *)buf;
+
+					AOV_DEBUG_LOG(*(aov_dev->enable_aov_log_flag),
+						"%s: init buffer %p, size (%ld/%ld)\n",
+						__func__, buf, sizeof(struct aov_start),
+						sizeof(struct base_event));
+				}
 
 				AOV_DEBUG_LOG(*(aov_dev->enable_aov_log_flag),
 					"%s: copy aov user data %p, %ld+\n",
@@ -408,15 +422,24 @@ int aov_core_send_cmd(struct mtk_aov *aov_dev, uint32_t cmd,
 					return -EFAULT;
 				}
 
-				memcpy(start, &user, AOV_MAX_USER_SIZE);
+				if (aov_dev->fd_version == 2) {
+					memcpy(start_v2, &user, AOV_MAX_USER_SIZE);
+				} else {
+					memcpy(start, &user, AOV_MAX_USER_SIZE);
+				}
 
 				if ((user.aaa_size > 0) &&
 					(user.aaa_size <= AOV_MAX_AAA_SIZE)) {
 					AOV_DEBUG_LOG(*(aov_dev->enable_aov_log_flag),
 						"%s: copy aaa info %p, %d+\n",
 						__func__, user.aaa_info, user.aaa_size);
-					(void)copy_from_user(&(start->aaa_info),
-						user.aaa_info, user.aaa_size);
+					if (aov_dev->fd_version == 2) {
+						(void)copy_from_user(&(start_v2->aaa_info),
+							user.aaa_info, user.aaa_size);
+					} else {
+						(void)copy_from_user(&(start->aaa_info),
+							user.aaa_info, user.aaa_size);
+					}
 					AOV_DEBUG_LOG(*(aov_dev->enable_aov_log_flag),
 						"%s: copy aaa info %p, %d-\n",
 						__func__, user.aaa_info, user.aaa_size);
@@ -432,8 +455,13 @@ int aov_core_send_cmd(struct mtk_aov *aov_dev, uint32_t cmd,
 						"%s: copy tuning info %p, %d+\n",
 						__func__, user.tuning_info,
 						user.tuning_size);
-					(void)copy_from_user(&(start->tuning_info),
-						user.tuning_info, user.tuning_size);
+					if (aov_dev->fd_version == 2) {
+						(void)copy_from_user(&(start_v2->tuning_info),
+							user.tuning_info, user.tuning_size);
+					} else {
+						(void)copy_from_user(&(start->tuning_info),
+							user.tuning_info, user.tuning_size);
+					}
 					AOV_DEBUG_LOG(*(aov_dev->enable_aov_log_flag),
 						"%s: copy tuning info %p, %d-\n",
 						__func__, user.tuning_info,
@@ -450,8 +478,13 @@ int aov_core_send_cmd(struct mtk_aov *aov_dev, uint32_t cmd,
 				AOV_DEBUG_LOG(*(aov_dev->enable_aov_log_flag),
 					"mtk_cam_seninf_s_aov_param(%d/%d)+\n",
 					user.sensor_id, INIT_NORMAL);
-				ret = mtk_cam_seninf_s_aov_param(user.sensor_id,
-					(void *)&(start->senif_info), INIT_NORMAL);
+				if (aov_dev->fd_version == 2) {
+					ret = mtk_cam_seninf_s_aov_param(user.sensor_id,
+						(void *)&(start_v2->senif_info), INIT_NORMAL);
+				} else {
+					ret = mtk_cam_seninf_s_aov_param(user.sensor_id,
+						(void *)&(start->senif_info), INIT_NORMAL);
+				}
 				if (ret < 0)
 					dev_info(aov_dev->dev,
 						"mtk_cam_seninf_s_aov_param(%d/%d) fail, ret: %d\n",
@@ -480,20 +513,26 @@ int aov_core_send_cmd(struct mtk_aov *aov_dev, uint32_t cmd,
 					core_info->sensor_id);
 
 				AOV_DEBUG_LOG(*(aov_dev->enable_aov_log_flag),
-					"mtk_aie_aov_memcpy+\n");
-				AOV_TRACE_BEGIN("AOV Copy AIE");
-				mtk_aie_aov_memcpy((void *)&(start->aie_info));
+					"MTK FD COPY, version(%u)+\n", aov_dev->fd_version);
+				AOV_TRACE_BEGIN("AOV Copy FD");
+				if (aov_dev->fd_version == 1)
+					mtk_aie_aov_memcpy((void *)&(start->aie_info));
+				else if (aov_dev->fd_version == 2)
+					mtk_aie_aov_memcpy((void *)&(start_v2->aie_info));
 				AOV_TRACE_END();
 				AOV_DEBUG_LOG(*(aov_dev->enable_aov_log_flag),
-					"mtk_aie_aov_memcpy-\n");
+					"MTK FD COPY, version(%u)-\n", aov_dev->fd_version);
 
 				AOV_DEBUG_LOG(*(aov_dev->enable_aov_log_flag),
-					"mtk_fld_aov_memcpy+\n");
+					"MTK FLD COPY, version(%u)+\n", aov_dev->fd_version);
 				AOV_TRACE_BEGIN("AOV Copy FLD");
-				mtk_fld_aov_memcpy((void *)&(start->fld_info));
+				if (aov_dev->fd_version == 1)
+					mtk_fld_aov_memcpy((void *)&(start->fld_info));
+				else if (aov_dev->fd_version == 2)
+					mtk_fld_aov_memcpy((void *)&(start_v2->fld_info));
 				AOV_TRACE_END();
 				AOV_DEBUG_LOG(*(aov_dev->enable_aov_log_flag),
-					"mtk_fld_aov_memcpy-\n");
+					"MTK FLD COPY, version(%u)-\n", aov_dev->fd_version);
 
 				/* debug use
 				 * dev_info(aov_dev->dev, "out_pad %d\n",
@@ -509,11 +548,15 @@ int aov_core_send_cmd(struct mtk_aov *aov_dev, uint32_t cmd,
 				 * dev_info(aov_dev->dev, "camtg %d\n",
 				 *  start->aov_seninf_param.camtg);
 				 */
-				start->session = user.session;
+				if (aov_dev->fd_version == 2)
+					start_v2->session = user.session;
+				else
+					start->session = user.session;
 
 				atomic_set(&(core_info->aov_session), user.session);
 
-				len = sizeof(struct aov_start);
+				len = (aov_dev->fd_version == 2) ? sizeof(struct aov_start_v2)
+					: sizeof(struct aov_start);
 			} else if (cmd == AOV_SCP_CMD_NOTIFY) {
 				memcpy(buf, (void *)data, sizeof(struct aov_notify));
 			} else {
@@ -553,11 +596,20 @@ int aov_core_send_cmd(struct mtk_aov *aov_dev, uint32_t cmd,
 	}
 
 	if (cmd == AOV_SCP_CMD_START) {
-		struct aov_start *start = (struct aov_start *)buf;
+		if (aov_dev->fd_version == 2) {
+			start_v2 = (struct aov_start_v2 *)buf;
 
-		if (start == NULL) {
-			dev_info(aov_dev->dev, "%s: invalid null aov init info", __func__);
-			return -ENOMEM;
+			if (start_v2 == NULL) {
+				dev_info(aov_dev->dev, "%s: invalid null aov init info", __func__);
+				return -ENOMEM;
+			}
+		} else {
+			start = (struct aov_start *)buf;
+
+			if (start == NULL) {
+				dev_info(aov_dev->dev, "%s: invalid null aov init info", __func__);
+				return -ENOMEM;
+			}
 		}
 
 		// Init event to receive event
@@ -566,23 +618,43 @@ int aov_core_send_cmd(struct mtk_aov *aov_dev, uint32_t cmd,
 		// Init queue to receive event
 		queue_init(&(core_info->queue));
 
-		// Setup frame mode
-		atomic_set(&(core_info->frame_mode), start->frame_mode);
+		if (aov_dev->fd_version == 2) {
+			// Setup frame mode
+			atomic_set(&(core_info->frame_mode), start_v2->frame_mode);
 
-		// Setup debug mode
-		atomic_set(&(core_info->debug_mode), start->debug_mode);
+			// Setup debug mode
+			atomic_set(&(core_info->debug_mode), start_v2->debug_mode);
 
-		// Setup display mode
-		start->disp_mode = atomic_read(&(core_info->disp_mode));
+			// Setup display mode
+			start_v2->disp_mode = atomic_read(&(core_info->disp_mode));
 
-		// Setup aie available
-		start->aie_avail = atomic_read(&(core_info->aie_avail));
+			// Setup aie available
+			start_v2->aie_avail = atomic_read(&(core_info->aie_avail));
 
-		// Setup power mode
-		atomic_set(&(core_info->power_mode), start->power_mode);
+			// Setup power mode
+			atomic_set(&(core_info->power_mode), start_v2->power_mode);
 
-		// Record aov_start buffer
-		core_info->aov_start = start;
+			// Record aov_start buffer
+			core_info->aov_start = start_v2;
+		} else {
+			// Setup frame mode
+			atomic_set(&(core_info->frame_mode), start->frame_mode);
+
+			// Setup debug mode
+			atomic_set(&(core_info->debug_mode), start->debug_mode);
+
+			// Setup display mode
+			start->disp_mode = atomic_read(&(core_info->disp_mode));
+
+			// Setup aie available
+			start->aie_avail = atomic_read(&(core_info->aie_avail));
+
+			// Setup power mode
+			atomic_set(&(core_info->power_mode), start->power_mode);
+
+			// Record aov_start buffer
+			core_info->aov_start = start;
+		}
 
 		atomic_set(&(core_info->aov_ready), 1);
 	} else if (cmd == AOV_SCP_CMD_PWR_OFF) {
@@ -758,10 +830,11 @@ int aov_core_notify(struct mtk_aov *aov_dev,
 static int aov_core_recover(struct mtk_aov *aov_dev)
 {
 	struct aov_core *core_info = &aov_dev->core_info;
-	struct aov_start *start;
 	uint32_t buffer;
 	uint32_t length;
 	int ret;
+	struct aov_start *start = NULL;
+	struct aov_start_v2 *start_v2 = NULL;
 
 	dev_info(aov_dev->dev, "%s+\n", __func__);
 
@@ -776,23 +849,42 @@ static int aov_core_recover(struct mtk_aov *aov_dev)
 		"mtk_cam_seninf_aov_runtime_resume(%d/%d)-\n",
 		core_info->sensor_id, DEINIT_ABNORMAL_SCP_STOP);
 
-	start = core_info->aov_start;
-	if (start) {
-		buffer =
-			core_info->buf_pa + (((uint8_t *)start) - core_info->buf_va);
-		length = sizeof(struct aov_start);
+	if (aov_dev->fd_version == 2) {
+		start_v2 = core_info->aov_start;
+		if (start_v2) {
+			buffer =
+				core_info->buf_pa + (((uint8_t *)start_v2) - core_info->buf_va);
+			length = (aov_dev->fd_version == 2) ? sizeof(struct aov_start_v2) : sizeof(struct aov_start);
+		} else {
+			pm_relax(aov_dev->dev);
+			dev_info(aov_dev->dev, "%s: invalid null aov start_v2 parameter\n",
+				__func__);
+			return -1;
+		}
 	} else {
-		pm_relax(aov_dev->dev);
-		dev_info(aov_dev->dev, "%s: invalid null aov start parameter\n",
-			__func__);
-		return -1;
+		start = core_info->aov_start;
+		if (start) {
+			buffer =
+				core_info->buf_pa + (((uint8_t *)start) - core_info->buf_va);
+			length = (aov_dev->fd_version == 2) ? sizeof(struct aov_start_v2) : sizeof(struct aov_start);
+		} else {
+			pm_relax(aov_dev->dev);
+			dev_info(aov_dev->dev, "%s: invalid null aov start parameter\n",
+				__func__);
+			return -1;
+		}
 	}
 
 	AOV_DEBUG_LOG(*(aov_dev->enable_aov_log_flag),
 		"mtk_cam_seninf_s_aov_param(%d/%d)+\n",
 		core_info->sensor_id, INIT_ABNORMAL_SCP_READY);
-	ret = mtk_cam_seninf_s_aov_param(core_info->sensor_id,
-		(void *)&(start->senif_info), INIT_ABNORMAL_SCP_READY);
+	if (aov_dev->fd_version == 2) {
+		ret = mtk_cam_seninf_s_aov_param(core_info->sensor_id,
+			(void *)&(start_v2->senif_info), INIT_ABNORMAL_SCP_READY);
+	} else {
+		ret = mtk_cam_seninf_s_aov_param(core_info->sensor_id,
+			(void *)&(start->senif_info), INIT_ABNORMAL_SCP_READY);
+	}
 	if (ret < 0)
 		dev_info(aov_dev->dev,
 			"mtk_cam_seninf_s_aov_param(%d/%d) fail, ret: %d\n",
@@ -813,11 +905,19 @@ static int aov_core_recover(struct mtk_aov *aov_dev)
 		"mtk_cam_seninf_aov_runtime_suspend(%d)-\n",
 		core_info->sensor_id);
 
-	// Setup display mode
-	start->disp_mode = atomic_read(&(core_info->disp_mode));
+	if (aov_dev->fd_version == 2) {
+		// Setup display mode
+		start_v2->disp_mode = atomic_read(&(core_info->disp_mode));
 
-	// Setup aie available
-	start->aie_avail = atomic_read(&(core_info->aie_avail));
+		// Setup aie available
+		start_v2->aie_avail = atomic_read(&(core_info->aie_avail));
+	} else {
+		// Setup display mode
+		start->disp_mode = atomic_read(&(core_info->disp_mode));
+
+		// Setup aie available
+		start->aie_avail = atomic_read(&(core_info->aie_avail));
+	}
 
 	ret = send_cmd_internal(core_info, AOV_SCP_CMD_START, buffer,
 		length, false, true);

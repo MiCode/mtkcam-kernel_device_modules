@@ -451,7 +451,7 @@ static int mtk_aov_probe(struct platform_device *pdev)
 	struct device_node *larb_node;
 	struct device_link *link;
 	struct mtk_aov *aov_dev;
-	int ret = 0, num_larbs = 0, i = 0;
+	int ret = 0, num_mae = 0, num_larbs = 0, i = 0;
 
 	dev_info(&pdev->dev, "%s probe aov driver+\n", __func__);
 
@@ -477,13 +477,21 @@ static int mtk_aov_probe(struct platform_device *pdev)
 	aov_dev->bypass_aov_kernel_flag = &bypass_aov_kernel_flag;
 	aov_dev->bypass_aov_scp_flag = &bypass_aov_scp_flag;
 	aov_dev->enable_aov_log_flag = &enable_aov_log_flag;
+	aov_dev->fd_version = 1;
 
 	aov_dev->dev = &pdev->dev;
 
 	if (pdev->dev.of_node) {
 		of_property_read_u32(pdev->dev.of_node, "op-mode", &(aov_dev->op_mode));
-
 		dev_info(&pdev->dev, "%s aov mode(%d)\n", __func__, aov_dev->op_mode);
+
+		// MTK FD Version
+		num_mae = of_count_phandle_with_args(
+						pdev->dev.of_node, "mae", NULL);
+		num_mae = (num_mae < 0) ? 0 : num_mae;
+		if (num_mae > 0)
+			aov_dev->fd_version = 2;
+		dev_info(&pdev->dev, "MTK FD MAE Version:%d\n", aov_dev->fd_version);
 
 		// larb parsing
 		num_larbs = of_count_phandle_with_args(
@@ -545,6 +553,7 @@ static int mtk_aov_probe(struct platform_device *pdev)
 		}
 	} else {
 		aov_dev->op_mode = 0;
+		aov_dev->fd_version = 0;
 		dev_info(&pdev->dev, "%s null of node\n", __func__);
 	}
 

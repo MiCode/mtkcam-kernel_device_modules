@@ -4414,7 +4414,7 @@ static int mtk_cam_job_fill_ipi_config(struct mtk_cam_job *job,
 	struct mtkcam_ipi_input_param *input = &config->input;
 	struct mtkcam_ipi_sv_input_param *sv_input;
 	struct mtkcam_ipi_mraw_input_param *mraw_input;
-	int i;
+	unsigned int i, is_two_smi_out = 0;
 
 	memset(config, 0, sizeof(*config));
 
@@ -4473,11 +4473,9 @@ static int mtk_cam_job_fill_ipi_config(struct mtk_cam_job *job,
 				sv_input->is_last_order_meta_off = (is_dcg_ap_merge(job)) ? 1 : 0;
 				sv_input->input = job->ipi_config.sv_input[0][i].input;
 
-				if (sv_dev->id < MULTI_SMI_SV_HW_NUM)
-					sv_input->is_two_smi_out = 1;
-				else
-					sv_input->is_two_smi_out = 0;
-
+				CALL_PLAT_V4L2(
+					get_sv_smi_setting, sv_dev->id, &is_two_smi_out);
+				sv_input->is_two_smi_out = (is_two_smi_out) ? 1 : 0;
 			}
 		}
 	}

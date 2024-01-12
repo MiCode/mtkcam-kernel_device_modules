@@ -2180,6 +2180,7 @@ static int mtk_camsv_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
 	struct mtk_camsv_device *sv_dev;
+	unsigned int is_two_smi_out = 0;
 	int ret;
 
 	sv_dev = devm_kzalloc(dev, sizeof(*sv_dev), GFP_KERNEL);
@@ -2193,7 +2194,9 @@ static int mtk_camsv_probe(struct platform_device *pdev)
 	if (ret)
 		return ret;
 
-	if (sv_dev->id < MULTI_SMI_SV_HW_NUM) {
+	CALL_PLAT_V4L2(
+		get_sv_smi_setting, sv_dev->id, &is_two_smi_out);
+	if (is_two_smi_out) {
 		ret = mtk_cam_qos_probe(dev, &sv_dev->qos, SMI_PORT_SV_TYPE0_NUM);
 		if (ret)
 			goto UNREGISTER_PM_NOTIFIER;

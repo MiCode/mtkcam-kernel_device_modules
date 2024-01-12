@@ -358,6 +358,17 @@ static int get_sv_max_pixel_mode(unsigned int dev_id,
 	return 0;
 }
 
+static int get_sv_smi_setting(unsigned int dev_id,
+	unsigned int *is_two_smi_out)
+{
+	if (dev_id < MULTI_SMI_SV_HW_NUM)
+		*is_two_smi_out = 1;
+	else
+		*is_two_smi_out = 0;
+
+	return 0;
+}
+
 static int get_single_sv_opp_idx(unsigned int *opp_idx)
 {
 	*opp_idx = 1;
@@ -808,6 +819,7 @@ static const struct plat_v4l2_data mt6991_v4l2_data = {
 	.set_sv_meta_stats_info = set_sv_meta_stats_info,
 	.get_sv_dma_th_setting = get_sv_dma_th_setting,
 	.get_sv_max_pixel_mode = get_sv_max_pixel_mode,
+	.get_sv_smi_setting = get_sv_smi_setting,
 	.get_single_sv_opp_idx = get_single_sv_opp_idx,
 	.get_mraw_dmao_common_setting = get_mraw_dmao_common_setting,
 	.set_mraw_meta_stats_info = set_mraw_meta_stats_info,

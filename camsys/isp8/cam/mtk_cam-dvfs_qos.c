@@ -719,6 +719,7 @@ static int fill_sv_qos(struct mtk_cam_job *job,
 	struct mtkcam_ipi_img_output *in;
 	struct mtk_camsv_device *sv_dev;
 	unsigned int i, x_size, img_h, avg_bw, peak_bw;
+	unsigned int is_two_smi_out = 0;
 
 	if (ctx->hw_sv == NULL)
 		return 0;
@@ -752,8 +753,9 @@ static int fill_sv_qos(struct mtk_cam_job *job,
 				calc_bw(x_size * img_h, linet, sensor_h);
 		}
 
-		/* only first two camsv devices support two smi out */
-		if (sv_dev->id < MULTI_SMI_SV_HW_NUM) {
+		CALL_PLAT_V4L2(
+			get_sv_smi_setting, sv_dev->id, &is_two_smi_out);
+		if (is_two_smi_out) {
 			job->sv_mmqos[SMI_PORT_SV_MDP_WDMA_0].avg_bw +=
 				to_qos_icc_ratio(avg_bw / 2);
 			job->sv_mmqos[SMI_PORT_SV_MDP_WDMA_0].peak_bw +=
@@ -978,6 +980,7 @@ int mtk_cam_apply_qos(struct mtk_cam_job *job)
 	bool apply, is_w_plane;
 	int i, j, port_num;
 	unsigned int fifo_img_p1, fifo_img_p2, fifo_len_p1, fifo_len_p2;
+	unsigned int is_two_smi_out = 0;
 	bool apply_sv_th = false;
 
 	submask = bit_map_subset_of(MAP_HW_RAW, ctx->used_engine);
@@ -1043,10 +1046,10 @@ int mtk_cam_apply_qos(struct mtk_cam_job *job)
 	if (ctx->hw_sv) {
 		sv_dev = dev_get_drvdata(ctx->hw_sv);
 
-		if (sv_dev->id < MULTI_SMI_SV_HW_NUM)
-			port_num = SMI_PORT_SV_TYPE0_NUM;
-		else
-			port_num = SMI_PORT_SV_TYPE1_NUM;
+		CALL_PLAT_V4L2(
+			get_sv_smi_setting, sv_dev->id, &is_two_smi_out);
+		port_num = (is_two_smi_out) ?
+			SMI_PORT_SV_TYPE0_NUM : SMI_PORT_SV_TYPE1_NUM;
 
 		port_num = sv_dev->qos.n_path ? port_num : 0;
 		for (i = 0; i < port_num; i++) {

@@ -173,6 +173,7 @@ struct plat_v4l2_data {
 		unsigned int fifo_img_p2, unsigned int fifo_len_p1, unsigned int fifo_len_p2,
 		struct sv_dma_th_setting *th_setting);
 	int (*get_sv_max_pixel_mode)(unsigned int dev_id, unsigned int *max_pixel_mode);
+	int (*get_sv_smi_setting)(unsigned int dev_id, unsigned int *is_two_smi_out);
 	int (*get_single_sv_opp_idx)(unsigned int *opp_idx);
 	int (*get_mraw_dmao_common_setting)(struct mraw_dma_th_setting *mraw_th_setting,
 		struct mraw_cq_th_setting *mraw_cq_setting);

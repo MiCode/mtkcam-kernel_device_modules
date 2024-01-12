@@ -3018,6 +3018,35 @@ err_power_off:
 			"%s: imgsys_quick_onoff_enable(%d)\n",
 			__func__, imgsys_quick_onoff_enable());
 
+    #if SMVR_DECOUPLE
+    imgsys_dev->imgsys_pipe[0].imgsys_user_count = 0;
+	ret = mtk_hcp_release_gce_working_buffer(imgsys_dev->scp_pdev);
+	if (imgsys_dev->imgsys_pipe[0].capture_alloc != 0) {
+	    ret = mtk_hcp_ioc_release_working_buffer(imgsys_dev->scp_pdev, imgsys_capture);
+	    imgsys_dev->imgsys_pipe[0].capture_alloc = 0;
+	}
+	if (imgsys_dev->imgsys_pipe[0].streaming_alloc != 0) {
+	    ret = mtk_hcp_ioc_release_working_buffer(imgsys_dev->scp_pdev, imgsys_streaming);
+	    imgsys_dev->imgsys_pipe[0].streaming_alloc = 0;
+	}
+	if (imgsys_dev->imgsys_pipe[0].smvr_alloc != 0) {
+	    ret = mtk_hcp_ioc_release_working_buffer(imgsys_dev->scp_pdev, imgsys_smvr);
+	    imgsys_dev->imgsys_pipe[0].smvr_alloc = 0;
+	}
+
+#else
+	ret = mtk_hcp_release_working_buffer(imgsys_dev->scp_pdev);
+#endif
+	if (ret) {
+		dev_info(imgsys_dev->dev,
+			"%s: mtk_hcp_release_working_buffer failed(%d)\n",
+			__func__, ret);
+	}
+    mtk_hcp_purge_msg(imgsys_dev->scp_pdev);
+
+	mutex_destroy(&imgsys_dev->req_fd_cache.lock);
+	work_pool_uninit(&imgsys_dev->gwork_pool);
+	work_pool_uninit(&imgsys_dev->reqfd_cbinfo_pool);
 	mtk_imgsys_mod_put(imgsys_dev);
 
 	user_cnt = atomic_read(&imgsys_dev->imgsys_user_cnt);

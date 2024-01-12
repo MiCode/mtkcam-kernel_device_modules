@@ -234,6 +234,7 @@ struct subdrv_mode_struct {
 
 	/* assign value only if fixed value by mode */
 	u8 sensor_output_dataformat;
+	enum ACDK_SENSOR_OUTPUT_FORMAT_CELL_TYPE sensor_output_dataformat_cell_type;
 	u32 ana_gain_min;
 	u32 ana_gain_max;
 	u32 dig_gain_min;

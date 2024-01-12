@@ -8,6 +8,7 @@
 #include <linux/of_platform.h>
 #include <linux/module.h>
 #include <linux/suspend.h>
+#include <linux/version.h>
 
 #ifdef CONFIG_PM_WAKELOCKS
 #include <linux/pm_wakeup.h>
@@ -374,7 +375,11 @@ static int mtk_aov_probe(struct platform_device *pdev)
 		goto err_add;
 	}
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 4, 0)
+	aov_dev->aov_class = class_create("mtk_aov_driver");
+#else
 	aov_dev->aov_class = class_create(THIS_MODULE, "mtk_aov_driver");
+#endif
 	if (IS_ERR(aov_dev->aov_class) == true) {
 		ret = (int)PTR_ERR(aov_dev->aov_class);
 		dev_info(&pdev->dev, "class create fail  err= %d", ret);

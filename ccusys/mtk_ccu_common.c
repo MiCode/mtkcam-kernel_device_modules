@@ -5,6 +5,7 @@
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/cdev.h>
+#include <linux/version.h>
 
 #include <linux/dma-mapping.h>
 #include <linux/dma-buf.h>
@@ -222,7 +223,11 @@ int mtk_ccu_reg_chardev(struct mtk_ccu *ccu)
 		goto ERR;
 	}
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 4, 0)
+	ccu->ccu_class = class_create("ccurprocdrv");
+#else
 	ccu->ccu_class = class_create(THIS_MODULE, "ccurprocdrv");
+#endif
 	if (IS_ERR(ccu->ccu_class)) {
 		ret = PTR_ERR(ccu->ccu_class);
 		dev_err(dev, "Unable to create class, err = %d\n", ret);

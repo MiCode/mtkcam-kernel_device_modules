@@ -29,6 +29,7 @@
 #include <linux/rpmsg/mtk_ccd_rpmsg.h>
 #include <linux/slab.h>
 #include <linux/uaccess.h>
+#include <linux/version.h>
 
 #include "mtk_cam_ut.h"
 #include "mtk_isp_ut_ioctl.h"
@@ -1070,7 +1071,11 @@ static inline int cam_reg_char_dev(struct mtk_cam_ut *ut)
 		goto EXIT;
 	}
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 4, 0)
+	ut->class = class_create(CAM_DEV_NAME);
+#else
 	ut->class = class_create(THIS_MODULE, CAM_DEV_NAME);
+#endif
 	if (IS_ERR(ut->class)) {
 		ret = PTR_ERR(ut->class);
 		dev_dbg(ut->dev, "Fail to create class, %d\n", ret);

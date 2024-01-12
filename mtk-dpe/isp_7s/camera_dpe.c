@@ -133,6 +133,7 @@
 #include <linux/init.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
+#include <linux/version.h>
 #if IS_ENABLED(CONFIG_COMPAT)
 /* 64 bit */
 #include <linux/compat.h>
@@ -6569,7 +6570,11 @@ if (DPE_dev->irq > 0) {
 #endif
 #endif
 		/* Create class register */
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 4, 0)
+		pDPEClass = class_create("DPEdrv");
+#else
 		pDPEClass = class_create(THIS_MODULE, "DPEdrv");
+#endif
 		if (IS_ERR(pDPEClass)) {
 			Ret = PTR_ERR(pDPEClass);
 			LOG_ERR("Unable to create class, err = %d", Ret);

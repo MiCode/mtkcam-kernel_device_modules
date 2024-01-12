@@ -14,6 +14,7 @@
 #include <linux/platform_device.h>
 #include <linux/uaccess.h>
 #include <linux/string.h>
+#include <linux/version.h>
 
 #include <linux/of.h>
 #include <linux/of_address.h>
@@ -374,7 +375,11 @@ static inline int eeprom_driver_register(struct i2c_client *client,
 	}
 
 	memcpy(pinst->class_name, class_drv_name, DEV_NAME_STR_LEN_MAX);
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 4, 0)
+	pinst->pclass = class_create(pinst->class_name);
+#else
 	pinst->pclass = class_create(THIS_MODULE, pinst->class_name);
+#endif
 	if (IS_ERR(pinst->pclass)) {
 		ret = PTR_ERR(pinst->pclass);
 

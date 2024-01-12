@@ -35,6 +35,7 @@
 #include <linux/slab.h>
 #include <linux/string.h>
 #include <linux/module.h>
+#include <linux/version.h>
 
 #include <aee.h>
 
@@ -2469,7 +2470,11 @@ static int mtk_hcp_probe(struct platform_device *pdev)
 		goto err_add;
 	}
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 4, 0)
+	hcp_dev->hcp_class = class_create("mtk_hcp_driver");
+#else
 	hcp_dev->hcp_class = class_create(THIS_MODULE, "mtk_hcp_driver");
+#endif
 	if (IS_ERR(hcp_dev->hcp_class) == true) {
 		ret = (int)PTR_ERR(hcp_dev->hcp_class);
 		dev_info(&pdev->dev, "class create fail  err= %d", ret);

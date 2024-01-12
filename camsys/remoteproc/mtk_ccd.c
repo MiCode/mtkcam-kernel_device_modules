@@ -11,6 +11,7 @@
 #include <linux/remoteproc/mtk_ccd_mem.h>
 #include <linux/rpmsg/mtk_ccd_rpmsg.h>
 #include <uapi/linux/mtk_ccd_controls.h>
+#include <linux/version.h>
 
 #include "remoteproc_internal.h"
 #include "iommu_debug.h"
@@ -319,7 +320,11 @@ static int ccd_regcdev(struct mtk_ccd *ccd)
 	}
 
 	/* Create class register */
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 4, 0)
+	ccd->ccd_class = class_create("mtk_ccd");
+#else
 	ccd->ccd_class = class_create(THIS_MODULE, "mtk_ccd");
+#endif
 	if (IS_ERR(ccd->ccd_class)) {
 		ret = PTR_ERR(ccd->ccd_class);
 		pr_debug("Unable to create class, err = %d\n", ret);

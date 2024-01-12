@@ -583,6 +583,7 @@ static struct mtk_mbus_frame_desc_entry frame_desc_cus13[] = {
 			.user_data_desc = VC_PDAF_STATS_NE_PIX_1,
 		},
 	},
+/* not support */
 	// {
 	// 	.bus.csi2 = {
 	// 		.channel = 1,
@@ -590,7 +591,7 @@ static struct mtk_mbus_frame_desc_entry frame_desc_cus13[] = {
 	// 		.hsize = 0x0cd0,
 	// 		.vsize = 0x0267,
 	// 		.dt_remap_to_type = MTK_MBUS_FRAME_DESC_REMAP_TO_RAW10,
-	// 		.user_data_desc = VC_PDAF_STATS_NE_PIX_1,
+	// 		.user_data_desc = VC_PDAF_STATS_ME_PIX_1,
 	// 	},
 	// },
 };
@@ -619,7 +620,7 @@ static struct mtk_mbus_frame_desc_entry frame_desc_cus14[] = {
 			.data_type = 0x2b,
 			.hsize = 0x0ce0,
 			.vsize = 0x099c,
-			.user_data_desc = VC_STAGGER_ME,
+			.user_data_desc = VC_STAGGER_SE,
 		},
 	},
 	{
@@ -639,7 +640,7 @@ static struct mtk_mbus_frame_desc_entry frame_desc_cus14[] = {
 			.hsize = 0x0ce0,
 			.vsize = 0x0267,
 			.dt_remap_to_type = MTK_MBUS_FRAME_DESC_REMAP_TO_RAW10,
-			.user_data_desc = VC_PDAF_STATS_NE_PIX_1,
+			.user_data_desc = VC_PDAF_STATS_ME_PIX_1,
 		},
 	},
 // MRAW not support; HW number not enough

@@ -102,6 +102,7 @@ struct aie_data {
 	bool larb_clk_ready;
 	struct aie_reg_map *reg_map;
 	unsigned int reg_map_num;
+	bool is_cmdq_polling;
 };
 
 static struct clk_bulk_data ipesys_isp7s_aie_clks[] = {
@@ -153,6 +154,7 @@ static struct aie_data data_isp7s = {
 	.larb_clk_ready = true,
 	.reg_map = NULL,
 	.reg_map_num = 0,
+	.is_cmdq_polling = false,
 };
 
 static struct aie_data data_isp7sp = {
@@ -162,6 +164,7 @@ static struct aie_data data_isp7sp = {
 	.larb_clk_ready = true,
 	.reg_map = isp7sp_aie_reg_map,
 	.reg_map_num = ARRAY_SIZE(isp7sp_aie_reg_map),
+	.is_cmdq_polling = false,
 };
 
 static struct aie_data data_isp7sp_1 = {
@@ -171,6 +174,7 @@ static struct aie_data data_isp7sp_1 = {
 	.larb_clk_ready = true,
 	.reg_map = isp7sp_aie_reg_map,
 	.reg_map_num = ARRAY_SIZE(isp7sp_aie_reg_map),
+	.is_cmdq_polling = true,
 };
 
 void aie_get_time(long long *tv, unsigned int idx)
@@ -1742,6 +1746,7 @@ static int mtk_aie_probe(struct platform_device *pdev)
 	fd->drv_ops = data->drv_ops;
 	fd->larb_clk_ready = data->larb_clk_ready;
 	fd->reg_map_num = data->reg_map_num;
+	fd->is_cmdq_polling = data->is_cmdq_polling;
 	reg_map = data->reg_map;
 
 	if (dma_set_mask_and_coherent(dev, DMA_BIT_MASK(34)))

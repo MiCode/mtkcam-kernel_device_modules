@@ -3520,7 +3520,13 @@ static void config_aie_cmdq_hw(struct mtk_aie_dev *fd, struct aie_enq_info *aie_
 
 		cmdq_pkt_write(pkt, NULL, FDVT_START_HW, 0x1, CMDQ_REG_MASK);
 
-		cmdq_pkt_wfe(pkt, fd->fdvt_event_id);
+		if (fd->is_cmdq_polling)
+			cmdq_pkt_poll_timeout(pkt, 0x1, SUBSYS_NO_SUPPORT,
+				FDVT_INT_HW, 0x1, AIE_POLL_TIME_INFINI,
+				CMDQ_GPR_R03 + CMDQ_GPR_R03_IDX);
+		else
+			cmdq_pkt_wfe(pkt, fd->fdvt_event_id);
+
 		/*cmdqRecWait(handle, CMDQ_EVENT_IPE_EVENT_TX_FRAME_DONE_0);*/
 		cmdq_pkt_write(pkt, NULL, FDVT_START_HW, 0x0, CMDQ_REG_MASK);
 
@@ -3542,7 +3548,12 @@ static void config_aie_cmdq_hw(struct mtk_aie_dev *fd, struct aie_enq_info *aie_
 
 		cmdq_pkt_write(pkt, NULL, FDVT_START_HW, 0x1, CMDQ_REG_MASK);
 
-		cmdq_pkt_wfe(pkt, fd->fdvt_event_id);
+		if (fd->is_cmdq_polling)
+			cmdq_pkt_poll_timeout(pkt, 0x1, SUBSYS_NO_SUPPORT,
+				FDVT_INT_HW, 0x1, AIE_POLL_TIME_INFINI,
+				CMDQ_GPR_R03 + CMDQ_GPR_R03_IDX);
+		else
+			cmdq_pkt_wfe(pkt, fd->fdvt_event_id);
 		/*cmdqRecWait(handle, CMDQ_EVENT_IPE_EVENT_TX_FRAME_DONE_0);*/
 		cmdq_pkt_write(pkt, NULL, FDVT_START_HW, 0x0, CMDQ_REG_MASK);
 
@@ -3577,7 +3588,12 @@ static void config_aie_cmdq_hw(struct mtk_aie_dev *fd, struct aie_enq_info *aie_
 		/*fld mode + trigger start*/
 		cmdq_pkt_write(pkt, NULL, FDVT_BASE_HW + AIE_START_REG, 0x11, CMDQ_REG_MASK);
 
-		cmdq_pkt_wfe(pkt, fd->fdvt_event_id);
+		if (fd->is_cmdq_polling)
+			cmdq_pkt_poll_timeout(pkt, 0x1, SUBSYS_NO_SUPPORT,
+				FDVT_INT_HW, 0x1, AIE_POLL_TIME_INFINI,
+				CMDQ_GPR_R03 + CMDQ_GPR_R03_IDX);
+		else
+			cmdq_pkt_wfe(pkt, fd->fdvt_event_id);
 		/*cmdqRecWait(handle, CMDQ_EVENT_IPE_EVENT_TX_FRAME_DONE_0);*/
 		cmdq_pkt_write(pkt, NULL, FDVT_START_HW, 0x0, CMDQ_REG_MASK);
 	}
@@ -3591,6 +3607,7 @@ static void config_aie_cmdq_hw(struct mtk_aie_dev *fd, struct aie_enq_info *aie_
 	cmdq_pkt_destroy(pkt);
 }
 #endif
+
 static void aie_execute(struct mtk_aie_dev *fd, struct aie_enq_info *aie_cfg)
 {
 #ifndef FDVT_USE_GCE

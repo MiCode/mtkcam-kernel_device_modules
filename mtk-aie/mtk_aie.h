@@ -241,6 +241,9 @@ do {								\
 
 #define MAX_DEBUG_TIMEVAL 7
 
+/* 780ms */
+#define AIE_POLL_TIME_INFINI	(0xFFFF)
+
 extern struct mtk_aie_user_para g_user_param;
 
 struct aie_reg_map {
@@ -736,6 +739,7 @@ struct mtk_aie_dev {
 
 	/* time for debug */
 	long long tv[MAX_DEBUG_TIMEVAL];
+	bool is_cmdq_polling;
 };
 
 struct mtk_aie_ctx {

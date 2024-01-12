@@ -5,6 +5,8 @@
 #ifndef __MTK_AIE_REG_7SP_H__
 #define __MTK_AIE_REG_7SP_H__
 
+#define CMDQ_GPR_R03_IDX 11
+
 /* AIE 3.0 register offset */
 #define AIE_START_REG					0x000
 #define AIE_ENABLE_REG					0x004

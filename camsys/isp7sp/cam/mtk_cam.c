@@ -817,12 +817,16 @@ static int mtk_cam_req_collect_vb_bufs(struct mtk_cam_request *req,
 }
 
 static void mark_each_buffer_done(struct list_head *done_list,
-				  int buf_state, u64 ts)
+				  int buf_state, u64 ts_boot, u64 ts_mono)
 {
 	struct mtk_cam_buffer *buf, *buf_next;
 
 	list_for_each_entry_safe(buf, buf_next, done_list, list) {
-		buf->vbb.vb2_buf.timestamp = ts;
+		if (buf->vbb.vb2_buf.vb2_queue->timestamp_flags &
+		    V4L2_BUF_FLAG_TIMESTAMP_MONOTONIC)
+			buf->vbb.vb2_buf.timestamp = ts_mono;
+		else
+			buf->vbb.vb2_buf.timestamp = ts_boot;
 		vb2_buffer_done(&buf->vbb.vb2_buf, buf_state);
 	}
 }
@@ -876,7 +880,8 @@ void mtk_cam_req_buffer_done(struct mtk_cam_job *job,
 		remove_from_running_list(dev_get_drvdata(dev), req);
 	}
 
-	mark_each_buffer_done(&done_list, buf_state, job->timestamp);
+	mark_each_buffer_done(&done_list, buf_state,
+			      job->timestamp, job->timestamp_mono);
 
 	if (is_buf_empty)
 		mtk_cam_req_dump_incomplete_ctrl(req);

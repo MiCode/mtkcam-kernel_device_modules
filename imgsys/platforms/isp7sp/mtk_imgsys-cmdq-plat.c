@@ -934,6 +934,7 @@ void imgsys_cmdq_task_cb_plat7sp(struct cmdq_cb_data data)
 	u64 event_diff = 0;
 	u32 event_val = 0L;
 	bool isHWhang = 0;
+	bool isQOFhang = 0;
 #ifdef IMGSYS_ME_CHECK_FUNC_EN
 	u32 me_done_reg = 0;
 	u32 me_check_reg[4] = {0};
@@ -1198,6 +1199,14 @@ void imgsys_cmdq_task_cb_plat7sp(struct cmdq_cb_data data)
 					event_hist[event_sft].wait.frm_no,
 					event_hist[event_sft].wait.ts);
 
+		} else if ((event >= IMGSYS_CMDQ_QOF_EVENT_BEGIN) &&
+			(event <= IMGSYS_CMDQ_QOF_EVENT_END)) {
+			isQOFhang = 1;
+			pr_info(
+				"%s: [ERROR] QOF event timeout! wfe(%d) event(%d) isQOF(%d)",
+				__func__,
+				cb_param->pkt->err_data.wfe_timeout,
+				cb_param->pkt->err_data.event, isQOFhang);
 		} else if ((event >= IMGSYS_CMDQ_GPR_EVENT_BEGIN) &&
 			(event <= IMGSYS_CMDQ_GPR_EVENT_END)) {
 			isHWhang = 1;
@@ -1241,9 +1250,9 @@ void imgsys_cmdq_task_cb_plat7sp(struct cmdq_cb_data data)
 			}
 		}
 
-		if (isHWhang && mtk_imgsys_cmdq_qof_get_pwr_status(ISP7SP_ISP_TRAW))
+		if ((isHWhang | isQOFhang) && mtk_imgsys_cmdq_qof_get_pwr_status(ISP7SP_ISP_TRAW))
 			mtk_smi_dbg_dump_for_isp_fast(IMGSYS_SMIDUMP_QOF_TRAW);
-		if (isHWhang && mtk_imgsys_cmdq_qof_get_pwr_status(ISP7SP_ISP_DIP))
+		if ((isHWhang | isQOFhang) && mtk_imgsys_cmdq_qof_get_pwr_status(ISP7SP_ISP_DIP))
 			mtk_smi_dbg_dump_for_isp_fast(IMGSYS_SMIDUMP_QOF_DIP);
 	}
 	cb_param->cmdqTs.tsCmdqCbEnd = ktime_get_boottime_ns()/1000;
@@ -1485,6 +1494,14 @@ int imgsys_cmdq_task_aee_cb_plat7sp(struct cmdq_cb_data data)
 			event_hist[event_sft].wait.req_no,
 			event_hist[event_sft].wait.frm_no,
 			event_hist[event_sft].wait.ts);
+	} else if ((event >= IMGSYS_CMDQ_QOF_EVENT_BEGIN) &&
+		(event <= IMGSYS_CMDQ_QOF_EVENT_END)) {
+		ret = CMDQ_NO_AEE;
+		pr_info(
+			"%s: [ERROR] QOF event timeout! wfe(%d) event(%d)",
+			__func__,
+			cb_param->pkt->err_data.wfe_timeout,
+			cb_param->pkt->err_data.event);
 	} else if ((event >= IMGSYS_CMDQ_GPR_EVENT_BEGIN) &&
 		(event <= IMGSYS_CMDQ_GPR_EVENT_END)) {
 		isHWhang = 1;

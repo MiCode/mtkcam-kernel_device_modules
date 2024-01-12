@@ -741,7 +741,17 @@ handle_sv_frame_done(struct mtk_cam_job *job)
 				true);
 		}
 	}
+	if (is_extisp(job)) {
+		for (i = MTKCAM_SUBDEV_RAW_START; i < MTKCAM_SUBDEV_RAW_END; i++) {
+			if (used_pipe & (1 << i)) {
+				job->timestamp = job->job_state.extisp_data_timestamp[EXTISP_DATA_PD];
+				mtk_cam_req_buffer_done(job, i, MTK_RAW_META_SV_OUT_0,
+						is_normal ? VB2_BUF_STATE_DONE :
+					    VB2_BUF_STATE_ERROR, true);
 
+			}
+		}
+	}
 	return 0;
 }
 
@@ -2466,6 +2476,9 @@ _job_pack_extisp(struct mtk_cam_job *job,
 	ctx->configured = (ctx->configured && !seamless_config_changed(job));
 	job->do_ipi_config = false;
 	job->extisp_data = ctx->cam_ctrl.r_info.extisp_enable;
+	job->job_state.extisp_data_timestamp[EXTISP_DATA_PD] = 0;
+	job->job_state.extisp_data_timestamp[EXTISP_DATA_META] = 0;
+	job->job_state.extisp_data_timestamp[EXTISP_DATA_PROCRAW] = 0;
 	if (!ctx->configured) {
 		job->extisp_data = 0x0;
 		get_extisp_meta_info(job, PAD_SRC_GENERAL0);
@@ -3221,18 +3234,23 @@ static void extisp_on_transit(struct mtk_cam_job_state *s, int state_type,
 			break;
 		case S_ISP_APPLYING_PROCRAW:
 			if (s->tg_cnt != info->extisp_tg_cnt[EXTISP_DATA_PROCRAW])
-				pr_info("[%s] tg_cnt mismatched %d/%d", __func__,
+				pr_info("[%s] tg_cnt mismatched %d/%d\n", __func__,
 					s->tg_cnt, info->extisp_tg_cnt[EXTISP_DATA_PROCRAW]);
 			break;
 		case S_ISP_OUTER_PROCRAW:
 			complete(&job->cq_exe_completion);
 			break;
 
-		case S_ISP_PROCESSING:
-			if (old_state != S_ISP_PROCESSING) {
-				job->timestamp = info->sof_ts_ns;
+		case S_ISP_PROCESSING_PROCRAW:
+			if (old_state != S_ISP_PROCESSING_PROCRAW) {
+				job->timestamp = info->sof_l_ts_ns;
 				job->timestamp_mono = ktime_get_ns(); /* FIXME */
 				fill_hdr_timestamp(job, info);
+				pr_info("[%s] job:%d, timestamp %lld/%lld/%lld\n", __func__,
+					s->seq_no,
+					job->job_state.extisp_data_timestamp[EXTISP_DATA_PD],
+					job->job_state.extisp_data_timestamp[EXTISP_DATA_META],
+					job->job_state.extisp_data_timestamp[EXTISP_DATA_PROCRAW]);
 			}
 			break;
 		}

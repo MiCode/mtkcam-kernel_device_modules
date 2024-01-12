@@ -30,6 +30,40 @@ static int guard_apply_extisp_procraw(struct state_accessor *s_acc,
 		current_sensor_ready(s_acc) &&
 		tg_cnt_proc_check(s_acc, p);
 }
+static int guard_get_f_vsync_timestamp(struct state_accessor *s_acc,
+					struct transition_param *p)
+{
+	if (s_acc->s->extisp_data_timestamp[EXTISP_DATA_PD] == 0) {
+		s_acc->s->extisp_data_timestamp[EXTISP_DATA_PD] = p->info->sof_ts_ns;
+		pr_info("%s:#%d %lld", __func__, s_acc->seq_no,
+			s_acc->s->extisp_data_timestamp[EXTISP_DATA_PD]);
+	}
+
+	return false;
+}
+static int guard_get_extmeta_sof_timestamp(struct state_accessor *s_acc,
+					struct transition_param *p)
+{
+	if (s_acc->s->extisp_data_timestamp[EXTISP_DATA_META] == 0) {
+		s_acc->s->extisp_data_timestamp[EXTISP_DATA_META] = p->info->sof_ts_ns;
+		pr_info("%s:#%d %lld", __func__, s_acc->seq_no,
+			s_acc->s->extisp_data_timestamp[EXTISP_DATA_META]);
+	}
+
+	return false;
+}
+static int guard_get_l_sof_timestamp_inner_eq(struct state_accessor *s_acc,
+				 struct transition_param *p)
+{
+	if (s_acc->s->extisp_data_timestamp[EXTISP_DATA_PROCRAW] == 0) {
+		s_acc->s->extisp_data_timestamp[EXTISP_DATA_PROCRAW] = p->info->sof_l_ts_ns;
+		pr_info("%s:#%d %lld", __func__, s_acc->seq_no,
+			s_acc->s->extisp_data_timestamp[EXTISP_DATA_PROCRAW]);
+	}
+
+	return p->info->inner_seq_no == cur_seq_no(s_acc);
+}
+
 
 static struct state_transition STATE_TRANS(extisp_sensor, S_SENSOR_NOT_SET)[] = {
 	{
@@ -89,6 +123,16 @@ static struct state_transition STATE_TRANS(extisp, S_ISP_OUTER)[] = {
 		S_ISP_APPLYING_PROCRAW, CAMSYS_EVENT_IRQ_L_SOF,
 		guard_apply_extisp_procraw, ACTION_APPLY_ISP_PROCRAW_EXTISP
 	},
+	/* only handle timestamp */
+	{
+		S_ISP_OUTER, CAMSYS_EVENT_IRQ_F_VSYNC,
+		guard_get_f_vsync_timestamp, 0
+	},
+	/* only handle timestamp */
+	{
+		S_ISP_OUTER, CAMSYS_EVENT_IRQ_EXTMETA_SOF,
+		guard_get_extmeta_sof_timestamp, 0
+	},
 };
 
 static struct state_transition STATE_TRANS(extisp, S_ISP_APPLYING_PROCRAW)[] = {
@@ -96,12 +140,32 @@ static struct state_transition STATE_TRANS(extisp, S_ISP_APPLYING_PROCRAW)[] = {
 		S_ISP_OUTER_PROCRAW, CAMSYS_EVENT_IRQ_L_CQ_DONE,
 		guard_outer_eq, 0
 	},
+	/* only handle timestamp */
+	{
+		S_ISP_APPLYING_PROCRAW, CAMSYS_EVENT_IRQ_F_VSYNC,
+		guard_get_f_vsync_timestamp, 0
+	},
+	/* only handle timestamp */
+	{
+		S_ISP_APPLYING_PROCRAW, CAMSYS_EVENT_IRQ_EXTMETA_SOF,
+		guard_get_extmeta_sof_timestamp, 0
+	},
 };
 
 static struct state_transition STATE_TRANS(extisp, S_ISP_OUTER_PROCRAW)[] = {
 	{
 		S_ISP_PROCESSING_PROCRAW, CAMSYS_EVENT_IRQ_L_SOF,
-		guard_inner_eq, 0
+		guard_get_l_sof_timestamp_inner_eq, 0
+	},
+	/* only handle timestamp */
+	{
+		S_ISP_OUTER_PROCRAW, CAMSYS_EVENT_IRQ_F_VSYNC,
+		guard_get_f_vsync_timestamp, 0
+	},
+	/* only handle timestamp */
+	{
+		S_ISP_OUTER_PROCRAW, CAMSYS_EVENT_IRQ_EXTMETA_SOF,
+		guard_get_extmeta_sof_timestamp, 0
 	},
 };
 
@@ -113,6 +177,16 @@ static struct state_transition STATE_TRANS(extisp, S_ISP_PROCESSING_PROCRAW)[] =
 	{
 		S_ISP_PROCESSING_PROCRAW, CAMSYS_EVENT_IRQ_EXTMETA_FRAME_DONE,
 		guard_inner_eq, ACTION_BUFFER_EXTMETA_PD_DONE
+	},
+	/* only handle timestamp */
+	{
+		S_ISP_PROCESSING_PROCRAW, CAMSYS_EVENT_IRQ_F_VSYNC,
+		guard_get_f_vsync_timestamp, 0
+	},
+	/* only handle timestamp */
+	{
+		S_ISP_PROCESSING_PROCRAW, CAMSYS_EVENT_IRQ_EXTMETA_SOF,
+		guard_get_extmeta_sof_timestamp, 0
 	},
 };
 

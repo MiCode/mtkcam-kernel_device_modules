@@ -16,12 +16,12 @@
 #include "c2ps_sysfs.h"
 
 enum C2PS_NOTIFIER_PUSH_TYPE {
-	C2PS_NOTIFIER_INIT			= 0x00,
-	C2PS_NOTIFIER_UNINIT		= 0x01,
-	C2PS_NOTIFIER_ADD_TASK		= 0x02,
-	C2PS_NOTIFIER_TASK_START	= 0x03,
-	C2PS_NOTIFIER_TASK_END		= 0x04,
-	C2PS_NOTIFIER_SCENE_CHANGE	= 0x05,
+	C2PS_NOTIFIER_INIT          = 0x00,
+	C2PS_NOTIFIER_UNINIT        = 0x01,
+	C2PS_NOTIFIER_ADD_TASK      = 0x02,
+	C2PS_NOTIFIER_TASK_START    = 0x03,
+	C2PS_NOTIFIER_TASK_END      = 0x04,
+	C2PS_NOTIFIER_SCENE_CHANGE  = 0x05,
 	C2PS_NOTIFIER_CAMFPS        = 0x06,
 	C2PS_NOTIFIER_VSYNC         = 0x07,
 };
@@ -96,7 +96,7 @@ static void c2ps_notifier_wq_cb_uninit(void)
 	exit_c2ps_common();
 	del_timer_sync(&self_uninit_timer);
 	set_wl_type_manual(-1);
-	set_rt_aggre_preempt(1);
+	// set_rt_aggre_preempt(1);
 }
 
 static void c2ps_notifier_wq_cb_add_task(
@@ -337,7 +337,7 @@ int c2ps_notify_init(
 	set_gear_uclamp_max(0, max_uclamp_cluster0);
 	set_gear_uclamp_max(1, max_uclamp_cluster1);
 	set_gear_uclamp_max(2, max_uclamp_cluster2);
-	set_rt_aggre_preempt(0);
+	// set_rt_aggre_preempt(0);
 
 	// enable sugov curr_uclamp feature
 	set_curr_uclamp_ctrl(1);
@@ -396,7 +396,7 @@ out:
 }
 
 int c2ps_notify_add_task(
-    u32 task_id, u32 task_target_time, u32 default_uclamp,
+	u32 task_id, u32 task_target_time, u32 default_uclamp,
 	int group_head, u32 task_group_target_time,
 	bool is_vip_task, bool is_dynamic_tid,
 	const char *task_name)

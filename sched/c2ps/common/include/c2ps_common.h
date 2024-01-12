@@ -175,7 +175,7 @@ extern unsigned long pd_get_util_freq(int cpu, unsigned long util);
 extern unsigned int get_nr_gears(void);
 extern void set_wl_type_manual(int val);
 extern int get_nr_wl_type(void);
-extern void set_rt_aggre_preempt(int val);
+// extern void set_rt_aggre_preempt(int val);
 extern unsigned int get_adaptive_margin(int cpu);
 
 #endif  // C2PS_COMMON_INCLUDE_C2PS_COMMON_H_

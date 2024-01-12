@@ -37,9 +37,13 @@ struct wakeup_source *aov_wake_lock;
 struct wake_lock aov_wake_lock;
 #endif
 
-static uint32_t enable_aov_ut_flag;
-module_param(enable_aov_ut_flag, uint, 0644);
-MODULE_PARM_DESC(enable_aov_ut_flag, "enable aov ut flag");
+static uint32_t bypass_aov_kernel_flag;
+module_param(bypass_aov_kernel_flag, uint, 0644);
+MODULE_PARM_DESC(bypass_aov_kernel_flag, "bypass aov kernel flag");
+
+static uint32_t bypass_aov_scp_flag;
+module_param(bypass_aov_scp_flag, uint, 0644);
+MODULE_PARM_DESC(bypass_aov_scp_flag, "bypass aov scp flag");
 
 static uint32_t enable_aov_log_flag;
 module_param(enable_aov_log_flag, uint, 0644);
@@ -140,6 +144,10 @@ static long mtk_aov_ioctl(struct file *file, unsigned int cmd,
 
 	switch (cmd) {
 	case AOV_DEV_START: {
+		if (*(aov_dev->bypass_aov_kernel_flag)) {
+			dev_info(aov_dev->dev, "skip flow below AOV kernel!\n");
+			break;
+		}
 		dev_info(aov_dev->dev, "AOV start+\n");
 		vmm_isp_ctrl_notify(1);
 		mtk_mmdvfs_aov_enable(1);
@@ -205,6 +213,10 @@ static long mtk_aov_ioctl(struct file *file, unsigned int cmd,
 		AOV_DEBUG_LOG(*(aov_dev->enable_aov_log_flag), "AOV dqevent(%d)-\n", ret);
 		break;
 	case AOV_DEV_STOP:
+		if (*(aov_dev->bypass_aov_kernel_flag)) {
+			dev_info(aov_dev->dev, "skip flow below AOV kernel!\n");
+			break;
+		}
 		dev_info(aov_dev->dev, "AOV stop+\n");
 
 		AOV_TRACE_FORCE_BEGIN("AOV stop");
@@ -229,14 +241,24 @@ static long mtk_aov_ioctl(struct file *file, unsigned int cmd,
 		dev_info(aov_dev->dev, "AOV stop-(%d)\n", ret);
 		break;
 	case AOV_DEV_QEA:
-		AOV_DEBUG_LOG(*(aov_dev->enable_aov_log_flag), "AOV QEA start\n");
+		AOV_DEBUG_LOG(*(aov_dev->enable_aov_log_flag), "trigger AOV QEA\n");
 		ret = aov_core_send_cmd(aov_dev, AOV_SCP_CMD_QEA, NULL, 0, false);
 		AOV_DEBUG_LOG(*(aov_dev->enable_aov_log_flag), "AOV QEA done, ret(%d)\n", ret);
 		break;
 	case AOV_DEV_PWR_UT:
-		AOV_DEBUG_LOG(*(aov_dev->enable_aov_log_flag), "trigger AOV Power UT\n");
+		AOV_DEBUG_LOG(*(aov_dev->enable_aov_log_flag), "trigger AOV power UT\n");
 		ret = aov_core_send_cmd(aov_dev, AOV_SCP_CMD_PWR_UT, NULL, 0, false);
-		AOV_DEBUG_LOG(*(aov_dev->enable_aov_log_flag), "trigger AOV QEA done, ret(%d)\n", ret);
+		AOV_DEBUG_LOG(*(aov_dev->enable_aov_log_flag), "AOV power UT done, ret(%d)\n", ret);
+		break;
+	case AOV_DEV_DISP_ON_UT:
+		AOV_DEBUG_LOG(*(aov_dev->enable_aov_log_flag), "trigger disp on resource test\n");
+		ret = aov_core_send_cmd(aov_dev, AOV_SCP_CMD_ON_UT, NULL, 0, false);
+		AOV_DEBUG_LOG(*(aov_dev->enable_aov_log_flag), "disp on resource test done, ret(%d)\n", ret);
+		break;
+	case AOV_DEV_DISP_OFF_UT:
+		AOV_DEBUG_LOG(*(aov_dev->enable_aov_log_flag), "trigger disp off resource test\n");
+		ret = aov_core_send_cmd(aov_dev, AOV_SCP_CMD_OFF_UT, NULL, 0, false);
+		AOV_DEBUG_LOG(*(aov_dev->enable_aov_log_flag), "disp off resource test done, ret(%d)\n", ret);
 		break;
 	default:
 		dev_info(aov_dev->dev, "unknown AOV control code(%d)\n", cmd);
@@ -338,7 +360,8 @@ static int mtk_aov_probe(struct platform_device *pdev)
 
 	aov_dev->is_open = false;
 	aov_dev->user_cnt = 0;
-	aov_dev->enable_aov_ut_flag = &enable_aov_ut_flag;
+	aov_dev->bypass_aov_kernel_flag = &bypass_aov_kernel_flag;
+	aov_dev->bypass_aov_scp_flag = &bypass_aov_scp_flag;
 	aov_dev->enable_aov_log_flag = &enable_aov_log_flag;
 
 	aov_dev->dev = &pdev->dev;

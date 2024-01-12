@@ -312,10 +312,10 @@ static int ipi_receive(unsigned int id, void *unused,
 			atomic_set(&(core_info->ack_cmd[cmd]), 1);
 			wake_up_interruptible(&core_info->ack_wq[cmd]);
 		}
-	} else if (packet->command == AOV_SCP_CMD_AIE_HANG) {
-		dev_info(aov_dev->dev, "%s: receive AIE HANG signal from SCP\n", __func__);
+	} else if (packet->command == AOV_SCP_CMD_SMI_DUMP) {
+		dev_info(aov_dev->dev, "%s: receive SMI DUMP signal from SCP\n", __func__);
 		atomic_set(&(core_info->do_smi_dump), 1);
-		wake_up_interruptible(&core_info->aie_smi_wq);
+		wake_up_interruptible(&core_info->smi_dump_wq);
 	} else if (packet->command == AOV_SCP_CMD_RESET_SENSOR) {
 		dev_info(aov_dev->dev, "%s: receive reset sensor signal from SCP\n", __func__);
 		atomic_set(&(core_info->do_reset_sensor), 1);
@@ -587,18 +587,8 @@ int aov_core_send_cmd(struct mtk_aov *aov_dev, uint32_t cmd,
 		atomic_set(&(core_info->aov_ready), 1);
 	} else if (cmd == AOV_SCP_CMD_PWR_OFF) {
 		atomic_set(&(core_info->disp_mode), AOV_DISP_MODE_OFF);
-		if (*(aov_dev->enable_aov_ut_flag)) {
-			vmm_isp_ctrl_notify(1);
-			mtk_mmdvfs_aov_enable(1);
-			send_cmd_internal(core_info, AOV_SCP_CMD_OFF_UT, 0, 0, false, true);
-		}
 	} else if (cmd == AOV_SCP_CMD_PWR_ON) {
 		atomic_set(&(core_info->disp_mode), AOV_DiSP_MODE_ON);
-		if (*(aov_dev->enable_aov_ut_flag)) {
-			vmm_isp_ctrl_notify(1);
-			mtk_mmdvfs_aov_enable(1);
-			send_cmd_internal(core_info, AOV_SCP_CMD_ON_UT, 0, 0, false, true);
-		}
 	} else if (cmd == AOV_SCP_CMD_NOTIFY) {
 		struct aov_notify *notify = (struct aov_notify *)buf;
 
@@ -618,6 +608,14 @@ int aov_core_send_cmd(struct mtk_aov *aov_dev, uint32_t cmd,
 		vmm_isp_ctrl_notify(1);
 		mtk_mmdvfs_aov_enable(1);
 		send_cmd_internal(core_info, cmd, 0, 0, false, false);
+	} else if (cmd == AOV_SCP_CMD_ON_UT) {
+		vmm_isp_ctrl_notify(1);
+		mtk_mmdvfs_aov_enable(1);
+		send_cmd_internal(core_info, cmd, 0, 0, false, false);
+	} else if (cmd == AOV_SCP_CMD_OFF_UT) {
+		vmm_isp_ctrl_notify(1);
+		mtk_mmdvfs_aov_enable(1);
+		send_cmd_internal(core_info, cmd, 0, 0, false, false);
 	}
 
 	if (atomic_read(&(core_info->aov_ready))) {
@@ -628,8 +626,11 @@ int aov_core_send_cmd(struct mtk_aov *aov_dev, uint32_t cmd,
 			buffer = 0;
 			length = 0;
 		}
-
-		(void)send_cmd_internal(core_info, cmd, buffer, length, true, ack);
+		if (*(aov_dev->bypass_aov_scp_flag)) {
+			dev_info(aov_dev->dev, "skip flow below AOV SCP!\n");
+		} else {
+			(void)send_cmd_internal(core_info, cmd, buffer, length, true, ack);
+		}
 	} else {
 		AOV_DEBUG_LOG(*(aov_dev->enable_aov_log_flag),
 			"%s: aov is not started(%d)\n",
@@ -1004,11 +1005,11 @@ int aov_core_init(struct mtk_aov *aov_dev)
 	atomic_set(&(core_info->disp_mode), AOV_DiSP_MODE_ON);
 	atomic_set(&(core_info->aie_avail), 1);
 
-	// create aie smi dump thread
+	// create smi dump thread
 	atomic_set(&(core_info->do_smi_dump), 0);
-	init_waitqueue_head(&core_info->aie_smi_wq);
-	core_info->smi_dump_thread = kthread_create(aie_hang_kernel_dump, NULL,
-		"aie_smi_dump_thread");
+	init_waitqueue_head(&core_info->smi_dump_wq);
+	core_info->smi_dump_thread = kthread_create(aov_smi_kernel_dump, NULL,
+		"aov_smi_dump_thread");
 	if (IS_ERR(core_info->smi_dump_thread)) {
 		AOV_DEBUG_LOG(*(aov_dev->enable_aov_log_flag),
 			"%s kthread_create error ret:%ld\n", __func__,
@@ -1566,7 +1567,7 @@ int aov_core_uninit(struct mtk_aov *aov_dev)
 	return 0;
 }
 
-int aie_hang_kernel_dump(void *arg)
+int aov_smi_kernel_dump(void *arg)
 {
 	struct mtk_aov *aov_dev = aov_core_get_device();
 	struct aov_core *core_info = &aov_dev->core_info;
@@ -1575,23 +1576,23 @@ int aie_hang_kernel_dump(void *arg)
 
 	dev_info(aov_dev->dev, "%s: Enter while loop to wait event", __func__);
 	while (!kthread_should_stop()) {
-		wait_ret = wait_event_interruptible(core_info->aie_smi_wq,
+		wait_ret = wait_event_interruptible(core_info->smi_dump_wq,
 			atomic_cmpxchg(&(core_info->do_smi_dump), 1, 0));
 		if (wait_ret) {
 			dev_info(aov_dev->dev, "%s: wake up by signal(%ld)", __func__, wait_ret);
 			continue;
 		}
 
-		dev_info(aov_dev->dev, "%s: do aie kernel dump+", __func__);
+		dev_info(aov_dev->dev, "%s: do aov smi kernel dump+", __func__);
 		#pragma clang diagnostic push
 		#pragma clang diagnostic ignored "-Wimplicit-function-declaration"
-		mtk_smi_dbg_hang_detect("AOV_AIE_HANG");
+		mtk_smi_dbg_hang_detect("AOV_SMI_DUMP");
 		#pragma clang diagnostic pop
-		dev_info(aov_dev->dev, "%s: do aie kernel dump-", __func__);
+		dev_info(aov_dev->dev, "%s: do aov smi kernel dump-", __func__);
 
-		ret = send_cmd_internal(core_info, AOV_SCP_CMD_AIE_HANG_DONE, 0, 0, false, false);
+		ret = send_cmd_internal(core_info, AOV_SCP_CMD_SMI_DUMP_DONE, 0, 0, false, false);
 		if (ret < 0)
-			dev_info(aov_dev->dev, "%s: failed to do aov aie hang done: %d\n",
+			dev_info(aov_dev->dev, "%s: failed to do aov smi dump done: %d\n",
 				__func__, ret);
 	}
 	dev_info(aov_dev->dev, "%s: leave while loop for kthread stop", __func__);

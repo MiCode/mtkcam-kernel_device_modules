@@ -1570,9 +1570,7 @@ static int mtk_raw_runtime_suspend(struct device *dev)
 	int i;
 	unsigned int pr_detect_count;
 
-	dev_info(dev, "%s:disable clock\n", __func__);
-	dev_dbg(dev, "%s:drvdata->default_printk_cnt = %d\n", __func__,
-			drvdata->default_printk_cnt);
+	dev_dbg(dev, "%s:disable clock\n", __func__);
 
 	pr_detect_count = get_detect_count();
 	if (pr_detect_count > drvdata->default_printk_cnt)
@@ -1601,14 +1599,12 @@ static int mtk_raw_runtime_resume(struct device *dev)
 		return ret;
 
 	enable_irq(drvdata->irq);
-	dev_dbg(dev, "%s:drvdata->default_printk_cnt = %d\n", __func__,
-			drvdata->default_printk_cnt);
 
 	pr_detect_count = get_detect_count();
 	if (pr_detect_count < KERNEL_LOG_MAX)
 		set_detect_count(KERNEL_LOG_MAX);
 
-	dev_info(dev, "%s:enable clock\n", __func__);
+	dev_dbg(dev, "%s:enable clock\n", __func__);
 
 	mtk_mmdvfs_enable_vcp(true, VCP_PWR_USR_CAM);
 	for (i = 0; i < drvdata->num_clks; i++) {
@@ -1997,7 +1993,7 @@ static int mtk_yuv_runtime_suspend(struct device *dev)
 	struct mtk_yuv_device *drvdata = dev_get_drvdata(dev);
 	int i;
 
-	dev_info(dev, "%s:disable clock\n", __func__);
+	dev_dbg(dev, "%s:disable clock\n", __func__);
 
 	mtk_cam_reset_qos(dev, &drvdata->qos);
 
@@ -2012,7 +2008,7 @@ static int mtk_yuv_runtime_resume(struct device *dev)
 	struct mtk_yuv_device *drvdata = dev_get_drvdata(dev);
 	int i, ret;
 
-	dev_info(dev, "%s:enable clock\n", __func__);
+	dev_dbg(dev, "%s:enable clock\n", __func__);
 
 	enable_irq(drvdata->irq);
 
@@ -2426,7 +2422,7 @@ static int mtk_rms_runtime_suspend(struct device *dev)
 	struct mtk_rms_device *drvdata = dev_get_drvdata(dev);
 	int i;
 
-	dev_info(dev, "%s:disable clock\n", __func__);
+	dev_dbg(dev, "%s:disable clock\n", __func__);
 
 	for (i = 0; i < drvdata->num_clks; i++)
 		clk_disable_unprepare(drvdata->clks[i]);
@@ -2439,7 +2435,7 @@ static int mtk_rms_runtime_resume(struct device *dev)
 	struct mtk_rms_device *drvdata = dev_get_drvdata(dev);
 	int i, ret;
 
-	dev_info(dev, "%s:enable clock\n", __func__);
+	dev_dbg(dev, "%s:enable clock\n", __func__);
 
 	for (i = 0; i < drvdata->num_clks; i++) {
 		ret = clk_prepare_enable(drvdata->clks[i]);

@@ -1113,7 +1113,9 @@ int mtk_cam_reset_qos(struct device *dev, struct mtk_camsys_qos *qos)
 		}
 	}
 
-	dev_info(dev, "mmqos reset done\n");
+	if (CAM_DEBUG_ENABLED(MMQOS))
+		dev_info(dev, "mmqos reset done\n");
+
 	return 0;
 }
 

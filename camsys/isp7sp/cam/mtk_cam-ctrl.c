@@ -1019,7 +1019,9 @@ static u64 query_interval_from_sensor(struct v4l2_subdev *sensor)
 		frame_interval_ns = 1000000000ULL / 30ULL;
 	}
 
-	pr_info("%s: fi %llu ns\n", __func__, frame_interval_ns);
+	if (CAM_DEBUG_ENABLED(CTRL))
+		pr_info("%s: fi %llu ns\n", __func__, frame_interval_ns);
+
 	return frame_interval_ns;
 }
 
@@ -1431,7 +1433,9 @@ void mtk_cam_ctrl_handle_done_loop(struct mtk_cam_ctrl *ctrl)
 	bool stopped;
 	int ret;
 
-	dev_info(dev, "%s: ctx %d enter\n", __func__, ctx->stream_id);
+	if (CAM_DEBUG_ENABLED(CTRL))
+		dev_info(dev, "%s: ctx %d enter\n", __func__, ctx->stream_id);
+
 	do {
 		job = NULL;
 		stopped = 0;
@@ -1454,7 +1458,8 @@ void mtk_cam_ctrl_handle_done_loop(struct mtk_cam_ctrl *ctrl)
 
 	} while (1);
 
-	dev_info(dev, "%s: ctx %d exited\n", __func__, ctx->stream_id);
+	if (CAM_DEBUG_ENABLED(CTRL))
+		dev_info(dev, "%s: ctx %d exited\n", __func__, ctx->stream_id);
 }
 
 static void mtk_cam_ctrl_done_work(struct kthread_work *work)

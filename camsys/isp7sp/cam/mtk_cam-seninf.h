@@ -135,7 +135,6 @@ struct seninf_core {
 	void __iomem *reg_if;
 	void __iomem *reg_ana;
 	int refcnt;
-	int is_smt_stage;
 
 	/* CCU control flow */
 	phandle rproc_ccu_phandle;

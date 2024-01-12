@@ -2209,6 +2209,7 @@ int master_raw_set_subsample(struct device *dev, struct mtk_cam_job *job)
 
 static int job_related_hw_init(struct mtk_cam_job *job)
 {
+	struct mtk_cam_device *cam_dev = job->src_ctx->cam;
 	struct mtk_cam_ctx *ctx = job->src_ctx;
 	unsigned long selected;
 
@@ -2220,8 +2221,17 @@ static int job_related_hw_init(struct mtk_cam_job *job)
 		return -1;
 
 	ctx->used_engine = selected;
+	if (CAM_DEBUG_ENABLED(RAW_CG))
+		pr_info("%s++:get: vcore cg/main cg0 cg1:0x%x/0x%x/0x%x", __func__,
+		readl(cam_dev->vcore_cg_con + 0x00),
+		readl(cam_dev->base + 0x00),
+		readl(cam_dev->base + 0x4c));
 	mtk_cam_pm_runtime_engines(&ctx->cam->engines, selected, 1);
-
+	if (CAM_DEBUG_ENABLED(RAW_CG))
+		pr_info("%s--:get: vcore cg/main cg0 cg1:0x%x/0x%x/0x%x", __func__,
+		readl(cam_dev->vcore_cg_con + 0x00),
+		readl(cam_dev->base + 0x00),
+		readl(cam_dev->base + 0x4c));
 	/* original initialize_engines(), only rename, no change */
 	mtk_cam_job_initialize_engines(ctx, job, job->init_params);
 

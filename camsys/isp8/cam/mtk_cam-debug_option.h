@@ -17,6 +17,7 @@
 #define CAM_DEBUG_IPI_BUF	3
 
 #define CAM_DEBUG_RAW_INT	4
+#define CAM_DEBUG_RAW_CG	5
 
 #define CAM_DEBUG_CTRL		8
 #define CAM_DEBUG_JOB		9

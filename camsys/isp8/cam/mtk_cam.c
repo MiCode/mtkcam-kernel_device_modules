@@ -2647,7 +2647,17 @@ void mtk_cam_stop_ctx(struct mtk_cam_ctx *ctx, struct media_entity *entity)
 	mtk_cam_pool_destroy(&ctx->job_pool);
 
 	if (ctx->used_engine) {
+		if (CAM_DEBUG_ENABLED(RAW_CG))
+			pr_info("%s++:get: vcore cg/main cg0 cg1:0x%x/0x%x/0x%x", __func__,
+		readl(cam->vcore_cg_con + 0x00),
+		readl(cam->base + 0x00),
+		readl(cam->base + 0x4c));
 		mtk_cam_pm_runtime_engines(&cam->engines, ctx->used_engine, 0);
+		if (CAM_DEBUG_ENABLED(RAW_CG))
+			pr_info("%s--:get: vcore cg/main cg0 cg1:0x%x/0x%x/0x%x", __func__,
+		readl(cam->vcore_cg_con + 0x00),
+		readl(cam->base + 0x00),
+		readl(cam->base + 0x4c));
 		mtk_cam_release_engine(ctx->cam, ctx->used_engine);
 	}
 
@@ -3883,40 +3893,21 @@ static int loop_each_engine(struct mtk_cam_engines *eng,
 	for (i = 0; i < eng->num_raw_devices && submask; i++, submask >>= 1) {
 		if (!(submask & 0x1))
 			continue;
-		//func(eng->raw_devs[i]);
-		if (enable) {
-			mtk_raw_runtime_resume(eng->raw_devs[i]);
-			mtk_yuv_runtime_resume(eng->yuv_devs[i]);
-			if (1)
-				mtk_rms_runtime_resume(eng->rms_devs[i]);
-		} else {
-			mtk_raw_runtime_suspend(eng->raw_devs[i]);
-			mtk_yuv_runtime_suspend(eng->yuv_devs[i]);
-			if (1)
-				mtk_rms_runtime_suspend(eng->rms_devs[i]);
-		}
+		func(eng->raw_devs[i]);
 	}
 
 	submask = bit_map_subset_of(MAP_HW_CAMSV, engine_mask);
 	for (i = 0; i < eng->num_camsv_devices && submask; i++, submask >>= 1) {
 		if (!(submask & 0x1))
 			continue;
-		//func(eng->sv_devs[i]);
-		if (enable)
-			mtk_camsv_runtime_resume(eng->sv_devs[i]);
-		else
-			mtk_camsv_runtime_suspend(eng->sv_devs[i]);
+		func(eng->sv_devs[i]);
 	}
 
 	submask = bit_map_subset_of(MAP_HW_MRAW, engine_mask);
 	for (i = 0; i < eng->num_mraw_devices && submask; i++, submask >>= 1) {
 		if (!(submask & 0x1))
 			continue;
-		//func(eng->mraw_devs[i]);
-		if (enable)
-			mtk_mraw_runtime_resume(eng->mraw_devs[i]);
-		else
-			mtk_mraw_runtime_suspend(eng->mraw_devs[i]);
+		func(eng->mraw_devs[i]);
 	}
 
 	return 0;
@@ -4190,6 +4181,57 @@ static int mtk_cam_probe(struct platform_device *pdev)
 		dev_err(dev, "%s: failed to map vcore_ddren_ack\n", __func__);
 		cam_dev->vcore_ddren_ack = NULL;
 	}
+	cam_dev->vcore_cg_con = ioremap(CAM_VCORE_BASE + CAM_VCORE_CG_CON, 0x4);
+	if (IS_ERR(cam_dev->vcore_cg_con)) {
+		dev_err(dev, "%s: failed to map vcore_cg_con\n", __func__);
+		cam_dev->vcore_cg_con = NULL;
+	}
+	cam_dev->rawa_cg_con = ioremap(CAM_MAIN_RAWA_BASE, 0xc);
+	if (IS_ERR(cam_dev->rawa_cg_con)) {
+		dev_err(dev, "%s: failed to map rawa_cg_con\n", __func__);
+		cam_dev->rawa_cg_con = NULL;
+	}
+	cam_dev->rawb_cg_con = ioremap(CAM_MAIN_RAWB_BASE, 0xc);
+	if (IS_ERR(cam_dev->rawb_cg_con)) {
+		dev_err(dev, "%s: failed to map rawb_cg_con\n", __func__);
+		cam_dev->rawb_cg_con = NULL;
+	}
+	cam_dev->rawc_cg_con = ioremap(CAM_MAIN_RAWC_BASE, 0xc);
+	if (IS_ERR(cam_dev->rawc_cg_con)) {
+		dev_err(dev, "%s: failed to map rawc_cg_con\n", __func__);
+		cam_dev->rawc_cg_con = NULL;
+	}
+	cam_dev->rmsa_cg_con = ioremap(CAM_MAIN_RMSA_BASE, 0xc);
+	if (IS_ERR(cam_dev->rmsa_cg_con)) {
+		dev_err(dev, "%s: failed to map rmsa_cg_con\n", __func__);
+		cam_dev->rmsa_cg_con = NULL;
+	}
+	cam_dev->rmsb_cg_con = ioremap(CAM_MAIN_RMSB_BASE, 0xc);
+	if (IS_ERR(cam_dev->rmsb_cg_con)) {
+		dev_err(dev, "%s: failed to map rmsb_cg_con\n", __func__);
+		cam_dev->rmsb_cg_con = NULL;
+	}
+	cam_dev->rmsc_cg_con = ioremap(CAM_MAIN_RMSC_BASE, 0xc);
+	if (IS_ERR(cam_dev->rmsc_cg_con)) {
+		dev_err(dev, "%s: failed to map rmsc_cg_con\n", __func__);
+		cam_dev->rmsc_cg_con = NULL;
+	}
+	cam_dev->yuva_cg_con = ioremap(CAM_MAIN_YUVA_BASE, 0xc);
+	if (IS_ERR(cam_dev->yuva_cg_con)) {
+		dev_err(dev, "%s: failed to map yuva_cg_con\n", __func__);
+		cam_dev->yuva_cg_con = NULL;
+	}
+	cam_dev->yuvb_cg_con = ioremap(CAM_MAIN_YUVB_BASE, 0xc);
+	if (IS_ERR(cam_dev->yuvb_cg_con)) {
+		dev_err(dev, "%s: failed to map yuvb_cg_con\n", __func__);
+		cam_dev->yuvb_cg_con = NULL;
+	}
+	cam_dev->yuvc_cg_con = ioremap(CAM_MAIN_YUVC_BASE, 0xc);
+	if (IS_ERR(cam_dev->yuvc_cg_con)) {
+		dev_err(dev, "%s: failed to map yuvc_cg_con\n", __func__);
+		cam_dev->yuvc_cg_con = NULL;
+	}
+
 	// adlrd_rdone
 	irq = platform_get_irq_byname(pdev, "adlrd_rdone");
 	if (irq < 0) {

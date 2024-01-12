@@ -62,6 +62,17 @@ struct mtk_rpmsg_device;
 #define CAM_VCORE_BASE       0x3c805000
 #define CAM_VCORE_DDREN_EN   0x38
 #define CAM_VCORE_DDREN_ACK  0x38
+#define CAM_VCORE_CG_CON	0xa0
+
+#define CAM_MAIN_RAWA_BASE       0x3a8c0000
+#define CAM_MAIN_RAWB_BASE       0x3a9c0000
+#define CAM_MAIN_RAWC_BASE       0x3aac0000
+#define CAM_MAIN_RMSA_BASE       0x3a8d0000
+#define CAM_MAIN_RMSB_BASE       0x3a9d0000
+#define CAM_MAIN_RMSC_BASE       0x3aad0000
+#define CAM_MAIN_YUVA_BASE       0x3a8e0000
+#define CAM_MAIN_YUVB_BASE       0x3a9e0000
+#define CAM_MAIN_YUVC_BASE       0x3cae0000
 
 struct mtk_cam_adl_work {
 	struct work_struct work;
@@ -246,6 +257,16 @@ struct mtk_cam_device {
 	void __iomem *qoftop_base;
 	void __iomem *vcore_ddren_en;
 	void __iomem *vcore_ddren_ack;
+	void __iomem *vcore_cg_con;
+	void __iomem *rawa_cg_con;
+	void __iomem *rawb_cg_con;
+	void __iomem *rawc_cg_con;
+	void __iomem *rmsa_cg_con;
+	void __iomem *rmsb_cg_con;
+	void __iomem *rmsc_cg_con;
+	void __iomem *yuva_cg_con;
+	void __iomem *yuvb_cg_con;
+	void __iomem *yuvc_cg_con;
 	struct v4l2_device v4l2_dev;
 	struct v4l2_async_notifier notifier;
 	struct media_device media_dev;

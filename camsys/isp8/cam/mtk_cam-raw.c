@@ -1560,6 +1560,69 @@ static int mtk_raw_pm_post_suspend(struct mtk_raw_device *dev)
 
 	return 0;
 }
+#define CG_RAW 0
+#define CG_YUV 1
+#define CG_RMS 2
+
+static int cg_dump_and_test(struct device *dev, int type, bool test)
+{
+	struct mtk_raw_device *raw;
+	struct mtk_raw_device *yuv;
+	struct mtk_rms_device *rms;
+	void __iomem *dev_iomem;
+
+	if (type == CG_RAW) {
+		raw = dev_get_drvdata(dev);
+		if (raw->id == 0)
+			dev_iomem = raw->cam->rawa_cg_con;
+		else if (raw->id == 1)
+			dev_iomem = raw->cam->rawb_cg_con;
+		else if (raw->id == 2)
+			dev_iomem = raw->cam->rawc_cg_con;
+		else
+			return -1;
+	} else if (type == CG_YUV) {
+		yuv = dev_get_drvdata(dev);
+		if (yuv->id == 0)
+			dev_iomem = yuv->cam->yuva_cg_con;
+		else if (yuv->id == 1)
+			dev_iomem = yuv->cam->yuvb_cg_con;
+		else if (yuv->id == 2)
+			dev_iomem = yuv->cam->yuvc_cg_con;
+		else
+			return -1;
+	} else if (type == CG_RMS) {
+		rms = dev_get_drvdata(dev);
+		if (rms->id == 0)
+			dev_iomem = rms->cam->rmsa_cg_con;
+		else if (rms->id == 1)
+			dev_iomem = rms->cam->rmsb_cg_con;
+		else if (rms->id == 2)
+			dev_iomem = rms->cam->rmsc_cg_con;
+		else
+			return -1;
+	} else {
+		pr_info("wrong type!");
+		return -1;
+	}
+	if (test) {
+		dev_info(dev, "%s-status:cg:0x%x",
+			__func__, readl(dev_iomem));
+		writel(0x1, dev_iomem + 0x4);
+		wmb(); /* make sure committed */
+		dev_info(dev, "%s-status(after write cg set):cg:0x%x",
+			__func__, readl(dev_iomem));
+		writel(0x1, dev_iomem + 0x8);
+		wmb(); /* make sure committed */
+		dev_info(dev, "%s-status(after write cg clr):cg:0x%x",
+			__func__, readl(dev_iomem));
+	} else {
+		dev_info(dev, "%s-status:cg:0x%x",
+			__func__, readl(dev_iomem));
+	}
+
+	return 0;
+}
 
 static int raw_pm_notifier(struct notifier_block *nb,
 							unsigned long action, void *data)
@@ -1889,10 +1952,12 @@ int mtk_raw_runtime_suspend(struct device *dev)
 		set_detect_count(drvdata->default_printk_cnt);
 
 	mtk_cam_reset_qos(dev, &drvdata->qos);
-
-	for (i = 0; i < drvdata->num_clks; i++)
+	if (CAM_DEBUG_ENABLED(RAW_CG))
+		cg_dump_and_test(dev, CG_RAW, 0);
+	for (i = drvdata->num_clks - 1; i >= 0; i--)
 		clk_disable_unprepare(drvdata->clks[i]);
-
+	if (CAM_DEBUG_ENABLED(RAW_CG))
+		cg_dump_and_test(dev, CG_RAW, 0);
 	mtk_mmdvfs_enable_vcp(false, VCP_PWR_USR_CAM);
 
 	return 0;
@@ -1917,8 +1982,8 @@ int mtk_raw_runtime_resume(struct device *dev)
 
 	dev_dbg(dev, "%s:enable clock\n", __func__);
 	mtk_mmdvfs_enable_vcp(true, VCP_PWR_USR_CAM);
-
-
+	if (CAM_DEBUG_ENABLED(RAW_CG))
+		cg_dump_and_test(dev, CG_RAW, 1);
 	for (i = 0; i < drvdata->num_clks; i++) {
 		ret = clk_prepare_enable(drvdata->clks[i]);
 		if (ret) {
@@ -1931,7 +1996,8 @@ int mtk_raw_runtime_resume(struct device *dev)
 			return ret;
 		}
 	}
-
+	if (CAM_DEBUG_ENABLED(RAW_CG))
+		cg_dump_and_test(dev, CG_RAW, 0);
 
 	reset(drvdata);
 
@@ -2271,12 +2337,14 @@ int mtk_yuv_runtime_suspend(struct device *dev)
 	int i;
 
 	dev_dbg(dev, "%s:disable clock\n", __func__);
-
+	if (CAM_DEBUG_ENABLED(RAW_CG))
+		cg_dump_and_test(dev, CG_YUV, 0);
 	mtk_cam_reset_qos(dev, &drvdata->qos);
 
-	for (i = 0; i < drvdata->num_clks; i++)
+	for (i = drvdata->num_clks - 1; i >= 0; i--)
 		clk_disable_unprepare(drvdata->clks[i]);
-
+	if (CAM_DEBUG_ENABLED(RAW_CG))
+		cg_dump_and_test(dev, CG_YUV, 0);
 	return 0;
 }
 
@@ -2286,7 +2354,8 @@ int mtk_yuv_runtime_resume(struct device *dev)
 	int i, ret;
 
 	dev_dbg(dev, "%s:enable clock\n", __func__);
-
+	if (CAM_DEBUG_ENABLED(RAW_CG))
+		cg_dump_and_test(dev, CG_YUV, 1);
 	for (i = 0; i < drvdata->num_clks; i++) {
 		ret = clk_prepare_enable(drvdata->clks[i]);
 		if (ret) {
@@ -2299,6 +2368,8 @@ int mtk_yuv_runtime_resume(struct device *dev)
 			return ret;
 		}
 	}
+	if (CAM_DEBUG_ENABLED(RAW_CG))
+		cg_dump_and_test(dev, CG_YUV, 0);
 
 	return 0;
 }
@@ -2539,6 +2610,7 @@ static int mtk_rms_component_bind(struct device *dev, struct device *master,
 	struct mtk_cam_device *cam_dev = data;
 
 	dev_info(dev, "%s: id=%d\n", __func__, drvdata->id);
+	drvdata->cam = cam_dev;
 	return mtk_cam_set_dev_raw(cam_dev->dev, drvdata->id, NULL, NULL, dev);
 }
 
@@ -2730,10 +2802,12 @@ int mtk_rms_runtime_suspend(struct device *dev)
 	int i;
 
 	dev_dbg(dev, "%s:disable clock\n", __func__);
-
-	for (i = 0; i < drvdata->num_clks; i++)
+	if (CAM_DEBUG_ENABLED(RAW_CG))
+		cg_dump_and_test(dev, CG_RMS, 0);
+	for (i = drvdata->num_clks - 1; i >= 0; i--)
 		clk_disable_unprepare(drvdata->clks[i]);
-
+	if (CAM_DEBUG_ENABLED(RAW_CG))
+		cg_dump_and_test(dev, CG_RMS, 0);
 	return 0;
 }
 
@@ -2743,6 +2817,9 @@ int mtk_rms_runtime_resume(struct device *dev)
 	int i, ret;
 
 	dev_dbg(dev, "%s:enable clock\n", __func__);
+
+	if (CAM_DEBUG_ENABLED(RAW_CG))
+		cg_dump_and_test(dev, CG_RMS, 1);
 
 	for (i = 0; i < drvdata->num_clks; i++) {
 		ret = clk_prepare_enable(drvdata->clks[i]);
@@ -2756,6 +2833,8 @@ int mtk_rms_runtime_resume(struct device *dev)
 			return ret;
 		}
 	}
+	if (CAM_DEBUG_ENABLED(RAW_CG))
+		cg_dump_and_test(dev, CG_RMS, 0);
 
 	return 0;
 }

@@ -5,7 +5,7 @@
  *
  * Filename:
  * ---------
- *	 imx758mipiraw_Sensor.c
+ *	 imx758litemipiraw_Sensor.c
  *
  * Project:
  * --------
@@ -20,16 +20,16 @@
  * Upper this line, this part is controlled by CC/CQ. DO NOT MODIFY!!
  *============================================================================
  ****************************************************************************/
-#include "imx758mipiraw_Sensor.h"
+#include "imx758litemipiraw_Sensor.h"
 
 static void set_sensor_cali(void *arg);
 static int get_sensor_temperature(void *arg);
 static void set_group_hold(void *arg, u8 en);
 static u16 get_gain2reg(u32 gain);
-static int imx758_set_test_pattern(struct subdrv_ctx *ctx, u8 *para, u32 *len);
-static int imx758_set_test_pattern_data(struct subdrv_ctx *ctx, u8 *para, u32 *len);
-static int imx758_seamless_switch(struct subdrv_ctx *ctx, u8 *para, u32 *len);
-static int imx758_deskew_ctrl(struct subdrv_ctx *ctx, u8 *para, u32 *len);
+static int imx758lite_set_test_pattern(struct subdrv_ctx *ctx, u8 *para, u32 *len);
+static int imx758lite_set_test_pattern_data(struct subdrv_ctx *ctx, u8 *para, u32 *len);
+static int imx758lite_seamless_switch(struct subdrv_ctx *ctx, u8 *para, u32 *len);
+static int imx758lite_deskew_ctrl(struct subdrv_ctx *ctx, u8 *para, u32 *len);
 static int get_imgsensor_id(struct subdrv_ctx *ctx, u32 *sensor_id);
 static int init_ctx(struct subdrv_ctx *ctx,	struct i2c_client *i2c_client, u8 i2c_write_id);
 static int vsync_notify(struct subdrv_ctx *ctx,	unsigned int sof_cnt);
@@ -37,10 +37,10 @@ static int vsync_notify(struct subdrv_ctx *ctx,	unsigned int sof_cnt);
 /* STRUCT  */
 
 static struct subdrv_feature_control feature_control_list[] = {
-	{SENSOR_FEATURE_SET_TEST_PATTERN, imx758_set_test_pattern},
-	{SENSOR_FEATURE_SET_TEST_PATTERN_DATA, imx758_set_test_pattern_data},
-	{SENSOR_FEATURE_SEAMLESS_SWITCH, imx758_seamless_switch},
-	{SENSOR_FEATURE_SET_DESKEW_CTRL, imx758_deskew_ctrl},
+	{SENSOR_FEATURE_SET_TEST_PATTERN, imx758lite_set_test_pattern},
+	{SENSOR_FEATURE_SET_TEST_PATTERN_DATA, imx758lite_set_test_pattern_data},
+	{SENSOR_FEATURE_SEAMLESS_SWITCH, imx758lite_seamless_switch},
+	{SENSOR_FEATURE_SET_DESKEW_CTRL, imx758lite_deskew_ctrl},
 };
 
 static struct eeprom_info_struct eeprom_info[] = {
@@ -278,11 +278,11 @@ static struct subdrv_mode_struct mode_struct[] = {
 	{
 		.frame_desc = frame_desc_prev,
 		.num_entries = ARRAY_SIZE(frame_desc_prev),
-		.mode_setting_table = imx758_preview_setting,
-		.mode_setting_len = ARRAY_SIZE(imx758_preview_setting),
+		.mode_setting_table = imx758lite_preview_setting,
+		.mode_setting_len = ARRAY_SIZE(imx758lite_preview_setting),
 		.seamless_switch_group = 1,
-		.seamless_switch_mode_setting_table = imx758_seamless_preview,
-		.seamless_switch_mode_setting_len = ARRAY_SIZE(imx758_seamless_preview),
+		.seamless_switch_mode_setting_table = imx758lite_seamless_preview,
+		.seamless_switch_mode_setting_len = ARRAY_SIZE(imx758lite_seamless_preview),
 		.hdr_mode = HDR_NONE,
 		.raw_cnt = 1,
 		.exp_cnt = 1,
@@ -327,8 +327,8 @@ static struct subdrv_mode_struct mode_struct[] = {
 	{
 		.frame_desc = frame_desc_cap,
 		.num_entries = ARRAY_SIZE(frame_desc_cap),
-		.mode_setting_table = imx758_capture_setting,
-		.mode_setting_len = ARRAY_SIZE(imx758_capture_setting),
+		.mode_setting_table = imx758lite_capture_setting,
+		.mode_setting_len = ARRAY_SIZE(imx758lite_capture_setting),
 		.seamless_switch_group = PARAM_UNDEFINED,
 		.seamless_switch_mode_setting_table = PARAM_UNDEFINED,
 		.seamless_switch_mode_setting_len = PARAM_UNDEFINED,
@@ -376,8 +376,8 @@ static struct subdrv_mode_struct mode_struct[] = {
 	{
 		.frame_desc = frame_desc_vid,
 		.num_entries = ARRAY_SIZE(frame_desc_vid),
-		.mode_setting_table = imx758_normal_video_setting,
-		.mode_setting_len = ARRAY_SIZE(imx758_normal_video_setting),
+		.mode_setting_table = imx758lite_normal_video_setting,
+		.mode_setting_len = ARRAY_SIZE(imx758lite_normal_video_setting),
 		.seamless_switch_group = PARAM_UNDEFINED,
 		.seamless_switch_mode_setting_table = PARAM_UNDEFINED,
 		.seamless_switch_mode_setting_len = PARAM_UNDEFINED,
@@ -425,8 +425,8 @@ static struct subdrv_mode_struct mode_struct[] = {
 	{
 		.frame_desc = frame_desc_hs_vid,
 		.num_entries = ARRAY_SIZE(frame_desc_hs_vid),
-		.mode_setting_table = imx758_hs_video_setting,
-		.mode_setting_len = ARRAY_SIZE(imx758_hs_video_setting),
+		.mode_setting_table = imx758lite_hs_video_setting,
+		.mode_setting_len = ARRAY_SIZE(imx758lite_hs_video_setting),
 		.seamless_switch_group = PARAM_UNDEFINED,
 		.seamless_switch_mode_setting_table = PARAM_UNDEFINED,
 		.seamless_switch_mode_setting_len = PARAM_UNDEFINED,
@@ -474,11 +474,11 @@ static struct subdrv_mode_struct mode_struct[] = {
 	{
 		.frame_desc = frame_desc_slim_vid,
 		.num_entries = ARRAY_SIZE(frame_desc_slim_vid),
-		.mode_setting_table = imx758_slim_video_setting,
-		.mode_setting_len = ARRAY_SIZE(imx758_slim_video_setting),
+		.mode_setting_table = imx758lite_slim_video_setting,
+		.mode_setting_len = ARRAY_SIZE(imx758lite_slim_video_setting),
 		.seamless_switch_group = 1,
-		.seamless_switch_mode_setting_table = imx758_seamless_slim_video,
-		.seamless_switch_mode_setting_len = ARRAY_SIZE(imx758_seamless_slim_video),
+		.seamless_switch_mode_setting_table = imx758lite_seamless_slim_video,
+		.seamless_switch_mode_setting_len = ARRAY_SIZE(imx758lite_seamless_slim_video),
 		.hdr_mode = HDR_NONE,
 		.raw_cnt = 1,
 		.exp_cnt = 1,
@@ -523,11 +523,11 @@ static struct subdrv_mode_struct mode_struct[] = {
 	{
 		.frame_desc = frame_desc_cus1,
 		.num_entries = ARRAY_SIZE(frame_desc_cus1),
-		.mode_setting_table = imx758_custom1_setting,
-		.mode_setting_len = ARRAY_SIZE(imx758_custom1_setting),
+		.mode_setting_table = imx758lite_custom1_setting,
+		.mode_setting_len = ARRAY_SIZE(imx758lite_custom1_setting),
 		.seamless_switch_group = 1,
-		.seamless_switch_mode_setting_table = imx758_seamless_custom1,
-		.seamless_switch_mode_setting_len = ARRAY_SIZE(imx758_seamless_custom1),
+		.seamless_switch_mode_setting_table = imx758lite_seamless_custom1,
+		.seamless_switch_mode_setting_len = ARRAY_SIZE(imx758lite_seamless_custom1),
 		.hdr_mode = HDR_NONE,
 		.raw_cnt = 1,
 		.exp_cnt = 1,
@@ -572,11 +572,11 @@ static struct subdrv_mode_struct mode_struct[] = {
 	{
 		.frame_desc = frame_desc_cus2,
 		.num_entries = ARRAY_SIZE(frame_desc_cus2),
-		.mode_setting_table = imx758_custom2_setting,
-		.mode_setting_len = ARRAY_SIZE(imx758_custom2_setting),
+		.mode_setting_table = imx758lite_custom2_setting,
+		.mode_setting_len = ARRAY_SIZE(imx758lite_custom2_setting),
 		.seamless_switch_group = 1,
-		.seamless_switch_mode_setting_table = imx758_seamless_custom2,
-		.seamless_switch_mode_setting_len = ARRAY_SIZE(imx758_seamless_custom2),
+		.seamless_switch_mode_setting_table = imx758lite_seamless_custom2,
+		.seamless_switch_mode_setting_len = ARRAY_SIZE(imx758lite_seamless_custom2),
 		.hdr_mode = HDR_NONE,
 		.raw_cnt = 1,
 		.exp_cnt = 1,
@@ -622,11 +622,11 @@ static struct subdrv_mode_struct mode_struct[] = {
 	{
 		.frame_desc = frame_desc_cus3,
 		.num_entries = ARRAY_SIZE(frame_desc_cus3),
-		.mode_setting_table = imx758_custom3_setting,
-		.mode_setting_len = ARRAY_SIZE(imx758_custom3_setting),
+		.mode_setting_table = imx758lite_custom3_setting,
+		.mode_setting_len = ARRAY_SIZE(imx758lite_custom3_setting),
 		.seamless_switch_group = 1,
-		.seamless_switch_mode_setting_table = imx758_seamless_custom3,
-		.seamless_switch_mode_setting_len = ARRAY_SIZE(imx758_seamless_custom3),
+		.seamless_switch_mode_setting_table = imx758lite_seamless_custom3,
+		.seamless_switch_mode_setting_len = ARRAY_SIZE(imx758lite_seamless_custom3),
 		.hdr_mode = HDR_NONE,
 		.raw_cnt = 1,
 		.exp_cnt = 1,
@@ -673,7 +673,7 @@ static struct subdrv_mode_struct mode_struct[] = {
 };
 
 static struct subdrv_static_ctx static_ctx = {
-	.sensor_id = IMX758_SENSOR_ID,
+	.sensor_id = IMX758LITE_SENSOR_ID,
 	.reg_addr_sensor_id = {0x0016, 0x0017},
 	.i2c_addr_table = {0x20, 0xFF},
 	.i2c_burst_write_support = TRUE,
@@ -696,8 +696,8 @@ static struct subdrv_static_ctx static_ctx = {
 	.ana_gain_max = BASEGAIN * 32,
 	.ana_gain_type = 0,//phase out
 	.ana_gain_step = 1,//phase out
-	.ana_gain_table = imx758_ana_gain_table,
-	.ana_gain_table_size = sizeof(imx758_ana_gain_table),
+	.ana_gain_table = imx758lite_ana_gain_table,
+	.ana_gain_table_size = sizeof(imx758lite_ana_gain_table),
 	.min_gain_iso = 100,
 	.exposure_def = 0x3D0,
 	.exposure_min = 8,//COARSE_INTEG_TIME-Min. Value (L)
@@ -748,8 +748,8 @@ static struct subdrv_static_ctx static_ctx = {
 	.reg_addr_frame_count = 0x0005,//FRM_CNT
 	.reg_addr_fast_mode = 0x3010,//FAST_MODETRANSIT_CTL
 
-	.init_setting_table = imx758_init_setting,
-	.init_setting_len = ARRAY_SIZE(imx758_init_setting),
+	.init_setting_table = imx758lite_init_setting,
+	.init_setting_len = ARRAY_SIZE(imx758lite_init_setting),
 	.mode = mode_struct,
 	.sensor_mode_num = ARRAY_SIZE(mode_struct),
 	.list = feature_control_list,
@@ -789,9 +789,9 @@ static struct subdrv_pw_seq_entry pw_seq[] = {
 	{HW_ID_RST, 1, 1}
 };
 
-const struct subdrv_entry imx758_mipi_raw_entry = {
-	.name = "imx758_mipi_raw",
-	.id = IMX758_SENSOR_ID,
+const struct subdrv_entry imx758lite_mipi_raw_entry = {
+	.name = "imx758lite_mipi_raw",
+	.id = IMX758LITE_SENSOR_ID,
 	.pw_seq = pw_seq,
 	.pw_seq_cnt = ARRAY_SIZE(pw_seq),
 	.ops = &ops,
@@ -867,7 +867,7 @@ static u16 get_gain2reg(u32 gain)
 	return (1024 - (1024 * BASEGAIN) / gain);
 }
 
-static int imx758_seamless_switch(struct subdrv_ctx *ctx, u8 *para, u32 *len)
+static int imx758lite_seamless_switch(struct subdrv_ctx *ctx, u8 *para, u32 *len)
 {
 	enum SENSOR_SCENARIO_ID_ENUM scenario_id;
 	struct mtk_hdr_ae *ae_ctrl = NULL;
@@ -937,7 +937,7 @@ static int imx758_seamless_switch(struct subdrv_ctx *ctx, u8 *para, u32 *len)
 	return ERROR_NONE;
 }
 
-static int imx758_deskew_ctrl(struct subdrv_ctx *ctx, u8 *para, u32 *len)
+static int imx758lite_deskew_ctrl(struct subdrv_ctx *ctx, u8 *para, u32 *len)
 {
 	enum SENSOR_SCENARIO_ID_ENUM scenario_id;
 	u8 init_deskew_support = 0;
@@ -959,7 +959,7 @@ static int imx758_deskew_ctrl(struct subdrv_ctx *ctx, u8 *para, u32 *len)
 	return ERROR_NONE;
 }
 
-static int imx758_set_test_pattern(struct subdrv_ctx *ctx, u8 *para, u32 *len)
+static int imx758lite_set_test_pattern(struct subdrv_ctx *ctx, u8 *para, u32 *len)
 {
 	u32 mode = *((u32 *)para);
 
@@ -975,7 +975,7 @@ static int imx758_set_test_pattern(struct subdrv_ctx *ctx, u8 *para, u32 *len)
 	return ERROR_NONE;
 }
 
-static int imx758_set_test_pattern_data(struct subdrv_ctx *ctx, u8 *para, u32 *len)
+static int imx758lite_set_test_pattern_data(struct subdrv_ctx *ctx, u8 *para, u32 *len)
 {
 	struct mtk_test_pattern_data *data = (struct mtk_test_pattern_data *)para;
 	u16 R = (data->Channel_R >> 22) & 0x3ff;
@@ -1011,12 +1011,12 @@ static int get_imgsensor_id(struct subdrv_ctx *ctx, u32 *sensor_id)
 		ctx->i2c_write_id = ctx->s_ctx.i2c_addr_table[i];
 		do {
 			*sensor_id = (subdrv_i2c_rd_u8(ctx, addr_h) << 8) |
-				subdrv_i2c_rd_u8(ctx, addr_l);
+				subdrv_i2c_rd_u8(ctx, addr_l) + 1;
 			if (addr_ll)
-				*sensor_id = ((*sensor_id) << 8) | subdrv_i2c_rd_u8(ctx, addr_ll);
+				*sensor_id = (((*sensor_id) << 8) - 1) | subdrv_i2c_rd_u8(ctx, addr_ll) + 1;
 			DRV_LOG(ctx, "i2c_write_id(0x%x) sensor_id(0x%x/0x%x)\n",
 				ctx->i2c_write_id, *sensor_id, ctx->s_ctx.sensor_id);
-			if (*sensor_id == IMX758_SENSOR_ID) {
+			if (*sensor_id == IMX758LITE_SENSOR_ID) {
 				*sensor_id = ctx->s_ctx.sensor_id;
 				return ERROR_NONE;
 			}

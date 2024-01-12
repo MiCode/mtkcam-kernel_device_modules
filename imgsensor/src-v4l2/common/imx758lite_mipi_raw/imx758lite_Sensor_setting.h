@@ -6,7 +6,7 @@
  *
  * Filename:
  * ---------
- *	 imx758_Sensor_setting.h
+ *	 imx758lite_Sensor_setting.h
  *
  * Project:
  * --------
@@ -15,8 +15,8 @@
  *	 CMOS sensor header file
  *
  ****************************************************************************/
-#ifndef _IMX758_SENSOR_SETTING_H
-#define _IMX758_SENSOR_SETTING_H
+#ifndef _IMX758LITE_SENSOR_SETTING_H
+#define _IMX758LITE_SENSOR_SETTING_H
 
 #include "kd_camera_typedef.h"
 
@@ -27,7 +27,7 @@
 // SONY sensor: VCID of 2nd frame at 0x3070; VCID of 3rd frame at 0x3080
 // must be two different value
 
-static u16 imx758_init_setting[] = {
+static u16 imx758lite_init_setting[] = {
 	/*External Clock Setting*/
 	0x0136,	0x18,
 	0x0137,	0x00,
@@ -89,7 +89,7 @@ static u16 imx758_init_setting[] = {
 	// 0x0827, 0x0F,//TCLK_PRE_EX
 };
 
-static u16 imx758_preview_setting[] = {
+static u16 imx758lite_preview_setting[] = {
 	/*reg_A*/
 	/*2x2BIN 4096_3072_30FPS_PD_SEAMLESS1*/
 	/*H: 4096*/
@@ -194,7 +194,7 @@ static u16 imx758_preview_setting[] = {
 	0x3073, 0x30,
 };
 
-static u16 imx758_capture_setting[] = {
+static u16 imx758lite_capture_setting[] = {
 	/*reg_A*/
 	/*2x2BIN 4096_3072_30FPS_PD_SEAMLESS1*/
 	/*H: 4096*/
@@ -299,7 +299,7 @@ static u16 imx758_capture_setting[] = {
 	0x3073, 0x30,
 };
 
-static u16 imx758_normal_video_setting[] = {
+static u16 imx758lite_normal_video_setting[] = {
 	/*reg_B*/
 	/*2x2BIN 4K_ 4096_2304_30FPS_PD*/
 	/*H: 4096*/
@@ -404,7 +404,7 @@ static u16 imx758_normal_video_setting[] = {
 	0x3073, 0x30,
 };
 
-static u16 imx758_hs_video_setting[] = {
+static u16 imx758lite_hs_video_setting[] = {
 	/*reg_C*/
 	/*2x2BIN 4K_ 4096_2304_60FPS*/
 	/*H: 4096*/
@@ -509,7 +509,7 @@ static u16 imx758_hs_video_setting[] = {
 	0x3073, 0x30,
 };
 
-static u16 imx758_slim_video_setting[] = {
+static u16 imx758lite_slim_video_setting[] = {
 	/*reg_F*/
 	/*FULL_CROP_4096_3072_24FPS_PD_SEAMLESS1*/
 	/*H: 4096*/
@@ -614,7 +614,7 @@ static u16 imx758_slim_video_setting[] = {
 	0x3073, 0x30,
 };
 
-static u16 imx758_custom1_setting[] = {
+static u16 imx758lite_custom1_setting[] = {
 	/*reg_G*/
 	/*FULL_CROP_RAW_4096_3072_24FPS_SEAMLESS1*/
 	/*H: 4096*/
@@ -719,7 +719,7 @@ static u16 imx758_custom1_setting[] = {
 	0x3073, 0x30,
 };
 
-static u16 imx758_custom2_setting[] = {
+static u16 imx758lite_custom2_setting[] = {
 	/*reg_H*/
 	/*FULL_8192_6144_15FPS_PD_SEAMLESS1*/
 	/*H: 8192*/
@@ -823,7 +823,7 @@ static u16 imx758_custom2_setting[] = {
 	0x3072, 0x00,
 	0x3073, 0x30,
 };
-static u16 imx758_custom3_setting[] = {
+static u16 imx758lite_custom3_setting[] = {
 	/*reg_I*/
 	/*FULL_RAW_8192_6144_15FPS_PD_SEAMLESS1*/
 	/*H: 8192*/
@@ -961,13 +961,13 @@ static u16 imx758_custom3_setting[] = {
 #define Y_OUT_SIZE_LOWER            0x034F
 
 // video stagger seamless switch (1exp-2exp)
-static u16 imx758_seamless_normal_video[] = {
+static u16 imx758lite_seamless_normal_video[] = {
 	PHASE_PIX_OUT_EN, 0x01,
 	FRAME_LEN_UPPER, 0x12,
 	FRAME_LEN_LOWER, 0xBA,
 	DOL_EN, 0x00,
 };
-static u16 imx758_seamless_custom4[] = {
+static u16 imx758lite_seamless_custom4[] = {
 	PHASE_PIX_OUT_EN, 0x03,
 	FRAME_LEN_UPPER, 0x09,
 	FRAME_LEN_LOWER, 0x5C,
@@ -976,7 +976,7 @@ static u16 imx758_seamless_custom4[] = {
 
 // stagger seamless switch (1exp-2exp-3exp)
 // normal seamless switch
-static u16 imx758_seamless_preview[] = {
+static u16 imx758lite_seamless_preview[] = {
 	/*reg_A*/
 	/*2x2BIN 4096_3072_30FPS_PD_SEAMLESS1*/
 	/*H: 4096*/
@@ -1023,7 +1023,7 @@ static u16 imx758_seamless_preview[] = {
 	0x3479, 0xFC,
 };
 
-static u16 imx758_seamless_slim_video[] = {
+static u16 imx758lite_seamless_slim_video[] = {
 	/*reg_F*/
 	/*FULL_CROP_4096_3072_24FPS_PD_SEAMLESS1*/
 	/*H: 4096*/
@@ -1070,7 +1070,7 @@ static u16 imx758_seamless_slim_video[] = {
 	0x3479, 0x00,
 };
 
-static u16 imx758_seamless_custom1[] = {
+static u16 imx758lite_seamless_custom1[] = {
 	/*reg_G*/
 	/*FULL_CROP_RAW_4096_3072_24FPS_SEAMLESS1*/
 	/*H: 4096*/
@@ -1117,7 +1117,7 @@ static u16 imx758_seamless_custom1[] = {
 	0x3479, 0x00,
 };
 
-static u16 imx758_seamless_custom2[] = {
+static u16 imx758lite_seamless_custom2[] = {
 	/*reg_H*/
 	/*FULL_8192_6144_15FPS_PD_SEAMLESS1*/
 	/*H: 8192*/
@@ -1164,7 +1164,7 @@ static u16 imx758_seamless_custom2[] = {
 	0x3479, 0xFC,
 };
 
-static u16 imx758_seamless_custom3[] = {
+static u16 imx758lite_seamless_custom3[] = {
 	/*Line Length PCK Setting*/
 	0x0342, 0x22,
 	0x0343, 0x68,

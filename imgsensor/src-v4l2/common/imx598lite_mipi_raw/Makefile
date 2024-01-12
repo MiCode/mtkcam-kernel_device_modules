@@ -2,5 +2,5 @@
 # Copyright (C) 2020 MediaTek Inc.
 
 imgsensor-objs += \
-	$(subdrv-rpath)/imx598mipiraw_Sensor.o \
+	$(subdrv-rpath)/imx598litemipiraw_Sensor.o \
 

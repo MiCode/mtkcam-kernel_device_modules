@@ -5,7 +5,7 @@
  *
  * Filename:
  * ---------
- *	 imx989mipiraw_Sensor.c
+ *	 imx989litemipiraw_Sensor.c
  *
  * Project:
  * --------
@@ -20,24 +20,24 @@
  * Upper this line, this part is controlled by CC/CQ. DO NOT MODIFY!!
  *============================================================================
  ****************************************************************************/
-#include "imx989mipiraw_Sensor.h"
+#include "imx989litemipiraw_Sensor.h"
 
 static void set_sensor_cali(void *arg);
 static int get_sensor_temperature(void *arg);
 static void set_group_hold(void *arg, u8 en);
 static u16 get_gain2reg(u32 gain);
-static int imx989_seamless_switch(struct subdrv_ctx *ctx, u8 *para, u32 *len);
-static int imx989_set_test_pattern(struct subdrv_ctx *ctx, u8 *para, u32 *len);
-static int imx989_set_test_pattern_data(struct subdrv_ctx *ctx, u8 *para, u32 *len);
+static int imx989lite_seamless_switch(struct subdrv_ctx *ctx, u8 *para, u32 *len);
+static int imx989lite_set_test_pattern(struct subdrv_ctx *ctx, u8 *para, u32 *len);
+static int imx989lite_set_test_pattern_data(struct subdrv_ctx *ctx, u8 *para, u32 *len);
 static int init_ctx(struct subdrv_ctx *ctx,	struct i2c_client *i2c_client, u8 i2c_write_id);
 static int vsync_notify(struct subdrv_ctx *ctx,	unsigned int sof_cnt);
 
 /* STRUCT */
 
 static struct subdrv_feature_control feature_control_list[] = {
-	{SENSOR_FEATURE_SET_TEST_PATTERN, imx989_set_test_pattern},
-	{SENSOR_FEATURE_SET_TEST_PATTERN_DATA, imx989_set_test_pattern_data},
-	{SENSOR_FEATURE_SEAMLESS_SWITCH, imx989_seamless_switch},
+	{SENSOR_FEATURE_SET_TEST_PATTERN, imx989lite_set_test_pattern},
+	{SENSOR_FEATURE_SET_TEST_PATTERN_DATA, imx989lite_set_test_pattern_data},
+	{SENSOR_FEATURE_SEAMLESS_SWITCH, imx989lite_seamless_switch},
 };
 
 static struct eeprom_info_struct eeprom_info[] = {
@@ -133,11 +133,11 @@ static struct SET_PD_BLOCK_INFO_T imgsensor_pd_info = {
 };
 
 //1000 base for dcg gain ratio
-static u32 imx989_dcg_ratio_table_12bit[] = {4000};
+static u32 imx989lite_dcg_ratio_table_12bit[] = {4000};
 
-static u32 imx989_dcg_ratio_table_14bit[] = {16000};
+static u32 imx989lite_dcg_ratio_table_14bit[] = {16000};
 
-static u32 imx989_dcg_ratio_table_ratio4[] = {4000};
+static u32 imx989lite_dcg_ratio_table_ratio4[] = {4000};
 
 static struct mtk_sensor_saturation_info imgsensor_saturation_info_10bit = {
 	.gain_ratio = 1000,
@@ -930,11 +930,11 @@ static struct subdrv_mode_struct mode_struct[] = {
 	{
 		.frame_desc = frame_desc_prev,
 		.num_entries = ARRAY_SIZE(frame_desc_prev),
-		.mode_setting_table = imx989_preview_setting,
-		.mode_setting_len = ARRAY_SIZE(imx989_preview_setting),
+		.mode_setting_table = imx989lite_preview_setting,
+		.mode_setting_len = ARRAY_SIZE(imx989lite_preview_setting),
 		.seamless_switch_group = 1,
-		.seamless_switch_mode_setting_table = imx989_seamless_preview,
-		.seamless_switch_mode_setting_len = ARRAY_SIZE(imx989_seamless_preview),
+		.seamless_switch_mode_setting_table = imx989lite_seamless_preview,
+		.seamless_switch_mode_setting_len = ARRAY_SIZE(imx989lite_seamless_preview),
 		.hdr_mode = HDR_NONE,
 		.raw_cnt = 1,
 		.exp_cnt = 1,
@@ -977,11 +977,11 @@ static struct subdrv_mode_struct mode_struct[] = {
 	{
 		.frame_desc = frame_desc_cap,
 		.num_entries = ARRAY_SIZE(frame_desc_cap),
-		.mode_setting_table = imx989_capture_setting,
-		.mode_setting_len = ARRAY_SIZE(imx989_capture_setting),
+		.mode_setting_table = imx989lite_capture_setting,
+		.mode_setting_len = ARRAY_SIZE(imx989lite_capture_setting),
 		.seamless_switch_group = 1,
-		.seamless_switch_mode_setting_table = imx989_seamless_capture,
-		.seamless_switch_mode_setting_len = ARRAY_SIZE(imx989_seamless_capture),
+		.seamless_switch_mode_setting_table = imx989lite_seamless_capture,
+		.seamless_switch_mode_setting_len = ARRAY_SIZE(imx989lite_seamless_capture),
 		.hdr_mode = HDR_NONE,
 		.raw_cnt = 1,
 		.exp_cnt = 1,
@@ -1024,11 +1024,11 @@ static struct subdrv_mode_struct mode_struct[] = {
 	{
 		.frame_desc = frame_desc_vid,
 		.num_entries = ARRAY_SIZE(frame_desc_vid),
-		.mode_setting_table = imx989_normal_video_setting,
-		.mode_setting_len = ARRAY_SIZE(imx989_normal_video_setting),
+		.mode_setting_table = imx989lite_normal_video_setting,
+		.mode_setting_len = ARRAY_SIZE(imx989lite_normal_video_setting),
 		.seamless_switch_group = 2,
-		.seamless_switch_mode_setting_table = imx989_seamless_normal_video,
-		.seamless_switch_mode_setting_len = ARRAY_SIZE(imx989_seamless_normal_video),
+		.seamless_switch_mode_setting_table = imx989lite_seamless_normal_video,
+		.seamless_switch_mode_setting_len = ARRAY_SIZE(imx989lite_seamless_normal_video),
 		.hdr_mode = HDR_NONE,
 		.raw_cnt = 1,
 		.exp_cnt = 1,
@@ -1071,8 +1071,8 @@ static struct subdrv_mode_struct mode_struct[] = {
 	{
 		.frame_desc = frame_desc_hs_vid,
 		.num_entries = ARRAY_SIZE(frame_desc_hs_vid),
-		.mode_setting_table = imx989_hs_video_setting,
-		.mode_setting_len = ARRAY_SIZE(imx989_hs_video_setting),
+		.mode_setting_table = imx989lite_hs_video_setting,
+		.mode_setting_len = ARRAY_SIZE(imx989lite_hs_video_setting),
 		.seamless_switch_group = PARAM_UNDEFINED,
 		.seamless_switch_mode_setting_table = PARAM_UNDEFINED,
 		.seamless_switch_mode_setting_len = PARAM_UNDEFINED,
@@ -1118,8 +1118,8 @@ static struct subdrv_mode_struct mode_struct[] = {
 	{
 		.frame_desc = frame_desc_slim_vid,
 		.num_entries = ARRAY_SIZE(frame_desc_slim_vid),
-		.mode_setting_table = imx989_slim_video_setting,
-		.mode_setting_len = ARRAY_SIZE(imx989_slim_video_setting),
+		.mode_setting_table = imx989lite_slim_video_setting,
+		.mode_setting_len = ARRAY_SIZE(imx989lite_slim_video_setting),
 		.seamless_switch_group = PARAM_UNDEFINED,
 		.seamless_switch_mode_setting_table = PARAM_UNDEFINED,
 		.seamless_switch_mode_setting_len = PARAM_UNDEFINED,
@@ -1165,8 +1165,8 @@ static struct subdrv_mode_struct mode_struct[] = {
 	{
 		.frame_desc = frame_desc_cus1,
 		.num_entries = ARRAY_SIZE(frame_desc_cus1),
-		.mode_setting_table = imx989_custom1_setting,
-		.mode_setting_len = ARRAY_SIZE(imx989_custom1_setting),
+		.mode_setting_table = imx989lite_custom1_setting,
+		.mode_setting_len = ARRAY_SIZE(imx989lite_custom1_setting),
 		.seamless_switch_group = PARAM_UNDEFINED,
 		.seamless_switch_mode_setting_table = PARAM_UNDEFINED,
 		.seamless_switch_mode_setting_len = PARAM_UNDEFINED,
@@ -1212,8 +1212,8 @@ static struct subdrv_mode_struct mode_struct[] = {
 	{
 		.frame_desc = frame_desc_cus2,
 		.num_entries = ARRAY_SIZE(frame_desc_cus2),
-		.mode_setting_table = imx989_custom2_setting,
-		.mode_setting_len = ARRAY_SIZE(imx989_custom2_setting),
+		.mode_setting_table = imx989lite_custom2_setting,
+		.mode_setting_len = ARRAY_SIZE(imx989lite_custom2_setting),
 		.seamless_switch_group = PARAM_UNDEFINED,
 		.seamless_switch_mode_setting_table = PARAM_UNDEFINED,
 		.seamless_switch_mode_setting_len = PARAM_UNDEFINED,
@@ -1259,8 +1259,8 @@ static struct subdrv_mode_struct mode_struct[] = {
 	{
 		.frame_desc = frame_desc_cus3,
 		.num_entries = ARRAY_SIZE(frame_desc_cus3),
-		.mode_setting_table = imx989_custom3_setting,
-		.mode_setting_len = ARRAY_SIZE(imx989_custom3_setting),
+		.mode_setting_table = imx989lite_custom3_setting,
+		.mode_setting_len = ARRAY_SIZE(imx989lite_custom3_setting),
 		.seamless_switch_group = PARAM_UNDEFINED,
 		.seamless_switch_mode_setting_table = PARAM_UNDEFINED,
 		.seamless_switch_mode_setting_len = PARAM_UNDEFINED,
@@ -1306,11 +1306,11 @@ static struct subdrv_mode_struct mode_struct[] = {
 	{
 		.frame_desc = frame_desc_cus4,
 		.num_entries = ARRAY_SIZE(frame_desc_cus4),
-		.mode_setting_table = imx989_custom4_setting,
-		.mode_setting_len = ARRAY_SIZE(imx989_custom4_setting),
+		.mode_setting_table = imx989lite_custom4_setting,
+		.mode_setting_len = ARRAY_SIZE(imx989lite_custom4_setting),
 		.seamless_switch_group = 2,
-		.seamless_switch_mode_setting_table = imx989_seamless_custom4,
-		.seamless_switch_mode_setting_len = ARRAY_SIZE(imx989_seamless_custom4),
+		.seamless_switch_mode_setting_table = imx989lite_seamless_custom4,
+		.seamless_switch_mode_setting_len = ARRAY_SIZE(imx989lite_seamless_custom4),
 		.hdr_mode = HDR_RAW_DCG_COMPOSE,
 		.raw_cnt = 1,
 		.exp_cnt = 2,
@@ -1357,8 +1357,8 @@ static struct subdrv_mode_struct mode_struct[] = {
 			.dcg_gain_ratio_min = 4000,
 			.dcg_gain_ratio_max = 4000,
 			.dcg_gain_ratio_step = 0,
-			.dcg_gain_table = imx989_dcg_ratio_table_12bit,
-			.dcg_gain_table_size = sizeof(imx989_dcg_ratio_table_12bit),
+			.dcg_gain_table = imx989lite_dcg_ratio_table_12bit,
+			.dcg_gain_table_size = sizeof(imx989lite_dcg_ratio_table_12bit),
 		},
 		.multi_exposure_ana_gain_range[IMGSENSOR_EXPOSURE_LE].min = BASEGAIN * 4,
 		.multi_exposure_ana_gain_range[IMGSENSOR_EXPOSURE_ME].max = BASEGAIN * 16,
@@ -1367,11 +1367,11 @@ static struct subdrv_mode_struct mode_struct[] = {
 	{
 		.frame_desc = frame_desc_cus5,
 		.num_entries = ARRAY_SIZE(frame_desc_cus5),
-		.mode_setting_table = imx989_custom5_setting,
-		.mode_setting_len = ARRAY_SIZE(imx989_custom5_setting),
+		.mode_setting_table = imx989lite_custom5_setting,
+		.mode_setting_len = ARRAY_SIZE(imx989lite_custom5_setting),
 		.seamless_switch_group = 2,
-		.seamless_switch_mode_setting_table = imx989_seamless_custom5,
-		.seamless_switch_mode_setting_len = ARRAY_SIZE(imx989_seamless_custom5),
+		.seamless_switch_mode_setting_table = imx989lite_seamless_custom5,
+		.seamless_switch_mode_setting_len = ARRAY_SIZE(imx989lite_seamless_custom5),
 		.hdr_mode = HDR_RAW_DCG_COMPOSE,
 		.raw_cnt = 1,
 		.exp_cnt = 2,
@@ -1418,8 +1418,8 @@ static struct subdrv_mode_struct mode_struct[] = {
 			.dcg_gain_ratio_min = 16000,
 			.dcg_gain_ratio_max = 16000,
 			.dcg_gain_ratio_step = 0,
-			.dcg_gain_table = imx989_dcg_ratio_table_14bit,
-			.dcg_gain_table_size = sizeof(imx989_dcg_ratio_table_14bit),
+			.dcg_gain_table = imx989lite_dcg_ratio_table_14bit,
+			.dcg_gain_table_size = sizeof(imx989lite_dcg_ratio_table_14bit),
 		},
 		.multi_exposure_ana_gain_range[IMGSENSOR_EXPOSURE_LE].min = BASEGAIN * 16,
 		.multi_exposure_ana_gain_range[IMGSENSOR_EXPOSURE_ME].max = BASEGAIN * 4,
@@ -1428,11 +1428,11 @@ static struct subdrv_mode_struct mode_struct[] = {
 	{
 		.frame_desc = frame_desc_cus6,
 		.num_entries = ARRAY_SIZE(frame_desc_cus6),
-		.mode_setting_table = imx989_custom6_setting,
-		.mode_setting_len = ARRAY_SIZE(imx989_custom6_setting),
+		.mode_setting_table = imx989lite_custom6_setting,
+		.mode_setting_len = ARRAY_SIZE(imx989lite_custom6_setting),
 		.seamless_switch_group = 2,
-		.seamless_switch_mode_setting_table = imx989_seamless_custom6,
-		.seamless_switch_mode_setting_len = ARRAY_SIZE(imx989_seamless_custom6),
+		.seamless_switch_mode_setting_table = imx989lite_seamless_custom6,
+		.seamless_switch_mode_setting_len = ARRAY_SIZE(imx989lite_seamless_custom6),
 		.hdr_mode = HDR_RAW_LBMF,
 		.raw_cnt = 2,
 		.exp_cnt = 2,
@@ -1480,11 +1480,11 @@ static struct subdrv_mode_struct mode_struct[] = {
 	{
 		.frame_desc = frame_desc_cus7,
 		.num_entries = ARRAY_SIZE(frame_desc_cus7),
-		.mode_setting_table = imx989_custom7_setting,
-		.mode_setting_len = ARRAY_SIZE(imx989_custom7_setting),
+		.mode_setting_table = imx989lite_custom7_setting,
+		.mode_setting_len = ARRAY_SIZE(imx989lite_custom7_setting),
 		.seamless_switch_group = 2,
-		.seamless_switch_mode_setting_table = imx989_seamless_custom7,
-		.seamless_switch_mode_setting_len = ARRAY_SIZE(imx989_seamless_custom7),
+		.seamless_switch_mode_setting_table = imx989lite_seamless_custom7,
+		.seamless_switch_mode_setting_len = ARRAY_SIZE(imx989lite_seamless_custom7),
 		.hdr_mode = HDR_RAW_STAGGER,
 		.raw_cnt = 2,
 		.exp_cnt = 2,
@@ -1528,11 +1528,11 @@ static struct subdrv_mode_struct mode_struct[] = {
 	{
 		.frame_desc = frame_desc_cus8,
 		.num_entries = ARRAY_SIZE(frame_desc_cus8),
-		.mode_setting_table = imx989_custom8_setting,
-		.mode_setting_len = ARRAY_SIZE(imx989_custom8_setting),
+		.mode_setting_table = imx989lite_custom8_setting,
+		.mode_setting_len = ARRAY_SIZE(imx989lite_custom8_setting),
 		.seamless_switch_group = 2,
-		.seamless_switch_mode_setting_table = imx989_seamless_custom8,
-		.seamless_switch_mode_setting_len = ARRAY_SIZE(imx989_seamless_custom8),
+		.seamless_switch_mode_setting_table = imx989lite_seamless_custom8,
+		.seamless_switch_mode_setting_len = ARRAY_SIZE(imx989lite_seamless_custom8),
 		.hdr_mode = HDR_NONE,
 		.raw_cnt = 1,
 		.exp_cnt = 1,
@@ -1575,11 +1575,11 @@ static struct subdrv_mode_struct mode_struct[] = {
 	{
 		.frame_desc = frame_desc_cus9,
 		.num_entries = ARRAY_SIZE(frame_desc_cus9),
-		.mode_setting_table = imx989_custom9_setting,
-		.mode_setting_len = ARRAY_SIZE(imx989_custom9_setting),
+		.mode_setting_table = imx989lite_custom9_setting,
+		.mode_setting_len = ARRAY_SIZE(imx989lite_custom9_setting),
 		.seamless_switch_group = 2,
-		.seamless_switch_mode_setting_table = imx989_seamless_custom9,
-		.seamless_switch_mode_setting_len = ARRAY_SIZE(imx989_seamless_custom9),
+		.seamless_switch_mode_setting_table = imx989lite_seamless_custom9,
+		.seamless_switch_mode_setting_len = ARRAY_SIZE(imx989lite_seamless_custom9),
 		.hdr_mode = HDR_NONE,
 		.raw_cnt = 1,
 		.exp_cnt = 1,
@@ -1624,11 +1624,11 @@ static struct subdrv_mode_struct mode_struct[] = {
 	{
 		.frame_desc = frame_desc_cus10,
 		.num_entries = ARRAY_SIZE(frame_desc_cus10),
-		.mode_setting_table = imx989_custom10_setting,
-		.mode_setting_len = ARRAY_SIZE(imx989_custom10_setting),
+		.mode_setting_table = imx989lite_custom10_setting,
+		.mode_setting_len = ARRAY_SIZE(imx989lite_custom10_setting),
 		.seamless_switch_group = 1,
-		.seamless_switch_mode_setting_table = imx989_seamless_custom10,
-		.seamless_switch_mode_setting_len = ARRAY_SIZE(imx989_seamless_custom10),
+		.seamless_switch_mode_setting_table = imx989lite_seamless_custom10,
+		.seamless_switch_mode_setting_len = ARRAY_SIZE(imx989lite_seamless_custom10),
 		.hdr_mode = HDR_NONE,
 		.raw_cnt = 1,
 		.exp_cnt = 1,
@@ -1672,11 +1672,11 @@ static struct subdrv_mode_struct mode_struct[] = {
 	{
 		.frame_desc = frame_desc_cus11,
 		.num_entries = ARRAY_SIZE(frame_desc_cus11),
-		.mode_setting_table = imx989_custom11_setting,
-		.mode_setting_len = ARRAY_SIZE(imx989_custom11_setting),
+		.mode_setting_table = imx989lite_custom11_setting,
+		.mode_setting_len = ARRAY_SIZE(imx989lite_custom11_setting),
 		.seamless_switch_group = 1,
-		.seamless_switch_mode_setting_table = imx989_seamless_custom11,
-		.seamless_switch_mode_setting_len = ARRAY_SIZE(imx989_seamless_custom11),
+		.seamless_switch_mode_setting_table = imx989lite_seamless_custom11,
+		.seamless_switch_mode_setting_len = ARRAY_SIZE(imx989lite_seamless_custom11),
 		.hdr_mode = HDR_NONE,
 		.raw_cnt = 1,
 		.exp_cnt = 1,
@@ -1721,11 +1721,11 @@ static struct subdrv_mode_struct mode_struct[] = {
 	{
 		.frame_desc = frame_desc_cus12,
 		.num_entries = ARRAY_SIZE(frame_desc_cus12),
-		.mode_setting_table = imx989_custom12_setting,
-		.mode_setting_len = ARRAY_SIZE(imx989_custom12_setting),
+		.mode_setting_table = imx989lite_custom12_setting,
+		.mode_setting_len = ARRAY_SIZE(imx989lite_custom12_setting),
 		.seamless_switch_group = 1,
-		.seamless_switch_mode_setting_table = imx989_seamless_custom12,
-		.seamless_switch_mode_setting_len = ARRAY_SIZE(imx989_seamless_custom12),
+		.seamless_switch_mode_setting_table = imx989lite_seamless_custom12,
+		.seamless_switch_mode_setting_len = ARRAY_SIZE(imx989lite_seamless_custom12),
 		.hdr_mode = HDR_NONE,
 		.raw_cnt = 1,
 		.exp_cnt = 1,
@@ -1769,11 +1769,11 @@ static struct subdrv_mode_struct mode_struct[] = {
 	{
 		.frame_desc = frame_desc_cus13,
 		.num_entries = ARRAY_SIZE(frame_desc_cus13),
-		.mode_setting_table = imx989_custom13_setting,
-		.mode_setting_len = ARRAY_SIZE(imx989_custom13_setting),
+		.mode_setting_table = imx989lite_custom13_setting,
+		.mode_setting_len = ARRAY_SIZE(imx989lite_custom13_setting),
 		.seamless_switch_group = 1,
-		.seamless_switch_mode_setting_table = imx989_seamless_custom13,
-		.seamless_switch_mode_setting_len = ARRAY_SIZE(imx989_seamless_custom13),
+		.seamless_switch_mode_setting_table = imx989lite_seamless_custom13,
+		.seamless_switch_mode_setting_len = ARRAY_SIZE(imx989lite_seamless_custom13),
 		.hdr_mode = HDR_NONE,
 		.raw_cnt = 1,
 		.exp_cnt = 1,
@@ -1818,11 +1818,11 @@ static struct subdrv_mode_struct mode_struct[] = {
 	{
 		.frame_desc = frame_desc_cus14,
 		.num_entries = ARRAY_SIZE(frame_desc_cus14),
-		.mode_setting_table = imx989_custom14_setting,
-		.mode_setting_len = ARRAY_SIZE(imx989_custom14_setting),
+		.mode_setting_table = imx989lite_custom14_setting,
+		.mode_setting_len = ARRAY_SIZE(imx989lite_custom14_setting),
 		.seamless_switch_group = 1,
-		.seamless_switch_mode_setting_table = imx989_seamless_custom14,
-		.seamless_switch_mode_setting_len = ARRAY_SIZE(imx989_seamless_custom14),
+		.seamless_switch_mode_setting_table = imx989lite_seamless_custom14,
+		.seamless_switch_mode_setting_len = ARRAY_SIZE(imx989lite_seamless_custom14),
 		.hdr_mode = HDR_RAW_STAGGER,
 		.raw_cnt = 2,
 		.exp_cnt = 2,
@@ -1866,11 +1866,11 @@ static struct subdrv_mode_struct mode_struct[] = {
 	{
 		.frame_desc = frame_desc_cus15,
 		.num_entries = ARRAY_SIZE(frame_desc_cus15),
-		.mode_setting_table = imx989_custom15_setting,
-		.mode_setting_len = ARRAY_SIZE(imx989_custom15_setting),
+		.mode_setting_table = imx989lite_custom15_setting,
+		.mode_setting_len = ARRAY_SIZE(imx989lite_custom15_setting),
 		.seamless_switch_group = 1,
-		.seamless_switch_mode_setting_table = imx989_seamless_custom15,
-		.seamless_switch_mode_setting_len = ARRAY_SIZE(imx989_seamless_custom15),
+		.seamless_switch_mode_setting_table = imx989lite_seamless_custom15,
+		.seamless_switch_mode_setting_len = ARRAY_SIZE(imx989lite_seamless_custom15),
 		.hdr_mode = HDR_RAW_STAGGER,
 		.raw_cnt = 3,
 		.exp_cnt = 3,
@@ -1915,11 +1915,11 @@ static struct subdrv_mode_struct mode_struct[] = {
 	{
 		.frame_desc = frame_desc_cus16,
 		.num_entries = ARRAY_SIZE(frame_desc_cus16),
-		.mode_setting_table = imx989_custom16_setting,
-		.mode_setting_len = ARRAY_SIZE(imx989_custom16_setting),
+		.mode_setting_table = imx989lite_custom16_setting,
+		.mode_setting_len = ARRAY_SIZE(imx989lite_custom16_setting),
 		.seamless_switch_group = 1,
-		.seamless_switch_mode_setting_table = imx989_seamless_custom16,
-		.seamless_switch_mode_setting_len = ARRAY_SIZE(imx989_seamless_custom16),
+		.seamless_switch_mode_setting_table = imx989lite_seamless_custom16,
+		.seamless_switch_mode_setting_len = ARRAY_SIZE(imx989lite_seamless_custom16),
 		.hdr_mode = HDR_RAW_DCG_COMPOSE,
 		.raw_cnt = 1,
 		.exp_cnt = 2,
@@ -1966,8 +1966,8 @@ static struct subdrv_mode_struct mode_struct[] = {
 			.dcg_gain_ratio_min = 4000,
 			.dcg_gain_ratio_max = 4000,
 			.dcg_gain_ratio_step = 0,
-			.dcg_gain_table = imx989_dcg_ratio_table_12bit,
-			.dcg_gain_table_size = sizeof(imx989_dcg_ratio_table_12bit),
+			.dcg_gain_table = imx989lite_dcg_ratio_table_12bit,
+			.dcg_gain_table_size = sizeof(imx989lite_dcg_ratio_table_12bit),
 		},
 		.multi_exposure_ana_gain_range[IMGSENSOR_EXPOSURE_LE].min = BASEGAIN * 4,
 		.multi_exposure_ana_gain_range[IMGSENSOR_EXPOSURE_ME].max = BASEGAIN * 16,
@@ -1976,11 +1976,11 @@ static struct subdrv_mode_struct mode_struct[] = {
 	{
 		.frame_desc = frame_desc_cus17,
 		.num_entries = ARRAY_SIZE(frame_desc_cus17),
-		.mode_setting_table = imx989_custom17_setting,
-		.mode_setting_len = ARRAY_SIZE(imx989_custom17_setting),
+		.mode_setting_table = imx989lite_custom17_setting,
+		.mode_setting_len = ARRAY_SIZE(imx989lite_custom17_setting),
 		.seamless_switch_group = 1,
-		.seamless_switch_mode_setting_table = imx989_seamless_custom17,
-		.seamless_switch_mode_setting_len = ARRAY_SIZE(imx989_seamless_custom17),
+		.seamless_switch_mode_setting_table = imx989lite_seamless_custom17,
+		.seamless_switch_mode_setting_len = ARRAY_SIZE(imx989lite_seamless_custom17),
 		.hdr_mode = HDR_RAW_DCG_COMPOSE,
 		.raw_cnt = 1,
 		.exp_cnt = 2,
@@ -2027,8 +2027,8 @@ static struct subdrv_mode_struct mode_struct[] = {
 			.dcg_gain_ratio_min = 16000,
 			.dcg_gain_ratio_max = 16000,
 			.dcg_gain_ratio_step = 0,
-			.dcg_gain_table = imx989_dcg_ratio_table_14bit,
-			.dcg_gain_table_size = sizeof(imx989_dcg_ratio_table_14bit),
+			.dcg_gain_table = imx989lite_dcg_ratio_table_14bit,
+			.dcg_gain_table_size = sizeof(imx989lite_dcg_ratio_table_14bit),
 		},
 		.multi_exposure_ana_gain_range[IMGSENSOR_EXPOSURE_LE].min = BASEGAIN * 16,
 		.multi_exposure_ana_gain_range[IMGSENSOR_EXPOSURE_ME].max = BASEGAIN * 4,
@@ -2037,11 +2037,11 @@ static struct subdrv_mode_struct mode_struct[] = {
 	{
 		.frame_desc = frame_desc_cus18,
 		.num_entries = ARRAY_SIZE(frame_desc_cus18),
-		.mode_setting_table = imx989_custom18_setting,
-		.mode_setting_len = ARRAY_SIZE(imx989_custom18_setting),
+		.mode_setting_table = imx989lite_custom18_setting,
+		.mode_setting_len = ARRAY_SIZE(imx989lite_custom18_setting),
 		.seamless_switch_group = 1,
-		.seamless_switch_mode_setting_table = imx989_seamless_custom18,
-		.seamless_switch_mode_setting_len = ARRAY_SIZE(imx989_seamless_custom18),
+		.seamless_switch_mode_setting_table = imx989lite_seamless_custom18,
+		.seamless_switch_mode_setting_len = ARRAY_SIZE(imx989lite_seamless_custom18),
 		.hdr_mode = HDR_RAW_LBMF,
 		.raw_cnt = 2,
 		.exp_cnt = 2,
@@ -2089,11 +2089,11 @@ static struct subdrv_mode_struct mode_struct[] = {
 	{
 		.frame_desc = frame_desc_cus19,
 		.num_entries = ARRAY_SIZE(frame_desc_cus19),
-		.mode_setting_table = imx989_custom19_setting,
-		.mode_setting_len = ARRAY_SIZE(imx989_custom19_setting),
+		.mode_setting_table = imx989lite_custom19_setting,
+		.mode_setting_len = ARRAY_SIZE(imx989lite_custom19_setting),
 		.seamless_switch_group = 1,
-		.seamless_switch_mode_setting_table = imx989_seamless_custom19,
-		.seamless_switch_mode_setting_len = ARRAY_SIZE(imx989_seamless_custom19),
+		.seamless_switch_mode_setting_table = imx989lite_seamless_custom19,
+		.seamless_switch_mode_setting_len = ARRAY_SIZE(imx989lite_seamless_custom19),
 		.hdr_mode = HDR_NONE,
 		.raw_cnt = 1,
 		.exp_cnt = 1,
@@ -2136,11 +2136,11 @@ static struct subdrv_mode_struct mode_struct[] = {
 	{
 		.frame_desc = frame_desc_cus20,
 		.num_entries = ARRAY_SIZE(frame_desc_cus20),
-		.mode_setting_table = imx989_custom20_setting,
-		.mode_setting_len = ARRAY_SIZE(imx989_custom20_setting),
+		.mode_setting_table = imx989lite_custom20_setting,
+		.mode_setting_len = ARRAY_SIZE(imx989lite_custom20_setting),
 		.seamless_switch_group = 1,
-		.seamless_switch_mode_setting_table = imx989_seamless_custom20,
-		.seamless_switch_mode_setting_len = ARRAY_SIZE(imx989_seamless_custom20),
+		.seamless_switch_mode_setting_table = imx989lite_seamless_custom20,
+		.seamless_switch_mode_setting_len = ARRAY_SIZE(imx989lite_seamless_custom20),
 		.hdr_mode = HDR_NONE,
 		.raw_cnt = 1,
 		.exp_cnt = 1,
@@ -2185,8 +2185,8 @@ static struct subdrv_mode_struct mode_struct[] = {
 	{
 		.frame_desc = frame_desc_cus21,
 		.num_entries = ARRAY_SIZE(frame_desc_cus21),
-		.mode_setting_table = imx989_custom21_setting,
-		.mode_setting_len = ARRAY_SIZE(imx989_custom21_setting),
+		.mode_setting_table = imx989lite_custom21_setting,
+		.mode_setting_len = ARRAY_SIZE(imx989lite_custom21_setting),
 		.seamless_switch_group = PARAM_UNDEFINED,
 		.seamless_switch_mode_setting_table = PARAM_UNDEFINED,
 		.seamless_switch_mode_setting_len = PARAM_UNDEFINED,
@@ -2232,8 +2232,8 @@ static struct subdrv_mode_struct mode_struct[] = {
 	{
 		.frame_desc = frame_desc_cus22,
 		.num_entries = ARRAY_SIZE(frame_desc_cus22),
-		.mode_setting_table = imx989_custom22_setting,
-		.mode_setting_len = ARRAY_SIZE(imx989_custom22_setting),
+		.mode_setting_table = imx989lite_custom22_setting,
+		.mode_setting_len = ARRAY_SIZE(imx989lite_custom22_setting),
 		.seamless_switch_group = PARAM_UNDEFINED,
 		.seamless_switch_mode_setting_table = PARAM_UNDEFINED,
 		.seamless_switch_mode_setting_len = PARAM_UNDEFINED,
@@ -2279,8 +2279,8 @@ static struct subdrv_mode_struct mode_struct[] = {
 	{
 		.frame_desc = frame_desc_cus23,
 		.num_entries = ARRAY_SIZE(frame_desc_cus23),
-		.mode_setting_table = imx989_custom23_setting,
-		.mode_setting_len = ARRAY_SIZE(imx989_custom23_setting),
+		.mode_setting_table = imx989lite_custom23_setting,
+		.mode_setting_len = ARRAY_SIZE(imx989lite_custom23_setting),
 		.seamless_switch_group = PARAM_UNDEFINED,
 		.seamless_switch_mode_setting_table = PARAM_UNDEFINED,
 		.seamless_switch_mode_setting_len = PARAM_UNDEFINED,
@@ -2326,11 +2326,11 @@ static struct subdrv_mode_struct mode_struct[] = {
 		{
 		.frame_desc = frame_desc_cus24,
 		.num_entries = ARRAY_SIZE(frame_desc_cus24),
-		.mode_setting_table = imx989_custom24_setting,
-		.mode_setting_len = ARRAY_SIZE(imx989_custom24_setting),
+		.mode_setting_table = imx989lite_custom24_setting,
+		.mode_setting_len = ARRAY_SIZE(imx989lite_custom24_setting),
 		.seamless_switch_group = 2,
-		.seamless_switch_mode_setting_table = imx989_seamless_custom24,
-		.seamless_switch_mode_setting_len = ARRAY_SIZE(imx989_seamless_custom24),
+		.seamless_switch_mode_setting_table = imx989lite_seamless_custom24,
+		.seamless_switch_mode_setting_len = ARRAY_SIZE(imx989lite_seamless_custom24),
 		.hdr_mode = HDR_RAW_DCG_RAW,
 		.raw_cnt = 2,
 		.exp_cnt = 2,
@@ -2376,8 +2376,8 @@ static struct subdrv_mode_struct mode_struct[] = {
 			.dcg_gain_ratio_min = 4000,
 			.dcg_gain_ratio_max = 4000,
 			.dcg_gain_ratio_step = 0,
-			.dcg_gain_table = imx989_dcg_ratio_table_ratio4,
-			.dcg_gain_table_size = sizeof(imx989_dcg_ratio_table_ratio4),
+			.dcg_gain_table = imx989lite_dcg_ratio_table_ratio4,
+			.dcg_gain_table_size = sizeof(imx989lite_dcg_ratio_table_ratio4),
 		},
 		.dpc_enabled = true,
 		.multi_exposure_ana_gain_range[IMGSENSOR_EXPOSURE_LE].min = BASEGAIN * 4,
@@ -2386,11 +2386,11 @@ static struct subdrv_mode_struct mode_struct[] = {
 	{
 		.frame_desc = frame_desc_cus25,
 		.num_entries = ARRAY_SIZE(frame_desc_cus25),
-		.mode_setting_table = imx989_custom25_setting,
-		.mode_setting_len = ARRAY_SIZE(imx989_custom25_setting),
+		.mode_setting_table = imx989lite_custom25_setting,
+		.mode_setting_len = ARRAY_SIZE(imx989lite_custom25_setting),
 		.seamless_switch_group = 1,
-		.seamless_switch_mode_setting_table = imx989_seamless_custom25,
-		.seamless_switch_mode_setting_len = ARRAY_SIZE(imx989_seamless_custom25),
+		.seamless_switch_mode_setting_table = imx989lite_seamless_custom25,
+		.seamless_switch_mode_setting_len = ARRAY_SIZE(imx989lite_seamless_custom25),
 		.hdr_mode = HDR_RAW_DCG_RAW,
 		.raw_cnt = 2,
 		.exp_cnt = 2,
@@ -2436,8 +2436,8 @@ static struct subdrv_mode_struct mode_struct[] = {
 			.dcg_gain_ratio_min = 4000,
 			.dcg_gain_ratio_max = 4000,
 			.dcg_gain_ratio_step = 0,
-			.dcg_gain_table = imx989_dcg_ratio_table_ratio4,
-			.dcg_gain_table_size = sizeof(imx989_dcg_ratio_table_ratio4),
+			.dcg_gain_table = imx989lite_dcg_ratio_table_ratio4,
+			.dcg_gain_table_size = sizeof(imx989lite_dcg_ratio_table_ratio4),
 		},
 		.dpc_enabled = true,
 		.multi_exposure_ana_gain_range[IMGSENSOR_EXPOSURE_LE].min = BASEGAIN * 4,
@@ -2446,8 +2446,8 @@ static struct subdrv_mode_struct mode_struct[] = {
 	{
 		.frame_desc = frame_desc_cus26,
 		.num_entries = ARRAY_SIZE(frame_desc_cus26),
-		.mode_setting_table = imx989_custom26_setting,
-		.mode_setting_len = ARRAY_SIZE(imx989_custom26_setting),
+		.mode_setting_table = imx989lite_custom26_setting,
+		.mode_setting_len = ARRAY_SIZE(imx989lite_custom26_setting),
 		.seamless_switch_group = PARAM_UNDEFINED,
 		.seamless_switch_mode_setting_table = PARAM_UNDEFINED,
 		.seamless_switch_mode_setting_len = PARAM_UNDEFINED,
@@ -2496,8 +2496,8 @@ static struct subdrv_mode_struct mode_struct[] = {
 			.dcg_gain_ratio_min = 4000,
 			.dcg_gain_ratio_max = 4000,
 			.dcg_gain_ratio_step = 0,
-			.dcg_gain_table = imx989_dcg_ratio_table_ratio4,
-			.dcg_gain_table_size = sizeof(imx989_dcg_ratio_table_ratio4),
+			.dcg_gain_table = imx989lite_dcg_ratio_table_ratio4,
+			.dcg_gain_table_size = sizeof(imx989lite_dcg_ratio_table_ratio4),
 		},
 		.multi_exposure_ana_gain_range[IMGSENSOR_EXPOSURE_LE].min = BASEGAIN * 4,
 		.multi_exposure_ana_gain_range[IMGSENSOR_EXPOSURE_ME].max = BASEGAIN * 16,
@@ -2505,8 +2505,8 @@ static struct subdrv_mode_struct mode_struct[] = {
 	{
 		.frame_desc = frame_desc_cus27,
 		.num_entries = ARRAY_SIZE(frame_desc_cus27),
-		.mode_setting_table = imx989_custom27_setting,
-		.mode_setting_len = ARRAY_SIZE(imx989_custom27_setting),
+		.mode_setting_table = imx989lite_custom27_setting,
+		.mode_setting_len = ARRAY_SIZE(imx989lite_custom27_setting),
 		.seamless_switch_group = PARAM_UNDEFINED,
 		.seamless_switch_mode_setting_table = PARAM_UNDEFINED,
 		.seamless_switch_mode_setting_len = PARAM_UNDEFINED,
@@ -2552,7 +2552,7 @@ static struct subdrv_mode_struct mode_struct[] = {
 };
 
 static struct subdrv_static_ctx static_ctx = {
-	.sensor_id = IMX989_SENSOR_ID,
+	.sensor_id = IMX989LITE_SENSOR_ID,
 	.reg_addr_sensor_id = {0x0016, 0x0017},
 	.i2c_addr_table = {0x34, 0xFF},
 	.i2c_burst_write_support = TRUE,
@@ -2575,8 +2575,8 @@ static struct subdrv_static_ctx static_ctx = {
 	.ana_gain_max = BASEGAIN * 64,
 	.ana_gain_type = 0,
 	.ana_gain_step = 1,
-	.ana_gain_table = imx989_ana_gain_table,
-	.ana_gain_table_size = sizeof(imx989_ana_gain_table),
+	.ana_gain_table = imx989lite_ana_gain_table,
+	.ana_gain_table_size = sizeof(imx989lite_ana_gain_table),
 	.min_gain_iso = 100,
 	.exposure_def = 0x3D0,
 	.exposure_min = 8,
@@ -2651,8 +2651,8 @@ static struct subdrv_static_ctx static_ctx = {
 	.reg_addr_fast_mode = 0x3010,
 	.reg_addr_fast_mode_in_lbmf = 0x3248,
 
-	.init_setting_table = imx989_init_setting,
-	.init_setting_len = ARRAY_SIZE(imx989_init_setting),
+	.init_setting_table = imx989lite_init_setting,
+	.init_setting_len = ARRAY_SIZE(imx989lite_init_setting),
 	.mode = mode_struct,
 	.sensor_mode_num = ARRAY_SIZE(mode_struct),
 	.list = feature_control_list,
@@ -2693,9 +2693,9 @@ static struct subdrv_pw_seq_entry pw_seq[] = {
 	{HW_ID_RST, 1, 2}
 };
 
-const struct subdrv_entry imx989_mipi_raw_entry = {
-	.name = "imx989_mipi_raw",
-	.id = IMX989_SENSOR_ID,
+const struct subdrv_entry imx989lite_mipi_raw_entry = {
+	.name = "imx989lite_mipi_raw",
+	.id = IMX989LITE_SENSOR_ID,
 	.pw_seq = pw_seq,
 	.pw_seq_cnt = ARRAY_SIZE(pw_seq),
 	.ops = &ops,
@@ -2771,7 +2771,7 @@ static u16 get_gain2reg(u32 gain)
 	return (16384 - (16384 * BASEGAIN) / gain);
 }
 
-static int imx989_seamless_switch(struct subdrv_ctx *ctx, u8 *para, u32 *len)
+static int imx989lite_seamless_switch(struct subdrv_ctx *ctx, u8 *para, u32 *len)
 {
 	enum SENSOR_SCENARIO_ID_ENUM scenario_id;
 	struct mtk_hdr_ae *ae_ctrl = NULL;
@@ -2860,7 +2860,7 @@ static int imx989_seamless_switch(struct subdrv_ctx *ctx, u8 *para, u32 *len)
 	return ERROR_NONE;
 }
 
-static int imx989_set_test_pattern(struct subdrv_ctx *ctx, u8 *para, u32 *len)
+static int imx989lite_set_test_pattern(struct subdrv_ctx *ctx, u8 *para, u32 *len)
 {
 	u32 mode = *((u32 *)para);
 
@@ -2876,7 +2876,7 @@ static int imx989_set_test_pattern(struct subdrv_ctx *ctx, u8 *para, u32 *len)
 	return ERROR_NONE;
 }
 
-static int imx989_set_test_pattern_data(struct subdrv_ctx *ctx, u8 *para, u32 *len)
+static int imx989lite_set_test_pattern_data(struct subdrv_ctx *ctx, u8 *para, u32 *len)
 {
 	struct mtk_test_pattern_data *data = (struct mtk_test_pattern_data *)para;
 	u16 R = (data->Channel_R >> 22) & 0x3ff;

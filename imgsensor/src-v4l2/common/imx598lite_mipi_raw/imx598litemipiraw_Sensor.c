@@ -5,7 +5,7 @@
  *
  * Filename:
  * ---------
- *	 imx598mipiraw_Sensor.c
+ *	 imx598litemipiraw_Sensor.c
  *
  * Project:
  * --------
@@ -20,21 +20,23 @@
  * Upper this line, this part is controlled by CC/CQ. DO NOT MODIFY!!
  *============================================================================
  ****************************************************************************/
-#include "imx598mipiraw_Sensor.h"
+#include "imx598litemipiraw_Sensor.h"
 
 static int get_sensor_temperature(void *arg);
 static void set_group_hold(void *arg, u8 en);
 static u16 get_gain2reg(u32 gain);
-static int imx598_set_test_pattern(struct subdrv_ctx *ctx, u8 *para, u32 *len);
-static int imx598_set_test_pattern_data(struct subdrv_ctx *ctx, u8 *para, u32 *len);
+static int imx598lite_set_test_pattern(struct subdrv_ctx *ctx, u8 *para, u32 *len);
+static int imx598lite_set_test_pattern_data(struct subdrv_ctx *ctx, u8 *para, u32 *len);
+static int get_imgsensor_id(struct subdrv_ctx *ctx, u32 *sensor_id);
+static int imx598lite_open(struct subdrv_ctx *ctx);
 static int init_ctx(struct subdrv_ctx *ctx,	struct i2c_client *i2c_client, u8 i2c_write_id);
 static int vsync_notify(struct subdrv_ctx *ctx,	unsigned int sof_cnt);
 
 /* STRUCT */
 
 static struct subdrv_feature_control feature_control_list[] = {
-	{SENSOR_FEATURE_SET_TEST_PATTERN, imx598_set_test_pattern},
-	{SENSOR_FEATURE_SET_TEST_PATTERN_DATA, imx598_set_test_pattern_data},
+	{SENSOR_FEATURE_SET_TEST_PATTERN, imx598lite_set_test_pattern},
+	{SENSOR_FEATURE_SET_TEST_PATTERN_DATA, imx598lite_set_test_pattern_data},
 };
 
 static struct eeprom_info_struct eeprom_info[] = {
@@ -187,8 +189,8 @@ static struct subdrv_mode_struct mode_struct[] = {
 	{
 		.frame_desc = frame_desc_prev,
 		.num_entries = ARRAY_SIZE(frame_desc_prev),
-		.mode_setting_table = imx598_preview_setting,
-		.mode_setting_len = ARRAY_SIZE(imx598_preview_setting),
+		.mode_setting_table = imx598lite_preview_setting,
+		.mode_setting_len = ARRAY_SIZE(imx598lite_preview_setting),
 		.seamless_switch_group = PARAM_UNDEFINED,
 		.seamless_switch_mode_setting_table = PARAM_UNDEFINED,
 		.seamless_switch_mode_setting_len = PARAM_UNDEFINED,
@@ -237,8 +239,8 @@ static struct subdrv_mode_struct mode_struct[] = {
 	{
 		.frame_desc = frame_desc_cap,
 		.num_entries = ARRAY_SIZE(frame_desc_cap),
-		.mode_setting_table = imx598_capture_setting,
-		.mode_setting_len = ARRAY_SIZE(imx598_capture_setting),
+		.mode_setting_table = imx598lite_capture_setting,
+		.mode_setting_len = ARRAY_SIZE(imx598lite_capture_setting),
 		.seamless_switch_group = PARAM_UNDEFINED,
 		.seamless_switch_mode_setting_table = PARAM_UNDEFINED,
 		.seamless_switch_mode_setting_len = PARAM_UNDEFINED,
@@ -287,8 +289,8 @@ static struct subdrv_mode_struct mode_struct[] = {
 	{
 		.frame_desc = frame_desc_vid,
 		.num_entries = ARRAY_SIZE(frame_desc_vid),
-		.mode_setting_table = imx598_normal_video_setting,
-		.mode_setting_len = ARRAY_SIZE(imx598_normal_video_setting),
+		.mode_setting_table = imx598lite_normal_video_setting,
+		.mode_setting_len = ARRAY_SIZE(imx598lite_normal_video_setting),
 		.seamless_switch_group = PARAM_UNDEFINED,
 		.seamless_switch_mode_setting_table = PARAM_UNDEFINED,
 		.seamless_switch_mode_setting_len = PARAM_UNDEFINED,
@@ -337,8 +339,8 @@ static struct subdrv_mode_struct mode_struct[] = {
 	{
 		.frame_desc = frame_desc_hs_vid,
 		.num_entries = ARRAY_SIZE(frame_desc_hs_vid),
-		.mode_setting_table = imx598_hs_video_setting,
-		.mode_setting_len = ARRAY_SIZE(imx598_hs_video_setting),
+		.mode_setting_table = imx598lite_hs_video_setting,
+		.mode_setting_len = ARRAY_SIZE(imx598lite_hs_video_setting),
 		.seamless_switch_group = PARAM_UNDEFINED,
 		.seamless_switch_mode_setting_table = PARAM_UNDEFINED,
 		.seamless_switch_mode_setting_len = PARAM_UNDEFINED,
@@ -387,8 +389,8 @@ static struct subdrv_mode_struct mode_struct[] = {
 	{
 		.frame_desc = frame_desc_slim_vid,
 		.num_entries = ARRAY_SIZE(frame_desc_slim_vid),
-		.mode_setting_table = imx598_slim_video_setting,
-		.mode_setting_len = ARRAY_SIZE(imx598_slim_video_setting),
+		.mode_setting_table = imx598lite_slim_video_setting,
+		.mode_setting_len = ARRAY_SIZE(imx598lite_slim_video_setting),
 		.seamless_switch_group = PARAM_UNDEFINED,
 		.seamless_switch_mode_setting_table = PARAM_UNDEFINED,
 		.seamless_switch_mode_setting_len = PARAM_UNDEFINED,
@@ -437,8 +439,8 @@ static struct subdrv_mode_struct mode_struct[] = {
 	{
 		.frame_desc = frame_desc_cus1,
 		.num_entries = ARRAY_SIZE(frame_desc_cus1),
-		.mode_setting_table = imx598_custom1_setting,
-		.mode_setting_len = ARRAY_SIZE(imx598_custom1_setting),
+		.mode_setting_table = imx598lite_custom1_setting,
+		.mode_setting_len = ARRAY_SIZE(imx598lite_custom1_setting),
 		.seamless_switch_group = PARAM_UNDEFINED,
 		.seamless_switch_mode_setting_table = PARAM_UNDEFINED,
 		.seamless_switch_mode_setting_len = PARAM_UNDEFINED,
@@ -487,8 +489,8 @@ static struct subdrv_mode_struct mode_struct[] = {
 	{
 		.frame_desc = frame_desc_cus2,
 		.num_entries = ARRAY_SIZE(frame_desc_cus2),
-		.mode_setting_table = imx598_custom2_setting,
-		.mode_setting_len = ARRAY_SIZE(imx598_custom2_setting),
+		.mode_setting_table = imx598lite_custom2_setting,
+		.mode_setting_len = ARRAY_SIZE(imx598lite_custom2_setting),
 		.seamless_switch_group = PARAM_UNDEFINED,
 		.seamless_switch_mode_setting_table = PARAM_UNDEFINED,
 		.seamless_switch_mode_setting_len = PARAM_UNDEFINED,
@@ -537,8 +539,8 @@ static struct subdrv_mode_struct mode_struct[] = {
 	{
 		.frame_desc = frame_desc_cus3,
 		.num_entries = ARRAY_SIZE(frame_desc_cus3),
-		.mode_setting_table = imx598_custom3_setting,
-		.mode_setting_len = ARRAY_SIZE(imx598_custom3_setting),
+		.mode_setting_table = imx598lite_custom3_setting,
+		.mode_setting_len = ARRAY_SIZE(imx598lite_custom3_setting),
 		.seamless_switch_group = PARAM_UNDEFINED,
 		.seamless_switch_mode_setting_table = PARAM_UNDEFINED,
 		.seamless_switch_mode_setting_len = PARAM_UNDEFINED,
@@ -587,7 +589,7 @@ static struct subdrv_mode_struct mode_struct[] = {
 };
 
 static struct subdrv_static_ctx static_ctx = {
-	.sensor_id = IMX598_SENSOR_ID,
+	.sensor_id = IMX598LITE_SENSOR_ID,
 	.reg_addr_sensor_id = {0x0016, 0x0017},
 	.i2c_addr_table = {0x34, 0xFF},
 	.i2c_burst_write_support = TRUE,
@@ -610,8 +612,8 @@ static struct subdrv_static_ctx static_ctx = {
 	.ana_gain_max = BASEGAIN * 64,
 	.ana_gain_type = 0,//0:sony, 1:ov or samusng....etc no used
 	.ana_gain_step = 1,// no used
-	.ana_gain_table = imx598_ana_gain_table,
-	.ana_gain_table_size = sizeof(imx598_ana_gain_table),
+	.ana_gain_table = imx598lite_ana_gain_table,
+	.ana_gain_table_size = sizeof(imx598lite_ana_gain_table),
 	.min_gain_iso = 100, // no change
 	.exposure_def = 0x3D0, //no change
 	.exposure_min = 16,
@@ -656,8 +658,8 @@ static struct subdrv_static_ctx static_ctx = {
 	.reg_addr_auto_extend = 0x0350,
 	.reg_addr_frame_count = 0x0005,
 
-	.init_setting_table = imx598_init_setting,
-	.init_setting_len = ARRAY_SIZE(imx598_init_setting),
+	.init_setting_table = imx598lite_init_setting,
+	.init_setting_len = ARRAY_SIZE(imx598lite_init_setting),
 	.mode = mode_struct,
 	.sensor_mode_num = ARRAY_SIZE(mode_struct),
 	.list = feature_control_list,
@@ -698,9 +700,9 @@ static struct subdrv_pw_seq_entry pw_seq[] = {
 	{HW_ID_RST, 1, 1}
 };
 
-const struct subdrv_entry imx598_mipi_raw_entry = {
-	.name = "imx598_mipi_raw",
-	.id = IMX598_SENSOR_ID,
+const struct subdrv_entry imx598lite_mipi_raw_entry = {
+	.name = "imx598lite_mipi_raw",
+	.id = IMX598LITE_SENSOR_ID,
 	.pw_seq = pw_seq,
 	.pw_seq_cnt = ARRAY_SIZE(pw_seq),
 	.ops = &ops,
@@ -744,7 +746,7 @@ static u16 get_gain2reg(u32 gain)
 	return (1024 - (1024 * BASEGAIN + (gain >> 1)) / gain);
 }
 
-static int imx598_set_test_pattern(struct subdrv_ctx *ctx, u8 *para, u32 *len)
+static int imx598lite_set_test_pattern(struct subdrv_ctx *ctx, u8 *para, u32 *len)
 {
 	u32 mode = *((u32 *)para);
 
@@ -760,7 +762,7 @@ static int imx598_set_test_pattern(struct subdrv_ctx *ctx, u8 *para, u32 *len)
 	return ERROR_NONE;
 }
 
-static int imx598_set_test_pattern_data(struct subdrv_ctx *ctx, u8 *para, u32 *len)
+static int imx598lite_set_test_pattern_data(struct subdrv_ctx *ctx, u8 *para, u32 *len)
 {
 	struct mtk_test_pattern_data *data = (struct mtk_test_pattern_data *)para;
 	u16 R = (data->Channel_R >> 22) & 0x3ff;
@@ -781,7 +783,6 @@ static int imx598_set_test_pattern_data(struct subdrv_ctx *ctx, u8 *para, u32 *l
 		ctx->test_pattern, R, Gr, Gb, B);
 	return ERROR_NONE;
 }
-
 
 static int init_ctx(struct subdrv_ctx *ctx,	struct i2c_client *i2c_client, u8 i2c_write_id)
 {

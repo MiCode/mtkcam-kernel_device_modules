@@ -354,7 +354,7 @@ static const struct file_operations aov_fops = {
 
 static int uisp_get_for_smi_dbg(void *data)
 {
-	pm_runtime_resume_and_get(uisp_larb_dev);
+	pm_runtime_get_noresume(uisp_larb_dev);
 	g_uisp_smi_pwr_cnt += 1;
 	return 0;
 }
@@ -365,7 +365,7 @@ static int uisp_get_if_in_use_for_smi_dbg(void *data)
 
 	if (g_aov_start) {
 		ret = 1;
-		pm_runtime_resume_and_get(uisp_larb_dev);
+		pm_runtime_get_noresume(uisp_larb_dev);
 		g_uisp_smi_pwr_cnt += 1;
 	}
 	return ret;
@@ -376,7 +376,7 @@ static int uisp_put_for_smi_dbg(void *data)
 	int ret = 0;
 
 	if (g_uisp_smi_pwr_cnt) {
-		ret = pm_runtime_put_sync(uisp_larb_dev);
+		pm_runtime_put_noidle(uisp_larb_dev);
 		g_uisp_smi_pwr_cnt -= 1;
 	}
 	return ret;
@@ -393,7 +393,7 @@ static struct smi_user_pwr_ctrl uisp_pwr_ctrl = {
 
 static int mae_get_for_smi_dbg(void *data)
 {
-	pm_runtime_resume_and_get(mae_larb_dev);
+	pm_runtime_get_noresume(mae_larb_dev);
 	g_mae_smi_pwr_cnt += 1;
 	return 0;
 }
@@ -405,7 +405,7 @@ static int mae_get_if_in_use_for_smi_dbg(void *data)
 	if (g_aov_start &&
 		(g_frame_mode & (eOBJECT_FACE_SIMPLE | eOBJECT_FACE_FULL | eOBJECT_FACE_RECOGNITION))) {
 		ret = 1;
-		pm_runtime_resume_and_get(mae_larb_dev);
+		pm_runtime_get_noresume(mae_larb_dev);
 		g_mae_smi_pwr_cnt += 1;
 	}
 	return ret;
@@ -416,7 +416,7 @@ static int mae_put_for_smi_dbg(void *data)
 	int ret = 0;
 
 	if (g_mae_smi_pwr_cnt) {
-		ret = pm_runtime_put_sync(mae_larb_dev);
+		pm_runtime_put_noidle(mae_larb_dev);
 		g_mae_smi_pwr_cnt -= 1;
 	}
 	return ret;

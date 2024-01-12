@@ -1814,7 +1814,7 @@ static void mtk_cam_ctx_release_slb(struct mtk_cam_ctx *ctx)
 	if (ctx->slb_iova) {
 		struct device *dma_dev;
 
-		dma_dev = ctx->cam->engines.raw_devs[0];
+		dma_dev = ctx->cam->smmu_dev;
 		dma_unmap_resource(dma_dev, ctx->slb_iova, ctx->slb_size,
 				   DMA_BIDIRECTIONAL, 0);
 	}

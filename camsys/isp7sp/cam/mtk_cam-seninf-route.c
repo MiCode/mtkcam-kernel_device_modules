@@ -2205,19 +2205,30 @@ int mtk_cam_seninf_s_stream_mux(struct seninf_ctx *ctx)
 		for (j = 0; j < AOV_SENINF_NUM; j++) {
 			if (aov_ctx[j]) {
 				/* make sure aov cammux is set */
+				g_seninf_ops->_set_cammux_vc(ctx,
+							g_aov_param.vc.dest[0].cam,
+							g_aov_param.vc.vc,
+							g_aov_param.vc.dt,
+							!!g_aov_param.vc.dt,
+							!!g_aov_param.vc.dt);
 				g_seninf_ops->_set_cammux_src(ctx,
 							g_aov_param.vc.dest[0].mux_vr,
 							g_aov_param.vc.dest[0].cam,
 							g_aov_param.vc.exp_hsize,
 							g_aov_param.vc.exp_vsize,
 							g_aov_param.vc.dt);
+				g_seninf_ops->_set_cammux_chk_pixel_mode(ctx,
+							g_aov_param.vc.dest[0].cam,
+							g_aov_param.vc.dest[0].pix_mode);
 				dev_info(ctx->dev,
-					"make sure aov cammux %d src %d exp_h 0x%x exp_v 0x%x dt 0x%x\n",
-					g_aov_param.vc.dest[0].mux_vr,
+					"make sure aov cammux %d src %d exp_h 0x%x exp_v 0x%x vc 0x%x dt 0x%x pix_mode 0x%d\n",
 					g_aov_param.vc.dest[0].cam,
+					g_aov_param.vc.dest[0].mux_vr,
 					g_aov_param.vc.exp_hsize,
 					g_aov_param.vc.exp_vsize,
-					g_aov_param.vc.dt);
+					g_aov_param.vc.vc,
+					g_aov_param.vc.dt,
+					g_aov_param.vc.dest[0].pix_mode);
 				break;
 			}
 		}

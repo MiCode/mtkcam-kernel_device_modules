@@ -418,8 +418,10 @@ static void mtk_cam_ctrl_wake_up_on_event(struct mtk_cam_ctrl *ctrl, int event)
 	wake_up(&ctrl->event_wq);
 }
 
-/* note: just to support little margin for sw latency here */
-#define VALID_SWITCH_PERIOD_FROM_VSYNC_MS	3
+/* note: just to support little margin for sw latency here,
+ *       3ms for cam sw latency, 1ms for mmdvfs latency
+ */
+#define VALID_SWITCH_PERIOD_FROM_VSYNC_MS	(3 + 1)
 struct seamless_check_args {
 	int expect_inner;
 	int expect_ack;
@@ -1203,6 +1205,8 @@ static void mtk_cam_ctrl_seamless_switch_flow(struct mtk_cam_job *job)
 	dev_info(dev, "[%s] begin waiting switch no:%d seq 0x%x\n",
 		__func__, job->req_seq, job->frame_seq_no);
 
+	mtk_cam_job_update_clk_switching(job, 1);
+
 	prev_seq = prev_frame_seq(job->frame_seq_no);
 	check_args.expect_inner = prev_seq;
 	check_args.expect_ack = job->frame_seq_no;
@@ -1215,7 +1219,6 @@ static void mtk_cam_ctrl_seamless_switch_flow(struct mtk_cam_job *job)
 		goto SWITCH_FAILURE;
 	}
 
-	mtk_cam_job_update_clk_switching(job, 1);
 	call_job_seamless_ops(job, before_sensor);
 
 	mtk_cam_job_manually_apply_sensor(job);

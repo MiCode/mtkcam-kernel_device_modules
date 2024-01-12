@@ -125,6 +125,7 @@ void subsample_enable(struct mtk_raw_device *dev, int ratio);
 void stagger_enable(struct mtk_raw_device *dev, bool is_dc);
 void stagger_disable(struct mtk_raw_device *dev);
 void update_scq_start_period(struct mtk_raw_device *dev, int scq_ms);
+void update_done_tolerance(struct mtk_raw_device *dev, int scq_ms);
 void apply_cq(struct mtk_raw_device *dev,
 	      dma_addr_t cq_addr,
 	      unsigned int cq_size, unsigned int cq_offset,

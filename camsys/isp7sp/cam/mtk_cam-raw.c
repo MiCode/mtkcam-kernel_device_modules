@@ -494,10 +494,27 @@ void update_scq_start_period(struct mtk_raw_device *dev, int scq_ms)
 	dev_info(dev->dev, "[%s] REG_CAMCQ_SCQ_START_PERIOD:0x%08x (%dms)\n",
 		 __func__, readl(dev->base + REG_CAMCQ_SCQ_START_PERIOD), scq_ms);
 }
+
+#define MAX_P1_DELAY_RATIO 35
+void update_done_tolerance(struct mtk_raw_device *dev, int scq_ms)
+{
+	u32 val;
+	int tolerance_ms;
+
+	val = readl_relaxed(dev->base + REG_TG_TIME_STAMP_CNT);
+	tolerance_ms = scq_ms * MAX_P1_DELAY_RATIO / 100;
+	writel_relaxed(tolerance_ms * scq_cnt_rate_khz(val),
+			dev->base + REG_CAMCTL_DC_STAG_CTL);
+
+	dev_info(dev->dev, "[%s] REG_CAMCTL_DC_STAG_CTL:0x%08x (%dms)\n",
+		 __func__, readl(dev->base + REG_CAMCTL_DC_STAG_CTL), tolerance_ms);
+}
+
 static bool not_support_rwfbc(struct mtk_raw_device *dev)
 {
 	return cur_platform->hw->platform_id == 6897;
 }
+
 void rwfbc_inc_setup(struct mtk_raw_device *dev)
 {
 	u32 wfbc_en_raw, wfbc_en_yuv;

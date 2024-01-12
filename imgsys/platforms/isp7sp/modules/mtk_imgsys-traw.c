@@ -976,6 +976,36 @@ err_debug_dump:
 	pr_info("%s: -\n", __func__);
 }
 
+bool imgsys_traw_done_chk(struct mtk_imgsys_dev *imgsys_dev, uint32_t engine)
+{
+	bool ret = true; //true: done
+	void __iomem *trawRegBA = 0L;
+	unsigned int value = 1;
+
+	/* ltraw */
+	if (engine & IMGSYS_ENG_LTR) {
+		g_RegBaseAddr = TRAW_B_BASE_ADDR;
+		trawRegBA = g_ltrawRegBA;
+	}
+	/* traw */
+	else {
+		g_RegBaseAddr = TRAW_A_BASE_ADDR;
+		trawRegBA = g_trawRegBA;
+	}
+
+
+	value = (unsigned int)ioread32((void *)(trawRegBA + 0x100));
+	if (!(value & 0x1)) {
+		ret = false;
+		pr_info(
+		"%s: hw_comb:0x%x, polling done fail!!! [0x%08x] 0x%x",
+		__func__, engine, (uint32_t)(g_RegBaseAddr + 0x100), value);
+
+	}
+
+	return ret;
+}
+
 void imgsys_traw_uninit(struct mtk_imgsys_dev *imgsys_dev)
 {
 	if (g_trawRegBA) {

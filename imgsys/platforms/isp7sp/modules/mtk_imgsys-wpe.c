@@ -282,6 +282,52 @@ void imgsys_wpe_set_hw_initial_value(struct mtk_imgsys_dev *imgsys_dev)
 		dev_dbg(imgsys_dev->dev, "%s: -\n", __func__);
 }
 
+bool imgsys_wpe_done_chk(struct mtk_imgsys_dev *imgsys_dev, uint32_t engine)
+{
+	void __iomem *wpeRegBA = 0L;
+	unsigned int hw_idx = 0, ofst_idx;
+	unsigned int wpeBase = 0;
+	unsigned int startHw = REG_MAP_E_WPE_EIS, endHW = REG_MAP_E_WPE_TNR;
+	bool ret = true; //true: done
+	uint32_t value = 0;
+ 	uint32_t reg_ofst = 0x1c; //WPE_E1A_WPE_TOP_CTL_INT_STATUSX
+
+	if ((engine & IMGSYS_ENG_WPE_EIS) && !(engine & IMGSYS_ENG_WPE_TNR))
+		endHW = REG_MAP_E_WPE_EIS;
+
+	if (!(engine & IMGSYS_ENG_WPE_EIS) && (engine & IMGSYS_ENG_WPE_TNR))
+		startHw = REG_MAP_E_WPE_TNR;
+
+	if ((engine & IMGSYS_ENG_WPE_LITE))
+		startHw = endHW = REG_MAP_E_WPE_LITE;
+
+	/* iomap registers */
+	for (hw_idx = startHw; hw_idx <= endHW; hw_idx++) {
+		ofst_idx = hw_idx - REG_MAP_E_WPE_EIS;
+		if (ofst_idx >= WPE_HW_NUM)
+			continue;
+
+		wpeBase = WPE_A_BASE + mtk_imgsys_wpe_base_ofst[ofst_idx];
+		wpeRegBA = gWpeRegBA[ofst_idx];
+		if (!wpeRegBA) {
+			pr_info("%s: WPE_%d, RegBA = 0", __func__, hw_idx);
+			continue;
+		}
+
+		value = (uint32_t)ioread32((void *)(wpeRegBA + reg_ofst));
+
+		if (!(value & 0x1)) {
+			ret = false;
+			pr_info(
+			"%s: hw_comb:0x%x, polling WPE done fail!!! [0x%08x] 0x%x",
+			__func__, engine,
+			(unsigned int)(wpeBase + reg_ofst), value);
+		}
+	}
+
+	return ret;
+}
+
 void imgsys_wpe_updatecq(struct mtk_imgsys_dev *imgsys_dev,
 			struct img_swfrm_info *user_info, int req_fd, u64 tuning_iova,
 			unsigned int mode)

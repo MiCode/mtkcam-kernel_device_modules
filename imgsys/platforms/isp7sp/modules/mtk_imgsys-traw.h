@@ -130,5 +130,5 @@ void imgsys_traw_updatecq(struct mtk_imgsys_dev *imgsys_dev,
 			unsigned int mode);
 void imgsys_traw_uninit(struct mtk_imgsys_dev *imgsys_dev);
 int imgsys_traw_tfault_callback(int port, dma_addr_t mva, void *cb_data);
-
+bool imgsys_traw_done_chk(struct mtk_imgsys_dev *imgsys_dev, uint32_t engine);
 #endif /* _MTK_IMGSYS_TRAW_H_ */

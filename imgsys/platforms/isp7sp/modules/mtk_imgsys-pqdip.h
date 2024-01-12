@@ -51,4 +51,5 @@ void imgsys_pqdip_updatecq(struct mtk_imgsys_dev *imgsys_dev,
 			unsigned int mode);
 int imgsys_pqdip_tfault_callback(int port,
 			dma_addr_t mva, void *data);
+bool imgsys_pqdip_done_chk(struct mtk_imgsys_dev *imgsys_dev, uint32_t engine);
 #endif /* _MTK_IMGSYS_PQDIP_H_ */

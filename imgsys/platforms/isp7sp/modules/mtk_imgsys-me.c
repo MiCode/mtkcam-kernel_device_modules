@@ -229,3 +229,23 @@ void ME_mode3_reset(struct mtk_imgsys_dev *imgsys_dev) {
 		pr_info("imgsys %s: MMG reset core done \n", __func__);
 
 }
+
+bool imgsys_me_done_chk(struct mtk_imgsys_dev *imgsys_dev, uint32_t engine)
+{
+	bool ret = true; //true: done
+
+	uint32_t value = 0;
+
+	if (engine & IMGSYS_ENG_ME) {
+		value = (uint32_t)ioread32((void *)(g_meRegBA + 0xec));
+		if (!(value & 0x1)) {
+			ret = false;
+			pr_info(
+			"%s: hw_comb:0x%x, polling ME done fail!!! [0x%08x] 0x%x",
+			__func__, engine,
+			(uint32_t)(ME_BASE + 0xec), value);
+		}
+	}
+
+	return ret;
+}

@@ -936,6 +936,8 @@ void imgsys_cmdq_task_cb_plat7sp(struct cmdq_cb_data data)
 	u32 event_val = 0L;
 	bool isHWhang = 0;
 	bool isQOFhang = 0;
+	bool isHwDone = 1;
+	bool isGPRtimeout = 0;
 #ifdef IMGSYS_ME_CHECK_FUNC_EN
 	u32 me_done_reg = 0;
 	u32 me_check_reg[4] = {0};
@@ -1214,6 +1216,7 @@ void imgsys_cmdq_task_cb_plat7sp(struct cmdq_cb_data data)
 		} else if ((event >= IMGSYS_CMDQ_GPR_EVENT_BEGIN) &&
 			(event <= IMGSYS_CMDQ_GPR_EVENT_END)) {
 			isHWhang = 1;
+			isGPRtimeout = 1;
 			pr_info(
 				"%s: [ERROR] GPR event timeout! wfe(%d) event(%d) isHW(%d)",
 				__func__,
@@ -1254,6 +1257,75 @@ void imgsys_cmdq_task_cb_plat7sp(struct cmdq_cb_data data)
 			}
 		}
 
+		if (isGPRtimeout) {
+			if (cb_param->hw_comb & (IMGSYS_ENG_WPE_EIS|IMGSYS_ENG_WPE_TNR|IMGSYS_ENG_WPE_LITE)) {
+				idx = IMGSYS_MOD_WPE;
+				if (imgsys_dev->modules[idx].done_chk) {
+					isHwDone = imgsys_dev->modules[idx].done_chk(imgsys_dev,
+						cb_param->hw_comb);
+					if(!isHwDone) {
+						aee_kernel_exception("CRDISPATCH_KEY:IMGSYS_WPE",
+						"DISPATCH:IMGSYS_WPE poll done fail, hwcomb:0x%x",
+						cb_param->hw_comb);
+					}
+				}
+			}
+			if (isHwDone && (cb_param->hw_comb & (IMGSYS_ENG_TRAW|IMGSYS_ENG_LTR))) {
+				idx = IMGSYS_MOD_TRAW;
+				if (imgsys_dev->modules[idx].done_chk) {
+					isHwDone = imgsys_dev->modules[idx].done_chk(imgsys_dev,
+						cb_param->hw_comb);
+					if(!isHwDone) {
+						aee_kernel_exception("CRDISPATCH_KEY:IMGSYS_TRAW",
+						"DISPATCH:IMGSYS_TRAW poll done fail, hwcomb:0x%x",
+						cb_param->hw_comb);
+					}
+				}
+			}
+			if (isHwDone && (cb_param->hw_comb & IMGSYS_ENG_DIP)) {
+				idx = IMGSYS_MOD_DIP;
+				if (imgsys_dev->modules[idx].done_chk) {
+					isHwDone = imgsys_dev->modules[idx].done_chk(imgsys_dev,
+						cb_param->hw_comb);
+					if(!isHwDone) {
+						aee_kernel_exception("CRDISPATCH_KEY:IMGSYS_DIP",
+						"DISPATCH:IMGSYS_DIP poll done fail, hwcomb:0x%x",
+						cb_param->hw_comb);
+				}
+				}
+			}
+			if (isHwDone && (cb_param->hw_comb & (IMGSYS_ENG_PQDIP_A|IMGSYS_ENG_PQDIP_B))) {
+				idx = IMGSYS_MOD_PQDIP;
+				if (imgsys_dev->modules[idx].done_chk) {
+					isHwDone = imgsys_dev->modules[idx].done_chk(imgsys_dev,
+						cb_param->hw_comb);
+					if(!isHwDone) {
+						aee_kernel_exception("CRDISPATCH_KEY:IMGSYS_PQDIP",
+						"DISPATCH:IMGSYS_PQDIP poll done fail, hwcomb:0x%x",
+						cb_param->hw_comb);
+					}
+				}
+			}
+			if (isHwDone && (cb_param->hw_comb & IMGSYS_ENG_ME)) {
+				idx = IMGSYS_MOD_ME;
+				if (imgsys_dev->modules[idx].done_chk) {
+					isHwDone = imgsys_dev->modules[idx].done_chk(imgsys_dev,
+						cb_param->hw_comb);
+					if(!isHwDone) {
+						aee_kernel_exception("CRDISPATCH_KEY:IMGSYS_ME",
+							"DISPATCH:IMGSYS_ME poll done fail, hwcomb:0x%x",
+							cb_param->hw_comb);
+					}
+				}
+			}
+			/* Polling timeout but all modules are done */
+			if (isHwDone) {
+				aee_kernel_exception("CRDISPATCH_KEY:IMGSYS",
+					"DISPATCH:IMGSYS poll done fail, hwcomb:0x%x",
+					cb_param->hw_comb);
+			}
+		}
+
 		if ((isHWhang | isQOFhang) && mtk_imgsys_cmdq_qof_get_pwr_status(ISP7SP_ISP_TRAW))
 			mtk_smi_dbg_dump_for_isp_fast(IMGSYS_SMIDUMP_QOF_TRAW);
 		if ((isHWhang | isQOFhang) && mtk_imgsys_cmdq_qof_get_pwr_status(ISP7SP_ISP_DIP))
@@ -1281,6 +1353,7 @@ int imgsys_cmdq_task_aee_cb_plat7sp(struct cmdq_cb_data data)
 	u64 event_diff = 0;
 	bool isHWhang = 0;
 	enum cmdq_aee_type ret = CMDQ_NO_AEE;
+	bool isGPRtimeout = 0;
 
 	pkt = (struct cmdq_pkt *)data.data;
 	cb_param = pkt->user_priv;
@@ -1509,8 +1582,9 @@ int imgsys_cmdq_task_aee_cb_plat7sp(struct cmdq_cb_data data)
 	} else if ((event >= IMGSYS_CMDQ_GPR_EVENT_BEGIN) &&
 		(event <= IMGSYS_CMDQ_GPR_EVENT_END)) {
 		isHWhang = 1;
+		isGPRtimeout = 1;
 		pkt->timeout_dump_hw_trace = 1;
-		ret = CMDQ_AEE_EXCEPTION;
+		ret = CMDQ_NO_AEE_DUMP;
 		pr_info(
 			"%s: [ERROR] GPR event timeout! wfe(%d) event(%d) isHW(%d)",
 			__func__,

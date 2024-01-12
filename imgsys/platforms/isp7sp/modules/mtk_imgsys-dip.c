@@ -1201,3 +1201,23 @@ void imgsys_dip_uninit(struct mtk_imgsys_dev *imgsys_dev)
 	}
 
 }
+
+bool imgsys_dip_done_chk(struct mtk_imgsys_dev *imgsys_dev, uint32_t engine)
+{
+	bool ret = true; //true: done
+	uint32_t value = 0;
+	void __iomem *dipRegBA = 0L;
+
+	dipRegBA = gdipRegBA[0];
+	value = (uint32_t)ioread32((void *)(dipRegBA + 0xCC));
+
+	if (!(value & 0x1)) {
+		ret = false;
+		pr_info(
+		"%s: hw_comb:0x%x, polling DIP done fail!!! [0x%08x] 0x%x",
+		__func__, engine,
+		(uint32_t)(DIP_TOP_ADDR + 0xCC), value);
+	}
+
+	return ret;
+}

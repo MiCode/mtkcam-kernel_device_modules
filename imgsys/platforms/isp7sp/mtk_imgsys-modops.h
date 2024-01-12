@@ -28,6 +28,7 @@ const struct module_ops imgsys_isp7_modules[] = {
 		.updatecq = imgsys_traw_updatecq,
 		.cmdq_set = imgsys_traw_cmdq_set_initial_value_hw,
 		.dump = imgsys_traw_debug_dump,
+		.done_chk = imgsys_traw_done_chk,
 		.uninit = imgsys_traw_uninit,
 	},
 	[IMGSYS_MOD_LTRAW] = {
@@ -37,6 +38,7 @@ const struct module_ops imgsys_isp7_modules[] = {
 		.updatecq = NULL,
 		.cmdq_set = imgsys_ltraw_cmdq_set_initial_value_hw,
 		.dump = imgsys_traw_debug_dump,
+		.done_chk = imgsys_traw_done_chk,
 		.uninit = imgsys_traw_uninit,
 	},
 	[IMGSYS_MOD_DIP] = {
@@ -46,6 +48,7 @@ const struct module_ops imgsys_isp7_modules[] = {
 		.updatecq = imgsys_dip_updatecq,
 		.cmdq_set = imgsys_dip_cmdq_set_hw_initial_value,
 		.dump = imgsys_dip_debug_dump,
+		.done_chk = imgsys_dip_done_chk,
 		.uninit = imgsys_dip_uninit,
 	},
 	[IMGSYS_MOD_PQDIP] = {
@@ -55,6 +58,7 @@ const struct module_ops imgsys_isp7_modules[] = {
 		.updatecq = imgsys_pqdip_updatecq,
 		.cmdq_set = imgsys_pqdip_cmdq_set_hw_initial_value,
 		.dump = imgsys_pqdip_debug_dump,
+		.done_chk = imgsys_pqdip_done_chk,
 		.uninit = imgsys_pqdip_uninit,
 	},
 	[IMGSYS_MOD_ME] = {
@@ -64,6 +68,7 @@ const struct module_ops imgsys_isp7_modules[] = {
 		.updatecq = NULL,
 		.cmdq_set = NULL,
 		.dump = imgsys_me_debug_dump,
+		.done_chk = imgsys_me_done_chk,
 		.uninit = imgsys_me_uninit,
 	},
 	[IMGSYS_MOD_WPE] = {
@@ -73,6 +78,7 @@ const struct module_ops imgsys_isp7_modules[] = {
 		.updatecq = imgsys_wpe_updatecq,
 		.cmdq_set = imgsys_wpe_cmdq_set_hw_initial_value,
 		.dump = imgsys_wpe_debug_dump,
+		.done_chk = imgsys_wpe_done_chk,
 		.uninit = imgsys_wpe_uninit,
 	},
 	[IMGSYS_MOD_ADL] = {
@@ -82,6 +88,7 @@ const struct module_ops imgsys_isp7_modules[] = {
 		.updatecq = NULL,
 		.cmdq_set = NULL,
 		.dump = imgsys_adl_debug_dump,
+		.done_chk = NULL,
 		.uninit = imgsys_adl_uninit,
 	},
 	/*pure sw usage for timeout debug dump*/
@@ -92,6 +99,7 @@ const struct module_ops imgsys_isp7_modules[] = {
 		.updatecq = NULL,
 		.cmdq_set = imgsys_main_cmdq_set_init,
 		.dump = NULL,
+		.done_chk = NULL,
 		.uninit = imgsys_main_uninit,
 	},
 };

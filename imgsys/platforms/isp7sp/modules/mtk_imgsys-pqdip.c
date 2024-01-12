@@ -1011,3 +1011,33 @@ int imgsys_pqdip_tfault_callback(int port,
 
 	return 1;
 }
+
+bool imgsys_pqdip_done_chk(struct mtk_imgsys_dev *imgsys_dev, uint32_t engine)
+{
+	bool ret = true; //true: done
+
+	uint32_t i = 0, hw_start = 0, hw_end = 1, value = 0;
+ 	uint32_t reg_ofst = 0x68; //PQDIPCTL_INT2_STATUSX
+
+	if (engine & IMGSYS_ENG_PQDIP_B) {
+		hw_start = 1;
+		hw_end = PQDIP_HW_SET;
+	}
+	if (engine & IMGSYS_ENG_PQDIP_A) {
+		hw_start = 0;
+	}
+
+	for (i = hw_start; i < hw_end; i++) {
+		value = (uint32_t)ioread32((void *)(gpqdipRegBA[i] + reg_ofst));
+
+		if (!(value & 0x1)) {
+			ret = false;
+			pr_info(
+			"%s: hw_comb:0x%x, polling PQDIP_%d done fail!!! [0x%08x] 0x%x",
+			__func__, engine, i,
+			(uint32_t)(PQDIP_BASE_ADDR + (PQDIP_OFST * i) + reg_ofst), value);
+		}
+	}
+
+	return ret;
+}

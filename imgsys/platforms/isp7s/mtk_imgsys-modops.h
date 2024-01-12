@@ -27,6 +27,7 @@ const struct module_ops imgsys_isp7_modules[] = {
 		.set = imgsys_traw_set_initial_value_hw,
 		.updatecq = imgsys_traw_updatecq,
 		.dump = imgsys_traw_debug_dump,
+		.done_chk = NULL,
 		.uninit = imgsys_traw_uninit,
 	},
 	[IMGSYS_MOD_DIP] = {
@@ -35,6 +36,7 @@ const struct module_ops imgsys_isp7_modules[] = {
 		.set = imgsys_dip_set_hw_initial_value,
 		.updatecq = imgsys_dip_updatecq,
 		.dump = imgsys_dip_debug_dump,
+		.done_chk = NULL,
 		.uninit = imgsys_dip_uninit,
 	},
 	[IMGSYS_MOD_PQDIP] = {
@@ -43,6 +45,7 @@ const struct module_ops imgsys_isp7_modules[] = {
 		.set = imgsys_pqdip_set_hw_initial_value,
 		.updatecq = imgsys_pqdip_updatecq,
 		.dump = imgsys_pqdip_debug_dump,
+		.done_chk = NULL,
 		.uninit = imgsys_pqdip_uninit,
 	},
 	[IMGSYS_MOD_ME] = {
@@ -51,6 +54,7 @@ const struct module_ops imgsys_isp7_modules[] = {
 		.set = NULL,
 		.updatecq = NULL,
 		.dump = imgsys_me_debug_dump,
+		.done_chk = NULL,
 		.uninit = imgsys_me_uninit,
 	},
 	[IMGSYS_MOD_WPE] = {
@@ -59,6 +63,7 @@ const struct module_ops imgsys_isp7_modules[] = {
 		.set = imgsys_wpe_set_hw_initial_value,
 		.updatecq = imgsys_wpe_updatecq,
 		.dump = imgsys_wpe_debug_dump,
+		.done_chk = NULL,
 		.uninit = imgsys_wpe_uninit,
 	},
 	[IMGSYS_MOD_ADL] = {
@@ -67,6 +72,7 @@ const struct module_ops imgsys_isp7_modules[] = {
 		.set = imgsys_adl_set,
 		.updatecq = NULL,
 		.dump = imgsys_adl_debug_dump,
+		.done_chk = NULL,
 		.uninit = imgsys_adl_uninit,
 	},
 	/*pure sw usage for timeout debug dump*/
@@ -76,6 +82,7 @@ const struct module_ops imgsys_isp7_modules[] = {
 		.set = imgsys_main_set_init,
 		.updatecq = NULL,
 		.dump = NULL,
+		.done_chk = NULL,
 		.uninit = imgsys_main_uninit,
 	},
 };

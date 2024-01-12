@@ -21,6 +21,7 @@ struct module_ops {
 	void (*cmdq_set)(struct mtk_imgsys_dev *imgsys_dev,
 			void *pkt);
 	void (*dump)(struct mtk_imgsys_dev *imgsys_dev, unsigned int engine);
+	bool (*done_chk)(struct mtk_imgsys_dev *imgsys_dev, uint32_t engine);
 	void (*uninit)(struct mtk_imgsys_dev *imgsys_dev);
 };
 

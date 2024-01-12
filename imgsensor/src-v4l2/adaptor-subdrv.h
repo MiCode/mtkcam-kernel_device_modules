@@ -597,7 +597,7 @@ struct subdrv_entry {
 ( \
 	!(_fine_integ) ? \
 	(_shutter) : \
-	((((_shutter) - (_fine_integ)) > 0) ? (((_shutter) - (_fine_integ)) / 1000) : 0) \
+	((((long long)(_shutter) - (_fine_integ)) > 0) ? (((_shutter) - (_fine_integ)) / 1000) : 0) \
 )
 
 #define CALC_LINE_TIME_IN_NS(pclk, linelength) \

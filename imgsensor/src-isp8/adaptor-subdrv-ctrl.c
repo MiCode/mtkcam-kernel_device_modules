@@ -2146,7 +2146,10 @@ void get_lens_driver_id(struct subdrv_ctx *ctx, u32 *lens_id)
 void check_stream_off(struct subdrv_ctx *ctx)
 {
 	u32 i = 0, framecnt = 0;
-	int timeout = ctx->current_fps ? (10000 / ctx->current_fps) + 1 : 101;
+	int timeout = 0;
+
+	ctx->current_fps = ctx->pclk / ctx->line_length * 10 / ctx->frame_length;
+	timeout = ctx->current_fps ? (10000 / ctx->current_fps) + 1 : 101;
 
 	if (!ctx->s_ctx.reg_addr_frame_count)
 		return;
@@ -2195,7 +2198,7 @@ void streaming_control(struct subdrv_ctx *ctx, bool enable)
 			ctx->stream_ctrl_start_time && ctx->stream_ctrl_end_time) {
 			stream_ctrl_delay_timing =
 				(ctx->stream_ctrl_end_time - ctx->stream_ctrl_start_time) / 1000000;
-			DRV_LOG(ctx,
+			DRV_LOG_MUST(ctx,
 				"custom_stream_ctrl_delay/stream_ctrl_delay_timing:%llu/%llu\n",
 				ctx->s_ctx.custom_stream_ctrl_delay,
 				stream_ctrl_delay_timing);
@@ -2780,7 +2783,7 @@ void get_dcg_type_by_scenario(struct subdrv_ctx *ctx,
 	hdr_mode = ctx->s_ctx.mode[scenario_id].hdr_mode;
 
 	if (hdr_mode != HDR_RAW_DCG_RAW && hdr_mode != HDR_RAW_DCG_COMPOSE)
-		DRV_LOGE(ctx, "This mode doesn't support DCG:%u, hdr_mode:%u\n",
+		DRV_LOG(ctx, "This mode doesn't support DCG:%u, hdr_mode:%u\n",
 			scenario_id, hdr_mode);
 	*dcg_mode = ctx->s_ctx.mode[scenario_id].dcg_info.dcg_mode;
 	*dcg_gain_mode = ctx->s_ctx.mode[scenario_id].dcg_info.dcg_gain_mode;
@@ -3857,7 +3860,7 @@ int common_get_frame_desc(struct subdrv_ctx *ctx,
 	int ret = 0;
 
 	if (scenario_id >= ctx->s_ctx.sensor_mode_num) {
-		DRV_LOGE(ctx, "invalid scenario_id(%u)\n", scenario_id);
+		DRV_LOG(ctx, "invalid scenario_id(%u)\n", scenario_id);
 		return -1;
 	}
 	if (ctx->s_ctx.mode[scenario_id].frame_desc != NULL) {

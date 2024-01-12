@@ -23,6 +23,7 @@
 
 #include "slbc_ops.h"
 #include "scp.h"
+#include <soc/mediatek/smi.h>
 
 #if AOV_EVENT_IN_PLACE
 #define ALIGN16(x) ((void *)(((uint64_t)x + 0x0F) & ~0x0F))
@@ -305,6 +306,9 @@ static int ipi_receive(unsigned int id, void *unused,
 			atomic_set(&(core_info->ack_cmd[cmd]), 1);
 			wake_up_interruptible(&core_info->ack_wq[cmd]);
 		}
+	} else if (packet->command == AOV_SCP_CMD_AIE_HANG) {
+		dev_info(aov_dev->dev, "%s: receive AIE HANG signal from SCP\n", __func__);
+		wake_up_process(core_info->smi_dump_thread);
 	} else {
 		event = (struct base_event *)(core_info->buf_va +
 			(packet->buffer - core_info->buf_pa));
@@ -936,6 +940,14 @@ int aov_core_init(struct mtk_aov *aov_dev)
 	atomic_set(&(core_info->disp_mode), AOV_DiSP_MODE_ON);
 	atomic_set(&(core_info->aie_avail), 1);
 
+	// create aie smi dump thread
+	core_info->smi_dump_thread = kthread_create(aie_hang_kernel_dump, NULL,
+		"aie_smi_dump_thread");
+	if (IS_ERR(core_info->smi_dump_thread)) {
+		dev_dbg(aov_dev->dev, "%s kthread_create error ret:%ld\n", __func__,
+			PTR_ERR(core_info->smi_dump_thread));
+	}
+
 	return 0;
 }
 
@@ -1442,8 +1454,34 @@ int aov_core_uninit(struct mtk_aov *aov_dev)
 		dma_heap_buffer_free(core_info->dma_buf);
 	}
 
+	// stop aie smi dump thread
+	if (core_info->smi_dump_thread) {
+		kthread_stop(core_info->smi_dump_thread);
+		core_info->smi_dump_thread = NULL;
+	}
+
 	curr_dev = NULL;
 
+	return 0;
+}
+
+int aie_hang_kernel_dump(void *arg)
+{
+	struct mtk_aov *aov_dev = aov_core_get_device();
+	struct aov_core *core_info = &aov_dev->core_info;
+	int ret = 0;
+
+	dev_info(aov_dev->dev, "%s: do aie kernel dump+", __func__);
+	#pragma clang diagnostic push
+	#pragma clang diagnostic ignored "-Wimplicit-function-declaration"
+	mtk_smi_dbg_hang_detect("AOV_AIE_HANG");
+	#pragma clang diagnostic pop
+	dev_info(aov_dev->dev, "%s: do aie kernel dump-", __func__);
+
+	ret = send_cmd_internal(core_info, AOV_SCP_CMD_AIE_HANG_DONE, 0, 0, false, false);
+	if (ret < 0)
+		dev_info(aov_dev->dev, "%s: failed to do aov aie hang done: %d\n",
+			__func__, ret);
 	return 0;
 }
 

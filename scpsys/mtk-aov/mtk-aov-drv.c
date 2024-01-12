@@ -143,7 +143,7 @@ static long mtk_aov_ioctl(struct file *file, unsigned int cmd,
 			}
 			g_frame_mode = user.frame_mode;
 		}
-		if (g_frame_mode & ~eOBJECT_FACE_SIMPLE) {
+		if (g_frame_mode & ~(eOBJECT_FACE_SIMPLE | eOBJECT_FACE_FULL)) {
 			dev_info(aov_dev->dev, "AOV enable wake lock, mode(%#x)\n", g_frame_mode);
 #ifdef CONFIG_PM_WAKELOCKS
 			__pm_stay_awake(aov_wake_lock);
@@ -204,7 +204,7 @@ static long mtk_aov_ioctl(struct file *file, unsigned int cmd,
 			dev_info(aov_dev->dev, "AOV disable vmm-\n");
 		}
 
-		if (g_frame_mode & ~eOBJECT_FACE_SIMPLE) {
+		if (g_frame_mode & ~(eOBJECT_FACE_SIMPLE | eOBJECT_FACE_FULL)) {
 			dev_info(aov_dev->dev, "AOV disable wake lock, mode(%#x)\n", g_frame_mode);
 #ifdef CONFIG_PM_WAKELOCKS
 			__pm_relax(aov_wake_lock);

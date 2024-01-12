@@ -66,6 +66,8 @@ struct aov_core {
 	wait_queue_head_t poll_wq;
 	struct queue event;
 	struct queue queue;
+
+	struct task_struct *smi_dump_thread;
 };
 
 int aov_core_init(struct mtk_aov *device);
@@ -87,5 +89,7 @@ int aov_core_poll(struct mtk_aov *aov_dev,
 int aov_core_reset(struct mtk_aov *device);
 
 int aov_core_uninit(struct mtk_aov *aov_dev);
+
+int aie_hang_kernel_dump(void *arg);
 
 #endif  // MTK_AOV_CORE_H

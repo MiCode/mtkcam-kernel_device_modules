@@ -132,6 +132,20 @@ struct mtk_camsv_tag_param {
 	bool is_w;
 };
 
+struct mtk_camsv_backup_setting {
+
+	unsigned int grab_pxl[SVTAG_END - SVTAG_START];
+	unsigned int grab_lin[SVTAG_END - SVTAG_START];
+	unsigned int fbc0[SVTAG_END - SVTAG_START];
+
+	unsigned int done_status_en;
+	unsigned int err_status_en;
+	unsigned int sof_status_en;
+	unsigned int dma_en_img;
+	unsigned int dcif_set;
+	unsigned int dcif_sel;
+};
+
 struct mtk_camsv_device {
 	struct device *dev;
 	struct mtk_cam_device *cam;
@@ -178,6 +192,9 @@ struct mtk_camsv_device {
 
 	/* sensor resource data */
 	struct mtk_cam_resource_sensor_v2 sensor_res;
+
+	/* for backup/restore in recovery flow */
+	struct mtk_camsv_backup_setting backup_setting;
 };
 
 void sv_reset(struct mtk_camsv_device *sv_dev);
@@ -224,6 +241,9 @@ void mtk_cam_update_sensor_resource(struct mtk_cam_ctx *ctx);
 struct mtk_cam_seninf_sentest_param *
 	mtk_cam_get_sentest_param(struct mtk_cam_ctx *ctx);
 int mtk_camsv_translation_fault_callback(int port, dma_addr_t mva, void *data);
+
+void mtk_cam_sv_backup(struct mtk_camsv_device *sv_dev);
+void mtk_cam_sv_restore(struct mtk_camsv_device *sv_dev);
 
 extern struct platform_driver mtk_cam_sv_driver;
 

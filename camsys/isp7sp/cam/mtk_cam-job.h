@@ -52,6 +52,7 @@ enum mtk_cam_isp_state {
 	S_ISP_SENSOR_MISMATCHED,
 	S_ISP_DONE,
 	S_ISP_DONE_MISMATCHED,
+	S_ISP_ABORTED,
 	NR_S_ISP_STATE,
 };
 
@@ -108,6 +109,8 @@ enum mtk_cam_job_action {
 	ACTION_APPLY_ISP_PROCRAW_EXTISP = 128, /* extisp used for apply cq for proc raw data */
 	ACTION_BUFFER_EXTMETA_PD_DONE = 256,
 	ACTION_CQ_DONE = 512,
+
+	ACTION_ABORT_SW_RECOVERY = 1024, /* abort & sw recovery for hw hang */
 };
 
 enum mtk_camsys_event_type {
@@ -124,6 +127,8 @@ enum mtk_camsys_event_type {
 	CAMSYS_EVENT_IRQ_EXTMETA_SOF, /* extisp meta's vsync */
 	CAMSYS_EVENT_IRQ_EXTMETA_CQ_DONE, /* extisp meta's cq done */
 	CAMSYS_EVENT_IRQ_EXTMETA_FRAME_DONE, /* extisp meta's frame done */
+
+	CAMSYS_EVENT_HW_HANG, /* hw unrecoverable error */
 };
 const char *str_event(int event);
 enum extisp_data {
@@ -293,6 +298,8 @@ struct mtk_cam_job_ops {
 	int (*dump_aa_info)(struct mtk_cam_job *s);
 	int (*apply_extisp_meta_pd)(struct mtk_cam_job *s); /* extisp use */
 	int (*apply_extisp_procraw)(struct mtk_cam_job *s); /* extisp use */
+
+	int (*sw_recovery)(struct mtk_cam_job *s);
 };
 
 struct initialize_params {
@@ -399,6 +406,9 @@ struct mtk_cam_job {
 
 	struct mtk_cam_ufbc_header ufbc_header;
 
+	/* error status */
+	bool is_error;
+
 	/* debug only: use local_clock() to be consitent with printk */
 	u64 local_enqueue_ts;
 	u64 local_apply_sensor_ts;
@@ -439,7 +449,8 @@ static inline bool mtk_cam_job_is_done(struct mtk_cam_job *job)
 #define call_jobop_opt(job, func, ...)\
 ({\
 	typeof(job) _job = (job);\
-	_job->ops.func ? _job->ops.func(_job, ##__VA_ARGS__) : 0;\
+	typeof(_job->ops) _ops = _job->ops;\
+	_ops && _job->ops->func ? _ops->func(_job, ##__VA_ARGS__) : 0;\
 })
 
 enum MTK_CAMSYS_JOB_TYPE {

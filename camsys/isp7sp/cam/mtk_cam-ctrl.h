@@ -138,6 +138,7 @@ struct mtk_cam_ctrl {
 	struct apply_cq_ref *cur_cq_ref;
 
 	struct mtk_cam_watchdog watchdog;
+	unsigned int hw_hang_count_down;
 };
 
 /* engine's callback functions */
@@ -150,6 +151,9 @@ int mtk_cam_ctrl_reset_sensor(struct mtk_cam_device *cam,
 int mtk_cam_ctrl_dump_request(struct mtk_cam_device *cam,
 			      int engine_type, unsigned int engine_id,
 			      int inner_cookie, const char *desc);
+int mtk_cam_ctrl_notify_hw_hang(struct mtk_cam_device *cam,
+				int engine_type, unsigned engine_id,
+				int inner_cookie);
 
 /* ctx_stream_on */
 void mtk_cam_ctrl_start(struct mtk_cam_ctrl *cam_ctrl,

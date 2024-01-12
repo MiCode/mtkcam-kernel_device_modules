@@ -758,6 +758,16 @@ static void ctrl_vsync_preprocess(struct mtk_cam_ctrl *ctrl,
 	vsync_res->inner_cookie =
 		(vsync_res->is_first && cq_ref) ? cq_ref->cookie : -1;
 
+	if (vsync_res->is_last && ctrl->hw_hang_count_down) {
+
+		pr_info("%s: hw_hang_count_down %d\n", __func__,
+			ctrl->hw_hang_count_down);
+
+		--ctrl->hw_hang_count_down;
+		if (!ctrl->hw_hang_count_down)
+			mtk_cam_ctrl_send_event(ctrl, CAMSYS_EVENT_HW_HANG);
+	}
+
 	spin_lock(&ctrl->info_lock);
 
 	if (vsync_res->is_first) {
@@ -1601,6 +1611,7 @@ void mtk_cam_ctrl_start(struct mtk_cam_ctrl *cam_ctrl, struct mtk_cam_ctx *ctx)
 	cam_ctrl->cur_cq_ref = 0;
 
 	mtk_cam_watchdog_init(&cam_ctrl->watchdog);
+	cam_ctrl->hw_hang_count_down = 0;
 
 	mtk_cam_ctx_queue_done_worker(ctx, &cam_ctrl->done_work);
 
@@ -2266,5 +2277,23 @@ int mtk_cam_ctrl_dump_request(struct mtk_cam_device *cam,
 SKIP_SCHEDULE_WORK:
 	dev_info_ratelimited(cam->dev, "%s: skip dump for seq 0x%x\n",
 		 __func__, inner_cookie);
+	return 0;
+}
+
+int mtk_cam_ctrl_notify_hw_hang(struct mtk_cam_device *cam,
+				int engine_type, unsigned engine_id,
+				int inner_cookie)
+{
+	unsigned int ctx_id = ctx_from_fh_cookie(inner_cookie);
+	struct mtk_cam_ctrl *ctrl = &cam->ctxs[ctx_id].cam_ctrl;
+
+	dev_info(cam->dev, "%s: warn. eng %d-%d seq 0x%x\n",
+		 __func__, engine_type, engine_id, inner_cookie);
+
+	/*
+	 * count frames before doing recovery to avoid various hw timing.
+	 * 'set 2 to enable recovery'
+	 */
+	ctrl->hw_hang_count_down = 0;
 	return 0;
 }

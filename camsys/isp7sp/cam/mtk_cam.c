@@ -2825,7 +2825,7 @@ void mtk_cam_ctx_engine_off(struct mtk_cam_ctx *ctx)
 			if (ctx->enable_hsf_raw)
 				ccu_stream_on(ctx, false);
 			else
-				stream_on(raw_dev, false);
+				stream_on(raw_dev, false, true);
 		}
 	}
 
@@ -2894,6 +2894,63 @@ void mtk_cam_ctx_engine_reset(struct mtk_cam_ctx *ctx)
 			mraw_dev = dev_get_drvdata(ctx->hw_mraw[i]);
 			mraw_reset(mraw_dev);
 		}
+	}
+}
+
+void mtk_cam_ctx_engine_dc_sw_recovery(struct mtk_cam_ctx *ctx)
+{
+	struct mtk_raw_device *raw_dev;
+	struct mtk_camsv_device *sv_dev;
+	int i;
+
+	// disable vf: camsv -> raw
+	if (ctx->hw_sv) {
+		sv_dev = dev_get_drvdata(ctx->hw_sv);
+
+		mtk_cam_sv_backup(sv_dev);
+		mtk_cam_sv_dev_stream_on(sv_dev, 0, 0, 0);
+	}
+
+	for (i = 0; i < ARRAY_SIZE(ctx->hw_raw); i++) {
+		if (ctx->hw_raw[i]) {
+			raw_dev = dev_get_drvdata(ctx->hw_raw[i]);
+			if (raw_dev->is_slave)
+				continue;
+
+			stream_on(raw_dev, 0, 0);
+		}
+	}
+
+	// reset
+	for (i = 0; i < ARRAY_SIZE(ctx->hw_raw); i++) {
+		if (ctx->hw_raw[i]) {
+			raw_dev = dev_get_drvdata(ctx->hw_raw[i]);
+			reset(raw_dev);
+		}
+	}
+
+	/* camsv already reset in stream off */
+
+	// enable vf: raw -> camsv
+	for (i = 0; i < ARRAY_SIZE(ctx->hw_raw); i++) {
+		if (ctx->hw_raw[i]) {
+			raw_dev = dev_get_drvdata(ctx->hw_raw[i]);
+
+			toggle_db(raw_dev);
+
+			if (raw_dev->is_slave)
+				continue;
+
+			stream_on(raw_dev, 1, 0);
+		}
+	}
+
+	if (ctx->hw_sv) {
+		sv_dev = dev_get_drvdata(ctx->hw_sv);
+		mtk_cam_sv_dev_config(sv_dev, 0);
+		mtk_cam_sv_restore(sv_dev);
+		mtk_cam_sv_dev_stream_on(sv_dev, 1,
+					 ctx->enabled_tags, ctx->used_tag_cnt);
 	}
 }
 

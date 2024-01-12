@@ -705,6 +705,8 @@ void imgsys_traw_updatecq(struct mtk_imgsys_dev *imgsys_dev,
 					((void *)(virt_mem_base + user_info->priv[i].desc_offset));
 				for (j = 0; j < TRAW_CQ_DESC_NUM; j++) {
 					dtable = (struct mtk_imgsys_traw_dtable *)cq_desc + j;
+					if (dtable->empty == 0x1C000000)  //  End token
+						break;
 					if ((dtable->addr_msb & PSEUDO_DESC_TUNING) ==
 						PSEUDO_DESC_TUNING) {
 						tun_ofst = dtable->addr;

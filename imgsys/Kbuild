@@ -34,6 +34,14 @@ $(info "imgsys, src_path = $(src)")
 $(info "imgsys, ko_code_path = $(KO_CODE_PATH)")
 
 #register TF CB
+ifneq ($(wildcard $(DEVICE_MODULES_PATH)/include/dt-bindings/memory/mt6897-larb-port.h),)
+subdir-ccflags-y += -DIMGSYS_TF_DUMP_7SP_P
+endif
+
+ifneq ($(wildcard $(DEVICE_MODULES_PATH)/include/dt-bindings/memory/mt6989-larb-port.h),)
+subdir-ccflags-y += -DIMGSYS_TF_DUMP_7SP_L
+endif
+
 ifneq ($(wildcard $(DEVICE_MODULES_PATH)/include/dt-bindings/memory/mt6983-larb-port.h),)
   subdir-ccflags-y += -DWPE_TF_DUMP_71_1
 else ifneq ($(wildcard $(DEVICE_MODULES_PATH)/include/dt-bindings/memory/mt6879-larb-port.h),)

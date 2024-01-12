@@ -25,6 +25,7 @@
 #include <media/videobuf2-core.h>
 #include <media/videobuf2-v4l2.h>
 
+#include "iommu_debug.h"
 #include "mtk_imgsys-hw.h"
 #include "mtk_imgsys-module.h"
 #include "mtkdip.h"
@@ -313,6 +314,11 @@ typedef void (*debug_dump)(struct mtk_imgsys_dev *imgsys_dev,
 	const struct module_ops *imgsys_modules, int imgsys_module_num,
 	unsigned int hw_comb);
 
+struct mtk_imgsys_port_table {
+	u32 port; /* larb-port.h */
+	mtk_iommu_fault_callback_t fn;
+};
+
 struct mtk_imgsys_dev {
 	struct device *dev;
 	struct device *dev_Me;
@@ -391,6 +397,9 @@ struct mtk_imgsys_dev {
 	dma_addr_t traw_work_buf_pa;
 	/*streamon parallel*/
 	struct completion comp;
+	/* register iommu TF cb */
+	const struct mtk_imgsys_port_table *dma_ports;
+	unsigned int dma_ports_num;
 };
 
 /* contained in struct mtk_imgsys_user's done_list */

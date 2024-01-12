@@ -31,6 +31,7 @@ const struct cust_data imgsys_data[] = {
 		.imgsys_modules = imgsys_isp7_modules,
 		.imgsys_modules_num = MTK_IMGSYS_MODULE_NUM,
 		.dump = imgsys_debug_dump_routine,
+		.imgsys_ports_num = 0,
 	},
 	/* ISP 7.1 */
 

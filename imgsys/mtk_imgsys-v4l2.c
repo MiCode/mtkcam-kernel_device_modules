@@ -3120,6 +3120,9 @@ int mtk_imgsys_probe(struct platform_device *pdev)
 	imgsys_dev->num_mods = data->mod_num;
 	imgsys_dev->modules_num = data->imgsys_modules_num;
 	imgsys_dev->dump = data->dump;
+	imgsys_dev->dma_ports = data->imgsys_ports;
+	imgsys_dev->dma_ports_num = data->imgsys_ports_num;
+
 #ifdef CLK_READY
 	ret = devm_clk_bulk_get(&pdev->dev, imgsys_dev->num_clks,
 							imgsys_dev->clks);

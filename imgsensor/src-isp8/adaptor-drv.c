@@ -1405,6 +1405,7 @@ static int imgsensor_probe(struct i3c_i2c_device *client)
 	mutex_init(&ctx->ebd_lock);
 	ctx->open_refcnt = 0;
 	ctx->power_refcnt = 0;
+	ctx->mclk_refcnt = 0;
 
 	ctx->ixc_client = *client;
 	ctx->i2c_client = client->i2c_dev;

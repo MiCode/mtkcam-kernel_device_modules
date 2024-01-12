@@ -226,6 +226,7 @@ struct subdrv_mode_struct {
 
 	/* aov param by mode */
 	u8 aov_mode;
+	u8 rosc_mode;
 	u8 s_dummy_support;
 	enum IMGSENSOR_AE_CONTROL_SUPPORT ae_ctrl_support;
 

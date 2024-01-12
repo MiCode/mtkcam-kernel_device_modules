@@ -1914,6 +1914,43 @@ static int imgsensor_set_ctrl(struct v4l2_ctrl *ctrl)
 		else
 			adaptor_cam_pmic_off(ctx);
 		break;
+	case V4L2_CID_MTK_SENSOR_SET_AOV_MCLK:
+		if (ctx->subctx.s_ctx.mode[ctx->subctx.current_scenario_id].rosc_mode) {
+			if (ctrl->val) {
+				if (ctx->mclk_refcnt == 1) {
+					// enable mclk
+					if (clk_prepare_enable(ctx->clk[CLK1_MCLK1]))
+						dev_info(dev,
+				"			clk_prepare_enable CLK1_MCLK1(fail)\n");
+					else
+						dev_info(dev, "enable aov mclk.\n");
+					ctx->mclk_refcnt --;
+				}
+			} else {
+				if (ctx->mclk_refcnt == 0) {
+					// mclk_driving_current_off
+					ret = pinctrl_select_state(
+						ctx->pinctrl,
+						ctx->state[STATE_MCLK1_OFF]);
+					if (ret < 0) {
+						dev_info(dev,
+							"select(%s)(fail),ret(%d)\n",
+							state_names[STATE_MCLK1_OFF], ret);
+						return ret;
+					}
+					dev_info(dev, "select(%s)(correct)\n", state_names[STATE_MCLK1_OFF]);
+					// disable mclk
+					clk_disable_unprepare(ctx->clk[CLK1_MCLK1]);
+					dev_info(dev, "disable aov mclk.\n");
+					ctx->mclk_refcnt ++;
+				}
+			}
+			dev_info(dev, "V4L2_CID_MTK_SENSOR_SET_AOV_MCLK val = %u mclk_refcnt = %d\n",
+				ctrl->val, ctx->mclk_refcnt);
+		} else {
+			dev_info(dev, "V4L2_CID_MTK_SENSOR_SET_AOV_MCLK not rosc mode\n");
+		}
+		break;
 	}
 
 #ifdef IMGSENSOR_USE_PM_FRAMEWORK
@@ -2462,6 +2499,17 @@ static const struct v4l2_ctrl_config cfg_wake_up_camera_pmic = {
 	.max = 1,
 	.step = 1,
 };
+
+static const struct v4l2_ctrl_config cfg_sensor_set_aov_mclk = {
+	.ops = &ctrl_ops,
+	.id = V4L2_CID_MTK_SENSOR_SET_AOV_MCLK,
+	.name = "sensor_set_aov_mclk",
+	.type = V4L2_CTRL_TYPE_BOOLEAN,
+	.flags = V4L2_CTRL_FLAG_EXECUTE_ON_WRITE,
+	.max = 1,
+	.step = 1,
+};
+
 void adaptor_sensor_init(struct adaptor_ctx *ctx)
 {
 	adaptor_logm(ctx, "+\n");
@@ -2832,6 +2880,7 @@ int adaptor_init_ctrls(struct adaptor_ctx *ctx)
 	v4l2_ctrl_new_custom(ctrl_hdlr, &cfg_sensor_init, NULL);
 	v4l2_ctrl_new_custom(ctrl_hdlr, &cfg_sensor_reset_s_stream, NULL);
 	v4l2_ctrl_new_custom(ctrl_hdlr, &cfg_sensor_reset_by_user, NULL);
+	v4l2_ctrl_new_custom(ctrl_hdlr, &cfg_sensor_set_aov_mclk, NULL);
 
 	if (ctrl_hdlr->error) {
 		ret = ctrl_hdlr->error;

@@ -4566,3 +4566,55 @@ int mtk_cam_seninf_aov_reset_sensor(unsigned int sensor_id)
 	return 0;
 }
 EXPORT_SYMBOL(mtk_cam_seninf_aov_reset_sensor);
+
+int mtk_cam_seninf_aov_sensor_set_mclk(unsigned int sensor_id, bool enable)
+{
+	struct seninf_ctx *ctx = NULL;
+	unsigned int real_sensor_id = 0;
+	struct v4l2_subdev *sensor_sd = NULL;
+	struct v4l2_ctrl *ctrl = NULL;
+
+	pr_info("[%s] sensor_id(%d)\n", __func__, sensor_id);
+
+	if (g_aov_param.is_test_model) {
+		real_sensor_id = 5;
+	} else {
+		if (sensor_id == g_aov_param.sensor_idx) {
+			real_sensor_id = g_aov_param.sensor_idx;
+			pr_info("input sensor id(%u)(success)\n", real_sensor_id);
+		} else {
+			real_sensor_id = sensor_id;
+			pr_info("input sensor id(%u)(fail)\n", real_sensor_id);
+			seninf_aee_print(
+				"[AEE] [%s] input sensor id(%u)(fail)",
+				__func__, real_sensor_id);
+			return -ENODEV;
+		}
+	}
+	/* debug use
+	 * if (g_aov_param.sensor_idx)
+	 *	pr_info("g_aov_param.sensor_idx %d\n",
+	 *		g_aov_param.sensor_idx);
+	 */
+	if (aov_ctx[real_sensor_id] != NULL) {
+		pr_info("[%s] sensor idx(%u)\n", __func__, real_sensor_id);
+		ctx = aov_ctx[real_sensor_id];
+	} else {
+		pr_info("[%s] Can't find ctx from input sensor id!\n", __func__);
+		return -ENODEV;
+	}
+
+	sensor_sd = ctx->sensor_sd;
+	ctrl = v4l2_ctrl_find(sensor_sd->ctrl_handler,
+			V4L2_CID_MTK_SENSOR_SET_AOV_MCLK);
+	if (!ctrl) {
+		dev_info(ctx->dev, "V4L2_CID_MTK_SENSOR_SET_AOV_MCLK %s\n",
+			sensor_sd->name);
+		return -EINVAL;
+	}
+
+	v4l2_ctrl_s_ctrl(ctrl, enable);
+
+	return 0;
+}
+EXPORT_SYMBOL(mtk_cam_seninf_aov_sensor_set_mclk);

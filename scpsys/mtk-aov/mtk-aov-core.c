@@ -707,6 +707,9 @@ int aov_core_send_cmd(struct mtk_aov *aov_dev, uint32_t cmd,
 		AOV_DEBUG_LOG(*(aov_dev->enable_aov_log_flag),
 			"mtk_cam_seninf_aov_runtime_resume(%d/%d)-\n",
 			core_info->sensor_id, DEINIT_NORMAL);
+	} else if (cmd == AOV_SCP_CMD_START) {
+		dev_info(aov_dev->dev, "%s: notify seninf to close mclk", __func__);
+		mtk_cam_seninf_aov_sensor_set_mclk(core_info->sensor_id, 0);
 	}
 
 		AOV_DEBUG_LOG(*(aov_dev->enable_aov_log_flag), "%s-\n", __func__);

@@ -197,6 +197,7 @@ struct adaptor_ctx {
 
 	int open_refcnt;
 	int power_refcnt;
+	int mclk_refcnt;
 
 	struct subdrv_pw_seq_entry *ctx_pw_seq;
 

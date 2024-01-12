@@ -80,6 +80,14 @@ struct adaptor_hw_ops {
 	void *data;
 };
 
+struct adaptor_work {
+	struct kthread_work work;
+	struct kthread_delayed_work dwork;
+	struct adaptor_ctx *ctx;
+	struct mtk_hdr_ae ae_ctrl;
+};
+
+
 struct adaptor_ctx {
 	struct mutex mutex;
 	struct i2c_client *i2c_client;
@@ -87,6 +95,8 @@ struct adaptor_ctx {
 	struct v4l2_subdev sd;
 	struct media_pad pad;
 	struct v4l2_fwnode_endpoint ep;
+	struct kthread_worker adaptor_worker;
+	struct task_struct *adaptor_kworker_task;
 
 	/* V4L2 Controls */
 	struct v4l2_ctrl_handler ctrls;
@@ -151,6 +161,9 @@ struct adaptor_ctx {
 	/* sensor property */
 	u32 location;
 	u32 rotation;
+
+	/* sentest */
+	bool sentest_lbmf_delay_do_ae_en;
 
 	/* frame-sync */
 	struct FrameSync *fsync_mgr;

@@ -1590,6 +1590,23 @@ static int s_sensor_profile_en(struct adaptor_ctx *ctx, void *arg)
 	return 0;
 }
 
+static int s_sentest_lbmf_delay_do_ae_en(struct adaptor_ctx *ctx, void *arg)
+{
+	int *en = arg;
+
+	if (en == NULL) {
+		dev_info(ctx->dev, "en is NULL\n");
+		return -EFAULT;
+	}
+
+	ctx->sentest_lbmf_delay_do_ae_en =  (*en) ? true : false;
+
+	dev_info(ctx->dev, "en: %d, s_sentest_lbmf_delay_do_ae_en  is %d\n",
+				*en, ctx->sentest_lbmf_delay_do_ae_en);
+
+	return 0;
+}
+
 static int g_sensor_profile(struct adaptor_ctx *ctx, void *arg)
 {
 	struct subdrv_ctx *subctx = &ctx->subctx;
@@ -1695,6 +1712,7 @@ static const struct ioctl_entry ioctl_list[] = {
 	{VIDIOC_MTK_S_CONTROL, s_control},
 	{VIDIOC_MTK_S_TG, s_tg},
 	{VIDIOC_MTK_S_SENSOR_PROFILE_EN, s_sensor_profile_en},
+	{VIDIOC_MTK_S_SENTEST_LBMF_DELAY_DO_AE_EN, s_sentest_lbmf_delay_do_ae_en},
 };
 
 long adaptor_ioctl(struct v4l2_subdev *sd, unsigned int cmd, void *arg)

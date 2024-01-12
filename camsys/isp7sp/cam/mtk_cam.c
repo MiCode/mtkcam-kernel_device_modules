@@ -2421,12 +2421,8 @@ int mtk_cam_ctx_init_scenario(struct mtk_cam_ctx *ctx)
 	} else if (ctrl_data->valid_apu_info &&
 		   scen_is_m2m_apu(scen, &ctrl_data->apu_info)) {
 
-		if (apu_info_is_dc(&ctrl_data->apu_info)) {
-			ret = mtk_cam_ctx_request_slb(ctx, UID_SH_P1, false);
+		ret = mtk_cam_ctx_request_slb(ctx, UID_SH_P1, false);
 
-			if (!ret)
-				ctx->set_adl_aid = true;
-		}
 	} else if (res_raw_is_dc_mode(res) && res->slb_size) {
 		/* dcif + slb ring buffer case */
 
@@ -2699,6 +2695,10 @@ void mtk_cam_ctx_engine_off(struct mtk_cam_ctx *ctx)
 		}
 	}
 
+	if (ctx->set_adl_aid) {
+		mtk_cam_hsf_aid(ctx, 0, AID_VAINR, ctx->used_engine);
+		ctx->set_adl_aid = 0;
+	}
 }
 
 void mtk_cam_ctx_engine_disable_irq(struct mtk_cam_ctx *ctx)

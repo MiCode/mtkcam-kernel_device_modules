@@ -723,9 +723,7 @@ static int s_ae_ctrl(struct v4l2_ctrl *ctrl)
 		   sizeof(ctx->ae_memento));
 	if (!ctx->is_streaming) {
 		/* update timeout value upon streaming off */
-		ctx->shutter_for_timeout = ctx->ae_memento.exposure.le_exposure;
-		if (ctx->cur_mode->fine_intg_line)
-			ctx->shutter_for_timeout /= 1000;
+		update_shutter_for_timeout_by_ae_ctrl(ctx, &ctx->ae_memento);
 		dev_info(ctx->dev, "%s streaming off, set restore ae_ctrl later\n", __func__);
 		return 0;
 	}
@@ -1275,7 +1273,6 @@ static int imgsensor_set_ctrl(struct v4l2_ctrl *ctrl)
 	int i;
 	bool is_lock = false;
 
-
 	subdrv_call(ctx, set_ctrl_locker, ctrl->id, &is_lock);
 	if (is_lock) {
 		dev_info(ctx->dev,
@@ -1304,12 +1301,8 @@ static int imgsensor_set_ctrl(struct v4l2_ctrl *ctrl)
 		subdrv_call(ctx, update_sof_cnt, (u64)ctrl->val);
 		notify_fsync_mgr_update_sof_cnt(ctx, (u32)ctrl->val);
 		/* update timeout value upon vsync*/
-		if (ctx->ae_memento.exposure.le_exposure)
-			ctx->shutter_for_timeout = ctx->ae_memento.exposure.le_exposure;
-		else
-			ctx->shutter_for_timeout = ctx->exposure->val;
-		if (ctx->cur_mode->fine_intg_line)
-			ctx->shutter_for_timeout /= 1000;
+		if (!update_shutter_for_timeout_by_ae_ctrl(ctx, &ctx->ae_memento))
+			update_shutter_for_timeout(ctx);
 		break;
 	case V4L2_CID_VSYNC_NOTIFY:
 		subdrv_call(ctx, vsync_notify, (u64)ctrl->val);
@@ -1646,13 +1639,6 @@ static int imgsensor_set_ctrl(struct v4l2_ctrl *ctrl)
 			memset(&ctx->ae_memento, 0, sizeof(ctx->ae_memento));
 			memcpy(&ctx->ae_memento, &info->ae_ctrl[0],  sizeof(ctx->ae_memento));
 
-			/* update timeout value upon seamless switch*/
-			ctx->exposure->val = info->ae_ctrl[0].exposure.arr[0];
-			ctx->shutter_for_timeout = info->ae_ctrl[0].exposure.arr[0];
-			ctx->is_sensor_scenario_inited = 1;
-			if (ctx->cur_mode->fine_intg_line)
-				ctx->shutter_for_timeout /= 1000;
-
 			if (info->target_scenario_id < MODE_MAXCNT)
 				ctx->cur_mode = &ctx->mode[info->target_scenario_id];
 			else {
@@ -1661,6 +1647,11 @@ static int imgsensor_set_ctrl(struct v4l2_ctrl *ctrl)
 					info->target_scenario_id);
 			}
 
+			ctx->exposure->val = info->ae_ctrl[0].exposure.arr[0];
+			ctx->is_sensor_scenario_inited = 1;
+
+			/* update timeout value upon seamless switch*/
+			update_shutter_for_timeout_by_ae_ctrl(ctx, &info->ae_ctrl[0]);
 		}
 		break;
 #ifdef IMGSENSOR_DEBUG
@@ -1723,12 +1714,8 @@ static int imgsensor_set_ctrl(struct v4l2_ctrl *ctrl)
 			restore_ae_ctrl(ctx);
 
 			/* update timeout value after reset*/
-			if (ctx->ae_memento.exposure.le_exposure)
-				ctx->shutter_for_timeout = ctx->ae_memento.exposure.le_exposure;
-			else
-				ctx->shutter_for_timeout = ctx->exposure->val;
-			if (ctx->cur_mode->fine_intg_line)
-				ctx->shutter_for_timeout /= 1000;
+			if (!update_shutter_for_timeout_by_ae_ctrl(ctx, &ctx->ae_memento))
+				update_shutter_for_timeout(ctx);
 
 			_sensor_reset_s_stream(ctrl);
 			//dev_info(dev, "exit V4L2_CID_MTK_SENSOR_RESET\n");
@@ -2371,6 +2358,77 @@ void restore_ae_ctrl(struct adaptor_ctx *ctx)
 	dev_info(ctx->dev, "[%s][%s]-\n",
 		__func__, (ctx->subdrv) ? (ctx->subdrv->name) : "null");
 #endif
+}
+
+int update_shutter_for_timeout(struct adaptor_ctx *ctx)
+{
+	enum IMGSENSOR_HDR_MODE_ENUM hdr_mode;
+	u32 exp_cnt;
+	int i;
+
+	hdr_mode = (ctx->subctx.s_ctx.mode == NULL)
+		? HDR_NONE
+		: ctx->subctx.s_ctx.mode[ctx->cur_mode->id].hdr_mode;
+	exp_cnt = (ctx->subctx.s_ctx.mode == NULL)
+		? 1
+		: ctx->subctx.s_ctx.mode[ctx->cur_mode->id].exp_cnt;
+
+	ctx->shutter_for_timeout = ctx->exposure->val;
+	if (ctx->cur_mode->fine_intg_line)
+		ctx->shutter_for_timeout /= 1000;
+
+	if (ctx->subctx.s_ctx.mode != NULL) {
+		switch (hdr_mode) {
+		case HDR_RAW_STAGGER:
+		case HDR_RAW_LBMF:
+			if (exp_cnt <= IMGSENSOR_STAGGER_EXPOSURE_CNT)
+				for (i = IMGSENSOR_STAGGER_EXPOSURE_ME; i < exp_cnt; i++) {
+					ctx->shutter_for_timeout += ctx->subctx.exposure[i];
+				}
+			break;
+		default:
+			break;
+		}
+	}
+	return 1;
+}
+
+int update_shutter_for_timeout_by_ae_ctrl(struct adaptor_ctx *ctx, struct mtk_hdr_ae *ae_ctrl)
+{
+	enum IMGSENSOR_HDR_MODE_ENUM hdr_mode;
+	u32 exp_cnt;
+	int i;
+
+	hdr_mode = (ctx->subctx.s_ctx.mode == NULL)
+		? HDR_NONE
+		: ctx->subctx.s_ctx.mode[ctx->cur_mode->id].hdr_mode;
+	exp_cnt = (ctx->subctx.s_ctx.mode == NULL)
+		? 1
+		: ctx->subctx.s_ctx.mode[ctx->cur_mode->id].exp_cnt;
+
+	if (ae_ctrl == NULL) {
+		dev_err(ctx->dev, "ae_ctrl == NULL\n");
+		return 0;
+	}
+
+	if (ae_ctrl->exposure.arr[IMGSENSOR_STAGGER_EXPOSURE_LE])
+		return 0;
+
+	ctx->shutter_for_timeout = ae_ctrl->exposure.arr[IMGSENSOR_STAGGER_EXPOSURE_LE];
+	switch (hdr_mode) {
+	case HDR_RAW_STAGGER:
+	case HDR_RAW_LBMF:
+		if (exp_cnt <= IMGSENSOR_STAGGER_EXPOSURE_CNT)
+			for (i = IMGSENSOR_STAGGER_EXPOSURE_ME; i < exp_cnt; i++) {
+				ctx->shutter_for_timeout += ae_ctrl->exposure.arr[i];
+			}
+		break;
+	default:
+		break;
+	}
+	if (ctx->cur_mode->fine_intg_line)
+		ctx->shutter_for_timeout /= 1000;
+	return 1;
 }
 
 int adaptor_init_ctrls(struct adaptor_ctx *ctx)

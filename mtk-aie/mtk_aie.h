@@ -604,6 +604,9 @@ struct mtk_aie_drv_ops {
 	void (*fdvt_dump_reg)(struct mtk_aie_dev *fd);
 };
 
+typedef void (*mtk_aie_register_tf_cb)(void*);
+void register_mtk_aie_reg_tf_cb(mtk_aie_register_tf_cb mtk_aie_register_tf_cb_fn);
+
 struct mtk_aie_dev {
 	struct device *dev;
 	struct device *smmu_dev;

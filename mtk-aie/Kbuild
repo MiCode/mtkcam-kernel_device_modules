@@ -28,3 +28,5 @@ mtk_aie_drv_isp7s.o \
 mtk_aie_drv_isp7sp.o
 
 obj-$(CONFIG_MTK_CAMERA_FD_ISP7S_ISP7SP) += $(AIE_MODULE).o
+obj-$(CONFIG_MTK_CAMERA_FD_ISP7S_ISP7SP) += mtk_aie_debug_7sp.o
+obj-$(CONFIG_MTK_CAMERA_FD_ISP7S_ISP7SP) += mtk_aie_debug_7sp_1.o

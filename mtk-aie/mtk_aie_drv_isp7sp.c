@@ -24,11 +24,6 @@
 
 #include "aie_mp_fw_7sp_def.h"
 
-#define FDVT_TF_DUMP 0
-#if FDVT_TF_DUMP
-#include <dt-bindings/memory/mt6897-larb-port.h>
-#endif
-
 #define FDVT_USE_GCE 1
 #define FLD
 #define FLD_ALIGN 128
@@ -490,28 +485,6 @@ static unsigned int g_fd_fd_config_offset;
 static void aie_irqhandle(struct mtk_aie_dev *fd);
 
 static void aie_arrange_config_network(struct mtk_aie_dev *fd);
-
-#if FDVT_TF_DUMP
-static int FDVT_M4U_TranslationFault_callback(int port,
-							   dma_addr_t mva,
-							   void *data)
-{
-	pr_info("[FDVT_M4U]fault call port=%d, mva=0x%llx", port, mva);
-
-	switch (port) {
-#if CHECK_SERVICE_IF_0
-	case M4U_PORT_FDVT_RDA:
-	case M4U_PORT_FDVT_RDB:
-	case M4U_PORT_FDVT_WRA:
-	case M4U_PORT_FDVT_WRB:
-#endif
-	default: //ISP_FDVT_BASE = 0x1b001000
-		//aie_fdvt_dump_reg(data);
-	break;
-	}
-	return 1;
-}
-#endif
 
 static void FDVT_DumpDRAMOut(struct mtk_aie_dev *fd, unsigned int *hw, unsigned int size)
 {
@@ -3258,14 +3231,6 @@ static int aie_init(struct mtk_aie_dev *fd)
 
 	fd->fd_state = STATE_NA;
 
-#if FDVT_TF_DUMP
-	mtk_iommu_register_fault_callback(M4U_L12_P0_FDVT_RDA_0,
-		(mtk_iommu_fault_callback_t)FDVT_M4U_TranslationFault_callback,
-		fd, false);
-	mtk_iommu_register_fault_callback(M4U_L12_P1_FDVT_WRA_0,
-		(mtk_iommu_fault_callback_t)FDVT_M4U_TranslationFault_callback,
-		fd, false);
-#endif
 	fd->base_para = kmalloc(sizeof(struct aie_para), GFP_KERNEL);
 	if (fd->base_para == NULL)
 		return -ENOMEM;
@@ -5322,4 +5287,5 @@ const struct mtk_aie_drv_ops aie_ops_isp7sp = {
 	.config_fld_buf_reg = aie_config_fld_buf_reg,
 	.fdvt_dump_reg = aie_fdvt_dump_reg,
 };
+
 MODULE_IMPORT_NS(DMA_BUF);

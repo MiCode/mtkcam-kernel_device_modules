@@ -1443,25 +1443,31 @@ int _mtk_cam_seninf_set_camtg_with_dest_idx(struct v4l2_subdev *sd, int pad_id,
 	struct seninf_mux *mux = NULL;
 	struct seninf_core *core = ctx->core;
 
+	mutex_lock(&core->cammux_page_ctrl_mutex);
+
 	if (pad_id < PAD_SRC_RAW0 || pad_id >= PAD_MAXCNT) {
 		dev_info(ctx->dev, "no such pad id:%d\n", pad_id);
+		mutex_unlock(&core->cammux_page_ctrl_mutex);
 		return -EINVAL;
 	}
 
 	vc = mtk_cam_seninf_get_vc_by_pad(ctx, pad_id);
 	if (!vc) {
 		dev_info(ctx->dev, "no such vc by pad id:%d\n", pad_id);
+		mutex_unlock(&core->cammux_page_ctrl_mutex);
 		return -EINVAL;
 	}
 
 	if (!from_set_camtg && !ctx->streaming) {
 		dev_info(ctx->dev, "%s !from_set_camtg && !ctx->streaming\n", __func__);
+		mutex_unlock(&core->cammux_page_ctrl_mutex);
 		return -EINVAL;
 	}
 
 	if (dest_set >= MAX_DEST_NUM) {
 		dev_info(ctx->dev, "%s reach max dest_set %d, vc->dest_cnt = %u\n",
-			 __func__, dest_set, vc->dest_cnt);
+			__func__, dest_set, vc->dest_cnt);
+		mutex_unlock(&core->cammux_page_ctrl_mutex);
 		return -EINVAL;
 	}
 
@@ -1478,6 +1484,7 @@ int _mtk_cam_seninf_set_camtg_with_dest_idx(struct v4l2_subdev *sd, int pad_id,
 #ifdef SENSOR_SECURE_MTEE_SUPPORT
 		if (ctx->is_secure == 1) {
 			dev_info(ctx->dev, "secure path has already exisited!");
+			mutex_unlock(&core->cammux_page_ctrl_mutex);
 			return 0;
 		} else {
 #endif // SENSOR_SECURE_MTEE_SUPPORT
@@ -1490,11 +1497,9 @@ int _mtk_cam_seninf_set_camtg_with_dest_idx(struct v4l2_subdev *sd, int pad_id,
 			if (camtg == 0xff) {
 				dest->cam = 0xff;
 				if (disable_last) {
-					mutex_lock(&core->cammux_page_ctrl_mutex);
 					g_seninf_ops->_switch_to_cammux_inner_page(ctx, true);
 					g_seninf_ops->_set_cammux_next_ctrl(ctx, 0x3f, old_camtg);
 					g_seninf_ops->_disable_cammux(ctx, old_camtg);
-					mutex_unlock(&core->cammux_page_ctrl_mutex);
 				}
 			} else {
 				/* enable new */
@@ -1506,6 +1511,7 @@ int _mtk_cam_seninf_set_camtg_with_dest_idx(struct v4l2_subdev *sd, int pad_id,
 					dev_info(ctx->dev,"mux is null, pad_id %d\n", pad_id);
 					dev_info(ctx->dev,"cam = %d, cam_type = %d\n",
 						dest->cam, dest->cam_type);
+					mutex_unlock(&core->cammux_page_ctrl_mutex);
 					return -EBUSY;
 				}
 
@@ -1513,7 +1519,6 @@ int _mtk_cam_seninf_set_camtg_with_dest_idx(struct v4l2_subdev *sd, int pad_id,
 				dest->mux_vr = mux2mux_vr(ctx, dest->mux, dest->cam,
 							vc->muxvr_offset);
 
-				mutex_lock(&core->cammux_page_ctrl_mutex);
 				g_seninf_ops->_switch_to_cammux_inner_page(ctx, true);
 				g_seninf_ops->_set_cammux_next_ctrl(ctx, 0x3f, dest->cam);
 
@@ -1541,15 +1546,14 @@ int _mtk_cam_seninf_set_camtg_with_dest_idx(struct v4l2_subdev *sd, int pad_id,
 				if (old_camtg != 0xff && disable_last)
 					g_seninf_ops->_set_cammux_next_ctrl(ctx,
 									dest->mux_vr, old_camtg);
-				mutex_unlock(&core->cammux_page_ctrl_mutex);
 
 				chk_is_fsync_vsync_src(ctx, pad_id);
 			}
 			seninf_logi(ctx,
-				"pad %d dest %u mux %d -> %d mux_vr %d -> %d cam %d -> %d, tag %d vc id %d, dt 0x%x\n",
+				"pad %d dest %u mux %d -> %d mux_vr %d -> %d cam %d -> %d, tag %d vc id %d, dt 0x%x, disable_last %d\n",
 				vc->out_pad, dest_set, old_mux, dest->mux,
 				old_mux_vr, dest->mux_vr, old_camtg, dest->cam, dest->tag,
-				vc->vc, vc->dt);
+				vc->vc, vc->dt, disable_last);
 
 #ifdef SENSOR_SECURE_MTEE_SUPPORT
 		}
@@ -1559,6 +1563,8 @@ int _mtk_cam_seninf_set_camtg_with_dest_idx(struct v4l2_subdev *sd, int pad_id,
 			"pad_id %d, dest %u camtg %d, ctx->streaming %d, vc_en %d, tag %d vc id %d, dt 0x%x\n",
 			pad_id, dest_set, camtg, ctx->streaming, vc_en, tag_id, vc->vc, vc->dt);
 	}
+
+	mutex_unlock(&core->cammux_page_ctrl_mutex);
 
 	return 0;
 }
@@ -1591,19 +1597,24 @@ static int _mtk_cam_seninf_reset_cammux(struct seninf_ctx *ctx, int pad_id)
 	int old_camtg;
 	u8 j;
 
+	mutex_lock(&core->cammux_page_ctrl_mutex);
+
 	if (pad_id < PAD_SRC_RAW0 || pad_id >= PAD_MAXCNT) {
 		dev_info(ctx->dev, "no such pad id:%d\n", pad_id);
+		mutex_unlock(&core->cammux_page_ctrl_mutex);
 		return -EINVAL;
 	}
 
 	vc = mtk_cam_seninf_get_vc_by_pad(ctx, pad_id);
 	if (!vc) {
 		seninf_logd(ctx, "no such vc by pad id:%d\n", pad_id);
+		mutex_unlock(&core->cammux_page_ctrl_mutex);
 		return -EINVAL;
 	}
 
 	if (!ctx->streaming) {
 		dev_info(ctx->dev, "%s !ctx->streaming\n", __func__);
+		mutex_unlock(&core->cammux_page_ctrl_mutex);
 		return -EINVAL;
 	}
 
@@ -1618,20 +1629,20 @@ static int _mtk_cam_seninf_reset_cammux(struct seninf_ctx *ctx, int pad_id)
 		if (old_camtg != 0xff)
 			g_seninf_ops->_set_cam_mux_dyn_en(ctx, true, old_camtg, 0/*index*/);
 
-		mutex_lock(&core->cammux_page_ctrl_mutex);
 		g_seninf_ops->_switch_to_cammux_inner_page(ctx, false);
 		if (old_camtg != 0xff) {
 			//disable old in next sof
 			g_seninf_ops->_disable_cammux(ctx, old_camtg);
 		}
 		g_seninf_ops->_switch_to_cammux_inner_page(ctx, true);
-		mutex_unlock(&core->cammux_page_ctrl_mutex);
 
 		dev_info(ctx->dev, "disable outer of pad_id(%d) old camtg(%d)\n",
 			 pad_id, old_camtg);
 	}
 
 	vc->dest_cnt = 0;
+
+	mutex_unlock(&core->cammux_page_ctrl_mutex);
 
 	return 0;
 }
@@ -1654,23 +1665,32 @@ int _mtk_cam_seninf_set_camtg(struct v4l2_subdev *sd, int pad_id, int camtg, int
 	struct seninf_ctx *ctx = container_of(sd, struct seninf_ctx, subdev);
 	struct seninf_vc *vc;
 	int set, i;
+	struct seninf_core *core = ctx->core;
+
+	mutex_lock(&core->cammux_page_ctrl_mutex);
 
 	if (pad_id < PAD_SRC_RAW0 || pad_id >= PAD_MAXCNT) {
 		dev_info(ctx->dev, "[%s][ERROR] pad_id %d is invalid\n",
 			__func__, pad_id);
+		mutex_unlock(&core->cammux_page_ctrl_mutex);
 		return -EINVAL;
 	}
+
+	mutex_unlock(&core->cammux_page_ctrl_mutex);
 
 	if (camtg < 0 || camtg == 0xff) {
 		/* disable all dest */
 		return _mtk_cam_seninf_reset_cammux(ctx, pad_id);
 	}
 
+	mutex_lock(&core->cammux_page_ctrl_mutex);
+
 	vc = mtk_cam_seninf_get_vc_by_pad(ctx, pad_id);
 	if (!vc) {
 		dev_info(ctx->dev,
-		"[%s] mtk_cam_seninf_get_vc_by_pad return failed by using pad %d\n",
-		__func__, pad_id);
+			"[%s] mtk_cam_seninf_get_vc_by_pad return failed by using pad %d\n",
+			__func__, pad_id);
+		mutex_unlock(&core->cammux_page_ctrl_mutex);
 		return -EINVAL;
 	}
 
@@ -1678,6 +1698,7 @@ int _mtk_cam_seninf_set_camtg(struct v4l2_subdev *sd, int pad_id, int camtg, int
 	if(!ctx->is_test_model && _chk_cur_mode_vc(ctx, vc)) {
 		dev_info(ctx->dev, "[%s] no such vc/dt in cur_mode, vc 0x%x, dt 0x%x\n",
 			__func__, vc->vc, vc->dt);
+		mutex_unlock(&core->cammux_page_ctrl_mutex);
 		return 0;
 	}
 
@@ -1695,12 +1716,14 @@ int _mtk_cam_seninf_set_camtg(struct v4l2_subdev *sd, int pad_id, int camtg, int
 			seninf_logi(ctx,
 				"camtg == vc->dest[%d].cam:%u,redundantly manipulated!\n",
 				i, vc->dest[i].cam);
+			mutex_unlock(&core->cammux_page_ctrl_mutex);
 			return 0;
 		}
 	}
 
 	if (set < MAX_DEST_NUM) {
 		vc->dest_cnt += 1;
+		mutex_unlock(&core->cammux_page_ctrl_mutex);
 		return _mtk_cam_seninf_set_camtg_with_dest_idx(sd, pad_id,
 						camtg, tag_id, set, from_set_camtg);
 	}
@@ -1708,6 +1731,8 @@ int _mtk_cam_seninf_set_camtg(struct v4l2_subdev *sd, int pad_id, int camtg, int
 	dev_info(ctx->dev,
 		"[%s][ERROR] current set (%d) is out of boundary(%d)\n",
 		__func__, set, MAX_DEST_NUM);
+
+	mutex_unlock(&core->cammux_page_ctrl_mutex);
 
 	return -EINVAL;
 }

@@ -33,9 +33,7 @@
 #define DPHY_TRAIL_SPEC 224
 #define FT_30_FPS 33
 
-#define DEBUG_CAM_MUX_SWITCH 0
 //#define SCAN_SETTLE
-#define LOG_MORE 0
 
 #define MT6989_IOMOM_VERSIONS "mt6989"
 
@@ -381,14 +379,14 @@ static int mtk_cam_seninf_cammux(struct seninf_ctx *ctx, int cam_mux)
 			 (1 << RO_SENINF_CAM_MUX_PCSR_HSIZE_ERR_IRQ_SHIFT) |
 			 (1 << RO_SENINF_CAM_MUX_PCSR_VSIZE_ERR_IRQ_SHIFT) |
 			 (1 << RO_SENINF_CAM_MUX_PCSR_VSYNC_IRQ_SHIFT));//clr irq
-#if LOG_MORE
-	dev_info(ctx->dev, " %s cam_mux %d EN 0x%x IRQ_EN 0x%x IRQ_STATUS 0x%x\n",
-		__func__,
+
+	seninf_logd(ctx,
+		"cam_mux %d EN 0x%x IRQ_EN 0x%x IRQ_STATUS 0x%x\n",
 		cam_mux,
 		SENINF_READ_REG(pSeninf_cam_mux_pcsr, SENINF_CAM_MUX_PCSR_CTRL),
 		SENINF_READ_REG(pSeninf_cam_mux_pcsr, SENINF_CAM_MUX_PCSR_IRQ_EN),
 		SENINF_READ_REG(pSeninf_cam_mux_pcsr, SENINF_CAM_MUX_PCSR_IRQ_STATUS));
-#endif
+
 	return 0;
 }
 
@@ -427,6 +425,7 @@ static int mtk_cam_seninf_disable_cammux(struct seninf_ctx *ctx, int cam_mux)
 {
 	void *pSeninf_cam_mux_pcsr = NULL;
 	int i;
+	void *pSeninf_cam_mux_gcsr = ctx->reg_if_cam_mux_gcsr;
 
 	if (cam_mux < 0 || cam_mux >= _seninf_ops->cam_mux_num) {
 		dev_info(ctx->dev,
@@ -461,32 +460,29 @@ static int mtk_cam_seninf_disable_cammux(struct seninf_ctx *ctx, int cam_mux)
 			 (1 << RO_SENINF_CAM_MUX_PCSR_VSIZE_ERR_IRQ_SHIFT) |
 			 (1 << RO_SENINF_CAM_MUX_PCSR_VSYNC_IRQ_SHIFT));//clr irq
 
-#if LOG_MORE
-	dev_info(ctx->dev, "%s cam_mux %d EN 0x%x IRQ_EN 0x%x IRQ_STATUS 0x%x\n",
-	__func__,
-	cam_mux,
-	SENINF_READ_REG(pSeninf_cam_mux_pcsr, SENINF_CAM_MUX_PCSR_CTRL),
-	SENINF_READ_REG(pSeninf_cam_mux_pcsr, SENINF_CAM_MUX_PCSR_IRQ_EN),
-	SENINF_READ_REG(pSeninf_cam_mux_pcsr, SENINF_CAM_MUX_PCSR_IRQ_STATUS));
-#endif
+	seninf_logd(ctx,
+		"inner:%d,cam_mux:%d,EN:0x%x,IRQ_EN:0x%x,IRQ_STATUS:0x%x\n",
+		SENINF_READ_BITS(pSeninf_cam_mux_gcsr,
+			SENINF_CAM_MUX_GCSR_DYN_CTRL, RG_SENINF_CAM_MUX_GCSR_DYN_PAGE_SEL),
+		cam_mux,
+		SENINF_READ_REG(pSeninf_cam_mux_pcsr, SENINF_CAM_MUX_PCSR_CTRL),
+		SENINF_READ_REG(pSeninf_cam_mux_pcsr, SENINF_CAM_MUX_PCSR_IRQ_EN),
+		SENINF_READ_REG(pSeninf_cam_mux_pcsr, SENINF_CAM_MUX_PCSR_IRQ_STATUS));
+
 	return 0;
 }
 
 static int mtk_cam_seninf_disable_all_cammux(struct seninf_ctx *ctx)
 {
 	int i = 0;
-#if LOG_MORE
 	void *pSeninf_cam_mux_gcsr = ctx->reg_if_cam_mux_gcsr;
-#endif
 
 	for (i = SENINF_CAM_MUX0; i < _seninf_ops->cam_mux_num; i++)
 		mtk_cam_seninf_disable_cammux(ctx, i);
 
-#if LOG_MORE
-	dev_info(ctx->dev, "%s all SENINF_CAM_MUX_GCSR_MUX_EN 0x%x\n",
-	__func__,
-	SENINF_READ_REG(pSeninf_cam_mux_gcsr, SENINF_CAM_MUX_GCSR_MUX_EN));
-#endif
+	seninf_logd(ctx,
+		"all SENINF_CAM_MUX_GCSR_MUX_EN 0x%x\n",
+		SENINF_READ_REG(pSeninf_cam_mux_gcsr, SENINF_CAM_MUX_GCSR_MUX_EN));
 
 	return 0;
 }
@@ -813,11 +809,9 @@ static int mtk_cam_seninf_set_cammux_vc(struct seninf_ctx *ctx, int cam_mux,
 	}
 	pSeninf_cam_mux_pcsr = ctx->reg_if_cam_mux_pcsr[cam_mux];
 
-#if	DEBUG_CAM_MUX_SWITCH
-	dev_info(ctx->dev, "%s cam_mux %d vc 0x%x dt 0x%x, vc_en %d dt_en %d\n",
-		__func__,
+	seninf_logd(ctx,
+		"cam_mux:%d,vc:0x%x,dt:0x%x,vc_en:%d,dt_en:%d\n",
 		cam_mux, vc_sel, dt_sel, vc_en, dt_en);
-#endif
 
 	SENINF_BITS(pSeninf_cam_mux_pcsr, SENINF_CAM_MUX_PCSR_OPT,
 			RG_SENINF_CAM_MUX_PCSR_VC_SEL, vc_sel);
@@ -876,9 +870,8 @@ static int mtk_cam_seninf_switch_to_cammux_inner_page(struct seninf_ctx *ctx, bo
 {
 	void *pSeninf_cam_mux_gcsr = ctx->reg_if_cam_mux_gcsr;
 
-#if	DEBUG_CAM_MUX_SWITCH
-	dev_info(ctx->dev, "%s inner %d\n", __func__, inner);
-#endif
+	seninf_logd(ctx, "inner %d\n", inner);
+
 	SENINF_BITS(pSeninf_cam_mux_gcsr,
 		SENINF_CAM_MUX_GCSR_DYN_CTRL, RG_SENINF_CAM_MUX_GCSR_DYN_PAGE_SEL, inner ? 0 : 1);
 
@@ -898,9 +891,8 @@ static int mtk_cam_seninf_set_cammux_next_ctrl(struct seninf_ctx *ctx, int src, 
 		return 0;
 	}
 	pSeninf_cam_mux_pcsr = ctx->reg_if_cam_mux_pcsr[target];
-#if	DEBUG_CAM_MUX_SWITCH
-	dev_info(ctx->dev, "%s cam_mux %d src %d\n", __func__, target, src);
-#endif
+
+	seninf_logd(ctx, "cam_mux:%d,src:%d\n", target, src);
 
 	SENINF_BITS(pSeninf_cam_mux_pcsr, SENINF_CAM_MUX_PCSR_CTRL,
 					CAM_MUX_PCSR_NEXT_SRC_SEL, src);
@@ -958,10 +950,9 @@ static int mtk_cam_seninf_set_cammux_src(struct seninf_ctx *ctx, int src, int ta
 	if (dt == 0x3f)
 		exp_dt_hsize = exp_hsize << 1;
 
-#if	DEBUG_CAM_MUX_SWITCH
-	dev_info(ctx->dev, "%s cam_mux %d src %d exp_hsize %d / %d, exp_vsize %d, dt 0x%x\n",
-		__func__, target, src, exp_hsize, exp_dt_hsize, exp_vsize, dt);
-#endif
+	seninf_logd(ctx,
+		"cam_mux:%d,src:%d,exp_hsize:%d/%d,exp_vsize:%d,dt:0x%x\n",
+		target, src, exp_hsize, exp_dt_hsize, exp_vsize, dt);
 
 	SENINF_BITS(pSeninf_cam_mux_pcsr, SENINF_CAM_MUX_PCSR_CTRL,
 					RG_SENINF_CAM_MUX_PCSR_SRC_SEL, src);
@@ -1192,9 +1183,9 @@ static int mtk_cam_seninf_set_vc(struct seninf_ctx *ctx, int intf,
 		dev_info(ctx->dev, "enable generic long packet\n");
 	}
 
-#if LOG_MORE
-	dev_info(ctx->dev, "DI_CTRL 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x\n",
-		 SENINF_READ_REG(pSeninf_csi2, SENINF_CSI2_S0_DI_CTRL),
+	seninf_logd(ctx,
+		"DI_CTRL 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x 0x%x\n",
+		SENINF_READ_REG(pSeninf_csi2, SENINF_CSI2_S0_DI_CTRL),
 		SENINF_READ_REG(pSeninf_csi2, SENINF_CSI2_S1_DI_CTRL),
 		SENINF_READ_REG(pSeninf_csi2, SENINF_CSI2_S2_DI_CTRL),
 		SENINF_READ_REG(pSeninf_csi2, SENINF_CSI2_S3_DI_CTRL),
@@ -1203,12 +1194,13 @@ static int mtk_cam_seninf_set_vc(struct seninf_ctx *ctx, int intf,
 		SENINF_READ_REG(pSeninf_csi2, SENINF_CSI2_S6_DI_CTRL),
 		SENINF_READ_REG(pSeninf_csi2, SENINF_CSI2_S7_DI_CTRL));
 
-	dev_info(ctx->dev, "CH_CTRL 0x%x 0x%x 0x%x 0x%x\n",
-		 SENINF_READ_REG(pSeninf_csi2, SENINF_CSI2_CH0_CTRL),
+	seninf_logd(ctx,
+		"CH_CTRL 0x%x 0x%x 0x%x 0x%x\n",
+		SENINF_READ_REG(pSeninf_csi2, SENINF_CSI2_CH0_CTRL),
 		SENINF_READ_REG(pSeninf_csi2, SENINF_CSI2_CH1_CTRL),
 		SENINF_READ_REG(pSeninf_csi2, SENINF_CSI2_CH2_CTRL),
 		SENINF_READ_REG(pSeninf_csi2, SENINF_CSI2_CH3_CTRL));
-#endif
+
 	return 0;
 }
 
@@ -1321,13 +1313,11 @@ static int mtk_cam_seninf_set_mux_vc_split_all(struct seninf_ctx *ctx,
 		}
 	}
 
-	//#if LOG_MORE
-	dev_info(ctx->dev,
-		 "%s: set mux %d vc split SEL0(0x%x), SEL1(0x%x)\n",
-		 __func__, mux,
-		 SENINF_READ_REG(pSeninf_mux, SENINF_MUX_VC_SEL0),
-		 SENINF_READ_REG(pSeninf_mux, SENINF_MUX_VC_SEL1));
-	//#endif
+	seninf_logi(ctx,
+		"set mux:%d,vc split SEL0(0x%x),SEL1(0x%x)\n",
+		mux,
+		SENINF_READ_REG(pSeninf_mux, SENINF_MUX_VC_SEL0),
+		SENINF_READ_REG(pSeninf_mux, SENINF_MUX_VC_SEL1));
 
 	return 0;
 }
@@ -1407,12 +1397,11 @@ static int mtk_cam_seninf_disable_mux(struct seninf_ctx *ctx, int mux)
 	int i;
 	void *pSeninf_mux = ctx->reg_if_mux[(unsigned int)mux];
 
-	dev_info(ctx->dev, "%s disable mux %d\n",
-		 __func__, mux);
+	seninf_logi(ctx, "disable mux %d\n", mux);
 
 	SENINF_BITS(pSeninf_mux, SENINF_MUX_CTRL_0, SENINF_MUX_EN, 0);
 
-	//also disable CAM_MUX with input from mux
+	// also disable CAM_MUX with input from mux
 	for (i = SENINF_CAM_MUX0; i < _seninf_ops->cam_mux_num; i++) {
 		if (mux == mux_vr2mux(ctx, mtk_cam_seninf_get_cammux_ctrl(ctx, i)))
 			mtk_cam_seninf_disable_cammux(ctx, i);
@@ -1624,14 +1613,13 @@ static int csirx_phyA_power_on(struct seninf_ctx *ctx, int portIdx, int en)
 		SENINF_BITS(base, CDPHY_RX_ANA_8,
 			    RG_CSI0_XX_T1CA_EQ_OS_CAL_EN, 1);
 		udelay(1);
-#if LOG_MORE
-		dev_info(ctx->dev, "portIdx %d en %d CDPHY_RX_ANA_0 0x%x ANA_8 0x%x\n",
-			 portIdx, en,
-			SENINF_READ_REG(base, CDPHY_RX_ANA_0),
-			SENINF_READ_REG(base, CDPHY_RX_ANA_8));
-#endif
 	}
 
+	seninf_logd(ctx,
+		"portIdx %d en %d CDPHY_RX_ANA_0 0x%x ANA_8 0x%x\n",
+		portIdx, en,
+		SENINF_READ_REG(base, CDPHY_RX_ANA_0),
+		SENINF_READ_REG(base, CDPHY_RX_ANA_8));
 
 	return 0;
 }
@@ -1644,9 +1632,7 @@ static int apply_efuse_data(struct seninf_ctx *ctx)
 	unsigned int m_csi_efuse = ctx->m_csi_efuse;
 
 	if (m_csi_efuse == 0) {
-#if LOG_MORE
-		dev_info(ctx->dev, "No efuse data. Returned.\n");
-#endif
+		seninf_logd(ctx, "No efuse data. Returned.\n");
 		return -1;
 	}
 
@@ -4107,9 +4093,8 @@ static int mtk_cam_seninf_set_idle(struct seninf_ctx *ctx)
 	for (i = 0; i < PAD_MAXCNT; i++)
 		for (j = 0; j < MAX_DEST_NUM; j++)
 			ctx->pad2cam[i][j] = 0xff;
-#if LOG_MORE
-	dev_info(ctx->dev, "%s release all mux & cam mux set all pd2cam to 0xff\n", __func__);
-#endif
+
+	seninf_logd(ctx, "release all mux & cam mux set all pd2cam to 0xff\n");
 
 	return 0;
 }
@@ -5874,9 +5859,8 @@ static int mtk_cam_seninf_set_cam_mux_dyn_en(
 
 	SENINF_BITS(pSeninf_cam_mux_gcsr,
 		    SENINF_CAM_MUX_GCSR_DYN_CTRL, RG_SENINF_CAM_MUX_DYN_SKIP_CURR_EN, enable);
-#if LOG_MORE
-	dev_info(ctx->dev, "%s skip curr_en enbled. cam_mux %d\n", __func__, cam_mux);
-#endif
+
+	seninf_logd(ctx, "skip curr_en enbled. cam_mux:%d\n", cam_mux);
 
 	if ((cam_mux >= 0) && (cam_mux <= 31)) {
 		if (index == 0) {

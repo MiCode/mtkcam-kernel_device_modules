@@ -66,6 +66,32 @@ struct mtk_cam_uapi_ae_hist_cfg {
 	__u16 hist_x_low;
 };
 
+/*
+ *  struct mtk_cam_uapi_ae_block_cfg - block statistics info for AE
+ *
+ *  @block_num_x:   horizontal block number
+ *  @block_num_y:   vertical block number
+ *  @block_ori_x:   horizontal origin coordinate
+ *  @block_ori_y:   vertical origin coordinate
+ *  @block_pit_x:   horizontal pitch of each block
+ *  @block_pit_y:   vertical pitch of each block
+ *  @block_siz_x:   horizontal size of each block
+ *  @block_siz_y:   vertical size of each block
+ */
+struct mtk_cam_uapi_ae_block_cfg {
+	__u16 block_num_x;
+	__u16 block_num_y;
+	__u16 block_ori_x;
+	__u16 block_ori_y;
+	__u16 block_pit_x;
+	__u16 block_pit_y;
+	__u16 block_siz_x;
+	__u16 block_siz_y;
+	__u32 pixel_cnt_r;
+	__u32 pixel_cnt_g;
+	__u32 pixel_cnt_b;
+};
+
 #define MTK_CAM_UAPI_ROI_MAP_BLK_NUM (128*128)
 /*
  *  struct mtk_cam_uapi_ae_param - parameters for AE configurtion
@@ -85,10 +111,15 @@ struct mtk_cam_uapi_ae_hist_cfg {
  *           default non-HDR scenario ratio=1000
  */
 struct mtk_cam_uapi_ae_param {
+	struct mtk_cam_uapi_ae_block_cfg block_win_cfg;
 	struct mtk_cam_uapi_ae_hist_cfg pixel_hist_win_cfg_le[4];
 	struct mtk_cam_uapi_ae_hist_cfg pixel_hist_win_cfg_se[4];
 	struct mtk_cam_uapi_ae_hist_cfg roi_hist_cfg_le[2];
 	struct mtk_cam_uapi_ae_hist_cfg roi_hist_cfg_se[2];
+	struct mtk_cam_uapi_ae_hist_cfg raw_hist_cfg;
+	__u8 qbn_acc;
+	__u32 nonlinear_valid_datawidth;
+	__u32 linear_valid_datawidth;
 	__u8  aai_r1_enable;
 	__u8  aai_roi_map[MTK_CAM_UAPI_ROI_MAP_BLK_NUM];
 	__u32 hdr_ratio; /* base 1 x= 1000 */
@@ -97,11 +128,38 @@ struct mtk_cam_uapi_ae_param {
 	__u32 act_win_y_start;
 	__u32 act_win_y_end;
 	__u8 se_precision_mode;
+	__u8 luma_probe_enable;
 };
 
 /**
  *  A U T O  W H I T E  B A L A N C E
  */
+
+/*
+ *  struct mtk_cam_uapi_awb_block_cfg - block statistics info for AWB
+ *
+ *  @block_num_x:   horizontal block number
+ *  @block_num_y:   vertical block number
+ *  @block_ori_x:   horizontal origin coordinate
+ *  @block_ori_y:   vertical origin coordinate
+ *  @block_pit_x:   horizontal pitch of each block
+ *  @block_pit_y:   vertical pitch of each block
+ *  @block_siz_x:   horizontal size of each block
+ *  @block_siz_y:   vertical size of each block
+ */
+struct mtk_cam_uapi_awb_block_cfg {
+	__u16 block_num_x;
+	__u16 block_num_y;
+	__u16 block_ori_x;
+	__u16 block_ori_y;
+	__u16 block_pit_x;
+	__u16 block_pit_y;
+	__u16 block_siz_x;
+	__u16 block_siz_y;
+	__u32 pixel_cnt_r;
+	__u32 pixel_cnt_g;
+	__u32 pixel_cnt_b;
+};
 
 /* Maximum blocks that Mediatek AWB supports */
 #define MTK_CAM_UAPI_AWB_MAX_LIGHT_AREA_NUM (10)
@@ -109,7 +167,10 @@ struct mtk_cam_uapi_ae_param {
 /*
  *  struct mtk_cam_uapi_awb_param - parameters for AWB configurtion
  *
+ *  @block_win_cfg_awbo1:      AWBO_R1 window config
+ *  @block_win_cfg_awbo2:      AWBO_R2 window config
  *  @stat_en:                  AWB stat enable
+ *  @ifpc_en:                  AWB stat enable IFPC for FP16 input
  *  @windownum_x:              Number of horizontal AWB windows
  *  @windownum_y:              Number of vertical AWB windows
  *  @lowthreshold_r:           Low threshold of R
@@ -127,12 +188,14 @@ struct mtk_cam_uapi_ae_param {
  *  @pregainlimit_r:           Maximum limit clipping for R color
  *  @pregainlimit_g:           Maximum limit clipping for G color
  *  @pregainlimit_b:           Maximum limit clipping for B color
+ *  @pregainlimit_negative:    Minimum limit clipping for negative value
  *  @pregain_r:                unit module compensation gain for R color
  *  @pregain_g:                unit module compensation gain for G color
  *  @pregain_b:                unit module compensation gain for B color
  *  @nonlinear_valid_datawidth:AWB max data width for nonlinear stat. (average)
  *  @linear_valid_datawidth:   AWB max data width for nonlinear stat. (sum)
  *  @hdr_support_en:           support HDR mode
+ *  @hdr_inv_ratio:            HDR ratio inverse gain in 25 bits expression
  *  @stat_mode:                Output format select <1>sum mode <0>average mode
  *  @error_ratio:              Programmable error pixel count by AWB window size
  *              (base : 256)
@@ -149,30 +212,35 @@ struct mtk_cam_uapi_ae_param {
  *  @pregain2_b:               white balance gain of B color
  */
 struct mtk_cam_uapi_awb_param {
+	struct mtk_cam_uapi_awb_block_cfg block_win_cfg_awbo1;
+	struct mtk_cam_uapi_awb_block_cfg block_win_cfg_awbo2;
+	__u8 qbn_acc;
 	__u32 stat_en;
 	__u32 windownum_x;
 	__u32 windownum_y;
-	__u32 lowthreshold_r;
-	__u32 lowthreshold_g;
-	__u32 lowthreshold_b;
+	__s32 lowthreshold_r;
+	__s32 lowthreshold_g;
+	__s32 lowthreshold_b;
 	__u32 highthreshold_r;
 	__u32 highthreshold_g;
 	__u32 highthreshold_b;
-	__u32 lightsrc_lowthreshold_r;
-	__u32 lightsrc_lowthreshold_g;
-	__u32 lightsrc_lowthreshold_b;
+	__s32 lightsrc_lowthreshold_r;
+	__s32 lightsrc_lowthreshold_g;
+	__s32 lightsrc_lowthreshold_b;
 	__u32 lightsrc_highthreshold_r;
 	__u32 lightsrc_highthreshold_g;
 	__u32 lightsrc_highthreshold_b;
 	__u32 pregainlimit_r;
 	__u32 pregainlimit_g;
 	__u32 pregainlimit_b;
+	__s32 pregainlimit_negative;
 	__u32 pregain_r;
 	__u32 pregain_g;
 	__u32 pregain_b;
 	__u32 nonlinear_valid_datawidth;
 	__u32 linear_valid_datawidth;
 	__u32 hdr_support_en;
+	__u32 hdr_inv_ratio;
 	__u32 stat_mode;
 	__u32 format_shift;
 	__u32 error_ratio;
@@ -192,8 +260,10 @@ struct mtk_cam_uapi_awb_param {
 	__s32 awbxv_win_l[MTK_CAM_UAPI_AWB_MAX_LIGHT_AREA_NUM];
 	__s32 awbxv_win_d[MTK_CAM_UAPI_AWB_MAX_LIGHT_AREA_NUM];
 	__s32 awbxv_win_u[MTK_CAM_UAPI_AWB_MAX_LIGHT_AREA_NUM];
-	__u32 med_region[4];
-	__u32 low_region[4];
+	__s32 csc_ccm[9];
+	__u32 acc;
+	__s32 med_region[4];
+	__s32 low_region[4];
 	__u32 pregain2_r;
 	__u32 pregain2_g;
 	__u32 pregain2_b;
@@ -247,12 +317,14 @@ struct mtk_cam_uapi_af_param {
 	__u32 th_v;
 	__u32 blk_pixel_xnum;
 	__u32 blk_pixel_ynum;
-	__u32 fir_type;
 	__u32 iir_type;
 	__u32 data_gain[7];
 	__u32 low_bit_lowpower_en;
 	__u32 blf_r_lvl;
 	__u32 blf_d_lvl;
+	__u32 dark_offset;
+	__u32 fus_en;
+	__u32 se_shift_en;
 };
 
 enum mtk_cam_uapi_flk_hdr_path_control {
@@ -506,7 +578,6 @@ struct mtk_cam_uapi_meta_mraw_stats_0 {
 	struct mtk_cam_uapi_pdp_stats pdp_1_stats;
 	struct mtk_cam_uapi_cpi_stats cpi_stats;
 };
-
 /**
  * Common stuff for all statistics
  */
@@ -532,42 +603,77 @@ struct mtk_cam_uapi_pipeline_config {
 #define MTK_CAM_UAPI_AE_STATS_HIST_MAX_BIN (1024)
 
 /**
- *  A E  A N D   A W B
+ *  A W B
  */
+#define MTK_CAM_UAPI_AWBO_R1_BLK_SIZE (32)
+#define MTK_CAM_UAPI_AWBO_R1_MAX_BLK_X (128)
+#define MTK_CAM_UAPI_AWBO_R1_MAX_BLK_Y (128)
+#define MTK_CAM_UAPI_AWBO_R1_MAX_BUF_SIZE (MTK_CAM_UAPI_AWBO_R1_BLK_SIZE \
+			* MTK_CAM_UAPI_AWBO_R1_MAX_BLK_X \
+			* MTK_CAM_UAPI_AWBO_R1_MAX_BLK_Y)
 
-#define MTK_CAM_UAPI_AAO_BLK_SIZE (32)
-#define MTK_CAM_UAPI_AAO_MAX_BLK_X (128)
-#define MTK_CAM_UAPI_AAO_MAX_BLK_Y (128)
-#define MTK_CAM_UAPI_AAO_MAX_BUF_SIZE (MTK_CAM_UAPI_AAO_BLK_SIZE \
-			* MTK_CAM_UAPI_AAO_MAX_BLK_X \
-			* MTK_CAM_UAPI_AAO_MAX_BLK_Y)
-
-#define MTK_CAM_UAPI_AHO_BLK_SIZE (3)
-#define MTK_CAM_UAPI_AAHO_HIST_SIZE  (6 * 1024 * MTK_CAM_UAPI_AHO_BLK_SIZE \
-			+ 14 * 256 * MTK_CAM_UAPI_AHO_BLK_SIZE)
-#define MTK_CAM_UAPI_AAHO_MAX_BUF_SIZE  (MTK_CAM_UAPI_MAX_CORE_NUM * \
-			MTK_CAM_UAPI_AAHO_HIST_SIZE)
+#define MTK_CAM_UAPI_AWBO_R2_BLK_SIZE (16)
+#define MTK_CAM_UAPI_AWBO_R2_MAX_BLK_X (256)
+#define MTK_CAM_UAPI_AWBO_R2_MAX_BLK_Y (256)
+#define MTK_CAM_UAPI_AWBO_R2_MAX_BUF_SIZE (MTK_CAM_UAPI_AWBO_R2_BLK_SIZE \
+			* MTK_CAM_UAPI_AWBO_R2_MAX_BLK_X \
+			* MTK_CAM_UAPI_AWBO_R2_MAX_BLK_Y)
 
 /**
- * struct mtk_cam_uapi_ae_awb_stats - statistics of ae and awb
+ * struct mtk_cam_uapi_awb_stats - statistics of awb
  *
- * @aao_buf:       The buffer for AAHO statistic hardware output.
+ * @awbo1_buf: The buffer for AWBO_R1 statistic hardware output.
  *        The maximum size of the buffer is defined with
- *        MTK_CAM_UAPI_AAO_MAX_BUF_SIZE
- * @aaho_buf:      The buffer for AAHO statistic hardware output.
+ *        MTK_CAM_UAPI_AWBO_R1_MAX_BUF_SIZE
+ * @awbo2_buf: The buffer for AWBO_R2 statistic hardware output.
  *        The maximum size of the buffer is defined with
- *        MTK_CAM_UAPI_AAHO_MAX_BUF_SIZE.
+ *        MTK_CAM_UAPI_AWBO_R2_MAX_BUF_SIZE.
  *
- * This is the AE and AWB statistic returned to user. From  our hardware's
- * point of view, we can't separate the AE and AWB output result, so I use
- * a struct to retutn them.
+ * This is the AWB statistic returned to user. From  our hardware's
+ * point of view.
  */
-struct mtk_cam_uapi_ae_awb_stats {
+struct mtk_cam_uapi_awb_stats {
 	__u32 awb_stat_en_status;
-	__u32 awb_qbn_acc;
+	struct mtk_cam_uapi_meta_hw_buf awbo1_buf;
+	struct mtk_cam_uapi_meta_hw_buf awbo2_buf;
+};
+
+
+/**
+ *  A E
+ */
+#define MTK_CAM_UAPI_AEO_BLK_SIZE (32)
+#define MTK_CAM_UAPI_AEO_MAX_BLK_X (128)
+#define MTK_CAM_UAPI_AEO_MAX_BLK_Y (128)
+#define MTK_CAM_UAPI_AEO_MAX_BUF_SIZE (MTK_CAM_UAPI_AEO_BLK_SIZE \
+			* MTK_CAM_UAPI_AEO_MAX_BLK_X \
+			* MTK_CAM_UAPI_AEO_MAX_BLK_Y)
+
+#define MTK_CAM_UAPI_AEHO_BLK_SIZE (3)
+#define MTK_CAM_UAPI_AEHO_RAW_BLK_SIZE (4)
+#define MTK_CAM_UAPI_AEHO_HIST_SIZE  (4 * 1024 * MTK_CAM_UAPI_AEHO_BLK_SIZE \
+			+ 8 * 256 * MTK_CAM_UAPI_AEHO_BLK_SIZE \
+			+ 1 * 256 * MTK_CAM_UAPI_AEHO_RAW_BLK_SIZE )
+#define MTK_CAM_UAPI_AEHO_MAX_BUF_SIZE  (MTK_CAM_UAPI_MAX_CORE_NUM * \
+			MTK_CAM_UAPI_AEHO_HIST_SIZE)
+
+/**
+ * struct mtk_cam_uapi_ae_stats - statistics of ae
+ *
+ * @aeo_buf: The buffer for AEO statistic hardware output.
+ *        The maximum size of the buffer is defined with
+ *        MTK_CAM_UAPI_AEO_MAX_BUF_SIZE
+ * @aeho_buf: The buffer for AEHO statistic hardware output.
+ *        The maximum size of the buffer is defined with
+ *        MTK_CAM_UAPI_AEHO_MAX_BUF_SIZE.
+ *
+ * This is the AE statistic returned to user. From  our hardware's
+ * point of view.
+ */
+struct mtk_cam_uapi_ae_stats {
 	__u32 ae_stat_en_status;
-	struct mtk_cam_uapi_meta_hw_buf aao_buf;
-	struct mtk_cam_uapi_meta_hw_buf aaho_buf;
+	struct mtk_cam_uapi_meta_hw_buf aeo_buf;
+	struct mtk_cam_uapi_meta_hw_buf aeho_buf;
 };
 
 /**
@@ -660,26 +766,26 @@ struct mtk_cam_uapi_timestamp {
 /**
  *  T O N E
  */
-#define MTK_CAM_UAPI_LTMSO_SIZE (12 * 9 * 19 * 8)
-#define MTK_CAM_UAPI_LTMSHO_SIZE (130 * 8)
+#define MTK_CAM_UAPI_LTMSBO_SIZE (12 * 9 * 19 * 8)
+#define MTK_CAM_UAPI_LTMSGO_SIZE (130 * 8)
 #define MTK_CAM_UAPI_TCYSO_SIZE (68)
 
 /**
  * struct mtk_cam_uapi_ltm_stats - Tone1 statistic data for
  *            Mediatek proprietary algorithm
  *
- * @ltmso_buf:  The buffer for ltm statistic hardware output. The buffer size
- *    is defined in MTK_CAM_UAPI_LTMSO_SIZE.
- * @ltmsho_buf:  The buffer for ltm statistic hardware output. The buffer size
- *    is defined in MTK_CAM_UAPI_LTMSHO_SIZE.
+ * @ltmsbo_buf:  The buffer for ltm statistic hardware output. The buffer size
+ *    is defined in MTK_CAM_UAPI_LTMSBO_SIZE.
+ * @ltmsgo_buf:  The buffer for ltm statistic hardware output. The buffer size
+ *    is defined in MTK_CAM_UAPI_LTMSGO_SIZE.
  * @blk_num_x: block number of horizontal direction
  * @blk_num_y:  block number of vertical direction
  *
  * For Mediatek proprietary algorithm
  */
 struct mtk_cam_uapi_ltm_stats {
-	struct mtk_cam_uapi_meta_hw_buf ltmso_buf;
-	struct mtk_cam_uapi_meta_hw_buf ltmsho_buf;
+	struct mtk_cam_uapi_meta_hw_buf ltmsbo_buf;
+	struct mtk_cam_uapi_meta_hw_buf ltmsgo_buf;
 	__u8  blk_num_x;
 	__u8  blk_num_y;
 };
@@ -740,12 +846,18 @@ struct mtk_cam_uapi_cac_param {
 /*
  *  struct mtk_cam_uapi_meta_raw_stats_cfg
  *
- *  @ae_awb_enable: To indicate if AE and AWB should be enblaed or not. If
+ *  @ae_enable: To indicate if AE should be enblaed or not. If
  *        it is 1, it means that we enable the following parts of
  *        hardware:
- *        (1) AE/AWB
- *        (2) aao
- *        (3) aaho
+ *        (1) AE
+ *        (2) aeo
+ *        (3) aeho
+ *  @awb_enable: To indicate if AE and AWB should be enblaed or not. If
+ *        it is 1, it means that we enable the following parts of
+ *        hardware:
+ *        (1) AWB
+ *        (2) awbo_r1
+ *        (3) awbo_r2
  *  @af_enable:     To indicate if AF should be enabled or not. If it is 1,
  *        it means that the AF and afo is enabled.
  *  @dgn_enable:    To indicate if dgn module should be enabled or not.
@@ -764,7 +876,8 @@ struct mtk_cam_uapi_cac_param {
  *  @pde_param: pde settings
  */
 struct mtk_cam_uapi_meta_raw_stats_cfg {
-	__s8 ae_awb_enable;
+	__s8 ae_enable;
+	__s8 awb_enable;
 	__s8 af_enable;
 	__s8 dgn_enable;
 	__s8 flk_enable;
@@ -783,29 +896,7 @@ struct mtk_cam_uapi_meta_raw_stats_cfg {
 	struct mtk_cam_uapi_pmrg_r7_sel_param pmrg_r7_sel_param;
 	struct mtk_cam_uapi_cac_param cac_param;
 
-	__u8 bytes[48388];
-};
-
-struct mtk_cam_uapi_meta_raw_stats_w_cfg {
-	__s8 ae_awb_enable;
-	__s8 af_enable;
-	__s8 dgn_enable;
-	__s8 flk_enable;
-	__s8 tsf_enable;
-
-	struct mtk_cam_uapi_ae_param ae_param;
-	struct mtk_cam_uapi_awb_param awb_param;
-	struct mtk_cam_uapi_af_param af_param;
-	struct mtk_cam_uapi_dgn_param dgn_param;
-	struct mtk_cam_uapi_flk_param flk_param;
-	struct mtk_cam_uapi_tsf_param tsf_param;
-
-	__u8 bytes[44008];
-};
-
-struct mtk_cam_uapi_meta_raw_stats_rgbw_cfg {
-	struct mtk_cam_uapi_meta_raw_stats_cfg meta;
-	struct mtk_cam_uapi_meta_raw_stats_w_cfg meta_w;
+	__u8 bytes[51672];
 };
 
 /**
@@ -827,7 +918,8 @@ struct mtk_cam_uapi_meta_raw_stats_rgbw_cfg {
  * @pde_stats: the pde module stats
  */
 struct mtk_cam_uapi_meta_raw_stats_0 {
-	__u8 ae_awb_stats_enabled;
+	__u8 awb_stats_enabled;
+	__u8 ae_stats_enabled;
 	__u8 ltm_stats_enabled;
 	__u8 flk_stats_enabled;
 	__u8 tsf_stats_enabled;
@@ -836,18 +928,13 @@ struct mtk_cam_uapi_meta_raw_stats_0 {
 
 	struct mtk_cam_uapi_pipeline_config pipeline_config;
 
-	struct mtk_cam_uapi_ae_awb_stats ae_awb_stats;
+	struct mtk_cam_uapi_awb_stats awb_stats;
+	struct mtk_cam_uapi_ae_stats ae_stats;
 	struct mtk_cam_uapi_ltm_stats ltm_stats;
 	struct mtk_cam_uapi_flk_stats flk_stats;
 	struct mtk_cam_uapi_tsf_stats tsf_stats;
 	struct mtk_cam_uapi_tcys_stats tcys_stats;
 	struct mtk_cam_uapi_pd_stats pde_stats;
-	struct mtk_cam_uapi_ae_awb_stats ae_awb_stats_w;
-	struct mtk_cam_uapi_ltm_stats ltm_stats_w;
-	struct mtk_cam_uapi_flk_stats flk_stats_w;
-	struct mtk_cam_uapi_tsf_stats tsf_stats_w;
-	struct mtk_cam_uapi_tcys_stats tcys_stats_w;
-	struct mtk_cam_uapi_pd_stats pde_stats_w;
 	struct mtk_cam_uapi_timestamp timestamp;
 };
 
@@ -865,7 +952,6 @@ struct mtk_cam_uapi_meta_raw_stats_1 {
 	__u8 af_stats_enabled;
 	__u8 af_qbn_r6_enabled;
 	struct mtk_cam_uapi_af_stats af_stats;
-	struct mtk_cam_uapi_af_stats af_stats_w;
 };
 
 /**
@@ -883,8 +969,8 @@ struct mtk_cam_uapi_meta_camsv_stats_0 {
 };
 
 #define MTK_CAM_META_VERSION_MAJOR 1
-#define MTK_CAM_META_VERSION_MINOR 1
-#define MTK_CAM_META_PLATFORM_NAME "isp8"
+#define MTK_CAM_META_VERSION_MINOR 0
+#define MTK_CAM_META_PLATFORM_NAME "isp80"
 #define MTK_CAM_META_CHIP_NAME "mt6991"
 
 

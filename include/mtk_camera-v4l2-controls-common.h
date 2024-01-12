@@ -190,9 +190,6 @@ enum mtk_cam_sensor_i2c_bus_scl {
 	SCL8,
 	SCL9,
 	SCL10,
-	SCL11,
-	SCL12,
-	SCL13,
 	SCL_MAXCNT,
 	SCL_ERR = 0xffff,
 };
@@ -212,9 +209,6 @@ enum mtk_cam_sensor_i2c_bus_sda {
 	SDA8,
 	SDA9,
 	SDA10,
-	SDA11,
-	SDA12,
-	SDA13,
 	SDA_MAXCNT,
 	SDA_ERR = 0xffff,
 };

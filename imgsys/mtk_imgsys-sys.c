@@ -817,9 +817,26 @@ release_req:
 		&& isHWhang) {
 		cmdq_cb_timeout_worker(&swork->work);
 	} else {
-		INIT_WORK(&swork->work, cmdq_cb_timeout_worker);
+		//INIT_WORK(&swork->work, cmdq_cb_timeout_worker);
+		if (!work_pending(&swork->work)) {
 		queue_work(req->imgsys_pipe->imgsys_dev->mdpcb_wq,
 			&swork->work);
+		} else {
+            media_request_put(&req->req);
+#if SMVR_DECOUPLE
+		if (swork->is_capture) {
+		    mtk_hcp_put_gce_buffer(imgsys_dev->scp_pdev, imgsys_capture);
+    	} else {
+    	    if (swork->batchnum) {
+    	        mtk_hcp_put_gce_buffer(imgsys_dev->scp_pdev, imgsys_smvr);
+    	    } else {
+    	        mtk_hcp_put_gce_buffer(imgsys_dev->scp_pdev, imgsys_streaming);
+    	    }
+    	}
+#else
+		mtk_hcp_put_gce_buffer(imgsys_dev->scp_pdev);
+#endif
+        }
 	}
 	imgsys_timeout_idx = (imgsys_timeout_idx + 1) % VIDEO_MAX_FRAME;
 

@@ -13,6 +13,8 @@
 #include <linux/pm_opp.h>
 #include <linux/pm_runtime.h>
 #include <linux/regulator/consumer.h>
+#include <linux/sched.h>
+#include <uapi/linux/sched/types.h>
 #include <linux/mailbox_controller.h>
 #include <mtk_imgsys-engine-isp8.h>
 #include "mtk_imgsys-cmdq.h"
@@ -85,8 +87,11 @@ void imgsys_cmdq_init_plat8(struct mtk_imgsys_dev *imgsys_dev, const int nr_imgs
 			dev_info(dev, "%s: failed to start imgsys_cmdqcb kthread worker\n",
 				__func__);
 			imgsys_cmdq_kworker_task = NULL;
-		} else
-			sched_set_normal(imgsys_cmdq_kworker_task, -20);
+		} else {
+			struct sched_param param = {.sched_priority = 98 };
+
+			sched_setscheduler(imgsys_cmdq_kworker_task, SCHED_RR, &param);
+		}
 #else
 		imgsys_cmdq_wq = alloc_ordered_workqueue("%s",
 				__WQ_LEGACY | WQ_MEM_RECLAIM |

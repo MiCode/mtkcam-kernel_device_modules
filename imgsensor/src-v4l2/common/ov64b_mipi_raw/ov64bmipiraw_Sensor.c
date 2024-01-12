@@ -1023,16 +1023,16 @@ static struct subdrv_ops ops = {
 
 static struct subdrv_pw_seq_entry pw_seq[] = {
 	{HW_ID_MCLK, 24, 0},
-	{HW_ID_RST, 0, 1},
-	{HW_ID_AVDD, 2800000, 1}, // pmic_ldo for avdd
-	{HW_ID_AFVDD, 3100000, 1}, // pmic_ldo for afvdd
-	{HW_ID_AFVDD1, 1800000, 1}, // pmic_gpo(3.1V ldo) for afvdd
-	{HW_ID_DVDD, 1100000, 1}, // pmic_ldo/gpio(1.1V ldo) for dvdd
+	{HW_ID_RST, 0, 0},
+	{HW_ID_AVDD, 2800000, 0}, // pmic_ldo for avdd
+	{HW_ID_AFVDD, 3100000, 0}, // pmic_ldo for afvdd
+	{HW_ID_AFVDD1, 1800000, 0}, // pmic_gpo(3.1V ldo) for afvdd
+	{HW_ID_DVDD, 1100000, 0}, // pmic_ldo/gpio(1.1V ldo) for dvdd
 	{HW_ID_DOVDD, 1800000, 1}, // pmic_ldo/gpio(1.8V ldo) for dovdd
 	{HW_ID_OISVDD, 3100000, 0}, // pmic_ldo for oisvdd
 	{HW_ID_OISEN, 3100000, 0}, // gpio for oisen
-	{HW_ID_MCLK_DRIVING_CURRENT, 8, 5},
-	{HW_ID_RST, 1, 5}
+	{HW_ID_MCLK_DRIVING_CURRENT, 8, 1},
+	{HW_ID_RST, 1, 1}
 };
 
 const struct subdrv_entry ov64b_mipi_raw_entry = {
@@ -1181,6 +1181,7 @@ static u16 get_gain2reg(u32 gain)
 static int ov64b_seamless_switch(struct subdrv_ctx *ctx, u8 *para, u32 *len)
 {
 	enum SENSOR_SCENARIO_ID_ENUM scenario_id;
+	enum IMGSENSOR_HDR_MODE_ENUM scen1_hdr, scen2_hdr;
 	struct mtk_hdr_ae *ae_ctrl = NULL;
 	u64 *feature_data = (u64 *)para;
 	u32 exp_cnt = 0;
@@ -1217,6 +1218,8 @@ static int ov64b_seamless_switch(struct subdrv_ctx *ctx, u8 *para, u32 *len)
 		return ERROR_NONE;
 	}
 
+	scen1_hdr = ctx->s_ctx.mode[ctx->current_scenario_id].hdr_mode;
+	scen2_hdr = ctx->s_ctx.mode[scenario_id].hdr_mode;
 	exp_cnt = ctx->s_ctx.mode[scenario_id].exp_cnt;
 	ctx->is_seamless = TRUE;
 	update_mode_info(ctx, scenario_id);
@@ -1226,6 +1229,7 @@ static int ov64b_seamless_switch(struct subdrv_ctx *ctx, u8 *para, u32 *len)
 	i2c_table_write(ctx,
 		ctx->s_ctx.mode[scenario_id].seamless_switch_mode_setting_table,
 		ctx->s_ctx.mode[scenario_id].seamless_switch_mode_setting_len);
+
 	if (ae_ctrl) {
 		switch (ctx->s_ctx.mode[scenario_id].hdr_mode) {
 		case HDR_RAW_STAGGER:
@@ -1252,9 +1256,15 @@ static int ov64b_seamless_switch(struct subdrv_ctx *ctx, u8 *para, u32 *len)
 			break;
 		}
 	}
-	i2c_table_write(ctx, addr_data_pair_seamless_switch_step3_ov64b,
-		ARRAY_SIZE(addr_data_pair_seamless_switch_step3_ov64b));
-
+	if (scen1_hdr == HDR_RAW_STAGGER) {
+		i2c_table_write(ctx, addr_data_pair_seamless_switch_step3_HDR_ov64b,
+			ARRAY_SIZE(addr_data_pair_seamless_switch_step3_HDR_ov64b));
+			DRV_LOG(ctx, "do hdr to linear mode\n");
+	} else {
+		i2c_table_write(ctx, addr_data_pair_seamless_switch_step3_ov64b,
+			ARRAY_SIZE(addr_data_pair_seamless_switch_step3_ov64b));
+			DRV_LOG(ctx, "do linear to hdr/linear mode\n");
+	}
 	ctx->is_seamless = FALSE;
 	ctx->ref_sof_cnt = ctx->sof_cnt;
 	ctx->fast_mode_on = TRUE;

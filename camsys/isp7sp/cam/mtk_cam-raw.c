@@ -144,7 +144,7 @@ static void init_camsys_settings(struct mtk_raw_device *dev, bool is_srt)
 		for (i = 0; i < dev->num_larbs && dev->larbs[i]; i++)
 			mtk_smi_larb_ultra_dis(&dev->larbs[i]->dev, true);
 
-		for (i = 0; i < dev->num_larbs && yuv_dev->larbs[i]; i++)
+		for (i = 0; i < yuv_dev->num_larbs && yuv_dev->larbs[i]; i++)
 			mtk_smi_larb_ultra_dis(&yuv_dev->larbs[i]->dev, true);
 	} else {
 		writel_relaxed(raw_urgent, cam_dev->base + reg_raw_urgent);
@@ -152,7 +152,7 @@ static void init_camsys_settings(struct mtk_raw_device *dev, bool is_srt)
 		for (i = 0; i < dev->num_larbs && dev->larbs[i]; i++)
 			mtk_smi_larb_ultra_dis(&dev->larbs[i]->dev, false);
 
-		for (i = 0; i < dev->num_larbs && yuv_dev->larbs[i]; i++)
+		for (i = 0; i < yuv_dev->num_larbs && yuv_dev->larbs[i]; i++)
 			mtk_smi_larb_ultra_dis(&yuv_dev->larbs[i]->dev, false);
 	}
 

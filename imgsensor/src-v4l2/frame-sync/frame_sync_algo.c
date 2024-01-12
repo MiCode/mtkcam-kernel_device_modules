@@ -95,6 +95,7 @@ struct FrameSyncDynamicPara {
 
 	/* predicted frame length (0:current / 1:next) */
 	unsigned int pred_fl_us[2];
+	unsigned int pred_next_exp_rd_offset_us[FS_HDR_MAX];
 
 	/* sync target ts bias (for feature that sync to non-LE) */
 	unsigned int ts_bias_us;
@@ -106,6 +107,7 @@ struct FrameSyncDynamicPara {
 
 	/* total dalta (without adding timestamp diff) */
 	unsigned int delta;
+	unsigned int async_m_delta;
 
 	/* timestamp info */
 	unsigned long long cur_tick;    // current tick at querying data
@@ -1104,7 +1106,7 @@ static inline void fs_alg_sa_adjust_diff_m_s_general_msg_connector(
 	const char *caller)
 {
 	FS_SNPRF(log_str_len, log_buf, len,
-		", [((%u:%u)c:%u/n:%u/o:%u/s:%u/e:%u/t:%u(%u/%u),%u)/((%u:%u)c:%u/n:%u/o:%u/s:%u/e:%u/t:%u(%u/%u),%u)], minFL:%u/%u, lineT:%u/%u, routT:%u/%u",
+		", [((%u:%u)c:%u/n:%u/o:%u/s:%u/e:%u(%u/%u)/t:%u(%u/%u),%u)/((%u:%u)c:%u/n:%u/o:%u/s:%u/e:%u(%u/%u)/t:%u(%u/%u),%u)], minFL:%u/%u, lineT:%u/%u, routT:%u/%u",
 		fs_inst[s_idx].fl_active_delay,
 		p_para_s->delta,
 		p_para_s->pred_fl_us[0],
@@ -1112,6 +1114,8 @@ static inline void fs_alg_sa_adjust_diff_m_s_general_msg_connector(
 		p_para_s->out_fl_us,
 		p_para_s->stable_fl_us,
 		p_para_s->ts_bias_us,
+		p_para_s->pred_next_exp_rd_offset_us[FS_HDR_LE],
+		p_para_s->pred_next_exp_rd_offset_us[FS_HDR_SE],
 		p_para_s->tag_bias_us,
 		p_para_s->f_tag,
 		get_valid_frame_cell_size(s_idx),
@@ -1123,6 +1127,8 @@ static inline void fs_alg_sa_adjust_diff_m_s_general_msg_connector(
 		p_para_m->out_fl_us,
 		p_para_m->stable_fl_us,
 		p_para_m->ts_bias_us,
+		p_para_m->pred_next_exp_rd_offset_us[FS_HDR_LE],
+		p_para_m->pred_next_exp_rd_offset_us[FS_HDR_SE],
 		p_para_m->tag_bias_us,
 		p_para_m->f_tag,
 		get_valid_frame_cell_size(m_idx),
@@ -1329,7 +1335,7 @@ void fs_alg_sa_dump_dynamic_para(const unsigned int idx)
 	}
 
 	FS_SNPRF(log_str_len, log_buf, len,
-		"[%u] ID:%#x(sidx:%u), #%u, req_id:%d, out_fl:%u(%u) +%lld(%u), flk(%u), ref([%d](#%u)), adj_diff(%lld(%u/%u/%u)/%lld,unstable:%u), ((%u:%u)c:%u/n:%u/o:%u/s:%u/e:%u/t:%u(%u/%u),%u), lineT:%u, routT:%u",
+		"[%u] ID:%#x(sidx:%u), #%u, req_id:%d, out_fl:%u(%u) +%lld(%u), flk(%u), ref([%d](#%u)), adj_diff(%lld(%u/%u/%u)/%lld,unstable:%u), ((%u:%u)c:%u/n:%u/o:%u/s:%u/e:%u(%u/%u)/t:%u(%u/%u),%u), lineT:%u, routT:%u",
 		idx,
 		fs_get_reg_sensor_id(idx),
 		fs_get_reg_sensor_idx(idx),
@@ -1357,6 +1363,8 @@ void fs_alg_sa_dump_dynamic_para(const unsigned int idx)
 		fs_sa_inst.dynamic_paras[idx].out_fl_us_init,
 		fs_sa_inst.dynamic_paras[idx].stable_fl_us,
 		fs_sa_inst.dynamic_paras[idx].ts_bias_us,
+		fs_sa_inst.dynamic_paras[idx].pred_next_exp_rd_offset_us[FS_HDR_LE],
+		fs_sa_inst.dynamic_paras[idx].pred_next_exp_rd_offset_us[FS_HDR_SE],
 		fs_sa_inst.dynamic_paras[idx].tag_bias_us,
 		fs_sa_inst.dynamic_paras[idx].f_tag,
 		fs_sa_inst.dynamic_paras[idx].f_cell,
@@ -1827,6 +1835,9 @@ static void fs_alg_sa_update_pred_fl_and_ts_bias(const unsigned int idx,
 		fs_inst[idx].predicted_fl_us[0];
 	p_para->pred_fl_us[1] =
 		fs_inst[idx].predicted_fl_us[1];
+	memcpy(&p_para->pred_next_exp_rd_offset_us,
+		&fs_inst[idx].fl_info.next_exp_rd_offset_us,
+		sizeof(fs_inst[idx].fl_info.next_exp_rd_offset_us));
 
 	/* calculate and get timestamp bias */
 	ts_bias_lc = calc_vts_sync_bias(idx);
@@ -2368,6 +2379,42 @@ static long long fs_alg_sa_calc_adjust_diff_slave(
 }
 
 
+static void fs_alg_sa_calc_async_m_delta(
+	unsigned int m_idx, unsigned int s_idx,
+	struct FrameSyncDynamicPara *p_para_m,
+	struct FrameSyncDynamicPara *p_para_s)
+{
+	unsigned int ts_bias_us = 0;
+	unsigned int i;
+
+	/* calculate async mode master's vts sync bias */
+	if (fs_inst[s_idx].sync_type & FS_SYNC_TYPE_LE)
+		ts_bias_us = p_para_m->pred_next_exp_rd_offset_us[FS_HDR_LE];
+	if (fs_inst[s_idx].sync_type & FS_SYNC_TYPE_SE)
+		ts_bias_us = p_para_m->pred_next_exp_rd_offset_us[FS_HDR_SE];
+
+	/* calculate predicted total delta (without timestamp diff) */
+	p_para_s->async_m_delta = (ts_bias_us + p_para_m->tag_bias_us);
+	for (i = 0; i < 2; ++i) {
+		p_para_s->async_m_delta +=
+			fs_alg_sa_calc_target_pred_fl_us(
+				p_para_m->pred_fl_us, p_para_m->stable_fl_us,
+				fs_inst[m_idx].fl_active_delay, i, 1);
+	}
+
+	LOG_PF_INF(
+		"async_m_delta:%u, p_para_m:(delta:%u, pr_fl:(%u/%u), stable:%u, rd_offset:(LE:%u/SE:%u), fdelay:%u)\n",
+		p_para_s->async_m_delta,
+		p_para_m->delta,
+		p_para_m->pred_fl_us[0],
+		p_para_m->pred_fl_us[1],
+		p_para_m->stable_fl_us,
+		p_para_m->pred_next_exp_rd_offset_us[FS_HDR_LE],
+		p_para_m->pred_next_exp_rd_offset_us[FS_HDR_SE],
+		fs_inst[m_idx].fl_active_delay);
+}
+
+
 static long long fs_alg_sa_calc_adjust_diff_async(
 	unsigned int m_idx, unsigned int s_idx,
 	long long ts_diff_m, long long ts_diff_s,
@@ -2396,10 +2443,12 @@ static long long fs_alg_sa_calc_adjust_diff_async(
 		return 0;
 	}
 
+	/* prepare async master's delta info */
+	fs_alg_sa_calc_async_m_delta(m_idx, s_idx, p_para_m, p_para_s);
 
 	/* !!! Calculate adjust diff !!! */
 	adjust_diff_s =
-		(ts_diff_m + p_para_m->delta + p_para_m->out_fl_us) -
+		(ts_diff_m + p_para_s->async_m_delta + p_para_m->out_fl_us) -
 		(ts_diff_s + p_para_s->delta + p_para_s->out_fl_us);
 
 	/* ==> check situation (N+2/N+1 mixed), modify adjust diff */
@@ -4336,7 +4385,7 @@ static void adjust_async_vsync_diff_sa(
 	}
 
 	FS_SNPRF(log_str_len, log_buf, len,
-		"[%u] ID:%#x(sidx:%u), out_fl:%u(%u) +%lld(%u), flk(%u):(+%u/+%u), s/m, #%u/#%u([%u]), req_id(%d/%d), adj_diff(%lld(%u)), t:(%lld/%lld)",
+		"[%u] ID:%#x(sidx:%u), out_fl:%u(%u) +%lld(%u), flk(%u):(+%u/+%u), s/m, #%u/#%u([%u]), req_id(%d/%d), adj_diff(%lld(%u)), async_m_delta:%u, t:(%lld/%lld)",
 		idx,
 		fs_get_reg_sensor_id(idx),
 		fs_get_reg_sensor_idx(idx),
@@ -4354,6 +4403,7 @@ static void adjust_async_vsync_diff_sa(
 		p_para_m->req_id,
 		adjust_diff,
 		adjust_or_not,
+		p_para->async_m_delta,
 		ts_diff_s,
 		ts_diff_m);
 

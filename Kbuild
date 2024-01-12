@@ -24,3 +24,4 @@ obj-$(CONFIG_MTK_CAMERA_FD_ISP7S_ISP7SP)	+= mtk-aie/
 obj-$(CONFIG_MTK_CAMERA_DPE_ISP7SP)	 += mtk-dpe/
 #obj-$(CONFIG_MTK_C2PS) += sched/
 obj-y += imgsensor/
+obj-$(CONFIG_MTK_CCU_RPROC) += ccusys/

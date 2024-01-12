@@ -49,12 +49,12 @@ static struct eeprom_info_struct eeprom_info[] = {
 
 		.pdc_support = TRUE,
 		.pdc_size = 720,
-		.addr_pdc = 0x12D2,
+		.addr_pdc = 0x1A46,
 		.sensor_reg_addr_pdc = 0x5F80,
 
 		.xtalk_support = TRUE,
 		.xtalk_size = 288,
-		.addr_xtalk = 0x2a71,
+		.addr_xtalk = 0x1D31,
 		.sensor_reg_addr_xtalk = 0x5A40,
 	},
 };
@@ -1068,6 +1068,18 @@ static void set_sensor_cali(void *arg)
 			addr = 0x5F80;
 			subdrv_i2c_wr_seq_p8(ctx, addr, pbuf, size);
 			DRV_LOG(ctx, "set PDC calibration data done.");
+		}
+	}
+
+	/* xtalk data */
+	support = info[idx].xtalk_support;
+	if (support) {
+		pbuf = info[idx].preload_xtalk_table;
+		if (pbuf != NULL) {
+			size = 288;
+			addr = 0x5A40;
+			subdrv_i2c_wr_seq_p8(ctx, addr, pbuf, size);
+			DRV_LOG(ctx, "set xtalk calibration data done.");
 		}
 	}
 }

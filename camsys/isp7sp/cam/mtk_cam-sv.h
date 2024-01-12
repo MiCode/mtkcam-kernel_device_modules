@@ -168,8 +168,9 @@ struct mtk_camsv_device {
 	u64 sof_count;
 	int tg_cnt;
 	unsigned int frame_wait_to_process;
+#ifdef CONFIG_PM_SLEEP
 	struct notifier_block notifier_blk;
-
+#endif
 	/* mmqos */
 	struct platform_device *larb_pdev;
 	struct mtk_camsys_qos qos;

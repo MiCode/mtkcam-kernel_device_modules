@@ -141,8 +141,9 @@ struct mtk_mraw_device {
 
 	unsigned int sof_count;
 	unsigned int frame_wait_to_process;
+#ifdef CONFIG_PM_SLEEP
 	struct notifier_block notifier_blk;
-
+#endif
 	atomic_t is_vf_on;
 
 	/* mmqos */

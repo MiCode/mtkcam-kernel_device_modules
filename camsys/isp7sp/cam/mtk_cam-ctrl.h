@@ -114,6 +114,7 @@ struct mtk_cam_ctrl {
 	spinlock_t send_lock;
 	rwlock_t list_lock;
 	struct list_head camsys_state_list;
+	wait_queue_head_t state_list_wq;
 
 	spinlock_t info_lock;
 	struct mtk_cam_ctrl_runtime_info r_info;

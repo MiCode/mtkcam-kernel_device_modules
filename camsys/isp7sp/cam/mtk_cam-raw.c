@@ -812,8 +812,18 @@ static void raw_handle_error(struct mtk_raw_device *raw_dev,
 	if (err_status & FBIT(CAMCTL_TG_OVRUN_ST))
 		raw_handle_tg_overrun_err(raw_dev, fh_cookie);
 
-	dev_info(raw_dev->dev, "%s: err_status:0x%x\n",
-			__func__, err_status);
+	dev_info(raw_dev->dev, "%s: err_status:0x%x, fh_cookie:0x%x\n",
+			__func__, err_status, fh_cookie);
+}
+
+static void raw_handle_skip_frame(struct mtk_raw_device *raw_dev,
+			     struct mtk_camsys_irq_info *data)
+{
+	int err_status = data->e.err_status;
+	unsigned int fh_cookie = data->frame_idx_inner;
+
+	dev_info(raw_dev->dev, "%s: dcif_status:0x%x, fh_cookie:0x%x\n",
+			__func__, err_status, fh_cookie);
 }
 
 static bool is_sub_sample_sensor_timing(struct mtk_raw_device *dev)
@@ -938,8 +948,10 @@ static irqreturn_t mtk_irq_raw(int irq, void *data)
 	}
 
 	/* Frame skipped */
-	if (dcif_status & DCIF_SKIP_MASK)
+	if (dcif_status & DCIF_SKIP_MASK) {
 		irq_info.irq_type |= 1 << CAMSYS_IRQ_FRAME_SKIPPED;
+		irq_info.e.err_status = dcif_status;
+	}
 
 	/* Frame done */
 	if (irq_status & FBIT(CAMCTL_SW_PASS1_DONE_ST))
@@ -1114,6 +1126,10 @@ static irqreturn_t mtk_thread_irq_raw(int irq, void *data)
 			raw_handle_error(raw_dev, &irq_info);
 			continue;
 		}
+
+		/* skip frame case */
+		if (unlikely(irq_info.irq_type == (1 << CAMSYS_IRQ_FRAME_SKIPPED)))
+			raw_handle_skip_frame(raw_dev, &irq_info);
 
 		if (irq_info.irq_type & (1 << CAMSYS_IRQ_FRAME_DONE))
 			reset_error_handling(raw_dev);

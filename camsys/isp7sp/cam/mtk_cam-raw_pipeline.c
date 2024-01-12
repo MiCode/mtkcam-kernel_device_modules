@@ -1531,8 +1531,7 @@ static int mtk_raw_set_fmt(struct v4l2_subdev *sd,
 	struct mbus_config_getter *config_getter;
 	int ret;
 
-	if (CAM_DEBUG_ENABLED(V4L2_TRY) ||
-	    fmt->which == V4L2_SUBDEV_FORMAT_ACTIVE)
+	if (CAM_DEBUG_ENABLED(V4L2_TRY))
 		log_raw_subdev_format(sd, fmt, __func__);
 
 	config_getter = fetch_mbus_config_getter(fmt->which);

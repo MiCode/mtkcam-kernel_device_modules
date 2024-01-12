@@ -198,7 +198,8 @@ int ccd_worker_read(struct mtk_ccd *ccd,
 	get_device(&srcmdev->rpdev.dev);
 
 	if (!srcmdev->rpdev.ept) {
-		dev_dbg(ccd->dev, "src ept is not ready\n");
+		if (CCD_DEBUG)
+			dev_dbg(ccd->dev, "src ept is not ready\n");
 		mutex_unlock(&mtk_subdev->endpoints_lock);
 		goto err_put;
 	}
@@ -284,7 +285,8 @@ void ccd_worker_write(struct mtk_ccd *ccd,
 	get_device(&srcmdev->rpdev.dev);
 
 	if (!srcmdev->rpdev.ept) {
-		dev_info(ccd->dev, "src ept is not ready\n");
+		if (CCD_DEBUG)
+			dev_info(ccd->dev, "src ept is not ready\n");
 		mutex_unlock(&mtk_subdev->endpoints_lock);
 		goto err_put;
 	}

@@ -143,11 +143,14 @@ static int mtk_cam_vb2_queue_setup(struct vb2_queue *vq,
 				alloc_devs[i] = cam->smmu_dev;
 			}
 		}
-		for (i = 0; i < *num_planes; i++)
-			dev_dbg(cam->dev, "[%s] id:%d, name:%s, np:%d, i:%d, size:%d\n",
-				__func__,
-				node->desc.id, node->desc.name,
-				*num_planes, i, sizes[i]);
+
+		if (CAM_DEBUG_ENABLED(V4L2)) {
+			for (i = 0; i < *num_planes; i++)
+				dev_info(cam->dev, "[%s] id:%d, name:%s, np:%d, i:%d, size:%d\n",
+					 __func__,
+					 node->desc.id, node->desc.name,
+					 *num_planes, i, sizes[i]);
+		}
 	}
 	return 0;
 }

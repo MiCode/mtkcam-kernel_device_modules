@@ -350,7 +350,8 @@ static void control_sensor(struct adaptor_ctx *ctx)
 				(u8 *)data, &len);
 		ctx->is_sensor_scenario_inited = 1;
 	}
-	restore_ae_ctrl(ctx);
+	if (!ctx->is_streaming) // no need to restore ae when seamless
+		restore_ae_ctrl(ctx);
 #if IMGSENSOR_LOG_MORE
 	dev_info(ctx->dev, "[%s]-\n", __func__);
 #endif

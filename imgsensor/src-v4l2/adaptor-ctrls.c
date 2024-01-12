@@ -338,6 +338,57 @@ static int set_hdr_gain_dual(struct adaptor_ctx *ctx, struct mtk_hdr_gain *info)
 	return 0;
 }
 
+/*
+ * Get the rest time for ensure the seamless remain time meets 25ms
+ */
+static u64 get_ext_ftime_for_hdr_seamless(struct adaptor_ctx *ctx,
+					  const u32 exp_count,
+					  struct mtk_hdr_ae *ae_ctrl)
+{
+	const static u64 seamless_thr_ns = 25000000;
+	u32 ecnt = exp_count;
+	u64 ext_ftime = 0;
+	u64 tline_ns = ctx->cur_mode->linetime_in_ns;
+	u32 e_margin = ctx->subctx.margin * exp_count;
+	u32 acc_lines = 0;
+	u64 t_last_exp_2_next = 0;
+	enum IMGSENSOR_HDR_MODE_ENUM hdr_mode;
+
+	hdr_mode = (ctx->subctx.s_ctx.mode == NULL)
+		? HDR_NONE
+		: ctx->subctx.s_ctx.mode[ctx->cur_mode->id].hdr_mode;
+
+	if (hdr_mode == HDR_RAW_STAGGER) {
+		// apply extend logic only in stagger mode
+		while (exp_count && (--ecnt)) {
+			acc_lines += (e_margin +
+				FINE_INTEG_CONVERT(ae_ctrl->exposure.arr[ecnt],
+						   ctx->cur_mode->fine_intg_line));
+		}
+
+		if (acc_lines && (ctx->subctx.frame_length > acc_lines)) {
+			t_last_exp_2_next = (ctx->subctx.frame_length - acc_lines) * tline_ns;
+			if (t_last_exp_2_next < seamless_thr_ns)
+				ext_ftime = seamless_thr_ns - t_last_exp_2_next;
+			if (ext_ftime > seamless_thr_ns) {
+				dev_info(ctx->dev,
+					 "[%s] calculate ext_ftime (%llu) is large than threshold (%llu)\n",
+					 __func__, ext_ftime, seamless_thr_ns);
+				ext_ftime = seamless_thr_ns;
+			}
+		}
+	}
+
+	dev_info(ctx->dev,
+		 "[%s] hdr_mode/exp_cnt/tline/exp_margin/acc_lines/fll/last_exp_2_next/result (%u/%u/%llu/%u/%u/%u/%llu/%llu)\n",
+		 __func__,
+		 hdr_mode, exp_count, tline_ns, e_margin, acc_lines,
+		 ctx->subctx.frame_length, t_last_exp_2_next, ext_ftime);
+
+	// extend frame time in ns
+	return ext_ftime;
+}
+
 static int do_set_dcg_ae_ctrl(struct adaptor_ctx *ctx,
 						  struct mtk_hdr_ae *ae_ctrl)
 {
@@ -492,7 +543,7 @@ static int do_set_dcg_ae_ctrl(struct adaptor_ctx *ctx,
 		break;
 	}
 	if (ae_ctrl->actions & IMGSENSOR_EXTEND_FRAME_LENGTH_TO_DOL) {
-		para.u64[0] = 10000000;
+		para.u64[0] = get_ext_ftime_for_hdr_seamless(ctx, exp_count, ae_ctrl);
 		ADAPTOR_SYSTRACE_BEGIN("imgsensor::set_extend_frame_length");
 		subdrv_call(ctx, feature_control,
 					SENSOR_FEATURE_SET_SEAMLESS_EXTEND_FRAME_LENGTH,
@@ -617,7 +668,7 @@ static int do_set_ae_ctrl(struct adaptor_ctx *ctx,
 	}
 
 	if (ae_ctrl->actions & IMGSENSOR_EXTEND_FRAME_LENGTH_TO_DOL) {
-		para.u64[0] = 10000000;
+		para.u64[0] = get_ext_ftime_for_hdr_seamless(ctx, exp_count, ae_ctrl);
 		ADAPTOR_SYSTRACE_BEGIN("imgsensor::set_extend_frame_length");
 		subdrv_call(ctx, feature_control,
 					SENSOR_FEATURE_SET_SEAMLESS_EXTEND_FRAME_LENGTH,

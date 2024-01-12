@@ -2109,6 +2109,7 @@ static int csirx_phyA_setting(struct seninf_ctx *ctx)
 		u32 pn_swap_en = SENINF_READ_BITS(dphy_base,
 						DPHY_RX_HS_RX_EN_SW,
 						RG_DPHY_PHY_PN_SWAP_EN);
+		u32 en_16bit_mode;
 
 		do_div(data_rate, ctx->num_data_lanes);
 		//dev_info(ctx->dev, "data_rate %llu bps\n", data_rate);
@@ -2208,6 +2209,25 @@ static int csirx_phyA_setting(struct seninf_ctx *ctx)
 					RG_CSI0_LDO_X26M_EN, 0x0);
 			SENINF_BITS(baseB, CDPHY_RX_ANA_14,
 					RG_CSI0_LDO_LP_EN, 0x1);
+
+			/*set CDPHY 16/32bit mode*/
+			en_16bit_mode = (data_rate > 4500000000) ? 0 : 1;
+			SENINF_BITS(baseA, CDPHY_RX_ASYM_AFIFO_CTRL_0,
+						L0_AFIFO_16BIT_EN, en_16bit_mode);
+			SENINF_BITS(baseA, CDPHY_RX_ASYM_AFIFO_CTRL_0,
+						L1_AFIFO_16BIT_EN, en_16bit_mode);
+			SENINF_BITS(baseA, CDPHY_RX_ASYM_AFIFO_CTRL_0,
+						L2_AFIFO_16BIT_EN, en_16bit_mode);
+			SENINF_BITS(baseA, CDPHY_RX_ANA_3,
+						RG_CSI0_CDPHY_16BIT_SEL, en_16bit_mode);
+			SENINF_BITS(baseB, CDPHY_RX_ASYM_AFIFO_CTRL_0,
+						L0_AFIFO_16BIT_EN, en_16bit_mode);
+			SENINF_BITS(baseB, CDPHY_RX_ASYM_AFIFO_CTRL_0,
+						L1_AFIFO_16BIT_EN, en_16bit_mode);
+			SENINF_BITS(baseB, CDPHY_RX_ASYM_AFIFO_CTRL_0,
+						L2_AFIFO_16BIT_EN, en_16bit_mode);
+			SENINF_BITS(baseB, CDPHY_RX_ANA_3,
+						RG_CSI0_CDPHY_16BIT_SEL, en_16bit_mode);
 
 			// data rate < 1.5 Gbps
 			if (data_rate < 1500000000) {
@@ -2424,6 +2444,17 @@ static int csirx_phyA_setting(struct seninf_ctx *ctx)
 			SENINF_BITS(base, CDPHY_RX_ANA_14,
 					RG_CSI0_LDO_LP_EN, 0x1);
 
+			/*set CDPHY 16/32bit mode*/
+			en_16bit_mode = (data_rate > 4500000000) ? 0 : 1;
+			SENINF_BITS(base, CDPHY_RX_ASYM_AFIFO_CTRL_0,
+						L0_AFIFO_16BIT_EN, en_16bit_mode);
+			SENINF_BITS(base, CDPHY_RX_ASYM_AFIFO_CTRL_0,
+						L1_AFIFO_16BIT_EN, en_16bit_mode);
+			SENINF_BITS(base, CDPHY_RX_ASYM_AFIFO_CTRL_0,
+						L2_AFIFO_16BIT_EN, en_16bit_mode);
+			SENINF_BITS(base, CDPHY_RX_ANA_3,
+						RG_CSI0_CDPHY_16BIT_SEL, en_16bit_mode);
+
 			// data rate < 1.5 Gbps
 			if (data_rate < 1500000000) {
 				SENINF_BITS(base, CDPHY_RX_ANA_5,
@@ -2522,6 +2553,7 @@ static int csirx_phyA_setting(struct seninf_ctx *ctx)
 		}
 	} else { //Cphy
 		u64 data_rate = ctx->mipi_pixel_rate * bit_per_pixel;
+		u32 en_16bit_mode;
 
 		data_rate *= 7;
 		do_div(data_rate, ctx->num_data_lanes*16);
@@ -2579,6 +2611,25 @@ static int csirx_phyA_setting(struct seninf_ctx *ctx)
 
 			SENINF_BITS(baseA, CDPHY_RX_ANA_SETTING_0,
 		    CSR_ASYNC_FIFO_GATING_SEL, 0x0);
+
+			/*set CDPHY 16/32bit mode*/
+			en_16bit_mode = (data_rate > 4500000000) ? 0 : 1;
+			SENINF_BITS(baseA, CDPHY_RX_ASYM_AFIFO_CTRL_0,
+						L0_AFIFO_16BIT_EN, en_16bit_mode);
+			SENINF_BITS(baseA, CDPHY_RX_ASYM_AFIFO_CTRL_0,
+						L1_AFIFO_16BIT_EN, en_16bit_mode);
+			SENINF_BITS(baseA, CDPHY_RX_ASYM_AFIFO_CTRL_0,
+						L2_AFIFO_16BIT_EN, en_16bit_mode);
+			SENINF_BITS(baseA, CDPHY_RX_ANA_3,
+						RG_CSI0_CDPHY_16BIT_SEL, en_16bit_mode);
+			SENINF_BITS(baseB, CDPHY_RX_ASYM_AFIFO_CTRL_0,
+						L0_AFIFO_16BIT_EN, en_16bit_mode);
+			SENINF_BITS(baseB, CDPHY_RX_ASYM_AFIFO_CTRL_0,
+						L1_AFIFO_16BIT_EN, en_16bit_mode);
+			SENINF_BITS(baseB, CDPHY_RX_ASYM_AFIFO_CTRL_0,
+						L2_AFIFO_16BIT_EN, en_16bit_mode);
+			SENINF_BITS(baseB, CDPHY_RX_ANA_3,
+						RG_CSI0_CDPHY_16BIT_SEL, en_16bit_mode);
 
 			// data rate < 2.5 Gsps
 			if (data_rate < 2500000000) {
@@ -2823,6 +2874,17 @@ static int csirx_phyA_setting(struct seninf_ctx *ctx)
 					RG_CSI0_EQ_DES_VREF_SEL, 0x14);
 
 			SENINF_WRITE_REG(base, CDPHY_RX_ANA_SETTING_0, 0x322);
+
+			/*set CDPHY 16/32bit mode*/
+			en_16bit_mode = (data_rate > 4500000000) ? 0 : 1;
+			SENINF_BITS(base, CDPHY_RX_ASYM_AFIFO_CTRL_0,
+						L0_AFIFO_16BIT_EN, en_16bit_mode);
+			SENINF_BITS(base, CDPHY_RX_ASYM_AFIFO_CTRL_0,
+						L1_AFIFO_16BIT_EN, en_16bit_mode);
+			SENINF_BITS(base, CDPHY_RX_ASYM_AFIFO_CTRL_0,
+						L2_AFIFO_16BIT_EN, en_16bit_mode);
+			SENINF_BITS(base, CDPHY_RX_ANA_3,
+						RG_CSI0_CDPHY_16BIT_SEL, en_16bit_mode);
 
 			// data rate < 2.5 Gsps
 			if (data_rate < 2500000000) {

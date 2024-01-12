@@ -55,7 +55,8 @@ enum fs_log_ctrl_category {
 	LOG_SEN_REC_SEAMLESS_DUMP,
 
 	/* extra category */
-	LOG_FS_USER_QUERY_INFO = 26,
+	LOG_FS_USER_QUERY_INFO = 25,
+	LOG_DISABLE = 26,
 
 	/* max category */
 	LOG_FS_CTRL_CAT_MAX = 26
@@ -85,32 +86,43 @@ enum fs_log_ctrl_category {
 
 #define DY_INFO(log_cat, format, args...) \
 do { \
-	if (unlikely(_FS_LOG_ENABLED(log_cat))) { \
-		pr_info(PFX "[%s] " format, __func__, ##args); \
+	if (unlikely(!_FS_LOG_ENABLED(LOG_DISABLE))) { \
+		if (unlikely(_FS_LOG_ENABLED(log_cat))) { \
+			pr_info(PFX "[%s] " format, __func__, ##args); \
+		} \
 	} \
 } while (0)
 
 #define DY_INFO_LOCK(log_cat, format, args...) \
 do { \
-	if (unlikely(_FS_LOG_ENABLED(log_cat))) { \
-		mutex_lock(&fs_log_concurrency_lock); \
-		pr_info(PFX "[%s] " format, __func__, ##args); \
-		mutex_unlock(&fs_log_concurrency_lock); \
+	if (unlikely(!_FS_LOG_ENABLED(LOG_DISABLE))) { \
+		if (unlikely(_FS_LOG_ENABLED(log_cat))) { \
+			mutex_lock(&fs_log_concurrency_lock); \
+			pr_info(PFX "[%s] " format, __func__, ##args); \
+			mutex_unlock(&fs_log_concurrency_lock); \
+		} \
 	} \
 } while (0)
 
 #define LOG_INF(format, args...) DY_INFO(FS_LOG_DBG_DEF_CAT, format, args)
 #define LOG_INF_CAT(log_cat, format, args...) DY_INFO(log_cat, format, args)
 #define LOG_PF_INF(format, args...) DY_INFO(LOG_FS_PF, format, args)
-#define LOG_MUST(format, args...) pr_info(PFX "[%s] " format, __func__, ##args)
+#define LOG_MUST(format, args...) \
+do { \
+	if (unlikely(!_FS_LOG_ENABLED(LOG_DISABLE))) { \
+		pr_info(PFX "[%s] " format, __func__, ##args); \
+	} \
+} while (0)
 
 #define LOG_INF_CAT_LOCK(log_cat, format, args...) DY_INFO_LOCK(log_cat, format, args)
 #define LOG_PF_INF_LOCK(format, args...) DY_INFO_LOCK(LOG_FS_PF, format, args)
 #define LOG_MUST_LOCK(format, args...) \
 do { \
-	mutex_lock(&fs_log_concurrency_lock); \
-	pr_info(PFX "[%s] " format, __func__, ##args); \
-	mutex_unlock(&fs_log_concurrency_lock); \
+	if (unlikely(!_FS_LOG_ENABLED(LOG_DISABLE))) { \
+		mutex_lock(&fs_log_concurrency_lock); \
+		pr_info(PFX "[%s] " format, __func__, ##args); \
+		mutex_unlock(&fs_log_concurrency_lock); \
+	} \
 } while (0)
 
 

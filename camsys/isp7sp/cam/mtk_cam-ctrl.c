@@ -1739,8 +1739,12 @@ static void mtk_cam_watchdog_sensor_worker(struct work_struct *work)
 		diff_ns = ktime_get_boottime_ns() - mtk_cam_ctrl_latest_sof(ctrl);
 		timeout = mtk_cam_seninf_check_timeout(ctx->seninf, diff_ns);
 
-		if (!timeout)
+		if (!timeout) {
+
+			/* not timeout yet, reset the counter */
+			atomic_dec(&wd->reset_sensor_cnt);
 			goto EXIT_WORK;
+		}
 	}
 
 	seq_no = ctrl_fetch_inner(ctrl);

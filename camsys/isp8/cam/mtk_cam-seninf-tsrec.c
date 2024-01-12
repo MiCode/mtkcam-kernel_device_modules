@@ -400,56 +400,57 @@ static void tsrec_con_mgr_process_cmd(const unsigned int cmd)
 /******************************************************************************
  * TSREC basic/utilities functions
  *****************************************************************************/
-static int tsrec_pm_ctrl_get_sync(const struct tsrec_seninf_cfg_st *src_cfg,
-	const char *caller)
+static int tsrec_pm_runtime_ctrl(const struct tsrec_seninf_cfg_st *src_cfg,
+	const unsigned int flag, const char *caller)
 {
 	int ret;
 
-	if (unlikely(src_cfg->inf_ctx == NULL)) {
+	if (unlikely((!src_cfg->inf_ctx) || (!src_cfg->inf_ctx->dev))) {
 		ret = -2147483647;
 		TSREC_LOG_INF(
-			"[%s] ERROR: inf_ctx is nullptr, return:%d  [src_cfg:%p/inf_ctx:%p]\n",
-			caller, ret, src_cfg, src_cfg->inf_ctx);
+			"[%s] ERROR: inf_ctx or inf_ctx's dev is/are nullptr, return:%d  [inf_ctx:%p, flag:%u]\n",
+			caller, ret, src_cfg->inf_ctx, flag);
 		return ret;
 	}
 
-	/* pm_runtime_resume: returns */
-	/*      0 on success, */
-	/*      1 if the device's was already active, */
-	/*      or error code on failure */
-	ret = TSREC_PM_GET_SYNC(src_cfg->inf_ctx);
-	if (unlikely(ret < 0)) {
-		TSREC_LOG_INF(
-			"[%s] ERROR: do pm_runtime_get_sync, ret:%d  [src_cfg:%p/inf_ctx:%p]\n",
-			caller, ret, src_cfg, src_cfg->inf_ctx);
-		TSREC_PM_PUT_NOIDLE(src_cfg->inf_ctx);
+	if (flag) {
+		/* pm_runtime_resume: returns */
+		/*      0 => on success, */
+		/*      1 => if the device's was already active, or */
+		/*      error code => on failure */
+		ret = TSREC_PM_GET_SYNC(src_cfg->inf_ctx);
+		if (unlikely(ret < 0)) {
+			TSREC_PM_PUT_NOIDLE(src_cfg->inf_ctx);
+			/* print info */
+			if (unlikely(!src_cfg->inf_ctx->dev->of_node)) {
+				TSREC_LOG_INF(
+					"[%s] ERROR: called pm_runtime_get_sync, ret:%d  [inf_ctx:%p]\n",
+					caller, ret, src_cfg->inf_ctx);
+			} else {
+				TSREC_LOG_INF(
+					"[%s] ERROR: called pm_runtime_get_sync, ret:%d  [inf_ctx:(%s)]\n",
+					caller, ret, src_cfg->inf_ctx->dev->of_node->full_name);
+			}
+		}
+	} else {
+		/* pm_runtime_idle: returns */
+		/*      0 => on success, or */
+		/*      error code => on failure (and increase dev's usage cnt) */
+		ret = TSREC_PM_PUT_SYNC(src_cfg->inf_ctx);
+		if (unlikely(ret < 0)) {
+			/* print info */
+			if (unlikely(!src_cfg->inf_ctx->dev->of_node)) {
+				TSREC_LOG_INF(
+					"[%s] ERROR: called pm_runtime_put_sync, ret:%d  [inf_ctx:%p]\n",
+					caller, ret, src_cfg->inf_ctx);
+			} else {
+				TSREC_LOG_INF(
+					"[%s] ERROR: called pm_runtime_put_sync, ret:%d  [inf_ctx:(%s)]\n",
+					caller, ret, src_cfg->inf_ctx->dev->of_node->full_name);
+			}
+		}
 	}
-	return ret;
-}
 
-
-static int tsrec_pm_ctrl_put_sync(const struct tsrec_seninf_cfg_st *src_cfg,
-	const char *caller)
-{
-	int ret;
-
-	if (unlikely(src_cfg->inf_ctx == NULL)) {
-		ret = -2147483647;
-		TSREC_LOG_INF(
-			"[%s] ERROR: inf_ctx is nullptr, return:%d  [src_cfg:%p/inf_ctx:%p]\n",
-			caller, ret, src_cfg, src_cfg->inf_ctx);
-		return ret;
-	}
-
-	/* pm_runtime_idle: returns */
-	/*      0 on success, */
-	/*      or error code on failure */
-	ret = TSREC_PM_PUT_SYNC(src_cfg->inf_ctx);
-	if (unlikely(ret < 0)) {
-		TSREC_LOG_INF(
-			"[%s] ERROR: do pm_runtime_put_sync, ret:%d  [src_cfg:%p/inf_ctx:%p]\n",
-			caller, ret, src_cfg, src_cfg->inf_ctx);
-	}
 	return ret;
 }
 
@@ -3532,7 +3533,7 @@ int tsrec_cb_handler(const unsigned int seninf_idx, const unsigned int tsrec_no,
 	/* check current situation */
 	if (tsrec_cb_handler_checker(seninf_idx, &p_src_cfg, &ret, caller) != 0)
 		return ret;
-	if (unlikely((tsrec_pm_ctrl_get_sync(p_src_cfg, caller) < 0)))
+	if (unlikely((tsrec_pm_runtime_ctrl(p_src_cfg, 1, caller) < 0)))
 		return TSREC_CB_CTRL_ERR_INVALID;
 
 	TSREC_LOG_DBG_CAT_LOCK(LOG_TSREC_CB_INFO,
@@ -3557,7 +3558,7 @@ int tsrec_cb_handler(const unsigned int seninf_idx, const unsigned int tsrec_no,
 	}
 
 tsrec_cb_handler_end:
-	tsrec_pm_ctrl_put_sync(p_src_cfg, caller);
+	tsrec_pm_runtime_ctrl(p_src_cfg, 0, caller);
 	return ret;
 }
 

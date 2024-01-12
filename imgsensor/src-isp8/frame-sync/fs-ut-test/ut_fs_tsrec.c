@@ -74,8 +74,8 @@ static struct ut_fs_tsrec_msgfifo ut_msg_fifo;
 
 
 static struct device_node seninf_top_node = {
-	.name = "seninf_top",
-	.full_name = "seninf_top@",
+	.name = "ut_tsrec_seninf_top",
+	.full_name = "ut_tsrec_seninf_top@",
 };
 static struct device seninf_dev = {
 	.of_node = &seninf_top_node,
@@ -1190,6 +1190,7 @@ static void ut_fs_tsrec_update_vc_dt_info_proc(const unsigned int idx,
 static void ut_fs_tsrec_update_vc_dt_info(void)
 {
 	struct seninf_ctx *inf_ctx = NULL;
+
 	/* custom config */
 	const struct mtk_cam_seninf_tsrec_vc_dt_info info_arr_0[] = {
 		{.vc = 0x0, .dt = 0x2b, .out_pad = PAD_SRC_RAW0},

@@ -89,6 +89,7 @@ struct device {
 /*----------------------------------------------------------------------------*/
 struct seninf_core {};
 struct seninf_ctx {
+	struct device *dev;
 	int seninfIdx;
 };
 

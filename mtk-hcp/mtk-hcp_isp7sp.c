@@ -2224,12 +2224,29 @@ static void gce_release_streaming(struct kref *ref)
 	struct mtk_hcp_streaming_reserve_mblock *mblock =
 		container_of(ref, struct mtk_hcp_streaming_reserve_mblock, kref);
 
-	dma_buf_vunmap(mblock->d_buf, &mblock->map);
-	/* free iova */
-	dma_buf_unmap_attachment(mblock->attach, mblock->sgt, DMA_BIDIRECTIONAL);
-	dma_buf_detach(mblock->d_buf, mblock->attach);
-	dma_buf_end_cpu_access(mblock->d_buf, DMA_BIDIRECTIONAL);
-	dma_buf_put(mblock->d_buf);
+    if (IS_ERR(mblock->d_buf)) {
+        pr_info("streaming gce dma_heap_buffer_alloc fail :%ld\n",
+                      PTR_ERR(mblock->d_buf));
+        mblock->mem_priv = NULL;
+	    mblock->mmap_cnt = 0;
+	    mblock->start_dma = 0x0;
+	    mblock->start_virt = 0x0;
+	    mblock->start_phys = 0x0;
+	    mblock->d_buf = NULL;
+	    mblock->fd = -1;
+	    mblock->pIonHandle = NULL;
+	    mblock->attach = NULL;
+	    mblock->sgt = NULL;
+        return;
+    } else {
+    	dma_buf_vunmap(mblock->d_buf, &mblock->map);
+    	/* free iova */
+    	dma_buf_unmap_attachment(mblock->attach, mblock->sgt, DMA_BIDIRECTIONAL);
+    	dma_buf_detach(mblock->d_buf, mblock->attach);
+    	dma_buf_end_cpu_access(mblock->d_buf, DMA_BIDIRECTIONAL);
+    	dma_buf_put(mblock->d_buf);
+    }
+
     if (hcp_dbg_enable()) {
 	    pr_info("%s:[HCP][%s] phys:0x%llx, virt:0x%p, dma:0x%llx, size:0x%llx,"
             " is_dma_buf:%d, fd:%d, d_buf:0x%p\n",
@@ -2272,12 +2289,29 @@ static void gce_release_capture(struct kref *ref)
 	struct mtk_hcp_capture_reserve_mblock *mblock =
 		container_of(ref, struct mtk_hcp_capture_reserve_mblock, kref);
 
-	dma_buf_vunmap(mblock->d_buf, &mblock->map);
-	/* free iova */
-	dma_buf_unmap_attachment(mblock->attach, mblock->sgt, DMA_BIDIRECTIONAL);
-	dma_buf_detach(mblock->d_buf, mblock->attach);
-	dma_buf_end_cpu_access(mblock->d_buf, DMA_BIDIRECTIONAL);
-	dma_buf_put(mblock->d_buf);
+    if (IS_ERR(mblock->d_buf)) {
+        pr_info("capture gce dma_heap_buffer_alloc fail :%ld\n",
+                      PTR_ERR(mblock->d_buf));
+        mblock->mem_priv = NULL;
+	    mblock->mmap_cnt = 0;
+	    mblock->start_dma = 0x0;
+	    mblock->start_virt = 0x0;
+	    mblock->start_phys = 0x0;
+	    mblock->d_buf = NULL;
+	    mblock->fd = -1;
+	    mblock->pIonHandle = NULL;
+	    mblock->attach = NULL;
+	    mblock->sgt = NULL;
+        return;
+    } else {
+    	dma_buf_vunmap(mblock->d_buf, &mblock->map);
+    	/* free iova */
+    	dma_buf_unmap_attachment(mblock->attach, mblock->sgt, DMA_BIDIRECTIONAL);
+    	dma_buf_detach(mblock->d_buf, mblock->attach);
+    	dma_buf_end_cpu_access(mblock->d_buf, DMA_BIDIRECTIONAL);
+    	dma_buf_put(mblock->d_buf);
+    }
+
     if (hcp_dbg_enable()) {
 	    pr_info("%s:[HCP][%s] phys:0x%llx, virt:0x%p, dma:0x%llx, size:0x%llx,"
             " is_dma_buf:%d, fd:%d, d_buf:0x%p\n",
@@ -2320,12 +2354,29 @@ static void gce_release_smvr(struct kref *ref)
 	struct mtk_hcp_smvr_reserve_mblock *mblock =
 		container_of(ref, struct mtk_hcp_smvr_reserve_mblock, kref);
 
-	dma_buf_vunmap(mblock->d_buf, &mblock->map);
-	/* free iova */
-	dma_buf_unmap_attachment(mblock->attach, mblock->sgt, DMA_BIDIRECTIONAL);
-	dma_buf_detach(mblock->d_buf, mblock->attach);
-	dma_buf_end_cpu_access(mblock->d_buf, DMA_BIDIRECTIONAL);
-	dma_buf_put(mblock->d_buf);
+    if (IS_ERR(mblock->d_buf)) {
+        pr_info("smvr gce dma_heap_buffer_alloc fail :%ld\n",
+                      PTR_ERR(mblock->d_buf));
+        mblock->mem_priv = NULL;
+	    mblock->mmap_cnt = 0;
+	    mblock->start_dma = 0x0;
+	    mblock->start_virt = 0x0;
+	    mblock->start_phys = 0x0;
+	    mblock->d_buf = NULL;
+	    mblock->fd = -1;
+	    mblock->pIonHandle = NULL;
+	    mblock->attach = NULL;
+	    mblock->sgt = NULL;
+        return;
+    } else {
+    	dma_buf_vunmap(mblock->d_buf, &mblock->map);
+    	/* free iova */
+    	dma_buf_unmap_attachment(mblock->attach, mblock->sgt, DMA_BIDIRECTIONAL);
+    	dma_buf_detach(mblock->d_buf, mblock->attach);
+    	dma_buf_end_cpu_access(mblock->d_buf, DMA_BIDIRECTIONAL);
+    	dma_buf_put(mblock->d_buf);
+    }
+
     if (hcp_dbg_enable()) {
 	    pr_info("%s:[HCP][%s] phys:0x%llx, virt:0x%p, dma:0x%llx, size:0x%llx,"
             " is_dma_buf:%d, fd:%d, d_buf:0x%p\n",
@@ -2363,17 +2414,24 @@ static void gce_release_smvr(struct kref *ref)
 	mblock->sgt = NULL;
 }
 
+#if 0
 static void gce_release_token(struct kref *ref)
 {
 	struct mtk_hcp_gce_token_reserve_mblock *mblock =
 		container_of(ref, struct mtk_hcp_gce_token_reserve_mblock, kref);
 
-	dma_buf_vunmap(mblock->d_buf, &mblock->map);
-	/* free iova */
-	dma_buf_unmap_attachment(mblock->attach, mblock->sgt, DMA_BIDIRECTIONAL);
-	dma_buf_detach(mblock->d_buf, mblock->attach);
-	dma_buf_end_cpu_access(mblock->d_buf, DMA_BIDIRECTIONAL);
-	dma_buf_put(mblock->d_buf);
+    if (IS_ERR(mblock->d_buf)) {
+        pr_info("dma_heap_buffer_alloc fail :%ld\n",
+                      PTR_ERR(mblock->d_buf));
+        return;
+    } else {
+    	dma_buf_vunmap(mblock->d_buf, &mblock->map);
+    	/* free iova */
+    	dma_buf_unmap_attachment(mblock->attach, mblock->sgt, DMA_BIDIRECTIONAL);
+    	dma_buf_detach(mblock->d_buf, mblock->attach);
+    	dma_buf_end_cpu_access(mblock->d_buf, DMA_BIDIRECTIONAL);
+    	dma_buf_put(mblock->d_buf);
+    }
 
     if (hcp_dbg_enable()) {
 	    pr_info("%s:[HCP][%s] phys:0x%llx, virt:0x%p, dma:0x%llx, size:0x%llx,"
@@ -2402,6 +2460,7 @@ static void gce_release_token(struct kref *ref)
 	mblock->attach = NULL;
 	mblock->sgt = NULL;
 }
+#endif
 #else
 phys_addr_t isp7sp_get_reserve_mem_phys(unsigned int id)
 {
@@ -2832,28 +2891,44 @@ static int isp7sp_module_driver_release_working_buffer_streaming(struct mtk_hcp 
                 case PQDIP_MEM_C_ID:
                 case PQDIP_MEM_T_ID:
                 default:
-                    /* free va */
-                    dma_buf_vunmap(str_mblock[id].d_buf, &str_mblock[id].map);
-                    /* free iova */
-                    dma_buf_unmap_attachment(str_mblock[id].attach,
-                    str_mblock[id].sgt, DMA_BIDIRECTIONAL);
-                    dma_buf_detach(str_mblock[id].d_buf,
-                    str_mblock[id].attach);
-                    dma_buf_put(str_mblock[id].d_buf);
-                    // close fd in user space driver, you can't close fd in kernel site
-                    // dma_heap_buffer_free(mblock[id].d_buf);
-                    //dma_buf_put(my_dma_buf);
-                    //also can use this api, but not recommended
-                    str_mblock[id].mem_priv = NULL;
-                    str_mblock[id].mmap_cnt = 0;
-                    str_mblock[id].start_dma = 0x0;
-                    str_mblock[id].start_virt = 0x0;
-                    str_mblock[id].start_phys = 0x0;
-                    str_mblock[id].d_buf = NULL;
-                    str_mblock[id].fd = -1;
-                    str_mblock[id].pIonHandle = NULL;
-                    str_mblock[id].attach = NULL;
-                    str_mblock[id].sgt = NULL;
+                    if (IS_ERR(str_mblock[id].d_buf)) {
+                         pr_info("streaming dma_heap_buffer_alloc already fail :%ld\n",
+                                    PTR_ERR(str_mblock[id].d_buf));
+                        str_mblock[id].mem_priv = NULL;
+                        str_mblock[id].mmap_cnt = 0;
+                        str_mblock[id].start_dma = 0x0;
+                        str_mblock[id].start_virt = 0x0;
+                        str_mblock[id].start_phys = 0x0;
+                        str_mblock[id].d_buf = NULL;
+                        str_mblock[id].fd = -1;
+                        str_mblock[id].pIonHandle = NULL;
+                        str_mblock[id].attach = NULL;
+                        str_mblock[id].sgt = NULL;
+                         return -1;
+                    } else {
+                        /* free va */
+                        dma_buf_vunmap(str_mblock[id].d_buf, &str_mblock[id].map);
+                        /* free iova */
+                        dma_buf_unmap_attachment(str_mblock[id].attach,
+                        str_mblock[id].sgt, DMA_BIDIRECTIONAL);
+                        dma_buf_detach(str_mblock[id].d_buf,
+                        str_mblock[id].attach);
+                        dma_buf_put(str_mblock[id].d_buf);
+                        // close fd in user space driver, you can't close fd in kernel site
+                        // dma_heap_buffer_free(mblock[id].d_buf);
+                        //dma_buf_put(my_dma_buf);
+                        //also can use this api, but not recommended
+                        str_mblock[id].mem_priv = NULL;
+                        str_mblock[id].mmap_cnt = 0;
+                        str_mblock[id].start_dma = 0x0;
+                        str_mblock[id].start_virt = 0x0;
+                        str_mblock[id].start_phys = 0x0;
+                        str_mblock[id].d_buf = NULL;
+                        str_mblock[id].fd = -1;
+                        str_mblock[id].pIonHandle = NULL;
+                        str_mblock[id].attach = NULL;
+                        str_mblock[id].sgt = NULL;
+                    }
                     break;
                 }
             } else {
@@ -2903,28 +2978,44 @@ static int isp7sp_module_driver_release_working_buffer_capture(struct mtk_hcp *h
                 case PQDIP_MEM_C_ID:
                 case PQDIP_MEM_T_ID:
                 default:
-                    /* free va */
-                    dma_buf_vunmap(cap_mblock[id].d_buf, &cap_mblock[id].map);
-                    /* free iova */
-                    dma_buf_unmap_attachment(cap_mblock[id].attach,
-                    cap_mblock[id].sgt, DMA_BIDIRECTIONAL);
-                    dma_buf_detach(cap_mblock[id].d_buf,
-                    cap_mblock[id].attach);
-                    dma_buf_put(cap_mblock[id].d_buf);
-                    // close fd in user space driver, you can't close fd in kernel site
-                    // dma_heap_buffer_free(mblock[id].d_buf);
-                    //dma_buf_put(my_dma_buf);
-                    //also can use this api, but not recommended
-                    cap_mblock[id].mem_priv = NULL;
-                    cap_mblock[id].mmap_cnt = 0;
-                    cap_mblock[id].start_dma = 0x0;
-                    cap_mblock[id].start_virt = 0x0;
-                    cap_mblock[id].start_phys = 0x0;
-                    cap_mblock[id].d_buf = NULL;
-                    cap_mblock[id].fd = -1;
-                    cap_mblock[id].pIonHandle = NULL;
-                    cap_mblock[id].attach = NULL;
-                    cap_mblock[id].sgt = NULL;
+                    if (IS_ERR(cap_mblock[id].d_buf)) {
+                         pr_info("capture dma_heap_buffer_alloc already fail :%ld\n",
+                                    PTR_ERR(cap_mblock[id].d_buf));
+                         cap_mblock[id].mem_priv = NULL;
+                         cap_mblock[id].mmap_cnt = 0;
+                         cap_mblock[id].start_dma = 0x0;
+                         cap_mblock[id].start_virt = 0x0;
+                         cap_mblock[id].start_phys = 0x0;
+                         cap_mblock[id].d_buf = NULL;
+                         cap_mblock[id].fd = -1;
+                         cap_mblock[id].pIonHandle = NULL;
+                         cap_mblock[id].attach = NULL;
+                         cap_mblock[id].sgt = NULL;
+                         return -1;
+                    } else {
+                        /* free va */
+                        dma_buf_vunmap(cap_mblock[id].d_buf, &cap_mblock[id].map);
+                        /* free iova */
+                        dma_buf_unmap_attachment(cap_mblock[id].attach,
+                            cap_mblock[id].sgt, DMA_BIDIRECTIONAL);
+                        dma_buf_detach(cap_mblock[id].d_buf,
+                            cap_mblock[id].attach);
+                        dma_buf_put(cap_mblock[id].d_buf);
+                        // close fd in user space driver, you can't close fd in kernel site
+                        // dma_heap_buffer_free(mblock[id].d_buf);
+                        //dma_buf_put(my_dma_buf);
+                        //also can use this api, but not recommended
+                        cap_mblock[id].mem_priv = NULL;
+                        cap_mblock[id].mmap_cnt = 0;
+                        cap_mblock[id].start_dma = 0x0;
+                        cap_mblock[id].start_virt = 0x0;
+                        cap_mblock[id].start_phys = 0x0;
+                        cap_mblock[id].d_buf = NULL;
+                        cap_mblock[id].fd = -1;
+                        cap_mblock[id].pIonHandle = NULL;
+                        cap_mblock[id].attach = NULL;
+                        cap_mblock[id].sgt = NULL;
+                    }
                     break;
                 }
             } else {
@@ -2974,28 +3065,44 @@ static int isp7sp_module_driver_release_working_buffer_smvr(struct mtk_hcp *hcp_
                 case PQDIP_MEM_C_ID:
                 case PQDIP_MEM_T_ID:
                 default:
-                    /* free va */
-                    dma_buf_vunmap(smvr_mblock[id].d_buf, &smvr_mblock[id].map);
-                    /* free iova */
-                    dma_buf_unmap_attachment(smvr_mblock[id].attach,
-                    smvr_mblock[id].sgt, DMA_BIDIRECTIONAL);
-                    dma_buf_detach(smvr_mblock[id].d_buf,
-                    smvr_mblock[id].attach);
-                    dma_buf_put(smvr_mblock[id].d_buf);
-                    // close fd in user space driver, you can't close fd in kernel site
-                    // dma_heap_buffer_free(mblock[id].d_buf);
-                    //dma_buf_put(my_dma_buf);
-                    //also can use this api, but not recommended
-                    smvr_mblock[id].mem_priv = NULL;
-                    smvr_mblock[id].mmap_cnt = 0;
-                    smvr_mblock[id].start_dma = 0x0;
-                    smvr_mblock[id].start_virt = 0x0;
-                    smvr_mblock[id].start_phys = 0x0;
-                    smvr_mblock[id].d_buf = NULL;
-                    smvr_mblock[id].fd = -1;
-                    smvr_mblock[id].pIonHandle = NULL;
-                    smvr_mblock[id].attach = NULL;
-                    smvr_mblock[id].sgt = NULL;
+                    if (IS_ERR(smvr_mblock[id].d_buf)) {
+                         pr_info("smvr dma_heap_buffer_alloc already fail :%ld\n",
+                                    PTR_ERR(smvr_mblock[id].d_buf));
+                         smvr_mblock[id].mem_priv = NULL;
+                         smvr_mblock[id].mmap_cnt = 0;
+                         smvr_mblock[id].start_dma = 0x0;
+                         smvr_mblock[id].start_virt = 0x0;
+                         smvr_mblock[id].start_phys = 0x0;
+                         smvr_mblock[id].d_buf = NULL;
+                         smvr_mblock[id].fd = -1;
+                         smvr_mblock[id].pIonHandle = NULL;
+                         smvr_mblock[id].attach = NULL;
+                         smvr_mblock[id].sgt = NULL;
+                         return -1;
+                    } else {
+                        /* free va */
+                        dma_buf_vunmap(smvr_mblock[id].d_buf, &smvr_mblock[id].map);
+                        /* free iova */
+                        dma_buf_unmap_attachment(smvr_mblock[id].attach,
+                        smvr_mblock[id].sgt, DMA_BIDIRECTIONAL);
+                        dma_buf_detach(smvr_mblock[id].d_buf,
+                        smvr_mblock[id].attach);
+                        dma_buf_put(smvr_mblock[id].d_buf);
+                        // close fd in user space driver, you can't close fd in kernel site
+                        // dma_heap_buffer_free(mblock[id].d_buf);
+                        //dma_buf_put(my_dma_buf);
+                        //also can use this api, but not recommended
+                        smvr_mblock[id].mem_priv = NULL;
+                        smvr_mblock[id].mmap_cnt = 0;
+                        smvr_mblock[id].start_dma = 0x0;
+                        smvr_mblock[id].start_virt = 0x0;
+                        smvr_mblock[id].start_phys = 0x0;
+                        smvr_mblock[id].d_buf = NULL;
+                        smvr_mblock[id].fd = -1;
+                        smvr_mblock[id].pIonHandle = NULL;
+                        smvr_mblock[id].attach = NULL;
+                        smvr_mblock[id].sgt = NULL;
+                    }
                     break;
                 }
             } else {
@@ -3028,7 +3135,7 @@ int isp7sp_release_gce_working_buffer(struct mtk_hcp *hcp_dev)
     struct mtk_hcp_gce_token_reserve_mblock *gmblock = NULL;
     unsigned int block_num_gce;
 
-    gmblock = gmb;
+    gmblock = hcp_dev->data->gmblock;
     block_num_gce = hcp_dev->data->block_num_gce;
     /* release gce reserved memory */
 	for (gid = 0; gid < block_num_gce; gid++) {
@@ -3037,7 +3144,48 @@ int isp7sp_release_gce_working_buffer(struct mtk_hcp *hcp_dev)
 				/*allocated at probe via dts*/
 				break;
 			case IMG_MEM_G_TOKEN_ID:
-				kref_put(&gmblock[gid].kref, gce_release_token);
+                    if (IS_ERR(gmblock[gid].d_buf)) {
+                         pr_info("smvr dma_heap_buffer_alloc already fail :%ld\n",
+                                    PTR_ERR(gmblock[gid].d_buf));
+                         gmblock[gid].mem_priv = NULL;
+                         gmblock[gid].mmap_cnt = 0;
+                         gmblock[gid].start_dma = 0x0;
+                         gmblock[gid].start_virt = 0x0;
+                         gmblock[gid].start_phys = 0x0;
+                         gmblock[gid].d_buf = NULL;
+                         gmblock[gid].fd = -1;
+                         gmblock[gid].pIonHandle = NULL;
+                         gmblock[gid].attach = NULL;
+                         gmblock[gid].sgt = NULL;
+                          return -1;
+                    } else {
+                        /* free va */
+                        dma_buf_vunmap(gmblock[gid].d_buf, &gmblock[gid].map);
+                        /* free iova */
+                        dma_buf_unmap_attachment(gmblock[gid].attach,
+                            gmblock[gid].sgt, DMA_BIDIRECTIONAL);
+                        dma_buf_detach(gmblock[gid].d_buf,
+                            gmblock[gid].attach);
+                        dma_buf_end_cpu_access(gmblock[gid].d_buf, DMA_BIDIRECTIONAL);
+                        dma_buf_put(gmblock[gid].d_buf);
+                        // close fd in user space driver, you can't close fd in kernel site
+                        // dma_heap_buffer_free(mblock[id].d_buf);
+                        //dma_buf_put(my_dma_buf);
+                        //also can use this api, but not recommended
+                        gmblock[gid].mem_priv = NULL;
+                        gmblock[gid].mmap_cnt = 0;
+                        gmblock[gid].start_dma = 0x0;
+                        gmblock[gid].start_virt = 0x0;
+                        gmblock[gid].start_phys = 0x0;
+                        gmblock[gid].d_buf = NULL;
+                        gmblock[gid].fd = -1;
+                        gmblock[gid].pIonHandle = NULL;
+                        gmblock[gid].attach = NULL;
+                        gmblock[gid].sgt = NULL;
+                        pr_info("%s:[HCP][%s]\n",
+                    		__func__, gmblock[gid].name);
+                    }
+				//kref_put(&gmblock[gid].kref, gce_release_token);
 				break;
 			default:
 				break;

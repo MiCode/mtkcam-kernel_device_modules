@@ -387,11 +387,6 @@ static void mtk_mae_frame_done_worker(struct work_struct *work)
 	pr_info("%s-", __func__);
 }
 
-static inline struct mtk_mae_ctx *fh_to_ctx(struct v4l2_fh *fh)
-{
-	return container_of(fh, struct mtk_mae_ctx, fh);
-}
-
 static const struct v4l2_pix_format_mplane *mtk_mae_find_fmt(u32 format)
 {
 	unsigned int i;
@@ -897,8 +892,8 @@ static int mtk_mae_video_device_open(struct file *filp)
 {
 	struct mtk_mae_dev *mae_dev = video_drvdata(filp);
 	struct video_device *vdev = video_devdata(filp);
-	struct mtk_mae_ctx *ctx;
-	struct mtk_mae_map_table *map_table;
+	struct mtk_mae_ctx *ctx = mae_dev->ctx;
+	struct mtk_mae_map_table *map_table = mae_dev->map_table;
 	int ret;
 
 	mutex_lock(&mae_dev->mae_device_lock);
@@ -906,25 +901,11 @@ static int mtk_mae_video_device_open(struct file *filp)
 	mae_dev_info(mae_dev->dev, "%s+ open_video_device_cnt(%d)\n",
 				__func__, mae_dev->open_video_device_cnt);
 
+
 	if (mae_dev->open_video_device_cnt == 0) {
-		ctx = kzalloc(sizeof(*ctx), GFP_KERNEL);
-		if (!ctx)
-			return -ENOMEM;
-
-		ctx->mae_dev = mae_dev;
-		ctx->dev = mae_dev->dev;
-		mae_dev->ctx = ctx;
-
-		map_table = kzalloc(sizeof(*map_table), GFP_KERNEL);
-		if (!map_table)
-			return -ENOMEM;
-
 		memset(map_table, 0, sizeof(*map_table));
-		mae_dev->map_table = map_table;
 
 		v4l2_fh_init(&ctx->fh, vdev);
-		filp->private_data = &ctx->fh;
-
 		mtk_mae_init_v4l2_fmt(ctx);
 #if M2M_ENABLE
 		ctx->fh.m2m_ctx =
@@ -942,6 +923,7 @@ static int mtk_mae_video_device_open(struct file *filp)
 		v4l2_fh_add(&ctx->fh);
 	}
 
+	filp->private_data = &ctx->fh;
 	mae_dev->open_video_device_cnt++;
 
 	mutex_unlock(&mae_dev->mae_device_lock);
@@ -950,8 +932,7 @@ static int mtk_mae_video_device_open(struct file *filp)
 
 err_free_ctrl_handler:
 	v4l2_fh_exit(&ctx->fh);
-	kfree(mae_dev->map_table);
-	kfree(ctx);
+	mutex_unlock(&mae_dev->mae_device_lock);
 
 	return ret;
 }
@@ -961,15 +942,16 @@ err_free_ctrl_handler:
  */
 static int mtk_mae_video_device_release(struct file *filp)
 {
-	struct mtk_mae_ctx *ctx =
-		container_of(filp->private_data, struct mtk_mae_ctx, fh);
 	struct mtk_mae_dev *mae_dev = video_drvdata(filp);
+	struct mtk_mae_ctx *ctx = mae_dev->ctx;
 
 	mutex_lock(&mae_dev->mae_device_lock);
 
-	if (mae_dev->open_video_device_cnt - 1 < 0)
-		mae_dev_info(mae_dev->dev, "open_video_device_cnt(%d) should not be negative\n",
+	if (mae_dev->open_video_device_cnt - 1 < 0) {
+		mae_dev_info(mae_dev->dev, "open_video_device_cnt(%d): release null device\n",
 			mae_dev->open_video_device_cnt);
+		return -ENXIO;
+	}
 
 	mae_dev->open_video_device_cnt--;
 
@@ -988,9 +970,6 @@ static int mtk_mae_video_device_release(struct file *filp)
 		vb2_queue_release(ctx->vq);
 		kfree(ctx->vq);
 #endif
-
-		kfree(ctx);
-		kfree(mae_dev->map_table);
 	}
 
 	mutex_unlock(&mae_dev->mae_device_lock);
@@ -1079,9 +1058,9 @@ static int mtk_mae_enum_fmt_out_mp(struct file *file, void *fh,
 static int mtk_mae_g_fmt_out_mp(struct file *file, void *fh,
 				struct v4l2_format *f)
 {
-	struct mtk_mae_ctx *ctx;
+	struct mtk_mae_dev *mae_dev = video_drvdata(file);
+	struct mtk_mae_ctx *ctx = mae_dev->ctx;
 
-	ctx = fh_to_ctx(fh);
 	if (ctx == NULL)
 		return -1;
 
@@ -1114,10 +1093,10 @@ static int mtk_mae_try_fmt_out_mp(struct file *file, void *fh,
 static int mtk_mae_s_fmt_out_mp(struct file *file, void *fh,
 				struct v4l2_format *f)
 {
-	struct mtk_mae_ctx *ctx;
+	struct mtk_mae_dev *mae_dev = video_drvdata(file);
+	struct mtk_mae_ctx *ctx = mae_dev->ctx;
 	struct vb2_queue *vq;
 
-	ctx = fh_to_ctx(fh);
 	if (ctx == NULL)
 		return -1;
 
@@ -1499,6 +1478,8 @@ int mtk_mae_probe(struct platform_device *pdev)
 	int ret;
 	struct resource *res;
 	const struct mae_data *data;
+	struct mtk_mae_ctx *ctx;
+	struct mtk_mae_map_table *map_table;
 
 	mae_dev_info(dev ,"%s+", __func__);
 
@@ -1507,6 +1488,21 @@ int mtk_mae_probe(struct platform_device *pdev)
 		return -ENOMEM;
 
 	memset(mae_dev, 0, sizeof(*mae_dev));
+
+	ctx = devm_kzalloc(dev, sizeof(*ctx), GFP_KERNEL);
+	if (!ctx)
+		return -ENOMEM;
+
+	ctx->mae_dev = mae_dev;
+	ctx->dev = mae_dev->dev;
+	mae_dev->ctx = ctx;
+
+	map_table = devm_kzalloc(dev, sizeof(*map_table), GFP_KERNEL);
+	if (!map_table)
+		return -ENOMEM;
+
+	memset(map_table, 0, sizeof(*map_table));
+	mae_dev->map_table = map_table;
 
 	data = of_device_get_match_data(&pdev->dev);
 	if (!data) {

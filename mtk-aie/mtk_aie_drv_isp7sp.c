@@ -5447,9 +5447,12 @@ static void aie_dump_cg_reg(struct mtk_aie_dev *fd)
 
 	aie_dev_info(fd->dev, "Dump AIE CG/PG:\n");
 
-	if (isp_main_reg != NULL)
+	if (isp_main_reg != NULL) {
 		aie_dev_info(fd->dev, "[0x15000000] 0x%08X\n",
 			(unsigned int)ioread32((void *)(isp_main_reg)));
+		aie_dev_info(fd->dev, "[0x15000050] 0x%08X\n",
+			(unsigned int)ioread32((void *)(isp_main_reg + 0x50)));
+	}
 
 	if (isp_vcore_reg != NULL)
 		aie_dev_info(fd->dev, "[0x15780000] 0x%08X\n",

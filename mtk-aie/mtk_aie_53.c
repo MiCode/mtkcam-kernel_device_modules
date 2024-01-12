@@ -140,6 +140,15 @@ static struct clk_bulk_data isp7sp_1_aie_clks[] = {
 	{ .id = "LARB12" },
 };
 
+static struct clk_bulk_data isp7sp_2_aie_clks[] = {
+	{ .id = "VCORE_MAIN_CON_0" },
+	{ .id = "VCORE_SUB0_CON_0" },
+	{ .id = "IMG_IPE" },
+	{ .id = "SUB_COMMON3" },
+	{ .id = "IPE_FDVT" },
+	{ .id = "IPE_SMI_LARB12" },
+};
+
 static struct aie_reg_map isp7sp_aie_reg_map[] = {
 	{ .base = 0x15000000, .offset = 0x1000},  /* isp_main */
 	{ .base = 0x15780000, .offset = 0x1000},  /* isp_vcore */
@@ -179,10 +188,10 @@ static struct aie_data data_isp7sp_1 = {
 };
 
 static struct aie_data data_isp7sp_2 = {
-	.clks = isp7sp_aie_clks,
-	.clk_num = ARRAY_SIZE(isp7sp_aie_clks),
+	.clks = isp7sp_2_aie_clks,
+	.clk_num = ARRAY_SIZE(isp7sp_2_aie_clks),
 	.drv_ops = &aie_ops_isp7sp,
-	.larb_clk_ready = false,
+	.larb_clk_ready = true,
 	.reg_map = isp7sp_aie_reg_map,
 	.reg_map_num = ARRAY_SIZE(isp7sp_aie_reg_map),
 	.is_cmdq_polling = false,

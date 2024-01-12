@@ -12,15 +12,15 @@
 #include "./../mtk_imgsys-dev.h"
 #include "./../mtk_imgsys-debug.h"
 
-#define ME_BASE 0x15320000
+#define ME_BASE 0x34070000
 
 #define ME_CTL_OFFSET      0x0000
-#define ME_CTL_RANGE       0xA10
-#define ME_CTL_RANGE_TF    0x120
+#define ME_CTL_RANGE       0xE50
+#define ME_CTL_RANGE_TF    0x140
 
 #define MMG_CTL_OFFSET      0x0000
-#define MMG_CTL_RANGE       0xA40
-#define MMG_CTL_RANGE_TF    0x30
+#define MMG_CTL_RANGE       0xA50
+#define MMG_CTL_RANGE_TF    0x40
 
 void imgsys_me_set_initial_value(struct mtk_imgsys_dev *imgsys_dev);
 void imgsys_me_debug_dump(struct mtk_imgsys_dev *imgsys_dev,

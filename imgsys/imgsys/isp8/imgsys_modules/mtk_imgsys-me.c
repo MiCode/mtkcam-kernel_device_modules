@@ -49,7 +49,7 @@ int ME_TranslationFault_callback(int port, dma_addr_t mva, void *data)
 
 	for (i = ME_CTL_OFFSET; i <= ME_CTL_OFFSET + ME_CTL_RANGE_TF; i += 0x10) {
 		pr_info("%s: 0x%08X %08X, %08X, %08X, %08X", __func__,
-		(unsigned int)(0x15320000 + i),
+		(unsigned int)(0x34070000 + i),
 		(unsigned int)ioread32((void *)(meRegBA + i)),
 		(unsigned int)ioread32((void *)(meRegBA + (i+0x4))),
 		(unsigned int)ioread32((void *)(meRegBA + (i+0x8))),
@@ -74,7 +74,7 @@ int MMG_TranslationFault_callback(int port, dma_addr_t mva, void *data)
 
 	for (i = MMG_CTL_OFFSET; i <= MMG_CTL_OFFSET + MMG_CTL_RANGE_TF; i += 0x10) {
 		pr_info("%s: 0x%08X %08X, %08X, %08X, %08X", __func__,
-		(unsigned int)(0x15330000 + i),
+		(unsigned int)(0x34080000 + i),
 		(unsigned int)ioread32((void *)(mmgRegBA + i)),
 		(unsigned int)ioread32((void *)(mmgRegBA + (i+0x4))),
 		(unsigned int)ioread32((void *)(mmgRegBA + (i+0x8))),
@@ -139,7 +139,7 @@ void imgsys_me_debug_dump(struct mtk_imgsys_dev *imgsys_dev,
 	dev_info(imgsys_dev->dev, "%s: dump me regs\n", __func__);
 	for (i = ME_CTL_OFFSET; i <= ME_CTL_OFFSET + ME_CTL_RANGE; i += 0x10) {
 		dev_info(imgsys_dev->dev, "%s: 0x%08X %08X, %08X, %08X, %08X", __func__,
-		(unsigned int)(0x15320000 + i),
+		(unsigned int)(0x34070000 + i),
 		(unsigned int)ioread32((void *)(meRegBA + i)),
 		(unsigned int)ioread32((void *)(meRegBA + (i+0x4))),
 		(unsigned int)ioread32((void *)(meRegBA + (i+0x8))),
@@ -148,7 +148,7 @@ void imgsys_me_debug_dump(struct mtk_imgsys_dev *imgsys_dev,
 	dev_info(imgsys_dev->dev, "%s: dump mmg regs\n", __func__);
 	for (i = MMG_CTL_OFFSET; i <= MMG_CTL_OFFSET + MMG_CTL_RANGE; i += 0x10) {
 		dev_info(imgsys_dev->dev, "%s: 0x%08X %08X, %08X, %08X, %08X", __func__,
-		(unsigned int)(0x15330000 + i),
+		(unsigned int)(0x34080000 + i),
 		(unsigned int)ioread32((void *)(mmgRegBA + i)),
 		(unsigned int)ioread32((void *)(mmgRegBA + (i+0x4))),
 		(unsigned int)ioread32((void *)(mmgRegBA + (i+0x8))),
@@ -177,7 +177,7 @@ void ipesys_me_debug_dump_local(void)
 	pr_info("imgsys %s: dump me regs\n", __func__);
 	for (i = ME_CTL_OFFSET; i <= ME_CTL_OFFSET + ME_CTL_RANGE; i += 0x10) {
 		pr_info("imgsys %s: 0x%08X %08X, %08X, %08X, %08X", __func__,
-		(unsigned int)(0x15320000 + i),
+		(unsigned int)(0x34070000 + i),
 		(unsigned int)ioread32((void *)(meRegBA + i)),
 		(unsigned int)ioread32((void *)(meRegBA + (i+0x4))),
 		(unsigned int)ioread32((void *)(meRegBA + (i+0x8))),
@@ -186,7 +186,7 @@ void ipesys_me_debug_dump_local(void)
 	pr_info("imgsys %s: dump mmg regs\n", __func__);
 	for (i = MMG_CTL_OFFSET; i <= MMG_CTL_OFFSET + MMG_CTL_RANGE; i += 0x10) {
 		pr_info("imgsys %s: 0x%08X %08X, %08X, %08X, %08X", __func__,
-		(unsigned int)(0x15330000 + i),
+		(unsigned int)(0x34080000 + i),
 		(unsigned int)ioread32((void *)(mmgRegBA + i)),
 		(unsigned int)ioread32((void *)(mmgRegBA + (i+0x4))),
 		(unsigned int)ioread32((void *)(mmgRegBA + (i+0x8))),

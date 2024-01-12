@@ -1894,11 +1894,6 @@ void mtk_imgsys_mmdvfs_mmqos_cal_plat71(struct mtk_imgsys_dev *imgsys_dev,
 		}
 	}
 	#if IMGSYS_DVFS_ENABLE
-	/* Check current time */
-	/* do_gettimeofday(&curr_time); */
-	/* ts_curr = curr_time.tv_sec * 1000000 + curr_time.tv_usec; */
-	/* ts_eq = frm_info->eqtime.tv_sec * 1000000 + frm_info->eqtime.tv_usec; */
-	/* ts_sw = ts_curr - ts_eq; */
 	if (fps != 0)
 		ts_fps = 1000000 / fps;
 	else

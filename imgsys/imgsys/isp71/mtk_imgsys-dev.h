@@ -826,7 +826,6 @@ struct swfrm_info_t {
 	uint32_t fail_uinfo_idx;
 	int8_t fail_isHWhang;
 	int timeout_event;
-	struct timeval eqtime;
 	int chan_id;
 	uint64_t *req_stat;
 	char *hw_ts_log;

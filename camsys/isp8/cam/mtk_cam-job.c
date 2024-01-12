@@ -4861,7 +4861,14 @@ static int update_cam_buf_to_ipi_frame(struct req_buffer_helper *helper,
 	if (CAM_DEBUG_ENABLED(IPI_BUF))
 		pr_info("%s pipe %x buf %s\n",
 			__func__, pipe_id, node->desc.name);
-
+	if (CAM_DEBUG_ENABLED(IPI_BUF)) {
+		if (node->desc.image)
+			pr_info("%s:image pipe %x buf %s remap:%d v4l2_buffer_index:%d\n",
+				__func__, pipe_id, node->desc.name, buf->image_info.remap, buf->v4l2_buffer_idx);
+		else
+			pr_info("%s:meta pipe %x buf %s remap:%d v4l2_buffer_index:%d\n",
+				__func__, pipe_id, node->desc.name, buf->meta_info.remap, buf->v4l2_buffer_idx);
+	}
 	if (is_raw_subdev(pipe_id)) {
 		if (node->desc.image)
 			ret = update_raw_image_buf_to_ipi_frame(helper,

@@ -30,11 +30,13 @@ struct mtk_cam_cached_image_info {
 	unsigned int bytesperline[4];
 	unsigned int size[4];
 	struct v4l2_rect crop;
+	bool remap;
 };
 
 struct mtk_cam_cached_meta_info {
 	unsigned int v4l2_pixelformat;
 	unsigned int buffersize;
+	bool remap;
 };
 
 /* Flags used in struct mtk_cam_buffer */
@@ -68,6 +70,7 @@ struct mtk_cam_buffer {
 		struct mtk_cam_cached_image_info image_info;
 		struct mtk_cam_cached_meta_info meta_info;
 	};
+	int v4l2_buffer_idx;
 };
 
 struct mtk_cam_format_desc {

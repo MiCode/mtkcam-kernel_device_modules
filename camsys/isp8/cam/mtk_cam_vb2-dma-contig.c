@@ -137,6 +137,7 @@ static int mtk_cam_vb2_map_dmabuf(void *mem_priv)
 {
 	struct mtk_cam_vb2_buf *buf = mem_priv;
 	struct sg_table *sgt;
+	struct mtk_cam_video_device *node = mtk_cam_vbq_to_vdev(buf->vb->vb2_queue);
 	unsigned long contig_size;
 
 	if (WARN_ON(!buf->db_attach)) {
@@ -170,7 +171,13 @@ static int mtk_cam_vb2_map_dmabuf(void *mem_priv)
 	buf->dma_addr = sg_dma_address(sgt->sgl);
 	buf->dma_sgt = sgt;
 	buf->vaddr = NULL;
+	if (node->desc.image)
+		node->image_info.remap = true;
+	else
+		node->meta_info.remap = true;
 
+	if (CAM_DEBUG_ENABLED(V4L2))
+		pr_info("%s: %s\n", __func__, node->desc.name);
 	MTK_CAM_TRACE_END(BUFFER);
 	return 0;
 }
@@ -179,6 +186,7 @@ static void mtk_cam_vb2_unmap_dmabuf(void *mem_priv)
 {
 	struct mtk_cam_vb2_buf *buf = mem_priv;
 	struct sg_table *sgt = buf->dma_sgt;
+	struct mtk_cam_video_device *node = mtk_cam_vbq_to_vdev(buf->vb->vb2_queue);
 
 	if (WARN_ON(!buf->db_attach)) {
 		pr_info("trying to unpin a not attached buffer\n");
@@ -197,7 +205,8 @@ static void mtk_cam_vb2_unmap_dmabuf(void *mem_priv)
 		buf->vaddr = NULL;
 	}
 	dma_buf_unmap_attachment(buf->db_attach, sgt, buf->dma_dir);
-
+	if (CAM_DEBUG_ENABLED(V4L2))
+		pr_info("%s: %s\n", __func__, node->desc.name);
 	buf->dma_addr = 0;
 	buf->dma_sgt = NULL;
 

@@ -392,6 +392,8 @@ static void mtk_cam_vb2_buf_collect_image_info(struct vb2_buffer *vb)
 
 	/* clone into vb2_buffer */
 	*cached = node->image_info;
+	/* clear node's remap info */
+	node->image_info.remap = false;
 }
 
 static void mtk_cam_vb2_buf_collect_meta_info(struct vb2_buffer *vb)
@@ -403,6 +405,9 @@ static void mtk_cam_vb2_buf_collect_meta_info(struct vb2_buffer *vb)
 
 	cached->v4l2_pixelformat = meta_fmt->dataformat;
 	cached->buffersize = meta_fmt->buffersize;
+	cached->remap = node->meta_info.remap;
+	/* clear node's remap info */
+	node->meta_info.remap = false;
 }
 
 static int mtk_cam_vb2_buf_prepare(struct vb2_buffer *vb)
@@ -1331,6 +1336,7 @@ int mtk_cam_vidioc_qbuf(struct file *file, void *priv,
 		return -EINVAL;
 
 	cam_buf->flags = 0;
+	cam_buf->v4l2_buffer_idx = buf->index;
 	if (buf->flags & V4L2_BUF_FLAG_NO_CACHE_CLEAN)
 		cam_buf->flags |= FLAG_NO_CACHE_CLEAN;
 

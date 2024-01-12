@@ -43,14 +43,14 @@ static struct subdrv_feature_control feature_control_list[] = {
 
 static struct eeprom_info_struct eeprom_info[] = {
 	{
-		.header_id = 0x01470005,
-		.addr_header_id = 0x00000006,
-		.i2c_write_id = 0xA2,
+		.header_id = 0x010B00FF,
+		.addr_header_id = 0x0000800B,
+		.i2c_write_id = 0xAC,
 
 		.qsc_support = TRUE,
-		.qsc_size = 0x0C00,
-		.addr_qsc = 0x22C0,
-		.sensor_reg_addr_qsc = 0xC800,
+		.qsc_size = 0x0900,
+		.addr_qsc = 0x9A0B,
+		.sensor_reg_addr_qsc = 0xC200,
 	},
 };
 
@@ -820,12 +820,11 @@ static void set_sensor_cali(void *arg)
 	addr = info[idx].sensor_reg_addr_qsc;
 	if (support) {
 		if (pbuf != NULL && addr > 0 && size > 0) {
-			subdrv_i2c_wr_u8(ctx, 0x86A9, 0x4E);
 			subdrv_i2c_wr_seq_p8(ctx, addr, pbuf, size);
-			subdrv_i2c_wr_u8(ctx, 0x32D2, 0x01);
+			subdrv_i2c_wr_u8(ctx, 0x32D6, 0x01);
 			DRV_LOG(ctx, "set QSC calibration data done.");
 		} else {
-			subdrv_i2c_wr_u8(ctx, 0x32D2, 0x00);
+			subdrv_i2c_wr_u8(ctx, 0x32D6, 0x00);
 		}
 	}
 }

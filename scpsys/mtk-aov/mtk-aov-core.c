@@ -985,7 +985,11 @@ int aov_core_init(struct mtk_aov *aov_dev)
 
 	mtk_dma_buf_set_name(core_info->dma_buf, "AOV Event");
 
+#ifdef NEW_DMA_BUF_API
+	ret = dma_buf_vmap_unlocked(core_info->dma_buf, &(core_info->dma_map));
+#else
 	ret = dma_buf_vmap(core_info->dma_buf, &(core_info->dma_map));
+#endif
 	if (ret) {
 		dev_info(aov_dev->dev, "%s: failed to map dmap buffer(%d)\n", __func__, ret);
 		return -ENOMEM;
@@ -1548,7 +1552,11 @@ int aov_core_uninit(struct mtk_aov *aov_dev)
 
 	if (core_info->dma_buf) {
 		if (core_info->event_data)
+#ifdef NEW_DMA_BUF_API
+			dma_buf_vunmap_unlocked(core_info->dma_buf, &(core_info->dma_map));
+#else
 			dma_buf_vunmap(core_info->dma_buf, &(core_info->dma_map));
+#endif
 
 		dma_heap_buffer_free(core_info->dma_buf);
 	}

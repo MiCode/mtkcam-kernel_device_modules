@@ -89,6 +89,15 @@ struct regulator_req {
 			pr_debug("[C2PS]: %s " fmt, __func__, ##__VA_ARGS__);   \
 	} while (0)
 
+#define C2PS_LOGW(fmt, ...)                                         \
+	do {                                                            \
+		if (debug_log_on)                                           \
+			pr_warn("[C2PS]: %s " fmt, __func__, ##__VA_ARGS__);   \
+	} while (0)
+
+#define C2PS_LOGW_ONCE(fmt, ...) pr_warn_once("[C2PS]: %s %s %d " fmt, \
+	__FILE__, __func__, __LINE__, ##__VA_ARGS__)
+
 #define C2PS_LOGE(fmt, ...) pr_err("[C2PS]: %s %s %d " fmt, \
 	__FILE__, __func__, __LINE__, ##__VA_ARGS__)
 

@@ -17,6 +17,11 @@
 #include "c2ps_common.h"
 #include "c2ps_sysfs.h"
 
+#ifndef CREATE_TRACE_POINTS
+#define CREATE_TRACE_POINTS
+#endif
+#include "c2ps_trace_event.h"
+
 static DEFINE_HASHTABLE(task_info_tbl, 3);
 static DEFINE_MUTEX(task_info_tbl_lock);
 static DEFINE_HASHTABLE(task_group_info_tbl, 3);
@@ -376,18 +381,15 @@ inline bool is_group_head(struct c2ps_task_info *tsk_info)
 	return tsk_info->task_id == tsk_info->tsk_group->group_head;
 }
 
-static noinline int tracing_mark_write(const char *buf)
-{
-	trace_printk(buf);
-	return 0;
-}
-
 void c2ps_systrace_c(pid_t pid, int val, const char *fmt, ...)
 {
 	char log[256];
 	va_list args;
 	int len;
 	char buf[256];
+
+	if (!trace_c2ps_systrace_enabled())
+		return;
 
 	memset(log, ' ', sizeof(log));
 	va_start(args, fmt);
@@ -406,7 +408,7 @@ void c2ps_systrace_c(pid_t pid, int val, const char *fmt, ...)
 	else if (unlikely(len == 256))
 		buf[255] = '\0';
 
-	tracing_mark_write(buf);
+	trace_c2ps_systrace(buf);
 }
 
 void c2ps_systrace_d(const char *fmt, ...)
@@ -415,6 +417,9 @@ void c2ps_systrace_d(const char *fmt, ...)
 	va_list args;
 	int len;
 	char buf[256];
+
+	if (!trace_c2ps_systrace_enabled())
+		return;
 
 	memset(log, ' ', sizeof(log));
 	va_start(args, fmt);
@@ -433,7 +438,7 @@ void c2ps_systrace_d(const char *fmt, ...)
 	else if (unlikely(len == 256))
 		buf[255] = '\0';
 
-	tracing_mark_write(buf);
+	trace_c2ps_systrace(buf);
 }
 
 void *c2ps_alloc_atomic(int i32Size)

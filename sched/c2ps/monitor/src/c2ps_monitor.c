@@ -108,7 +108,8 @@ int monitor_task_start(int pid, int task_id)
 
 	C2PS_LOGD("+ \n");
 	if (!tsk_info) {
-		C2PS_LOGE("tsk_info not found\n");
+		C2PS_LOGW_ONCE("tsk_info not found\n");
+		C2PS_LOGW("tsk_info not found\n");
 		return -1;
 	}
 
@@ -154,7 +155,8 @@ int monitor_task_end(int pid, int task_id)
 
 	C2PS_LOGD("+ \n");
 	if (!tsk_info) {
-		C2PS_LOGE("tsk_info not found\n");
+		C2PS_LOGW_ONCE("tsk_info not found\n");
+		C2PS_LOGW("tsk_info not found\n");
 		return -1;
 	}
 
@@ -202,7 +204,8 @@ int monitor_task_scene_change(int task_id, int scene_mode)
 
 	C2PS_LOGD("+ \n");
 	if (!tsk_info) {
-		C2PS_LOGE("tsk_info not found\n");
+		C2PS_LOGW_ONCE("tsk_info not found\n");
+		C2PS_LOGW("tsk_info not found\n");
 		return -1;
 	}
 

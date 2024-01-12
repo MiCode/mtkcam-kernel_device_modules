@@ -740,6 +740,7 @@ struct mtk_aie_dev {
 	/* time for debug */
 	long long tv[MAX_DEBUG_TIMEVAL];
 	bool is_cmdq_polling;
+	bool is_shutdown;
 };
 
 struct mtk_aie_ctx {

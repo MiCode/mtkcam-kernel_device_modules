@@ -203,7 +203,7 @@ static int mtk_aie_suspend(struct device *dev)
 	struct mtk_aie_dev *fd = dev_get_drvdata(dev);
 	int ret, num;
 
-	if (fd->larb_clk_ready)
+	if (fd->larb_clk_ready && !fd->is_shutdown)
 		if (pm_runtime_suspended(dev))
 			return 0;
 
@@ -224,7 +224,7 @@ static int mtk_aie_suspend(struct device *dev)
 
 	aie_dev_dbg(dev, "%s: suspend aie job end, num(%d)\n", __func__, num);
 
-	if (fd->larb_clk_ready) {
+	if (fd->larb_clk_ready && !fd->is_shutdown) {
 		ret = pm_runtime_put_sync(dev);
 		if (ret) {
 			aie_dev_info(dev, "%s: pm_runtime_put_sync failed:(%d)\n",
@@ -243,7 +243,7 @@ static int mtk_aie_resume(struct device *dev)
 
 	aie_dev_dbg(dev, "%s: resume aie job start)\n", __func__);
 
-	if (fd->larb_clk_ready) {
+	if (fd->larb_clk_ready && !fd->is_shutdown) {
 		if (pm_runtime_suspended(dev)) {
 			aie_dev_dbg(dev, "%s: pm_runtime_suspended is true, no action\n",
 				__func__);
@@ -254,7 +254,7 @@ static int mtk_aie_resume(struct device *dev)
 	if (m_aov_notify != NULL)
 		m_aov_notify(gaov_dev, AOV_NOTIFY_AIE_AVAIL, 0); //unavailable: 0 available: 1
 
-	if (fd->larb_clk_ready) {
+	if (fd->larb_clk_ready && !fd->is_shutdown) {
 		ret = pm_runtime_get_sync(dev);
 		if (ret) {
 			aie_dev_info(dev, "%s: pm_runtime_get_sync failed:(%d)\n",
@@ -621,14 +621,16 @@ static int mtk_aie_hw_connect(struct mtk_aie_dev *fd)
 	if (m_aov_notify != NULL)
 		m_aov_notify(gaov_dev, AOV_NOTIFY_AIE_AVAIL, 0); //unavailable: 0 available: 1
 
-	if (fd->larb_clk_ready)
+	if (fd->larb_clk_ready && !fd->is_shutdown)
 		pm_runtime_get_sync((fd->dev));
-
 
 	fd->fd_stream_count++;
 	if (fd->fd_stream_count == 1) {
-		cmdq_mbox_enable(fd->fdvt_clt->chan);
-		cmdq_clear_event(fd->fdvt_clt->chan, fd->fdvt_event_id);
+		if (!fd->is_shutdown) {
+			cmdq_mbox_enable(fd->fdvt_clt->chan);
+			cmdq_clear_event(fd->fdvt_clt->chan, fd->fdvt_event_id);
+		}
+
 		ret = mtk_aie_hw_enable(fd);
 		if (ret)
 			return -EINVAL;
@@ -642,14 +644,16 @@ static int mtk_aie_hw_connect(struct mtk_aie_dev *fd)
 
 static void mtk_aie_hw_disconnect(struct mtk_aie_dev *fd)
 {
-	if (g_user_param.is_secure == 1 & fd->fd_stream_count == 1) {
+	if (g_user_param.is_secure == 1 &&
+		fd->fd_stream_count == 1 &&
+		!fd->is_shutdown) {
 		aie_disable_secure_domain(fd);
 #if CMDQ_SEC_READY
 		cmdq_sec_mbox_stop(fd->fdvt_secure_clt);
 #endif
 	}
 
-	if (fd->larb_clk_ready)
+	if (fd->larb_clk_ready && !fd->is_shutdown)
 		pm_runtime_put_sync(fd->dev);
 
 	aie_dev_info(fd->dev, "[%s] stream_count:%d map_count%d\n", __func__,
@@ -657,7 +661,9 @@ static void mtk_aie_hw_disconnect(struct mtk_aie_dev *fd)
 	fd->fd_stream_count--;
 	if (fd->fd_stream_count == 0) { //have hw_connect
 		//mtk_aie_mmqos_set(fd, 0);
-		cmdq_mbox_disable(fd->fdvt_clt->chan);
+		if (!fd->is_shutdown)
+			cmdq_mbox_disable(fd->fdvt_clt->chan);
+
 		//mtk_aie_mmdvfs_set(fd, 0, 0);
 		if (fd->map_count == 1) { //have qbuf + map memory
 			dma_buf_vunmap(fd->para_dmabuf, &fd->para_map);
@@ -852,6 +858,7 @@ static void mtk_aie_job_timeout_work(struct work_struct *work)
 
 	fd->drv_ops->irq_handle(fd);
 	fd->drv_ops->reset(fd);
+
 	mtk_aie_hw_job_finish(fd, VB2_BUF_STATE_ERROR);
 	atomic_dec(&fd->num_composing);
 	wake_up(&fd->flushing_waitq);
@@ -1097,7 +1104,7 @@ int mtk_aie_vidioc_qbuf(struct file *file, void *priv,
 			fd->base_para->max_pyramid_height = (signed short)
 						(g_user_param.pyramid_height & 0x0000FFFF);
 
-			if (g_user_param.is_secure) {
+			if (g_user_param.is_secure && !fd->is_shutdown) {
 				aie_dev_info(fd->dev, "AIE SECURE MODE INIT!\n");
 				config_aie_cmdq_secure_init(fd);
 				aie_enable_secure_domain(fd);
@@ -1541,15 +1548,17 @@ static void mtk_aie_device_run(void *priv)
 
 	atomic_inc(&fd->num_composing);
 
-	mtk_aie_hw_job_exec(fd, &fd_param);
+	if (!fd->is_shutdown)
+		mtk_aie_hw_job_exec(fd, &fd_param);
+
 	aie_get_time(fd->tv, 0);
 
 	if (ret) {
 		aie_dev_info(fd->dev, "Failed to prepare aie setting\n");
 		return;
 	}
-
-	fd->drv_ops->execute(fd, fd->aie_cfg);
+	if (!fd->is_shutdown)
+		fd->drv_ops->execute(fd, fd->aie_cfg);
 }
 
 static struct v4l2_m2m_ops fd_m2m_ops = {
@@ -1748,6 +1757,7 @@ static int mtk_aie_probe(struct platform_device *pdev)
 	fd->reg_map_num = data->reg_map_num;
 	fd->is_cmdq_polling = data->is_cmdq_polling;
 	reg_map = data->reg_map;
+	fd->is_shutdown = false;
 
 	if (dma_set_mask_and_coherent(dev, DMA_BIT_MASK(34)))
 		aie_dev_info(dev, "%s: No suitable DMA available\n", __func__);
@@ -1940,6 +1950,22 @@ static int mtk_aie_runtime_resume(struct device *dev)
 	return 0;
 }
 
+static void mtk_aie_shutdown(struct platform_device *pdev)
+{
+	struct device *dev = &pdev->dev;
+	struct mtk_aie_dev *fd = dev_get_drvdata(&pdev->dev);
+
+	fd->is_shutdown = true;
+	if (fd->fdvt_clt)
+		cmdq_mbox_stop(fd->fdvt_clt);
+	else
+		aie_dev_info(dev, "%s: fdvt cmdq client is NULL\n", __func__);
+
+
+	aie_dev_info(dev, "%s: aie shutdown ready(%d)\n",
+		__func__, fd->is_shutdown);
+}
+
 static const struct dev_pm_ops mtk_aie_pm_ops = {
 		SET_RUNTIME_PM_OPS(mtk_aie_runtime_suspend,
 				   mtk_aie_runtime_resume, NULL)};
@@ -1963,6 +1989,7 @@ MODULE_DEVICE_TABLE(of, mtk_aie_of_ids);
 static struct platform_driver mtk_aie_driver = {
 	.probe = mtk_aie_probe,
 	.remove = mtk_aie_remove,
+	.shutdown = mtk_aie_shutdown,
 	.driver = {
 		.name = "mtk-aie-5.3",
 		.of_match_table = of_match_ptr(mtk_aie_of_ids),

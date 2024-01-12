@@ -224,15 +224,14 @@ struct DPE_CLK_STRUCT dpe_clk;
 #define MAX_NUM_TILE 4
 #define TILE_WITH_NUM 3
 //#define IOVA_TO_PA
+#define DPE_IRQ_ENABLE (0)
 #define IRQ_LOG
 
+#if DPE_IRQ_ENABLE
 /* static irqreturn_t DPE_Irq_CAM_A(signed int  Irq,void *DeviceId); */
 static irqreturn_t ISP_Irq_DVP(signed int Irq, void *DeviceId);
 static irqreturn_t ISP_Irq_DVS(signed int Irq, void *DeviceId);
 static irqreturn_t ISP_Irq_DVGF(signed int Irq, void *DeviceId);
-static void DPE_ScheduleWork(struct work_struct *data);
-static void DVP_ScheduleWork(struct work_struct *data);
-static void DVGF_ScheduleWork(struct work_struct *data);
 typedef irqreturn_t (*IRQ_CB)(signed int, void *);
 struct ISR_TABLE {
 	IRQ_CB isr_fp;
@@ -259,6 +258,10 @@ const struct ISR_TABLE DPE_IRQ_CB_TBL[DPE_IRQ_TYPE_AMOUNT] = {
 #endif
 };
 #endif
+#endif
+static void DPE_ScheduleWork(struct work_struct *data);
+static void DVP_ScheduleWork(struct work_struct *data);
+static void DVGF_ScheduleWork(struct work_struct *data);
 /*
  */
 /*  */
@@ -508,7 +511,10 @@ static struct IPE_device *IPE_devs;
 
 //!
 struct my_callback_data {
+	struct work_struct cmdq_cb_work;
 	struct cmdq_pkt *pkt;
+	unsigned int dpe_mode;
+	signed int err;
 };
 
 /**************************************************************
@@ -542,6 +548,7 @@ struct DPE_INFO_STRUCT {
 	struct work_struct DVP_ScheduleDpeWork;
 	struct work_struct DVGF_ScheduleDpeWork;
 	struct workqueue_struct *wkqueue;
+	struct workqueue_struct *cmdq_wq;
 	unsigned int UserCount; /* User Count */
 	unsigned int DebugMask; /* Debug Mask */
 	signed int IrqNum;
@@ -5057,12 +5064,105 @@ void cmdq_cb_destroy(struct cmdq_cb_data data)
 	cmdq_pkt_destroy((struct cmdq_pkt *)data.data);
 }
 
+static void DPE_callback_work_func(struct work_struct *work)
+{
+	struct my_callback_data *my_data = NULL;
+#if DPE_IRQ_ENABLE
+#else
+	struct engine_requests *dpe_reqs = NULL;
+	struct work_struct *dpe_work = NULL;
+	bool bResulst = MFALSE;
+	pid_t ProcessID;
+	unsigned int p = 0;
+#endif
+
+	my_data = container_of(work, struct my_callback_data, cmdq_cb_work);
+
+	if ((my_data->err != 0)) {
+		LOG_INF("%s: [ERROR] cb(%p) DPE mode %d timeout with err %d\n",
+			__func__, my_data, my_data->dpe_mode, my_data->err);
+	} else {
+#if DPE_IRQ_ENABLE
+		goto EXIT;
+#else
+		/* Call related IRQ funciton according to dpe_mode */
+		if (my_data->dpe_mode == 1) {
+			/* DVS */
+			dpe_reqs = &dpe_reqs_dvs;
+			dpe_work = &DPEInfo.ScheduleDpeWork;
+		} else if (my_data->dpe_mode == 3) {
+			/* DVGF */
+			dpe_reqs = &dpe_reqs_dvgf;
+			dpe_work = &DPEInfo.DVGF_ScheduleDpeWork;
+		} else {
+			/* DVP */
+			dpe_reqs = &dpe_reqs_dvp;
+			dpe_work = &DPEInfo.DVP_ScheduleDpeWork;
+		}
+
+		spin_lock(&(DPEInfo.SpinLockIrq[DPE_IRQ_TYPE_INT_DVP_ST]));
+		/* Update the frame status. */
+#ifdef __DPE_KERNEL_PERFORMANCE_MEASURE__
+		mt_kernel_trace_begin("dpe_irq");
+#endif
+		if (dpe_update_request_isp8(dpe_reqs, &ProcessID) == 0) {
+			bResulst = MTRUE;
+		} else {
+			LOG_INF("mode %d dpe_update_request bResulst fail = %d\n",
+				my_data->dpe_mode, bResulst);
+			spin_unlock(&(DPEInfo.SpinLockIrq[DPE_IRQ_TYPE_INT_DVP_ST]));
+			goto EXIT;
+		}
+
+		if (bResulst == MTRUE) {
+			#if REQUEST_REGULATION == REQUEST_BASE_REGULATION
+			queue_work(DPEInfo.wkqueue, dpe_work);
+			#endif
+			p = ProcessID % IRQ_USER_NUM_MAX;
+			DPEInfo.IrqInfo.Status[DPE_IRQ_TYPE_INT_DVP_ST] |=
+				DPE_INT_ST;
+			DPEInfo.IrqInfo.ProcessID[p] =
+				ProcessID;
+
+			DPEInfo.IrqInfo.DpeIrqCnt[p]++;
+
+			DPEInfo.ProcessID[DPEInfo.WriteReqIdx] = ProcessID;
+			DPEInfo.WriteReqIdx =
+				(DPEInfo.WriteReqIdx + 1) %
+				_SUPPORT_MAX_DPE_FRAME_REQUEST_;
+		} else {
+			LOG_INF("dvs_update_request_isp8 bResulst fail = %d\n",
+			bResulst);
+		}
+#ifdef __DPE_KERNEL_PERFORMANCE_MEASURE__
+		mt_kernel_trace_end();
+#endif
+		spin_unlock(&(DPEInfo.SpinLockIrq[DPE_IRQ_TYPE_INT_DVP_ST]));
+		if (bResulst == MTRUE)
+			wake_up_interruptible(&DPEInfo.WaitQueueHead);
+		#if (REQUEST_REGULATION == FRAME_BASE_REGULATION)
+		queue_work(DPEInfo.wkqueue, dpe_work);
+		#endif
+#endif
+	}
+
+EXIT:
+	cmdq_pkt_wait_complete(my_data->pkt);
+	cmdq_pkt_destroy(my_data->pkt);
+	kfree(my_data);
+}
+
 void DPE_callback_func(struct cmdq_cb_data data)
 {
 	struct my_callback_data *my_data = (struct my_callback_data *)data.data;
 
-	if ((data.err < 0)) {
+	my_data->err = data.err;
+
+	if ((my_data->err != 0)) {
+		LOG_INF("%s: [ERROR] cb(%p) DPE mode %d timeout with err %d\n",
+			__func__, my_data, my_data->dpe_mode, my_data->err);
 		if (g_u4EnableClockCount > 0) {
+			LOG_INF("DPE_callback_func 2\n");
 			#ifdef CMASYS_CLK_Debug
 			LOG_INF("cmd_pkt[0x3A000000 %08X]\n",
 			(unsigned int)DPE_RD32(CAMSYS_MAIN_BASE));
@@ -5076,6 +5176,9 @@ void DPE_callback_func(struct cmdq_cb_data data)
 			LOG_INF("DPE Power not Enable\n");
 		}
 	}
+
+	INIT_WORK(&my_data->cmdq_cb_work, DPE_callback_work_func);
+	queue_work(DPEInfo.cmdq_wq, &my_data->cmdq_cb_work);
 }
 
 void my_wait(struct my_callback_data *my_data)
@@ -5215,8 +5318,13 @@ if ((pDpeConfig->DPE_MODE != 2) && (pDpeConfig->DPE_MODE != 3)) {
 	if (pDpeConfig->DPE_MODE == 1) { // MODE_DVS_ONLY
 		//LOG_INF("MODE_DVS_ONLY\n");
 		#ifdef CMdq_en
+		#if DPE_IRQ_ENABLE
 		cmdq_pkt_write(handle, dpe_clt_base,
 		DVS_IRQ_00_HW, 0x00000E00, 0x00000F00);
+		#else
+		cmdq_pkt_write(handle, dpe_clt_base,
+		DVS_IRQ_00_HW, 0x00000F00, 0x00000F00);
+		#endif
 		#endif
 	} else { // MODE_DVS_DVP_BOTH
 		#ifdef CMdq_en
@@ -5407,8 +5515,13 @@ if ((pDpeConfig->DPE_MODE != 1) && (pDpeConfig->DPE_MODE != 3)) {
 	/* cmdq_pkt_write(handle, dpe_clt_base, */
 	/* DVP_CTRL07_HW, 0x00000707, CMDQ_REG_MASK); */
 	/* DVP Frame Done IRQ */
+	#if DPE_IRQ_ENABLE
 	cmdq_pkt_write(handle, dpe_clt_base,
 	DVP_IRQ_00_HW, 0x00000E00, 0x00000F00);
+	#else
+	cmdq_pkt_write(handle, dpe_clt_base,
+	DVP_IRQ_00_HW, 0x00000F00, 0x00000F00);
+	#endif
 	//LOG_INF("star CMDQWR DVP Settings\n");
 
 
@@ -5497,8 +5610,13 @@ if (pDpeConfig->DPE_MODE == 3) {
 	//cmdq_pkt_write(handle, dpe_clt_base,
 	//DVGF_CTRL_02_HW, 0x70310001, CMDQ_REG_MASK);
 
+	#if DPE_IRQ_ENABLE
 	cmdq_pkt_write(handle, dpe_clt_base,
 	DVGF_IRQ_00_HW, 0x00000E00, 0x00000F00);
+	#else
+	cmdq_pkt_write(handle, dpe_clt_base,
+	DVGF_IRQ_00_HW, 0x00000F00, 0x00000F00);
+	#endif
 
 	cmdq_pkt_write(handle, dpe_clt_base,
 	DVGF_CTRL_00_HW, 0x80000000, 0x80000000);
@@ -5588,8 +5706,9 @@ cmdq_pkt_write(handle, dpe_clt_base, DVS_CTRL00_HW, 0x20000000, 0x20000000);
 	//LOG_INF("cmd_pkt start\n");
 
 	my_data->pkt = handle;
+	my_data->dpe_mode = pDpeConfig->DPE_MODE;
 	cmdq_pkt_flush_async(handle, DPE_callback_func, (void *)my_data);
-	my_wait(my_data);
+	//my_wait(my_data);
 
 //#ifdef CMdq_en
 //	cmdq_pkt_flush_threaded(handle,
@@ -8092,7 +8211,9 @@ static signed int DPE_probe(struct platform_device *pDev)
 	/*struct resource *pRes = NULL;*/
 	signed int i = 0;
 	unsigned char n;
+#if DPE_IRQ_ENABLE
 	unsigned int irq_info[3];
+#endif
 	struct device *dev = NULL;
 	struct DPE_device *_dpe_dev;
 	int Get_SMMU = 0;
@@ -8212,6 +8333,7 @@ static signed int DPE_probe(struct platform_device *pDev)
 				&dvgf_event_id);
 		LOG_INF("[Debug]dvgf_event_id %d\n", dvgf_event_id);
 	}
+#if DPE_IRQ_ENABLE
 	/* get IRQ ID and request IRQ */
 	DPE_dev->irq = irq_of_parse_and_map(pDev->dev.of_node, 0);
 if (DPE_dev->irq > 0) {
@@ -8260,7 +8382,8 @@ if (DPE_dev->irq > 0) {
 		LOG_INF("No IRQ!!: nr_DPE_devs=%d, devnode(%s), irq=%d\n",
 			nr_DPE_devs,
 			pDev->dev.of_node->name, DPE_dev->irq);
-}
+	}
+#endif
 #endif
 	pm_runtime_enable(DPE_dev->dev);
 	if (!pm_runtime_enabled(DPE_dev->dev))
@@ -8450,6 +8573,13 @@ if (DPE_dev->irq > 0) {
 		if (!DPEInfo.wkqueue)
 			LOG_ERR("NULL DPE-CMDQ-WQ\n");
 		//!wakeup_source_init(&DPE_wake_lock, "dpe_lock_wakelock"); //!
+		DPEInfo.cmdq_wq = alloc_ordered_workqueue("%s",
+						__WQ_LEGACY | WQ_MEM_RECLAIM |
+						WQ_FREEZABLE | WQ_HIGHPRI,
+						"dpe_cmdq_cb_wq");
+		if (!DPEInfo.cmdq_wq)
+			LOG_INF("%s: Create workquque DPE-CMDQ fail!\n", __func__);
+
 		INIT_WORK(&logWork, logPrint);
 		for (i = 0; i < DPE_IRQ_TYPE_AMOUNT; i++)
 			tasklet_init(DPE_tasklet[i].pDPE_tkt,
@@ -8533,6 +8663,10 @@ static signed int DPE_remove(struct platform_device *pDev)
 	/* wait for unfinished works in the workqueue. */
 	destroy_workqueue(DPEInfo.wkqueue);
 	DPEInfo.wkqueue = NULL;
+
+	flush_workqueue(DPEInfo.cmdq_wq);
+	destroy_workqueue(DPEInfo.cmdq_wq);
+	DPEInfo.cmdq_wq = NULL;
 	/* unregister char driver. */
 	DPE_UnregCharDev();
 	/* Release IRQ */
@@ -9239,6 +9373,7 @@ void DVGF_ScheduleWork(struct work_struct *data)
 	}
 }
 
+#if DPE_IRQ_ENABLE
 static irqreturn_t ISP_Irq_DVP(signed int Irq, void *DeviceId)
 {
 	unsigned int DvsStatus = 0, DvpStatus = 0;
@@ -9586,6 +9721,7 @@ static irqreturn_t ISP_Irq_DVGF(signed int Irq, void *DeviceId)
 //#endif
 	return IRQ_HANDLED;
 }
+#endif
 
 static void ISP_TaskletFunc_DVGF(unsigned long data)
 {

@@ -51,6 +51,9 @@
 #define sizeof_u32(__struct_name__) (sizeof(__struct_name__) / sizeof(u32))
 #define sizeof_u16(__struct_name__) (sizeof(__struct_name__) / sizeof(u16))
 
+#define DEBUG_OPS_SHOW_LOG_SIZE 1024
+static char debug_ops_show_log[DEBUG_OPS_SHOW_LOG_SIZE];
+
 struct mtk_cam_seninf_ops *g_seninf_ops;
 
 /* aov sensor use */
@@ -118,6 +121,10 @@ static const char * const set_reg_names[] = {
 	SET_REG_KEYS_NAMES
 };
 
+static const char * const eye_scan_names[] = {
+	EYE_SCAN_KEYS_NAMES
+};
+
 static const char * const mux_range_name[] = {
 	MUX_RANGE_NAMES
 };
@@ -155,8 +162,8 @@ static ssize_t debug_ops_show(struct device *dev,
 {
 	int len = 0;
 
-	len += snprintf(buf + len, PAGE_SIZE - len, "This is debug ops message\n");
-
+	len += snprintf(buf + len, PAGE_SIZE - len, debug_ops_show_log);
+	memset(debug_ops_show_log, '\0', sizeof(char)*DEBUG_OPS_SHOW_LOG_SIZE);
 	return len;
 }
 
@@ -170,6 +177,14 @@ enum REG_OPS_CMD {
 	REG_OPS_CMD_TAG,
 	REG_OPS_CMD_MAX_NUM,
 };
+
+enum EYE_SCAN_OPS_CMD {
+	EYE_SCAN_ID,
+	EYE_SCAN_SENSORIDX,
+	EYE_SCAN_CMD,
+	EYE_SCAN_VAL,
+};
+
 
 static int parse_debug_csi_port(char *csi_str)
 {
@@ -193,6 +208,32 @@ static int parse_debug_csi_port(char *csi_str)
 	}
 
 	return csi_port;
+}
+
+static int get_sensor_idx(struct seninf_ctx *ctx)
+{
+	int val = 0;
+	struct v4l2_subdev *sensor_sd = NULL;
+	struct v4l2_ctrl *ctrl;
+
+	if (!ctx->sensor_sd) {
+		dev_info(ctx->dev, "no sensor subdev\n");
+		return -EINVAL;
+	}
+
+	sensor_sd = ctx->sensor_sd;
+
+	ctrl = v4l2_ctrl_find(sensor_sd->ctrl_handler, V4L2_CID_MTK_SENSOR_IDX);
+	if (!ctrl) {
+		dev_info(ctx->dev, "no sensor idx in subdev %s\n", sensor_sd->name);
+		return -EINVAL;
+	}
+
+	val = v4l2_ctrl_g_ctrl(ctrl);
+
+	dev_info(ctx->dev, "[%s]: %d\n", __func__, val);
+
+	return val;
 }
 
 static void dbg_deinit_chmux(struct seninf_ctx *ctx)
@@ -279,14 +320,15 @@ static ssize_t debug_ops_store(struct device *dev,
 	char *token = NULL;
 	char *sbuf = kzalloc(sizeof(char) * (count + 1), GFP_KERNEL);
 	char *s = sbuf;
-	int ret, i, csi_port;
+	int ret, i, csi_port, val_signed, rg_idx = -1;
 	unsigned int num_para = 0;
 	char *arg[REG_OPS_CMD_MAX_NUM];
 	struct seninf_core *core = dev_get_drvdata(dev);
 	struct seninf_ctx *ctx, *seninf_ctx = NULL;
-	int rg_idx = -1;
-	u32 pad_id, camtg, tag_id;
+	u32 pad_id, camtg, tag_id, sensor_idx;
 	u64 val;
+	char *eye_scan_log = NULL;
+	bool find_sensor_subdev = 0;
 
 	if (!sbuf)
 		goto ERR_DEBUG_OPS_STORE;
@@ -419,6 +461,57 @@ static ssize_t debug_ops_store(struct device *dev,
 
 		if (seninf_ctx)
 			dbg_set_camtg(seninf_ctx, pad_id, camtg, tag_id);
+	} else if (strncmp("EYE_SCAN", arg[EYE_SCAN_ID], sizeof("EYE_SCAN")) == 0){
+		for (i = 0; i < EYE_SCAN_MAX_NUM; i++) {
+			if (!strcasecmp(arg[EYE_SCAN_CMD], eye_scan_names[i])){
+				rg_idx = i;
+				break;
+			}
+		}
+		if (rg_idx < 0){
+			snprintf(debug_ops_show_log, DEBUG_OPS_SHOW_LOG_SIZE, "[EYE_SCAN FAIL] no such command\n");
+			dev_info(dev, "[%s] wrong rg_idx, line=%d\n", __func__, __LINE__);
+			goto ERR_DEBUG_OPS_STORE;
+		}
+
+		if (!((rg_idx == EYE_SCAN_KEYS_GET_CRC_STATUS) ||\
+			  (rg_idx == EYE_SCAN_KEYS_CDR_DELAY_DPHY_EN) ||\
+			  (rg_idx == EYE_SCAN_KEYS_FLUSH_CRC_STATUS))) {
+			ret = kstrtoint(arg[EYE_SCAN_VAL], 0, &val_signed);
+			if (ret){
+				snprintf(debug_ops_show_log, DEBUG_OPS_SHOW_LOG_SIZE, "[EYE_SCAN FAIL] decode value (str2int) fail\n");
+				dev_info(dev, "[%s] str2int fail, line=%d\n", __func__, __LINE__);
+				goto ERR_DEBUG_OPS_STORE;
+			}
+		}
+		ret = kstrtouint(arg[EYE_SCAN_SENSORIDX], 0, &sensor_idx);
+		if (ret) {
+			snprintf(debug_ops_show_log, DEBUG_OPS_SHOW_LOG_SIZE, "[EYE_SCAN FAIL] decode sensor_idx (str2int) fail\n");
+			dev_info(dev, "[%s] str2int fail, line=%d\n", __func__, __LINE__);
+			goto ERR_DEBUG_OPS_STORE;
+		}
+
+		mutex_lock(&core->mutex);
+		list_for_each_entry(ctx, &core->list, list) {
+			dev_info(dev, "get_sensor_idx(ctx) = %d ctx->port=%d, sensor_idx=%d\n", get_sensor_idx(ctx),ctx->port,sensor_idx);
+			if (sensor_idx == get_sensor_idx(ctx)) {
+				find_sensor_subdev = 1;
+
+				eye_scan_log = kzalloc(DEBUG_OPS_SHOW_LOG_SIZE + 1, GFP_KERNEL);
+				if (eye_scan_log != NULL) {
+					g_seninf_ops->_eye_scan(ctx, rg_idx, val_signed, eye_scan_log, (int)DEBUG_OPS_SHOW_LOG_SIZE );
+					snprintf(debug_ops_show_log, DEBUG_OPS_SHOW_LOG_SIZE, eye_scan_log);
+				}
+				kfree(eye_scan_log);
+
+			}
+		}
+		mutex_unlock(&core->mutex);
+
+		if (!find_sensor_subdev) {
+			dev_info(dev, "[EYE_SCAN FAIL] could not find sensor subdev\n");
+			snprintf(debug_ops_show_log, DEBUG_OPS_SHOW_LOG_SIZE, "[EYE_SCAN FAIL] could not find sensor subdev\n");
+		}
 	}
 
 ERR_DEBUG_OPS_STORE:
@@ -1833,32 +1926,6 @@ static int debug_err_detect_initialize(struct seninf_ctx *ctx)
 	}
 
 	return 0;
-}
-
-static int get_sensor_idx(struct seninf_ctx *ctx)
-{
-	int val = 0;
-	struct v4l2_subdev *sensor_sd = NULL;
-	struct v4l2_ctrl *ctrl;
-
-	if (!ctx->sensor_sd) {
-		dev_info(ctx->dev, "no sensor subdev\n");
-		return -EINVAL;
-	}
-
-	sensor_sd = ctx->sensor_sd;
-
-	ctrl = v4l2_ctrl_find(sensor_sd->ctrl_handler, V4L2_CID_MTK_SENSOR_IDX);
-	if (!ctrl) {
-		dev_info(ctx->dev, "no sensor idx in subdev %s\n", sensor_sd->name);
-		return -EINVAL;
-	}
-
-	val = v4l2_ctrl_g_ctrl(ctrl);
-
-	dev_info(ctx->dev, "[%s]: %d\n", __func__, val);
-
-	return val;
 }
 
 static int seninf_csi_s_stream(struct v4l2_subdev *sd, int enable)

@@ -5381,6 +5381,313 @@ static void update_vsync_irq_en_flag(struct seninf_ctx *ctx)
 	dev_info(ctx->dev, "vsync enable = %u\n", core->vsync_irq_en_flag);
 }
 
+static int mtk_cam_seninf_eye_scan(struct seninf_ctx *ctx, u32 key, int val_signed, char *plog, int logbuf_size)
+{
+	int i, port, log_len = 0;
+    void *base, *base_seninf, *csi_mac;
+	u32 temp_base_seninf = 0, temp_csi_mac = 0;
+	u32 eq_offset_val;
+	u32 val = (val_signed < 0) ? -val_signed : val_signed;
+	u32 mask;
+	dev_info(ctx->dev, "mtk_cam_seninf_eye_scan\n");
+
+	log_len += snprintf(plog + log_len, logbuf_size - log_len, "[EYE_SCAN SUCCESS] set register:\n");
+	if (!ctx->streaming) {
+		log_len = 0;
+		log_len += snprintf(plog + log_len, logbuf_size - log_len, "[EYE_SCAN FAIL] is not streaming\n");
+		dev_info(ctx->dev, "!ctx->streaming\n");
+		return 0;
+	}
+	dev_info(ctx->dev, "switch (key=%d)\n", key);
+	switch (key) {
+	case EYE_SCAN_KEYS_EQ_DG0_EN:
+		if (!((val == 0x1) || (val == 0x0))) {
+			log_len = 0;
+			log_len += snprintf(plog + log_len, logbuf_size - log_len, "[EYE_SCAN FAIL] EQ_DG0_EN value(%d) illegal\n", val);
+			break;
+		}
+
+		port = ctx->port;
+		for (i = 0; i <= ctx->is_4d1c; i++) {
+			port = i ? ctx->portB : ctx->port;
+			base = ctx->reg_ana_csi_rx[(unsigned int)port];
+			SENINF_BITS(base, CDPHY_RX_ANA_5,
+                    RG_CSI0_CDPHY_EQ_DG0_EN, val);
+			log_len += snprintf(plog + log_len, logbuf_size - log_len,
+				"SENINF_BITS set RG_CSI0_CDPHY_EQ_DG0_EN, val=0x%x\n",val);
+		}
+		break;
+	case EYE_SCAN_KEYS_EQ_SR0:
+		if (val > 15) {
+			log_len = 0;
+			log_len += snprintf(plog + log_len, logbuf_size - log_len, "[EYE_SCAN FAIL] EQ_SR0 value(%d) illegal\n", val);
+			break;
+		}
+		port = ctx->port;
+		for (i = 0; i <= ctx->is_4d1c; i++) {
+			port = i ? ctx->portB : ctx->port;
+			base = ctx->reg_ana_csi_rx[(unsigned int)port];
+			SENINF_BITS(base, CDPHY_RX_ANA_5,
+                    RG_CSI0_CDPHY_EQ_SR0, val);
+			log_len += snprintf(plog + log_len, logbuf_size - log_len,
+				"SENINF_BITS set RG_CSI0_CDPHY_EQ_SR0, val=0x%x\n", val);
+		}
+		break;
+	case EYE_SCAN_KEYS_EQ_DG1_EN:
+		if (!((val == 0x1) || (val == 0x0))) {
+			log_len = 0;
+			log_len += snprintf(plog + log_len, logbuf_size - log_len, "[EYE_SCAN FAIL] EQ_DG1_EN value(%d) illegal\n", val);
+			break;
+		}
+
+		port = ctx->port;
+		for (i = 0; i <= ctx->is_4d1c; i++) {
+			port = i ? ctx->portB : ctx->port;
+			base = ctx->reg_ana_csi_rx[(unsigned int)port];
+			SENINF_BITS(base, CDPHY_RX_ANA_5,
+                    RG_CSI0_CDPHY_EQ_DG1_EN, val);
+			log_len += snprintf(plog + log_len, logbuf_size - log_len,
+				"SENINF_BITS set RG_CSI0_CDPHY_EQ_DG1_EN, val=0x%x\n", val);
+		}
+		break;
+	case EYE_SCAN_KEYS_EQ_SR1:
+		if (val > 15) {
+			log_len = 0;
+			log_len += snprintf(plog + log_len, logbuf_size - log_len, "[EYE_SCAN FAIL] EQ_SR1 value(%d) illegal\n", val);
+			break;
+		}
+		port = ctx->port;
+		for (i = 0; i <= ctx->is_4d1c; i++) {
+			port = i ? ctx->portB : ctx->port;
+			base = ctx->reg_ana_csi_rx[(unsigned int)port];
+			SENINF_BITS(base, CDPHY_RX_ANA_5,
+                    RG_CSI0_CDPHY_EQ_SR1, val);
+			log_len += snprintf(plog + log_len, logbuf_size - log_len,
+				"SENINF_BITS set RG_CSI0_CDPHY_EQ_SR1, val=0x%x\n", val);
+		}
+		break;
+	case EYE_SCAN_KEYS_EQ_BW:
+		if (!((val == 0x1) || ((val == 0x0) || (val == 0x3)))) {
+			log_len = 0;
+			log_len += snprintf(plog + log_len, logbuf_size - log_len, "[EYE_SCAN FAIL] EQ_BW value(%d) illegal\n", val);
+			break;
+		}
+
+		port = ctx->port;
+		for (i = 0; i <= ctx->is_4d1c; i++) {
+			port = i ? ctx->portB : ctx->port;
+			base = ctx->reg_ana_csi_rx[(unsigned int)port];
+			SENINF_BITS(base, CDPHY_RX_ANA_5,
+                RG_CSI0_CDPHY_EQ_BW, val);
+			log_len += snprintf(plog + log_len, logbuf_size - log_len,
+				"SENINF_BITS set RG_CSI0_CDPHY_EQ_BW, val=0x%x\n", val);
+		}
+		break;
+	case EYE_SCAN_KEYS_CDR_DELAY:
+		if (!ctx->is_cphy) {
+			if (val > 254) {
+				log_len = 0;
+				log_len += snprintf(plog + log_len, logbuf_size - log_len, "[EYE_SCAN FAIL] CDR_DELAY value(%d) illegal\n", val);
+				break;
+			}
+			port = ctx->port;
+			for (i = 0; i <= ctx->is_4d1c; i++) {
+				port = i ? ctx->portB : ctx->port;
+				base = ctx->reg_ana_csi_rx[(unsigned int)port];
+				// L0
+				SENINF_BITS(base, CDPHY_RX_ANA_FORCE_MODE_6,
+						RG_SW_FORCE_VAL_DA_CSI0_DPHY_L0_DELAY_CODE, (val & 0b11111111));
+				mdelay(1);
+				SENINF_BITS(base, CDPHY_RX_ANA_FORCE_MODE_6,
+						RG_SW_FORCE_VAL_DA_CSI0_DPHY_L0_DELAY_APPLY, 0x0);
+				mdelay(1);
+				SENINF_BITS(base, CDPHY_RX_ANA_FORCE_MODE_6,
+						RG_SW_FORCE_VAL_DA_CSI0_DPHY_L0_DELAY_APPLY, 0x1);
+				// L1
+				SENINF_BITS(base, CDPHY_RX_ANA_FORCE_MODE_7,
+						RG_SW_FORCE_VAL_DA_CSI0_DPHY_L1_DELAY_CODE, (val & 0b11111111));
+				mdelay(1);
+				SENINF_BITS(base, CDPHY_RX_ANA_FORCE_MODE_7,
+						RG_SW_FORCE_VAL_DA_CSI0_DPHY_L1_DELAY_APPLY, 0x0);
+				mdelay(1);
+				SENINF_BITS(base, CDPHY_RX_ANA_FORCE_MODE_7,
+						RG_SW_FORCE_VAL_DA_CSI0_DPHY_L1_DELAY_APPLY, 0x1);
+				// L2
+				SENINF_BITS(base, CDPHY_RX_ANA_FORCE_MODE_8,
+						RG_SW_FORCE_VAL_DA_CSI0_DPHY_L2_DELAY_CODE, (val & 0b11111111));
+				mdelay(1);
+				SENINF_BITS(base, CDPHY_RX_ANA_FORCE_MODE_8,
+						RG_SW_FORCE_VAL_DA_CSI0_DPHY_L2_DELAY_APPLY, 0x0);
+				mdelay(1);
+				SENINF_BITS(base, CDPHY_RX_ANA_FORCE_MODE_8,
+						RG_SW_FORCE_VAL_DA_CSI0_DPHY_L2_DELAY_APPLY, 0x1);
+			}
+
+		} else {
+			if (val > 31) {
+				log_len = 0;
+				log_len += snprintf(plog + log_len, logbuf_size - log_len, "[EYE_SCAN FAIL] CDR_DELAY value(%d) illegal\n", val);
+				break;
+			}
+			port = ctx->port;
+			for (i = 0; i <= ctx->is_4d1c; i++) {
+				port = i ? ctx->portB : ctx->port;
+				base = ctx->reg_ana_csi_rx[(unsigned int)port];
+				// T0
+				SENINF_BITS(base, CDPHY_RX_ANA_4,
+                        RG_CSI0_CPHY_T0_CDR_RSTB_CODE, ((val & 0b111000) >> 3));
+				SENINF_BITS(base, CDPHY_RX_ANA_4,
+						RG_CSI0_CPHY_T0_CDR_SEC_EDGE_CODE, (val & 0b111));
+				SENINF_BITS(base, CDPHY_RX_ANA_6,
+						RG_CSI0_CPHY_T0_CDR_CK_DELAY, val);
+				// T1
+				SENINF_BITS(base, CDPHY_RX_ANA_4,
+                        RG_CSI0_CPHY_T1_CDR_RSTB_CODE, ((val & 0b111000) >> 3));
+				SENINF_BITS(base, CDPHY_RX_ANA_4,
+						RG_CSI0_CPHY_T1_CDR_SEC_EDGE_CODE, (val & 0b111));
+				SENINF_BITS(base, CDPHY_RX_ANA_6,
+						RG_CSI0_CPHY_T1_CDR_CK_DELAY, val);
+
+				log_len += snprintf(plog + log_len, logbuf_size - log_len,
+				"SENINF_BITS set RG_CSI0_CPHY_T0_CDR_RSTB_CODE, ((val=0x%x & 0b111000) >> 3)\n"
+				"SENINF_BITS set RG_CSI0_CPHY_T0_CDR_SEC_EDGE_CODE, (val=0x%x & 0b111)\n"
+				"SENINF_BITS set RG_CSI0_CPHY_T0_CDR_CK_DELAY, val=0x%x\n"
+				"SENINF_BITS set RG_CSI0_CPHY_T1_CDR_RSTB_CODE, ((val=0x%x & 0b111000) >> 3)\n"
+				"SENINF_BITS set RG_CSI0_CPHY_T1_CDR_SEC_EDGE_CODE, (val=0x%x & 0b111)\n"
+				"SENINF_BITS set RG_CSI0_CPHY_T1_CDR_CK_DELAY, val=0x%x\n",
+				val, val, val, val, val, val);
+			}
+		}
+		break;
+	case EYE_SCAN_KEYS_GET_CRC_STATUS:
+		base_seninf = ctx->reg_if_csi2[(unsigned int)ctx->seninfIdx];
+		csi_mac = ctx->reg_csirx_mac_csi[(uint32_t)ctx->port];
+		temp_csi_mac = SENINF_READ_REG(csi_mac, CSIRX_MAC_CSI2_IRQ_STATUS);
+		temp_base_seninf = SENINF_READ_REG(base_seninf, SENINF_CSI2_IRQ_STATUS);
+
+		mask = 0x8fff0001;
+		if ((temp_csi_mac&(~mask)) == 0x324) {
+			log_len += snprintf(plog + log_len, logbuf_size - log_len,
+				"CSIRX_MAC_CSI2_IRQ_STATUS=0x%8x\nSENINF_CSI2_IRQ_STATUS=0x%8x\ncheck CSI2_IRQ_STATUS CORRECT\n",
+				temp_csi_mac, temp_base_seninf);
+			dev_info(ctx->dev, "CSIRX_MAC_CSI2_IRQ_STATUS=0x%8x\nSENINF_CSI2_IRQ_STATUS=0x%8x\ncheck CSI2_IRQ_STATUS CORRECT\n",
+			temp_csi_mac, temp_base_seninf);
+		} else {
+			log_len += snprintf(plog + log_len, logbuf_size - log_len,
+				"CSIRX_MAC_CSI2_IRQ_STATUS=0x%8x\nSENINF_CSI2_IRQ_STATUS=0x%8x\ncheck CSI2_IRQ_STATUS WRONG\n",
+				temp_csi_mac, temp_base_seninf);
+			dev_info(ctx->dev, "CSIRX_MAC_CSI2_IRQ_STATUS=0x%8x\nSENINF_CSI2_IRQ_STATUS=0x%8x\ncheck CSI2_IRQ_STATUS WRONG\n",
+			temp_csi_mac, temp_base_seninf);
+		}
+		break;
+	case EYE_SCAN_KEYS_CDR_DELAY_DPHY_EN:
+		port = ctx->port;
+		for (i = 0; i <= ctx->is_4d1c; i++) {
+			port = i ? ctx->portB : ctx->port;
+			base = ctx->reg_ana_csi_rx[(unsigned int)port];
+			// L0
+			SENINF_BITS(base, CDPHY_RX_ANA_FORCE_MODE_EN_6,
+           		RG_SW_FORCE_EN_DA_CSI0_DPHY_L0_DELAY_EN, 0x1);
+			mdelay(1);
+			SENINF_BITS(base, CDPHY_RX_ANA_FORCE_MODE_EN_6,
+				RG_SW_FORCE_EN_DA_CSI0_DPHY_L0_DELAY_CODE, 0x1);
+			mdelay(1);
+			SENINF_BITS(base, CDPHY_RX_ANA_FORCE_MODE_EN_6,
+					RG_SW_FORCE_EN_DA_CSI0_DPHY_L0_DELAY_APPLY, 0x1);
+			mdelay(1);
+			SENINF_BITS(base, CDPHY_RX_ANA_FORCE_MODE_6,
+           		RG_SW_FORCE_VAL_DA_CSI0_DPHY_L0_DELAY_EN, 0x1);
+			// L1
+			SENINF_BITS(base, CDPHY_RX_ANA_FORCE_MODE_EN_7,
+           		RG_SW_FORCE_EN_DA_CSI0_DPHY_L1_DELAY_EN, 0x1);
+			mdelay(1);
+			SENINF_BITS(base, CDPHY_RX_ANA_FORCE_MODE_EN_7,
+				RG_SW_FORCE_EN_DA_CSI0_DPHY_L1_DELAY_CODE, 0x1);
+			mdelay(1);
+			SENINF_BITS(base, CDPHY_RX_ANA_FORCE_MODE_EN_7,
+					RG_SW_FORCE_EN_DA_CSI0_DPHY_L1_DELAY_APPLY, 0x1);
+			mdelay(1);
+			SENINF_BITS(base, CDPHY_RX_ANA_FORCE_MODE_7,
+           		RG_SW_FORCE_VAL_DA_CSI0_DPHY_L1_DELAY_EN, 0x1);
+			// L2
+			SENINF_BITS(base, CDPHY_RX_ANA_FORCE_MODE_EN_8,
+           		RG_SW_FORCE_EN_DA_CSI0_DPHY_L2_DELAY_EN, 0x1);
+			mdelay(1);
+			SENINF_BITS(base, CDPHY_RX_ANA_FORCE_MODE_EN_8,
+				RG_SW_FORCE_EN_DA_CSI0_DPHY_L2_DELAY_CODE, 0x1);
+			mdelay(1);
+			SENINF_BITS(base, CDPHY_RX_ANA_FORCE_MODE_EN_8,
+					RG_SW_FORCE_EN_DA_CSI0_DPHY_L2_DELAY_APPLY, 0x1);
+			mdelay(1);
+			SENINF_BITS(base, CDPHY_RX_ANA_FORCE_MODE_8,
+           		RG_SW_FORCE_VAL_DA_CSI0_DPHY_L2_DELAY_EN, 0x1);
+
+			log_len += snprintf(plog + log_len, logbuf_size - log_len,
+				"SENINF_BITS set RG_SW_FORCE_EN_DA_CSI0_DPHY_L0_DELAY_EN, 0x1\n"
+				"SENINF_BITS set RG_SW_FORCE_EN_DA_CSI0_DPHY_L0_DELAY_CODE, 0x1\n"
+				"SENINF_BITS set RG_SW_FORCE_EN_DA_CSI0_DPHY_L0_DELAY_APPLY, 0x1\n"
+				"SENINF_BITS set RG_SW_FORCE_EN_DA_CSI0_DPHY_L0_DELAY_EN, 0x1\n");
+		}
+		break;
+	case EYE_SCAN_KEYS_FLUSH_CRC_STATUS:
+		base_seninf = ctx->reg_if_csi2[(unsigned int)ctx->seninfIdx];
+		csi_mac = ctx->reg_csirx_mac_csi[(uint32_t)ctx->port];
+		SENINF_WRITE_REG(csi_mac, CSIRX_MAC_CSI2_IRQ_STATUS, 0xffffffff);
+		SENINF_WRITE_REG(base_seninf, SENINF_CSI2_IRQ_STATUS, 0xffffffff);
+		log_len += snprintf(plog + log_len, logbuf_size - log_len,
+			"SENINF_WRITE_REG set CSIRX_MAC_CSI2_IRQ_STATUS 0xffffffff\nSENINF_WRITE_REG set SENINF_CSI2_IRQ_STATUS 0xffffffff\n");
+		break;
+	case EYE_SCAN_KEYS_EQ_OFFSET:
+		if ((val_signed > 31) || (val_signed < -31)) {
+			log_len = 0;
+			log_len += snprintf(plog + log_len, logbuf_size - log_len, "[EYE_SCAN FAIL] EQ_OFFSET value(%d) illegal\n", val);
+			break;
+		}
+		eq_offset_val = (val_signed < 0) ? ((0b11111 & val) + 0b100000) : (0b11111 & val);
+		port = ctx->port;
+		for (i = 0; i <= ctx->is_4d1c; i++) {
+			port = i ? ctx->portB : ctx->port;
+			base = ctx->reg_ana_csi_rx[(unsigned int)port];
+			SENINF_BITS(base, CDPHY_RX_ANA_10,
+                RG_CSI0_CDPHY_L0_T0AB_EQ_OS_CAL_FORCE_EN, 0x1);
+			SENINF_BITS(base, CDPHY_RX_ANA_10,
+                RG_CSI0_CDPHY_L0_T0AB_EQ_OS_CAL_FORCE_CODE, eq_offset_val);
+
+			SENINF_BITS(base, CDPHY_RX_ANA_10,
+                RG_CSI0_CDPHY_XX_T0CA_EQ_OS_CAL_FORCE_EN, 0x1);
+			SENINF_BITS(base, CDPHY_RX_ANA_10,
+                RG_CSI0_CDPHY_XX_T0CA_EQ_OS_CAL_FORCE_CODE, eq_offset_val);
+
+			SENINF_BITS(base, CDPHY_RX_ANA_10,
+                RG_CSI0_CDPHY_XX_T0BC_EQ_OS_CAL_FORCE_EN, 0x1);
+			SENINF_BITS(base, CDPHY_RX_ANA_10,
+                RG_CSI0_CDPHY_XX_T0BC_EQ_OS_CAL_FORCE_CODE, eq_offset_val);
+
+			SENINF_BITS(base, CDPHY_RX_ANA_10,
+                RG_CSI0_CDPHY_L1_T1AB_EQ_OS_CAL_FORCE_EN, 0x1);
+			SENINF_BITS(base, CDPHY_RX_ANA_10,
+                RG_CSI0_CDPHY_L1_T1AB_EQ_OS_CAL_FORCE_CODE, eq_offset_val);
+
+			SENINF_BITS(base, CDPHY_RX_ANA_11,
+                RG_CSI0_CDPHY_XX_T1CA_EQ_OS_CAL_FORCE_EN, 0x1);
+			SENINF_BITS(base, CDPHY_RX_ANA_11,
+                RG_CSI0_CDPHY_XX_T1CA_EQ_OS_CAL_FORCE_CODE, eq_offset_val);
+
+			SENINF_BITS(base, CDPHY_RX_ANA_11,
+                RG_CSI0_CDPHY_L2_T1BC_EQ_OS_CAL_FORCE_EN, 0x1);
+			SENINF_BITS(base, CDPHY_RX_ANA_11,
+                RG_CSI0_CDPHY_L2_T1BC_EQ_OS_CAL_FORCE_CODE, eq_offset_val);
+
+			log_len += snprintf(plog + log_len, logbuf_size - log_len,
+				"EYE_SCAN_KEYS_EQ_OFFSET input val_signed=%d, write to reg val=0x%x\n", val_signed, eq_offset_val);
+			dev_info(ctx->dev,
+				"EYE_SCAN_KEYS_EQ_OFFSET input val_signed=%d, write to reg val=0x%x\n", val_signed, eq_offset_val);
+		}
+		break;
+	}
+	return 0;
+}
+
 static int mtk_cam_seninf_set_reg(struct seninf_ctx *ctx, u32 key, u64 val)
 {
 	int i, j;
@@ -5718,6 +6025,7 @@ struct mtk_cam_seninf_ops mtk_csi_phy_3_0 = {
 #endif
 	._get_debug_reg_result = mtk_cam_seninf_get_debug_reg_result,
 	._get_tsrec_timestamp = mtk_cam_seninf_get_tsrec_timestamp,
+	._eye_scan = mtk_cam_seninf_eye_scan,
 	._set_reg = mtk_cam_seninf_set_reg,
 	.seninf_num = 12,
 	.mux_num = 22,

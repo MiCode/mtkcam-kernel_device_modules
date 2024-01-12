@@ -7,7 +7,7 @@
 static struct state_transition STATE_TRANS(m2m, S_ISP_NOT_SET)[] = {
 	{
 		S_ISP_COMPOSING, CAMSYS_EVENT_ENQUE,
-		NULL, ACTION_COMPOSE_CQ
+		guard_next_compose_m2m, ACTION_COMPOSE_CQ
 	},
 };
 

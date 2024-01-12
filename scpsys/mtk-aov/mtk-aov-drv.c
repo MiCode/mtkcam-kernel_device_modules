@@ -232,6 +232,11 @@ static long mtk_aov_ioctl(struct file *file, unsigned int cmd,
 		ret = aov_core_send_cmd(aov_dev, AOV_SCP_CMD_QEA, NULL, 0, false);
 		AOV_DEBUG_LOG(*(aov_dev->enable_aov_log_flag), "AOV QEA done, ret(%d)\n", ret);
 		break;
+	case AOV_DEV_PWR_UT:
+		AOV_DEBUG_LOG(*(aov_dev->enable_aov_log_flag), "trigger AOV Power UT\n");
+		ret = aov_core_send_cmd(aov_dev, AOV_SCP_CMD_PWR_UT, NULL, 0, false);
+		AOV_DEBUG_LOG(*(aov_dev->enable_aov_log_flag), "trigger AOV QEA done, ret(%d)\n", ret);
+		break;
 	default:
 		dev_info(aov_dev->dev, "unknown AOV control code(%d)\n", cmd);
 		return -EINVAL;

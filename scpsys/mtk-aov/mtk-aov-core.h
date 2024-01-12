@@ -72,6 +72,10 @@ struct aov_core {
 	atomic_t do_smi_dump;
 	wait_queue_head_t aie_smi_wq;
 	struct task_struct *smi_dump_thread;
+
+	atomic_t do_reset_sensor;
+	wait_queue_head_t reset_sensor_wq;
+	struct task_struct *reset_sensor_thread;
 };
 
 int aov_core_init(struct mtk_aov *device);
@@ -95,5 +99,7 @@ int aov_core_reset(struct mtk_aov *device);
 int aov_core_uninit(struct mtk_aov *aov_dev);
 
 int aie_hang_kernel_dump(void *arg);
+
+int reset_sensor_flow(void *arg);
 
 #endif  // MTK_AOV_CORE_H

@@ -316,6 +316,10 @@ static int ipi_receive(unsigned int id, void *unused,
 		dev_info(aov_dev->dev, "%s: receive AIE HANG signal from SCP\n", __func__);
 		atomic_set(&(core_info->do_smi_dump), 1);
 		wake_up_interruptible(&core_info->aie_smi_wq);
+	} else if (packet->command == AOV_SCP_CMD_RESET_SENSOR) {
+		dev_info(aov_dev->dev, "%s: receive reset sensor signal from SCP\n", __func__);
+		atomic_set(&(core_info->do_reset_sensor), 1);
+		wake_up_interruptible(&core_info->reset_sensor_wq);
 	} else {
 		event = (struct base_event *)(core_info->buf_va +
 			(packet->buffer - core_info->buf_pa));
@@ -610,6 +614,10 @@ int aov_core_send_cmd(struct mtk_aov *aov_dev, uint32_t cmd,
 		atomic_set(&(core_info->qea_ready), 1);
 		send_cmd_internal(core_info, cmd, 0, 0, false, true);
 		atomic_set(&(core_info->qea_ready), 0);
+	} else if (cmd == AOV_SCP_CMD_PWR_UT) {
+		vmm_isp_ctrl_notify(1);
+		mtk_mmdvfs_aov_enable(1);
+		send_cmd_internal(core_info, cmd, 0, 0, false, false);
 	}
 
 	if (atomic_read(&(core_info->aov_ready))) {
@@ -1007,6 +1015,18 @@ int aov_core_init(struct mtk_aov *aov_dev)
 			PTR_ERR(core_info->smi_dump_thread));
 	}
 	wake_up_process(core_info->smi_dump_thread);
+
+	// create reset sensor thread
+	atomic_set(&(core_info->do_reset_sensor), 0);
+	init_waitqueue_head(&core_info->reset_sensor_wq);
+	core_info->reset_sensor_thread = kthread_create(reset_sensor_flow, NULL,
+		"aov_reset_sensor_thread");
+	if (IS_ERR(core_info->reset_sensor_thread)) {
+		AOV_DEBUG_LOG(*(aov_dev->enable_aov_log_flag),
+			"%s kthread_create error ret:%ld\n", __func__,
+			PTR_ERR(core_info->reset_sensor_thread));
+	}
+	wake_up_process(core_info->reset_sensor_thread);
 
 	return 0;
 }
@@ -1530,6 +1550,12 @@ int aov_core_uninit(struct mtk_aov *aov_dev)
 		core_info->smi_dump_thread = NULL;
 	}
 
+	// stop reset sensor thread
+	if (core_info->reset_sensor_thread) {
+		kthread_stop(core_info->reset_sensor_thread);
+		core_info->reset_sensor_thread = NULL;
+	}
+
 	curr_dev = NULL;
 
 	return 0;
@@ -1561,6 +1587,35 @@ int aie_hang_kernel_dump(void *arg)
 		ret = send_cmd_internal(core_info, AOV_SCP_CMD_AIE_HANG_DONE, 0, 0, false, false);
 		if (ret < 0)
 			dev_info(aov_dev->dev, "%s: failed to do aov aie hang done: %d\n",
+				__func__, ret);
+	}
+	dev_info(aov_dev->dev, "%s: leave while loop for kthread stop", __func__);
+	return 0;
+}
+
+int reset_sensor_flow(void *arg)
+{
+	struct mtk_aov *aov_dev = aov_core_get_device();
+	struct aov_core *core_info = &aov_dev->core_info;
+	int ret = 0;
+	long wait_ret = 0;
+
+	dev_info(aov_dev->dev, "%s: Enter while loop to wait event", __func__);
+	while (!kthread_should_stop()) {
+		wait_ret = wait_event_interruptible(core_info->reset_sensor_wq,
+			atomic_cmpxchg(&(core_info->do_reset_sensor), 1, 0));
+		if (wait_ret) {
+			dev_info(aov_dev->dev, "%s: wake up by signal(%ld)", __func__, wait_ret);
+			continue;
+		}
+
+		dev_info(aov_dev->dev, "%s: do reset sensor flow+", __func__);
+		/* Call reset sensor API here */
+		dev_info(aov_dev->dev, "%s: do reset sensor flow-", __func__);
+
+		ret = send_cmd_internal(core_info, AOV_SCP_CMD_RESET_SENSOR_END, 0, 0, false, false);
+		if (ret < 0)
+			dev_info(aov_dev->dev, "%s: failed to do aov reset sensor end: %d\n",
 				__func__, ret);
 	}
 	dev_info(aov_dev->dev, "%s: leave while loop for kthread stop", __func__);

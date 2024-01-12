@@ -19,6 +19,7 @@
 #define AOV_DEV_DQEVENT           _IOR('H', 3, struct aov_dqevent)
 #define AOV_DEV_STOP              _IO('H', 4)
 #define AOV_DEV_QEA               _IO('H', 5)
+#define AOV_DEV_PWR_UT            _IO('H', 6)
 
 #if IS_ENABLED(CONFIG_COMPAT)
 #define COMPAT_AOV_DEV_START      _IOW('H', 0, struct aov_user)
@@ -27,6 +28,7 @@
 #define COMPAT_AOV_DEV_SENSOR_OFF _IOW('H', 3, struct sensor_notify)
 #define COMPAT_AOV_DEV_STOP       _IO('H', 4)
 #define COMPAT_AOV_DEV_QEA        _IO('H', 5)
+#define COMPAT_AOV_DEV_PWR_UT     _IO('H', 6)
 #endif
 
 /*
@@ -44,7 +46,10 @@
 #define AOV_SCP_CMD_ON_UT            (9)
 #define AOV_SCP_CMD_OFF_UT           (10)
 #define AOV_SCP_CMD_QEA              (11)
-#define AOV_SCP_CMD_MAX              (12)
+#define AOV_SCP_CMD_PWR_UT           (12)
+#define AOV_SCP_CMD_RESET_SENSOR     (13)
+#define AOV_SCP_CMD_RESET_SENSOR_END (14)
+#define AOV_SCP_CMD_MAX              (15)
 #define AOV_SCP_CMD_ACK              (0x80000000)
 
 #define AOV_DEBUG_MODE_DUMP       (1)  // General debug
@@ -58,7 +63,7 @@
 
 #define AOV_MAX_USER_SIZE         (offsetof(struct aov_user, aaa_size))
 #define AOV_MAX_SENIF_SIZE        (2 * 1024)
-#define AOV_MAX_AAA_SIZE          (32 * 1024)
+#define AOV_MAX_AAA_SIZE          (60 * 1024)
 #define AOV_MAX_TUNING_SIZE       (2 * 1024)
 #define AOV_MAX_AIE_SIZE          (162 * 1024)
 #define AOV_MAX_FLD_SIZE          (3 * 1024 * 1024)	// 3MB

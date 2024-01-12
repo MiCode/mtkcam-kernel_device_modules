@@ -1598,7 +1598,7 @@ static int _mtk_cam_seninf_reset_cammux(struct seninf_ctx *ctx, int pad_id)
 
 	vc = mtk_cam_seninf_get_vc_by_pad(ctx, pad_id);
 	if (!vc) {
-		dev_info(ctx->dev, "no such vc by pad id:%d\n", pad_id);
+		seninf_logd(ctx, "no such vc by pad id:%d\n", pad_id);
 		return -EINVAL;
 	}
 
@@ -2310,9 +2310,12 @@ void mtk_cam_sensor_get_glp_dt(struct seninf_ctx *ctx, struct seninf_glp_dt *inf
 	for (i=0; i<SEQ_DT_MAX_CNT; i++ ){
 		if(glp[i])
 			cnt++;
-		dev_info(ctx->dev,
-			"%s: glp[%d]: 0x%x, cnt:%d\n", __func__, i , glp[i], cnt);
 	}
+
+	seninf_logi(ctx,
+		"glp[0/1/2/3]:0x%x/0x%x/0x%x/0x%x,cnt:%d\n",
+		glp[0], glp[1], glp[2], glp[3], cnt);
+
 	info->cnt = cnt;
 }
 

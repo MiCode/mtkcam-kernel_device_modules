@@ -17,7 +17,7 @@
 #include "mtk_cam_ut-engines.h"
 #include "mtk_cam_regs.h"
 
-static unsigned int testmdl_hblank = 0x80;
+static unsigned int testmdl_hblank = 0x400;
 module_param(testmdl_hblank, int, 0644);
 MODULE_PARM_DESC(testmdl_hblank, "h-blanking for testmdl");
 

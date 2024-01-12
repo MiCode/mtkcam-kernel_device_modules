@@ -522,18 +522,20 @@ static void raw_handle_tg_grab_err(struct mtk_ut_raw_device *raw)
 		readl_relaxed(CAM_REG_TG_SEN_GRAB_LIN(base)));
 }
 
-
-static struct dma_debug_item dbg_TSFSO_R1[] = {
-	{0x0000001F, "32(hex) 0000"},
-	{0x0000011F, "state_checksum"},
-	{0x0000021F, "line_pix_cnt_tmp"},
-	{0x0000031F, "line_pix_cnt"},
-	{0x0000041F, "important_status"},
-	{0x0000051F, "cmd_data_cnt"},
-	{0x0000061F, "cmd_cnt_for_bvalid_phase"},
-	{0x0000071F, "input_h_cnt"},
-	{0x0000081F, "input_v_cnt"},
-	{0x0000091F, "xfer_y_cnt"},
+static struct dma_debug_item dbg_AEO_R1[] = {
+	{0x0000002E, "32(hex) 0000"},
+	{0x0000012E, "state_checksum"},
+	{0x0000022E, "line_pix_cnt_tmp"},
+	{0x0000032E, "line_pix_cnt"},
+	{0x0000042E, "important_status"},
+	{0x0000052E, "cmd_data_cnt"},
+	{0x0000062E, "cmd_cnt_for_bvalid_phase"},
+	{0x0000072E, "input_h_cnt"},
+	{0x0000082E, "input_v_cnt"},
+	{0x0000092E, "xfer_y_cnt"},
+	{0x00000A2E, "pcrp_debug_data"},
+	{0x00000B2E, "ag_rdy, sram_fifo_full"},
+	{0x00000C2E, "data_pre_cnt"},
 };
 
 static struct dma_debug_item dbg_data_3[] = {
@@ -847,6 +849,7 @@ static irqreturn_t mtk_ut_yuv_irq(int irq, void *data)
 }
 
 #define RAW_DEBUG 0
+int global_interrupt_union;
 static irqreturn_t mtk_ut_raw_irq(int irq, void *data)
 {
 
@@ -875,9 +878,10 @@ static irqreturn_t mtk_ut_raw_irq(int irq, void *data)
 
 	if ((status.irq & SOF_INT_ST) ||
 		(status.dcif & DCIF_LAST_SOF_INT_ST) ||
-		(status.dcif & DCIF_LAST_CQ_START_INT_ST))
+		(status.dcif & DCIF_LAST_CQ_START_INT_ST)) {
 		event->mask |= EVENT_SOF;
-
+		global_interrupt_union = 0;
+	}
 	if (status.done & SW_PASS1_DON_ST) {
 		event->mask |= EVENT_SW_P1_DONE;
 
@@ -918,8 +922,13 @@ static irqreturn_t mtk_ut_raw_irq(int irq, void *data)
 		if (status.irq & TG_GBERR_ST)
 			cmd->dump_tg_err = 1;
 
-		if (status.irq & TG_OVRUN_ST)
+		if (status.irq & TG_OVRUN_ST) {
 			cmd->dump_tg_overrun = 1;
+			global_interrupt_union |= TG_OVRUN_ST;
+		}
+
+		if (status.done & SW_ENQUE_ERR_ST)
+			global_interrupt_union |= SW_ENQUE_ERR_ST;
 	}
 
 	if (raw->id != 0)
@@ -976,14 +985,16 @@ static irqreturn_t mtk_ut_raw_thread_irq(int irq, void *data)
 
 		if (cmd->dump_dma_err) {
 			raw_handle_dma_err(raw);
-			mtk_ut_dump_dma_debug(raw->dev, raw->base,
-				"TSFSO_R1", dbg_TSFSO_R1, 10);
+
 			mtk_ut_dump_module_dbg_data(raw->dev, raw->base,
 				"TSFS_R1", dbg_data_3[20]);
 		}
-		if (cmd->dump_tg_overrun)
+		if (cmd->dump_tg_overrun && (global_interrupt_union == (TG_OVRUN_ST | SW_ENQUE_ERR_ST))) {
+			mtk_ut_dump_dma_debug(raw->dev, raw->dma_base,
+				"AEO_R1", dbg_AEO_R1, 13);
 			raw_handle_tg_overrun(raw);
-
+			global_interrupt_union = 0;
+		}
 		if (event->mask) {
 			dev_dbg(raw->dev, "send event 0x%x\n", event->mask);
 			if (send_event(&raw->event_src, *event))

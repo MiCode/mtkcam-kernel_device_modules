@@ -25,7 +25,7 @@
 #define CQ_MAIN_CODE_ERR_ST		(1L << 19)
 #define CQ_MAIN_VS_ERR_ST		(1L << 20)
 #define CQ_MAIN_TRIG_DLY_ST		(1L << 21)
-//#define LSCI_ERR_ST			(1L << 24)
+#define SW_ENQUE_ERR_ST		(1L << 5)
 #define DMA_ERR_ST			(1L << 4)
 
 /* CAM DMA done status */

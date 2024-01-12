@@ -632,7 +632,7 @@ struct seninf_vc *mtk_cam_seninf_get_vc_by_pad(struct seninf_ctx *ctx, int idx)
 	// get current scenraio output bit(/data type)
 	format_code = to_std_fmt_code(ctx->fmt[PAD_SRC_RAW0].format.code);
 	cur_dt = get_code2dt(format_code);
-	dev_info(ctx->dev, "[%s] pad %u format_code: 0x%x, cur_dt:0x%x\n",
+	seninf_logd(ctx, "[%s] pad %u format_code: 0x%x, cur_dt:0x%x\n",
 		__func__, idx, format_code, cur_dt);
 
 	// find vc via vc_dt or dt_remap

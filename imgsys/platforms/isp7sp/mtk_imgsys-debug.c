@@ -251,7 +251,7 @@ void imgsys_main_set_init(struct mtk_imgsys_dev *imgsys_dev)
 		}
 	}
 
-	iowrite32(0xFF, (void *)(imgsysmainRegBA + DBG_SW_CLR));
+	iowrite32(0x1FF, (void *)(imgsysmainRegBA + DBG_SW_CLR));
 	iowrite32(0x0, (void *)(imgsysmainRegBA + DBG_SW_CLR));
 
 	iowrite32(0xF0, (void *)(imgsysmainRegBA + SW_RST));
@@ -302,7 +302,7 @@ void imgsys_main_cmdq_set_init(struct mtk_imgsys_dev *imgsys_dev, void *pkt)
 	}
 
 	cmdq_pkt_write(package, NULL, (gMainRegBase + DBG_SW_CLR) /*address*/,
-			       0xFF, 0xffffffff);
+			       0x1FF, 0xffffffff);
 	cmdq_pkt_write(package, NULL, (gMainRegBase + DBG_SW_CLR) /*address*/,
 			       0x0, 0xffffffff);
 

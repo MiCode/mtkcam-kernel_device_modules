@@ -13,7 +13,7 @@
 #include "mtk_cam-seninf-def.h"
 #include "imgsensor-user.h"
 #include "mtk_cam-seninf-regs.h"
-#include "scpsys/mtk_cam-aov.h"
+#include "mtk_cam-aov.h"
 #include <linux/atomic.h>
 #include <linux/kfifo.h>
 

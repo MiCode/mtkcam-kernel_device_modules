@@ -10,6 +10,7 @@ KO_MTKCAM_CODE_PATH := $(if $(filter /%,$(src)),,$(srctree)/)$(src)/..
 $(info KO_MTKCAM_CODE_PATH=$(KO_MTKCAM_CODE_PATH))
 
 subdir-ccflags-y += -I$(KO_MTKCAM_CODE_PATH)/
+subdir-ccflags-y += -I$(KO_MTKCAM_CODE_PATH)/include
 
 obj-y += isp7_1/
 obj-y += isp7s/

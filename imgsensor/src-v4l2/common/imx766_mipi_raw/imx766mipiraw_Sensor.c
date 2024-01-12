@@ -2184,6 +2184,13 @@ static struct subdrv_static_ctx static_ctx = {
 	.pdaf_type = PDAF_SUPPORT_CAMSV_QPD,
 	.hdr_type = HDR_SUPPORT_STAGGER_FDOL,
 	.seamless_switch_support = TRUE,
+	.seamless_switch_type = SEAMLESS_SWITCH_CUT_VB_INIT_SHUT,
+	.seamless_switch_hw_re_init_time_ns = 2750000,
+	.seamless_switch_prsh_hw_fixed_value = 32,
+	.seamless_switch_prsh_length_lc = 0,
+	.reg_addr_prsh_length_lines = {0x3039, 0x303a, 0x303b},
+	.reg_addr_prsh_mode = 0x3036,
+
 	.temperature_support = TRUE,
 
 	.g_temp = get_sensor_temperature,
@@ -2412,6 +2419,7 @@ static int imx766_seamless_switch(struct subdrv_ctx *ctx, u8 *para, u32 *len)
 	struct mtk_hdr_ae *ae_ctrl = NULL;
 	u64 *feature_data = (u64 *)para;
 	u32 exp_cnt = 0;
+	enum SENSOR_SCENARIO_ID_ENUM pre_seamless_scenario_id;
 
 	if (feature_data == NULL) {
 		DRV_LOGE(ctx, "input scenario is null!");
@@ -2447,6 +2455,7 @@ static int imx766_seamless_switch(struct subdrv_ctx *ctx, u8 *para, u32 *len)
 
 	exp_cnt = ctx->s_ctx.mode[scenario_id].exp_cnt;
 	ctx->is_seamless = TRUE;
+	pre_seamless_scenario_id = ctx->current_scenario_id;
 	update_mode_info(ctx, scenario_id);
 
 	subdrv_i2c_wr_u8(ctx, 0x0104, 0x01);
@@ -2467,6 +2476,26 @@ static int imx766_seamless_switch(struct subdrv_ctx *ctx, u8 *para, u32 *len)
 			break;
 		}
 	}
+
+	common_get_prsh_length_lines(ctx, ae_ctrl, pre_seamless_scenario_id, scenario_id);
+
+	if (ctx->s_ctx.seamless_switch_prsh_length_lc > 0) {
+		subdrv_i2c_wr_u8(ctx, ctx->s_ctx.reg_addr_prsh_mode, 0x01);
+
+		subdrv_i2c_wr_u8(ctx,
+				ctx->s_ctx.reg_addr_prsh_length_lines.addr[0],
+				(ctx->s_ctx.seamless_switch_prsh_length_lc >> 16) & 0xFF);
+		subdrv_i2c_wr_u8(ctx,
+				ctx->s_ctx.reg_addr_prsh_length_lines.addr[1],
+				(ctx->s_ctx.seamless_switch_prsh_length_lc >> 8)  & 0xFF);
+		subdrv_i2c_wr_u8(ctx,
+				ctx->s_ctx.reg_addr_prsh_length_lines.addr[2],
+				(ctx->s_ctx.seamless_switch_prsh_length_lc) & 0xFF);
+
+		DRV_LOG(ctx, "seamless switch pre-shutter set(%u)\n", ctx->s_ctx.seamless_switch_prsh_length_lc);
+	} else
+		subdrv_i2c_wr_u8(ctx, ctx->s_ctx.reg_addr_prsh_mode, 0x00);
+
 	subdrv_i2c_wr_u8(ctx, 0x0104, 0x00);
 
 	ctx->fast_mode_on = TRUE;

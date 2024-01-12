@@ -202,6 +202,7 @@ static int basic_send_event(struct mtk_cam_job_state *s,
 	s_acc.seq_no = s->seq_no;
 	s_acc.ops = &_acc_ops;
 	p->s_params = &s->s_params;
+	p->cq_trigger_thres = s->cq_trigger_thres_ns;
 
 	loop_each_transition(s->sensor_tbl, &s_acc, SENSOR_STATE, p);
 	loop_each_transition(&basic_isp_tbl, &s_acc, ISP_STATE, p);
@@ -244,6 +245,7 @@ int mtk_cam_job_state_init_basic(struct mtk_cam_job_state *s,
 
 	s->cb = cb;
 	s->apply_by_fsm = 1;
+	s->compose_by_fsm = 1;
 
 	if (s->s_params.latched_timing == SENSOR_LATCHED_L_SOF)
 		s->sensor_tbl = &basic_sensor_l_tbl;

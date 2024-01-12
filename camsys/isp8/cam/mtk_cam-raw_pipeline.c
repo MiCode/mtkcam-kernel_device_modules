@@ -837,6 +837,7 @@ static int mtk_raw_try_ctrl(struct v4l2_ctrl *ctrl)
 	case V4L2_CID_MTK_CAM_SYNC_ID:
 	case V4L2_CID_MTK_CAM_HSF_EN:
 	case V4L2_CID_MTK_CAM_INTERNAL_MEM_CTRL:
+	case V4L2_CID_MTK_CAM_REQ_INFO:
 		ret = 0;
 		break;
 	default:
@@ -968,6 +969,20 @@ static int mtk_raw_set_ctrl(struct v4l2_ctrl *ctrl)
 					 apu_info->sysram_en,
 					 apu_info->opp_index,
 					 apu_info->block_y_size);
+		}
+		break;
+	case V4L2_CID_MTK_CAM_REQ_INFO:
+		{
+			struct mtk_cam_req_info *req_info = &ctrl_data->req_info;
+
+			*req_info = *(struct mtk_cam_req_info *)ctrl->p_new.p;
+			ctrl_data->valid_req_info = 1;
+
+			if (CAM_DEBUG_ENABLED(V4L2))
+				dev_info(dev, "%s: req_info: type:%d, sync_id:%d\n",
+					 __func__,
+					 req_info->req_type,
+					 req_info->req_sync_id);
 		}
 		break;
 	case V4L2_CID_MTK_CAM_RAW_RESOURCE_UPDATE:
@@ -1194,6 +1209,18 @@ static const struct v4l2_ctrl_config cfg_apu_info = {
 	.step = 1,
 	.def = 0,
 	.dims = {sizeof_u32(struct mtk_cam_apu_info)},
+};
+static const struct v4l2_ctrl_config cfg_req_info = {
+	.ops = &cam_ctrl_ops,
+	.id = V4L2_CID_MTK_CAM_REQ_INFO,
+	.name = "req info",
+	.type = V4L2_CTRL_TYPE_INTEGER,
+	.flags = V4L2_CTRL_FLAG_VOLATILE | V4L2_CTRL_FLAG_EXECUTE_ON_WRITE,
+	.min = 0,
+	.max = 0x1fffffff,
+	.step = 1,
+	.def = 0,
+	.dims = {sizeof_u32(struct mtk_cam_req_info)},
 };
 
 static const struct v4l2_ctrl_config mtk_cam_tg_flash_enable = {
@@ -3669,6 +3696,9 @@ static void mtk_raw_pipeline_ctrl_setup(struct mtk_raw_pipeline *pipe)
 
 	/* APU */
 	v4l2_ctrl_new_custom(ctrl_hdlr, &cfg_apu_info, NULL);
+
+	/* req_info */
+	v4l2_ctrl_new_custom(ctrl_hdlr, &cfg_req_info, NULL);
 
 	ctrl = v4l2_ctrl_new_custom(ctrl_hdlr, &cfg_hdr_timestamp_info, NULL);
 	if (ctrl)

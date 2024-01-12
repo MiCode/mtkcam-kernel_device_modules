@@ -170,6 +170,7 @@ struct transition_param {
 	int event;
 	u64 event_ts;
 	struct sensor_apply_params *s_params;
+	u64 cq_trigger_thres;
 };
 
 struct mtk_cam_job_state;
@@ -222,9 +223,11 @@ struct mtk_cam_job_state {
 	 * action
 	 */
 	bool apply_by_fsm;
+	bool compose_by_fsm;
 
 	/* for different sensor latched timing */
 	struct sensor_apply_params s_params;
+	u64 cq_trigger_thres_ns; /* cq valid period from vsync */
 	struct state_table *sensor_tbl;
 	/* for extisp */
 	int tg_cnt;
@@ -318,7 +321,8 @@ struct mtk_cam_job {
 	struct list_head list;
 
 	struct mtk_cam_request *req;
-
+	struct mtk_cam_request *req_sensor;
+	unsigned int req_info_id;
 	/* Note:
 	 * it's dangerous to fetch info from src_ctx
 	 * src_ctx is just kept to access worker/workqueue.
@@ -418,6 +422,11 @@ struct mtk_cam_job {
 	/* debug only: use local_clock() to be consitent with printk */
 	u64 local_enqueue_ts;
 	u64 local_apply_sensor_ts;
+	u64 local_enqueue_isp_ts;
+	u64 local_compose_isp_ts;
+	u64 local_ack_isp_ts;
+	u64 local_trigger_cq_ts;
+	u64 local_ispdone_ts;
 };
 
 static inline struct mtk_cam_job *mtk_cam_job_get(struct mtk_cam_job *job)
@@ -591,9 +600,15 @@ static inline void mtk_cam_job_return(struct mtk_cam_job *job)
 
 	mtk_cam_pool_return(&data->pool_job, sizeof(data->pool_job));
 }
+int job_pack(struct mtk_cam_job *job);
 
 int mtk_cam_job_pack(struct mtk_cam_job *job, struct mtk_cam_ctx *ctx,
 		     struct mtk_cam_request *req);
+int mtk_cam_sensor_job_pack(struct mtk_cam_job *job, struct mtk_cam_ctx *ctx,
+		     struct mtk_cam_request *req);
+int mtk_cam_isp_job_pack(struct mtk_cam_job *job, struct mtk_cam_ctx *ctx,
+		     struct mtk_cam_request *req);
+
 
 static inline void mtk_cam_job_set_no(struct mtk_cam_job *job,
 				      int req_no, int seq_no)
@@ -606,6 +621,10 @@ static inline void mtk_cam_job_set_no(struct mtk_cam_job *job,
 static inline void mtk_cam_job_set_fsm(struct mtk_cam_job *job, bool enable)
 {
 	job->job_state.apply_by_fsm = enable;
+}
+static inline void mtk_cam_job_set_fsm_compose(struct mtk_cam_job *job, bool enable)
+{
+	job->job_state.compose_by_fsm = enable;
 }
 
 struct mtk_cam_dump_param;

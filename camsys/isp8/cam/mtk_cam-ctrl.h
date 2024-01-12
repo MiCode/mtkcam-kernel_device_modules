@@ -139,6 +139,9 @@ struct mtk_cam_ctrl {
 
 	struct mtk_cam_watchdog watchdog;
 	unsigned int hw_hang_count_down;
+	unsigned int sensor_seq;
+	unsigned int frame_sync_id;
+	unsigned int sensor_sync_id;
 };
 
 /* engine's callback functions */
@@ -163,6 +166,12 @@ void mtk_cam_ctrl_stop(struct mtk_cam_ctrl *cam_ctrl);
 /* enque job */
 void mtk_cam_ctrl_job_enque(struct mtk_cam_ctrl *cam_ctrl,
 	struct mtk_cam_job *job);
+void mtk_cam_ctrl_sensor_job_enque(struct mtk_cam_ctrl *cam_ctrl,
+	struct mtk_cam_job *job);
+void mtk_cam_ctrl_isp_job_enque(struct mtk_cam_ctrl *cam_ctrl,
+	struct mtk_cam_job *job);
+
+
 /* inform job composed */
 void mtk_cam_ctrl_job_composed(struct mtk_cam_ctrl *cam_ctrl,
 			       unsigned int fh_cookie,
@@ -170,6 +179,9 @@ void mtk_cam_ctrl_job_composed(struct mtk_cam_ctrl *cam_ctrl,
 			       int ack_ret);
 
 void mtk_cam_ctrl_handle_done_loop(struct mtk_cam_ctrl *cam_ctrl);
+struct mtk_cam_job *mtk_cam_ctrl_get_job_by_req_id(
+				struct mtk_cam_ctrl *cam_ctrl,
+				unsigned int req_info_id);
 
 void mtk_cam_event_frame_sync(struct mtk_cam_ctrl *cam_ctrl,
 			      unsigned int frame_seq_no);

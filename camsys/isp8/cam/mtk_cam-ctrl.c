@@ -98,6 +98,12 @@ bool cond_first_job(struct mtk_cam_job *job, void *arg)
 {
 	return 1;
 }
+bool cond_req_id_equal(struct mtk_cam_job *job, void *arg)
+{
+	unsigned int no = *(int *)arg;
+
+	return no == job->req_info_id;
+}
 
 bool cond_frame_no_belong(struct mtk_cam_job *job, void *arg)
 {
@@ -211,8 +217,8 @@ static void log_event(const char *func, int ctx_id, struct v4l2_event *e)
 		break;
 	case V4L2_EVENT_FRAME_SYNC:
 	case V4L2_EVENT_REQUEST_DUMPED:
-		pr_info("%s: ctx-%d seq %u\n", func, ctx_id,
-			e->u.frame_sync.frame_sequence);
+		pr_info("%s: ctx-%d seq %u/%u\n", func, ctx_id,
+			e->u.frame_sync.frame_sequence, (unsigned int)e->u.data[4]);
 		break;
 	case V4L2_EVENT_REQUEST_SENSOR_TRIGGER:
 		pr_info("%s: ctx-%d tg_cnt:%d frame_seq:%d\n", func, ctx_id,
@@ -294,7 +300,13 @@ void mtk_cam_event_frame_sync(struct mtk_cam_ctrl *cam_ctrl,
 		.type = V4L2_EVENT_FRAME_SYNC,
 		.u.frame_sync.frame_sequence = frame_seq_no,
 	};
-
+	struct mtk_cam_event_frame_sync_data data = {
+		.frame_sequence = frame_seq_no,
+		.sensor_sequence = cam_ctrl->sensor_seq,
+		.frame_sync_id = cam_ctrl->frame_sync_id,
+		.sensor_sync_id = cam_ctrl->sensor_sync_id,
+	};
+	memcpy(event.u.data, &data, 16);
 	if (ctx->has_raw_subdev)
 		mtk_cam_ctx_send_raw_event(ctx, &event);
 	else
@@ -1470,6 +1482,94 @@ void mtk_cam_ctrl_job_enque(struct mtk_cam_ctrl *cam_ctrl,
 
 	mtk_cam_ctrl_put(cam_ctrl);
 }
+struct mtk_cam_job *mtk_cam_ctrl_get_job_by_req_id(struct mtk_cam_ctrl *cam_ctrl,
+	unsigned int req_info_id)
+{
+	struct mtk_cam_job *job;
+
+	job = mtk_cam_ctrl_get_job(cam_ctrl,
+			cond_req_id_equal, &req_info_id);
+	if (job)
+		mtk_cam_job_put(job);
+	return job;
+}
+void mtk_cam_ctrl_sensor_job_enque(struct mtk_cam_ctrl *cam_ctrl,
+			    struct mtk_cam_job *job)
+{
+	if (mtk_cam_ctrl_get(cam_ctrl))
+		return;
+
+	mtk_cam_ctrl_update_seq(cam_ctrl, job);
+
+
+	if (job->seamless_switch)
+		mtk_cam_job_set_fsm(job, 0);
+
+	/* add to statemachine */
+	write_lock(&cam_ctrl->list_lock);
+
+	list_add_tail(&job->job_state.list, &cam_ctrl->camsys_state_list);
+	write_unlock(&cam_ctrl->list_lock);
+
+	/* following would trigger actions */
+	mtk_cam_job_set_fsm_compose(job, 0);
+	mtk_cam_ctrl_send_event(cam_ctrl, CAMSYS_EVENT_ENQUE);
+	mtk_cam_ctrl_put(cam_ctrl);
+}
+void mtk_cam_ctrl_isp_job_enque(struct mtk_cam_ctrl *cam_ctrl,
+			    struct mtk_cam_job *job)
+{
+	if (mtk_cam_ctrl_get(cam_ctrl))
+		return;
+
+	if (job->seamless_switch)
+		mtk_cam_job_set_fsm(job, 0);
+
+	if (job->raw_switch)
+		atomic_inc(&cam_ctrl->stream_on_cnt);
+
+	/* initial request */
+	if (cam_ctrl->initial_req) {
+		cam_ctrl->initial_req = 0;
+
+		vsync_set_desired(&cam_ctrl->vsync_col, job->master_engine);
+
+		if (is_m2m(job)) {
+
+			atomic_set(&cam_ctrl->stream_on_cnt, 0);
+			mtk_cam_watchdog_start(&cam_ctrl->watchdog, 0);
+		}
+		if (is_extisp(job)) {
+			cam_ctrl->r_info.extisp_enable = job->extisp_data;
+			pr_info("[%s:extisp] ctx:%d, extisp_enable:0x%x\n",
+				__func__, cam_ctrl->ctx->stream_id, cam_ctrl->r_info.extisp_enable);
+		}
+	}
+
+	/* add to statemachine */
+	write_lock(&cam_ctrl->list_lock);
+
+	/* note:
+	 *   fsm enabling is part of statemachine.
+	 *   should be protected by 'cam_ctrl->list_lock'
+	 */
+	if (atomic_read(&cam_ctrl->stream_on_cnt)) {
+		mtk_cam_job_set_fsm(job, 0);
+		if (CAM_DEBUG_ENABLED(CTRL))
+			pr_info("disable job #%d's fsm, stream_on_cnt(%d)\n",
+				job->req_seq, atomic_read(&cam_ctrl->stream_on_cnt));
+	}
+
+	write_unlock(&cam_ctrl->list_lock);
+
+	/* following would trigger actions */
+	mtk_cam_job_set_fsm_compose(job, 1);
+	mtk_cam_ctrl_send_event(cam_ctrl, CAMSYS_EVENT_ENQUE);
+	mtk_cam_ctrl_queue_for_flow_control(cam_ctrl, job);
+
+	mtk_cam_ctrl_put(cam_ctrl);
+}
+
 
 void mtk_cam_ctrl_job_composed(struct mtk_cam_ctrl *cam_ctrl,
 			       unsigned int fh_cookie,
@@ -1604,6 +1704,9 @@ void mtk_cam_ctrl_start(struct mtk_cam_ctrl *cam_ctrl, struct mtk_cam_ctx *ctx)
 	cam_ctrl->fs_event_subframe_idx = 0;
 	cam_ctrl->frame_interval_ns =
 			query_interval_from_sensor(ctx->sensor);
+	cam_ctrl->sensor_sync_id = 0;
+	cam_ctrl->frame_sync_id = 0;
+	cam_ctrl->sensor_seq = 0;
 
 	atomic_set(&cam_ctrl->stopped, 0);
 	atomic_set(&cam_ctrl->stream_on_cnt, 1);

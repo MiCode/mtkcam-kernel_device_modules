@@ -70,7 +70,7 @@ static int m2m_send_event(struct mtk_cam_job_state *s,
 	s_acc.seq_no = s->seq_no;
 	s_acc.ops = &_acc_ops;
 	p->s_params = &s->s_params;
-
+	p->cq_trigger_thres = s->cq_trigger_thres_ns;
 	ret = loop_each_transition(&m2m_isp_tbl, &s_acc, ISP_STATE, p);
 
 	return ret < 0 ? -1 : 0;
@@ -107,6 +107,7 @@ int mtk_cam_job_state_init_m2m(struct mtk_cam_job_state *s,
 
 	s->cb = cb;
 	s->apply_by_fsm = 1;
+	s->compose_by_fsm = 1;
 
 	return 0;
 }

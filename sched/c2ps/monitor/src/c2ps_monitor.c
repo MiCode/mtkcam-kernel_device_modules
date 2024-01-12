@@ -118,8 +118,7 @@ int monitor_task_start(int pid, int task_id)
 
 	tsk_info->pid = pid;
 	tsk_info->start_time = c2ps_get_time();
-	tsk_info->sum_exec_runtime_start =
-				c2ps_get_sum_exec_runtime(pid);
+	tsk_info->sum_exec_runtime_start = c2ps_get_sum_exec_runtime(pid);
 
 	C2PS_LOGD("task_id: %d, start_time: %llu\n", task_id, tsk_info->start_time);
 
@@ -165,14 +164,16 @@ int monitor_task_end(int pid, int task_id)
 	tsk_info->real_exec_runtime = cal_real_exec_runtime(tsk_info);
 	tsk_info->overlap_task = NULL;
 
-	C2PS_LOGD("task_id: %d, end_time: %llu, proc_time: %llu, exec_time: %llu\n",
-		task_id, tsk_info->end_time, tsk_info->proc_time,
+	C2PS_LOGD("task_name: %s, task_id: %d, "
+		"end_time: %llu, proc_time: %llu, exec_time: %llu\n",
+		tsk_info->task_name, task_id, tsk_info->end_time, tsk_info->proc_time,
 		tsk_info->real_exec_runtime);
 	c2ps_update_task_info_hist(tsk_info);
 
 	/* debug tool tag */
-	c2ps_main_systrace("task_id: %d, proc_time: %llu, "
-			"real exec_time: %llu", tsk_info->task_id,
+	c2ps_main_systrace("task_name: %s, task_id: %d, proc_time: %llu, "
+			"real exec_time: %llu",
+			tsk_info->task_name, tsk_info->task_id,
 			tsk_info->proc_time, tsk_info->real_exec_runtime);
 	c2ps_critical_task_systrace(tsk_info);
 

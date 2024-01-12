@@ -265,6 +265,8 @@ void mtk_imgsys_pipe_job_finish(struct mtk_imgsys_request *req,
 	int i;
 	int req_id = req->id;
 	unsigned int vb2_buffer_index;
+    union request_track *req_track = NULL;
+    req_track = (union request_track *)req->req_stat;
 
 #ifdef BATCH_MODE_V3
 	// batch mode
@@ -317,6 +319,7 @@ done:
 #ifdef REQ_TIMESTAMP
 	req->tstate.time_notify2vb2done = ktime_get_boottime_ns()/1000;
 #endif
+    req_track->subflow_kernel++;
 	complete(&req->done);
         if (imgsys_dbg_enable()) {
 		dev_dbg(pipe->imgsys_dev->dev,

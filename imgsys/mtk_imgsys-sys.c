@@ -812,9 +812,15 @@ release_req:
 	swork->req_sbuf_kva = frm_info_cb->req_sbuf_goft
 			+ mtk_hcp_get_gce_mem_virt(imgsys_dev->scp_pdev);
 #endif
-	INIT_WORK(&swork->work, cmdq_cb_timeout_worker);
-	queue_work(req->imgsys_pipe->imgsys_dev->mdpcb_wq,
-		&swork->work);
+	if ((data.err == -800)
+		&& (frm_info_cb->user_info[fail_subfidx].hw_comb == 0x800)
+		&& isHWhang) {
+		cmdq_cb_timeout_worker(&swork->work);
+	} else {
+		INIT_WORK(&swork->work, cmdq_cb_timeout_worker);
+		queue_work(req->imgsys_pipe->imgsys_dev->mdpcb_wq,
+			&swork->work);
+	}
 	imgsys_timeout_idx = (imgsys_timeout_idx + 1) % VIDEO_MAX_FRAME;
 
 	dev_info(imgsys_dev->dev,

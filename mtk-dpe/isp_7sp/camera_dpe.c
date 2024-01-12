@@ -68,6 +68,7 @@
 #include <soc/mediatek/smi.h>
 #include<soc/mediatek/mmdvfs_v3.h>
 #include "iommu_debug.h"
+#include "mtk-smmu-v3.h"
 
 //! for IOVA to PA
 #include <linux/iommu.h>
@@ -483,7 +484,7 @@ unsigned int DVGF_Num;
 //unsigned int Get_DVS_IRQ;
 //unsigned int Get_DVP_IRQ;
 //unsigned int Get_DVGF_IRQ;
-unsigned int No_SMMU;
+//unsigned int No_SMMU;
 //unsigned int DVGF_Frame_cnt;
 unsigned int DPE_debug_log_en;
 
@@ -1528,6 +1529,7 @@ for (i = start; i <= end; i += 0x10) {                                     \
 static bool dpe_get_dma_buffer(struct tee_mmu *mmu, int fd)
 {
 	struct dma_buf *buf;
+	int Get_SMMU = 0;
 
 	 //LOG_INF("get_dma_buffer_fd= %d\n", fd);
 	if (fd <= 0)
@@ -1538,10 +1540,17 @@ static bool dpe_get_dma_buffer(struct tee_mmu *mmu, int fd)
 		return false;
 	 //LOG_INF("buf_addr = %x\n", buf);
 	mmu->dma_buf = buf;
-	if (No_SMMU == 0){
-		mmu->attach = dma_buf_attach(mmu->dma_buf, smmudev);
+
+	Get_SMMU = smmu_v3_enabled();
+	// LOG_INF("Get_SMMU = %x\n", Get_SMMU);
+	if (Get_SMMU == 1) {
+		if ((smmudev != NULL) || (smmudev != 0)) {
+			mmu->attach = dma_buf_attach(mmu->dma_buf, smmudev);
+		}
 	} else {
-		mmu->attach = dma_buf_attach(mmu->dma_buf, gdev);
+		if ((gdev != NULL) || (gdev != 0)) {
+			mmu->attach = dma_buf_attach(mmu->dma_buf, gdev);
+		}
 	}
 	//LOG_INF("mmu->attach = %x\n", mmu->attach);
 
@@ -8143,6 +8152,7 @@ static signed int DPE_probe(struct platform_device *pDev)
 	unsigned int irq_info[3];
 	struct device *dev = NULL;
 	struct DPE_device *_dpe_dev;
+	int Get_SMMU = 0;
 
 #ifdef CMASYS_CLK_Debug
 	struct CAM_device *_cam_dev;
@@ -8489,14 +8499,12 @@ if (DPE_dev->irq > 0) {
 		}
 	//!SMMU
 	LOG_INF("Star SMMU init\n");
-	No_SMMU = 0;
+	Get_SMMU = 0;
 	_dpe_dev->smmu_dev = mtk_smmu_get_shared_device(&pDev->dev);
 	if (!_dpe_dev) {
 		dev_dbg(&pDev->dev,
 			"%s: failed to get dpe smmu device\n",
 			__func__);
-		LOG_INF("NO useing SMMU\n");
-		No_SMMU = 1;
 		return -EINVAL;
 	}
 	LOG_INF("smmu_get done\n");
@@ -8507,12 +8515,12 @@ if (DPE_dev->irq > 0) {
 	gdev = &pDev->dev;
 	//if (dma_set_mask_and_coherent(gdev, DMA_BIT_MASK(34)))
 		//LOG_INF("%s: No suitable DMA available\n", __func__);
-
+	Get_SMMU = smmu_v3_enabled();
 	kernel_dpebuf =
 	vb2_dc_alloc(NULL, gdev, WB_TOTAL_SIZE);
 	dbuf = vb2_dc_get_dmabuf(NULL, kernel_dpebuf, O_RDWR);
 	refcount_dec(&kernel_dpebuf->refcount);
-	if(No_SMMU == 0) {
+	if(Get_SMMU == 1) {
 		dpebuf =
 		vb2_dc_attach_dmabuf(NULL, smmudev, dbuf, WB_TOTAL_SIZE);
 	} else {

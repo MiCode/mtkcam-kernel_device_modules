@@ -1169,6 +1169,7 @@ static int seninf_core_probe(struct platform_device *pdev)
 		dev_info(dev, "failed to create sysfs status\n");
 
 	seninf_core_pm_runtime_enable(core);
+	device_enable_async_suspend(dev);
 
 	kthread_init_worker(&core->seninf_worker);
 	core->seninf_kworker_task = kthread_run(kthread_worker_fn,

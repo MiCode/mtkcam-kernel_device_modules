@@ -141,7 +141,6 @@ int mtk_mraw_translation_fault_callback(int port, dma_addr_t mva, void *data)
 }
 
 void apply_mraw_cq(struct mtk_mraw_device *mraw_dev,
-	      struct apply_cq_ref *ref,
 	      dma_addr_t cq_addr, unsigned int cq_size, unsigned int cq_offset,
 	      int initial)
 {
@@ -150,9 +149,6 @@ void apply_mraw_cq(struct mtk_mraw_device *mraw_dev,
 	u32 cq_addr_msb = ((cq_addr + cq_offset) >> 32);
 
 	if (cq_size == 0)
-		return;
-
-	if (WARN_ON(assign_apply_cq_ref(&mraw_dev->cq_ref, ref)))
 		return;
 
 	writel_relaxed(cq_addr_lsb, mraw_dev->base + REG_MRAWCQ_CQ_SUB_THR0_BASEADDR_2);

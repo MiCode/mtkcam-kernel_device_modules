@@ -103,19 +103,14 @@ struct mtk_ccu_clk_name ccu_clk_name_isp7spl[] = {
 	{true, "CAM_VCORE_CG"},
 	{false, ""}};
 
-//struct mtk_ccu_clk_name ccu_clk_name_isp8[] = {
-//	{true, "TOP_CAM"},
-//	{true, "VLP_CCUSYS"},
-//	{true, "VLP_CCUTM"},
-//	{true, "CCU2MM0_GALS"},
-//	{true, "CCU_LARB"},
-//	{true, "CCU_AHB"},
-//	{true, "CCUSYS_CCU0"},
-//	{true, "CAM_CG"},
-//	{true, "CAM_VCORE_CG"},
-//	{false, ""}};
-
 struct mtk_ccu_clk_name ccu_clk_name_isp8[] = {
+	{true, "VLP_CCUSYS"},
+	{true, "VLP_CCUTM"},
+	{true, "CCU2MM0_GALS"},
+	{true, "CCU_LARB"},
+	{true, "CCU_INFRA"},
+	{true, "CCUSYS_CCU0"},
+	{true, "CAM_VCORE_CG"},
 	{false, ""}};
 
 #if IS_ENABLED(CONFIG_MTK_AEE_IPANIC)
@@ -858,7 +853,6 @@ static int mtk_ccu_load(struct rproc *rproc, const struct firmware *fw)
 	}
 
 	LOG_DBG("Load CCU binary start\n");
-
 #if defined(SECURE_CCU)
 	if (ccu->compact_ipc)
 		writel(CCU_GO_TO_LOAD, ccu->ccu_spare_base + MTK_CCU_SPARE_REG30);
@@ -1117,6 +1111,15 @@ static int mtk_ccu_probe(struct platform_device *pdev)
 		ccu->spm_base = devm_ioremap(dev, phy_addr, phy_size);
 		LOG_DBG("spm_base pa: 0x%x, size: 0x%x\n", phy_addr, phy_size);
 		LOG_DBG("spm_base va: 0x%llx\n", (uint64_t)ccu->spm_base);
+	}
+
+	/*remap mmpc_base*/
+	if (ccu->ccu_version >= CCU_VER_ISP8) {
+		phy_addr = MMPC_BASE;
+		phy_size = MMPC_SIZE;
+		ccu->mmpc_base = devm_ioremap(dev, phy_addr, phy_size);
+		LOG_DBG("mmpc_base pa: 0x%x, size: 0x%x\n", phy_addr, phy_size);
+		LOG_DBG("mmpc_base va: 0x%llx\n", (uint64_t)ccu->mmpc_base);
 	}
 
 	/* Get other power node if needed. */
@@ -1400,7 +1403,10 @@ static int mtk_ccu_get_power(struct mtk_ccu *ccu, struct device *dev)
 		ccu->cammainpwr_powered = (rc >= 0);
 	}
 
-	if (ccu->ccu_version >= CCU_VER_ISP7SP) {
+	if (ccu->ccu_version >= CCU_VER_ISP8) {
+		sram_con = ((uint8_t *)ccu->mmpc_base)+ccu->ccu_sram_con_offset;
+		writel(readl(sram_con) & ~CCU_SLEEP_SRAM_PDN, sram_con);
+	} else if (ccu->ccu_version >= CCU_VER_ISP7SP) {
 		sram_con = ((uint8_t *)ccu->spm_base)+ccu->ccu_sram_con_offset;
 		writel(readl(sram_con) & ~CCU_SLEEP_SRAM_PDN, sram_con);
 	}
@@ -1423,7 +1429,10 @@ static void mtk_ccu_put_power(struct mtk_ccu *ccu, struct device *dev)
 		writel(readl(resource_con) & ~ccu->ccu_resource_bits, resource_con);
 	}
 
-	if (ccu->ccu_version >= CCU_VER_ISP7SP) {
+	if (ccu->ccu_version >= CCU_VER_ISP8) {
+		sram_con = ((uint8_t *)ccu->mmpc_base)+ccu->ccu_sram_con_offset;
+		writel(readl(sram_con) | CCU_SLEEP_SRAM_PDN, sram_con);
+	} else if (ccu->ccu_version >= CCU_VER_ISP7SP) {
 		sram_con = ((uint8_t *)ccu->spm_base)+ccu->ccu_sram_con_offset;
 		writel(readl(sram_con) | CCU_SLEEP_SRAM_PDN, sram_con);
 	}

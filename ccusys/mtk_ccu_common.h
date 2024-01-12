@@ -193,6 +193,7 @@ struct mtk_ccu {
 	void __iomem *pmem_base;
 	void __iomem *ddrmem_base;
 	void __iomem *spm_base;
+	void __iomem *mmpc_base;
 	unsigned int irq_num;
 	struct icc_path *path_ccug;
 	struct icc_path *path_ccuo;

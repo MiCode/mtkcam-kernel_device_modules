@@ -51,6 +51,8 @@
 #define SPM_BASE              (0x1C001000)
 #define SPM_BASE_ISP8         (0x1C004000)
 #define SPM_SIZE              (0x1000)
+#define MMPC_BASE             (0x31B50000)
+#define MMPC_SIZE             (0x1000)
 #define CCU_SLEEP_SRAM_CON    (0xF54)
 #define CCU_SLEEP_SRAM_PDN    (0x1 << 8)
 #define CCU_RESOURCE_OFFSET   (0x82C)

@@ -17,7 +17,7 @@
 #include "mtk_cam-engine.h"
 #include "mtk_cam-dvfs_qos.h"
 
-#define JOB_NUM_PER_STREAM 5
+#define JOB_NUM_PER_STREAM 8
 #define MAX_PIPES_PER_STREAM 5
 #define MAX_RAW_PER_STREAM 3 // twin, 3raw
 #define MAX_SV_PIPES_PER_STREAM (MAX_PIPES_PER_STREAM - 1)

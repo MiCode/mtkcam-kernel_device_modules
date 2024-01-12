@@ -66,6 +66,7 @@ int mtk_cam_dvfs_probe(struct device *dev,
 	int i;
 
 	dvfs->dev = dev;
+	mutex_init(&dvfs->dvfs_lock);
 
 	if (max_stream_num <= 0) {
 		dev_info(dev, "invalid stream num %d\n", max_stream_num);
@@ -99,15 +100,13 @@ int mtk_cam_dvfs_probe(struct device *dev,
 		dev_info(dev, "failed to get mmdvfs_clk\n");
 	}
 
-	mutex_init(&dvfs->dvfs_lock);
-
 	return 0;
 
 opp_default_table:
 	dvfs->opp_num = 1;
 	dvfs->opp[0] = (struct camsys_opp_table) {
-		.freq_hz = 312000000,
-		.volt_uv = 575000,
+		.freq_hz = 688000000,
+		.volt_uv = 700000,
 	};
 	return 0;
 }
@@ -978,7 +977,7 @@ int mtk_cam_apply_qos(struct mtk_cam_job *job)
 
 		raw_dev = dev_get_drvdata(eng->raw_devs[i]);
 		is_w_plane = (is_rgbw(job) && raw_dev->is_slave) ? true : false;
-		for (j = 0; j < SMI_PORT_RAW_NUM; j++) {
+		for (j = 0; j < raw_dev->qos.n_path; j++) {
 			a_bw = is_w_plane ?
 				(job->raw_w_mmqos[j].avg_bw / used_raw_num) :
 				(job->raw_mmqos[j].avg_bw / used_raw_num);
@@ -1004,7 +1003,7 @@ int mtk_cam_apply_qos(struct mtk_cam_job *job)
 			continue;
 
 		yuv_dev = dev_get_drvdata(eng->yuv_devs[i]);
-		for (j = 0; j < SMI_PORT_YUV_NUM; j++) {
+		for (j = 0; j < yuv_dev->qos.n_path; j++) {
 			a_bw = job->yuv_mmqos[j].avg_bw / used_raw_num;
 			p_bw = job->yuv_mmqos[j].peak_bw / used_raw_num;
 			apply = apply_qos_chk(a_bw, p_bw,
@@ -1030,6 +1029,7 @@ int mtk_cam_apply_qos(struct mtk_cam_job *job)
 		else
 			port_num = SMI_PORT_SV_TYPE1_NUM;
 
+		port_num = sv_dev->qos.n_path ? port_num : 0;
 		for (i = 0; i < port_num; i++) {
 			a_bw = job->sv_mmqos[i].avg_bw;
 			p_bw = job->sv_mmqos[i].peak_bw;
@@ -1052,7 +1052,7 @@ int mtk_cam_apply_qos(struct mtk_cam_job *job)
 	for (i = 0; i < MAX_MRAW_PIPES_PER_STREAM; i++) {
 		if (ctx->hw_mraw[i]) {
 			mraw_dev = dev_get_drvdata(ctx->hw_mraw[i]);
-			for (j = 0; j < SMI_PORT_MRAW_NUM; j++) {
+			for (j = 0; j < mraw_dev->qos.n_path; j++) {
 				a_bw = job->mraw_mmqos[i][j].avg_bw;
 				p_bw = job->mraw_mmqos[i][j].peak_bw;
 				apply = apply_qos_chk(a_bw, p_bw,

@@ -289,9 +289,9 @@ void mtk_cam_sv_backup(struct mtk_camsv_device *sv_dev)
 	s->dma_en_img = CAMSV_READ_REG(sv_dev->base +
 				       REG_CAMSVCENTRAL_DMA_EN_IMG);
 	s->dcif_set = CAMSV_READ_REG(sv_dev->base +
-				     REG_E_CAMSVCENTRAL_DCIF_SET);
+				     REG_CAMSVCENTRAL_DCIF_SET);
 	s->dcif_sel = CAMSV_READ_REG(sv_dev->base +
-				     REG_E_CAMSVCENTRAL_DCIF_SEL);
+				     REG_CAMSVCENTRAL_DCIF_SEL);
 }
 
 void mtk_cam_sv_restore(struct mtk_camsv_device *sv_dev)
@@ -316,8 +316,8 @@ void mtk_cam_sv_restore(struct mtk_camsv_device *sv_dev)
 	}
 
 	CAMSV_WRITE_REG(sv_dev->base + REG_CAMSVCENTRAL_DMA_EN_IMG, s->dma_en_img);
-	CAMSV_WRITE_REG(sv_dev->base + REG_E_CAMSVCENTRAL_DCIF_SET, s->dcif_set);
-	CAMSV_WRITE_REG(sv_dev->base + REG_E_CAMSVCENTRAL_DCIF_SEL, s->dcif_sel);
+	CAMSV_WRITE_REG(sv_dev->base + REG_CAMSVCENTRAL_DCIF_SET, s->dcif_set);
+	CAMSV_WRITE_REG(sv_dev->base + REG_CAMSVCENTRAL_DCIF_SEL, s->dcif_sel);
 }
 
 static int reset_msgfifo(struct mtk_camsv_device *sv_dev)
@@ -654,26 +654,26 @@ int mtk_cam_sv_dmao_common_config(struct mtk_camsv_device *sv_dev,
 	}
 
 	/* cqi */
-	CAMSV_WRITE_REG(sv_dev->base_scq + REG_CAMSV_M1_CQI_ORIRDMA_CON0,
+	CAMSV_WRITE_REG(sv_dev->base_scq + REG_CAMSVCQI_E1_ORIRDMA_CON0,
 		th_setting.cq1_fifo_size);
-	CAMSV_WRITE_REG(sv_dev->base_scq + REG_CAMSV_M1_CQI_ORIRDMA_CON1,
+	CAMSV_WRITE_REG(sv_dev->base_scq + REG_CAMSVCQI_E1_ORIRDMA_CON1,
 		th_setting.cq1_pultra_th);
-	CAMSV_WRITE_REG(sv_dev->base_scq + REG_CAMSV_M1_CQI_ORIRDMA_CON2,
+	CAMSV_WRITE_REG(sv_dev->base_scq + REG_CAMSVCQI_E1_ORIRDMA_CON2,
 		th_setting.cq1_ultra_th);
-	CAMSV_WRITE_REG(sv_dev->base_scq + REG_CAMSV_M1_CQI_ORIRDMA_CON3,
+	CAMSV_WRITE_REG(sv_dev->base_scq + REG_CAMSVCQI_E1_ORIRDMA_CON3,
 		th_setting.cq1_urgent_th);
-	CAMSV_WRITE_REG(sv_dev->base_scq + REG_CAMSV_M1_CQI_ORIRDMA_CON4,
+	CAMSV_WRITE_REG(sv_dev->base_scq + REG_CAMSVCQI_E1_ORIRDMA_CON4,
 		th_setting.cq1_dvfs_th);
 
-	CAMSV_WRITE_REG(sv_dev->base_scq + REG_CAMSV_M2_CQI_ORIRDMA_CON0,
+	CAMSV_WRITE_REG(sv_dev->base_scq + REG_CAMSVCQI_E2_ORIRDMA_CON0,
 		th_setting.cq2_fifo_size);
-	CAMSV_WRITE_REG(sv_dev->base_scq + REG_CAMSV_M2_CQI_ORIRDMA_CON1,
+	CAMSV_WRITE_REG(sv_dev->base_scq + REG_CAMSVCQI_E2_ORIRDMA_CON1,
 		th_setting.cq2_pultra_th);
-	CAMSV_WRITE_REG(sv_dev->base_scq + REG_CAMSV_M2_CQI_ORIRDMA_CON2,
+	CAMSV_WRITE_REG(sv_dev->base_scq + REG_CAMSVCQI_E2_ORIRDMA_CON2,
 		th_setting.cq2_ultra_th);
-	CAMSV_WRITE_REG(sv_dev->base_scq + REG_CAMSV_M2_CQI_ORIRDMA_CON3,
+	CAMSV_WRITE_REG(sv_dev->base_scq + REG_CAMSVCQI_E2_ORIRDMA_CON3,
 		th_setting.cq2_urgent_th);
-	CAMSV_WRITE_REG(sv_dev->base_scq + REG_CAMSV_M2_CQI_ORIRDMA_CON4,
+	CAMSV_WRITE_REG(sv_dev->base_scq + REG_CAMSVCQI_E2_ORIRDMA_CON4,
 		th_setting.cq2_dvfs_th);
 
 	return ret;
@@ -791,8 +791,8 @@ int mtk_cam_sv_central_common_disable(struct mtk_camsv_device *sv_dev)
 
 	sv_reset(sv_dev);
 	CAMSV_WRITE_REG(sv_dev->base + REG_CAMSVCENTRAL_DMA_EN_IMG, 0);
-	CAMSV_WRITE_REG(sv_dev->base + REG_E_CAMSVCENTRAL_DCIF_SET, 0);
-	CAMSV_WRITE_REG(sv_dev->base + REG_E_CAMSVCENTRAL_DCIF_SEL, 0);
+	CAMSV_WRITE_REG(sv_dev->base + REG_CAMSVCENTRAL_DCIF_SET, 0);
+	CAMSV_WRITE_REG(sv_dev->base + REG_CAMSVCENTRAL_DCIF_SEL, 0);
 	mtk_cam_sv_toggle_db(sv_dev);
 
 	return ret;
@@ -885,7 +885,7 @@ void apply_camsv_cq(struct mtk_camsv_device *sv_dev,
 		cq_addr_msb);
 	CAMSV_WRITE_REG(sv_dev->base_scq  + REG_CAMSVCQ_CQ_SUB_THR0_BASEADDR_2,
 		cq_addr_lsb);
-	writel(CAMSVCQTOP_CQ_THR0_START, sv_dev->base_scq + REG_CAMSVCQTOP_THR_START);
+	CAMSV_WRITE_REG(sv_dev->base_scq  + REG_CAMSVCQTOP_THR_START, 1);
 	wmb(); /* TBC */
 
 	if (initial) {
@@ -1263,24 +1263,24 @@ void camsv_dump_dma_debug_data(struct mtk_camsv_device *sv_dev)
 	u32 smi_crc_address, smi_crc_data, tag1_tag2_crc, len1_len2_crc, smi_cnt;
 	u32 debug_img1, debug_len1, cmd_cnt_img1, cmd_cnt_len1;
 
-	writel_relaxed(0x00010001, sv_dev->base_dma + REG_CAMSV_DMATOP_DMA_DEBUG_SEL);
-	smi_crc_address = readl_relaxed(sv_dev->base_dma + REG_CAMSV_DMATOP_DMA_DEBUG_PORT);
-	writel_relaxed(0x00010003, sv_dev->base_dma + REG_CAMSV_DMATOP_DMA_DEBUG_SEL);
-	smi_crc_data = readl_relaxed(sv_dev->base_dma + REG_CAMSV_DMATOP_DMA_DEBUG_PORT);
-	writel_relaxed(0x00010005, sv_dev->base_dma + REG_CAMSV_DMATOP_DMA_DEBUG_SEL);
-	tag1_tag2_crc = readl_relaxed(sv_dev->base_dma + REG_CAMSV_DMATOP_DMA_DEBUG_PORT);
-	writel_relaxed(0x00010009, sv_dev->base_dma + REG_CAMSV_DMATOP_DMA_DEBUG_SEL);
-	len1_len2_crc = readl_relaxed(sv_dev->base_dma + REG_CAMSV_DMATOP_DMA_DEBUG_PORT);
-	writel_relaxed(0x0001000F, sv_dev->base_dma + REG_CAMSV_DMATOP_DMA_DEBUG_SEL);
-	smi_cnt = readl_relaxed(sv_dev->base_dma + REG_CAMSV_DMATOP_DMA_DEBUG_PORT);
-	writel_relaxed(0x0001010B, sv_dev->base_dma + REG_CAMSV_DMATOP_DMA_DEBUG_SEL);
-	debug_img1 = readl_relaxed(sv_dev->base_dma + REG_CAMSV_DMATOP_DMA_DEBUG_PORT);
-	writel_relaxed(0x0001010C, sv_dev->base_dma + REG_CAMSV_DMATOP_DMA_DEBUG_SEL);
-	debug_len1 = readl_relaxed(sv_dev->base_dma + REG_CAMSV_DMATOP_DMA_DEBUG_PORT);
-	writel_relaxed(0x0001010E, sv_dev->base_dma + REG_CAMSV_DMATOP_DMA_DEBUG_SEL);
-	cmd_cnt_img1 = readl_relaxed(sv_dev->base_dma + REG_CAMSV_DMATOP_DMA_DEBUG_PORT);
-	writel_relaxed(0x0001090E, sv_dev->base_dma + REG_CAMSV_DMATOP_DMA_DEBUG_SEL);
-	cmd_cnt_len1 = readl_relaxed(sv_dev->base_dma + REG_CAMSV_DMATOP_DMA_DEBUG_PORT);
+	writel_relaxed(0x00010001, sv_dev->base_dma + REG_CAMSVDMATOP_DMA_DEBUG_SEL);
+	smi_crc_address = readl_relaxed(sv_dev->base_dma + REG_CAMSVDMATOP_DMA_DEBUG_PORT);
+	writel_relaxed(0x00010003, sv_dev->base_dma + REG_CAMSVDMATOP_DMA_DEBUG_SEL);
+	smi_crc_data = readl_relaxed(sv_dev->base_dma + REG_CAMSVDMATOP_DMA_DEBUG_PORT);
+	writel_relaxed(0x00010005, sv_dev->base_dma + REG_CAMSVDMATOP_DMA_DEBUG_SEL);
+	tag1_tag2_crc = readl_relaxed(sv_dev->base_dma + REG_CAMSVDMATOP_DMA_DEBUG_PORT);
+	writel_relaxed(0x00010009, sv_dev->base_dma + REG_CAMSVDMATOP_DMA_DEBUG_SEL);
+	len1_len2_crc = readl_relaxed(sv_dev->base_dma + REG_CAMSVDMATOP_DMA_DEBUG_PORT);
+	writel_relaxed(0x0001000F, sv_dev->base_dma + REG_CAMSVDMATOP_DMA_DEBUG_SEL);
+	smi_cnt = readl_relaxed(sv_dev->base_dma + REG_CAMSVDMATOP_DMA_DEBUG_PORT);
+	writel_relaxed(0x0001010B, sv_dev->base_dma + REG_CAMSVDMATOP_DMA_DEBUG_SEL);
+	debug_img1 = readl_relaxed(sv_dev->base_dma + REG_CAMSVDMATOP_DMA_DEBUG_PORT);
+	writel_relaxed(0x0001010C, sv_dev->base_dma + REG_CAMSVDMATOP_DMA_DEBUG_SEL);
+	debug_len1 = readl_relaxed(sv_dev->base_dma + REG_CAMSVDMATOP_DMA_DEBUG_PORT);
+	writel_relaxed(0x0001010E, sv_dev->base_dma + REG_CAMSVDMATOP_DMA_DEBUG_SEL);
+	cmd_cnt_img1 = readl_relaxed(sv_dev->base_dma + REG_CAMSVDMATOP_DMA_DEBUG_PORT);
+	writel_relaxed(0x0001090E, sv_dev->base_dma + REG_CAMSVDMATOP_DMA_DEBUG_SEL);
+	cmd_cnt_len1 = readl_relaxed(sv_dev->base_dma + REG_CAMSVDMATOP_DMA_DEBUG_PORT);
 
 	dev_info_ratelimited(sv_dev->dev,
 		"dma_top_debug:0x%x_0x%x_0x%x_0x%x_0x%x_0x%x_0x%x_0x%x_0x%x\n",
@@ -1359,8 +1359,8 @@ void mtk_cam_sv_debug_dump(struct mtk_camsv_device *sv_dev, unsigned int dump_ta
 	}
 
 	/* check dcif setting */
-	dcif_set = readl_relaxed(sv_dev->base_inner + REG_E_CAMSVCENTRAL_DCIF_SET);
-	dcif_sel = readl_relaxed(sv_dev->base_inner + REG_E_CAMSVCENTRAL_DCIF_SEL);
+	dcif_set = readl_relaxed(sv_dev->base_inner + REG_CAMSVCENTRAL_DCIF_SET);
+	dcif_sel = readl_relaxed(sv_dev->base_inner + REG_CAMSVCENTRAL_DCIF_SEL);
 	dev_info_ratelimited(sv_dev->dev, "dcif_set:0x%x dcif_sel:0x%x\n",
 		dcif_set, dcif_sel);
 
@@ -1792,7 +1792,7 @@ static int mtk_camsv_pm_suspend(struct device *dev)
 	/* Disable ISP's view finder and wait for TG idle */
 	dev_info(dev, "camsv suspend, disable VF\n");
 	val = readl(sv_dev->base + REG_CAMSVCENTRAL_VF_CON);
-	writel(val & (~CAMSVCENTRAL_VF_CON_VFDATA_EN),
+	writel(val & (~CAMSVCENTRAL_VFDATA_EN),
 		sv_dev->base + REG_CAMSVCENTRAL_VF_CON);
 #ifdef CAMSV_TODO
 	// camsv todo: implement this usage
@@ -1806,7 +1806,7 @@ static int mtk_camsv_pm_suspend(struct device *dev)
 
 	/* Disable CMOS */
 	val = readl(sv_dev->base + REG_CAMSVCENTRAL_SEN_MODE);
-	writel(val & (~CAMSVCENTRAL_SEN_MODE_CMOS_EN),
+	writel(val & (~CAMSVCENTRAL_CMOS_EN),
 		sv_dev->base + REG_CAMSVCENTRAL_SEN_MODE);
 
 	/* Force ISP HW to idle */
@@ -1833,12 +1833,12 @@ static int mtk_camsv_pm_resume(struct device *dev)
 	/* Enable CMOS */
 	dev_info(dev, "camsv resume, enable CMOS/VF\n");
 	val = readl(sv_dev->base + REG_CAMSVCENTRAL_SEN_MODE);
-	writel(val | CAMSVCENTRAL_SEN_MODE_CMOS_EN,
+	writel(val | CAMSVCENTRAL_CMOS_EN,
 		sv_dev->base + REG_CAMSVCENTRAL_SEN_MODE);
 
 	/* Enable VF */
 	val = readl(sv_dev->base + REG_CAMSVCENTRAL_VF_CON);
-	writel(val | CAMSVCENTRAL_VF_CON_VFDATA_EN,
+	writel(val | CAMSVCENTRAL_VFDATA_EN,
 		sv_dev->base + REG_CAMSVCENTRAL_VF_CON);
 
 	return 0;

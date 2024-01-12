@@ -237,8 +237,8 @@ int ut_mtk_camsv_central_common_disable(struct device *dev)
 		CAMSVCENTRAL_SEN_MODE, CMOS_EN, 0);
 	ut_sv_reset(dev);
 	CAMSV_WRITE_REG(sv_dev->base + REG_CAMSVCENTRAL_DMA_EN_IMG, 0);
-	CAMSV_WRITE_REG(sv_dev->base + REG_E_CAMSVCENTRAL_DCIF_SET, 0);
-	CAMSV_WRITE_REG(sv_dev->base + REG_E_CAMSVCENTRAL_DCIF_SEL, 0);
+	CAMSV_WRITE_REG(sv_dev->base + REG_CAMSVCENTRAL_DCIF_SET, 0);
+	CAMSV_WRITE_REG(sv_dev->base + REG_CAMSVCENTRAL_DCIF_SEL, 0);
 	ut_mtk_cam_sv_toggle_db(dev);
 	return ret;
 }
@@ -392,16 +392,16 @@ int ut_mtk_cam_sv_dmao_common_config(
 		break;
 	}
 	/* cqi */
-	CAMSV_WRITE_REG(camsv_dev->base_scq + REG_CAMSV_M1_CQI_ORIRDMA_CON0, 0x10000040);
-	CAMSV_WRITE_REG(camsv_dev->base_scq + REG_CAMSV_M1_CQI_ORIRDMA_CON1, 0x000D0007);
-	CAMSV_WRITE_REG(camsv_dev->base_scq + REG_CAMSV_M1_CQI_ORIRDMA_CON2, 0x001A0014);
-	CAMSV_WRITE_REG(camsv_dev->base_scq + REG_CAMSV_M1_CQI_ORIRDMA_CON3, 0x00270020);
-	CAMSV_WRITE_REG(camsv_dev->base_scq + REG_CAMSV_M1_CQI_ORIRDMA_CON4, 0x00070000);
-	CAMSV_WRITE_REG(camsv_dev->base_scq + REG_CAMSV_M2_CQI_ORIRDMA_CON0, 0x10000040);
-	CAMSV_WRITE_REG(camsv_dev->base_scq + REG_CAMSV_M2_CQI_ORIRDMA_CON1, 0x000D0007);
-	CAMSV_WRITE_REG(camsv_dev->base_scq + REG_CAMSV_M2_CQI_ORIRDMA_CON2, 0x001A0014);
-	CAMSV_WRITE_REG(camsv_dev->base_scq + REG_CAMSV_M2_CQI_ORIRDMA_CON3, 0x00270020);
-	CAMSV_WRITE_REG(camsv_dev->base_scq + REG_CAMSV_M2_CQI_ORIRDMA_CON4, 0x00070000);
+	CAMSV_WRITE_REG(camsv_dev->base_scq + REG_CAMSVCQI_E1_ORIRDMA_CON0, 0x10000040);
+	CAMSV_WRITE_REG(camsv_dev->base_scq + REG_CAMSVCQI_E1_ORIRDMA_CON1, 0x000D0007);
+	CAMSV_WRITE_REG(camsv_dev->base_scq + REG_CAMSVCQI_E1_ORIRDMA_CON2, 0x001A0014);
+	CAMSV_WRITE_REG(camsv_dev->base_scq + REG_CAMSVCQI_E1_ORIRDMA_CON3, 0x00270020);
+	CAMSV_WRITE_REG(camsv_dev->base_scq + REG_CAMSVCQI_E1_ORIRDMA_CON4, 0x00070000);
+	CAMSV_WRITE_REG(camsv_dev->base_scq + REG_CAMSVCQI_E2_ORIRDMA_CON0, 0x10000040);
+	CAMSV_WRITE_REG(camsv_dev->base_scq + REG_CAMSVCQI_E2_ORIRDMA_CON1, 0x000D0007);
+	CAMSV_WRITE_REG(camsv_dev->base_scq + REG_CAMSVCQI_E2_ORIRDMA_CON2, 0x001A0014);
+	CAMSV_WRITE_REG(camsv_dev->base_scq + REG_CAMSVCQI_E2_ORIRDMA_CON3, 0x00270020);
+	CAMSV_WRITE_REG(camsv_dev->base_scq + REG_CAMSVCQI_E2_ORIRDMA_CON4, 0x00070000);
 	return ret;
 }
 static int ut_camsv_apply_cq(struct device *dev,
@@ -419,8 +419,7 @@ static int ut_camsv_apply_cq(struct device *dev,
 		cq_addr_msb);
 	CAMSV_WRITE_REG(sv_dev->base_scq  + REG_CAMSVCQ_CQ_SUB_THR0_BASEADDR_2,
 		cq_addr_lsb);
-	CAMSV_WRITE_BITS(sv_dev->base_scq + REG_CAMSVCQTOP_THR_START,
-		CAMSVCQTOP_THR_START, CAMSVCQTOP_CSR_CQ_THR0_START, 1);
+	CAMSV_WRITE_REG(sv_dev->base_scq + REG_CAMSVCQTOP_THR_START, 1);
 	dev_info(sv_dev->dev, "apply camsv scq: addr_msb:0x%x addr_lsb:0x%x size:%d",
 			cq_addr_msb, cq_addr_lsb, cq_size);
 	return 0;

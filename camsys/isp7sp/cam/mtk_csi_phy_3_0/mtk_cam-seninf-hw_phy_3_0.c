@@ -2486,11 +2486,20 @@ static int csirx_mac_csi_setting(struct seninf_ctx *ctx)
 				CSIRX_MAC_CSI2_RESYNC_MERGE_CTRL,
 				RG_CSI2_RESYNC_CYCLE_CNT,
 				0x6);
-
-	SENINF_BITS(csirx_mac_csi,
-				CSIRX_MAC_CSI2_RESYNC_MERGE_CTRL,
-				RG_CSI2_RESYNC_CYCLE_CNT_OPT,
-				1);
+	if (_seninf_ops->iomem_ver == NULL) {
+		SENINF_BITS(csirx_mac_csi,
+					CSIRX_MAC_CSI2_RESYNC_MERGE_CTRL,
+					RG_CSI2_RESYNC_CYCLE_CNT_OPT,
+					1);
+	} else if (!strcasecmp(_seninf_ops->iomem_ver, MT6989_IOMOM_VERSIONS)) {
+		SENINF_BITS(csirx_mac_csi,
+					CSIRX_MAC_CSI2_RESYNC_MERGE_CTRL,
+					RG_CSI2_RESYNC_CYCLE_CNT_OPT,
+					0);
+	} else {
+		dev_info(ctx->dev, "iomem_ver is invalid\n");
+		return -EINVAL;
+	}
 
 	/* Enable CSI2 interrupt */
 	SENINF_WRITE_REG(csirx_mac_csi,

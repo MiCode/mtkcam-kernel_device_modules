@@ -1,8 +1,6 @@
 #include "mtk_cam.h"
 #include "mtk_cam-job-extisp.h"
 
-
-/* TO-DO - Hsiencheng */
 int handle_sv_tag_extisp(struct mtk_cam_job *job)
 {
 	struct mtk_cam_ctx *ctx = job->src_ctx;
@@ -39,6 +37,9 @@ int handle_sv_tag_extisp(struct mtk_cam_job *job)
 	raw_sink->mbus_code = MEDIA_BUS_FMT_SBGGR8_1X8;
 
 	for (i = 0; i < req_amount; i++) {
+		/* pd's sof comes earlier */
+		if (ctx->num_sv_subdevs)
+			img_tag_param[i].tag_order = MTKCAM_IPI_ORDER_LAST_TAG;
 		mtk_cam_sv_fill_tag_info(job->tag_info,
 			&job->ipi_config,
 			&img_tag_param[i], hw_scen, 3,
@@ -100,7 +101,7 @@ int handle_sv_tag_extisp(struct mtk_cam_job *job)
 
 	return ret;
 }
-/* TO-DO - Hsiencheng */
+
 int fill_sv_ext_img_buffer_to_ipi_frame_extisp(
 	struct req_buffer_helper *helper, struct mtk_cam_buffer *buf,
 	struct mtk_cam_video_device *node)

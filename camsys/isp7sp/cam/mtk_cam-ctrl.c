@@ -613,7 +613,8 @@ static void ctrl_vsync_preprocess_extisp(struct mtk_cam_ctrl *ctrl,
 	long inner_not_ready;
 	struct apply_cq_ref *cq_ref;
 
-	if (vsync_update_extisp(ctrl, engine_type, engine_id, vsync_res))
+	if (vsync_update_extisp(ctrl, engine_type,
+			irq_info->irq_type, engine_id, vsync_res))
 		return;
 
 	cq_ref = READ_ONCE(ctrl->cur_cq_ref);
@@ -1587,20 +1588,25 @@ int extisp_listen_each_cq_done(
 }
 
 int vsync_update_extisp(struct mtk_cam_ctrl *ctrl,
-		  int engine_type, int idx,
-		  struct vsync_result *res)
+		  int engine_type, int irq_type,
+		  int idx, struct vsync_result *res)
 {
-	if (!res)
-		return 1;
-	if (engine_type == CAMSYS_ENGINE_RAW)
-			res->is_last = 1;
-	if (engine_type == CAMSYS_ENGINE_CAMSV)
-			res->is_extmeta = 1;
-	if (engine_type == CAMSYS_ENGINE_MRAW)
-			res->is_first = 1;
+	struct mtk_cam_ctx *ctx = ctrl->ctx;
 
-	if ((ctrl->r_info.extisp_enable & BIT(EXTISP_DATA_PD)) == 0 &&
-		engine_type == CAMSYS_ENGINE_CAMSV)
+	if (!res || !ctx)
+		return 1;
+
+	if (engine_type == CAMSYS_ENGINE_RAW)
+		res->is_last = 1;
+	if (engine_type == CAMSYS_ENGINE_CAMSV) {
+		if (irq_type & BIT(CAMSYS_IRQ_FRAME_START))
+			res->is_extmeta = 1;
+		if ((ctx->num_sv_subdevs &&
+			(irq_type & BIT(CAMSYS_IRQ_FRAME_START_DCIF_MAIN))) ||
+			((ctrl->r_info.extisp_enable & BIT(EXTISP_DATA_PD)) == 0))
+			res->is_first = 1;
+	}
+	if (engine_type == CAMSYS_ENGINE_MRAW)
 		res->is_first = 1;
 
 	return 0;

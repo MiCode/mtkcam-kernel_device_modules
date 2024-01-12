@@ -158,8 +158,7 @@ struct seninf_mux *mtk_cam_seninf_mux_get_by_type(struct seninf_ctx *ctx,
 #define RAW_MUX_FACTOR 4
 #define PDP_MUX_FACTOR 1
 
-int mux2mux_vr(struct seninf_ctx *ctx, int mux, int cammux, int vc_idx)
-{
+static int mux2mux_vr_legacy(struct seninf_ctx *ctx, int mux, int cammux, int vc_idx) {
 	struct seninf_core *core = ctx->core;
 	int mux_vr = mux;
 	int sat_mux_first = core->mux_range[TYPE_CAMSV_SAT].first;
@@ -246,7 +245,100 @@ int mux2mux_vr(struct seninf_ctx *ctx, int mux, int cammux, int vc_idx)
 	return mux_vr;
 }
 
-int mux_vr2mux(struct seninf_ctx *ctx, int mux_vr)
+static int mux2mux_vr_(struct seninf_ctx *ctx, int mux, int cammux, int vc_idx)
+{
+	struct seninf_core *core = ctx->core;
+	int mux_vr = mux;
+	int sat_mux_first = core->mux_range[TYPE_CAMSV_SAT].first;
+	int sat_mux_second = core->mux_range[TYPE_CAMSV_SAT].second;
+	int sat_muxvr_first = core->muxvr_range[TYPE_CAMSV_SAT].first;
+
+	int sv_normal_mux_first = core->mux_range[TYPE_CAMSV_NORMAL].first;
+	int sv_normal_mux_second = core->mux_range[TYPE_CAMSV_NORMAL].second;
+	int sv_normal_muxvr_first = core->muxvr_range[TYPE_CAMSV_NORMAL].first;
+
+	int raw_mux_first = core->mux_range[TYPE_RAW].first;
+	int raw_mux_second = core->mux_range[TYPE_RAW].second;
+	int raw_muxvr_first = core->muxvr_range[TYPE_RAW].first;
+
+	int pdp_mux_first = core->mux_range[TYPE_PDP].first;
+	int pdp_mux_secnond = core->mux_range[TYPE_PDP].second;
+	int pdp_muxvr_first = core->muxvr_range[TYPE_PDP].first;
+
+	int uisp_mux_first = core->mux_range[TYPE_UISP].first;
+	int uisp_mux_secnond = core->mux_range[TYPE_UISP].second;
+	int uisp_muxvr_first = core->muxvr_range[TYPE_UISP].first;
+
+	int sat_cammux_first = core->cammux_range[TYPE_CAMSV_SAT].first;
+	int sat_cammux_second = core->cammux_range[TYPE_CAMSV_SAT].second;
+
+	int raw_cammux_first = core->cammux_range[TYPE_RAW].first;
+	int raw_cammux_second = core->cammux_range[TYPE_RAW].second;
+
+	if (mux < sat_mux_first) {
+		dev_info(ctx->dev,
+				"[%s][ERROR] Input(mux_id %d) is invalid\n", __func__, mux);
+
+	} else if ((mux >= sat_mux_first) && (mux <= sat_mux_second)) {  // sat camsv
+
+		mux_vr = ((mux - sat_mux_first) * SAT_MUX_FACTOR) + sat_mux_first;
+		if ((cammux >= sat_cammux_first) && (cammux <= sat_cammux_second))
+			mux_vr += vc_idx;
+
+	} else if ((mux >= sv_normal_mux_first) && (mux <= sv_normal_mux_second)) {  // normal camsv
+
+		mux_vr = (mux - sv_normal_mux_first) + sv_normal_muxvr_first;
+
+	} else if ((mux >= raw_mux_first) && (mux <= raw_mux_second)) {  // raw
+
+		mux_vr = ((mux - raw_mux_first) * RAW_MUX_FACTOR) + raw_muxvr_first;
+		if ((cammux >= raw_cammux_first) && (cammux <= raw_cammux_second))
+			mux_vr += vc_idx;
+
+	} else if ((mux >= pdp_mux_first) && (mux <= pdp_mux_secnond)) {  // PDP
+
+		mux_vr = (mux - pdp_mux_first) + pdp_muxvr_first;
+
+	} else if ((mux >= uisp_mux_first) && (mux <= uisp_mux_secnond)){  // uISP
+
+		mux_vr = (mux - uisp_mux_first) + uisp_muxvr_first;
+
+	} else {
+		dev_info(ctx->dev,
+				"[%s][ERROR] Input(mux_id %d) is invalid\n", __func__, mux);
+	}
+
+	seninf_logd(ctx,
+				"[%s] sat_based %d sv_based %d raw_based %d, pdp_based %d uisp_based %d\n",
+				__func__,
+				sat_mux_first,
+				sat_muxvr_first,
+				sv_normal_muxvr_first,
+				raw_muxvr_first,
+				uisp_muxvr_first);
+
+	dev_info(ctx->dev,
+				"[%s] Input(mux_id %d, camtg_id %d, vc_offset %d), Output(mux_vr %d)\n",
+				__func__, mux, cammux, vc_idx, mux_vr);
+
+	return mux_vr;
+}
+
+int mux2mux_vr(struct seninf_ctx *ctx, int mux, int cammux, int vc_idx)
+{
+	struct seninf_core *core = ctx->core;
+
+	if(unlikely(core == NULL)) {
+		dev_info(ctx->dev, "[%s][ERROR] core is NULL\n" , __func__);
+		return 0;
+	}
+
+	return (core->is_porting_muxvr_range) ?
+				mux2mux_vr_(ctx, mux, cammux, vc_idx) :
+				mux2mux_vr_legacy(ctx, mux, cammux, vc_idx);
+}
+
+static int mux_vr2mux_legacy(struct seninf_ctx *ctx, int mux_vr)
 {
 	struct seninf_core *core = ctx->core;
 	int mux = mux_vr;
@@ -294,6 +386,70 @@ int mux_vr2mux(struct seninf_ctx *ctx, int mux_vr)
 		mux = pdp_mux_last + (mux_vr - pdp_mux_vr_last);
 
 	return mux;
+}
+
+static int mux_vr2mux_(struct seninf_ctx *ctx, int mux_vr) {
+	struct seninf_core *core = ctx->core;
+	int mux = mux_vr;
+	int sat_mux_first = core->mux_range[TYPE_CAMSV_SAT].first;
+	int sat_mux_vr_first = core->muxvr_range[TYPE_CAMSV_SAT].first;
+	int sat_mux_vr_last = core->muxvr_range[TYPE_CAMSV_SAT].second;
+
+	int sv_normal_mux_first = core->mux_range[TYPE_CAMSV_NORMAL].first;
+	int sv_normal_mux_vr_first = core->muxvr_range[TYPE_CAMSV_NORMAL].first;
+	int sv_normal_mux_vr_last = core->muxvr_range[TYPE_CAMSV_NORMAL].second;
+
+	int raw_mux_first = core->mux_range[TYPE_RAW].first;
+	int raw_mux_vr_first = core->muxvr_range[TYPE_RAW].first;
+	int raw_mux_vr_last = core->muxvr_range[TYPE_RAW].second;
+
+	int pdp_mux_first = core->mux_range[TYPE_PDP].first;
+	int pdp_mux_vr_first = core->muxvr_range[TYPE_PDP].first;
+	int pdp_mux_vr_last = core->muxvr_range[TYPE_PDP].second;
+
+	int uisp_mux_first = core->mux_range[TYPE_UISP].first;
+	int uisp_mux_vr_first = core->muxvr_range[TYPE_UISP].first;
+	int uisp_mux_vr_last = core->muxvr_range[TYPE_UISP].second;
+
+	if (mux_vr < sat_mux_vr_first) {
+		dev_info(ctx->dev,
+				"[%s][ERROR] Input(mux_id %d) is invalid\n", __func__, mux_vr);
+	} else if ((mux_vr >= sat_mux_vr_first) && (mux_vr <= sat_mux_vr_last)) {
+		mux = sat_mux_first + ((mux_vr - sat_mux_vr_first) / SAT_MUX_FACTOR);
+
+	} else if ((mux_vr >= sv_normal_mux_vr_first) && (mux_vr <= sv_normal_mux_vr_last)) {
+		mux = sv_normal_mux_first + (mux_vr - sv_normal_mux_vr_first);
+
+	} else if ((mux_vr >= raw_mux_vr_first) && (mux_vr <= raw_mux_vr_last)) {
+		mux = raw_mux_first + ((mux_vr - raw_mux_vr_first) / RAW_MUX_FACTOR);
+
+	} else if ((mux_vr >= pdp_mux_vr_first) && (mux_vr <= pdp_mux_vr_last)) {
+		mux = pdp_mux_first + (mux_vr - pdp_mux_vr_first);
+
+	} else if ((mux_vr >= uisp_mux_vr_first) && (mux_vr <= uisp_mux_vr_last)) {
+		mux = uisp_mux_first + (mux_vr - uisp_mux_vr_first);
+
+	} else {
+		dev_info(ctx->dev,
+				"[%s][ERROR] Input(mux_id %d) is invalid\n", __func__, mux_vr);
+	}
+
+
+	return mux;
+}
+
+int mux_vr2mux(struct seninf_ctx *ctx, int mux_vr)
+{
+	struct seninf_core *core = ctx->core;
+
+	if(unlikely(core == NULL)) {
+		dev_info(ctx->dev, "[%s][ERROR] core is NULL\n", __func__);
+		return 0;
+	}
+
+	return (core->is_porting_muxvr_range) ?
+				mux_vr2mux_(ctx, mux_vr) :
+				mux_vr2mux_legacy(ctx, mux_vr);
 }
 
 enum CAM_TYPE_ENUM cammux2camtype(struct seninf_ctx *ctx, int cammux)

@@ -301,6 +301,13 @@ enum CAM_TYPE_ENUM {
 	"mux-pdp-range", \
 	"mux-uisp-range", \
 
+#define MUXVR_RANGE_NAMES \
+	"muxvr-camsv-sat-range", \
+	"muxvr-camsv-normal-range", \
+	"muxvr-raw-range", \
+	"muxvr-pdp-range", \
+	"muxvr-uisp-range", \
+
 #define CAMMUX_RANGE_NAMES \
 	"cammux-camsv-sat-range", \
 	"cammux-camsv-normal-range", \

@@ -129,6 +129,10 @@ static const char * const mux_range_name[] = {
 	MUX_RANGE_NAMES
 };
 
+static const char * const muxvr_range_name[] = {
+	MUXVR_RANGE_NAMES
+};
+
 static const char * const cammux_range_name[] = {
 	CAMMUX_RANGE_NAMES
 };
@@ -864,6 +868,21 @@ static int get_seninf_ops(struct device *dev, struct seninf_core *core)
 		dev_info(dev,
 				"%s: INFO:  try get mux_range property '%s' is found, cam_type_cnt %d\n",
 				__func__, mux_range_name[i], cam_type_cnt);
+
+		ret = of_property_read_u32_index(dev->of_node, muxvr_range_name[i],
+						0, &read_prop_test);
+		if (ret == 0) {
+			core->is_porting_muxvr_range = true;
+			dev_info(dev,
+				"%s: found muxvr_range proprety '%s' successfully, is_porting_muxvr_range %d\n",
+				__func__, mux_range_name[i], core->is_porting_muxvr_range);
+
+		} else {
+			dev_info(dev,
+				"%s: ERROR: try get muxvr_range property '%s' not found with ret %d\n",
+				__func__, mux_range_name[i], ret);
+		}
+
 	}
 
 	for (i = 0; i < cam_type_cnt; i++) {
@@ -901,6 +920,26 @@ static int get_seninf_ops(struct device *dev, struct seninf_core *core)
 				"%s: ERROR: read property index:(cammux_range_name[%d] (second)) failed, not modify pointer, ret:%d\n",
 				__func__, i, ret);
 			return -1;
+		}
+
+		if (core->is_porting_muxvr_range) {
+			ret = of_property_read_u32_index(dev->of_node, muxvr_range_name[i],
+						0, &core->muxvr_range[i].first);
+			if (ret) {
+				dev_info(dev,
+					"%s: ERROR: read property index:(muxvr_range_name[%d] (first)) failed, not modify pointer, ret:%d\n",
+					__func__, i, ret);
+				return -1;
+			}
+
+			ret = of_property_read_u32_index(dev->of_node, muxvr_range_name[i],
+							1, &core->muxvr_range[i].second);
+			if (ret) {
+				dev_info(dev,
+					"%s: ERROR: read property index:(muxvr_range_name[%d] (second)) failed, not modify pointer, ret:%d\n",
+					__func__, i, ret);
+				return -1;
+			}
 		}
 	}
 

@@ -123,6 +123,7 @@ struct seninf_core {
 	struct list_head list_mux;
 	struct seninf_struct_pair mux_range[TYPE_MAX_NUM];
 	struct seninf_mux mux[SENINF_MUX_NUM];
+	struct seninf_struct_pair muxvr_range[TYPE_MAX_NUM];
 #ifdef SENINF_DEBUG
 	struct list_head list_cam_mux;
 	struct seninf_struct_pair cammux_range[TYPE_MAX_NUM];
@@ -145,6 +146,7 @@ struct seninf_core {
 	int settle_delay_ck;
 	int hs_trail_parameter;
 	unsigned int force_glp_en; /* force enable generic long packet */
+	bool is_porting_muxvr_range;
 
 	spinlock_t spinlock_irq;
 

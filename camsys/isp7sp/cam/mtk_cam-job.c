@@ -310,7 +310,7 @@ static bool is_4cell_sensor(struct mtk_cam_job *job)
 
 static bool is_sv_support_ufbc(struct mtk_cam_job *job)
 {
-#if 0
+#if 1
 	bool use_ufbc = !job->is_sv_pure_raw;
 
 	return use_ufbc && !is_camsv_16p(job);

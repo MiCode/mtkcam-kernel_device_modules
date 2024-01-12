@@ -495,7 +495,7 @@ void update_scq_start_period(struct mtk_raw_device *dev, int scq_ms)
 		 __func__, readl(dev->base + REG_CAMCQ_SCQ_START_PERIOD), scq_ms);
 }
 
-#define MAX_P1_DELAY_RATIO 35
+#define MAX_P1_DELAY_RATIO 80
 void update_done_tolerance(struct mtk_raw_device *dev, int scq_ms)
 {
 	u32 val;
@@ -843,6 +843,11 @@ static void raw_handle_skip_frame(struct mtk_raw_device *raw_dev,
 
 	dev_info(raw_dev->dev, "%s: dcif_status:0x%x, fh_cookie:0x%x\n",
 			__func__, err_status, fh_cookie);
+
+	if (err_status & FBIT(CAMCTL_P1_SKIP_FRAME_DC_STAG_INT_ST))
+		do_engine_callback(raw_dev->engine_cb, dump_request,
+				raw_dev->cam, CAMSYS_ENGINE_RAW, raw_dev->id,
+				fh_cookie, MSG_DC_SKIP_FRAME);
 }
 
 static void raw_handle_ringbuffer_ofl(struct mtk_raw_device *raw_dev,

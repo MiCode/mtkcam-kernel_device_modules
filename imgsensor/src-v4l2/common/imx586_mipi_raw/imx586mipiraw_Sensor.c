@@ -4422,14 +4422,14 @@ static kal_uint32 seamless_switch(struct subdrv_ctx *ctx,
 }
 static kal_uint32 set_video_mode(struct subdrv_ctx *ctx, UINT16 framerate)
 {
-	pr_debug("framerate = %d\n ", framerate);
+	pr_info("framerate = %d\n ", framerate);
 	/* SetVideoMode Function should fix framerate */
 	if (framerate == 0)
 		/* Dynamic frame rate */
 		return ERROR_NONE;
-	if ((framerate == 300) && (ctx->autoflicker_en == KAL_TRUE))
+	if (framerate == 300 && ctx->autoflicker_en)
 		ctx->current_fps = 296;
-	else if ((framerate == 150) && (ctx->autoflicker_en == KAL_TRUE))
+	else if (framerate == 150 && ctx->autoflicker_en)
 		ctx->current_fps = 146;
 	else
 		ctx->current_fps = framerate;
@@ -4438,18 +4438,10 @@ static kal_uint32 set_video_mode(struct subdrv_ctx *ctx, UINT16 framerate)
 	return ERROR_NONE;
 }
 
-static kal_uint32 set_auto_flicker_mode(struct subdrv_ctx *ctx,
-		kal_bool enable, UINT16 framerate)
+static kal_uint32 set_auto_flicker_mode(struct subdrv_ctx *ctx, INT32 enable, UINT16 framerate)
 {
-	if (enable) /*enable auto flicker*/ {
-		ctx->autoflicker_en = KAL_TRUE;
-		pr_debug("enable: %u fps = %d", (UINT32)enable, framerate);
-	} else {
-		 /*Cancel Auto flick*/
-		ctx->autoflicker_en = KAL_FALSE;
-		pr_debug("enable: %u fps = %d", (UINT32)enable, framerate);
-	}
-
+	pr_info("enable = %d, framerate = %d\n", enable, framerate);
+	ctx->autoflicker_en = enable;
 	return ERROR_NONE;
 }
 
@@ -5051,7 +5043,7 @@ static int feature_control(
 		get_imgsensor_id(ctx, feature_return_para_32);
 		break;
 	case SENSOR_FEATURE_SET_AUTO_FLICKER_MODE:
-		set_auto_flicker_mode(ctx, (BOOL)*feature_data_16,
+		set_auto_flicker_mode(ctx, *feature_data_16,
 				      *(feature_data_16+1));
 		break;
 	case SENSOR_FEATURE_GET_TEMPERATURE_VALUE:

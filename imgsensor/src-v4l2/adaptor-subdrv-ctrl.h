@@ -88,7 +88,7 @@ void get_lens_driver_id(struct subdrv_ctx *ctx, u32 *lens_id);
 void check_stream_off(struct subdrv_ctx *ctx);
 void streaming_control(struct subdrv_ctx *ctx, bool enable);
 void set_video_mode(struct subdrv_ctx *ctx, u16 framerate);
-void set_auto_flicker_mode(struct subdrv_ctx *ctx, bool enable, u16 framerate);
+void set_auto_flicker_mode(struct subdrv_ctx *ctx, int enable, u16 framerate);
 void get_output_format_by_scenario(struct subdrv_ctx *ctx,
 		enum SENSOR_SCENARIO_ID_ENUM scenario_id, u64 *sensor_output_dataformat);
 void get_ana_gain_table(struct subdrv_ctx *ctx, u64 *size, void *data);

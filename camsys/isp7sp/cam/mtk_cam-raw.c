@@ -263,15 +263,23 @@ void initialize(struct mtk_raw_device *dev, int is_slave, int is_srt,
 
 	reset_error_handling(dev);
 
-#ifdef DISABLE_FLKO_ERROR
 	/* Workaround: disable FLKO error_sof: double sof error
 	 *   HW will send FLKO dma error when
 	 *      FLKO rcnt = 0 (not going to output this frame)
 	 *      However, HW_PASS1_DONE still comes as expected
 	 */
+	/* Workaround: in ISP7SP and before, the DMA ports
+	 * in the same merge group will mistakenly emit
+	 * double SOF DMA error if they write out interleavingly,
+	 * ex. mstream w/ UFO
+	 */
 	writel_relaxed(0xFFFE0000,
 		       dev->base + REG_FLKO_R1_BASE + DMA_OFFSET_ERR_STAT);
-#endif
+	writel_relaxed(0xFFFE0000,
+		       dev->base + REG_UFEO_R1_BASE + DMA_OFFSET_ERR_STAT);
+	writel_relaxed(0xFFFE0000,
+		       dev->base + REG_PDO_R1_BASE + DMA_OFFSET_ERR_STAT);
+
 	/* Workaround: disable AAO/AAHO error: double sof error for smvr
 	 *  HW would send double sof to aao/aaho in subsample mode
 	 *  disable it to bypass

@@ -6059,6 +6059,11 @@ static void seninf_record_cammux_info(struct seninf_core *core,
 			csirx_mac_csi = ctx_->reg_csirx_mac_csi[(uint32_t)ctx_->port];
 			vsync_info->csi_irq_st[vsync_info->used_csi_port_num] =
 				SENINF_READ_REG(csirx_mac_csi, CSIRX_MAC_CSI2_IRQ_STATUS);
+
+			SENINF_WRITE_REG(csirx_mac_csi,
+							 CSIRX_MAC_CSI2_IRQ_STATUS,
+							 0xffffffff);
+
 			vsync_info->csi_packet_cnt_st[vsync_info->used_csi_port_num] =
 				SENINF_READ_REG(csirx_mac_csi, CSIRX_MAC_CSI2_PACKET_CNT_STATUS);
 			vsync_info->ctx_port[vsync_info->used_csi_port_num++] = ctx_->port;

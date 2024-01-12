@@ -1303,11 +1303,6 @@ static int imgsensor_set_ctrl(struct v4l2_ctrl *ctrl)
 		ctx->sys_ts_update_sof_cnt = ktime_get_boottime_ns();
 		subdrv_call(ctx, update_sof_cnt, (u64)ctrl->val);
 		notify_fsync_mgr_update_sof_cnt(ctx, (u32)ctrl->val);
-		break;
-	case V4L2_CID_VSYNC_NOTIFY:
-		subdrv_call(ctx, vsync_notify, (u64)ctrl->val);
-		notify_fsync_mgr_vsync(ctx);
-
 		/* update timeout value upon vsync*/
 		if (ctx->ae_memento.exposure.le_exposure)
 			ctx->shutter_for_timeout = ctx->ae_memento.exposure.le_exposure;
@@ -1315,6 +1310,10 @@ static int imgsensor_set_ctrl(struct v4l2_ctrl *ctrl)
 			ctx->shutter_for_timeout = ctx->exposure->val;
 		if (ctx->cur_mode->fine_intg_line)
 			ctx->shutter_for_timeout /= 1000;
+		break;
+	case V4L2_CID_VSYNC_NOTIFY:
+		subdrv_call(ctx, vsync_notify, (u64)ctrl->val);
+		notify_fsync_mgr_vsync(ctx);
 		break;
 	case V4L2_CID_ANALOGUE_GAIN:
 		para.u64[0] = ctrl->val;

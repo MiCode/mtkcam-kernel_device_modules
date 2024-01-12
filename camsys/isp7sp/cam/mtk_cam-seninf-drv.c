@@ -2944,6 +2944,7 @@ static int runtime_suspend(struct device *dev)
 				break;
 			default:
 				dev_info(dev, "invalid seninfIdx(%d)\n", ctx->seninfIdx);
+				mutex_unlock(&core->mutex);
 				return -EINVAL;
 			}
 		}
@@ -3007,6 +3008,7 @@ static int runtime_resume(struct device *dev)
 				dev_info(dev,
 					"[%s] seninf_core_pm_runtime_get_sync(fail),ret(%d)\n",
 					__func__, ret);
+				mutex_unlock(&core->mutex);
 				return ret;
 			}
 			/* enable camtg_sel as phya clk */
@@ -3024,6 +3026,7 @@ static int runtime_resume(struct device *dev)
 						dev_info(dev,
 							"[%s] clk_prepare_enable clk[%u]:%s(fail),ret(%d)\n",
 							__func__, i, clk_names[i], ret);
+						mutex_unlock(&core->mutex);
 						return ret;
 					}
 
@@ -3041,6 +3044,7 @@ static int runtime_resume(struct device *dev)
 						"[%s] clk_prepare_enable clk[CLK_TOP_CAMTM:%u]:%s(fail),ret(%d)\n",
 						__func__, CLK_TOP_CAMTM,
 						clk_names[CLK_TOP_CAMTM], ret);
+					mutex_unlock(&core->mutex);
 					return ret;
 				}
 				dev_dbg(dev,
@@ -3068,6 +3072,7 @@ static int runtime_resume(struct device *dev)
 							"[%s] clk_prepare_enable clk[CLK_TOP_SENINF:%u]:%s(fail),ret(%d)\n",
 							__func__, CLK_TOP_SENINF,
 							clk_names[CLK_TOP_SENINF], ret);
+						mutex_unlock(&core->mutex);
 						return ret;
 					}
 
@@ -3082,6 +3087,7 @@ static int runtime_resume(struct device *dev)
 							CLK_TOP_UNIVPLL2_D4_D2,
 							clk_names[CLK_TOP_UNIVPLL2_D4_D2],
 							ret);
+						mutex_unlock(&core->mutex);
 						return ret;
 					}
 					dev_dbg(dev,
@@ -3099,6 +3105,7 @@ static int runtime_resume(struct device *dev)
 							"[%s] clk_prepare_enable clk[CLK_TOP_SENINF1:%u]:%s(fail),ret(%d)\n",
 							__func__, CLK_TOP_SENINF1,
 							clk_names[CLK_TOP_SENINF1], ret);
+						mutex_unlock(&core->mutex);
 						return ret;
 					}
 
@@ -3113,6 +3120,7 @@ static int runtime_resume(struct device *dev)
 							CLK_TOP_UNIVPLL2_D4_D2,
 							clk_names[CLK_TOP_UNIVPLL2_D4_D2],
 							ret);
+						mutex_unlock(&core->mutex);
 						return ret;
 					}
 
@@ -3131,6 +3139,7 @@ static int runtime_resume(struct device *dev)
 							"[%s] clk_prepare_enable clk[CLK_TOP_SENINF2:%u]:%s(fail),ret(%d)\n",
 							__func__, CLK_TOP_SENINF2,
 							clk_names[CLK_TOP_SENINF2], ret);
+						mutex_unlock(&core->mutex);
 						return ret;
 					}
 
@@ -3145,6 +3154,7 @@ static int runtime_resume(struct device *dev)
 							CLK_TOP_UNIVPLL2_D4_D2,
 							clk_names[CLK_TOP_UNIVPLL2_D4_D2],
 							ret);
+						mutex_unlock(&core->mutex);
 						return ret;
 					}
 
@@ -3163,6 +3173,7 @@ static int runtime_resume(struct device *dev)
 							"[%s] clk_prepare_enable clk[CLK_TOP_SENINF3:%u]:%s(fail),ret(%d)\n",
 							__func__, CLK_TOP_SENINF3,
 							clk_names[CLK_TOP_SENINF3], ret);
+						mutex_unlock(&core->mutex);
 						return ret;
 					}
 
@@ -3177,6 +3188,7 @@ static int runtime_resume(struct device *dev)
 							CLK_TOP_UNIVPLL2_D4_D2,
 							clk_names[CLK_TOP_UNIVPLL2_D4_D2],
 							ret);
+						mutex_unlock(&core->mutex);
 						return ret;
 					}
 
@@ -3195,6 +3207,7 @@ static int runtime_resume(struct device *dev)
 							"[%s] clk_prepare_enable clk[CLK_TOP_SENINF4:%u]:%s(fail),ret(%d)\n",
 							__func__, CLK_TOP_SENINF4,
 							clk_names[CLK_TOP_SENINF4], ret);
+						mutex_unlock(&core->mutex);
 						return ret;
 					}
 
@@ -3209,6 +3222,7 @@ static int runtime_resume(struct device *dev)
 							CLK_TOP_UNIVPLL2_D4_D2,
 							clk_names[CLK_TOP_UNIVPLL2_D4_D2],
 							ret);
+						mutex_unlock(&core->mutex);
 						return ret;
 					}
 
@@ -3227,6 +3241,7 @@ static int runtime_resume(struct device *dev)
 							"[%s] clk_prepare_enable clk[CLK_TOP_SENINF5:%u]:%s(fail),ret(%d)\n",
 							__func__, CLK_TOP_SENINF5,
 							clk_names[CLK_TOP_SENINF5], ret);
+						mutex_unlock(&core->mutex);
 						return ret;
 					}
 
@@ -3241,6 +3256,7 @@ static int runtime_resume(struct device *dev)
 							CLK_TOP_UNIVPLL2_D4_D2,
 							clk_names[CLK_TOP_UNIVPLL2_D4_D2],
 							ret);
+						mutex_unlock(&core->mutex);
 						return ret;
 					}
 
@@ -3252,6 +3268,7 @@ static int runtime_resume(struct device *dev)
 				break;
 			default:
 				dev_info(dev, "invalid seninfIdx %d\n", ctx->seninfIdx);
+				mutex_unlock(&core->mutex);
 				return -EINVAL;
 			}
 		}
@@ -3547,6 +3564,7 @@ int mtk_cam_seninf_aov_runtime_suspend(unsigned int sensor_id)
 			"[%s] please check aov_deinit times?(%d)\n",
 			__func__,
 			core->pwr_refcnt_for_aov);
+		mutex_unlock(&core->mutex);
 		return -ENODEV;
 	}
 	dev_info(ctx->dev,
@@ -3582,6 +3600,7 @@ int mtk_cam_seninf_aov_runtime_suspend(unsigned int sensor_id)
 							CLK_TOP_SENINF1, clk_names[CLK_TOP_SENINF1],
 							CLK_TOP_OSC_D4, clk_names[CLK_TOP_OSC_D4],
 							ret);
+						mutex_unlock(&core->mutex);
 						return ret;
 					}
 					dev_info(ctx->dev,
@@ -3594,6 +3613,7 @@ int mtk_cam_seninf_aov_runtime_suspend(unsigned int sensor_id)
 					dev_info(ctx->dev,
 						"[%s] Please check clk get whether NULL?\n",
 						__func__);
+					mutex_unlock(&core->mutex);
 					return -EINVAL;
 				}
 			}
@@ -3621,6 +3641,7 @@ int mtk_cam_seninf_aov_runtime_suspend(unsigned int sensor_id)
 							CLK_TOP_CAMTM, clk_names[CLK_TOP_CAMTM],
 							CLK_TOP_OSC_D4, clk_names[CLK_TOP_OSC_D4],
 							ret);
+						mutex_unlock(&core->mutex);
 						return ret;
 					}
 					dev_info(ctx->dev,
@@ -3633,6 +3654,7 @@ int mtk_cam_seninf_aov_runtime_suspend(unsigned int sensor_id)
 					dev_info(ctx->dev,
 						"[%s] Please check clk get whether NULL?\n",
 						__func__);
+					mutex_unlock(&core->mutex);
 					return -EINVAL;
 				}
 			}
@@ -3734,6 +3756,7 @@ int mtk_cam_seninf_aov_runtime_resume(unsigned int sensor_id,
 			"[%s] please check aov_deinit times?(%d)\n",
 			__func__,
 			core->pwr_refcnt_for_aov);
+		mutex_unlock(&core->mutex);
 		return -ENODEV;
 	}
 	dev_info(ctx->dev,
@@ -3760,6 +3783,7 @@ int mtk_cam_seninf_aov_runtime_resume(unsigned int sensor_id,
 						__func__,
 						CLK_TOP_CAMTG, clk_names[CLK_TOP_CAMTG],
 						ret);
+					mutex_unlock(&core->mutex);
 					return ret;
 				}
 				dev_info(ctx->dev,
@@ -3778,6 +3802,7 @@ int mtk_cam_seninf_aov_runtime_resume(unsigned int sensor_id,
 						CLK_TOP_CAMTG, clk_names[CLK_TOP_CAMTG],
 						CLK_TOP_OSC_D20, clk_names[CLK_TOP_OSC_D20],
 						ret);
+					mutex_unlock(&core->mutex);
 					return ret;
 				}
 				dev_info(ctx->dev,
@@ -3790,6 +3815,7 @@ int mtk_cam_seninf_aov_runtime_resume(unsigned int sensor_id,
 				dev_info(ctx->dev,
 					"[%s] Please check clk get whether NULL?\n",
 					__func__);
+				mutex_unlock(&core->mutex);
 				return -EINVAL;
 			}
 			/* enable seninf cg */
@@ -3801,6 +3827,7 @@ int mtk_cam_seninf_aov_runtime_resume(unsigned int sensor_id,
 						__func__,
 						CLK_CAM_SENINF, clk_names[CLK_CAM_SENINF],
 						ret);
+					mutex_unlock(&core->mutex);
 					return ret;
 				}
 				dev_info(ctx->dev,
@@ -3826,6 +3853,7 @@ int mtk_cam_seninf_aov_runtime_resume(unsigned int sensor_id,
 						__func__,
 						CLK_TOP_SENINF1, clk_names[CLK_TOP_SENINF1],
 						ret);
+					mutex_unlock(&core->mutex);
 					return ret;
 				}
 				dev_info(ctx->dev,
@@ -3837,6 +3865,7 @@ int mtk_cam_seninf_aov_runtime_resume(unsigned int sensor_id,
 				dev_info(ctx->dev,
 					"[%s] Please check clk get whether NULL?\n",
 					__func__);
+				mutex_unlock(&core->mutex);
 				return -EINVAL;
 			}
 			/* SCP side to AP */
@@ -3854,6 +3883,7 @@ int mtk_cam_seninf_aov_runtime_resume(unsigned int sensor_id,
 							CLK_TOP_UNIVPLL2_D4_D2,
 							clk_names[CLK_TOP_UNIVPLL2_D4_D2],
 							ret);
+						mutex_unlock(&core->mutex);
 						return ret;
 					}
 					dev_info(ctx->dev,
@@ -3866,6 +3896,7 @@ int mtk_cam_seninf_aov_runtime_resume(unsigned int sensor_id,
 					dev_info(ctx->dev,
 						"[%s] Please check clk get whether NULL?\n",
 						__func__);
+					mutex_unlock(&core->mutex);
 					return -EINVAL;
 				}
 			}
@@ -3880,6 +3911,7 @@ int mtk_cam_seninf_aov_runtime_resume(unsigned int sensor_id,
 						__func__,
 						CLK_TOP_CAMTM, clk_names[CLK_TOP_CAMTM],
 						ret);
+					mutex_unlock(&core->mutex);
 					return ret;
 				}
 				dev_info(ctx->dev,
@@ -3891,6 +3923,7 @@ int mtk_cam_seninf_aov_runtime_resume(unsigned int sensor_id,
 				dev_info(ctx->dev,
 					"[%s] Please check clk get whether NULL?\n",
 					__func__);
+				mutex_unlock(&core->mutex);
 				return -EINVAL;
 			}
 			/* SCP side to AP */
@@ -3908,6 +3941,7 @@ int mtk_cam_seninf_aov_runtime_resume(unsigned int sensor_id,
 							CLK_TOP_UNIVPLL2_D4_D2,
 							clk_names[CLK_TOP_UNIVPLL2_D4_D2],
 							ret);
+						mutex_unlock(&core->mutex);
 						return ret;
 					}
 					dev_info(ctx->dev,
@@ -3920,6 +3954,7 @@ int mtk_cam_seninf_aov_runtime_resume(unsigned int sensor_id,
 					dev_info(ctx->dev,
 						"[%s] Please check clk get whether NULL?\n",
 						__func__);
+					mutex_unlock(&core->mutex);
 					return -EINVAL;
 				}
 			}

@@ -440,9 +440,7 @@ static int mtk_cam_job_pack_init(struct mtk_cam_job *job,
 		job->req_info_id = raw_data->ctrl.req_info.req_sync_id;
 		job->req_sensor = req;
 	}
-	if (CAM_DEBUG_ENABLED(JOB))
-		pr_info("%s: req_sync_id %d",
-			__func__, job->req_info_id);
+
 	return ret;
 }
 
@@ -1544,9 +1542,9 @@ static void check_ipi_before_compose(struct mtk_cam_job *job)
 		dev_info(job->src_ctx->cam->dev, "[%s]:error: pipe/seq:%lu/%d\n",
 		 __func__, raw_pipe_idx, job->req_seq);
 		if (raw_pipe_idx == -1)
-			return
-		dev_info(job->src_ctx->cam->dev, "[%s]:error: 1st/s/2nd:%llu/%llu/%llu, ctx's data:%d/%d, req's data:%d/%d\n",
-		 __func__,
+			return;
+		dev_info(job->src_ctx->cam->dev, "[%s]:error-%d/%d/%d: 1st/s/2nd:%llu/%llu/%llu, ctx's data:%d/%d, req's data:%d/%d\n",
+		 __func__, job->job_state.compose_by_fsm, fp->cur_workbuf_size, job->ipi.size,
 		 job->local_enqueue_ts, job->local_apply_sensor_ts, job->local_enqueue_isp_ts,
 		 job->src_ctx->ctrldata.req_info.req_type,
 		 job->src_ctx->ctrldata.req_info.req_sync_id,
@@ -3976,11 +3974,11 @@ static int job_sen_req_pack(struct mtk_cam_job *job)
 	/* determine if it is a raw switch job */
 
 	if (CAM_DEBUG_ENABLED(JOB) || 1)
-		pr_info("[%s] ctx:%d|type:%d|%s|exp(cur:%d,prev:%d)|sw/scene:%d/%d",
+		pr_info("[%s] ctx:%d|type:%d|%s|exp(cur:%d,prev:%d)|sw/scene:%d/%d, sync_id:%d",
 				__func__,
 				ctx->stream_id, job->job_type, job->scen_str,
 				job_exp_num(job), job_prev_exp_num(job),
-				get_sw_feature(job), get_hw_scenario(job));
+				get_sw_feature(job), get_hw_scenario(job), job->req_info_id);
 
 	return ret;
 }
@@ -4033,11 +4031,11 @@ static int job_isp_req_pack(struct mtk_cam_job *job)
 	ret = pack_helper->pack_job(job, pack_helper);
 
 	if (CAM_DEBUG_ENABLED(JOB) || 1)
-		pr_info("[%s] ctx:%d|type:%d|%s|exp(cur:%d,prev:%d)|sw/scene:%d/%d",
+		pr_info("[%s] ctx:%d|type:%d|%s|exp(cur:%d,prev:%d)|sw/scene:%d/%d, sync_id:%d",
 				__func__,
 				ctx->stream_id, job->job_type, job->scen_str,
 				job_exp_num(job), job_prev_exp_num(job),
-				get_sw_feature(job), get_hw_scenario(job));
+				get_sw_feature(job), get_hw_scenario(job), job->req_info_id);
 
 	return ret;
 }

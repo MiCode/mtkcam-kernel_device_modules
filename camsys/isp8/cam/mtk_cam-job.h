@@ -106,6 +106,7 @@ enum mtk_cam_job_action {
 	ACTION_AFO_DONE = 4,
 	ACTION_COMPOSE_CQ = 8,
 	ACTION_TRIGGER = 16, /* trigger m2m start */
+	ACTION_CHECK_PROCESSING = 32,
 	ACTION_APPLY_ISP_EXTMETA_PD_EXTISP = 64, /* extisp used for apply cq for extmeta data */
 	ACTION_APPLY_ISP_PROCRAW_EXTISP = 128, /* extisp used for apply cq for proc raw data */
 	ACTION_BUFFER_EXTMETA_PD_DONE = 256,

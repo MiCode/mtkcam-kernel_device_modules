@@ -431,7 +431,7 @@ static void mtk_cam_ctrl_wake_up_on_event(struct mtk_cam_ctrl *ctrl, int event)
 }
 
 /* note: just to support little margin for sw latency here */
-#define VALID_SWITCH_PERIOD_FROM_VSYNC_MS	3
+#define VALID_SWITCH_PERIOD_FROM_VSYNC_MS	23
 struct seamless_check_args {
 	int expect_inner;
 	int expect_ack;
@@ -440,7 +440,7 @@ struct seamless_check_args {
 static bool check_for_seamless(struct mtk_cam_ctrl *ctrl, void *arg)
 {
 	struct seamless_check_args *args = arg;
-	u64 last_sof_ts;
+	u64 last_sof_ts, first_sof_ts;
 	int inner_seq;
 	int ack_seq;
 	u64 ts;
@@ -448,6 +448,7 @@ static bool check_for_seamless(struct mtk_cam_ctrl *ctrl, void *arg)
 	spin_lock(&ctrl->info_lock);
 	inner_seq = ctrl->r_info.inner_seq_no;
 	last_sof_ts = ctrl->r_info.sof_l_ts_ns;
+	first_sof_ts = ctrl->r_info.sof_ts_ns;
 	ack_seq = ctrl->r_info.ack_seq_no;
 	spin_unlock(&ctrl->info_lock);
 
@@ -1181,6 +1182,8 @@ static void trigger_fake_sof_event(struct mtk_cam_ctrl *ctrl)
 	 */
 
 	/* note: on purpose not to update ctrl's runtime info */
+	pr_info("%s:ctx=%d, sof:%lld, ts:%lld\n", __func__,
+		ctrl->ctx->stream_id, ctrl->r_info.sof_ts_ns, ktime_get_boottime_ns());
 	mtk_cam_ctrl_send_event(ctrl, CAMSYS_EVENT_IRQ_L_SOF);
 }
 
@@ -1232,10 +1235,6 @@ static void mtk_cam_ctrl_seamless_switch_flow(struct mtk_cam_job *job)
 
 	mtk_cam_job_manually_apply_sensor(job);
 
-	/* should set ts for next job's apply_sensor */
-	ctrl->r_info.sof_ts_ns = ktime_get_boottime_ns();
-	ctrl->r_info.sof_l_ts_ns = ktime_get_boottime_ns();
-
 	if (call_job_seamless_ops(job, after_sensor))
 		goto SWITCH_FAILURE;
 
@@ -1246,10 +1245,16 @@ static void mtk_cam_ctrl_seamless_switch_flow(struct mtk_cam_job *job)
 			 __func__, prev_seq);
 		goto SWITCH_FAILURE;
 	}
+	/* should set ts for next job's apply_sensor */
+	ctrl->r_info.sof_ts_ns = ktime_get_boottime_ns();
+	ctrl->r_info.sof_l_ts_ns = ktime_get_boottime_ns();
 
 	call_job_seamless_ops(job, after_prev_frame_done);
 
+	trigger_fake_sof_event(ctrl);
 	check_args.expect_inner = job->frame_seq_no;
+	dev_info(dev, "[%s] begin waiting check for inner no:%d seq 0x%x\n",
+		__func__, job->req_seq, job->frame_seq_no);
 	if (mtk_cam_ctrl_wait_event(ctrl, check_for_inner, &check_args,
 				    1001)) {
 		dev_info(dev, "[%s] check_for_inner timeout: expected in=0x%x\n",

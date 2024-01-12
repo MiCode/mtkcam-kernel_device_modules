@@ -24,7 +24,7 @@
 #include "mtk_cam-trace.h"
 #include "mtk_cam-raw_ctrl.h"
 
-#define SCQ_DEADLINE_US(fi)		((fi) / 2) // 0.5 frame interval
+#define SCQ_DEADLINE_US(fi)		((fi) * 3 / 4) // 0.75 frame interval
 
 static unsigned int debug_buf_fmt_sel = -1;
 module_param(debug_buf_fmt_sel, int, 0644);
@@ -127,6 +127,20 @@ static int apply_sensor_async(struct mtk_cam_job *job)
 	return mtk_cam_ctx_queue_sensor_worker(ctx, &job->sensor_work);
 }
 
+static int check_processing(struct mtk_cam_job *job)
+{
+	struct mtk_cam_ctx *ctx = job->src_ctx;
+	struct mtk_cam_device *cam = ctx->cam;
+
+	if (ctx->cam_ctrl.frame_sync_event_cnt != job->req_seq) {
+		dev_info(cam->dev, "ctx %d frame_sync_event_cnt %d->%d\n",
+			 ctx->stream_id, ctx->cam_ctrl.frame_sync_event_cnt, job->req_seq);
+		ctx->cam_ctrl.frame_sync_event_cnt = job->req_seq;
+	}
+	return 0;
+}
+
+
 static int handle_cq_done(struct mtk_cam_job *job)
 {
 	struct mtk_cam_ctx *ctx = job->src_ctx;
@@ -200,6 +214,9 @@ int mtk_cam_job_apply_pending_action(struct mtk_cam_job *job)
 
 	if (action & ACTION_CQ_DONE)
 		ret = ret || handle_cq_done(job);
+
+	if (action & ACTION_CHECK_PROCESSING)
+		ret = ret || check_processing(job);
 
 	if (action & ACTION_ABORT_SW_RECOVERY)
 		ret = ret || call_jobop_opt(job, sw_recovery);
@@ -3681,6 +3698,7 @@ static void update_job_sensor(struct mtk_cam_job *job)
 static void update_job_state_init_sensor_param(struct mtk_cam_job *job)
 {
 	struct mtk_cam_ctrl *ctrl = &job->src_ctx->cam_ctrl;
+	struct mtk_raw_ctrl_data *ctrl_data = get_raw_ctrl_data(job);
 
 	job->job_state.s_params.i2c_thres_ns =
 		infer_i2c_deadline_ns(job, ctrl->frame_interval_ns);
@@ -3688,8 +3706,8 @@ static void update_job_state_init_sensor_param(struct mtk_cam_job *job)
 	job->job_state.s_params.latched_timing =
 		is_stagger_lbmf(job) ? SENSOR_LATCHED_L_SOF : SENSOR_LATCHED_F_SOF;
 
-	job->job_state.cq_trigger_thres_ns =
-		infer_cq_trigger_deadline_ns(job, ctrl->frame_interval_ns);
+	job->job_state.cq_trigger_thres_ns = ctrl_data->trigger_cq_deadline > 0 ?
+		ctrl_data->trigger_cq_deadline : infer_cq_trigger_deadline_ns(job, ctrl->frame_interval_ns);
 	if (CAM_DEBUG_ENABLED(JOB))
 		pr_info("%s: job i2c_thres_ns %llu, latched_timing:%d, cq_trigger_thres:%llu\n",
 			__func__,

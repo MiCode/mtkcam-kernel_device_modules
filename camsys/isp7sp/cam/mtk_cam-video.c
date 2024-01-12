@@ -817,13 +817,14 @@ static u32 try_fmt_mp_pixelformat(struct mtk_cam_dev_node_desc *desc,
 
 static int fill_fmt_mp_constrainted_by_hw(struct v4l2_pix_format_mplane *fmt,
 					  struct mtk_cam_dev_node_desc *desc,
-					  u32 pixelformat, u32 width, u32 height)
+					  u32 pixelformat, u32 width, u32 height,
+					  u32 pix_align_w, u32 pix_align_h)
 {
 	int ret;
 
-	width = clamp_val(ALIGN(width, 2),
+	width = clamp_val(ALIGN(width, pix_align_w),
 			  IMG_MIN_WIDTH, desc->frmsizes->stepwise.max_width);
-	height = ALIGN(height, 2);
+	height = ALIGN(height, pix_align_h);
 
 	ret = _fill_image_pix_mp(fmt, pixelformat, width, height);
 
@@ -854,7 +855,9 @@ static int mtk_video_init_format(struct mtk_cam_video_device *video)
 				       desc,
 				       default_fmt->fmt.pix_mp.pixelformat,
 				       default_fmt->fmt.pix_mp.width,
-				       default_fmt->fmt.pix_mp.height);
+				       default_fmt->fmt.pix_mp.height,
+				       2,
+				       is_raw_subdev(video->uid.pipe_id) ? 2 : 1);
 
 	/**
 	 * TODO: to support multi-plane: for example, yuv or do it as
@@ -1134,7 +1137,9 @@ int mtk_cam_video_set_fmt(struct mtk_cam_video_device *node,
 				       desc,
 				       pixelformat,
 				       f->fmt.pix_mp.width,
-				       f->fmt.pix_mp.height);
+				       f->fmt.pix_mp.height,
+				       2,
+				       is_raw_subdev(node->uid.pipe_id) ? 2 : 1);
 
 	/* Constant format fields */
 	try_fmt.fmt.pix_mp.field = V4L2_FIELD_NONE;

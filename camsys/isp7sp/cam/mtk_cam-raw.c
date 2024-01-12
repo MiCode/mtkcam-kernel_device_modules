@@ -95,7 +95,7 @@ static void init_camsys_settings(struct mtk_raw_device *dev, bool is_srt)
 	int i;
 
 	//Set rdy/req snapshot
-	set_topdebug_rdyreq(dev, is_srt ? ALL_THE_TIME : TG_OVERRUN);
+	set_topdebug_rdyreq(dev, is_srt ? RAW_DMA_ERR | YUV_DMA_ERR : TG_OVERRUN);
 
 	//Set CQI sram size
 	set_fifo_threshold(dev->base + REG_CQI_R1_BASE, 64);

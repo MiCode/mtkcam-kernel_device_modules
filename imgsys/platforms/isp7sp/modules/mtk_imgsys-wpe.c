@@ -161,7 +161,7 @@ struct imgsys_reg_range {
 	uint32_t end;
 };
 const struct imgsys_reg_range wpe_regs[] = {
-	{0x0000, 0x0724}, /* TOP,VECI,VEC2I */
+	{0x0000, 0x07A4}, /* TOP,VECI,VEC2I,SVECI,SVEC2I */
 	{0x07C0, 0x085C}, /* WPEO */
 	{0x0880, 0x091C}, /* WPEO2 */
 	{0x0940, 0x09DC}, /* MSKO */

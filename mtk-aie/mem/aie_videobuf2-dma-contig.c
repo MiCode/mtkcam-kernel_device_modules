@@ -191,7 +191,8 @@ static int aie_vb2_dc_mmap(void *buf_priv, struct vm_area_struct *vma)
 		return ret;
 	}
 
-	vma->vm_flags		|= VM_DONTEXPAND | VM_DONTDUMP;
+	vm_flags_set(vma, VM_DONTEXPAND | VM_DONTDUMP);
+
 	vma->vm_private_data	= &buf->handler;
 	vma->vm_ops		= &aie_vb2_common_vm_ops;
 	vma->vm_ops->open(vma);

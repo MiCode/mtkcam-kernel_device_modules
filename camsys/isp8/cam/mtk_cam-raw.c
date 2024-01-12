@@ -516,26 +516,24 @@ void ae_disable(struct mtk_raw_device *dev)
 
 	if (CAM_DEBUG_ENABLED(RAW_INT))
 		dev_info(dev->dev,
-			 "[%s++] raw%d - MOD5/MOD10/MOD11:0x%x/0x%x/0x%x\n",
-			 __func__, dev->id, val_mod5, val_mod10, val_mod11);
+			 "[%s++] raw%d - [out] MOD5/MOD10/MOD11:0x%x/0x%x/0x%x [in]:0x%x/0x%x/0x%x\n",
+			 __func__, dev->id, val_mod5, val_mod10, val_mod11,
+			 readl_relaxed(dev->base_inner + REG_CAMCTL_MOD5_EN),
+			 readl_relaxed(dev->base_inner + REG_CAMCTL_MOD10_EN),
+			 readl_relaxed(dev->base_inner + REG_CAMCTL_MOD11_EN));
 
 	/* disable CAMCTL_AESTAT_R1_EN*/
 	SET_FIELD(&val_mod5, CAMCTL_AESTAT_R1_EN, 0);
 	raw_writel_relaxed(val_mod5, dev, dev->base, REG_CAMCTL_MOD5_EN);
 
-	/* disable CAMCTL_AEI_R1_EN*/
-	//SET_FIELD(&val_mod10, CAMCTL_AEI_R1_EN, 0);
-	//raw_writel_relaxed(val_mod10, dev, dev->base, REG_CAMCTL_MOD10_EN);
-
-	/* disable CAMCTL_AEHO_R1_EN/CAMCTL_AEO_R1_EN*/
-	//SET_FIELD(&val_mod11, CAMCTL_AEHO_R1_EN, 0);
-	//SET_FIELD(&val_mod11, CAMCTL_AEO_R1_EN, 0);
-	//raw_writel_relaxed(val_mod11, dev, dev->base, REG_CAMCTL_MOD11_EN);
-
+	wmb(); /* wmb */
 	if (CAM_DEBUG_ENABLED(RAW_INT))
 		dev_info(dev->dev,
-			 "[%s--] raw%d - MOD5/MOD10/MOD11:0x%x/0x%x/0x%x\n",
-			 __func__, dev->id, val_mod5, val_mod10, val_mod11);
+			 "[%s--] raw%d - [out] MOD5/MOD10/MOD11:0x%x/0x%x/0x%x [in]:0x%x/0x%x/0x%x\n",
+			 __func__, dev->id, val_mod5, val_mod10, val_mod11,
+			 readl_relaxed(dev->base_inner + REG_CAMCTL_MOD5_EN),
+			 readl_relaxed(dev->base_inner + REG_CAMCTL_MOD10_EN),
+			 readl_relaxed(dev->base_inner + REG_CAMCTL_MOD11_EN));
 }
 
 void stagger_disable(struct mtk_raw_device *dev)
@@ -1225,11 +1223,11 @@ static irqreturn_t mtk_irq_raw_yuv(int irq, void *data)
 			frame_idx_inner);
 
 	irq_info.irq_type = 0;
-	irq_info.ts_ns = ktime_get_boottime_ns();
 	irq_info.frame_idx = frame_idx;
 	irq_info.frame_idx_inner = frame_idx_inner;
 	irq_info.fbc_empty = 0;
-
+	irq_info.ts_ns = ktime_get_boottime_ns();
+	irq_info.debug_en = raw_readl_relaxed(raw, raw->base_inner, REG_CAMCTL_MOD5_EN);
 	/* CQ done */
 	if (cq_status & FBIT(CAMCTL_CQ_THR0_DONE_ST)) {
 		if (raw->cq_ref != NULL) {
@@ -1424,12 +1422,16 @@ static irqreturn_t mtk_thread_irq_raw(int irq, void *data)
 		WARN_ON(len != sizeof(irq_info));
 
 #if RAW_DEBUG
-		dev_info(raw_dev->dev, "ts=%llu irq_type %d, req:0x%x/0x%x tg_cnt:%d\n",
+		dev_info(raw_dev->dev, "ts=%llu irq_type %d, req:0x%x/0x%x ctl_mod_5:0x%x diff:%llu (0x%x/0x%x/0x%x)\n",
 			irq_info.ts_ns / 1000,
 			irq_info.irq_type,
 			irq_info.frame_idx_inner,
 			irq_info.frame_idx,
-			irq_info.tg_cnt);
+			irq_info.debug_en,
+			ktime_get_boottime_ns() - irq_info.ts_ns,
+			raw_readl_relaxed(raw_dev, raw_dev->base_inner, REG_FHG_FHG_SPARE_1),
+			raw_readl_relaxed(raw_dev, raw_dev->base, REG_FHG_FHG_SPARE_1),
+			raw_readl_relaxed(raw_dev, raw_dev->base, REG_CAMCTL_MOD5_EN));
 #endif
 
 		/* error case */

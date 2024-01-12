@@ -15,6 +15,11 @@ struct seninf_vc *mtk_cam_seninf_get_vc_by_pad(struct seninf_ctx *ctx, int idx);
 
 int mtk_cam_seninf_get_vcinfo(struct seninf_ctx *ctx);
 
+int mtk_cam_seninf_set_vc_info_to_tsrec(struct seninf_ctx *ctx,
+			struct seninf_vc *vc,
+			enum mtk_cam_seninf_tsrec_exp_id exp_id,
+			u8 pre_latch_exp);
+
 int mtk_cam_seninf_is_vc_enabled(struct seninf_ctx *ctx,
 				 struct seninf_vc *vc);
 

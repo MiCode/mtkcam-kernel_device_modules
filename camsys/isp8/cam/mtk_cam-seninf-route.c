@@ -817,6 +817,33 @@ static u16 conv_ebd_hsize_raw14(u16 exp_hsize, u8 ebd_parsing_type)
 	return result;
 }
 
+int mtk_cam_seninf_set_vc_info_to_tsrec(struct seninf_ctx *ctx, struct seninf_vc *vc,
+	enum mtk_cam_seninf_tsrec_exp_id exp_id, u8 pre_latch_exp)
+{
+	struct mtk_cam_seninf_tsrec_vc_dt_info tsrec_vc_dt_info;
+
+	if (unlikely(ctx == NULL)) {
+		pr_info("[Error][%s] ctx is NUll", __func__);
+		return -EINVAL;
+	}
+
+	if (unlikely(vc == NULL)) {
+		pr_info("[Error][%s] vc is NUll", __func__);
+		return -EINVAL;
+	}
+
+	memset(&tsrec_vc_dt_info, 0, sizeof(struct mtk_cam_seninf_tsrec_vc_dt_info));
+	/* update final vc dt info to tsrec */
+	tsrec_vc_dt_info.vc = vc->vc;
+	tsrec_vc_dt_info.dt = vc->dt;
+	tsrec_vc_dt_info.out_pad = vc->out_pad;
+	tsrec_vc_dt_info.cust_assign_to_tsrec_exp_id = exp_id;
+	tsrec_vc_dt_info.is_sensor_hw_pre_latch_exp = pre_latch_exp;
+	mtk_cam_seninf_tsrec_update_vc_dt_info(ctx, ctx->tsrec_idx, &tsrec_vc_dt_info);
+
+	return 0;
+}
+
 int mtk_cam_seninf_get_vcinfo(struct seninf_ctx *ctx)
 {
 	struct seninf_vcinfo *vcinfo = &ctx->vcinfo;
@@ -862,8 +889,6 @@ int mtk_cam_seninf_get_vcinfo(struct seninf_ctx *ctx)
 	mtk_cam_seninf_tsrec_reset_vc_dt_info(ctx, ctx->tsrec_idx);
 
 	for (i = 0; i < fd.num_entries; i++) {
-		struct mtk_cam_seninf_tsrec_vc_dt_info tsrec_vc_dt_info = {0};
-
 		vc = &vcinfo->vc[vcinfo->cnt];
 		vc->vc = fd.entry[i].bus.csi2.channel;
 		vc->dt = fd.entry[i].bus.csi2.data_type;
@@ -1096,15 +1121,9 @@ int mtk_cam_seninf_get_vcinfo(struct seninf_ctx *ctx)
 			fsync_ext_vsync_pad_code);
 
 		/* update final vc dt info to tsrec */
-		tsrec_vc_dt_info.vc = vc->vc;
-		tsrec_vc_dt_info.dt = vc->dt;
-		tsrec_vc_dt_info.out_pad = vc->out_pad;
-		tsrec_vc_dt_info.cust_assign_to_tsrec_exp_id =
-			fd.entry[i].bus.csi2.cust_assign_to_tsrec_exp_id;
-		tsrec_vc_dt_info.is_sensor_hw_pre_latch_exp = (u32)
-			fd.entry[i].bus.csi2.is_sensor_hw_pre_latch_exp;
-		mtk_cam_seninf_tsrec_update_vc_dt_info(ctx,
-			ctx->tsrec_idx, &tsrec_vc_dt_info);
+		mtk_cam_seninf_set_vc_info_to_tsrec(ctx, vc,
+						fd.entry[i].bus.csi2.cust_assign_to_tsrec_exp_id,
+						fd.entry[i].bus.csi2.is_sensor_hw_pre_latch_exp);
 
 		vcinfo->cnt++;
 	}

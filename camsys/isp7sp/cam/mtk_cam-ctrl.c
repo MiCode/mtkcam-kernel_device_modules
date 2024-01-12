@@ -850,6 +850,8 @@ static void handle_engine_frame_start(struct mtk_cam_ctrl *ctrl,
 		else
 			frame_sync_no = -1;
 
+		mtk_cam_ctrl_send_event(ctrl, CAMSYS_EVENT_IRQ_F_VSYNC);
+
 		if (frame_no_to_fs_req_no(ctrl, frame_sync_no, &req_no)) {
 			struct mtk_seninf_sof_notify_param param;
 
@@ -860,7 +862,6 @@ static void handle_engine_frame_start(struct mtk_cam_ctrl *ctrl,
 			param.sof_cnt = req_no;
 			mtk_cam_seninf_sof_notify(&param);
 		}
-		mtk_cam_ctrl_send_event(ctrl, CAMSYS_EVENT_IRQ_F_VSYNC);
 	}
 
 	if (vsync_res->is_last)

@@ -640,7 +640,7 @@ static int set_test_mdl(struct mtk_cam_ut *ut,
 	height = testmdl->height;
 	pattern = testmdl->pattern;
 
-	pixel_mode = testmdl->pixmode_lg2;
+	pixel_mode = 0;//camsv always 8p
 
 	ut->isp_hardware = (enum isp_hardware_enum)testmdl->isp_hardware;
 	if (debug_testmdl_pixmode >= 0) {

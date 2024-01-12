@@ -6,7 +6,7 @@ include Kbuild
 else
 obj-y += camsys/
 obj-m += scpsys/
-#obj-m += cam_cal/
+obj-m += cam_cal/
 obj-m += imgsys/
 obj-m += mtk-hcp/
 obj-m += mtk-ipesys-me/

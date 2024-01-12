@@ -8400,6 +8400,7 @@ static u16 imx989lite_seamless_custom4[] = {
 	0x0E62,	0x00,
 	0x0E63,	0x00,
 	0x3241,	0x00,
+	0x3087, 0x30,
 };
 
 static u16 imx989lite_seamless_custom5[] = {
@@ -8534,6 +8535,7 @@ static u16 imx989lite_seamless_custom5[] = {
 	0x0E62,	0x00,
 	0x0E63,	0x00,
 	0x3241,	0x00,
+	0x3087, 0x30,
 };
 
 static u16 imx989lite_seamless_custom6[] = {
@@ -8668,6 +8670,7 @@ static u16 imx989lite_seamless_custom6[] = {
 	0x0E62,	0x00,
 	0x0E63,	0x00,
 	0x3241,	0x00,
+	0x3087, 0x30,
 };
 
 static u16 imx989lite_seamless_custom7[] = {
@@ -8802,6 +8805,7 @@ static u16 imx989lite_seamless_custom7[] = {
 	0x0E62,	0x00,
 	0x0E63,	0x00,
 	0x3241,	0x00,
+	0x3087, 0x30,
 };
 
 static u16 imx989lite_seamless_custom8[] = {
@@ -8936,6 +8940,7 @@ static u16 imx989lite_seamless_custom8[] = {
 	0x0E62,	0x00,
 	0x0E63,	0x00,
 	0x3241,	0x00,
+	0x3087, 0x30,
 };
 
 static u16 imx989lite_seamless_custom9[] = {
@@ -9071,6 +9076,7 @@ static u16 imx989lite_seamless_custom9[] = {
 	0x0E62,	0x00,
 	0x0E63,	0x00,
 	0x3241,	0x00,
+	0x3087, 0x30,
 };
 
 static u16 imx989lite_seamless_custom10[] = {
@@ -9205,6 +9211,7 @@ static u16 imx989lite_seamless_custom10[] = {
 	0x0E62,	0x00,
 	0x0E63,	0x00,
 	0x3241,	0x00,
+	0x3087, 0x31,
 };
 
 static u16 imx989lite_seamless_custom11[] = {
@@ -9339,6 +9346,7 @@ static u16 imx989lite_seamless_custom11[] = {
 	0x0E62,	0x00,
 	0x0E63,	0x00,
 	0x3241,	0x00,
+	0x3087, 0x32,
 };
 
 static u16 imx989lite_seamless_custom12[] = {
@@ -9473,6 +9481,7 @@ static u16 imx989lite_seamless_custom12[] = {
 	0x0E62,	0x00,
 	0x0E63,	0x00,
 	0x3241,	0x00,
+	0x3087, 0x30,
 };
 
 static u16 imx989lite_seamless_custom13[] = {
@@ -9607,6 +9616,7 @@ static u16 imx989lite_seamless_custom13[] = {
 	0x0E62,	0x01,
 	0x0E63,	0x04,
 	0x3241,	0x01,
+	0x3087, 0x30,
 };
 
 static u16 imx989lite_seamless_custom14[] = {
@@ -9741,6 +9751,7 @@ static u16 imx989lite_seamless_custom14[] = {
 	0x0E62,	0x00,
 	0x0E63,	0x00,
 	0x3241,	0x00,
+	0x3087, 0x30,
 };
 
 static u16 imx989lite_seamless_custom15[] = {
@@ -9875,6 +9886,7 @@ static u16 imx989lite_seamless_custom15[] = {
 	0x0E62,	0x00,
 	0x0E63,	0x00,
 	0x3241,	0x00,
+	0x3087, 0x30,
 };
 
 /* seamless switch group 2 */
@@ -10176,6 +10188,7 @@ static u16 imx989lite_seamless_custom18[] = {
 	0x0E62,	0x00,
 	0x0E63,	0x00,
 	0x3241,	0x00,
+	0x3087, 0x30,
 };
 
 static u16 imx989lite_seamless_custom19[] = {
@@ -10268,6 +10281,7 @@ static u16 imx989lite_seamless_custom19[] = {
 	0x0E62,	0x01,
 	0x0E63,	0x04,
 	0x3241,	0x01,
+	0x3087, 0x30,
 };
 
 static u16 imx989lite_seamless_custom20[] = {
@@ -10360,6 +10374,7 @@ static u16 imx989lite_seamless_custom20[] = {
 	0x0E62,	0x00,
 	0x0E63,	0x00,
 	0x3241,	0x00,
+	0x3087, 0x31,
 };
 
 #endif

@@ -1198,7 +1198,11 @@ static struct subdrv_static_ctx static_ctx = {
 	.resolution = {6560, 4928},
 	.mirror = IMAGE_HV_MIRROR,
 #ifdef AOV_EINT_UT
+#ifdef AOV_IMX809_EINT_UT
+	.mclk = 26,
+#else
 	.mclk = 24,
+#endif
 #else
 	.mclk = 26,
 #endif
@@ -1307,7 +1311,11 @@ static struct subdrv_pw_seq_entry pw_seq[] = {
 	{HW_ID_SCL, 0, 0},	/* default i2c bus scl 4 on apmcu side */
 	{HW_ID_SDA, 0, 0},	/* default i2c bus sda 4 on apmcu side */
 #ifdef AOV_EINT_UT
+#ifdef AOV_IMX809_EINT_UT
+	{HW_ID_MCLK1, 26, 0},
+#else
 	{HW_ID_MCLK1, 24, 0},
+#endif
 #else
 	{HW_ID_MCLK1, 26, 0},
 #endif

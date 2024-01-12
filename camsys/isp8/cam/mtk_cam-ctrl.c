@@ -233,6 +233,9 @@ static void log_event(const char *func, int ctx_id, struct v4l2_event *e)
 	case V4L2_EVENT_ERROR:
 		pr_info("%s: ctx-%d %s\n", func, ctx_id, e->u.data);
 		break;
+	case V4L2_EVENT_CAMSYS_RESOURCE_READY:
+		pr_info("%s: ctx-%d: 0x%x\n", func, ctx_id, (unsigned int)e->u.data[0]);
+		break;
 	default:
 		pr_info("%s: ctx-%d event type %d\n", func, ctx_id, e->type);
 		break;
@@ -295,6 +298,22 @@ void mtk_cam_event_extisp_camsys_ready(struct mtk_cam_ctrl *cam_ctrl)
 		.type = V4L2_EVENT_EXTISP_CAMSYS_READY,
 	};
 	mtk_cam_ctx_send_raw_event(ctx, &event);
+	log_event(__func__, ctx->stream_id, &event);
+}
+void mtk_cam_event_camsys_resource_ready(struct mtk_cam_ctrl *cam_ctrl,	u32 raw_ready)
+{
+	struct mtk_cam_ctx *ctx = cam_ctrl->ctx;
+	struct mtk_cam_event_camsys_resource_ready data = {
+		.raw_ready = raw_ready,
+	};
+	struct v4l2_event event = {
+		.type = V4L2_EVENT_CAMSYS_RESOURCE_READY,
+	};
+
+	memcpy(event.u.data, &data, 4);
+	if (ctx->has_raw_subdev)
+		mtk_cam_ctx_send_raw_event(ctx, &event);
+
 	log_event(__func__, ctx->stream_id, &event);
 }
 
@@ -1250,7 +1269,10 @@ static void mtk_cam_ctrl_dynamic_raws_change_flow(struct mtk_cam_job *job)
 			reset(raw_dev);
 		}
 	}
-	mtk_cam_pm_runtime_engines(&ctx->cam->engines, job->raw_change_uninit_engine, 0);
+	if (job->raw_change_uninit_engine) {
+		mtk_cam_pm_runtime_engines(&ctx->cam->engines, job->raw_change_uninit_engine, 0);
+		mtk_cam_event_camsys_resource_ready(&ctx->cam_ctrl, job->raw_change_uninit_engine);
+	}
 	mtk_cam_job_update_clk(job);
 	dev_info(dev, "[%s] finish, uninit raw:0x%x\n",
 		__func__, job->raw_change_uninit_engine);

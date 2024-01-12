@@ -611,7 +611,8 @@ mtk_cam_job_initialize_engines(struct mtk_cam_ctx *ctx,
 		mtk_cam_sv_dev_config(sv, 0);
 
 		/* smi path sel */
-		mtk_cam_sv_smi_path_sel(sv, is_camsv_16p(job) ? true : false);
+		if (cur_platform->hw->platform_id != 6878)
+			mtk_cam_sv_smi_path_sel(sv, is_camsv_16p(job) ? true : false);
 	}
 
 	/* mraw */

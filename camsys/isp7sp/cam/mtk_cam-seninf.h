@@ -125,6 +125,7 @@ struct seninf_core {
 	int dphy_settle_delay_dt;
 	int settle_delay_ck;
 	int hs_trail_parameter;
+	unsigned int force_glp_en; /* force enable generic long packet */
 
 	spinlock_t spinlock_irq;
 

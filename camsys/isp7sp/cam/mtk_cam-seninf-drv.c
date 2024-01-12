@@ -1014,6 +1014,8 @@ static int seninf_core_probe(struct platform_device *pdev)
 		&core->settle_delay_ck);
 	of_property_read_u32(dev->of_node, "hs-trail-parameter",
 		&core->hs_trail_parameter);
+	of_property_read_u32(dev->of_node, "force-glp-enable",
+		&core->force_glp_en);
 
 	core->seninf_vsync_debug_flag = &seninf_vsync_debug;
 	core->seninf_dbg_log = &seninf_dbg_log;

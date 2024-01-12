@@ -1079,9 +1079,10 @@ static int mtk_cam_seninf_set_vc(struct seninf_ctx *ctx, int intf,
 		}
 
 		/* General Long Packet Data Types: 0x10-0x17 */
-		if (!remap && vc->dt >= 0x10 && vc->dt <= 0x17) {
+		if (ctx->core->force_glp_en || (!remap && vc->dt >= 0x10 && vc->dt <= 0x17)) {
 			SENINF_BITS(pCsi2_mac, CSIRX_MAC_CSI2_OPT,
 				    RG_CSI2_GENERIC_LONG_PACKET_EN, 1);
+			dev_info(ctx->dev, "enable generic long packet\n");
 		}
 
 		switch (i) {

@@ -181,6 +181,13 @@ static long mtk_aov_ioctl(struct file *file, unsigned int cmd,
 #else
 			wake_lock(&aov_wake_lock);
 #endif
+		} else {
+			dev_info(aov_dev->dev, "AOV enable wake lock for swrgo\n");
+#ifdef CONFIG_PM_WAKELOCKS
+			__pm_stay_awake(aov_wake_lock);
+#else
+			wake_lock(&aov_wake_lock);
+#endif
 		}
 		g_aov_start = true;
 
@@ -243,6 +250,13 @@ static long mtk_aov_ioctl(struct file *file, unsigned int cmd,
 
 		if (g_frame_mode & eOBJECT_FACE_RECOGNITION) {
 			dev_info(aov_dev->dev, "AOV disable wake lock, mode(%#x)\n", g_frame_mode);
+#ifdef CONFIG_PM_WAKELOCKS
+			__pm_relax(aov_wake_lock);
+#else
+			wake_unlock(&aov_wake_lock);
+#endif
+		} else {
+			dev_info(aov_dev->dev, "AOV disable wake lock for swrgo\n");
 #ifdef CONFIG_PM_WAKELOCKS
 			__pm_relax(aov_wake_lock);
 #else

@@ -904,10 +904,11 @@ static void ut_fs_tsrec_update_vc_dt_info_proc(const unsigned int idx,
 	const struct mtk_cam_seninf_tsrec_vc_dt_info info_arr[],
 	const unsigned int arr_len)
 {
+	struct seninf_ctx *inf_ctx = NULL;
 	unsigned int i = 0;
 
 	UT_INF("UT Test => reset seninf_idx:%u vc/dt info ...\n", idx);
-	mtk_cam_seninf_tsrec_reset_vc_dt_info(idx);
+	mtk_cam_seninf_tsrec_reset_vc_dt_info(inf_ctx, idx);
 
 	UT_INF("\n");
 	for (i = 0; i < arr_len; ++i) {
@@ -917,13 +918,14 @@ static void ut_fs_tsrec_update_vc_dt_info_proc(const unsigned int idx,
 			info_arr[i].cust_assign_to_tsrec_exp_id,
 			info_arr[i].is_sensor_hw_pre_latch_exp);
 
-		mtk_cam_seninf_tsrec_update_vc_dt_info(idx, &info_arr[i]);
+		mtk_cam_seninf_tsrec_update_vc_dt_info(inf_ctx, idx, &info_arr[i]);
 	}
 }
 
 
 static void ut_fs_tsrec_update_vc_dt_info(void)
 {
+	struct seninf_ctx *inf_ctx = NULL;
 	/* custom config */
 	const struct mtk_cam_seninf_tsrec_vc_dt_info info_arr_0[] = {
 		{.vc = 0x0, .dt = 0x2b, .out_pad = PAD_SRC_RAW0},
@@ -952,20 +954,20 @@ static void ut_fs_tsrec_update_vc_dt_info(void)
 	/* test case 1 */
 	/* stagger sensor vc info from log */
 	mtk_cam_seninf_tsrec_dbg_dump_vc_dt_info(idx, __func__);
-	mtk_cam_seninf_tsrec_reset_vc_dt_info(idx);
+	mtk_cam_seninf_tsrec_reset_vc_dt_info(inf_ctx, idx);
 	mtk_cam_seninf_tsrec_dbg_dump_vc_dt_info(idx, __func__);
 	ut_fs_tsrec_update_vc_dt_info_proc(idx, info_arr_1, 4);
 
 	/* test case 2 */
 	/* pre-ISP sensor vc info from log */
 	mtk_cam_seninf_tsrec_dbg_dump_vc_dt_info(idx, __func__);
-	mtk_cam_seninf_tsrec_reset_vc_dt_info(idx);
+	mtk_cam_seninf_tsrec_reset_vc_dt_info(inf_ctx, idx);
 	mtk_cam_seninf_tsrec_dbg_dump_vc_dt_info(idx, __func__);
 	ut_fs_tsrec_update_vc_dt_info_proc(idx, info_arr_0, 4);
 
 
 	// UT_INF("UT Reset => call reset vc dt info\n");
-	// mtk_cam_seninf_tsrec_reset_vc_dt_info(idx);
+	// mtk_cam_seninf_tsrec_reset_vc_dt_info(inf_ctx, idx);
 	mtk_cam_seninf_tsrec_dbg_dump_vc_dt_info(idx, __func__);
 	mtk_cam_seninf_tsrec_dbg_dump_tsrec_n_regs_info(__func__);
 

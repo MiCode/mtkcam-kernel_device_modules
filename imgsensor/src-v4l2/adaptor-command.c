@@ -6,6 +6,7 @@
 #include "adaptor.h"
 #include "adaptor-fsync-ctrls.h"
 #include "adaptor-common-ctrl.h"
+#include "adaptor-tsrec-cb-ctrl-impl.h"
 
 #include "adaptor-command.h"
 
@@ -22,6 +23,25 @@
 /*---------------------------------------------------------------------------*/
 // utilities / static functions
 /*---------------------------------------------------------------------------*/
+static inline int chk_input_arg(const struct adaptor_ctx *ctx, const void *arg,
+	int *p_ret, const char *caller)
+{
+	*p_ret = 0;
+	if (unlikely(ctx == NULL)) {
+		*p_ret = -EINVAL;
+		return *p_ret;
+	}
+	if (unlikely(arg == NULL)) {
+		*p_ret = -EINVAL;
+		adaptor_logi(ctx,
+			"[%s] ERROR: idx:%d, invalid arg:(nullptr), ret:%d\n",
+			caller, ctx->idx, *p_ret);
+		return *p_ret;
+	}
+	return *p_ret;
+}
+
+
 static int get_sensor_mode_info(struct adaptor_ctx *ctx, u32 mode_id,
 				struct mtk_sensor_mode_info *info)
 {
@@ -59,14 +79,9 @@ static int g_cmd_sensor_mode_config_info(struct adaptor_ctx *ctx, void *arg)
 	int mode_cnt = 0;
 	struct mtk_sensor_mode_config_info *p_info = NULL;
 
-	/* error handling (unexpected case) */
-	if (unlikely(arg == NULL)) {
-		ret = -ENOIOCTLCMD;
-		adaptor_logi(ctx,
-			"ERROR: V4L2_CMD_GET_SENSOR_MODE_CONFIG_INFO, idx:%d, input arg is nullptr, return:%d\n",
-			ctx->idx, ret);
+	/* unexpected case, arg is nullptr */
+	if (unlikely((chk_input_arg(ctx, arg, &ret, __func__)) != 0))
 		return ret;
-	}
 
 	p_info = arg;
 
@@ -97,14 +112,9 @@ static int g_cmd_send_sensor_mode_config_info(struct adaptor_ctx *ctx, void *arg
 	int send_scenario_id = 0;
 	struct mtk_sensor_mode_info *p_mode_info = NULL;
 
-	/* error handling (unexpected case) */
-	if (unlikely(arg == NULL)) {
-		ret = -ENOIOCTLCMD;
-		adaptor_logi(ctx,
-			"ERROR: V4L2_CMD_GET_SEND_SENSOR_MODE_CONFIG_INFO, idx:%d, input arg is nullptr, return:%d\n",
-			ctx->idx, ret);
+	/* unexpected case, arg is nullptr */
+	if (unlikely((chk_input_arg(ctx, arg, &ret, __func__)) != 0))
 		return ret;
-	}
 
 	p_mode_info = arg;
 	send_scenario_id = p_mode_info->scenario_id;
@@ -125,14 +135,9 @@ static int g_cmd_sensor_in_reset(struct adaptor_ctx *ctx, void *arg)
 	int ret = 0;
 	bool *in_reset = NULL;
 
-	/* error handling (unexpected case) */
-	if (unlikely(arg == NULL)) {
-		ret = -ENOIOCTLCMD;
-		adaptor_logi(ctx,
-			"ERROR: V4L2_CMD_SENSOR_IN_RESET, idx:%d, input arg is nullptr, return:%d\n",
-			ctx->idx, ret);
+	/* unexpected case, arg is nullptr */
+	if (unlikely((chk_input_arg(ctx, arg, &ret, __func__)) != 0))
 		return ret;
-	}
 
 	in_reset = arg;
 
@@ -146,16 +151,9 @@ static int g_cmd_sensor_has_ebd_parser(struct adaptor_ctx *ctx, void *arg)
 	int ret = 0;
 	bool *has_parser = NULL;
 
-	/* error handling (unexpected case) */
-	if (unlikely(ctx == NULL))
-		return -EINVAL;
-	if (unlikely(arg == NULL)) {
-		ret = -ENOIOCTLCMD;
-		adaptor_logi(ctx,
-			"ERROR: V4L2_CMD_SENSOR_HAS_EBD_PARSER, idx:%d, input arg is nullptr, return:%d\n",
-			ctx->idx, ret);
+	/* unexpected case, arg is nullptr */
+	if (unlikely((chk_input_arg(ctx, arg, &ret, __func__)) != 0))
 		return ret;
-	}
 
 	has_parser = arg;
 
@@ -173,14 +171,9 @@ static int g_cmd_sensor_ebd_info_by_scenario(struct adaptor_ctx *ctx, void *arg)
 	struct mtk_mbus_frame_desc fd_tmp = {0};
 	struct mtk_mbus_frame_desc_entry_csi2 *entry;
 
-	/* error handling (unexpected case) */
-	if (unlikely(arg == NULL)) {
-		ret = -ENOIOCTLCMD;
-		adaptor_logi(ctx,
-			"ERROR: V4L2_CMD_GET_SENSOR_EBD_INFO_BY_SCENARIO, idx:%d, input arg is nullptr, return:%d\n",
-			ctx->idx, ret);
+	/* unexpected case, arg is nullptr */
+	if (unlikely((chk_input_arg(ctx, arg, &ret, __func__)) != 0))
 		return ret;
-	}
 
 	p_info = arg;
 
@@ -227,16 +220,9 @@ static int s_cmd_fsync_sync_frame_start_end(struct adaptor_ctx *ctx, void *arg)
 	int *p_flag = NULL;
 	int ret = 0;
 
-	/* error handling (unexpected case) */
-	if (unlikely(ctx == NULL))
-		return -EINVAL;
-	if (unlikely(arg == NULL)) {
-		ret = -EINVAL;
-		adaptor_logi(ctx,
-			"ERROR: V4L2_CMD_FSYNC_SYNC_FRAME_START_END, idx:%d, input arg is nullptr, return:%d\n",
-			ctx->idx, ret);
+	/* unexpected case, arg is nullptr */
+	if (unlikely((chk_input_arg(ctx, arg, &ret, __func__)) != 0))
 		return ret;
-	}
 
 	/* casting arg to int-pointer for using */
 	p_flag = arg;
@@ -256,16 +242,9 @@ static int s_cmd_tsrec_notify_vsync(struct adaptor_ctx *ctx, void *arg)
 	struct mtk_cam_seninf_tsrec_vsync_info *buf = NULL;
 	int ret = 0;
 
-	/* error handling (unexpected case) */
-	if (unlikely(ctx == NULL))
-		return -EINVAL;
-	if (unlikely(arg == NULL)) {
-		ret = -EINVAL;
-		adaptor_logi(ctx,
-			"ERROR: V4L2_CMD_TSREC_NOTIFY_VSYNC, idx:%d, input arg is nullptr, return:%d\n",
-			ctx->idx, ret);
+	/* unexpected case, arg is nullptr */
+	if (unlikely((chk_input_arg(ctx, arg, &ret, __func__)) != 0))
 		return ret;
-	}
 
 	buf = (struct mtk_cam_seninf_tsrec_vsync_info *)arg;
 
@@ -293,36 +272,44 @@ static int s_cmd_tsrec_notify_vsync(struct adaptor_ctx *ctx, void *arg)
 static int s_cmd_tsrec_notify_sensor_hw_pre_latch(
 	struct adaptor_ctx *ctx, void *arg)
 {
-	struct mtk_cam_seninf_tsrec_vsync_info *buf = NULL;
+	struct mtk_cam_seninf_tsrec_timestamp_info *ts_info = NULL;
+	// unsigned long long sys_ts;
 	int ret = 0;
 
-	/* error handling (unexpected case) */
-	if (unlikely(ctx == NULL))
-		return -EINVAL;
-	if (unlikely(arg == NULL)) {
-		ret = -EINVAL;
-		adaptor_logi(ctx,
-			"ERROR: V4L2_CMD_TSREC_NOTIFY_SENSOR_HW_PRE_LATCH, idx:%d, input arg is nullptr, return:%d\n",
-			ctx->idx, ret);
+	/* unexpected case, arg is nullptr */
+	if (unlikely((chk_input_arg(ctx, arg, &ret, __func__)) != 0))
 		return ret;
-	}
 
-	buf = (struct mtk_cam_seninf_tsrec_vsync_info *)arg;
+	ts_info = (struct mtk_cam_seninf_tsrec_timestamp_info *)arg;
+	// sys_ts = ktime_get_boottime_ns();
 
-
-// #ifndef REDUCE_ADAPTOR_COMMAND_LOG
+#ifndef REDUCE_ADAPTOR_COMMAND_LOG
 	adaptor_logd(ctx,
-		"V4L2_CMD_TSREC_NOTIFY_SENSOR_HW_PRE_LATCH, idx:%d, vsync_info(tsrec_no:%u, seninf_idx:%u, sys_ts%llu(ns), tsrec_ts:%llu(us))\n",
+		"V4L2_CMD_TSREC_NOTIFY_SENSOR_HW_PRE_LATCH, idx:%d, ts_info(tsrec_no:%u, seninf_idx:%u, tick_factor:%u, sys_ts:%llu(ns), tsrec_ts:%llu(us), tick:%llu, ts(0:(%llu/%llu/%llu/%llu), 1:(%llu/%llu/%llu/%llu), 2:(%llu/%llu/%llu/%llu)), curr_sys_ts:%llu(ns)\n",
 		ctx->idx,
-		buf->tsrec_no,
-		buf->seninf_idx,
-		buf->irq_sys_time_ns,
-		buf->irq_tsrec_ts_us);
-// #endif
-
+		ts_info->tsrec_no,
+		ts_info->seninf_idx,
+		ts_info->tick_factor,
+		ts_info->irq_sys_time_ns,
+		ts_info->irq_tsrec_ts_us,
+		ts_info->tsrec_curr_tick,
+		ts_info->exp_recs[0].ts_us[0],
+		ts_info->exp_recs[0].ts_us[1],
+		ts_info->exp_recs[0].ts_us[2],
+		ts_info->exp_recs[0].ts_us[3],
+		ts_info->exp_recs[1].ts_us[0],
+		ts_info->exp_recs[1].ts_us[1],
+		ts_info->exp_recs[1].ts_us[2],
+		ts_info->exp_recs[1].ts_us[3],
+		ts_info->exp_recs[2].ts_us[0],
+		ts_info->exp_recs[2].ts_us[1],
+		ts_info->exp_recs[2].ts_us[2],
+		ts_info->exp_recs[2].ts_us[3],
+		sys_ts);
+#endif
 
 	/* tsrec notify sensor hw pre-latch, call all APIs that needed this info */
-	notify_fsync_mgr_sensor_hw_pre_latch_by_tsrec(ctx);
+	notify_fsync_mgr_sensor_hw_pre_latch_by_tsrec(ctx, ts_info);
 
 	return ret;
 }
@@ -333,49 +320,12 @@ static int s_cmd_tsrec_send_timestamp_info(struct adaptor_ctx *ctx, void *arg)
 	struct mtk_cam_seninf_tsrec_timestamp_info *buf = NULL;
 	int ret = 0;
 
-	/* error handling (unexpected case) */
-	if (unlikely(ctx == NULL))
-		return -EINVAL;
-	if (unlikely(arg == NULL)) {
-		ret = -EINVAL;
-		adaptor_logi(ctx,
-			"ERROR: V4L2_CMD_TSREC_SEND_TIMESTAMP_INFO, idx:%d, input arg is nullptr, return:%d\n",
-			ctx->idx, ret);
+	/* unexpected case, arg is nullptr */
+	if (unlikely((chk_input_arg(ctx, arg, &ret, __func__)) != 0))
 		return ret;
-	}
 
 	buf = (struct mtk_cam_seninf_tsrec_timestamp_info *)arg;
-
 	memcpy(&ctx->ts_info, buf, sizeof(ctx->ts_info));
-
-
-#ifndef REDUCE_ADAPTOR_COMMAND_LOG
-	adaptor_logd(ctx,
-		"V4L2_CMD_TSREC_SEND_TIMESTAMP_INFO, idx:%d, ts_info(tsrec_no:%u, seninf_idx:%u, tick_factor:%u, sys_ts:%llu(ns), tsrec_ts:%llu(us), tick:%llu, ts(0:(%llu/%llu/%llu/%llu), 1:(%llu/%llu/%llu/%llu), 2:(%llu/%llu/%llu/%llu))\n",
-		ctx->idx,
-		ctx->ts_info.tsrec_no,
-		ctx->ts_info.seninf_idx,
-		ctx->ts_info.tick_factor,
-		ctx->ts_info.irq_sys_time_ns,
-		ctx->ts_info.irq_tsrec_ts_us,
-		ctx->ts_info.tsrec_curr_tick,
-		ctx->ts_info.exp_recs[0].ts_us[0],
-		ctx->ts_info.exp_recs[0].ts_us[1],
-		ctx->ts_info.exp_recs[0].ts_us[2],
-		ctx->ts_info.exp_recs[0].ts_us[3],
-		ctx->ts_info.exp_recs[1].ts_us[0],
-		ctx->ts_info.exp_recs[1].ts_us[1],
-		ctx->ts_info.exp_recs[1].ts_us[2],
-		ctx->ts_info.exp_recs[1].ts_us[3],
-		ctx->ts_info.exp_recs[2].ts_us[0],
-		ctx->ts_info.exp_recs[2].ts_us[1],
-		ctx->ts_info.exp_recs[2].ts_us[2],
-		ctx->ts_info.exp_recs[2].ts_us[3]);
-#endif
-
-
-	/* tsrec send timestamp info, call all APIs that needed this info */
-	notify_fsync_mgr_receive_tsrec_timestamp_info(ctx, &ctx->ts_info);
 
 	return ret;
 }
@@ -386,16 +336,9 @@ static int s_cmd_sensor_parse_ebd(struct adaptor_ctx *ctx, void *arg)
 	struct mtk_ebd_dump obj;
 	int ret = 0;
 
-	/* error handling (unexpected case) */
-	if (unlikely(ctx == NULL))
-		return -EINVAL;
-	if (unlikely(arg == NULL)) {
-		ret = -EINVAL;
-		adaptor_logi(ctx,
-			"ERROR: V4L2_CMD_SENSOR_PARSE_EBD, idx:%d, input arg is nullptr, return:%d\n",
-			ctx->idx, ret);
+	/* unexpected case, arg is nullptr */
+	if (unlikely((chk_input_arg(ctx, arg, &ret, __func__)) != 0))
 		return ret;
-	}
 
 	recv_ebd = (struct mtk_recv_sensor_ebd_line *)arg;
 
@@ -410,6 +353,25 @@ static int s_cmd_sensor_parse_ebd(struct adaptor_ctx *ctx, void *arg)
 		sizeof(ctx->latest_ebd.req_fd_desc) - 1);
 	memcpy(&ctx->latest_ebd.record, &obj, sizeof(struct mtk_ebd_dump));
 	mutex_unlock(&ctx->ebd_lock);
+
+	return ret;
+}
+
+static int s_cmd_tsrec_setup_cb_info(struct adaptor_ctx *ctx, void *arg)
+{
+	struct mtk_cam_seninf_tsrec_cb_info *tsrec_cb_info = NULL;
+	int ret = 0;
+
+	/* unexpected case, arg is nullptr */
+	if (unlikely((chk_input_arg(ctx, arg, &ret, __func__)) != 0))
+		return ret;
+
+	tsrec_cb_info = (struct mtk_cam_seninf_tsrec_cb_info *)arg;
+
+	adaptor_tsrec_cb_ctrl_info_setup(ctx,
+		tsrec_cb_info, tsrec_cb_info->is_connected_to_tsrec);
+
+	// adaptor_tsrec_cb_ctrl_dbg_info_dump(ctx, __func__);
 
 	return ret;
 }
@@ -438,12 +400,13 @@ static const struct command_entry command_list[] = {
 		s_cmd_tsrec_notify_sensor_hw_pre_latch},
 	{V4L2_CMD_TSREC_SEND_TIMESTAMP_INFO, s_cmd_tsrec_send_timestamp_info},
 	{V4L2_CMD_SENSOR_PARSE_EBD, s_cmd_sensor_parse_ebd},
+	{V4L2_CMD_TSREC_SETUP_CB_FUNC_OF_SENSOR, s_cmd_tsrec_setup_cb_info},
 };
 
 long adaptor_command(struct v4l2_subdev *sd, unsigned int cmd, void *arg)
 {
 	struct adaptor_ctx *ctx = NULL;
-	int i, ret = -ENOIOCTLCMD;
+	int i, ret = -ENOIOCTLCMD, is_cmd_found = 0;
 
 	/* error handling (unexpected case) */
 	if (unlikely(sd == NULL)) {
@@ -456,16 +419,26 @@ long adaptor_command(struct v4l2_subdev *sd, unsigned int cmd, void *arg)
 
 	ctx = sd_to_ctx(sd);
 
+#ifndef REDUCE_ADAPTOR_COMMAND_LOG
 	adaptor_logd(ctx,
 		"dispatch command request, idx:%d, cmd id:%#x\n",
 		ctx->idx, cmd);
+#endif
 
 	/* dispatch command request */
 	for (i = 0; i < ARRAY_SIZE(command_list); i++) {
 		if (command_list[i].cmd == cmd) {
+			is_cmd_found = 1;
 			ret = command_list[i].func(ctx, arg);
 			break;
 		}
+	}
+	if (unlikely(is_cmd_found == 0)) {
+		ret = -ENOIOCTLCMD;
+		adaptor_logi(ctx,
+			"ERROR: get unknown command request, idx:%d, cmd:%u, return:%d\n",
+			ctx->idx, cmd, ret);
+		return ret;
 	}
 
 	return ret;

@@ -58,7 +58,7 @@ unsigned int chk_tsrec_no_valid(const unsigned int tsrec_no,
  *     1 => tsrec timer is enabled;
  *          (give caller tsrec current tick & time in us)
  */
-unsigned int mtk_cam_seninf_g_tsrec_current_time(
+int mtk_cam_seninf_g_tsrec_current_time(
 	unsigned long long *p_tick, unsigned long long *p_time_us);
 
 
@@ -96,8 +96,10 @@ void mtk_cam_seninf_tsrec_timer_enable(const unsigned int en);
 /*
  * call these API when seninf get vcinfo.
  */
-void mtk_cam_seninf_tsrec_reset_vc_dt_info(const unsigned int seninf_idx);
-void mtk_cam_seninf_tsrec_update_vc_dt_info(const unsigned int seninf_idx,
+void mtk_cam_seninf_tsrec_reset_vc_dt_info(struct seninf_ctx *inf_ctx,
+	const unsigned int seninf_idx);
+void mtk_cam_seninf_tsrec_update_vc_dt_info(struct seninf_ctx *inf_ctx,
+	const unsigned int seninf_idx,
 	const struct mtk_cam_seninf_tsrec_vc_dt_info *vc_dt_info);
 
 
@@ -119,11 +121,17 @@ void mtk_cam_seninf_tsrec_query_ts_records(const unsigned int tsrec_no);
 
 
 /*
+ * return: 0 without any error; others => has error.
+ *
  * for user get timestamp information that in tsrec.
  * --- pack timestamp information into below structure.
  */
-void mtk_cam_seninf_tsrec_get_timestamp_info(const unsigned int tsrec_no,
+int mtk_cam_seninf_tsrec_get_timestamp_info(const unsigned int tsrec_no,
 	struct mtk_cam_seninf_tsrec_timestamp_info *ts_info);
+
+
+int tsrec_cb_handler(const unsigned int seninf_idx, const unsigned int tsrec_no,
+	const unsigned int cmd, void *arg, const char *caller);
 
 
 /******************************************************************************

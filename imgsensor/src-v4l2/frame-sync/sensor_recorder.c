@@ -64,7 +64,6 @@ struct FrameRecorder {
 
 
 	/* !!! frame length related info !!! */
-	unsigned int is_pr_fl_info_updated;
 	/* predict frame length */
 	unsigned int curr_predicted_fl_lc;
 	unsigned int curr_predicted_fl_us;
@@ -79,7 +78,6 @@ struct FrameRecorder {
 
 	/* timestamp info */
 	unsigned int tick_factor;
-	unsigned int is_ts_info_updated;
 	SenRec_TS_T ts_exp_0[VSYNCS_MAX];
 	/* actual frame length (by timestamp diff.) */
 	unsigned int act_fl_us;
@@ -1630,14 +1628,14 @@ static unsigned int frec_calc_seamless_frame_length(const unsigned int idx,
 /*----------------------------------------------------------------------------*/
 // sensor recorder framework functions
 /*----------------------------------------------------------------------------*/
-static void frec_chk_fl_info_predicted_match_actual(const unsigned int idx)
+void frec_chk_fl_pr_match_act(const unsigned int idx)
 {
 	struct FrameRecorder *pfrec = frec_g_recorder_ctx(idx, __func__);
 	const unsigned int diff_th = FL_ACT_CHK_TH;
 	unsigned int diff;
 
 	/* error handle */
-	if (unlikely(pfrec == NULL))
+	if (unlikely((pfrec == NULL) || (pfrec->act_fl_us == 0)))
 		return;
 
 	diff = (pfrec->prev_predicted_fl_us > pfrec->act_fl_us)
@@ -1658,10 +1656,6 @@ static void frec_chk_fl_info_predicted_match_actual(const unsigned int idx)
 
 		frec_dump_recorder(idx, __func__);
 	}
-
-	/* clear all flags for notify checked done */
-	pfrec->is_pr_fl_info_updated = 0;
-	pfrec->is_ts_info_updated = 0;
 
 #ifndef FS_UT
 	if (unlikely(_FS_LOG_ENABLED(LOG_FS_PF)))
@@ -1839,9 +1833,6 @@ static void frec_notify_pre_latch_setup_fl_related_info(const unsigned int idx)
 	memcpy(pfrec->next_predicted_rd_offset_us,
 		&fl_info.next_exp_rd_offset_us,
 		sizeof(unsigned int) * (FS_HDR_MAX));
-
-	/* !!! set flag to notify predicted fl info is updated !!! */
-	pfrec->is_pr_fl_info_updated = 1;
 }
 
 
@@ -2135,10 +2126,6 @@ void frec_notify_vsync(const unsigned int idx)
 
 	/* then, update/push newest sensor frame record */
 	frec_push_record(idx);
-
-	/* check is valid for doing fl predicted, actual check */
-	if (pfrec->is_pr_fl_info_updated && pfrec->is_ts_info_updated)
-		frec_chk_fl_info_predicted_match_actual(idx);
 }
 
 
@@ -2168,13 +2155,6 @@ void frec_notify_update_timestamp_data(const unsigned int idx,
 	tick_b = pfrec->ts_exp_0[1] * pfrec->tick_factor;
 	pfrec->act_fl_us = divide_num(idx,
 		(tick_a - tick_b), pfrec->tick_factor, __func__);
-
-	/* !!! set flag to notify ts info is updated !!! */
-	pfrec->is_ts_info_updated = 1;
-
-	/* check is valid for doing fl predicted, actual check */
-	if (pfrec->is_pr_fl_info_updated && pfrec->is_ts_info_updated)
-		frec_chk_fl_info_predicted_match_actual(idx);
 }
 /******************************************************************************/
 

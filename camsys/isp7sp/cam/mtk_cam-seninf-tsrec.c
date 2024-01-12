@@ -26,7 +26,8 @@
 #ifndef FS_UT
 struct device *seninf_dev;
 
-DEFINE_SPINLOCK(tsrec_log_concurrency_lock);
+DEFINE_MUTEX(tsrec_log_concurrency_lock);
+DEFINE_SPINLOCK(tsrec_ts_data_update_lock);
 #endif
 
 
@@ -80,9 +81,13 @@ struct tsrec_irq_info_st {
 	unsigned int intr_status;
 	unsigned int intr_status_2;
 
+	unsigned int pre_latch_exp_no;
+
 	unsigned long long tsrec_ts_us;
 	unsigned long long sys_ts_ns;
 	unsigned long long duration_ns;
+	unsigned long long duration_2_ns;
+	unsigned long long worker_handle_ts_ns;
 };
 
 struct tsrec_irq_event_st {
@@ -158,6 +163,9 @@ struct tsrec_seninf_exp_vc_dt_st {
 };
 
 struct tsrec_seninf_cfg_st {
+	/* currently, pointer of seninf ctx */
+	struct seninf_ctx *inf_ctx;
+
 	/* currently, equal to array idx */
 	unsigned int seninf_idx;
 	/* before ISP8, equal to seninf mux idx */
@@ -253,6 +261,17 @@ struct tsrec_status_st {
 	struct tsrec_n_regs_st **tsrec_n_regs;
 };
 static struct tsrec_status_st tsrec_status;
+
+
+/*---------------------------------------------------------------------------*/
+// TSREC call back func entry structure
+/*---------------------------------------------------------------------------*/
+
+struct tsrec_cb_cmd_entry {
+	unsigned int cmd;
+	int (*func)(const unsigned int seninf_idx, const unsigned int tsrec_no,
+		void *arg, const char *caller);
+};
 
 
 /******************************************************************************
@@ -365,94 +384,156 @@ static void tsrec_con_mgr_process_cmd(const unsigned int cmd)
 /******************************************************************************
  * TSREC basic/utilities functions
  *****************************************************************************/
-/*
- * return:
- *      @negative: invalid
- *      @0: ptr is valid for using.
- */
+static int tsrec_pm_ctrl_get_sync(const struct tsrec_seninf_cfg_st *src_cfg,
+	const char *caller)
+{
+	int ret;
+
+	if (unlikely(src_cfg->inf_ctx == NULL)) {
+		ret = -2147483647;
+		TSREC_LOG_INF(
+			"[%s] ERROR: inf_ctx is nullptr, return:%d  [src_cfg:%p/inf_ctx:%p]\n",
+			caller, ret, src_cfg, src_cfg->inf_ctx);
+		return ret;
+	}
+
+	/* pm_runtime_resume: returns */
+	/*      0 on success, */
+	/*      1 if the device's was already active, */
+	/*      or error code on failure */
+	ret = TSREC_PM_GET_SYNC(src_cfg->inf_ctx);
+	if (unlikely(ret < 0)) {
+		TSREC_LOG_INF(
+			"[%s] ERROR: do pm_runtime_get_sync, ret:%d  [src_cfg:%p/inf_ctx:%p]\n",
+			caller, ret, src_cfg, src_cfg->inf_ctx);
+		TSREC_PM_PUT_NOIDLE(src_cfg->inf_ctx);
+	}
+	return ret;
+}
+
+
+static int tsrec_pm_ctrl_put_sync(const struct tsrec_seninf_cfg_st *src_cfg,
+	const char *caller)
+{
+	int ret;
+
+	if (unlikely(src_cfg->inf_ctx == NULL)) {
+		ret = -2147483647;
+		TSREC_LOG_INF(
+			"[%s] ERROR: inf_ctx is nullptr, return:%d  [src_cfg:%p/inf_ctx:%p]\n",
+			caller, ret, src_cfg, src_cfg->inf_ctx);
+		return ret;
+	}
+
+	/* pm_runtime_idle: returns */
+	/*      0 on success, */
+	/*      or error code on failure */
+	ret = TSREC_PM_PUT_SYNC(src_cfg->inf_ctx);
+	if (unlikely(ret < 0)) {
+		TSREC_LOG_INF(
+			"[%s] ERROR: do pm_runtime_put_sync, ret:%d  [src_cfg:%p/inf_ctx:%p]\n",
+			caller, ret, src_cfg, src_cfg->inf_ctx);
+	}
+	return ret;
+}
+
+
+static inline int chk_tsrec_hw_cnt(const unsigned int tsrec_no,
+	const char *caller)
+{
+	/* check case / error handling */
+	if (unlikely(tsrec_no >= tsrec_status.tsrec_hw_cnt)) {
+		TSREC_LOG_INF(
+			"[%s] ERROR: non-valid tsrec_no:%u (DTS tsrec_hw_cnt:%u), ret:-1\n",
+			caller, tsrec_no, tsrec_status.tsrec_hw_cnt);
+		return -1;
+	}
+	return 0;
+}
+
+
+static inline int chk_tsrec_n_regs_arr_valid(const char *caller)
+{
+	/* check case / error handling */
+	if (unlikely(tsrec_status.tsrec_n_regs == NULL)) {
+		TSREC_LOG_INF(
+			"[%s] ERROR: tsrec_n_regs[] array is null, DTS tsrec_hw_cnt:%u, ret:-1\n",
+			caller, tsrec_status.tsrec_hw_cnt);
+		return -1;
+	}
+	return 0;
+}
+
+
+static inline int chk_seninf_hw_cnt(const unsigned int seninf_idx,
+	const char *caller)
+{
+	/* check case / error handling */
+	if (unlikely(seninf_idx >= tsrec_status.seninf_hw_cnt)) {
+		TSREC_LOG_INF(
+			"[%s] ERROR: non-valid seninf_idx:%u (DTS seninf_hw_cnt:%u), ret:-1\n",
+			caller, seninf_idx, tsrec_status.seninf_hw_cnt);
+		return -1;
+	}
+	return 0;
+}
+
+
+static inline int chk_src_cfg_arr_valid(const char *caller)
+{
+	/* check case / error handling */
+	if (unlikely(tsrec_src.src_cfg == NULL)) {
+		TSREC_LOG_INF(
+			"[%s] ERROR: src_cfg[] array is null, DTS seninf_hw_cnt:%u, return\n",
+			caller, tsrec_status.seninf_hw_cnt);
+		return -1;
+	}
+	return 0;
+}
+
+
+/* return: 0 => ptr is valid for user to get; others => invalid */
 static int g_tsrec_seninf_cfg_st(const unsigned int idx,
 	struct tsrec_seninf_cfg_st **ptr, const char *caller)
 {
-	const unsigned int seninf_hw_cnt = tsrec_status.seninf_hw_cnt;
-
 	/* check case / error handling */
-	if (unlikely(ptr == NULL)) {
-		TSREC_LOG_INF(
-			"[%s] ERROR: get non-valid input, ptr is nullptr, return   [idx:%u]\n",
-			caller, idx);
+	if (unlikely((chk_seninf_hw_cnt(idx, caller) != 0)
+			|| (chk_src_cfg_arr_valid(caller) != 0))) {
+		*ptr = NULL;
 		return -1;
 	}
 
-	if (unlikely(idx >= seninf_hw_cnt)) {
-		TSREC_LOG_INF(
-			"[%s] ERROR: non-valid seninf_idx:%u (DTS seninf_hw_cnt:%u), return\n",
-			caller, idx, seninf_hw_cnt);
-		*ptr = NULL;
-		return -2;
-	}
-
-	if (unlikely(tsrec_src.src_cfg == NULL)) {
-		TSREC_LOG_INF(
-			"[%s] ERROR: src_cfg[] array is null, get seninf_idx:%u, DTS seninf_hw_cnt:%u, return\n",
-			caller, idx, seninf_hw_cnt);
-		*ptr = NULL;
-		return -3;
-	}
-
-	/* check done, valid for get struct pointer */
+	/* valid for user to get the pointer of the struct */
 	*ptr = tsrec_src.src_cfg[idx];
 	return 0;
 }
 
 
-/*
- * return:
- *      @negative: invalid
- *      @0: ptr is valid for using.
- */
+/* return: 0 => ptr is valid for user to get; others => invalid */
 static int g_tsrec_n_regs_st(const unsigned int tsrec_no,
 	struct tsrec_n_regs_st **ptr, const char *caller)
 {
-	const unsigned int tsrec_hw_cnt = tsrec_status.tsrec_hw_cnt;
-
 	/* check case / error handling */
-	if (unlikely(ptr == NULL)) {
-		TSREC_LOG_INF(
-			"[%s] ERROR: get non-valid input, ptr is nullptr, return   [tsrec_no:%u]\n",
-			caller, tsrec_no);
+	if (unlikely((chk_tsrec_hw_cnt(tsrec_no, caller) != 0)
+			|| (chk_tsrec_n_regs_arr_valid(caller) != 0))) {
+		*ptr = NULL;
 		return -1;
 	}
 
-	if (unlikely(tsrec_no >= tsrec_hw_cnt)) {
-		TSREC_LOG_INF(
-			"[%s] ERROR: non-valid tsrec_no:%u (DTS tsrec_hw_cnt:%u), return\n",
-			caller, tsrec_no, tsrec_hw_cnt);
-		*ptr = NULL;
-		return -2;
-	}
-
-	if (unlikely(tsrec_status.tsrec_n_regs == NULL)) {
-		TSREC_LOG_INF(
-			"[%s] ERROR: tsrec_n_regs[] array is null, get tsrec_no:%u, DTS tsrec_hw_cnt:%u, return\n",
-			caller, tsrec_no, tsrec_hw_cnt);
-		*ptr = NULL;
-		return -3;
-	}
-
-	/* check done, valid for get struct pointer */
+	/* valid for user to get the pointer of the struct */
 	*ptr = tsrec_status.tsrec_n_regs[tsrec_no];
 	return 0;
 }
 
 
-unsigned int get_tsrec_timer_en_status(void)
+inline unsigned int get_tsrec_timer_en_status(void)
 {
 	// return TSREC_ATOMIC_READ(&tsrec_status.timer_en_cnt);
 	return tsrec_status.timer_en_status;
 }
 
 
-static unsigned int g_tsrec_exp_trig_src(void)
+static inline unsigned int g_tsrec_exp_trig_src(void)
 {
 	return (unlikely(tsrec_con_mgr.exp_trig_src != TSREC_EXP_TRIG_SRC_DEF))
 		? (tsrec_con_mgr.exp_trig_src)
@@ -536,10 +617,11 @@ unsigned int chk_tsrec_no_valid(const unsigned int tsrec_no,
 }
 
 
-unsigned int mtk_cam_seninf_g_tsrec_current_time(
+int mtk_cam_seninf_g_tsrec_current_time(
 	unsigned long long *p_tick, unsigned long long *p_time_us)
 {
 	unsigned long long tick = 0;
+	unsigned int timer_en_status;
 
 	if (unlikely(!chk_exist_tsrec_hw(__func__, 1)))
 		return 0;
@@ -551,9 +633,11 @@ unsigned int mtk_cam_seninf_g_tsrec_current_time(
 	if (p_time_us != NULL)
 		*p_time_us = 0;
 
-	if (tsrec_status.timer_en_status == 0) {
+	timer_en_status = get_tsrec_timer_en_status();
+	if (unlikely(timer_en_status == 0)) {
 		TSREC_LOG_INF(
-			"NOTICE: tsrec timer is not enable, plz enable tsrec timer first, return\n");
+			"NOTICE: timer_en_status:%u, plz check seninf runtine suspend/resume, return\n",
+			timer_en_status);
 		return 0;
 	}
 
@@ -885,127 +969,143 @@ static void tsrec_find_seninf_ctx_by_tsrec_no(void *irq_dev_ctx,
 #endif // !FS_UT
 
 
-static void tsrec_work_notify_sensor_adaptor_hw_pre_latch(
-	const unsigned int tsrec_no, const struct tsrec_work_request *req)
+static void tsrec_setup_cb_func_info_of_sensor(struct seninf_ctx *inf_ctx,
+	const unsigned int seninf_idx, const unsigned int tsrec_no,
+	const unsigned int flag)
 {
 #ifndef FS_UT
+	struct mtk_cam_seninf_tsrec_cb_info cb_info = {0};
 
-	struct mtk_cam_seninf_tsrec_vsync_info vsync_info = {0};
-	struct seninf_ctx *seninf_ctx = NULL;
-	unsigned int seninf_idx = SENINF_IDX_NONE;
-
-	tsrec_find_seninf_ctx_by_tsrec_no(
-		req->irq_dev_ctx, tsrec_no, &seninf_ctx, &seninf_idx, __func__);
-	if (unlikely(seninf_ctx == NULL))
+	/* case check */
+	if (unlikely(inf_ctx == NULL))
 		return;
-
-	if (likely(seninf_ctx->sensor_sd
-			&& seninf_ctx->sensor_sd->ops
-			&& seninf_ctx->sensor_sd->ops->core
-			&& seninf_ctx->sensor_sd->ops->core->command)) {
-		/* prepare info for sending to sensor adaptor */
-		/* => manually sync/copy information to user's structure */
-		/*    that define in mtk_camera-v4l2-controls.h */
-		vsync_info.tsrec_no = tsrec_no;
-		vsync_info.seninf_idx = seninf_idx;
-		vsync_info.irq_sys_time_ns = req->irq_info.sys_ts_ns;
-		vsync_info.irq_tsrec_ts_us = req->irq_info.tsrec_ts_us;
-
-		/* call v4l2_subdev_core_ops command to sensor adaptor */
-		seninf_ctx->sensor_sd->ops->core->command(
-			seninf_ctx->sensor_sd,
-			V4L2_CMD_TSREC_NOTIFY_SENSOR_HW_PRE_LATCH,
-			(void *)&vsync_info);
-	} else {
+	if (unlikely(!(inf_ctx->sensor_sd
+			&& inf_ctx->sensor_sd->ops
+			&& inf_ctx->sensor_sd->ops->core
+			&& inf_ctx->sensor_sd->ops->core->command))) {
 		TSREC_LOG_INF(
 			"ERROR: v4l2_subdev_core_ops command function not found\n");
+		return;
 	}
 
-#endif // !FS_UT
+	cb_info.is_connected_to_tsrec = (flag) ? 1 : 0;
+	cb_info.seninf_idx = seninf_idx;
+	// cb_info.tsrec_no = (flag) ? tsrec_no : TSREC_NO_NONE;
+	cb_info.tsrec_no = tsrec_no;
+	cb_info.tsrec_cb_handler = (flag) ? &tsrec_cb_handler : NULL;
+
+	TSREC_LOG_DBG_CAT(LOG_TSREC_CB_INFO,
+		"seninf_idx:%u, flag:%u(set:1/clear:0), dump cb ctrl info:((%u)(seninf_idx:%u, tsrec_no:%u, cb_func_ptr:%p))\n",
+		seninf_idx,
+		flag,
+		cb_info.is_connected_to_tsrec,
+		cb_info.seninf_idx,
+		cb_info.tsrec_no,
+		cb_info.tsrec_cb_handler);
+
+	/* call v4l2_subdev_core_ops command to sensor adaptor */
+	inf_ctx->sensor_sd->ops->core->command(
+		inf_ctx->sensor_sd,
+		V4L2_CMD_TSREC_SETUP_CB_FUNC_OF_SENSOR,
+		&cb_info);
+#endif
 }
 
 
-static void tsrec_work_notify_sensor_adaptor_vsync(
-	const unsigned int tsrec_no, const struct tsrec_work_request *req)
-{
-#ifndef FS_UT
-
-	struct mtk_cam_seninf_tsrec_vsync_info vsync_info = {0};
-	struct seninf_ctx *seninf_ctx = NULL;
-	unsigned int seninf_idx = SENINF_IDX_NONE;
-
-	tsrec_find_seninf_ctx_by_tsrec_no(
-		req->irq_dev_ctx, tsrec_no, &seninf_ctx, &seninf_idx, __func__);
-	if (unlikely(seninf_ctx == NULL))
-		return;
-
-	if (likely(seninf_ctx->sensor_sd
-			&& seninf_ctx->sensor_sd->ops
-			&& seninf_ctx->sensor_sd->ops->core
-			&& seninf_ctx->sensor_sd->ops->core->command)) {
-		/* prepare info for sending to sensor adaptor */
-		/* => manually sync/copy information to user's structure */
-		/*    that define in mtk_camera-v4l2-controls.h */
-		vsync_info.tsrec_no = tsrec_no;
-		vsync_info.seninf_idx = seninf_idx;
-		vsync_info.irq_sys_time_ns = req->irq_info.sys_ts_ns;
-		vsync_info.irq_tsrec_ts_us = req->irq_info.tsrec_ts_us;
-
-		/* call v4l2_subdev_core_ops command to sensor adaptor */
-		seninf_ctx->sensor_sd->ops->core->command(
-			seninf_ctx->sensor_sd,
-			V4L2_CMD_TSREC_NOTIFY_VSYNC,
-			(void *)&vsync_info);
-	} else {
-		TSREC_LOG_INF(
-			"ERROR: v4l2_subdev_core_ops command function not found\n");
-	}
-
-#endif // !FS_UT
-}
-
-
-static void tsrec_work_send_sensor_adaptor_timestamp_data(
-	const unsigned int tsrec_no, const struct tsrec_work_request *req)
+static void tsrec_work_executor(
+	const unsigned int tsrec_no, const struct tsrec_work_request *req,
+	const enum tsrec_work_event_flag work_type)
 {
 #ifndef FS_UT
 
 	struct mtk_cam_seninf_tsrec_timestamp_info ts_info = {0};
+	struct mtk_cam_seninf_tsrec_vsync_info vsync_info = {0};
 	struct seninf_ctx *seninf_ctx = NULL;
 	unsigned int seninf_idx = SENINF_IDX_NONE;
+	unsigned int v4l2_cmd = 0;
+	unsigned int err_type = 0;
+	void *p_data = NULL;
 
+	/* case check */
 	tsrec_find_seninf_ctx_by_tsrec_no(
 		req->irq_dev_ctx, tsrec_no, &seninf_ctx, &seninf_idx, __func__);
 	if (unlikely(seninf_ctx == NULL))
 		return;
-
-	if (likely(seninf_ctx->sensor_sd
+	if (unlikely(!(seninf_ctx->sensor_sd
 			&& seninf_ctx->sensor_sd->ops
 			&& seninf_ctx->sensor_sd->ops->core
-			&& seninf_ctx->sensor_sd->ops->core->command)) {
-		/* prepare info for sending to sensor adaptor */
+			&& seninf_ctx->sensor_sd->ops->core->command))) {
+		TSREC_LOG_INF(
+			"ERROR: v4l2_subdev_core_ops command function not found\n");
+		return;
+	}
+
+
+	/* ==> setup data that want to send to sensor adaptor */
+	switch (work_type) {
+	case TSREC_WORK_1ST_VSYNC:
+		vsync_info.tsrec_no = tsrec_no;
+		vsync_info.seninf_idx = seninf_idx;
+		vsync_info.irq_sys_time_ns = req->irq_info.sys_ts_ns;
+		vsync_info.irq_tsrec_ts_us = req->irq_info.tsrec_ts_us;
+
+		p_data = (void *)&vsync_info;
+		break;
+	case TSREC_WORK_SENSOR_HW_PRE_LATCH:
+	case TSREC_WORK_SEND_TS_TO_SENSOR:
 		mtk_cam_seninf_tsrec_get_timestamp_info(tsrec_no, &ts_info);
+
 		/* preventing racing issue, overwrite irq info before sending */
 		ts_info.irq_sys_time_ns = req->irq_info.sys_ts_ns;
 		ts_info.irq_tsrec_ts_us = req->irq_info.tsrec_ts_us;
+		ts_info.irq_pre_latch_exp_no = req->irq_info.pre_latch_exp_no;
 
-		/* call v4l2_subdev_core_ops command to sensor adaptor */
-		seninf_ctx->sensor_sd->ops->core->command(
-			seninf_ctx->sensor_sd,
-			V4L2_CMD_TSREC_SEND_TIMESTAMP_INFO,
-			(void *)&ts_info);
-	} else {
+		p_data = (void *)&ts_info;
+		break;
+	default:
+		err_type |= (1UL << 1);
 		TSREC_LOG_INF(
-			"ERROR: v4l2_subdev_core_ops command function not found\n");
+			"ERROR: at setup data to send to sensor, unknown work_type:%u, err_type:%#x\n",
+			work_type, err_type);
+		break;
 	}
+
+	/* ==> setup corresponded command */
+	switch (work_type) {
+	case TSREC_WORK_1ST_VSYNC:
+		v4l2_cmd = V4L2_CMD_TSREC_NOTIFY_VSYNC;
+		break;
+	case TSREC_WORK_SEND_TS_TO_SENSOR:
+		v4l2_cmd = V4L2_CMD_TSREC_SEND_TIMESTAMP_INFO;
+		break;
+	case TSREC_WORK_SENSOR_HW_PRE_LATCH:
+		v4l2_cmd = V4L2_CMD_TSREC_NOTIFY_SENSOR_HW_PRE_LATCH;
+		break;
+	default:
+		err_type |= (1UL << 2);
+		TSREC_LOG_INF(
+			"ERROR: at setup corresponded v4l2 command, unknown work_type:%u, err_type:%#x\n",
+			work_type, err_type);
+		break;
+	}
+
+	/* check any error detected before call v4l2 command */
+	if (unlikely(err_type != 0)) {
+		TSREC_LOG_INF(
+			"ERROR: any error detected, err_type:%#x, abort call v4l2_command to sensor\n",
+			err_type);
+		return;
+	}
+	/* call v4l2_subdev_core_ops command to sensor adaptor */
+	seninf_ctx->sensor_sd->ops->core->command(
+		seninf_ctx->sensor_sd, v4l2_cmd, p_data);
 
 #endif // !FS_UT
 }
 
 /*---------------------------------------------------------------------------*/
 
-static void mtk_cam_seninf_tsrec_n_update_irq_info_st(
-	const unsigned int tsrec_no,
+static void tsrec_n_update_irq_info_st(const unsigned int tsrec_no,
 	const struct tsrec_irq_info_st *irq_info);
 
 /*---------------------------------------------------------------------------*/
@@ -1022,11 +1122,14 @@ static void tsrec_work_handler(struct tsrec_work_request *req)
 {
 #ifndef FS_UT
 	struct tsrec_work_request *req = NULL;
+#endif
+	const unsigned long long curr_sys_ts = ktime_get_boottime_ns();
 
+
+#ifndef FS_UT
 	/* error handle (unexpected case) */
 	if (unlikely(work == NULL))
 		return;
-
 	/* convert/cast work_struct */
 	req = container_of_safe(work, struct tsrec_work_request, work);
 	if (unlikely(req == NULL)) {
@@ -1034,82 +1137,84 @@ static void tsrec_work_handler(struct tsrec_work_request *req)
 			"ERROR: container_of_safe() casting failed, return\n");
 		return;
 	}
-#endif // !FS_UT
-
+#endif
 	if (unlikely(req->irq_dev_ctx == NULL)) {
 		TSREC_LOG_INF(
-			"ERROR: irq_dev_ctx:%p is nullptr, req:(tsrec_no:%u, irq_info(sys_ts:%llu(ns)(~ +%llu ns), tsrec_ts:%llu(us), intr(|%#x/%#x)), work_event_info:%#x), return\n",
+			"ERROR: irq_dev_ctx:%p is nullptr, req:(tsrec_no:%u, irq_info(sys_ts:%llu(ns)(+%llu/+%llu)(ns), tsrec_ts:%llu(us), intr(|%#x/%#x)), work_event_info:%#x), worker_handle_at:%llu(ns), return\n",
 			req->irq_dev_ctx,
 			req->tsrec_no,
 			req->irq_info.sys_ts_ns,
 			req->irq_info.duration_ns,
+			req->irq_info.duration_2_ns,
 			req->irq_info.tsrec_ts_us,
 			req->irq_info.intr_status,
 			req->irq_info.intr_status_2,
-			req->work_event_info);
+			req->work_event_info,
+			curr_sys_ts);
 		TSREC_KFREE(req);
 		return;
 	}
+	req->irq_info.worker_handle_ts_ns = curr_sys_ts;
 
 
-	TSREC_SPIN_LOCK(&tsrec_log_concurrency_lock);
-	TSREC_LOG_DBG(
-		"Force DUMP: req(tsrec_no:%u, irq_info(sys_ts:%llu(ns)(~ +%llu ns), tsrec_ts:%llu(us), intr(%#x/%#x|%#x/%#x)), work_event_info:%#x)\n",
+	/* !!! START HERE !!! */
+	TSREC_LOG_DBG_CAT_LOCK(LOG_TSREC_WORK_HANDLE,
+		"Force DUMP: req(tsrec_no:%u, irq_info(sys_ts:%llu(ns)(+%llu/+%llu)(ns), tsrec_ts:%llu(us), intr(%#x/%#x|%#x/%#x)), work_event_info:%#x), worker_handle_at:%llu(ns)\n",
 		req->tsrec_no,
 		req->irq_info.sys_ts_ns,
 		req->irq_info.duration_ns,
+		req->irq_info.duration_2_ns,
 		req->irq_info.tsrec_ts_us,
 		TSREC_ATOMIC_READ(&tsrec_status.intr_en),
 		TSREC_ATOMIC_READ(&tsrec_status.intr_en_2),
 		req->irq_info.intr_status,
 		req->irq_info.intr_status_2,
-		req->work_event_info);
-	TSREC_SPIN_UNLOCK(&tsrec_log_concurrency_lock);
-
+		req->work_event_info,
+		req->irq_info.worker_handle_ts_ns);
 
 	/* update tsrec irq info for debugging */
-	mtk_cam_seninf_tsrec_n_update_irq_info_st(
-		req->tsrec_no, &req->irq_info);
+	tsrec_n_update_irq_info_st(req->tsrec_no, &req->irq_info);
 
 
 	/* check work event */
-	/* !!! has priority / first-after order !!! */
+	/* ==> has priority / first-after order */
+	/* !!! high priority event (high to low) !!! */
+	if (req->work_event_info & TSREC_WORK_QUERY_TS)
+		mtk_cam_seninf_tsrec_query_ts_records(req->tsrec_no);
+
 	if (req->work_event_info & TSREC_WORK_SENSOR_HW_PRE_LATCH) {
-		tsrec_work_notify_sensor_adaptor_hw_pre_latch(
-			req->tsrec_no, req);
+		/* sensor hw pre-latch event should send TS simaultaneously */
+		tsrec_work_executor(req->tsrec_no, req,
+			TSREC_WORK_SENSOR_HW_PRE_LATCH);
 	}
 
 	if (req->work_event_info & TSREC_WORK_1ST_VSYNC)
-		tsrec_work_notify_sensor_adaptor_vsync(req->tsrec_no, req);
-
-	if (req->work_event_info & TSREC_WORK_QUERY_TS) {
-		mtk_cam_seninf_tsrec_query_ts_records(req->tsrec_no);
-
-		TSREC_SPIN_LOCK(&tsrec_log_concurrency_lock);
-		mtk_cam_seninf_tsrec_dbg_dump_ts_records(req->tsrec_no);
-		TSREC_SPIN_UNLOCK(&tsrec_log_concurrency_lock);
-	}
+		tsrec_work_executor(req->tsrec_no, req, TSREC_WORK_1ST_VSYNC);
 
 	if (req->work_event_info & TSREC_WORK_SEND_TS_TO_SENSOR) {
 		// mtk_cam_seninf_tsrec_dbg_dump_ts_records(req->tsrec_no);
-		tsrec_work_send_sensor_adaptor_timestamp_data(
-			req->tsrec_no, req);
+		tsrec_work_executor(req->tsrec_no, req,
+			TSREC_WORK_SEND_TS_TO_SENSOR);
 	}
 
+	/* !!! low priority event (high to low) !!! */
+	if (req->work_event_info & TSREC_WORK_QUERY_TS)
+		mtk_cam_seninf_tsrec_dbg_dump_ts_records(req->tsrec_no);
+
 	if (req->work_event_info & TSREC_WORK_DBG_DUMP_IRQ_INFO) {
-		TSREC_SPIN_LOCK(&tsrec_log_concurrency_lock);
-		TSREC_LOG_INF(
-			"req(tsrec_no:%u, irq_info(sys_ts:%llu(ns)(~ +%llu ns), tsrec_ts:%llu(us), intr(%#x/%#x|%#x/%#x)), work_event_info:%#x)\n",
+		TSREC_LOG_INF_LOCK(
+			"req(tsrec_no:%u, irq_info(sys_ts:%llu(ns)(+%llu/+%llu)(ns), tsrec_ts:%llu(us), intr(%#x/%#x|%#x/%#x)), work_event_info:%#x), worker_handle_at:%llu(ns)\n",
 			req->tsrec_no,
 			req->irq_info.sys_ts_ns,
 			req->irq_info.duration_ns,
+			req->irq_info.duration_2_ns,
 			req->irq_info.tsrec_ts_us,
 			TSREC_ATOMIC_READ(&tsrec_status.intr_en),
 			TSREC_ATOMIC_READ(&tsrec_status.intr_en_2),
 			req->irq_info.intr_status,
 			req->irq_info.intr_status_2,
-			req->work_event_info);
-		TSREC_SPIN_UNLOCK(&tsrec_log_concurrency_lock);
+			req->work_event_info,
+			req->irq_info.worker_handle_ts_ns);
 	}
 
 	TSREC_KFREE(req);
@@ -1136,6 +1241,19 @@ static void tsrec_work_init_and_queue(const unsigned int tsrec_no,
 }
 
 
+static inline void tsrec_work_request_info_setup(void *data,
+	const unsigned int tsrec_no, const unsigned int work_event_info,
+	const struct tsrec_irq_info_st *irq_info,
+	struct tsrec_work_request *req)
+{
+	/* copy input data/info */
+	req->irq_dev_ctx = data;
+	req->tsrec_no = tsrec_no;
+	req->work_event_info = work_event_info;
+	memcpy(&req->irq_info, irq_info, sizeof(*irq_info));
+}
+
+
 static void tsrec_work_setup(int irq, void *data,
 	const struct tsrec_irq_info_st *irq_info,
 	const unsigned int tsrec_no, const unsigned int work_event_info)
@@ -1150,14 +1268,30 @@ static void tsrec_work_setup(int irq, void *data,
 		return;
 	}
 
-	/* copy input data/info */
-	req->irq_dev_ctx = data;
-	req->tsrec_no = tsrec_no;
-	req->work_event_info = work_event_info;
-	memcpy(&req->irq_info, irq_info, sizeof(*irq_info));
+	tsrec_work_request_info_setup(
+		data, tsrec_no, work_event_info, irq_info, req);
 
 	/* init & queue work */
 	tsrec_work_init_and_queue(tsrec_no, req);
+}
+
+
+/* static */ void tsrec_immediately_work_setup(int irq, void *data,
+	const struct tsrec_irq_info_st *irq_info,
+	const unsigned int tsrec_no, const enum tsrec_work_event_flag event)
+{
+	struct tsrec_work_request req = {0};
+
+	tsrec_work_request_info_setup(
+		data, tsrec_no, event, irq_info, &req);
+
+	switch (event) {
+	default:
+		TSREC_LOG_INF(
+			"ERROR: not support do this work event at IRQ bottom, tsrec_work_event_flag:%u\n",
+			event);
+		break;
+	}
 }
 
 
@@ -1499,7 +1633,8 @@ static void tsrec_seninf_cfg_st_init(const unsigned int idx)
 }
 
 
-static void tsrec_seninf_cfg_st_reset(const unsigned int idx)
+static void tsrec_seninf_cfg_st_reset(struct seninf_ctx *inf_ctx,
+	const unsigned int idx)
 {
 	struct tsrec_seninf_cfg_st *ptr = NULL;
 	const unsigned int exp_trig_src = g_tsrec_exp_trig_src();
@@ -1533,6 +1668,7 @@ static void tsrec_seninf_cfg_st_reset(const unsigned int idx)
 	memset(ptr, 0, sizeof(struct tsrec_seninf_cfg_st));
 
 	/* reset/init all needed tsrec_src members/variables */
+	ptr->inf_ctx = inf_ctx;
 	ptr->seninf_idx = SENINF_IDX_NONE;
 	ptr->tsrec_no = TSREC_NO_NONE;
 
@@ -1874,6 +2010,43 @@ static int tsrec_n_regs_st_chk_used_status(
 		ret = 1;
 
 	return ret;
+}
+
+
+static void tsrec_n_update_irq_info_st(const unsigned int tsrec_no,
+	const struct tsrec_irq_info_st *irq_info)
+{
+	struct tsrec_n_regs_st *ptr = NULL;
+	int ret;
+
+	/* error handling (unexpected case) */
+	if (unlikely(irq_info == NULL))
+		return;
+	if (unlikely(!chk_tsrec_no_valid(tsrec_no, __func__))) {
+		TSREC_LOG_INF(
+			"ERROR: get non-valid tsrec_no:%u (tsrec_hw_cnt:%u), irq_info(sys_ts:%llu(ns)(+%llu/+%llu)(ns), tsrec_ts:%llu(us), intr(|%#x/%#x)), worker_handle_at:%llu(ns), return\n",
+			tsrec_no,
+			tsrec_status.tsrec_hw_cnt,
+			irq_info->sys_ts_ns,
+			irq_info->duration_ns,
+			irq_info->duration_2_ns,
+			irq_info->tsrec_ts_us,
+			irq_info->intr_status,
+			irq_info->intr_status_2,
+			irq_info->worker_handle_ts_ns);
+		return;
+	}
+
+	ret = g_tsrec_n_regs_st(tsrec_no, &ptr, __func__);
+	if (unlikely(ret != 0))
+		return;
+	if (unlikely(ptr == NULL)) {
+		TSREC_LOG_INF(
+			"ERROR: tsrec_n_regs_st[%u] is nullptr (%p), return\n",
+			tsrec_no, ptr);
+		return;
+	}
+	ptr->irq_info = *irq_info;
 }
 
 
@@ -2420,59 +2593,108 @@ static void tsrec_chk_auto_self_disable(void)
 }
 
 
-static void tsrec_n_timestamp_ticks_re_order(const unsigned int tsrec_no,
+static void tsrec_n_timestamp_ticks_re_order(
+	const struct tsrec_n_timestamp_st *ts_recs,
 	unsigned long long tick_ordered[][TSREC_TS_REC_MAX_CNT])
 {
-	struct tsrec_n_regs_st *p_tsrec_n_regs = NULL;
-	struct tsrec_n_timestamp_st *p_ts_st = NULL;
-	unsigned int i = 0, j = 0;
-	int ret;
-
-	/* error handling (unexpected case) */
-	if (unlikely(!chk_tsrec_no_valid(tsrec_no, __func__))) {
-		TSREC_LOG_INF(
-			"ERROR: get non-valid tsrec_no:%u (tsrec_hw_cnt:%u), return\n",
-			tsrec_no,
-			tsrec_status.tsrec_hw_cnt);
-		return;
-	}
-
-	if (unlikely(tick_ordered == NULL)) {
-		TSREC_LOG_INF("ERROR: tick_ordered is NULL, return\n");
-		return;
-	}
-
-	ret = g_tsrec_n_regs_st(tsrec_no, &p_tsrec_n_regs, __func__);
-	if (unlikely(ret != 0))
-		return;
-	if (unlikely(p_tsrec_n_regs == NULL)) {
-		TSREC_LOG_INF(
-			"ERROR: tsrec_n_regs_st[%u] is nullptr (%p), return   [tsrec_no:%u]\n",
-			tsrec_no, p_tsrec_n_regs,
-			tsrec_no);
-		return;
-	}
-	p_ts_st = &p_tsrec_n_regs->ts_recs;
+	unsigned int i, j;
 
 	/* reordering */
 	for (i = 0; i < TSREC_EXP_MAX_CNT; ++i) {
 		for (j = 0; j < TSREC_TS_REC_MAX_CNT; ++j) {
-			const unsigned int idx = TSREC_RING_BACK(
-				p_ts_st->exp_recs[i].curr_idx, j+1);
+			const unsigned int idx =
+				TSREC_RING_BACK(
+					ts_recs->exp_recs[i].curr_idx, j+1);
 
-			tick_ordered[i][j] = p_ts_st->exp_recs[i].ticks[idx];
+			tick_ordered[i][j] = ts_recs->exp_recs[i].ticks[idx];
 
 #ifndef REDUCE_TSREC_LOG
 			TSREC_LOG_INF(
 				"curr_idx:%u, ring_back:%u => idx:%u, tick_ordered[%u][%u]:%llu\n",
-				p_ts_st->exp_recs[i].curr_idx,
+				ts_recs->exp_recs[i].curr_idx,
 				j+1,
 				idx,
 				i, j,
 				tick_ordered[i][j]);
-#endif // !REDUCE_TSREC_LOG
+#endif
 		}
 	}
+}
+
+
+static void tsrec_setup_timestamp_info_st_ts_records_data(
+	const struct tsrec_n_timestamp_st *ts_recs,
+	struct mtk_cam_seninf_tsrec_timestamp_info *ts_info)
+{
+	unsigned long long tick_ordered[TSREC_EXP_MAX_CNT][TSREC_TS_REC_MAX_CNT] = {0};
+	unsigned int i, j;
+
+	/* reordering ticks data */
+	tsrec_n_timestamp_ticks_re_order(ts_recs, tick_ordered);
+
+	/* manually sync/copy information to user's structure */
+	/* that define in mtk_camera-v4l2-controls.h */
+	ts_info->tick_factor = TSREC_TICK_FACTOR;
+	ts_info->tsrec_curr_tick = ts_recs->curr_tick;
+	for (i = 0; i < TSREC_EXP_MAX_CNT; ++i) {
+		for (j = 0; j < TSREC_TS_REC_MAX_CNT; ++j) {
+			ts_info->exp_recs[i].ts_us[j] =
+				TSREC_TICK_TO_US(tick_ordered[i][j]);
+		}
+	}
+}
+
+
+static void tsrec_read_ts_records_regs(const unsigned int tsrec_no,
+	struct tsrec_n_timestamp_st *ts_recs)
+{
+	unsigned int reg_ts_cnt;
+	unsigned int i, j;
+
+	/* get all exp timestamp cnt */
+	reg_ts_cnt = mtk_cam_seninf_g_tsrec_ts_cnt(tsrec_no);
+
+	/* query and setup timestamp info */
+	for (i = 0; i < TSREC_EXP_MAX_CNT; ++i) {
+		ts_recs->exp_recs[i].curr_idx =
+			mtk_cam_seninf_g_tsrec_ts_cnt_by_exp_n(reg_ts_cnt, i);
+
+		for (j = 0; j < TSREC_TS_REC_MAX_CNT; ++j) {
+			/* direct query, without any re-order */
+			ts_recs->exp_recs[i].ticks[j] =
+				mtk_cam_seninf_g_tsrec_exp_cnt(tsrec_no, i, j);
+		}
+	}
+}
+
+
+static int tsrec_cb_handler_checker(const unsigned int seninf_idx,
+	struct tsrec_seninf_cfg_st **p_src_cfg, int *p_ret, const char *caller)
+{
+	unsigned int timer_en_status;
+	int ret;
+
+	/* check seninf cfg st */
+	ret = g_tsrec_seninf_cfg_st(seninf_idx, p_src_cfg, __func__);
+	if (unlikely((ret != 0) || (*p_src_cfg == NULL))) {
+		*p_ret = TSREC_CB_CTRL_ERR_INVALID;
+		TSREC_LOG_INF(
+			"[%s] ERROR: get seninf cfg (ret:%d, src_cfg[%u]:%p), return:%d\n",
+			caller, ret, seninf_idx, *p_src_cfg, *p_ret);
+		return -1;
+	}
+
+	/* check timer EN / resume or suspend */
+	timer_en_status = get_tsrec_timer_en_status();
+	if (unlikely(timer_en_status == 0)) {
+		*p_ret = TSREC_CB_CTRL_ERR_CMD_IN_SENINF_SUSPEND;
+		TSREC_LOG_INF(
+			"[%s] ERROR: cb tsrec at an inappropriate time (tsrec_timer_en_status:%u(seninf runtime resume(1)/suspend(0))), return:%d\n",
+			caller, timer_en_status, *p_ret);
+		return -2;
+	}
+
+	return 0;
 }
 
 
@@ -2545,7 +2767,8 @@ void mtk_cam_seninf_tsrec_timer_enable(const unsigned int en)
 }
 
 
-void mtk_cam_seninf_tsrec_reset_vc_dt_info(const unsigned int seninf_idx)
+void mtk_cam_seninf_tsrec_reset_vc_dt_info(struct seninf_ctx *inf_ctx,
+	const unsigned int seninf_idx)
 {
 	const unsigned int seninf_hw_cnt = tsrec_status.seninf_hw_cnt;
 
@@ -2562,11 +2785,12 @@ void mtk_cam_seninf_tsrec_reset_vc_dt_info(const unsigned int seninf_idx)
 	}
 
 	/* reset (maybe will with init) */
-	tsrec_seninf_cfg_st_reset(seninf_idx);
+	tsrec_seninf_cfg_st_reset(inf_ctx, seninf_idx);
 }
 
 
-void mtk_cam_seninf_tsrec_update_vc_dt_info(const unsigned int seninf_idx,
+void mtk_cam_seninf_tsrec_update_vc_dt_info(struct seninf_ctx *inf_ctx,
+	const unsigned int seninf_idx,
 	const struct mtk_cam_seninf_tsrec_vc_dt_info *vc_dt_info)
 {
 	struct tsrec_seninf_cfg_st *p_src_cfg = NULL;
@@ -2587,7 +2811,7 @@ void mtk_cam_seninf_tsrec_update_vc_dt_info(const unsigned int seninf_idx,
 		/* should be called before updating vc/dt info */
 		/* (by calling reset vc/dt info) */
 		/* (memory maybe alloc failed) */
-		tsrec_seninf_cfg_st_reset(seninf_idx);
+		tsrec_seninf_cfg_st_reset(inf_ctx, seninf_idx);
 
 		/* get pointer and check it again */
 		ret = g_tsrec_seninf_cfg_st(seninf_idx, &p_src_cfg, __func__);
@@ -2616,6 +2840,7 @@ void mtk_cam_seninf_tsrec_update_vc_dt_info(const unsigned int seninf_idx,
 
 
 	/* !!! setup basic info !!! */
+	p_src_cfg->inf_ctx = inf_ctx;
 	p_src_cfg->seninf_idx = seninf_idx;
 	p_src_cfg->tsrec_no = TSREC_NO_NONE;
 
@@ -2754,8 +2979,6 @@ void mtk_cam_seninf_tsrec_n_reset(const unsigned int seninf_idx)
 
 	/* below API will reset all info that updated before calling reset */
 	/* and will lead to lost data if this flow is right. */
-	// tsrec_seninf_cfg_st_reset(seninf_idx);
-	//
 	// so only reset tsrec_no instead.
 	ret = g_tsrec_seninf_cfg_st(seninf_idx, &p_src_cfg, __func__);
 	if (unlikely(ret != 0))
@@ -2764,8 +2987,13 @@ void mtk_cam_seninf_tsrec_n_reset(const unsigned int seninf_idx)
 		TSREC_LOG_INF(
 			"WARNING: seninf src_cfg[%u] is nullptr (%p), skip clear for tsrec_no (to TSREC_NO_NONE)\n",
 			seninf_idx, p_src_cfg);
-	} else
+	} else {
 		p_src_cfg->tsrec_no = TSREC_NO_NONE;
+
+		/* clear/reset call back function ptr of sensor */
+		tsrec_setup_cb_func_info_of_sensor(p_src_cfg->inf_ctx,
+			seninf_idx, TSREC_NO_NONE, 0);
+	}
 
 
 	/* !!! [below api procedure] clear & stop this tsrec !!! */
@@ -2833,46 +3061,14 @@ void mtk_cam_seninf_tsrec_n_start(const unsigned int seninf_idx,
 		/* TODO: add some case handling procedure below? */
 	}
 
-
 	/* !!! [below api procedure] start config/setup this tsrec !!! */
 	tsrec_n_settings_start(tsrec_no, seninf_idx);
+
+	/* setup call back function ptr of sensor */
+	tsrec_setup_cb_func_info_of_sensor(p_src_cfg->inf_ctx,
+		seninf_idx, tsrec_no, 1);
+
 	mtk_cam_seninf_tsrec_dbg_dump_tsrec_n_regs_info(__func__);
-}
-
-
-static void mtk_cam_seninf_tsrec_n_update_irq_info_st(
-	const unsigned int tsrec_no,
-	const struct tsrec_irq_info_st *irq_info)
-{
-	struct tsrec_n_regs_st *ptr = NULL;
-	int ret;
-
-	/* error handling (unexpected case) */
-	if (unlikely(irq_info == NULL))
-		return;
-	if (unlikely(!chk_tsrec_no_valid(tsrec_no, __func__))) {
-		TSREC_LOG_INF(
-			"ERROR: get non-valid tsrec_no:%u (tsrec_hw_cnt:%u), irq_info(sys_ts:%llu(ns)(~ +%llu ns), tsrec_ts:%llu(us), intr(|%#x/%#x)), return\n",
-			tsrec_no,
-			tsrec_status.tsrec_hw_cnt,
-			irq_info->sys_ts_ns,
-			irq_info->duration_ns,
-			irq_info->tsrec_ts_us,
-			irq_info->intr_status,
-			irq_info->intr_status_2);
-		return;
-	}
-
-	ret = g_tsrec_n_regs_st(tsrec_no, &ptr, __func__);
-	if (unlikely(ret != 0))
-		return;
-	if (unlikely(ptr == NULL)) {
-		TSREC_LOG_INF(
-			"ERROR: tsrec_n_regs_st[%u] is nullptr (%p), return\n",
-			tsrec_no, ptr);
-		return;
-	}
-	ptr->irq_info = *irq_info;
 }
 
 
@@ -2880,10 +3076,7 @@ void mtk_cam_seninf_tsrec_query_ts_records(const unsigned int tsrec_no)
 {
 	struct tsrec_n_regs_st *ptr = NULL;
 	struct tsrec_n_timestamp_st ts_recs = {0};
-	unsigned long long curr_tick = 0;
-	unsigned long long curr_sys_time_ns = 0;
-	unsigned int reg_ts_cnt = 0;
-	unsigned int i = 0, j = 0;
+	unsigned long long curr_tick = 0, curr_sys_time_ns = 0;
 	int ret;
 
 	if (unlikely(!chk_exist_tsrec_hw(__func__, 1)))
@@ -2902,32 +3095,17 @@ void mtk_cam_seninf_tsrec_query_ts_records(const unsigned int tsrec_no)
 			curr_tick/TSREC_TICK_FACTOR,
 			curr_tick,
 			curr_sys_time_ns);
-
 		/* for debugging */
 		mtk_cam_seninf_tsrec_dbg_dump_tsrec_n_regs_info(__func__);
-
 		return;
 	}
 
-	/* set basic info */
+	/* setup basic info */
 	ts_recs.curr_tick = curr_tick;
 	ts_recs.curr_sys_time_ns = curr_sys_time_ns;
 
-	/* get all exp timestamp cnt */
-	reg_ts_cnt = mtk_cam_seninf_g_tsrec_ts_cnt(tsrec_no);
-
-	/* query and setup timestamp info */
-	for (i = 0; i < TSREC_EXP_MAX_CNT; ++i) {
-		ts_recs.exp_recs[i].curr_idx =
-			mtk_cam_seninf_g_tsrec_ts_cnt_by_exp_n(reg_ts_cnt, i);
-
-		for (j = 0; j < TSREC_TS_REC_MAX_CNT; ++j) {
-			/* direct query, without any re-order */
-			ts_recs.exp_recs[i].ticks[j] =
-				mtk_cam_seninf_g_tsrec_exp_cnt(tsrec_no, i, j);
-		}
-	}
-
+	/* read timestamp info from RGs */
+	tsrec_read_ts_records_regs(tsrec_no, &ts_recs);
 
 	/* !!! sync new ts recs data for keeping it !!! */
 	ret = g_tsrec_n_regs_st(tsrec_no, &ptr, __func__);
@@ -2940,25 +3118,26 @@ void mtk_cam_seninf_tsrec_query_ts_records(const unsigned int tsrec_no)
 		return;
 	}
 	ts_recs.seninf_idx = ptr->seninf_idx;
+
+	TSREC_SPIN_LOCK(&tsrec_ts_data_update_lock);
 	ptr->ts_recs = ts_recs;
+	TSREC_SPIN_UNLOCK(&tsrec_ts_data_update_lock);
 }
 
 
-void mtk_cam_seninf_tsrec_get_timestamp_info(const unsigned int tsrec_no,
+int mtk_cam_seninf_tsrec_get_timestamp_info(const unsigned int tsrec_no,
 	struct mtk_cam_seninf_tsrec_timestamp_info *ts_info)
 {
 	struct tsrec_n_regs_st *ptr = NULL;
-	unsigned long long tick_ordered[TSREC_EXP_MAX_CNT][TSREC_TS_REC_MAX_CNT] = {0};
-	unsigned int i, j;
 	int ret;
 
 	if (unlikely(!chk_exist_tsrec_hw(__func__, 1)))
-		return;
+		return -1;
 
 	/* error handling (unexpected case) */
 	if (unlikely(ts_info == NULL)) {
 		TSREC_LOG_INF("ERROR: get ts_info:%p, return\n", ts_info);
-		return;
+		return -2;
 	}
 	if (unlikely(!chk_tsrec_no_valid(tsrec_no, __func__))) {
 		TSREC_LOG_INF(
@@ -2966,36 +3145,152 @@ void mtk_cam_seninf_tsrec_get_timestamp_info(const unsigned int tsrec_no,
 			tsrec_no,
 			tsrec_status.tsrec_hw_cnt,
 			ts_info);
-		return;
+		return -3;
 	}
 
 	ret = g_tsrec_n_regs_st(tsrec_no, &ptr, __func__);
 	if (unlikely(ret != 0))
-		return;
+		return -4;
 	if (unlikely(ptr == NULL)) {
 		TSREC_LOG_INF(
 			"ERROR: tsrec_n_regs_st[%u] is nullptr (%p), return\n",
 			tsrec_no, ptr);
-		return;
+		return -5;
 	}
 
-	/* reordering ticks data */
-	tsrec_n_timestamp_ticks_re_order(tsrec_no, tick_ordered);
-
-	/* manually sync/copy information to user's structure */
+	/* manually sync/copy some information to user's structure */
 	/* that define in mtk_camera-v4l2-controls.h */
 	ts_info->tsrec_no = tsrec_no;
 	ts_info->seninf_idx = ptr->seninf_idx;
-	ts_info->tick_factor = TSREC_TICK_FACTOR;
 	ts_info->irq_sys_time_ns = ptr->irq_info.sys_ts_ns;
 	ts_info->irq_tsrec_ts_us = ptr->irq_info.tsrec_ts_us;
-	ts_info->tsrec_curr_tick = ptr->ts_recs.curr_tick;
-	for (i = 0; i < TSREC_EXP_MAX_CNT; ++i) {
-		for (j = 0; j < TSREC_TS_REC_MAX_CNT; ++j) {
-			ts_info->exp_recs[i].ts_us[j] =
-				TSREC_TICK_TO_US(tick_ordered[i][j]);
+	ts_info->irq_pre_latch_exp_no = ptr->irq_info.pre_latch_exp_no;
+
+	TSREC_SPIN_LOCK(&tsrec_ts_data_update_lock);
+	/* setup timestamp data */
+	tsrec_setup_timestamp_info_st_ts_records_data(&ptr->ts_recs, ts_info);
+	TSREC_SPIN_UNLOCK(&tsrec_ts_data_update_lock);
+
+
+	return 0;
+}
+
+
+/*******************************************************************************
+ * TSREC call back handler
+ ******************************************************************************/
+static inline int tsrec_cb_cmd_chk_arg(const void *arg, int *p_ret,
+	const char *caller)
+{
+	*p_ret = 0;
+	if (unlikely(arg == NULL)) {
+		*p_ret = TSREC_CB_CTRL_ERR_CMD_ARG_PTR_NULL;
+		TSREC_LOG_INF(
+			"[%s] ERROR: get invalid arg:(nullptr), ret:%d\n",
+			caller, *p_ret);
+		return *p_ret;
+	}
+	return *p_ret;
+}
+
+
+static int tsrec_cb_cmd_read_curr_ts(const unsigned int seninf_idx,
+	const unsigned int tsrec_no, void *arg, const char *caller)
+{
+	unsigned long long curr_ts, *p_curr_ts = NULL;
+	int ret = 0;
+
+	/* unexpected case, arg is nullptr */
+	if (unlikely((tsrec_cb_cmd_chk_arg(arg, &ret, __func__)) != 0))
+		return ret;
+
+	p_curr_ts = (unsigned long long *)arg;
+
+	curr_ts = TSREC_TICK_TO_US(mtk_cam_seninf_tsrec_latch_time());
+	*p_curr_ts = curr_ts;
+
+	return 0;
+}
+
+
+static int tsrec_cb_cmd_read_ts_info(const unsigned int seninf_idx,
+	const unsigned int tsrec_no, void *arg, const char *caller)
+{
+	struct mtk_cam_seninf_tsrec_timestamp_info *ts_info = NULL;
+	struct tsrec_n_timestamp_st ts_recs = {0};
+	int ret = 0;
+
+	/* unexpected case, arg is nullptr */
+	if (unlikely((tsrec_cb_cmd_chk_arg(arg, &ret, __func__)) != 0))
+		return ret;
+
+	ts_info = (struct mtk_cam_seninf_tsrec_timestamp_info *)arg;
+
+	/* !!! Start Here !!! */
+	/* setup basic info */
+	ts_recs.curr_tick = mtk_cam_seninf_tsrec_latch_time();
+	ts_recs.curr_sys_time_ns = ktime_get_boottime_ns();
+
+	/* read timestamp info from RGs */
+	tsrec_read_ts_records_regs(tsrec_no, &ts_recs);
+
+	/* manually sync/copy some information to user's structure */
+	/* that define in mtk_camera-v4l2-controls.h */
+	ts_info->tsrec_no = tsrec_no;
+	ts_info->seninf_idx = seninf_idx;
+	/* setup timestamp data */
+	tsrec_setup_timestamp_info_st_ts_records_data(&ts_recs, ts_info);
+
+	return 0;
+}
+
+
+/*----------------------------------------------------------------------------*/
+// call back handler entry
+/*----------------------------------------------------------------------------*/
+static const struct tsrec_cb_cmd_entry tsrec_cb_cmd_list[] = {
+	/* user get tsrec information */
+	{TSREC_CB_CMD_READ_CURR_TS, tsrec_cb_cmd_read_curr_ts},
+	{TSREC_CB_CMD_READ_TS_INFO, tsrec_cb_cmd_read_ts_info},
+};
+
+
+int tsrec_cb_handler(const unsigned int seninf_idx, const unsigned int tsrec_no,
+	const unsigned int cmd, void *arg, const char *caller)
+{
+	struct tsrec_seninf_cfg_st *p_src_cfg = NULL;
+	unsigned int i;
+	int ret = 0, is_cmd_found = 0;
+
+	/* check current situation */
+	if (tsrec_cb_handler_checker(seninf_idx, &p_src_cfg, &ret, caller) != 0)
+		return ret;
+	if (unlikely((tsrec_pm_ctrl_get_sync(p_src_cfg, caller) < 0)))
+		return TSREC_CB_CTRL_ERR_INVALID;
+
+	TSREC_LOG_DBG_CAT_LOCK(LOG_TSREC_CB_INFO,
+		"[%s] dispatch tsrec cb cmd request, tsrec_no:%u, cmd:%u, arg:%p\n",
+		caller, tsrec_no, cmd, arg);
+
+	/* !!! dispatch tsrec cb cmd request !!! */
+	for (i = 0; i < ARRAY_SIZE(tsrec_cb_cmd_list); ++i) {
+		if (tsrec_cb_cmd_list[i].cmd == cmd) {
+			is_cmd_found = 1;
+			ret = tsrec_cb_cmd_list[i].func(
+				seninf_idx, tsrec_no, arg, caller);
+			break;
 		}
 	}
+	if (unlikely(is_cmd_found == 0)) {
+		ret = TSREC_CB_CTRL_ERR_CMD_NOT_FOUND;
+		TSREC_LOG_INF(
+			"[%s] ERROR: cb tsrec cmd NOT found(unknown cmd):%u, return:%d\n",
+			caller, cmd, ret);
+		return ret;
+	}
+
+	tsrec_pm_ctrl_put_sync(p_src_cfg, caller);
+	return ret;
 }
 
 
@@ -3007,7 +3302,7 @@ void mtk_cam_seninf_tsrec_get_timestamp_info(const unsigned int tsrec_no,
 // interrupt handler --- bottom-half (sub functions)
 /*---------------------------------------------------------------------------*/
 static void tsrec_isr_event_handler(int irq, void *data,
-	const struct tsrec_irq_info_st *irq_info,
+	struct tsrec_irq_info_st *irq_info,
 	const unsigned int tsrec_no, const unsigned int status)
 {
 	struct tsrec_n_regs_st *p_tsrec_n_regs = NULL;
@@ -3023,11 +3318,12 @@ static void tsrec_isr_event_handler(int irq, void *data,
 		return;
 	if (unlikely(p_tsrec_n_regs == NULL)) {
 		TSREC_LOG_INF(
-			"ERROR: tsrec_n_regs_st[%u] is nullptr (%p), return   [tsrec_no:%u, status:%#x, irq_info(sys_ts:%llu(ns)(~ +%llu ns), tsrec_ts:%llu(us), intr(|%#x/%#x))]\n",
+			"ERROR: tsrec_n_regs_st[%u] is nullptr (%p), return   [tsrec_no:%u, status:%#x, irq_info(sys_ts:%llu(ns)(+%llu/+%llu)(ns), tsrec_ts:%llu(us), intr(|%#x/%#x))]\n",
 			tsrec_no, p_tsrec_n_regs,
 			tsrec_no, status,
 			irq_info->sys_ts_ns,
 			irq_info->duration_ns,
+			irq_info->duration_2_ns,
 			irq_info->tsrec_ts_us,
 			irq_info->intr_status,
 			irq_info->intr_status_2);
@@ -3035,6 +3331,7 @@ static void tsrec_isr_event_handler(int irq, void *data,
 	}
 
 	pre_latch_exp_num = p_tsrec_n_regs->sensor_hw_pre_latch_exp_num;
+	irq_info->pre_latch_exp_no = pre_latch_exp_num;
 
 	/* check status and convert to work event info */
 	for (exp_num = 0; exp_num < TSREC_EXP_MAX_CNT; ++exp_num) {
@@ -3053,13 +3350,17 @@ static void tsrec_isr_event_handler(int irq, void *data,
 		/* --- exp 0~2 => 0x00001 / 0x00002 / 0x00004 --- */
 		if (status & vsync_mask) {
 			if (exp_trig_src == 0) {
+				work_event_info |= TSREC_WORK_QUERY_TS;
+				if (pre_latch_exp_num == exp_num) {
+					work_event_info |=
+						TSREC_WORK_SENSOR_HW_PRE_LATCH;
+				}
 				if (fl_target_exp_num == exp_num) {
 					work_event_info |=
 						TSREC_WORK_1ST_VSYNC;
 					work_event_info |=
 						TSREC_WORK_SEND_TS_TO_SENSOR;
 				}
-				work_event_info |= TSREC_WORK_QUERY_TS;
 			}
 			if (exp_trig_src == 1) {
 				if (fl_target_exp_num == exp_num) {
@@ -3070,10 +3371,6 @@ static void tsrec_isr_event_handler(int irq, void *data,
 						TSREC_WORK_DBG_DUMP_IRQ_INFO;
 				}
 			}
-			if (pre_latch_exp_num == exp_num) {
-				work_event_info |=
-					TSREC_WORK_SENSOR_HW_PRE_LATCH;
-			}
 		}
 		/* !!! [END] Vsync (intr status) job event [END] !!! */
 
@@ -3082,11 +3379,15 @@ static void tsrec_isr_event_handler(int irq, void *data,
 		/* --- exp 0~2 => 0x10000 / 0x20000 / 0x40000 --- */
 		if (status & hsync_mask) {
 			if (exp_trig_src == 1) {
+				work_event_info |= TSREC_WORK_QUERY_TS;
+				if (pre_latch_exp_num == exp_num) {
+					work_event_info |=
+						TSREC_WORK_SENSOR_HW_PRE_LATCH;
+				}
 				if (fl_target_exp_num == exp_num) {
 					work_event_info |=
 						TSREC_WORK_SEND_TS_TO_SENSOR;
 				}
-				work_event_info |= TSREC_WORK_QUERY_TS;
 			}
 			if (exp_trig_src == 0) {
 				work_event_info |=
@@ -3101,7 +3402,7 @@ static void tsrec_isr_event_handler(int irq, void *data,
 
 
 static unsigned int tsrec_irq_intr_status_checker(int irq, void *data,
-	const struct tsrec_irq_info_st *irq_info,
+	struct tsrec_irq_info_st *irq_info,
 	const unsigned int intr_status_rg_id)
 {
 	const unsigned int intr_chk_mask = TSREC_INTR_CHK_MASK;
@@ -3156,7 +3457,7 @@ static unsigned int tsrec_irq_intr_status_checker(int irq, void *data,
 
 
 static void tsrec_irq_handler(int irq, void *data,
-	const struct tsrec_irq_info_st *irq_info)
+	struct tsrec_irq_info_st *irq_info)
 {
 	unsigned int done;
 
@@ -3206,7 +3507,7 @@ static irqreturn_t mtk_irq_seninf_tsrec(int irq, void *data)
 	irq_info.sys_ts_ns = start;
 	irq_info.duration_ns = end - start;
 
-	if (tsrec_push_irq_info_msgfifo(&irq_info) == 0)
+	if (likely(tsrec_push_irq_info_msgfifo(&irq_info) == 0))
 		wake_thread = 1;
 
 	return (wake_thread) ? IRQ_WAKE_THREAD : IRQ_HANDLED;
@@ -3224,22 +3525,14 @@ static irqreturn_t mtk_thread_irq_seninf_tsrec(int irq, void *data)
 	/* error handling (check case and print information) */
 	if (unlikely(atomic_cmpxchg(&tsrec_irq_event.is_fifo_overflow, 1, 0)))
 		TSREC_LOG_INF("WARNING: irq msg fifo overflow\n");
-#endif // !FS_UT
+#endif
 
 	while (tsrec_chk_irq_info_msgfifo_not_empty()) {
 		tsrec_pop_irq_info_msgfifo(&irq_info);
 
-#if !defined(REDUCE_TSREC_LOG_IN_ISR_FUNC)
-		TSREC_LOG_DBG(
-			"IRQ: sys_ts:%llu(ns)(~ +%llu ns), tsrec_ts:%llu(us), intr(%#x/%#x|%#x/%#x)\n",
-			irq_info.sys_ts_ns,
-			irq_info.duration_ns,
-			irq_info.tsrec_ts_us,
-			TSREC_ATOMIC_READ(&tsrec_status.intr_en),
-			TSREC_ATOMIC_READ(&tsrec_status.intr_en_2),
-			irq_info.intr_status,
-			irq_info.intr_status_2);
-#endif // !REDUCE_TSREC_LOG_IN_ISR_FUNC
+		irq_info.duration_2_ns =
+			ktime_get_boottime_ns()
+				- (irq_info.sys_ts_ns + irq_info.duration_ns);
 
 		/* inform interrupt information */
 		tsrec_irq_handler(irq, data, &irq_info);
@@ -3314,28 +3607,24 @@ void mtk_cam_seninf_tsrec_dbg_dump_tsrec_n_regs_info(const char *caller)
 {
 	struct tsrec_n_regs_st *p_no_regs_val = NULL;
 	const unsigned int tsrec_hw_cnt = tsrec_status.tsrec_hw_cnt;
+	const unsigned int log_str_len = TSREC_LOG_BUF_STR_LEN;
 	unsigned int i = 0;
-	int ret = 0;
+	int len = 0, ret;
 	char *log_buf = NULL;
 
 	if (unlikely(!chk_exist_tsrec_hw(__func__, 1)))
 		return;
 
-	log_buf = TSREC_KCALLOC(TSREC_LOG_BUF_STR_LEN, sizeof(char));
-	if (unlikely(log_buf == NULL)) {
+	ret = alloc_log_buf(log_str_len, &log_buf);
+	if (unlikely(ret != 0)) {
 		TSREC_LOG_INF("ERROR: log_buf allocate memory failed\n");
 		return;
 	}
 
 	/* show log info format msg */
-	ret = snprintf(log_buf + strlen(log_buf),
-		TSREC_LOG_BUF_STR_LEN - strlen(log_buf),
+	TSREC_SNPRF(log_str_len, log_buf, len,
 		"tsrec_no(en):(seninf_idx,exp_vc_dt[%u],trig_src)",
 		TSREC_EXP_MAX_CNT);
-
-	if (unlikely(ret < 0))
-		TSREC_LOG_INF("ERROR: LOG snprintf error, ret:%d\n", ret);
-
 
 	/* print each tsrec regs values */
 	for (i = 0; i < tsrec_hw_cnt; ++i) {
@@ -3343,18 +3632,11 @@ void mtk_cam_seninf_tsrec_dbg_dump_tsrec_n_regs_info(const char *caller)
 		if (unlikely(ret != 0))
 			return;
 		if (p_no_regs_val == NULL) {
-			ret = snprintf(log_buf + strlen(log_buf),
-				TSREC_LOG_BUF_STR_LEN - strlen(log_buf),
+			TSREC_SNPRF(log_str_len, log_buf, len,
 				", %u(nullptr)",
 				i);
-
-			if (unlikely(ret < 0)) {
-				TSREC_LOG_INF(
-					"ERROR: LOG snprintf error, ret:%d\n", ret);
-			}
 		} else {
-			ret = snprintf(log_buf + strlen(log_buf),
-				TSREC_LOG_BUF_STR_LEN - strlen(log_buf),
+			TSREC_SNPRF(log_str_len, log_buf, len,
 				", %u(%u):(%u,(%#x/%#x/%#x),%#x,%u)",
 				i,
 				p_no_regs_val->en,
@@ -3364,17 +3646,10 @@ void mtk_cam_seninf_tsrec_dbg_dump_tsrec_n_regs_info(const char *caller)
 				p_no_regs_val->exp_vc_dt[2],
 				p_no_regs_val->trig_src,
 				p_no_regs_val->sensor_hw_pre_latch_exp_num);
-
-			if (unlikely(ret < 0)) {
-				TSREC_LOG_INF(
-					"ERROR: LOG snprintf error, ret:%d\n", ret);
-			}
 		}
 	}
 
-
-	ret = snprintf(log_buf + strlen(log_buf),
-		TSREC_LOG_BUF_STR_LEN - strlen(log_buf),
+	TSREC_SNPRF(log_str_len, log_buf, len,
 		" [top_cfg:%#x, timer_cfg:%#x, intr(%#x/%#x, %#x/%#x)]",
 		TSREC_ATOMIC_READ(&tsrec_status.top_cfg),
 		TSREC_ATOMIC_READ(&tsrec_status.timer_cfg),
@@ -3383,29 +3658,29 @@ void mtk_cam_seninf_tsrec_dbg_dump_tsrec_n_regs_info(const char *caller)
 		TSREC_ATOMIC_READ(&tsrec_status.intr_status),
 		TSREC_ATOMIC_READ(&tsrec_status.intr_status_2));
 
-	if (unlikely(ret < 0))
-		TSREC_LOG_INF("ERROR: LOG snprintf error, ret:%d\n", ret);
-
+	if (unlikely(len < 0)) {
+		TSREC_LOG_INF(
+			"ERROR: LOG snprintf error, log_str_len:%u, len:%d\n",
+			log_str_len, len);
+	}
 
 	TSREC_LOG_INF("[%s] %s\n", caller, log_buf);
-
 	TSREC_KFREE(log_buf);
 }
 
 
 void mtk_cam_seninf_tsrec_dbg_dump_ts_records(const unsigned int tsrec_no)
 {
-#ifndef REDUCE_TSREC_LOG_DUMP_RAW_TICK
-	unsigned int i = 0;
-#endif
+	const struct tsrec_n_timestamp_st *p_ts_st = NULL;
+	const unsigned int log_str_len = TSREC_LOG_BUF_STR_LEN;
 	struct tsrec_n_regs_st *p_tsrec_n_regs = NULL;
-	struct tsrec_n_timestamp_st *p_ts_st = NULL;
 	unsigned long long tick_ordered[TSREC_EXP_MAX_CNT][TSREC_TS_REC_MAX_CNT] = {0};
 	unsigned long long curr_tick_caller = 0;
-	int ret = 0;
+	int len = 0, ret;
 	char *log_buf = NULL;
 
-	if (likely(_TSREC_LOG_ENABLED(TSREC_LOG_DBG_DEF_CAT) == 0))
+	/* ONLY LOG CTRL: LOG_TSREC_PF will print info */
+	if (likely(_TSREC_LOG_ENABLED(LOG_TSREC_PF) == 0))
 		return;
 
 	if (unlikely(!chk_exist_tsrec_hw(__func__, 1)))
@@ -3433,22 +3708,21 @@ void mtk_cam_seninf_tsrec_dbg_dump_ts_records(const unsigned int tsrec_no)
 	}
 	p_ts_st = &p_tsrec_n_regs->ts_recs;
 
-	/* !!! prepare log buffer/memory, MUST carefully use on below flow !!! */
-	/* !!! before you call return, MUST free the log buffer/memory !!! */
-	log_buf = TSREC_KCALLOC(TSREC_LOG_BUF_STR_LEN, sizeof(char));
-	if (unlikely(log_buf == NULL)) {
+	ret = alloc_log_buf(log_str_len, &log_buf);
+	if (unlikely(ret != 0)) {
 		TSREC_LOG_INF("ERROR: log_buf allocate memory failed\n");
 		return;
 	}
 
+
+	/* !!! START HERE !!! */
 	curr_tick_caller = mtk_cam_seninf_tsrec_latch_time();
 
 	/* reordering ticks data */
-	tsrec_n_timestamp_ticks_re_order(tsrec_no, tick_ordered);
+	tsrec_n_timestamp_ticks_re_order(p_ts_st, tick_ordered);
 
-	ret = snprintf(log_buf + strlen(log_buf),
-		TSREC_LOG_BUF_STR_LEN - strlen(log_buf),
-		"tsrec_no:%u, seninf_idx:%u, sys_ts:%llu(ns), tsrec_ts:%llu(%llu), intr(%#x/%#x|%#x/%#x), irq_info(%llu(ns)(~ +%llu ns), %llu(us), intr(|%#x/%#x)), ",
+	TSREC_SNPRF(log_str_len, log_buf, len,
+		"tsrec_no:%u, seninf_idx:%u, sys_ts:%llu(ns), tsrec_ts:%llu(%llu), intr(%#x/%#x|%#x/%#x), irq_info(%llu(ns)(+%llu/+%llu)(ns), %llu(us), intr(|%#x/%#x)), ",
 		tsrec_no,
 		p_ts_st->seninf_idx,
 		p_ts_st->curr_sys_time_ns,
@@ -3460,37 +3734,27 @@ void mtk_cam_seninf_tsrec_dbg_dump_ts_records(const unsigned int tsrec_no)
 		TSREC_ATOMIC_READ(&tsrec_status.intr_status_2),
 		p_tsrec_n_regs->irq_info.sys_ts_ns,
 		p_tsrec_n_regs->irq_info.duration_ns,
+		p_tsrec_n_regs->irq_info.duration_2_ns,
 		p_tsrec_n_regs->irq_info.tsrec_ts_us,
 		p_tsrec_n_regs->irq_info.intr_status,
 		p_tsrec_n_regs->irq_info.intr_status_2);
 
-	if (unlikely(ret < 0))
-		TSREC_LOG_INF("ERROR: LOG snprintf error, ret:%d\n", ret);
+	if (unlikely(_TSREC_LOG_ENABLED(LOG_TSREC_WITH_RAW_TICK))) {
+		unsigned int i;
 
-
-#ifndef REDUCE_TSREC_LOG_DUMP_RAW_TICK
-	for (i = 0; i < TSREC_EXP_MAX_CNT; ++i) {
-		ret = snprintf(log_buf + strlen(log_buf),
-			TSREC_LOG_BUF_STR_LEN - strlen(log_buf),
-			"%u:(%u,%llu/%llu/%llu/%llu)/",
-			i,
-			p_ts_st->exp_recs[i].curr_idx,
-			p_ts_st->exp_recs[i].ticks[0],
-			p_ts_st->exp_recs[i].ticks[1],
-			p_ts_st->exp_recs[i].ticks[2],
-			p_ts_st->exp_recs[i].ticks[3]);
-
-		if (unlikely(ret < 0)) {
-			TSREC_LOG_INF(
-				"ERROR: LOG snprintf error, ret:%d\n",
-				ret);
+		for (i = 0; i < TSREC_EXP_MAX_CNT; ++i) {
+			TSREC_SNPRF(log_str_len, log_buf, len,
+				"%u:(%u,%llu/%llu/%llu/%llu)/",
+				i,
+				p_ts_st->exp_recs[i].curr_idx,
+				p_ts_st->exp_recs[i].ticks[0],
+				p_ts_st->exp_recs[i].ticks[1],
+				p_ts_st->exp_recs[i].ticks[2],
+				p_ts_st->exp_recs[i].ticks[3]);
 		}
 	}
-#endif // !REDUCE_TSREC_LOG_DUMP_RAW_TICK
 
-
-	ret = snprintf(log_buf + strlen(log_buf),
-		TSREC_LOG_BUF_STR_LEN - strlen(log_buf),
+	TSREC_SNPRF(log_str_len, log_buf, len,
 		" => ts(0:(%llu/%llu/%llu/%llu), 1:(%llu/%llu/%llu/%llu), 2:(%llu/%llu/%llu/%llu))",
 		TSREC_TICK_TO_US(tick_ordered[0][0]),
 		TSREC_TICK_TO_US(tick_ordered[0][1]),
@@ -3505,16 +3769,11 @@ void mtk_cam_seninf_tsrec_dbg_dump_ts_records(const unsigned int tsrec_no)
 		TSREC_TICK_TO_US(tick_ordered[2][2]),
 		TSREC_TICK_TO_US(tick_ordered[2][3]));
 
-	if (unlikely(ret < 0))
-		TSREC_LOG_INF("ERROR: LOG snprintf error, ret:%d\n", ret);
-
-
-	ret = snprintf(log_buf + strlen(log_buf),
-		TSREC_LOG_BUF_STR_LEN - strlen(log_buf),
+	TSREC_SNPRF(log_str_len, log_buf, len,
 #if (TSREC_WITH_64_BITS_TIMER_RG)
-		", act_fl(%llu/%llu/%llu), %llu(+%llu)(+%llu)",
+		", act_fl(%llu/%llu/%llu), %llu(+%llu/+%llu)(+%llu)",
 #else
-		", act_fl(%u/%u/%u), %u(+%u)(+%u)",
+		", act_fl(%u/%u/%u), %u(+%u/+%u)(+%u)",
 #endif
 		TSREC_TICK_TO_US(
 			(tsrec_tick_t)tick_ordered[TSREC_1ST_EXP_NUM][0] -
@@ -3528,18 +3787,27 @@ void mtk_cam_seninf_tsrec_dbg_dump_ts_records(const unsigned int tsrec_no)
 		TSREC_TICK_TO_US(
 			(tsrec_tick_t)tick_ordered[TSREC_1ST_EXP_NUM][0]),
 		TSREC_TICK_TO_US(
+			(tsrec_tick_t)TSREC_US_TO_TICK(
+				p_tsrec_n_regs->irq_info.tsrec_ts_us) -
+			((tsrec_tick_t)tick_ordered[TSREC_1ST_EXP_NUM][0])),
+		TSREC_TICK_TO_US(
 			(tsrec_tick_t)p_ts_st->curr_tick -
 			(tsrec_tick_t)tick_ordered[TSREC_1ST_EXP_NUM][0]),
 		TSREC_TICK_TO_US(
 			(tsrec_tick_t)curr_tick_caller -
 			(tsrec_tick_t)p_ts_st->curr_tick));
 
-	if (unlikely(ret < 0))
-		TSREC_LOG_INF("ERROR: LOG snprintf error, ret:%d\n", ret);
+	TSREC_SNPRF(log_str_len, log_buf, len,
+		", worker_handle_at:%llu(ns)",
+		p_tsrec_n_regs->irq_info.worker_handle_ts_ns);
 
+	if (unlikely(len < 0)) {
+		TSREC_LOG_INF(
+			"ERROR: LOG snprintf error, log_str_len:%u, len:%d\n",
+			log_str_len, len);
+	}
 
-	TSREC_LOG_DBG("%s\n", log_buf);
-
+	TSREC_LOG_INF_LOCK("%s\n", log_buf);
 	TSREC_KFREE(log_buf);
 }
 

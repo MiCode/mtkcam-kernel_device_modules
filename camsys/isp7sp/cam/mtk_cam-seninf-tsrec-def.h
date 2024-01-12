@@ -4,7 +4,26 @@
 #ifndef __MTK_CAM_SENINF_TSREC_DEF_H__
 #define __MTK_CAM_SENINF_TSREC_DEF_H__
 
+#ifdef FS_UT
+#include <stdio.h>
+#include <stdatomic.h>
+#include <string.h>
+#include <stdlib.h>                  /* Needed by memory allocate */
+#else
+#include <linux/mutex.h>
+#include <linux/spinlock.h>
+#include <linux/printk.h>
+#include <linux/atomic.h>
+#include <linux/string.h>
+// #include <linux/slab.h>           /* Needed by memory allocate */
+#include <linux/device.h>            /* Needed by devm_* function */
+#include <linux/pm_runtime.h>
+#endif
 
+
+/*******************************************************************************
+ * TSREC common utilities macro
+ ******************************************************************************/
 #define TSREC_BIT_MASK(n) (((n) == 64) ? (~0ULL) : ((1ULL<<(n))-1))
 
 #define TSREC_SHOW(buf, len, fmt, ...) { \
@@ -106,8 +125,11 @@
 /******************************************************************************
  * TSREC utilities macro
  *****************************************************************************/
+#define TSREC_US_TO_TICK(x) \
+	((TSREC_TICK_FACTOR) ? ((x) * TSREC_TICK_FACTOR) : (x))
+
 #define TSREC_TICK_TO_US(x) \
-	((TSREC_TICK_FACTOR)?((x)/TSREC_TICK_FACTOR):(x))
+	((TSREC_TICK_FACTOR) ? ((x) / TSREC_TICK_FACTOR) : (x))
 
 #define TSREC_RING_BACK(x, n) \
 	(((x)+(TSREC_TS_REC_MAX_CNT-((n)%TSREC_TS_REC_MAX_CNT))) \
@@ -120,20 +142,7 @@
 /******************************************************************************
  * TSREC log define/macro
  *****************************************************************************/
-/* log ctrl */
-enum tsrec_log_ctrl_category {
-	LOG_TSREC = 0,
-	LOG_TSREC_REG,
-};
-extern unsigned int tsrec_log_ctrl;
-
-#ifndef FS_UT
-#include <linux/spinlock.h>
-extern spinlock_t tsrec_log_concurrency_lock;
-#endif
-
 #define TSREC_LOG_BUF_STR_LEN        (1024)
-
 
 /* for reducing log */
 #define REDUCE_TSREC_LOG
@@ -141,16 +150,62 @@ extern spinlock_t tsrec_log_concurrency_lock;
 #ifndef FS_UT
 // prevent printing log in ISR-related functions
 #define REDUCE_TSREC_LOG_IN_ISR_FUNC
-#define REDUCE_TSREC_LOG_DUMP_RAW_TICK
 #endif
+
+
+extern unsigned int tsrec_log_ctrl;
+
+#ifndef FS_UT
+extern struct mutex tsrec_log_concurrency_lock;
+#endif
+
+
+/*----------------------------------------------------------------------------*/
+/* log ctrl */
+enum tsrec_log_ctrl_category {
+	/* basic category */
+	LOG_TSREC_PF = 0,
+	LOG_TSREC,
+	LOG_TSREC_REG,
+
+	/* special category */
+	LOG_TSREC_WORK_HANDLE,
+	LOG_TSREC_CB_INFO,
+
+	/* extra category */
+	LOG_TSREC_WITH_RAW_TICK = 26,
+
+	/* max category */
+	LOG_TSREC_CTRL_CAT_MAX = 26
+};
 
 
 /* log macro/define */
 #define _TSREC_LOG_ENABLED(category)	\
 	((tsrec_log_ctrl) & (1UL << (category)))
 
-#ifndef FS_UT
-#include <linux/printk.h>
+
+/*----------------------------------------------------------------------------*/
+#ifdef FS_UT
+#define TSREC_LOG_DBG(format, args...) \
+	printf(PFX "[%s] " format, __func__, ##args)
+#define TSREC_LOG_DBG_CAT(log_cat, format, args...) \
+	printf(PFX "[%s] " format, __func__, ##args)
+#define TSREC_LOG_PF_DBG(format, args...) \
+	printf(PFX "[%s] " format, __func__, ##args)
+#define TSREC_LOG_INF(format, args...) \
+	printf(PFX "[%s] " format, __func__, ##args)
+
+#define TSREC_LOG_DBG_LOCK(format, args...) \
+	printf(PFX "[%s] " format, __func__, ##args)
+#define TSREC_LOG_DBG_CAT_LOCK(log_cat, format, args...) \
+	printf(PFX "[%s] " format, __func__, ##args)
+#define TSREC_LOG_PF_DBG_LOCK(format, args...) \
+	printf(PFX "[%s] " format, __func__, ##args)
+#define TSREC_LOG_INF_LOCK(format, args...) \
+	printf(PFX "[%s] " format, __func__, ##args)
+
+#else
 
 #define DY_INFO(log_cat, format, args...) \
 do { \
@@ -159,25 +214,49 @@ do { \
 	} \
 } while (0)
 
-#define TSREC_LOG_DBG(format, args...) \
-	DY_INFO(TSREC_LOG_DBG_DEF_CAT, format, args)
-#define TSREC_LOG_INF(format, args...) \
-	pr_info(PFX "[%s] " format, __func__, ##args)
-#else
-#include <stdio.h>
+#define DY_INFO_LOCK(log_cat, format, args...) \
+do { \
+	if (unlikely(_TSREC_LOG_ENABLED(log_cat))) { \
+		mutex_lock(&tsrec_log_concurrency_lock); \
+		pr_info(PFX "[%s] " format, __func__, ##args); \
+		mutex_unlock(&tsrec_log_concurrency_lock); \
+	} \
+} while (0)
 
 #define TSREC_LOG_DBG(format, args...) \
-	printf(PFX "[%s] " format, __func__, ##args)
+	DY_INFO(TSREC_LOG_DBG_DEF_CAT, format, args)
+#define TSREC_LOG_DBG_CAT(log_cat, format, args...) \
+	DY_INFO(log_cat, format, args)
+#define TSREC_LOG_PF_DBG(format, args...) \
+	DY_INFO(LOG_TSREC_PF, format, args)
 #define TSREC_LOG_INF(format, args...) \
-	printf(PFX "[%s] " format, __func__, ##args)
+	pr_info(PFX "[%s] " format, __func__, ##args)
+
+#define TSREC_LOG_DBG_LOCK(format, args...) \
+	DY_INFO_LOCK(log_cat, format, args)
+#define TSREC_LOG_DBG_CAT_LOCK(log_cat, format, args...) \
+	DY_INFO_LOCK(log_cat, format, args)
+#define TSREC_LOG_PF_DBG_LOCK(format, args...) \
+	DY_INFO_LOCK(LOG_TSREC_PF, format, args)
+#define TSREC_LOG_INF_LOCK(format, args...) \
+do { \
+	mutex_lock(&tsrec_log_concurrency_lock); \
+	pr_info(PFX "[%s] " format, __func__, ##args); \
+	mutex_unlock(&tsrec_log_concurrency_lock); \
+} while (0)
+
 #endif
+
+
+#define TSREC_SNPRF(buf_len, buf, len, fmt, ...) { \
+	len += snprintf(buf + len, buf_len - len, fmt, ##__VA_ARGS__); \
+}
 
 
 /******************************************************************************
  * TSREC atomic define/macro
  *****************************************************************************/
 #ifdef FS_UT
-#include <stdatomic.h>
 #define tsrec_atomic_t atomic_int
 #define TSREC_ATOMIC_INIT(n, p)      (atomic_init((p), (n)))
 #define TSREC_ATOMIC_SET(n, p)       (atomic_store((p), (n)))
@@ -188,7 +267,6 @@ do { \
 #define TSREC_ATOMIC_INC(p)          (atomic_fetch_add((p), 1))
 #define TSREC_ATOMIC_DEC(p)          (atomic_fetch_sub((p), 1))
 #else
-#include <linux/atomic.h>
 #define tsrec_atomic_t atomic_t
 #define TSREC_ATOMIC_INIT(n, p)      (atomic_set((p), (n)))
 #define TSREC_ATOMIC_SET(n, p)       (atomic_set((p), (n)))
@@ -208,26 +286,34 @@ do { \
 #define likely(x)                    (__builtin_expect((x), 1))
 #define unlikely(x)                  (__builtin_expect((x), 0))
 
+#define TSREC_PM_GET_SYNC(ctx)       (0)
+#define TSREC_PM_PUT_SYNC(ctx)       (0)
+#define TSREC_PM_PUT_NOIDLE(ctx)
+
+#define BUILD_BUG_ON_ZERO(e)         ((int)(sizeof(struct { int:(-!!(e)); })))
+#define __same_type(a, b) \
+	(__builtin_types_compatible_p(typeof(a), typeof(b)))
+#define __must_be_array(a) \
+	(BUILD_BUG_ON_ZERO(__same_type((a), &(a)[0])))
+#define ARRAY_SIZE(arr) \
+	(sizeof(arr) / sizeof((arr)[0]) + __must_be_array(arr))
+
 #define TSREC_POPCNT_32(n)           (__builtin_popcount(n))
 #define TSREC_POPCNT_64(n)           (__builtin_popcount(n))
 
-#include <string.h>
-#include <stdlib.h>                  /* Needed by memory allocate */
 #define TSREC_KZALLOC(size)          (calloc(1, (size)))
 #define TSREC_KCALLOC(n, size)       (calloc((n), (size)))
 #define TSREC_KFREE(p)               (free((p)))
 
 #define TSREC_SPIN_LOCK(p)
 #define TSREC_SPIN_UNLOCK(p)
-
-#else // => !FS_UT
+#else
+#define TSREC_PM_GET_SYNC(ctx)       (pm_runtime_get_sync((ctx)->dev))
+#define TSREC_PM_PUT_SYNC(ctx)       (pm_runtime_put_sync((ctx)->dev))
+#define TSREC_PM_PUT_NOIDLE(ctx)     (pm_runtime_put_noidle((ctx)->dev))
 
 #define TSREC_POPCNT_32(n)           (hweight32(n))
 #define TSREC_POPCNT_64(n)           (hweight64(n))
-
-#include <linux/string.h>
-// #include <linux/slab.h>           /* Needed by memory allocate */
-#include <linux/device.h>            /* Needed by devm_* function */
 
 extern struct device *seninf_dev;
 #define TSREC_KZALLOC(size)          (devm_kzalloc(seninf_dev, (size), GFP_ATOMIC))
@@ -237,6 +323,21 @@ extern struct device *seninf_dev;
 #define TSREC_SPIN_LOCK(p)           (spin_lock(p))
 #define TSREC_SPIN_UNLOCK(p)         (spin_unlock(p))
 #endif // FS_UT
+
+
+/*******************************************************************************
+ * TSREC common utilities inline functions
+ ******************************************************************************/
+static inline int alloc_log_buf(const unsigned int alloc_len, char **p_p_buf)
+{
+	*p_p_buf = TSREC_KCALLOC((alloc_len + 1), sizeof(char));
+	if (unlikely(*p_p_buf == NULL))
+		return -1;
+
+	*p_p_buf[0] = '\0';
+
+	return 0;
+}
 
 
 #endif

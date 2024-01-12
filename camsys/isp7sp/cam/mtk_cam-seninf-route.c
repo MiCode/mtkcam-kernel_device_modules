@@ -975,7 +975,7 @@ int mtk_cam_seninf_get_vcinfo(struct seninf_ctx *ctx)
 	if (!vcid_map)
 		return -EINVAL;
 
-	mtk_cam_seninf_tsrec_reset_vc_dt_info(ctx->seninfIdx);
+	mtk_cam_seninf_tsrec_reset_vc_dt_info(ctx, ctx->seninfIdx);
 
 	for (i = 0; i < fd.num_entries; i++) {
 		struct mtk_cam_seninf_tsrec_vc_dt_info tsrec_vc_dt_info = {0};
@@ -1215,7 +1215,7 @@ int mtk_cam_seninf_get_vcinfo(struct seninf_ctx *ctx)
 			fd.entry[i].bus.csi2.cust_assign_to_tsrec_exp_id;
 		tsrec_vc_dt_info.is_sensor_hw_pre_latch_exp = (u32)
 			fd.entry[i].bus.csi2.is_sensor_hw_pre_latch_exp;
-		mtk_cam_seninf_tsrec_update_vc_dt_info(
+		mtk_cam_seninf_tsrec_update_vc_dt_info(ctx,
 			ctx->seninfIdx, &tsrec_vc_dt_info);
 
 		vcinfo->cnt++;

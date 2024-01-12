@@ -3291,6 +3291,7 @@ void fs_notify_vsync(const unsigned int ident)
 	fs_alg_sa_notify_setup_all_frame_info(idx);
 	frec_notify_vsync(idx);
 	fs_alg_sa_notify_vsync(idx);
+	frec_chk_fl_pr_match_act(idx);
 	fs_alg_sa_dump_dynamic_para(idx);
 
 	fs_do_fl_restore_proc_if_needed(idx);
@@ -3376,10 +3377,17 @@ void fs_receive_tsrec_timestamp_info(const unsigned int ident,
 	/* !!! start here !!! */
 	/* call this function after receive TSREC timestamp info */
 	fs_alg_sa_notify_vsync(idx);
+	frec_chk_fl_pr_match_act(idx);
 
 	if (unlikely(_FS_LOG_ENABLED(LOG_FS_PF)))
 		if (FS_CHECK_BIT(idx, &fs_mgr.enSync_bits))
 			fs_alg_sa_dump_dynamic_para(idx);
+}
+
+
+unsigned int fs_is_ts_src_type_tsrec(void)
+{
+	return (frm_get_ts_src_type() == FS_TS_SRC_TSREC);
 }
 
 
@@ -3505,7 +3513,8 @@ static struct FrameSync frameSync = {
 	fs_is_set_sync,
 	fs_is_hw_sync,
 	fs_get_fl_record_info,
-	fs_clear_fl_restore_status_if_needed
+	fs_clear_fl_restore_status_if_needed,
+	fs_is_ts_src_type_tsrec,
 };
 
 

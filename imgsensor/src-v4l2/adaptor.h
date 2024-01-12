@@ -17,6 +17,7 @@
 
 #include "adaptor-def.h"
 #include "adaptor-subdrv.h"
+#include "adaptor-tsrec-cb-ctrl.h"
 #include "imgsensor-user.h"
 
 /* frame-sync */
@@ -173,8 +174,12 @@ struct adaptor_ctx {
 	int needs_fsync_assign_fl;
 
 	/* tsrec */
+	struct adaptor_tsrec_cb_ctrl tsrec_cb_ctrl;
 	struct mtk_cam_seninf_tsrec_vsync_info vsync_info;
 	struct mtk_cam_seninf_tsrec_timestamp_info ts_info;
+	/* tsrec & fsync mgr */
+	spinlock_t fsync_pre_latch_ts_info_update_lock;
+	struct mtk_cam_seninf_tsrec_timestamp_info fsync_pre_latch_ts_info;
 
 	/* flags */
 	unsigned int is_streaming:1;

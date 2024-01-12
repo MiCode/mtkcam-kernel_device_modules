@@ -2279,8 +2279,10 @@ int mtk_cam_ctrl_dump_request(struct mtk_cam_device *cam,
 		goto SKIP_SCHEDULE_WORK;
 	}
 
-	if (mtk_cam_ctrl_get(ctrl))
+	if (mtk_cam_ctrl_get(ctrl)) {
+		complete(&wd->work_complete);
 		goto SKIP_SCHEDULE_WORK;
+	}
 
 	mtk_cam_watchdog_schedule_job_dump(wd, desc);
 

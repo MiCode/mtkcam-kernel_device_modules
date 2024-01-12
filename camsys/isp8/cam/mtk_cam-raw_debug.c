@@ -243,20 +243,18 @@ void dump_topdebug_rdyreq_status(struct mtk_raw_device *dev)
 	void __iomem *dbg_rdy, *dbg_req;
 	int i;
 
-	dbg_req = dev->base + REG_CAMCTL_MOD_REQ_STATUS;
-	dbg_rdy = dev->base + REG_CAMCTL_MOD_RDY_STATUS;
-
 	for (i = 0; i < ARRAY_SIZE(debug_sel); i++) {
+		dbg_req = dev->base + REG_CAMCTL_MOD_REQ_STATUS;
+		dbg_rdy = dev->base + REG_CAMCTL_MOD_RDY_STATUS;
 		dbg_req = dbg_req + debug_sel[i];
 		dbg_rdy = dbg_rdy + debug_sel[i];
 		dev_info(dev->dev, "RAW debug_req 0x%08x debug_rdy 0x%08x\n",
 			 readl(dbg_req), readl(dbg_rdy));
 	}
 
-	dbg_req = dev->yuv_base + REG_CAMCTL2_MOD_REQ_STATUS;
-	dbg_rdy = dev->yuv_base + REG_CAMCTL2_MOD_RDY_STATUS;
-
 	for (i = 0; i < ARRAY_SIZE(debug_sel); i++) {
+		dbg_req = dev->yuv_base + REG_CAMCTL2_MOD_REQ_STATUS;
+		dbg_rdy = dev->yuv_base + REG_CAMCTL2_MOD_RDY_STATUS;
 		dbg_req = dbg_req + debug_sel[i];
 		dbg_rdy = dbg_rdy + debug_sel[i];
 		dev_info(dev->dev, "YUV debug_req 0x%08x debug_rdy 0x%08x\n",

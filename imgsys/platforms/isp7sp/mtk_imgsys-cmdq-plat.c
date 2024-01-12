@@ -2163,22 +2163,75 @@ int imgsys_cmdq_parser_plat7sp(struct mtk_imgsys_dev *imgsys_dev,
 			break;
 #endif
 		case IMGSYS_CMD_POLL:
-            if (imgsys_cmdq_dbg_enable_plat7sp()) {
-			pr_debug(
-				"%s: POLL with addr(0x%08x) value(0x%08x) mask(0x%08x) thd(%d)\n",
-				__func__, cmd->u.address, cmd->u.value, cmd->u.mask, thd_idx);
-            }
 			/* cmdq_pkt_poll(pkt, NULL, cmd->u.value, cmd->u.address, */
 			/* cmd->u.mask, CMDQ_GPR_R15); */
+		{
+			u32 addr_msb = (cmd->u.address >> 16);
+			u32 gpr_idx = 0;
+			switch (addr_msb) {
+				case 0x1510:
+				case 0x1515:
+				case 0x1516:
+					/* DIP */
+					gpr_idx = 0;
+					break;
+				case 0x1570:
+					/* TRAW */
+					gpr_idx = 1;
+					break;
+				case 0x1504:
+					/* LTRAW */
+					gpr_idx = 2;
+					break;
+				case 0x1520:
+					/* WPE_EIS */
+					gpr_idx = 3;
+					break;
+				case 0x1550:
+					/* WPE_TNR */
+					gpr_idx = 4;
+					break;
+				case 0x1560:
+					/* WPE_LITE */
+					gpr_idx = 5;
+					break;
+				case 0x1521:
+					/* PQDIP_A */
+					gpr_idx = 6;
+					break;
+				case 0x1551:
+					/* PQDIP_B */
+					gpr_idx = 7;
+					break;
+				case 0x1532:
+				case 0x1533:
+					/* ME/MMG */
+					gpr_idx = 8;
+					break;
+				default:
+					gpr_idx = thd_idx;
+					break;
+			}
+			if (imgsys_cmdq_dbg_enable_plat7sp()) {
+				pr_debug(
+					"%s: POLL with addr(0x%08x) value(0x%08x) mask(0x%08x) addr_msb(0x%08x) thd(%d/%d)\n",
+					__func__, cmd->u.address, cmd->u.value, cmd->u.mask, addr_msb, gpr_idx, thd_idx);
+			}
 			#ifdef IMGSYS_ME_CHECK_FUNC_EN
-			cmdq_pkt_poll_timeout(pkt, cmd->u.value, SUBSYS_NO_SUPPORT,
-				cmd->u.address, cmd->u.mask, IMGSYS_POLL_TIME_30MS,
-				CMDQ_GPR_R03+thd_idx);
+			if ((gpr_idx == 8) && (hw_comb == 0x800))
+				cmdq_pkt_poll_timeout(pkt, cmd->u.value, SUBSYS_NO_SUPPORT,
+					cmd->u.address, cmd->u.mask, IMGSYS_POLL_TIME_30MS,
+					CMDQ_GPR_R03+gpr_idx);
+			else
+				cmdq_pkt_poll_timeout(pkt, cmd->u.value, SUBSYS_NO_SUPPORT,
+					cmd->u.address, cmd->u.mask, IMGSYS_POLL_TIME_INFINI,
+					CMDQ_GPR_R03+gpr_idx);
 			#else
 			cmdq_pkt_poll_timeout(pkt, cmd->u.value, SUBSYS_NO_SUPPORT,
 				cmd->u.address, cmd->u.mask, IMGSYS_POLL_TIME_INFINI,
-				CMDQ_GPR_R03+thd_idx);
+				CMDQ_GPR_R03+gpr_idx);
 			#endif
+		}
 			break;
 		case IMGSYS_CMD_WAIT:
             if (imgsys_cmdq_dbg_enable_plat7sp()) {

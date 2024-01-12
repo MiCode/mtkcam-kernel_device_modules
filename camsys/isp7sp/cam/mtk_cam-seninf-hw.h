@@ -28,6 +28,10 @@
 #define MAX_MUX_VCINFO_DEBUG 15
 #define MAX_TS_SIZE 4
 
+/*ULPS-mode support*/
+#undef CDPHY_ULPS_MODE_SUPPORT
+//#define CDPHY_ULPS_MODE_SUPPORT
+
 /*init deskew define*/
 #define INIT_DESKEW_SUPPORT
 //#define INIT_DESKEW_UT

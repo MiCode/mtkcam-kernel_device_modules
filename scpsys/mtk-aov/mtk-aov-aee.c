@@ -93,7 +93,7 @@ int aov_aee_init(struct mtk_aov *aov_dev)
 		aee_info->buffer.count = 0;
 
 		aee_info->kernel = proc_create(
-			"kernel", 0444, aee_info->entry, &aee_ops);
+			"kernel", 0440, aee_info->entry, &aee_ops);
 	} else {
 		pr_info("%s: failed to create aov debug node\n", __func__);
 	}

@@ -64,3 +64,4 @@ void mtk_imgsys_cmdq_qof_streamoff(struct mtk_imgsys_dev *imgsys_dev);
 void mtk_imgsys_cmdq_qof_add(struct cmdq_pkt *pkt, u32 hwcomb, bool *qof_need_sub);
 void mtk_imgsys_cmdq_qof_sub(struct cmdq_pkt *pkt, bool *qof_need_sub);
 void mtk_imgsys_cmdq_qof_dump(void);
+bool mtk_imgsys_cmdq_qof_get_pwr_status(u32 pwr);

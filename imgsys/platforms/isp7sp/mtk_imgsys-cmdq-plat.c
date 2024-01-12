@@ -37,6 +37,8 @@
 #define WPE_BWLOG_HW_COMB_ninC (IMGSYS_ENG_WPE_LITE | IMGSYS_ENG_TRAW)
 #define WPE_BWLOG_HW_COMB_ninD (IMGSYS_ENG_WPE_LITE | IMGSYS_ENG_LTR)
 
+#define IMGSYS_SMIDUMP_QOF_TRAW	(BIT(0))
+
 #define IMGSYS_QOS_SYNC_OWNER	(0x412d454d5f53)
 #define IMGSYS_QOS_MAX_PERF	(MTK_MMQOS_MAX_SMI_FREQ_BW >> 1)
 
@@ -649,8 +651,7 @@ static void imgsys_cmdq_cb_work_plat7sp(struct work_struct *work)
 	imgsys_cmdq_fence_rmcb_plat7sp(imgsys_dev, cb_param);
 
 #ifndef CONFIG_FPGA_EARLY_PORTING
-	if (imgsys_dev->qof_ver == MTK_IMGSYS_QOF_FUNCTION_OFF)
-		mtk_imgsys_power_ctrl_plat7sp(imgsys_dev, false);
+	mtk_imgsys_power_ctrl_plat7sp(imgsys_dev, false);
 #endif
 
 	if (imgsys_cmdq_ts_enable_plat7sp()) {
@@ -1211,8 +1212,6 @@ void imgsys_cmdq_task_cb_plat7sp(struct cmdq_cb_data data)
 		}
 
 		imgsys_cmdq_cmd_dump_plat7sp(cb_param->frm_info, real_frm_idx);
-		if (isHWhang)
-			mtk_imgsys_cmdq_qof_dump();
 
 		if (cb_param->user_cmdq_err_cb) {
 			struct cmdq_cb_data user_cb_data;
@@ -1223,6 +1222,9 @@ void imgsys_cmdq_task_cb_plat7sp(struct cmdq_cb_data data)
 				user_cb_data, real_frm_idx, isHWhang,
 				event_sft + IMGSYS_CMDQ_SYNC_TOKEN_IMGSYS_POOL_START);
 		}
+
+		if (isHWhang && mtk_imgsys_cmdq_qof_get_pwr_status(ISP7SP_ISP_TRAW))
+			mtk_smi_dbg_dump_for_isp_fast(IMGSYS_SMIDUMP_QOF_TRAW);
 	}
 	cb_param->cmdqTs.tsCmdqCbEnd = ktime_get_boottime_ns()/1000;
 
@@ -1747,8 +1749,7 @@ int imgsys_cmdq_sendtask_plat7sp(struct mtk_imgsys_dev *imgsys_dev,
 				|| (frm_info->user_info[frm_idx].wait_fence_num > 0)
 				|| (frm_info->user_info[frm_idx].notify_fence_num > 0)) {
 #ifndef CONFIG_FPGA_EARLY_PORTING
-				if (imgsys_dev->qof_ver == MTK_IMGSYS_QOF_FUNCTION_OFF)
-					mtk_imgsys_power_ctrl_plat7sp(imgsys_dev, true);
+				mtk_imgsys_power_ctrl_plat7sp(imgsys_dev, true);
 #endif
 				/* Prepare cb param */
 #ifdef IMGSYS_CMDQ_CBPARAM_NUM
@@ -3072,6 +3073,17 @@ void mtk_imgsys_power_ctrl_plat7sp(struct mtk_imgsys_dev *imgsys_dev, bool isPow
 	struct mtk_imgsys_dvfs *dvfs_info = &imgsys_dev->dvfs_info;
 	u32 user_cnt = 0;
 	int i;
+	u32 img_main_modules = 0xFFFF;
+
+	if (imgsys_dev->qof_ver != MTK_IMGSYS_QOF_FUNCTION_OFF) {
+		img_main_modules = BIT(IMGSYS_MOD_ADL) |
+			BIT(IMGSYS_MOD_ME) |
+			BIT(IMGSYS_MOD_IMGMAIN)|
+			BIT(IMGSYS_MOD_WPE)|
+			BIT(IMGSYS_MOD_DIP)|
+			BIT(IMGSYS_MOD_PQDIP)|
+			BIT(IMGSYS_MOD_LTRAW);
+	}
 
 	if (isPowerOn) {
 		user_cnt = atomic_inc_return(&imgsys_dev->imgsys_user_cnt);
@@ -3089,7 +3101,7 @@ void mtk_imgsys_power_ctrl_plat7sp(struct mtk_imgsys_dev *imgsys_dev, bool isPow
 			mtk_imgsys_mod_get(imgsys_dev);
 
 			for (i = 0; i < imgsys_dev->modules_num; i++)
-				if (imgsys_dev->modules[i].set)
+				if ((BIT(i) & img_main_modules) && imgsys_dev->modules[i].set)
 					imgsys_dev->modules[i].set(imgsys_dev);
 			mutex_unlock(&(imgsys_dev->power_ctrl_lock));
 		}
@@ -3118,7 +3130,12 @@ void mtk_imgsys_main_power_ctrl_plat7sp(struct mtk_imgsys_dev *imgsys_dev, bool 
 	int i;
 	const u32 img_main_modules
 			= BIT(IMGSYS_MOD_ADL) |
-			BIT(IMGSYS_MOD_ME);
+			BIT(IMGSYS_MOD_ME) |
+			BIT(IMGSYS_MOD_IMGMAIN)|
+			BIT(IMGSYS_MOD_WPE)|
+			BIT(IMGSYS_MOD_DIP)|
+			BIT(IMGSYS_MOD_PQDIP)|
+			BIT(IMGSYS_MOD_LTRAW);
 
 	if (isPowerOn) {
 		for (i = 0; i < imgsys_dev->modules_num; i++) {

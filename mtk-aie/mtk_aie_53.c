@@ -36,6 +36,7 @@
 #include "mem/aie_videobuf2-dma-contig.h"
 #include "iommu_debug.h"
 #include "mtk_notify_aov.h"
+#include "mtk_aie-trace.h"
 
 #define FLD
 #define AIE_QOS_MAX 4
@@ -103,6 +104,7 @@ struct aie_data {
 	struct aie_reg_map *reg_map;
 	unsigned int reg_map_num;
 	bool is_cmdq_polling;
+	unsigned int aie_cmdq_event;
 };
 
 static struct clk_bulk_data ipesys_isp7s_aie_clks[] = {
@@ -165,6 +167,7 @@ static struct aie_data data_isp7sp = {
 	.reg_map = isp7sp_aie_reg_map,
 	.reg_map_num = ARRAY_SIZE(isp7sp_aie_reg_map),
 	.is_cmdq_polling = false,
+	.aie_cmdq_event = 374,
 };
 
 static struct aie_data data_isp7sp_1 = {
@@ -175,6 +178,7 @@ static struct aie_data data_isp7sp_1 = {
 	.reg_map = isp7sp_aie_reg_map,
 	.reg_map_num = ARRAY_SIZE(isp7sp_aie_reg_map),
 	.is_cmdq_polling = true,
+	.aie_cmdq_event = 375,
 };
 
 void aie_get_time(long long *tv, unsigned int idx)
@@ -583,7 +587,7 @@ static void mtk_aie_hw_done(struct mtk_aie_dev *fd,
 	if (!cancel_delayed_work(&fd->job_timeout_work))
 		return;
 
-	aie_get_time(fd->tv, 5);
+	aie_get_time(fd->tv, 6);
 
 	mtk_aie_hw_job_finish(fd, vb_state);
 	atomic_dec(&fd->num_composing);
@@ -618,6 +622,8 @@ static int mtk_aie_hw_connect(struct mtk_aie_dev *fd)
 {
 	int ret = 0;
 
+	AIE_SYSTRACE_BEGIN("%s", __func__);
+
 	if (m_aov_notify != NULL)
 		m_aov_notify(gaov_dev, AOV_NOTIFY_AIE_AVAIL, 0); //unavailable: 0 available: 1
 
@@ -639,6 +645,9 @@ static int mtk_aie_hw_connect(struct mtk_aie_dev *fd)
 
 		fd->map_count = 0;
 	}
+
+	AIE_SYSTRACE_END();
+
 	return 0;
 }
 
@@ -824,6 +833,8 @@ static void mtk_aie_job_timeout_work(struct work_struct *work)
 		container_of(work, struct mtk_aie_dev, job_timeout_work.work);
 	unsigned int i;
 
+	AIE_SYSTRACE_BEGIN("%s", __func__);
+
 	aie_dev_info(fd->dev, "FD Job timeout!");
 
 	aie_dev_info(fd->dev, "AIE mode:%d fmt:%d w:%d h:%d s:%d pw%d ph%d np%d dg%d",
@@ -849,7 +860,7 @@ static void mtk_aie_job_timeout_work(struct work_struct *work)
 		 fd->aie_cfg->src_padding.up,
 		 fd->aie_cfg->freq_level);
 
-	aie_get_time(fd->tv, 6);
+	aie_get_time(fd->tv, 7);
 	fd->drv_ops->fdvt_dump_reg(fd);
 
 	for (i = 0; i < MAX_DEBUG_TIMEVAL; i++)
@@ -862,6 +873,8 @@ static void mtk_aie_job_timeout_work(struct work_struct *work)
 	mtk_aie_hw_job_finish(fd, VB2_BUF_STATE_ERROR);
 	atomic_dec(&fd->num_composing);
 	wake_up(&fd->flushing_waitq);
+
+	AIE_SYSTRACE_END();
 }
 
 static int mtk_aie_job_wait_finish(struct mtk_aie_dev *fd)
@@ -1058,6 +1071,8 @@ int mtk_aie_vidioc_qbuf(struct file *file, void *priv,
 	struct mtk_aie_dev *fd = video_drvdata(file);
 	int ret = 0, idx = 0;
 
+	AIE_SYSTRACE_BEGIN("%s", __func__);
+
 	if (buf->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) { /*IMG & data*/
 		if (!fd->map_count) {
 
@@ -1208,6 +1223,8 @@ int mtk_aie_vidioc_qbuf(struct file *file, void *priv,
 
 	}
 
+	AIE_SYSTRACE_END();
+
 	return v4l2_m2m_ioctl_qbuf(file, priv, buf);
 
 ERROR_MODEL_DETACH:
@@ -1240,6 +1257,8 @@ ERROR_END_CPU_ACCESS:
 
 ERROR_PARA_PUTBUF:
 	dma_buf_put(fd->para_dmabuf);
+
+	AIE_SYSTRACE_END();
 
 	return ret;
 }
@@ -1420,6 +1439,8 @@ static void mtk_aie_device_run(void *priv)
 	void *plane_vaddr;
 	int ret = 0;
 
+	AIE_SYSTRACE_BEGIN("%s", __func__);
+
 	if(aie_cg_debug_perframe_en && fd->drv_ops->dump_cg_reg)
 		fd->drv_ops->dump_cg_reg(fd);
 
@@ -1559,6 +1580,8 @@ static void mtk_aie_device_run(void *priv)
 	}
 	if (!fd->is_shutdown)
 		fd->drv_ops->execute(fd, fd->aie_cfg);
+
+	AIE_SYSTRACE_END();
 }
 
 static struct v4l2_m2m_ops fd_m2m_ops = {
@@ -1709,7 +1732,9 @@ static void mtk_aie_frame_done_worker(struct work_struct *work)
 	struct mtk_aie_req_work *req_work = (struct mtk_aie_req_work *)work;
 	struct mtk_aie_dev *fd = (struct mtk_aie_dev *)req_work->fd_dev;
 
-	aie_get_time(fd->tv, 4);
+	AIE_SYSTRACE_BEGIN("%s", __func__);
+
+	aie_get_time(fd->tv, 5);
 	switch (fd->aie_cfg->sel_mode) {
 	case FDMODE:
 		fd->drv_ops->get_fd_result(fd, fd->aie_cfg);
@@ -1724,8 +1749,9 @@ static void mtk_aie_frame_done_worker(struct work_struct *work)
 	break;
 	}
 
-
 	mtk_aie_hw_done(fd, VB2_BUF_STATE_DONE);
+
+	AIE_SYSTRACE_END();
 }
 
 static int mtk_aie_probe(struct platform_device *pdev)
@@ -1758,6 +1784,7 @@ static int mtk_aie_probe(struct platform_device *pdev)
 	fd->is_cmdq_polling = data->is_cmdq_polling;
 	reg_map = data->reg_map;
 	fd->is_shutdown = false;
+	fd->aie_cmdq_event = data->aie_cmdq_event;
 
 	if (dma_set_mask_and_coherent(dev, DMA_BIT_MASK(34)))
 		aie_dev_info(dev, "%s: No suitable DMA available\n", __func__);

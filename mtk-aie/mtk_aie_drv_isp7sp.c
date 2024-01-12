@@ -23,6 +23,7 @@
 #include "iommu_debug.h"
 
 #include "aie_mp_fw_7sp_def.h"
+#include "mtk_aie-trace.h"
 
 #define FDVT_USE_GCE 1
 #define FLD
@@ -508,6 +509,7 @@ static void aie_fdvt_dump_reg(struct mtk_aie_dev *fd)
 	//int fld_face_num = fd->aie_cfg->fld_face_num;
 	unsigned int loop_num = 1;
 	int i = 0;
+	unsigned int event_val = 0;
 
 	if (fd->is_shutdown) {
 		aie_dev_info(fd->dev, "%s: skip for shutdown", __func__);
@@ -957,6 +959,12 @@ static void aie_fdvt_dump_reg(struct mtk_aie_dev *fd)
 				(unsigned int)readl(fd->fd_base + 0x158));
 		}
 	}
+
+	cmdq_mbox_enable(fd->fdvt_clt->chan);
+	event_val = cmdq_get_event(fd->fdvt_clt->chan, fd->aie_cmdq_event);
+	aie_dev_info(fd->dev, "FDVT cmdq event id: %d, status: %d\n",
+		fd->aie_cmdq_event, event_val);
+	cmdq_mbox_disable(fd->fdvt_clt->chan);
 }
 
 static void aie_free_dmabuf(struct mtk_aie_dev *fd, struct imem_buf_info *bufinfo)
@@ -3196,6 +3204,8 @@ static int aie_alloc_aie_buf(struct mtk_aie_dev *fd)
 	int ret = -1;
 	int err_tag = 0;
 
+	AIE_SYSTRACE_BEGIN("%s", __func__);
+
 	aie_reset(fd);
 
 	memset(&fd->st_info, 0, sizeof(fd->st_info));
@@ -3237,6 +3247,7 @@ static int aie_alloc_aie_buf(struct mtk_aie_dev *fd)
 	aie_arrange_fddma_buf(fd);
 	aie_arrange_attrdma_buf(fd);
 
+	AIE_SYSTRACE_END();
 	return ret;
 
 fddma_fail:
@@ -3250,6 +3261,9 @@ max_pyramid_size_too_large:
 	kfree(fd->dma_para);
 	fd->dma_para = NULL;
 	aie_dev_info(fd->dev, "Failed to alloc aie buf: %d\n", err_tag);
+
+	AIE_SYSTRACE_END();
+
 	return ret;
 
 }
@@ -3337,6 +3351,8 @@ static void aie_uninit(struct mtk_aie_dev *fd)
 static int aie_prepare(struct mtk_aie_dev *fd, struct aie_enq_info *aie_cfg)
 {
 	int ret = 0;
+
+	AIE_SYSTRACE_BEGIN("%s", __func__);
 
 	if (fd->fd_state != STATE_INIT) {
 		aie_dev_info(fd->dev, "%s fd state fail: %d\n",
@@ -3437,6 +3453,8 @@ static int aie_prepare(struct mtk_aie_dev *fd, struct aie_enq_info *aie_cfg)
 			(fd->attr_para->w_idx + 1) % MAX_ENQUE_FRAME_NUM;
 	}
 
+	AIE_SYSTRACE_END();
+
 	return ret;
 }
 
@@ -3509,8 +3527,11 @@ static void config_aie_cmdq_hw(struct mtk_aie_dev *fd, struct aie_enq_info *aie_
 	unsigned int loop_num = 0;
 	unsigned int loop_reg_val = 0;
 
+	AIE_SYSTRACE_BEGIN("%s", __func__);
+
 	aie_get_time(fd->tv, 1);
 	pkt = cmdq_pkt_create(fd->fdvt_clt);
+	aie_get_time(fd->tv, 2);
 	/*for early porting*/
 	if (aie_cfg->sel_mode == FDMODE) {
 		cmdq_pkt_write(pkt, NULL, FDVT_ENABLE_HW, 0x00000111,
@@ -3609,12 +3630,14 @@ static void config_aie_cmdq_hw(struct mtk_aie_dev *fd, struct aie_enq_info *aie_
 	}
 
 	//cmdq_pkt_flush(pkt);
-	aie_get_time(fd->tv, 2);
+	aie_get_time(fd->tv, 3);
 	cmdq_pkt_flush_async(pkt, AIECmdqCB, (void *)fd);	/* flush and destry in cmdq*/
 	cmdq_pkt_wait_complete(pkt);
-	aie_get_time(fd->tv, 3);
+	aie_get_time(fd->tv, 4);
 	/* release resource */
 	cmdq_pkt_destroy(pkt);
+
+	AIE_SYSTRACE_END();
 }
 #endif
 

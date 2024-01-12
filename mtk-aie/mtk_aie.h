@@ -239,7 +239,7 @@ do {								\
 #define POSE_LOOP_NUM 3
 #define FLD_MAX_OUT 1680
 
-#define MAX_DEBUG_TIMEVAL 7
+#define MAX_DEBUG_TIMEVAL 8
 
 /* 780ms */
 #define AIE_POLL_TIME_INFINI	(0xFFFF)
@@ -741,6 +741,7 @@ struct mtk_aie_dev {
 	long long tv[MAX_DEBUG_TIMEVAL];
 	bool is_cmdq_polling;
 	bool is_shutdown;
+	unsigned int aie_cmdq_event;
 };
 
 struct mtk_aie_ctx {

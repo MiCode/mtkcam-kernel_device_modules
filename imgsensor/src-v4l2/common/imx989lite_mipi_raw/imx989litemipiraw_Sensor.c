@@ -1365,8 +1365,8 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.csi_param = {
 			.dphy_init_deskew_support = 0,
 		},
-		.sensor_output_dataformat = SENSOR_OUTPUT_FORMAT_RAW_4CELL_HW_BAYER_R,
 		.multi_exposure_ana_gain_range[IMGSENSOR_EXPOSURE_LE].max = BASEGAIN * 16,
+		.sensor_output_dataformat = SENSOR_OUTPUT_FORMAT_RAW_4CELL_R,
 		.dpc_enabled = true,
 	},
 	{
@@ -1572,7 +1572,7 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.csi_param = {
 			.dphy_init_deskew_support = 0,
 		},
-		.sensor_output_dataformat = SENSOR_OUTPUT_FORMAT_RAW_4CELL_HW_BAYER_R,
+		.sensor_output_dataformat = SENSOR_OUTPUT_FORMAT_RAW12_R,
 		.saturation_info = &imgsensor_saturation_info_12bit,
 		.dcg_info = {
 			.dcg_mode = IMGSENSOR_DCG_COMPOSE,
@@ -1635,7 +1635,7 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.csi_param = {
 			.dphy_init_deskew_support = 0,
 		},
-		.sensor_output_dataformat = SENSOR_OUTPUT_FORMAT_RAW_4CELL_HW_BAYER_R,
+		.sensor_output_dataformat = SENSOR_OUTPUT_FORMAT_RAW14_R,
 		.saturation_info = &imgsensor_saturation_info_14bit,
 		.dcg_info = {
 			.dcg_mode = IMGSENSOR_DCG_COMPOSE,

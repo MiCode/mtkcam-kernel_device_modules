@@ -1282,13 +1282,23 @@ int fill_sv_fp(
 static bool
 is_stagger_2_exposure(struct mtk_cam_scen *scen)
 {
-	return scen->scen.normal.exp_num == 2;
+	return (scen->id == MTK_CAM_SCEN_NORMAL &&
+		scen->scen.normal.exp_num == 2);
 }
 
 static bool
 is_stagger_3_exposure(struct mtk_cam_scen *scen)
 {
-	return scen->scen.normal.exp_num == 3;
+	return (scen->id == MTK_CAM_SCEN_NORMAL &&
+		scen->scen.normal.exp_num == 3);
+}
+
+static bool
+is_mstream_2_exposure(struct mtk_cam_scen *scen)
+{
+	return (scen->id == MTK_CAM_SCEN_MSTREAM &&
+		(scen->scen.mstream.type == MTK_CAM_MSTREAM_NE_SE ||
+		scen->scen.mstream.type == MTK_CAM_MSTREAM_SE_NE));
 }
 
 int fill_sv_img_fp(
@@ -1302,7 +1312,7 @@ int fill_sv_img_fp(
 	unsigned int pipe_id, exp_no, buf_cnt, buf_ofset;
 	int exp_order = get_exp_order(&job->job_scen);
 	int tag_idx, i, j, ret = 0;
-	bool is_w;
+	bool is_w, is_mstream = false;
 
 	if (!is_pure_raw_node(job, node))
 		goto EXIT;
@@ -1325,6 +1335,10 @@ int fill_sv_img_fp(
 				__func__);
 			goto EXIT;
 		}
+	} else if (is_mstream_2_exposure(scen)) {
+		exp_no = 2;
+		buf_cnt = 1;
+		is_mstream = true;
 	} else {
 		exp_no = 1;
 		buf_cnt = is_rgbw(job) ? 2 : 1;
@@ -1334,6 +1348,11 @@ int fill_sv_img_fp(
 		if (!is_sv_pure_raw(job) &&
 			!is_dc_mode(job) &&
 			(i + 1) == exp_no)
+			continue;
+		/* skip first exp under mstream case */
+		if (is_mstream &&
+			exp_no == 2 &&
+			i == 0)
 			continue;
 		for (j = 0; j < buf_cnt; j++) {
 			is_w = (j % 2) ? true : false;
@@ -1347,7 +1366,8 @@ int fill_sv_img_fp(
 				goto EXIT;
 			}
 			buf_ofset = buf->image_info.size[0] *
-				get_buf_offset_idx(exp_order, i, (buf_cnt == 2), is_w);
+				get_buf_offset_idx(
+					exp_order, i, (buf_cnt == 2), is_w);
 			ret = fill_sv_fp(helper, buf, node, tag_idx, pipe_id, buf_ofset);
 		}
 	}

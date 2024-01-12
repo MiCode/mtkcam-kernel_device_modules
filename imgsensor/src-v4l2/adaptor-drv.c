@@ -1148,7 +1148,7 @@ static int imgsensor_get_temp(struct thermal_zone_device *tz, int *temperature)
 #else
 	*temperature = 0;
 #endif
-	if (ctx->is_streaming)
+	if (ctx->is_streaming && !ctx->is_i2c_bus_scp)
 		subdrv_call(ctx, get_temp, temperature);
 	else
 		*temperature = THERMAL_TEMP_INVALID;

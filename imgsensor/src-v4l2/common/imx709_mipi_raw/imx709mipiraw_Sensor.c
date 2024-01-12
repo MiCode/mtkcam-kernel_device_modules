@@ -2253,6 +2253,7 @@ static int pwr_seq_reset_sens_to_viewing(struct subdrv_ctx *ctx)
 		return ret;
 	}
 	DRV_LOG(ctx, "select(%s)(correct)\n", state_names[STATE_SDA_AP]);
+	_adaptor_ctx->is_i2c_bus_scp = false;
 	mdelay(1);
 
 	subdrv_i2c_wr_u8(ctx, 0x0100, 0x00);

@@ -876,6 +876,7 @@ static int _aov_switch_i2c_bus_scl_aux(struct v4l2_ctrl *ctrl)
 		}
 		dev_info(ctx->dev, "[%s] select(%s)(correct)\n",
 			__func__, state_names[STATE_SCL_AP]);
+		ctx->is_i2c_bus_scp = false;
 		break;
 	case SCL7:
 	case SCL3:
@@ -887,6 +888,7 @@ static int _aov_switch_i2c_bus_scl_aux(struct v4l2_ctrl *ctrl)
 		}
 		dev_info(ctx->dev, "[%s] select(%s)(correct)\n",
 			__func__, state_names[STATE_SCL_SCP]);
+		ctx->is_i2c_bus_scp = true;
 		break;
 	default:
 		dev_info(ctx->dev,
@@ -917,6 +919,7 @@ static int _aov_switch_i2c_bus_sda_aux(struct v4l2_ctrl *ctrl)
 		}
 		dev_info(ctx->dev, "[%s] select(%s)(correct)\n",
 			__func__, state_names[STATE_SDA_AP]);
+		ctx->is_i2c_bus_scp = false;
 		break;
 	case SDA7:
 	case SDA3:
@@ -928,6 +931,7 @@ static int _aov_switch_i2c_bus_sda_aux(struct v4l2_ctrl *ctrl)
 		}
 		dev_info(ctx->dev, "[%s] select(%s)(correct)\n",
 			__func__, state_names[STATE_SDA_SCP]);
+		ctx->is_i2c_bus_scp = true;
 		break;
 	default:
 		dev_info(ctx->dev, "[%s] i2c bus aux function not support(%d)\n",

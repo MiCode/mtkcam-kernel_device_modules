@@ -193,6 +193,7 @@ struct adaptor_ctx {
 	unsigned int is_sensor_inited:1;
 	unsigned int is_sensor_scenario_inited:1;
 	unsigned int is_sensor_reset_stream_off:1;
+	unsigned int is_i2c_bus_scp:1;
 
 	int open_refcnt;
 	int power_refcnt;

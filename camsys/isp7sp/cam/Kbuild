@@ -108,6 +108,11 @@ PLATFORM_PATH = $(srctree)/$(src)
 endif
 
 # platform data
+ifneq ($(wildcard $(PLATFORM_PATH)/mtk_cam-plat-mt6878.c),)
+ccflags-y += -DCAMSYS_ISP7SP_MT6878
+$(CAM_MODULE)-objs += mtk_cam-plat-mt6878.o
+endif
+
 ifneq ($(wildcard $(PLATFORM_PATH)/mtk_cam-plat-mt6897.c),)
 ccflags-y += -DCAMSYS_ISP7SP_MT6897
 $(CAM_MODULE)-objs += mtk_cam-plat-mt6897.o

@@ -55,6 +55,9 @@ MODULE_PARM_DESC(debug_sensor_meta_dump, "activates sensor meta dump");
 #define ENABLE_CCU
 
 static const struct of_device_id mtk_cam_of_ids[] = {
+#ifdef CAMSYS_ISP7SP_MT6878
+	{.compatible = "mediatek,mt6878-camisp", .data = &mt6878_data},
+#endif
 #ifdef CAMSYS_ISP7SP_MT6897
 	{.compatible = "mediatek,mt6897-camisp", .data = &mt6897_data},
 #endif

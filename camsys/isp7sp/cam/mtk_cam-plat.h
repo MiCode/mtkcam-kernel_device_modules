@@ -214,6 +214,9 @@ void set_platform_data(const struct camsys_platform_data *platform_data);
 #define GET_PLAT_HW(member) (cur_platform->hw->member)
 
 /* platform data list */
+#ifdef CAMSYS_ISP7SP_MT6878
+extern struct camsys_platform_data mt6878_data;
+#endif
 #ifdef CAMSYS_ISP7SP_MT6897
 extern struct camsys_platform_data mt6897_data;
 #endif

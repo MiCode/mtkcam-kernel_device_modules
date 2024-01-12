@@ -96,16 +96,6 @@ struct aie_data {
 	bool larb_clk_ready;
 };
 
-static struct clk_bulk_data ipesys_isp7_aie_clks[] = {
-	{ .id = "VCORE_GALS" },
-	{ .id = "MAIN_GALS" },
-	{ .id = "IMG_IPE" },
-	{ .id = "IPE_FDVT" },
-	/*{ .id = "IPE_FDVT1" },*/
-	{ .id = "IPE_TOP" },
-	{ .id = "IPE_SMI_LARB12" },
-};
-
 static struct clk_bulk_data ipesys_isp7s_aie_clks[] = {
 	{ .id = "VCORE_GALS" },
 	{ .id = "IPE_FDVT" },
@@ -138,13 +128,6 @@ static struct clk_bulk_data isp7sp_1_aie_clks[] = {
 	{ .id = "GALS" },
 	{ .id = "FDVT" },
 	{ .id = "LARB12" },
-};
-
-static struct aie_data data_isp71 = {
-	.clks = ipesys_isp7_aie_clks,
-	.clk_num = ARRAY_SIZE(ipesys_isp7_aie_clks),
-	.drv_ops = &aie_ops_isp71,
-	.larb_clk_ready = true,
 };
 
 static struct aie_data data_isp7s = {
@@ -625,9 +608,15 @@ static void mtk_aie_hw_disconnect(struct mtk_aie_dev *fd)
 		cmdq_mbox_disable(fd->fdvt_clt->chan);
 		//mtk_aie_mmdvfs_set(fd, 0, 0);
 		if (fd->map_count == 1) { //have qbuf + map memory
-			dma_buf_vunmap(fd->dmabuf, &fd->map);
-			dma_buf_end_cpu_access(fd->dmabuf, DMA_BIDIRECTIONAL);
-			dma_buf_put(fd->dmabuf);
+			dma_buf_vunmap(fd->para_dmabuf, &fd->para_map);
+			dma_buf_end_cpu_access(fd->para_dmabuf, DMA_BIDIRECTIONAL);
+			dma_buf_put(fd->para_dmabuf);
+
+			dma_buf_unmap_attachment(fd->config_model_attach,
+				fd->config_model_sgt, DMA_BIDIRECTIONAL);
+			dma_buf_detach(fd->config_model_dmabuf, fd->config_model_attach);
+			dma_buf_vunmap(fd->config_model_dmabuf, &fd->config_model_map);
+			dma_buf_put(fd->config_model_dmabuf);
 			fd->map_count--;
 			aie_dev_info(fd->dev, "[%s] stream_count:%d map_count%d\n", __func__,
 					fd->fd_stream_count, fd->map_count);
@@ -1001,28 +990,28 @@ int mtk_aie_vidioc_qbuf(struct file *file, void *priv,
 	if (buf->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) { /*IMG & data*/
 		if (!fd->map_count) {
 
-			fd->dmabuf = dma_buf_get(buf->m.planes[buf->length-1].m.fd);
-			if (IS_ERR(fd->dmabuf) || fd->dmabuf == NULL) {
+			fd->para_dmabuf = dma_buf_get(buf->m.planes[buf->length-2].m.fd);
+			if (IS_ERR(fd->para_dmabuf) || fd->para_dmabuf == NULL) {
 				aie_dev_info(fd->dev, "%s, dma_buf_getad failed\n", __func__);
 				return -ENOMEM;
 			}
 
-			ret = dma_buf_begin_cpu_access(fd->dmabuf, DMA_BIDIRECTIONAL);
+			ret = dma_buf_begin_cpu_access(fd->para_dmabuf, DMA_BIDIRECTIONAL);
 			if (ret < 0) {
 				aie_dev_info(fd->dev, "%s, begin_cpu_access failed\n", __func__);
 				ret = -ENOMEM;
-				goto ERROR_PUTBUF;
+				goto ERROR_PARA_PUTBUF;
 			}
 
-			ret = (u64)dma_buf_vmap(fd->dmabuf, &fd->map);
+			ret = (u64)dma_buf_vmap(fd->para_dmabuf, &fd->para_map);
 			if (ret) {
 				aie_dev_info(fd->dev, "%s, map kernel va failed\n", __func__);
 				ret = -ENOMEM;
-				goto ERROR;
+				goto ERROR_END_CPU_ACCESS;
 			}
-			fd->kva = (unsigned long long)fd->map.vaddr;
+			fd->para_kva = (unsigned long long)fd->para_map.vaddr;
 
-			memcpy((char *)&g_user_param, (char *)fd->kva, sizeof(g_user_param));
+			memcpy((char *)&g_user_param, (char *)fd->para_kva, sizeof(g_user_param));
 			fd->base_para->rpn_anchor_thrd = (signed short)
 						(g_user_param.feature_threshold & 0x0000FFFF);
 			fd->base_para->max_img_height = (signed short)
@@ -1044,23 +1033,65 @@ int mtk_aie_vidioc_qbuf(struct file *file, void *priv,
 				aie_enable_secure_domain(fd);
 			}
 
+			fd->config_model_dmabuf =
+				dma_buf_get(buf->m.planes[buf->length-1].m.fd);
+			if (IS_ERR(fd->config_model_dmabuf) ||
+				fd->config_model_dmabuf == NULL) {
+				aie_dev_info(fd->dev, "%s, config_model dmabuf get failed\n",
+					__func__);
+				ret = -ENOMEM;
+				goto ERROR_PARA_UMAP;
+			}
+
+			ret = (u64)dma_buf_vmap(fd->config_model_dmabuf,
+				&fd->config_model_map);
+			if (ret) {
+				aie_dev_info(fd->dev, "%s, config_model map va failed\n",
+					__func__);
+				ret = -ENOMEM;
+				goto ERROR_PUT_CONFIG_MODEL_BUFFER;
+			}
+			fd->config_model_kva =
+				(unsigned long long)fd->config_model_map.vaddr;
+
+			fd->config_model_attach =
+				dma_buf_attach(fd->config_model_dmabuf, fd->smmu_dev);
+			if (IS_ERR(fd->config_model_attach)) {
+				aie_dev_info(fd->dev, "config_model_dmabuf attach fail\n");
+				ret = -ENOMEM;
+				goto ERROR_CONFIG_MODEL_UMAP;
+			}
+
+			fd->config_model_sgt =
+				dma_buf_map_attachment(fd->config_model_attach, DMA_BIDIRECTIONAL);
+			fd->config_model_pa = sg_dma_address(fd->config_model_sgt->sgl);
+
 			ret = fd->drv_ops->alloc_buf(fd);
 			if (ret)
 				return ret;
 			fd->map_count++;
 		} else {
-			memcpy((char *)&g_user_param, (char *)fd->kva, sizeof(g_user_param));
+			memcpy((char *)&g_user_param, (char *)fd->para_kva, sizeof(g_user_param));
 		}
 
 	}
 
 	return v4l2_m2m_ioctl_qbuf(file, priv, buf);
 
-ERROR:
-	dma_buf_end_cpu_access(fd->dmabuf, DMA_BIDIRECTIONAL);
+ERROR_CONFIG_MODEL_UMAP:
+	dma_buf_vunmap(fd->config_model_dmabuf, &fd->config_model_map);
 
-ERROR_PUTBUF:
-	dma_buf_put(fd->dmabuf);
+ERROR_PUT_CONFIG_MODEL_BUFFER:
+	dma_buf_put(fd->config_model_dmabuf);
+
+ERROR_PARA_UMAP:
+	dma_buf_vunmap(fd->para_dmabuf, &fd->para_map);
+
+ERROR_END_CPU_ACCESS:
+	dma_buf_end_cpu_access(fd->para_dmabuf, DMA_BIDIRECTIONAL);
+
+ERROR_PARA_PUTBUF:
+	dma_buf_put(fd->para_dmabuf);
 
 	return ret;
 }
@@ -1288,6 +1319,19 @@ static void mtk_aie_device_run(void *priv)
 	fd->aie_cfg->src_padding.up = g_user_param.user_param.src_padding_up;
 	fd->aie_cfg->freq_level = g_user_param.user_param.freq_level;
 
+	aie_dev_dbg(fd->dev, "fd->aie_cfg->sel_mode(%d), fd->aie_cfg->src_img_fmt(%d), "
+		"fd->aie_cfg->src_img_width(%d), fd->aie_cfg->src_img_height(%d), "
+		"fd->aie_cfg->src_img_stride(%d), fd->aie_cfg->pyramid_base_width(%d), "
+		"fd->aie_cfg->pyramid_base_height(%d), fd->aie_cfg->number_of_pyramid(%d), "
+		"fd->aie_cfg->rotate_degree(%d), fd->aie_cfg->en_roi(%d),(%d,%d,%d,%d), "
+		"fd->aie_cfg->en_padding(%d),(%d,%d,%d,%d),(%d)\n",
+		fd->aie_cfg->sel_mode, fd->aie_cfg->src_img_fmt,
+		fd->aie_cfg->src_img_width, fd->aie_cfg->src_img_height, fd->aie_cfg->src_img_stride,
+		fd->aie_cfg->pyramid_base_width, fd->aie_cfg->pyramid_base_height,
+		fd->aie_cfg->number_of_pyramid, fd->aie_cfg->rotate_degree, fd->aie_cfg->en_roi,
+		fd->aie_cfg->src_roi.x1, fd->aie_cfg->src_roi.y1, fd->aie_cfg->src_roi.x2, fd->aie_cfg->src_roi.y2,
+		fd->aie_cfg->en_padding, fd->aie_cfg->src_padding.left, fd->aie_cfg->src_padding.right,
+		fd->aie_cfg->src_padding.down, fd->aie_cfg->src_padding.up, fd->aie_cfg->freq_level);
 
 	if (fd->aie_cfg->sel_mode == FDMODE) {
 		fd->dma_para->fd_out_hw_pa[rpn2_loop_num][0]
@@ -1730,10 +1774,6 @@ static const struct dev_pm_ops mtk_aie_pm_ops = {
 				   mtk_aie_runtime_resume, NULL)};
 
 static const struct of_device_id mtk_aie_of_ids[] = {
-	{
-		.compatible = "mediatek,aie-hw3.0",
-		.data = &data_isp71,
-	},
 	{
 		.compatible = "mediatek,aie-isp7s",
 		.data = &data_isp7s,

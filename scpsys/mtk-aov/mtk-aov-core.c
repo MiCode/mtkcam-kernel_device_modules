@@ -308,7 +308,8 @@ static int ipi_receive(unsigned int id, void *unused,
 		}
 	} else if (packet->command == AOV_SCP_CMD_AIE_HANG) {
 		dev_info(aov_dev->dev, "%s: receive AIE HANG signal from SCP\n", __func__);
-		wake_up_process(core_info->smi_dump_thread);
+		atomic_set(&(core_info->do_smi_dump), 1);
+		wake_up_interruptible(&core_info->aie_smi_wq);
 	} else {
 		event = (struct base_event *)(core_info->buf_va +
 			(packet->buffer - core_info->buf_pa));
@@ -954,12 +955,15 @@ int aov_core_init(struct mtk_aov *aov_dev)
 	atomic_set(&(core_info->aie_avail), 1);
 
 	// create aie smi dump thread
+	atomic_set(&(core_info->do_smi_dump), 0);
+	init_waitqueue_head(&core_info->aie_smi_wq);
 	core_info->smi_dump_thread = kthread_create(aie_hang_kernel_dump, NULL,
 		"aie_smi_dump_thread");
 	if (IS_ERR(core_info->smi_dump_thread)) {
 		dev_dbg(aov_dev->dev, "%s kthread_create error ret:%ld\n", __func__,
 			PTR_ERR(core_info->smi_dump_thread));
 	}
+	wake_up_process(core_info->smi_dump_thread);
 
 	return 0;
 }
@@ -1481,18 +1485,30 @@ int aie_hang_kernel_dump(void *arg)
 	struct mtk_aov *aov_dev = aov_core_get_device();
 	struct aov_core *core_info = &aov_dev->core_info;
 	int ret = 0;
+	long wait_ret = 0;
 
-	dev_info(aov_dev->dev, "%s: do aie kernel dump+", __func__);
-	#pragma clang diagnostic push
-	#pragma clang diagnostic ignored "-Wimplicit-function-declaration"
-	mtk_smi_dbg_hang_detect("AOV_AIE_HANG");
-	#pragma clang diagnostic pop
-	dev_info(aov_dev->dev, "%s: do aie kernel dump-", __func__);
+	dev_info(aov_dev->dev, "%s: Enter while loop to wait event", __func__);
+	while (!kthread_should_stop()) {
+		wait_ret = wait_event_interruptible(core_info->aie_smi_wq,
+			atomic_cmpxchg(&(core_info->do_smi_dump), 1, 0));
+		if (wait_ret) {
+			dev_info(aov_dev->dev, "%s: wake up by signal(%ld)", __func__, wait_ret);
+			continue;
+		}
 
-	ret = send_cmd_internal(core_info, AOV_SCP_CMD_AIE_HANG_DONE, 0, 0, false, false);
-	if (ret < 0)
-		dev_info(aov_dev->dev, "%s: failed to do aov aie hang done: %d\n",
-			__func__, ret);
+		dev_info(aov_dev->dev, "%s: do aie kernel dump+", __func__);
+		#pragma clang diagnostic push
+		#pragma clang diagnostic ignored "-Wimplicit-function-declaration"
+		mtk_smi_dbg_hang_detect("AOV_AIE_HANG");
+		#pragma clang diagnostic pop
+		dev_info(aov_dev->dev, "%s: do aie kernel dump-", __func__);
+
+		ret = send_cmd_internal(core_info, AOV_SCP_CMD_AIE_HANG_DONE, 0, 0, false, false);
+		if (ret < 0)
+			dev_info(aov_dev->dev, "%s: failed to do aov aie hang done: %d\n",
+				__func__, ret);
+	}
+	dev_info(aov_dev->dev, "%s: leave while loop for kthread stop", __func__);
 	return 0;
 }
 

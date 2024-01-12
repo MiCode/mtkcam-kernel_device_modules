@@ -68,6 +68,8 @@ struct aov_core {
 	struct queue event;
 	struct queue queue;
 
+	atomic_t do_smi_dump;
+	wait_queue_head_t aie_smi_wq;
 	struct task_struct *smi_dump_thread;
 };
 

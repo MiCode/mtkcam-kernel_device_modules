@@ -31,6 +31,7 @@ static u16 get_gain2reg(u32 gain);
 static int imx989lite_seamless_switch(struct subdrv_ctx *ctx, u8 *para, u32 *len);
 static int imx989lite_set_test_pattern(struct subdrv_ctx *ctx, u8 *para, u32 *len);
 static int imx989lite_set_test_pattern_data(struct subdrv_ctx *ctx, u8 *para, u32 *len);
+static int imx989_cphy_lrte_mode(struct subdrv_ctx *ctx, u8 *para, u32 *len);
 static int get_imgsensor_id(struct subdrv_ctx *ctx, u32 *sensor_id);
 static int open(struct subdrv_ctx *ctx);
 static int init_ctx(struct subdrv_ctx *ctx,	struct i2c_client *i2c_client, u8 i2c_write_id);
@@ -42,6 +43,7 @@ static struct subdrv_feature_control feature_control_list[] = {
 	{SENSOR_FEATURE_SET_TEST_PATTERN, imx989lite_set_test_pattern},
 	{SENSOR_FEATURE_SET_TEST_PATTERN_DATA, imx989lite_set_test_pattern_data},
 	{SENSOR_FEATURE_SEAMLESS_SWITCH, imx989lite_seamless_switch},
+	{SENSOR_FEATURE_SET_CPHY_LRTE_MODE, imx989_cphy_lrte_mode},
 };
 
 static struct eeprom_info_struct eeprom_info[] = {
@@ -1183,7 +1185,9 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.ae_binning_ratio = 1000,
 		.fine_integ_line = 0,
 		.delay_frame = 3,
-		.csi_param = {},
+		.csi_param = {
+			.cphy_lrte_support = 1,
+		},
 		.dpc_enabled = true,
 	},
 	{
@@ -1230,7 +1234,9 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.ae_binning_ratio = 1000,
 		.fine_integ_line = 0,
 		.delay_frame = 3,
-		.csi_param = {},
+		.csi_param = {
+			.cphy_lrte_support = 1,
+		},
 		.dpc_enabled = true,
 	},
 	{
@@ -1277,7 +1283,9 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.ae_binning_ratio = 1000,
 		.fine_integ_line = 0,
 		.delay_frame = 3,
-		.csi_param = {},
+		.csi_param = {
+			.cphy_lrte_support = 1,
+		},
 		.dpc_enabled = true,
 	},
 	{
@@ -1324,7 +1332,9 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.ae_binning_ratio = 1000,
 		.fine_integ_line = 0,
 		.delay_frame = 3,
-		.csi_param = {},
+		.csi_param = {
+			.cphy_lrte_support = 1,
+		},
 		.dpc_enabled = true,
 	},
 	{
@@ -1371,7 +1381,9 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.ae_binning_ratio = 1000,
 		.fine_integ_line = 0,
 		.delay_frame = 3,
-		.csi_param = {},
+		.csi_param = {
+			.cphy_lrte_support = 1,
+		},
 		.dpc_enabled = true,
 	},
 	{
@@ -1418,7 +1430,9 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.ae_binning_ratio = 1000,
 		.fine_integ_line = 0,
 		.delay_frame = 3,
-		.csi_param = {},
+		.csi_param = {
+			.cphy_lrte_support = 1,
+		},
 		.dpc_enabled = true,
 	},
 	{
@@ -1466,7 +1480,9 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.ae_binning_ratio = 1000,
 		.fine_integ_line = 0,
 		.delay_frame = 3,
-		.csi_param = {},
+		.csi_param = {
+			.cphy_lrte_support = 1,
+		},
 		.saturation_info = &imgsensor_saturation_info_10bit,
 		.dcg_info = {
 			.dcg_mode = IMGSENSOR_DCG_RAW,
@@ -1528,7 +1544,9 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.ae_binning_ratio = 1000,
 		.fine_integ_line = 0,
 		.delay_frame = 3,
-		.csi_param = {},
+		.csi_param = {
+			.cphy_lrte_support = 1,
+		},
 		.dpc_enabled = true,
 	},
 	{
@@ -1577,6 +1595,7 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.delay_frame = 3,
 		.csi_param = {
 			.dphy_init_deskew_support = 0,
+			.cphy_lrte_support = 1,
 		},
 		.dpc_enabled = true,
 		.sensor_output_dataformat = SENSOR_OUTPUT_FORMAT_RAW_4CELL_HW_BAYER_R,
@@ -1627,6 +1646,7 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.delay_frame = 3,
 		.csi_param = {
 			.dphy_init_deskew_support = 0,
+			.cphy_lrte_support = 1,
 		},
 		.sensor_output_dataformat = SENSOR_OUTPUT_FORMAT_RAW_4CELL_HW_BAYER_R,
 		.multi_exposure_ana_gain_range[IMGSENSOR_EXPOSURE_LE].max = BASEGAIN * 16,
@@ -1678,6 +1698,7 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.delay_frame = 3,
 		.csi_param = {
 			.dphy_init_deskew_support = 0,
+			.cphy_lrte_support = 1,
 		},
 		.multi_exposure_ana_gain_range[IMGSENSOR_EXPOSURE_LE].max = BASEGAIN * 16,
 		.sensor_output_dataformat = SENSOR_OUTPUT_FORMAT_RAW_4CELL_R,
@@ -1729,6 +1750,7 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.delay_frame = 3,
 		.csi_param = {
 			.dphy_init_deskew_support = 0,
+			.cphy_lrte_support = 1,
 		},
 		.sensor_output_dataformat = SENSOR_OUTPUT_FORMAT_RAW_4CELL_HW_BAYER_R,
 		.multi_exposure_ana_gain_range[IMGSENSOR_EXPOSURE_LE].max = BASEGAIN * 16,
@@ -1780,6 +1802,7 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.delay_frame = 3,
 		.csi_param = {
 			.dphy_init_deskew_support = 0,
+			.cphy_lrte_support = 1,
 		},
 		.multi_exposure_ana_gain_range[IMGSENSOR_EXPOSURE_LE].max = BASEGAIN * 16,
 		.sensor_output_dataformat = SENSOR_OUTPUT_FORMAT_RAW_4CELL_R,
@@ -1834,6 +1857,7 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.delay_frame = 3,
 		.csi_param = {
 			.dphy_init_deskew_support = 0,
+			.cphy_lrte_support = 1,
 		},
 		.sensor_output_dataformat = SENSOR_OUTPUT_FORMAT_RAW_4CELL_HW_BAYER_R,
 		.dpc_enabled = true,
@@ -1885,6 +1909,7 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.delay_frame = 3,
 		.csi_param = {
 			.dphy_init_deskew_support = 0,
+			.cphy_lrte_support = 1,
 		},
 		.sensor_output_dataformat = SENSOR_OUTPUT_FORMAT_RAW12_R,
 		.saturation_info = &imgsensor_saturation_info_12bit,
@@ -1948,6 +1973,7 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.delay_frame = 3,
 		.csi_param = {
 			.dphy_init_deskew_support = 0,
+			.cphy_lrte_support = 1,
 		},
 		.sensor_output_dataformat = SENSOR_OUTPUT_FORMAT_RAW14_R,
 		.saturation_info = &imgsensor_saturation_info_14bit,
@@ -2011,6 +2037,7 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.delay_frame = 3,
 		.csi_param = {
 			.dphy_init_deskew_support = 0,
+			.cphy_lrte_support = 1,
 		},
 		.sensor_output_dataformat = SENSOR_OUTPUT_FORMAT_RAW_4CELL_HW_BAYER_R,
 		.saturation_info = &imgsensor_saturation_info_10bit,
@@ -2076,6 +2103,7 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.delay_frame = 3,
 		.csi_param = {
 			.dphy_init_deskew_support = 0,
+			.cphy_lrte_support = 1,
 		},
 		.sensor_output_dataformat = SENSOR_OUTPUT_FORMAT_RAW_4CELL_HW_BAYER_R,
 		.exposure_order_in_lbmf = IMGSENSOR_LBMF_EXPOSURE_SE_FIRST,
@@ -2135,6 +2163,7 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.delay_frame = 3,
 		.csi_param = {
 			.dphy_init_deskew_support = 0,
+			.cphy_lrte_support = 1,
 		},
 		.sensor_output_dataformat = SENSOR_OUTPUT_FORMAT_RAW_4CELL_HW_BAYER_R,
 		.dpc_enabled = true,
@@ -2185,6 +2214,7 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.delay_frame = 3,
 		.csi_param = {
 			.dphy_init_deskew_support = 0,
+			.cphy_lrte_support = 1,
 		},
 		.sensor_output_dataformat = SENSOR_OUTPUT_FORMAT_RAW_4CELL_HW_BAYER_R,
 		.dpc_enabled = true,
@@ -2233,7 +2263,9 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.ae_binning_ratio = 1000,
 		.fine_integ_line = 0,
 		.delay_frame = 3,
-		.csi_param = {},
+		.csi_param = {
+			.cphy_lrte_support = 1,
+		},
 		.multi_exposure_ana_gain_range[IMGSENSOR_EXPOSURE_LE].max = BASEGAIN * 16,
 		.dpc_enabled = true,
 	},
@@ -2281,7 +2313,9 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.ae_binning_ratio = 1000,
 		.fine_integ_line = 0,
 		.delay_frame = 3,
-		.csi_param = {},
+		.csi_param = {
+			.cphy_lrte_support = 1,
+		},
 		.multi_exposure_ana_gain_range[IMGSENSOR_EXPOSURE_LE].max = BASEGAIN * 16,
 		.sensor_output_dataformat = SENSOR_OUTPUT_FORMAT_RAW_4CELL_R,
 		.dpc_enabled = true,
@@ -2330,7 +2364,9 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.ae_binning_ratio = 1000,
 		.fine_integ_line = 0,
 		.delay_frame = 3,
-		.csi_param = {},
+		.csi_param = {
+			.cphy_lrte_support = 1,
+		},
 		.dpc_enabled = true,
 	},
 	{
@@ -2380,7 +2416,9 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.ae_binning_ratio = 1000,
 		.fine_integ_line = 0,
 		.delay_frame = 3,
-		.csi_param = {},
+		.csi_param = {
+			.cphy_lrte_support = 1,
+		},
 		.exposure_order_in_lbmf = IMGSENSOR_LBMF_EXPOSURE_SE_FIRST,
 		.mode_type_in_lbmf = IMGSENSOR_LBMF_MODE_MANUAL,
 		.multi_exposure_ana_gain_range[IMGSENSOR_EXPOSURE_LE].max = BASEGAIN * 16,
@@ -2432,7 +2470,9 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.ae_binning_ratio = 1000,
 		.fine_integ_line = 0,
 		.delay_frame = 3,
-		.csi_param = {},
+		.csi_param = {
+			.cphy_lrte_support = 1,
+		},
 		.sensor_output_dataformat = SENSOR_OUTPUT_FORMAT_RAW12_R,
 		.saturation_info = &imgsensor_saturation_info_12bit,
 		.dcg_info = {
@@ -2492,7 +2532,9 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.ae_binning_ratio = 1000,
 		.fine_integ_line = 0,
 		.delay_frame = 3,
-		.csi_param = {},
+		.csi_param = {
+			.cphy_lrte_support = 1,
+		},
 		.dpc_enabled = true,
 	},
 };
@@ -2869,6 +2911,34 @@ static int imx989lite_seamless_switch(struct subdrv_ctx *ctx, u8 *para, u32 *len
 	ctx->ref_sof_cnt = ctx->sof_cnt;
 	ctx->is_seamless = FALSE;
 	DRV_LOG(ctx, "X: set seamless switch done\n");
+	return ERROR_NONE;
+}
+
+static int imx989_cphy_lrte_mode(struct subdrv_ctx *ctx, u8 *para, u32 *len)
+{
+	enum SENSOR_SCENARIO_ID_ENUM scenario_id;
+	u8 cphy_lrte_en = 0;
+
+	scenario_id = *((u64 *)para);
+	cphy_lrte_en =
+		ctx->s_ctx.mode[scenario_id].csi_param.cphy_lrte_support;
+
+	if (cphy_lrte_en) {
+		/*cphy lrte enable*/
+		subdrv_i2c_wr_u8(ctx, 0x0860, 0x80);//enable cphy lrte and short packet 110 spacers
+		subdrv_i2c_wr_u8(ctx, 0x0861, 0x6E);
+		subdrv_i2c_wr_u8(ctx, 0x0862, 0x00);//long packet 40 spacers
+		subdrv_i2c_wr_u8(ctx, 0x0863, 0x28);
+	} else {
+		/*cphy lrte disable*/
+		subdrv_i2c_wr_u8(ctx, 0x0860, 0x00);//disable cphy lrte
+		subdrv_i2c_wr_u8(ctx, 0x0861, 0x00);
+		subdrv_i2c_wr_u8(ctx, 0x0862, 0x00);
+		subdrv_i2c_wr_u8(ctx, 0x0863, 0x00);
+	}
+
+	DRV_LOG_MUST(ctx, "cphy_lrte_en = %d, scen = %u\n",
+		cphy_lrte_en, scenario_id);
 	return ERROR_NONE;
 }
 

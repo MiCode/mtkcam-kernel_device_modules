@@ -354,6 +354,9 @@ static void control_sensor(struct adaptor_ctx *ctx)
 		subdrv_call(ctx, feature_control,
 				SENSOR_FEATURE_SET_DESKEW_CTRL,
 				(u8 *)data, &len);
+		subdrv_call(ctx, feature_control,
+				SENSOR_FEATURE_SET_CPHY_LRTE_MODE,
+				(u8 *)data, &len);
 		ctx->is_sensor_scenario_inited = 1;
 	}
 

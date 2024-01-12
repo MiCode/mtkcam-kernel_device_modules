@@ -2698,20 +2698,62 @@ static int csirx_mac_csi_setting(struct seninf_ctx *ctx)
 
 static int csirx_mac_csi_lrte_setting(struct seninf_ctx *ctx)
 {
-	void *csirx_mac_csi_A = ctx->reg_csirx_mac_csi[(unsigned int)ctx->portA];
-	void *csirx_mac_csi_B = ctx->reg_csirx_mac_csi[(unsigned int)ctx->portB];
+	void *csirx_mac_csi = ctx->reg_csirx_mac_csi[(unsigned int)ctx->port];
+	void *cphy_base = ctx->reg_ana_cphy_top[(unsigned int)ctx->port];
+	void *dphy_base = ctx->reg_ana_dphy_top[(unsigned int)ctx->port];
 
-	/* LRTE CPHY setting in mac, DPHY setting todo in DPHY reg */
-	SENINF_BITS(csirx_mac_csi_A, CSIRX_MAC_CSI2_RESYNC_MERGE_CTRL, RG_CSI2_RESYNC_LRTE_EN, 0x1);
-	SENINF_BITS(csirx_mac_csi_A, CSIRX_MAC_CSI2_RESYNC_MERGE_CTRL2, RG_RESYNC_LRTE_WPTR_LENGTH, 0x1);
-	SENINF_BITS(csirx_mac_csi_A, CSIRX_MAC_CSI2_RESYNC_MERGE_CTRL2, RG_RESYNC_LRTE_PKT_HSRST, 0x0);
-	SENINF_BITS(csirx_mac_csi_A, CSIRX_MAC_CSI2_RESYNC_MERGE_CTRL2, RG_RESYNC_LRTE_WC_DMY_OPTION, 0x0);
+	dev_info(ctx->dev, "[%s] lrte_support flag = %d\n",
+			__func__, ctx->csi_param.cphy_lrte_support);
 
-	SENINF_BITS(csirx_mac_csi_B, CSIRX_MAC_CSI2_RESYNC_MERGE_CTRL, RG_CSI2_RESYNC_LRTE_EN, 0x1);
-	SENINF_BITS(csirx_mac_csi_B, CSIRX_MAC_CSI2_RESYNC_MERGE_CTRL2, RG_RESYNC_LRTE_WPTR_LENGTH, 0x1);
-	SENINF_BITS(csirx_mac_csi_B, CSIRX_MAC_CSI2_RESYNC_MERGE_CTRL2, RG_RESYNC_LRTE_PKT_HSRST, 0x0);
-	SENINF_BITS(csirx_mac_csi_B, CSIRX_MAC_CSI2_RESYNC_MERGE_CTRL2, RG_RESYNC_LRTE_WC_DMY_OPTION, 0x0);
-	/* CPHY LRTE TX spacer must greater than 40 */
+	if(!ctx->csi_param.cphy_lrte_support) {
+		/* stability debug disable LRTE_EN */
+		SENINF_BITS(csirx_mac_csi, CSIRX_MAC_CSI2_RESYNC_MERGE_CTRL, RG_CSI2_RESYNC_LRTE_EN, 0x0);
+		SENINF_BITS(cphy_base, CPHY_RX_CAL_ALP_CTRL, RG_CPHY_ALP_EN, 0x0);
+		dev_info(ctx->dev, "[%s] lrte not support(%d), disable LRTE_EN ALP_EN, port:%d\n",
+			__func__, ctx->csi_param.cphy_lrte_support, ctx->port);
+		return 0;
+	}
+
+	if (!ctx->is_cphy) {
+		/* DPHY Config */
+		dev_info(ctx->dev, "[%s] Dphy sensor skip lrte mac_csi setting, port:%d\n",
+			__func__, ctx->port);
+	} else {
+		/* CPHY Config */
+		/* LRTE CPHY setting in mac, DPHY setting todo in DPHY reg */
+		SENINF_BITS(csirx_mac_csi, CSIRX_MAC_CSI2_RESYNC_MERGE_CTRL, RG_CSI2_RESYNC_LRTE_EN, 0x1);
+		SENINF_BITS(csirx_mac_csi, CSIRX_MAC_CSI2_RESYNC_MERGE_CTRL2, RG_RESYNC_LRTE_WPTR_LENGTH, 0x1);
+		SENINF_BITS(csirx_mac_csi, CSIRX_MAC_CSI2_RESYNC_MERGE_CTRL2, RG_RESYNC_LRTE_PKT_HSRST, 0x0);
+		SENINF_BITS(csirx_mac_csi, CSIRX_MAC_CSI2_RESYNC_MERGE_CTRL2, RG_RESYNC_LRTE_WC_DMY_OPTION, 0x0);
+
+		/* CPHY LRTE TX spacer must greater than 40 */
+		dev_info(ctx->dev, "[%s] Cphy lrte support(%d), port:%d\n",
+			__func__, ctx->csi_param.cphy_lrte_support, ctx->port);
+
+		/* LRTE SW Workaround */
+		SENINF_BITS(dphy_base, DPHY_RX_SPARE1, RG_POST_CNT, 0x1);
+		SENINF_BITS(cphy_base, CPHY_RX_STATE_CHK_EN, RG_ALP_POS_DET_MASK, 0xFF);
+		SENINF_BITS(cphy_base, CPHY_RX_CAL_ALP_CTRL, RG_CPHY_ALP_SETTLE_PARAMETER, 0x23);
+		SENINF_BITS(cphy_base, CPHY_RX_CAL_ALP_CTRL, RG_ALP_RX_EN_SEL, 0x0);
+		SENINF_BITS(cphy_base, CPHY_RX_CAL_ALP_CTRL, RG_CPHY_ALP_EN, 0x1);
+		SENINF_BITS(cphy_base, CPHY_RX_INIT, RG_CPHY_CSI2_TINIT_CNT_EN, 0x1);
+		SENINF_BITS(cphy_base, CPHY_POST_ENCODE, CPHY_POST_REPLACE_EN, 0x0);
+		dev_info(ctx->dev, "[%s] LRTE DPHY_RX_SPARE1(0x%x)\n", __func__,
+			SENINF_READ_BITS(dphy_base, DPHY_RX_SPARE1, RG_POST_CNT));
+		dev_info(ctx->dev, "[%s] LRTE DPHY_RX_SPARE1(0x%x)\n", __func__,
+			SENINF_READ_BITS(cphy_base, CPHY_RX_STATE_CHK_EN, RG_ALP_POS_DET_MASK));
+		dev_info(ctx->dev, "[%s] LRTE DPHY_RX_SPARE1(0x%x)\n", __func__,
+			SENINF_READ_BITS(cphy_base, CPHY_RX_CAL_ALP_CTRL, RG_CPHY_ALP_SETTLE_PARAMETER));
+		dev_info(ctx->dev, "[%s] LRTE DPHY_RX_SPARE1(0x%x)\n", __func__,
+			SENINF_READ_BITS(cphy_base, CPHY_RX_CAL_ALP_CTRL, RG_ALP_RX_EN_SEL));
+		dev_info(ctx->dev, "[%s] LRTE DPHY_RX_SPARE1(0x%x)\n", __func__,
+			SENINF_READ_BITS(cphy_base, CPHY_RX_CAL_ALP_CTRL, RG_CPHY_ALP_EN));
+		dev_info(ctx->dev, "[%s] LRTE DPHY_RX_SPARE1(0x%x)\n", __func__,
+			SENINF_READ_BITS(cphy_base, CPHY_RX_INIT, RG_CPHY_CSI2_TINIT_CNT_EN));
+		dev_info(ctx->dev, "[%s] LRTE DPHY_RX_SPARE1(0x%x)\n", __func__,
+			SENINF_READ_BITS(cphy_base, CPHY_POST_ENCODE, CPHY_POST_REPLACE_EN));
+	}
+
 	return 0;
 }
 

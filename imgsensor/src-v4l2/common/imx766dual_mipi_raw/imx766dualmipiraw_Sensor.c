@@ -967,6 +967,67 @@ static struct mtk_mbus_frame_desc_entry frame_desc_cus19[] = {
 #endif
 };
 
+#ifdef IMX766_CPHY_LRTE_DVT
+static struct mtk_mbus_frame_desc_entry frame_desc_cus20[] = {
+	{
+		.bus.csi2 = {
+			.channel = 0,
+			.data_type = 0x2a,
+			.hsize = 0x0800,
+			.vsize = 0x0600,
+			.user_data_desc = VC_STAGGER_NE,
+		},
+	},
+	{
+		.bus.csi2 = {
+			.channel = 1,
+			.data_type = 0x2a,
+			.hsize = 0x0800,
+			.vsize = 0x0600,
+			.user_data_desc = VC_STAGGER_ME,
+		},
+	},
+	{
+		.bus.csi2 = {
+			.channel = 2,
+			.data_type = 0x2a,
+			.hsize = 0x0800,
+			.vsize = 0x0600,
+			.user_data_desc = VC_STAGGER_SE,
+		},
+	},
+};
+static struct mtk_mbus_frame_desc_entry frame_desc_cus21[] = {
+	{
+		.bus.csi2 = {
+			.channel = 0,
+			.data_type = 0x2a,
+			.hsize = 0x0800,
+			.vsize = 0x0600,
+			.user_data_desc = VC_STAGGER_NE,
+		},
+	},
+	{
+		.bus.csi2 = {
+			.channel = 1,
+			.data_type = 0x2a,
+			.hsize = 0x0800,
+			.vsize = 0x0600,
+			.user_data_desc = VC_STAGGER_ME,
+		},
+	},
+	{
+		.bus.csi2 = {
+			.channel = 2,
+			.data_type = 0x2a,
+			.hsize = 0x0800,
+			.vsize = 0x0600,
+			.user_data_desc = VC_STAGGER_SE,
+		},
+	},
+};
+#endif //IMX766_CPHY_LRTE_DVT
+
 static struct subdrv_mode_struct mode_struct[] = {
 	{
 		.frame_desc = frame_desc_prev,
@@ -2156,6 +2217,118 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.multi_exposure_ana_gain_range[IMGSENSOR_EXPOSURE_LE].max = BASEGAIN * 16,
 		.dpc_enabled = true,
 	},
+#ifdef IMX766_CPHY_LRTE_DVT
+	{
+		.frame_desc = frame_desc_cus20,
+		.num_entries = ARRAY_SIZE(frame_desc_cus20),
+		.mode_setting_table = imx766_custom20_setting,
+		.mode_setting_len = ARRAY_SIZE(imx766_custom20_setting),
+		.seamless_switch_group = PARAM_UNDEFINED,
+		.seamless_switch_mode_setting_table = PARAM_UNDEFINED,
+		.seamless_switch_mode_setting_len = PARAM_UNDEFINED,
+		.hdr_mode = HDR_RAW_STAGGER,
+		.raw_cnt = 3,
+		.exp_cnt = 3,
+		.pclk = 3507200000,
+		.linelength = 8816,
+		.framelength = 13260,
+		.max_framerate = 300,
+		.mipi_pixel_rate = 2653710000,
+		.readout_length = 4672*3, // 3DOL : (((Y_ADD_END-Y_ADD_START+1)/16)*3+16)*4
+		.read_margin = 10,
+		.framelength_step = 4*3,
+		.coarse_integ_step = 4*3,
+		.multi_exposure_shutter_range[IMGSENSOR_EXPOSURE_LE].min = 8*3,
+		.multi_exposure_shutter_range[IMGSENSOR_EXPOSURE_ME].min = 8*3,
+		.multi_exposure_shutter_range[IMGSENSOR_EXPOSURE_SE].min = 8*3,
+		.multi_exposure_shutter_range[IMGSENSOR_EXPOSURE_LE].max = 0xFFF8*3,
+		.multi_exposure_shutter_range[IMGSENSOR_EXPOSURE_ME].max = 0xFFF8*3,
+		.multi_exposure_shutter_range[IMGSENSOR_EXPOSURE_SE].max = 0xFFF8*3,
+		.imgsensor_winsize_info = {
+			.full_w = 8192,
+			.full_h = 6144,
+			.x0_offset = 0,
+			.y0_offset = 0,
+			.w0_size = 8192,
+			.h0_size = 6144,
+			.scale_w = 2048,
+			.scale_h = 1536,
+			.x1_offset = 0,
+			.y1_offset = 0,
+			.w1_size = 2048,
+			.h1_size = 1536,
+			.x2_tg_offset = 0,
+			.y2_tg_offset = 0,
+			.w2_tg_size = 2048,
+			.h2_tg_size = 1536,
+		},
+		.pdaf_cap = FALSE,
+		.imgsensor_pd_info = PARAM_UNDEFINED,
+		.sensor_output_dataformat = SENSOR_OUTPUT_FORMAT_RAW8_R,
+		.ae_binning_ratio = 1000,
+		.fine_integ_line = -2973,
+		.delay_frame = 3,
+		.csi_param = {
+			.cphy_lrte_support = 1,
+		},
+		.dpc_enabled = true,
+	},
+	{
+		.frame_desc = frame_desc_cus21,
+		.num_entries = ARRAY_SIZE(frame_desc_cus21),
+		.mode_setting_table = imx766_custom21_setting,
+		.mode_setting_len = ARRAY_SIZE(imx766_custom21_setting),
+		.seamless_switch_group = PARAM_UNDEFINED,
+		.seamless_switch_mode_setting_table = PARAM_UNDEFINED,
+		.seamless_switch_mode_setting_len = PARAM_UNDEFINED,
+		.hdr_mode = HDR_RAW_STAGGER,
+		.raw_cnt = 3,
+		.exp_cnt = 3,
+		.pclk = 2892800000,
+		.linelength = 8816,
+		.framelength = 10932,
+		.max_framerate = 300,
+		.mipi_pixel_rate = 884570000,
+		.readout_length = 4672*3, // 3DOL : (((Y_ADD_END-Y_ADD_START+1)/16)*3+16)*4
+		.read_margin = 10,
+		.framelength_step = 4*3,
+		.coarse_integ_step = 4*3,
+		.multi_exposure_shutter_range[IMGSENSOR_EXPOSURE_LE].min = 8*3,
+		.multi_exposure_shutter_range[IMGSENSOR_EXPOSURE_ME].min = 8*3,
+		.multi_exposure_shutter_range[IMGSENSOR_EXPOSURE_SE].min = 8*3,
+		.multi_exposure_shutter_range[IMGSENSOR_EXPOSURE_LE].max = 0xFFF8*3,
+		.multi_exposure_shutter_range[IMGSENSOR_EXPOSURE_ME].max = 0xFFF8*3,
+		.multi_exposure_shutter_range[IMGSENSOR_EXPOSURE_SE].max = 0xFFF8*3,
+		.imgsensor_winsize_info = {
+			.full_w = 8192,
+			.full_h = 6144,
+			.x0_offset = 0,
+			.y0_offset = 0,
+			.w0_size = 8192,
+			.h0_size = 6144,
+			.scale_w = 2048,
+			.scale_h = 1536,
+			.x1_offset = 0,
+			.y1_offset = 0,
+			.w1_size = 2048,
+			.h1_size = 1536,
+			.x2_tg_offset = 0,
+			.y2_tg_offset = 0,
+			.w2_tg_size = 2048,
+			.h2_tg_size = 1536,
+		},
+		.pdaf_cap = FALSE,
+		.imgsensor_pd_info = PARAM_UNDEFINED,
+		.sensor_output_dataformat = SENSOR_OUTPUT_FORMAT_RAW8_R,
+		.ae_binning_ratio = 1000,
+		.fine_integ_line = -2973,
+		.delay_frame = 3,
+		.csi_param = {
+			.cphy_lrte_support = 1,
+		},
+		.dpc_enabled = true,
+	},
+#endif //IMX766_CPHY_LRTE_DVT
 };
 
 static struct subdrv_static_ctx static_ctx = {

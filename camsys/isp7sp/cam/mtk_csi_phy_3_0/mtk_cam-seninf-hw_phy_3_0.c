@@ -2621,10 +2621,95 @@ static int csirx_mac_csi_setting(struct seninf_ctx *ctx)
 					0);
 
 		SENINF_BITS(csirx_mac_csi,
+				CSIRX_MAC_CSI2_RESYNC_MERGE_CTRL,
+				RG_CSI2_RESYNC_LRTE_EN,
+				0);
+
+	}
+
+	return 0;
+}
+
+static int csirx_mac_csi_lrte_setting(struct seninf_ctx *ctx)
+{
+	void *csirx_mac_csi = ctx->reg_csirx_mac_csi[(unsigned int)ctx->port];
+	void *cphy_base = ctx->reg_ana_cphy_top[(unsigned int)ctx->port];
+	void *dphy_base = ctx->reg_ana_dphy_top[(unsigned int)ctx->port];
+
+	dev_info(ctx->dev, "[%s] lrte_support flag = %d\n",
+			__func__, ctx->csi_param.cphy_lrte_support);
+
+	if (_seninf_ops->iomem_ver == NULL) {
+		// skip
+	} else if (!strcasecmp(_seninf_ops->iomem_ver, MT6989_IOMOM_VERSIONS)) {
+		// mt6989
+		if (ctx->is_cphy && ctx->csi_param.cphy_lrte_support) {
+			SENINF_BITS(csirx_mac_csi,
+					CSIRX_MAC_CSI2_RESYNC_MERGE_CTRL,
+					RG_CSI2_RESYNC_LRTE_EN,
+					1);
+
+			SENINF_BITS(csirx_mac_csi,
+					CSIRX_MAC_CSI2_RESYNC_MERGE_CTRL2,
+					RG_WC_DUMMY_VALID_EN,
+					0);
+
+			SENINF_BITS(csirx_mac_csi,
+					CSIRX_MAC_CSI2_RESYNC_MERGE_CTRL2,
+					RG_WC_DUMMY_VALID_DELAY,
+					0);
+
+			SENINF_BITS(csirx_mac_csi,
+					CSIRX_MAC_CSI2_RESYNC_MERGE_CTRL2,
+					RG_WC_DUMMY_VALID_EXTRA_CNT,
+					0);
+
+			SENINF_BITS(csirx_mac_csi,
+					CSIRX_MAC_CSI2_RESYNC_MERGE_CTRL2,
+					RG_RESYNC_LRTE_PKT_HSRST,
+					0);
+
+			SENINF_BITS(csirx_mac_csi,
+					CSIRX_MAC_CSI2_RESYNC_MERGE_CTRL2,
+					RG_RESYNC_LRTE_WC_DMY_OPTION,
+					0);
+
+			SENINF_BITS(csirx_mac_csi,
+					CSIRX_MAC_CSI2_RESYNC_MERGE_CTRL2,
+					RG_RESYNC_LRTE_WPTR_LENGTH,
+					2);
+			/* LRTE SW Workaround */
+			SENINF_BITS(dphy_base, DPHY_RX_SPARE1, RG_POST_CNT, 0x1);
+			SENINF_BITS(cphy_base, CPHY_RX_STATE_CHK_EN, RG_ALP_POS_DET_MASK, 0xFF);
+			SENINF_BITS(cphy_base, CPHY_RX_CAL_ALP_CTRL, RG_CPHY_ALP_SETTLE_PARAMETER, 0x23);
+			SENINF_BITS(cphy_base, CPHY_RX_CAL_ALP_CTRL, RG_ALP_RX_EN_SEL, 0x0);
+			SENINF_BITS(cphy_base, CPHY_RX_CAL_ALP_CTRL, RG_CPHY_ALP_EN, 0x1);
+			SENINF_BITS(cphy_base, CPHY_RX_INIT, RG_CPHY_CSI2_TINIT_CNT_EN, 0x1);
+			// SENINF_BITS(cphy_base, CPHY_POST_ENCODE, CPHY_POST_REPLACE_EN, 0x0); /*6989 no need*/
+			dev_info(ctx->dev, "[%s] LRTE RG_POST_CNT(0x%x)\n", __func__,
+				SENINF_READ_BITS(dphy_base, DPHY_RX_SPARE1, RG_POST_CNT));
+			dev_info(ctx->dev, "[%s] LRTE RG_ALP_POS_DET_MASK(0x%x)\n", __func__,
+				SENINF_READ_BITS(cphy_base, CPHY_RX_STATE_CHK_EN, RG_ALP_POS_DET_MASK));
+			dev_info(ctx->dev, "[%s] LRTE RG_CPHY_ALP_SETTLE_PARAMETER(0x%x)\n", __func__,
+				SENINF_READ_BITS(cphy_base, CPHY_RX_CAL_ALP_CTRL, RG_CPHY_ALP_SETTLE_PARAMETER));
+			dev_info(ctx->dev, "[%s] LRTE RG_ALP_RX_EN_SEL(0x%x)\n", __func__,
+				SENINF_READ_BITS(cphy_base, CPHY_RX_CAL_ALP_CTRL, RG_ALP_RX_EN_SEL));
+			dev_info(ctx->dev, "[%s] LRTE RG_CPHY_ALP_EN(0x%x)\n", __func__,
+				SENINF_READ_BITS(cphy_base, CPHY_RX_CAL_ALP_CTRL, RG_CPHY_ALP_EN));
+			dev_info(ctx->dev, "[%s] LRTE RG_CPHY_CSI2_TINIT_CNT_EN(0x%x)\n", __func__,
+				SENINF_READ_BITS(cphy_base, CPHY_RX_INIT, RG_CPHY_CSI2_TINIT_CNT_EN));
+		} else {
+			SENINF_BITS(csirx_mac_csi,
 					CSIRX_MAC_CSI2_RESYNC_MERGE_CTRL,
 					RG_CSI2_RESYNC_LRTE_EN,
 					0);
-
+			SENINF_BITS(cphy_base, CPHY_RX_CAL_ALP_CTRL, RG_CPHY_ALP_EN, 0x0);
+			dev_info(ctx->dev, "[%s] lrte not support, disable LRTE_EN ALP_EN, port:%d\n",
+				 __func__, ctx->port);
+		}
+	} else {
+		dev_info(ctx->dev, "iomem_ver is invalid\n");
+		return -EINVAL;
 	}
 
 	return 0;
@@ -3348,9 +3433,9 @@ static int csirx_phyA_setting(struct seninf_ctx *ctx)
 			}
 
 			SENINF_BITS(baseA, CDPHY_RX_ANA_SETTING_1,
-			AFIFO_DUMMY_VALID_GAP_NUM, 0x4);
+				    AFIFO_DUMMY_VALID_GAP_NUM, 0x4);
 			SENINF_BITS(baseA, CDPHY_RX_ANA_SETTING_0,
-		    CSR_ASYNC_FIFO_GATING_SEL, 0x0);
+				    CSR_ASYNC_FIFO_GATING_SEL, 0x0);
 
 			SENINF_BITS(baseA, CDPHY_RX_ANA_3,
 				    RG_CSI0_EQ_DES_VREF_SEL, 0x2E);
@@ -4157,6 +4242,9 @@ static int mtk_cam_seninf_set_csi_mipi(struct seninf_ctx *ctx)
 
 	/* csi_mac_CSI2 */
 	csirx_mac_csi_setting(ctx);
+
+	/* cphy lrte */
+	csirx_mac_csi_lrte_setting(ctx);
 
 	/* seninf1 */
 	seninf1_setting(ctx);

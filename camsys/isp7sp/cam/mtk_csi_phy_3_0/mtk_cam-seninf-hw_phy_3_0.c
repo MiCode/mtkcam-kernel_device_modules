@@ -1427,7 +1427,7 @@ static int get_seninf_test_model_src(struct seninf_ctx *ctx, int mux, int *intf)
 
 static int mtk_cam_seninf_set_test_model(struct seninf_ctx *ctx,
 				  int mux, int cam_mux, int pixel_mode,
-				  int filter, int con, int vc, int dt, int muxvr_ofs, int tag)
+				  int filter, int con, int vc, int dt, int muxvr_ofs)
 {
 	int intf;
 	void *pSeninf;
@@ -1455,7 +1455,7 @@ static int mtk_cam_seninf_set_test_model(struct seninf_ctx *ctx,
 	mtk_cam_seninf_set_cammux_vc(ctx, cam_mux, vc, dt,
 				filter, filter);
 	mtk_cam_seninf_set_cammux_tag(ctx, cam_mux, vc, dt,
-				tag  /*tag*/, (con == 0));
+				cam_mux /*tag*/, (con == 0));
 	mtk_cam_seninf_set_cammux_src(ctx, mux_vr, cam_mux, 0, 0, 0);
 	mtk_cam_seninf_set_cammux_chk_pixel_mode(ctx, cam_mux, pixel_mode);
 	mtk_cam_seninf_cammux(ctx, cam_mux);
@@ -4015,18 +4015,7 @@ static int mtk_cam_seninf_debug_core_dump(struct seninf_ctx *ctx,
 
 	debug_ft += ft_delay_margin;
 
-	dev_info(ctx->dev,
-		"[%s] before_delay %u(ms), reg_Pcknt = 0x%x, packet_cnt_status 0x%x\n",
-			__func__,
-			SENINF_READ_REG(csi_mac, CSIRX_MAC_CSI2_PACKET_CNT_STATUS),
-			debug_result->packet_cnt_status);
 	mdelay(debug_ft);
-
-	debug_result->packet_cnt_status =
-		SENINF_READ_REG(csi_mac, CSIRX_MAC_CSI2_PACKET_CNT_STATUS);
-	dev_info(ctx->dev, "[%s] before_delay %u(ms), Pcknt = 0x%x\n",
-			__func__,
-			debug_result->packet_cnt_status);
 
 	debug_result->csi_irq_status =
 		SENINF_READ_REG(seninf, SENINF_CSI2_IRQ_STATUS);
@@ -4038,7 +4027,8 @@ static int mtk_cam_seninf_debug_core_dump(struct seninf_ctx *ctx,
 	SENINF_WRITE_REG(seninf, SENINF_CSI2_IRQ_STATUS, 0xffffffff);
 	SENINF_WRITE_REG(csi_mac, CSIRX_MAC_CSI2_IRQ_STATUS, 0xffffffff);
 
-
+	debug_result->packet_cnt_status =
+		SENINF_READ_REG(csi_mac, CSIRX_MAC_CSI2_PACKET_CNT_STATUS);
 
 	for (i = 0; i < ctx->vcinfo.cnt; i++) {
 		vc = &ctx->vcinfo.vc[i];

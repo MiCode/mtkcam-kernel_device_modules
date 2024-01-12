@@ -142,7 +142,6 @@ struct mtk_cam_ctx {
 	struct kthread_worker flow_worker;
 	struct task_struct *done_task;
 	struct kthread_worker done_worker;
-	struct workqueue_struct *aa_dump_wq;
 	char str_ae_data[512];
 
 	struct mtk_cam_device_buf cq_buffer;
@@ -390,8 +389,6 @@ int mtk_cam_ctx_queue_flow_worker(struct mtk_cam_ctx *ctx,
 				  struct kthread_work *work);
 int mtk_cam_ctx_queue_done_worker(struct mtk_cam_ctx *ctx,
 				  struct kthread_work *work);
-int mtk_cam_ctx_queue_aa_dump_wq(struct mtk_cam_ctx *ctx,
-			      struct work_struct *work);
 
 int mtk_cam_ctx_fetch_devices(struct mtk_cam_ctx *ctx, unsigned long engines);
 void mtk_cam_ctx_destroy_img_pool(struct mtk_cam_ctx *ctx);

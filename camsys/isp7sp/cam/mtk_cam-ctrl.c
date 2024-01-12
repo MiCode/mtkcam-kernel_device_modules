@@ -1546,7 +1546,6 @@ void mtk_cam_ctrl_stop(struct mtk_cam_ctrl *cam_ctrl)
 
 	/* await done work finished */
 	kthread_flush_worker(&ctx->done_worker);
-	drain_workqueue(ctx->aa_dump_wq);
 	kthread_flush_worker(&ctx->sensor_worker);
 
 	INIT_LIST_HEAD(&job_list);

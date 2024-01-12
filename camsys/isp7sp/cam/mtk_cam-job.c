@@ -50,8 +50,8 @@ static inline int job_debug_exception_dump(struct mtk_cam_job *job,
 static struct mtk_raw_request_data *req_get_raw_data(struct mtk_cam_ctx *ctx,
 						     struct mtk_cam_request *req);
 static bool is_sensor_mode_update(struct mtk_cam_job *job);
-static void mtk_cam_aa_dump_work(struct work_struct *work);
 static int disable_seninf_cammux(struct mtk_cam_job *job);
+static int job_dump_aa_info(struct mtk_cam_job *job);
 
 static int subdev_set_fmt(struct v4l2_subdev *sd, int pad,
 						  const struct v4l2_mbus_framefmt *format)
@@ -334,9 +334,6 @@ static int mtk_cam_job_pack_init(struct mtk_cam_job *job,
 	atomic_long_set(&job->done_set, 0);
 	job->done_handled = 0;
 	job->done_pipe = 0;
-
-	/* aa dump info */
-	INIT_WORK(&job->aa_dump_work, mtk_cam_aa_dump_work);
 
 	job->frame_cnt = 1;
 
@@ -703,6 +700,9 @@ handle_raw_frame_done(struct mtk_cam_job *job)
 		}
 	}
 
+	if (ctx->has_raw_subdev && CAM_DEBUG_ENABLED(AA))
+		call_jobop(job, dump_aa_info);
+
 	return 0;
 }
 
@@ -818,9 +818,6 @@ static int job_mark_engine_done(struct mtk_cam_job *job,
 	old = atomic_long_fetch_or(coming, &job->done_set);
 
 	wake_up_interruptible(&ctrl->done_wq);
-
-	if (CAM_DEBUG_ENABLED(AA))
-		call_jobop(job, dump_aa_info, engine_type);
 
 	return (old | coming) == master_engine;
 }
@@ -1846,18 +1843,6 @@ _compose_done(struct mtk_cam_job *job,
 		trigger_error_dump(job, MSG_COMPOSE_ERROR);
 	else
 		normal_dump_if_enable(job);
-}
-
-static int job_dump_aa_info(struct mtk_cam_job *job, int engine_type)
-{
-	struct mtk_cam_ctx *ctx = job->src_ctx;
-
-	if (engine_type != CAMSYS_ENGINE_RAW)
-		return 0;
-
-	mtk_cam_job_get(job);
-
-	return mtk_cam_ctx_queue_aa_dump_wq(ctx, &job->aa_dump_work);
 }
 
 int master_raw_set_subsample(struct device *dev, struct mtk_cam_job *job)
@@ -4574,10 +4559,8 @@ static int ae_data_to_str(char *buff, size_t size,
 	return n;
 }
 
-static void mtk_cam_aa_dump_work(struct work_struct *work)
+static int job_dump_aa_info(struct mtk_cam_job *job)
 {
-	struct mtk_cam_job *job =
-		container_of(work, struct mtk_cam_job, aa_dump_work);
 	struct mtk_cam_ctx *ctx = job->src_ctx;
 	struct mtk_cam_engines *eng = &ctx->cam->engines;
 	struct mtk_raw_sink_data *sink = get_raw_sink_data(job);
@@ -4590,12 +4573,12 @@ static void mtk_cam_aa_dump_work(struct work_struct *work)
 	int n;
 
 	if (WARN_ON(!sink))
-		goto PUT_JOB;
+		return 0;
 
 	str_buf = ctx->str_ae_data;
 	str_buf_size = sizeof(ctx->str_ae_data);
 	if (WARN_ON_ONCE(str_buf_size < 2 * AE_DATA_LEN + 2))
-		goto PUT_JOB;
+		return 0;
 
 	memset(&ae_data, 0, sizeof(ae_data));
 	memset(&ae_data_w, 0, sizeof(ae_data_w));
@@ -4634,8 +4617,7 @@ static void mtk_cam_aa_dump_work(struct work_struct *work)
 		ctx->stream_id, job->req_seq,
 		sink->width, sink->height, str_buf);
 
-PUT_JOB:
-	mtk_cam_job_put(job);
+	return 0;
 }
 
 bool job_has_done_pending(struct mtk_cam_job *job)

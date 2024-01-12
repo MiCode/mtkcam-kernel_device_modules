@@ -1919,6 +1919,17 @@ bool is_stagger_lbmf(struct mtk_cam_job *job)
 	}
 }
 
+bool is_camsv_16p(struct mtk_cam_job *job)
+{
+	struct mtk_cam_resource_v2 *res;
+
+	res = _get_job_res(job);
+	if (!res)
+		return false;
+
+	return res->raw_res.camsv_pixel_mode == 16;
+}
+
 int map_ipi_vpu_point(int vpu_point)
 {
 	switch (vpu_point) {

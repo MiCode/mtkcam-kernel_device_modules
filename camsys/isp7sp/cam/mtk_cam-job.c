@@ -312,9 +312,8 @@ static bool is_sv_support_ufbc(struct mtk_cam_job *job)
 {
 #if 0
 	bool use_ufbc = !job->is_sv_pure_raw;
-	// TODO: 16 pixel mode not support UFBC
 
-	return use_ufbc;
+	return use_ufbc && !is_camsv_16p(job);
 #else
 	return false;
 #endif

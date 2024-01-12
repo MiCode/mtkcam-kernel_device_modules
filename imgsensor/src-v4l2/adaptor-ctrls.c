@@ -718,6 +718,7 @@ static int push_do_ae_ctrl_delay_work(struct adaptor_ctx *ctx,
 	if (!ctx->is_streaming) {
 		dev_info(ctx->dev, "%s ctx->is_streaming if %d, skip the func\n",
 					__func__, ctx->is_streaming);
+		kfree(_adaptor_work);			
 		return 0;
 	}
 

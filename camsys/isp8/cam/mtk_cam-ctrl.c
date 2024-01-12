@@ -1568,6 +1568,7 @@ void mtk_cam_ctrl_sensor_job_enque(struct mtk_cam_ctrl *cam_ctrl,
 		mtk_cam_job_set_fsm(job, 0);
 	if (job->raw_switch)
 		atomic_inc(&cam_ctrl->stream_on_cnt);
+	mtk_cam_job_set_fsm_compose(job, 0);
 	/* add to statemachine */
 	write_lock(&cam_ctrl->list_lock);
 	/* note:
@@ -1584,7 +1585,6 @@ void mtk_cam_ctrl_sensor_job_enque(struct mtk_cam_ctrl *cam_ctrl,
 	write_unlock(&cam_ctrl->list_lock);
 
 	/* following would trigger actions */
-	mtk_cam_job_set_fsm_compose(job, 0);
 	mtk_cam_ctrl_send_event(cam_ctrl, CAMSYS_EVENT_ENQUE);
 	mtk_cam_ctrl_put(cam_ctrl);
 }

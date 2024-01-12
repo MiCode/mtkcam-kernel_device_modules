@@ -111,6 +111,12 @@ static inline bool allow_composing(struct state_accessor *s_acc)
 	return s_acc->s->compose_by_fsm;
 }
 
+static inline int guard_next_compose_m2m(struct state_accessor *s_acc,
+			       struct transition_param *p)
+{
+	return allow_composing(s_acc);
+}
+
 static inline int guard_next_compose(struct state_accessor *s_acc,
 			       struct transition_param *p)
 {

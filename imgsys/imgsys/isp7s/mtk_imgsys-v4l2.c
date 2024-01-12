@@ -1805,6 +1805,7 @@ static int mtkdip_ioc_del_iova(struct v4l2_subdev *subdev, void *arg)
 	unsigned int *kfd;
 	size_t size;
 	int i, ret;
+	bool found = false;
 
 	if ((!fd_tbl->fds) || (!fd_tbl->fd_num) || (fd_tbl->fd_num > FD_MAX)) {
 		dev_dbg(pipe->imgsys_dev->dev, "%s:NULL usrptr\n", __func__);
@@ -1839,21 +1840,24 @@ static int mtkdip_ioc_del_iova(struct v4l2_subdev *subdev, void *arg)
 		dmabuf = dma_buf_get(fd);
 		if (IS_ERR(dmabuf))
 			continue;
+		found = false;
+		spin_lock(&pipe->iova_cache.lock);
 		list_for_each_entry_safe(iova_info, tmp,
 					&pipe->iova_cache.list, list_entry) {
+			if ((iova_info->ionfd == fd) &&
+						(iova_info->dma_buf == dmabuf)) {
+				list_del(&iova_info->list_entry);
+				hash_del(&iova_info->hnode);
+				found = true;
+				break;
+			}
+		}
+		spin_unlock(&pipe->iova_cache.lock);
 
-			if ((iova_info->ionfd != fd) &&
-						(iova_info->dma_buf != dmabuf))
-				continue;
-
+		if (found) {
 			mtk_imgsys_put_dma_buf(iova_info->dma_buf,
 					iova_info->attach,
 					iova_info->sgt);
-
-			spin_lock(&pipe->iova_cache.lock);
-			list_del(&iova_info->list_entry);
-			hash_del(&iova_info->hnode);
-			spin_unlock(&pipe->iova_cache.lock);
 			vfree(iova_info);
 		}
 		fd_info.fds_size[i] = dmabuf->size;

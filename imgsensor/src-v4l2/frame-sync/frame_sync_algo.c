@@ -1698,6 +1698,29 @@ static inline void fs_alg_reset_fs_sa_inst(const unsigned int idx)
 }
 
 
+static inline void fs_alg_setup_basic_out_fl(const unsigned int idx,
+	unsigned int *p_out_fl_us,
+	const unsigned int sync_flk_en, unsigned int *p_flk_diff)
+{
+	unsigned int next_fl_lc, next_fl_us;
+
+	if (fs_inst[idx].fl_active_delay != 2)
+		return;
+
+	/* FL is N+1 type, check extra shutter & FL rules when FL output */
+	next_fl_lc =
+		calc_min_fl_lc(idx,
+			fs_inst[idx].min_fl_lc, PREDICT_NEXT_FL);
+	next_fl_us =
+		convert2TotalTime(
+			fs_inst[idx].lineTimeInNs,
+			next_fl_lc);
+	*p_out_fl_us = (next_fl_us > *p_out_fl_us) ? next_fl_us : *p_out_fl_us;
+
+	g_flk_fl_and_flk_diff(idx, p_out_fl_us, p_flk_diff, sync_flk_en);
+}
+
+
 static unsigned int fs_alg_sa_calc_f_tag_diff(const unsigned int idx,
 	const unsigned int stable_fl_us, const unsigned int f_tag)
 {
@@ -4089,20 +4112,7 @@ static unsigned int fps_sync_sa_handler(const struct fs_sa_cfg *p_sa_cfg,
 	do_skip = do_fps_sync_sa(p_sa_cfg, p_para, sync_flk_en);
 
 	out_fl_us = p_para->stable_fl_us;
-
-	if (fs_inst[idx].fl_active_delay == 2) {
-		unsigned int next_fl_lc, next_fl_us;
-
-		next_fl_lc =
-			calc_min_fl_lc(idx,
-				fs_inst[idx].min_fl_lc, PREDICT_NEXT_FL);
-		next_fl_us =
-			convert2TotalTime(
-				fs_inst[idx].lineTimeInNs,
-				next_fl_lc);
-		out_fl_us = (next_fl_us > out_fl_us) ? next_fl_us : out_fl_us;
-		g_flk_fl_and_flk_diff(idx, &out_fl_us, &flk_diff, sync_flk_en);
-	}
+	fs_alg_setup_basic_out_fl(idx, &out_fl_us, sync_flk_en, &flk_diff);
 
 	fs_alg_sa_update_fl_us(idx, out_fl_us, p_para);
 
@@ -4235,7 +4245,11 @@ static void adjust_async_vsync_diff_sa(
 	int len = 0, ret;
 
 	fs_alg_sa_setup_basic_fl_info(idx, p_para, 0, &flk_diff);
-	fs_alg_sa_update_fl_us(idx, (p_para->min_fl_us/f_cell), p_para);
+
+	out_fl_us_final = (p_para->min_fl_us / f_cell);
+	fs_alg_setup_basic_out_fl(idx, &out_fl_us_final, 0, &flk_diff);
+
+	fs_alg_sa_update_fl_us(idx, out_fl_us_final, p_para);
 
 	if (idx == m_idx)
 		return;

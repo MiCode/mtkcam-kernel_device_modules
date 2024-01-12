@@ -2479,6 +2479,11 @@ void mtk_cam_stop_ctx(struct mtk_cam_ctx *ctx, struct media_entity *entity)
 
 	dev_info(cam->dev, "%s: by node %s\n", __func__, entity->name);
 
+	if (!atomic_read(&ctx->cam_ctrl.stopped)) {
+		dev_info(cam->dev, "%s: cam_ctl still started!\n", __func__);
+		mtk_cam_ctrl_stop(&ctx->cam_ctrl);
+	}
+
 	mtk_cam_ctx_unprepare_session(ctx);
 	mtk_cam_ctx_destroy_sensor_meta_pool(ctx);
 	mtk_cam_ctx_destroy_pool(ctx);

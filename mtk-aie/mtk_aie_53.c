@@ -181,6 +181,17 @@ static struct aie_data data_isp7sp_1 = {
 	.aie_cmdq_event = 375,
 };
 
+static struct aie_data data_isp7sp_2 = {
+	.clks = isp7sp_aie_clks,
+	.clk_num = ARRAY_SIZE(isp7sp_aie_clks),
+	.drv_ops = &aie_ops_isp7sp,
+	.larb_clk_ready = false,
+	.reg_map = isp7sp_aie_reg_map,
+	.reg_map_num = ARRAY_SIZE(isp7sp_aie_reg_map),
+	.is_cmdq_polling = false,
+	.aie_cmdq_event = 374,
+};
+
 void aie_get_time(long long *tv, unsigned int idx)
 {
 	if (idx < MAX_DEBUG_TIMEVAL)
@@ -2018,6 +2029,10 @@ static const struct of_device_id mtk_aie_of_ids[] = {
 	{
 		.compatible = "mediatek,aie-isp7sp-1",
 		.data = &data_isp7sp_1,
+	},
+	{
+		.compatible = "mediatek,aie-isp7sp-2",
+		.data = &data_isp7sp_2,
 	},
 	{} };
 MODULE_DEVICE_TABLE(of, mtk_aie_of_ids);

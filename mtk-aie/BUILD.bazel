@@ -9,6 +9,7 @@ mgk_aie_outs = [
     "mtk_aie.ko",
     "mtk_aie_debug_7sp.ko",
     "mtk_aie_debug_7sp_1.ko",
+    "mtk_aie_debug_7sp_2.ko",
 ]
 
 # TODO: enable this part later

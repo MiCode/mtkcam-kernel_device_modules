@@ -5,6 +5,7 @@
 #include "mtk_cam.h"
 #include "mtk_cam-job-stagger.h"
 #include "mtk_cam-job_utils.h"
+#include "mtk_cam-raw_ctrl.h"
 
 int fill_imgo_buf_to_ipi_stagger(
 	struct req_buffer_helper *helper, struct mtk_cam_buffer *buf,
@@ -27,9 +28,9 @@ int fill_imgo_buf_to_ipi_stagger(
 	return ret;
 }
 
-static inline bool exposure_switch_to(int exp, int prev, int cur)
+static inline bool exposure_switch_to(int exp, int cur)
 {
-	return (prev != exp && cur == exp);
+	return (cur == exp);
 }
 
 int apply_cam_mux_switch(struct mtk_cam_job *job)
@@ -42,7 +43,7 @@ int apply_cam_mux_switch(struct mtk_cam_job *job)
 	struct mtk_cam_seninf_mux_setting settings[4];
 	int prev_exp = job_prev_exp_num_seamless(job);
 	int cur_exp = job_exp_num(job);
-	int config_exposure_num = job->job_scen.scen.normal.max_exp_num;
+	int config_exposure_num = scen_max_exp_num(&job->job_scen);
 	int raw_id = get_master_raw_id(job->used_engine);
 	int raw_tg_idx = raw_to_tg_idx(raw_id);
 	int first_tag_idx, second_tag_idx, last_tag_idx;
@@ -56,11 +57,18 @@ int apply_cam_mux_switch(struct mtk_cam_job *job)
 	 * not the max one.
 	 */
 
+	if (!scen_is_normal(&job->job_scen)) {
+		// config_exposure_num maybe wrong,
+		// this function is expected to be used in
+		// JOB_TYPE_BASIC, JOB_TYPE_STAGGER
+		pr_info("%s: WARNING: scen is NOT normal", __func__);
+	}
+
 	memset(settings, 0,
 		sizeof(struct mtk_cam_seninf_mux_setting) * ARRAY_SIZE(settings));
 
 	if (config_exposure_num == 3) {
-		if (exposure_switch_to(2, prev_exp, cur_exp)) {
+		if (exposure_switch_to(2, cur_exp)) {
 			first_tag_idx =
 				get_sv_tag_idx(2, MTKCAM_IPI_ORDER_FIRST_TAG, false);
 			last_tag_idx =
@@ -92,7 +100,7 @@ int apply_cam_mux_switch(struct mtk_cam_job *job)
 				mtk_cam_get_sv_cammux_id(sv_dev, last_tag_idx);
 			settings[3].tag_id = last_tag_idx;
 			settings[3].enable = 1;
-		} else if (exposure_switch_to(1, prev_exp, cur_exp)) {
+		} else if (exposure_switch_to(1, cur_exp)) {
 			first_tag_idx =
 				get_sv_tag_idx(1, MTKCAM_IPI_ORDER_FIRST_TAG, false);
 			settings[0].seninf = ctx->seninf;
@@ -121,7 +129,7 @@ int apply_cam_mux_switch(struct mtk_cam_job *job)
 				mtk_cam_get_sv_cammux_id(sv_dev, first_tag_idx);
 			settings[3].tag_id = first_tag_idx;
 			settings[3].enable = 1;
-		} else if (exposure_switch_to(3, prev_exp, cur_exp)) {
+		} else if (exposure_switch_to(3, cur_exp)) {
 			first_tag_idx =
 				get_sv_tag_idx(3, MTKCAM_IPI_ORDER_FIRST_TAG, false);
 			second_tag_idx =
@@ -169,7 +177,7 @@ int apply_cam_mux_switch(struct mtk_cam_job *job)
 			settings[2].source, settings[2].camtg, settings[2].enable,
 			settings[3].source, settings[3].camtg, settings[3].enable);
 	} else if (config_exposure_num == 2) {
-		if (exposure_switch_to(1, prev_exp, cur_exp)) {
+		if (exposure_switch_to(1, cur_exp)) {
 			first_tag_idx =
 				get_sv_tag_idx(1, MTKCAM_IPI_ORDER_FIRST_TAG, false);
 			first_tag_idx_w =
@@ -209,7 +217,7 @@ int apply_cam_mux_switch(struct mtk_cam_job *job)
 				settings[2].tag_id = first_tag_idx;
 				settings[2].enable = 1;
 			}
-		} else if (exposure_switch_to(2, prev_exp, cur_exp)) {
+		} else if (exposure_switch_to(2, cur_exp)) {
 			first_tag_idx =
 				get_sv_tag_idx(2, MTKCAM_IPI_ORDER_FIRST_TAG, false);
 			first_tag_idx_w =

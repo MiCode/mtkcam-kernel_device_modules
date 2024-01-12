@@ -2025,10 +2025,11 @@ static void update_job_raw_switch(struct mtk_cam_job *job)
 			}
 
 			ctx->pack_job_img_wbuf_pool_wrapper = img_wbuf_pool;
-			r = mtk_cam_alloc_img_pool(ctx->cam->engines.raw_devs[0],
-						   ctrl_data, mf, desc,
-						   &img_wbuf_pool->mem,
-						   &img_wbuf_pool->pool);
+			r = mtk_cam_alloc_img_pool(
+					 ctx->cam->smmu_dev ? : ctx->cam->engines.raw_devs[0],
+					 ctrl_data, mf, desc,
+					 &img_wbuf_pool->mem,
+					 &img_wbuf_pool->pool);
 			if (r) {
 				dev_info(ctx->cam->dev,
 					 "%s:ctx-%d failed in mtk_cam_alloc_img_pool:%d, can't be recovered\n",

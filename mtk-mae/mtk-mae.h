@@ -537,6 +537,7 @@ struct mtk_mae_dev {
 	struct cmdq_client *mae_clt;
 	struct cmdq_client *mae_secure_clt;
 	struct cmdq_pkt *pkt[REQUEST_BUFFER_NUM];
+	int32_t core_sel[REQUEST_BUFFER_NUM];
 
 	bool is_hw_hang;
 

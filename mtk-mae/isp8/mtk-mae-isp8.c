@@ -60,7 +60,7 @@ int rsz_debug_on;
 int mae_dbf_on;
 int set_default_value = 1;
 int fld_reset_en = 1;
-int crop_dbg_en;
+// int crop_dbg_en = 0;
 int aiseg_pat_en;
 
 module_param(mae_log_level_value, int, 0644);
@@ -71,7 +71,7 @@ module_param(rsz_debug_on, int, 0644);
 module_param(mae_dbf_on, int, 0644);
 module_param(set_default_value, int, 0644);
 module_param(fld_reset_en, int, 0644);
-module_param(crop_dbg_en, int, 0644);
+// module_param(crop_dbg_en, int, 0644);
 module_param(aiseg_pat_en, int, 0644);
 
 static void mtk_mae_dump_reg(struct mtk_mae_dev *mae_dev);
@@ -184,7 +184,6 @@ static void mtk_mae_config_dma(struct mtk_mae_dev *mae_dev, int idx)
 	uint64_t addr = 0;
 	uint64_t config_addr = 0;
 	uint64_t coef_addr = 0;
-	int core_sel = 0;
 	uint32_t config_offset = 0;
 	uint32_t config_rt_offset = 0;
 	uint32_t config_size = 0;
@@ -221,11 +220,13 @@ static void mtk_mae_config_dma(struct mtk_mae_dev *mae_dev, int idx)
 		return;
 	}
 
-	//----------------------- internal base ------------------------------
+	// config the base address of internal buffer
 	addr = mae_dev->map_table->internal_dmabuf_info.pa;
-	if (CHECK_BASE_ADDR(addr) || addr == 0)
+	if (CHECK_BASE_ADDR(addr) || addr == 0) {
 		mae_dev_info(mae_dev->dev, "%s(0x%llx) is not %d-aligned",
 				"internal buffer", addr ,MAE_BASE_ADDR_ALIGN);
+		return;
+	}
 
 	mae_dev_dbg(mae_dev->dev, "internal base (0x%llx)", addr);
 	MAE_CMDQ_WRITE_REG(mae_dev->pkt[idx], MAE_REG_INTRN_BASE_0_W, LSB_ADDR(addr));
@@ -234,68 +235,51 @@ static void mtk_mae_config_dma(struct mtk_mae_dev *mae_dev, int idx)
 	MAE_CMDQ_WRITE_REG(mae_dev->pkt[idx], MAE_REG_INTRN_BASE_1_R, MSB_ADDR(addr));
 
 	for (loop = 0; loop < outer_loop; loop++) {
-		//----------------------- image0 p0 base ------------------------------
+		// config the base address of input buffer
 		addr = mae_dev->map_table->image_dmabuf_info[idx][loop].pa;
+
+		if (param->image[loop].imgWidth % 16 != 0) {
+			mae_dev_info(mae_dev->dev, "Loop %d: image width(%d) should be 16-aligned",
+					loop, param->image[loop].imgWidth);
+			return;
+		}
+
+		if (param->image[loop].enRoi)
+			addr += (MAX(param->image[loop].roi.y1, 0) / 2 * 2) * param->image[loop].imgWidth +
+					(MAX(param->image[loop].roi.x1, 0) / 16) * 16;
+
 		if (CHECK_BASE_ADDR(addr) || addr == 0)
 			mae_dev_info(mae_dev->dev, "Loop %d: %s(0x%llx) is not %d-aligned or zero",
 					loop, "image0", addr, MAE_BASE_ADDR_ALIGN);
 
 		mae_dev_dbg(mae_dev->dev, "Loop %d: %s(0x%llx)", loop, "image0", addr);
-		if (crop_dbg_en == 0) {
-			MAE_CMDQ_WRITE_REG(mae_dev->pkt[idx],
-					MAE_REG_EXTRN_BASE0_00_0_R + loop * BASE_ADDR_REG_SIZE,
-					LSB_ADDR(addr));
-			MAE_CMDQ_WRITE_REG(mae_dev->pkt[idx],
-					MAE_REG_EXTRN_BASE0_00_1_R + loop * BASE_ADDR_REG_SIZE,
-					MSB_ADDR(addr));
-		} else if (crop_dbg_en == 1) { // fd crop
-			MAE_CMDQ_WRITE_REG(mae_dev->pkt[idx],
-					MAE_REG_EXTRN_BASE0_00_0_R + loop * BASE_ADDR_REG_SIZE,
-					LSB_ADDR(addr) + 0x140A);
-			MAE_CMDQ_WRITE_REG(mae_dev->pkt[idx],
-					MAE_REG_EXTRN_BASE0_00_1_R + loop * BASE_ADDR_REG_SIZE,
-					MSB_ADDR(addr));
-		} else if (crop_dbg_en == 2) { // attr crop
-			MAE_CMDQ_WRITE_REG(mae_dev->pkt[idx],
-					MAE_REG_EXTRN_BASE0_00_0_R + loop * BASE_ADDR_REG_SIZE,
-					LSB_ADDR(addr) + 0xA00);
-			MAE_CMDQ_WRITE_REG(mae_dev->pkt[idx],
-					MAE_REG_EXTRN_BASE0_00_1_R + loop * BASE_ADDR_REG_SIZE,
-					MSB_ADDR(addr));
-		}
-		//----------------------- image0 p1 base ------------------------------
+
+		MAE_CMDQ_WRITE_REG(mae_dev->pkt[idx],
+				MAE_REG_EXTRN_BASE0_00_0_R + loop * BASE_ADDR_REG_SIZE,
+				LSB_ADDR(addr));
+		MAE_CMDQ_WRITE_REG(mae_dev->pkt[idx],
+				MAE_REG_EXTRN_BASE0_00_1_R + loop * BASE_ADDR_REG_SIZE,
+				MSB_ADDR(addr));
+
 		addr = mae_dev->map_table->image_dmabuf_info[idx][loop].pa +
 				param->image[loop].imgWidth * param->image[loop].imgHeight;
+		if (param->image[loop].enRoi)
+			addr += (MAX(param->image[loop].roi.y1, 0) / 2 * 2) * (param->image[loop].imgWidth / 2) +
+					(MAX(param->image[loop].roi.x1, 0) / 16) * 16;
+
 		if (CHECK_BASE_ADDR(addr) || addr == 0)
 			mae_dev_info(mae_dev->dev, "Loop %d: %s(0x%llx) is not %d-aligned or zero",
 										loop, "image1", addr, MAE_BASE_ADDR_ALIGN);
 
 		mae_dev_dbg(mae_dev->dev, "Loop %d: %s(0x%llx)", loop, "image1", addr);
-		if (crop_dbg_en == 0) {
-			MAE_CMDQ_WRITE_REG(mae_dev->pkt[idx],
-					MAE_REG_EXTRN_BASE1_00_0_R + loop * BASE_ADDR_REG_SIZE,
-					LSB_ADDR(addr));
-			MAE_CMDQ_WRITE_REG(mae_dev->pkt[idx],
-					MAE_REG_EXTRN_BASE1_00_1_R + loop * BASE_ADDR_REG_SIZE,
-					MSB_ADDR(addr));
-		} else if (crop_dbg_en == 1) { // fd crop
-			MAE_CMDQ_WRITE_REG(mae_dev->pkt[idx],
-					MAE_REG_EXTRN_BASE1_00_0_R + loop * BASE_ADDR_REG_SIZE,
-					LSB_ADDR(addr) + 0xA0A);
-			MAE_CMDQ_WRITE_REG(mae_dev->pkt[idx],
-					MAE_REG_EXTRN_BASE1_00_1_R + loop * BASE_ADDR_REG_SIZE,
-					MSB_ADDR(addr));
-		} else if (crop_dbg_en == 2) { // attr crop
-			MAE_CMDQ_WRITE_REG(mae_dev->pkt[idx],
-					MAE_REG_EXTRN_BASE1_00_0_R + loop * BASE_ADDR_REG_SIZE,
-					LSB_ADDR(addr) + 0x500);
-			MAE_CMDQ_WRITE_REG(mae_dev->pkt[idx],
-					MAE_REG_EXTRN_BASE1_00_1_R + loop * BASE_ADDR_REG_SIZE,
-					MSB_ADDR(addr));
-		}
+		MAE_CMDQ_WRITE_REG(mae_dev->pkt[idx],
+				MAE_REG_EXTRN_BASE1_00_0_R + loop * BASE_ADDR_REG_SIZE,
+				LSB_ADDR(addr));
+		MAE_CMDQ_WRITE_REG(mae_dev->pkt[idx],
+				MAE_REG_EXTRN_BASE1_00_1_R + loop * BASE_ADDR_REG_SIZE,
+				MSB_ADDR(addr));
 
-		//----------------------- output base ------------------------------
-		// addr = mae_dev->mae_out;
+		// config the base address of output buffer
 		if (param->maeMode == AISEG) {
 			for (i = 0; i < AISEG_MAP_NUM; i++) {
 				addr = mae_dev->map_table->aiseg_output_dmabuf_info[idx][i].pa;
@@ -385,120 +369,122 @@ static void mtk_mae_config_dma(struct mtk_mae_dev *mae_dev, int idx)
 			}
 		}
 
-		//------------------- calculate the offset and size of binary file ---------------------
+		// calculate the offset and size of binary file
+		if (param->maeMode == FD_V0 || param->maeMode == FD_V1_IPN) {
+			if (param->image[loop].enRoi) {
+				mae_dev->core_sel[idx] = mtk_mae_fd_core_sel(mae_dev,
+						param->image[loop].resizeWidth,
+						param->image[loop].resizeWidth *
+						(param->image[loop].roi.y2 - param->image[loop].roi.y1 + 1) /
+						(param->image[loop].roi.x2 - param->image[loop].roi.x1 + 1));
+			} else {
+				mae_dev->core_sel[idx] = mtk_mae_fd_core_sel(mae_dev,
+						param->image[loop].resizeWidth,
+						param->image[loop].resizeWidth *
+						param->image[loop].imgHeight / param->image[loop].imgWidth);
+			}
+
+			if (mae_dev->core_sel[idx] < 0)
+				return;
+		}
+
 		switch (param->maeMode) {
-			case FD_V0:
-				core_sel = mtk_mae_fd_core_sel(mae_dev, param->image[loop].resizeWidth,
-										param->image[loop].resizeHeight);
-				if (core_sel < 0 || core_sel >= FD_PATTERN_NUM) {
-					mae_dev_info(mae_dev->dev, "Loop %d: invalid core_sel: %d",
-								loop, core_sel);
-					return;
-				}
+		case FD_V0:
+			config_offset = v0_fd_config_offset[mae_dev->core_sel[idx]];
+			coef_offset = v0_fd_coef_offset[mae_dev->core_sel[idx]];
 
-				config_offset = v0_fd_config_offset[core_sel];
-				coef_offset = v0_fd_coef_offset[core_sel];
-
-				if (param->fdInputDegree == DEGREE_90 ||
-					param->fdInputDegree == DEGREE_270) {
-					config_rt_offset = fd_v0_config_info[core_sel].rotate_offset;
-					config_size = fd_v0_config_info[core_sel].rotate_size;
-				} else {
-					config_rt_offset = 0;
-					config_size = fd_v0_config_info[core_sel].size;
-				}
-
-				coef_size = fd_v0_coef_info[core_sel].size;
-
-				config_addr =
-					mae_dev->map_table->config_dmabuf_info[MODEL_TYPE_FD_V0].pa + config_offset;
-				coef_addr =
-					mae_dev->map_table->coef_dmabuf_info[MODEL_TYPE_FD_V0].pa + coef_offset;
-				break;
-			case FD_V1_IPN:
-				core_sel = mtk_mae_fd_core_sel(mae_dev, param->image[loop].resizeWidth,
-										param->image[loop].resizeHeight);
-				if (core_sel < 0 || core_sel >= FD_PATTERN_NUM) {
-					mae_dev_info(mae_dev->dev, "Loop %d: invalid core_sel: %d",
-								loop, core_sel);
-					return;
-				}
-
-				config_offset = v1_fd_ipn_config_offset[core_sel];
-				coef_offset = v1_fd_ipn_coef_offset[core_sel];
-
-				if (param->fdInputDegree == DEGREE_90 ||
-					param->fdInputDegree == DEGREE_270) {
-					config_rt_offset = fd_v1_ipn_config_info[core_sel].rotate_offset;
-					config_size = fd_v1_ipn_config_info[core_sel].rotate_size;
-				} else {
-					config_rt_offset = 0;
-					config_size = fd_v1_ipn_config_info[core_sel].size;
-				}
-
-				coef_size = fd_v1_ipn_coef_info[core_sel].size;
-
-				config_addr =
-					mae_dev->map_table->config_dmabuf_info[MODEL_TYPE_FD_V1_IPN].pa + config_offset;
-				coef_addr =
-					mae_dev->map_table->coef_dmabuf_info[MODEL_TYPE_FD_V1_IPN].pa + coef_offset;
-				break;
-			case ATTR_V0:
-				config_offset = 0;
-				coef_offset = 0;
-
-				if (param->fdInputDegree == DEGREE_90 ||
-					param->fdInputDegree == DEGREE_270) {
-					// MAE_TO_CHECK: rotate_offset is 16B align but offset is not
-					config_rt_offset = attr_v0_config_info.rotate_offset;
-					config_size = attr_v0_config_info.rotate_size;
-				} else {
-					config_rt_offset = 0;
-					config_size = attr_v0_config_info.size;
-				}
-
-				coef_size = attr_v0_coef_info.size;
-
-				config_addr =
-					mae_dev->map_table->config_dmabuf_info[MODEL_TYPE_FLD_FAC_V0].pa +
-					config_offset;
-				coef_addr =
-					mae_dev->map_table->coef_dmabuf_info[MODEL_TYPE_FLD_FAC_V0].pa +
-					coef_offset;
-				break;
-			case AISEG:
+			if (param->fdInputDegree == DEGREE_90 ||
+				param->fdInputDegree == DEGREE_270) {
+				config_rt_offset = fd_v0_config_info[mae_dev->core_sel[idx]].rotate_offset;
+				config_size = fd_v0_config_info[mae_dev->core_sel[idx]].rotate_size;
+			} else {
 				config_rt_offset = 0;
-				config_offset =
-					model_table->configTable[MODEL_TYPE_AISEG].offset;
-				coef_offset =
-					model_table->coefTable[MODEL_TYPE_AISEG].offset;
+				config_size = fd_v0_config_info[mae_dev->core_sel[idx]].size;
+			}
 
-				config_size =
-					model_table->configTable[MODEL_TYPE_AISEG].size >> LSB_ADDR_SHIFT_BITS;
-				coef_size =
-					model_table->coefTable[MODEL_TYPE_AISEG].size >> LSB_ADDR_SHIFT_BITS;
+			coef_size = fd_v0_coef_info[mae_dev->core_sel[idx]].size;
 
-				config_addr =
-					mae_dev->map_table->config_dmabuf_info[MODEL_TYPE_AISEG].pa +
-					config_offset ;
-				coef_addr =
-					mae_dev->map_table->coef_dmabuf_info[MODEL_TYPE_AISEG].pa +
-					coef_offset;
-				break;
-			default:
-				mae_dev_info(mae_dev->dev, "[%s] unsupport mode(%d)",
-							__func__, param->maeMode);
-				break;
+			config_addr =
+				mae_dev->map_table->config_dmabuf_info[MODEL_TYPE_FD_V0].pa + config_offset;
+			coef_addr =
+				mae_dev->map_table->coef_dmabuf_info[MODEL_TYPE_FD_V0].pa + coef_offset;
+			break;
+		case FD_V1_IPN:
+			config_offset = v1_fd_ipn_config_offset[mae_dev->core_sel[idx]];
+			coef_offset = v1_fd_ipn_coef_offset[mae_dev->core_sel[idx]];
+
+			if (param->fdInputDegree == DEGREE_90 ||
+				param->fdInputDegree == DEGREE_270) {
+				config_rt_offset = fd_v1_ipn_config_info[mae_dev->core_sel[idx]].rotate_offset;
+				config_size = fd_v1_ipn_config_info[mae_dev->core_sel[idx]].rotate_size;
+			} else {
+				config_rt_offset = 0;
+				config_size = fd_v1_ipn_config_info[mae_dev->core_sel[idx]].size;
+			}
+
+			coef_size = fd_v1_ipn_coef_info[mae_dev->core_sel[idx]].size;
+
+			config_addr =
+				mae_dev->map_table->config_dmabuf_info[MODEL_TYPE_FD_V1_IPN].pa + config_offset;
+			coef_addr =
+				mae_dev->map_table->coef_dmabuf_info[MODEL_TYPE_FD_V1_IPN].pa + coef_offset;
+			break;
+		case ATTR_V0:
+			config_offset = 0;
+			coef_offset = 0;
+
+			if (param->fdInputDegree == DEGREE_90 ||
+				param->fdInputDegree == DEGREE_270) {
+				// MAE_TO_CHECK: rotate_offset is 16B align but offset is not
+				config_rt_offset = attr_v0_config_info.rotate_offset;
+				config_size = attr_v0_config_info.rotate_size;
+			} else {
+				config_rt_offset = 0;
+				config_size = attr_v0_config_info.size;
+			}
+
+			coef_size = attr_v0_coef_info.size;
+
+			config_addr =
+				mae_dev->map_table->config_dmabuf_info[MODEL_TYPE_FLD_FAC_V0].pa +
+				config_offset;
+			coef_addr =
+				mae_dev->map_table->coef_dmabuf_info[MODEL_TYPE_FLD_FAC_V0].pa +
+				coef_offset;
+			break;
+		case AISEG:
+			config_rt_offset = 0;
+			config_offset =
+				model_table->configTable[MODEL_TYPE_AISEG].offset;
+			coef_offset =
+				model_table->coefTable[MODEL_TYPE_AISEG].offset;
+
+			config_size =
+				model_table->configTable[MODEL_TYPE_AISEG].size >> LSB_ADDR_SHIFT_BITS;
+			coef_size =
+				model_table->coefTable[MODEL_TYPE_AISEG].size >> LSB_ADDR_SHIFT_BITS;
+
+			config_addr =
+				mae_dev->map_table->config_dmabuf_info[MODEL_TYPE_AISEG].pa +
+				config_offset ;
+			coef_addr =
+				mae_dev->map_table->coef_dmabuf_info[MODEL_TYPE_AISEG].pa +
+				coef_offset;
+			break;
+		default:
+			mae_dev_info(mae_dev->dev, "[%s] unsupport mode(%d)",
+						__func__, param->maeMode);
+			break;
 		}
 
 		mae_dev_dbg(mae_dev->dev,
 			"sel: %d, deg: %d, config_offset: %d (B), config_rt_offset: %d (16B), config_size: %d (16 B), ",
-			core_sel, param->fdInputDegree, config_offset, config_rt_offset, config_size);
+			mae_dev->core_sel[idx], param->fdInputDegree, config_offset, config_rt_offset, config_size);
 		mae_dev_dbg(mae_dev->dev,
 			"coef_offset: %d (B), coef_size: %d (16 B) , config_addr: 0x%llx , coef_addr: 0x%llx",
 			coef_offset, coef_size, config_addr, coef_addr);
 
-		//----------------------- config0 base ------------------------------
+		// config the base address of config buffer
 		if (CHECK_BASE_ADDR(config_addr) || config_addr == 0)
 			mae_dev_info(mae_dev->dev, "Loop %d: %s(0x%llx) is not %d-aligned",
 					loop, "config0", config_addr, MAE_BASE_ADDR_ALIGN);
@@ -523,7 +509,7 @@ static void mtk_mae_config_dma(struct mtk_mae_dev *mae_dev, int idx)
 				MAE_REG_OUTER_CONFIG_OFFSET_00_1 + loop * BASE_ADDR_REG_SIZE,
 				REG_RANGE(config_rt_offset, 31, 16));
 
-		//----------------------- coef0 base ------------------------------
+		// config the base address of coef buffer
 		if (CHECK_BASE_ADDR(coef_addr) || coef_addr == 0)
 			mae_dev_info(mae_dev->dev, "Loop %d: %s(0x%llx) is not %d-aligned",
 					loop, "coef0", coef_addr, MAE_BASE_ADDR_ALIGN);
@@ -556,23 +542,18 @@ void mtk_mae_crop(struct mtk_mae_dev *mae_dev,
 	int32_t even_start_y;
 	int32_t reg_outer_src_hsize;
 	int32_t reg_outer_src_vsize;
-	int32_t base0_shift_offset;
-	int32_t base0_shift;
-	int32_t base1_shift;
+	// int32_t base0_shift_offset;
+	// int32_t base0_shift;
+	// int32_t base1_shift;
 	int32_t crop_right_x;
 	int32_t crop_left_x;
 	int32_t crop_down_y;
 	int32_t crop_up_y;
 
 
-	mae_dev_dbg(mae_dev->dev, "[%s] x1(%d), x2(%d), y1(%d), y2(%d), input_h/w(%d,%d)\n",
-		__func__,
-		in->start_x,
-		in->end_x,
-		in->start_y,
-		in->end_y,
-		in->input_h_size,
-		in->input_v_size);
+	mae_dev_dbg(mae_dev->dev, "[%s] s_x(%d), e_x(%d), s_y(%d), e_y(%d), input_h_size(%d), input_v_size(%d)\n",
+		__func__, in->start_x, in->end_x, in->start_y, in->end_y,
+		in->input_h_size, in->input_v_size);
 
 	crop_x_size = in->end_x - in->start_x;
 	crop_y_size = in->end_y - in->start_y;
@@ -591,9 +572,9 @@ void mtk_mae_crop(struct mtk_mae_dev *mae_dev,
 		- MIN(MAX(in->start_x, 0), in->input_h_size) / 16 * 16;
 	reg_outer_src_vsize = even_end_y - even_start_y;
 
-	base0_shift_offset = MAX(in->start_x, 0) / 16;
-	base0_shift = even_start_y * 40 + base0_shift_offset;
-	base1_shift = even_start_y * 20 + base0_shift_offset;
+	// base0_shift_offset = MAX(in->start_x, 0) / 16;
+	// base0_shift = even_start_y * 40 + base0_shift_offset;
+	// base1_shift = even_start_y * 20 + base0_shift_offset;
 
 	crop_right_x = MIN(in->end_x, in->input_h_size)
 		- DIV_CEIL_POS(MIN(in->end_x, in->input_h_size), 16) * 16;
@@ -687,10 +668,7 @@ void mtk_mae_padding(struct mtk_mae_dev *mae_dev,
 
 	mae_dev_dbg(mae_dev->dev, "[%s] l(%d), r(%d), d(%d), u(%d), crop_output_h_size(%d), crop_output_v_size(%d)\n",
 		__func__,
-		in->left,
-		in->right,
-		in->down,
-		in->up,
+		in->left, in->right, in->down, in->up,
 		in->crop_output_h_size,
 		in->crop_output_v_size);
 
@@ -738,22 +716,52 @@ void mtk_mae_padding(struct mtk_mae_dev *mae_dev,
 static void mtk_mae_config_padding(struct mtk_mae_dev *mae_dev,
 				struct EnqueParam *param,
 				struct cmdq_pkt *pkt,
-				uint32_t rsz_offset)
+				uint32_t rsz_offset,
+				int idx)
 {
 	struct padding_setting_in padding_in;
 	struct padding_setting_out padding_out = {0};
 
-	padding_in.left = param->image[0].padding.left;
-	padding_in.right = param->image[0].padding.right;
-	padding_in.down = param->image[0].padding.down;
-	padding_in.up = param->image[0].padding.up;
-	if (param->image[0].enRoi) {
-		padding_in.crop_output_h_size = param->image[0].roi.x2 - param->image[0].roi.x1;
-		padding_in.crop_output_v_size = param->image[0].roi.y2 - param->image[0].roi.y1;
+	if (param->maeMode == FD_V0 || param->maeMode == FD_V1_IPN) {
+		padding_in.left = 0;
+		padding_in.up = 0;
+
+		if (param->image[0].enRoi) {
+			padding_in.crop_output_h_size = param->image[0].roi.x2 - param->image[0].roi.x1 + 1;
+			padding_in.crop_output_v_size = param->image[0].roi.y2 - param->image[0].roi.y1 + 1;
+		} else {
+			padding_in.crop_output_h_size = param->image[0].imgWidth;
+			padding_in.crop_output_v_size = param->image[0].imgHeight;
+		}
+
+		padding_in.right =
+			(fd_pattern_width[mae_dev->core_sel[idx]] /
+			(param->image[0].resizeWidth / padding_in.crop_output_h_size))
+			- padding_in.crop_output_h_size;
+		padding_in.down =
+			(fd_pattern_height[mae_dev->core_sel[idx]] /
+			(param->image[0].resizeWidth / padding_in.crop_output_h_size))
+			- padding_in.crop_output_v_size;
+
+		if (padding_in.right < 0 || padding_in.down < 0) {
+			mae_dev_info(mae_dev->dev, "can not padding negative value r(%d) d(%d)",
+				padding_in.right, padding_in.down);
+			return; // RETURN_ERROR
+		}
 	} else {
-		padding_in.crop_output_h_size = param->image[0].imgWidth;
-		padding_in.crop_output_v_size = param->image[0].imgHeight;
+		padding_in.left = param->image[0].padding.left;
+		padding_in.right = param->image[0].padding.right;
+		padding_in.down = param->image[0].padding.down;
+		padding_in.up = param->image[0].padding.up;
+		if (param->image[0].enRoi) {
+			padding_in.crop_output_h_size = param->image[0].roi.x2 - param->image[0].roi.x1 + 1;
+			padding_in.crop_output_v_size = param->image[0].roi.y2 - param->image[0].roi.y1 + 1;
+		} else {
+			padding_in.crop_output_h_size = param->image[0].imgWidth;
+			padding_in.crop_output_v_size = param->image[0].imgHeight;
+		}
 	}
+
 	mtk_mae_padding(mae_dev, &padding_in, &padding_out);
 
 	MAE_CMDQ_WRITE_REG(pkt,
@@ -1038,6 +1046,24 @@ static void mtk_mae_fd_post(struct mtk_mae_dev *mae_dev,
 			int core_sel,
 			MAE_MODE mode)
 {
+	uint32_t core_offset;
+	struct EnqueImage *image = &param->image[0];
+
+	switch (core_sel) {
+	case 0:
+	case 1:
+		core_offset = 0;
+		break;
+	case 2:
+		core_offset = 1;
+		break;
+	case 3:
+		core_offset = 2;
+		break;
+	default:
+		break;
+	}
+
 	if (mae_fd_post_on == 0) {
 		// for ut
 		switch (mode) {
@@ -1111,23 +1137,39 @@ static void mtk_mae_fd_post(struct mtk_mae_dev *mae_dev,
 		}
 	} else {
 		// formula from algo
-		MAE_CMDQ_WRITE_REG(pkt, MAE_REG_MMFD_O_SCALE_0,
-			(uint32_t)((param->image[0].imgWidth << 9) / param->image[0].resizeWidth));
+		MAE_CMDQ_WRITE_REG(pkt, MAE_REG_X_OFFSET_0 + COMMON_REG_SIZE * core_offset,
+			(image->enRoi) ? (image->roi.x1) : 0);
 		mae_dev_dbg(mae_dev->dev, "[%s] 0x%x = 0x%x",
-			__func__, MAE_BASE + MAE_REG_MMFD_O_SCALE_0,
-			(uint32_t)((param->image[0].imgWidth << 9) / param->image[0].resizeWidth));
+			__func__, MAE_BASE + MAE_REG_X_OFFSET_0 + COMMON_REG_SIZE * core_offset,
+			(image->enRoi) ? (image->roi.x1) : 0);
 
-		MAE_CMDQ_WRITE_REG(pkt, MAE_REG_H_SIZE0,
-			(uint32_t)param->image[0].imgWidth);
+		MAE_CMDQ_WRITE_REG(pkt, MAE_REG_Y_OFFSET_0 + COMMON_REG_SIZE * core_offset,
+			(image->enRoi) ? (image->roi.y1) : 0);
 		mae_dev_dbg(mae_dev->dev, "[%s] 0x%x = 0x%x",
-			__func__, MAE_BASE + MAE_REG_H_SIZE0,
-			(uint32_t)param->image[0].imgWidth);
+			__func__, MAE_BASE + MAE_REG_Y_OFFSET_0 + COMMON_REG_SIZE * core_offset,
+			(image->enRoi) ? (image->roi.y1) : 0);
 
-		MAE_CMDQ_WRITE_REG(pkt, MAE_REG_V_SIZE0,
-			(uint32_t)param->image[0].imgHeight);
+		MAE_CMDQ_WRITE_REG(pkt, MAE_REG_MMFD_O_SCALE_0 + COMMON_REG_SIZE * core_offset,
+			(image->enRoi) ?
+			(((image->roi.x2 - image->roi.x1 + 1) << 9) / image->resizeWidth) :
+			(uint32_t)((image->imgWidth << 9) / image->resizeWidth));
 		mae_dev_dbg(mae_dev->dev, "[%s] 0x%x = 0x%x",
-			__func__, MAE_BASE + MAE_REG_V_SIZE0,
-			(uint32_t)param->image[0].imgHeight);
+			__func__, MAE_BASE + MAE_REG_MMFD_O_SCALE_0 + COMMON_REG_SIZE * core_offset,
+			(image->enRoi) ?
+			(((image->roi.x2 - image->roi.x1 + 1) << 9) / image->resizeWidth) :
+			(uint32_t)((image->imgWidth << 9) / image->resizeWidth));
+
+		MAE_CMDQ_WRITE_REG(pkt, MAE_REG_H_SIZE0 + COMMON_REG_SIZE * core_offset,
+			(uint32_t)image->imgWidth);
+		mae_dev_dbg(mae_dev->dev, "[%s] 0x%x = 0x%x",
+			__func__, MAE_BASE + MAE_REG_H_SIZE0 + COMMON_REG_SIZE * core_offset,
+			(uint32_t)image->imgWidth);
+
+		MAE_CMDQ_WRITE_REG(pkt, MAE_REG_V_SIZE0 + COMMON_REG_SIZE * core_offset,
+			(uint32_t)image->imgHeight);
+		mae_dev_dbg(mae_dev->dev, "[%s] 0x%x = 0x%x",
+			__func__, MAE_BASE + MAE_REG_V_SIZE0 + COMMON_REG_SIZE * core_offset,
+			(uint32_t)image->imgHeight);
 	}
 }
 
@@ -1135,7 +1177,6 @@ static void mtk_mae_config_hw(struct mtk_mae_dev *mae_dev, int idx)
 {
 	struct EnqueParam *param =
 		(struct EnqueParam*)mae_dev->map_table->param_dmabuf_info[idx].kva;
-	int core_sel;
 	uint32_t rsz_offset = 0;
 
 	mae_dev_dbg(mae_dev->dev, "%s+", __func__);
@@ -1151,7 +1192,7 @@ static void mtk_mae_config_hw(struct mtk_mae_dev *mae_dev, int idx)
 	mae_dev_dbg(mae_dev->dev, "adb: mae_dbf_on(%d)\n", mae_dbf_on);
 	mae_dev_dbg(mae_dev->dev, "adb: set_default_value(%d)\n", set_default_value);
 	mae_dev_dbg(mae_dev->dev, "adb: fld_reset_en(%d)\n", fld_reset_en);
-	mae_dev_dbg(mae_dev->dev, "adb: crop_dbg_en(%d)\n", crop_dbg_en);
+	// mae_dev_dbg(mae_dev->dev, "adb: crop_dbg_en(%d)\n", crop_dbg_en);
 	mae_dev_dbg(mae_dev->dev, "adb: aiseg_pat_en(%d)\n", aiseg_pat_en);
 
 	if (param->image[0].srcImgFmt == NV12 &&
@@ -1184,24 +1225,40 @@ static void mtk_mae_config_hw(struct mtk_mae_dev *mae_dev, int idx)
 	// MAE_TO_DO: multiple models
 	MAE_CMDQ_WRITE_REG(mae_dev->pkt[idx], MAE_SYS_SHADOW_CTRL, 0x0000);
 
+	if (param->maeMode == FD_V0 || param->maeMode == FD_V1_IPN) {
+		if (param->image[0].enRoi) {
+			mae_dev->core_sel[idx] = mtk_mae_fd_core_sel(mae_dev,
+					param->image[0].resizeWidth,
+					param->image[0].resizeWidth *
+					(param->image[0].roi.y2 - param->image[0].roi.y1 + 1) /
+					(param->image[0].roi.x2 - param->image[0].roi.x1 + 1));
+		} else {
+			mae_dev->core_sel[idx] = mtk_mae_fd_core_sel(mae_dev,
+					param->image[0].resizeWidth,
+					param->image[0].resizeWidth *
+					param->image[0].imgHeight / param->image[0].imgWidth);
+		}
+
+		if (mae_dev->core_sel[idx] < 0)
+			return;
+	}
+
 	switch (param->maeMode) {
 	case FD_V0:
 	case FD_V1_IPN:
-		core_sel = mtk_mae_fd_core_sel(mae_dev, param->image[0].resizeWidth,
-			param->image[0].resizeHeight);
-		switch (core_sel) {
-			case 0:
-			case 1:
-				rsz_offset = 0;
-				break;
-			case 2:
-				rsz_offset = 1 * RSZ_BASE_ADDR_OFFSET;
-				break;
-			case 3:
-				rsz_offset = 2 * RSZ_BASE_ADDR_OFFSET;
-				break;
-			default:
-				break;
+		switch (mae_dev->core_sel[idx]) {
+		case 0:
+		case 1:
+			rsz_offset = 0;
+			break;
+		case 2:
+			rsz_offset = 1 * RSZ_BASE_ADDR_OFFSET;
+			break;
+		case 3:
+			rsz_offset = 2 * RSZ_BASE_ADDR_OFFSET;
+			break;
+		default:
+			break;
 		}
 
 		if (param->image[0].srcImgFmt == NV12) {
@@ -1213,24 +1270,23 @@ static void mtk_mae_config_hw(struct mtk_mae_dev *mae_dev, int idx)
 			return;
 		}
 
-		MAE_CMDQ_WRITE_REG(mae_dev->pkt[idx], MAE_COEF_ROTATE, param->fdInputDegree);
+	MAE_CMDQ_WRITE_REG(mae_dev->pkt[idx], MAE_COEF_ROTATE, param->fdInputDegree);
 
-		mtk_mae_fd_post(mae_dev, param, mae_dev->pkt[idx], core_sel, param->maeMode);
+	mtk_mae_fd_post(mae_dev, param, mae_dev->pkt[idx], mae_dev->core_sel[idx], param->maeMode);
 
+	if (param->image[0].enRoi)
+		mtk_mae_config_crop(mae_dev, param, mae_dev->pkt[idx], rsz_offset);
 
-		if (param->image[0].enRoi)
-			mtk_mae_config_crop(mae_dev, param, mae_dev->pkt[idx], rsz_offset);
+	// for fitting the pattern size
+	mtk_mae_config_padding(mae_dev, param, mae_dev->pkt[idx], rsz_offset, idx);
 
-		if (param->image[0].enPadding)
-			mtk_mae_config_padding(mae_dev, param, mae_dev->pkt[idx], rsz_offset);
+	mtk_mae_config_rsz(mae_dev, param, mae_dev->pkt[idx], rsz_offset);
 
-		mtk_mae_config_rsz(mae_dev, param, mae_dev->pkt[idx], rsz_offset);
+	MAE_CMDQ_WRITE_REG(mae_dev->pkt[idx],
+			REG_0184_RSZ1 + rsz_offset,
+			(param->image[0].enRoi << 3) + 0x3);
 
-		MAE_CMDQ_WRITE_REG(mae_dev->pkt[idx],
-				REG_0184_RSZ1 + rsz_offset,
-				(param->image[0].enRoi << 3) + 0x3);
-
-		break;
+	break;
 	case ATTR_V0:
 		if (param->image[0].srcImgFmt == NV12) {
 			MAE_CMDQ_WRITE_REG(mae_dev->pkt[idx], MAE_REG_EXTRN_MEM_CONFIG, 0x000C);
@@ -1251,7 +1307,7 @@ static void mtk_mae_config_hw(struct mtk_mae_dev *mae_dev, int idx)
 			mtk_mae_config_crop(mae_dev, param, mae_dev->pkt[idx], rsz_offset);
 
 		if (param->image[0].enPadding)
-			mtk_mae_config_padding(mae_dev, param, mae_dev->pkt[idx], rsz_offset);
+			mtk_mae_config_padding(mae_dev, param, mae_dev->pkt[idx], rsz_offset, idx);
 
 		mtk_mae_config_rsz(mae_dev, param, mae_dev->pkt[idx], rsz_offset);
 
@@ -1786,12 +1842,10 @@ static void mtk_mae_get_fd_v0_result(struct mtk_mae_dev *mae_dev, int idx)
 {
 	struct EnqueParam *param =
 		(struct EnqueParam *)mae_dev->map_table->param_dmabuf_info[idx].kva;
-	uint32_t i, core_sel;
+	uint32_t i;
 
 	for (i = 0; i < param->pyramidNumber; i++) {
-		core_sel = mtk_mae_fd_core_sel(mae_dev, param->image[i].resizeWidth,
-						param->image[i].resizeHeight);
-		switch (core_sel) {
+		switch (mae_dev->core_sel[idx]) {
 		case 0:
 		case 1:
 			param->faceNum[i][0] =
@@ -1810,7 +1864,7 @@ static void mtk_mae_get_fd_v0_result(struct mtk_mae_dev *mae_dev, int idx)
 			break;
 		default:
 			mae_dev_info(mae_dev->dev, "[%s] unsupport core_sel(%d)",
-						__func__, core_sel);
+						__func__, mae_dev->core_sel[idx]);
 			break;
 		}
 	}
@@ -1820,13 +1874,11 @@ static void mtk_mae_get_fd_v1_result(struct mtk_mae_dev *mae_dev, int idx)
 {
 	struct EnqueParam *param =
 		(struct EnqueParam *)mae_dev->map_table->param_dmabuf_info[idx].kva;
-	uint32_t i, j, core_sel;
+	uint32_t i, j;
 	uint32_t reg_base = 0;
 
 	for (i = 0; i < param->pyramidNumber; i++) {
-		core_sel = mtk_mae_fd_core_sel(mae_dev, param->image[i].resizeWidth,
-						param->image[i].resizeHeight);
-		switch (core_sel) {
+		switch (mae_dev->core_sel[idx]) {
 		case 0:
 		case 1:
 			reg_base = MAE_REG_FACE_NUM0;
@@ -1839,7 +1891,7 @@ static void mtk_mae_get_fd_v1_result(struct mtk_mae_dev *mae_dev, int idx)
 			break;
 		default:
 			mae_dev_info(mae_dev->dev, "[%s] unsupport core_sel(%d)",
-						__func__, core_sel);
+						__func__, mae_dev->core_sel[idx]);
 			reg_base = MAE_REG_FACE_NUM0;
 			break;
 		}

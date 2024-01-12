@@ -1,0 +1,1775 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Copyright (c) 2020 MediaTek Inc.
+ *
+ * Author: Ming-Hsuan.Chiang <Ming-Hsuan.Chiang@mediatek.com>
+ *
+ */
+
+#include <linux/clk.h>
+#include <linux/dma-mapping.h>
+#include <linux/module.h>
+#include <linux/platform_device.h>
+
+#include <linux/of_address.h>
+#include <linux/of_irq.h>
+#include <linux/of_platform.h>
+#include <linux/dma-heap.h>
+#include <uapi/linux/dma-heap.h>
+
+#include <linux/device.h>
+#include <media/v4l2-ctrls.h>
+#include <media/v4l2-event.h>
+#include <media/v4l2-ioctl.h>
+#include <media/v4l2-mem2mem.h>
+#include <media/videobuf2-core.h>
+#include <media/videobuf2-dma-contig.h>
+#include <media/videobuf2-v4l2.h>
+#include "mtk_dma_contig.h"
+#include "iommu_debug.h"
+#include <linux/soc/mediatek/mtk-cmdq-ext.h>
+#include "cmdq-sec.h"
+#include "mtk_heap.h"
+
+#include "mtk-mae.h"
+#include "mtk_notify_aov.h"
+
+// DEBUG_ONLY
+#include <linux/delay.h>
+
+#define M2M_ENABLE 1
+#define AOV_NOTIFY_AIE_AVAIL 1
+
+int delay_en = 1;
+int dump_reg_en = 0;
+int irq_handler_en = 1;
+module_param(mae_log_level_value, int, 0644);
+module_param(delay_en, int, 0644);
+module_param(dump_reg_en, int, 0644);
+module_param(irq_handler_en, int, 0644);
+
+aov_notify m_aov_notify = NULL;
+
+#if M2M_ENABLE
+#define V4L2_META_FMT_MTFD_RESULT  v4l2_fourcc('M', 'T', 'f', 'd')
+#endif
+#define MTK_MAE_OUTPUT_MIN_WIDTH 0U
+#define MTK_MAE_OUTPUT_MIN_HEIGHT 0U
+#define MTK_MAE_OUTPUT_MAX_WIDTH 4096U
+#define MTK_MAE_OUTPUT_MAX_HEIGHT 4096U
+
+static const struct v4l2_pix_format_mplane mtk_mae_img_fmts[] = {
+	{
+		.pixelformat = V4L2_PIX_FMT_YUYV, .num_planes = 1,
+	},
+	{
+		.pixelformat = V4L2_PIX_FMT_YVYU, .num_planes = 1,
+	},
+	{
+		.pixelformat = V4L2_PIX_FMT_UYVY, .num_planes = 1,
+	},
+	{
+		.pixelformat = V4L2_PIX_FMT_VYUY, .num_planes = 1,
+	},
+	{
+		.pixelformat = V4L2_PIX_FMT_GREY, .num_planes = 1,
+	},
+	{
+		.pixelformat = V4L2_PIX_FMT_NV12M, .num_planes = 2,
+	},
+	{
+		.pixelformat = V4L2_PIX_FMT_NV12, .num_planes = 1,
+	},
+};
+#define NUM_FORMATS ARRAY_SIZE(mtk_mae_img_fmts)
+
+	// MAE_TO_DO: Clk and PWR
+static struct mae_data data_isp8;
+// static struct mae_data data_isp8 = {
+// 	.clks = ipesys_isp7s_aie_clks,
+// 	.clk_num = ARRAY_SIZE(ipesys_isp7s_aie_clks),
+// };
+
+static struct mtk_mae_drv_ops drv_ops;
+
+void mtk_mae_register_drv_ops(const struct mtk_mae_drv_ops *ops) {
+	drv_ops.set_dma_address = ops->set_dma_address;
+	drv_ops.config_hw = ops->config_hw;
+	drv_ops.dump_reg = ops->dump_reg;
+	drv_ops.irq_handle = ops->irq_handle;
+	drv_ops.config_fld = ops->config_fld;
+}
+EXPORT_SYMBOL(mtk_mae_register_drv_ops);
+
+void aov_notify_register(aov_notify aov_notify_fn)
+{
+	m_aov_notify = aov_notify_fn;
+}
+EXPORT_SYMBOL(aov_notify_register);
+
+enum MAE_BUF_TYPE {
+	SECURE_BUF,
+	CACHED_BUF,
+	UNCACHED_BUF
+};
+
+static struct dma_buf *mae_imem_sec_alloc(struct mtk_mae_dev *mae_dev,
+						uint32_t size,
+						enum MAE_BUF_TYPE buf_type)
+{
+	struct dma_heap *dma_heap;
+	struct dma_buf *my_dma_buf;
+
+	switch (buf_type) {
+	case SECURE_BUF:
+		dma_heap = dma_heap_find("mtk_prot_region");
+		break;
+	case CACHED_BUF:
+		dma_heap = dma_heap_find("mtk_mm");
+		break;
+	case UNCACHED_BUF:
+		dma_heap = dma_heap_find("mtk_mm-uncached");
+		break;
+	default:
+		dma_heap = dma_heap_find("mtk_mm-uncached");
+		break;
+	}
+
+	if (!dma_heap) {
+		mae_dev_info(mae_dev->dev, "heap find fail\n");
+		return NULL;
+	}
+
+	my_dma_buf = dma_heap_buffer_alloc(dma_heap, size, O_RDWR |
+		O_CLOEXEC, DMA_HEAP_VALID_HEAP_FLAGS);
+	if (IS_ERR(my_dma_buf)) {
+		mae_dev_info(mae_dev->dev, "buffer alloc fail\n");
+		dma_heap_put(dma_heap);
+		return NULL;
+	}
+
+	return my_dma_buf;
+}
+
+static int mtk_mae_get_map_info(struct mtk_mae_dev *mae_dev,
+						struct dmabuf_info *info)
+{
+	int ret;
+
+	if (IS_ERR(info->dmabuf) || info->dmabuf == NULL) {
+		mae_dev_info(mae_dev->dev, "%s, dmabuf is invalid\n", __func__);
+		return -ENOMEM;
+	}
+
+	ret = (uint64_t)dma_buf_vmap(info->dmabuf, &info->map);
+	if (ret) {
+		mae_dev_info(mae_dev->dev, "%s, map kernel va failed\n", __func__);
+			ret = -ENOMEM;
+			goto ERROR_PARA_PUTBUF;
+	}
+	info->kva = (unsigned long long)info->map.vaddr;
+
+	info->is_map = true;
+	return 0;
+
+ERROR_PARA_PUTBUF:
+	if (!info->is_attach)
+		dma_buf_put(info->dmabuf);
+
+	return ret;
+}
+
+static int mtk_mae_get_attach_info(struct mtk_mae_dev *mae_dev,
+						struct dmabuf_info *info)
+{
+	int ret;
+
+	if (IS_ERR(info->dmabuf) || info->dmabuf == NULL) {
+		mae_dev_info(mae_dev->dev, "%s, dmabuf is invalid\n", __func__);
+		return -ENOMEM;
+	}
+
+	info->attach =
+		dma_buf_attach(info->dmabuf, mae_dev->smmu_dev);
+	if (IS_ERR(info->attach)) {
+		mae_dev_info(mae_dev->dev, "%s, dmabuf attach fail\n", __func__);
+		ret = -ENOMEM;
+		goto ERROR_PARA_PUTBUF;
+	}
+
+	info->sg_table =
+		dma_buf_map_attachment(info->attach, DMA_BIDIRECTIONAL);
+	if (IS_ERR(info->sg_table)) {
+		mae_dev_info(mae_dev->dev, "%s, dmabuf map attach fail\n", __func__);
+		ret = -ENOMEM;
+		goto ERROR_CONFIG_DETACH;
+	}
+	info->pa = sg_dma_address(info->sg_table->sgl);
+
+	info->is_attach = true;
+	return 0;
+
+ERROR_CONFIG_DETACH:
+	dma_buf_detach(info->dmabuf, info->attach);
+
+ERROR_PARA_PUTBUF:
+	if (!info->is_map)
+		dma_buf_put(info->dmabuf);
+
+	return ret;
+}
+
+static void mtk_mae_hw_done(struct mtk_mae_dev *mae_dev,
+							enum vb2_buffer_state vb_state)
+{
+#if M2M_ENABLE
+	struct mtk_mae_ctx *ctx;
+	struct vb2_v4l2_buffer *src_vbuf = NULL, *dst_vbuf = NULL;
+
+	// DEBUG_ONLY
+	pr_info("%s+", __func__);
+
+	ctx = v4l2_m2m_get_curr_priv(mae_dev->m2m_dev);
+	if (ctx == NULL)
+		return;
+
+	src_vbuf = v4l2_m2m_src_buf_remove(ctx->fh.m2m_ctx);
+	if (src_vbuf == NULL)
+		return;
+
+	dst_vbuf = v4l2_m2m_dst_buf_remove(ctx->fh.m2m_ctx);
+	if (dst_vbuf == NULL)
+		return;
+
+	v4l2_m2m_buf_copy_metadata(src_vbuf, dst_vbuf,
+				   V4L2_BUF_FLAG_TSTAMP_SRC_MASK);
+	v4l2_m2m_buf_done(src_vbuf, vb_state);
+	v4l2_m2m_buf_done(dst_vbuf, vb_state);
+	v4l2_m2m_job_finish(mae_dev->m2m_dev, ctx->fh.m2m_ctx);
+
+	// DEBUG_ONLY
+	pr_info("%s-", __func__);
+	// complete_all(&fd->fd_job_finished);
+#else
+	// MAE_TO_DO
+#endif
+}
+
+static void mtk_mae_frame_done_worker(struct work_struct *work)
+{
+	struct mtk_mae_req_work *req_work = (struct mtk_mae_req_work *)work;
+	struct mtk_mae_dev *mae_dev = (struct mtk_mae_dev *)req_work->mae_dev;
+	// DEBUG_ONLY
+	uint32_t *dump;
+	pr_info("%s+", __func__);
+	pr_info("dump_reg_en(%d), irq_handler_en(%d)", dump_reg_en, irq_handler_en);
+
+	// MAE_TO_DO: support multiple users by multiple works
+	cmdq_pkt_wait_complete(mae_dev->pkt[0]);
+	cmdq_pkt_destroy(mae_dev->pkt[0]);
+
+	if (mae_dev->is_hw_hang) {
+		// MAE_TO_DO: timeout dump flow
+		mtk_mae_hw_done(mae_dev, VB2_BUF_STATE_ERROR);
+	} else {
+		// MAE_TO_DO: parsing flow
+		dma_buf_begin_cpu_access(mae_dev->map_table->output_dmabuf_info[0][0].dmabuf,
+									DMA_BIDIRECTIONAL);
+		// DEBUG_ONLY: sleep 10ms
+		if (delay_en)
+			msleep(500);
+
+		// DEBUG_ONLY: print output
+		dump = (uint32_t*)mae_dev->map_table->output_dmabuf_info[0][0].kva;
+
+		// DEBUG_ONLY: To check hw wdma.
+		mae_dev_info(mae_dev->dev, "%s, output 0x%llx (0x%x_%x)(0x%x_%x)\n",
+			__func__, (uint64_t)dump, *(dump), *(dump+1), *(dump+2), *(dump+3));
+		// mae_dev_info(mae_dev->dev, "[%s] dump output (0x%x)", __func__, *dump);
+
+		if (dump_reg_en)
+			drv_ops.dump_reg(mae_dev);
+
+		if (irq_handler_en)
+			drv_ops.irq_handle(mae_dev);
+
+		mtk_mae_hw_done(mae_dev, VB2_BUF_STATE_DONE);
+	}
+
+	// DEBUG_ONLY
+	pr_info("%s-", __func__);
+}
+
+static inline struct mtk_mae_ctx *fh_to_ctx(struct v4l2_fh *fh)
+{
+	return container_of(fh, struct mtk_mae_ctx, fh);
+}
+
+static const struct v4l2_pix_format_mplane *mtk_mae_find_fmt(u32 format)
+{
+	unsigned int i;
+
+	for (i = 0; i < NUM_FORMATS; i++) {
+		if (mtk_mae_img_fmts[i].pixelformat == format)
+			return &mtk_mae_img_fmts[i];
+	}
+
+	return NULL;
+}
+
+#if M2M_ENABLE
+static void mtk_mae_device_run(void *priv)
+{
+	struct mtk_mae_ctx *ctx = priv;
+	struct mtk_mae_dev *mae_dev = ctx->mae_dev;
+	struct vb2_v4l2_buffer *src_buf, *dst_buf;
+	struct EnqueParam *param;
+
+	int idx;
+
+	// DEBUG_ONLY
+	pr_info("%s+", __func__);
+
+	src_buf = v4l2_m2m_next_src_buf(ctx->fh.m2m_ctx);
+	if (src_buf == NULL)
+		return;
+
+	dst_buf = v4l2_m2m_next_dst_buf(ctx->fh.m2m_ctx);
+	if (dst_buf == NULL)
+		return;
+
+	idx = src_buf->vb2_buf.index;
+	param = (struct EnqueParam*)mae_dev->map_table->param_dmabuf_info[idx].kva;
+	// DEBUG_ONLY
+	mae_dev_info(mae_dev->dev, "[%s] buffer index(%d)", __func__, idx);
+
+	mae_dev->mae_out = vb2_dma_contig_plane_dma_addr(&dst_buf->vb2_buf, 0);
+	// plane_vaddr = vb2_plane_vaddr(&dst_buf->vb2_buf, 0);
+
+	mae_dev->pkt[idx] = cmdq_pkt_create(mae_dev->mae_clt);
+
+	if (param->maeMode == FLD_V0) {
+		drv_ops.config_fld(mae_dev, idx);
+	} else {
+		drv_ops.set_dma_address(mae_dev, idx);
+		drv_ops.config_hw(mae_dev, idx);
+	}
+	// DEBUG_ONLY
+    pr_info("%s-", __func__);
+}
+
+static struct v4l2_m2m_ops mae_m2m_ops = {
+    .device_run = mtk_mae_device_run,
+};
+#endif
+
+static const struct media_device_ops mae_m2m_media_ops = {
+    .req_validate = vb2_request_validate,
+    .req_queue = v4l2_m2m_request_queue,
+};
+
+static void mtk_mae_fill_pixfmt_mp(struct v4l2_pix_format_mplane *dfmt,
+				   const struct v4l2_pix_format_mplane *sfmt)
+{
+	dfmt->field = V4L2_FIELD_NONE;
+	dfmt->colorspace = V4L2_COLORSPACE_BT2020;
+	dfmt->num_planes = sfmt->num_planes;
+	dfmt->ycbcr_enc = V4L2_YCBCR_ENC_DEFAULT;
+	dfmt->quantization = V4L2_QUANTIZATION_DEFAULT;
+	dfmt->xfer_func = V4L2_MAP_XFER_FUNC_DEFAULT(dfmt->colorspace);
+
+	/* Keep user setting as possible */
+	dfmt->width = clamp(dfmt->width, MTK_MAE_OUTPUT_MIN_WIDTH,
+			    MTK_MAE_OUTPUT_MAX_WIDTH);
+	dfmt->height = clamp(dfmt->height, MTK_MAE_OUTPUT_MIN_HEIGHT,
+			     MTK_MAE_OUTPUT_MAX_HEIGHT);
+
+	if (sfmt->num_planes == 2) {
+		dfmt->plane_fmt[0].sizeimage =
+			dfmt->height * dfmt->plane_fmt[0].bytesperline;
+		dfmt->plane_fmt[1].sizeimage =
+			dfmt->height * dfmt->plane_fmt[1].bytesperline;
+		if (sfmt->pixelformat == V4L2_PIX_FMT_NV12M)
+			dfmt->plane_fmt[1].sizeimage =
+				dfmt->height * dfmt->plane_fmt[1].bytesperline /
+				2;
+	} else {
+		dfmt->plane_fmt[0].sizeimage =
+			dfmt->height * dfmt->plane_fmt[0].bytesperline;
+		if (sfmt->pixelformat == V4L2_PIX_FMT_NV12)
+			dfmt->plane_fmt[0].sizeimage =
+				dfmt->height * dfmt->plane_fmt[0].bytesperline *
+				3 / 2;
+	}
+}
+
+static void mtk_mae_init_v4l2_fmt(struct mtk_mae_ctx *ctx)
+{
+    struct v4l2_pix_format_mplane *src_fmt = &ctx->src_fmt;
+    struct v4l2_meta_format *dst_fmt = &ctx->dst_fmt;
+
+    /* Initialize source fmt */
+    src_fmt->width = MTK_MAE_OUTPUT_MAX_WIDTH;
+    src_fmt->height = MTK_MAE_OUTPUT_MAX_HEIGHT;
+    mtk_mae_fill_pixfmt_mp(src_fmt, &mtk_mae_img_fmts[0]);
+
+#if M2M_ENABLE
+    /* Initialize destination fmt */
+    dst_fmt->buffersize = sizeof(struct mtk_mae_enq_info);
+	// DEBUG_ONLY
+	pr_info("struct mtk_mae_enq_info (%d)", dst_fmt->buffersize);
+    dst_fmt->dataformat = V4L2_META_FMT_MTFD_RESULT;
+#endif
+
+}
+
+/*
+ * vb2_ops: queue_setup
+ */
+static int mtk_mae_vb2_queue_setup(struct vb2_queue *vq,
+                                   unsigned int *num_buffers,
+                                   unsigned int *num_planes,
+                                   unsigned int sizes[],
+                                   struct device *alloc_devs[])
+{
+	struct mtk_mae_ctx *ctx = vb2_get_drv_priv(vq);
+	unsigned int size[2];
+	unsigned int plane;
+
+	// DEBUG_ONLY
+	pr_info("%s: num_planes(%d), num_buffers(%d), ctx->dst_fmt.buffersize(%d)\n",
+		__func__, *num_planes, *num_buffers, ctx->dst_fmt.buffersize);
+
+	switch (vq->type) {
+#if M2M_ENABLE
+	case V4L2_BUF_TYPE_META_CAPTURE:
+		size[0] = ctx->dst_fmt.buffersize;
+		break;
+#endif
+
+	case V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE:
+		size[0] = ctx->src_fmt.plane_fmt[0].sizeimage;
+		size[1] = ctx->src_fmt.plane_fmt[1].sizeimage;
+		break;
+	}
+
+	if (*num_planes > 2)
+		return -EINVAL;
+	if (*num_planes == 0) {
+#if M2M_ENABLE
+		if (vq->type == V4L2_BUF_TYPE_META_CAPTURE) {
+			sizes[0] = ctx->dst_fmt.buffersize;
+			*num_planes = 1;
+			return 0;
+		}
+#endif
+
+		*num_planes = ctx->src_fmt.num_planes;
+		if (*num_planes > 2)
+			return -EINVAL;
+		for (plane = 0; plane < *num_planes; plane++) {
+			sizes[plane] = ctx->src_fmt.plane_fmt[plane].sizeimage;
+			pr_info("%s: plane = %d, size = %d\n",
+				__func__, plane, sizes[plane]);
+		}
+		return 0;
+	}
+
+	return 0;
+}
+
+/*
+ * vb2_ops: buf_out_validate
+ */
+static int mtk_mae_vb2_buf_out_validate(struct vb2_buffer *vb)
+{
+	struct vb2_v4l2_buffer *v4l2_buf = to_vb2_v4l2_buffer(vb);
+
+	if (v4l2_buf->field == V4L2_FIELD_ANY)
+		v4l2_buf->field = V4L2_FIELD_NONE;
+	if (v4l2_buf->field != V4L2_FIELD_NONE)
+		return -EINVAL;
+
+	return 0;
+}
+
+/*
+ * vb2_ops: buf_prepare
+ */
+static int mtk_mae_vb2_buf_prepare(struct vb2_buffer *vb)
+{
+    struct vb2_v4l2_buffer *vbuf = to_vb2_v4l2_buffer(vb);
+    struct vb2_queue *vq = vb->vb2_queue;
+    struct mtk_mae_ctx *ctx = vb2_get_drv_priv(vq);
+    struct device *dev = ctx->dev;
+    struct v4l2_pix_format_mplane *pixfmt;
+
+	// DEBUG_ONLY
+    pr_info("%s+", __func__);
+
+    switch (vq->type) {
+#if M2M_ENABLE
+    case V4L2_BUF_TYPE_META_CAPTURE:
+        if (vb2_plane_size(vb, 0) < ctx->dst_fmt.buffersize) {
+            mae_dev_info(dev, "meta size %lu is too small\n",
+                         vb2_plane_size(vb, 0));
+            return -EINVAL;
+        }
+        break;
+#endif
+    case V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE:
+        pixfmt = &ctx->src_fmt;
+
+        if (vbuf->field == V4L2_FIELD_ANY)
+            vbuf->field = V4L2_FIELD_NONE;
+
+        if (vb->num_planes > 2 || vbuf->field != V4L2_FIELD_NONE) {
+            mae_dev_info(dev, "plane %d or field %d not supported\n",
+                         vb->num_planes, vbuf->field);
+            return -EINVAL;
+        }
+
+        if (vb2_plane_size(vb, 0) < pixfmt->plane_fmt[0].sizeimage) {
+            mae_dev_info(dev, "plane 0 %lu is too small than %x\n",
+                         vb2_plane_size(vb, 0),
+                         pixfmt->plane_fmt[0].sizeimage);
+            return -EINVAL;
+        }
+
+        if (pixfmt->num_planes == 2 &&
+            vb2_plane_size(vb, 1) < pixfmt->plane_fmt[1].sizeimage) {
+                mae_dev_info(dev, "plane 1 %lu is too small than %x\n",
+                             vb2_plane_size(vb, 1),
+                             pixfmt->plane_fmt[1].sizeimage);
+            return -EINVAL;
+        }
+        break;
+    }
+
+    return 0;
+}
+
+/*
+ * vb2_ops: buf_queue
+ */
+static void mtk_mae_vb2_buf_queue(struct vb2_buffer *vb)
+{
+#if M2M_ENABLE
+    struct mtk_mae_ctx *ctx = vb2_get_drv_priv(vb->vb2_queue);
+    struct vb2_v4l2_buffer *vbuf = to_vb2_v4l2_buffer(vb);
+
+    v4l2_m2m_buf_queue(ctx->fh.m2m_ctx, vbuf);
+#else
+    // MAE_TO_DO: add buffer to ready queue
+    pr_info("%s: +\n", __func__);
+#endif
+}
+
+static int mtk_mae_hw_connect(struct mtk_mae_dev *mae_dev)
+{
+	struct dmabuf_info *buf_info = &mae_dev->map_table->internal_dmabuf_info;
+	int ret;
+
+	// DEBUG_ONLY
+	pr_info("%s+", __func__);
+
+	if (m_aov_notify != NULL)
+		m_aov_notify(mae_dev->aov_pdev, AOV_NOTIFY_AIE_AVAIL, 0); //unavailable: 0 available: 1
+
+	mae_dev->mae_stream_count++;
+	if (mae_dev->mae_stream_count == 1) {
+	// MAE_TO_DO: shutdown flow
+		cmdq_mbox_enable(mae_dev->mae_clt->chan);
+		cmdq_clear_event(mae_dev->mae_clt->chan, mae_dev->mae_event_id);
+	// MAE_TO_DO: hw enable
+		buf_info->dmabuf = mae_imem_sec_alloc(mae_dev, INTERNAL_BUFFER_SIZE, CACHED_BUF);
+		if (IS_ERR(buf_info->dmabuf) || buf_info->dmabuf == NULL) {
+			mae_dev_info(mae_dev->dev, "%s, internal buffer alloc failed\n", __func__);
+			return -ENOMEM;
+		}
+
+		ret = mtk_mae_get_attach_info(mae_dev, buf_info);
+		if (ret) {
+			mae_dev_info(mae_dev->dev, "%s, attach internal buffer fail\n", __func__);
+			return ret;
+		}
+
+	}
+
+	// DEBUG_ONLY
+	pr_info("%s-", __func__);
+	return 0;
+}
+
+/*
+ * vb2_ops: start_streaming
+ */
+static int mtk_mae_vb2_start_streaming(struct vb2_queue *vq, unsigned int count)
+{
+	struct mtk_mae_ctx *ctx = vb2_get_drv_priv(vq);
+
+	// DEBUG_ONLY
+	pr_info("%s+", __func__);
+
+#if M2M_ENABLE
+    if (vq->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE)
+        return mtk_mae_hw_connect(ctx->mae_dev);
+#else
+	return mtk_mae_hw_connect(ctx->mae_dev);
+#endif
+
+	// DEBUG_ONLY
+	pr_info("%s-", __func__);
+
+	return 0;
+}
+
+static void mtk_mae_umap_detach(struct mtk_mae_dev *mae_dev,
+								struct dmabuf_info *info)
+{
+	if (info->is_map) {
+		dma_buf_vunmap(info->dmabuf, &info->map);
+		info->is_map = false;
+	}
+
+	if (info->is_attach) {
+		dma_buf_unmap_attachment(info->attach,
+			info->sg_table, DMA_BIDIRECTIONAL);
+		dma_buf_detach(info->dmabuf, info->attach);
+
+		info->is_attach = false;
+	}
+
+	if (info->dmabuf)
+		dma_buf_put(info->dmabuf);
+
+	info->kva = 0;
+	info->pa = 0;
+}
+
+static void mtk_mae_hw_disconnect(struct mtk_mae_dev *mae_dev)
+{
+	// DEBUG_ONLY
+	pr_info("%s+", __func__);
+
+	// MAE_TO_DO: secure
+	// MAE_TO_DO: pm runtime put sync
+
+
+	mae_dev->mae_stream_count--;
+	if (mae_dev->mae_stream_count == 0) {
+		// MAE_TO_DO:
+		// cmdq_mbox_disable(mae_dev->mae_clt->chan);
+
+		// MAE_TO_DO: unmap buffer
+		mtk_mae_umap_detach(mae_dev, &mae_dev->map_table->model_table_dmabuf_info);
+		mtk_mae_umap_detach(mae_dev, &mae_dev->map_table->config_dmabuf_info[MODEL_TYPE_FD_V0]);
+		mtk_mae_umap_detach(mae_dev, &mae_dev->map_table->coef_dmabuf_info[MODEL_TYPE_FD_V0]);
+		mtk_mae_umap_detach(mae_dev, &mae_dev->map_table->config_dmabuf_info[MODEL_TYPE_FLD_FAC_V0]);
+		mtk_mae_umap_detach(mae_dev, &mae_dev->map_table->coef_dmabuf_info[MODEL_TYPE_FLD_FAC_V0]);
+		mtk_mae_umap_detach(mae_dev, &mae_dev->map_table->image_dmabuf_info[0][0]);
+		mtk_mae_umap_detach(mae_dev, &mae_dev->map_table->param_dmabuf_info[0]);
+		mtk_mae_umap_detach(mae_dev, &mae_dev->map_table->output_dmabuf_info[0][0]);
+		mtk_mae_umap_detach(mae_dev, &mae_dev->map_table->internal_dmabuf_info);
+
+		// MAE_TO_DO: fd->drv_ops->uninit(fd);
+	}
+	// DEBUG_ONLY
+	pr_info("%s-", __func__);
+}
+
+
+/*
+ * vb2_ops: stop_streaming
+ */
+static void mtk_mae_vb2_stop_streaming(struct vb2_queue *vq)
+{
+	struct mtk_mae_ctx *ctx = vb2_get_drv_priv(vq);
+	struct mtk_mae_dev *mae_dev = ctx->mae_dev;
+#if M2M_ENABLE
+	struct vb2_v4l2_buffer *vb;
+	struct v4l2_m2m_ctx *m2m_ctx = ctx->fh.m2m_ctx;
+	struct v4l2_m2m_queue_ctx *queue_ctx;
+#else
+	struct vb2_buffer *b;
+#endif
+    // MAE_TO_DO: wait job finish before stopping streaming
+	// int ret;
+
+	mae_dev_info(mae_dev->dev, "STREAM STOP\n");
+
+    // MAE_TO_DO: wait job finish before stopping streaming
+	// ret = mtk_aie_job_wait_finish(fd);
+	// if (!ret)
+	// 	aie_dev_info(fd->dev, "wait job finish timeout\n");
+
+#if M2M_ENABLE
+	queue_ctx = V4L2_TYPE_IS_OUTPUT(vq->type) ? &m2m_ctx->out_q_ctx
+						  : &m2m_ctx->cap_q_ctx;
+	while ((vb = v4l2_m2m_buf_remove(queue_ctx)))
+		v4l2_m2m_buf_done(vb, VB2_BUF_STATE_ERROR);
+
+	if (vq->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE)
+		mtk_mae_hw_disconnect(mae_dev);
+#else
+	list_for_each_entry(b, &vq->queued_list, queued_entry)
+		vb2_buffer_done(b, VB2_BUF_STATE_ERROR);
+
+    MAE_TO_DO: stopping stream flow
+	// mtk_aie_hw_disconnect(fd);
+#endif
+}
+
+/*
+ * vb2_ops: buf_request_complete
+ */
+static void mtk_mae_vb2_request_complete(struct vb2_buffer *vb)
+{
+	struct mtk_mae_ctx *ctx = vb2_get_drv_priv(vb->vb2_queue);
+
+	v4l2_ctrl_request_complete(vb->req_obj.req, &ctx->hdl);
+}
+
+static const struct vb2_ops mtk_mae_vb2_ops = {
+	.queue_setup = mtk_mae_vb2_queue_setup,
+	.buf_out_validate = mtk_mae_vb2_buf_out_validate,
+	.buf_prepare = mtk_mae_vb2_buf_prepare,
+	.buf_queue = mtk_mae_vb2_buf_queue,
+	.start_streaming = mtk_mae_vb2_start_streaming,
+	.stop_streaming = mtk_mae_vb2_stop_streaming,
+	.wait_prepare = vb2_ops_wait_prepare,
+	.wait_finish = vb2_ops_wait_finish,
+	.buf_request_complete = mtk_mae_vb2_request_complete,
+};
+
+#if M2M_ENABLE
+static int mtk_mae_queue_init(void *priv, struct vb2_queue *src_vq,
+			      struct vb2_queue *dst_vq)
+{
+	struct mtk_mae_ctx *ctx = priv;
+	int ret;
+
+	src_vq->type = V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE;
+	src_vq->io_modes = VB2_MMAP | VB2_DMABUF;
+	src_vq->supports_requests = true;
+	src_vq->drv_priv = ctx;
+	src_vq->ops = &mtk_mae_vb2_ops;
+	src_vq->mem_ops = &vb2_dma_contig_memops;
+	src_vq->buf_struct_size = sizeof(struct v4l2_m2m_buffer);
+	src_vq->timestamp_flags = V4L2_BUF_FLAG_TIMESTAMP_COPY;
+	src_vq->lock = &ctx->mae_dev->vdev_lock;
+	src_vq->dev = ctx->mae_dev->smmu_dev;
+
+	ret = vb2_queue_init(src_vq);
+	if (ret)
+		return ret;
+
+	dst_vq->type = V4L2_BUF_TYPE_META_CAPTURE;
+	dst_vq->io_modes = VB2_MMAP | VB2_DMABUF;
+	dst_vq->drv_priv = ctx;
+	dst_vq->ops = &mtk_mae_vb2_ops;
+	dst_vq->mem_ops = &vb2_dma_contig_memops;
+	dst_vq->buf_struct_size = sizeof(struct v4l2_m2m_buffer);
+	dst_vq->timestamp_flags = V4L2_BUF_FLAG_TIMESTAMP_COPY;
+	dst_vq->lock = &ctx->mae_dev->vdev_lock;
+	dst_vq->dev = ctx->mae_dev->smmu_dev;
+
+	return vb2_queue_init(dst_vq);
+}
+#else
+static int mtk_mae_queue_init(struct mtk_mae_ctx *ctx)
+{
+	int ret;
+	struct vb2_queue *vq = ctx->vq;
+
+	// DEBUG_ONLY
+	pr_info("%s+", __func__);
+
+	vq->type = V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE;
+	vq->io_modes = VB2_MMAP | VB2_DMABUF;
+	vq->supports_requests = true;
+	vq->drv_priv = ctx;
+	vq->ops = &mtk_mae_vb2_ops;
+	vq->mem_ops = &vb2_dma_contig_memops;
+	vq->buf_struct_size = sizeof(struct vb2_v4l2_buffer);
+	vq->timestamp_flags = V4L2_BUF_FLAG_TIMESTAMP_COPY;
+	vq->lock = &ctx->mae_dev->vdev_lock;
+	vq->dev = ctx->mae_dev->smmu_dev;
+
+	ret = vb2_queue_init(vq);
+	if (ret)
+		pr_info("%s: queue init fail\n", __func__);
+
+	return ret;
+}
+#endif
+
+/*
+ * V4L2 file operations: open
+ */
+static int mtk_mae_video_device_open(struct file *filp)
+{
+    struct mtk_mae_dev *mae_dev = video_drvdata(filp);
+    struct video_device *vdev = video_devdata(filp);
+    struct mtk_mae_ctx *ctx;
+    struct mtk_mae_map_table *map_table;
+    int ret;
+
+	// DEBUG_ONLY
+    pr_info("%s +\n", __func__);
+
+    ctx = kzalloc(sizeof(*ctx), GFP_KERNEL);
+    if (!ctx) {
+        pr_info("%s: ctx kzalloc fail\n", __func__);
+        return -ENOMEM;
+    }
+    ctx->mae_dev = mae_dev;
+    ctx->dev = mae_dev->dev;
+    mae_dev->ctx = ctx;
+
+    map_table = kzalloc(sizeof(*map_table), GFP_KERNEL);
+    if (!map_table) {
+        pr_info("%s: map_table kzalloc fail\n", __func__);
+        return -ENOMEM;
+    }
+    memset(map_table, 0, sizeof(*map_table));
+	mae_dev->map_table = map_table;
+
+    v4l2_fh_init(&ctx->fh, vdev);
+	filp->private_data = &ctx->fh;
+
+	mtk_mae_init_v4l2_fmt(ctx);
+#if M2M_ENABLE
+	ctx->fh.m2m_ctx =
+		v4l2_m2m_ctx_init(mae_dev->m2m_dev, ctx, &mtk_mae_queue_init);
+	if (IS_ERR(ctx->fh.m2m_ctx)) {
+		ret = PTR_ERR(ctx->fh.m2m_ctx);
+		goto err_free_ctrl_handler;
+	}
+#else
+	ctx->vq = kzalloc(sizeof(*ctx->vq), GFP_KERNEL);
+	ret = mtk_mae_queue_init(ctx);
+	if (ret)
+		goto err_free_ctrl_handler;
+#endif
+	v4l2_fh_add(&ctx->fh);
+
+	// DEBUG_ONLY
+    pr_info("%s -\n", __func__);
+	return 0;
+
+err_free_ctrl_handler:
+	v4l2_fh_exit(&ctx->fh);
+	kfree(mae_dev->map_table);
+	kfree(ctx);
+
+	return ret;
+}
+
+/*
+ * V4L2 file operations: release
+ */
+static int mtk_mae_video_device_release(struct file *filp)
+{
+	struct mtk_mae_ctx *ctx =
+		container_of(filp->private_data, struct mtk_mae_ctx, fh);
+	struct mtk_mae_dev *mae_dev = video_drvdata(filp);
+
+	// DEBUG_ONLY
+	pr_info("%s+", __func__);
+
+#if M2M_ENABLE
+	v4l2_m2m_ctx_release(ctx->fh.m2m_ctx);
+#endif
+
+	v4l2_fh_del(&ctx->fh);
+	v4l2_fh_exit(&ctx->fh);
+
+#if (M2M_ENABLE == 0)
+	vb2_queue_release(ctx->vq);
+	kfree(ctx->vq);
+#endif
+
+	kfree(ctx);
+	kfree(mae_dev->map_table);
+	// DEBUG_ONLY
+	pr_info("%s-", __func__);
+
+	return 0;
+}
+
+/*
+ * V4L2 file operations: poll
+ */
+static __poll_t mtk_mae_video_device_poll(struct file *file, poll_table *wait)
+{
+	// struct mtk_mae_ctx *ctx =
+	// 	container_of(file->private_data, struct mtk_mae_ctx, fh);
+	// int ret;
+
+	// pr_info("%s+\n", __func__);
+
+    // MAE_TO_DO: frame done notify
+	// ret = mtk_aie_job_wait_finish(ctx->mae_dev);
+	// if (!ret) {
+	// 	mae_dev_info(ctx->dev, "wait job finish timeout\n");
+	// 	return EPOLLERR;
+	// }
+
+#if M2M_ENABLE
+	return v4l2_m2m_fop_poll(file, wait);
+#else
+	return vb2_fop_poll(file, wait);
+#endif
+}
+
+static const struct v4l2_file_operations mae_video_fops = {
+	.owner = THIS_MODULE,
+	.open = mtk_mae_video_device_open,
+	.release = mtk_mae_video_device_release,
+	.poll = mtk_mae_video_device_poll,
+	.unlocked_ioctl = video_ioctl2,
+#if M2M_ENABLE
+	.mmap = v4l2_m2m_fop_mmap,
+#else
+	.mmap = vb2_fop_mmap,
+#endif
+#ifdef CONFIG_COMPAT
+	.compat_ioctl32 = v4l2_compat_ioctl32,
+#endif
+
+};
+
+/*
+ * V4L2 ioctl operations: vidioc_querycap
+ */
+static int mtk_mae_querycap(struct file *file, void *fh,
+			    struct v4l2_capability *cap)
+{
+	struct mtk_mae_dev *mae_dev = video_drvdata(file);
+	struct device *dev = mae_dev->dev;
+	int ret = 0;
+
+	strscpy(cap->driver, dev_driver_string(dev), sizeof(cap->driver));
+	strscpy(cap->card, dev_driver_string(dev), sizeof(cap->card));
+	ret = snprintf(cap->bus_info, sizeof(cap->bus_info), "platform:%s",
+		 dev_name(mae_dev->dev));
+	if (ret < 0)
+		return ret;
+
+	return 0;
+}
+
+/*
+ * V4L2 ioctl operations: vidioc_enum_fmt_vid_out
+ */
+static int mtk_mae_enum_fmt_out_mp(struct file *file, void *fh,
+				   struct v4l2_fmtdesc *f)
+{
+	if (f->index >= NUM_FORMATS)
+		return -EINVAL;
+
+	f->pixelformat = mtk_mae_img_fmts[f->index].pixelformat;
+	return 0;
+}
+
+/*
+ * V4L2 ioctl operations: vidioc_g_fmt_vid_out_mplane
+ */
+static int mtk_mae_g_fmt_out_mp(struct file *file, void *fh,
+				struct v4l2_format *f)
+{
+	struct mtk_mae_ctx *ctx;
+
+	ctx = fh_to_ctx(fh);
+	if (ctx == NULL)
+		return -1;
+
+	f->fmt.pix_mp = ctx->src_fmt;
+
+	return 0;
+}
+
+/*
+ * V4L2 ioctl operations: vidioc_try_fmt_vid_out_mplane
+ */
+static int mtk_mae_try_fmt_out_mp(struct file *file, void *fh,
+				  struct v4l2_format *f)
+{
+	struct v4l2_pix_format_mplane *pix_mp = &f->fmt.pix_mp;
+	const struct v4l2_pix_format_mplane *fmt;
+
+	// DEBUG_ONLY
+	pr_info("%s+\n", __func__);
+
+	fmt = mtk_mae_find_fmt(pix_mp->pixelformat);
+	if (!fmt)
+		fmt = &mtk_mae_img_fmts[0]; /* Get default img fmt */
+
+	mtk_mae_fill_pixfmt_mp(pix_mp, fmt);
+
+	// DEBUG_ONLY
+	pr_info("%s-\n", __func__);
+
+	return 0;
+}
+
+/*
+ * V4L2 ioctl operations: vidioc_s_fmt_vid_out_mplane
+ */
+static int mtk_mae_s_fmt_out_mp(struct file *file, void *fh,
+				struct v4l2_format *f)
+{
+	struct mtk_mae_ctx *ctx;
+	struct vb2_queue *vq;
+
+	// DEBUG_ONLY
+	pr_info("%s+\n", __func__);
+
+	ctx = fh_to_ctx(fh);
+	if (ctx == NULL)
+		return -1;
+
+#if M2M_ENABLE
+	vq = v4l2_m2m_get_vq(ctx->fh.m2m_ctx, f->type);
+	if (vq == NULL)
+		return -1;
+#else
+	vq = ctx->vq
+#endif
+	/* Change not allowed if queue is streaming. */
+	if (vb2_is_streaming(vq)) {
+		mae_dev_info(ctx->dev, "Failed to set format, vb2 is busy\n");
+		return -EBUSY;
+	}
+
+	mtk_mae_try_fmt_out_mp(file, fh, f);
+	ctx->src_fmt = f->fmt.pix_mp;
+
+	// DEBUG_ONLY
+	pr_info("%s-\n", __func__);
+
+	return 0;
+}
+
+#if M2M_ENABLE
+/*
+ * V4L2 ioctl operations: vidioc_enum_fmt_meta_cap
+ */
+static int mtk_mae_enum_fmt_meta_cap(struct file *file, void *fh,
+				     struct v4l2_fmtdesc *f)
+{
+	if (f->index)
+		return -EINVAL;
+
+	strscpy(f->description, "Face detection result",
+		sizeof(f->description));
+
+	f->pixelformat = V4L2_META_FMT_MTFD_RESULT;
+	f->flags = 0;
+
+	return 0;
+}
+#endif
+
+/*
+ * V4L2 ioctl operations:
+ * vidioc_g_fmt_meta_cap,
+ * vidioc_s_fmt_meta_cap,
+ * vidioc_try_fmt_meta_cap
+ */
+static int mtk_mae_g_fmt_meta_cap(struct file *file, void *fh,
+				  struct v4l2_format *f)
+{
+	f->fmt.meta.dataformat = V4L2_META_FMT_MTFD_RESULT;
+	f->fmt.meta.buffersize = sizeof(struct mtk_mae_enq_info);
+
+	return 0;
+}
+
+/*
+ * V4L2 ioctl operations: vidioc_qbuf
+ */
+int mtk_mae_vidioc_qbuf(struct file *file, void *priv,
+                        struct v4l2_buffer *buf)
+{
+    struct mtk_mae_dev *mae_dev;
+	struct mtk_mae_map_table *map_table;
+	uint32_t idx = buf->index;
+	int ret;
+	struct ModelTable* model_table;
+	struct EnqueParam* param;
+
+
+	// DEBUG_ONLY
+	uint32_t *debug_dump;
+	pr_info("%s+ buffer index(%d)", __func__, idx);
+	// MAE_TO_DO
+
+	if (file == NULL || buf == NULL) {
+		pr_info("%s, input param is NULL, file(0x%llx), buf(0x%llx)\n",
+				__func__, (uint64_t)file, (uint64_t)buf);
+		return -EFAULT;
+	}
+
+#if M2M_ENABLE
+	if (buf->type != V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
+		// DEBUG_ONLY
+		pr_info("%s-", __func__);
+		return v4l2_m2m_ioctl_qbuf(file, priv, buf);
+	}
+#endif
+
+	mae_dev = video_drvdata(file);
+
+	map_table = mae_dev->map_table;
+
+	// MAE_TO_DO: lock for shared variable
+	// get va of model table
+	if (!map_table->model_table_dmabuf_info.is_map) {
+		map_table->model_table_dmabuf_info.dmabuf =
+			dma_buf_get(buf->m.planes[MODEL_TABLE_PLANE].m.fd);
+		if (IS_ERR(map_table->model_table_dmabuf_info.dmabuf) ||
+			map_table->model_table_dmabuf_info.dmabuf == NULL) {
+			mae_dev_info(mae_dev->dev, "%s, dma_buf_get (%d,%d,%d) failed\n",
+						__func__, idx, MODEL_TABLE_PLANE,
+						buf->m.planes[MODEL_TABLE_PLANE].m.fd);
+			return -ENOMEM;
+		}
+
+		ret = mtk_mae_get_map_info(mae_dev, &map_table->model_table_dmabuf_info);
+		if (ret) {
+			mae_dev_info(mae_dev->dev, "%s, map buffer fail (%d,%d)",
+						__func__, idx, MODEL_TABLE_PLANE);
+			return ret;
+		}
+	}
+
+	ret = dma_buf_begin_cpu_access(map_table->model_table_dmabuf_info.dmabuf,
+									DMA_BIDIRECTIONAL);
+	if (ret < 0) {
+		mae_dev_info(mae_dev->dev, "%s, begin_cpu_access (%d,%d) failed\n",
+					__func__, idx, MODEL_TABLE_PLANE);
+		return -ENOMEM;
+	}
+	model_table = (struct ModelTable*)map_table->model_table_dmabuf_info.kva;
+
+	// get va of param plane
+	if (!map_table->param_dmabuf_info[idx].is_map) {
+		map_table->param_dmabuf_info[idx].dmabuf =
+			dma_buf_get(buf->m.planes[PARAM_PLANE].m.fd);
+		if (IS_ERR(map_table->param_dmabuf_info[idx].dmabuf) ||
+			map_table->param_dmabuf_info[idx].dmabuf == NULL) {
+			mae_dev_info(mae_dev->dev, "%s, dma_buf_get (%d,%d,%d) failed\n",
+						__func__, idx, PARAM_PLANE,
+						buf->m.planes[PARAM_PLANE].m.fd);
+			return -ENOMEM;
+		}
+
+		ret = mtk_mae_get_map_info(mae_dev, &map_table->param_dmabuf_info[idx]);
+		if (ret) {
+			mae_dev_info(mae_dev->dev, "%s, map buffer fail (%d,%d)",
+						__func__, idx, PARAM_PLANE);
+			return ret;
+		}
+	}
+
+	ret = dma_buf_begin_cpu_access(map_table->param_dmabuf_info[idx].dmabuf,
+									DMA_BIDIRECTIONAL);
+	if (ret < 0) {
+		mae_dev_info(mae_dev->dev, "%s, begin_cpu_access (%d,%d) failed\n",
+					__func__, idx, PARAM_PLANE);
+		return -ENOMEM;
+	}
+	param = (struct EnqueParam*)map_table->param_dmabuf_info[idx].kva;
+	// DEBUG_ONLY
+	mae_dev_dbg(mae_dev->dev, "%s, [check param] user(%d), imgMaxWidth(%d), "
+				"imgMaxHeight(%d), isSecure(%d), FDModelSel(%d), FACModelSel(%d), "
+				"pyramidNumber(%d), fdInputDegree(%d), maeMode(%d), requestNum(%d), "
+				"image[0].srcImgFmt(%d), image[0].imgWidth(%d), image[0].imgHeight(%d), "
+				"image[0].enResize(%d), image[0].resizeWidth(%d), image[0].resizeHeight(%d)\n",
+				__func__, param->user, param->imgMaxWidth,
+				param->imgMaxHeight, param->isSecure, param->FDModelSel, param->FACModelSel,
+				param->pyramidNumber, param->fdInputDegree, param->maeMode, param->requestNum,
+				param->image[0].srcImgFmt, param->image[0].imgWidth, param->image[0].imgHeight,
+				param->image[0].enResize, param->image[0].resizeWidth, param->image[0].resizeHeight);
+
+	// MAE_TO_DO: select specific config/coef
+	// get pa of FD V0 config buf
+	if (model_table->configTable[MODEL_TYPE_FD_V0].fd > 0) {
+		mtk_mae_umap_detach(mae_dev, &mae_dev->map_table->config_dmabuf_info[MODEL_TYPE_FD_V0]);
+		map_table->config_dmabuf_info[MODEL_TYPE_FD_V0].dmabuf =
+			dma_buf_get(model_table->configTable[MODEL_TYPE_FD_V0].fd);
+		if (IS_ERR(map_table->config_dmabuf_info[MODEL_TYPE_FD_V0].dmabuf) ||
+			map_table->config_dmabuf_info[MODEL_TYPE_FD_V0].dmabuf == NULL) {
+			mae_dev_info(mae_dev->dev, "%s, dma_buf_get config(%d,%d,%d) failed\n",
+						__func__, idx, MODEL_TYPE_FD_V0,
+						model_table->configTable[MODEL_TYPE_FD_V0].fd);
+			return -ENOMEM;
+		}
+
+		ret = mtk_mae_get_attach_info(mae_dev,
+					&map_table->config_dmabuf_info[MODEL_TYPE_FD_V0]);
+		if (ret) {
+			mae_dev_info(mae_dev->dev, "%s, attach config buf fail (%d,%d)",
+						__func__, idx, MODEL_TYPE_FD_V0);
+			return ret;
+		}
+
+		// DEBUG_ONLY: get va of config
+		ret = mtk_mae_get_map_info(mae_dev,
+				&map_table->config_dmabuf_info[MODEL_TYPE_FD_V0]);
+		if (ret) {
+			mae_dev_info(mae_dev->dev, "%s, map config buf fail (%d,%d)",
+					__func__, idx, MODEL_TYPE_FD_V0);
+			return ret;
+		}
+		debug_dump =
+			(uint32_t*)map_table->config_dmabuf_info[MODEL_TYPE_FD_V0].kva;
+		mae_dev_info(mae_dev->dev, "%s, 640x480 config(0x%x_%x )(0x%x_%x)\n",
+			__func__, *debug_dump, *(debug_dump+1), *(debug_dump+2), *(debug_dump+3));
+
+		debug_dump += round_up(V0_FD_640_480_CONFIG_SIZE, MAE_BASE_ADDR_ALIGN) / 4;
+		mae_dev_info(mae_dev->dev, "%s, 480x360 config(0x%x_%x )(0x%x_%x)\n",
+			__func__, *debug_dump, *(debug_dump+1), *(debug_dump+2), *(debug_dump+3));
+
+		debug_dump += round_up(V0_FD_480_360_CONFIG_SIZE, MAE_BASE_ADDR_ALIGN) / 4;
+		mae_dev_info(mae_dev->dev, "%s, 480x360 config(0x%x_%x )(0x%x_%x)\n",
+			__func__, *debug_dump, *(debug_dump+1), *(debug_dump+2), *(debug_dump+3));
+
+		debug_dump += round_up(V0_FD_240_180_CONFIG_SIZE, MAE_BASE_ADDR_ALIGN) / 4;
+		mae_dev_info(mae_dev->dev, "%s, 240x180 config(0x%x_%x )(0x%x_%x)\n",
+			__func__, *debug_dump, *(debug_dump+1), *(debug_dump+2), *(debug_dump+3));
+
+	}
+
+	// get pa of FAC&FLD config buf
+	// if (!map_table->config_dmabuf_info[MODEL_TYPE_FLD_FAC_V0].is_attach &&
+	if (model_table->configTable[MODEL_TYPE_FLD_FAC_V0].fd > 0) {
+		mtk_mae_umap_detach(mae_dev, &mae_dev->map_table->config_dmabuf_info[MODEL_TYPE_FLD_FAC_V0]);
+		map_table->config_dmabuf_info[MODEL_TYPE_FLD_FAC_V0].dmabuf =
+			dma_buf_get(model_table->configTable[MODEL_TYPE_FLD_FAC_V0].fd);
+		if (IS_ERR(map_table->config_dmabuf_info[MODEL_TYPE_FLD_FAC_V0].dmabuf) ||
+			map_table->config_dmabuf_info[MODEL_TYPE_FLD_FAC_V0].dmabuf == NULL) {
+			mae_dev_info(mae_dev->dev, "%s, dma_buf_get config(%d,%d,%d) failed\n",
+						__func__, idx, MODEL_TYPE_FLD_FAC_V0,
+						model_table->configTable[MODEL_TYPE_FLD_FAC_V0].fd);
+			return -ENOMEM;
+		}
+
+		ret = mtk_mae_get_attach_info(mae_dev,
+					&map_table->config_dmabuf_info[MODEL_TYPE_FLD_FAC_V0]);
+		if (ret) {
+			mae_dev_info(mae_dev->dev, "%s, attach config buf fail (%d,%d)",
+						__func__, idx, MODEL_TYPE_FLD_FAC_V0);
+			return ret;
+		}
+
+        // DEBUG_ONLY: get va of config
+		ret = mtk_mae_get_map_info(mae_dev,
+				&map_table->config_dmabuf_info[MODEL_TYPE_FLD_FAC_V0]);
+		if (ret) {
+			mae_dev_info(mae_dev->dev, "%s, map config buf fail (%d,%d)",
+					__func__, idx, MODEL_TYPE_FLD_FAC_V0);
+			return ret;
+		}
+		debug_dump =
+			(uint32_t*)map_table->config_dmabuf_info[MODEL_TYPE_FLD_FAC_V0].kva;
+		mae_dev_info(mae_dev->dev, "%s, MODEL_TYPE_FLD_FAC_V0 config(0x%x_%x )(0x%x_%x)\n",
+			__func__, *debug_dump, *(debug_dump+1), *(debug_dump+2), *(debug_dump+3));
+    }
+
+	// get pa of FD V0 coef buf
+	if (model_table->coefTable[MODEL_TYPE_FD_V0].fd > 0) {
+		mtk_mae_umap_detach(mae_dev, &mae_dev->map_table->coef_dmabuf_info[MODEL_TYPE_FD_V0]);
+		map_table->coef_dmabuf_info[MODEL_TYPE_FD_V0].dmabuf =
+			dma_buf_get(model_table->coefTable[MODEL_TYPE_FD_V0].fd);
+		if (IS_ERR(map_table->coef_dmabuf_info[MODEL_TYPE_FD_V0].dmabuf) ||
+			map_table->coef_dmabuf_info[MODEL_TYPE_FD_V0].dmabuf == NULL) {
+			mae_dev_info(mae_dev->dev, "%s, dma_buf_get coef(%d,%d,%d) failed\n",
+						__func__, idx, MODEL_TYPE_FD_V0,
+						model_table->coefTable[MODEL_TYPE_FD_V0].fd);
+			return -ENOMEM;
+		}
+
+		ret = mtk_mae_get_attach_info(mae_dev,
+					&map_table->coef_dmabuf_info[MODEL_TYPE_FD_V0]);
+		if (ret) {
+			mae_dev_info(mae_dev->dev, "%s, attach coef buf fail (%d,%d)",
+						__func__, idx, MODEL_TYPE_FD_V0);
+			return ret;
+		}
+
+		// DEBUG_ONLY: get va of coef
+		ret = mtk_mae_get_map_info(mae_dev,
+				&map_table->coef_dmabuf_info[MODEL_TYPE_FD_V0]);
+		if (ret) {
+			mae_dev_info(mae_dev->dev, "%s, map coef buf fail (%d,%d)",
+					__func__, idx, MODEL_TYPE_FD_V0);
+			return ret;
+		}
+		debug_dump =
+			(uint32_t*)map_table->coef_dmabuf_info[MODEL_TYPE_FD_V0].kva;
+		mae_dev_info(mae_dev->dev, "%s, coef(0x%x_%x )(0x%x_%x)\n",
+			__func__, *debug_dump, *(debug_dump+1), *(debug_dump+2), *(debug_dump+3));
+
+		debug_dump += round_up(V0_FD_640_480_COEF_SIZE, MAE_BASE_ADDR_ALIGN) / 4;
+		mae_dev_info(mae_dev->dev, "%s, 480x360 coef(0x%x_%x )(0x%x_%x)\n",
+			__func__, *debug_dump, *(debug_dump+1), *(debug_dump+2), *(debug_dump+3));
+
+		debug_dump += round_up(V0_FD_480_360_COEF_SIZE, MAE_BASE_ADDR_ALIGN) / 4;
+		mae_dev_info(mae_dev->dev, "%s, 480x360 coef(0x%x_%x )(0x%x_%x)\n",
+			__func__, *debug_dump, *(debug_dump+1), *(debug_dump+2), *(debug_dump+3));
+
+		debug_dump += round_up(V0_FD_240_180_COEF_SIZE, MAE_BASE_ADDR_ALIGN) / 4;
+		mae_dev_info(mae_dev->dev, "%s, 240x180 coef(0x%x_%x )(0x%x_%x)\n",
+			__func__, *debug_dump, *(debug_dump+1), *(debug_dump+2), *(debug_dump+3));
+
+	}
+
+	// get pa of FAC&FLD coef buf
+	if (model_table->coefTable[MODEL_TYPE_FLD_FAC_V0].fd > 0) {
+		mtk_mae_umap_detach(mae_dev, &mae_dev->map_table->coef_dmabuf_info[MODEL_TYPE_FLD_FAC_V0]);
+		map_table->coef_dmabuf_info[MODEL_TYPE_FLD_FAC_V0].dmabuf =
+			dma_buf_get(model_table->coefTable[MODEL_TYPE_FLD_FAC_V0].fd);
+		if (IS_ERR(map_table->coef_dmabuf_info[MODEL_TYPE_FLD_FAC_V0].dmabuf) ||
+			map_table->coef_dmabuf_info[MODEL_TYPE_FLD_FAC_V0].dmabuf == NULL) {
+			mae_dev_info(mae_dev->dev, "%s, dma_buf_get coef(%d,%d,%d) failed\n",
+						__func__, idx, MODEL_TYPE_FLD_FAC_V0,
+						model_table->coefTable[MODEL_TYPE_FLD_FAC_V0].fd);
+			return -ENOMEM;
+		}
+
+		ret = mtk_mae_get_attach_info(mae_dev,
+					&map_table->coef_dmabuf_info[MODEL_TYPE_FLD_FAC_V0]);
+		if (ret) {
+			mae_dev_info(mae_dev->dev, "%s, attach coef buf fail (%d,%d)",
+						__func__, idx, MODEL_TYPE_FLD_FAC_V0);
+			return ret;
+		}
+
+        // DEBUG_ONLY: get va of coef
+		ret = mtk_mae_get_map_info(mae_dev,
+				&map_table->coef_dmabuf_info[MODEL_TYPE_FLD_FAC_V0]);
+		if (ret) {
+			mae_dev_info(mae_dev->dev, "%s, map coef buf fail (%d,%d)",
+					__func__, idx, MODEL_TYPE_FLD_FAC_V0);
+			return ret;
+		}
+		debug_dump =
+			(uint32_t*)map_table->coef_dmabuf_info[MODEL_TYPE_FLD_FAC_V0].kva;
+		mae_dev_info(mae_dev->dev, "%s, MODEL_TYPE_FLD_FAC_V0 coef(0x%x_%x )(0x%x_%x)\n",
+			__func__, *debug_dump, *(debug_dump+1), *(debug_dump+2), *(debug_dump+3));
+    }
+
+	// MAE_TO_DO: only support one image now
+	// get pa of image
+	mtk_mae_umap_detach(mae_dev, &mae_dev->map_table->image_dmabuf_info[idx][IMAGE_PLANE_0]);
+	map_table->image_dmabuf_info[idx][IMAGE_PLANE_0].dmabuf =
+		dma_buf_get(buf->m.planes[IMAGE_PLANE_0].m.fd);
+	if (IS_ERR(map_table->image_dmabuf_info[idx][IMAGE_PLANE_0].dmabuf) ||
+		map_table->image_dmabuf_info[idx][IMAGE_PLANE_0].dmabuf == NULL) {
+		mae_dev_info(mae_dev->dev, "%s, dma_buf_get (%d,%d, %d) failed\n",
+					__func__, idx, IMAGE_PLANE_0,
+					buf->m.planes[IMAGE_PLANE_0].m.fd);
+		return -ENOMEM;
+	}
+
+	ret = mtk_mae_get_attach_info(mae_dev,
+						&map_table->image_dmabuf_info[idx][IMAGE_PLANE_0]);
+	if (ret) {
+		mae_dev_info(mae_dev->dev, "%s, attach buffer fail (%d,%d)",
+					__func__, idx, IMAGE_PLANE_0);
+		return ret;
+	}
+
+	// DEBUG_ONLY: get va of image
+	ret = mtk_mae_get_map_info(mae_dev,
+				&map_table->image_dmabuf_info[idx][IMAGE_PLANE_0]);
+	if (ret) {
+		mae_dev_info(mae_dev->dev, "%s, map image buf fail (%d,%d)",
+				__func__, idx, IMAGE_PLANE_0);
+		return ret;
+	}
+	debug_dump =
+			(uint32_t*)map_table->image_dmabuf_info[idx][IMAGE_PLANE_0].kva;
+	mae_dev_info(mae_dev->dev, "%s, plane0 (0x%x_%x)(0x%x_%x)\n",
+		__func__, *debug_dump, *(debug_dump+1), *(debug_dump+2), *(debug_dump+3));
+	// debug_dump += (param->image[0].imgWidth * param->image[0].imgHeight / 4);
+	// mae_dev_info(mae_dev->dev, "%s, plane1 size (%d)(%d)\n",
+	// 	__func__, buf->m.planes[IMAGE_PLANE_0].bytesused / 4,
+	// 	param->image[0].imgWidth * param->image[0].imgHeight / 4);
+	// mae_dev_info(mae_dev->dev, "%s, plane1 (0x%x_%x)(0x%x_%x)\n",
+	// 	__func__, *debug_dump, *(debug_dump+1), *(debug_dump+2), *(debug_dump+3));
+
+	// DEBUG_ONLY: get output pa
+	mtk_mae_umap_detach(mae_dev, &mae_dev->map_table->output_dmabuf_info[idx][0]);
+	map_table->output_dmabuf_info[idx][0].dmabuf =
+		dma_buf_get(buf->m.planes[OUTPUT_PLANE].m.fd);
+	if (IS_ERR(map_table->output_dmabuf_info[idx][0].dmabuf) ||
+		map_table->output_dmabuf_info[idx][0].dmabuf == NULL) {
+		mae_dev_info(mae_dev->dev, "%s, dma_buf_get (%d,%d, %d) failed\n",
+					__func__, idx, OUTPUT_PLANE,
+					buf->m.planes[OUTPUT_PLANE].m.fd);
+		return -ENOMEM;
+	}
+
+	ret = mtk_mae_get_attach_info(mae_dev,
+						&map_table->output_dmabuf_info[idx][0]);
+	if (ret) {
+		mae_dev_info(mae_dev->dev, "%s, attach buffer fail (%d,%d)",
+					__func__, idx, OUTPUT_PLANE);
+		return ret;
+	}
+
+	// DEBUG_ONLY: get output va
+	ret = mtk_mae_get_map_info(mae_dev,
+				&map_table->output_dmabuf_info[idx][0]);
+	if (ret) {
+		mae_dev_info(mae_dev->dev, "%s, map image buf fail (%d,%d)",
+				__func__, idx, OUTPUT_PLANE);
+		return ret;
+	}
+	// DEBUG_ONLY: To check hw wdma.
+  	memset((void*)map_table->output_dmabuf_info[idx][0].kva, 0xff, FD_OUTPUT_SIZE);
+	debug_dump = (uint32_t*)map_table->output_dmabuf_info[idx][0].kva;
+	mae_dev_info(mae_dev->dev, "%s, output 0x%llx (0x%x_%x)(0x%x_%x)\n",
+		__func__, (uint64_t)debug_dump, *(debug_dump), *(debug_dump+1), *(debug_dump+2), *(debug_dump+3));
+
+#if M2M_ENABLE
+    // DEBUG_ONLY
+    pr_info("%s-", __func__);
+	return v4l2_m2m_ioctl_qbuf(file, priv, buf);
+#else
+    // DEBUG_ONLY
+    pr_info("%s-", __func__);
+	return vb2_ioctl_qbuf(file, priv, buf);
+#endif
+}
+
+static const struct v4l2_ioctl_ops mtk_mae_v4l2_video_out_ioctl_ops = {
+	.vidioc_querycap = mtk_mae_querycap,
+	.vidioc_enum_fmt_vid_out = mtk_mae_enum_fmt_out_mp,
+	.vidioc_g_fmt_vid_out_mplane = mtk_mae_g_fmt_out_mp,
+	.vidioc_s_fmt_vid_out_mplane = mtk_mae_s_fmt_out_mp,
+	.vidioc_try_fmt_vid_out_mplane = mtk_mae_try_fmt_out_mp,
+#if M2M_ENABLE
+	.vidioc_enum_fmt_meta_cap = mtk_mae_enum_fmt_meta_cap,
+	.vidioc_g_fmt_meta_cap = mtk_mae_g_fmt_meta_cap,
+	.vidioc_s_fmt_meta_cap = mtk_mae_g_fmt_meta_cap,
+	.vidioc_try_fmt_meta_cap = mtk_mae_g_fmt_meta_cap,
+	.vidioc_reqbufs = v4l2_m2m_ioctl_reqbufs,
+	.vidioc_dqbuf = v4l2_m2m_ioctl_dqbuf,
+	.vidioc_streamon = v4l2_m2m_ioctl_streamon,
+	.vidioc_streamoff = v4l2_m2m_ioctl_streamoff,
+	.vidioc_create_bufs = v4l2_m2m_ioctl_create_bufs,
+	.vidioc_prepare_buf = v4l2_m2m_ioctl_prepare_buf,
+	.vidioc_querybuf = v4l2_m2m_ioctl_querybuf,
+	.vidioc_expbuf = v4l2_m2m_ioctl_expbuf,
+#else
+	.vidioc_reqbufs = vb2_ioctl_reqbufs,
+	.vidioc_dqbuf = vb2_ioctl_dqbuf,
+	.vidioc_streamon = vb2_ioctl_streamon,
+	.vidioc_streamoff = vb2_ioctl_streamoff,
+	.vidioc_create_bufs = vb2_ioctl_create_bufs,
+	.vidioc_prepare_buf = vb2_ioctl_prepare_buf,
+	.vidioc_querybuf = vb2_ioctl_querybuf,
+	.vidioc_expbuf = vb2_ioctl_expbuf,
+#endif
+	.vidioc_qbuf = mtk_mae_vidioc_qbuf,
+	.vidioc_subscribe_event = v4l2_ctrl_subscribe_event,
+	.vidioc_unsubscribe_event = v4l2_event_unsubscribe,
+};
+
+static int mtk_mae_video_device_register(struct mtk_mae_dev *mae_dev)
+{
+    struct video_device *vdev = &mae_dev->vdev;
+#if M2M_ENABLE
+    struct v4l2_m2m_dev *m2m_dev = mae_dev->m2m_dev;
+#endif
+	struct device *dev = mae_dev->dev;
+	int ret;
+
+	vdev->fops = &mae_video_fops;
+	vdev->release = video_device_release;
+	vdev->lock = &mae_dev->vdev_lock;
+	vdev->v4l2_dev = &mae_dev->v4l2_dev;
+#if M2M_ENABLE
+	vdev->vfl_dir = VFL_DIR_M2M;
+	vdev->device_caps = V4L2_CAP_STREAMING | V4L2_CAP_VIDEO_OUTPUT_MPLANE |
+			   V4L2_CAP_META_CAPTURE;
+#else
+	vdev->vfl_dir = VFL_DIR_TX;
+	vdev->device_caps = V4L2_CAP_STREAMING | V4L2_CAP_VIDEO_OUTPUT_MPLANE;
+#endif
+	vdev->ioctl_ops = &mtk_mae_v4l2_video_out_ioctl_ops;
+
+	strscpy(vdev->name, dev_driver_string(dev), sizeof(vdev->name));
+
+	video_set_drvdata(vdev, mae_dev);
+
+	// ret = video_register_device(vdev, VFL_TYPE_VIDEO, 0);
+	ret = video_register_device(vdev, VFL_TYPE_VIDEO, -1);
+	if (ret) {
+		mae_dev_info(dev, "Failed to register video device\n");
+		return ret;
+	}
+
+#if M2M_ENABLE
+	ret = v4l2_m2m_register_media_controller(
+		m2m_dev, vdev, MEDIA_ENT_F_PROC_VIDEO_STATISTICS);
+	if (ret) {
+		mae_dev_info(dev, "Failed to init mem2mem media controller\n");
+		goto err_unreg_video;
+	}
+#endif
+	return 0;
+
+#if M2M_ENABLE
+err_unreg_video:
+	video_unregister_device(vdev);
+	return ret;
+#endif
+}
+
+static int mtk_mae_dev_v4l2_init(struct mtk_mae_dev *mae_dev)
+{
+    struct media_device *mdev = &mae_dev->mdev;
+    struct device *dev = mae_dev->dev;
+    int ret;
+
+    ret = v4l2_device_register(dev, &mae_dev->v4l2_dev);
+    if (ret) {
+        mae_dev_info(dev, "Failed to register v4l2 device\n");
+        return ret;
+    }
+
+#if M2M_ENABLE
+    mae_dev->m2m_dev = v4l2_m2m_init(&mae_m2m_ops);
+    if (IS_ERR(mae_dev->m2m_dev)) {
+        mae_dev_info(dev, "Failed to init mem2mem device\n");
+        ret = PTR_ERR(mae_dev->m2m_dev);
+        goto err_unreg_v4l2_dev;
+    }
+#endif
+
+    mdev->dev = dev;
+    ret = strscpy(mdev->model, dev_driver_string(dev), sizeof(mdev->model));
+    if (ret < 0) {
+        mae_dev_info(dev, "strscpy fail\n");
+#if M2M_ENABLE
+        goto err_unreg_v4l2_m2m_dev;
+#else
+        goto err_unreg_v4l2_dev;
+#endif
+    }
+
+    ret = snprintf(mdev->bus_info, sizeof(mdev->bus_info), "platform:%s",
+         dev_name(dev));
+    if (ret < 0) {
+        mae_dev_info(dev, "snprintf fail\n");
+#if M2M_ENABLE
+        goto err_unreg_v4l2_m2m_dev;
+#else
+        goto err_unreg_v4l2_dev;
+#endif
+    }
+
+    media_device_init(mdev);
+    mdev->ops = &mae_m2m_media_ops;
+    mae_dev->v4l2_dev.mdev = mdev;
+
+    ret = mtk_mae_video_device_register(mae_dev);
+	if (ret) {
+		mae_dev_info(dev, "Failed to register video device\n");
+		goto err_cleanup_mdev;
+	}
+
+	ret = media_device_register(mdev);
+	if (ret) {
+		mae_dev_info(dev, "Failed to register mem2mem media device\n");
+		goto err_unreg_vdev;
+	}
+
+    return 0;
+
+err_unreg_vdev:
+#if M2M_ENABLE
+	v4l2_m2m_unregister_media_controller(mae_dev->m2m_dev);
+#endif
+	video_unregister_device(&mae_dev->vdev);
+
+err_cleanup_mdev:
+	media_device_cleanup(mdev);
+
+#if M2M_ENABLE
+err_unreg_v4l2_m2m_dev:
+    v4l2_m2m_release(mae_dev->m2m_dev);
+#endif
+
+err_unreg_v4l2_dev:
+	v4l2_device_unregister(&mae_dev->v4l2_dev);
+    return ret;
+}
+
+int mtk_mae_probe(struct platform_device *pdev)
+{
+    struct mtk_mae_dev *mae_dev;
+    struct device *dev = &pdev->dev;
+    int ret;
+	struct resource *res;
+
+    mae_dev_info(dev ,"%s+", __func__);
+
+    mae_dev = devm_kzalloc(dev, sizeof(*mae_dev), GFP_KERNEL);
+    if (!mae_dev) {
+        mae_dev_info(dev, "devm_kzalloc fail!\n");
+        return -ENOMEM;
+    }
+    memset(mae_dev, 0, sizeof(*mae_dev));
+
+    // MAE_TO_DO: get Data
+
+    if (dma_set_mask_and_coherent(dev, DMA_BIT_MASK(34)))
+        mae_dev_info(dev, "%s: No suitable DMA available\n", __func__);
+
+    if (!dev->dma_parms) {
+        dev->dma_parms =
+            devm_kzalloc(dev, sizeof(*dev->dma_parms), GFP_KERNEL);
+        if (!dev->dma_parms)
+            return -ENOMEM;
+	}
+
+    ret = dma_set_max_seg_size(dev, UINT_MAX);
+    if (ret)
+        mae_dev_info(dev, "Failed to set DMA segment size\n");
+
+    dev_set_drvdata(dev, mae_dev);
+    mae_dev->dev = dev;
+
+	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+	mae_dev->mae_base = devm_ioremap_resource(dev, res);
+	if (IS_ERR(mae_dev->mae_base)) {
+		mae_dev_info(dev, "Failed to get mae reg base\n");
+		return PTR_ERR(mae_dev->mae_base);
+	}
+
+    // MAE_TO_DO: Larb init
+
+    // MAE_TO_DO: Clk get
+
+	mae_dev->mae_clt = cmdq_mbox_create(dev, 0);
+	if (!mae_dev->mae_clt)
+		mae_dev_info(dev, "cmdq mbox create fail\n");
+	else
+		mae_dev_info(dev, "cmdq mbox create done\n");
+
+#if CMDQ_SEC_READY
+	mae_dev->mae_secure_clt = cmdq_mbox_create(dev, 1);
+
+	if (!mae_dev->mae_secure_clt)
+		mae_dev_info(dev, "secure cmdq mbox create fail\n");
+	else
+		mae_dev_info(dev, "secure cmdq mbox create done\n");
+
+	of_property_read_u32(pdev->dev.of_node, "sw-sync-token-tzmp-aie-wait",
+				&(mae_dev->mae_sec_wait));
+	aie_dev_info(dev, "mae_sec_wait is %d\n", mae_dev->mae_sec_wait);
+	of_property_read_u32(pdev->dev.of_node, "sw-sync-token-tzmp-aie-set",
+				&(fd->mae_sec_set));
+	aie_dev_info(dev, "mae_sec_set is %d\n", mae_dev->mae_sec_set);
+#endif
+
+	of_property_read_u32(pdev->dev.of_node, "fdvt-frame-done",
+                         &(mae_dev->mae_event_id));
+
+	mutex_init(&mae_dev->vdev_lock);
+    // MAE_TO_DO: Init workqueue
+	mae_dev->frame_done_wq =
+			alloc_ordered_workqueue(dev_name(mae_dev->dev),
+						WQ_HIGHPRI | WQ_FREEZABLE);
+	if (!mae_dev->frame_done_wq) {
+		mae_dev_info(mae_dev->dev, "failed to alloc frame_done workqueue\n");
+		mutex_destroy(&mae_dev->vdev_lock);
+		return -ENOMEM;
+	}
+	INIT_WORK(&mae_dev->req_work.work, mtk_mae_frame_done_worker);
+	mae_dev->req_work.mae_dev = mae_dev;
+
+	mae_dev->aov_pdev = pdev;
+
+    // MAE_TO_DO: pm_runtime_enable
+
+    ret = mtk_mae_dev_v4l2_init(mae_dev);
+    if (ret) {
+        mae_dev_info(dev, "Failed to init v4l2 device: %d\n", ret);
+        goto err_destroy_mutex;
+    }
+
+	mae_dev->smmu_dev = mtk_smmu_get_shared_device(dev);
+	if (!mae_dev->smmu_dev) {
+		mae_dev_info(dev,
+			"%s: failed to get mae smmu device\n",
+			__func__);
+		return -EINVAL;
+	}
+
+    mae_dev_info(dev ,"%s-", __func__);
+    return 0;
+
+err_destroy_mutex:
+	destroy_workqueue(mae_dev->frame_done_wq);
+	mutex_destroy(&mae_dev->vdev_lock);
+
+    return ret;
+}
+
+int mtk_mae_remove(struct platform_device *pdev)
+{
+	struct mtk_mae_dev *mae_dev = dev_get_drvdata(&pdev->dev);
+
+	video_unregister_device(&mae_dev->vdev);
+	media_device_cleanup(&mae_dev->mdev);
+#if M2M_ENABLE
+	v4l2_m2m_unregister_media_controller(mae_dev->m2m_dev);
+	v4l2_m2m_release(mae_dev->m2m_dev);
+#endif
+	v4l2_device_unregister(&mae_dev->v4l2_dev);
+
+	// MAE_TO_DO
+	// pm_runtime_disable(&pdev->dev);
+	// fd->frame_done_wq = NULL;
+
+	mutex_destroy(&mae_dev->vdev_lock);
+    return 0;
+}
+
+static const struct of_device_id mtk_mae_of_ids[] = {
+	{
+		.compatible = "mediatek,mtk-mae",
+		.data = &data_isp8,
+	},{
+		/* sentinel */
+	}
+};
+MODULE_DEVICE_TABLE(of, mtk_mae_of_ids);
+
+static struct platform_driver mtk_mae_driver = {
+    .probe = mtk_mae_probe,
+    .remove = mtk_mae_remove,
+    // MAE_TO_DO
+    // .shutdown = mtk_aie_shutdown,
+
+    .driver = {
+        .name = "mtk-mae",
+        .of_match_table = of_match_ptr(mtk_mae_of_ids),
+        // MAE_TO_DO
+        // .pm = &mtk_aie_pm_ops,
+    }
+};
+
+module_platform_driver(mtk_mae_driver);
+MODULE_AUTHOR("Ming-Hsuan Chaing <ming-hsuan.chiang@mediatek.com>");
+MODULE_LICENSE("GPL v2");
+MODULE_IMPORT_NS(DMA_BUF);
+MODULE_DESCRIPTION("Mediatek MAE driver");

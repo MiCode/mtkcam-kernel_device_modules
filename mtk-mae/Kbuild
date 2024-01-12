@@ -1,0 +1,31 @@
+# SPDX-License-Identifier: GPL-2.0-only
+# Support GKI mixed build
+ifeq ($(DEVICE_MODULES_PATH),)
+DEVICE_MODULES_PATH = $(srctree)
+else
+LINUXINCLUDE := $(DEVCIE_MODULES_INCLUDE) $(LINUXINCLUDE)
+endif
+
+KO_CODE_PATH := $(if $(filter /%,$(src)),,$(srctree)/)$(src)
+
+MAE_MODULE := mtk_mae
+MAE_ISP8_MODULE := mtk_mae_isp8
+
+ccflags-y += -I$(DEVICE_MODULES_PATH)/drivers/misc/mediatek/mtk-interconnect/
+ccflags-y += -I$(DEVICE_MODULES_PATH)/drivers/misc/mediatek/cmdq/mailbox/
+ccflags-y += -I$(DEVICE_MODULES_PATH)/drivers/dma-buf/heaps/
+ccflags-y += -I$(DEVICE_MODULES_PATH)/drivers/media/platform/mtk-videobuf/
+ccflags-y += -I$(srctree)/$(src)/../include/
+ccflags-y += -I$(DEVICE_MODULES_PATH)/drivers/iommu
+ccflags-y += -I$(DEVICE_MODULES_PATH)/drivers/misc/mediatek/iommu
+ccflags-y += -I$(DEVICE_MODULES_PATH)/include/
+ccflags-y += -I$(srctree)/$(src)/
+
+$(MAE_MODULE)-objs := \
+mtk-mae.o
+
+$(MAE_ISP8_MODULE)-objs := \
+isp8/mtk-mae-isp8.o
+
+obj-$(CONFIG_MTK_CAMERA_MAE_SUPPORT) += $(MAE_MODULE).o
+obj-$(CONFIG_MTK_CAMERA_MAE_SUPPORT) += $(MAE_ISP8_MODULE).o

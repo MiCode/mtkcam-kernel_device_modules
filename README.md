@@ -22,6 +22,7 @@ mtkcam/
 ├── mtk-dpe/
 ├── mtk-hcp/
 ├── mtk-ipesys-me/
+├── mtk-mae/
 ├── ccusys/
 ├── scpsys/
 └── sched/
@@ -54,6 +55,9 @@ _TODO: need documentation contribution..._
 _TODO: need documentation contribution..._
 
 ### mtk-ipesys-me
+_TODO: need documentation contribution..._
+
+### mtk-mae
 _TODO: need documentation contribution..._
 
 ### ccusys

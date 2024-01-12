@@ -11,6 +11,7 @@ obj-m += imgsys/
 obj-m += mtk-hcp/
 obj-m += mtk-ipesys-me/
 obj-$(CONFIG_MTK_CAMERA_FD_ISP7S_ISP7SP)	+= mtk-aie/
+obj-$(CONFIG_MTK_CAMERA_MAE_SUPPORT)	+= mtk-mae/
 obj-$(CONFIG_MTK_CAMERA_DPE_ISP7SP)	 += mtk-dpe/
 #obj-$(CONFIG_MTK_C2PS) += sched/
 obj-y += imgsensor/

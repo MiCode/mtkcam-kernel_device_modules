@@ -356,7 +356,7 @@ static int ut_mraw_reset(struct device *dev)
 	mraw_reset(dev);
 	return 0;
 }
-static int ut_mraw_s_stream(struct device *dev, int on)
+static int ut_mraw_s_stream(struct device *dev, enum streaming_enum on)
 {
 	int ret = 0;
 

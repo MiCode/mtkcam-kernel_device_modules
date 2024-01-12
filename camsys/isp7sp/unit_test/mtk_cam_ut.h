@@ -86,6 +86,12 @@ enum testmdl_enum {
 	testmdl_rgbw		= 5,
 };
 
+enum streaming_enum {
+	streaming_off		= 0,
+	streaming_vf		= 1,
+	streaming_active	= 2,
+};
+
 struct mtk_cam_ut_mem_obj {
 	int fd;
 	dma_addr_t iova;
@@ -180,11 +186,17 @@ struct mtk_cam_ut {
 	int hardware_scenario;
 	int main_rawi;
 	unsigned int isp_hardware;
+	int raw_module;
 
 	struct mtk_cam_ut_event_handler hdl;
 
 	spinlock_t spinlock_irq;
 	int m2m_available;
 };
+
+struct mtk_cam_ut_data {
+	const char		platform[8];
+};
+
 
 #endif /* __MTK_CAM_UT_H */

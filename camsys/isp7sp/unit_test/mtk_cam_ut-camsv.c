@@ -432,7 +432,7 @@ static int ut_camsv_initialize(struct device *dev, void *ext_params)
 	ut_mtk_cam_sv_cq_enable(dev);
 	return 0;
 }
-static int ut_camsv_s_stream(struct device *dev, int on)
+static int ut_camsv_s_stream(struct device *dev, enum streaming_enum on)
 {
 	int ret = 0;
 	dev_info(dev, "%s: %s\n", __func__, on ? "on" : "off");

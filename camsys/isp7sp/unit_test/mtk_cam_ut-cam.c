@@ -28,6 +28,8 @@
 #define dev_dbg dev_info
 #endif
 
+const struct mtk_cam_ut_data *cur_platform;
+
 static unsigned int dump_cmd;
 module_param(dump_cmd, uint, 0644);
 MODULE_PARM_DESC(dump_cmd, "dump cmd");
@@ -117,6 +119,7 @@ static int ut_raw_reset(struct device *dev)
 
 static void set_steamon_handle(struct device *dev, int type);
 static void raw_set_topdebug_rdyreq(struct mtk_ut_raw_device *raw, u32 event);
+static void raw_set_camctl_toggle_db(struct mtk_ut_raw_device *raw);
 
 static int ut_raw_initialize(struct device *dev, void *ext_params)
 {
@@ -161,75 +164,152 @@ static int ut_raw_initialize(struct device *dev, void *ext_params)
 	return 0;
 }
 
-static int ut_raw_s_stream(struct device *dev, int on)
+static bool not_support_rwfbc(void)
+{
+	if (strncmp("mt6897", cur_platform->platform, sizeof("mt6897")) == 0)
+		return true;
+	else
+		return false;
+}
+
+static void rwfbc_inc_setup(struct device *dev)
+{
+	struct mtk_ut_raw_device *raw = dev_get_drvdata(dev);
+	void __iomem *base = raw->base;
+	void __iomem *yuv_base = raw->yuv_base;
+	u32 wfbc_en_raw, wfbc_en_yuv;
+
+	if (not_support_rwfbc()) {
+		dev_info(dev, "[%s] platform:%s bypass using RWFBC\n",
+			__func__, cur_platform->platform);
+	} else {
+		wfbc_en_raw = readl_relaxed(base + CAM_REG_CTL_WFBC_EN);
+		writel_relaxed(wfbc_en_raw, base + CAM_REG_CTL_WFBC_INC);
+		wfbc_en_yuv = readl_relaxed(yuv_base + CAM_REG_CTL_WFBC_EN);
+		writel_relaxed(wfbc_en_yuv, yuv_base + CAM_REG_CTL_WFBC_INC);
+		dev_info(dev, "[%s] platform:%s WFBC_INC, camctl/camctl2:0x%x/0x%x\n",
+			__func__, cur_platform->platform, wfbc_en_raw, wfbc_en_yuv);
+	}
+}
+
+static int ut_raw_s_stream(struct device *dev, enum streaming_enum on)
 {
 	struct mtk_ut_raw_device *raw = dev_get_drvdata(dev);
 	void __iomem *base = raw->base;
 	u32 val;
 
-	dev_info(dev, "%s: %s\n", __func__, on ? "on" : "off");
+	dev_info(dev, "%s: %d\n", __func__, on);
 
-	raw_set_topdebug_rdyreq(raw, TG_OVERRUN);
+	if (on == streaming_active) {
+		(void)base;
+		(void)val;
+		raw_set_camctl_toggle_db(raw); /* toggle db first. */
+		raw_set_topdebug_rdyreq(raw, ALL_THE_TIME);
+		rwfbc_inc_setup(dev);
 
-	val = readl_relaxed(base + REG_TG_VF_CON);
-	if (on)
+	} else if (on == streaming_vf) {
+		raw_set_camctl_toggle_db(raw); /* toggle db first. */
+		raw_set_topdebug_rdyreq(raw, TG_OVERRUN);
+		rwfbc_inc_setup(dev);
+
+		val = readl_relaxed(base + REG_TG_VF_CON);
 		val |= TG_VFDATA_EN;
-	else
+		writel_relaxed(val, base + REG_TG_VF_CON);
+		/* make sure VF enable setting take effect */
+		wmb();
+	} else {
+		val = readl_relaxed(base + REG_TG_VF_CON);
 		val &= ~TG_VFDATA_EN;
-
-	writel_relaxed(val, base + REG_TG_VF_CON);
-
-	/* make sure VF enable setting take effect */
-	wmb();
+		writel_relaxed(val, base + REG_TG_VF_CON);
+	}
 
 	return 0;
 }
 
-static int ut_raw_trigger_rawi_r2(struct device *dev, int on)
+static int ut_raw_trigger_rawi_r2(struct device *dev, enum streaming_enum on)
 {
 	struct mtk_ut_raw_device *raw = dev_get_drvdata(dev);
 	void __iomem *base = raw->base;
 
-	if (on)
+	if (on == streaming_vf) {
+		raw_set_camctl_toggle_db(raw);
+		raw_set_topdebug_rdyreq(raw, ALL_THE_TIME);
+		rwfbc_inc_setup(dev);
+
 		writel(0x1, base + REG_CTL_RAWI_TRIG);
+		wmb(); /* TBC */
+	} else if (on == streaming_active) {
+		raw_set_camctl_toggle_db(raw);
+		raw_set_topdebug_rdyreq(raw, ALL_THE_TIME);
+		rwfbc_inc_setup(dev);
+	}
 
 	dev_info(raw->dev, "%s: on %d\n", __func__, on);
 	return 0;
 }
 
-static int ut_raw_trigger_rawi_r6(struct device *dev, int on)
+static int ut_raw_trigger_rawi_r3(struct device *dev, enum streaming_enum on)
 {
 	struct mtk_ut_raw_device *raw = dev_get_drvdata(dev);
 	void __iomem *base = raw->base;
 
 	dev_info(dev, "[%s] ut_raw_trigger_rawi\n", __func__);
 
-	writel_relaxed(0x10, base + REG_CTL_RAWI_TRIG);
-	wmb(); /* TBC */
+	if (on == streaming_vf) {
+		raw_set_camctl_toggle_db(raw);
+		raw_set_topdebug_rdyreq(raw, ALL_THE_TIME);
+		rwfbc_inc_setup(dev);
 
+		writel_relaxed(0x2, base + REG_CTL_RAWI_TRIG);
+		wmb(); /* TBC */
+	} else if (on == streaming_active) {
+		raw_set_camctl_toggle_db(raw);
+		raw_set_topdebug_rdyreq(raw, ALL_THE_TIME);
+		rwfbc_inc_setup(dev);
+	}
 	return 0;
 }
 
-static int ut_raw_trigger_rawi_r5(struct device *dev, int on)
+static int ut_raw_trigger_rawi_r5(struct device *dev, enum streaming_enum on)
 {
 	struct mtk_ut_raw_device *raw = dev_get_drvdata(dev);
 	void __iomem *base = raw->base;
 
 	dev_info(dev, "[%s] ut_raw_trigger_rawi\n", __func__);
 
-	writel_relaxed(0x8, base + REG_CTL_RAWI_TRIG);
-	wmb(); /* TBC */
+	if (on == streaming_vf) {
+		raw_set_camctl_toggle_db(raw);
+		raw_set_topdebug_rdyreq(raw, ALL_THE_TIME);
+		rwfbc_inc_setup(dev);
+
+		writel_relaxed(0x8, base + REG_CTL_RAWI_TRIG);
+		wmb(); /* TBC */
+	} else if (on == streaming_active) {
+		raw_set_camctl_toggle_db(raw);
+		raw_set_topdebug_rdyreq(raw, ALL_THE_TIME);
+		rwfbc_inc_setup(dev);
+	}
 
 	return 0;
 }
 
-static int ut_raw_trigger_adlrd(struct device *dev, int on)
+static int ut_raw_trigger_adlrd(struct device *dev, enum streaming_enum on)
 {
 	struct mtk_ut_raw_device *raw = dev_get_drvdata(dev);
 	void __iomem *base = raw->base;
 
-	writel_relaxed(0x1100, base + REG_CTL_RAWI_TRIG);
-	wmb(); /* TBC */
+	if (on == streaming_vf) {
+		raw_set_camctl_toggle_db(raw);
+		raw_set_topdebug_rdyreq(raw, ALL_THE_TIME);
+		rwfbc_inc_setup(dev);
+
+		writel_relaxed(0x1100, base + REG_CTL_RAWI_TRIG);
+		wmb(); /* TBC */
+	} else if (on == streaming_active) {
+		raw_set_camctl_toggle_db(raw);
+		raw_set_topdebug_rdyreq(raw, ALL_THE_TIME);
+		rwfbc_inc_setup(dev);
+	}
 
 	return 0;
 }
@@ -244,8 +324,8 @@ static void set_steamon_handle(struct device *dev, int type)
 		raw->ops.s_stream = ut_raw_s_stream;
 	else if (type == STREAM_FROM_RAWI_R2)
 		raw->ops.s_stream = ut_raw_trigger_rawi_r2;
-	else if (type == STREAM_FROM_RAWI_R6)
-		raw->ops.s_stream = ut_raw_trigger_rawi_r6;
+	else if (type == STREAM_FROM_RAWI_R3)
+		raw->ops.s_stream = ut_raw_trigger_rawi_r3;
 	else if (type == STREAM_FROM_RAWI_R5)
 		raw->ops.s_stream = ut_raw_trigger_rawi_r5;
 	else if (type == STREAM_FROM_ADLRD)
@@ -269,7 +349,7 @@ static int ut_raw_apply_cq(struct device *dev,
 	dev_info(dev, "cq_addr_lsb: 0x%x cq_addr_msb: 0x%x\n", cq_addr_lsb, cq_addr_msb);
 
 
-	writel_relaxed(cq_addr, base + REG_CQ_THR0_BASEADDR);
+	writel_relaxed(cq_addr_lsb, base + REG_CQ_THR0_BASEADDR);
 	writel_relaxed(cq_addr_msb, base + REG_CQ_THR0_BASEADDR_MSB);
 	writel_relaxed(cq_size, base + REG_CQ_THR0_DESC_SIZE);
 
@@ -516,6 +596,19 @@ static void raw_set_topdebug_rdyreq(struct mtk_ut_raw_device *raw, u32 event)
 	writel(val, yuv_base + REG_CTL_DBG_SET);
 	dev_info(raw->dev, "set CAMCTL_DBG_SET2/CAMCTL_DBG_SET (RAW/YUV) 0x%08x/0x%08x\n",
 		event, val);
+}
+
+static void raw_set_camctl_toggle_db(struct mtk_ut_raw_device *raw)
+{
+	void __iomem *base = raw->base;
+	unsigned int misc = readl_relaxed(base + CAM_REG_CTL_MISC);
+	unsigned int misc_db_off = misc & ~0x10;
+
+	misc |= 0x10;
+
+	writel(misc_db_off, base + CAM_REG_CTL_MISC);
+	writel(misc, base + CAM_REG_CTL_MISC);
+	wmb();
 }
 
 void raw_handle_tg_overrun(struct mtk_ut_raw_device *raw)

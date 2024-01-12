@@ -96,6 +96,7 @@ static void c2ps_notifier_wq_cb_uninit(void)
 	exit_c2ps_common();
 	del_timer_sync(&self_uninit_timer);
 	set_wl_type_manual(-1);
+	set_rt_aggre_preempt(1);
 }
 
 static void c2ps_notifier_wq_cb_add_task(
@@ -336,6 +337,7 @@ int c2ps_notify_init(
 	set_gear_uclamp_max(0, max_uclamp_cluster0);
 	set_gear_uclamp_max(1, max_uclamp_cluster1);
 	set_gear_uclamp_max(2, max_uclamp_cluster2);
+	set_rt_aggre_preempt(0);
 
 	// enable sugov curr_uclamp feature
 	set_curr_uclamp_ctrl(1);

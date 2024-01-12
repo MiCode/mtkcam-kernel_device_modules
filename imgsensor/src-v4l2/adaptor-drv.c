@@ -321,6 +321,9 @@ static void control_sensor(struct adaptor_ctx *ctx)
 {
 	MSDK_SENSOR_EXPOSURE_WINDOW_STRUCT image_window;
 	MSDK_SENSOR_CONFIG_STRUCT sensor_config_data;
+	u64 data[4];
+	u32 len;
+
 #if IMGSENSOR_LOG_MORE
 	dev_info(ctx->dev,
 		"[%s]+ is_sensor_scenario_inited(%u),is_streaming(%u)\n",
@@ -331,6 +334,11 @@ static void control_sensor(struct adaptor_ctx *ctx)
 				ctx->cur_mode->id,
 				&image_window,
 				&sensor_config_data);
+
+		data[0] = ctx->cur_mode->id;
+		subdrv_call(ctx, feature_control,
+				SENSOR_FEATURE_SET_DESKEW_CTRL,
+				(u8 *)data, &len);
 		ctx->is_sensor_scenario_inited = 1;
 	}
 	restore_ae_ctrl(ctx);

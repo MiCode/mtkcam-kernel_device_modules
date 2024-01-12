@@ -26,9 +26,10 @@ static void set_sensor_cali(void *arg);
 static int get_sensor_temperature(void *arg);
 static void set_group_hold(void *arg, u8 en);
 static u16 get_gain2reg(u32 gain);
-static int imx758_seamless_switch(struct subdrv_ctx *ctx, u8 *para, u32 *len);
 static int imx758_set_test_pattern(struct subdrv_ctx *ctx, u8 *para, u32 *len);
 static int imx758_set_test_pattern_data(struct subdrv_ctx *ctx, u8 *para, u32 *len);
+static int imx758_seamless_switch(struct subdrv_ctx *ctx, u8 *para, u32 *len);
+static int imx758_deskew_ctrl(struct subdrv_ctx *ctx, u8 *para, u32 *len);
 static int get_imgsensor_id(struct subdrv_ctx *ctx, u32 *sensor_id);
 static int init_ctx(struct subdrv_ctx *ctx,	struct i2c_client *i2c_client, u8 i2c_write_id);
 static int vsync_notify(struct subdrv_ctx *ctx,	unsigned int sof_cnt);
@@ -39,6 +40,7 @@ static struct subdrv_feature_control feature_control_list[] = {
 	{SENSOR_FEATURE_SET_TEST_PATTERN, imx758_set_test_pattern},
 	{SENSOR_FEATURE_SET_TEST_PATTERN_DATA, imx758_set_test_pattern_data},
 	{SENSOR_FEATURE_SEAMLESS_SWITCH, imx758_seamless_switch},
+	{SENSOR_FEATURE_SET_DESKEW_CTRL, imx758_deskew_ctrl},
 };
 
 static struct eeprom_info_struct eeprom_info[] = {
@@ -935,6 +937,27 @@ static int imx758_seamless_switch(struct subdrv_ctx *ctx, u8 *para, u32 *len)
 	return ERROR_NONE;
 }
 
+static int imx758_deskew_ctrl(struct subdrv_ctx *ctx, u8 *para, u32 *len)
+{
+	enum SENSOR_SCENARIO_ID_ENUM scenario_id;
+	u8 init_deskew_support = 0;
+
+	scenario_id = *((u64 *)para);
+	init_deskew_support =
+		ctx->s_ctx.mode[scenario_id].csi_param.dphy_init_deskew_support;
+
+	if (init_deskew_support) {
+		/*init deskew*/
+		subdrv_i2c_wr_u8(ctx, 0x0832, 0x01);//enable init deskew
+	} else {
+		subdrv_i2c_wr_u8(ctx, 0x0832, 0x00);//disable init deskew
+	}
+	subdrv_i2c_wr_u8(ctx, 0x0830, 0x00);//disable periodic deskew
+
+	DRV_LOG(ctx, "init_deskew_support = %d\n", init_deskew_support);
+	return ERROR_NONE;
+}
+
 static int imx758_set_test_pattern(struct subdrv_ctx *ctx, u8 *para, u32 *len)
 {
 	u32 mode = *((u32 *)para);
@@ -972,6 +995,8 @@ static int imx758_set_test_pattern_data(struct subdrv_ctx *ctx, u8 *para, u32 *l
 		ctx->test_pattern, R, Gr, Gb, B);
 	return ERROR_NONE;
 }
+
+
 
 static int get_imgsensor_id(struct subdrv_ctx *ctx, u32 *sensor_id)
 {

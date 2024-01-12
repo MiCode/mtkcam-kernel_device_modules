@@ -72,8 +72,8 @@ static struct SET_PD_BLOCK_INFO_T imgsensor_pd_info = {
 	.i4Crop = {
 		// <prev> <cap> <vid> <hs_vid> <slim_vid>
 		{0, 0}, {0, 0}, {0, 384}, {0, 384}, {0, 0},
-		// <cust1> <<cust2>> <<cust3>>
-		{0, 0}, {0, 0}, {0, 0},
+		// <cust1> <<cust2>> <<cust3>> <<cust4>>
+		{0, 0}, {0, 0}, {0, 0}, {0, 0},
 	},
 	.iMirrorFlip = 3,
 	.i4FullRawW = 4096,
@@ -101,8 +101,8 @@ static struct SET_PD_BLOCK_INFO_T imgsensor_pd_info_fullsize = {
 	.i4Crop = {
 		// <prev> <cap> <vid> <hs_vid> <slim_vid>
 		{0, 0}, {0, 0}, {0, 384}, {0, 384}, {0, 0},
-		// <cust1> <<cust2>> <<cust3>>
-		{0, 0}, {0, 0}, {0, 0},
+		// <cust1> <<cust2>> <<cust3>> <<cust4>>
+		{0, 0}, {0, 0}, {0, 0}, {0, 0},
 	},
 	.iMirrorFlip = 3,
 	.i4FullRawW = 8192,
@@ -270,6 +270,18 @@ static struct mtk_mbus_frame_desc_entry frame_desc_cus3[] = {
 			.vsize = 0x05f0,
 			.dt_remap_to_type = MTK_MBUS_FRAME_DESC_REMAP_TO_RAW10,
 			.user_data_desc = VC_PDAF_STATS_NE_PIX_1,
+		},
+	},
+};
+
+static struct mtk_mbus_frame_desc_entry frame_desc_cus4[] = {
+	{
+		.bus.csi2 = {
+			.channel = 0,
+			.data_type = 0x2b,
+			.hsize = 0x0800,
+			.vsize = 0x0600,
+			.user_data_desc = VC_STAGGER_NE,
 		},
 	},
 };
@@ -669,7 +681,55 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.sensor_output_dataformat = SENSOR_OUTPUT_FORMAT_RAW_4CELL_B,
 		.multi_exposure_ana_gain_range[IMGSENSOR_EXPOSURE_LE].max = BASEGAIN * 8,
 	},
-
+	{
+		.frame_desc = frame_desc_cus4,
+		.num_entries = ARRAY_SIZE(frame_desc_cus4),
+		.mode_setting_table = imx758_custom4_setting,
+		.mode_setting_len = ARRAY_SIZE(imx758_custom4_setting),
+		.seamless_switch_group = PARAM_UNDEFINED,
+		.seamless_switch_mode_setting_table = PARAM_UNDEFINED,
+		.seamless_switch_mode_setting_len = PARAM_UNDEFINED,
+		.hdr_mode = HDR_NONE,
+		.raw_cnt = 1,
+		.exp_cnt = 1,
+		.pclk = 878400000,
+		.linelength = 2660,
+		.framelength = 5502,
+		.max_framerate = 600,
+		.mipi_pixel_rate = 1000000000,
+		.readout_length = 0,
+		.read_margin = 10,
+		.framelength_step = 1,
+		.coarse_integ_step = 1,
+		.min_exposure_line = 8,
+		.imgsensor_winsize_info = {
+			.full_w = 8192,
+			.full_h = 6144,
+			.x0_offset = 0,
+			.y0_offset = 0,
+			.w0_size = 8192,
+			.h0_size = 6144,
+			.scale_w = 2048,
+			.scale_h = 1536,
+			.x1_offset = 0,
+			.y1_offset = 0,
+			.w1_size = 2048,
+			.h1_size = 1536,
+			.x2_tg_offset = 0,
+			.y2_tg_offset = 0,
+			.w2_tg_size = 2048,
+			.h2_tg_size = 1536,
+		},
+		.pdaf_cap = FALSE,
+		.imgsensor_pd_info = NULL,
+		.ae_binning_ratio = 1000,
+		.fine_integ_line = 551,
+		.delay_frame = 3,
+		.csi_param = {
+			.dphy_init_deskew_support = 1,
+		},
+		.sensor_output_dataformat = SENSOR_OUTPUT_FORMAT_RAW_4CELL_B,
+	},
 };
 
 static struct subdrv_static_ctx static_ctx = {

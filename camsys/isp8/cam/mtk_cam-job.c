@@ -1640,15 +1640,31 @@ unsigned long engines_to_check_inner(struct mtk_cam_job *job)
 static int _apply_raw_cq(struct mtk_cam_job *job,
 			 unsigned long raw_engines,
 			 struct mtk_cam_pool_buffer *cq,
-			 struct mtkcam_ipi_frame_ack_result *cq_rst)
+			 struct mtkcam_ipi_frame_ack_result *cq_rst,
+			 unsigned long sv_engines)
 {
 	struct mtk_cam_device *cam = job->src_ctx->cam;
 	int raw_id;
 	struct mtk_raw_device *raw_dev;
+	int sv_dev_id;
 
+	sv_dev_id = find_first_bit_set(sv_engines);
 	raw_id = find_first_bit_set(raw_engines);
+
 	if (raw_id < 0)
 		return -1;
+
+	if (sv_dev_id >= 0) {
+		struct mtk_camsv_device *sv_dev;
+
+		sv_dev = dev_get_drvdata(cam->engines.sv_devs[sv_dev_id]);
+
+		if (job->seamless_switch)
+			atomic_set(&sv_dev->is_seamless, 1);
+
+		else
+			atomic_set(&sv_dev->is_seamless, 0);
+	}
 
 	raw_dev = dev_get_drvdata(cam->engines.raw_devs[raw_id]);
 
@@ -1810,7 +1826,7 @@ static int apply_engines_cq_extisp(struct mtk_cam_job *job,
 			to_fh_cookie(ctx->stream_id, job->frame_seq_no),
 			cq_engine_for_extisp, cq_engine_for_extisp);
 		assign_cq_ref(job, cq_engine_for_extisp);
-		_apply_raw_cq(job, subset, cq, cq_rst);
+		_apply_raw_cq(job, subset, cq, cq_rst, 0);
 	}
 	subset = bit_map_subset_of(MAP_HW_CAMSV, cq_engine);
 	if (subset && extisp_data & (BIT(EXTISP_DATA_META))) {
@@ -1864,7 +1880,7 @@ static int apply_engines_cq(struct mtk_cam_job *job,
 			    struct mtkcam_ipi_frame_ack_result *cq_rst)
 {
 	struct mtk_cam_ctx *ctx = job->src_ctx;
-	unsigned long cq_engine, used_engine;
+	unsigned long cq_engine, used_engine, sv_engine;
 	unsigned long subset;
 	u64 ts;
 
@@ -1876,9 +1892,11 @@ static int apply_engines_cq(struct mtk_cam_job *job,
 			  cq_engine, used_engine);
 	assign_cq_ref(job, cq_engine | used_engine);
 
+	sv_engine = bit_map_subset_of(MAP_HW_CAMSV, used_engine);
+
 	subset = bit_map_subset_of(MAP_HW_RAW, cq_engine);
 	if (subset)
-		_apply_raw_cq(job, subset, cq, cq_rst);
+		_apply_raw_cq(job, subset, cq, cq_rst, sv_engine);
 
 	subset = bit_map_subset_of(MAP_HW_CAMSV, cq_engine);
 	if (subset)
@@ -5551,6 +5569,19 @@ static int job_fetch_freq(struct mtk_cam_job *job,
 	struct mtk_cam_resource_driver *res;
 	unsigned int freq;
 	bool is_apu;
+
+	if (job->job_type == JOB_TYPE_ONLY_SV) {
+		struct mtk_cam_ctx *ctx = job->src_ctx;
+		struct mtk_cam_device *cam = ctx->cam;
+		int opp_idx = 0;
+		unsigned int adj_freq;
+
+		CALL_PLAT_V4L2(get_single_sv_opp_idx, &opp_idx);
+		adj_freq = mtk_cam_dvfs_query(&cam->dvfs, opp_idx);
+		*freq_hz = adj_freq;
+		*boostable = false;
+		return 0;
+	}
 
 	ctrl = get_raw_ctrl_data(job);
 	if (!ctrl) {

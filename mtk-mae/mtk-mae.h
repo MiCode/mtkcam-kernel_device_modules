@@ -5,6 +5,7 @@
 #ifndef __MTK_MAE_H__
 #define __MTK_MAE_H__
 
+#include <linux/completion.h>
 #include <linux/clk.h>
 #include <linux/platform_device.h>
 #include <linux/io.h>
@@ -453,6 +454,7 @@ struct mtk_mae_dev {
 	struct mtk_mae_ctx *ctx;
 	struct mtk_mae_map_table *map_table;
 
+	struct completion mae_job_finished;
 	struct workqueue_struct *frame_done_wq;
 	struct mtk_mae_req_work req_work;
 
@@ -467,6 +469,9 @@ struct mtk_mae_dev {
 	struct cmdq_pkt *pkt[REQUEST_BUFFER_NUM];
 
 	bool is_hw_hang;
+
+	struct mutex mae_device_lock;
+	int open_video_device_cnt;
 };
 
 struct mtk_mae_ctx {

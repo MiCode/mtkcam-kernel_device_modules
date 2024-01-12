@@ -325,7 +325,7 @@ static void mtk_mae_hw_done(struct mtk_mae_dev *mae_dev,
 	v4l2_m2m_buf_done(dst_vbuf, vb_state);
 	v4l2_m2m_job_finish(mae_dev->m2m_dev, ctx->fh.m2m_ctx);
 
-	// complete_all(&fd->fd_job_finished);
+	complete_all(&mae_dev->mae_job_finished);
 #else
 	// MAE_TO_DO
 #endif
@@ -430,6 +430,8 @@ static void mtk_mae_device_run(void *priv)
 	// plane_vaddr = vb2_plane_vaddr(&dst_buf->vb2_buf, 0);
 
 	mae_dev->pkt[idx] = cmdq_pkt_create(mae_dev->mae_clt);
+
+	reinit_completion(&mae_dev->mae_job_finished);
 
 	if (param->maeMode == FLD_V0) {
 		drv_ops.config_fld(mae_dev, idx);
@@ -764,6 +766,10 @@ static void mtk_mae_vb2_stop_streaming(struct vb2_queue *vq)
 	// if (!ret)
 	// 	aie_dev_info(fd->dev, "wait job finish timeout\n");
 
+	if(!wait_for_completion_timeout(&mae_dev->mae_job_finished, msecs_to_jiffies(1000)))
+		mae_dev_info(mae_dev->dev, "%s: wait job finish timeout\n", __func__);
+
+
 #if M2M_ENABLE
 	queue_ctx = V4L2_TYPE_IS_OUTPUT(vq->type) ? &m2m_ctx->out_q_ctx
 						  : &m2m_ctx->cap_q_ctx;
@@ -876,39 +882,50 @@ static int mtk_mae_video_device_open(struct file *filp)
 	struct mtk_mae_map_table *map_table;
 	int ret;
 
-	ctx = kzalloc(sizeof(*ctx), GFP_KERNEL);
-	if (!ctx)
-		return -ENOMEM;
+	mutex_lock(&mae_dev->mae_device_lock);
 
-	ctx->mae_dev = mae_dev;
-	ctx->dev = mae_dev->dev;
-	mae_dev->ctx = ctx;
+	mae_dev_info(mae_dev->dev, "%s+ open_video_device_cnt(%d)\n",
+				__func__, mae_dev->open_video_device_cnt);
 
-	map_table = kzalloc(sizeof(*map_table), GFP_KERNEL);
-	if (!map_table)
-		return -ENOMEM;
+	if (mae_dev->open_video_device_cnt == 0) {
+		ctx = kzalloc(sizeof(*ctx), GFP_KERNEL);
+		if (!ctx)
+			return -ENOMEM;
 
-	memset(map_table, 0, sizeof(*map_table));
-	mae_dev->map_table = map_table;
+		ctx->mae_dev = mae_dev;
+		ctx->dev = mae_dev->dev;
+		mae_dev->ctx = ctx;
 
-	v4l2_fh_init(&ctx->fh, vdev);
-	filp->private_data = &ctx->fh;
+		map_table = kzalloc(sizeof(*map_table), GFP_KERNEL);
+		if (!map_table)
+			return -ENOMEM;
 
-	mtk_mae_init_v4l2_fmt(ctx);
+		memset(map_table, 0, sizeof(*map_table));
+		mae_dev->map_table = map_table;
+
+		v4l2_fh_init(&ctx->fh, vdev);
+		filp->private_data = &ctx->fh;
+
+		mtk_mae_init_v4l2_fmt(ctx);
 #if M2M_ENABLE
-	ctx->fh.m2m_ctx =
-		v4l2_m2m_ctx_init(mae_dev->m2m_dev, ctx, &mtk_mae_queue_init);
-	if (IS_ERR(ctx->fh.m2m_ctx)) {
-		ret = PTR_ERR(ctx->fh.m2m_ctx);
-		goto err_free_ctrl_handler;
-	}
+		ctx->fh.m2m_ctx =
+			v4l2_m2m_ctx_init(mae_dev->m2m_dev, ctx, &mtk_mae_queue_init);
+		if (IS_ERR(ctx->fh.m2m_ctx)) {
+			ret = PTR_ERR(ctx->fh.m2m_ctx);
+			goto err_free_ctrl_handler;
+		}
 #else
-	ctx->vq = kzalloc(sizeof(*ctx->vq), GFP_KERNEL);
-	ret = mtk_mae_queue_init(ctx);
-	if (ret)
-		goto err_free_ctrl_handler;
+		ctx->vq = kzalloc(sizeof(*ctx->vq), GFP_KERNEL);
+		ret = mtk_mae_queue_init(ctx);
+		if (ret)
+			goto err_free_ctrl_handler;
 #endif
-	v4l2_fh_add(&ctx->fh);
+		v4l2_fh_add(&ctx->fh);
+	}
+
+	mae_dev->open_video_device_cnt++;
+
+	mutex_unlock(&mae_dev->mae_device_lock);
 
 	return 0;
 
@@ -929,20 +946,35 @@ static int mtk_mae_video_device_release(struct file *filp)
 		container_of(filp->private_data, struct mtk_mae_ctx, fh);
 	struct mtk_mae_dev *mae_dev = video_drvdata(filp);
 
+	mutex_lock(&mae_dev->mae_device_lock);
+
+	if (mae_dev->open_video_device_cnt - 1 < 0)
+		mae_dev_info(mae_dev->dev, "open_video_device_cnt(%d) should not be negative\n",
+			mae_dev->open_video_device_cnt);
+
+	mae_dev->open_video_device_cnt--;
+
+	mae_dev_info(mae_dev->dev, "%s+ open_video_device_cnt(%d)\n",
+				__func__, mae_dev->open_video_device_cnt);
+
+	if (mae_dev->open_video_device_cnt == 0) {
 #if M2M_ENABLE
-	v4l2_m2m_ctx_release(ctx->fh.m2m_ctx);
+		v4l2_m2m_ctx_release(ctx->fh.m2m_ctx);
 #endif
 
-	v4l2_fh_del(&ctx->fh);
-	v4l2_fh_exit(&ctx->fh);
+		v4l2_fh_del(&ctx->fh);
+		v4l2_fh_exit(&ctx->fh);
 
 #if (M2M_ENABLE == 0)
-	vb2_queue_release(ctx->vq);
-	kfree(ctx->vq);
+		vb2_queue_release(ctx->vq);
+		kfree(ctx->vq);
 #endif
 
-	kfree(ctx);
-	kfree(mae_dev->map_table);
+		kfree(ctx);
+		kfree(mae_dev->map_table);
+	}
+
+	mutex_unlock(&mae_dev->mae_device_lock);
 
 	return 0;
 }
@@ -1729,6 +1761,10 @@ int mtk_mae_probe(struct platform_device *pdev)
 						 &(mae_dev->mae_event_id));
 
 	mutex_init(&mae_dev->vdev_lock);
+	init_completion(&mae_dev->mae_job_finished);
+
+	mutex_init(&mae_dev->mae_device_lock);
+	mae_dev->open_video_device_cnt = 0;
 	// MAE_TO_DO: Init workqueue
 	mae_dev->frame_done_wq =
 			alloc_ordered_workqueue(dev_name(mae_dev->dev),

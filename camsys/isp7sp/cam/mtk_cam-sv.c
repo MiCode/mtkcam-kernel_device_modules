@@ -385,30 +385,53 @@ RESET_FAILURE:
 int mtk_cam_sv_dmao_common_config(struct mtk_camsv_device *sv_dev)
 {
 	int ret = 0;
+	struct sv_dma_th_setting sv_th_setting[MAX_SV_HW_NUM];
+	struct sv_cq_th_setting sv_cq_setting;
 
+	memset(sv_th_setting, 0, sizeof(sv_th_setting));
+	memset(&sv_cq_setting, 0, sizeof(sv_cq_setting));
+
+	CALL_PLAT_V4L2(
+		get_sv_dmao_common_setting, sv_th_setting, sv_cq_setting);
 	switch (sv_dev->id) {
 	case CAMSV_0:
 		/* wdma 1 */
-		CAMSV_WRITE_REG(sv_dev->base_dma + REG_CAMSVDMATOP_CON3_IMG, 0x86660555);
-		CAMSV_WRITE_REG(sv_dev->base_dma + REG_CAMSVDMATOP_CON2_IMG, 0x14440333);
-		CAMSV_WRITE_REG(sv_dev->base_dma + REG_CAMSVDMATOP_CON1_IMG, 0x12220111);
-		CAMSV_WRITE_REG(sv_dev->base_dma + REG_CAMSVDMATOP_CON4_IMG, 0x81110000);
+		CAMSV_WRITE_REG(sv_dev->base_dma + REG_CAMSVDMATOP_CON3_IMG,
+			sv_th_setting[CAMSV_0].urgent_th);
+		CAMSV_WRITE_REG(sv_dev->base_dma + REG_CAMSVDMATOP_CON2_IMG,
+			sv_th_setting[CAMSV_0].ultra_th);
+		CAMSV_WRITE_REG(sv_dev->base_dma + REG_CAMSVDMATOP_CON1_IMG,
+			sv_th_setting[CAMSV_0].pultra_th);
+		CAMSV_WRITE_REG(sv_dev->base_dma + REG_CAMSVDMATOP_CON4_IMG,
+			sv_th_setting[CAMSV_0].dvfs_th);
 
-		CAMSV_WRITE_REG(sv_dev->base_dma + REG_CAMSVDMATOP_CON3_LEN, 0x86660555);
-		CAMSV_WRITE_REG(sv_dev->base_dma + REG_CAMSVDMATOP_CON2_LEN, 0x14440333);
-		CAMSV_WRITE_REG(sv_dev->base_dma + REG_CAMSVDMATOP_CON1_LEN, 0x12220111);
-		CAMSV_WRITE_REG(sv_dev->base_dma + REG_CAMSVDMATOP_CON4_LEN, 0x81110000);
+		CAMSV_WRITE_REG(sv_dev->base_dma + REG_CAMSVDMATOP_CON3_LEN,
+			sv_th_setting[CAMSV_0].urgent_th);
+		CAMSV_WRITE_REG(sv_dev->base_dma + REG_CAMSVDMATOP_CON2_LEN,
+			sv_th_setting[CAMSV_0].ultra_th);
+		CAMSV_WRITE_REG(sv_dev->base_dma + REG_CAMSVDMATOP_CON1_LEN,
+			sv_th_setting[CAMSV_0].pultra_th);
+		CAMSV_WRITE_REG(sv_dev->base_dma + REG_CAMSVDMATOP_CON4_LEN,
+			sv_th_setting[CAMSV_0].dvfs_th);
 
 		/* wdma 2 */
-		CAMSV_WRITE_REG(sv_dev->base_dma + REG_CAMSVDMATOP_CON3_IMG2, 0x84000355);
-		CAMSV_WRITE_REG(sv_dev->base_dma + REG_CAMSVDMATOP_CON2_IMG2, 0x12AA0200);
-		CAMSV_WRITE_REG(sv_dev->base_dma + REG_CAMSVDMATOP_CON1_IMG2, 0x115500AB);
-		CAMSV_WRITE_REG(sv_dev->base_dma + REG_CAMSVDMATOP_CON4_IMG2, 0x80AB0000);
+		CAMSV_WRITE_REG(sv_dev->base_dma + REG_CAMSVDMATOP_CON3_IMG2,
+			sv_th_setting[CAMSV_0].urgent_th2);
+		CAMSV_WRITE_REG(sv_dev->base_dma + REG_CAMSVDMATOP_CON2_IMG2,
+			sv_th_setting[CAMSV_0].ultra_th2);
+		CAMSV_WRITE_REG(sv_dev->base_dma + REG_CAMSVDMATOP_CON1_IMG2,
+			sv_th_setting[CAMSV_0].pultra_th2);
+		CAMSV_WRITE_REG(sv_dev->base_dma + REG_CAMSVDMATOP_CON4_IMG2,
+			sv_th_setting[CAMSV_0].dvfs_th2);
 
-		CAMSV_WRITE_REG(sv_dev->base_dma + REG_CAMSVDMATOP_CON3_LEN2, 0x84000355);
-		CAMSV_WRITE_REG(sv_dev->base_dma + REG_CAMSVDMATOP_CON2_LEN2, 0x12AA0200);
-		CAMSV_WRITE_REG(sv_dev->base_dma + REG_CAMSVDMATOP_CON1_LEN2, 0x115500AB);
-		CAMSV_WRITE_REG(sv_dev->base_dma + REG_CAMSVDMATOP_CON4_LEN2, 0x80AB0000);
+		CAMSV_WRITE_REG(sv_dev->base_dma + REG_CAMSVDMATOP_CON3_LEN2,
+			sv_th_setting[CAMSV_0].urgent_th2);
+		CAMSV_WRITE_REG(sv_dev->base_dma + REG_CAMSVDMATOP_CON2_LEN2,
+			sv_th_setting[CAMSV_0].ultra_th2);
+		CAMSV_WRITE_REG(sv_dev->base_dma + REG_CAMSVDMATOP_CON1_LEN2,
+			sv_th_setting[CAMSV_0].pultra_th2);
+		CAMSV_WRITE_REG(sv_dev->base_dma + REG_CAMSVDMATOP_CON4_LEN2,
+			sv_th_setting[CAMSV_0].dvfs_th2);
 
 		/* hw issue: disable two smi out */
 #ifdef SV_TWO_SMI_OUT
@@ -423,26 +446,42 @@ int mtk_cam_sv_dmao_common_config(struct mtk_camsv_device *sv_dev)
 		break;
 	case CAMSV_1:
 		/* wdma 1 */
-		CAMSV_WRITE_REG(sv_dev->base_dma + REG_CAMSVDMATOP_CON3_IMG, 0x86660555);
-		CAMSV_WRITE_REG(sv_dev->base_dma + REG_CAMSVDMATOP_CON2_IMG, 0x14440333);
-		CAMSV_WRITE_REG(sv_dev->base_dma + REG_CAMSVDMATOP_CON1_IMG, 0x12220111);
-		CAMSV_WRITE_REG(sv_dev->base_dma + REG_CAMSVDMATOP_CON4_IMG, 0x81110000);
+		CAMSV_WRITE_REG(sv_dev->base_dma + REG_CAMSVDMATOP_CON3_IMG,
+			sv_th_setting[CAMSV_1].urgent_th);
+		CAMSV_WRITE_REG(sv_dev->base_dma + REG_CAMSVDMATOP_CON2_IMG,
+			sv_th_setting[CAMSV_1].ultra_th);
+		CAMSV_WRITE_REG(sv_dev->base_dma + REG_CAMSVDMATOP_CON1_IMG,
+			sv_th_setting[CAMSV_1].pultra_th);
+		CAMSV_WRITE_REG(sv_dev->base_dma + REG_CAMSVDMATOP_CON4_IMG,
+			sv_th_setting[CAMSV_1].dvfs_th);
 
-		CAMSV_WRITE_REG(sv_dev->base_dma + REG_CAMSVDMATOP_CON3_LEN, 0x86660555);
-		CAMSV_WRITE_REG(sv_dev->base_dma + REG_CAMSVDMATOP_CON2_LEN, 0x14440333);
-		CAMSV_WRITE_REG(sv_dev->base_dma + REG_CAMSVDMATOP_CON1_LEN, 0x12220111);
-		CAMSV_WRITE_REG(sv_dev->base_dma + REG_CAMSVDMATOP_CON4_LEN, 0x81110000);
+		CAMSV_WRITE_REG(sv_dev->base_dma + REG_CAMSVDMATOP_CON3_LEN,
+			sv_th_setting[CAMSV_1].urgent_th);
+		CAMSV_WRITE_REG(sv_dev->base_dma + REG_CAMSVDMATOP_CON2_LEN,
+			sv_th_setting[CAMSV_1].ultra_th);
+		CAMSV_WRITE_REG(sv_dev->base_dma + REG_CAMSVDMATOP_CON1_LEN,
+			sv_th_setting[CAMSV_1].pultra_th);
+		CAMSV_WRITE_REG(sv_dev->base_dma + REG_CAMSVDMATOP_CON4_LEN,
+			sv_th_setting[CAMSV_1].dvfs_th);
 
 		/* wdma 2 */
-		CAMSV_WRITE_REG(sv_dev->base_dma + REG_CAMSVDMATOP_CON3_IMG2, 0x84000355);
-		CAMSV_WRITE_REG(sv_dev->base_dma + REG_CAMSVDMATOP_CON2_IMG2, 0x12AA0200);
-		CAMSV_WRITE_REG(sv_dev->base_dma + REG_CAMSVDMATOP_CON1_IMG2, 0x115500AB);
-		CAMSV_WRITE_REG(sv_dev->base_dma + REG_CAMSVDMATOP_CON4_IMG2, 0x80AB0000);
+		CAMSV_WRITE_REG(sv_dev->base_dma + REG_CAMSVDMATOP_CON3_IMG2,
+			sv_th_setting[CAMSV_1].urgent_th2);
+		CAMSV_WRITE_REG(sv_dev->base_dma + REG_CAMSVDMATOP_CON2_IMG2,
+			sv_th_setting[CAMSV_1].ultra_th2);
+		CAMSV_WRITE_REG(sv_dev->base_dma + REG_CAMSVDMATOP_CON1_IMG2,
+			sv_th_setting[CAMSV_1].pultra_th2);
+		CAMSV_WRITE_REG(sv_dev->base_dma + REG_CAMSVDMATOP_CON4_IMG2,
+			sv_th_setting[CAMSV_1].dvfs_th2);
 
-		CAMSV_WRITE_REG(sv_dev->base_dma + REG_CAMSVDMATOP_CON3_LEN2, 0x84000355);
-		CAMSV_WRITE_REG(sv_dev->base_dma + REG_CAMSVDMATOP_CON2_LEN2, 0x12AA0200);
-		CAMSV_WRITE_REG(sv_dev->base_dma + REG_CAMSVDMATOP_CON1_LEN2, 0x115500AB);
-		CAMSV_WRITE_REG(sv_dev->base_dma + REG_CAMSVDMATOP_CON4_LEN2, 0x80AB0000);
+		CAMSV_WRITE_REG(sv_dev->base_dma + REG_CAMSVDMATOP_CON3_LEN2,
+			sv_th_setting[CAMSV_1].urgent_th2);
+		CAMSV_WRITE_REG(sv_dev->base_dma + REG_CAMSVDMATOP_CON2_LEN2,
+			sv_th_setting[CAMSV_1].ultra_th2);
+		CAMSV_WRITE_REG(sv_dev->base_dma + REG_CAMSVDMATOP_CON1_LEN2,
+			sv_th_setting[CAMSV_1].pultra_th2);
+		CAMSV_WRITE_REG(sv_dev->base_dma + REG_CAMSVDMATOP_CON4_LEN2,
+			sv_th_setting[CAMSV_1].dvfs_th2);
 
 #ifdef SV_TWO_SMI_OUT
 		/* default cqi/port_1 disp port_2 mdp */
@@ -455,15 +494,23 @@ int mtk_cam_sv_dmao_common_config(struct mtk_camsv_device *sv_dev)
 #endif
 		break;
 	case CAMSV_2:
-		CAMSV_WRITE_REG(sv_dev->base_dma + REG_CAMSVDMATOP_CON3_IMG, 0x84CE0401);
-		CAMSV_WRITE_REG(sv_dev->base_dma + REG_CAMSVDMATOP_CON2_IMG, 0x13340267);
-		CAMSV_WRITE_REG(sv_dev->base_dma + REG_CAMSVDMATOP_CON1_IMG, 0x119A00CD);
-		CAMSV_WRITE_REG(sv_dev->base_dma + REG_CAMSVDMATOP_CON4_IMG, 0x80CD0000);
+		CAMSV_WRITE_REG(sv_dev->base_dma + REG_CAMSVDMATOP_CON3_IMG,
+			sv_th_setting[CAMSV_2].urgent_th);
+		CAMSV_WRITE_REG(sv_dev->base_dma + REG_CAMSVDMATOP_CON2_IMG,
+			sv_th_setting[CAMSV_2].ultra_th);
+		CAMSV_WRITE_REG(sv_dev->base_dma + REG_CAMSVDMATOP_CON1_IMG,
+			sv_th_setting[CAMSV_2].pultra_th);
+		CAMSV_WRITE_REG(sv_dev->base_dma + REG_CAMSVDMATOP_CON4_IMG,
+			sv_th_setting[CAMSV_2].dvfs_th);
 
-		CAMSV_WRITE_REG(sv_dev->base_dma + REG_CAMSVDMATOP_CON3_LEN, 0x84CE0401);
-		CAMSV_WRITE_REG(sv_dev->base_dma + REG_CAMSVDMATOP_CON2_LEN, 0x13340267);
-		CAMSV_WRITE_REG(sv_dev->base_dma + REG_CAMSVDMATOP_CON1_LEN, 0x119A00CD);
-		CAMSV_WRITE_REG(sv_dev->base_dma + REG_CAMSVDMATOP_CON4_LEN, 0x80CD0000);
+		CAMSV_WRITE_REG(sv_dev->base_dma + REG_CAMSVDMATOP_CON3_LEN,
+			sv_th_setting[CAMSV_2].urgent_th);
+		CAMSV_WRITE_REG(sv_dev->base_dma + REG_CAMSVDMATOP_CON2_LEN,
+			sv_th_setting[CAMSV_2].ultra_th);
+		CAMSV_WRITE_REG(sv_dev->base_dma + REG_CAMSVDMATOP_CON1_LEN,
+			sv_th_setting[CAMSV_2].pultra_th);
+		CAMSV_WRITE_REG(sv_dev->base_dma + REG_CAMSVDMATOP_CON4_LEN,
+			sv_th_setting[CAMSV_2].dvfs_th);
 
 #ifdef SV_TWO_SMI_OUT
 		/* default disp */
@@ -474,15 +521,23 @@ int mtk_cam_sv_dmao_common_config(struct mtk_camsv_device *sv_dev)
 #endif
 		break;
 	case CAMSV_3:
-		CAMSV_WRITE_REG(sv_dev->base_dma + REG_CAMSVDMATOP_CON3_IMG, 0x83000280);
-		CAMSV_WRITE_REG(sv_dev->base_dma + REG_CAMSVDMATOP_CON2_IMG, 0x12000180);
-		CAMSV_WRITE_REG(sv_dev->base_dma + REG_CAMSVDMATOP_CON1_IMG, 0x11000080);
-		CAMSV_WRITE_REG(sv_dev->base_dma + REG_CAMSVDMATOP_CON4_IMG, 0x80800000);
+		CAMSV_WRITE_REG(sv_dev->base_dma + REG_CAMSVDMATOP_CON3_IMG,
+			sv_th_setting[CAMSV_3].urgent_th);
+		CAMSV_WRITE_REG(sv_dev->base_dma + REG_CAMSVDMATOP_CON2_IMG,
+			sv_th_setting[CAMSV_3].ultra_th);
+		CAMSV_WRITE_REG(sv_dev->base_dma + REG_CAMSVDMATOP_CON1_IMG,
+			sv_th_setting[CAMSV_3].pultra_th);
+		CAMSV_WRITE_REG(sv_dev->base_dma + REG_CAMSVDMATOP_CON4_IMG,
+			sv_th_setting[CAMSV_3].dvfs_th);
 
-		CAMSV_WRITE_REG(sv_dev->base_dma + REG_CAMSVDMATOP_CON3_LEN, 0x83000280);
-		CAMSV_WRITE_REG(sv_dev->base_dma + REG_CAMSVDMATOP_CON2_LEN, 0x12000180);
-		CAMSV_WRITE_REG(sv_dev->base_dma + REG_CAMSVDMATOP_CON1_LEN, 0x11000080);
-		CAMSV_WRITE_REG(sv_dev->base_dma + REG_CAMSVDMATOP_CON4_LEN, 0x80800000);
+		CAMSV_WRITE_REG(sv_dev->base_dma + REG_CAMSVDMATOP_CON3_LEN,
+			sv_th_setting[CAMSV_3].urgent_th);
+		CAMSV_WRITE_REG(sv_dev->base_dma + REG_CAMSVDMATOP_CON2_LEN,
+			sv_th_setting[CAMSV_3].ultra_th);
+		CAMSV_WRITE_REG(sv_dev->base_dma + REG_CAMSVDMATOP_CON1_LEN,
+			sv_th_setting[CAMSV_3].pultra_th);
+		CAMSV_WRITE_REG(sv_dev->base_dma + REG_CAMSVDMATOP_CON4_LEN,
+			sv_th_setting[CAMSV_3].dvfs_th);
 
 #ifdef SV_TWO_SMI_OUT
 		/* default disp */
@@ -493,10 +548,14 @@ int mtk_cam_sv_dmao_common_config(struct mtk_camsv_device *sv_dev)
 #endif
 		break;
 	case CAMSV_4:
-		CAMSV_WRITE_REG(sv_dev->base_dma + REG_CAMSVDMATOP_CON3_IMG, 0x80D800B4);
-		CAMSV_WRITE_REG(sv_dev->base_dma + REG_CAMSVDMATOP_CON2_IMG, 0x1090006C);
-		CAMSV_WRITE_REG(sv_dev->base_dma + REG_CAMSVDMATOP_CON1_IMG, 0x10480024);
-		CAMSV_WRITE_REG(sv_dev->base_dma + REG_CAMSVDMATOP_CON4_IMG, 0x80240000);
+		CAMSV_WRITE_REG(sv_dev->base_dma + REG_CAMSVDMATOP_CON3_IMG,
+			sv_th_setting[CAMSV_4].urgent_th);
+		CAMSV_WRITE_REG(sv_dev->base_dma + REG_CAMSVDMATOP_CON2_IMG,
+			sv_th_setting[CAMSV_4].ultra_th);
+		CAMSV_WRITE_REG(sv_dev->base_dma + REG_CAMSVDMATOP_CON1_IMG,
+			sv_th_setting[CAMSV_4].pultra_th);
+		CAMSV_WRITE_REG(sv_dev->base_dma + REG_CAMSVDMATOP_CON4_IMG,
+			sv_th_setting[CAMSV_4].dvfs_th);
 
 #ifdef SV_TWO_SMI_OUT
 		/* default disp */
@@ -507,10 +566,14 @@ int mtk_cam_sv_dmao_common_config(struct mtk_camsv_device *sv_dev)
 #endif
 		break;
 	case CAMSV_5:
-		CAMSV_WRITE_REG(sv_dev->base_dma + REG_CAMSVDMATOP_CON3_IMG, 0x80D800B4);
-		CAMSV_WRITE_REG(sv_dev->base_dma + REG_CAMSVDMATOP_CON2_IMG, 0x1090006C);
-		CAMSV_WRITE_REG(sv_dev->base_dma + REG_CAMSVDMATOP_CON1_IMG, 0x10480024);
-		CAMSV_WRITE_REG(sv_dev->base_dma + REG_CAMSVDMATOP_CON4_IMG, 0x80240000);
+		CAMSV_WRITE_REG(sv_dev->base_dma + REG_CAMSVDMATOP_CON3_IMG,
+			sv_th_setting[CAMSV_5].urgent_th);
+		CAMSV_WRITE_REG(sv_dev->base_dma + REG_CAMSVDMATOP_CON2_IMG,
+			sv_th_setting[CAMSV_5].ultra_th);
+		CAMSV_WRITE_REG(sv_dev->base_dma + REG_CAMSVDMATOP_CON1_IMG,
+			sv_th_setting[CAMSV_5].pultra_th);
+		CAMSV_WRITE_REG(sv_dev->base_dma + REG_CAMSVDMATOP_CON4_IMG,
+			sv_th_setting[CAMSV_5].dvfs_th);
 
 #ifdef SV_TWO_SMI_OUT
 		/* default disp */
@@ -523,17 +586,27 @@ int mtk_cam_sv_dmao_common_config(struct mtk_camsv_device *sv_dev)
 	}
 
 	/* cqi */
-	CAMSV_WRITE_REG(sv_dev->base_scq + REG_CAMSV_M1_CQI_ORIRDMA_CON0, 0x10000040);
-	CAMSV_WRITE_REG(sv_dev->base_scq + REG_CAMSV_M1_CQI_ORIRDMA_CON1, 0x000D0007);
-	CAMSV_WRITE_REG(sv_dev->base_scq + REG_CAMSV_M1_CQI_ORIRDMA_CON2, 0x001A0014);
-	CAMSV_WRITE_REG(sv_dev->base_scq + REG_CAMSV_M1_CQI_ORIRDMA_CON3, 0x00270020);
-	CAMSV_WRITE_REG(sv_dev->base_scq + REG_CAMSV_M1_CQI_ORIRDMA_CON4, 0x00070000);
+	CAMSV_WRITE_REG(sv_dev->base_scq + REG_CAMSV_M1_CQI_ORIRDMA_CON0,
+		sv_cq_setting.cq1_fifo_size);
+	CAMSV_WRITE_REG(sv_dev->base_scq + REG_CAMSV_M1_CQI_ORIRDMA_CON1,
+		sv_cq_setting.cq1_pultra_th);
+	CAMSV_WRITE_REG(sv_dev->base_scq + REG_CAMSV_M1_CQI_ORIRDMA_CON2,
+		sv_cq_setting.cq1_ultra_th);
+	CAMSV_WRITE_REG(sv_dev->base_scq + REG_CAMSV_M1_CQI_ORIRDMA_CON3,
+		sv_cq_setting.cq1_urgent_th);
+	CAMSV_WRITE_REG(sv_dev->base_scq + REG_CAMSV_M1_CQI_ORIRDMA_CON4,
+		sv_cq_setting.cq1_dvfs_th);
 
-	CAMSV_WRITE_REG(sv_dev->base_scq + REG_CAMSV_M2_CQI_ORIRDMA_CON0, 0x10000040);
-	CAMSV_WRITE_REG(sv_dev->base_scq + REG_CAMSV_M2_CQI_ORIRDMA_CON1, 0x000D0007);
-	CAMSV_WRITE_REG(sv_dev->base_scq + REG_CAMSV_M2_CQI_ORIRDMA_CON2, 0x001A0014);
-	CAMSV_WRITE_REG(sv_dev->base_scq + REG_CAMSV_M2_CQI_ORIRDMA_CON3, 0x00270020);
-	CAMSV_WRITE_REG(sv_dev->base_scq + REG_CAMSV_M2_CQI_ORIRDMA_CON4, 0x00070000);
+	CAMSV_WRITE_REG(sv_dev->base_scq + REG_CAMSV_M2_CQI_ORIRDMA_CON0,
+		sv_cq_setting.cq2_fifo_size);
+	CAMSV_WRITE_REG(sv_dev->base_scq + REG_CAMSV_M2_CQI_ORIRDMA_CON1,
+		sv_cq_setting.cq2_pultra_th);
+	CAMSV_WRITE_REG(sv_dev->base_scq + REG_CAMSV_M2_CQI_ORIRDMA_CON2,
+		sv_cq_setting.cq2_ultra_th);
+	CAMSV_WRITE_REG(sv_dev->base_scq + REG_CAMSV_M2_CQI_ORIRDMA_CON3,
+		sv_cq_setting.cq2_urgent_th);
+	CAMSV_WRITE_REG(sv_dev->base_scq + REG_CAMSV_M2_CQI_ORIRDMA_CON4,
+		sv_cq_setting.cq2_dvfs_th);
 
 	return ret;
 }

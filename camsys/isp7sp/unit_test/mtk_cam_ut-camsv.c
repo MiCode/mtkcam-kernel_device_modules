@@ -435,7 +435,7 @@ static int ut_camsv_initialize(struct device *dev, void *ext_params)
 static int ut_camsv_s_stream(struct device *dev, enum streaming_enum on)
 {
 	int ret = 0;
-	dev_info(dev, "%s: %s\n", __func__, on ? "on" : "off");
+	dev_info(dev, "%s: %d\n", __func__, on);
 	if (on)
 		ret = ut_mtk_camsv_central_common_enable(dev);
 	else {
@@ -517,7 +517,7 @@ static irqreturn_t ut_mtk_irq_camsv_done(int irq, void *data)
 
 	irq_done_status = readl_relaxed(camsv->base + REG_CAMSVCENTRAL_DONE_STATUS);
 	event.mask = 0;
-	if (irq_done_status)
+	if (irq_done_status && !camsv->is_dc_mode)
 		event.mask |= EVENT_SW_P1_DONE;
 	if (event.mask) {
 		dev_dbg(camsv->dev, "send event 0x%x\n", event.mask);

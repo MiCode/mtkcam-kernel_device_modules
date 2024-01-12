@@ -35,7 +35,7 @@
 #include "mtk_cam_ut-engines.h"
 
 #define CAM_DEV_NAME "mtk_cam_ut"
-
+#define CAMSV_HW_ID 0
 #ifdef dev_dbg
 #undef dev_dbg
 #define dev_dbg dev_info
@@ -109,11 +109,11 @@ static int apply_sv_next_req(struct mtk_cam_ut *ut)
 	spin_unlock_irqrestore(&ut->enque_list.lock, flags);
 
 	CALL_CAMSV_OPS(ut->camsv[3], apply_cq,
-		     buf_entry->cq_buf.iova,
-		     buf_entry->cq_buf.size,
-		     buf_entry->cq_offset,
-		     buf_entry->sub_cq_size,
-		     buf_entry->sub_cq_offset);
+			     buf_entry->cq_buf.iova,
+			     buf_entry->cq_buf.size,
+			     buf_entry->cq_offset,
+			     buf_entry->sub_cq_size,
+			     buf_entry->sub_cq_offset);
 
 	spin_lock_irqsave(&ut->processing_list.lock, flags);
 	list_add_tail(&buf_entry->list_entry, &ut->processing_list.list);
@@ -231,7 +231,6 @@ static int on_ipi_composed(struct mtk_cam_ut *ut)
 
 static int apply_sv_req_on_composed_once(struct mtk_cam_ut *ut)
 {
-	/* use camsv 4 for single sv case */
 	CALL_CAMSV_OPS(ut->camsv[3], initialize, NULL);
 
 	ut->hdl.on_ipi_composed = on_ipi_composed;
@@ -265,6 +264,8 @@ static int apply_req_on_composed_once(struct mtk_cam_ut *ut)
 	CALL_RAW_OPS(ut->raw[0], initialize, &raw_params);
 	//CALL_RAW_OPS(ut->raw[1], initialize, &raw_params);
 	//CALL_RAW_OPS(ut->raw[2], initialize, &raw_params);
+	if (is_dcif_required(ut->hardware_scenario) && (CAMSV_HW_ID < ut->num_camsv))
+		CALL_CAMSV_OPS(ut->camsv[CAMSV_HW_ID], initialize, NULL);
 
 	ut->hdl.on_ipi_composed = on_ipi_composed;
 	return apply_next_req(ut);
@@ -302,22 +303,37 @@ static int apply_req_on_composed_m2m_once(struct mtk_cam_ut *ut)
 	return apply_next_req(ut);
 }
 
-static int single_sv_case(unsigned int isp_hardware)
+static int single_sv_case(enum isp_hardware_enum isp_hardware)
 {
-	return (isp_hardware & 0x2) ? 1 : 0;
+	return (isp_hardware & SINGLE_SV) ? 1 : 0;
 }
 
-static int single_mraw_case(unsigned int isp_hardware)
+static int single_mraw_case(enum isp_hardware_enum isp_hardware)
 {
-	return (isp_hardware & 0x4) ? 1 : 0;
+	return (isp_hardware & SINGLE_MRAW) ? 1 : 0;
 }
 
 static int streamon_on_cqdone_once(struct mtk_cam_ut *ut)
 {
-	int i;
 
-	if (ut->hardware_scenario != MTKCAM_IPI_HW_PATH_DC_STAGGER) {
-		/* Slave raw first, master raw last.*/
+	if (is_dcif_required(ut->hardware_scenario) && (CAMSV_HW_ID < ut->num_camsv)) {
+		if (ut->raw_module & (1 << MTKCAM_PIPE_RAW_A)) {
+			CALL_RAW_OPS(ut->raw[0], s_stream, streaming_active);
+		}
+		if (ut->raw_module & (1 << MTKCAM_PIPE_RAW_B)) {
+			CALL_RAW_OPS(ut->raw[1], s_stream, streaming_active);
+		}
+		if (ut->raw_module & (1 << MTKCAM_PIPE_RAW_C)) {
+			CALL_RAW_OPS(ut->raw[2], s_stream, streaming_active);
+		}
+		if (!is_direct_couple(ut->hardware_scenario)) {
+			CALL_RAW_OPS(ut->raw[0], s_stream, streaming_vf);
+		}
+		CALL_CAMSV_OPS(ut->camsv[CAMSV_HW_ID], s_stream, streaming_vf);
+	} else {
+		if (ut->raw_module & (1 << MTKCAM_PIPE_RAW_A)) {
+			CALL_RAW_OPS(ut->raw[0], s_stream, streaming_active);
+		}
 		if (ut->raw_module & (1 << MTKCAM_PIPE_RAW_B)) {
 			CALL_RAW_OPS(ut->raw[1], s_stream, streaming_active);
 		}
@@ -326,17 +342,13 @@ static int streamon_on_cqdone_once(struct mtk_cam_ut *ut)
 		}
 		CALL_RAW_OPS(ut->raw[0], s_stream, streaming_vf);
 	}
-
-	for (i = ut->is_dcif_camsv - 1; i >= 0; i--)
-		CALL_CAMSV_OPS(ut->camsv[i], s_stream, streaming_vf);
-
 	ut->hdl.on_isr_cq_done = NULL;
 	return 0;
 }
 
 static int streamon_sv_on_cqdone_once(struct mtk_cam_ut *ut)
 {
-	/* use camsv 4 for single sv case */
+
 	CALL_CAMSV_OPS(ut->camsv[3], s_stream, streaming_vf);
 
 	ut->hdl.on_isr_cq_done = NULL;
@@ -346,7 +358,7 @@ static int streamon_sv_on_cqdone_once(struct mtk_cam_ut *ut)
 static int streamon_mraw_on_cqdone_once(struct mtk_cam_ut *ut)
 {
 
-	CALL_MRAW_OPS(ut->mraw[0], s_stream, 1);
+	CALL_MRAW_OPS(ut->mraw[0], s_stream, streaming_vf);
 
 	ut->hdl.on_isr_cq_done = NULL;
 	return 0;
@@ -355,7 +367,9 @@ static int streamon_mraw_on_cqdone_once(struct mtk_cam_ut *ut)
 
 static int trigger_rawi(struct mtk_cam_ut *ut)
 {
-	/*Slave raw first, master raw last. */
+	if (ut->raw_module & (1 << MTKCAM_PIPE_RAW_A)) {
+		CALL_RAW_OPS(ut->raw[0], s_stream, streaming_active);
+	}
 	if (ut->raw_module & (1 << MTKCAM_PIPE_RAW_B)) {
 		CALL_RAW_OPS(ut->raw[1], s_stream, streaming_active);
 	}
@@ -372,7 +386,7 @@ static void setup_hanlder(struct mtk_cam_ut *ut)
 
 	dev_info(ut->dev,
 		"ut->with_testmdl(%d) ut->isp_hardware(%d)\n",
-		ut->with_testmdl, ut->isp_hardware);
+		ut->with_testmdl, (unsigned int)ut->isp_hardware);
 
 	if (ut->with_testmdl) {
 		if (single_sv_case(ut->isp_hardware)) {
@@ -387,21 +401,15 @@ static void setup_hanlder(struct mtk_cam_ut *ut)
 			ut->hdl.on_isr_mraw_sof = apply_mraw_next_req;
 			ut->hdl.on_isr_cq_done = streamon_mraw_on_cqdone_once;
 			ut->hdl.on_isr_frame_done = handle_req_done;
-		} else if (!ut->is_dcif_camsv) {
+		} else {
 			ut->hdl.on_ipi_composed = apply_req_on_composed_once;
 			ut->hdl.on_isr_sof = apply_next_req;
 			ut->hdl.on_isr_sv_sof = NULL;
 			ut->hdl.on_isr_cq_done = streamon_on_cqdone_once;
 			ut->hdl.on_isr_frame_done = handle_req_done;
-		} else {
-			ut->hdl.on_ipi_composed = apply_req_on_composed_once;
-			ut->hdl.on_isr_sof = NULL;
-			ut->hdl.on_isr_sv_sof = apply_next_req;
-			ut->hdl.on_isr_cq_done = streamon_on_cqdone_once;
-			ut->hdl.on_isr_frame_done = handle_req_done;
 		}
 	} else {
-		if (!ut->is_dcif_camsv) {
+		if (!is_dcif_required(ut->hardware_scenario)) {
 			ut->hdl.on_ipi_composed = apply_req_on_composed_m2m_once;
 			ut->hdl.on_isr_sof = NULL;
 			ut->hdl.on_isr_sv_sof = NULL;
@@ -527,12 +535,15 @@ static int cam_composer_init(struct mtk_cam_ut *ut)
 						    cam_composer_handler,
 						    ut, *msg);
 	if (IS_ERR(ut->rpmsg_dev->rpdev.ept)) {
+		dev_info(dev, "failed to get rpmsg_dev\n");
 		ret = -EINVAL;
 		goto fail_shutdown;
 	}
 
 	return ret;
 fail_shutdown:
+	mtk_destroy_client_msgdevice(ccd->rpmsg_subdev, &ut->rpmsg_channel);
+	ut->rpmsg_dev = NULL;
 	rproc_shutdown(ut->rproc_handle);
 fail_rproc_put:
 	rproc_put(ut->rproc_handle);
@@ -619,14 +630,17 @@ static int set_test_mdl(struct mtk_cam_ut *ut,
 	int pixel_mode;
 	int pattern;
 	int tag;
+	struct mtk_ut_camsv_device *camsv_dev = NULL;
 
+	if (CAMSV_HW_ID < ut->num_camsv)
+		camsv_dev = dev_get_drvdata(ut->camsv[CAMSV_HW_ID]);
 	width = testmdl->width;
 	height = testmdl->height;
 	pattern = testmdl->pattern;
 
 	pixel_mode = testmdl->pixmode_lg2;
 
-	ut->isp_hardware = testmdl->isp_hardware;
+	ut->isp_hardware = (enum isp_hardware_enum)testmdl->isp_hardware;
 	if (debug_testmdl_pixmode >= 0) {
 		dev_info(dev, "DEBUG: set testmdl pixel mode (log2) %d\n",
 			 debug_testmdl_pixmode);
@@ -635,6 +649,10 @@ static int set_test_mdl(struct mtk_cam_ut *ut,
 
 	if (!seninf) {
 		dev_info(dev, "seninf is null, testmdl fail!\n");
+		return -1;
+	}
+	if (!camsv_dev) {
+		dev_info(dev, "camsv_dev is null, testmdl fail!\n");
 		return -1;
 	}
 	if (testmdl->mode == testmdl_disable)
@@ -646,47 +664,10 @@ static int set_test_mdl(struct mtk_cam_ut *ut,
 	}
 
 	switch (testmdl->hwScenario) {
-#ifdef NOT_READY
 	case MTKCAM_IPI_HW_PATH_STAGGER:
-		if (testmdl->mode == testmdl_stagger_3exp) {
-			ut->is_dcif_camsv = 2;
-			tag = 0;
-			CALL_SENINF_OPS(seninf, set_size,
-					width, height,
-					pixel_mode, pattern,
-					camsv_tg_0, tag);
-			mdelay(1);
-			tag = 1;
-			CALL_SENINF_OPS(seninf, set_size,
-					width, height,
-					pixel_mode, pattern,
-					camsv_tg_1, tag);
-			mdelay(1);
-			tag = 255;
-			CALL_SENINF_OPS(seninf, set_size,
-					width, height,
-					pixel_mode, pattern,
-					raw_tg_0, tag);
-		} else if (testmdl->mode == testlmdl_stagger_2exp) {
-			ut->is_dcif_camsv = 1;
-			tag = 0;
-			CALL_SENINF_OPS(seninf, set_size,
-					width, height,
-					pixel_mode, pattern,
-					camsv_tg_0, tag);
-			mdelay(1);
-			tag = 255;
-			CALL_SENINF_OPS(seninf, set_size,
-					width, height,
-					pixel_mode, pattern,
-					raw_tg_0, tag);
-		}
-		break;
+		camsv_dev->is_dc_mode = 1;
 
-	case MTKCAM_IPI_HW_PATH_DC_STAGGER:
-		// temporarily support camsv_a1 + camsv_a2 + raw_a case
-		if (testmdl->mode == testmdl_stagger_2exp) {
-			ut->is_dcif_camsv = 2;
+		if (testmdl->mode == testmdl_stagger_3exp) {
 			tag = 0;
 			CALL_SENINF_OPS(seninf, set_size,
 					width, height,
@@ -698,16 +679,84 @@ static int set_test_mdl(struct mtk_cam_ut *ut,
 					width, height,
 					pixel_mode, pattern,
 					camsv_tg_1, tag);
-		} else if (testmdl->mode == testmdl_normal) {
-			ut->is_dcif_camsv = 1;
+			mdelay(1);
+			tag = 255;
+			CALL_SENINF_OPS(seninf, set_size,
+					width, height,
+					pixel_mode, pattern,
+					raw_tg_0, tag);
+		} else if (testmdl->mode == testmdl_stagger_2exp) {
 			tag = 0;
 			CALL_SENINF_OPS(seninf, set_size,
 					width, height,
 					pixel_mode, pattern,
 					camsv_tg_0, tag);
+			mdelay(1);
+			tag = 255;
+			CALL_SENINF_OPS(seninf, set_size,
+					width, height,
+					pixel_mode, pattern,
+					raw_tg_0, tag);
+		} else if (testmdl->mode == testmdl_stagger_1exp) {
+			camsv_dev->is_dc_mode = 0;
+			tag = 255;
+			CALL_SENINF_OPS(seninf, set_size,
+					width, height,
+					pixel_mode, pattern,
+					raw_tg_0, tag);
 		}
 		break;
-#endif
+	case MTKCAM_IPI_HW_PATH_DC_STAGGER:
+		camsv_dev->is_dc_mode = 1;
+
+		if (testmdl->mode == testmdl_stagger_2exp) {
+			tag = 0;
+			CALL_SENINF_OPS(seninf, set_size,
+					width, height,
+					pixel_mode, pattern,
+					camsv_tg_0, tag);
+			mdelay(10);
+			tag = 2;
+			CALL_SENINF_OPS(seninf, set_size,
+					width, height,
+					pixel_mode, pattern,
+					camsv_tg_2, tag);
+		} else if (testmdl->mode == testmdl_stagger_3exp) {
+			tag = 0;
+			CALL_SENINF_OPS(seninf, set_size,
+					width, height,
+					pixel_mode, pattern,
+					camsv_tg_0, tag);
+			mdelay(10);
+			tag = 1;
+			CALL_SENINF_OPS(seninf, set_size,
+					width, height,
+					pixel_mode, pattern,
+					camsv_tg_1, tag);
+			mdelay(10);
+			tag = 2;
+			CALL_SENINF_OPS(seninf, set_size,
+					width, height,
+					pixel_mode, pattern,
+					camsv_tg_2, tag);
+		} else if (testmdl->mode == testmdl_stagger_1exp) {
+			tag = 2;
+			CALL_SENINF_OPS(seninf, set_size,
+					width, height,
+					pixel_mode, pattern,
+					camsv_tg_2, tag);
+		}
+		break;
+	case MTKCAM_IPI_HW_PATH_DC:
+		if (testmdl->mode == testmdl_normal) {
+			camsv_dev->is_dc_mode = 1;
+			tag = 2;
+			CALL_SENINF_OPS(seninf, set_size,
+					width, height,
+					pixel_mode, pattern,
+					camsv_tg_2, tag);
+		}
+		break;
 #if SUPPORT_RAWB
 	case MTKCAM_IPI_HW_PATH_ON_THE_FLY_RAWB:
 		if (ut->with_testmdl == 1) {
@@ -719,12 +768,14 @@ static int set_test_mdl(struct mtk_cam_ut *ut,
 		}
 		break;
 #endif
+	case MTKCAM_IPI_HW_PATH_OTF_STAGGER_LN_INTL:
+		fallthrough;
 	case MTKCAM_IPI_HW_PATH_OTF_RGBW:
-		width *= 2;
+		height *= 2;
 		fallthrough;
 	default:
 		if (ut->with_testmdl == 1) {
-			if (ut->isp_hardware & 0x1) {
+			if (ut->isp_hardware & WITH_RAW) {
 				tag = 255;
 				CALL_SENINF_OPS(seninf, set_size,
 						width, height,
@@ -732,7 +783,7 @@ static int set_test_mdl(struct mtk_cam_ut *ut,
 						raw_tg_0,
 						tag);
 			}
-			if (ut->isp_hardware & 0x2) {
+			if (ut->isp_hardware & SINGLE_SV) {
 				tag = 0;
 				CALL_SENINF_OPS(seninf, set_size,
 						width, height,
@@ -740,7 +791,7 @@ static int set_test_mdl(struct mtk_cam_ut *ut,
 						camsv_tg_24,
 						tag);
 			}
-			if (ut->isp_hardware & 0x4) {
+			if (ut->isp_hardware & SINGLE_MRAW) {
 				tag = 255;
 				CALL_SENINF_OPS(seninf, set_size,
 						width, height,
@@ -750,7 +801,7 @@ static int set_test_mdl(struct mtk_cam_ut *ut,
 			}
 		}
 	}
-
+	dev_info(dev, "camsv_dev->is_dc_mode=%d\n", camsv_dev->is_dc_mode);
 	return 0;
 }
 
@@ -764,12 +815,19 @@ static long cam_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 	switch (cmd) {
 	case ISP_UT_IOCTL_SET_TESTMDL: {
 		struct cam_ioctl_set_testmdl testmdl;
+		struct mtk_ut_camsv_device *camsv_dev = NULL;
 
+		if (CAMSV_HW_ID < ut->num_camsv)
+			camsv_dev = dev_get_drvdata(ut->camsv[CAMSV_HW_ID]);
+		if (!camsv_dev) {
+			dev_info(dev, "camsv_dev or ut is null! \n");
+			return -EFAULT;
+		}
 		LOG_CMD(ISP_UT_IOCTL_SET_TESTMDL);
 
-		ut->is_dcif_camsv = 0;
 		ut->with_testmdl = 0;
-		ut->isp_hardware = 0;
+		ut->isp_hardware = WITH_NONE;
+		camsv_dev->is_dc_mode = 0;
 		if (copy_from_user(&testmdl, (void *)arg,
 				   sizeof(struct cam_ioctl_set_testmdl)) != 0) {
 			dev_dbg(dev, "Fail to get testmdl parameter\n");
@@ -874,7 +932,7 @@ static long cam_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		struct mtkcam_ipi_event event;
 		struct mtk_ccd *ccd = (struct mtk_ccd *)ut->rproc_handle->priv;
 		struct mem_obj smem;
-		int fd, i;
+		int fd;
 
 		LOG_CMD(ISP_UT_IOCTL_DESTROY_SESSION);
 
@@ -888,10 +946,12 @@ static long cam_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		event.cookie = cookie;
 
 		if (ut->with_testmdl) {
-			for (i = 0; i < ut->is_dcif_camsv; i++)
-				CALL_CAMSV_OPS(ut->camsv[i], s_stream, streaming_off);
-
-			if (ut->hardware_scenario != MTKCAM_IPI_HW_PATH_DC_STAGGER) {
+			if ((ut->isp_hardware & SINGLE_SV ||
+				is_dcif_required(ut->hardware_scenario)) &&
+				(CAMSV_HW_ID < ut->num_camsv)) {
+				CALL_CAMSV_OPS(ut->camsv[CAMSV_HW_ID], s_stream, streaming_off);
+			}
+			if (!is_direct_couple(ut->hardware_scenario)) {
 				CALL_RAW_OPS(ut->raw[0], s_stream, streaming_off);
 				/* stream off rawb for bc case(or any case)
 				 * w/o send hardware_scenario
@@ -901,9 +961,7 @@ static long cam_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 
 			CALL_SENINF_OPS(ut->seninf, reset);
 
-			if (ut->isp_hardware & 0x2)
-				CALL_CAMSV_OPS(ut->camsv[3], s_stream, streaming_off);
-			if (ut->isp_hardware & 0x4)
+			if (ut->isp_hardware & SINGLE_MRAW)
 				CALL_MRAW_OPS(ut->mraw[0], s_stream, streaming_off);
 		}
 
@@ -1010,7 +1068,6 @@ static long cam_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 	case ISP_UT_IOCTL_CONFIG: {
 		struct cam_ioctl_config config;
 		struct mtkcam_ipi_event event;
-		struct mtkcam_ipi_config_param *pParam;
 		int i;
 
 		LOG_CMD(ISP_UT_IOCTL_CONFIG);
@@ -1021,24 +1078,14 @@ static long cam_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 			dev_dbg(dev, "[CONFIG] Fail to get config\n");
 			return -EFAULT;
 		}
-		dev_info(dev, "ut->is_dcif_camsv=%d\n", ut->is_dcif_camsv);
-		if (ut->hardware_scenario == MTKCAM_IPI_HW_PATH_STAGGER) {
-			pParam = &config.config_param;
-			for (i = 0; i < ut->is_dcif_camsv; i++)
-				CALL_CAMSV_OPS(ut->camsv[i], dev_config, &pParam->input);
-		} else if (ut->hardware_scenario == MTKCAM_IPI_HW_PATH_DC_STAGGER) {
-			pParam = &config.config_param;
-			for (i = 0; i < ut->is_dcif_camsv; i++)
-				CALL_CAMSV_OPS(ut->camsv[i], dev_config, &pParam->input);
-		}
 
 		config.config_param.flags = MTK_CAM_IPI_CONFIG_TYPE_INIT;
 					/* |MTK_CAM_IPI_CONFIG_TYPE_SMVR_PREVIEW */
 
 		/* TODO: camsv subsample */
-		if (ut->isp_hardware & 0x1)
+		if (ut->isp_hardware & WITH_RAW)
 			ut->subsample = config.config_param.input.subsample;
-		else if (ut->isp_hardware & 0x4)
+		else if (ut->isp_hardware & SINGLE_MRAW)
 			ut->subsample = config.config_param.mraw_input[0].input.subsample;
 
 		if ((config.config_param.n_maps > 0) &&
@@ -1365,6 +1412,12 @@ static int bind_cam_sub_pipes(struct mtk_cam_ut *ut)
 			dev_name(consumer), dev_name(supplier2));
 			return -ENODEV;
 		}
+
+		raw->ut = devm_kcalloc(ut->dev, 1, sizeof(struct mtk_cam_ut),
+			GFP_KERNEL);
+		if (!raw->ut)
+			return -ENOMEM;
+		raw->ut = ut;
 	}
 	return 0;
 }
@@ -1623,6 +1676,12 @@ static int mtk_cam_ut_probe(struct platform_device *pdev)
 	init_waitqueue_head(&ut->done_wq);
 
 	ut->listener.on_notify = ut_event_on_notify;
+
+	ut->base =  devm_platform_ioremap_resource_byname(pdev, "base");
+	if (IS_ERR(ut->base)) {
+		dev_info(dev, "failed to map register base\n");
+		return PTR_ERR(ut->base);
+	}
 
 	ret = register_sub_drivers(dev);
 	if (ret) {

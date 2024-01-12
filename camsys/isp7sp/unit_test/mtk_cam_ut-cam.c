@@ -42,7 +42,7 @@ struct ut_raw_status {
 	u32 drop;
 	u32 ofl;
 	u32 cq_done;
-	u32 cq_done2;
+	u32 dcif;
 };
 
 struct ut_debug_cmd {
@@ -66,6 +66,10 @@ struct ut_raw_msg {
 	struct ut_event		event;
 	struct ut_debug_cmd	cmd;
 };
+
+#define FIFO_THRESHOLD(FIFO_SIZE, HEIGHT_RATIO, LOW_RATIO) \
+	(((FIFO_SIZE * HEIGHT_RATIO) & 0xFFF) << 16 | \
+	((FIFO_SIZE * LOW_RATIO) & 0xFFF))
 
 void raw_disable_tg_vseol_sub_ctl(struct device *dev)
 {
@@ -124,8 +128,12 @@ static void raw_set_camctl_toggle_db(struct mtk_ut_raw_device *raw);
 static int ut_raw_initialize(struct device *dev, void *ext_params)
 {
 	struct mtk_ut_raw_device *raw = dev_get_drvdata(dev);
+	struct mtk_cam_ut *ut = raw->ut;
 	struct mtk_ut_raw_initial_params *p = ext_params;
 	void __iomem *base = raw->base;
+	void __iomem *yuv_base = raw->yuv_base;
+	unsigned int reg_raw_urgent, reg_yuv_urgent;
+	unsigned int raw_urgent, yuv_urgent;
 	u32 val;
 
 	if (!p)
@@ -151,7 +159,67 @@ static int ut_raw_initialize(struct device *dev, void *ext_params)
 	writel_relaxed(0xffffffff, base + REG_SCQ_START_PERIOD);
 	writel_relaxed(0xffffffff, raw->base_inner + REG_SCQ_START_PERIOD);
 
-	/* make sure all the CQ setting take effect */
+	writel_relaxed((0x10 << 24) | 64, base + REG_CQI_R1A_CON0);
+	writel_relaxed((0x1 << 28) | FIFO_THRESHOLD(64, 2/10, 1/10),
+			base + REG_CQI_R1A_CON1);
+	writel_relaxed((0x1 << 28) | FIFO_THRESHOLD(64, 4/10, 3/10),
+			base + REG_CQI_R1A_CON2);
+	writel_relaxed((0x1 << 31) | FIFO_THRESHOLD(64, 6/10, 5/10),
+			base + REG_CQI_R1A_CON3);
+	writel_relaxed((0x1 << 31) | FIFO_THRESHOLD(64, 1/10, 0),
+			base + REG_CQI_R1A_CON4);
+
+	writel_relaxed(HALT1_EN, ut->base + REG_HALT1_EN);
+	writel_relaxed(HALT2_EN, ut->base + REG_HALT2_EN);
+	writel_relaxed(HALT13_EN, ut->base + REG_HALT13_EN);
+
+	//Disable low latency
+	writel_relaxed(0xffff,
+		base + REG_CAMRAWDMATOP_LOW_LATENCY_LINE_CNT_IMGO_R1);
+	writel_relaxed(0xffff,
+		yuv_base + REG_CAMYUVDMATOP_LOW_LATENCY_LINE_CNT_YUVO_R1);
+	writel_relaxed(0xffff,
+		yuv_base + REG_CAMYUVDMATOP_LOW_LATENCY_LINE_CNT_YUVO_R3);
+	writel_relaxed(0xffff,
+		yuv_base + REG_CAMYUVDMATOP_LOW_LATENCY_LINE_CNT_DRZS4NO_R1);
+
+	switch (raw->id) {
+	case RAW_B:
+		reg_raw_urgent = REG_HALT7_EN;
+		reg_yuv_urgent = REG_HALT8_EN;
+		raw_urgent = HALT7_EN;
+		yuv_urgent = HALT8_EN;
+		break;
+	case RAW_C:
+		reg_raw_urgent = REG_HALT9_EN;
+		reg_yuv_urgent = REG_HALT10_EN;
+		raw_urgent = HALT9_EN;
+		yuv_urgent = HALT10_EN;
+		break;
+	case RAW_A:
+		fallthrough;
+	default:
+		reg_raw_urgent = REG_HALT5_EN;
+		reg_yuv_urgent = REG_HALT6_EN;
+		raw_urgent = HALT5_EN;
+		yuv_urgent = HALT6_EN;
+		dev_info(dev, "%s: raw id %d\n", __func__, raw->id);
+		break;
+	}
+
+	if (is_raw_sel_from_rawi(p->hardware_scenario)) {
+		writel_relaxed(0x0, ut->base + reg_raw_urgent);
+		writel_relaxed(0x0, ut->base + reg_yuv_urgent);
+
+		dev_info(dev, "%s: is srt, raw 0x%x.\n",
+			__func__, readl_relaxed(ut->base + reg_raw_urgent));
+	} else {
+		writel_relaxed(raw_urgent, ut->base + reg_raw_urgent);
+		writel_relaxed(yuv_urgent, ut->base + reg_yuv_urgent);
+
+		dev_info(dev, "%s: is hrt, raw 0x%x.\n",
+			__func__, readl_relaxed(ut->base + reg_raw_urgent));
+	}
 	wmb();
 
 	set_steamon_handle(dev, p->streamon_type);
@@ -208,9 +276,7 @@ static int ut_raw_s_stream(struct device *dev, enum streaming_enum on)
 		rwfbc_inc_setup(dev);
 
 	} else if (on == streaming_vf) {
-		raw_set_camctl_toggle_db(raw); /* toggle db first. */
 		raw_set_topdebug_rdyreq(raw, TG_OVERRUN);
-		rwfbc_inc_setup(dev);
 
 		val = readl_relaxed(base + REG_TG_VF_CON);
 		val |= TG_VFDATA_EN;
@@ -399,6 +465,7 @@ static int mtk_ut_raw_component_bind(struct device *dev,
 		return -1;
 	}
 	ut->raw[raw->id] = dev;
+	raw->ut = ut;
 
 	evt.mask = EVENT_SOF | EVENT_CQ_DONE | EVENT_SW_P1_DONE | EVENT_CQ_MAIN_TRIG_DLY;
 	if (add_listener(&raw->event_src, &ut->listener, evt)) {
@@ -678,12 +745,12 @@ static void raw_dump_stx(struct mtk_ut_raw_device *raw)
 	statusx.drop = readl_relaxed(CAM_REG_CTL_RAW_INT4_STATUSX(base));
 	statusx.ofl = readl_relaxed(CAM_REG_CTL_RAW_INT5_STATUSX(base));
 	statusx.cq_done = readl_relaxed(CAM_REG_CTL_RAW_INT6_STATUSX(base));
-	statusx.cq_done2 = readl_relaxed(CAM_REG_CTL_RAW_INT7_STATUSX(base));
+	statusx.dcif = readl_relaxed(CAM_REG_CTL_RAW_INT7_STATUSX(base));
 
 	dev_info(raw->dev,
 		 "STATUSX INT1-7 0x%x/0x%x/0x%x/0x%x/0x%x/0x%x/0x%x\n",
 		 statusx.irq, statusx.wdma, statusx.rdma, statusx.drop,
-		 statusx.ofl, statusx.cq_done, statusx.cq_done2);
+		 statusx.ofl, statusx.cq_done, statusx.dcif);
 }
 
 static void raw_dump_fbc(struct mtk_ut_raw_device *raw)
@@ -732,12 +799,14 @@ static irqreturn_t mtk_ut_raw_irq(int irq, void *data)
 	status.drop = readl_relaxed(CAM_REG_CTL_RAW_INT4_STATUS(base));
 	status.ofl = readl_relaxed(CAM_REG_CTL_RAW_INT5_STATUS(base));
 	status.cq_done = readl_relaxed(CAM_REG_CTL_RAW_INT6_STATUS(base));
-	//status.cq_done2 = readl_relaxed(CAM_REG_CTL_RAW_INT7_STATUS(base));
+	status.dcif = readl_relaxed(CAM_REG_CTL_RAW_INT7_STATUS(base));
 
 	event->mask = 0;
 	cmd->any_debug = 0;
 
-	if (status.irq & SOF_INT_ST)
+	if ((status.irq & SOF_INT_ST) ||
+		(status.dcif & DCIF_LAST_SOF_INT_ST) ||
+		(status.dcif & DCIF_LAST_CQ_START_INT_ST))
 		event->mask |= EVENT_SOF;
 
 	if (status.irq & SW_PASS1_DON_ST) {
@@ -806,9 +875,9 @@ static irqreturn_t mtk_ut_raw_irq(int irq, void *data)
 
 nomem:
 
-	dev_info(raw->dev, "INT1-7 0x%x/0x%x/0x%x/0x%x/0x%x/0x%x\n",
+	dev_info(raw->dev, "INT1-7 0x%x/0x%x/0x%x/0x%x/0x%x/0x%x/0x%x\n",
 		 status.irq, status.wdma, status.rdma, status.drop,
-		 status.ofl, status.cq_done);
+		 status.ofl, status.cq_done, status.dcif);
 
 	return wake_thread ? IRQ_WAKE_THREAD : IRQ_HANDLED;
 }

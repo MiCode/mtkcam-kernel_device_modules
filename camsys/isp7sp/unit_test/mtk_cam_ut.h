@@ -12,6 +12,7 @@
 
 #include "camsys/isp7sp/cam/mtk_cam-ipi.h"
 #include "mtk_cam_ut-event.h"
+#include "mtk_cam_ut-utils.h"
 
 #define IPI_FRAME_BUF_SIZE		ALIGN(sizeof(struct mtkcam_ipi_frame_param), SZ_1K)
 #define IPI_FRAME_BUF_NUM		3
@@ -90,6 +91,13 @@ enum streaming_enum {
 	streaming_off		= 0,
 	streaming_vf		= 1,
 	streaming_active	= 2,
+};
+
+enum isp_hardware_enum { //sync with TestPlan.h
+	WITH_NONE		= 0x0,
+	WITH_RAW		= 0x1,
+	SINGLE_SV		= 0x2,
+	SINGLE_MRAW		= 0x4,
 };
 
 struct mtk_cam_ut_mem_obj {
@@ -181,11 +189,10 @@ struct mtk_cam_ut {
 
 	/* config related */
 	int with_testmdl;
-	int is_dcif_camsv;
 	int subsample;
 	int hardware_scenario;
 	int main_rawi;
-	unsigned int isp_hardware;
+	enum isp_hardware_enum isp_hardware;
 	int raw_module;
 
 	struct mtk_cam_ut_event_handler hdl;
@@ -197,6 +204,5 @@ struct mtk_cam_ut {
 struct mtk_cam_ut_data {
 	const char		platform[8];
 };
-
 
 #endif /* __MTK_CAM_UT_H */

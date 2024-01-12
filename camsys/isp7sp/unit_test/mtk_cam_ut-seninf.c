@@ -17,6 +17,11 @@
 #include "mtk_cam_ut-engines.h"
 #include "mtk_cam_regs.h"
 
+#define SAT_MUX_FACTOR 8
+#define SV_NORMAL_MUX_FACTOR 1
+#define RAW_MUX_FACTOR 4
+#define PDP_MUX_FACTOR 1
+
 static unsigned int testmdl_hblank = 0x80;
 module_param(testmdl_hblank, int, 0644);
 MODULE_PARM_DESC(testmdl_hblank, "h-blanking for testmdl");
@@ -315,61 +320,60 @@ static int ut_seninf_set_cammux_tag(struct device *dev,
 static int ut_seninf_get_muxvr_by_mux(struct device *dev, unsigned int mux)
 {
 	struct mtk_ut_seninf_device *seninf = dev_get_drvdata(dev);
-	unsigned int const sat_mux_factor = 8;
-	unsigned int const raw_mux_factor = 4;
+
 	int mux_vr = mux;
-	int mux_sat_range_begin = seninf->mux_camsv_sat_range[0];
-	int mux_sat_range_end = seninf->mux_camsv_sat_range[1];
-	int muxvr_sat_range_begin = mux_sat_range_begin;
-	int muxvr_sat_range_end = muxvr_sat_range_begin
-				+ (mux_sat_range_end - mux_sat_range_begin + 1) * sat_mux_factor;
+	int sat_mux_first = seninf->mux_camsv_sat_range[0];
+	int sat_mux_second = seninf->mux_camsv_sat_range[1];
+	int sat_muxvr_first = seninf->muxvr_camsv_sat_range[0];
 
-	int mux_camsv_range_begin = seninf->mux_camsv_range[0];
-	int mux_camsv_range_end = seninf->mux_camsv_range[1];
-	int muxvr_sv_range_begin = muxvr_sat_range_end;
-	int muxvr_sv_range_end = muxvr_sv_range_begin
-				+ (mux_camsv_range_end - mux_camsv_range_begin + 1);
+	int sv_normal_mux_first = seninf->mux_camsv_range[0];
+	int sv_normal_mux_second = seninf->mux_camsv_range[1];
+	int sv_normal_muxvr_first = seninf->muxvr_camsv_range[0];
 
-	int mux_raw_range_begin = seninf->mux_raw_range[0];
-	int mux_raw_range_end = seninf->mux_raw_range[1];
-	int muxvr_raw_range_begin = muxvr_sv_range_end;
-	int muxvr_raw_range_end = muxvr_raw_range_begin
-				+ (mux_raw_range_end - mux_raw_range_begin + 1) * raw_mux_factor;
+	int raw_mux_first = seninf->mux_raw_range[0];
+	int raw_mux_second = seninf->mux_raw_range[1];
+	int raw_muxvr_first = seninf->muxvr_raw_range[0];
 
-	int mux_pdp_range_begin = seninf->mux_pdp_range[0];
-	int muxvr_pdp_range_begin = muxvr_raw_range_end;
+	int pdp_mux_first = seninf->mux_pdp_range[0];
+	int pdp_mux_secnond = seninf->mux_pdp_range[1];
+	int pdp_muxvr_first = seninf->muxvr_pdp_range[0];
 
-	int cammux_sat_range_begin = seninf->cammux_camsv_sat_range[0];
-	int cammux_raw_range_end = seninf->cammux_raw_range[1];
+	if (mux < sat_mux_first) {
+		dev_info(dev,
+				"[%s][ERROR] Input(mux_id %d) is invalid\n", __func__, mux);
 
-	dev_info(dev, "%s muxvr_sat_b %d, muxvr_sv_b %d, muxvr_raw_b %d, muxvr_pdp_b %d,\n",
-		__func__,
-		muxvr_sat_range_begin,
-		muxvr_sv_range_begin,
-		muxvr_raw_range_begin,
-		muxvr_pdp_range_begin);
+	} else if ((mux >= sat_mux_first) && (mux <= sat_mux_second)) {  // sat camsv
 
-	if (mux < mux_sat_range_begin)
-		mux_vr = mux;
-	else if (mux >= mux_sat_range_begin && mux <= mux_sat_range_end) {
-		mux_vr =
-			cammux_sat_range_begin + ((mux - mux_sat_range_begin) * sat_mux_factor);
-	} else if (mux >= mux_camsv_range_begin && mux <= mux_camsv_range_end) {
-		mux_vr = muxvr_sv_range_begin + (mux - mux_camsv_range_begin);
+		mux_vr = ((mux - sat_mux_first) * SAT_MUX_FACTOR) + sat_mux_first;
 
-	} else if (mux >= mux_raw_range_begin && mux <= mux_raw_range_end) {
-		mux_vr =
-			muxvr_raw_range_begin + ((mux - mux_raw_range_begin) * raw_mux_factor);
+	} else if ((mux >= sv_normal_mux_first) && (mux <= sv_normal_mux_second)) {  // normal camsv
 
-			// due to seninf_mux 10 has no camtg
-		if (mux_vr >= cammux_raw_range_end)
-			mux_vr = cammux_raw_range_end;
+		mux_vr = (mux - sv_normal_mux_first) + sv_normal_muxvr_first;
+
+	} else if ((mux >= raw_mux_first) && (mux <= raw_mux_second)) {  // raw
+
+		mux_vr = ((mux - raw_mux_first) * RAW_MUX_FACTOR) + raw_muxvr_first;
+
+	} else if ((mux >= pdp_mux_first) && (mux <= pdp_mux_secnond)) {  // PDP
+
+		mux_vr = (mux - pdp_mux_first) + pdp_muxvr_first;
+
 	} else {
-
-		mux_vr = muxvr_pdp_range_begin + (mux - mux_pdp_range_begin);
+		dev_info(dev,
+				"[%s][ERROR] Input(mux_id %d) is invalid\n", __func__, mux);
 	}
 
-	dev_info(dev, "%s mux_vr %d with mux %d\n", __func__, mux_vr, mux);
+	dev_info(dev,
+				"[%s] sat_based %d sv_based %d raw_based %d, pdp_based %d\n",
+				__func__,
+				sat_mux_first,
+				sat_muxvr_first,
+				sv_normal_muxvr_first,
+				raw_muxvr_first);
+
+	dev_info(dev,
+				"[%s] Input(mux_id %d, Output(mux_vr %d)\n",
+				__func__, mux, mux_vr);
 
 	return mux_vr;
 }
@@ -617,6 +621,23 @@ static int mtk_ut_seninf_of_probe(struct platform_device *pdev,
 
 	if (seninf_of_probe_range(dev, "mux-pdp-range",
 				  seninf->mux_pdp_range))
+		return -ENODEV;
+
+	/* mux */
+	if (seninf_of_probe_range(dev, "muxvr-camsv-sat-range",
+				  seninf->muxvr_camsv_sat_range))
+		return -ENODEV;
+
+	if (seninf_of_probe_range(dev, "muxvr-camsv-normal-range",
+				  seninf->muxvr_camsv_range))
+		return -ENODEV;
+
+	if (seninf_of_probe_range(dev, "muxvr-raw-range",
+				  seninf->muxvr_raw_range))
+		return -ENODEV;
+
+	if (seninf_of_probe_range(dev, "muxvr-pdp-range",
+				  seninf->muxvr_pdp_range))
 		return -ENODEV;
 
 	/* cammux */

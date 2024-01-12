@@ -250,6 +250,11 @@ struct mtk_ut_seninf_device {
 	int mux_raw_range[2];
 	int mux_pdp_range[2];
 
+	int muxvr_camsv_sat_range[2];
+	int muxvr_camsv_range[2];
+	int muxvr_raw_range[2];
+	int muxvr_pdp_range[2];
+
 	int cammux_camsv_sat_range[2];
 	int cammux_camsv_range[2];
 	int cammux_raw_range[2];

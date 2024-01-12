@@ -1282,16 +1282,17 @@ int isp71_allocate_working_buffer(struct mtk_hcp *hcp_dev, unsigned int mode, un
 						dma_buf_fd(gmblock[id].d_buf, O_RDWR | O_CLOEXEC);
 					dma_buf_begin_cpu_access(gmblock[id].d_buf, DMA_BIDIRECTIONAL);
 					kref_init(&gmblock[id].kref);
-					pr_info("%s:[HCP_GCE][%s] phys:0x%llx, virt:0x%p, dma:0x%llx, size:0x%llx, is_dma_buf:%d, fd:%d, d_buf:0x%p\n",
-						__func__, gmblock[id].name,
-						isp71_get_reserve_mem_phys(id, mode),
-						isp71_get_reserve_mem_virt(id, mode),
-						isp71_get_reserve_mem_dma(id, mode),
-						isp71_get_reserve_mem_size(id, mode),
-						gmblock[id].is_dma_buf,
-						isp71_get_reserve_mem_fd(id, mode),
-						gmblock[id].d_buf);
-            	    pr_info("imgsys_fw: alloc buffer mode4");
+                    if (hcp_dbg_enable()) {
+    					pr_debug("%s:[HCP_GCE][%s] phys:0x%llx, virt:0x%p, dma:0x%llx, size:0x%llx, is_dma_buf:%d, fd:%d, d_buf:0x%p\n",
+    						__func__, gmblock[id].name,
+    						isp71_get_reserve_mem_phys(id, mode),
+    						isp71_get_reserve_mem_virt(id, mode),
+    						isp71_get_reserve_mem_dma(id, mode),
+    						isp71_get_reserve_mem_size(id, mode),
+    						gmblock[id].is_dma_buf,
+    						isp71_get_reserve_mem_fd(id, mode),
+    						gmblock[id].d_buf);
+                    }
 					break;
 				default:
 					break;
@@ -1305,16 +1306,18 @@ int isp71_allocate_working_buffer(struct mtk_hcp *hcp_dev, unsigned int mode, un
 					gmblock[id].start_virt);
 			gmblock[id].start_dma = 0;
 		}
-		pr_info(
-			"%s: [HCP_GCE][gce_mem_reserve-%d] phys:0x%llx, virt:0x%p, dma:0x%llx, size:0x%llx, is_dma_buf:%d, fd:%d, d_buf:0x%p\n",
-			__func__, id,
-			isp71_get_reserve_mem_phys(id, mode),
-			isp71_get_reserve_mem_virt(id, mode),
-			isp71_get_reserve_mem_dma(id, mode),
-			isp71_get_reserve_mem_size(id, mode),
-			gmblock[id].is_dma_buf,
-			isp71_get_reserve_mem_fd(id, mode),
-			gmblock[id].d_buf);
+        if (hcp_dbg_enable()) {
+    		pr_debug(
+    			"%s: [HCP_GCE][gce_mem_reserve-%d] phys:0x%llx, virt:0x%p, dma:0x%llx, size:0x%llx, is_dma_buf:%d, fd:%d, d_buf:0x%p\n",
+    			__func__, id,
+    			isp71_get_reserve_mem_phys(id, mode),
+    			isp71_get_reserve_mem_virt(id, mode),
+    			isp71_get_reserve_mem_dma(id, mode),
+    			isp71_get_reserve_mem_size(id, mode),
+    			gmblock[id].is_dma_buf,
+    			isp71_get_reserve_mem_fd(id, mode),
+    			gmblock[id].d_buf);
+        }
 	}
 
 	for (id = 0; id < block_num; id++) {
@@ -1330,7 +1333,6 @@ int isp71_allocate_working_buffer(struct mtk_hcp *hcp_dev, unsigned int mode, un
 			case PQDIP_MEM_T_ID:
 				/* all supported heap name you can find with cmd */
 				/* (ls /dev/dma_heap/) in shell */
-                pr_info("imgsys_fw: alloc buffer mode5");
 				pdma_heap = dma_heap_find("mtk_mm-uncached");
 				if (!pdma_heap) {
 					pr_info("pdma_heap find fail\n");
@@ -1436,16 +1438,18 @@ int isp71_allocate_working_buffer(struct mtk_hcp *hcp_dev, unsigned int mode, un
 					mblock[id].start_virt);
 			mblock[id].start_dma = 0;
 		}
-		pr_info(
-			"%s: [HCP][mem_reserve-%d] phys:0x%llx, virt:0x%p, dma:0x%llx, size:0x%llx, is_dma_buf:%d, fd:%d, d_buf:0x%p\n",
-			__func__, id,
-			isp71_get_reserve_mem_phys(id, mode),
-			isp71_get_reserve_mem_virt(id, mode),
-			isp71_get_reserve_mem_dma(id, mode),
-			isp71_get_reserve_mem_size(id, mode),
-			mblock[id].is_dma_buf,
-			isp71_get_reserve_mem_fd(id, mode),
-			mblock[id].d_buf);
+        if (hcp_dbg_enable()) {
+    		pr_debug(
+    			"%s: [HCP][mem_reserve-%d] phys:0x%llx, virt:0x%p, dma:0x%llx, size:0x%llx, is_dma_buf:%d, fd:%d, d_buf:0x%p\n",
+    			__func__, id,
+    			isp71_get_reserve_mem_phys(id, mode),
+    			isp71_get_reserve_mem_virt(id, mode),
+    			isp71_get_reserve_mem_dma(id, mode),
+    			isp71_get_reserve_mem_size(id, mode),
+    			mblock[id].is_dma_buf,
+    			isp71_get_reserve_mem_fd(id, mode),
+    			mblock[id].d_buf);
+        }
 	}
 
 	return 0;
@@ -1527,15 +1531,17 @@ int isp71_allocate_working_buffer(struct mtk_hcp *hcp_dev, unsigned int mode)
 					dma_buf_fd(mblock[id].d_buf, O_RDWR | O_CLOEXEC);
 				dma_buf_begin_cpu_access(mblock[id].d_buf, DMA_BIDIRECTIONAL);
 				kref_init(&mblock[id].kref);
-				pr_info("%s:[HCP][%s] phys:0x%llx, virt:0x%p, dma:0x%llx, size:0x%llx, is_dma_buf:%d, fd:%d, d_buf:0x%p\n",
-					__func__, mblock[id].name,
-					isp71_get_reserve_mem_phys(id),
-					isp71_get_reserve_mem_virt(id),
-					isp71_get_reserve_mem_dma(id),
-					isp71_get_reserve_mem_size(id),
-					mblock[id].is_dma_buf,
-					isp71_get_reserve_mem_fd(id),
-					mblock[id].d_buf);
+                if (hcp_dbg_enable()) {
+    				pr_debug("%s:[HCP][%s] phys:0x%llx, virt:0x%p, dma:0x%llx, size:0x%llx, is_dma_buf:%d, fd:%d, d_buf:0x%p\n",
+    					__func__, mblock[id].name,
+    					isp71_get_reserve_mem_phys(id),
+    					isp71_get_reserve_mem_virt(id),
+    					isp71_get_reserve_mem_dma(id),
+    					isp71_get_reserve_mem_size(id),
+    					mblock[id].is_dma_buf,
+    					isp71_get_reserve_mem_fd(id),
+    					mblock[id].d_buf);
+                }
 				break;
 			default:
 
@@ -1595,17 +1601,17 @@ int isp71_allocate_working_buffer(struct mtk_hcp *hcp_dev, unsigned int mode)
 			mblock[id].start_dma = 0;
 		}
         if (hcp_dbg_enable()) {
-		pr_debug(
-			"%s: [HCP][mem_reserve-%d] phys:0x%llx, virt:0x%p, dma:0x%llx, size:0x%llx, is_dma_buf:%d, fd:%d, d_buf:0x%p\n",
-			__func__, id,
-			isp71_get_reserve_mem_phys(id),
-			isp71_get_reserve_mem_virt(id),
-			isp71_get_reserve_mem_dma(id),
-			isp71_get_reserve_mem_size(id),
-			mblock[id].is_dma_buf,
-			isp71_get_reserve_mem_fd(id),
-			mblock[id].d_buf);
-	}
+    		pr_debug(
+    			"%s: [HCP][mem_reserve-%d] phys:0x%llx, virt:0x%p, dma:0x%llx, size:0x%llx, is_dma_buf:%d, fd:%d, d_buf:0x%p\n",
+    			__func__, id,
+    			isp71_get_reserve_mem_phys(id),
+    			isp71_get_reserve_mem_virt(id),
+    			isp71_get_reserve_mem_dma(id),
+    			isp71_get_reserve_mem_size(id),
+    			mblock[id].is_dma_buf,
+    			isp71_get_reserve_mem_fd(id),
+    			mblock[id].d_buf);
+	    }
 	}
 
 	return 0;
@@ -1623,24 +1629,26 @@ static void gce_release(struct kref *ref)
 	dma_buf_detach(mblock->d_buf, mblock->attach);
 	dma_buf_end_cpu_access(mblock->d_buf, DMA_BIDIRECTIONAL);
 	dma_buf_put(mblock->d_buf);
-	pr_info("%s:[HCP][%s] phys:0x%llx, virt:0x%p, dma:0x%llx, size:0x%llx, is_dma_buf:%d, fd:%d, d_buf:0x%p\n",
-		__func__, mblock->name,
-		#if SMVR_DECOUPLE
-		isp71_get_reserve_mem_phys(IMG_MEM_G_ID, imgsys_streaming),
-		isp71_get_reserve_mem_virt(IMG_MEM_G_ID, imgsys_streaming),
-		isp71_get_reserve_mem_dma(IMG_MEM_G_ID, imgsys_streaming),
-		isp71_get_reserve_mem_size(IMG_MEM_G_ID, imgsys_streaming),
-		mblock->is_dma_buf,
-		isp71_get_reserve_mem_fd(IMG_MEM_G_ID, imgsys_streaming),
-		#else
-		isp71_get_reserve_mem_phys(IMG_MEM_G_ID),
-		isp71_get_reserve_mem_virt(IMG_MEM_G_ID),
-		isp71_get_reserve_mem_dma(IMG_MEM_G_ID),
-		isp71_get_reserve_mem_size(IMG_MEM_G_ID),
-		mblock->is_dma_buf,
-		isp71_get_reserve_mem_fd(IMG_MEM_G_ID),
-		#endif
-		mblock->d_buf);
+    if (hcp_dbg_enable()) {
+    	pr_debug("%s:[HCP][%s] phys:0x%llx, virt:0x%p, dma:0x%llx, size:0x%llx, is_dma_buf:%d, fd:%d, d_buf:0x%p\n",
+    		__func__, mblock->name,
+    		#if SMVR_DECOUPLE
+    		isp71_get_reserve_mem_phys(IMG_MEM_G_ID, imgsys_streaming),
+    		isp71_get_reserve_mem_virt(IMG_MEM_G_ID, imgsys_streaming),
+    		isp71_get_reserve_mem_dma(IMG_MEM_G_ID, imgsys_streaming),
+    		isp71_get_reserve_mem_size(IMG_MEM_G_ID, imgsys_streaming),
+    		mblock->is_dma_buf,
+    		isp71_get_reserve_mem_fd(IMG_MEM_G_ID, imgsys_streaming),
+    		#else
+    		isp71_get_reserve_mem_phys(IMG_MEM_G_ID),
+    		isp71_get_reserve_mem_virt(IMG_MEM_G_ID),
+    		isp71_get_reserve_mem_dma(IMG_MEM_G_ID),
+    		isp71_get_reserve_mem_size(IMG_MEM_G_ID),
+    		mblock->is_dma_buf,
+    		isp71_get_reserve_mem_fd(IMG_MEM_G_ID),
+    		#endif
+    		mblock->d_buf);
+    }
 	// close fd in user space driver, you can't close fd in kernel site
 	// dma_heap_buffer_free(mblock[id].d_buf);
 	//dma_buf_put(my_dma_buf);
@@ -1737,15 +1745,17 @@ int isp71_release_working_buffer(struct mtk_hcp *hcp_dev, unsigned int mode)
 			mblock[id].start_dma = 0x0;
 			mblock[id].mmap_cnt = 0;
 		}
-		pr_debug(
-			"%s: [HCP][mem_reserve-%d] phys:0x%llx, virt:0x%p, dma:0x%llx, size:0x%llx, is_dma_buf:%d, fd:%d\n",
-			__func__, id,
-			isp71_get_reserve_mem_phys(id, mode),
-			isp71_get_reserve_mem_virt(id, mode),
-			isp71_get_reserve_mem_dma(id, mode),
-			isp71_get_reserve_mem_size(id, mode),
-			mblock[id].is_dma_buf,
-			isp71_get_reserve_mem_fd(id, mode));
+        if (hcp_dbg_enable()) {
+    		pr_debug(
+    			"%s: [HCP][mem_reserve-%d] phys:0x%llx, virt:0x%p, dma:0x%llx, size:0x%llx, is_dma_buf:%d, fd:%d\n",
+    			__func__, id,
+    			isp71_get_reserve_mem_phys(id, mode),
+    			isp71_get_reserve_mem_virt(id, mode),
+    			isp71_get_reserve_mem_dma(id, mode),
+    			isp71_get_reserve_mem_size(id, mode),
+    			mblock[id].is_dma_buf,
+    			isp71_get_reserve_mem_fd(id, mode));
+        }
 	}
 
 	return 0;
@@ -2050,28 +2060,12 @@ int isp71_get_init_info(struct img_init_info *info)
 static int isp71_put_gce(unsigned int mode)
 {
 	kref_put(&gmb[IMG_MEM_G_ID].kref, gce_release);
-	#if 0
-	if (mode == imgsys_streaming)
-	kref_put(&mb[IMG_MEM_G_ID].kref, gce_release);
-	else if(mode == imgsys_capture)
-	kref_put(&mb[IMG_MEM_G_ID].kref, gce_release);
-	else
-		kref_put(&mb[IMG_MEM_G_ID].kref, gce_release);
-	#endif
 	return 0;
 }
 
 static int isp71_get_gce(unsigned int mode)
 {
 	kref_get(&gmb[IMG_MEM_G_ID].kref);
-	#if 0
-	if (mode == imgsys_streaming)
-		kref_get(&mb[IMG_MEM_G_ID].kref);
-	else if(mode == imgsys_capture)
-	kref_get(&mb[IMG_MEM_G_ID].kref);
-	else
-	kref_get(&mb[IMG_MEM_G_ID].kref);
-	#endif
 	return 0;
 }
 
@@ -2260,16 +2254,16 @@ int isp71_release_working_buffer(struct mtk_hcp *hcp_dev)
 			mblock[id].mmap_cnt = 0;
 		}
         if (hcp_dbg_enable()) {
-		pr_debug(
-			"%s: [HCP][mem_reserve-%d] phys:0x%llx, virt:0x%p, dma:0x%llx, size:0x%llx, is_dma_buf:%d, fd:%d\n",
-			__func__, id,
-			isp71_get_reserve_mem_phys(id),
-			isp71_get_reserve_mem_virt(id),
-			isp71_get_reserve_mem_dma(id),
-			isp71_get_reserve_mem_size(id),
-			mblock[id].is_dma_buf,
-			isp71_get_reserve_mem_fd(id));
-	}
+    		pr_debug(
+    			"%s: [HCP][mem_reserve-%d] phys:0x%llx, virt:0x%p, dma:0x%llx, size:0x%llx, is_dma_buf:%d, fd:%d\n",
+    			__func__, id,
+    			isp71_get_reserve_mem_phys(id),
+    			isp71_get_reserve_mem_virt(id),
+    			isp71_get_reserve_mem_dma(id),
+    			isp71_get_reserve_mem_size(id),
+    			mblock[id].is_dma_buf,
+    			isp71_get_reserve_mem_fd(id));
+	    }
 	}
 
 	return 0;

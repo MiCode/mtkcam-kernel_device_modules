@@ -1009,16 +1009,18 @@ int mtk_cam_sv_cq_config(struct mtk_camsv_device *sv_dev, unsigned int sub_ratio
 	return 0;
 }
 
+#define CAMSV_TS_CNT 0x2
 void mtk_cam_sv_update_start_period(
 	struct mtk_camsv_device *sv_dev, int scq_ms)
 {
-	u32 ts_cnt, scq_cnt_rate;
+	u32 scq_cnt_rate;
 
-	ts_cnt = CAMSV_READ_REG(sv_dev->base +
-		REG_CAMSVCENTRAL_TIME_STAMP_INC_CNT);
+	CAMSV_WRITE_REG(sv_dev->base + REG_CAMSVCENTRAL_TIME_STAMP_CTL, 0x101);
+	CAMSV_WRITE_REG(sv_dev->base +
+		REG_CAMSVCENTRAL_TIME_STAMP_INC_CNT, CAMSV_TS_CNT);
 
 	/* scq count rate(khz) */
-	scq_cnt_rate = SCQ_DEFAULT_CLK_RATE * 1000 / ((ts_cnt + 1) * 2);
+	scq_cnt_rate = SCQ_DEFAULT_CLK_RATE * 1000 / ((CAMSV_TS_CNT + 1) * 2);
 
 	/* scq start period */
 	CAMSV_WRITE_REG(sv_dev->base_scq + REG_CAMSVCQ_SCQ_START_PERIOD,
@@ -1027,7 +1029,7 @@ void mtk_cam_sv_update_start_period(
 	dev_info(sv_dev->dev, "[%s] start_period:0x%x ts_cnt:%d, scq_ms:%d\n",
 		__func__,
 		CAMSV_READ_REG(sv_dev->base_scq + REG_CAMSVCQ_SCQ_START_PERIOD),
-		ts_cnt, scq_ms);
+		CAMSV_TS_CNT, scq_ms);
 }
 
 int mtk_cam_sv_cq_disable(struct mtk_camsv_device *sv_dev)

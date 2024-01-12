@@ -54,6 +54,7 @@ static inline void vsync_rewait(struct vsync_collector *c,
 				     unsigned int rewait)
 {
 	c->collected &= ~rewait;
+	c->collected_first = 0;
 }
 
 int vsync_update(struct vsync_collector *c,

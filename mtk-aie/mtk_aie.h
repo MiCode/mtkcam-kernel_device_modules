@@ -16,7 +16,25 @@
 #include <media/videobuf2-v4l2.h>
 
 #include "mtk-interconnect.h"
-//#include "mtk_imgsys-dev.h"
+
+extern int aie_log_level_value;
+
+enum aie_log_level {
+	AIE_DEFLAUT_ON = 0,
+	AIE_DEBUG = 1
+};
+
+#define aie_dev_info(dev, fmt, ...)	\
+do {								\
+	if (aie_log_level_value >= AIE_DEFLAUT_ON)	\
+		dev_info(dev, fmt, ##__VA_ARGS__);	\
+} while (0)
+
+#define aie_dev_dbg(dev, fmt, ...)	\
+do {								\
+	if (aie_log_level_value >= AIE_DEBUG)	\
+		dev_info(dev, fmt, ##__VA_ARGS__);	\
+} while (0)
 
 /* option for ldvt */
 #define AOV_READY 1

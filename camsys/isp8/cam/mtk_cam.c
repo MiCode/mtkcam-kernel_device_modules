@@ -3874,12 +3874,10 @@ static int loop_each_engine(struct mtk_cam_engines *eng,
 		if (!(submask & 0x1))
 			continue;
 		//func(eng->sv_devs[i]);
-#ifdef NOT_FPGA_STAGE
 		if (enable)
 			mtk_camsv_runtime_resume(eng->sv_devs[i]);
 		else
 			mtk_camsv_runtime_suspend(eng->sv_devs[i]);
-#endif
 	}
 
 	submask = bit_map_subset_of(MAP_HW_MRAW, engine_mask);
@@ -3887,12 +3885,10 @@ static int loop_each_engine(struct mtk_cam_engines *eng,
 		if (!(submask & 0x1))
 			continue;
 		//func(eng->mraw_devs[i]);
-#ifdef NOT_FPGA_STAGE
 		if (enable)
 			mtk_mraw_runtime_resume(eng->mraw_devs[i]);
 		else
 			mtk_mraw_runtime_suspend(eng->mraw_devs[i]);
-#endif
 	}
 
 	return 0;

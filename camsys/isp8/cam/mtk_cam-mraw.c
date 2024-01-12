@@ -1734,10 +1734,10 @@ int mtk_mraw_runtime_resume(struct device *dev)
 		}
 	}
 	mraw_reset_by_mraw_top(mraw_dev);
-#ifdef NOT_FPGA_STAGE
+
 	enable_irq(mraw_dev->irq);
 	dev_info(dev, "%s:enable irq\n", __func__);
-#endif
+
 	return 0;
 }
 

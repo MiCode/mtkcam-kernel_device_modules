@@ -599,7 +599,7 @@ static void mtk_cam_update_wbuf_fmt_desc(struct mtk_cam_ctx *ctx)
 	struct mtk_raw_pipeline *pipe = NULL;
 	struct mtk_raw_pad_config *sink_pad = NULL;
 
-	if (!ctx)
+	if (!ctx || !ctx->has_raw_subdev)
 		return;
 
 	pipe = &ctx->cam->pipelines.raw[ctx->raw_subdev_idx];

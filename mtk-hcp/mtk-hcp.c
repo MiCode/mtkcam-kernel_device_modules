@@ -2024,21 +2024,6 @@ int mtk_hcp_ioc_release_working_buffer(struct platform_device *pdev, unsigned in
                 dev_info(&pdev->dev,"not support mode\n");
                 break;
         }
-        #if 0
-		if (hcp_dev->is_mem_alloc_streaming) {
-			ret = hcp_dev->data->release(hcp_dev, imgsys_streaming);
-			hcp_dev->is_mem_alloc_streaming = 0;
-			hcp_dev->alloc_count--;
-		} else if (mode == imgsys_capture) {
-			ret = hcp_dev->data->release(hcp_dev, imgsys_capture);
-			hcp_dev->is_mem_alloc_capture = 0;
-			hcp_dev->alloc_count--;
-		} else {
-			ret = hcp_dev->data->release(hcp_dev, imgsys_smvr);
-			hcp_dev->is_mem_alloc_smvr = 0;
-			hcp_dev->alloc_count--;
-		}
-        #endif
 	}
 
 	return ret;

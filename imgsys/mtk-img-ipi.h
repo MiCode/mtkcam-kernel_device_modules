@@ -45,7 +45,7 @@ typedef int64_t s64;
 #define IMG_IPI_DEBUG   4
 
 #define IMG_MODULE_SET 5
-#define SMVR_DECOUPLE 0
+#define SMVR_DECOUPLE 1
 // Definition about supported hw engines, aligned with hw_definition.h
 enum IMGSYS_ENG {
 	IMGSYS_WPE_EIS = 0,

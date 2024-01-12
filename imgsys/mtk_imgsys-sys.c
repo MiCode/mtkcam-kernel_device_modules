@@ -2632,6 +2632,7 @@ static int mtk_imgsys_hw_connect(struct mtk_imgsys_dev *imgsys_dev)
 	u32 user_cnt = 0;
 	unsigned int mode = imgsys_streaming;
 	struct mtk_imgsys_dvfs *dvfs_info = &imgsys_dev->dvfs_info;
+    ret = 0;
 
 	user_cnt = atomic_read(&imgsys_dev->imgsys_user_cnt);
 	if (user_cnt != 0)
@@ -2724,13 +2725,13 @@ static int mtk_imgsys_hw_connect(struct mtk_imgsys_dev *imgsys_dev)
             }
         }
 
-        pr_info("imgsys_fw: mode/cap_mode/smvr_mode(%d/%d/%d)",
-            mode,
+        pr_info("imgsys_fw: cap/smvr(%d/%d)"
+            "hw_connect_mode/cap_count/smvr_count/streaming_count/user_count(%d/%d/%d/%d/%d)",
             imgsys_dev->imgsys_pipe[0].meminfo.is_capture,
-            imgsys_dev->imgsys_pipe[0].meminfo.is_smvr);
-        pr_info("imgsys_fw: hw_connect_mode/cap/smvr/streaming/user_count(%d/%d/%d/%d/%d)",
-            mode, imgsys_dev->imgsys_pipe[0].capture_alloc, imgsys_dev->imgsys_pipe[0].smvr_alloc
-            , imgsys_dev->imgsys_pipe[0].streaming_alloc, imgsys_dev->imgsys_pipe[0].imgsys_user_count);
+            imgsys_dev->imgsys_pipe[0].meminfo.is_smvr,
+            mode,
+            imgsys_dev->imgsys_pipe[0].capture_alloc, imgsys_dev->imgsys_pipe[0].smvr_alloc,
+            imgsys_dev->imgsys_pipe[0].streaming_alloc, imgsys_dev->imgsys_pipe[0].imgsys_user_count);
 		#else
 		mode = imgsys_dev->imgsys_pipe[0].init_info.is_smvr;
 		ret = mtk_hcp_allocate_working_buffer(imgsys_dev->scp_pdev, mode);

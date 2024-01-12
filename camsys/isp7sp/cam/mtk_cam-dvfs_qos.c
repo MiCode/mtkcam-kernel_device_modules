@@ -619,6 +619,9 @@ static int fill_raw_in_qos(struct mtk_cam_job *job,
 
 		/* for mstream 1st ipi */
 		if (imgo_qos_desc) {
+			dst_port = imgo_qos_desc->dma_desc[i].dst_port;
+			if (dst_port < 0)
+				continue;
 			job->raw_mmqos[dst_port].peak_bw = to_qos_icc(peak_bw);
 			job->raw_mmqos[dst_port].avg_bw = to_qos_icc_ratio(avg_bw);
 

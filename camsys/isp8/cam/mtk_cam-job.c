@@ -658,7 +658,8 @@ mtk_cam_job_initialize_engines(struct mtk_cam_ctx *ctx,
 		mtk_cam_sv_dev_config(sv, job->sub_ratio - 1);  /* TODO(AY): remove -1 */
 
 		/* smi path sel */
-		mtk_cam_sv_smi_path_sel(sv, false);
+		if (cur_platform->hw->platform_id != 6991)
+			mtk_cam_sv_smi_path_sel(sv, false);
 	}
 
 	/* mraw */

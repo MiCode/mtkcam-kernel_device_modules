@@ -279,6 +279,25 @@ static int g_cmd_sensor_glp_dt(struct adaptor_ctx *ctx, void *arg)
 	return ret;
 }
 
+static int g_cmd_sensor_vc_info_by_scenario(struct adaptor_ctx *ctx, void *arg)
+{
+	int ret = 0;
+	struct mtk_sensor_vc_info_by_scenario *p_info = NULL;
+	struct mtk_mbus_frame_desc fd_tmp = {0};
+
+	/* unexpected case, arg is nullptr */
+	if (unlikely((chk_input_arg(ctx, arg, &ret, __func__)) != 0))
+		return ret;
+
+	p_info = arg;
+	ret = subdrv_call(ctx, get_frame_desc, p_info->scenario_id, &fd_tmp);
+	memcpy(&p_info->fd.entry, &fd_tmp.entry,
+				sizeof(struct mtk_mbus_frame_desc_entry)*fd_tmp.num_entries);
+	p_info->fd.num_entries = fd_tmp.num_entries;
+
+	return ret;
+}
+
 /* SET */
 static int s_cmd_fsync_sync_frame_start_end(struct adaptor_ctx *ctx, void *arg)
 {
@@ -460,6 +479,7 @@ static const struct command_entry command_list[] = {
 	{V4L2_CMD_SENSOR_GET_LBMF_TYPE_BY_SCENARIO, g_cmd_sensor_get_lbmf_type_by_secnario},
 	{V4L2_CMD_G_SENSOR_FRAME_CNT, g_cmd_sensor_frame_cnt},
 	{V4L2_CMD_G_SENSOR_GLP_DT, g_cmd_sensor_glp_dt},
+	{V4L2_CMD_G_SENSOR_VC_INFO_BY_SCENARIO, g_cmd_sensor_vc_info_by_scenario},
 
 	/* SET */
 	{V4L2_CMD_FSYNC_SYNC_FRAME_START_END, s_cmd_fsync_sync_frame_start_end},

@@ -1636,6 +1636,18 @@ static int _mtk_cam_seninf_reset_cammux(struct seninf_ctx *ctx, int pad_id)
 	return 0;
 }
 
+int _chk_cur_mode_vc (struct seninf_ctx *ctx, struct seninf_vc *vc) {
+	struct seninf_vcinfo *vcinfo = &ctx->cur_vcinfo;
+	int i;
+
+	for (i=0; i<vcinfo->cnt; i++){
+		if (vcinfo->vc[i].vc == vc->vc && vcinfo->vc[i].dt == vc->dt)
+			return 0;
+	}
+
+	return -1;
+}
+
 int _mtk_cam_seninf_set_camtg(struct v4l2_subdev *sd, int pad_id, int camtg, int tag_id,
 			      bool from_set_camtg)
 {
@@ -1660,6 +1672,13 @@ int _mtk_cam_seninf_set_camtg(struct v4l2_subdev *sd, int pad_id, int camtg, int
 		"[%s] mtk_cam_seninf_get_vc_by_pad return failed by using pad %d\n",
 		__func__, pad_id);
 		return -EINVAL;
+	}
+
+	/*check use vc/dt for current scenario*/
+	if(!ctx->is_test_model && _chk_cur_mode_vc(ctx, vc)) {
+		dev_info(ctx->dev, "[%s] no such vc/dt in cur_mode, vc 0x%x, dt 0x%x\n",
+			__func__, vc->vc, vc->dt);
+		return 0;
 	}
 
 	set = vc->dest_cnt;
@@ -2295,6 +2314,40 @@ void mtk_cam_sensor_get_glp_dt(struct seninf_ctx *ctx, struct seninf_glp_dt *inf
 		glp[0], glp[1], glp[2], glp[3], cnt);
 
 	info->cnt = cnt;
+}
+
+void mtk_cam_sensor_get_vc_info_by_scenario(struct seninf_ctx *ctx, u32 code)
+{
+	int i = 0;
+	struct mtk_sensor_vc_info_by_scenario vc_sid= {0};
+	struct seninf_vcinfo *vcinfo = &ctx->cur_vcinfo;
+	struct seninf_vc *vc;
+
+	if (!ctx)
+		return;
+
+	vc_sid.scenario_id = get_scenario_from_fmt_code(code);
+	if (ctx->sensor_sd &&
+	    ctx->sensor_sd->ops &&
+	    ctx->sensor_sd->ops->core &&
+	    ctx->sensor_sd->ops->core->command) {
+		ctx->sensor_sd->ops->core->command(ctx->sensor_sd,
+						V4L2_CMD_G_SENSOR_VC_INFO_BY_SCENARIO,
+						&vc_sid);
+	} else {
+		dev_info(ctx->dev,
+			"%s: find sensor command failed\n",	__func__);
+	}
+	memset(vcinfo, 0, sizeof(struct seninf_vcinfo));
+
+	for (i = 0; i < vc_sid.fd.num_entries; i++) {
+		vc = &vcinfo->vc[i];
+		vc->vc = vc_sid.fd.entry[i].bus.csi2.channel;
+		vc->dt = vc_sid.fd.entry[i].bus.csi2.data_type;
+		vc->dt_remap_to_type = vc_sid.fd.entry[i].bus.csi2.dt_remap_to_type;
+	}
+	vcinfo->cnt = vc_sid.fd.num_entries;
+
 }
 
 int notify_fsync_listen_target(struct seninf_ctx *ctx)

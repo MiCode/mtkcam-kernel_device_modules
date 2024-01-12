@@ -37,7 +37,7 @@
 //#define SCAN_SETTLE
 #define LOG_MORE 0
 
-#define MT6886_IOMOM_VERSIONS "mt6886"
+#define MT6989_IOMOM_VERSIONS "mt6989"
 
 static struct mtk_cam_seninf_ops *_seninf_ops = &mtk_csi_phy_3_0;
 static struct mtk_cam_seninf_irq_event_st vsync_detect_seninf_irq_event;
@@ -1640,15 +1640,15 @@ static int csirx_phyA_init(struct seninf_ctx *ctx)
 		SENINF_BITS(base, CDPHY_RX_ANA_1,
 			    RG_CSI0_CDPHY_EQ_DES_VREF_SEL, 0x2);
 		SENINF_BITS(base, CDPHY_RX_ANA_5,
-			    RG_CSI0_CDPHY_EQ_BW, 0x3);
+			    RG_CSI0_CDPHY_EQ_BW, 0x1);
 		SENINF_BITS(base, CDPHY_RX_ANA_5,
 			    RG_CSI0_CDPHY_EQ_IS, 0x1);
 		SENINF_BITS(base, CDPHY_RX_ANA_5,
 			    RG_CSI0_CDPHY_EQ_LATCH_EN, 0x1);
 		SENINF_BITS(base, CDPHY_RX_ANA_5,
-			    RG_CSI0_CDPHY_EQ_DG0_EN, 0x1);
+			    RG_CSI0_CDPHY_EQ_DG0_EN, 0x0);
 		SENINF_BITS(base, CDPHY_RX_ANA_5,
-			    RG_CSI0_CDPHY_EQ_DG1_EN, 0x1);
+			    RG_CSI0_CDPHY_EQ_DG1_EN, 0x0);
 		SENINF_BITS(base, CDPHY_RX_ANA_5,
 			    RG_CSI0_CDPHY_EQ_SR0, 0x0);
 		SENINF_BITS(base, CDPHY_RX_ANA_5,
@@ -1697,10 +1697,21 @@ static int csirx_phyA_init(struct seninf_ctx *ctx)
 			    RG_CSI0_CPHY_T1_CDR_BC_WIDTH, 0x9);
 		SENINF_BITS(base, CDPHY_RX_ANA_7,
 			    RG_CSI0_CPHY_T1_CDR_CA_WIDTH, 0x9);
-
-		/* Disable non-ULPS mode  */
-		SENINF_BITS(base, CDPHY_RX_ANA_8,
-				RG_CSI0_RESERVE, 0x400);
+		if (_seninf_ops->iomem_ver == NULL) {
+			/* Disable non-ULPS mode */
+			SENINF_BITS(base, CDPHY_RX_ANA_8,
+					RG_CSI0_RESERVE, 0x400);
+		} else if (!strcasecmp(_seninf_ops->iomem_ver, MT6989_IOMOM_VERSIONS)) {
+			/*
+			 * RG_CSI0_RESERVE[10]:Disable non-ULPS mode
+			 * RG_CSI0_RESERVE[9]:LDO_LP_MODE ON
+			 */
+			SENINF_BITS(base, CDPHY_RX_ANA_8,
+					RG_CSI0_RESERVE, 0x600);
+		} else {
+			dev_info(ctx->dev, "iomem_ver is invalid\n");
+			return -EINVAL;
+                }
 
 		// SENINF_BITS(base, CDPHY_RX_ANA_SETTING_1,
 			// RG_CSI0_ASYNC_OPTION, 0xC);
@@ -2566,6 +2577,7 @@ static int csirx_phyA_setting(struct seninf_ctx *ctx)
 	struct seninf_vc *vc = mtk_cam_seninf_get_vc_by_pad(ctx, PAD_SRC_RAW0);
 	struct seninf_vc *vc1 = mtk_cam_seninf_get_vc_by_pad(ctx, PAD_SRC_RAW_EXT0);
 	int bit_per_pixel = 10;
+	u32 ret = 0;
 
 	if (vc)
 		bit_per_pixel = vc->bit_depth;
@@ -2684,8 +2696,19 @@ static int csirx_phyA_setting(struct seninf_ctx *ctx)
 					    RG_CSI0_CDPHY_EQ_DG1_EN, 0x0);
 				SENINF_BITS(baseA, CDPHY_RX_ANA_5,
 					    RG_CSI0_CDPHY_EQ_DG0_EN, 0x0);
-				SENINF_BITS(baseA, CDPHY_RX_ANA_5,
+				if (_seninf_ops->iomem_ver == NULL) {
+					SENINF_BITS(baseA, CDPHY_RX_ANA_5,
 					    RG_CSI0_CDPHY_EQ_IS, 0x1);
+				} else if (!strcasecmp(_seninf_ops->iomem_ver, MT6989_IOMOM_VERSIONS)) {
+					SENINF_BITS(baseA, CDPHY_RX_ANA_5,
+					    RG_CSI0_CDPHY_EQ_IS, 0x2);
+					ret = SENINF_READ_BITS(baseA, CDPHY_RX_ANA_8, RG_CSI0_RESERVE);
+					SENINF_BITS(baseA, CDPHY_RX_ANA_8,
+					    RG_CSI0_RESERVE, (ret | (1 << 7)));
+				} else {
+					dev_info(ctx->dev, "iomem_ver is invalid\n");
+					return -EINVAL;
+				}
 				SENINF_BITS(baseA, CDPHY_RX_ANA_5,
 					    RG_CSI0_CDPHY_EQ_BW, 0x0);
 
@@ -2699,8 +2722,19 @@ static int csirx_phyA_setting(struct seninf_ctx *ctx)
 					    RG_CSI0_CDPHY_EQ_DG1_EN, 0x0);
 				SENINF_BITS(baseB, CDPHY_RX_ANA_5,
 					    RG_CSI0_CDPHY_EQ_DG0_EN, 0x0);
-				SENINF_BITS(baseB, CDPHY_RX_ANA_5,
+				if (_seninf_ops->iomem_ver == NULL) {
+					SENINF_BITS(baseB, CDPHY_RX_ANA_5,
 					    RG_CSI0_CDPHY_EQ_IS, 0x1);
+				} else if (!strcasecmp(_seninf_ops->iomem_ver, MT6989_IOMOM_VERSIONS)) {
+					SENINF_BITS(baseB, CDPHY_RX_ANA_5,
+					    RG_CSI0_CDPHY_EQ_IS, 0x2);
+					ret = SENINF_READ_BITS(baseB, CDPHY_RX_ANA_8, RG_CSI0_RESERVE);
+					SENINF_BITS(baseB, CDPHY_RX_ANA_8,
+					    RG_CSI0_RESERVE, (ret | (1 << 7)));
+				} else {
+					dev_info(ctx->dev, "iomem_ver is invalid\n");
+					return -EINVAL;
+				}
 				SENINF_BITS(baseB, CDPHY_RX_ANA_5,
 					    RG_CSI0_CDPHY_EQ_BW, 0x0);
 			} else if (data_rate < 4500000000)  {
@@ -2714,8 +2748,19 @@ static int csirx_phyA_setting(struct seninf_ctx *ctx)
 					    RG_CSI0_CDPHY_EQ_DG1_EN, 0x0);
 				SENINF_BITS(baseA, CDPHY_RX_ANA_5,
 					    RG_CSI0_CDPHY_EQ_DG0_EN, 0x1);
-				SENINF_BITS(baseA, CDPHY_RX_ANA_5,
-					    RG_CSI0_CDPHY_EQ_IS, 0x1);
+				if (_seninf_ops->iomem_ver == NULL) {
+					SENINF_BITS(baseA, CDPHY_RX_ANA_5,
+						RG_CSI0_CDPHY_EQ_IS, 0x1);
+				} else if (!strcasecmp(_seninf_ops->iomem_ver, MT6989_IOMOM_VERSIONS)) {
+					SENINF_BITS(baseA, CDPHY_RX_ANA_5,
+					    RG_CSI0_CDPHY_EQ_IS, 0x2);
+					ret = SENINF_READ_BITS(baseA, CDPHY_RX_ANA_8, RG_CSI0_RESERVE);
+					SENINF_BITS(baseA, CDPHY_RX_ANA_8,
+					    RG_CSI0_RESERVE, (ret | (1 << 7)));
+				} else {
+					dev_info(ctx->dev, "iomem_ver is invalid\n");
+					return -EINVAL;
+				}
 				SENINF_BITS(baseA, CDPHY_RX_ANA_5,
 					    RG_CSI0_CDPHY_EQ_BW, 0x1);
 
@@ -2729,8 +2774,19 @@ static int csirx_phyA_setting(struct seninf_ctx *ctx)
 					    RG_CSI0_CDPHY_EQ_DG1_EN, 0x0);
 				SENINF_BITS(baseB, CDPHY_RX_ANA_5,
 					    RG_CSI0_CDPHY_EQ_DG0_EN, 0x1);
-				SENINF_BITS(baseB, CDPHY_RX_ANA_5,
+				if (_seninf_ops->iomem_ver == NULL) {
+					SENINF_BITS(baseB, CDPHY_RX_ANA_5,
 					    RG_CSI0_CDPHY_EQ_IS, 0x1);
+				} else if (!strcasecmp(_seninf_ops->iomem_ver, MT6989_IOMOM_VERSIONS)) {
+					SENINF_BITS(baseB, CDPHY_RX_ANA_5,
+					    RG_CSI0_CDPHY_EQ_IS, 0x2);
+					ret = SENINF_READ_BITS(baseB, CDPHY_RX_ANA_8, RG_CSI0_RESERVE);
+					SENINF_BITS(baseB, CDPHY_RX_ANA_8,
+					    RG_CSI0_RESERVE, (ret | (1 << 7)));
+				} else {
+					dev_info(ctx->dev, "iomem_ver is invalid\n");
+					return -EINVAL;
+				}
 				SENINF_BITS(baseB, CDPHY_RX_ANA_5,
 					    RG_CSI0_CDPHY_EQ_BW, 0x1);
 			} else {
@@ -2808,12 +2864,22 @@ static int csirx_phyA_setting(struct seninf_ctx *ctx)
 						RG_CSI0_CDPHY_EQ_DG1_EN, 0x0);
 				SENINF_BITS(base, CDPHY_RX_ANA_5,
 						RG_CSI0_CDPHY_EQ_DG0_EN, 0x0);
-				SENINF_BITS(base, CDPHY_RX_ANA_5,
+				if (_seninf_ops->iomem_ver == NULL) {
+					SENINF_BITS(base, CDPHY_RX_ANA_5,
 						RG_CSI0_CDPHY_EQ_IS, 0x1);
+				} else if (!strcasecmp(_seninf_ops->iomem_ver, MT6989_IOMOM_VERSIONS)) {
+					SENINF_BITS(base, CDPHY_RX_ANA_5,
+					    RG_CSI0_CDPHY_EQ_IS, 0x2);
+					ret = SENINF_READ_BITS(base, CDPHY_RX_ANA_8, RG_CSI0_RESERVE);
+					SENINF_BITS(base, CDPHY_RX_ANA_8,
+					    RG_CSI0_RESERVE, (ret | (1 << 7)));
+				} else {
+					dev_info(ctx->dev, "iomem_ver is invalid\n");
+					return -EINVAL;
+				}
 				SENINF_BITS(base, CDPHY_RX_ANA_5,
 					RG_CSI0_CDPHY_EQ_BW, 0x0);
 			} else if (data_rate < 4500000000)	{
-
 				SENINF_BITS(base, CDPHY_RX_ANA_5,
 						RG_CSI0_CDPHY_EQ_SR1, 0x0);
 				SENINF_BITS(base, CDPHY_RX_ANA_5,
@@ -2824,12 +2890,22 @@ static int csirx_phyA_setting(struct seninf_ctx *ctx)
 						RG_CSI0_CDPHY_EQ_DG1_EN, 0x0);
 				SENINF_BITS(base, CDPHY_RX_ANA_5,
 						RG_CSI0_CDPHY_EQ_DG0_EN, 0x1);
-				SENINF_BITS(base, CDPHY_RX_ANA_5,
+				if (_seninf_ops->iomem_ver == NULL) {
+					SENINF_BITS(base, CDPHY_RX_ANA_5,
 						RG_CSI0_CDPHY_EQ_IS, 0x1);
+				} else if (!strcasecmp(_seninf_ops->iomem_ver, MT6989_IOMOM_VERSIONS)) {
+					SENINF_BITS(base, CDPHY_RX_ANA_5,
+					    RG_CSI0_CDPHY_EQ_IS, 0x2);
+					ret = SENINF_READ_BITS(base, CDPHY_RX_ANA_8, RG_CSI0_RESERVE);
+					SENINF_BITS(base, CDPHY_RX_ANA_8,
+					    RG_CSI0_RESERVE, (ret | (1 << 7)));
+				} else {
+					dev_info(ctx->dev, "iomem_ver is invalid\n");
+					return -EINVAL;
+				}
 				SENINF_BITS(base, CDPHY_RX_ANA_5,
 						RG_CSI0_CDPHY_EQ_BW, 0x1);
 			} else {
-
 				SENINF_BITS(base, CDPHY_RX_ANA_5,
 						RG_CSI0_CDPHY_EQ_SR1, 0x0);
 				SENINF_BITS(base, CDPHY_RX_ANA_5,
@@ -2907,8 +2983,32 @@ static int csirx_phyA_setting(struct seninf_ctx *ctx)
 				SENINF_WRITE_REG(baseA, CDPHY_RX_ANA_5, 0x55);
 				SENINF_WRITE_REG(baseB, CDPHY_RX_ANA_5, 0x55);
 			} else {
-				SENINF_WRITE_REG(baseA, CDPHY_RX_ANA_5, 0x157);
-				SENINF_WRITE_REG(baseB, CDPHY_RX_ANA_5, 0x157);
+				if (_seninf_ops->iomem_ver == NULL) {
+					SENINF_WRITE_REG(baseA, CDPHY_RX_ANA_5, 0x157);
+				} else if (!strcasecmp(_seninf_ops->iomem_ver, MT6989_IOMOM_VERSIONS)) {
+					SENINF_WRITE_REG(baseA, CDPHY_RX_ANA_5, 0x157);
+					SENINF_BITS(baseA, CDPHY_RX_ANA_5,
+					    RG_CSI0_CDPHY_EQ_IS, 0x2);
+					ret = SENINF_READ_BITS(baseA, CDPHY_RX_ANA_8, RG_CSI0_RESERVE);
+					SENINF_BITS(baseA, CDPHY_RX_ANA_8,
+					    RG_CSI0_RESERVE, (ret | (1 << 7)));
+				} else {
+					dev_info(ctx->dev, "iomem_ver is invalid\n");
+					return -EINVAL;
+				}
+				if (_seninf_ops->iomem_ver == NULL) {
+					SENINF_WRITE_REG(baseB, CDPHY_RX_ANA_5, 0x157);
+				} else if (!strcasecmp(_seninf_ops->iomem_ver, MT6989_IOMOM_VERSIONS)) {
+					SENINF_WRITE_REG(baseB, CDPHY_RX_ANA_5, 0x157);
+					SENINF_BITS(baseB, CDPHY_RX_ANA_5,
+					    RG_CSI0_CDPHY_EQ_IS, 0x2);
+					ret = SENINF_READ_BITS(baseB, CDPHY_RX_ANA_8, RG_CSI0_RESERVE);
+					SENINF_BITS(baseB, CDPHY_RX_ANA_8,
+					    RG_CSI0_RESERVE, (ret | (1 << 7)));
+				} else {
+					dev_info(ctx->dev, "iomem_ver is invalid\n");
+					return -EINVAL;
+				}
 			}
 			SENINF_WRITE_REG(baseA, CDPHY_RX_ANA_SETTING_0, 0x322);
 			SENINF_WRITE_REG(baseB, CDPHY_RX_ANA_SETTING_0, 0x322);
@@ -2966,21 +3066,61 @@ static int csirx_phyA_setting(struct seninf_ctx *ctx)
 			} else {
 				SENINF_BITS(baseA, CDPHY_RX_ANA_4,
 						RG_CSI0_CPHY_T0_CDR_RSTB_CODE, 0x0);
-				SENINF_BITS(baseA, CDPHY_RX_ANA_4,
+				if (_seninf_ops->iomem_ver == NULL) {
+					SENINF_BITS(baseA, CDPHY_RX_ANA_4,
 						RG_CSI0_CPHY_T0_CDR_SEC_EDGE_CODE, 0x4);
+				} else if (!strcasecmp(_seninf_ops->iomem_ver, MT6989_IOMOM_VERSIONS)) {
+					SENINF_BITS(baseA, CDPHY_RX_ANA_4,
+						RG_CSI0_CPHY_T0_CDR_SEC_EDGE_CODE, 0x6);
+					SENINF_BITS(baseA, CDPHY_RX_ANA_6,
+					    RG_CSI0_CPHY_T0_CDR_CK_DELAY, 0x6);
+				} else {
+					dev_info(ctx->dev, "iomem_ver is invalid\n");
+					return -EINVAL;
+				}
 				SENINF_BITS(baseA, CDPHY_RX_ANA_4,
 						RG_CSI0_CPHY_T1_CDR_RSTB_CODE, 0x0);
-				SENINF_BITS(baseA, CDPHY_RX_ANA_4,
+				if (_seninf_ops->iomem_ver == NULL) {
+					SENINF_BITS(baseA, CDPHY_RX_ANA_4,
 						RG_CSI0_CPHY_T1_CDR_SEC_EDGE_CODE, 0x4);
+				} else if (!strcasecmp(_seninf_ops->iomem_ver, MT6989_IOMOM_VERSIONS)) {
+					SENINF_BITS(baseA, CDPHY_RX_ANA_4,
+						RG_CSI0_CPHY_T1_CDR_SEC_EDGE_CODE, 0x6);
+					SENINF_BITS(baseA, CDPHY_RX_ANA_7,
+					    RG_CSI0_CPHY_T1_CDR_CK_DELAY, 0x6);
+				} else {
+					dev_info(ctx->dev, "iomem_ver is invalid\n");
+					return -EINVAL;
+				}
 
 				SENINF_BITS(baseB, CDPHY_RX_ANA_4,
 						RG_CSI0_CPHY_T0_CDR_RSTB_CODE, 0x0);
-				SENINF_BITS(baseB, CDPHY_RX_ANA_4,
+				if (_seninf_ops->iomem_ver == NULL) {
+					SENINF_BITS(baseB, CDPHY_RX_ANA_4,
 						RG_CSI0_CPHY_T0_CDR_SEC_EDGE_CODE, 0x4);
+				} else if (!strcasecmp(_seninf_ops->iomem_ver, MT6989_IOMOM_VERSIONS)) {
+					SENINF_BITS(baseB, CDPHY_RX_ANA_4,
+						RG_CSI0_CPHY_T0_CDR_SEC_EDGE_CODE, 0x6);
+					SENINF_BITS(baseB, CDPHY_RX_ANA_6,
+					    RG_CSI0_CPHY_T0_CDR_CK_DELAY, 0x6);
+				} else {
+					dev_info(ctx->dev, "iomem_ver is invalid\n");
+					return -EINVAL;
+				}
 				SENINF_BITS(baseB, CDPHY_RX_ANA_4,
 						RG_CSI0_CPHY_T1_CDR_RSTB_CODE, 0x0);
-				SENINF_BITS(baseB, CDPHY_RX_ANA_4,
+				if (_seninf_ops->iomem_ver == NULL) {
+					SENINF_BITS(baseB, CDPHY_RX_ANA_4,
 						RG_CSI0_CPHY_T1_CDR_SEC_EDGE_CODE, 0x4);
+				} else if (!strcasecmp(_seninf_ops->iomem_ver, MT6989_IOMOM_VERSIONS)) {
+					SENINF_BITS(baseB, CDPHY_RX_ANA_4,
+						RG_CSI0_CPHY_T1_CDR_SEC_EDGE_CODE, 0x6);
+					SENINF_BITS(baseB, CDPHY_RX_ANA_7,
+					    RG_CSI0_CPHY_T1_CDR_CK_DELAY, 0x6);
+				} else {
+					dev_info(ctx->dev, "iomem_ver is invalid\n");
+					return -EINVAL;
+				}
 			}
 
 		} else {
@@ -3009,8 +3149,21 @@ static int csirx_phyA_setting(struct seninf_ctx *ctx)
 #else
 			if (data_rate < 2500000000)
 				SENINF_WRITE_REG(base, CDPHY_RX_ANA_5, 0x55);
-			else
-				SENINF_WRITE_REG(base, CDPHY_RX_ANA_5, 0x157);
+			else {
+				if (_seninf_ops->iomem_ver == NULL) {
+					SENINF_WRITE_REG(base, CDPHY_RX_ANA_5, 0x157);
+				} else if (!strcasecmp(_seninf_ops->iomem_ver, MT6989_IOMOM_VERSIONS)) {
+					SENINF_WRITE_REG(base, CDPHY_RX_ANA_5, 0x157);
+					SENINF_BITS(base, CDPHY_RX_ANA_5,
+					    RG_CSI0_CDPHY_EQ_IS, 0x2);
+					ret = SENINF_READ_BITS(base, CDPHY_RX_ANA_8, RG_CSI0_RESERVE);
+					SENINF_BITS(base, CDPHY_RX_ANA_8,
+					    RG_CSI0_RESERVE, (ret | (1 << 7)));
+				} else {
+					dev_info(ctx->dev, "iomem_ver is invalid\n");
+					return -EINVAL;
+				}
+			}
 
 			SENINF_WRITE_REG(base, CDPHY_RX_ANA_SETTING_0, 0x322);
 #endif
@@ -3056,12 +3209,32 @@ static int csirx_phyA_setting(struct seninf_ctx *ctx)
 			} else {
 				SENINF_BITS(base, CDPHY_RX_ANA_4,
 					RG_CSI0_CPHY_T0_CDR_RSTB_CODE, 0x0);
-				SENINF_BITS(base, CDPHY_RX_ANA_4,
-					RG_CSI0_CPHY_T0_CDR_SEC_EDGE_CODE, 0x4);
+				if (_seninf_ops->iomem_ver == NULL) {
+					SENINF_BITS(base, CDPHY_RX_ANA_4,
+						RG_CSI0_CPHY_T0_CDR_SEC_EDGE_CODE, 0x4);
+				} else if (!strcasecmp(_seninf_ops->iomem_ver, MT6989_IOMOM_VERSIONS)) {
+					SENINF_BITS(base, CDPHY_RX_ANA_4,
+						RG_CSI0_CPHY_T0_CDR_SEC_EDGE_CODE, 0x6);
+					SENINF_BITS(base, CDPHY_RX_ANA_6,
+					    RG_CSI0_CPHY_T0_CDR_CK_DELAY, 0x6);
+				} else {
+					dev_info(ctx->dev, "iomem_ver is invalid\n");
+					return -EINVAL;
+				}
 				SENINF_BITS(base, CDPHY_RX_ANA_4,
 					RG_CSI0_CPHY_T1_CDR_RSTB_CODE, 0x0);
-				SENINF_BITS(base, CDPHY_RX_ANA_4,
-					RG_CSI0_CPHY_T1_CDR_SEC_EDGE_CODE, 0x4);
+				if (_seninf_ops->iomem_ver == NULL) {
+					SENINF_BITS(base, CDPHY_RX_ANA_4,
+						RG_CSI0_CPHY_T1_CDR_SEC_EDGE_CODE, 0x4);
+				} else if (!strcasecmp(_seninf_ops->iomem_ver, MT6989_IOMOM_VERSIONS)) {
+					SENINF_BITS(base, CDPHY_RX_ANA_4,
+						RG_CSI0_CPHY_T1_CDR_SEC_EDGE_CODE, 0x6);
+					SENINF_BITS(base, CDPHY_RX_ANA_7,
+					    RG_CSI0_CPHY_T1_CDR_CK_DELAY, 0x6);
+				} else {
+					dev_info(ctx->dev, "iomem_ver is invalid\n");
+					return -EINVAL;
+				}
 			}
 		}
 	}

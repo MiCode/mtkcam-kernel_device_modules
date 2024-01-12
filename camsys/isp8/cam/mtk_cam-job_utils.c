@@ -928,7 +928,7 @@ static int fill_ufbc_header_bayer(void *vaddr,
 		ufd_header->UFD_BS_AU_START[1] = ufo_param->ufd_bs_au_start[1];
 		ufd_header->UFD_AU2_SIZE[0] = ufo_param->ufd_au2_size[0];
 		ufd_header->UFD_AU2_SIZE[1] = ufo_param->ufd_au2_size[1];
-		ufd_header->UFD_BOND_MODE = ufo_param->ufd_bond_mode[0];
+		ufd_header->UFD_BOND_MODE[0] = ufo_param->ufd_bond_mode[0];
 	} else {
 		ufd_header->UFD_BITSTREAM_OFST_ADDR[0] = 0;
 		ufd_header->UFD_BITSTREAM_OFST_ADDR[1] = 0;
@@ -936,11 +936,11 @@ static int fill_ufbc_header_bayer(void *vaddr,
 		ufd_header->UFD_BS_AU_START[1] = 0;
 		ufd_header->UFD_AU2_SIZE[0] = 0;
 		ufd_header->UFD_AU2_SIZE[1] = 0;
-		ufd_header->UFD_BOND_MODE = 0;
+		ufd_header->UFD_BOND_MODE[0] = 0;
 	}
 
 	buf_printk("[%s] vaddr 0x%p ufd_bond_mode %d", __func__,
-			   vaddr, ufd_header->UFD_BOND_MODE);
+			   vaddr, ufd_header->UFD_BOND_MODE[0]);
 
 	return 0;
 }
@@ -967,7 +967,7 @@ static int fill_ufbc_header_yuvo(void *vaddr,
 	yufd_meta->YUFD_BS_AU_START[1] = ufo_param->ufd_bs_au_start[1];
 	yufd_meta->YUFD_AU2_SIZE[0] = ufo_param->ufd_au2_size[0];
 	yufd_meta->YUFD_AU2_SIZE[1] = ufo_param->ufd_au2_size[1];
-	yufd_meta->YUFD_BOND_MODE = ufo_param->ufd_bond_mode[0];
+	yufd_meta->YUFD_BOND_MODE[0] = ufo_param->ufd_bond_mode[0];
 
 	return 0;
 }

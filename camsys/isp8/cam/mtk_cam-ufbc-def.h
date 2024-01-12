@@ -64,14 +64,7 @@
  */
 
 struct UfbcBufferHeader {
-	uint8_t reserved[4096];
-};
-
-struct IMG_META_INFO {
-	unsigned int Version;
-	unsigned int HeaderSize;
-	unsigned int BitStreamOffset[8];
-	unsigned int LengthTableOffset[8];
+	uint8_t Rsv[4096];
 };
 
 /******************************************************************************
@@ -83,11 +76,12 @@ struct UFD_META_INFO {
 	unsigned int UFD_BITSTREAM_OFST_ADDR[4];
 	unsigned int UFD_BS_AU_START[4];
 	unsigned int UFD_AU2_SIZE[4];
-	unsigned int UFD_BOND_MODE;
+	unsigned int UFD_BOND_MODE[4];
 };
 
 struct UFD_HW_META_INFO {
-	unsigned int Buf[32];
+	unsigned int Fh0[32];
+	unsigned int Fh1[32];
 };
 
 union UFDStruct {
@@ -97,6 +91,7 @@ union UFDStruct {
 
 struct UFO_META_INFO {
 	unsigned int AUWriteBySW;
+	unsigned int Rsv[15];
 	union UFDStruct UFD;
 };
 
@@ -106,11 +101,12 @@ struct YUFD_META_INFO {
 	unsigned int YUFD_BITSTREAM_OFST_ADDR[4];
 	unsigned int YUFD_BS_AU_START[4];
 	unsigned int YUFD_AU2_SIZE[4];
-	unsigned int YUFD_BOND_MODE;
+	unsigned int YUFD_BOND_MODE[4];
 };
 
 struct YUFD_HW_META_INFO {
-	unsigned int Buf[32];
+	unsigned int Fh0[32];
+	unsigned int Fh1[32];
 };
 
 union YUFDStruct {
@@ -120,6 +116,7 @@ union YUFDStruct {
 
 struct YUFO_META_INFO {
 	unsigned int AUWriteBySW;
+	unsigned int Rsv[15];
 	union YUFDStruct YUFD;
 };
 

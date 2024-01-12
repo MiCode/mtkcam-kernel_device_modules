@@ -5295,28 +5295,35 @@ static void aie_dump_cg_reg(struct mtk_aie_dev *fd)
 	void __iomem *isp_vcore_reg = fd->reg_base[1];
 	void __iomem *sys_spm_reg = fd->reg_base[2];
 	void __iomem *top_ck_gen_reg = fd->reg_base[3];
+	void __iomem *apmixedsys_clk_reg = fd->reg_base[4];
 
 	aie_dev_info(fd->dev, "Dump AIE CG/PG:\n");
 
 	if (isp_main_reg != NULL)
-		aie_dev_info(fd->dev, "[0x%08X] 0x%08X\n",
-			(unsigned int)(unsigned long long)(void *)isp_main_reg,
+		aie_dev_info(fd->dev, "[0x15000000] 0x%08X\n",
 			(unsigned int)ioread32((void *)(isp_main_reg)));
 
 	if (isp_vcore_reg != NULL)
-		aie_dev_info(fd->dev, "[0x%08X] 0x%08X\n",
-			(unsigned int)(unsigned long long)(void *)isp_vcore_reg,
+		aie_dev_info(fd->dev, "[0x15780000] 0x%08X\n",
 			(unsigned int)ioread32((void *)(isp_vcore_reg)));
 
-	if (sys_spm_reg != NULL)
-		aie_dev_info(fd->dev, "[0x%08X] 0x%08X\n",
-			(unsigned int)(unsigned long long)(void *)(sys_spm_reg + 0xe48),
+	if (sys_spm_reg != NULL) {
+		aie_dev_info(fd->dev, "[0x1c001e48] 0x%08X\n",
 			(unsigned int)ioread32((void *)(sys_spm_reg + 0xe48)));
+		aie_dev_info(fd->dev, "[0x1c001e4c] 0x%08X\n",
+			(unsigned int)ioread32((void *)(sys_spm_reg + 0xe4c)));
+	}
 
 	if (top_ck_gen_reg != NULL)
-		aie_dev_info(fd->dev, "[0x%08X] 0x%08X\n",
-			(unsigned int)(unsigned long long)(void *)(top_ck_gen_reg + 0x840),
+		aie_dev_info(fd->dev, "[0x10000840] 0x%08X\n",
 			(unsigned int)ioread32((void *)(top_ck_gen_reg + 0x840)));
+
+	if (apmixedsys_clk_reg != NULL) {
+		aie_dev_info(fd->dev, "[0x1000c914] 0x%08X\n",
+			(unsigned int)ioread32((void *)(apmixedsys_clk_reg + 0x914)));
+		aie_dev_info(fd->dev, "[0x1000c920] 0x%08X\n",
+			(unsigned int)ioread32((void *)(apmixedsys_clk_reg + 0x920)));
+	}
 }
 
 static void aie_enable_ddren_7sp_1(struct mtk_aie_dev *fd)

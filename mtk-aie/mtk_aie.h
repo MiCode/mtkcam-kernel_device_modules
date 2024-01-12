@@ -18,7 +18,7 @@
 
 #include "mtk-interconnect.h"
 
-#define MAX_REG_BASE 4
+#define MAX_REG_BASE 5
 
 extern int aie_log_level_value;
 extern int aie_cg_debug_open_en;

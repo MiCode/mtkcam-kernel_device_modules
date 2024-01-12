@@ -55,21 +55,60 @@ static struct eeprom_info_struct eeprom_info[] = {
 };
 
 static struct SET_PD_BLOCK_INFO_T imgsensor_pd_info = {
-	.i4OffsetX = 0,
-	.i4OffsetY = 0,
-	.i4PitchX = 0,
-	.i4PitchY = 0,
-	.i4PairNum = 0,
-	.i4SubBlkW = 0,
-	.i4SubBlkH = 0,
-	.i4PosL = {{0, 0} },
-	.i4PosR = {{0, 0} },
-	.i4BlockNumX = 0,
-	.i4BlockNumY = 0,
+	.i4OffsetX = 17,
+	.i4OffsetY = 16,
+	.i4PitchX = 8,
+	.i4PitchY = 8,
+	.i4PairNum = 4,
+	.i4SubBlkW = 8,
+	.i4SubBlkH = 2,
+	.i4PosR = {{19, 17}, {17, 19}, {21, 21}, {23, 23}},
+	.i4PosL = {{20, 17}, {18, 19}, {22, 21}, {24, 23}},
+	.i4BlockNumX = 508,
+	.i4BlockNumY = 380,
 	.i4LeFirst = 0,
 	.i4Crop = {
+		// <prev> <cap> <vid> <hs_vid> <slim_vid>
 		{0, 0}, {0, 0}, {0, 384}, {0, 384}, {0, 0},
-		{0, 0}, {0, 384}, {0, 0}, {0, 384}, {0, 384}
+		// <cust1> <<cust2>> <<cust3>>
+		{0, 0}, {0, 0}, {0, 0},
+	},
+	.iMirrorFlip = 3,
+	.i4FullRawW = 4092,
+	.i4FullRawH = 3072,
+	.sPDMapInfo[0] = {
+		.i4PDPattern = 2,
+		.i4PDRepetition = 4,
+		.i4PDOrder = {1},
+	},
+};
+
+static struct SET_PD_BLOCK_INFO_T imgsensor_pd_info_fullsize = {
+	.i4OffsetX = 34,
+	.i4OffsetY = 32,
+	.i4PitchX = 16,
+	.i4PitchY = 16,
+	.i4PairNum = 4,
+	.i4SubBlkW = 16,
+	.i4SubBlkH = 4,
+	.i4PosR = {{39, 35}, {35, 39}, {43, 43}, {47, 47}},
+	.i4PosL = {{40, 35}, {36, 39}, {44, 43}, {48, 47}},
+	.i4BlockNumX = 508,
+	.i4BlockNumY = 380,
+	.i4LeFirst = 0,
+	.i4Crop = {
+		// <prev> <cap> <vid> <hs_vid> <slim_vid>
+		{0, 0}, {0, 0}, {0, 384}, {0, 384}, {0, 0},
+		// <cust1> <<cust2>> <<cust3>>
+		{0, 0}, {0, 0}, {0, 0},
+	},
+	.iMirrorFlip = 3,
+	.i4FullRawW = 8192,
+	.i4FullRawH = 6144,
+	.sPDMapInfo[0] = {
+		.i4PDPattern = 2,
+		.i4PDRepetition = 4,
+		.i4PDOrder = {1},
 	},
 };
 
@@ -562,7 +601,7 @@ static struct subdrv_mode_struct mode_struct[] = {
 			.h2_tg_size = 6144,
 		},
 		.pdaf_cap = TRUE,
-		.imgsensor_pd_info = &imgsensor_pd_info,
+		.imgsensor_pd_info = &imgsensor_pd_info_fullsize,
 		.ae_binning_ratio = 1000,
 		.fine_integ_line = 2826,//sensor verify to modify
 		.delay_frame = 3,
@@ -611,7 +650,7 @@ static struct subdrv_mode_struct mode_struct[] = {
 			.h2_tg_size = 6144,
 		},
 		.pdaf_cap = TRUE,
-		.imgsensor_pd_info = &imgsensor_pd_info,
+		.imgsensor_pd_info = &imgsensor_pd_info_fullsize,
 		.ae_binning_ratio = 1000,
 		.fine_integ_line = 2555,//sensor verify to modify
 		.delay_frame = 3,
@@ -663,7 +702,7 @@ static struct subdrv_static_ctx static_ctx = {
 	.ae_effective_frame = 2,//hardcode
 	.frame_time_delay_frame = 3,//hardcode
 	.start_exposure_offset = 3000000,
-	.pdaf_type = PDAF_SUPPORT_CAMSV_QPD,//vendor
+	.pdaf_type = PDAF_SUPPORT_CAMSV, //vendor
 	.hdr_type = HDR_SUPPORT_NA,//HDR_SUPPORT_STAGGER_FDOL
 	.seamless_switch_support = TRUE,
 	.temperature_support = TRUE,

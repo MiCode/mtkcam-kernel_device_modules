@@ -12,6 +12,7 @@
 struct mtk_cam_res_calc {
 	s64 mipi_pixel_rate;
 	long line_time;		/* ns */
+	long raw_line_time;	/* ns, for raw's dc/m2m */
 	int width;
 	int height;
 
@@ -99,6 +100,7 @@ static inline int _clk_hopping(void)
 }
 
 static inline int _process_pxl_per_line(struct mtk_cam_res_calc *c,
+					long line_time,
 					bool is_raw, bool enable_log)
 {
 	int twin_overhead = 0;
@@ -107,21 +109,35 @@ static inline int _process_pxl_per_line(struct mtk_cam_res_calc *c,
 
 	if (is_raw) {
 		twin_overhead = _twin_overhead(c);
-		w_processed = c->line_time * freq_Mhz * mtk_raw_overall_pixel_mode(c)
+		w_processed = line_time * freq_Mhz * mtk_raw_overall_pixel_mode(c)
 			* (100 - _clk_hopping()) / 100
 			* (100 - twin_overhead) / 100
 			/ 1000;
 	} else
-		w_processed = c->line_time * freq_Mhz * 8
+		w_processed = line_time * freq_Mhz * 8
 			* (100 - _clk_hopping()) / 100
 			/ 1000;
 
 	if (enable_log)
 		pr_info("%s: wp %d lt %ld ov %d clk %d pxl %d num %d\n",
-			__func__, w_processed, c->line_time, twin_overhead,
+			__func__, w_processed, line_time, twin_overhead,
 			freq_Mhz, c->raw_pixel_mode, c->raw_num);
 
 	return w_processed;
+}
+
+static inline int process_pxl_per_line(struct mtk_cam_res_calc *c,
+				       bool is_raw, bool enable_log)
+{
+	return _process_pxl_per_line(c,
+				     is_raw ? c->raw_line_time : c->line_time,
+				     is_raw, enable_log);
+}
+
+static inline int process_pxl_per_sensor_line(struct mtk_cam_res_calc *c,
+					      bool is_raw, bool enable_log)
+{
+	return _process_pxl_per_line(c, c->line_time, is_raw, enable_log);
 }
 
 static inline bool _valid_cbn_type(int cbn_type)
@@ -204,7 +220,7 @@ static inline bool mtk_cam_raw_check_line_buffer(struct mtk_cam_res_calc *c,
 static inline bool mtk_cam_raw_check_throughput(struct mtk_cam_res_calc *c,
 						bool enable_log)
 {
-	int processed_w = _process_pxl_per_line(c, 1, enable_log);
+	int processed_w = process_pxl_per_line(c, 1, enable_log);
 
 	return c->width <= processed_w;
 }
@@ -212,7 +228,7 @@ static inline bool mtk_cam_raw_check_throughput(struct mtk_cam_res_calc *c,
 static inline bool mtk_cam_sv_check_throughput(struct mtk_cam_res_calc *c,
 					       bool enable_log)
 {
-	int processed_w = _process_pxl_per_line(c, 0, enable_log);
+	int processed_w = process_pxl_per_line(c, 0, enable_log);
 
 	return c->width <= processed_w;
 }
@@ -227,7 +243,7 @@ static inline bool mtk_cam_raw_check_slb_size(struct mtk_cam_res_calc *c,
 	if (!c->slb_size)
 		return true;
 
-	processed_w = _process_pxl_per_line(c, 1, false);
+	processed_w = process_pxl_per_sensor_line(c, 1, enable_log);
 	max_pending = (size_t)max(c->width - processed_w, 0) * c->height;
 
 	/* 5% as margin */

@@ -261,6 +261,7 @@ struct seninf_ctx {
 	void __iomem *reg_ana_csi_rx[CSI_PORT_MAX_NUM];
 	void __iomem *reg_ana_dphy_top[CSI_PORT_MAX_NUM];
 	void __iomem *reg_ana_cphy_top[CSI_PORT_MAX_NUM];
+	void __iomem *reg_mipi_csi_top_ctrl[MIPI_CSI_TOP_CTRL_NUM];
 	void __iomem *reg_csirx_mac_csi[CSI_PORT_MAX_NUM];
 	void __iomem *reg_csirx_mac_top[CSI_PORT_MAX_NUM];
 	void __iomem *reg_if_top;

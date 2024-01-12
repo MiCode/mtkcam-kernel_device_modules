@@ -223,6 +223,7 @@ struct mtk_cam_seninf_ops {
 };
 
 extern struct mtk_cam_seninf_ops mtk_csi_phy_3_0;
+extern struct mtk_cam_seninf_ops mtk_csi_phy_3_1;
 extern struct mtk_cam_seninf_ops *g_seninf_ops;
 
 #endif

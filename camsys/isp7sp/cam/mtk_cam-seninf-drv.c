@@ -803,215 +803,192 @@ static int get_seninf_ops(struct device *dev, struct seninf_core *core)
 	const char *ver;
 	u32 read_prop_test;
 
-	ret = of_property_read_string(dev->of_node, "mtk_csi_phy_ver", &ver);
+	ret = of_property_read_string(dev->of_node, "mtk-csi-phy-ver", &ver);
+
 	if (ret) {
 		g_seninf_ops = &mtk_csi_phy_3_0;
-		of_property_read_u32(dev->of_node, "seninf-num",
-			&g_seninf_ops->seninf_num);
-		of_property_read_u32(dev->of_node, "mux-num",
-			&g_seninf_ops->mux_num);
-		of_property_read_u32(dev->of_node, "cam-mux-num",
-			&g_seninf_ops->cam_mux_num);
-		of_property_read_u32(dev->of_node, "pref-mux-num",
-			&g_seninf_ops->pref_mux_num);
-		ret = of_property_read_string(dev->of_node, "mtk-iomem-ver",
-			&g_seninf_ops->iomem_ver);
-
-		if (!ret) {
-			dev_info(dev,
-				"%s: NOTICE: read property:(mtk_iomem_ver) success, ret:%d, using special mapping order\n",
-				__func__, ret);
-		} else {
-			dev_info(dev,
-				"%s: NOTICE: read property:(mtk_iomem_ver) not found, ret:%d, using default mapping order\n",
-				__func__, ret);
-		}
-
-		for (i = 0; i < TYPE_MAX_NUM; i++) {
-			ret = of_property_read_u32_index(dev->of_node, mux_range_name[i],
-						   0, &read_prop_test);
-			if (ret) {
-				dev_info(dev,
-					"%s: ERROR: try get mux_range property '%s' not found with ret %d\n",
-					__func__, mux_range_name[i], ret);
-				continue;
-			}
-			cam_type_cnt++;
-			dev_info(dev,
-					"%s: INFO:  try get mux_range property '%s' is found, cam_type_cnt %d\n",
-					__func__, mux_range_name[i], cam_type_cnt);
-		}
-
-		for (i = 0; i < cam_type_cnt; i++) {
-			ret = of_property_read_u32_index(dev->of_node, mux_range_name[i],
-						   0, &core->mux_range[i].first);
-			if (ret) {
-				dev_info(dev,
-					"%s: ERROR: read property index:(mux_range_name[%d] (first)) failed, not modify pointer, ret:%d\n",
-					__func__, i, ret);
-				return -1;
-			}
-
-			ret = of_property_read_u32_index(dev->of_node, mux_range_name[i],
-						   1, &core->mux_range[i].second);
-			if (ret) {
-				dev_info(dev,
-					"%s: ERROR: read property index:(mux_range_name[%d] (second)) failed, not modify pointer, ret:%d\n",
-					__func__, i, ret);
-				return -1;
-			}
-
-			ret = of_property_read_u32_index(dev->of_node, cammux_range_name[i],
-						   0, &core->cammux_range[i].first);
-			if (ret) {
-				dev_info(dev,
-					"%s: ERROR: read property index:(cammux_range_name[%d] (first)) failed, not modify pointer, ret:%d\n",
-					__func__, i, ret);
-				return -1;
-			}
-
-			ret = of_property_read_u32_index(dev->of_node, cammux_range_name[i],
-						   1, &core->cammux_range[i].second);
-			if (ret) {
-				dev_info(dev,
-					"%s: ERROR: read property index:(cammux_range_name[%d] (second)) failed, not modify pointer, ret:%d\n",
-					__func__, i, ret);
-				return -1;
+		dev_info(dev, "%s: INFO: phy default mtk-csi-phy-3-0\n", __func__);
+	} else {
+		for (i = 0; i < SENINF_PHY_VER_NUM; i++) {
+			if (!strcasecmp(ver, csi_phy_versions[i])) {
+				// Support phy 3.0 & phy 3.1
+				if (i == SENINF_PHY_3_1) {
+					g_seninf_ops = &mtk_csi_phy_3_1;
+					dev_info(dev, "%s: INFO: phy config mtk-csi-phy-3-1\n", __func__);
+				} else {
+					g_seninf_ops = &mtk_csi_phy_3_0;
+					dev_info(dev, "%s: INFO: phy config mtk-csi-phy-3-0\n", __func__);
+				}
 			}
 		}
+	}
 
-		for (i = CDPHY_DVFS_STEP_0; i < CDPHY_DVFS_STEP_MAX_NUM; i++) {
-			/* cphy 4d1c data rate maximum */
-			ret = of_property_read_u32_index(dev->of_node,
-				cdphy_dvfs_step_name[i], 0,
-				&core->cdphy_dvfs_step[i].cphy_data_rate.first);
-			if (ret) {
-				dev_info(dev,
-					"%s: ERROR: read property index:(cdphy_dvfs_step_name[%d].cphy_data_rate.first) failed,ret:%d\n",
-					__func__, i, ret);
-				core->cdphy_dvfs_step[i].cphy_data_rate.first = 0;
-			}
-			/* cphy 2d1c data rate maximum */
-			ret = of_property_read_u32_index(dev->of_node,
-				cdphy_dvfs_step_name[i], 1,
-				&core->cdphy_dvfs_step[i].cphy_data_rate.second);
-			if (ret) {
-				dev_info(dev,
-					"%s: ERROR: read property index:(cdphy_dvfs_step_name[%d].cphy_data_rate.second) failed,ret:%d\n",
-					__func__, i, ret);
-				core->cdphy_dvfs_step[i].cphy_data_rate.second = 0;
-			}
-			/* dphy 4d1c data rate maximum */
-			ret = of_property_read_u32_index(dev->of_node,
-				cdphy_dvfs_step_name[i], 2,
-				&core->cdphy_dvfs_step[i].dphy_data_rate.first);
-			if (ret) {
-				dev_info(dev,
-					"%s: ERROR: read property index:(cdphy_dvfs_step_name[%d].dphy_data_rate.first) failed,ret:%d\n",
-					__func__, i, ret);
-				core->cdphy_dvfs_step[i].dphy_data_rate.first = 0;
-			}
-			/* dphy 2d1c data rate maximum */
-			ret = of_property_read_u32_index(dev->of_node,
-				cdphy_dvfs_step_name[i], 3,
-				&core->cdphy_dvfs_step[i].dphy_data_rate.second);
-			if (ret) {
-				dev_info(dev,
-					"%s: ERROR: read property index:(cdphy_dvfs_step_name[%d].dphy_data_rate.second) failed,ret:%d\n",
-					__func__, i, ret);
-				core->cdphy_dvfs_step[i].dphy_data_rate.second = 0;
-			}
-			/* cdphy csi clk according to vcore */
-			ret = of_property_read_u32_index(dev->of_node,
-				cdphy_dvfs_step_name[i], 4,
-				&core->cdphy_dvfs_step[i].csi_clk);
-			if (ret) {
-				dev_info(dev,
-					"%s: ERROR: read property index:(cdphy_dvfs_step_name[%d].csi_clk) failed,ret:%d\n",
-					__func__, i, ret);
-				core->cdphy_dvfs_step[i].csi_clk = 0;
-			}
-			/* cdphy 4d1c vcore minimum */
-			ret = of_property_read_u32_index(dev->of_node,
-				cdphy_dvfs_step_name[i], 5,
-				&core->cdphy_dvfs_step[i].cdphy_voltage.first);
-			if (ret) {
-				dev_info(dev,
-					"%s: ERROR: read property index:(cdphy_dvfs_step_name[%d].cdphy_voltage.first) failed,ret:%d\n",
-					__func__, i, ret);
-				core->cdphy_dvfs_step[i].cdphy_voltage.first = 0;
-			}
-			/* cdphy 2d1c vcore minimum */
-			ret = of_property_read_u32_index(dev->of_node,
-				cdphy_dvfs_step_name[i], 6,
-				&core->cdphy_dvfs_step[i].cdphy_voltage.second);
-			if (ret) {
-				dev_info(dev,
-					"%s: ERROR: read property index:(cdphy_dvfs_step_name[%d].cdphy_voltage.second) failed,ret:%d\n",
-					__func__, i, ret);
-				core->cdphy_dvfs_step[i].cdphy_voltage.second = 0;
-			}
-			dev_info(dev,
-				"[%s]: step[%d].c/dphy_data_rate.first/second:%u/%u/%u/%u,csi_clk:%u,voltage.first/second:%u/%u,ret:%d\n",
-				__func__, i,
-				core->cdphy_dvfs_step[i].cphy_data_rate.first,
-				core->cdphy_dvfs_step[i].cphy_data_rate.second,
-				core->cdphy_dvfs_step[i].dphy_data_rate.first,
-				core->cdphy_dvfs_step[i].dphy_data_rate.second,
-				core->cdphy_dvfs_step[i].csi_clk,
-				core->cdphy_dvfs_step[i].cdphy_voltage.first,
-				core->cdphy_dvfs_step[i].cdphy_voltage.second, ret);
-		}
+	of_property_read_u32(dev->of_node, "seninf-num",
+		&g_seninf_ops->seninf_num);
+	of_property_read_u32(dev->of_node, "mux-num",
+		&g_seninf_ops->mux_num);
+	of_property_read_u32(dev->of_node, "cam-mux-num",
+		&g_seninf_ops->cam_mux_num);
+	of_property_read_u32(dev->of_node, "pref-mux-num",
+		&g_seninf_ops->pref_mux_num);
+	ret = of_property_read_string(dev->of_node, "mtk-iomem-ver",
+		&g_seninf_ops->iomem_ver);
 
+	if (!ret) {
 		dev_info(dev,
-			"%s: seninf_num = %d, mux_num = %d, cam_mux_num = %d, pref_mux_num =%d\n",
-			__func__,
-			g_seninf_ops->seninf_num,
-			g_seninf_ops->mux_num,
-			g_seninf_ops->cam_mux_num,
-			g_seninf_ops->pref_mux_num);
-
-		return 0;
+			"%s: NOTICE: read property:(mtk_iomem_ver) success, ret:%d, using special mapping order\n",
+			__func__, ret);
+	} else {
+		dev_info(dev,
+			"%s: NOTICE: read property:(mtk_iomem_ver) not found, ret:%d, using default mapping order\n",
+			__func__, ret);
 	}
-	for (i = 0; i < SENINF_PHY_VER_NUM; i++) {
-		if (!strcasecmp(ver, csi_phy_versions[i])) {
-			// No support phy 2.0
-			//if (i == SENINF_PHY_2_0)
-			//	g_seninf_ops = &mtk_csi_phy_2_0;
-			//else
-			//	g_seninf_ops = &mtk_csi_phy_3_0;
 
-			//dev_info(dev, "%s: mtk_csi_phy_2_0 = 0x%x mtk_csi_phy_3_0 = 0x%x\n",
-			//__func__,
-			//&mtk_csi_phy_2_0, &mtk_csi_phy_3_0);
+	for (i = 0; i < TYPE_MAX_NUM; i++) {
+		ret = of_property_read_u32_index(dev->of_node, mux_range_name[i],
+						0, &read_prop_test);
+		if (ret) {
+			dev_info(dev,
+				"%s: ERROR: try get mux_range property '%s' not found with ret %d\n",
+				__func__, mux_range_name[i], ret);
+			continue;
+		}
+		cam_type_cnt++;
+		dev_info(dev,
+				"%s: INFO:  try get mux_range property '%s' is found, cam_type_cnt %d\n",
+				__func__, mux_range_name[i], cam_type_cnt);
+	}
 
-			g_seninf_ops = &mtk_csi_phy_3_0;
+	for (i = 0; i < cam_type_cnt; i++) {
+		ret = of_property_read_u32_index(dev->of_node, mux_range_name[i],
+						0, &core->mux_range[i].first);
+		if (ret) {
+			dev_info(dev,
+				"%s: ERROR: read property index:(mux_range_name[%d] (first)) failed, not modify pointer, ret:%d\n",
+				__func__, i, ret);
+			return -1;
+		}
 
-			dev_info(dev, "%s: mtk_csi_phy_ver = %s i = %d 0x%p ret = %d\n",
-			__func__,
-			csi_phy_versions[i], i, g_seninf_ops, ret);
+		ret = of_property_read_u32_index(dev->of_node, mux_range_name[i],
+						1, &core->mux_range[i].second);
+		if (ret) {
+			dev_info(dev,
+				"%s: ERROR: read property index:(mux_range_name[%d] (second)) failed, not modify pointer, ret:%d\n",
+				__func__, i, ret);
+			return -1;
+		}
 
-			of_property_read_u32(dev->of_node, "seninf-num",
-				&g_seninf_ops->seninf_num);
-			of_property_read_u32(dev->of_node, "mux-num",
-				&g_seninf_ops->mux_num);
-			of_property_read_u32(dev->of_node, "cam-mux-num",
-				&g_seninf_ops->cam_mux_num);
-			of_property_read_u32(dev->of_node, "pref-mux-num",
-				&g_seninf_ops->pref_mux_num);
+		ret = of_property_read_u32_index(dev->of_node, cammux_range_name[i],
+						0, &core->cammux_range[i].first);
+		if (ret) {
+			dev_info(dev,
+				"%s: ERROR: read property index:(cammux_range_name[%d] (first)) failed, not modify pointer, ret:%d\n",
+				__func__, i, ret);
+			return -1;
+		}
 
-
-			dev_info(dev, "%s: seninf_num = %d, mux_num = %d, cam_mux_num = %d, pref_mux_num =%d\n",
-				__func__,
-				g_seninf_ops->seninf_num,
-				g_seninf_ops->mux_num,
-				g_seninf_ops->cam_mux_num,
-				g_seninf_ops->pref_mux_num);
-			return 0;
+		ret = of_property_read_u32_index(dev->of_node, cammux_range_name[i],
+						1, &core->cammux_range[i].second);
+		if (ret) {
+			dev_info(dev,
+				"%s: ERROR: read property index:(cammux_range_name[%d] (second)) failed, not modify pointer, ret:%d\n",
+				__func__, i, ret);
+			return -1;
 		}
 	}
 
-	return -1;
+	for (i = CDPHY_DVFS_STEP_0; i < CDPHY_DVFS_STEP_MAX_NUM; i++) {
+		/* cphy 4d1c data rate maximum */
+		ret = of_property_read_u32_index(dev->of_node,
+			cdphy_dvfs_step_name[i], 0,
+			&core->cdphy_dvfs_step[i].cphy_data_rate.first);
+		if (ret) {
+			dev_info(dev,
+				"%s: ERROR: read property index:(cdphy_dvfs_step_name[%d].cphy_data_rate.first) failed,ret:%d\n",
+				__func__, i, ret);
+			core->cdphy_dvfs_step[i].cphy_data_rate.first = 0;
+		}
+		/* cphy 2d1c data rate maximum */
+		ret = of_property_read_u32_index(dev->of_node,
+			cdphy_dvfs_step_name[i], 1,
+			&core->cdphy_dvfs_step[i].cphy_data_rate.second);
+		if (ret) {
+			dev_info(dev,
+				"%s: ERROR: read property index:(cdphy_dvfs_step_name[%d].cphy_data_rate.second) failed,ret:%d\n",
+				__func__, i, ret);
+			core->cdphy_dvfs_step[i].cphy_data_rate.second = 0;
+		}
+		/* dphy 4d1c data rate maximum */
+		ret = of_property_read_u32_index(dev->of_node,
+			cdphy_dvfs_step_name[i], 2,
+			&core->cdphy_dvfs_step[i].dphy_data_rate.first);
+		if (ret) {
+			dev_info(dev,
+				"%s: ERROR: read property index:(cdphy_dvfs_step_name[%d].dphy_data_rate.first) failed,ret:%d\n",
+				__func__, i, ret);
+			core->cdphy_dvfs_step[i].dphy_data_rate.first = 0;
+		}
+		/* dphy 2d1c data rate maximum */
+		ret = of_property_read_u32_index(dev->of_node,
+			cdphy_dvfs_step_name[i], 3,
+			&core->cdphy_dvfs_step[i].dphy_data_rate.second);
+		if (ret) {
+			dev_info(dev,
+				"%s: ERROR: read property index:(cdphy_dvfs_step_name[%d].dphy_data_rate.second) failed,ret:%d\n",
+				__func__, i, ret);
+			core->cdphy_dvfs_step[i].dphy_data_rate.second = 0;
+		}
+		/* cdphy csi clk according to vcore */
+		ret = of_property_read_u32_index(dev->of_node,
+			cdphy_dvfs_step_name[i], 4,
+			&core->cdphy_dvfs_step[i].csi_clk);
+		if (ret) {
+			dev_info(dev,
+				"%s: ERROR: read property index:(cdphy_dvfs_step_name[%d].csi_clk) failed,ret:%d\n",
+				__func__, i, ret);
+			core->cdphy_dvfs_step[i].csi_clk = 0;
+		}
+		/* cdphy 4d1c vcore minimum */
+		ret = of_property_read_u32_index(dev->of_node,
+			cdphy_dvfs_step_name[i], 5,
+			&core->cdphy_dvfs_step[i].cdphy_voltage.first);
+		if (ret) {
+			dev_info(dev,
+				"%s: ERROR: read property index:(cdphy_dvfs_step_name[%d].cdphy_voltage.first) failed,ret:%d\n",
+				__func__, i, ret);
+			core->cdphy_dvfs_step[i].cdphy_voltage.first = 0;
+		}
+		/* cdphy 2d1c vcore minimum */
+		ret = of_property_read_u32_index(dev->of_node,
+			cdphy_dvfs_step_name[i], 6,
+			&core->cdphy_dvfs_step[i].cdphy_voltage.second);
+		if (ret) {
+			dev_info(dev,
+				"%s: ERROR: read property index:(cdphy_dvfs_step_name[%d].cdphy_voltage.second) failed,ret:%d\n",
+				__func__, i, ret);
+			core->cdphy_dvfs_step[i].cdphy_voltage.second = 0;
+		}
+		dev_info(dev,
+			"[%s]: step[%d].c/dphy_data_rate.first/second:%u/%u/%u/%u,csi_clk:%u,voltage.first/second:%u/%u,ret:%d\n",
+			__func__, i,
+			core->cdphy_dvfs_step[i].cphy_data_rate.first,
+			core->cdphy_dvfs_step[i].cphy_data_rate.second,
+			core->cdphy_dvfs_step[i].dphy_data_rate.first,
+			core->cdphy_dvfs_step[i].dphy_data_rate.second,
+			core->cdphy_dvfs_step[i].csi_clk,
+			core->cdphy_dvfs_step[i].cdphy_voltage.first,
+			core->cdphy_dvfs_step[i].cdphy_voltage.second, ret);
+	}
+
+	dev_info(dev,
+		"%s: seninf_num = %d, mux_num = %d, cam_mux_num = %d, pref_mux_num =%d\n",
+		__func__,
+		g_seninf_ops->seninf_num,
+		g_seninf_ops->mux_num,
+		g_seninf_ops->cam_mux_num,
+		g_seninf_ops->pref_mux_num);
+
+	return 0;
 }
 
 static int seninf_core_probe(struct platform_device *pdev)

@@ -63,6 +63,10 @@ static int Read_I2C_CAM_CAL(struct i2c_client *client,
 	char puReadCmd[2] = { (char)(a_u2Addr >> 8), (char)(a_u2Addr & 0xFF) };
 	struct i2c_msg msg[EEPROM_I2C_MSG_SIZE_READ];
 
+	if (client == NULL) {
+		return -1;
+	}
+
 	if (ui4_length > EEPROM_I2C_READ_MSG_LENGTH_MAX) {
 		must_log("exceed one transition %d bytes limitation\n",
 			 EEPROM_I2C_READ_MSG_LENGTH_MAX);
@@ -131,6 +135,10 @@ static int Write_I2C_CAM_CAL(struct i2c_client *client,
 	int i4RetValue = 0;
 	char puCmd[2 + EEPROM_I2C_WRITE_MSG_LENGTH_MAX];
 	struct i2c_msg msg;
+
+	if (client == NULL) {
+		return -1;
+	}
 
 	if (ui4_length > EEPROM_I2C_WRITE_MSG_LENGTH_MAX) {
 		must_log("exceed one transition %d bytes limitation\n",

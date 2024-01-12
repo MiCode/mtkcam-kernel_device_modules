@@ -36,15 +36,17 @@ extern struct STRUCT_CAM_CAL_CONFIG_STRUCT CAM_CAL_CONFIG_LIST;
  * Global variable
  ****************************************************************/
 
-static struct STRUCT_CAM_CAL_CONFIG_STRUCT *cam_cal_config_list[] = {CAM_CAL_CONFIG_LIST};
+struct STRUCT_CAM_CAL_CONFIG_STRUCT *cam_cal_config_list[] = {CAM_CAL_CONFIG_LIST};
 static struct STRUCT_CAM_CAL_CONFIG_STRUCT *cam_cal_config;
 static unsigned int last_sensor_id = 0xFFFFFFFF;
 static unsigned short cam_cal_index = 0xFFFF;
-static unsigned short cam_cal_number =
+unsigned short cam_cal_number =
 		sizeof(cam_cal_config_list)/sizeof(struct STRUCT_CAM_CAL_CONFIG_STRUCT *);
 
 static unsigned char *mp_eeprom_preload[IDX_MAX_CAM_NUMBER];
 static unsigned char *mp_layout_preload[IDX_MAX_CAM_NUMBER];
+
+int version;
 
 unsigned int show_cmd_error_log(enum ENUM_CAMERA_CAM_CAL_TYPE_ENUM cmd)
 {
@@ -1044,29 +1046,70 @@ unsigned int read_data_region(struct EEPROM_DRV_FD_DATA *pdata,
 	unsigned int sta_addr = cam_cal_config->base_address;
 	unsigned int size_limit = (cam_cal_config->max_size > 0)
 		? cam_cal_config->max_size : DEFAULT_MAX_EEPROM_SIZE_8K;
+	struct i2c_client *client;
+
+	client = (version == 1) ?
+		cam_cal_config->client : (pdata != NULL) ?
+		pdata->pdrv->pi2c_client : NULL;
+
+	if (client == NULL) {
+		error_log("i2c_client == NULL\n");
+		return 0;
+	}
 
 	if (offset < sta_addr || offset + size > sta_addr + size_limit) {
 		error_log("Out of address 0x%x ~ 0x%x!!\n", sta_addr, sta_addr + size_limit - 1);
 		return 0;
 	}
+
 	if (cam_cal_config->read_function) {
-		debug_log("i2c read 0x%02x %d %d\n",
-					cam_cal_config->i2c_write_id, offset, size);
-		mutex_lock(&pdata->pdrv->eeprom_mutex);
-		dts_addr = pdata->pdrv->pi2c_client->addr;
-		pdata->pdrv->pi2c_client->addr = (cam_cal_config->i2c_write_id >> 1);
-		ret = cam_cal_config->read_function(pdata->pdrv->pi2c_client, offset, buf, size);
-		pdata->pdrv->pi2c_client->addr = dts_addr;
-		mutex_unlock(&pdata->pdrv->eeprom_mutex);
+		debug_log("i2c read 0x%02x %d %d\n", cam_cal_config->i2c_write_id, offset, size);
+		if (pdata)
+			mutex_lock(&pdata->pdrv->eeprom_mutex);
+		dts_addr = client->addr;
+		client->addr = (cam_cal_config->i2c_write_id >> 1);
+		ret = cam_cal_config->read_function(client, offset, buf, size);
+		client->addr = dts_addr;
+		if (pdata)
+			mutex_unlock(&pdata->pdrv->eeprom_mutex);
 	} else {
-		debug_log("no customized\n");
-		debug_log("i2c read 0x%02x %d %d\n",
-				(pdata->pdrv->pi2c_client->addr << 1),
-				offset, size);
-		mutex_lock(&pdata->pdrv->eeprom_mutex);
-		ret = Common_read_region(pdata->pdrv->pi2c_client,
-					offset, buf, size);
-		mutex_unlock(&pdata->pdrv->eeprom_mutex);
+		debug_log("no customized. i2c read 0x%02x %d %d\n", (client->addr << 1), offset, size);
+		if (pdata)
+			mutex_lock(&pdata->pdrv->eeprom_mutex);
+		ret = Common_read_region(client, offset, buf, size);
+		if (pdata)
+			mutex_unlock(&pdata->pdrv->eeprom_mutex);
 	}
 	return ret;
 }
+
+int read_cam_cal(unsigned int sensor_id, unsigned char *buf,
+			unsigned int offset, unsigned int size)
+{
+	if (version == 0)
+		return -1;
+
+	if (last_sensor_id != sensor_id || cam_cal_index == cam_cal_number) {
+		last_sensor_id = sensor_id;
+		debug_log("search %u layouts", cam_cal_number);
+		for (cam_cal_index = 0; cam_cal_index < cam_cal_number; cam_cal_index++) {
+			cam_cal_config = cam_cal_config_list[cam_cal_index];
+			if ((cam_cal_config->check_layout_function != NULL) &&
+				(cam_cal_config->check_layout_function(NULL, sensor_id) == CAM_CAL_ERR_NO_ERR))
+				break;
+		}
+	}
+
+	if (cam_cal_index < cam_cal_number) {
+		cam_cal_config = cam_cal_config_list[cam_cal_index];
+		debug_log("sensor_id = 0x%x layout type %s found", sensor_id, cam_cal_config->name);
+		if (cam_cal_config->read_function)
+			cam_cal_config->read_function(cam_cal_config->client, offset, buf, size);
+		else
+			Common_read_region(cam_cal_config->client, offset, buf, size);
+		return 0;
+	}
+	debug_log("sensor_id = 0x%x layout type not found", sensor_id);
+	return 0;
+}
+EXPORT_SYMBOL(read_cam_cal);

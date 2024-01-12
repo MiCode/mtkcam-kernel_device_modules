@@ -30,8 +30,13 @@
 #define DEV_NAME_FMT "camera_eeprom%u"
 #define DEV_CLASS_NAME_FMT "camera_eepromdrv%u"
 #define EEPROM_DEVICE_NNUMBER 255
+#define OF_EEPROM_NAMES_MAXCNT 20
 
 #include "cam_cal_config.h"
+
+extern struct STRUCT_CAM_CAL_CONFIG_STRUCT *cam_cal_config_list[];
+extern unsigned short cam_cal_number;
+extern int version;
 
 static struct stCAM_CAL_LIST_STRUCT *get_list(struct CAM_CAL_SENSOR_INFO *sinfo)
 {
@@ -336,6 +341,9 @@ static inline int eeprom_driver_register(struct i2c_client *client,
 	struct EEPROM_DRV *pinst;
 	char device_drv_name[DEV_NAME_STR_LEN_MAX] = { 0 };
 	char class_drv_name[DEV_NAME_STR_LEN_MAX] = { 0 };
+	const char *names_match[OF_EEPROM_NAMES_MAXCNT];
+	int names_match_cnt;
+	int i, j;
 
 	ret = snprintf(device_drv_name, DEV_NAME_STR_LEN_MAX - 1,
 		DEV_NAME_FMT, index);
@@ -393,6 +401,21 @@ static inline int eeprom_driver_register(struct i2c_client *client,
 	pinst->pi2c_client = client;
 
 	i2c_set_clientdata(client, pinst);
+
+	names_match_cnt = of_property_read_string_array(client->dev.of_node,
+		"names", names_match, ARRAY_SIZE(names_match));
+	if (names_match_cnt > 0)
+		version = 1;
+	for (i = 0; i < names_match_cnt; i++) {
+		for (j = 0; j < cam_cal_number; j++) {
+			if (!strncmp(names_match[i], cam_cal_config_list[j]->name,
+				     strlen(names_match[i]))) {
+				cam_cal_config_list[j]->client = client;
+				pr_info("[%s] match\n", cam_cal_config_list[j]->name);
+				break;
+			}
+		}
+	}
 
 	mutex_init(&pinst->eeprom_mutex);
 

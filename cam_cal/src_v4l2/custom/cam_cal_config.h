@@ -45,6 +45,8 @@ struct STRUCT_CAM_CAL_CONFIG_STRUCT {
 	unsigned int preload_size;
 	unsigned int has_stored_data;
 	unsigned int base_address;
+
+	struct i2c_client *client;
 };
 
 unsigned int show_cmd_error_log(enum ENUM_CAMERA_CAM_CAL_TYPE_ENUM cmd);

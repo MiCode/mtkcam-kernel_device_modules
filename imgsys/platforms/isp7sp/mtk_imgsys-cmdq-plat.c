@@ -1948,8 +1948,8 @@ int imgsys_cmdq_parser_plat7sp(struct mtk_imgsys_dev *imgsys_dev,
 			pr_debug(
 				"%s: ACQUIRE event(%d/%d) action(%d)\n", __func__,
 				cmd->u.event, imgsys_event[cmd->u.event].event, cmd->u.action);
-				cmdq_pkt_acquire_event(pkt, imgsys_event[cmd->u.event].event);
             }
+            cmdq_pkt_acquire_event(pkt, imgsys_event[cmd->u.event].event);
 			break;
 		case IMGSYS_CMD_TIME:
             if (imgsys_cmdq_dbg_enable_plat7sp()) {

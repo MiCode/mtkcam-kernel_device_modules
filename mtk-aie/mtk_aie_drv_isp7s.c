@@ -896,7 +896,7 @@ static unsigned long long aie_get_sec_iova(struct mtk_aie_dev *fd, struct dma_bu
 	unsigned long long iova = 0;
 	struct sg_table *sgt;
 
-	attach = dma_buf_attach(my_dma_buf, fd->dev);
+	attach = dma_buf_attach(my_dma_buf, fd->smmu_dev);
 	if (IS_ERR(attach)) {
 		dev_info(fd->dev, "attach fail, return\n");
 		return 0;
@@ -1296,6 +1296,7 @@ static int aie_alloc_dram_buf(struct mtk_aie_dev *fd)
 	if (!ret_buf)
 		return -1;
 
+	mtk_dma_buf_set_name(ret_buf, "rs_cfg_buf");
 	fd->rs_cfg_data.dmabuf = ret_buf;
 	fd->rs_cfg_data.size = alloc_size;
 	iova = aie_get_sec_iova(fd, ret_buf, &fd->rs_cfg_data);
@@ -1326,6 +1327,7 @@ static int aie_alloc_dram_buf(struct mtk_aie_dev *fd)
 	if (!ret_buf)
 		return -1;
 
+	mtk_dma_buf_set_name(ret_buf, "fd_cfg_buf");
 	fd->fd_cfg_data.dmabuf = ret_buf;
 	fd->fd_cfg_data.size = alloc_size;
 	iova = aie_get_sec_iova(fd, ret_buf, &fd->fd_cfg_data);
@@ -1370,6 +1372,7 @@ static int aie_alloc_dram_buf(struct mtk_aie_dev *fd)
 	if (!ret_buf)
 		return -1;
 
+	mtk_dma_buf_set_name(ret_buf, "yuv2rgb_cfg_buf");
 	fd->yuv2rgb_cfg_data.dmabuf = ret_buf;
 	fd->yuv2rgb_cfg_data.size = alloc_size;
 	iova = aie_get_sec_iova(fd, ret_buf, &fd->yuv2rgb_cfg_data);
@@ -1428,6 +1431,8 @@ static int aie_alloc_output_buf(struct mtk_aie_dev *fd)
 		ret_buf = aie_imem_sec_alloc(fd, alloc_size, true);
 		if (!ret_buf)
 			return -1;
+
+		mtk_dma_buf_set_name(ret_buf, "rs_pym_out_buf");
 		fd->rs_output_hw.size = alloc_size;
 		fd->rs_output_hw.dmabuf = ret_buf;
 		iova = aie_get_sec_iova(fd, ret_buf, &fd->rs_output_hw);
@@ -1440,6 +1445,7 @@ static int aie_alloc_output_buf(struct mtk_aie_dev *fd)
 		if (!ret_buf)
 			return -1;
 
+		mtk_dma_buf_set_name(ret_buf, "rs_pym_out_buf");
 		fd->rs_output_hw.size = alloc_size;
 		fd->rs_output_hw.dmabuf = ret_buf;
 		iova = aie_get_sec_iova(fd, ret_buf, &fd->rs_output_hw);
@@ -1509,6 +1515,7 @@ static int aie_alloc_fddma_buf(struct mtk_aie_dev *fd)
 	if (!ret_buf)
 		return -1;
 
+	mtk_dma_buf_set_name(ret_buf, "fd_dma_buf");
 	fd->fd_dma_hw.dmabuf = ret_buf;
 	fd->fd_dma_hw.size = alloc_size;
 	iova = aie_get_sec_iova(fd, ret_buf, &fd->fd_dma_hw);
@@ -1529,6 +1536,7 @@ static int aie_alloc_fddma_buf(struct mtk_aie_dev *fd)
 	if (!ret_buf)
 		return -1;
 
+	mtk_dma_buf_set_name(ret_buf, "fd_kernel_buf");
 	fd->fd_kernel_hw.dmabuf = ret_buf;
 	fd->fd_kernel_hw.size = alloc_size;
 	iova = aie_get_sec_iova(fd, ret_buf, &fd->fd_kernel_hw);
@@ -1549,6 +1557,7 @@ static int aie_alloc_fddma_buf(struct mtk_aie_dev *fd)
 	if (!ret_buf)
 		return -1;
 
+	mtk_dma_buf_set_name(ret_buf, "attr_dma_buf");
 	fd->fd_attr_dma_hw.dmabuf = ret_buf;
 	fd->fd_attr_dma_hw.size = alloc_size;
 	iova = aie_get_sec_iova(fd, ret_buf, &fd->fd_attr_dma_hw);
@@ -1579,6 +1588,7 @@ static int aie_alloc_fld_buf(struct mtk_aie_dev *fd)
 	if (!ret_buf)
 		return -1;
 
+	mtk_dma_buf_set_name(ret_buf, "fld_blink_weight_buf");
 	fd->fld_blink_weight_hw.dmabuf = ret_buf;
 	fd->fld_blink_weight_hw.size = alloc_size;
 	iova = aie_get_sec_iova(fd, ret_buf, &fd->fld_blink_weight_hw);
@@ -1599,6 +1609,7 @@ static int aie_alloc_fld_buf(struct mtk_aie_dev *fd)
 	if (!ret_buf)
 		return -1;
 
+	mtk_dma_buf_set_name(ret_buf, "fld_fp_forest_buf");
 	fd->fld_fp_hw.dmabuf = ret_buf;
 	fd->fld_fp_hw.size = alloc_size;
 	iova = aie_get_sec_iova(fd, ret_buf, &fd->fld_fp_hw);
@@ -1619,6 +1630,7 @@ static int aie_alloc_fld_buf(struct mtk_aie_dev *fd)
 	if (!ret_buf)
 		return -1;
 
+	mtk_dma_buf_set_name(ret_buf, "fld_tree_forest_cv_buf");
 	fd->fld_cv_hw.dmabuf = ret_buf;
 	fd->fld_cv_hw.size = alloc_size;
 	iova = aie_get_sec_iova(fd, ret_buf, &fd->fld_cv_hw);
@@ -1639,6 +1651,7 @@ static int aie_alloc_fld_buf(struct mtk_aie_dev *fd)
 	if (!ret_buf)
 		return -1;
 
+	mtk_dma_buf_set_name(ret_buf, "fld_leafnode_buf");
 	fd->fld_leafnode_hw.dmabuf = ret_buf;
 	fd->fld_leafnode_hw.size = alloc_size;
 	iova = aie_get_sec_iova(fd, ret_buf, &fd->fld_leafnode_hw);
@@ -1659,6 +1672,7 @@ static int aie_alloc_fld_buf(struct mtk_aie_dev *fd)
 	if (!ret_buf)
 		return -1;
 
+	mtk_dma_buf_set_name(ret_buf, "fld_forest_tree_node_buf");
 	fd->fld_tree_02_hw.dmabuf = ret_buf;
 	fd->fld_tree_02_hw.size = alloc_size;
 	iova = aie_get_sec_iova(fd, ret_buf, &fd->fld_tree_02_hw);
@@ -1679,6 +1693,7 @@ static int aie_alloc_fld_buf(struct mtk_aie_dev *fd)
 	if (!ret_buf)
 		return -1;
 
+	mtk_dma_buf_set_name(ret_buf, "fld_forest_init_shape_buf");
 	fd->fld_shape_hw.dmabuf = ret_buf;
 	fd->fld_shape_hw.size = alloc_size;
 	iova = aie_get_sec_iova(fd, ret_buf, &fd->fld_shape_hw);

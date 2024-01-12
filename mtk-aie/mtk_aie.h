@@ -589,6 +589,7 @@ struct mtk_aie_drv_ops {
 
 struct mtk_aie_dev {
 	struct device *dev;
+	struct device *smmu_dev;
 	struct platform_device *aov_pdev;
 	struct ipesys_aie_clocks aie_clk;
 	struct cmdq_client *fdvt_clt;

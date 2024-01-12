@@ -34,6 +34,7 @@
 #include "mtk_aie.h"
 #include "mtk_dma_contig.h"
 #include "mem/aie_videobuf2-dma-contig.h"
+#include "iommu_debug.h"
 
 #define FLD
 #define AIE_QOS_MAX 4
@@ -106,7 +107,7 @@ static struct clk_bulk_data ipesys_isp7s_aie_clks[] = {
 	{ .id = "IMG_IPE" },
 };
 
-static struct clk_bulk_data ipesys_isp7sp_aie_clks[] = {
+static struct clk_bulk_data isp7sp_aie_clks[] = {
 	{ .id = "VCORE_MAIN_CON_0" },
 	{ .id = "VCORE_GALS_DISP_CON_0" },
 	{ .id = "VCORE_SUB1_CON_0" },
@@ -114,6 +115,23 @@ static struct clk_bulk_data ipesys_isp7sp_aie_clks[] = {
 	{ .id = "IMG_IPE" },
 	{ .id = "IPE_FDVT" },
 	{ .id = "IPE_SMI_LARB12" },
+};
+
+static struct clk_bulk_data isp7sp_1_aie_clks[] = {
+	{ .id = "VCORE_MAIN" },
+	{ .id = "VCORE_GALS_DISP" },
+	{ .id = "VCORE_SUB1" },
+	{ .id = "VCORE_SUB0" },
+	{ .id = "IPE" },
+	{ .id = "SUB_COMMON2" },
+	{ .id = "SUB_COMMON3" },
+	{ .id = "GALS_RX_IPE0" },
+	{ .id = "GALS_TX_IPE0" },
+	{ .id = "GALS_RX_IPE1" },
+	{ .id = "GALS_TX_IPE1" },
+	{ .id = "GALS" },
+	{ .id = "FDVT" },
+	{ .id = "LARB12" },
 };
 
 static struct aie_data data_isp71 = {
@@ -131,10 +149,17 @@ static struct aie_data data_isp7s = {
 };
 
 static struct aie_data data_isp7sp = {
-	.clks = ipesys_isp7sp_aie_clks,
-	.clk_num = ARRAY_SIZE(ipesys_isp7sp_aie_clks),
+	.clks = isp7sp_aie_clks,
+	.clk_num = ARRAY_SIZE(isp7sp_aie_clks),
 	.drv_ops = &aie_ops_isp7sp,
 	.larb_clk_ready = true,
+};
+
+static struct aie_data data_isp7sp_1 = {
+	.clks = isp7sp_1_aie_clks,
+	.clk_num = ARRAY_SIZE(isp7sp_1_aie_clks),
+	.drv_ops = &aie_ops_isp7sp,
+	.larb_clk_ready = false,
 };
 
 static int mtk_aie_suspend(struct device *dev)
@@ -1080,7 +1105,7 @@ static int mtk_aie_queue_init(void *priv, struct vb2_queue *src_vq,
 	src_vq->buf_struct_size = sizeof(struct v4l2_m2m_buffer);
 	src_vq->timestamp_flags = V4L2_BUF_FLAG_TIMESTAMP_COPY;
 	src_vq->lock = &ctx->fd_dev->vfd_lock;
-	src_vq->dev = ctx->fd_dev->v4l2_dev.dev;
+	src_vq->dev = ctx->fd_dev->smmu_dev;
 
 	ret = vb2_queue_init(src_vq);
 	if (ret)
@@ -1094,7 +1119,7 @@ static int mtk_aie_queue_init(void *priv, struct vb2_queue *src_vq,
 	dst_vq->buf_struct_size = sizeof(struct v4l2_m2m_buffer);
 	dst_vq->timestamp_flags = V4L2_BUF_FLAG_TIMESTAMP_COPY;
 	dst_vq->lock = &ctx->fd_dev->vfd_lock;
-	dst_vq->dev = ctx->fd_dev->v4l2_dev.dev;
+	dst_vq->dev = ctx->fd_dev->smmu_dev;
 
 	return vb2_queue_init(dst_vq);
 }
@@ -1632,6 +1657,14 @@ static int mtk_aie_probe(struct platform_device *pdev)
 	}
 #endif
 
+	fd->smmu_dev = mtk_smmu_get_shared_device(dev);
+	if (!fd->smmu_dev) {
+		dev_info(dev,
+			"%s: failed to get aie smmu device\n",
+			__func__);
+		return -EINVAL;
+	}
+
 	dev_info(dev, "AIE : Success to %s\n", __func__);
 
 	return 0;
@@ -1699,6 +1732,10 @@ static const struct of_device_id mtk_aie_of_ids[] = {
 	{
 		.compatible = "mediatek,aie-isp7sp",
 		.data = &data_isp7sp,
+	},
+	{
+		.compatible = "mediatek,aie-isp7sp-1",
+		.data = &data_isp7sp_1,
 	},
 	{} };
 MODULE_DEVICE_TABLE(of, mtk_aie_of_ids);

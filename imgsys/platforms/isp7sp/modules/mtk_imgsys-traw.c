@@ -310,7 +310,20 @@ static void imgsys_traw_dump_cq(struct mtk_imgsys_dev *a_pDev,
 	ExeDbgCmd(a_pDev, a_pRegBA, a_DdbSel, a_DbgOut, DbgCmd);
 
 }
+static void imgsys_traw_dump_drzh2nt1(struct mtk_imgsys_dev *a_pDev,
+				void __iomem *a_pRegBA,
+				unsigned int a_DdbSel,
+				unsigned int a_DbgOut)
+{
+	unsigned int DbgCmd = 0;
+	unsigned int times = 16; //set sel 16 times
 
+	for (int i = 0; i < times; i++) {
+		DbgCmd = i;
+		pr_info("[drzh2nt1 internal] %d\n",DbgCmd);
+		ExeDbgCmd(a_pDev, a_pRegBA, a_DdbSel, a_DbgOut, DbgCmd);
+        }
+}
 static void imgsys_traw_dump_drzh2n(struct mtk_imgsys_dev *a_pDev,
 				void __iomem *a_pRegBA,
 				unsigned int a_DdbSel,
@@ -318,78 +331,84 @@ static void imgsys_traw_dump_drzh2n(struct mtk_imgsys_dev *a_pDev,
 {
 	unsigned int DbgCmd = 0;
 
+	/* drzh2n_t1 state_checksum  */
+	pr_info("[drzh2n_t1]\n");
+	DbgCmd = 0x00018001;
+	ExeDbgCmd(a_pDev, a_pRegBA, a_DdbSel, a_DbgOut, DbgCmd);
 	/* drzh2n_t1 line_pix_cnt_tmp */
-	DbgCmd = 0x0002C001;
+	DbgCmd = 0x00028001;
 	ExeDbgCmd(a_pDev, a_pRegBA, a_DdbSel, a_DbgOut, DbgCmd);
 	/* drzh2n_t1 line_pix_cnt */
-	DbgCmd = 0x0003C001;
+	DbgCmd = 0x00038001;
 	ExeDbgCmd(a_pDev, a_pRegBA, a_DdbSel, a_DbgOut, DbgCmd);
-	/* drzh2n_t1 handshake signal */
-	DbgCmd = 0x0004C001;
+	/* drzh2n_t1 other status */
+	DbgCmd = 0x00048001;
+	ExeDbgCmd(a_pDev, a_pRegBA, a_DdbSel, a_DbgOut, DbgCmd);
+	/* drzh2n_t2 state_checksum */
+	pr_info("[drzh2n_t2]\n");
+	DbgCmd = 0x00018101;
 	ExeDbgCmd(a_pDev, a_pRegBA, a_DdbSel, a_DbgOut, DbgCmd);
 	/* drzh2n_t2 line_pix_cnt_tmp */
-	DbgCmd = 0x0002C101;
+	DbgCmd = 0x00028101;
 	ExeDbgCmd(a_pDev, a_pRegBA, a_DdbSel, a_DbgOut, DbgCmd);
 	/* drzh2n_t2 line_pix_cnt */
-	DbgCmd = 0x0003C101;
+	DbgCmd = 0x00038101;
 	ExeDbgCmd(a_pDev, a_pRegBA, a_DdbSel, a_DbgOut, DbgCmd);
-	/* drzh2n_t2 handshake signal */
-	DbgCmd = 0x0004C101;
+	/* drzh2n_t2 other status */
+	DbgCmd = 0x00048101;
+	ExeDbgCmd(a_pDev, a_pRegBA, a_DdbSel, a_DbgOut, DbgCmd);
+	/* drzh2n_t3  state_checksum */
+	pr_info("[drzh2n_t3]\n");
+	DbgCmd = 0x00018601;
 	ExeDbgCmd(a_pDev, a_pRegBA, a_DdbSel, a_DbgOut, DbgCmd);
 	/* drzh2n_t3 line_pix_cnt_tmp */
-	DbgCmd = 0x0002C501;
+	DbgCmd = 0x00028601;
 	ExeDbgCmd(a_pDev, a_pRegBA, a_DdbSel, a_DbgOut, DbgCmd);
 	/* drzh2n_t3 line_pix_cnt */
-	DbgCmd = 0x0003C501;
+	DbgCmd = 0x00038601;
 	ExeDbgCmd(a_pDev, a_pRegBA, a_DdbSel, a_DbgOut, DbgCmd);
-	/* drzh2n_t3 handshake signal */
-	DbgCmd = 0x0004C501;
+	/* drzh2n_t3 other status */
+	DbgCmd = 0x00048601;
+	ExeDbgCmd(a_pDev, a_pRegBA, a_DdbSel, a_DbgOut, DbgCmd);
+	/* drzh2n_t4 state_checksum */
+	pr_info("[drzh2n_t4]\n");
+	DbgCmd = 0x00018701;
 	ExeDbgCmd(a_pDev, a_pRegBA, a_DdbSel, a_DbgOut, DbgCmd);
 	/* drzh2n_t4 line_pix_cnt_tmp */
-	DbgCmd = 0x0002C601;
+	DbgCmd = 0x00028701;
 	ExeDbgCmd(a_pDev, a_pRegBA, a_DdbSel, a_DbgOut, DbgCmd);
 	/* drzh2n_t4 line_pix_cnt */
-	DbgCmd = 0x0003C601;
+	DbgCmd = 0x00038701;
 	ExeDbgCmd(a_pDev, a_pRegBA, a_DdbSel, a_DbgOut, DbgCmd);
-	/* drzh2n_t4 handshake signal */
-	DbgCmd = 0x0004C601;
+	/* drzh2n_t4 other status */
+	DbgCmd = 0x00048701;
+	ExeDbgCmd(a_pDev, a_pRegBA, a_DdbSel, a_DbgOut, DbgCmd);
+	/* drzh2n_t5 state_checksum */
+	pr_info("[drzh2n_t5]\n");
+	DbgCmd = 0x00018801;
 	ExeDbgCmd(a_pDev, a_pRegBA, a_DdbSel, a_DbgOut, DbgCmd);
 	/* drzh2n_t5 line_pix_cnt_tmp */
-	DbgCmd = 0x0002C701;
+	DbgCmd = 0x00028801;
 	ExeDbgCmd(a_pDev, a_pRegBA, a_DdbSel, a_DbgOut, DbgCmd);
 	/* drzh2n_t5 line_pix_cnt */
-	DbgCmd = 0x0003C701;
+	DbgCmd = 0x00038801;
 	ExeDbgCmd(a_pDev, a_pRegBA, a_DdbSel, a_DbgOut, DbgCmd);
-	/* drzh2n_t5 handshake signal */
-	DbgCmd = 0x0004C701;
+	/* drzh2n_t5 other status */
+	DbgCmd = 0x00048801;
 	ExeDbgCmd(a_pDev, a_pRegBA, a_DdbSel, a_DbgOut, DbgCmd);
-	/* drzh2n_t6 line_pix_cnt_tmp */
-	DbgCmd = 0x0002C801;
-	ExeDbgCmd(a_pDev, a_pRegBA, a_DdbSel, a_DbgOut, DbgCmd);
-	/* drzh2n_t6 line_pix_cnt */
-	DbgCmd = 0x0003C801;
-	ExeDbgCmd(a_pDev, a_pRegBA, a_DdbSel, a_DbgOut, DbgCmd);
-	/* drzh2n_t6 handshake signal */
-	DbgCmd = 0x0004C801;
-	ExeDbgCmd(a_pDev, a_pRegBA, a_DdbSel, a_DbgOut, DbgCmd);
-	/* rzh1n2t_t1 checksum */
-	DbgCmd = 0x0001C201;
-	ExeDbgCmd(a_pDev, a_pRegBA, a_DdbSel, a_DbgOut, DbgCmd);
-	/* rzh1n2t_t1 tile line_pix_cnt */
-	DbgCmd = 0x0003C201;
-	ExeDbgCmd(a_pDev, a_pRegBA, a_DdbSel, a_DbgOut, DbgCmd);
-	/* rzh1n2t_t1 tile protocal */
-	DbgCmd = 0x0008C201;
+	/* drzh2n_t6 state_checksum */
+	pr_info("[drzh2n_t6]\n");
+	DbgCmd = 0x00018901;
 	ExeDbgCmd(a_pDev, a_pRegBA, a_DdbSel, a_DbgOut, DbgCmd);
 
-	/* drzf2n_t1 g data */
-	DbgCmd = 0x00024D01;
+	/* drzh2n_t6 line_pix_cnt_tmp */
+	DbgCmd = 0x00028901;
 	ExeDbgCmd(a_pDev, a_pRegBA, a_DdbSel, a_DbgOut, DbgCmd);
-	/* drzf2n_t1 r data */
-	DbgCmd = 0x00034D01;
+	/* drzh2n_t6 line_pix_cnt */
+	DbgCmd = 0x00038901;
 	ExeDbgCmd(a_pDev, a_pRegBA, a_DdbSel, a_DbgOut, DbgCmd);
-	/* drzf2n_t1 b data */
-	DbgCmd = 0x00044D01;
+	/* drzh2n_t6 other status */
+	DbgCmd = 0x00048901;
 	ExeDbgCmd(a_pDev, a_pRegBA, a_DdbSel, a_DbgOut, DbgCmd);
 
 }
@@ -487,20 +506,20 @@ static void imgsys_traw_dump_dl(struct mtk_imgsys_dev *a_pDev,
 
 	/* wpe_wif_t3_debug */
 	/* sot_st,eol_st,eot_st,sof,sot,eol,eot,req,rdy,7b0,checksum_out */
-	DbgCmd = 0x00000306;
+	DbgCmd = 0x00000307;
 	DbgData = ExeDbgCmd(a_pDev, a_pRegBA, a_DdbSel, a_DbgOut, DbgCmd);
 	DbgRdy = ((DbgData & 0x800000) > 0) ? 1 : 0;
 	DbgReq = ((DbgData & 0x1000000) > 0) ? 1 : 0;
 	pr_info("[wpe_wif_t3_debug]checksum(0x%X),rdy(%d) req(%d)\n",
 		DbgData & 0xFFFF, DbgRdy, DbgReq);
 	/* line_cnt[15:0],  pix_cnt[15:0] */
-	DbgCmd = 0x00000307;
+	DbgCmd = 0x00000308;
 	DbgData = ExeDbgCmd(a_pDev, a_pRegBA, a_DdbSel, a_DbgOut, DbgCmd);
 	DbgLineCnt = (DbgData & 0xFFFF0000) / 0xFFFF;
 	pr_info("[wpe_wif_t3_debug]pix_cnt(0x%X),line_cnt(0x%X)\n",
 		DbgData & 0xFFFF, DbgLineCnt);
 	/* line_cnt_reg[15:0], pix_cnt_reg[15:0] */
-	DbgCmd = 0x00000308;
+	DbgCmd = 0x00000309;
 	DbgData = ExeDbgCmd(a_pDev, a_pRegBA, a_DdbSel, a_DbgOut, DbgCmd);
 	DbgLineCntReg = (DbgData & 0xFFFF0000) / 0xFFFF;
 	pr_info("[wpe_wif_t3_debug]pix_cnt_reg(0x%X),line_cnt_reg(0x%X)\n",
@@ -837,6 +856,8 @@ void imgsys_traw_debug_dump(struct mtk_imgsys_dev *imgsys_dev,
 	void __iomem *trawRegBA = 0L;
 	unsigned int i;
 #if IF_0_DEFINE //YWTBD K DBG
+	unsigned int Drzh2nt1DdbSel = DRZH2N_T1_DBG_SEL;
+	unsigned int Drzh2nt1DbgOut = DRZH2N_T1_DBG_RDATA;
 	unsigned int DMADdbSel = TRAW_DMA_DBG_SEL;
 	unsigned int DMADbgOut = TRAW_DMA_DBG_PORT;
 	unsigned int CtlDdbSel = TRAW_CTL_DBG_SEL;
@@ -907,6 +928,8 @@ void imgsys_traw_debug_dump(struct mtk_imgsys_dev *imgsys_dev,
 			(unsigned int)ioread32((void *)(g_ispMainRegBA + 0x1200))) > 0)
 			pr_info("%s\n", DbgStr);
 #if IF_0_DEFINE //YWTBD K DBG
+	/* Drzh2nt1 debug data */
+	imgsys_traw_dump_drzh2nt1(imgsys_dev, trawRegBA, Drzh2nt1DdbSel, Drzh2nt1DbgOut);
 	/* DMA debug data */
 	imgsys_traw_dump_dma(imgsys_dev, trawRegBA, DMADdbSel, DMADbgOut);
 	/* CQ debug data */

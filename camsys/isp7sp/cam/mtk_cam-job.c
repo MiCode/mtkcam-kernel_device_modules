@@ -4230,6 +4230,9 @@ static bool is_sensor_mode_update(struct mtk_cam_job *job)
 	struct mtk_raw_ctrl_data *ctrl_data = get_raw_ctrl_data(job);
 	bool ret;
 
+	if (job_prev_exp_num_seamless(job) != job_exp_num(job))
+		return true;
+
 	/* sensor change */
 	ret = (ctrl_data) ?
 		ctrl_data->rc_data.sensor_mode_update : false;

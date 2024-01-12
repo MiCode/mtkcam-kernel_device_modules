@@ -615,19 +615,15 @@ static unsigned int dt_remap_to_mipi_dt(unsigned int dt_remap)
 
 struct seninf_vc *mtk_cam_seninf_get_vc_by_pad(struct seninf_ctx *ctx, int idx)
 {
-	int i, ret;
+	int i;
 	struct seninf_vcinfo *vcinfo = &ctx->vcinfo;
-	struct v4l2_subdev_format raw_fmt;
 	unsigned int format_code, cur_dt, dt_remap, pad_dt;
 
-	memset(&raw_fmt, 0, sizeof(struct v4l2_subdev_format));
-	raw_fmt.pad = ctx->sensor_pad_idx;
-	raw_fmt.which = V4L2_SUBDEV_FORMAT_ACTIVE;
-	ret = v4l2_subdev_call(ctx->sensor_sd, pad, get_fmt,
-				NULL, &raw_fmt);
 	// get current scenraio output bit(/data type)
-	format_code = to_std_fmt_code(raw_fmt.format.code);
+	format_code = to_std_fmt_code(ctx->fmt[PAD_SRC_RAW0].format.code);
 	cur_dt = get_code2dt(format_code);
+	dev_info(ctx->dev, "[%s] pad %u format_code: 0x%x, cur_dt:0x%x\n",
+		__func__, idx, format_code, cur_dt);
 
 	// find vc via vc_dt or dt_remap
 	for (i = 0; i < vcinfo->cnt; i++) {
@@ -1578,9 +1574,11 @@ static int _mtk_cam_seninf_reset_cammux(struct seninf_ctx *ctx, int pad_id)
 		return -EINVAL;
 	}
 
-	dev_info(ctx->dev, "[%s] disable pad_id %d vc id %d dt 0x%x res %dx%d\n",
-			 __func__, pad_id, vc->vc, vc->dt, vc->exp_hsize, vc->exp_vsize);
-
+	if (!!vc->dest_cnt) {
+		dev_info(ctx->dev, "[%s] disable pad_id %d vc id %d dt 0x%x dest_cnt %d res %dx%d\n",
+			 __func__, pad_id, vc->vc, vc->dt,
+			vc->dest_cnt, vc->exp_hsize, vc->exp_vsize);
+	}
 	for (j = 0; j < vc->dest_cnt; j++) {
 		old_camtg = vc->dest[j].cam;
 

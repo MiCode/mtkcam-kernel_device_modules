@@ -14,10 +14,8 @@ $(info mtk_aov KERNEL_VERSION=$(KERNEL_VERSION))
 #$(info mtk_aov sort=$(sort 6.6 $(KERNEL_VERSION)))
 #$(info mtk_aov word=$(word 1,$(sort 6.6 $(KERNEL_VERSION))))
 ifeq (6.6,$(word 1,$(sort 6.6 $(KERNEL_VERSION))))
-CFLAGS = -DNEW_DMA_BUF_API
+ccflags-y += -DNEW_DMA_BUF_API
 endif
-
-$(info mtk_aov Kbuild CFLAGS=$(CFLAGS))
 
 ccflags-y += -I$(DEVICE_MODULES_PATH)/drivers/media/platform/mtk-isp
 ccflags-y += -I$(DEVICE_MODULES_PATH)/drivers/misc/mediatek/include/mt-plat/$(MTK_PLATFORM)/include

@@ -1740,8 +1740,10 @@ void set_multi_gain_in_lut(struct subdrv_ctx *ctx, u32 *gains, u16 exp_cnt)
 	}
 	for (i = 0; i < exp_cnt; i++) {
 		/* check boundary of gain */
-		gains[i] = max(gains[i], ctx->s_ctx.ana_gain_min);
-		gains[i] = min(gains[i], ctx->s_ctx.ana_gain_max);
+		gains[i] = max(gains[i],
+			ctx->s_ctx.mode[ctx->current_scenario_id].multi_exposure_ana_gain_range[i].min);
+		gains[i] = min(gains[i],
+			ctx->s_ctx.mode[ctx->current_scenario_id].multi_exposure_ana_gain_range[i].max);
 		/* mapping of gain to register value */
 		if (ctx->s_ctx.g_gain2reg != NULL)
 			gains[i] = ctx->s_ctx.g_gain2reg(gains[i]);

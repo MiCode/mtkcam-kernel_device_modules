@@ -3972,7 +3972,8 @@ static int update_job_raw_change(struct mtk_cam_job *job)
 
 	if (ctx->has_raw_subdev && ctrl_data && job->sensor && job->seninf) {
 		res = &ctrl_data->resource.user_data.raw_res;
-		dev_info(ctx->cam->dev,
+		if (CAM_DEBUG_ENABLED(JOB))
+			dev_info(ctx->cam->dev,
 			"%s:ctx(%d): (%s/%s) check raw resource(hwmode:%d/ctx used:0x%x) : raw_must/raws (pipe, ctx):(0x%x/0x%x, 0x%x/0x%x) enquecnt:%d freq:%d\n",
 			__func__,
 			ctx->stream_id, job->sensor->entity.name, job->seninf->entity.name,
@@ -4301,7 +4302,7 @@ static int job_sen_req_pack(struct mtk_cam_job *job)
 		(job->first_job || sensor_change) && is_sensor_mode_update(job);
 	job->seamless_switch =
 		(!job->first_job && !sensor_change) && is_sensor_mode_update(job);
-	if (CAM_DEBUG_ENABLED(JOB) || JOB_DEBUG)
+	if (CAM_DEBUG_ENABLED(JOB))
 		pr_info("[%s] ctx:%d|type:%d|%s|exp(cur:%d,prev:%d)|sw/scene:%d/%d, req_id:%d",
 				__func__,
 				ctx->stream_id, job->job_type, job->scen_str,

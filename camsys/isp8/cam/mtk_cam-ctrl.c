@@ -25,7 +25,7 @@
 #include "mtk_cam-qof.h"
 #include "mtk_cam-job_utils.h"
 
-#define WATCHDOG_INTERVAL_MS		400
+#define WATCHDOG_INTERVAL_MS		800
 /*
  * note:
  *   there's a kind of sensor failure would be

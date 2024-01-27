@@ -1256,9 +1256,10 @@ static irqreturn_t mtk_irq_raw_yuv(int irq, void *data)
 
 	if (dma_ufl_status & RING_BUFFER_OFL_MASK)
 		irq_info.irq_type |= 1 << CAMSYS_IRQ_RINGBUFFER_OVERFLOW;
-
+#ifdef DEBUG_WDMA
 	if (wdma_done_status_y & FBIT(CAMCTL2_TCYSO_R1_DONE_ST))
 		irq_info.irq_type |= 1 << CAMSYS_IRQ_DEBUG_1;
+#endif
 	/* Frame done */
 	if (frame_status & FBIT(CAMCTL_SW_PASS1_DONE_ST)) {
 		irq_info.irq_type |= 1 << CAMSYS_IRQ_FRAME_DONE;

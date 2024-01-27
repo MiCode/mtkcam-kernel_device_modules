@@ -19,8 +19,8 @@
  * Global Define
  ********************************************************************/
 
-#define WPE_UFOD_P2_DESC_OFST 25 // align with userspace
-#define WPE_CQ_DESC_NUM	31 // align with userspace
+#define WPE_UFOD_P2_DESC_OFST 26 // align with userspace
+#define WPE_CQ_DESC_NUM	34 // align with userspace
 #define WPE_REG_SIZE 4096  // align with userspace
 #define WPE_TDR_BUF_MAXSZ 9216 // align with userspace
 //+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++

@@ -1166,18 +1166,19 @@ static void apply_sv_qos(struct mtk_cam_job *job)
 		}
 
 		if (apply_bwr) {
-			sv_avg_diff_bw_w = sv_avg_bw_w - sv_dev->sv_avg_applied_bw_w;
-			sv_peak_diff_bw_w = sv_peak_bw_w - sv_dev->sv_peak_applied_bw_w;
-			sv_dev->sv_avg_applied_bw_w = sv_avg_bw_w;
-			sv_dev->sv_peak_applied_bw_w = sv_peak_bw_w;
+			int a_bw_w_KB = KBps_to_bwr(sv_avg_bw_w);
+			int p_bw_w_KB = KBps_to_bwr(sv_avg_bw_w);
+
+			sv_avg_diff_bw_w = a_bw_w_KB - sv_dev->sv_avg_applied_bw_w;
+			sv_peak_diff_bw_w = p_bw_w_KB - sv_dev->sv_peak_applied_bw_w;
+			sv_dev->sv_avg_applied_bw_w = a_bw_w_KB;
+			sv_dev->sv_peak_applied_bw_w = p_bw_w_KB;
 			mtk_cam_bwr_set_chn_bw(&cam->bwr,
 				get_sv_bwr_engine(sv_dev->id), get_sv_axi_port(sv_dev->id),
-				0, KBps_to_bwr(sv_avg_diff_bw_w),
-				0, KBps_to_bwr(sv_peak_diff_bw_w), false);
+				0, sv_avg_diff_bw_w, 0, sv_peak_diff_bw_w, false);
 
 			mtk_cam_bwr_set_ttl_bw(&cam->bwr,
-				get_sv_bwr_engine(sv_dev->id), KBps_to_bwr(sv_avg_diff_bw_w),
-				KBps_to_bwr(sv_peak_diff_bw_w), false);
+				get_sv_bwr_engine(sv_dev->id), sv_avg_diff_bw_w, sv_peak_diff_bw_w, false);
 
 		}
 
@@ -1243,18 +1244,20 @@ static void apply_mraw_qos(struct mtk_cam_job *job)
 							mraw_dev->qos.cam_path[j].pending_bw);
 			}
 			if (apply_bwr) {
-				mraw_avg_diff_bw_w = mraw_avg_bw_w - mraw_dev->mraw_avg_applied_bw_w;
-				mraw_peak_diff_bw_w = mraw_peak_bw_w - mraw_dev->mraw_peak_applied_bw_w;
-				mraw_dev->mraw_avg_applied_bw_w = mraw_avg_bw_w;
-				mraw_dev->mraw_peak_applied_bw_w = mraw_peak_bw_w;
+				int a_bw_w_KB = KBps_to_bwr(mraw_avg_bw_w);
+				int p_bw_w_KB = KBps_to_bwr(mraw_peak_bw_w);
+
+				mraw_avg_diff_bw_w = a_bw_w_KB - mraw_dev->mraw_avg_applied_bw_w;
+				mraw_peak_diff_bw_w = p_bw_w_KB - mraw_dev->mraw_peak_applied_bw_w;
+				mraw_dev->mraw_avg_applied_bw_w = a_bw_w_KB;
+				mraw_dev->mraw_peak_applied_bw_w = p_bw_w_KB;
 				mtk_cam_bwr_set_chn_bw(&cam->bwr,
 					get_bwr_engine(ENGINE_MRAW), get_mraw_axi_port(mraw_dev->id),
-					0, KBps_to_bwr(mraw_avg_diff_bw_w),
-					0, KBps_to_bwr(mraw_peak_diff_bw_w), false);
+					0, mraw_avg_diff_bw_w, 0, mraw_peak_diff_bw_w, false);
 
 				mtk_cam_bwr_set_ttl_bw(&cam->bwr,
-					get_bwr_engine(ENGINE_MRAW), KBps_to_bwr(mraw_avg_diff_bw_w),
-					KBps_to_bwr(mraw_peak_diff_bw_w), false);
+					get_bwr_engine(ENGINE_MRAW),
+					mraw_avg_diff_bw_w, mraw_peak_diff_bw_w, false);
 			}
 		}
 	}

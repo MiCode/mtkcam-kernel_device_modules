@@ -133,17 +133,21 @@ static void bwr_set_chn_bw(struct mtk_bwr_device *bwr,
 	offset = CHANNEL_OFFSET * axi + ENGINE_OFFSET * engine;
 
 	//SRT bandwidth
-	bw = clr ? srt_r_bw : readl(bwr->base + REG_BWR_CAM_SRT_R0_ENG_BW0_0 + offset) + srt_r_bw;
+	bw = clr ? srt_r_bw :
+			to_bw_val(readl(bwr->base + REG_BWR_CAM_SRT_R0_ENG_BW0_0 + offset)) + srt_r_bw;
 	writel(to_bw_csr(bw),bwr->base + REG_BWR_CAM_SRT_R0_ENG_BW0_0 + offset);
 
-	bw = clr ? srt_w_bw : readl(bwr->base + REG_BWR_CAM_SRT_W0_ENG_BW0_0 + offset) + srt_w_bw;
+	bw = clr ? srt_w_bw :
+			to_bw_val(readl(bwr->base + REG_BWR_CAM_SRT_W0_ENG_BW0_0 + offset)) + srt_w_bw;
 	writel(to_bw_csr(bw), bwr->base + REG_BWR_CAM_SRT_W0_ENG_BW0_0 + offset);
 
 	//HRT bandwidth
-	bw = clr ? hrt_r_bw : readl(bwr->base + REG_BWR_CAM_HRT_R0_ENG_BW0_0 + offset) + hrt_r_bw;
+	bw = clr ? hrt_r_bw :
+			to_bw_val(readl(bwr->base + REG_BWR_CAM_HRT_R0_ENG_BW0_0 + offset)) + hrt_r_bw;
 	writel(to_bw_csr(bw), bwr->base + REG_BWR_CAM_HRT_R0_ENG_BW0_0 + offset);
 
-	bw = clr ? hrt_w_bw : readl(bwr->base + REG_BWR_CAM_HRT_W0_ENG_BW0_0 + offset) + hrt_w_bw;
+	bw = clr ? hrt_w_bw :
+			to_bw_val(readl(bwr->base + REG_BWR_CAM_HRT_W0_ENG_BW0_0 + offset)) + hrt_w_bw;
 	writel(to_bw_csr(bw), bwr->base + REG_BWR_CAM_HRT_W0_ENG_BW0_0 + offset);
 
 	pr_info("%s: engine:%d, axi:%d SRT(r/w): %d/%d HRT(r/w): %d/%d, clear: %d\n",
@@ -162,10 +166,12 @@ static void bwr_set_ttl_bw(struct mtk_bwr_device *bwr,
 	offset = ENGINE_OFFSET * engine;
 
 	//SRT bandwidth
-	bw = clr ? srt_ttl : readl(bwr->base + REG_BWR_CAM_SRT_TTL_ENG_BW0 + offset) + srt_ttl;
+	bw = clr ? srt_ttl :
+			to_bw_val(readl(bwr->base + REG_BWR_CAM_SRT_TTL_ENG_BW0 + offset)) + srt_ttl;
 	writel(to_bw_csr(bw),bwr->base + REG_BWR_CAM_SRT_TTL_ENG_BW0 + offset);
 
-	bw = clr ? hrt_ttl : readl(bwr->base + REG_BWR_CAM_HRT_TTL_ENG_BW0 + offset) + hrt_ttl;
+	bw = clr ? hrt_ttl :
+			to_bw_val(readl(bwr->base + REG_BWR_CAM_HRT_TTL_ENG_BW0 + offset)) + hrt_ttl;
 	writel(to_bw_csr(bw), bwr->base + REG_BWR_CAM_HRT_TTL_ENG_BW0 + offset);
 
 	pr_info("%s: engine:%d, SRT_TTL/HRT_TTL: %d/%d, clear: %d\n",

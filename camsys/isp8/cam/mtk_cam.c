@@ -2845,12 +2845,15 @@ int ctx_stream_on_seninf_sensor(struct mtk_cam_job *job,
 	/* raw */
 	if (raw_tg_idx >= 0 && ctx->hw_raw[0]) {
 		int seninf_pad, i;
+		int raw_set = MTK_SENINF_RAW_SET1;
 
 		for (seninf_pad = PAD_SRC_RAW0, i = 0;
 			  seninf_pad <= PAD_SRC_RAW2; ++seninf_pad, ++i)
 			if (seninf_pad_bitmask & 1 << seninf_pad) {
 				/* To-Do DCG AP merge , TCG case */
-				mtk_cam_seninf_set_camtg(seninf, seninf_pad, raw_tg_idx);
+				mtk_cam_seninf_set_camtg_multiraw(
+					seninf, seninf_pad, raw_tg_idx,
+					raw_set++);
 				mtk_cam_seninf_set_pixelmode(seninf, seninf_pad, 3);
 			}
 	}

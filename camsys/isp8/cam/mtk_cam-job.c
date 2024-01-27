@@ -1462,9 +1462,11 @@ disable_seninf_cammux(struct mtk_cam_job *job)
 	unsigned int tag_idx;
 
 	for (i = 0; i < max_exp; ++i) {
-		mtk_cam_seninf_set_camtg(seninf, PAD_SRC_RAW0 + i, 0xFF);
+		mtk_cam_seninf_set_camtg_multiraw(
+			seninf, PAD_SRC_RAW0 + i, 0xFF, 0xFF);
 		if (is_w)
-			mtk_cam_seninf_set_camtg(seninf, PAD_SRC_RAW_W0 + i, 0xFF);
+			mtk_cam_seninf_set_camtg_multiraw(
+				seninf, PAD_SRC_RAW_W0 + i, 0xFF, 0xFF);
 	}
 
 	if (job->is_sensor_meta_dump)

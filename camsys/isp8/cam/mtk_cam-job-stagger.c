@@ -42,6 +42,7 @@ int apply_cam_mux_switch(struct mtk_cam_job *job)
 	int hw_scen = get_hw_scenario(job);
 	int raw_id = get_master_raw_id(job->used_engine);
 	int raw_tg_idx = raw_to_tg_idx(raw_id);
+	int raw_set = MTK_SENINF_RAW_SET1;
 	int first_tag_idx, second_tag_idx, last_tag_idx;
 	int first_tag_idx_w, last_tag_idx_w;
 	bool is_dc = is_dc_mode(job) ? true : false;
@@ -66,6 +67,7 @@ int apply_cam_mux_switch(struct mtk_cam_job *job)
 	if (config_exposure_num == 3) {
 		int i = 0, sv_idx, mraw_idx;
 		if (cur_exp == 2) {
+			// TODO: TCG <=> DCG OTF
 			first_tag_idx =
 				get_sv_tag_idx(2, MTKCAM_IPI_ORDER_FIRST_TAG, false);
 			last_tag_idx =
@@ -78,9 +80,13 @@ int apply_cam_mux_switch(struct mtk_cam_job *job)
 
 			settings[i].seninf = ctx->seninf;
 			settings[i].source = PAD_SRC_RAW1;
-			settings[i].camtg  =
-				(is_dc) ? sv_dev->cammux_id : raw_tg_idx;
-			settings[i].tag_id = (is_dc) ? last_tag_idx : -1;
+			if (is_dc) {
+				settings[i].camtg  = sv_dev->cammux_id;
+				settings[i].tag_id = last_tag_idx;
+			} else {
+				settings[i].camtg  = raw_tg_idx;
+				settings[i].raw_set = raw_set++;
+			}
 			settings[i++].enable = 1;
 
 			settings[i].seninf = ctx->seninf;
@@ -126,16 +132,19 @@ int apply_cam_mux_switch(struct mtk_cam_job *job)
 					settings[i++].enable = 1;
 				}
 			}
-
 		} else if (cur_exp == 1) {
 			int i = 0, sv_idx, mraw_idx;
 			first_tag_idx =
 				get_sv_tag_idx(1, MTKCAM_IPI_ORDER_FIRST_TAG, false);
 			settings[i].seninf = ctx->seninf;
 			settings[i].source = PAD_SRC_RAW0;
-			settings[i].camtg  =
-				(is_dc) ? sv_dev->cammux_id : raw_tg_idx;
-			settings[i].tag_id = (is_dc) ? first_tag_idx : -1;
+			if (is_dc) {
+				settings[i].camtg  = sv_dev->cammux_id;
+				settings[i].tag_id = first_tag_idx;
+			} else {
+				settings[i].camtg  = raw_tg_idx;
+				settings[i].raw_set = raw_set++;
+			}
 			settings[i++].enable = 1;
 
 			settings[i].seninf = ctx->seninf;
@@ -209,9 +218,13 @@ int apply_cam_mux_switch(struct mtk_cam_job *job)
 
 			settings[i].seninf = ctx->seninf;
 			settings[i].source = PAD_SRC_RAW2;
-			settings[i].camtg  =
-				(is_dc) ? sv_dev->cammux_id : raw_tg_idx;
-			settings[i].tag_id = (is_dc) ? last_tag_idx : -1;
+			if (is_dc) {
+				settings[i].camtg  = sv_dev->cammux_id;
+				settings[i].tag_id = last_tag_idx;
+			} else {
+				settings[i].camtg  = raw_tg_idx;
+				settings[i].raw_set = raw_set++;
+			}
 			settings[i++].enable = 1;
 
 			settings[i].seninf = ctx->seninf;
@@ -284,9 +297,13 @@ int apply_cam_mux_switch(struct mtk_cam_job *job)
 				get_sv_tag_idx(1, MTKCAM_IPI_ORDER_FIRST_TAG, true);
 			settings[i].seninf = ctx->seninf;
 			settings[i].source = PAD_SRC_RAW0;
-			settings[i].camtg  =
-				(is_dc) ? sv_dev->cammux_id : raw_tg_idx;
-			settings[i].tag_id = (is_dc) ? first_tag_idx : -1;
+			if (is_dc) {
+				settings[i].camtg  = sv_dev->cammux_id;
+				settings[i].tag_id = first_tag_idx;
+			} else {
+				settings[i].camtg  = raw_tg_idx;
+				settings[i].raw_set = raw_set++;
+			}
 			settings[i++].enable = 1;
 
 			settings[i].seninf = ctx->seninf;
@@ -360,8 +377,7 @@ int apply_cam_mux_switch(struct mtk_cam_job *job)
 				settings[i].seninf = ctx->seninf;
 				settings[i].source = PAD_SRC_RAW0;
 				settings[i].camtg  = raw_tg_idx;
-				++raw_tg_idx; // note: next seninf pad uses next raw tg id
-				settings[i].tag_id = -1;
+				settings[i].raw_set = raw_set++;
 				settings[i++].enable = 1;
 			}
 
@@ -373,9 +389,13 @@ int apply_cam_mux_switch(struct mtk_cam_job *job)
 
 			settings[i].seninf = ctx->seninf;
 			settings[i].source = PAD_SRC_RAW1;
-			settings[i].camtg  =
-				(is_dc) ? sv_dev->cammux_id : raw_tg_idx;
-			settings[i].tag_id = (is_dc) ? last_tag_idx : -1;
+			if (is_dc) {
+				settings[i].camtg  = sv_dev->cammux_id;
+				settings[i].tag_id = last_tag_idx;
+			} else {
+				settings[i].camtg  = raw_tg_idx;
+				settings[i].raw_set = raw_set++;
+			}
 			settings[i++].enable = 1;
 
 			if (is_rgbw(job)) {
@@ -462,9 +482,13 @@ int apply_cam_mux_switch(struct mtk_cam_job *job)
 			get_sv_tag_idx(1, MTKCAM_IPI_ORDER_FIRST_TAG, true);
 		settings[i].seninf = ctx->seninf;
 		settings[i].source = PAD_SRC_RAW0;
-		settings[i].camtg  =
-			(is_dc) ? sv_dev->cammux_id : raw_tg_idx;
-		settings[i].tag_id = (is_dc) ? first_tag_idx : -1;
+		if (is_dc) {
+			settings[i].camtg  = sv_dev->cammux_id;
+			settings[i].tag_id = first_tag_idx;
+		} else {
+			settings[i].camtg  = raw_tg_idx;
+			settings[i].raw_set = raw_set++;
+		}
 		settings[i++].enable = 1;
 
 		if (is_rgbw(job)) {

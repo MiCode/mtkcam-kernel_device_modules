@@ -311,8 +311,13 @@ enum TG_FORMAT_ENUM {
 };
 
 enum {
+	/* cam vcore cg */
+	CLK_CAM_VCORE_CG0 = 0,
+	CLK_CAM_VCORE_CG1,
+	CLK_CAM_VCORE_CG2,
+	CLK_CAM_VCORE_CG3,
 	/* cam cg */
-	CLK_CAM_SENINF = 0,
+	CLK_CAM_SENINF,
 	CLK_CAM_CAM,
 	CLK_CAM_CAMTG,
 	/* csi clk */
@@ -341,6 +346,10 @@ enum {
 };
 
 #define SENINF_CLK_NAMES \
+	"clk_cam_vcore_cg0", \
+	"clk_cam_vcore_cg1", \
+	"clk_cam_vcore_cg2", \
+	"clk_cam_vcore_cg3", \
 	"clk_cam_seninf", \
 	"clk_cam_cam", \
 	"clk_cam_camtg", \

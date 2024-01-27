@@ -724,6 +724,8 @@ ERROR_DMA_BUF_MAP_ATTACHMENT_FAIL:
 ERROR_DMA_BUF_ATTACH_FAIL:
 	dma_buf_put(buf_info->dmabuf);
 
+	mae_dev->mae_stream_count--;
+
 	return ret;
 }
 /*

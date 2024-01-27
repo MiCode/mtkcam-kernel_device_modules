@@ -252,22 +252,38 @@ void mtk_cam_seninf_rproc_ccu_ctrl(struct device *dev,
 		switch (ccu_msg_id[i]) {
 		case MSG_TO_CCU_SENINF_TSREC_IRQ_SEL_CTRL:
 			{
-				struct tsrec_irq_sel_info tsrec_irq_sel = {0};
+				struct tsrec_irq_sel_info *tsrec_irq_sel = NULL;
 
-				mtk_cam_seninf_tsrec_g_irq_sel_info(&tsrec_irq_sel);
+				tsrec_irq_sel = kmalloc(sizeof(struct tsrec_irq_sel_info), GFP_KERNEL);
+				if (unlikely(tsrec_irq_sel == NULL)) {
+					dev_info(dev, "[%s] ERROR: alloc resource failed msg_id: %u\n",
+						 __func__, ccu_msg_id[i]);
+					continue;
+				}
+				memset(tsrec_irq_sel, 0, sizeof(struct tsrec_irq_sel_info));
 
-				p_data = &tsrec_irq_sel;
-				data_size = sizeof(tsrec_irq_sel);
+				mtk_cam_seninf_tsrec_g_irq_sel_info(tsrec_irq_sel);
+
+				p_data = tsrec_irq_sel;
+				data_size = sizeof(struct tsrec_irq_sel_info);
 			}
 			break;
 		case MSG_TO_CCU_SENINF_DEVICE_GRP_SEL_CTRL:
 			{
-				struct mtk_cam_seninf_dev seninf_dev_sel = {0};
+				struct mtk_cam_seninf_dev *seninf_dev_sel = NULL;
 
-				g_seninf_ops->_get_device_sel_setting(dev, &seninf_dev_sel);
+				seninf_dev_sel = kmalloc(sizeof(struct mtk_cam_seninf_dev), GFP_KERNEL);
+				if (unlikely(seninf_dev_sel == NULL)) {
+					dev_info(dev, "[%s] ERROR: alloc resource failed msg_id: %u\n",
+						 __func__, ccu_msg_id[i]);
+					continue;
+				}
+				memset(seninf_dev_sel, 0, sizeof(struct mtk_cam_seninf_dev));
 
-				p_data = &seninf_dev_sel;
-				data_size = sizeof(seninf_dev_sel);
+				g_seninf_ops->_get_device_sel_setting(dev, seninf_dev_sel);
+
+				p_data = seninf_dev_sel;
+				data_size = sizeof(struct mtk_cam_seninf_dev);
 			}
 			break;
 		default:
@@ -282,6 +298,9 @@ void mtk_cam_seninf_rproc_ccu_ctrl(struct device *dev,
 			mtk_cam_seninf_rproc_ccu_ipc_send(dev,
 				p_ccu_ctrl, ccu_msg_id[i],
 				p_data, data_size, __func__);
+
+			kfree(p_data);
+			p_data = NULL;
 		}
 	}
 

@@ -1003,9 +1003,8 @@ struct mtk_cam_seninf_sentest_param *
 int mtk_cam_sv_golden_set(struct mtk_camsv_device *sv_dev, bool is_golden_set)
 {
 	int ret = 0;
-#ifdef NOT_FPGA_STAGE
+
 	mtk_mmdvfs_camsv_dc_enable(sv_dev->id, is_golden_set);
-#endif
 	dev_info(sv_dev->dev, "%s: is_golden_set:%d",
 		__func__, (is_golden_set) ? 1 : 0);
 

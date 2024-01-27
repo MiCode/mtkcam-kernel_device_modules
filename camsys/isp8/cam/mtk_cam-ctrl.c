@@ -2437,7 +2437,7 @@ int mtk_cam_ctrl_ae_workaround(struct mtk_cam_device *cam,
 		return 0;
 	for (i = 0; i < ARRAY_SIZE(ctx->hw_raw); i++) {
 		// TODO: QOF voter
-		if (ctx->hw_raw[i]) {
+		if (ctx->hw_raw[i] && (ctx->enable_hsf_raw == 0)) {
 			raw_dev = dev_get_drvdata(ctx->hw_raw[i]);
 			ae_disable(raw_dev);
 		}

@@ -506,7 +506,7 @@ int mtk_cam_hsf_config(struct mtk_cam_ctx *ctx, unsigned int raw_id)
 #endif
 
 	share_buf->cq_size = CQ_SIZE;
-	share_buf->enable_raw = bit_map_subset_of(MAP_HW_RAW, ctx->used_engine);
+	share_buf->enable_raw = ctx->used_engine;
 	share_buf->cam_module = raw_id;
 	share_buf->cam_tg = raw_id;
 

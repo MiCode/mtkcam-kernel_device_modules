@@ -169,6 +169,7 @@ struct mtk_camsv_device {
 
 	unsigned int handled_tags;
 	unsigned int used_tags;
+	unsigned int drop_tags;
 
 	int fifo_size;
 	void *msg_buffer;

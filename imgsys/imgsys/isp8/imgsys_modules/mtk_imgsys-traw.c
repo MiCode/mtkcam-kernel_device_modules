@@ -32,9 +32,9 @@
  ********************************************************************/
 #define TRAW_INIT_ARRAY_COUNT	1
 
-#define TRAW_CTL_ADDR_END		0x530
+#define TRAW_CTL_ADDR_END		0x470
 #define TRAW_DMA_ADDR_OFST		0x4000
-#define TRAW_DMA_ADDR_END		0x573C
+#define TRAW_DMA_ADDR_END		0x5D30
 #define TRAW_MOD_ADDR_OFST		0x8000
 #define TRAW_MAX_ADDR_OFST		0xFEEE
 

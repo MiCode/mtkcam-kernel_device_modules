@@ -53,6 +53,7 @@ struct mtk_seninf_aov_param {
 	int portB;
 	unsigned int is_4d1c:1;
 	int seninfAsyncIdx;
+	int seninfSelSensor;
 	u32 cphy_settle;
 	u32 dphy_clk_settle;
 	u32 dphy_data_settle;

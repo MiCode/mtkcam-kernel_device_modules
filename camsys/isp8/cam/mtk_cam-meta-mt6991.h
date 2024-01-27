@@ -640,8 +640,8 @@ struct mtk_cam_uapi_awb_stats {
 
 
 /**
- *  A E
- */
+*  A E
+*/
 #define MTK_CAM_UAPI_AEO_BLK_SIZE (32)
 #define MTK_CAM_UAPI_AEO_MAX_BLK_X (128)
 #define MTK_CAM_UAPI_AEO_MAX_BLK_Y (128)
@@ -896,7 +896,7 @@ struct mtk_cam_uapi_meta_raw_stats_cfg {
 	struct mtk_cam_uapi_pmrg_r7_sel_param pmrg_r7_sel_param;
 	struct mtk_cam_uapi_cac_param cac_param;
 
-	__u8 bytes[51672];
+	__u8 bytes[51724];
 };
 
 /**
@@ -969,7 +969,7 @@ struct mtk_cam_uapi_meta_camsv_stats_0 {
 };
 
 #define MTK_CAM_META_VERSION_MAJOR 1
-#define MTK_CAM_META_VERSION_MINOR 1
+#define MTK_CAM_META_VERSION_MINOR 2
 #define MTK_CAM_META_PLATFORM_NAME "isp80"
 #define MTK_CAM_META_CHIP_NAME "mt6991"
 

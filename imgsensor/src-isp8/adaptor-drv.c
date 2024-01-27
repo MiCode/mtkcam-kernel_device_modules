@@ -159,6 +159,9 @@ static void get_outfmt_code(struct adaptor_ctx *ctx)
 		case SENSOR_OUTPUT_FORMAT_YVU_P010:
 			ctx->fmt_code[i] = MEDIA_BUS_FMT_SBGGR10_1X10;
 			break;
+		case SENSOR_OUTPUT_FORMAT_RGB888:
+			ctx->fmt_code[i] = MEDIA_BUS_FMT_RGB888_1X24;
+			break;
 		default:
 			adaptor_logi(ctx, "unknown output format %d\n", outfmt);
 			ctx->fmt_code[i] = MEDIA_BUS_FMT_SBGGR10_1X10;

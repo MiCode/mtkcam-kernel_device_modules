@@ -99,6 +99,8 @@ static inline int get_mbus_format_by_dt(int dt, int remap_type)
 		return MEDIA_BUS_FMT_SBGGR12_1X12;
 	case 0x2d:
 		return MEDIA_BUS_FMT_SBGGR14_1X14;
+	case 0x24:
+		return MEDIA_BUS_FMT_RGB888_1X24;
 	case 0x1e:
 		return MEDIA_BUS_FMT_YUYV8_2X8;
 	default:

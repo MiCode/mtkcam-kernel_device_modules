@@ -385,6 +385,15 @@ static int get_vcinfo_by_pad_fmt(struct seninf_ctx *ctx)
 		vc->out_pad = PAD_SRC_RAW0;
 		vc->group = 0;
 		break;
+	case MEDIA_BUS_FMT_RGB888_1X24:
+		dev_info(ctx->dev, "Set to MEDIA_BUS_FMT_RGB888_1X24\n");
+		vc = &vcinfo->vc[vcinfo->cnt++];
+		vc->vc = 0;
+		vc->dt = 0x24;
+		vc->feature = VC_RAW_DATA;
+		vc->out_pad = PAD_SRC_RAW0;
+		vc->group = 0;
+		break;
 	case MEDIA_BUS_FMT_YUYV8_2X8:
 		dev_info(ctx->dev, "Set to MEDIA_BUS_FMT_YUYV8_2X8\n");
 		vc = &vcinfo->vc[vcinfo->cnt++];
@@ -688,6 +697,27 @@ int mtk_cam_seninf_fill_outpad_to_vc(struct seninf_ctx *ctx,
 					break;
 				}
 				vc->feature = VC_RAW_DATA;
+			} else if (vc->dt == 0x24) {
+				dev_info(ctx->dev, "Set vcinfo dt 0x24\n");
+				vc->feature = VC_RAW_DATA;
+				switch (desc) {
+				case VC_BRIDGE_RAW_0:
+					vc->out_pad = PAD_SRC_RAW0;
+					vc->group = VC_CH_GROUP_RAW1;
+					break;
+				case VC_BRIDGE_RAW_1:
+					vc->out_pad = PAD_SRC_RAW1;
+					vc->group = VC_CH_GROUP_RAW1;
+					break;
+				case VC_BRIDGE_RAW_2:
+					vc->out_pad = PAD_SRC_RAW2;
+					vc->group = VC_CH_GROUP_RAW1;
+					break;
+				default:
+					vc->out_pad = PAD_SRC_RAW0;
+					vc->group = VC_CH_GROUP_RAW1;
+					break;
+				}
 			} else if (vc->dt == 0x1e) {
 				dev_info(ctx->dev, "Set vcinfo\n");
 				vc->feature = VC_RAW_DATA;
@@ -778,6 +808,8 @@ int mtk_cam_seninf_get_vcinfo(struct seninf_ctx *ctx)
 			vc->exp_hsize = conv_ebd_hsize_raw14(vc->exp_hsize,
 						fd.entry[i].bus.csi2.ebd_parsing_type);
 		}
+		if (vc->dt == 0x24)
+			vc->exp_hsize = fd.entry[i].bus.csi2.hsize * 3;
 
 		switch (vc->dt) {
 		case 0x28:
@@ -810,6 +842,9 @@ int mtk_cam_seninf_get_vcinfo(struct seninf_ctx *ctx)
 			break;
 		case 0x2F:
 			vc->bit_depth = 20;
+			break;
+		case 0x24:
+			vc->bit_depth = 24;
 			break;
 		default:
 			vc->bit_depth = 8;
@@ -854,6 +889,10 @@ int mtk_cam_seninf_get_vcinfo(struct seninf_ctx *ctx)
 		} else {
 			ctx->fmt[vc->out_pad].format.code =
 				get_mbus_format_by_dt(vc->dt, vc->dt_remap_to_type);
+		}
+		if(vc->dt == 0x24) {
+			ctx->fmt[vc->out_pad].format.code =
+			get_mbus_format_by_dt(vc->dt, vc->dt_remap_to_type);
 		}
 
 		dev_info(ctx->dev,

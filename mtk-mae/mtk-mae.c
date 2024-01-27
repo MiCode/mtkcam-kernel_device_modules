@@ -423,9 +423,6 @@ static void mtk_mae_frame_done_worker(struct work_struct *work)
 
 		mtk_mae_hw_done(mae_dev, VB2_BUF_STATE_DONE);
 	}
-
-	// DEBUG_ONLY
-	pr_info("%s-", __func__);
 }
 
 static const struct v4l2_pix_format_mplane *mtk_mae_find_fmt(u32 format)
@@ -762,7 +759,7 @@ static void mtk_mae_umap_detach(struct mtk_mae_dev *mae_dev,
 		info->is_attach = false;
 	}
 
-	if (info->dmabuf)
+	if (!IS_ERR(info->dmabuf) && info->dmabuf)
 		dma_buf_put(info->dmabuf);
 
 	info->kva = 0;
@@ -771,6 +768,8 @@ static void mtk_mae_umap_detach(struct mtk_mae_dev *mae_dev,
 
 static void mtk_mae_hw_disconnect(struct mtk_mae_dev *mae_dev)
 {
+	uint32_t i;
+
 	// DEBUG_ONLY
 	mae_dev_info(mae_dev->dev, "%s+ count(%d)", __func__, mae_dev->mae_stream_count);
 
@@ -783,14 +782,15 @@ static void mtk_mae_hw_disconnect(struct mtk_mae_dev *mae_dev)
 
 		// MAE_TO_DO: unmap buffer
 		mtk_mae_umap_detach(mae_dev, &mae_dev->map_table->model_table_dmabuf_info);
-		mtk_mae_umap_detach(mae_dev, &mae_dev->map_table->config_dmabuf_info[MODEL_TYPE_FD_V0]);
-		mtk_mae_umap_detach(mae_dev, &mae_dev->map_table->coef_dmabuf_info[MODEL_TYPE_FD_V0]);
-		mtk_mae_umap_detach(mae_dev, &mae_dev->map_table->config_dmabuf_info[MODEL_TYPE_FLD_FAC_V0]);
-		mtk_mae_umap_detach(mae_dev, &mae_dev->map_table->coef_dmabuf_info[MODEL_TYPE_FLD_FAC_V0]);
 		mtk_mae_umap_detach(mae_dev, &mae_dev->map_table->image_dmabuf_info[0][0]);
 		mtk_mae_umap_detach(mae_dev, &mae_dev->map_table->param_dmabuf_info[0]);
 		mtk_mae_umap_detach(mae_dev, &mae_dev->map_table->output_dmabuf_info[0][0]);
 		mtk_mae_umap_detach(mae_dev, &mae_dev->map_table->internal_dmabuf_info);
+
+		for (i = 0; i < MODEL_TYPE_MAX; i++) {
+			mtk_mae_umap_detach(mae_dev, &mae_dev->map_table->config_dmabuf_info[i]);
+			mtk_mae_umap_detach(mae_dev, &mae_dev->map_table->coef_dmabuf_info[i]);
+		}
 
 		// MAE_TO_DO: fd->drv_ops->uninit(fd);
 	}
@@ -1214,13 +1214,9 @@ int mtk_mae_vidioc_qbuf(struct file *file, void *priv,
 	if (file == NULL || buf == NULL)
 		return -EFAULT;
 
-
 #if M2M_ENABLE
-	if (buf->type != V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
-		// DEBUG_ONLY
-		pr_info("%s-", __func__);
+	if (buf->type != V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE)
 		return v4l2_m2m_ioctl_qbuf(file, priv, buf);
-	}
 #endif
 
 	mae_dev = video_drvdata(file);
@@ -1234,8 +1230,11 @@ int mtk_mae_vidioc_qbuf(struct file *file, void *priv,
 					buf->m.planes[MODEL_TABLE_PLANE].m.fd,
 					&map_table->model_table_dmabuf_info,
 					GET_VA);
-		if (ret)
+		if (ret) {
+			mae_dev_info(mae_dev->dev, "%s, set model table dmabuf info fail\n",
+					__func__);
 			return ret;
+		}
 	}
 
 	ret = dma_buf_begin_cpu_access(map_table->model_table_dmabuf_info.dmabuf,
@@ -1253,8 +1252,11 @@ int mtk_mae_vidioc_qbuf(struct file *file, void *priv,
 					buf->m.planes[PARAM_PLANE].m.fd,
 					&map_table->param_dmabuf_info[idx],
 					GET_VA);
-		if (ret)
+		if (ret) {
+			mae_dev_info(mae_dev->dev, "%s, set param dmabuf info fail\n",
+					__func__);
 			return ret;
+		}
 	}
 
 	ret = dma_buf_begin_cpu_access(map_table->param_dmabuf_info[idx].dmabuf,
@@ -1270,6 +1272,8 @@ int mtk_mae_vidioc_qbuf(struct file *file, void *priv,
 				__func__, param->user, param->imgMaxWidth);
 	mae_dev_dbg(mae_dev->dev, "imgMaxHeight(%d), isSecure(%d), FDModelSel(%d), FACModelSel(%d), ",
 				param->imgMaxHeight, param->isSecure, param->FDModelSel, param->FACModelSel);
+	mae_dev_dbg(mae_dev->dev, "attrFaceNumber(%d), attrInputDegree(%d), ",
+				param->attrFaceNumber, param->attrInputDegree[0]);
 	mae_dev_dbg(mae_dev->dev, "pyramidNumber(%d), fdInputDegree(%d), maeMode(%d), requestNum(%d), ",
 				param->pyramidNumber, param->fdInputDegree, param->maeMode, param->requestNum);
 	mae_dev_dbg(mae_dev->dev, "image[0].srcImgFmt(%d), image[0].imgWidth(%d), image[0].imgHeight(%d), ",
@@ -1285,8 +1289,11 @@ int mtk_mae_vidioc_qbuf(struct file *file, void *priv,
 						model_table->configTable[i].fd,
 						&map_table->config_dmabuf_info[i],
 						GET_PA);
-			if (ret)
+			if (ret) {
+				mae_dev_info(mae_dev->dev, "%s, set config(%d) dmabuf info fail\n",
+					__func__, i);
 				return ret;
+			}
 
 			if (i != MODEL_TYPE_AISEG)	// AISEG Model should update perframe
 				model_table->configTable[i].isReady = 1;
@@ -1298,8 +1305,11 @@ int mtk_mae_vidioc_qbuf(struct file *file, void *priv,
 						model_table->coefTable[i].fd,
 						&map_table->coef_dmabuf_info[i],
 						GET_PA);
-			if (ret)
+			if (ret) {
+				mae_dev_info(mae_dev->dev, "%s, set coef(%d) dmabuf info fail\n",
+					__func__, i);
 				return ret;
+			}
 			if (i != MODEL_TYPE_AISEG)	// AISEG Model should update perframe
 				model_table->coefTable[i].isReady = 1;
 		}
@@ -1311,8 +1321,11 @@ int mtk_mae_vidioc_qbuf(struct file *file, void *priv,
 						buf->m.planes[IMAGE_PLANE_0].m.fd,
 						&map_table->image_dmabuf_info[idx][IMAGE_PLANE_0],
 						GET_PA);
-	if (ret)
+	if (ret) {
+		mae_dev_info(mae_dev->dev, "%s, set image dmabuf info fail\n",
+			__func__);
 		return ret;
+	}
 
 
 	// get output pa
@@ -1321,8 +1334,11 @@ int mtk_mae_vidioc_qbuf(struct file *file, void *priv,
 						buf->m.planes[OUTPUT_PLANE].m.fd,
 						&map_table->output_dmabuf_info[idx][0],
 						GET_BOTH); // DEBUG_ONLY
-		if (ret)
+		if (ret) {
+			mae_dev_info(mae_dev->dev, "%s, set output dmabuf info fail\n",
+				__func__);
 			return ret;
+		}
 	}
 
 	// get AISEG output
@@ -1333,8 +1349,11 @@ int mtk_mae_vidioc_qbuf(struct file *file, void *priv,
 						model_table->aisegOutput[i].fd,
 						&map_table->aiseg_output_dmabuf_info[idx][i],
 						GET_PA);
-			if (ret)
+			if (ret) {
+				mae_dev_info(mae_dev->dev, "%s, set aiseg output dmabuf info fail\n",
+					__func__);
 				return ret;
+			}
 		}
 	}
 
@@ -1342,8 +1361,8 @@ int mtk_mae_vidioc_qbuf(struct file *file, void *priv,
 	return v4l2_m2m_ioctl_qbuf(file, priv, buf);
 #else
 	// DEBUG_ONLY
-	pr_info("%s-", __func__);
 	return vb2_ioctl_qbuf(file, priv, buf);
+	pr_info("%s-", __func__);
 #endif
 }
 

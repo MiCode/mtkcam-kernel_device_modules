@@ -117,6 +117,7 @@ static const unsigned int fld_face_info_idx_1[MAX_FLD_V0_FACE_NUM] = {
 #define MAE_IRQ_CTRL0                    (MAE_CTRL_CENTER_BASE + 0x0014)
 #define MAE_IRQ_CTRL1                    (MAE_CTRL_CENTER_BASE + 0x0018)
 #define MAE_SYS_SHADOW_CTRL              (MAE_CTRL_CENTER_BASE + 0x001C)
+#define MAE_TRIG_SEL_4_6                 (MAE_CTRL_CENTER_BASE + 0x004C)
 
 // 0x4800 MAE_RSZ0
 #define MAE_RSZ0                         (0x4800)
@@ -171,7 +172,25 @@ static const unsigned int fld_face_info_idx_1[MAX_FLD_V0_FACE_NUM] = {
 #define REG_0180_RSZ1                     (RSZ1_BASE + 0x0180)  //
 #define REG_0184_RSZ1                     (RSZ1_BASE + 0x0184)  // reg_rsz_en[0], reg_1p_path_en[1]
                                                                 // reg_postproc_en[2], reg_ins_path[3]
-#define REG_01A8_RSZ1                     (RSZ1_BASE + 0x01A8)  //  reg_dbf_off
+
+#define REG_01A0_RSZ1                     (RSZ1_BASE + 0x01A0)
+#define REG_01A4_RSZ1                     (RSZ1_BASE + 0x01A4)
+#define REG_01A8_RSZ1                     (RSZ1_BASE + 0x01A8)
+#define REG_01AC_RSZ1                     (RSZ1_BASE + 0x01AC)
+#define REG_01B0_RSZ1                     (RSZ1_BASE + 0x01B0)
+#define REG_01B4_RSZ1                     (RSZ1_BASE + 0x01B4)
+#define REG_01B8_RSZ1                     (RSZ1_BASE + 0x01B8)
+#define REG_01BC_RSZ1                     (RSZ1_BASE + 0x01BC)
+#define REG_01C0_RSZ1                     (RSZ1_BASE + 0x01C0)
+#define REG_01C4_RSZ1                     (RSZ1_BASE + 0x01C4)
+#define REG_01C8_RSZ1                     (RSZ1_BASE + 0x01C8)
+#define REG_01CC_RSZ1                     (RSZ1_BASE + 0x01CC)
+#define REG_01D0_RSZ1                     (RSZ1_BASE + 0x01D0)
+#define REG_01D4_RSZ1                     (RSZ1_BASE + 0x01D4)
+#define REG_01D8_RSZ1                     (RSZ1_BASE + 0x01D8)
+#define REG_01DC_RSZ1                     (RSZ1_BASE + 0x01DC)
+
+
 
 
 // 0X6200 RSZ2
@@ -318,9 +337,9 @@ static const unsigned int fld_face_info_idx_1[MAX_FLD_V0_FACE_NUM] = {
 #define MAE_REG_FACE3_NUM1                (MMFD_POST_BASE + 0x00E8)
 #define MAE_REG_FACE3_NUM2                (MMFD_POST_BASE + 0x00EC)
 
-#define MAE_REG_FACE4_NUM1                (MMFD_POST_BASE + 0x00F0)
-#define MAE_REG_FACE4_NUM2                (MMFD_POST_BASE + 0x00F4)
-#define MAE_REG_FACE4_NUM3                (MMFD_POST_BASE + 0x00F8)
+#define MAE_REG_FACE4_NUM0                (MMFD_POST_BASE + 0x00F0)
+#define MAE_REG_FACE4_NUM1                (MMFD_POST_BASE + 0x00F4)
+#define MAE_REG_FACE4_NUM2                (MMFD_POST_BASE + 0x00F8)
 
 
 #define MAE_REG_H_MAX0                    (MMFD_POST_BASE + 0x0100)

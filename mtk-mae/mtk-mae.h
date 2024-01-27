@@ -21,6 +21,9 @@
 
 #define CMDQ_SEC_READY 0
 
+#define MAE_IRQ_STATUS_VALUE 0x1
+#define MAE_IRQ_MASK 0x1
+
 #define CMDQ_REG_MASK 0xffffffff
 
 #define LSB_MASK 0x000fffff
@@ -44,30 +47,58 @@
 #define V0_FD_480_360_COEF_SIZE     (11471 * MAE_BASE_ADDR_ALIGN)
 #define V0_FD_480_360_CONFIG_SIZE   (2862 * MAE_BASE_ADDR_ALIGN)
 #define V0_FD_480_360_COEF_PAT_OFFSET   \
-		(V0_FD_640_480_COEF_PAT_OFFSET + round_up(V0_FD_640_480_COEF_SIZE, MAE_BASE_ADDR_ALIGN))
+		(V0_FD_640_480_COEF_PAT_OFFSET + V0_FD_640_480_COEF_SIZE)
 #define V0_FD_480_360_CONFIG_PAT_OFFSET \
-		(V0_FD_640_480_CONFIG_PAT_OFFSET + round_up(V0_FD_640_480_CONFIG_SIZE, MAE_BASE_ADDR_ALIGN))
+		(V0_FD_640_480_CONFIG_PAT_OFFSET + V0_FD_640_480_CONFIG_SIZE)
 
 #define V0_FD_240_180_COEF_SIZE     (11471 * MAE_BASE_ADDR_ALIGN)
 #define V0_FD_240_180_CONFIG_SIZE   (2180 * MAE_BASE_ADDR_ALIGN)
 #define V0_FD_240_180_COEF_PAT_OFFSET   \
-		(V0_FD_480_360_COEF_PAT_OFFSET + round_up(V0_FD_480_360_COEF_SIZE, MAE_BASE_ADDR_ALIGN))
+		(V0_FD_480_360_COEF_PAT_OFFSET + V0_FD_480_360_COEF_SIZE)
 #define V0_FD_240_180_CONFIG_PAT_OFFSET \
-		(V0_FD_480_360_CONFIG_PAT_OFFSET + round_up(V0_FD_480_360_CONFIG_SIZE, MAE_BASE_ADDR_ALIGN))
+		(V0_FD_480_360_CONFIG_PAT_OFFSET + V0_FD_480_360_CONFIG_SIZE)
 
 #define V0_FD_120_90_COEF_SIZE      (11471 * MAE_BASE_ADDR_ALIGN)
 #define V0_FD_120_90_CONFIG_SIZE    (1834 * MAE_BASE_ADDR_ALIGN)
 #define V0_FD_120_90_COEF_PAT_OFFSET   \
-		(V0_FD_240_180_COEF_PAT_OFFSET + round_up(V0_FD_240_180_COEF_SIZE, MAE_BASE_ADDR_ALIGN))
+		(V0_FD_240_180_COEF_PAT_OFFSET + V0_FD_240_180_COEF_SIZE)
 #define V0_FD_120_90_CONFIG_PAT_OFFSET \
-		(V0_FD_240_180_CONFIG_PAT_OFFSET + round_up(V0_FD_240_180_CONFIG_SIZE, MAE_BASE_ADDR_ALIGN))
+		(V0_FD_240_180_CONFIG_PAT_OFFSET + V0_FD_240_180_CONFIG_SIZE)
 
 #define V0_ATTR_128_128_COEF_SIZE   (15290 * MAE_BASE_ADDR_ALIGN)
 #define V0_ATTR_128_128_CONFIG_SIZE (2002 * MAE_BASE_ADDR_ALIGN)
 
+#define V1_FD_IPN_640_480_COEF_SIZE (10964 * MAE_BASE_ADDR_ALIGN)
+#define V1_FD_IPN_640_480_CONFIG_SIZE (8203 * MAE_BASE_ADDR_ALIGN)
+#define V1_FD_IPN_640_480_COEF_PAT_OFFSET   0
+#define V1_FD_IPN_640_480_CONFIG_PAT_OFFSET 0
+
 #define V1_FD_IPN_480_360_COEF_SIZE (10964 * MAE_BASE_ADDR_ALIGN)
 #define V1_FD_IPN_480_360_CONFIG_SIZE (7616 * MAE_BASE_ADDR_ALIGN)
+#define V1_FD_IPN_480_360_COEF_PAT_OFFSET \
+		(V1_FD_IPN_640_480_COEF_PAT_OFFSET + V1_FD_IPN_640_480_COEF_SIZE)
+#define V1_FD_IPN_480_360_CONFIG_PAT_OFFSET \
+		(V1_FD_IPN_640_480_CONFIG_PAT_OFFSET + V1_FD_IPN_640_480_CONFIG_SIZE)
 
+#define V1_FD_IPN_240_180_COEF_SIZE (10956 * MAE_BASE_ADDR_ALIGN)
+#define V1_FD_IPN_240_180_CONFIG_SIZE (6030 * MAE_BASE_ADDR_ALIGN)
+#define V1_FD_IPN_240_180_COEF_PAT_OFFSET \
+		(V1_FD_IPN_480_360_COEF_PAT_OFFSET + V1_FD_IPN_480_360_COEF_SIZE)
+#define V1_FD_IPN_240_180_CONFIG_PAT_OFFSET \
+		(V1_FD_IPN_480_360_CONFIG_PAT_OFFSET + V1_FD_IPN_480_360_CONFIG_SIZE)
+
+#define V1_FD_IPN_120_90_COEF_SIZE (10948 * MAE_BASE_ADDR_ALIGN)
+#define V1_FD_IPN_120_90_CONFIG_SIZE (4860 * MAE_BASE_ADDR_ALIGN)
+#define V1_FD_IPN_120_90_COEF_PAT_OFFSET \
+		(V1_FD_IPN_240_180_COEF_PAT_OFFSET + V1_FD_IPN_240_180_COEF_SIZE)
+#define V1_FD_IPN_120_90_CONFIG_PAT_OFFSET \
+		(V1_FD_IPN_240_180_CONFIG_PAT_OFFSET + V1_FD_IPN_240_180_CONFIG_SIZE)
+
+#define V1_FD_FPN_480_360_COEF_SIZE (59130 * MAE_BASE_ADDR_ALIGN)
+#define V1_FD_FPN_480_360_CONFIG_SIZE (8182 * MAE_BASE_ADDR_ALIGN)
+
+#define V1_FLD_FAC_112_112_COEF_SIZE (21770 * MAE_BASE_ADDR_ALIGN)
+#define V1_FLD_FAC_112_112_CONFIG_SIZE (4420 * MAE_BASE_ADDR_ALIGN)
 
 #define MAX_OUTER_LOOP_NUM 3
 #define MAX_IMG_NUM MAX_OUTER_LOOP_NUM
@@ -84,8 +115,12 @@
 #define FD_V0_WDMA_NUM 1
 #define ATTR_V0_WDMA_NUM 4
 #define ATTR_V0_WDMA_SIZE 1
+#define FAC_V1_WDMA_NUM 6
+#define FAC_V1_WDMA_SIZE 54
 #define FD_V1_IPN_WDMA_NUM 5
 #define FD_V1_IPN_WDMA_SIZE FD_OUTPUT_SIZE
+#define FD_V1_FPN_WDMA_NUM 4
+#define FD_V1_FPN_WDMA_SIZE FD_OUTPUT_SIZE
 #define HW_OUTPUT_SIZE (FD_V1_IPN_WDMA_NUM * FD_OUTPUT_SIZE)
 
 #define BASE_ADDR_REG_SIZE 8
@@ -98,26 +133,43 @@
 #define FLD_V0_POINT 500
 
 #define AISEG_MAP_NUM 11
+#define SEMANTIC_MERGE_NUM 16
+#define PERSON_MERGE_NUM 16
+#define MERGE_CONFIDENCE_NUM 16
+#define AISEG_POP_GROUP_SIZE 3
+#define FLD_V1_INPUT_FACE_NUM 2
 
 const uint32_t fd_pattern_width[FD_PATTERN_NUM] = {640, 480, 240, 120};
 const uint32_t fd_pattern_height[FD_PATTERN_NUM] = {480, 360, 180, 90};
 
-const uint32_t v0_fd_coef_offset[FD_PATTERN_NUM] = {V0_FD_640_480_COEF_PAT_OFFSET,
+const uint32_t v0_fd_coef_offset[FD_PATTERN_NUM] = {
+						V0_FD_640_480_COEF_PAT_OFFSET,
 						V0_FD_480_360_COEF_PAT_OFFSET,
 						V0_FD_240_180_COEF_PAT_OFFSET,
 						V0_FD_120_90_COEF_PAT_OFFSET
 						};
 
-const uint32_t v0_fd_config_offset[] = {V0_FD_640_480_CONFIG_PAT_OFFSET,
+const uint32_t v0_fd_config_offset[FD_PATTERN_NUM] = {
+					V0_FD_640_480_CONFIG_PAT_OFFSET,
 					V0_FD_480_360_CONFIG_PAT_OFFSET,
 					V0_FD_240_180_CONFIG_PAT_OFFSET,
 					V0_FD_120_90_CONFIG_PAT_OFFSET
 					};
 
 
-const uint32_t v1_fd_ipn_coef_offset[FD_PATTERN_NUM] = {0, 0, 0, 0};
+const uint32_t v1_fd_ipn_coef_offset[FD_PATTERN_NUM] = {
+					V1_FD_IPN_640_480_COEF_PAT_OFFSET,
+					V1_FD_IPN_480_360_COEF_PAT_OFFSET,
+					V1_FD_IPN_240_180_COEF_PAT_OFFSET,
+					V1_FD_IPN_120_90_COEF_PAT_OFFSET
+					};
 
-const uint32_t v1_fd_ipn_config_offset[] = {0, 0, 0, 0};
+const uint32_t v1_fd_ipn_config_offset[FD_PATTERN_NUM] = {
+					V1_FD_IPN_640_480_CONFIG_PAT_OFFSET,
+					V1_FD_IPN_480_360_CONFIG_PAT_OFFSET,
+					V1_FD_IPN_240_180_CONFIG_PAT_OFFSET,
+					V1_FD_IPN_120_90_CONFIG_PAT_OFFSET
+					};
 
 struct config_info {
 	const uint32_t size;
@@ -170,10 +222,9 @@ const struct coef_info fd_v0_coef_info[FD_PATTERN_NUM] = {
 // fd_v1_ipn size and rotate offset
 const struct config_info fd_v1_ipn_config_info[FD_PATTERN_NUM] = {
 	{
-		// MAE_TO_DO
-		.size = 0,
-		.rotate_offset = 0,
-		.rotate_size = 0,
+		.size = 787,
+		.rotate_offset = 4100,
+		.rotate_size = 787,
 	},
 	{
 		.size = 895,
@@ -181,34 +232,29 @@ const struct config_info fd_v1_ipn_config_info[FD_PATTERN_NUM] = {
 		.rotate_size = 897,
 	},
 	{
-		// MAE_TO_DO
-		.size = 0,
-		.rotate_offset = 0,
-		.rotate_size = 0,
+		.size = 709,
+		.rotate_offset = 3015,
+		.rotate_size = 709,
 	},
 	{
-		// MAE_TO_DO
-		.size = 0,
-		.rotate_offset = 0,
-		.rotate_size = 0,
+		.size = 559,
+		.rotate_offset = 2429,
+		.rotate_size = 561,
 	}
 };
 
 const struct coef_info fd_v1_ipn_coef_info[FD_PATTERN_NUM] = {
 	{
-		// MAE_TO_DO
-		.size = 0,
+		.size = 289,
 	},
 	{
 		.size = 1312,
 	},
 	{
-		// MAE_TO_DO
-		.size = 0,
+		.size = 5589,
 	},
 	{
-		// MAE_TO_DO
-		.size = 0,
+		.size = 9549,
 	}
 };
 
@@ -220,6 +266,26 @@ const struct config_info attr_v0_config_info = {
 
 const struct coef_info attr_v0_coef_info = {
 	.size = 5180,
+};
+
+const struct config_info fac_v1_config_info = {
+	.size = 619,
+	.rotate_offset = 2210,
+	.rotate_size = 619,
+};
+
+const struct coef_info fac_v1_coef_info = {
+	.size = 7937,
+};
+
+const struct config_info fd_v1_fpn_config_info = {
+	.size = 777,
+	.rotate_offset = 4091,
+	.rotate_size = 777,
+};
+
+const struct coef_info fd_v1_fpn_coef_info = {
+	.size = 6449,
 };
 
 typedef enum {
@@ -378,6 +444,9 @@ struct EnqueParam {
 	int32_t pyramidNumber;
 	enum FD_INPUT_DEGREE fdInputDegree;
 	enum AISEG_INPUT_DEGREE aisegInputDegree;
+	int32_t attrFaceNumber;
+	enum FD_INPUT_DEGREE attrInputDegree[FLD_V1_INPUT_FACE_NUM];
+
 
 	MAE_MODE maeMode;
 	int32_t requestNum;
@@ -388,6 +457,11 @@ struct EnqueParam {
 	struct EnqueImage image[MAX_IMG_NUM];
 
 	int32_t faceNum[MAX_OUTER_LOOP_NUM][FD_V1_IPN_WDMA_NUM];
+
+	// aiseg post
+	uint8_t semanticMerge[AISEG_POP_GROUP_SIZE][SEMANTIC_MERGE_NUM];
+	uint8_t personMerge[AISEG_POP_GROUP_SIZE][PERSON_MERGE_NUM];
+	uint8_t mergeConfidence[AISEG_POP_GROUP_SIZE][MERGE_CONFIDENCE_NUM];
 };
 #endif
 

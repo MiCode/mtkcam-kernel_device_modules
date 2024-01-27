@@ -15,9 +15,9 @@ static unsigned int c2ps_uclamp_up_margin = 0;
 static unsigned int c2ps_uclamp_down_margin = 0;
 static unsigned int c2ps_regulator_bg_update_uclamp = 20;
 static unsigned int c2ps_regulator_bg_update_uclamp_fast;
-static unsigned int c2ps_uclamp_bg_up_margin_cluster0 = 60;
-static unsigned int c2ps_uclamp_bg_up_margin_cluster1 = 40;
-static unsigned int c2ps_uclamp_bg_up_margin_cluster2 = 0;
+static unsigned int c2ps_uclamp_bg_up_margin_cluster0 = 1000;
+static unsigned int c2ps_uclamp_bg_up_margin_cluster1 = 1000;
+static unsigned int c2ps_uclamp_bg_up_margin_cluster2 = 1000;
 
 module_param(c2ps_regulator_debug_max_uclamp, int, 0644);
 module_param(c2ps_regulator_debug_min_uclamp, int, 0644);

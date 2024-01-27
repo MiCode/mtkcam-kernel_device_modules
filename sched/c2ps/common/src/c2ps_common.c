@@ -33,7 +33,7 @@ static struct global_info *glb_info;
 bool is_release_uclamp_max = false;
 int proc_time_window_size = 1;
 int debug_log_on = 0;
-int background_idlerate_alert = 12;
+int background_idlerate_alert = 15;
 int background_idlerate_dangerous = 5;
 int c2ps_placeholder;
 bool recovery_uclamp_max_immediately;

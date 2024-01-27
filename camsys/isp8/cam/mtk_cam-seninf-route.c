@@ -1766,18 +1766,18 @@ int mtk_cam_seninf_s_stream_mux(struct seninf_ctx *ctx)
 	/* Free list */
 	mtk_cam_seninf_outmux_release_all(ctx, &outmux_cfgs);
 
-//#ifdef SENSOR_SECURE_MTEE_SUPPORT
-//	if (ctx->is_secure != 1)
-//		dev_info(ctx->dev,
-//			"is not secure, won't Sensor kernel init seninf_ca");
-//	else {
-//		if (!seninf_ca_open_session())
-//			dev_info(ctx->dev, "seninf_ca_open_session fail");
+#ifdef SENSOR_SECURE_MTEE_SUPPORT
+	if (ctx->is_secure != 1)
+		dev_info(ctx->dev,
+			"is not secure, won't Sensor kernel init seninf_ca");
+	else {
+		if (!seninf_ca_open_session())
+			dev_info(ctx->dev, "seninf_ca_open_session fail");
 
-//		dev_info(ctx->dev, "Sensor kernel ca_checkpipe");
-//		seninf_ca_checkpipe(ctx->SecInfo_addr);
-//	}
-//#endif
+		dev_info(ctx->dev, "Sensor kernel ca_checkpipe");
+		seninf_ca_checkpipe(ctx->SecInfo_addr);
+	}
+#endif
 
 	return 0;
 }

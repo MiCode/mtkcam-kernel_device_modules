@@ -88,11 +88,15 @@ struct mtkcam_ipi_img_output {
 struct mtkcam_ipi_meta_input {
 	struct mtkcam_ipi_uid		uid;
 	struct mtkcam_ipi_buffer	buf;
+	__u8 remap;
+	__u8 buf_idx;
 } __packed;
 
 struct mtkcam_ipi_meta_output {
 	struct mtkcam_ipi_uid		uid;
 	struct mtkcam_ipi_buffer	buf;
+	__u8 remap;
+	__u8 buf_idx;
 } __packed;
 
 struct mtkcam_ipi_input_param {
@@ -250,6 +254,7 @@ struct mtkcam_ipi_timeshared_msg {
 
 struct mtkcam_ipi_config_param {
 	__u8 flags;
+	__u8 need_sw_workaround;
 	struct mtkcam_ipi_input_param	input;
 	struct mtkcam_ipi_sv_input_param sv_input[CAMSV_MAX_PIPE_USED][CAMSV_MAX_TAGS];
 	struct mtkcam_ipi_mraw_input_param mraw_input[MRAW_MAX_PIPE_USED];
@@ -281,7 +286,9 @@ struct mtkcam_ipi_frame_param {
 	/* for UFD meta info transfer from buffer header to parameters */
 	struct mtkcam_ipi_img_ufdo_params img_ufdo_params;
 	struct mtkcam_ipi_img_ufdi_params img_ufdi_params;
-
+	/* for LTMSGO low latency used - kernel will handle linkage between frames */
+	struct mtkcam_ipi_meta_input meta_workbuf_in;
+	struct mtkcam_ipi_meta_output meta_workbuf_out;
 	/* following will be modified */
 	//struct mtkcam_ipi_bw_info	bw_infos[10*3]; //ports * num_raw
 } __packed;
@@ -301,6 +308,7 @@ struct mtkcam_ipi_frame_ack_result {
 	struct mtkcam_ipi_cq_desc_entry		sub;
 	struct mtkcam_ipi_cq_desc_entry		mraw[MRAW_MAX_PIPE_USED];
 	struct mtkcam_ipi_cq_desc_entry		camsv[CAMSV_MAX_PIPE_USED];
+	__u8 rms_disable;
 } __packed;
 
 struct mtkcam_ipi_ack_info {

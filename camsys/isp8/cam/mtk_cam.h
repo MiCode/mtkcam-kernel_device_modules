@@ -329,6 +329,8 @@ struct mtk_cam_device {
 
 	/* shutdown flow */
 	wait_queue_head_t shutdown_wq;
+	/* chip id */
+	u32 sw_ver;
 };
 
 static inline struct device *subdev_to_cam_dev(struct v4l2_subdev *sd)

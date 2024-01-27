@@ -3901,6 +3901,33 @@ int mtk_cam_get_available_engine(struct mtk_cam_device *cam)
 
 	return cam->engines.full_set & ~occupied;
 }
+struct tag_chipid {
+	u32 size;
+	u32 hw_code;
+	u32 hw_subcode;
+	u32 hw_ver;
+	u32 sw_ver;
+};
+void mtk_cam_get_chipid(struct mtk_cam_device *cam)
+{
+	struct device_node *node;
+	struct tag_chipid *chip_id = NULL;
+	int len;
+
+	node = of_find_node_by_path("/chosen");
+	if (!node)
+		node = of_find_node_by_path("/chosen@0");
+	if (node) {
+		chip_id = (struct tag_chipid *) of_get_property(node, "atag,chipid", &len);
+		if (!chip_id)
+			pr_info("could not found atag,chipid in chosen\n");
+	} else {
+		pr_info("chosen node not found in device tree\n");
+	}
+	if (chip_id)
+		cam->sw_ver = chip_id->sw_ver;
+	dev_info(cam->dev, "current sw version:0x%x\n", cam->sw_ver);
+}
 
 int mtk_cam_update_engine_status(struct mtk_cam_device *cam,
 				 unsigned long engine_mask,
@@ -4525,6 +4552,7 @@ SKIP_ADLRD_IRQ:
 
 	mtk_cam_debug_init(&cam_dev->dbg, cam_dev);
 	init_waitqueue_head(&cam_dev->shutdown_wq);
+	mtk_cam_get_chipid(cam_dev);
 
 	return 0;
 

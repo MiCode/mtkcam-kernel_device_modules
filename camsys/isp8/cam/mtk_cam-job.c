@@ -4595,7 +4595,7 @@ static int mtk_cam_job_fill_ipi_config(struct mtk_cam_job *job,
 			config->flags = MTK_CAM_IPI_CONFIG_TYPE_INPUT_CHANGE;
 		else
 			config->flags = MTK_CAM_IPI_CONFIG_TYPE_INIT;
-
+		config->need_sw_workaround = ctx->cam->sw_ver != 0x0001;
 		config->sw_feature = get_sw_feature(job);
 
 		update_scen_order_to_config(&job->job_scen, config);

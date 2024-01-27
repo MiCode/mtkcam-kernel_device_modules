@@ -2433,6 +2433,9 @@ int mtk_cam_ctrl_ae_workaround(struct mtk_cam_device *cam,
 	struct mtk_raw_device *raw_dev;
 	int i = 0;
 
+	if (ctx->cam->sw_ver == 0x0001)
+		return 0;
+
 	if (mtk_cam_ctrl_get(ctrl))
 		return 0;
 	for (i = 0; i < ARRAY_SIZE(ctx->hw_raw); i++) {

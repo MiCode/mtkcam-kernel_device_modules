@@ -234,7 +234,7 @@ static struct mtk_mbus_frame_desc_entry frame_desc_slim_vid[] = {
 		},
 	},
 };
-
+#ifdef CHDR_SUPPORT
 // mode 5: 4624*3472@30fps, stagger 2exp, non-pd
 static struct mtk_mbus_frame_desc_entry frame_desc_cus1[] = {
 	{
@@ -258,6 +258,7 @@ static struct mtk_mbus_frame_desc_entry frame_desc_cus1[] = {
 		},
 	},
 };
+#endif
 
 // mode 6: 4624*2604@25fps, stagger 2exp + PD 1136 x 648
 static struct mtk_mbus_frame_desc_entry frame_desc_cus2[] = {
@@ -293,6 +294,7 @@ static struct mtk_mbus_frame_desc_entry frame_desc_cus2[] = {
 	},
 };
 
+#ifdef CHDR_SUPPORT
 // mode 7: 4624*3472@20fps, stagger 2exp + PD 1136 x 860
 static struct mtk_mbus_frame_desc_entry frame_desc_cus3[] = {
 	{
@@ -326,6 +328,7 @@ static struct mtk_mbus_frame_desc_entry frame_desc_cus3[] = {
 		},
 	},
 };
+#endif
 
 // mode 8: 4624*3472@30fps, full size + center crop + PD 576 x 868
 static struct mtk_mbus_frame_desc_entry frame_desc_cus4[] = {
@@ -666,6 +669,7 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.dpc_enabled = TRUE,
 		.pdc_enabled = FALSE,
 	},
+	#ifdef CHDR_SUPPORT
 	// mode 5: 4624*3472@30fps, stagger 2exp, non-pd
 	{
 		.frame_desc = frame_desc_cus1,
@@ -714,6 +718,7 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.dpc_enabled = TRUE,
 		.pdc_enabled = FALSE,
 	},
+	#endif
 	// mode 6: 4624*2604@23fps, stagger 2exp + pd
 	{
 		.frame_desc = frame_desc_cus2,
@@ -762,6 +767,7 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.dpc_enabled = TRUE,
 		.pdc_enabled = TRUE,
 	},
+	#ifdef CHDR_SUPPORT
 	// mode 7: 4624*3472@18fps, stagger 2exp + pd
 	{
 		.frame_desc = frame_desc_cus3,
@@ -810,6 +816,7 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.dpc_enabled = TRUE,
 		.pdc_enabled = TRUE,
 	},
+	#endif
 	// mode 8: 4624*3472@30fps, full size + center crop + pd
 	{
 		.frame_desc = frame_desc_cus4,

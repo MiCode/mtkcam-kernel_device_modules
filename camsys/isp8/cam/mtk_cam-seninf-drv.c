@@ -2628,14 +2628,18 @@ static int mtk_cam_seninf_set_ctrl(struct v4l2_ctrl *ctrl)
 		break;
 	case V4L2_CID_MTK_SENINF_S_STREAM:
 		/* get current sensor idx by get_sensor_idx */
-		core->current_sensor_id = 1;
-		//core->current_sensor_id = get_sensor_idx(ctx);
-		//if (core->current_sensor_id < 0) {
-		//	dev_info(ctx->dev,
-		//		"[%s] get_sensor_idx[%d] fail\n",
-		//		__func__, core->current_sensor_id);
-		//	return core->current_sensor_id;
-		//}
+		if (ctx->is_test_model) {
+			// arbitrary sensor id in test model flow
+			core->current_sensor_id = 1;
+		} else {
+			core->current_sensor_id = get_sensor_idx(ctx);
+			if (core->current_sensor_id < 0) {
+				dev_info(ctx->dev,
+					"[%s] get_sensor_idx[%d] fail\n",
+					__func__, core->current_sensor_id);
+				return core->current_sensor_id;
+			}
+		}
 		switch (s_stream_ctrl->stream_mode) {
 		case AOV_TEST_MODEL:
 			if (s_stream_ctrl->enable) {

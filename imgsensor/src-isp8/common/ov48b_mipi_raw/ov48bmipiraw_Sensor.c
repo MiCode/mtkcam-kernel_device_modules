@@ -343,7 +343,6 @@ static struct mtk_mbus_frame_desc_entry frame_desc_cus3[] = {
 	},
 #endif
 };
-# ifdef SMVR
 static struct mtk_mbus_frame_desc_entry frame_desc_cus4[] = {
 	{
 		.bus.csi2 = {
@@ -459,7 +458,6 @@ static struct mtk_mbus_frame_desc_entry frame_desc_cus8[] = {
 	},
 #endif
 };
-#endif
 static struct mtk_mbus_frame_desc_entry frame_desc_cus9[] = {
 	{
 		.bus.csi2 = {
@@ -1111,7 +1109,6 @@ static struct subdrv_mode_struct mode_struct[] = {
 			.cphy_settle = 98,
 		},
 	},
-	# ifdef SMVR
 	{
 		.frame_desc = frame_desc_cus4,
 		.num_entries = ARRAY_SIZE(frame_desc_cus4),
@@ -1352,7 +1349,6 @@ static struct subdrv_mode_struct mode_struct[] = {
 			.cphy_settle = 98,
 		},
 	},
-	#endif
 	{
 		.frame_desc = frame_desc_cus9,
 		.num_entries = ARRAY_SIZE(frame_desc_cus9),

@@ -133,7 +133,6 @@ int apply_cam_mux_switch(struct mtk_cam_job *job)
 				}
 			}
 		} else if (cur_exp == 1) {
-			int i = 0, sv_idx, mraw_idx;
 			first_tag_idx =
 				get_sv_tag_idx(1, MTKCAM_IPI_ORDER_FIRST_TAG, false);
 			settings[i].seninf = ctx->seninf;
@@ -197,7 +196,6 @@ int apply_cam_mux_switch(struct mtk_cam_job *job)
 				}
 			}
 		} else if (cur_exp == 3) {
-			int i = 0, sv_idx, mraw_idx;
 			first_tag_idx =
 				get_sv_tag_idx(3, MTKCAM_IPI_ORDER_FIRST_TAG, false);
 			second_tag_idx =

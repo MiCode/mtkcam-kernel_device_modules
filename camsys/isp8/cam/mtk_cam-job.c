@@ -4801,6 +4801,8 @@ static int update_raw_image_buf_to_ipi_frame(struct req_buffer_helper *helper,
 	case MTKCAM_IPI_RAW_DRZH2NO_1:
 	case MTKCAM_IPI_RAW_DRZS4NO_3:
 	case MTKCAM_IPI_RAW_DRZB2NO_1:
+	case MTKCAM_IPI_RAW_GMPO:
+	case MTKCAM_IPI_RAW_GRMGO:
 		if (job_helper->update_raw_yuvo_to_ipi)
 			update_fn = job_helper->update_raw_yuvo_to_ipi;
 		break;

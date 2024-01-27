@@ -198,7 +198,7 @@ static void init_camsys_settings(struct mtk_raw_device *dev, bool is_srt)
 
 	wmb(); /* TBC */
 
-	dev_info(dev->dev, "%s: is srt:%d halt1~10,13:0x%x/0x%x/0x%x/0x%x/0x%x/0x%x/0x%x/0x%x/0x%x/0x%x/0x%x\n",
+	dev_info_ratelimited(dev->dev, "%s: is srt:%d halt1~10,13:0x%x/0x%x/0x%x/0x%x/0x%x/0x%x/0x%x/0x%x/0x%x/0x%x/0x%x\n",
 		__func__, is_srt,
 		readl(cam_dev->base + REG_HALT1_EN), readl(cam_dev->base + REG_HALT2_EN),
 		readl(cam_dev->base + REG_HALT3_EN), readl(cam_dev->base + REG_HALT4_EN),
@@ -221,14 +221,14 @@ static void init_ADLWR_settings(struct mtk_cam_device *cam)
 
 static void dump_dc_setting(struct mtk_raw_device *dev)
 {
-	dev_info(dev->dev, "[outer] CAMCTL_SCENARIO_CTL/MODE 0x%08x/0x%08x DCIF_CTL/2:0x%08x/0x%08x, CHASING_SRC_SEL:0x%08x, TG_DCIF_CTL:0x%08x\n",
+	dev_info_ratelimited(dev->dev, "[outer] CAMCTL_SCENARIO_CTL/MODE 0x%08x/0x%08x DCIF_CTL/2:0x%08x/0x%08x, CHASING_SRC_SEL:0x%08x, TG_DCIF_CTL:0x%08x\n",
 		 raw_readl(dev, dev->base, REG_CAMCTL_SCENARIO_CTL),
 		 raw_readl(dev, dev->base, REG_CAMCTL_SCENARIO_MODE),
 		 raw_readl(dev, dev->base, REG_CAMCTL_DCIF_CTL),
 		 raw_readl(dev, dev->base, REG_CAMCTL_DCIF2_CTL),
 		 raw_readl(dev, dev->base, REG_CAMCTL_DCIF_CHASING_SRC_SEL),
 		 raw_readl(dev, dev->base, REG_TG_DCIF_CTL));
-	dev_info(dev->dev, "[inner] CAMCTL_SCENARIO_CTL/MODE 0x%08x/0x%08x DCIF_CTL/2:0x%08x/0x%08x, CHASING_SRC_SEL:0x%08x, TG_DCIF_CTL:0x%08x\n",
+	dev_info_ratelimited(dev->dev, "[inner] CAMCTL_SCENARIO_CTL/MODE 0x%08x/0x%08x DCIF_CTL/2:0x%08x/0x%08x, CHASING_SRC_SEL:0x%08x, TG_DCIF_CTL:0x%08x\n",
 		 raw_readl(dev, dev->base_inner, REG_CAMCTL_SCENARIO_CTL),
 		 raw_readl(dev, dev->base_inner, REG_CAMCTL_SCENARIO_MODE),
 		 raw_readl(dev, dev->base_inner, REG_CAMCTL_DCIF_CTL),
@@ -249,13 +249,13 @@ static void dump_cq_setting(struct mtk_raw_device *dev)
 
 static void dump_interrupt(struct mtk_raw_device *dev)
 {
-	dev_info(dev->dev, "CAMCTL INT17_EN 0x%08x\n",
+	dev_info_ratelimited(dev->dev, "CAMCTL INT17_EN 0x%08x\n",
 		 raw_readl_relaxed(dev, dev->base, REG_CAMCTL_INT17_EN));
-	dev_info(dev->dev, "CAMCTL INT18_EN 0x%08x\n",
+	dev_info_ratelimited(dev->dev, "CAMCTL INT18_EN 0x%08x\n",
 		 raw_readl_relaxed(dev, dev->base, REG_CAMCTL_INT18_EN));
-	dev_info(dev->dev, "CAMCTL INT20_EN 0x%08x\n",
+	dev_info_ratelimited(dev->dev, "CAMCTL INT20_EN 0x%08x\n",
 		 raw_readl_relaxed(dev, dev->base, REG_CAMCTL_INT20_EN));
-	dev_info(dev->dev, "CAMCTL INT21_EN 0x%08x\n",
+	dev_info_ratelimited(dev->dev, "CAMCTL INT21_EN 0x%08x\n",
 		 raw_readl_relaxed(dev, dev->base, REG_CAMCTL_INT21_EN));
 }
 
@@ -273,7 +273,7 @@ static void dump_tg_setting(struct mtk_raw_device *dev, const char *msg)
 		 raw_readl_relaxed(dev, dev->base, REG_TG_SEN_GRAB_PXL),
 		 raw_readl_relaxed(dev, dev->base, REG_TG_SEN_GRAB_LIN));
 
-	dev_info(dev->dev,
+	dev_info_ratelimited(dev->dev,
 		 "%s [inner] TG SENMODE/VFCON/PATHCFG/VSEOL_SUB: %x/%x/%x/%x GRABPXL/LIN: %x/%x\n",
 		 msg,
 		 raw_readl_relaxed(dev, dev->base_inner, REG_TG_SEN_MODE),
@@ -1520,7 +1520,7 @@ static void raw_handle_dma_err(struct mtk_raw_device *raw_dev,
 	if (cnt <= 3) {
 		struct mtk_yuv_device *yuv_dev = get_yuv_dev(raw_dev);
 
-		dump_topdebug_rdyreq_status(raw_dev);
+		// dump_topdebug_rdyreq_status(raw_dev);
 		dump_raw_dma_err_st(raw_dev);
 		dump_yuv_dma_err_st(yuv_dev);
 	}

@@ -484,7 +484,8 @@ static int fill_raw_out_qos(struct mtk_cam_job *job,
 	qos_desc = find_qos_desc_by_uid(
 			mmqos_img_table, ARRAY_SIZE(mmqos_img_table), out->uid.id);
 	if (!qos_desc) {
-		pr_info("%s: can't find qos desc in table uid:%d", __func__, out->uid.id);
+		if (CAM_DEBUG_ENABLED(MMQOS))
+			pr_info("%s: can't find qos desc in table uid:%d", __func__, out->uid.id);
 		return 0;
 	}
 

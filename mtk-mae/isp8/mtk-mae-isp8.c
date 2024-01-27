@@ -34,7 +34,7 @@
 						VALUE, CMDQ_REG_MASK);	\
 	} while(0)
 
-#define DIV_CEIL_POS(X,Y)	(((X)-(int)(X/Y)*Y) > 0 ? (int)((X/Y)+1) : (int)(X/Y))
+#define DIV_CEIL_POS(X,Y)	((((X)) - (int)((X) / (Y)) * (Y)) > 0 ? (int)(((X) / (Y)) + 1) : (int)((X) / (Y)))
 // #define CEIL_POS(X)	((X-(int)(X)) > 0 ? (int)(X+1) : (int)(X))
 // #define CEIL_NEG(X)	(int)(X)
 // #define CEIL(X)		( ((X) > 0) ? CEIL_POS(X) : CEIL_NEG(X) )
@@ -43,9 +43,10 @@
 // #define FLOOR_NEG(X)		((X-(int)(X)) < 0 ? (int)(X-1) : (int)(X))
 // #define FLOOR(X)		( ((X) > 0) ? FLOOR_POS(X) : FLOOR_NEG(X) )
 
-#define MIN(X,Y)		((X > Y) ? Y : X)
-#define MAX(X,Y)		((X > Y) ? X : Y)
-#define ABS(X)			((X > 0) ? X : -X)
+#define MIN(X,Y)		(((X) > (Y)) ? (Y) : (X))
+#define MAX(X,Y)		(((X) > (Y)) ? (X) : (Y))
+#define ABS(X)			(((X) > 0) ? (X) : -(X))
+#define ROUND(X,Y)		((((X)/(Y))>=0)?(int)((2*(X))+(Y))/(2*(Y)):(int)((2*(X))-(Y))/(2*(Y)))
 
 /*
  * MAE Debug level:
@@ -702,49 +703,6 @@ void mtk_mae_crop(struct mtk_mae_dev *mae_dev,
 			out->reg_pre_crop_v_crop_en);
 }
 
-static void mtk_mae_config_crop(struct mtk_mae_dev *mae_dev,
-				struct EnqueParam *param,
-				struct cmdq_pkt *pkt,
-				uint32_t rsz_offset)
-{
-	struct crop_setting_in crop_in;
-	struct crop_setting_out crop_out = {0};
-
-	// resize setting on
-	crop_in.start_x = param->image[0].roi.x1;
-	crop_in.end_x = param->image[0].roi.x2;
-	crop_in.start_y = param->image[0].roi.y1;
-	crop_in.end_y = param->image[0].roi.y2;
-	crop_in.input_h_size = param->image[0].imgWidth;
-	crop_in.input_v_size = param->image[0].imgHeight;
-	mtk_mae_crop(mae_dev, &crop_in, &crop_out);
-
-	MAE_CMDQ_WRITE_REG(pkt, REG_00C8_RSZ1 + rsz_offset,
-			REG_RANGE(crop_out.reg_pre_crop_h_st, 13, 0));
-
-	MAE_CMDQ_WRITE_REG(pkt,
-			REG_00CC_RSZ1 + rsz_offset,
-			REG_RANGE(crop_out.reg_pre_crop_h_length, 13, 0));
-
-	MAE_CMDQ_WRITE_REG(pkt,
-			REG_00D0_RSZ1 + rsz_offset,
-			REG_RANGE(crop_out.reg_pre_crop_hfde_size, 13, 0));
-
-	MAE_CMDQ_WRITE_REG(pkt,
-			REG_00D4_RSZ1 + rsz_offset,
-			REG_RANGE(crop_out.reg_pre_crop_v_st, 13, 0));
-
-	MAE_CMDQ_WRITE_REG(pkt,
-			REG_00D8_RSZ1 + rsz_offset,
-			REG_RANGE(crop_out.reg_pre_crop_v_length, 13, 0));
-
-	MAE_CMDQ_WRITE_REG(pkt,
-			REG_00C0_RSZ1 + rsz_offset,
-			0x80 +
-			(REG_RANGE(crop_out.reg_pre_crop_v_crop_en, 0, 0) << 1) +
-			REG_RANGE(crop_out.reg_pre_crop_h_crop_en, 0, 0));
-}
-
 // follow DE crop formula
 void mtk_mae_padding(struct mtk_mae_dev *mae_dev,
 			const struct padding_setting_in *in,
@@ -800,104 +758,6 @@ void mtk_mae_padding(struct mtk_mae_dev *mae_dev,
 			out->reg_h_size,
 			out->reg_v_size,
 			out->reg_post_ins_hv_insert_en);
-}
-
-static bool mtk_mae_config_padding(struct mtk_mae_dev *mae_dev,
-				struct EnqueParam *param,
-				struct cmdq_pkt *pkt,
-				uint32_t rsz_offset,
-				int idx)
-{
-	struct padding_setting_in padding_in;
-	struct padding_setting_out padding_out = {0};
-
-	if (param->maeMode == FD_V0 || param->maeMode == FD_V1_IPN) {
-		padding_in.left = 0;
-		padding_in.up = 0;
-
-		if (param->image[0].enRoi) {
-			padding_in.crop_output_h_size = param->image[0].roi.x2 - param->image[0].roi.x1 + 1;
-			padding_in.crop_output_v_size = param->image[0].roi.y2 - param->image[0].roi.y1 + 1;
-		} else {
-			padding_in.crop_output_h_size = param->image[0].imgWidth;
-			padding_in.crop_output_v_size = param->image[0].imgHeight;
-		}
-
-		padding_in.right =
-			(fd_pattern_width[mae_dev->core_sel[idx]] * padding_in.crop_output_h_size) /
-			(param->image[0].resizeWidth)
-			- padding_in.crop_output_h_size;
-		padding_in.down =
-			(fd_pattern_height[mae_dev->core_sel[idx]] * padding_in.crop_output_h_size) /
-			(param->image[0].resizeWidth)
-			- padding_in.crop_output_v_size;
-
-		if (padding_in.right < 0 || padding_in.down < 0) {
-			mae_dev_info(mae_dev->dev, "can not padding negative value r(%d) d(%d)",
-				padding_in.right, padding_in.down);
-			return false; // RETURN_ERROR
-		}
-	} else {
-		padding_in.left = param->image[0].padding.left;
-		padding_in.right = param->image[0].padding.right;
-		padding_in.down = param->image[0].padding.down;
-		padding_in.up = param->image[0].padding.up;
-		if (param->image[0].enRoi) {
-			padding_in.crop_output_h_size = param->image[0].roi.x2 - param->image[0].roi.x1 + 1;
-			padding_in.crop_output_v_size = param->image[0].roi.y2 - param->image[0].roi.y1 + 1;
-		} else {
-			padding_in.crop_output_h_size = param->image[0].imgWidth;
-			padding_in.crop_output_v_size = param->image[0].imgHeight;
-		}
-	}
-
-	if (padding_in.left == 0 &&
-		padding_in.right == 0 &&
-		padding_in.down == 0 &&
-		padding_in.up == 0)
-		return false;
-
-	mtk_mae_padding(mae_dev, &padding_in, &padding_out);
-
-	MAE_CMDQ_WRITE_REG(pkt,
-			REG_010C_RSZ1 + rsz_offset,
-			REG_RANGE(padding_out.reg_post_ins_blk_hpre, 13, 0));
-
-	MAE_CMDQ_WRITE_REG(pkt,
-			REG_0110_RSZ1 + rsz_offset,
-			REG_RANGE(padding_out.reg_post_ins_h_length, 13, 0));
-
-	MAE_CMDQ_WRITE_REG(pkt,
-			REG_0114_RSZ1 + rsz_offset,
-			REG_RANGE(padding_out.reg_post_ins_hfde_size, 13, 0));
-
-	MAE_CMDQ_WRITE_REG(pkt,
-			REG_0118_RSZ1 + rsz_offset,
-			REG_RANGE(padding_out.reg_post_ins_blk_vpre, 13, 0));
-
-	MAE_CMDQ_WRITE_REG(pkt,
-			REG_011C_RSZ1 + rsz_offset,
-			REG_RANGE(padding_out.reg_post_ins_v_length, 13, 0));
-
-	MAE_CMDQ_WRITE_REG(pkt,
-			REG_0120_RSZ1 + rsz_offset,
-			REG_RANGE(padding_out.reg_post_ins_vfde_size, 13, 0));
-
-	MAE_CMDQ_WRITE_REG(pkt,
-			REG_00A0_RSZ1 + rsz_offset,
-			(1 << 15) + REG_RANGE(padding_out.reg_h_size, 13, 0));
-
-	// reg_v_size_usr_md_1[15] = 1
-	MAE_CMDQ_WRITE_REG(pkt,
-			REG_00A4_RSZ1 + rsz_offset,
-			(1 << 15) + REG_RANGE(padding_out.reg_v_size, 13, 0));
-
-	// reg_post_ins_boundary_md_1[0] = 0, reg_post_ins_de_start_trig_md_1 = 0
-	MAE_CMDQ_WRITE_REG(pkt,
-			REG_0104_RSZ1 + rsz_offset,
-			REG_RANGE(padding_out.reg_post_ins_hv_insert_en, 0, 0));
-
-	return true;
 }
 
 // follow DE resize formula
@@ -1011,35 +871,171 @@ static void mtk_mae_resize(struct mtk_mae_dev *mae_dev,
 			out->reg_rsz_u2s);
 }
 
-static void mtk_mae_config_rsz(struct mtk_mae_dev *mae_dev,
+static bool mtk_mae_config_rsz(struct mtk_mae_dev *mae_dev,
 				struct EnqueParam *param,
 				struct cmdq_pkt *pkt,
 				uint32_t rsz_offset,
-				bool isPadding)
+				int idx)
 {
+	struct crop_setting_in crop_in;
+	struct crop_setting_out crop_out = {0};
+	struct padding_setting_in padding_in;
+	struct padding_setting_out padding_out = {0};
 	struct rsz_setting_in rsz_in;
 	struct rsz_setting_out rsz_out = {0};
-	uint32_t rsz_input_h_size = param->image[0].imgWidth;
-	uint32_t rsz_input_v_size = param->image[0].imgHeight;
 
-	// resize setting on
+	// crop
 	if (param->image[0].enRoi) {
-		rsz_input_h_size = param->image[0].roi.x2 - param->image[0].roi.x1;
-		rsz_input_v_size = param->image[0].roi.y2 - param->image[0].roi.y1;
+		crop_in.start_x = param->image[0].roi.x1;
+		crop_in.end_x = param->image[0].roi.x2;
+		crop_in.start_y = param->image[0].roi.y1;
+		crop_in.end_y = param->image[0].roi.y2;
+	} else {
+		crop_in.start_x = 0;
+		crop_in.end_x = param->image[0].imgWidth;
+		crop_in.start_y = 0;
+		crop_in.end_y = param->image[0].imgHeight;
+	}
+	crop_in.input_h_size = param->image[0].imgWidth;
+	crop_in.input_v_size = param->image[0].imgHeight;
+
+	mtk_mae_crop(mae_dev, &crop_in, &crop_out);
+
+	// padding
+	if (param->maeMode == FD_V0 || param->maeMode == FD_V1_IPN) {
+		padding_in.left = 0;
+		padding_in.up = 0;
+
+		if (param->image[0].enRoi) {
+			padding_in.crop_output_h_size = param->image[0].roi.x2 - param->image[0].roi.x1 + 1;
+			padding_in.crop_output_v_size = param->image[0].roi.y2 - param->image[0].roi.y1 + 1;
+		} else {
+			padding_in.crop_output_h_size = param->image[0].imgWidth;
+			padding_in.crop_output_v_size = param->image[0].imgHeight;
 	}
 
-	if (isPadding) {
-		rsz_input_h_size += param->image[0].padding.right + param->image[0].padding.left;
-		rsz_input_v_size += param->image[0].padding.up + param->image[0].padding.down;
+		padding_in.right =
+			(fd_pattern_width[mae_dev->core_sel[idx]] * padding_in.crop_output_h_size) /
+			(param->image[0].resizeWidth)
+			- padding_in.crop_output_h_size;
+		padding_in.down =
+			(fd_pattern_height[mae_dev->core_sel[idx]] * padding_in.crop_output_h_size) /
+			(param->image[0].resizeWidth)
+			- padding_in.crop_output_v_size;
+
+		if (padding_in.right < 0 || padding_in.down < 0) {
+			mae_dev_info(mae_dev->dev, "can not padding negative value r(%d) d(%d)",
+				padding_in.right, padding_in.down);
+			return false; // RETURN_ERROR
+		}
+	} else {
+		padding_in.left = param->image[0].padding.left;
+		padding_in.right = param->image[0].padding.right;
+		padding_in.down = param->image[0].padding.down;
+		padding_in.up = param->image[0].padding.up;
+		if (param->image[0].enRoi) {
+			padding_in.crop_output_h_size = param->image[0].roi.x2 - param->image[0].roi.x1 + 1;
+			padding_in.crop_output_v_size = param->image[0].roi.y2 - param->image[0].roi.y1 + 1;
+		} else {
+			padding_in.crop_output_h_size = param->image[0].imgWidth;
+			padding_in.crop_output_v_size = param->image[0].imgHeight;
+		}
 	}
 
-	rsz_in.rsz_input_h_size = rsz_input_h_size;
-	rsz_in.rsz_input_v_size = rsz_input_v_size;
-	rsz_in.rsz_output_h_size = param->image[0].resizeWidth;
-	rsz_in.rsz_output_v_size = param->image[0].resizeHeight;
+	mtk_mae_padding(mae_dev, &padding_in, &padding_out);
+
+	rsz_in.rsz_input_h_size =
+		padding_in.crop_output_h_size + padding_in.left + padding_in.right;
+	rsz_in.rsz_input_v_size =
+		padding_in.crop_output_v_size + padding_in.down + padding_in.up;
+
+	switch (param->maeMode) {
+	case FD_V0:
+	case FD_V1_IPN:
+		rsz_in.rsz_output_h_size = fd_pattern_width[mae_dev->core_sel[idx]];
+		rsz_in.rsz_output_v_size = fd_pattern_height[mae_dev->core_sel[idx]];
+		break;
+	case FD_V1_FPN:
+		rsz_in.rsz_output_h_size = FPN_PYRAMID_WIDTH;
+		rsz_in.rsz_output_v_size = FPN_PYRAMID_HEIGHT;
+		break;
+	case ATTR_V0:
+	case FAC_V1:
+		rsz_in.rsz_output_h_size = param->image[0].imgWidth;
+		rsz_in.rsz_output_v_size = param->image[0].imgHeight;
+		break;
+	default:
+		break;
+	}
 	rsz_in.rsz_input_ch = 8;
 	mtk_mae_resize(mae_dev, &rsz_in, &rsz_out);
 
+	//
+	MAE_CMDQ_WRITE_REG(pkt, REG_00C8_RSZ1 + rsz_offset,
+			REG_RANGE(crop_out.reg_pre_crop_h_st, 13, 0));
+
+	MAE_CMDQ_WRITE_REG(pkt,
+			REG_00CC_RSZ1 + rsz_offset,
+			REG_RANGE(crop_out.reg_pre_crop_h_length, 13, 0));
+
+	MAE_CMDQ_WRITE_REG(pkt,
+			REG_00D0_RSZ1 + rsz_offset,
+			REG_RANGE(crop_out.reg_pre_crop_hfde_size, 13, 0));
+
+	MAE_CMDQ_WRITE_REG(pkt,
+			REG_00D4_RSZ1 + rsz_offset,
+			REG_RANGE(crop_out.reg_pre_crop_v_st, 13, 0));
+
+	MAE_CMDQ_WRITE_REG(pkt,
+			REG_00D8_RSZ1 + rsz_offset,
+			REG_RANGE(crop_out.reg_pre_crop_v_length, 13, 0));
+
+	MAE_CMDQ_WRITE_REG(pkt,
+			REG_00C0_RSZ1 + rsz_offset,
+			0x80 +
+			(REG_RANGE(crop_out.reg_pre_crop_v_crop_en, 0, 0) << 1) +
+			REG_RANGE(crop_out.reg_pre_crop_h_crop_en, 0, 0));
+
+	//
+	MAE_CMDQ_WRITE_REG(pkt,
+			REG_010C_RSZ1 + rsz_offset,
+			REG_RANGE(padding_out.reg_post_ins_blk_hpre, 13, 0));
+
+	MAE_CMDQ_WRITE_REG(pkt,
+			REG_0110_RSZ1 + rsz_offset,
+			REG_RANGE(padding_out.reg_post_ins_h_length, 13, 0));
+
+	MAE_CMDQ_WRITE_REG(pkt,
+			REG_0114_RSZ1 + rsz_offset,
+			REG_RANGE(padding_out.reg_post_ins_hfde_size, 13, 0));
+
+	MAE_CMDQ_WRITE_REG(pkt,
+			REG_0118_RSZ1 + rsz_offset,
+			REG_RANGE(padding_out.reg_post_ins_blk_vpre, 13, 0));
+
+	MAE_CMDQ_WRITE_REG(pkt,
+			REG_011C_RSZ1 + rsz_offset,
+			REG_RANGE(padding_out.reg_post_ins_v_length, 13, 0));
+
+	MAE_CMDQ_WRITE_REG(pkt,
+			REG_0120_RSZ1 + rsz_offset,
+			REG_RANGE(padding_out.reg_post_ins_vfde_size, 13, 0));
+
+	MAE_CMDQ_WRITE_REG(pkt,
+			REG_00A0_RSZ1 + rsz_offset,
+			(1 << 15) + REG_RANGE(padding_out.reg_h_size, 13, 0));
+
+	// reg_v_size_usr_md_1[15] = 1
+	MAE_CMDQ_WRITE_REG(pkt,
+			REG_00A4_RSZ1 + rsz_offset,
+			(1 << 15) + REG_RANGE(padding_out.reg_v_size, 13, 0));
+
+	// reg_post_ins_boundary_md_1[0] = 0, reg_post_ins_de_start_trig_md_1 = 0
+	MAE_CMDQ_WRITE_REG(pkt,
+			REG_0104_RSZ1 + rsz_offset,
+			REG_RANGE(padding_out.reg_post_ins_hv_insert_en, 0, 0));
+
+	//
 	MAE_CMDQ_WRITE_REG(pkt,
 			REG_0004_RSZ1 + rsz_offset,
 			REG_RANGE(rsz_out.reg_ini_factor_ho, 15, 0));
@@ -1103,7 +1099,6 @@ static void mtk_mae_config_rsz(struct mtk_mae_dev *mae_dev,
 			REG_0068_RSZ1 + rsz_offset,
 			REG_RANGE(rsz_out.reg_cb_factor_ve, 19, 16));
 
-
 	if (!param->image[0].enPadding) {
 		// size_usr_md[15] = 1
 		MAE_CMDQ_WRITE_REG(pkt,
@@ -1136,6 +1131,8 @@ static void mtk_mae_config_rsz(struct mtk_mae_dev *mae_dev,
 			(REG_RANGE(rsz_out.reg_order, 0, 0) << 2) +
 			(REG_RANGE(rsz_out.reg_rsz_mode_ho, 0, 0) << 4) +
 			(REG_RANGE(rsz_out.reg_rsz_mode_ve, 0, 0) << 8));
+
+	return true;
 }
 
 static void mtk_mae_fd_post(struct mtk_mae_dev *mae_dev,
@@ -1258,13 +1255,13 @@ static void mtk_mae_fd_post(struct mtk_mae_dev *mae_dev,
 
 		MAE_CMDQ_WRITE_REG(pkt, MAE_REG_MMFD_O_SCALE_0 + COMMON_REG_SIZE * core_offset,
 			(image->enRoi) ?
-			(((image->roi.x2 - image->roi.x1 + 1) << 9) / image->resizeWidth) :
-			(uint32_t)((image->imgWidth << 9) / image->resizeWidth));
+			ROUND(((image->roi.x2 - image->roi.x1 + 1) << 9), image->resizeWidth) :
+			ROUND((image->imgWidth << 9), image->resizeWidth));
 		mae_dev_dbg(mae_dev->dev, "[%s] 0x%x = 0x%x",
 			__func__, MAE_BASE + MAE_REG_MMFD_O_SCALE_0 + COMMON_REG_SIZE * core_offset,
 			(image->enRoi) ?
-			(((image->roi.x2 - image->roi.x1 + 1) << 9) / image->resizeWidth) :
-			(uint32_t)((image->imgWidth << 9) / image->resizeWidth));
+			ROUND(((image->roi.x2 - image->roi.x1 + 1) << 9), image->resizeWidth) :
+			ROUND((image->imgWidth << 9), image->resizeWidth));
 
 		MAE_CMDQ_WRITE_REG(pkt, MAE_REG_H_SIZE0 + COMMON_REG_SIZE * core_offset,
 			(uint32_t)image->imgWidth);
@@ -1281,8 +1278,10 @@ static void mtk_mae_fd_post(struct mtk_mae_dev *mae_dev,
 		if (mode == FD_V1_IPN || mode == FD_V1_FPN) {
 			MAE_CMDQ_WRITE_REG(pkt, MAE_REG_H_MIN0 + COMMON_REG_SIZE * core_offset, 0x0);
 			MAE_CMDQ_WRITE_REG(pkt, MAE_REG_V_MIN0 + COMMON_REG_SIZE * core_offset, 0x0);
-			MAE_CMDQ_WRITE_REG(pkt, MAE_REG_H_MAX0 + COMMON_REG_SIZE * core_offset, 0x280);
-			MAE_CMDQ_WRITE_REG(pkt, MAE_REG_V_MAX0 + COMMON_REG_SIZE * core_offset, 0x280);
+			MAE_CMDQ_WRITE_REG(pkt, MAE_REG_H_MAX0 + COMMON_REG_SIZE * core_offset,
+					(uint32_t)image->imgWidth);
+			MAE_CMDQ_WRITE_REG(pkt, MAE_REG_V_MAX0 + COMMON_REG_SIZE * core_offset,
+					(uint32_t)image->imgHeight);
 			MAE_CMDQ_WRITE_REG(pkt, MAE_REG_SCORE_TH0 + COMMON_REG_SIZE * core_offset, 0x11);
 		}
 	}
@@ -1323,7 +1322,6 @@ static void mtk_mae_config_hw(struct mtk_mae_dev *mae_dev, int idx)
 	struct EnqueParam *param =
 		(struct EnqueParam*)mae_dev->map_table->param_dmabuf_info[idx].kva;
 	uint32_t rsz_offset = 0;
-	bool isPadding = false;
 
 	mae_dev_dbg(mae_dev->dev, "%s+", __func__);
 
@@ -1419,17 +1417,11 @@ static void mtk_mae_config_hw(struct mtk_mae_dev *mae_dev, int idx)
 
 		mtk_mae_fd_post(mae_dev, param, mae_dev->pkt[idx], mae_dev->core_sel[idx], param->maeMode);
 
-		if (param->image[0].enRoi)
-			mtk_mae_config_crop(mae_dev, param, mae_dev->pkt[idx], rsz_offset);
-
-		// for fitting the pattern size
-		isPadding = mtk_mae_config_padding(mae_dev, param, mae_dev->pkt[idx], rsz_offset, idx);
-
-		mtk_mae_config_rsz(mae_dev, param, mae_dev->pkt[idx], rsz_offset, isPadding);
+		mtk_mae_config_rsz(mae_dev, param, mae_dev->pkt[idx], rsz_offset, idx);
 
 		MAE_CMDQ_WRITE_REG(mae_dev->pkt[idx],
 				REG_0184_RSZ1 + rsz_offset,
-				(param->image[0].enRoi << 3) + 0x3);
+				0xb);
 
 		break;
 	case FD_V1_FPN:
@@ -1448,17 +1440,11 @@ static void mtk_mae_config_hw(struct mtk_mae_dev *mae_dev, int idx)
 
 		mtk_mae_fd_post(mae_dev, param, mae_dev->pkt[idx], 0, param->maeMode);
 
-		if (param->image[0].enRoi)
-			mtk_mae_config_crop(mae_dev, param, mae_dev->pkt[idx], rsz_offset);
-
-		// for fitting the pattern size
-		isPadding = mtk_mae_config_padding(mae_dev, param, mae_dev->pkt[idx], rsz_offset, idx);
-
-		mtk_mae_config_rsz(mae_dev, param, mae_dev->pkt[idx], rsz_offset, isPadding);
+		mtk_mae_config_rsz(mae_dev, param, mae_dev->pkt[idx], rsz_offset, idx);
 
 		MAE_CMDQ_WRITE_REG(mae_dev->pkt[idx],
 				REG_0184_RSZ1 + rsz_offset,
-				(param->image[0].enRoi << 3) + 0x3);
+				0xb);
 
 		if (mae_fd_post_on == 0)
 			mtk_mae_fd_fpn_480_360_pat(mae_dev->pkt[idx]);
@@ -1480,17 +1466,12 @@ static void mtk_mae_config_hw(struct mtk_mae_dev *mae_dev, int idx)
 
 		// force rsz_offset
 		rsz_offset = 0;
-		if (param->image[0].enRoi)
-			mtk_mae_config_crop(mae_dev, param, mae_dev->pkt[idx], rsz_offset);
 
-		if (param->image[0].enPadding)
-			isPadding = mtk_mae_config_padding(mae_dev, param, mae_dev->pkt[idx], rsz_offset, idx);
-
-		mtk_mae_config_rsz(mae_dev, param, mae_dev->pkt[idx], rsz_offset, isPadding);
+		mtk_mae_config_rsz(mae_dev, param, mae_dev->pkt[idx], rsz_offset, idx);
 
 		MAE_CMDQ_WRITE_REG(mae_dev->pkt[idx],
 			REG_0184_RSZ1 + rsz_offset,
-			(param->image[0].enRoi << 3) + 0x3);
+				0xb);
 
 		if (fac_v1_pat_en && param->maeMode == FAC_V1)
 			mtk_mae_fac_v1_pat(mae_dev->pkt[idx]);

@@ -143,6 +143,9 @@
 #define AISEG_POP_GROUP_SIZE 3
 #define FLD_V1_INPUT_FACE_NUM 2
 
+#define FPN_PYRAMID_WIDTH 480
+#define FPN_PYRAMID_HEIGHT 360
+
 const uint32_t fd_pattern_width[FD_PATTERN_NUM] = {640, 480, 240, 120};
 const uint32_t fd_pattern_height[FD_PATTERN_NUM] = {480, 360, 180, 90};
 

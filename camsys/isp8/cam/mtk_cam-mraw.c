@@ -1716,11 +1716,11 @@ int mtk_mraw_runtime_suspend(struct device *dev)
 
 	mtk_cam_bwr_set_chn_bw(&mraw_dev->cam->bwr,
 		get_bwr_engine(ENGINE_MRAW), get_mraw_axi_port(mraw_dev->id),
-		0, -KBps_to_bwr(mraw_dev->mraw_avg_applied_bw_w),
-		0, -KBps_to_bwr(mraw_dev->mraw_peak_applied_bw_w), false);
+		0, -mraw_dev->mraw_avg_applied_bw_w,
+		0, -mraw_dev->mraw_peak_applied_bw_w, false);
 	mtk_cam_bwr_set_ttl_bw(&mraw_dev->cam->bwr,
-		get_bwr_engine(ENGINE_MRAW), -KBps_to_bwr(mraw_dev->mraw_avg_applied_bw_w),
-		-KBps_to_bwr(mraw_dev->mraw_peak_applied_bw_w), false);
+		get_bwr_engine(ENGINE_MRAW), -mraw_dev->mraw_avg_applied_bw_w,
+		-mraw_dev->mraw_peak_applied_bw_w, false);
 
 	for (i = 0; i < mraw_dev->num_clks; i++)
 		clk_disable_unprepare(mraw_dev->clks[i]);

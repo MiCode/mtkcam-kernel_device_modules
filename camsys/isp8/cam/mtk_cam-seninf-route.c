@@ -303,7 +303,7 @@ struct seninf_vc *mtk_cam_seninf_get_vc_by_pad(struct seninf_ctx *ctx, int idx)
 	// get current scenraio output bit(/data type)
 	format_code = to_std_fmt_code(ctx->fmt[PAD_SRC_RAW0].format.code);
 	cur_dt = get_code2dt(format_code);
-	seninf_logi(ctx, "[%s] pad %u format_code: 0x%x, cur_dt:0x%x\n",
+	seninf_logd(ctx, "[%s] pad %u format_code: 0x%x, cur_dt:0x%x\n",
 		__func__, idx, format_code, cur_dt);
 
 	// find vc via vc_dt or dt_remap
@@ -1172,12 +1172,9 @@ static void mtk_cam_seninf_outmux_release_all(struct seninf_ctx *ctx,
 	struct list_head *pos, *n;
 	struct outmux_cfg *ent;
 
-	seninf_logi(ctx, "+");
-
 	list_for_each_safe(pos, n, outmux_cfgs) {
-		seninf_logi(ctx, "~");
 		ent = list_entry(pos, struct outmux_cfg, list);
-		seninf_logi(ctx, "remove outmux_cfg %u form list", ent->outmux_idx);
+		seninf_logd(ctx, "remove outmux_cfg %u form list", ent->outmux_idx);
 		list_del(pos);
 		kfree(ent);
 	}
@@ -1193,7 +1190,7 @@ static struct outmux_cfg *get_outmux_cfg_from_list(struct seninf_ctx *ctx,
 		if (ent->outmux_idx == outmux) {
 			ret = ent;
 
-			seninf_logi(ctx, "get outmux %d", ret->outmux_idx);
+			seninf_logd(ctx, "get outmux %d", ret->outmux_idx);
 
 			break;
 		}

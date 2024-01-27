@@ -732,7 +732,7 @@ static int mtk_cam_fill_mtk_pixfmt_mp(const struct mtk_format_info *info,
 
 		/* UFO format width should align 64 pixel */
 		aligned_width = ALIGN(width, 64);
-		stride = aligned_width * info->bitpp[0] / 8;
+		stride = ALIGN(aligned_width * info->bitpp[0] / 8, 16);
 
 		plane->sizeimage = stride * height;
 		plane->sizeimage += stride * height / 2;

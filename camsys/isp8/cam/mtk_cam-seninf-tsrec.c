@@ -37,6 +37,18 @@ DEFINE_SPINLOCK(tsrec_ts_data_update_lock);
 unsigned int tsrec_log_ctrl;
 
 
+static const char * const tsrec_irq_name[TSREC_SUP_IRQ_MAX_CNT] = {
+	"seninf-tsrec-0",
+	"seninf-tsrec-1",
+	"seninf-tsrec-2",
+	"seninf-tsrec-3",
+	"seninf-tsrec-4",
+	"seninf-tsrec-5",
+	"seninf-tsrec-6",
+	"seninf-tsrec-7",
+};
+
+
 /*---------------------------------------------------------------------------*/
 // TSREC console mgr structure
 /*---------------------------------------------------------------------------*/
@@ -4229,17 +4241,10 @@ void mtk_cam_seninf_tsrec_irq_init(struct seninf_core *core)
 	}
 
 	/* parsing and mapping irq */
-	for (i = 0; i < tsrec_status.irq_cnt; ++i) {
-		char irq_name[20] = {0};
-		int len = 0;
+	for (i = 0; (i < tsrec_status.irq_cnt && i < TSREC_SUP_IRQ_MAX_CNT); ++i) {
 #ifndef FS_UT
 		int ret;
-#endif
 
-		TSREC_SNPRF(20, irq_name, len, "seninf-tsrec");
-		TSREC_SNPRF(20, irq_name, len, "-%d", i);
-
-#ifndef FS_UT
 		irq = irq_of_parse_and_map(p_dev_node, i);
 		if (unlikely(!irq)) {
 			TSREC_LOG_INF(
@@ -4249,13 +4254,13 @@ void mtk_cam_seninf_tsrec_irq_init(struct seninf_core *core)
 		}
 
 		ret = devm_request_threaded_irq(seninf_dev, irq,
-						mtk_irq_seninf_tsrec,
-						mtk_thread_irq_seninf_tsrec,
-						IRQF_NO_AUTOEN, irq_name, core);
+			mtk_irq_seninf_tsrec,
+			mtk_thread_irq_seninf_tsrec,
+			IRQF_NO_AUTOEN, tsrec_irq_name[i], core);
 		if (unlikely(ret)) {
 			TSREC_LOG_INF(
 				"ERROR: failed to request idx:%d of IRQ:%d for %s\n",
-				i, irq, irq_name);
+				i, irq, tsrec_irq_name[i]);
 			continue;
 		}
 #else
@@ -4268,7 +4273,7 @@ void mtk_cam_seninf_tsrec_irq_init(struct seninf_core *core)
 			"NOTICE: registered IRQ, irq_cnt:%d, irq_arr[%d]:%d, with IRQF_NO_AUTOEN for %s\n",
 			tsrec_status.irq_cnt,
 			i, tsrec_status.irq_arr[i],
-			irq_name);
+			tsrec_irq_name[i]);
 	}
 
 	/* dbg dump results */

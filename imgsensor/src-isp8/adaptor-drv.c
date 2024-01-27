@@ -437,13 +437,9 @@ static int imgsensor_open(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 	try_fmt->field = V4L2_FIELD_NONE;
 
 #ifdef POWERON_ONCE_OPENED
-#ifdef IMGSENSOR_USE_PM_FRAMEWORK
-	adaptor_logi(ctx, "%s use IMGSENSOR_USE_PM_FRAMEWORK\n");
-	pm_runtime_get_sync(ctx->dev);
-#else
+
 	adaptor_logd(ctx, "%s use self ref cnt\n");
 	adaptor_hw_power_on(ctx);
-#endif
 	adaptor_sensor_init(ctx);
 #endif
 
@@ -464,13 +460,8 @@ static int imgsensor_close(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 	mutex_lock(&ctx->mutex);
 
 #ifdef POWERON_ONCE_OPENED
-#ifdef IMGSENSOR_USE_PM_FRAMEWORK
-	adaptor_logi(ctx, "use IMGSENSOR_USE_PM_FRAMEWORK\n");
-	pm_runtime_put(ctx->dev);
-#else
 	adaptor_logi(ctx, "use self ref cnt\n");
 	adaptor_hw_power_off(ctx);
-#endif
 #endif
 
 	ctx->open_refcnt--;
@@ -662,30 +653,6 @@ static int imgsensor_set_pad_format(struct v4l2_subdev *sd,
 	return 0;
 }
 
-#ifdef IMGSENSOR_USE_PM_FRAMEWORK
-static int imgsensor_runtime_resume(struct device *dev)
-{
-	struct i2c_client *client = to_i2c_client(dev);
-	struct v4l2_subdev *sd = i2c_get_clientdata(client);
-	struct adaptor_ctx *ctx = to_ctx(sd);
-
-	return adaptor_hw_power_on(ctx);
-}
-
-static int imgsensor_runtime_suspend(struct device *dev)
-{
-	struct i2c_client *client = to_i2c_client(dev);
-	struct v4l2_subdev *sd = i2c_get_clientdata(client);
-	struct adaptor_ctx *ctx = to_ctx(sd);
-
-	/* clear flags once power-off */
-	ctx->is_sensor_inited = 0;
-	ctx->is_sensor_scenario_inited = 0;
-
-	return adaptor_hw_power_off(ctx);
-}
-#endif
-
 static int imgsensor_set_power(struct v4l2_subdev *sd, int on)
 {
 	struct adaptor_ctx *ctx = to_ctx(sd);
@@ -693,21 +660,14 @@ static int imgsensor_set_power(struct v4l2_subdev *sd, int on)
 
 	mutex_lock(&ctx->mutex);
 	if (on) {
-#ifdef IMGSENSOR_USE_PM_FRAMEWORK
-		ret = pm_runtime_get_sync(ctx->dev);
-#else
 	ret = adaptor_hw_power_on(ctx);
 	ret1 = adaptor_ixc_do_daa (&ctx->ixc_client);
 	if (ret1)
 		adaptor_loge(ctx, "ixc_do_daa(ret=%d), prot= %d\n",
 				ret, ctx->ixc_client.protocol);
-#endif
 	} else
-#ifdef IMGSENSOR_USE_PM_FRAMEWORK
-		ret = pm_runtime_put(ctx->dev);
-#else
 	ret = adaptor_hw_power_off(ctx);
-#endif
+
 	mutex_unlock(&ctx->mutex);
 
 	return ret;
@@ -834,13 +794,6 @@ static int imgsensor_set_stream(struct v4l2_subdev *sd, int enable)
 	}
 
 	if (enable) {
-#ifdef IMGSENSOR_USE_PM_FRAMEWORK
-		ret = pm_runtime_get_sync(ctx->dev);
-		if (ret < 0) {
-			pm_runtime_put_noidle(ctx->dev);
-			goto err_unlock;
-		}
-#endif
 		/*
 		 * Apply default & customized values
 		 * and then start streaming.
@@ -850,9 +803,7 @@ static int imgsensor_set_stream(struct v4l2_subdev *sd, int enable)
 			goto err_rpm_put;
 	} else {
 		imgsensor_stop_streaming(ctx);
-#ifdef IMGSENSOR_USE_PM_FRAMEWORK
-		pm_runtime_put(ctx->dev);
-#endif
+
 	}
 
 	ctx->is_streaming = enable;
@@ -863,10 +814,6 @@ static int imgsensor_set_stream(struct v4l2_subdev *sd, int enable)
 	return 0;
 
 err_rpm_put:
-#ifdef IMGSENSOR_USE_PM_FRAMEWORK
-	pm_runtime_put(ctx->dev);
-err_unlock:
-#endif
 	mutex_unlock(&ctx->mutex);
 
 	return ret;
@@ -897,51 +844,6 @@ static int imgsensor_g_mbus_config(struct v4l2_subdev *sd, unsigned int pad,
 
 	return 0;
 }
-
-#ifdef IMGSENSOR_USE_PM_FRAMEWORK
-static int __maybe_unused imgsensor_suspend(struct device *dev)
-{
-	struct i2c_client *client = to_i2c_client(dev);
-	struct v4l2_subdev *sd = i2c_get_clientdata(client);
-	struct adaptor_ctx *ctx = to_ctx(sd);
-
-	if (pm_runtime_suspended(dev))
-		return 0;
-
-	if (ctx->is_streaming)
-		imgsensor_stop_streaming(ctx);
-
-	return imgsensor_runtime_suspend(dev);
-}
-
-static int __maybe_unused imgsensor_resume(struct device *dev)
-{
-	struct i2c_client *client = to_i2c_client(dev);
-	struct v4l2_subdev *sd = i2c_get_clientdata(client);
-	struct adaptor_ctx *ctx = to_ctx(sd);
-	int ret;
-
-	if (pm_runtime_suspended(dev))
-		return 0;
-
-	ret = imgsensor_runtime_resume(dev);
-	if (ret)
-		return ret;
-
-	if (ctx->is_streaming) {
-		ret = imgsensor_start_streaming(ctx);
-		if (ret)
-			goto error;
-	}
-
-	return 0;
-
-error:
-	imgsensor_stop_streaming(ctx);
-	ctx->is_streaming = 0;
-	return ret;
-}
-#endif
 
 static const struct v4l2_subdev_core_ops imgsensor_core_ops = {
 	.s_power = imgsensor_set_power,
@@ -984,22 +886,12 @@ static int imgsensor_get_temp(struct thermal_zone_device *tz, int *temperature)
 {
 	struct adaptor_ctx *ctx = tz->devdata;
 
-#ifdef IMGSENSOR_USE_PM_FRAMEWORK
-	if (pm_runtime_get_if_in_use(ctx->dev) == 0) {
-		*temperature = THERMAL_TEMP_INVALID;
-		return 0;
-	}
-#else
 	*temperature = 0;
-#endif
+
 	if (ctx->is_streaming && !ctx->is_i2c_bus_scp)
 		subdrv_call(ctx, get_temp, temperature);
 	else
 		*temperature = THERMAL_TEMP_INVALID;
-
-#ifdef IMGSENSOR_USE_PM_FRAMEWORK
-	pm_runtime_put(ctx->dev);
-#endif
 
 	return 0;
 }
@@ -1558,11 +1450,6 @@ static int imgsensor_probe(struct i3c_i2c_device *client)
 		goto free_entity;
 	}
 
-#ifdef IMGSENSOR_USE_PM_FRAMEWORK
-	pm_runtime_enable(dev);
-#else
-	// TODO
-#endif
 	device_enable_async_suspend(dev);
 
 	/* register thermal device */
@@ -1635,11 +1522,6 @@ static void imgsensor_remove(struct i3c_i2c_device *client)
 
 	kfree(ctx->ctx_pw_seq);
 
-#ifdef IMGSENSOR_USE_PM_FRAMEWORK
-	pm_runtime_disable(&client->dev);
-#else
-	// TODO
-#endif
 	device_remove_file(ctx->dev, &dev_attr_debug_i2c_ops);
 	device_remove_file(ctx->dev, &dev_attr_debug_pwr_ops);
 	device_remove_file(ctx->dev, &dev_attr_debug_sensor_mode_ops);

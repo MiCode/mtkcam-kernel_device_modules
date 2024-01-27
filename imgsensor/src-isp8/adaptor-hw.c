@@ -520,14 +520,13 @@ int do_hw_power_on(struct adaptor_ctx *ctx)
 int adaptor_hw_power_on(struct adaptor_ctx *ctx)
 {
 	adaptor_logm(ctx, "+\n");
-#ifndef IMGSENSOR_USE_PM_FRAMEWORK
 	adaptor_logd(ctx, "power ref cnt = %d\n", ctx->power_refcnt);
 	ctx->power_refcnt++;
 	if (ctx->power_refcnt > 1) {
 		adaptor_logd(ctx, "already powered, cnt = %d\n", ctx->power_refcnt);
 		return 0;
 	}
-#endif
+
 	adaptor_logm(ctx, "-\n");
 	return do_hw_power_on(ctx);
 }
@@ -598,7 +597,6 @@ int do_hw_power_off(struct adaptor_ctx *ctx)
 int adaptor_hw_power_off(struct adaptor_ctx *ctx)
 {
 	adaptor_logm(ctx, "+\n");
-#ifndef IMGSENSOR_USE_PM_FRAMEWORK
 	if (!ctx->power_refcnt) {
 		adaptor_logd(ctx, "power ref cnt = %d, skip due to not power on yet\n",
 			ctx->power_refcnt);
@@ -614,7 +612,6 @@ int adaptor_hw_power_off(struct adaptor_ctx *ctx)
 	ctx->is_sensor_inited = 0;
 	ctx->is_sensor_scenario_inited = 0;
 	ctx->is_streaming = 0;
-#endif
 
 	adaptor_logm(ctx, "-\n");
 

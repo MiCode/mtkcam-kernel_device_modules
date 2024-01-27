@@ -37,7 +37,7 @@
 //module_param(debug_dump_fbc, int, 0644);
 //MODULE_PARM_DESC(debug_dump_fbc, "debug: dump fbc");
 
-static int debug_ddren_sw_mode = 1;
+static int debug_ddren_sw_mode;
 module_param(debug_ddren_sw_mode, int, 0644);
 MODULE_PARM_DESC(debug_ddren_sw_mode, "debug: 1 : active sw mode");
 
@@ -309,6 +309,7 @@ static void init_raw_ddren(struct mtk_raw_device *dev, int is_srt, int frm_time_
 	if (debug_ddren_sw_mode) {
 		SET_FIELD(&val, CAMCTL_DDREN_SW_SET, 1);
 		raw_writel_relaxed(val, dev, dev->base, REG_CAMCTL_DDREN_CTL);
+		goto init_done;
 	} else {
 		SET_FIELD(&val, CAMCTL_DDREN_HW_EN, 1);
 		raw_writel_relaxed(val, dev, dev->base, REG_CAMCTL_DDREN_CTL);
@@ -330,6 +331,7 @@ static void init_raw_ddren(struct mtk_raw_device *dev, int is_srt, int frm_time_
 		raw_writel_relaxed(qos_gen_pulse, dev, dev->base, REG_TG_HW_QOS_GEN_PULSE_CNT);
 	}
 
+init_done:
 	wmb(); /* make sure committed */
 
 	dev_info(dev->dev, "is_srt:%d frm_time_us:%d ddren_sw_mode:%d\n",
@@ -427,7 +429,7 @@ static void subsample_set_sensor_time(struct mtk_raw_device *dev,
 
 static void reset_reg(struct mtk_raw_device *dev)
 {
-	u32 cq_en, sw_done, sw_sub_ctl, ddren_ctl;
+	u32 cq_en, sw_done, sw_sub_ctl;
 
 	cq_en = raw_readl_relaxed(dev, dev->base_inner, REG_CAMCQ_CQ_EN);
 	sw_done = raw_readl_relaxed(dev, dev->base_inner, REG_CAMCTL_SW_PASS1_DONE);
@@ -444,11 +446,6 @@ static void reset_reg(struct mtk_raw_device *dev)
 
 	raw_writel(0, dev, dev->base_inner, REG_CAMCTL_SW_SUB_CTL);
 	raw_writel(0, dev, dev->base, REG_CAMCTL_SW_SUB_CTL);
-
-	if (debug_ddren_sw_mode) {
-		SET_FIELD(&ddren_ctl, CAMCTL_DDREN_SW_CLR, 1);
-		raw_writel_relaxed(ddren_ctl, dev, dev->base, REG_CAMCTL_DDREN_CTL);
-	}
 
 	wmb(); /* make sure committed */
 

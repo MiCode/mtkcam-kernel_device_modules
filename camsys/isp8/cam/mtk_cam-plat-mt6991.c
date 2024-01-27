@@ -16,10 +16,7 @@
 	ALIGN(sizeof(struct mtk_cam_uapi_meta_raw_stats_cfg), SZ_4K)
 
 #define RAW_STAT_0_BUF_SIZE_STATIC \
-			(MTK_CAM_UAPI_AWBO_R1_MAX_BUF_SIZE + \
-			MTK_CAM_UAPI_AWBO_R2_MAX_BUF_SIZE + \
-			MTK_CAM_UAPI_AEO_MAX_BUF_SIZE + \
-			MTK_CAM_UAPI_AEHO_MAX_BUF_SIZE + \
+			(MTK_CAM_UAPI_AEHO_MAX_BUF_SIZE + \
 			MTK_CAM_UAPI_LTMSBO_SIZE + \
 			MTK_CAM_UAPI_LTMSGO_SIZE + \
 			MTK_CAM_UAPI_TSFSO_SIZE + \
@@ -85,6 +82,7 @@ static int set_meta_stat0_info(struct mtk_cam_uapi_meta_raw_stats_0 *stats,
 	struct mtk_cam_uapi_meta_raw_stats_cfg *cfg = p->meta_cfg;
 	size_t offset = sizeof(*stats);
 	unsigned int flko_size;
+	unsigned int awbo_r1_size, awbo_r2_size, aeo_size;
 	unsigned int pdo_size;
 
 	if (!p->meta_cfg || !p->meta_cfg_size) {
@@ -95,17 +93,34 @@ static int set_meta_stat0_info(struct mtk_cam_uapi_meta_raw_stats_0 *stats,
 #ifdef DYNAMIC_SIZE
 	flko_size = (p->height / p->bin_ratio) *
 		MTK_CAM_UAPI_FLK_BLK_SIZE * MTK_CAM_UAPI_FLK_MAX_STAT_BLK_NUM;
+	awbo_r1_size = (cfg->awb_param.stat_en & (0x1)) *
+		cfg->awb_param.windownum_x *
+		cfg->awb_param.windownum_y *
+		32;
+	awbo_r2_size = (cfg->awb_param.stat_en >> 2 & (0x1)) *
+		(2 * cfg->awb_param.windownum_x) *
+		(2 * cfg->awb_param.windownum_y) *
+		16;
+	aeo_size = (cfg->ae_enable & (0x1)) *
+		cfg->ae_param.block_win_cfg.block_num_x *
+		cfg->ae_param.block_win_cfg.block_num_y *
+		32;
+	pr_info("[%s] flko/awb1/awb2/aeo:%d/%d/%d/%d",
+		__func__, flko_size, awbo_r1_size, awbo_r2_size, aeo_size);
 #else
 	flko_size = MTK_CAM_UAPI_FLK_MAX_BUF_SIZE;
+	awbo_r1_size = MTK_CAM_UAPI_AWBO_R1_MAX_BUF_SIZE;
+	awbo_r2_size = MTK_CAM_UAPI_AWBO_R2_MAX_BUF_SIZE;
+	aeo_size = MTK_CAM_UAPI_AEO_MAX_BUF_SIZE;
 #endif
 	pdo_size = cfg->pde_enable ? cfg->pde_param.pdo_max_size : 0;
 
 	set_payload(&stats->awb_stats.awbo1_buf,
-		    MTK_CAM_UAPI_AWBO_R1_MAX_BUF_SIZE, &offset);
+		    awbo_r1_size, &offset);
 	set_payload(&stats->awb_stats.awbo2_buf,
-		    MTK_CAM_UAPI_AWBO_R2_MAX_BUF_SIZE, &offset);
+		    awbo_r2_size, &offset);
 	set_payload(&stats->ae_stats.aeo_buf,
-			MTK_CAM_UAPI_AEO_MAX_BUF_SIZE,
+			aeo_size,
 			&offset);
 	set_payload(&stats->ae_stats.aeho_buf,
 			MTK_CAM_UAPI_AEHO_MAX_BUF_SIZE,

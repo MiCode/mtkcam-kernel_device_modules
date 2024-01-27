@@ -15,7 +15,9 @@
 #include "mtk_cam-seninf-event-handle.h"
 #include "mtk_cam-seninf-if.h"
 #include "mtk_cam-seninf-utils.h"
+#include "mtk_cam-seninf-sentest-ctrl.h"
 #include "imgsensor-user.h"
+
 
 #define PORTING_FIXME 0
 
@@ -558,6 +560,7 @@ void mtk_cam_seninf_tsrec_irq_notify(
 	const struct mtk_cam_seninf_tsrec_irq_notify_info *p_info)
 {
 	/* Please add your handler function here carefully */
+	notify_sentest_irq(p_info->inf_ctx, p_info);
 }
 
 

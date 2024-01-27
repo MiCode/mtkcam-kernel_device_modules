@@ -4,10 +4,100 @@
 #include "mtk_cam-seninf-sentest-ctrl.h"
 #include "mtk_cam-seninf_control-8.h"
 #include "mtk_cam-seninf-hw.h"
+#include "mtk_cam-seninf-route.h"
+#include "mtk_cam-seninf-if.h"
+#include "imgsensor-user.h"
 
 /******************************************************************************/
 // seninf sentest call back ctrl --- function
 /******************************************************************************/
+
+#define WATCHDOG_INTERVAL_MS 50
+
+struct seninf_sentest_work {
+	struct kthread_work work;
+	struct seninf_ctx *ctx;
+	union sentest_work_data {
+		unsigned int seamless_scenario;
+		void *data_ptr;
+	} data;
+};
+
+enum SENTEST_TARGET_VSYNC {
+	SENTEST_FIRST_VSYNC,
+	SENTEST_LAST_VSYNC,
+};
+
+int seninf_sentest_probe_init(struct seninf_ctx *ctx)
+{
+	int ret = 0;
+
+	kthread_init_worker(&ctx->sentest_worker);
+	ctx->sentest_kworker_task = kthread_run(kthread_worker_fn,
+			&ctx->sentest_worker, "sentest_worker");
+
+	if (IS_ERR(ctx->sentest_kworker_task)) {
+		pr_info("[%s][ERROR]: failed to start sentest kthread worker\n", __func__);
+		ctx->sentest_kworker_task = NULL;
+		return -EFAULT;
+	}
+
+	sched_set_fifo(ctx->sentest_kworker_task);
+
+	ret |= seninf_sentest_flag_init(ctx);
+	return ret;
+}
+
+int seninf_sentest_uninit(struct seninf_ctx *ctx)
+{
+	if (unlikely(ctx == NULL)) {
+		pr_info("[%s][ERROR] ctx is NULL\n", __func__);
+		return -EINVAL;
+	}
+
+	if (ctx->sentest_kworker_task)
+		kthread_stop(ctx->sentest_kworker_task);
+
+	return 0;
+}
+
+static void seninf_sentest_seamless_switch_error_handler(struct seninf_ctx *ctx)
+{
+	if (unlikely(ctx == NULL)) {
+		pr_info("[Error][%s] ctx is NULL", __func__);
+		return;
+	}
+
+	seninf_sentest_watchingdog_en(&ctx->sentest_watchdog, false);
+	ctx->sentest_seamless_ut_status = SENTEST_SEAMLESS_IS_ERR;
+	ctx->sentest_seamless_ut_en = false;
+}
+
+static void seninf_sentest_reset_seamless_flag(struct seninf_ctx *ctx)
+{
+	ctx->sentest_seamless_ut_en = false;
+	ctx->sentest_seamless_ut_status = SENTEST_SEAMLESS_IS_IDLE;
+	ctx->sentest_seamless_irq_ref = 0;
+	ctx->sentest_seamless_is_set_camtg_done = 0;
+	ctx->sentest_irq_counter = 0;
+
+	memset(&ctx->sentest_seamless_cfg, 0, sizeof(struct mtk_seamless_switch_param));
+}
+
+int seninf_sentest_flag_init(struct seninf_ctx *ctx)
+{
+	if (unlikely(ctx == NULL)) {
+		pr_info("[%s][ERROR] ctx is NULL\n", __func__);
+		return -EINVAL;
+	}
+
+	seninf_sentest_reset_seamless_flag(ctx);
+	ctx->sentest_adjust_isp_en = false;
+	ctx->sentest_mipi_measure_en = false;
+
+	return 0;
+}
+
 
 int seninf_sentest_get_debug_reg_result(struct seninf_ctx *ctx, void *arg)
 {
@@ -19,7 +109,7 @@ int seninf_sentest_get_debug_reg_result(struct seninf_ctx *ctx, void *arg)
 	struct mtk_cam_seninf_debug debug_result;
 	static __u16 last_pkCnt;
 	struct mtk_seninf_debug_result *result =
-					kmalloc(sizeof(struct mtk_seninf_debug_result), GFP_KERNEL);
+			kmalloc(sizeof(struct mtk_seninf_debug_result), GFP_KERNEL);
 
 	if (unlikely(result == NULL)) {
 		pr_info("[%s][ERROR] result is NULL\n", __func__);
@@ -111,4 +201,354 @@ int seninf_sentest_get_debug_reg_result(struct seninf_ctx *ctx, void *arg)
 SENTEST_GET_DBG_ERR_EXIT:
 	kfree(result);
 	return -EFAULT;
+}
+
+static void seninf_sentest_watchdog_timer_callback(struct timer_list *t)
+{
+	struct mtk_cam_sentest_watchdog *wd = from_timer(wd, t, timer);
+	struct seninf_ctx *ctx =
+		container_of(wd, struct seninf_ctx, sentest_watchdog);
+
+	if (unlikely(ctx == NULL)) {
+		pr_info("[Error][%s] ctx is NULL", __func__);
+		return;
+	}
+
+	pr_info("[%s] watchog timeout tirggered", __func__);
+
+	ctx->sentest_seamless_ut_status = SENTEST_SEAMLESS_IS_TIMEOUT;
+	ctx->sentest_seamless_ut_en = false;
+	del_timer_sync(&wd->timer);
+}
+
+int seninf_sentest_watchingdog_en(struct mtk_cam_sentest_watchdog *wd, bool en)
+{
+	struct seninf_ctx *ctx =
+		container_of(wd, struct seninf_ctx, sentest_watchdog);
+	u64 shutter_for_timeout = 0;
+
+	if (unlikely(wd == NULL)) {
+		pr_info("[Error][%s] wd is NULL", __func__);
+		return -EFAULT;
+	}
+
+	if (unlikely(ctx == NULL)) {
+		pr_info("[Error][%s] ctx is NULL", __func__);
+		return -EFAULT;
+	}
+
+	if (en) {
+
+		if (ctx->sentest_seamless_cfg.ae_ctrl[0].exposure.arr[0]) {
+			shutter_for_timeout =
+				ctx->sentest_seamless_cfg.ae_ctrl[0].exposure.arr[0] > WATCHDOG_INTERVAL_MS ?
+				ctx->sentest_seamless_cfg.ae_ctrl[0].exposure.arr[0] :
+				WATCHDOG_INTERVAL_MS;
+		}
+
+
+		seninf_sentest_watchdog_init(wd);
+		// setup timer
+		wd->timer.expires = jiffies + msecs_to_jiffies(shutter_for_timeout);
+		add_timer(&wd->timer);
+
+	} else {
+		// del timer
+		del_timer_sync(&wd->timer);
+
+		ctx->sentest_seamless_ut_status = SENTEST_SEAMLESS_IS_IDLE;
+	}
+
+	pr_info("[%s] setup sentest swatchdong timeout %llu en: %d done",
+			__func__, shutter_for_timeout, en);
+
+	return 0;
+}
+
+int seninf_sentest_watchdog_init(struct mtk_cam_sentest_watchdog *wd)
+{
+	if (unlikely(wd == NULL)) {
+		pr_info("[Error][%s] wd is NULL", __func__);
+		return -EFAULT;
+	}
+
+	timer_setup(&wd->timer, seninf_sentest_watchdog_timer_callback, 0);
+	return 0;
+}
+
+void seninf_sentest_seamless_ut_disable_outmux(struct seninf_ctx *ctx)
+{
+	mtk_cam_seninf_release_outmux(ctx);
+
+}
+
+static void seninf_sentest_set_sensor_seamless_switch(struct kthread_work *work)
+{
+	struct seninf_sentest_work *sentest_work =
+		container_of(work, struct seninf_sentest_work, work);
+
+	struct seninf_ctx *ctx = NULL;
+	struct v4l2_subdev *sensor_sd = NULL;
+	struct v4l2_ctrl *ctrl;
+
+	pr_info("[%s] +", __func__);
+	if (unlikely(sentest_work == NULL)) {
+		pr_info("[Error][%s] sentest_work is NULL", __func__);
+		return;
+	}
+
+	ctx = sentest_work->ctx;
+	if (unlikely(ctx == NULL)) {
+		pr_info("[Error][%s] ctx is NULL", __func__);
+		return;
+	}
+
+	sensor_sd = ctx->sensor_sd;
+	if (unlikely(sensor_sd == NULL)) {
+		pr_info("[Error][%s] sensor_sd is NULL", __func__);
+		seninf_sentest_seamless_switch_error_handler(ctx);
+		return;
+	}
+
+	ctrl = v4l2_ctrl_find(sensor_sd->ctrl_handler,
+			V4L2_CID_START_SEAMLESS_SWITCH);
+
+	if (!ctrl) {
+		pr_info("no TART_SEAMLESS_SWITCH CID in %s\n", sensor_sd->name);
+		seninf_sentest_seamless_switch_error_handler(ctx);
+		return;
+	}
+
+	v4l2_ctrl_s_ctrl_compound(ctrl, V4L2_CTRL_TYPE_U32, &ctx->sentest_seamless_cfg);
+
+	seninf_sentest_watchingdog_en(&ctx->sentest_watchdog, true);
+
+	kfree(sentest_work);
+
+	pr_info("[%s] -", __func__);
+}
+
+static u32 compose_format_code_by_scenario(u32 target_scenario)
+{
+	return (target_scenario << 16) & 0xFF0000;
+}
+
+static int get_lastest_outmux_id_by_vc_cnt(struct seninf_ctx *ctx, u32 target_count, u32 *outmux)
+{
+	struct seninf_core *core = ctx->core;
+	struct seninf_outmux *ent;
+	int count = 0;
+
+	list_for_each_entry(ent, &core->list_outmux, list) {
+		if (count == target_count) {
+			*outmux = ent->idx;
+			return 0;
+		}
+		count++;
+	}
+
+	return -EINVAL;
+}
+
+static int seninf_sentest_set_camtg_for_seamless(struct seninf_ctx *ctx)
+{
+	int i, ret = 0;
+	int outmux_id = 0;
+	struct seninf_vcinfo *vcinfo = &ctx->cur_vcinfo;
+	struct mtk_cam_seninf_mux_param param;
+	struct mtk_cam_seninf_mux_setting settings[12];
+
+	memset(&param, 0, sizeof(struct mtk_cam_seninf_mux_param));
+
+	memset(settings, 0, sizeof(struct mtk_cam_seninf_mux_setting) * ARRAY_SIZE(settings));
+
+	for (i = 0; i < vcinfo->cnt; i++) {
+
+		if (get_lastest_outmux_id_by_vc_cnt(ctx, i, &outmux_id)) {
+			pr_info("[Error][%s] get_lastest_outmux_id_by_vc_cnt return failed", __func__);
+			return -EFAULT;
+		}
+
+		settings[i].seninf = &ctx->subdev;
+		settings[i].source = vcinfo->vc[i].out_pad;
+		settings[i].camtg = outmux_id;
+		settings[i].enable = 1;
+		settings[i].tag_id = 0;
+		param.num++;
+
+		pr_info("[%s]pad %d, camtg %d, en %d tag %d num %d",
+				__func__,
+				settings[i].source,
+				settings[i].camtg,
+				settings[i].enable,
+				settings[i].tag_id,
+				param.num);
+	}
+
+	param.settings = settings;
+	ret |= mtk_cam_seninf_streaming_mux_change(&param);
+	return ret;
+}
+
+static int seninf_sentest_ops_before_sensor_seamless(struct seninf_ctx *ctx)
+{
+	u32 code;
+
+	if (unlikely(ctx == NULL)) {
+		pr_info("[Error][%s] ctx is NULL", __func__);
+		return -EFAULT;
+	}
+
+	code = compose_format_code_by_scenario(ctx->sentest_seamless_cfg.target_scenario_id);
+
+	mtk_cam_sensor_get_vc_info_by_scenario(ctx, code);
+
+	if (seninf_sentest_set_camtg_for_seamless(ctx)) {
+		pr_info("[Error][%s] seninf_sentest_set_camtg_for_seamless returned false",
+				__func__);
+		seninf_sentest_seamless_switch_error_handler(ctx);
+		return -EFAULT;
+	}
+
+	return 0;
+}
+
+static int seninf_sentest_seamless_ut_start(struct seninf_ctx *ctx)
+{
+	int ret;
+	struct seninf_sentest_work *sentest_work = NULL;
+
+	sentest_work = kmalloc(sizeof(struct seninf_sentest_work), GFP_ATOMIC);
+
+	if (unlikely(ctx == NULL)) {
+		pr_info("[Error][%s] ctx is NULL", __func__);
+		return -EFAULT;
+	}
+
+	if (unlikely(sentest_work == NULL)) {
+		pr_info("[Error][%s] sentest_work is NULL", __func__);
+		return -EFAULT;
+	}
+
+	kthread_init_work(&sentest_work->work,
+					seninf_sentest_set_sensor_seamless_switch);
+
+	sentest_work->ctx = ctx;
+
+	kthread_queue_work(&ctx->sentest_worker,
+					&sentest_work->work);
+
+	ret = seninf_sentest_ops_before_sensor_seamless(ctx);
+
+	ctx->sentest_seamless_is_set_camtg_done = true;
+	return ret;
+}
+
+static int is_target_vsync(struct seninf_ctx *ctx,
+	const struct mtk_cam_seninf_tsrec_irq_notify_info *p_info,
+	enum SENTEST_TARGET_VSYNC vsync_type)
+{
+	bool ret = 0;
+	int i = 0 , mask_shift_cnt = 0, mask = 0x01;
+	struct seninf_vcinfo *vcinfo = &ctx->cur_vcinfo;
+	struct seninf_vc *vc;
+
+	if (unlikely(p_info == NULL)) {
+		pr_info("[Error][%s] p_info is NULL", __func__);
+		return 0;
+	}
+
+	for (i = 0; i < vcinfo->cnt; i++) {
+		vc = &vcinfo->vc[i];
+		if ((vc->out_pad == PAD_SRC_RAW1) ||
+			(vc->out_pad == PAD_SRC_RAW2) ||
+			(vc->out_pad == PAD_SRC_RAW_W1) ||
+			(vc->out_pad == PAD_SRC_RAW_W2))
+			mask_shift_cnt++;
+	}
+
+	if (vsync_type == SENTEST_FIRST_VSYNC) {
+		ret = (p_info->vsync_status & 0x01)? true : false;
+	} else {
+		mask |= (mask << mask_shift_cnt);
+
+		ret = (p_info->vsync_status & mask)? true : false;
+	}
+
+	pr_info("[%s], vsync_status 0x%x, mask_shift_cnt %d is_last_vsync %d ret %d",
+			__func__,
+			p_info->vsync_status,
+			mask_shift_cnt,
+			vsync_type,
+			ret);
+
+	return ret;
+}
+
+static int seninf_sentest_ops_after_sensor_seamless(struct seninf_ctx *ctx)
+{
+	struct v4l2_ctrl *ctrl;
+	struct v4l2_subdev *sensor_sd = ctx->sensor_sd;
+	unsigned int sof_cnt = ctx->sentest_irq_counter;
+
+	if (unlikely(ctx == NULL)) {
+		pr_info("[Error][%s] ctx is NULL", __func__);
+		return -EFAULT;
+	}
+
+	if (!ctx->sentest_seamless_is_set_camtg_done) {
+		pr_info("[Error][%s] sentest_seamless_camtg hasn't been processed", __func__);
+		seninf_sentest_seamless_switch_error_handler(ctx);
+		return -EFAULT;
+	}
+
+	/* notify sensor drv Vsync */
+	ctrl = v4l2_ctrl_find(sensor_sd->ctrl_handler,
+				V4L2_CID_VSYNC_NOTIFY);
+
+	if (!ctrl) {
+		pr_info("[%s][ERROR], no V4L2_CID_VSYNC_NOTIFY %s\n",
+			__func__,
+			sensor_sd->name);
+		return -EFAULT;
+	}
+	v4l2_ctrl_s_ctrl(ctrl, sof_cnt);
+	seninf_sentest_watchingdog_en(&ctx->sentest_watchdog, false);
+
+	ctx->sentest_seamless_ut_en = false;
+
+	pr_info("[%s] -", __func__);
+	return 0;
+}
+
+int notify_sentest_irq(struct seninf_ctx *ctx,
+					const struct mtk_cam_seninf_tsrec_irq_notify_info *p_info)
+{
+	if (unlikely(ctx == NULL)) {
+		pr_info("[Error][%s] ctx is NULL", __func__);
+		return -EFAULT;
+	}
+
+	if (!ctx->sentest_seamless_ut_en)
+		return -EINVAL;
+
+	if (is_target_vsync(ctx, p_info , SENTEST_FIRST_VSYNC))
+		ctx->sentest_irq_counter++;
+
+	pr_info("[%s] sentest_seamless_irq_ref %llu, sentest_irq_counter %llu\n",
+			__func__,
+			ctx->sentest_seamless_irq_ref,
+			ctx->sentest_irq_counter);
+
+	if ((ctx->sentest_seamless_irq_ref + 1) == ctx->sentest_irq_counter) {
+
+		if (!is_target_vsync(ctx, p_info , SENTEST_LAST_VSYNC))
+			return 0;
+
+		seninf_sentest_seamless_ut_start(ctx);
+	} else {
+		seninf_sentest_ops_after_sensor_seamless(ctx);
+	}
+
+	return 0;
 }

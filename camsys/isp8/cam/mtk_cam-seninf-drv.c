@@ -41,6 +41,7 @@
 #include "mtk_cam-seninf-ca.h"
 #include "mtk_cam-seninf_control-8.h"
 #include "mtk_cam-seninf-sentest-ioctrl.h"
+#include "mtk_cam-seninf-sentest-ctrl.h"
 
 #define is_irq_ready 1
 
@@ -668,7 +669,7 @@ static int seninf_dfs_set(struct seninf_ctx *ctx, unsigned long freq)
 	}
 
 	mutex_lock(&core->mutex);
-	if (ctx->allow_adjust_isp_en)
+	if (ctx->sentest_adjust_isp_en)
 		ret = __seninf_dfs_set(ctx, freq);
 	mutex_unlock(&core->mutex);
 
@@ -1963,9 +1964,9 @@ int update_isp_clk(struct seninf_ctx *ctx)
 		return -EINVAL;
 	}
 
-	if (!ctx->allow_adjust_isp_en) {
+	if (!ctx->sentest_adjust_isp_en) {
 		dev_info(ctx->dev, "%s adjust_isp_en %d, skip update isp clk flow\n",
-			__func__, ctx->allow_adjust_isp_en);
+			__func__, ctx->sentest_adjust_isp_en);
 		return 0;
 	}
 
@@ -3212,6 +3213,8 @@ static int seninf_probe(struct platform_device *pdev)
 	dev_info(dev, "%s: port=%d, AsyncIdx=%d, SelSensor=%d, tsrec_idx=%u\n",
 		__func__, ctx->port, ctx->seninfAsyncIdx, ctx->seninfSelSensor, ctx->tsrec_idx);
 
+	seninf_sentest_probe_init(ctx);
+
 	return 0;
 
 err_free_handler:
@@ -3867,6 +3870,7 @@ static int seninf_remove(struct platform_device *pdev)
 		mtk_cam_seninf_release_outmux(ctx);
 		mtk_cam_seninf_tsrec_n_reset(ctx->tsrec_idx);
 	}
+	seninf_sentest_uninit(ctx);
 
 	pm_runtime_disable(ctx->dev);
 

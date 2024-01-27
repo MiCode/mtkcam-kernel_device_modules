@@ -6,6 +6,7 @@
 
 #include <linux/kthread.h>
 #include <linux/remoteproc.h>
+#include <linux/timer.h>
 #include <media/v4l2-subdev.h>
 #include <media/v4l2-ctrls.h>
 #include <media/v4l2-fwnode.h>
@@ -232,6 +233,10 @@ struct seninf_core {
 	struct mtk_seninf_cdphy_dvfs_step cdphy_dvfs_step[CDPHY_DVFS_STEP_MAX_NUM];
 };
 
+struct mtk_cam_sentest_watchdog {
+	struct timer_list timer;
+};
+
 struct seninf_ctx {
 	struct v4l2_subdev subdev;
 	struct v4l2_async_notifier notifier;
@@ -346,8 +351,17 @@ struct seninf_ctx {
 	unsigned int esd_status_flag;
 
 	/* for sentest use */
-	bool allow_adjust_isp_en;
-	bool single_raw_streaming_en;
+	bool sentest_adjust_isp_en;
+	bool sentest_seamless_ut_en;
+	bool sentest_seamless_is_set_camtg_done;
+	bool sentest_mipi_measure_en;
+	u64 sentest_irq_counter;
+	u64 sentest_seamless_irq_ref;
+	enum SENTEST_SEAMLESS_STATUS sentest_seamless_ut_status;
+	struct mtk_cam_sentest_watchdog sentest_watchdog;
+	struct mtk_seamless_switch_param sentest_seamless_cfg;
+	struct kthread_worker sentest_worker;
+	struct task_struct *sentest_kworker_task;
 
 	/* cammux switch debug element */
 	struct mtk_cam_seninf_mux_param *dbg_chmux_param;

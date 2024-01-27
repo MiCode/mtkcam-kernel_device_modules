@@ -5,6 +5,7 @@
 #include "mtk_cam-seninf-sentest-ctrl.h"
 #include "mtk_cam-seninf_control-8.h"
 #include "mtk_cam-seninf-hw.h"
+#include "imgsensor-user.h"
 
 /******************************************************************************/
 // seninf sentest call back ioctrl --- function
@@ -14,18 +15,6 @@ struct seninf_sentest_ioctl {
 	enum seninf_sentest_ctrl_id ctrl_id;
 	int (*func)(struct seninf_ctx *ctx, void *arg);
 };
-
-int seninf_sentest_flag_init(struct seninf_ctx *ctx)
-{
-	if (unlikely(ctx == NULL)) {
-		pr_info("[%s][ERROR] ctx is NULL\n", __func__);
-		return -EINVAL;
-	}
-
-	ctx->allow_adjust_isp_en = false;
-	ctx->single_raw_streaming_en = false;
-	return 0;
-}
 
 static int s_sentest_max_isp_clk_en(struct seninf_ctx *ctx, void *arg)
 {
@@ -56,16 +45,16 @@ static int s_sentest_max_isp_clk_en(struct seninf_ctx *ctx, void *arg)
 		return -EFAULT;
 	}
 
-	ctx->allow_adjust_isp_en = *en;
+	ctx->sentest_adjust_isp_en = *en;
 
-	dev_info(ctx->dev, "[%s] en: %d, allow_adjust_isp_en is %d\n",
-				__func__, *en, ctx->allow_adjust_isp_en);
+	dev_info(ctx->dev, "[%s] en: %d, sentest_adjust_isp_en is %d\n",
+				__func__, *en, ctx->sentest_adjust_isp_en);
 
 	kfree(en);
 	return 0;
 }
 
-static int s_sentest_single_raw_streaming_en(struct seninf_ctx *ctx, void *arg)
+static int s_sentest_mipi_measure_en(struct seninf_ctx *ctx, void *arg)
 {
 	int *en = kmalloc(sizeof(int), GFP_KERNEL);
 
@@ -82,7 +71,7 @@ static int s_sentest_single_raw_streaming_en(struct seninf_ctx *ctx, void *arg)
 
 	if (ctx->streaming){
 		dev_info(ctx->dev,
-				"[ERROR][%s] set max_clk_en failed, due to streaming is %d\n",
+				"[ERROR][%s] set mipi_measure_en failed, due to streaming is %d\n",
 				__func__, ctx->streaming);
 		kfree(en);
 		return -EINVAL;
@@ -94,10 +83,10 @@ static int s_sentest_single_raw_streaming_en(struct seninf_ctx *ctx, void *arg)
 		return -EFAULT;
 	}
 
-	ctx->single_raw_streaming_en = *en;
+	ctx->sentest_mipi_measure_en = *en;
 
-	dev_info(ctx->dev, "[%s] en: %d, single_raw_streaming_en is %d\n",
-				__func__, *en, ctx->single_raw_streaming_en);
+	dev_info(ctx->dev, "[%s] en: %d, sentest_mipi_measure_en is %d\n",
+				__func__, *en, ctx->sentest_mipi_measure_en);
 
 	kfree(en);
 	return 0;
@@ -105,7 +94,6 @@ static int s_sentest_single_raw_streaming_en(struct seninf_ctx *ctx, void *arg)
 
 static inline int g_sentest_debug_result(struct seninf_ctx *ctx, void *arg)
 {
-
 	return seninf_sentest_get_debug_reg_result(ctx, arg);
 }
 
@@ -117,11 +105,102 @@ static int g_sentest_mipi_result(struct seninf_ctx *ctx, void *arg)
 	return -EINVAL;
 }
 
+static int s_sentest_seamless_ut_en(struct seninf_ctx *ctx, void *arg)
+{
+	int *en = kmalloc(sizeof(int), GFP_KERNEL);
+
+	if (unlikely(en == NULL)) {
+		pr_info("[%s][ERROR] en is NULL\n", __func__);
+		return -EINVAL;
+	}
+
+	if (unlikely(ctx == NULL)) {
+		pr_info("[%s][ERROR] ctx is NULL\n", __func__);
+		kfree(en);
+		return -EINVAL;
+	}
+
+	if (copy_from_user(en, arg, sizeof(int))) {
+		pr_info("[%s][ERROR] copy_from_user return failed\n", __func__);
+		kfree(en);
+		return -EFAULT;
+	}
+
+	ctx->sentest_seamless_ut_en = *en;
+	ctx->sentest_seamless_irq_ref = ctx->sentest_irq_counter;
+
+	if (*en)
+		ctx->sentest_seamless_ut_status = SENTEST_SEAMLESS_IS_DOING;
+	else
+		ctx->sentest_seamless_ut_status = SENTEST_SEAMLESS_IS_IDLE;
+
+	dev_info(ctx->dev, "[%s] en: %d, sentest_seamless_ut_en is %d\n",
+				__func__, *en, ctx->sentest_seamless_ut_en);
+
+	kfree(en);
+	return 0;
+}
+
+static int s_sentest_seamless_ut_cfg(struct seninf_ctx *ctx, void *arg)
+{
+	struct mtk_seamless_switch_param *config =
+						kmalloc(sizeof(struct mtk_seamless_switch_param),
+								GFP_KERNEL);
+
+	if (unlikely(ctx == NULL)) {
+		pr_info("[%s][ERROR] ctx is NULL\n", __func__);
+		return -EINVAL;
+	}
+
+	memset(&ctx->sentest_seamless_cfg, 0, sizeof(struct mtk_seamless_switch_param));
+
+	if (unlikely(config == NULL)) {
+		pr_info("[%s][ERROR] config is NULL\n", __func__);
+		return -EINVAL;
+	}
+
+	if (copy_from_user(config, arg, sizeof(struct mtk_seamless_switch_param))) {
+		pr_info("[%s][ERROR] copy_from_user return failed\n", __func__);
+		return -EFAULT;
+	}
+
+	memcpy(&ctx->sentest_seamless_cfg, config, sizeof(struct mtk_seamless_switch_param));
+
+	return 0;
+}
+
+static int g_sentest_seamless_current_status(struct seninf_ctx *ctx, void *arg)
+{
+	static enum SENTEST_SEAMLESS_STATUS current_status;
+
+	if (unlikely(ctx == NULL)) {
+		pr_info("[%s][ERROR] ctx is NULL\n", __func__);
+		return -EINVAL;
+	}
+
+	if (copy_to_user(arg, &ctx->sentest_seamless_ut_status, sizeof(enum SENTEST_SEAMLESS_STATUS))) {
+		pr_info("[%s][ERROR] copy_to_user return failed\n", __func__);
+		return -EFAULT;
+	}
+
+	if (current_status != ctx->sentest_seamless_ut_status)
+		dev_info(ctx->dev, "[%s] sentest_seamless_ut_status: %d\n",
+				__func__, ctx->sentest_seamless_ut_status);
+
+	current_status = ctx->sentest_seamless_ut_status;
+
+	return 0;
+}
+
 static const struct seninf_sentest_ioctl sentest_ioctl_table[] = {
-	{SENINF_SENTEST_G_DEBUG_RESULT, g_sentest_debug_result},
 	{SENINF_SENTEST_S_MAX_ISP_EN, s_sentest_max_isp_clk_en},
-	{SENINF_SENTEST_S_SINGLE_STREAM_RAW, s_sentest_single_raw_streaming_en},
+	{SENINF_SENTEST_S_SINGLE_STREAM_RAW, s_sentest_mipi_measure_en},
+	{SENINF_SENTEST_S_SEAMLESS_UT_EN, s_sentest_seamless_ut_en},
+	{SENINF_SENTEST_S_SEAMLESS_UT_CONFIG, s_sentest_seamless_ut_cfg},
+
+	{SENINF_SENTEST_G_DEBUG_RESULT, g_sentest_debug_result},
 	{SENINF_SENTEST_G_MIPI_RESULT, g_sentest_mipi_result},
+	{SENINF_SENTEST_G_SEAMLESS_STATUS, g_sentest_seamless_current_status},
 };
 
 int seninf_sentest_ioctl_entry(struct seninf_ctx *ctx, void *arg)

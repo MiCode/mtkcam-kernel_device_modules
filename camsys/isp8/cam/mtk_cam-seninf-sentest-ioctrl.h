@@ -12,6 +12,4 @@
 
 int seninf_sentest_ioctl_entry(struct seninf_ctx *ctx, void *arg);
 
-int seninf_sentest_flag_init(struct seninf_ctx *ctx);
-
 #endif

@@ -64,7 +64,7 @@ static int sentest_g_sensor_profile(struct adaptor_ctx *ctx, void *user_buf)
 static int sentest_g_tsrec_info(struct adaptor_ctx *ctx, void *arg)
 {
 	return sentest_get_current_tsrec_info(ctx,
-				(struct mtk_cam_seninf_tsrec_timestamp_info *)arg);
+				(struct mtk_cam_seninf_sentest_ts *)arg);
 }
 
 static int sentest_s_tsrec_traget_frame_id(struct adaptor_ctx *ctx, void *arg)

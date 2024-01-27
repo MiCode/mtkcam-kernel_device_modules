@@ -9,13 +9,11 @@
 // adaptor sentest call back for ioctl & adaptor framework using
 /******************************************************************************/
 
-static struct mtk_cam_seninf_tsrec_timestamp_info sentest_current_tsrec_info;
-
 int notify_sentest_tsrec_time_stamp(struct adaptor_ctx *ctx,
 					struct mtk_cam_seninf_tsrec_timestamp_info *info)
 {
-	static u64 current_frame_id;
 	struct mtk_cam_sentest_cfg_info *sentest_info;
+	static u64 prev_ts0;
 
 	if (unlikely(ctx == NULL)) {
 		pr_info("[%s][ERROR] ctx is NULL\n", __func__);
@@ -33,22 +31,17 @@ int notify_sentest_tsrec_time_stamp(struct adaptor_ctx *ctx,
 		return -EINVAL;
 	}
 
+	if (prev_ts0 == info->exp_recs[0].ts_us[0])
+		return 0;
+
 	mutex_lock(&sentest_info->sentest_update_tsrec_mutex);
-	current_frame_id++;
 
-	if (!sentest_info->listen_tsrec_frame_id) {
-		memcpy(&sentest_current_tsrec_info, info,
-					sizeof(sentest_current_tsrec_info));
+	prev_ts0 = info->exp_recs[0].ts_us[0];
+	sentest_info->ts.sentest_tsrec_frame_cnt++;
+	sentest_info->ts.sys_time_ns = info->irq_sys_time_ns;
 
-		dev_info(ctx->dev, "[%s] store tsrec info done\n", __func__);
-
-	} else if (sentest_info->listen_tsrec_frame_id == current_frame_id) {
-		memcpy(&sentest_current_tsrec_info, info,
-				sizeof(sentest_current_tsrec_info));
-
-		dev_info(ctx->dev, "[%s] target frame %d tsrec info done\n",
-					__func__, sentest_info->listen_tsrec_frame_id);
-	}
+	memcpy(sentest_info->ts.ts_us, info->exp_recs[0].ts_us,
+					(sizeof(u64) * TSREC_TS_REC_MAX_CNT));
 
 	mutex_unlock(&sentest_info->sentest_update_tsrec_mutex);
 
@@ -56,7 +49,7 @@ int notify_sentest_tsrec_time_stamp(struct adaptor_ctx *ctx,
 }
 
 int sentest_get_current_tsrec_info(struct adaptor_ctx *ctx,
-					struct mtk_cam_seninf_tsrec_timestamp_info *info)
+					struct mtk_cam_seninf_sentest_ts *info)
 {
 	struct mtk_cam_sentest_cfg_info *sentest_info;
 
@@ -77,7 +70,13 @@ int sentest_get_current_tsrec_info(struct adaptor_ctx *ctx,
 	}
 
 	mutex_lock(&sentest_info->sentest_update_tsrec_mutex);
-	memcpy(&info, &sentest_current_tsrec_info, sizeof(info));
+	if (copy_to_user(info, &sentest_info->ts,
+					sizeof(struct mtk_cam_seninf_sentest_ts))) {
+		dev_info(ctx->dev,
+			"[%s][ERR] copy_to_user return failed\n", __func__);
+		mutex_unlock(&sentest_info->sentest_update_tsrec_mutex);
+		return -EFAULT;
+	}
 	mutex_unlock(&sentest_info->sentest_update_tsrec_mutex);
 
 	return 0;
@@ -124,6 +123,8 @@ int sentest_flag_init(struct adaptor_ctx *ctx)
 	sentest_info->listen_tsrec_frame_id = 0;
 	sentest_info->power_on_profile_en = 0;
 	sentest_info->lbmf_delay_do_ae_en = 0;
+
+	memset(&sentest_info->ts, 0, sizeof(struct mtk_cam_seninf_sentest_ts));
 
 	return 0;
 }

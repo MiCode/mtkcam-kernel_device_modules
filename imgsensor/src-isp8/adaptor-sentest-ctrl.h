@@ -20,6 +20,6 @@ int notify_sentest_tsrec_time_stamp(struct adaptor_ctx *ctx,
 					struct mtk_cam_seninf_tsrec_timestamp_info *info);
 
 int sentest_get_current_tsrec_info(struct adaptor_ctx *ctx,
-					struct mtk_cam_seninf_tsrec_timestamp_info *info);
+					struct mtk_cam_seninf_sentest_ts *info);
 
 #endif

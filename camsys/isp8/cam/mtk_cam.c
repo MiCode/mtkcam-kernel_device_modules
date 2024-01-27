@@ -4408,9 +4408,7 @@ static int mtk_cam_probe(struct platform_device *pdev)
 	}
 	dev_dbg(dev, "registered qoftop irq=%d\n", irq);
 	//enable_irq(irq);
-#ifdef NOT_FPGA_STAGE
 	cam_dev->cmdq_clt = cmdq_mbox_create(dev, 0);
-#endif
 	if (!cam_dev->cmdq_clt)
 		pr_err("probe cmdq_mbox_create fail\n");
 	clks = of_count_phandle_with_args(
@@ -4563,44 +4561,6 @@ static int mtk_cam_runtime_suspend(struct device *dev)
 	return 0;
 }
 
-/* note:
- *   issue: would timeout. can't enable this now
- */
-//#define DO_ADLWR_RESET
-
-#ifdef DO_ADLWR_RESET
-#define ADLWR_ADL_RESET 0x300
-static void adlwr_reset(struct mtk_cam_device *cam_dev)
-{
-	int sw_ctl;
-	int ret;
-
-	if (IS_ERR_OR_NULL(cam_dev->adlwr_base)) {
-		dev_info(cam_dev->dev, "%s: skipped\n", __func__);
-		return;
-	}
-
-	writel(0, cam_dev->adlwr_base + ADLWR_ADL_RESET);
-	writel(BIT(1), cam_dev->adlwr_base + ADLWR_ADL_RESET);
-	wmb(); /* make sure committed */
-
-	ret = readx_poll_timeout(readl, cam_dev->adlwr_base + ADLWR_ADL_RESET,
-				 sw_ctl,
-				 sw_ctl & BIT(0),
-				 1 /* delay, us */,
-				 5000 /* timeout, us */);
-	if (ret < 0) {
-		dev_info(cam_dev->dev, "%s: error: timeout!\n", __func__);
-		return;
-	}
-
-	/* do hw rst */
-	writel(0x3c, cam_dev->adlwr_base + ADLWR_ADL_RESET);
-	writel(0, cam_dev->adlwr_base + ADLWR_ADL_RESET);
-}
-#endif
-
-#ifdef CAM_EP_READY
 static void init_camsys_main_adl_setting(struct mtk_cam_device *cam_dev)
 {
 
@@ -4618,7 +4578,6 @@ static void init_camsys_main_adl_setting(struct mtk_cam_device *cam_dev)
 	writel_relaxed(0, cam_dev->base + 0x3b8);
 	writel_relaxed(0, cam_dev->base + 0x3bc);
 }
-#endif
 
 static int mtk_cam_runtime_resume(struct device *dev)
 {
@@ -4636,14 +4595,7 @@ static int mtk_cam_runtime_resume(struct device *dev)
 		readl(cam_dev->base + 0x00),
 		readl(cam_dev->base + 0x4c));
 
-#ifdef CAM_EP_READY
 	init_camsys_main_adl_setting(cam_dev);
-#endif
-
-#ifdef DO_ADLWR_RESET
-	adlwr_reset(cam_dev);
-#endif
-
 	mtk_cam_timesync_init(true);
 
 	return 0;

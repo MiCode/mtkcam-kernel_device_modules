@@ -219,6 +219,31 @@ static void init_ADLWR_settings(struct mtk_cam_device *cam)
 	writel_relaxed(0x440, cam->adlwr_base + 0x350);
 }
 
+#define ADLRD_CTRL_4 0x810
+static void init_ADLRD_settings(struct mtk_raw_device *dev)
+{
+	int adlrd_grp;
+	int adlrd_grp_reg;
+
+	if (IS_ERR_OR_NULL(dev->cam->adlrd_base)) {
+		if (CAM_DEBUG_ENABLED(JOB))
+			dev_info(dev->dev, "%s: skipped\n", __func__);
+		return;
+	}
+
+	/* rawA front: 0, rawA rear: 1, */
+	/* rawB front: 2, rawB rear: 3, */
+	/* rawC front: 4, rawC rear: 5  */
+
+	adlrd_grp = dev->id << 1;
+	adlrd_grp_reg = adlrd_grp | adlrd_grp << 3 | adlrd_grp << 6 | adlrd_grp << 9 |
+			adlrd_grp << 12 | adlrd_grp << 15 | adlrd_grp << 18;
+	if (CAM_DEBUG_ENABLED(JOB))
+		dev_info(dev->dev, "adlrd_grp: 0x%x, adlrd_grp_reg: 0x%x",
+			 adlrd_grp, adlrd_grp_reg);
+	raw_writel(adlrd_grp_reg, dev, dev->cam->adlrd_base, ADLRD_CTRL_4);
+}
+
 static void dump_dc_setting(struct mtk_raw_device *dev)
 {
 	dev_info_ratelimited(dev->dev, "[outer] CAMCTL_SCENARIO_CTL/MODE 0x%08x/0x%08x DCIF_CTL/2:0x%08x/0x%08x, CHASING_SRC_SEL:0x%08x, TG_DCIF_CTL:0x%08x\n",
@@ -384,6 +409,7 @@ void initialize(struct mtk_raw_device *dev, struct engine_callback *cb,
 
 	init_camsys_settings(dev, is_srt);
 	init_ADLWR_settings(dev->cam);
+	init_ADLRD_settings(dev);
 	init_raw_ddren(dev, is_srt, frm_time_us);
 #ifdef RAW_DEBUG_INIT
 	dump_topdebug_rdyreq_status(dev);
@@ -768,8 +794,8 @@ static void write_pkt_apu_raw(struct mtk_raw_device *dev,
 	int adlrd_ctrl;
 	int trig;
 
-	raw_base = (raw_id == 0) ? 0x1a030000 :
-		   (raw_id == 1) ? 0x1a070000 : 0x1a0b0000;
+	raw_base = (raw_id == 0) ? 0x3a800000 :
+		   (raw_id == 1) ? 0x3a900000 : 0x3aa00000;
 
 	adlrd_ctrl =
 		(raw_id << 1) | /* ADLRD_MUX_SEL */
@@ -780,12 +806,12 @@ static void write_pkt_apu_raw(struct mtk_raw_device *dev,
 		(FBIT(CAMCTL_APU_TRIG) | FBIT(CAMCTL_RAW_TRIG));
 
 	if (is_apu_dc)
-		cmdq_pkt_write(pkt, NULL, 0x1a003380, 0xf0000, 0xffffffff);
+		cmdq_pkt_write(pkt, NULL, 0x3a003380, 0xf0000, 0xffffffff);
 	else
-		cmdq_pkt_write(pkt, NULL, 0x1a003380, 0x00001, 0xffffffff);
+		cmdq_pkt_write(pkt, NULL, 0x3a003380, 0x00001, 0xffffffff);
 
 	/* CAM_MAIN_ADLRD_CTRL */
-	cmdq_pkt_write(pkt, NULL, 0x1a00032c, adlrd_ctrl, 0xffffffff);
+	cmdq_pkt_write(pkt, NULL, 0x3a00032c, adlrd_ctrl, 0xffffffff);
 
 	/* CAMCTL_RAWI_TRIG: CAMCTL_APU_TRIG */
 	cmdq_pkt_write(pkt, NULL, raw_base + REG_CAMCTL_RAW_TRIG, trig,
@@ -806,7 +832,7 @@ void write_pkt_trigger_apu_dc(struct mtk_raw_device *dev,
 	write_pkt_apu_raw(dev, pkt, true /* is_apu_dc */);
 
 	/* trigger APU */
-	cmdq_pkt_write(pkt, NULL, 0x190E1600, 0x1, 0xffffffff);
+	cmdq_pkt_write(pkt, NULL, 0x4c260000, 0x1, 0xffffffff);
 }
 
 void write_pkt_trigger_apu_frame_mode(struct mtk_raw_device *dev,
@@ -949,6 +975,49 @@ RESET_FAILURE:
 	raw_writel(0x0, dev, dev->yuv_base, REG_CAMCTL2_MOD6_DCM_DIS);
 
 	wmb(); /* make sure committed */
+}
+
+#define ADLRD_RESET  0x0800
+#define ADLRD_CTRL_1 0x0804
+#define ADLRD_CTRL_2 0x0808
+void adlrd_reset(struct mtk_cam_device *cam_dev)
+{
+	int adl_ctrl, sw_ctl;
+	int ret;
+
+	if (IS_ERR_OR_NULL(cam_dev->adlrd_base)) {
+		dev_info(cam_dev->dev, "%s: skipped\n", __func__);
+		return;
+	}
+
+	/* disable double buffer */
+	adl_ctrl = readl(cam_dev->adlrd_base + ADLRD_CTRL_1);
+	writel(adl_ctrl | BIT(12), cam_dev->adlrd_base + ADLRD_CTRL_1);
+	writel(0x1, cam_dev->adlrd_base + ADLRD_RESET);
+
+	writel(BIT(1), cam_dev->adlrd_base + ADLRD_RESET);
+	wmb(); /* make sure committed */
+
+	ret = readx_poll_timeout(readl, cam_dev->adlrd_base + ADLRD_RESET,
+				 sw_ctl,
+				 sw_ctl & BIT(0),
+				 1 /* delay, us */,
+				 5000 /* timeout, us */);
+	if (ret < 0) {
+		dev_info(cam_dev->dev, "%s: error: timeout!\n", __func__);
+		return;
+	}
+
+	/* do hw rst */
+	writel(BIT(2), cam_dev->adlrd_base + ADLRD_RESET);
+	writel(0, cam_dev->adlrd_base + ADLRD_RESET);
+
+	writel(adl_ctrl, cam_dev->adlrd_base + ADLRD_CTRL_1);
+	//writel(0x1, cam_dev->adlrd_base + ADLRD_CTRL_2);
+
+	wmb(); /* make sure committed */
+
+	dev_info(cam_dev->dev, "%s done\n", __func__);
 }
 
 static int reset_msgfifo(struct mtk_raw_device *dev)

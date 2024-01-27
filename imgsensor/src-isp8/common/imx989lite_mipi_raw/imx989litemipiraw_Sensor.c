@@ -75,13 +75,13 @@ static struct SET_PD_BLOCK_INFO_T imgsensor_pd_info_fullsize = {
 		// <pre> <cap> <normal_video> <hs_video> <<slim_video>>
 		{0, 0}, {0, 0}, {0, 384}, {0, 384}, {0, 0},
 		// <<cust1>> <<cust2>> <<cust3>> <cust4> <cust5>
-		{0, 0}, {0, 0}, {0, 0}, {0, 384}, {0, 384},
+		{128, 456}, {128, 456}, {128, 456}, {400, 306}, {400, 306},
 		// <cust6> <cust7> <cust8> cust9 cust10
-		{0, 384}, {0, 384}, {0, 384}, {2048, 1920}, {2048, 1536},
+		{400, 306}, {800, 612}, {800, 612}, {400, 306}, {400, 306},
 		// cust11 cust12 cust13 <cust14> <cust15>
-		{2048, 1536}, {0, 0}, {0, 0}, {0, 0}, {0, 0},
+		{400, 306}, {400, 306}, {400, 306}, {400, 306}, {400, 306},
 		// <cust16> <cust17> cust18 <cust19> cust20
-		{0, 0}, {0, 0}, {0, 0}, {0, 0}, {256, 912},
+		{0, 0}, {0, 0}, {192, 492}, {192, 492}, {192, 492},
 		// <cust21> <cust22> cust23
 		{0, 0}, {0, 384}, {0, 384},
 	},
@@ -114,18 +114,57 @@ static struct SET_PD_BLOCK_INFO_T imgsensor_pd_info = {
 		// <pre> <cap> <normal_video> <hs_video> <<slim_video>>
 		{0, 0}, {0, 0}, {0, 384}, {0, 384}, {0, 0},
 		// <<cust1>> <<cust2>> <<cust3>> <cust4> <cust5>
-		{0, 0}, {0, 0}, {0, 0}, {0, 384}, {0, 384},
+		{128, 456}, {128, 456}, {128, 456}, {400, 306}, {400, 306},
 		// <cust6> <cust7> <cust8> cust9 cust10
-		{0, 384}, {0, 384}, {0, 384}, {2048, 1920}, {2048, 1536},
+		{400, 306}, {800, 612}, {800, 612}, {400, 306}, {400, 306},
 		// cust11 cust12 cust13 <cust14> <cust15>
-		{2048, 1536}, {0, 0}, {0, 0}, {0, 0}, {0, 0},
+		{400, 306}, {400, 306}, {400, 306}, {400, 306}, {400, 306},
 		// <cust16> <cust17> cust18 <cust19> cust20
-		{0, 0}, {0, 0}, {0, 0}, {0, 0}, {256, 912},
+		{0, 0}, {0, 0}, {192, 492}, {192, 492}, {192, 492},
 		// <cust21> <cust22> cust23
-		{0, 0}, {0, 384}, {0, 384},
+		{0, 192},
 	},
 	.iMirrorFlip = 0,
 	.i4FullRawW = 4096,
+	.i4FullRawH = 3072,
+	.i4ModeIndex = 3,
+	/* VC's PD pattern description */
+	.sPDMapInfo[0] = {
+		.i4PDPattern = 1,
+		.i4BinFacX = 2,
+		.i4BinFacY = 4,
+	},
+};
+
+static struct SET_PD_BLOCK_INFO_T imgsensor_pd_info_2bin = {
+	.i4OffsetX = 0,
+	.i4OffsetY = 0,
+	.i4PitchX = 0,
+	.i4PitchY = 0,
+	.i4PairNum = 0,
+	.i4SubBlkW = 0,
+	.i4SubBlkH = 0,
+	.i4PosL = {{0, 0}},
+	.i4PosR = {{0, 0}},
+	.i4BlockNumX = 0,
+	.i4BlockNumY = 0,
+	.i4LeFirst = 0,
+	.i4Crop = {
+		// <pre> <cap> <normal_video> <hs_video> <<slim_video>>
+		{0, 0}, {0, 0}, {0, 384}, {0, 384}, {0, 0},
+		// <<cust1>> <<cust2>> <<cust3>> <cust4> <cust5>
+		{128, 456}, {128, 456}, {128, 456}, {400, 306}, {400, 306},
+		// <cust6> <cust7> <cust8> cust9 cust10
+		{400, 306}, {800, 612}, {800, 612}, {400, 306}, {400, 306},
+		// cust11 cust12 cust13 <cust14> <cust15>
+		{400, 306}, {400, 306}, {400, 306}, {400, 306}, {400, 306},
+		// <cust16> <cust17> cust18 <cust19> cust20
+		{0, 0}, {0, 0}, {192, 492}, {192, 492}, {192, 492},
+		// <cust21> <cust22> cust23
+		{0, 192},
+	},
+	.iMirrorFlip = 0,
+	.i4FullRawW = 2048,
 	.i4FullRawH = 3072,
 	.i4ModeIndex = 3,
 	/* VC's PD pattern description */
@@ -2521,7 +2560,7 @@ static struct subdrv_mode_struct mode_struct[] = {
 			.h2_tg_size = 1152,
 		},
 		.pdaf_cap = TRUE,
-		.imgsensor_pd_info = &imgsensor_pd_info,
+		.imgsensor_pd_info = &imgsensor_pd_info_2bin,
 		.ae_binning_ratio = 1000,
 		.fine_integ_line = 0,
 		.delay_frame = 3,

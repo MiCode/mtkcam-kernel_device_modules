@@ -73,9 +73,9 @@ static struct SET_PD_BLOCK_INFO_T imgsensor_pd_info = {
 	.i4LeFirst = 0,
 	.i4Crop = {
 		// <prev> <cap> <vid> <hs_vid> <slim_vid>
-		{0, 0}, {0, 0}, {0, 384}, {0, 384}, {0, 0},
+		{0, 0}, {0, 0}, {0, 384}, {0, 384}, {2048, 1536},
 		// <cust1> <<cust2>> <<cust3>> <<cust4>>
-		{0, 0}, {0, 0}, {0, 0}, {0, 0},
+		{2048, 1536}, {0, 0}, {0, 0}, {0, 0},
 	},
 	.iMirrorFlip = 3,
 	.i4FullRawW = 4096,
@@ -102,9 +102,9 @@ static struct SET_PD_BLOCK_INFO_T imgsensor_pd_info_fullsize = {
 	.i4LeFirst = 0,
 	.i4Crop = {
 		// <prev> <cap> <vid> <hs_vid> <slim_vid>
-		{0, 0}, {0, 0}, {0, 384}, {0, 384}, {0, 0},
+		{0, 0}, {0, 0}, {0, 384}, {0, 384}, {2048, 1536},
 		// <cust1> <<cust2>> <<cust3>> <<cust4>>
-		{0, 0}, {0, 0}, {0, 0}, {0, 0},
+		{2048, 1536}, {0, 0}, {0, 0}, {0, 0},
 	},
 	.iMirrorFlip = 3,
 	.i4FullRawW = 8192,
@@ -642,7 +642,7 @@ static struct subdrv_mode_struct mode_struct[] = {
 			.h2_tg_size = 3072,
 		},
 		.pdaf_cap = TRUE,
-		.imgsensor_pd_info = &imgsensor_pd_info,
+		.imgsensor_pd_info = &imgsensor_pd_info_fullsize,
 		.ae_binning_ratio = 1000,
 		.fine_integ_line = 551,
 		.delay_frame = 3,
@@ -691,7 +691,7 @@ static struct subdrv_mode_struct mode_struct[] = {
 			.h2_tg_size = 3072,
 		},
 		.pdaf_cap = TRUE,
-		.imgsensor_pd_info = &imgsensor_pd_info,
+		.imgsensor_pd_info = &imgsensor_pd_info_fullsize,
 		.ae_binning_ratio = 1000,
 		.fine_integ_line = 551,
 		.delay_frame = 3,

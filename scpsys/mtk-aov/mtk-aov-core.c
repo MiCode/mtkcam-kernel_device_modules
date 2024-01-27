@@ -612,12 +612,6 @@ int aov_core_send_cmd(struct mtk_aov *aov_dev, uint32_t cmd,
 			}
 		}
 
-		// Init event to receive event
-		queue_init(&(core_info->event));
-
-		// Init queue to receive event
-		queue_init(&(core_info->queue));
-
 		if (aov_dev->fd_version == 2) {
 			// Setup frame mode
 			atomic_set(&(core_info->frame_mode), start_v2->frame_mode);
@@ -762,6 +756,8 @@ int aov_core_send_cmd(struct mtk_aov *aov_dev, uint32_t cmd,
 		// Reset queue to empty
 		while (!queue_empty(&(core_info->event)))
 			(void)queue_pop(&(core_info->event));
+		queue_deinit(&(core_info->event));
+		queue_init(&(core_info->event));
 
 		// Reset queue to empty
 		while (!queue_empty(&(core_info->queue))) {
@@ -770,6 +766,7 @@ int aov_core_send_cmd(struct mtk_aov *aov_dev, uint32_t cmd,
 				buffer_release(core_info, buf);
 		}
 		queue_deinit(&(core_info->queue));
+		queue_init(&(core_info->queue));
 
 		AOV_DEBUG_LOG(*(aov_dev->enable_aov_log_flag),
 			"mtk_cam_seninf_aov_runtime_resume(%d/%d)+\n",
@@ -1111,6 +1108,11 @@ int aov_core_init(struct mtk_aov *aov_dev)
 	atomic_set(&(core_info->debug_mode), 0);
 	atomic_set(&(core_info->disp_mode), AOV_DiSP_MODE_ON);
 	atomic_set(&(core_info->aie_avail), 1);
+
+	// Init event to receive event
+	queue_init(&(core_info->event));
+	// Init queue to receive event
+	queue_init(&(core_info->queue));
 
 	// create smi dump thread
 	atomic_set(&(core_info->do_smi_dump), 0);
@@ -1612,6 +1614,7 @@ int aov_core_reset(struct mtk_aov *aov_dev)
 		while (!queue_empty(&(core_info->event)))
 			(void)queue_pop(&(core_info->event));
 		queue_deinit(&(core_info->event));
+		queue_init(&(core_info->event));
 
 		// Reset queue to empty
 		while (!queue_empty(&(core_info->queue))) {
@@ -1620,6 +1623,7 @@ int aov_core_reset(struct mtk_aov *aov_dev)
 				buffer_release(core_info, buf);
 		}
 		queue_deinit(&(core_info->queue));
+		queue_init(&(core_info->queue));
 
 		dev_info(aov_dev->dev, "%s: force aov deinit-: (%d)", __func__, ret);
 
@@ -1672,6 +1676,11 @@ int aov_core_uninit(struct mtk_aov *aov_dev)
 		kthread_stop(core_info->reset_sensor_thread);
 		core_info->reset_sensor_thread = NULL;
 	}
+
+	// deinit event
+	queue_deinit(&(core_info->event));
+	// deinit queue
+	queue_deinit(&(core_info->queue));
 
 	curr_dev = NULL;
 

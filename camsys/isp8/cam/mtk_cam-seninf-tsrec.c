@@ -1320,6 +1320,12 @@ static void tsrec_work_init_and_queue(const unsigned int tsrec_no,
 
 #if defined(TSREC_WORK_USING_KTHREAD)
 	kthread_init_work(&req->work, tsrec_work_handler);
+	if (unlikely(tsrec_worker.kthreads[tsrec_no] == NULL)) {
+		TSREC_LOG_INF(
+			"ERROR: kthreads[%u]:%p is null <= seems due to failed to run/create kthread, return\n",
+			tsrec_no, tsrec_worker.kthreads[tsrec_no]);
+		return;
+	}
 	kthread_queue_work(
 		&tsrec_worker.kthreads[tsrec_no]->kthread, &req->work);
 #else /* => using workqueue */
@@ -1464,8 +1470,10 @@ static void tsrec_kthread_uninit(const unsigned int tsrec_no)
 
 static void tsrec_kthread_init(const unsigned int tsrec_no)
 {
-	struct tsrec_kthread_st *ptr = NULL;
 	const unsigned int tsrec_hw_cnt = tsrec_status.tsrec_hw_cnt;
+	const unsigned int try_cnt = 3;
+	struct tsrec_kthread_st *ptr = NULL;
+	unsigned int i;
 
 	if (unlikely((tsrec_worker.kthreads == NULL)
 			|| (tsrec_no >= tsrec_hw_cnt)))
@@ -1483,15 +1491,30 @@ static void tsrec_kthread_init(const unsigned int tsrec_no)
 	}
 
 	kthread_init_worker(&ptr->kthread);
-	ptr->kthread_task = kthread_run(kthread_worker_fn,
-		&ptr->kthread,
-		"seninf_tsrec-%u",
-		tsrec_no);
-	if (IS_ERR(ptr->kthread_task)) {
-		TSREC_LOG_INF(
-			"ERROR: failed to run kthread_task, return   [tsrec_no:%u]\n",
+	/* more times for trying kthread_run() operation */
+	for (i = 0; i < try_cnt; ++i) {
+		ptr->kthread_task = kthread_run(kthread_worker_fn,
+			&ptr->kthread,
+			"seninf_tsrec-%u",
 			tsrec_no);
-		return;
+
+		/* => successful flow */
+		if (!IS_ERR(ptr->kthread_task)) {
+			TSREC_LOG_DBG(
+				"NOTICE: successfully to run kthread_task, ret:%p   [tsrec_no:%u]\n",
+				ptr->kthread_task, tsrec_no);
+			break;
+		}
+		/* => failed flow */
+		TSREC_LOG_INF(
+			"ERROR: failed to run kthread_task, ret:%p => retry:%u/%u   [tsrec_no:%u]\n",
+			ptr->kthread_task, i+1, try_cnt, tsrec_no);
+		if ((i + 1) >= try_cnt) {
+			TSREC_LOG_INF(
+				"ERROR: failed to run kthread_task, ret:%p, return   [tsrec_no:%u]\n",
+				ptr->kthread_task, tsrec_no);
+			return;
+		}
 	}
 	sched_set_fifo(ptr->kthread_task);
 	tsrec_worker.kthreads[tsrec_no] = ptr;

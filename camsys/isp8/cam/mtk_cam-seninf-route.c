@@ -1671,9 +1671,15 @@ int mtk_cam_seninf_get_sentest_param(struct v4l2_subdev *sd,
 	return 0;
 }
 
+int mtk_cam_seninf_set_camtg_multiraw(struct v4l2_subdev *sd, int pad_id, int camtg,
+				      enum seninf_recv_raw_set raw_set)
+{
+	return mtk_cam_seninf_set_camtg_camsv(sd, pad_id, camtg, raw_set);
+}
+
 int mtk_cam_seninf_set_camtg(struct v4l2_subdev *sd, int pad_id, int camtg)
 {
-	return mtk_cam_seninf_set_camtg_camsv(sd, pad_id, camtg, 0);
+	return mtk_cam_seninf_set_camtg_multiraw(sd, pad_id, camtg, MTK_SENINF_RAW_SET1);
 }
 
 int mtk_cam_seninf_s_stream_mux(struct seninf_ctx *ctx)

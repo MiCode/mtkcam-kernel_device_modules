@@ -68,6 +68,16 @@ int mtk_cam_seninf_set_camtg_pixmode(struct v4l2_subdev *sd, int camtg,
 int mtk_cam_seninf_get_camtg_pixmode(struct v4l2_subdev *sd, int camtg,
 				 int *pixmode);
 
+/**
+ * enum for isp-raw receiving multi raw set
+ */
+enum seninf_recv_raw_set {
+	MTK_SENINF_RAW_SET1 = 0,
+	MTK_SENINF_RAW_SET2,
+	MTK_SENINF_RAW_SET3,
+	MTK_MAX_SENINF_RAW_SET_NUM,
+};
+
 /////
 
 /* @Deprecated */
@@ -87,6 +97,9 @@ int mtk_cam_seninf_set_camtg(struct v4l2_subdev *sd, int pad_id, int camtg);
 
 /* @Deprecated */
 int mtk_cam_seninf_set_camtg_camsv(struct v4l2_subdev *sd, int pad_id, int camtg, int tag_id);
+
+int mtk_cam_seninf_set_camtg_multiraw(struct v4l2_subdev *sd, int pad_id, int camtg,
+				      enum seninf_recv_raw_set raw_set);
 
 //////
 
@@ -125,7 +138,10 @@ struct mtk_cam_seninf_mux_setting {
 	int source;
 	int camtg;
 	int enable;
-	int tag_id;
+	union {
+		int tag_id;
+		enum seninf_recv_raw_set raw_set;
+	};
 };
 
 /**

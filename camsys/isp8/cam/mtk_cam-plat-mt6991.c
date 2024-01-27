@@ -189,6 +189,8 @@ static int set_meta_stats_info(int ipi_id, void *addr, size_t size,
 	return -1;
 }
 
+#define MTK_CAM_AEI_TABLE_SIZE (16384)
+#define MTK_CAM_LSCI_TABLE_SIZE (32768)
 static int get_meta_cfg_port_size(
 	struct mtk_cam_uapi_meta_raw_stats_cfg *stats_cfg, int dma_port)
 {
@@ -201,6 +203,10 @@ static int get_meta_cfg_port_size(
 		return stats_cfg->pde_param.pdi_max_size;
 	case PORT_CACI:
 		return stats_cfg->cac_param.caci_buf.size;
+	case PORT_AEI:
+		return MTK_CAM_AEI_TABLE_SIZE;
+	case PORT_LSCI:
+		return MTK_CAM_LSCI_TABLE_SIZE;
 	default:
 		pr_info("%s: %s: not supported: %d\n",
 			__FILE__, __func__, dma_port);

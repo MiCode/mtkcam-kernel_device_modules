@@ -17,6 +17,7 @@
 
 #include "mtk_cam_vb2-dma-contig.h"
 
+#include "mtk_cam.h"
 #include "mtk_cam-debug_option.h"
 #include "mtk_cam-trace.h"
 #include "mtk_cam-video.h"
@@ -258,6 +259,9 @@ static void *mtk_cam_vb2_attach_dmabuf(
 {
 	struct mtk_cam_vb2_buf *buf;
 	struct dma_buf_attachment *dba;
+	struct mtk_cam_buffer *mtk_buf = mtk_cam_vb2_buf_to_dev_buf(vb);
+	struct mtk_cam_video_device *node = mtk_cam_vbq_to_vdev(mtk_buf->vbb.vb2_buf.vb2_queue);
+	struct mtk_cam_device *cam = vb2_get_drv_priv(mtk_buf->vbb.vb2_buf.vb2_queue);
 
 	if (dbuf->size < size)
 		return ERR_PTR(-EFAULT);
@@ -266,7 +270,16 @@ static void *mtk_cam_vb2_attach_dmabuf(
 	buf = kzalloc(sizeof(*buf), GFP_KERNEL);
 	if (!buf)
 		return ERR_PTR(-ENOMEM);
-	buf->dev = dev;
+	/* acp - io coherence buffer */
+	if ((mtk_buf->flags & FLAG_NO_CACHE_CLEAN ||
+		mtk_buf->flags & FLAG_NO_CACHE_INVALIDATE) &&
+		node->desc.image == 0) {
+		buf->dev = cam->smmu_dev_acp;
+		dev_info(dev, "%s node:%s flags:0x%x", __func__,
+			node->desc.name, mtk_buf->flags);
+	} else {
+		buf->dev = dev;
+	}
 	/* create attachment for the dmabuf with the user device */
 	dba = dma_buf_attach(dbuf, buf->dev);
 	if (IS_ERR(dba)) {

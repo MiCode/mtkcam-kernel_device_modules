@@ -4149,14 +4149,44 @@ static int mtk_cam_vcore_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
 	struct mtk_cam_vcore_device *drvdata;
-	int i, clks;
+	struct device *alloc_dev;
+	int i, ret, clks;
 
 	dev_info(dev, "%s++\n", __func__);
 
 	drvdata = devm_kzalloc(dev, sizeof(*drvdata), GFP_KERNEL);
 	if (!drvdata)
 		return -ENOMEM;
+	if (smmu_v3_enabled()) {
+		drvdata->smmu_dev_acp = mtk_smmu_get_shared_device(&pdev->dev);
+		if (!drvdata->smmu_dev_acp) {
+			dev_err(dev, "%s: Get SMMU Device failed\n", __func__);
+			WRAP_AEE_EXCEPTION("mtk_cam_probe", "Get SMMU Device");
+			return -ENODEV;
+		}
+		dev_info(dev, "[%s] find smmu_dev_acp cam vcore dev %p\n",
+			__func__, drvdata->smmu_dev_acp);
+	}
 
+	alloc_dev = drvdata->smmu_dev_acp ? : dev;
+	if (dma_set_mask_and_coherent(alloc_dev, DMA_BIT_MASK(34)))
+		dev_err(dev, "%s: No suitable DMA available\n", __func__);
+
+	if (!alloc_dev->dma_parms) {
+		alloc_dev->dma_parms =
+			devm_kzalloc(alloc_dev, sizeof(*alloc_dev->dma_parms), GFP_KERNEL);
+		if (!dev->dma_parms) {
+			dev_err(dev, "%s: kzalloc alloc_dev->dma_parms failed\n", __func__);
+			WRAP_AEE_EXCEPTION("mtk_cam_vcore_probe", "Kzalloc");
+			return -ENOMEM;
+		}
+	}
+
+	if (alloc_dev->dma_parms) {
+		ret = dma_set_max_seg_size(alloc_dev, UINT_MAX);
+		if (ret)
+			dev_err(dev, "%s: Failed to set DMA segment size\n", __func__);
+	}
 	clks = of_count_phandle_with_args(
 				pdev->dev.of_node, "clocks", "#clock-cells");
 	drvdata->num_clks = (clks == -ENOENT) ? 0 : clks;
@@ -4220,6 +4250,7 @@ static int mtk_cam_probe(struct platform_device *pdev)
 {
 	struct platform_device *vcore_pdev;
 	struct mtk_cam_device *cam_dev;
+	struct mtk_cam_vcore_device *cam_vcore_dev;
 	struct device *dev = &pdev->dev;
 	struct device *alloc_dev;
 	struct device_node *node;
@@ -4450,7 +4481,12 @@ static int mtk_cam_probe(struct platform_device *pdev)
 					DL_FLAG_PM_RUNTIME | DL_FLAG_STATELESS);
 	if (!link)
 		dev_info(dev, "unable to link cam vcore\n");
-
+	cam_vcore_dev  = dev_get_drvdata(&vcore_pdev->dev);
+	if (cam_vcore_dev && cam_vcore_dev->smmu_dev_acp) {
+		cam_dev->smmu_dev_acp = cam_vcore_dev->smmu_dev_acp;
+		dev_info(cam_vcore_dev->dev, "[%s] find smmu_dev_acp cam vcore dev %p\n",
+			__func__, cam_dev->smmu_dev_acp);
+	}
 SKIP_ADLRD_IRQ:
 	cam_dev->dev = dev;
 	dev_set_drvdata(dev, cam_dev);

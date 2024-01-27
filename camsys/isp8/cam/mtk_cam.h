@@ -254,12 +254,14 @@ struct cmdq_client;
 struct mtk_cam_vcore_device {
 	struct device *dev;
 	struct clk **clks;
+	struct device *smmu_dev_acp;
 	unsigned int num_clks;
 };
 
 struct mtk_cam_device {
 	struct device *dev;
 	struct device *smmu_dev;
+	struct device *smmu_dev_acp;
 	void __iomem *base;
 	void __iomem *adlwr_base;
 	void __iomem *adlrd_base;

@@ -1329,11 +1329,12 @@ int mtk_cam_vidioc_qbuf(struct file *file, void *priv,
 {
 	struct video_device *vdev = video_devdata(file);
 	struct mtk_cam_buffer *cam_buf;
+	struct mtk_cam_video_device *node;
 
 	cam_buf = mtk_cam_vb2_queue_get_mtkbuf(vdev->queue, buf);
 	if (cam_buf == NULL)
 		return -EINVAL;
-
+	node = mtk_cam_vbq_to_vdev(cam_buf->vbb.vb2_buf.vb2_queue);
 	cam_buf->flags = 0;
 	cam_buf->v4l2_buffer_idx = buf->index;
 	if (buf->flags & V4L2_BUF_FLAG_NO_CACHE_CLEAN)
@@ -1341,6 +1342,10 @@ int mtk_cam_vidioc_qbuf(struct file *file, void *priv,
 
 	if (buf->flags & V4L2_BUF_FLAG_NO_CACHE_INVALIDATE)
 		cam_buf->flags |= FLAG_NO_CACHE_INVALIDATE;
+
+	if (CAM_DEBUG_ENABLED(V4L2))
+		pr_info("%s: flag:0x%x, node:%s\n",
+		__func__, cam_buf->flags, node->desc.name);
 
 	return vb2_qbuf(vdev->queue, vdev->v4l2_dev->mdev, buf);
 }

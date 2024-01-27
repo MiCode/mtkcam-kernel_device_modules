@@ -12,6 +12,7 @@
 /* Reg address */
 #define MAE_BASE                         (0x34310000)
 #define FDVT_START                       (0x000)
+#define FDVT_LEN                         (0x158)
 #define FDVT_ENABLE                      (0x004)
 #define FDVT_INT_EN                      (0x018)
 #define FDVT_DMA_CTL                     (0x094)
@@ -111,6 +112,7 @@ static const unsigned int fld_face_info_idx_1[MAX_FLD_V0_FACE_NUM] = {
 
 // 0x1000 MAE_CTRL_CENTER
 #define MAE_CTRL_CENTER_BASE             (0x1000)
+#define MAE_CTRL_CENTER_LEN              (0x308)
 #define MAE_TRIG_RST_CTRL                (MAE_CTRL_CENTER_BASE + 0x0000)
 #define MAE_CLK_CTRL                     (MAE_CTRL_CENTER_BASE + 0x0004)
 #define MAE_IRQ_DDREN_CMDQ_CTRL          (MAE_CTRL_CENTER_BASE + 0x0010)
@@ -120,16 +122,22 @@ static const unsigned int fld_face_info_idx_1[MAX_FLD_V0_FACE_NUM] = {
 #define MAE_TRIG_SEL_4_6                 (MAE_CTRL_CENTER_BASE + 0x004C)
 
 // 0x4800 MAE_RSZ0
-#define MAE_RSZ0                         (0x4800)
+#define MAE_RSZ0_BASE                    (0x4800)
+#define MAE_RSZ0_LEN                     (0x01F4)
 #define MAE_REG_01A8_RSZ0                (MAE_RSZ0 + 0x1A8)
 
+// 0x5000 MAE_CMP
+#define MAE_CMP_BASE                    (0x5000)
+#define MAE_CMP_LEN                     (0x0190)
 
 // 0x5800 MAE_RDMA_5
 #define MAE_RDMA_5_BASE                   (0x5800)
+#define MAE_RDMA_5_LEN                    (0x1FC)
 #define MAE_REG_0004_MAE_RDMA_5           (MAE_RDMA_5_BASE + 0x0004)
 
 // 0X6000 RSZ1
 #define RSZ1_BASE                         (0x6000)
+#define RSZ1_BASE_LEN                     (0x1FC)
 #define REG_0004_RSZ1                     (RSZ1_BASE + 0x0004)  // reg_ini_factor_ho_1_0
 #define REG_0008_RSZ1                     (RSZ1_BASE + 0x0008)  // reg_ini_factor_ho_1_1
 #define REG_000C_RSZ1                     (RSZ1_BASE + 0x000C)  // reg_ini_factor_ve_1_0
@@ -195,6 +203,7 @@ static const unsigned int fld_face_info_idx_1[MAX_FLD_V0_FACE_NUM] = {
 
 // 0X6200 RSZ2
 #define RSZ2_BASE                         (0x6200)
+#define RSZ2_BASE_LEN                     (0x1FC)
 #define REG_0004_RSZ2                     (RSZ2_BASE + 0x0004)  // reg_ini_factor_ho_1_0
 #define REG_0008_RSZ2                     (RSZ2_BASE + 0x0008)  // reg_ini_factor_ho_1_1
 #define REG_000C_RSZ2                     (RSZ2_BASE + 0x000C)  // reg_ini_factor_ve_1_0
@@ -241,6 +250,7 @@ static const unsigned int fld_face_info_idx_1[MAX_FLD_V0_FACE_NUM] = {
 
 // 0X6400 RSZ3
 #define RSZ3_BASE                         (0x6400)
+#define RSZ3_BASE_LEN                     (0x1FC)
 #define REG_0004_RSZ3                     (RSZ3_BASE + 0x0004)  // reg_ini_factor_ho_1_0
 #define REG_0008_RSZ3                     (RSZ3_BASE + 0x0008)  // reg_ini_factor_ho_1_1
 #define REG_000C_RSZ3                     (RSZ3_BASE + 0x000C)  // reg_ini_factor_ve_1_0
@@ -291,6 +301,7 @@ static const unsigned int fld_face_info_idx_1[MAX_FLD_V0_FACE_NUM] = {
 
 // 0x7000 MMFD_POST
 #define MMFD_POST_BASE                    (0x7000)
+#define MMFD_POST_LEN                     (0x0114)
 #define MAE_REG_POST_DBF_OFF              (MMFD_POST_BASE + 0x0004)
 #define MAE_REG_X_OFFSET_0                (MMFD_POST_BASE + 0x0010)
 #define MAE_REG_X_OFFSET_1                (MMFD_POST_BASE + 0x0014)
@@ -351,6 +362,7 @@ static const unsigned int fld_face_info_idx_1[MAX_FLD_V0_FACE_NUM] = {
 
 // 0x7400 MAE_DRV
 #define MAE_DRV_W_BASE                    (0x7400)
+#define MAE_DRV_W_LEN                     (0x0164)
 #define MAE_REG_EXTRN_BASE0_00_0_W        (MAE_DRV_W_BASE + 0x0000)
 #define MAE_REG_EXTRN_BASE0_00_1_W        (MAE_DRV_W_BASE + 0x0004)
 #define MAE_REG_EXTRN_BASE0_01_0_W        (MAE_DRV_W_BASE + 0x0008)
@@ -405,6 +417,7 @@ static const unsigned int fld_face_info_idx_1[MAX_FLD_V0_FACE_NUM] = {
 
 // 0x7600 MAE_DRV_R
 #define MAE_DRV_R_BASE                    (0x7600)
+#define MAE_DRV_R_LEN                     (0x01FC)
 #define MAE_REG_EXTRN_BASE0_00_0_R        (MAE_DRV_R_BASE + 0x0000)
 #define MAE_REG_EXTRN_BASE0_00_1_R        (MAE_DRV_R_BASE + 0x0004)
 #define MAE_REG_EXTRN_BASE0_01_0_R        (MAE_DRV_R_BASE + 0x0008)

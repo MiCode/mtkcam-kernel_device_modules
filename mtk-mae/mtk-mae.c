@@ -1271,8 +1271,8 @@ int mtk_mae_vidioc_qbuf(struct file *file, void *priv,
 				__func__, param->user, param->imgMaxWidth);
 	mae_dev_dbg(mae_dev->dev, "imgMaxHeight(%d), isSecure(%d), FDModelSel(%d), FACModelSel(%d), ",
 				param->imgMaxHeight, param->isSecure, param->FDModelSel, param->FACModelSel);
-	mae_dev_dbg(mae_dev->dev, "attrFaceNumber(%d), attrInputDegree(%d), ",
-				param->attrFaceNumber, param->attrInputDegree[0]);
+	mae_dev_dbg(mae_dev->dev, "attrFaceNumber(%d), attrInputDegree(%d), aisegInputDegree(%d)",
+				param->attrFaceNumber, param->attrInputDegree[0], param->aisegInputDegree);
 	mae_dev_dbg(mae_dev->dev, "pyramidNumber(%d), fdInputDegree(%d), maeMode(%d), requestNum(%d), ",
 				param->pyramidNumber, param->fdInputDegree, param->maeMode, param->requestNum);
 	mae_dev_dbg(mae_dev->dev, "image[0].srcImgFmt(%d), image[0].imgWidth(%d), image[0].imgHeight(%d), ",
@@ -1355,6 +1355,20 @@ int mtk_mae_vidioc_qbuf(struct file *file, void *priv,
 			}
 		}
 	}
+
+	// debug patch
+	if (!map_table->debug_dmabuf_info[idx].is_map) {
+		ret = mtk_mae_set_dmabuf_info(mae_dev,
+					buf->m.planes[DEBUG_PLANE].m.fd,
+					&map_table->debug_dmabuf_info[idx],
+					GET_VA);
+		if (ret) {
+			mae_dev_info(mae_dev->dev, "%s, set debug dmabuf info fail\n",
+					__func__);
+			return ret;
+		}
+	}
+
 
 #if M2M_ENABLE
 	return v4l2_m2m_ioctl_qbuf(file, priv, buf);

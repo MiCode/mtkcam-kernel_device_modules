@@ -26,6 +26,10 @@
 
 #define CMDQ_REG_MASK 0xffffffff
 
+#define DEBUG_BUFFER_LINE_LEN (120)
+#define DEBUG_BUFFER_LINE_NUM (1024)
+#define DEBUG_BUFFER_SIZE (DEBUG_BUFFER_LINE_LEN * DEBUG_BUFFER_LINE_NUM)
+
 #define LSB_MASK 0x000fffff
 #define MSB_MASK 0xffff00000
 #define LSB_ADDR_SHIFT_BITS 4
@@ -66,7 +70,7 @@
 		(V0_FD_240_180_CONFIG_PAT_OFFSET + V0_FD_240_180_CONFIG_SIZE)
 
 #define V0_ATTR_128_128_COEF_SIZE   (15290 * MAE_BASE_ADDR_ALIGN)
-#define V0_ATTR_128_128_CONFIG_SIZE (2002 * MAE_BASE_ADDR_ALIGN)
+#define V0_ATTR_128_128_CONFIG_SIZE (2000 * MAE_BASE_ADDR_ALIGN)
 
 #define V1_FD_IPN_640_480_COEF_SIZE (10964 * MAE_BASE_ADDR_ALIGN)
 #define V1_FD_IPN_640_480_CONFIG_SIZE (8203 * MAE_BASE_ADDR_ALIGN)
@@ -261,7 +265,7 @@ const struct coef_info fd_v1_ipn_coef_info[FD_PATTERN_NUM] = {
 const struct config_info attr_v0_config_info = {
 	.size = 558,
 	.rotate_offset = 1000,
-	.rotate_size = 560,
+	.rotate_size = 558,
 };
 
 const struct coef_info attr_v0_coef_info = {
@@ -290,12 +294,11 @@ const struct coef_info fd_v1_fpn_coef_info = {
 
 typedef enum {
 	IMAGE_PLANE_0 = 0,
-	IMAGE_PLANE_1 = 1,
-	IMAGE_PLANE_2 = 2,
-	OUTPUT_PLANE = MAX_IMG_NUM,
-	PARAM_PLANE = MAX_IMG_NUM + MAX_PYRAMID_NUM,
-	MODEL_TABLE_PLANE = MAX_IMG_NUM + MAX_PYRAMID_NUM + 1,
-	MAX_PLANE
+	OUTPUT_PLANE = 1,
+	PARAM_PLANE = OUTPUT_PLANE + MAX_PYRAMID_NUM, // 4
+	MODEL_TABLE_PLANE, // 5
+	DEBUG_PLANE, // 6
+	MAX_PLANE // 7
 } ENQ_PLANE;
 
 
@@ -657,6 +660,7 @@ struct mtk_mae_map_table {
 	struct dmabuf_info param_dmabuf_info[REQUEST_BUFFER_NUM];
 	struct dmabuf_info output_dmabuf_info[REQUEST_BUFFER_NUM][MAX_PYRAMID_NUM];
 	struct dmabuf_info aiseg_output_dmabuf_info[REQUEST_BUFFER_NUM][AISEG_MAP_NUM];
+	struct dmabuf_info debug_dmabuf_info[REQUEST_BUFFER_NUM];
 	struct dmabuf_info internal_dmabuf_info;
 };
 

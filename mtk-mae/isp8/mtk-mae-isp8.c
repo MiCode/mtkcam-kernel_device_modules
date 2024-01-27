@@ -62,8 +62,7 @@ int set_default_value = 1;
 int fld_reset_en = 1;
 int aiseg_lut_en = 1;
 int fac_v1_pat_en;
-int cmdq_polling_en;  // not support now
-int aiseg_debug_en;
+int cmdq_polling_en = 1;
 
 module_param(mae_log_level_value, int, 0644);
 module_param(mae_fd_post_on, int, 0644);
@@ -76,18 +75,21 @@ module_param(fld_reset_en, int, 0644);
 module_param(aiseg_lut_en, int, 0644);
 module_param(fac_v1_pat_en, int, 0644);
 module_param(cmdq_polling_en, int, 0644);
-module_param(aiseg_debug_en, int, 0644);
 
 static void mtk_mae_dump_reg(struct mtk_mae_dev *mae_dev);
 static void mtk_mae_fld_reset(struct mtk_mae_dev *mae_dev);
 static void mtk_mae_aiseg_pat(struct cmdq_pkt *pkt);
 static void mtk_mae_fac_v1_pat(struct cmdq_pkt *pkt);
+static void mtk_mae_fd_ipn_640_480_pat(struct cmdq_pkt *pkt);
 static void mtk_mae_fd_ipn_240_180_pat(struct cmdq_pkt *pkt);
 static void mtk_mae_fd_ipn_120_90_pat(struct cmdq_pkt *pkt);
 static void mtk_mae_fd_fpn_480_360_pat(struct cmdq_pkt *pkt);
+static void mtk_mae_attr_v0_pat(struct cmdq_pkt *pkt);
 
 static void mtk_mae_dump_reg(struct mtk_mae_dev *mae_dev);
 static void mtk_mae_fld_reset(struct mtk_mae_dev *mae_dev);
+
+static void mtk_mae_reg_dump_to_buffer(struct mtk_mae_dev *mae_dev);
 
 static void MAECmdqCB(struct cmdq_cb_data data)
 {
@@ -294,12 +296,14 @@ static void mtk_mae_config_dma(struct mtk_mae_dev *mae_dev, int idx)
 		// config the base address of output buffer
 		if (param->maeMode == AISEG) {
 			for (i = 0; i < AISEG_MAP_NUM; i++) {
-				addr = mae_dev->map_table->aiseg_output_dmabuf_info[idx][i].pa;
+				addr = mae_dev->map_table->aiseg_output_dmabuf_info[idx][i].pa +
+					model_table->aisegOutput[i].offset;
 				if (CHECK_BASE_ADDR(addr) || addr == 0)
 					mae_dev_info(mae_dev->dev, "Loop %d: %s %d (0x%llx) is not %d-aligned",
 						loop, "aiseg output", i, addr, MAE_BASE_ADDR_ALIGN);
 
 				mae_dev_dbg(mae_dev->dev, "Loop %d: %s %d (0x%llx)", loop, "aiseg output", i, addr);
+				mae_dev_dbg(mae_dev->dev, "aiseg offset (0x%lx)", model_table->aisegOutput[i].offset);
 
 				wdma_base_addr_reg_offset = BASE_ADDR_REG_SIZE * i;
 
@@ -444,7 +448,7 @@ static void mtk_mae_config_dma(struct mtk_mae_dev *mae_dev, int idx)
 			coef_offset = v0_fd_coef_offset[mae_dev->core_sel[idx]];
 
 			if (param->fdInputDegree == DEGREE_90 ||
-				param->fdInputDegree == DEGREE_270) {
+				param->fdInputDegree == DEGREE_180) {
 				config_rt_offset = fd_v0_config_info[mae_dev->core_sel[idx]].rotate_offset;
 				config_size = fd_v0_config_info[mae_dev->core_sel[idx]].rotate_size;
 			} else {
@@ -464,7 +468,7 @@ static void mtk_mae_config_dma(struct mtk_mae_dev *mae_dev, int idx)
 			coef_offset = v1_fd_ipn_coef_offset[mae_dev->core_sel[idx]];
 
 			if (param->fdInputDegree == DEGREE_90 ||
-				param->fdInputDegree == DEGREE_270) {
+				param->fdInputDegree == DEGREE_180) {
 				config_rt_offset = fd_v1_ipn_config_info[mae_dev->core_sel[idx]].rotate_offset;
 				config_size = fd_v1_ipn_config_info[mae_dev->core_sel[idx]].rotate_size;
 			} else {
@@ -484,7 +488,7 @@ static void mtk_mae_config_dma(struct mtk_mae_dev *mae_dev, int idx)
 			coef_offset = 0;
 
 			if (param->fdInputDegree == DEGREE_90 ||
-				param->fdInputDegree == DEGREE_270) {
+				param->fdInputDegree == DEGREE_180) {
 				config_rt_offset = fd_v1_fpn_config_info.rotate_offset;
 				config_size = fd_v1_fpn_config_info.rotate_size;
 			} else {
@@ -503,7 +507,7 @@ static void mtk_mae_config_dma(struct mtk_mae_dev *mae_dev, int idx)
 			coef_offset = 0;
 
 			if (param->attrInputDegree[loop] == DEGREE_90 ||
-				param->attrInputDegree[loop] == DEGREE_270) {
+				param->attrInputDegree[loop] == DEGREE_180) {
 				// MAE_TO_CHECK: rotate_offset is 16B align but offset is not
 				config_rt_offset = attr_v0_config_info.rotate_offset;
 				config_size = attr_v0_config_info.rotate_size;
@@ -526,7 +530,7 @@ static void mtk_mae_config_dma(struct mtk_mae_dev *mae_dev, int idx)
 			coef_offset = 0;
 
 			if (param->attrInputDegree[loop] == DEGREE_90 ||
-				param->attrInputDegree[loop] == DEGREE_270) {
+				param->attrInputDegree[loop] == DEGREE_180) {
 				// MAE_TO_CHECK: rotate_offset is 16B align but offset is not
 				config_rt_offset = fac_v1_config_info.rotate_offset;
 				config_size = fac_v1_config_info.rotate_size;
@@ -585,21 +589,14 @@ static void mtk_mae_config_dma(struct mtk_mae_dev *mae_dev, int idx)
 
 		MAE_CMDQ_WRITE_REG(mae_dev->pkt[idx],
 				MAE_REG_OUTER_CONFIG_BASE_00_0 + loop * BASE_ADDR_REG_SIZE,
-				LSB_ADDR(config_addr));
+				LSB_ADDR(config_addr + (config_rt_offset << LSB_ADDR_SHIFT_BITS)));
 		MAE_CMDQ_WRITE_REG(mae_dev->pkt[idx],
 				MAE_REG_OUTER_CONFIG_BASE_00_1 + loop * BASE_ADDR_REG_SIZE,
-				MSB_ADDR(config_addr));
+				MSB_ADDR(config_addr + (config_rt_offset << LSB_ADDR_SHIFT_BITS)));
 
 		MAE_CMDQ_WRITE_REG(mae_dev->pkt[idx],
 				MAE_REG_OUTER_CONFIG_SIZE_00 + loop * COMMON_REG_SIZE,
 				config_size);
-
-		MAE_CMDQ_WRITE_REG(mae_dev->pkt[idx],
-				MAE_REG_OUTER_CONFIG_OFFSET_00_0 + loop * BASE_ADDR_REG_SIZE,
-				REG_RANGE(config_rt_offset, 15, 0));
-		MAE_CMDQ_WRITE_REG(mae_dev->pkt[idx],
-				MAE_REG_OUTER_CONFIG_OFFSET_00_1 + loop * BASE_ADDR_REG_SIZE,
-				REG_RANGE(config_rt_offset, 31, 16));
 
 		// config the base address of coef buffer
 		if (CHECK_BASE_ADDR(coef_addr) || coef_addr == 0)
@@ -1206,7 +1203,7 @@ static void mtk_mae_fd_post(struct mtk_mae_dev *mae_dev,
 			break;
 		case FD_V1_IPN:
 			if (core_sel == 0) {
-				;
+				mtk_mae_fd_ipn_640_480_pat(pkt);
 			} else if (core_sel == 1) {
 				cmdq_pkt_write(pkt, NULL,
 					MAE_BASE + MAE_REG_MMFD_O_SCALE_0, 0x0200,
@@ -1232,6 +1229,7 @@ static void mtk_mae_fd_post(struct mtk_mae_dev *mae_dev,
 			// mtk_mae_fd_fpn_480_360_pat(pkt);
 			break;
 		case ATTR_V0:
+			mtk_mae_attr_v0_pat(pkt);
 			cmdq_pkt_write(pkt, NULL,
 				MAE_BASE + MAE_REG_MMFD_O_SCALE_0, 0x00000AA8,
 				CMDQ_REG_MASK);
@@ -1343,7 +1341,6 @@ static void mtk_mae_config_hw(struct mtk_mae_dev *mae_dev, int idx)
 	mae_dev_dbg(mae_dev->dev, "adb: aiseg_lut_en(%d)\n", aiseg_lut_en);
 	mae_dev_dbg(mae_dev->dev, "adb: fac_v1_pat_en(%d)\n", fac_v1_pat_en);
 	mae_dev_dbg(mae_dev->dev, "adb: cmdq_polling_en(%d)\n", cmdq_polling_en);
-	mae_dev_dbg(mae_dev->dev, "adb: aiseg_debug_en(%d)\n", aiseg_debug_en);
 
 	if (param->image[0].srcImgFmt == NV12 &&
 		param->image[0].imgHeight % 2 != 0) {
@@ -1513,10 +1510,10 @@ static void mtk_mae_config_hw(struct mtk_mae_dev *mae_dev, int idx)
 		MAE_CMDQ_WRITE_REG(mae_dev->pkt[idx], MAE_REG_EXTRN_LN_OFFSET_01_W, 0x0008);
 		MAE_CMDQ_WRITE_REG(mae_dev->pkt[idx], MAE_REG_EXTRN_LN_OFFSET_02_W, 0x0004);
 
-		MAE_CMDQ_WRITE_REG(mae_dev->pkt[idx], MAE_REG_EXTRN_LN_OFFSET_03_W, 0x0006);
-		MAE_CMDQ_WRITE_REG(mae_dev->pkt[idx], MAE_REG_EXTRN_LN_OFFSET_04_W, 0x0006);
-		MAE_CMDQ_WRITE_REG(mae_dev->pkt[idx], MAE_REG_EXTRN_LN_OFFSET_05_W, 0x0006);
-		MAE_CMDQ_WRITE_REG(mae_dev->pkt[idx], MAE_REG_EXTRN_LN_OFFSET_06_W, 0x0006);
+		MAE_CMDQ_WRITE_REG(mae_dev->pkt[idx], MAE_REG_EXTRN_LN_OFFSET_03_W, 0x0008);
+		MAE_CMDQ_WRITE_REG(mae_dev->pkt[idx], MAE_REG_EXTRN_LN_OFFSET_04_W, 0x0008);
+		MAE_CMDQ_WRITE_REG(mae_dev->pkt[idx], MAE_REG_EXTRN_LN_OFFSET_05_W, 0x0008);
+		MAE_CMDQ_WRITE_REG(mae_dev->pkt[idx], MAE_REG_EXTRN_LN_OFFSET_06_W, 0x0008);
 
 		MAE_CMDQ_WRITE_REG(mae_dev->pkt[idx], MAE_REG_EXTRN_LN_OFFSET_07_W, 0x0008);
 		MAE_CMDQ_WRITE_REG(mae_dev->pkt[idx], MAE_REG_EXTRN_LN_OFFSET_08_W, 0x0008);
@@ -1529,9 +1526,6 @@ static void mtk_mae_config_hw(struct mtk_mae_dev *mae_dev, int idx)
 
 		if (aiseg_lut_en)
 			mtk_mae_aiseg_pat(mae_dev->pkt[idx]);
-
-		if (aiseg_debug_en)
-			MAE_CMDQ_WRITE_REG(mae_dev->pkt[idx], MAE_TRIG_SEL_4_6, 0x304c);
 
 		break;
 	default:
@@ -1552,16 +1546,157 @@ static void mtk_mae_config_hw(struct mtk_mae_dev *mae_dev, int idx)
 	MAE_CMDQ_WRITE_REG(mae_dev->pkt[idx], MAE_TRIG_RST_CTRL, 0x0100);
 	MAE_CMDQ_WRITE_REG(mae_dev->pkt[idx], MAE_TRIG_RST_CTRL, 0x0000);
 
-	//if (cmdq_polling_en)
-	//	cmdq_pkt_poll_sleep(mae_dev->pkt[idx], MAE_IRQ_STATUS_VALUE,
-	//		MAE_BASE + MAE_IRQ_CTRL1, MAE_IRQ_MASK);
-	//else
-	cmdq_pkt_wfe(mae_dev->pkt[idx], mae_dev->mae_event_id);
+	if (cmdq_polling_en)
+		cmdq_pkt_poll_sleep(mae_dev->pkt[idx], MAE_IRQ_STATUS_VALUE,
+			MAE_BASE + MAE_IRQ_CTRL1, MAE_IRQ_MASK);
+	else
+		cmdq_pkt_wfe(mae_dev->pkt[idx], mae_dev->mae_event_id);
 
 	cmdq_pkt_flush_async(mae_dev->pkt[idx], MAECmdqCB, (void *)mae_dev);
 
 	// DEBUG_ONLY
 	mae_dev_dbg(mae_dev->dev, "%s-", __func__);
+}
+
+static void mtk_mae_reg_dump_to_buffer(struct mtk_mae_dev *mae_dev)
+{
+	uint8_t *debug_buffer = (uint8_t *)mae_dev->map_table->debug_dmabuf_info[0].kva;
+	uint32_t i;
+
+	mae_dev_info(mae_dev->dev, "%s +\n", __func__);
+
+	// 21 line
+	for (i = 0; i < FDVT_LEN; i += 0x10) {
+		snprintf(debug_buffer, DEBUG_BUFFER_LINE_LEN,
+				"\n[0x%08x] 0x%08x 0x%08x 0x%08x 0x%08x",
+				MAE_BASE + FDVT_START + i,
+				(uint32_t)readl(mae_dev->mae_base + FDVT_START + i),
+				(uint32_t)readl(mae_dev->mae_base + FDVT_START + i + 0x4),
+				(uint32_t)readl(mae_dev->mae_base + FDVT_START + i + 0x8),
+				(uint32_t)readl(mae_dev->mae_base + FDVT_START + i + 0xc));
+		debug_buffer += DEBUG_BUFFER_LINE_LEN;
+	}
+
+	// 48 line
+	for (i = 0; i < MAE_CTRL_CENTER_LEN; i += 0x10) {
+		snprintf(debug_buffer, DEBUG_BUFFER_LINE_LEN,
+				"\n[0x%08x] 0x%08x 0x%08x 0x%08x 0x%08x",
+				MAE_BASE + MAE_CTRL_CENTER_BASE + i,
+				(uint32_t)readl(mae_dev->mae_base + MAE_CTRL_CENTER_BASE + i),
+				(uint32_t)readl(mae_dev->mae_base + MAE_CTRL_CENTER_BASE + i + 0x4),
+				(uint32_t)readl(mae_dev->mae_base + MAE_CTRL_CENTER_BASE + i + 0x8),
+				(uint32_t)readl(mae_dev->mae_base + MAE_CTRL_CENTER_BASE + i + 0xc));
+		debug_buffer += DEBUG_BUFFER_LINE_LEN;
+	}
+
+	// 31 line
+	for (i = 0; i < MAE_RSZ0_LEN; i += 0x10) {
+		snprintf(debug_buffer, DEBUG_BUFFER_LINE_LEN,
+				"\n[0x%08x] 0x%08x 0x%08x 0x%08x 0x%08x",
+				MAE_BASE + MAE_RSZ0_BASE + i,
+				(uint32_t)readl(mae_dev->mae_base + MAE_RSZ0_BASE + i),
+				(uint32_t)readl(mae_dev->mae_base + MAE_RSZ0_BASE + i + 0x4),
+				(uint32_t)readl(mae_dev->mae_base + MAE_RSZ0_BASE + i + 0x8),
+				(uint32_t)readl(mae_dev->mae_base + MAE_RSZ0_BASE + i + 0xc));
+		debug_buffer += DEBUG_BUFFER_LINE_LEN;
+	}
+
+	// 24 line
+	for (i = 0; i < MAE_CMP_LEN; i += 0x10) {
+		snprintf(debug_buffer, DEBUG_BUFFER_LINE_LEN,
+				"\n[0x%08x] 0x%08x 0x%08x 0x%08x 0x%08x",
+				MAE_BASE + MAE_CMP_BASE + i,
+				(uint32_t)readl(mae_dev->mae_base + MAE_CMP_BASE + i),
+				(uint32_t)readl(mae_dev->mae_base + MAE_CMP_BASE + i + 0x4),
+				(uint32_t)readl(mae_dev->mae_base + MAE_CMP_BASE + i + 0x8),
+				(uint32_t)readl(mae_dev->mae_base + MAE_CMP_BASE + i + 0xc));
+		debug_buffer += DEBUG_BUFFER_LINE_LEN;
+	}
+
+	// 31 line
+	for (i = 0; i < RSZ1_BASE_LEN; i += 0x10) {
+		snprintf(debug_buffer, DEBUG_BUFFER_LINE_LEN,
+				"\n[0x%08x] 0x%08x 0x%08x 0x%08x 0x%08x",
+				MAE_BASE + RSZ1_BASE + i,
+				(uint32_t)readl(mae_dev->mae_base + RSZ1_BASE + i),
+				(uint32_t)readl(mae_dev->mae_base + RSZ1_BASE + i + 0x4),
+				(uint32_t)readl(mae_dev->mae_base + RSZ1_BASE + i + 0x8),
+				(uint32_t)readl(mae_dev->mae_base + RSZ1_BASE + i + 0xc));
+		debug_buffer += DEBUG_BUFFER_LINE_LEN;
+	}
+
+	// 31 line
+	for (i = 0; i < RSZ2_BASE_LEN; i += 0x10) {
+		snprintf(debug_buffer, DEBUG_BUFFER_LINE_LEN,
+				"\n[0x%08x] 0x%08x 0x%08x 0x%08x 0x%08x",
+				MAE_BASE + RSZ2_BASE + i,
+				(uint32_t)readl(mae_dev->mae_base + RSZ2_BASE + i),
+				(uint32_t)readl(mae_dev->mae_base + RSZ2_BASE + i + 0x4),
+				(uint32_t)readl(mae_dev->mae_base + RSZ2_BASE + i + 0x8),
+				(uint32_t)readl(mae_dev->mae_base + RSZ2_BASE + i + 0xc));
+		debug_buffer += DEBUG_BUFFER_LINE_LEN;
+	}
+
+	// 31 line
+	for (i = 0; i < RSZ3_BASE_LEN; i += 0x10) {
+		snprintf(debug_buffer, DEBUG_BUFFER_LINE_LEN,
+				"\n[0x%08x] 0x%08x 0x%08x 0x%08x 0x%08x",
+				MAE_BASE + RSZ3_BASE + i,
+				(uint32_t)readl(mae_dev->mae_base + RSZ3_BASE + i),
+				(uint32_t)readl(mae_dev->mae_base + RSZ3_BASE + i + 0x4),
+				(uint32_t)readl(mae_dev->mae_base + RSZ3_BASE + i + 0x8),
+				(uint32_t)readl(mae_dev->mae_base + RSZ3_BASE + i + 0xc));
+		debug_buffer += DEBUG_BUFFER_LINE_LEN;
+	}
+
+	// 1 line
+	snprintf(debug_buffer, DEBUG_BUFFER_LINE_LEN,
+			"\n[0x%08x] 0x%08x 0x%08x 0x%08x 0x%08x",
+			MAE_BASE + MAE_MAISR_APB_BASE,
+			(uint32_t)readl(mae_dev->mae_base + MAE_MAISR_APB_BASE),
+			(uint32_t)readl(mae_dev->mae_base + MAE_MAISR_APB_BASE + 0x4),
+			(uint32_t)readl(mae_dev->mae_base + MAE_MAISR_APB_BASE + 0x8),
+			(uint32_t)readl(mae_dev->mae_base + MAE_MAISR_APB_BASE + 0xc));
+	debug_buffer += DEBUG_BUFFER_LINE_LEN;
+
+	// 17 line
+	for (i = 0; i < MMFD_POST_LEN; i += 0x10) {
+		snprintf(debug_buffer, DEBUG_BUFFER_LINE_LEN,
+				"\n[0x%08x] 0x%08x 0x%08x 0x%08x 0x%08x",
+				MAE_BASE + MMFD_POST_BASE + i,
+				(uint32_t)readl(mae_dev->mae_base + MMFD_POST_BASE + i),
+				(uint32_t)readl(mae_dev->mae_base + MMFD_POST_BASE + i + 0x4),
+				(uint32_t)readl(mae_dev->mae_base + MMFD_POST_BASE + i + 0x8),
+				(uint32_t)readl(mae_dev->mae_base + MMFD_POST_BASE + i + 0xc));
+		debug_buffer += DEBUG_BUFFER_LINE_LEN;
+	}
+
+	// 22 line
+	for (i = 0; i < MAE_DRV_W_LEN; i += 0x10) {
+		snprintf(debug_buffer, DEBUG_BUFFER_LINE_LEN,
+				"\n[0x%08x] 0x%08x 0x%08x 0x%08x 0x%08x",
+				MAE_BASE + MAE_DRV_W_BASE + i,
+				(uint32_t)readl(mae_dev->mae_base + MAE_DRV_W_BASE + i),
+				(uint32_t)readl(mae_dev->mae_base + MAE_DRV_W_BASE + i + 0x4),
+				(uint32_t)readl(mae_dev->mae_base + MAE_DRV_W_BASE + i + 0x8),
+				(uint32_t)readl(mae_dev->mae_base + MAE_DRV_W_BASE + i + 0xc));
+		debug_buffer += DEBUG_BUFFER_LINE_LEN;
+	}
+
+	// 31 line
+	for (i = 0; i < MAE_DRV_R_LEN; i += 0x10) {
+		snprintf(debug_buffer, DEBUG_BUFFER_LINE_LEN,
+				"\n[0x%08x] 0x%08x 0x%08x 0x%08x 0x%08x",
+				MAE_BASE + MAE_DRV_R_BASE + i,
+				(uint32_t)readl(mae_dev->mae_base + MAE_DRV_R_BASE + i),
+				(uint32_t)readl(mae_dev->mae_base + MAE_DRV_R_BASE + i + 0x4),
+				(uint32_t)readl(mae_dev->mae_base + MAE_DRV_R_BASE + i + 0x8),
+				(uint32_t)readl(mae_dev->mae_base + MAE_DRV_R_BASE + i + 0xc));
+		debug_buffer += DEBUG_BUFFER_LINE_LEN;
+	}
+
+	mae_dev_info(mae_dev->dev, "%s (0x%x)\n", __func__,
+				*((uint32_t *)mae_dev->map_table->debug_dmabuf_info[0].kva));
 }
 
 static void mtk_mae_dump_reg(struct mtk_mae_dev *mae_dev)
@@ -1572,6 +1707,8 @@ static void mtk_mae_dump_reg(struct mtk_mae_dev *mae_dev)
 	uint32_t reg_addr;
 
 	mae_dev_info(mae_dev->dev, "%s +\n", __func__);
+
+	mtk_mae_reg_dump_to_buffer(mae_dev);
 
 	mae_dev_info(mae_dev->dev, "Dump user setting\n");
 	mae_dev_info(mae_dev->dev, "user(%d) Max W/H(%d/%d) Sec(%d) FD/FAC Model SEL(%d/%d)\n",
@@ -2256,42 +2393,42 @@ static void mtk_mae_aiseg_pat(struct cmdq_pkt *pkt)
 	MAE_CMDQ_WRITE_REG(pkt, 0x61b4, 0x00000b0a);
 	MAE_CMDQ_WRITE_REG(pkt, 0x61b8, 0x00000d0c);
 	MAE_CMDQ_WRITE_REG(pkt, 0x61bc, 0x00000f0e);
-	MAE_CMDQ_WRITE_REG(pkt, 0x61c0, 0x00000a00);
-	MAE_CMDQ_WRITE_REG(pkt, 0x61c4, 0x00000c0b);
-	MAE_CMDQ_WRITE_REG(pkt, 0x61c8, 0x00000e0d);
-	MAE_CMDQ_WRITE_REG(pkt, 0x61cc, 0x0000100f);
+	MAE_CMDQ_WRITE_REG(pkt, 0x61c0, 0x00000100);
+	MAE_CMDQ_WRITE_REG(pkt, 0x61c4, 0x00000302);
+	MAE_CMDQ_WRITE_REG(pkt, 0x61c8, 0x00000504);
+	MAE_CMDQ_WRITE_REG(pkt, 0x61cc, 0x00000706);
 	MAE_CMDQ_WRITE_REG(pkt, 0x61d0, 0x00001111);
 	MAE_CMDQ_WRITE_REG(pkt, 0x61d4, 0x00001111);
 	MAE_CMDQ_WRITE_REG(pkt, 0x61d8, 0x00001111);
 	MAE_CMDQ_WRITE_REG(pkt, 0x61dc, 0x00001111);
-	MAE_CMDQ_WRITE_REG(pkt, 0x61e0, 0x00001e00);
-	MAE_CMDQ_WRITE_REG(pkt, 0x61e4, 0x0000140a);
-	MAE_CMDQ_WRITE_REG(pkt, 0x61e8, 0x0000c81e);
-	MAE_CMDQ_WRITE_REG(pkt, 0x61ec, 0x00003200);
+	MAE_CMDQ_WRITE_REG(pkt, 0x61e0, 0x00000000);
+	MAE_CMDQ_WRITE_REG(pkt, 0x61e4, 0x00000000);
+	MAE_CMDQ_WRITE_REG(pkt, 0x61e8, 0x00000000);
+	MAE_CMDQ_WRITE_REG(pkt, 0x61ec, 0x00000000);
 	MAE_CMDQ_WRITE_REG(pkt, 0x61f0, 0x00000000);
 	MAE_CMDQ_WRITE_REG(pkt, 0x61f4, 0x00000000);
 	MAE_CMDQ_WRITE_REG(pkt, 0x61f8, 0x00000000);
 	MAE_CMDQ_WRITE_REG(pkt, 0x61fc, 0x00000000);
 	MAE_CMDQ_WRITE_REG(pkt, 0x63a0, 0x00000100);
-	MAE_CMDQ_WRITE_REG(pkt, 0x63a4, 0x00000302);
+	MAE_CMDQ_WRITE_REG(pkt, 0x63a4, 0x00000002);
 	MAE_CMDQ_WRITE_REG(pkt, 0x63a8, 0x00000504);
 	MAE_CMDQ_WRITE_REG(pkt, 0x63ac, 0x00000706);
 	MAE_CMDQ_WRITE_REG(pkt, 0x63b0, 0x00000908);
 	MAE_CMDQ_WRITE_REG(pkt, 0x63b4, 0x00000b0a);
 	MAE_CMDQ_WRITE_REG(pkt, 0x63b8, 0x00000d0c);
 	MAE_CMDQ_WRITE_REG(pkt, 0x63bc, 0x00000f0e);
-	MAE_CMDQ_WRITE_REG(pkt, 0x63c0, 0x00000a00);
-	MAE_CMDQ_WRITE_REG(pkt, 0x63c4, 0x00000c0b);
-	MAE_CMDQ_WRITE_REG(pkt, 0x63c8, 0x00000e0d);
-	MAE_CMDQ_WRITE_REG(pkt, 0x63cc, 0x0000100f);
+	MAE_CMDQ_WRITE_REG(pkt, 0x63c0, 0x00000300);
+	MAE_CMDQ_WRITE_REG(pkt, 0x63c4, 0x00000c03);
+	MAE_CMDQ_WRITE_REG(pkt, 0x63c8, 0x00000303);
+	MAE_CMDQ_WRITE_REG(pkt, 0x63cc, 0x00000303);
 	MAE_CMDQ_WRITE_REG(pkt, 0x63d0, 0x00001111);
 	MAE_CMDQ_WRITE_REG(pkt, 0x63d4, 0x00001111);
 	MAE_CMDQ_WRITE_REG(pkt, 0x63d8, 0x00001111);
 	MAE_CMDQ_WRITE_REG(pkt, 0x63dc, 0x00001111);
-	MAE_CMDQ_WRITE_REG(pkt, 0x63e0, 0x00003c0a);
-	MAE_CMDQ_WRITE_REG(pkt, 0x63e4, 0x00003c3c);
-	MAE_CMDQ_WRITE_REG(pkt, 0x63e8, 0x00003c3c);
-	MAE_CMDQ_WRITE_REG(pkt, 0x63ec, 0x00003c3c);
+	MAE_CMDQ_WRITE_REG(pkt, 0x63e0, 0x00000000);
+	MAE_CMDQ_WRITE_REG(pkt, 0x63e4, 0x00000000);
+	MAE_CMDQ_WRITE_REG(pkt, 0x63e8, 0x00000000);
+	MAE_CMDQ_WRITE_REG(pkt, 0x63ec, 0x00000000);
 	MAE_CMDQ_WRITE_REG(pkt, 0x63f0, 0x00000000);
 	MAE_CMDQ_WRITE_REG(pkt, 0x63f4, 0x00000000);
 	MAE_CMDQ_WRITE_REG(pkt, 0x63f8, 0x00000000);
@@ -2312,10 +2449,10 @@ static void mtk_mae_aiseg_pat(struct cmdq_pkt *pkt)
 	MAE_CMDQ_WRITE_REG(pkt, 0x65d4, 0x00001111);
 	MAE_CMDQ_WRITE_REG(pkt, 0x65d8, 0x00001111);
 	MAE_CMDQ_WRITE_REG(pkt, 0x65dc, 0x00001111);
-	MAE_CMDQ_WRITE_REG(pkt, 0x65e0, 0x00003200);
-	MAE_CMDQ_WRITE_REG(pkt, 0x65e4, 0x00001e14);
-	MAE_CMDQ_WRITE_REG(pkt, 0x65e8, 0x00000078);
-	MAE_CMDQ_WRITE_REG(pkt, 0x65ec, 0x00001400);
+	MAE_CMDQ_WRITE_REG(pkt, 0x65e0, 0x00000000);
+	MAE_CMDQ_WRITE_REG(pkt, 0x65e4, 0x00000000);
+	MAE_CMDQ_WRITE_REG(pkt, 0x65e8, 0x00000000);
+	MAE_CMDQ_WRITE_REG(pkt, 0x65ec, 0x00000000);
 	MAE_CMDQ_WRITE_REG(pkt, 0x65f0, 0x00000000);
 	MAE_CMDQ_WRITE_REG(pkt, 0x65f4, 0x00000000);
 	MAE_CMDQ_WRITE_REG(pkt, 0x65f8, 0x00000000);
@@ -2326,10 +2463,10 @@ static void mtk_mae_aiseg_pat(struct cmdq_pkt *pkt)
 	MAE_CMDQ_WRITE_REG(pkt, 0x6008, 0x00000000);
 	MAE_CMDQ_WRITE_REG(pkt, 0x600c, 0x00000000);
 	MAE_CMDQ_WRITE_REG(pkt, 0x6010, 0x00000000);
-	MAE_CMDQ_WRITE_REG(pkt, 0x601c, 0x00009184);
-	MAE_CMDQ_WRITE_REG(pkt, 0x6020, 0x00000106);
-	MAE_CMDQ_WRITE_REG(pkt, 0x6024, 0x0000e9d4);
-	MAE_CMDQ_WRITE_REG(pkt, 0x6028, 0x00000104);
+	MAE_CMDQ_WRITE_REG(pkt, 0x601c, 0x0000e9d4);
+	MAE_CMDQ_WRITE_REG(pkt, 0x6020, 0x00000104);
+	MAE_CMDQ_WRITE_REG(pkt, 0x6024, 0x00009184);
+	MAE_CMDQ_WRITE_REG(pkt, 0x6028, 0x00000106);
 	MAE_CMDQ_WRITE_REG(pkt, 0x602c, 0x00000101);
 	MAE_CMDQ_WRITE_REG(pkt, 0x6034, 0x00000001);
 	MAE_CMDQ_WRITE_REG(pkt, 0x605c, 0x00000000);
@@ -2338,8 +2475,8 @@ static void mtk_mae_aiseg_pat(struct cmdq_pkt *pkt)
 	MAE_CMDQ_WRITE_REG(pkt, 0x6068, 0x00000000);
 	MAE_CMDQ_WRITE_REG(pkt, 0x60a0, 0x00008028);
 	MAE_CMDQ_WRITE_REG(pkt, 0x60a4, 0x00008028);
-	MAE_CMDQ_WRITE_REG(pkt, 0x60a8, 0x00000060);
-	MAE_CMDQ_WRITE_REG(pkt, 0x60ac, 0x00000080);
+	MAE_CMDQ_WRITE_REG(pkt, 0x60a8, 0x00000080);
+	MAE_CMDQ_WRITE_REG(pkt, 0x60ac, 0x00000060);
 	MAE_CMDQ_WRITE_REG(pkt, 0x60c0, 0x00000080);
 	MAE_CMDQ_WRITE_REG(pkt, 0x60c4, 0x00000000);
 	MAE_CMDQ_WRITE_REG(pkt, 0x60c8, 0x00000000);
@@ -2431,6 +2568,72 @@ static void mtk_mae_aiseg_pat(struct cmdq_pkt *pkt)
 	MAE_CMDQ_WRITE_REG(pkt, 0x6520, 0x00000017);
 	MAE_CMDQ_WRITE_REG(pkt, 0x6580, 0x00000004);
 	MAE_CMDQ_WRITE_REG(pkt, 0x6584, 0x00000007);
+}
+
+static void mtk_mae_fd_ipn_640_480_pat(struct cmdq_pkt *pkt)
+{
+	// FD POST
+	MAE_CMDQ_WRITE_REG(pkt, 0x7010, 0x00000000);
+	MAE_CMDQ_WRITE_REG(pkt, 0x7014, 0x00000000);
+	MAE_CMDQ_WRITE_REG(pkt, 0x7018, 0x00000000);
+	MAE_CMDQ_WRITE_REG(pkt, 0x701c, 0x00000000);
+	MAE_CMDQ_WRITE_REG(pkt, 0x7020, 0x00000000);
+	MAE_CMDQ_WRITE_REG(pkt, 0x7024, 0x00000000);
+	MAE_CMDQ_WRITE_REG(pkt, 0x7028, 0x00000200);
+	MAE_CMDQ_WRITE_REG(pkt, 0x702c, 0x00000200);
+	MAE_CMDQ_WRITE_REG(pkt, 0x7030, 0x00000200);
+	MAE_CMDQ_WRITE_REG(pkt, 0x7080, 0x00000280);
+	MAE_CMDQ_WRITE_REG(pkt, 0x7084, 0x00000280);
+	MAE_CMDQ_WRITE_REG(pkt, 0x7088, 0x00000280);
+	MAE_CMDQ_WRITE_REG(pkt, 0x708c, 0x000001e0);
+	MAE_CMDQ_WRITE_REG(pkt, 0x7090, 0x000001e0);
+	MAE_CMDQ_WRITE_REG(pkt, 0x7094, 0x000001e0);
+	MAE_CMDQ_WRITE_REG(pkt, 0x7098, 0x00000000);
+	MAE_CMDQ_WRITE_REG(pkt, 0x709c, 0x00000000);
+	MAE_CMDQ_WRITE_REG(pkt, 0x70a0, 0x00000000);
+	MAE_CMDQ_WRITE_REG(pkt, 0x70a4, 0x00000000);
+	MAE_CMDQ_WRITE_REG(pkt, 0x70a8, 0x00000000);
+	MAE_CMDQ_WRITE_REG(pkt, 0x70ac, 0x00000000);
+	MAE_CMDQ_WRITE_REG(pkt, 0x70b0, 0x0000000a);
+	MAE_CMDQ_WRITE_REG(pkt, 0x70b4, 0x0000000a);
+	MAE_CMDQ_WRITE_REG(pkt, 0x70b8, 0x0000000a);
+	MAE_CMDQ_WRITE_REG(pkt, 0x7100, 0x000001f4);
+	MAE_CMDQ_WRITE_REG(pkt, 0x7104, 0x000001f4);
+	MAE_CMDQ_WRITE_REG(pkt, 0x7108, 0x000001f4);
+	MAE_CMDQ_WRITE_REG(pkt, 0x710c, 0x000001f4);
+	MAE_CMDQ_WRITE_REG(pkt, 0x7110, 0x000001f4);
+	MAE_CMDQ_WRITE_REG(pkt, 0x7114, 0x000001f4);
+}
+
+static void mtk_mae_attr_v0_pat(struct cmdq_pkt *pkt)
+{
+	// FD POST
+	MAE_CMDQ_WRITE_REG(pkt, 0x7010, 0x0000);
+	MAE_CMDQ_WRITE_REG(pkt, 0x7014, 0x0000);
+	MAE_CMDQ_WRITE_REG(pkt, 0x7018, 0x0000);
+	MAE_CMDQ_WRITE_REG(pkt, 0x701c, 0x0000);
+	MAE_CMDQ_WRITE_REG(pkt, 0x7020, 0x0000);
+	MAE_CMDQ_WRITE_REG(pkt, 0x7024, 0x0000);
+	MAE_CMDQ_WRITE_REG(pkt, 0x7028, 0x0aa8);
+	MAE_CMDQ_WRITE_REG(pkt, 0x702c, 0x0aa8);
+	MAE_CMDQ_WRITE_REG(pkt, 0x7030, 0x0aa8);
+	MAE_CMDQ_WRITE_REG(pkt, 0x7080, 0x0000);
+	MAE_CMDQ_WRITE_REG(pkt, 0x7084, 0x0000);
+	MAE_CMDQ_WRITE_REG(pkt, 0x7088, 0x0000);
+	MAE_CMDQ_WRITE_REG(pkt, 0x708c, 0x0000);
+	MAE_CMDQ_WRITE_REG(pkt, 0x7090, 0x0000);
+	MAE_CMDQ_WRITE_REG(pkt, 0x7094, 0x0000);
+	MAE_CMDQ_WRITE_REG(pkt, 0x7098, 0x0000);
+	MAE_CMDQ_WRITE_REG(pkt, 0x709c, 0x0000);
+	MAE_CMDQ_WRITE_REG(pkt, 0x70a0, 0x0000);
+	MAE_CMDQ_WRITE_REG(pkt, 0x70a4, 0x0000);
+	MAE_CMDQ_WRITE_REG(pkt, 0x70a8, 0x0000);
+	MAE_CMDQ_WRITE_REG(pkt, 0x70ac, 0x0000);
+	MAE_CMDQ_WRITE_REG(pkt, 0x70b0, 0x0000);
+	MAE_CMDQ_WRITE_REG(pkt, 0x70b4, 0x0000);
+	MAE_CMDQ_WRITE_REG(pkt, 0x70b8, 0x0000);
+	MAE_CMDQ_WRITE_REG(pkt, 0x7100, 0x0000);
+
 }
 
 static void mtk_mae_fd_ipn_240_180_pat(struct cmdq_pkt *pkt)

@@ -6,7 +6,6 @@
 
 #define MODE_MAXCNT 256
 #define OF_SENSOR_NAMES_MAXCNT 20
-#define IMGSENSOR_DEBUG
 #define OF_SENSOR_NAME_PREFIX "sensor"
 
 #define IMGSENSOR_LOG_MORE 0

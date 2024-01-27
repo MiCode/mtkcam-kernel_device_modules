@@ -1336,14 +1336,12 @@ static int imgsensor_try_ctrl(struct v4l2_ctrl *ctrl)
 	return ret;
 }
 
-#ifdef IMGSENSOR_DEBUG
 static void proc_debug_cmd(struct adaptor_ctx *ctx, char *text)
 {
 	adaptor_logi(ctx, "%s\n", text);
 	if (!strcmp(text, "unregister_subdev"))
 		v4l2_async_unregister_subdev(&ctx->sd);
 }
-#endif
 
 
 static int imgsensor_set_ctrl(struct v4l2_ctrl *ctrl)
@@ -1756,11 +1754,9 @@ static int imgsensor_set_ctrl(struct v4l2_ctrl *ctrl)
 			ctx->last_framelength = ctx->subctx.frame_length_rg;
 		}
 		break;
-#ifdef IMGSENSOR_DEBUG
 	case V4L2_CID_MTK_DEBUG_CMD:
 		proc_debug_cmd(ctx, ctrl->p_new.p_char);
 		break;
-#endif
 	case V4L2_CID_MTK_SENSOR_POWER:
 		{
 		int ret;
@@ -2322,7 +2318,6 @@ static const struct v4l2_ctrl_config cfg_test_pattern_data = {
 	.dims = {sizeof_u32(struct mtk_test_pattern_data)},
 };
 
-#ifdef IMGSENSOR_DEBUG
 static const struct v4l2_ctrl_config cfg_debug_cmd = {
 	.ops = &ctrl_ops,
 	.id = V4L2_CID_MTK_DEBUG_CMD,
@@ -2332,7 +2327,6 @@ static const struct v4l2_ctrl_config cfg_debug_cmd = {
 	.max = 64,
 	.step = 1,
 };
-#endif
 
 static const struct v4l2_ctrl_config cfg_sensor_power = {
 	.ops = &ctrl_ops,
@@ -2855,10 +2849,7 @@ int adaptor_init_ctrls(struct adaptor_ctx *ctx)
 	v4l2_ctrl_new_custom(&ctx->ctrls, &cfg_mtkcam_aov_switch_mclk_ulposc, NULL);
 	v4l2_ctrl_new_custom(&ctx->ctrls, &cfg_mtkcam_do_not_power_on, NULL);
 	v4l2_ctrl_new_custom(&ctx->ctrls, &cfg_wake_up_camera_pmic, NULL);
-
-#ifdef IMGSENSOR_DEBUG
 	v4l2_ctrl_new_custom(&ctx->ctrls, &cfg_debug_cmd, NULL);
-#endif
 
 	v4l2_ctrl_new_custom(ctrl_hdlr, &cfg_sensor_power, NULL);
 	v4l2_ctrl_new_custom(ctrl_hdlr, &cfg_mstream_mode, NULL);

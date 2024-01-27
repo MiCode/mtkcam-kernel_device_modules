@@ -662,7 +662,6 @@ static int imgsensor_set_power(struct v4l2_subdev *sd, int on)
 /* Start streaming */
 static int imgsensor_start_streaming(struct adaptor_ctx *ctx)
 {
-//	int ret;
 	u64 data[4];
 	u32 len;
 

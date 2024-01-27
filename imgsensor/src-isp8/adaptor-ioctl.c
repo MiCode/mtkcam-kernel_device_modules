@@ -282,21 +282,6 @@ static void vcinfo2_fill_pad(
 			vcinfo2->vc_info[i].pad = PAD_ERR;
 			break;
 		}
-		// #if 0
-		// if (((vcinfo2->vc_info[i].VC_FEATURE >= VC_MIN_NUM) &&
-		//     (vcinfo2->vc_info[i].VC_FEATURE < VC_RAW_DATA_MAX)) ||
-		//     ((vcinfo2->vc_info[i].VC_FEATURE >= VC_STAGGER_NE) &&
-		//     (vcinfo2->vc_info[i].VC_FEATURE < VC_STAGGER_MAX_NUM))) {
-			// /* image raw */
-			// vcinfo2->vc_info[i].VC_OUTPUT_FORMAT = fmt;
-		// } else {
-			// /* stat data */
-			// vcinfo2->vc_info[i].VC_OUTPUT_FORMAT =
-				// (vcinfo2->vc_info[i].VC_DataType == 0x2b) ?
-				// SENSOR_OUTPUT_FORMAT_RAW_B :
-				// SENSOR_OUTPUT_FORMAT_RAW8_B;
-		// }
-		// #endif
 	}
 }
 

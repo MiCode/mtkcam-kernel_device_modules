@@ -31,7 +31,6 @@
 } while (0)
 
 /* def V4L2_MBUS_CSI2_IS_USER_DEFINED_DATA */
-#define IMGSENSOR_VC_ROUTING
 
 #define PARAM_DEFAULT 0
 #define PARAM_UNDEFINED 0

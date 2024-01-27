@@ -844,10 +844,6 @@ static const struct v4l2_subdev_pad_ops imgsensor_pad_ops = {
 	.enum_frame_interval = imgsensor_enum_frame_interval,
 	.get_selection = imgsensor_get_selection,
 	.get_mbus_config = imgsensor_g_mbus_config,
-#ifdef IMGSENSOR_VC_ROUTING
-	//.get_frame_desc = imgsensor_get_frame_desc,
-	//.set_frame_desc = imgsensor_set_frame_desc,
-#endif
 };
 
 static const struct v4l2_subdev_ops imgsensor_subdev_ops = {

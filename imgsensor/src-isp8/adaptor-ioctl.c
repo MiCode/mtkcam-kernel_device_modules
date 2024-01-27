@@ -84,7 +84,7 @@ static int workbuf_put(struct workbuf *workbuf)
 	return 0;
 }
 
-#ifdef IMGSENSOR_VC_ROUTING
+
 static enum VC_FEATURE fd_desc_to_vc_feature(
 		u16 fd_user)
 {
@@ -207,83 +207,6 @@ static void frame_desc_to_vcinfo2(
 			vc->VC_SIZEH_BYTE = vc->VC_SIZEH_PIXEL;
 	}
 }
-#else /* IMGSENSOR_VC_ROUTING */
-static void vcinfo_to_vcinfo2(
-		struct SENSOR_VC_INFO_STRUCT *vcinfo,
-		struct SENSOR_VC_INFO2_STRUCT *vcinfo2)
-{
-	struct SINGLE_VC_INFO2 *vc = vcinfo2->vc_info;
-
-	vcinfo2->VC_Num = vcinfo->VC_Num;
-	vcinfo2->VC_PixelNum = vcinfo->VC_PixelNum;
-	vcinfo2->ModeSelect = vcinfo->ModeSelect;
-	vcinfo2->EXPO_Ratio = vcinfo->EXPO_Ratio;
-	vcinfo2->ODValue = vcinfo->ODValue;
-
-	if (vcinfo->VC4_DataType && vcinfo->VC4_SIZEH && vcinfo->VC4_SIZEV) {
-		vc[0].VC_DataType = vcinfo->VC0_DataType;
-		vc[0].VC_ID = vcinfo->VC0_ID;
-		vc[0].VC_FEATURE = VC_RAW_DATA;
-		vc[0].VC_SIZEH_PIXEL = vcinfo->VC0_SIZEH;
-		vc[0].VC_SIZEV = vcinfo->VC0_SIZEV;
-
-		vc[1].VC_DataType = vcinfo->VC1_DataType;
-		vc[1].VC_ID = vcinfo->VC1_ID;
-		vc[1].VC_FEATURE = VC_3HDR_EMBEDDED;
-		vc[1].VC_SIZEH_PIXEL = vcinfo->VC1_SIZEH;
-		vc[1].VC_SIZEV = vcinfo->VC1_SIZEV;
-		vc[1].VC_SIZEH_BYTE = vcinfo->VC1_DataType != 0x2b ?
-			vcinfo->VC1_SIZEH : vcinfo->VC1_SIZEH * 10 / 8;
-
-		vc[2].VC_DataType = vcinfo->VC2_DataType;
-		vc[2].VC_ID = vcinfo->VC2_ID;
-		vc[2].VC_FEATURE = VC_3HDR_Y;
-		vc[2].VC_SIZEH_PIXEL = vcinfo->VC2_SIZEH;
-		vc[2].VC_SIZEV = vcinfo->VC2_SIZEV;
-		vc[2].VC_SIZEH_BYTE = vcinfo->VC2_DataType != 0x2b ?
-			vcinfo->VC2_SIZEH : vcinfo->VC2_SIZEH * 10 / 8;
-
-		vc[3].VC_DataType = vcinfo->VC3_DataType;
-		vc[3].VC_ID = vcinfo->VC3_ID;
-		vc[3].VC_FEATURE = VC_3HDR_AE;
-		vc[3].VC_SIZEH_PIXEL = vcinfo->VC3_SIZEH;
-		vc[3].VC_SIZEV = vcinfo->VC3_SIZEV;
-		vc[3].VC_SIZEH_BYTE = vcinfo->VC3_DataType != 0x2b ?
-			vcinfo->VC3_SIZEH : vcinfo->VC3_SIZEH * 10 / 8;
-
-		vc[4].VC_DataType = vcinfo->VC4_DataType;
-		vc[4].VC_ID = vcinfo->VC4_ID;
-		vc[4].VC_FEATURE = VC_3HDR_FLICKER;
-		vc[4].VC_SIZEH_PIXEL = vcinfo->VC4_SIZEH;
-		vc[4].VC_SIZEV = vcinfo->VC4_SIZEV;
-		vc[4].VC_SIZEH_BYTE = vcinfo->VC4_DataType != 0x2b ?
-			vcinfo->VC4_SIZEH : vcinfo->VC4_SIZEH * 10 / 8;
-
-	} else {
-		vc[0].VC_DataType = vcinfo->VC0_DataType;
-		vc[0].VC_ID = vcinfo->VC0_ID;
-		vc[0].VC_FEATURE = VC_RAW_DATA;
-		vc[0].VC_SIZEH_PIXEL = vcinfo->VC0_SIZEH;
-		vc[0].VC_SIZEV = vcinfo->VC0_SIZEV;
-
-		vc[1].VC_DataType = vcinfo->VC1_DataType;
-		vc[1].VC_ID = vcinfo->VC1_ID;
-		vc[1].VC_FEATURE = VC_HDR_MVHDR;
-		vc[1].VC_SIZEH_PIXEL = vcinfo->VC1_SIZEH;
-		vc[1].VC_SIZEV = vcinfo->VC1_SIZEV;
-		vc[1].VC_SIZEH_BYTE = vcinfo->VC1_DataType != 0x2b ?
-			vcinfo->VC1_SIZEH : vcinfo->VC1_SIZEH * 10 / 8;
-
-		vc[2].VC_DataType = vcinfo->VC2_DataType;
-		vc[2].VC_ID = vcinfo->VC2_ID;
-		vc[2].VC_FEATURE = VC_PDAF_STATS;
-		vc[2].VC_SIZEH_PIXEL = vcinfo->VC2_SIZEH;
-		vc[2].VC_SIZEV = vcinfo->VC2_SIZEV;
-		vc[2].VC_SIZEH_BYTE = vcinfo->VC2_DataType != 0x2b ?
-			vcinfo->VC2_SIZEH : vcinfo->VC2_SIZEH * 10 / 8;
-	}
-}
-#endif /* IMGSENSOR_VC_ROUTING */
 
 static void vcinfo2_fill_pad(
 		struct SENSOR_VC_INFO2_STRUCT *vcinfo2)
@@ -555,17 +478,9 @@ static int g_vcinfo_by_scenario(struct adaptor_ctx *ctx, void *arg)
 	MSDK_SENSOR_INFO_STRUCT *sinfo = NULL;
 	MSDK_SENSOR_CONFIG_STRUCT *config = NULL;
 	struct SENSOR_VC_INFO2_STRUCT *vcinfo2 = NULL;
-
-#ifdef IMGSENSOR_VC_ROUTING
 	struct mtk_mbus_frame_desc fd;
 
 	memset(&fd, 0, sizeof(fd));
-#else
-	union feature_para para;
-	u32 len;
-
-	para.u64[0] = info->scenario_id;
-#endif
 
 	sinfo = kmalloc(sizeof(MSDK_SENSOR_INFO_STRUCT), GFP_KERNEL);
 	config = kmalloc(sizeof(MSDK_SENSOR_CONFIG_STRUCT), GFP_KERNEL);
@@ -583,27 +498,8 @@ static int g_vcinfo_by_scenario(struct adaptor_ctx *ctx, void *arg)
 	memset(vcinfo2, 0, sizeof(struct SENSOR_VC_INFO2_STRUCT));
 
 	subdrv_call(ctx, get_info, info->scenario_id, sinfo, config);
-
-#ifdef IMGSENSOR_VC_ROUTING
 	subdrv_call(ctx, get_frame_desc, info->scenario_id, &fd);
 	frame_desc_to_vcinfo2(&fd, vcinfo2);
-#else
-	para.u64[1] = (u64)vcinfo2;
-	subdrv_call(ctx, feature_control,
-		SENSOR_FEATURE_GET_VC_INFO2,
-		para.u8, &len);
-
-	if (!vcinfo2->updated) {
-		struct SENSOR_VC_INFO_STRUCT vcinfo;
-
-		para.u64[1] = (u64)&vcinfo;
-		memset(&vcinfo, 0, sizeof(vcinfo));
-		subdrv_call(ctx, feature_control,
-			SENSOR_FEATURE_GET_VC_INFO,
-			para.u8, &len);
-		vcinfo_to_vcinfo2(&vcinfo, vcinfo2);
-	}
-#endif
 
 	vcinfo2_fill_output_format(vcinfo2, sinfo->SensorOutputDataFormat);
 	vcinfo2_fill_pad(vcinfo2);

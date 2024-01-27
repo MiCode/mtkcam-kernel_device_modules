@@ -134,7 +134,6 @@ static int wrapper_close(struct subdrv_ctx *ctx)
 	return ret;
 }
 
-#ifdef IMGSENSOR_VC_ROUTING
 static int wrapper_get_frame_desc(struct subdrv_ctx *ctx,
 			int scenario_id,
 			struct mtk_mbus_frame_desc *fd)
@@ -148,7 +147,7 @@ static int wrapper_get_frame_desc(struct subdrv_ctx *ctx,
 
 	return ret;
 }
-#endif
+
 
 static int wrapper_get_temp(struct subdrv_ctx *ctx, int *temp)
 {
@@ -207,9 +206,8 @@ static struct subdrv_ops def_ops = {
 	.control = wrapper_control,
 	.feature_control = wrapper_feature_control,
 	.close = wrapper_close,
-#ifdef IMGSENSOR_VC_ROUTING
 	.get_frame_desc = wrapper_get_frame_desc,
-#endif
+
 	.get_temp = wrapper_get_temp,
 	.vsync_notify = wrapper_vsync_notify,
 

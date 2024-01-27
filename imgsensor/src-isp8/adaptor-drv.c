@@ -48,11 +48,9 @@ module_param(sensor_debug, uint, 0644);
 module_param(set_ctrl_unlock, uint, 0644);
 MODULE_PARM_DESC(sensor_debug, "imgsensor_debug");
 
-#ifdef IMGSENSOR_FUSION_TEST_WORKAROUND
 unsigned int gSensor_num;
 unsigned int is_multicam;
 unsigned int is_imgsensor_fusion_test_workaround;
-#endif
 
 static void get_outfmt_code(struct adaptor_ctx *ctx)
 {
@@ -436,13 +434,6 @@ static int imgsensor_open(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 	try_fmt->code = ctx->fmt_code[ctx->cur_mode->id];
 	try_fmt->field = V4L2_FIELD_NONE;
 
-#ifdef POWERON_ONCE_OPENED
-
-	adaptor_logd(ctx, "%s use self ref cnt\n");
-	adaptor_hw_power_on(ctx);
-	adaptor_sensor_init(ctx);
-#endif
-
 	mutex_unlock(&ctx->mutex);
 
 	adaptor_logm(ctx, "-\n");
@@ -458,11 +449,6 @@ static int imgsensor_close(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 	adaptor_logm(ctx, "+\n");
 
 	mutex_lock(&ctx->mutex);
-
-#ifdef POWERON_ONCE_OPENED
-	adaptor_logi(ctx, "use self ref cnt\n");
-	adaptor_hw_power_off(ctx);
-#endif
 
 	ctx->open_refcnt--;
 	if (ctx->open_refcnt <= 0) {
@@ -639,11 +625,11 @@ static int imgsensor_set_pad_format(struct v4l2_subdev *sd,
 			"set fmt code = 0x%x, which %d sensor_mode_id = %u\n",
 			fmt->format.code, fmt->which, mode->id);
 
-#ifndef POWERON_ONCE_OPENED
+
 		ADAPTOR_SYSTRACE_BEGIN("imgsensor::init_sensor");
 		adaptor_sensor_init(ctx);
 		ADAPTOR_SYSTRACE_END();
-#endif
+
 		ADAPTOR_SYSTRACE_BEGIN("imgsensor::set_mode_%u", mode->id);
 		set_sensor_mode(ctx, mode, 1);
 		ADAPTOR_SYSTRACE_END();
@@ -685,13 +671,6 @@ static int imgsensor_start_streaming(struct adaptor_ctx *ctx)
 	adaptor_sensor_init(ctx);
 
 	control_sensor(ctx);
-
-#ifdef APPLY_CUSTOMIZED_VALUES_FROM_USER
-	/* Apply customized values from user */
-	ret =  __v4l2_ctrl_handler_setup(ctx->sd.ctrl_handler);
-	if (ret)
-		adaptor_loge(ctx, "failed to apply customized values\n");
-#endif
 
 	data[0] = 0; // shutter
 	subdrv_call(ctx, feature_control,
@@ -1361,9 +1340,7 @@ static int imgsensor_probe(struct i3c_i2c_device *client)
 	if (ret) {
 		adaptor_loge(ctx, "no sensor found\n");
 		return ret;
-	}
-#ifdef IMGSENSOR_FUSION_TEST_WORKAROUND
-	else {
+	} else {
 		gSensor_num++;
 		if (gSensor_num > 2)
 			is_multicam = 1;
@@ -1382,7 +1359,6 @@ static int imgsensor_probe(struct i3c_i2c_device *client)
 			gSensor_num, is_multicam,
 			is_imgsensor_fusion_test_workaround);
 	}
-#endif
 
 	/* read property */
 	of_property_read_u32(dev->of_node, "location", &ctx->location);
@@ -1561,11 +1537,10 @@ struct i3c_i2c_driver imgsensor_ixc_driver = {
 
 static int __init adaptor_drv_init(void)
 {
-#ifdef IMGSENSOR_FUSION_TEST_WORKAROUND
 	gSensor_num = 0;
 	is_multicam = 0;
 	is_imgsensor_fusion_test_workaround = 0;
-#endif
+
 	mtk_i3c_i2c_driver_register(&imgsensor_ixc_driver);
 
 	return 0;
@@ -1573,11 +1548,10 @@ static int __init adaptor_drv_init(void)
 
 static void __exit adaptor_drv_exit(void)
 {
-#ifdef IMGSENSOR_FUSION_TEST_WORKAROUND
 	gSensor_num = 0;
 	is_multicam = 0;
 	is_imgsensor_fusion_test_workaround = 0;
-#endif
+
 	mtk_i3c_i2c_driver_unregister(&imgsensor_ixc_driver);
 }
 

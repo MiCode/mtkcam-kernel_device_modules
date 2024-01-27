@@ -11,8 +11,6 @@
 #include "adaptor-def.h"
 #include "mtk-i3c-i2c-wrap.h"
 
-#define IMGSENSOR_FUSION_TEST_WORKAROUND
-
 #define MT6985_PHY_CTRL_VERSIONS "mt6985"
 #define MT6897_PHY_CTRL_VERSIONS "mt6897"
 #define MT6989_PHY_CTRL_VERSIONS "mt6989"
@@ -312,9 +310,8 @@ struct subdrv_static_ctx {
 	u8 ae_effective_frame;
 	u8 frame_time_delay_frame; /* EX: sony => 3 ; non-sony => 2 */
 	u32 start_exposure_offset;
-#ifdef IMGSENSOR_FUSION_TEST_WORKAROUND
 	u32 start_exposure_offset_custom;
-#endif
+
 	enum IMGSENSOR_PDAF_SUPPORT_TYPE_ENUM pdaf_type;
 	enum IMGSENSOR_HDR_SUPPORT_TYPE_ENUM hdr_type;
 	enum IMGSENSOR_RGBW_SUPPORT_TYPE_ENUM rgbw_support;

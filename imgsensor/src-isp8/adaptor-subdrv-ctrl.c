@@ -2332,12 +2332,10 @@ void get_min_shutter_by_scenario(struct subdrv_ctx *ctx,
 
 void get_offset_to_start_of_exposure(struct subdrv_ctx *ctx, u32 *offset)
 {
-#ifdef IMGSENSOR_FUSION_TEST_WORKAROUND
 	if (is_imgsensor_fusion_test_workaround &&
 		ctx->s_ctx.start_exposure_offset_custom)
 		*offset = ctx->s_ctx.start_exposure_offset_custom;
 	else
-#endif
 		*offset = ctx->s_ctx.start_exposure_offset;
 }
 

@@ -355,6 +355,9 @@ static void vcinfo2_fill_pad(
 		case VC_GENERAL_EMBEDDED:
 			vcinfo2->vc_info[i].pad = PAD_SRC_GENERAL0;
 			break;
+		case VC_RAW_DATA:
+			vcinfo2->vc_info[i].pad = PAD_SRC_RAW0;
+			break;
 		default:
 			vcinfo2->vc_info[i].pad = PAD_ERR;
 			break;

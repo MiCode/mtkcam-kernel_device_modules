@@ -366,7 +366,7 @@ struct subdrv_static_ctx {
 	u32 list_len;
 	u8 chk_s_off_sta;
 	u8 chk_s_off_end;
-
+	u8 cam_type;
 	u32 checksum_value;
 
 	u8 aov_sensor_support;
@@ -530,7 +530,7 @@ struct subdrv_ops {
 	int (*get_csi_param)(struct subdrv_ctx *ctx,
 		enum SENSOR_SCENARIO_ID_ENUM scenario_id,
 		struct mtk_csi_param *csi_param);
-
+	int (*get_sensor_usage)(struct subdrv_ctx *ctx, enum mtk_sensor_usage *usage);
 	int (*power_on)(struct subdrv_ctx *ctx, void *data);
 	int (*power_off)(struct subdrv_ctx *ctx, void *data);
 	int (*parse_ebd_line)(struct subdrv_ctx *ctx,

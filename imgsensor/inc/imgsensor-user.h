@@ -52,6 +52,12 @@ enum sentest_ctrl_id {
 	SENTEST_S_TSREC_TRAGET_FRAME_ID,
 	SENTEST_S_CTRL_ID_MAX,
 };
+enum mtk_sensor_usage {
+	MTK_SENSOR_USAGE_SINGLE,
+	MTK_SENSOR_USAGE_COMB,
+	MTK_SENSOR_USAGE_MUTI,
+	MTK_SENSOR_USAGE_NONCOMB,
+};
 
 struct mtk_awb_gain {
 	__u32 abs_gain_gr;
@@ -436,6 +442,8 @@ struct mtk_csi_param {
 	__u8 not_fixed_dphy_settle;
 	__u8 dphy_init_deskew_support;
 	__u8 cphy_lrte_support;
+	__u8 clk_lane_no_initial_flow;
+	__u8 initial_skew;
 };
 
 struct mtk_sensor_saturation_info {

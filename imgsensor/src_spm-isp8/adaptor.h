@@ -62,7 +62,7 @@
 struct adaptor_ctx;
 static unsigned int sensor_debug;
 static unsigned int set_ctrl_unlock;
-
+#define VC_MULTI_CAMERA 1
 #ifdef IMGSENSOR_FUSION_TEST_WORKAROUND
 extern unsigned int gSensor_num;
 extern unsigned int is_multicam;
@@ -73,6 +73,12 @@ struct adaptor_ae_ctrl_dbg_info {
 	/* timestamp info when get ae ctrl */
 	u64 sys_ts_g_ae_ctrl;
 	u64 sys_ts_update_sof_cnt_at_g_ae_ctrl;
+};
+
+enum IMGSENSOR_STATE {
+	IMGSENSOR_STATE_POWER_OFF,
+	IMGSENSOR_STATE_POWER_ON,
+	IMGSENSOR_STATE_ERROR
 };
 
 union feature_para {
@@ -98,6 +104,7 @@ struct sensor_mode {
 	struct mtk_csi_param csi_param;
 	u8 esd_reset_by_user;
 	u32 active_line_num;
+	enum mtk_sensor_usage usage;
 };
 
 struct adaptor_hw_ops {
@@ -178,6 +185,7 @@ struct adaptor_ctx {
 	struct sensor_mode mode[MODE_MAXCNT];
 	struct sensor_mode *cur_mode;
 	struct sensor_mode *try_format_mode;
+	enum IMGSENSOR_STATE sensor_state;
 	int mode_cnt;
 	MSDK_SENSOR_INFO_STRUCT sensor_info;
 	MSDK_SENSOR_CONFIG_STRUCT sensor_cfg;

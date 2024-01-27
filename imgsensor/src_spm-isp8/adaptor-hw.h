@@ -10,6 +10,10 @@ int adaptor_hw_init(struct adaptor_ctx *ctx);
 int adaptor_hw_sensor_reset(struct adaptor_ctx *ctx);
 int adaptor_cam_pmic_on(struct adaptor_ctx *ctx);
 int adaptor_cam_pmic_off(struct adaptor_ctx *ctx);
-
-
+extern int check_multicam_power(struct adaptor_ctx *ctx, int flag);
+extern void imgsensor_multicam_mutex_lock(struct adaptor_ctx *ctx);
+extern void imgsensor_multicam_mutex_unlock(struct adaptor_ctx *ctx);
+extern void imgsensor_multicam_mutex_lock_for_power(struct adaptor_ctx *ctx);
+extern void imgsensor_multicam_mutex_unlock_for_power(struct adaptor_ctx *ctx);
+extern void imgsensor_multicam_always_on_process(struct adaptor_ctx *ctx);
 #endif

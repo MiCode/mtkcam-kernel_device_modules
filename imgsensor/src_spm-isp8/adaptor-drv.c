@@ -54,6 +54,85 @@ unsigned int is_multicam;
 unsigned int is_imgsensor_fusion_test_workaround;
 #endif
 
+#if VC_MULTI_CAMERA
+#define MULTICAM_SENSOR_NUM 12
+#define bridge_ch_num 4
+static atomic_t count;
+static atomic_t suspend_count;
+static atomic_t stream_count;
+static atomic_t sensor_init_count;
+static atomic_t always_on_count;
+static atomic_t count_1;
+static atomic_t suspend_count1;
+static atomic_t stream_count_1;
+static atomic_t sensor_init_count_1;
+static atomic_t always_on_count1;
+static atomic_t count_2;
+static atomic_t suspend_count2;
+static atomic_t stream_count_2;
+static atomic_t sensor_init_count_2;
+static atomic_t always_on_count2;
+int multicam0_flag;
+int multicam1_flag;
+int multicam2_flag;
+
+struct MULTICAM_ID_MAP {
+	char *sensor_name;
+	unsigned int sensor_idx;
+};
+struct MULTICAM_ID_MAP multicam_map_table[MULTICAM_SENSOR_NUM] = {
+	{"max96722a0_mipi_yuv", 0},
+	{"max96722a1_mipi_yuv", 1},
+	{"max96722a2_mipi_yuv", 2},
+	{"max96722a3_mipi_yuv", 3},
+	{"max96722b0_mipi_yuv", 4},
+	{"max96722b1_mipi_yuv", 5},
+	{"max96722b2_mipi_yuv", 6},
+	{"max96722b3_mipi_yuv", 7},
+	{"max96722c0_mipi_yuv", 8},
+	{"max96722c1_mipi_yuv", 9},
+	{"max96722c2_mipi_yuv", 10},
+	{"max96722c3_mipi_yuv", 11}
+};
+
+char *lookup_names[bridge_ch_num] = {
+	"max96722a0_mipi_yuv",
+	"max96722a1_mipi_yuv",
+	"max96722a2_mipi_yuv",
+	"max96722a3_mipi_yuv",
+};
+char *lookup_names_1[bridge_ch_num] = {
+	"max96722b0_mipi_yuv",
+	"max96722b1_mipi_yuv",
+	"max96722b2_mipi_yuv",
+	"max96722b3_mipi_yuv",
+};
+char *lookup_names_2[bridge_ch_num] = {
+	"max96722c0_mipi_yuv",
+	"max96722c1_mipi_yuv",
+	"max96722c2_mipi_yuv",
+	"max96722c3_mipi_yuv",
+};
+
+static DEFINE_MUTEX(gimgsensor_muticam_mutex);
+static DEFINE_MUTEX(gimgsensor_max96722a_mutex);
+static DEFINE_MUTEX(gimgsensor_max96722b_mutex);
+static DEFINE_MUTEX(gimgsensor_max96722c_mutex);
+static DEFINE_MUTEX(gimgsensor_max96722a_mutex_for_power);
+static DEFINE_MUTEX(gimgsensor_max96722b_mutex_for_power);
+static DEFINE_MUTEX(gimgsensor_max96722c_mutex_for_power);
+
+struct TGID_INFO {
+	MINT32 Tgid;
+	char Name[32];
+};
+struct CAM_PROCESSINFO {
+	unsigned int Tgid;
+	char Name[32];
+};
+static struct TGID_INFO img_tgid[MULTICAM_SENSOR_NUM];
+static struct CAM_PROCESSINFO ProcessInfo[MULTICAM_SENSOR_NUM];
+#endif
 static void get_outfmt_code(struct adaptor_ctx *ctx)
 {
 	unsigned int i, outfmt;
@@ -158,6 +237,15 @@ static void get_outfmt_code(struct adaptor_ctx *ctx)
 		case SENSOR_OUTPUT_FORMAT_YUV_P010:
 		case SENSOR_OUTPUT_FORMAT_YVU_P010:
 			ctx->fmt_code[i] = MEDIA_BUS_FMT_SBGGR10_1X10;
+			break;
+		case SENSOR_OUTPUT_FORMAT_YUYV:
+			ctx->fmt_code[i] = MEDIA_BUS_FMT_YUYV8_2X8;
+			break;
+		case SENSOR_OUTPUT_FORMAT_UYVY:
+			ctx->fmt_code[i] = MEDIA_BUS_FMT_UYVY8_2X8;
+			break;
+		case SENSOR_OUTPUT_FORMAT_RGB888:
+		    ctx->fmt_code[i] = MEDIA_BUS_FMT_RGB888_1X24;
 			break;
 		default:
 			adaptor_logi(ctx, "unknown output format %d\n", outfmt);
@@ -282,6 +370,7 @@ static void add_sensor_mode(struct adaptor_ctx *ctx,
 		return;
 
 	subdrv_call(ctx, get_csi_param, mode->id, &mode->csi_param);
+	subdrv_call(ctx, get_sensor_usage, &mode->usage);
 
 	/* update linetime_in_ns */
 	mode->linetime_in_ns = (u64)mode->llp * 1000000 +
@@ -412,6 +501,307 @@ static int init_sensor_info(struct adaptor_ctx *ctx)
 	set_sensor_mode(ctx, &ctx->mode[0], 0);
 	ctx->try_format_mode = &ctx->mode[0];
 	get_outfmt_code(ctx);
+	return 0;
+}
+
+
+int check_multicam_suspend(struct adaptor_ctx *ctx)
+{
+#if VC_MULTI_CAMERA
+	int ret = 1;
+
+	int i, j;
+	unsigned int sensor_idx = 0xff;
+
+	for (i = 0; i < MULTICAM_SENSOR_NUM; i++) {
+		if (strcmp((char *)(ctx->subdrv->name),
+			multicam_map_table[i].sensor_name) == 0) {
+			sensor_idx = multicam_map_table[i].sensor_idx;
+			break;
+		}
+	}
+	if (sensor_idx == 0xff)
+		return 0;
+	dev_info(ctx->dev, "%s ctx->subdrv->name %s,sensor_idx:%d\n",
+			__func__, ctx->subdrv->name, sensor_idx);
+
+	for (j = 0; j < bridge_ch_num; j++) {
+		if (strcmp((char *)(ctx->subdrv->name),
+			lookup_names[j]) == 0) {
+			if (atomic_read(&suspend_count) > 0)
+				return ret;
+			atomic_set(&suspend_count, 1);
+			break;
+		}
+		if (strcmp((char *)(ctx->subdrv->name),
+			lookup_names_1[j]) == 0) {
+			if (atomic_read(&suspend_count1) > 0)
+				return ret;
+			atomic_set(&suspend_count1, 1);
+			break;
+		}
+		if (strcmp((char *)(ctx->subdrv->name),
+			lookup_names_2[j]) == 0) {
+			if (atomic_read(&suspend_count2) > 0)
+				return ret;
+			atomic_set(&suspend_count2, 1);
+			break;
+		}
+	}
+#endif
+	return 0;
+}
+
+int check_tgid(unsigned int sensor_idx)
+{
+	int j;
+	int ret = 0;
+
+	for (j = 0; j < MULTICAM_SENSOR_NUM; j++) {
+		if (img_tgid[sensor_idx].Tgid == ProcessInfo[j].Tgid) {
+			strncpy(img_tgid[sensor_idx].Name, ProcessInfo[j].Name, 31);
+			ret = 1;
+			return ret;
+		}
+	}
+	return ret;
+}
+
+int check_multicam_power(struct adaptor_ctx *ctx, int flag)
+{
+#if VC_MULTI_CAMERA
+	int ret = 1;
+
+	int i, j;
+	unsigned int sensor_idx = 0xff;
+
+	for (i = 0; i < MULTICAM_SENSOR_NUM; i++) {
+		if (strcmp((char *)(ctx->subdrv->name),
+			multicam_map_table[i].sensor_name) == 0) {
+			sensor_idx = multicam_map_table[i].sensor_idx;
+			break;
+		}
+	}
+	if (sensor_idx == 0xff)
+		return 0;
+	dev_info(ctx->dev, "%s ctx->subdrv->name %s,sensor_idx:%d\n",
+			__func__, ctx->subdrv->name, sensor_idx);
+
+	if (flag == 0) {
+		for (i = 0; i < bridge_ch_num; i++) {
+			if (strcmp((char *)(ctx->subdrv->name), lookup_names[i]) == 0) {
+				mutex_lock(&gimgsensor_muticam_mutex);
+				atomic_inc(&count);
+			if (atomic_read(&count) > 1) {
+				switch (ctx->sensor_state) {
+				case IMGSENSOR_STATE_POWER_OFF:
+					ctx->sensor_state = IMGSENSOR_STATE_POWER_ON;
+					img_tgid[sensor_idx].Tgid = current->tgid;
+					if(check_tgid(sensor_idx))
+						break;
+					dev_info(ctx->dev, "count= %d;name: %s;tgid:%d idx:%d process:%s\n",
+					atomic_read(&count), lookup_names[i],
+					img_tgid[sensor_idx].Tgid, sensor_idx,
+					img_tgid[sensor_idx].Name);
+					mutex_unlock(&gimgsensor_muticam_mutex);
+					//mutex_unlock(&ctx->mutex);
+					return ret;
+				case IMGSENSOR_STATE_POWER_ON:
+					atomic_dec(&count);
+					dev_info(ctx->dev, "[Open] occupied;sensor_idx: %d\n",
+						sensor_idx);
+					mutex_unlock(&gimgsensor_muticam_mutex);
+					//mutex_unlock(&ctx->mutex);
+					return ret;
+				case IMGSENSOR_STATE_ERROR:
+					dev_info(ctx->dev, "Open bridge error\n");
+					atomic_set(&count, 1);
+					break;
+				}
+			}
+			multicam0_flag = 0;
+			atomic_set(&stream_count, 0);
+			atomic_set(&suspend_count, 0);
+			atomic_set(&sensor_init_count, 0);
+			ctx->sensor_state = IMGSENSOR_STATE_POWER_ON;
+			dev_info(ctx->dev, "bridge need to open, count= %d; name: %s\n",
+				atomic_read(&count), lookup_names[i]);
+			if (atomic_read(&always_on_count) > 0) {
+				mutex_unlock(&gimgsensor_muticam_mutex);
+				return ret;
+			}
+			break;
+			}
+
+			if (strcmp((char *)(ctx->subdrv->name), lookup_names_1[i]) == 0) {
+				mutex_lock(&gimgsensor_muticam_mutex);
+				atomic_inc(&count_1);
+			if (atomic_read(&count_1) > 1) {
+				switch (ctx->sensor_state) {
+				case IMGSENSOR_STATE_POWER_OFF:
+					ctx->sensor_state = IMGSENSOR_STATE_POWER_ON;
+					img_tgid[sensor_idx].Tgid = current->tgid;
+					if(check_tgid(sensor_idx))
+						break;
+					dev_info(ctx->dev, "count= %d;name: %s;tgid:%d idx:%d process:%s\n",
+					atomic_read(&count_1), lookup_names_1[i],
+					img_tgid[sensor_idx].Tgid, sensor_idx,
+					img_tgid[sensor_idx].Name);
+					mutex_unlock(&gimgsensor_muticam_mutex);
+					//mutex_unlock(&ctx->mutex);
+					return ret;
+				case IMGSENSOR_STATE_POWER_ON:
+					atomic_dec(&count_1);
+					dev_info(ctx->dev, "[Open] occupied;sensor_idx: %d\n",
+						sensor_idx);
+					mutex_unlock(&gimgsensor_muticam_mutex);
+					//mutex_unlock(&ctx->mutex);
+					return ret;
+				case IMGSENSOR_STATE_ERROR:
+					dev_info(ctx->dev, "Open bridge error\n");
+						atomic_set(&count_1, 1);
+					break;
+				}
+			}
+			atomic_set(&stream_count_1, 0);
+			atomic_set(&sensor_init_count_1, 0);
+			atomic_set(&suspend_count1, 0);
+			multicam1_flag = 0;
+			ctx->sensor_state = IMGSENSOR_STATE_POWER_ON;
+			dev_info(ctx->dev, "multicam 2bridge need to open, count= %d; name: %s\n",
+			atomic_read(&count_1), lookup_names_1[i]);
+			if (atomic_read(&always_on_count1) > 0) {
+				mutex_unlock(&gimgsensor_muticam_mutex);
+				return ret;
+			}
+			break;
+			}
+			if (strcmp((char *)(ctx->subdrv->name), lookup_names_2[i]) == 0) {
+				mutex_lock(&gimgsensor_muticam_mutex);
+				atomic_inc(&count_2);
+			if (atomic_read(&count_2) > 1) {
+				switch (ctx->sensor_state) {
+				case IMGSENSOR_STATE_POWER_OFF:
+					ctx->sensor_state = IMGSENSOR_STATE_POWER_ON;
+					img_tgid[sensor_idx].Tgid = current->tgid;
+					if(check_tgid(sensor_idx))
+						break;
+					dev_info(ctx->dev, "count= %d;name: %s;tgid:%d idx:%d process:%s\n",
+					atomic_read(&count_2), lookup_names_2[i],
+					img_tgid[sensor_idx].Tgid, sensor_idx,
+					img_tgid[sensor_idx].Name);
+					mutex_unlock(&gimgsensor_muticam_mutex);
+					//mutex_unlock(&ctx->mutex);
+					return ret;
+				case IMGSENSOR_STATE_POWER_ON:
+					atomic_dec(&count_2);
+					dev_info(ctx->dev, "[Open] occupied;sensor_idx: %d\n",
+						sensor_idx);
+					mutex_unlock(&gimgsensor_muticam_mutex);
+					//mutex_unlock(&ctx->mutex);
+					return ret;
+				case IMGSENSOR_STATE_ERROR:
+					dev_info(ctx->dev, "Open bridge error\n");
+						atomic_set(&count_2, 1);
+					break;
+				}
+			}
+			atomic_set(&stream_count_2, 0);
+			atomic_set(&sensor_init_count_2, 0);
+			atomic_set(&suspend_count2, 0);
+			multicam2_flag = 0;
+			ctx->sensor_state = IMGSENSOR_STATE_POWER_ON;
+			dev_info(ctx->dev, "multicam3 bridge need to open, count= %d; name: %s\n",
+			atomic_read(&count_2), lookup_names_2[i]);
+			if (atomic_read(&always_on_count2) > 0) {
+				mutex_unlock(&gimgsensor_muticam_mutex);
+				return ret;
+			}
+			break;
+			}
+		}
+
+		dev_info(ctx->dev, "Sensor power on, status= %d\n", ctx->sensor_state);
+		for (i = 0; i < bridge_ch_num; i++) {
+			if (strcmp((char *)(ctx->subdrv->name),	lookup_names[i]) == 0) {
+				mutex_unlock(&gimgsensor_muticam_mutex);
+				break;
+			}
+			if (strcmp((char *)(ctx->subdrv->name),	lookup_names_1[i]) == 0) {
+				mutex_unlock(&gimgsensor_muticam_mutex);
+				break;
+			}
+			if (strcmp((char *)(ctx->subdrv->name),	lookup_names_2[i]) == 0) {
+				mutex_unlock(&gimgsensor_muticam_mutex);
+				break;
+			}
+		}
+	} else {
+		for (j = 0; j < bridge_ch_num; j++) {
+			if (strcmp((char *)(ctx->subdrv->name),
+				lookup_names[j]) == 0) {
+				atomic_dec(&count);
+				if (atomic_read(&count) > 0) {
+					ctx->sensor_state = IMGSENSOR_STATE_POWER_OFF;
+					img_tgid[sensor_idx].Tgid = 0;
+					strncpy(img_tgid[sensor_idx].Name, " ", 2);
+					dev_info(ctx->dev, "bridge need to be alive,");
+					dev_info(ctx->dev, "C bridge occupied, count= %d; name: %s\n",
+						atomic_read(&count), lookup_names[j]);
+					return ret;
+				}
+				atomic_set(&stream_count, 0);
+				atomic_set(&sensor_init_count, 0);
+				multicam0_flag = 0;
+				ctx->sensor_state = IMGSENSOR_STATE_POWER_OFF;
+				dev_info(ctx->dev, "bridge need to power off, count= %d; name: %s\n",
+					atomic_read(&count), lookup_names[j]);
+				break;
+			}
+			if (strcmp((char *)(ctx->subdrv->name),
+				lookup_names_1[j]) == 0) {
+				atomic_dec(&count_1);
+				if (atomic_read(&count_1) > 0) {
+					ctx->sensor_state = IMGSENSOR_STATE_POWER_OFF;
+					img_tgid[sensor_idx].Tgid = 0;
+					strncpy(img_tgid[sensor_idx].Name, " ", 2);
+					dev_info(ctx->dev, "bridge need to be alive,");
+					dev_info(ctx->dev, "C bridge occupied, count= %d; name: %s\n",
+						atomic_read(&count_1), lookup_names_1[j]);
+					return ret;
+				}
+				atomic_set(&stream_count_1, 0);
+				atomic_set(&sensor_init_count_1, 0);
+				multicam1_flag = 0;
+				ctx->sensor_state = IMGSENSOR_STATE_POWER_OFF;
+				dev_info(ctx->dev, "multicam2 bridge need to power off, count= %d; name: %s\n",
+					atomic_read(&count_1), lookup_names_1[j]);
+				break;
+			}
+			if (strcmp((char *)(ctx->subdrv->name),
+				lookup_names_2[j]) == 0) {
+				atomic_dec(&count_2);
+				if (atomic_read(&count_2) > 0) {
+					ctx->sensor_state = IMGSENSOR_STATE_POWER_OFF;
+					img_tgid[sensor_idx].Tgid = 0;
+					strncpy(img_tgid[sensor_idx].Name, " ", 2);
+					dev_info(ctx->dev, "bridge need to be alive,");
+					dev_info(ctx->dev, "C bridge occupied, count= %d; name: %s\n",
+						atomic_read(&count_2), lookup_names_2[j]);
+					return ret;
+				}
+				atomic_set(&stream_count_2, 0);
+				atomic_set(&sensor_init_count_2, 0);
+				multicam2_flag = 0;
+				ctx->sensor_state = IMGSENSOR_STATE_POWER_OFF;
+				dev_info(ctx->dev, "multicam3 bridge need to power off, count= %d; name: %s\n",
+					atomic_read(&count_2), lookup_names_2[j]);
+				break;
+			}
+		}
+
+	}
+#endif
 	return 0;
 }
 
@@ -709,7 +1099,251 @@ static int imgsensor_set_power(struct v4l2_subdev *sd, int on)
 
 	return ret;
 }
+void imgsensor_multicam_mutex_lock_for_power(struct adaptor_ctx *ctx)
+{
+#if VC_MULTI_CAMERA
+	int i;
 
+	for (i = 0 ; i < bridge_ch_num; i++) {
+		if (strcmp((char *)(ctx->subdrv->name), lookup_names[i]) == 0) {
+			dev_info(ctx->dev, "mutex_lock power subdrv:%s ++\n", ctx->subdrv->name);
+			mutex_lock(&gimgsensor_max96722a_mutex_for_power);
+			dev_info(ctx->dev, "mutex_lock power subdrv:%s --\n", ctx->subdrv->name);
+			break;
+		}
+		if (strcmp((char *)(ctx->subdrv->name), lookup_names_1[i]) == 0) {
+			dev_info(ctx->dev, "mutex_lock power subdrv power:%s ++\n", ctx->subdrv->name);
+			mutex_lock(&gimgsensor_max96722b_mutex_for_power);
+			dev_info(ctx->dev, "mutex_lock power subdrv:%s --\n", ctx->subdrv->name);
+			break;
+		}
+		if (strcmp((char *)(ctx->subdrv->name), lookup_names_2[i]) == 0) {
+			dev_info(ctx->dev, "mutex_lock power subdrv:%s ++\n", ctx->subdrv->name);
+			mutex_lock(&gimgsensor_max96722c_mutex_for_power);
+			dev_info(ctx->dev, "mutex_lock power subdrv:%s --\n", ctx->subdrv->name);
+			break;
+		}
+	}
+#endif
+}
+
+void imgsensor_multicam_mutex_unlock_for_power(struct adaptor_ctx *ctx)
+{
+#if VC_MULTI_CAMERA
+	int i;
+
+	for (i = 0 ; i < bridge_ch_num; i++) {
+		if (strcmp((char *)(ctx->subdrv->name), lookup_names[i]) == 0) {
+			dev_info(ctx->dev, "mutex_unlock power subdrv:%s ++\n", ctx->subdrv->name);
+			mutex_unlock(&gimgsensor_max96722a_mutex_for_power);
+			dev_info(ctx->dev, "mutex_unlock power subdrv:%s --\n", ctx->subdrv->name);
+			break;
+		}
+		if (strcmp((char *)(ctx->subdrv->name), lookup_names_1[i]) == 0) {
+			dev_info(ctx->dev, "mutex_unlock power subdrv:%s ++\n", ctx->subdrv->name);
+			mutex_unlock(&gimgsensor_max96722b_mutex_for_power);
+			dev_info(ctx->dev, "mutex_unlock power subdrv:%s --\n", ctx->subdrv->name);
+			break;
+		}
+		if (strcmp((char *)(ctx->subdrv->name), lookup_names_2[i]) == 0) {
+			dev_info(ctx->dev, "mutex_unlock power subdrv:%s ++\n", ctx->subdrv->name);
+			mutex_unlock(&gimgsensor_max96722c_mutex_for_power);
+			dev_info(ctx->dev, "mutex_unlock power subdrv:%s --\n", ctx->subdrv->name);
+			break;
+		}
+	}
+#endif
+}
+
+
+
+void imgsensor_multicam_mutex_lock(struct adaptor_ctx *ctx)
+{
+#if VC_MULTI_CAMERA
+	int i;
+
+	for (i = 0 ; i < bridge_ch_num; i++) {
+		if (strcmp((char *)(ctx->subdrv->name), lookup_names[i]) == 0) {
+			dev_info(ctx->dev, "mutex_lock subdrv:%s ++\n", ctx->subdrv->name);
+			mutex_lock(&gimgsensor_max96722a_mutex);
+			dev_info(ctx->dev, "mutex_lock subdrv:%s --\n", ctx->subdrv->name);
+			break;
+		}
+		if (strcmp((char *)(ctx->subdrv->name), lookup_names_1[i]) == 0) {
+			dev_info(ctx->dev, "mutex_lock subdrv:%s ++\n", ctx->subdrv->name);
+			mutex_lock(&gimgsensor_max96722b_mutex);
+			dev_info(ctx->dev, "mutex_lock subdrv:%s --\n", ctx->subdrv->name);
+			break;
+		}
+		if (strcmp((char *)(ctx->subdrv->name), lookup_names_2[i]) == 0) {
+			dev_info(ctx->dev, "mutex_lock subdrv:%s ++\n", ctx->subdrv->name);
+			mutex_lock(&gimgsensor_max96722c_mutex);
+			dev_info(ctx->dev, "mutex_lock subdrv:%s --\n", ctx->subdrv->name);
+			break;
+		}
+	}
+#endif
+}
+
+void imgsensor_multicam_mutex_unlock(struct adaptor_ctx *ctx)
+{
+#if VC_MULTI_CAMERA
+	int i;
+
+	for (i = 0 ; i < bridge_ch_num; i++) {
+		if (strcmp((char *)(ctx->subdrv->name), lookup_names[i]) == 0) {
+			dev_info(ctx->dev, "mutex_unlock subdrv:%s ++\n", ctx->subdrv->name);
+			mutex_unlock(&gimgsensor_max96722a_mutex);
+			dev_info(ctx->dev, "mutex_unlock subdrv:%s --\n", ctx->subdrv->name);
+			break;
+		}
+		if (strcmp((char *)(ctx->subdrv->name), lookup_names_1[i]) == 0) {
+			dev_info(ctx->dev, "mutex_unlock subdrv:%s ++\n", ctx->subdrv->name);
+			mutex_unlock(&gimgsensor_max96722b_mutex);
+			dev_info(ctx->dev, "mutex_unlock subdrv:%s --\n", ctx->subdrv->name);
+			break;
+		}
+		if (strcmp((char *)(ctx->subdrv->name), lookup_names_2[i]) == 0) {
+			dev_info(ctx->dev, "mutex_unlock subdrv:%s ++\n", ctx->subdrv->name);
+			mutex_unlock(&gimgsensor_max96722c_mutex);
+			dev_info(ctx->dev, "mutex_unlock subdrv:%s --\n", ctx->subdrv->name);
+			break;
+		}
+	}
+#endif
+}
+
+int check_multicam_sensor_init(struct adaptor_ctx *ctx)
+{
+#if VC_MULTI_CAMERA
+	int i;
+
+	for (i = 0; i < bridge_ch_num; i++) {
+		if (strcmp((char *)(ctx->subdrv->name),
+			lookup_names[i]) == 0) {
+			if (atomic_read(&sensor_init_count) > 0) {
+				dev_info(ctx->dev, "MutiCam not need sensor init\n");
+				return 1;
+			}
+			atomic_set(&sensor_init_count, 1);
+			dev_info(ctx->dev, "MutiCam need to sensor init\n");
+			break;
+		}
+		if (strcmp((char *)(ctx->subdrv->name),
+			lookup_names_1[i]) == 0) {
+			if (atomic_read(&sensor_init_count_1) > 0) {
+				dev_info(ctx->dev, "MutiCam2 not need sensor init\n");
+				return 1;
+			}
+			atomic_set(&sensor_init_count_1, 1);
+			dev_info(ctx->dev, "MutiCam2 need to sensor init\n");
+			break;
+		}
+		if (strcmp((char *)(ctx->subdrv->name),
+			lookup_names_2[i]) == 0) {
+			if (atomic_read(&sensor_init_count_2) > 0) {
+				dev_info(ctx->dev, "MutiCam3 not need sensor init\n");
+				return 1;
+			}
+			atomic_set(&sensor_init_count_2, 1);
+			dev_info(ctx->dev, "MutiCam3 need to sensor init\n");
+			break;
+		}
+	}
+#endif
+
+	return 0;
+}
+
+int check_multicam_streaming(struct adaptor_ctx *ctx, int flag)
+{
+#if VC_MULTI_CAMERA
+	int i;
+#endif
+
+	if (flag == 0) {
+#if VC_MULTI_CAMERA
+		for (i = 0 ; i < bridge_ch_num; i++) {
+			if (strcmp((char *)(ctx->subdrv->name),
+				lookup_names[i]) == 0) {
+				multicam0_flag = multicam0_flag | (1<<i);
+				if (atomic_read(&stream_count) > 0) {
+					dev_info(ctx->dev, "MutiCam not need resume\n");
+					return 1;
+				}
+				atomic_set(&stream_count, 1);
+				dev_info(ctx->dev, "MutiCam need to resume\n");
+				break;
+			}
+			if (strcmp((char *)(ctx->subdrv->name),
+				lookup_names_1[i]) == 0) {
+				multicam1_flag = multicam1_flag | (1<<i);
+				if (atomic_read(&stream_count_1) > 0) {
+					dev_info(ctx->dev, "MutiCam2 not need resume\n");
+					return 1;
+				}
+				atomic_set(&stream_count_1, 1);
+				dev_info(ctx->dev, "MutiCam2 need to resume stream_count_1:%d\n",
+					atomic_read(&stream_count_1));
+				break;
+			}
+			if (strcmp((char *)(ctx->subdrv->name),
+				lookup_names_2[i]) == 0) {
+				multicam2_flag = multicam2_flag | (1<<i);
+				if (atomic_read(&stream_count_2) > 0) {
+					dev_info(ctx->dev, "MutiCam3 not need resume\n");
+					return 1;
+				}
+				atomic_set(&stream_count_2, 1);
+				dev_info(ctx->dev, "MutiCam3 need to resume\n");
+				break;
+			}
+		}
+#endif
+	} else {
+#if VC_MULTI_CAMERA
+		for (i = 0 ; i < bridge_ch_num; i++) {
+			if (strcmp((char *)(ctx->subdrv->name),
+				lookup_names[i]) == 0) {
+				multicam0_flag = multicam0_flag & (~(1<<i));
+				if (multicam0_flag == 0)
+					atomic_set(&stream_count, 0);
+				if (atomic_read(&stream_count) > 0) {
+					dev_info(ctx->dev, "MutiCam not need suspend\n");
+					return 1;
+				}
+				dev_info(ctx->dev, "MutiCam need to suspend\n");
+				break;
+			}
+			if (strcmp((char *)(ctx->subdrv->name),
+				lookup_names_1[i]) == 0) {
+				multicam1_flag = multicam1_flag & (~(1<<i));
+				if (multicam1_flag == 0)
+					atomic_set(&stream_count_1, 0);
+				if (atomic_read(&stream_count_1) > 0) {
+					dev_info(ctx->dev, "MutiCam2 not need suspend\n");
+					return 1;
+				}
+				dev_info(ctx->dev, "MutiCam2 need to suspend\n");
+				break;
+			}
+			if (strcmp((char *)(ctx->subdrv->name),
+				lookup_names_2[i]) == 0) {
+				multicam2_flag = multicam2_flag & (~(1<<i));
+				if (multicam2_flag == 0)
+					atomic_set(&stream_count_2, 0);
+				if (atomic_read(&stream_count_2) > 0) {
+					dev_info(ctx->dev, "MutiCam3 not need suspend\n");
+					return 1;
+				}
+				dev_info(ctx->dev, "MutiCam3 need to suspend\n");
+				break;
+			}
+		}
+#endif
+	}
+	return 0;
+}
 /* Start streaming */
 static int imgsensor_start_streaming(struct adaptor_ctx *ctx)
 {
@@ -717,7 +1351,49 @@ static int imgsensor_start_streaming(struct adaptor_ctx *ctx)
 	u64 data[4];
 	u32 len;
 
+#if VC_MULTI_CAMERA
+	int i;
+#endif
+
 	adaptor_logm(ctx, "+\n");
+#if VC_MULTI_CAMERA
+	for (i = 0 ; i < bridge_ch_num; i++) {
+		if (strcmp((char *)(ctx->subdrv->name),
+			lookup_names[i]) == 0) {
+			multicam0_flag = multicam0_flag | (1<<i);
+			if (atomic_read(&stream_count) > 0) {
+				dev_info(ctx->dev, "MutiCam not need resume\n");
+				return 0;
+			}
+			atomic_set(&stream_count, 1);
+			dev_info(ctx->dev, "MutiCam need to resume\n");
+			break;
+		}
+		if (strcmp((char *)(ctx->subdrv->name),
+			lookup_names_1[i]) == 0) {
+			multicam1_flag = multicam1_flag | (1<<i);
+			if (atomic_read(&stream_count_1) > 0) {
+				dev_info(ctx->dev, "MutiCam2 not need resume\n");
+				return 0;
+			}
+			atomic_set(&stream_count_1, 1);
+			dev_info(ctx->dev, "MutiCam2 need to resume stream_count_1:%d\n",
+				atomic_read(&stream_count_1));
+			break;
+		}
+		if (strcmp((char *)(ctx->subdrv->name),
+			lookup_names_2[i]) == 0) {
+			multicam2_flag = multicam2_flag | (1<<i);
+			if (atomic_read(&stream_count_2) > 0) {
+				dev_info(ctx->dev, "MutiCam3 not need resume\n");
+				return 0;
+			}
+			atomic_set(&stream_count_2, 1);
+			dev_info(ctx->dev, "MutiCam3 need to resume\n");
+			break;
+		}
+	}
+#endif
 
 	adaptor_sensor_init(ctx);
 
@@ -731,10 +1407,11 @@ static int imgsensor_start_streaming(struct adaptor_ctx *ctx)
 #endif
 
 	data[0] = 0; // shutter
+	imgsensor_multicam_mutex_lock(ctx);
 	subdrv_call(ctx, feature_control,
 		SENSOR_FEATURE_SET_STREAMING_RESUME,
 		(u8 *)data, &len);
-
+	imgsensor_multicam_mutex_unlock(ctx);
 	adaptor_logm(ctx, "[SENSOR_FEATURE_SET_STREAMING_RESUME] -\n");
 
 
@@ -756,13 +1433,56 @@ static int imgsensor_stop_streaming(struct adaptor_ctx *ctx)
 {
 	u64 data[4];
 	u32 len;
+#if VC_MULTI_CAMERA
+		int i;
+#endif
 	union feature_para para;
 
 	/* clear ebd record */
 	mutex_lock(&ctx->ebd_lock);
 	memset(&ctx->latest_ebd, 0, sizeof(ctx->latest_ebd));
 	mutex_unlock(&ctx->ebd_lock);
-
+#if VC_MULTI_CAMERA
+	for (i = 0 ; i < bridge_ch_num; i++) {
+		if (strcmp((char *)(ctx->subdrv->name),
+			lookup_names[i]) == 0) {
+			multicam0_flag = multicam0_flag & (~(1<<i));
+			if (multicam0_flag == 0)
+				atomic_set(&stream_count, 0);
+			if (atomic_read(&stream_count) > 0) {
+				dev_info(ctx->dev, "MutiCam not need suspend\n");
+				return 0;
+			}
+			dev_info(ctx->dev, "MutiCam need to suspend\n");
+			break;
+		}
+		if (strcmp((char *)(ctx->subdrv->name),
+			lookup_names_1[i]) == 0) {
+			multicam1_flag = multicam1_flag & (~(1<<i));
+			if (multicam1_flag == 0)
+				atomic_set(&stream_count_1, 0);
+			if (atomic_read(&stream_count_1) > 0) {
+				dev_info(ctx->dev, "MutiCam2 not need suspend\n");
+				return 0;
+			}
+			dev_info(ctx->dev, "MutiCam2 need to suspend stream_count_1:%d\n",
+				atomic_read(&stream_count_1));
+			break;
+		}
+		if (strcmp((char *)(ctx->subdrv->name),
+			lookup_names_2[i]) == 0) {
+			multicam2_flag = multicam2_flag & (~(1<<i));
+			if (multicam2_flag == 0)
+				atomic_set(&stream_count_2, 0);
+			if (atomic_read(&stream_count_2) > 0) {
+				dev_info(ctx->dev, "MutiCam3 not need suspend\n");
+				return 0;
+			}
+			dev_info(ctx->dev, "MutiCam3 need to suspend\n");
+			break;
+		}
+	}
+#endif
 	subdrv_call(ctx, feature_control,
 		SENSOR_FEATURE_SET_STREAMING_SUSPEND,
 		(u8 *)data, &len);
@@ -1412,6 +2132,19 @@ static int imgsensor_probe(struct i3c_i2c_device *client)
 	ctx->power_refcnt = 0;
 	ctx->mclk_refcnt = 0;
 
+	atomic_set(&count, 0);
+	atomic_set(&count_1, 0);
+	atomic_set(&count_2, 0);
+	atomic_set(&suspend_count, 0);
+	atomic_set(&suspend_count1, 0);
+	atomic_set(&suspend_count2, 0);
+	atomic_set(&always_on_count, 0);
+	atomic_set(&always_on_count1, 0);
+	atomic_set(&always_on_count2, 0);
+	multicam0_flag = 0;
+	multicam1_flag = 0;
+	multicam2_flag = 0;
+
 	ctx->ixc_client = *client;
 	ctx->i2c_client = client->i2c_dev;
 	ctx->dev = dev;
@@ -1636,6 +2369,11 @@ static void imgsensor_remove(struct i3c_i2c_device *client)
 	pm_runtime_disable(&client->dev);
 #else
 	// TODO
+#endif
+#if VC_MULTI_CAMERA
+	atomic_set(&count, 0);
+	atomic_set(&count_1, 0);
+	atomic_set(&count_2, 0);
 #endif
 	device_remove_file(ctx->dev, &dev_attr_debug_i2c_ops);
 	device_remove_file(ctx->dev, &dev_attr_debug_pwr_ops);

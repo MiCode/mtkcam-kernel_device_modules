@@ -1235,6 +1235,10 @@ static int ext_ctrl(struct adaptor_ctx *ctx, struct v4l2_ctrl *ctrl, struct sens
 					mode->csi_param.not_fixed_dphy_settle;
 			csi_param->dphy_init_deskew_support =
 					mode->csi_param.dphy_init_deskew_support;
+			csi_param->clk_lane_no_initial_flow =
+				mode->csi_param.clk_lane_no_initial_flow;
+			csi_param->initial_skew=
+				mode->csi_param.initial_skew;
 		} else
 			adaptor_logi(ctx,
 					"V4L2_CID_MTK_CSI_PARAM-, csi_param = NULL\n");
@@ -1245,6 +1249,10 @@ static int ext_ctrl(struct adaptor_ctx *ctx, struct v4l2_ctrl *ctrl, struct sens
 		break;
 	case V4L2_CID_MTK_DO_NOT_POWER_ON:
 		ctrl->val = ctx->forbid_idx;
+		break;
+	case V4L2_CID_MTK_SENSOR_USAGE:
+		ctrl->val = mode->usage;
+		dev_info(ctx->dev, "mode->usage: %d\n", mode->usage);
 		break;
 	default:
 		break;
@@ -1772,18 +1780,20 @@ static int imgsensor_set_ctrl(struct v4l2_ctrl *ctrl)
 #endif
 	case V4L2_CID_MTK_SENSOR_POWER:
 		{
-		int ret;
+			int ret;
 
-		adaptor_logi(ctx, "V4L2_CID_MTK_SENSOR_POWER val = %d\n", ctrl->val);
-		if (ctrl->val){
-			adaptor_hw_power_on(ctx);
-			ret = adaptor_ixc_do_daa(&ctx->ixc_client);
-			if (ret)
-				adaptor_logi(ctx, "ixc_do_daa(ret=%d), prot= %d\n",
-				ret, ctx->ixc_client.protocol);
-		} else {
-			adaptor_hw_power_off(ctx);
-		}
+			adaptor_logi(ctx, "V4L2_CID_MTK_SENSOR_POWER val = %d\n", ctrl->val);
+			imgsensor_multicam_mutex_lock_for_power(ctx);
+			if (ctrl->val){
+				adaptor_hw_power_on(ctx);
+				ret = adaptor_ixc_do_daa(&ctx->ixc_client);
+				if (ret)
+					adaptor_logi(ctx, "ixc_do_daa(ret=%d), prot= %d\n",
+					ret, ctx->ixc_client.protocol);
+			} else {
+				adaptor_hw_power_off(ctx);
+			}
+			imgsensor_multicam_mutex_unlock_for_power(ctx);
 		}
 		break;
 	case V4L2_CID_MTK_MSTREAM_MODE:
@@ -1852,6 +1862,15 @@ static int imgsensor_set_ctrl(struct v4l2_ctrl *ctrl)
 			adaptor_sensor_init(ctx);
 		break;
 	case V4L2_CID_MTK_SENSOR_RESET_S_STREAM:
+#if VC_MULTI_CAMERA
+		if (ctrl->val && ctx->is_sensor_reset_stream_off) {
+			if (check_multicam_streaming(ctx, 0))
+				break;
+		} else if (!ctrl->val) {
+			if (check_multicam_streaming(ctx, 1))
+				break;
+		}
+#endif
 		_sensor_reset_s_stream(ctrl);
 		break;
 	case V4L2_CID_MTK_AOV_SWITCH_I2C_BUS_SCL_AUX:
@@ -2124,6 +2143,16 @@ static struct v4l2_ctrl_config cfg_csi_param_ctrl = {
 	.max = 0xffffffff,
 	.step = 1,
 	.dims = {sizeof_u32(struct mtk_csi_param)},
+};
+
+static struct v4l2_ctrl_config cfg_sensor_usage_ctrl = {
+	.ops = &ctrl_ops,
+	.id = V4L2_CID_MTK_SENSOR_USAGE,
+	.name = "mtk_sensor_usage",
+	.type = V4L2_CTRL_TYPE_INTEGER,
+	.flags = V4L2_CTRL_FLAG_READ_ONLY | V4L2_CTRL_FLAG_VOLATILE,
+	.max = 0xffff,
+	.step = 1,
 };
 
 
@@ -2515,8 +2544,12 @@ void adaptor_sensor_init(struct adaptor_ctx *ctx)
 	adaptor_logm(ctx, "+\n");
 
 	if (ctx && !ctx->is_sensor_inited) {
-		subdrv_call(ctx, open);
 		ctx->is_sensor_inited = 1;
+		if (check_multicam_sensor_init(ctx))
+			return;
+		imgsensor_multicam_mutex_lock(ctx);
+		subdrv_call(ctx, open);
+		imgsensor_multicam_mutex_unlock(ctx);
 	}
 
 	adaptor_logm(ctx, "-\n");
@@ -2859,6 +2892,7 @@ int adaptor_init_ctrls(struct adaptor_ctx *ctx)
 	v4l2_ctrl_new_custom(&ctx->ctrls, &cfg_seamless_scenario, NULL);
 	v4l2_ctrl_new_custom(&ctx->ctrls, &cfg_fd_ctrl, NULL);
 	v4l2_ctrl_new_custom(&ctx->ctrls, &cfg_csi_param_ctrl, NULL);
+	v4l2_ctrl_new_custom(&ctx->ctrls, &cfg_sensor_usage_ctrl, NULL);
 	v4l2_ctrl_new_custom(&ctx->ctrls, &cfg_test_pattern_data, NULL);
 	v4l2_ctrl_new_custom(&ctx->ctrls, &cfg_mtkcam_sensor_idx, NULL);
 	v4l2_ctrl_new_custom(&ctx->ctrls, &cfg_mtkcam_aov_switch_i2c_bus_scl_aux, NULL);

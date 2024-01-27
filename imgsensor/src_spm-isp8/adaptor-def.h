@@ -181,6 +181,7 @@ enum {
 	REGULATOR_OISVDD,
 	REGULATOR_OISEN,
 	REGULATOR_RST,
+	REGULATOR_PDN,
 	REGULATOR_MAXCNT,
 };
 
@@ -200,6 +201,7 @@ enum {
 	"oisvdd", \
 	"oisen", \
 	"rst", \
+	"pdn", \
 
 /* Format code util */
 

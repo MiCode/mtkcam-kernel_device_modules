@@ -166,6 +166,7 @@ static int set_reg(struct adaptor_ctx *ctx, void *data, int val)
 
 	reg = ctx->regulator[idx];
 	adaptor_logm(ctx, "+ idx(%llu),val(%d)\n", idx, val);
+
 	ret = regulator_set_voltage(reg, val, val);
 	if (ret) {
 		adaptor_loge(ctx,
@@ -198,6 +199,12 @@ static int unset_reg(struct adaptor_ctx *ctx, void *data, int val)
 	reg = ctx->regulator[idx];
 
 	adaptor_logm(ctx, "+ idx(%llu),val(%d)\n", idx, val);
+
+	if (reg == NULL) {
+		adaptor_loge(ctx, "regulator is null\n");
+		return 0;
+	}
+
 	ret = regulator_disable(reg);
 	if (ret) {
 		adaptor_loge(ctx,
@@ -207,7 +214,7 @@ static int unset_reg(struct adaptor_ctx *ctx, void *data, int val)
 	}
 	// always put reg due to pmic limitation
 	devm_regulator_put(ctx->regulator[idx]);
-
+	ctx->regulator[idx] = NULL;
 	adaptor_logm(ctx,
 		"- disable(%s),ret(%llu)(correct)\n",
 		reg_names[idx], ret);
@@ -279,6 +286,7 @@ static int set_reg_pmic_wakeup(struct adaptor_ctx *ctx, unsigned long long data)
 
 	reg = ctx->regulator[idx];
 	ret = regulator_enable(reg);
+
 	if (ret) {
 		adaptor_loge(ctx,
 		"regulator_enable(%s),ret(%llu)(fail)\n",
@@ -286,7 +294,6 @@ static int set_reg_pmic_wakeup(struct adaptor_ctx *ctx, unsigned long long data)
 		return ret;
 	}
 	ctx->pmic_on_tick = ktime_get_boottime_ns();
-
 	adaptor_logi(ctx,
 		"- regulator_enable(%s),ret(%llu)(correct)\n",
 		reg_names[idx], ret);
@@ -529,6 +536,9 @@ int adaptor_hw_power_on(struct adaptor_ctx *ctx)
 	}
 #endif
 	adaptor_logm(ctx, "-\n");
+	if (check_multicam_power(ctx, 0))
+		return 0;
+
 	return do_hw_power_on(ctx);
 }
 
@@ -617,6 +627,8 @@ int adaptor_hw_power_off(struct adaptor_ctx *ctx)
 #endif
 
 	adaptor_logm(ctx, "-\n");
+	if (check_multicam_power(ctx, 1))
+		return 0;
 
 	return do_hw_power_off(ctx);
 }
@@ -650,24 +662,27 @@ int adaptor_hw_init(struct adaptor_ctx *ctx)
 	ctx->pinctrl = devm_pinctrl_get(dev);
 	if (IS_ERR(ctx->pinctrl)) {
 		adaptor_loge(ctx, "fail to get pinctrl\n");
-		return PTR_ERR(ctx->pinctrl);
+		ctx->pinctrl = NULL;
+	//	return PTR_ERR(ctx->pinctrl);
 	}
-
-	/* pinctrl states */
-	for (i = 0; i < STATE_MAXCNT; i++) {
-		ctx->state[i] = pinctrl_lookup_state(
+	if (ctx->pinctrl != NULL) {
+		/* pinctrl states */
+		for (i = 0; i < STATE_MAXCNT; i++) {
+			ctx->state[i] = pinctrl_lookup_state(
 				ctx->pinctrl, state_names[i]);
-		if (IS_ERR(ctx->state[i])) {
-			ctx->state[i] = NULL;
-			adaptor_logd(ctx, "no state %s\n", state_names[i]);
+			if (IS_ERR(ctx->state[i])) {
+				ctx->state[i] = NULL;
+				adaptor_logd(ctx, "no state %s\n", state_names[i]);
+			}
 		}
 	}
-
 	/* install operations */
 
 	INST_OPS(ctx, clk, CLK_MCLK, HW_ID_MCLK, set_mclk, unset_mclk);
 
 	INST_OPS(ctx, clk, CLK1_MCLK1, HW_ID_MCLK1, set_mclk, unset_mclk);
+	INST_OPS(ctx, regulator, REGULATOR_PDN, HW_ID_PDN,
+			set_reg, unset_reg);
 
 	INST_OPS(ctx, regulator, REGULATOR_AVDD, HW_ID_AVDD,
 			set_reg, unset_reg);
@@ -786,12 +801,13 @@ int adaptor_hw_init(struct adaptor_ctx *ctx)
 
 	INST_OPS(ctx, state, STATE_EINT, HW_ID_EINT,
 		 set_state, unset_state);
-
-	/* the pins of mipi switch are shared. free it for another users */
-	if (ctx->state[STATE_MIPI_SWITCH_ON] ||
-		ctx->state[STATE_MIPI_SWITCH_OFF]) {
-		devm_pinctrl_put(ctx->pinctrl);
-		ctx->pinctrl = NULL;
+	if (ctx->pinctrl != NULL) {
+		/* the pins of mipi switch are shared. free it for another users */
+		if (ctx->state[STATE_MIPI_SWITCH_ON] ||
+			ctx->state[STATE_MIPI_SWITCH_OFF]) {
+			devm_pinctrl_put(ctx->pinctrl);
+			ctx->pinctrl = NULL;
+		}
 	}
 	adaptor_logm(ctx, "-\n");
 

@@ -184,6 +184,9 @@
 #define V4L2_CID_MTK_WAKEUP_CAMERA_PMIC \
 	(V4L2_CID_USER_MTK_SENSOR_BASE + 41)
 
+#define V4L2_CID_MTK_SENSOR_USAGE \
+	(V4L2_CID_USER_MTK_SENSOR_BASE + 42)
+
 /**
  * enum scl for imgsensor gpio aux function.
  */

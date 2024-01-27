@@ -4197,6 +4197,12 @@ int mtk_cam_seninf_aov_runtime_suspend(unsigned int sensor_id)
 				__func__,
 				core->aov_sensor_id, core->refcnt);
 
+		if ((ctx->clk_index < CLK_TOP_SENINF) || (ctx->clk_index >= CLK_TOP_SENINF_END)) {
+			dev_info(ctx->dev, "invalid csi clock index: %u\n", ctx->clk_index);
+			mutex_unlock(&core->mutex);
+			return -EINVAL;
+		}
+
 		/* AP side to SCP */
 		if (core->aov_csi_clk_switch_flag == CSI_CLK_130) {
 			/* set the parent of clk as parent_clk */
@@ -4388,6 +4394,12 @@ int mtk_cam_seninf_aov_runtime_resume(unsigned int sensor_id,
 				"[%s] multi user(%d),cnt(%d)\n",
 				__func__,
 				core->aov_sensor_id, core->refcnt);
+
+		if ((ctx->clk_index < CLK_TOP_SENINF) || (ctx->clk_index >= CLK_TOP_SENINF_END)) {
+			dev_info(ctx->dev, "invalid csi clock index: %u\n", ctx->clk_index);
+			mutex_unlock(&core->mutex);
+			return -EINVAL;
+		}
 
 		/* enable seninf csi clk which connects aov sensor */
 		if (core->clk[ctx->clk_index]) {

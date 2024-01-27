@@ -1266,7 +1266,8 @@ static irqreturn_t mtk_irq_raw_yuv(int irq, void *data)
 
 	/* Frame start */
 	if (tg1_status & FBIT(CAMCTL_TG_SOF_INT_ST) ||
-		dmao_done_status & FBIT(CAMCTL_FHO_R1_DONE_ST) ||
+		(!raw->sub_sensor_ctrl_en &&
+		dmao_done_status & FBIT(CAMCTL_FHO_R1_DONE_ST))||
 		dcif_status & FBIT(CAMCTL_DCIF_LAST_CQ_START_INT_ST)) {
 		irq_info.irq_type |= 1 << CAMSYS_IRQ_FRAME_START;
 		raw->sof_count++;
@@ -1286,7 +1287,8 @@ static irqreturn_t mtk_irq_raw_yuv(int irq, void *data)
 		if (CAM_DEBUG_ENABLED(EXTISP_SW_CNT))
 			irq_info.tg_cnt = raw->sof_count - 2;
 		/* make sure no cq applied by hw postpone */
-		if (tg1_status & FBIT(CAMCTL_TG_SOF_INT_ST) && frame_idx <= frame_idx_inner)
+		if (tg1_status & FBIT(CAMCTL_TG_SOF_INT_ST) && frame_idx <= frame_idx_inner &&
+			!raw->sub_sensor_ctrl_en)
 			do_engine_callback(raw->engine_cb, do_workaround_at_sof,
 				   raw->cam, CAMSYS_ENGINE_RAW, raw->id, frame_idx);
 		engine_handle_sof(&raw->cq_ref,

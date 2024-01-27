@@ -1085,6 +1085,17 @@ void mtk_cam_sv_fill_tag_info(struct mtk_camsv_tag_info *arr_tag,
 	cfg_in_param->fmt = sensor_mbus_to_ipi_fmt(mbus_code);
 	cfg_in_param->raw_pixel_id = sensor_mbus_to_ipi_pixel_id(mbus_code);
 	cfg_in_param->subsample = sub_ratio;
+	// handle yuv special case
+	if (cfg_in_param->fmt == MTKCAM_IPI_IMG_FMT_YUYV||
+		cfg_in_param->fmt == MTKCAM_IPI_IMG_FMT_UYVY||
+		cfg_in_param->fmt == MTKCAM_IPI_IMG_FMT_VYUY||
+		cfg_in_param->fmt == MTKCAM_IPI_IMG_FMT_YVYU) {
+		cfg_in_param->in_crop.s.w = mbus_width * 2;
+	}
+	// handle rgb888 special case
+	if (cfg_in_param->fmt == MTKCAM_IPI_IMG_FMT_RGB888) {
+		cfg_in_param->in_crop.s.w = mbus_width * 3;
+	}
 }
 
 int mtk_cam_sv_get_tag_param(struct mtk_camsv_tag_param *arr_tag_param,

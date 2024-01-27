@@ -308,6 +308,8 @@ unsigned int mtk_cam_get_pixel_bits(unsigned int ipi_fmt)
 	case MTKCAM_IPI_IMG_FMT_RGB_12B_3P:
 	case MTKCAM_IPI_IMG_FMT_FG_BAYER12_3P:
 		return 16;
+	case MTKCAM_IPI_IMG_FMT_RGB888:
+		return 24;
 
 	default:
 		break;
@@ -324,6 +326,10 @@ unsigned int mtk_cam_get_img_fmt(unsigned int fourcc)
 		return MTKCAM_IPI_IMG_FMT_Y8;
 	case V4L2_PIX_FMT_YUYV:
 		return MTKCAM_IPI_IMG_FMT_YUYV;
+	case V4L2_PIX_FMT_UYVY:
+		return MTKCAM_IPI_IMG_FMT_UYVY;
+	case V4L2_PIX_FMT_VYUY:
+		return MTKCAM_IPI_IMG_FMT_VYUY;
 	case V4L2_PIX_FMT_YVYU:
 		return MTKCAM_IPI_IMG_FMT_YVYU;
 	case V4L2_PIX_FMT_NV16:
@@ -493,6 +499,9 @@ unsigned int mtk_cam_get_img_fmt(unsigned int fourcc)
 	case V4L2_PIX_FMT_MTISP_RAW16:
 	case V4L2_PIX_FMT_Y16:
 		return MTKCAM_IPI_IMG_FMT_RAW16;
+	case V4L2_PIX_FMT_BGR24:
+	case V4L2_PIX_FMT_RGB24:
+		return MTKCAM_IPI_IMG_FMT_RGB888;
 	default:
 		return MTKCAM_IPI_IMG_FMT_UNKNOWN;
 	}
@@ -939,6 +948,16 @@ unsigned int sensor_mbus_to_ipi_fmt(unsigned int mbus_code)
 	case MEDIA_BUS_FMT_SGRBG14_1X14:
 	case MEDIA_BUS_FMT_SRGGB14_1X14:
 		return MTKCAM_IPI_IMG_FMT_BAYER14;
+	case MEDIA_BUS_FMT_YUYV8_2X8:
+		return MTKCAM_IPI_IMG_FMT_YUYV;
+	case MEDIA_BUS_FMT_UYVY8_2X8:
+		return MTKCAM_IPI_IMG_FMT_UYVY;
+	case MEDIA_BUS_FMT_VYUY8_2X8:
+		return MTKCAM_IPI_IMG_FMT_VYUY;
+	case MEDIA_BUS_FMT_YVYU8_2X8:
+		return MTKCAM_IPI_IMG_FMT_YVYU;
+	case MEDIA_BUS_FMT_RGB888_1X24:
+		return MTKCAM_IPI_IMG_FMT_RGB888;
 	default:
 		break;
 	}

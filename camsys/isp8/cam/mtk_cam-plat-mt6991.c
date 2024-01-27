@@ -105,13 +105,13 @@ static int set_meta_stat0_info(struct mtk_cam_uapi_meta_raw_stats_0 *stats,
 		cfg->ae_param.block_win_cfg.block_num_x *
 		cfg->ae_param.block_win_cfg.block_num_y *
 		32;
-	pr_info("[%s] flko/awb1/awb2/aeo:%d/%d/%d/%d",
-		__func__, flko_size, awbo_r1_size, awbo_r2_size, aeo_size);
 #else
 	flko_size = MTK_CAM_UAPI_FLK_MAX_BUF_SIZE;
 	awbo_r1_size = MTK_CAM_UAPI_AWBO_R1_MAX_BUF_SIZE;
 	awbo_r2_size = MTK_CAM_UAPI_AWBO_R2_MAX_BUF_SIZE;
 	aeo_size = MTK_CAM_UAPI_AEO_MAX_BUF_SIZE;
+	pr_info("[%s] flko/awb1/awb2/aeo:%d/%d/%d/%d",
+		__func__, flko_size, awbo_r1_size, awbo_r2_size, aeo_size);
 #endif
 	pdo_size = cfg->pde_enable ? cfg->pde_param.pdo_max_size : 0;
 

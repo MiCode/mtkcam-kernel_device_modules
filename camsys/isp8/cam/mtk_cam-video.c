@@ -555,7 +555,8 @@ static void mtk_cam_vb2_stop_streaming(struct vb2_queue *vq)
 		// TODO: clean pending?
 		return;
 	}
-	dev_info(cam->dev, "%s:streaming_node cnt:%d node_name:%s, queued_cnt:%d",
+	if (CAM_DEBUG_ENABLED(V4L2))
+		dev_info(cam->dev, "%s:streaming_node cnt:%d node_name:%s, queued_cnt:%d",
 		__func__, ctx->streaming_node_cnt, node->desc.name, atomic_read(&node->queued_cnt));
 	if (atomic_read(&node->queued_cnt))
 		mtk_cam_ctx_stream_off(ctx);

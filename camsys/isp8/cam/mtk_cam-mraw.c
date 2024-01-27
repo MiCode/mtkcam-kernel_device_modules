@@ -1375,13 +1375,13 @@ static int mtk_mraw_pm_suspend(struct device *dev)
 	u32 val;
 	int ret;
 
-	dev_dbg(dev, "- %s\n", __func__);
+	dev_info_ratelimited(dev, "- %s\n", __func__);
 
 	if (pm_runtime_suspended(dev))
 		return 0;
 
 	/* Disable ISP's view finder and wait for TG idle */
-	dev_dbg(dev, "mraw suspend, disable VF\n");
+	dev_info_ratelimited(dev, "mraw suspend, disable VF\n");
 	val = readl(mraw_dev->base + REG_MRAW_TG_VF_CON);
 	writel(val & (~MRAWTG_VFDATA_EN),
 		mraw_dev->base + REG_MRAW_TG_VF_CON);
@@ -1408,7 +1408,7 @@ static int mtk_mraw_pm_resume(struct device *dev)
 	u32 val;
 	int ret;
 
-	dev_dbg(dev, "- %s\n", __func__);
+	dev_info_ratelimited(dev, "- %s\n", __func__);
 
 	if (pm_runtime_suspended(dev))
 		return 0;
@@ -1419,7 +1419,7 @@ static int mtk_mraw_pm_resume(struct device *dev)
 		return ret;
 
 	/* Enable CMOS */
-	dev_dbg(dev, "mraw resume, enable CMOS/VF\n");
+	dev_info_ratelimited(dev, "mraw resume, enable CMOS/VF\n");
 	val = readl(mraw_dev->base + REG_MRAW_TG_SEN_MODE);
 	writel(val | MRAWTG_CMOS_EN,
 		mraw_dev->base + REG_MRAW_TG_SEN_MODE);
@@ -1703,7 +1703,7 @@ int mtk_mraw_runtime_suspend(struct device *dev)
 	struct mtk_mraw_device *mraw_dev = dev_get_drvdata(dev);
 	int i;
 
-	dev_dbg(dev, "%s:disable clock\n", __func__);
+	dev_info_ratelimited(dev, "%s:disable clock\n", __func__);
 
 	mtk_cam_reset_qos(dev, &mraw_dev->qos);
 
@@ -1731,7 +1731,7 @@ int mtk_mraw_runtime_resume(struct device *dev)
 	if (ret)
 		return ret;
 
-	dev_dbg(dev, "%s:enable clock\n", __func__);
+	dev_info_ratelimited(dev, "%s:enable clock\n", __func__);
 	for (i = 0; i < mraw_dev->num_clks; i++) {
 		ret = clk_prepare_enable(mraw_dev->clks[i]);
 		if (ret) {

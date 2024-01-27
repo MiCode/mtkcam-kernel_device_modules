@@ -916,7 +916,8 @@ void reset(struct mtk_raw_device *dev)
 		FBIT(CAMCTL_CQI_R4_EN);
 	raw_writel(val, dev, dev->base, REG_CAMCTL_MOD10_EN);
 	raw_writel(val, dev, dev->base_inner, REG_CAMCTL_MOD10_EN);
-	dev_info(dev->dev, "%s mod10_en/val:0x%x/0x%x\n", __func__, mod10_en, val);
+	if (CAM_DEBUG_ENABLED(RAW_CG))
+		dev_info(dev->dev, "%s mod10_en/val:0x%x/0x%x\n", __func__, mod10_en, val);
 	raw_writel(0, dev, dev->base, REG_CAMCTL_SW_CTL);
 	raw_writel(FBIT(CAMCTL_SW_RST_TRIG), dev, dev->base, REG_CAMCTL_SW_CTL);
 	wmb(); /* make sure committed */
@@ -2030,7 +2031,8 @@ int mtk_raw_runtime_suspend(struct device *dev)
 	int i;
 	unsigned int pr_detect_count;
 
-	dev_dbg(dev, "%s:disable clock\n", __func__);
+	if (CAM_DEBUG_ENABLED(RAW_CG))
+		dev_dbg(dev, "%s:disable clock\n", __func__);
 
 	pr_detect_count = get_detect_count();
 	if (pr_detect_count > drvdata->default_printk_cnt)
@@ -2067,8 +2069,8 @@ int mtk_raw_runtime_resume(struct device *dev)
 	pr_detect_count = get_detect_count();
 	if (pr_detect_count < KERNEL_LOG_MAX)
 		set_detect_count(KERNEL_LOG_MAX);
-
-	dev_dbg(dev, "%s:enable clock\n", __func__);
+	if (CAM_DEBUG_ENABLED(RAW_CG))
+		dev_dbg(dev, "%s:enable clock\n", __func__);
 	mtk_mmdvfs_enable_vcp(true, VCP_PWR_USR_CAM);
 	if (CAM_DEBUG_ENABLED(RAW_CG))
 		cg_dump_and_test(dev, CG_RAW, 1);
@@ -2424,7 +2426,8 @@ int mtk_yuv_runtime_suspend(struct device *dev)
 	struct mtk_yuv_device *drvdata = dev_get_drvdata(dev);
 	int i;
 
-	dev_dbg(dev, "%s:disable clock\n", __func__);
+	if (CAM_DEBUG_ENABLED(RAW_CG))
+		dev_dbg(dev, "%s:disable clock\n", __func__);
 	if (CAM_DEBUG_ENABLED(RAW_CG))
 		cg_dump_and_test(dev, CG_YUV, 0);
 
@@ -2444,7 +2447,8 @@ int mtk_yuv_runtime_resume(struct device *dev)
 	struct mtk_yuv_device *drvdata = dev_get_drvdata(dev);
 	int i, ret;
 
-	dev_dbg(dev, "%s:enable clock\n", __func__);
+	if (CAM_DEBUG_ENABLED(RAW_CG))
+		dev_dbg(dev, "%s:enable clock\n", __func__);
 	if (CAM_DEBUG_ENABLED(RAW_CG))
 		cg_dump_and_test(dev, CG_YUV, 1);
 	for (i = 0; i < drvdata->num_clks; i++) {
@@ -2893,7 +2897,8 @@ int mtk_rms_runtime_suspend(struct device *dev)
 	struct mtk_rms_device *drvdata = dev_get_drvdata(dev);
 	int i;
 
-	dev_dbg(dev, "%s:disable clock\n", __func__);
+	if (CAM_DEBUG_ENABLED(RAW_CG))
+		dev_dbg(dev, "%s:disable clock\n", __func__);
 	if (CAM_DEBUG_ENABLED(RAW_CG))
 		cg_dump_and_test(dev, CG_RMS, 0);
 	for (i = drvdata->num_clks - 1; i >= 0; i--)
@@ -2908,7 +2913,8 @@ int mtk_rms_runtime_resume(struct device *dev)
 	struct mtk_rms_device *drvdata = dev_get_drvdata(dev);
 	int i, ret;
 
-	dev_dbg(dev, "%s:enable clock\n", __func__);
+	if (CAM_DEBUG_ENABLED(RAW_CG))
+		dev_dbg(dev, "%s:enable clock\n", __func__);
 
 	if (CAM_DEBUG_ENABLED(RAW_CG))
 		cg_dump_and_test(dev, CG_RMS, 1);

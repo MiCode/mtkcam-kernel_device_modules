@@ -1297,7 +1297,7 @@ static int _mtk_cam_seninf_reset_outmux(struct seninf_ctx *ctx, int pad_id)
 	int old_outmux;
 	u8 j;
 
-	dev_info(ctx->dev, "[%s] +\n", __func__);
+	dev_info_ratelimited(ctx->dev, "[%s] +\n", __func__);
 
 	if (pad_id < PAD_SRC_RAW0 || pad_id >= PAD_MAXCNT) {
 		dev_info(ctx->dev, "no such pad id:%d\n", pad_id);
@@ -1306,7 +1306,7 @@ static int _mtk_cam_seninf_reset_outmux(struct seninf_ctx *ctx, int pad_id)
 
 	vc = mtk_cam_seninf_get_vc_by_pad(ctx, pad_id);
 	if (!vc) {
-		seninf_logi(ctx, "no such vc by pad id:%d\n", pad_id);
+		seninf_logd(ctx, "no such vc by pad id:%d\n", pad_id);
 		return -EINVAL;
 	}
 
@@ -1357,7 +1357,7 @@ int _mtk_cam_seninf_set_camtg(struct v4l2_subdev *sd, int pad_id, int camtg, int
 	int set, i;
 	struct seninf_core *core = ctx->core;
 
-	dev_info(ctx->dev, "[%s] +\n", __func__);
+	dev_info_ratelimited(ctx->dev, "[%s] +\n", __func__);
 
 	mutex_lock(&core->cammux_page_ctrl_mutex);
 
@@ -1385,7 +1385,7 @@ int _mtk_cam_seninf_set_camtg(struct v4l2_subdev *sd, int pad_id, int camtg, int
 
 	/*check use vc/dt for current scenario*/
 	if(!ctx->is_test_model && _chk_cur_mode_vc(ctx, vc)) {
-		dev_info(ctx->dev, "[%s] no such vc/dt in cur_mode, vc 0x%x, dt 0x%x\n",
+		dev_info_ratelimited(ctx->dev, "[%s] no such vc/dt in cur_mode, vc 0x%x, dt 0x%x\n",
 			__func__, vc->vc, vc->dt);
 		mutex_unlock(&core->cammux_page_ctrl_mutex);
 		return 0;

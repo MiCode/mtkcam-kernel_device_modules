@@ -1748,7 +1748,7 @@ static int mtk_camsv_pm_suspend(struct device *dev)
 	u32 val;
 	int ret;
 
-	dev_dbg(dev, "- %s\n", __func__);
+	dev_info_ratelimited(dev, "- %s\n", __func__);
 
 	if (pm_runtime_suspended(dev))
 		return 0;
@@ -1784,7 +1784,7 @@ static int mtk_camsv_pm_resume(struct device *dev)
 	u32 val;
 	int ret;
 
-	dev_dbg(dev, "- %s\n", __func__);
+	dev_info_ratelimited(dev, "- %s\n", __func__);
 
 	if (pm_runtime_suspended(dev))
 		return 0;
@@ -2207,7 +2207,7 @@ int mtk_camsv_runtime_suspend(struct device *dev)
 	struct mtk_camsv_device *sv_dev = dev_get_drvdata(dev);
 	int i;
 
-	dev_dbg(dev, "%s:disable clock\n", __func__);
+	dev_info_ratelimited(dev, "%s:disable clock\n", __func__);
 
 	mtk_cam_reset_qos(dev, &sv_dev->qos);
 
@@ -2238,7 +2238,7 @@ int mtk_camsv_runtime_resume(struct device *dev)
 	if (ret)
 		return ret;
 
-	dev_dbg(dev, "%s:enable clock\n", __func__);
+	dev_info_ratelimited(dev, "%s:enable clock\n", __func__);
 	for (i = 0; i < sv_dev->num_clks; i++) {
 		ret = clk_prepare_enable(sv_dev->clks[i]);
 		if (ret) {
@@ -2255,7 +2255,7 @@ int mtk_camsv_runtime_resume(struct device *dev)
 
 	for (i = 0; i < CAMSV_IRQ_NUM; i++) {
 		enable_irq(sv_dev->irq[i]);
-		dev_dbg(dev, "%s:enable irq %d\n", __func__, sv_dev->irq[i]);
+		dev_info_ratelimited(dev, "%s:enable irq %d\n", __func__, sv_dev->irq[i]);
 	}
 
 	dev_info(dev, "%s:enable irq\n", __func__);

@@ -2114,11 +2114,6 @@ static int csirx_mac_csi_setting(struct seninf_ctx *ctx)
 					RG_CSI2_RESYNC_DMY_EN,
 					0);
 
-		SENINF_BITS(csirx_mac_csi,
-					CSIRX_MAC_CSI2_RESYNC_MERGE_CTRL,
-					RG_CSI2_RESYNC_LRTE_EN,
-					0);
-
 	} else { //Cphy
 		u8 map_hdr_len[] = {0, 1, 2, 4, 5};
 		u64 cycles = 64;
@@ -2162,11 +2157,63 @@ static int csirx_mac_csi_setting(struct seninf_ctx *ctx)
 					RG_CSI2_RESYNC_DMY_EN,
 					0);
 
-		SENINF_BITS(csirx_mac_csi,
-					CSIRX_MAC_CSI2_RESYNC_MERGE_CTRL,
-					RG_CSI2_RESYNC_LRTE_EN,
-					0);
+	}
 
+	return 0;
+}
+
+static int csirx_mac_csi_lrte_setting(struct seninf_ctx *ctx)
+{
+	void *csirx_mac_csi = ctx->reg_csirx_mac_csi[(unsigned int)ctx->port];
+	void *cphy_base = ctx->reg_ana_cphy_top[(unsigned int)ctx->port];
+	void *dphy_base = ctx->reg_ana_dphy_top[(unsigned int)ctx->port];
+
+	seninf_logi(ctx, "lrte_support flag = %d\n",
+			ctx->csi_param.cphy_lrte_support);
+
+	if (ctx->is_cphy && ctx->csi_param.cphy_lrte_support) {
+		SENINF_BITS(csirx_mac_csi,
+				CSIRX_MAC_CSI2_RESYNC_MERGE_CTRL,
+				RG_CSI2_RESYNC_LRTE_EN,
+				1);
+
+		SENINF_BITS(csirx_mac_csi,
+				CSIRX_MAC_CSI2_RESYNC_MERGE_CTRL2,
+				RG_RESYNC_LRTE_PKT_HSRST,
+				0);
+
+		SENINF_BITS(csirx_mac_csi,
+				CSIRX_MAC_CSI2_RESYNC_MERGE_CTRL2,
+				RG_RESYNC_LRTE_WPTR_LENGTH,
+				2);
+		/* LRTE SW Workaround */
+		SENINF_BITS(dphy_base, DPHY_RX_SPARE1, RG_POST_CNT, 0x1);
+		SENINF_BITS(cphy_base, CPHY_RX_STATE_CHK_EN, RG_ALP_POS_DET_MASK, 0xFF);
+		SENINF_BITS(cphy_base, CPHY_RX_CAL_ALP_CTRL, RG_CPHY_ALP_SETTLE_PARAMETER, 0x23);
+		SENINF_BITS(cphy_base, CPHY_RX_CAL_ALP_CTRL, RG_ALP_RX_EN_SEL, 0x0);
+		SENINF_BITS(cphy_base, CPHY_RX_CAL_ALP_CTRL, RG_CPHY_ALP_EN, 0x1);
+		SENINF_BITS(cphy_base, CPHY_RX_INIT, RG_CPHY_CSI2_TINIT_CNT_EN, 0x1);
+		SENINF_BITS(cphy_base, CPHY_POST_ENCODE, CPHY_POST_REPLACE_EN, 0x0);
+		seninf_logi(ctx, "LRTE RG_POST_CNT(0x%x)\n",
+			SENINF_READ_BITS(dphy_base, DPHY_RX_SPARE1, RG_POST_CNT));
+		seninf_logi(ctx, "LRTE RG_ALP_POS_DET_MASK(0x%x)\n",
+			SENINF_READ_BITS(cphy_base, CPHY_RX_STATE_CHK_EN, RG_ALP_POS_DET_MASK));
+		seninf_logi(ctx, "LRTE RG_CPHY_ALP_SETTLE_PARAMETER(0x%x)\n",
+			SENINF_READ_BITS(cphy_base, CPHY_RX_CAL_ALP_CTRL, RG_CPHY_ALP_SETTLE_PARAMETER));
+		seninf_logi(ctx, "LRTE RG_ALP_RX_EN_SEL(0x%x)\n",
+			SENINF_READ_BITS(cphy_base, CPHY_RX_CAL_ALP_CTRL, RG_ALP_RX_EN_SEL));
+		seninf_logi(ctx, "LRTE RG_CPHY_ALP_EN(0x%x)\n",
+			SENINF_READ_BITS(cphy_base, CPHY_RX_CAL_ALP_CTRL, RG_CPHY_ALP_EN));
+		seninf_logi(ctx, "LRTE RG_CPHY_CSI2_TINIT_CNT_EN(0x%x)\n",
+			SENINF_READ_BITS(cphy_base, CPHY_RX_INIT, RG_CPHY_CSI2_TINIT_CNT_EN));
+	} else {
+		SENINF_BITS(csirx_mac_csi,
+				CSIRX_MAC_CSI2_RESYNC_MERGE_CTRL,
+				RG_CSI2_RESYNC_LRTE_EN,
+				0);
+		SENINF_BITS(cphy_base, CPHY_RX_CAL_ALP_CTRL, RG_CPHY_ALP_EN, 0x0);
+		seninf_logi(ctx, "lrte not support, disable LRTE_EN ALP_EN, port:%d\n",
+			 ctx->port);
 	}
 
 	return 0;
@@ -3672,6 +3719,9 @@ static int mtk_cam_seninf_set_csi_mipi(struct seninf_ctx *ctx)
 
 	/* csi_mac_CSI2 */
 	csirx_mac_csi_setting(ctx);
+
+	/* cphy lrte */
+	csirx_mac_csi_lrte_setting(ctx);
 
 	/* seninf async */
 	seninf_async_setting(ctx);

@@ -1439,26 +1439,9 @@ static int csirx_phyA_init(struct seninf_ctx *ctx)
 			    RG_CSI0_CPHY_T1_CDR_BC_WIDTH, 0x9);
 		SENINF_BITS(base, CDPHY_RX_ANA_7,
 			    RG_CSI0_CPHY_T1_CDR_CA_WIDTH, 0x9);
-		if (_seninf_ops->iomem_ver == NULL) {
 			/* Disable non-ULPS mode */
-			SENINF_BITS(base, CDPHY_RX_ANA_8,
+		SENINF_BITS(base, CDPHY_RX_ANA_8,
 					RG_CSI0_RESERVE, 0x400);
-		} else if (!strcasecmp(_seninf_ops->iomem_ver, MT6991_IOMOM_VERSIONS)) {
-			/* Disable non-ULPS mode */
-			SENINF_BITS(base, CDPHY_RX_ANA_8,
-					RG_CSI0_RESERVE, 0x400);
-		} else if (!strcasecmp(_seninf_ops->iomem_ver, MT6989_IOMOM_VERSIONS)) {
-			/*
-			 * RG_CSI0_RESERVE[10]:Disable non-ULPS mode
-			 * RG_CSI0_RESERVE[9]:LDO_LP_MODE ON
-			 */
-			SENINF_BITS(base, CDPHY_RX_ANA_8,
-					RG_CSI0_RESERVE, 0x600);
-		} else {
-			dev_info(ctx->dev, "iomem_ver is invalid\n");
-			return -EINVAL;
-                }
-
 		// SENINF_BITS(base, CDPHY_RX_ANA_SETTING_1,
 			// RG_CSI0_ASYNC_OPTION, 0xC);
 
@@ -2053,47 +2036,21 @@ static int csirx_mac_csi_setting(struct seninf_ctx *ctx)
 				RG_CSI2_VS_OUTPUT_LEN_SEL,
 				0);
 
-	if (_seninf_ops->iomem_ver == NULL) {
-		SENINF_BITS(csirx_mac_csi,
-					CSIRX_MAC_CSI2_RESYNC_MERGE_CTRL,
-					RG_CSI2_RESYNC_CYCLE_CNT,
-					0x1f);
-	} else if (!strcasecmp(_seninf_ops->iomem_ver, MT6991_IOMOM_VERSIONS)) {
-		SENINF_BITS(csirx_mac_csi,
-					CSIRX_MAC_CSI2_RESYNC_MERGE_CTRL,
-					RG_CSI2_RESYNC_CYCLE_CNT,
-					0x1f);
-		/* MAC CSI CHECKER ENABLE */
-		SENINF_WRITE_REG(csirx_mac_csi,
-			CSIRX_MAC_CSI2_SIZE_CHK_CTRL0, 0x002B0011);
-		SENINF_WRITE_REG(csirx_mac_csi,
-			CSIRX_MAC_CSI2_SIZE_CHK_CTRL1, 0x002B0111);
-		SENINF_WRITE_REG(csirx_mac_csi,
-			CSIRX_MAC_CSI2_SIZE_CHK_CTRL2, 0x002B0211);
-		SENINF_WRITE_REG(csirx_mac_csi,
-			CSIRX_MAC_CSI2_SIZE_CHK_CTRL3, 0x002C0011);
-		SENINF_WRITE_REG(csirx_mac_csi,
-			CSIRX_MAC_CSI2_SIZE_CHK_CTRL4, 0x002D0011);
-	} else if (!strcasecmp(_seninf_ops->iomem_ver, MT6989_IOMOM_VERSIONS)) {
-		SENINF_BITS(csirx_mac_csi,
-					CSIRX_MAC_CSI2_RESYNC_MERGE_CTRL,
-					RG_CSI2_RESYNC_CYCLE_CNT,
-					0x1F);
-		/* MAC CSI CHECKER ENABLE */
-		SENINF_WRITE_REG(csirx_mac_csi,
-			CSIRX_MAC_CSI2_SIZE_CHK_CTRL0, 0x002B0011);
-		SENINF_WRITE_REG(csirx_mac_csi,
-			CSIRX_MAC_CSI2_SIZE_CHK_CTRL1, 0x002B0111);
-		SENINF_WRITE_REG(csirx_mac_csi,
-			CSIRX_MAC_CSI2_SIZE_CHK_CTRL2, 0x002B0211);
-		SENINF_WRITE_REG(csirx_mac_csi,
-			CSIRX_MAC_CSI2_SIZE_CHK_CTRL3, 0x002C0011);
-		SENINF_WRITE_REG(csirx_mac_csi,
-			CSIRX_MAC_CSI2_SIZE_CHK_CTRL4, 0x002D0011);
-	} else {
-		dev_info(ctx->dev, "iomem_ver is invalid\n");
-		return -EINVAL;
-	}
+	SENINF_BITS(csirx_mac_csi,
+				CSIRX_MAC_CSI2_RESYNC_MERGE_CTRL,
+				RG_CSI2_RESYNC_CYCLE_CNT,
+				0x1f);
+	/* MAC CSI CHECKER ENABLE */
+	SENINF_WRITE_REG(csirx_mac_csi,
+		CSIRX_MAC_CSI2_SIZE_CHK_CTRL0, 0x002B0011);
+	SENINF_WRITE_REG(csirx_mac_csi,
+		CSIRX_MAC_CSI2_SIZE_CHK_CTRL1, 0x002B0111);
+	SENINF_WRITE_REG(csirx_mac_csi,
+		CSIRX_MAC_CSI2_SIZE_CHK_CTRL2, 0x002B0211);
+	SENINF_WRITE_REG(csirx_mac_csi,
+		CSIRX_MAC_CSI2_SIZE_CHK_CTRL3, 0x002C0011);
+	SENINF_WRITE_REG(csirx_mac_csi,
+		CSIRX_MAC_CSI2_SIZE_CHK_CTRL4, 0x002D0011);
 
 	SENINF_BITS(csirx_mac_csi,
 				CSIRX_MAC_CSI2_RESYNC_MERGE_CTRL,
@@ -4587,42 +4544,20 @@ static int mtk_cam_seninf_debug(struct seninf_ctx *ctx)
 	if ((mac_irq & 0xD0) || seninf_irq)
 		ret = -2; //multi lanes sync error, crc error, ecc error
 
-	if (_seninf_ops->iomem_ver == NULL) {
-		dev_dbg(ctx->dev, "no mac checker implementation\n");
-	} else if (!strcasecmp(_seninf_ops->iomem_ver, MT6991_IOMOM_VERSIONS)) {
-		dev_info(ctx->dev,
-			"CSIRX_MAC_CSI2_SIZE_CHK_CTRL0/_CTRL1/_CTRL2/_CTRL3/_CTRL4:(0x%x)/(0x%x)/(0x%x)/(0x%x)/(0x%x)\n",
-			SENINF_READ_REG(base_csi_mac, CSIRX_MAC_CSI2_SIZE_CHK_CTRL0),
-			SENINF_READ_REG(base_csi_mac, CSIRX_MAC_CSI2_SIZE_CHK_CTRL1),
-			SENINF_READ_REG(base_csi_mac, CSIRX_MAC_CSI2_SIZE_CHK_CTRL2),
-			SENINF_READ_REG(base_csi_mac, CSIRX_MAC_CSI2_SIZE_CHK_CTRL3),
-			SENINF_READ_REG(base_csi_mac, CSIRX_MAC_CSI2_SIZE_CHK_CTRL4));
-		dev_info(ctx->dev,
-			"CSIRX_MAC_CSI2_SIZE_CHK_RCV0/_RCV1/_RCV2/_RCV3/_RCV4:(0x%x)/(0x%x)/(0x%x)/(0x%x)/(0x%x)\n",
-			SENINF_READ_REG(base_csi_mac, CSIRX_MAC_CSI2_SIZE_CHK_RCV0),
-			SENINF_READ_REG(base_csi_mac, CSIRX_MAC_CSI2_SIZE_CHK_RCV1),
-			SENINF_READ_REG(base_csi_mac, CSIRX_MAC_CSI2_SIZE_CHK_RCV2),
-			SENINF_READ_REG(base_csi_mac, CSIRX_MAC_CSI2_SIZE_CHK_RCV3),
-			SENINF_READ_REG(base_csi_mac, CSIRX_MAC_CSI2_SIZE_CHK_RCV4));
-	} else if (!strcasecmp(_seninf_ops->iomem_ver, MT6989_IOMOM_VERSIONS)) {
-		dev_info(ctx->dev,
-			"CSIRX_MAC_CSI2_SIZE_CHK_CTRL0/_CTRL1/_CTRL2/_CTRL3/_CTRL4:(0x%x)/(0x%x)/(0x%x)/(0x%x)/(0x%x)\n",
-			SENINF_READ_REG(base_csi_mac, CSIRX_MAC_CSI2_SIZE_CHK_CTRL0),
-			SENINF_READ_REG(base_csi_mac, CSIRX_MAC_CSI2_SIZE_CHK_CTRL1),
-			SENINF_READ_REG(base_csi_mac, CSIRX_MAC_CSI2_SIZE_CHK_CTRL2),
-			SENINF_READ_REG(base_csi_mac, CSIRX_MAC_CSI2_SIZE_CHK_CTRL3),
-			SENINF_READ_REG(base_csi_mac, CSIRX_MAC_CSI2_SIZE_CHK_CTRL4));
-		dev_info(ctx->dev,
-			"CSIRX_MAC_CSI2_SIZE_CHK_RCV0/_RCV1/_RCV2/_RCV3/_RCV4:(0x%x)/(0x%x)/(0x%x)/(0x%x)/(0x%x)\n",
-			SENINF_READ_REG(base_csi_mac, CSIRX_MAC_CSI2_SIZE_CHK_RCV0),
-			SENINF_READ_REG(base_csi_mac, CSIRX_MAC_CSI2_SIZE_CHK_RCV1),
-			SENINF_READ_REG(base_csi_mac, CSIRX_MAC_CSI2_SIZE_CHK_RCV2),
-			SENINF_READ_REG(base_csi_mac, CSIRX_MAC_CSI2_SIZE_CHK_RCV3),
-			SENINF_READ_REG(base_csi_mac, CSIRX_MAC_CSI2_SIZE_CHK_RCV4));
-	} else {
-		dev_info(ctx->dev, "iomem_ver is invalid\n");
-		return -EINVAL;
-	}
+	dev_info(ctx->dev,
+		"CSIRX_MAC_CSI2_SIZE_CHK_CTRL0/_CTRL1/_CTRL2/_CTRL3/_CTRL4:(0x%x)/(0x%x)/(0x%x)/(0x%x)/(0x%x)\n",
+		SENINF_READ_REG(base_csi_mac, CSIRX_MAC_CSI2_SIZE_CHK_CTRL0),
+		SENINF_READ_REG(base_csi_mac, CSIRX_MAC_CSI2_SIZE_CHK_CTRL1),
+		SENINF_READ_REG(base_csi_mac, CSIRX_MAC_CSI2_SIZE_CHK_CTRL2),
+		SENINF_READ_REG(base_csi_mac, CSIRX_MAC_CSI2_SIZE_CHK_CTRL3),
+		SENINF_READ_REG(base_csi_mac, CSIRX_MAC_CSI2_SIZE_CHK_CTRL4));
+	dev_info(ctx->dev,
+		"CSIRX_MAC_CSI2_SIZE_CHK_RCV0/_RCV1/_RCV2/_RCV3/_RCV4:(0x%x)/(0x%x)/(0x%x)/(0x%x)/(0x%x)\n",
+		SENINF_READ_REG(base_csi_mac, CSIRX_MAC_CSI2_SIZE_CHK_RCV0),
+		SENINF_READ_REG(base_csi_mac, CSIRX_MAC_CSI2_SIZE_CHK_RCV1),
+		SENINF_READ_REG(base_csi_mac, CSIRX_MAC_CSI2_SIZE_CHK_RCV2),
+		SENINF_READ_REG(base_csi_mac, CSIRX_MAC_CSI2_SIZE_CHK_RCV3),
+		SENINF_READ_REG(base_csi_mac, CSIRX_MAC_CSI2_SIZE_CHK_RCV4));
 
 	/* check OUTMUX irq status */
 	for (j = 0; j < ctx->vcinfo.cnt; j++) {

@@ -262,10 +262,11 @@ static int imgsys_hwqos_dbg_thread(void *data)
 		for (i = 0; i < ARRAY_SIZE(qos_map_data); i++) {
 			// ratio: 1 / BIT(BWR_BW_POINT) * BW_RAT * BUS_URATE
 			ret = snprintf(buf, sizeof(buf),
-				"core%d_sc%d_eng%d",
+				"core%d_sc%d_eng%d_larb%d",
 				qos_map_data[i].core,
 				qos_map_data[i].sub_common,
-				qos_map_data[i].engine);
+				qos_map_data[i].engine,
+				qos_map_data[i].larb);
 			if (ret < 0) {
 				pr_err("snprintf failed\n");
 				continue;
@@ -315,7 +316,7 @@ static int imgsys_hwqos_dbg_thread(void *data)
 		for (i = 0; i < ARRAY_SIZE(img_hw_bw) - 1; i++) {
 			value = field_get(img_hw_bw_reg_array[i].mask, readl((void *)img_hw_bw[i].va));
 			MTK_IMGSYS_QOS_ENABLE(value != img_hw_bw[i].value,
-				ftrace_imgsys_hwqos_bwr("%s_%u=%u",
+				ftrace_imgsys_hwqos_bwr("%s%u=%u",
 					"img_hw_bw", i, value * 16);
 				img_hw_bw[i].value = value;
 			);
@@ -323,7 +324,7 @@ static int imgsys_hwqos_dbg_thread(void *data)
 		/* Total BW */
 		value = field_get(img_hw_bw_reg_array[i].mask, readl((void *)img_hw_bw[i].va));
 		MTK_IMGSYS_QOS_ENABLE(value != img_hw_bw[i].value,
-			ftrace_imgsys_hwqos_bwr("%s_%u=%u",
+			ftrace_imgsys_hwqos_bwr("%s%u=%u",
 				"img_hw_bw", i, value * 64);
 			img_hw_bw[i].value = value;
 		);
@@ -610,19 +611,16 @@ static void imgsys_qos_config_bwr(struct cmdq_pkt *pkt,
 	case BWR_STOP:
 		// Report 0
 		imgsys_qos_set_fix_bw(pkt, 0, 0);
-		// TODO(mtk31363)
-		// cmdq_pkt_poll_sleep(pkt, 0x1,
-		//	BWR_IMG_E1A_BASE + BWR_IMG_SEND_BW_ZERO_OFT, CMDQ_REG_MASK);
-		// TODO(mtk31363)
-		// cmdq_pkt_poll_sleep(pkt, BIT(BWR_IMG_RPT_WAIT),
-		//	BWR_IMG_E1A_BASE + BWR_IMG_RPT_STATE_OFT, CMDQ_REG_MASK);
+		cmdq_pkt_poll_sleep(pkt, 0x1,
+			BWR_IMG_E1A_BASE + BWR_IMG_SEND_BW_ZERO_OFT, CMDQ_REG_MASK);
+		cmdq_pkt_poll_sleep(pkt, BIT(BWR_IMG_RPT_WAIT),
+			BWR_IMG_E1A_BASE + BWR_IMG_RPT_STATE_OFT, CMDQ_REG_MASK);
 
 		// Terminate flow
 		cmdq_pkt_write(pkt, NULL, BWR_IMG_E1A_BASE + BWR_IMG_RPT_CTRL_OFT,
 			BIT(BWR_IMG_RPT_END), CMDQ_REG_MASK);
-		// TODO(mtk31363)
-		// cmdq_pkt_poll_sleep(pkt, BIT(BWR_IMG_RPT_WAIT),
-		//	BWR_IMG_E1A_BASE + BWR_IMG_RPT_STATE_OFT, CMDQ_REG_MASK);
+		cmdq_pkt_poll_sleep(pkt, BIT(BWR_IMG_RPT_WAIT),
+			BWR_IMG_E1A_BASE + BWR_IMG_RPT_STATE_OFT, CMDQ_REG_MASK);
 		cmdq_pkt_write(pkt, NULL, BWR_IMG_E1A_BASE + BWR_IMG_RPT_CTRL_OFT,
 			BIT(BWR_IMG_RPT_RST), CMDQ_REG_MASK);
 		cmdq_pkt_write(pkt, NULL, BWR_IMG_E1A_BASE + BWR_IMG_MTCMOS_EN_VLD_OFT,

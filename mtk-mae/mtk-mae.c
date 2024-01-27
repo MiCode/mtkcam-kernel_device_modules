@@ -775,8 +775,7 @@ static void mtk_mae_hw_disconnect(struct mtk_mae_dev *mae_dev)
 
 	mae_dev->mae_stream_count--;
 	if (mae_dev->mae_stream_count == 0) {
-		// MAE_TO_DO:
-		// cmdq_mbox_disable(mae_dev->mae_clt->chan);
+		cmdq_mbox_disable(mae_dev->mae_clt->chan);
 		mtk_mae_ccf_disable(mae_dev->dev);
 		pm_runtime_put_sync(mae_dev->dev);
 

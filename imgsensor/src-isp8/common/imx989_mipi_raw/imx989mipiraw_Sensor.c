@@ -199,6 +199,7 @@ static struct mtk_sensor_saturation_info imgsensor_saturation_info_10bit = {
 	.OB_pedestal = 64,
 	.saturation_level = 1023,
 	.adc_bit = 10,
+	.ob_bm = 64,
 };
 
 static struct mtk_sensor_saturation_info imgsensor_saturation_info_12bit = {
@@ -206,6 +207,7 @@ static struct mtk_sensor_saturation_info imgsensor_saturation_info_12bit = {
 	.OB_pedestal = 64,
 	.saturation_level = 3900,
 	.adc_bit = 10,
+	.ob_bm = 64,
 };
 
 static struct mtk_sensor_saturation_info imgsensor_saturation_info_14bit = {
@@ -213,6 +215,7 @@ static struct mtk_sensor_saturation_info imgsensor_saturation_info_14bit = {
 	.OB_pedestal = 64,
 	.saturation_level = 15408,
 	.adc_bit = 10,
+	.ob_bm = 64,
 };
 
 static struct mtk_mbus_frame_desc_entry frame_desc_prev[] = {

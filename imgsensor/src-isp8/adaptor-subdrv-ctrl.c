@@ -3112,11 +3112,17 @@ int common_get_info(struct subdrv_ctx *ctx,
 				ctx->s_ctx.mode[i].saturation_info->saturation_level;
 			sensor_info->adc_bit[i] =
 				ctx->s_ctx.mode[i].saturation_info->adc_bit;
+			if (ctx->s_ctx.mode[i].saturation_info->ob_bm)
+				sensor_info->ob_bm[i] =
+					ctx->s_ctx.mode[i].saturation_info->ob_bm;
+			else
+				sensor_info->ob_bm[i] = ctx->s_ctx.ob_pedestal;
 		} else {
 			sensor_info->gain_ratio[i] = 1000;
 			sensor_info->OB_pedestals[i] = ctx->s_ctx.ob_pedestal;
 			sensor_info->saturation_level[i] = 1023;
 			sensor_info->adc_bit[i] = 10;
+			sensor_info->ob_bm[i] = ctx->s_ctx.ob_pedestal;
 		}
 		sensor_info->Mode_AE_Ctrl_Support[i] = ctx->s_ctx.mode[i].ae_ctrl_support;
 		sensor_info->hdr_cap[i] = ctx->s_ctx.mode[i].hdr_mode;

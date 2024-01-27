@@ -452,6 +452,8 @@ struct mtk_sensor_saturation_info {
 	__u32 saturation_level;
 	/* The merged raw by the dcg sensor merging mode is merged from several bits of raws */
 	__u32 adc_bit;
+	/* The OB value before merging */
+	__u32 ob_bm;
 };
 
 struct mtk_n_1_mode {

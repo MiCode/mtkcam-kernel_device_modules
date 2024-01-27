@@ -7,6 +7,7 @@
 #define __MTK_CAM_JOB_STATE_IMPL_GUARD_H
 
 #define I2C_THRES_FROM_L_SOF_NS 3000000
+#define SQC_THRES_FROM_L_SOF_NS 3000000
 #define SCQ_THRES_FROM_F_SOF_NS 15000000
 
 struct state_accessor;
@@ -196,7 +197,9 @@ static inline bool valid_cq_execution(struct transition_param *p)
 	if (unlikely(!p->s_params))
 		return false;
 
-	return (p->event_ts - p->info->sof_ts_ns) < p->cq_trigger_thres;
+	/* for sentest NE -> SE duration 25ms case*/
+	return (p->event_ts - p->info->sof_ts_ns) < p->cq_trigger_thres ||
+		((p->event_ts - p->info->sof_l_ts_ns) < SQC_THRES_FROM_L_SOF_NS);
 }
 
 static inline bool valid_cq_execution_avoid_race_with_topirq(

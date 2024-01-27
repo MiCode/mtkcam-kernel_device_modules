@@ -343,6 +343,8 @@ static int get_sv_dma_th_setting(unsigned int dev_id, unsigned int fifo_img_p1,
 	const unsigned int max_fifo_img_p2[CAMSV_END] = {2132, 2132, 0, 0, 0, 0};
 	const unsigned int max_fifo_len_p1[CAMSV_END] = {128, 128, 128, 64, 0, 0};
 	const unsigned int max_fifo_len_p2[CAMSV_END] = {64, 64, 0, 0, 0, 0};
+	const unsigned int lb_fifo_img[CAMSV_END] = {682, 682, 512, 320, 88, 88};
+	const unsigned int lb_fifo_len[CAMSV_END] = {26, 26, 26, 12, 0, 0};
 	const unsigned int max_fifo_cq1 = 64;
 	const unsigned int max_fifo_cq2 = 64;
 	unsigned int img_p1, img_p2, len_p1, len_p2;
@@ -361,7 +363,8 @@ static int get_sv_dma_th_setting(unsigned int dev_id, unsigned int fifo_img_p1,
 	}
 
 	th_setting->urgent_th =
-		1 << 31 | FIFO_THRESHOLD(img_p1, 4/10, 3/10);
+		1 << 31 | FIFO_THRESHOLD(
+		max((int)img_p1, (int)lb_fifo_img[dev_id]), 4/10, 3/10);
 	th_setting->ultra_th =
 		1 << 28 | FIFO_THRESHOLD(img_p1, 2/10, 1/10);
 	th_setting->pultra_th =
@@ -370,7 +373,8 @@ static int get_sv_dma_th_setting(unsigned int dev_id, unsigned int fifo_img_p1,
 		1 << 31 | FIFO_THRESHOLD(img_p1, 1/10, 0);
 
 	th_setting->urgent_th2 =
-		1 << 31 | FIFO_THRESHOLD(img_p2, 4/10, 3/10);
+		1 << 31 | FIFO_THRESHOLD(
+		max((int)img_p2, (int)lb_fifo_img[dev_id]), 4/10, 3/10);
 	th_setting->ultra_th2 =
 		1 << 28 | FIFO_THRESHOLD(img_p2, 2/10, 1/10);
 	th_setting->pultra_th2 =
@@ -379,7 +383,8 @@ static int get_sv_dma_th_setting(unsigned int dev_id, unsigned int fifo_img_p1,
 		1 << 31 | FIFO_THRESHOLD(img_p2, 1/10, 0);
 
 	th_setting->urgent_len1_th =
-		1 << 31 | FIFO_THRESHOLD(len_p1, 4/10, 3/10);
+		1 << 31 | FIFO_THRESHOLD(
+		max((int)len_p1, (int)lb_fifo_len[dev_id]), 4/10, 3/10);
 	th_setting->ultra_len1_th =
 		1 << 28 | FIFO_THRESHOLD(len_p1, 2/10, 1/10);
 	th_setting->pultra_len1_th =
@@ -388,7 +393,8 @@ static int get_sv_dma_th_setting(unsigned int dev_id, unsigned int fifo_img_p1,
 		1 << 31 | FIFO_THRESHOLD(len_p1, 1/10, 0);
 
 	th_setting->urgent_len2_th =
-		1 << 31 | FIFO_THRESHOLD(len_p2, 4/10, 3/10);
+		1 << 31 | FIFO_THRESHOLD(
+		max((int)len_p2, (int)lb_fifo_len[dev_id]), 4/10, 3/10);
 	th_setting->ultra_len2_th =
 		1 << 28 | FIFO_THRESHOLD(len_p2, 2/10, 1/10);
 	th_setting->pultra_len2_th =

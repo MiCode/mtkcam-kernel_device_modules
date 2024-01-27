@@ -775,6 +775,13 @@ int mtk_cam_mraw_dma_config(struct mtk_mraw_device *mraw_dev)
 		mraw_cq_setting.cq2_urgent_th);  // Threshold for urgent
 	MRAW_WRITE_REG(mraw_dev->base + REG_MRAW_M2_CQI_ORIRDMA_CON4,
 		mraw_cq_setting.cq2_dvfs_th);  // Threshold for DVFS
+
+	/* stg */
+	MRAW_WRITE_REG(mraw_dev->base + REG_MRAW_STG_EN_CTRL,
+		0xF);
+	MRAW_WRITE_REG(mraw_dev->base + REG_MRAW_STG_NONE_SAME_PG_SEND_EN_CTRL,
+		0xF);
+
 	return 0;
 }
 
@@ -1709,11 +1716,11 @@ int mtk_mraw_runtime_suspend(struct device *dev)
 
 	mtk_cam_bwr_set_chn_bw(&mraw_dev->cam->bwr,
 		get_bwr_engine(ENGINE_MRAW), get_mraw_axi_port(mraw_dev->id),
-		0, KBps_to_bwr(-(mraw_dev->mraw_avg_applied_bw_w)),
-		0, KBps_to_bwr(-(mraw_dev->mraw_peak_applied_bw_w)), false);
+		0, -KBps_to_bwr(mraw_dev->mraw_avg_applied_bw_w),
+		0, -KBps_to_bwr(mraw_dev->mraw_peak_applied_bw_w), false);
 	mtk_cam_bwr_set_ttl_bw(&mraw_dev->cam->bwr,
-		get_bwr_engine(ENGINE_MRAW), KBps_to_bwr(-(mraw_dev->mraw_avg_applied_bw_w)),
-		KBps_to_bwr(-(mraw_dev->mraw_peak_applied_bw_w)), false);
+		get_bwr_engine(ENGINE_MRAW), -KBps_to_bwr(mraw_dev->mraw_avg_applied_bw_w),
+		-KBps_to_bwr(mraw_dev->mraw_peak_applied_bw_w), false);
 
 	for (i = 0; i < mraw_dev->num_clks; i++)
 		clk_disable_unprepare(mraw_dev->clks[i]);

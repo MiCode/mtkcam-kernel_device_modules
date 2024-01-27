@@ -385,6 +385,15 @@ static int get_vcinfo_by_pad_fmt(struct seninf_ctx *ctx)
 		vc->out_pad = PAD_SRC_RAW0;
 		vc->group = 0;
 		break;
+	case MEDIA_BUS_FMT_YUYV8_2X8:
+		dev_info(ctx->dev, "Set to MEDIA_BUS_FMT_YUYV8_2X8\n");
+		vc = &vcinfo->vc[vcinfo->cnt++];
+		vc->vc = 0;
+		vc->dt = 0x1e;
+		vc->feature = VC_RAW_DATA;
+		vc->out_pad = PAD_SRC_RAW0;
+		vc->group = 0;
+		break;
 	default:
 		return -1;
 	}
@@ -502,7 +511,7 @@ int mtk_cam_seninf_get_csi_param(struct seninf_ctx *ctx)
 	ctrl->p_new.p = csi_param;
 
 	ret = get_ctrl(ctrl);
-	dev_info(ctx->dev, "%s get_ctrl ret:%d %d|%d|%d|%d|%d|%d|%d|%d|%d\n",
+	dev_info(ctx->dev, "%s get_ctrl ret:%d %d|%d|%d|%d|%d|%d|%d|%d|%d|%d\n",
 		__func__,
 		ret, csi_param->cphy_settle,
 		csi_param->dphy_clk_settle,
@@ -512,7 +521,8 @@ int mtk_cam_seninf_get_csi_param(struct seninf_ctx *ctx)
 		csi_param->legacy_phy,
 		csi_param->dphy_csi2_resync_dmy_cycle,
 		csi_param->not_fixed_dphy_settle,
-		csi_param->dphy_init_deskew_support);
+		csi_param->dphy_init_deskew_support,
+		csi_param->clk_lane_no_initial_flow);
 
 #if AOV_GET_PARAM
 	if (!(core->aov_sensor_id < 0) &&
@@ -678,6 +688,10 @@ int mtk_cam_seninf_fill_outpad_to_vc(struct seninf_ctx *ctx,
 					break;
 				}
 				vc->feature = VC_RAW_DATA;
+			} else if (vc->dt == 0x1e) {
+				dev_info(ctx->dev, "Set vcinfo\n");
+				vc->feature = VC_RAW_DATA;
+				vc->out_pad = PAD_SRC_RAW0;
 			} else {
 				dev_info(ctx->dev, "unknown desc %d, dt 0x%x\n",
 					desc, vc->dt);
@@ -755,6 +769,11 @@ int mtk_cam_seninf_get_vcinfo(struct seninf_ctx *ctx)
 		vc->exp_hsize = fd.entry[i].bus.csi2.hsize;
 		vc->exp_vsize = fd.entry[i].bus.csi2.vsize;
 
+		/*YUV422 FMT*/
+		if (vc->dt == 0x1e) {
+			vc->exp_hsize = vc->exp_hsize * 2;
+		}
+
 		if (vc->dt >= 0x10 && vc->dt <= 0x17) {
 			vc->exp_hsize = conv_ebd_hsize_raw14(vc->exp_hsize,
 						fd.entry[i].bus.csi2.ebd_parsing_type);
@@ -768,7 +787,6 @@ int mtk_cam_seninf_get_vcinfo(struct seninf_ctx *ctx)
 			vc->bit_depth = 7;
 			break;
 		case 0x2A:
-		case 0x1E:
 		case 0x1C:
 		case 0x1A:
 		case 0x18:
@@ -786,6 +804,7 @@ int mtk_cam_seninf_get_vcinfo(struct seninf_ctx *ctx)
 		case 0x2D:
 			vc->bit_depth = 14;
 			break;
+		case 0x1E:
 		case 0x2E:
 			vc->bit_depth = 16;
 			break;

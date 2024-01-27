@@ -1475,8 +1475,6 @@ static int csirx_phyA_init(struct seninf_ctx *ctx)
 static int set_trail(struct seninf_ctx *ctx, u16 hs_trail)
 {
 	void *base = ctx->reg_ana_dphy_top[(unsigned int)ctx->port];
-	void *pSeninf_cam_mux_gcsr = ctx->reg_if_cam_mux_gcsr;
-
 
 	SENINF_BITS(base, DPHY_RX_DATA_LANE0_HS_PARAMETER,
 		    RG_CDPHY_RX_LD0_TRIO0_HS_TRAIL_PARAMETER, hs_trail);
@@ -1496,30 +1494,25 @@ static int set_trail(struct seninf_ctx *ctx, u16 hs_trail)
 	SENINF_BITS(base, DPHY_RX_DATA_LANE3_HS_PARAMETER,
 			    RG_CDPHY_RX_LD3_TRIO3_HS_TRAIL_EN, 1);
 
-
-	SENINF_BITS(pSeninf_cam_mux_gcsr, SENINF_CAM_MUX_GCSR_CTRL,
-			RG_SENINF_CAM_MUX_GCSR_SW_RST, 1);
-	udelay(1);
-	SENINF_BITS(pSeninf_cam_mux_gcsr, SENINF_CAM_MUX_GCSR_CTRL,
-			RG_SENINF_CAM_MUX_GCSR_SW_RST, 0);
-
 	return 0;
 
 }
-
 
 
 static int set_settle(struct seninf_ctx *ctx, u16 settle, bool hs_trail_en)
 {
 
 	void *base = ctx->reg_ana_dphy_top[(unsigned int)ctx->port];
-	void *pSeninf_cam_mux_gcsr = ctx->reg_if_cam_mux_gcsr;
-
-
+	void *csi_mac = ctx->reg_csirx_mac_csi[(unsigned int)ctx->port];
 	int settle_delay_dt, settle_delay_ck;
 
 	settle_delay_dt = settle;
 
+	SENINF_WRITE_REG(csi_mac, CSIRX_MAC_CSI2_IRQ_STATUS, 0xffffffff);
+	SENINF_WRITE_REG(csi_mac, CSIRX_MAC_CSI2_IRQ_G1_STATUS, 0xffffffff);
+	SENINF_WRITE_REG(base, DPHY_RX_IRQ_CLR, 0xffffffff);
+	dev_info(ctx->dev, "[%s]ctx->port (%d) reset status\n",
+			__func__, ctx->port);
 
 	SENINF_BITS(base, DPHY_RX_DATA_LANE0_HS_PARAMETER,
 		    RG_CDPHY_RX_LD0_TRIO0_HS_SETTLE_PARAMETER,
@@ -1552,14 +1545,6 @@ static int set_settle(struct seninf_ctx *ctx, u16 settle, bool hs_trail_en)
 	SENINF_BITS(base, DPHY_RX_DATA_LANE3_HS_PARAMETER,
 			    RG_CDPHY_RX_LD3_TRIO3_HS_TRAIL_EN, hs_trail_en);
 
-
-	SENINF_BITS(pSeninf_cam_mux_gcsr, SENINF_CAM_MUX_GCSR_CTRL,
-			RG_SENINF_CAM_MUX_GCSR_SW_RST, 1);
-	udelay(1);
-	SENINF_BITS(pSeninf_cam_mux_gcsr, SENINF_CAM_MUX_GCSR_CTRL,
-			RG_SENINF_CAM_MUX_GCSR_SW_RST, 0);
-
-
 	return 0;
 }
 #endif
@@ -1567,7 +1552,7 @@ static int set_settle(struct seninf_ctx *ctx, u16 settle, bool hs_trail_en)
 static int csirx_dphy_init(struct seninf_ctx *ctx)
 {
 	void *base = ctx->reg_ana_dphy_top[(unsigned int)ctx->port];
-	u64 settle_delay_dt, settle_delay_ck, hs_trail, hs_trail_en;
+	u64 settle_delay_dt, settle_delay_ck, hs_trail, hs_trail_en, hs_option;
 	int bit_per_pixel = 10;
 	struct seninf_vc *vc = mtk_cam_seninf_get_vc_by_pad(ctx, PAD_SRC_RAW0);
 	struct seninf_vc *vc1 = mtk_cam_seninf_get_vc_by_pad(ctx, PAD_SRC_RAW_EXT0);
@@ -1678,6 +1663,11 @@ static int csirx_dphy_init(struct seninf_ctx *ctx)
 	SENINF_BITS(base, DPHY_RX_CLOCK_LANE1_HS_PARAMETER,
 		    RG_DPHY_RX_LC1_HS_SETTLE_PARAMETER,
 		    settle_delay_ck);
+
+	hs_option = ctx->csi_param.clk_lane_no_initial_flow;
+	SENINF_BITS(base, DPHY_RX_CLOCK_LANE0_HS_PARAMETER,
+			RG_DPHY_RX_LC0_HS_OPTION,
+			hs_option);
 
 	/*Settle delay by lane*/
 	SENINF_BITS(base, DPHY_RX_DATA_LANE0_HS_PARAMETER,
@@ -4024,14 +4014,17 @@ static int mtk_cam_seninf_debug_core_dump(struct seninf_ctx *ctx,
 			}
 
 			dev_info(ctx->dev,
-					"[%s][%d] vc_feature %d vc 0x%x dt 0x%x outmux %d, tag %d\n",
+					"[%s][%d] vc_feature %d vc 0x%x dt 0x%x outmux %d, tag %d pixmode:0x%08x\n",
 					__func__,
 					i,
 					vcinfo_debug->vc_feature,
 					vcinfo_debug->vc,
 					vcinfo_debug->dt,
 					vcinfo_debug->outmux_id,
-					vcinfo_debug->tag_id);
+					vcinfo_debug->tag_id,
+					SENINF_READ_REG(outmux,
+						SENINF_OUTMUX_PIX_MODE)
+					);
 
 			dev_info(ctx->dev,
 					"[%s]done_irq %d, inconp_irq %d oversize_irq %d, exp %dx%d\n",
@@ -4095,7 +4088,7 @@ static ssize_t mtk_cam_seninf_show_status(struct device *dev,
 	struct media_pad *pad;
 	struct mtk_cam_seninf_debug debug_result;
 	struct mtk_cam_seninf_vcinfo_debug *vcinfo_debug;
-	void *rx, *base_ana, *csi_mac;
+	void *rx, *base_ana, *csi_mac, *OutMux;
 	char *fmeter_dbg = kzalloc(sizeof(char) * 256, GFP_KERNEL);
 
 	core = dev_get_drvdata(dev);
@@ -4139,9 +4132,20 @@ static ssize_t mtk_cam_seninf_show_status(struct device *dev,
 		rx = ctx->reg_ana_dphy_top[(unsigned int)ctx->port];
 		base_ana = ctx->reg_ana_csi_rx[(unsigned int)ctx->port];
 		SHOW(buf, len,
-			"csirx_mac_csi irq_stat 0x%08x, seninf_async_irq 0x%08x\n",
+			"csirx_mac_csi irq_stat 0x%08x, irq_g1_stat 0x%08x, seninf_async_irq 0x%08x\n",
 		     debug_result.csi_mac_irq_status,
+			 SENINF_READ_REG(csi_mac, CSIRX_MAC_CSI2_IRQ_G1_STATUS),
 			 debug_result.seninf_async_irq);
+
+		SHOW(buf, len,
+			"csirx_mac_csi SIZE_CHK_RCV0~5  0x%08x  0x%08x  0x%08x 0x%08x 0x%08x  0x%08x\n",
+		     SENINF_READ_REG(csi_mac, CSIRX_MAC_CSI2_SIZE_CHK_RCV0),
+			 SENINF_READ_REG(csi_mac, CSIRX_MAC_CSI2_SIZE_CHK_RCV1),
+			 SENINF_READ_REG(csi_mac, CSIRX_MAC_CSI2_SIZE_CHK_RCV2),
+			 SENINF_READ_REG(csi_mac, CSIRX_MAC_CSI2_SIZE_CHK_RCV3),
+			 SENINF_READ_REG(csi_mac, CSIRX_MAC_CSI2_SIZE_CHK_RCV4),
+			 SENINF_READ_REG(csi_mac, CSIRX_MAC_CSI2_SIZE_CHK_RCV5));
+
 		SHOW(buf, len, "csi2 line_frame_num 0x%08x\n",
 		     SENINF_READ_REG(csi_mac, CSIRX_MAC_CSI2_LINE_FRAME_NUM));
 		SHOW(buf, len, "csi2 packet_status 0x%08x\n",
@@ -4160,11 +4164,26 @@ static ssize_t mtk_cam_seninf_show_status(struct device *dev,
 				      RG_CDPHY_RX_LD0_TRIO0_HS_TRAIL_EN),
 		     SENINF_READ_BITS(rx, DPHY_RX_DATA_LANE0_HS_PARAMETER,
 				      RG_CDPHY_RX_LD0_TRIO0_HS_TRAIL_PARAMETER));
+
 		SHOW(buf, len,
-			"CSIRX_MAC_CSI2_RESYNC_MERGE_CTRL 0x%08x CDPHY_RX_ANA_SETTING_1 0x%08x DPHY_RX_SPARE0 0x%08x\n",
-			SENINF_READ_REG(csi_mac, CSIRX_MAC_CSI2_RESYNC_MERGE_CTRL),
+			"CDPHY_RX_ANA_SETTING_0 0x%08x ANA_SETTING_1 0x%08x  DPHY_RX_SPARE0 0x%08x\n",
+			SENINF_READ_REG(base_ana, CDPHY_RX_ANA_SETTING_0),
 			SENINF_READ_REG(base_ana, CDPHY_RX_ANA_SETTING_1),
 			SENINF_READ_REG(rx, DPHY_RX_SPARE0));
+
+		SHOW(buf, len,
+			"CSIRX_MAC_CSI2_RESYNC_MERGE_CTRL 0x%08x MERGE_CTRL2 0x%08x\n",
+			SENINF_READ_REG(csi_mac, CSIRX_MAC_CSI2_RESYNC_MERGE_CTRL),
+			SENINF_READ_REG(csi_mac, CSIRX_MAC_CSI2_RESYNC_MERGE_CTRL2));
+
+		SHOW(buf, len,
+			"MipiRx_ANA%d:CDPHY_RX_ANA_AD_0/_1:(0x%x)/(0x%x),AD_HS_0/_1/_2:(0x%x)/(0x%x)/(0x%x)\n",
+			ctx->port,
+			SENINF_READ_REG(base_ana, CDPHY_RX_ANA_AD_0),
+			SENINF_READ_REG(base_ana, CDPHY_RX_ANA_AD_1),
+			SENINF_READ_REG(base_ana, CDPHY_RX_ANA_AD_HS_0),
+			SENINF_READ_REG(base_ana, CDPHY_RX_ANA_AD_HS_1),
+			SENINF_READ_REG(base_ana, CDPHY_RX_ANA_AD_HS_2));
 
 		SHOW(buf, len, "data_not_enough_cnt : <%d>\n",
 			ctx->data_not_enough_cnt);
@@ -4186,6 +4205,7 @@ static ssize_t mtk_cam_seninf_show_status(struct device *dev,
 
 		for (i = 0; i < debug_result.valid_result_cnt; i++) {
 			vcinfo_debug = &debug_result.vcinfo_debug[i];
+			OutMux = ctx->reg_if_outmux[vcinfo_debug->outmux_id];
 
 			SHOW(buf, len, "[%d] vc 0x%x dt 0x%x outmux %d tag: %d\n",
 					i,
@@ -4202,6 +4222,10 @@ static ssize_t mtk_cam_seninf_show_status(struct device *dev,
 			SHOW(buf, len, "\toversize_irq 0x%x\n", vcinfo_debug->oversize_irq_status);
 			SHOW(buf, len, "\tref_vsync_irq 0x%x\n", vcinfo_debug->ref_vsync_irq_status);
 
+			SHOW(buf, len, "\tTAG_DBG_PORT 0x%x TAG_CRC_PORT 0x%x, OUTMUX_SW_CFG_DONE 0x%x\n",
+				SENINF_READ_REG(OutMux, SENINF_OUTMUX_TAG_DBG_PORT_0),
+				SENINF_READ_REG(OutMux, SENINF_OUTMUX_TAG_CRC_PORT_0),
+				SENINF_READ_REG(OutMux, SENINF_OUTMUX_SW_CFG_DONE));
 		}
 	}
 
@@ -5666,30 +5690,33 @@ static int mtk_cam_scan_settle(struct seninf_ctx *ctx)
 	int ret = 0, ret_old = -1;
 
 	if (!ctx->is_cphy) {
-		for (trail = 0; trail <= 0xff; trail++) {
+		for (trail = 0; trail <= 0xff; trail+= 4) {
 			set_trail(ctx, trail);
 			msleep(30);
-			ret = mtk_cam_seninf_debug(ctx);
-			if (ret == 0) {
-				if (ret != ret_old)
-					dev_info(ctx->dev,
-							"%s valid trail = 0x%x ret = %d ret_old = %d trail enbled\n",
-							__func__, trail, ret, ret_old);
+			for (settle = 0; settle <= 0xff; settle += 8) {
+				set_settle(ctx, settle, true);
+				ret = mtk_cam_seninf_debug(ctx);
+				if (ret == 0) {
+					if (ret != ret_old)
+						dev_info(ctx->dev,
+								"%s valid trail = 0x%x settle =  0x%x ret = %d ret_old = %d trail enbled\n",
+								__func__, trail, settle, ret, ret_old);
 
-				dev_info(ctx->dev,
-					"%s valid trail = 0x%x ret_detail = %dtrail enbled\n",
-					__func__, trail, ret);
-
-			} else {
-				if (ret != ret_old)
 					dev_info(ctx->dev,
-						"%s invalid trail = 0x%x ret = %d ret_old = %d trail enbled\n",
-						__func__, trail, ret, ret_old);
-				dev_info(ctx->dev,
-					"%s invalid trail = 0x%x ret_detail = %d trail enbled\n",
-					__func__, trail, ret);
+						"%s valid trail = 0x%x settle =  0x%x ret_detail = %dtrail enbled\n",
+						__func__, trail, settle, ret);
+
+				} else {
+					if (ret != ret_old)
+						dev_info(ctx->dev,
+							"%s invalid trail = 0x%x  settle =  0x%x ret = %d ret_old = %d trail enbled\n",
+							__func__, trail, settle, ret, ret_old);
+					dev_info(ctx->dev,
+						"%s invalid trail = 0x%x settle =  0x%x ret_detail = %d trail enbled\n",
+						__func__, trail, settle, ret);
+				}
+				ret_old = ret;
 			}
-			ret_old = ret;
 		}
 	} else {
 		ret = 0;

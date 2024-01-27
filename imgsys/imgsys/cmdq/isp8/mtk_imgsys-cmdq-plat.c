@@ -207,9 +207,6 @@ void imgsys_cmdq_streamon_plat8(struct mtk_imgsys_dev *imgsys_dev)
 	cmdq_mbox_disable(imgsys_clt[0]->chan);
 
 	MTK_IMGSYS_QOF_NEED_RUN(imgsys_dev->qof_ver, mtk_imgsys_cmdq_qof_streamon(imgsys_dev));
-	MTK_IMGSYS_QOS_ENABLE(imgsys_dev->hwqos_info.hwqos_support,
-		mtk_imgsys_cmdq_hwqos_streamon(&imgsys_dev->hwqos_info);
-	);
 
 	memset((void *)event_hist, 0x0,
 		sizeof(struct imgsys_event_history)*IMGSYS_CMDQ_SYNC_POOL_NUM);
@@ -266,9 +263,6 @@ void imgsys_cmdq_streamoff_plat8(struct mtk_imgsys_dev *imgsys_dev)
 	#endif
 
 	MTK_IMGSYS_QOF_NEED_RUN(imgsys_dev->qof_ver, mtk_imgsys_cmdq_qof_streamoff(imgsys_dev));
-	MTK_IMGSYS_QOS_ENABLE(imgsys_dev->hwqos_info.hwqos_support,
-		mtk_imgsys_cmdq_hwqos_streamoff();
-	);
 	//cmdq_mbox_disable(imgsys_clt[0]->chan);
 
 	#if DVFS_QOS_READY
@@ -2473,6 +2467,11 @@ void mtk_imgsys_power_ctrl_plat8(struct mtk_imgsys_dev *imgsys_dev, bool isPower
 			for (i = 0; i < imgsys_dev->modules_num; i++)
 				if ((BIT(i) & img_main_modules) && imgsys_dev->modules[i].set)
 					imgsys_dev->modules[i].set(imgsys_dev);
+
+			MTK_IMGSYS_QOS_ENABLE(imgsys_dev->hwqos_info.hwqos_support,
+				mtk_imgsys_cmdq_hwqos_streamon(&imgsys_dev->hwqos_info);
+			);
+
 			mutex_unlock(&(imgsys_dev->power_ctrl_lock));
 		}
 	} else {
@@ -2486,6 +2485,11 @@ void mtk_imgsys_power_ctrl_plat8(struct mtk_imgsys_dev *imgsys_dev, bool isPower
 			mutex_lock(&(imgsys_dev->power_ctrl_lock));
 
 			mtk_imgsys_mod_put(imgsys_dev);
+
+			MTK_IMGSYS_QOS_ENABLE(imgsys_dev->hwqos_info.hwqos_support,
+				mtk_imgsys_cmdq_hwqos_streamoff();
+			);
+
 			pm_runtime_put_sync(imgsys_dev->dev);
 			//pm_runtime_mark_last_busy(imgsys_dev->dev);
 			//pm_runtime_put_autosuspend(imgsys_dev->dev);

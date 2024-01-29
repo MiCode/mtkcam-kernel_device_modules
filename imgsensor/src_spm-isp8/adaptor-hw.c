@@ -156,13 +156,10 @@ static int set_reg(struct adaptor_ctx *ctx, void *data, int val)
 
 	idx = (unsigned long long)data;
 
-	// re-get reg everytime due to pmic limitation
-	ctx->regulator[idx] = devm_regulator_get_optional(ctx->dev, reg_names[idx]);
-	if (IS_ERR(ctx->regulator[idx])) {
-		ctx->regulator[idx] = NULL;
-		adaptor_logd(ctx, "no reg %s\n", reg_names[idx]);
+
+	if (ctx->regulator[idx] == NULL)
 		return -EINVAL;
-	}
+
 
 	reg = ctx->regulator[idx];
 	adaptor_logm(ctx, "+ idx(%llu),val(%d)\n", idx, val);
@@ -199,12 +196,6 @@ static int unset_reg(struct adaptor_ctx *ctx, void *data, int val)
 	reg = ctx->regulator[idx];
 
 	adaptor_logm(ctx, "+ idx(%llu),val(%d)\n", idx, val);
-
-	if (reg == NULL) {
-		adaptor_loge(ctx, "regulator is null\n");
-		return 0;
-	}
-
 	ret = regulator_disable(reg);
 	if (ret) {
 		adaptor_loge(ctx,
@@ -212,9 +203,7 @@ static int unset_reg(struct adaptor_ctx *ctx, void *data, int val)
 			reg_names[idx], ret);
 		return ret;
 	}
-	// always put reg due to pmic limitation
-	devm_regulator_put(ctx->regulator[idx]);
-	ctx->regulator[idx] = NULL;
+
 	adaptor_logm(ctx,
 		"- disable(%s),ret(%llu)(correct)\n",
 		reg_names[idx], ret);

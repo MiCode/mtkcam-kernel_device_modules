@@ -256,6 +256,7 @@ struct mtkcam_ipi_timeshared_msg {
 struct mtkcam_ipi_config_param {
 	__u8 flags;
 	__u8 need_sw_workaround;
+	__u8 use_buf_idx_for_mmap;
 	struct mtkcam_ipi_input_param	input;
 	struct mtkcam_ipi_sv_input_param sv_input[CAMSV_MAX_PIPE_USED][CAMSV_MAX_TAGS];
 	struct mtkcam_ipi_mraw_input_param mraw_input[MRAW_MAX_PIPE_USED];

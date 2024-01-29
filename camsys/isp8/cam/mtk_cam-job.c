@@ -35,6 +35,10 @@ static unsigned int disable_qof = 1;
 module_param(disable_qof, int, 0644);
 MODULE_PARM_DESC(disable_qof, "disable QOF");
 
+static unsigned int mmap_reduction = 1;
+module_param(mmap_reduction, int, 0644);
+MODULE_PARM_DESC(mmap_reduction, "mmap_reduction");
+
 /* forward declarations */
 static void reset_unused_io_of_ipi_frame(struct req_buffer_helper *helper);
 static int update_cq_buffer_to_ipi_frame(struct mtk_cam_pool_buffer *cq,
@@ -4640,6 +4644,7 @@ static int mtk_cam_job_fill_ipi_config(struct mtk_cam_job *job,
 		else
 			config->flags = MTK_CAM_IPI_CONFIG_TYPE_INIT;
 		config->need_sw_workaround = ctx->cam->sw_ver != 0x0001;
+		config->use_buf_idx_for_mmap = mmap_reduction;
 		config->sw_feature = get_sw_feature(job);
 
 		update_scen_order_to_config(&job->job_scen, config);
@@ -4951,6 +4956,8 @@ static int update_mraw_meta_buf_to_ipi_frame(
 			void *vaddr;
 
 			in = &fp->mraw_param[param_idx].mraw_meta_inputs;
+			in->remap = buf->meta_info.remap;
+			in->buf_idx = buf->v4l2_buffer_idx;
 			FILL_META_IN_OUT(in, buf, node->uid);
 
 			vaddr = vb2_plane_vaddr(&buf->vbb.vb2_buf, 0);
@@ -5032,6 +5039,8 @@ static int update_raw_meta_buf_to_ipi_frame(struct req_buffer_helper *helper,
 			struct mtkcam_ipi_meta_input *in;
 
 			in = &fp->meta_inputs[helper->mi_idx];
+			in->remap = buf->meta_info.remap;
+			in->buf_idx = buf->v4l2_buffer_idx;
 			++helper->mi_idx;
 
 			FILL_META_IN_OUT(in, buf, node->uid);
@@ -5046,6 +5055,8 @@ static int update_raw_meta_buf_to_ipi_frame(struct req_buffer_helper *helper,
 			struct mtkcam_ipi_meta_output *out;
 
 			out = &fp->meta_outputs[helper->mo_idx];
+			out->remap = buf->meta_info.remap;
+			out->buf_idx = buf->v4l2_buffer_idx;
 			++helper->mo_idx;
 
 			FILL_META_IN_OUT(out, buf, node->uid);

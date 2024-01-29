@@ -110,6 +110,10 @@ static inline void apply_cq_ref_init(struct apply_cq_ref *ref,
 static inline bool apply_cq_ref_handle_cq_done(struct apply_cq_ref *ref,
 					       long mask)
 {
+#if ENABLE_FSM_LOG
+	pr_info("%s: cq_not_ready:%lx , mask:%lx", __func__,
+		atomic_long_read(&ref->cq_not_ready), mask);
+#endif
 	return atomic_long_fetch_andnot(mask, &ref->cq_not_ready) == mask;
 }
 
@@ -117,8 +121,12 @@ static inline bool apply_cq_ref_handle_sof(struct apply_cq_ref *ref,
 					   long mask,
 					   int inner_cookie)
 {
-	if (ref && ref->cookie == inner_cookie) {
 
+	if (ref && ref->cookie == inner_cookie) {
+#if ENABLE_FSM_LOG
+		pr_info("%s: inner_not_ready:%lx , mask:%lx", __func__,
+			atomic_long_read(&ref->inner_not_ready), mask);
+#endif
 		atomic_long_andnot(mask, &ref->inner_not_ready);
 		return 1;
 	}

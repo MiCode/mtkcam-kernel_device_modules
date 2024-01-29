@@ -175,6 +175,7 @@ static int handle_cq_done(struct mtk_cam_job *job)
 	if (job->first_job || job->first_frm_switch)
 		goto EXIT;
 	if (job->raw_change) {
+		/* for A->AB case : raw b should be db toggle and rwfbc inc like stream on */
 		job_raw_change_hw_toggle_db(ctx);
 	}
 	/* turn on mraw vf when first frame setting applied */
@@ -1098,7 +1099,10 @@ _stream_on(struct mtk_cam_job *job, bool on)
 			apply_cam_mux_switch(job);
 		}
 	}
-
+	if (job->raw_change) {
+		disable_seninf_cammux(job);
+		apply_cam_mux_switch(job);
+	}
 	if (!job->enable_hsf_raw)
 		toggle_raw_engines_db(ctx);
 
@@ -2301,8 +2305,12 @@ static int job_raw_change_hw_init(struct mtk_cam_job *job)
 	unselected_need_uninit = ctx->used_engine & ~selected;
 	dev_info(ctx->cam->dev, "%s raw resource 0x%x->0x%lx , need init:0x%lx, need uninit:0x%lx",
 		__func__, ctx->used_engine, selected, selected_need_init, unselected_need_uninit);
+	/* ToDo - YM */
+	ctx->used_engine = selected;
 	if (selected_need_init) {
+		/* new raw get_sync/clk_prepare/reset and initialize */
 		mtk_cam_pm_runtime_engines(&ctx->cam->engines, selected_need_init, 1);
+		/* init new slave raw */
 		if (job->raw_change == JOB_RAW_MASTER_UNCHANGED) {
 			int i;
 			int is_srt = (is_dc_mode(job) /*&& !ctx->slb_addr*/) /* dc */
@@ -2311,6 +2319,7 @@ static int job_raw_change_hw_init(struct mtk_cam_job *job)
 
 			for (i = 0 ; i < ARRAY_SIZE(ctx->hw_raw); i++) {
 				struct mtk_raw_device *raw;
+
 				if (!ctx->hw_raw[i])
 					continue;
 				raw = dev_get_drvdata(ctx->hw_raw[i]);
@@ -2340,10 +2349,13 @@ static int job_raw_change_hw_init(struct mtk_cam_job *job)
 				sv = dev_get_drvdata(ctx->hw_sv);
 				mtk_cam_sv_set_queue_mode(sv, true);
 			}
+		} else {
+			/* init new slave raw */
+			mtk_cam_job_initialize_engines(ctx, job, job->init_params);
 		}
 	}
+	/* record need uninit engines when p1 done - James */
 	job->raw_change_uninit_engine = unselected_need_uninit;
-	ctx->used_engine = selected;
 
 	return 0;
 }
@@ -2705,7 +2717,7 @@ _job_pack_normal(struct mtk_cam_job *job,
 		job->stream_on_seninf = true;
 	}
 	if (job->raw_change) {
-		/* check if slave raw need to init or uninit */
+		/* check if slave/new raw need to uninit or init */
 		job_raw_change_hw_init(job);
 	}
 	job->do_ipi_config = false;
@@ -4023,11 +4035,14 @@ static int update_job_raw_change(struct mtk_cam_job *job)
 		cur_raws = (int)bit_map_subset_of(MAP_HW_RAW, ctx->used_engine);
 		if (cur_raws &&
 			cur_raws != res->raws) {
-			job->raw_change = JOB_RAW_MASTER_UNCHANGED;
+			if (get_master_raw_id(cur_raws) == get_master_raw_id(res->raws))
+				job->raw_change = JOB_RAW_MASTER_UNCHANGED;
+			else
+				job->raw_change = JOB_RAW_MASTER_CHANGED;
 			dev_info(ctx->cam->dev,
-				"%s:ctx(%d): change raw resource(hwmode:%d/engine:%x) enquecnt:%d\n",
+				"%s:ctx(%d): change raw resource (hwmode:%d/engine:0x%x->0x%x) raw_change_type:%d\n",
 				__func__, ctx->stream_id,
-				res->hw_mode, ctx->used_engine, ctx->cam_ctrl.enqueued_req_cnt);
+				res->hw_mode, ctx->used_engine, res->raws, job->raw_change);
 		}
 	}
 
@@ -4611,9 +4626,9 @@ static int mtk_cam_job_fill_ipi_config(struct mtk_cam_job *job,
 		if (WARN_ON(!sink || !ctrl))
 			return -1;
 
-		if (job->seamless_switch || job->raw_switch)
+		if (job->seamless_switch || job->raw_switch || job->raw_change)
 			config->flags = MTK_CAM_IPI_CONFIG_TYPE_REINIT;
-		else if (job->raw_change)
+		else if (job->raw_change == JOB_RAW_MASTER_UNCHANGED)
 			config->flags = MTK_CAM_IPI_CONFIG_TYPE_INPUT_CHANGE;
 		else
 			config->flags = MTK_CAM_IPI_CONFIG_TYPE_INIT;

@@ -529,6 +529,29 @@ void stagger_enable(struct mtk_raw_device *dev, bool is_dc)
 			 "[%s] raw%d - CQ_EN:0x%x\n",
 			 __func__, dev->id, raw_readl_relaxed(dev, dev->base, REG_CAMCQ_CQ_EN));
 }
+void dump_af_reg(struct mtk_raw_device *dev)
+{
+	u32 af_size, af_vld, af_blk_prot, af_blk_0, af_blk_1;
+	u32 afo_xsize, afo_ysize, afo_stride;
+
+	af_size = raw_readl_relaxed(dev, dev->base_inner, 0x5710);
+	af_vld = raw_readl_relaxed(dev, dev->base_inner, 0x5714);
+	af_blk_prot = raw_readl_relaxed(dev, dev->base_inner, 0x5718);
+	af_blk_0 = raw_readl_relaxed(dev, dev->base_inner, 0x571c);
+	af_blk_1 = raw_readl_relaxed(dev, dev->base_inner, 0x5720);
+	afo_xsize = raw_readl_relaxed(dev, dev->dmatop_base_inner, 0x1600);
+	afo_ysize = raw_readl_relaxed(dev, dev->dmatop_base_inner, 0x1604);
+	afo_stride = raw_readl_relaxed(dev, dev->dmatop_base_inner, 0x1608);
+
+	if (CAM_DEBUG_ENABLED(RAW_INT))
+		dev_info(dev->dev,
+			 "[%s] raw%d - [in] af_size/af_vld/af_blk_prot/af_blk_0/af_blk_1:0x%x/0x%x/0x%x/0x%x/0x%x\n",
+			 __func__, dev->id, af_size, af_vld, af_blk_prot, af_blk_0, af_blk_1);
+	if (CAM_DEBUG_ENABLED(RAW_INT))
+		dev_info(dev->dev,
+			 "[%s] raw%d - [in] afo_xsize/afo_ysize/afo_stride:0x%x/0x%x/0x%x\n",
+			 __func__, dev->id, afo_xsize, afo_ysize, afo_stride);
+}
 
 void ae_disable(struct mtk_raw_device *dev)
 {
@@ -1501,7 +1524,6 @@ static irqreturn_t mtk_thread_irq_raw(int irq, void *data)
 
 #if RAW_DEBUG
 		if (irq_info.irq_type & BIT(CAMSYS_IRQ_FRAME_START) ||
-			irq_info.irq_type & BIT(CAMSYS_IRQ_SETTING_DONE) ||
 			irq_info.irq_type & BIT(CAMSYS_IRQ_DEBUG_1) ||
 			irq_info.irq_type & BIT(CAMSYS_IRQ_ERROR))
 			dev_info(raw_dev->dev, "ts=%llu irq_type %d, req:0x%x/0x%x ctl_mod_5:0x%x diff:%llu (0x%x/0x%x/0x%x)\n",

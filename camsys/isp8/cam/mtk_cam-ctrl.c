@@ -444,7 +444,8 @@ static void debug_send_event(const struct transition_param *p)
 
 static const int waitable_event =
 	BIT(CAMSYS_EVENT_IRQ_L_SOF) |
-	BIT(CAMSYS_EVENT_IRQ_FRAME_DONE);
+	BIT(CAMSYS_EVENT_IRQ_FRAME_DONE) |
+	BIT(CAMSYS_EVENT_IRQ_L_CQ_DONE);
 
 static void mtk_cam_ctrl_wake_up_on_event(struct mtk_cam_ctrl *ctrl, int event)
 {
@@ -523,6 +524,21 @@ static bool check_done(struct mtk_cam_ctrl *ctrl, void *arg)
 	spin_unlock(&ctrl->info_lock);
 
 	return frame_seq_ge(done_seq, arg_seq);
+}
+
+static bool check_setting_done(struct mtk_cam_ctrl *ctrl, void *arg)
+{
+	int arg_seq = *(int *)arg;
+	int setting_seq;
+
+	spin_lock(&ctrl->info_lock);
+	setting_seq = ctrl->r_info.outer_seq_no;
+	spin_unlock(&ctrl->info_lock);
+
+	if (setting_seq != arg_seq)
+		return 0;
+
+	return 1;
 }
 
 static int mtk_cam_ctrl_wait_event(struct mtk_cam_ctrl *ctrl,
@@ -1243,21 +1259,45 @@ static void mtk_cam_ctrl_dynamic_raws_change_flow(struct mtk_cam_job *job)
 	struct device *dev = ctx->cam->dev;
 	struct mtk_cam_device *cam = ctx->cam;
 	struct seamless_check_args check_args;
-	int i;
+	int i, j, no, prev_seq;
 
-	dev_info(dev, "[%s] begin waiting dynamic raw changes no:%d seq 0x%x\n",
+	dev_info(dev, "[%s] begin waiting 1.dynamic raw changes no:%d seq 0x%x cq done\n",
 		__func__, job->req_seq, job->frame_seq_no);
+	no = job->frame_seq_no;
+	if (job->raw_change) {
+		dev_info(dev, "[%s] master raw changed case : wait engines:0x%x setting done\n",
+			__func__, ctx->used_engine);
+		if (mtk_cam_ctrl_wait_event(ctrl, check_setting_done, &no, 1000)) {
+			dev_info(dev, "[%s] check for dynamic_raws_change timeout: outer = 0x%x\n",
+				 __func__, no);
+			goto SWITCH_FAILURE;
+		}
+		if (job->raw_change == JOB_RAW_MASTER_UNCHANGED) {
+			for (i = 0; i < cam->engines.num_raw_devices; i++) {
+				if (BIT(i) & ctx->used_engine) {
+					struct mtk_raw_device *raw_dev;
 
-	check_args.expect_inner = job->frame_seq_no;
-	check_args.expect_ack = job->frame_seq_no;
-
-	if (mtk_cam_ctrl_wait_event(ctrl, check_for_inner, &check_args, 1000)) {
+					raw_dev = dev_get_drvdata(cam->engines.raw_devs[i]);
+					if (raw_dev->is_slave)
+						continue;
+					stream_on(raw_dev, 1, true);
+				}
+			}
+		} else {
+			vsync_set_desired(&ctrl->vsync_col, job->master_engine);
+			call_jobop(job, stream_on, true);
+		}
+	}
+	prev_seq = prev_frame_seq(job->frame_seq_no);
+	dev_info(dev, "[%s] wait 2.prev engines done req:%d\n",
+			__func__, prev_seq);
+	if (mtk_cam_ctrl_wait_event(ctrl, check_done, &prev_seq, 1000)) {
 		dev_info(dev, "[%s] check for dynamic_raws_change timeout: expected in=0x%x ack=0x%x\n",
 			 __func__,
 			 check_args.expect_inner, check_args.expect_ack);
 		goto SWITCH_FAILURE;
 	}
-	dev_info(dev, "[%s] begin waiting uninit raw:0x%x\n",
+	dev_info(dev, "[%s] begin uninit raw:0x%x\n",
 		__func__, job->raw_change_uninit_engine);
 	/* disable raw/yuv irq and reset */
 	for (i = 0; i < cam->engines.num_raw_devices; i++) {
@@ -1269,13 +1309,36 @@ static void mtk_cam_ctrl_dynamic_raws_change_flow(struct mtk_cam_job *job)
 			reset(raw_dev);
 		}
 	}
+	for (i = 0; i < cam->engines.num_camsv_devices; i++) {
+		if (bit_map_bit(MAP_HW_CAMSV, i) &
+			job->raw_change_uninit_engine) {
+			struct mtk_camsv_device *sv_dev;
+
+			sv_dev = dev_get_drvdata(cam->engines.sv_devs[i]);
+			mtk_cam_sv_dev_stream_on(sv_dev, false, 0, 0);
+			for (j = 0; j < ARRAY_SIZE(sv_dev->irq); j++)
+				disable_irq(sv_dev->irq[j]);
+			sv_reset(sv_dev);
+		}
+	}
+	/* disable camsv/mraw irq and reset - James */
 	if (job->raw_change_uninit_engine) {
 		mtk_cam_pm_runtime_engines(&ctx->cam->engines, job->raw_change_uninit_engine, 0);
 		mtk_cam_event_camsys_resource_ready(&ctx->cam_ctrl, job->raw_change_uninit_engine);
 	}
+	dev_info(dev, "[%s] wait 3.new engines(0x%x) processing seq:%d\n",
+			__func__, ctx->used_engine, job->frame_seq_no);
+	check_args.expect_inner = job->frame_seq_no;
+	check_args.expect_ack = job->frame_seq_no;
+	if (mtk_cam_ctrl_wait_event(ctrl, check_done, &check_args, 1000)) {
+		dev_info(dev, "[%s] check for dynamic_raws_change timeout: expected in=0x%x ack=0x%x\n",
+			 __func__,
+			 check_args.expect_inner, check_args.expect_ack);
+		goto SWITCH_FAILURE;
+	}
 	mtk_cam_job_update_clk(job);
-	dev_info(dev, "[%s] finish, uninit raw:0x%x\n",
-		__func__, job->raw_change_uninit_engine);
+	dev_info(dev, "[%s] finish, uninit raw:0x%x, new frame inner:%d\n",
+		__func__, job->raw_change_uninit_engine, check_args.expect_inner);
 	return;
 
 SWITCH_FAILURE:
@@ -2443,6 +2506,7 @@ int mtk_cam_ctrl_ae_workaround(struct mtk_cam_device *cam,
 		if (ctx->hw_raw[i] && (ctx->enable_hsf_raw == 0)) {
 			raw_dev = dev_get_drvdata(ctx->hw_raw[i]);
 			ae_disable(raw_dev);
+			// dump_af_reg(raw_dev);
 		}
 	}
 	mtk_cam_ctrl_put(ctrl);

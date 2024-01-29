@@ -10348,7 +10348,12 @@
 #define OFFSET_OBC_R6_ACT_WIN_X        (REG_OBC_R6A + 0x50)
 #define OFFSET_OBC_R6_ACT_WIN_Y        (REG_OBC_R6A + 0x54)
 
-
+#define REG_CCM_AE_DEBUG_R_MSB			0x116c
+#define REG_CCM_AE_DEBUG_R_LSB			0x1170
+#define REG_CCM_AE_DEBUG_B_MSB			0x1174
+#define REG_CCM_AE_DEBUG_B_LSB			0x1178
+#define REG_CCM_AE_DEBUG_G_MSB			0x117c
+#define REG_CCM_AE_DEBUG_G_LSB			0x1180
 
 #define REG_LTM_AE_DEBUG_B_MSB         0x60f4
 #define REG_LTM_AE_DEBUG_B_LSB         0x60f8

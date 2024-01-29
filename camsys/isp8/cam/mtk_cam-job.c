@@ -5468,7 +5468,7 @@ static int arr_u64x4_to_str(char *buff, size_t size,
 			 arr[0], arr[1], arr[2], arr[3]);
 }
 
-#define AE_DATA_LEN (ARR_U64x4_LEN * 8) /* w.o. '\0' */
+#define AE_DATA_LEN (ARR_U64x4_LEN * 9) /* w.o. '\0' */
 static int ae_data_to_str(char *buff, size_t size,
 			  const struct mtk_ae_debug_data *ae_data)
 {
@@ -5483,6 +5483,8 @@ static int ae_data_to_str(char *buff, size_t size,
 	n += arr_u64x4_to_str(buff + n, size - n, &ae_data->AESTAT_Sum[4]);
 	n += arr_u64x4_to_str(buff + n, size - n, ae_data->DGN_Sum);
 	n += arr_u64x4_to_str(buff + n, size - n, &ae_data->DGN_Sum[4]);
+	n += arr_u64x4_to_str(buff + n, size - n, &ae_data->CCM_Sum[4]);
+
 	return n;
 }
 

@@ -2668,6 +2668,7 @@ void fill_aa_info(struct mtk_raw_device *raw,
 				  struct mtk_ae_debug_data *ae_info)
 {
 	struct mtk_rms_device *rms = get_rms_dev(raw);
+	struct mtk_yuv_device *yuv = get_yuv_dev(raw);
 
 	ae_info->OBC_R1_Sum[0] +=
 		((u64)raw_readl(raw, raw->base, OFFSET_OBC_R1_R_SUM_H) << 32) |
@@ -2772,6 +2773,16 @@ void fill_aa_info(struct mtk_raw_device *raw,
 	ae_info->DGN_Sum[7] +=
 		((u64)raw_readl(raw, raw->base, REG_DGN_GB_CLIP_SUM_H) << 32) |
 		raw_readl(raw, raw->base, REG_DGN_GB_SUM_H);
+
+	ae_info->CCM_Sum[0] +=
+		((u64)raw_readl(raw, yuv->base, REG_CCM_AE_DEBUG_R_LSB) << 32) |
+		raw_readl(raw, yuv->base, REG_CCM_AE_DEBUG_R_MSB);
+	ae_info->CCM_Sum[1] +=
+		((u64)raw_readl(raw, yuv->base, REG_CCM_AE_DEBUG_B_LSB) << 32) |
+		raw_readl(raw, yuv->base, REG_CCM_AE_DEBUG_B_MSB);
+	ae_info->CCM_Sum[2] +=
+		((u64)raw_readl(raw, yuv->base, REG_CCM_AE_DEBUG_G_LSB) << 32) |
+		raw_readl(raw, yuv->base, REG_CCM_AE_DEBUG_G_MSB);
 }
 
 static const struct dev_pm_ops mtk_yuv_pm_ops = {

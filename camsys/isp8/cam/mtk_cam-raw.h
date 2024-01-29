@@ -145,6 +145,7 @@ struct mtk_ae_debug_data {
 	u64 LTM_Sum[4];
 	u64 AESTAT_Sum[8];
 	u64 DGN_Sum[8];
+	u64 CCM_Sum[4];
 };
 
 /* CQ setting */

@@ -613,8 +613,11 @@ static int mtk_aov_probe(struct platform_device *pdev)
 		goto err_device;
 	}
 
-	mtk_smi_dbg_register_pwr_ctrl_cb(&uisp_pwr_ctrl);
-	mtk_smi_dbg_register_pwr_ctrl_cb(&mae_pwr_ctrl);
+	// mtk_smi_dbg_register_pwr_ctrl_cb(&uisp_pwr_ctrl);
+	// mtk_smi_dbg_register_pwr_ctrl_cb(&mae_pwr_ctrl);
+	dev_info(&pdev->dev,
+		"mtk_smi_dbg_register_pwr_ctrl_cb name(uisp:%s, mae:%s)",
+			uisp_pwr_ctrl.name, mae_pwr_ctrl.name);
 
 	aov_notify_register(mtk_aov_notify);
 	dev_info(&pdev->dev, "%s probe aov driver-\n", __func__);
@@ -642,8 +645,8 @@ static int mtk_aov_remove(struct platform_device *pdev)
 
 	pr_info("%s remove aov driver+\n", __func__);
 
-	mtk_smi_dbg_unregister_pwr_ctrl_cb(&uisp_pwr_ctrl);
-	mtk_smi_dbg_unregister_pwr_ctrl_cb(&mae_pwr_ctrl);
+	// mtk_smi_dbg_unregister_pwr_ctrl_cb(&uisp_pwr_ctrl);
+	// mtk_smi_dbg_unregister_pwr_ctrl_cb(&mae_pwr_ctrl);
 
 	if (mtk_aov_is_open(aov_dev) == true) {
 		aov_dev->is_open = false;

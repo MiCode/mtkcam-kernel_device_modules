@@ -50,6 +50,11 @@ static inline int job_debug_exception_dump(struct mtk_cam_job *job,
 	return (job->src_ctx->has_raw_subdev) ? job_debug_dump(job, desc, 1, -1) : 0;
 }
 
+static inline bool check_qof_support(struct mtk_cam_job *job)
+{
+	return (!disable_qof && !job->enable_hsf_raw);
+}
+
 static struct mtk_raw_request_data *req_get_raw_data(struct mtk_cam_ctx *ctx,
 						     struct mtk_cam_request *req);
 static bool is_sensor_mode_update(struct mtk_cam_job *job);
@@ -650,7 +655,7 @@ mtk_cam_job_initialize_engines(struct mtk_cam_ctx *ctx,
 			if (is_master)
 				call_init_ops(job, master_raw_init, ctx->hw_raw[i]);
 
-			if (!disable_qof) {
+			if (check_qof_support(job)) {
 				int ret = call_init_ops(job, qof_init, ctx->hw_raw[i], is_master);
 
 				if (!ret) {
@@ -674,10 +679,7 @@ mtk_cam_job_initialize_engines(struct mtk_cam_ctx *ctx,
 
 		if (qof_enabled)
 			mtk_cam_sv_set_queue_mode(sv, true);
-
 		mtk_cam_sv_dev_config(sv, job->sub_ratio - 1);  /* TODO(AY): remove -1 */
-
-
 
 		/* smi path sel */
 		if (cur_platform->hw->platform_id != 6991)
@@ -2331,14 +2333,13 @@ static int job_raw_change_hw_init(struct mtk_cam_job *job)
 				if (BIT(raw->id) == (selected_need_init & 0x7))
 					initialize(raw, &engine_cb, 1, is_srt,
 								get_sensor_interval_us(job));
-				if (!disable_qof) {
+				if (check_qof_support(job)) {
 					int ret = call_init_ops(job, qof_init, ctx->hw_raw[i],
 								  raw->id == raw_master_id);
 
 					if (!ret) {
 						qof_enable(raw, true);
 						qof_enabled |= true;
-
 					}
 				}
 			}

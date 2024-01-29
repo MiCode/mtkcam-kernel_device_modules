@@ -927,13 +927,11 @@ static int _aov_switch_i2c_bus_scl_aux(struct v4l2_ctrl *ctrl)
 	switch (aux) {
 	case SCL4:
 	case SCL13:
-		if (IS_ERR(ctx->pinctrl)) {
-			adaptor_logi(ctx, "X! [error] no pinctrl\n");
-			return PTR_ERR(ctx->pinctrl);
-		}
-		if (IS_ERR(ctx->state[STATE_SCL_AP])) {
-			adaptor_logi(ctx, "X! [error] no state[STATE_SCL_AP]\n");
-			return PTR_ERR(ctx->state[STATE_SCL_AP]);
+		if (!ctx->pinctrl || !ctx->state[STATE_SCL_AP]) {
+			dev_info(ctx->dev,
+			"[%s] error: ctx->pinctrl = 0x%p ctx->state[STATE_SCL_AP] = 0x%p\n",
+			__func__, ctx->pinctrl, ctx->state[STATE_SCL_AP]);
+			return -EINVAL;
 		}
 		ret = pinctrl_select_state(ctx->pinctrl, ctx->state[STATE_SCL_AP]);
 		if (ret < 0) {
@@ -948,13 +946,11 @@ static int _aov_switch_i2c_bus_scl_aux(struct v4l2_ctrl *ctrl)
 		break;
 	case SCL7:
 	case SCL3:
-		if (IS_ERR(ctx->pinctrl)) {
-			adaptor_logi(ctx, "X! [error] no pinctrl\n");
-			return PTR_ERR(ctx->pinctrl);
-		}
-		if (IS_ERR(ctx->state[STATE_SCL_SCP])) {
-			adaptor_logi(ctx, "X! [error] no state[STATE_SCL_AP]\n");
-			return PTR_ERR(ctx->state[STATE_SCL_SCP]);
+		if (!ctx->pinctrl || !ctx->state[STATE_SCL_SCP]) {
+			dev_info(ctx->dev,
+			"[%s] error: ctx->pinctrl = 0x%p ctx->state[STATE_SCL_SCP] = 0x%p\n",
+			__func__, ctx->pinctrl, ctx->state[STATE_SCL_SCP]);
+			return -EINVAL;
 		}
 		ret = pinctrl_select_state(ctx->pinctrl, ctx->state[STATE_SCL_SCP]);
 		if (ret < 0) {
@@ -987,13 +983,11 @@ static int _aov_switch_i2c_bus_sda_aux(struct v4l2_ctrl *ctrl)
 	switch (aux) {
 	case SDA4:
 	case SDA13:
-		if (IS_ERR(ctx->pinctrl)) {
-			adaptor_logi(ctx, "X! [error] no pinctrl\n");
-			return PTR_ERR(ctx->pinctrl);
-		}
-		if (IS_ERR(ctx->state[STATE_SDA_AP])) {
-			adaptor_logi(ctx, "X! [error] no state[STATE_SDA_AP]\n");
-			return PTR_ERR(ctx->state[STATE_SDA_AP]);
+		if (!ctx->pinctrl || !ctx->state[STATE_SDA_AP]) {
+			dev_info(ctx->dev,
+			"[%s] error: ctx->pinctrl = 0x%p ctx->state[STATE_SDA_AP] = 0x%p\n",
+			__func__, ctx->pinctrl, ctx->state[STATE_SDA_AP]);
+			return -EINVAL;
 		}
 		ret = pinctrl_select_state(ctx->pinctrl, ctx->state[STATE_SDA_AP]);
 		if (ret < 0) {
@@ -1008,13 +1002,11 @@ static int _aov_switch_i2c_bus_sda_aux(struct v4l2_ctrl *ctrl)
 		break;
 	case SDA7:
 	case SDA3:
-		if (IS_ERR(ctx->pinctrl)) {
-			adaptor_logi(ctx, "X! [error] no pinctrl\n");
-			return PTR_ERR(ctx->pinctrl);
-		}
-		if (IS_ERR(ctx->state[STATE_SDA_SCP])) {
-			adaptor_logi(ctx, "X! [error] no state[STATE_SDA_SCP]\n");
-			return PTR_ERR(ctx->state[STATE_SDA_SCP]);
+		if (!ctx->pinctrl || !ctx->state[STATE_SDA_SCP]) {
+			dev_info(ctx->dev,
+			"[%s] error: ctx->pinctrl = 0x%p ctx->state[STATE_SDA_SCP] = 0x%p\n",
+			__func__, ctx->pinctrl, ctx->state[STATE_SDA_SCP]);
+			return -EINVAL;
 		}
 		ret = pinctrl_select_state(ctx->pinctrl, ctx->state[STATE_SDA_SCP]);
 		if (ret < 0) {

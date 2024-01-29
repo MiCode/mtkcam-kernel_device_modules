@@ -31,7 +31,7 @@ int fill_imgo_buf_to_ipi_stagger(
 int apply_cam_mux_switch(struct mtk_cam_job *job)
 {
 	struct mtk_cam_ctx *ctx = job->src_ctx;
-	struct mtk_camsv_device *sv_dev = dev_get_drvdata(ctx->hw_sv);
+	struct mtk_camsv_device *sv_dev = NULL;
 	struct mtk_mraw_device *mraw_dev;
 	struct mtk_mraw_pipeline *mraw_pipe;
 	struct mtk_cam_seninf_mux_param param;
@@ -62,6 +62,9 @@ int apply_cam_mux_switch(struct mtk_cam_job *job)
 		// JOB_TYPE_BASIC, JOB_TYPE_STAGGER
 		pr_info("%s: WARNING: scen is NOT normal", __func__);
 	}
+
+	if (ctx->hw_sv)
+		sv_dev = dev_get_drvdata(ctx->hw_sv);
 
 	CALL_PLAT_V4L2(
 		get_sv_max_pixel_mode, sv_dev->id, &max_pixel_mode);
@@ -630,8 +633,20 @@ int apply_cam_mux_switch(struct mtk_cam_job *job)
 			settings[8].source, settings[8].camtg, settings[8].enable);
 	}
 
-	mtk_cam_seninf_set_cfg_rdy(ctx->seninf, sv_dev->cammux_id);
-	mtk_cam_seninf_set_cfg_rdy(ctx->seninf, (is_dc) ? sv_dev->cammux_id : raw_tg_idx);
+	/* raw */
+	if (!is_dc)
+		mtk_cam_seninf_set_cfg_rdy(ctx->seninf, raw_tg_idx);
+	/* camsv */
+	if (sv_dev)
+		mtk_cam_seninf_set_cfg_rdy(ctx->seninf, sv_dev->cammux_id);
+	/* mraw */
+	for (int mraw_idx = 0; mraw_idx < ctx->num_mraw_subdevs; mraw_idx++) {
+		if (ctx->hw_mraw[mraw_idx]) {
+			mraw_dev =
+				dev_get_drvdata(ctx->hw_mraw[mraw_idx]);
+			mtk_cam_seninf_set_cfg_rdy(ctx->seninf, mraw_dev->cammux_id);
+		}
+	}
 
 	return 0;
 }

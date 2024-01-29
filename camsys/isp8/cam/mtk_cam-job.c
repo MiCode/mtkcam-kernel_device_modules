@@ -685,12 +685,14 @@ mtk_cam_job_initialize_engines(struct mtk_cam_ctx *ctx,
 	}
 
 	/* mraw */
-	for (i = 0 ; i < ARRAY_SIZE(ctx->hw_mraw); i++) {
-		if (ctx->hw_mraw[i]) {
-			struct mtk_mraw_device *mraw =
-				dev_get_drvdata(ctx->hw_mraw[i]);
+	if (job->raw_change != JOB_RAW_MASTER_CHANGED) {
+		for (i = 0 ; i < ARRAY_SIZE(ctx->hw_mraw); i++) {
+			if (ctx->hw_mraw[i]) {
+				struct mtk_mraw_device *mraw =
+					dev_get_drvdata(ctx->hw_mraw[i]);
 
-			mtk_cam_mraw_dev_config(mraw, job->sub_ratio - 1); /* TODO(AY): remove -1 */
+				mtk_cam_mraw_dev_config(mraw, job->sub_ratio - 1); /* TODO(AY): remove -1 */
+			}
 		}
 	}
 
@@ -1132,14 +1134,16 @@ _stream_on(struct mtk_cam_job *job, bool on)
 			job->enabled_tags, job->used_tag_cnt);
 	}
 
-	for (i = 0; i < ctx->num_mraw_subdevs; i++) {
-		if (ctx->hw_mraw[i]) {
-			mraw_dev = dev_get_drvdata(ctx->hw_mraw[i]);
-			if (job->used_engine &
-				bit_map_bit(MAP_HW_MRAW, ctx->mraw_subdev_idx[i]))
-				atomic_set(&mraw_dev->is_vf_on, 1);
-			mtk_cam_mraw_update_start_period(mraw_dev, job->scq_period);
-			mtk_cam_mraw_dev_stream_on(mraw_dev, on);
+	if (job->raw_change != JOB_RAW_MASTER_CHANGED) {
+		for (i = 0; i < ctx->num_mraw_subdevs; i++) {
+			if (ctx->hw_mraw[i]) {
+				mraw_dev = dev_get_drvdata(ctx->hw_mraw[i]);
+				if (job->used_engine &
+					bit_map_bit(MAP_HW_MRAW, ctx->mraw_subdev_idx[i]))
+					atomic_set(&mraw_dev->is_vf_on, 1);
+				mtk_cam_mraw_update_start_period(mraw_dev, job->scq_period);
+				mtk_cam_mraw_dev_stream_on(mraw_dev, on);
+			}
 		}
 	}
 
@@ -4668,7 +4672,8 @@ static int mtk_cam_job_fill_ipi_config(struct mtk_cam_job *job,
 				sv_input->tag_id = i;
 				sv_input->tag_order = job->tag_info[i].tag_order;
 				sv_input->is_first_frame =
-					(job->first_job || job->raw_switch) ? 1 : 0;
+					(job->first_job || job->raw_switch ||
+					job->raw_change == JOB_RAW_MASTER_CHANGED) ? 1 : 0;
 				sv_input->is_last_order_meta_off = (is_dcg_ap_merge(job)) ? 1 : 0;
 				sv_input->input = job->ipi_config.sv_input[0][i].input;
 				CALL_PLAT_V4L2(

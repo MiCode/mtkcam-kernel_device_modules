@@ -333,7 +333,7 @@ void imgsys_dip_updatecq(struct mtk_imgsys_dev *imgsys_dev,
     }
 }
 
-void imgsys_dip_cmdq_set_hw_initial_value(struct mtk_imgsys_dev *imgsys_dev, void *pkt)
+void imgsys_dip_cmdq_set_hw_initial_value(struct mtk_imgsys_dev *imgsys_dev, void *pkt, int hw_idx)
 {
 	unsigned int dipRegBA, ofset;
 	unsigned int i;

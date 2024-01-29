@@ -406,7 +406,7 @@ struct mtk_imgsys_dev {
 	int (*is_singledev_mode)(struct mtk_imgsys_request *req);
 #endif
 	/* IMGSYS Qucik on off */
-	u8 qof_ver;
+	u32 qof_ver;
 	u32 *work_buf_va;
 	dma_addr_t work_buf_pa;
 	u32 *traw_work_buf_va;

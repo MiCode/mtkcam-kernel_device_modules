@@ -47,9 +47,6 @@
 #define WPE_BWLOG_HW_COMB_ninC (IMGSYS_ENG_WPE_LITE | IMGSYS_ENG_TRAW)
 #define WPE_BWLOG_HW_COMB_ninD (IMGSYS_ENG_WPE_LITE | IMGSYS_ENG_LTR)
 
-#define IMGSYS_SMIDUMP_QOF_TRAW	(BIT(0))
-#define IMGSYS_SMIDUMP_QOF_DIP	(BIT(1))
-
 #if CMDQ_CB_KTHREAD
 static struct kthread_worker imgsys_cmdq_worker;
 static struct task_struct *imgsys_cmdq_kworker_task;
@@ -166,7 +163,8 @@ void imgsys_cmdq_release_plat8(struct mtk_imgsys_dev *imgsys_dev)
 	}
 	#endif
 
-	MTK_IMGSYS_QOF_NEED_RUN(imgsys_dev->qof_ver, mtk_imgsys_cmdq_qof_release(imgsys_dev, imgsys_clt[0]));
+	MTK_IMGSYS_QOF_NEED_RUN(imgsys_dev->qof_ver,
+		mtk_imgsys_cmdq_qof_release(imgsys_dev, imgsys_clt[0]));
 	MTK_IMGSYS_QOS_ENABLE(imgsys_dev->hwqos_info.hwqos_support,
 		mtk_imgsys_cmdq_hwqos_release();
 	);
@@ -205,8 +203,6 @@ void imgsys_cmdq_streamon_plat8(struct mtk_imgsys_dev *imgsys_dev)
 		cmdq_clear_event(imgsys_clt[0]->chan, imgsys_event[idx].event);
 
 	cmdq_mbox_disable(imgsys_clt[0]->chan);
-
-	MTK_IMGSYS_QOF_NEED_RUN(imgsys_dev->qof_ver, mtk_imgsys_cmdq_qof_streamon(imgsys_dev));
 
 	memset((void *)event_hist, 0x0,
 		sizeof(struct imgsys_event_history)*IMGSYS_CMDQ_SYNC_POOL_NUM);
@@ -262,7 +258,6 @@ void imgsys_cmdq_streamoff_plat8(struct mtk_imgsys_dev *imgsys_dev)
 	mutex_unlock(&(imgsys_dev->sec_task_lock));
 	#endif
 
-	MTK_IMGSYS_QOF_NEED_RUN(imgsys_dev->qof_ver, mtk_imgsys_cmdq_qof_streamoff(imgsys_dev));
 	//cmdq_mbox_disable(imgsys_clt[0]->chan);
 
 	#if DVFS_QOS_READY
@@ -1270,11 +1265,6 @@ void imgsys_cmdq_task_cb_plat8(struct cmdq_cb_data data)
 		}
 
 		if (isHWhang | isQOFhang) {
-			if (mtk_imgsys_cmdq_qof_get_pwr_status(ISP8_ISP_TRAW))
-				mtk_smi_dbg_dump_for_isp_fast(IMGSYS_SMIDUMP_QOF_TRAW);
-			if (mtk_imgsys_cmdq_qof_get_pwr_status(ISP8_ISP_DIP))
-				mtk_smi_dbg_dump_for_isp_fast(IMGSYS_SMIDUMP_QOF_DIP);
-
 			mtk_imgsys_cmdq_qof_dump(cb_param->hw_comb, true);
 		}
 	}
@@ -1775,7 +1765,7 @@ int imgsys_cmdq_sendtask_plat8(struct mtk_imgsys_dev *imgsys_dev,
 			}
 
 			MTK_IMGSYS_QOF_NEED_RUN(imgsys_dev->qof_ver,
-					mtk_imgsys_cmdq_qof_add(pkt, frm_info->user_info[frm_idx].hw_comb, qof_need_sub));
+				mtk_imgsys_cmdq_qof_add(pkt, qof_need_sub, frm_info->user_info[frm_idx].hw_comb));
 
 			IMGSYS_CMDQ_SYSTRACE_BEGIN(
 				"%s_%s|Imgsys MWFrame:#%d MWReq:#%d ReqFd:%d fidx:%d hw_comb:0x%x Own:%llx frm(%d/%d) blk(%d)",
@@ -1967,7 +1957,8 @@ int imgsys_cmdq_sendtask_plat8(struct mtk_imgsys_dev *imgsys_dev,
 					frm_info->frm_owner, cb_param, frm_idx, frm_num,
 					blk_idx, blk_num);
 
-				MTK_IMGSYS_QOF_NEED_RUN(imgsys_dev->qof_ver, mtk_imgsys_cmdq_qof_sub(pkt, qof_need_sub));
+				MTK_IMGSYS_QOF_NEED_RUN(imgsys_dev->qof_ver,
+					mtk_imgsys_cmdq_qof_sub(pkt, qof_need_sub));
 
 				ret_flush = cmdq_pkt_flush_async(pkt, imgsys_cmdq_task_cb_plat8,
 								(void *)cb_param);
@@ -2441,12 +2432,6 @@ void mtk_imgsys_power_ctrl_plat8(struct mtk_imgsys_dev *imgsys_dev, bool isPower
 	int i;
 	u32 img_main_modules = 0xFFFF;
 
-	if (imgsys_dev->qof_ver != MTK_IMGSYS_QOF_FUNCTION_OFF) {
-		img_main_modules = BIT(IMGSYS_MOD_ADL) |
-			BIT(IMGSYS_MOD_ME) |
-			BIT(IMGSYS_MOD_IMGMAIN);
-	}
-
 	if (isPowerOn) {
 		user_cnt = atomic_inc_return(&imgsys_dev->imgsys_user_cnt);
 		if (user_cnt == 1) {
@@ -2472,6 +2457,9 @@ void mtk_imgsys_power_ctrl_plat8(struct mtk_imgsys_dev *imgsys_dev, bool isPower
 				mtk_imgsys_cmdq_hwqos_streamon(&imgsys_dev->hwqos_info);
 			);
 
+			MTK_IMGSYS_QOF_NEED_RUN(imgsys_dev->qof_ver,
+				mtk_imgsys_cmdq_qof_engine_on(imgsys_dev));
+
 			mutex_unlock(&(imgsys_dev->power_ctrl_lock));
 		}
 	} else {
@@ -2483,6 +2471,9 @@ void mtk_imgsys_power_ctrl_plat8(struct mtk_imgsys_dev *imgsys_dev, bool isPower
 					__func__, isPowerOn, user_cnt);
 
 			mutex_lock(&(imgsys_dev->power_ctrl_lock));
+
+			MTK_IMGSYS_QOF_NEED_RUN(imgsys_dev->qof_ver,
+				mtk_imgsys_cmdq_qof_engine_off(imgsys_dev));
 
 			mtk_imgsys_mod_put(imgsys_dev);
 

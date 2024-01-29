@@ -6,307 +6,534 @@
  *          Nick.wen <nick.wen@mediatek.com>
  *
  */
-
+#include <linux/pm_runtime.h>
 #include <linux/platform_device.h>
+#include <linux/poll.h>
+#include <linux/iopoll.h>
 #include <linux/of_device.h>
 #include <linux/soc/mediatek/mtk-cmdq-ext.h>
 #include <linux/kernel.h>
 #include <linux/delay.h>
-
 #include "vcp_status.h"
 #include "mtk_imgsys-engine-isp8.h"
 #include "mtk_imgsys-cmdq.h"
 #include "mtk_imgsys-cmdq-plat.h"
 #include "mtk_imgsys-cmdq-qof-data.h"
+#include "mtk-smi-dbg.h"
 
-#define IMG_MAIN_BASE (0x15000000)
-#define HWCCF_BASE (0x1ec3a000)
-#define HWCCF_GCE_OFST (0x1000)
-#define MTK_POLL_DELAY_US		(10)
-#define MTK_POLL_TIMEOUT		USEC_PER_SEC
-#define MTK_POLL_100MS_TIMEOUT		(100 * USEC_PER_MSEC)
-#define MTK_POLL_IRQ_DELAY_US		(3)
-#define MTK_POLL_IRQ_TIMEOUT		USEC_PER_SEC
-#define MTK_POLL_HWV_PREPARE_CNT	(100)
-#define MTK_POLL_HWV_PREPARE_US		(2)
-#define MTK_CG_RST_VAL				(0xF000)
+/* HW event: restore event for qof */
+#define CMDQ_EVENT_IMG_QOF_RESTORE_EVENT_0_DIP			(312)
+#define CMDQ_EVENT_IMG_QOF_RESTORE_EVENT_1_TRAW			(313)
+#define CMDQ_EVENT_IMG_QOF_RESTORE_EVENT_2_WPE_EIS		(314)
+#define CMDQ_EVENT_IMG_QOF_RESTORE_EVENT_3_WPE_TNR		(315)
+#define CMDQ_EVENT_IMG_QOF_RESTORE_EVENT_4_LITE			(316)
+/* SW event: sw event for qof */
+#define CMDQ_SW_EVENT_QOF_DIP							(862)
+#define CMDQ_SW_EVENT_QOF_TRAW							(863)
+#define CMDQ_SW_EVENT_QOF_WPE_EIS						(864)
+#define CMDQ_SW_EVENT_QOF_WPE_TNR						(865)
+#define CMDQ_SW_EVENT_QOF_LITE							(866)
+/* delay cnt */
+#define IMG_HWV_DELAY_CNT								(0xFFFF)
+#define IMG_CG_UNGATING_DELAY_CNT						(0xFFFF)
+#define IMG_MTCMOS_STABLE_CNT							(0xFFFF)
+#define INT_STATUS_POLL_TIMES							(20)
+#define INT_STATUS_POLL_US								(50000)
+#define POLL_DELAY_US									(1)
+#define TIMEOUT_500US									(500)
+#define TIMEOUT_1000US									(1000)
+#define TIMEOUT_100000US								(100000)
+/* others */
+#define MOD_BIT_OFST									(3)
+#define QOF_SUPPORT_SMI_GCE_CALLBACK					(1)
+/* func */
+#define IS_MOD_SUPPORT_QOF(m)		(((m < QOF_TOTAL_MODULE)) && ((g_qof_ver & BIT(m)) == BIT(m)))
+#define IS_CON_PWR_ON(val)			((val & (BIT(30)|BIT(31))) == (BIT(30)|BIT(31)) ? TRUE:FALSE)
+#define QOF_GET_REMAP_ADDR(addr)	(g_maped_rg[MAPED_RG_QOF_REG_BASE] + (addr - QOF_REG_BASE))
+#define QOF_LOGI(fmt, args...)		pr_info("[QOF_LOGI]%s:%d " fmt "\n", __func__, __LINE__, ##args)
+#define QOF_LOGE(fmt, args...)		pr_err("[QOF_ERROR]%s:%d " fmt "\n", __func__, __LINE__, ##args)
+#define write_mask(addr, val, mask)\
+	do {\
+		unsigned int tmp = readl(addr) & ~(mask);\
+		tmp = tmp | ((val) & mask);\
+		writel(tmp, addr);\
+	} while(0)
 
-#define IMG_MAIN_CG_TRAW0_CGPDN_OFS (1)
-#define IMG_MAIN_CG_WPE0_CGPDN_OFS (4)
-#define IMG_MAIN_CG_WPE1_CGPDN_OFS (6)
-#define IMG_MAIN_CG_WPE2_CGPDN_OFS (7)
-#define IMG_MAIN_CG_GALS_RX_DIP0_CGPDN_OFS (21)
-#define IMG_MAIN_CG_GALS_RX_TRAW0_CGPDN_OFS (23)
-#define IMG_MAIN_CG_GALS_RX_WPE0_CGPDN_OFS (24)
-#define IMG_MAIN_CG_GALS_RX_WPE1_CGPDN_OFS (25)
-#define IMG_MAIN_CG_GALS_RX_WPE2_CGPDN_OFS (26)
+atomic_t imgsys_voter_cnt;
+static u32 g_qof_ver;
+static int g_qof_debug_level;
+struct mtk_imgsys_dev *g_imgsys_dev;
+static void __iomem *g_maped_rg[MAPED_RG_LIST_NUM] = {0};
+static struct qof_events qof_events_isp8[ISP8_PWR_NUM];
+struct cmdq_pkt *add_gce_pkt[ISP8_PWR_NUM];
+struct cmdq_pkt *sub_gce_pkt[ISP8_PWR_NUM];
+struct cmdq_client *qof_smi_client;
+static struct cmdq_client *imgsys_pwr_clt[QOF_TOTAL_THREAD] = {NULL};
+static struct cmdq_client *smi_cb_pwr_ctl;
 
-#define IMG_HWV_DELAY_CNT (0xFFFF)
-#define IMG_CG_UNGATING_DELAY_CNT (0xFFFF)
-#define IMG_MTCMOS_STABLE_CNT (0xFFFF)
-
-#define IMG_NULL_MAGINC_NUM	(0xDEAD)
-
-/* IMG sw token for Qof */
-#define CMDQ_SYNC_TOKEN_DIP_POWER_CTRL			(862)
-#define CMDQ_SYNC_TOKEN_DIP_TRIG_PWR_ON			(863)
-#define CMDQ_SYNC_TOKEN_DIP_PWR_ON				(864)
-#define CMDQ_SYNC_TOKEN_DIP_TRIG_PWR_OFf		(865)
-#define CMDQ_SYNC_TOKEN_DIP_PWR_OFF				(866)
-#define CMDQ_SYNC_TOKEN_DIP_PWR_HAND_SHAKE		(867)
-
-#define CMDQ_SYNC_TOKEN_TRAW_POWER_CTRL			(868)
-#define CMDQ_SYNC_TOKEN_TRAW_TRIG_PWR_ON		(869)
-#define CMDQ_SYNC_TOKEN_TRAW_PWR_ON				(870)
-#define CMDQ_SYNC_TOKEN_TRAW_TRIG_PWR_OFf		(871)
-#define CMDQ_SYNC_TOKEN_TRAW_PWR_OFF			(872)
-#define CMDQ_SYNC_TOKEN_TRAW_PWR_HAND_SHAKE		(873)
-
-
-/* Footprint definition */
-#define QOF_FP_CG_IMGSYS_MAIN	BIT(14)
-#define QOF_FP_CG_DIP_TOP_DIP1	BIT(13)
-#define QOF_FP_CG_DIP_NR1_DIP1	BIT(12)
-#define QOF_FP_CG_DIP_NR2_DIP1	BIT(11)
-#define QOF_FP_CG_TRAW_DIP1		BIT(10)
-#define QOF_FP_CG_TRAW_CAP_DIP	BIT(9)
-#define QOF_FP_CG_WPE1_DIP1		BIT(8)
-#define QOF_FP_CG_WPE2_DIP1		BIT(7)
-#define QOF_FP_CG_WPE3_DIP1		BIT(6)
-#define QOF_FP_USER_DIP			BIT(5)
-#define QOF_FP_USER_TRAW		BIT(4)
-#define QOF_FP_PWR_ON			BIT(3)
-#define QOF_FP_PWR_OFF			BIT(2)
-#define QOF_FP_STATUS_ACK		BIT(1)
-#define QOF_FP_HWCCF_ACK		BIT(0)
-
-u8 g_qof_ver = 0;
-u32 g_dbg_log_on = 0;
-u32 g_disable_qof = 0;
-u32 g_force_dump_vcp = 0;
-static struct cmdq_pkt *g_gce_set_rg_pkt;
-static struct qof_events qof_events_8[IMGSYS_CMDQ_SYNC_POOL_NUM];
-u32 **g_dip_work_buf_va = NULL;
-u32 **g_traw_work_buf_va = NULL;
-unsigned int **g_qof_work_buf_va = NULL;
-
-/** Struct list
- *
- * @brief List global struct
- */
-enum IMG_GCE_PWR_THREAD_ID {
-	IMG_GCE_THREAD_PWR_START,
-	IMG_GCE_THREAD_DIP_PWR_ON = IMG_GCE_THREAD_PWR_START,
-	IMG_GCE_THREAD_DIP_PWR_OFF,
-	IMG_GCE_THREAD_TRAW_PWR_ON,
-	IMG_GCE_THREAD_TRAW_PWR_OFF,
-	IMG_GCE_THREAD_PWR_END = IMG_GCE_THREAD_TRAW_PWR_OFF,
+enum QOF_DEBUG_MODE {
+	QOF_DEBUG_MODE_PERFRAME_DUMP = 1,
 };
-#define QOF_TOTAL_THREAD (IMG_GCE_THREAD_PWR_END - IMG_GCE_THREAD_PWR_START + 1)
-static struct cmdq_client *imgsys_pwr_clt[QOF_TOTAL_THREAD];
 
-/* Debug dump reg */
-enum DUMP_RG_ID_LIST {
-	DUMP_RG_START,
-	DUMP_RG_DIP_PWR_CON = DUMP_RG_START,
-	DUMP_RG_TRAW_PWR_CON,
-	DUMP_RG_CG_IMGSYS_MAIN,
-	DUMP_RG_CG_TRAW_DIP1,
-	DUMP_RG_CG_TRAW_CAP_DIP,
-	DUMP_RG_CG_DIP_NR1_DIP1,
-	DUMP_RG_CG_DIP_NR2_DIP1,
-	DUMP_RG_CG_DIP_TOP_DIP1,
-	DUMP_RG_CG_WPE1_DIP1,
-	DUMP_RG_CG_WPE2_DIP1,
-	DUMP_RG_CG_WPE3_DIP1,
-	DUMP_RG_VOTER_ON,
-	DUMP_RG_VOTER_OFF,
-	DUMP_RG_HWV_DONE,
-	DUMP_RG_CCF_MTCMOS_SET_STA,
-	DUMP_RG_CCF_MTCMOS_CLR_STA,
-	DUMP_RG_HWV_SW_RECORD,
-	DUMP_RG_HW_CCF_MTCMOS_STATUS,
-	DUMP_RG_HW_CCF_MTCMOS_STATUS_CLR,
-	DUMP_RG_HW_CCF_MTCMOS_ENABLE,
-	DUMP_RG_CCF_INT_STATUS,
-	DUMP_RG_END = DUMP_RG_CCF_INT_STATUS,
+enum QOF_GCE_THREAD_LIST {
+	QOF_GCE_THREAD_DIP = 14,
+	QOF_GCE_THREAD_TRAW = 15,
+	QOF_GCE_THREAD_WPE1 = 16,
+	QOF_GCE_THREAD_WPE23 = 17,
+	QOF_GCE_THREAD_SMI_CB = 18,
 };
-#define DUMP_RG_TOTAL_NUM (DUMP_RG_END - DUMP_RG_START + 1)
-#define READ_QOF_RG(rg_idx) 	g_qof_dump_reg[rg_idx] == NULL ? IMG_NULL_MAGINC_NUM : (unsigned int)ioread32((void *)g_qof_dump_reg[rg_idx])
-static void __iomem *g_qof_dump_reg[DUMP_RG_TOTAL_NUM];
+
+u32 sw_event_lock_list[ISP8_PWR_NUM] = {
+	CMDQ_SW_EVENT_QOF_DIP,
+	CMDQ_SW_EVENT_QOF_TRAW,
+	CMDQ_SW_EVENT_QOF_WPE_EIS,
+	CMDQ_SW_EVENT_QOF_WPE_TNR,
+	CMDQ_SW_EVENT_QOF_LITE,
+};
+
+u32 hw_event_restore_list[ISP8_PWR_NUM] = {
+	CMDQ_EVENT_IMG_QOF_RESTORE_EVENT_0_DIP,
+	CMDQ_EVENT_IMG_QOF_RESTORE_EVENT_1_TRAW,
+	CMDQ_EVENT_IMG_QOF_RESTORE_EVENT_2_WPE_EIS,
+	CMDQ_EVENT_IMG_QOF_RESTORE_EVENT_3_WPE_TNR,
+	CMDQ_EVENT_IMG_QOF_RESTORE_EVENT_4_LITE,
+};
 
 struct cmdq_pwr_buf {
-	struct cmdq_pkt *on_pkt;
-	struct cmdq_pkt *off_pkt;
+	struct cmdq_pkt *restore_pkt;
 };
 
 static struct cmdq_pwr_buf pwr_buf_handle[ISP8_PWR_NUM] = {
 	{
-		.on_pkt = NULL,
-		.off_pkt = NULL,
+		.restore_pkt = NULL,
 	},
 	{
-		.on_pkt = NULL,
-		.off_pkt = NULL,
-	}
+		.restore_pkt = NULL,
+	},
+	{
+		.restore_pkt = NULL,
+	},
+	{
+		.restore_pkt = NULL,
+	},
+	{
+		.restore_pkt = NULL,
+	},
 };
 
-/** Local api
- * @brief List local api
- */
-static void imgsys_cmdq_init_qof_events(void)
+/* mtcmos data */
+static void qof_poll_status(u32 pwr, bool enable);
+static void imgsys_cmdq_qof_set_restore_done(struct cmdq_pkt *pkt, u32 pwr_id);
+static void mtk_imgsys_set_dip_larb_golden(struct cmdq_pkt *pkt);
+static void mtk_imgsys_set_wpe_eis_larb_golden(struct cmdq_pkt *pkt);
+static void mtk_imgsys_set_wpe_tnr_larb_golden(struct cmdq_pkt *pkt);
+static void mtk_imgsys_set_wpe_lite_larb_golden(struct cmdq_pkt *pkt);
+static void mtk_imgsys_set_traw_larb_golden(struct cmdq_pkt *pkt);
+static void imgsys_qof_traw_direct_link_reset(struct cmdq_pkt *pkt);
+static void imgsys_cmdq_dip_cg_unating(struct cmdq_pkt *pkt,
+		const struct imgsys_cg_data *cg, dma_addr_t qof_work_buf_pa);
+static void imgsys_cmdq_traw_cg_unating(struct cmdq_pkt *pkt,
+		const struct imgsys_cg_data *cg, dma_addr_t qof_work_buf_pa);
+static void imgsys_cmdq_wpe1_cg_unating(struct cmdq_pkt *pkt,
+		const struct imgsys_cg_data *cg, dma_addr_t qof_work_buf_pa);
+static void imgsys_cmdq_wpe2_cg_unating(struct cmdq_pkt *pkt,
+		const struct imgsys_cg_data *cg, dma_addr_t qof_work_buf_pa);
+static void imgsys_cmdq_wpe3_cg_unating(struct cmdq_pkt *pkt,
+		const struct imgsys_cg_data *cg, dma_addr_t qof_work_buf_pa);
+static void qof_module_vote_add(struct cmdq_pkt *pkt, u32 pwr, u32 user);
+static void qof_module_vote_sub(struct cmdq_pkt *pkt, u32 pwr, u32 user);
+static struct imgsys_mtcmos_data isp8_module_data[] = {
+	[ISP8_PWR_DIP] = {
+		.pwr_id = ISP8_PWR_DIP,
+		.cg_ungating = imgsys_cmdq_dip_cg_unating,
+		.cg_data = &common_cg_data,
+		.set_larb_golden = mtk_imgsys_set_dip_larb_golden,
+		//.direct_link_reset = mtk_imgsys_dip_direct_link_reset,
+		.qof_restore_done = imgsys_cmdq_qof_set_restore_done,
+	},
+	[ISP8_PWR_TRAW] = {
+		.pwr_id = ISP8_PWR_TRAW,
+		.cg_ungating = imgsys_cmdq_traw_cg_unating,
+		.cg_data = &common_cg_data,
+		.set_larb_golden = mtk_imgsys_set_traw_larb_golden,
+		.direct_link_reset = imgsys_qof_traw_direct_link_reset,
+		.qof_restore_done = imgsys_cmdq_qof_set_restore_done,
+	},
+	[ISP8_PWR_WPE_1_EIS] = {
+		.pwr_id = ISP8_PWR_WPE_1_EIS,
+		.cg_ungating = imgsys_cmdq_wpe1_cg_unating,
+		.cg_data = &common_cg_data,
+		.set_larb_golden = mtk_imgsys_set_wpe_eis_larb_golden,
+		//.direct_link_reset = mtk_imgsys_wpe_1_eis_direct_link_reset,
+		.qof_restore_done = imgsys_cmdq_qof_set_restore_done,
+	},
+	[ISP8_PWR_WPE_2_TNR] = {
+		.pwr_id = ISP8_PWR_WPE_2_TNR,
+		.cg_ungating = imgsys_cmdq_wpe2_cg_unating,
+		.cg_data = &common_cg_data,
+		.set_larb_golden = mtk_imgsys_set_wpe_tnr_larb_golden,
+		//.direct_link_reset = mtk_imgsys_wpe_2_tnr_direct_link_reset,
+		.qof_restore_done = imgsys_cmdq_qof_set_restore_done,
+	},
+	[ISP8_PWR_WPE_3_LITE] = {
+		.pwr_id = ISP8_PWR_WPE_3_LITE,
+		.cg_ungating = imgsys_cmdq_wpe3_cg_unating,
+		.cg_data = &common_cg_data,
+		.set_larb_golden = mtk_imgsys_set_wpe_lite_larb_golden,
+		//.direct_link_reset = mtk_imgsys_wpe_3_lite_direct_link_reset,
+		.qof_restore_done = imgsys_cmdq_qof_set_restore_done,
+	},
+};
+
+bool is_qof_engine_enabled(int mod)
 {
-	struct qof_events *event;
+	int bit_mod = mod + MOD_BIT_OFST;
+	int addr = qof_reg_table[ISP8_PWR_DIP][QOF_IMG_QOF_ENG_EN].addr;
 
-	/* ISP_DIP */
-	event = &qof_events_8[ISP8_ISP_DIP];
-	event->power_ctrl = CMDQ_SYNC_TOKEN_DIP_POWER_CTRL;
-	event->trig_pwr_on = CMDQ_SYNC_TOKEN_DIP_TRIG_PWR_ON;
-	event->trig_pwr_off = CMDQ_SYNC_TOKEN_DIP_TRIG_PWR_OFf;
-	event->pwr_off = CMDQ_SYNC_TOKEN_DIP_PWR_OFF;
-	event->pwr_hand_shake = CMDQ_SYNC_TOKEN_DIP_PWR_HAND_SHAKE;
-
-	/* TRAW */
-	event = &qof_events_8[ISP8_ISP_TRAW];
-	event->power_ctrl = CMDQ_SYNC_TOKEN_DIP_POWER_CTRL;	// Use the same as dip now, need to check.
-	event->trig_pwr_on = CMDQ_SYNC_TOKEN_TRAW_TRIG_PWR_ON;
-	event->trig_pwr_off = CMDQ_SYNC_TOKEN_TRAW_TRIG_PWR_OFf;
-	event->pwr_off = CMDQ_SYNC_TOKEN_TRAW_PWR_OFF;
-	event->pwr_hand_shake = CMDQ_SYNC_TOKEN_TRAW_PWR_HAND_SHAKE;
-
-	/* common */
-	//g_qof_lock_event = imgsys_event[IMGSYS_CMDQ_SYNC_TOKEN_TRAW_PWR_ON].event;
+	return (readl(QOF_GET_REMAP_ADDR(addr)) & BIT(bit_mod)) == BIT(bit_mod);
 }
 
-static void imgsys_cmdq_qof_alloc_buf(struct cmdq_client *imgsys_clt, u32 **buf_va, dma_addr_t *buf_pa)
+void qof_create_smi_cb_thread(void)
 {
-	int *p;
+#ifdef QOF_SUPPORT_SMI_GCE_CALLBACK
+	if (smi_cb_pwr_ctl == NULL) {
+		QOF_LOGI("qof smi_cb_pwr_ctl = null\n");
+		return;
+	} else {
+		qof_smi_client = smi_cb_pwr_ctl;
+		cmdq_mbox_enable(qof_smi_client->chan);
+	}
+#endif
+}
 
-	if (!imgsys_clt) {
-		cmdq_err("param is NULL");
-		dump_stack();
+static void qof_create_smi_const_pkt(void)
+{
+#ifdef QOF_SUPPORT_SMI_GCE_CALLBACK
+	u32 mod = ISP8_PWR_START;
+
+	for (mod = ISP8_PWR_START; mod < ISP8_PWR_NUM; mod++) {
+		if (IS_MOD_SUPPORT_QOF(mod)) {
+			/* create add const pkt */
+			add_gce_pkt[mod] = cmdq_pkt_create(qof_smi_client);
+			qof_module_vote_add(add_gce_pkt[mod], mod, QOF_USER_GCE);
+			add_gce_pkt[mod]->priority = IMGSYS_PRI_HIGH;
+			cmdq_pkt_set_noirq(add_gce_pkt[mod], true);
+			cmdq_pkt_finalize(add_gce_pkt[mod]);
+
+			/* create sub const pkt */
+			sub_gce_pkt[mod] = cmdq_pkt_create(qof_smi_client);
+			qof_module_vote_sub(sub_gce_pkt[mod], mod, QOF_USER_GCE);
+			sub_gce_pkt[mod]->priority = IMGSYS_PRI_HIGH;
+			cmdq_pkt_set_noirq(sub_gce_pkt[mod], true);
+			cmdq_pkt_finalize(sub_gce_pkt[mod]);
+			QOF_LOGI("module[%d] create const pkt success.\n", mod);
+		} else {
+			QOF_LOGI("ignore create const pkt. qof module[%d] not support\n", mod);
+		}
+	}
+#endif
+}
+
+static int qof_smi_isp_module_get(void *data, int module)
+{
+	atomic_inc(&imgsys_voter_cnt);
+	pm_runtime_get_noresume(g_imgsys_dev->dev);
+	if (is_qof_engine_enabled(module)) {
+#ifdef QOF_SUPPORT_SMI_GCE_CALLBACK
+		cmdq_pkt_refinalize(add_gce_pkt[module]);
+		cmdq_pkt_flush(add_gce_pkt[module]);
+		qof_poll_status(module, true);
+#else
+		qof_module_vote_add(NULL, module, QOF_USER_AP);
+#endif
+	}
+	return 0;
+}
+
+static int qof_smi_isp_module_get_if_in_use(void *data, int module)
+{
+	int ret = 0;
+	u32 pm_usr_cnt = atomic_read(&imgsys_voter_cnt);
+
+	if (pm_usr_cnt != 0) {
+		atomic_inc(&imgsys_voter_cnt);
+		pm_runtime_get_noresume(g_imgsys_dev->dev);
+		if (is_qof_engine_enabled(module)) {
+#ifdef QOF_SUPPORT_SMI_GCE_CALLBACK
+			cmdq_pkt_refinalize(add_gce_pkt[module]);
+			cmdq_pkt_flush(add_gce_pkt[module]);
+			qof_poll_status(module, true);
+#else
+			qof_module_vote_add(NULL, module, QOF_USER_AP);
+#endif
+		}
+		ret = 1;
+	}
+	return ret;
+}
+
+static int qof_smi_isp_module_put(void *data, int module)
+{
+	u32 pm_usr_cnt = atomic_read(&imgsys_voter_cnt);
+
+	if (pm_usr_cnt) {
+		if (is_qof_engine_enabled(module)) {
+#ifdef QOF_SUPPORT_SMI_GCE_CALLBACK
+			cmdq_pkt_refinalize(sub_gce_pkt[module]);
+			cmdq_pkt_flush(sub_gce_pkt[module]);
+#else
+			qof_module_vote_sub(NULL, module, QOF_USER_AP);
+#endif
+		}
+		pm_runtime_put_noidle(g_imgsys_dev->dev);
+		atomic_dec(&imgsys_voter_cnt);
+	}
+	return 0;
+}
+
+/* SMI DIP CB */
+static int smi_isp_dip_get(void *data)
+{
+	return qof_smi_isp_module_get(data, ISP8_PWR_DIP);
+}
+
+static int smi_isp_dip_get_if_in_use(void *data)
+{
+	return qof_smi_isp_module_get_if_in_use(data, ISP8_PWR_DIP);
+}
+
+static int smi_isp_dip_put(void *data)
+{
+	return qof_smi_isp_module_put(data, ISP8_PWR_DIP);
+}
+
+/* SMI TRAW CB */
+static int smi_isp_traw_get(void *data)
+{
+	return qof_smi_isp_module_get(data, ISP8_PWR_TRAW);
+}
+
+static int smi_isp_traw_get_if_in_use(void *data)
+{
+	return qof_smi_isp_module_get_if_in_use(data, ISP8_PWR_TRAW);
+}
+
+static int smi_isp_traw_put(void *data)
+{
+	return qof_smi_isp_module_put(data, ISP8_PWR_TRAW);
+}
+
+/* SMI WPE1 CB */
+static int smi_isp_wpe1_eis_get(void *data)
+{
+	return qof_smi_isp_module_get(data, ISP8_PWR_WPE_1_EIS);
+}
+
+static int smi_isp_wpe1_eis_get_if_in_use(void *data)
+{
+	return qof_smi_isp_module_get_if_in_use(data, ISP8_PWR_WPE_1_EIS);
+}
+
+static int smi_isp_wpe1_eis_put(void *data)
+{
+	return qof_smi_isp_module_put(data, ISP8_PWR_WPE_1_EIS);
+}
+
+/* SMI WPE2 CB */
+static int smi_isp_wpe2_tnr_get(void *data)
+{
+	return qof_smi_isp_module_get(data, ISP8_PWR_WPE_2_TNR);
+}
+
+static int smi_isp_wpe2_tnr_get_if_in_use(void *data)
+{
+	return qof_smi_isp_module_get_if_in_use(data, ISP8_PWR_WPE_2_TNR);
+}
+
+static int smi_isp_wpe2_tnr_put(void *data)
+{
+	return qof_smi_isp_module_put(data, ISP8_PWR_WPE_2_TNR);
+}
+
+/* SMI WPE3 CB */
+static int smi_isp_wpe3_lite_get(void *data)
+{
+	return qof_smi_isp_module_get(data, ISP8_PWR_WPE_3_LITE);
+}
+
+static int smi_isp_wpe3_lite_get_if_in_use(void *data)
+{
+	return qof_smi_isp_module_get_if_in_use(data, ISP8_PWR_WPE_3_LITE);
+}
+
+static int smi_isp_wpe3_lite_put(void *data)
+{
+	return qof_smi_isp_module_put(data, ISP8_PWR_WPE_3_LITE);
+}
+
+
+static struct smi_user_pwr_ctrl smi_isp_dip_pwr_cb = {
+	 .name = "qof_isp_dip",
+	 .data = NULL,
+	 .smi_user_id =  MTK_SMI_IMG_DIP,
+	 .smi_user_get = smi_isp_dip_get,
+	 .smi_user_get_if_in_use = smi_isp_dip_get_if_in_use,
+	 .smi_user_put = smi_isp_dip_put,
+};
+
+static struct smi_user_pwr_ctrl smi_isp_traw_pwr_cb = {
+	 .name = "qof_isp_traw",
+	 .data = NULL,
+	 .smi_user_id =  MTK_SMI_IMG_TRAW,
+	 .smi_user_get = smi_isp_traw_get,
+	 .smi_user_get_if_in_use = smi_isp_traw_get_if_in_use,
+	 .smi_user_put = smi_isp_traw_put,
+};
+
+static struct smi_user_pwr_ctrl smi_isp_wpe1_eis_pwr_cb = {
+	 .name = "qof_isp_wpe1_eis",
+	 .data = NULL,
+	 .smi_user_id =  MTK_SMI_IMG_WPE_EIS,
+	 .smi_user_get = smi_isp_wpe1_eis_get,
+	 .smi_user_get_if_in_use = smi_isp_wpe1_eis_get_if_in_use,
+	 .smi_user_put = smi_isp_wpe1_eis_put,
+};
+
+static struct smi_user_pwr_ctrl smi_isp_wpe2_tnr_pwr_cb = {
+	 .name = "qof_isp_wpe2_tnr",
+	 .data = NULL,
+	 .smi_user_id =  MTK_SMI_IMG_WPE_TNR,
+	 .smi_user_get = smi_isp_wpe2_tnr_get,
+	 .smi_user_get_if_in_use = smi_isp_wpe2_tnr_get_if_in_use,
+	 .smi_user_put = smi_isp_wpe2_tnr_put,
+};
+
+static struct smi_user_pwr_ctrl smi_isp_wpe3_lite_pwr_cb = {
+	 .name = "qof_isp_wpe3_lite",
+	 .data = NULL,
+	 .smi_user_id =  MTK_SMI_IMG_WPE_LITE,
+	 .smi_user_get = smi_isp_wpe3_lite_get,
+	 .smi_user_get_if_in_use = smi_isp_wpe3_lite_get_if_in_use,
+	 .smi_user_put = smi_isp_wpe3_lite_put,
+};
+
+static void imgsys_cmdq_qof_set_restore_done(struct cmdq_pkt *pkt, u32 pwr_id)
+{
+	unsigned int addr;
+	unsigned int val;
+	unsigned int mask;
+	struct qof_events *qof_event;
+
+	if (pkt == NULL || pwr_id >= ISP8_PWR_NUM) {
+		QOF_LOGI("qof param wrong!\n");
 		return;
 	}
 
-	*buf_va = cmdq_mbox_buf_alloc(imgsys_clt, buf_pa);
-	if (*buf_va) {
-		p = (int*)*buf_va;
-		*p = 0;
-	} else {
-		pr_err("%s: cmdq mbox buf alloc fail\n", __func__);
+	addr = qof_reg_table[pwr_id][QOF_IMG_GCE_RESTORE_DONE].addr;
+	val = qof_reg_table[pwr_id][QOF_IMG_GCE_RESTORE_DONE].val;
+	mask = qof_reg_table[pwr_id][QOF_IMG_GCE_RESTORE_DONE].mask;
+	qof_event = &qof_events_isp8[pwr_id];
+
+	// set restore done
+	cmdq_pkt_write(pkt, NULL, addr /* address*/ , val /* val */ , mask /* mask */ );
+
+	// put down hw event
+	cmdq_pkt_clear_event(pkt, qof_event->hw_event_restore);
+}
+
+static void imgsys_cmdq_qof_set_larb_golden(struct qof_larb_info larb_info, struct cmdq_pkt *pkt)
+{
+	unsigned int reg_ba, ofset, bound, i;
+	if (larb_info.larb_reg_list == NULL) {
+		QOF_LOGE("Param is null !\n");
+		return;
+	}
+
+	reg_ba = larb_info.reg_ba;
+	bound = larb_info.reg_list_size;
+
+	for (i = 0; i < bound; i++) {
+		ofset = reg_ba + larb_info.larb_reg_list[i].ofset;
+		cmdq_pkt_write(pkt, NULL, ofset /*address*/,
+				larb_info.larb_reg_list[i].val, 0xffffffff);
 	}
 }
 
-static unsigned int imgsys_get_cg_fp(unsigned int addr)
+static void imgsys_qof_traw_direct_link_reset(struct cmdq_pkt *pkt)
 {
-	unsigned int val = 0;
-	switch(addr) {
-		case IMG_CG_IMGSYS_MAIN:
-			val = QOF_FP_CG_IMGSYS_MAIN;
-			break;
-		case IMG_CG_DIP_TOP_DIP1:
-			val = QOF_FP_CG_DIP_TOP_DIP1;
-			break;
-		case IMG_CG_DIP_NR1_DIP1:
-			val = QOF_FP_CG_DIP_NR1_DIP1;
-			break;
-		case IMG_CG_DIP_NR2_DIP1:
-			val = QOF_FP_CG_DIP_NR2_DIP1;
-			break;
-		case IMG_CG_TRAW_DIP1:
-			val = QOF_FP_CG_TRAW_DIP1;
-			break;
-		case IMG_CG_TRAW_CAP_DIP:
-			val = QOF_FP_CG_TRAW_CAP_DIP;
-			break;
-		case IMG_CG_WPE1_DIP1:
-			val = QOF_FP_CG_WPE1_DIP1;
-			break;
-		case IMG_CG_WPE2_DIP1:
-			val = QOF_FP_CG_WPE2_DIP1;
-			break;
-		case IMG_CG_WPE3_DIP1:
-			val = QOF_FP_CG_WPE3_DIP1;
-			break;
-		default:
-			val = 0;
-			break;
+	cmdq_pkt_write(pkt, NULL,
+			(IMG_CG_IMGSYS_MAIN + 0x260) /*address*/, 0x82,
+			0xffffffff);
+	cmdq_pkt_write(pkt, NULL,
+			(IMG_CG_IMGSYS_MAIN + 0x260) /*address*/, 0x0,
+			0xffffffff);
+}
+
+static void mtk_imgsys_set_dip_larb_golden(struct cmdq_pkt *pkt)
+{
+	if (pkt == NULL) {
+		QOF_LOGE("Param is null !\n");
+		return;
 	}
-	return val;
+
+	/* larb 10 */
+	imgsys_cmdq_qof_set_larb_golden(qof_larb10_info, pkt);
+
+	/* larb 15 */
+	imgsys_cmdq_qof_set_larb_golden(qof_larb15_info, pkt);
+
+	/* larb 38 */
+	imgsys_cmdq_qof_set_larb_golden(qof_larb38_info, pkt);
+
+	/* larb 39 */
+	imgsys_cmdq_qof_set_larb_golden(qof_larb39_info, pkt);
 }
 
-static void imgsys_set_footprint(struct cmdq_pkt *pkt, dma_addr_t qof_buf_pa,
-		unsigned int val, enum CMDQ_LOGIC_ENUM s_op)
+static void mtk_imgsys_set_wpe_eis_larb_golden(struct cmdq_pkt *pkt)
 {
-	dma_addr_t user_count_pa;
-	const u16 var1 = CMDQ_THR_SPR_IDX2;
-	struct cmdq_operand lop;
-	struct cmdq_operand rop;
+	if (pkt == NULL) {
+		QOF_LOGE("Param is null !\n");
+		return;
+	}
 
-	/* Load user_count from DRAM to register */
-	user_count_pa = qof_buf_pa;
-	cmdq_pkt_read(pkt, NULL, user_count_pa, var1);
-
-	lop.reg = true;
-	lop.idx = var1;
-	rop.reg = false;
-	rop.value = val;
-	cmdq_pkt_logic_command(pkt, s_op, CMDQ_THR_SPR_IDX2, &lop, &rop);
-	cmdq_pkt_write_indriect(pkt, NULL, user_count_pa, CMDQ_THR_SPR_IDX2, ~0);
+	/* larb 11 */
+	imgsys_cmdq_qof_set_larb_golden(qof_larb11_info, pkt);
 }
 
-static void mtk_imgsys_cmdq_hwv_is_done(struct cmdq_pkt* pkt, const struct imgsys_mtcmos_data *pwr)
+static void mtk_imgsys_set_wpe_tnr_larb_golden(struct cmdq_pkt *pkt)
 {
-	unsigned int hwv_done_ofs = pwr->hwv_done_ofs;
-	unsigned int hwv_shift = pwr->hwv_shift;
+	if (pkt == NULL) {
+		QOF_LOGE("Param is null !\n");
+		return;
+	}
 
-	/* no need to add GCE ofst from owner chong-ming */
-	cmdq_pkt_poll_timeout(pkt, BIT(hwv_shift)/*poll val*/,
-			SUBSYS_NO_SUPPORT, (HWCCF_BASE + hwv_done_ofs)/*addr*/,
-			BIT(hwv_shift) /*mask*/, IMG_HWV_DELAY_CNT /*delay cnt*/,
-			CMDQ_GPR_R13 /*GPR*/);
+	/* larb 22 */
+	imgsys_cmdq_qof_set_larb_golden(qof_larb22_info, pkt);
 }
 
-static void mtk_imgsys_qof_mtcmos_ctrl(bool isMTCMOSOn, struct cmdq_pkt *pkt,
-		const struct imgsys_mtcmos_data *pwr, dma_addr_t qof_work_buf_pa)
+static void mtk_imgsys_set_wpe_lite_larb_golden(struct cmdq_pkt *pkt)
 {
-	unsigned int reg = isMTCMOSOn ? pwr->vote_on_ofs : pwr->vote_off_ofs;
-	unsigned int hwv_shift = pwr->hwv_shift;
-	unsigned int val;
-	unsigned int sta_addr;
+	if (pkt == NULL) {
+		QOF_LOGE("Param is null !\n");
+		return;
+	}
 
-	/* wait previous hwvote activity done */
-	mtk_imgsys_cmdq_hwv_is_done(pkt, pwr);
+	/* larb 23 */
+	imgsys_cmdq_qof_set_larb_golden(qof_larb23_info, pkt);
+}
 
-	/* write hwccf to vote choices */
-	val = BIT(hwv_shift);
+static void mtk_imgsys_set_traw_larb_golden(struct cmdq_pkt *pkt)
+{
+	if (pkt == NULL) {
+		QOF_LOGE("Param is null !\n");
+		return;
+	}
 
-	//cmdq_pkt_acquire_event(pkt, g_qof_lock_event);
-	cmdq_pkt_write(pkt, NULL, (HWCCF_BASE + HWCCF_GCE_OFST + reg) /*address*/,
-			       val, 0xffffffff);
-	//cmdq_pkt_clear_event(pkt, g_qof_lock_event);
+	/* larb 28 */
+	imgsys_cmdq_qof_set_larb_golden(qof_larb28_info, pkt);
 
-	/* poll MTCMOS on/off */
-	if (isMTCMOSOn == true)
-		val = BIT(hwv_shift);
-	else
-		val = 0;
-
-	cmdq_pkt_poll_timeout(pkt, val /*poll val*/, SUBSYS_NO_SUPPORT,
-			(HWCCF_BASE + HWCCF_GCE_OFST + reg)/*addr*/,
-			BIT(hwv_shift) /*mask*/, IMG_MTCMOS_STABLE_CNT /*delay cnt*/,
-			CMDQ_GPR_R13 /*GPR*/);
-	imgsys_set_footprint(pkt, qof_work_buf_pa, QOF_FP_HWCCF_ACK, CMDQ_LOGIC_OR);
-
-	/* wait hwccf finish vote request */
-	mtk_imgsys_cmdq_hwv_is_done(pkt, pwr);
-
-	sta_addr = isMTCMOSOn ? IMG_CCF_MTCMOS_SET_STA : IMG_CCF_MTCMOS_CLR_STA;
-	cmdq_pkt_poll_timeout(pkt, 0 /*poll val*/, SUBSYS_NO_SUPPORT,
-			(sta_addr)/*addr*/,
-			BIT(hwv_shift) /*mask*/, IMG_MTCMOS_STABLE_CNT /*delay cnt*/,
-			CMDQ_GPR_R13 /*GPR*/);
-	imgsys_set_footprint(pkt, qof_work_buf_pa, QOF_FP_STATUS_ACK, CMDQ_LOGIC_OR);
+	/* larb 40 */
+	imgsys_cmdq_qof_set_larb_golden(qof_larb40_info, pkt);
 }
 
 static void imgsys_cmdq_modules_cg_ungating(struct cmdq_pkt *pkt,
@@ -325,32 +552,16 @@ static void imgsys_cmdq_modules_cg_ungating(struct cmdq_pkt *pkt,
 	reg = addr + sta_ofs;
 
 	cmdq_pkt_poll_timeout(pkt, 0/*poll val*/, SUBSYS_NO_SUPPORT, (reg)/*addr*/,
-			BIT(0) /*mask*/, IMG_CG_UNGATING_DELAY_CNT /*delay cnt*/,
+			val /*mask*/, IMG_CG_UNGATING_DELAY_CNT /*delay cnt*/,
 			CMDQ_GPR_R13 /*GPR*/);
-
-	imgsys_set_footprint(pkt, qof_work_buf_pa, imgsys_get_cg_fp(addr), CMDQ_LOGIC_OR);
 }
 
 static void imgsys_cmdq_dip_cg_unating(struct cmdq_pkt *pkt,
 		const struct imgsys_cg_data *cg, dma_addr_t qof_work_buf_pa)
 {
-	unsigned int reg;
 	unsigned int val;
-	unsigned int clr_ofs = cg->clr_ofs;
-	unsigned int main_cg =
-		BIT(IMG_MAIN_CG_WPE0_CGPDN_OFS) |
-		BIT(IMG_MAIN_CG_WPE1_CGPDN_OFS) |
-		BIT(IMG_MAIN_CG_WPE2_CGPDN_OFS) |
-		BIT(IMG_MAIN_CG_GALS_RX_DIP0_CGPDN_OFS) |
-		BIT(IMG_MAIN_CG_GALS_RX_WPE0_CGPDN_OFS) |
-		BIT(IMG_MAIN_CG_GALS_RX_WPE1_CGPDN_OFS) |
-		BIT(IMG_MAIN_CG_GALS_RX_WPE2_CGPDN_OFS);
 
-	/* Turn on main cg */
-	reg = IMG_CG_IMGSYS_MAIN + clr_ofs;
-	cmdq_pkt_write(pkt, NULL, reg /* address*/,
-					main_cg, 0xffffffff);
-
+	/* DIP_NR1_DIP1*/
 	val = BIT(0)|BIT(1);
 	imgsys_cmdq_modules_cg_ungating(pkt, IMG_CG_DIP_NR1_DIP1, cg, val, qof_work_buf_pa);
 
@@ -361,14 +572,32 @@ static void imgsys_cmdq_dip_cg_unating(struct cmdq_pkt *pkt,
 	/* DIP_TOP_DIP1 */
 	val = BIT(0)|BIT(1)|BIT(2)|BIT(3)|BIT(4)|BIT(5)|BIT(6)|BIT(7)|BIT(8);
 	imgsys_cmdq_modules_cg_ungating(pkt, IMG_CG_DIP_TOP_DIP1, cg, val, qof_work_buf_pa);
+}
+
+static void imgsys_cmdq_wpe1_cg_unating(struct cmdq_pkt *pkt,
+		const struct imgsys_cg_data *cg, dma_addr_t qof_work_buf_pa)
+{
+	unsigned int val;
 
 	/* WPE1_DIP1 */
 	val = BIT(0)|BIT(1)|BIT(2);
 	imgsys_cmdq_modules_cg_ungating(pkt, IMG_CG_WPE1_DIP1, cg, val, qof_work_buf_pa);
+}
+
+static void imgsys_cmdq_wpe2_cg_unating(struct cmdq_pkt *pkt,
+		const struct imgsys_cg_data *cg, dma_addr_t qof_work_buf_pa)
+{
+	unsigned int val;
 
 	/* WPE2_DIP1 */
 	val = BIT(0)|BIT(1)|BIT(2);
 	imgsys_cmdq_modules_cg_ungating(pkt, IMG_CG_WPE2_DIP1, cg, val, qof_work_buf_pa);
+}
+
+static void imgsys_cmdq_wpe3_cg_unating(struct cmdq_pkt *pkt,
+		const struct imgsys_cg_data *cg, dma_addr_t qof_work_buf_pa)
+{
+	unsigned int val;
 
 	/* WPE3_DIP1 */
 	val = BIT(0)|BIT(1)|BIT(2);
@@ -378,17 +607,7 @@ static void imgsys_cmdq_dip_cg_unating(struct cmdq_pkt *pkt,
 static void imgsys_cmdq_traw_cg_unating(struct cmdq_pkt *pkt,
 		const struct imgsys_cg_data *cg, dma_addr_t qof_work_buf_pa)
 {
-	unsigned int reg;
 	unsigned int val;
-	unsigned int clr_ofs = cg->clr_ofs;
-	unsigned int main_cg =
-		BIT(IMG_MAIN_CG_TRAW0_CGPDN_OFS) |
-		BIT(IMG_MAIN_CG_GALS_RX_TRAW0_CGPDN_OFS);
-
-	/* Turn on main cg */
-	reg = IMG_CG_IMGSYS_MAIN + clr_ofs;
-	cmdq_pkt_write(pkt, NULL, reg /* address*/,
-					main_cg, 0xffffffff);
 
 	/* 1 &traw_dip1_clk	CLK_TRAW_DIP1_TRAW */
 	val = BIT(0)|BIT(1)|BIT(2)|BIT(3);
@@ -396,483 +615,371 @@ static void imgsys_cmdq_traw_cg_unating(struct cmdq_pkt *pkt,
 
 	/* 2 TRAW CAP */
 	val = BIT(0);
-	imgsys_cmdq_modules_cg_ungating(pkt, IMG_CG_TRAW_CAP_DIP, cg, val, qof_work_buf_pa);
+	imgsys_cmdq_modules_cg_ungating(pkt, IMG_CG_TRAW_CAP_DIP1, cg, val, qof_work_buf_pa);
 }
 
-static void imgsys_cmdq_set_larb_golden(struct qof_larb_info larb_info, struct cmdq_pkt *pkt)
+void mtk_imgsys_qof_print_hw_info(u32 mod)
 {
-	unsigned int reg_ba, ofset, bound, i;
-	if (larb_info.larb_reg_list == NULL) {
-		pr_err("[%s][%d]Param is null !\n", __func__, __LINE__);
+	struct qof_events *event;
+
+	if (IS_MOD_SUPPORT_QOF(mod) == false)
 		return;
-	}
 
-	reg_ba = larb_info.reg_ba;
-	bound = larb_info.reg_list_size;
+	event = &qof_events_isp8[mod];
 
-	for (i = 0; i < bound; i++) {
-		ofset = reg_ba + larb_info.larb_reg_list[i].ofset;
-		cmdq_pkt_write(pkt, NULL, ofset /*address*/,
-				larb_info.larb_reg_list[i].val, 0xffffffff);
-	}
+	QOF_LOGI("qof_hw_info: ver[%u], mod[%d], rg(0x%x): 0x%x; rg(0x%x): 0x%x; rg(0x%x): 0x%x; rg(0x%x): 0x%x\n",
+		g_qof_ver,
+		mod,
+		qof_reg_table[mod][QOF_IMG_EVENT_CNT_ADD].addr,
+		readl(QOF_GET_REMAP_ADDR(qof_reg_table[mod][QOF_IMG_EVENT_CNT_ADD].addr)),
+		qof_reg_table[mod][QOF_IMG_ITC_SRC_SEL].addr,
+		readl(QOF_GET_REMAP_ADDR(qof_reg_table[mod][QOF_IMG_ITC_SRC_SEL].addr)),
+		qof_reg_table[mod][QOF_IMG_PWR_ACK_2ND_WAIT_TH].addr,
+		readl(QOF_GET_REMAP_ADDR(qof_reg_table[mod][QOF_IMG_PWR_ACK_2ND_WAIT_TH].addr)),
+		qof_reg_table[mod][QOF_IMG_POWER_STATE].addr,
+		readl(QOF_GET_REMAP_ADDR(qof_reg_table[mod][QOF_IMG_POWER_STATE].addr)));
+
+	QOF_LOGI("qof_hw_info: rg(0x%x): 0x%x; rg(0x%x): 0x%x; rg(0x%x): 0x%x; rg(0x%x): 0x%x; rg(0x%x): 0x%x\n",
+		qof_reg_table[mod][QOF_IMG_GCE_SAVE_DONE].addr,
+		readl(QOF_GET_REMAP_ADDR(qof_reg_table[mod][QOF_IMG_GCE_SAVE_DONE].addr)),
+		qof_reg_table[mod][QOF_IMG_QOF_EVENT_CNT].addr,
+		readl(QOF_GET_REMAP_ADDR(qof_reg_table[mod][QOF_IMG_QOF_EVENT_CNT].addr)),
+		qof_reg_table[mod][QOF_IMG_QOF_VOTER_DBG].addr,
+		readl(QOF_GET_REMAP_ADDR(qof_reg_table[mod][QOF_IMG_QOF_VOTER_DBG].addr)),
+		qof_reg_table[mod][QOF_IMG_QOF_DONE_STATUS].addr,
+		readl(QOF_GET_REMAP_ADDR(qof_reg_table[mod][QOF_IMG_QOF_DONE_STATUS].addr)),
+		qof_reg_table[mod][QOF_IMG_ITC_STATUS].addr,
+		readl(QOF_GET_REMAP_ADDR(qof_reg_table[mod][QOF_IMG_ITC_STATUS].addr)));
+
+	QOF_LOGI("qof_hw_info: rg(0x%x): 0x%x; rg(0x%x): 0x%x; rg(0x%x): 0x%x;\n",
+		qof_reg_table[mod][QOF_IMG_QOF_STATE_DBG].addr,
+		readl(QOF_GET_REMAP_ADDR(qof_reg_table[mod][QOF_IMG_QOF_STATE_DBG].addr)),
+		qof_reg_table[mod][QOF_IMG_QOF_MTC_ST_LSB].addr,
+		readl(QOF_GET_REMAP_ADDR(qof_reg_table[mod][QOF_IMG_QOF_MTC_ST_LSB].addr)),
+		qof_reg_table[mod][QOF_IMG_QOF_MTC_ST_MSB2].addr,
+		readl(QOF_GET_REMAP_ADDR(qof_reg_table[mod][QOF_IMG_QOF_MTC_ST_MSB2].addr)));
 }
 
-static void mtk_imgsys_set_dip_larb_golden(struct cmdq_pkt *pkt)
+static void mtk_qof_print_mtcmos_status(void)
 {
-	if (pkt == NULL) {
-		pr_err("[%s][%d]Param is null !\n", __func__, __LINE__);
-		return;
-	}
-
-	/* larb 10 */
-	imgsys_cmdq_set_larb_golden(qof_larb10_info, pkt);
-
-	/* larb 11 */
-	imgsys_cmdq_set_larb_golden(qof_larb11_info, pkt);
-
-	/* larb 15 */
-	imgsys_cmdq_set_larb_golden(qof_larb15_info, pkt);
-
-	/* larb 22 */
-	imgsys_cmdq_set_larb_golden(qof_larb22_info, pkt);
-
-	/* larb 23 */
-	imgsys_cmdq_set_larb_golden(qof_larb23_info, pkt);
-
-	/* larb 38 */
-	imgsys_cmdq_set_larb_golden(qof_larb38_info, pkt);
-
-	/* larb 39 */
-	imgsys_cmdq_set_larb_golden(qof_larb39_info, pkt);
+	QOF_LOGI("MTCMOS:cnt[%u]MAIN[0x%x]VCORE[0x%x]DIP[0x%x]TRAW[0x%x]WPE1[0x%x]WPE2[0x%x]WPE3[0x%x]\n",
+		atomic_read(&imgsys_voter_cnt),
+		(readl(g_maped_rg[MAPED_RG_ISP_MAIN_PWR_CON])),
+		(readl(g_maped_rg[MAPED_RG_ISP_VCORE_PWR_CON])),
+		(readl(g_maped_rg[MAPED_RG_ISP_DIP_PWR_CON])),
+		(readl(g_maped_rg[MAPED_RG_ISP_TRAW_PWR_CON])),
+		(readl(g_maped_rg[MAPED_RG_ISP_WPE_EIS_PWR_CON])),
+		(readl(g_maped_rg[MAPED_RG_ISP_WPE_TNR_PWR_CON])),
+		(readl(g_maped_rg[MAPED_RG_ISP_WPE_LITE_PWR_CON])));
 }
 
-static void mtk_imgsys_set_traw_larb_golden(struct cmdq_pkt *pkt)
+static void imgsys_cmdq_init_qof_events(void)
 {
-	if (pkt == NULL) {
-		pr_err("[%s][%d]Param is null !\n", __func__, __LINE__);
-		return;
-	}
+	struct qof_events *event;
+	u32 usr_id = 0;
 
-	/* larb 28 */
-	imgsys_cmdq_set_larb_golden(qof_larb28_info, pkt);
-
-	/* larb 40 */
-	imgsys_cmdq_set_larb_golden(qof_larb40_info, pkt);
-}
-
-static void mtk_imgsys_dip_direct_link_reset(struct cmdq_pkt *pkt)
-{
-	cmdq_pkt_write(pkt, NULL,
-			(IMG_MAIN_BASE + 0x260) /*address*/, 0x17F,
-			0xffffffff);
-	cmdq_pkt_write(pkt, NULL,
-			(IMG_MAIN_BASE + 0x260) /*address*/, 0x0,
-			0xffffffff);
-}
-
-static void mtk_imgsys_traw_direct_link_reset(struct cmdq_pkt *pkt)
-{
-	cmdq_pkt_write(pkt, NULL,
-			(IMG_MAIN_BASE + 0x260) /*address*/, 0xB2,
-			0xffffffff);
-	cmdq_pkt_write(pkt, NULL,
-			(IMG_MAIN_BASE + 0x260) /*address*/, 0x0,
-			0xffffffff);
-}
-
-/* mtcmos data */
-static const struct imgsys_mtcmos_data isp8_mtcmos_data[] = {
-	[ISP8_ISP_DIP] = {
-		.module_list = ISP_DIP_MODULES,
-		.vote_on_ofs = 0x0198,
-		.vote_off_ofs = 0x019C,
-		.hwv_done_ofs = 0x141C,
-		.hwv_shift = 28,
-		.hwv_gce_ofst = 0x1000,
-		.cg_ungating = imgsys_cmdq_dip_cg_unating,
-		.cg_data = &dip_cg_data,
-		.set_larb_golden = mtk_imgsys_set_dip_larb_golden,
-		.direct_link_reset = mtk_imgsys_dip_direct_link_reset,
-	},
-	[ISP8_ISP_TRAW] = {
-		.module_list = ISP_TRAW_MODULES,
-		.vote_on_ofs = 0x0198,
-		.vote_off_ofs = 0x019C,
-		.hwv_done_ofs = 0x141C,
-		.hwv_shift = 27,
-		.hwv_gce_ofst = 0x1000,
-		.cg_ungating = imgsys_cmdq_traw_cg_unating,
-		.cg_data = &traw_cg_data,
-		.set_larb_golden = mtk_imgsys_set_traw_larb_golden,
-		.direct_link_reset = mtk_imgsys_traw_direct_link_reset,
-	},
-};
-#define isp8_mtcmos_data_SIZE (ARRAY_SIZE(isp8_mtcmos_data))
-
-static void mtk_imgsys_cmdq_power_ctrl(struct mtk_imgsys_dev *imgsys_dev,
-		bool isPowerOn, struct cmdq_pkt *pkt,
-		const struct imgsys_mtcmos_data *pwr)
-{
-	int i;
-
-	if (isPowerOn) {
-		mtk_imgsys_qof_mtcmos_ctrl(isPowerOn, pkt, pwr, imgsys_dev->qof_work_buf_pa);
-
-		pwr->cg_ungating(pkt, pwr->cg_data, imgsys_dev->qof_work_buf_pa);
-		pwr->set_larb_golden(pkt);
-
-		/* reset module after power on */
-		for (i = 0; i < imgsys_dev->modules_num; i++) {
-			if ((BIT(i) & pwr->module_list) && imgsys_dev->modules[i].cmdq_set) {
-				imgsys_dev->modules[i].cmdq_set(imgsys_dev, (void*)pkt);
-			}
-		}
-
-		/* We need to reset direct link path after macro reset */
-		pwr->direct_link_reset(pkt);
-	} else {
-		mtk_imgsys_qof_mtcmos_ctrl(isPowerOn, pkt, pwr, imgsys_dev->qof_work_buf_pa);
+	for(usr_id = ISP8_PWR_START; usr_id < ISP8_PWR_NUM; usr_id++) {
+		event = &qof_events_isp8[usr_id];
+		event->sw_event_lock = sw_event_lock_list[usr_id];
+		event->hw_event_restore = hw_event_restore_list[usr_id];
 	}
 }
 
-static void imgsys_cmdq_power_on_locked(struct mtk_imgsys_dev *imgsys_dev,
-		struct cmdq_pkt *pkt, dma_addr_t work_buf_pa,
-		const struct imgsys_mtcmos_data *pwr)
-{
-	struct cmdq_operand lop, rop;
-	/* spr is gce per-thread internal 32bit ram, use as variable */
-	const u16 reg_jump = CMDQ_THR_SPR_IDX1;
-	const u16 var1 = CMDQ_THR_SPR_IDX2;
-	dma_addr_t user_count_pa = work_buf_pa + offsetof(struct qof_state, user_count);
-	u32 inst_condi_jump, inst_jump_end;
-	u64 *inst, jump_pa;
-
-	/* read data from some pa to spr for compare later */
-	cmdq_pkt_read(pkt, NULL, user_count_pa, var1);
-	lop.reg = true;
-	lop.idx = var1;
-	rop.reg = false;
-	rop.value = 1;
-	/* mark condition jump and change offset later */
-	inst_condi_jump = pkt->cmd_buf_size;
-	cmdq_pkt_assign_command(pkt, reg_jump, 0);
-
-	/* case: counter > 1 */
-	cmdq_pkt_cond_jump_abs(pkt, reg_jump, &lop, &rop, CMDQ_EQUAL);
-	/* now fill in code that condition not match, here is nop jump */
-	// cmdq_pkt_write(pkt, NULL, imgsys_dev->time_ans_pa, 0xadddead, ~0);
-
-	inst_jump_end = pkt->cmd_buf_size;
-	/* Finsih else statement, jump to the end of if-else braces.
-	*  Assign jump address as zero initially and we will modify it later.
-	*/
-	cmdq_pkt_jump_addr(pkt, 0);
-
-	/* following instructinos is condition TRUE,
-	   thus conditional jump should jump current offset
-	*/
-	inst = cmdq_pkt_get_va_by_offset(pkt, inst_condi_jump);
-	jump_pa = cmdq_pkt_get_pa_by_offset(pkt, pkt->cmd_buf_size);
-	*inst = *inst & ((u64)0xFFFFFFFF << 32);
-	*inst = *inst | CMDQ_REG_SHIFT_ADDR(jump_pa);
-
-	/* now fill in code that condition match */
-	/* case: counter == 1 */
-	mtk_imgsys_cmdq_power_ctrl(imgsys_dev, true, pkt, pwr);
-
-	/* this is the end of whole condition, thus condition FALSE part should jump here */
-	jump_pa = cmdq_pkt_get_pa_by_offset(pkt, pkt->cmd_buf_size);
-	inst = cmdq_pkt_get_va_by_offset(pkt, inst_jump_end);
-	*inst = *inst & ((u64)0xFFFFFFFF << 32);
-	*inst = *inst | CMDQ_REG_SHIFT_ADDR(jump_pa);
-}
-
-static void imgsys_cmdq_power_off_locked(struct mtk_imgsys_dev *imgsys_dev,
-		struct cmdq_pkt *pkt, dma_addr_t work_buf_pa,
-		const struct imgsys_mtcmos_data *pwr)
-{
-	struct cmdq_operand lop, rop;
-	/* spr is gce per-thread internal 32bit ram, use as variable */
-	const u16 reg_jump = CMDQ_THR_SPR_IDX1;
-	const u16 var1 = CMDQ_THR_SPR_IDX2;
-	dma_addr_t user_count_pa = work_buf_pa + offsetof(struct qof_state, user_count);
-	u32 inst_condi_jump, inst_jump_end;
-	u64 *inst, jump_pa;
-
-	/* read data from some pa to spr for compare later */
-	cmdq_pkt_read(pkt, NULL, user_count_pa, var1);
-	lop.reg = true;
-	lop.idx = var1;
-	rop.reg = false;
-	rop.value = 0;
-	/* mark condition jump and change offset later */
-	inst_condi_jump = pkt->cmd_buf_size;
-	cmdq_pkt_assign_command(pkt, reg_jump, 0);
-
-	cmdq_pkt_cond_jump_abs(pkt, reg_jump, &lop, &rop, CMDQ_EQUAL);
-	/* now fill in code that condition not match */
-	/* case: counter >= 0 */
-	// cmdq_pkt_write(pkt, NULL, imgsys_dev->time_ans_sub_pa, 0xddadead, ~0);
-
-	inst_jump_end = pkt->cmd_buf_size;
-	/* Finsih else statement, jump to the end of if-else braces.
-	*  Assign jump address as zero initially and we will modify it later.
-	*/
-	cmdq_pkt_jump_addr(pkt, 0);
-
-	/* following instructinos is condition TRUE,
-	* thus conditional jump should jump current offset
-	*/
-	inst = cmdq_pkt_get_va_by_offset(pkt, inst_condi_jump);
-	jump_pa = cmdq_pkt_get_pa_by_offset(pkt, pkt->cmd_buf_size);
-	*inst = *inst & ((u64)0xFFFFFFFF << 32);
-	*inst = *inst | CMDQ_REG_SHIFT_ADDR(jump_pa);
-	/* now fill in code that condition match, here is nop jump */
-	/* case: counter == 0 */
-	mtk_imgsys_cmdq_power_ctrl(imgsys_dev, false, pkt, pwr);
-
-	/* this is end of whole condition, thus condition FALSE part should jump here */
-	jump_pa = cmdq_pkt_get_pa_by_offset(pkt, pkt->cmd_buf_size);
-	inst = cmdq_pkt_get_va_by_offset(pkt, inst_jump_end);
-	*inst = *inst & ((u64)0xFFFFFFFF << 32);
-	*inst = *inst | CMDQ_REG_SHIFT_ADDR(jump_pa);
-}
-
-static void imgsys_user_count_operation(struct cmdq_pkt *pkt, dma_addr_t work_buf_pa,
-		enum CMDQ_LOGIC_ENUM s_op)
-{
-	dma_addr_t user_count_pa;
-	const u16 var1 = CMDQ_THR_SPR_IDX2;
-	struct cmdq_operand lop;
-	struct cmdq_operand rop;
-
-	/* Load user_count from DRAM to register */
-	user_count_pa = work_buf_pa + offsetof(struct qof_state, user_count);
-	cmdq_pkt_read(pkt, NULL, user_count_pa, var1);
-
-	lop.reg = true;
-	lop.idx = var1;
-	rop.reg = false;
-	rop.value = 1;
-	cmdq_pkt_logic_command(pkt,
-			s_op, CMDQ_THR_SPR_IDX2, &lop, &rop);
-	cmdq_pkt_write_indriect(pkt, NULL, user_count_pa, CMDQ_THR_SPR_IDX2, ~0);
-}
-
-static void imgsys_cmdq_start_power_on_task(struct mtk_imgsys_dev *imgsys_dev,
-		struct cmdq_client *client, u32 pwr_id,
-		struct qof_events *event)
-{
-	struct cmdq_pkt *pwr_on_pkt;
-	dma_addr_t work_buf_pa;
-
-	if (pwr_id >= isp8_mtcmos_data_SIZE) {
-		pr_info("%s:mtcmos id is invalid\n", __func__);
-		return;
-	}
-
-	pwr_on_pkt = pwr_buf_handle[pwr_id].on_pkt;
-
-	/* Power on kernel thread */
-	cmdq_mbox_enable(client->chan);
-
-	if (!pwr_on_pkt) {
-		pwr_on_pkt = pwr_buf_handle[pwr_id].on_pkt = cmdq_pkt_create(client);
-		if (!pwr_on_pkt) {
-			pr_info("%s:create cmdq package fail\n", __func__);
-			return;
-		}
-	}
-
-	/* Program start */
-	/* Wait for power on event */
-	cmdq_pkt_wfe(pwr_on_pkt, event->trig_pwr_on);
-
-	/* Reset footprint */
-	imgsys_set_footprint(pwr_on_pkt, imgsys_dev->qof_work_buf_pa, 0, CMDQ_LOGIC_AND);
-
-	/* Increase user counter */
-	//work_buf_pa = imgsys_dev->work_buf_pa + pwr_id * sizeof(struct qof_state);
-	if (pwr_id == ISP8_ISP_DIP) {
-		work_buf_pa = imgsys_dev->work_buf_pa;
-		imgsys_set_footprint(pwr_on_pkt, imgsys_dev->qof_work_buf_pa, (QOF_FP_USER_DIP|QOF_FP_PWR_ON), CMDQ_LOGIC_OR);
-	} else {
-		work_buf_pa = imgsys_dev->traw_work_buf_pa;
-		imgsys_set_footprint(pwr_on_pkt, imgsys_dev->qof_work_buf_pa, (QOF_FP_USER_TRAW|QOF_FP_PWR_ON), CMDQ_LOGIC_OR);
-	}
-	imgsys_user_count_operation(pwr_on_pkt, work_buf_pa, CMDQ_LOGIC_ADD);
-
-	imgsys_cmdq_power_on_locked(imgsys_dev, pwr_on_pkt,
-			work_buf_pa, &isp8_mtcmos_data[pwr_id]);
-
-	/* MTCMOS is power on, notify caller thread */
-	cmdq_pkt_clear_event(pwr_on_pkt, event->trig_pwr_on);
-	cmdq_pkt_set_event(pwr_on_pkt, event->pwr_hand_shake);
-
-	/* Program end */
-	pwr_on_pkt->priority = IMGSYS_PRI_HIGH;
-	cmdq_pkt_finalize_loop(pwr_on_pkt);
-	//cmdq_dump_pkt(pwr_on_pkt, 0, true);
-	cmdq_pkt_flush_async(pwr_on_pkt, NULL, (void *)pwr_on_pkt);
-}
-
-static void imgsys_cmdq_start_power_off_task(struct mtk_imgsys_dev *imgsys_dev,
-		struct cmdq_client *client, u32 pwr_id,
-		struct qof_events *event)
-{
-	struct cmdq_pkt *pwr_off_pkt;
-	dma_addr_t work_buf_pa;
-
-	if (pwr_id >= isp8_mtcmos_data_SIZE) {
-		pr_info("%s:mtcmos id is invalid\n", __func__);
-		return;
-	}
-
-	pwr_off_pkt = pwr_buf_handle[pwr_id].off_pkt;
-
-	/* Power off GCE thread */
-	cmdq_mbox_enable(client->chan);
-
-	if (!pwr_off_pkt) {
-		pwr_off_pkt = pwr_buf_handle[pwr_id].off_pkt = cmdq_pkt_create(client);
-		if (!pwr_off_pkt) {
-			pr_info("%s:create cmdq package fail\n", __func__);
-			return;
-		}
-	}
-
-	/* Program start */
-	cmdq_pkt_wfe(pwr_off_pkt, event->trig_pwr_off);
-
-	/* Reset footprint */
-	imgsys_set_footprint(pwr_off_pkt, imgsys_dev->qof_work_buf_pa, 0, CMDQ_LOGIC_AND);
-
-	/* Decrease user counter */
-	//work_buf_pa = imgsys_dev->work_buf_pa + pwr_id * sizeof(struct qof_state);
-	if (pwr_id == ISP8_ISP_DIP) {
-		work_buf_pa = imgsys_dev->work_buf_pa;
-		imgsys_set_footprint(pwr_off_pkt, imgsys_dev->qof_work_buf_pa, (QOF_FP_USER_DIP|QOF_FP_PWR_OFF), CMDQ_LOGIC_OR);
-	} else {
-		work_buf_pa = imgsys_dev->traw_work_buf_pa;
-		imgsys_set_footprint(pwr_off_pkt, imgsys_dev->qof_work_buf_pa, (QOF_FP_USER_TRAW|QOF_FP_PWR_OFF), CMDQ_LOGIC_OR);
-	}
-	imgsys_user_count_operation(pwr_off_pkt, work_buf_pa, CMDQ_LOGIC_SUBTRACT);
-
-	imgsys_cmdq_power_off_locked(imgsys_dev, pwr_off_pkt,
-			work_buf_pa, &isp8_mtcmos_data[pwr_id]);
-	/* clr trig pwr off event */
-	cmdq_pkt_clear_event(pwr_off_pkt, event->trig_pwr_off);
-
-	cmdq_pkt_set_event(pwr_off_pkt, event->pwr_off);
-
-	/* Program end */
-	pwr_off_pkt->priority = IMGSYS_PRI_HIGH;
-	cmdq_pkt_finalize_loop(pwr_off_pkt);
-	//cmdq_dump_pkt(pwr_off_pkt, 0, true);
-	cmdq_pkt_flush_async(pwr_off_pkt, NULL, (void *)pwr_off_pkt);
-}
-
-static void imgsys_cmdq_stop_power_tasks(struct mtk_imgsys_dev *imgsys_dev,
-		struct cmdq_client *clt_on, struct cmdq_client *clt_off, u32 pwr_id)
-{
-	cmdq_pkt_destroy(pwr_buf_handle[pwr_id].on_pkt);
-	cmdq_pkt_destroy(pwr_buf_handle[pwr_id].off_pkt);
-	pwr_buf_handle[pwr_id].on_pkt = pwr_buf_handle[pwr_id].off_pkt = NULL;
-
-	cmdq_mbox_disable(clt_on->chan);
-	cmdq_mbox_disable(clt_off->chan);
-}
-
-static void imgsys_cmdq_init_pwr_thread(struct mtk_imgsys_dev *imgsys_dev)
+static void imgsys_cmdq_qof_init_pwr_thread(struct mtk_imgsys_dev *imgsys_dev)
 {
 	struct device *dev = imgsys_dev->dev;
 	u32 idx = 0, thd_idx = 0;
 
 	for (thd_idx = IMGSYS_NOR_THD; thd_idx < IMGSYS_NOR_THD + IMGSYS_PWR_THD; thd_idx++) {
 		idx = thd_idx - IMGSYS_NOR_THD;
-		if (idx < QOF_TOTAL_THREAD) {
+#ifdef QOF_SUPPORT_SMI_GCE_CALLBACK
+		if (thd_idx != QOF_GCE_THREAD_SMI_CB) {
 			imgsys_pwr_clt[thd_idx - IMGSYS_NOR_THD] = cmdq_mbox_create(dev, thd_idx);
-			pr_info(
+			QOF_LOGI(
 				"%s: cmdq_mbox_create pwr_thd(%d, 0x%lx)\n",
 				__func__, thd_idx, (unsigned long)imgsys_pwr_clt[thd_idx - IMGSYS_NOR_THD]);
 		} else {
-			pr_err("[%s] thread indexs are not match ! [thd_id: %d][index: %d][total pwr thd num: %d/%d]\n",
+			thd_idx = QOF_GCE_THREAD_SMI_CB;
+			smi_cb_pwr_ctl = cmdq_mbox_create(dev, thd_idx);
+			QOF_LOGI(
+				"%s: cmdq_mbox_create smi_cb_pwr_thd(%d, 0x%lx)\n",
+				__func__, thd_idx, (unsigned long)smi_cb_pwr_ctl);
+		}
+#else
+		if (idx < QOF_TOTAL_THREAD) {
+			imgsys_pwr_clt[thd_idx - IMGSYS_NOR_THD] = cmdq_mbox_create(dev, thd_idx);
+			QOF_LOGI(
+				"%s: cmdq_mbox_create pwr_thd(%d, 0x%lx)\n",
+				__func__, thd_idx, (unsigned long)imgsys_pwr_clt[thd_idx - IMGSYS_NOR_THD]);
+		} else {
+			imgsys_pwr_clt[thd_idx - IMGSYS_NOR_THD] = NULL;
+			QOF_LOGI("qof [%s] thread indexs are not match !
+				[thd_id: %d][index: %d][total pwr thd num: %d/%d]\n",
 				__func__, thd_idx, idx, QOF_TOTAL_THREAD, IMGSYS_PWR_THD);
 		}
+#endif
 	}
 }
 
-/** Global api
- * @brief List Global api
- */
+static void qof_cmdq_set_module_rst(struct mtk_imgsys_dev *imgsys_dev,
+		struct cmdq_pkt *pkt,
+		const struct imgsys_mtcmos_data *pwr)
+{
+
+	if (imgsys_dev == NULL || pkt == NULL || pwr == NULL) {
+		QOF_LOGE("param is null (%d/%d/%d)\n",
+			(imgsys_dev == NULL), (pkt == NULL), (pwr == NULL));
+		return;
+	}
+
+	QOF_LOGI("imgsys_cmdq_restore_locked pwr->pwr_id = %d\n",pwr->pwr_id);
+	switch (pwr->pwr_id) {
+	case ISP8_PWR_DIP:
+		if (imgsys_dev->modules[IMGSYS_MOD_DIP].cmdq_set)
+			imgsys_dev->modules[IMGSYS_MOD_DIP].cmdq_set(imgsys_dev, pkt, REG_MAP_E_DIP);
+		else
+			QOF_LOGE("cmdq_set function pointer is null\n");
+		break;
+	case ISP8_PWR_TRAW:
+		if (imgsys_dev->modules[IMGSYS_MOD_TRAW].cmdq_set)
+			imgsys_dev->modules[IMGSYS_MOD_TRAW].cmdq_set(imgsys_dev, pkt, REG_MAP_E_TRAW);
+		else
+			QOF_LOGE("cmdq_set function pointer is null\n");
+		break;
+	case ISP8_PWR_WPE_1_EIS:
+		if (imgsys_dev->modules[IMGSYS_MOD_WPE].cmdq_set)
+			imgsys_dev->modules[IMGSYS_MOD_WPE].cmdq_set(imgsys_dev, pkt, REG_MAP_E_WPE_EIS);
+		else
+			QOF_LOGE("cmdq_set function pointer is null\n");
+		if (imgsys_dev->modules[IMGSYS_MOD_PQDIP].cmdq_set)
+			imgsys_dev->modules[IMGSYS_MOD_PQDIP].cmdq_set(imgsys_dev, pkt, REG_MAP_E_PQDIP_A);
+		else
+			QOF_LOGE("cmdq_set function pointer is null\n");
+		break;
+	case ISP8_PWR_WPE_2_TNR:
+		if (imgsys_dev->modules[IMGSYS_MOD_OMC].cmdq_set)
+			imgsys_dev->modules[IMGSYS_MOD_OMC].cmdq_set(imgsys_dev, pkt, REG_MAP_E_OMC_TNR);
+		else
+			QOF_LOGE("cmdq_set function pointer is null\n");
+		if (imgsys_dev->modules[IMGSYS_MOD_PQDIP].cmdq_set)
+			imgsys_dev->modules[IMGSYS_MOD_PQDIP].cmdq_set(imgsys_dev, pkt, REG_MAP_E_PQDIP_B);
+		else
+			QOF_LOGE("cmdq_set function pointer is null\n");
+		break;
+	case ISP8_PWR_WPE_3_LITE:
+		if (imgsys_dev->modules[IMGSYS_MOD_WPE].cmdq_set)
+			imgsys_dev->modules[IMGSYS_MOD_WPE].cmdq_set(imgsys_dev, pkt, REG_MAP_E_WPE_LITE);
+		else
+			QOF_LOGE("cmdq_set function pointer is null\n");
+		if (imgsys_dev->modules[IMGSYS_MOD_OMC].cmdq_set)
+			imgsys_dev->modules[IMGSYS_MOD_OMC].cmdq_set(imgsys_dev, pkt, REG_MAP_E_OMC_LITE);
+		else
+			QOF_LOGE("cmdq_set function pointer is null\n");
+		break;
+	default:
+		QOF_LOGE("case invalid[%u]\n", pwr->pwr_id);
+		break;
+	}
+}
+
+static void imgsys_cmdq_restore_locked(struct mtk_imgsys_dev *imgsys_dev,
+		struct cmdq_pkt *pkt,
+		const struct imgsys_mtcmos_data *pwr)
+{
+	if (imgsys_dev == NULL || pkt == NULL || pwr == NULL) {
+		QOF_LOGE("param is null (%d/%d/%d)\n",
+			(imgsys_dev == NULL), (pkt == NULL), (pwr == NULL));
+		return;
+	}
+
+	/* ungate CG */
+	if (pwr->cg_ungating)
+		pwr->cg_ungating(pkt, pwr->cg_data, imgsys_dev->qof_work_buf_pa);
+
+	/* reset larb golden */
+	if (pwr->set_larb_golden)
+		pwr->set_larb_golden(pkt);
+
+	/* set module rst */
+	qof_cmdq_set_module_rst(imgsys_dev, pkt, pwr);
+
+	/* reset module after power on */
+	if (pwr->direct_link_reset)
+		pwr->direct_link_reset(pkt);
+
+	/* register qof */
+	if (pwr->qof_restore_done)
+		pwr->qof_restore_done(pkt, pwr->pwr_id);
+}
+
+static void qof_start_pwr_restore_task(struct mtk_imgsys_dev *imgsys_dev,
+		struct cmdq_client *client, u32 pwr_id,
+		struct qof_events *event)
+{
+	struct cmdq_pkt *restore_pkt;
+
+	if (pwr_id > IMG_GCE_THREAD_PWR_END) {
+		QOF_LOGI("%s:qof mtcmos id is invalid %u\n", __func__, pwr_id);
+		return;
+	}
+
+	restore_pkt = pwr_buf_handle[pwr_id].restore_pkt;
+
+	/* Power on kernel thread */
+	cmdq_mbox_enable(client->chan);
+
+	if (!restore_pkt) {
+		restore_pkt = pwr_buf_handle[pwr_id].restore_pkt = cmdq_pkt_create(client);
+		if (!restore_pkt) {
+			QOF_LOGI("%s:create cmdq package fail\n", __func__);
+			return;
+		}
+	}
+
+	/* Program start */
+	/* Wait for restore hw event */
+	cmdq_pkt_wfe(restore_pkt, event->hw_event_restore);
+
+	imgsys_cmdq_restore_locked(imgsys_dev, restore_pkt,
+			 &isp8_module_data[pwr_id]);
+
+	/* Program end */
+	restore_pkt->priority = IMGSYS_PRI_HIGH;
+	cmdq_pkt_finalize_loop(restore_pkt);
+	cmdq_pkt_flush_async(restore_pkt, NULL, (void *)restore_pkt);
+}
+
+void mtk_imgsys_cmdq_qof_run_gce_loop(struct mtk_imgsys_dev *imgsys_dev)
+{
+	struct qof_events *qof_event;
+	u32 pwr = ISP8_PWR_START, th_id = IMG_GCE_THREAD_PWR_START;
+
+	if (!imgsys_dev) {
+		cmdq_err("qof imgsys_dev is NULL");
+		return;
+	}
+
+	for (; (pwr < ISP8_PWR_NUM) && (th_id <= IMG_GCE_THREAD_PWR_END); pwr++, th_id++) {
+		qof_event = &qof_events_isp8[pwr];
+		/* Initial power restore thread */
+#ifdef QOF_SUPPORT_SMI_GCE_CALLBACK
+		if(imgsys_pwr_clt[th_id] && (th_id != IMG_GCE_THREAD_WPE_3_LITE))
+			qof_start_pwr_restore_task(imgsys_dev, imgsys_pwr_clt[th_id], pwr, qof_event);
+		else
+			QOF_LOGE("qof imgsys_pwr_clt[%u] = null thid=%d\n", pwr, th_id);
+#else
+		if(imgsys_pwr_clt[th_id])
+			qof_start_pwr_restore_task(imgsys_dev, imgsys_pwr_clt[th_id], pwr, qof_event);
+		else
+			QOF_LOGE("qof imgsys_pwr_clt[%u] = null thid=%d\n", pwr, th_id);
+#endif
+	}
+}
+
 void mtk_imgsys_cmdq_qof_init(struct mtk_imgsys_dev *imgsys_dev, struct cmdq_client *imgsys_clt)
 {
 	int ver = 0;
-	int dump_rg_idx = 0;
+	int rg_idx = 0;
 
+	QOF_LOGI("[%s] mtk_imgsys_cmdq_qof_init  start\n", __func__);
 	if (of_property_read_u32_index(imgsys_dev->dev->of_node,
 		"mediatek,imgsys-qof-ver", 0, &ver) == 0)
-		pr_info("[%s] qof version = %u\n", __func__, ver);
+		QOF_LOGI("[%s] qof version = %u\n", __func__, ver);
+
+	/* init global val */
 	imgsys_dev->qof_ver = ver;
 	g_qof_ver = ver;
+	g_imgsys_dev = imgsys_dev;
+	g_qof_debug_level = 0;
+	qof_smi_client = NULL;
+	smi_cb_pwr_ctl = NULL;
+
+	atomic_set(&imgsys_voter_cnt, 0);
 
 	if (imgsys_dev->qof_ver == MTK_IMGSYS_QOF_FUNCTION_OFF)
 		return;
 
-	/* create pwr thread */
-	imgsys_cmdq_init_pwr_thread(imgsys_dev);
+	QOF_LOGI("[%s] mtk_imgsys_cmdq_qof_init  qof version = %u\n", __func__, ver);
 
-	/* configure qof events ISP_DIP */
+	imgsys_cmdq_qof_init_pwr_thread(imgsys_dev);
+
 	imgsys_cmdq_init_qof_events();
 
-	/* allocate work buf */
-	imgsys_cmdq_qof_alloc_buf(imgsys_clt, &(imgsys_dev->work_buf_va), &(imgsys_dev->work_buf_pa));
-	imgsys_cmdq_qof_alloc_buf(imgsys_clt, &(imgsys_dev->traw_work_buf_va), &(imgsys_dev->traw_work_buf_pa));
-	imgsys_cmdq_qof_alloc_buf(imgsys_clt, &(imgsys_dev->qof_work_buf_va), &(imgsys_dev->qof_work_buf_pa));
-	g_dip_work_buf_va = &(imgsys_dev->work_buf_va);
-	g_traw_work_buf_va = &(imgsys_dev->traw_work_buf_va);
-	g_qof_work_buf_va = &(imgsys_dev->qof_work_buf_va);
+	mtk_imgsys_cmdq_qof_run_gce_loop(imgsys_dev);
 
-	/* Set global param */
-	g_qof_dump_reg[DUMP_RG_DIP_PWR_CON] 			= ioremap(IMG_ISP_DIP_PWR_CON, 4);
-	g_qof_dump_reg[DUMP_RG_TRAW_PWR_CON] 			= ioremap(IMG_TRAW_PWR_CON, 4);
-	g_qof_dump_reg[DUMP_RG_CG_IMGSYS_MAIN] 			= ioremap(IMG_CG_IMGSYS_MAIN, 4);
-	g_qof_dump_reg[DUMP_RG_CG_TRAW_DIP1] 			= ioremap(IMG_CG_TRAW_DIP1, 4);
-	g_qof_dump_reg[DUMP_RG_CG_TRAW_CAP_DIP] 		= ioremap(IMG_CG_TRAW_CAP_DIP, 4);
-	g_qof_dump_reg[DUMP_RG_CG_DIP_NR1_DIP1] 		= ioremap(IMG_CG_DIP_NR1_DIP1, 4);
-	g_qof_dump_reg[DUMP_RG_CG_DIP_NR2_DIP1] 		= ioremap(IMG_CG_DIP_NR2_DIP1, 4);
-	g_qof_dump_reg[DUMP_RG_CG_DIP_TOP_DIP1] 		= ioremap(IMG_CG_DIP_TOP_DIP1, 4);
-	g_qof_dump_reg[DUMP_RG_CG_WPE1_DIP1] 			= ioremap(IMG_CG_WPE1_DIP1, 4);
-	g_qof_dump_reg[DUMP_RG_CG_WPE2_DIP1] 			= ioremap(IMG_CG_WPE2_DIP1, 4);
-	g_qof_dump_reg[DUMP_RG_CG_WPE3_DIP1] 			= ioremap(IMG_CG_WPE3_DIP1, 4);
-	g_qof_dump_reg[DUMP_RG_VOTER_ON] 				= ioremap(HWCCF_BASE + HWCCF_GCE_OFST + isp8_mtcmos_data[ISP8_ISP_DIP].vote_on_ofs, 4);
-	g_qof_dump_reg[DUMP_RG_VOTER_OFF] 				= ioremap(HWCCF_BASE + HWCCF_GCE_OFST + isp8_mtcmos_data[ISP8_ISP_DIP].vote_off_ofs, 4);
-	g_qof_dump_reg[DUMP_RG_HWV_DONE] 				= ioremap(HWCCF_BASE + isp8_mtcmos_data[ISP8_ISP_DIP].hwv_done_ofs, 4);
-	g_qof_dump_reg[DUMP_RG_CCF_MTCMOS_SET_STA] 		= ioremap(IMG_CCF_MTCMOS_SET_STA, 4);
-	g_qof_dump_reg[DUMP_RG_CCF_MTCMOS_CLR_STA] 		= ioremap(IMG_CCF_MTCMOS_CLR_STA, 4);
-	g_qof_dump_reg[DUMP_RG_HWV_SW_RECORD]			= ioremap(IMG_HWV_SW_RECORD, 4);
-	g_qof_dump_reg[DUMP_RG_HW_CCF_MTCMOS_STATUS]	= ioremap(IMG_HW_CCF_MTCMOS_STATUS, 4);
-	g_qof_dump_reg[DUMP_RG_HW_CCF_MTCMOS_STATUS_CLR]= ioremap(IMG_HW_CCF_MTCMOS_STATUS_CLR, 4);
-	g_qof_dump_reg[DUMP_RG_HW_CCF_MTCMOS_ENABLE]	= ioremap(IMG_HW_CCF_MTCMOS_ENABLE, 4);
-	g_qof_dump_reg[DUMP_RG_CCF_INT_STATUS]			= ioremap(IMG_HW_CCF_INT_STATUS, 4);
+	qof_create_smi_cb_thread();
 
-	for (dump_rg_idx = DUMP_RG_START; dump_rg_idx < DUMP_RG_TOTAL_NUM; dump_rg_idx++) {
-		if (!g_qof_dump_reg[dump_rg_idx]) {
-			pr_err("%s Unable to ioremap %d registers !\n",
-				__func__, dump_rg_idx);
+	qof_create_smi_const_pkt();
+
+	/* smi cb register */
+	if (IS_MOD_SUPPORT_QOF(ISP8_PWR_DIP))
+		mtk_smi_dbg_register_pwr_ctrl_cb(&smi_isp_dip_pwr_cb);
+	if (IS_MOD_SUPPORT_QOF(ISP8_PWR_TRAW))
+		mtk_smi_dbg_register_pwr_ctrl_cb(&smi_isp_traw_pwr_cb);
+	if (IS_MOD_SUPPORT_QOF(ISP8_PWR_WPE_1_EIS))
+		mtk_smi_dbg_register_pwr_ctrl_cb(&smi_isp_wpe1_eis_pwr_cb);
+	if (IS_MOD_SUPPORT_QOF(ISP8_PWR_WPE_2_TNR))
+		mtk_smi_dbg_register_pwr_ctrl_cb(&smi_isp_wpe2_tnr_pwr_cb);
+	if (IS_MOD_SUPPORT_QOF(ISP8_PWR_WPE_3_LITE))
+		mtk_smi_dbg_register_pwr_ctrl_cb(&smi_isp_wpe3_lite_pwr_cb);
+
+	/* ioremap rg */
+	g_maped_rg[MAPED_RG_ISP_TRAW_PWR_CON]		= ioremap(ISP_TRAW_PWR_CON, 4);
+	g_maped_rg[MAPED_RG_ISP_DIP_PWR_CON]		= ioremap(ISP_DIP_PWR_CON, 4);
+	g_maped_rg[MAPED_RG_ISP_MAIN_PWR_CON]		= ioremap(ISP_MAIN_PWR_CON, 4);
+	g_maped_rg[MAPED_RG_ISP_VCORE_PWR_CON]		= ioremap(ISP_VCORE_PWR_CON, 4);
+	g_maped_rg[MAPED_RG_ISP_WPE_EIS_PWR_CON]	= ioremap(ISP_WPE_EIS_PWR_CON, 4);
+	g_maped_rg[MAPED_RG_ISP_WPE_TNR_PWR_CON]	= ioremap(ISP_WPE_TNR_PWR_CON, 4);
+	g_maped_rg[MAPED_RG_ISP_WPE_LITE_PWR_CON]	= ioremap(ISP_WPE_LITE_PWR_CON, 4);
+	g_maped_rg[MAPED_RG_IMG_CG_IMGSYS_MAIN]		= ioremap(IMG_CG_IMGSYS_MAIN, 4);
+	g_maped_rg[MAPED_RG_IMG_CG_DIP_NR1_DIP1]	= ioremap(IMG_CG_DIP_NR1_DIP1, 4);
+	g_maped_rg[MAPED_RG_IMG_CG_DIP_NR2_DIP1]	= ioremap(IMG_CG_DIP_NR2_DIP1, 4);
+	g_maped_rg[MAPED_RG_IMG_CG_DIP_TOP_DIP1]	= ioremap(IMG_CG_DIP_TOP_DIP1, 4);
+	g_maped_rg[MAPED_RG_IMG_CG_TRAW_CAP_DIP1]	= ioremap(IMG_CG_TRAW_CAP_DIP1, 4);
+	g_maped_rg[MAPED_RG_IMG_CG_TRAW_DIP1]		= ioremap(IMG_CG_TRAW_DIP1, 4);
+	g_maped_rg[MAPED_RG_IMG_CG_WPE1_DIP1]		= ioremap(IMG_CG_WPE1_DIP1, 4);
+	g_maped_rg[MAPED_RG_IMG_CG_WPE2_DIP1]		= ioremap(IMG_CG_WPE2_DIP1, 4);
+	g_maped_rg[MAPED_RG_IMG_CG_WPE3_DIP1]		= ioremap(IMG_CG_WPE3_DIP1, 4);
+	g_maped_rg[MAPED_RG_IMG_LARB10_BASE]		= ioremap(IMG_LARB10_BASE, 4);
+	g_maped_rg[MAPED_RG_IMG_LARB11_BASE]		= ioremap(IMG_LARB11_BASE, 4);
+	g_maped_rg[MAPED_RG_IMG_LARB15_BASE]		= ioremap(IMG_LARB15_BASE, 4);
+	g_maped_rg[MAPED_RG_IMG_LARB22_BASE]		= ioremap(IMG_LARB22_BASE, 4);
+	g_maped_rg[MAPED_RG_IMG_LARB23_BASE]		= ioremap(IMG_LARB23_BASE, 4);
+	g_maped_rg[MAPED_RG_IMG_LARB38_BASE]		= ioremap(IMG_LARB38_BASE, 4);
+	g_maped_rg[MAPED_RG_IMG_LARB39_BASE]		= ioremap(IMG_LARB39_BASE, 4);
+	g_maped_rg[MAPED_RG_IMG_LARB28_BASE]		= ioremap(IMG_LARB28_BASE, 4);
+	g_maped_rg[MAPED_RG_IMG_LARB40_BASE]		= ioremap(IMG_LARB40_BASE, 4);
+	g_maped_rg[MAPED_RG_QOF_REG_BASE]			= ioremap(QOF_REG_BASE, 4);
+	g_maped_rg[MAPED_RG_MMPC_REG_BASE]			= ioremap(MMPC_REG_BASE, 4);
+
+	for (rg_idx = MAPED_RG_LIST_START; rg_idx < MAPED_RG_LIST_NUM; rg_idx++) {
+		if (!g_maped_rg[rg_idx]) {
+			QOF_LOGI("qof %s Unable to ioremap %d registers !\n",
+				__func__, rg_idx);
 		}
 	}
 }
 
 void mtk_imgsys_cmdq_qof_release(struct mtk_imgsys_dev *imgsys_dev, struct cmdq_client *imgsys_clt)
 {
+	/* release resource */
 	int idx = 0;
-	int dump_rg_idx = 0;
+	int rg_idx = 0;
 
 	if (!imgsys_clt) {
 		cmdq_err("cl is NULL");
 		dump_stack();
 		return;
+	}
+	QOF_LOGI("release resource +\n");
+
+	for (idx = IMG_GCE_THREAD_PWR_START; idx < QOF_TOTAL_THREAD; idx++) {
+		if (IS_MOD_SUPPORT_QOF(idx)) {
+			if (add_gce_pkt[idx])
+				cmdq_pkt_destroy(add_gce_pkt[idx]);
+			if (sub_gce_pkt[idx])
+				cmdq_pkt_destroy(sub_gce_pkt[idx]);
+		}
 	}
 
 	for (idx = IMG_GCE_THREAD_PWR_START; idx < QOF_TOTAL_THREAD; idx++) {
@@ -880,288 +987,377 @@ void mtk_imgsys_cmdq_qof_release(struct mtk_imgsys_dev *imgsys_dev, struct cmdq_
 		imgsys_pwr_clt[idx] = NULL;
 	}
 
-	for (dump_rg_idx = DUMP_RG_START; dump_rg_idx < DUMP_RG_TOTAL_NUM; dump_rg_idx++) {
-		if (g_qof_dump_reg[dump_rg_idx])
-			iounmap(g_qof_dump_reg[dump_rg_idx]);
+	for (rg_idx = MAPED_RG_LIST_START; rg_idx < MAPED_RG_LIST_NUM; rg_idx++) {
+		if (g_maped_rg[rg_idx])
+			iounmap(g_maped_rg[rg_idx]);
 	}
-
-	cmdq_mbox_buf_free(imgsys_clt, imgsys_dev->work_buf_va, imgsys_dev->work_buf_pa);
-	cmdq_mbox_buf_free(imgsys_clt, imgsys_dev->traw_work_buf_va, imgsys_dev->traw_work_buf_pa);
-	cmdq_mbox_buf_free(imgsys_clt, imgsys_dev->qof_work_buf_va, imgsys_dev->qof_work_buf_pa);
+	if(smi_cb_pwr_ctl)
+		cmdq_mbox_destroy(smi_cb_pwr_ctl);
+	QOF_LOGI("release resource -\n");
 }
 
-void mtk_imgsys_cmdq_qof_streamon(struct mtk_imgsys_dev *imgsys_dev)
+static bool qof_check_pwr_state(const u32 mod, u32 check_mode)
 {
-	struct qof_state *qof;
-	struct qof_events *qof_event;
-	u32 pwr = ISP8_ISP_DIP, th_id = IMG_GCE_THREAD_PWR_START;
+	mtk_qof_print_mtcmos_status();
+	return true;
+	if (check_mode == CHECK_MTCMOS) {
+		switch(mod) {
+		case QOF_SUPPORT_DIP:
+			return IS_CON_PWR_ON(readl(g_maped_rg[MAPED_RG_ISP_DIP_PWR_CON]));
+		case QOF_SUPPORT_TRAW:
+			return IS_CON_PWR_ON(readl(g_maped_rg[MAPED_RG_ISP_TRAW_PWR_CON]));
+		case QOF_SUPPORT_WPE_EIS:
+			return IS_CON_PWR_ON(readl(g_maped_rg[MAPED_RG_ISP_WPE_EIS_PWR_CON]));
+		case QOF_SUPPORT_WPE_TNR:
+			return IS_CON_PWR_ON(readl(g_maped_rg[MAPED_RG_ISP_WPE_TNR_PWR_CON]));
+		case QOF_SUPPORT_WPE_LITE:
+			return IS_CON_PWR_ON(readl(g_maped_rg[MAPED_RG_ISP_WPE_LITE_PWR_CON]));
+		default:
+			QOF_LOGI("qof [%s] module id wrong(%u) !\n", __func__, mod);
+		}
+	} else if (check_mode == CHECK_QOF) {
+		return (readl(ioremap(qof_reg_table[mod][QOF_IMG_QOF_STATE_DBG].addr, 4)) & BIT(1)) == BIT(1);
+	}
 
-	if (!imgsys_dev) {
-		cmdq_err("imgsys_dev is NULL");
-		dump_stack();
+	return false;
+}
+
+static void qof_set_engine_on(const u32 mod)
+{
+	void __iomem *io_addr;
+	int tmp;
+
+	if(IS_MOD_SUPPORT_QOF(mod) == false)
+		return;
+
+	QOF_LOGI("engine on mod[%d]+\n", mod);
+
+	/* Add voter */
+	io_addr = QOF_GET_REMAP_ADDR(qof_reg_table[mod][QOF_IMG_APMCU_SET].addr);
+	write_mask(io_addr,
+		qof_reg_table[mod][QOF_IMG_APMCU_SET].val,
+		qof_reg_table[mod][QOF_IMG_APMCU_SET].mask);
+	/* Init setting */
+	io_addr = QOF_GET_REMAP_ADDR(qof_reg_table[mod][QOF_IMG_HW_CLR_EN].addr);
+	write_mask(io_addr,
+		qof_reg_table[mod][QOF_IMG_HW_CLR_EN].val,
+		qof_reg_table[mod][QOF_IMG_HW_CLR_EN].mask);
+	io_addr = QOF_GET_REMAP_ADDR(qof_reg_table[mod][QOF_IMG_HW_SET_EN].addr);
+	write_mask(io_addr,
+		qof_reg_table[mod][QOF_IMG_HW_SET_EN].val,
+		qof_reg_table[mod][QOF_IMG_HW_SET_EN].mask);
+	io_addr = QOF_GET_REMAP_ADDR(qof_reg_table[mod][QOF_IMG_HW_SEQ_EN].addr);
+	write_mask(io_addr,
+		qof_reg_table[mod][QOF_IMG_HW_SEQ_EN].val,
+		qof_reg_table[mod][QOF_IMG_HW_SEQ_EN].mask);
+	io_addr = QOF_GET_REMAP_ADDR(qof_reg_table[mod][QOF_IMG_GCE_RESTORE_EN].addr);
+	write_mask(io_addr,
+		qof_reg_table[mod][QOF_IMG_GCE_RESTORE_EN].val,
+		qof_reg_table[mod][QOF_IMG_GCE_RESTORE_EN].mask);
+	io_addr = QOF_GET_REMAP_ADDR(qof_reg_table[mod][QOF_IMG_PWR_ACK_2ND_WAIT_TH].addr);
+	write_mask(io_addr,
+		qof_reg_table[mod][QOF_IMG_PWR_ACK_2ND_WAIT_TH].val,
+		qof_reg_table[mod][QOF_IMG_PWR_ACK_2ND_WAIT_TH].mask);
+	io_addr = QOF_GET_REMAP_ADDR(qof_reg_table[mod][QOF_IMG_PWR_ACK_WAIT_TH].addr);
+	write_mask(io_addr,
+		qof_reg_table[mod][QOF_IMG_PWR_ACK_WAIT_TH].val,
+		qof_reg_table[mod][QOF_IMG_PWR_ACK_WAIT_TH].mask);
+	/* qof engine enable */
+	io_addr = QOF_GET_REMAP_ADDR(qof_reg_table[mod][QOF_IMG_QOF_ENG_EN].addr);
+	write_mask(io_addr,
+		qof_reg_table[mod][QOF_IMG_QOF_ENG_EN].val,
+		qof_reg_table[mod][QOF_IMG_QOF_ENG_EN].mask);
+
+	io_addr =  QOF_GET_REMAP_ADDR(qof_reg_table[mod][QOF_IMG_QOF_STATE_DBG].addr);
+	if (readl_poll_timeout_atomic
+		(io_addr, tmp, (tmp & BIT(1)) == BIT(1), POLL_DELAY_US, TIMEOUT_1000US) < 0) {
+		QOF_LOGE("mod[%d] waiting for qof state pwr on timeout, disable support\n",mod);
+		mtk_imgsys_cmdq_qof_dump(0, true);
+		g_qof_ver &= (~BIT(mod));
 		return;
 	}
 
-	qof = (struct qof_state*)imgsys_dev->work_buf_va;
-	if (qof)
-		qof->user_count = 0;
-	qof = (struct qof_state*)imgsys_dev->traw_work_buf_va;
-	if (qof)
-		qof->user_count = 0;
-	qof = (struct qof_state*)imgsys_dev->qof_work_buf_va;
-	if (qof)
-		qof->user_count = 0;
+	/* qof APMCU Vote sub */
+	io_addr = QOF_GET_REMAP_ADDR(qof_reg_table[mod][QOF_IMG_APMCU_CLR].addr);
+	write_mask(io_addr,
+		qof_reg_table[mod][QOF_IMG_APMCU_CLR].val,
+		qof_reg_table[mod][QOF_IMG_APMCU_CLR].mask);
 
-	for (; pwr < ISP8_PWR_NUM && ((th_id + 1) <= IMG_GCE_THREAD_PWR_END); pwr++, th_id += 2) {
-		qof_event = &qof_events_8[pwr];
-
-		/* Initial power on thread */
-		imgsys_cmdq_start_power_on_task(imgsys_dev, imgsys_pwr_clt[th_id], pwr, qof_event);
-
-		/* Initial power off thread */
-		imgsys_cmdq_start_power_off_task(imgsys_dev, imgsys_pwr_clt[th_id + 1], pwr, qof_event);
-	}
-}
-
-void mtk_imgsys_cmdq_qof_streamoff(struct mtk_imgsys_dev *imgsys_dev)
-{
-	struct qof_events *qof_event;
-	u32 pwr = ISP8_ISP_DIP, th_id = IMG_GCE_THREAD_PWR_START;
-	int idx = 0;
-
-	for (idx = IMG_GCE_THREAD_PWR_START; idx < QOF_TOTAL_THREAD; idx++) {
-		cmdq_mbox_stop(imgsys_pwr_clt[idx]);
-	}
-
-	for (; pwr < ISP8_PWR_NUM && ((th_id + 1) <= IMG_GCE_THREAD_PWR_END); pwr++, th_id += 2) {
-		qof_event = &qof_events_8[pwr];
-		imgsys_cmdq_stop_power_tasks(imgsys_dev,
-			imgsys_pwr_clt[th_id],
-			imgsys_pwr_clt[th_id + 1],
-			pwr);
-	}
-}
-
-void mtk_imgsys_cmdq_qof_add(struct cmdq_pkt *pkt, u32 hwcomb, bool *qof_need_sub)
-{
-	struct qof_events *qof_event;
-	u32 pwr = ISP8_ISP_DIP;
-
-	if (!pkt || !qof_need_sub) {
-		cmdq_err("param is NULL");
-		dump_stack();
+	io_addr =  QOF_GET_REMAP_ADDR(qof_reg_table[mod][QOF_IMG_QOF_STATE_DBG].addr);
+	if (readl_poll_timeout_atomic
+		(io_addr, tmp, (tmp & BIT(4)) == BIT(4), POLL_DELAY_US, TIMEOUT_1000US) < 0) {
+		QOF_LOGE("mod[%d] waiting for qof state pwr off timeout, disable support\n",mod);
+		mtk_imgsys_cmdq_qof_dump(0, true);
+		g_qof_ver &= (~BIT(mod));
+		// engine off
 		return;
 	}
 
-	if (g_dbg_log_on == 1)
-		mtk_imgsys_cmdq_qof_dump(hwcomb, false);
-	for (pwr = ISP8_ISP_DIP; pwr < ISP8_PWR_NUM; pwr++) {
-		if (qof_need_sub[pwr] == false) {
-			if (hwcomb & pwr_group[pwr]) {
-				qof_event = &qof_events_8[pwr];
+	QOF_LOGI("engine on mod[%d]-\n", mod);
+}
 
-				/* Enter critical section */
-				cmdq_pkt_acquire_event(pkt, qof_event->power_ctrl);
+static void qof_set_engine_off(const u32 mod)
+{
+	void __iomem *io_addr;
 
-				cmdq_pkt_set_event(pkt, qof_event->trig_pwr_on);
+	if (IS_MOD_SUPPORT_QOF(mod) == false)
+		return;
 
-				/* Wait power on handshake done */
-				cmdq_pkt_wfe(pkt, qof_event->pwr_hand_shake);
-				cmdq_pkt_clear_event(pkt, qof_event->pwr_hand_shake);
+	QOF_LOGI("engine off mod[%d]+\n", mod);
+	mtk_imgsys_cmdq_qof_dump(0, true);
 
-				/* End of critical section */
-				cmdq_pkt_clear_event(pkt, qof_event->power_ctrl);
+	io_addr =  QOF_GET_REMAP_ADDR(qof_reg_table[mod][QOF_IMG_APMCU_SET].addr);
+	write_mask(io_addr,
+		qof_reg_table[mod][QOF_IMG_APMCU_SET].val,
+		qof_reg_table[mod][QOF_IMG_APMCU_SET].mask);
 
-				qof_need_sub[pwr] = true;
-			}
+	if (qof_check_pwr_state(mod, CHECK_QOF) == false) {
+		QOF_LOGE("qof mtk_imgsys_cmdq_qof_engine_off fail cus mtcmos is off\n");
+		mtk_imgsys_cmdq_qof_dump(0, true);
+		return;
+	}
+
+	// disable hw_seq
+	io_addr =  QOF_GET_REMAP_ADDR(qof_reg_table[mod][QOF_IMG_HW_SEQ_EN].addr);
+	write_mask(io_addr,
+		0,
+		qof_reg_table[mod][QOF_IMG_HW_SEQ_EN].mask);
+
+	//Set engine enable = 0
+	io_addr =  QOF_GET_REMAP_ADDR(qof_reg_table[mod][QOF_IMG_QOF_ENG_EN].addr);
+	write_mask(io_addr,
+		0,
+		qof_reg_table[mod][QOF_IMG_QOF_ENG_EN].mask);
+	io_addr =  QOF_GET_REMAP_ADDR(qof_reg_table[mod][QOF_IMG_APMCU_CLR].addr);
+	write_mask(io_addr,
+		qof_reg_table[mod][QOF_IMG_APMCU_CLR].val,
+		qof_reg_table[mod][QOF_IMG_APMCU_CLR].mask);
+	mtk_imgsys_qof_print_hw_info(mod);
+	QOF_LOGI("engine off mod[%d]-\n", mod);
+}
+
+void mtk_imgsys_cmdq_qof_engine_on(struct mtk_imgsys_dev *imgsys_dev)
+{
+	u32 mod = 0;
+
+	pm_runtime_get_sync(g_imgsys_dev->dev);
+	for (mod = ISP8_PWR_DIP; mod < ISP8_PWR_NUM; mod++) {
+		if ((IS_MOD_SUPPORT_QOF(mod)) &&
+			qof_check_pwr_state(mod, CHECK_MTCMOS)) {
+			qof_set_engine_on(mod);
+		} else {
+			QOF_LOGI("module[%u] not support QOF, ver[%u]\n", mod, g_qof_ver);
+		}
+	}
+	atomic_inc(&imgsys_voter_cnt);
+	mtk_imgsys_cmdq_qof_dump(0, true);
+}
+
+void mtk_imgsys_cmdq_qof_engine_off(struct mtk_imgsys_dev *imgsys_dev)
+{
+	u32 qof_module = QOF_SUPPORT_START;
+
+	atomic_dec(&imgsys_voter_cnt);
+
+	for (; qof_module < QOF_TOTAL_MODULE; qof_module++) {
+		/* engine off */
+		if (qof_check_pwr_state(qof_module, CHECK_QOF)) {
+			QOF_LOGI("qof[%u] engine off+\n", qof_module);
+			qof_set_engine_off(qof_module);
+			QOF_LOGI("qof[%u] engine off-\n", qof_module);
+		}
+	}
+	pm_runtime_put_sync(g_imgsys_dev->dev);
+}
+
+static void qof_poll_status(u32 pwr, bool enable)
+{
+	void __iomem *io_addr;
+	u32 tmp;
+	u32 val = (enable?BIT(1):BIT(4));
+
+	io_addr = QOF_GET_REMAP_ADDR(qof_reg_table[pwr][QOF_IMG_POWER_STATE].addr);
+	if (readl_poll_timeout_atomic
+		(io_addr, tmp, (tmp & val) == val, POLL_DELAY_US, TIMEOUT_1000US) < 0) {
+		QOF_LOGE("mod[%d] waiting for qof state ap add done timeout, disable support\n",pwr);
+		mtk_imgsys_cmdq_qof_dump(0, true);
+		return;
+	}
+}
+
+static void qof_module_vote_add(struct cmdq_pkt *pkt, u32 pwr, u32 user)
+{
+	struct qof_events *qof_event;
+	void __iomem *io_addr;
+	u32 tmp;
+
+	qof_event = &qof_events_isp8[pwr];
+	if (user == QOF_USER_AP) {
+		//add voter
+		io_addr = QOF_GET_REMAP_ADDR(qof_reg_table[pwr][QOF_IMG_EVENT_CNT_ADD].addr);
+		write_mask(io_addr,
+			qof_reg_table[pwr][QOF_IMG_EVENT_CNT_ADD].val,
+			qof_reg_table[pwr][QOF_IMG_EVENT_CNT_ADD].mask);
+
+		io_addr = QOF_GET_REMAP_ADDR(qof_reg_table[pwr][QOF_IMG_POWER_STATE].addr);
+		if (readl_poll_timeout_atomic
+			(io_addr, tmp, (tmp & BIT(1)) == BIT(1), POLL_DELAY_US, TIMEOUT_1000US) < 0) {
+			QOF_LOGE("mod[%d] waiting for qof state ap add done timeout, disable support\n",pwr);
+			mtk_imgsys_cmdq_qof_dump(0, true);
+			return;
+		}
+		mtk_imgsys_cmdq_qof_dump(0, true);
+	} else {
+		if (pkt == NULL) {
+			QOF_LOGE("parameter wrong !\n");
+			return;
+		}
+		/* Enter critical section */
+		cmdq_pkt_acquire_event(pkt, qof_event->sw_event_lock);
+		cmdq_pkt_write(pkt, NULL, (qof_reg_table[pwr][QOF_IMG_EVENT_CNT_ADD].addr) /*address*/,
+			qof_reg_table[pwr][QOF_IMG_EVENT_CNT_ADD].val,
+			qof_reg_table[pwr][QOF_IMG_EVENT_CNT_ADD].mask);
+		cmdq_pkt_poll_timeout(pkt, BIT(1)/*poll val*/, SUBSYS_NO_SUPPORT,
+			(qof_reg_table[pwr][QOF_IMG_QOF_STATE_DBG].addr)/*addr*/,
+			BIT(1) /*mask*/,
+			IMG_MTCMOS_STABLE_CNT /*delay cnt 1 for 12us*/,
+			CMDQ_GPR_R13 /*GPR*/);
+		/* End of critical section */
+		cmdq_pkt_clear_event(pkt, qof_event->sw_event_lock);
+	}
+}
+
+static void qof_module_vote_sub(struct cmdq_pkt *pkt, u32 pwr, u32 user)
+{
+	struct qof_events *qof_event;
+	void __iomem *io_addr;
+
+	if(IS_MOD_SUPPORT_QOF(pwr) == false)
+		return;
+
+	if (user == QOF_USER_AP) {
+		// sub voter
+		io_addr = QOF_GET_REMAP_ADDR(qof_reg_table[pwr][QOF_IMG_EVENT_CNT_SUB].addr);
+		write_mask(io_addr,
+			qof_reg_table[pwr][QOF_IMG_EVENT_CNT_SUB].val,
+			qof_reg_table[pwr][QOF_IMG_EVENT_CNT_SUB].mask);
+		mtk_imgsys_cmdq_qof_dump(0, true);
+	} else {
+		if (pkt == NULL) {
+			QOF_LOGE("parameter wrong !\n");
+			return;
+		}
+		qof_event = &qof_events_isp8[pwr];
+
+		/* Enter critical section */
+		cmdq_pkt_acquire_event(pkt, qof_event->sw_event_lock);
+
+		cmdq_pkt_write(pkt, NULL, (qof_reg_table[pwr][QOF_IMG_EVENT_CNT_SUB].addr) /*address*/,
+			qof_reg_table[pwr][QOF_IMG_EVENT_CNT_SUB].val,
+			qof_reg_table[pwr][QOF_IMG_EVENT_CNT_SUB].mask);
+
+		cmdq_pkt_poll_timeout(pkt, 0/*poll val*/, SUBSYS_NO_SUPPORT,
+			(qof_reg_table[pwr][QOF_IMG_QOF_STATE_DBG].addr)/*addr*/,
+			BIT(3) /*mask*/, IMG_MTCMOS_STABLE_CNT /*delay cnt 1 for 12us*/,
+			CMDQ_GPR_R13 /*GPR*/);
+
+		/* End of critical section */
+		cmdq_pkt_clear_event(pkt, qof_event->sw_event_lock);
+	}
+}
+
+void mtk_imgsys_cmdq_qof_add(struct cmdq_pkt *pkt, bool *qof_need_sub, u32 hw_comb)
+{
+	u32 pwr = 0;
+
+	if(g_qof_debug_level == QOF_DEBUG_MODE_PERFRAME_DUMP)
+		mtk_imgsys_cmdq_qof_dump(0, false);
+
+	for (pwr = ISP8_PWR_START; pwr < ISP8_PWR_NUM; pwr++) {
+		if ((IS_MOD_SUPPORT_QOF(pwr)) &&
+			(qof_need_sub[pwr] == false) &&
+			(hw_comb & pwr_group[pwr])) {
+			qof_module_vote_add(pkt, pwr, QOF_USER_GCE);
+			qof_need_sub[pwr] = true;
 		}
 	}
 }
 
 void mtk_imgsys_cmdq_qof_sub(struct cmdq_pkt *pkt, bool *qof_need_sub)
 {
-	struct qof_events *qof_event;
-	u32 pwr = ISP8_ISP_DIP;
+	u32 pwr = 0;
 
-	if (!pkt || !qof_need_sub) {
-		cmdq_err("param is NULL");
-		dump_stack();
-		return;
-	}
-
-	if (g_disable_qof != 1) {
-		for (pwr = ISP8_ISP_DIP; pwr < ISP8_PWR_NUM; pwr++) {
-			if (qof_need_sub[pwr] == true) {
-				qof_event = &qof_events_8[pwr];
-				/* Enter critical section protected by pwr_ctrl */
-				cmdq_pkt_acquire_event(pkt, qof_event->power_ctrl);
-
-				cmdq_pkt_set_event(pkt, qof_event->trig_pwr_off);
-
-				cmdq_pkt_wfe(pkt, qof_event->pwr_off);
-				cmdq_pkt_clear_event(pkt, qof_event->pwr_off);
-
-				/* End of critical section */
-				cmdq_pkt_clear_event(pkt, qof_event->power_ctrl);
-				qof_need_sub[pwr] = false;
-			}
+	for (pwr = ISP8_PWR_DIP; pwr < ISP8_PWR_NUM; pwr++) {
+		if (qof_need_sub[pwr] == true) {
+			qof_module_vote_sub(pkt, pwr, QOF_USER_GCE);
+			qof_need_sub[pwr] = false;
 		}
 	}
 }
 
-bool mtk_imgsys_cmdq_qof_get_pwr_status(u32 pwr)
+void mtk_imgsys_cmdq_qof_dump(uint32_t hwcomb, bool force_dump)
 {
-	int cnt = 0;
+	int mod = 0;
+	void __iomem *addr;
 
-	if (g_qof_ver == MTK_IMGSYS_QOF_FUNCTION_OFF){
-		pr_info("[%s] qof ver = %d\n", __func__, g_qof_ver);
-		return false;
-	}
-
-	if (pwr == ISP8_ISP_DIP)
-		cnt = (g_dip_work_buf_va == NULL || *g_dip_work_buf_va == NULL) ? 0 : **((int**)g_dip_work_buf_va);
-	else if (pwr == ISP8_ISP_TRAW)
-		cnt = (g_traw_work_buf_va == NULL || *g_traw_work_buf_va == NULL) ? 0 : **((int**)g_traw_work_buf_va);
-	else
-		pr_info("[%s] qof pwr = %d not support\n", __func__, pwr);
-	return cnt > 0;
-}
-
-void mtk_imgsys_cmdq_qof_dump(uint32_t hwcomb, bool need_dump_vcp)
-{
-	if (g_qof_ver == MTK_IMGSYS_QOF_FUNCTION_OFF){
-		pr_info("[%s] qof ver = %d\n", __func__, g_qof_ver);
+	if (force_dump == false)
 		return;
-	}
+	for (mod = ISP8_PWR_START; mod < ISP8_PWR_NUM; mod++)
+		mtk_imgsys_qof_print_hw_info(mod);
 
-	pr_info("[%s] ver:%d,qof_hwcomb=0x%x,[cnt_dip:%d/cnt_traw:%d/fp:0x%x]dip=0x%x,traw=0x%x, hwccf[vt(0x%x/0x%x),HW(0x%x,0x%x,0x%x), SWR(0x%x),MTS(0x%x/0x%x/0x%x/0x%x)]\n",
-		__func__,
-		g_qof_ver,
-		hwcomb,
-		(g_dip_work_buf_va == NULL || *g_dip_work_buf_va == NULL) ? IMG_NULL_MAGINC_NUM : **((int**)g_dip_work_buf_va),
-		(g_traw_work_buf_va == NULL || *g_traw_work_buf_va == NULL) ? IMG_NULL_MAGINC_NUM : **((int**)g_traw_work_buf_va),
-		(g_qof_work_buf_va == NULL || *g_qof_work_buf_va == NULL) ? IMG_NULL_MAGINC_NUM : **((unsigned int**)g_qof_work_buf_va),
-		READ_QOF_RG(DUMP_RG_DIP_PWR_CON),
-		READ_QOF_RG(DUMP_RG_TRAW_PWR_CON),
-		/* HWCCF Info */
-		READ_QOF_RG(DUMP_RG_VOTER_ON),
-		READ_QOF_RG(DUMP_RG_VOTER_OFF),
-		READ_QOF_RG(DUMP_RG_HWV_DONE),
-		READ_QOF_RG(DUMP_RG_CCF_MTCMOS_SET_STA),
-		READ_QOF_RG(DUMP_RG_CCF_MTCMOS_CLR_STA),
-		READ_QOF_RG(DUMP_RG_HWV_SW_RECORD),
-		READ_QOF_RG(DUMP_RG_HW_CCF_MTCMOS_STATUS),
-		READ_QOF_RG(DUMP_RG_HW_CCF_MTCMOS_STATUS_CLR),
-		READ_QOF_RG(DUMP_RG_HW_CCF_MTCMOS_ENABLE),
-		READ_QOF_RG(DUMP_RG_CCF_INT_STATUS));
+	mtk_qof_print_mtcmos_status();
 
-	pr_info("[%s] cg[main:0x%x,traw(0x%x,0x%x),nr(0x%x,0x%x),td0x%x,w(0x%x/0x%x/0x%x)] \n",
-		/* CG Info */
-		__func__,
-		READ_QOF_RG(DUMP_RG_CG_IMGSYS_MAIN),
-		READ_QOF_RG(DUMP_RG_CG_TRAW_DIP1),
-		READ_QOF_RG(DUMP_RG_CG_TRAW_CAP_DIP),
-		READ_QOF_RG(DUMP_RG_CG_DIP_NR1_DIP1),
-		READ_QOF_RG(DUMP_RG_CG_DIP_NR2_DIP1),
-		READ_QOF_RG(DUMP_RG_CG_DIP_TOP_DIP1),
-		READ_QOF_RG(DUMP_RG_CG_WPE1_DIP1),
-		READ_QOF_RG(DUMP_RG_CG_WPE2_DIP1),
-		READ_QOF_RG(DUMP_RG_CG_WPE3_DIP1));
-
-	//if (need_dump_vcp == true || g_force_dump_vcp == 1)
-	//	vcp_cmd_ex(VCP_DUMP, "imgsys_qof");
+	addr = QOF_GET_REMAP_ADDR(qof_reg_table[ISP8_PWR_DIP][QOF_IMG_QOF_STATE_DBG].addr);
+	if ((readl(addr) & BIT(1)) == BIT(1)) {
+		QOF_LOGI(" CG Status: IMG_MAIN[0x%x], NR1[0x%x], NR2[0x%x], DIP_TOP[0x%x]\n",
+		(readl(g_maped_rg[MAPED_RG_IMG_CG_IMGSYS_MAIN])),
+		(readl(g_maped_rg[MAPED_RG_IMG_CG_DIP_NR1_DIP1])),
+		(readl(g_maped_rg[MAPED_RG_IMG_CG_DIP_NR2_DIP1])),
+		(readl(g_maped_rg[MAPED_RG_IMG_CG_DIP_TOP_DIP1])));
+	} else
+		QOF_LOGI("qof mtcmos dip is off. sta=0x%x\n", readl(addr));
+	addr = QOF_GET_REMAP_ADDR(qof_reg_table[ISP8_PWR_TRAW][QOF_IMG_QOF_STATE_DBG].addr);
+	if ((readl(addr) & BIT(1)) == BIT(1)) {
+		QOF_LOGI(" CG Status: TRAW_CAP[0x%x], TRAW_DIP1[0x%x]\n",
+		(readl(g_maped_rg[MAPED_RG_IMG_CG_TRAW_CAP_DIP1])),
+		(readl(g_maped_rg[MAPED_RG_IMG_CG_TRAW_DIP1])));
+	} else
+		QOF_LOGI("qof mtcmos traw is off. sta=0x%x\n",  readl(addr));
+	addr = QOF_GET_REMAP_ADDR(qof_reg_table[ISP8_PWR_WPE_1_EIS][QOF_IMG_QOF_STATE_DBG].addr);
+	if ((readl(addr) & BIT(1)) == BIT(1)) {
+		QOF_LOGI(" CG Status: WPE1[0x%x]\n",
+		(readl(g_maped_rg[MAPED_RG_IMG_CG_WPE1_DIP1])));
+	} else
+		QOF_LOGI("qof mtcmos wpe1 is off. sta=0x%x\n", readl(addr));
+	addr = QOF_GET_REMAP_ADDR(qof_reg_table[ISP8_PWR_WPE_2_TNR][QOF_IMG_QOF_STATE_DBG].addr);
+	if ((readl(addr) & BIT(1)) == BIT(1)) {
+		QOF_LOGI(" CG Status: WPE2[0x%x]\n",
+		(readl(g_maped_rg[MAPED_RG_IMG_CG_WPE2_DIP1])));
+	} else
+		QOF_LOGI("qof mtcmos wpe2 is off. sta=0x%x\n", readl(addr));
+	addr = QOF_GET_REMAP_ADDR(qof_reg_table[ISP8_PWR_WPE_3_LITE][QOF_IMG_QOF_STATE_DBG].addr);
+	if ((readl(addr) & BIT(1)) == BIT(1)) {
+		QOF_LOGI(" CG Status: WPE3[0x%x]\n",
+		(readl(g_maped_rg[MAPED_RG_IMG_CG_WPE2_DIP1])));
+	} else
+		QOF_LOGI("qof mtcmos wpe3 is off. sta=0x%x\n", readl(addr));
 }
 
-int mtk_query_qof_status(const char *val, const struct kernel_param *kp)
+int mtk_imgsys_qof_ctrl(const char *val, const struct kernel_param *kp)
 {
 	int ret;
-	int reserved = 0;
 
-	ret = sscanf(val, "%d", &reserved);
-	if (ret <= 0) {
-		pr_err("[%s] param fail, plz check ! \n", __func__);
-		return 0;
-	}
-
- 	if (g_qof_ver == MTK_IMGSYS_QOF_FUNCTION_OFF){
-		pr_err("[%s] qof ver = %d\n", __func__, g_qof_ver);
-		return 0;
-	}
-
-	mtk_imgsys_cmdq_qof_dump(IMG_NULL_MAGINC_NUM, false);
+	ret = sscanf(val, "%u %u", &g_qof_debug_level, &g_qof_ver);
+	QOF_LOGI("g_qof_debug_level[%u], force ver:g_qof_ver[%u]\n",
+		g_qof_debug_level,
+		g_qof_ver);
 
 	return 0;
 }
 
-static struct kernel_param_ops query_qof_status_ops = {
-	.set = mtk_query_qof_status,
+static const struct kernel_param_ops qof_ctrl_ops = {
+	.set = mtk_imgsys_qof_ctrl,
 };
 
-module_param_cb(query_qof_status, &query_qof_status_ops, NULL, 0644);
-MODULE_PARM_DESC(query_qof_status,
-	"query_qof_status");
-
-int mtk_qof_gce_set_reg(const char *val, const struct kernel_param *kp)
-{
-	int ret;
-	struct cmdq_client *client;
-	struct cmdq_pkt *gce_pkt;
-	unsigned int addr = 0;
-	unsigned int value = 0;
-	unsigned mode = 0;
-
-	ret = sscanf(val, "%u %u %u", &mode, &addr, &value);
-	if (ret <= 0) {
-		pr_err("[%s] param fail, plz check ! \n", __func__);
-		return 0;
-	}
-	pr_info("[%s] mode =%u addr=0x%x,value=%u\n", __func__, mode, addr, value);
-	client = imgsys_pwr_clt[0];
-	cmdq_mbox_enable(client->chan);
-	pr_info("[%s] cmdq_mbox_enable \n", __func__);
-	gce_pkt = g_gce_set_rg_pkt = cmdq_pkt_create(client);
-	if (!gce_pkt) {
-		pr_info("%s:create cmdq package fail\n", __func__);
-		return 0;
-	}
-
-	cmdq_pkt_write(gce_pkt, NULL, addr, value, 0xffffffff);
-	pr_info("[%s] cmdq_pkt_write \n", __func__);
-	gce_pkt->priority = IMGSYS_PRI_HIGH;
-	cmdq_pkt_flush_async(gce_pkt, NULL, (void *)g_gce_set_rg_pkt);
-	pr_info("[%s] cmdq_pkt_flush_async \n", __func__);
-	cmdq_pkt_wait_complete(gce_pkt);
-	cmdq_pkt_destroy(gce_pkt);
-
-	return 0;
-}
-
-static struct kernel_param_ops qof_gce_set_reg_ops = {
-	.set = mtk_qof_gce_set_reg,
-};
-
-module_param_cb(qof_gce_set_reg, &qof_gce_set_reg_ops, NULL, 0644);
-MODULE_PARM_DESC(qof_gce_set_reg,
-	"test for gce_set_reg_ops");
-
-int mtk_qof_dbg_ctrl(const char *val, const struct kernel_param *kp)
-{
-	int ret;
-
-	ret = sscanf(val, "%u %u %u", &g_dbg_log_on, &g_disable_qof, &g_force_dump_vcp);
-	if (ret <= 0) {
-		pr_err("[%s] param fail, plz check ! \n", __func__);
-		return 0;
-	}
-	pr_info("[%s] g_dbg_log_on=%u g_disable_qof=%u g_force_dump_vcp=%u\n", __func__, g_dbg_log_on, g_disable_qof, g_force_dump_vcp);
-
-	return 0;
-}
-
-static struct kernel_param_ops qof_dbg_ctrl_ops = {
-	.set = mtk_qof_dbg_ctrl,
-};
-
-module_param_cb(qof_dbg_ctrl, &qof_dbg_ctrl_ops, NULL, 0644);
-MODULE_PARM_DESC(qof_dbg_ctrl,
-	"qof_dbg_ctrl");
+module_param_cb(imgsys_qof_ctrl, &qof_ctrl_ops, NULL, 0644);
+MODULE_PARM_DESC(imgsys_qof_ctrl, "imgsys_qof_ctrl");

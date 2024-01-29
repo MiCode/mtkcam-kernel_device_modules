@@ -335,7 +335,7 @@ void imgsys_main_set_init(struct mtk_imgsys_dev *imgsys_dev)
 	pr_debug("%s: -. qof ver = %d\n", __func__, imgsys_dev->qof_ver);
 }
 
-void imgsys_main_cmdq_set_init(struct mtk_imgsys_dev *imgsys_dev, void *pkt)
+void imgsys_main_cmdq_set_init(struct mtk_imgsys_dev *imgsys_dev, void *pkt, int hw_idx)
 {
 	struct cmdq_pkt *package = NULL;
 

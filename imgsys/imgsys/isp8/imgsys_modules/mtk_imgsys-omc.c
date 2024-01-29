@@ -434,11 +434,11 @@ void imgsys_omc_updatecq(struct mtk_imgsys_dev *imgsys_dev,
 }
 
 void imgsys_omc_cmdq_set_hw_initial_value(struct mtk_imgsys_dev *imgsys_dev,
-		void *pkt)
+		void *pkt, int hw_idx)
 {
 	unsigned int ofset;
 	unsigned int i = 0;
-	unsigned int hw_idx = 0, ary_idx = 0;
+	unsigned int ary_idx = 0;
 	struct cmdq_pkt *package = NULL;
 	unsigned int HwIdx = 0;
 	unsigned int OmcRegBA = 0L;
@@ -453,37 +453,30 @@ void imgsys_omc_cmdq_set_hw_initial_value(struct mtk_imgsys_dev *imgsys_dev,
 
 	dev_dbg(imgsys_dev->dev, "%s: +\n", __func__);
 
-	for (HwIdx = 0; HwIdx < OMC_HW_NUM; HwIdx++) {
-		OmcRegBA = gOmcRegBaseAddr[HwIdx];
+	HwIdx = hw_idx - REG_MAP_E_OMC_TNR;
+	OmcRegBA = gOmcRegBaseAddr[HwIdx];
 
-		/* Omc Macro HW Reset */
-		pOmcCtrl = OmcRegBA + SW_RST;
-		cmdq_pkt_write(package, NULL, pOmcCtrl /*address*/,
-			       0xF, 0xffffffff);
-		/* Clear HW Reset */
-		cmdq_pkt_write(package, NULL, pOmcCtrl /*address*/,
-			       0x0, 0xffffffff);
-	}
-
-	for (hw_idx = REG_MAP_E_OMC_TNR; hw_idx <= REG_MAP_E_OMC_LITE; hw_idx++) {
-		/* iomap registers */
-		ary_idx = hw_idx - REG_MAP_E_OMC_TNR;
-		if (hw_idx < REG_MAP_E_OMC_LITE) {
-			for (i = 0 ; i < OMC_INIT_ARRAY_COUNT ; i++) {
-				ofset = gOmcRegBase[ary_idx] + mtk_imgsys_omc_init_ary[i].ofset;
-				cmdq_pkt_write(package, NULL, ofset /*address*/,
-						mtk_imgsys_omc_init_ary[i].val, 0xffffffff);
-			}
-		} else {
-			for (i = 0 ; i < OMC_INIT_ARRAY_COUNT_2P ; i++) {
-				ofset = gOmcRegBase[ary_idx] + mtk_imgsys_omc_init_ary_2p[i].ofset;
-				cmdq_pkt_write(package, NULL, ofset /*address*/,
-						mtk_imgsys_omc_init_ary_2p[i].val, 0xffffffff);
-			}
+	/* Omc Macro HW Reset */
+	pOmcCtrl = OmcRegBA + SW_RST;
+	cmdq_pkt_write(package, NULL, pOmcCtrl /*address*/,
+			    0xF, 0xffffffff);
+	/* Clear HW Reset */
+	cmdq_pkt_write(package, NULL, pOmcCtrl /*address*/,
+			    0x0, 0xffffffff);
+	ary_idx = hw_idx - REG_MAP_E_OMC_TNR;
+	if (hw_idx < REG_MAP_E_OMC_LITE) {
+		for (i = 0 ; i < OMC_INIT_ARRAY_COUNT ; i++) {
+			ofset = gOmcRegBase[ary_idx] + mtk_imgsys_omc_init_ary[i].ofset;
+			cmdq_pkt_write(package, NULL, ofset /*address*/,
+				mtk_imgsys_omc_init_ary[i].val, 0xffffffff);
 		}
-
+	} else {
+		for (i = 0 ; i < OMC_INIT_ARRAY_COUNT_2P ; i++) {
+			ofset = gOmcRegBase[ary_idx] + mtk_imgsys_omc_init_ary_2p[i].ofset;
+			cmdq_pkt_write(package, NULL, ofset /*address*/,
+					mtk_imgsys_omc_init_ary_2p[i].val, 0xffffffff);
+		}
 	}
-
 	dev_dbg(imgsys_dev->dev, "%s: -\n", __func__);
 }
 

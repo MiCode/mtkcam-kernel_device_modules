@@ -815,7 +815,7 @@ void imgsys_ltraw_set_initial_value_hw(struct mtk_imgsys_dev *imgsys_dev)
 }
 
 void imgsys_traw_cmdq_set_initial_value_hw(struct mtk_imgsys_dev *imgsys_dev,
-		void *pkt)
+		void *pkt, int hw_idx)
 {
 	unsigned int ofset;
 	unsigned int i = 0;
@@ -853,7 +853,7 @@ void imgsys_traw_cmdq_set_initial_value_hw(struct mtk_imgsys_dev *imgsys_dev,
 }
 
 void imgsys_ltraw_cmdq_set_initial_value_hw(struct mtk_imgsys_dev *imgsys_dev,
-		void *pkt)
+		void *pkt, int hw_idx)
 {
 	unsigned int ofset;
 	unsigned int i = 0;

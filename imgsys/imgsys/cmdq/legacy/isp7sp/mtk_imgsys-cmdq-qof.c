@@ -80,6 +80,9 @@
 #define QOF_FP_STATUS_ACK		BIT(1)
 #define QOF_FP_HWCCF_ACK		BIT(0)
 
+/* default value */
+#define DEFAULT_IDX             (0)
+
 u8 g_qof_ver = 0;
 u32 g_dbg_log_on = 0;
 u32 g_disable_qof = 0;
@@ -525,7 +528,7 @@ static void mtk_imgsys_cmdq_power_ctrl(struct mtk_imgsys_dev *imgsys_dev,
 		/* reset module after power on */
 		for (i = 0; i < imgsys_dev->modules_num; i++) {
 			if ((BIT(i) & pwr->module_list) && imgsys_dev->modules[i].cmdq_set) {
-				imgsys_dev->modules[i].cmdq_set(imgsys_dev, (void*)pkt);
+				imgsys_dev->modules[i].cmdq_set(imgsys_dev, (void *)pkt, DEFAULT_IDX);
 			}
 		}
 

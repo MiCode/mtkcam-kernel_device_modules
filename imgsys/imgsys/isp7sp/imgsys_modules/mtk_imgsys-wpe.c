@@ -446,11 +446,11 @@ void imgsys_wpe_updatecq(struct mtk_imgsys_dev *imgsys_dev,
 }
 
 void imgsys_wpe_cmdq_set_hw_initial_value(struct mtk_imgsys_dev *imgsys_dev,
-		void *pkt)
+		void *pkt, int hw_idx)
 {
 	unsigned int ofset;
 	unsigned int i = 0;
-	unsigned int hw_idx = 0, ary_idx = 0;
+	unsigned int idx = 0, ary_idx = 0;
 	struct cmdq_pkt *package = NULL;
 	unsigned int HwIdx = 0;
 	unsigned int WpeRegBA = 0L;
@@ -482,10 +482,10 @@ void imgsys_wpe_cmdq_set_hw_initial_value(struct mtk_imgsys_dev *imgsys_dev,
 			       0x0, 0xffffffff);
 	}
 
-	for (hw_idx = REG_MAP_E_WPE_EIS; hw_idx <= REG_MAP_E_WPE_LITE; hw_idx++) {
+	for (idx = REG_MAP_E_WPE_EIS; idx <= REG_MAP_E_WPE_LITE; idx++) {
 		/* iomap registers */
-		ary_idx = hw_idx - REG_MAP_E_WPE_EIS;
-		if (hw_idx < REG_MAP_E_WPE_LITE) {
+		ary_idx = idx - REG_MAP_E_WPE_EIS;
+		if (idx < REG_MAP_E_WPE_LITE) {
 			for (i = 0 ; i < WPE_INIT_ARRAY_COUNT ; i++) {
 				ofset = gWpeRegBase[ary_idx] + mtk_imgsys_wpe_init_ary[i].ofset;
 				cmdq_pkt_write(package, NULL, ofset /*address*/,

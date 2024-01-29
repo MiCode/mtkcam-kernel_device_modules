@@ -269,83 +269,69 @@ void imgsys_main_set_init(struct mtk_imgsys_dev *imgsys_dev)
 		return;
 	}
 
-	if (imgsys_dev->qof_ver == MTK_IMGSYS_QOF_FUNCTION_OFF) {
-		num = imgsys_dev->larbs_num - 1;
-		for (i = 0; i < num; i++)
-			mtk_smi_larb_clamp_and_lock(imgsys_dev->larbs[i], 1);
+	num = imgsys_dev->larbs_num - 1;
+	for (i = 0; i < num; i++)
+		mtk_smi_larb_clamp_and_lock(imgsys_dev->larbs[i], 1);
 
-		for (HwIdx = 0; HwIdx < WPE_HW_SET; HwIdx++) {
-			if (HwIdx == 0)
-				WpeRegBA = wpedip1RegBA;
-			else if (HwIdx == 1)
-				WpeRegBA = wpedip2RegBA;
-			else
-				WpeRegBA = wpedip3RegBA;
+	for (HwIdx = 0; HwIdx < WPE_HW_SET; HwIdx++) {
+		if (HwIdx == 0)
+			WpeRegBA = wpedip1RegBA;
+		else if (HwIdx == 1)
+			WpeRegBA = wpedip2RegBA;
+		else
+			WpeRegBA = wpedip3RegBA;
 
-			/* Wpe Macro HW Reset */
-			pWpeCtrl = (void *)(WpeRegBA + SW_RST);
-			iowrite32(0xF, pWpeCtrl);
-			/* Clear HW Reset */
-			iowrite32(0x0, pWpeCtrl);
-		}
-
-		HwIdx = 0;
-		if (adlARegBA || adlBRegBA) {
-			/* Reset ADL A */
-			for (HwIdx = 0; HwIdx < ADL_HW_SET; HwIdx++) {
-				if (HwIdx == 0)
-					ADLRegBA = adlARegBA;
-				else if (HwIdx == 1)
-					ADLRegBA = adlBRegBA;
-
-				if (!ADLRegBA)
-					continue;
-
-				value = ioread32((void *)(ADLRegBA + 0x300));
-				value |= ((0x1 << 8) | (0x1 << 9));
-				iowrite32(value, (ADLRegBA + 0x300));
-
-				count = 0;
-				while (count < 1000000) {
-					value = ioread32((void *)(ADLRegBA + 0x300));
-					if ((value & 0x3) == 0x3)
-						break;
-					count++;
-				}
-
-				value = ioread32((void *)(ADLRegBA + 0x300));
-				value &= ~((0x1 << 8) | (0x1 << 9));
-				iowrite32(value, (ADLRegBA + 0x300));
-			}
-		}
-
-		iowrite32(0x1FF, (void *)(imgsysmainRegBA + DBG_SW_CLR));
-		iowrite32(0x0, (void *)(imgsysmainRegBA + DBG_SW_CLR));
-
-		iowrite32(0xF0, (void *)(imgsysmainRegBA + SW_RST));
-		iowrite32(0x0, (void *)(imgsysmainRegBA + SW_RST));
-
-		iowrite32(0x3C, (void *)(trawRegBA + SW_RST));
-		iowrite32(0x0, (void *)(trawRegBA + SW_RST));
-
-		iowrite32(0x3FC03, (void *)(dipRegBA + SW_RST));
-		iowrite32(0x0, (void *)(dipRegBA + SW_RST));
-
-		for (i = 0; i < num; i++)
-			mtk_smi_larb_clamp_and_lock(imgsys_dev->larbs[i], 0);
-	} else {
-		/* imgsys QoF main init flow */
-		iowrite32(0x1FF, (void *)(imgsysmainRegBA + DBG_SW_CLR));
-		iowrite32(0x0, (void *)(imgsysmainRegBA + DBG_SW_CLR));
-
-		iowrite32(0xF0, (void *)(imgsysmainRegBA + SW_RST));
-		iowrite32(0x0, (void *)(imgsysmainRegBA + SW_RST));
+		/* Wpe Macro HW Reset */
+		pWpeCtrl = (void *)(WpeRegBA + SW_RST);
+		iowrite32(0xF, pWpeCtrl);
+		/* Clear HW Reset */
+		iowrite32(0x0, pWpeCtrl);
 	}
+
+	HwIdx = 0;
+	if (adlARegBA || adlBRegBA) {
+		/* Reset ADL A */
+		for (HwIdx = 0; HwIdx < ADL_HW_SET; HwIdx++) {
+			if (HwIdx == 0)
+				ADLRegBA = adlARegBA;
+			else if (HwIdx == 1)
+				ADLRegBA = adlBRegBA;
+			if (!ADLRegBA)
+				continue;
+			value = ioread32((void *)(ADLRegBA + 0x300));
+			value |= ((0x1 << 8) | (0x1 << 9));
+			iowrite32(value, (ADLRegBA + 0x300));
+			count = 0;
+			while (count < 1000000) {
+				value = ioread32((void *)(ADLRegBA + 0x300));
+				if ((value & 0x3) == 0x3)
+					break;
+				count++;
+			}
+			value = ioread32((void *)(ADLRegBA + 0x300));
+			value &= ~((0x1 << 8) | (0x1 << 9));
+			iowrite32(value, (ADLRegBA + 0x300));
+		}
+	}
+	iowrite32(0x1FF, (void *)(imgsysmainRegBA + DBG_SW_CLR));
+	iowrite32(0x0, (void *)(imgsysmainRegBA + DBG_SW_CLR));
+
+	iowrite32(0xF0, (void *)(imgsysmainRegBA + SW_RST));
+	iowrite32(0x0, (void *)(imgsysmainRegBA + SW_RST));
+
+	iowrite32(0x3C, (void *)(trawRegBA + SW_RST));
+	iowrite32(0x0, (void *)(trawRegBA + SW_RST));
+
+	iowrite32(0x3FC03, (void *)(dipRegBA + SW_RST));
+	iowrite32(0x0, (void *)(dipRegBA + SW_RST));
+
+	for (i = 0; i < num; i++)
+		mtk_smi_larb_clamp_and_lock(imgsys_dev->larbs[i], 0);
 
 	pr_debug("%s: -. qof ver = %d\n", __func__, imgsys_dev->qof_ver);
 }
 
-void imgsys_main_cmdq_set_init(struct mtk_imgsys_dev *imgsys_dev, void *pkt)
+void imgsys_main_cmdq_set_init(struct mtk_imgsys_dev *imgsys_dev, void *pkt, int hw_idx)
 {
 	struct cmdq_pkt *package = NULL;
 
@@ -1721,3 +1707,4 @@ void imgsys_dl_debug_dump(struct mtk_imgsys_dev *imgsys_dev, unsigned int hw_com
 
 	dev_info(imgsys_dev->dev, "%s: -\n", __func__);
 }
+

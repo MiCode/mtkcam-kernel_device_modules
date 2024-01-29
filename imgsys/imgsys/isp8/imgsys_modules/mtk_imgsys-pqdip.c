@@ -147,10 +147,10 @@ void imgsys_pqdip_set_hw_initial_value(struct mtk_imgsys_dev *imgsys_dev)
 }
 
 void imgsys_pqdip_cmdq_set_hw_initial_value(struct mtk_imgsys_dev *imgsys_dev,
-		void *pkt)
+		void *pkt, int hw_idx)
 {
 	unsigned int ofset;
-	unsigned int hw_idx = 0;
+	unsigned int idx = 0;
 	unsigned int i = 0;
 	struct cmdq_pkt *package = NULL;
 
@@ -163,13 +163,12 @@ void imgsys_pqdip_cmdq_set_hw_initial_value(struct mtk_imgsys_dev *imgsys_dev,
 
 	dev_dbg(imgsys_dev->dev, "%s: +\n", __func__);
 
-	for (hw_idx = 0 ; hw_idx < PQDIP_HW_SET ; hw_idx++) {
-		for (i = 0 ; i < PQDIP_INIT_ARRAY_COUNT ; i++) {
-			ofset = gPQDIPRegBase[hw_idx]
-				+ mtk_imgsys_pqdip_init_ary[i].ofset;
-			cmdq_pkt_write(package, NULL, ofset /*address*/,
-					mtk_imgsys_pqdip_init_ary[i].val, 0xffffffff);
-		}
+	idx = hw_idx - REG_MAP_E_PQDIP_A;
+	for (i = 0 ; i < PQDIP_INIT_ARRAY_COUNT ; i++) {
+		ofset = gPQDIPRegBase[idx]
+			+ mtk_imgsys_pqdip_init_ary[i].ofset;
+		cmdq_pkt_write(package, NULL, ofset /*address*/,
+				mtk_imgsys_pqdip_init_ary[i].val, 0xffffffff);
 	}
 
 	dev_dbg(imgsys_dev->dev, "%s: -\n", __func__);

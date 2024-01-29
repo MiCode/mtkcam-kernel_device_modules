@@ -19,7 +19,7 @@ struct module_ops {
 			struct img_swfrm_info *user_info, int req_fd, u64 tuning_iova,
 			unsigned int mode);
 	void (*cmdq_set)(struct mtk_imgsys_dev *imgsys_dev,
-			void *pkt);
+			void *pkt, int hw_idx);
 	void (*dump)(struct mtk_imgsys_dev *imgsys_dev, unsigned int engine);
 	bool (*done_chk)(struct mtk_imgsys_dev *imgsys_dev, uint32_t engine);
 	void (*uninit)(struct mtk_imgsys_dev *imgsys_dev);

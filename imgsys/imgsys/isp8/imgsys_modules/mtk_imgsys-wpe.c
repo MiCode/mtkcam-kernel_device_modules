@@ -377,11 +377,11 @@ void imgsys_wpe_updatecq(struct mtk_imgsys_dev *imgsys_dev,
 }
 
 void imgsys_wpe_cmdq_set_hw_initial_value(struct mtk_imgsys_dev *imgsys_dev,
-		void *pkt)
+		void *pkt, int hw_idx)
 {
 	unsigned int ofset;
 	unsigned int i = 0;
-	unsigned int hw_idx = 0, ary_idx = 0;
+	unsigned int ary_idx = 0;
 	struct cmdq_pkt *package = NULL;
 	unsigned int pWpeCtrl = 0L;
 
@@ -395,10 +395,7 @@ void imgsys_wpe_cmdq_set_hw_initial_value(struct mtk_imgsys_dev *imgsys_dev,
 	if (imgsys_wpe_7sp_dbg_enable())
 		dev_info(imgsys_dev->dev, "%s: +\n", __func__);
 
-	for (hw_idx = REG_MAP_E_WPE_EIS; hw_idx <= REG_MAP_E_WPE_LITE; hw_idx++) {
-		if (hw_idx == REG_MAP_E_WPE_TNR)
-			continue;
-
+	if (hw_idx != REG_MAP_E_WPE_TNR) { // if not wpe_tnr
 		ary_idx = hw_idx - REG_MAP_E_WPE_EIS;
 
 		/* Wpe Macro HW Reset */
@@ -408,21 +405,13 @@ void imgsys_wpe_cmdq_set_hw_initial_value(struct mtk_imgsys_dev *imgsys_dev,
 		/* Clear HW Reset */
 		cmdq_pkt_write(package, NULL, pWpeCtrl /*address*/,
 			       0x0, 0xffffffff);
-	}
-
-	for (hw_idx = REG_MAP_E_WPE_EIS; hw_idx <= REG_MAP_E_WPE_LITE; hw_idx++) {
-		if (hw_idx == REG_MAP_E_WPE_TNR)
-			continue;
-
 		/* iomap registers */
-		ary_idx = hw_idx - REG_MAP_E_WPE_EIS;
 		for (i = 0 ; i < WPE_INIT_ARRAY_COUNT ; i++) {
 			ofset = gWpeRegBase[ary_idx] + mtk_imgsys_wpe_init_ary[i].ofset;
 			cmdq_pkt_write(package, NULL, ofset /*address*/,
 					mtk_imgsys_wpe_init_ary[i].val, 0xffffffff);
 		}
 	}
-
 	dev_info(imgsys_dev->dev, "%s: -\n", __func__);
 }
 

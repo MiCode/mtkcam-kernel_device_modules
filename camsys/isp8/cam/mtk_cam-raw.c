@@ -2724,55 +2724,59 @@ void fill_aa_info(struct mtk_raw_device *raw,
 	ae_info->LTM_Sum[3] +=
 		((u64)raw_readl(raw, raw->base, REG_LTM_AE_DEBUG_GB_MSB) << 32) |
 		raw_readl(raw, raw->base, REG_LTM_AE_DEBUG_GB_LSB);
-
+	/* [0]~[3] is non clipped data; [4]~[7] is clipped data */
 	ae_info->AESTAT_Sum[0] +=
-		((u64)raw_readl(raw, raw->base, REG_AA_R_CLIP_SUM_L) << 32) |
+		((u64)raw_readl(raw, raw->base, REG_AA_R_SUM_H) << 32) |
 		raw_readl(raw, raw->base, REG_AA_R_SUM_L);
 	ae_info->AESTAT_Sum[1] +=
-		((u64)raw_readl(raw, raw->base, REG_AA_R_CLIP_SUM_H) << 32) |
-		raw_readl(raw, raw->base, REG_AA_R_SUM_H);
-	ae_info->AESTAT_Sum[2] +=
-		((u64)raw_readl(raw, raw->base, REG_AA_B_CLIP_SUM_L) << 32) |
+		((u64)raw_readl(raw, raw->base, REG_AA_B_SUM_H) << 32) |
 		raw_readl(raw, raw->base, REG_AA_B_SUM_L);
-	ae_info->AESTAT_Sum[3] +=
-		((u64)raw_readl(raw, raw->base, REG_AA_B_CLIP_SUM_H) << 32) |
-		raw_readl(raw, raw->base, REG_AA_B_SUM_H);
-	ae_info->AESTAT_Sum[4] +=
-		((u64)raw_readl(raw, raw->base, REG_AA_GR_CLIP_SUM_L) << 32) |
+	ae_info->AESTAT_Sum[2] +=
+		((u64)raw_readl(raw, raw->base, REG_AA_GR_SUM_H) << 32) |
 		raw_readl(raw, raw->base, REG_AA_GR_SUM_L);
-	ae_info->AESTAT_Sum[5] +=
-		((u64)raw_readl(raw, raw->base, REG_AA_GR_CLIP_SUM_H) << 32) |
-		raw_readl(raw, raw->base, REG_AA_GR_SUM_H);
-	ae_info->AESTAT_Sum[6] +=
-		((u64)raw_readl(raw, raw->base, REG_AA_GB_CLIP_SUM_L) << 32) |
+	ae_info->AESTAT_Sum[3] +=
+		((u64)raw_readl(raw, raw->base, REG_AA_GB_SUM_H) << 32) |
 		raw_readl(raw, raw->base, REG_AA_GB_SUM_L);
+
+	ae_info->AESTAT_Sum[4] +=
+		((u64)raw_readl(raw, raw->base, REG_AA_R_CLIP_SUM_H) << 32) |
+		raw_readl(raw, raw->base, REG_AA_R_CLIP_SUM_L);
+	ae_info->AESTAT_Sum[5] +=
+		((u64)raw_readl(raw, raw->base, REG_AA_B_CLIP_SUM_H) << 32) |
+		raw_readl(raw, raw->base, REG_AA_B_CLIP_SUM_L);
+	ae_info->AESTAT_Sum[6] +=
+		((u64)raw_readl(raw, raw->base, REG_AA_GR_CLIP_SUM_H) << 32) |
+		raw_readl(raw, raw->base, REG_AA_GR_CLIP_SUM_L);
 	ae_info->AESTAT_Sum[7] +=
 		((u64)raw_readl(raw, raw->base, REG_AA_GB_CLIP_SUM_H) << 32) |
-		raw_readl(raw, raw->base, REG_AA_GB_SUM_H);
+		raw_readl(raw, raw->base, REG_AA_GB_CLIP_SUM_L);
+
+	/* [0]~[3] is non clipped data; [4]~[7] is clipped data */
 	ae_info->DGN_Sum[0] +=
-		((u64)raw_readl(raw, raw->base, REG_DGN_R_CLIP_SUM_L) << 32) |
+		((u64)raw_readl(raw, raw->base, REG_DGN_R_SUM_H) << 32) |
 		raw_readl(raw, raw->base, REG_DGN_R_SUM_L);
 	ae_info->DGN_Sum[1] +=
-		((u64)raw_readl(raw, raw->base, REG_DGN_R_CLIP_SUM_H) << 32) |
-		raw_readl(raw, raw->base, REG_DGN_R_SUM_H);
-	ae_info->DGN_Sum[2] +=
-		((u64)raw_readl(raw, raw->base, REG_DGN_B_CLIP_SUM_L) << 32) |
+		((u64)raw_readl(raw, raw->base, REG_DGN_B_SUM_H) << 32) |
 		raw_readl(raw, raw->base, REG_DGN_B_SUM_L);
-	ae_info->DGN_Sum[3] +=
-		((u64)raw_readl(raw, raw->base, REG_DGN_B_CLIP_SUM_H) << 32) |
-		raw_readl(raw, raw->base, REG_DGN_B_SUM_H);
-	ae_info->DGN_Sum[4] +=
-		((u64)raw_readl(raw, raw->base, REG_DGN_GR_CLIP_SUM_L) << 32) |
+	ae_info->DGN_Sum[2] +=
+		((u64)raw_readl(raw, raw->base, REG_DGN_GR_SUM_H) << 32) |
 		raw_readl(raw, raw->base, REG_DGN_GR_SUM_L);
-	ae_info->DGN_Sum[5] +=
-		((u64)raw_readl(raw, raw->base, REG_DGN_GR_CLIP_SUM_H) << 32) |
-		raw_readl(raw, raw->base, REG_DGN_GR_SUM_H);
-	ae_info->DGN_Sum[6] +=
-		((u64)raw_readl(raw, raw->base, REG_DGN_GB_CLIP_SUM_L) << 32) |
+	ae_info->DGN_Sum[3] +=
+		((u64)raw_readl(raw, raw->base, REG_DGN_GB_SUM_H) << 32) |
 		raw_readl(raw, raw->base, REG_DGN_GB_SUM_L);
+
+	ae_info->DGN_Sum[4] +=
+		((u64)raw_readl(raw, raw->base, REG_DGN_R_CLIP_SUM_H) << 32) |
+		raw_readl(raw, raw->base, REG_DGN_R_CLIP_SUM_L);
+	ae_info->DGN_Sum[5] +=
+		((u64)raw_readl(raw, raw->base, REG_DGN_B_CLIP_SUM_H) << 32) |
+		raw_readl(raw, raw->base, REG_DGN_B_CLIP_SUM_L);
+	ae_info->DGN_Sum[6] +=
+		((u64)raw_readl(raw, raw->base, REG_DGN_GR_CLIP_SUM_H) << 32) |
+		raw_readl(raw, raw->base, REG_DGN_GR_CLIP_SUM_L);
 	ae_info->DGN_Sum[7] +=
 		((u64)raw_readl(raw, raw->base, REG_DGN_GB_CLIP_SUM_H) << 32) |
-		raw_readl(raw, raw->base, REG_DGN_GB_SUM_H);
+		raw_readl(raw, raw->base, REG_DGN_GB_CLIP_SUM_L);
 
 	ae_info->CCM_Sum[0] +=
 		((u64)raw_readl(raw, yuv->base, REG_CCM_AE_DEBUG_R_LSB) << 32) |
@@ -2783,6 +2787,7 @@ void fill_aa_info(struct mtk_raw_device *raw,
 	ae_info->CCM_Sum[2] +=
 		((u64)raw_readl(raw, yuv->base, REG_CCM_AE_DEBUG_G_LSB) << 32) |
 		raw_readl(raw, yuv->base, REG_CCM_AE_DEBUG_G_MSB);
+	ae_info->CCM_Sum[3] = 0x0;
 }
 
 static const struct dev_pm_ops mtk_yuv_pm_ops = {

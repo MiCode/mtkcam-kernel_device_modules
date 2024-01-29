@@ -339,6 +339,8 @@ struct mtk_cam_job {
 
 	struct mtk_cam_pool_buffer cq;
 	struct mtk_cam_pool_buffer ipi;
+	struct mtk_cam_pool_buffer ltmsti;
+	struct mtk_cam_pool_buffer ltmsgo;
 	//struct mtk_cam_pool_buffer img_work_buf;
 
 	/* for raw switch */

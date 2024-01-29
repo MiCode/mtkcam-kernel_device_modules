@@ -81,6 +81,17 @@ struct device *mtk_cam_root_dev(void)
 
 static int mtk_cam_req_try_update_used_ctx(struct media_request *req);
 
+#define LTMSGO_BUF_SZ		(130 * 8)
+#define LTMSGO_BUF_RESERVE_CNT	2
+
+struct mtk_ltms_buf_pool {
+	bool flip;
+	struct mtk_cam_device_buf buffer;
+	struct mtk_cam_pool pool;
+	struct mtk_cam_pool_buffer buf_1;
+	struct mtk_cam_pool_buffer buf_2;
+};
+
 static int set_dev_to_arr(struct device **arr, int num,
 			     int idx, struct device *dev)
 {
@@ -1877,7 +1888,9 @@ int mtk_cam_ctx_alloc_rgbw_caci_buf(struct mtk_cam_ctx *ctx, int w, int h)
 	if (CALL_PLAT_HW(query_caci_size, w, h, &caci_size) || caci_size == 0)
 		return -EINVAL;
 
-	ctx->w_caci_buf = mtk_cam_device_refcnt_buf_create(dev_to_attach, caci_size);
+	ctx->w_caci_buf = mtk_cam_device_refcnt_buf_create(dev_to_attach,
+						 "CAM_W_CACI_ID",
+						 caci_size);
 	if (ctx->w_caci_buf)
 		return 0;
 	else
@@ -1983,6 +1996,81 @@ static void mtk_cam_ctx_release_slb(struct mtk_cam_ctx *ctx)
 	/* reset aid: not necessary */
 }
 
+/* LTMS buffer */
+static int deinit_ltms_buf_pool(struct mtk_cam_ctx *ctx)
+{
+	mtk_cam_buffer_pool_return(&ctx->ltms_buf->buf_1);
+	mtk_cam_buffer_pool_return(&ctx->ltms_buf->buf_2);
+	_destroy_pool(&ctx->ltms_buf->buffer, &ctx->ltms_buf->pool);
+	kfree(ctx->ltms_buf);
+	ctx->ltms_buf = NULL;
+
+	return 0;
+}
+
+static int init_ltms_buf_pool(struct mtk_cam_ctx *ctx)
+{
+	int ret;
+
+	if (WARN_ON(ctx->ltms_buf))
+		return 0;
+
+	ctx->ltms_buf =
+		kmalloc(sizeof(struct mtk_ltms_buf_pool), GFP_KERNEL);
+
+	if (!ctx->ltms_buf)
+		goto fail_to_kmalloc;
+
+	ctx->ltms_buf->flip = false;
+
+	ret = _alloc_pool("CAM_MEM_LTMS_ID",
+			&ctx->ltms_buf->buffer, &ctx->ltms_buf->pool,
+			get_dev_to_attach(ctx),
+			LTMSGO_BUF_SZ, LTMSGO_BUF_RESERVE_CNT,
+			true); // TODO: check if cachable
+	if (ret)
+		goto fail_to_alloc;
+
+	ret = mtk_cam_buffer_pool_fetch(&ctx->ltms_buf->pool,
+									&ctx->ltms_buf->buf_1);
+	if (ret)
+		goto fail_to_fetch_first;
+
+	ret = mtk_cam_buffer_pool_fetch(&ctx->ltms_buf->pool,
+									&ctx->ltms_buf->buf_2);
+	if (ret)
+		goto fail_to_fetch_second;
+
+	return 0;
+
+fail_to_fetch_second:
+	mtk_cam_buffer_pool_return(&ctx->ltms_buf->buf_1);
+fail_to_fetch_first:
+	_destroy_pool(&ctx->ltms_buf->buffer, &ctx->ltms_buf->pool);
+fail_to_alloc:
+	kfree(ctx->ltms_buf);
+	ctx->ltms_buf = NULL;
+fail_to_kmalloc:
+	return -ENOMEM;
+}
+
+int mtk_cam_assign_ltms_buffer(struct mtk_cam_ctx *ctx,
+			 struct mtk_cam_pool_buffer *in,
+			 struct mtk_cam_pool_buffer *out)
+{
+	if (ctx->ltms_buf->flip) {
+		memcpy(in, &ctx->ltms_buf->buf_1, sizeof(struct mtk_cam_pool_buffer));
+		memcpy(out, &ctx->ltms_buf->buf_2, sizeof(struct mtk_cam_pool_buffer));
+	} else {
+		memcpy(out, &ctx->ltms_buf->buf_1, sizeof(struct mtk_cam_pool_buffer));
+		memcpy(in, &ctx->ltms_buf->buf_2, sizeof(struct mtk_cam_pool_buffer));
+	}
+
+	ctx->ltms_buf->flip = !ctx->ltms_buf->flip;
+
+	return 0;
+}
+
 /* for cq working buffers */
 #define IPI_FRAME_BUF_SIZE ALIGN(sizeof(struct mtkcam_ipi_frame_param), SZ_1K)
 static int mtk_cam_ctx_alloc_pool(struct mtk_cam_ctx *ctx)
@@ -2004,8 +2092,14 @@ static int mtk_cam_ctx_alloc_pool(struct mtk_cam_ctx *ctx)
 	if (ret)
 		goto fail_destroy_cq;
 
+	ret = init_ltms_buf_pool(ctx);
+	if (ret)
+		goto fail_destroy_ipi;
+
 	return 0;
 
+fail_destroy_ipi:
+	_destroy_pool(&ctx->ipi_buffer, &ctx->ipi_pool);
 fail_destroy_cq:
 	_destroy_pool(&ctx->cq_buffer, &ctx->cq_pool);
 	return ret;
@@ -2210,7 +2304,9 @@ mtk_cam_device_refcnt_buf_destroy(struct kref *ref)
 }
 
 struct mtk_cam_device_refcnt_buf*
-mtk_cam_device_refcnt_buf_create(struct device *dev_to_attach, size_t caci_size)
+mtk_cam_device_refcnt_buf_create(struct device *dev_to_attach,
+			 const char *buf_name,
+			 size_t size)
 {
 	struct mtk_cam_device_refcnt_buf *refcnt_buf;
 	int ret;
@@ -2221,12 +2317,12 @@ mtk_cam_device_refcnt_buf_create(struct device *dev_to_attach, size_t caci_size)
 
 	kref_init(&refcnt_buf->refcount);
 
-	refcnt_buf->buf.dbuf = _alloc_dma_buf("CAM_W_CACI_ID", caci_size, false);
+	refcnt_buf->buf.dbuf = _alloc_dma_buf(buf_name, size, false);
 	ret = (!refcnt_buf->buf.dbuf) ? -1 : 0;
 
 	ret = ret
 		|| mtk_cam_device_buf_init(&refcnt_buf->buf, refcnt_buf->buf.dbuf,
-					   dev_to_attach, caci_size)
+					   dev_to_attach, size)
 		|| mtk_cam_device_buf_vmap(&refcnt_buf->buf);
 
 	dma_heap_buffer_free(refcnt_buf->buf.dbuf);
@@ -2396,6 +2492,7 @@ static void mtk_cam_ctx_destroy_pool(struct mtk_cam_ctx *ctx)
 {
 	_destroy_pool(&ctx->cq_buffer, &ctx->cq_pool);
 	_destroy_pool(&ctx->ipi_buffer, &ctx->ipi_pool);
+	deinit_ltms_buf_pool(ctx);
 }
 
 /* Put img pool and clean ctx's related field */
@@ -2746,6 +2843,7 @@ int mtk_cam_ctx_init_scenario(struct mtk_cam_ctx *ctx)
 			ret = 0;
 		}
 	}
+
 
 	ctx->scenario_init = true;
 	return ret;

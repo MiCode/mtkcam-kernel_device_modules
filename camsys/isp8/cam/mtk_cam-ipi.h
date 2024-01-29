@@ -288,8 +288,8 @@ struct mtkcam_ipi_frame_param {
 	struct mtkcam_ipi_img_ufdo_params img_ufdo_params;
 	struct mtkcam_ipi_img_ufdi_params img_ufdi_params;
 	/* for LTMSGO low latency used - kernel will handle linkage between frames */
-	struct mtkcam_ipi_meta_input meta_workbuf_in;
-	struct mtkcam_ipi_meta_output meta_workbuf_out;
+	struct mtkcam_ipi_buffer meta_workbuf_in;
+	struct mtkcam_ipi_buffer meta_workbuf_out;
 	/* following will be modified */
 	//struct mtkcam_ipi_bw_info	bw_infos[10*3]; //ports * num_raw
 } __packed;

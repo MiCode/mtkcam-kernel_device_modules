@@ -432,6 +432,8 @@ static int mtk_cam_job_pack_init(struct mtk_cam_job *job,
 	}
 	memset(job->ipi.vaddr, 0, sizeof(struct mtkcam_ipi_frame_param));
 
+	mtk_cam_assign_ltms_buffer(job->src_ctx, &job->ltmsti, &job->ltmsgo);
+
 	INIT_LIST_HEAD(&job->job_state.list);
 	apply_cq_ref_reset(&job->cq_ref);
 
@@ -5272,6 +5274,20 @@ static int update_job_buffer_to_ipi_frame(struct mtk_cam_job *job,
 	return ret;
 }
 
+static int update_ltms_buf_to_ipi_frame(struct mtk_cam_job *job,
+			struct mtkcam_ipi_frame_param *fp)
+{
+	fp->meta_workbuf_in.iova = job->ltmsti.daddr;
+	fp->meta_workbuf_in.size = job->ltmsti.size;
+	fp->meta_workbuf_in.ccd_fd = -1;
+
+	fp->meta_workbuf_out.iova = job->ltmsgo.daddr;
+	fp->meta_workbuf_out.size = job->ltmsgo.size;
+	fp->meta_workbuf_out.ccd_fd = -1;
+
+	return 0;
+}
+
 static void reset_img_ufd_io_param(struct mtkcam_ipi_frame_param *fp)
 {
 	memset(&fp->img_ufdi_params, 0, sizeof(fp->img_ufdi_params));
@@ -5297,7 +5313,8 @@ static int mtk_cam_job_fill_ipi_frame(struct mtk_cam_job *job,
 	ret = update_cq_buffer_to_ipi_frame(&job->cq, fp)
 		|| update_job_raw_param_to_ipi_frame(job, fp)
 		|| update_job_buffer_to_ipi_frame(job, fp, job_helper)
-		|| update_sensor_meta_buffer_to_ipi_frame(job, fp);
+		|| update_sensor_meta_buffer_to_ipi_frame(job, fp)
+		|| update_ltms_buf_to_ipi_frame(job, fp);
 
 	if (ret)
 		pr_info("%s: failed.\n", __func__);

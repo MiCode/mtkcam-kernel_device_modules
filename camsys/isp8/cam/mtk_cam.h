@@ -52,6 +52,8 @@ struct mtk_mraw_pipeline;
 struct mtk_cam_device;
 struct mtk_rpmsg_device;
 
+struct mtk_ltms_buf_pool;
+
 #define CQ_BUF_SIZE  0x10000
 #define CAM_CQ_BUF_NUM \
 			max(JOB_NUM_PER_STREAM * 2, JOB_NUM_PER_STREAM_DISPLAY_IC) /* 2 for mstream */
@@ -149,6 +151,9 @@ struct mtk_cam_ctx {
 	 */
 	bool scenario_init;
 	struct mtk_cam_device_refcnt_buf *w_caci_buf;
+
+	/* ltmsgo/ltmscti buffer */
+	struct mtk_ltms_buf_pool *ltms_buf;
 
 	/* slb */
 	int slb_uid;
@@ -528,9 +533,15 @@ mtk_cam_pool_wrapper_create(struct device *dev_to_attach,
 void mtk_cam_pool_wrapper_destroy(struct kref *ref);
 
 struct mtk_cam_device_refcnt_buf*
-mtk_cam_device_refcnt_buf_create(struct device *dev_to_attach, size_t caci_size);
+mtk_cam_device_refcnt_buf_create(struct device *dev_to_attach,
+			 const char *buf_name,
+			 size_t caci_size);
 void mtk_cam_device_refcnt_buf_destroy(struct kref *ref);
 void mtk_cam_device_refcnt_buf_get(struct mtk_cam_device_refcnt_buf *buf);
 void mtk_cam_device_refcnt_buf_put(struct mtk_cam_device_refcnt_buf *buf);
+
+int mtk_cam_assign_ltms_buffer(struct mtk_cam_ctx *ctx,
+			 struct mtk_cam_pool_buffer *in,
+			 struct mtk_cam_pool_buffer *out);
 
 #endif /*__MTK_CAM_H*/

@@ -118,6 +118,7 @@ struct mtkcam_ipi_sv_input_param {
 	__u8	is_first_frame;
 	__u8	is_two_smi_out;
 	__u8	is_last_order_meta_off;
+	__u8	is_queue_mode;
 	struct mtkcam_ipi_input_param input;
 } __packed;
 

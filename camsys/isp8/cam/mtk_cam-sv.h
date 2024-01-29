@@ -202,6 +202,7 @@ struct mtk_camsv_device {
 	int sv_peak_applied_bw_w;
 
 	atomic_t is_seamless;
+	atomic_t is_queue_mode;
 };
 
 void sv_reset(struct mtk_camsv_device *sv_dev);
@@ -250,7 +251,7 @@ void mtk_cam_update_sensor_resource(struct mtk_cam_ctx *ctx);
 struct mtk_cam_seninf_sentest_param *
 	mtk_cam_get_sentest_param(struct mtk_cam_ctx *ctx);
 int mtk_camsv_translation_fault_callback(int port, dma_addr_t mva, void *data);
-
+void mtk_cam_sv_set_queue_mode(struct mtk_camsv_device *sv_dev, bool enable);
 void mtk_cam_sv_backup(struct mtk_camsv_device *sv_dev);
 void mtk_cam_sv_restore(struct mtk_camsv_device *sv_dev);
 int mtk_cam_sv_golden_set(struct mtk_camsv_device *sv_dev, bool is_golden_set);

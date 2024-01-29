@@ -4634,10 +4634,11 @@ static int mtk_cam_job_fill_ipi_config(struct mtk_cam_job *job,
 					(job->first_job || job->raw_switch) ? 1 : 0;
 				sv_input->is_last_order_meta_off = (is_dcg_ap_merge(job)) ? 1 : 0;
 				sv_input->input = job->ipi_config.sv_input[0][i].input;
-
 				CALL_PLAT_V4L2(
 					get_sv_smi_setting, sv_dev->id, &is_two_smi_out);
 				sv_input->is_two_smi_out = (is_two_smi_out) ? 1 : 0;
+				sv_input->is_queue_mode = atomic_read(&sv_dev->is_queue_mode);
+				atomic_set(&sv_dev->is_queue_mode, 0);
 			}
 		}
 	}

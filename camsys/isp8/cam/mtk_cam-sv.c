@@ -280,6 +280,14 @@ int mtk_camsv_translation_fault_callback(int port, dma_addr_t mva, void *data)
 	return 0;
 }
 
+void mtk_cam_sv_set_queue_mode(struct mtk_camsv_device *sv_dev, bool enable)
+{
+	if (enable)
+		atomic_set(&sv_dev->is_queue_mode, 1);
+	else
+		atomic_set(&sv_dev->is_queue_mode, 0);
+}
+
 void mtk_cam_sv_backup(struct mtk_camsv_device *sv_dev)
 {
 	struct mtk_camsv_backup_setting *s = &sv_dev->backup_setting;
@@ -1677,7 +1685,7 @@ static irqreturn_t mtk_irq_camsv_sof(int irq, void *data)
 	tg_cnt = (sv_dev->tg_cnt & 0xffffff00) + ((tg_cnt & 0xff000000) >> 24);
 
 	if (CAM_DEBUG_ENABLED(RAW_INT))
-		dev_info(sv_dev->dev, "camsv-%d: sof status:0x%x channel status:0x%x seq_no:%d_%d group_tags:0x%x_%x_%x_%x first_tag:0x%x last_tag:0x%x tg_cnt:%d/%lld",
+		dev_info(sv_dev->dev, "camsv-%d: sof status:0x%x channel status:0x%x seq_no:%d_%d group_tags:0x%x_%x_%x_%x first_tag:0x%x last_tag:0x%x tg_cnt:%d/%lld dcif_set:0x%x",
 		sv_dev->id, irq_sof_status,
 		irq_channel_status,
 		frm_seq_no_inner, frm_seq_no,
@@ -1687,7 +1695,8 @@ static irqreturn_t mtk_irq_camsv_sof(int irq, void *data)
 		sv_dev->active_group_info[3],
 		sv_dev->first_tag,
 		sv_dev->last_tag,
-		tg_cnt, sv_dev->sof_count);
+		tg_cnt, sv_dev->sof_count,
+		readl_relaxed(sv_dev->base + REG_CAMSVCENTRAL_DCIF_SET));
 
 	irq_info.ts_ns = ktime_get_boottime_ns();
 	irq_info.frame_idx = frm_seq_no;

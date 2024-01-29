@@ -33,6 +33,10 @@
 #define MSG_TO_CCU_QOF_CONFIG 5
 #endif
 
+#define MSG_TO_CCU_START_FIFO_DETECT 6
+#define MSG_TO_CCU_FIFO_DUMP 7
+#define MSG_TO_CCU_STOP_FIFO_DETECT 8
+
 struct mtk_cam_hsf_info {
 	u32 cq_size;
 	u64 cq_dst_iova;
@@ -89,6 +93,10 @@ struct aid_info {
 	uint32_t enable;
 	uint32_t feature;
 	uint32_t used_engine;
+};
+
+struct fifo_info {
+	uint32_t camsv_idx;
 };
 
 enum mtk_cam_aid_feature {

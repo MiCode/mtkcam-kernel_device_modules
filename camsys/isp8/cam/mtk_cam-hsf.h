@@ -14,6 +14,9 @@ int mtk_cam_hsf_config(struct mtk_cam_ctx *ctx, unsigned int raw_id);
 int mtk_cam_hsf_uninit(struct mtk_cam_ctx *ctx);
 int mtk_cam_hsf_aid(struct mtk_cam_ctx *ctx, unsigned int enable,
 		    unsigned int feature, unsigned int used_engine);
+int mtk_cam_sv_start_fifo_detection(struct mtk_camsv_device *sv_dev);
+int mtk_cam_sv_execute_fifo_dump(struct mtk_camsv_device *sv_dev);
+int mtk_cam_sv_stop_fifo_detection(struct mtk_camsv_device *sv_dev);
 #ifdef QOF_CCU_READY
 int mtk_cam_hsf_qof_config(struct mtk_raw_device *raw,
 						   bool on_lock, bool off_lock, bool out_lock);

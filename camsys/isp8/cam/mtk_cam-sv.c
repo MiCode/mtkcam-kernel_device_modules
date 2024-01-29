@@ -21,6 +21,7 @@
 #include "mtk_cam-sv.h"
 #include "mtk_cam-fmt_utils.h"
 #include "mtk_cam-trace.h"
+#include "mtk_cam-hsf.h"
 
 #include "iommu_debug.h"
 
@@ -1309,14 +1310,17 @@ int mtk_cam_sv_dev_pertag_stream_on(
 
 	if (on) {
 		sv_dev->streaming_tag_cnt++;
-		if (sv_dev->streaming_tag_cnt == sv_dev->used_tag_cnt)
+		if (sv_dev->streaming_tag_cnt == sv_dev->used_tag_cnt) {
+			ret |= mtk_cam_sv_start_fifo_detection(sv_dev);
 			ret |= mtk_cam_sv_central_common_enable(sv_dev);
+		}
 	} else {
 		if (sv_dev->streaming_tag_cnt == 0)
 			goto EXIT;
 		if (sv_dev->streaming_tag_cnt == sv_dev->used_tag_cnt) {
 			ret |= mtk_cam_sv_cq_disable(sv_dev);
 			ret |= mtk_cam_sv_central_common_disable(sv_dev);
+			ret |= mtk_cam_sv_stop_fifo_detection(sv_dev);
 		}
 
 		ret |= mtk_cam_sv_fbc_disable(sv_dev, tag_idx);
@@ -1490,6 +1494,7 @@ void camsv_handle_err(
 
 	/* check dma fifo status */
 	if (!(data->err_tags) && (err_status & CAMSVCENTRAL_DMA_SRAM_FULL_ST)) {
+		mtk_cam_sv_execute_fifo_dump(sv_dev);
 		dev_info_ratelimited(sv_dev->dev, "camsv dma fifo full\n");
 		mtk_cam_seninf_dump_current_status(ctx->seninf);
 		mtk_smi_dbg_hang_detect("camsys-camsv");

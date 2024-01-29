@@ -18,7 +18,7 @@
 #define QOF_TIMER_FREQ_DIV				3
 
 // TODO: tune this threshold
-#define ON_OFF_TIME_US					300
+#define ON_OFF_TIME_US					3500
 
 // NOTE: PWR_OFF_MAX_THRESHOLD_US should be large enough to avoid
 // overlay of on_proc and off_proc(generally 10us)

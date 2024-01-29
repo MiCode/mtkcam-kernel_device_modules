@@ -273,9 +273,12 @@ static void *mtk_cam_vb2_attach_dmabuf(
 	/* acp - io coherence buffer */
 	if ((mtk_buf->flags & FLAG_NO_CACHE_CLEAN ||
 		mtk_buf->flags & FLAG_NO_CACHE_INVALIDATE) &&
-		node->desc.image == 0) {
+		(node->desc.dma_port == MTKCAM_IPI_RAW_META_STATS_CFG ||
+		node->desc.dma_port == MTKCAM_IPI_RAW_META_STATS_0 ||
+		node->desc.dma_port == MTKCAM_IPI_RAW_META_STATS_1) &&
+		(!region_heap_is_prot(dbuf))) {
 		buf->dev = cam->smmu_dev_acp;
-		dev_info(dev, "%s node:%s flags:0x%x", __func__,
+		dev_info(buf->dev, "%s node:%s flags:0x%x", __func__,
 			node->desc.name, mtk_buf->flags);
 	} else {
 		buf->dev = dev;

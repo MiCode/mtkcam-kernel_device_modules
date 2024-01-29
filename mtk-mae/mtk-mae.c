@@ -134,6 +134,9 @@ void mtk_mae_register_drv_ops(const struct mtk_mae_drv_ops *ops) {
 	drv_ops.config_fld = ops->config_fld;
 	drv_ops.get_fd_v0_result = ops->get_fd_v0_result;
 	drv_ops.get_fd_v1_result = ops->get_fd_v1_result;
+	drv_ops.secure_init = ops->secure_init;
+	drv_ops.secure_enable = ops->secure_enable;
+	drv_ops.secure_disable = ops->secure_disable;
 }
 EXPORT_SYMBOL(mtk_mae_register_drv_ops);
 
@@ -714,6 +717,10 @@ static int mtk_mae_hw_connect(struct mtk_mae_dev *mae_dev)
 		buf_info->pa = sg_dma_address(buf_info->sg_table->sgl);
 
 		buf_info->is_attach = true;
+
+		// initialize
+		mae_dev->is_first_qbuf = true;
+		mae_dev->is_secure = false;
 	}
 
 	return 0;
@@ -771,6 +778,14 @@ static void mtk_mae_umap_detach(struct mtk_mae_dev *mae_dev,
 static void mtk_mae_hw_disconnect(struct mtk_mae_dev *mae_dev)
 {
 	uint32_t i;
+
+	if (mae_dev->is_secure) {
+		if (drv_ops.secure_disable)
+			drv_ops.secure_disable(mae_dev);
+#if MAE_CMDQ_SEC_READY
+		cmdq_sec_mbox_stop(mae_dev->mae_secure_clt);
+#endif
+	}
 
 	// DEBUG_ONLY
 	mae_dev_info(mae_dev->dev, "%s+ count(%d)", __func__, mae_dev->mae_stream_count);
@@ -1282,6 +1297,21 @@ int mtk_mae_vidioc_qbuf(struct file *file, void *priv,
 	mae_dev_dbg(mae_dev->dev, "image[0].enResize(%d), image[0].resizeWidth(%d), image[0].resizeHeight(%d)\n",
 				param->image[0].enResize, param->image[0].resizeWidth, param->image[0].resizeHeight);
 
+	if (mae_dev->is_first_qbuf) {
+		if (param->isSecure) {
+			mae_dev_info(mae_dev->dev, "MAE SECURE MODE INIT!\n");
+
+			mae_dev->is_secure = true;
+
+			if (drv_ops.secure_init)
+				drv_ops.secure_init(mae_dev);
+			if (drv_ops.secure_enable)
+				drv_ops.secure_enable(mae_dev);
+		}
+
+		mae_dev->is_first_qbuf = false;
+	}
+
 	// get pa of model
 	for (i = 0; i < MODEL_TYPE_MAX; i++) {
 		if (model_table->configTable[i].fd > 0 && model_table->configTable[i].isReady == 0) {
@@ -1633,7 +1663,7 @@ int mtk_mae_probe(struct platform_device *pdev)
 	else
 		mae_dev_info(dev, "cmdq mbox create done\n");
 
-#if CMDQ_SEC_READY
+#if MAE_CMDQ_SEC_READY
 	mae_dev->mae_secure_clt = cmdq_mbox_create(dev, 1);
 
 	if (!mae_dev->mae_secure_clt)
@@ -1643,10 +1673,10 @@ int mtk_mae_probe(struct platform_device *pdev)
 
 	of_property_read_u32(pdev->dev.of_node, "sw-sync-token-tzmp-aie-wait",
 				&(mae_dev->mae_sec_wait));
-	aie_dev_info(dev, "mae_sec_wait is %d\n", mae_dev->mae_sec_wait);
+	mae_dev_info(mae_dev->dev, "mae_sec_wait is %d\n", mae_dev->mae_sec_wait);
 	of_property_read_u32(pdev->dev.of_node, "sw-sync-token-tzmp-aie-set",
-				&(fd->mae_sec_set));
-	aie_dev_info(dev, "mae_sec_set is %d\n", mae_dev->mae_sec_set);
+				&(mae_dev->mae_sec_set));
+	mae_dev_info(mae_dev->dev, "mae_sec_set is %d\n", mae_dev->mae_sec_set);
 #endif
 
 	of_property_read_u32(pdev->dev.of_node, "fdvt-frame-done",

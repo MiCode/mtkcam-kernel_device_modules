@@ -2255,6 +2255,54 @@ static void mtk_mae_fld_reset(struct mtk_mae_dev *mae_dev)
 	writel(value & ~(0x1 << 13), mae_dev->mae_base + MAE_TRIG_RST_CTRL);
 }
 
+#if MAE_CMDQ_SEC_READY
+static void mtk_mae_sec_cmdq_cb(struct cmdq_cb_data data)
+{
+	struct mtk_mae_dev *mae_dev = (struct mtk_mae_dev *)data.data;
+
+	mae_dev_info(mae_dev->dev, "MAE SEC CMDQ CB\n");
+}
+
+static void mtk_mae_sec_pkt_cb(struct cmdq_cb_data data)
+{
+	struct mtk_mae_dev *mae_dev = (struct mtk_mae_dev *)data.data;
+
+	cmdq_pkt_destroy(mae_dev->sec_pkt);
+	mae_dev->sec_pkt = NULL;
+}
+
+static void mtk_mae_secure_cmdq_init(struct mtk_mae_dev *mae_dev)
+{
+	mae_dev->sec_pkt = cmdq_pkt_create(mae_dev->mae_secure_clt);
+	cmdq_sec_pkt_set_data(mae_dev->sec_pkt, 0, 0, CMDQ_SEC_DEBUG, CMDQ_METAEX_TZMP);
+	cmdq_sec_pkt_set_mtee(mae_dev->sec_pkt, true);
+	cmdq_pkt_finalize_loop(mae_dev->sec_pkt);
+	cmdq_pkt_flush_threaded(mae_dev->sec_pkt, mtk_mae_sec_pkt_cb, (void *)mae_dev);
+}
+
+static void mtk_mae_enable_secure_domain(struct mtk_mae_dev *mae_dev)
+{
+	struct cmdq_pkt *pkt = cmdq_pkt_create(mae_dev->mae_clt);
+
+	cmdq_pkt_set_event(pkt, mae_dev->mae_sec_wait);
+	cmdq_pkt_wfe(pkt, mae_dev->mae_sec_set);
+	cmdq_pkt_flush_async(pkt, mtk_mae_sec_cmdq_cb, (void *)mae_dev);
+	cmdq_pkt_wait_complete(pkt);
+	cmdq_pkt_destroy(pkt);
+}
+
+static void mtk_mae_disable_secure_domain(struct mtk_mae_dev *mae_dev)
+{
+	struct cmdq_pkt *pkt = cmdq_pkt_create(mae_dev->mae_clt);
+
+	cmdq_pkt_set_event(pkt, mae_dev->mae_sec_wait);
+	cmdq_pkt_wfe(pkt, mae_dev->mae_sec_set);
+	cmdq_pkt_flush_async(pkt, mtk_mae_sec_cmdq_cb, (void *)mae_dev);
+	cmdq_pkt_wait_complete(pkt);
+	cmdq_pkt_destroy(pkt);
+}
+#endif
+
 const struct mtk_mae_drv_ops mae_ops_isp8 = {
 	// .reset = mtk_mae_reset,
 	// .alloc_buf = aie_alloc_aie_buf,
@@ -2272,6 +2320,11 @@ const struct mtk_mae_drv_ops mae_ops_isp8 = {
 	.dump_reg = mtk_mae_dump_reg,
 	// .dump_cg_reg = aie_dump_cg_reg,
 	// .enable_ddren = aie_enable_ddren_7sp_1,
+#if MAE_CMDQ_SEC_READY
+	.secure_init = mtk_mae_secure_cmdq_init,
+	.secure_enable = mtk_mae_enable_secure_domain,
+	.secure_disable = mtk_mae_disable_secure_domain,
+#endif
 };
 
 int mtk_mae_isp8_probe(struct platform_device *pdev)

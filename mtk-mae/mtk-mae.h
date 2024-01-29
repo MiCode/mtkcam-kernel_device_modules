@@ -18,6 +18,7 @@
 
 #define M2M_ENABLE 1
 #define MEMCPY_KERNEL_STRUCT_ENABLE 1
+#define MAE_CMDQ_SEC_READY 1
 
 #define CMDQ_SEC_READY 0
 
@@ -617,9 +618,12 @@ struct mtk_mae_dev {
 	struct cmdq_client *mae_clt;
 	struct cmdq_client *mae_secure_clt;
 	struct cmdq_pkt *pkt[REQUEST_BUFFER_NUM];
+	struct cmdq_pkt *sec_pkt;
 	int32_t core_sel[REQUEST_BUFFER_NUM];
 
 	bool is_hw_hang;
+	bool is_secure;
+	bool is_first_qbuf;
 
 	struct mutex mae_device_lock;
 	int open_video_device_cnt;
@@ -687,6 +691,9 @@ struct mtk_mae_drv_ops {
 	void (*dump_reg)(struct mtk_mae_dev *mae_dev);
 	// void (*dump_cg_reg)(struct mtk_aie_dev *fd);
 	// void (*enable_ddren)(struct mtk_aie_dev *fd);
+	void (*secure_init)(struct mtk_mae_dev *fd);
+	void (*secure_enable)(struct mtk_mae_dev *fd);
+	void (*secure_disable)(struct mtk_mae_dev *fd);
 };
 
 void mtk_mae_register_drv_ops(const struct mtk_mae_drv_ops *ops);

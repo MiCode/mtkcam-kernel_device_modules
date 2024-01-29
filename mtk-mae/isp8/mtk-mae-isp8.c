@@ -254,7 +254,7 @@ static void mtk_mae_config_dma(struct mtk_mae_dev *mae_dev, int idx)
 			param->image[loop].roi.x1 = 0;
 			param->image[loop].roi.y1 = 0;
 			param->image[loop].roi.x2 = 0;
-			param->image[loop].roi.x2 = 0;
+			param->image[loop].roi.y2 = 0;
 		}
 
 		if (!param->image[loop].enPadding) {

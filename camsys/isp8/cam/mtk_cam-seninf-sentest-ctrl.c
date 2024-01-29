@@ -386,7 +386,7 @@ static int seninf_sentest_set_camtg_for_seamless(struct seninf_ctx *ctx)
 	}
 
 	param.settings = settings;
-	ret |= mtk_cam_seninf_streaming_mux_change(&param);
+	ret |= mtk_cam_seninf_streaming_mux_change(&param, false);
 	return ret;
 }
 

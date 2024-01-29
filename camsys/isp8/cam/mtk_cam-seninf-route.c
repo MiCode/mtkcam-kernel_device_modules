@@ -30,6 +30,17 @@
 #include "mtk_cam-defs.h"
 
 
+static inline size_t seninf_list_count(struct list_head *head)
+{
+	struct list_head *pos;
+	size_t count = 0;
+
+	list_for_each(pos, head)
+		count++;
+
+	return count;
+}
+
 void mtk_cam_seninf_alloc_outmux(struct seninf_ctx *ctx)
 {
 	int i;
@@ -1001,7 +1012,12 @@ int mtk_cam_seninf_set_pixelmode_camsv(struct v4l2_subdev *sd,
 	struct seninf_ctx *ctx = container_of(sd, struct seninf_ctx, subdev);
 	struct seninf_vc *vc;
 	int i;
-	int outmux;
+
+	if (ctx->streaming) {
+		seninf_logi(ctx, "Unsupport to change in streaming state, pad_id %d outmux%d pixmode %d",
+			    pad_id, camtg, pixelMode);
+		return -EINVAL;
+	}
 
 	if (pad_id < PAD_SRC_RAW0 || pad_id >= PAD_MAXCNT) {
 		pr_info("[%s][err]: no such pad id:%d\n", __func__, pad_id);
@@ -1036,32 +1052,7 @@ int mtk_cam_seninf_set_pixelmode_camsv(struct v4l2_subdev *sd,
 				__func__,
 				vc->dest[i].pix_mode,
 				ctx->pad2cam[pad_id][i]);
-
-		if (ctx->streaming) {
-			update_isp_clk(ctx);
-			if (vc->dest[i].outmux == 0xFF) {
-				dev_info(ctx->dev, "%s dest[%d].outmux == 0xFF\n", __func__, i);
-			} else {
-				outmux = vc->dest[i].outmux;
-
-				g_seninf_ops->_wait_outmux_cfg_done(ctx, outmux);
-				g_seninf_ops->_set_outmux_pixel_mode(
-							ctx, outmux,
-							vc->dest[i].pix_mode);
-
-				// Program csr_config_mode. Fix config mode 0
-
-				//Program csr_sw_cfg_done to 1
-				g_seninf_ops->_set_outmux_cfg_done(ctx, outmux);
-
-				dev_info(ctx->dev,
-					"%s set outmux%d pixel_mode %d done\n",
-					__func__, outmux,
-					vc->dest[i].pix_mode);
-			}
-		}
 	}
-	// if streaming, update ispclk and update pixle mode seninf mux and reset
 
 	return 0;
 }
@@ -1081,7 +1072,8 @@ int mtk_cam_seninf_set_pixelmode(struct v4l2_subdev *sd,
 	}
 
 	if (ctx->streaming) {
-		seninf_logi(ctx, "Unsupport to change in streaming state");
+		seninf_logi(ctx, "Unsupport to change in streaming state, pad_id %d pixmode %d",
+			    pad_id, pixelMode);
 		return -EINVAL;
 	}
 
@@ -1113,7 +1105,7 @@ int mtk_cam_seninf_set_pixelmode(struct v4l2_subdev *sd,
 	return 0;
 }
 
-static int mtk_cam_seninf_outmux_switch(struct seninf_ctx *ctx, struct outmux_cfg *cfg)
+static int mtk_cam_seninf_outmux_switch(struct seninf_ctx *ctx, struct outmux_cfg *cfg, bool grp_en)
 {
 	int outmux_idx = cfg->outmux_idx;
 	int src_mipi = cfg->src_mipi;
@@ -1126,8 +1118,8 @@ static int mtk_cam_seninf_outmux_switch(struct seninf_ctx *ctx, struct outmux_cf
 		ctx->outmux_disable_list[outmux_idx] = false;
 	}
 
-	seninf_logi(ctx, "outmux_idx %d, src_mipi %d, src_sen %d, cfg_mode %d",
-		    outmux_idx, src_mipi, src_sen, cfg_mode);
+	seninf_logi(ctx, "outmux_idx %d, src_mipi %d, src_sen %d, pixmode %d, cfg_mode %d",
+		    outmux_idx, src_mipi, src_sen, pix_mode, cfg_mode);
 
 	// make sure outmux cg enabled
 	if (!g_seninf_ops->_is_outmux_used(ctx, outmux_idx))
@@ -1142,9 +1134,13 @@ static int mtk_cam_seninf_outmux_switch(struct seninf_ctx *ctx, struct outmux_cf
 	// pixel mode
 	g_seninf_ops->_set_outmux_pixel_mode(ctx, outmux_idx, pix_mode);
 
-	// Program csr_config_mode. Fix config mode 0
+	//Set rdy grp en
+	g_seninf_ops->_set_outmux_grp_en(ctx, outmux_idx, grp_en);
 
 	//Set csr_cam_cfg_rdy to 0 if SW has not received all cq_done (or other conditions)
+	if (grp_en)
+		g_seninf_ops->_set_outmux_cfg_rdy(ctx, outmux_idx, 0);
+
 	//Wait I2C settings done
 	//Program csr_sw_cfg_done to 1
 	g_seninf_ops->_set_outmux_cfg_done(ctx, outmux_idx);
@@ -1156,6 +1152,18 @@ static int mtk_cam_seninf_outmux_switch(struct seninf_ctx *ctx, struct outmux_cf
 }
 
 static void mtk_cam_seninf_outmux_config_all(struct seninf_ctx *ctx,
+		struct list_head *outmux_cfgs, bool grp_en)
+{
+	struct outmux_cfg *ent;
+
+	seninf_logi(ctx, "+");
+
+	list_for_each_entry(ent, outmux_cfgs, list) {
+		mtk_cam_seninf_outmux_switch(ctx, ent, grp_en);
+	}
+}
+
+static void mtk_cam_seninf_outmux_cfg_rdy_all(struct seninf_ctx *ctx,
 		struct list_head *outmux_cfgs)
 {
 	struct outmux_cfg *ent;
@@ -1163,7 +1171,7 @@ static void mtk_cam_seninf_outmux_config_all(struct seninf_ctx *ctx,
 	seninf_logi(ctx, "+");
 
 	list_for_each_entry(ent, outmux_cfgs, list) {
-		mtk_cam_seninf_outmux_switch(ctx, ent);
+		mtk_cam_seninf_set_cfg_rdy(&ctx->subdev, ent->outmux_idx);
 	}
 }
 
@@ -1693,6 +1701,8 @@ int mtk_cam_seninf_s_stream_mux(struct seninf_ctx *ctx)
 	struct seninf_core *core = ctx->core;
 	struct list_head outmux_cfgs;
 	struct outmux_cfg *cfg;
+	bool grp_en = false;
+	bool is_sensor_stream = false;
 
 	INIT_LIST_HEAD(&outmux_cfgs);
 
@@ -1761,8 +1771,20 @@ int mtk_cam_seninf_s_stream_mux(struct seninf_ctx *ctx)
 		}
 	}
 
+	if (!ctx->is_test_model) {
+		/* query if sensor in reset */
+		ctx->sensor_sd->ops->core->command(ctx->sensor_sd,
+				V4L2_CMD_G_SENSOR_STREAM_STATUS, &is_sensor_stream);
+		grp_en = !!(is_sensor_stream) && (seninf_list_count(&outmux_cfgs) > 1);
+		seninf_logi(ctx, "is sensor streamed: %u, config outmux cnt: %lu\n",
+			    is_sensor_stream, seninf_list_count(&outmux_cfgs));
+	}
+
 	/* enable all selected outmux */
-	mtk_cam_seninf_outmux_config_all(ctx, &outmux_cfgs);
+	mtk_cam_seninf_outmux_config_all(ctx, &outmux_cfgs, grp_en);
+
+	if (grp_en)
+		mtk_cam_seninf_outmux_cfg_rdy_all(ctx, &outmux_cfgs);
 
 	/* Free list */
 	mtk_cam_seninf_outmux_release_all(ctx, &outmux_cfgs);
@@ -1784,7 +1806,7 @@ int mtk_cam_seninf_s_stream_mux(struct seninf_ctx *ctx)
 }
 
 bool
-mtk_cam_seninf_streaming_mux_change(struct mtk_cam_seninf_mux_param *param)
+mtk_cam_seninf_streaming_mux_change(struct mtk_cam_seninf_mux_param *param, bool grp_en)
 {
 	struct v4l2_subdev *sd = NULL;
 	int pad_id = -1;
@@ -1880,6 +1902,7 @@ mtk_cam_seninf_streaming_mux_change(struct mtk_cam_seninf_mux_param *param)
 		if (cfg) {
 			cfg->src_mipi = ctx->seninfAsyncIdx;
 			cfg->src_sen = ctx->seninfSelSensor;
+			cfg->pix_mode = param->settings[i].pixelmode;
 			cfg->tag_cfg[tag_id].enable = true;
 			cfg->tag_cfg[tag_id].filt_vc = vc->vc;
 			cfg->tag_cfg[tag_id].filt_dt = vc->dt;
@@ -1907,7 +1930,7 @@ mtk_cam_seninf_streaming_mux_change(struct mtk_cam_seninf_mux_param *param)
 
 	if (ctx) {
 		/* enable all selected outmux */
-		mtk_cam_seninf_outmux_config_all(ctx, &outmux_cfgs);
+		mtk_cam_seninf_outmux_config_all(ctx, &outmux_cfgs, grp_en);
 
 		/* Free list */
 		mtk_cam_seninf_outmux_release_all(ctx, &outmux_cfgs);
@@ -1932,6 +1955,22 @@ mtk_cam_seninf_streaming_mux_change(struct mtk_cam_seninf_mux_param *param)
 	kfree(buf);
 
 	return false;
+}
+
+int mtk_cam_seninf_set_cfg_rdy(struct v4l2_subdev *sd, int camtg)
+{
+	struct seninf_ctx *ctx = container_of(sd, struct seninf_ctx, subdev);
+
+	if (camtg < 0 || camtg >= g_seninf_ops->outmux_num) {
+		seninf_logi(ctx, "invalid camtg %d\n", camtg);
+		return -EINVAL;
+	}
+
+	g_seninf_ops->_set_outmux_cfg_rdy(ctx, camtg, 1);
+
+	seninf_logi(ctx, "set outmux%d cfg_rdy=1", camtg);
+
+	return 0;
 }
 
 void mtk_cam_sensor_get_vc_info_by_scenario(struct seninf_ctx *ctx, u32 code)

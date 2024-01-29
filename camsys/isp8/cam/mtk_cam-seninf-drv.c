@@ -283,7 +283,7 @@ static void dbg_commit_chmux(struct seninf_ctx *ctx)
 		return;
 
 	if (ctx->dbg_chmux_param)
-		mtk_cam_seninf_streaming_mux_change(ctx->dbg_chmux_param);
+		mtk_cam_seninf_streaming_mux_change(ctx->dbg_chmux_param, false);
 }
 
 static void dbg_set_camtg(struct seninf_ctx *ctx, int pad_id, int camtg, int tag_id)

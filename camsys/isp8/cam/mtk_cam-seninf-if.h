@@ -132,6 +132,7 @@ int mtk_cam_seninf_get_sentest_param(struct v4l2_subdev *sd, __u32 fmt_code,
  * @source: source pad id of the seninf subdev, to indicate the image
  *          processing engine to be conncted
  * @camtg: physical image processing engine's id (e.g. raw's device id)
+ * @pixmode: the pixel mode
  */
 struct mtk_cam_seninf_mux_setting {
 	struct v4l2_subdev *seninf;
@@ -142,6 +143,7 @@ struct mtk_cam_seninf_mux_setting {
 		int tag_id;
 		enum seninf_recv_raw_set raw_set;
 	};
+	int pixelmode;
 };
 
 /**
@@ -172,6 +174,7 @@ struct mtk_cam_seninf_mux_param {
 /**
  * struct mtk_cam_seninf_streaming_mux_change - change connection during streaming
  * @param: a new connection from sensor interface to image processing engine
+ * @param grp_en: whether using grp rdy or not
  *
  * To be called when camsys driver need to change the connection from sensor
  * interface to image processing engine during streaming. It is a asynchronized
@@ -180,7 +183,7 @@ struct mtk_cam_seninf_mux_param {
  * Returns true if the mux changes will be applied.
  */
 bool
-mtk_cam_seninf_streaming_mux_change(struct mtk_cam_seninf_mux_param *param);
+mtk_cam_seninf_streaming_mux_change(struct mtk_cam_seninf_mux_param *param, bool grp_en);
 
 
 struct mtk_seninf_sof_notify_param {

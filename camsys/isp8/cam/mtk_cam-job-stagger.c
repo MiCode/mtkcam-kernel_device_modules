@@ -273,7 +273,7 @@ int apply_cam_mux_switch(struct mtk_cam_job *job)
 
 		param.settings = &settings[0];
 		param.num = i;
-		mtk_cam_seninf_streaming_mux_change(&param);
+		mtk_cam_seninf_streaming_mux_change(&param, false);
 		dev_info(ctx->cam->dev,
 			"[%s] switch Req:%d pre:%d cur:%d cam_mux[0-3]:[%d/%d/%d][%d/%d/%d][%d/%d/%d][%d/%d/%d][%d/%d/%d][%d/%d/%d][%d/%d/%d][%d/%d/%d][%d/%d/%d]\n",
 			__func__, job->frame_seq_no, prev_exp, cur_exp,
@@ -459,7 +459,7 @@ int apply_cam_mux_switch(struct mtk_cam_job *job)
 
 		param.settings = &settings[0];
 		param.num = i;
-		mtk_cam_seninf_streaming_mux_change(&param);
+		mtk_cam_seninf_streaming_mux_change(&param, false);
 		dev_info(ctx->cam->dev,
 			"[%s] switch Req:%d pre:%d cur:%d cam_mux[0-3]:[%d/%d/%d][%d/%d/%d][%d/%d/%d][%d/%d/%d][%d/%d/%d][%d/%d/%d][%d/%d/%d][%d/%d/%d][%d/%d/%d]\n",
 			__func__, job->frame_seq_no, prev_exp, cur_exp,
@@ -543,7 +543,7 @@ int apply_cam_mux_switch(struct mtk_cam_job *job)
 
 		param.settings = &settings[0];
 		param.num = i;
-		mtk_cam_seninf_streaming_mux_change(&param);
+		mtk_cam_seninf_streaming_mux_change(&param, false);
 		dev_info(ctx->cam->dev,
 			"[%s] switch Req:%d pre:%d cur:%d cam_mux[0-3]:[%d/%d/%d][%d/%d/%d][%d/%d/%d][%d/%d/%d][%d/%d/%d][%d/%d/%d][%d/%d/%d][%d/%d/%d][%d/%d/%d]\n",
 			__func__, job->frame_seq_no, prev_exp, cur_exp,

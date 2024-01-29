@@ -13,7 +13,6 @@
 #define HW_BUF_EFFECT 10
 #define ISP_CLK_LOW 273000000
 
-#define REDUCE_KO_DEPENDANCY_FOR_SMT
 #define CSI_CLK_242MHZ
 
 /* data lane hs settle, base on 130 MHz csi ck */

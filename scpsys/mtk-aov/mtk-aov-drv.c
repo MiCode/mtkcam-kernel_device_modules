@@ -286,6 +286,21 @@ static long mtk_aov_ioctl(struct file *file, unsigned int cmd,
 		ret = aov_core_send_cmd(aov_dev, AOV_SCP_CMD_OFF_UT, NULL, 0, false);
 		AOV_DEBUG_LOG(*(aov_dev->enable_aov_log_flag), "disp off resource test done, ret(%d)\n", ret);
 		break;
+	case AOV_DEV_TURN_ON_ULPOSC:
+		AOV_DEBUG_LOG(*(aov_dev->enable_aov_log_flag),
+			"turn on ulposc\n");
+		ret = aov_core_send_cmd(aov_dev, AOV_SCP_CMD_TURN_ON_ULPOSC, NULL, 0, true);
+		aov_ulposc_check_cali_result(aov_dev);
+		AOV_DEBUG_LOG(*(aov_dev->enable_aov_log_flag),
+			"turn on ulposc done, ret(%d)\n", ret);
+		break;
+	case AOV_DEV_TURN_OFF_ULPOSC:
+		AOV_DEBUG_LOG(*(aov_dev->enable_aov_log_flag),
+			"turn off ulposc\n");
+		ret = aov_core_send_cmd(aov_dev, AOV_SCP_CMD_TURN_OFF_ULPOSC, NULL, 0, true);
+		AOV_DEBUG_LOG(*(aov_dev->enable_aov_log_flag),
+			"turn off ulposc done, ret(%d)\n", ret);
+		break;
 	default:
 		dev_info(aov_dev->dev, "unknown AOV control code(%d)\n", cmd);
 		return -EINVAL;
@@ -556,6 +571,7 @@ static int mtk_aov_probe(struct platform_device *pdev)
 		aov_dev->fd_version = 0;
 		dev_info(&pdev->dev, "%s null of node\n", __func__);
 	}
+	aov_ulposc_dts_init(aov_dev);
 
 	aov_aee_init(aov_dev);
 	aov_core_init(aov_dev);

@@ -22,6 +22,8 @@
 #define AOV_DEV_PWR_UT            _IO('H', 6)
 #define AOV_DEV_DISP_ON_UT        _IO('H', 7)
 #define AOV_DEV_DISP_OFF_UT       _IO('H', 8)
+#define AOV_DEV_TURN_ON_ULPOSC    _IO('H', 9)
+#define AOV_DEV_TURN_OFF_ULPOSC   _IO('H', 10)
 
 #if IS_ENABLED(CONFIG_COMPAT)
 #define COMPAT_AOV_DEV_START        _IOW('H', 0, struct aov_user)
@@ -33,6 +35,8 @@
 #define COMPAT_AOV_DEV_PWR_UT       _IO('H', 6)
 #define COMPAT_AOV_DEV_DISP_ON_UT   _IO('H', 7)
 #define COMPAT_AOV_DEV_DISP_OFF_UT  _IO('H', 8)
+#define COMPAT_AOV_DEV_TURN_ON_ULPOSC _IO('H', 9)
+#define COMPAT_AOV_DEV_TURN_OFF_ULPOSC _IO('H', 10)
 #endif
 
 /*
@@ -53,7 +57,9 @@
 #define AOV_SCP_CMD_PWR_UT           (12)
 #define AOV_SCP_CMD_RESET_SENSOR     (13)
 #define AOV_SCP_CMD_RESET_SENSOR_END (14)
-#define AOV_SCP_CMD_MAX              (15)
+#define AOV_SCP_CMD_TURN_ON_ULPOSC   (15)
+#define AOV_SCP_CMD_TURN_OFF_ULPOSC  (16)
+#define AOV_SCP_CMD_MAX              (17)
 #define AOV_SCP_CMD_ACK              (0x80000000)
 
 #define AOV_DEBUG_MODE_DUMP       (1)  // General debug

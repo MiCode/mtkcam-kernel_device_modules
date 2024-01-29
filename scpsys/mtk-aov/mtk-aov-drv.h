@@ -12,6 +12,7 @@
 #include "mtk-aov-config.h"
 #include "mtk-aov-core.h"
 #include "mtk-aov-aee.h"
+#include "mtk-aov-ulposc.h"
 
 /**
  * struct mtk_aov - aov driver data
@@ -39,6 +40,7 @@ struct mtk_aov {
 	uint32_t *bypass_aov_kernel_flag;
 	uint32_t *bypass_aov_scp_flag;
 	uint32_t *enable_aov_log_flag;
+	struct aov_ulposc_info ulposc_info;
 };
 
 #endif /* MTK_AOV_DRV_H */

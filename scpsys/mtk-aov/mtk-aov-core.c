@@ -21,6 +21,8 @@
 #include "mtk-aov-data.h"
 #include "mtk-aov-trace.h"
 #include "mtk-aov-log.h"
+#include "mtk-aov-ulposc.h"
+#include "mtk-aov-regs.h"
 
 #include "mtk-vmm-notifier.h"
 #include "mtk_mmdvfs.h"
@@ -682,6 +684,10 @@ int aov_core_send_cmd(struct mtk_aov *aov_dev, uint32_t cmd,
 		vmm_isp_ctrl_notify(1);
 		mtk_mmdvfs_aov_enable(1);
 		send_cmd_internal(core_info, cmd, 0, 0, false, false);
+	} else if (cmd == AOV_SCP_CMD_TURN_ON_ULPOSC) {
+		send_cmd_internal(core_info, cmd, 0, 0, false, true);
+	} else if (cmd == AOV_SCP_CMD_TURN_OFF_ULPOSC) {
+		send_cmd_internal(core_info, cmd, 0, 0, false, true);
 	}
 
 	if (atomic_read(&(core_info->aov_ready))) {
@@ -989,6 +995,7 @@ static int scp_state_notify(struct notifier_block *this,
 		}
 
 		atomic_set(&(core_info->scp_ready), 2);
+		aov_ulposc_cali(aov_dev);
 	}
 
 	return NOTIFY_DONE;
@@ -1020,6 +1027,9 @@ int aov_core_init(struct mtk_aov *aov_dev)
 		dev_info(aov_dev->dev, "%s: bypass init operation", __func__);
 		return 0;
 	}
+
+	for (index = 0; index < AOV_SCP_CMD_MAX; index++)
+		init_waitqueue_head(&core_info->ack_wq[index]);
 
 	ret = mtk_ipi_register(&scp_ipidev, IPI_IN_SCP_AOV,
 		ipi_receive, NULL, &(core_info->packet));
@@ -1099,9 +1109,6 @@ int aov_core_init(struct mtk_aov *aov_dev)
 		list_add_tail(&core_info->event_data[index].entry, &core_info->event_list);
 
 	spin_lock_init(&core_info->event_lock);
-
-	for (index = 0; index < AOV_SCP_CMD_MAX; index++)
-		init_waitqueue_head(&core_info->ack_wq[index]);
 
 	init_waitqueue_head(&core_info->poll_wq);
 

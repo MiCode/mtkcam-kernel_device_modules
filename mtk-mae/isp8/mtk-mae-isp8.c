@@ -250,6 +250,20 @@ static void mtk_mae_config_dma(struct mtk_mae_dev *mae_dev, int idx)
 	MAE_CMDQ_WRITE_REG(mae_dev->pkt[idx], MAE_REG_INTRN_BASE_1_R, MSB_ADDR(addr));
 
 	for (loop = 0; loop < outer_loop; loop++) {
+		if (!param->image[loop].enRoi) {
+			param->image[loop].roi.x1 = 0;
+			param->image[loop].roi.y1 = 0;
+			param->image[loop].roi.x2 = 0;
+			param->image[loop].roi.x2 = 0;
+		}
+
+		if (!param->image[loop].enPadding) {
+			param->image[loop].padding.left = 0;
+			param->image[loop].padding.right = 0;
+			param->image[loop].padding.up = 0;
+			param->image[loop].padding.down = 0;
+		}
+
 		// config the base address of input buffer
 		addr = mae_dev->map_table->image_dmabuf_info[idx][loop].pa;
 

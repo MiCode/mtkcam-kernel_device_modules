@@ -700,6 +700,8 @@ int mtk_cam_hsf_qof_config(struct mtk_raw_device *raw,
 
 	if (ret != 0)
 		dev_info(cam->dev, "%s: failed\n", __func__);
+	else
+		dev_info(cam->dev, "%s: success\n", __func__);
 
 FAILED:
 	mtk_cam_power_ctrl_ccu(cam->dev, 0);

@@ -18,7 +18,7 @@
 
 #define MAX_INIT_REQUEST_NUM                3
 #define USING_CCU
-//#define QOF_CCU_READY
+#define QOF_CCU_READY
 //#define MTEE_USE
 //#define PERFORMANCE_HSF
 #define USING_HSF_SENSOR

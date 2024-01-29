@@ -44,6 +44,8 @@ struct mtk_raw_device {
 	void __iomem *yuv_base_inner;
 	void __iomem *rms_base;
 	void __iomem *rms_base_inner;
+	u64 base_reg_addr;
+	u64 base_inner_reg_addr;
 	unsigned int num_clks;
 	struct clk **clks;
 #ifdef CONFIG_PM_SLEEP

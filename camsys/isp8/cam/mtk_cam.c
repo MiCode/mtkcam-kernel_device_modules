@@ -2977,6 +2977,7 @@ static void mtk_cam_ctx_raw_qof_disable(struct mtk_cam_ctx *ctx)
 {
 	int i;
 	struct mtk_raw_device *raw;
+	struct mtk_camsv_device *sv;
 
 	qof_mtcmos_voter(ctx, true);
 	for (i = 0; i < ARRAY_SIZE(ctx->hw_raw); i++) {
@@ -2985,6 +2986,10 @@ static void mtk_cam_ctx_raw_qof_disable(struct mtk_cam_ctx *ctx)
 
 		raw = dev_get_drvdata(ctx->hw_raw[i]);
 		qof_enable(raw, false);
+		if (ctx->hw_sv) {
+			sv = dev_get_drvdata(ctx->hw_sv);
+			mtk_cam_sv_set_queue_mode(sv, false);
+		}
 	}
 
 	qof_reset_mtcmos_voter(ctx);
@@ -4163,12 +4168,37 @@ static irqreturn_t mtk_irq_qof(int irq, void *data)
 {
 	struct mtk_cam_device *drvdata = (struct mtk_cam_device *)data;
 	struct device *dev = drvdata->dev;
+	struct mtk_cam_engines *eng = &drvdata->engines;
+	int i;
 
-	unsigned int irq_status;
+	unsigned int int_status;
 
-	irq_status = readl_relaxed(drvdata->qoftop_base + 0x000c);
+	int_status = readl_relaxed(
+		drvdata->qoftop_base + REG_QOF_CAM_TOP_QOF_INT_STATUS);
 
-	dev_info(dev, "QOFTOP-INT: INT 0x%x\n", irq_status);
+	// TODO: consider trigger KE or fix state machine
+	dev_info(dev, "qof: QOFTOP-INT: INT 0x%x\n", int_status);
+
+	for (i = 0; i < eng->num_raw_devices; ++i) {
+		struct mtk_raw_device *raw = dev_get_drvdata(eng->raw_devs[i]);
+
+		if (int_status & FBIT(QOF_CAM_TOP_MTC_CYC_OV_INT_ST_1) && raw->id == 0) {
+			qof_dump_voter(raw);
+			qof_dump_power_state(raw);
+			qof_dump_hw_timer(raw);
+			dev_info(dev, "qof: QOF_CAM_TOP_MTC_CYC_OV_INT_ST: raw %u\n", raw->id);
+		} else if (int_status & FBIT(QOF_CAM_TOP_MTC_CYC_OV_INT_ST_2) && raw->id == 1) {
+			qof_dump_voter(raw);
+			qof_dump_power_state(raw);
+			qof_dump_hw_timer(raw);
+			dev_info(dev, "qof: QOF_CAM_TOP_MTC_CYC_OV_INT_ST: raw %u\n", raw->id);
+		} else if (int_status & FBIT(QOF_CAM_TOP_MTC_CYC_OV_INT_ST_3) && raw->id == 2) {
+			qof_dump_voter(raw);
+			qof_dump_power_state(raw);
+			qof_dump_hw_timer(raw);
+			dev_info(dev, "qof: QOF_CAM_TOP_MTC_CYC_OV_INT_ST: raw %u\n", raw->id);
+		}
+	}
 
 	return IRQ_HANDLED;
 }
@@ -4284,6 +4314,7 @@ static int mtk_cam_probe(struct platform_device *pdev)
 	struct device_link *link;
 	int ret;
 	unsigned int i, clks;
+	struct resource *res_base;
 	const struct camsys_platform_data *platform_data;
 	int irq;
 
@@ -4342,6 +4373,14 @@ static int mtk_cam_probe(struct platform_device *pdev)
 		WRAP_AEE_EXCEPTION("mtk_cam_probe", "ioremap base");
 		return PTR_ERR(cam_dev->base);
 	}
+
+	res_base = platform_get_resource_byname(pdev, IORESOURCE_MEM, "base");
+	if (!res_base) {
+		dev_info(dev, "failed to get mem\n");
+		return -ENODEV;
+	}
+	cam_dev->base_reg_addr = res_base->start;
+
 	cam_dev->adlwr_base = devm_platform_ioremap_resource_byname(pdev, "adlwr");
 	if (IS_ERR(cam_dev->adlwr_base)) {
 		dev_err(dev, "%s: failed to map adlwr_base\n", __func__);
@@ -4465,7 +4504,7 @@ static int mtk_cam_probe(struct platform_device *pdev)
 		return ret;
 	}
 	dev_dbg(dev, "registered qoftop irq=%d\n", irq);
-	//enable_irq(irq);
+	enable_irq(irq);
 	cam_dev->cmdq_clt = cmdq_mbox_create(dev, 0);
 	if (!cam_dev->cmdq_clt)
 		pr_err("probe cmdq_mbox_create fail\n");

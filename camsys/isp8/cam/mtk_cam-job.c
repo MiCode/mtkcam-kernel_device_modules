@@ -622,6 +622,7 @@ mtk_cam_job_initialize_engines(struct mtk_cam_ctx *ctx,
 	unsigned long engines;
 	int raw_master_id;
 	int i;
+	bool qof_enabled = false;
 
 	engines = ctx->used_engine;
 
@@ -651,8 +652,10 @@ mtk_cam_job_initialize_engines(struct mtk_cam_ctx *ctx,
 			if (!disable_qof) {
 				int ret = call_init_ops(job, qof_init, ctx->hw_raw[i], is_master);
 
-				if (!ret)
+				if (!ret) {
 					qof_enable(raw, true);
+					qof_enabled = true;
+				}
 			}
 		}
 
@@ -668,7 +671,12 @@ mtk_cam_job_initialize_engines(struct mtk_cam_ctx *ctx,
 	if (ctx->hw_sv) {
 		struct mtk_camsv_device *sv = dev_get_drvdata(ctx->hw_sv);
 
+		if (qof_enabled)
+			mtk_cam_sv_set_queue_mode(sv, true);
+
 		mtk_cam_sv_dev_config(sv, job->sub_ratio - 1);  /* TODO(AY): remove -1 */
+
+
 
 		/* smi path sel */
 		if (cur_platform->hw->platform_id != 6991)
@@ -2276,6 +2284,7 @@ static int job_raw_change_hw_init(struct mtk_cam_job *job)
 	unsigned long selected;
 	unsigned long selected_need_init;
 	unsigned long unselected_need_uninit;
+	bool qof_enabled = false;
 
 	if (mtk_cam_release_engine(ctx->cam, ctx->used_engine))
 		dev_info(ctx->cam->dev, "%s warning: release resource prev:0x%x",
@@ -2313,8 +2322,11 @@ static int job_raw_change_hw_init(struct mtk_cam_job *job)
 					int ret = call_init_ops(job, qof_init, ctx->hw_raw[i],
 								  raw->id == raw_master_id);
 
-					if (!ret)
+					if (!ret) {
 						qof_enable(raw, true);
+						qof_enabled |= true;
+
+					}
 				}
 			}
 
@@ -2322,6 +2334,12 @@ static int job_raw_change_hw_init(struct mtk_cam_job *job)
 				mtk_cam_hsf_init(ctx);
 			if (is_dc_mode(job) && ctx->slb_addr)
 				mtk_cam_hsf_aid(ctx, 1, AID_CAM_DC, selected);
+			if (qof_enabled && ctx->hw_sv) {
+				struct mtk_camsv_device *sv;
+
+				sv = dev_get_drvdata(ctx->hw_sv);
+				mtk_cam_sv_set_queue_mode(sv, true);
+			}
 		}
 	}
 	job->raw_change_uninit_engine = unselected_need_uninit;
@@ -3944,6 +3962,7 @@ static int raw_qof_init(struct mtk_cam_job *job, struct device *dev, bool is_mas
 	struct mtk_raw_device *raw = dev_get_drvdata(dev);
 	struct mtk_raw_ctrl_data *ctrl = get_raw_ctrl_data(job);
 	const struct mtk_cam_resource_v2 *res;
+	int exp, sv_last_tag;
 
 	if (!ctrl) {
 		pr_info("%s: warn. should not be called\n", __func__);
@@ -3951,10 +3970,13 @@ static int raw_qof_init(struct mtk_cam_job *job, struct device *dev, bool is_mas
 	}
 
 	res = &ctrl->resource.user_data;
+	exp = job_exp_num(job);
+	sv_last_tag = (exp == 1) ?
+		get_sv_tag_idx(exp, MTKCAM_IPI_ORDER_FIRST_TAG, false) :
+		get_sv_tag_idx(exp, MTKCAM_IPI_ORDER_LAST_TAG, false);
 
 	qof_sof_src_sel(raw, is_dcif_required(job),
-					!res_raw_is_dc_mode(&res->raw_res),
-					job_exp_num(job));
+					!res_raw_is_dc_mode(&res->raw_res), sv_last_tag);
 	qof_setup_hw_timer(raw, get_sensor_interval_us(job));
 	qof_setup_twin(raw, is_master);
 	qof_setup_rtc(raw);

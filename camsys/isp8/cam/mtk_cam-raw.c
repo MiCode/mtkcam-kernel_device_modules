@@ -381,6 +381,7 @@ void initialize(struct mtk_raw_device *dev, struct engine_callback *cb,
 	raw_writel_relaxed(val, dev, dev->base, REG_CAMCQ_CQ_EN);
 
 	raw_writel_relaxed(0xffffffff, dev, dev->base, REG_CAMCQ_SCQ_START_PERIOD);
+	qof_set_cq_start_max(dev, 0xffffffff);
 	val = FBIT(CAMCQ_CQ_THR0_EN);
 	SET_FIELD(&val, CAMCQ_CQ_THR0_MODE, 1);
 
@@ -676,6 +677,7 @@ void update_scq_start_period(struct mtk_raw_device *dev, int scq_ms)
 
 	raw_writel_relaxed(start_period,
 		       dev, dev->base, REG_CAMCQ_SCQ_START_PERIOD);
+	qof_set_cq_start_max(dev, start_period);
 	dev_info(dev->dev, "[%s] REG_CAMCQ_SCQ_START_PERIOD:0x%08x (%dms)\n",
 		 __func__, raw_readl(dev, dev->base, REG_CAMCQ_SCQ_START_PERIOD), scq_ms);
 }
@@ -1330,6 +1332,7 @@ static irqreturn_t mtk_irq_raw_yuv(int irq, void *data)
 	/* Frame done */
 	if (frame_status & FBIT(CAMCTL_SW_PASS1_DONE_ST)) {
 		irq_info.irq_type |= 1 << CAMSYS_IRQ_FRAME_DONE;
+		qof_dump_trigger_cnt(raw);
 		qof_dump_voter(raw);
 		qof_dump_power_state(raw);
 	}
@@ -1420,11 +1423,13 @@ static irqreturn_t mtk_irq_raw_yuv(int irq, void *data)
 #ifdef NOT_READY
 	if (MTK_CAM_TRACE_ENABLED(FBC) && (tg1_status & TG_VS_INT_ORG_ST)) {
 #ifdef DUMP_FBC_SEL_OUTER
+		// TODO: QOF: need RTC to read register
 		MTK_CAM_TRACE(FBC, "frame %d FBC_SEL 0x% 8x/0x% 8x (outer)",
 			irq_info.frame_idx_inner,
 			raw_readl_relaxed(raw, raw->base, REG_CAMCTL_FBC_SEL),
 			raw_readl_relaxed(raw, raw->yuv_base, REG_CAMCTL_FBC_SEL));
 #endif
+		// TODO: QOF: need RTC to read register
 		mtk_cam_raw_dump_fbc(dev, raw->base, raw->yuv_base);
 	}
 #endif
@@ -1841,6 +1846,7 @@ static int mtk_raw_of_probe(struct platform_device *pdev,
 		dev_dbg(dev, "failed to map register base\n");
 		return PTR_ERR(raw->base);
 	}
+	raw->base_reg_addr = res->start;
 
 	/* base inner register */
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "inner_base");
@@ -1848,6 +1854,7 @@ static int mtk_raw_of_probe(struct platform_device *pdev,
 		dev_dbg(dev, "failed to get mem\n");
 		return -ENODEV;
 	}
+	raw->base_inner_reg_addr = res->start;
 
 	raw->base_inner = devm_ioremap_resource(dev, res);
 	if (IS_ERR(raw->base_inner)) {

@@ -283,6 +283,7 @@ struct mtk_cam_device {
 	struct media_device media_dev;
 	struct clk **clks;
 	unsigned int num_clks;
+	u64 base_reg_addr;
 
 	atomic_t initialize_cnt;
 

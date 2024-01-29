@@ -541,8 +541,8 @@ static int mtk_cam_seninf_get_outmux_irq_st(struct seninf_ctx *ctx, int outmux_i
 	if (clear)
 		SENINF_WRITE_REG(pSeninf_outmux, SENINF_OUTMUX_IRQ_STATUS, val);
 
-	dev_info(ctx->dev, "%s get outmux%d irq_st 0x%x clear(%d)\n",
-		__func__, outmux_idx, val, clear);
+	seninf_logd(ctx, "get outmux%d irq_st 0x%x clear(%d)\n",
+		outmux_idx, val, clear);
 
 	return val;
 }
@@ -639,7 +639,7 @@ static u32 mtk_cam_seninf_get_outmux_res(struct seninf_ctx *ctx, int outmux, int
 	return ret;
 }
 
-/*static */u32 mtk_cam_seninf_get_outmux_exp(struct seninf_ctx *ctx, int outmux,
+static u32 mtk_cam_seninf_get_outmux_exp(struct seninf_ctx *ctx, int outmux,
 					     int tag)
 {
 	u32 ret = 0;
@@ -4506,13 +4506,14 @@ static int mtk_cam_seninf_debug(struct seninf_ctx *ctx)
 
 				for (i = 0; i < _seninf_ops->outmux_num; i++) {
 					if ((used_outmux == i) && mtk_cam_seninf_is_outmux_used(ctx, i)) {
-						u32 res, irq_st;
+						u32 res, exp_sz, irq_st;
 
 						res = mtk_cam_seninf_get_outmux_res(ctx, used_outmux, used_tag);
+						exp_sz = mtk_cam_seninf_get_outmux_exp(ctx, used_outmux, used_tag);
 
-						irq_st = mtk_cam_seninf_get_outmux_irq_st(ctx, used_outmux, 1);
+						irq_st = mtk_cam_seninf_get_outmux_irq_st(ctx, used_outmux, 0);
 						dev_info(ctx->dev,
-							"dump outmux%u,tag%u,CFG_M/PIX_M/CFG0/CFG1/CFG2/SRC/CFG_DONE:(0x%x/0x%x/0x%x/0x%x/0x%x/0x%x/0x%x),dbgRecSize=0x%x,irq=0x%x|0x%x",
+							"dump outmux%u,tag%u,CFG_M/PIX_M/CFG0/CFG1/CFG2/SRC/CFG_DONE/CFG_CTL/CFG_RDY:(0x%x/0x%x/0x%x/0x%x/0x%x/0x%x/0x%x/0x%x/0x%x),expSize=0x%x,dbgRecSize=0x%x,irq=0x%x",
 							i, used_tag,
 							seninf_get_outmux_rg_val(ctx, used_outmux,
 								SENINF_OUTMUX_SW_CONFIG_MODE),
@@ -4528,11 +4529,28 @@ static int mtk_cam_seninf_debug(struct seninf_ctx *ctx)
 								SENINF_OUTMUX_SRC_SEL),
 							seninf_get_outmux_rg_val(ctx, used_outmux,
 								SENINF_OUTMUX_SW_CFG_DONE),
-							res, irq_st,
-							mtk_cam_seninf_get_outmux_irq_st(ctx, used_outmux, 0));
+							seninf_get_outmux_rg_val(ctx, used_outmux,
+								SENINF_OUTMUX_CSR_CFG_CTRL),
+							seninf_get_outmux_rg_val(ctx, used_outmux,
+								SENINF_OUTMUX_CAM_CFG_RDY),
+							exp_sz, res, irq_st);
 					}
 				}
 			}
+		}
+	}
+	for (j = 0; j < _seninf_ops->outmux_num; j++) {
+		unsigned int rdy = 0;
+		u32 irq_st = mtk_cam_seninf_get_outmux_irq_st(ctx, j, 1);
+
+		rdy = seninf_get_outmux_rg_val(ctx, j, SENINF_OUTMUX_CAM_CFG_RDY);
+		if (!rdy) {
+			dev_info(ctx->dev,
+				 "outmux%u,CFG_DONE/CFG_RDY:(0x%x/0x%x),irq=0x%x",
+				 j,
+				 seninf_get_outmux_rg_val(ctx, j,
+							  SENINF_OUTMUX_SW_CFG_DONE),
+				 rdy, irq_st);
 		}
 	}
 
@@ -4667,13 +4685,14 @@ static int mtk_cam_seninf_debug(struct seninf_ctx *ctx)
 
 				for (i = 0; i < _seninf_ops->outmux_num; i++) {
 					if ((used_outmux == i) && mtk_cam_seninf_is_outmux_used(ctx, i)) {
-						u32 res, irq_st;
+						u32 res, exp_sz, irq_st;
 
 						res = mtk_cam_seninf_get_outmux_res(ctx, used_outmux, used_tag);
+						exp_sz = mtk_cam_seninf_get_outmux_exp(ctx, used_outmux, used_tag);
 
-						irq_st = mtk_cam_seninf_get_outmux_irq_st(ctx, used_outmux, 1);
+						irq_st = mtk_cam_seninf_get_outmux_irq_st(ctx, used_outmux, 0);
 						dev_info(ctx->dev,
-							"dump outmux%u,tag%u,CFG_M/PIX_M/CFG0/CFG1/CFG2/SRC/CFG_DONE:(0x%x/0x%x/0x%x/0x%x/0x%x/0x%x/0x%x),dbgRecSize=0x%x,irq=0x%x|0x%x",
+							"dump outmux%u,tag%u,CFG_M/PIX_M/CFG0/CFG1/CFG2/SRC/CFG_DONE/CFG_CTL/CFG_RDY:(0x%x/0x%x/0x%x/0x%x/0x%x/0x%x/0x%x/0x%x/0x%x),expSize=0x%x,dbgRecSize=0x%x,irq=0x%x",
 							i, used_tag,
 							seninf_get_outmux_rg_val(ctx, used_outmux,
 								SENINF_OUTMUX_SW_CONFIG_MODE),
@@ -4689,11 +4708,28 @@ static int mtk_cam_seninf_debug(struct seninf_ctx *ctx)
 								SENINF_OUTMUX_SRC_SEL),
 							seninf_get_outmux_rg_val(ctx, used_outmux,
 								SENINF_OUTMUX_SW_CFG_DONE),
-							res, irq_st,
-							mtk_cam_seninf_get_outmux_irq_st(ctx, used_outmux, 0));
+							seninf_get_outmux_rg_val(ctx, used_outmux,
+								SENINF_OUTMUX_CSR_CFG_CTRL),
+							seninf_get_outmux_rg_val(ctx, used_outmux,
+								SENINF_OUTMUX_CAM_CFG_RDY),
+							exp_sz, res, irq_st);
 					}
 				}
 			}
+		}
+	}
+	for (j = 0; j < _seninf_ops->outmux_num; j++) {
+		unsigned int rdy = 0;
+		u32 irq_st = mtk_cam_seninf_get_outmux_irq_st(ctx, j, 1);
+
+		rdy = seninf_get_outmux_rg_val(ctx, j, SENINF_OUTMUX_CAM_CFG_RDY);
+		if (!rdy) {
+			dev_info(ctx->dev,
+				 "outmux%u,CFG_DONE/CFG_RDY:(0x%x/0x%x),irq=0x%x",
+				 j,
+				 seninf_get_outmux_rg_val(ctx, j,
+							  SENINF_OUTMUX_SW_CFG_DONE),
+				 rdy, irq_st);
 		}
 	}
 

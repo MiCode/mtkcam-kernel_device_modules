@@ -227,19 +227,7 @@ static struct mtk_mbus_frame_desc_entry frame_desc_hs_vid[] = {
 			.vsize = 0x02d0,
 			.fs_seq = MTK_FRAME_DESC_FS_SEQ_ONLY_ONE,
 		},
-	},
-#if OV48B_EMBEDDED_DATA_EN
-	{
-		.bus.csi2 = {
-			.channel = 0,
-			.data_type = 0x12,
-			.hsize = 0x0500,
-			.vsize = 0x2,
-			.user_data_desc = VC_GENERAL_EMBEDDED,
-			.ebd_parsing_type = MTK_EBD_PARSING_TYPE_MIPI_RAW10,
-		},
-	},
-#endif
+	}
 };
 static struct mtk_mbus_frame_desc_entry frame_desc_slim_vid[] = {
 	{
@@ -352,19 +340,7 @@ static struct mtk_mbus_frame_desc_entry frame_desc_cus4[] = {
 			.vsize = 0x0468,
 			.fs_seq = MTK_FRAME_DESC_FS_SEQ_ONLY_ONE,
 		},
-	},
-#if OV48B_EMBEDDED_DATA_EN
-	{
-		.bus.csi2 = {
-			.channel = 0,
-			.data_type = 0x12,
-			.hsize = 0x07d0,
-			.vsize = 0x2,
-			.user_data_desc = VC_GENERAL_EMBEDDED,
-			.ebd_parsing_type = MTK_EBD_PARSING_TYPE_MIPI_RAW10,
-		},
-	},
-#endif
+	}
 };
 static struct mtk_mbus_frame_desc_entry frame_desc_cus5[] = {
 	{
@@ -375,19 +351,7 @@ static struct mtk_mbus_frame_desc_entry frame_desc_cus5[] = {
 			.vsize = 0x02d0,
 			.fs_seq = MTK_FRAME_DESC_FS_SEQ_ONLY_ONE,
 		},
-	},
-#if OV48B_EMBEDDED_DATA_EN
-	{
-		.bus.csi2 = {
-			.channel = 0,
-			.data_type = 0x12,
-			.hsize = 0x0500,
-			.vsize = 0x2,
-			.user_data_desc = VC_GENERAL_EMBEDDED,
-			.ebd_parsing_type = MTK_EBD_PARSING_TYPE_MIPI_RAW10,
-		},
-	},
-#endif
+	}
 };
 static struct mtk_mbus_frame_desc_entry frame_desc_cus6[] = {
 	{
@@ -398,19 +362,7 @@ static struct mtk_mbus_frame_desc_entry frame_desc_cus6[] = {
 			.vsize = 0x0438,
 			.fs_seq = MTK_FRAME_DESC_FS_SEQ_ONLY_ONE,
 		},
-	},
-#if OV48B_EMBEDDED_DATA_EN
-	{
-		.bus.csi2 = {
-			.channel = 0,
-			.data_type = 0x12,
-			.hsize = 0x0780,
-			.vsize = 0x2,
-			.user_data_desc = VC_GENERAL_EMBEDDED,
-			.ebd_parsing_type = MTK_EBD_PARSING_TYPE_MIPI_RAW10,
-		},
-	},
-#endif
+	}
 };
 static struct mtk_mbus_frame_desc_entry frame_desc_cus7[] = {
 	{
@@ -421,19 +373,7 @@ static struct mtk_mbus_frame_desc_entry frame_desc_cus7[] = {
 			.vsize = 0x02d0,
 			.fs_seq = MTK_FRAME_DESC_FS_SEQ_ONLY_ONE,
 		},
-	},
-#if OV48B_EMBEDDED_DATA_EN
-	{
-		.bus.csi2 = {
-			.channel = 0,
-			.data_type = 0x12,
-			.hsize = 0x0500,
-			.vsize = 0x2,
-			.user_data_desc = VC_GENERAL_EMBEDDED,
-			.ebd_parsing_type = MTK_EBD_PARSING_TYPE_MIPI_RAW10,
-		},
-	},
-#endif
+	}
 };
 static struct mtk_mbus_frame_desc_entry frame_desc_cus8[] = {
 	{
@@ -444,19 +384,7 @@ static struct mtk_mbus_frame_desc_entry frame_desc_cus8[] = {
 			.vsize = 0x0438,
 			.fs_seq = MTK_FRAME_DESC_FS_SEQ_ONLY_ONE,
 		},
-	},
-#if OV48B_EMBEDDED_DATA_EN
-	{
-		.bus.csi2 = {
-			.channel = 0,
-			.data_type = 0x12,
-			.hsize = 0x0780,
-			.vsize = 0x2,
-			.user_data_desc = VC_GENERAL_EMBEDDED,
-			.ebd_parsing_type = MTK_EBD_PARSING_TYPE_MIPI_RAW10,
-		},
-	},
-#endif
+	}
 };
 static struct mtk_mbus_frame_desc_entry frame_desc_cus9[] = {
 	{

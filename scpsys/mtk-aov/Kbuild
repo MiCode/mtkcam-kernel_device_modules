@@ -44,7 +44,6 @@ mtk_aov-objs := \
 	mtk-aov-aee.o \
 	mtk-aov-queue.o \
 	mtk-aov-mtee.o \
-	mtk-fld-model.o \
 	mtk-aov-ulposc.o \
 	alloc/tlsf/tlsf_alloc.o
 

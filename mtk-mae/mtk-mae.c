@@ -36,6 +36,10 @@
 #include "mtk_notify_aov.h"
 #include "./mae_mm16_fd/fdvt_FPGA_coef.h"
 #include "./mae_mm16_fd/fdvt_FPGA_config.h"
+#include "./mae_mm16_fld/fld_FPGA_coef.h"
+#include "./mae_mm16_fld/fld_FPGA_config.h"
+//#define FLD_GOLDEN
+//#define GOLDEN
 
 #ifdef GOLDEN
 #include "./mae_mm16_fd/fdvt_FPGA_DMA0_outer0_input.h"
@@ -46,6 +50,18 @@
 #include "./mae_mm16_fd/fdvt_FPGA_DMA3_outer0_output.h"
 #include "./mae_mm16_fd/fdvt_FPGA_DMA4_outer0_output.h"
 #endif
+
+#ifdef FLD_GOLDEN
+#include "./mae_mm16_fld/fld_FPGA_DMA0_outer0_input.h"
+#include "./mae_mm16_fld/fld_FPGA_DMA0_outer0_input1.h"
+#include "./mae_mm16_fld/fld_FPGA_DMA0_outer0_output.h"
+#include "./mae_mm16_fld/fld_FPGA_DMA1_outer0_output.h"
+#include "./mae_mm16_fld/fld_FPGA_DMA2_outer0_output.h"
+#include "./mae_mm16_fld/fld_FPGA_DMA3_outer0_output.h"
+#include "./mae_mm16_fld/fld_FPGA_DMA4_outer0_output.h"
+#include "./mae_mm16_fld/fld_FPGA_DMA5_outer0_output.h"
+#endif
+
 // DEBUG_ONLY
 #include <linux/delay.h>
 
@@ -181,6 +197,42 @@ void mtk_aie_aov_memcpy(char *buffer)
 #endif
 }
 EXPORT_SYMBOL(mtk_aie_aov_memcpy);
+
+void mtk_fld_aov_memcpy(char *buffer)
+{
+	char *tmp = buffer;
+
+	memcpy(tmp, &fld_FPGA_coef_frame01[0], sizeof(fld_FPGA_coef_frame01));
+	tmp += sizeof(fld_FPGA_coef_frame01);
+
+	memcpy(tmp, &fld_FPGA_config_frame01[0], sizeof(fld_FPGA_config_frame01));
+#ifdef FLD_GOLDEN
+	tmp += sizeof(fld_FPGA_config_frame01);
+	memcpy(tmp, &fld_FPGA_DMA0_outer0_input_frame01[0], sizeof(fld_FPGA_DMA0_outer0_input_frame01));
+	tmp += sizeof(fld_FPGA_DMA0_outer0_input_frame01);
+
+	memcpy(tmp, &fld_FPGA_DMA0_outer0_input1_frame01[0], sizeof(fld_FPGA_DMA0_outer0_input1_frame01));
+	tmp += sizeof(fld_FPGA_DMA0_outer0_input1_frame01);
+
+	memcpy(tmp, &fld_FPGA_DMA0_outer0_output_frame01[0],  sizeof(fld_FPGA_DMA0_outer0_output_frame01));
+	tmp += sizeof(fld_FPGA_DMA0_outer0_output_frame01);
+
+	memcpy(tmp, &fld_FPGA_DMA1_outer0_output_frame01[0],  sizeof(fld_FPGA_DMA1_outer0_output_frame01));
+	tmp += sizeof(fld_FPGA_DMA1_outer0_output_frame01);
+
+	memcpy(tmp, &fld_FPGA_DMA2_outer0_output_frame01[0],  sizeof(fld_FPGA_DMA2_outer0_output_frame01));
+	tmp += sizeof(fld_FPGA_DMA2_outer0_output_frame01);
+
+	memcpy(tmp, &fld_FPGA_DMA3_outer0_output_frame01[0],  sizeof(fld_FPGA_DMA3_outer0_output_frame01));
+	tmp += sizeof(fld_FPGA_DMA3_outer0_output_frame01);
+
+	memcpy(tmp, &fld_FPGA_DMA4_outer0_output_frame01[0],  sizeof(fld_FPGA_DMA4_outer0_output_frame01));
+	tmp += sizeof(fld_FPGA_DMA4_outer0_output_frame01);
+
+	memcpy(tmp, &fld_FPGA_DMA5_outer0_output_frame01[0],  sizeof(fld_FPGA_DMA5_outer0_output_frame01));
+#endif
+}
+EXPORT_SYMBOL(mtk_fld_aov_memcpy);
 
 enum MAE_BUF_TYPE {
 	SECURE_BUF,

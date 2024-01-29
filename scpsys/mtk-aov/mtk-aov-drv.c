@@ -289,7 +289,6 @@ static long mtk_aov_ioctl(struct file *file, unsigned int cmd,
 	case AOV_DEV_TURN_ON_ULPOSC:
 		AOV_DEBUG_LOG(*(aov_dev->enable_aov_log_flag),
 			"turn on ulposc\n");
-		ret = aov_core_send_cmd(aov_dev, AOV_SCP_CMD_TURN_ON_ULPOSC, NULL, 0, true);
 		aov_ulposc_check_cali_result(aov_dev);
 		AOV_DEBUG_LOG(*(aov_dev->enable_aov_log_flag),
 			"turn on ulposc done, ret(%d)\n", ret);

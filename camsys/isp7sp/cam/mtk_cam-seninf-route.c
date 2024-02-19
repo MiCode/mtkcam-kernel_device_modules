@@ -1276,6 +1276,14 @@ int mtk_cam_seninf_get_vcinfo(struct seninf_ctx *ctx)
 			vc->feature = VC_RAW_FLICKER_DATA;
 			vc->out_pad = PAD_SRC_FLICKER;
 			break;
+		case VC_META_DATA_0:
+			vc->feature = VC_META_DATA_0;
+			vc->out_pad = PAD_SRC_META0;
+			break;
+		case VC_META_DATA_1:
+			vc->feature = VC_META_DATA_1;
+			vc->out_pad = PAD_SRC_META1;
+			break;
 		default:
 			if (vc->dt > 0x29 && vc->dt < 0x2e) {
 				switch (desc) {

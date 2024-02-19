@@ -160,6 +160,12 @@ static enum VC_FEATURE fd_desc_to_vc_feature(
 	case VC_RAW_FLICKER_DATA:
 		ret = VC_RAW_FLICKER_DATA;
 		break;
+	case VC_META_DATA_0:
+		ret = VC_META_DATA_0;
+		break;
+	case VC_META_DATA_1:
+		ret = VC_META_DATA_1;
+		break;
 	default:
 		ret = VC_NONE;
 		break;
@@ -353,6 +359,12 @@ static void vcinfo2_fill_pad(
 			break;
 		case VC_GENERAL_EMBEDDED:
 			vcinfo2->vc_info[i].pad = PAD_SRC_GENERAL0;
+			break;
+		case VC_META_DATA_0:
+			vcinfo2->vc_info[i].pad = PAD_SRC_META0;
+			break;
+		case VC_META_DATA_1:
+			vcinfo2->vc_info[i].pad = PAD_SRC_META1;
 			break;
 		default:
 			vcinfo2->vc_info[i].pad = PAD_ERR;

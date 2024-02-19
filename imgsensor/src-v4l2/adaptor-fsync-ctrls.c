@@ -83,6 +83,7 @@ do { \
  * fsync mgr define/enum/structure
  ******************************************************************************/
 #define FSYNC_WAIT_TSREC_UPDATE_DELAY_CNT (5)
+#define FSYNC_WAIT_TSREC_UPDATE_DELAY_US  (400)
 
 static unsigned int is_fsync_ts_src_type_tsrec;
 
@@ -217,8 +218,6 @@ static void fsync_mgr_chk_wait_tsrec_hw_pre_latch_updated(
 	struct adaptor_ctx *ctx)
 {
 	struct mtk_cam_seninf_tsrec_timestamp_info ts_info = {0};
-	const unsigned int delay_us[FSYNC_WAIT_TSREC_UPDATE_DELAY_CNT] =
-		{500, 500, 400, 300, 300};
 	unsigned long long curr_ts, after_vsync;
 	unsigned int factor;
 	unsigned int i = 0;
@@ -242,8 +241,10 @@ static void fsync_mgr_chk_wait_tsrec_hw_pre_latch_updated(
 
 	/* waiting & compare */
 	while ((fsync_mgr_cmp_tsrec_sen_hw_pre_latch_ts_info(ctx, &ts_info) > 0)
-			&& (i < FSYNC_WAIT_TSREC_UPDATE_DELAY_CNT))
-		udelay(delay_us[i++]);
+			&& (i < FSYNC_WAIT_TSREC_UPDATE_DELAY_CNT)) {
+		udelay(FSYNC_WAIT_TSREC_UPDATE_DELAY_US);
+		i++;
+	}
 
 	/* prepare info for printing */
 	factor = (ts_info.tick_factor) ? ts_info.tick_factor : 1;
@@ -253,8 +254,9 @@ static void fsync_mgr_chk_wait_tsrec_hw_pre_latch_updated(
 
 	if (unlikely(i >= FSYNC_WAIT_TSREC_UPDATE_DELAY_CNT)) {
 		adaptor_logi(ctx,
-			"WARNING: timeout i:%u[%u/%u/%u/%u/%u](us) => bypass, ts(%u/inf:%u, pre_latch_exp:%u,%llu(+%llu),(0:(%llu/%llu/%llu/%llu)/1:(%llu/%llu/%llu/%llu)/2:(%llu/%llu/%llu/%llu)))\n",
-			i, delay_us[0], delay_us[1], delay_us[2], delay_us[3], delay_us[4],
+			"WARNING: timeout, i:%u(times)/%u, per delay:%u(us) => bypass, ts(%u/inf:%u, pre_latch_exp:%u,%llu(+%llu),(0:(%llu/%llu/%llu/%llu)/1:(%llu/%llu/%llu/%llu)/2:(%llu/%llu/%llu/%llu)))\n",
+			i, FSYNC_WAIT_TSREC_UPDATE_DELAY_CNT,
+			FSYNC_WAIT_TSREC_UPDATE_DELAY_US,
 			ts_info.tsrec_no, ts_info.seninf_idx, ts_info.irq_pre_latch_exp_no,
 			curr_ts, after_vsync,
 			ts_info.exp_recs[0].ts_us[0],
@@ -271,8 +273,9 @@ static void fsync_mgr_chk_wait_tsrec_hw_pre_latch_updated(
 			ts_info.exp_recs[2].ts_us[3]);
 	} else if (unlikely(i > 0)) {
 		adaptor_logd(ctx,
-			"NOTICE: i:%u[%u/%u/%u/%u/%u](us) => waiting is over, ts(%u/inf:%u, pre_latch_exp:%u,%llu(+%llu),(0:(%llu/%llu/%llu/%llu)/1:(%llu/%llu/%llu/%llu)/2:(%llu/%llu/%llu/%llu)))\n",
-			i, delay_us[0], delay_us[1], delay_us[2], delay_us[3], delay_us[4],
+			"NOTICE: i:%u(times)/%u, per delay:%u(us) => waiting is over, ts(%u/inf:%u, pre_latch_exp:%u,%llu(+%llu),(0:(%llu/%llu/%llu/%llu)/1:(%llu/%llu/%llu/%llu)/2:(%llu/%llu/%llu/%llu)))\n",
+			i, FSYNC_WAIT_TSREC_UPDATE_DELAY_CNT,
+			FSYNC_WAIT_TSREC_UPDATE_DELAY_US,
 			ts_info.tsrec_no, ts_info.seninf_idx, ts_info.irq_pre_latch_exp_no,
 			curr_ts, after_vsync,
 			ts_info.exp_recs[0].ts_us[0],

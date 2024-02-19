@@ -3558,6 +3558,16 @@ static int config_bridge_pad_links(struct mtk_cam_device *cam,
 				return ret;
 
 		}
+
+		for (j = PAD_SRC_META0; j <= PAD_SRC_META1; j++) {
+			ret = _dynamic_link_seninf_pipe(dev,
+							&seninf->entity,
+							j,
+							pipe_entity,
+							MTK_CAMSV_SINK);
+			if (ret)
+				return ret;
+		}
 	}
 
 	/* seninf <-> mraw */

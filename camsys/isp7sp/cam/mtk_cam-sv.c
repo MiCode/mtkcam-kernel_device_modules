@@ -1064,6 +1064,22 @@ unsigned int mtk_cam_get_sv_tag_index(struct mtk_camsv_tag_info *arr_tag,
 	return 0;
 }
 
+unsigned int mtk_cam_get_seninf_pad_index(struct mtk_camsv_tag_info *arr_tag,
+	unsigned int pipe_id)
+{
+	int i;
+
+	for (i = SVTAG_START; i < SVTAG_END; i++) {
+		struct mtk_camsv_tag_info *tag_info = &arr_tag[i];
+
+		if (tag_info->sv_pipe && (tag_info->sv_pipe->id == pipe_id))
+			return tag_info->sv_pipe->seninf_padidx;
+	}
+
+	pr_info("[%s] seninf pad is not found by pipe_id(%d)", __func__, pipe_id);
+	return 0;
+}
+
 int mtk_cam_sv_dev_config(struct mtk_camsv_device *sv_dev,
 	unsigned int sub_ratio)
 {

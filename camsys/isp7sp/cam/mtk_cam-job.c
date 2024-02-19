@@ -436,7 +436,8 @@ static int mtk_cam_job_pack_init(struct mtk_cam_job *job,
 	job->local_trigger_cq_ts = 0;
 	job->local_ispdone_ts = 0;
 
-	if (raw_data->ctrl.req_info.req_type == SENSOR_REQUEST) {
+	if (raw_data &&
+		raw_data->ctrl.req_info.req_type == SENSOR_REQUEST) {
 		job->req_info_id = raw_data->ctrl.req_info.req_sync_id;
 		job->req_sensor = req;
 	}
@@ -2900,7 +2901,7 @@ static int fill_sv_img_buffer_to_ipi_frame(
 	struct mtk_camsv_device *sv_dev;
 	struct vb2_buffer *vb;
 	struct dma_info info;
-	unsigned int tag_idx, img_fmt;
+	unsigned int tag_idx, pad_idx, img_fmt;
 	void *vaddr;
 	int ret = -1;
 
@@ -2909,6 +2910,7 @@ static int fill_sv_img_buffer_to_ipi_frame(
 
 	sv_dev = dev_get_drvdata(ctx->hw_sv);
 	tag_idx = mtk_cam_get_sv_tag_index(job->tag_info, node->uid.pipe_id);
+	pad_idx = mtk_cam_get_seninf_pad_index(job->tag_info, node->uid.pipe_id);
 
 	out = &fp->camsv_param[0][tag_idx].camsv_img_outputs[0];
 	ret = fill_img_out(helper, out, buf, node);
@@ -2926,9 +2928,8 @@ static int fill_sv_img_buffer_to_ipi_frame(
 		pr_info("[%s] unknown image format: 0x%x\n",
 			__func__, buf->image_info.v4l2_pixelformat);
 
-	if (is_raw_ufo(img_fmt))
-		out->buf[0][0].iova = buf->daddr;
-	else {
+	if (pad_idx >= PAD_SRC_PDAF0 &&
+		pad_idx <= PAD_SRC_PDAF6) {
 		out->buf[0][0].iova =
 			((((buf->daddr + GET_PLAT_V4L2(meta_sv_ext_size)) + 15)
 			>> 4) << 4);
@@ -2943,8 +2944,9 @@ static int fill_sv_img_buffer_to_ipi_frame(
 			ret = -1;
 		else
 			CALL_PLAT_V4L2(set_sv_meta_stats_info,
-				       node->desc.dma_port, vaddr, &info);
-	}
+				node->desc.dma_port, vaddr, &info);
+	} else
+		out->buf[0][0].iova = buf->daddr;
 
 	return ret;
 }
@@ -3761,8 +3763,11 @@ static void update_job_state_init_sensor_param(struct mtk_cam_job *job)
 	job->job_state.s_params.latched_timing =
 		is_stagger_lbmf(job) ? SENSOR_LATCHED_L_SOF : SENSOR_LATCHED_F_SOF;
 
-	job->job_state.cq_trigger_thres_ns = ctrl_data->trigger_cq_deadline > 0 ?
-		ctrl_data->trigger_cq_deadline : infer_cq_trigger_deadline_ns(job, ctrl->frame_interval_ns);
+	job->job_state.cq_trigger_thres_ns =
+		(ctrl_data && ctrl_data->trigger_cq_deadline > 0) ?
+		ctrl_data->trigger_cq_deadline :
+		infer_cq_trigger_deadline_ns(job, ctrl->frame_interval_ns);
+
 	if (CAM_DEBUG_ENABLED(JOB))
 		pr_info("%s: job i2c_thres_ns %llu, latched_timing:%d, cq_trigger_thres:%llu\n",
 			__func__,

@@ -298,6 +298,14 @@ static const struct mtk_cam_format_desc sv_stream_out_fmts[] = {
 		.vfmt.fmt.pix_mp = {
 			.width = SV_IMG_MAX_WIDTH,
 			.height = SV_IMG_MAX_HEIGHT,
+			.pixelformat = V4L2_PIX_FMT_SBGGR16,
+			.num_planes = 1,
+		},
+	},
+	{
+		.vfmt.fmt.pix_mp = {
+			.width = SV_IMG_MAX_WIDTH,
+			.height = SV_IMG_MAX_HEIGHT,
 			.pixelformat = V4L2_PIX_FMT_SGBRG8,
 			.num_planes = 1,
 		},
@@ -323,6 +331,14 @@ static const struct mtk_cam_format_desc sv_stream_out_fmts[] = {
 			.width = SV_IMG_MAX_WIDTH,
 			.height = SV_IMG_MAX_HEIGHT,
 			.pixelformat = V4L2_PIX_FMT_MTISP_SGBRG14,
+			.num_planes = 1,
+		},
+	},
+	{
+		.vfmt.fmt.pix_mp = {
+			.width = SV_IMG_MAX_WIDTH,
+			.height = SV_IMG_MAX_HEIGHT,
+			.pixelformat = V4L2_PIX_FMT_SGBRG16,
 			.num_planes = 1,
 		},
 	},
@@ -362,6 +378,14 @@ static const struct mtk_cam_format_desc sv_stream_out_fmts[] = {
 		.vfmt.fmt.pix_mp = {
 			.width = SV_IMG_MAX_WIDTH,
 			.height = SV_IMG_MAX_HEIGHT,
+			.pixelformat = V4L2_PIX_FMT_SGRBG16,
+			.num_planes = 1,
+		},
+	},
+	{
+		.vfmt.fmt.pix_mp = {
+			.width = SV_IMG_MAX_WIDTH,
+			.height = SV_IMG_MAX_HEIGHT,
 			.pixelformat = V4L2_PIX_FMT_SRGGB8,
 			.num_planes = 1,
 		},
@@ -387,6 +411,14 @@ static const struct mtk_cam_format_desc sv_stream_out_fmts[] = {
 			.width = SV_IMG_MAX_WIDTH,
 			.height = SV_IMG_MAX_HEIGHT,
 			.pixelformat = V4L2_PIX_FMT_MTISP_SRGGB14,
+			.num_planes = 1,
+		},
+	},
+	{
+		.vfmt.fmt.pix_mp = {
+			.width = SV_IMG_MAX_WIDTH,
+			.height = SV_IMG_MAX_HEIGHT,
+			.pixelformat = V4L2_PIX_FMT_SRGGB16,
 			.num_planes = 1,
 		},
 	},

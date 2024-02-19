@@ -222,6 +222,8 @@ int mtk_cam_sv_central_common_disable(struct mtk_camsv_device *sv_dev);
 int mtk_cam_sv_fbc_disable(struct mtk_camsv_device *sv_dev, unsigned int tag_idx);
 unsigned int mtk_cam_get_sv_tag_index(struct mtk_camsv_tag_info *arr_tag,
 	unsigned int pipe_id);
+unsigned int mtk_cam_get_seninf_pad_index(struct mtk_camsv_tag_info *arr_tag,
+	unsigned int pipe_id);
 int mtk_cam_sv_dev_pertag_write_rcnt(
 	struct mtk_camsv_device *sv_dev, unsigned int tag_idx);
 void mtk_cam_sv_vf_reset(struct mtk_camsv_device *sv_dev);

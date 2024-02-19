@@ -3137,7 +3137,7 @@ static int fill_sv_img_buffer_to_ipi_frame(
 	struct mtk_camsv_device *sv_dev;
 	struct vb2_buffer *vb;
 	struct dma_info info;
-	unsigned int tag_idx, img_fmt;
+	unsigned int tag_idx, pad_idx, img_fmt;
 	void *vaddr;
 	int ret = -1;
 
@@ -3146,6 +3146,7 @@ static int fill_sv_img_buffer_to_ipi_frame(
 
 	sv_dev = dev_get_drvdata(ctx->hw_sv);
 	tag_idx = mtk_cam_get_sv_tag_index(job->tag_info, node->uid.pipe_id);
+	pad_idx = mtk_cam_get_seninf_pad_index(job->tag_info, node->uid.pipe_id);
 
 	out = &fp->camsv_param[0][tag_idx].camsv_img_outputs[0];
 	ret = fill_img_out(helper, out, buf, node);
@@ -3163,9 +3164,8 @@ static int fill_sv_img_buffer_to_ipi_frame(
 		pr_info("[%s] unknown image format: 0x%x\n",
 			__func__, buf->image_info.v4l2_pixelformat);
 
-	if (is_raw_ufo(img_fmt))
-		out->buf[0][0].iova = buf->daddr;
-	else {
+	if (pad_idx >= PAD_SRC_PDAF0 &&
+		pad_idx <= PAD_SRC_PDAF6) {
 		out->buf[0][0].iova =
 			((((buf->daddr + GET_PLAT_V4L2(meta_sv_ext_size)) + 15)
 			>> 4) << 4);
@@ -3181,7 +3181,8 @@ static int fill_sv_img_buffer_to_ipi_frame(
 		else
 			CALL_PLAT_V4L2(set_sv_meta_stats_info,
 				node->desc.dma_port, vaddr, &info);
-	}
+	} else
+		out->buf[0][0].iova = buf->daddr;
 
 	return ret;
 }

@@ -1423,6 +1423,9 @@ int mtk_mae_vidioc_qbuf(struct file *file, void *priv,
 	// get pa of model
 	for (i = 0; i < MODEL_TYPE_MAX; i++) {
 		if (model_table->configTable[i].fd > 0 && model_table->configTable[i].isReady == 0) {
+			if (param->maeMode != AISEG && i == MODEL_TYPE_AISEG)
+				continue;
+
 			mtk_mae_umap_detach(mae_dev, &map_table->config_dmabuf_info[i]);
 			ret = mtk_mae_set_dmabuf_info(mae_dev,
 						model_table->configTable[i].fd,
@@ -1439,6 +1442,9 @@ int mtk_mae_vidioc_qbuf(struct file *file, void *priv,
 		}
 
 		if (model_table->coefTable[i].fd > 0 && model_table->coefTable[i].isReady == 0) {
+			if (param->maeMode != AISEG && i == MODEL_TYPE_AISEG)
+				continue;
+
 			mtk_mae_umap_detach(mae_dev, &map_table->coef_dmabuf_info[i]);
 			ret = mtk_mae_set_dmabuf_info(mae_dev,
 						model_table->coefTable[i].fd,
@@ -1449,6 +1455,7 @@ int mtk_mae_vidioc_qbuf(struct file *file, void *priv,
 					__func__, i);
 				return ret;
 			}
+
 			if (i != MODEL_TYPE_AISEG)	// AISEG Model should update perframe
 				model_table->coefTable[i].isReady = 1;
 		}
@@ -1482,8 +1489,8 @@ int mtk_mae_vidioc_qbuf(struct file *file, void *priv,
 		}
 
 	// get AISEG output
-	for (i = 0; i < AISEG_MAP_NUM; i++) {
-		if (model_table->aisegOutput[i].fd > 0) {
+	if (param->maeMode == AISEG) {
+		for (i = 0; i < AISEG_MAP_NUM; i++) {
 			mtk_mae_umap_detach(mae_dev, &map_table->aiseg_output_dmabuf_info[idx][i]);
 			ret = mtk_mae_set_dmabuf_info(mae_dev,
 						model_table->aisegOutput[i].fd,

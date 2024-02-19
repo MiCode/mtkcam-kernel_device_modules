@@ -5587,7 +5587,13 @@ int mtk_cam_req_save_link_change(struct mtk_raw_pipeline *pipe,
 				 struct mtk_cam_request *cam_req,
 				 struct mtk_cam_request_stream_data *s_data)
 {
-	char warn_desc[48];
+#define WARN_DESC_SIZE                 \
+	(sizeof(pipe->subdev.name) +       \
+	sizeof(cam_req->req.debug_str) +   \
+	sizeof(struct v4l2_subdev *) * 3 + \
+	66)
+
+	char warn_desc[WARN_DESC_SIZE];
 
 	if (pipe->req_sensor_new || pipe->req_seninf_old || pipe->req_seninf_new) {
 		if (pipe->req_sensor_new && pipe->req_seninf_old && pipe->req_seninf_new) {
@@ -5605,7 +5611,7 @@ int mtk_cam_req_save_link_change(struct mtk_raw_pipeline *pipe,
 			pipe->req_seninf_old = NULL;
 			pipe->req_seninf_new = NULL;
 		} else {
-			snprintf_safe(warn_desc, 48,
+			snprintf_safe(warn_desc, WARN_DESC_SIZE,
 				      "%s:%s:param's can't be null:sensor_n(%p)/seninf_o(%p)/seninf_n(%p)",
 				      pipe->subdev.name, cam_req->req.debug_str,
 				      pipe->req_sensor_new, pipe->req_seninf_old,

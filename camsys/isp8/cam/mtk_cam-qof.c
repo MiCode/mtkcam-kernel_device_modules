@@ -194,6 +194,12 @@ void qof_sof_src_sel(struct mtk_raw_device *dev, bool with_dcif,
 		pr_info("qof: %s: TOP_CTL 0x%08x", __func__, val);
 }
 
+void qof_init_timer_freq(struct mtk_raw_device *dev)
+{
+	writel_relaxed(QOF_TIMER_FREQ_DIV,
+			   dev->qof_base + REG_QOF_CAM_A_QOF_TIME_STAMP_1);
+}
+
 void qof_setup_hw_timer(struct mtk_raw_device *dev, u32 interval_us)
 {
 	u32 timer_freq_khz =
@@ -202,8 +208,6 @@ void qof_setup_hw_timer(struct mtk_raw_device *dev, u32 interval_us)
 	u32 pwr_off_max = (interval_us - ON_OFF_TIME_US - PWR_OFF_MAX_THRESHOLD_US)
 		* timer_freq_khz / 1000;
 
-	writel_relaxed(QOF_TIMER_FREQ_DIV,
-				   dev->qof_base + REG_QOF_CAM_A_QOF_TIME_STAMP_1);
 	writel_relaxed(mtcmos_cycle,
 				   dev->qof_base + REG_QOF_CAM_A_QOF_MTC_CYC_MAX_1);
 	writel_relaxed(pwr_off_max,

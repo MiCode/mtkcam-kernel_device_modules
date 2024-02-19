@@ -1405,7 +1405,9 @@ int mtk_cam_sv_dev_pertag_stream_on(
 	if (on) {
 		sv_dev->streaming_tag_cnt++;
 		if (sv_dev->streaming_tag_cnt == sv_dev->used_tag_cnt) {
+#ifdef SV_FIFO_DETECTION
 			ret |= mtk_cam_sv_start_fifo_detection(sv_dev);
+#endif
 			ret |= mtk_cam_sv_central_common_enable(sv_dev);
 		}
 	} else {
@@ -1414,7 +1416,9 @@ int mtk_cam_sv_dev_pertag_stream_on(
 		if (sv_dev->streaming_tag_cnt == sv_dev->used_tag_cnt) {
 			ret |= mtk_cam_sv_cq_disable(sv_dev);
 			ret |= mtk_cam_sv_central_common_disable(sv_dev);
+#ifdef SV_FIFO_DETECTION
 			ret |= mtk_cam_sv_stop_fifo_detection(sv_dev);
+#endif
 		}
 
 		ret |= mtk_cam_sv_fbc_disable(sv_dev, tag_idx);
@@ -1588,7 +1592,9 @@ void camsv_handle_err(
 
 	/* check dma fifo status */
 	if (!(data->err_tags) && (err_status & CAMSVCENTRAL_DMA_SRAM_FULL_ST)) {
+#ifdef SV_FIFO_DETECTION
 		mtk_cam_sv_execute_fifo_dump(sv_dev);
+#endif
 		dev_info_ratelimited(sv_dev->dev, "camsv dma fifo full\n");
 		mtk_cam_seninf_dump_current_status(ctx->seninf);
 		mtk_smi_dbg_hang_detect("camsys-camsv");

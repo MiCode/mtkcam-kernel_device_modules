@@ -6644,20 +6644,7 @@ static int mtk_cam_set_phya_clock_src(struct seninf_ctx *ctx, u64 val)
 
 	switch (val) {
 	case 1:
-		if (_seninf_ops->iomem_ver == NULL) {
-			dev_info(ctx->dev, "[%s] phya clk set to 0\n", __func__);
-			return 0;
-		} else if (!strcasecmp(_seninf_ops->iomem_ver, MT6991_IOMOM_VERSIONS)) {
-			dev_info(ctx->dev, "[%s] phya clk set to 0\n", __func__);
-			return 0;
-		} else if (!strcasecmp(_seninf_ops->iomem_ver, MT6989_IOMOM_VERSIONS))
-			SENINF_BITS(base, CDPHY_RX_ANA_SETTING_0, CSR_ANA_REF_CK_SEL, val);
-		else {
-			dev_info(ctx->dev,
-				"[%s] phya clk set to %llu fail, check platform ver\n",
-				__func__, val);
-			return -EINVAL;
-		}
+		SENINF_BITS(base, CDPHY_RX_ANA_SETTING_0, CSR_ANA_REF_CK_SEL, val);
 		break;
 	case 0:
 		SENINF_BITS(base, CDPHY_RX_ANA_SETTING_0, CSR_ANA_REF_CK_SEL, val);

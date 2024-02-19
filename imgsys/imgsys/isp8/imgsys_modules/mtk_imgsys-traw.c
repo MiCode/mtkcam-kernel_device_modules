@@ -619,6 +619,27 @@ static void imgsys_traw_dump_dl(struct mtk_imgsys_dev *a_pDev,
 	DbgLineCntReg = (DbgData & 0xFFFF0000) / 0xFFFF;
 	pr_info("[wpe_wif_t5_debug]pix_cnt_reg(0x%X),line_cnt_reg(0x%X)\n",
 		DbgData & 0xFFFF, DbgLineCntReg);
+
+	/* wpe_wif_t6_debug */
+	/* sot_st,eol_st,eot_st,sof,sot,eol,eot,req,rdy,7b0,checksum_out */
+	DbgCmd = 0x00000706;
+	DbgData = ExeDbgCmd(a_pDev, a_pRegBA, a_DdbSel, a_DbgOut, DbgCmd);
+	DbgRdy = ((DbgData & 0x800000) > 0) ? 1 : 0;
+	DbgReq = ((DbgData & 0x1000000) > 0) ? 1 : 0;
+	pr_info("[wpe_wif_t6_debug]checksum(0x%X),rdy(%d) req(%d)\n",
+		DbgData & 0xFFFF, DbgRdy, DbgReq);
+	/* line_cnt[15:0],  pix_cnt[15:0] */
+	DbgCmd = 0x00000707;
+	DbgData = ExeDbgCmd(a_pDev, a_pRegBA, a_DdbSel, a_DbgOut, DbgCmd);
+	DbgLineCnt = (DbgData & 0xFFFF0000) / 0xFFFF;
+	pr_info("[wpe_wif_t6_debug]pix_cnt(0x%X),line_cnt(0x%X)\n",
+		DbgData & 0xFFFF, DbgLineCnt);
+	/* line_cnt_reg[15:0], pix_cnt_reg[15:0] */
+	DbgCmd = 0x00000708;
+	DbgData = ExeDbgCmd(a_pDev, a_pRegBA, a_DdbSel, a_DbgOut, DbgCmd);
+	DbgLineCntReg = (DbgData & 0xFFFF0000) / 0xFFFF;
+	pr_info("[wpe_wif_t6_debug]pix_cnt_reg(0x%X),line_cnt_reg(0x%X)\n",
+		DbgData & 0xFFFF, DbgLineCntReg);
 }
 #endif
 

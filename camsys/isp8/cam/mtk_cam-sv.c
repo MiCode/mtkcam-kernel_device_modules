@@ -882,6 +882,15 @@ int mtk_cam_sv_central_common_disable(struct mtk_camsv_device *sv_dev)
 	CAMSV_WRITE_REG(sv_dev->base + REG_CAMSVCENTRAL_DMA_EN_IMG, 0);
 	CAMSV_WRITE_REG(sv_dev->base + REG_CAMSVCENTRAL_DCIF_SET, 0);
 	CAMSV_WRITE_REG(sv_dev->base + REG_CAMSVCENTRAL_DCIF_SEL, 0);
+
+	CAMSV_WRITE_REG(sv_dev->base_dma + REG_CAMSVDMATOP_AXSLC_CMD, 0);
+	for (i = SVTAG_START; i < SVTAG_END; i++) {
+		CAMSV_WRITE_REG(sv_dev->base_dma + REG_CAMSVDMATOP_WDMA_SPECIAL_EN_IMG1 +
+			CAMSVDMATOP_WDMA_SPECIAL_IMG_SHIFT * i, 0);
+		CAMSV_WRITE_REG(sv_dev->base_dma + REG_CAMSVDMATOP_WDMA_AXSLC_SIZE_IMG1 +
+			CAMSVDMATOP_WDMA__AXSLC_IMG_SHIFT * i, 0);
+	}
+
 	mtk_cam_sv_toggle_db(sv_dev);
 
 	return ret;

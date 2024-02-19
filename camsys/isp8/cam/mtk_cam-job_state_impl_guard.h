@@ -210,7 +210,7 @@ static inline bool valid_cq_execution_avoid_race_with_topirq(
 	if (unlikely(!p->s_params))
 		return ret;
 
-	ret = (p->event_ts - p->info->sof_ts_ns) > 1000000 ? true : false;
+	ret = (p->event_ts - p->info->sof_ts_ns) > 300000 ? true : false;
 
 	if (ret == false)
 		pr_info("[DEBUG] race with top-half case, event/f_sof/l_sof:%llu/%llu/%llu (%llu)",

@@ -2076,7 +2076,9 @@ int imgsys_cmdq_parser_plat8(struct mtk_imgsys_dev *imgsys_dev,
 			}
 			//
 			if (cmd->u.fd != pre_fd) {
+				#ifndef MTK_IOVA_NOTCHECK
 				dbuf = dma_buf_get(cmd->u.fd);
+				#endif
 				fd_info = &imgsys_dev->req_fd_cache.info_array[req_fd];
 				req = (struct mtk_imgsys_request *) fd_info->req_addr_va;
 				dev_b = req->buf_map[is_singledev_mode(req)];

@@ -1758,17 +1758,21 @@ static u64 transform_tuning_iova(struct mtk_imgsys_dev *imgsys_dev, struct mtk_i
 			for (j = 0; j < input_smvr->fparams[frm_index][0].bufs[0].buf.num_planes;
 				j++) {
 				tuning_info->buf_fd =
-			input_smvr->fparams[frm_index][0].bufs[0].buf.planes[j].m.dma_buf.fd;
+				input_smvr->fparams[frm_index][0].bufs[0].buf.planes[j].m.dma_buf.fd;
 				tuning_info->offset =
-			input_smvr->fparams[frm_index][0].bufs[0].buf.planes[j].m.dma_buf.offset;
-				tuning_info->dbuf = dma_buf_get(tuning_info->buf_fd);
+				input_smvr->fparams[frm_index][0].bufs[0].buf.planes[j].m.dma_buf.offset;
+				#ifndef MTK_IOVA_NOTCHECK
+					tuning_info->dbuf = dma_buf_get(tuning_info->buf_fd);
+				#else
+					tuning_info->dbuf = NULL;
+				#endif
 				tuning_info->iova_addr =
 					imgsys_dev->imgsys_get_iova(
 					tuning_info->dbuf, tuning_info->buf_fd, imgsys_dev, dev_b);
-                if (imgsys_dbg_enable()) {
-				pr_debug("imgsys_fw: smvr iova addr(0x%llx/%d/0x%x)",
-					tuning_info->iova_addr, tuning_info->buf_fd,
-					tuning_info->offset);
+				if (imgsys_dbg_enable()) {
+					pr_debug("imgsys_fw: smvr iova addr(0x%llx/%d/0x%x)",
+						tuning_info->iova_addr, tuning_info->buf_fd,
+						tuning_info->offset);
 			}
 		}
 		}
@@ -1777,17 +1781,21 @@ static u64 transform_tuning_iova(struct mtk_imgsys_dev *imgsys_dev, struct mtk_i
 			for (j = 0; j < input_norm->fparams[frm_index][0].bufs[0].buf.num_planes;
 				j++) {
 				tuning_info->buf_fd =
-			input_norm->fparams[frm_index][0].bufs[0].buf.planes[j].m.dma_buf.fd;
+					input_norm->fparams[frm_index][0].bufs[0].buf.planes[j].m.dma_buf.fd;
 				tuning_info->offset =
-			input_norm->fparams[frm_index][0].bufs[0].buf.planes[j].m.dma_buf.offset;
-				tuning_info->dbuf = dma_buf_get(tuning_info->buf_fd);
+					input_norm->fparams[frm_index][0].bufs[0].buf.planes[j].m.dma_buf.offset;
+				#ifndef MTK_IOVA_NOTCHECK
+					tuning_info->dbuf = dma_buf_get(tuning_info->buf_fd);
+				#else
+					tuning_info->dbuf = NULL;
+				#endif
 				tuning_info->iova_addr =
 					imgsys_dev->imgsys_get_iova(
 					tuning_info->dbuf, tuning_info->buf_fd, imgsys_dev, dev_b);
-                if (imgsys_dbg_enable()) {
-				pr_debug("imgsys_fw: normal iova addr(0x%llx/%d/0x%x)",
-					tuning_info->iova_addr, tuning_info->buf_fd,
-					tuning_info->offset);
+				if (imgsys_dbg_enable()) {
+					pr_debug("imgsys_fw: normal iova addr(0x%llx/%d/0x%x)",
+						tuning_info->iova_addr, tuning_info->buf_fd,
+						tuning_info->offset);
 			}
 		}
 	}

@@ -35,6 +35,7 @@ $(info "imgsys, cmdq-isp8 ko_code_path = $(KO_CODE_PATH)")
 $(info "imgsys, cmdq-isp8 subdir-ccflags-y = $(subdir-ccflags-y)")
 
 subdir-ccflags-y += -DMTK_IOVA_SINK2KERNEL
+subdir-ccflags-y += -DMTK_IOVA_NOTCHECK
 
 #
 #  imgsys-cmdq

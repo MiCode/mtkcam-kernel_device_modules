@@ -627,6 +627,7 @@ u64 mtk_imgsys_get_iova(struct dma_buf *dma_buf, s32 ionFd,
 #else
 	hash_for_each_possible(pipe->iova_cache.hlists, iova_info, hnode, ionFd) {
 #endif
+#ifndef MTK_IOVA_NOTCHECK
 		if ((ionFd == iova_info->ionfd) &&
 				(dma_buf == iova_info->dma_buf)) {
 			cache = true;
@@ -634,19 +635,31 @@ u64 mtk_imgsys_get_iova(struct dma_buf *dma_buf, s32 ionFd,
 			dma_buf_put(dma_buf);
 			break;
 		}
+#else
+		if (ionFd == iova_info->ionfd) {
+			cache = true;
+			dma_addr = iova_info->dma_addr;
+			if (dma_buf != NULL)
+				dma_buf_put(dma_buf);
+			break;
+		}
+#endif
 	}
 	spin_unlock(&pipe->iova_cache.lock);
 
 	if (cache) {
-        if (imgsys_dbg_enable())
-		dev_dbg(imgsys_dev->dev, "%s fd:%d cache hit\n", __func__, ionFd);
+		if (imgsys_dbg_enable())
+			dev_dbg(imgsys_dev->dev, "%s fd:%d cache hit\n", __func__, ionFd);
 		return dma_addr;
 	}
 
+	if (dma_buf == NULL)
+		dma_buf = dma_buf_get(ionFd);
+
 	if (IS_ERR(dma_buf)) {
-        if (imgsys_dbg_enable())
-		dev_dbg(imgsys_dev->dev, "%s: dma_buf 0x%lx",
-						__func__, (unsigned long)dma_buf);
+		if (imgsys_dbg_enable())
+			dev_info(imgsys_dev->dev, "%s: dma_buf 0x%lx",
+				__func__, (unsigned long)dma_buf);
 		return 0;
 	}
 
@@ -959,10 +972,10 @@ static void mtk_imgsys_desc_iova(struct mtk_imgsys_pipe *pipe,
 			mtk_imgsys_get_iova(dmabuf,
 			fparams->bufs[i].buf.planes[j].m.dma_buf.fd,
 					pipe->imgsys_dev, dev_buf);
-            if (imgsys_dbg_enable())
-			dev_dbg(dev,
-				"%s - bufs[%d].buf.planes[%d]: fd(%d), iova(%llx)\n",
-				__func__, i, j,
+			if (imgsys_dbg_enable())
+				dev_info(dev,
+					"%s - bufs[%d].buf.planes[%d]: fd(%d), iova(%llx)\n",
+					__func__, i, j,
 			fparams->bufs[i].buf.planes[j].m.dma_buf.fd,
 				fparams->bufs[i].buf.planes[j].reserved[0]);
 		}

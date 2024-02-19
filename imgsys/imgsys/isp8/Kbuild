@@ -42,6 +42,7 @@ endif
 $(info "imgsys, subdir-ccflags-y = $(subdir-ccflags-y)")
 
 subdir-ccflags-y += -DMTK_IOVA_SINK2KERNEL
+subdir-ccflags-y += -DMTK_IOVA_NOTCHECK
 
 $(info imgsys DEVICE_MODULES_PATH=$(DEVICE_MODULES_PATH))
 NOTDIR_DEVICE_MODULES_PATH = $(notdir $(DEVICE_MODULES_PATH))

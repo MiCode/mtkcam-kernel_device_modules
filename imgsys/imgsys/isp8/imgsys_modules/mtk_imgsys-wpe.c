@@ -279,7 +279,9 @@ void imgsys_wpe_updatecq(struct mtk_imgsys_dev *imgsys_dev,
 			continue;
 
 		if (user_info->priv[i].buf_fd) {
+			#ifndef MTK_IOVA_NOTCHECK
 			dbuf = dma_buf_get(user_info->priv[i].buf_fd);
+			#endif
 			fd_info = &imgsys_dev->req_fd_cache.info_array[req_fd];
 			req = (struct mtk_imgsys_request *) fd_info->req_addr_va;
 			dev_b = req->buf_map[imgsys_dev->is_singledev_mode(req)];

@@ -337,6 +337,7 @@ struct mtk_imgsys_dev {
 	struct device *dev;
 	struct device *dev_Me;
 	struct device *smmu_dev;
+	struct device *acp_smmu_dev;
 	struct resource *imgsys_resource;
 	struct media_device mdev;
 	struct v4l2_device v4l2_dev;

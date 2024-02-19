@@ -22,6 +22,7 @@
 #include <media/v4l2-subdev.h>
 #include <media/v4l2-event.h>
 #include <linux/dma-mapping.h>
+#include <linux/uaccess.h>
 #include <mtk_imgsys-cmdq.h>
 //#include <mtk_imgsys-data.h>
 #include "mtk_imgsys_v4l2.h"
@@ -612,7 +613,7 @@ static void *mtk_imgsys_vb2_vaddr(struct vb2_buffer *vb, void *buf_priv)
 
 	if (buf->db_attach) {
 		struct iosys_map map;
-		#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 4, 0)
+		#ifdef NEW_DMA_BUF_API
 		if (!dma_buf_vmap_unlocked(buf->db_attach->dmabuf, &map))
 			buf->vaddr = map.vaddr;
 		#else
@@ -685,7 +686,7 @@ static int mtk_imgsys_vb2_map_dmabuf(void *mem_priv)
 	}
 
 	/* get the associated scatterlist for this buffer */
-	#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 4, 0)
+	#ifdef NEW_DMA_BUF_API
 	sgt = dma_buf_map_attachment_unlocked(buf->db_attach, buf->dma_dir);
 	#else
 	sgt = dma_buf_map_attachment(buf->db_attach, buf->dma_dir);
@@ -700,7 +701,7 @@ static int mtk_imgsys_vb2_map_dmabuf(void *mem_priv)
 	if (contig_size < buf->size) {
 		pr_err("contiguous chunk is too small %lu/%lu\n",
 		       contig_size, buf->size);
-		#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 4, 0)
+		#ifdef NEW_DMA_BUF_API
 		dma_buf_unmap_attachment_unlocked(buf->db_attach, sgt, buf->dma_dir);
 		#else
 		dma_buf_unmap_attachment(buf->db_attach, sgt, buf->dma_dir);
@@ -732,14 +733,14 @@ static void mtk_imgsys_vb2_unmap_dmabuf(void *mem_priv)
 	}
 
 	if (buf->vaddr) {
-		#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 4, 0)
+		#ifdef NEW_DMA_BUF_API
 		dma_buf_vunmap_unlocked(buf->db_attach->dmabuf, &map);
 		#else
 		dma_buf_vunmap(buf->db_attach->dmabuf, &map);
 		#endif
 		buf->vaddr = NULL;
 	}
-	#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 4, 0)
+	#ifdef NEW_DMA_BUF_API
 	dma_buf_unmap_attachment_unlocked(buf->db_attach, sgt, buf->dma_dir);
 	#else
 	dma_buf_unmap_attachment(buf->db_attach, sgt, buf->dma_dir);
@@ -1797,7 +1798,7 @@ static int mtkdip_ioc_add_kva(struct v4l2_subdev *subdev, void *arg)
 		fd_info->fds_size[i] = dmabuf->size;
 
 		dma_buf_begin_cpu_access(dmabuf, DMA_BIDIRECTIONAL);
-		#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 4, 0)
+		#ifdef NEW_DMA_BUF_API
 		ret = dma_buf_vmap_unlocked(dmabuf, &map);
 		#else
 		ret = dma_buf_vmap(dmabuf, &map);
@@ -1810,7 +1811,7 @@ static int mtkdip_ioc_add_kva(struct v4l2_subdev *subdev, void *arg)
 
 		attach = dma_buf_attach(dmabuf, imgsys_pipe->imgsys_dev->smmu_dev);
 		if (IS_ERR(attach)) {
-			#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 4, 0)
+			#ifdef NEW_DMA_BUF_API
 			dma_buf_vunmap_unlocked(dmabuf, &buf_va_info->map);
 			#else
 			dma_buf_vunmap(dmabuf, &buf_va_info->map);
@@ -1822,13 +1823,13 @@ static int mtkdip_ioc_add_kva(struct v4l2_subdev *subdev, void *arg)
 			continue;
 		}
 
-		#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 4, 0)
+		#ifdef NEW_DMA_BUF_API
 		sgt = dma_buf_map_attachment_unlocked(attach, DMA_BIDIRECTIONAL);
 		#else
 		sgt = dma_buf_map_attachment(attach, DMA_BIDIRECTIONAL);
 		#endif
 		if (IS_ERR(sgt)) {
-			#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 4, 0)
+			#ifdef NEW_DMA_BUF_API
 			dma_buf_vunmap_unlocked(dmabuf, &buf_va_info->map);
 			#else
 			dma_buf_vunmap(dmabuf, &buf_va_info->map);
@@ -1901,7 +1902,7 @@ static int mtkdip_ioc_del_kva(struct v4l2_subdev *subdev, void *arg)
 		mutex_unlock(&(kva_list->mymutex));
 
 		dmabuf = buf_va_info->dma_buf_putkva;
-		#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 4, 0)
+		#ifdef NEW_DMA_BUF_API
 		dma_buf_vunmap_unlocked(dmabuf, &buf_va_info->map);
 
 		dma_buf_end_cpu_access(dmabuf, DMA_BIDIRECTIONAL);
@@ -1999,7 +2000,7 @@ static int mtkdip_ioc_add_iova(struct v4l2_subdev *subdev, void *arg)
 			return -ENOMEM;
 		}
 
-		#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 4, 0)
+		#ifdef NEW_DMA_BUF_API
 		sgt = dma_buf_map_attachment_unlocked(attach, DMA_BIDIRECTIONAL);
 		#else
 		sgt = dma_buf_map_attachment(attach, DMA_BIDIRECTIONAL);
@@ -2125,96 +2126,7 @@ static int mtkdip_ioc_del_iova(struct v4l2_subdev *subdev, void *arg)
 
 	return 0;
 }
-#if 0
-static int mtkdip_ioc_add_fence(struct v4l2_subdev *subdev, void *arg)
-{
-	struct mtk_imgsys_pipe *pipe = mtk_imgsys_subdev_to_pipe(subdev);
-	struct fd_tbl *fd_tbl = (struct fd_tbl *)arg;
-	unsigned int *kfd;
-	size_t size;
-	int ret, get, i;
 
-	if ((!fd_tbl->fds) || (!fd_tbl->fd_num)) {
-		dev_info(pipe->imgsys_dev->dev, "%s:NULL usrptr\n", __func__);
-		return -EINVAL;
-	}
-
-	size = sizeof(*kfd) * fd_tbl->fd_num;
-	kfd = vzalloc(size);
-	if (kfd == NULL)
-		return -ENOMEM;
-	ret = copy_from_user(kfd, (void *)fd_tbl->fds, size);
-	get = 1;
-	if (ret != 0) {
-		dev_info(pipe->imgsys_dev->dev,
-			"[%s]%s:copy_from_user fail !!!\n",
-			__func__,
-			pipe->desc->name);
-		vfree(kfd);
-		return -EINVAL;
-	}
-
-	ret = mtk_hcp_set_KernelFence(kfd, fd_tbl->fd_num, get);
-
-	if (ret < 0)
-		return ret;
-
-	for (i = 0; i < fd_tbl->fd_num; i++)
-		pr_info("add imgsys_kernel kernel_fence(%d)\n", kfd[i]);
-
-	ret = copy_to_user((void *)fd_tbl->fds, kfd, size);
-
-	if (ret != 0) {
-		dev_info(pipe->imgsys_dev->dev,
-			"[%s]%s:copy_to_user fail !!!\n",
-			__func__,
-			pipe->desc->name);
-
-		return -EINVAL;
-	}
-	vfree(kfd);
-	return 0;
-}
-
-static int mtkdip_ioc_del_fence(struct v4l2_subdev *subdev, void *arg)
-{
-	struct mtk_imgsys_pipe *pipe = mtk_imgsys_subdev_to_pipe(subdev);
-	struct fd_tbl *fd_tbl = (struct fd_tbl *)arg;
-	unsigned int *kfd;
-	size_t size;
-	int ret, release, i;
-
-	if ((!fd_tbl->fds) || (!fd_tbl->fd_num)) {
-		dev_info(pipe->imgsys_dev->dev, "%s:NULL usrptr\n", __func__);
-		return -EINVAL;
-	}
-
-	size = sizeof(*kfd) * fd_tbl->fd_num;
-	kfd = vzalloc(size);
-	if (kfd == NULL)
-		return -ENOMEM;
-	ret = copy_from_user(kfd, (void *)fd_tbl->fds, size);
-	release = 0;
-	if (ret != 0) {
-		dev_info(pipe->imgsys_dev->dev,
-			"[%s]%s:copy_from_user fail !!!\n",
-			__func__,
-			pipe->desc->name);
-		vfree(kfd);
-		return -EINVAL;
-	}
-	for (i = 0; i < fd_tbl->fd_num; i++)
-		pr_info("del imgsys_kernel kernel_fence(%d)\n", kfd[i]);
-
-	ret = mtk_hcp_set_KernelFence(kfd, fd_tbl->fd_num, release);
-	if (ret < 0)
-		return ret;
-
-	vfree(kfd);
-	return 0;
-}
-#endif
-#if SMVR_DECOUPLE
 static int imgsys_send(struct platform_device *pdev, enum hcp_id id,
 		    void *buf, unsigned int  len, int req_fd, unsigned int wait)
 {
@@ -2230,7 +2142,7 @@ static int imgsys_send(struct platform_device *pdev, enum hcp_id id,
 #endif
 	return ret;
 }
-#endif
+
 static int mtkdip_ioc_s_init_info(struct v4l2_subdev *subdev, void *arg)
 {
 	/* struct mtk_imgsys_pipe *pipe = mtk_imgsys_subdev_to_pipe(subdev); */
@@ -2250,7 +2162,7 @@ static int mtkdip_ioc_s_init_info(struct v4l2_subdev *subdev, void *arg)
 
 	return 0;
 }
-#if SMVR_DECOUPLE
+
 static int mtkdip_ioc_alloc_buffer(struct v4l2_subdev *subdev, void *arg)
 {
 	/* struct mtk_imgsys_pipe *pipe = mtk_imgsys_subdev_to_pipe(subdev); */
@@ -2440,7 +2352,165 @@ static int mtkdip_ioc_free_buffer(struct v4l2_subdev *subdev, void *arg)
 				pipe->imgsys_dev->imgsys_pipe[0].imgsys_user_count);
 	return 0;
 }
+
+static int mtkdip_ioc_acquire_iova(struct v4l2_subdev *subdev, void *arg)
+{
+	struct mtk_imgsys_pipe *pipe = mtk_imgsys_subdev_to_pipe(subdev);
+	struct mtk_imgsys_dma_buf_iova_get_info *fd_iova;
+	struct mtk_imgsys_fd_info_tbl *fd_tbl = (struct mtk_imgsys_fd_info_tbl *)arg;
+	struct mtk_imgsys_fd_info fd_info;
+	struct dma_buf *dmabuf;
+	struct dma_buf_attachment *attach;
+	struct sg_table *sgt;
+	dma_addr_t dma_addr;
+	int i;
+	uint8_t acp_coherence_enable;
+
+	if (!fd_tbl->fds[0].fd) {
+		dev_dbg(pipe->imgsys_dev->dev, "%s:NULL usrptr\n", __func__);
+		return -EINVAL;
+	}
+
+	if (fd_tbl->fd_num > FD_MAX)
+		return -EINVAL;
+
+	if (imgsys_dbg_enable())
+		dev_info(pipe->imgsys_dev->dev,
+			"[%s]%s-%d:iova num !!!\n",
+			__func__,
+			pipe->desc->name, fd_tbl->fd_num);
+
+	for (i = 0; i < fd_tbl->fd_num; i++) {
+		if (!fd_tbl->fds[i].fd) {
+			fd_info.fd = 0;
+			continue;
+		}
+
+		acp_coherence_enable = fd_tbl->fds[i].enable_acp_coherance;
+
+		dmabuf = dma_buf_get(fd_tbl->fds[i].fd);
+		if (IS_ERR(dmabuf))
+			return -ENOMEM;
+#ifdef IMG_MEM_G_ID_DEBUG
+		spin_lock(&dmabuf->name_lock);
+		if (!strncmp("IMG_MEM_G_ID", dmabuf->name, 12))
+			dev_info(pipe->imgsys_dev->dev,
+			"[%s]%s: fd(%d) GCE buffer used\n", __func__, dmabuf->name, fd_tbl->fds[i].fd);
+		spin_unlock(&dmabuf->name_lock);
 #endif
+		if (acp_coherence_enable)
+			attach = dma_buf_attach(dmabuf, pipe->imgsys_dev->acp_smmu_dev);
+		else
+			attach = dma_buf_attach(dmabuf, pipe->imgsys_dev->smmu_dev);
+		if (IS_ERR(attach)) {
+			dma_buf_put(dmabuf);
+			pr_info("dma_buf_attach fail fd:%d\n", fd_tbl->fds[i].fd);
+			return -ENOMEM;
+		}
+
+		#ifdef NEW_DMA_BUF_API
+		sgt = dma_buf_map_attachment_unlocked(attach, DMA_BIDIRECTIONAL);
+		#else
+		sgt = dma_buf_map_attachment(attach, DMA_BIDIRECTIONAL);
+		#endif
+		if (IS_ERR(sgt)) {
+			dma_buf_detach(dmabuf, attach);
+			dma_buf_put(dmabuf);
+			pr_info("%s:dma_buf_map_attachment sgt err: fd %d\n",
+						__func__, fd_tbl->fds[i].fd);
+			return -ENOMEM;
+		}
+
+		dma_addr = sg_dma_address(sgt->sgl);
+
+		fd_iova = vzalloc(sizeof(*fd_iova));
+		if (fd_iova == NULL)
+			return -ENOMEM;
+		fd_iova->ionfd = fd_tbl->fds[i].fd;
+		fd_iova->dma_addr = dma_addr;
+		fd_iova->dma_buf = dmabuf;
+		fd_iova->attach = attach;
+		fd_iova->sgt = sgt;
+		if (imgsys_dbg_enable())
+			dev_info(pipe->imgsys_dev->dev,
+				"%s:dma_buf:%lx,attach:%lx,sgt:%lx,acp(%d)\n",
+				__func__,
+				(unsigned long)fd_iova->dma_buf,
+				(unsigned long)fd_iova->attach,
+				(unsigned long)fd_iova->sgt,
+				acp_coherence_enable);
+
+		spin_lock(&pipe->iova_cache.lock);
+		list_add_tail(&fd_iova->list_entry, &pipe->iova_cache.list);
+		hash_add(pipe->iova_cache.hlists, &fd_iova->hnode, fd_iova->ionfd);
+		spin_unlock(&pipe->iova_cache.lock);
+		fd_info.fd = fd_tbl->fds[i].fd;
+		if (imgsys_dbg_enable())
+			dev_dbg(pipe->imgsys_dev->dev, "%s: fd(%d) cache added\n",
+				__func__,
+				fd_info.fd);
+	}
+
+	return 0;
+}
+
+static int mtkdip_ioc_release_iova(struct v4l2_subdev *subdev, void *arg)
+{
+	struct mtk_imgsys_pipe *pipe = mtk_imgsys_subdev_to_pipe(subdev);
+	struct mtk_imgsys_dma_buf_iova_get_info *iova_info, *tmp;
+	struct mtk_imgsys_fd_info_tbl *fd_tbl = (struct mtk_imgsys_fd_info_tbl *)arg;
+	struct mtk_imgsys_fd_info fd_info;
+	struct dma_buf *dmabuf;
+	int i;
+	bool found = false;
+
+	if ((!fd_tbl->fds[0].fd) || (!fd_tbl->fd_num) || (fd_tbl->fd_num > FD_MAX)) {
+		dev_dbg(pipe->imgsys_dev->dev, "%s:NULL usrptr\n", __func__);
+		return -EINVAL;
+	}
+
+	for (i = 0; i < fd_tbl->fd_num; i++) {
+		unsigned int fd = fd_tbl->fds[i].fd;
+
+		if (!fd)
+			continue;
+
+		dmabuf = dma_buf_get(fd);
+		if (IS_ERR(dmabuf))
+			continue;
+		found = false;
+		spin_lock(&pipe->iova_cache.lock);
+		list_for_each_entry_safe(iova_info, tmp,
+					&pipe->iova_cache.list, list_entry) {
+			if ((iova_info->ionfd == fd) &&
+						(iova_info->dma_buf == dmabuf)) {
+				list_del(&iova_info->list_entry);
+				hash_del(&iova_info->hnode);
+				found = true;
+				break;
+			}
+		}
+		spin_unlock(&pipe->iova_cache.lock);
+
+		if (found) {
+			mtk_imgsys_put_dma_buf(iova_info->dma_buf,
+					iova_info->attach,
+					iova_info->sgt);
+			vfree(iova_info);
+		}
+		dma_buf_put(dmabuf);
+
+		fd_info.fd = fd_tbl->fds[i].fd;
+		if (imgsys_dbg_enable())
+			dev_dbg(pipe->imgsys_dev->dev,
+				"%s: fd(%d) cache invalidated\n",
+				__func__, fd_info.fd);
+
+	}
+
+	return 0;
+}
+
 static int mtkdip_ioc_set_control(struct v4l2_subdev *subdev, void *arg)
 {
 	struct mtk_imgsys_pipe *pipe = mtk_imgsys_subdev_to_pipe(subdev);
@@ -2488,12 +2558,14 @@ long mtk_imgsys_subdev_ioctl(struct v4l2_subdev *subdev, unsigned int cmd,
 		return mtkdip_ioc_s_init_info(subdev, arg);
 	case MTKDIP_IOC_SET_CONTROL:
 		return mtkdip_ioc_set_control(subdev, arg);
-#if SMVR_DECOUPLE
     case MTKDIP_IOC_ALOC_BUF:
 		return mtkdip_ioc_alloc_buffer(subdev, arg);
     case MTKDIP_IOC_FREE_BUF:
 		return mtkdip_ioc_free_buffer(subdev, arg);
-#endif
+	case MTKDIP_IOC_ACQUIRE_IOVA:
+		return mtkdip_ioc_acquire_iova(subdev, arg);
+	case MTKDIP_IOC_RELEASE_IOVA:
+		return mtkdip_ioc_release_iova(subdev, arg);
 	default:
 		pr_info("%s: non-supported cmd(%x)\n", __func__, cmd);
 		return -ENOTTY;
@@ -3381,6 +3453,8 @@ int mtk_imgsys_probe(struct platform_device *pdev)
 {
 	struct mtk_imgsys_dev *imgsys_dev;
 	struct device **larb_devs;
+	struct device_node *dev_node;
+	struct platform_device *pdev_temp;
 	const struct cust_data *data;
 #if MTK_CM4_SUPPORT
 	phandle rproc_phandle;
@@ -3388,11 +3462,11 @@ int mtk_imgsys_probe(struct platform_device *pdev)
 	struct device_link *link;
 	int larbs_num, i;
 	int ret;
+	const char *coherent_status = NULL;
 
 	imgsys_dev = devm_kzalloc(&pdev->dev, sizeof(*imgsys_dev), GFP_KERNEL);
 	if (!imgsys_dev)
 		return -ENOMEM;
-
 
 	data = of_device_get_match_data(&pdev->dev);
 
@@ -3496,6 +3570,18 @@ int mtk_imgsys_probe(struct platform_device *pdev)
 	if (!imgsys_dev->smmu_dev) {
 		dev_info(imgsys_dev->dev,
 			"%s: failed to get imgsys smmu device\n",
+			__func__);
+		return -EINVAL;
+	}
+
+	dev_node = of_find_node_by_name(NULL, "imgsys-acp");
+	pdev_temp = of_find_device_by_node(dev_node);
+	ret = of_property_read_string(dev_node, "mediatek,imgsys-coherent", &coherent_status);
+	dev_info(imgsys_dev->dev, "test coherent status(%s)", coherent_status);
+	imgsys_dev->acp_smmu_dev = mtk_smmu_get_shared_device(&pdev_temp->dev);
+	if (!imgsys_dev->acp_smmu_dev) {
+		dev_info(imgsys_dev->dev,
+			"%s: failed to get imgsys acp smmu share device\n",
 			__func__);
 		return -EINVAL;
 	}

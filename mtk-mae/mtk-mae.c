@@ -41,6 +41,10 @@
 //#define FLD_GOLDEN
 //#define GOLDEN
 
+#if IS_ENABLED(CONFIG_MTK_SLBC)
+#include <slbc_ops.h>
+#endif
+
 #ifdef GOLDEN
 #include "./mae_mm16_fd/fdvt_FPGA_DMA0_outer0_input.h"
 #include "./mae_mm16_fd/fdvt_FPGA_DMA0_outer0_input1.h"
@@ -79,6 +83,13 @@ int dump_reg_en;
 int irq_handler_en = 1;
 int umap_debug;
 
+#if IS_ENABLED(CONFIG_MTK_SLBC)
+int mae_slc_dbg_en;
+static int mae_gid;
+static struct slbc_gid_data *mae_slbc_gid_data;
+
+module_param(mae_slc_dbg_en, int, 0644);
+#endif
 module_param(mae_log_level_value, int, 0644);
 module_param(delay_time, int, 0644);
 module_param(dump_reg_en, int, 0644);
@@ -781,6 +792,20 @@ static int mtk_mae_hw_connect(struct mtk_mae_dev *mae_dev)
 		// initialize
 		mae_dev->is_first_qbuf = true;
 		mae_dev->is_secure = false;
+	#if IS_ENABLED(CONFIG_MTK_SLBC)
+		/* register slc debug */
+		if (mae_slc_dbg_en) {
+			mae_gid = -1;
+			mae_slbc_gid_data = vzalloc(sizeof(struct slbc_gid_data));
+			mae_slbc_gid_data->sign = SLC_DATA_MAGIC;
+			ret = slbc_gid_request(ID_MAE, &mae_gid, mae_slbc_gid_data);
+			if (ret)
+				dev_info(mae_dev->dev, "slc request fail");
+			ret = slbc_validate(ID_MAE, mae_gid);
+			if (ret)
+				dev_info(mae_dev->dev, "slc validate fail");
+		}
+	#endif
 	}
 
 	return 0;
@@ -838,6 +863,9 @@ static void mtk_mae_umap_detach(struct mtk_mae_dev *mae_dev,
 static void mtk_mae_hw_disconnect(struct mtk_mae_dev *mae_dev)
 {
 	uint32_t i;
+#if IS_ENABLED(CONFIG_MTK_SLBC)
+	int ret;
+#endif
 
 	if (mae_dev->is_secure) {
 		if (drv_ops.secure_disable)
@@ -876,6 +904,20 @@ static void mtk_mae_hw_disconnect(struct mtk_mae_dev *mae_dev)
 			mtk_mae_umap_detach(mae_dev, &mae_dev->map_table->aiseg_output_dmabuf_info[0][i]);
 
 		// MAE_TO_DO: fd->drv_ops->uninit(fd);
+		/*slc uninit API*/
+	#if IS_ENABLED(CONFIG_MTK_SLBC)
+		if (mae_slc_dbg_en) {
+			ret = slbc_invalidate(ID_MAE, mae_gid);
+			if (ret)
+				dev_info(mae_dev->dev, "slc invalidate fail");
+
+			ret = slbc_gid_release(ID_MAE, mae_gid);
+			if (ret)
+				dev_info(mae_dev->dev, "slc release fail");
+
+			vfree(mae_slbc_gid_data);
+		}
+	#endif
 	}
 }
 

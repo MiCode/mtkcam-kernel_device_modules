@@ -184,6 +184,9 @@ void mtk_aie_aov_memcpy(char *buffer)
 	memcpy(tmp, &fdvt_FPGA_DMA0_outer0_input1_frame01[0], sizeof(fdvt_FPGA_DMA0_outer0_input1_frame01));
 	tmp += sizeof(fdvt_FPGA_DMA0_outer0_input1_frame01);
 
+	memcpy(tmp, &fdvt_FPGA_DMA0_outer0_output_frame01[0],  sizeof(fdvt_FPGA_DMA0_outer0_output_frame01));
+	tmp += sizeof(fdvt_FPGA_DMA0_outer0_output_frame01);
+
 	memcpy(tmp, &fdvt_FPGA_DMA1_outer0_output_frame01[0],  sizeof(fdvt_FPGA_DMA1_outer0_output_frame01));
 	tmp += sizeof(fdvt_FPGA_DMA1_outer0_output_frame01);
 

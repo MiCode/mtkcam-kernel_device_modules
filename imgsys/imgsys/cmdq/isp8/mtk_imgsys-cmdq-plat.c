@@ -869,7 +869,7 @@ static void imgsys_cmdq_cb_work_plat8(struct work_struct *work)
 		(tsDvfsQosEnd-tsDvfsQosStart));
 
 	cmdq_pkt_wait_complete(cb_param->pkt);
-	cmdq_pkt_destroy(cb_param->pkt);
+	cmdq_pkt_destroy_no_wq(cb_param->pkt);
 	cb_param->cmdqTs.tsReqEnd = ktime_get_boottime_ns()/1000;
 	IMGSYS_CMDQ_SYSTRACE_END();
 
@@ -1792,7 +1792,7 @@ int imgsys_cmdq_sendtask_plat8(struct mtk_imgsys_dev *imgsys_dev,
 					"%s: [ERROR] parsing idx(%d) with cmd(%d) in block(%d) for frm(%d/%d) fail\n",
 					__func__, cmd_idx, cmd[cmd_idx].opcode,
 					blk_idx, frm_idx, frm_num);
-				cmdq_pkt_destroy(pkt);
+				cmdq_pkt_destroy_no_wq(pkt);
 				if (isTimeShared)
 					mutex_unlock(&(imgsys_dev->vss_blk_lock));
 				goto sendtask_done;
@@ -1855,7 +1855,7 @@ int imgsys_cmdq_sendtask_plat8(struct mtk_imgsys_dev *imgsys_dev,
 					vzalloc(sizeof(struct mtk_imgsys_cb_param));
 #endif
 				if (cb_param == NULL) {
-					cmdq_pkt_destroy(pkt);
+					cmdq_pkt_destroy_no_wq(pkt);
 					dev_info(imgsys_dev->dev,
 						"%s: cb_param is NULL! in block(%d) for frm(%d/%d)!\n",
 						__func__, blk_idx, frm_idx, frm_num);

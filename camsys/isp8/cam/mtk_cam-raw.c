@@ -2668,7 +2668,6 @@ void fill_aa_info(struct mtk_raw_device *raw,
 				  struct mtk_ae_debug_data *ae_info)
 {
 	struct mtk_rms_device *rms = get_rms_dev(raw);
-	struct mtk_yuv_device *yuv = get_yuv_dev(raw);
 
 	ae_info->OBC_R1_Sum[0] +=
 		((u64)raw_readl(raw, raw->base, OFFSET_OBC_R1_R_SUM_H) << 32) |
@@ -2779,15 +2778,23 @@ void fill_aa_info(struct mtk_raw_device *raw,
 		raw_readl(raw, raw->base, REG_DGN_GB_CLIP_SUM_L);
 
 	ae_info->CCM_Sum[0] +=
-		((u64)raw_readl(raw, yuv->base, REG_CCM_AE_DEBUG_R_LSB) << 32) |
-		raw_readl(raw, yuv->base, REG_CCM_AE_DEBUG_R_MSB);
+		((u64)raw_readl(raw, raw->yuv_base, REG_CCM_AE_DEBUG_R_LSB) << 32) |
+		raw_readl(raw, raw->yuv_base, REG_CCM_AE_DEBUG_R_MSB);
 	ae_info->CCM_Sum[1] +=
-		((u64)raw_readl(raw, yuv->base, REG_CCM_AE_DEBUG_B_LSB) << 32) |
-		raw_readl(raw, yuv->base, REG_CCM_AE_DEBUG_B_MSB);
+		((u64)raw_readl(raw, raw->yuv_base, REG_CCM_AE_DEBUG_B_LSB) << 32) |
+		raw_readl(raw, raw->yuv_base, REG_CCM_AE_DEBUG_B_MSB);
 	ae_info->CCM_Sum[2] +=
-		((u64)raw_readl(raw, yuv->base, REG_CCM_AE_DEBUG_G_LSB) << 32) |
-		raw_readl(raw, yuv->base, REG_CCM_AE_DEBUG_G_MSB);
+		((u64)raw_readl(raw, raw->yuv_base, REG_CCM_AE_DEBUG_G_LSB) << 32) |
+		raw_readl(raw, raw->yuv_base, REG_CCM_AE_DEBUG_G_MSB);
 	ae_info->CCM_Sum[3] = 0x0;
+	if (CAM_DEBUG_ENABLED(RAW_INT))
+		dev_info(raw->dev, "[%s] 0x%x/0x%x, 0x%x/0x%x, 0x%x/0x%x\n", __func__,
+		raw_readl(raw, raw->yuv_base, REG_CCM_AE_DEBUG_R_LSB),
+		raw_readl(raw, raw->yuv_base, REG_CCM_AE_DEBUG_R_MSB),
+		raw_readl(raw, raw->yuv_base, REG_CCM_AE_DEBUG_B_LSB),
+		raw_readl(raw, raw->yuv_base, REG_CCM_AE_DEBUG_B_MSB),
+		raw_readl(raw, raw->yuv_base, REG_CCM_AE_DEBUG_G_LSB),
+		raw_readl(raw, raw->yuv_base, REG_CCM_AE_DEBUG_G_MSB));
 }
 
 static const struct dev_pm_ops mtk_yuv_pm_ops = {

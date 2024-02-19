@@ -5512,7 +5512,7 @@ static int ae_data_to_str(char *buff, size_t size,
 	n += arr_u64x4_to_str(buff + n, size - n, &ae_data->AESTAT_Sum[4]);
 	n += arr_u64x4_to_str(buff + n, size - n, ae_data->DGN_Sum);
 	n += arr_u64x4_to_str(buff + n, size - n, &ae_data->DGN_Sum[4]);
-	n += arr_u64x4_to_str(buff + n, size - n, &ae_data->CCM_Sum[4]);
+	n += arr_u64x4_to_str(buff + n, size - n, ae_data->CCM_Sum);
 
 	return n;
 }

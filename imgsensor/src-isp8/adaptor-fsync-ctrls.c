@@ -552,8 +552,8 @@ static void fsync_mgr_setup_all_exp_data(struct adaptor_ctx *ctx,
 
 				if (p_hdr_exp->multi_exp_type ==
 						MULTI_EXP_TYPE_LBMF) {
-					p_hdr_exp->fl_lc[fl_idx] =
-						ctx->subctx.frame_length_in_lut_rg[i];
+					p_hdr_exp->fl_lc[fl_idx] = 0;
+						// ctx->subctx.frame_length_in_lut_rg[i];
 				}
 
 #ifndef REDUCE_FSYNC_CTRLS_DBG_LOG
@@ -1365,10 +1365,9 @@ void notify_fsync_mgr_set_shutter(struct adaptor_ctx *ctx,
 		fsync_mgr_s_multi_shutter_frame_length(ctx,
 			ae_exp_arr, ae_exp_cnt,
 			pf_ctrl.hdr_exp.multi_exp_type);
-
-		/* update sensor current fl_lc */
-		fsync_mgr_update_sensor_actual_fl_info(ctx, &pf_ctrl);
 	}
+	/* update sensor current fl_lc */
+	fsync_mgr_update_sensor_actual_fl_info(ctx, &pf_ctrl);
 	/* update sensor current fl_lc to Frame-Sync */
 	ctx->fsync_mgr->fs_update_shutter(&pf_ctrl);
 

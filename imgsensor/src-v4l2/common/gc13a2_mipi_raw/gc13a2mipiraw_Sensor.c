@@ -487,7 +487,7 @@ static int gc13a2_set_shutter_frame_length(struct subdrv_ctx *ctx, u8 *para, u32
 		fll = ctx->frame_length;
 		fll_step = ctx->s_ctx.mode[ctx->current_scenario_id].framelength_step;
 		if (fll_step)
-			fll = round_up(fll, fll_step);
+			fll = roundup(fll, fll_step);
 		ctx->frame_length = fll;
 		if (ctx->s_ctx.mode[ctx->current_scenario_id].hdr_mode == HDR_RAW_STAGGER)
 			dol_cnt = ctx->s_ctx.mode[ctx->current_scenario_id].exp_cnt;

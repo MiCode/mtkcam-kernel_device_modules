@@ -2312,6 +2312,32 @@ static void tsrec_intr_reset(const unsigned int tsrec_no)
 }
 
 
+static void tsrec_force_clr_intr_status(const unsigned int tsrec_no)
+{
+	unsigned int intr_status;
+
+	/* after disable intr en bit, force clr intr status register for */
+	/* preventing irq handler find out intr en is clr and then skip handle */
+	intr_status = mtk_cam_seninf_g_tsrec_n_intr_status(tsrec_no);
+	if (intr_status) {
+		/* please call this API whether write clear is enabled or not */
+		mtk_cam_seninf_clr_tsrec_n_intr_status(tsrec_no, intr_status);
+		TSREC_LOG_INF(
+			"NOTICE: tsrec_no:%u, intr_en_bits:%#x, intr_status:%#x => skip IRQ handle\n",
+			tsrec_no,
+			TSREC_ATOMIC_READ(&tsrec_status.intr_en_bits),
+			intr_status);
+		return;
+	}
+
+	TSREC_LOG_INF(
+		"tsrec_no:%u, intr_en_bits:%#x, intr_status:%#x\n",
+		tsrec_no,
+		TSREC_ATOMIC_READ(&tsrec_status.intr_en_bits),
+		intr_status);
+}
+
+
 static void tsrec_intr_ctrl_exp_vsync_en(
 	const unsigned int tsrec_no, const unsigned int reg_group,
 	const unsigned int exp0, const unsigned int exp1, const unsigned int exp2,
@@ -2659,6 +2685,9 @@ static void tsrec_n_settings_clear(const unsigned int tsrec_no)
 
 	/* INTR disable */
 	tsrec_intr_reset(tsrec_no);
+
+	/* after INTR disable, force clr INTR status */
+	tsrec_force_clr_intr_status(tsrec_no);
 
 	/* reset exp vc dt info */
 	tsrec_seninf_exp_vc_dt_reset(tsrec_no);
@@ -3653,7 +3682,8 @@ static void tsrec_isr_event_handler(int irq, void *data,
 
 
 static unsigned int tsrec_irq_intr_status_checker(int irq, void *data,
-	const unsigned int irq_sys_ts, const unsigned int irq_tsrec_tick)
+	const unsigned long long irq_sys_ts,
+	const unsigned long long irq_tsrec_tick)
 {
 	const unsigned int tsrec_hw_cnt = tsrec_status.tsrec_hw_cnt;
 	const unsigned int intr_en_bits = TSREC_ATOMIC_READ(&tsrec_status.intr_en_bits);

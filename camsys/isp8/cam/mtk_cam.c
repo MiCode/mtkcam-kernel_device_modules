@@ -853,7 +853,7 @@ int mtk_cam_dev_req_enqueue(struct mtk_cam_device *cam,
  *    1: request has remaining buffers. continue
  *    0: request is completed
  */
-static int mtk_cam_req_collect_vb_bufs(struct mtk_cam_request *req,
+int mtk_cam_req_collect_vb_bufs(struct mtk_cam_request *req,
 				       int pipe_id, int node_id,
 				       bool skip_pure_raw,
 				       struct list_head *done_list,
@@ -926,11 +926,16 @@ void mtk_cam_sensor_req_buffer_done(struct mtk_cam_job *job,
 	struct list_head done_list_sensor;
 	unsigned long ids_sensor;
 	bool is_buf_empty_sensor;
+	bool buf_error = buf_state == VB2_BUF_STATE_ERROR;
 
 	if (node_id != -1 ||
 		pipe_id >= MTKCAM_SUBDEV_RAW_END)
 		return;
 
+	if (CAM_DEBUG_ENABLED(JOB) || buf_error || job->timestamp == 0)
+		dev_info(dev,
+		"%s: req:%s pipe_id:%d check sensor req buffers\n",
+		__func__, job->req_sensor->debug_str, pipe_id);
 	media_request_get(&req->req);
 	INIT_LIST_HEAD(&done_list_sensor);
 	ids_sensor = 0;
@@ -938,6 +943,14 @@ void mtk_cam_sensor_req_buffer_done(struct mtk_cam_job *job,
 			pipe_id, node_id,
 			is_sv_pure_raw(job) && is_proc,
 			&done_list_sensor, &ids_sensor);
+	if (job->timestamp == 0 || buf_error || CAM_DEBUG_ENABLED(V4L2))
+		dev_info(dev, "%s: ctx-%d req:%s(%d) pipe_id:%d node_id:%d bufs:0x%lx ts:%lld%s%s\n",
+			 __func__, job->src_ctx->stream_id,
+			 req->debug_str, job->req_seq,
+			 pipe_id, node_id, ids_sensor,
+			 job->timestamp,
+			 buf_error ? " error" : "",
+			 is_buf_empty_sensor ? " (empty)" : "");
 	if (unlikely(list_empty(&done_list_sensor))) {
 		dev_info(dev,
 			 "%s: req:%s failed to find pipe_id:%d node_id:%d%s\n",
@@ -952,7 +965,7 @@ void mtk_cam_sensor_req_buffer_done(struct mtk_cam_job *job,
 		job->timestamp, job->timestamp_mono);
 	if (is_buf_empty_sensor)
 		mtk_cam_req_dump_incomplete_ctrl(req);
-	if (CAM_DEBUG_ENABLED(JOB))
+	if (CAM_DEBUG_ENABLED(JOB) || buf_error || job->timestamp == 0)
 		dev_info(dev,
 		"%s: req:%s pipe_id:%d sensor req done and completed\n",
 		__func__, job->req_sensor->debug_str, pipe_id);

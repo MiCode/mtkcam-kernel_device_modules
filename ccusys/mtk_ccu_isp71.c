@@ -566,6 +566,9 @@ static int mtk_ccu_start(struct rproc *rproc)
 		mtk_icc_set_bw(ccu->path_ccuo, MBps_to_icc(20), MBps_to_icc(30));
 		mtk_icc_set_bw(ccu->path_ccui, MBps_to_icc(10), MBps_to_icc(30));
 		mtk_icc_set_bw(ccu->path_ccug, MBps_to_icc(30), MBps_to_icc(30));
+	} else if (ccu->ccu_version == CCU_VER_ISP8) {
+		mtk_icc_set_bw(ccu->path_ccuo, MBps_to_icc(50), 0);
+		mtk_icc_set_bw(ccu->path_ccui, MBps_to_icc(40), 0);
 	} else {
 		mtk_icc_set_bw(ccu->path_ccuo, MBps_to_icc(50), MBps_to_icc(60));
 		mtk_icc_set_bw(ccu->path_ccui, MBps_to_icc(40), MBps_to_icc(60));

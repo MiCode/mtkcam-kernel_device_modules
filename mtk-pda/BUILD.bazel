@@ -1,0 +1,25 @@
+load("//build/bazel_mgk_rules:mgk_ko.bzl", "define_mgk_ko")
+package(
+    default_visibility = [
+        "//visibility:public",
+    ],
+)
+
+mt6991_outs = [
+    "pda_drv_mt6991.ko",
+]
+
+# TODO: enable this part later
+define_mgk_ko(
+    name = "mtk-pda",
+    srcs = glob([
+        "**/*.c",
+        "**/*.h",
+        "Kbuild",
+        "Makefile",
+    ]),
+
+    outs = (
+        mt6991_outs if glob(["isp_8/pda_mt6991.c"]) else []
+    ),
+)

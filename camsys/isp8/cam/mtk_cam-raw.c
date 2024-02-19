@@ -1041,7 +1041,7 @@ void reset(struct mtk_raw_device *dev)
 		mtk_smi_dbg_hang_detect("camsys-raw");
 		goto RESET_FAILURE;
 	}
-
+	reset_error_handling(dev);
 	/* do hw rst */
 	raw_writel(FBIT(CAMCTL_HW_RST), dev, dev->base, REG_CAMCTL_SW_CTL);
 	raw_writel(0, dev, dev->base, REG_CAMCTL_SW_CTL);

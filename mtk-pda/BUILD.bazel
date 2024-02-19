@@ -9,6 +9,11 @@ mt6991_outs = [
     "pda_drv_mt6991.ko",
 ]
 
+mgk_pda_outs = [
+    # keep sorted
+    "pda_drv_dummy.ko",
+]
+
 # TODO: enable this part later
 define_mgk_ko(
     name = "mtk-pda",
@@ -21,5 +26,5 @@ define_mgk_ko(
 
     outs = (
         mt6991_outs if glob(["isp_8/pda_mt6991.c"]) else []
-    ),
+    ) + mgk_pda_outs,
 )

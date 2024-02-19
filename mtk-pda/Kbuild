@@ -19,5 +19,7 @@ ccflags-$(CONFIG_MTK_IOMMU_V2) += -I$(DEVICE_MODULES_PATH)/drivers/misc/mediatek
 ifneq ($(wildcard $(srctree)/$(src)/isp_8/pda_mt6991.c),)
 obj-m += pda_drv_mt6991.o
 endif
+obj-m += pda_drv_dummy.o
 
 pda_drv_mt6991-objs := isp_8/camera_pda.o isp_8/pda_mt6991.o
+pda_drv_dummy-objs := isp_8/camera_pda.o isp_8/pda_dummy.o

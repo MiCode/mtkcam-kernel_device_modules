@@ -9,7 +9,7 @@
 #ifndef _MTK_IMGSYS_CMDQ_DVFS_8_H_
 #define _MTK_IMGSYS_CMDQ_DVFS_8_H_
 
-#define IMGSYS_DVFS_ENABLE     (0)
+#define IMGSYS_DVFS_ENABLE     (1)
 
 #define IMGSYS_DVFS_MAX_VOLT	700000
 #define IMGSYS_DVFS_MHz			1000000

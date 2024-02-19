@@ -166,173 +166,173 @@ static u64 settle_formula(u64 settle_ns, u64 seninf_ck)
 
 
 static int mtk_cam_seninf_init_iomem(struct seninf_ctx *ctx,
-			      void __iomem *if_top_base, void __iomem *if_async_base,
-			      void __iomem *if_tm_base, void __iomem *if_outmux[],
-				  struct csi_reg_base *csi_base)
+				void __iomem *if_top_base, void __iomem *if_async_base,
+				void __iomem *if_tm_base, void __iomem *if_outmux[],
+				struct csi_reg_base *csi_base)
 {
-	int i;//, j, k;
+	int i;
 
 	ctx->reg_ana_csi_rx[CSI_PORT_0] =
 	ctx->reg_ana_csi_rx[CSI_PORT_0A] =
-		csi_base[SENINF_ASYNC_0].reg_csi_base[SENINF_CSI_RXANA_CSIA];
+		csi_base[CSI_PORT_0].reg_csi_base[SENINF_CSI_RXANA_CSIA];
 	ctx->reg_ana_csi_rx[CSI_PORT_0B] =
-		csi_base[SENINF_ASYNC_0].reg_csi_base[SENINF_CSI_RXANA_CSIB];
+		csi_base[CSI_PORT_0].reg_csi_base[SENINF_CSI_RXANA_CSIB];
 
 	ctx->reg_ana_csi_rx[CSI_PORT_1] =
 	ctx->reg_ana_csi_rx[CSI_PORT_1A] =
-		csi_base[SENINF_ASYNC_1].reg_csi_base[SENINF_CSI_RXANA_CSIA];
+		csi_base[CSI_PORT_1].reg_csi_base[SENINF_CSI_RXANA_CSIA];
 	ctx->reg_ana_csi_rx[CSI_PORT_1B] =
-		csi_base[SENINF_ASYNC_1].reg_csi_base[SENINF_CSI_RXANA_CSIB];
+		csi_base[CSI_PORT_1].reg_csi_base[SENINF_CSI_RXANA_CSIB];
 
 	ctx->reg_ana_csi_rx[CSI_PORT_2A] =
 	ctx->reg_ana_csi_rx[CSI_PORT_2] =
-		csi_base[SENINF_ASYNC_2].reg_csi_base[SENINF_CSI_RXANA_CSIA];
+		csi_base[CSI_PORT_2].reg_csi_base[SENINF_CSI_RXANA_CSIA];
 	ctx->reg_ana_csi_rx[CSI_PORT_2B] =
-		csi_base[SENINF_ASYNC_2].reg_csi_base[SENINF_CSI_RXANA_CSIB];
+		csi_base[CSI_PORT_2].reg_csi_base[SENINF_CSI_RXANA_CSIB];
 
 	ctx->reg_ana_csi_rx[CSI_PORT_3A] =
 	ctx->reg_ana_csi_rx[CSI_PORT_3] =
-		csi_base[SENINF_ASYNC_3].reg_csi_base[SENINF_CSI_RXANA_CSIA];
+		csi_base[CSI_PORT_3].reg_csi_base[SENINF_CSI_RXANA_CSIA];
 	ctx->reg_ana_csi_rx[CSI_PORT_3B] =
-		csi_base[SENINF_ASYNC_3].reg_csi_base[SENINF_CSI_RXANA_CSIB];
+		csi_base[CSI_PORT_3].reg_csi_base[SENINF_CSI_RXANA_CSIB];
 
 	ctx->reg_ana_csi_rx[CSI_PORT_4A] =
 	ctx->reg_ana_csi_rx[CSI_PORT_4] =
-		csi_base[SENINF_ASYNC_4].reg_csi_base[SENINF_CSI_RXANA_CSIA];
+		csi_base[CSI_PORT_4].reg_csi_base[SENINF_CSI_RXANA_CSIA];
 	ctx->reg_ana_csi_rx[CSI_PORT_4B] =
-		csi_base[SENINF_ASYNC_4].reg_csi_base[SENINF_CSI_RXANA_CSIB];
+		csi_base[CSI_PORT_4].reg_csi_base[SENINF_CSI_RXANA_CSIB];
 
 	ctx->reg_ana_csi_rx[CSI_PORT_5A] =
 	ctx->reg_ana_csi_rx[CSI_PORT_5] =
-		csi_base[SENINF_ASYNC_5].reg_csi_base[SENINF_CSI_RXANA_CSIA];
+		csi_base[CSI_PORT_5].reg_csi_base[SENINF_CSI_RXANA_CSIA];
 	ctx->reg_ana_csi_rx[CSI_PORT_5B] =
-		csi_base[SENINF_ASYNC_5].reg_csi_base[SENINF_CSI_RXANA_CSIB];
+		csi_base[CSI_PORT_5].reg_csi_base[SENINF_CSI_RXANA_CSIB];
 
 	ctx->reg_ana_dphy_top[CSI_PORT_0A] =
 	ctx->reg_ana_dphy_top[CSI_PORT_0B] =
 	ctx->reg_ana_dphy_top[CSI_PORT_0] =
-		csi_base[SENINF_ASYNC_0].reg_csi_base[SENINF_CSI_DPHY];
+		csi_base[CSI_PORT_0].reg_csi_base[SENINF_CSI_DPHY];
 
 	ctx->reg_ana_dphy_top[CSI_PORT_1A] =
 	ctx->reg_ana_dphy_top[CSI_PORT_1B] =
 	ctx->reg_ana_dphy_top[CSI_PORT_1] =
-		csi_base[SENINF_ASYNC_1].reg_csi_base[SENINF_CSI_DPHY];
+		csi_base[CSI_PORT_1].reg_csi_base[SENINF_CSI_DPHY];
 
 	ctx->reg_ana_dphy_top[CSI_PORT_2A] =
 	ctx->reg_ana_dphy_top[CSI_PORT_2B] =
 	ctx->reg_ana_dphy_top[CSI_PORT_2] =
-		csi_base[SENINF_ASYNC_2].reg_csi_base[SENINF_CSI_DPHY];
+		csi_base[CSI_PORT_2].reg_csi_base[SENINF_CSI_DPHY];
 
 	ctx->reg_ana_dphy_top[CSI_PORT_3A] =
 	ctx->reg_ana_dphy_top[CSI_PORT_3B] =
 	ctx->reg_ana_dphy_top[CSI_PORT_3] =
-		csi_base[SENINF_ASYNC_3].reg_csi_base[SENINF_CSI_DPHY];
+		csi_base[CSI_PORT_3].reg_csi_base[SENINF_CSI_DPHY];
 
 	ctx->reg_ana_dphy_top[CSI_PORT_4A] =
 	ctx->reg_ana_dphy_top[CSI_PORT_4B] =
 	ctx->reg_ana_dphy_top[CSI_PORT_4] =
-		csi_base[SENINF_ASYNC_4].reg_csi_base[SENINF_CSI_DPHY];
+		csi_base[CSI_PORT_4].reg_csi_base[SENINF_CSI_DPHY];
 
 	ctx->reg_ana_dphy_top[CSI_PORT_5A] =
 	ctx->reg_ana_dphy_top[CSI_PORT_5B] =
 	ctx->reg_ana_dphy_top[CSI_PORT_5] =
-		csi_base[SENINF_ASYNC_5].reg_csi_base[SENINF_CSI_DPHY];
+		csi_base[CSI_PORT_5].reg_csi_base[SENINF_CSI_DPHY];
 
 	ctx->reg_ana_cphy_top[CSI_PORT_0A] =
 	ctx->reg_ana_cphy_top[CSI_PORT_0B] =
 	ctx->reg_ana_cphy_top[CSI_PORT_0] =
-		csi_base[SENINF_ASYNC_0].reg_csi_base[SENINF_CSI_CPHY];
+		csi_base[CSI_PORT_0].reg_csi_base[SENINF_CSI_CPHY];
 
 	ctx->reg_ana_cphy_top[CSI_PORT_1A] =
 	ctx->reg_ana_cphy_top[CSI_PORT_1B] =
 	ctx->reg_ana_cphy_top[CSI_PORT_1] =
-		csi_base[SENINF_ASYNC_1].reg_csi_base[SENINF_CSI_CPHY];
+		csi_base[CSI_PORT_1].reg_csi_base[SENINF_CSI_CPHY];
 
 	ctx->reg_ana_cphy_top[CSI_PORT_2A] =
 	ctx->reg_ana_cphy_top[CSI_PORT_2B] =
 	ctx->reg_ana_cphy_top[CSI_PORT_2] =
-		csi_base[SENINF_ASYNC_2].reg_csi_base[SENINF_CSI_CPHY];
+		csi_base[CSI_PORT_2].reg_csi_base[SENINF_CSI_CPHY];
 
 	ctx->reg_ana_cphy_top[CSI_PORT_3A] =
 	ctx->reg_ana_cphy_top[CSI_PORT_3B] =
 	ctx->reg_ana_cphy_top[CSI_PORT_3] =
-		csi_base[SENINF_ASYNC_3].reg_csi_base[SENINF_CSI_CPHY];
+		csi_base[CSI_PORT_3].reg_csi_base[SENINF_CSI_CPHY];
 
 	ctx->reg_ana_cphy_top[CSI_PORT_4A] =
 	ctx->reg_ana_cphy_top[CSI_PORT_4B] =
 	ctx->reg_ana_cphy_top[CSI_PORT_4] =
-		csi_base[SENINF_ASYNC_4].reg_csi_base[SENINF_CSI_CPHY];
+		csi_base[CSI_PORT_4].reg_csi_base[SENINF_CSI_CPHY];
 
 	ctx->reg_ana_cphy_top[CSI_PORT_5A] =
 	ctx->reg_ana_cphy_top[CSI_PORT_5B] =
 	ctx->reg_ana_cphy_top[CSI_PORT_5] =
-		csi_base[SENINF_ASYNC_5].reg_csi_base[SENINF_CSI_CPHY];
+		csi_base[CSI_PORT_5].reg_csi_base[SENINF_CSI_CPHY];
 
 	ctx->reg_csirx_mac_csi[CSI_PORT_0]  =
 	ctx->reg_csirx_mac_csi[CSI_PORT_0A] =
-		csi_base[SENINF_ASYNC_0].reg_csi_base[SENINF_CSI_MAC_CSIA];
+		csi_base[CSI_PORT_0].reg_csi_base[SENINF_CSI_MAC_CSIA];
 	ctx->reg_csirx_mac_csi[CSI_PORT_0B] =
-		csi_base[SENINF_ASYNC_0].reg_csi_base[SENINF_CSI_MAC_CSIB];
+		csi_base[CSI_PORT_0].reg_csi_base[SENINF_CSI_MAC_CSIB];
 
 	ctx->reg_csirx_mac_csi[CSI_PORT_1]  =
 	ctx->reg_csirx_mac_csi[CSI_PORT_1A] =
-		csi_base[SENINF_ASYNC_1].reg_csi_base[SENINF_CSI_MAC_CSIA];
+		csi_base[CSI_PORT_1].reg_csi_base[SENINF_CSI_MAC_CSIA];
 	ctx->reg_csirx_mac_csi[CSI_PORT_1B] =
-		csi_base[SENINF_ASYNC_1].reg_csi_base[SENINF_CSI_MAC_CSIB];
+		csi_base[CSI_PORT_1].reg_csi_base[SENINF_CSI_MAC_CSIB];
 
 	ctx->reg_csirx_mac_csi[CSI_PORT_2]  =
 	ctx->reg_csirx_mac_csi[CSI_PORT_2A] =
-		csi_base[SENINF_ASYNC_2].reg_csi_base[SENINF_CSI_MAC_CSIA];
+		csi_base[CSI_PORT_2].reg_csi_base[SENINF_CSI_MAC_CSIA];
 	ctx->reg_csirx_mac_csi[CSI_PORT_2B] =
-		csi_base[SENINF_ASYNC_2].reg_csi_base[SENINF_CSI_MAC_CSIB];
+		csi_base[CSI_PORT_2].reg_csi_base[SENINF_CSI_MAC_CSIB];
 
 	ctx->reg_csirx_mac_csi[CSI_PORT_3]  =
 	ctx->reg_csirx_mac_csi[CSI_PORT_3A] =
-		csi_base[SENINF_ASYNC_3].reg_csi_base[SENINF_CSI_MAC_CSIA];
+		csi_base[CSI_PORT_3].reg_csi_base[SENINF_CSI_MAC_CSIA];
 	ctx->reg_csirx_mac_csi[CSI_PORT_3B] =
-		csi_base[SENINF_ASYNC_3].reg_csi_base[SENINF_CSI_MAC_CSIB];
+		csi_base[CSI_PORT_3].reg_csi_base[SENINF_CSI_MAC_CSIB];
 
 	ctx->reg_csirx_mac_csi[CSI_PORT_4]  =
 	ctx->reg_csirx_mac_csi[CSI_PORT_4A] =
-		csi_base[SENINF_ASYNC_4].reg_csi_base[SENINF_CSI_MAC_CSIA];
+		csi_base[CSI_PORT_4].reg_csi_base[SENINF_CSI_MAC_CSIA];
 	ctx->reg_csirx_mac_csi[CSI_PORT_4B] =
-		csi_base[SENINF_ASYNC_4].reg_csi_base[SENINF_CSI_MAC_CSIB];
+		csi_base[CSI_PORT_4].reg_csi_base[SENINF_CSI_MAC_CSIB];
 
 	ctx->reg_csirx_mac_csi[CSI_PORT_5]  =
 	ctx->reg_csirx_mac_csi[CSI_PORT_5A] =
-		csi_base[SENINF_ASYNC_5].reg_csi_base[SENINF_CSI_MAC_CSIA];
+		csi_base[CSI_PORT_5].reg_csi_base[SENINF_CSI_MAC_CSIA];
 	ctx->reg_csirx_mac_csi[CSI_PORT_5B] =
-		csi_base[SENINF_ASYNC_5].reg_csi_base[SENINF_CSI_MAC_CSIB];
+		csi_base[CSI_PORT_5].reg_csi_base[SENINF_CSI_MAC_CSIB];
 
 	ctx->reg_csirx_mac_top[CSI_PORT_0A] =
 	ctx->reg_csirx_mac_top[CSI_PORT_0B] =
 	ctx->reg_csirx_mac_top[CSI_PORT_0]  =
-		csi_base[SENINF_ASYNC_0].reg_csi_base[SENINF_CSI_MAC_TOP];
+		csi_base[CSI_PORT_0].reg_csi_base[SENINF_CSI_MAC_TOP];
 
 	ctx->reg_csirx_mac_top[CSI_PORT_1A] =
 	ctx->reg_csirx_mac_top[CSI_PORT_1B] =
 	ctx->reg_csirx_mac_top[CSI_PORT_1]  =
-		csi_base[SENINF_ASYNC_1].reg_csi_base[SENINF_CSI_MAC_TOP];
+		csi_base[CSI_PORT_1].reg_csi_base[SENINF_CSI_MAC_TOP];
 
 	ctx->reg_csirx_mac_top[CSI_PORT_2A] =
 	ctx->reg_csirx_mac_top[CSI_PORT_2B] =
 	ctx->reg_csirx_mac_top[CSI_PORT_2]  =
-		csi_base[SENINF_ASYNC_2].reg_csi_base[SENINF_CSI_MAC_TOP];
+		csi_base[CSI_PORT_2].reg_csi_base[SENINF_CSI_MAC_TOP];
 
 	ctx->reg_csirx_mac_top[CSI_PORT_3A] =
 	ctx->reg_csirx_mac_top[CSI_PORT_3B] =
 	ctx->reg_csirx_mac_top[CSI_PORT_3]  =
-		csi_base[SENINF_ASYNC_3].reg_csi_base[SENINF_CSI_MAC_TOP];
+		csi_base[CSI_PORT_3].reg_csi_base[SENINF_CSI_MAC_TOP];
 
 	ctx->reg_csirx_mac_top[CSI_PORT_4A] =
 	ctx->reg_csirx_mac_top[CSI_PORT_4B] =
 	ctx->reg_csirx_mac_top[CSI_PORT_4]  =
-		csi_base[SENINF_ASYNC_4].reg_csi_base[SENINF_CSI_MAC_TOP];
+		csi_base[CSI_PORT_4].reg_csi_base[SENINF_CSI_MAC_TOP];
 
 	ctx->reg_csirx_mac_top[CSI_PORT_5A] =
 	ctx->reg_csirx_mac_top[CSI_PORT_5B] =
 	ctx->reg_csirx_mac_top[CSI_PORT_5]  =
-		csi_base[SENINF_ASYNC_5].reg_csi_base[SENINF_CSI_MAC_TOP];
+		csi_base[CSI_PORT_5].reg_csi_base[SENINF_CSI_MAC_TOP];
 
 	ctx->reg_if_top = if_top_base;
 	ctx->reg_if_async = if_async_base;
@@ -588,6 +588,55 @@ static int mtk_cam_get_outmux_sel(struct seninf_ctx *ctx, int outmux_idx,
 		__func__, *asyncIdx, *sensorSel);
 
 	return 0;
+}
+
+static u32 mtk_cam_seninf_get_outmux_vcdt_filt(struct seninf_ctx *ctx, int outmux, int tag)
+{
+	u32 ret = 0;
+	void *pSeninf_outmux = NULL;
+
+	if (outmux < 0 || outmux >= _seninf_ops->outmux_num) {
+		dev_info(ctx->dev,
+			"%s err outmux %d invalid (0~SENINF_OUTMUX_NUM:%d)\n",
+			__func__,
+			outmux,
+			_seninf_ops->outmux_num);
+		return 0;
+	}
+	pSeninf_outmux = ctx->reg_if_outmux[outmux];
+
+	switch (tag) {
+	case 0:
+		ret = SENINF_READ_REG(pSeninf_outmux, SENINF_OUTMUX_TAG_VCDT_FILT_0);
+		break;
+	case 1:
+		ret = SENINF_READ_REG(pSeninf_outmux, SENINF_OUTMUX_TAG_VCDT_FILT_1);
+		break;
+	case 2:
+		ret = SENINF_READ_REG(pSeninf_outmux, SENINF_OUTMUX_TAG_VCDT_FILT_2);
+		break;
+	case 3:
+		ret = SENINF_READ_REG(pSeninf_outmux, SENINF_OUTMUX_TAG_VCDT_FILT_3);
+		break;
+	case 4:
+		ret = SENINF_READ_REG(pSeninf_outmux, SENINF_OUTMUX_TAG_VCDT_FILT_4);
+		break;
+	case 5:
+		ret = SENINF_READ_REG(pSeninf_outmux, SENINF_OUTMUX_TAG_VCDT_FILT_5);
+		break;
+	case 6:
+		ret = SENINF_READ_REG(pSeninf_outmux, SENINF_OUTMUX_TAG_VCDT_FILT_6);
+		break;
+	case 7:
+		ret = SENINF_READ_REG(pSeninf_outmux, SENINF_OUTMUX_TAG_VCDT_FILT_7);
+		break;
+	default:
+		dev_info(ctx->dev, "%s err tag %d invalid\n",
+			__func__, tag);
+		break;
+	}
+
+	return ret;
 }
 
 static u32 mtk_cam_seninf_get_outmux_res(struct seninf_ctx *ctx, int outmux, int tag)
@@ -4396,6 +4445,7 @@ static int mtk_cam_seninf_debug(struct seninf_ctx *ctx)
 	unsigned int dphy_irq = 0;
 	unsigned int cphy_irq = 0;
 	unsigned int temp = 0;
+	void *pSeninf_top = ctx->reg_if_top;
 
 	mtk_cam_sensor_get_frame_cnt(ctx, &frame_cnt1);
 
@@ -4497,6 +4547,10 @@ static int mtk_cam_seninf_debug(struct seninf_ctx *ctx)
 		SENINF_WRITE_REG(base_cphy, CPHY_RX_IRQ_CLR, 0xFF0000);
 	}
 
+	/* Check if SENINF_TOP_SW_CFG_LEVEL is 1 or not */
+	if (SENINF_READ_BITS(pSeninf_top, SENINF_TOP_CTRL, SENINF_TOP_SW_CFG_LEVEL) == 0)
+		dev_info(ctx->dev, "warning: SENINF_TOP_SW_CFG_LEVEL is zero\n");
+
 	/* clear outmux irq */
 	for (j = 0; j < ctx->vcinfo.cnt; j++) {
 		if (ctx->vcinfo.vc[j].enable) {
@@ -4506,14 +4560,15 @@ static int mtk_cam_seninf_debug(struct seninf_ctx *ctx)
 
 				for (i = 0; i < _seninf_ops->outmux_num; i++) {
 					if ((used_outmux == i) && mtk_cam_seninf_is_outmux_used(ctx, i)) {
-						u32 res, exp_sz, irq_st;
+						u32 filt, res, exp_sz, irq_st;
 
+						filt = mtk_cam_seninf_get_outmux_vcdt_filt(ctx, used_outmux, used_tag);
 						res = mtk_cam_seninf_get_outmux_res(ctx, used_outmux, used_tag);
 						exp_sz = mtk_cam_seninf_get_outmux_exp(ctx, used_outmux, used_tag);
 
 						irq_st = mtk_cam_seninf_get_outmux_irq_st(ctx, used_outmux, 0);
 						dev_info(ctx->dev,
-							"dump outmux%u,tag%u,CFG_M/PIX_M/CFG0/CFG1/CFG2/SRC/CFG_DONE/CFG_CTL/CFG_RDY:(0x%x/0x%x/0x%x/0x%x/0x%x/0x%x/0x%x/0x%x/0x%x),expSize=0x%x,dbgRecSize=0x%x,irq=0x%x",
+							"dump outmux%d,tag%u,CFG_M/PIX_M/CFG0/CFG1/CFG2/SRC/CFG_DONE/CFG_CTL/CFG_RDY/DBG_PORT0/DBG_PORT1:(0x%x/0x%x/0x%x/0x%x/0x%x/0x%x/0x%x/0x%x/0x%x/0x%x/0x%x),filt=0x%x,expSize=0x%x,dbgRecSize=0x%x,irq=0x%x\n",
 							i, used_tag,
 							seninf_get_outmux_rg_val(ctx, used_outmux,
 								SENINF_OUTMUX_SW_CONFIG_MODE),
@@ -4533,7 +4588,11 @@ static int mtk_cam_seninf_debug(struct seninf_ctx *ctx)
 								SENINF_OUTMUX_CSR_CFG_CTRL),
 							seninf_get_outmux_rg_val(ctx, used_outmux,
 								SENINF_OUTMUX_CAM_CFG_RDY),
-							exp_sz, res, irq_st);
+							seninf_get_outmux_rg_val(ctx, used_outmux,
+								SENINF_OUTMUX_PATH_DBG_PORT_0),
+							seninf_get_outmux_rg_val(ctx, used_outmux,
+								SENINF_OUTMUX_PATH_DBG_PORT_1),
+							filt, exp_sz, res, irq_st);
 					}
 				}
 			}
@@ -4564,41 +4623,35 @@ static int mtk_cam_seninf_debug(struct seninf_ctx *ctx)
 		SENINF_WRITE_REG(base_csi_mac, CSIRX_MAC_CSI2_IRQ_STATUS, 0xffffffff);
 
 	dev_info(ctx->dev,
-		"SENINF_Async%d,CSIRX_MAC_CSI2_EN/_OPT/_IRQ_STATUS/_MULTI_ERR_F_STATUS:(0x%x)/(0x%x)/(0x%x)/(0x%x),SENINF_ASYNC_OVERRUN:(0x%x),CSIRX_MAC_CSI2_RESYNC_MERGE_CTRL:(0x%x)\n",
-		(uint32_t)ctx->seninfAsyncIdx,
+		"CSI-%d,CSIRX_MAC_CSI2_EN/_OPT/_IRQ_STATUS/_MULTI_ERR_F_STATUS:(0x%x)/(0x%x)/(0x%x)/(0x%x),SENINF_ASYNC%d_OVERRUN:(0x%x),CSIRX_MAC_CSI2_RESYNC_MERGE_CTRL:(0x%x)\n",
+		(uint32_t)ctx->portNum,
 		SENINF_READ_REG(base_csi_mac, CSIRX_MAC_CSI2_EN),
 		SENINF_READ_REG(base_csi_mac, CSIRX_MAC_CSI2_OPT),
 		mac_irq,
 		temp,
+		(uint32_t)ctx->seninfAsyncIdx,
 		seninf_irq,
 		SENINF_READ_REG(base_csi_mac, CSIRX_MAC_CSI2_RESYNC_MERGE_CTRL));
 
-	//if (_seninf_ops->iomem_ver == NULL) {
-	//	dev_dbg(ctx->dev, "no mac checker implementation\n");
-	//} else if (!strcasecmp(_seninf_ops->iomem_ver, MT6989_IOMOM_VERSIONS)) {
-		dev_info(ctx->dev,
-			"CSIRX_MAC_CSI2_SIZE_CHK_CTRL0/_CTRL1/_CTRL2/_CTRL3/_CTRL4:(0x%x)/(0x%x)/(0x%x)/(0x%x)/(0x%x)\n",
-			SENINF_READ_REG(base_csi_mac, CSIRX_MAC_CSI2_SIZE_CHK_CTRL0),
-			SENINF_READ_REG(base_csi_mac, CSIRX_MAC_CSI2_SIZE_CHK_CTRL1),
-			SENINF_READ_REG(base_csi_mac, CSIRX_MAC_CSI2_SIZE_CHK_CTRL2),
-			SENINF_READ_REG(base_csi_mac, CSIRX_MAC_CSI2_SIZE_CHK_CTRL3),
-			SENINF_READ_REG(base_csi_mac, CSIRX_MAC_CSI2_SIZE_CHK_CTRL4));
-		dev_info(ctx->dev,
-			"CSIRX_MAC_CSI2_SIZE_CHK_RCV0/_RCV1/_RCV2/_RCV3/_RCV4:(0x%x)/(0x%x)/(0x%x)/(0x%x)/(0x%x)\n",
-			SENINF_READ_REG(base_csi_mac, CSIRX_MAC_CSI2_SIZE_CHK_RCV0),
-			SENINF_READ_REG(base_csi_mac, CSIRX_MAC_CSI2_SIZE_CHK_RCV1),
-			SENINF_READ_REG(base_csi_mac, CSIRX_MAC_CSI2_SIZE_CHK_RCV2),
-			SENINF_READ_REG(base_csi_mac, CSIRX_MAC_CSI2_SIZE_CHK_RCV3),
-			SENINF_READ_REG(base_csi_mac, CSIRX_MAC_CSI2_SIZE_CHK_RCV4));
-		SENINF_WRITE_REG(base_csi_mac, CSIRX_MAC_CSI2_SIZE_CHK_RCV0, 0xFFFFFFFF);
-		SENINF_WRITE_REG(base_csi_mac, CSIRX_MAC_CSI2_SIZE_CHK_RCV1, 0xFFFFFFFF);
-		SENINF_WRITE_REG(base_csi_mac, CSIRX_MAC_CSI2_SIZE_CHK_RCV2, 0xFFFFFFFF);
-		SENINF_WRITE_REG(base_csi_mac, CSIRX_MAC_CSI2_SIZE_CHK_RCV3, 0xFFFFFFFF);
-		SENINF_WRITE_REG(base_csi_mac, CSIRX_MAC_CSI2_SIZE_CHK_RCV4, 0xFFFFFFFF);
-	//} else {
-	//	dev_info(ctx->dev, "iomem_ver is invalid\n");
-	//	return -EINVAL;
-	//}
+	dev_info(ctx->dev,
+		"CSIRX_MAC_CSI2_SIZE_CHK_CTRL0/_CTRL1/_CTRL2/_CTRL3/_CTRL4:(0x%x)/(0x%x)/(0x%x)/(0x%x)/(0x%x)\n",
+		SENINF_READ_REG(base_csi_mac, CSIRX_MAC_CSI2_SIZE_CHK_CTRL0),
+		SENINF_READ_REG(base_csi_mac, CSIRX_MAC_CSI2_SIZE_CHK_CTRL1),
+		SENINF_READ_REG(base_csi_mac, CSIRX_MAC_CSI2_SIZE_CHK_CTRL2),
+		SENINF_READ_REG(base_csi_mac, CSIRX_MAC_CSI2_SIZE_CHK_CTRL3),
+		SENINF_READ_REG(base_csi_mac, CSIRX_MAC_CSI2_SIZE_CHK_CTRL4));
+	dev_info(ctx->dev,
+		"CSIRX_MAC_CSI2_SIZE_CHK_RCV0/_RCV1/_RCV2/_RCV3/_RCV4:(0x%x)/(0x%x)/(0x%x)/(0x%x)/(0x%x)\n",
+		SENINF_READ_REG(base_csi_mac, CSIRX_MAC_CSI2_SIZE_CHK_RCV0),
+		SENINF_READ_REG(base_csi_mac, CSIRX_MAC_CSI2_SIZE_CHK_RCV1),
+		SENINF_READ_REG(base_csi_mac, CSIRX_MAC_CSI2_SIZE_CHK_RCV2),
+		SENINF_READ_REG(base_csi_mac, CSIRX_MAC_CSI2_SIZE_CHK_RCV3),
+		SENINF_READ_REG(base_csi_mac, CSIRX_MAC_CSI2_SIZE_CHK_RCV4));
+	SENINF_WRITE_REG(base_csi_mac, CSIRX_MAC_CSI2_SIZE_CHK_RCV0, 0xFFFFFFFF);
+	SENINF_WRITE_REG(base_csi_mac, CSIRX_MAC_CSI2_SIZE_CHK_RCV1, 0xFFFFFFFF);
+	SENINF_WRITE_REG(base_csi_mac, CSIRX_MAC_CSI2_SIZE_CHK_RCV2, 0xFFFFFFFF);
+	SENINF_WRITE_REG(base_csi_mac, CSIRX_MAC_CSI2_SIZE_CHK_RCV3, 0xFFFFFFFF);
+	SENINF_WRITE_REG(base_csi_mac, CSIRX_MAC_CSI2_SIZE_CHK_RCV4, 0xFFFFFFFF);
 
 	/* Seninf_csi packet count */
 	pkg_cnt_changed = 0;
@@ -4609,8 +4662,8 @@ static int mtk_cam_seninf_debug(struct seninf_ctx *ctx)
 					CSIRX_MAC_CSI2_PACKET_CNT_STATUS);
 		max_delay = debug_ft * PKT_CNT_CHK_MARGIN / 100;
 		dev_info(ctx->dev,
-			"total_delay:%lums/%lums,SENINF_ASYNC%d_PkCnt:(0x%x),ret=%d\n",
-			total_delay, max_delay, ctx->seninfAsyncIdx, mipi_packet_cnt, ret);
+			"total_delay:%lums/%lums,CSI-%d_PkCnt:(0x%x),ret=%d\n",
+			total_delay, max_delay, ctx->portNum, mipi_packet_cnt, ret);
 
 		while (total_delay < max_delay) {
 			tmp_mipi_packet_cnt = mipi_packet_cnt & 0xFFFF;
@@ -4621,8 +4674,8 @@ static int mtk_cam_seninf_debug(struct seninf_ctx *ctx)
 						CSIRX_MAC_CSI2_PACKET_CNT_STATUS);
 			if (tmp_mipi_packet_cnt != (mipi_packet_cnt & 0xFFFF)) {
 				dev_info(ctx->dev,
-					"total_delay:%lums/%lums,SENINF_ASYNC%d_PkCnt:(0x%x),ret=%d\n",
-					total_delay, max_delay, ctx->seninfAsyncIdx, mipi_packet_cnt, ret);
+					"total_delay:%lums/%lums,CSI-%d_PkCnt:(0x%x),ret=%d\n",
+					total_delay, max_delay, ctx->portNum, mipi_packet_cnt, ret);
 				pkg_cnt_changed = 1;
 				break;
 			}
@@ -4631,8 +4684,8 @@ static int mtk_cam_seninf_debug(struct seninf_ctx *ctx)
 	if (!pkg_cnt_changed) {
 		ret = -1;
 		dev_info(ctx->dev,
-			"total_delay:%lums/%lums,SENINF_ASYNC%d_PkCnt:(0x%x),ret=%d\n",
-			total_delay, max_delay, ctx->seninfAsyncIdx, mipi_packet_cnt, ret);
+			"total_delay:%lums/%lums,CSI-%d_PkCnt:(0x%x),ret=%d\n",
+			total_delay, max_delay, ctx->portNum, mipi_packet_cnt, ret);
 	}
 
 	/* Check csi status again */
@@ -4656,8 +4709,8 @@ static int mtk_cam_seninf_debug(struct seninf_ctx *ctx)
 	}
 
 	seninf_logi(ctx,
-		"SENINF_ASYNC%d_CSI2_IRQ_STATUS/_MULTI_ERR_F_STATUS:(0x%x)/(0x%x),SENINF_OVERRUN:(0x%x),C/DPHY_RX_IRQ_STATUS:(0x%x)/(0x%x)\n",
-		ctx->seninfAsyncIdx, mac_irq, temp, seninf_irq, cphy_irq, dphy_irq);
+		"CSI-%d_CSI2_IRQ_STATUS/_MULTI_ERR_F_STATUS:(0x%x)/(0x%x),SENINF_ASYNC%d_OVERRUN:(0x%x),C/DPHY_RX_IRQ_STATUS:(0x%x)/(0x%x)\n",
+		ctx->portNum, mac_irq, temp, ctx->seninfAsyncIdx, seninf_irq, cphy_irq, dphy_irq);
 	if ((mac_irq & 0xD0) || seninf_irq)
 		ret = -2; //multi lanes sync error, crc error, ecc error
 
@@ -4685,14 +4738,15 @@ static int mtk_cam_seninf_debug(struct seninf_ctx *ctx)
 
 				for (i = 0; i < _seninf_ops->outmux_num; i++) {
 					if ((used_outmux == i) && mtk_cam_seninf_is_outmux_used(ctx, i)) {
-						u32 res, exp_sz, irq_st;
+						u32 filt, res, exp_sz, irq_st;
 
+						filt = mtk_cam_seninf_get_outmux_vcdt_filt(ctx, used_outmux, used_tag);
 						res = mtk_cam_seninf_get_outmux_res(ctx, used_outmux, used_tag);
 						exp_sz = mtk_cam_seninf_get_outmux_exp(ctx, used_outmux, used_tag);
 
 						irq_st = mtk_cam_seninf_get_outmux_irq_st(ctx, used_outmux, 0);
 						dev_info(ctx->dev,
-							"dump outmux%u,tag%u,CFG_M/PIX_M/CFG0/CFG1/CFG2/SRC/CFG_DONE/CFG_CTL/CFG_RDY:(0x%x/0x%x/0x%x/0x%x/0x%x/0x%x/0x%x/0x%x/0x%x),expSize=0x%x,dbgRecSize=0x%x,irq=0x%x",
+							"dump outmux%d,tag%u,CFG_M/PIX_M/CFG0/CFG1/CFG2/SRC/CFG_DONE/CFG_CTL/CFG_RDY/DBG_PORT0/DBG_PORT1:(0x%x/0x%x/0x%x/0x%x/0x%x/0x%x/0x%x/0x%x/0x%x/0x%x/0x%x),filt=0x%x,expSize=0x%x,dbgRecSize=0x%x,irq=0x%x\n",
 							i, used_tag,
 							seninf_get_outmux_rg_val(ctx, used_outmux,
 								SENINF_OUTMUX_SW_CONFIG_MODE),
@@ -4712,7 +4766,11 @@ static int mtk_cam_seninf_debug(struct seninf_ctx *ctx)
 								SENINF_OUTMUX_CSR_CFG_CTRL),
 							seninf_get_outmux_rg_val(ctx, used_outmux,
 								SENINF_OUTMUX_CAM_CFG_RDY),
-							exp_sz, res, irq_st);
+							seninf_get_outmux_rg_val(ctx, used_outmux,
+								SENINF_OUTMUX_PATH_DBG_PORT_0),
+							seninf_get_outmux_rg_val(ctx, used_outmux,
+								SENINF_OUTMUX_PATH_DBG_PORT_1),
+							filt, exp_sz, res, irq_st);
 					}
 				}
 			}
@@ -6757,11 +6815,40 @@ int mtk_cam_seninf_config_outmux(struct seninf_ctx *ctx, u8 outmux_idx, u8 src_m
 {
 	void *pSeninf_mux;
 	int i;
+	int is_tag_en = 0;
 
 	seninf_logi(ctx, "outmux%d set outer src/sen %u/%u with cfg mode %d",
 		    outmux_idx, src_mipi, src_sen, cfg_mode);
 
 	pSeninf_mux = ctx->reg_if_outmux[outmux_idx];
+
+
+	if (cfg_mode == 0) {
+		is_tag_en |= SENINF_READ_BITS(pSeninf_mux, SENINF_OUTMUX_TAG_VCDT_FILT_0,
+					      SENINF_OUTMUX_FILT_EN_0);
+		is_tag_en |= SENINF_READ_BITS(pSeninf_mux, SENINF_OUTMUX_TAG_VCDT_FILT_1,
+					      SENINF_OUTMUX_FILT_EN_1);
+		is_tag_en |= SENINF_READ_BITS(pSeninf_mux, SENINF_OUTMUX_TAG_VCDT_FILT_2,
+					      SENINF_OUTMUX_FILT_EN_2);
+		is_tag_en |= SENINF_READ_BITS(pSeninf_mux, SENINF_OUTMUX_TAG_VCDT_FILT_3,
+					      SENINF_OUTMUX_FILT_EN_3);
+		is_tag_en |= SENINF_READ_BITS(pSeninf_mux, SENINF_OUTMUX_TAG_VCDT_FILT_4,
+					      SENINF_OUTMUX_FILT_EN_4);
+		is_tag_en |= SENINF_READ_BITS(pSeninf_mux, SENINF_OUTMUX_TAG_VCDT_FILT_5,
+					      SENINF_OUTMUX_FILT_EN_5);
+		is_tag_en |= SENINF_READ_BITS(pSeninf_mux, SENINF_OUTMUX_TAG_VCDT_FILT_6,
+					      SENINF_OUTMUX_FILT_EN_6);
+		is_tag_en |= SENINF_READ_BITS(pSeninf_mux, SENINF_OUTMUX_TAG_VCDT_FILT_7,
+					      SENINF_OUTMUX_FILT_EN_7);
+		if (!is_tag_en) {
+			seninf_logi(ctx, "outmux%d force reset", outmux_idx);
+			SENINF_BITS(pSeninf_mux, SENINF_OUTMUX_SW_RST,
+				    SENINF_OUTMUX_LOCAL_SW_RST, 1);
+			udelay(1);
+			SENINF_BITS(pSeninf_mux, SENINF_OUTMUX_SW_RST,
+				    SENINF_OUTMUX_LOCAL_SW_RST, 0);
+		}
+	}
 
 	SENINF_BITS(pSeninf_mux, SENINF_OUTMUX_SOURCE_CONFIG_0,
 					SENINF_OUTMUX_VSYNC_SRC_SEL_MIPI, src_mipi);

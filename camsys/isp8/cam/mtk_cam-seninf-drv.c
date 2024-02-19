@@ -2279,7 +2279,7 @@ static int seninf_s_stream(struct v4l2_subdev *sd, int enable)
 
 	if (ctx->is_test_model) {
 		set_test_model(ctx, enable);
-		return mtk_cam_seninf_s_stream_mux(ctx);
+		return (enable) ? mtk_cam_seninf_s_stream_mux(ctx) : 0;
 	}
 
 	if (ctx->is_aov_real_sensor && !enable) {

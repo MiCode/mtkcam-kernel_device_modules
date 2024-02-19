@@ -297,7 +297,11 @@ void mtk_cam_event_extisp_camsys_ready(struct mtk_cam_ctrl *cam_ctrl)
 	struct v4l2_event event = {
 		.type = V4L2_EVENT_EXTISP_CAMSYS_READY,
 	};
-	mtk_cam_ctx_send_raw_event(ctx, &event);
+	if (ctx->has_raw_subdev)
+		mtk_cam_ctx_send_raw_event(ctx, &event);
+	else
+		mtk_cam_ctx_send_sv_event(ctx, &event);
+
 	log_event(__func__, ctx->stream_id, &event);
 }
 void mtk_cam_event_camsys_resource_ready(struct mtk_cam_ctrl *cam_ctrl,	u32 raw_ready)
@@ -1190,7 +1194,8 @@ static int mtk_cam_ctrl_stream_on_job(struct mtk_cam_job *job)
 	ctrl->fs_event_subframe_cnt = job->frame_cnt;
 
 	call_jobop(job, stream_on, true);
-	if (ctrl->r_info.extisp_enable)
+	if (ctrl->r_info.extisp_enable ||
+		!ctx->has_raw_subdev)
 		mtk_cam_event_extisp_camsys_ready(ctrl);
 	mtk_cam_watchdog_start(&ctrl->watchdog, 1);
 

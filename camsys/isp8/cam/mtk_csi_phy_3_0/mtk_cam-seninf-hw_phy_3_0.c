@@ -430,6 +430,7 @@ static int mtk_cam_seninf_set_outmux_cg(struct seninf_ctx *ctx, int outmux, int 
 	if (outmux >= _seninf_ops->outmux_num)
 		return false;
 
+	mutex_lock(&ctx->core->seninf_top_rg_mutex);
 	val = SENINF_READ_BITS(pSeninf_top, SENINF_TOP_OUTMUX_CG_EN, SENINF_TOP_OUTMUX_CG_EN);
 
 	if (en)
@@ -438,6 +439,7 @@ static int mtk_cam_seninf_set_outmux_cg(struct seninf_ctx *ctx, int outmux, int 
 		val &= (~(0x1 << outmux));
 
 	SENINF_BITS(pSeninf_top, SENINF_TOP_OUTMUX_CG_EN, SENINF_TOP_OUTMUX_CG_EN, val);
+	mutex_unlock(&ctx->core->seninf_top_rg_mutex);
 
 	seninf_logd(ctx, "write OUTMUX_CG: 0x%x\n", val);
 
@@ -452,7 +454,9 @@ static int mtk_cam_seninf_is_outmux_used(struct seninf_ctx *ctx, int outmux)
 	if (outmux >= _seninf_ops->outmux_num)
 		return false;
 
+	mutex_lock(&ctx->core->seninf_top_rg_mutex);
 	val = SENINF_READ_BITS(pSeninf_top, SENINF_TOP_OUTMUX_CG_EN, SENINF_TOP_OUTMUX_CG_EN);
+	mutex_unlock(&ctx->core->seninf_top_rg_mutex);
 
 	return ((val >> outmux) & 0x1);
 }
@@ -1064,6 +1068,7 @@ static int mtk_cam_seninf_set_async_cg(struct seninf_ctx *ctx, int async, int en
 	if (async >= _seninf_ops->async_num)
 		return false;
 
+	mutex_lock(&ctx->core->seninf_top_rg_mutex);
 	val = SENINF_READ_BITS(pSeninf_top, SENINF_TOP_ASYNC_CG_EN, SENINF_TOP_ASYNC_CG_EN);
 
 	if (en)
@@ -1072,6 +1077,7 @@ static int mtk_cam_seninf_set_async_cg(struct seninf_ctx *ctx, int async, int en
 		val &= (~(0x1 << async));
 
 	SENINF_BITS(pSeninf_top, SENINF_TOP_ASYNC_CG_EN, SENINF_TOP_ASYNC_CG_EN, val);
+	mutex_unlock(&ctx->core->seninf_top_rg_mutex);
 
 	seninf_logd(ctx, "write ASYNC_CG: 0x%x\n", val);
 
@@ -1088,6 +1094,7 @@ static int mtk_cam_seninf_set_async(struct seninf_ctx *ctx, int async, int split
 
 	pSeninf = ctx->reg_if_async;
 
+	mutex_lock(&ctx->core->seninf_top_rg_mutex);
 	// set if split
 	val = SENINF_READ_BITS(pSeninf, SENINF_ASYTOP_SENINF_ASYNC_CFG,
 			       SENINF_ASYTOP_MIPI_SPLIT);
@@ -1109,6 +1116,7 @@ static int mtk_cam_seninf_set_async(struct seninf_ctx *ctx, int async, int split
 
 	SENINF_BITS(pSeninf, SENINF_ASYTOP_SENINF_ASYNC_CFG,
 		    SENINF_ASYTOP_TESTMDL_SEL, val);
+	mutex_unlock(&ctx->core->seninf_top_rg_mutex);
 
 	dev_info(ctx->dev, "%s: ASYNC CFG = 0x%x\n", __func__,
 		 SENINF_READ_REG(pSeninf, SENINF_ASYTOP_SENINF_ASYNC_CFG));
@@ -1124,6 +1132,7 @@ static int mtk_cam_seninf_get_async_irq_st(struct seninf_ctx *ctx, int async, bo
 	if (async >= _seninf_ops->async_num)
 		return -1;
 
+	mutex_lock(&ctx->core->seninf_top_rg_mutex);
 	switch (async) {
 	case 0:
 		val = SENINF_READ_BITS(pSeninf_top, SENINF_TOP_ASYNC_OVERRUN_IRQ_STATUS,
@@ -1174,8 +1183,10 @@ static int mtk_cam_seninf_get_async_irq_st(struct seninf_ctx *ctx, int async, bo
 		}
 		break;
 	default:
+		mutex_unlock(&ctx->core->seninf_top_rg_mutex);
 		return -1;
 	}
+	mutex_unlock(&ctx->core->seninf_top_rg_mutex);
 
 	seninf_logd(ctx, "async%d overrun:%d\n", async, val);
 
@@ -6955,7 +6966,9 @@ static int mtk_cam_seninf_common_reg_setup(struct seninf_ctx *ctx)
 
 	seninf_logi(ctx, "setup common reg");
 
+	mutex_lock(&ctx->core->seninf_top_rg_mutex);
 	SENINF_BITS(pSeninf_top, SENINF_TOP_CTRL, SENINF_TOP_SW_CFG_LEVEL, 1);
+	mutex_unlock(&ctx->core->seninf_top_rg_mutex);
 
 	return 0;
 }

@@ -636,7 +636,6 @@ struct mtk_mae_dev {
 	bool is_hw_hang;
 	bool is_secure;
 	bool is_first_qbuf;
-	bool is_shutdown;
 
 	struct mutex mae_device_lock;
 	int open_video_device_cnt;

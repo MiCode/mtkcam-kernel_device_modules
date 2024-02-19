@@ -64,6 +64,7 @@ int fld_reset_en = 1;
 int aiseg_lut_en = 1;
 int fac_v1_pat_en;
 int cmdq_polling_en = 1;
+int cmdq_profiling_en;
 
 module_param(mae_log_level_value, int, 0644);
 module_param(mae_fd_post_on, int, 0644);
@@ -76,6 +77,7 @@ module_param(fld_reset_en, int, 0644);
 module_param(aiseg_lut_en, int, 0644);
 module_param(fac_v1_pat_en, int, 0644);
 module_param(cmdq_polling_en, int, 0644);
+module_param(cmdq_profiling_en, int, 0644);
 
 static void mtk_mae_dump_reg(struct mtk_mae_dev *mae_dev);
 static void mtk_mae_fld_reset(struct mtk_mae_dev *mae_dev);
@@ -1288,6 +1290,7 @@ static bool mtk_mae_config_hw(struct mtk_mae_dev *mae_dev, int idx)
 	mae_dev_dbg(mae_dev->dev, "adb: aiseg_lut_en(%d)\n", aiseg_lut_en);
 	mae_dev_dbg(mae_dev->dev, "adb: fac_v1_pat_en(%d)\n", fac_v1_pat_en);
 	mae_dev_dbg(mae_dev->dev, "adb: cmdq_polling_en(%d)\n", cmdq_polling_en);
+	mae_dev_dbg(mae_dev->dev, "adb: cmdq_profiling_en(%d)\n", cmdq_profiling_en);
 
 	for (loop = 0; loop < mae_dev->outer_loop[idx]; loop++) {
 		if (param->image[loop].srcImgFmt == NV12 &&
@@ -1492,6 +1495,11 @@ static bool mtk_mae_config_hw(struct mtk_mae_dev *mae_dev, int idx)
 	else
 		MAE_CMDQ_WRITE_REG(mae_dev->pkt[idx], MAE_IRQ_DDREN_CMDQ_CTRL, 0x2202);
 
+	/* gce profiling start */
+	if (cmdq_profiling_en)
+		cmdq_pkt_write_indriect(mae_dev->pkt[idx], NULL,
+			mae_dev->mae_time_st_pa, CMDQ_TPR_ID, ~0);
+
 	if (mae_trigger_cmdq_timeout == 0)
 		// sw trigger
 		MAE_CMDQ_WRITE_REG(mae_dev->pkt[idx], MAE_TRIG_RST_CTRL, 0x8000);
@@ -1505,6 +1513,13 @@ static bool mtk_mae_config_hw(struct mtk_mae_dev *mae_dev, int idx)
 			MAE_BASE + MAE_IRQ_CTRL1, MAE_IRQ_MASK);
 	else
 		cmdq_pkt_wfe(mae_dev->pkt[idx], mae_dev->mae_event_id);
+
+	/* gce profiling end */
+	if (cmdq_profiling_en) {
+		cmdq_pkt_write_indriect(mae_dev->pkt[idx], NULL, mae_dev->mae_time_ed_pa, CMDQ_TPR_ID, ~0);
+		cmdq_pkt_read(mae_dev->pkt[idx], NULL, mae_dev->mae_time_st_pa, CMDQ_THR_SPR_IDX2);
+		cmdq_pkt_read(mae_dev->pkt[idx], NULL, mae_dev->mae_time_ed_pa, CMDQ_THR_SPR_IDX3);
+	}
 
 	cmdq_pkt_flush_async(mae_dev->pkt[idx], MAECmdqCB, (void *)mae_dev);
 

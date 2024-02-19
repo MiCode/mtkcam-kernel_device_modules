@@ -639,6 +639,13 @@ struct mtk_mae_dev {
 
 	struct mutex mae_device_lock;
 	int open_video_device_cnt;
+
+	/* gce profiling */
+	u32 *mae_time_st_va;
+	dma_addr_t mae_time_st_pa;
+	u32 *mae_time_ed_va;
+	dma_addr_t mae_time_ed_pa;
+
 };
 
 struct mtk_mae_ctx {

@@ -78,10 +78,11 @@
  * MAE_DEBUG = 1
  */
 int mae_log_level_value;
-int delay_time = 1;
+int delay_time;
 int dump_reg_en;
 int irq_handler_en = 1;
 int umap_debug;
+int cmdq_profiling_result;
 
 #if IS_ENABLED(CONFIG_MTK_SLBC)
 int mae_slc_dbg_en;
@@ -95,6 +96,7 @@ module_param(delay_time, int, 0644);
 module_param(dump_reg_en, int, 0644);
 module_param(irq_handler_en, int, 0644);
 module_param(umap_debug, int, 0644);
+module_param(cmdq_profiling_result, int, 0644);
 
 aov_notify m_aov_notify = NULL;
 
@@ -280,6 +282,24 @@ static int mtk_mae_dev_larb_init(struct mtk_mae_dev *fd)
 	}
 
 	return 0;
+}
+
+static void mtk_mae_cmdq_alloc_buf(struct cmdq_client *clt, u32 **buf_va, dma_addr_t *buf_pa)
+{
+	int *p;
+
+	if (!clt) {
+		pr_err("param is NULL");
+		return;
+	}
+
+	*buf_va = cmdq_mbox_buf_alloc(clt, buf_pa);
+	if (*buf_va) {
+		p = (int *)*buf_va;
+		*p = 0;
+	} else {
+		pr_err("%s: cmdq mbox buf alloc fail\n", __func__);
+	}
 }
 
 static int mtk_mae_ccf_enable(struct device *dev)
@@ -470,6 +490,10 @@ static void mtk_mae_frame_done_worker(struct work_struct *work)
 		// DEBUG_ONLY: default 100ms
 		if (delay_time != 0)
 			msleep(delay_time);
+
+		if (cmdq_profiling_result)
+			mae_dev_info(mae_dev->dev, "mode(%d) hw time: %u us\n", param->maeMode,
+				(*(mae_dev->mae_time_ed_va) - *(mae_dev->mae_time_st_va)) / 26);
 
 		dump = (uint32_t *)mae_dev->map_table->output_dmabuf_info[0][0].kva;
 
@@ -806,6 +830,7 @@ static int mtk_mae_hw_connect(struct mtk_mae_dev *mae_dev)
 		// initialize
 		mae_dev->is_first_qbuf = true;
 		mae_dev->is_secure = false;
+
 	#if IS_ENABLED(CONFIG_MTK_SLBC)
 		/* register slc debug */
 		if (mae_slc_dbg_en) {
@@ -820,6 +845,14 @@ static int mtk_mae_hw_connect(struct mtk_mae_dev *mae_dev)
 				dev_info(mae_dev->dev, "slc validate fail");
 		}
 	#endif
+
+		/* for profiling hw time */
+		mtk_mae_cmdq_alloc_buf(mae_dev->mae_clt,
+			&(mae_dev->mae_time_st_va),
+			&(mae_dev->mae_time_st_pa));
+		mtk_mae_cmdq_alloc_buf(mae_dev->mae_clt,
+			&(mae_dev->mae_time_ed_va),
+			&(mae_dev->mae_time_ed_pa));
 	}
 
 	return 0;
@@ -941,6 +974,14 @@ static void mtk_mae_hw_disconnect(struct mtk_mae_dev *mae_dev)
 			vfree(mae_slbc_gid_data);
 		}
 	#endif
+
+		/* for profiling hw time */
+		cmdq_mbox_buf_free(mae_dev->mae_clt,
+			mae_dev->mae_time_st_va,
+			mae_dev->mae_time_st_pa);
+		cmdq_mbox_buf_free(mae_dev->mae_clt,
+			mae_dev->mae_time_ed_va,
+			mae_dev->mae_time_ed_pa);
 	}
 }
 

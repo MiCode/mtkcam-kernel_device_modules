@@ -766,6 +766,13 @@
 #define F_QOF_CAM_A_MTCMOS_ST_RAW_MSB2_1_POS                         0
 #define F_QOF_CAM_A_MTCMOS_ST_RAW_MSB2_1_WIDTH                       2
 
+/* following added manually */
 #define QOF_SEQ_MODE_RTC_THEN_ITC                   0
+#define F_QOF_CAM_TOP_QOF_SW_RST_RAWA_SW_RST_POS    6
+#define F_QOF_CAM_TOP_QOF_SW_RST_RAWA_SW_RST_WIDTH    1
+#define F_QOF_CAM_TOP_QOF_SW_RST_RAWB_SW_RST_POS    7
+#define F_QOF_CAM_TOP_QOF_SW_RST_RAWB_SW_RST_WIDTH    1
+#define F_QOF_CAM_TOP_QOF_SW_RST_RAWC_SW_RST_POS    8
+#define F_QOF_CAM_TOP_QOF_SW_RST_RAWC_SW_RST_WIDTH    1
 
 #endif	/* _MTK_CAM_QOF_REGS_H */

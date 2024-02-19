@@ -595,6 +595,7 @@ void apply_cq(struct mtk_raw_device *dev,
 {
 	dma_addr_t main, sub;
 
+	qof_dump_trigger_cnt(dev);
 	qof_dump_voter(dev);
 	qof_dump_power_state(dev);
 
@@ -735,6 +736,7 @@ void rwfbc_inc_setup(struct mtk_raw_device *dev)
 void stream_on(struct mtk_raw_device *dev, int on, bool reset_at_off)
 {
 	dump_dc_setting(dev);
+
 	if (on) {
 		/* toggle db before stream-on */
 		enable_tg_db(dev, 0);

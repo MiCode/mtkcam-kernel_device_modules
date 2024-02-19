@@ -9,6 +9,18 @@
 struct mtk_raw_device;
 struct mtk_cam_ctx;
 
+#define qof_dump_ctx(ctx, func) \
+	do { \
+		int i; \
+		for (i = 0; i < ARRAY_SIZE(ctx->hw_raw); i++) { \
+			if (ctx->hw_raw[i]) { \
+				struct mtk_raw_device *raw_dev = \
+					dev_get_drvdata(ctx->hw_raw[i]); \
+				func(raw_dev); \
+			} \
+		} \
+	} while (0)
+
 int qof_reset(struct mtk_raw_device *dev);
 
 void qof_setup_ctrl(struct mtk_raw_device *dev, int on);
@@ -24,11 +36,15 @@ bool qof_is_enabled(struct mtk_raw_device *dev);
 int qof_enable(struct mtk_raw_device *dev, bool enable);
 
 int qof_mtcmos_voter(struct mtk_cam_ctx *ctx, bool enable);
+int qof_mtcmos_raw_voter(struct mtk_raw_device *raw, bool enable);
 int qof_reset_mtcmos_voter(struct mtk_cam_ctx *ctx);
 
 void qof_dump_trigger_cnt(struct mtk_raw_device *dev);
 void qof_dump_voter(struct mtk_raw_device *dev);
 void qof_dump_power_state(struct mtk_raw_device *raw);
 void qof_dump_hw_timer(struct mtk_raw_device *raw);
+void qof_dump_cq_addr(struct mtk_raw_device *raw);
+void qof_dump_ctrl(struct mtk_raw_device *raw);
+void qof_dump_qoftop_status(struct mtk_raw_device *raw);
 
 #endif /*__MTK_CAM_QOF_H */

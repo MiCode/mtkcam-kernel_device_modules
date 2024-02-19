@@ -1029,6 +1029,8 @@ static int mtk_camsys_event_handle_camsv(struct mtk_cam_ctrl *ctrl,
 
 		handle_engine_frame_start(ctrl, irq_info,
 					  &vsync_res);
+
+		qof_dump_ctx(ctrl->ctx, qof_dump_power_state);
 	}
 
 	/* note: should handle SOF before CQ done for trigger delay cases */

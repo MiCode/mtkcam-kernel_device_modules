@@ -2011,6 +2011,11 @@ static int apply_engines_cq(struct mtk_cam_job *job,
 	dev_info(ctx->cam->dev, "[%s] ctx-%d CQ-0x%x cq_eng 0x%lx used_eng 0x%lx (%s) cq_thr(%llu) ts(%llu)\n",
 		__func__, ctx->stream_id, frame_seq_no, cq_engine,
 		used_engine, job->scen_str, job->job_state.cq_trigger_thres_ns, ts);
+
+	qof_dump_ctx(ctx, qof_dump_cq_addr);
+	qof_dump_ctx(ctx, qof_dump_ctrl);
+	qof_dump_ctx(ctx, qof_dump_voter);
+
 	return 0;
 }
 
@@ -5912,6 +5917,23 @@ int mtk_cam_job_manually_apply_isp(struct mtk_cam_job *job, bool wait_completion
 
 	if (!wait_for_completion_timeout(&job->cq_exe_completion, timeout)) {
 		pr_info("[%s] error: wait for job cq exe\n", __func__);
+		if (CAM_DEBUG_ENABLED(QOF)) {
+			int i;
+			struct mtk_cam_ctx *ctx = job->src_ctx;
+
+			for (i = 0; i < ARRAY_SIZE(ctx->hw_raw); i++) {
+				if (ctx->hw_raw[i]) {
+					struct mtk_raw_device *raw_dev =
+						dev_get_drvdata(ctx->hw_raw[i]);
+
+					qof_dump_cq_addr(raw_dev);
+					qof_dump_trigger_cnt(raw_dev);
+					qof_dump_voter(raw_dev);
+					qof_dump_power_state(raw_dev);
+					break;
+				}
+			}
+		}
 		return -1;
 	}
 

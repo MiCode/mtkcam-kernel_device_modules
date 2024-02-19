@@ -137,6 +137,7 @@ struct mtk_rms_device {
 #endif
 };
 
+
 /* aa debug info */
 struct mtk_ae_debug_data {
 	u64 OBC_R1_Sum[4];

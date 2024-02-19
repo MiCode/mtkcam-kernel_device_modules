@@ -2538,6 +2538,11 @@ static int mtkdip_ioc_set_control(struct v4l2_subdev *subdev, void *arg)
 	return ret;
 }
 
+static int mtkdip_ioc_clear_user_resource(struct v4l2_subdev *subdev, void *arg)
+{
+	return 0;
+}
+
 long mtk_imgsys_subdev_ioctl(struct v4l2_subdev *subdev, unsigned int cmd,
 								void *arg)
 {
@@ -2562,6 +2567,8 @@ long mtk_imgsys_subdev_ioctl(struct v4l2_subdev *subdev, unsigned int cmd,
 		return mtkdip_ioc_alloc_buffer(subdev, arg);
     case MTKDIP_IOC_FREE_BUF:
 		return mtkdip_ioc_free_buffer(subdev, arg);
+	case MTKDIP_IOC_CLEAR_USER_RESOURCE:
+		return mtkdip_ioc_clear_user_resource(subdev, arg);
 	case MTKDIP_IOC_ACQUIRE_IOVA:
 		return mtkdip_ioc_acquire_iova(subdev, arg);
 	case MTKDIP_IOC_RELEASE_IOVA:

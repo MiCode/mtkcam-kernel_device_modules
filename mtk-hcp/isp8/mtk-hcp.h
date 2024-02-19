@@ -246,6 +246,8 @@ int mtk_hcp_get_traw_mem_tdr_fd(struct platform_device *pdev);
 void *mtk_hcp_get_pqdip_mem_virt(struct platform_device *pdev);
 int mtk_hcp_get_pqdip_mem_cq_fd(struct platform_device *pdev);
 int mtk_hcp_get_pqdip_mem_tdr_fd(struct platform_device *pdev);
+void *mtk_hcp_get_me_mem_virt(struct platform_device *pdev, unsigned int mode);
+int mtk_hcp_get_me_mem_cq_fd(struct platform_device *pdev, unsigned int mode);
 void *mtk_hcp_get_hwid_mem_virt(struct platform_device *pdev);
 int mtk_hcp_get_gce_buffer(struct platform_device *pdev);
 int mtk_hcp_put_gce_buffer(struct platform_device *pdev);
@@ -269,6 +271,8 @@ int mtk_hcp_get_traw_mem_tdr_fd(struct platform_device *pdev, unsigned int mode)
 void *mtk_hcp_get_pqdip_mem_virt(struct platform_device *pdev, unsigned int mode);
 int mtk_hcp_get_pqdip_mem_cq_fd(struct platform_device *pdev, unsigned int mode);
 int mtk_hcp_get_pqdip_mem_tdr_fd(struct platform_device *pdev, unsigned int mode);
+void *mtk_hcp_get_me_mem_virt(struct platform_device *pdev, unsigned int mode);
+int mtk_hcp_get_me_mem_cq_fd(struct platform_device *pdev, unsigned int mode);
 void *mtk_hcp_get_hwid_mem_virt(struct platform_device *pdev, unsigned int mode);
 int mtk_hcp_get_mem_info(struct platform_device *pdev, struct img_init_info *info, unsigned int mode);
 int mtk_hcp_get_gce_buffer(struct platform_device *pdev, unsigned int mode);

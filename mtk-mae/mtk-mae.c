@@ -857,21 +857,20 @@ static void mtk_mae_hw_disconnect(struct mtk_mae_dev *mae_dev)
 		mtk_mae_umap_detach(mae_dev, &mae_dev->map_table->model_table_dmabuf_info);
 		mtk_mae_umap_detach(mae_dev, &mae_dev->map_table->image_dmabuf_info[0]);
 		mtk_mae_umap_detach(mae_dev, &mae_dev->map_table->param_dmabuf_info[0]);
-		mtk_mae_umap_detach(mae_dev, &mae_dev->map_table->output_dmabuf_info[0][0]);
 		mtk_mae_umap_detach(mae_dev, &mae_dev->map_table->internal_dmabuf_info);
 		mtk_mae_umap_detach(mae_dev, &mae_dev->map_table->debug_dmabuf_info[0]);
 
-		for (i = 0; i < MODEL_TYPE_MAX; i++) {
-			mtk_mae_umap_detach(mae_dev, &mae_dev->map_table->config_dmabuf_info[i]);
-			mtk_mae_umap_detach(mae_dev, &mae_dev->map_table->coef_dmabuf_info[i]);
-		}
+
+		for (i = 0; i < MAX_PYRAMID_NUM; i++)
+			mtk_mae_umap_detach(mae_dev, &mae_dev->map_table->output_dmabuf_info[0][i]);
 
 		for (i = 0; i < MODEL_TYPE_MAX; i++) {
 			mtk_mae_umap_detach(mae_dev, &mae_dev->map_table->config_dmabuf_info[i]);
 			mtk_mae_umap_detach(mae_dev, &mae_dev->map_table->coef_dmabuf_info[i]);
 		}
 
-
+		for (i = 0; i < AISEG_MAP_NUM; i++)
+			mtk_mae_umap_detach(mae_dev, &mae_dev->map_table->aiseg_output_dmabuf_info[0][i]);
 
 		// MAE_TO_DO: fd->drv_ops->uninit(fd);
 	}
@@ -1466,7 +1465,7 @@ int mtk_mae_vidioc_qbuf(struct file *file, void *priv,
 
 
 	// get output pa
-	for (i = 0; i < MAX_OUTER_LOOP_NUM; i++)
+	for (i = 0; i < MAX_PYRAMID_NUM; i++)
 		if (!map_table->output_dmabuf_info[idx][i].is_attach) {
 			ret = mtk_mae_set_dmabuf_info(mae_dev,
 							buf->m.planes[OUTPUT_PLANE + i].m.fd,

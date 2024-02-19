@@ -2206,7 +2206,7 @@ static long PDA_Ioctl(struct file *a_pstFile,
 		// PDA HW and DMA setting
 		for (i = 0; i < g_PDA_quantity; i++) {
 			if (PDA_RD32(PDA_devs[i].m_pda_base + PDA_PDA_DMA_EN_REG) == 0) {
-				LOG_INF("Because it has been reset, need to cofig setting again\n");
+				LOG_INF("Because it has been reset, need to config setting again\n");
 				initHWDMASettings();
 			}
 		}
@@ -2291,16 +2291,6 @@ static int PDA_Open(struct inode *a_pstInode, struct file *a_pstFile)
 	g_PDA0_IRQCount = 0;
 	g_PDA1_IRQCount = 0;
 #endif
-
-	spin_lock(&g_PDA_SpinLock);
-	if (g_u4EnableClockCount == 0) {
-		LOG_INF("Cannot process without enable pda clock\n");
-		spin_unlock(&g_PDA_SpinLock);
-		return -1;
-	}
-	spin_unlock(&g_PDA_SpinLock);
-
-	initHWDMASettings();
 
 	g_isBufferMapped = 0;
 

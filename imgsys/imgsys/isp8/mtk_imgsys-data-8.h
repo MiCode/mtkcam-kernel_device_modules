@@ -30,8 +30,12 @@ const struct cust_data imgsys_data_mt6991[] = {
 	.imgsys_modules = imgsys_isp8_modules,
 	.imgsys_modules_num = MTK_IMGSYS_MODULE_NUM,
 	.dump = imgsys_debug_dump_routine,
-	//.imgsys_ports = imgsys_dma_port_mt6991,
-	//.imgsys_ports_num = ARRAY_SIZE(imgsys_dma_port_mt6991),
+#ifdef IMGSYS_TF_DUMP_8
+	.imgsys_ports = imgsys_dma_port_mt6991,
+	.imgsys_ports_num = ARRAY_SIZE(imgsys_dma_port_mt6991),
+#else
+	.imgsys_ports_num = 0,
+#endif
 	},
 	/* ISP 7.1 */
 

@@ -196,7 +196,7 @@ int imgsys_omc_tfault_callback(int port,
 		port, larb, (port & 0x1F), (unsigned long)mva);
 
 	/* iomap registers */
-	engine = (larb == 11) ? REG_MAP_E_OMC_TNR : REG_MAP_E_OMC_LITE;
+	engine = (larb == 22) ? REG_MAP_E_OMC_TNR : REG_MAP_E_OMC_LITE;
 	omcRegBA = gOmcRegBA[engine - REG_MAP_E_OMC_TNR];
 	if (!omcRegBA) {
 		pr_info("%s: OMC_%d, RegBA=0", __func__, port);

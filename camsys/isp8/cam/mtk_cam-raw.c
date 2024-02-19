@@ -448,9 +448,24 @@ static void reset_reg(struct mtk_raw_device *dev)
 
 	raw_writel(0, dev, dev->base_inner, REG_CAMCTL_SW_SUB_CTL);
 	raw_writel(0, dev, dev->base, REG_CAMCTL_SW_SUB_CTL);
+	dump_interrupt(dev);
+	raw_writel(0, dev, dev->base_inner, REG_CAMCTL_INT17_EN);
+	raw_writel(0, dev, dev->base, REG_CAMCTL_INT17_EN);
 
+	raw_writel(0, dev, dev->base_inner, REG_CAMCTL_INT18_EN);
+	raw_writel(0, dev, dev->base, REG_CAMCTL_INT18_EN);
+
+	raw_writel(0, dev, dev->base_inner, REG_CAMCTL_INT19_EN);
+	raw_writel(0, dev, dev->base, REG_CAMCTL_INT19_EN);
+
+	raw_writel(0, dev, dev->base_inner, REG_CAMCTL_INT20_EN);
+	raw_writel(0, dev, dev->base, REG_CAMCTL_INT20_EN);
+
+	raw_writel(0, dev, dev->base_inner, REG_CAMCTL_INT21_EN);
+	raw_writel(0, dev, dev->base, REG_CAMCTL_INT21_EN);
 	wmb(); /* make sure committed */
-
+	dump_interrupt(dev);
+	reset_error_handling(dev);
 	if (CAM_DEBUG_ENABLED(RAW_INT))
 		dev_info(dev->dev,
 			 "[%s] CQ_EN/SW_SUB_CTL/SW_DONE/DDREN_ST [in] 0x%x/0x%x/0x%x/0x%x [out] 0x%x/0x%x/0x%x/0x%x\n",
@@ -2129,8 +2144,6 @@ int mtk_raw_runtime_resume(struct device *dev)
 	if (ret)
 		return ret;
 
-	enable_irq(drvdata->irq);
-
 	pr_detect_count = get_detect_count();
 	if (pr_detect_count < KERNEL_LOG_MAX)
 		set_detect_count(KERNEL_LOG_MAX);
@@ -2155,6 +2168,7 @@ int mtk_raw_runtime_resume(struct device *dev)
 		cg_dump_and_test(dev, CG_RAW, 0);
 
 	reset(drvdata);
+	enable_irq(drvdata->irq);
 
 	return 0;
 }

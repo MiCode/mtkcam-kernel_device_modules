@@ -37,6 +37,16 @@ ccflags-y += -DSENSOR_SECURE_MTEE_SUPPORT
 ccflags-y += -I$(DEVICE_MODULES_PATH)/drivers/misc/mediatek/tee_gp/include
 # ccflags-y += -DSECURE_UT
 
+NOTDIR_DEVICE_MODULES_PATH = $(notdir $(DEVICE_MODULES_PATH))
+KERNEL_VERSION = $(patsubst kernel_device_modules-%,%,$(NOTDIR_DEVICE_MODULES_PATH))
+#$(info camsys sort=$(sort 6.6 $(KERNEL_VERSION)))
+#$(info camsys word=$(word 1,$(sort 6.6 $(KERNEL_VERSION))))
+ifeq (6.6,$(word 1,$(sort 6.6 $(KERNEL_VERSION))))
+ccflags-y += -DDMA_BUF_UNLOCKED_API
+endif
+
+$(info camsys Kbuild CFLAGS=$(CFLAGS))
+
 $(CAM_MODULE)-objs := \
     mtk_cam.o \
     mtk_cam-request.o \
@@ -115,6 +125,10 @@ endif
 ifneq ($(wildcard $(PLATFORM_PATH)/mtk_cam-plat-mt6991.c),)
 ccflags-y += -DCAMSYS_ISP8_MT6991
 $(CAM_MODULE)-objs += mtk_cam-plat-mt6991.o
+endif
+
+ifeq (6.6,$(word 1,$(sort 6.6 $(KERNEL_VERSION))))
+ccflags-y += -DNEW_DMA_BUF_API
 endif
 
 obj-$(CONFIG_VIDEO_MTK_ISP_CAMSYS) += $(CAM_MODULE).o

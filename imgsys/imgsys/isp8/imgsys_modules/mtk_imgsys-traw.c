@@ -30,7 +30,7 @@
 /********************************************************************
  * Global Define
  ********************************************************************/
-#define TRAW_INIT_ARRAY_COUNT	1
+#define TRAW_INIT_ARRAY_COUNT	2
 
 #define TRAW_CTL_ADDR_END		0x470
 #define TRAW_DMA_ADDR_OFST		0x4000
@@ -51,6 +51,7 @@
  ********************************************************************/
 const struct mtk_imgsys_init_array
 			mtk_imgsys_traw_init_ary[TRAW_INIT_ARRAY_COUNT] = {
+	{0x00B0, 0x3F}, /* TRAWCTL_INT_STATUS_CLR_EN */
 	{0x00B4, 0x80000000}, /* TRAWCTL_INT1_EN */
 };
 
@@ -430,6 +431,18 @@ static void imgsys_traw_dump_smto(struct mtk_imgsys_dev *a_pDev,
 	ExeDbgCmd(a_pDev, a_pRegBA, a_DdbSel, a_DbgOut, DbgCmd);
 	/* smto_t3 handshake signal */
 	DbgCmd = 0x0004C401;
+	ExeDbgCmd(a_pDev, a_pRegBA, a_DdbSel, a_DbgOut, DbgCmd);
+}
+
+static void imgsys_traw_dump_rgbbin(struct mtk_imgsys_dev *a_pDev,
+				void __iomem *a_pRegBA,
+				unsigned int a_DdbSel,
+				unsigned int a_DbgOut)
+{
+	unsigned int DbgCmd = 0;
+
+	/* rgbbin_t1 line_pix_cnt_tmp */
+	DbgCmd = 0x00024e01;
 	ExeDbgCmd(a_pDev, a_pRegBA, a_DdbSel, a_DbgOut, DbgCmd);
 }
 
@@ -978,6 +991,8 @@ void imgsys_traw_debug_dump(struct mtk_imgsys_dev *imgsys_dev,
 	imgsys_traw_dump_drzh2n(imgsys_dev, trawRegBA, CtlDdbSel, CtlDbgOut);
 	/* SMTO debug data */
 	imgsys_traw_dump_smto(imgsys_dev, trawRegBA, CtlDdbSel, CtlDbgOut);
+	/* RGBBIN_T1 debug data */
+	imgsys_traw_dump_rgbbin(imgsys_dev, trawRegBA, CtlDdbSel, CtlDbgOut);
 #endif
 err_debug_dump:
 	pr_info("%s: -\n", __func__);

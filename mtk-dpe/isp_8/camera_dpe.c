@@ -3129,7 +3129,7 @@ int DPE_Config_DVS(struct DPE_Config_ISP8 *pDpeConfig,
 		((0x1 & 0x1) << 30) | // c_dpe_fw_trig
 		((0x1 & 0x1) << 31); // c_dvs_en
 	}
-	pConfigToKernel->DVS_CTRL01 = ((0x1 & 0x1) << 8);
+	// pConfigToKernel->DVS_CTRL01 = ((0x1 & 0x1) << 8);
 	pConfigToKernel->DVS_CTRL03 = 0x00100552;
 	//!ISP7 Tile mode
 	//if (pDpeConfig->Dpe_DVSSettings.is_pd_mode) {
@@ -3402,7 +3402,7 @@ int DPE_Config_DVP(struct DPE_Config_ISP8 *pDpeConfig,
 	if (pDpeConfig->Dpe_DVPSettings.SubModule_EN.asf_hf_rounds % 2)
 		pDpeConfig->Dpe_DVPSettings.SubModule_EN.asf_nb_rounds = 0;
 
-	pConfigToKernel->DVP_CTRL01 = ((0x1 & 0x1) << 20);
+	// pConfigToKernel->DVP_CTRL01 = ((0x1 & 0x1) << 20);
 
 	pConfigToKernel->DVP_CTRL04 =
 	(pDpeConfig->Dpe_DVPSettings.SubModule_EN.asf_crm_en << 0) |
@@ -3686,7 +3686,7 @@ int DPE_Config_DVGF(struct DPE_Config_ISP8 *pDpeConfig,
 	pConfigToKernel->DVGF_CTRL_00 =
 	(pDpeConfig->Dpe_DVGFSettings.SubModule_EN.dpe_dvgf_en << 31);
 
-	pConfigToKernel->DVGF_CTRL_01 =  0x00110000;
+	// pConfigToKernel->DVGF_CTRL_01 =  0x00110000;
 	if (DPE_debug_log_en == 1) {
 		LOG_ERR("DVGF DVGF_CTRL_01 =0x%x\n",
 		pConfigToKernel->DVGF_CTRL_01);
@@ -5630,7 +5630,7 @@ if (pDpeConfig->DPE_MODE == 3) {
 	DVGF_CTRL_00_HW, 0x80000000, 0x80000000);
 
 	///CMDQWR(DVGF_CTRL_00);
-	CMDQWR(DVGF_CTRL_01);
+	///CMDQWR(DVGF_CTRL_01);
 	CMDQWR(DVGF_CTRL_02);
 	CMDQWR(DVGF_CTRL_03);
 	CMDQWR(DVGF_CTRL_05);

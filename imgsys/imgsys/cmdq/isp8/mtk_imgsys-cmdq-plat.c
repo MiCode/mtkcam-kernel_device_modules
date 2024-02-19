@@ -164,7 +164,8 @@ void imgsys_cmdq_release_plat8(struct mtk_imgsys_dev *imgsys_dev)
 	#endif
 
 	MTK_IMGSYS_QOF_NEED_RUN(imgsys_dev->qof_ver,
-		mtk_imgsys_cmdq_qof_release(imgsys_dev, imgsys_clt[0]));
+		mtk_imgsys_cmdq_qof_release(imgsys_dev, imgsys_clt[0]);
+	);
 	MTK_IMGSYS_QOS_ENABLE(imgsys_dev->hwqos_info.hwqos_support,
 		mtk_imgsys_cmdq_hwqos_release();
 	);
@@ -1265,7 +1266,9 @@ void imgsys_cmdq_task_cb_plat8(struct cmdq_cb_data data)
 		}
 
 		if (isHWhang | isQOFhang) {
-			mtk_imgsys_cmdq_qof_dump(cb_param->hw_comb, true);
+			MTK_IMGSYS_QOF_NEED_RUN(imgsys_dev->qof_ver,
+				mtk_imgsys_cmdq_qof_dump(cb_param->hw_comb);
+			);
 		}
 	}
 	cb_param->cmdqTs.tsCmdqCbEnd = ktime_get_boottime_ns()/1000;
@@ -1765,7 +1768,8 @@ int imgsys_cmdq_sendtask_plat8(struct mtk_imgsys_dev *imgsys_dev,
 			}
 
 			MTK_IMGSYS_QOF_NEED_RUN(imgsys_dev->qof_ver,
-				mtk_imgsys_cmdq_qof_add(pkt, qof_need_sub, frm_info->user_info[frm_idx].hw_comb));
+				mtk_imgsys_cmdq_qof_add(pkt, qof_need_sub, frm_info->user_info[frm_idx].hw_comb);
+			);
 
 			IMGSYS_CMDQ_SYSTRACE_BEGIN(
 				"%s_%s|Imgsys MWFrame:#%d MWReq:#%d ReqFd:%d fidx:%d hw_comb:0x%x Own:%llx frm(%d/%d) blk(%d)",
@@ -1958,7 +1962,8 @@ int imgsys_cmdq_sendtask_plat8(struct mtk_imgsys_dev *imgsys_dev,
 					blk_idx, blk_num);
 
 				MTK_IMGSYS_QOF_NEED_RUN(imgsys_dev->qof_ver,
-					mtk_imgsys_cmdq_qof_sub(pkt, qof_need_sub));
+					mtk_imgsys_cmdq_qof_sub(pkt, qof_need_sub);
+				);
 
 				ret_flush = cmdq_pkt_flush_async(pkt, imgsys_cmdq_task_cb_plat8,
 								(void *)cb_param);
@@ -2458,7 +2463,8 @@ void mtk_imgsys_power_ctrl_plat8(struct mtk_imgsys_dev *imgsys_dev, bool isPower
 			);
 
 			MTK_IMGSYS_QOF_NEED_RUN(imgsys_dev->qof_ver,
-				mtk_imgsys_cmdq_qof_engine_on(imgsys_dev));
+				mtk_imgsys_cmdq_qof_engine_on(imgsys_dev);
+			);
 
 			mutex_unlock(&(imgsys_dev->power_ctrl_lock));
 		}
@@ -2473,7 +2479,8 @@ void mtk_imgsys_power_ctrl_plat8(struct mtk_imgsys_dev *imgsys_dev, bool isPower
 			mutex_lock(&(imgsys_dev->power_ctrl_lock));
 
 			MTK_IMGSYS_QOF_NEED_RUN(imgsys_dev->qof_ver,
-				mtk_imgsys_cmdq_qof_engine_off(imgsys_dev));
+				mtk_imgsys_cmdq_qof_engine_off(imgsys_dev);
+			);
 
 			mtk_imgsys_mod_put(imgsys_dev);
 

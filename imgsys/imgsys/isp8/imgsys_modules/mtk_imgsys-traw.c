@@ -828,14 +828,6 @@ void imgsys_traw_cmdq_set_initial_value_hw(struct mtk_imgsys_dev *imgsys_dev,
 	}
 	package = (struct cmdq_pkt *)pkt;
 
-	/* reset traw macro */
-	cmdq_pkt_write(package, NULL,
-		    	(IMG_MAIN_BASE + SW_RST) /*address*/, 0x30,
-		    	0xffffffff);
-	cmdq_pkt_write(package, NULL,
-		    	(IMG_MAIN_BASE + SW_RST) /*address*/, 0x0,
-		    	0xffffffff);
-
 	/* module reset */
 	cmdq_pkt_write(package, NULL,
 		      (TRAW_TOP_BASE + SW_RST) /*address*/, 0x3C,
@@ -865,14 +857,6 @@ void imgsys_ltraw_cmdq_set_initial_value_hw(struct mtk_imgsys_dev *imgsys_dev,
 		return;
 	}
 	package = (struct cmdq_pkt *)pkt;
-
-	/* reset ltraw macro */
-	cmdq_pkt_write(package, NULL,
-		    	(IMG_MAIN_BASE + SW_RST) /*address*/, 0xC0,
-		    	0xffffffff);
-	cmdq_pkt_write(package, NULL,
-		    	(IMG_MAIN_BASE + SW_RST) /*address*/, 0x0,
-		    	0xffffffff);
 
 	/* ori traw set */
 	for (i = 0 ; i < TRAW_INIT_ARRAY_COUNT ; i++) {

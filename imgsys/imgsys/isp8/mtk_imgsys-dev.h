@@ -65,8 +65,12 @@
 
 #define MTK_REQ_FD_CACHE_ARRAY_MAX		65536
 #define MTK_IMGSYS_QOF_FUNCTION_OFF		(0)
-#define MTK_IMGSYS_QOF_NEED_RUN(ver, qof_func) if (ver != MTK_IMGSYS_QOF_FUNCTION_OFF) qof_func
-
+#define MTK_IMGSYS_QOF_NEED_RUN(ver, args...) \
+	do { \
+		if (ver != MTK_IMGSYS_QOF_FUNCTION_OFF) { \
+			args \
+		} \
+	} while (0)
 #define MTK_IMGSYS_QOS_ENABLE(enable, args...) \
 	do { \
 		if (enable) { \

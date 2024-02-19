@@ -2022,6 +2022,42 @@ static int _apply_cq(struct mtk_cam_job *job)
 	return 0;
 }
 
+#define ADLRD_CTRL_4 0x810
+static void init_ADLRD_settings(struct mtk_cam_device *cam, int raw_id)
+{
+	int adlrd_grp;
+	int adlrd_grp_reg;
+
+	if (IS_ERR_OR_NULL(cam->adlrd_base)) {
+		if (CAM_DEBUG_ENABLED(JOB))
+			dev_info(cam->dev, "%s: skipped\n", __func__);
+		return;
+	}
+
+	/* rawA front: 0, rawA rear: 1, */
+	/* rawB front: 2, rawB rear: 3, */
+	/* rawC front: 4, rawC rear: 5  */
+	adlrd_grp = raw_id << 1;
+	adlrd_grp_reg = adlrd_grp | adlrd_grp << 3 | adlrd_grp << 6 | adlrd_grp << 9 |
+			adlrd_grp << 12 | adlrd_grp << 15 | adlrd_grp << 18;
+	if (CAM_DEBUG_ENABLED(JOB))
+		dev_info(cam->dev, "adlrd_grp: 0x%x, adlrd_grp_reg: 0x%x",
+			 adlrd_grp, adlrd_grp_reg);
+	writel(adlrd_grp_reg, cam->adlrd_base + ADLRD_CTRL_4);
+}
+
+static int _m2m_apply_cq(struct mtk_cam_job *job)
+{
+	struct mtk_cam_ctx *ctx = job->src_ctx;
+	struct mtk_cam_device *cam = ctx->cam;
+	int raw_id = get_master_raw_id(job->used_engine);
+
+	if (is_m2m_apu(job))
+		init_ADLRD_settings(cam, raw_id);
+
+	return _apply_cq(job);
+}
+
 static void adl_cmdq_worker(struct work_struct *work)
 {
 	struct mtk_cam_adl_work *adl_work =
@@ -3823,7 +3859,7 @@ static struct mtk_cam_job_ops m2m_job_ops = {
 	.stream_on = 0,
 	//.reset
 	.apply_sensor = 0,
-	.apply_isp = _apply_cq,
+	.apply_isp = _m2m_apply_cq,
 	.trigger_isp = trigger_m2m,
 	.mark_afo_done = job_mark_afo_done,
 	.mark_engine_done = job_mark_engine_done,

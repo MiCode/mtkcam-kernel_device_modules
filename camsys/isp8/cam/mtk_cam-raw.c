@@ -1630,28 +1630,28 @@ static void raw_handle_tg_overrun_err(struct mtk_raw_device *raw_dev,
 				   fh_cookie, MSG_TG_OVERRUN);
 }
 
-static u32 basic_readl(struct mtk_raw_device *raw, void __iomem *base, u32 offset)
+u32 basic_readl(struct mtk_raw_device *raw, void __iomem *base, u32 offset)
 {
 	(void)raw;
 
 	return readl(base + offset);
 }
 
-static u32 basic_readl_relaxed(struct mtk_raw_device *raw, void __iomem *base, u32 offset)
+u32 basic_readl_relaxed(struct mtk_raw_device *raw, void __iomem *base, u32 offset)
 {
 	(void)raw;
 
 	return readl_relaxed(base + offset);
 }
 
-static void basic_writel(struct mtk_raw_device *raw, u32 val, void __iomem *base, u32 offset)
+void basic_writel(struct mtk_raw_device *raw, u32 val, void __iomem *base, u32 offset)
 {
 	(void)raw;
 
 	writel(val, base + offset);
 }
 
-static void basic_writel_relaxed(struct mtk_raw_device *raw, u32 val, void __iomem *base, u32 offset)
+void basic_writel_relaxed(struct mtk_raw_device *raw, u32 val, void __iomem *base, u32 offset)
 {
 	(void)raw;
 

@@ -47,4 +47,5 @@ void qof_dump_cq_addr(struct mtk_raw_device *raw);
 void qof_dump_ctrl(struct mtk_raw_device *raw);
 void qof_dump_qoftop_status(struct mtk_raw_device *raw);
 
+void mtk_cam_enable_itc(struct mtk_raw_device *raw);
 #endif /*__MTK_CAM_QOF_H */

@@ -124,6 +124,15 @@ struct raw_io_ops {
 
 extern struct raw_io_ops basic_io_ops;
 
+u32 basic_readl(
+	struct mtk_raw_device *raw, void __iomem *base, u32 offset);
+u32 basic_readl_relaxed(
+	struct mtk_raw_device *raw, void __iomem *base, u32 offset);
+void basic_writel(
+	struct mtk_raw_device *raw, u32 val, void __iomem *base, u32 offset);
+void basic_writel_relaxed(
+	struct mtk_raw_device *raw, u32 val, void __iomem *base, u32 offset);
+
 struct mtk_rms_device {
 	struct device *dev;
 	struct mtk_cam_device *cam;

@@ -31,6 +31,11 @@
 
 //#define WORKAROUND_VOTER_SET_OUTSIDE_OFF_PROC
 
+static u32 itc_readl(struct mtk_raw_device *raw,
+					 void __iomem *base, u32 offset);
+static u32 itc_readl_relaxed(struct mtk_raw_device *raw,
+							 void __iomem *base, u32 offset);
+
 static u32 qof_readl(struct mtk_raw_device *raw,
 					 void __iomem *base, u32 offset);
 static u32 qof_readl_relaxed(struct mtk_raw_device *raw,
@@ -47,6 +52,13 @@ struct raw_io_ops qof_io_ops = {
 	.writel_relaxed = qof_writel_relaxed,
 };
 
+struct raw_io_ops itc_only_io_ops = {
+	.readl = itc_readl,
+	.readl_relaxed = itc_readl_relaxed,
+	.writel = basic_writel,
+	.writel_relaxed = basic_writel_relaxed,
+};
+
 enum QOF_POWER_STATE {
 	PS_REST			 = 1 << 0,
 	PS_ON			 = 1 << 1,
@@ -57,6 +69,16 @@ enum QOF_POWER_STATE {
 	PS_GCE_RESTORE	 = 1 << 6,
 	PS_RESERVED		 = 1 << 7,
 };
+
+static inline u32 wait_itc_done(struct mtk_raw_device *raw)
+{
+	u32 ret, val;
+
+	ret = readx_poll_timeout_atomic(readl, raw->qof_base + REG_QOF_CAM_A_QOF_DONE_STATUS_1,
+								 val, (val & 0x2), 30 /*us*/, 600);
+
+	return ret;
+}
 
 static inline u32 avoid_power_state(struct mtk_raw_device *raw, u32 state)
 {
@@ -179,6 +201,41 @@ void qof_sof_src_sel(struct mtk_raw_device *raw, bool with_dcif,
 				 readl(cam->qoftop_base + REG_QOF_CAM_TOP_QOF_TOP_CTL));
 }
 
+void mtk_cam_enable_itc(struct mtk_raw_device *raw)
+{
+    // NOTE: for isp8 ITC need to be enable all the time,
+    // setup ITC before setup int_en (first CQ)
+	struct mtk_cam_device *cam = raw->cam;
+	u32 val;
+	bool qof_enabled = false;
+
+	val = readl(cam->qoftop_base + REG_QOF_CAM_TOP_QOF_TOP_CTL);
+
+	switch (raw->id) {
+	case RAW_A:
+		SET_FIELD(&val, QOF_CAM_TOP_ITC_SRC_SEL_1, 1);
+		qof_enabled = val & FBIT(QOF_CAM_TOP_QOF_SUBA_EN);
+		break;
+	case RAW_B:
+		SET_FIELD(&val, QOF_CAM_TOP_ITC_SRC_SEL_2, 1);
+		qof_enabled = val & FBIT(QOF_CAM_TOP_QOF_SUBB_EN);
+		break;
+	case RAW_C:
+		SET_FIELD(&val, QOF_CAM_TOP_ITC_SRC_SEL_3, 1);
+		qof_enabled = val & FBIT(QOF_CAM_TOP_QOF_SUBC_EN);
+		break;
+	default:
+		return;
+	}
+
+	writel(val, cam->qoftop_base + REG_QOF_CAM_TOP_QOF_TOP_CTL);
+
+	raw->io_ops = (qof_enabled) ? &qof_io_ops : &itc_only_io_ops;
+
+	if (CAM_DEBUG_ENABLED(QOF))
+		dev_info(raw->dev, "qof: %s", __func__);
+}
+
 void qof_init_timer_freq(struct mtk_raw_device *raw)
 {
 	writel_relaxed(QOF_TIMER_FREQ_DIV,
@@ -230,15 +287,12 @@ int qof_enable(struct mtk_raw_device *raw, bool enable)
 	switch (raw->id) {
 	case RAW_A:
 		SET_FIELD(&val, QOF_CAM_TOP_QOF_SUBA_EN, en);
-		SET_FIELD(&val, QOF_CAM_TOP_ITC_SRC_SEL_1, en);
 		break;
 	case RAW_B:
 		SET_FIELD(&val, QOF_CAM_TOP_QOF_SUBB_EN, en);
-		SET_FIELD(&val, QOF_CAM_TOP_ITC_SRC_SEL_2, en);
 		break;
 	case RAW_C:
 		SET_FIELD(&val, QOF_CAM_TOP_QOF_SUBC_EN, en);
-		SET_FIELD(&val, QOF_CAM_TOP_ITC_SRC_SEL_3, en);
 		break;
 	default:
 		return -1;
@@ -253,7 +307,7 @@ int qof_enable(struct mtk_raw_device *raw, bool enable)
 	if (en)
 		writel(0xfff, cam->qoftop_base + REG_QOF_CAM_TOP_QOF_INT_EN);
 
-	raw->io_ops = (enable) ? &qof_io_ops : &basic_io_ops;
+	raw->io_ops = (enable) ? &qof_io_ops : &itc_only_io_ops;
 
 	dev_info(raw->dev, "qof: %s: %s TOP_CTL 0x%08x",
 			 __func__, (enable) ? "enable" : "disable",
@@ -447,7 +501,55 @@ int qof_reset_mtcmos_voter(struct mtk_cam_ctx *ctx)
 	return 0;
 }
 
-static inline int read_replace_addr(const struct mtk_raw_device *raw,
+static inline int read_replace_qof_cq_addr(const struct mtk_raw_device *raw,
+										   void __iomem **base, u32 *offset)
+{
+	u32 _off = *offset;
+
+	void *_base;
+	u32 _offset;
+
+	// TODO: use define instead of debug opt?
+	if (CAM_DEBUG_ENABLED(QOF_ADDR)) {
+		_base = *base;
+		_offset = *offset;
+	}
+
+#define CHANGE_TO(b) {*offset = b; break;}
+	if (*base == raw->base) {
+		switch (_off) {
+		//CQ addr
+		case REG_CAMCQ_CQ_THR0_BASEADDR:
+			CHANGE_TO(REG_QOF_CAM_A_QOF_CQ1_DATA_1)
+		case REG_CAMCQ_CQ_THR0_BASEADDR_MSB:
+			CHANGE_TO(REG_QOF_CAM_A_QOF_CQ2_DATA_1)
+		case REG_CAMCQ_CQ_THR0_DESC_SIZE:
+			CHANGE_TO(REG_QOF_CAM_A_QOF_CQ3_DATA_1)
+		case REG_CAMCQ_CQ_SUB_THR0_BASEADDR_2:
+			CHANGE_TO(REG_QOF_CAM_A_QOF_CQ4_DATA_1)
+		case REG_CAMCQ_CQ_SUB_THR0_BASEADDR_2_MSB:
+			CHANGE_TO(REG_QOF_CAM_A_QOF_CQ5_DATA_1)
+		case REG_CAMCQ_CQ_SUB_THR0_DESC_SIZE_2:
+			CHANGE_TO(REG_QOF_CAM_A_QOF_CQ6_DATA_1)
+		default:
+			return 0;
+		}
+	} else
+		return 0;
+#undef CHANGE_TO
+
+	*base = raw->qof_base;
+
+	if (CAM_DEBUG_ENABLED(QOF_ADDR))
+		dev_info(raw->dev, "%s: {%p, 0x%08x} -> {%p, 0x%08x}",
+				__func__,
+				_base, _offset,
+				*base, *offset);
+
+	return 1;
+}
+
+static inline int read_replace_itc_addr(const struct mtk_raw_device *raw,
 										void __iomem **base, u32 *offset)
 {
 	u32 _off = *offset;
@@ -511,19 +613,6 @@ static inline int read_replace_addr(const struct mtk_raw_device *raw,
 			CHANGE_TO(REG_QOF_CAM_A_INT22_STATUS_1)
 		case REG_CAMCTL_TFMR_INT8_STATUS:
 			CHANGE_TO(REG_QOF_CAM_A_INT23_STATUS_1)
-		//CQ addr
-		case REG_CAMCQ_CQ_THR0_BASEADDR:
-			CHANGE_TO(REG_QOF_CAM_A_QOF_CQ1_DATA_1)
-		case REG_CAMCQ_CQ_THR0_BASEADDR_MSB:
-			CHANGE_TO(REG_QOF_CAM_A_QOF_CQ2_DATA_1)
-		case REG_CAMCQ_CQ_THR0_DESC_SIZE:
-			CHANGE_TO(REG_QOF_CAM_A_QOF_CQ3_DATA_1)
-		case REG_CAMCQ_CQ_SUB_THR0_BASEADDR_2:
-			CHANGE_TO(REG_QOF_CAM_A_QOF_CQ4_DATA_1)
-		case REG_CAMCQ_CQ_SUB_THR0_BASEADDR_2_MSB:
-			CHANGE_TO(REG_QOF_CAM_A_QOF_CQ5_DATA_1)
-		case REG_CAMCQ_CQ_SUB_THR0_DESC_SIZE_2:
-			CHANGE_TO(REG_QOF_CAM_A_QOF_CQ6_DATA_1)
 		default:
 			return 0;
 		}
@@ -738,7 +827,8 @@ static u32 qof_readl(struct mtk_raw_device *raw,
 					 void __iomem *base, u32 offset)
 {
 	int ret =
-		read_replace_addr(raw, &base, &offset) ||
+		read_replace_itc_addr(raw, &base, &offset) ||
+		read_replace_qof_cq_addr(raw, &base, &offset) ||
 		read_replace_rtc_addr(raw, &base, &offset);
 
 	(void)ret;
@@ -753,7 +843,8 @@ static u32 qof_readl_relaxed(struct mtk_raw_device *raw,
 							 void __iomem *base, u32 offset)
 {
 	int ret =
-		read_replace_addr(raw, &base, &offset) ||
+		read_replace_itc_addr(raw, &base, &offset) ||
+		read_replace_qof_cq_addr(raw, &base, &offset) ||
 		read_replace_rtc_addr(raw, &base, &offset);
 
 	(void)ret;
@@ -804,6 +895,28 @@ static void qof_writel_relaxed(struct mtk_raw_device *raw, u32 val,
 	}
 
 	writel_relaxed(val, base + offset);
+}
+
+static u32 itc_readl(struct mtk_raw_device *raw,
+					 void __iomem *base, u32 offset)
+{
+	read_replace_itc_addr(raw, &base, &offset);
+
+	if (CAM_DEBUG_ENABLED(QOF_ADDR))
+		dev_info(raw->dev, "%s: {%p, 0x%08x}", __func__, base, offset);
+
+	return readl(base + offset);
+}
+
+static u32 itc_readl_relaxed(struct mtk_raw_device *raw,
+					 void __iomem *base, u32 offset)
+{
+	read_replace_itc_addr(raw, &base, &offset);
+
+	if (CAM_DEBUG_ENABLED(QOF_ADDR))
+		dev_info(raw->dev, "%s: {%p, 0x%08x}", __func__, base, offset);
+
+	return readl_relaxed(base + offset);
 }
 
 void qof_dump_trigger_cnt(struct mtk_raw_device *raw)

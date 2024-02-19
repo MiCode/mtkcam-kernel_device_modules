@@ -219,6 +219,72 @@ static void init_ADLWR_settings(struct mtk_cam_device *cam)
 	/* CAMADLWR_CAMADLWR_ADL_CTRL_FIELD_ID_GROUP_2 */
 	writel_relaxed(0x440, cam->adlwr_base + 0x350);
 }
+static void dump_ae_reg(struct mtk_raw_device *dev, bool force)
+{
+	u32 ae_stat_en, ae_win_org, ae_win_size, ae_win_pit, ae_win_num;
+	u32 qbn_r1_ctl, qbn_r1_pcrp_ctl, pcrp0_xpos, pcrp0_ypos, pcrp1_xpos, pcrp1_ypos;
+
+	ae_stat_en = raw_readl_relaxed(dev, dev->base_inner, 0x5840);
+	ae_win_org = raw_readl_relaxed(dev, dev->base_inner, 0x5848);
+	ae_win_size = raw_readl_relaxed(dev, dev->base_inner, 0x584c);
+	ae_win_pit = raw_readl_relaxed(dev, dev->base_inner, 0x5850);
+	ae_win_num = raw_readl_relaxed(dev, dev->base_inner, 0x5854);
+	qbn_r1_ctl = raw_readl_relaxed(dev, dev->base_inner, 0x5800);
+	qbn_r1_pcrp_ctl = raw_readl_relaxed(dev, dev->base_inner, 0x5804);
+	pcrp0_xpos = raw_readl_relaxed(dev, dev->base_inner, 0x5808);
+	pcrp0_ypos = raw_readl_relaxed(dev, dev->base_inner, 0x580c);
+	pcrp1_xpos = raw_readl_relaxed(dev, dev->base_inner, 0x5810);
+	pcrp1_ypos = raw_readl_relaxed(dev, dev->base_inner, 0x5814);
+	if (CAM_DEBUG_ENABLED(RAW_INT) || force)
+		dev_info(dev->dev,
+		"[%s] raw%d - [in] ae_stat_en/ae_win_org/ae_win_size/ae_win_pit/ae_win_num:0x%x/0x%x/0x%x/0x%x/0x%x\n",
+		__func__, dev->id, ae_stat_en, ae_win_org,
+		ae_win_size, ae_win_pit, ae_win_num);
+	if (CAM_DEBUG_ENABLED(RAW_INT) || force)
+		dev_info(dev->dev,
+		"[%s] raw%d - [in] qbn_r1_ctl/qbn_r1_pcrp_ctl/pcrp0_xpos/pcrp0_ypos/pcrp1_xpos/pcrp1_ypos:0x%x/0x%x/0x%x/0x%x/0x%x/0x%x\n",
+		__func__, dev->id, qbn_r1_ctl, qbn_r1_pcrp_ctl,
+		pcrp0_xpos, pcrp0_ypos, pcrp1_xpos, pcrp1_ypos);
+	qbn_r1_ctl = raw_readl_relaxed(dev, dev->base_inner, 0x5c80);
+	qbn_r1_pcrp_ctl = raw_readl_relaxed(dev, dev->base_inner, 0x5c84);
+	pcrp0_xpos = raw_readl_relaxed(dev, dev->base_inner, 0x5c88);
+	pcrp0_ypos = raw_readl_relaxed(dev, dev->base_inner, 0x5c8c);
+	pcrp1_xpos = raw_readl_relaxed(dev, dev->base_inner, 0x5c90);
+	pcrp1_ypos = raw_readl_relaxed(dev, dev->base_inner, 0x5c94);
+	if (CAM_DEBUG_ENABLED(RAW_INT) || force)
+		dev_info(dev->dev,
+		"[%s] raw%d - [in] qbn_r9_ctl/qbn_r9_pcrp_ctl/pcrp0_xpos/pcrp0_ypos/pcrp1_xpos/pcrp1_ypos:0x%x/0x%x/0x%x/0x%x/0x%x/0x%x\n",
+		__func__, dev->id, qbn_r1_ctl, qbn_r1_pcrp_ctl,
+		pcrp0_xpos, pcrp0_ypos, pcrp1_xpos, pcrp1_ypos);
+}
+
+static void dump_awb_reg(struct mtk_raw_device *dev, bool force)
+{
+	u32 awb_stat_en, awb_win_org, awb_win_size, awb_win_pit, awb_win_num;
+	u32 qbn_r8_ctl, qbn_r8_pcrp_ctl, pcrp0_xpos, pcrp0_ypos, pcrp1_xpos, pcrp1_ypos;
+
+	awb_stat_en = raw_readl_relaxed(dev, dev->base_inner, 0x5a80);
+	awb_win_org = raw_readl_relaxed(dev, dev->base_inner, 0x5a88);
+	awb_win_size = raw_readl_relaxed(dev, dev->base_inner, 0x5a8c);
+	awb_win_pit = raw_readl_relaxed(dev, dev->base_inner, 0x5a90);
+	awb_win_num = raw_readl_relaxed(dev, dev->base_inner, 0x5a94);
+	qbn_r8_ctl = raw_readl_relaxed(dev, dev->base_inner, 0x5a40);
+	qbn_r8_pcrp_ctl = raw_readl_relaxed(dev, dev->base_inner, 0x5a44);
+	pcrp0_xpos = raw_readl_relaxed(dev, dev->base_inner, 0x5a48);
+	pcrp0_ypos = raw_readl_relaxed(dev, dev->base_inner, 0x5a4c);
+	pcrp1_xpos = raw_readl_relaxed(dev, dev->base_inner, 0x5a50);
+	pcrp1_ypos = raw_readl_relaxed(dev, dev->base_inner, 0x5a54);
+	if (CAM_DEBUG_ENABLED(RAW_INT) || force)
+		dev_info(dev->dev,
+		"[%s] raw%d - [in] awb_stat_en/awb_win_org/awb_win_size/awb_win_pit/awb_win_num:0x%x/0x%x/0x%x/0x%x/0x%x\n",
+		__func__, dev->id, awb_stat_en, awb_win_org,
+		awb_win_size, awb_win_pit, awb_win_num);
+	if (CAM_DEBUG_ENABLED(RAW_INT) || force)
+		dev_info(dev->dev,
+		"[%s] raw%d - [in] qbn_r8_ctl/qbn_r8_pcrp_ctl/pcrp0_xpos/pcrp0_ypos/pcrp1_xpos/pcrp1_ypos:0x%x/0x%x/0x%x/0x%x/0x%x/0x%x\n",
+		__func__, dev->id, qbn_r8_ctl, qbn_r8_pcrp_ctl,
+		pcrp0_xpos, pcrp0_ypos, pcrp1_xpos, pcrp1_ypos);
+}
 
 static void dump_dc_setting(struct mtk_raw_device *dev)
 {
@@ -3078,6 +3144,8 @@ void raw_dump_debug_status(struct mtk_raw_device *dev, bool is_srt)
 	dump_tg_setting(dev, "debug");
 	dump_dmatop_dc_st(dev);
 	dump_interrupt(dev);
+	dump_ae_reg(dev, 1);
+	dump_awb_reg(dev, 1);
 
 	if (is_srt)
 		dump_topdebug_rdyreq_status(dev);

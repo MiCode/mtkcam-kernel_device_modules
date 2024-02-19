@@ -674,9 +674,13 @@ mtk_cam_job_initialize_engines(struct mtk_cam_ctx *ctx,
 
 		if (job->enable_hsf_raw)
 			mtk_cam_hsf_init(ctx);
-
+#ifdef SUPPORT_SLB_DC
 		if (is_dc_mode(job) && ctx->slb_addr)
 			mtk_cam_hsf_aid(ctx, 1, AID_CAM_DC, engines);
+#else
+		if (is_dc_mode(job) && ctx->slc_data_valid)
+			mtk_cam_hsf_aid(ctx, 1, AID_CAM_DC, engines);
+#endif
 	}
 
 	/* camsv */
@@ -1083,6 +1087,7 @@ _stream_on(struct mtk_cam_job *job, bool on)
 	struct mtk_raw_device *raw_dev;
 	struct mtk_camsv_device *sv_dev;
 	struct mtk_mraw_device *mraw_dev;
+	struct mtk_raw_ctrl_data *ctrl_data;
 	int pad_bitmask = get_seninf_pad_bitmask(job);
 	int raw_tg_idx = -1;
 	int i;
@@ -1096,8 +1101,10 @@ _stream_on(struct mtk_cam_job *job, bool on)
 	}
 
 	if (is_dc_mode(job)) {
+		ctrl_data = get_raw_ctrl_data(job);
 		pad_bitmask = 0;
 		raw_tg_idx = -1;
+		mtk_cam_ctx_slc_stream(ctx, on, ctrl_data->slc_mode);
 	}
 
 	/* TODO: separate seninf api to cammux setting and enable */
@@ -3661,6 +3668,7 @@ _common_seamless_after_frame_done(struct mtk_cam_job *job)
 	struct mtk_cam_device *cam = job->src_ctx->cam;
 	int raw_id = get_master_raw_id(job->used_engine);
 	struct mtk_raw_device *raw_dev = NULL;
+	struct mtk_raw_ctrl_data *ctrl_data;
 	int i;
 	int ret = 0;
 
@@ -3678,7 +3686,7 @@ _common_seamless_after_frame_done(struct mtk_cam_job *job)
 			job->enabled_tags, job->used_tag_cnt);
 		mtk_cam_sv_dev_config(sv_dev, 0);
 	}
-
+	mtk_cam_ctx_slc_stream(ctx, 0, 0xFF);
 	stream_on(raw_dev, 0, false);
 	for (i = 0; i < ARRAY_SIZE(ctx->hw_raw) && ctx->hw_raw[i]; ++i) {
 		struct mtk_raw_device *r = dev_get_drvdata(ctx->hw_raw[i]);
@@ -3691,7 +3699,8 @@ _common_seamless_after_frame_done(struct mtk_cam_job *job)
 	apply_camcq_stagger_en(job);
 	set_cq_deadline(job, job->scq_period);
 	toggle_raw_engines_db(ctx);
-
+	ctrl_data = get_raw_ctrl_data(job);
+	mtk_cam_ctx_slc_stream(ctx, 1, ctrl_data->slc_mode);
 	stream_on(raw_dev, 1, false);
 	if (ctx->hw_sv)
 		mtk_cam_sv_dev_stream_on(sv_dev, true,
@@ -5254,7 +5263,16 @@ static int fill_raw_meta_header(struct req_buffer_helper *helper)
 
 	return ret;
 }
-
+static int update_slc_info_to_ipi_frame(struct req_buffer_helper *helper)
+{
+	/* update slc info */
+	if (helper->job->src_ctx->slc_data_valid) {
+		helper->fp->dcif_param.dc_path_type = DC_SLC;
+		pr_info("[%s] path_type:%d",
+			__func__, helper->fp->dcif_param.dc_path_type);
+	}
+	return 0;
+}
 static int update_job_buffer_to_ipi_frame(struct mtk_cam_job *job,
 	struct mtkcam_ipi_frame_param *fp, struct pack_job_ops_helper *job_helper)
 {
@@ -5274,6 +5292,9 @@ static int update_job_buffer_to_ipi_frame(struct mtk_cam_job *job,
 
 	/* update raw metadata header */
 	ret = ret || fill_raw_meta_header(&helper);
+
+	/* update slc info */
+	ret = ret || update_slc_info_to_ipi_frame(&helper);
 
 	/* update necessary working buffer */
 	if (job_helper->append_work_buf_to_ipi)

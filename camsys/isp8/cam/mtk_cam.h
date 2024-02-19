@@ -13,6 +13,7 @@
 #include <media/media-request.h>
 #include <media/v4l2-async.h>
 #include <media/v4l2-device.h>
+#include <slbc_ops.h>
 
 /* for seninf pad enum... */
 #include "imgsensor-user.h"
@@ -87,7 +88,7 @@ struct mtk_cam_buf_fmt_desc *get_fmt_desc(
 		struct mtk_cam_driver_buf_desc *buf_desc);
 int update_buf_fmt_desc(struct mtk_cam_driver_buf_desc *desc,
 		struct v4l2_mbus_framefmt *mf);
-
+struct slbc_gid_data;
 struct mtk_cam_ctx {
 	struct mtk_cam_device *cam;
 	unsigned int stream_id;
@@ -208,7 +209,9 @@ struct mtk_cam_ctx {
 	struct mtk_cam_device_buf sensor_meta_buffer;
 	struct mtk_cam_driver_buf_desc seninf_meta_buf_desc;
 	struct mtk_cam_pool sensor_meta_pool;
-
+	int slc_gid;
+	struct slbc_gid_data slc_data;
+	bool slc_data_valid;
 	u64 sw_recovery_ts;
 
 	bool enable_luma_dump;
@@ -517,7 +520,7 @@ static inline void mtk_cam_ctx_set_raw_sink(struct mtk_cam_ctx *ctx,
 
 bool mtk_cam_ctx_is_raw_sink_changed(struct mtk_cam_ctx *ctx,
 				     struct mtk_raw_sink_data *sink);
-
+int mtk_cam_ctx_slc_stream(struct mtk_cam_ctx *ctx, bool on, int mode);
 bool mtk_cam_is_dcif_slb_supported(void);
 void
 mtk_cam_pool_wrapper_get(struct mtk_cam_pool_wrapper *wrapper);

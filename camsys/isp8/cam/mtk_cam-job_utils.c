@@ -729,6 +729,7 @@ static int update_dcif_param_to_ipi_frame(struct mtk_cam_job *job,
 
 	ctx->ring_start_offset =
 		(ctx->ring_start_offset + frame_size) % ring_buffer_size;
+
 	return 0;
 }
 

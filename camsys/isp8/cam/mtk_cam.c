@@ -1995,6 +1995,80 @@ static void mtk_cam_ctx_release_slb(struct mtk_cam_ctx *ctx)
 
 	/* reset aid: not necessary */
 }
+static int mtk_cam_ctx_request_slc(struct mtk_cam_ctx *ctx)
+{
+	int ret = 0;
+#if IS_ENABLED(CONFIG_MTK_SLBC)
+	ctx->slc_data.sign = SLC_DATA_MAGIC;
+	ctx->slc_gid = -1;
+	ret = slbc_gid_request(ID_CAM, &ctx->slc_gid, &ctx->slc_data);
+	dev_info(ctx->cam->dev, "%s: slc_data gid/bw/dma size:%d/%d/%d\n", __func__,
+		ctx->slc_gid, ctx->slc_data.bw, ctx->slc_data.dma_size);
+	ctx->slc_data_valid = true;
+#endif
+	return ret;
+}
+
+static int mtk_cam_ctx_release_slc(struct mtk_cam_ctx *ctx)
+{
+	int ret = 0;
+#if IS_ENABLED(CONFIG_MTK_SLBC)
+	ret = slbc_gid_release(ID_CAM, ctx->slc_gid);
+	dev_info(ctx->cam->dev, "%s: slc_data bw/dma size:%d/%d\n", __func__,
+		ctx->slc_data.bw, ctx->slc_data.dma_size);
+	ctx->slc_data_valid = false;
+#endif
+	return ret;
+}
+static int mtk_cam_ctx_validate_slc(struct mtk_cam_ctx *ctx)
+{
+	int ret = 0;
+#if IS_ENABLED(CONFIG_MTK_SLBC)
+	ret = slbc_validate(ID_CAM, ctx->slc_gid);
+	dev_info(ctx->cam->dev, "%s: gid:%d slc_data bw/dma size:%d/%d\n", __func__,
+		ctx->slc_gid, ctx->slc_data.bw, ctx->slc_data.dma_size);
+#endif
+	return ret;
+}
+
+static int mtk_cam_ctx_invalidate_slc(struct mtk_cam_ctx *ctx)
+{
+	int ret = 0;
+
+#if IS_ENABLED(CONFIG_MTK_SLBC)
+	ret = slbc_invalidate(ID_CAM, ctx->slc_gid);
+	dev_info(ctx->cam->dev, "%s: gid:%d slc_data bw/dma size:%d/%d\n", __func__,
+		ctx->slc_gid, ctx->slc_data.bw, ctx->slc_data.dma_size);
+#endif
+	return ret;
+}
+static int mtk_cam_ctx_slc_read_invalidate(struct mtk_cam_ctx *ctx, bool en)
+{
+	int ret = 0;
+
+#if IS_ENABLED(CONFIG_MTK_SLBC)
+	ret = slbc_read_invalidate(ID_CAM, ctx->slc_gid, en);
+	dev_info(ctx->cam->dev, "%s: en:%d gid:%d slc_data bw/dma size:%d/%d\n", __func__,
+		en, ctx->slc_gid, ctx->slc_data.bw, ctx->slc_data.dma_size);
+#endif
+	return ret;
+}
+int mtk_cam_ctx_slc_stream(struct mtk_cam_ctx *ctx, bool on, int mode)
+{
+	int ret = 0;
+
+	if (!ctx->slc_data_valid || !mode)
+		return ret;
+
+	if (on) {
+		mtk_cam_ctx_validate_slc(ctx);
+		mtk_cam_ctx_slc_read_invalidate(ctx, mode == SLC_NO_DISCARD);
+	} else {
+		mtk_cam_ctx_invalidate_slc(ctx);
+	}
+
+	return ret;
+}
 
 /* LTMS buffer */
 static int deinit_ltms_buf_pool(struct mtk_cam_ctx *ctx)
@@ -2760,7 +2834,7 @@ void mtk_cam_stop_ctx(struct mtk_cam_ctx *ctx, struct media_entity *entity)
 	mtk_cam_ctx_clean_img_pool(ctx);
 	mtk_cam_ctx_clean_rgbw_caci_buf(ctx);
 	mtk_cam_ctx_release_slb(ctx);
-
+	mtk_cam_ctx_release_slc(ctx);
 	if (ctx->cmdq_enabled)
 		cmdq_mbox_disable(cam->cmdq_clt->chan);
 
@@ -2825,6 +2899,17 @@ int mtk_cam_ctx_init_scenario(struct mtk_cam_ctx *ctx)
 		   scen_is_m2m_apu(scen, &ctrl_data->apu_info)) {
 
 		ret = mtk_cam_ctx_request_slb(ctx, UID_SH_P1, false, NULL);
+
+	} else if (res_raw_is_dc_mode(res) && res->slc_mode) {
+		/* dcif + slc buffer case */
+		ret = mtk_cam_ctx_request_slc(ctx);
+		if (ret) {
+			dev_info(cam->dev, "%s: slbc_gid_request warn.\n", __func__);
+			ret = mtk_cam_ctx_release_slc(ctx);
+			if (ret)
+				dev_info(cam->dev, "%s: slbc_gid_release warn.\n", __func__);
+			ret = 0;
+		}
 
 	} else if (res_raw_is_dc_mode(res) && res->slb_size) {
 		/* dcif + slb ring buffer case */

@@ -134,6 +134,7 @@ struct mtk_raw_ctrl_data {
 	u32 enable_hsf_raw;
 	u32 trigger_cq_deadline;
 	u8 ltms_low_latency;
+	u8 slc_mode;
 	struct mtk_raw_ctrl_data_read_clear rc_data;
 };
 
@@ -150,7 +151,6 @@ struct mtk_raw_request_data {
 	struct mtk_raw_sink_data sink;
 	struct mtk_raw_ctrl_data ctrl;
 };
-
 struct slbc_data;
 /*
  * struct mtk_raw_pipeline - sub dev to use raws.
@@ -169,7 +169,6 @@ struct mtk_raw_pipeline {
 	 */
 	atomic_t open_cnt;
 	struct slbc_data *early_request_slb_data;
-
 	/*** v4l2 ctrl related data ***/
 	/* changed with request */
 	struct mtk_raw_ctrl_data ctrl_data;
@@ -236,5 +235,6 @@ void mtk_raw_hdr_tsfifo_pop(struct mtk_raw_pipeline *pipe,
 						struct mtk_cam_hdr_timestamp_info *ts_info);
 
 void mtk_raw_reset_early_slb(struct mtk_raw_pipeline *pipe);
+void mtk_raw_reset_early_slc(struct mtk_raw_pipeline *pipe);
 
 #endif /*__MTK_CAM_RAW_PIPELINE_H*/

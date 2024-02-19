@@ -772,6 +772,7 @@ CALC_RESOURCE:
 	if (drv_data) {
 		if (mtk_raw_update_early_request_slb_data(pipeline, r))
 			dev_info(cam->dev, "failed to update early requested slb_data\n");
+		pipeline->ctrl_data.slc_mode = user_ctrl->raw_res.slc_mode;
 	}
 
 EXIT:

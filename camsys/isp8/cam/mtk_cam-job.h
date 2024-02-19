@@ -429,7 +429,6 @@ struct mtk_cam_job {
 
 	/* error status */
 	bool is_error;
-
 	/* debug only: use local_clock() to be consitent with printk */
 	u64 local_enqueue_ts;
 	u64 local_apply_sensor_ts;

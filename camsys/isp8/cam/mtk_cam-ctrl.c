@@ -1941,7 +1941,7 @@ void mtk_cam_ctrl_stop(struct mtk_cam_ctrl *cam_ctrl)
 	 */
 	atomic_set(&cam_ctrl->stopped, 1);
 	wake_up_interruptible(&cam_ctrl->done_wq);
-
+	mtk_cam_ctx_slc_stream(ctx, false, 0xFF);
 	mtk_cam_ctx_flush_adl_work(ctx);
 	mtk_cam_ctx_engine_off(ctx);
 

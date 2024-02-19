@@ -14,6 +14,7 @@
 #include <linux/vmalloc.h>
 #include <linux/suspend.h>
 #include <linux/rtc.h>
+
 #include <mtk_printk_ctrl.h>
 
 #include <soc/mediatek/smi.h>

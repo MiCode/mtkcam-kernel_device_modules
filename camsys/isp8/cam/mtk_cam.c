@@ -1000,7 +1000,8 @@ void mtk_cam_req_buffer_done(struct mtk_cam_job *job,
 			 is_buf_empty ? " (empty)" : "");
 		goto REQ_PUT;
 	}
-	if (job->req_sensor)
+	if (job->req_sensor &&
+		(job->req_sensor != job->req))
 		mtk_cam_sensor_req_buffer_done(job, pipe_id, node_id,
 			buf_state, is_proc);
 

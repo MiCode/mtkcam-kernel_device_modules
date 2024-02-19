@@ -4367,7 +4367,6 @@ static int job_factory(struct mtk_cam_job *job)
 	return ret;
 }
 #endif
-#define JOB_DEBUG 1
 static int job_sen_req_pack(struct mtk_cam_job *job)
 {
 	struct mtk_cam_ctx *ctx = job->src_ctx;
@@ -4527,7 +4526,7 @@ static int job_isp_req_pack(struct mtk_cam_job *job)
 		return -1;
 	ret = pack_helper->pack_job(job, pack_helper);
 
-	if (CAM_DEBUG_ENABLED(JOB) || JOB_DEBUG)
+	if (CAM_DEBUG_ENABLED(JOB))
 		pr_info("[%s] ctx:%d|type:%d|%s|exp(cur:%d,prev:%d)|sw/scene:%d/%d, req_id:%d",
 				__func__,
 				ctx->stream_id, job->job_type, job->scen_str,

@@ -691,7 +691,7 @@ mtk_cam_job_initialize_engines(struct mtk_cam_ctx *ctx,
 
 		if (qof_enabled)
 			mtk_cam_sv_set_queue_mode(sv, true);
-		mtk_cam_sv_dev_config(sv, job->sub_ratio - 1);  /* TODO(AY): remove -1 */
+		mtk_cam_sv_dev_config(sv, job->sub_ratio - 1, get_sensor_interval_us(job));  /* TODO(AY): remove -1 */
 
 		/* smi path sel */
 		if (cur_platform->hw->platform_id != 6991)
@@ -704,8 +704,8 @@ mtk_cam_job_initialize_engines(struct mtk_cam_ctx *ctx,
 			if (ctx->hw_mraw[i]) {
 				struct mtk_mraw_device *mraw =
 					dev_get_drvdata(ctx->hw_mraw[i]);
-
-				mtk_cam_mraw_dev_config(mraw, job->sub_ratio - 1); /* TODO(AY): remove -1 */
+				mtk_cam_mraw_dev_config(mraw, job->sub_ratio - 1,
+					get_sensor_interval_us(job)); /* TODO(AY): remove -1 */
 			}
 		}
 	}
@@ -3778,7 +3778,7 @@ _common_seamless_after_frame_done(struct mtk_cam_job *job)
 	if (ctx->hw_sv) {
 		mtk_cam_sv_dev_stream_on(sv_dev, false,
 			job->enabled_tags, job->used_tag_cnt);
-		mtk_cam_sv_dev_config(sv_dev, 0);
+		mtk_cam_sv_dev_config(sv_dev, 0, get_sensor_interval_us(job));
 	}
 	mtk_cam_ctx_slc_stream(ctx, 0, 0xFF);
 	stream_on(raw_dev, 0, false);
@@ -4810,7 +4810,6 @@ static int mtk_cam_job_fill_ipi_config(struct mtk_cam_job *job,
 		pipe->res_config.tg_fmt = sensor_mbus_to_ipi_pixel_id(sink->mbus_code);
 		pipe->res_config.pixel_mode = 4;
 		atomic_set(&pipe->res_config.is_fmt_change, 1);
-
 		mraw_set_ipi_input_param(&mraw_input->input,
 			sink, 4, 1, job->sub_ratio);
 	}

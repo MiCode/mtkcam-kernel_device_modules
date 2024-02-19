@@ -3367,7 +3367,7 @@ void mtk_cam_ctx_engine_dc_sw_recovery(struct mtk_cam_ctx *ctx)
 
 	if (ctx->hw_sv) {
 		sv_dev = dev_get_drvdata(ctx->hw_sv);
-		mtk_cam_sv_dev_config(sv_dev, 0);
+		mtk_cam_sv_dev_config(sv_dev, 0, -1);
 		mtk_cam_sv_restore(sv_dev);
 		mtk_cam_sv_dev_stream_on(sv_dev, 1,
 					 ctx->enabled_tags, ctx->used_tag_cnt);

@@ -149,6 +149,7 @@ struct mtk_mraw_device {
 	struct notifier_block notifier_blk;
 #endif
 	atomic_t is_vf_on;
+	atomic_t is_sw_clr;
 
 	/* mmqos */
 	struct mtk_camsys_qos qos;
@@ -159,7 +160,8 @@ struct mtk_mraw_device {
 };
 
 void mraw_reset(struct mtk_mraw_device *mraw_dev);
-int mtk_cam_mraw_dev_config(struct mtk_mraw_device *mraw_dev, unsigned int sub_ratio);
+int mtk_cam_mraw_dev_config(struct mtk_mraw_device *mraw_dev, unsigned int sub_ratio,
+	int frm_time_us);
 void mtk_cam_mraw_update_start_period(struct mtk_mraw_device *mraw_dev, int scq_ms);
 int mtk_cam_mraw_dev_stream_on(struct mtk_mraw_device *mraw_dev, bool on);
 int mtk_cam_mraw_top_config(struct mtk_mraw_device *mraw_dev);

@@ -31,6 +31,10 @@
 static int debug_cam_sv;
 module_param(debug_cam_sv, int, 0644);
 
+static int debug_ddren_camsv_hw_mode;
+module_param(debug_ddren_camsv_hw_mode, int, 0644);
+MODULE_PARM_DESC(debug_ddren_camsv_hw_mode, "debug: 1 : active camsv hw mode");
+
 #undef dev_dbg
 #define dev_dbg(dev, fmt, arg...)		\
 	do {					\
@@ -1152,7 +1156,7 @@ unsigned int mtk_cam_get_seninf_pad_index(struct mtk_camsv_tag_info *arr_tag,
 }
 
 int mtk_cam_sv_dev_config(struct mtk_camsv_device *sv_dev,
-	unsigned int sub_ratio)
+	unsigned int sub_ratio, int frm_time_us)
 {
 	engine_fsm_reset(&sv_dev->fsm, sv_dev->dev);
 	sv_dev->cq_ref = NULL;
@@ -1172,11 +1176,11 @@ int mtk_cam_sv_dev_config(struct mtk_camsv_device *sv_dev,
 	sv_dev->sv_peak_applied_bw_w = 0;
 
 	atomic_set(&sv_dev->is_seamless, 0);
+	atomic_set(&sv_dev->is_sw_clr, 0);
 
 	mtk_cam_sv_dmao_common_config(sv_dev, 0, 0, 0, 0, 0);
 	mtk_cam_sv_cq_config(sv_dev, sub_ratio);
-	mtk_cam_sv_ddren_config(sv_dev);
-	mtk_cam_sv_bw_qos_config(sv_dev);
+	mtk_cam_sv_ddren_qos_config(sv_dev, frm_time_us);
 
 	dev_info(sv_dev->dev, "[%s] sub_ratio:%d set seamless check\n", __func__, sub_ratio);
 
@@ -1300,11 +1304,24 @@ int mtk_cam_sv_cq_config(struct mtk_camsv_device *sv_dev, unsigned int sub_ratio
 	return 0;
 }
 
-int mtk_cam_sv_ddren_config(struct mtk_camsv_device *sv_dev)
+#define HW_TIMER_INC_PERIOD   0x2
+#define DDR_GEN_BEFORE_US     3
+#define QOS_GEN_BEFORE_US     100
+#define MARGIN                300
+int mtk_cam_sv_ddren_qos_config(struct mtk_camsv_device *sv_dev, int frm_time_us)
 {
-	/* sw mode */
-	CAMSV_WRITE_BITS(sv_dev->base + REG_CAMSVCENTRAL_DDR_CFG,
-		CAMSVCENTRAL_DDR_CFG, DDR_MODE_SEL, 1);
+	int ddr_gen_pulse, qos_gen_pulse;
+
+	pr_info("%s frm_time_us %d\n", __func__, frm_time_us);
+
+	if (frm_time_us == -1)
+		return 0;
+
+	ddr_gen_pulse = (frm_time_us - DDR_GEN_BEFORE_US - MARGIN) * SCQ_DEFAULT_CLK_RATE /
+		(2 * (HW_TIMER_INC_PERIOD + 1)) - 1;
+
+	qos_gen_pulse = (frm_time_us - QOS_GEN_BEFORE_US - MARGIN) * SCQ_DEFAULT_CLK_RATE /
+		(2 * (HW_TIMER_INC_PERIOD + 1)) - 1;
 
 	/* sw ddr en */
 	CAMSV_WRITE_BITS(sv_dev->base + REG_CAMSVCENTRAL_DDR_CFG,
@@ -1314,15 +1331,6 @@ int mtk_cam_sv_ddren_config(struct mtk_camsv_device *sv_dev)
 	CAMSV_WRITE_BITS(sv_dev->base + REG_CAMSVCENTRAL_DDR_CFG,
 		CAMSVCENTRAL_DDR_CFG, DDR_OR_CQ_EN, 1);
 
-	return 0;
-}
-
-int mtk_cam_sv_bw_qos_config(struct mtk_camsv_device *sv_dev)
-{
-	/* sw mode */
-	CAMSV_WRITE_BITS(sv_dev->base + REG_CAMSVCENTRAL_BW_QOS_CFG,
-		CAMSVCENTRAL_BW_QOS_CFG, BW_QOS_MODE_SEL, 1);
-
 	/* sw bw_qos en */
 	CAMSV_WRITE_BITS(sv_dev->base + REG_CAMSVCENTRAL_BW_QOS_CFG,
 		CAMSVCENTRAL_BW_QOS_CFG, BW_QOS_SET, 1);
@@ -1331,6 +1339,27 @@ int mtk_cam_sv_bw_qos_config(struct mtk_camsv_device *sv_dev)
 	CAMSV_WRITE_BITS(sv_dev->base + REG_CAMSVCENTRAL_BW_QOS_CFG,
 		CAMSVCENTRAL_BW_QOS_CFG, BW_QOS_OR_CQ_EN, 1);
 
+	if (ddr_gen_pulse < 0 || qos_gen_pulse < 0) {
+		pr_info("%s: framelength too small, so use sw mode\n", __func__);
+		atomic_set(&sv_dev->is_sw_clr, 3);
+		return 0;
+	}
+
+	if (debug_ddren_camsv_hw_mode) {
+		CAMSV_WRITE_BITS(sv_dev->base + REG_CAMSVCENTRAL_DDR_CFG,
+			CAMSVCENTRAL_DDR_CFG, DDR_MODE_SEL, 0);
+		CAMSV_WRITE_BITS(sv_dev->base + REG_CAMSVCENTRAL_DDR_CFG,
+			CAMSVCENTRAL_DDR_CFG, DDR_TIMER_EN, 1);
+		CAMSV_WRITE_REG(sv_dev->base + REG_CAMSVCENTRAL_DDR_THRESHOLD,
+			ddr_gen_pulse);
+
+		CAMSV_WRITE_BITS(sv_dev->base + REG_CAMSVCENTRAL_BW_QOS_CFG,
+			CAMSVCENTRAL_BW_QOS_CFG, BW_QOS_MODE_SEL, 0);
+		CAMSV_WRITE_BITS(sv_dev->base + REG_CAMSVCENTRAL_BW_QOS_CFG,
+			CAMSVCENTRAL_BW_QOS_CFG, BW_QOS_TIMER_EN, 1);
+		CAMSV_WRITE_REG(sv_dev->base + REG_CAMSVCENTRAL_BW_QOS_THRESHOLD,
+			qos_gen_pulse);
+	}
 	return 0;
 }
 
@@ -1808,6 +1837,17 @@ static irqreturn_t mtk_irq_camsv_sof(int irq, void *data)
 		engine_handle_sof(&sv_dev->cq_ref,
 				  bit_map_bit(MAP_HW_CAMSV, sv_dev->id),
 				  irq_info.frame_idx_inner);
+
+		if (debug_ddren_camsv_hw_mode && atomic_read(&sv_dev->is_sw_clr) < 2) {
+			atomic_inc(&sv_dev->is_sw_clr);
+			if (atomic_read(&sv_dev->is_sw_clr) == 2) {
+				CAMSV_WRITE_BITS(sv_dev->base + REG_CAMSVCENTRAL_DDR_CFG,
+					CAMSVCENTRAL_DDR_CFG, DDR_CLEAR, 1);
+				CAMSV_WRITE_BITS(sv_dev->base + REG_CAMSVCENTRAL_BW_QOS_CFG,
+					CAMSVCENTRAL_BW_QOS_CFG, BW_QOS_CLEAR, 1);
+				dev_dbg(sv_dev->dev,"camsv do swclr");
+			}
+		}
 	}
 
 	if (irq_info.irq_type && push_msgfifo(sv_dev, &irq_info) == 0)

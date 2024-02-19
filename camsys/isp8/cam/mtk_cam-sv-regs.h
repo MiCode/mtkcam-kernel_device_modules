@@ -94,6 +94,8 @@ union CAMSVCENTRAL_DDR_CFG {
 	unsigned int Raw;
 };
 
+#define REG_CAMSVCENTRAL_DDR_THRESHOLD			0x0154
+
 #define REG_CAMSVCENTRAL_BW_QOS_CFG				0x0158
 union CAMSVCENTRAL_BW_QOS_CFG {
 	struct {
@@ -108,6 +110,8 @@ union CAMSVCENTRAL_BW_QOS_CFG {
 	} Bits;
 	unsigned int Raw;
 };
+
+#define REG_CAMSVCENTRAL_BW_QOS_THRESHOLD		0x015c
 
 #define REG_CAMSVCENTRAL_TAG_R_SEL				0x0174
 

@@ -168,6 +168,7 @@ struct mtk_camsv_device {
 	unsigned int active_group_info[MAX_SV_HW_GROUPS];
 	unsigned int first_tag;
 	unsigned int last_tag;
+	atomic_t is_sw_clr;
 
 	unsigned int handled_tags;
 	unsigned int used_tags;
@@ -209,10 +210,10 @@ struct mtk_camsv_device {
 
 void sv_reset(struct mtk_camsv_device *sv_dev);
 void mtk_cam_sv_debug_dump(struct mtk_camsv_device *sv_dev, unsigned int dump_tags);
-int mtk_cam_sv_dev_config(struct mtk_camsv_device *sv_dev, unsigned int sub_ratio);
+int mtk_cam_sv_dev_config(struct mtk_camsv_device *sv_dev, unsigned int sub_ratio,
+	int frm_time_us);
 int mtk_cam_sv_cq_config(struct mtk_camsv_device *sv_dev, unsigned int sub_ratio);
-int mtk_cam_sv_ddren_config(struct mtk_camsv_device *sv_dev);
-int mtk_cam_sv_bw_qos_config(struct mtk_camsv_device *sv_dev);
+int mtk_cam_sv_ddren_qos_config(struct mtk_camsv_device *sv_dev, int frm_time_us);
 void mtk_cam_sv_update_start_period(struct mtk_camsv_device *sv_dev, int scq_ms);
 int mtk_cam_sv_cq_disable(struct mtk_camsv_device *sv_dev);
 int mtk_cam_sv_dev_pertag_stream_on(

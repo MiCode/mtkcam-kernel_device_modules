@@ -91,6 +91,7 @@ union MRAW_CTL_DDREN_CTL {
 	} Bits;
 	unsigned int Raw;
 };
+#define REG_MRAW_CTL_DDREN_ST					0x0084
 
 #define REG_MRAW_CTL_BW_QOS_CTL					0x0088
 union MRAW_CTL_BW_QOS_CTL {
@@ -246,6 +247,7 @@ union MRAW_TG_PATH_CFG {
 #define REG_MRAW_TG_FRMSIZE_ST					0x0538
 
 #define REG_MRAW_TG_INTER_ST					0x053C
+
 #define MRAWTG_CS_MASK							0x3F00
 #define MRAWTG_IDLE_ST							BIT(8)
 
@@ -254,6 +256,20 @@ union MRAW_TG_PATH_CFG {
 #define REG_MRAW_TG_TIME_STAMP_CTL				0x0570
 #define REG_MRAW_TG_TIME_STAMP					0x0578
 #define REG_MRAW_TG_TIME_STAMP_CNT				0x057C
+
+#define REG_MRAW_TG_HW_TIMER_CTL					0x05C0
+union MRAW_TG_TIMER_CTL {
+	struct {
+		unsigned int TG_HW_TIMER_EN				:  1;
+		unsigned int rsv_1						: 31;
+	} Bits;
+	unsigned int Raw;
+};
+#define REG_MRAW_TG_HW_TIMER_INC_PERIOD			0x05C4
+#define REG_MRAW_TG_HW_DDR_GEN_PLUS_CNT			0x05C8
+#define REG_MRAW_TG_HW_QOS_GEN_PLUS_CNT			0x05CC
+
+#define REG_MRAW_TG_HW_TIMER_CNT				0x05d0
 
 #define REG_MRAW_SEP_CTL						0x0600
 #define REG_MRAW_SEP_CROP						0x0604

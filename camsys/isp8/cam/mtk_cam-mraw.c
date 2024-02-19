@@ -25,6 +25,10 @@
 static int debug_cam_mraw;
 module_param(debug_cam_mraw, int, 0644);
 
+static int debug_ddren_mraw_hw_mode;
+module_param(debug_ddren_mraw_hw_mode, int, 0644);
+MODULE_PARM_DESC(debug_ddren_mraw_hw_mode, "debug: 1 : active mraw hw mode");
+
 #undef dev_dbg
 #define dev_dbg(dev, fmt, arg...)		\
 	do {					\
@@ -920,21 +924,48 @@ int mtk_cam_mraw_cq_config(struct mtk_mraw_device *mraw_dev,
 	return 0;
 }
 
-int mtk_cam_mraw_ddren_config(struct mtk_mraw_device *mraw_dev)
+#define HW_TIMER_INC_PERIOD   0x2
+#define DDR_GEN_BEFORE_US     3
+#define QOS_GEN_BEFORE_US     100
+#define MARGIN                3000
+int mtk_cam_mraw_ddren_qos_config(struct mtk_mraw_device *mraw_dev, int frm_time_us)
 {
+	int ddr_gen_pulse, qos_gen_pulse;
+
+	pr_info("%s frm_time_us %d\n", __func__, frm_time_us);
+
+	ddr_gen_pulse = (frm_time_us - DDR_GEN_BEFORE_US - MARGIN) * SCQ_DEFAULT_CLK_RATE /
+		(2 * (HW_TIMER_INC_PERIOD + 1)) - 1;
+
+	qos_gen_pulse = (frm_time_us - QOS_GEN_BEFORE_US - MARGIN) * SCQ_DEFAULT_CLK_RATE /
+		(2 * (HW_TIMER_INC_PERIOD + 1)) - 1;
+
 	/* sw ddr en */
 	MRAW_WRITE_BITS(mraw_dev->base + REG_MRAW_CTL_DDREN_CTL,
 		MRAW_CTL_DDREN_CTL, MRAWCTL_DDREN_SW_SET, 1);
-
-	return 0;
-}
-
-int mtk_cam_mraw_bw_qos_config(struct mtk_mraw_device *mraw_dev)
-{
-	/* sw bw_qos en */
 	MRAW_WRITE_BITS(mraw_dev->base + REG_MRAW_CTL_BW_QOS_CTL,
 		MRAW_CTL_BW_QOS_CTL, MRAWCTL_BW_QOS_SW_SET, 1);
 
+	if (ddr_gen_pulse < 0 || qos_gen_pulse < 0) {
+		pr_info("%s: framelength too small, so use sw mode\n", __func__);
+		atomic_set(&mraw_dev->is_sw_clr, 3);
+		return 0;
+	}
+
+	if (debug_ddren_mraw_hw_mode) {
+		MRAW_WRITE_BITS(mraw_dev->base + REG_MRAW_CTL_DDREN_CTL,
+			MRAW_CTL_DDREN_CTL, MRAWCTL_DDREN_HW_EN, 1);
+		MRAW_WRITE_BITS(mraw_dev->base + REG_MRAW_TG_HW_TIMER_CTL,
+			MRAW_TG_TIMER_CTL, TG_HW_TIMER_EN, 1);
+		MRAW_WRITE_REG(mraw_dev->base + REG_MRAW_TG_HW_TIMER_INC_PERIOD,
+			HW_TIMER_INC_PERIOD);
+		MRAW_WRITE_REG(mraw_dev->base + REG_MRAW_TG_HW_DDR_GEN_PLUS_CNT,
+			ddr_gen_pulse);
+		MRAW_WRITE_BITS(mraw_dev->base + REG_MRAW_CTL_BW_QOS_CTL,
+			MRAW_CTL_BW_QOS_CTL, MRAWCTL_BW_QOS_HW_EN, 1);
+		MRAW_WRITE_REG(mraw_dev->base + REG_MRAW_TG_HW_QOS_GEN_PLUS_CNT,
+			qos_gen_pulse);
+	}
 	return 0;
 }
 
@@ -1057,13 +1088,14 @@ int mtk_cam_mraw_is_vf_on(struct mtk_mraw_device *mraw_dev)
 }
 
 int mtk_cam_mraw_dev_config(struct mtk_mraw_device *mraw_dev,
-	unsigned int sub_ratio)
+	unsigned int sub_ratio, int frm_time_us)
 {
 	engine_fsm_reset(&mraw_dev->fsm, mraw_dev->dev);
 	mraw_dev->cq_ref = NULL;
 
 	/* reset vf on status */
 	atomic_set(&mraw_dev->is_vf_on, 0);
+	atomic_set(&mraw_dev->is_sw_clr, 0);
 
 	mraw_dev->mraw_avg_applied_bw_w = 0;
 	mraw_dev->mraw_peak_applied_bw_w = 0;
@@ -1073,8 +1105,7 @@ int mtk_cam_mraw_dev_config(struct mtk_mraw_device *mraw_dev,
 	mtk_cam_mraw_fbc_config(mraw_dev);
 	mtk_cam_mraw_fbc_enable(mraw_dev);
 	mtk_cam_mraw_cq_config(mraw_dev, sub_ratio);
-	mtk_cam_mraw_ddren_config(mraw_dev);
-	mtk_cam_mraw_bw_qos_config(mraw_dev);
+	mtk_cam_mraw_ddren_qos_config(mraw_dev, frm_time_us);
 
 	dev_info(mraw_dev->dev, "[%s] sub_ratio:%d\n", __func__, sub_ratio);
 
@@ -1288,14 +1319,29 @@ static irqreturn_t mtk_irq_mraw(int irq, void *data)
 	/* Frame done */
 	if (irq_status & MRAWCTL_SW_PASS1_DONE_ST) {
 		irq_info.irq_type |= (1 << CAMSYS_IRQ_FRAME_DONE);
-		dev_dbg(dev, "p1_done sof_cnt:%d\n", mraw_dev->sof_count);
+		dev_dbg(dev, "p1_done sof_cnt:%d timer_ctl:0x%x timer_inc:0x%x ddr_gen_plus_cnt0x%x ddren_ctl0x%x ddren_st0x%x\n",
+			mraw_dev->sof_count,
+			readl_relaxed(mraw_dev->base + REG_MRAW_TG_HW_TIMER_CTL),
+			readl_relaxed(mraw_dev->base + REG_MRAW_TG_HW_TIMER_INC_PERIOD),
+			readl_relaxed(mraw_dev->base + REG_MRAW_TG_HW_DDR_GEN_PLUS_CNT),
+			readl_relaxed(mraw_dev->base + REG_MRAW_CTL_DDREN_CTL),
+			readl_relaxed(mraw_dev->base + REG_MRAW_CTL_DDREN_ST));
 	}
 	/* Frame start */
 	if (irq_status & MRAWCTL_SOF_INT_ST) {
 		irq_info.irq_type |= (1 << CAMSYS_IRQ_FRAME_START);
 		mraw_dev->sof_count++;
 		dev_dbg(dev, "sof cnt:%d\n", mraw_dev->sof_count);
-
+		if (debug_ddren_mraw_hw_mode && atomic_read(&mraw_dev->is_sw_clr) < 2) {
+			atomic_inc(&mraw_dev->is_sw_clr);
+			if (atomic_read(&mraw_dev->is_sw_clr) == 2) {
+				MRAW_WRITE_BITS(mraw_dev->base + REG_MRAW_CTL_DDREN_CTL,
+					MRAW_CTL_DDREN_CTL, MRAWCTL_DDREN_SW_CLR, 1);
+				MRAW_WRITE_BITS(mraw_dev->base + REG_MRAW_CTL_BW_QOS_CTL,
+					MRAW_CTL_BW_QOS_CTL, MRAWCTL_BW_QOS_SW_CLR, 1);
+				dev_dbg(dev,"mraw do swclr");
+			}
+		}
 		irq_info.fbc_empty = (sw_enque_err_status) ? 1 : 0;
 		engine_handle_sof(&mraw_dev->cq_ref,
 				  bit_map_bit(MAP_HW_MRAW, mraw_dev->id),

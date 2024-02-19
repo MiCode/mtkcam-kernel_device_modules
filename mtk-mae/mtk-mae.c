@@ -19,6 +19,7 @@
 #include <linux/pm_runtime.h>
 
 #include <linux/device.h>
+#include <linux/version.h>
 #include <media/v4l2-ctrls.h>
 #include <media/v4l2-event.h>
 #include <media/v4l2-ioctl.h>
@@ -26,7 +27,6 @@
 #include <media/videobuf2-core.h>
 #include <media/videobuf2-dma-contig.h>
 #include <media/videobuf2-v4l2.h>
-#include "mtk_dma_contig.h"
 #include "iommu_debug.h"
 #include <linux/soc/mediatek/mtk-cmdq-ext.h>
 #include "cmdq-sec.h"
@@ -358,7 +358,11 @@ static int mtk_mae_set_dmabuf_info(struct mtk_mae_dev *mae_dev,
 	}
 
 	if (addr_type == GET_VA || addr_type == GET_BOTH) {
+#ifdef MAE_DMA_BUF_UNLOCK_API
+		ret = (uint64_t)dma_buf_vmap_unlocked(info->dmabuf, &info->map);
+#else
 		ret = (uint64_t)dma_buf_vmap(info->dmabuf, &info->map);
+#endif
 		if (ret) {
 			mae_dev_info(mae_dev->dev, "%s, map kernel va failed fd(%d)\n",
 					__func__, fd);
@@ -380,8 +384,13 @@ static int mtk_mae_set_dmabuf_info(struct mtk_mae_dev *mae_dev,
 			goto ERROR_DMA_BUF_ATTACH_FAIL;
 		}
 
+#ifdef MAE_DMA_BUF_UNLOCK_API
+		info->sg_table =
+			dma_buf_map_attachment_unlocked(info->attach, DMA_BIDIRECTIONAL);
+#else
 		info->sg_table =
 			dma_buf_map_attachment(info->attach, DMA_BIDIRECTIONAL);
+#endif
 		if (IS_ERR(info->sg_table)) {
 			mae_dev_info(mae_dev->dev, "%s, dmabuf map attach fail fd(%d)\n",
 					__func__, fd);
@@ -778,8 +787,13 @@ static int mtk_mae_hw_connect(struct mtk_mae_dev *mae_dev)
 			goto ERROR_DMA_BUF_ATTACH_FAIL;
 		}
 
+#ifdef MAE_DMA_BUF_UNLOCK_API
+		buf_info->sg_table =
+			dma_buf_map_attachment_unlocked(buf_info->attach, DMA_BIDIRECTIONAL);
+#else
 		buf_info->sg_table =
 			dma_buf_map_attachment(buf_info->attach, DMA_BIDIRECTIONAL);
+#endif
 		if (IS_ERR(buf_info->sg_table)) {
 			mae_dev_info(mae_dev->dev, "%s, dmabuf map attach fail\n", __func__);
 			ret = -ENOMEM;
@@ -841,13 +855,22 @@ static void mtk_mae_umap_detach(struct mtk_mae_dev *mae_dev,
 								struct dmabuf_info *info)
 {
 	if (info->is_map) {
+#ifdef MAE_DMA_BUF_UNLOCK_API
+		dma_buf_vunmap_unlocked(info->dmabuf, &info->map);
+#else
 		dma_buf_vunmap(info->dmabuf, &info->map);
+#endif
 		info->is_map = false;
 	}
 
 	if (info->is_attach) {
+#ifdef MAE_DMA_BUF_UNLOCK_API
+		dma_buf_unmap_attachment_unlocked(info->attach,
+			info->sg_table, DMA_BIDIRECTIONAL);
+#else
 		dma_buf_unmap_attachment(info->attach,
 			info->sg_table, DMA_BIDIRECTIONAL);
+#endif
 		dma_buf_detach(info->dmabuf, info->attach);
 
 		info->is_attach = false;

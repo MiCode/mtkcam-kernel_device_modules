@@ -18,10 +18,8 @@ KERNEL_VERSION = $(patsubst kernel_device_modules-%,%,$(NOTDIR_DEVICE_MODULES_PA
 $(info mtk_mae KERNEL_VERSION=$(KERNEL_VERSION))
 
 ifeq (6.6,$(word 1,$(sort 6.6 $(KERNEL_VERSION))))
-CFLAGS = -DMAE_DMA_BUF_UNLOCK_API
+ccflags-y += -DMAE_DMA_BUF_UNLOCK_API
 endif
-
-$(info mtk_mae Kbuild CFLAGS=$(CFLAGS))
 
 ccflags-y += -I$(DEVICE_MODULES_PATH)/drivers/misc/mediatek/mtk-interconnect/
 ccflags-y += -I$(DEVICE_MODULES_PATH)/drivers/misc/mediatek/cmdq/mailbox/

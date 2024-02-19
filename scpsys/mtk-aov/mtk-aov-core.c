@@ -474,28 +474,28 @@ int aov_core_send_cmd(struct mtk_aov *aov_dev, uint32_t cmd,
 					return -ENOMEM;
 				}
 
+				core_info->sensor_id = user.pipe_id;
+
 				/* set seninf aov parameters for scp use and
 				 * switch i2c bus aux function here on scp side.
 				 */
 				AOV_DEBUG_LOG(*(aov_dev->enable_aov_log_flag),
 					"mtk_cam_seninf_s_aov_param(%d/%d)+\n",
-					user.sensor_id, INIT_NORMAL);
+					core_info->sensor_id, INIT_NORMAL);
 				if (aov_dev->fd_version == 2) {
-					ret = mtk_cam_seninf_s_aov_param(user.sensor_id,
+					ret = mtk_cam_seninf_s_aov_param(core_info->sensor_id,
 						(void *)&(start_v2->senif_info), INIT_NORMAL);
 				} else {
-					ret = mtk_cam_seninf_s_aov_param(user.sensor_id,
+					ret = mtk_cam_seninf_s_aov_param(core_info->sensor_id,
 						(void *)&(start->senif_info), INIT_NORMAL);
 				}
 				if (ret < 0)
 					dev_info(aov_dev->dev,
 						"mtk_cam_seninf_s_aov_param(%d/%d) fail, ret: %d\n",
-						user.sensor_id, INIT_NORMAL, ret);
+						core_info->sensor_id, INIT_NORMAL, ret);
 				AOV_DEBUG_LOG(*(aov_dev->enable_aov_log_flag),
 					"mtk_cam_seninf_s_aov_param(%d/%d)-\n",
-					user.sensor_id, INIT_NORMAL);
-
-				core_info->sensor_id = user.sensor_id;
+					core_info->sensor_id, INIT_NORMAL);
 
 				/* suspend and set clk parent here to prevent enque
 				 * racing issue when power on/off on scp side.

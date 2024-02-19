@@ -311,6 +311,8 @@ struct aov_user {
 
 	uint32_t tuning_size;
 	void *tuning_info;
+
+	uint32_t pipe_id;
 };
 
 struct senif_start {

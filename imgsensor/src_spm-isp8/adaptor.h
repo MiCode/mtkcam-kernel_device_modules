@@ -63,6 +63,7 @@ struct adaptor_ctx;
 static unsigned int sensor_debug;
 static unsigned int set_ctrl_unlock;
 #define VC_MULTI_CAMERA 1
+#define ALWAYS_ON_POWER 0
 #ifdef IMGSENSOR_FUSION_TEST_WORKAROUND
 extern unsigned int gSensor_num;
 extern unsigned int is_multicam;
@@ -252,6 +253,10 @@ struct adaptor_ctx {
 	/* embedded data dump */
 	struct mutex ebd_lock;
 	struct mtk_ebd_dump_record latest_ebd;
+#if ALWAYS_ON_POWER
+	unsigned int always_on_flag;
+	struct notifier_block notifier_blk;
+#endif
 };
 
 #endif

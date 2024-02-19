@@ -515,6 +515,9 @@ int do_hw_power_on(struct adaptor_ctx *ctx)
 
 int adaptor_hw_power_on(struct adaptor_ctx *ctx)
 {
+#if ALWAYS_ON_POWER
+	int ret;
+#endif
 	adaptor_logm(ctx, "+\n");
 #ifndef IMGSENSOR_USE_PM_FRAMEWORK
 	adaptor_logd(ctx, "power ref cnt = %d\n", ctx->power_refcnt);
@@ -525,12 +528,102 @@ int adaptor_hw_power_on(struct adaptor_ctx *ctx)
 	}
 #endif
 	adaptor_logm(ctx, "-\n");
+#if ALWAYS_ON_POWER
+	if (check_multicam_power(ctx, 0)||ctx->always_on_flag) {
+		if (pm_runtime_suspended(ctx->dev)) {
+			ret = pm_runtime_get_sync(ctx->dev);
+			if (ret < 0) {
+				pm_runtime_put_noidle(ctx->dev);
+				dev_info(ctx->dev, "%s pm_runtime_get_sync fail\n", __func__);
+			}
+		}
+		if (ctx->always_on_flag) {
+			if (ctx->sensor_ws) {
+				if (ctx->aov_pm_ops_flag == 0) {
+					ctx->aov_pm_ops_flag = 1;
+					__pm_stay_awake(ctx->sensor_ws);
+				}
+			} else {
+				adaptor_logm(ctx, "__pm_stay_awake(fail)\n");
+			}
+		}
+		return 0;
+	}
+	if (pm_runtime_suspended(ctx->dev)) {
+		ret = pm_runtime_get_sync(ctx->dev);
+		if (ret < 0) {
+			pm_runtime_put_noidle(ctx->dev);
+			dev_info(ctx->dev, "%s pm_runtime_get_sync fail\n", __func__);
+		}
+	}
+	do_hw_power_on(ctx);
+	ctx->always_on_flag = 1;
+	subdrv_call(ctx, pre_open);
+	imgsensor_multicam_always_on_process(ctx);
+	return 0;
+#else
 	if (check_multicam_power(ctx, 0))
 		return 0;
 
 	return do_hw_power_on(ctx);
+#endif
 }
+#if ALWAYS_ON_POWER
+int do_hw_power_off_of_suspend(struct adaptor_ctx *ctx)
+{
+	int i;
+	const struct subdrv_pw_seq_entry *ent;
+	struct adaptor_hw_ops *op;
 
+	adaptor_logm(ctx, "+\n");
+	/* call subdrv close function if sensor is streaming */
+	if (ctx->subctx.is_streaming)
+		subdrv_call(ctx, close);
+
+	if (ctx->subctx.s_ctx.mode[ctx->subctx.current_scenario_id].rosc_mode) {
+		for (i = 0; i < ctx->mclk_refcnt; i++) {
+			// enable mclk
+			if (clk_prepare_enable(ctx->clk[CLK1_MCLK1]))
+				adaptor_logi(ctx,
+				"clk_prepare_enable CLK1_MCLK1(fail)\n");
+		}
+		adaptor_logi(ctx, "[%s] rosc_mode recover. enable aov mclk.\n", __func__);
+		ctx->mclk_refcnt = 0;
+	}
+
+	if (ctx->subdrv->ops->power_off)
+		subdrv_call(ctx, power_off, NULL);
+
+	for (i = ctx->subdrv->pw_seq_cnt - 1; i >= 0; i--) {
+		if (ctx->ctx_pw_seq)
+			ent = &ctx->ctx_pw_seq[i]; // use ctx pw seq
+		else
+			ent = &ctx->subdrv->pw_seq[i];
+		op = &ctx->hw_ops[ent->id];
+		if (!op->unset)
+			continue;
+		op->unset(ctx, op->data, ent->val);
+		//msleep(ent->delay);
+	}
+	adaptor_pmic_ctrl(ctx, false);
+
+	op = &ctx->hw_ops[HW_ID_MIPI_SWITCH];
+	if (op->unset)
+		op->unset(ctx, op->data, 0);
+
+	/* the pins of mipi switch are shared. free it for another users */
+	if (ctx->state[STATE_MIPI_SWITCH_ON] ||
+		ctx->state[STATE_MIPI_SWITCH_OFF] ||
+		ctx->state[STATE_DOVDD_ON] ||
+		ctx->state[STATE_DOVDD_OFF]) {
+		devm_pinctrl_put(ctx->pinctrl);
+		ctx->pinctrl = NULL;
+	}
+
+	adaptor_logm(ctx, "-\n");
+	return 0;
+}
+#endif
 int do_hw_power_off(struct adaptor_ctx *ctx)
 {
 	int i;
@@ -616,9 +709,22 @@ int adaptor_hw_power_off(struct adaptor_ctx *ctx)
 #endif
 
 	adaptor_logm(ctx, "-\n");
+#if ALWAYS_ON_POWER
+	if (check_multicam_power(ctx, 1)||ctx->always_on_flag) {
+		if (ctx->sensor_ws) {
+			if (ctx->aov_pm_ops_flag == 1) {
+				ctx->aov_pm_ops_flag = 0;
+				__pm_relax(ctx->sensor_ws);
+			}
+		} else {
+			adaptor_logm(ctx, "__pm_relax(fail)\n");
+		}
+		return 0;
+	}
+#else
 	if (check_multicam_power(ctx, 1))
 		return 0;
-
+#endif
 	return do_hw_power_off(ctx);
 }
 

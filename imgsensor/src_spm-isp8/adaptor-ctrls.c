@@ -1838,7 +1838,11 @@ static int imgsensor_set_ctrl(struct v4l2_ctrl *ctrl)
 				break;
 
 			ctx->is_sensor_reset_stream_off = 1;
+#if ALWAYS_ON_POWER
+			subdrv_call(ctx, pre_open);
+#else
 			subdrv_call(ctx, open);
+#endif
 			subdrv_call(ctx, control,
 					ctx->cur_mode->id,
 					&image_window,

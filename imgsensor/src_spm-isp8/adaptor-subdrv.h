@@ -537,6 +537,7 @@ struct subdrv_ops {
 		struct mtk_recv_sensor_ebd_line *data,
 		struct mtk_ebd_dump *obj);
 	int (*set_ctrl_locker)(struct subdrv_ctx *ctx, u32 cid, bool *is_lock);
+	int (*pre_open)(struct subdrv_ctx *ctx);
 };
 
 struct subdrv_entry {

@@ -604,6 +604,9 @@ int check_multicam_power(struct adaptor_ctx *ctx, int flag)
 					img_tgid[sensor_idx].Tgid, sensor_idx,
 					img_tgid[sensor_idx].Name);
 					mutex_unlock(&gimgsensor_muticam_mutex);
+#if ALWAYS_ON_POWER
+					ctx->always_on_flag = 1;
+#endif
 					//mutex_unlock(&ctx->mutex);
 					return ret;
 				case IMGSENSOR_STATE_POWER_ON:
@@ -648,6 +651,9 @@ int check_multicam_power(struct adaptor_ctx *ctx, int flag)
 					img_tgid[sensor_idx].Tgid, sensor_idx,
 					img_tgid[sensor_idx].Name);
 					mutex_unlock(&gimgsensor_muticam_mutex);
+#if ALWAYS_ON_POWER
+					ctx->always_on_flag = 1;
+#endif
 					//mutex_unlock(&ctx->mutex);
 					return ret;
 				case IMGSENSOR_STATE_POWER_ON:
@@ -691,6 +697,9 @@ int check_multicam_power(struct adaptor_ctx *ctx, int flag)
 					img_tgid[sensor_idx].Tgid, sensor_idx,
 					img_tgid[sensor_idx].Name);
 					mutex_unlock(&gimgsensor_muticam_mutex);
+#if ALWAYS_ON_POWER
+					ctx->always_on_flag = 1;
+#endif
 					//mutex_unlock(&ctx->mutex);
 					return ret;
 				case IMGSENSOR_STATE_POWER_ON:
@@ -1071,6 +1080,28 @@ static int imgsensor_runtime_suspend(struct device *dev)
 
 	return adaptor_hw_power_off(ctx);
 }
+#else
+#if ALWAYS_ON_POWER
+static int imgsensor_runtime_resume(struct device *dev)
+{
+	struct i2c_client *client = to_i2c_client(dev);
+	struct v4l2_subdev *sd = i2c_get_clientdata(client);
+	struct adaptor_ctx *ctx = to_ctx(sd);
+
+	adaptor_logm(ctx, "\n");
+	return 0;
+}
+
+static int imgsensor_runtime_suspend(struct device *dev)
+{
+	struct i2c_client *client = to_i2c_client(dev);
+	struct v4l2_subdev *sd = i2c_get_clientdata(client);
+	struct adaptor_ctx *ctx = to_ctx(sd);
+
+	adaptor_logm(ctx, "\n");
+	return 0;
+}
+#endif
 #endif
 
 static int imgsensor_set_power(struct v4l2_subdev *sd, int on)
@@ -1099,6 +1130,30 @@ static int imgsensor_set_power(struct v4l2_subdev *sd, int on)
 
 	return ret;
 }
+#if ALWAYS_ON_POWER
+void imgsensor_multicam_always_on_process(struct adaptor_ctx *ctx)
+{
+#if VC_MULTI_CAMERA
+	int i;
+
+	for (i = 0 ; i < bridge_ch_num; i++) {
+		if (strcmp((char *)(ctx->subdrv->name), lookup_names[i]) == 0) {
+			atomic_set(&always_on_count, 1);
+			break;
+		}
+		if (strcmp((char *)(ctx->subdrv->name), lookup_names_1[i]) == 0) {
+			atomic_set(&always_on_count1, 1);
+			break;
+		}
+		if (strcmp((char *)(ctx->subdrv->name), lookup_names_2[i]) == 0) {
+			atomic_set(&always_on_count2, 1);
+			break;
+		}
+	}
+#endif
+}
+#endif
+
 void imgsensor_multicam_mutex_lock_for_power(struct adaptor_ctx *ctx)
 {
 #if VC_MULTI_CAMERA
@@ -1658,8 +1713,96 @@ error:
 	ctx->is_streaming = 0;
 	return ret;
 }
-#endif
+#else
+#if ALWAYS_ON_POWER
+static int __maybe_unused imgsensor_resume(struct device *dev)
+{
+	struct i2c_client *client = to_i2c_client(dev);
+	struct v4l2_subdev *sd = i2c_get_clientdata(client);
+	struct adaptor_ctx *ctx = to_ctx(sd);
 
+	adaptor_logm(ctx, "\n");
+	if (pm_runtime_suspended(dev))
+		return 0;
+	return imgsensor_runtime_resume(dev);
+}
+static int __maybe_unused imgsensor_suspend(struct device *dev)
+{
+	struct i2c_client *client = to_i2c_client(dev);
+	struct v4l2_subdev *sd = i2c_get_clientdata(client);
+	struct adaptor_ctx *ctx = to_ctx(sd);
+
+	adaptor_logm(ctx, "\n");
+	if (pm_runtime_suspended(dev))
+		return 0;
+	return imgsensor_runtime_suspend(dev);
+}
+#endif
+#endif
+#if ALWAYS_ON_POWER
+static int mtk_imgsensor_pm_suspend(struct device *dev)
+{
+	struct i2c_client *client = to_i2c_client(dev);
+	struct v4l2_subdev *sd = i2c_get_clientdata(client);
+	struct adaptor_ctx *ctx = to_ctx(sd);
+	int ret;
+
+	adaptor_logm(ctx, "+\n");
+	if (pm_runtime_suspended(dev))
+		return 0;
+
+	if(ctx->always_on_flag == 1) {
+		ctx->always_on_flag = 0;
+		if (!check_multicam_suspend(ctx))
+			do_hw_power_off_of_suspend(ctx);
+	}
+	atomic_set(&always_on_count, 0);
+	atomic_set(&always_on_count1, 0);
+	atomic_set(&always_on_count2, 0);
+	ret =pm_runtime_put_sync (dev);
+	if (ret)
+		adaptor_loge(ctx, "pm_runtime_put_sync fail\n");
+	adaptor_logm(ctx, "-\n");
+	return 0;
+}
+
+static int mtk_imgsensor_pm_resume(struct device *dev)
+{
+	struct i2c_client *client = to_i2c_client(dev);
+	struct v4l2_subdev *sd = i2c_get_clientdata(client);
+	struct adaptor_ctx *ctx = to_ctx(sd);
+
+	adaptor_logm(ctx, "+\n");
+	if (pm_runtime_suspended(dev))
+		return 0;
+	adaptor_logm(ctx, "-\n");
+	return 0;
+}
+
+static int mtk_imgsensor_suspend_pm_event(struct notifier_block *notifier,
+			unsigned long pm_event, void *unused)
+{
+	struct adaptor_ctx *ctx =
+		container_of(notifier, struct adaptor_ctx, notifier_blk);
+	struct device *dev = ctx->dev;
+
+	switch (pm_event) {
+	case PM_HIBERNATION_PREPARE:
+		return NOTIFY_DONE;
+	case PM_RESTORE_PREPARE:
+		return NOTIFY_DONE;
+	case PM_POST_HIBERNATION:
+		return NOTIFY_DONE;
+	case PM_SUSPEND_PREPARE: /* before enter suspend */
+		mtk_imgsensor_pm_suspend(dev);
+		return NOTIFY_DONE;
+	case PM_POST_SUSPEND: /* after resume */
+		mtk_imgsensor_pm_resume(dev);
+		return NOTIFY_DONE;
+	}
+	return NOTIFY_OK;
+}
+#endif
 static const struct v4l2_subdev_core_ops imgsensor_core_ops = {
 	.s_power = imgsensor_set_power,
 	.ioctl = adaptor_ioctl,
@@ -2060,7 +2203,11 @@ static int search_sensor(struct adaptor_ctx *ctx)
 		ctx->subctx.i2c_client = ctx->i2c_client;
 		ctx->subctx.ixc_client = ctx->ixc_client;
 		adaptor_cam_pmic_on(ctx);
+#if ALWAYS_ON_POWER
+		do_hw_power_on(ctx);
+#else
 		adaptor_hw_power_on(ctx);
+#endif
 		ret = adaptor_ixc_do_daa (&ctx->ixc_client);
 		if (ret)
 			adaptor_logi(ctx, "ixc_do_daa(ret=%d), prot= %d\n",
@@ -2068,7 +2215,11 @@ static int search_sensor(struct adaptor_ctx *ctx)
 		subdrv_call(ctx, init_ctx, ctx->i2c_client,
 				ctx->subctx.i2c_write_id);
 		ret = subdrv_call(ctx, get_id, &sensor_id);
+#if ALWAYS_ON_POWER
+		do_hw_power_off(ctx);
+#else
 		adaptor_hw_power_off(ctx);
+#endif
 		if (!ret) {
 			adaptor_logi(ctx, "sensor %s found\n",
 				ctx->subdrv->name);
@@ -2152,7 +2303,9 @@ static int imgsensor_probe(struct i3c_i2c_device *client)
 	ctx->p_set_ctrl_unlock_flag = &set_ctrl_unlock;
 	ctx->aov_pm_ops_flag = 0;
 	ctx->aov_mclk_ulposc_flag = 0;
-
+#if ALWAYS_ON_POWER
+	ctx->always_on_flag = 0;
+#endif
 	if (!of_property_read_u32(
 		dev->of_node, "cust-aov-csi-clk", &ctx->cust_aov_csi_clk))
 		adaptor_logi(ctx, "cust_aov_csi_clk:%u\n", ctx->cust_aov_csi_clk);
@@ -2291,7 +2444,16 @@ static int imgsensor_probe(struct i3c_i2c_device *client)
 #ifdef IMGSENSOR_USE_PM_FRAMEWORK
 	pm_runtime_enable(dev);
 #else
-	// TODO
+#if ALWAYS_ON_POWER
+	ctx->notifier_blk.notifier_call = mtk_imgsensor_suspend_pm_event;
+	ctx->notifier_blk.priority = 0;
+	ret = register_pm_notifier(&ctx->notifier_blk);
+	if (ret) {
+		dev_info(dev, "Failed to register PM notifier");
+		return -ENODEV;
+	}
+	pm_runtime_enable(dev);
+#endif
 #endif
 	device_enable_async_suspend(dev);
 
@@ -2368,7 +2530,10 @@ static void imgsensor_remove(struct i3c_i2c_device *client)
 #ifdef IMGSENSOR_USE_PM_FRAMEWORK
 	pm_runtime_disable(&client->dev);
 #else
-	// TODO
+#if ALWAYS_ON_POWER
+	unregister_pm_notifier(&ctx->notifier_blk);
+	pm_runtime_disable(ctx->dev);
+#endif
 #endif
 #if VC_MULTI_CAMERA
 	atomic_set(&count, 0);
@@ -2382,8 +2547,12 @@ static void imgsensor_remove(struct i3c_i2c_device *client)
 	mutex_destroy(&ctx->mutex);
 
 }
-
-
+#if ALWAYS_ON_POWER
+static const struct dev_pm_ops imgsensor_pm_ops = {
+	SET_RUNTIME_PM_OPS(imgsensor_runtime_suspend,
+			imgsensor_runtime_resume, NULL)
+};
+#endif
 static const struct i2c_device_id imgsensor_id[] = {
 	{"imgsensor", 0},
 	{}
@@ -2408,6 +2577,9 @@ struct i3c_i2c_driver imgsensor_ixc_driver = {
 	.driver = {
 		.name = "imgsensor",
 		.of_match_table = of_match_ptr(imgsensor_of_match),
+#if ALWAYS_ON_POWER
+		.pm = &imgsensor_pm_ops,
+#endif
 	},
 	.id_table = &mtk_ixc_ids,
 };

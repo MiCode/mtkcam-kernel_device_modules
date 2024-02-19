@@ -10,7 +10,7 @@
 #include "mtk_cam-reg_utils.h"
 #include "mtk_cam-raw_debug.h"
 
-#define DMA_OFFSET_ERR_STAT	0x34
+#define DMA_OFFSET_ERR_STAT	0x38
 
 #define LOGGER_PREFIX_SIZE 16
 #define LOGGER_BUFSIZE 128

@@ -1598,7 +1598,7 @@ static void raw_handle_dma_err(struct mtk_raw_device *raw_dev,
 	if (cnt <= (3 + raw_dev->sub_sensor_ctrl_en * 10)) {
 		struct mtk_yuv_device *yuv_dev = get_yuv_dev(raw_dev);
 
-		// dump_topdebug_rdyreq_status(raw_dev);
+		dump_topdebug_rdyreq_status(raw_dev);
 		dump_raw_dma_err_st(raw_dev);
 		dump_yuv_dma_err_st(yuv_dev);
 	}

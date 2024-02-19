@@ -123,7 +123,7 @@ struct frameparams {
 };
 
 #define SCALE_MAX (1)
-#define TIME_MAX (192)
+#define TIME_MAX (144)
 
 struct header_desc {
 	__u32 fparams_tnum;

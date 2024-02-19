@@ -844,7 +844,7 @@ static void imgsys_cmdq_cb_work_plat8(struct work_struct *work)
 		IMGSYS_CMDQ_SYSTRACE_END();
 		cb_param->cmdqTs.tsUserCbEnd = ktime_get_boottime_ns()/1000;
 
-		if (isLastTaskInReq) {
+		if (!is_stream_off && isLastTaskInReq) {
 			int sw_ridx = 0;
 			for (idx = 0; idx < cb_param->frm_info->total_frmnum; idx++) {
 				sw_ridx = cb_param->frm_info->user_info[idx].sw_ridx;

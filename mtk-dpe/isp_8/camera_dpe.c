@@ -85,7 +85,7 @@
 //!#define smi_en
 //!#define WAKEUP_INIT
 #define ENQUE_FAIL -1
-
+#define MAX_REQ 3
 #ifdef m4u_en
 #if IS_ENABLED(CONFIG_MTK_IOMMU_V2)
 #include <mach/mt_iommu.h>
@@ -226,6 +226,8 @@ struct DPE_CLK_STRUCT dpe_clk;
 #define DPE_IRQ_ENABLE (0)
 #define IRQ_LOG
 
+spinlock_t REQ_LOCK;
+int ii;
 #if DPE_IRQ_ENABLE
 /* static irqreturn_t DPE_Irq_CAM_A(signed int  Irq,void *DeviceId); */
 static irqreturn_t ISP_Irq_DVP(signed int Irq, void *DeviceId);
@@ -258,7 +260,7 @@ const struct ISR_TABLE DPE_IRQ_CB_TBL[DPE_IRQ_TYPE_AMOUNT] = {
 };
 #endif
 #endif
-static void DPE_ScheduleWork(struct work_struct *data);
+static void DVS_ScheduleWork(struct work_struct *data);
 static void DVP_ScheduleWork(struct work_struct *data);
 static void DVGF_ScheduleWork(struct work_struct *data);
 /*
@@ -1607,7 +1609,7 @@ err_attach:
 /**************************************************************
  *
  **************************************************************/
-signed int dpe_enque_cb(struct frame *frames, void *req)
+signed int dpe_enque_cb(struct frame *frames, void *req, unsigned int reqcnt)
 {
 	//unsigned int f, fcnt, t, ucnt;
 	//unsigned int pd_frame_num = 0;
@@ -1617,6 +1619,7 @@ signed int dpe_enque_cb(struct frame *frames, void *req)
 	unsigned int WMF_F_EN;
 	unsigned int WMF_FILT_Ofs;
 	unsigned int DPE_P4_EN;
+	unsigned int en_idx;
 
 #ifdef IOVA_TO_PA
 	uint64_t iova_temp = 0x200000000;
@@ -1651,7 +1654,7 @@ signed int dpe_enque_cb(struct frame *frames, void *req)
 		mutex_lock(&gFDMutex);
 		DPE_P4_EN = (((_req->m_pDpeConfig[ucnt].Dpe_DVSSettings.TuningBuf_ME.DVS_ME_28) &
 						0x400) >> 10);
-		if ((DVS_only_en == 0) && (DVS_Num == 0)) {
+		if (DVS_Num == 0) {
 			SrcImg_Y_L_mmu = kzalloc(sizeof(struct tee_mmu) * 4, GFP_KERNEL);
 			if ((!SrcImg_Y_L_mmu)) {
 				LOG_ERR("SrcImg_Y_L_mmu alloc fail\n");
@@ -1698,7 +1701,7 @@ signed int dpe_enque_cb(struct frame *frames, void *req)
 				return -1;
 			}
 		}
-		mutex_unlock(&gFDMutex);
+		// mutex_unlock(&gFDMutex);
 
 		LOG_INF("YL:%d,YR:%d,OCC:%d,OCC_E:%d,OCC_H:%d,YL_Pre:%d,YR_Pre:%d,P4_L:%d,P4_R:%d\n",
 			_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_InBuf_SrcImg_Y_L_fd,
@@ -1711,10 +1714,11 @@ signed int dpe_enque_cb(struct frame *frames, void *req)
 			_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_InBuf_P4_L_DV_fd,
 			_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_InBuf_P4_R_DV_fd);
 
-		mutex_lock(&gFDMutex);
+		// mutex_lock(&gFDMutex);
 		//LOG_INF("dpe enque star DVS, P4 = %d\n", DPE_P4_EN);
-		DVS_only_en++;
+		// DVS_only_en++;
 		DVS_Num++;
+		en_idx = reqcnt;
 		if (DPE_debug_log_en == 1)
 			LOG_INF("DVS_only_en = %d ,DVS_Num = %d\n", DVS_only_en, DVS_Num);
 
@@ -1725,11 +1729,11 @@ signed int dpe_enque_cb(struct frame *frames, void *req)
 			_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_InBuf_SrcImg_Y_L_Ofs);
 		}
 
-		success = dpe_get_dma_buffer(&SrcImg_Y_L_mmu[DVS_only_en-1],
+		success = dpe_get_dma_buffer(&SrcImg_Y_L_mmu[en_idx],
 		_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_InBuf_SrcImg_Y_L_fd);
 		if (success) {
 			_req->m_pDpeConfig[ucnt].Dpe_InBuf_SrcImg_Y_L =
-			(sg_dma_address(SrcImg_Y_L_mmu[DVS_only_en-1].sgt->sgl) +
+			(sg_dma_address(SrcImg_Y_L_mmu[en_idx].sgt->sgl) +
 			(_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_InBuf_SrcImg_Y_L_Ofs));
 			get_dvs_iova[SrcImg_Y_L] += 1;
 			if (DPE_debug_log_en == 1) {
@@ -1756,11 +1760,11 @@ signed int dpe_enque_cb(struct frame *frames, void *req)
 			_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_InBuf_SrcImg_Y_R_Ofs);
 		}
 
-		success = dpe_get_dma_buffer(&SrcImg_Y_R_mmu[DVS_only_en-1],
+		success = dpe_get_dma_buffer(&SrcImg_Y_R_mmu[en_idx],
 		_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_InBuf_SrcImg_Y_R_fd);
 		if (success) {
 			_req->m_pDpeConfig[ucnt].Dpe_InBuf_SrcImg_Y_R =
-			(sg_dma_address(SrcImg_Y_R_mmu[DVS_only_en-1].sgt->sgl) +
+			(sg_dma_address(SrcImg_Y_R_mmu[en_idx].sgt->sgl) +
 			(_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_InBuf_SrcImg_Y_R_Ofs));
 			get_dvs_iova[SrcImg_Y_R] += 1;
 			if (DPE_debug_log_en == 1) {
@@ -1779,12 +1783,12 @@ signed int dpe_enque_cb(struct frame *frames, void *req)
 			_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_OutBuf_OCC_Ofs);
 		}
 
-		success = dpe_get_dma_buffer(&OutBuf_OCC_mmu[DVS_only_en-1],
+		success = dpe_get_dma_buffer(&OutBuf_OCC_mmu[en_idx],
 		_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_OutBuf_OCC_fd);
 
 		if (success) {
 			_req->m_pDpeConfig[ucnt].Dpe_OutBuf_OCC =
-			(sg_dma_address(OutBuf_OCC_mmu[DVS_only_en-1].sgt->sgl) +
+			(sg_dma_address(OutBuf_OCC_mmu[en_idx].sgt->sgl) +
 			(_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_OutBuf_OCC_Ofs));
 			get_dvs_iova[OutBuf_OCC] += 1;
 			if (DPE_debug_log_en == 1) {
@@ -1810,11 +1814,11 @@ signed int dpe_enque_cb(struct frame *frames, void *req)
 			_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_OutBuf_OCC_Ext_Ofs);
 		}
 
-		success = dpe_get_dma_buffer(&OutBuf_OCC_Ext_mmu[DVS_only_en-1],
+		success = dpe_get_dma_buffer(&OutBuf_OCC_Ext_mmu[en_idx],
 		_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_OutBuf_OCC_Ext_fd);
 		if (success) {
 			_req->m_pDpeConfig[ucnt].Dpe_OutBuf_OCC_Ext =
-			(sg_dma_address(OutBuf_OCC_Ext_mmu[DVS_only_en-1].sgt->sgl) +
+			(sg_dma_address(OutBuf_OCC_Ext_mmu[en_idx].sgt->sgl) +
 			(_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_OutBuf_OCC_Ext_Ofs));
 			get_dvs_iova[OutBuf_OCC_EXT] += 1;
 			if (DPE_debug_log_en == 1) {
@@ -1834,11 +1838,11 @@ signed int dpe_enque_cb(struct frame *frames, void *req)
 			_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_Output_OCC_Hist_fd,
 			_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_Output_OCC_Hist_Ofs);
 		}
-		success = dpe_get_dma_buffer(&OutBuf_OCC_Hist_mmu[DVS_only_en-1],
+		success = dpe_get_dma_buffer(&OutBuf_OCC_Hist_mmu[en_idx],
 		_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_Output_OCC_Hist_fd);
 		if (success) {
 			_req->m_pDpeConfig[ucnt].Dpe_OutBuf_OCC_Hist =
-			(sg_dma_address(OutBuf_OCC_Hist_mmu[DVS_only_en-1].sgt->sgl) +
+			(sg_dma_address(OutBuf_OCC_Hist_mmu[en_idx].sgt->sgl) +
 			(_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_Output_OCC_Hist_Ofs));
 			get_dvs_iova[OutBuf_OCC_HIST] += 1;
 			if (DPE_debug_log_en == 1) {
@@ -1861,11 +1865,11 @@ signed int dpe_enque_cb(struct frame *frames, void *req)
 				_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_InBuf_SrcImg_Y_L_Pre_fd,
 				_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_InBuf_SrcImg_Y_L_Pre_Ofs);
 			}
-			success = dpe_get_dma_buffer(&SrcImg_Y_L_Pre_mmu[DVS_only_en-1],
+			success = dpe_get_dma_buffer(&SrcImg_Y_L_Pre_mmu[en_idx],
 			_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_InBuf_SrcImg_Y_L_Pre_fd);
 			if (success) {
 				_req->m_pDpeConfig[ucnt].Dpe_InBuf_SrcImg_Y_L_Pre =
-				sg_dma_address(SrcImg_Y_L_Pre_mmu[DVS_only_en-1].sgt->sgl) +
+				sg_dma_address(SrcImg_Y_L_Pre_mmu[en_idx].sgt->sgl) +
 				_req->m_pDpeConfig[0].DPE_DMapSettings.Dpe_InBuf_SrcImg_Y_L_Pre_Ofs;
 				get_dvs_iova[SrcImg_Y_L_PRE] += 1;
 				if (DPE_debug_log_en == 1) {
@@ -1885,11 +1889,11 @@ signed int dpe_enque_cb(struct frame *frames, void *req)
 				_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_InBuf_SrcImg_Y_R_Pre_fd,
 				_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_InBuf_SrcImg_Y_R_Pre_Ofs);
 			}
-			success = dpe_get_dma_buffer(&SrcImg_Y_R_Pre_mmu[DVS_only_en-1],
+			success = dpe_get_dma_buffer(&SrcImg_Y_R_Pre_mmu[en_idx],
 			_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_InBuf_SrcImg_Y_R_Pre_fd);
 			if (success) {
 				_req->m_pDpeConfig[ucnt].Dpe_InBuf_SrcImg_Y_R_Pre =
-				sg_dma_address(SrcImg_Y_R_Pre_mmu[DVS_only_en-1].sgt->sgl) +
+				sg_dma_address(SrcImg_Y_R_Pre_mmu[en_idx].sgt->sgl) +
 				_req->m_pDpeConfig[0].DPE_DMapSettings.Dpe_InBuf_SrcImg_Y_R_Pre_Ofs;
 				get_dvs_iova[SrcImg_Y_R_PRE] += 1;
 				if (DPE_debug_log_en == 1) {
@@ -1910,11 +1914,11 @@ signed int dpe_enque_cb(struct frame *frames, void *req)
 				_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_InBuf_P4_L_DV_Ofs);
 			}
 
-			success = dpe_get_dma_buffer(&InBuf_P4_L_mmu[DVS_only_en-1],
+			success = dpe_get_dma_buffer(&InBuf_P4_L_mmu[en_idx],
 			_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_InBuf_P4_L_DV_fd);
 			if (success) {
 				_req->m_pDpeConfig[ucnt].Dpe_InBuf_P4_L_DV =
-				(sg_dma_address(InBuf_P4_L_mmu[DVS_only_en-1].sgt->sgl) +
+				(sg_dma_address(InBuf_P4_L_mmu[en_idx].sgt->sgl) +
 				(_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_InBuf_P4_L_DV_Ofs));
 				get_dvs_iova[InBuf_P4_L_DV] += 1;
 				if (DPE_debug_log_en == 1) {
@@ -1935,11 +1939,11 @@ signed int dpe_enque_cb(struct frame *frames, void *req)
 				_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_InBuf_P4_R_DV_Ofs);
 			}
 
-			success = dpe_get_dma_buffer(&InBuf_P4_R_mmu[DVS_only_en-1],
+			success = dpe_get_dma_buffer(&InBuf_P4_R_mmu[en_idx],
 			_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_InBuf_P4_R_DV_fd);
 			if (success) {
 				_req->m_pDpeConfig[ucnt].Dpe_InBuf_P4_R_DV =
-				(sg_dma_address(InBuf_P4_R_mmu[DVS_only_en-1].sgt->sgl) +
+				(sg_dma_address(InBuf_P4_R_mmu[en_idx].sgt->sgl) +
 				(_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_InBuf_P4_R_DV_Ofs));
 				get_dvs_iova[InBuf_P4_R_DV] += 1;
 				if (DPE_debug_log_en == 1) {
@@ -1965,7 +1969,7 @@ signed int dpe_enque_cb(struct frame *frames, void *req)
 		(_req->m_pDpeConfig[ucnt].Dpe_engineSelect == MODE_DVS_DVP_BOTH)) {
 
 		mutex_lock(&gFDMutex);
-		if ((DVP_only_en == 0) && (DVP_Num == 0)) {
+		if (DVP_Num == 0) {
 			SrcImg_Y_mmu = kzalloc(sizeof(struct tee_mmu) * 4, GFP_KERNEL);
 			if ((!SrcImg_Y_mmu)) {
 				LOG_ERR("SrcImg_Y_L_mmu alloc fail\n");
@@ -2022,7 +2026,7 @@ signed int dpe_enque_cb(struct frame *frames, void *req)
 				return -1;
 			}
 		}
-		mutex_unlock(&gFDMutex);
+		// mutex_unlock(&gFDMutex);
 		LOG_INF("DVP:Y:%d,C:%d,CRM:%d,OCC:%d,OCC_E:%d,WT_RD:%d,ASF_RD:%d,ASF_HF:%d,WMF_FILT:%d\n",
 			_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_InBuf_SrcImg_Y_fd,
 			_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_InBuf_SrcImg_C_fd,
@@ -2034,12 +2038,13 @@ signed int dpe_enque_cb(struct frame *frames, void *req)
 			_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_OutBuf_ASF_HF_fd,
 			_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_OutBuf_WMF_FILT_fd);
 
-		mutex_lock(&gFDMutex);
-		DVP_only_en++;
+		// mutex_lock(&gFDMutex);
+		// DVP_only_en++;
 		DVP_Num++;
+		en_idx = reqcnt;
 		//mutex_unlock(&gFDMutex);
-		if (DPE_debug_log_en == 1)
-			LOG_INF("DVP_only_en = %d ,DVP_Num = %d\n", DVP_only_en, DVP_Num);
+		// if (DPE_debug_log_en == 1)
+		// LOG_INF("DVP_only_en = %d ,DVP_Num = %d\n", DVP_only_en, DVP_Num);
 
 		if (DPE_debug_log_en == 1) {
 			LOG_INF("SrcImg_Y fd = %d offset = %d\n",
@@ -2047,11 +2052,11 @@ signed int dpe_enque_cb(struct frame *frames, void *req)
 			_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_InBuf_SrcImg_Y_Ofs);
 		}
 		//mutex_lock(&gFDMutex);
-		success = dpe_get_dma_buffer(&SrcImg_Y_mmu[DVP_only_en-1],
+		success = dpe_get_dma_buffer(&SrcImg_Y_mmu[en_idx],
 		_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_InBuf_SrcImg_Y_fd);
 		if (success) {
 			_req->m_pDpeConfig[ucnt].Dpe_InBuf_SrcImg_Y =
-			(sg_dma_address(SrcImg_Y_mmu[DVP_only_en-1].sgt->sgl) +
+			(sg_dma_address(SrcImg_Y_mmu[en_idx].sgt->sgl) +
 			(_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_InBuf_SrcImg_Y_Ofs));
 			get_dvp_iova[SrcImg_Y] += 1;
 			if (DPE_debug_log_en == 1) {
@@ -2073,11 +2078,11 @@ signed int dpe_enque_cb(struct frame *frames, void *req)
 		}
 
 		//mutex_lock(&gFDMutex);
-		success = dpe_get_dma_buffer(&SrcImg_C_mmu[DVP_only_en-1],
+		success = dpe_get_dma_buffer(&SrcImg_C_mmu[en_idx],
 		_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_InBuf_SrcImg_C_fd);
 		if (success) {
 			_req->m_pDpeConfig[ucnt].Dpe_InBuf_SrcImg_C =
-			(sg_dma_address(SrcImg_C_mmu[DVP_only_en-1].sgt->sgl) +
+			(sg_dma_address(SrcImg_C_mmu[en_idx].sgt->sgl) +
 			(_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_InBuf_SrcImg_C_Ofs));
 			get_dvp_iova[SrcImg_C] += 1;
 			if (DPE_debug_log_en == 1) {
@@ -2099,11 +2104,11 @@ signed int dpe_enque_cb(struct frame *frames, void *req)
 		}
 
 		//mutex_lock(&gFDMutex);
-		success = dpe_get_dma_buffer(&InBuf_OCC_mmu[DVP_only_en-1],
+		success = dpe_get_dma_buffer(&InBuf_OCC_mmu[en_idx],
 		_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_InBuf_OCC_fd);
 		if (success) {
 			_req->m_pDpeConfig[ucnt].Dpe_InBuf_OCC =
-			(sg_dma_address(InBuf_OCC_mmu[DVP_only_en-1].sgt->sgl) +
+			(sg_dma_address(InBuf_OCC_mmu[en_idx].sgt->sgl) +
 			(_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_InBuf_OCC_Ofs));
 			get_dvp_iova[InBuf_OCC] += 1;
 			if (DPE_debug_log_en == 1) {
@@ -2124,11 +2129,11 @@ signed int dpe_enque_cb(struct frame *frames, void *req)
 		}
 
 		//mutex_lock(&gFDMutex);
-		success = dpe_get_dma_buffer(&OutBuf_CRM_mmu[DVP_only_en-1],
+		success = dpe_get_dma_buffer(&OutBuf_CRM_mmu[en_idx],
 		_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_OutBuf_CRM_fd);
 		if (success) {
 			_req->m_pDpeConfig[ucnt].Dpe_OutBuf_CRM =
-			(sg_dma_address(OutBuf_CRM_mmu[DVP_only_en-1].sgt->sgl) +
+			(sg_dma_address(OutBuf_CRM_mmu[en_idx].sgt->sgl) +
 			(_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_OutBuf_CRM_Ofs));
 			get_dvp_iova[OutBuf_CRM] += 1;
 			if (DPE_debug_log_en == 1) {
@@ -2152,11 +2157,11 @@ signed int dpe_enque_cb(struct frame *frames, void *req)
 			}
 
 			//mutex_lock(&gFDMutex);
-			success = dpe_get_dma_buffer(&WMF_RD_mmu[DVP_only_en-1],
+			success = dpe_get_dma_buffer(&WMF_RD_mmu[en_idx],
 			_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_OutBuf_WMF_RD_fd);
 			if (success) {
 				_req->m_pDpeConfig[ucnt].Dpe_OutBuf_WMF_RD =
-				(sg_dma_address(WMF_RD_mmu[DVP_only_en-1].sgt->sgl) +
+				(sg_dma_address(WMF_RD_mmu[en_idx].sgt->sgl) +
 				(_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_OutBuf_WMF_RD_Ofs));
 				get_dvp_iova[OutBuf_WMF_RD] += 1;
 				if (DPE_debug_log_en == 1) {
@@ -2166,7 +2171,7 @@ signed int dpe_enque_cb(struct frame *frames, void *req)
 					LOG_INF("==============================================\n");
 				}
 			} else {
-				LOG_ERR("get Dpe_OutBuf_ASF_RD fail\n");
+				LOG_ERR("get Dpe_OutBuf_WMF_RD fail\n");
 				mutex_unlock(&gFDMutex);
 				return ENQUE_FAIL;
 			}
@@ -2178,11 +2183,11 @@ signed int dpe_enque_cb(struct frame *frames, void *req)
 				_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_OutBuf_ASF_RD_Ofs);
 			}
 			//mutex_lock(&gFDMutex);
-			success = dpe_get_dma_buffer(&ASF_RD_mmu[DVP_only_en-1],
+			success = dpe_get_dma_buffer(&ASF_RD_mmu[en_idx],
 			_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_OutBuf_ASF_RD_fd);
 			if (success) {
 				_req->m_pDpeConfig[ucnt].Dpe_OutBuf_ASF_RD =
-				(sg_dma_address(ASF_RD_mmu[DVP_only_en-1].sgt->sgl) +
+				(sg_dma_address(ASF_RD_mmu[en_idx].sgt->sgl) +
 				(_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_OutBuf_ASF_RD_Ofs));
 				get_dvp_iova[OutBuf_ASF_RD] += 1;
 				if (DPE_debug_log_en == 1) {
@@ -2206,12 +2211,12 @@ signed int dpe_enque_cb(struct frame *frames, void *req)
 		}
 		//spin_lock(&(DPEInfo.SpinLockFD));
 		//mutex_lock(&gFDMutex);
-		success = dpe_get_dma_buffer(&ASF_HF_mmu[DVP_only_en-1],
+		success = dpe_get_dma_buffer(&ASF_HF_mmu[en_idx],
 		_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_OutBuf_ASF_HF_fd);
 
 		if (success) {
 			_req->m_pDpeConfig[ucnt].Dpe_OutBuf_ASF_HF =
-			(sg_dma_address(ASF_HF_mmu[DVP_only_en-1].sgt->sgl) +
+			(sg_dma_address(ASF_HF_mmu[en_idx].sgt->sgl) +
 			(_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_OutBuf_ASF_HF_Ofs));
 			get_dvp_iova[OutBuf_ASF_HF] += 1;
 			if (DPE_debug_log_en == 1) {
@@ -2240,11 +2245,11 @@ signed int dpe_enque_cb(struct frame *frames, void *req)
 			WMF_FILT_Ofs =
 			_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_OutBuf_WMF_FILT_Ofs;
 			//mutex_lock(&gFDMutex);
-			success = dpe_get_dma_buffer(&WMF_FILT_mmu[DVP_only_en-1],
+			success = dpe_get_dma_buffer(&WMF_FILT_mmu[en_idx],
 			_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_OutBuf_WMF_FILT_fd);
 			if (success) {
 				_req->m_pDpeConfig[ucnt].Dpe_OutBuf_WMF_FILT =
-				(sg_dma_address(WMF_FILT_mmu[DVP_only_en-1].sgt->sgl) +
+				(sg_dma_address(WMF_FILT_mmu[en_idx].sgt->sgl) +
 				WMF_FILT_Ofs);
 				get_dvp_iova[OutBuf_WMF_FILT] += 1;
 			} else {
@@ -2263,12 +2268,12 @@ signed int dpe_enque_cb(struct frame *frames, void *req)
 			}
 
 			//mutex_lock(&gFDMutex);
-			success = dpe_get_dma_buffer(&InBuf_OCC_Ext_mmu[DVP_only_en-1],
+			success = dpe_get_dma_buffer(&InBuf_OCC_Ext_mmu[en_idx],
 			_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_InBuf_OCC_Ext_fd);
 			LOG_DBG("InBuf_OCC_Ext 1 = %d\n", success);
 			if (success) {
 				_req->m_pDpeConfig[ucnt].Dpe_InBuf_OCC_Ext =
-				(sg_dma_address(InBuf_OCC_Ext_mmu[DVP_only_en-1].sgt->sgl) +
+				(sg_dma_address(InBuf_OCC_Ext_mmu[en_idx].sgt->sgl) +
 				(_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_InBuf_OCC_Ext_Ofs));
 				LOG_DBG("InBuf_OCC_Ext 2 = %d\n", success);
 				get_dvp_iova[InBuf_OCC_Ext] += 1;
@@ -2284,12 +2289,12 @@ signed int dpe_enque_cb(struct frame *frames, void *req)
 				_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_OutBuf_ASF_RD_Ext_Ofs);
 
 				//mutex_lock(&gFDMutex);
-				success = dpe_get_dma_buffer(&ASF_RD_Ext_mmu[DVP_only_en-1],
+				success = dpe_get_dma_buffer(&ASF_RD_Ext_mmu[en_idx],
 				_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_OutBuf_ASF_RD_Ext_fd);
 				LOG_INF("Dpe_OutBuf_ASF_RD_Ext 1 = %d\n", success);
 				if (success) {
 					_req->m_pDpeConfig[ucnt].Dpe_OutBuf_ASF_RD_Ext =
-					(sg_dma_address(ASF_RD_Ext_mmu[DVP_only_en-1].sgt->sgl) +
+					(sg_dma_address(ASF_RD_Ext_mmu[en_idx].sgt->sgl) +
 					(_req->m_pDpeConfig[
 					ucnt].DPE_DMapSettings.Dpe_OutBuf_ASF_RD_Ext_Ofs));
 					LOG_INF("Dpe_OutBuf_ASF_RD_Ext 2 = %d\n", success);
@@ -2307,12 +2312,12 @@ signed int dpe_enque_cb(struct frame *frames, void *req)
 			_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_OutBuf_ASF_HF_Ext_Ofs);
 
 			//mutex_lock(&gFDMutex);
-			success = dpe_get_dma_buffer(&ASF_HF_Ext_mmu[DVP_only_en-1],
+			success = dpe_get_dma_buffer(&ASF_HF_Ext_mmu[en_idx],
 			_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_OutBuf_ASF_HF_Ext_fd);
 			LOG_INF("Dpe_OutBuf_ASF_HF_Ext_fd 1 = %d\n", success);
 			if (success) {
 				_req->m_pDpeConfig[ucnt].Dpe_OutBuf_ASF_HF_Ext =
-				(sg_dma_address(ASF_HF_Ext_mmu[DVP_only_en-1].sgt->sgl) +
+				(sg_dma_address(ASF_HF_Ext_mmu[en_idx].sgt->sgl) +
 				(_req->m_pDpeConfig[
 				ucnt].DPE_DMapSettings.Dpe_OutBuf_ASF_HF_Ext_Ofs));
 
@@ -2332,7 +2337,7 @@ signed int dpe_enque_cb(struct frame *frames, void *req)
 	if (_req->m_pDpeConfig[ucnt].Dpe_engineSelect == MODE_DVGF_ONLY) {
 
 		mutex_lock(&gFDMutex);
-		if ((DVGF_only_en == 0) && (DVGF_Num == 0)) {
+		if (DVGF_Num == 0) {
 			DVGF_SrcImg_Y_mmu = kzalloc(sizeof(struct tee_mmu) * 4, GFP_KERNEL);
 			if ((!DVGF_SrcImg_Y_mmu)) {
 				LOG_ERR("DVGF_SrcImg_Y_mmu alloc fail\n");
@@ -2384,8 +2389,9 @@ signed int dpe_enque_cb(struct frame *frames, void *req)
 			_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_OutBuf_RW_IIR_fd,
 			_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_OutBuf_WMF_FILT_fd);
 
-		DVGF_only_en++;
+		// DVGF_only_en++;
 		DVGF_Num++;
+		en_idx = reqcnt;
 
 		if (DPE_debug_log_en == 1) {
 			LOG_INF("=============DVGF CONFIGs=================\n");
@@ -2394,11 +2400,11 @@ signed int dpe_enque_cb(struct frame *frames, void *req)
 			_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_InBuf_SrcImg_Y_Ofs);
 		}
 
-		success = dpe_get_dma_buffer(&DVGF_SrcImg_Y_mmu[DVGF_only_en-1],
+		success = dpe_get_dma_buffer(&DVGF_SrcImg_Y_mmu[en_idx],
 		_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_InBuf_SrcImg_Y_fd);
 		if (success) {
 			_req->m_pDpeConfig[ucnt].Dpe_InBuf_SrcImg_Y =
-			(sg_dma_address(DVGF_SrcImg_Y_mmu[DVGF_only_en-1].sgt->sgl) +
+			(sg_dma_address(DVGF_SrcImg_Y_mmu[en_idx].sgt->sgl) +
 			(_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_InBuf_SrcImg_Y_Ofs));
 			get_dvgf_iova[DVGF_SrcImg_Y] += 1;
 			if (DPE_debug_log_en == 1) {
@@ -2419,11 +2425,11 @@ signed int dpe_enque_cb(struct frame *frames, void *req)
 			_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_InBuf_SrcImg_C_Ofs);
 		}
 
-		success = dpe_get_dma_buffer(&DVGF_SrcImg_C_mmu[DVGF_only_en-1],
+		success = dpe_get_dma_buffer(&DVGF_SrcImg_C_mmu[en_idx],
 		_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_InBuf_SrcImg_C_fd);
 		if (success) {
 			_req->m_pDpeConfig[ucnt].Dpe_InBuf_SrcImg_C =
-			(sg_dma_address(DVGF_SrcImg_C_mmu[DVGF_only_en-1].sgt->sgl) +
+			(sg_dma_address(DVGF_SrcImg_C_mmu[en_idx].sgt->sgl) +
 			(_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_InBuf_SrcImg_C_Ofs));
 			get_dvgf_iova[DVGF_SrcImg_C] += 1;
 			if (DPE_debug_log_en == 1) {
@@ -2443,11 +2449,11 @@ signed int dpe_enque_cb(struct frame *frames, void *req)
 			_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_InBuf_SrcImg_Y_Pre_Ofs);
 		}
 
-		success = dpe_get_dma_buffer(&SrcImg_Y_Pre_mmu[DVGF_only_en-1],
+		success = dpe_get_dma_buffer(&SrcImg_Y_Pre_mmu[en_idx],
 		_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_InBuf_SrcImg_Y_Pre_fd);
 		if (success) {
 			_req->m_pDpeConfig[ucnt].Dpe_InBuf_SrcImg_Y_Pre =
-			sg_dma_address(SrcImg_Y_Pre_mmu[DVGF_only_en-1].sgt->sgl) +
+			sg_dma_address(SrcImg_Y_Pre_mmu[en_idx].sgt->sgl) +
 			_req->m_pDpeConfig[0].DPE_DMapSettings.Dpe_InBuf_SrcImg_Y_Pre_Ofs;
 			get_dvgf_iova[SrcImg_Y_Pre] += 1;
 			if (DPE_debug_log_en == 1) {
@@ -2468,11 +2474,11 @@ signed int dpe_enque_cb(struct frame *frames, void *req)
 			_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_InBuf_SrcImg_C_Pre_Ofs);
 		}
 
-		success = dpe_get_dma_buffer(&SrcImg_C_Pre_mmu[DVGF_only_en-1],
+		success = dpe_get_dma_buffer(&SrcImg_C_Pre_mmu[en_idx],
 		_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_InBuf_SrcImg_C_Pre_fd);
 		if (success) {
 			_req->m_pDpeConfig[ucnt].Dpe_InBuf_SrcImg_C_Pre =
-			sg_dma_address(SrcImg_C_Pre_mmu[DVGF_only_en-1].sgt->sgl) +
+			sg_dma_address(SrcImg_C_Pre_mmu[en_idx].sgt->sgl) +
 			_req->m_pDpeConfig[0].DPE_DMapSettings.Dpe_InBuf_SrcImg_C_Pre_Ofs;
 			get_dvgf_iova[SrcImg_C_Pre] += 1;
 			if (DPE_debug_log_en == 1) {
@@ -2494,11 +2500,11 @@ signed int dpe_enque_cb(struct frame *frames, void *req)
 		}
 
 		//mutex_lock(&gFDMutex);
-		success = dpe_get_dma_buffer(&DVGF_OutBuf_OCC_Ext_mmu[DVGF_only_en-1],
+		success = dpe_get_dma_buffer(&DVGF_OutBuf_OCC_Ext_mmu[en_idx],
 		_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_OutBuf_OCC_Ext_fd);
 		if (success) {
 			_req->m_pDpeConfig[ucnt].Dpe_OutBuf_OCC_Ext =
-			(sg_dma_address(DVGF_OutBuf_OCC_Ext_mmu[DVGF_only_en-1].sgt->sgl) +
+			(sg_dma_address(DVGF_OutBuf_OCC_Ext_mmu[en_idx].sgt->sgl) +
 			(_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_OutBuf_OCC_Ext_Ofs));
 			get_dvgf_iova[DVGF_OutBuf_OCC_Ext] += 1;
 			if (DPE_debug_log_en == 1) {
@@ -2519,11 +2525,11 @@ signed int dpe_enque_cb(struct frame *frames, void *req)
 			_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_OutBuf_WT_Fnl_fd,
 			_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_OutBuf_WT_Fnl_Ofs);
 		}
-		success = dpe_get_dma_buffer(&WT_Fnl_mmu[DVGF_only_en-1],
+		success = dpe_get_dma_buffer(&WT_Fnl_mmu[en_idx],
 		_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_OutBuf_WT_Fnl_fd);
 		if (success) {
 			_req->m_pDpeConfig[ucnt].Dpe_OutBuf_WT_Fnl =
-			sg_dma_address(WT_Fnl_mmu[DVGF_only_en-1].sgt->sgl) +
+			sg_dma_address(WT_Fnl_mmu[en_idx].sgt->sgl) +
 			_req->m_pDpeConfig[0].DPE_DMapSettings.Dpe_OutBuf_WT_Fnl_Ofs;
 			get_dvgf_iova[OutBuf_WT_Fnl] += 1;
 			if (DPE_debug_log_en == 1) {
@@ -2543,11 +2549,11 @@ signed int dpe_enque_cb(struct frame *frames, void *req)
 			_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_OutBuf_RW_IIR_fd,
 			_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_OutBuf_RW_IIR_Ofs);
 		}
-		success = dpe_get_dma_buffer(&RW_IIR_mmu[DVGF_only_en-1],
+		success = dpe_get_dma_buffer(&RW_IIR_mmu[en_idx],
 		_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_OutBuf_RW_IIR_fd);
 		if (success) {
 			_req->m_pDpeConfig[ucnt].Dpe_OutBuf_RW_IIR =
-			sg_dma_address(RW_IIR_mmu[DVGF_only_en-1].sgt->sgl) +
+			sg_dma_address(RW_IIR_mmu[en_idx].sgt->sgl) +
 			_req->m_pDpeConfig[0].DPE_DMapSettings.Dpe_OutBuf_RW_IIR_Ofs;
 			get_dvgf_iova[OutBuf_RW_IIR] += 1;
 			if (DPE_debug_log_en == 1) {
@@ -2570,11 +2576,11 @@ signed int dpe_enque_cb(struct frame *frames, void *req)
 		WMF_FILT_Ofs =
 		_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_OutBuf_WMF_FILT_Ofs;
 			//mutex_lock(&gFDMutex);
-			success = dpe_get_dma_buffer(&DVGF_WMF_FILT_mmu[DVGF_only_en-1],
+			success = dpe_get_dma_buffer(&DVGF_WMF_FILT_mmu[en_idx],
 			_req->m_pDpeConfig[ucnt].DPE_DMapSettings.Dpe_OutBuf_WMF_FILT_fd);
 			if (success) {
 				_req->m_pDpeConfig[ucnt].Dpe_OutBuf_WMF_FILT =
-				(sg_dma_address(DVGF_WMF_FILT_mmu[DVGF_only_en-1].sgt->sgl) +
+				(sg_dma_address(DVGF_WMF_FILT_mmu[en_idx].sgt->sgl) +
 				WMF_FILT_Ofs);
 				get_dvgf_iova[DVGF_OutBuf_WMF_FILT] += 1;
 			} else {
@@ -2614,18 +2620,18 @@ void mmu_release(struct tee_mmu *mmu, int fd_cnt)
 	}
 }
 
-signed int dpe_deque_cb(struct frame *frames, void *req)
+signed int dpe_deque_cb(struct frame *frames, void *req, unsigned int reqcnt)
 {
 	unsigned int f, fcnt, ucnt;
 	unsigned int pd_frame_num;
 	unsigned int DPE_P4_EN;
 	struct DPE_Request *_req;
 	struct DPE_Config_ISP8 *pDpeConfig;
-	int i, dvs_cnt, dvp_cnt, dvp_put, dvs_put, dvgf_cnt;
+	int dvs_cnt, dvp_cnt, dvp_put, dvs_put, dvgf_cnt;
 	struct tee_mmu temp_dvs;
 	struct tee_mmu temp_dvp;
 	struct tee_mmu temp_dvgf;
-
+	unsigned int de_idx;
 	_req = (struct DPE_Request *) req;
 	if (frames == NULL || _req == NULL)
 		return -1;
@@ -2681,21 +2687,18 @@ signed int dpe_deque_cb(struct frame *frames, void *req)
 		DPE_P4_EN = (((_req->m_pDpeConfig[0].Dpe_DVSSettings.TuningBuf_ME.DVS_ME_28) &
 							0x400) >> 10);
 		//LOG_INF("dpe_deque DPE_P4_EN = %d\n", DPE_P4_EN);
-		mutex_unlock(&gFDMutex);
+		// mutex_unlock(&gFDMutex);
 
 		//mutex_lock(&gFDMutex);
 		//LOG_INF("put fd DVS_only_en =%d, get_dvs_iova =%d\n",
 		//DVS_only_en, get_dvs_iova[0]);
-		if (DVS_only_en > 0)
-			i = DVS_only_en - 1;
-
 		//mutex_unlock(&gFDMutex);
-
+		de_idx = reqcnt;
 		//spin_unlock(&(DPEInfo.SpinLockFD));
-		mutex_lock(&gFDMutex);
+		// mutex_lock(&gFDMutex);
 		if (get_dvs_iova[SrcImg_Y_L] >= 1) {
 			get_dvs_iova[SrcImg_Y_L]--;
-			memcpy(&temp_dvs, &SrcImg_Y_L_mmu[i], sizeof(struct tee_mmu));
+			memcpy(&temp_dvs, &SrcImg_Y_L_mmu[de_idx], sizeof(struct tee_mmu));
 			mmu_release(&temp_dvs, SrcImg_Y_L);
 			if (DPE_debug_log_en == 1)
 				LOG_INF("dpe_deque SrcImg_Y_L_mmu put fd\n");
@@ -2705,7 +2708,7 @@ signed int dpe_deque_cb(struct frame *frames, void *req)
 
 		if (get_dvs_iova[SrcImg_Y_R] >= 1) {
 			get_dvs_iova[SrcImg_Y_R]--;
-			memcpy(&temp_dvs, &SrcImg_Y_R_mmu[i], sizeof(struct tee_mmu));
+			memcpy(&temp_dvs, &SrcImg_Y_R_mmu[de_idx], sizeof(struct tee_mmu));
 			mmu_release(&temp_dvs, SrcImg_Y_R);
 			if (DPE_debug_log_en == 1)
 				LOG_INF("dpe_deque SrcImg_Y_R_mmu put fd\n");
@@ -2714,7 +2717,7 @@ signed int dpe_deque_cb(struct frame *frames, void *req)
 
 		if (get_dvs_iova[OutBuf_OCC] >= 1) {
 			get_dvs_iova[OutBuf_OCC]--;
-			memcpy(&temp_dvs, &OutBuf_OCC_mmu[i], sizeof(struct tee_mmu));
+			memcpy(&temp_dvs, &OutBuf_OCC_mmu[de_idx], sizeof(struct tee_mmu));
 			mmu_release(&temp_dvs, OutBuf_OCC);
 			if (DPE_debug_log_en == 1)
 				LOG_INF("dpe_deque OutBuf_OCC_mmu put fd\n");
@@ -2723,7 +2726,7 @@ signed int dpe_deque_cb(struct frame *frames, void *req)
 
 		if (get_dvs_iova[OutBuf_OCC_EXT] >= 1) {
 			get_dvs_iova[OutBuf_OCC_EXT]--;
-			memcpy(&temp_dvs, &OutBuf_OCC_Ext_mmu[i], sizeof(struct tee_mmu));
+			memcpy(&temp_dvs, &OutBuf_OCC_Ext_mmu[de_idx], sizeof(struct tee_mmu));
 			mmu_release(&temp_dvs, OutBuf_OCC_EXT);
 			if (DPE_debug_log_en == 1)
 				LOG_INF("dpe_deque OutBuf_OCC_Ext_mmu put fd\n");
@@ -2732,7 +2735,7 @@ signed int dpe_deque_cb(struct frame *frames, void *req)
 
 		if (get_dvs_iova[OutBuf_OCC_HIST] >= 1) {
 			get_dvs_iova[OutBuf_OCC_HIST]--;
-			memcpy(&temp_dvs, &OutBuf_OCC_Hist_mmu[i], sizeof(struct tee_mmu));
+			memcpy(&temp_dvs, &OutBuf_OCC_Hist_mmu[de_idx], sizeof(struct tee_mmu));
 			mmu_release(&temp_dvs, OutBuf_OCC_HIST);
 			if (DPE_debug_log_en == 1)
 				LOG_INF("dpe_deque OutBuf_OCC_Hist_mmu put fd\n");
@@ -2745,7 +2748,7 @@ signed int dpe_deque_cb(struct frame *frames, void *req)
 
 			if (get_dvs_iova[SrcImg_Y_L_PRE] >= 1) {
 				get_dvs_iova[SrcImg_Y_L_PRE]--;
-				memcpy(&temp_dvs, &SrcImg_Y_L_Pre_mmu[i], sizeof(struct tee_mmu));
+				memcpy(&temp_dvs, &SrcImg_Y_L_Pre_mmu[de_idx], sizeof(struct tee_mmu));
 				mmu_release(&temp_dvs, SrcImg_Y_L_PRE);
 				if (DPE_debug_log_en == 1)
 					LOG_INF("dpe_deque SrcImg_Y_L_Pre put fd\n");
@@ -2755,30 +2758,28 @@ signed int dpe_deque_cb(struct frame *frames, void *req)
 			if (get_dvs_iova[SrcImg_Y_R_PRE] >= 1) {
 				//mutex_lock(&gFDMutex);
 				get_dvs_iova[SrcImg_Y_R_PRE]--;
-				memcpy(&temp_dvs, &SrcImg_Y_R_Pre_mmu[i], sizeof(struct tee_mmu));
+				memcpy(&temp_dvs, &SrcImg_Y_R_Pre_mmu[de_idx], sizeof(struct tee_mmu));
 				mmu_release(&temp_dvs, SrcImg_Y_R_PRE);
 				dvs_cnt++;
 			}
 
 			if (get_dvs_iova[InBuf_P4_L_DV] >= 1) {
 				get_dvs_iova[InBuf_P4_L_DV]--;
-				memcpy(&temp_dvs, &InBuf_P4_L_mmu[i], sizeof(struct tee_mmu));
+				memcpy(&temp_dvs, &InBuf_P4_L_mmu[de_idx], sizeof(struct tee_mmu));
 				mmu_release(&temp_dvs, InBuf_P4_L_DV);
 				dvs_cnt++;
 			}
 
 			if (get_dvs_iova[InBuf_P4_R_DV] >= 1) {
 				get_dvs_iova[InBuf_P4_R_DV]--;
-				memcpy(&temp_dvs, &InBuf_P4_R_mmu[i], sizeof(struct tee_mmu));
+				memcpy(&temp_dvs, &InBuf_P4_R_mmu[de_idx], sizeof(struct tee_mmu));
 				mmu_release(&temp_dvs, InBuf_P4_R_DV);
 				dvs_cnt++;
 			}
 		}
 
-		DVS_only_en--;
-		if (DVS_only_en == 0) {
-			//mutex_lock(&gFDMutex);
-			DVS_Num = 0;
+		DVS_Num--;
+		if (DVS_Num == 0) {
 			kfree((struct tee_mmu *)SrcImg_Y_L_mmu);
 			kfree((struct tee_mmu *)SrcImg_Y_R_mmu);
 			kfree((struct tee_mmu *)OutBuf_OCC_mmu);
@@ -2788,7 +2789,6 @@ signed int dpe_deque_cb(struct frame *frames, void *req)
 			kfree((struct tee_mmu *)SrcImg_Y_R_Pre_mmu);
 			kfree((struct tee_mmu *)InBuf_P4_L_mmu);
 			kfree((struct tee_mmu *)InBuf_P4_R_mmu);
-			//mutex_unlock(&gFDMutex);
 		}
 		mutex_unlock(&gFDMutex);
 	}
@@ -2799,13 +2799,11 @@ signed int dpe_deque_cb(struct frame *frames, void *req)
 		if (DPE_debug_log_en == 1)
 			LOG_INF("dpe_deque DVP put fd\n");
 
-		if (DVP_only_en > 0)
-			i = DVP_only_en - 1;
-
 		mutex_lock(&gFDMutex);
+		de_idx = reqcnt;
 		if (get_dvp_iova[SrcImg_Y] >= 1) {
 			get_dvp_iova[SrcImg_Y]--;
-			memcpy(&temp_dvp, &SrcImg_Y_mmu[i], sizeof(struct tee_mmu));
+			memcpy(&temp_dvp, &SrcImg_Y_mmu[de_idx], sizeof(struct tee_mmu));
 			mmu_release(&temp_dvp, SrcImg_Y);
 			if (DPE_debug_log_en == 1)
 				LOG_INF("dpe_deque SrcImg_Y_mmu put fd\n");
@@ -2816,7 +2814,7 @@ signed int dpe_deque_cb(struct frame *frames, void *req)
 		//mutex_lock(&gFDMutex);
 		if (get_dvp_iova[SrcImg_C] >= 1) {
 			get_dvp_iova[SrcImg_C]--;
-			memcpy(&temp_dvp, &SrcImg_C_mmu[i], sizeof(struct tee_mmu));
+			memcpy(&temp_dvp, &SrcImg_C_mmu[de_idx], sizeof(struct tee_mmu));
 			mmu_release(&temp_dvp, SrcImg_C);
 			dvp_cnt++;
 		}
@@ -2824,7 +2822,7 @@ signed int dpe_deque_cb(struct frame *frames, void *req)
 		//mutex_lock(&gFDMutex);
 		if (get_dvp_iova[InBuf_OCC] >= 1) {
 			get_dvp_iova[InBuf_OCC]--;
-			memcpy(&temp_dvp, &InBuf_OCC_mmu[i], sizeof(struct tee_mmu));
+			memcpy(&temp_dvp, &InBuf_OCC_mmu[de_idx], sizeof(struct tee_mmu));
 			mmu_release(&temp_dvp, InBuf_OCC);
 			dvp_cnt++;
 		}
@@ -2832,7 +2830,7 @@ signed int dpe_deque_cb(struct frame *frames, void *req)
 		//mutex_lock(&gFDMutex);
 		if (get_dvp_iova[OutBuf_CRM] >= 1) {
 			get_dvp_iova[OutBuf_CRM]--;
-			memcpy(&temp_dvp, &OutBuf_CRM_mmu[i], sizeof(struct tee_mmu));
+			memcpy(&temp_dvp, &OutBuf_CRM_mmu[de_idx], sizeof(struct tee_mmu));
 			mmu_release(&temp_dvp, OutBuf_CRM);
 			dvp_cnt++;
 		}
@@ -2840,7 +2838,7 @@ signed int dpe_deque_cb(struct frame *frames, void *req)
 		//mutex_lock(&gFDMutex);
 		if (get_dvp_iova[OutBuf_WMF_RD] >= 1) {
 			get_dvp_iova[OutBuf_WMF_RD]--;
-			memcpy(&temp_dvp, &WMF_RD_mmu[i], sizeof(struct tee_mmu));
+			memcpy(&temp_dvp, &WMF_RD_mmu[de_idx], sizeof(struct tee_mmu));
 			mmu_release(&temp_dvp, OutBuf_WMF_RD);
 			dvp_cnt++;
 		}
@@ -2848,7 +2846,7 @@ signed int dpe_deque_cb(struct frame *frames, void *req)
 		//mutex_lock(&gFDMutex);
 		if (get_dvp_iova[OutBuf_ASF_HF] >= 1) {
 			get_dvp_iova[OutBuf_ASF_HF]--;
-			memcpy(&temp_dvp, &ASF_HF_mmu[i], sizeof(struct tee_mmu));
+			memcpy(&temp_dvp, &ASF_HF_mmu[de_idx], sizeof(struct tee_mmu));
 			mmu_release(&temp_dvp, OutBuf_ASF_HF);
 			dvp_cnt++;
 		}
@@ -2856,7 +2854,7 @@ signed int dpe_deque_cb(struct frame *frames, void *req)
 		//mutex_lock(&gFDMutex);
 		if (get_dvp_iova[OutBuf_WMF_FILT] >= 1) {
 			get_dvp_iova[OutBuf_WMF_FILT]--;
-			memcpy(&temp_dvp, &WMF_FILT_mmu[i], sizeof(struct tee_mmu));
+			memcpy(&temp_dvp, &WMF_FILT_mmu[de_idx], sizeof(struct tee_mmu));
 			mmu_release(&temp_dvp, OutBuf_WMF_FILT);
 			dvp_cnt++;
 		}
@@ -2864,29 +2862,29 @@ signed int dpe_deque_cb(struct frame *frames, void *req)
 		//mutex_lock(&gFDMutex);
 		if (get_dvp_iova[InBuf_OCC_Ext] >= 1) {
 			get_dvp_iova[InBuf_OCC_Ext]--;
-			memcpy(&temp_dvp, &InBuf_OCC_Ext_mmu[i], sizeof(struct tee_mmu));
+			memcpy(&temp_dvp, &InBuf_OCC_Ext_mmu[de_idx], sizeof(struct tee_mmu));
 			mmu_release(&temp_dvp, InBuf_OCC_Ext);
 			dvp_cnt++;
 		}
 
 		if (get_dvp_iova[OutBuf_ASF_RD_Ext] >= 1) {
 			get_dvp_iova[OutBuf_ASF_RD_Ext]--;
-			memcpy(&temp_dvp, &ASF_RD_Ext_mmu[i], sizeof(struct tee_mmu));
+			memcpy(&temp_dvp, &ASF_RD_Ext_mmu[de_idx], sizeof(struct tee_mmu));
 			mmu_release(&temp_dvp, OutBuf_ASF_RD_Ext);
 			dvp_cnt++;
 		}
 
 		if (get_dvp_iova[OutBuf_ASF_HF_Ext] >= 1) {
 			get_dvp_iova[OutBuf_ASF_HF_Ext]--;
-			memcpy(&temp_dvp, &ASF_HF_Ext_mmu[i], sizeof(struct tee_mmu));
+			memcpy(&temp_dvp, &ASF_HF_Ext_mmu[de_idx], sizeof(struct tee_mmu));
 			mmu_release(&temp_dvp, OutBuf_ASF_HF_Ext);
 			dvp_cnt++;
 		}
 
 //		mutex_unlock(&gFDMutex);
 		//mutex_lock(&gFDMutex);
-		DVP_only_en--;
-		if (DVP_only_en == 0) {
+		DVP_Num--;
+		if (DVP_Num == 0) {
 			kfree((struct tee_mmu *)SrcImg_Y_mmu);
 			kfree((struct tee_mmu *)SrcImg_C_mmu);
 			kfree((struct tee_mmu *)InBuf_OCC_mmu);
@@ -2898,7 +2896,6 @@ signed int dpe_deque_cb(struct frame *frames, void *req)
 			kfree((struct tee_mmu *)InBuf_OCC_Ext_mmu);
 			kfree((struct tee_mmu *)ASF_RD_Ext_mmu);
 			kfree((struct tee_mmu *)ASF_HF_Ext_mmu);
-			DVP_Num = 0;
 		}
 		mutex_unlock(&gFDMutex);
 	}
@@ -2908,23 +2905,21 @@ signed int dpe_deque_cb(struct frame *frames, void *req)
 		if (DPE_debug_log_en == 1)
 			LOG_INF("dpe_deque DVGF put fd\n");
 
-		if (DVGF_only_en > 0)
-			i = DVGF_only_en - 1;
-
 		mutex_lock(&gFDMutex);
+		de_idx = reqcnt;
 		if (get_dvgf_iova[DVGF_SrcImg_Y] >= 1) {
 			get_dvgf_iova[DVGF_SrcImg_Y]--;
-			memcpy(&temp_dvgf, &DVGF_SrcImg_Y_mmu[i], sizeof(struct tee_mmu));
+			memcpy(&temp_dvgf, &DVGF_SrcImg_Y_mmu[de_idx], sizeof(struct tee_mmu));
 			mmu_release(&temp_dvgf, DVGF_SrcImg_Y);
 			if (DPE_debug_log_en == 1)
-				LOG_INF("dpe_deque SrcImg_Y_Pre_mmu put fd\n");
+				LOG_INF("dpe_deque SrcImg_Y_mmu put fd\n");
 
 			dvgf_cnt++;
 		}
 
 		if (get_dvgf_iova[DVGF_SrcImg_C] >= 1) {
 			get_dvgf_iova[DVGF_SrcImg_C]--;
-			memcpy(&temp_dvgf, &DVGF_SrcImg_C_mmu[i], sizeof(struct tee_mmu));
+			memcpy(&temp_dvgf, &DVGF_SrcImg_C_mmu[de_idx], sizeof(struct tee_mmu));
 			mmu_release(&temp_dvgf, DVGF_SrcImg_C);
 			if (DPE_debug_log_en == 1)
 				LOG_INF("dpe_deque SrcImg_C_mmu put fd\n");
@@ -2935,7 +2930,7 @@ signed int dpe_deque_cb(struct frame *frames, void *req)
 
 		if (get_dvgf_iova[SrcImg_Y_Pre] >= 1) {
 			get_dvgf_iova[SrcImg_Y_Pre]--;
-			memcpy(&temp_dvgf, &SrcImg_Y_Pre_mmu[i], sizeof(struct tee_mmu));
+			memcpy(&temp_dvgf, &SrcImg_Y_Pre_mmu[de_idx], sizeof(struct tee_mmu));
 			mmu_release(&temp_dvgf, SrcImg_Y_Pre);
 			if (DPE_debug_log_en == 1)
 				LOG_INF("dpe_deque SrcImg_Y_Pre_mmu put fd\n");
@@ -2945,7 +2940,7 @@ signed int dpe_deque_cb(struct frame *frames, void *req)
 
 		if (get_dvgf_iova[SrcImg_C_Pre] >= 1) {
 			get_dvgf_iova[SrcImg_C_Pre]--;
-			memcpy(&temp_dvgf, &SrcImg_C_Pre_mmu[i], sizeof(struct tee_mmu));
+			memcpy(&temp_dvgf, &SrcImg_C_Pre_mmu[de_idx], sizeof(struct tee_mmu));
 			mmu_release(&temp_dvgf, SrcImg_C_Pre);
 			if (DPE_debug_log_en == 1)
 				LOG_INF("dpe_deque SrcImg_C_Pre_mmu put fd\n");
@@ -2955,7 +2950,7 @@ signed int dpe_deque_cb(struct frame *frames, void *req)
 
 		if (get_dvgf_iova[DVGF_OutBuf_OCC_Ext] >= 1) {
 			get_dvgf_iova[DVGF_OutBuf_OCC_Ext]--;
-			memcpy(&temp_dvgf, &DVGF_OutBuf_OCC_Ext_mmu[i], sizeof(struct tee_mmu));
+			memcpy(&temp_dvgf, &DVGF_OutBuf_OCC_Ext_mmu[de_idx], sizeof(struct tee_mmu));
 			mmu_release(&temp_dvgf, DVGF_OutBuf_OCC_Ext);
 			if (DPE_debug_log_en == 1)
 				LOG_INF("dpe_deque DVGF_OutBuf_OCC_Ext_mmu put fd\n");
@@ -2967,7 +2962,7 @@ signed int dpe_deque_cb(struct frame *frames, void *req)
 
 		if (get_dvgf_iova[OutBuf_WT_Fnl] >= 1) {
 			get_dvgf_iova[OutBuf_WT_Fnl]--;
-			memcpy(&temp_dvgf, &WT_Fnl_mmu[i], sizeof(struct tee_mmu));
+			memcpy(&temp_dvgf, &WT_Fnl_mmu[de_idx], sizeof(struct tee_mmu));
 			mmu_release(&temp_dvgf, OutBuf_WT_Fnl);
 			if (DPE_debug_log_en == 1)
 				LOG_INF("dpe_deque WT_Fnl_mmu put fd\n");
@@ -2977,7 +2972,7 @@ signed int dpe_deque_cb(struct frame *frames, void *req)
 
 		if (get_dvgf_iova[OutBuf_RW_IIR] >= 1) {
 			get_dvgf_iova[OutBuf_RW_IIR]--;
-			memcpy(&temp_dvgf, &RW_IIR_mmu[i], sizeof(struct tee_mmu));
+			memcpy(&temp_dvgf, &RW_IIR_mmu[de_idx], sizeof(struct tee_mmu));
 			mmu_release(&temp_dvgf, OutBuf_RW_IIR);
 			if (DPE_debug_log_en == 1)
 				LOG_INF("dpe_deque RW_IIR_mmu put fd\n");
@@ -2987,7 +2982,7 @@ signed int dpe_deque_cb(struct frame *frames, void *req)
 
 		if (get_dvgf_iova[DVGF_OutBuf_WMF_FILT] >= 1) {
 			get_dvgf_iova[DVGF_OutBuf_WMF_FILT]--;
-			memcpy(&temp_dvgf, &DVGF_WMF_FILT_mmu[i], sizeof(struct tee_mmu));
+			memcpy(&temp_dvgf, &DVGF_WMF_FILT_mmu[de_idx], sizeof(struct tee_mmu));
 			mmu_release(&temp_dvgf, DVGF_OutBuf_WMF_FILT);
 			if (DPE_debug_log_en == 1)
 				LOG_INF("dpe_deque DVGF_WMF_FILT_mmu put fd\n");
@@ -2995,8 +2990,8 @@ signed int dpe_deque_cb(struct frame *frames, void *req)
 			dvgf_cnt++;
 		}
 
-		DVGF_only_en--;
-		if (DVGF_only_en == 0) {
+		DVGF_Num--;
+		if (DVGF_Num == 0) {
 			kfree((struct tee_mmu *)SrcImg_Y_Pre_mmu);
 			kfree((struct tee_mmu *)SrcImg_C_Pre_mmu);
 			kfree((struct tee_mmu *)WT_Fnl_mmu);
@@ -3005,7 +3000,6 @@ signed int dpe_deque_cb(struct frame *frames, void *req)
 			kfree((struct tee_mmu *)DVGF_SrcImg_C_mmu);
 			kfree((struct tee_mmu *)DVGF_OutBuf_OCC_Ext_mmu);
 			kfree((struct tee_mmu *)DVGF_WMF_FILT_mmu);
-			DVGF_Num = 0;
 		}
 		mutex_unlock(&gFDMutex);
 	}
@@ -7908,10 +7902,10 @@ static int vidioc_qbuf(struct file *file, void *priv, struct v4l2_buffer *p)
 	/*struct video_device *vdev = video_devdata(file);*/
 	unsigned long ret;
 	struct DPE_USER_INFO_STRUCT *pUserInfo;
-	static struct DPE_Request ureq;
-	static struct DPE_Request kreq;
+	static struct DPE_Request ureq[MAX_REQ];
+	static struct DPE_Request kreq[MAX_REQ];
 	/* size of cfgs = 3 owing to call stact limitation*/
-	static struct DPE_Config_ISP8 cfgs[3];//[MAX_FRAMES_PER_REQUEST];
+	static struct DPE_Config_ISP8 cfgs[MAX_REQ][3];//[MAX_FRAMES_PER_REQUEST];
 	struct DPE_Config_ISP8 *pcfgs;
 	//unsigned long flags;
 	unsigned int m_real_ReqNum, f;
@@ -7919,68 +7913,78 @@ static int vidioc_qbuf(struct file *file, void *priv, struct v4l2_buffer *p)
 	//unsigned int p_cnt;
 	//pid_t ProcessID;
 
+	int qq;
+
+	spin_lock(&REQ_LOCK);
+	qq = ii;
+	ii = (ii+1) % MAX_REQ;
+	// LOG_INF("[%s][ERIC]qq= %d\n", __func__, qq);
+	spin_unlock(&REQ_LOCK);
+
 	//int tmep_cnt;
 	if (DPE_debug_log_en == 1) {
 		LOG_INF("[%s]buf address/len = %lu/0x%x\n",
 		__func__, p->m.userptr,  p->length);
 	}
 	pUserInfo = (struct DPE_USER_INFO_STRUCT *) (file->private_data);
-	ret = copy_from_user(&ureq, (void __user *)p->m.userptr, sizeof(ureq));
+	ret = copy_from_user(&ureq[qq], (void __user *)p->m.userptr, sizeof(struct DPE_Request));
 	if (ret != 0) {
 		LOG_ERR("[%s]copy_from_user fail\n", __func__);
 		goto EXIT;
 	}
 
-	if (ureq.m_ReqNum > 3) {
+	if (ureq[qq].m_ReqNum > 3) {
 		LOG_ERR("[%s]user req nums is bigger than 3\n", __func__);
 		goto EXIT;
 	}
 
-	//LOG_INF("[%s]This request has %d configs.\n", __func__, ureq.m_ReqNum);
-	if (ureq.m_pDpeConfig == NULL) {
+	//LOG_INF("[%s]This request has %d configs.\n", __func__, ureq[qq].m_ReqNum);
+	if (ureq[qq].m_pDpeConfig == NULL) {
 		LOG_ERR("[%s]user's DpeConfig is NULL\n", __func__);
 		goto EXIT;
 	}
-	ret = copy_from_user(&cfgs[0], (void __user *)ureq.m_pDpeConfig,
-				ureq.m_ReqNum * sizeof(struct DPE_Config_ISP8));
+	ret = copy_from_user(&cfgs[qq][0], (void __user *)ureq[qq].m_pDpeConfig,
+				ureq[qq].m_ReqNum * sizeof(struct DPE_Config_ISP8));
 	if (ret != 0) {
 		LOG_ERR("[%s]DpeConfig copy_from_user fail\n", __func__);
 		goto EXIT;
 	}
 
-	m_real_ReqNum = ureq.m_ReqNum;
-	for (f = 0; f < ureq.m_ReqNum; f++) {
-		if (cfgs[f].Dpe_DVSSettings.is_pd_mode) {
-			pcfgs = &cfgs[f];
+	m_real_ReqNum = ureq[qq].m_ReqNum;
+	for (f = 0; f < ureq[qq].m_ReqNum; f++) {
+		if (cfgs[qq][f].Dpe_DVSSettings.is_pd_mode) {
+			pcfgs = &cfgs[qq][f];
 			Get_Tile_Info(pcfgs);
-			m_real_ReqNum += (cfgs[f].Dpe_DVSSettings.pd_frame_num-1);
+			m_real_ReqNum += (cfgs[qq][f].Dpe_DVSSettings.pd_frame_num-1);
 		}
 	}
-	kreq.m_pDpeConfig = cfgs;
-	kreq.m_ReqNum = m_real_ReqNum;
+	kreq[qq].m_pDpeConfig = &cfgs[qq][0];
+	kreq[qq].m_ReqNum = m_real_ReqNum;
 
 	//LOG_INF("[vidi qbuf] Dpe engineSelect = %d\n",
-	//cfgs[0].Dpe_engineSelect);
+	//cfgs[qq].Dpe_engineSelect);
 	//LOG_INF("[vidi qbuf] Dpe_RegDump = %d\n",
-	//cfgs[0].Dpe_RegDump);
-	DPE_debug_log_en = cfgs[0].Dpe_RegDump;
+	//cfgs[qq].Dpe_RegDump);
+	DPE_debug_log_en = cfgs[qq][0].Dpe_RegDump;
 
-	//kreq.m_ReqNum = ureq.m_ReqNum;
+	//kreq.m_ReqNum = ureq[qq].m_ReqNum;
 	//mutex_lock(&gDpeMutex);	/* Protect the Multi Process */
 	//mutex_lock(&gDVSMutex);
 
 	//spin_lock_irqsave(&(DPEInfo.SpinLockIrq[DPE_IRQ_TYPE_INT_DVP_ST]),
 	// flags);
-	if (cfgs[0].Dpe_engineSelect == MODE_DVS_ONLY)
-		dpe_enque_request_isp8(&dpe_reqs_dvs, kreq.m_ReqNum, &kreq, pUserInfo->Pid);
+	if (cfgs[qq][0].Dpe_engineSelect == MODE_DVS_ONLY)
+		dpe_enque_request_isp8(&dpe_reqs_dvs, kreq[qq].m_ReqNum, &kreq[qq],
+			pUserInfo->Pid, &(DPEInfo.SpinLockIrq[DPE_IRQ_TYPE_INT_DVP_ST]));
 
+	if ((cfgs[qq][0].Dpe_engineSelect == MODE_DVP_ONLY) ||
+			(cfgs[qq][0].Dpe_engineSelect == MODE_DVS_DVP_BOTH))
+		dpe_enque_request_isp8(&dpe_reqs_dvp, kreq[qq].m_ReqNum, &kreq[qq],
+			pUserInfo->Pid, &(DPEInfo.SpinLockIrq[DPE_IRQ_TYPE_INT_DVP_ST]));
 
-	if ((cfgs[0].Dpe_engineSelect == MODE_DVP_ONLY) ||
-			(cfgs[0].Dpe_engineSelect == MODE_DVS_DVP_BOTH))
-		dpe_enque_request_isp8(&dpe_reqs_dvp, kreq.m_ReqNum, &kreq, pUserInfo->Pid);
-
-	if (cfgs[0].Dpe_engineSelect == MODE_DVGF_ONLY)
-		dpe_enque_request_isp8(&dpe_reqs_dvgf, kreq.m_ReqNum, &kreq, pUserInfo->Pid);
+	if (cfgs[qq][0].Dpe_engineSelect == MODE_DVGF_ONLY)
+		dpe_enque_request_isp8(&dpe_reqs_dvgf, kreq[qq].m_ReqNum, &kreq[qq],
+			pUserInfo->Pid, &(DPEInfo.SpinLockIrq[DPE_IRQ_TYPE_INT_DVP_ST]));
 
 
 	//spin_unlock_irqrestore(&(DPEInfo.SpinLockIrq[DPE_IRQ_TYPE_INT_DVP_ST]),
@@ -7989,7 +7993,7 @@ static int vidioc_qbuf(struct file *file, void *priv, struct v4l2_buffer *p)
 	 *  consuming speed from being faster than SW frame-queue update speed.
 	 */
 
-	if (cfgs[0].Dpe_engineSelect == MODE_DVS_ONLY) {
+	if (cfgs[qq][0].Dpe_engineSelect == MODE_DVS_ONLY) {
 		temp_req = dpe_request_running_isp8(&dpe_reqs_dvs);
 		if (DPE_debug_log_en == 1)
 			LOG_INF("[vidioc qbuf]dpe_request_running_isp8 stat = %d\n", temp_req);
@@ -8001,8 +8005,8 @@ static int vidioc_qbuf(struct file *file, void *priv, struct v4l2_buffer *p)
 			&(DPEInfo.SpinLockIrq[DPE_IRQ_TYPE_INT_DVP_ST]));
 		}
 	}
-	if ((cfgs[0].Dpe_engineSelect == MODE_DVP_ONLY) ||
-		(cfgs[0].Dpe_engineSelect == MODE_DVS_DVP_BOTH)) {
+	if ((cfgs[qq][0].Dpe_engineSelect == MODE_DVP_ONLY) ||
+		(cfgs[qq][0].Dpe_engineSelect == MODE_DVS_DVP_BOTH)) {
 		temp_req = dpe_request_running_isp8(&dpe_reqs_dvp);
 		if (DPE_debug_log_en == 1)
 			LOG_INF("[vidioc qbuf]dpe_request_running_isp8 stat = %d\n", temp_req);
@@ -8015,7 +8019,7 @@ static int vidioc_qbuf(struct file *file, void *priv, struct v4l2_buffer *p)
 			}
 		}
 
-		if (cfgs[0].Dpe_engineSelect == MODE_DVGF_ONLY) {
+		if (cfgs[qq][0].Dpe_engineSelect == MODE_DVGF_ONLY) {
 			temp_req = dpe_request_running_isp8(&dpe_reqs_dvgf);
 			if (DPE_debug_log_en == 1)
 				LOG_INF("[vidioc qbuf]dpe_request_running_isp8 stat = %d\n",
@@ -8039,77 +8043,82 @@ static int vidioc_dqbuf(struct file *file, void *priv, struct v4l2_buffer *p)
 {
 	/*struct video_device *vdev = video_devdata(file);*/
 	signed int Ret = 0;
-	static struct DPE_Request ureq;
-	static struct DPE_Request kreq;
+	static struct DPE_Request ureq[MAX_REQ];
+	static struct DPE_Request kreq[MAX_REQ];
 	/* size of cfgs = 3 owing to call stact limitation*/
-	static struct DPE_Config_ISP8 cfgs[3];//[MAX_FRAMES_PER_REQUEST];
+	static struct DPE_Config_ISP8 cfgs[MAX_REQ][3];//[MAX_FRAMES_PER_REQUEST];
 	//unsigned long flags;
 	//unsigned int m_real_ReqNum;
 
+	int dd;
+
+	spin_lock(&REQ_LOCK);
+	dd = ii;
+	ii = (ii+1) % MAX_REQ;
+	// LOG_INF("[%s][ERIC]dd= %d\n", __func__, dd);
+	spin_unlock(&REQ_LOCK);
 	//struct DPE_Config_ISP8 *pDpeConfig;
 	if (DPE_debug_log_en == 1) {
 		LOG_INF("DPE_DumpReg  start\n");
 		DPE_DumpReg();//!test
 		LOG_INF("DPE_DumpReg end\n");
 	}
-	//LOG_INF("[%s]buf address/len = 0x%llu/0x%x, ureq =0x%x\n",
-	//__func__, p->m.userptr,  p->length, sizeof(ureq));
-
-	Ret = copy_from_user(&ureq, (void __user *)p->m.userptr, sizeof(ureq));
-
-	Ret = copy_from_user(&cfgs[0], (void __user *)ureq.m_pDpeConfig,
-				ureq.m_ReqNum * sizeof(struct DPE_Config_ISP8));
+	//LOG_INF("[%s]buf address/len = 0x%llu/0x%x, ureq[ii] =0x%x\n",
+	//__func__, p->m.userptr,  p->length, sizeof(ureq[ii]));
+	Ret = copy_from_user(&ureq[dd], (void __user *)p->m.userptr, sizeof(struct DPE_Request));
+	Ret = copy_from_user(&cfgs[dd][0], (void __user *)ureq[dd].m_pDpeConfig,
+				ureq[dd].m_ReqNum * sizeof(struct DPE_Config_ISP8));
 
 	if (Ret == 0) {
 
 		//!mutex_lock(&gDpeDequeMutex);
 		//mutex_lock(&gDVSMutex);
-		kreq.m_pDpeConfig = cfgs;
+		kreq[dd].m_pDpeConfig = &cfgs[dd][0];
 		if (DPE_debug_log_en == 1) {
 			LOG_INF("[vidioc dqbuf] Dpe_engineSelect = %d\n",
-			cfgs[0].Dpe_engineSelect);
+			cfgs[dd][0].Dpe_engineSelect);
 		}
-		if (cfgs[0].Dpe_engineSelect == MODE_DVS_ONLY)
-			dpe_deque_request_isp8(&dpe_reqs_dvs, &kreq.m_ReqNum, &kreq);
+		if (cfgs[dd][0].Dpe_engineSelect == MODE_DVS_ONLY)
+			dpe_deque_request_isp8(&dpe_reqs_dvs, &kreq[dd].m_ReqNum, &kreq[dd]);
 
 
-		if ((cfgs[0].Dpe_engineSelect == MODE_DVP_ONLY) ||
-				(cfgs[0].Dpe_engineSelect == MODE_DVS_DVP_BOTH)) {
-			dpe_deque_request_isp8(&dpe_reqs_dvp, &kreq.m_ReqNum, &kreq);
+		if ((cfgs[dd][0].Dpe_engineSelect == MODE_DVP_ONLY) ||
+				(cfgs[dd][0].Dpe_engineSelect == MODE_DVS_DVP_BOTH)) {
+			dpe_deque_request_isp8(&dpe_reqs_dvp, &kreq[dd].m_ReqNum, &kreq[dd]);
 		}
 
-		if (cfgs[0].Dpe_engineSelect == MODE_DVGF_ONLY)
-			dpe_deque_request_isp8(&dpe_reqs_dvgf, &kreq.m_ReqNum, &kreq);
+		if (cfgs[dd][0].Dpe_engineSelect == MODE_DVGF_ONLY)
+			dpe_deque_request_isp8(&dpe_reqs_dvgf, &kreq[dd].m_ReqNum, &kreq[dd]);
 
 
 		//spin_unlock_irqrestore(&(DPEInfo.SpinLockIrq[DPE_IRQ_TYPE_INT_DVP_ST]),
 		//		flags);
 		//!mutex_unlock(&gDpeDequeMutex);
 //		mutex_unlock(&gDVSMutex);
-		ureq.m_ReqNum = kreq.m_ReqNum;
-		if (ureq.m_pDpeConfig == NULL) {
+		ureq[dd].m_ReqNum = kreq[0].m_ReqNum;
+		if (ureq[dd].m_pDpeConfig == NULL) {
 			LOG_ERR("NULL user pointer");
 			Ret = -EFAULT;
 			goto EXIT;
 		}
 		//For Register Dump
 		//LOG_INF("[vidioc dqbuf] b Dpe_RegDump = %d\n",
-		//cfgs[0].Dpe_RegDump);
+		//cfgs[dd].Dpe_RegDump);
 
-		if (cfgs[0].Dpe_RegDump == 1)
-			DPE_Dump_kernelReg(&cfgs[0]);//!Kernel Dump
+		if (cfgs[dd][0].Dpe_RegDump == 1)
+			DPE_Dump_kernelReg(&cfgs[dd][0]);//!Kernel Dump
 
 		//LOG_INF("[vidioc dqbuf] b DVS_CTRL00 = 0x%x\n",
-		//cfgs[0].DPE_Kernel_DpeConfig.DVS_CTRL00);
+		//cfgs[dd].DPE_Kernel_DpeConfig.DVS_CTRL00);
 		if (copy_to_user
-		    ((void *)ureq.m_pDpeConfig, kreq.m_pDpeConfig,
-		     kreq.m_ReqNum * sizeof(struct DPE_Config_ISP8)) != 0) {
+		    ((void *)ureq[dd].m_pDpeConfig, kreq[dd].m_pDpeConfig,
+		     kreq[dd].m_ReqNum * sizeof(struct DPE_Config_ISP8)) != 0) {
 			LOG_ERR
 			    ("DPE_DEQUE_REQ copy_to_user frameconfig failed\n");
 			Ret = -EFAULT;
 		}
 		if (copy_to_user
-		    ((void *)p->m.userptr, &ureq, sizeof(ureq)) != 0) {
+		    ((void *)p->m.userptr, &ureq[dd], sizeof(struct DPE_Request)) != 0) {
 			LOG_ERR("DPE_DEQUE_REQ copy_to_user failed\n");
 			Ret = -EFAULT;
 		}
@@ -8539,14 +8548,16 @@ if (DPE_dev->irq > 0) {
 #endif
 	//pm_runtime_enable(gdev);
 
+		ii = 0;
 		/* Init spinlocks */
+		spin_lock_init(&(REQ_LOCK));
 		spin_lock_init(&(DPEInfo.SpinLockDPE));
 		spin_lock_init(&(DPEInfo.SpinLockFD));//!
 		for (n = 0; n < DPE_IRQ_TYPE_AMOUNT; n++)
 			spin_lock_init(&(DPEInfo.SpinLockIrq[n]));
 		/*  */
 		init_waitqueue_head(&DPEInfo.WaitQueueHead);
-		INIT_WORK(&DPEInfo.ScheduleDpeWork, DPE_ScheduleWork);
+		INIT_WORK(&DPEInfo.ScheduleDpeWork, DVS_ScheduleWork);
 		INIT_WORK(&DPEInfo.DVP_ScheduleDpeWork, DVP_ScheduleWork);
 		INIT_WORK(&DPEInfo.DVGF_ScheduleDpeWork, DVGF_ScheduleWork);
 		DPEInfo.wkqueue = create_singlethread_workqueue("DPE-CMDQ-WQ");
@@ -9305,7 +9316,7 @@ static void __exit DPE_Exit(void)
 /*******************************************************************************
  *
  ******************************************************************************/
-void DPE_ScheduleWork(struct work_struct *data)
+void DVS_ScheduleWork(struct work_struct *data)
 {
 
 	if (DPE_DBG_DBGLOG & DPEInfo.DebugMask)

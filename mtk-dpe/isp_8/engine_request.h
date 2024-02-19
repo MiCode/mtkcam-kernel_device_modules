@@ -56,8 +56,8 @@ struct request_dpe {
 };
 
 struct engine_ops {
-	int (*req_enque_cb)(struct frame *frames, void *req);
-	int (*req_deque_cb)(struct frame *frames, void *req);
+	int (*req_enque_cb)(struct frame *frames, void *req, unsigned int reqcnt);
+	int (*req_deque_cb)(struct frame *frames, void *req, unsigned int reqcnt);
 	int (*frame_handler)(struct frame *frame);
 	int (*req_feedback_cb)(struct frame *frame);
 };
@@ -85,7 +85,7 @@ int dpe_set_engine_ops_isp8(struct engine_requests *eng,
 	const struct engine_ops *ops);
 
 signed int dpe_enque_request_isp8(struct engine_requests *eng, unsigned int fcnt,
-							void *req, pid_t pid);
+							void *req, pid_t pid, spinlock_t *lock);
 signed int dpe_deque_request_isp8(struct engine_requests *eng, unsigned int *fcnt,
 								void *req);
 int dpe_update_request_isp8(struct engine_requests *eng, pid_t *pid);

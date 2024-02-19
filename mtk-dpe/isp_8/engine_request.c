@@ -225,18 +225,21 @@ EXPORT_SYMBOL(dpe_request_running_isp8);
 
 /*TODO: called in ENQUE_REQ */
 signed int dpe_enque_request_isp8(struct engine_requests *eng, unsigned int fcnt,
-						void *req, pid_t pid)
+						void *req, pid_t pid, spinlock_t *lock)
 {
 	unsigned int r;
 	unsigned int f;
 	unsigned int enqnum = 0;
+	unsigned long flags;
 
 	if (eng == NULL)
 		return -1;
-
+	spin_lock_irqsave(lock, flags);
 	r = eng->req_ctl.wcnt;
 	/* FIFO when wcnt starts from 0 */
 	f = eng->reqs[r].fctl.wcnt;
+	eng->req_ctl.wcnt = (r + 1) % MAX_REQUEST_SIZE_PER_ENGINE;
+	spin_unlock_irqrestore(lock, flags);
 
 	if (eng->reqs[r].state != REQUEST_STATE_EMPTY) {
 		LOG_ERR("No empty requests available.");
@@ -248,10 +251,12 @@ signed int dpe_enque_request_isp8(struct engine_requests *eng, unsigned int fcnt
 		goto ERROR;
 	}
 
-	if (eng->ops->req_enque_cb(eng->reqs[r].frames, req)) {
+	if (eng->ops->req_enque_cb(eng->reqs[r].frames, req, r)) {
 		LOG_ERR("Failed to enque request, check cb");
 		goto ERROR;
 	}
+
+	spin_lock_irqsave(lock, flags);
 
 	LOG_DBG("request(%d) enqued with %d frames", r, fcnt);
 	for (f = 0; f < fcnt; f++)
@@ -263,7 +268,7 @@ signed int dpe_enque_request_isp8(struct engine_requests *eng, unsigned int fcnt
 	eng->reqs[r].fctl.wcnt = fcnt;
 	eng->reqs[r].fctl.size = fcnt;
 
-	eng->req_ctl.wcnt = (r + 1) % MAX_REQUEST_SIZE_PER_ENGINE;
+	// eng->req_ctl.wcnt = (r + 1) % MAX_REQUEST_SIZE_PER_ENGINE;
 
 #if REQUEST_REGULATION
 	/*
@@ -282,6 +287,7 @@ signed int dpe_enque_request_isp8(struct engine_requests *eng, unsigned int fcnt
 							FRAME_STATUS_RUNNING)
 				enqnum++;
 #endif
+	spin_unlock_irqrestore(lock, flags);
 	return enqnum;
 ERROR:
 	return -1;
@@ -564,7 +570,7 @@ signed int dpe_deque_request_isp8(
 		goto ERROR;
 	}
 
-	if (eng->ops->req_deque_cb(eng->reqs[r].frames, req)) {
+	if (eng->ops->req_deque_cb(eng->reqs[r].frames, req, r)) {
 		LOG_ERR("[%s]Failed to deque, check req_deque_cb", __func__);
 		goto ERROR;
 	}

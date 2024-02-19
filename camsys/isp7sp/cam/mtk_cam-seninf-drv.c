@@ -2839,13 +2839,22 @@ static int seninf_open(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 static int seninf_close(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 {
 	struct seninf_ctx *ctx = sd_to_ctx(sd);
+	unsigned int i;
 
 	mutex_lock(&ctx->mutex);
 	ctx->open_refcnt--;
-
+	ctx->is_aov_real_sensor = 0;
 
 	if (!ctx->open_refcnt) {
 		dev_info(ctx->dev, "%s open_refcnt %d\n", __func__, ctx->open_refcnt);
+
+		/* clear aov_ctx */
+		for (i = 0; i < AOV_SENINF_NUM; i++) {
+			if (aov_ctx[i] == ctx) {
+				aov_ctx[i] = NULL;
+				dev_info(ctx->dev, "%s clear aov_ctx[%u]\n", __func__, i);
+			}
+		}
 #ifdef SENINF_DEBUG
 		if (ctx->is_test_streamon)
 			seninf_test_streamon(ctx, 0);

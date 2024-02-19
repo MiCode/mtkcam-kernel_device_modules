@@ -59,8 +59,8 @@ struct imgsys_mtcmos_data {
 
 void mtk_imgsys_cmdq_qof_init(struct mtk_imgsys_dev *imgsys_dev, struct cmdq_client *imgsys_clt);
 void mtk_imgsys_cmdq_qof_release(struct mtk_imgsys_dev *imgsys_dev, struct cmdq_client *imgsys_clt);
-void mtk_imgsys_cmdq_qof_engine_on(struct mtk_imgsys_dev *imgsys_dev);
-void mtk_imgsys_cmdq_qof_engine_off(struct mtk_imgsys_dev *imgsys_dev);
+void mtk_imgsys_cmdq_qof_stream_on(struct mtk_imgsys_dev *imgsys_dev);
+void mtk_imgsys_cmdq_qof_stream_off(struct mtk_imgsys_dev *imgsys_dev);
 void mtk_imgsys_cmdq_qof_add(struct cmdq_pkt *pkt, bool *qof_need_sub, u32 hw_comb);
 void mtk_imgsys_cmdq_qof_sub(struct cmdq_pkt *pkt, bool *qof_need_sub);
 void mtk_imgsys_cmdq_qof_dump(uint32_t hwcomb);

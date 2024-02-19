@@ -2463,7 +2463,7 @@ void mtk_imgsys_power_ctrl_plat8(struct mtk_imgsys_dev *imgsys_dev, bool isPower
 			);
 
 			MTK_IMGSYS_QOF_NEED_RUN(imgsys_dev->qof_ver,
-				mtk_imgsys_cmdq_qof_engine_on(imgsys_dev);
+				mtk_imgsys_cmdq_qof_stream_on(imgsys_dev);
 			);
 
 			mutex_unlock(&(imgsys_dev->power_ctrl_lock));
@@ -2479,7 +2479,7 @@ void mtk_imgsys_power_ctrl_plat8(struct mtk_imgsys_dev *imgsys_dev, bool isPower
 			mutex_lock(&(imgsys_dev->power_ctrl_lock));
 
 			MTK_IMGSYS_QOF_NEED_RUN(imgsys_dev->qof_ver,
-				mtk_imgsys_cmdq_qof_engine_off(imgsys_dev);
+				mtk_imgsys_cmdq_qof_stream_off(imgsys_dev);
 			);
 
 			mtk_imgsys_mod_put(imgsys_dev);

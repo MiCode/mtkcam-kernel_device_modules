@@ -32,11 +32,6 @@
 #define IMGSYS_QOS_REPORT_NORMAL (0)
 #define IMGSYS_QOS_REPORT_MAX (1)
 
-/* read transaction size: 128 */
-#define OSTDL_R_RIGHT_SHIFT 7
-/* write transaction size: 256 */
-#define OSTDL_W_RIGHT_SHIFT 8
-
 #define OSTDL_MAX_VALUE 0x40
 #define OSTDL_MIN_VALUE 0x1
 
@@ -457,19 +452,6 @@ static void imgsys_qos_set_ostdl(struct cmdq_pkt *pkt,
 		CMDQ_THR_SPR_IDX2, ostdl_reg_mask);
 }
 
-static void imgsys_qos_set_fix_ostdl(struct cmdq_pkt *pkt,
-				const uint32_t ostdl_rw)
-{
-	uint32_t i;
-
-	for (i = 0; i < ARRAY_SIZE(qos_map_data); i++) {
-		cmdq_pkt_write(pkt, NULL,
-				qos_map_data[i].ostdl_addr,
-				ostdl_rw,
-				OSTDL_R_REG_MASK | OSTDL_W_REG_MASK);
-	}
-}
-
 static void imgsys_qos_set_ostdl_en(struct cmdq_pkt *pkt,
 				const uint8_t ostdl_en)
 {
@@ -501,24 +483,29 @@ static void imgsys_qos_set_bw_ratio(struct cmdq_pkt *pkt)
 }
 
 static void imgsys_qos_set_fix_bw(struct cmdq_pkt *pkt,
-					const uint32_t bw, const uint32_t total_bw)
+					const uint32_t bwr_bw, const uint32_t total_bw)
 {
-	uint32_t i, ostdl_r, ostdl_w;
-	// set bwr read & write reg
+	uint32_t i, ostdl_r, ostdl_w, bw;
+
+	// set bwr bw and ostdl
+	bw = bwr_bw >> BWR_BW_POINT;
 	for (i = 0; i < ARRAY_SIZE(qos_map_data); i++) {
 		cmdq_pkt_write(pkt, NULL,
 				BWR_IMG_E1A_BASE + qos_map_data[i].bwr_r_offset,
-				bw, CMDQ_REG_MASK);
+				bwr_bw, CMDQ_REG_MASK);
 		cmdq_pkt_write(pkt, NULL,
 				BWR_IMG_E1A_BASE + qos_map_data[i].bwr_w_offset,
-				bw, CMDQ_REG_MASK);
+				bwr_bw, CMDQ_REG_MASK);
+
+		ostdl_r = bw >> qos_map_data[i].ostdl_r_right_shift;
+		ostdl_r = clamp_t(u32, ostdl_r, OSTDL_MIN_VALUE, OSTDL_MAX_VALUE);
+		ostdl_w = bw >> qos_map_data[i].ostdl_w_right_shift;
+		ostdl_w = clamp_t(u32, ostdl_w, OSTDL_MIN_VALUE, OSTDL_MAX_VALUE);
+		cmdq_pkt_write(pkt, NULL,
+				qos_map_data[i].ostdl_addr,
+				FIELD_PREP(OSTDL_R_REG_MASK, ostdl_r) | FIELD_PREP(OSTDL_W_REG_MASK, ostdl_w),
+				OSTDL_R_REG_MASK | OSTDL_W_REG_MASK);
 	}
-	ostdl_r = (bw >> BWR_BW_POINT) >> OSTDL_R_RIGHT_SHIFT;
-	ostdl_r = clamp_t(u32, ostdl_r, OSTDL_MIN_VALUE, OSTDL_MAX_VALUE);
-	ostdl_w = (bw >> BWR_BW_POINT) >> OSTDL_W_RIGHT_SHIFT;
-	ostdl_w = clamp_t(u32, ostdl_w, OSTDL_MIN_VALUE, OSTDL_MAX_VALUE);
-	imgsys_qos_set_fix_ostdl(pkt,
-		FIELD_PREP(OSTDL_R_REG_MASK, ostdl_r) | FIELD_PREP(OSTDL_W_REG_MASK, ostdl_w));
 	cmdq_pkt_write(pkt, NULL, BWR_IMG_E1A_BASE + BWR_IMG_SRT_TTL_ENG_BW5_OFT,
 			total_bw, CMDQ_REG_MASK);
 }
@@ -572,7 +559,7 @@ static void imgsys_qos_set_bw(struct cmdq_pkt *pkt)
 		imgsys_qos_set_ostdl(pkt,
 			qos_map_data[i].bls_base + BLS_IMG_LEN_SUM_R_OFT,
 			qos_map_data[i].ostdl_addr,
-			OSTDL_R_RIGHT_SHIFT,
+			qos_map_data[i].ostdl_r_right_shift,
 			OSTDL_R_REG_L,
 			OSTDL_R_REG_MASK);
 
@@ -583,7 +570,7 @@ static void imgsys_qos_set_bw(struct cmdq_pkt *pkt)
 		imgsys_qos_set_ostdl(pkt,
 			qos_map_data[i].bls_base + BLS_IMG_LEN_SUM_W_OFT,
 			qos_map_data[i].ostdl_addr,
-			OSTDL_W_RIGHT_SHIFT,
+			qos_map_data[i].ostdl_w_right_shift,
 			OSTDL_W_REG_L,
 			OSTDL_W_REG_MASK);
 	}
@@ -739,11 +726,10 @@ void mtk_imgsys_cmdq_hwqos_init(struct mtk_imgsys_dev *imgsys_dev)
 
 	g_hwqos_clt = cmdq_mbox_create(dev, IMGSYS_QOS_THD_IDX);
 
-	pr_info("[%s] sync_token(%d), thd_idx(%d), clt(0x%lx)\n",
-	__func__,
-	hwqos_info->hwqos_sync_token,
-	IMGSYS_QOS_THD_IDX,
-	(unsigned long)g_hwqos_clt);
+	pr_info("[%s] sync_token(%d), thd_idx(%d), clt(0x%lx)\n", __func__,
+		hwqos_info->hwqos_sync_token,
+		IMGSYS_QOS_THD_IDX,
+		(unsigned long) g_hwqos_clt);
 }
 
 void mtk_imgsys_cmdq_hwqos_release(void)
@@ -843,7 +829,7 @@ void mtk_imgsys_cmdq_hwqos_is_report_max(const uint32_t task_cnt,
 		*is_max = false;
 	} else {
 		// (g_hwqos_state == QOS_STATE_MAX	&& task_cnt > 0) ||
-		// (g_hwqos_state == QOS_STATE_NORMAL && task_cnt == 0)
+		// (g_hwqos_state == QOS_STATE_NORMAL	&& task_cnt == 0)
 		*is_max = false;
 	}
 }

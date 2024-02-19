@@ -171,6 +171,8 @@ struct bwr_ctrl_reg bwr_ctrl_data[] = {
 struct qos_map {
 	const uint32_t bls_base;
 	const uint32_t ostdl_addr;
+	const uint8_t ostdl_r_right_shift;
+	const uint8_t ostdl_w_right_shift;
 	const uint8_t  core;
 	const uint8_t  sub_common;
 	const uint8_t  engine;
@@ -181,11 +183,13 @@ struct qos_map {
 	const uint32_t bwr_w_rat_offset;
 };
 
-#define __BLS_OSTDL_REG(x)  \
-	.bls_base   = BLS_IMG_E ## x ## A_BASE, \
-	.ostdl_addr = OSTDL_IMG_E ## x ## A_ADDR
-#define _BLS_OSTDL_REG(x) __BLS_OSTDL_REG(x)
-#define BLS_OSTDL_REG(x) _BLS_OSTDL_REG(x)
+#define __BLS_OSTDL_REG(x, y, z)  \
+	.bls_base            = BLS_IMG_E ## x ## A_BASE, \
+	.ostdl_addr          = OSTDL_IMG_E ## x ## A_ADDR, \
+	.ostdl_r_right_shift = y, \
+	.ostdl_w_right_shift = z
+#define _BLS_OSTDL_REG(x, y, z) __BLS_OSTDL_REG(x, y, z)
+#define BLS_OSTDL_REG(x, y, z) _BLS_OSTDL_REG(x, y, z)
 
 #define __BWR_BW_REG(x, y, z, l)  \
 	.core             = x, \
@@ -199,21 +203,26 @@ struct qos_map {
 #define _BWR_BW_REG(x, y, z, l) __BWR_BW_REG(x, y, z, l)
 #define BWR_BW_REG(x, y, z, l) _BWR_BW_REG(x, y, z, l)
 
+/*
+ * right_shift: log2(trans. size / latency)
+ * ostdl_r_right_shift: log2(x byte / 1 us) = log2(x)
+ * ostdl_w_right_shift: log2(x byte / 0.5 us) = log2(2x) = log2(x) + 1
+ */
 struct qos_map qos_map_data[] = {
-	{BLS_OSTDL_REG(2), BWR_BW_REG(0, 0, 0, 11)},
-	{BLS_OSTDL_REG(3), BWR_BW_REG(0, 0, 3, 28)},
-	{BLS_OSTDL_REG(4), BWR_BW_REG(0, 0, 4, 10)},
-	{BLS_OSTDL_REG(5), BWR_BW_REG(1, 1, 4, 15)},
-	{BLS_OSTDL_REG(6), BWR_BW_REG(1, 1, 1, 22)},
-	{BLS_OSTDL_REG(7), BWR_BW_REG(1, 1, 5, 18)},
-	{BLS_OSTDL_REG(8), BWR_BW_REG(2, 2, 7, 12)},
-	{BLS_OSTDL_REG(9), BWR_BW_REG(2, 2, 8, 18)},
-	{BLS_OSTDL_REG(10), BWR_BW_REG(0, 3, 4, 38)},
-	{BLS_OSTDL_REG(11), BWR_BW_REG(0, 3, 7, 12)},
-	{BLS_OSTDL_REG(12), BWR_BW_REG(0, 3, 3, 40)},
-	{BLS_OSTDL_REG(13), BWR_BW_REG(1, 4, 4, 39)},
-	{BLS_OSTDL_REG(14), BWR_BW_REG(1, 4, 2, 23)},
-	{BLS_OSTDL_REG(15), BWR_BW_REG(1, 4, 5, 9)},
+	{BLS_OSTDL_REG(2, 6, 8), BWR_BW_REG(0, 0, 0, 11)},
+	{BLS_OSTDL_REG(3, 7, 8), BWR_BW_REG(0, 0, 3, 28)},
+	{BLS_OSTDL_REG(4, 7, 8), BWR_BW_REG(0, 0, 4, 10)},
+	{BLS_OSTDL_REG(5, 7, 8), BWR_BW_REG(1, 1, 4, 15)},
+	{BLS_OSTDL_REG(6, 6, 8), BWR_BW_REG(1, 1, 1, 22)},
+	{BLS_OSTDL_REG(7, 7, 8), BWR_BW_REG(1, 1, 5, 18)},
+	{BLS_OSTDL_REG(8, 7, 8), BWR_BW_REG(2, 2, 7, 12)},
+	{BLS_OSTDL_REG(9, 7, 8), BWR_BW_REG(2, 2, 8, 18)},
+	{BLS_OSTDL_REG(10, 7, 8), BWR_BW_REG(0, 3, 4, 38)},
+	{BLS_OSTDL_REG(11, 7, 8), BWR_BW_REG(0, 3, 7, 12)},
+	{BLS_OSTDL_REG(12, 7, 8), BWR_BW_REG(0, 3, 3, 40)},
+	{BLS_OSTDL_REG(13, 7, 8), BWR_BW_REG(1, 4, 4, 39)},
+	{BLS_OSTDL_REG(14, 7, 8), BWR_BW_REG(1, 4, 2, 23)},
+	{BLS_OSTDL_REG(15, 7, 8), BWR_BW_REG(1, 4, 5, 9)},
 };
 
 struct reg_addr_mask {

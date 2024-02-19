@@ -619,7 +619,8 @@ struct mtk_mae_dev {
 	struct cmdq_client *mae_secure_clt;
 	struct cmdq_pkt *pkt[REQUEST_BUFFER_NUM];
 	struct cmdq_pkt *sec_pkt;
-	int32_t core_sel[REQUEST_BUFFER_NUM];
+	int32_t core_sel[REQUEST_BUFFER_NUM][MAX_OUTER_LOOP_NUM];
+	uint32_t outer_loop[REQUEST_BUFFER_NUM];
 
 	bool is_hw_hang;
 	bool is_secure;
@@ -663,7 +664,7 @@ struct mtk_mae_map_table {
 	struct dmabuf_info model_table_dmabuf_info;
 	struct dmabuf_info config_dmabuf_info[MODEL_TYPE_MAX];
 	struct dmabuf_info coef_dmabuf_info[MODEL_TYPE_MAX];
-	struct dmabuf_info image_dmabuf_info[REQUEST_BUFFER_NUM][MAX_IMG_NUM];
+	struct dmabuf_info image_dmabuf_info[REQUEST_BUFFER_NUM];
 	struct dmabuf_info param_dmabuf_info[REQUEST_BUFFER_NUM];
 	struct dmabuf_info output_dmabuf_info[REQUEST_BUFFER_NUM][MAX_PYRAMID_NUM];
 	struct dmabuf_info aiseg_output_dmabuf_info[REQUEST_BUFFER_NUM][AISEG_MAP_NUM];
@@ -677,8 +678,8 @@ struct mtk_mae_drv_ops {
 	// int (*alloc_buf)(struct mtk_aie_dev *fd);
 	// int (*init)(struct mtk_aie_dev *fd);
 	// void (*uninit)(struct mtk_aie_dev *fd);
-	void (*set_dma_address)(struct mtk_mae_dev *mae_dev, int idx);
-	void (*config_hw)(struct mtk_mae_dev *mae_dev, int idx);
+	bool (*set_dma_address)(struct mtk_mae_dev *mae_dev, int idx);
+	bool (*config_hw)(struct mtk_mae_dev *mae_dev, int idx);
 	void (*config_fld)(struct mtk_mae_dev *mae_dev, int idx);
 	void (*get_fd_v0_result)(struct mtk_mae_dev *mae_dev, int idx);
 	void (*get_fd_v1_result)(struct mtk_mae_dev *mae_dev, int idx);

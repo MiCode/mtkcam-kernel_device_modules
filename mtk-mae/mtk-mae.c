@@ -523,8 +523,13 @@ static void mtk_mae_device_run(void *priv)
 	if (param->maeMode == FLD_V0) {
 		drv_ops.config_fld(mae_dev, idx);
 	} else {
-		drv_ops.set_dma_address(mae_dev, idx);
-		drv_ops.config_hw(mae_dev, idx);
+		if (!drv_ops.set_dma_address(mae_dev, idx)) {
+			mae_dev_info(mae_dev->dev, "set dma address fail\n");
+			return;
+		}
+
+		if (!drv_ops.config_hw(mae_dev, idx))
+			mae_dev_info(mae_dev->dev, "config hw fail\n");
 	}
 }
 
@@ -850,15 +855,23 @@ static void mtk_mae_hw_disconnect(struct mtk_mae_dev *mae_dev)
 
 		// MAE_TO_DO: unmap buffer
 		mtk_mae_umap_detach(mae_dev, &mae_dev->map_table->model_table_dmabuf_info);
-		mtk_mae_umap_detach(mae_dev, &mae_dev->map_table->image_dmabuf_info[0][0]);
+		mtk_mae_umap_detach(mae_dev, &mae_dev->map_table->image_dmabuf_info[0]);
 		mtk_mae_umap_detach(mae_dev, &mae_dev->map_table->param_dmabuf_info[0]);
 		mtk_mae_umap_detach(mae_dev, &mae_dev->map_table->output_dmabuf_info[0][0]);
 		mtk_mae_umap_detach(mae_dev, &mae_dev->map_table->internal_dmabuf_info);
+		mtk_mae_umap_detach(mae_dev, &mae_dev->map_table->debug_dmabuf_info[0]);
 
 		for (i = 0; i < MODEL_TYPE_MAX; i++) {
 			mtk_mae_umap_detach(mae_dev, &mae_dev->map_table->config_dmabuf_info[i]);
 			mtk_mae_umap_detach(mae_dev, &mae_dev->map_table->coef_dmabuf_info[i]);
 		}
+
+		for (i = 0; i < MODEL_TYPE_MAX; i++) {
+			mtk_mae_umap_detach(mae_dev, &mae_dev->map_table->config_dmabuf_info[i]);
+			mtk_mae_umap_detach(mae_dev, &mae_dev->map_table->coef_dmabuf_info[i]);
+		}
+
+
 
 		// MAE_TO_DO: fd->drv_ops->uninit(fd);
 	}
@@ -1340,14 +1353,55 @@ int mtk_mae_vidioc_qbuf(struct file *file, void *priv,
 				__func__, param->user, param->imgMaxWidth);
 	mae_dev_dbg(mae_dev->dev, "imgMaxHeight(%d), isSecure(%d), FDModelSel(%d), FACModelSel(%d), ",
 				param->imgMaxHeight, param->isSecure, param->FDModelSel, param->FACModelSel);
-	mae_dev_dbg(mae_dev->dev, "attrFaceNumber(%d), attrInputDegree(%d), aisegInputDegree(%d)",
-				param->attrFaceNumber, param->attrInputDegree[0], param->aisegInputDegree);
-	mae_dev_dbg(mae_dev->dev, "pyramidNumber(%d), fdInputDegree(%d), maeMode(%d), requestNum(%d), ",
-				param->pyramidNumber, param->fdInputDegree, param->maeMode, param->requestNum);
-	mae_dev_dbg(mae_dev->dev, "image[0].srcImgFmt(%d), image[0].imgWidth(%d), image[0].imgHeight(%d), ",
-				param->image[0].srcImgFmt, param->image[0].imgWidth, param->image[0].imgHeight);
-	mae_dev_dbg(mae_dev->dev, "image[0].enResize(%d), image[0].resizeWidth(%d), image[0].resizeHeight(%d)\n",
-				param->image[0].enResize, param->image[0].resizeWidth, param->image[0].resizeHeight);
+	mae_dev_dbg(mae_dev->dev, "attrFaceNumber(%d), aisegInputDegree(%d), maeMode(%d), requestNum(%d)",
+				param->attrFaceNumber, param->aisegInputDegree, param->maeMode, param->requestNum);
+
+	switch (param->maeMode) {
+	case FD_V0:
+	case FD_V1_IPN:
+	case FD_V1_FPN:
+		mae_dev_dbg(mae_dev->dev, "pyramidNumber(%d), fdInputDegree(%d), ",
+					param->pyramidNumber, param->fdInputDegree);
+		for (i = 0; i < param->pyramidNumber; i++) {
+			mae_dev_dbg(mae_dev->dev, "Image %d: srcImgFmt(%d), imgWidth(%d), imgHeight(%d), ",
+				i, param->image[i].srcImgFmt, param->image[i].imgWidth, param->image[i].imgHeight);
+			mae_dev_dbg(mae_dev->dev, "enRoi(%d), (%d, %d) -> (%d, %d)\n",
+				param->image[i].enRoi, param->image[i].roi.x1, param->image[i].roi.y1,
+				param->image[i].roi.x2, param->image[i].roi.y2);
+			mae_dev_dbg(mae_dev->dev, "enResize(%d), resizeWidth(%d), resizeHeight(%d)\n",
+				param->image[i].enResize, param->image[i].resizeWidth, param->image[i].resizeHeight);
+			mae_dev_dbg(mae_dev->dev, "enPadding(%d), (l, r, d, u) = (%d, %d, %d, %d)\n",
+				param->image[i].enPadding, param->image[i].padding.left, param->image[i].padding.right,
+				param->image[i].padding.down, param->image[i].padding.up);
+		}
+		break;
+	case ATTR_V0:
+	case FAC_V1:
+		for (i = 0; i < param->attrFaceNumber; i++) {
+			mae_dev_dbg(mae_dev->dev, "Image %d: attrInputDegree(%d), ",
+				i, param->attrInputDegree[i]);
+			mae_dev_dbg(mae_dev->dev, "srcImgFmt(%d), imgWidth(%d), imgHeight(%d), ",
+				param->image[i].srcImgFmt, param->image[i].imgWidth, param->image[i].imgHeight);
+			mae_dev_dbg(mae_dev->dev, "enRoi(%d), (%d, %d) -> (%d, %d)\n",
+				param->image[i].enRoi, param->image[i].roi.x1, param->image[i].roi.y1,
+				param->image[i].roi.x2, param->image[i].roi.y2);
+			mae_dev_dbg(mae_dev->dev, ".enResize(%d), resizeWidth(%d), resizeHeight(%d)\n",
+				param->image[i].enResize, param->image[i].resizeWidth, param->image[i].resizeHeight);
+			mae_dev_dbg(mae_dev->dev, "enPadding(%d), (l, r, d, u) = (%d, %d, %d, %d)\n",
+				param->image[i].enPadding, param->image[i].padding.left, param->image[i].padding.right,
+				param->image[i].padding.down, param->image[i].padding.up);
+		}
+		break;
+	case AISEG:
+		mae_dev_dbg(mae_dev->dev, "srcImgFmt(%d), imgWidth(%d), imgHeight(%d), ",
+			param->image[0].srcImgFmt, param->image[0].imgWidth, param->image[0].imgHeight);
+		mae_dev_dbg(mae_dev->dev, "enResize(%d), resizeWidth(%d), resizeHeight(%d)\n",
+			param->image[0].enResize, param->image[0].resizeWidth, param->image[0].resizeHeight);
+		break;
+	default:
+		break;
+	}
+
 
 	if (mae_dev->is_first_qbuf) {
 		if (param->isSecure) {
@@ -1399,10 +1453,10 @@ int mtk_mae_vidioc_qbuf(struct file *file, void *priv,
 	}
 
 	// get pa of image
-	mtk_mae_umap_detach(mae_dev, &map_table->image_dmabuf_info[idx][IMAGE_PLANE_0]);
+	mtk_mae_umap_detach(mae_dev, &map_table->image_dmabuf_info[idx]);
 	ret = mtk_mae_set_dmabuf_info(mae_dev,
 						buf->m.planes[IMAGE_PLANE_0].m.fd,
-						&map_table->image_dmabuf_info[idx][IMAGE_PLANE_0],
+						&map_table->image_dmabuf_info[idx],
 						GET_PA);
 	if (ret) {
 		mae_dev_info(mae_dev->dev, "%s, set image dmabuf info fail\n",
@@ -1412,17 +1466,18 @@ int mtk_mae_vidioc_qbuf(struct file *file, void *priv,
 
 
 	// get output pa
-	if (!map_table->output_dmabuf_info[idx][0].is_attach) {
-		ret = mtk_mae_set_dmabuf_info(mae_dev,
-						buf->m.planes[OUTPUT_PLANE].m.fd,
-						&map_table->output_dmabuf_info[idx][0],
-						GET_BOTH); // DEBUG_ONLY
-		if (ret) {
-			mae_dev_info(mae_dev->dev, "%s, set output dmabuf info fail\n",
-				__func__);
-			return ret;
+	for (i = 0; i < MAX_OUTER_LOOP_NUM; i++)
+		if (!map_table->output_dmabuf_info[idx][i].is_attach) {
+			ret = mtk_mae_set_dmabuf_info(mae_dev,
+							buf->m.planes[OUTPUT_PLANE + i].m.fd,
+							&map_table->output_dmabuf_info[idx][i],
+							GET_BOTH); // DEBUG_ONLY
+			if (ret) {
+				mae_dev_info(mae_dev->dev, "%s, set output dmabuf info fail\n",
+					__func__);
+				return ret;
+			}
 		}
-	}
 
 	// get AISEG output
 	for (i = 0; i < AISEG_MAP_NUM; i++) {

@@ -448,13 +448,17 @@ static int mtk_ccu_run(struct mtk_ccu *ccu)
 		ccu->mb_compact = (struct mtk_ccu_mailbox_compact *)(uintptr_t)(ccu->ccu_spare_base +
 			read_ccu_info_regd(ccu, MTK_CCU_SPARE_REG00));
 		ccu->mb = (struct mtk_ccu_mailbox *)ccu->mb_compact;
-		LOG_DBG("ccu initial debug mb_ap2ccu: %x\n",
-			read_ccu_info_regd(ccu, MTK_CCU_SPARE_REG00));
+		ccu->ccu_sram_log_offset = read_ccu_info_regd(ccu, MTK_CCU_SPARE_REG25) & 0xFFFF;
+		LOG_DBG("ccu initial debug mb_ap2ccu: %x, sram_log_offset %x\n",
+			read_ccu_info_regd(ccu, MTK_CCU_SPARE_REG00),
+			ccu->ccu_sram_log_offset);
 	} else {
 		ccu->mb = (struct mtk_ccu_mailbox *)(uintptr_t)(ccu->dmem_base +
 			readl(ccu_spare_base + MTK_CCU_SPARE_REG00));
-		LOG_DBG("ccu initial debug mb_ap2ccu: %x\n",
-			readl(ccu_spare_base + MTK_CCU_SPARE_REG00));
+		ccu->ccu_sram_log_offset = readl(ccu_spare_base + MTK_CCU_SPARE_REG25) & 0xFFFF;
+		LOG_DBG("ccu initial debug mb_ap2ccu: %x, sram_log_offset %x\n",
+			readl(ccu_spare_base + MTK_CCU_SPARE_REG00),
+			ccu->ccu_sram_log_offset);
 	}
 
 	mtk_ccu_rproc_ipc_init(ccu);
@@ -982,7 +986,6 @@ mtk_ccu_sanity_check(struct rproc *rproc, const struct firmware *fw)
 #if IS_ENABLED(CONFIG_MTK_AEE_IPANIC)
 void get_ccu_mrdump_buffer(unsigned long *vaddr, unsigned long *size)
 {
-
 	if ((!dev_ccu) || (!dev_ccu->mrdump_buf))
 		return;
 
@@ -993,14 +996,16 @@ void get_ccu_mrdump_buffer(unsigned long *vaddr, unsigned long *size)
 	if (spin_trylock(&dev_ccu->ccu_poweron_lock)) {
 		if (dev_ccu->poweron) {
 			memcpy(dev_ccu->mrdump_buf,
-				dev_ccu->dmem_base + MTK_CCU_SRAM_LOG_OFFSET,
+				dev_ccu->dmem_base + dev_ccu->ccu_sram_log_offset,
 				MTK_CCU_SRAM_LOG_BUF_SIZE);
 			memcpy(dev_ccu->mrdump_buf + MTK_CCU_SRAM_LOG_BUF_SIZE,
 				dev_ccu->ccu_base,
 				MTK_CCU_REG_LOG_BUF_SIZE - MTK_CCU_EXTRA_REG_LOG_BUF_SIZE);
 			memcpy(dev_ccu->mrdump_buf + MTK_CCU_MRDUMP_SRAM_BUF_SIZE
 				- MTK_CCU_EXTRA_REG_LOG_BUF_SIZE,
-				dev_ccu->ccu_base + MTK_CCU_EXTRA_REG_OFFSET,
+				(dev_ccu->ccu_version < CCU_VER_ISP8) ?
+				dev_ccu->ccu_base + MTK_CCU_EXTRA_REG_OFFSET :
+				dev_ccu->ccu_exch_base,
 				MTK_CCU_EXTRA_REG_LOG_BUF_SIZE);
 		}
 

@@ -185,6 +185,7 @@ struct mtk_ccu {
 	uint32_t ccu_resource_offset;
 	uint32_t ccu_resource_bits;
 	uint32_t ccu_exch_pa;
+	uint32_t ccu_sram_log_offset;
 	void __iomem *ccu_base;
 	void __iomem *ccu_exch_base;
 	void __iomem *ccu_spare_base;

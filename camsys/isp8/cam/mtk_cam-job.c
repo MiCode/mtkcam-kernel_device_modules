@@ -2930,6 +2930,11 @@ _job_pack_only_sv(struct mtk_cam_job *job,
 				dev_info(cam->dev, "tag handle failed");
 				return -1;
 			}
+		} else if (mtk_cam_is_non_comb_ic(ctx)) {
+			if (handle_sv_tag_non_comb_ic(job)) {
+				dev_info(cam->dev, "non_comb tag handle failed");
+				return -1;
+			}
 		} else {
 			if (handle_sv_tag_only_sv(job)) {
 				dev_info(cam->dev, "tag handle failed");
@@ -3225,6 +3230,52 @@ static int fill_sv_ext_img_buffer_to_ipi_frame_display_ic(
 	return ret;
 }
 
+static int fill_sv_img_buffer_to_ipi_frame_non_comb_ic(
+	struct req_buffer_helper *helper, struct mtk_cam_buffer *buf,
+	struct mtk_cam_video_device *node)
+{
+	struct mtk_cam_ctx *ctx = helper->job->src_ctx;
+	struct mtkcam_ipi_frame_param *fp = helper->fp;
+	struct mtkcam_ipi_img_output *out;
+	struct mtk_camsv_device *sv_dev;
+	const unsigned int proc_tag[4] = {SVTAG_0, SVTAG_1, SVTAG_2, SVTAG_3};
+	unsigned int tag_idx, buf_offset = 0;
+	int i, ret = -1;
+
+	if (ctx->hw_sv == NULL)
+		return ret;
+
+	sv_dev = dev_get_drvdata(ctx->hw_sv);
+
+	for (i = 0; i < ARRAY_SIZE(proc_tag); i++) {
+		tag_idx = proc_tag[i];
+
+		out = &fp->camsv_param[0][tag_idx].camsv_img_outputs[0];
+		ret = fill_img_out(helper, out, buf, node);
+
+		fp->camsv_param[0][tag_idx].pipe_id =
+			sv_dev->id + MTKCAM_SUBDEV_CAMSV_START;
+		fp->camsv_param[0][tag_idx].tag_id = tag_idx;
+		fp->camsv_param[0][tag_idx].hardware_scenario = 0;
+		out->uid.id = MTKCAM_IPI_CAMSV_MAIN_OUT;
+		out->uid.pipe_id =
+			sv_dev->id + MTKCAM_SUBDEV_CAMSV_START;
+		buf_offset = out->fmt.s.w / 4 * 2 * i;
+		out->buf[0][0].iova =
+			((((buf->daddr + buf_offset) + 15) >> 4) << 4);
+
+		/* override fmt */
+		out->fmt.format = MTKCAM_IPI_IMG_FMT_UYVY;
+
+		out->fmt.s.w = out->fmt.s.w / 4;
+
+		pr_info("%s: tag_idx:%d pipe_id:%d buf_offset:%d stride:%d\n",
+			__func__, tag_idx, fp->camsv_param[0][tag_idx].pipe_id,
+			buf_offset, out->fmt.stride[0]);
+	}
+
+	return ret;
+}
 /*
  *  Note: this function will be called with spin_lock held. Can't sleep.
  */
@@ -4903,6 +4954,8 @@ static int update_sv_image_buf_to_ipi_frame(struct req_buffer_helper *helper,
 	case MTK_CAMSV_MAIN_STREAM_OUT:
 		if (mtk_cam_is_display_ic(ctx))
 			ret = fill_sv_img_buffer_to_ipi_frame_display_ic(helper, buf, node);
+		else if (mtk_cam_is_non_comb_ic(ctx))
+			ret = fill_sv_img_buffer_to_ipi_frame_non_comb_ic(helper, buf, node);
 		else
 			ret = fill_sv_img_buffer_to_ipi_frame(helper, buf, node);
 		break;

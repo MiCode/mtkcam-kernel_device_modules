@@ -29,7 +29,8 @@ enum SV_SMI_PORT_ID {
 enum mtkcam_sv_hw_path_control {
 	MTKCAM_SV_SPECIAL_SCENARIO_ADDITIONAL_RAW = 24,
 	MTKCAM_SV_SPECIAL_SCENARIO_EXT_ISP,
-	MTKCAM_SV_SPECIAL_SCENARIO_DISPLAY_IC
+	MTKCAM_SV_SPECIAL_SCENARIO_DISPLAY_IC,
+	MTKCAM_SV_SPECIAL_SCENARIO_NON_COMB_IC
 };
 
 #define CAMSV_EXT_META_0_WIDTH 1024
@@ -43,6 +44,7 @@ enum mtkcam_sv_hw_path_control {
 			(1 << MTKCAM_SV_SPECIAL_SCENARIO_ADDITIONAL_RAW) |\
 			(1 << MTKCAM_SV_SPECIAL_SCENARIO_EXT_ISP) |\
 			(1 << MTKCAM_SV_SPECIAL_SCENARIO_DISPLAY_IC) |\
+			(1 << MTKCAM_SV_SPECIAL_SCENARIO_NON_COMB_IC) |\
 			(1 << HWPATH_ID(MTKCAM_IPI_HW_PATH_STAGGER)) |\
 			(1 << HWPATH_ID(MTKCAM_IPI_HW_PATH_DC_STAGGER)) |\
 			(1 << HWPATH_ID(MTKCAM_IPI_HW_PATH_OFFLINE_STAGGER)) |\
@@ -247,6 +249,7 @@ void apply_camsv_cq(struct mtk_camsv_device *sv_dev,
 	      dma_addr_t cq_addr, unsigned int cq_size, unsigned int cq_offset,
 	      int initial);
 bool mtk_cam_is_display_ic(struct mtk_cam_ctx *ctx);
+bool mtk_cam_is_non_comb_ic(struct mtk_cam_ctx *ctx);
 void mtk_cam_update_sensor_resource(struct mtk_cam_ctx *ctx);
 struct mtk_cam_seninf_sentest_param *
 	mtk_cam_get_sentest_param(struct mtk_cam_ctx *ctx);

@@ -2724,6 +2724,10 @@ static int mtk_cam_ctx_init_job_pool(struct mtk_cam_ctx *ctx)
 		ret = mtk_cam_pool_alloc(&ctx->job_pool,
 					sizeof(struct mtk_cam_pool_job),
 					JOB_NUM_PER_STREAM_DISPLAY_IC);
+	else if (mtk_cam_is_non_comb_ic(ctx))
+		ret = mtk_cam_pool_alloc(&ctx->job_pool,
+					sizeof(struct mtk_cam_pool_job),
+					JOB_NUM_PER_STREAM_NON_COMB_IC);
 	else
 		ret = mtk_cam_pool_alloc(&ctx->job_pool,
 					sizeof(struct mtk_cam_pool_job),

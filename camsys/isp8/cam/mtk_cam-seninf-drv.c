@@ -1517,6 +1517,7 @@ static int mtk_cam_seninf_set_fmt(struct v4l2_subdev *sd,
 		if (bSinkFormatChanged && !ctx->is_test_model && !ctx->streaming)
 			mtk_cam_seninf_get_vcinfo(ctx);
 
+		mtk_cam_seninf_get_sensor_usage(&ctx->subdev);
 		mtk_cam_sensor_get_vc_info_by_scenario(ctx, fmt->format.code);
 
 		dev_info(ctx->dev, "s_fmt pad %d code/res 0x%x/%dx%d which %d=> 0x%x/%dx%d\n",
@@ -1715,6 +1716,7 @@ static int config_hw_csi(struct seninf_ctx *ctx)
 	memset(&glpinfo, 0, sizeof(struct seninf_glp_dt));
 
 	mtk_cam_seninf_get_csi_param(ctx);
+	mtk_cam_seninf_get_sensor_usage(&ctx->subdev);
 	mtk_cam_sensor_get_glp_dt(ctx, &glpinfo);
 
 #if AOV_GET_PARAM

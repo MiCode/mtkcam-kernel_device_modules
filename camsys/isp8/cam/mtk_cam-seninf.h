@@ -281,6 +281,7 @@ struct seninf_ctx {
 
 	/* provided by sensor */
 	struct seninf_vcinfo vcinfo;
+	enum mtk_sensor_usage sensor_usage;
 
 	/* store vc info of current mode  */
 	struct seninf_vcinfo cur_vcinfo;

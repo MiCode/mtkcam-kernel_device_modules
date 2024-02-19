@@ -128,6 +128,33 @@ static const struct mtk_camsv_tag_param sv_tag_param_display_ic[3] = {
 		.is_w = false,
 	},
 };
+
+static const struct mtk_camsv_tag_param sv_tag_param_non_comb_ic[4] = {
+	{
+		.tag_idx = SVTAG_0,
+		.seninf_padidx = PAD_SRC_RAW0,
+		.tag_order = MTKCAM_IPI_ORDER_FIRST_TAG,
+		.is_w = false,
+	},
+	{
+		.tag_idx = SVTAG_1,
+		.seninf_padidx = PAD_SRC_RAW1,
+		.tag_order = MTKCAM_IPI_ORDER_FIRST_TAG,
+		.is_w = false,
+	},
+	{
+		.tag_idx = SVTAG_2,
+		.seninf_padidx = PAD_SRC_RAW2,
+		.tag_order = MTKCAM_IPI_ORDER_FIRST_TAG,
+		.is_w = false,
+	},
+	{
+		.tag_idx = SVTAG_3,
+		.seninf_padidx = PAD_SRC_RAW3,
+		.tag_order = MTKCAM_IPI_ORDER_FIRST_TAG,
+		.is_w = false,
+	},
+};
 static const struct mtk_camsv_tag_param sv_tag_param_extisp[1] = {
 	{
 		.tag_idx = SVTAG_3,
@@ -974,6 +1001,16 @@ bool mtk_cam_is_display_ic(struct mtk_cam_ctx *ctx)
 	return (sv_pipe->feature_pending & DISPLAY_IC) ? true : false;
 }
 
+bool mtk_cam_is_non_comb_ic(struct mtk_cam_ctx *ctx)
+{
+	if (!ctx->num_sv_subdevs)
+		return false;
+
+	if (ctx->seninf)
+		return mtk_cam_seninf_is_non_comb_ic(ctx->seninf) != 0;
+	return false;
+}
+
 void mtk_cam_update_sensor_resource(struct mtk_cam_ctx *ctx)
 {
 	struct mtk_camsv_device *sv_dev;
@@ -1182,6 +1219,9 @@ int mtk_cam_sv_get_tag_param(struct mtk_camsv_tag_param *arr_tag_param,
 			sizeof(struct mtk_camsv_tag_param) * req_amount);
 	} else if (hw_scen == (1 << MTKCAM_SV_SPECIAL_SCENARIO_DISPLAY_IC)) {
 		memcpy(arr_tag_param, sv_tag_param_display_ic,
+			sizeof(struct mtk_camsv_tag_param) * req_amount);
+	} else if (hw_scen == (1 << MTKCAM_SV_SPECIAL_SCENARIO_NON_COMB_IC)) {
+		memcpy(arr_tag_param, sv_tag_param_non_comb_ic,
 			sizeof(struct mtk_camsv_tag_param) * req_amount);
 	} else if (hw_scen == (1 << MTKCAM_SV_SPECIAL_SCENARIO_EXT_ISP)) {
 		memcpy(arr_tag_param, sv_tag_param_extisp,

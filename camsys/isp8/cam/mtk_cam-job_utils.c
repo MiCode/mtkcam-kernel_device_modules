@@ -2380,6 +2380,76 @@ int handle_sv_tag_display_ic(struct mtk_cam_job *job)
 	return ret;
 }
 
+int handle_sv_tag_non_comb_ic(struct mtk_cam_job *job)
+{
+	struct mtk_cam_ctx *ctx = job->src_ctx;
+	struct mtk_camsv_device *sv_dev;
+	struct mtk_camsv_pipeline *sv_pipe = NULL;
+	struct mtk_camsv_tag_param tag_param[4];
+	struct mtk_camsv_sink_data *sv_sink;
+	unsigned int width, height, mbus_code;
+	unsigned int hw_scen, max_pixel_mode = 3;
+	int ret = 0, i, sv_pipe_idx;
+
+	if (ctx->hw_sv) {
+		sv_dev = dev_get_drvdata(ctx->hw_sv);
+		CALL_PLAT_V4L2(
+			get_sv_max_pixel_mode, sv_dev->id, &max_pixel_mode);
+	}
+
+	/* reset tag info */
+	mtk_cam_sv_reset_tag_info(job);
+
+	if (ctx->num_sv_subdevs != 1)
+		return 1;
+
+	sv_sink = get_sv_sink_data(job);
+	if (!sv_sink) {
+		pr_info("%s: sv sink data not found\n", __func__);
+		return 1;
+	}
+
+	sv_pipe_idx = ctx->sv_subdev_idx[0];
+	sv_pipe = &ctx->cam->pipelines.camsv[sv_pipe_idx];
+	hw_scen = (1 << MTKCAM_SV_SPECIAL_SCENARIO_NON_COMB_IC);
+	ret = mtk_cam_sv_get_tag_param(tag_param, hw_scen, 1, 4);
+
+	for (i = 0; i < ARRAY_SIZE(tag_param); i++) {
+		width = sv_sink->width / 4;
+		height = sv_sink->height;
+		mbus_code = sv_sink->mbus_code;
+
+		mtk_cam_sv_fill_tag_info(job->tag_info,
+			&job->ipi_config,
+			&tag_param[i], 1,
+			max_pixel_mode,
+			job->sub_ratio,
+			width, height,
+			mbus_code, sv_pipe);
+
+		job->used_tag_cnt++;
+		job->enabled_tags |= (1 << tag_param[i].tag_idx);
+
+		pr_info("[%s] tag_idx:%d seninf_padidx:%d tag_order:%d pixel_mode:%d width/height/mbus_code:0x%x_0x%x_0x%x\n",
+			__func__,
+			tag_param[i].tag_idx,
+			tag_param[i].seninf_padidx,
+			tag_param[i].tag_order,
+			max_pixel_mode,
+			width,
+			height,
+			mbus_code);
+	}
+
+	ctx->is_sensor_meta_dump = job->is_sensor_meta_dump = false;
+	ctx->used_tag_cnt = job->used_tag_cnt;
+	ctx->enabled_tags = job->enabled_tags;
+	memcpy(ctx->tag_info, job->tag_info,
+		sizeof(struct mtk_camsv_tag_info) * CAMSV_MAX_TAGS);
+
+	return ret;
+}
+
 int handle_sv_tag_only_sv(struct mtk_cam_job *job)
 {
 	struct mtk_cam_ctx *ctx = job->src_ctx;

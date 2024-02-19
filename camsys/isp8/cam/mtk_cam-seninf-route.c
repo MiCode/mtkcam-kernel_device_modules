@@ -563,6 +563,31 @@ int mtk_cam_seninf_get_csi_param(struct seninf_ctx *ctx)
 	return 0;
 }
 
+int mtk_cam_seninf_get_sensor_usage(struct v4l2_subdev *sd)
+{
+	struct seninf_ctx *ctx = container_of(sd, struct seninf_ctx, subdev);
+	struct v4l2_subdev *sensor_sd = ctx->sensor_sd;
+	struct v4l2_ctrl *ctrl;
+	int ret = 0;
+
+	ctx->sensor_usage  = MTK_SENSOR_USAGE_SINGLE;
+
+	if (!ctx->sensor_sd)
+		return -EINVAL;
+
+	ctrl = v4l2_ctrl_find(sensor_sd->ctrl_handler, V4L2_CID_MTK_SENSOR_USAGE);
+	if (!ctrl) {
+		dev_info(ctx->dev, "%s, no V4L2_CID_MTK_SENSOR_USAGE %s set SINGLE\n",
+			__func__, sensor_sd->name);
+		ctx->sensor_usage = MTK_SENSOR_USAGE_SINGLE;
+		return ret;
+	}
+
+	ctx->sensor_usage = (enum mtk_sensor_usage)v4l2_ctrl_g_ctrl(ctrl);
+	dev_info(ctx->dev, "%s sensor_usage:%d\n", __func__, ctx->sensor_usage);
+	return ret;
+}
+
 int mtk_cam_seninf_set_vc_info_to_tsrec(struct seninf_ctx *ctx, struct seninf_vc *vc,
 	enum mtk_cam_seninf_tsrec_exp_id exp_id, u8 pre_latch_exp)
 {
@@ -734,6 +759,23 @@ int mtk_cam_seninf_fill_outpad_to_vc(struct seninf_ctx *ctx,
 				dev_info(ctx->dev, "Set vcinfo\n");
 				vc->feature = VC_RAW_DATA;
 				vc->out_pad = PAD_SRC_RAW0;
+				switch (desc) {
+				case VC_BRIDGE_RAW_0:
+					vc->out_pad = PAD_SRC_RAW0;
+					break;
+				case VC_BRIDGE_RAW_1:
+					vc->out_pad = PAD_SRC_RAW1;
+					break;
+				case VC_BRIDGE_RAW_2:
+					vc->out_pad = PAD_SRC_RAW2;
+					break;
+				case VC_BRIDGE_RAW_3:
+					vc->out_pad = PAD_SRC_RAW3;
+					break;
+				default:
+					vc->out_pad = PAD_SRC_RAW0;
+					break;
+				}
 			} else {
 				dev_info(ctx->dev, "unknown desc %d, dt 0x%x\n",
 					desc, vc->dt);
@@ -1392,6 +1434,17 @@ int _chk_cur_mode_vc (struct seninf_ctx *ctx, struct seninf_vc *vc) {
 	}
 
 	return -1;
+}
+
+int mtk_cam_seninf_is_non_comb_ic(struct v4l2_subdev *sd)
+{
+	struct seninf_ctx *ctx = container_of(sd, struct seninf_ctx, subdev);
+
+	if (ctx->sensor_usage == MTK_SENSOR_USAGE_NONCOMB) {
+		pr_info("%s: yes\n", __func__);
+		return 1;
+	}
+	return 0;
 }
 
 int _mtk_cam_seninf_set_camtg(struct v4l2_subdev *sd, int pad_id, int camtg, int tag_id,

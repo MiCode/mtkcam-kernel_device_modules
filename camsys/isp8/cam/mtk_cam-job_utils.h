@@ -187,6 +187,7 @@ u8 get_sensor_data_pattern(struct mtk_cam_job *job);
 void mtk_cam_sv_reset_tag_info(struct mtk_cam_job *job);
 int handle_sv_tag(struct mtk_cam_job *job);
 int handle_sv_tag_display_ic(struct mtk_cam_job *job);
+int handle_sv_tag_non_comb_ic(struct mtk_cam_job *job);
 int handle_sv_tag_only_sv(struct mtk_cam_job *job);
 bool is_sv_img_tag_used(struct mtk_cam_job *job);
 

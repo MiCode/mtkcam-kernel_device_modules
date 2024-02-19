@@ -36,8 +36,10 @@
 
 static struct gce_timeout_work imgsys_timeout_winfo[VIDEO_MAX_FRAME];
 static int imgsys_timeout_idx;
-//static int gid;
-//static struct slbc_gid_data *img_slbc_gid_data;
+#if IS_ENABLED(CONFIG_SLBC)
+static int gid;
+static struct slbc_gid_data *img_slbc_gid_data;
+#endif
 static struct info_list_t frm_info_list = {
 	.mymutex = __MUTEX_INITIALIZER(frm_info_list.mymutex),
 	.configed_list = LIST_HEAD_INIT(frm_info_list.configed_list),
@@ -2834,9 +2836,9 @@ static int mtk_imgsys_worker_hcp_init(struct mtk_imgsys_dev *imgsys_dev)
 		#if SMVR_DECOUPLE
         unsigned int gce_buf_en = 0;
 		#endif
-#if 0
+#if IS_ENABLED(CONFIG_SLBC)
 		/*slc init*/
-		if (imgsys_slc_dbg_enable()) {
+		if (!imgsys_slc_dbg_enable()) {
 			gid = -1;
 			img_slbc_gid_data = vzalloc(sizeof(struct slbc_gid_data));
 			img_slbc_gid_data->sign = 0x51ca11ca;
@@ -3106,9 +3108,9 @@ static void mtk_imgsys_hw_disconnect(struct mtk_imgsys_dev *imgsys_dev)
     info.smvr_mode = 0;
 	imgsys_dev->imgsys_pipe[0].imgsys_user_count = 0;
 	#endif
-#if 0
+#if IS_ENABLED(CONFIG_SLBC)
 	/*slc uninit API*/
-	if (imgsys_slc_dbg_enable()) {
+	if (!imgsys_slc_dbg_enable()) {
 		ret = slbc_gid_release(ID_IMG, gid);
 		if (ret)
 			dev_info(imgsys_dev->dev, "slc release fail");

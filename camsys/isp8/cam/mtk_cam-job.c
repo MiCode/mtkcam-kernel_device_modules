@@ -797,8 +797,8 @@ static void convert_fho_timestamp_to_meta(struct mtk_cam_job *job)
 	fho_va = (u32 *)(job->cq.vaddr + job->cq.size - 128 * subsample);
 
 	for (i = 0; i < subsample; i++) {
-		hw_timestamp = (u64) *(fho_va + i*16);
-		hw_timestamp += ((u64)*(fho_va + i*16 + 1) << 32);
+		hw_timestamp = (u64) *(fho_va + i*32);
+		hw_timestamp += ((u64)*(fho_va + i*32 + 1) << 32);
 
 		/* timstamp_LSB + timestamp_MSB << 32 */
 		(*job->timestamp_buf)[i*2] =

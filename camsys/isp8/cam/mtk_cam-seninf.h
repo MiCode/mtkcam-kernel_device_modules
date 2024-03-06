@@ -178,6 +178,7 @@ struct seninf_core {
 	bool is_porting_muxvr_range;
 
 	spinlock_t spinlock_irq;
+	spinlock_t spinlock_aov;
 
 	struct kthread_worker seninf_worker;
 	struct task_struct *seninf_kworker_task;

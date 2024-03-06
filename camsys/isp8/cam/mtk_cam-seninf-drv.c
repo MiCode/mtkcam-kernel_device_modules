@@ -1111,6 +1111,7 @@ static int seninf_core_probe(struct platform_device *pdev)
 	mtk_cam_seninf_tsrec_init(dev, core->reg_seninf_top);
 
 	spin_lock_init(&core->spinlock_irq);
+	spin_lock_init(&core->spinlock_aov);
 
 #if is_irq_ready
 	/* Return: non-zero IRQ number on success, negative error number on failure. */
@@ -2221,7 +2222,8 @@ static int seninf_s_stream(struct v4l2_subdev *sd, int enable)
 {
 	struct seninf_ctx *ctx = sd_to_ctx(sd);
 	struct seninf_core *core = ctx->core;
-	int i;
+	unsigned long flags;
+	int i, tmp;
 	bool pad_inited = false;
 #ifdef INIT_DESKEW_DEBUG
 	int deskew_dump_idx;
@@ -2229,7 +2231,10 @@ static int seninf_s_stream(struct v4l2_subdev *sd, int enable)
 
 	/* get current sensor idx by get_sensor_idx */
 	if (!ctx->is_test_model) {
-		core->current_sensor_id = get_sensor_idx(ctx);
+		tmp = get_sensor_idx(ctx);
+		spin_lock_irqsave(&core->spinlock_aov, flags);
+		core->current_sensor_id = tmp;
+		spin_unlock_irqrestore(&core->spinlock_aov, flags);
 		if (core->current_sensor_id < 0) {
 			dev_info(ctx->dev,
 				"[%s] get_sensor_idx[%d] fail\n",
@@ -2242,7 +2247,9 @@ static int seninf_s_stream(struct v4l2_subdev *sd, int enable)
 		ctx->is_aov_real_sensor = 1;
 		/* switch aov pm ops: force power off sensor */
 		aov_switch_pm_ops(ctx, AOV_ABNORMAL_FORCE_SENSOR_PWR_ON);
+		spin_lock_irqsave(&core->spinlock_aov, flags);
 		core->aov_abnormal_init_flag = 0;
+		spin_unlock_irqrestore(&core->spinlock_aov, flags);
 	}
 
 	seninf_csi_s_stream(sd, enable);
@@ -2340,11 +2347,15 @@ static int seninf_s_stream(struct v4l2_subdev *sd, int enable)
 				memset(&g_aov_param, 0,
 					sizeof(struct mtk_seninf_aov_param));
 			}
+			spin_lock_irqsave(&core->spinlock_aov, flags);
 			core->aov_abnormal_deinit_usr_fd_kill_flag = 0;
+			spin_unlock_irqrestore(&core->spinlock_aov, flags);
 		}
 		/* switch aov pm ops: force power off sensor */
 		aov_switch_pm_ops(ctx, AOV_ABNORMAL_FORCE_SENSOR_PWR_OFF);
+		spin_lock_irqsave(&core->spinlock_aov, flags);
 		core->aov_abnormal_deinit_flag = 0;
+		spin_unlock_irqrestore(&core->spinlock_aov, flags);
 	}
 
 	if (enable && core->err_detect_init_flag) {
@@ -2496,6 +2507,8 @@ static int seninf_real_sensor_for_aov_param(struct seninf_ctx *ctx, u32 enable)
 {
 #ifndef SENSING_MODE_READY
 	struct seninf_core *core = ctx->core;
+	unsigned long flags;
+	int tmp;
 
 	switch (enable) {
 	case 0:
@@ -2520,7 +2533,10 @@ static int seninf_real_sensor_for_aov_param(struct seninf_ctx *ctx, u32 enable)
 		if (!core->pwr_refcnt_for_aov) {
 			dev_info(ctx->dev, "[%s] set aov real sensor on\n", __func__);
 			/* get aov sensor idx by get_sensor_idx */
-			core->aov_sensor_id = get_sensor_idx(ctx);
+			tmp = get_sensor_idx(ctx);
+			spin_lock_irqsave(&core->spinlock_aov, flags);
+			core->aov_sensor_id = tmp;
+			spin_unlock_irqrestore(&core->spinlock_aov, flags);
 			/* array size of aov_ctx[] is
 			 * AOV_SENINF_NUM: most number of sensors support
 			 */
@@ -2623,6 +2639,8 @@ static int mtk_cam_seninf_set_ctrl(struct v4l2_ctrl *ctrl)
 	struct mtk_seninf_s_stream *s_stream_ctrl = ctrl->p_new.p;
 	int ret = 0;
 	struct seninf_core *core = ctx->core;
+	unsigned long flags;
+	int tmp;
 
 	switch (ctrl->id) {
 	case V4L2_CID_TEST_PATTERN:
@@ -2632,9 +2650,14 @@ static int mtk_cam_seninf_set_ctrl(struct v4l2_ctrl *ctrl)
 		/* get current sensor idx by get_sensor_idx */
 		if (ctx->is_test_model) {
 			// arbitrary sensor id in test model flow
+			spin_lock_irqsave(&core->spinlock_aov, flags);
 			core->current_sensor_id = 1;
+			spin_unlock_irqrestore(&core->spinlock_aov, flags);
 		} else {
-			core->current_sensor_id = get_sensor_idx(ctx);
+			tmp = get_sensor_idx(ctx);
+			spin_lock_irqsave(&core->spinlock_aov, flags);
+			core->current_sensor_id = tmp;
+			spin_unlock_irqrestore(&core->spinlock_aov, flags);
 			if (core->current_sensor_id < 0) {
 				dev_info(ctx->dev,
 					"[%s] get_sensor_idx[%d] fail\n",
@@ -2678,7 +2701,10 @@ static int mtk_cam_seninf_set_ctrl(struct v4l2_ctrl *ctrl)
 					dev_info(ctx->dev,
 						"[%s] set aov real sensor on\n", __func__);
 					/* get aov sensor idx by get_sensor_idx */
-					core->aov_sensor_id = get_sensor_idx(ctx);
+					tmp = get_sensor_idx(ctx);
+					spin_lock_irqsave(&core->spinlock_aov, flags);
+					core->aov_sensor_id = tmp;
+					spin_unlock_irqrestore(&core->spinlock_aov, flags);
 					/* array size of aov_ctx[] is
 					 * AOV_SENINF_NUM: most number of sensors support
 					 */
@@ -4292,6 +4318,7 @@ int mtk_cam_seninf_aov_runtime_resume(unsigned int sensor_id,
 	struct seninf_ctx *ctx = NULL;
 	unsigned int real_sensor_id = 0;
 	struct seninf_core *core = NULL;
+	unsigned long flags;
 #ifdef AOV_SUSPEND_RESUME_USE_PM_CLK
 	int ret = 0;
 #endif
@@ -4487,8 +4514,10 @@ int mtk_cam_seninf_aov_runtime_resume(unsigned int sensor_id,
 		dev_info(ctx->dev,
 			"[%s] deinit type is abnormal(%u)!\n",
 			__func__, aov_seninf_deinit_type);
+		spin_lock_irqsave(&core->spinlock_aov, flags);
 		core->aov_abnormal_deinit_flag = 1;
 		core->aov_abnormal_deinit_usr_fd_kill_flag = 0;
+		spin_unlock_irqrestore(&core->spinlock_aov, flags);
 		/* seninf/sensor streaming off */
 		seninf_s_stream(&ctx->subdev, 0);
 		break;
@@ -4496,8 +4525,10 @@ int mtk_cam_seninf_aov_runtime_resume(unsigned int sensor_id,
 		dev_info(ctx->dev,
 			"[%s] deinit type is abnormal(%u)!\n",
 			__func__, aov_seninf_deinit_type);
+		spin_lock_irqsave(&core->spinlock_aov, flags);
 		core->aov_abnormal_deinit_flag = 1;
 		core->aov_abnormal_deinit_usr_fd_kill_flag = 1;
+		spin_unlock_irqrestore(&core->spinlock_aov, flags);
 		/* seninf/sensor streaming off */
 		seninf_s_stream(&ctx->subdev, 0);
 		break;

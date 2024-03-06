@@ -2215,6 +2215,7 @@ int mtk_cam_seninf_s_aov_param(unsigned int sensor_id,
 	struct seninf_vc *vc;
 	struct seninf_core *core = NULL;
 	struct mtk_seninf_aov_param *aov_seninf_param = (struct mtk_seninf_aov_param *)param;
+	unsigned long flags;
 
 	pr_info("[%s]+ sensor_id(%d),aov_seninf_init_type(%u)\n",
 		__func__, sensor_id, aov_seninf_init_type);
@@ -2246,7 +2247,9 @@ int mtk_cam_seninf_s_aov_param(unsigned int sensor_id,
 			dev_info(ctx->dev,
 				"[%s] init type is abnormal(%u)!\n",
 				__func__, aov_seninf_init_type);
+			spin_lock_irqsave(&core->spinlock_aov, flags);
 			core->aov_abnormal_init_flag = 1;
+			spin_unlock_irqrestore(&core->spinlock_aov, flags);
 			/* seninf/sensor streaming on */
 			v4l2_subdev_call(&ctx->subdev, video, s_stream, 1);
 			break;

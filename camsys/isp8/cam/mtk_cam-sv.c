@@ -1596,15 +1596,12 @@ void camsv_handle_err(
 		mtk_cam_sv_execute_fifo_dump(sv_dev);
 #endif
 		dev_info_ratelimited(sv_dev->dev, "camsv dma fifo full\n");
-		mtk_cam_seninf_dump_current_status(ctx->seninf);
-		mtk_smi_dbg_hang_detect("camsys-camsv");
 
-		if (atomic_read(&sv_dev->is_seamless))
+		if (atomic_read(&sv_dev->is_seamless)) {
+			mtk_cam_seninf_dump_current_status(ctx->seninf);
 			mtk_cam_ctrl_dump_request(sv_dev->cam, CAMSYS_ENGINE_CAMSV, sv_dev->id,
 				frame_idx_inner, MSG_CAMSV_SEAMLESS_ERROR);
-		else
-			mtk_cam_ctrl_dump_request(sv_dev->cam, CAMSYS_ENGINE_CAMSV, sv_dev->id,
-				frame_idx_inner, MSG_CAMSV_ERROR);
+		}
 
 		mtk_cam_ctrl_notify_hw_hang(sv_dev->cam,
 					    CAMSYS_ENGINE_CAMSV, sv_dev->id,

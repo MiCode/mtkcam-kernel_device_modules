@@ -5710,7 +5710,8 @@ static bool test_do_engine_reset_for_recovery(struct mtk_cam_ctx *ctx)
 		return true;
 	}
 
-	pr_info("%s: ctx-%d skipped\n", __func__, ctx->stream_id);
+	pr_info("%s: ctx-%d skipped sw_recovery_ts:%llu_%llu\n",
+		__func__, ctx->stream_id, ctx->sw_recovery_ts, ts);
 	return false;
 }
 

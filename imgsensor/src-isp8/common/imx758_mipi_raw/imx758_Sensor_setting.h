@@ -313,7 +313,7 @@ static u16 imx758_normal_video_setting[] = {
 
 	/*Frame Length Lines Setting*/
 	0x0340, 0x0E,
-	0x0341, 0x70,
+	0x0341, 0x66,
 
 	/*ROI Setting*/
 	0x0344, 0x00,

@@ -266,7 +266,7 @@ static unsigned int tick_factor;
 
 
 /* frame sync flicker table */
-#define FLK_TABLE_CNT 3
+#define FLK_TABLE_CNT 4
 #define FLK_TABLE_SIZE 8
 static unsigned int fs_flk_table[FLK_TABLE_CNT][FLK_TABLE_SIZE][2] = {
 	{ /* [0] => flicker_en == 1 */
@@ -321,6 +321,26 @@ static unsigned int fs_flk_table[FLK_TABLE_CNT][FLK_TABLE_SIZE][2] = {
 
 		/* 29.99 ~ 30.5 */
 		{33345, 32786},
+
+		/* 59.2 ~ 60.7 */
+		{16891, 16474},
+
+		/* END */
+		{0, 0}
+	},
+
+	{ /* [3] => flicker_en == 4 */
+		/* 14.6 ~ 15.3 */
+		{68493, 65359},
+
+		/* 23.6 ~ 24.3 */
+		{42372, 41152},
+
+		/* 24.6 ~ 25.3 */
+		{40650, 39525},
+
+		/* 30.0 ~ 30.5 */
+		{33333, 32786},
 
 		/* 59.2 ~ 60.7 */
 		{16891, 16474},

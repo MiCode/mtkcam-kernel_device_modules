@@ -1227,6 +1227,20 @@ bool set_auto_flicker(struct subdrv_ctx *ctx, bool min_framelength_en)
 		else
 			ret = FALSE;
 		break;
+	case 4:
+		if (framerate > 5920 && framerate <= 6070)
+			set_max_framerate_base100(ctx, 5920, min_framelength_en);
+		else if (framerate > 3000 && framerate <= 3050)
+			set_max_framerate_base100(ctx, 3000, min_framelength_en);
+		else if (framerate > 2460 && framerate <= 2530)
+			set_max_framerate_base100(ctx, 2460, min_framelength_en);
+		else if (framerate > 2360 && framerate <= 2430)
+			set_max_framerate_base100(ctx, 2360, min_framelength_en);
+		else if (framerate > 1460 && framerate <= 1530)
+			set_max_framerate_base100(ctx, 1460, min_framelength_en);
+		else
+			ret = FALSE;
+		break;
 	default:
 		ret = FALSE;
 	}

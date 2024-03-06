@@ -4246,8 +4246,11 @@ static int update_job_raw_switch(struct mtk_cam_job *job)
 		goto EXIT_SET_RAW_SWITCH;
 	}
 	raw_switch = true;
+
 EXIT_SET_RAW_SWITCH:
 	job->raw_switch = raw_switch;
+	if (job->seamless_switch && !ctx->pack_job_img_wbuf_pool_wrapper)
+		mtk_cam_ctx_alloc_img_pool(ctx, ctrl_data);
 	job->img_wbuf_pool_wrapper = ctx->pack_job_img_wbuf_pool_wrapper;
 	if (job->img_wbuf_pool_wrapper)
 		mtk_cam_pool_wrapper_get(job->img_wbuf_pool_wrapper);
@@ -4469,13 +4472,16 @@ static int job_sen_req_pack(struct mtk_cam_job *job)
 		return -1;
 	/* switch scenario */
 	sensor_change = is_sensor_changed(job);
-	/* determine if it is a raw switch job */
-	if (update_job_raw_switch(job))
-		return -1;
+
 	job->first_frm_switch =
 		(job->first_job || sensor_change) && is_sensor_mode_update(job);
 	job->seamless_switch =
 		(!job->first_job && !sensor_change) && is_sensor_mode_update(job);
+
+	/* determine if it is a raw switch job */
+	if (update_job_raw_switch(job))
+		return -1;
+
 	if (CAM_DEBUG_ENABLED(JOB))
 		pr_info("[%s] ctx:%d|type:%d|%s|exp(cur:%d,prev:%d)|sw/scene:%d/%d, req_id:%d",
 				__func__,

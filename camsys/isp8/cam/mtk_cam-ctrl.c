@@ -512,10 +512,7 @@ static bool check_for_inner(struct mtk_cam_ctrl *ctrl, void *arg)
 	inner_seq = ctrl->r_info.inner_seq_no;
 	spin_unlock(&ctrl->info_lock);
 
-	if (inner_seq != args->expect_inner)
-		return 0;
-
-	return 1;
+	return frame_seq_ge(inner_seq, args->expect_inner);
 }
 
 static bool check_done(struct mtk_cam_ctrl *ctrl, void *arg)
@@ -539,10 +536,7 @@ static bool check_setting_done(struct mtk_cam_ctrl *ctrl, void *arg)
 	setting_seq = ctrl->r_info.outer_seq_no;
 	spin_unlock(&ctrl->info_lock);
 
-	if (setting_seq != arg_seq)
-		return 0;
-
-	return 1;
+	return frame_seq_ge(setting_seq, arg_seq);
 }
 
 static int mtk_cam_ctrl_wait_event(struct mtk_cam_ctrl *ctrl,
@@ -1405,7 +1399,7 @@ static void mtk_cam_ctrl_seamless_switch_flow(struct mtk_cam_job *job)
 	dev_info(dev, "[%s] begin waiting check for inner no:%d seq 0x%x\n",
 		__func__, job->req_seq, job->frame_seq_no);
 	if (mtk_cam_ctrl_wait_event(ctrl, check_for_inner, &check_args,
-				    1001)) {
+				    5001)) {
 		dev_info(dev, "[%s] check_for_inner timeout: expected in=0x%x\n",
 			 __func__, check_args.expect_inner);
 		goto SWITCH_FAILURE;

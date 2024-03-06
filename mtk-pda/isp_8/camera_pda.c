@@ -422,7 +422,7 @@ static int Get_Input_Addr_From_DMABUF(struct PDA_Data_t *pda_PdaConfig)
 	nAddress_Image = (unsigned long) sg_dma_address(g_image_mmu.sgt->sgl);
 
 	// Left image buffer
-	g_Address_LI[0] = nAddress_Image;
+	g_Address_LI[0] = nAddress_Image + pda_PdaConfig->address_offset[0];
 	//pda_PdaConfig->PDA_PDAI_P1_BASE_ADDR = (unsigned int)g_Address_LI[0];
 	for (i = 0; i < g_PDA_quantity; i++) {
 		PDA_WR32(PDA_devs[i].m_pda_base + PDA_PDAI_P1_BASE_ADDR_MSB_REG,
@@ -496,7 +496,8 @@ static int Get_Input_Addr_From_DMABUF(struct PDA_Data_t *pda_PdaConfig)
 	}
 
 	// Left image B1 buffer
-	g_Address_LI[1] = (unsigned long) sg_dma_address(g_image_b1_mmu.sgt->sgl);
+	g_Address_LI[1] = (unsigned long) sg_dma_address(g_image_b1_mmu.sgt->sgl) +
+						pda_PdaConfig->address_offset[1];
 	for (i = 0; i < g_PDA_quantity; i++) {
 		PDA_WR32(PDA_devs[i].m_pda_base + PDA_PDALI_P3_BASE_ADDR_MSB_REG,
 			(unsigned int)(g_Address_LI[1] >> 32));
@@ -552,7 +553,8 @@ static int Get_Input_Addr_From_DMABUF(struct PDA_Data_t *pda_PdaConfig)
 	}
 
 	// Left image B2 buffer
-	g_Address_LI[2] = (unsigned long) sg_dma_address(g_image_b2_mmu.sgt->sgl);
+	g_Address_LI[2] = (unsigned long) sg_dma_address(g_image_b2_mmu.sgt->sgl) +
+						pda_PdaConfig->address_offset[2];
 	for (i = 0; i < g_PDA_quantity; i++) {
 		PDA_WR32(PDA_devs[i].m_pda_base + PDA_PDALI_P4_BASE_ADDR_MSB_REG,
 			(unsigned int)(g_Address_LI[2] >> 32));
@@ -608,7 +610,8 @@ static int Get_Input_Addr_From_DMABUF(struct PDA_Data_t *pda_PdaConfig)
 	}
 
 	// Left image B3 buffer
-	g_Address_LI[3] = (unsigned long) sg_dma_address(g_image_b3_mmu.sgt->sgl);
+	g_Address_LI[3] = (unsigned long) sg_dma_address(g_image_b3_mmu.sgt->sgl) +
+						pda_PdaConfig->address_offset[3];
 	for (i = 0; i < g_PDA_quantity; i++) {
 		PDA_WR32(PDA_devs[i].m_pda_base + PDA_PDALI_P5_BASE_ADDR_MSB_REG,
 			(unsigned int)(g_Address_LI[3] >> 32));

@@ -29,6 +29,7 @@
 #define PDA_KERNEL_VERSION 4000
 
 #define kFlexibleROIMaxNum 128
+#define kImageBufferNum 4
 
 #define OUT_BYTE_PER_ROI 1200
 
@@ -440,8 +441,8 @@ struct PDA_Data_t {
 	unsigned int table_size;
 	unsigned int output_size;
 
-	int fd_left_image[4];
-	int fd_right_image[4];
+	int fd_left_image[kImageBufferNum];
+	int fd_right_image[kImageBufferNum];
 	int fd_left_table;
 	int fd_right_table;
 	int fd_output;
@@ -453,6 +454,8 @@ struct PDA_Data_t {
 	int sensor_dev;
 	int is_inputBuffer_updated;
 	int is_outputBuffer_updated;
+
+	unsigned int address_offset[kImageBufferNum];
 };
 
 struct pda_mmu {

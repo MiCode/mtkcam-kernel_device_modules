@@ -31,7 +31,7 @@ static unsigned int debug_buf_fmt_sel = -1;
 module_param(debug_buf_fmt_sel, int, 0644);
 MODULE_PARM_DESC(debug_buf_fmt_sel, "working fmt select: 0->bayer, 1->ufbc");
 
-static unsigned int disable_qof = 1;
+static unsigned int disable_qof;
 module_param(disable_qof, int, 0644);
 MODULE_PARM_DESC(disable_qof, "disable QOF");
 

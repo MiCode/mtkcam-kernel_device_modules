@@ -25,6 +25,9 @@
 
 #define VC									0
 
+#define SUPERFRAME_WIDTH          7680
+#define SUPERFRAME_HEIGHT          1280
+
 #define FRAME_WIDTH							1920
 #define FRAME_HEIGHT						1280
 
@@ -185,8 +188,8 @@ static int max96712_sensor_init(struct subdrv_ctx *ctx)
 	write_cmos_sensor(ctx, 0x1E00, 0xF4);
 	write_cmos_sensor(ctx, 0x1F00, 0xF4);
 
-	write_cmos_sensor(ctx, 0x0415, 0xEE);//luna 0xEE 1.4G; 0xEF 1.5G; 0XF4 2G
-	write_cmos_sensor(ctx, 0x0418, 0xEE);//luna 0xEE 1.4G; 0xEF 1.5G; 0XF4 2G
+	write_cmos_sensor(ctx, 0x0415, 0xF4);//luna 0xEE 1.4G; 0xEF 1.5G; 0XF4 2G
+	write_cmos_sensor(ctx, 0x0418, 0xF4);//luna 0xEE 1.4G; 0xEF 1.5G; 0XF4 2G
 	write_cmos_sensor(ctx, 0x1C00, 0xF5);
 	write_cmos_sensor(ctx, 0x1D00, 0xF5);
 	write_cmos_sensor(ctx, 0x1E00, 0xF5);
@@ -239,7 +242,7 @@ static int set_streaming_control(void *arg, bool enable)
 		write_cmos_sensor(ctx, 0x08A0, 0x04);
 		write_cmos_sensor(ctx, 0x040B, 0x00);
 	}
-	msleep(20);
+	mdelay(20);
 	return ERROR_NONE;
 }
 
@@ -306,7 +309,37 @@ static struct mtk_mbus_frame_desc_entry frame_desc_prev[] = {
 			.hsize = FRAME_WIDTH,
 			.vsize = FRAME_HEIGHT,
 			.fs_seq = MTK_FRAME_DESC_FS_SEQ_FIRST,
-			//.user_data_desc = VC_RAW_DATA,
+			.user_data_desc = VC_BRIDGE_RAW_0,
+		},
+	},
+	{
+		.bus.csi2 = {
+			.channel = 1,
+			.data_type = 0x1E, //yuv422
+			.hsize = FRAME_WIDTH,
+			.vsize = FRAME_HEIGHT,
+			.fs_seq = MTK_FRAME_DESC_FS_SEQ_FIRST,
+			.user_data_desc = VC_BRIDGE_RAW_1,
+		},
+	},
+	{
+		.bus.csi2 = {
+			.channel = 2,
+			.data_type = 0x1E, //yuv422
+			.hsize = FRAME_WIDTH,
+			.vsize = FRAME_HEIGHT,
+			.fs_seq = MTK_FRAME_DESC_FS_SEQ_FIRST,
+			.user_data_desc = VC_BRIDGE_RAW_2,
+		},
+	},
+	{
+		.bus.csi2 = {
+			.channel = 3,
+			.data_type = 0x1E, //yuv422
+			.hsize = FRAME_WIDTH,
+			.vsize = FRAME_HEIGHT,
+			.fs_seq = MTK_FRAME_DESC_FS_SEQ_FIRST,
+			.user_data_desc = VC_BRIDGE_RAW_3,
 		},
 	},
 };
@@ -336,22 +369,22 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.sensor_output_dataformat = SENSOR_OUTPUT_FORMAT_UYVY,
 		.multi_exposure_shutter_range[IMGSENSOR_EXPOSURE_LE].min = 8,
 		.imgsensor_winsize_info = {
-			.full_w = 1920,
-			.full_h = 1280,
+			.full_w = SUPERFRAME_WIDTH,
+			.full_h = SUPERFRAME_HEIGHT,
 			.x0_offset = 0,
 			.y0_offset = 0,
-			.w0_size = 1920,
-			.h0_size = 1280,
-			.scale_w = 1920,
-			.scale_h = 1280,
+			.w0_size = SUPERFRAME_WIDTH,
+			.h0_size = SUPERFRAME_HEIGHT,
+			.scale_w = SUPERFRAME_WIDTH,
+			.scale_h = SUPERFRAME_HEIGHT,
 			.x1_offset = 0,
 			.y1_offset = 0,
-			.w1_size = 1920,
-			.h1_size = 1280,
+			.w1_size = SUPERFRAME_WIDTH,
+			.h1_size = SUPERFRAME_HEIGHT,
 			.x2_tg_offset = 0,
 			.y2_tg_offset = 0,
-			.w2_tg_size = 1920,
-			.h2_tg_size = 1280,
+			.w2_tg_size = SUPERFRAME_WIDTH,
+			.h2_tg_size = SUPERFRAME_HEIGHT,
 		},
 		.pdaf_cap = TRUE,
 		.imgsensor_pd_info = NULL,
@@ -362,9 +395,9 @@ static struct subdrv_mode_struct mode_struct[] = {
 			.legacy_phy = 0,
 			.not_fixed_trail_settle = 1,
 			.not_fixed_dphy_settle = 1,
-			.dphy_trail = 40,
-			.dphy_data_settle = 8,
-			.cphy_settle = 13,
+			.dphy_trail = 4,
+			.dphy_data_settle = 36,
+			.cphy_settle = 36,
 			.clk_lane_no_initial_flow = 0,
 		},
 		.dpc_enabled = true, /* reg 0x0b06 */
@@ -392,23 +425,24 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.sensor_output_dataformat = SENSOR_OUTPUT_FORMAT_UYVY,
 		.multi_exposure_shutter_range[IMGSENSOR_EXPOSURE_LE].min = 8,
 		.imgsensor_winsize_info = {
-			.full_w = 1920,
-			.full_h = 1280,
+			.full_w = SUPERFRAME_WIDTH,
+			.full_h = SUPERFRAME_HEIGHT,
 			.x0_offset = 0,
 			.y0_offset = 0,
-			.w0_size = 1920,
-			.h0_size = 1280,
-			.scale_w = 1920,
-			.scale_h = 1280,
+			.w0_size = SUPERFRAME_WIDTH,
+			.h0_size = SUPERFRAME_HEIGHT,
+			.scale_w = SUPERFRAME_WIDTH,
+			.scale_h = SUPERFRAME_HEIGHT,
 			.x1_offset = 0,
 			.y1_offset = 0,
-			.w1_size = 1920,
-			.h1_size = 1280,
+			.w1_size = SUPERFRAME_WIDTH,
+			.h1_size = SUPERFRAME_HEIGHT,
 			.x2_tg_offset = 0,
 			.y2_tg_offset = 0,
-			.w2_tg_size = 1920,
-			.h2_tg_size = 1280,
+			.w2_tg_size = SUPERFRAME_WIDTH,
+			.h2_tg_size = SUPERFRAME_HEIGHT,
 		},
+
 		.pdaf_cap = TRUE,
 		.imgsensor_pd_info = NULL,
 		.ae_binning_ratio = 1465,
@@ -448,22 +482,22 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.sensor_output_dataformat = SENSOR_OUTPUT_FORMAT_UYVY,
 		.multi_exposure_shutter_range[IMGSENSOR_EXPOSURE_LE].min = 8,
 		.imgsensor_winsize_info = {
-			.full_w = 1920,
-			.full_h = 1280,
+			.full_w = SUPERFRAME_WIDTH,
+			.full_h = SUPERFRAME_HEIGHT,
 			.x0_offset = 0,
 			.y0_offset = 0,
-			.w0_size = 1920,
-			.h0_size = 1280,
-			.scale_w = 1920,
-			.scale_h = 1280,
+			.w0_size = SUPERFRAME_WIDTH,
+			.h0_size = SUPERFRAME_HEIGHT,
+			.scale_w = SUPERFRAME_WIDTH,
+			.scale_h = SUPERFRAME_HEIGHT,
 			.x1_offset = 0,
 			.y1_offset = 0,
-			.w1_size = 1920,
-			.h1_size = 1280,
+			.w1_size = SUPERFRAME_WIDTH,
+			.h1_size = SUPERFRAME_HEIGHT,
 			.x2_tg_offset = 0,
 			.y2_tg_offset = 0,
-			.w2_tg_size = 1920,
-			.h2_tg_size = 1280,
+			.w2_tg_size = SUPERFRAME_WIDTH,
+			.h2_tg_size = SUPERFRAME_HEIGHT,
 		},
 		.pdaf_cap = TRUE,
 		.imgsensor_pd_info = NULL,
@@ -504,23 +538,24 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.sensor_output_dataformat = SENSOR_OUTPUT_FORMAT_UYVY,
 		.multi_exposure_shutter_range[IMGSENSOR_EXPOSURE_LE].min = 8,
 		.imgsensor_winsize_info = {
-			.full_w = 1920,
-			.full_h = 1280,
+			.full_w = SUPERFRAME_WIDTH,
+			.full_h = SUPERFRAME_HEIGHT,
 			.x0_offset = 0,
 			.y0_offset = 0,
-			.w0_size = 1920,
-			.h0_size = 1280,
-			.scale_w = 1920,
-			.scale_h = 1280,
+			.w0_size = SUPERFRAME_WIDTH,
+			.h0_size = SUPERFRAME_HEIGHT,
+			.scale_w = SUPERFRAME_WIDTH,
+			.scale_h = SUPERFRAME_HEIGHT,
 			.x1_offset = 0,
 			.y1_offset = 0,
-			.w1_size = 1920,
-			.h1_size = 1280,
+			.w1_size = SUPERFRAME_WIDTH,
+			.h1_size = SUPERFRAME_HEIGHT,
 			.x2_tg_offset = 0,
 			.y2_tg_offset = 0,
-			.w2_tg_size = 1920,
-			.h2_tg_size = 1280,
+			.w2_tg_size = SUPERFRAME_WIDTH,
+			.h2_tg_size = SUPERFRAME_HEIGHT,
 		},
+
 		.pdaf_cap = TRUE,
 		.imgsensor_pd_info = NULL,
 		.ae_binning_ratio = 1465,
@@ -547,7 +582,7 @@ static struct subdrv_static_ctx static_ctx = {
 	.i2c_transfer_data_type = I2C_DT_ADDR_16_DATA_8,
 	.eeprom_info = 0,
 	.eeprom_num = 0,
-	.resolution = {1920, 1280},
+	.resolution = {SUPERFRAME_WIDTH, SUPERFRAME_HEIGHT},
 	.mirror = IMAGE_HV_MIRROR,
 
 	.mclk = 24,
@@ -666,6 +701,7 @@ static int get_imgsensor_id(struct subdrv_ctx *ctx, u32 *sensor_id)
 					ctx->i2c_write_id, *sensor_id);
 				return ERROR_NONE;
 			}
+			msleep(30);
 			LOG_ERR("Read id fail, id: 0x%x, i2c id: 0x%x\n",
 				*sensor_id, ctx->i2c_write_id);
 			retry--;
@@ -708,6 +744,7 @@ static int open(struct subdrv_ctx *ctx)
 					ctx->i2c_write_id, sensor_id);
 				break;
 			}
+			msleep(30);
 			LOG_ERR("Read id fail, id: 0x%x, i2c id: 0x%x\n",
 				sensor_id, ctx->i2c_write_id);
 			retry--;
@@ -806,7 +843,7 @@ static struct subdrv_ops ops = {
 
 
 static struct subdrv_pw_seq_entry pw_seq[] = {
-	{HW_ID_PDN, 0, 20},
+	//{HW_ID_PDN, 0, 20},
 	{HW_ID_PDN, 1800000, 20},
 };
 

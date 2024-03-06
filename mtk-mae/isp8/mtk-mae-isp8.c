@@ -1006,8 +1006,8 @@ static bool mtk_mae_config_rsz(struct mtk_mae_dev *mae_dev,
 		break;
 	case ATTR_V0:
 	case FAC_V1:
-		rsz_in.rsz_output_h_size = param->image[loop].imgWidth;
-		rsz_in.rsz_output_v_size = param->image[loop].imgHeight;
+		rsz_in.rsz_output_h_size = param->image[loop].resizeWidth;
+		rsz_in.rsz_output_v_size = param->image[loop].resizeHeight;
 		break;
 	default:
 		break;

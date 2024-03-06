@@ -71,6 +71,8 @@
 #include<soc/mediatek/mmdvfs_v3.h>
 #include "iommu_debug.h"
 #include "mtk-smmu-v3.h"
+#include "mtk_imgsys_frm_sync.h"
+#include "mtk_imgsys_frm_sync_event.h"
 
 //! for IOVA to PA
 #include <linux/iommu.h>
@@ -298,6 +300,7 @@ struct DPE_device {
 	struct clk_bulk_data *clks;
 	unsigned int clk_num;
 	int irq;
+	struct platform_device *frm_sync_pdev;
 // V4L2
 	struct v4l2_device v4l2_dev;
 	struct mutex mutex;
@@ -515,12 +518,17 @@ static struct IPE_device *IPE_devs;
 #define IPE_MAIN_BASE (IPE_devs[0].regs)
 #endif
 
+struct token_index_info {
+	unsigned int token_index[3];
+	unsigned int token_cnt;
+};
 //!
 struct my_callback_data {
 	struct work_struct cmdq_cb_work;
 	struct cmdq_pkt *pkt;
 	unsigned int dpe_mode;
 	signed int err;
+	struct token_index_info token_info;
 };
 
 /**************************************************************
@@ -588,6 +596,9 @@ struct SV_LOG_STR {
 } *PSV_LOG_STR;
 static void *pLog_kmalloc;
 static struct SV_LOG_STR gSvLog[DPE_IRQ_TYPE_AMOUNT];
+
+static int DPE_cmdq_buf_idx;
+
 /*
  *   for irq used,keep log until IRQ_LOG_PRINTER being involked,
  *   limited:
@@ -5076,6 +5087,8 @@ void cmdq_cb_destroy(struct cmdq_cb_data data)
 static void DPE_callback_work_func(struct work_struct *work)
 {
 	struct my_callback_data *my_data = NULL;
+	struct dpe_deque_done_in_data dpe_in_data;
+	unsigned int i = 0;
 #if DPE_IRQ_ENABLE
 #else
 	struct engine_requests *dpe_reqs = NULL;
@@ -5146,7 +5159,15 @@ static void DPE_callback_work_func(struct work_struct *work)
 #ifdef __DPE_KERNEL_PERFORMANCE_MEASURE__
 		mt_kernel_trace_end();
 #endif
+
 		spin_unlock(&(DPEInfo.SpinLockIrq[DPE_IRQ_TYPE_INT_DVP_ST]));
+		for (i = 0; i < my_data->token_info.token_cnt; i++) {
+			dpe_in_data.req_fd = my_data->token_info.token_index[i];
+			LOG_INF("dpe_isp8(%d/%d)\n", my_data->token_info.token_index[i],
+				my_data->token_info.token_cnt);
+		release_frame_token_DPE(DPE_devs[0].frm_sync_pdev , &dpe_in_data);
+		}
+
 		if (bResulst == MTRUE)
 			wake_up_interruptible(&DPEInfo.WaitQueueHead);
 		#if (REQUEST_REGULATION == FRAME_BASE_REGULATION)
@@ -5179,6 +5200,8 @@ void DPE_callback_func(struct cmdq_cb_data data)
 			(unsigned int)DPE_RD32(IPE_MAIN_BASE));
 			#endif
 			DPE_DumpReg();//!test
+			// sw token timeout
+			mtk_imgsys_frm_sync_timeout(DPE_devs[0].frm_sync_pdev, my_data->pkt->err_data.event);
 			// do error handling
 			cmdq_dump_pkt(my_data->pkt, 0 , 1);
 		} else {
@@ -5197,7 +5220,7 @@ void my_wait(struct my_callback_data *my_data)
 	kfree(my_data);
 }
 
-
+#define enq_out_data_size 2
 signed int CmdqDPEHW(struct frame *frame)
 {
 	struct DPE_Kernel_Config *pDpeConfig;
@@ -5208,6 +5231,14 @@ signed int CmdqDPEHW(struct frame *frame)
 	#ifdef CMdq_en
 	struct cmdq_pkt *handle;
 	#endif
+	/*frm sync token variable*/
+	struct dpe_in_data enq_in_data;
+	struct dpe_out_data enq_out_data[enq_out_data_size];
+	int k = 0;
+	int dpe_sw_token_cnt = 0;
+	//int ret = 0;
+	//int event_type = 0;
+
 	//!
 	struct my_callback_data *my_data = kzalloc(sizeof(*my_data), GFP_KERNEL);
 
@@ -5230,6 +5261,49 @@ signed int CmdqDPEHW(struct frame *frame)
 	pDpeUserConfig = (struct DPE_Config_ISP8 *) frame->data;
 
 	pDpeConfig = &DpeConfig;
+
+	/**/
+
+	enq_in_data.req_fd = pDpeUserConfig->req_fd;
+	enq_in_data.req_no = pDpeUserConfig->req_no;
+	enq_in_data.frm_no = pDpeUserConfig->frm_no;
+	enq_in_data.frm_owner = 0x6666;
+	enq_in_data.imgstm_inst = 0x5555;
+
+	for (k = 0;k < enq_out_data_size;k++) {
+		if (pDpeUserConfig->DPE_Token_Info[k].token_id != 0) {
+			if (pDpeUserConfig->DPE_Token_Info[k].d_token == token_wait) {
+				enq_in_data.token_info.mSyncTokenList[0].token_value =
+					pDpeUserConfig->DPE_Token_Info[k].token_id;
+				enq_in_data.token_info.mSyncTokenList[0].type = imgsys_token_wait;
+				dpe_sw_token_cnt = 1;
+				//event_type = token_wait;
+				enq_in_data.token_info.mSyncTokenNum = dpe_sw_token_cnt;
+				result = Handler_frame_token_sync_DPE(DPE_devs[0].frm_sync_pdev,
+					&enq_in_data, &enq_out_data[k]);
+			} else if (pDpeUserConfig->DPE_Token_Info[k].d_token == token_set) {
+				enq_in_data.token_info.mSyncTokenList[0].token_value =
+					pDpeUserConfig->DPE_Token_Info[k].token_id;
+				enq_in_data.token_info.mSyncTokenList[0].type = imgsys_token_set;
+				dpe_sw_token_cnt = 1;
+				//event_type = token_set;
+				enq_in_data.token_info.mSyncTokenNum = dpe_sw_token_cnt;
+				result = Handler_frame_token_sync_DPE(DPE_devs[0].frm_sync_pdev, &enq_in_data,
+					&enq_out_data[k]);
+		} else {
+			LOG_ERR("not support event");
+		}
+	}
+		LOG_INF("%s-%d-%d-%d-%d-%d", __func__,
+			k,
+			pDpeUserConfig->DPE_Token_Info[k].token_id,
+			pDpeUserConfig->DPE_Token_Info[k].d_token,
+			enq_in_data.token_info.mSyncTokenNum,
+			enq_out_data[k].event_id);
+		//LOG_INF("dpe-Handler_frame_token_sync_DPE(%d/%d)", enq_in_data.token_info.mSyncTokenNum,
+		//	enq_out_data[k].event_id);
+	}
+
 /************** Pass User info to DPE_Kernel_Config **************/
 
 	if (pDpeUserConfig->Dpe_engineSelect == MODE_DVS_DVP_BOTH) {
@@ -5684,6 +5758,18 @@ if (pDpeConfig->DPE_MODE == 3) {
 }
 /* DPE FW Tri = 1*/
 #ifdef CMdq_en
+//need to decide notify or wait or do nothing
+for (k = 0;k < enq_out_data_size;k++) {
+	if (pDpeUserConfig->DPE_Token_Info[k].token_id && pDpeUserConfig->DPE_Token_Info[k].d_token == token_wait) {
+		LOG_INF("%s-%d-%d-%d-%d-%d-dpe_isp8-wait", __func__,
+			k,
+			pDpeUserConfig->DPE_Token_Info[k].token_id,
+			pDpeUserConfig->DPE_Token_Info[k].d_token,
+			enq_in_data.token_info.mSyncTokenNum,
+			enq_out_data[k].event_id);
+		cmdq_pkt_wfe(handle, enq_out_data[k].event_id);
+}
+}
 cmdq_pkt_write(handle, dpe_clt_base, DVS_CTRL00_HW, 0x20000000, 0x20000000);
 //LOG_INF("DPE FW Tri = %x\n", pDpeConfig->DVS_CTRL00);
 	if (pDpeConfig->DPE_MODE == 1) /* DVS ONLY MODE */
@@ -5692,7 +5778,18 @@ cmdq_pkt_write(handle, dpe_clt_base, DVS_CTRL00_HW, 0x20000000, 0x20000000);
 		cmdq_pkt_wfe(handle, dvgf_event_id);
 	else
 		cmdq_pkt_wfe(handle, dvp_event_id);
-
+for (k = 0;k < enq_out_data_size;k++) {
+	if (pDpeUserConfig->DPE_Token_Info[k].token_id && pDpeUserConfig->DPE_Token_Info[k].d_token == token_set) {
+		LOG_INF("%s-%d-%d-%d-%d-%d-%d-dpe_isp8-set", __func__,
+			k,
+			pDpeUserConfig->DPE_Token_Info[k].token_id,
+			pDpeUserConfig->DPE_Token_Info[k].d_token,
+			enq_in_data.token_info.mSyncTokenNum,
+			enq_out_data[k].event_id,
+			enq_out_data[k].req_fd);
+		cmdq_pkt_set_event(handle, enq_out_data[k].event_id);
+}
+}
 //cmdq_pkt_write(handle, dpe_clt_base, DVS_CTRL00_HW, 0x00000000, 0x20000000);
 #endif
 #if defined(DPE_PMQOS_EN) && defined(CONFIG_MTK_QOS_SUPPORT)
@@ -5716,6 +5813,15 @@ cmdq_pkt_write(handle, dpe_clt_base, DVS_CTRL00_HW, 0x20000000, 0x20000000);
 
 	my_data->pkt = handle;
 	my_data->dpe_mode = pDpeConfig->DPE_MODE;
+	for (k = 0;k < enq_out_data_size;k++) {
+		if (enq_out_data[k].event_id != 0) {
+			my_data->token_info.token_index[k] = enq_out_data[k].req_fd;
+			my_data->token_info.token_cnt += 1;
+		}
+	}
+
+	LOG_INF("%s-%p\n", __func__, my_data);
+
 	cmdq_pkt_flush_async(handle, DPE_callback_func, (void *)my_data);
 	//my_wait(my_data);
 
@@ -7608,6 +7714,7 @@ static signed int DPE_open(struct inode *pInode, struct file *pFile)
 	unsigned int i, j;
 	/*int q = 0, p = 0;*/
 	struct DPE_USER_INFO_STRUCT *pUserInfo;
+	struct group token_group;
 
 	LOG_INF("- E. UserCount: %d.", DPEInfo.UserCount);
 
@@ -7669,6 +7776,9 @@ static signed int DPE_open(struct inode *pInode, struct file *pFile)
 		/* DPEInfo.IrqInfo.DpeIrqCnt = 0; */
 		for (i = 0; i < IRQ_USER_NUM_MAX; i++)
 			DPEInfo.IrqInfo.DpeIrqCnt[i] = 0;
+
+		/*dpe cmdq buf index reset 0*/
+		DPE_cmdq_buf_idx = 0;
 		/*  */
 		//open dvs
 		dpe_register_requests_isp8(&dpe_reqs_dvs, sizeof(struct DPE_Config_ISP8));
@@ -7679,6 +7789,11 @@ static signed int DPE_open(struct inode *pInode, struct file *pFile)
 
 		dpe_register_requests_isp8(&dpe_reqs_dvgf, sizeof(struct DPE_Config_ISP8));
 		dpe_set_engine_ops_isp8(&dpe_reqs_dvgf, &dpe_ops);
+
+		//frame sync token init
+		token_group.hw_group_id = dpe_engine;
+		token_group.algo_group_id = mtk_imgsys_frm_sync_event_group_vsdof;
+		mtk_imgsys_frm_sync_init(DPE_devs[0].frm_sync_pdev, token_group);
 		mutex_unlock(&(MutexDPERef));
 		//
 		LOG_DBG("Cur Usr(%d), (proc, pid, tgid)=(%s, %d, %d), 1st user",
@@ -7730,6 +7845,7 @@ EXIT:
 static signed int DPE_release(struct inode *pInode, struct file *pFile)
 {
 	struct DPE_USER_INFO_STRUCT *pUserInfo;
+	struct group token_group;
 	/*unsigned int Reg;*/
 	LOG_DBG("- E. release UserCount: %d.", DPEInfo.UserCount);
 	/*  */
@@ -7752,6 +7868,10 @@ static signed int DPE_release(struct inode *pInode, struct file *pFile)
 		dpe_unregister_requests_isp8(&dpe_reqs_dvs);
 		dpe_unregister_requests_isp8(&dpe_reqs_dvp);
 		dpe_unregister_requests_isp8(&dpe_reqs_dvgf);
+		//frame sync token uninit
+		token_group.hw_group_id = dpe_engine;
+		token_group.algo_group_id = mtk_imgsys_frm_sync_event_group_vsdof;
+		mtk_imgsys_frm_sync_uninit(DPE_devs[0].frm_sync_pdev, token_group);
 	}
 	/*  */
 	LOG_INF("Curr UsrCnt(%d), (process, pid, tgid)=(%s, %d, %d), last user",
@@ -8193,6 +8313,31 @@ static void dpe_dev_release(struct v4l2_device *v4l2_dev)
 /*******************************************************************************
  *
  ******************************************************************************/
+struct platform_device *dpe_get_frm_sync_pdev(struct device *dev)
+{
+	struct device_node *dev_node;
+	struct platform_device *img_frm_sync_pdev = NULL;
+
+	dev_node = of_parse_phandle(dev->of_node, "mtk,img-frm-sync", 0);
+
+	if (dev_node == NULL) {
+		dev_err(dev, "%s can not get dev node", __func__);
+		return NULL;
+	}
+
+	img_frm_sync_pdev = of_find_device_by_node(dev_node);
+	//_dpe_dev->frm_sync_pdev = img_frm_sync_pdev;
+	if (img_frm_sync_pdev == NULL) {
+		dev_err(dev, "%s img_frm_sync_pdev failed\n", __func__);
+		of_node_put(dev_node);
+		return NULL;
+	}
+
+	return img_frm_sync_pdev;
+}
+/*******************************************************************************
+ *
+ ******************************************************************************/
 static signed int DPE_probe(struct platform_device *pDev)
 {
 	signed int Ret = 0;
@@ -8277,6 +8422,9 @@ static signed int DPE_probe(struct platform_device *pDev)
 		Ipe_dev->regs = of_iomap(pDev->dev.of_node, 2);
 			LOG_INF("- E. IPE_CLK = 0x%p\n", Ipe_dev->regs);
 		#endif
+		DPE_dev->frm_sync_pdev = dpe_get_frm_sync_pdev(DPE_dev->dev);
+		if (!DPE_dev->frm_sync_pdev)
+			LOG_INF("get frm sync pdev fail\n");
 	}
 	if (!DPE_dev->regs) {
 		dev_dbg(&pDev->dev,
@@ -8634,6 +8782,7 @@ if (DPE_dev->irq > 0) {
 		}
 	}
 	g_DPE_PMState = 0;
+	DPE_cmdq_buf_idx = 0;
 	//Get_DVS_IRQ = 0;
 	//Get_DVP_IRQ = 0;
 	//Get_DVGF_IRQ = 0;

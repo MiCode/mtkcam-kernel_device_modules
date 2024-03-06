@@ -416,6 +416,17 @@ struct DPE_CLEAR_IRQ_STRUCT {
 	unsigned int Status;	/* Input */
 };
 
+enum dpe_token_type {
+	token_none,
+	token_set,
+	token_wait
+};
+
+struct dpe_token_info {
+	enum dpe_token_type d_token;
+	unsigned int token_id;
+};
+
 struct DPE_Kernel_Config {
 	struct DVS_ME_Kernel TuningBuf_ME;
 	struct DVS_OCC_Kernel TuningKernel_OCC;
@@ -1540,6 +1551,11 @@ struct DPE_Config_ISP8 {
 	enum DPEMODE Dpe_engineSelect;
 	unsigned int Dpe_RegDump;
 	unsigned int Dpe_is16BitMode;
+	//struct dpe_token_info DPE_Notify_Token_Info;
+	unsigned int req_no;
+	unsigned int frm_no;
+	unsigned int req_fd;
+	struct dpe_token_info DPE_Token_Info[3];
 	struct DVS_Settings Dpe_DVSSettings;
 	struct DVP_Settings Dpe_DVPSettings;
 	struct DVGF_Settings Dpe_DVGFSettings;

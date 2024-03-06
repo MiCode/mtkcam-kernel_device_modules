@@ -30,7 +30,7 @@
 /********************************************************************
  * Global Define
  ********************************************************************/
-#define TRAW_INIT_ARRAY_COUNT	2
+#define TRAW_INIT_ARRAY_COUNT	3
 
 #define TRAW_CTL_ADDR_END		0x470
 #define TRAW_DMA_ADDR_OFST		0x4000
@@ -53,6 +53,7 @@ const struct mtk_imgsys_init_array
 			mtk_imgsys_traw_init_ary[TRAW_INIT_ARRAY_COUNT] = {
 	{0x00B0, 0x3F}, /* TRAWCTL_INT_STATUS_CLR_EN */
 	{0x00B4, 0x80000000}, /* TRAWCTL_INT1_EN */
+	{0x0348, 0x00000001}, /* TRAWCTL_QOF_DDREN */
 };
 
 #if IF_0_DEFINE //YWTBD K DBG

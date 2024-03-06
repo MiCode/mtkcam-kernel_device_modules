@@ -245,15 +245,15 @@ void imgsys_main_set_init(struct mtk_imgsys_dev *imgsys_dev)
 
 	pr_debug("%s: +.\n", __func__);
 
-		DdrRegBA = imgsysddrenRegBA;
-	/* Force SW ddren during bring up*/
-	value = 0x1ff;
-		iowrite32(value, (DdrRegBA + 0x10));
+	DdrRegBA = imgsysddrenRegBA;
+	/* HW DDREN*/
+	value = 0x1fd;
+	iowrite32(value, (DdrRegBA + 0x10));
 
 	/* Wait platform resources ack */
-		count = 0;
-			value = ioread32((void *)(DdrRegBA + 0x14));
-	while ((value & 0x1fe) != 0x1fe) {
+	count = 0;
+	value = ioread32((void *)(DdrRegBA + 0x14));
+	while ((value & 0x1fc) != 0x1fc) {
 		count++;
 		if (count > DDREN_ACK_TIMEOUT_CNT) {
 			pr_err("[%s][%d] wait platorm resources done timeout", __func__, __LINE__);

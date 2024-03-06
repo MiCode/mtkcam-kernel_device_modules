@@ -20,6 +20,7 @@
 
 const struct mtk_imgsys_init_array mtk_imgsys_dip_init_ary[] = {
 	{0x084, 0x00000001}, /* DIPCTL_D1A_DIPCTL_INT1_EN */
+	{0x294, 0x00000001}, /* DIPCTL_QOF_CTL */
 };
 
 static struct DIPRegDumpInfo g_DIPRegDumpTopIfo[] = {

@@ -373,7 +373,7 @@ static void update_buf_fmt_sel(struct mtk_cam_job *job)
 	// everytime packing a new job
 	struct mtk_cam_driver_buf_desc *desc =
 		&job->src_ctx->img_work_buf_desc;
-	bool use_ufbc = false;
+	bool use_ufbc = true;
 
 	use_ufbc = use_ufbc
 		&& is_sv_support_ufbc(job)

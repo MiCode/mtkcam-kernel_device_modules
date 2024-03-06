@@ -129,13 +129,6 @@ uint32_t	is_capture;
         #endif
 } __packed;
 
-#define KFENCE_MAX 4
-struct fence_event {
-	int fence_fd;
-	uint64_t *dma_fence;
-	int gce_event;
-} __packed;
-
 struct private_data {
 	int8_t need_update_desc;
 	int8_t need_flush_tdr;
@@ -159,10 +152,6 @@ struct img_swfrm_info {
 	void *bw_swbuf;
 	uint64_t pixel_bw;
 	int tunmeta_size;
-	int wait_fence_num;
-	struct fence_event wait_fence_list[KFENCE_MAX];
-	int notify_fence_num;
-	struct fence_event notify_fence_list[KFENCE_MAX];
 	struct private_data priv[IMGSYS_MAX];
 } __packed;
 

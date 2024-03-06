@@ -69,14 +69,6 @@ struct mtk_imgsys_cmdq_timestamp {
 	u64 tsDvfsQosEnd;
 };
 
-struct mtk_imgsys_fence {
-	u32 event_id;
-	u32 thd_idx;
-	u32 fence_fd;
-	struct dma_fence *kfence;
-	struct dma_fence_cb cb;
-};
-
 struct mtk_imgsys_cb_param {
 #if CMDQ_CB_KTHREAD
 	struct kthread_work cmdq_cb_work;
@@ -114,8 +106,6 @@ struct mtk_imgsys_cb_param {
 	bool isBlkLast;
 	bool isFrmLast;
 	bool isTaskLast;
-	struct mtk_imgsys_fence waitfence[KFENCE_MAX];
-	struct mtk_imgsys_fence notifence[KFENCE_MAX];
 	bool isOccupy;
 };
 

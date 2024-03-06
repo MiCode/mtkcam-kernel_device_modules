@@ -770,7 +770,7 @@ static struct mtk_hcp_smvr_reserve_mblock isp8_smvr_mblock[] = {
 		.start_phys = 0x0,
 		.start_virt = 0x0,
 		.start_dma  = 0x0,
-		.size = 0x120C400, //0x1208800,//to do for smvr //0xF68400, //0x2000000,
+		.size = 0xE7C400, //0x120C400,//to do for smvr //0xF68400, //0x2000000,
 		.is_dma_buf = true,
 		.mmap_cnt = 0,
 		.mem_priv = NULL,
@@ -1006,7 +1006,7 @@ static struct mtk_hcp_streaming_reserve_mblock isp8_streaming_mblock[] = {
 		.start_phys = 0x0,
 		.start_virt = 0x0,
 		.start_dma  = 0x0,
-		.size = 0x75CF00, //0x759300, // explicit: 0x77EC00,
+		.size = 0x62CF00, //0x75CF00, // explicit: 0x77EC00,
 		.is_dma_buf = true,
 		.mmap_cnt = 0,
 		.mem_priv = NULL,
@@ -1241,7 +1241,7 @@ static struct mtk_hcp_capture_reserve_mblock isp8_capture_mblock[] = {
 		.start_phys = 0x0,
 		.start_virt = 0x0,
 		.start_dma  = 0x0,
-		.size = 0x55CC00, //0x559000, //0xDFB600, //0xDC5800,
+		.size = 0x4C4C00, //0x55CC00, //0xDFB600, //0xDC5800,
 		.is_dma_buf = true,
 		.mmap_cnt = 0,
 		.mem_priv = NULL,
@@ -2300,10 +2300,10 @@ static int isp8_module_driver_allocate_working_buffer_smvr(struct mtk_hcp *hcp_d
 						return -1;
 					}
 					#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 4, 0)
-					smvr_mblock[id].sgt = 
+					smvr_mblock[id].sgt =
 						dma_buf_map_attachment_unlocked(attach, DMA_BIDIRECTIONAL);
 					#else
-					smvr_mblock[id].sgt = 
+					smvr_mblock[id].sgt =
 						dma_buf_map_attachment(attach, DMA_BIDIRECTIONAL);
 					#endif
 					sgt = smvr_mblock[id].sgt;

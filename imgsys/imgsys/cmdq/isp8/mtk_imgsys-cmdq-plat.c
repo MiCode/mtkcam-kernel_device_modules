@@ -360,247 +360,6 @@ static void imgsys_cmdq_cmd_dump_plat8(struct swfrm_info_t *frm_info, u32 frm_id
 	}
 }
 
-static void imgsys_cmdq_fence_done_plat8(struct dma_fence *fence, struct dma_fence_cb *cb)
-{
-
-	u32 event_id = 0L, event_val = 0L, thd_idx = 0L;
-	struct mtk_imgsys_fence *imgsys_fence = NULL;
-
-	imgsys_fence = container_of(cb, struct mtk_imgsys_fence, cb);
-	thd_idx = imgsys_fence->thd_idx;
-	event_id = imgsys_fence->event_id;
-
-	if (is_stream_off == 1) {
-		pr_info("%s: [ERROR] pipe had been turned off(%d)! with fence:0x%lx,fencefd:%d,gthrd:%d,event:%d\n",
-			__func__, is_stream_off, (unsigned long)fence, imgsys_fence->fence_fd,
-			thd_idx, event_id);
-		return;
-	}
-
-	if (imgsys_fence_dbg_enable_plat8()) {
-		pr_info("%s: SetEvent+ with fence:0x%lx,fencefd:%d,gthrd:%d,event:%d\n",
-			__func__, (unsigned long)fence, imgsys_fence->fence_fd, thd_idx,
-			event_id);
-	}
-
-	cmdq_set_event(imgsys_clt[thd_idx]->chan, imgsys_event[event_id].event);
-
-	event_val = cmdq_get_event(imgsys_clt[thd_idx]->chan, imgsys_event[event_id].event);
-	if (imgsys_fence_dbg_enable_plat8()) {
-		pr_info("%s: SetEvent- with fence:0x%lx,fencefd:%d,gthrd:%d,event:%d,event_val:%d\n",
-			__func__, (unsigned long)fence, imgsys_fence->fence_fd, thd_idx,
-			event_id, event_val);
-	}
-
-}
-
-static void imgsys_cmdq_fence_set_plat8(struct mtk_imgsys_dev *imgsys_dev,
-					struct swfrm_info_t *frm_info,
-					struct mtk_imgsys_cb_param *cb_param,
-					u32 frm_idx, u32 thd_idx)
-{
-	u32 f_lop_idx = 0;
-	u32 waitf_num = 0, notif_num = 0;
-	struct fence_event *fence_evt = NULL;
-	struct mtk_imgsys_fence *imgsys_fence = NULL;
-
-    if (imgsys_cmdq_dbg_enable_plat8()) {
-	pr_debug("%s: +\n", __func__);
-    }
-
-	notif_num = frm_info->user_info[frm_idx].notify_fence_num;
-	if (notif_num <= 0)
-		goto CHECK_WAIT_FENCE;
-
-	for (f_lop_idx = 0; f_lop_idx < notif_num; f_lop_idx++) {
-		fence_evt = &(frm_info->user_info[frm_idx].notify_fence_list[f_lop_idx]);
-		imgsys_fence = &(cb_param->notifence[f_lop_idx]);
-		imgsys_fence->kfence = (struct dma_fence *)fence_evt->dma_fence;
-		if (imgsys_fence->kfence == NULL) {
-			dev_info(imgsys_dev->dev,
-				"%s: [ERROR] Own:%s MWFrame:#%d MWReq:#%d ReqFd:%d,[notify-#%d/%d] null fence, fd:%d\n",
-				__func__, (char *)(&(frm_info->frm_owner)),
-				frm_info->frame_no, frm_info->request_no,
-				frm_info->request_fd, frm_idx, f_lop_idx,
-				fence_evt->fence_fd);
-			return;
-		}
-
-		imgsys_fence->thd_idx = thd_idx;
-		imgsys_fence->event_id = fence_evt->gce_event;
-		imgsys_fence->fence_fd = fence_evt->fence_fd;
-
-		if (imgsys_fence_dbg_enable_plat8()) {
-			dev_info(imgsys_dev->dev,
-				"%s: Own:%s MWFrame:#%d MWReq:#%d ReqFd:%d,[notify-#%d/%d]0x%lx,fencefd:%d,gthrd:%d,ref_ct:%d\n",
-				__func__, (char *)(&(frm_info->frm_owner)),
-				frm_info->frame_no, frm_info->request_no,
-				frm_info->request_fd, frm_idx, f_lop_idx,
-				(unsigned long)imgsys_fence->kfence, imgsys_fence->fence_fd,
-				imgsys_fence->thd_idx,
-				atomic_read(&imgsys_fence->kfence->refcount.refcount.refs));
-		}
-	}
-
-CHECK_WAIT_FENCE:
-	waitf_num = frm_info->user_info[frm_idx].wait_fence_num;
-	if (waitf_num <= 0)
-		return;
-
-	for (f_lop_idx = 0; f_lop_idx < waitf_num; f_lop_idx++) {
-		int ret_f = 0;
-
-		fence_evt = &(frm_info->user_info[frm_idx].wait_fence_list[f_lop_idx]);
-		imgsys_fence = &(cb_param->waitfence[f_lop_idx]);
-		imgsys_fence->kfence = (struct dma_fence *)fence_evt->dma_fence;
-		if (imgsys_fence->kfence == NULL) {
-			dev_info(imgsys_dev->dev,
-				"%s: [ERROR] Own:%s MWFrame:#%d MWReq:#%d ReqFd:%d:[wait-#%d/%d]null fence, fd:%d\n",
-				__func__, (char *)(&(frm_info->frm_owner)),
-				frm_info->frame_no, frm_info->request_no,
-				frm_info->request_fd, frm_idx, f_lop_idx,
-				imgsys_fence->fence_fd);
-			return;
-		}
-
-		imgsys_fence->thd_idx = thd_idx;
-		imgsys_fence->event_id = fence_evt->gce_event;
-		imgsys_fence->fence_fd = fence_evt->fence_fd;
-
-		ret_f = dma_fence_add_callback(
-							imgsys_fence->kfence,
-							&(imgsys_fence->cb),
-							imgsys_cmdq_fence_done_plat8);
-		if (ret_f == -ENOENT) {
-			if (imgsys_fence_dbg_enable_plat8()) {
-				dev_info(imgsys_dev->dev,
-					"%s: Own:%s MWFrame:#%d MWReq:#%d ReqFd:%d,[wait-#%d/%d]already signaled! 0x%lx,fencefd:%d,gthrd:%d,event:%d,ref_ct:%d\n",
-					__func__, (char *)(&(frm_info->frm_owner)),
-					frm_info->frame_no, frm_info->request_no,
-					frm_info->request_fd, frm_idx, f_lop_idx,
-					(unsigned long)imgsys_fence->kfence, imgsys_fence->fence_fd,
-					imgsys_fence->thd_idx, imgsys_fence->event_id,
-					atomic_read(&imgsys_fence->kfence->refcount.refcount.refs));
-			}
-			imgsys_cmdq_fence_done_plat8(imgsys_fence->kfence, &(imgsys_fence->cb));
-
-		} else if (ret_f != 0) {
-			dev_info(imgsys_dev->dev,
-				"%s: [ERROR] Own:%s MWFrame:#%d MWReq:#%d ReqFd:%d,[wait-#%d/%d]dma_fence_add_callback errno:%d\n",
-				__func__, (char *)(&(frm_info->frm_owner)),
-				frm_info->frame_no, frm_info->request_no,
-				frm_info->request_fd, frm_idx, f_lop_idx, ret_f);
-				return;
-		} else {
-			if (imgsys_fence_dbg_enable_plat8()) {
-				dev_info(imgsys_dev->dev,
-					"%s: Own:%s MWFrame:#%d MWReq:#%d ReqFd:%d,[wait-#%d/%d]0x%lx,fencefd:%d,gthrd:%d,event:%d,ref_ct:%d\n",
-					__func__, (char *)(&(frm_info->frm_owner)),
-					frm_info->frame_no, frm_info->request_no,
-					frm_info->request_fd, frm_idx, f_lop_idx,
-					(unsigned long)imgsys_fence->kfence, imgsys_fence->fence_fd,
-					imgsys_fence->thd_idx, imgsys_fence->event_id,
-					atomic_read(&imgsys_fence->kfence->refcount.refcount.refs));
-			}
-		}
-
-	}
-}
-
-static void imgsys_cmdq_fence_notify_plat8(struct mtk_imgsys_dev *imgsys_dev,
-			struct mtk_imgsys_cb_param *cb_param)
-{
-	u32 frm_idx = 0;
-	u32 f_lop_idx = 0, notif_num = 0;
-	struct mtk_imgsys_fence *imgsys_fence = NULL;
-
-	if (cb_param->err != 0)
-		return;
-
-	frm_idx = cb_param->frm_idx;
-	notif_num = cb_param->frm_info->user_info[frm_idx].notify_fence_num;
-	if (notif_num <= 0)
-		return;
-
-	for (f_lop_idx = 0; f_lop_idx < notif_num; f_lop_idx++) {
-		imgsys_fence = &(cb_param->notifence[f_lop_idx]);
-		if (imgsys_fence->kfence == NULL) {
-			dev_info(imgsys_dev->dev,
-				"%s: [ERROR] Own:%s, MWFrame:#%d MWReq:#%d ReqFd:%d,[notify-#%d/%d]null fence, fd:%d\n",
-				__func__, (char *)(&(cb_param->frm_info->frm_owner)),
-				cb_param->frm_info->frame_no, cb_param->frm_info->request_no,
-				cb_param->frm_info->request_fd, frm_idx, f_lop_idx,
-				imgsys_fence->fence_fd);
-			continue;
-		}
-
-		if (imgsys_fence_dbg_enable_plat8()) {
-			dev_info(imgsys_dev->dev,
-				"%s: Own:%s, MWFrame:#%d MWReq:#%d ReqFd:%d,[notify-#%d/%d]+,0x%lx,fencefd:%d,gthrd:%d,ref_ct:%d\n",
-				__func__, (char *)(&(cb_param->frm_info->frm_owner)),
-				cb_param->frm_info->frame_no, cb_param->frm_info->request_no,
-				cb_param->frm_info->request_fd, frm_idx, f_lop_idx,
-				(unsigned long)imgsys_fence->kfence, imgsys_fence->fence_fd, imgsys_fence->thd_idx,
-				atomic_read(&imgsys_fence->kfence->refcount.refcount.refs));
-		}
-
-		dma_fence_signal(imgsys_fence->kfence);
-		if (imgsys_fence_dbg_enable_plat8()) {
-			dev_info(imgsys_dev->dev,
-				"%s: Own:%s, MWFrame:#%d MWReq:#%d ReqFd:%d,[notify-#%d/%d]-,0x%lx,fencefd:%d,gthrd:%d,ref_ct:%d\n",
-				__func__, (char *)(&(cb_param->frm_info->frm_owner)),
-				cb_param->frm_info->frame_no, cb_param->frm_info->request_no,
-				cb_param->frm_info->request_fd, frm_idx, f_lop_idx,
-				(unsigned long)imgsys_fence->kfence, imgsys_fence->fence_fd, imgsys_fence->thd_idx,
-				atomic_read(&imgsys_fence->kfence->refcount.refcount.refs));
-		}
-
-	}
-}
-
-static void imgsys_cmdq_fence_rmcb_plat8(struct mtk_imgsys_dev *imgsys_dev,
-				struct mtk_imgsys_cb_param *cb_param)
-{
-	u32 frm_idx = 0;
-	u32 f_lop_idx = 0, waitf_num = 0;
-	struct mtk_imgsys_fence *imgsys_fence = NULL;
-
-	frm_idx = cb_param->frm_idx;
-	waitf_num = cb_param->frm_info->user_info[frm_idx].wait_fence_num;
-	if (waitf_num <= 0)
-		return;
-
-	for (f_lop_idx = 0; f_lop_idx < waitf_num; f_lop_idx++) {
-		imgsys_fence = &(cb_param->waitfence[f_lop_idx]);
-		if (imgsys_fence->kfence == NULL) {
-			dev_info(imgsys_dev->dev,
-				"%s: [ERROR] Own:%s MWFrame:#%d MWReq:#%d ReqFd:%d:[wait-#%d/%d]null fence, fd:%d\n",
-				__func__, (char *)(&(cb_param->frm_info->frm_owner)),
-				cb_param->frm_info->frame_no, cb_param->frm_info->request_no,
-				cb_param->frm_info->request_fd, frm_idx, f_lop_idx,
-				imgsys_fence->fence_fd);
-			return;
-		}
-
-		dma_fence_remove_callback(
-							imgsys_fence->kfence,
-							&(imgsys_fence->cb));
-		dma_fence_put(imgsys_fence->kfence);
-
-		if (imgsys_fence_dbg_enable_plat8()) {
-			dev_info(imgsys_dev->dev,
-				"%s: Own:%s MWFrame:#%d MWReq:#%d ReqFd:%d,[wait-#%d/%d]0x%lx,fencefd:%d,gthrd:%d,event:%d,ref_ct:%d\n",
-				__func__, (char *)(&(cb_param->frm_info->frm_owner)),
-				cb_param->frm_info->frame_no, cb_param->frm_info->request_no,
-				cb_param->frm_info->request_fd, frm_idx, f_lop_idx,
-				(unsigned long)imgsys_fence->kfence, imgsys_fence->fence_fd,
-				imgsys_fence->thd_idx, imgsys_fence->event_id,
-				atomic_read(&imgsys_fence->kfence->refcount.refcount.refs));
-		}
-	}
-
-}
-
 #if CMDQ_CB_KTHREAD
 static void imgsys_cmdq_cb_work_plat8(struct kthread_work *work)
 #else
@@ -642,9 +401,6 @@ static void imgsys_cmdq_cb_work_plat8(struct work_struct *work)
 		cb_param->pkt_ofst[0], cb_param->pkt_ofst[1], cb_param->pkt_ofst[2],
 		cb_param->pkt_ofst[3], cb_param->pkt_ofst[4]);
     }
-
-	imgsys_cmdq_fence_notify_plat8(imgsys_dev, cb_param);
-	imgsys_cmdq_fence_rmcb_plat8(imgsys_dev, cb_param);
 
 #ifndef CONFIG_FPGA_EARLY_PORTING
 	mtk_imgsys_power_ctrl_plat8(imgsys_dev, false);
@@ -1817,9 +1573,7 @@ int imgsys_cmdq_sendtask_plat8(struct mtk_imgsys_dev *imgsys_dev,
 			if ((frm_info->user_info[frm_idx].is_time_shared)
 				|| (frm_info->user_info[frm_idx].is_secFrm)
 				|| (frm_info->user_info[frm_idx].is_earlycb)
-				|| ((frm_idx + 1) == frm_num)
-				|| (frm_info->user_info[frm_idx].wait_fence_num > 0)
-				|| (frm_info->user_info[frm_idx].notify_fence_num > 0)) {
+				|| ((frm_idx + 1) == frm_num)) {
 #ifndef CONFIG_FPGA_EARLY_PORTING
 				mtk_imgsys_power_ctrl_plat8(imgsys_dev, true);
 #endif
@@ -1918,9 +1672,6 @@ int imgsys_cmdq_sendtask_plat8(struct mtk_imgsys_dev *imgsys_dev,
 				}
 				cb_param->batchnum = frm_info->batchnum;
 				cb_param->is_capture = frm_info->is_capture;
-
-				imgsys_cmdq_fence_set_plat8(imgsys_dev, frm_info, cb_param,
-					frm_idx, thd_idx);
 
                 if (imgsys_cmdq_dbg_enable_plat8()) {
 				dev_dbg(imgsys_dev->dev,

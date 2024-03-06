@@ -48,6 +48,8 @@
 #define ABS(X)			(((X) > 0) ? (X) : -(X))
 #define ROUND(X,Y)		((((X)/(Y))>=0)?(int)((2*(X))+(Y))/(2*(Y)):(int)((2*(X))-(Y))/(2*(Y)))
 #define BUFFER_NAME_LEN		50
+#define CMDQ_GPR_R03_IDX 11
+#define AIE_POLL_TIME_INFINI	(0xFFFF)
 
 /*
  * MAE Debug level:
@@ -1706,8 +1708,14 @@ static bool mtk_mae_config_hw(struct mtk_mae_dev *mae_dev, int idx)
 	MAE_CMDQ_WRITE_REG(mae_dev->pkt[idx], MAE_TRIG_RST_CTRL, 0x0000);
 
 	if (cmdq_polling_en)
+#ifdef MAE_USE_CMDQ_POLL_TIMEOUT
+		cmdq_pkt_poll_timeout(mae_dev->pkt[idx], 0x1, SUBSYS_NO_SUPPORT,
+			MAE_BASE + MAE_IRQ_CTRL1, 0x1, AIE_POLL_TIME_INFINI,
+			CMDQ_GPR_R03 + CMDQ_GPR_R03_IDX);
+#else
 		cmdq_pkt_poll_sleep(mae_dev->pkt[idx], MAE_IRQ_STATUS_VALUE,
 			MAE_BASE + MAE_IRQ_CTRL1, MAE_IRQ_MASK);
+#endif
 	else
 		cmdq_pkt_wfe(mae_dev->pkt[idx], mae_dev->mae_event_id);
 

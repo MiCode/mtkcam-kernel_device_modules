@@ -8,6 +8,7 @@
 
 #ifndef _MTK_IMGSYS_CMDQ_TOKEN_8_H_
 #define _MTK_IMGSYS_CMDQ_TOKEN_8_H_
+#include <linux/platform_device.h>
 #include <linux/soc/mediatek/mtk-cmdq-ext.h>
 
 struct token_data {
@@ -27,5 +28,15 @@ unsigned int imgsys_cmdq_try_vsdof_clear_event(struct token_data *data, struct c
 										uint32_t event);
 
 unsigned int imgsys_cmdq_release_token_vsdof(int sw_ridx);
+
+unsigned int imgsys_cmdq_frm_sync_init(void);
+
+unsigned int imgsys_cmdq_frm_sync_uninit(void);
+
+unsigned int imgsys_cmdq_frm_sync_dump_event_info(int event);
+
+unsigned int imgsys_cmdq_is_vsdof_event(uint32_t event);
+
+struct platform_device *imgsys_cmdq_set_frm_sync_pdev(struct device *dev);
 
 #endif /* _MTK_IMGSYS_CMDQ_TOKEN_8_H_ */

@@ -38,13 +38,16 @@ define_mgk_ko(
         "//vendor/mediatek/kernel_modules/mtkcam/mtk-hcp/isp8:public_headers",
         "//vendor/mediatek/kernel_modules/mtkcam/imgsys/common:public_headers",
         "//vendor/mediatek/kernel_modules/mtkcam/imgsys/imgsys/isp8:public_headers",
+"//vendor/mediatek/kernel_modules/mtkcam/img_frm_sync:public_headers",
         "//vendor/mediatek/kernel_modules/mtkcam/mtk-hcp/isp8:kbuild_makefiles",
         "//vendor/mediatek/kernel_modules/mtkcam/imgsys/common:kbuild_makefiles",
+"//vendor/mediatek/kernel_modules/mtkcam/img_frm_sync:kbuild_makefiles",
     ],
 
     deps = [
         "//vendor/mediatek/kernel_modules/mtkcam/mtk-hcp/isp8:mtk-hcp-isp8",
         "//vendor/mediatek/kernel_modules/mtkcam/imgsys/common:imgsys_common",
+        "//vendor/mediatek/kernel_modules/mtkcam/img_frm_sync:mtk-img-frm-sync",
     ],
 
     outs = mgk_imgsys_outs,

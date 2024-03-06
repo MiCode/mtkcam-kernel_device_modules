@@ -101,6 +101,9 @@ void imgsys_cmdq_init_plat8(struct mtk_imgsys_dev *imgsys_dev, const int nr_imgs
 			pr_info("%s: Create workquque IMGSYS-CMDQ fail!\n",
 				__func__);
 #endif
+		if (!imgsys_cmdq_set_frm_sync_pdev(dev))
+			dev_info(dev, "%s: failed to get frm_sync_pdev device\n", __func__);
+
 	}
 
 	switch (nr_imgsys_dev) {
@@ -225,7 +228,8 @@ void imgsys_cmdq_streamon_plat8(struct mtk_imgsys_dev *imgsys_dev)
 		__func__, IMGSYS_CMDQ_CBPARAM_NUM, sizeof(struct mtk_imgsys_cb_param));
     }
 #endif
-
+/* frm sync token init*/
+	imgsys_cmdq_frm_sync_init();
 }
 
 void imgsys_cmdq_streamoff_plat8(struct mtk_imgsys_dev *imgsys_dev)
@@ -268,6 +272,7 @@ void imgsys_cmdq_streamoff_plat8(struct mtk_imgsys_dev *imgsys_dev)
 		mtk_imgsys_mmqos_monitor_plat8(imgsys_dev, SMI_MONITOR_STOP_STATE);
 	);
 	#endif
+	imgsys_cmdq_frm_sync_uninit();
 }
 
 static void imgsys_cmdq_cmd_dump_plat8(struct swfrm_info_t *frm_info, u32 frm_idx)
@@ -330,22 +335,40 @@ static void imgsys_cmdq_cmd_dump_plat8(struct swfrm_info_t *frm_info, u32 frm_id
 				cmd[cmd_idx].u.address, cmd[cmd_idx].u.value, cmd[cmd_idx].u.mask);
 			break;
 		case IMGSYS_CMD_WAIT:
-			pr_info(
-			"%s: WAIT event(%d/%d) action(%d)\n", __func__,
-				cmd[cmd_idx].u.event, imgsys_event[cmd[cmd_idx].u.event].event,
-				cmd[cmd_idx].u.action);
+			if (imgsys_cmdq_is_vsdof_event(cmd[cmd_idx].u.event)) {
+				pr_info(
+				"%s: WAIT event(%d) action(%d)\n", __func__,
+					cmd[cmd_idx].u.event, cmd[cmd_idx].u.action);
+			} else {
+				pr_info(
+				"%s: WAIT event(%d/%d) action(%d)\n", __func__,
+					cmd[cmd_idx].u.event, imgsys_event[cmd[cmd_idx].u.event].event,
+					cmd[cmd_idx].u.action);
+			}
 			break;
 		case IMGSYS_CMD_UPDATE:
-			pr_info(
-			"%s: UPDATE event(%d/%d) action(%d)\n", __func__,
-				cmd[cmd_idx].u.event, imgsys_event[cmd[cmd_idx].u.event].event,
-				cmd[cmd_idx].u.action);
+			if (imgsys_cmdq_is_vsdof_event(cmd[cmd_idx].u.event)) {
+				pr_info(
+				"%s: WAIT event(%d) action(%d)\n", __func__,
+					cmd[cmd_idx].u.event, cmd[cmd_idx].u.action);
+			} else {
+				pr_info(
+				"%s: UPDATE event(%d/%d) action(%d)\n", __func__,
+					cmd[cmd_idx].u.event, imgsys_event[cmd[cmd_idx].u.event].event,
+					cmd[cmd_idx].u.action);
+			}
 			break;
 		case IMGSYS_CMD_ACQUIRE:
-			pr_info(
-			"%s: ACQUIRE event(%d/%d) action(%d)\n", __func__,
-				cmd[cmd_idx].u.event, imgsys_event[cmd[cmd_idx].u.event].event,
-				cmd[cmd_idx].u.action);
+			if (imgsys_cmdq_is_vsdof_event(cmd[cmd_idx].u.event)) {
+				pr_info(
+				"%s: WAIT event(%d) action(%d)\n", __func__,
+					cmd[cmd_idx].u.event, cmd[cmd_idx].u.action);
+			} else {
+				pr_info(
+				"%s: ACQUIRE event(%d/%d) action(%d)\n", __func__,
+					cmd[cmd_idx].u.event, imgsys_event[cmd[cmd_idx].u.event].event,
+					cmd[cmd_idx].u.action);
+			}
 			break;
 		case IMGSYS_CMD_TIME:
 			pr_info("%s: Get cmdq TIME stamp\n", __func__);
@@ -1286,6 +1309,15 @@ int imgsys_cmdq_task_aee_cb_plat8(struct cmdq_cb_data data)
 			__func__,
 			cb_param->pkt->err_data.wfe_timeout,
 			cb_param->pkt->err_data.event, isHWhang);
+	} else if ((event >= IMGSYS_CMDQ_VSDOF_EVENT_BEGIN) &&
+		(event <= IMGSYS_CMDQ_VSDOF_EVENT_END)) {
+		ret = CMDQ_NO_AEE;
+		imgsys_cmdq_frm_sync_dump_event_info(event);
+		pr_info(
+			"%s: [ERROR] QOF event timeout! wfe(%d) event(%d)",
+			__func__,
+			cb_param->pkt->err_data.wfe_timeout,
+			cb_param->pkt->err_data.event);
 	} else if ((is_stream_off == 1) && (event == 0)) {
 		ret = CMDQ_NO_AEE;
 		pr_info(

@@ -162,7 +162,7 @@ static ssize_t eeprom_read(struct file *a_file, char __user *user_buffer,
 		(struct EEPROM_DRV_FD_DATA *) a_file->private_data;
 	u8 *kbuf = kmalloc(size, GFP_KERNEL);
 
-	must_log("read %lu %llu\n", size, *offset);
+	must_log("read %zu %llu\n", size, *offset);
 
 	if (kbuf == NULL)
 		return -ENOMEM;
@@ -185,7 +185,7 @@ static ssize_t eeprom_write(struct file *a_file, const char __user *user_buffer,
 		(struct EEPROM_DRV_FD_DATA *) a_file->private_data;
 	u8 *kbuf = kmalloc(size, GFP_KERNEL);
 
-	must_log("write %lu %llu\n", size, *offset);
+	must_log("write %zu %llu\n", size, *offset);
 
 	if (kbuf == NULL)
 		return -ENOMEM;

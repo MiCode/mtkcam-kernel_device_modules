@@ -694,7 +694,7 @@ unsigned int do_single_lsc(struct EEPROM_DRV_FD_DATA *pdata,
 	pCamCalData->SingleLsc.LscTable.MtkLcsData.MtkLscType = 2;//mtk type
 	pCamCalData->SingleLsc.LscTable.MtkLcsData.PixId = 8;
 
-	debug_log("u4Offset=%d u4Length=%lu", start_addr - 2, sizeof(table_size));
+	//debug_log("u4Offset=%d u4Length=%u", start_addr - 2, sizeof(table_size));
 	read_data_size = read_data(pdata, pCamCalData->sensorID, pCamCalData->deviceID,
 			start_addr - 2, sizeof(table_size), (unsigned char *)&table_size);
 	if (read_data_size <= 0)

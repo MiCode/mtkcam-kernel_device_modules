@@ -115,7 +115,7 @@ struct mtk_imgsys_req_fd_list {
 };
 
 // desc added {
-#define HBITS (32)
+#define HBITS (2048)
 struct mtk_imgsys_dma_buf_iova_list {
 	struct list_head list;
 	struct hlist_head hlists[HBITS];

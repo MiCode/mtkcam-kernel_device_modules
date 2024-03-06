@@ -28,3 +28,4 @@ obj-$(CONFIG_MTK_CAMERA_ISP_PDA_SUPPORT) += mtk-pda/
 obj-$(CONFIG_MTK_C2PS) += sched/
 obj-y += imgsensor/
 obj-$(CONFIG_MTK_CCU_RPROC) += ccusys/
+obj-$(CONFIG_MTK_IMGSYS_FRM_SYNC_ISP8) += img_frm_sync/

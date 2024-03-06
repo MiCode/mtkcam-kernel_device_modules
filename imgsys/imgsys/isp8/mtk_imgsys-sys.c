@@ -567,6 +567,7 @@ static void imgsys_cmdq_timeout_cb_func(struct cmdq_cb_data data,
 	struct swfrm_info_t *frm_info_cb;
 	const struct module_ops *imgsys_modules;
 	struct gce_timeout_work *swork = NULL;
+	unsigned long flag;
 
 	if (!data.data) {
 		pr_info("%s: data->data is NULL\n",
@@ -677,7 +678,9 @@ release_req:
 #endif
         }
 	}
+	spin_lock_irqsave(&(imgsys_dev->timeout_lock), flag);
 	imgsys_timeout_idx = (imgsys_timeout_idx + 1) % VIDEO_MAX_FRAME;
+	spin_unlock_irqrestore(&(imgsys_dev->timeout_lock), flag);
 
 	dev_info(imgsys_dev->dev,
 		"req track-%s:%s:req fd/no(%d/%d) frmNo(%d) tfnum(%d)sidx/fidx/hw(%d/%d_%d/0x%x)timeout(%d/%d)hang_event(%d) dump cb -",
@@ -2925,6 +2928,7 @@ static int mtk_imgsys_worker_hcp_init(struct mtk_imgsys_dev *imgsys_dev)
 	}
 
 	imgsys_timeout_idx = 0;
+	spin_lock_init(&imgsys_dev->timeout_lock);
 	/* calling cmdq stream on */
 	imgsys_cmdq_streamon(imgsys_dev);
 

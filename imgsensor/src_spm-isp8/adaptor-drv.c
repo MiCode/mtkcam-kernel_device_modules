@@ -2414,7 +2414,7 @@ static int imgsensor_probe(struct i3c_i2c_device *client)
 	}
 
 	/* init subdev name */
-	ret = snprintf(ctx->sd.name, V4L2_SUBDEV_NAME_SIZE, "%s%d",
+	ret = snprintf(ctx->sd.name, sizeof(ctx->sd.name), "%s%d",
 		OF_SENSOR_NAME_PREFIX, ctx->idx);
 	if (ret <= 0) {
 		adaptor_loge(ctx, "failed to snprintf subdev name\n");

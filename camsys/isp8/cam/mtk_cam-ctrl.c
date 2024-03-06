@@ -2590,6 +2590,13 @@ int mtk_cam_ctrl_dump_request(struct mtk_cam_device *cam,
 		complete(&wd->work_complete);
 		goto SKIP_SCHEDULE_WORK;
 	}
+
+	if (ctrl->hw_hang_count_down != 0) {
+		mtk_cam_ctrl_put(ctrl);
+		complete(&wd->work_complete);
+		goto SKIP_SCHEDULE_WORK;
+	}
+
 	mtk_cam_watchdog_schedule_job_dump(wd, desc);
 
 	mtk_cam_ctrl_put(ctrl);

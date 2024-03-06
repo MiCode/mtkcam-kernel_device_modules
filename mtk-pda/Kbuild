@@ -14,6 +14,14 @@ ccflags-y += -I$(DEVICE_MODULES_PATH)/drivers/misc/mediatek/iommu
 ccflags-y += -I$(DEVICE_MODULES_PATH)/drivers/misc/mediatek/include/mt-plat/
 ccflags-$(CONFIG_MTK_IOMMU_V2) += -I$(DEVICE_MODULES_PATH)/drivers/misc/mediatek/include/mt-plat/$(MTK_PLATFORM)/include/
 
+NOTDIR_DEVICE_MODULES_PATH = $(notdir $(DEVICE_MODULES_PATH))
+KERNEL_VERSION = $(patsubst kernel_device_modules-%,%,$(NOTDIR_DEVICE_MODULES_PATH))
+#$(info pda sort=$(sort 6.6 $(KERNEL_VERSION)))
+#$(info pda word=$(word 1,$(sort 6.6 $(KERNEL_VERSION))))
+ifeq (6.6,$(word 1,$(sort 6.6 $(KERNEL_VERSION))))
+ccflags-y += -DDMA_BUF_UNLOCKED_API
+endif
+
 # driver module
 #obj-m := camera_pda_dummy.o
 ifneq ($(wildcard $(srctree)/$(src)/isp_8/pda_mt6991.c),)

@@ -374,7 +374,12 @@ static int pda_get_dma_buffer(struct pda_mmu *mmu, int fd)
 	if (IS_ERR(mmu->attach))
 		goto err_attach;
 
+
+#ifdef DMA_BUF_UNLOCKED_API
+	mmu->sgt = dma_buf_map_attachment_unlocked(mmu->attach, DMA_BIDIRECTIONAL);
+#else
 	mmu->sgt = dma_buf_map_attachment(mmu->attach, DMA_BIDIRECTIONAL);
+#endif
 	if (IS_ERR(mmu->sgt))
 		goto err_map;
 
@@ -396,7 +401,12 @@ static void pda_put_dma_buffer(struct pda_mmu *mmu)
 	}
 
 	if (mmu->dma_buf) {
+
+#ifdef DMA_BUF_UNLOCKED_API
+		dma_buf_unmap_attachment_unlocked(mmu->attach, mmu->sgt, DMA_BIDIRECTIONAL);
+#else
 		dma_buf_unmap_attachment(mmu->attach, mmu->sgt, DMA_BIDIRECTIONAL);
+#endif
 		dma_buf_detach(mmu->dma_buf, mmu->attach);
 		dma_buf_put(mmu->dma_buf);
 	}
@@ -439,7 +449,11 @@ static int Get_Input_Addr_From_DMABUF(struct PDA_Data_t *pda_PdaConfig)
 			PDA_RD32(PDA_devs[i].m_pda_base + PDA_PDAI_P1_BASE_ADDR_REG));
 	}
 	// get kernel va
+#ifdef DMA_BUF_UNLOCKED_API
+	ret = dma_buf_vmap_unlocked(g_image_mmu.dma_buf, &map_i);
+#else
 	ret = dma_buf_vmap(g_image_mmu.dma_buf, &map_i);
+#endif
 	if (ret) {
 		LOG_INF("Left image map failed\n");
 		return -1;
@@ -680,7 +694,11 @@ TABLE_BUFFER:
 			PDA_RD32(PDA_devs[i].m_pda_base + PDA_PDATI_P1_BASE_ADDR_REG));
 	}
 	// get kernel va
+#ifdef DMA_BUF_UNLOCKED_API
+	ret = dma_buf_vmap_unlocked(g_table_mmu.dma_buf, &map_t);
+#else
 	ret = dma_buf_vmap(g_table_mmu.dma_buf, &map_t);
+#endif
 	if (ret) {
 		LOG_INF("Left table map failed\n");
 		return -1;
@@ -716,11 +734,20 @@ TABLE_BUFFER:
 #endif
 
 #ifdef FOR_DEBUG_VA_DATA
+
+#ifdef DMA_BUF_UNLOCKED_API
+	dma_buf_vunmap_unlocked(g_image_mmu.dma_buf, &map_i);
+	dma_buf_vunmap_unlocked(g_image_b1_mmu.dma_buf, &map_i);
+	dma_buf_vunmap_unlocked(g_image_b2_mmu.dma_buf, &map_i);
+	dma_buf_vunmap_unlocked(g_image_b3_mmu.dma_buf, &map_i);
+	dma_buf_vunmap_unlocked(g_table_mmu.dma_buf, &map_t);
+#else
 	dma_buf_vunmap(g_image_mmu.dma_buf, &map_i);
 	dma_buf_vunmap(g_image_b1_mmu.dma_buf, &map_i);
 	dma_buf_vunmap(g_image_b2_mmu.dma_buf, &map_i);
 	dma_buf_vunmap(g_image_b3_mmu.dma_buf, &map_i);
 	dma_buf_vunmap(g_table_mmu.dma_buf, &map_t);
+#endif
 #endif
 	return ret;
 }
@@ -759,7 +786,11 @@ static int Get_Output_Addr_From_DMABUF(struct PDA_Data_t *pda_PdaConfig)
 	}
 
 	// get kernel va
+#ifdef DMA_BUF_UNLOCKED_API
+	ret = dma_buf_vmap_unlocked(g_output_mmu.dma_buf, &map_o);
+#else
 	ret = dma_buf_vmap(g_output_mmu.dma_buf, &map_o);
+#endif
 	if (ret) {
 		LOG_INF("Output map failed\n");
 		return -1;
@@ -769,7 +800,13 @@ static int Get_Output_Addr_From_DMABUF(struct PDA_Data_t *pda_PdaConfig)
 	LOG_INF("Output buffer va = %x\n", g_buf_Out_va);
 	LOG_INF("Output buffer va data = %x\n", *g_buf_Out_va);
 
+
+
+#ifdef DMA_BUF_UNLOCKED_API
+	dma_buf_vunmap_unlocked(g_output_mmu.dma_buf, &map_o);
+#else
 	dma_buf_vunmap(g_output_mmu.dma_buf, &map_o);
+#endif
 #endif
 
 	return ret;

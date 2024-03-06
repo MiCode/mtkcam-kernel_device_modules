@@ -22,8 +22,14 @@ extern int (*c2ps_notify_camfps_fp)(int camfps);
 extern int (*c2ps_notify_task_scene_change_fp)(int task_id, int scene_mode);
 extern int (*c2ps_notify_single_shot_control_fp)(
 	int pid, int *uclamp_max, int idle_rate_alert, int vip_prior,
-	unsigned int vip_throttle_time, int *uclamp_max_placeholder1,
+	u32 vip_throttle_time, int *uclamp_max_placeholder1,
 	int *uclamp_max_placeholder2, int *uclamp_max_placeholder3,
-	bool reset_param, bool set_task_idle_prefer);
+	bool reset_param, bool set_task_idle_prefer,
+	int *critical_task_ids, int *critical_task_uclamp, u32 util_margin,
+	int reserved_1, int reserved_2, int reserved_3);
+extern int (*c2ps_notify_single_shot_task_start_fp)(int pid, u32 uclamp);
+extern int (*c2ps_notify_single_shot_task_end_fp)(int pid);
+extern int (*c2ps_notify_anchor_fp)(int anc_id, bool register_fixed,
+	u32 anchor_type, u32 anc_order, u32 order, u32 latency_spec, u32 jitter_spec);
 
 #endif  // C2PS_COMMON_INCLUDE_C2PS_USEDEXT_H_

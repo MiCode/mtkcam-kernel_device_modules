@@ -90,6 +90,46 @@ TRACE_EVENT(c2ps_main_trace,
 	)
 );
 
+TRACE_EVENT(c2ps_bg_info_um_default,
+	TP_PROTO(
+	const char *buf
+	),
+
+	TP_ARGS(buf),
+
+	TP_STRUCT__entry(
+	__string(buf, buf)
+	),
+
+	TP_fast_assign(
+	__assign_str(buf, buf);
+	),
+
+	TP_printk("%s",
+	__get_str(buf)
+	)
+);
+
+TRACE_EVENT(c2ps_bg_info_um,
+	TP_PROTO(
+	const char *buf
+	),
+
+	TP_ARGS(buf),
+
+	TP_STRUCT__entry(
+	__string(buf, buf)
+	),
+
+	TP_fast_assign(
+	__assign_str(buf, buf);
+	),
+
+	TP_printk("%s",
+	__get_str(buf)
+	)
+);
+
 #endif /* _MTK_C2PS_TRACE_EVENT_H__ */
 
 /* This part must be outside protection */

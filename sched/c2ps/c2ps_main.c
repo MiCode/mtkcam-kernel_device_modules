@@ -11,45 +11,42 @@
 
 #include "c2ps_common.h"
 #include "c2ps_monitor.h"
-#include "c2ps_uclamp_regulator.h"
+#include "c2ps_regulator.h"
 #include "c2ps_usedext.h"
 #include "c2ps_sysfs.h"
 
 enum C2PS_NOTIFIER_PUSH_TYPE {
-	C2PS_NOTIFIER_INIT          = 0x00,
-	C2PS_NOTIFIER_UNINIT        = 0x01,
-	C2PS_NOTIFIER_ADD_TASK      = 0x02,
-	C2PS_NOTIFIER_TASK_START    = 0x03,
-	C2PS_NOTIFIER_TASK_END      = 0x04,
-	C2PS_NOTIFIER_SCENE_CHANGE  = 0x05,
-	C2PS_NOTIFIER_CAMFPS        = 0x06,
-	C2PS_NOTIFIER_VSYNC         = 0x07,
-	C2PS_NOTIFIER_TASK_SINGLE_SHOT = 0x08,
+	C2PS_NOTIFIER_UNINIT            = 0x00,
+	C2PS_NOTIFIER_TASK_SINGLE_SHOT  = 0x01,
+	C2PS_NOTIFIER_ANCHOR            = 0x02,
 };
 
 struct C2PS_NOTIFIER_PUSH_TAG {
 	enum C2PS_NOTIFIER_PUSH_TYPE ePushType;
-	int camfps;
+	u32 order;
 	int pid;
 	int task_id;
-	int group_head;
-	int scene_mode;
-	u32 task_target_time;
-	u32 default_uclamp;
-	u32 task_group_target_time;
 	u64 cur_ts;
-	bool is_vip_task;
-	bool is_dynamic_tid;
-	char task_name[MAX_TASK_NAME_SIZE];
 	int overwrite_uclamp_max[MAX_NUMBER_OF_CLUSTERS];
 	int idle_rate_alert;
 	int vip_prior;
-	unsigned int vip_throttle_time;
+	u32 vip_throttle_time;
 	int uclamp_max_placeholder1[MAX_NUMBER_OF_CLUSTERS];
 	int uclamp_max_placeholder2[MAX_NUMBER_OF_CLUSTERS];
 	int uclamp_max_placeholder3[MAX_NUMBER_OF_CLUSTERS];
 	bool reset_param;
 	bool set_task_idle_prefer;
+	int critical_task_ids[MAX_CRITICAL_TASKS];
+	int critical_task_uclamp[MAX_CRITICAL_TASKS];
+	u32 util_margin;
+	int reserved_1;
+	int reserved_2;
+	int reserved_3;
+	bool anc_register_fixed;
+	int anc_type;
+	u32 anc_order;
+	u32 latency_spec;
+	u32 jitter_spec;
 	struct list_head queue_list;
 };
 
@@ -65,22 +62,40 @@ static unsigned int background_monitor_duration = BACKGROUND_MONITOR_DURATION;
 static unsigned int c2ps_vip_throttle_time = 12;
 unsigned int c2ps_nr_clusters;
 
-struct timer_list backgroup_info_update_timer;
+struct timer_list background_info_update_timer;
 struct timer_list self_uninit_timer;
 
 module_param(picked_wl_table, int, 0644);
 module_param(background_monitor_duration, int, 0644);
 module_param(c2ps_vip_throttle_time, int, 0644);
 
-static void backgroup_info_update_timer_callback(struct timer_list *t)
+static void background_info_update_timer_callback(struct timer_list *t)
 {
 	if (unlikely(background_monitor_duration == 0))
 		background_monitor_duration = BACKGROUND_MONITOR_DURATION;
-	mod_timer(t, jiffies + background_monitor_duration*HZ / 1000);
-	update_cpu_idle_rate();
+	mod_timer(t, jiffies + background_monitor_duration*HZ / 1000 / 2);
+	monitor_system_info();
 }
 
-static void c2ps_notifier_wq_cb_init(void)
+static void trigger_bg_policy(void)
+{
+	if (need_update_background()) {
+		struct regulator_req *req = get_regulator_req();
+		struct global_info *g_info = get_glb_info();
+
+		if (unlikely(!g_info))
+			return;
+
+		if (likely(req != NULL)) {
+			req->glb_info = g_info;
+			req->stat = g_info->stat;
+			send_regulator_req(req);
+			reset_need_update_status();
+		}
+	}
+}
+
+static void c2ps_notifier_init(void)
 {
 	if (unlikely(init_c2ps_common())) {
 		C2PS_LOGD("init_c2ps_common failed\n");
@@ -91,32 +106,38 @@ static void c2ps_notifier_wq_cb_init(void)
 	timer_setup(&self_uninit_timer, self_uninit_timer_callback, 0);
 	add_timer(&self_uninit_timer);
 
-	backgroup_info_update_timer.expires = jiffies;
-	timer_setup(&backgroup_info_update_timer,
-				backgroup_info_update_timer_callback, 0);
-	add_timer(&backgroup_info_update_timer);
+	background_info_update_timer.expires = jiffies;
+	timer_setup(&background_info_update_timer,
+				background_info_update_timer_callback, 0);
+	add_timer(&background_info_update_timer);
 	if (picked_wl_table < get_nr_wl_type())
 		set_wl_type_manual(picked_wl_table);
 	else
 		set_wl_type_manual(0);
 }
 
-static void c2ps_notifier_wq_cb_uninit(void)
+static void c2ps_notifier_uninit(void)
 {
+	short _idx = 0;
+
 	C2PS_LOGD("[C2PS_CB] uninit\n");
 	// disable sugov per-gear uclamp max feature
 	set_gear_uclamp_ctrl(0);
 	// disable sugov curr_uclamp feature
 	set_curr_uclamp_ctrl(0);
-	c2ps_uclamp_regulator_flush();
-	del_timer_sync(&backgroup_info_update_timer);
+	reset_eas_setting();
+	c2ps_regulator_flush();
+	del_timer_sync(&background_info_update_timer);
 	exit_c2ps_common();
 	del_timer_sync(&self_uninit_timer);
 	set_wl_type_manual(-1);
-	// set_rt_aggre_preempt(1);
+
+	// reset util margin to default
+	for (; _idx < c2ps_nr_clusters; ++_idx)
+		c2ps_set_turn_point_freq(_idx, 0);
 }
 
-static void c2ps_notifier_wq_cb_add_task(
+static void c2ps_notifier_add_task(
 	u32 task_id, u32 task_target_time, u32 default_uclamp,
 	int group_head, u32 task_group_target_time, bool is_vip_task,
 	bool is_dynamic_tid, const char *task_name)
@@ -162,55 +183,13 @@ static void c2ps_notifier_wq_cb_add_task(
 	}
 }
 
-static void c2ps_notifier_wq_cb_task_start(int pid, int task_id)
-{
-	C2PS_LOGD("[C2PS_CB] task_start task_id: %d\n", task_id);
-
-	if (unlikely(monitor_task_start(pid, task_id))) {
-		C2PS_LOGW_ONCE("notify_task_start failed\n");
-		C2PS_LOGW("notify_task_start failed\n");
-	}
-}
-
-static void c2ps_notifier_wq_cb_task_end(int pid, int task_id)
-{
-	C2PS_LOGD("[C2PS_CB] task_end task_id: %d\n", task_id);
-
-	if (unlikely(monitor_task_end(pid, task_id))) {
-		C2PS_LOGW_ONCE("notify_task_end failed\n");
-		C2PS_LOGW("notify_task_end failed\n");
-	}
-}
-
-static void c2ps_notifier_wq_cb_vsync(u64 ts)
-{
-	C2PS_LOGD("[C2PS_CB] vsync: %llu\n", ts);
-
-	if (unlikely(monitor_vsync(ts)))
-		C2PS_LOGE("notify_vsync failed\n");
-}
-
-static void c2ps_notifier_wq_cb_camfps(int camfps)
-{
-	C2PS_LOGD("[C2PS_CB] camfps: %d\n", camfps);
-
-	if (unlikely(monitor_camfps(camfps)))
-		C2PS_LOGE("notify_camfps failed\n");
-}
-
-static void c2ps_notifier_wq_cb_scene_change(int task_id, int scene_mode)
-{
-	C2PS_LOGD("[C2PS_CB] scene_change: %d\n", task_id);
-
-	if (unlikely(monitor_task_scene_change(task_id, scene_mode)))
-		C2PS_LOGE("notify_task_scene_change failed\n");
-}
-
-static void c2ps_notifier_wq_cb_task_single_shot(
+static void c2ps_notifier_task_single_shot(
 	int pid, int *uclamp_max, int idle_rate_alert, int vip_prior,
-	unsigned int vip_throttle_time, int *uclamp_max_placeholder1,
+	u32 vip_throttle_time, int *uclamp_max_placeholder1,
 	int *uclamp_max_placeholder2, int *uclamp_max_placeholder3,
-	bool reset_param, bool set_task_idle_prefer)
+	bool reset_param, bool set_task_idle_prefer,
+	int *critical_task_ids, int *critical_task_uclamp, u32 util_margin,
+	int reserved_1, int reserved_2, int reserved_3)
 {
 	struct global_info *g_info = get_glb_info();
 	unsigned int _vip_throttle_time = vip_throttle_time > 0 ?
@@ -218,26 +197,16 @@ static void c2ps_notifier_wq_cb_task_single_shot(
 
 	C2PS_LOGD("thread: %d, vip_prior: %d, throttle_time: %u, set_task_idle_prefer: %d",
 			pid, vip_prior, _vip_throttle_time, set_task_idle_prefer);
-	switch (vip_prior) {
-	case 0:
-	case 1:
-	case 2:
-	case 3:
-	case 4:
-		set_task_basic_vip(pid);
-		break;
-	case -2:
-		C2PS_LOGD("thread: %d unset VIP", pid);
-		unset_task_basic_vip(pid);
-		break;
-	default:
-		break;
+	c2ps_set_vip_task(pid, vip_prior, _vip_throttle_time);
+	if (set_task_idle_prefer) {
+		if (reset_param)
+			unset_task_ls(pid);
+		else
+			set_task_ls(pid);
 	}
-	if (set_task_idle_prefer)
-		set_task_ls(pid);
 
-	if (!g_info) {
-		C2PS_LOGD("glb_info is null\n");
+	if (unlikely(!g_info)) {
+		C2PS_LOGE("glb_info is null\n");
 		return;
 	}
 
@@ -253,11 +222,16 @@ static void c2ps_notifier_wq_cb_task_single_shot(
 	if (unlikely(need_update_single_shot_uclamp_max(uclamp_max_placeholder3)))
 		memcpy(g_info->uclamp_max_placeholder3, uclamp_max_placeholder3,
 			c2ps_nr_clusters * sizeof(int));
+	if (idle_rate_alert != -1)
+		g_info->overwrite_idle_alert = idle_rate_alert;
+	if (need_update_critical_task_uclamp(critical_task_uclamp))
+		update_critical_task_uclamp_by_tsk_id(
+			critical_task_ids, critical_task_uclamp);
 }
 
 static void c2ps_queue_work(struct C2PS_NOTIFIER_PUSH_TAG *vpPush)
 {
-	if (timer_pending(&self_uninit_timer))
+	if (likely(timer_pending(&self_uninit_timer)))
 		mod_timer(&self_uninit_timer, jiffies + 5*HZ);
 	mutex_lock(&notifier_wq_lock);
 	list_add_tail(&vpPush->queue_list, &head);
@@ -277,13 +251,13 @@ static int c2ps_uninit_wo_lock(void)
 	vpPush = (struct C2PS_NOTIFIER_PUSH_TAG *)
 		c2ps_alloc_atomic(sizeof(*vpPush));
 
-	if (!vpPush) {
+	if (unlikely(!vpPush)) {
 		C2PS_LOGE("OOM\n");
 		ret = -ENOMEM;
 		goto out;
 	}
 
-	if (!c2ps_tsk) {
+	if (unlikely(!c2ps_tsk)) {
 		C2PS_LOGE("NULL WorkQueue\n");
 		c2ps_free(vpPush, sizeof(*vpPush));
 		ret = -EINVAL;
@@ -306,12 +280,12 @@ static void c2ps_notifier_wq_cb(void)
 	wait_event_interruptible(notifier_wq_queue,
 		condition_notifier_wq || condition_notifier_exit);
 
-	if (condition_notifier_exit)
+	if (unlikely(condition_notifier_exit))
 		return;
 
 	mutex_lock(&notifier_wq_lock);
 
-	if (!list_empty(&head)) {
+	if (unlikely(!list_empty(&head))) {
 		vpPush = list_first_entry(&head,
 			struct C2PS_NOTIFIER_PUSH_TAG, queue_list);
 		list_del(&vpPush->queue_list);
@@ -325,42 +299,24 @@ static void c2ps_notifier_wq_cb(void)
 	}
 
 	switch (vpPush->ePushType) {
-	case C2PS_NOTIFIER_INIT:
-		c2ps_notifier_wq_cb_init();
-		break;
+	// self uninit needs to use this thread
 	case C2PS_NOTIFIER_UNINIT:
-		c2ps_notifier_wq_cb_uninit();
-		break;
-	case C2PS_NOTIFIER_ADD_TASK:
-		c2ps_notifier_wq_cb_add_task(
-			vpPush->task_id,
-			vpPush->task_target_time, vpPush->default_uclamp,
-			vpPush->group_head, vpPush->task_group_target_time,
-			vpPush->is_vip_task, vpPush->is_dynamic_tid,
-			vpPush->task_name);
-		break;
-	case C2PS_NOTIFIER_TASK_START:
-		c2ps_notifier_wq_cb_task_start(vpPush->pid, vpPush->task_id);
-		break;
-	case C2PS_NOTIFIER_TASK_END:
-		c2ps_notifier_wq_cb_task_end(vpPush->pid, vpPush->task_id);
-		break;
-	case C2PS_NOTIFIER_SCENE_CHANGE:
-		c2ps_notifier_wq_cb_scene_change(vpPush->task_id, vpPush->scene_mode);
-		break;
-	case C2PS_NOTIFIER_CAMFPS:
-		c2ps_notifier_wq_cb_camfps(vpPush->camfps);
-		break;
-	case C2PS_NOTIFIER_VSYNC:
-		c2ps_notifier_wq_cb_vsync(vpPush->cur_ts);
+		c2ps_notifier_uninit();
 		break;
 	case C2PS_NOTIFIER_TASK_SINGLE_SHOT:
-		c2ps_notifier_wq_cb_task_single_shot(
+		c2ps_notifier_task_single_shot(
 			vpPush->pid, vpPush->overwrite_uclamp_max, vpPush->idle_rate_alert,
 			vpPush->vip_prior, vpPush->vip_throttle_time,
 			vpPush->uclamp_max_placeholder1, vpPush->uclamp_max_placeholder2,
 			vpPush->uclamp_max_placeholder3, vpPush->reset_param,
-			vpPush->set_task_idle_prefer);
+			vpPush->set_task_idle_prefer, vpPush->critical_task_ids,
+			vpPush->critical_task_uclamp, vpPush->util_margin,
+			vpPush->reserved_1, vpPush->reserved_2, vpPush->reserved_3);
+		break;
+	case C2PS_NOTIFIER_ANCHOR:
+		monitor_anchor(vpPush->task_id, vpPush->order, vpPush->anc_register_fixed,
+						vpPush->anc_type, vpPush->anc_order, vpPush->cur_ts,
+						vpPush->latency_spec, vpPush->jitter_spec);
 		break;
 	default:
 		C2PS_LOGE("unhandled push type = %d\n",
@@ -368,22 +324,7 @@ static void c2ps_notifier_wq_cb(void)
 		break;
 	}
 	c2ps_free(vpPush, sizeof(*vpPush));
-
-	if (need_update_background()) {
-		struct global_info *g_info = get_glb_info();
-
-		if (unlikely(!g_info))
-			return;
-		if (need_send_regulator_req(g_info)) {
-			struct regulator_req *req = get_regulator_req();
-
-			if (req != NULL) {
-				req->glb_info = g_info;
-				send_regulator_req(req);
-			}
-		}
-		reset_need_update_status();
-	}
+	trigger_bg_policy();
 }
 
 static int c2ps_thread_loop(void *arg)
@@ -400,9 +341,6 @@ int c2ps_notify_init(
 	int cfg_camfps, int max_uclamp_cluster0, int max_uclamp_cluster1,
 	int max_uclamp_cluster2)
 {
-	struct C2PS_NOTIFIER_PUSH_TAG *vpPush = NULL;
-	int ret = 0;
-
 	C2PS_LOGD(
 		"config camfps (frames per 1000 seconds): %d, "
 		"max_uclamp_cluster0: %d, max_uclamp_cluster1: %d, "
@@ -417,63 +355,22 @@ int c2ps_notify_init(
 	set_gear_uclamp_max(0, max_uclamp_cluster0);
 	set_gear_uclamp_max(1, max_uclamp_cluster1);
 	set_gear_uclamp_max(2, max_uclamp_cluster2);
-	// set_rt_aggre_preempt(0);
 
 	// enable sugov curr_uclamp feature
 	set_curr_uclamp_ctrl(1);
+	set_eas_setting();
 
-	vpPush = (struct C2PS_NOTIFIER_PUSH_TAG *)
-		c2ps_alloc_atomic(sizeof(*vpPush));
-
-	if (!vpPush) {
-		C2PS_LOGE("OOM\n");
-		ret = -ENOMEM;
-		goto out;
-	}
-
-	if (!c2ps_tsk) {
-		C2PS_LOGE("NULL WorkQueue\n");
-		c2ps_free(vpPush, sizeof(*vpPush));
-		ret = -EINVAL;
-		goto out;
-	}
-
-	vpPush->ePushType = C2PS_NOTIFIER_INIT;
-	vpPush->camfps = cfg_camfps;
-	c2ps_queue_work(vpPush);
-
-out:
-	return ret;
+	c2ps_notifier_init();
+	trigger_bg_policy();
+	return 0;
 }
 
 int c2ps_notify_uninit(void)
 {
-	struct C2PS_NOTIFIER_PUSH_TAG *vpPush = NULL;
-	int ret = 0;
-
 	C2PS_LOGD("+\n");
-
-	vpPush = (struct C2PS_NOTIFIER_PUSH_TAG *)
-		c2ps_alloc_atomic(sizeof(*vpPush));
-
-	if (!vpPush) {
-		C2PS_LOGE("OOM\n");
-		ret = -ENOMEM;
-		goto out;
-	}
-
-	if (!c2ps_tsk) {
-		C2PS_LOGE("NULL WorkQueue\n");
-		c2ps_free(vpPush, sizeof(*vpPush));
-		ret = -EINVAL;
-		goto out;
-	}
-
-	vpPush->ePushType = C2PS_NOTIFIER_UNINIT;
-	c2ps_queue_work(vpPush);
-
-out:
-	return ret;
+	c2ps_notifier_uninit();
+	trigger_bg_policy();
+	return 0;
 }
 
 int c2ps_notify_add_task(
@@ -482,218 +379,87 @@ int c2ps_notify_add_task(
 	bool is_vip_task, bool is_dynamic_tid,
 	const char *task_name)
 {
-	struct C2PS_NOTIFIER_PUSH_TAG *vpPush = NULL;
-	int ret = 0;
-
 	C2PS_LOGD("task_id: %d\n", task_id);
-
-	vpPush = (struct C2PS_NOTIFIER_PUSH_TAG *)
-		c2ps_alloc_atomic(sizeof(*vpPush));
-
-	if (!vpPush) {
-		C2PS_LOGE("OOM\n");
-		ret = -ENOMEM;
-		goto out;
-	}
-
-	if (!c2ps_tsk) {
-		C2PS_LOGE("NULL WorkQueue\n");
-		c2ps_free(vpPush, sizeof(*vpPush));
-		ret = -EINVAL;
-		goto out;
-	}
-
-	vpPush->ePushType = C2PS_NOTIFIER_ADD_TASK;
-	vpPush->task_id = task_id;
-	vpPush->task_target_time = task_target_time;
-	vpPush->default_uclamp = default_uclamp;
-	vpPush->group_head = group_head;
-	vpPush->task_group_target_time = task_group_target_time;
-	vpPush->is_vip_task = is_vip_task;
-	vpPush->is_dynamic_tid = is_dynamic_tid;
-	strncpy(vpPush->task_name, task_name, sizeof(vpPush->task_name));
-
-	c2ps_queue_work(vpPush);
-
-out:
-	return ret;
+	if (likely(timer_pending(&self_uninit_timer)))
+		mod_timer(&self_uninit_timer, jiffies + 5*HZ);
+	c2ps_notifier_add_task(task_id, task_target_time, default_uclamp,
+			group_head, task_group_target_time, is_vip_task, is_dynamic_tid,
+			task_name);
+	trigger_bg_policy();
+	return 0;
 }
 
 int c2ps_notify_task_start(int pid, int task_id)
 {
-	struct C2PS_NOTIFIER_PUSH_TAG *vpPush = NULL;
-	int ret = 0;
-
 	C2PS_LOGD("task_id: %d\n", task_id);
-
-	vpPush = (struct C2PS_NOTIFIER_PUSH_TAG *)
-		c2ps_alloc_atomic(sizeof(*vpPush));
-
-	if (!vpPush) {
-		C2PS_LOGE("OOM\n");
-		ret = -ENOMEM;
-		goto out;
+	if (likely(timer_pending(&self_uninit_timer)))
+		mod_timer(&self_uninit_timer, jiffies + 5*HZ);
+	if (unlikely(monitor_task_start(pid, task_id))) {
+		C2PS_LOGW_ONCE("monitor_task_start failed\n");
+		C2PS_LOGW("monitor_task_start failed\n");
+		return -1;
 	}
-
-	if (!c2ps_tsk) {
-		C2PS_LOGE("NULL WorkQueue\n");
-		c2ps_free(vpPush, sizeof(*vpPush));
-		ret = -EINVAL;
-		goto out;
-	}
-
-	vpPush->ePushType = C2PS_NOTIFIER_TASK_START;
-	vpPush->pid = pid;
-	vpPush->task_id = task_id;
-
-	c2ps_queue_work(vpPush);
-
-out:
-	return ret;
+	trigger_bg_policy();
+	return 0;
 }
 
 int c2ps_notify_task_end(int pid, int task_id)
 {
-	struct C2PS_NOTIFIER_PUSH_TAG *vpPush = NULL;
-	int ret = 0;
-
 	C2PS_LOGD("task_id: %d\n", task_id);
-
-	vpPush = (struct C2PS_NOTIFIER_PUSH_TAG *)
-		c2ps_alloc_atomic(sizeof(*vpPush));
-
-	if (!vpPush) {
-		C2PS_LOGE("OOM\n");
-		ret = -ENOMEM;
-		goto out;
+	if (unlikely(monitor_task_end(pid, task_id))) {
+		C2PS_LOGW_ONCE("monitor_task_end failed\n");
+		C2PS_LOGW("monitor_task_end failed\n");
+		return -1;
 	}
-
-	if (!c2ps_tsk) {
-		C2PS_LOGE("NULL WorkQueue\n");
-		c2ps_free(vpPush, sizeof(*vpPush));
-		ret = -EINVAL;
-		goto out;
-	}
-
-	vpPush->ePushType = C2PS_NOTIFIER_TASK_END;
-	vpPush->pid = pid;
-	vpPush->task_id = task_id;
-
-	c2ps_queue_work(vpPush);
-
-out:
-	return ret;
+	trigger_bg_policy();
+	return 0;
 }
 
 int c2ps_notify_task_scene_change(int task_id, int scene_mode)
 {
-	struct C2PS_NOTIFIER_PUSH_TAG *vpPush = NULL;
-	int ret = 0;
-
 	C2PS_LOGD("task_id: %d\n", task_id);
-
-	vpPush = (struct C2PS_NOTIFIER_PUSH_TAG *)
-		c2ps_alloc_atomic(sizeof(*vpPush));
-
-	if (!vpPush) {
-		C2PS_LOGE("OOM\n");
-		ret = -ENOMEM;
-		goto out;
+	if (unlikely(monitor_task_scene_change(task_id, scene_mode))) {
+		C2PS_LOGE("monitor_task_scene_change failed\n");
+		return -1;
 	}
-
-	if (!c2ps_tsk) {
-		C2PS_LOGE("NULL WorkQueue\n");
-		c2ps_free(vpPush, sizeof(*vpPush));
-		ret = -EINVAL;
-		goto out;
-	}
-
-	vpPush->ePushType = C2PS_NOTIFIER_SCENE_CHANGE;
-	vpPush->task_id = task_id;
-	vpPush->scene_mode = scene_mode;
-
-	c2ps_queue_work(vpPush);
-
-out:
-	return ret;
+	return 0;
 }
 
 int c2ps_notify_vsync(void)
 {
-	struct C2PS_NOTIFIER_PUSH_TAG *vpPush = NULL;
-	int ret = 0;
-
 	C2PS_LOGD("+\n");
-
-	vpPush = (struct C2PS_NOTIFIER_PUSH_TAG *)
-		c2ps_alloc_atomic(sizeof(*vpPush));
-
-	if (!vpPush) {
-		C2PS_LOGE("OOM\n");
-		ret = -ENOMEM;
-		goto out;
+	if (unlikely(monitor_vsync(c2ps_get_time()))) {
+		C2PS_LOGE("monitor_vsync failed\n");
+		return -1;
 	}
-
-	if (!c2ps_tsk) {
-		C2PS_LOGE("NULL WorkQueue\n");
-		c2ps_free(vpPush, sizeof(*vpPush));
-		ret = -EINVAL;
-		goto out;
-	}
-
-	vpPush->ePushType = C2PS_NOTIFIER_VSYNC;
-	vpPush->cur_ts = c2ps_get_time();
-
-	c2ps_queue_work(vpPush);
-
-out:
-	return ret;
+	return 0;
 }
 
 int c2ps_notify_camfps(int camfps)
 {
-	struct C2PS_NOTIFIER_PUSH_TAG *vpPush = NULL;
-	int ret = 0;
-
 	C2PS_LOGD("camfps: %d\n", camfps);
-
-	vpPush = (struct C2PS_NOTIFIER_PUSH_TAG *)
-		c2ps_alloc_atomic(sizeof(*vpPush));
-
-	if (!vpPush) {
-		C2PS_LOGE("OOM\n");
-		ret = -ENOMEM;
-		goto out;
+	if (unlikely(monitor_camfps(camfps))) {
+		C2PS_LOGE("monitor_camfps failed\n");
+		return -1;
 	}
-
-	if (!c2ps_tsk) {
-		C2PS_LOGE("NULL WorkQueue\n");
-		c2ps_free(vpPush, sizeof(*vpPush));
-		ret = -EINVAL;
-		goto out;
-	}
-
-	vpPush->ePushType = C2PS_NOTIFIER_CAMFPS;
-	vpPush->camfps = camfps;
-
-	c2ps_queue_work(vpPush);
-
-out:
-	return ret;
+	return 0;
 }
 
 int c2ps_notify_single_shot_control(
 	int pid, int *uclamp_max, int idle_rate_alert,
-	int vip_prior, unsigned int vip_throttle_time, int *uclamp_max_placeholder1,
+	int vip_prior, u32 vip_throttle_time, int *uclamp_max_placeholder1,
 	int *uclamp_max_placeholder2, int *uclamp_max_placeholder3,
-	bool reset_param, bool set_task_idle_prefer)
+	bool reset_param, bool set_task_idle_prefer,
+	int *critical_task_ids, int *critical_task_uclamp, u32 util_margin,
+	int reserved_1, int reserved_2, int reserved_3)
 {
 	struct C2PS_NOTIFIER_PUSH_TAG *vpPush = NULL;
 	int ret = 0;
 
 	if (!uclamp_max || !uclamp_max_placeholder1 ||
-		!uclamp_max_placeholder2 || !uclamp_max_placeholder3) {
-		C2PS_LOGE("null uclamp max pointer\n");
+		!uclamp_max_placeholder2 || !uclamp_max_placeholder3 ||
+		!critical_task_ids || !critical_task_uclamp) {
+		C2PS_LOGE("single shot control null pointer\n");
 		ret = -EINVAL;
 		goto out;
 	}
@@ -701,13 +467,13 @@ int c2ps_notify_single_shot_control(
 	vpPush = (struct C2PS_NOTIFIER_PUSH_TAG *)
 		c2ps_alloc_atomic(sizeof(*vpPush));
 
-	if (!vpPush) {
+	if (unlikely(!vpPush)) {
 		C2PS_LOGE("OOM\n");
 		ret = -ENOMEM;
 		goto out;
 	}
 
-	if (!c2ps_tsk) {
+	if (unlikely(!c2ps_tsk)) {
 		C2PS_LOGE("NULL WorkQueue\n");
 		c2ps_free(vpPush, sizeof(*vpPush));
 		ret = -EINVAL;
@@ -729,14 +495,74 @@ int c2ps_notify_single_shot_control(
 		MAX_NUMBER_OF_CLUSTERS * sizeof(int));
 	memcpy(vpPush->uclamp_max_placeholder3, uclamp_max_placeholder3,
 		MAX_NUMBER_OF_CLUSTERS * sizeof(int));
+	memset(vpPush->critical_task_ids, 0,
+		MAX_CRITICAL_TASKS * sizeof(int));
+	memcpy(vpPush->critical_task_ids, critical_task_ids,
+		MAX_CRITICAL_TASKS * sizeof(int));
+	memset(vpPush->critical_task_uclamp, 0,
+		MAX_CRITICAL_TASKS * sizeof(int));
+	memcpy(vpPush->critical_task_uclamp, critical_task_uclamp,
+		MAX_CRITICAL_TASKS * sizeof(int));
 	vpPush->pid = pid;
 	vpPush->idle_rate_alert = idle_rate_alert;
 	vpPush->vip_prior = vip_prior;
 	vpPush->vip_throttle_time = vip_throttle_time;
 	vpPush->reset_param = reset_param;
 	vpPush->set_task_idle_prefer = set_task_idle_prefer;
+	vpPush->util_margin = util_margin;
+	vpPush->reserved_1 = reserved_1;
+	vpPush->reserved_2 = reserved_2;
+	vpPush->reserved_3 = reserved_3;
 	vpPush->ePushType = C2PS_NOTIFIER_TASK_SINGLE_SHOT;
 
+	c2ps_queue_work(vpPush);
+
+out:
+	return ret;
+}
+
+int c2ps_notify_single_shot_task_start(int pid, u32 uclamp)
+{
+	C2PS_LOGD("pid: %d, uclamp: %d", pid, uclamp);
+	set_uclamp(pid, uclamp, uclamp);
+	return 0;
+}
+
+int c2ps_notify_single_shot_task_end(int pid)
+{
+	C2PS_LOGD("pid: %d", pid);
+	reset_task_eas_setting(pid);
+	return 0;
+}
+
+int c2ps_notify_anchor(
+	int anc_id, bool register_fixed, u32 anc_type, u32 anc_order, u32 order,
+	u32 latency_spec, u32 jitter_spec)
+{
+	struct C2PS_NOTIFIER_PUSH_TAG *vpPush = NULL;
+	int ret = 0;
+
+	C2PS_LOGD("anchor(%d) start(1)/end(2):%u\n", anc_id, anc_type);
+
+	vpPush = (struct C2PS_NOTIFIER_PUSH_TAG *)
+		c2ps_alloc_atomic(sizeof(*vpPush));
+
+	if (unlikely(!vpPush)) {
+		C2PS_LOGE("OOM\n");
+		ret = -ENOMEM;
+		goto out;
+	}
+
+	vpPush->ePushType = C2PS_NOTIFIER_ANCHOR;
+	vpPush->order = order;
+	// use task_id as anchor name
+	vpPush->task_id = anc_id;
+	vpPush->anc_register_fixed = register_fixed;
+	vpPush->anc_type = anc_type;
+	vpPush->anc_order = anc_order;
+	vpPush->cur_ts = c2ps_get_time();
+	vpPush->latency_spec = latency_spec;
+	vpPush->jitter_spec = jitter_spec;
 	c2ps_queue_work(vpPush);
 
 out:
@@ -751,12 +577,12 @@ static void self_uninit_timer_callback(struct timer_list *t)
 
 static int __init c2ps_init(void)
 {
-	C2PS_LOGD("+ \n");
+	C2PS_LOGD("+\n");
 
 	c2ps_nr_clusters = get_nr_gears();
 	c2ps_tsk = kthread_create(c2ps_thread_loop, NULL, "c2ps_thread_loop");
 
-	if (c2ps_tsk == NULL)
+	if (unlikely(c2ps_tsk == NULL))
 		return -EFAULT;
 	wake_up_process(c2ps_tsk);
 
@@ -769,27 +595,30 @@ static int __init c2ps_init(void)
 	c2ps_notify_camfps_fp = c2ps_notify_camfps;
 	c2ps_notify_task_scene_change_fp = c2ps_notify_task_scene_change;
 	c2ps_notify_single_shot_control_fp = c2ps_notify_single_shot_control;
+	c2ps_notify_single_shot_task_start_fp = c2ps_notify_single_shot_task_start;
+	c2ps_notify_single_shot_task_end_fp = c2ps_notify_single_shot_task_end;
+	c2ps_notify_anchor_fp = c2ps_notify_anchor;
 
 	c2ps_sysfs_init();
-	if (unlikely(uclamp_regulator_init())) {
-		C2PS_LOGD("uclamp_regulator_init failed\n");
+	if (unlikely(regulator_init())) {
+		C2PS_LOGD("regulator_init failed\n");
 		return -EFAULT;
 	}
 
-	C2PS_LOGD("- \n");
+	C2PS_LOGD("-\n");
 	return 0;
 }
 
 static void __exit c2ps_exit(void)
 {
-	C2PS_LOGD("+ \n");
+	C2PS_LOGD("+\n");
 
 	condition_notifier_exit = true;
-	if (c2ps_tsk)
+	if (likely(c2ps_tsk))
 		kthread_stop(c2ps_tsk);
 
 	c2ps_sysfs_exit();
-	uclamp_regulator_exit();
+	regulator_exit();
 	C2PS_LOGD("- \n");
 }
 

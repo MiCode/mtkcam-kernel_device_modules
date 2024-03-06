@@ -30,10 +30,19 @@ int (*c2ps_notify_task_scene_change_fp)(int task_id, int scene_mode);
 EXPORT_SYMBOL_GPL(c2ps_notify_task_scene_change_fp);
 int (*c2ps_notify_single_shot_control_fp)(
 	int pid, int *uclamp_max, int idle_rate_alert, int vip_prior,
-	unsigned int vip_throttle_time, int *uclamp_max_placeholder1,
+	u32 vip_throttle_time, int *uclamp_max_placeholder1,
 	int *uclamp_max_placeholder2, int *uclamp_max_placeholder3,
-	bool reset_param, bool set_task_idle_prefer);
+	bool reset_param, bool set_task_idle_prefer,
+	int *task_ids, int *critical_task_uclamp, u32 util_margin,
+	int reserved_1, int reserved_2, int reserved_3);
 EXPORT_SYMBOL_GPL(c2ps_notify_single_shot_control_fp);
+int (*c2ps_notify_single_shot_task_start_fp)(int pid, u32 uclamp);
+EXPORT_SYMBOL_GPL(c2ps_notify_single_shot_task_start_fp);
+int (*c2ps_notify_single_shot_task_end_fp)(int pid);
+EXPORT_SYMBOL_GPL(c2ps_notify_single_shot_task_end_fp);
+int (*c2ps_notify_anchor_fp)(int anc_id, bool register_fixed,
+	u32 anchor_type, u32 anc_order, u32 order, u32 latency_spec, u32 jitter_spec);
+EXPORT_SYMBOL_GPL(c2ps_notify_anchor_fp);
 
 struct proc_dir_entry *c2ps_ioctl_root;
 EXPORT_SYMBOL(c2ps_ioctl_root);
@@ -44,7 +53,7 @@ module_param(debug_log_on, int, 0644);
 static u64 perfctl_copy_from_user(void *pvTo,
     const void __user *pvFrom, u64 ulBytes)
 {
-	if (access_ok(pvFrom, ulBytes))
+	if (likely(access_ok(pvFrom, ulBytes)))
 		return __copy_from_user(pvTo, pvFrom, ulBytes);
 
 	return ulBytes;
@@ -64,6 +73,7 @@ static long device_ioctl(
     struct file *filp, unsigned int cmd, unsigned long arg)
 {
 	ssize_t ret = 0;
+	#if IS_ENABLED(CONFIG_MTK_C2PS)
 	void __user *argp = (void __user *)arg;
 	struct C2PS_PACKAGE c2ps_pkg;
 	struct C2PS_INIT_PARAM c2ps_init_param;
@@ -71,17 +81,18 @@ static long device_ioctl(
 	struct C2PS_TASK_INIT_PARAMS c2ps_tsk_init_param;
 	struct C2PS_INFO_NOTIFY c2ps_info;
 	struct C2PS_SINGLE_SHOT_PARAM c2ps_single_shot;
+	struct C2PS_SINGLE_SHOT_TASK_PARAM c2ps_single_shot_tsk;
+	struct C2PS_ANCHOR_POINT_PARAM c2ps_anchor;
 
 	switch (cmd) {
-	#if IS_ENABLED(CONFIG_MTK_C2PS)
 	case C2PS_ACTIVATE:
 		C2PS_LOGD("C2PS_ACTIVATE");
-		if (perfctl_copy_from_user(&c2ps_init_param, argp,
-			sizeof(c2ps_init_param))) {
+		if (unlikely(perfctl_copy_from_user(&c2ps_init_param, argp,
+			sizeof(c2ps_init_param)))) {
 			ret = -EFAULT;
 			goto ret_ioctl;
 		}
-		if (c2ps_notify_init_fp)
+		if (likely(c2ps_notify_init_fp))
 			c2ps_notify_init_fp(
 					(&c2ps_init_param)->camfps,
 					(&c2ps_init_param)->max_uclamp_cluster0,
@@ -90,22 +101,22 @@ static long device_ioctl(
 		break;
 	case C2PS_DESTROY:
 		C2PS_LOGD("C2PS_DESTROY");
-		if (perfctl_copy_from_user(&c2ps_uninit_param, argp,
-			sizeof(c2ps_uninit_param))) {
+		if (unlikely(perfctl_copy_from_user(&c2ps_uninit_param, argp,
+			sizeof(c2ps_uninit_param)))) {
 			ret = -EFAULT;
 			goto ret_ioctl;
 		}
-		if (c2ps_notify_uninit_fp)
+		if (likely(c2ps_notify_uninit_fp))
 			c2ps_notify_uninit_fp();
 		break;
 	case C2PS_ADD_TASK:
 		C2PS_LOGD("C2PS_ADD_TASK");
-		if (perfctl_copy_from_user(&c2ps_tsk_init_param, argp,
-			sizeof(c2ps_tsk_init_param))) {
+		if (unlikely(perfctl_copy_from_user(&c2ps_tsk_init_param, argp,
+			sizeof(c2ps_tsk_init_param)))) {
 			ret = -EFAULT;
 			goto ret_ioctl;
 		}
-		if (c2ps_notify_add_task_fp)
+		if (likely(c2ps_notify_add_task_fp))
 			c2ps_notify_add_task_fp(
 			(&c2ps_tsk_init_param)->task_id,
 			(&c2ps_tsk_init_param)->task_target_time,
@@ -118,60 +129,60 @@ static long device_ioctl(
 		break;
 	case C2PS_TASK_START:
 		C2PS_LOGD("C2PS_TASK_START");
-		if (perfctl_copy_from_user((&c2ps_pkg), argp,
-			sizeof(c2ps_pkg))) {
+		if (unlikely(perfctl_copy_from_user((&c2ps_pkg), argp,
+			sizeof(c2ps_pkg)))) {
 			ret = -EFAULT;
 			goto ret_ioctl;
 		}
-		if (c2ps_notify_task_start_fp)
+		if (likely(c2ps_notify_task_start_fp))
 			c2ps_notify_task_start_fp(
 				(&c2ps_pkg)->tid, (&c2ps_pkg)->task_id);
 		break;
 	case C2PS_TASK_END:
 		C2PS_LOGD("C2PS_TASK_END");
-		if (perfctl_copy_from_user(&c2ps_pkg, argp,
-			sizeof(c2ps_pkg))) {
+		if (unlikely(perfctl_copy_from_user(&c2ps_pkg, argp,
+			sizeof(c2ps_pkg)))) {
 			ret = -EFAULT;
 			goto ret_ioctl;
 		}
-		if (c2ps_notify_task_end_fp)
+		if (likely(c2ps_notify_task_end_fp))
 			c2ps_notify_task_end_fp(
 				(&c2ps_pkg)->tid, (&c2ps_pkg)->task_id);
 		break;
 	case C2PS_TASK_CHANGE:
 		C2PS_LOGD("C2PS_TASK_CHANGE");
-		if (perfctl_copy_from_user(&c2ps_pkg, argp,
-			sizeof(c2ps_pkg))) {
+		if (unlikely(perfctl_copy_from_user(&c2ps_pkg, argp,
+			sizeof(c2ps_pkg)))) {
 			ret = -EFAULT;
 			goto ret_ioctl;
 		}
-		if (c2ps_notify_task_scene_change_fp)
+		if (likely(c2ps_notify_task_scene_change_fp))
 			c2ps_notify_task_scene_change_fp(
 			(&c2ps_pkg)->task_id, (&c2ps_pkg)->mode_change_hint);
 		break;
 	case C2PS_NOTIFY_VSYNC:
 		C2PS_LOGD("C2PS_NOTIFY_VSYNC");
-		if (c2ps_notify_vsync_fp)
+		if (likely(c2ps_notify_vsync_fp))
 			c2ps_notify_vsync_fp();
 		break;
 	case C2PS_NOTIFY_CAMFPS:
 		C2PS_LOGD("C2PS_NOTIFY_CAMFPS");
-		if (perfctl_copy_from_user(&c2ps_info, argp,
-			sizeof(c2ps_info))) {
+		if (unlikely(perfctl_copy_from_user(&c2ps_info, argp,
+			sizeof(c2ps_info)))) {
 			ret = -EFAULT;
 			goto ret_ioctl;
 		}
-		if (c2ps_notify_camfps_fp)
+		if (likely(c2ps_notify_camfps_fp))
 			c2ps_notify_camfps_fp((&c2ps_info)->cur_camfps);
 		break;
 	case C2PS_TASK_SINGLE_SHOT:
 		C2PS_LOGD("C2PS_SINGLE_SHOT");
-		if (perfctl_copy_from_user(&c2ps_single_shot, argp,
-			sizeof(c2ps_single_shot))) {
+		if (unlikely(perfctl_copy_from_user(&c2ps_single_shot, argp,
+			sizeof(c2ps_single_shot)))) {
 			ret = -EFAULT;
 			goto ret_ioctl;
 		}
-		if (c2ps_notify_single_shot_control_fp)
+		if (likely(c2ps_notify_single_shot_control_fp))
 			c2ps_notify_single_shot_control_fp(
 			(&c2ps_single_shot)->tid,
 			(&c2ps_single_shot)->uclamp_max,
@@ -182,29 +193,56 @@ static long device_ioctl(
 			(&c2ps_single_shot)->uclamp_max_placeholder2,
 			(&c2ps_single_shot)->uclamp_max_placeholder3,
 			(&c2ps_single_shot)->reset_param,
-			(&c2ps_single_shot)->set_task_idle_prefer);
+			(&c2ps_single_shot)->set_task_idle_prefer,
+			(&c2ps_single_shot)->critical_task_ids,
+			(&c2ps_single_shot)->critical_task_uclamp,
+			(&c2ps_single_shot)->util_margin,
+			(&c2ps_single_shot)->reserved_1,
+			(&c2ps_single_shot)->reserved_2,
+			(&c2ps_single_shot)->reserved_3);
 		break;
-	#else
-	case C2PS_ACTIVATE:
-		[[fallthrough]];
-	case C2PS_DESTROY:
-		[[fallthrough]];
-	case C2PS_ADD_TASK:
-		[[fallthrough]];
-	case C2PS_TASK_START:
-		[[fallthrough]];
-	case C2PS_TASK_END:
-		[[fallthrough]];
-	case C2PS_TASK_CHANGE:
-		[[fallthrough]];
-	case C2PS_NOTIFY_VSYNC:
-		[[fallthrough]];
-	case C2PS_NOTIFY_CAMFPS:
-		[[fallthrough]];
-	case C2PS_TASK_SINGLE_SHOT:
-		[[fallthrough]];
-	break;
-	#endif
+	case C2PS_SINGLE_SHOT_TASK_START:
+		C2PS_LOGD("C2PS_SINGLE_SHOT_TASK_START");
+		if (perfctl_copy_from_user(&c2ps_single_shot_tsk, argp,
+			sizeof(c2ps_single_shot_tsk))) {
+			ret = -EFAULT;
+			goto ret_ioctl;
+		}
+		if (c2ps_notify_single_shot_task_start_fp)
+			c2ps_notify_single_shot_task_start_fp(
+			(&c2ps_single_shot_tsk)->tid,
+			(&c2ps_single_shot_tsk)->uclamp);
+		break;
+	case C2PS_SINGLE_SHOT_TASK_END:
+		C2PS_LOGD("C2PS_SINGLE_SHOT_TASK_END");
+		if (perfctl_copy_from_user(&c2ps_single_shot_tsk, argp,
+			sizeof(c2ps_single_shot_tsk))) {
+			ret = -EFAULT;
+			goto ret_ioctl;
+		}
+		if (c2ps_notify_single_shot_task_end_fp)
+			c2ps_notify_single_shot_task_end_fp((&c2ps_single_shot_tsk)->tid);
+		break;
+	case C2PS_ANCHOR_POINT:
+		C2PS_LOGD("C2PS_ANCHOR_POINT");
+		if (unlikely(perfctl_copy_from_user((&c2ps_anchor), argp,
+			sizeof(c2ps_anchor)))) {
+			ret = -EFAULT;
+			goto ret_ioctl;
+		}
+
+		if (likely(c2ps_notify_anchor_fp)) {
+			c2ps_notify_anchor_fp((&c2ps_anchor)->anchor_id,
+								(&c2ps_anchor)->register_fixed_start,
+								(&c2ps_anchor)->anchor_type,
+								(&c2ps_anchor)->anchor_order,
+								(&c2ps_anchor)->notify_order,
+								(&c2ps_anchor)->latency_spec,
+								(&c2ps_anchor)->jitter_spec);
+			C2PS_LOGD("get anchor: %d", (&c2ps_anchor)->anchor_type);
+		}
+
+		break;
 
 	default:
 		C2PS_LOGD(TAG " %s %d: unknown cmd %x\n",
@@ -212,6 +250,10 @@ static long device_ioctl(
 		ret = -EINVAL;
 		goto ret_ioctl;
 	}
+
+	#else
+	ret = -EINVAL;
+	#endif
 
 ret_ioctl:
 	return ret;
@@ -237,7 +279,7 @@ static int __init init_c2ps_perf_ioctl(void)
 	c2ps_ioctl_root = parent;
 
 	pe = proc_create("c2ps_ioctl", 0660, parent, &Fops);
-	if (!pe) {
+	if (unlikely(!pe)) {
 		C2PS_LOGD(TAG"%s failed with %d\n",
 			"Creating file node ",
 			ENOMEM);

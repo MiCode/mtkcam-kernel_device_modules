@@ -20,6 +20,7 @@
 
 #define MAX_TASK_NAME_SIZE 10
 #define MAX_CPU_NUM CONFIG_MAX_NR_CPUS
+#define MAX_CRITICAL_TASKS 20
 
 extern int debug_log_on;
 
@@ -69,7 +70,28 @@ struct C2PS_SINGLE_SHOT_PARAM {
 	int uclamp_max_placeholder3[MAX_CPU_NUM];
 	bool reset_param;
 	bool set_task_idle_prefer;
+	int critical_task_ids[MAX_CRITICAL_TASKS];
+	int critical_task_uclamp[MAX_CRITICAL_TASKS];
+	u32 util_margin;
+	int reserved_1;
+	int reserved_2;
+	int reserved_3;
 };
+
+struct C2PS_SINGLE_SHOT_TASK_PARAM {
+	u32 tid;
+	u32 uclamp;
+};
+
+struct C2PS_ANCHOR_POINT_PARAM {
+	int anchor_id;
+	bool register_fixed_start;
+	u32 anchor_type;
+	u32 anchor_order;
+	u32 notify_order;
+	u32 latency_spec;
+	u32 jitter_spec;
+} C2PS_ANCHOR_POINT_PARAM;
 
 #define C2PS_IOCTL_MAGIC 'g'
 #define C2PS_ACTIVATE       _IOW(C2PS_IOCTL_MAGIC, 27, struct C2PS_INIT_PARAM)
@@ -81,11 +103,27 @@ struct C2PS_SINGLE_SHOT_PARAM {
 #define C2PS_NOTIFY_VSYNC   _IOW(C2PS_IOCTL_MAGIC, 33, struct C2PS_INFO_NOTIFY)
 #define C2PS_NOTIFY_CAMFPS  _IOW(C2PS_IOCTL_MAGIC, 34, struct C2PS_INFO_NOTIFY)
 #define C2PS_TASK_SINGLE_SHOT    _IOW(C2PS_IOCTL_MAGIC, 35, struct C2PS_SINGLE_SHOT_PARAM)
+#define C2PS_SINGLE_SHOT_TASK_START \
+	_IOW(C2PS_IOCTL_MAGIC, 36, struct C2PS_SINGLE_SHOT_TASK_PARAM)
+#define C2PS_SINGLE_SHOT_TASK_END \
+	_IOW(C2PS_IOCTL_MAGIC, 37, struct C2PS_SINGLE_SHOT_TASK_PARAM)
+#define C2PS_ANCHOR_POINT   _IOW(C2PS_IOCTL_MAGIC, 38, struct C2PS_ANCHOR_POINT_PARAM)
 
-#define C2PS_LOGD(fmt, ...)                                             \
-	do {                                                                \
-		if (unlikely(debug_log_on))                                     \
-			pr_debug("[C2PS_IOCTL]: %s " fmt, __func__, ##__VA_ARGS__); \
+
+#define C2PS_LOGD(fmt, ...)                                                 \
+	do {                                                                    \
+		if (unlikely(debug_log_on)) {                                       \
+			switch (debug_log_on) {                                         \
+			case 1:                                                         \
+				pr_debug("[C2PS_IOCTL]: %s " fmt, __func__, ##__VA_ARGS__); \
+				break;                                                      \
+			case 2:                                                         \
+				pr_warn("[C2PS_IOCTL]: %s " fmt, __func__, ##__VA_ARGS__);  \
+				break;                                                      \
+			default:                                                        \
+				break;                                                      \
+			}                                                               \
+		}                                                                   \
 	} while (0)
 
 #endif  // C2PS_IOCTL_C2PS_PERF_IOCTL_H_

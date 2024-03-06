@@ -8,7 +8,6 @@
 #include <linux/sched/cputime.h>
 #include <linux/sched/clock.h>
 #include <linux/prefetch.h>
-#include <linux/hashtable.h>
 #include <linux/preempt.h>
 #include <linux/kernel.h>
 #include <trace/trace.h>
@@ -26,9 +25,16 @@ static DEFINE_HASHTABLE(task_info_tbl, 3);
 static DEFINE_MUTEX(task_info_tbl_lock);
 static DEFINE_HASHTABLE(task_group_info_tbl, 3);
 static DEFINE_MUTEX(task_group_info_tbl_lock);
+static DEFINE_HASHTABLE(anchor_tbl, 3);
+static DEFINE_MUTEX(anchor_tbl_lock);
 
 static struct kobject *base_kobj;
 static struct global_info *glb_info;
+static struct eas_settings *pre_eas_settings;
+
+u8 Prime_Table[] = {2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47, 53,
+	59, 61, 67, 71, 73, 79, 83, 89, 97, 101, 103, 107, 109, 113, 127, 131, 137,
+	139, 149, 151, 157, 163, 167, 173, 179, 181, 191, 193, 197, 199};
 
 bool is_release_uclamp_max = false;
 int proc_time_window_size = 1;
@@ -50,10 +56,10 @@ struct c2ps_task_info *c2ps_find_task_info_by_tskid(int task_id)
 {
 	struct c2ps_task_info *tsk_info = NULL;
 
-	C2PS_LOGD("+ \n");
+	C2PS_LOGD("+\n");
 	c2ps_task_info_tbl_lock(__func__);
 
-	if (hash_empty(task_info_tbl)) {
+	if (unlikely(hash_empty(task_info_tbl))) {
 		C2PS_LOGD("empty task info table\n");
 		goto out;
 	}
@@ -69,13 +75,13 @@ struct c2ps_task_info *c2ps_find_task_info_by_tskid(int task_id)
 
 out:
 	c2ps_task_info_tbl_unlock(__func__);
-	C2PS_LOGD("- \n");
+	C2PS_LOGD("-\n");
 	return tsk_info;
 }
 
 int c2ps_add_task_info(struct c2ps_task_info *tsk_info)
 {
-	if (!tsk_info) {
+	if (unlikely(!tsk_info)) {
 		C2PS_LOGE("tsk_info is null\n");
 		return -EINVAL;
 	}
@@ -83,7 +89,7 @@ int c2ps_add_task_info(struct c2ps_task_info *tsk_info)
 	c2ps_task_info_tbl_lock(__func__);
 	hash_add(task_info_tbl, &tsk_info->hlist, tsk_info->task_id);
 	c2ps_task_info_tbl_unlock(__func__);
-	C2PS_LOGD("- \n");
+	C2PS_LOGD("-\n");
 	return 0;
 }
 
@@ -93,9 +99,9 @@ void c2ps_clear_task_info_table(void)
 	struct hlist_node *tmp = NULL;
 	int bkt = 0;
 
-	C2PS_LOGD("+ \n");
+	C2PS_LOGD("+\n");
 	c2ps_task_info_tbl_lock(__func__);
-	if (hash_empty(task_info_tbl)) {
+	if (unlikely(hash_empty(task_info_tbl))) {
 		C2PS_LOGD("task info table is empty\n");
 		goto out;
 	}
@@ -109,7 +115,80 @@ void c2ps_clear_task_info_table(void)
 
 out:
 	c2ps_task_info_tbl_unlock(__func__);
-	C2PS_LOGD("- \n");
+	C2PS_LOGD("-\n");
+}
+
+struct c2ps_anchor *c2ps_find_anchor_by_id(int anc_id)
+{
+	struct c2ps_anchor *anc_info = NULL;
+
+	C2PS_LOGD("+\n");
+	c2ps_anchor_tbl_lock();
+
+	if (unlikely(hash_empty(anchor_tbl))) {
+		C2PS_LOGD("empty anchor table\n");
+		goto out;
+	}
+	C2PS_LOGD("anc_id: %d\n", anc_id);
+	C2PS_LOGD("find +\n");
+	hash_for_each_possible(anchor_tbl, anc_info, hlist, anc_id) {
+		if (anc_info->anchor_id == anc_id) {
+			C2PS_LOGD("anc_id: %d\n", anc_info->anchor_id);
+			goto out;
+		}
+	}
+	C2PS_LOGD("find -\n");
+
+out:
+	c2ps_anchor_tbl_unlock();
+	C2PS_LOGD("-\n");
+	return anc_info;
+}
+
+int c2ps_add_anchor(struct c2ps_anchor *anc_info)
+{
+	if (unlikely(!anc_info)) {
+		C2PS_LOGE("anc_info is null\n");
+		return -EINVAL;
+	}
+	C2PS_LOGD("anchor_id: %d", anc_info->anchor_id);
+	c2ps_anchor_tbl_lock();
+	hash_add(anchor_tbl, &anc_info->hlist, anc_info->anchor_id);
+	c2ps_anchor_tbl_unlock();
+	C2PS_LOGD("-\n");
+	return 0;
+}
+
+void c2ps_clear_anchor_table(void)
+{
+	struct c2ps_anchor *anc_info = NULL;
+	struct hlist_node *tmp1 = NULL, *tmp2 = NULL;
+	struct um_table_item *table_item = NULL;
+	int bkt1 = 0, bkt2 = 0;
+
+	C2PS_LOGD("+\n");
+	c2ps_anchor_tbl_lock();
+	if (unlikely(hash_empty(anchor_tbl))) {
+		C2PS_LOGD("anchor table_item is empty\n");
+		goto out;
+	}
+
+	hash_for_each_safe(
+		anchor_tbl, bkt1, tmp1, anc_info, hlist) {
+		hash_for_each_safe(anc_info->um_table_stbl, bkt2, tmp2, table_item, hlist) {
+			hash_del(&table_item->hlist);
+			kfree(table_item);
+			table_item = NULL;
+		}
+
+		hash_del(&anc_info->hlist);
+		kfree(anc_info);
+		anc_info = NULL;
+	}
+
+out:
+	c2ps_anchor_tbl_unlock();
+	C2PS_LOGD("-\n");
 }
 
 int c2ps_create_task_group(int group_head, u64 task_group_target_time)
@@ -134,7 +213,7 @@ int c2ps_create_task_group(int group_head, u64 task_group_target_time)
 	hash_add(
 		task_group_info_tbl, &tsk_grp_info->hlist, tsk_grp_info->group_head);
 	c2ps_task_group_info_tbl_unlock(__func__);
-	C2PS_LOGD("- \n");
+	C2PS_LOGD("-\n");
 	return 0;
 }
 
@@ -142,7 +221,7 @@ struct task_group_info *c2ps_find_task_group_info_by_grphd(int group_head)
 {
 	struct task_group_info *tsk_grp_info = NULL;
 
-	C2PS_LOGD("+ \n");
+	C2PS_LOGD("+\n");
 	c2ps_task_group_info_tbl_lock(__func__);
 
 	if (hash_empty(task_group_info_tbl)) {
@@ -161,7 +240,7 @@ struct task_group_info *c2ps_find_task_group_info_by_grphd(int group_head)
 
 out:
 	c2ps_task_group_info_tbl_unlock(__func__);
-	C2PS_LOGD("- \n");
+	C2PS_LOGD("-\n");
 	return tsk_grp_info;
 }
 
@@ -170,18 +249,18 @@ int c2ps_add_task_to_group(struct c2ps_task_info *tsk_info, int group_head)
 	struct task_group_info *tsk_grp_info =
 		c2ps_find_task_group_info_by_grphd(group_head);
 
-	C2PS_LOGD("+ \n");
-	if (!tsk_info) {
+	C2PS_LOGD("+\n");
+	if (unlikely(!tsk_info)) {
 		C2PS_LOGE("tsk_info is null\n");
 		return -EINVAL;
 	}
 
-	if (!tsk_grp_info) {
+	if (unlikely(!tsk_grp_info)) {
 		C2PS_LOGE("task group not exist\n");
 		return -EINVAL;
 	}
 	tsk_info->tsk_group = tsk_grp_info;
-	C2PS_LOGD("- \n");
+	C2PS_LOGD("-\n");
 	return 0;
 }
 
@@ -191,9 +270,9 @@ void c2ps_clear_task_group_info_table(void)
 	struct hlist_node *tmp = NULL;
 	int bkt = 0;
 
-	C2PS_LOGD("+ \n");
+	C2PS_LOGD("+\n");
 	c2ps_task_group_info_tbl_lock(__func__);
-	if (hash_empty(task_group_info_tbl)) {
+	if (unlikely(hash_empty(task_group_info_tbl))) {
 		C2PS_LOGD("task group info table is empty\n");
 		goto out;
 	}
@@ -207,7 +286,7 @@ void c2ps_clear_task_group_info_table(void)
 
 out:
 	c2ps_task_group_info_tbl_unlock(__func__);
-	C2PS_LOGD("- \n");
+	C2PS_LOGD("-\n");
 }
 
 static inline void c2ps_prefetch_curr_exec_start(struct task_struct *p)
@@ -258,11 +337,11 @@ u64 c2ps_get_sum_exec_runtime(int pid)
 
 	rcu_read_lock();
 	tsk = find_task_by_vpid(pid);
-	if (tsk)
+	if (likely(tsk))
 		get_task_struct(tsk);
 	rcu_read_unlock();
 
-	if (!tsk)
+	if (unlikely(!tsk))
 		return 0;
 	curr_sum_exec_runtime = c2ps_task_sched_runtime(tsk);
 	put_task_struct(tsk);
@@ -300,6 +379,192 @@ inline void c2ps_info_unlock(struct mutex *mlock)
 	mutex_unlock(mlock);
 }
 
+inline void c2ps_anchor_tbl_lock(void)
+{
+	mutex_lock(&anchor_tbl_lock);
+}
+
+inline void c2ps_anchor_tbl_unlock(void)
+{
+	mutex_unlock(&anchor_tbl_lock);
+}
+
+struct um_table_item *c2ps_find_um_table_by_um(struct c2ps_anchor *anc, int um)
+{
+	struct um_table_item *_um_table_item = NULL;
+
+	if (unlikely(anc == NULL))
+		return NULL;
+
+	C2PS_LOGD("+\n");
+
+	if (unlikely(hash_empty(anc->um_table_stbl))) {
+		C2PS_LOGD("empty anchor um table\n");
+		goto out;
+	}
+	C2PS_LOGD("find +\n");
+	hash_for_each_possible(anc->um_table_stbl, _um_table_item, hlist, um) {
+		if (_um_table_item->um == um) {
+			C2PS_LOGD("um: %d\n", um);
+			goto out;
+		}
+	}
+	C2PS_LOGD("find -\n");
+
+out:
+	C2PS_LOGD("-\n");
+	return _um_table_item;
+}
+
+int c2ps_add_um_table(struct c2ps_anchor *anc, struct um_table_item *table_item)
+{
+	C2PS_LOGD("+\n");
+	if (unlikely(!anc)) {
+		C2PS_LOGE("anc_info is null\n");
+		return -EINVAL;
+	}
+	hash_add(anc->um_table_stbl, &table_item->hlist, table_item->um);
+	C2PS_LOGD("-\n");
+	return 0;
+}
+
+inline void c2ps_init_kf(
+	struct kf_est *kf, int64_t q_val, int64_t meas_err, int64_t min_est_err)
+{
+	kf->q_val = q_val;
+	kf->meas_err = meas_err;
+	kf->est_err = min_est_err;
+	kf->min_est_err = min_est_err;
+}
+
+u64 c2ps_cal_kf_est(struct kf_est *kf, u64 cur_obs)
+{
+	if (unlikely(kf->q_val <= 0 || kf->meas_err <= 0)) {
+		C2PS_LOGE("kf is not properly set");
+		return 0;
+	}
+
+	if (unlikely(kf->est_val <= 0)) {
+		kf->est_val = cur_obs;
+	} else {
+		int64_t temp_est_val;
+		int64_t temp_measure = cur_obs;
+
+		temp_est_val = kf->est_val +
+				(kf->est_err * (temp_measure - kf->est_val) /
+					(kf->est_err + kf->meas_err));
+		kf->est_err = kf->est_err * kf->meas_err /
+			(kf->est_err + kf->meas_err)
+			+ (abs(kf->est_val - temp_est_val) * kf->q_val / 1000);
+		kf->est_err = kf->est_err < kf->min_est_err? kf->min_est_err:kf->est_err;
+		kf->est_val = temp_est_val;
+	}
+
+	return abs(kf->est_val);
+}
+
+void c2ps_update_um_table(struct c2ps_anchor *anc)
+{
+	struct um_table_item *_item = c2ps_find_um_table_by_um(anc, glb_info->curr_um);
+
+	if (unlikely(anc == NULL || glb_info == NULL)) {
+		C2PS_LOGE("anchor or glb_info is not existed");
+		return;
+	}
+
+	if (unlikely(glb_info->stat == C2PS_STAT_TRANSIENT))
+		return;
+
+	C2PS_LOGD("check um table, anc_id: %d, um: %u",
+				anc->anchor_id, glb_info->curr_um);
+	if (unlikely(_item == NULL)) {
+		C2PS_LOGD("[C2PS_CB] add um table (ancid:%d), um:%d\n",
+					anc->anchor_id, glb_info->curr_um);
+		_item = kzalloc(sizeof(*_item), GFP_KERNEL);
+
+		if (unlikely(!_item)) {
+			C2PS_LOGE("OOM\n");
+			return;
+		}
+		_item->um = glb_info->curr_um;
+		c2ps_init_kf(&(_item->lat_est), ANC_KF_QVAL,
+				ANC_KF_MEAS_ERR, ANC_KF_MIN_EST_ERR);
+		if (anc->jitter_spec > 0) {
+			c2ps_init_kf(&(_item->end_diff_est), ANC_KF_QVAL,
+					ANC_KF_MEAS_ERR, ANC_KF_MIN_EST_ERR);
+			c2ps_init_kf(&(_item->jit_est), ANC_KF_QVAL,
+					ANC_KF_MEAS_ERR, ANC_KF_MIN_EST_ERR);
+			_item->end_diff_est.est_val = 33000;
+			_item->jit_est.est_val = anc->jitter_spec;
+		}
+
+		if (unlikely(c2ps_add_um_table(anc, _item))) {
+			C2PS_LOGE("add um table failed\n");
+			return;
+		}
+	}
+
+	_item->latency = c2ps_cal_kf_est(&(_item->lat_est), anc->latest_duration/1000);
+	C2PS_LOGW("check um table, ancid: %d, um:%d, ori: %llu, after_proc:%llu",
+		anc->anchor_id, _item->um, anc->latest_duration, _item->latency);
+
+	if (anc->jitter_spec > 0) {
+		u64 _end_diff = (anc->e_hist_t[anc->e_idx] -
+						anc->e_hist_t[anc->e_idx-1 >= 0?
+							anc->e_idx-1 : anc->e_idx+ANCHOR_QUEUE_LEN-1])/1000;
+		u64 _square = 0;
+
+		// add an end_diff upper bound to avoid initial value too large
+		// 100000 represents 100ms
+		if (unlikely(_end_diff > 100000))
+			_end_diff = 33000;
+
+		_item->end_diff = c2ps_cal_kf_est(&(_item->end_diff_est), _end_diff);
+		_square = (_end_diff - _item->end_diff) *
+					(_end_diff - _item->end_diff);
+		_item->jitter = c2ps_cal_kf_est(&(_item->jit_est), _square/1000);
+
+		C2PS_LOGW(
+			"check um table, ancid: %d, um:%d, after_proc jitter:%llu, end diff: %llu jitter raw data: %llu",
+			anc->anchor_id, _item->um, _item->jitter, _item->end_diff,
+			(_end_diff-_item->end_diff) * (_end_diff-_item->end_diff));
+	}
+
+	c2ps_check_last_anc(anc);
+
+	c2ps_main_systrace("check um table, ancid: %d, um:%d, ori: %llu, after_proc:%llu",
+		anc->anchor_id, _item->um, anc->latest_duration, _item->latency);
+}
+
+void c2ps_check_last_anc(struct c2ps_anchor *anc)
+{
+	if (unlikely(glb_info->um_vote.total_voter_mul == 0)) {
+		glb_info->um_vote.total_voter_mul = 1;
+		glb_info->um_vote.curr_voter_mul = 1;
+		anc->is_last_anchor = false;
+	}
+
+	if (unlikely(glb_info->um_vote.total_voter_mul % Prime_Table[anc->anchor_id] != 0))
+		glb_info->um_vote.total_voter_mul *= Prime_Table[anc->anchor_id];
+
+	if (likely(glb_info->um_vote.curr_voter_mul % Prime_Table[anc->anchor_id] != 0)) {
+		glb_info->um_vote.curr_voter_mul *= Prime_Table[anc->anchor_id];
+		if (likely(glb_info->um_vote.curr_voter_mul <
+					glb_info->um_vote.total_voter_mul)) {
+			anc->is_last_anchor = false;
+			goto out;
+		}
+	}
+
+	glb_info->um_vote.curr_voter_mul = 1;
+	anc->is_last_anchor = true;
+
+out:
+	C2PS_LOGD("anc um vote: %d, prime: %u last_anc: %d, total voter: %u, cur voter: %u",
+		anc->anchor_id, Prime_Table[anc->anchor_id], anc->is_last_anchor,
+		glb_info->um_vote.total_voter_mul, glb_info->um_vote.curr_voter_mul);
+}
+
 u64 c2ps_get_time(void)
 {
 	u64 tmp;
@@ -313,7 +578,7 @@ u64 c2ps_get_time(void)
 
 void c2ps_update_task_info_hist(struct c2ps_task_info *tsk_info)
 {
-	C2PS_LOGD("+ \n");
+	C2PS_LOGD("+\n");
 	c2ps_info_lock(&tsk_info->mlock);
 
 	if (tsk_info->hist_proc_time_sum >=
@@ -331,7 +596,7 @@ void c2ps_update_task_info_hist(struct c2ps_task_info *tsk_info)
 	++tsk_info->nr_hist_info;
 	tsk_info->nr_hist_info %= (min(proc_time_window_size , MAX_WINDOW_SIZE));
 	c2ps_info_unlock(&tsk_info->mlock);
-	C2PS_LOGD("- \n");
+	C2PS_LOGD("-\n");
 }
 
 struct global_info *get_glb_info(void)
@@ -341,7 +606,7 @@ struct global_info *get_glb_info(void)
 
 inline void set_config_camfps(int camfps)
 {
-	if (!glb_info) {
+	if (unlikely(!glb_info)) {
 		C2PS_LOGE("glb_info is null\n");
 		return;
 	}
@@ -352,7 +617,9 @@ inline void set_config_camfps(int camfps)
 
 inline void decide_special_uclamp_max(int placeholder_type)
 {
-	if (!glb_info) {
+	size_t cluster_size = c2ps_nr_clusters * sizeof(int);
+
+	if (unlikely(!glb_info)) {
 		C2PS_LOGE("glb_info is null\n");
 		return;
 	}
@@ -363,22 +630,18 @@ inline void decide_special_uclamp_max(int placeholder_type)
 	// placeholder1 setting for case 0
 	case 0:
 	case 1:
-		memcpy(glb_info->special_uclamp_max, glb_info->uclamp_max_placeholder1,
-			c2ps_nr_clusters * sizeof(int));
+		memcpy(glb_info->special_uclamp_max, glb_info->uclamp_max_placeholder1, cluster_size);
 		break;
 	case 2:
-		memcpy(glb_info->special_uclamp_max, glb_info->uclamp_max_placeholder2,
-			c2ps_nr_clusters * sizeof(int));
+		memcpy(glb_info->special_uclamp_max, glb_info->uclamp_max_placeholder2, cluster_size);
 		break;
 	case 3:
-		memcpy(glb_info->special_uclamp_max, glb_info->uclamp_max_placeholder3,
-			c2ps_nr_clusters * sizeof(int));
+		memcpy(glb_info->special_uclamp_max, glb_info->uclamp_max_placeholder3, cluster_size);
 		break;
 	default:
-		memcpy(glb_info->special_uclamp_max, glb_info->uclamp_max_placeholder1,
-			c2ps_nr_clusters * sizeof(int));
 		break;
 	}
+	memcpy(glb_info->uclamp_max_floor, glb_info->special_uclamp_max, cluster_size);
 	c2ps_info_unlock(&glb_info->mlock);
 	C2PS_LOGD(
 		"special_cluster_0_util=%d special_cluster_1_util=%d "
@@ -389,7 +652,7 @@ inline void decide_special_uclamp_max(int placeholder_type)
 
 inline void set_glb_info_bg_uclamp_max(void)
 {
-	if (!glb_info) {
+	if (unlikely(!glb_info)) {
 		C2PS_LOGE("glb_info is null\n");
 		return;
 	}
@@ -399,6 +662,27 @@ inline void set_glb_info_bg_uclamp_max(void)
 		for (; _idx < c2ps_nr_clusters; _idx++) {
 			glb_info->max_uclamp[_idx] = get_gear_uclamp_max(_idx);
 			glb_info->curr_max_uclamp[_idx] = glb_info->max_uclamp[_idx];
+			glb_info->uclamp_max_ceiling[_idx] = glb_info->max_uclamp[_idx];
+			glb_info->overwrite_uclamp_max[_idx] = glb_info->max_uclamp[_idx];
+		}
+	}
+	c2ps_info_unlock(&glb_info->mlock);
+}
+
+inline void set_glb_info_bg_util_margin(void)
+{
+	if (unlikely(!glb_info)) {
+		C2PS_LOGE("glb_info is null\n");
+		return;
+	}
+	c2ps_info_lock(&glb_info->mlock);
+	{
+		short _idx = 0;
+
+		glb_info->curr_um = 125;
+		for (; _idx < c2ps_nr_clusters; _idx++) {
+			glb_info->min_um[_idx] = 65;
+			glb_info->curr_um_val[_idx] = 125;
 		}
 	}
 	c2ps_info_unlock(&glb_info->mlock);
@@ -406,7 +690,7 @@ inline void set_glb_info_bg_uclamp_max(void)
 
 inline void update_vsync_time(u64 ts)
 {
-	if (!glb_info) {
+	if (unlikely(!glb_info)) {
 		C2PS_LOGE("glb_info is null\n");
 		return;
 	}
@@ -417,7 +701,7 @@ inline void update_vsync_time(u64 ts)
 
 inline void update_camfps(int camfps)
 {
-	if (!glb_info) {
+	if (unlikely(!glb_info)) {
 		C2PS_LOGE("glb_info is null\n");
 		return;
 	}
@@ -428,27 +712,11 @@ inline void update_camfps(int camfps)
 
 inline bool is_group_head(struct c2ps_task_info *tsk_info)
 {
-	if (!tsk_info) {
+	if (unlikely(!tsk_info)) {
 		C2PS_LOGE("tsk_info is null\n");
 		return false;
 	}
 	return tsk_info->task_id == tsk_info->tsk_group->group_head;
-}
-
-inline bool need_update_single_shot_uclamp_max(int *uclamp_max)
-{
-	short cluster_index = 0;
-
-	if (!glb_info) {
-		C2PS_LOGE("glb_info is null\n");
-		return false;
-	}
-
-	for (; cluster_index < c2ps_nr_clusters; ++cluster_index) {
-		if (uclamp_max[cluster_index] <= 0)
-			return false;
-	}
-	return true;
 }
 
 void c2ps_systrace_c(pid_t pid, int val, const char *fmt, ...)
@@ -458,7 +726,7 @@ void c2ps_systrace_c(pid_t pid, int val, const char *fmt, ...)
 	int len;
 	char buf[256];
 
-	if (!trace_c2ps_systrace_enabled())
+	if (likely(!trace_c2ps_systrace_enabled()))
 		return;
 
 	memset(log, ' ', sizeof(log));
@@ -488,7 +756,7 @@ void c2ps_main_systrace(const char *fmt, ...)
 	int len;
 	char buf[256];
 
-	if (!trace_c2ps_main_trace_enabled())
+	if (likely(!trace_c2ps_main_trace_enabled()))
 		return;
 
 	memset(log, ' ', sizeof(log));
@@ -518,7 +786,7 @@ void c2ps_bg_info_systrace(const char *fmt, ...)
 	int len;
 	char buf[256];
 
-	if (!trace_c2ps_bg_info_enabled())
+	if (likely(!trace_c2ps_bg_info_enabled()))
 		return;
 
 	memset(log, ' ', sizeof(log));
@@ -541,6 +809,66 @@ void c2ps_bg_info_systrace(const char *fmt, ...)
 	trace_c2ps_bg_info(buf);
 }
 
+void c2ps_bg_info_um_default_systrace(const char *fmt, ...)
+{
+	char log[256];
+	va_list args;
+	int len;
+	char buf[256];
+
+	if (likely(!trace_c2ps_bg_info_um_default_enabled()))
+		return;
+
+	memset(log, ' ', sizeof(log));
+	va_start(args, fmt);
+	len = vsnprintf(log, sizeof(log), fmt, args);
+	va_end(args);
+
+	if (unlikely(len < 0))
+		return;
+	else if (unlikely(len == 256))
+		log[255] = '\0';
+
+	len = snprintf(buf, sizeof(buf), "%s\n", log);
+
+	if (unlikely(len < 0))
+		return;
+	else if (unlikely(len == 256))
+		buf[255] = '\0';
+
+	trace_c2ps_bg_info_um_default(buf);
+}
+
+void c2ps_bg_info_um_systrace(const char *fmt, ...)
+{
+	char log[256];
+	va_list args;
+	int len;
+	char buf[256];
+
+	if (likely(!trace_c2ps_bg_info_um_enabled()))
+		return;
+
+	memset(log, ' ', sizeof(log));
+	va_start(args, fmt);
+	len = vsnprintf(log, sizeof(log), fmt, args);
+	va_end(args);
+
+	if (unlikely(len < 0))
+		return;
+	else if (unlikely(len == 256))
+		log[255] = '\0';
+
+	len = snprintf(buf, sizeof(buf), "%s\n", log);
+
+	if (unlikely(len < 0))
+		return;
+	else if (unlikely(len == 256))
+		buf[255] = '\0';
+
+	trace_c2ps_bg_info_um(buf);
+}
+
 void c2ps_critical_task_systrace(struct c2ps_task_info *tsk_info)
 {
 	int len;
@@ -550,11 +878,11 @@ void c2ps_critical_task_systrace(struct c2ps_task_info *tsk_info)
 	char buf[256];
 	struct task_struct *p;
 
-	if (!tsk_info) {
+	if (unlikely(!tsk_info)) {
 		C2PS_LOGE("tsk_info is null\n");
 		return;
 	}
-	if (!trace_c2ps_critical_task_enabled())
+	if (likely(!trace_c2ps_critical_task_enabled()))
 		return;
 
 	curr_util = tsk_info->latest_uclamp;
@@ -597,7 +925,7 @@ void *c2ps_alloc_atomic(int i32Size)
 
 void c2ps_free(void *pvBuf, int i32Size)
 {
-	if (!pvBuf)
+	if (unlikely(!pvBuf))
 		return;
 
 	if (i32Size <= PAGE_SIZE)
@@ -618,11 +946,11 @@ bool c2ps_get_cur_cpu_floor(const int cpu, int *floor_uclamp, int *floor_freq)
 {
 	struct cpufreq_policy *_policy;
 
-	if (!floor_uclamp || !floor_freq)
+	if (unlikely(!floor_uclamp || !floor_freq))
 		return false;
 
 	_policy = cpufreq_cpu_get(cpu);
-	if (_policy) {
+	if (likely(_policy)) {
 		*floor_freq = _policy->min;
 		cpufreq_cpu_put(_policy);
 		C2PS_LOGD("cpu%d floor freq: %d", cpu, *floor_freq);
@@ -632,6 +960,18 @@ bool c2ps_get_cur_cpu_floor(const int cpu, int *floor_uclamp, int *floor_freq)
 	}
 
 	return false;
+}
+
+u32 c2ps_get_cur_cpu_freq(const int cpu)
+{
+	u32 cur_cpu_freq = 0;
+	struct cpufreq_policy *_policy;
+
+	_policy = cpufreq_cpu_get(cpu);
+	if (likely(_policy))
+		cur_cpu_freq = _policy->cached_target_freq;
+
+	return cur_cpu_freq;
 }
 
 inline int c2ps_get_cpu_min_uclamp(const int cpu)
@@ -661,7 +1001,8 @@ bool c2ps_boost_cur_uclamp_max(const int cluster, struct global_info *g_info)
 	if (unlikely(cpu_index == -1))
 		return false;
 
-	if (!c2ps_get_cur_cpu_floor(cpu_index, &cur_floor_uclamp, &cur_cpu_floor_freq))
+	if (unlikely(!c2ps_get_cur_cpu_floor(
+				cpu_index, &cur_floor_uclamp, &cur_cpu_floor_freq)))
 		return false;
 
 	cur_uclamp_max_freq = c2ps_get_uclamp_freq(cpu_index, *cur_uclamp_max);
@@ -702,76 +1043,276 @@ int c2ps_get_first_cpu_of_cluster(int cluster)
 	return cpu;
 }
 
+void set_uclamp(const int pid, unsigned int max_util, unsigned int min_util)
+{
+	int ret = -1;
+	struct task_struct *p;
+	// unsigned long task_load;
+	struct sched_attr attr = {};
+
+	if (pid < 0)
+		return;
+
+	min_util = clamp(min_util, 1U, 1024U);
+	max_util = clamp(max_util, 1U, 1024U);
+
+	attr.sched_policy = SCHED_NORMAL;
+	attr.sched_flags = SCHED_FLAG_KEEP_ALL   |
+			   SCHED_FLAG_UTIL_CLAMP;
+
+	attr.sched_util_min = min_util;
+	attr.sched_util_max = max_util;
+
+	rcu_read_lock();
+	p = find_task_by_vpid(pid);
+	if (likely(p))
+		get_task_struct(p);
+	rcu_read_unlock();
+
+	if (likely(p)) {
+		C2PS_LOGD("check pid name: %s, pid: %d", p->comm, pid);
+		ret = sched_setattr_nocheck(p, &attr);
+		/* set this task to break system uclamp max limitation */
+		set_curr_uclamp_hint(pid, 1);
+
+		if (ret == 0) {
+			C2PS_LOGD("set uclamp(%d, %d) to %s successfully",
+					  attr.sched_util_min, attr.sched_util_max,
+					  p->comm);
+		} else {
+			C2PS_LOGD("set uclamp(%d, %d) to %s failed",
+					  attr.sched_util_min, attr.sched_util_max,
+					  p->comm);
+		}
+		put_task_struct(p);
+	}
+	c2ps_systrace_c(pid, min_util, "uclamp min");
+	c2ps_systrace_c(pid, max_util, "uclamp max");
+}
+
+void reset_task_eas_setting(int pid)
+{
+	int ret = -1;
+	struct task_struct *p;
+	struct sched_attr attr = {};
+	struct global_info *glb_info = get_glb_info();
+
+	if (unlikely(pid < 0))
+		return;
+	set_curr_uclamp_hint(pid, 0);
+
+	attr.sched_policy = SCHED_NORMAL;
+	attr.sched_flags = SCHED_FLAG_KEEP_ALL   |
+			   SCHED_FLAG_UTIL_CLAMP;
+
+	attr.sched_util_min = 1;
+	if (likely(glb_info != NULL)) {
+		attr.sched_util_max = max(glb_info->max_uclamp[0],
+			max(glb_info->max_uclamp[1], glb_info->max_uclamp[2]));
+		attr.sched_util_max = clamp(attr.sched_util_max, 1U, 1024U);
+	}
+
+	rcu_read_lock();
+	p = find_task_by_vpid(pid);
+	if (likely(p))
+		get_task_struct(p);
+	rcu_read_unlock();
+
+	if (likely(p)) {
+		ret = sched_setattr_nocheck(p, &attr);
+		if (ret == 0) {
+			C2PS_LOGD("reset uclamp(%d, %d) to %s successfully",
+				attr.sched_util_min, attr.sched_util_max,
+				p->comm);
+		} else {
+			C2PS_LOGD("reset uclamp(%d, %d) to %s failed",
+				attr.sched_util_min, attr.sched_util_max,
+				p->comm);
+		}
+		put_task_struct(p);
+	}
+}
+
+inline bool need_update_single_shot_uclamp_max(int *uclamp_max)
+{
+	short cluster_index = 0;
+
+	for (; cluster_index < c2ps_nr_clusters; ++cluster_index) {
+		if (uclamp_max[cluster_index] <= 0)
+			return false;
+	}
+	C2PS_LOGD("update single shot uclamp_max: %d, %d, %d",
+			uclamp_max[0], uclamp_max[1], uclamp_max[2]);
+	return true;
+}
+
+inline bool need_update_critical_task_uclamp(int *critical_task_uclamp)
+{
+	short task_idx = 0;
+
+	for (; task_idx < MAX_CRITICAL_TASKS; ++task_idx) {
+		if (critical_task_uclamp[task_idx] > 0)
+			return true;
+	}
+	return false;
+}
+
+void update_critical_task_uclamp_by_tsk_id(
+	int *critical_task_ids, int *critical_task_uclamp)
+{
+	short task_idx = 0;
+
+	if (!critical_task_ids || !critical_task_uclamp) {
+		C2PS_LOGE(
+			"critical_task_ids or critical_task_uclamp is NULL");
+		return;
+	}
+
+	for (; task_idx < MAX_CRITICAL_TASKS; ++task_idx) {
+		int task_id = critical_task_ids[task_idx];
+
+		if (task_id > 0) {
+			struct c2ps_task_info *tsk_info =
+						c2ps_find_task_info_by_tskid(task_id);
+
+			if (!tsk_info) {
+				C2PS_LOGE("tsk_info not found\n");
+				return;
+			}
+
+			c2ps_info_lock(&tsk_info->mlock);
+			tsk_info->default_uclamp = critical_task_uclamp[task_idx];
+			c2ps_info_unlock(&tsk_info->mlock);
+		}
+	}
+}
+
+static inline void update_short_period_idle_rate(
+	struct per_cpu_idle_rate *idle_rate, u64 *cur_idle_time, u64 *cur_wall_time)
+{
+	if (unlikely(idle_rate == NULL))
+		return;
+
+	idle_rate->s_idle = (100 * (*cur_idle_time - idle_rate->s_idle_time)) /
+				(*cur_wall_time - idle_rate->s_wall_time);
+
+	idle_rate->s_idle_time = *cur_idle_time;
+	idle_rate->s_wall_time = *cur_wall_time;
+}
+
+static inline void update_long_period_idle_rate(
+	struct per_cpu_idle_rate *idle_rate, u64 *cur_idle_time, u64 *cur_wall_time)
+{
+	if (unlikely(idle_rate == NULL))
+		return;
+
+	idle_rate->l_idle = (100 * (*cur_idle_time - idle_rate->l_idle_time)) /
+				(*cur_wall_time - idle_rate->l_wall_time);
+
+	idle_rate->l_idle_time = *cur_idle_time;
+	idle_rate->l_wall_time = *cur_wall_time;
+}
+
+static inline bool need_update_long_period_idle_rate(
+	struct per_cpu_idle_rate *idle_rate)
+{
+	return likely(idle_rate)? (++idle_rate->counter) % 2 : false;
+}
+
 void update_cpu_idle_rate(void)
 {
-	u64 idle_time, wall_time;
+	u64 _idle_time, _wall_time;
 	unsigned int _cpu_index = 0, _cluster_index = 0;
 	unsigned int _num_of_cpu[MAX_NUMBER_OF_CLUSTERS] = {0};
-	unsigned int _sum_of_idlerate[MAX_NUMBER_OF_CLUSTERS] = {0};
+	unsigned int _l_sum_of_idlerate[MAX_NUMBER_OF_CLUSTERS] = {0};
+	unsigned int _s_sum_of_idlerate[MAX_NUMBER_OF_CLUSTERS] = {0};
 	unsigned int _total_num_of_cpu = 0;
 	unsigned int _total_idlerate = 0;
 	bool _dangerous_idle_rate_state = false;
+	int _alert = 0;
+	bool _need_update_long_period = false;
 
-	if (!glb_info)
+	if (unlikely(!glb_info))
 		return;
+
+	_alert = glb_info->overwrite_idle_alert > 0 ?
+			glb_info->overwrite_idle_alert : background_idlerate_alert;
+	C2PS_LOGD("check idle rate alert: %d", _alert);
 
 	// Only timer callback will call this function, shouldn't lock
 	for (; _cpu_index < MAX_CPU_NUM; _cpu_index++) {
 		struct per_cpu_idle_rate *idle_rate =
 			&glb_info->cpu_idle_rates[_cpu_index];
 		int _cluster_idx = 0;
-
-		idle_time = get_cpu_idle_time(_cpu_index, &wall_time, 1);
-
-		idle_rate->idle = (100 * (idle_time - idle_rate->idle_time)) /
-					(wall_time - idle_rate->wall_time);
-
-		idle_rate->idle_time = idle_time;
-		idle_rate->wall_time = wall_time;
-		C2PS_LOGD("check idle rate: %u for cpu: %d", idle_rate->idle, _cpu_index);
-		c2ps_main_systrace("check idle rate: %u for cpu: %d",
-									idle_rate->idle, _cpu_index);
+		_idle_time = get_cpu_idle_time(_cpu_index, &_wall_time, 1);
 
 		_cluster_idx = topology_cluster_id(_cpu_index);
 
+		update_short_period_idle_rate(idle_rate, &_idle_time, &_wall_time);
+
+		if (need_update_long_period_idle_rate(idle_rate)) {
+			update_long_period_idle_rate(idle_rate, &_idle_time, &_wall_time);
+			C2PS_LOGD("check l_idle rate: %u for cpu: %d", idle_rate->l_idle, _cpu_index);
+			c2ps_main_systrace("check l_idle rate: %u for cpu: %d",
+										idle_rate->l_idle, _cpu_index);
+			_l_sum_of_idlerate[_cluster_idx] += idle_rate->l_idle;
+			_total_idlerate += idle_rate->l_idle;
+			_need_update_long_period = true;
+		}
+
 		_num_of_cpu[_cluster_idx]++;
-		_sum_of_idlerate[_cluster_idx] += idle_rate->idle;
 		_total_num_of_cpu++;
-		_total_idlerate += idle_rate->idle;
 	}
 
-	if (_total_idlerate < background_idlerate_dangerous * _total_num_of_cpu &&
-		glb_info->last_sum_idle_rate <
-						background_idlerate_dangerous * _total_num_of_cpu) {
-		_dangerous_idle_rate_state = true;
-		c2ps_main_systrace("current idle rate:%d touches dangerous idle rate",
-							_total_idlerate/_total_num_of_cpu);
-		C2PS_LOGD("current idle rate:%d touches dangerous idle rate",
-							_total_idlerate/_total_num_of_cpu);
+	if (_need_update_long_period) {
+		if (_total_idlerate < background_idlerate_dangerous * _total_num_of_cpu &&
+			glb_info->last_sum_idle_rate <
+							background_idlerate_dangerous * _total_num_of_cpu) {
+			_dangerous_idle_rate_state = true;
+			c2ps_main_systrace("current l_idle rate:%d touches dangerous l_idle rate",
+								_total_idlerate/_total_num_of_cpu);
+			C2PS_LOGD("current l_idle rate:%d touches dangerous l_idle rate",
+								_total_idlerate/_total_num_of_cpu);
+		}
+		glb_info->last_sum_idle_rate = _total_idlerate;
 	}
-	glb_info->last_sum_idle_rate = _total_idlerate;
 
 	for (; _cluster_index < c2ps_nr_clusters; _cluster_index++) {
+		u32 cur_cpu_freq = c2ps_get_cur_cpu_freq(
+					c2ps_get_first_cpu_of_cluster(_cluster_index));
 		if (c2ps_boost_cur_uclamp_max(_cluster_index, glb_info))
 			continue;
 
-		if (_dangerous_idle_rate_state) {
-			glb_info->need_update_uclamp[0] = 1;
-			glb_info->need_update_uclamp[1 + _cluster_index] = 2;
-		} else if (_sum_of_idlerate[_cluster_index] <
-			background_idlerate_alert * _num_of_cpu[_cluster_index]) {
-			glb_info->need_update_uclamp[0] = 1;
-			glb_info->need_update_uclamp[1 + _cluster_index] = 1;
-			c2ps_main_systrace("cluster: %u touches alert idle rate",
-									_cluster_index);
-		} else if (glb_info->curr_max_uclamp[_cluster_index] >
-					glb_info->max_uclamp[_cluster_index]) {
-			glb_info->need_update_uclamp[0] = 1;
-			if (_sum_of_idlerate[_cluster_index] >
-					background_idlerate_alert * _num_of_cpu[_cluster_index] * 2)
-				glb_info->need_update_uclamp[1 + _cluster_index] = -2;
-			else
-				glb_info->need_update_uclamp[1 + _cluster_index] = -1;
+		glb_info->s_loadxfreq[_cluster_index] =
+			(100-_s_sum_of_idlerate[_cluster_index]/ _num_of_cpu[_cluster_index])
+			* cur_cpu_freq;
+
+		if (_need_update_long_period) {
+			// per-gear uclamp max only reference cpu l_idle rate
+			if (_dangerous_idle_rate_state) {
+				glb_info->need_update_bg[0] = 1;
+				glb_info->need_update_bg[1 + _cluster_index] = 2;
+			} else if (_l_sum_of_idlerate[_cluster_index] <
+				_alert * _num_of_cpu[_cluster_index]) {
+				glb_info->need_update_bg[0] = 1;
+				glb_info->need_update_bg[1 + _cluster_index] = 1;
+				c2ps_main_systrace("cluster: %u touches alert l_idle rate",
+										_cluster_index);
+			} else if ((!c2ps_um_mode_on && (glb_info->curr_max_uclamp[_cluster_index] >
+						glb_info->max_uclamp[_cluster_index])) ||
+						(c2ps_um_mode_on && (glb_info->curr_um_val[_cluster_index] >
+						glb_info->min_um[_cluster_index]))) {
+				glb_info->need_update_bg[0] = 1;
+				if (_l_sum_of_idlerate[_cluster_index] >
+						_alert * _num_of_cpu[_cluster_index] * 2)
+					glb_info->need_update_bg[1 + _cluster_index] = -2;
+				else
+					glb_info->need_update_bg[1 + _cluster_index] = -1;
+			}
+
+			glb_info->l_loadxfreq[_cluster_index] =
+				(100-_l_sum_of_idlerate[_cluster_index]/_num_of_cpu[_cluster_index])
+				* cur_cpu_freq;
 		}
 	}
 
@@ -785,13 +1326,13 @@ void update_cpu_idle_rate(void)
 		c2ps_get_cluster_uclamp_freq(2, glb_info->curr_max_uclamp[2]));
 }
 
-inline bool need_update_background(void)
+bool need_update_background(void)
 {
-	if (!glb_info)
+	if (unlikely(!glb_info))
 		return false;
 
-	// temp solution, use alert = 100 to indicate release background uclamp max
-	if (background_idlerate_alert >= 100 || c2ps_placeholder) {
+	if (c2ps_placeholder) {
+		decide_special_uclamp_max(c2ps_placeholder);
 		if (!is_release_uclamp_max) {
 			c2ps_info_lock(&glb_info->mlock);
 			{
@@ -801,75 +1342,270 @@ inline bool need_update_background(void)
 					glb_info->recovery_uclamp_max[_idx] =
 								glb_info->curr_max_uclamp[_idx];
 				}
+
+				glb_info->use_uclamp_max_floor = true;
 			}
 			c2ps_info_unlock(&glb_info->mlock);
+			is_release_uclamp_max = true;
+			return true;
 		}
-		decide_special_uclamp_max(c2ps_placeholder);
-		is_release_uclamp_max = true;
-		glb_info->use_special_uclamp_max = true;
+	} else if (use_overwrite_uclamp_max()) {
+		size_t cluster_size = c2ps_nr_clusters * sizeof(int);
 
-		return true;
+		c2ps_info_lock(&glb_info->mlock);
+		memcpy(glb_info->uclamp_max_floor, glb_info->overwrite_uclamp_max, cluster_size);
+		c2ps_info_unlock(&glb_info->mlock);
+
+		if (!is_release_uclamp_max) {
+			c2ps_info_lock(&glb_info->mlock);
+			{
+				short _idx = 0;
+
+				for (; _idx < c2ps_nr_clusters; _idx++) {
+					glb_info->recovery_uclamp_max[_idx] =
+								glb_info->curr_max_uclamp[_idx];
+				}
+
+				glb_info->use_uclamp_max_floor = true;
+			}
+			c2ps_info_unlock(&glb_info->mlock);
+			is_release_uclamp_max = true;
+			return true;
+		}
 	}
 
 	if (is_release_uclamp_max)
 		reset_need_update_status();
 
-	return glb_info->need_update_uclamp[0];
+	return glb_info->need_update_bg[0];
 }
 
-inline void reset_need_update_status(void)
+void reset_need_update_status(void)
 {
-	if (!glb_info)
+	if (unlikely(!glb_info))
 		return;
 
-	if (is_release_uclamp_max &&
-		(background_idlerate_alert < 100 && !c2ps_placeholder)) {
-		int _recovery[MAX_NUMBER_OF_CLUSTERS] = {0};
-		short _cluster_idx = 0;
+	if (is_release_uclamp_max) {
+		if (!c2ps_placeholder && !use_overwrite_uclamp_max()) {
+			int _recovery[MAX_NUMBER_OF_CLUSTERS] = {0};
+			short _cluster_idx = 0;
 
-		for (; _cluster_idx < c2ps_nr_clusters; _cluster_idx++) {
-			_recovery[_cluster_idx] =
-				max(glb_info->recovery_uclamp_max[_cluster_idx],
-					glb_info->max_uclamp[_cluster_idx]);
-			if (recovery_uclamp_max_immediately)
-				set_gear_uclamp_max(_cluster_idx, _recovery[_cluster_idx]);
-		};
+			for (; _cluster_idx < c2ps_nr_clusters; _cluster_idx++) {
+				_recovery[_cluster_idx] =
+					max(glb_info->recovery_uclamp_max[_cluster_idx],
+						glb_info->max_uclamp[_cluster_idx]);
+				if (recovery_uclamp_max_immediately)
+					set_gear_uclamp_max(_cluster_idx, _recovery[_cluster_idx]);
+			};
 
-		c2ps_info_lock(&glb_info->mlock);
+			c2ps_info_lock(&glb_info->mlock);
 
-		if (recovery_uclamp_max_immediately) {
-			short _idx = 0;
-			for (; _idx < c2ps_nr_clusters; _idx++) {
-				glb_info->curr_max_uclamp[_idx] = _recovery[_idx];
-				glb_info->recovery_uclamp_max[_idx] = 0;
+			if (recovery_uclamp_max_immediately) {
+				short _idx = 0;
+
+				for (; _idx < c2ps_nr_clusters; _idx++) {
+					glb_info->curr_max_uclamp[_idx] = _recovery[_idx];
+					glb_info->recovery_uclamp_max[_idx] = 0;
+				}
 			}
-		}
 
-		glb_info->use_special_uclamp_max = false;
-		c2ps_info_unlock(&glb_info->mlock);
-		is_release_uclamp_max = false;
+			glb_info->use_uclamp_max_floor = false;
+			c2ps_info_unlock(&glb_info->mlock);
+			is_release_uclamp_max = false;
+		}
+	} else {
+		glb_info->need_update_bg[0] = 0;
 	}
-	glb_info->need_update_uclamp[0] = 0;
 }
 
-inline bool need_send_regulator_req(struct global_info *g_info)
+inline bool use_overwrite_uclamp_max(void)
 {
-	bool same_uclamp_max = true;
-	short cluster_idx = 0;
+	short _cluster_idx = 0;
 
-	if (!g_info)
+	if (unlikely(!glb_info))
 		return false;
 
-	for (; cluster_idx < c2ps_nr_clusters; cluster_idx++) {
-		if (likely(g_info->curr_max_uclamp[cluster_idx] !=
-				g_info->special_uclamp_max[cluster_idx])) {
-			same_uclamp_max = false;
-			break;
-		}
+	for (; _cluster_idx < c2ps_nr_clusters; _cluster_idx++) {
+		if (glb_info->overwrite_uclamp_max[_cluster_idx] !=
+			glb_info->max_uclamp[_cluster_idx])
+			return true;
+	}
+	return false;
+}
+
+inline void c2ps_set_util_margin(int cluster, int um)
+{
+	int margin = 100 - (10000/um);
+	int cpu;
+	struct cpumask *cpus;
+
+	if (unlikely(cluster < 0 || cluster >= c2ps_nr_clusters))
+		return;
+
+	C2PS_LOGW("check util margin: %d", margin);
+
+	set_sched_capacity_margin_dvfs(margin);
+
+	cpus = get_gear_cpumask(cluster);
+	for_each_cpu(cpu, cpus) {
+		set_target_margin_low(cpu, margin);
+		set_target_margin(cpu, margin);
+		set_turn_point_freq(cpu, INT_MAX);
+	}
+}
+
+inline void c2ps_set_turn_point_freq(int cluster, unsigned int freq)
+{
+	int cpu;
+	struct cpumask *cpus;
+
+	if (unlikely(cluster < 0 || cluster >= c2ps_nr_clusters))
+		return;
+
+	cpus = get_gear_cpumask(cluster);
+	for_each_cpu(cpu, cpus)
+		set_turn_point_freq(cpu, freq);
+}
+
+void set_eas_setting(void)
+{
+	if (likely(pre_eas_settings == NULL))
+		pre_eas_settings = kmalloc(sizeof(*pre_eas_settings), GFP_KERNEL);
+	if (unlikely(!pre_eas_settings)) {
+		C2PS_LOGE("pre_eas_settings OOM\n");
+		return;
 	}
 
-	return !(g_info->use_special_uclamp_max && same_uclamp_max);
+	pre_eas_settings->flt_ctrl_force = flt_ctrl_force_get();
+	pre_eas_settings->group_get_mode = group_get_mode();
+	pre_eas_settings->grp_dvfs_ctrl = get_grp_dvfs_ctrl();
+	pre_eas_settings->ignore_idle_ctrl = get_ignore_idle_ctrl();
+
+	// set flt off, ignore idle on
+	flt_ctrl_force_set(1);
+	group_set_mode(0);
+	set_grp_dvfs_ctrl(0);
+	set_ignore_idle_ctrl(1);
 }
+
+void reset_eas_setting(void)
+{
+	if (likely(!pre_eas_settings))
+		return;
+
+	flt_ctrl_force_set(0);
+	group_set_mode(pre_eas_settings->group_get_mode);
+	set_grp_dvfs_ctrl(pre_eas_settings->grp_dvfs_ctrl);
+	set_ignore_idle_ctrl(pre_eas_settings->ignore_idle_ctrl);
+}
+
+
+void c2ps_set_vip_task(int pid, int vip_prior,
+					unsigned int vip_throttle_time __maybe_unused)
+{
+	#ifdef NEW_C2PS_API_K66
+		switch (vip_prior) {
+		case 0:
+			set_task_basic_vip_and_throttle(pid, vip_throttle_time);
+			break;
+		case 1:
+		case 2:
+		case 3:
+			set_task_priority_based_vip_and_throttle(
+				pid, vip_prior, vip_throttle_time);
+			break;
+		case 4:
+			set_task_vvip_and_throttle(pid, vip_throttle_time);
+			break;
+		case -2:
+			if (is_task_vip(pid)) {
+				C2PS_LOGD("thread: %d unset VIP", pid);
+				c2ps_unset_vip_task(pid);
+			}
+			break;
+		default:
+			break;
+		}
+	#else
+		switch (vip_prior) {
+		case 0:
+		case 1:
+		case 2:
+		case 3:
+		case 4:
+			set_task_basic_vip(pid);
+			break;
+		case -2:
+			C2PS_LOGD("thread: %d unset VIP", pid);
+			unset_task_basic_vip(pid);
+			break;
+		default:
+			break;
+		}
+	#endif
+}
+
+inline bool is_task_vip(int pid)
+{
+	#ifdef NEW_C2PS_API_K66
+		struct task_struct *p;
+		int vip_prio = -1;
+		bool task_vip = false;
+
+		rcu_read_lock();
+		p = find_task_by_vpid(pid);
+		if (p) {
+			get_task_struct(p);
+			vip_prio = get_vip_task_prio(p);
+			if (prio_is_vip(vip_prio, -1))
+				task_vip = true;
+			put_task_struct(p);
+		}
+		rcu_read_unlock();
+		return task_vip;
+	#else
+		return false;
+	#endif
+}
+
+#ifdef NEW_C2PS_API_K66
+inline void c2ps_unset_vip_task(int pid)
+{
+	int vip_prior = get_vip_task_prio_by_pid(pid);
+
+	switch (vip_prior) {
+	case 0:
+		unset_task_basic_vip(pid);
+		break;
+	case 1:
+	case 2:
+	case 3:
+		unset_task_priority_based_vip(pid);
+		break;
+	case 4:
+		unset_task_vvip(pid);
+		break;
+	default:
+		break;
+	}
+}
+
+inline int get_vip_task_prio_by_pid(int pid)
+{
+	struct task_struct *p;
+	int vip_prior = -1;
+
+	rcu_read_lock();
+	p = find_task_by_vpid(pid);
+	if (p) {
+		get_task_struct(p);
+		vip_prior = get_vip_task_prio(p);
+		put_task_struct(p);
+	}
+	rcu_read_unlock();
+	return vip_prior;
+}
+#endif
 
 static ssize_t task_info_show(struct kobject *kobj,
 	struct kobj_attribute *attr,
@@ -882,7 +1618,7 @@ static ssize_t task_info_show(struct kobject *kobj,
 	int bkt = 0;
 
 	temp = kcalloc(C2PS_SYSFS_MAX_BUFF_SIZE, sizeof(char), GFP_KERNEL);
-	if (!temp)
+	if (unlikely(!temp))
 		goto out;
 
     length = scnprintf(temp + pos, C2PS_SYSFS_MAX_BUFF_SIZE - pos,
@@ -932,7 +1668,7 @@ static ssize_t gear_uclamp_max_store(struct kobject *kobj,
 	char *buffer = NULL;
 
 	buffer = kcalloc(C2PS_SYSFS_MAX_BUFF_SIZE, sizeof(char), GFP_KERNEL);
-	if (!buffer)
+	if (unlikely(!buffer))
 		goto out;
 
 	if ((count > 0) && (count < C2PS_SYSFS_MAX_BUFF_SIZE)) {
@@ -942,8 +1678,7 @@ static ssize_t gear_uclamp_max_store(struct kobject *kobj,
 		}
 	}
 
-	if (gearid < 0 || gearid >= get_nr_gears() ||
-		val < 0)
+	if (unlikely(gearid < 0 || gearid >= get_nr_gears() || val < 0))
 		goto out;
 
 	set_gear_uclamp_max(gearid, val);
@@ -973,9 +1708,11 @@ static KOBJ_ATTR_RW(gear_uclamp_max);
 int init_c2ps_common(void)
 {
 	int ret = 0;
+	u8 _cluster_idx = 0;
 
 	hash_init(task_info_tbl);
 	hash_init(task_group_info_tbl);
+	hash_init(anchor_tbl);
 	glb_info = kzalloc(sizeof(*glb_info), GFP_KERNEL);
 
 	if (unlikely(!glb_info)) {
@@ -985,12 +1722,20 @@ int init_c2ps_common(void)
 
 	mutex_init(&glb_info->mlock);
 
+	for (; _cluster_idx < c2ps_nr_clusters; _cluster_idx++) {
+		c2ps_init_kf(&(glb_info->slow_lxf_est[_cluster_idx]), LxF_S_KF_QVAL,
+			LxF_KF_MEAS_ERR, LxF_KF_MIN_EST_ERR);
+		c2ps_init_kf(&(glb_info->fast_lxf_est[_cluster_idx]), LxF_F_KF_QVAL,
+			LxF_KF_MEAS_ERR, LxF_KF_MIN_EST_ERR);
+	}
+
 	if (!(ret = c2ps_sysfs_create_dir(NULL, "common", &base_kobj))) {
 		c2ps_sysfs_create_file(base_kobj, &kobj_attr_task_info);
 		c2ps_sysfs_create_file(base_kobj, &kobj_attr_gear_uclamp_max);
 	}
 
 	set_glb_info_bg_uclamp_max();
+	set_glb_info_bg_util_margin();
 
 	return ret;
 }
@@ -999,8 +1744,15 @@ void exit_c2ps_common(void)
 {
 	c2ps_clear_task_info_table();
 	c2ps_clear_task_group_info_table();
+	c2ps_clear_anchor_table();
 	kfree(glb_info);
 	glb_info = NULL;
+
+	if (likely(pre_eas_settings != NULL)) {
+		kfree(pre_eas_settings);
+		pre_eas_settings = NULL;
+	}
+
 	is_release_uclamp_max = false;
 	c2ps_sysfs_remove_file(base_kobj, &kobj_attr_task_info);
 	c2ps_sysfs_remove_file(base_kobj, &kobj_attr_gear_uclamp_max);

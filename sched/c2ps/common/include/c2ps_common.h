@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-2.0
+/* SPDX-License-Identifier: GPL-2.0 */
 /*
  * Copyright (c) 2023 MediaTek Inc.
  */
@@ -16,7 +16,9 @@
 #include <linux/cpufreq.h>
 #include <linux/topology.h>
 #include <linux/time.h>
+#include <linux/hashtable.h>
 #include <uapi/linux/sched/types.h>
+#include <linux/version.h>
 
 #define MAX_WINDOW_SIZE 70
 #define MAX_CPU_NUM CONFIG_MAX_NR_CPUS
@@ -26,10 +28,29 @@
 #define MAX_TASK_NAME_SIZE 10
 #define MAX_UCLAMP 1024
 #define MIN_UCLAMP_MARGIN 50
+#define MAX_CRITICAL_TASKS 20
+// anchor kf param, use micro sec as unit scale
+#define ANCHOR_QUEUE_LEN 5
+#define ANC_KF_MIN_EST_ERR 100
+#define ANC_KF_QVAL 50
+#define ANC_KF_MEAS_ERR (5*1000)
+//
+#define LxF_KF_MEAS_ERR 1000
+#define LxF_KF_MIN_EST_ERR 10
+#define LxF_S_KF_QVAL 10
+#define LxF_F_KF_QVAL 20
+#define LxF_DIFF_THRES 10000
 
 extern int proc_time_window_size;
 extern int debug_log_on;
 extern unsigned int c2ps_nr_clusters;
+extern bool c2ps_um_mode_on;
+
+enum c2ps_env_status : int {
+	C2PS_STAT_NODEF = 0,
+	C2PS_STAT_STABLE,
+	C2PS_STAT_TRANSIENT,
+};
 
 struct c2ps_task_info {
 	u32 task_id;
@@ -58,9 +79,10 @@ struct c2ps_task_info {
 	bool is_vip_task;
 	bool is_active;
 	bool is_scene_changed;
+	bool vip_set_by_monitor;
 
 	/**
-	* update by uclamp regulator
+	* update by regulator
 	*/
 	unsigned int latest_uclamp;
 };
@@ -75,9 +97,58 @@ struct task_group_info {
 };
 
 struct per_cpu_idle_rate {
-	unsigned int idle;
-	u64 wall_time;
-	u64 idle_time;
+	unsigned int s_idle;
+	unsigned int l_idle;
+	u64 s_wall_time;
+	u64 s_idle_time;
+	u64 l_wall_time;
+	u64 l_idle_time;
+	u64 counter;
+};
+
+struct kf_est {
+	int64_t est_val;
+	int64_t est_err;
+	int64_t min_est_err;
+	int64_t q_val;
+	int64_t meas_err;
+};
+
+struct um_update_vote {
+	u32 total_voter_mul;
+	u32 curr_voter_mul;
+	// vote_result: -1:reduce um, 0:netual, 1:increase um
+	int vote_result;
+};
+
+struct um_table_item {
+	u8 um;
+	u64 latency;
+	u64 end_diff;
+	u64 jitter;
+	struct kf_est lat_est;
+	struct kf_est end_diff_est;
+	struct kf_est jit_est;
+	struct hlist_node hlist;
+};
+
+struct c2ps_anchor {
+	int anchor_id;
+	u32 latency_spec;
+	u32 jitter_spec;
+	int consec_jitter_pass;
+	bool is_last_anchor;
+	u8 s_idx;
+	u8 e_idx;
+	u64 s_hist_t[ANCHOR_QUEUE_LEN];
+	u64 e_hist_t[ANCHOR_QUEUE_LEN];
+	// latest info
+	u64 latest_duration;
+	u64 latest_to_fixed_start_duration;
+	// stable um table
+	struct hlist_head um_table_stbl[8];
+	// transient um table
+	struct hlist_node hlist;
 };
 
 struct global_info {
@@ -85,38 +156,70 @@ struct global_info {
 	int max_uclamp[MAX_NUMBER_OF_CLUSTERS];
 	int camfps;
 	u64 vsync_time;
+	/******** cpu idle rate related ********/
 	struct per_cpu_idle_rate cpu_idle_rates[MAX_CPU_NUM];
 	int last_sum_idle_rate;
+	// TODO(MTK): check if this can be simplified
+	u64 s_loadxfreq[MAX_CPU_NUM];
+	u64 l_loadxfreq[MAX_CPU_NUM];
+	struct kf_est slow_lxf_est[MAX_CPU_NUM];
+	struct kf_est fast_lxf_est[MAX_CPU_NUM];
+
 	/**
-	 * need_update_uclamp definition:
+	 * need_update_bg definition:
 	 * [if any needs update,
-	 *  LCore needs update, MCore needs update, LCore needs update]
+	 *  LCore needs update, MCore needs update, BCore needs update]
 	 *
-	 *  set 2: enter dangerous idle rate status, release uclamp max
-	 *  set 1: need to increase uclamp
-	 *  set 0: no need to modify uclamp
-	 *  set -1: be able to decrease uclamp
-	 *  set -2: decrease uclamp faster
+	 *  set 2: enter dangerous idle rate status, release uclamp max/um
+	 *  set 1: need to increase uclamp/um
+	 *  set 0: no need to modify uclamp/um
+	 *  set -1: be able to decrease uclamp/um
+	 *  set -2: decrease uclamp/um faster
 	 */
-	int need_update_uclamp[1 + MAX_NUMBER_OF_CLUSTERS];
+	int need_update_bg[1 + MAX_NUMBER_OF_CLUSTERS];
+	/******** per-gear uclamp max related ********/
 	int curr_max_uclamp[MAX_NUMBER_OF_CLUSTERS];
-	bool use_special_uclamp_max;
+	bool use_uclamp_max_floor;
 	int special_uclamp_max[MAX_NUMBER_OF_CLUSTERS];
 	int recovery_uclamp_max[MAX_NUMBER_OF_CLUSTERS];
 	int overwrite_uclamp_max[MAX_NUMBER_OF_CLUSTERS];
 	int uclamp_max_placeholder1[MAX_NUMBER_OF_CLUSTERS];
 	int uclamp_max_placeholder2[MAX_NUMBER_OF_CLUSTERS];
 	int uclamp_max_placeholder3[MAX_NUMBER_OF_CLUSTERS];
+	int uclamp_max_floor[MAX_NUMBER_OF_CLUSTERS];
+	int uclamp_max_ceiling[MAX_NUMBER_OF_CLUSTERS];
+	int overwrite_idle_alert;
+	/********  um related ********/
+	// TODO(MTK): anc_fixed functionality is not ready
+	// struct c2ps_anchor *anc_fixed;
+
+	// um setting when spec. provided
+	int curr_um;
+	// um setting for idle rate control
+	int curr_um_val[MAX_NUMBER_OF_CLUSTERS];
+	int min_um[MAX_NUMBER_OF_CLUSTERS];
+	struct um_update_vote um_vote;
+	enum c2ps_env_status stat;
 	struct mutex mlock;
+};
+
+struct eas_settings {
+	// disable flt
+	bool flt_ctrl_force;
+	int group_get_mode;
+	int grp_dvfs_ctrl;
+	// skip idle
+	int ignore_idle_ctrl;
 };
 
 struct regulator_req {
 	struct c2ps_task_info *tsk_info;
 	struct global_info *glb_info;
+	struct c2ps_anchor *anc_info;
 	struct list_head queue_list;
+	enum c2ps_env_status stat;
 	bool is_flush;
 };
-
 
 #define C2PS_LOGD(fmt, ...)                                                 \
 	do {                                                                    \
@@ -153,6 +256,9 @@ int set_curr_uclamp_hint_wo_lock(struct task_struct *p, int set);
 struct c2ps_task_info *c2ps_find_task_info_by_tskid(int task_id);
 int c2ps_add_task_info(struct c2ps_task_info *tsk_info);
 void c2ps_clear_task_info_table(void);
+struct c2ps_anchor *c2ps_find_anchor_by_id(int anc_id);
+int c2ps_add_anchor(struct c2ps_anchor *anc_info);
+void c2ps_clear_anchor_table(void);
 u64 c2ps_task_sched_runtime(struct task_struct *p);
 u64 c2ps_get_sum_exec_runtime(int pid);
 void c2ps_task_info_tbl_lock(const char *tag);
@@ -165,6 +271,15 @@ void c2ps_task_group_info_tbl_lock(const char *tag);
 void c2ps_task_group_info_tbl_unlock(const char *tag);
 void c2ps_info_lock(struct mutex *mlock);
 void c2ps_info_unlock(struct mutex *mlock);
+void c2ps_anchor_tbl_lock(void);
+void c2ps_anchor_tbl_unlock(void);
+struct um_table_item *c2ps_find_um_table_by_um(struct c2ps_anchor *anc, int um);
+int c2ps_add_um_table(struct c2ps_anchor *anc, struct um_table_item *table);
+void c2ps_init_kf(
+	struct kf_est *kf, int64_t q_val, int64_t meas_err, int64_t min_est_err);
+u64 c2ps_cal_kf_est(struct kf_est *kf, u64 cur_obs);
+void c2ps_update_um_table(struct c2ps_anchor *anc);
+void c2ps_check_last_anc(struct c2ps_anchor *anc);
 u64 c2ps_get_time(void);
 void c2ps_update_task_info_hist(struct c2ps_task_info *tsk_info);
 struct global_info *get_glb_info(void);
@@ -175,6 +290,8 @@ void update_camfps(int camfps);
 bool is_group_head(struct c2ps_task_info *tsk_info);
 void c2ps_systrace_c(pid_t pid, int val, const char *fmt, ...);
 void c2ps_bg_info_systrace(const char *fmt, ...);
+void c2ps_bg_info_um_systrace(const char *fmt, ...);
+void c2ps_bg_info_um_default_systrace(const char *fmt, ...);
 void c2ps_main_systrace(const char *fmt, ...);
 void c2ps_critical_task_systrace(struct c2ps_task_info *tsk_info);
 void *c2ps_alloc_atomic(int i32Size);
@@ -183,16 +300,28 @@ void set_glb_info_bg_uclamp_max(void);
 void update_cpu_idle_rate(void);
 bool need_update_background(void);
 void reset_need_update_status(void);
+void set_eas_setting(void);
+void reset_eas_setting(void);
 unsigned long c2ps_get_uclamp_freq(int cpu,  unsigned int uclamp);
 bool c2ps_get_cur_cpu_floor(const int cpu, int *floor_uclamp, int *floor_freq);
+u32 c2ps_get_cur_cpu_freq(const int cpu);
 int c2ps_get_cpu_min_uclamp(const int cpu);
 int c2ps_get_cpu_max_uclamp(const int cpu);
 bool c2ps_boost_cur_uclamp_max(const int cluster, struct global_info *g_info);
 int c2ps_get_first_cpu_of_cluster(int cluster);
 unsigned long c2ps_get_cluster_uclamp_freq(int cluster,  unsigned int uclamp);
 bool need_update_single_shot_uclamp_max(int *uclamp_max);
-bool need_send_regulator_req(struct global_info *g_info);
-
+bool need_update_critical_task_uclamp(int *critical_task_uclamp);
+void c2ps_set_util_margin(int cluster, int um);
+void c2ps_set_turn_point_freq(int cluster, unsigned int freq);
+void set_glb_info_bg_util_margin(void);
+void c2ps_set_vip_task(int pid, int vip_prior, unsigned int vip_throttle_time);
+bool is_task_vip(int pid);
+bool use_overwrite_uclamp_max(void);
+void update_critical_task_uclamp_by_tsk_id(
+	int *critical_task_ids, int *critical_task_uclamp);
+void set_uclamp(const int pid, unsigned int max_util, unsigned int min_util);
+void reset_task_eas_setting(int pid);
 
 extern void set_curr_uclamp_ctrl(int val);
 extern void set_gear_uclamp_ctrl(int val);
@@ -202,14 +331,40 @@ extern unsigned long pd_get_util_freq(int cpu, unsigned long util);
 extern unsigned int get_nr_gears(void);
 extern void set_wl_type_manual(int val);
 extern int get_nr_wl_type(void);
-// extern void set_rt_aggre_preempt(int val);
 extern unsigned int get_adaptive_margin(int cpu);
 extern struct cpufreq_policy *cpufreq_cpu_get(unsigned int cpu);
 extern void cpufreq_cpu_put(struct cpufreq_policy *policy);
 extern unsigned long pd_get_freq_util(unsigned int cpu, unsigned long freq);
 extern struct cpumask *get_gear_cpumask(unsigned int gear);
 extern void set_task_ls(int pid);
+extern void unset_task_ls(int pid);
 extern void set_task_basic_vip(int pid);
 extern void unset_task_basic_vip(int pid);
+extern int set_sched_capacity_margin_dvfs(int capacity_margin);
+extern int set_target_margin_low(int cpu, int margin);
+extern int set_target_margin(int cpu, int margin);
+extern int set_turn_point_freq(int cpu, unsigned long freq);
+extern bool flt_ctrl_force_get(void);
+extern void flt_ctrl_force_set(int set);
+extern u32 group_get_mode(void);
+extern void group_set_mode(u32 mode);
+extern int get_grp_dvfs_ctrl(void);
+extern void set_grp_dvfs_ctrl(int set);
+extern bool get_ignore_idle_ctrl(void);
+extern void set_ignore_idle_ctrl(bool val);
+
+#ifdef NEW_C2PS_API_K66
+int get_vip_task_prio_by_pid(int pid);
+void c2ps_unset_vip_task(int pid);
+extern void set_task_vvip_and_throttle(int pid, unsigned int throttle_time);
+extern void set_task_priority_based_vip_and_throttle(
+	int pid, int prio, unsigned int throttle_time);
+extern void set_task_basic_vip_and_throttle(
+	int pid, unsigned int throttle_time);
+extern int get_vip_task_prio(struct task_struct *p);
+extern bool prio_is_vip(int vip_prio, int type);
+extern void unset_task_priority_based_vip(int pid);
+extern void unset_task_vvip(int pid);
+#endif
 
 #endif  // C2PS_COMMON_INCLUDE_C2PS_COMMON_H_

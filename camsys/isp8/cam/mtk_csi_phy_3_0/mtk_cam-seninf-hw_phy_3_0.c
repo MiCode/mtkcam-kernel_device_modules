@@ -4656,8 +4656,9 @@ static int mtk_cam_seninf_debug(struct seninf_ctx *ctx)
 	seninf_irq = mtk_cam_seninf_get_async_irq_st(ctx, ctx->seninfAsyncIdx, 1);
 	temp = SENINF_READ_REG(base_csi_mac,
 		CSIRX_CSI2_IRQ_MULTI_ERR_FRAME_SYNC_STATUS);
-	if ((mac_irq & ~(0x324)))
-		SENINF_WRITE_REG(base_csi_mac, CSIRX_MAC_CSI2_IRQ_STATUS, 0xffffffff);
+	// always clear irq status and multi-framesync status
+	SENINF_WRITE_REG(base_csi_mac, CSIRX_MAC_CSI2_IRQ_STATUS, 0xffffffff);
+	SENINF_WRITE_REG(base_csi_mac, CSIRX_CSI2_IRQ_MULTI_ERR_FRAME_SYNC_STATUS, temp);
 
 	dev_info(ctx->dev,
 		"CSI-%d,CSIRX_MAC_CSI2_EN/_OPT/_IRQ_STATUS/_MULTI_ERR_F_STATUS:(0x%x)/(0x%x)/(0x%x)/(0x%x),SENINF_ASYNC%d_OVERRUN:(0x%x),CSIRX_MAC_CSI2_RESYNC_MERGE_CTRL:(0x%x)\n",
@@ -4750,6 +4751,12 @@ static int mtk_cam_seninf_debug(struct seninf_ctx *ctx)
 		ctx->portNum, mac_irq, temp, ctx->seninfAsyncIdx, seninf_irq, cphy_irq, dphy_irq);
 	if ((mac_irq & 0xD0) || seninf_irq)
 		ret = -2; //multi lanes sync error, crc error, ecc error
+
+	if ((ret == -1) && (mac_irq & 0x324)) {
+		seninf_logi(ctx,
+			"packet count is not changed but IRQ status raised still, so it would be false alarm due to all checking are in vb");
+		ret = 0;
+	}
 
 	dev_info(ctx->dev,
 		"CSIRX_MAC_CSI2_SIZE_CHK_CTRL0/_CTRL1/_CTRL2/_CTRL3/_CTRL4:(0x%x)/(0x%x)/(0x%x)/(0x%x)/(0x%x)\n",

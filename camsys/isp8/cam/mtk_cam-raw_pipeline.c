@@ -531,8 +531,14 @@ static bool frontal_pixmode_validate(struct mtk_cam_res_calc *c,
 
 static inline int mtk_pixelmode_val(int pxl_mode)
 {
-	WARN(pxl_mode & (pxl_mode - 1), "wrong pixel mode %d\n", pxl_mode);
-	return ffs(pxl_mode) - 1;
+	int power = 1;
+
+	/* align to power of 2 for backend */
+	while (power < pxl_mode)
+		power *= 2;
+	power = min(8, power);
+
+	return ffs(power) - 1;
 }
 
 /* 0: disable, 1: 2x2, 2: 3x3 3: 4x4 */

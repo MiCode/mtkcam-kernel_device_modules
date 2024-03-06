@@ -480,6 +480,12 @@ struct EnqueParam {
 	uint8_t semanticMerge[AISEG_POP_GROUP_SIZE][SEMANTIC_MERGE_NUM];
 	uint8_t personMerge[AISEG_POP_GROUP_SIZE][PERSON_MERGE_NUM];
 	uint8_t mergeConfidence[AISEG_POP_GROUP_SIZE][MERGE_CONFIDENCE_NUM];
+
+	// for dump bin file
+	uint32_t coef_dump_offset[MAX_OUTER_LOOP_NUM];
+	uint32_t coef_dump_size[MAX_OUTER_LOOP_NUM];
+	uint32_t config_dump_offset[MAX_OUTER_LOOP_NUM];
+	uint32_t config_dump_size[MAX_OUTER_LOOP_NUM];
 };
 #endif
 

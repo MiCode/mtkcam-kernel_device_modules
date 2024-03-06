@@ -1036,8 +1036,10 @@ static int g_preload_eeprom_data(struct adaptor_ctx *ctx, void *arg)
 
 	para.u32[0] = 0;
 
+	adaptor_logi(ctx, "[%s] +\n", __func__);
 	subdrv_call(ctx, feature_control,
 		SENSOR_FEATURE_PRELOAD_EEPROM_DATA, para.u8, &len);
+	adaptor_logi(ctx, "[%s] -\n", __func__);
 
 	*info = para.u32[0];
 

@@ -175,7 +175,6 @@ void set_i2c_buffer(struct subdrv_ctx *ctx, u16 reg, u16 val)
 
 u16 i2c_multi_read_eeprom(struct subdrv_ctx *ctx, u16 addr, u16 size, u8 *pbuf)
 {
-	int i;
 	u16 idx;
 	u8 write_id;
 
@@ -184,8 +183,7 @@ u16 i2c_multi_read_eeprom(struct subdrv_ctx *ctx, u16 addr, u16 size, u8 *pbuf)
 
 	idx = ctx->eeprom_index;
 	write_id = ctx->s_ctx.eeprom_info[idx].i2c_write_id;
-	for (i = 0; i < size; i++)
-		adaptor_i2c_rd_u8(ctx->i2c_client, write_id >> 1, addr + i, pbuf + i);
+	adaptor_i2c_rd_p8(ctx->i2c_client, write_id >> 1, addr, pbuf, size);
 
 	return 0;
 }

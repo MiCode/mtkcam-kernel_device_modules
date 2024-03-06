@@ -152,14 +152,16 @@ void set_i2c_buffer(struct subdrv_ctx *ctx, u16 reg, u16 val)
 	}
 }
 
-u16 i2c_read_eeprom(struct subdrv_ctx *ctx, u16 addr)
+u16 i2c_multi_read_eeprom(struct subdrv_ctx *ctx, u16 addr, u16 size, u8 *pbuf)
 {
-	u16 get_byte = 0;
-	u16 idx = ctx->eeprom_index;
-	u8 write_id = ctx->s_ctx.eeprom_info[idx].i2c_write_id;
+	u16 idx;
+	u8 write_id;
 
-	adaptor_i2c_rd_u8(ctx->i2c_client, write_id >> 1, addr, (u8 *)&get_byte);
-	return get_byte;
+	idx = ctx->eeprom_index;
+	write_id = ctx->s_ctx.eeprom_info[idx].i2c_write_id;
+	adaptor_i2c_rd_p8(ctx->i2c_client, write_id >> 1, addr, pbuf, size);
+
+	return 0;
 }
 
 void get_pdaf_reg_setting(struct subdrv_ctx *ctx, u32 regNum, u16 *regDa)
@@ -230,10 +232,7 @@ bool probe_eeprom(struct subdrv_ctx *ctx)
 	for (idx = 0; idx < eeprom_num; idx++) {
 		ctx->eeprom_index = idx;
 		addr_header_id = info[idx].addr_header_id;
-		header_id =	i2c_read_eeprom(ctx, addr_header_id) |
-			(i2c_read_eeprom(ctx, addr_header_id + 1) << 8) |
-			(i2c_read_eeprom(ctx, addr_header_id + 2) << 16) |
-			(i2c_read_eeprom(ctx, addr_header_id + 3) << 24);
+		i2c_multi_read_eeprom(ctx, addr_header_id, sizeof(header_id), (u8 *)&header_id);
 		DRV_LOG(ctx, "eeprom index[cur/total]:%u/%u, header id[cur/exp]:0x%08x/0x%08x\n",
 			idx, eeprom_num, header_id, info[idx].header_id);
 		if (header_id == info[idx].header_id) {
@@ -252,7 +251,6 @@ void read_sensor_Cali(struct subdrv_ctx *ctx)
 	u8 *buf = NULL;
 	u16 size = 0;
 	u16 addr = 0;
-	int i = 0;
 	struct eeprom_info_struct *info = ctx->s_ctx.eeprom_info;
 
 	/* Probe EEPROM device */
@@ -269,13 +267,10 @@ void read_sensor_Cali(struct subdrv_ctx *ctx)
 	if (support && size > 0) {
 		if (info[idx].preload_qsc_table == NULL) {
 			info[idx].preload_qsc_table = kmalloc(size, GFP_KERNEL);
-			if (buf == NULL) {
-				for (i = 0; i < size; i++)
-					*(info[idx].preload_qsc_table + i) =
-					i2c_read_eeprom(ctx, addr + i);
-			} else {
+			if (buf == NULL)
+				i2c_multi_read_eeprom(ctx, addr, size, info[idx].preload_qsc_table);
+			else
 				memcpy(info[idx].preload_qsc_table, buf, size);
-			}
 			DRV_LOG(ctx, "preload QSC data %u bytes", size);
 		} else {
 			DRV_LOG(ctx, "QSC data is already preloaded %u bytes", size);
@@ -290,13 +285,10 @@ void read_sensor_Cali(struct subdrv_ctx *ctx)
 	if (support && size > 0) {
 		if (info[idx].preload_pdc_table == NULL) {
 			info[idx].preload_pdc_table = kmalloc(size, GFP_KERNEL);
-			if (buf == NULL) {
-				for (i = 0; i < size; i++)
-					*(info[idx].preload_pdc_table + i) =
-					i2c_read_eeprom(ctx, addr + i);
-			} else {
+			if (buf == NULL)
+				i2c_multi_read_eeprom(ctx, addr, size, info[idx].preload_pdc_table);
+			else
 				memcpy(info[idx].preload_pdc_table, buf, size);
-			}
 			DRV_LOG(ctx, "preload PDC data %u bytes", size);
 		} else {
 			DRV_LOG(ctx, "PDC data is already preloaded %u bytes", size);
@@ -311,13 +303,10 @@ void read_sensor_Cali(struct subdrv_ctx *ctx)
 	if (support && size > 0) {
 		if (info[idx].preload_lrc_table == NULL) {
 			info[idx].preload_lrc_table = kmalloc(size, GFP_KERNEL);
-			if (buf == NULL) {
-				for (i = 0; i < size; i++)
-					*(info[idx].preload_lrc_table + i) =
-					i2c_read_eeprom(ctx, addr + i);
-			} else {
+			if (buf == NULL)
+				i2c_multi_read_eeprom(ctx, addr, size, info[idx].preload_lrc_table);
+			else
 				memcpy(info[idx].preload_lrc_table, buf, size);
-			}
 			DRV_LOG(ctx, "preload LRC data %u bytes", size);
 		} else {
 			DRV_LOG(ctx, "LRC data is already preloaded %u bytes", size);
@@ -332,13 +321,10 @@ void read_sensor_Cali(struct subdrv_ctx *ctx)
 	if (support && size > 0) {
 		if (info[idx].preload_xtalk_table == NULL) {
 			info[idx].preload_xtalk_table = kmalloc(size, GFP_KERNEL);
-			if (buf == NULL) {
-				for (i = 0; i < size; i++)
-					*(info[idx].preload_xtalk_table + i) =
-					i2c_read_eeprom(ctx, addr + i);
-			} else {
+			if (buf == NULL)
+				i2c_multi_read_eeprom(ctx, addr, size, info[idx].preload_xtalk_table);
+			else
 				memcpy(info[idx].preload_xtalk_table, buf, size);
-			}
 			DRV_LOG(ctx, "preload XTALK data %u bytes", size);
 		} else {
 			DRV_LOG(ctx, "XTALK data is already preloaded %u bytes", size);

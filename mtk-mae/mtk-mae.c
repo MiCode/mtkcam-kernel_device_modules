@@ -381,9 +381,9 @@ static int mtk_mae_set_dmabuf_info(struct mtk_mae_dev *mae_dev,
 
 	if (addr_type == GET_VA || addr_type == GET_BOTH) {
 #ifdef MAE_DMA_BUF_UNLOCK_API
-		ret = (uint64_t)dma_buf_vmap_unlocked(info->dmabuf, &info->map);
+		ret = dma_buf_vmap_unlocked(info->dmabuf, &info->map);
 #else
-		ret = (uint64_t)dma_buf_vmap(info->dmabuf, &info->map);
+		ret = dma_buf_vmap(info->dmabuf, &info->map);
 #endif
 		if (ret) {
 			mae_dev_info(mae_dev->dev, "%s, map kernel va failed fd(%d)\n",
@@ -391,7 +391,7 @@ static int mtk_mae_set_dmabuf_info(struct mtk_mae_dev *mae_dev,
 				ret = -ENOMEM;
 				goto ERROR_DMA_BUF_VMAP_FAIL;
 		}
-		info->kva = (unsigned long long)info->map.vaddr;
+		info->kva = (uint64_t)info->map.vaddr;
 
 		info->is_map = true;
 	}

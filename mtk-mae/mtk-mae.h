@@ -725,10 +725,10 @@ enum MAE_ADDR_TYPE {
 struct dmabuf_info {
 	struct dma_buf *dmabuf;
 	bool is_map;
-	unsigned long long kva;
+	uint64_t kva;
 	struct iosys_map map;
 	bool is_attach;
-	unsigned long long pa;
+	uint64_t pa;
 	struct dma_buf_attachment *attach;
 	struct sg_table *sg_table;
 };

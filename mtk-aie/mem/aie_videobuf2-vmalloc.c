@@ -366,7 +366,11 @@ static int aie_vb2_vmalloc_map_dmabuf(void *mem_priv)
 	struct iosys_map map;
 	int ret;
 
+#ifdef AIE_DMA_BUF_UNLOCK_API
+	ret = dma_buf_vmap_unlocked(buf->dbuf, &map);
+#else
 	ret = dma_buf_vmap(buf->dbuf, &map);
+#endif
 	if (ret)
 		return -EFAULT;
 	buf->vaddr = map.vaddr;
@@ -379,7 +383,11 @@ static void aie_vb2_vmalloc_unmap_dmabuf(void *mem_priv)
 	struct vb2_vmalloc_buf *buf = mem_priv;
 	struct iosys_map map = IOSYS_MAP_INIT_VADDR(buf->vaddr);
 
+#ifdef AIE_DMA_BUF_UNLOCK_API
+	dma_buf_vunmap_unlocked(buf->dbuf, &map);
+#else
 	dma_buf_vunmap(buf->dbuf, &map);
+#endif
 	buf->vaddr = NULL;
 }
 
@@ -389,7 +397,11 @@ static void aie_vb2_vmalloc_detach_dmabuf(void *mem_priv)
 	struct iosys_map map = IOSYS_MAP_INIT_VADDR(buf->vaddr);
 
 	if (buf->vaddr)
+#ifdef AIE_DMA_BUF_UNLOCK_API
+		dma_buf_vunmap_unlocked(buf->dbuf, &map);
+#else
 		dma_buf_vunmap(buf->dbuf, &map);
+#endif
 
 	kfree(buf);
 }

@@ -76,7 +76,11 @@ static void *aie_vb2_dc_vaddr(struct vb2_buffer *vb, void *buf_priv)
 	int ret;
 
 	if (!buf->vaddr && buf->db_attach) {
+#ifdef AIE_DMA_BUF_UNLOCK_API
+		ret = dma_buf_vmap_unlocked(buf->db_attach->dmabuf, &map);
+#else
 		ret = dma_buf_vmap(buf->db_attach->dmabuf, &map);
+#endif
 		buf->vaddr = ret ? NULL : map.vaddr;
 	}
 
@@ -592,7 +596,11 @@ static int aie_vb2_dc_map_dmabuf(void *mem_priv)
 	}
 	buf->db_attach->dma_map_attrs |= DMA_ATTR_SKIP_CPU_SYNC;
 	/* get the associated scatterlist for this buffer */
+#ifdef AIE_DMA_BUF_UNLOCK_API
+	sgt = dma_buf_map_attachment_unlocked(buf->db_attach, buf->dma_dir);
+#else
 	sgt = dma_buf_map_attachment(buf->db_attach, buf->dma_dir);
+#endif
 	if (IS_ERR(sgt)) {
 		pr_info("Error getting dmabuf scatterlist\n");
 		return -EINVAL;
@@ -603,7 +611,11 @@ static int aie_vb2_dc_map_dmabuf(void *mem_priv)
 	if (contig_size < buf->size) {
 		pr_info("contiguous chunk is too small %lu/%lu\n",
 		       contig_size, buf->size);
+#ifdef AIE_DMA_BUF_UNLOCK_API
+		dma_buf_unmap_attachment_unlocked(buf->db_attach, sgt, buf->dma_dir);
+#else
 		dma_buf_unmap_attachment(buf->db_attach, sgt, buf->dma_dir);
+#endif
 		return -EFAULT;
 	}
 
@@ -631,11 +643,18 @@ static void aie_vb2_dc_unmap_dmabuf(void *mem_priv)
 	}
 
 	if (buf->vaddr) {
+#ifdef AIE_DMA_BUF_UNLOCK_API
+		dma_buf_vunmap_unlocked(buf->db_attach->dmabuf, &map);
+#else
 		dma_buf_vunmap(buf->db_attach->dmabuf, &map);
+#endif
 		buf->vaddr = NULL;
 	}
+#ifdef AIE_DMA_BUF_UNLOCK_API
+	dma_buf_unmap_attachment_unlocked(buf->db_attach, sgt, buf->dma_dir);
+#else
 	dma_buf_unmap_attachment(buf->db_attach, sgt, buf->dma_dir);
-
+#endif
 	buf->dma_addr = 0;
 	buf->dma_sgt = NULL;
 }

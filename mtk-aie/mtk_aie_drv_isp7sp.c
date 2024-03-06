@@ -14,6 +14,7 @@
 #include <linux/dma-heap.h>
 #include <linux/soc/mediatek/mtk_sip_svc.h>
 #include <linux/arm-smccc.h>
+#include <linux/version.h>
 #include "mtk_heap.h"
 #include <uapi/linux/dma-heap.h>
 #include <linux/scatterlist.h>
@@ -977,7 +978,11 @@ static void aie_free_iova(struct mtk_aie_dev *fd, struct imem_buf_info *bufinfo)
 {
 	if (bufinfo->pa) {
 		/*free iova*/
+#ifdef AIE_DMA_BUF_UNLOCK_API
+		dma_buf_unmap_attachment_unlocked(bufinfo->attach, bufinfo->sgt, DMA_BIDIRECTIONAL);
+#else
 		dma_buf_unmap_attachment(bufinfo->attach, bufinfo->sgt, DMA_BIDIRECTIONAL);
+#endif
 		dma_buf_detach(bufinfo->dmabuf, bufinfo->attach);
 		bufinfo->pa = 0;
 	}
@@ -986,7 +991,11 @@ static void aie_free_iova(struct mtk_aie_dev *fd, struct imem_buf_info *bufinfo)
 static void aie_free_va(struct mtk_aie_dev *fd, struct imem_buf_info *bufinfo)
 {
 	if (bufinfo->va) {
+#ifdef AIE_DMA_BUF_UNLOCK_API
+		dma_buf_vunmap_unlocked(bufinfo->dmabuf, &bufinfo->map);
+#else
 		dma_buf_vunmap(bufinfo->dmabuf, &bufinfo->map);
+#endif
 		bufinfo->va = NULL;
 	}
 }
@@ -1043,7 +1052,11 @@ static unsigned long long aie_get_sec_iova(struct mtk_aie_dev *fd, struct dma_bu
 	}
 	bufinfo->attach = attach;
 
+#ifdef AIE_DMA_BUF_UNLOCK_API
+	sgt = dma_buf_map_attachment_unlocked(attach, DMA_BIDIRECTIONAL);
+#else
 	sgt = dma_buf_map_attachment(attach, DMA_BIDIRECTIONAL);
+#endif
 	if (IS_ERR(sgt)) {
 		aie_dev_info(fd->dev, "map failed, detach and return\n");
 		dma_buf_detach(my_dma_buf, attach);
@@ -1062,7 +1075,11 @@ static void *aie_get_va(struct mtk_aie_dev *fd, struct dma_buf *my_dma_buf,
 	void *buf_ptr = NULL;
 	int ret = 0;
 
+#ifdef AIE_DMA_BUF_UNLOCK_API
+	ret = dma_buf_vmap_unlocked(my_dma_buf, &bufinfo->map);
+#else
 	ret = dma_buf_vmap(my_dma_buf, &bufinfo->map);
+#endif
 	if (ret) {
 		aie_dev_info(fd->dev, "%s, map kernel va failed\n", __func__);
 		return NULL;

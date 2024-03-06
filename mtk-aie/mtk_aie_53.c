@@ -19,6 +19,7 @@
 #include <linux/pm_runtime.h>
 #include <linux/remoteproc.h>
 #include <linux/device.h>
+#include <linux/version.h>
 #include <media/v4l2-ctrls.h>
 #include <media/v4l2-event.h>
 #include <media/v4l2-ioctl.h>
@@ -32,7 +33,6 @@
 #include <linux/soc/mediatek/mtk-cmdq-ext.h>
 #include "cmdq-sec.h"
 #include "mtk_aie.h"
-#include "mtk_dma_contig.h"
 #include "mem/aie_videobuf2-dma-contig.h"
 #include "iommu_debug.h"
 #include "mtk_notify_aov.h"
@@ -1254,20 +1254,39 @@ static void mtk_aie_hw_disconnect(struct mtk_aie_dev *fd)
 
 		//mtk_aie_mmdvfs_set(fd, 0, 0);
 		if (fd->map_count == 1) { //have qbuf + map memory
+#ifdef AIE_DMA_BUF_UNLOCK_API
+			dma_buf_vunmap_unlocked(fd->para_dmabuf, &fd->para_map);
+#else
 			dma_buf_vunmap(fd->para_dmabuf, &fd->para_map);
+#endif
 			dma_buf_end_cpu_access(fd->para_dmabuf, DMA_BIDIRECTIONAL);
 			dma_buf_put(fd->para_dmabuf);
 
+#ifdef AIE_DMA_BUF_UNLOCK_API
+			dma_buf_unmap_attachment_unlocked(fd->config_attach,
+				fd->config_sgt, DMA_BIDIRECTIONAL);
+			dma_buf_detach(fd->config_dmabuf, fd->config_attach);
+			dma_buf_vunmap_unlocked(fd->config_dmabuf, &fd->config_map);
+#else
 			dma_buf_unmap_attachment(fd->config_attach,
 				fd->config_sgt, DMA_BIDIRECTIONAL);
 			dma_buf_detach(fd->config_dmabuf, fd->config_attach);
 			dma_buf_vunmap(fd->config_dmabuf, &fd->config_map);
+#endif
 			dma_buf_put(fd->config_dmabuf);
 
+#ifdef AIE_DMA_BUF_UNLOCK_API
+			dma_buf_unmap_attachment_unlocked(fd->model_attach,
+				fd->model_sgt, DMA_BIDIRECTIONAL);
+			dma_buf_detach(fd->model_dmabuf, fd->model_attach);
+			dma_buf_vunmap_unlocked(fd->model_dmabuf, &fd->model_map);
+#else
 			dma_buf_unmap_attachment(fd->model_attach,
 				fd->model_sgt, DMA_BIDIRECTIONAL);
 			dma_buf_detach(fd->model_dmabuf, fd->model_attach);
 			dma_buf_vunmap(fd->model_dmabuf, &fd->model_map);
+#endif
+
 			dma_buf_put(fd->model_dmabuf);
 			fd->map_count--;
 			aie_dev_info(fd->dev, "[%s] stream_count:%d map_count%d\n", __func__,
@@ -1629,7 +1648,11 @@ int mtk_aie_vidioc_qbuf(struct file *file, void *priv,
 				goto ERROR_PARA_PUTBUF;
 			}
 
+#ifdef AIE_DMA_BUF_UNLOCK_API
+			ret = (u64)dma_buf_vmap_unlocked(fd->para_dmabuf, &fd->para_map);
+#else
 			ret = (u64)dma_buf_vmap(fd->para_dmabuf, &fd->para_map);
+#endif
 			if (ret) {
 				aie_dev_info(fd->dev, "%s, map kernel va failed\n", __func__);
 				ret = -ENOMEM;
@@ -1675,8 +1698,13 @@ int mtk_aie_vidioc_qbuf(struct file *file, void *priv,
 				goto ERROR_PARA_UMAP;
 			}
 
+#ifdef AIE_DMA_BUF_UNLOCK_API
+			ret = (u64)dma_buf_vmap_unlocked(fd->config_dmabuf,
+				&fd->config_map);
+#else
 			ret = (u64)dma_buf_vmap(fd->config_dmabuf,
 				&fd->config_map);
+#endif
 			if (ret) {
 				aie_dev_info(fd->dev, "%s, config map va failed\n",
 					__func__);
@@ -1694,8 +1722,13 @@ int mtk_aie_vidioc_qbuf(struct file *file, void *priv,
 				goto ERROR_CONFIG_UMAP;
 			}
 
+#ifdef AIE_DMA_BUF_UNLOCK_API
+			fd->config_sgt =
+				dma_buf_map_attachment_unlocked(fd->config_attach, DMA_BIDIRECTIONAL);
+#else
 			fd->config_sgt =
 				dma_buf_map_attachment(fd->config_attach, DMA_BIDIRECTIONAL);
+#endif
 			if (IS_ERR(fd->config_sgt)) {
 				aie_dev_info(fd->dev, "config_dmabuf attach fail\n");
 				ret = -ENOMEM;
@@ -1719,8 +1752,13 @@ int mtk_aie_vidioc_qbuf(struct file *file, void *priv,
 				goto ERROR_CONFIG_UMAP_ATTACHMENT;
 			}
 
+#ifdef AIE_DMA_BUF_UNLOCK_API
+			ret = (u64)dma_buf_vmap_unlocked(fd->model_dmabuf,
+				&fd->model_map);
+#else
 			ret = (u64)dma_buf_vmap(fd->model_dmabuf,
 				&fd->model_map);
+#endif
 			if (ret) {
 				aie_dev_info(fd->dev, "%s, model map va failed\n",
 					__func__);
@@ -1738,8 +1776,13 @@ int mtk_aie_vidioc_qbuf(struct file *file, void *priv,
 				goto ERROR_MODEL_UMAP;
 			}
 
+#ifdef AIE_DMA_BUF_UNLOCK_API
+			fd->model_sgt =
+				dma_buf_map_attachment_unlocked(fd->model_attach, DMA_BIDIRECTIONAL);
+#else
 			fd->model_sgt =
 				dma_buf_map_attachment(fd->model_attach, DMA_BIDIRECTIONAL);
+#endif
 			if (IS_ERR(fd->model_sgt)) {
 				aie_dev_info(fd->dev, "model_dmabuf attach fail\n");
 				ret = -ENOMEM;
@@ -1765,26 +1808,43 @@ ERROR_MODEL_DETACH:
 	dma_buf_detach(fd->model_dmabuf, fd->model_attach);
 
 ERROR_MODEL_UMAP:
+#ifdef AIE_DMA_BUF_UNLOCK_API
+	dma_buf_vunmap_unlocked(fd->model_dmabuf, &fd->model_map);
+#else
 	dma_buf_vunmap(fd->model_dmabuf, &fd->model_map);
+#endif
 
 ERROR_PUT_MODEL_BUFFER:
 		dma_buf_put(fd->model_dmabuf);
 
 ERROR_CONFIG_UMAP_ATTACHMENT:
+#ifdef AIE_DMA_BUF_UNLOCK_API
+	dma_buf_unmap_attachment_unlocked(fd->config_attach,
+		fd->config_sgt, DMA_BIDIRECTIONAL);
+#else
 	dma_buf_unmap_attachment(fd->config_attach,
 		fd->config_sgt, DMA_BIDIRECTIONAL);
+#endif
 
 ERROR_CONFIG_DETACH:
 	dma_buf_detach(fd->config_dmabuf, fd->config_attach);
 
 ERROR_CONFIG_UMAP:
+#ifdef AIE_DMA_BUF_UNLOCK_API
+	dma_buf_vunmap_unlocked(fd->config_dmabuf, &fd->config_map);
+#else
 	dma_buf_vunmap(fd->config_dmabuf, &fd->config_map);
+#endif
 
 ERROR_PUT_CONFIG_BUFFER:
 	dma_buf_put(fd->config_dmabuf);
 
 ERROR_PARA_UMAP:
+#ifdef AIE_DMA_BUF_UNLOCK_API
+	dma_buf_vunmap_unlocked(fd->para_dmabuf, &fd->para_map);
+#else
 	dma_buf_vunmap(fd->para_dmabuf, &fd->para_map);
+#endif
 
 ERROR_END_CPU_ACCESS:
 	dma_buf_end_cpu_access(fd->para_dmabuf, DMA_BIDIRECTIONAL);

@@ -97,6 +97,7 @@ struct aid_info {
 
 struct fifo_info {
 	uint32_t camsv_idx;
+	uint64_t AP_time;
 };
 
 enum mtk_cam_aid_feature {

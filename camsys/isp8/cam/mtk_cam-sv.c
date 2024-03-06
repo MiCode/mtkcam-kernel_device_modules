@@ -27,6 +27,7 @@
 
 #define MTK_CAMSV_STOP_HW_TIMEOUT			(33 * USEC_PER_MSEC)
 #define CAMSV_DEBUG 0
+#define SV_FIFO_DETECTION 1
 
 static int debug_cam_sv;
 module_param(debug_cam_sv, int, 0644);
@@ -1593,7 +1594,7 @@ void camsv_handle_err(
 	/* check dma fifo status */
 	if (!(data->err_tags) && (err_status & CAMSVCENTRAL_DMA_SRAM_FULL_ST)) {
 #ifdef SV_FIFO_DETECTION
-		mtk_cam_sv_execute_fifo_dump(sv_dev);
+		mtk_cam_sv_execute_fifo_dump(sv_dev, data->ts_ns);
 #endif
 		dev_info_ratelimited(sv_dev->dev, "camsv dma fifo full\n");
 

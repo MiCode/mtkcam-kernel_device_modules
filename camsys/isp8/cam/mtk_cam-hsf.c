@@ -677,11 +677,13 @@ int mtk_cam_sv_start_fifo_detection(struct mtk_camsv_device *sv_dev)
 	struct fifo_info pData;
 
 	pData.camsv_idx = sv_dev->id;
+	pData.AP_time = 0;
 
 	if (mtk_cam_power_ctrl_ccu(cam->dev, 1))
 		return -1;
 
-	if (WARN_ON(!cam->ccu_pdev)) {
+	if (!cam->ccu_pdev) {
+		dev_info(cam->dev, "[ccu_fifo]: power on ccu failed");
 		ret = -1;
 		goto FAILED;
 	}
@@ -695,7 +697,7 @@ int mtk_cam_sv_start_fifo_detection(struct mtk_camsv_device *sv_dev)
 		(void *)&pData, sizeof(struct fifo_info));
 
 	if (ret != 0)
-		dev_info(cam->dev, "start FIFO detection fail\n");
+		dev_info(cam->dev, "[ccu_fifo]: %s fail\n", __func__);
 	else
 		return ret;
 
@@ -704,13 +706,14 @@ FAILED:
 	return ret;
 }
 
-int mtk_cam_sv_execute_fifo_dump(struct mtk_camsv_device *sv_dev)
+int mtk_cam_sv_execute_fifo_dump(struct mtk_camsv_device *sv_dev, uint64_t timestamp)
 {
 	struct mtk_cam_device *cam = sv_dev->cam;
 	int ret = 0 ;
 	struct fifo_info pData;
 
 	pData.camsv_idx = sv_dev->id;
+	pData.AP_time = timestamp;
 
 	dev_info(cam->dev, "[ccu_fifo]: (%s) , camsv_id: %d\n",__func__, pData.camsv_idx);
 
@@ -721,7 +724,7 @@ int mtk_cam_sv_execute_fifo_dump(struct mtk_camsv_device *sv_dev)
 		(void *)&pData, sizeof(struct fifo_info));
 
 	if (ret != 0)
-		dev_info(cam->dev, "stop FIFO detection fail\n");
+		dev_info(cam->dev, "[ccu_fifo]: %s fail\n", __func__);
 	return ret;
 }
 
@@ -732,6 +735,7 @@ int mtk_cam_sv_stop_fifo_detection(struct mtk_camsv_device *sv_dev)
 	struct fifo_info pData;
 
 	pData.camsv_idx = sv_dev->id;
+	pData.AP_time = 0;
 
 	dev_info(cam->dev, "[ccu_fifo]: (%s) , camsv_id: %d\n",__func__, pData.camsv_idx);
 
@@ -742,7 +746,7 @@ int mtk_cam_sv_stop_fifo_detection(struct mtk_camsv_device *sv_dev)
 		(void *)&pData, sizeof(struct fifo_info));
 
 	if (ret != 0)
-		dev_info(cam->dev, "stop FIFO detection fail\n");
+		dev_info(cam->dev, "[ccu_fifo]: %s fail\n", __func__);
 
 	mtk_cam_power_ctrl_ccu(cam->dev, 0);
 

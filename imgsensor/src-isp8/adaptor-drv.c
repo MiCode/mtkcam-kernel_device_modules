@@ -590,7 +590,9 @@ static int imgsensor_set_pad_format(struct v4l2_subdev *sd,
 	struct sensor_mode *mode;
 	struct v4l2_mbus_framefmt *framefmt;
 	int sensor_mode_id = 0;
+	u64 start = 0, end = 0;
 
+	start = ktime_get_boottime_ns();
 	mutex_lock(&ctx->mutex);
 
 	/* Only one raw bayer order is supported */
@@ -625,10 +627,6 @@ static int imgsensor_set_pad_format(struct v4l2_subdev *sd,
 
 		ctx->try_format_mode = mode;
 	} else {
-		adaptor_logi(ctx,
-			"set fmt code = 0x%x, which %d sensor_mode_id = %u\n",
-			fmt->format.code, fmt->which, mode->id);
-
 
 		ADAPTOR_SYSTRACE_BEGIN("imgsensor::init_sensor");
 		adaptor_sensor_init(ctx);
@@ -637,6 +635,10 @@ static int imgsensor_set_pad_format(struct v4l2_subdev *sd,
 		ADAPTOR_SYSTRACE_BEGIN("imgsensor::set_mode_%u", mode->id);
 		set_sensor_mode(ctx, mode, 1);
 		ADAPTOR_SYSTRACE_END();
+		end = ktime_get_boottime_ns();
+		adaptor_logi(ctx,
+			"set fmt code = 0x%x, which %d sensor_mode_id = %u, set_fmt time:%lld(us)\n",
+			fmt->format.code, fmt->which, mode->id, (end-start)/1000);
 	}
 	mutex_unlock(&ctx->mutex);
 

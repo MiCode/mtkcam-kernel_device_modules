@@ -431,9 +431,8 @@ u64 infer_i2c_deadline_ns(struct mtk_cam_job *job, u64 frame_interval_ns)
 	/* consider vsync is subsampled */
 	if (scen->id == MTK_CAM_SCEN_SMVR)
 		return frame_interval_ns * (scen->scen.smvr.subsample_num - 1);
-	/* temp to frame/2 */
 	else if (is_stagger_lbmf(job))
-		return frame_interval_ns / 2 - reserved_i2c_time(frame_interval_ns);
+		return frame_interval_ns;
 	else
 		return frame_interval_ns - reserved_i2c_time(frame_interval_ns);
 }

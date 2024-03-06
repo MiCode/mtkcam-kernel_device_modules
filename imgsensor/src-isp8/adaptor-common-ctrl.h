@@ -72,4 +72,8 @@ u32 g_sensor_dcg_property(struct adaptor_ctx *ctx, const u32 scenario_id);
 u32 g_sensor_lbmf_property(struct adaptor_ctx *ctx, const u32 scenario_id,
 	struct adaptor_sensor_lbmf_property_st *prop);
 
+
+int notify_imgsensor_start_streaming_delay(struct adaptor_ctx *ctx,
+					struct mtk_cam_seninf_tsrec_timestamp_info *ts_info);
+
 #endif

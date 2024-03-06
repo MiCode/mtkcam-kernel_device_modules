@@ -242,6 +242,8 @@ struct adaptor_ctx {
 	/* embedded data dump */
 	struct mutex ebd_lock;
 	struct mtk_ebd_dump_record latest_ebd;
+	/* 1SOF timing prediction */
+	struct mtk_1sof_vsync_ts_info streamon_1sof_vsync_ts_info;
 };
 
 #endif

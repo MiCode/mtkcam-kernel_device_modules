@@ -622,6 +622,13 @@ struct mtk_exp_line_by_scenario {
 	__u64 exp_line;
 };
 
+struct mtk_1sof_vsync_ts_info {
+	__u64 vsync_ts_ns; // latest ts from streaming sensor
+	__u32 fps; // 30FPS: 300
+	__u32 target_timing_us;
+};
+
+
 /* GET */
 
 #define VIDIOC_MTK_G_DEF_FPS_BY_SCENARIO \

@@ -1940,8 +1940,18 @@ static int imgsensor_set_ctrl(struct v4l2_ctrl *ctrl)
 			dev_info(dev, "V4L2_CID_MTK_SENSOR_SET_AOV_MCLK not rosc mode\n");
 		}
 		break;
-	}
 
+	case V4L2_CID_MTK_1SOF_VSYNC_TS_INFO:
+		{
+			memcpy((void *)&ctx->streamon_1sof_vsync_ts_info, (void *)ctrl->p_new.p,
+							sizeof(struct mtk_1sof_vsync_ts_info));
+			adaptor_logi(ctx, "receive V4L2_CID_MTK_1SOF_VSYNC_TS_INFO %llu/%u/%u",
+				ctx->streamon_1sof_vsync_ts_info.vsync_ts_ns,
+				ctx->streamon_1sof_vsync_ts_info.fps,
+				ctx->streamon_1sof_vsync_ts_info.target_timing_us);
+		}
+		break;
+	}
 	ADAPTOR_SYSTRACE_END();
 	return ret;
 }
@@ -2493,6 +2503,17 @@ static const struct v4l2_ctrl_config cfg_sensor_set_aov_mclk = {
 	.step = 1,
 };
 
+static const struct v4l2_ctrl_config cfg_mtkcam_1sof_vsync_ts_info  = {
+	.ops = &ctrl_ops,
+	.id = V4L2_CID_MTK_1SOF_VSYNC_TS_INFO,
+	.name = "1sof_vsync_ts_info",
+	.type = V4L2_CTRL_TYPE_U32,
+	.flags = V4L2_CTRL_FLAG_EXECUTE_ON_WRITE,
+	.max = 0xffffffff,
+	.step = 1,
+	.dims = {sizeof_u32(struct mtk_1sof_vsync_ts_info )},
+};
+
 void adaptor_sensor_init(struct adaptor_ctx *ctx)
 {
 	adaptor_logm(ctx, "+\n");
@@ -2851,6 +2872,7 @@ int adaptor_init_ctrls(struct adaptor_ctx *ctx)
 	v4l2_ctrl_new_custom(&ctx->ctrls, &cfg_mtkcam_aov_switch_mclk_ulposc, NULL);
 	v4l2_ctrl_new_custom(&ctx->ctrls, &cfg_mtkcam_do_not_power_on, NULL);
 	v4l2_ctrl_new_custom(&ctx->ctrls, &cfg_wake_up_camera_pmic, NULL);
+	v4l2_ctrl_new_custom(&ctx->ctrls, &cfg_mtkcam_1sof_vsync_ts_info, NULL);
 	v4l2_ctrl_new_custom(&ctx->ctrls, &cfg_debug_cmd, NULL);
 
 	v4l2_ctrl_new_custom(ctrl_hdlr, &cfg_sensor_power, NULL);

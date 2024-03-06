@@ -196,6 +196,7 @@ void get_sensor_frame_count(struct subdrv_ctx *ctx, u32 *frame_cnt);
 void get_exp_line_by_scenario(struct subdrv_ctx *ctx,
 		enum SENSOR_SCENARIO_ID_ENUM scenario_id,
 		u32 framerate, u64 *exposure_line);
+void update_hw_init_time(struct subdrv_ctx *ctx, u64 fisrt_vsync_time);
 
 int common_get_imgsensor_id(struct subdrv_ctx *ctx, u32 *sensor_id);
 void subdrv_ctx_init(struct subdrv_ctx *ctx);

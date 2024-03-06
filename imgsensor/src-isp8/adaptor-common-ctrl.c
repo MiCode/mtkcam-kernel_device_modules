@@ -265,3 +265,46 @@ u32 g_sensor_lbmf_property(struct adaptor_ctx *ctx, const u32 scenario_id,
 
 	return 1;
 }
+
+int notify_imgsensor_start_streaming_delay(struct adaptor_ctx *ctx,
+					struct mtk_cam_seninf_tsrec_timestamp_info *ts_info)
+{
+	u32 len;
+	union feature_para para;
+
+	if (unlikely(ctx == NULL)) {
+		adaptor_loge(ctx, "[ERROR] ctx is NULL\n");
+		return -EINVAL;
+	}
+
+	if (unlikely(ts_info == NULL)) {
+		adaptor_loge(ctx, "[ERROR] ts_info is NULL\n");
+		return -EINVAL;
+	}
+
+	if ((ts_info->exp_recs[0].ts_us[1] == 0) &&
+		(ts_info->exp_recs[0].ts_us[2] == 0) &&
+		(ts_info->exp_recs[0].ts_us[3] == 0) &&
+		(ts_info->exp_recs[0].ts_us[0] > 0)) {
+
+		para.u64[0] = ts_info->irq_sys_time_ns;
+		subdrv_call(ctx, feature_control,
+			SENSOR_FEATURE_UPDATE_HW_INIT_TIME,
+			para.u8, &len);
+
+		adaptor_logi(ctx, "1st SOF ts_info (%u/%u) (%u/%u/%llu/%llu/%llu) (%llu/%llu/%llu/%llu)\n",
+					ts_info->tsrec_no,
+					ts_info->seninf_idx,
+					ts_info->tick_factor,
+					ts_info->irq_pre_latch_exp_no,
+					ts_info->irq_sys_time_ns,
+					ts_info->irq_tsrec_ts_us,
+					ts_info->tsrec_curr_tick,
+					ts_info->exp_recs[0].ts_us[0],
+					ts_info->exp_recs[0].ts_us[1],
+					ts_info->exp_recs[0].ts_us[2],
+					ts_info->exp_recs[0].ts_us[3]);
+	}
+
+	return 0;
+}

@@ -35,6 +35,8 @@
 #define PARAM_DEFAULT 0
 #define PARAM_UNDEFINED 0
 #define GLP_DT_MAX_CNT 4
+#define HW_INIT_TIME_MAX 15000000 // 15ms
+#define MAX_UPDATED_TIMES 100
 enum {
 	I2C_DT_ADDR_16_DATA_8 = 0,
 	I2C_DT_ADDR_16_DATA_16,
@@ -210,6 +212,11 @@ struct ebd_info_struct {
 	struct ebd_loc dol_loc;
 	struct ebd_loc framelength_loc;
 	struct ebd_loc temperature_loc;
+};
+
+struct hw_init_time_struct {
+	u64 init_time_ns;
+	u32 times;
 };
 
 struct subdrv_mode_struct {
@@ -500,6 +507,7 @@ struct subdrv_ctx {
 	/* for custom stream control delay timing */
 	u64 stream_ctrl_start_time;
 	u64 stream_ctrl_end_time;
+	struct hw_init_time_struct hw_time_info[SENSOR_SCENARIO_ID_MAX];
 };
 
 struct subdrv_feature_control {

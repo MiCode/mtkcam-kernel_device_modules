@@ -2889,6 +2889,53 @@ void get_exp_line_by_scenario(struct subdrv_ctx *ctx,
 	*exposure_line = shutter;
 }
 
+void update_hw_init_time(struct subdrv_ctx *ctx, u64 fisrt_vsync_time)
+{	u32 cur_id, shutter_lines, times;
+	u64 line_time_ns, shutter_time, cur_init_time, old_init_time, new_init_time;
+
+
+	cur_id = ctx->current_scenario_id;
+	shutter_lines = 0;
+	times = ctx->hw_time_info[cur_id].times;
+	line_time_ns = ((u64)ctx->s_ctx.mode[cur_id].linelength*1000000000)
+					/ ctx->s_ctx.mode[cur_id].pclk;
+	shutter_time = 0;
+	cur_init_time = 0;
+	new_init_time = 0;
+	old_init_time = ctx->hw_time_info[cur_id].init_time_ns;
+
+	if ((ctx->s_ctx.mode[cur_id].hdr_mode == HDR_RAW_LBMF) &&
+		(ctx->s_ctx.mode[cur_id].exposure_order_in_lbmf
+				== IMGSENSOR_LBMF_EXPOSURE_SE_FIRST)) {
+		shutter_lines = ctx->exposure[IMGSENSOR_STAGGER_EXPOSURE_ME];
+	} else {
+		shutter_lines = ctx->exposure[IMGSENSOR_STAGGER_EXPOSURE_LE];
+	}
+	shutter_time = shutter_lines*line_time_ns;
+	cur_init_time = fisrt_vsync_time
+					- ctx->stream_ctrl_start_time
+					- shutter_time;
+	if (cur_init_time < HW_INIT_TIME_MAX) {
+		new_init_time =
+			((old_init_time*times)+cur_init_time) / (times+1);
+		ctx->hw_time_info[cur_id].init_time_ns = new_init_time;
+		ctx->hw_time_info[cur_id].times = (times > MAX_UPDATED_TIMES)
+				? MAX_UPDATED_TIMES : times+1;
+	}
+	DRV_LOG_MUST(ctx,
+			"sid:%d, fisrt_vsync_time:%llu, stream_ctrl_start_time:%llu, cur_init_time:%llu, new_init_time:%llu, old_init_time:%llu, times:%u, shutter_time:%llu, shutter_lines:%u, line_time_ns:%llu\n",
+			cur_id,
+			fisrt_vsync_time,
+			ctx->stream_ctrl_start_time,
+			cur_init_time,
+			new_init_time,
+			old_init_time,
+			times,
+			shutter_time,
+			shutter_lines,
+			line_time_ns);
+}
+
 int common_get_imgsensor_id(struct subdrv_ctx *ctx, u32 *sensor_id)
 {
 	u8 i = 0;
@@ -3878,6 +3925,9 @@ int common_feature_control(struct subdrv_ctx *ctx, MSDK_SENSOR_FEATURE_ENUM feat
 	case SENSOR_FEATURE_GET_EXP_LINE_BY_SCENARIO:
 		get_exp_line_by_scenario(ctx, *feature_data,
 			*(feature_data + 1), (feature_data + 2));
+		break;
+	case SENSOR_FEATURE_UPDATE_HW_INIT_TIME:
+		update_hw_init_time(ctx, *(feature_data));
 		break;
 	default:
 		DRV_LOGE(ctx, "feature_id %u is invalid\n", feature_id);

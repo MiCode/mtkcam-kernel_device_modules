@@ -43,11 +43,13 @@ struct C2PS_NOTIFIER_PUSH_TAG {
 	char task_name[MAX_TASK_NAME_SIZE];
 	int overwrite_uclamp_max[MAX_NUMBER_OF_CLUSTERS];
 	int idle_rate_alert;
-	int timeout;
+	int vip_prior;
+	unsigned int vip_throttle_time;
 	int uclamp_max_placeholder1[MAX_NUMBER_OF_CLUSTERS];
 	int uclamp_max_placeholder2[MAX_NUMBER_OF_CLUSTERS];
 	int uclamp_max_placeholder3[MAX_NUMBER_OF_CLUSTERS];
 	bool reset_param;
+	bool set_task_idle_prefer;
 	struct list_head queue_list;
 };
 
@@ -60,6 +62,7 @@ static DECLARE_WAIT_QUEUE_HEAD(notifier_wq_queue);
 static void self_uninit_timer_callback(struct timer_list *t);
 static int picked_wl_table = 0;
 static unsigned int background_monitor_duration = BACKGROUND_MONITOR_DURATION;
+static unsigned int c2ps_vip_throttle_time = 12;
 unsigned int c2ps_nr_clusters;
 
 struct timer_list backgroup_info_update_timer;
@@ -67,6 +70,7 @@ struct timer_list self_uninit_timer;
 
 module_param(picked_wl_table, int, 0644);
 module_param(background_monitor_duration, int, 0644);
+module_param(c2ps_vip_throttle_time, int, 0644);
 
 static void backgroup_info_update_timer_callback(struct timer_list *t)
 {
@@ -203,14 +207,37 @@ static void c2ps_notifier_wq_cb_scene_change(int task_id, int scene_mode)
 }
 
 static void c2ps_notifier_wq_cb_task_single_shot(
-	int *uclamp_max, int idle_rate_alert, int timeout,
-	int *uclamp_max_placeholder1, int *uclamp_max_placeholder2,
-	int *uclamp_max_placeholder3, bool reset_param)
+	int pid, int *uclamp_max, int idle_rate_alert, int vip_prior,
+	unsigned int vip_throttle_time, int *uclamp_max_placeholder1,
+	int *uclamp_max_placeholder2, int *uclamp_max_placeholder3,
+	bool reset_param, bool set_task_idle_prefer)
 {
 	struct global_info *g_info = get_glb_info();
+	unsigned int _vip_throttle_time = vip_throttle_time > 0 ?
+							vip_throttle_time : c2ps_vip_throttle_time;
+
+	C2PS_LOGD("thread: %d, vip_prior: %d, throttle_time: %u, set_task_idle_prefer: %d",
+			pid, vip_prior, _vip_throttle_time, set_task_idle_prefer);
+	switch (vip_prior) {
+	case 0:
+	case 1:
+	case 2:
+	case 3:
+	case 4:
+		set_task_basic_vip(pid);
+		break;
+	case -2:
+		C2PS_LOGD("thread: %d unset VIP", pid);
+		unset_task_basic_vip(pid);
+		break;
+	default:
+		break;
+	}
+	if (set_task_idle_prefer)
+		set_task_ls(pid);
 
 	if (!g_info) {
-		C2PS_LOGE("glb_info is null\n");
+		C2PS_LOGD("glb_info is null\n");
 		return;
 	}
 
@@ -226,7 +253,6 @@ static void c2ps_notifier_wq_cb_task_single_shot(
 	if (unlikely(need_update_single_shot_uclamp_max(uclamp_max_placeholder3)))
 		memcpy(g_info->uclamp_max_placeholder3, uclamp_max_placeholder3,
 			c2ps_nr_clusters * sizeof(int));
-
 }
 
 static void c2ps_queue_work(struct C2PS_NOTIFIER_PUSH_TAG *vpPush)
@@ -330,10 +356,11 @@ static void c2ps_notifier_wq_cb(void)
 		break;
 	case C2PS_NOTIFIER_TASK_SINGLE_SHOT:
 		c2ps_notifier_wq_cb_task_single_shot(
-			vpPush->overwrite_uclamp_max, vpPush->idle_rate_alert,
-			vpPush->timeout, vpPush->uclamp_max_placeholder1,
-			vpPush->uclamp_max_placeholder2, vpPush->uclamp_max_placeholder3,
-			vpPush->reset_param);
+			vpPush->pid, vpPush->overwrite_uclamp_max, vpPush->idle_rate_alert,
+			vpPush->vip_prior, vpPush->vip_throttle_time,
+			vpPush->uclamp_max_placeholder1, vpPush->uclamp_max_placeholder2,
+			vpPush->uclamp_max_placeholder3, vpPush->reset_param,
+			vpPush->set_task_idle_prefer);
 		break;
 	default:
 		C2PS_LOGE("unhandled push type = %d\n",
@@ -655,10 +682,11 @@ out:
 	return ret;
 }
 
-int c2ps_notify_task_single_shot(
-	int *uclamp_max, int idle_rate_alert, int timeout,
-	int *uclamp_max_placeholder1, int *uclamp_max_placeholder2,
-	int *uclamp_max_placeholder3, bool reset_param)
+int c2ps_notify_single_shot_control(
+	int pid, int *uclamp_max, int idle_rate_alert,
+	int vip_prior, unsigned int vip_throttle_time, int *uclamp_max_placeholder1,
+	int *uclamp_max_placeholder2, int *uclamp_max_placeholder3,
+	bool reset_param, bool set_task_idle_prefer)
 {
 	struct C2PS_NOTIFIER_PUSH_TAG *vpPush = NULL;
 	int ret = 0;
@@ -685,7 +713,6 @@ int c2ps_notify_task_single_shot(
 		ret = -EINVAL;
 		goto out;
 	}
-
 	memset(vpPush->overwrite_uclamp_max, 0,
 		MAX_NUMBER_OF_CLUSTERS * sizeof(int));
 	memcpy(vpPush->overwrite_uclamp_max, uclamp_max,
@@ -702,9 +729,12 @@ int c2ps_notify_task_single_shot(
 		MAX_NUMBER_OF_CLUSTERS * sizeof(int));
 	memcpy(vpPush->uclamp_max_placeholder3, uclamp_max_placeholder3,
 		MAX_NUMBER_OF_CLUSTERS * sizeof(int));
+	vpPush->pid = pid;
 	vpPush->idle_rate_alert = idle_rate_alert;
-	vpPush->timeout = timeout;
+	vpPush->vip_prior = vip_prior;
+	vpPush->vip_throttle_time = vip_throttle_time;
 	vpPush->reset_param = reset_param;
+	vpPush->set_task_idle_prefer = set_task_idle_prefer;
 	vpPush->ePushType = C2PS_NOTIFIER_TASK_SINGLE_SHOT;
 
 	c2ps_queue_work(vpPush);
@@ -738,7 +768,7 @@ static int __init c2ps_init(void)
 	c2ps_notify_vsync_fp = c2ps_notify_vsync;
 	c2ps_notify_camfps_fp = c2ps_notify_camfps;
 	c2ps_notify_task_scene_change_fp = c2ps_notify_task_scene_change;
-	c2ps_notify_task_single_shot_fp = c2ps_notify_task_single_shot;
+	c2ps_notify_single_shot_control_fp = c2ps_notify_single_shot_control;
 
 	c2ps_sysfs_init();
 	if (unlikely(uclamp_regulator_init())) {

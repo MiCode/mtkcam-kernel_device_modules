@@ -59,13 +59,16 @@ struct C2PS_INFO_NOTIFY {
 };
 
 struct C2PS_SINGLE_SHOT_PARAM {
+	u32 tid;
 	int uclamp_max[MAX_CPU_NUM];
 	int idle_rate_alert;
-	int timeout;
+	int vip_prior;
+	u32 vip_throttle_time;
 	int uclamp_max_placeholder1[MAX_CPU_NUM];
 	int uclamp_max_placeholder2[MAX_CPU_NUM];
 	int uclamp_max_placeholder3[MAX_CPU_NUM];
 	bool reset_param;
+	bool set_task_idle_prefer;
 };
 
 #define C2PS_IOCTL_MAGIC 'g'
@@ -80,8 +83,8 @@ struct C2PS_SINGLE_SHOT_PARAM {
 #define C2PS_TASK_SINGLE_SHOT    _IOW(C2PS_IOCTL_MAGIC, 35, struct C2PS_SINGLE_SHOT_PARAM)
 
 #define C2PS_LOGD(fmt, ...)                                             \
-    do {                                                                \
-		if (debug_log_on)                                               \
+	do {                                                                \
+		if (unlikely(debug_log_on))                                     \
 			pr_debug("[C2PS_IOCTL]: %s " fmt, __func__, ##__VA_ARGS__); \
 	} while (0)
 

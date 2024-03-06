@@ -642,7 +642,7 @@ inline int c2ps_get_cpu_min_uclamp(const int cpu)
 
 inline int c2ps_get_cpu_max_uclamp(const int cpu)
 {
-	return (pd_get_freq_util(cpu, ULONG_MAX) << SCHED_CAPACITY_SHIFT) /
+	return (pd_get_freq_util(cpu, INT_MAX) << SCHED_CAPACITY_SHIFT) /
 					get_adaptive_margin(cpu);
 }
 

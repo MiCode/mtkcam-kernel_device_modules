@@ -20,9 +20,10 @@ extern int (*c2ps_notify_task_end_fp)(int pid, int task_id);
 extern int (*c2ps_notify_vsync_fp)(void);
 extern int (*c2ps_notify_camfps_fp)(int camfps);
 extern int (*c2ps_notify_task_scene_change_fp)(int task_id, int scene_mode);
-extern int (*c2ps_notify_task_single_shot_fp)(
-	int *uclamp_max, int idle_rate_alert, int timeout,
-	int *uclamp_max_placeholder1, int *uclamp_max_placeholder2,
-	int *uclamp_max_placeholder3, bool resetParam);
+extern int (*c2ps_notify_single_shot_control_fp)(
+	int pid, int *uclamp_max, int idle_rate_alert, int vip_prior,
+	unsigned int vip_throttle_time, int *uclamp_max_placeholder1,
+	int *uclamp_max_placeholder2, int *uclamp_max_placeholder3,
+	bool reset_param, bool set_task_idle_prefer);
 
 #endif  // C2PS_COMMON_INCLUDE_C2PS_USEDEXT_H_

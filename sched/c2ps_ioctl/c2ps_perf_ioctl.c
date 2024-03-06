@@ -28,11 +28,12 @@ int (*c2ps_notify_camfps_fp)(int camfps);
 EXPORT_SYMBOL_GPL(c2ps_notify_camfps_fp);
 int (*c2ps_notify_task_scene_change_fp)(int task_id, int scene_mode);
 EXPORT_SYMBOL_GPL(c2ps_notify_task_scene_change_fp);
-int (*c2ps_notify_task_single_shot_fp)(
-	int *uclamp_max, int idle_rate_alert, int timeout,
-	int *uclamp_max_placeholder1, int *uclamp_max_placeholder2,
-	int *uclamp_max_placeholder3, bool reset_param);
-EXPORT_SYMBOL_GPL(c2ps_notify_task_single_shot_fp);
+int (*c2ps_notify_single_shot_control_fp)(
+	int pid, int *uclamp_max, int idle_rate_alert, int vip_prior,
+	unsigned int vip_throttle_time, int *uclamp_max_placeholder1,
+	int *uclamp_max_placeholder2, int *uclamp_max_placeholder3,
+	bool reset_param, bool set_task_idle_prefer);
+EXPORT_SYMBOL_GPL(c2ps_notify_single_shot_control_fp);
 
 struct proc_dir_entry *c2ps_ioctl_root;
 EXPORT_SYMBOL(c2ps_ioctl_root);
@@ -170,15 +171,18 @@ static long device_ioctl(
 			ret = -EFAULT;
 			goto ret_ioctl;
 		}
-		if (c2ps_notify_task_single_shot_fp)
-			c2ps_notify_task_single_shot_fp(
+		if (c2ps_notify_single_shot_control_fp)
+			c2ps_notify_single_shot_control_fp(
+			(&c2ps_single_shot)->tid,
 			(&c2ps_single_shot)->uclamp_max,
 			(&c2ps_single_shot)->idle_rate_alert,
-			(&c2ps_single_shot)->timeout,
+			(&c2ps_single_shot)->vip_prior,
+			(&c2ps_single_shot)->vip_throttle_time,
 			(&c2ps_single_shot)->uclamp_max_placeholder1,
 			(&c2ps_single_shot)->uclamp_max_placeholder2,
 			(&c2ps_single_shot)->uclamp_max_placeholder3,
-			(&c2ps_single_shot)->reset_param);
+			(&c2ps_single_shot)->reset_param,
+			(&c2ps_single_shot)->set_task_idle_prefer);
 		break;
 	#else
 	case C2PS_ACTIVATE:

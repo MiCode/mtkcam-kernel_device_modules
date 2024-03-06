@@ -14,7 +14,4 @@ int monitor_vsync(u64 ts);
 int monitor_camfps(int camfps);
 int monitor_task_scene_change(int task_id, int scene_mode);
 
-extern void set_task_basic_vip(int pid);
-extern void unset_task_basic_vip(int pid);
-
 #endif

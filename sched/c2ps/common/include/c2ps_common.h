@@ -118,10 +118,20 @@ struct regulator_req {
 };
 
 
-#define C2PS_LOGD(fmt, ...)                                         \
-	do {                                                            \
-		if (unlikely(debug_log_on))                                 \
-			pr_debug("[C2PS]: %s " fmt, __func__, ##__VA_ARGS__);   \
+#define C2PS_LOGD(fmt, ...)                                                 \
+	do {                                                                    \
+		if (unlikely(debug_log_on)) {                                       \
+			switch (debug_log_on) {                                         \
+			case 1:                                                         \
+				pr_debug("[C2PS]: %s " fmt, __func__, ##__VA_ARGS__);       \
+				break;                                                      \
+			case 2:                                                         \
+				pr_warn("[C2PS]: %s " fmt, __func__, ##__VA_ARGS__);        \
+				break;                                                      \
+			default:                                                        \
+				break;                                                      \
+			}                                                               \
+		}                                                                   \
 	} while (0)
 
 #define C2PS_LOGW(fmt, ...)                                         \
@@ -198,5 +208,8 @@ extern struct cpufreq_policy *cpufreq_cpu_get(unsigned int cpu);
 extern void cpufreq_cpu_put(struct cpufreq_policy *policy);
 extern unsigned long pd_get_freq_util(unsigned int cpu, unsigned long freq);
 extern struct cpumask *get_gear_cpumask(unsigned int gear);
+extern void set_task_ls(int pid);
+extern void set_task_basic_vip(int pid);
+extern void unset_task_basic_vip(int pid);
 
 #endif  // C2PS_COMMON_INCLUDE_C2PS_COMMON_H_

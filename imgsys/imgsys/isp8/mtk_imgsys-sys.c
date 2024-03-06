@@ -2734,6 +2734,7 @@ static int mtk_imgsys_worker_power_on(void *data)
 		mtk_iommu_register_fault_callback(imgsys_dev->dma_ports[i].port,
 			(mtk_iommu_fault_callback_t)imgsys_dev->dma_ports[i].fn,
 			NULL, false);
+	if (imgsys_dbg_enable())
 		dev_dbg(imgsys_dev->dev,
 		"%s: [%d] register iommu cb(0x%x)\n",
 		__func__, i, imgsys_dev->dma_ports[i].port);

@@ -55,7 +55,7 @@ struct mtk_rpmsg_device;
 
 struct mtk_ltms_buf_pool;
 
-#define CQ_BUF_SIZE  0x10000
+#define CQ_BUF_SIZE  0x14000
 #define CAM_CQ_BUF_NUM \
 			max(JOB_NUM_PER_STREAM * 2, JOB_NUM_PER_STREAM_DISPLAY_IC) /* 2 for mstream */
 

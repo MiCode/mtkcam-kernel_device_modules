@@ -1941,7 +1941,7 @@ static struct subdrv_pw_seq_entry pw_seq[] = {
 };
 
 static struct subdrv_pw_seq_entry aov_pw_seq[] = {
-	{HW_ID_MCLK, {26, MCLK_NORMAL}, 0}, // temp using normal 26m mclk
+	{HW_ID_MCLK, {26, MCLK_ULPOSC}, 0}, // temp using normal 26m mclk
 	{HW_ID_RST, {0}, 1000},
 	{HW_ID_MCLK_DRIVING_CURRENT, {8}, 0},
 	{HW_ID_DOVDD, {1800000, 1800000}, 0}, // pmic_ldo/gpio(1.8V ldo) for dovdd

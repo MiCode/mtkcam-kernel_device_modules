@@ -31,7 +31,7 @@ void imgsys_me_set_initial_value(struct mtk_imgsys_dev *imgsys_dev);
 void imgsys_me_debug_dump(struct mtk_imgsys_dev *imgsys_dev,
 							unsigned int engine);
 void imgsys_me_uninit(struct mtk_imgsys_dev *imgsys_dev);
-void ME_mode3_reset(struct mtk_imgsys_dev *imgsys_dev);
+void imgsys_me_set_hw_initial_value(struct mtk_imgsys_dev *imgsys_dev);
 int ME_TranslationFault_callback(int port, dma_addr_t mva, void *data);
 int MMG_TranslationFault_callback(int port, dma_addr_t mva, void *data);
 bool imgsys_me_done_chk(struct mtk_imgsys_dev *imgsys_dev, uint32_t engine);

@@ -127,7 +127,7 @@ static int eeprom_open(struct inode *a_inode, struct file *a_file)
 	struct EEPROM_DRV_FD_DATA *pdata;
 	struct EEPROM_DRV *pdrv;
 
-	must_log("open\n");
+	// must_log("open\n");
 
 	pdata = kmalloc(sizeof(struct EEPROM_DRV_FD_DATA), GFP_KERNEL);
 	if (pdata == NULL)
@@ -148,7 +148,7 @@ static int eeprom_release(struct inode *a_inode, struct file *a_file)
 	struct EEPROM_DRV_FD_DATA *pdata =
 		(struct EEPROM_DRV_FD_DATA *) a_file->private_data;
 
-	must_log("release\n");
+	// must_log("release\n");
 
 	kfree(pdata);
 

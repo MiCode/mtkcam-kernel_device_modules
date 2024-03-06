@@ -1219,7 +1219,7 @@ static int mtk_cam_seninf_set_test_model(struct seninf_ctx *ctx, int intf)
 		    SENINF_TG_SENINF_TG_TM_PXL, (tm_width >> 1));
 
 	SENINF_BITS(pSeninf_tg, SENINF_TG_SENINF_TG_TM_CORE0_CTL,
-		    SENINF_TG_SENINF_TG_TM_CORE0_CLK_CNT, 0x1f);
+		    SENINF_TG_SENINF_TG_TM_CORE0_CLK_CNT, 0); //0x1f
 
 	// tm vb hb
 	SENINF_BITS(pSeninf_tg, SENINF_TG_SENINF_TG_TM_DUM,

@@ -197,7 +197,7 @@ int regulator_init(void)
 	C2PS_LOGD("[C2PS] %s", __func__);
 	regulator_condition_notifier_exit = false;
 	c2ps_regulator_thread =
-	       kthread_create(c2ps_regulator_loop, NULL, "c2ps_regulator_loop");
+		kthread_create(c2ps_regulator_loop, NULL, "c2ps_regulator_loop");
 	if (unlikely(c2ps_regulator_thread == NULL))
 		return -EFAULT;
 

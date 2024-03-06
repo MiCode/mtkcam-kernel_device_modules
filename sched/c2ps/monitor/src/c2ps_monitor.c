@@ -176,8 +176,10 @@ int monitor_anchor(
 
 	C2PS_LOGD("check anchor notifier, anc_id: %d, anc_type: %d", anc_id, anc_type);
 
-	if (unlikely(g_info &&
-			(g_info->overwrite_util_margin > 0 ||
+	if (unlikely(!g_info))
+		return -1;
+
+	if (unlikely((g_info->overwrite_util_margin > 0 ||
 			g_info->decided_um_placeholder_val > 0))) {
 		C2PS_LOGD("skip anchor monitor, use overwrite um: %u or um_placeholder: %u",
 				g_info->overwrite_util_margin, g_info->decided_um_placeholder_val);

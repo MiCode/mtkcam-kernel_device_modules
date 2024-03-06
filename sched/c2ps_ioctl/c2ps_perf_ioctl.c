@@ -13,7 +13,7 @@ EXPORT_SYMBOL_GPL(c2ps_notify_init_fp);
 int (*c2ps_notify_uninit_fp)(void);
 EXPORT_SYMBOL_GPL(c2ps_notify_uninit_fp);
 int (*c2ps_notify_add_task_fp)(
-    u32 task_id, u32 task_target_time, u32 default_uclamp,
+	u32 task_id, u32 task_target_time, u32 default_uclamp,
 	int group_head, u32 task_group_target_time,
 	bool is_vip_task, bool is_dynamic_tid,
 	bool is_enable_dep_thread, const char *task_name);
@@ -52,7 +52,7 @@ int debug_log_on = 0;
 module_param(debug_log_on, int, 0644);
 
 static u64 perfctl_copy_from_user(void *pvTo,
-    const void __user *pvFrom, u64 ulBytes)
+	const void __user *pvFrom, u64 ulBytes)
 {
 	if (likely(access_ok(pvFrom, ulBytes)))
 		return __copy_from_user(pvTo, pvFrom, ulBytes);
@@ -71,7 +71,7 @@ static int device_open(struct inode *inode, struct file *file)
 }
 
 static long device_ioctl(
-    struct file *filp, unsigned int cmd, unsigned long arg)
+	struct file *filp, unsigned int cmd, unsigned long arg)
 {
 	ssize_t ret = 0;
 	#if IS_ENABLED(CONFIG_MTK_C2PS)

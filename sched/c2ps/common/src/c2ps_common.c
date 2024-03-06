@@ -1484,7 +1484,7 @@ void reset_need_update_status(void)
 						glb_info->max_uclamp[_cluster_idx]);
 				if (recovery_uclamp_max_immediately)
 					set_gear_uclamp_max(_cluster_idx, _recovery[_cluster_idx]);
-			};
+			}
 
 			c2ps_info_lock(&glb_info->mlock);
 
@@ -1709,16 +1709,16 @@ static ssize_t task_info_show(struct kobject *kobj,
 	if (unlikely(!temp))
 		goto out;
 
-    length = scnprintf(temp + pos, C2PS_SYSFS_MAX_BUFF_SIZE - pos,
-	    "\nTASKID\tPID\tTASK_NAME\tINIT_UCLAMP\tTASK_TARGET_TIME\tVIP_TASK\t");
-    pos += length;
-    length = scnprintf(temp + pos, C2PS_SYSFS_MAX_BUFF_SIZE - pos,
-	    "START_TIME\tEND_TIME\tPROC_TIME\tEXEC_TIME\tLATEST_UCLAMP\n");
-    pos += length;
+	length = scnprintf(temp + pos, C2PS_SYSFS_MAX_BUFF_SIZE - pos,
+		"\nTASKID\tPID\tTASK_NAME\tINIT_UCLAMP\tTASK_TARGET_TIME\tVIP_TASK\t");
+	pos += length;
+	length = scnprintf(temp + pos, C2PS_SYSFS_MAX_BUFF_SIZE - pos,
+		"START_TIME\tEND_TIME\tPROC_TIME\tEXEC_TIME\tLATEST_UCLAMP\n");
+	pos += length;
 
-    c2ps_task_info_tbl_lock(__func__);
+	c2ps_task_info_tbl_lock(__func__);
 
-    hash_for_each(task_info_tbl, bkt, tsk_info, hlist) {
+	hash_for_each(task_info_tbl, bkt, tsk_info, hlist) {
 		length = scnprintf(temp + pos,
 			C2PS_SYSFS_MAX_BUFF_SIZE - pos,
 			"%-2d\t%-5d\t%*s\t%-4u\t\t%-8llu\t\t%d\t\t",
@@ -1734,11 +1734,11 @@ static ssize_t task_info_show(struct kobject *kobj,
 			tsk_info->proc_time, tsk_info->real_exec_runtime,
 			tsk_info->latest_uclamp);
 		pos += length;
-    }
+	}
 
-    c2ps_task_info_tbl_unlock(__func__);
+	c2ps_task_info_tbl_unlock(__func__);
 
-    length = scnprintf(buf, PAGE_SIZE, "%s", temp);
+	length = scnprintf(buf, PAGE_SIZE, "%s", temp);
 
 out:
 	kfree(temp);

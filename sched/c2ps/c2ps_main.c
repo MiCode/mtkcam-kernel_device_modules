@@ -114,10 +114,10 @@ static void c2ps_notifier_init(void)
 	timer_setup(&background_info_update_timer,
 				background_info_update_timer_callback, 0);
 	add_timer(&background_info_update_timer);
-	if (picked_wl_table < get_nr_wl_type())
-		set_wl_type_manual(picked_wl_table);
+	if (picked_wl_table < get_nr_wl())
+		set_wl_manual(picked_wl_table);
 	else
-		set_wl_type_manual(0);
+		set_wl_manual(0);
 }
 
 static void c2ps_notifier_uninit(void)
@@ -134,7 +134,7 @@ static void c2ps_notifier_uninit(void)
 	del_timer_sync(&background_info_update_timer);
 	exit_c2ps_common();
 	del_timer_sync(&self_uninit_timer);
-	set_wl_type_manual(-1);
+	set_wl_manual(-1);
 
 	// reset util margin to default
 	for (; _idx < c2ps_nr_clusters; ++_idx)

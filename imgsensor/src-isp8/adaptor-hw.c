@@ -393,6 +393,16 @@ static int reinit_pinctrl(struct adaptor_ctx *ctx)
 	adaptor_logm(ctx, "-\n");
 	return 0;
 }
+
+static int deinit_pinctrl(struct adaptor_ctx *ctx)
+{
+	if (ctx->pinctrl) {
+		devm_pinctrl_put(ctx->pinctrl);
+		ctx->pinctrl = NULL;
+	}
+	return 0;
+}
+
 int do_cam_pmic_on(struct adaptor_ctx *ctx)
 {
 	return set_reg_pmic_wakeup(ctx, REGULATOR_BASE);
@@ -643,8 +653,7 @@ int do_hw_power_off(struct adaptor_ctx *ctx)
 		ctx->state[STATE_MIPI_SWITCH_OFF] ||
 		ctx->state[STATE_DOVDD_ON] ||
 		ctx->state[STATE_DOVDD_OFF]) {
-		devm_pinctrl_put(ctx->pinctrl);
-		ctx->pinctrl = NULL;
+		deinit_pinctrl(ctx);
 	}
 
 	if (ctx->sensor_ws) {
@@ -887,4 +896,8 @@ int adaptor_hw_sensor_reset(struct adaptor_ctx *ctx)
 	return -1;
 }
 
-
+int adaptor_hw_deinit(struct adaptor_ctx *ctx)
+{
+	deinit_pinctrl(ctx);
+	return 0;
+}

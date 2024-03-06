@@ -1463,6 +1463,7 @@ static int imgsensor_probe(struct i3c_i2c_device *client)
 		ctx->pmic_delayus = 0;
 
 	ret = search_sensor(ctx);
+	adaptor_hw_deinit(ctx);
 	if (ret) {
 		adaptor_loge(ctx, "no sensor found\n");
 		return ret;

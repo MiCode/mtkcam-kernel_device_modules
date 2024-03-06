@@ -26,7 +26,6 @@ static int get_sensor_temperature(void *arg);
 static void set_group_hold(void *arg, u8 en);
 static u16 get_gain2reg(u32 gain);
 static int imx866rgb_seamless_switch(struct subdrv_ctx *ctx, u8 *para, u32 *len);
-static int imx866rgb_get_imgsensor_id(struct subdrv_ctx *ctx, u32 *sensor_id);
 static int imx866rgb_set_test_pattern(struct subdrv_ctx *ctx, u8 *para, u32 *len);
 static int init_ctx(struct subdrv_ctx *ctx,	struct i2c_client *i2c_client, u8 i2c_write_id);
 static int vsync_notify(struct subdrv_ctx *ctx,	unsigned int sof_cnt);
@@ -556,7 +555,7 @@ static struct subdrv_static_ctx static_ctx = {
 };
 
 static struct subdrv_ops ops = {
-	.get_id = imx866rgb_get_imgsensor_id,
+	.get_id = common_get_imgsensor_id,
 	.init_ctx = init_ctx,
 	.open = common_open,
 	.get_info = common_get_info,
@@ -584,7 +583,7 @@ static struct subdrv_pw_seq_entry pw_seq[] = {
 	{HW_ID_AFVDD1, {1800000, 1800000}, 0}, // power  1.8V to enable 2.8V ldo
 	{HW_ID_AFVDD, {2800000, 2800000}, 1000},
 	{HW_ID_DOVDD, {1800000, 1800000}, 1000},
-	{HW_ID_DVDD, {1100000, 1100000}, 1000},
+	{HW_ID_DVDD, {1090000, 1090000}, 1000},
 	{HW_ID_DVDD1, {1090000, 1090000}, 1000},
 	{HW_ID_MCLK_DRIVING_CURRENT, {4}, 1000},
 	{HW_ID_RST, {1}, 5000}
@@ -754,43 +753,4 @@ static int vsync_notify(struct subdrv_ctx *ctx,	unsigned int sof_cnt)
 		commit_i2c_buffer(ctx);
 	}
 	return 0;
-}
-
-int imx866rgb_get_imgsensor_id(struct subdrv_ctx *ctx, u32 *sensor_id)
-{
-	u8 i = 0;
-	u8 retry = 2;
-	u32 addr_h = ctx->s_ctx.reg_addr_sensor_id.addr[0];
-	u32 addr_l = ctx->s_ctx.reg_addr_sensor_id.addr[1];
-	u32 addr_ll = ctx->s_ctx.reg_addr_sensor_id.addr[2];
-	u8 ixc_check = 0;
-	u8 ixc_pro = ctx->ixc_client.protocol;
-
-	while (ctx->s_ctx.i2c_addr_table[i] != 0xFF) {
-		ctx->i2c_write_id = ctx->s_ctx.i2c_addr_table[i];
-		do {
-			*sensor_id = (subdrv_ixc_rd_u8(ctx, addr_h) << 8) |
-				subdrv_ixc_rd_u8(ctx, addr_l);
-			if (addr_ll)
-				*sensor_id = ((*sensor_id) << 8) | subdrv_ixc_rd_u8(ctx, addr_ll);
-			DRV_LOG_MUST(ctx, "i2c_write_id:0x%x sensor_id(cur/exp):0x%x/0x%x\n",
-				ctx->i2c_write_id, *sensor_id, ctx->s_ctx.sensor_id);
-			if (*sensor_id == ctx->s_ctx.sensor_id){
-				ixc_check = subdrv_ixc_rd_u8(ctx, 0x3AF3);
-				if ((ixc_pro == I2C_PROTOCOL && ixc_check == 0x60) ||
-					(ixc_pro == I3C_PROTOCOL && ixc_check == 0x69))
-					return ERROR_NONE;
-				else
-					return ERROR_SENSOR_CONNECT_FAIL;
-			}
-			retry--;
-		} while (retry > 0);
-		i++;
-		retry = 2;
-	}
-	if (*sensor_id != ctx->s_ctx.sensor_id) {
-		*sensor_id = 0xFFFFFFFF;
-		return ERROR_SENSOR_CONNECT_FAIL;
-	}
-	return ERROR_NONE;
 }

@@ -19,7 +19,6 @@
 #define _IMX866RGB_SENSOR_SETTING_H
 
 #include "kd_camera_typedef.h"
-#define MCLK_26MHZ
 
 // NOTE:
 // for 2 exp setting,  VCID of LE/SE should be 0x00 and 0x02

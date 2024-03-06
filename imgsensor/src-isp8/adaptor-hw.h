@@ -10,6 +10,7 @@ int adaptor_hw_init(struct adaptor_ctx *ctx);
 int adaptor_hw_sensor_reset(struct adaptor_ctx *ctx);
 int adaptor_cam_pmic_on(struct adaptor_ctx *ctx);
 int adaptor_cam_pmic_off(struct adaptor_ctx *ctx);
+int adaptor_hw_deinit(struct adaptor_ctx *ctx);
 
 
 #endif

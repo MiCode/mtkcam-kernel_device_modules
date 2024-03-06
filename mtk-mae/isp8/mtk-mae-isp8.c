@@ -200,7 +200,6 @@ static bool select_outer_loop_by_mae_mode(struct mtk_mae_dev *mae_dev,
 	switch (param->maeMode) {
 	case FD_V0:
 	case FD_V1_IPN:
-	case FD_V1_FPN:
 		*loop_num = param->pyramidNumber;
 		break;
 	case ATTR_V0:
@@ -208,6 +207,7 @@ static bool select_outer_loop_by_mae_mode(struct mtk_mae_dev *mae_dev,
 		*loop_num = param->attrFaceNumber;
 		break;
 	case FLD_V0:
+	case FD_V1_FPN:
 	case AISEG:
 		*loop_num = 1;
 		break;
@@ -957,6 +957,45 @@ static bool mtk_mae_config_rsz(struct mtk_mae_dev *mae_dev,
 		if (padding_in.right < 0 || padding_in.down < 0) {
 			mae_dev_info(mae_dev->dev, "can not padding negative value r(%d) d(%d)",
 				padding_in.right, padding_in.down);
+			mae_dev_info(mae_dev->dev, "loop(%d) img(%d,%d) roi(%d)(%d,%d -> %d,%d) pad(%d)(%d,%d,%d,%d)",
+				loop, param->image[loop].resizeWidth, param->image[loop].resizeHeight,
+				param->image[loop].enRoi, param->image[loop].roi.x1, param->image[loop].roi.y1,
+				param->image[loop].roi.x2, param->image[loop].roi.y2, param->image[loop].enPadding,
+				param->image[loop].padding.left, param->image[loop].padding.right,
+				param->image[loop].padding.down, param->image[loop].padding.up);
+			// force to 640x480
+			// return false;
+			padding_in.right = 0;
+			padding_in.down = 0;
+		}
+	} else if (param->maeMode == FD_V1_FPN) {
+		padding_in.left = 0;
+		padding_in.up = 0;
+
+		if (param->image[loop].enRoi) {
+			padding_in.crop_output_h_size = param->image[loop].roi.x2 - param->image[loop].roi.x1;
+			padding_in.crop_output_v_size = param->image[loop].roi.y2 - param->image[loop].roi.y1;
+		} else {
+			padding_in.crop_output_h_size = param->image[loop].imgWidth;
+			padding_in.crop_output_v_size = param->image[loop].imgHeight;
+		}
+
+		padding_in.right =
+			DIV_CEIL_POS(FPN_PYRAMID_WIDTH * padding_in.crop_output_h_size,
+				param->image[loop].resizeWidth) - padding_in.crop_output_h_size;
+		padding_in.down =
+			DIV_CEIL_POS(FPN_PYRAMID_HEIGHT * padding_in.crop_output_h_size,
+				param->image[loop].resizeWidth) - padding_in.crop_output_v_size;
+
+		if (padding_in.right < 0 || padding_in.down < 0) {
+			mae_dev_info(mae_dev->dev, "can not padding negative value r(%d) d(%d)",
+				padding_in.right, padding_in.down);
+			mae_dev_info(mae_dev->dev, "loop(%d) img(%d,%d) roi(%d)(%d,%d -> %d,%d) pad(%d)(%d,%d,%d,%d)",
+				loop, param->image[loop].resizeWidth, param->image[loop].resizeHeight,
+				param->image[loop].enRoi, param->image[loop].roi.x1, param->image[loop].roi.y1,
+				param->image[loop].roi.x2, param->image[loop].roi.y2, param->image[loop].enPadding,
+				param->image[loop].padding.left, param->image[loop].padding.right,
+				param->image[loop].padding.down, param->image[loop].padding.up);
 			// force to 640x480
 			// return false;
 			padding_in.right = 0;
@@ -1198,14 +1237,24 @@ static void mtk_mae_fd_post(struct mtk_mae_dev *mae_dev,
 		__func__, MAE_BASE + MAE_REG_V_SIZE0 + core_offset,
 		(uint32_t)image->imgHeight);
 
-	if (mode == FD_V1_IPN || mode == FD_V1_FPN) {
+	if (mode == FD_V1_IPN) {
 		MAE_CMDQ_WRITE_REG(pkt, MAE_REG_H_MIN0 + core_offset, 0x0);
 		MAE_CMDQ_WRITE_REG(pkt, MAE_REG_V_MIN0 + core_offset, 0x0);
 		MAE_CMDQ_WRITE_REG(pkt, MAE_REG_H_MAX0 + core_offset,
 				(uint32_t)image->imgWidth);
 		MAE_CMDQ_WRITE_REG(pkt, MAE_REG_V_MAX0 + core_offset,
 				(uint32_t)image->imgHeight);
-		MAE_CMDQ_WRITE_REG(pkt, MAE_REG_SCORE_TH0 + core_offset, 0x11);
+
+		// 0x1008 is representation of -16 by 2's complement
+		MAE_CMDQ_WRITE_REG(pkt, MAE_REG_SCORE_TH0 + core_offset, 0x1008);
+	} else if (mode == FD_V1_FPN) {
+		MAE_CMDQ_WRITE_REG(pkt, MAE_REG_H_MIN0 + core_offset, 0x0);
+		MAE_CMDQ_WRITE_REG(pkt, MAE_REG_V_MIN0 + core_offset, 0x0);
+		MAE_CMDQ_WRITE_REG(pkt, MAE_REG_H_MAX0 + core_offset,
+				(uint32_t)image->imgWidth);
+		MAE_CMDQ_WRITE_REG(pkt, MAE_REG_V_MAX0 + core_offset,
+				(uint32_t)image->imgHeight);
+		MAE_CMDQ_WRITE_REG(pkt, MAE_REG_SCORE_TH0 + core_offset, 0xAA);
 	}
 }
 
@@ -1487,11 +1536,6 @@ static bool mtk_mae_config_hw(struct mtk_mae_dev *mae_dev, int idx)
 	uint32_t i = 0;
 
 	mae_dev_dbg(mae_dev->dev, "%s+", __func__);
-
-	// ddren set should be 100ns earlier than sw trig
-	MAE_CMDQ_WRITE_REG(mae_dev->pkt[idx], MAE_TRIG_RST_CTRL, 0x0100);
-	MAE_CMDQ_WRITE_REG(mae_dev->pkt[idx], MAE_TRIG_RST_CTRL, 0x0000);
-
 	mae_dev_dbg(mae_dev->dev, "adb: mae_trigger_cmdq_timeout(%d)\n", mae_trigger_cmdq_timeout);
 	mae_dev_dbg(mae_dev->dev, "adb: fld_debug_1(%d)\n", fld_debug_1);
 	mae_dev_dbg(mae_dev->dev, "adb: mae_dbf_on(%d)\n", mae_dbf_on);
@@ -1702,10 +1746,6 @@ static bool mtk_mae_config_hw(struct mtk_mae_dev *mae_dev, int idx)
 	if (mae_trigger_cmdq_timeout == 0)
 		// sw trigger
 		MAE_CMDQ_WRITE_REG(mae_dev->pkt[idx], MAE_TRIG_RST_CTRL, 0x8000);
-
-	// ddren clear
-	MAE_CMDQ_WRITE_REG(mae_dev->pkt[idx], MAE_TRIG_RST_CTRL, 0x0100);
-	MAE_CMDQ_WRITE_REG(mae_dev->pkt[idx], MAE_TRIG_RST_CTRL, 0x0000);
 
 	if (cmdq_polling_en)
 #ifdef MAE_USE_CMDQ_POLL_TIMEOUT

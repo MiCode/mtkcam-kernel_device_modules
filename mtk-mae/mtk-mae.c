@@ -508,6 +508,7 @@ static void mtk_mae_frame_done_worker(struct work_struct *work)
 				drv_ops.get_fd_v0_result(mae_dev, 0);
 				break;
 			case FD_V1_IPN:
+			case FD_V1_FPN:
 				drv_ops.get_fd_v1_result(mae_dev, 0);
 				break;
 			case ATTR_V0:

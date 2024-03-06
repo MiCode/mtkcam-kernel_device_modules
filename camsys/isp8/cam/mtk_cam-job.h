@@ -491,7 +491,7 @@ static inline bool mtk_cam_job_is_done(struct mtk_cam_job *job)
 ({\
 	typeof(job) _job = (job);\
 	typeof(_job->init_params) _init_p = _job->init_params;\
-	_init_p && _init_p->func ? _init_p->func(_job, ##__VA_ARGS__) : 0;\
+	_init_p && _init_p->func ? _init_p->func(_job, ##__VA_ARGS__) : -1;\
 })
 
 enum MTK_CAMSYS_JOB_TYPE {

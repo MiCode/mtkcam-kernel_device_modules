@@ -343,6 +343,9 @@ bool qof_is_enabled(struct mtk_raw_device *dev)
 	struct mtk_cam_device *cam = dev->cam;
 	u32 val;
 
+	if (!cam)
+		goto OUT;
+
 	val = readl_relaxed(cam->qoftop_base + REG_QOF_CAM_TOP_QOF_TOP_CTL);
 
 	switch (dev->id) {
@@ -359,6 +362,7 @@ bool qof_is_enabled(struct mtk_raw_device *dev)
 		break;
 	}
 
+OUT:
 	return enabled;
 }
 

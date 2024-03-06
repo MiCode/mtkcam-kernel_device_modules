@@ -2183,23 +2183,6 @@ static int mtk_raw_probe(struct platform_device *pdev)
 	if (ret)
 		return ret;
 
-	switch (raw_dev->id) {
-	case RAW_A:
-		smi_raw_a_pwr_cb.data = raw_dev;
-		mtk_smi_dbg_register_pwr_ctrl_cb(&smi_raw_a_pwr_cb);
-		break;
-	case RAW_B:
-		smi_raw_b_pwr_cb.data = raw_dev;
-		mtk_smi_dbg_register_pwr_ctrl_cb(&smi_raw_b_pwr_cb);
-		break;
-	case RAW_C:
-		smi_raw_c_pwr_cb.data = raw_dev;
-		mtk_smi_dbg_register_pwr_ctrl_cb(&smi_raw_c_pwr_cb);
-		break;
-	default:
-		break;
-	}
-
 	ret = mtk_cam_qos_probe(dev, &raw_dev->qos,
 				GET_PLAT_HW(raw_icc_path_num));
 	if (ret)
@@ -2226,6 +2209,23 @@ static int mtk_raw_probe(struct platform_device *pdev)
 	ret = component_add(dev, &mtk_raw_component_ops);
 	if (ret)
 		goto UNREGISTER_PM_NOTIFIER;
+
+	switch (raw_dev->id) {
+	case RAW_A:
+		smi_raw_a_pwr_cb.data = raw_dev;
+		mtk_smi_dbg_register_pwr_ctrl_cb(&smi_raw_a_pwr_cb);
+		break;
+	case RAW_B:
+		smi_raw_b_pwr_cb.data = raw_dev;
+		mtk_smi_dbg_register_pwr_ctrl_cb(&smi_raw_b_pwr_cb);
+		break;
+	case RAW_C:
+		smi_raw_c_pwr_cb.data = raw_dev;
+		mtk_smi_dbg_register_pwr_ctrl_cb(&smi_raw_c_pwr_cb);
+		break;
+	default:
+		break;
+	}
 
 	return ret;
 

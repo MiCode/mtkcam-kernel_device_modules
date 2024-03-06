@@ -572,13 +572,13 @@ void subsample_enable(struct mtk_raw_device *dev, int subsample_ratio)
 }
 
 /* TODO: cq_set_stagger_mode(dev, 0/1) */
-void stagger_enable(struct mtk_raw_device *dev, bool is_dc)
+void stagger_enable(struct mtk_raw_device *dev)
 {
 	u32 val;
 
 	val = raw_readl_relaxed(dev, dev->base, REG_CAMCQ_CQ_EN);
 	SET_FIELD(&val, CAMCQ_SCQ_STAGGER_MODE, 1);
-	SET_FIELD(&val, CAMCQ_SCQ_INVLD_CLR_CHK, is_dc ? 1 : 0);
+	SET_FIELD(&val, CAMCQ_SCQ_INVLD_CLR_CHK, 1);
 	raw_writel_relaxed(val, dev, dev->base, REG_CAMCQ_CQ_EN);
 
 	if (CAM_DEBUG_ENABLED(RAW_INT))
@@ -586,6 +586,7 @@ void stagger_enable(struct mtk_raw_device *dev, bool is_dc)
 			 "[%s] raw%d - CQ_EN:0x%x\n",
 			 __func__, dev->id, raw_readl_relaxed(dev, dev->base, REG_CAMCQ_CQ_EN));
 }
+
 void dump_af_reg(struct mtk_raw_device *dev)
 {
 	u32 af_size, af_vld, af_blk_prot, af_blk_0, af_blk_1;

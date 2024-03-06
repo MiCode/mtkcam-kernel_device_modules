@@ -1419,7 +1419,6 @@ static int apply_camcq_stagger_en(struct mtk_cam_job *job)
 	int prev_exp = job_prev_exp_num_seamless(job);
 	int cur_exp = job_exp_num(job);
 	bool stagger_mode_updated = false;
-	bool is_dc = is_dc_mode(job) ? true : false;
 
 	if (raw_id < 0)
 		return -1;
@@ -1431,7 +1430,7 @@ static int apply_camcq_stagger_en(struct mtk_cam_job *job)
 			"[%s] ctx:%d, job:0x%x, stagger_disable\n",
 			__func__, ctx->stream_id, job->frame_seq_no);
 	} else if (prev_exp == 1 && cur_exp != 1) {
-		stagger_enable(raw_dev, is_dc);
+		stagger_enable(raw_dev);
 		stagger_mode_updated = true;
 		dev_info(cam->dev,
 			"[%s] ctx:%d, job:0x%x, stagger_enable\n",
@@ -2495,12 +2494,11 @@ _job_pack_subsample(struct mtk_cam_job *job,
 static int master_raw_set_stagger(struct mtk_cam_job *job, struct device *dev)
 {
 	struct mtk_raw_device *raw;
-	bool is_dc = is_dc_mode(job);
 
 	raw = dev_get_drvdata(dev);
 
 	if (job_exp_num(job) > 1)
-		stagger_enable(raw, is_dc ? true : false);
+		stagger_enable(raw);
 
 	return 0;
 }

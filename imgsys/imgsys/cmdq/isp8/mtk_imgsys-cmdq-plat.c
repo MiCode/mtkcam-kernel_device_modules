@@ -1267,7 +1267,7 @@ void imgsys_cmdq_task_cb_plat8(struct cmdq_cb_data data)
 
 		if (isHWhang | isQOFhang) {
 			MTK_IMGSYS_QOF_NEED_RUN(imgsys_dev->qof_ver,
-				mtk_imgsys_cmdq_qof_dump(cb_param->hw_comb);
+				mtk_imgsys_cmdq_qof_dump(cb_param->hw_comb, true);
 			);
 		}
 	}

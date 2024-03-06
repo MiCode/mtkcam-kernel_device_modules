@@ -77,6 +77,8 @@ spinlock_t qof_lock;
 
 enum QOF_DEBUG_MODE {
 	QOF_DEBUG_MODE_PERFRAME_DUMP = 1,
+	QOF_DEBUG_MODE_IMMEDIATE_DUMP = 2,
+	QOF_DEBUG_MODE_IMMEDIATE_CG_DUMP = 3,
 };
 
 enum QOF_GCE_THREAD_LIST {
@@ -204,7 +206,7 @@ bool check_cg_status(u32 cg_reg_idx, u32 val)
 {
 	if((readl(g_maped_rg[cg_reg_idx]) & val) != 0) {
 		QOF_LOGE("g_maped_rg[%d] CG not ungate(0x%x)!!!\n", cg_reg_idx, readl(g_maped_rg[cg_reg_idx]));
-		mtk_imgsys_cmdq_qof_dump(0);
+		mtk_imgsys_cmdq_qof_dump(0, true);
 		return false;
 	}
 	return true;
@@ -213,6 +215,19 @@ bool check_cg_status(u32 cg_reg_idx, u32 val)
 bool qof_check_module_cg_status(u32 pwr)
 {
 	unsigned int val;
+	void __iomem *addr;
+
+	if ((readl(g_maped_rg[MAPED_RG_ISP_MAIN_PWR_CON]) & (BIT(30)|BIT(31)))
+		!= (BIT(30)|BIT(31))) {
+		QOF_LOGI("mod[%u] isp_main is off. sta=0x%x\n",
+			pwr, readl(g_maped_rg[MAPED_RG_ISP_MAIN_PWR_CON]));
+		return false;
+	}
+	addr = QOF_GET_REMAP_ADDR(qof_reg_table[pwr][QOF_IMG_QOF_STATE_DBG].addr);
+	if ((readl(addr) & BIT(1)) != BIT(1)) {
+		QOF_LOGI("qof[%u] mtcmos is off. sta=0x%x\n", pwr, readl(addr));
+		return false;
+	}
 
 	switch(pwr) {
 	case ISP8_PWR_DIP:
@@ -365,7 +380,7 @@ void qof_poll_smi_hsk_timeout(u64 timeout_time)
 		} else if ((time_cur - time_start) > timeout_time) {
 			QOF_LOGE("timeout(%llu us)! smi waiting event  HSK=%u\n", time_cur - time_start,
 				cmdq_get_event(pwr_clt->chan, CMDQ_SW_EVENT_QOF_SMI_CB_HSK));
-			mtk_imgsys_cmdq_qof_dump(0);
+			mtk_imgsys_cmdq_qof_dump(0, false);
 			break;
 		}
 	}
@@ -444,7 +459,7 @@ static int qof_smi_isp_module_get(void *data, int module)
 		qof_poll_status(module, true);
 		if (qof_check_module_cg_status(module) == false) {
 			QOF_LOGE("qof_check_module_cg_status CG error\n");
-			mtk_imgsys_cmdq_qof_dump(0);
+			mtk_imgsys_cmdq_qof_dump(0, false);
 		}
 	}
 	QOF_LOGI("mem_cnt=%u, MAIN[0x%x], VCORE[0x%x]\n",
@@ -458,24 +473,31 @@ static int qof_smi_isp_module_get(void *data, int module)
 
 static int qof_smi_isp_module_get_if_in_use(void *data, int module)
 {
-	int ret = 0;
+	int ret = -1;
+	int pm_res = -1;
 	unsigned long flag;
 
 	spin_lock_irqsave(&qof_lock, flag);
 	if (imgsys_voter_cnt != 0) {
 		imgsys_voter_cnt++;
-		pm_runtime_get_noresume(g_imgsys_dev->dev);
-		if (is_qof_engine_enabled(module)) {
-			qof_smi_cb_power_on();
-			qof_poll_status(module, true);
-			if (qof_check_module_cg_status(module) == false) {
-				QOF_LOGE("qof_check_module_cg_status CG error\n");
-				mtk_imgsys_cmdq_qof_dump(0);
+		pm_res = pm_runtime_get_if_in_use(g_imgsys_dev->dev);
+		if (pm_res <= 0) {
+			ret = -1;
+		} else {
+			if (is_qof_engine_enabled(module)) {
+				qof_smi_cb_power_on();
+				qof_poll_status(module, true);
+				if (qof_check_module_cg_status(module) == false) {
+					QOF_LOGE("qof_check_module_cg_status CG error\n");
+					mtk_imgsys_cmdq_qof_dump(0, false);
+				}
 			}
+			ret = 1;
 		}
-		ret = 1;
 	}
-	QOF_LOGI("mem_cnt=%u, MAIN[0x%x], VCORE[0x%x]\n",
+	QOF_LOGI("ret=%d, pm_res=%d, mem_cnt=%u, MAIN[0x%x], VCORE[0x%x]\n",
+		ret,
+		pm_res,
 		((g_qof_work_buf_va == NULL) || (*g_qof_work_buf_va == NULL)) ?
 			QOF_ERROR_CODE : **((unsigned int **)g_qof_work_buf_va),
 		(readl(g_maped_rg[MAPED_RG_ISP_MAIN_PWR_CON])),
@@ -488,13 +510,11 @@ static int qof_smi_isp_module_get_if_in_use(void *data, int module)
 static int qof_smi_isp_module_put(void *data, int module)
 {
 	unsigned long flag;
-	bool need_ret = false;
 
 	spin_lock_irqsave(&qof_lock, flag);
-	if (imgsys_voter_cnt == 0) {
-		QOF_LOGE("imgsys_voter_cnt is 0, return\n");
-		need_ret = true;
-	} else {
+	if (imgsys_voter_cnt == 0)
+		QOF_LOGE("imgsys_voter_cnt is 0\n");
+	else {
 		imgsys_voter_cnt--;
 		if (imgsys_voter_cnt != 0) {
 			// put before stream_off, use qof gce sub(now is qof mode)
@@ -505,7 +525,7 @@ static int qof_smi_isp_module_put(void *data, int module)
 			qof_smi_cb_power_off(QOF_USER_AP);
 		}
 
-		pm_runtime_put_noidle(g_imgsys_dev->dev);
+		pm_runtime_put(g_imgsys_dev->dev);
 	}
 	QOF_LOGI("mem_cnt=%u, MAIN[0x%x], VCORE[0x%x]\n",
 		((g_qof_work_buf_va == NULL) || (*g_qof_work_buf_va == NULL)) ?
@@ -854,8 +874,7 @@ void mtk_imgsys_qof_print_hw_info(u32 mod)
 
 	event = &qof_events_isp8[mod];
 
-	QOF_LOGI("ver[%u]mod[%d]rg(0x%x):0x%x;rg(0x%x):0x%x;rg(0x%x):0x%x;rg(0x%x):0x%x;rg(0x%x):0x%x;rg(0x%x):0x%x\n",
-		g_qof_ver,
+	QOF_LOGI("mod[%d]rg(0x%x):0x%x;rg(0x%x):0x%x;rg(0x%x):0x%x;rg(0x%x):0x%x;rg(0x%x):0x%x;rg(0x%x):0x%x\n",
 		mod,
 		qof_reg_table[mod][QOF_IMG_EVENT_CNT_ADD].addr,
 		readl(QOF_GET_REMAP_ADDR(qof_reg_table[mod][QOF_IMG_EVENT_CNT_ADD].addr)),
@@ -901,6 +920,46 @@ static void mtk_qof_print_mtcmos_status(void)
 		(readl(g_maped_rg[MAPED_RG_ISP_WPE_EIS_PWR_CON])),
 		(readl(g_maped_rg[MAPED_RG_ISP_WPE_TNR_PWR_CON])),
 		(readl(g_maped_rg[MAPED_RG_ISP_WPE_LITE_PWR_CON])));
+}
+
+static void mtk_qof_print_cg_status(void)
+{
+	void __iomem *addr;
+
+	addr = QOF_GET_REMAP_ADDR(qof_reg_table[ISP8_PWR_DIP][QOF_IMG_QOF_STATE_DBG].addr);
+	if ((readl(addr) & BIT(1)) == BIT(1)) {
+		QOF_LOGI(" dip CG Status: IMG_MAIN[0x%x], NR1[0x%x], NR2[0x%x], DIP_TOP[0x%x]\n",
+		(readl(g_maped_rg[MAPED_RG_IMG_CG_IMGSYS_MAIN])),
+		(readl(g_maped_rg[MAPED_RG_IMG_CG_DIP_NR1_DIP1])),
+		(readl(g_maped_rg[MAPED_RG_IMG_CG_DIP_NR2_DIP1])),
+		(readl(g_maped_rg[MAPED_RG_IMG_CG_DIP_TOP_DIP1])));
+	} else
+		QOF_LOGI("qof mtcmos dip is off. sta=0x%x\n", readl(addr));
+	addr = QOF_GET_REMAP_ADDR(qof_reg_table[ISP8_PWR_TRAW][QOF_IMG_QOF_STATE_DBG].addr);
+	if ((readl(addr) & BIT(1)) == BIT(1)) {
+		QOF_LOGI(" traw CG Status: TRAW_CAP[0x%x], TRAW_DIP1[0x%x]\n",
+		(readl(g_maped_rg[MAPED_RG_IMG_CG_TRAW_CAP_DIP1])),
+		(readl(g_maped_rg[MAPED_RG_IMG_CG_TRAW_DIP1])));
+	} else
+		QOF_LOGI("qof mtcmos traw is off. sta=0x%x\n",  readl(addr));
+	addr = QOF_GET_REMAP_ADDR(qof_reg_table[ISP8_PWR_WPE_1_EIS][QOF_IMG_QOF_STATE_DBG].addr);
+	if ((readl(addr) & BIT(1)) == BIT(1)) {
+		QOF_LOGI(" wpe1 CG Status: WPE1[0x%x]\n",
+		(readl(g_maped_rg[MAPED_RG_IMG_CG_WPE1_DIP1])));
+	} else
+		QOF_LOGI("qof mtcmos wpe1 is off. sta=0x%x\n", readl(addr));
+	addr = QOF_GET_REMAP_ADDR(qof_reg_table[ISP8_PWR_WPE_2_TNR][QOF_IMG_QOF_STATE_DBG].addr);
+	if ((readl(addr) & BIT(1)) == BIT(1)) {
+		QOF_LOGI(" wpe2 CG Status: WPE2[0x%x]\n",
+		(readl(g_maped_rg[MAPED_RG_IMG_CG_WPE2_DIP1])));
+	} else
+		QOF_LOGI("qof mtcmos wpe2 is off. sta=0x%x\n", readl(addr));
+	addr = QOF_GET_REMAP_ADDR(qof_reg_table[ISP8_PWR_WPE_3_LITE][QOF_IMG_QOF_STATE_DBG].addr);
+	if ((readl(addr) & BIT(1)) == BIT(1)) {
+		QOF_LOGI(" wpe3 CG Status: WPE3[0x%x]\n",
+		(readl(g_maped_rg[MAPED_RG_IMG_CG_WPE2_DIP1])));
+	} else
+		QOF_LOGI("qof mtcmos wpe3 is off. sta=0x%x\n", readl(addr));
 }
 
 static void imgsys_cmdq_init_qof_events(void)
@@ -1333,7 +1392,7 @@ static void qof_set_engine_on(const u32 mod)
 	if (readl_poll_timeout_atomic
 		(io_addr, tmp, (tmp & BIT(1)) == BIT(1), POLL_DELAY_US, TIMEOUT_1000US) < 0) {
 		QOF_LOGE("mod[%d] waiting for qof state pwr on timeout, disable support\n",mod);
-		mtk_imgsys_cmdq_qof_dump(0);
+		mtk_imgsys_cmdq_qof_dump(0, false);
 		g_qof_ver &= (~BIT(mod));
 		return;
 	}
@@ -1348,7 +1407,7 @@ static void qof_set_engine_on(const u32 mod)
 	if (readl_poll_timeout_atomic
 		(io_addr, tmp, (tmp & BIT(4)) == BIT(4), POLL_DELAY_US, TIMEOUT_1000US) < 0) {
 		QOF_LOGE("mod[%d] waiting for qof state pwr off timeout, disable support\n",mod);
-		mtk_imgsys_cmdq_qof_dump(0);
+		mtk_imgsys_cmdq_qof_dump(0, false);
 		g_qof_ver &= (~BIT(mod));
 		// engine off
 		return;
@@ -1374,7 +1433,7 @@ static void qof_locked_set_engine_off(const u32 mod)
 		return;
 	}
 
-	mtk_imgsys_cmdq_qof_dump(0);
+	mtk_imgsys_cmdq_qof_dump(0, false);
 
 	io_addr =  QOF_GET_REMAP_ADDR(qof_reg_table[mod][QOF_IMG_APMCU_SET].addr);
 	write_mask(io_addr,
@@ -1385,7 +1444,7 @@ static void qof_locked_set_engine_off(const u32 mod)
 	if (readl_poll_timeout_atomic
 		(io_addr, tmp, (tmp & BIT(1)) == BIT(1), POLL_DELAY_US, TIMEOUT_100000US) < 0) {
 		QOF_LOGE("fatal error: mod[%d] waiting for qof state pwr on timeout, disable support\n", mod);
-		mtk_imgsys_cmdq_qof_dump(0);
+		mtk_imgsys_cmdq_qof_dump(0, false);
 		g_qof_ver &= (~BIT(mod));
 	}
 
@@ -1435,7 +1494,7 @@ void mtk_imgsys_cmdq_qof_stream_on(struct mtk_imgsys_dev *imgsys_dev)
 			QOF_LOGI("module[%u] not support QOF, ver[%u]\n", mod, g_qof_ver);
 	}
 
-	mtk_imgsys_cmdq_qof_dump(0);
+	mtk_imgsys_cmdq_qof_dump(0, false);
 
 	imgsys_voter_cnt++;
 
@@ -1454,7 +1513,7 @@ void mtk_imgsys_cmdq_qof_stream_off(struct mtk_imgsys_dev *imgsys_dev)
 
 	qof_locked_stream_off_sync();
 
-	mtk_imgsys_cmdq_qof_dump(0);
+	mtk_imgsys_cmdq_qof_dump(0, false);
 
 	pm_runtime_put_noidle(g_imgsys_dev->dev);
 
@@ -1475,7 +1534,7 @@ static void qof_poll_status(u32 pwr, bool enable)
 	if (readl_poll_timeout_atomic
 		(io_addr, tmp, (tmp & val) == val, POLL_DELAY_US, TIMEOUT_1000US) < 0) {
 		QOF_LOGE("mod[%d] waiting for qof state ap add done timeout, disable support\n",pwr);
-		mtk_imgsys_cmdq_qof_dump(0);
+		mtk_imgsys_cmdq_qof_dump(0, false);
 		return;
 	}
 }
@@ -1498,10 +1557,9 @@ static void qof_module_vote_add(struct cmdq_pkt *pkt, u32 pwr, u32 user)
 		if (readl_poll_timeout_atomic
 			(io_addr, tmp, (tmp & BIT(1)) == BIT(1), POLL_DELAY_US, TIMEOUT_1000US) < 0) {
 			QOF_LOGE("mod[%d] waiting for qof state ap add done timeout, disable support\n",pwr);
-			mtk_imgsys_cmdq_qof_dump(0);
+			mtk_imgsys_cmdq_qof_dump(0, false);
 			return;
 		}
-		mtk_imgsys_cmdq_qof_dump(0);
 	} else {
 		if (pkt == NULL) {
 			QOF_LOGE("parameter wrong !\n");
@@ -1565,7 +1623,7 @@ void mtk_imgsys_cmdq_qof_add(struct cmdq_pkt *pkt, bool *qof_need_sub, u32 hw_co
 	u32 pwr = 0;
 
 	if(g_qof_debug_level == QOF_DEBUG_MODE_PERFRAME_DUMP)
-		mtk_imgsys_cmdq_qof_dump(0);
+		mtk_imgsys_cmdq_qof_dump(0, false);
 
 	for (pwr = ISP8_PWR_START; pwr < ISP8_PWR_NUM; pwr++) {
 		if ((IS_MOD_SUPPORT_QOF(pwr)) &&
@@ -1589,52 +1647,27 @@ void mtk_imgsys_cmdq_qof_sub(struct cmdq_pkt *pkt, bool *qof_need_sub)
 	}
 }
 
-void mtk_imgsys_cmdq_qof_dump(uint32_t hwcomb)
+void mtk_imgsys_cmdq_qof_dump(uint32_t hwcomb, bool need_dump_cg)
 {
 	int mod = 0;
-	void __iomem *addr;
 
 	if (g_qof_ver == MTK_IMGSYS_QOF_FUNCTION_OFF)
 		return;
+
+	QOF_LOGI("Common info ver[%u], hwcomb[0x%x], need_dump_cg[%u]\n", g_qof_ver, hwcomb, need_dump_cg);
+	if ((readl(g_maped_rg[MAPED_RG_ISP_MAIN_PWR_CON]) & (BIT(30)|BIT(31)))
+		!= (BIT(30)|BIT(31))) {
+		QOF_LOGI("isp_main is off. sta=0x%x\n",
+			readl(g_maped_rg[MAPED_RG_ISP_MAIN_PWR_CON]));
+		return;
+	}
 	for (mod = ISP8_PWR_START; mod < ISP8_PWR_NUM; mod++)
 		mtk_imgsys_qof_print_hw_info(mod);
 
 	mtk_qof_print_mtcmos_status();
 
-	addr = QOF_GET_REMAP_ADDR(qof_reg_table[ISP8_PWR_DIP][QOF_IMG_QOF_STATE_DBG].addr);
-	if ((readl(addr) & BIT(1)) == BIT(1)) {
-		QOF_LOGI(" dip CG Status: IMG_MAIN[0x%x], NR1[0x%x], NR2[0x%x], DIP_TOP[0x%x]\n",
-		(readl(g_maped_rg[MAPED_RG_IMG_CG_IMGSYS_MAIN])),
-		(readl(g_maped_rg[MAPED_RG_IMG_CG_DIP_NR1_DIP1])),
-		(readl(g_maped_rg[MAPED_RG_IMG_CG_DIP_NR2_DIP1])),
-		(readl(g_maped_rg[MAPED_RG_IMG_CG_DIP_TOP_DIP1])));
-	} else
-		QOF_LOGI("qof mtcmos dip is off. sta=0x%x\n", readl(addr));
-	addr = QOF_GET_REMAP_ADDR(qof_reg_table[ISP8_PWR_TRAW][QOF_IMG_QOF_STATE_DBG].addr);
-	if ((readl(addr) & BIT(1)) == BIT(1)) {
-		QOF_LOGI(" traw CG Status: TRAW_CAP[0x%x], TRAW_DIP1[0x%x]\n",
-		(readl(g_maped_rg[MAPED_RG_IMG_CG_TRAW_CAP_DIP1])),
-		(readl(g_maped_rg[MAPED_RG_IMG_CG_TRAW_DIP1])));
-	} else
-		QOF_LOGI("qof mtcmos traw is off. sta=0x%x\n",  readl(addr));
-	addr = QOF_GET_REMAP_ADDR(qof_reg_table[ISP8_PWR_WPE_1_EIS][QOF_IMG_QOF_STATE_DBG].addr);
-	if ((readl(addr) & BIT(1)) == BIT(1)) {
-		QOF_LOGI(" wpe1 CG Status: WPE1[0x%x]\n",
-		(readl(g_maped_rg[MAPED_RG_IMG_CG_WPE1_DIP1])));
-	} else
-		QOF_LOGI("qof mtcmos wpe1 is off. sta=0x%x\n", readl(addr));
-	addr = QOF_GET_REMAP_ADDR(qof_reg_table[ISP8_PWR_WPE_2_TNR][QOF_IMG_QOF_STATE_DBG].addr);
-	if ((readl(addr) & BIT(1)) == BIT(1)) {
-		QOF_LOGI(" wpe2 CG Status: WPE2[0x%x]\n",
-		(readl(g_maped_rg[MAPED_RG_IMG_CG_WPE2_DIP1])));
-	} else
-		QOF_LOGI("qof mtcmos wpe2 is off. sta=0x%x\n", readl(addr));
-	addr = QOF_GET_REMAP_ADDR(qof_reg_table[ISP8_PWR_WPE_3_LITE][QOF_IMG_QOF_STATE_DBG].addr);
-	if ((readl(addr) & BIT(1)) == BIT(1)) {
-		QOF_LOGI(" wpe3 CG Status: WPE3[0x%x]\n",
-		(readl(g_maped_rg[MAPED_RG_IMG_CG_WPE2_DIP1])));
-	} else
-		QOF_LOGI("qof mtcmos wpe3 is off. sta=0x%x\n", readl(addr));
+	if (need_dump_cg)
+		mtk_qof_print_cg_status();
 }
 
 int mtk_imgsys_qof_ctrl(const char *val, const struct kernel_param *kp)
@@ -1645,6 +1678,11 @@ int mtk_imgsys_qof_ctrl(const char *val, const struct kernel_param *kp)
 	QOF_LOGI("g_qof_debug_level[%u], force ver:g_qof_ver[%u]\n",
 		g_qof_debug_level,
 		g_qof_ver);
+
+	if (g_qof_debug_level == QOF_DEBUG_MODE_IMMEDIATE_DUMP)
+		mtk_imgsys_cmdq_qof_dump(0, false);
+	else if (g_qof_debug_level == QOF_DEBUG_MODE_IMMEDIATE_CG_DUMP)
+		mtk_imgsys_cmdq_qof_dump(0, true);
 	return 0;
 }
 

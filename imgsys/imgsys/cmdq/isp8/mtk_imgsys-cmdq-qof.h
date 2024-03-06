@@ -63,6 +63,6 @@ void mtk_imgsys_cmdq_qof_stream_on(struct mtk_imgsys_dev *imgsys_dev);
 void mtk_imgsys_cmdq_qof_stream_off(struct mtk_imgsys_dev *imgsys_dev);
 void mtk_imgsys_cmdq_qof_add(struct cmdq_pkt *pkt, bool *qof_need_sub, u32 hw_comb);
 void mtk_imgsys_cmdq_qof_sub(struct cmdq_pkt *pkt, bool *qof_need_sub);
-void mtk_imgsys_cmdq_qof_dump(uint32_t hwcomb);
+void mtk_imgsys_cmdq_qof_dump(uint32_t hwcomb, bool need_dump_cg);
 
 

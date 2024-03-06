@@ -447,10 +447,10 @@ static int get_ufbc_size(int ipi_fmt, int ufbc_type, int img_w, int img_h)
 
 		switch (ufbc_type) {
 		case UFBC_BITSTREAM_0:
-			size = stride * img_h;
+			size = apply_ufo_com_ratio(stride * img_h);
 		break;
 		case UFBC_BITSTREAM_1:
-			size = stride * img_h / 2;
+			size = apply_ufo_com_ratio(stride * img_h / 2);
 		break;
 		case UFBC_TABLE_0:
 			size = ALIGN((aligned_w / 64),
@@ -466,11 +466,6 @@ static int get_ufbc_size(int ipi_fmt, int ufbc_type, int img_w, int img_h)
 	}
 
 	return size;
-}
-
-static inline bool is_bitstream(u8 ufbc_type)
-{
-	return (ufbc_type == UFBC_BITSTREAM_0) || (ufbc_type == UFBC_BITSTREAM_1);
 }
 
 //assuming max image size 16000*12000*10/8
@@ -516,11 +511,8 @@ static int fill_raw_out_qos(struct mtk_cam_job *job,
 
 		active_h = sensor_h + sensor_vb;
 		avg_bw = calc_bw(size, linet, active_h);
-		avg_bw = is_bitstream(qos_desc->dma_desc[i].ufbc_type) ?
-				apply_ufo_com_ratio(avg_bw) : avg_bw;
-
 		active_h = (out->crop.s.h == 0) ? out->fmt.s.h : out->crop.s.h;
-		peak_bw = is_dc_mode(job) ?
+		peak_bw = (is_dc_mode(job) || is_m2m(job)) ?
 				0 : calc_bw(size, linet, active_h);
 
 		switch (qos_desc->dma_desc[i].domain) {
@@ -598,9 +590,8 @@ static int fill_raw_in_qos(struct mtk_cam_job *job,
 			continue;
 
 		avg_bw = calc_bw(size, linet, sensor_h + sensor_vb);
-		avg_bw = is_bitstream(qos_desc->dma_desc[i].ufbc_type) ?
-				apply_ufo_com_ratio(avg_bw) : avg_bw;
-		peak_bw = is_dc_mode(job) ? 0 : calc_bw(size, linet, sensor_h);
+		peak_bw = (is_dc_mode(job) || is_m2m(job)) ?
+				0 : calc_bw(size, linet, sensor_h);
 
 		switch (qos_desc->dma_desc[i].domain) {
 		case RAW_DOMAIN:
@@ -687,7 +678,7 @@ static int fill_raw_stats_qos(struct req_buffer_helper *helper,
 				continue;
 
 			avg_bw = calc_bw(size, linet, sensor_h + sensor_vb);
-			peak_bw = is_dc_mode(job) ? 0 : avg_bw;
+			peak_bw = (is_dc_mode(job) || is_m2m(job)) ? 0 : avg_bw;
 
 			switch (qos_desc->dma_desc[j].domain) {
 			case RAW_DOMAIN:
@@ -1252,11 +1243,10 @@ static void apply_mraw_qos(struct mtk_cam_job *job)
 				mraw_dev->mraw_avg_applied_bw_w = a_bw_w_KB;
 				mraw_dev->mraw_peak_applied_bw_w = p_bw_w_KB;
 				mtk_cam_bwr_set_chn_bw(&cam->bwr,
-					get_bwr_engine(ENGINE_MRAW), get_mraw_axi_port(mraw_dev->id),
+					ENGINE_MRAW, get_mraw_axi_port(mraw_dev->id),
 					0, mraw_avg_diff_bw_w, 0, mraw_peak_diff_bw_w, false);
 
-				mtk_cam_bwr_set_ttl_bw(&cam->bwr,
-					get_bwr_engine(ENGINE_MRAW),
+				mtk_cam_bwr_set_ttl_bw(&cam->bwr, ENGINE_MRAW,
 					mraw_avg_diff_bw_w, mraw_peak_diff_bw_w, false);
 			}
 		}
@@ -1273,12 +1263,12 @@ int mtk_cam_apply_qos(struct mtk_cam_job *job)
 	apply_sv_qos(job);
 	apply_mraw_qos(job);
 
-	mtk_cam_bwr_dbg_dump(&cam->bwr);
+	if (CAM_DEBUG_ENABLED(MMQOS))
+		mtk_cam_bwr_dbg_dump(&cam->bwr);
 
-	//thottling
-#ifdef NOT_FPGA_STAGE
+	/* note: may sleep */
 	mtk_mmqos_wait_throttle_done();
-#endif
+
 	return 0;
 }
 
@@ -1302,10 +1292,3 @@ int mtk_cam_reset_qos(struct device *dev, struct mtk_camsys_qos *qos)
 	return 0;
 }
 
-int mtk_cam_qos_wait_throttle_done(void)
-{
-#ifdef NOT_FPGA_STAGE
-	mtk_mmqos_wait_throttle_done();
-#endif
-	return 0;
-}

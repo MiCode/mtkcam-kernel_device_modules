@@ -1078,3 +1078,34 @@ void qof_dump_qoftop_status(struct mtk_raw_device *raw)
 	}
 }
 
+#define DDR_GEN_BEFORE_US     10
+#define QOS_GEN_BEFORE_US     100
+void qof_ddren_setting(struct mtk_raw_device *raw, int frm_time_us)
+{
+	int ddr_gen_pulse, qos_gen_pulse;
+	int val;
+
+	ddr_gen_pulse =
+		(frm_time_us - DDR_GEN_BEFORE_US) * SCQ_DEFAULT_CLK_RATE /
+		(2 * (QOF_TIMER_FREQ_DIV + 1)) - 1;
+	qos_gen_pulse =
+		(frm_time_us - QOS_GEN_BEFORE_US) * SCQ_DEFAULT_CLK_RATE /
+		(2 * (QOF_TIMER_FREQ_DIV + 1)) - 1;
+
+	val = readl_relaxed(raw->qof_base + REG_QOF_CAM_A_QOF_CTL_1);
+	writel_relaxed(
+		val | FBIT(QOF_CAM_A_DDREN_HW_EN_1) | FBIT(QOF_CAM_A_BW_QOS_HW_EN_1),
+		raw->qof_base + REG_QOF_CAM_A_QOF_CTL_1);
+
+	writel_relaxed(ddr_gen_pulse, raw->qof_base + REG_QOF_CAM_A_QOF_DDREN_CYC_MAX_1);
+	writel_relaxed(qos_gen_pulse, raw->qof_base + REG_QOF_CAM_A_QOF_BWQOS_CYC_MAX_1);
+
+	if (CAM_DEBUG_ENABLED(QOF))
+		pr_info("qof: %s: frm_time_us:%d, qof_ctrl:0x%x time_stamp:0x%x ddren_cyc_max:0x%x qos_cyc_max:0x%x\n",
+			__func__, frm_time_us,
+			readl_relaxed(raw->qof_base + REG_QOF_CAM_A_QOF_CTL_1),
+			readl_relaxed(raw->qof_base + REG_QOF_CAM_A_QOF_TIME_STAMP_1),
+			readl_relaxed(raw->qof_base + REG_QOF_CAM_A_QOF_DDREN_CYC_MAX_1),
+			readl_relaxed(raw->qof_base + REG_QOF_CAM_A_QOF_BWQOS_CYC_MAX_1));
+}
+

@@ -115,8 +115,4 @@ int mtk_cam_apply_qos(struct mtk_cam_job *job);
 
 int mtk_cam_reset_qos(struct device *dev, struct mtk_camsys_qos *qos);
 
-/* note: may sleep */
-/* TODO: only wait if bw changes? */
-int mtk_cam_qos_wait_throttle_done(void);
-
 #endif /* __MTK_CAM_DVFS_QOS_H */

@@ -366,52 +366,24 @@ static void reset_error_handling(struct mtk_raw_device *dev)
 	dev->tg_overrun_handle_cnt = 0;
 }
 
-#define HW_TIMER_INC_PERIOD   0x2
-#define DDR_GEN_BEFORE_US     4
-#define QOS_GEN_BEFORE_US     100
 static void init_raw_ddren(struct mtk_raw_device *dev, int is_srt, int frm_time_us)
 {
-	int ddr_gen_pulse, qos_gen_pulse;
 	int val = 0;
 
 	if (debug_ddren_sw_mode) {
 		SET_FIELD(&val, CAMCTL_DDREN_SW_SET, 1);
-		raw_writel_relaxed(val, dev, dev->base, REG_CAMCTL_DDREN_CTL);
-		goto init_done;
+		raw_writel(val, dev, dev->base, REG_CAMCTL_DDREN_CTL);
 	} else {
 		SET_FIELD(&val, CAMCTL_DDREN_HW_EN, 1);
-		raw_writel_relaxed(val, dev, dev->base, REG_CAMCTL_DDREN_CTL);
+		raw_writel(val, dev, dev->base, REG_CAMCTL_DDREN_CTL);
+
+		//hrt ddren timer for master
+		if (!dev->is_slave && !is_srt)
+			qof_ddren_setting(dev, frm_time_us);
 	}
 
-	//hrt ddren timer for master
-	if (!dev->is_slave && !is_srt) {
-		ddr_gen_pulse =
-			(frm_time_us - DDR_GEN_BEFORE_US) * SCQ_DEFAULT_CLK_RATE /
-			(HW_TIMER_INC_PERIOD + 1) - 1;
-		qos_gen_pulse =
-			(frm_time_us - QOS_GEN_BEFORE_US) * SCQ_DEFAULT_CLK_RATE /
-			(HW_TIMER_INC_PERIOD + 1) - 1;
-
-		raw_writel_relaxed(0x1, dev, dev->base, REG_TG_HW_TIMER_CTL);
-		raw_writel_relaxed(HW_TIMER_INC_PERIOD,
-				dev, dev->base, REG_TG_HW_TIMER_INC_PERIOD);
-		raw_writel_relaxed(ddr_gen_pulse, dev, dev->base, REG_TG_HW_DDR_GEN_PULSE_CNT);
-		raw_writel_relaxed(qos_gen_pulse, dev, dev->base, REG_TG_HW_QOS_GEN_PULSE_CNT);
-	}
-
-init_done:
-	wmb(); /* make sure committed */
-
-	dev_info(dev->dev, "is_srt:%d frm_time_us:%d ddren_sw_mode:%d\n",
-		is_srt, frm_time_us, debug_ddren_sw_mode);
+	dev_info(dev->dev, "ddren_sw_mode:%d\n", debug_ddren_sw_mode);
 }
-
-#ifdef QOF_READY
-static void init_qof_ddren(struct mtk_raw_device *dev, int is_srt, int frm_time_us)
-{
-	/* todo */
-}
-#endif
 
 #define CAMCQ_CQ_EN_DEFAULT	0x14
 void initialize(struct mtk_raw_device *dev, struct engine_callback *cb,

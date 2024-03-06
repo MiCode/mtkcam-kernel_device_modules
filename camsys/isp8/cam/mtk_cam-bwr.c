@@ -16,17 +16,17 @@
 #include "mtk_cam-bwr_regs.h"
 #include "mtk_cam-debug_option.h"
 
-static int debug_bwr_mode = BWR_SW_MODE;
+static int bwr_hw_test;
+module_param(bwr_hw_test, int, 0644);
+MODULE_PARM_DESC(bwr_hw_test, "debug bwr hw test");
+
+static int debug_bwr_mode = BWR_HW_MODE;
 module_param(debug_bwr_mode, int, 0644);
 MODULE_PARM_DESC(debug_bwr_mode, "0: sw mode, 1 : hw mode");
 
-static int debug_bwr_test;
-module_param(debug_bwr_test, int, 0644);
-MODULE_PARM_DESC(debug_bwr_test, "debug bwr test");
-
-static int debug_bwr_dump;
-module_param(debug_bwr_dump, int, 0644);
-MODULE_PARM_DESC(debug_bwr_dump, "debug bwr dump");
+static int debug_bwr_eng_filter = 0xfff;
+module_param(debug_bwr_eng_filter, int, 0644);
+MODULE_PARM_DESC(debug_bwr_eng_filter, "debug bwr engine channel bw");
 
 #define CHANNEL_OFFSET   0x80
 #define ENGINE_OFFSET    0x4
@@ -53,7 +53,7 @@ MODULE_PARM_DESC(debug_bwr_dump, "debug bwr dump");
 #define BWR_DEFAULT_UISP_HRT_R       1
 #define BWR_DEFAULT_UISP_HRT_W       7
 
-/* E1 workaround */
+/* workaround */
 #define BWR_CAM_PROTOCOL0		0x3100020
 #define BWR_CAM_PROTOCOL1		0x4120213
 #define BWR_CAM_PROTOCOL2		0x18082814
@@ -130,6 +130,9 @@ static void bwr_set_chn_bw(struct mtk_bwr_device *bwr,
 {
 	int bw, offset;
 
+	if (!(debug_bwr_eng_filter & 1 << engine))
+		return;
+
 	mutex_lock(&bwr->op_lock);
 
 	offset = CHANNEL_OFFSET * axi + ENGINE_OFFSET * engine;
@@ -162,6 +165,9 @@ static void bwr_set_ttl_bw(struct mtk_bwr_device *bwr,
 		enum BWR_ENGINE_TYPE engine, int srt_ttl, int hrt_ttl, bool clr)
 {
 	int bw, offset;
+
+	if (!(debug_bwr_eng_filter & 1 << engine))
+		return;
 
 	mutex_lock(&bwr->op_lock);
 
@@ -230,7 +236,7 @@ static void bwr_set_default(struct mtk_bwr_device *bwr)
 	bwr_set_chn_bw(bwr, ENGINE_PDA, DISP_PORT,
 		BWR_DEFAULT_PDA_SRT_R, BWR_DEFAULT_PDA_SRT_W, 0, 0, true);
 
-	bwr_set_ttl_bw(bwr, ENGINE_DPE,
+	bwr_set_ttl_bw(bwr, ENGINE_PDA,
 		BWR_DEFAULT_PDA_SRT_R + BWR_DEFAULT_PDA_SRT_W, 0, true);
 
 	/* USIP */
@@ -332,6 +338,8 @@ static int bwr_start(struct mtk_bwr_device *bwr)
 	writel(BWR_SRT_BW_OCC_FACTOR, bwr->base + REG_BWR_CAM_SRT_RW_OCC_FACTOR);
 	writel(BWR_HRT_BW_OCC_FACTOR, bwr->base + REG_BWR_CAM_HRT_RW_OCC_FACTOR);
 
+	writel(0x0, bwr->base + REG_BWR_CAM_MTCMOS_EN_VLD);
+
 	//dvfs freq
 	writel(0x1, bwr->base + REG_BWR_CAM_HRT_TTL_DVFS_FREQ);
 	writel(0x1, bwr->base + REG_BWR_CAM_SRT_TTL_DVFS_FREQ);
@@ -415,14 +423,14 @@ void mtk_cam_bwr_enable(struct mtk_bwr_device *bwr)
 	bwr_start(bwr);
 	bwr_set_default(bwr);
 
-	if (debug_bwr_test)
+	if (bwr_hw_test)
 		bwr_set_test(bwr);
 }
 
 /* notice: disable once by cam main */
 void mtk_cam_bwr_disable(struct mtk_bwr_device *bwr)
 {
-	if (debug_bwr_test)
+	if (bwr_hw_test)
 		bwr_clr_test(bwr);
 
 	bwr_clr_default(bwr);
@@ -433,7 +441,7 @@ void mtk_cam_bwr_set_chn_bw(struct mtk_bwr_device *bwr,
 			  enum BWR_ENGINE_TYPE engine, enum BWR_AXI_PORT axi,
 			  int srt_r_bw, int srt_w_bw, int hrt_r_bw, int hrt_w_bw, bool clear)
 {
-	if (debug_bwr_test)
+	if (bwr_hw_test)
 		return;
 
 	bwr_set_chn_bw(bwr, engine, axi, srt_r_bw, srt_w_bw, hrt_r_bw, hrt_w_bw, clear);
@@ -442,7 +450,7 @@ void mtk_cam_bwr_set_chn_bw(struct mtk_bwr_device *bwr,
 void mtk_cam_bwr_set_ttl_bw(struct mtk_bwr_device *bwr,
 			  enum BWR_ENGINE_TYPE engine, int srt_ttl, int hrt_ttl, bool clear)
 {
-	if (debug_bwr_test)
+	if (bwr_hw_test)
 		return;
 
 	bwr_set_ttl_bw(bwr, engine, srt_ttl, hrt_ttl, clear);
@@ -451,9 +459,8 @@ void mtk_cam_bwr_set_ttl_bw(struct mtk_bwr_device *bwr,
 void mtk_cam_bwr_clr_bw(
 	struct mtk_bwr_device *bwr, enum BWR_ENGINE_TYPE engine, enum BWR_AXI_PORT axi)
 {
-	if (debug_bwr_test)
-		return;
-
+	if (bwr_hw_test)
+		return
 	bwr_zero_bw(bwr, engine, axi);
 }
 
@@ -484,20 +491,17 @@ void mtk_cam_bwr_dbg_dump(struct mtk_bwr_device *bwr)
 {
 	int engine, axi;
 
-	if (!debug_bwr_dump)
-		return;
-
 	for (engine = 0 ; engine < ENGINE_NUM; engine++) { //11
-		pr_info("%s : SRT_TLL/HRT_TLL 0x%08x, 0x%08x\n",
-			str_engine(engine),
+		pr_info("%s: %s : SRT_TLL/HRT_TLL 0x%08x, 0x%08x\n",
+			__func__, str_engine(engine),
 			to_bw_val(readl(bwr->base + REG_BWR_CAM_SRT_TTL_ENG_BW0 +
 				ENGINE_OFFSET * engine)),
 			to_bw_val(readl(bwr->base + REG_BWR_CAM_HRT_TTL_ENG_BW0 +
 				ENGINE_OFFSET * engine)));
 
 		for (axi = 0 ; axi < NUM_PORT; axi++) { //44
-			pr_info("%s %s : SRT_R/SRT_W/HRT_R/HRT_W : 0x%08x, 0x%08x, 0x%08x, 0x%08x\n",
-				str_engine(engine), str_axi_port(axi),
+			pr_info("%s: %s %s : SRT_R/SRT_W/HRT_R/HRT_W : 0x%08x, 0x%08x, 0x%08x, 0x%08x\n",
+				__func__, str_engine(engine), str_axi_port(axi),
 				to_bw_val(readl(bwr->base + REG_BWR_CAM_SRT_R0_ENG_BW0_0 +
 					CHANNEL_OFFSET * axi + ENGINE_OFFSET * engine)),
 				to_bw_val(readl(bwr->base + REG_BWR_CAM_SRT_W0_ENG_BW0_0 +

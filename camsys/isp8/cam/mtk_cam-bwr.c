@@ -11,8 +11,10 @@
 #include <linux/vmalloc.h>
 #include <linux/suspend.h>
 
+
 #include "mtk_cam-bwr.h"
 #include "mtk_cam-bwr_regs.h"
+#include "mtk_cam-debug_option.h"
 
 static int debug_bwr_mode = BWR_SW_MODE;
 module_param(debug_bwr_mode, int, 0644);
@@ -149,8 +151,8 @@ static void bwr_set_chn_bw(struct mtk_bwr_device *bwr,
 	bw = clr ? hrt_w_bw :
 			to_bw_val(readl(bwr->base + REG_BWR_CAM_HRT_W0_ENG_BW0_0 + offset)) + hrt_w_bw;
 	writel(to_bw_csr(bw), bwr->base + REG_BWR_CAM_HRT_W0_ENG_BW0_0 + offset);
-
-	pr_info("%s: engine:%d, axi:%d SRT(r/w): %d/%d HRT(r/w): %d/%d, clear: %d\n",
+	if (CAM_DEBUG_ENABLED(MMQOS))
+		pr_info("%s: engine:%d, axi:%d SRT(r/w): %d/%d HRT(r/w): %d/%d, clear: %d\n",
 		__func__, engine, axi, srt_r_bw, srt_w_bw, hrt_r_bw, hrt_w_bw, clr);
 
 	mutex_unlock(&bwr->op_lock);
@@ -173,8 +175,8 @@ static void bwr_set_ttl_bw(struct mtk_bwr_device *bwr,
 	bw = clr ? hrt_ttl :
 			to_bw_val(readl(bwr->base + REG_BWR_CAM_HRT_TTL_ENG_BW0 + offset)) + hrt_ttl;
 	writel(to_bw_csr(bw), bwr->base + REG_BWR_CAM_HRT_TTL_ENG_BW0 + offset);
-
-	pr_info("%s: engine:%d, SRT_TTL/HRT_TTL: %d/%d, clear: %d\n",
+	if (CAM_DEBUG_ENABLED(MMQOS))
+		pr_info("%s: engine:%d, SRT_TTL/HRT_TTL: %d/%d, clear: %d\n",
 				__func__, engine, srt_ttl, hrt_ttl, clr);
 
 	mutex_unlock(&bwr->op_lock);
@@ -208,8 +210,8 @@ static void bwr_zero_bw(struct mtk_bwr_device *bwr,
 
 	writel(0, bwr->base +
 		REG_BWR_CAM_HRT_TTL_ENG_BW0 + ENGINE_OFFSET * engine);
-
-	pr_info("%s: engine:%d, axi:%d set zero\n", __func__, engine, axi);
+	if (CAM_DEBUG_ENABLED(MMQOS))
+		pr_info("%s: engine:%d, axi:%d set zero\n", __func__, engine, axi);
 
 	mutex_unlock(&bwr->op_lock);
 
@@ -366,7 +368,6 @@ static int bwr_start(struct mtk_bwr_device *bwr)
 	}
 
 	writel(FBIT(BWR_CAM_RPT_START), bwr->base + REG_BWR_CAM_RPT_CTRL);
-
 	pr_info("%s rpt_timer/dbc_cyc:0x%x/0x%x\n", __func__,
 		readl_relaxed(bwr->base + REG_BWR_CAM_RPT_TIMER),
 		readl_relaxed(bwr->base + REG_BWR_CAM_DBC_CYC));

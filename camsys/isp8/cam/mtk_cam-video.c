@@ -1219,9 +1219,6 @@ int mtk_cam_vidioc_g_meta_fmt(struct file *file, void *fh,
 
 	f->fmt.meta.dataformat = node->active_fmt.fmt.meta.dataformat;
 	f->fmt.meta.buffersize = node->active_fmt.fmt.meta.buffersize;
-	dev_dbg(cam->dev,
-		"%s: node:%s dataformat:%d buffersize:%d\n",
-		__func__, node->desc.name, f->fmt.meta.dataformat, f->fmt.meta.buffersize);
 
 	if (CAM_DEBUG_ENABLED(V4L2))
 		log_fmt_ops(node, f, __func__);

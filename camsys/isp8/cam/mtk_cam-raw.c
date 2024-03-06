@@ -515,7 +515,7 @@ static void reset_reg(struct mtk_raw_device *dev)
 
 	raw_writel(0, dev, dev->base_inner, REG_CAMCTL_SW_SUB_CTL);
 	raw_writel(0, dev, dev->base, REG_CAMCTL_SW_SUB_CTL);
-	dump_interrupt(dev);
+
 	raw_writel(0, dev, dev->base_inner, REG_CAMCTL_INT17_EN);
 	raw_writel(0, dev, dev->base, REG_CAMCTL_INT17_EN);
 
@@ -531,7 +531,7 @@ static void reset_reg(struct mtk_raw_device *dev)
 	raw_writel(0, dev, dev->base_inner, REG_CAMCTL_INT21_EN);
 	raw_writel(0, dev, dev->base, REG_CAMCTL_INT21_EN);
 	wmb(); /* make sure committed */
-	dump_interrupt(dev);
+
 	reset_error_handling(dev);
 	if (CAM_DEBUG_ENABLED(RAW_INT))
 		dev_info(dev->dev,

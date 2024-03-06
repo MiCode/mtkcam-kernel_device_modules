@@ -1392,8 +1392,6 @@ static int _mtk_cam_seninf_reset_outmux(struct seninf_ctx *ctx, int pad_id)
 	int old_outmux;
 	u8 j;
 
-	dev_info_ratelimited(ctx->dev, "[%s] +\n", __func__);
-
 	if (pad_id < PAD_SRC_RAW0 || pad_id >= PAD_MAXCNT) {
 		dev_info(ctx->dev, "no such pad id:%d\n", pad_id);
 		return -EINVAL;
@@ -1462,8 +1460,6 @@ int _mtk_cam_seninf_set_camtg(struct v4l2_subdev *sd, int pad_id, int camtg, int
 	struct seninf_vc *vc;
 	int set, i;
 	struct seninf_core *core = ctx->core;
-
-	dev_info_ratelimited(ctx->dev, "[%s] +\n", __func__);
 
 	mutex_lock(&core->cammux_page_ctrl_mutex);
 

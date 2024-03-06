@@ -86,9 +86,11 @@ void raw_disable_tg_vseol_sub_ctl(struct device *dev)
 static int ut_raw_reset(struct device *dev)
 {
 	struct mtk_ut_raw_device *raw = dev_get_drvdata(dev);
+	struct mtk_cam_ut *ut = raw->ut;
 	void __iomem *base = raw->base;
 	void __iomem *yuv_base = raw->yuv_base;
 	u32 ctl;
+	u32 val;
 
 	writel(0x00003fff, base + CAM_REG_CTL_RAW_MOD5_DCM_DIS);
 	writel(0x001fffff, base + CAM_REG_CTL_RAW_MOD6_DCM_DIS);
@@ -117,6 +119,18 @@ static int ut_raw_reset(struct device *dev)
 	writel_relaxed(0x0, raw->base_inner + REG_CTL_SW_PASS1_DONE);
 */
 	/* make sure reset take effect */
+
+	val = readl_relaxed(ut->base);
+	dev_info(dev, "cg: 0x%x: ", val);
+
+	writel_relaxed(0x3000, ut->base + 0x8);
+	dev_info(dev, "after cg: 0x%x: ", val);
+
+	writel_relaxed(0xffffffff, ut->adlrd_base + 0x804);
+	dev_info(dev, "adlrd_base + 0x804: :0x%x",
+		readl_relaxed(ut->adlrd_base + 0x804));
+
+
 	wmb();
 
 	return -1;
@@ -381,6 +395,7 @@ static int ut_raw_trigger_adlrd(struct device *dev, enum streaming_enum on)
 		raw_set_topdebug_rdyreq(raw, ALL_THE_TIME);
 		rwfbc_inc_setup(dev);
 	}
+	dev_info(dev, "%s: on %d\n", __func__, on);
 
 	return 0;
 }

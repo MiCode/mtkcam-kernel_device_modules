@@ -10,7 +10,7 @@
 #include <linux/rpmsg.h>
 #include <linux/wait.h>
 
-#include "camsys/isp7sp/cam/mtk_cam-ipi.h"
+#include "camsys/isp8/cam/mtk_cam-ipi.h"
 #include "mtk_cam_ut-event.h"
 #include "mtk_cam_ut-seninf.h"
 #include "mtk_cam_ut-utils.h"
@@ -94,6 +94,12 @@ struct mtk_cam_ut_event_handler {
 	int (*on_isr_frame_done)(struct mtk_cam_ut *ut);
 };
 
+struct mtk_cam_ut_vcore_device {
+	struct device *dev;
+	struct clk **clks;
+	unsigned int num_clks;
+};
+
 struct mtk_cam_ut {
 	struct device *dev;
 
@@ -119,6 +125,7 @@ struct mtk_cam_ut {
 	struct mtk_cam_ut_mem_obj *mem;
 	struct mtk_cam_ut_mem_obj *msg_mem;
 	void __iomem *base;
+	void __iomem *adlrd_base;
 
 	phandle rproc_phandle;
 	struct rproc *rproc_handle;
@@ -131,6 +138,7 @@ struct mtk_cam_ut {
 	wait_queue_head_t done_wq;
 
 	struct ut_event_listener listener;
+	struct clk **clks;
 
 	/* config related */
 	int with_testmdl;
@@ -139,6 +147,7 @@ struct mtk_cam_ut {
 	int main_rawi;
 	enum isp_hardware_enum isp_hardware;
 	int raw_module;
+	unsigned int num_clks;
 
 	struct mtk_cam_ut_event_handler hdl;
 

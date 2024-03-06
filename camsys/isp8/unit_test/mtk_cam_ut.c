@@ -1703,11 +1703,87 @@ REGISTER_LARB_FAIL:
 	return ret;
 }
 
+static int mtk_cam_vcore_probe(struct platform_device *pdev)
+{
+	struct device *dev = &pdev->dev;
+	struct mtk_cam_ut_vcore_device *drvdata;
+	int i, clks;
+
+	dev_info(dev, "%s++\n", __func__);
+
+	drvdata = devm_kzalloc(dev, sizeof(*drvdata), GFP_KERNEL);
+	if (!drvdata)
+		return -ENOMEM;
+
+	clks = of_count_phandle_with_args(
+				pdev->dev.of_node, "clocks", "#clock-cells");
+	drvdata->num_clks = (clks == -ENOENT) ? 0 : clks;
+	dev_info(dev, "clk_num:%d\n", drvdata->num_clks);
+
+	if (drvdata->num_clks) {
+		drvdata->clks = devm_kcalloc(
+				dev, drvdata->num_clks, sizeof(*drvdata->clks), GFP_KERNEL);
+		if (!drvdata->clks)
+			return -ENOMEM;
+	}
+
+	for (i = 0; i < drvdata->num_clks; i++) {
+		drvdata->clks[i] = of_clk_get(pdev->dev.of_node, i);
+		if (IS_ERR(drvdata->clks[i])) {
+			dev_info(dev, "failed to get clk %d\n", i);
+			return -ENODEV;
+		}
+	}
+
+	drvdata->dev = &pdev->dev;
+	dev_set_drvdata(dev, drvdata);
+
+	pm_runtime_enable(dev);
+
+	return 0;
+}
+
+static int mtk_cam_vcore_remove(struct platform_device *pdev)
+{
+	struct device *dev = &pdev->dev;
+
+	pm_runtime_disable(dev);
+
+	return 0;
+}
+
+static int mtk_cam_vcore_runtime_suspend(struct device *dev)
+{
+	struct mtk_cam_ut_vcore_device *cam_vcore  = dev_get_drvdata(dev);
+	int i;
+
+	dev_info(dev, "- %s\n", __func__);
+	for (i = cam_vcore->num_clks - 1; i >= 0; i--)
+		clk_disable_unprepare(cam_vcore->clks[i]);
+
+	return 0;
+}
+
+static int mtk_cam_vcore_runtime_resume(struct device *dev)
+{
+	struct mtk_cam_ut_vcore_device *cam_vcore  = dev_get_drvdata(dev);
+	int i;
+
+	for (i = 0; i < cam_vcore->num_clks; i++)
+		clk_prepare_enable(cam_vcore->clks[i]);
+
+	return 0;
+}
+
 static int mtk_cam_ut_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
 	struct mtk_cam_ut *ut;
+	struct platform_device *vcore_pdev;
+	struct device_node *node;
+	struct device_link *link;
 	const struct mtk_cam_ut_data *platform_data;
+	unsigned int i, clks;
 	int ret;
 
 	ut = devm_kzalloc(dev, sizeof(*ut), GFP_KERNEL);
@@ -1764,11 +1840,54 @@ static int mtk_cam_ut_probe(struct platform_device *pdev)
 
 	ut->listener.on_notify = ut_event_on_notify;
 
-	ut->base =  devm_platform_ioremap_resource_byname(pdev, "base");
+	ut->base = devm_platform_ioremap_resource_byname(pdev, "base");
 	if (IS_ERR(ut->base)) {
 		dev_info(dev, "failed to map register base\n");
 		return PTR_ERR(ut->base);
 	}
+
+	ut->adlrd_base = devm_platform_ioremap_resource_byname(pdev, "adlrd");
+	if (IS_ERR(ut->adlrd_base)) {
+		dev_err(dev, "%s: failed to map adlrd_base\n", __func__);
+		ut->adlrd_base = NULL;
+	}
+
+
+	clks = of_count_phandle_with_args(
+					pdev->dev.of_node, "clocks", "#clock-cells");
+	ut->num_clks = (clks == -ENOENT) ? 0 : clks;
+	dev_info(dev, "clk_num:%d\n", ut->num_clks);
+	if (ut->num_clks) {
+		ut->clks = devm_kcalloc(
+					dev, ut->num_clks, sizeof(*ut->clks), GFP_KERNEL);
+		if (!ut->clks)
+			return -ENOMEM;
+	}
+	for (i = 0; i < ut->num_clks; i++) {
+		ut->clks[i] = of_clk_get(pdev->dev.of_node, i);
+		if (IS_ERR(ut->clks[i])) {
+			dev_info(dev, "failed to get clk %d\n", i);
+			return -ENODEV;
+		}
+	}
+
+	node = of_parse_phandle(
+				pdev->dev.of_node, "mediatek,camisp-vcore", 0);
+	if (!node) {
+		dev_info(dev, "failed to get camisp vcore phandle\n");
+		return -ENODEV;
+	}
+	vcore_pdev = of_find_device_by_node(node);
+	if (WARN_ON(!vcore_pdev)) {
+		of_node_put(node);
+		dev_info(dev, "failed to get camisp vcore pdev\n");
+		return -ENODEV;
+	}
+	of_node_put(node);
+	link = device_link_add(dev, &vcore_pdev->dev,
+					DL_FLAG_PM_RUNTIME | DL_FLAG_STATELESS);
+	if (!link)
+		dev_info(dev, "unable to link cam vcore\n");
 
 	ret = register_sub_drivers(dev);
 	if (ret) {
@@ -1858,6 +1977,14 @@ static const struct of_device_id cam_ut_driver_dt_match[] = {
 };
 MODULE_DEVICE_TABLE(of, cam_ut_driver_dt_match);
 
+static const struct of_device_id mtk_cam_vcore_of_ids[] = {
+#ifdef CAMSYS_ISP8_MT6991
+		{.compatible = "mediatek,mt6991-camisp-vcore",},
+#endif
+	{}
+};
+MODULE_DEVICE_TABLE(of, mtk_cam_vcore_of_ids);
+
 static struct platform_driver mtk_cam_ut_driver = {
 	.probe		= mtk_cam_ut_probe,
 	.remove		= mtk_cam_ut_remove,
@@ -1867,10 +1994,25 @@ static struct platform_driver mtk_cam_ut_driver = {
 	}
 };
 
+static const struct dev_pm_ops mtk_cam_vcore_pm_ops = {
+	SET_RUNTIME_PM_OPS(mtk_cam_vcore_runtime_suspend,
+					   mtk_cam_vcore_runtime_resume, NULL)
+};
+
+static struct platform_driver mtk_cam_vcore_driver = {
+	.probe   = mtk_cam_vcore_probe,
+	.remove  = mtk_cam_vcore_remove,
+	.driver  = {
+		.name  = "mtk-cam-vcore",
+		.of_match_table = of_match_ptr(mtk_cam_vcore_of_ids),
+		.pm     = &mtk_cam_vcore_pm_ops,
+	}
+};
+
 static int __init mtk_cam_ut_init(void)
 {
 	int ret;
-
+	ret = platform_driver_register(&mtk_cam_vcore_driver);
 	ret = platform_driver_register(&mtk_cam_ut_driver);
 	return ret;
 }
@@ -1878,6 +2020,7 @@ static int __init mtk_cam_ut_init(void)
 static void __exit mtk_cam_ut_exit(void)
 {
 	platform_driver_unregister(&mtk_cam_ut_driver);
+	platform_driver_unregister(&mtk_cam_vcore_driver);
 }
 
 module_init(mtk_cam_ut_init);

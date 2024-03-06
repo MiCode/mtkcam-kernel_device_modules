@@ -4614,7 +4614,33 @@ static int mtk_cam_seninf_debug(struct seninf_ctx *ctx)
 		u32 irq_st = mtk_cam_seninf_get_outmux_irq_st(ctx, j, 1);
 
 		rdy = seninf_get_outmux_rg_val(ctx, j, SENINF_OUTMUX_CAM_CFG_RDY);
-		if (!rdy) {
+		if (ctx->outmux_disable_list[j]) {
+			dev_info(ctx->dev,
+				 "outmux%d marked disable but not cfg done: CFG_M/PIX_M/CFG0/CFG1/CFG2/SRC/CFG_DONE/CFG_CTL/CFG_RDY/DBG_PORT0/DBG_PORT1:(0x%x/0x%x/0x%x/0x%x/0x%x/0x%x/0x%x/0x%x/0x%x/0x%x/0x%x),irq=0x%x\n",
+				 j,
+				 seninf_get_outmux_rg_val(ctx, j,
+							  SENINF_OUTMUX_SW_CONFIG_MODE),
+				 seninf_get_outmux_rg_val(ctx, j,
+							  SENINF_OUTMUX_PIX_MODE),
+				 seninf_get_outmux_rg_val(ctx, j,
+							  SENINF_OUTMUX_SOURCE_CONFIG_0),
+				 seninf_get_outmux_rg_val(ctx, j,
+							  SENINF_OUTMUX_SOURCE_CONFIG_1),
+				 seninf_get_outmux_rg_val(ctx, j,
+							  SENINF_OUTMUX_SOURCE_CONFIG_2),
+				 seninf_get_outmux_rg_val(ctx, j,
+							  SENINF_OUTMUX_SRC_SEL),
+				 seninf_get_outmux_rg_val(ctx, j,
+							  SENINF_OUTMUX_SW_CFG_DONE),
+				 seninf_get_outmux_rg_val(ctx, j,
+							  SENINF_OUTMUX_CSR_CFG_CTRL),
+				 rdy,
+				 seninf_get_outmux_rg_val(ctx, j,
+							  SENINF_OUTMUX_PATH_DBG_PORT_0),
+				 seninf_get_outmux_rg_val(ctx, j,
+							  SENINF_OUTMUX_PATH_DBG_PORT_1),
+				 irq_st);
+		} else if (!rdy) {
 			dev_info(ctx->dev,
 				 "outmux%u,CFG_DONE/CFG_RDY:(0x%x/0x%x),irq=0x%x",
 				 j,
@@ -4792,7 +4818,33 @@ static int mtk_cam_seninf_debug(struct seninf_ctx *ctx)
 		u32 irq_st = mtk_cam_seninf_get_outmux_irq_st(ctx, j, 1);
 
 		rdy = seninf_get_outmux_rg_val(ctx, j, SENINF_OUTMUX_CAM_CFG_RDY);
-		if (!rdy) {
+		if (ctx->outmux_disable_list[j]) {
+			dev_info(ctx->dev,
+				 "outmux%d marked disable but not cfg done: CFG_M/PIX_M/CFG0/CFG1/CFG2/SRC/CFG_DONE/CFG_CTL/CFG_RDY/DBG_PORT0/DBG_PORT1:(0x%x/0x%x/0x%x/0x%x/0x%x/0x%x/0x%x/0x%x/0x%x/0x%x/0x%x),irq=0x%x\n",
+				 j,
+				 seninf_get_outmux_rg_val(ctx, j,
+							  SENINF_OUTMUX_SW_CONFIG_MODE),
+				 seninf_get_outmux_rg_val(ctx, j,
+							  SENINF_OUTMUX_PIX_MODE),
+				 seninf_get_outmux_rg_val(ctx, j,
+							  SENINF_OUTMUX_SOURCE_CONFIG_0),
+				 seninf_get_outmux_rg_val(ctx, j,
+							  SENINF_OUTMUX_SOURCE_CONFIG_1),
+				 seninf_get_outmux_rg_val(ctx, j,
+							  SENINF_OUTMUX_SOURCE_CONFIG_2),
+				 seninf_get_outmux_rg_val(ctx, j,
+							  SENINF_OUTMUX_SRC_SEL),
+				 seninf_get_outmux_rg_val(ctx, j,
+							  SENINF_OUTMUX_SW_CFG_DONE),
+				 seninf_get_outmux_rg_val(ctx, j,
+							  SENINF_OUTMUX_CSR_CFG_CTRL),
+				 rdy,
+				 seninf_get_outmux_rg_val(ctx, j,
+							  SENINF_OUTMUX_PATH_DBG_PORT_0),
+				 seninf_get_outmux_rg_val(ctx, j,
+							  SENINF_OUTMUX_PATH_DBG_PORT_1),
+				 irq_st);
+		} else if (!rdy) {
 			dev_info(ctx->dev,
 				 "outmux%u,CFG_DONE/CFG_RDY:(0x%x/0x%x),irq=0x%x",
 				 j,

@@ -55,37 +55,25 @@
  * MAE_DEBUG = 1
  */
 int mae_log_level_value;
-int mae_fd_post_on = 1;
 int mae_trigger_cmdq_timeout;
 int fld_debug_1;
-int rsz_debug_on;
 int mae_dbf_on;
 int set_default_value = 1;
 int fld_reset_en = 1;
-int aiseg_lut_en = 1;
-int fac_v1_pat_en;
 int cmdq_polling_en = 1;
 int cmdq_profiling_en;
 
 module_param(mae_log_level_value, int, 0644);
-module_param(mae_fd_post_on, int, 0644);
 module_param(mae_trigger_cmdq_timeout, int, 0644);
 module_param(fld_debug_1, int, 0644);
-module_param(rsz_debug_on, int, 0644);
 module_param(mae_dbf_on, int, 0644);
 module_param(set_default_value, int, 0644);
 module_param(fld_reset_en, int, 0644);
-module_param(aiseg_lut_en, int, 0644);
-module_param(fac_v1_pat_en, int, 0644);
 module_param(cmdq_polling_en, int, 0644);
 module_param(cmdq_profiling_en, int, 0644);
 
 static void mtk_mae_dump(struct mtk_mae_dev *mae_dev);
 static void mtk_mae_fld_reset(struct mtk_mae_dev *mae_dev);
-static void mtk_mae_aiseg_pat(struct cmdq_pkt *pkt);
-static void mtk_mae_fac_v1_pat(struct cmdq_pkt *pkt);
-static void mtk_mae_fd_fpn_480_360_pat(struct cmdq_pkt *pkt);
-static void mtk_mae_attr_v0_pat(struct cmdq_pkt *pkt);
 
 static void mtk_mae_reg_dump_to_buffer(struct mtk_mae_dev *mae_dev);
 
@@ -1173,74 +1161,49 @@ static void mtk_mae_fd_post(struct mtk_mae_dev *mae_dev,
 {
 	struct EnqueImage *image = &param->image[loop];
 
-	if (mae_fd_post_on == 0) {
-		// for ut
-		switch (mode) {
-		case FD_V0:
-			break;
-		case FD_V1_IPN:
-			break;
-		case FD_V1_FPN:
-			break;
-		case ATTR_V0:
-			mtk_mae_attr_v0_pat(pkt);
-			cmdq_pkt_write(pkt, NULL,
-				MAE_BASE + MAE_REG_MMFD_O_SCALE_0, 0x00000AA8,
-				CMDQ_REG_MASK);
-			break;
-		case FAC_V1:
-			cmdq_pkt_write(pkt, NULL,
-				MAE_BASE + MAE_REG_MMFD_O_SCALE_0, 0x00000AA8,
-				CMDQ_REG_MASK);
-			break;
-		default:
-			break;
-		}
-	} else {
-		// formula from algo
-		MAE_CMDQ_WRITE_REG(pkt, MAE_REG_X_OFFSET_0 + core_offset,
-			(image->enRoi) ? (image->roi.x1) : 0);
-		mae_dev_dbg(mae_dev->dev, "[%s] 0x%x = 0x%x",
-			__func__, MAE_BASE + MAE_REG_X_OFFSET_0 + core_offset,
-			(image->enRoi) ? (image->roi.x1) : 0);
+	// formula from algo
+	MAE_CMDQ_WRITE_REG(pkt, MAE_REG_X_OFFSET_0 + core_offset,
+		(image->enRoi) ? (image->roi.x1) : 0);
+	mae_dev_dbg(mae_dev->dev, "[%s] 0x%x = 0x%x",
+		__func__, MAE_BASE + MAE_REG_X_OFFSET_0 + core_offset,
+		(image->enRoi) ? (image->roi.x1) : 0);
 
-		MAE_CMDQ_WRITE_REG(pkt, MAE_REG_Y_OFFSET_0 + core_offset,
-			(image->enRoi) ? (image->roi.y1) : 0);
-		mae_dev_dbg(mae_dev->dev, "[%s] 0x%x = 0x%x",
-			__func__, MAE_BASE + MAE_REG_Y_OFFSET_0 + core_offset,
-			(image->enRoi) ? (image->roi.y1) : 0);
+	MAE_CMDQ_WRITE_REG(pkt, MAE_REG_Y_OFFSET_0 + core_offset,
+		(image->enRoi) ? (image->roi.y1) : 0);
+	mae_dev_dbg(mae_dev->dev, "[%s] 0x%x = 0x%x",
+		__func__, MAE_BASE + MAE_REG_Y_OFFSET_0 + core_offset,
+		(image->enRoi) ? (image->roi.y1) : 0);
 
-		MAE_CMDQ_WRITE_REG(pkt, MAE_REG_MMFD_O_SCALE_0 + core_offset,
-			(image->enRoi) ?
-			ROUND(((image->roi.x2 - image->roi.x1) << 9), image->resizeWidth) :
-			ROUND((image->imgWidth << 9), image->resizeWidth));
-		mae_dev_dbg(mae_dev->dev, "[%s] 0x%x = 0x%x",
-			__func__, MAE_BASE + MAE_REG_MMFD_O_SCALE_0 + core_offset,
-			(image->enRoi) ?
-			ROUND(((image->roi.x2 - image->roi.x1) << 9), image->resizeWidth) :
-			ROUND((image->imgWidth << 9), image->resizeWidth));
+	MAE_CMDQ_WRITE_REG(pkt, MAE_REG_MMFD_O_SCALE_0 + core_offset,
+		(image->enRoi) ?
+		ROUND(((image->roi.x2 - image->roi.x1) << 9), image->resizeWidth) :
+		ROUND((image->imgWidth << 9), image->resizeWidth));
+	mae_dev_dbg(mae_dev->dev, "[%s] 0x%x = 0x%x",
+		__func__, MAE_BASE + MAE_REG_MMFD_O_SCALE_0 + core_offset,
+		(image->enRoi) ?
+		ROUND(((image->roi.x2 - image->roi.x1) << 9), image->resizeWidth) :
+		ROUND((image->imgWidth << 9), image->resizeWidth));
 
-		MAE_CMDQ_WRITE_REG(pkt, MAE_REG_H_SIZE0 + core_offset,
-			(uint32_t)image->imgWidth);
-		mae_dev_dbg(mae_dev->dev, "[%s] 0x%x = 0x%x",
-			__func__, MAE_BASE + MAE_REG_H_SIZE0 + core_offset,
-			(uint32_t)image->imgWidth);
+	MAE_CMDQ_WRITE_REG(pkt, MAE_REG_H_SIZE0 + core_offset,
+		(uint32_t)image->imgWidth);
+	mae_dev_dbg(mae_dev->dev, "[%s] 0x%x = 0x%x",
+		__func__, MAE_BASE + MAE_REG_H_SIZE0 + core_offset,
+		(uint32_t)image->imgWidth);
 
-		MAE_CMDQ_WRITE_REG(pkt, MAE_REG_V_SIZE0 + core_offset,
-			(uint32_t)image->imgHeight);
-		mae_dev_dbg(mae_dev->dev, "[%s] 0x%x = 0x%x",
-			__func__, MAE_BASE + MAE_REG_V_SIZE0 + core_offset,
-			(uint32_t)image->imgHeight);
+	MAE_CMDQ_WRITE_REG(pkt, MAE_REG_V_SIZE0 + core_offset,
+		(uint32_t)image->imgHeight);
+	mae_dev_dbg(mae_dev->dev, "[%s] 0x%x = 0x%x",
+		__func__, MAE_BASE + MAE_REG_V_SIZE0 + core_offset,
+		(uint32_t)image->imgHeight);
 
-		if (mode == FD_V1_IPN || mode == FD_V1_FPN) {
-			MAE_CMDQ_WRITE_REG(pkt, MAE_REG_H_MIN0 + core_offset, 0x0);
-			MAE_CMDQ_WRITE_REG(pkt, MAE_REG_V_MIN0 + core_offset, 0x0);
-			MAE_CMDQ_WRITE_REG(pkt, MAE_REG_H_MAX0 + core_offset,
-					(uint32_t)image->imgWidth);
-			MAE_CMDQ_WRITE_REG(pkt, MAE_REG_V_MAX0 + core_offset,
-					(uint32_t)image->imgHeight);
-			MAE_CMDQ_WRITE_REG(pkt, MAE_REG_SCORE_TH0 + core_offset, 0x11);
-		}
+	if (mode == FD_V1_IPN || mode == FD_V1_FPN) {
+		MAE_CMDQ_WRITE_REG(pkt, MAE_REG_H_MIN0 + core_offset, 0x0);
+		MAE_CMDQ_WRITE_REG(pkt, MAE_REG_V_MIN0 + core_offset, 0x0);
+		MAE_CMDQ_WRITE_REG(pkt, MAE_REG_H_MAX0 + core_offset,
+				(uint32_t)image->imgWidth);
+		MAE_CMDQ_WRITE_REG(pkt, MAE_REG_V_MAX0 + core_offset,
+				(uint32_t)image->imgHeight);
+		MAE_CMDQ_WRITE_REG(pkt, MAE_REG_SCORE_TH0 + core_offset, 0x11);
 	}
 }
 
@@ -1274,6 +1237,244 @@ static void mtk_mae_config_aiseg_post(struct mtk_mae_dev *mae_dev,
 	}
 }
 
+static void mtk_mae_aiseg_crop(struct mtk_mae_dev *mae_dev,
+				uint32_t x0, uint32_t y0, uint32_t x1, uint32_t y1,
+				uint32_t feature_map_size, uint32_t output_size_x, uint32_t output_size_y,
+				uint32_t shift_bit, struct aiseg_crop_setting_out *out)
+{
+	// Variables
+	uint32_t output_map_size_x, output_map_size_y;
+	uint32_t scale_x_0, scale_x_1, scale_y_0, scale_y_1;
+	uint32_t scale_factor, crop_st, crop_length, init_factor, rounding;
+
+	// Default setting
+	out->reg_mode_c_ho = 1;
+	out->reg_mode_c_ve = 1;
+	out->reg_1p_path_en = 1;
+	out->reg_h_size_usr_md = 1;
+	out->reg_v_size_usr_md = 1;
+	out->reg_scale_ve_en = 1;
+	out->reg_scale_ho_en = 1;
+	out->reg_rsz_s2u = 1;
+	out->reg_order = 1;
+	out->reg_postproc_en = 1;
+
+	mae_dev_dbg(mae_dev->dev, "=== Default Setting ===\n");
+	mae_dev_dbg(mae_dev->dev, "reg_mode_c_ho = %d, reg_mode_c_ve = %d\n",
+		out->reg_mode_c_ho, out->reg_mode_c_ve);
+	mae_dev_dbg(mae_dev->dev, "reg_1p_path_en = %d, reg_h_size_usr_md = %d, reg_v_size_usr_md = %d\n",
+		out->reg_1p_path_en, out->reg_h_size_usr_md, out->reg_v_size_usr_md);
+	mae_dev_dbg(mae_dev->dev, "reg_scale_ve_en = %d, reg_scale_ho_en = %d\n",
+		out->reg_scale_ve_en, out->reg_scale_ho_en);
+	mae_dev_dbg(mae_dev->dev, "reg_rsz_s2u = %d, reg_order = %d, reg_postproc_en = %d\n",
+		out->reg_rsz_s2u, out->reg_order, out->reg_postproc_en);
+
+	// Horizontal resizer
+	output_map_size_x = output_size_x - 1;
+	output_map_size_y = output_size_y - 1;
+
+	scale_x_0 = x0 * (feature_map_size - 1);
+	scale_x_1 = x1 * (feature_map_size - 1);
+
+	scale_factor = (scale_x_1 - scale_x_0) * (1 << (20 - shift_bit)) / output_map_size_x ;
+
+	crop_st = (scale_x_0 >> shift_bit) << shift_bit;
+	(scale_x_1 & 0x3FF) ? (rounding = 1) : (rounding = 0);
+	crop_length = (feature_map_size << shift_bit) - crop_st
+		- (((feature_map_size - 1) << shift_bit) - (((scale_x_1 >> shift_bit) + rounding) << shift_bit));
+	init_factor = (scale_x_0 - crop_st) * ((uint32_t)1 << (20 - shift_bit));
+
+	out->reg_nve_op_attr_auto_mode_ve = 0;
+	out->reg_nve_op_attr_auto_mode_ho = 0;
+	out->reg_pre_crop_h_crop_en = 1;
+	out->reg_pre_crop_h_st = crop_st >> shift_bit;
+	out->reg_pre_crop_h_length = (crop_length + (1 << (shift_bit - 1))) >> shift_bit;
+	out->reg_h_size = out->reg_pre_crop_h_length;
+	out->reg_scale_factor_ho_0 = scale_factor & 0xFFFF;
+	out->reg_scale_factor_ho_1 = (scale_factor >> 16) & 0xFF;
+	out->reg_ini_factor_ho_0 = init_factor & 0xFFFF;
+	out->reg_ini_factor_ho_1 = (init_factor >> 16) & 0xFFF;
+
+	mae_dev_dbg(mae_dev->dev, "=== Horizontal Resizer ===\n");
+	mae_dev_dbg(mae_dev->dev, "reg_nve_op_attr_auto_mode_ho = %d, reg_pre_crop_h_crop_en = %d\n",
+		out->reg_nve_op_attr_auto_mode_ho, out->reg_pre_crop_h_crop_en);
+	mae_dev_dbg(mae_dev->dev, "reg_pre_crop_h_st = %d, reg_pre_crop_h_length = %d, reg_h_size = %d\n",
+		out->reg_pre_crop_h_st, out->reg_pre_crop_h_length, out->reg_h_size);
+	mae_dev_dbg(mae_dev->dev, "reg_scale_factor_ho_0 = 0x%x, reg_scale_factor_ho_1 = 0x%x\n",
+		out->reg_scale_factor_ho_0, out->reg_scale_factor_ho_1);
+	mae_dev_dbg(mae_dev->dev, "reg_ini_factor_ho_0 = 0x%x, reg_ini_factor_ho_1 = 0x%x\n",
+		out->reg_ini_factor_ho_0, out->reg_ini_factor_ho_1);
+
+	// Veritical resizer
+	scale_y_0 = y0 * (feature_map_size - 1);
+	scale_y_1 = y1 * (feature_map_size - 1);
+	scale_factor = (scale_y_1 - scale_y_0) * (1 << (20 - shift_bit)) / output_map_size_y;
+
+	crop_st = (scale_y_0 >> shift_bit) << shift_bit;
+	(scale_y_1 & 0x3FF) ? (rounding = 1) : (rounding = 0);
+	crop_length = (feature_map_size << shift_bit) - crop_st -
+		(((feature_map_size - 1) << shift_bit) - (((scale_y_1 >> shift_bit) + rounding) << shift_bit));
+	init_factor = (scale_y_0 - crop_st) * ((uint32_t)1 << (20 - shift_bit));
+
+	out->reg_pre_crop_v_crop_en = 1;
+	out->reg_pre_crop_v_st = crop_st >> shift_bit;
+	out->reg_pre_crop_v_length = (crop_length + 512) >> shift_bit;
+	out->reg_v_size = out->reg_pre_crop_v_length;
+	out->reg_scale_factor_ve_0 = scale_factor & 0xFFFF;
+	out->reg_scale_factor_ve_1 = (scale_factor >> 16) & 0xFF;
+	out->reg_ini_factor_ve_0 = init_factor & 0xFFFF;
+	out->reg_ini_factor_ve_1 = (init_factor >> 16) & 0xFFF;
+
+	mae_dev_dbg(mae_dev->dev, "=== Vertial Resizer ===\n");
+	mae_dev_dbg(mae_dev->dev, "reg_nve_op_attr_auto_mode_ve = %d, reg_pre_crop_v_crop_en = %d\n",
+		out->reg_nve_op_attr_auto_mode_ve, out->reg_pre_crop_v_crop_en);
+	mae_dev_dbg(mae_dev->dev, "reg_pre_crop_v_st = %d, reg_pre_crop_v_length = %d, reg_v_size = %d\n",
+		out->reg_pre_crop_v_st, out->reg_pre_crop_v_length, out->reg_v_size);
+	mae_dev_dbg(mae_dev->dev, "reg_scale_factor_ve_0 = 0x%x, reg_scale_factor_ve_1 = 0x%x\n",
+		out->reg_scale_factor_ve_0, out->reg_scale_factor_ve_1);
+	mae_dev_dbg(mae_dev->dev, "reg_ini_factor_ve_0 = 0x%x, reg_ini_factor_ve_1 = 0x%x\n",
+		out->reg_ini_factor_ve_0, out->reg_ini_factor_ve_1);
+}
+
+static void mtk_mae_config_aiseg_crop(struct mtk_mae_dev *mae_dev,
+				struct EnqueParam *param,
+				struct cmdq_pkt *pkt)
+{
+	uint32_t i;
+	struct aiseg_crop_setting_out crop_reg = {0};
+
+	for (i = 0; i < AISEG_CROP_NUM; i++) {
+		mtk_mae_aiseg_crop(mae_dev, param->aisegCrop[i].x0, param->aisegCrop[i].y0,
+				param->aisegCrop[i].x1, param->aisegCrop[i].y1,
+				param->aisegCrop[i].featureMapSize, param->aisegCrop[i].outputSizeX,
+				param->aisegCrop[i].outputSizeY, param->aisegCrop[i].shiftBit,
+				&crop_reg);
+
+		MAE_CMDQ_WRITE_REG(pkt,
+				REG_0004_RSZ1 + i * RSZ_BASE_ADDR_OFFSET,
+				crop_reg.reg_ini_factor_ho_0);
+
+		MAE_CMDQ_WRITE_REG(pkt,
+				REG_0008_RSZ1 + i * RSZ_BASE_ADDR_OFFSET,
+				crop_reg.reg_ini_factor_ho_1);
+
+		MAE_CMDQ_WRITE_REG(pkt,
+				REG_000C_RSZ1 + i * RSZ_BASE_ADDR_OFFSET,
+				crop_reg.reg_ini_factor_ve_0);
+
+		MAE_CMDQ_WRITE_REG(pkt,
+				REG_0010_RSZ1 + i * RSZ_BASE_ADDR_OFFSET,
+				crop_reg.reg_ini_factor_ve_1);
+
+		MAE_CMDQ_WRITE_REG(pkt,
+				REG_001C_RSZ1 + i * RSZ_BASE_ADDR_OFFSET,
+				REG_RANGE(crop_reg.reg_scale_factor_ho_0, 15, 0));
+
+		MAE_CMDQ_WRITE_REG(pkt,
+				REG_0020_RSZ1 + i * RSZ_BASE_ADDR_OFFSET,
+				(REG_RANGE(crop_reg.reg_scale_factor_ho_1, 11, 8) << 12) +
+				(REG_RANGE(crop_reg.reg_scale_ho_en, 0, 0) << 8) +
+				(REG_RANGE(crop_reg.reg_scale_factor_ho_1, 7, 0)));
+
+		MAE_CMDQ_WRITE_REG(pkt,
+				REG_0024_RSZ1 + i * RSZ_BASE_ADDR_OFFSET,
+				REG_RANGE(crop_reg.reg_scale_factor_ve_0, 15, 0));
+
+		MAE_CMDQ_WRITE_REG(pkt,
+				REG_0028_RSZ1 + i * RSZ_BASE_ADDR_OFFSET,
+				(REG_RANGE(crop_reg.reg_scale_factor_ve_1, 11, 8) << 12) +
+				(REG_RANGE(crop_reg.reg_scale_ve_en, 0, 0) << 8) +
+				(REG_RANGE(crop_reg.reg_scale_factor_ve_1, 7, 0)));
+
+		MAE_CMDQ_WRITE_REG(pkt,
+				REG_002C_RSZ1 + i * RSZ_BASE_ADDR_OFFSET,
+				(REG_RANGE(crop_reg.reg_mode_c_ve, 1, 0) << 8) +
+				(REG_RANGE(crop_reg.reg_mode_c_ho, 1, 0)));
+
+		MAE_CMDQ_WRITE_REG(pkt,
+				REG_0034_RSZ1 + i * RSZ_BASE_ADDR_OFFSET,
+				REG_RANGE(crop_reg.reg_rsz_s2u, 0, 0));
+
+		MAE_CMDQ_WRITE_REG(pkt,
+				REG_00A0_RSZ1 + i * RSZ_BASE_ADDR_OFFSET,
+				(crop_reg.reg_h_size_usr_md << 15) +
+				REG_RANGE(crop_reg.reg_h_size, 13, 0));
+
+		MAE_CMDQ_WRITE_REG(pkt,
+				REG_00A4_RSZ1 + i * RSZ_BASE_ADDR_OFFSET,
+				(crop_reg.reg_v_size_usr_md << 15) +
+				REG_RANGE(crop_reg.reg_v_size, 13, 0));
+
+		MAE_CMDQ_WRITE_REG(pkt,
+				REG_00A8_RSZ1 + i * RSZ_BASE_ADDR_OFFSET,
+				param->aisegCrop[i].outputSizeX);
+
+		MAE_CMDQ_WRITE_REG(pkt,
+				REG_00AC_RSZ1 + i * RSZ_BASE_ADDR_OFFSET,
+				param->aisegCrop[i].outputSizeY);
+
+		MAE_CMDQ_WRITE_REG(pkt,
+				REG_00C0_RSZ1 + i * RSZ_BASE_ADDR_OFFSET,
+				0x80 +
+				(REG_RANGE(crop_reg.reg_pre_crop_v_crop_en, 0, 0) << 1) +
+				REG_RANGE(crop_reg.reg_pre_crop_h_crop_en, 0, 0));
+
+		MAE_CMDQ_WRITE_REG(pkt, REG_00C8_RSZ1 + i * RSZ_BASE_ADDR_OFFSET,
+				REG_RANGE(crop_reg.reg_pre_crop_h_st, 13, 0));
+
+		MAE_CMDQ_WRITE_REG(pkt,
+				REG_00CC_RSZ1 + i * RSZ_BASE_ADDR_OFFSET,
+				REG_RANGE(crop_reg.reg_pre_crop_h_length, 13, 0));
+
+		MAE_CMDQ_WRITE_REG(pkt,
+				REG_00D0_RSZ1 + i * RSZ_BASE_ADDR_OFFSET,
+				param->aisegCrop[i].featureMapSize);
+
+		MAE_CMDQ_WRITE_REG(pkt,
+				REG_00D4_RSZ1 + i * RSZ_BASE_ADDR_OFFSET,
+				REG_RANGE(crop_reg.reg_pre_crop_v_st, 13, 0));
+
+		MAE_CMDQ_WRITE_REG(pkt,
+				REG_00D8_RSZ1 + i * RSZ_BASE_ADDR_OFFSET,
+				REG_RANGE(crop_reg.reg_pre_crop_v_length, 13, 0));
+
+		// reg_post_ins_de_start_trig_md_1[0] = 0, reg_post_ins_boundary_md_1 = 1
+		MAE_CMDQ_WRITE_REG(pkt,
+				REG_0104_RSZ1 + i * RSZ_BASE_ADDR_OFFSET,
+				0x0002);
+
+		MAE_CMDQ_WRITE_REG(pkt,
+				REG_0110_RSZ1 + i * RSZ_BASE_ADDR_OFFSET,
+				0x0);
+
+		MAE_CMDQ_WRITE_REG(pkt,
+				REG_0114_RSZ1 + i * RSZ_BASE_ADDR_OFFSET,
+				0x0);
+
+		MAE_CMDQ_WRITE_REG(pkt,
+				REG_0118_RSZ1 + i * RSZ_BASE_ADDR_OFFSET,
+				0x0);
+
+		MAE_CMDQ_WRITE_REG(pkt,
+				REG_011C_RSZ1 + i * RSZ_BASE_ADDR_OFFSET,
+				0x0);
+
+		MAE_CMDQ_WRITE_REG(pkt,
+				REG_0120_RSZ1 + i * RSZ_BASE_ADDR_OFFSET,
+				0x0);
+
+		MAE_CMDQ_WRITE_REG(pkt,
+				REG_0180_RSZ1 + i * RSZ_BASE_ADDR_OFFSET,
+				0x4);
+
+		MAE_CMDQ_WRITE_REG(pkt,
+				REG_0184_RSZ1 + i * RSZ_BASE_ADDR_OFFSET,
+				(REG_RANGE(crop_reg.reg_postproc_en, 0, 0) << 2) +
+				(REG_RANGE(crop_reg.reg_1p_path_en, 0, 0) << 1) +
+				1);
+	}
+}
+
 static bool mtk_mae_config_hw(struct mtk_mae_dev *mae_dev, int idx)
 {
 	struct EnqueParam *param =
@@ -1281,6 +1482,7 @@ static bool mtk_mae_config_hw(struct mtk_mae_dev *mae_dev, int idx)
 	uint32_t rsz_offset = 0;
 	uint32_t core_offset = 0;
 	uint32_t loop = 0;
+	uint32_t i = 0;
 
 	mae_dev_dbg(mae_dev->dev, "%s+", __func__);
 
@@ -1288,15 +1490,11 @@ static bool mtk_mae_config_hw(struct mtk_mae_dev *mae_dev, int idx)
 	MAE_CMDQ_WRITE_REG(mae_dev->pkt[idx], MAE_TRIG_RST_CTRL, 0x0100);
 	MAE_CMDQ_WRITE_REG(mae_dev->pkt[idx], MAE_TRIG_RST_CTRL, 0x0000);
 
-	mae_dev_dbg(mae_dev->dev, "adb: mae_fd_post_on(%d)\n", mae_fd_post_on);
 	mae_dev_dbg(mae_dev->dev, "adb: mae_trigger_cmdq_timeout(%d)\n", mae_trigger_cmdq_timeout);
 	mae_dev_dbg(mae_dev->dev, "adb: fld_debug_1(%d)\n", fld_debug_1);
-	mae_dev_dbg(mae_dev->dev, "adb: rsz_debug_on(%d)\n", rsz_debug_on);
 	mae_dev_dbg(mae_dev->dev, "adb: mae_dbf_on(%d)\n", mae_dbf_on);
 	mae_dev_dbg(mae_dev->dev, "adb: set_default_value(%d)\n", set_default_value);
 	mae_dev_dbg(mae_dev->dev, "adb: fld_reset_en(%d)\n", fld_reset_en);
-	mae_dev_dbg(mae_dev->dev, "adb: aiseg_lut_en(%d)\n", aiseg_lut_en);
-	mae_dev_dbg(mae_dev->dev, "adb: fac_v1_pat_en(%d)\n", fac_v1_pat_en);
 	mae_dev_dbg(mae_dev->dev, "adb: cmdq_polling_en(%d)\n", cmdq_polling_en);
 	mae_dev_dbg(mae_dev->dev, "adb: cmdq_profiling_en(%d)\n", cmdq_profiling_en);
 
@@ -1428,9 +1626,6 @@ static bool mtk_mae_config_hw(struct mtk_mae_dev *mae_dev, int idx)
 				return false;
 			}
 
-
-			if (mae_fd_post_on == 0)
-				mtk_mae_fd_fpn_480_360_pat(mae_dev->pkt[idx]);
 			break;
 		case ATTR_V0:
 		case FAC_V1:
@@ -1456,9 +1651,6 @@ static bool mtk_mae_config_hw(struct mtk_mae_dev *mae_dev, int idx)
 				return false;
 			}
 
-			if (fac_v1_pat_en && param->maeMode == FAC_V1)
-				mtk_mae_fac_v1_pat(mae_dev->pkt[idx]);
-
 			break;
 		case AISEG:
 			if (param->image[loop].srcImgFmt == YUYV) {
@@ -1470,26 +1662,23 @@ static bool mtk_mae_config_hw(struct mtk_mae_dev *mae_dev, int idx)
 				return false;
 			}
 
-			MAE_CMDQ_WRITE_REG(mae_dev->pkt[idx], MAE_REG_EXTRN_LN_OFFSET_00_W, 0x000c);
-			MAE_CMDQ_WRITE_REG(mae_dev->pkt[idx], MAE_REG_EXTRN_LN_OFFSET_01_W, 0x0008);
-			MAE_CMDQ_WRITE_REG(mae_dev->pkt[idx], MAE_REG_EXTRN_LN_OFFSET_02_W, 0x0004);
+			if (param->outputNum > AISEG_MAP_NUM) {
+				mae_dev_info(mae_dev->dev,
+					"Aiseg output is too much (%d/%d)\n",
+					param->outputNum, AISEG_MAP_NUM);
+				return false;
+			}
 
-			MAE_CMDQ_WRITE_REG(mae_dev->pkt[idx], MAE_REG_EXTRN_LN_OFFSET_03_W, 0x0008);
-			MAE_CMDQ_WRITE_REG(mae_dev->pkt[idx], MAE_REG_EXTRN_LN_OFFSET_04_W, 0x0008);
-			MAE_CMDQ_WRITE_REG(mae_dev->pkt[idx], MAE_REG_EXTRN_LN_OFFSET_05_W, 0x0008);
-			MAE_CMDQ_WRITE_REG(mae_dev->pkt[idx], MAE_REG_EXTRN_LN_OFFSET_06_W, 0x0008);
-
-			MAE_CMDQ_WRITE_REG(mae_dev->pkt[idx], MAE_REG_EXTRN_LN_OFFSET_07_W, 0x0008);
-			MAE_CMDQ_WRITE_REG(mae_dev->pkt[idx], MAE_REG_EXTRN_LN_OFFSET_08_W, 0x0008);
-			MAE_CMDQ_WRITE_REG(mae_dev->pkt[idx], MAE_REG_EXTRN_LN_OFFSET_09_W, 0x0008);
-			MAE_CMDQ_WRITE_REG(mae_dev->pkt[idx], MAE_REG_EXTRN_LN_OFFSET_10_W, 0x0008);
+			for (i = 0; i < param->outputNum; i++)
+				MAE_CMDQ_WRITE_REG(mae_dev->pkt[idx],
+					MAE_REG_EXTRN_LN_OFFSET_00_W + i * COMMON_REG_SIZE,
+					param->lnOffset[i]);
 
 			MAE_CMDQ_WRITE_REG(mae_dev->pkt[idx], MAE_COEF_ROTATE, param->aisegInputDegree);
 
-			mtk_mae_config_aiseg_post(mae_dev, param, mae_dev->pkt[idx]);
+			mtk_mae_config_aiseg_crop(mae_dev, param, mae_dev->pkt[idx]);
 
-			if (aiseg_lut_en)
-				mtk_mae_aiseg_pat(mae_dev->pkt[idx]);
+			mtk_mae_config_aiseg_post(mae_dev, param, mae_dev->pkt[idx]);
 
 			break;
 		default:
@@ -2484,368 +2673,6 @@ int mtk_mae_isp8_remove(struct platform_device *pdev)
 {
 	dev_info(&pdev->dev ,"%s +-", __func__);
 	return 0;
-}
-
-static void mtk_mae_fac_v1_pat(struct cmdq_pkt *pkt)
-{
-	MAE_CMDQ_WRITE_REG(pkt, 0x7010, 0x00000000);
-	MAE_CMDQ_WRITE_REG(pkt, 0x7014, 0x00000000);
-	MAE_CMDQ_WRITE_REG(pkt, 0x7018, 0x00000000);
-	MAE_CMDQ_WRITE_REG(pkt, 0x701c, 0x00000000);
-	MAE_CMDQ_WRITE_REG(pkt, 0x7020, 0x00000000);
-	MAE_CMDQ_WRITE_REG(pkt, 0x7024, 0x00000000);
-	MAE_CMDQ_WRITE_REG(pkt, 0x7028, 0x00000aa8);
-	MAE_CMDQ_WRITE_REG(pkt, 0x702c, 0x00000aa8);
-	MAE_CMDQ_WRITE_REG(pkt, 0x7030, 0x00000aa8);
-	MAE_CMDQ_WRITE_REG(pkt, 0x7080, 0x00000000);
-	MAE_CMDQ_WRITE_REG(pkt, 0x7084, 0x00000000);
-	MAE_CMDQ_WRITE_REG(pkt, 0x7088, 0x00000000);
-	MAE_CMDQ_WRITE_REG(pkt, 0x708c, 0x00000000);
-	MAE_CMDQ_WRITE_REG(pkt, 0x7090, 0x00000000);
-	MAE_CMDQ_WRITE_REG(pkt, 0x7094, 0x00000000);
-	MAE_CMDQ_WRITE_REG(pkt, 0x7098, 0x00000000);
-	MAE_CMDQ_WRITE_REG(pkt, 0x709c, 0x00000000);
-	MAE_CMDQ_WRITE_REG(pkt, 0x70a0, 0x00000000);
-	MAE_CMDQ_WRITE_REG(pkt, 0x70a4, 0x00000000);
-	MAE_CMDQ_WRITE_REG(pkt, 0x70a8, 0x00000000);
-	MAE_CMDQ_WRITE_REG(pkt, 0x70ac, 0x00000000);
-	MAE_CMDQ_WRITE_REG(pkt, 0x70b0, 0x00000000);
-	MAE_CMDQ_WRITE_REG(pkt, 0x70b4, 0x00000000);
-	MAE_CMDQ_WRITE_REG(pkt, 0x70b8, 0x00000000);
-	MAE_CMDQ_WRITE_REG(pkt, 0x7100, 0x00000000);
-	MAE_CMDQ_WRITE_REG(pkt, 0x7104, 0x00000000);
-	MAE_CMDQ_WRITE_REG(pkt, 0x7108, 0x00000000);
-	MAE_CMDQ_WRITE_REG(pkt, 0x710c, 0x00000000);
-	MAE_CMDQ_WRITE_REG(pkt, 0x7110, 0x00000000);
-	MAE_CMDQ_WRITE_REG(pkt, 0x7114, 0x00000000);
-
-	MAE_CMDQ_WRITE_REG(pkt, 0x6004, 0x00000000);
-	MAE_CMDQ_WRITE_REG(pkt, 0x6008, 0x00000000);
-	MAE_CMDQ_WRITE_REG(pkt, 0x600c, 0x00000000);
-	MAE_CMDQ_WRITE_REG(pkt, 0x6010, 0x00000000);
-	MAE_CMDQ_WRITE_REG(pkt, 0x601c, 0x00000000);
-	MAE_CMDQ_WRITE_REG(pkt, 0x6020, 0x00000100);
-	MAE_CMDQ_WRITE_REG(pkt, 0x6024, 0x00000000);
-	MAE_CMDQ_WRITE_REG(pkt, 0x6028, 0x00000100);
-	MAE_CMDQ_WRITE_REG(pkt, 0x602c, 0x00000000);
-	MAE_CMDQ_WRITE_REG(pkt, 0x6034, 0x00000002);
-	MAE_CMDQ_WRITE_REG(pkt, 0x605c, 0x0000cccd);
-	MAE_CMDQ_WRITE_REG(pkt, 0x6060, 0x00000002);
-	MAE_CMDQ_WRITE_REG(pkt, 0x6064, 0x0000bbbc);
-	MAE_CMDQ_WRITE_REG(pkt, 0x6068, 0x00000003);
-	MAE_CMDQ_WRITE_REG(pkt, 0x60a0, 0x00008280);
-	MAE_CMDQ_WRITE_REG(pkt, 0x60a4, 0x000081e0);
-	MAE_CMDQ_WRITE_REG(pkt, 0x60a8, 0x00000070);
-	MAE_CMDQ_WRITE_REG(pkt, 0x60ac, 0x00000070);
-	MAE_CMDQ_WRITE_REG(pkt, 0x60c0, 0x00000080);
-	MAE_CMDQ_WRITE_REG(pkt, 0x60c4, 0x00000000);
-	MAE_CMDQ_WRITE_REG(pkt, 0x60c8, 0x00000000);
-	MAE_CMDQ_WRITE_REG(pkt, 0x60cc, 0x00000000);
-	MAE_CMDQ_WRITE_REG(pkt, 0x60d0, 0x00000280);
-	MAE_CMDQ_WRITE_REG(pkt, 0x60d4, 0x00000000);
-	MAE_CMDQ_WRITE_REG(pkt, 0x60d8, 0x00000000);
-	MAE_CMDQ_WRITE_REG(pkt, 0x6104, 0x00000000);
-	MAE_CMDQ_WRITE_REG(pkt, 0x6108, 0x00000000);
-	MAE_CMDQ_WRITE_REG(pkt, 0x610c, 0x00000000);
-	MAE_CMDQ_WRITE_REG(pkt, 0x6110, 0x00000000);
-	MAE_CMDQ_WRITE_REG(pkt, 0x6114, 0x00000000);
-	MAE_CMDQ_WRITE_REG(pkt, 0x6118, 0x00000000);
-	MAE_CMDQ_WRITE_REG(pkt, 0x611c, 0x00000000);
-	MAE_CMDQ_WRITE_REG(pkt, 0x6120, 0x00000000);
-	MAE_CMDQ_WRITE_REG(pkt, 0x6180, 0x00000110);
-	MAE_CMDQ_WRITE_REG(pkt, 0x6184, 0x0000000b);
-
-}
-
-static void mtk_mae_aiseg_pat(struct cmdq_pkt *pkt)
-{
-	// POST
-	MAE_CMDQ_WRITE_REG(pkt, 0x61a0, 0x00000100);
-	MAE_CMDQ_WRITE_REG(pkt, 0x61a4, 0x00000302);
-	MAE_CMDQ_WRITE_REG(pkt, 0x61a8, 0x00000504);
-	MAE_CMDQ_WRITE_REG(pkt, 0x61ac, 0x00000706);
-	MAE_CMDQ_WRITE_REG(pkt, 0x61b0, 0x00000908);
-	MAE_CMDQ_WRITE_REG(pkt, 0x61b4, 0x00000b0a);
-	MAE_CMDQ_WRITE_REG(pkt, 0x61b8, 0x00000d0c);
-	MAE_CMDQ_WRITE_REG(pkt, 0x61bc, 0x00000f0e);
-	MAE_CMDQ_WRITE_REG(pkt, 0x61c0, 0x00000100);
-	MAE_CMDQ_WRITE_REG(pkt, 0x61c4, 0x00000302);
-	MAE_CMDQ_WRITE_REG(pkt, 0x61c8, 0x00000504);
-	MAE_CMDQ_WRITE_REG(pkt, 0x61cc, 0x00000706);
-	MAE_CMDQ_WRITE_REG(pkt, 0x61d0, 0x00001111);
-	MAE_CMDQ_WRITE_REG(pkt, 0x61d4, 0x00001111);
-	MAE_CMDQ_WRITE_REG(pkt, 0x61d8, 0x00001111);
-	MAE_CMDQ_WRITE_REG(pkt, 0x61dc, 0x00001111);
-	MAE_CMDQ_WRITE_REG(pkt, 0x61e0, 0x00000000);
-	MAE_CMDQ_WRITE_REG(pkt, 0x61e4, 0x00000000);
-	MAE_CMDQ_WRITE_REG(pkt, 0x61e8, 0x00000000);
-	MAE_CMDQ_WRITE_REG(pkt, 0x61ec, 0x00000000);
-	MAE_CMDQ_WRITE_REG(pkt, 0x61f0, 0x00000000);
-	MAE_CMDQ_WRITE_REG(pkt, 0x61f4, 0x00000000);
-	MAE_CMDQ_WRITE_REG(pkt, 0x61f8, 0x00000000);
-	MAE_CMDQ_WRITE_REG(pkt, 0x61fc, 0x00000000);
-	MAE_CMDQ_WRITE_REG(pkt, 0x63a0, 0x00000100);
-	MAE_CMDQ_WRITE_REG(pkt, 0x63a4, 0x00000002);
-	MAE_CMDQ_WRITE_REG(pkt, 0x63a8, 0x00000504);
-	MAE_CMDQ_WRITE_REG(pkt, 0x63ac, 0x00000706);
-	MAE_CMDQ_WRITE_REG(pkt, 0x63b0, 0x00000908);
-	MAE_CMDQ_WRITE_REG(pkt, 0x63b4, 0x00000b0a);
-	MAE_CMDQ_WRITE_REG(pkt, 0x63b8, 0x00000d0c);
-	MAE_CMDQ_WRITE_REG(pkt, 0x63bc, 0x00000f0e);
-	MAE_CMDQ_WRITE_REG(pkt, 0x63c0, 0x00000300);
-	MAE_CMDQ_WRITE_REG(pkt, 0x63c4, 0x00000c03);
-	MAE_CMDQ_WRITE_REG(pkt, 0x63c8, 0x00000303);
-	MAE_CMDQ_WRITE_REG(pkt, 0x63cc, 0x00000303);
-	MAE_CMDQ_WRITE_REG(pkt, 0x63d0, 0x00001111);
-	MAE_CMDQ_WRITE_REG(pkt, 0x63d4, 0x00001111);
-	MAE_CMDQ_WRITE_REG(pkt, 0x63d8, 0x00001111);
-	MAE_CMDQ_WRITE_REG(pkt, 0x63dc, 0x00001111);
-	MAE_CMDQ_WRITE_REG(pkt, 0x63e0, 0x00000000);
-	MAE_CMDQ_WRITE_REG(pkt, 0x63e4, 0x00000000);
-	MAE_CMDQ_WRITE_REG(pkt, 0x63e8, 0x00000000);
-	MAE_CMDQ_WRITE_REG(pkt, 0x63ec, 0x00000000);
-	MAE_CMDQ_WRITE_REG(pkt, 0x63f0, 0x00000000);
-	MAE_CMDQ_WRITE_REG(pkt, 0x63f4, 0x00000000);
-	MAE_CMDQ_WRITE_REG(pkt, 0x63f8, 0x00000000);
-	MAE_CMDQ_WRITE_REG(pkt, 0x63fc, 0x00000000);
-	MAE_CMDQ_WRITE_REG(pkt, 0x65a0, 0x00000100);
-	MAE_CMDQ_WRITE_REG(pkt, 0x65a4, 0x00000302);
-	MAE_CMDQ_WRITE_REG(pkt, 0x65a8, 0x00000504);
-	MAE_CMDQ_WRITE_REG(pkt, 0x65ac, 0x00000706);
-	MAE_CMDQ_WRITE_REG(pkt, 0x65b0, 0x00000908);
-	MAE_CMDQ_WRITE_REG(pkt, 0x65b4, 0x00000b0a);
-	MAE_CMDQ_WRITE_REG(pkt, 0x65b8, 0x00000d0c);
-	MAE_CMDQ_WRITE_REG(pkt, 0x65bc, 0x00000f0e);
-	MAE_CMDQ_WRITE_REG(pkt, 0x65c0, 0x00000a00);
-	MAE_CMDQ_WRITE_REG(pkt, 0x65c4, 0x00000c0b);
-	MAE_CMDQ_WRITE_REG(pkt, 0x65c8, 0x00000e0d);
-	MAE_CMDQ_WRITE_REG(pkt, 0x65cc, 0x0000100f);
-	MAE_CMDQ_WRITE_REG(pkt, 0x65d0, 0x00001111);
-	MAE_CMDQ_WRITE_REG(pkt, 0x65d4, 0x00001111);
-	MAE_CMDQ_WRITE_REG(pkt, 0x65d8, 0x00001111);
-	MAE_CMDQ_WRITE_REG(pkt, 0x65dc, 0x00001111);
-	MAE_CMDQ_WRITE_REG(pkt, 0x65e0, 0x00000000);
-	MAE_CMDQ_WRITE_REG(pkt, 0x65e4, 0x00000000);
-	MAE_CMDQ_WRITE_REG(pkt, 0x65e8, 0x00000000);
-	MAE_CMDQ_WRITE_REG(pkt, 0x65ec, 0x00000000);
-	MAE_CMDQ_WRITE_REG(pkt, 0x65f0, 0x00000000);
-	MAE_CMDQ_WRITE_REG(pkt, 0x65f4, 0x00000000);
-	MAE_CMDQ_WRITE_REG(pkt, 0x65f8, 0x00000000);
-	MAE_CMDQ_WRITE_REG(pkt, 0x65fc, 0x00000000);
-
-	// RSZ 1
-	MAE_CMDQ_WRITE_REG(pkt, 0x6004, 0x00000000);
-	MAE_CMDQ_WRITE_REG(pkt, 0x6008, 0x00000000);
-	MAE_CMDQ_WRITE_REG(pkt, 0x600c, 0x00000000);
-	MAE_CMDQ_WRITE_REG(pkt, 0x6010, 0x00000000);
-	MAE_CMDQ_WRITE_REG(pkt, 0x601c, 0x0000e9d4);
-	MAE_CMDQ_WRITE_REG(pkt, 0x6020, 0x00000104);
-	MAE_CMDQ_WRITE_REG(pkt, 0x6024, 0x00009184);
-	MAE_CMDQ_WRITE_REG(pkt, 0x6028, 0x00000106);
-	MAE_CMDQ_WRITE_REG(pkt, 0x602c, 0x00000101);
-	MAE_CMDQ_WRITE_REG(pkt, 0x6034, 0x00000001);
-	MAE_CMDQ_WRITE_REG(pkt, 0x605c, 0x00000000);
-	MAE_CMDQ_WRITE_REG(pkt, 0x6060, 0x00000000);
-	MAE_CMDQ_WRITE_REG(pkt, 0x6064, 0x00000000);
-	MAE_CMDQ_WRITE_REG(pkt, 0x6068, 0x00000000);
-	MAE_CMDQ_WRITE_REG(pkt, 0x60a0, 0x00008028);
-	MAE_CMDQ_WRITE_REG(pkt, 0x60a4, 0x00008028);
-	MAE_CMDQ_WRITE_REG(pkt, 0x60a8, 0x00000080);
-	MAE_CMDQ_WRITE_REG(pkt, 0x60ac, 0x00000060);
-	MAE_CMDQ_WRITE_REG(pkt, 0x60c0, 0x00000080);
-	MAE_CMDQ_WRITE_REG(pkt, 0x60c4, 0x00000000);
-	MAE_CMDQ_WRITE_REG(pkt, 0x60c8, 0x00000000);
-	MAE_CMDQ_WRITE_REG(pkt, 0x60cc, 0x00000000);
-	MAE_CMDQ_WRITE_REG(pkt, 0x60d0, 0x00000028);
-	MAE_CMDQ_WRITE_REG(pkt, 0x60d4, 0x00000000);
-	MAE_CMDQ_WRITE_REG(pkt, 0x60d8, 0x00000000);
-	MAE_CMDQ_WRITE_REG(pkt, 0x6104, 0x00000002);
-	MAE_CMDQ_WRITE_REG(pkt, 0x6108, 0x00000000);
-	MAE_CMDQ_WRITE_REG(pkt, 0x610c, 0x00000000);
-	MAE_CMDQ_WRITE_REG(pkt, 0x6110, 0x00000000);
-	MAE_CMDQ_WRITE_REG(pkt, 0x6114, 0x00000017);
-	MAE_CMDQ_WRITE_REG(pkt, 0x6118, 0x00000000);
-	MAE_CMDQ_WRITE_REG(pkt, 0x611c, 0x00000000);
-	MAE_CMDQ_WRITE_REG(pkt, 0x6120, 0x00000017);
-	MAE_CMDQ_WRITE_REG(pkt, 0x6180, 0x00000004);
-	MAE_CMDQ_WRITE_REG(pkt, 0x6184, 0x00000007);
-
-	// RSZ 2
-	MAE_CMDQ_WRITE_REG(pkt, 0x6204, 0x00000000);
-	MAE_CMDQ_WRITE_REG(pkt, 0x6208, 0x00000000);
-	MAE_CMDQ_WRITE_REG(pkt, 0x620c, 0x00000000);
-	MAE_CMDQ_WRITE_REG(pkt, 0x6210, 0x00000000);
-	MAE_CMDQ_WRITE_REG(pkt, 0x621c, 0x0000e9d4);
-	MAE_CMDQ_WRITE_REG(pkt, 0x6220, 0x00000104);
-	MAE_CMDQ_WRITE_REG(pkt, 0x6224, 0x0000e9d4);
-	MAE_CMDQ_WRITE_REG(pkt, 0x6228, 0x00000104);
-	MAE_CMDQ_WRITE_REG(pkt, 0x622c, 0x00000101);
-	MAE_CMDQ_WRITE_REG(pkt, 0x6234, 0x00000001);
-	MAE_CMDQ_WRITE_REG(pkt, 0x625c, 0x00000000);
-	MAE_CMDQ_WRITE_REG(pkt, 0x6260, 0x00000000);
-	MAE_CMDQ_WRITE_REG(pkt, 0x6264, 0x00000000);
-	MAE_CMDQ_WRITE_REG(pkt, 0x6268, 0x00000000);
-	MAE_CMDQ_WRITE_REG(pkt, 0x62a0, 0x00008028);
-	MAE_CMDQ_WRITE_REG(pkt, 0x62a4, 0x00008028);
-	MAE_CMDQ_WRITE_REG(pkt, 0x62a8, 0x00000080);
-	MAE_CMDQ_WRITE_REG(pkt, 0x62ac, 0x00000080);
-	MAE_CMDQ_WRITE_REG(pkt, 0x62c0, 0x00000080);
-	MAE_CMDQ_WRITE_REG(pkt, 0x62c4, 0x00000000);
-	MAE_CMDQ_WRITE_REG(pkt, 0x62c8, 0x00000000);
-	MAE_CMDQ_WRITE_REG(pkt, 0x62cc, 0x00000000);
-	MAE_CMDQ_WRITE_REG(pkt, 0x62d0, 0x00000028);
-	MAE_CMDQ_WRITE_REG(pkt, 0x62d4, 0x00000000);
-	MAE_CMDQ_WRITE_REG(pkt, 0x62d8, 0x00000000);
-	MAE_CMDQ_WRITE_REG(pkt, 0x6304, 0x00000002);
-	MAE_CMDQ_WRITE_REG(pkt, 0x6308, 0x00000000);
-	MAE_CMDQ_WRITE_REG(pkt, 0x630c, 0x00000000);
-	MAE_CMDQ_WRITE_REG(pkt, 0x6310, 0x00000000);
-	MAE_CMDQ_WRITE_REG(pkt, 0x6314, 0x00000017);
-	MAE_CMDQ_WRITE_REG(pkt, 0x6318, 0x00000000);
-	MAE_CMDQ_WRITE_REG(pkt, 0x631c, 0x00000000);
-	MAE_CMDQ_WRITE_REG(pkt, 0x6320, 0x00000017);
-	MAE_CMDQ_WRITE_REG(pkt, 0x6380, 0x00000004);
-	MAE_CMDQ_WRITE_REG(pkt, 0x6384, 0x00000007);
-
-	// RSZ 3
-	MAE_CMDQ_WRITE_REG(pkt, 0x6404, 0x00000000);
-	MAE_CMDQ_WRITE_REG(pkt, 0x6408, 0x00000000);
-	MAE_CMDQ_WRITE_REG(pkt, 0x640c, 0x00000000);
-	MAE_CMDQ_WRITE_REG(pkt, 0x6410, 0x00000000);
-	MAE_CMDQ_WRITE_REG(pkt, 0x641c, 0x0000e9d4);
-	MAE_CMDQ_WRITE_REG(pkt, 0x6420, 0x00000104);
-	MAE_CMDQ_WRITE_REG(pkt, 0x6424, 0x0000e9d4);
-	MAE_CMDQ_WRITE_REG(pkt, 0x6428, 0x00000104);
-	MAE_CMDQ_WRITE_REG(pkt, 0x642c, 0x00000101);
-	MAE_CMDQ_WRITE_REG(pkt, 0x6434, 0x00000001);
-	MAE_CMDQ_WRITE_REG(pkt, 0x645c, 0x00000000);
-	MAE_CMDQ_WRITE_REG(pkt, 0x6460, 0x00000000);
-	MAE_CMDQ_WRITE_REG(pkt, 0x6464, 0x00000000);
-	MAE_CMDQ_WRITE_REG(pkt, 0x6468, 0x00000000);
-	MAE_CMDQ_WRITE_REG(pkt, 0x64a0, 0x00008028);
-	MAE_CMDQ_WRITE_REG(pkt, 0x64a4, 0x00008028);
-	MAE_CMDQ_WRITE_REG(pkt, 0x64a8, 0x00000080);
-	MAE_CMDQ_WRITE_REG(pkt, 0x64ac, 0x00000080);
-	MAE_CMDQ_WRITE_REG(pkt, 0x64c0, 0x00000080);
-	MAE_CMDQ_WRITE_REG(pkt, 0x64c4, 0x00000000);
-	MAE_CMDQ_WRITE_REG(pkt, 0x64c8, 0x00000000);
-	MAE_CMDQ_WRITE_REG(pkt, 0x64cc, 0x00000000);
-	MAE_CMDQ_WRITE_REG(pkt, 0x64d0, 0x00000028);
-	MAE_CMDQ_WRITE_REG(pkt, 0x64d4, 0x00000000);
-	MAE_CMDQ_WRITE_REG(pkt, 0x64d8, 0x00000000);
-	MAE_CMDQ_WRITE_REG(pkt, 0x6504, 0x00000002);
-	MAE_CMDQ_WRITE_REG(pkt, 0x6508, 0x00000000);
-	MAE_CMDQ_WRITE_REG(pkt, 0x650c, 0x00000000);
-	MAE_CMDQ_WRITE_REG(pkt, 0x6510, 0x00000000);
-	MAE_CMDQ_WRITE_REG(pkt, 0x6514, 0x00000017);
-	MAE_CMDQ_WRITE_REG(pkt, 0x6518, 0x00000000);
-	MAE_CMDQ_WRITE_REG(pkt, 0x651c, 0x00000000);
-	MAE_CMDQ_WRITE_REG(pkt, 0x6520, 0x00000017);
-	MAE_CMDQ_WRITE_REG(pkt, 0x6580, 0x00000004);
-	MAE_CMDQ_WRITE_REG(pkt, 0x6584, 0x00000007);
-}
-
-static void mtk_mae_attr_v0_pat(struct cmdq_pkt *pkt)
-{
-	// FD POST
-	MAE_CMDQ_WRITE_REG(pkt, 0x7010, 0x0000);
-	MAE_CMDQ_WRITE_REG(pkt, 0x7014, 0x0000);
-	MAE_CMDQ_WRITE_REG(pkt, 0x7018, 0x0000);
-	MAE_CMDQ_WRITE_REG(pkt, 0x701c, 0x0000);
-	MAE_CMDQ_WRITE_REG(pkt, 0x7020, 0x0000);
-	MAE_CMDQ_WRITE_REG(pkt, 0x7024, 0x0000);
-	MAE_CMDQ_WRITE_REG(pkt, 0x7028, 0x0aa8);
-	MAE_CMDQ_WRITE_REG(pkt, 0x702c, 0x0aa8);
-	MAE_CMDQ_WRITE_REG(pkt, 0x7030, 0x0aa8);
-	MAE_CMDQ_WRITE_REG(pkt, 0x7080, 0x0000);
-	MAE_CMDQ_WRITE_REG(pkt, 0x7084, 0x0000);
-	MAE_CMDQ_WRITE_REG(pkt, 0x7088, 0x0000);
-	MAE_CMDQ_WRITE_REG(pkt, 0x708c, 0x0000);
-	MAE_CMDQ_WRITE_REG(pkt, 0x7090, 0x0000);
-	MAE_CMDQ_WRITE_REG(pkt, 0x7094, 0x0000);
-	MAE_CMDQ_WRITE_REG(pkt, 0x7098, 0x0000);
-	MAE_CMDQ_WRITE_REG(pkt, 0x709c, 0x0000);
-	MAE_CMDQ_WRITE_REG(pkt, 0x70a0, 0x0000);
-	MAE_CMDQ_WRITE_REG(pkt, 0x70a4, 0x0000);
-	MAE_CMDQ_WRITE_REG(pkt, 0x70a8, 0x0000);
-	MAE_CMDQ_WRITE_REG(pkt, 0x70ac, 0x0000);
-	MAE_CMDQ_WRITE_REG(pkt, 0x70b0, 0x0000);
-	MAE_CMDQ_WRITE_REG(pkt, 0x70b4, 0x0000);
-	MAE_CMDQ_WRITE_REG(pkt, 0x70b8, 0x0000);
-	MAE_CMDQ_WRITE_REG(pkt, 0x7100, 0x0000);
-
-}
-
-static void mtk_mae_fd_fpn_480_360_pat(struct cmdq_pkt *pkt)
-{
-	// FD POST
-	MAE_CMDQ_WRITE_REG(pkt, 0x7010, 0x00000000);
-	MAE_CMDQ_WRITE_REG(pkt, 0x7014, 0x00000000);
-	MAE_CMDQ_WRITE_REG(pkt, 0x7018, 0x00000000);
-	MAE_CMDQ_WRITE_REG(pkt, 0x701c, 0x00000000);
-	MAE_CMDQ_WRITE_REG(pkt, 0x7020, 0x00000000);
-	MAE_CMDQ_WRITE_REG(pkt, 0x7024, 0x00000000);
-	MAE_CMDQ_WRITE_REG(pkt, 0x7028, 0x00000200);
-	MAE_CMDQ_WRITE_REG(pkt, 0x702c, 0x00000200);
-	MAE_CMDQ_WRITE_REG(pkt, 0x7030, 0x00000200);
-	MAE_CMDQ_WRITE_REG(pkt, 0x7080, 0x000001e0);
-	MAE_CMDQ_WRITE_REG(pkt, 0x7084, 0x000001e0);
-	MAE_CMDQ_WRITE_REG(pkt, 0x7088, 0x000001e0);
-	MAE_CMDQ_WRITE_REG(pkt, 0x708c, 0x00000168);
-	MAE_CMDQ_WRITE_REG(pkt, 0x7090, 0x00000168);
-	MAE_CMDQ_WRITE_REG(pkt, 0x7094, 0x00000168);
-	MAE_CMDQ_WRITE_REG(pkt, 0x7098, 0x00000000);
-	MAE_CMDQ_WRITE_REG(pkt, 0x709c, 0x00000000);
-	MAE_CMDQ_WRITE_REG(pkt, 0x70a0, 0x00000000);
-	MAE_CMDQ_WRITE_REG(pkt, 0x70a4, 0x00000000);
-	MAE_CMDQ_WRITE_REG(pkt, 0x70a8, 0x00000000);
-	MAE_CMDQ_WRITE_REG(pkt, 0x70ac, 0x00000000);
-	MAE_CMDQ_WRITE_REG(pkt, 0x70b0, 0x00000099);
-	MAE_CMDQ_WRITE_REG(pkt, 0x70b4, 0x00000099);
-	MAE_CMDQ_WRITE_REG(pkt, 0x70b8, 0x00000099);
-	MAE_CMDQ_WRITE_REG(pkt, 0x7100, 0x000001f4);
-	MAE_CMDQ_WRITE_REG(pkt, 0x7104, 0x000001f4);
-	MAE_CMDQ_WRITE_REG(pkt, 0x7108, 0x000001f4);
-	MAE_CMDQ_WRITE_REG(pkt, 0x710c, 0x000001f4);
-	MAE_CMDQ_WRITE_REG(pkt, 0x7110, 0x000001f4);
-	MAE_CMDQ_WRITE_REG(pkt, 0x7114, 0x000001f4);
-
-	// RSZ 1
-	MAE_CMDQ_WRITE_REG(pkt, 0x6004, 0x00000000);
-	MAE_CMDQ_WRITE_REG(pkt, 0x6008, 0x00000000);
-	MAE_CMDQ_WRITE_REG(pkt, 0x600c, 0x00000000);
-	MAE_CMDQ_WRITE_REG(pkt, 0x6010, 0x00000000);
-	MAE_CMDQ_WRITE_REG(pkt, 0x601c, 0x00000000);
-	MAE_CMDQ_WRITE_REG(pkt, 0x6020, 0x00000100);
-	MAE_CMDQ_WRITE_REG(pkt, 0x6024, 0x00000000);
-	MAE_CMDQ_WRITE_REG(pkt, 0x6028, 0x00000100);
-	MAE_CMDQ_WRITE_REG(pkt, 0x602c, 0x00000000);
-	MAE_CMDQ_WRITE_REG(pkt, 0x6034, 0x00000002);
-	MAE_CMDQ_WRITE_REG(pkt, 0x605c, 0x00000000);
-	MAE_CMDQ_WRITE_REG(pkt, 0x6060, 0x0000000c);
-	MAE_CMDQ_WRITE_REG(pkt, 0x6064, 0x00000000);
-	MAE_CMDQ_WRITE_REG(pkt, 0x6068, 0x0000000c);
-	MAE_CMDQ_WRITE_REG(pkt, 0x60a0, 0x00008280);
-	MAE_CMDQ_WRITE_REG(pkt, 0x60a4, 0x000081e0);
-	MAE_CMDQ_WRITE_REG(pkt, 0x60a8, 0x000001e0);
-	MAE_CMDQ_WRITE_REG(pkt, 0x60ac, 0x00000168);
-	MAE_CMDQ_WRITE_REG(pkt, 0x60c0, 0x00000080);
-	MAE_CMDQ_WRITE_REG(pkt, 0x60c4, 0x00000000);
-	MAE_CMDQ_WRITE_REG(pkt, 0x60c8, 0x00000000);
-	MAE_CMDQ_WRITE_REG(pkt, 0x60cc, 0x00000000);
-	MAE_CMDQ_WRITE_REG(pkt, 0x60d0, 0x00000280);
-	MAE_CMDQ_WRITE_REG(pkt, 0x60d4, 0x00000000);
-	MAE_CMDQ_WRITE_REG(pkt, 0x60d8, 0x00000000);
-	MAE_CMDQ_WRITE_REG(pkt, 0x6104, 0x00000000);
-	MAE_CMDQ_WRITE_REG(pkt, 0x6108, 0x00000000);
-	MAE_CMDQ_WRITE_REG(pkt, 0x610c, 0x00000000);
-	MAE_CMDQ_WRITE_REG(pkt, 0x6110, 0x00000000);
-	MAE_CMDQ_WRITE_REG(pkt, 0x6114, 0x00000000);
-	MAE_CMDQ_WRITE_REG(pkt, 0x6118, 0x00000000);
-	MAE_CMDQ_WRITE_REG(pkt, 0x611c, 0x00000000);
-	MAE_CMDQ_WRITE_REG(pkt, 0x6120, 0x00000000);
-	MAE_CMDQ_WRITE_REG(pkt, 0x6180, 0x00000110);
-	MAE_CMDQ_WRITE_REG(pkt, 0x6184, 0x0000000b);
 }
 
 static const struct of_device_id of_match_mtk_mae_isp8_drv[] = {

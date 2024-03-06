@@ -147,6 +147,7 @@
 #define MERGE_CONFIDENCE_NUM 16
 #define AISEG_POP_GROUP_SIZE 3
 #define FLD_V1_INPUT_FACE_NUM 2
+#define AISEG_CROP_NUM 3
 
 #define FPN_PYRAMID_WIDTH 480
 #define FPN_PYRAMID_HEIGHT 360
@@ -447,6 +448,17 @@ struct FldConfig {
 	struct FldCropRipRop fldSetting[MAX_FLD_V0_FACE_NUM];
 };
 
+struct AisegCrop {
+	uint32_t x0;
+	uint32_t y0;
+	uint32_t x1;
+	uint32_t y1;
+	uint32_t featureMapSize;
+	uint32_t outputSizeX;
+	uint32_t outputSizeY;
+	uint32_t shiftBit;
+};
+
 struct EnqueParam {
 	// init parameters
 	MAE_USER user;
@@ -486,6 +498,10 @@ struct EnqueParam {
 	uint32_t coef_dump_size[MAX_OUTER_LOOP_NUM];
 	uint32_t config_dump_offset[MAX_OUTER_LOOP_NUM];
 	uint32_t config_dump_size[MAX_OUTER_LOOP_NUM];
+
+	uint32_t lnOffset[AISEG_MAP_NUM];
+	uint32_t outputNum;
+	struct AisegCrop aisegCrop[AISEG_CROP_NUM];
 };
 #endif
 
@@ -592,6 +608,39 @@ struct rsz_setting_out {
 	int32_t reg_cb_factor_ve;
 };
 
+struct aiseg_crop_setting_out {
+	uint32_t reg_nve_op_attr_auto_mode_ve;
+	uint32_t reg_nve_op_attr_auto_mode_ho;
+	uint32_t reg_pre_crop_h_crop_en;
+	uint32_t reg_pre_crop_h_st;
+	uint32_t reg_pre_crop_h_length;
+	uint32_t reg_h_size;
+	uint32_t reg_scale_factor_ho_0;
+	uint32_t reg_scale_factor_ho_1;
+	uint32_t reg_ini_factor_ho_0;
+	uint32_t reg_ini_factor_ho_1;
+
+	uint32_t reg_pre_crop_v_crop_en;
+	uint32_t reg_pre_crop_v_st;
+	uint32_t reg_pre_crop_v_length;
+	uint32_t reg_v_size;
+	uint32_t reg_scale_factor_ve_0;
+	uint32_t reg_scale_factor_ve_1;
+	uint32_t reg_ini_factor_ve_0;
+	uint32_t reg_ini_factor_ve_1;
+
+	uint32_t reg_mode_c_ho;
+	uint32_t reg_mode_c_ve;
+	uint32_t reg_1p_path_en;
+	uint32_t reg_h_size_usr_md;
+	uint32_t reg_v_size_usr_md;
+	uint32_t reg_scale_ve_en;
+	uint32_t reg_scale_ho_en;
+	uint32_t reg_rsz_s2u;
+	uint32_t reg_order;
+	uint32_t reg_postproc_en;
+};
+
 struct mae_clocks {
 	struct clk_bulk_data *clks;
 	unsigned int clk_num;
@@ -651,7 +700,6 @@ struct mtk_mae_dev {
 	dma_addr_t mae_time_st_pa;
 	u32 *mae_time_ed_va;
 	dma_addr_t mae_time_ed_pa;
-
 };
 
 struct mtk_mae_ctx {

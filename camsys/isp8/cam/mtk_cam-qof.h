@@ -34,6 +34,7 @@ void qof_set_cq_start_max(struct mtk_raw_device *dev, u32 start_max);
 
 bool qof_is_enabled(struct mtk_raw_device *dev);
 int qof_enable(struct mtk_raw_device *dev, bool enable);
+int qof_enable_cq_trigger_by_qof(struct mtk_raw_device *dev, bool enable);
 
 int qof_mtcmos_voter(struct mtk_cam_ctx *ctx, bool enable);
 int qof_mtcmos_raw_voter(struct mtk_raw_device *raw, bool enable);

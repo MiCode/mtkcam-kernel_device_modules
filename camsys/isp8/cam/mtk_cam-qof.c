@@ -152,6 +152,7 @@ void qof_setup_ctrl(struct mtk_raw_device *raw, int on)
 	SET_FIELD(&val, QOF_CAM_A_RTC_EN_1, on);
 
 	writel(val, raw->qof_base + REG_QOF_CAM_A_QOF_CTL_1);
+	raw->trigger_cq_by_qof = !!on;
 
 	if (CAM_DEBUG_ENABLED(QOF))
 		dev_info(raw->dev, "qof: %s: QOF_CTL 0x%08x", __func__,
@@ -314,6 +315,23 @@ int qof_enable(struct mtk_raw_device *raw, bool enable)
 			 readl(cam->qoftop_base + REG_QOF_CAM_TOP_QOF_TOP_CTL));
 	dev_info(raw->dev, "qof: %s: QOF_CAM_TOP_ITC_STATUS 0x%08x", __func__,
 			 readl(cam->qoftop_base + REG_QOF_CAM_TOP_ITC_STATUS));
+
+	return 0;
+}
+
+int qof_enable_cq_trigger_by_qof(struct mtk_raw_device *raw, bool enable)
+{
+	u32 val;
+	u32 on = (enable) ? 1 : 0;
+
+	val = readl(raw->qof_base + REG_QOF_CAM_A_QOF_CTL_1);
+	SET_FIELD(&val, QOF_CAM_A_QOF_CQ_EN_1, on);
+	writel(val, raw->qof_base + REG_QOF_CAM_A_QOF_CTL_1);
+	raw->trigger_cq_by_qof = enable;
+
+	if (CAM_DEBUG_ENABLED(QOF))
+		dev_info(raw->dev, "qof: %s: QOF_CTL 0x%08x", __func__,
+				 readl(raw->qof_base + REG_QOF_CAM_A_QOF_CTL_1));
 
 	return 0;
 }
@@ -861,8 +879,13 @@ static u32 qof_readl_relaxed(struct mtk_raw_device *raw,
 static void qof_writel(struct mtk_raw_device *raw, u32 val,
 					   void __iomem *base, u32 offset)
 {
-	int ret = write_replace_cq_baseaddr(raw, &base, &offset);
+	int ret = 0;
 	int ret_trigger_cq = 0;
+
+	if (!raw->trigger_cq_by_qof)
+		goto OUT;
+
+	ret = write_replace_cq_baseaddr(raw, &base, &offset);
 
 	if (!ret)
 		ret_trigger_cq = write_replace_trigger_cq(raw, &base, &offset, &val);
@@ -876,14 +899,20 @@ static void qof_writel(struct mtk_raw_device *raw, u32 val,
 #endif
 	}
 
+OUT:
 	writel(val, base + offset);
 }
 
 static void qof_writel_relaxed(struct mtk_raw_device *raw, u32 val,
 							   void __iomem *base, u32 offset)
 {
-	int ret = write_replace_cq_baseaddr(raw, &base, &offset);
+	int ret = 0;
 	int ret_trigger_cq = 0;
+
+	if (!raw->trigger_cq_by_qof)
+		goto OUT;
+
+	ret = write_replace_cq_baseaddr(raw, &base, &offset);
 
 	if (!ret)
 		ret_trigger_cq = write_replace_trigger_cq(raw, &base, &offset, &val);
@@ -897,6 +926,7 @@ static void qof_writel_relaxed(struct mtk_raw_device *raw, u32 val,
 #endif
 	}
 
+OUT:
 	writel_relaxed(val, base + offset);
 }
 
@@ -1035,5 +1065,4 @@ void qof_dump_qoftop_status(struct mtk_raw_device *raw)
 			 readl(raw->cam->qoftop_base + REG_QOF_CAM_TOP_QOF_INT_STATUS));
 	}
 }
-
 

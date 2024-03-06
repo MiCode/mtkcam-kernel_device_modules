@@ -24,6 +24,7 @@
 #include "mtk_cam-trace.h"
 #include "mtk_cam-qof.h"
 #include "mtk_cam-job_utils.h"
+#include "mtk_cam-raw_ctrl.h"
 
 #define WATCHDOG_INTERVAL_MS		800
 /*
@@ -1356,6 +1357,7 @@ static void mtk_cam_ctrl_seamless_switch_flow(struct mtk_cam_job *job)
 	struct device *dev = ctx->cam->dev;
 	struct seamless_check_args check_args;
 	int prev_seq;
+	int i;
 
 	dev_info(dev, "[%s] begin waiting switch no:%d seq 0x%x\n",
 		__func__, job->req_seq, job->frame_seq_no);
@@ -1363,6 +1365,8 @@ static void mtk_cam_ctrl_seamless_switch_flow(struct mtk_cam_job *job)
 	prev_seq = prev_frame_seq(job->frame_seq_no);
 	check_args.expect_inner = prev_seq;
 	check_args.expect_ack = job->frame_seq_no;
+
+	qof_mtcmos_voter(job->src_ctx, true);
 
 	if (mtk_cam_ctrl_wait_event(ctrl, check_for_seamless, &check_args,
 				    1000)) {
@@ -1372,11 +1376,28 @@ static void mtk_cam_ctrl_seamless_switch_flow(struct mtk_cam_job *job)
 		goto SWITCH_FAILURE;
 	}
 
-	qof_mtcmos_voter(job->src_ctx, true);
 	mtk_cam_job_update_clk_switching(job, 1);
 	call_job_seamless_ops(job, before_sensor);
 
 	mtk_cam_job_manually_apply_sensor(job);
+
+	for (i = 0; i < ARRAY_SIZE(ctx->hw_raw) && ctx->hw_raw[i]; ++i) {
+		struct mtk_raw_device *raw = dev_get_drvdata(ctx->hw_raw[i]);
+		struct mtk_raw_ctrl_data *ctrl = get_raw_ctrl_data(job);
+		const struct mtk_cam_resource_v2 *res;
+		int exp, sv_last_tag;
+
+		res = &ctrl->resource.user_data;
+		exp = job_exp_num(job);
+		sv_last_tag = (exp == 1) ?
+		get_sv_tag_idx(exp, MTKCAM_IPI_ORDER_FIRST_TAG, false) :
+		get_sv_tag_idx(exp, MTKCAM_IPI_ORDER_LAST_TAG, false);
+
+		qof_sof_src_sel(raw, mtk_cam_job_is_dcif_required(job),
+					!res_raw_is_dc_mode(&res->raw_res), sv_last_tag);
+		qof_set_cq_start_max(raw, 0xFFFFFFFF);
+		qof_enable_cq_trigger_by_qof(raw, false);
+	}
 
 	if (call_job_seamless_ops(job, after_sensor))
 		goto SWITCH_FAILURE;
@@ -1406,6 +1427,12 @@ static void mtk_cam_ctrl_seamless_switch_flow(struct mtk_cam_job *job)
 	}
 
 	mtk_cam_job_update_clk_switching(job, 0);
+
+	for (i = 0; i < ARRAY_SIZE(ctx->hw_raw) && ctx->hw_raw[i]; ++i) {
+		struct mtk_raw_device *raw = dev_get_drvdata(ctx->hw_raw[i]);
+
+		qof_enable_cq_trigger_by_qof(raw, true);
+	}
 	qof_mtcmos_voter(job->src_ctx, false);
 
 	dev_info(dev, "[%s] finish, used_engine:0x%x\n",

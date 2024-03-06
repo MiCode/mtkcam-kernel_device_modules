@@ -4072,7 +4072,7 @@ static void update_job_state_init_sensor_param(struct mtk_cam_job *job)
 			job->job_state.cq_trigger_thres_ns);
 }
 
-static bool is_dcif_required(struct mtk_cam_job *job)
+bool mtk_cam_job_is_dcif_required(struct mtk_cam_job *job)
 {
 	const struct mtk_cam_resource_v2 *res;
 	int hw_scen = get_hw_scenario(job);
@@ -4108,7 +4108,7 @@ static int raw_qof_init(struct mtk_cam_job *job, struct device *dev, bool is_mas
 		get_sv_tag_idx(exp, MTKCAM_IPI_ORDER_FIRST_TAG, false) :
 		get_sv_tag_idx(exp, MTKCAM_IPI_ORDER_LAST_TAG, false);
 
-	qof_sof_src_sel(raw, is_dcif_required(job),
+	qof_sof_src_sel(raw, mtk_cam_job_is_dcif_required(job),
 					!res_raw_is_dc_mode(&res->raw_res), sv_last_tag);
 	qof_setup_hw_timer(raw, get_sensor_interval_us(job));
 	qof_setup_twin(raw, is_master);

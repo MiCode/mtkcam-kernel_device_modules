@@ -93,6 +93,7 @@ struct mtk_raw_device {
 
 	/* QOF */
 	const struct raw_io_ops *io_ops;
+	bool trigger_cq_by_qof;
 	int apmcu_voter_cnt;
 	spinlock_t apmcu_voter_lock;
 };

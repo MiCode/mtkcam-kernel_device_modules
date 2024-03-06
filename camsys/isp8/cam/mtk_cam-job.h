@@ -684,4 +684,6 @@ int mtk_cam_job_initialize_engines(struct mtk_cam_ctx *ctx,
 				   const struct initialize_params *params);
 void mtk_cam_job_clean_prev_img_pool(struct mtk_cam_job *job);
 
+bool mtk_cam_job_is_dcif_required(struct mtk_cam_job *job);
+
 #endif //__MTK_CAM_JOB_H

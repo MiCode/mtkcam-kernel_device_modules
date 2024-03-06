@@ -374,14 +374,15 @@ OUT:
 	return enabled;
 }
 
-int qof_setup_twin(struct mtk_raw_device *raw, bool is_master)
+int qof_setup_twin(struct mtk_raw_device *raw, bool is_master, bool next_raw)
 {
 	int ret = 0;
 	u32 val = 0;
 	u32 voter_sel = (is_master) ? 0 : 1; //0: from raw; 1: from master
 
 #ifdef QOF_CCU_READY
-	ret = mtk_cam_hsf_qof_config(raw, is_master, is_master, !is_master);
+	// NOTE: raw A emits signal to raw B, raw B to raw C
+	ret = mtk_cam_hsf_qof_config(raw, is_master, is_master, !next_raw);
 #endif
 
 	if (ret) {

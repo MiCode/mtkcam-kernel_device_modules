@@ -320,7 +320,7 @@ struct mtk_cam_job_ops {
 
 struct initialize_params {
 	int (*master_raw_init)(struct mtk_cam_job *job, struct device *dev);
-	int (*qof_init)(struct mtk_cam_job *job, struct device *dev, bool is_master);
+	int (*qof_init)(struct mtk_cam_job *job, struct device *dev);
 };
 
 struct mtk_cam_job {

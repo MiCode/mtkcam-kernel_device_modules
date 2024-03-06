@@ -648,6 +648,9 @@ mtk_cam_job_initialize_engines(struct mtk_cam_ctx *ctx,
 		for (i = 0 ; i < ARRAY_SIZE(ctx->hw_raw); i++) {
 			struct mtk_raw_device *raw;
 			int is_master;
+			bool next_raw =
+				(i + 1 < ARRAY_SIZE(ctx->hw_raw)) &&
+				(ctx->hw_raw[i + 1]);
 
 			if (!ctx->hw_raw[i])
 				continue;
@@ -665,9 +668,10 @@ mtk_cam_job_initialize_engines(struct mtk_cam_ctx *ctx,
 				call_init_ops(job, master_raw_init, ctx->hw_raw[i]);
 
 			if (check_qof_support(job)) {
-				int ret = call_init_ops(job, qof_init, ctx->hw_raw[i], is_master);
+				int ret = call_init_ops(job, qof_init, ctx->hw_raw[i]);
 
 				if (!ret) {
+					qof_setup_twin(raw, is_master, next_raw);
 					qof_enable(raw, true);
 					qof_enabled = true;
 				}
@@ -2381,6 +2385,9 @@ static int job_raw_change_hw_init(struct mtk_cam_job *job)
 
 			for (i = 0 ; i < ARRAY_SIZE(ctx->hw_raw); i++) {
 				struct mtk_raw_device *raw;
+				bool next_raw =
+					(i + 1 < ARRAY_SIZE(ctx->hw_raw)) &&
+					(ctx->hw_raw[i + 1]);
 
 				if (!ctx->hw_raw[i])
 					continue;
@@ -2395,10 +2402,10 @@ static int job_raw_change_hw_init(struct mtk_cam_job *job)
 								get_sensor_interval_us(job));
 
 				if (check_qof_support(job)) {
-					int ret = call_init_ops(job, qof_init, ctx->hw_raw[i],
-								  raw->id == raw_master_id);
+					int ret = call_init_ops(job, qof_init, ctx->hw_raw[i]);
 
 					if (!ret) {
+						qof_setup_twin(raw, raw->id == raw_master_id, next_raw);
 						qof_enable(raw, true);
 						qof_enabled |= true;
 					}
@@ -4088,7 +4095,7 @@ bool mtk_cam_job_is_dcif_required(struct mtk_cam_job *job)
 			(hw_scen == MTKCAM_IPI_HW_PATH_OTF_RGBW_DOL));
 }
 
-static int raw_qof_init(struct mtk_cam_job *job, struct device *dev, bool is_master)
+static int raw_qof_init(struct mtk_cam_job *job, struct device *dev)
 {
 	struct mtk_raw_device *raw = dev_get_drvdata(dev);
 	struct mtk_raw_ctrl_data *ctrl = get_raw_ctrl_data(job);
@@ -4109,7 +4116,6 @@ static int raw_qof_init(struct mtk_cam_job *job, struct device *dev, bool is_mas
 	qof_sof_src_sel(raw, mtk_cam_job_is_dcif_required(job),
 					!res_raw_is_dc_mode(&res->raw_res), sv_last_tag);
 	qof_setup_hw_timer(raw, get_sensor_interval_us(job));
-	qof_setup_twin(raw, is_master);
 	qof_setup_rtc(raw);
 
 	return 0;

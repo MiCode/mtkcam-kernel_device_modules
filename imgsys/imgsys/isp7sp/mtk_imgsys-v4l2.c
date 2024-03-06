@@ -2399,10 +2399,14 @@ static int mtkdip_ioc_acquire_iova(struct v4l2_subdev *subdev, void *arg)
 			"[%s]%s: fd(%d) GCE buffer used\n", __func__, dmabuf->name, fd_tbl->fds[i].fd);
 		spin_unlock(&dmabuf->name_lock);
 #endif
-		if (acp_coherence_enable)
-			attach = dma_buf_attach(dmabuf, pipe->imgsys_dev->acp_smmu_dev);
-		else
+		if (!pipe->imgsys_dev->acp_enable) {
 			attach = dma_buf_attach(dmabuf, pipe->imgsys_dev->smmu_dev);
+		} else {
+			if (acp_coherence_enable)
+				attach = dma_buf_attach(dmabuf, pipe->imgsys_dev->acp_smmu_dev);
+			else
+				attach = dma_buf_attach(dmabuf, pipe->imgsys_dev->smmu_dev);
+		}
 		if (IS_ERR(attach)) {
 			dma_buf_put(dmabuf);
 			pr_info("dma_buf_attach fail fd:%d\n", fd_tbl->fds[i].fd);
@@ -3580,6 +3584,10 @@ int mtk_imgsys_probe(struct platform_device *pdev)
 	pdev_temp = of_find_device_by_node(dev_node);
 	ret = of_property_read_string(dev_node, "mediatek,imgsys-coherent", &coherent_status);
 	dev_info(imgsys_dev->dev, "test coherent status(%s)", coherent_status);
+	if (!strcmp(coherent_status, "disable")) {
+		imgsys_dev->acp_enable = 0;
+		dev_info(imgsys_dev->dev, "imgsys-fw: coherence not enable\n");
+	}
 	imgsys_dev->acp_smmu_dev = mtk_smmu_get_shared_device(&pdev_temp->dev);
 	if (!imgsys_dev->acp_smmu_dev) {
 		dev_info(imgsys_dev->dev,

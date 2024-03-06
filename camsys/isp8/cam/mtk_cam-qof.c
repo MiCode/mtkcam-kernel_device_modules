@@ -204,8 +204,8 @@ void qof_sof_src_sel(struct mtk_raw_device *raw, bool with_dcif,
 
 void mtk_cam_enable_itc(struct mtk_raw_device *raw)
 {
-    // NOTE: for isp8 ITC need to be enable all the time,
-    // setup ITC before setup int_en (first CQ)
+	// NOTE: for isp8 ITC need to be enable all the time,
+	// setup ITC before setup int_en (first CQ)
 	struct mtk_cam_device *cam = raw->cam;
 	u32 val;
 	bool qof_enabled = false;
@@ -283,6 +283,9 @@ int qof_enable(struct mtk_raw_device *raw, bool enable)
 	struct mtk_cam_device *cam = raw->cam;
 	u32 val;
 
+	if (enable == qof_is_enabled(raw))
+		return 0;
+
 	val = readl(cam->qoftop_base + REG_QOF_CAM_TOP_QOF_TOP_CTL);
 
 	switch (raw->id) {
@@ -323,6 +326,11 @@ int qof_enable_cq_trigger_by_qof(struct mtk_raw_device *raw, bool enable)
 {
 	u32 val;
 	u32 on = (enable) ? 1 : 0;
+
+	if (!qof_is_enabled(raw)) {
+		dev_info(raw->dev, "%s: raw id %d not enabled", __func__, raw->id);
+		return 0;
+	}
 
 	val = readl(raw->qof_base + REG_QOF_CAM_A_QOF_CTL_1);
 	SET_FIELD(&val, QOF_CAM_A_QOF_CQ_EN_1, on);

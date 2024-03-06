@@ -227,7 +227,7 @@ struct DPE_CLK_STRUCT dpe_clk;
 #define IRQ_LOG
 
 spinlock_t REQ_LOCK;
-int ii;
+unsigned int ii;
 #if DPE_IRQ_ENABLE
 /* static irqreturn_t DPE_Irq_CAM_A(signed int  Irq,void *DeviceId); */
 static irqreturn_t ISP_Irq_DVP(signed int Irq, void *DeviceId);
@@ -7913,7 +7913,7 @@ static int vidioc_qbuf(struct file *file, void *priv, struct v4l2_buffer *p)
 	//unsigned int p_cnt;
 	//pid_t ProcessID;
 
-	int qq;
+	unsigned int qq;
 
 	spin_lock(&REQ_LOCK);
 	qq = ii;
@@ -8050,7 +8050,7 @@ static int vidioc_dqbuf(struct file *file, void *priv, struct v4l2_buffer *p)
 	//unsigned long flags;
 	//unsigned int m_real_ReqNum;
 
-	int dd;
+	unsigned int dd;
 
 	spin_lock(&REQ_LOCK);
 	dd = ii;
@@ -8276,13 +8276,7 @@ static signed int DPE_probe(struct platform_device *pDev)
 			nr_DPE_devs, pDev->dev.of_node->name);
 		return -ENOMEM;
 	}
-#if IS_ENABLED(CONFIG_MTK_IOMMU_PGTABLE_EXT) && \
-	(CONFIG_MTK_IOMMU_PGTABLE_EXT > 32)
-		*(DPE_dev->dev->dma_mask) =
-			(u64)DMA_BIT_MASK(CONFIG_MTK_IOMMU_PGTABLE_EXT);
-		DPE_dev->dev->coherent_dma_mask =
-			(u64)DMA_BIT_MASK(CONFIG_MTK_IOMMU_PGTABLE_EXT);
-#endif
+
 	LOG_INF("nr_DPE_devs=%d, devnode(%s), map_addr=%lu\n", nr_DPE_devs,
 		pDev->dev.of_node->name, (unsigned long)DPE_dev->regs);
 	//for cmdq malibox
@@ -8511,8 +8505,8 @@ if (DPE_dev->irq > 0) {
 #ifdef KERNEL_DMA_BUFFER
 
 	gdev = &pDev->dev;
-	//if (dma_set_mask_and_coherent(gdev, DMA_BIT_MASK(34)))
-		//LOG_INF("%s: No suitable DMA available\n", __func__);
+	if (dma_set_mask_and_coherent(gdev, DMA_BIT_MASK(34)))
+		LOG_ERR("%s: No suitable DMA available\n", __func__);
 	Get_SMMU = smmu_v3_enabled();
 	kernel_dpebuf =
 	vb2_dc_alloc(NULL, gdev, WB_TOTAL_SIZE);

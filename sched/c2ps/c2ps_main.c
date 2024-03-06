@@ -34,11 +34,14 @@ struct C2PS_NOTIFIER_PUSH_TAG {
 	int uclamp_max_placeholder1[MAX_NUMBER_OF_CLUSTERS];
 	int uclamp_max_placeholder2[MAX_NUMBER_OF_CLUSTERS];
 	int uclamp_max_placeholder3[MAX_NUMBER_OF_CLUSTERS];
+	u32 util_margin;
+	u32 um_placeholder1;
+	u32 um_placeholder2;
+	u32 um_placeholder3;
 	bool reset_param;
 	bool set_task_idle_prefer;
 	int critical_task_ids[MAX_CRITICAL_TASKS];
 	int critical_task_uclamp[MAX_CRITICAL_TASKS];
-	u32 util_margin;
 	int reserved_1;
 	int reserved_2;
 	int reserved_3;
@@ -50,6 +53,7 @@ struct C2PS_NOTIFIER_PUSH_TAG {
 	struct list_head queue_list;
 };
 
+static struct kobject *main_base_kobj;
 static struct task_struct *c2ps_tsk;
 static LIST_HEAD(head);
 static int condition_notifier_wq;
@@ -140,7 +144,7 @@ static void c2ps_notifier_uninit(void)
 static void c2ps_notifier_add_task(
 	u32 task_id, u32 task_target_time, u32 default_uclamp,
 	int group_head, u32 task_group_target_time, bool is_vip_task,
-	bool is_dynamic_tid, const char *task_name)
+	bool is_dynamic_tid, bool is_enable_dep_thread, const char *task_name)
 {
 	struct c2ps_task_info *tsk_info = NULL;
 	C2PS_LOGD("[C2PS_CB] add_task task_id: %d task_name: %s\n",
@@ -158,6 +162,7 @@ static void c2ps_notifier_add_task(
 	tsk_info->default_uclamp = default_uclamp;
 	tsk_info->is_vip_task = is_vip_task;
 	tsk_info->is_dynamic_tid = is_dynamic_tid;
+	tsk_info->is_enable_dep_thread = is_enable_dep_thread;
 	mutex_init(&tsk_info->mlock);
 	strncpy(tsk_info->task_name, task_name, sizeof(tsk_info->task_name));
 
@@ -189,6 +194,7 @@ static void c2ps_notifier_task_single_shot(
 	int *uclamp_max_placeholder2, int *uclamp_max_placeholder3,
 	bool reset_param, bool set_task_idle_prefer,
 	int *critical_task_ids, int *critical_task_uclamp, u32 util_margin,
+	u32 um_placeholder1, u32 um_placeholder2, u32 um_placeholder3,
 	int reserved_1, int reserved_2, int reserved_3)
 {
 	struct global_info *g_info = get_glb_info();
@@ -227,6 +233,26 @@ static void c2ps_notifier_task_single_shot(
 	if (need_update_critical_task_uclamp(critical_task_uclamp))
 		update_critical_task_uclamp_by_tsk_id(
 			critical_task_ids, critical_task_uclamp);
+
+	if (util_margin) {
+		struct regulator_req *req = get_regulator_req();
+
+		g_info->overwrite_util_margin = util_margin;
+		if (likely(req != NULL)) {
+			req->glb_info = g_info;
+			req->stat = C2PS_STAT_TRANSIENT;
+			send_regulator_req(req);
+		}
+	} else if (reset_param) {
+		g_info->overwrite_util_margin = 0;
+	}
+
+	if (um_placeholder1)
+		g_info->um_placeholder1 = um_placeholder1;
+	if (um_placeholder2)
+		g_info->um_placeholder2 = um_placeholder2;
+	if (um_placeholder3)
+		g_info->um_placeholder3 = um_placeholder3;
 }
 
 static void c2ps_queue_work(struct C2PS_NOTIFIER_PUSH_TAG *vpPush)
@@ -299,7 +325,6 @@ static void c2ps_notifier_wq_cb(void)
 	}
 
 	switch (vpPush->ePushType) {
-	// self uninit needs to use this thread
 	case C2PS_NOTIFIER_UNINIT:
 		c2ps_notifier_uninit();
 		break;
@@ -311,6 +336,8 @@ static void c2ps_notifier_wq_cb(void)
 			vpPush->uclamp_max_placeholder3, vpPush->reset_param,
 			vpPush->set_task_idle_prefer, vpPush->critical_task_ids,
 			vpPush->critical_task_uclamp, vpPush->util_margin,
+			vpPush->um_placeholder1, vpPush->um_placeholder2,
+			vpPush->um_placeholder3,
 			vpPush->reserved_1, vpPush->reserved_2, vpPush->reserved_3);
 		break;
 	case C2PS_NOTIFIER_ANCHOR:
@@ -367,24 +394,46 @@ int c2ps_notify_init(
 
 int c2ps_notify_uninit(void)
 {
+	struct C2PS_NOTIFIER_PUSH_TAG *vpPush = NULL;
+	int ret = 0;
+
 	C2PS_LOGD("+\n");
-	c2ps_notifier_uninit();
-	trigger_bg_policy();
-	return 0;
+
+	vpPush = (struct C2PS_NOTIFIER_PUSH_TAG *)
+		c2ps_alloc_atomic(sizeof(*vpPush));
+
+	if (unlikely(!vpPush)) {
+		C2PS_LOGE("OOM\n");
+		ret = -ENOMEM;
+		goto out;
+	}
+
+	if (unlikely(!c2ps_tsk)) {
+		C2PS_LOGE("NULL WorkQueue\n");
+		c2ps_free(vpPush, sizeof(*vpPush));
+		ret = -EINVAL;
+		goto out;
+	}
+
+	vpPush->ePushType = C2PS_NOTIFIER_UNINIT;
+	c2ps_queue_work(vpPush);
+
+out:
+	return ret;
 }
 
 int c2ps_notify_add_task(
 	u32 task_id, u32 task_target_time, u32 default_uclamp,
 	int group_head, u32 task_group_target_time,
 	bool is_vip_task, bool is_dynamic_tid,
-	const char *task_name)
+	bool is_enable_dep_thread, const char *task_name)
 {
 	C2PS_LOGD("task_id: %d\n", task_id);
 	if (likely(timer_pending(&self_uninit_timer)))
 		mod_timer(&self_uninit_timer, jiffies + 5*HZ);
 	c2ps_notifier_add_task(task_id, task_target_time, default_uclamp,
 			group_head, task_group_target_time, is_vip_task, is_dynamic_tid,
-			task_name);
+			is_enable_dep_thread, task_name);
 	trigger_bg_policy();
 	return 0;
 }
@@ -451,6 +500,7 @@ int c2ps_notify_single_shot_control(
 	int *uclamp_max_placeholder2, int *uclamp_max_placeholder3,
 	bool reset_param, bool set_task_idle_prefer,
 	int *critical_task_ids, int *critical_task_uclamp, u32 util_margin,
+	u32 um_placeholder1, u32 um_placeholder2, u32 um_placeholder3,
 	int reserved_1, int reserved_2, int reserved_3)
 {
 	struct C2PS_NOTIFIER_PUSH_TAG *vpPush = NULL;
@@ -513,6 +563,9 @@ int c2ps_notify_single_shot_control(
 	vpPush->reserved_1 = reserved_1;
 	vpPush->reserved_2 = reserved_2;
 	vpPush->reserved_3 = reserved_3;
+	vpPush->um_placeholder1 = um_placeholder1;
+	vpPush->um_placeholder2 = um_placeholder2;
+	vpPush->um_placeholder3 = um_placeholder3;
 	vpPush->ePushType = C2PS_NOTIFIER_TASK_SINGLE_SHOT;
 
 	c2ps_queue_work(vpPush);
@@ -531,7 +584,7 @@ int c2ps_notify_single_shot_task_start(int pid, u32 uclamp)
 int c2ps_notify_single_shot_task_end(int pid)
 {
 	C2PS_LOGD("pid: %d", pid);
-	reset_task_eas_setting(pid);
+	reset_task_uclamp(pid);
 	return 0;
 }
 
@@ -575,6 +628,80 @@ static void self_uninit_timer_callback(struct timer_list *t)
 	c2ps_uninit_wo_lock();
 }
 
+static ssize_t um_placeholder_store(struct kobject *kobj,
+	struct kobj_attribute *attr,
+	const char *buf, size_t count)
+{
+	int val = -1;
+	char *buffer = NULL;
+	struct global_info *g_info = get_glb_info();
+
+	buffer = kcalloc(C2PS_SYSFS_MAX_BUFF_SIZE, sizeof(char), GFP_KERNEL);
+	if (unlikely(!buffer))
+		goto out;
+
+	if ((count > 0) && (count < C2PS_SYSFS_MAX_BUFF_SIZE)) {
+		if (scnprintf(buffer, C2PS_SYSFS_MAX_BUFF_SIZE, "%s", buf)) {
+			if (kstrtoint(buffer, 0, &val) != 0)
+				goto out;
+		}
+	}
+
+	if (unlikely(val < 0))
+		goto out;
+
+	if (likely(g_info)) {
+		switch (val) {
+		case 1:
+			g_info->decided_um_placeholder_val = g_info->um_placeholder1;
+			break;
+		case 2:
+			g_info->decided_um_placeholder_val = g_info->um_placeholder2;
+			break;
+		case 3:
+			g_info->decided_um_placeholder_val = g_info->um_placeholder3;
+			break;
+		default:
+			g_info->decided_um_placeholder_val = 0;
+			goto out;
+		}
+		C2PS_LOGD("check decided_um: %u", g_info->decided_um_placeholder_val);
+
+		if (likely(g_info->decided_um_placeholder_val)) {
+			struct regulator_req *req = get_regulator_req();
+
+			if (likely(req != NULL)) {
+				req->glb_info = g_info;
+				req->stat = C2PS_STAT_TRANSIENT;
+				send_regulator_req(req);
+			}
+		}
+	}
+
+out:
+	kfree(buffer);
+	return count;
+}
+
+static ssize_t um_placeholder_show(struct kobject *kobj,
+	struct kobj_attribute *attr,
+	char *buf)
+{
+	int length = 0;
+	struct global_info *g_info = get_glb_info();
+
+	if (unlikely(g_info == NULL))
+		return 0;
+
+	length += scnprintf(buf + length, PAGE_SIZE - length,
+			"%d\n",
+			g_info->decided_um_placeholder_val);
+
+	return length;
+}
+
+static KOBJ_ATTR_RW(um_placeholder);
+
 static int __init c2ps_init(void)
 {
 	C2PS_LOGD("+\n");
@@ -605,6 +732,9 @@ static int __init c2ps_init(void)
 		return -EFAULT;
 	}
 
+	if (!c2ps_sysfs_create_dir(NULL, "main", &main_base_kobj))
+		c2ps_sysfs_create_file(main_base_kobj, &kobj_attr_um_placeholder);
+
 	C2PS_LOGD("-\n");
 	return 0;
 }
@@ -616,6 +746,9 @@ static void __exit c2ps_exit(void)
 	condition_notifier_exit = true;
 	if (likely(c2ps_tsk))
 		kthread_stop(c2ps_tsk);
+
+	c2ps_sysfs_remove_file(main_base_kobj, &kobj_attr_um_placeholder);
+	c2ps_sysfs_remove_dir(&main_base_kobj);
 
 	c2ps_sysfs_exit();
 	regulator_exit();

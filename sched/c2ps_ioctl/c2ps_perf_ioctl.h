@@ -44,6 +44,7 @@ struct C2PS_TASK_INIT_PARAMS {
 	u32 perf_prefer_ratio;
 	bool is_vip_task;
 	bool is_dynamic_tid;
+	bool is_enable_dep_thread;
 	char task_name[MAX_TASK_NAME_SIZE];
 };
 
@@ -73,6 +74,9 @@ struct C2PS_SINGLE_SHOT_PARAM {
 	int critical_task_ids[MAX_CRITICAL_TASKS];
 	int critical_task_uclamp[MAX_CRITICAL_TASKS];
 	u32 util_margin;
+	u32 um_placeholder1;
+	u32 um_placeholder2;
+	u32 um_placeholder3;
 	int reserved_1;
 	int reserved_2;
 	int reserved_3;

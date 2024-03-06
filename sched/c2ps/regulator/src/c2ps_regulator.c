@@ -20,7 +20,7 @@ static int c2ps_regulator_process_mode;
 static unsigned int c2ps_remote_monitor_proc_time;
 static unsigned int c2ps_remote_monitor_uclamp;
 static char c2ps_remote_monitor_task[30] = "None";
-bool c2ps_um_mode_on;
+bool c2ps_um_mode_on = true;
 
 module_param(c2ps_regulator_process_mode, int, 0644);
 module_param(c2ps_remote_monitor_proc_time, int, 0644);
@@ -41,6 +41,11 @@ decide_process_type(struct regulator_req *req)
 		case C2PS_STAT_STABLE:
 			if (req->anc_info)
 				return C2PS_REGULATOR_BGMODE_UM_STABLE;
+			if (req->glb_info && (req->glb_info->overwrite_util_margin ||
+								req->glb_info->decided_um_placeholder_val))
+				return C2PS_REGULATOR_BGMODE_UM_TRANSIENT;
+			if (req->glb_info && !req->glb_info->has_anchor_spec)
+				return C2PS_REGULATOR_BGMODE_UM_STABLE_DEFAULT;
 			break;
 		case C2PS_STAT_TRANSIENT:
 			return C2PS_REGULATOR_BGMODE_UM_TRANSIENT;

@@ -29,6 +29,8 @@
 #define MAX_UCLAMP 1024
 #define MIN_UCLAMP_MARGIN 50
 #define MAX_CRITICAL_TASKS 20
+#define MAX_DEP_THREAD_NUM 5
+#define MAX_DEP_THREAD_SEARCH_COUNT 10
 // anchor kf param, use micro sec as unit scale
 #define ANCHOR_QUEUE_LEN 5
 #define ANC_KF_MIN_EST_ERR 100
@@ -80,6 +82,10 @@ struct c2ps_task_info {
 	bool is_active;
 	bool is_scene_changed;
 	bool vip_set_by_monitor;
+	bool is_enable_dep_thread;
+	// dependency thread
+	pid_t dep_thread[MAX_DEP_THREAD_NUM];
+	int dep_thread_search_count;
 
 	/**
 	* update by regulator
@@ -117,6 +123,7 @@ struct kf_est {
 struct um_update_vote {
 	u32 total_voter_mul;
 	u32 curr_voter_mul;
+	bool last_anchor_decided;
 	// vote_result: -1:reduce um, 0:netual, 1:increase um
 	int vote_result;
 };
@@ -126,6 +133,9 @@ struct um_table_item {
 	u64 latency;
 	u64 end_diff;
 	u64 jitter;
+	u64 jitter_total_access;
+	u64 jitter_hit_cnt;
+	u64 um_stay_cnt;
 	struct kf_est lat_est;
 	struct kf_est end_diff_est;
 	struct kf_est jit_est;
@@ -136,7 +146,6 @@ struct c2ps_anchor {
 	int anchor_id;
 	u32 latency_spec;
 	u32 jitter_spec;
-	int consec_jitter_pass;
 	bool is_last_anchor;
 	u8 s_idx;
 	u8 e_idx;
@@ -196,10 +205,17 @@ struct global_info {
 	// um setting when spec. provided
 	int curr_um;
 	// um setting for idle rate control
-	int curr_um_val[MAX_NUMBER_OF_CLUSTERS];
-	int min_um[MAX_NUMBER_OF_CLUSTERS];
+	int curr_um_idle;
+	int min_um;
 	struct um_update_vote um_vote;
+	/******** single shot um related ********/
+	u32 overwrite_util_margin;
+	u32 decided_um_placeholder_val;
+	u32 um_placeholder1;
+	u32 um_placeholder2;
+	u32 um_placeholder3;
 	enum c2ps_env_status stat;
+	bool has_anchor_spec;
 	struct mutex mlock;
 };
 
@@ -261,6 +277,9 @@ int c2ps_add_anchor(struct c2ps_anchor *anc_info);
 void c2ps_clear_anchor_table(void);
 u64 c2ps_task_sched_runtime(struct task_struct *p);
 u64 c2ps_get_sum_exec_runtime(int pid);
+struct task_struct *c2ps_find_waker_task(struct task_struct *cur_task);
+int c2ps_find_waker_pid(int cur_task_pid);
+void c2ps_add_waker_pid_to_task_info(struct c2ps_task_info *tsk_info);
 void c2ps_task_info_tbl_lock(const char *tag);
 void c2ps_task_info_tbl_unlock(const char *tag);
 struct task_group_info *c2ps_find_task_group_info_by_grphd(int group_head);
@@ -321,7 +340,8 @@ bool use_overwrite_uclamp_max(void);
 void update_critical_task_uclamp_by_tsk_id(
 	int *critical_task_ids, int *critical_task_uclamp);
 void set_uclamp(const int pid, unsigned int max_util, unsigned int min_util);
-void reset_task_eas_setting(int pid);
+void reset_task_eas_setting(struct c2ps_task_info *tsk_info);
+void reset_task_uclamp(int pid);
 
 extern void set_curr_uclamp_ctrl(int val);
 extern void set_gear_uclamp_ctrl(int val);

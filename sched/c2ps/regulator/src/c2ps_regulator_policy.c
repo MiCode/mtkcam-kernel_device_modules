@@ -20,14 +20,14 @@ static unsigned int c2ps_uclamp_bg_up_margin_cluster1 = 1000;
 static unsigned int c2ps_uclamp_bg_up_margin_cluster2 = 1000;
 
 /**************************************************************************/
-// FIXME: temp put here for testing, should remove them later
 static int c2ps_regulator_base_update_um = 5;
 static int c2ps_regulator_um_min = 65;
 static int c2ps_regulator_um_max = 125;
 static int c2ps_fix_um;
 static int L_dvide_M_ratio = 10;
 static int c2ps_converge_target = 50;
-static int c2ps_consecutive_pass_dbg = 2;
+static int c2ps_um_monitor;
+static bool skip_jitter;
 /**************************************************************************/
 
 module_param(c2ps_regulator_debug_max_uclamp, int, 0644);
@@ -44,12 +44,12 @@ module_param(c2ps_regulator_base_update_um, int, 0644);
 module_param(c2ps_regulator_um_min, int, 0644);
 module_param(c2ps_regulator_um_max, int, 0644);
 module_param(c2ps_converge_target, int, 0644);
+module_param(skip_jitter, bool, 0644);
 
 /**************************************************************************/
-// FIXME: temp put here for testing, should remove them later
 module_param(c2ps_fix_um, int, 0644);
 module_param(L_dvide_M_ratio, int, 0644);
-module_param(c2ps_consecutive_pass_dbg, int, 0644);
+module_param(c2ps_um_monitor, int, 0644);
 /**************************************************************************/
 
 /**
@@ -62,6 +62,20 @@ void c2ps_regulator_policy_fix_uclamp(struct regulator_req *req)
 	set_uclamp(req->tsk_info->pid,
 		req->tsk_info->default_uclamp,
 		req->tsk_info->default_uclamp);
+
+	if (unlikely(req->tsk_info->is_enable_dep_thread)) {
+		int _i = 0;
+
+		for (; _i < MAX_DEP_THREAD_NUM; _i++) {
+			if (req->tsk_info->dep_thread[_i] <= 0)
+				break;
+			C2PS_LOGD("thread (%d) set dep thread: %d",
+				req->tsk_info->pid, req->tsk_info->dep_thread[_i]);
+			set_uclamp(req->tsk_info->dep_thread[_i],
+				req->tsk_info->default_uclamp,
+				req->tsk_info->default_uclamp);
+		}
+	}
 }
 
 /**
@@ -120,6 +134,20 @@ void c2ps_regulator_policy_simple(struct regulator_req *req)
 		req->tsk_info->latest_uclamp,
 		req->tsk_info->latest_uclamp);
 
+	if (unlikely(req->tsk_info->is_enable_dep_thread)) {
+		int _i = 0;
+
+		for (; _i < MAX_DEP_THREAD_NUM; _i++) {
+			if (req->tsk_info->dep_thread[_i] <= 0)
+				break;
+			C2PS_LOGD("thread (%d) set dep thread: %d",
+				req->tsk_info->pid, req->tsk_info->dep_thread[_i]);
+			set_uclamp(req->tsk_info->dep_thread[_i],
+				req->tsk_info->latest_uclamp,
+				req->tsk_info->latest_uclamp);
+		}
+	}
+
 	/* debug tool tag */
 	c2ps_main_systrace(
 		"c2ps simple policy: task: %d average_proc_time: %llu, realtime_proc_time: %llu",
@@ -140,6 +168,20 @@ void c2ps_regulator_policy_debug_uclamp(struct regulator_req *req)
 	set_uclamp(req->tsk_info->pid,
 		c2ps_regulator_debug_max_uclamp,
 		c2ps_regulator_debug_min_uclamp);
+
+	if (unlikely(req->tsk_info->is_enable_dep_thread)) {
+		int _i = 0;
+
+		for (; _i < MAX_DEP_THREAD_NUM; _i++) {
+			if (req->tsk_info->dep_thread[_i] <= 0)
+				break;
+			C2PS_LOGD("thread (%d) set dep thread: %d",
+				req->tsk_info->pid, req->tsk_info->dep_thread[_i]);
+			set_uclamp(req->tsk_info->dep_thread[_i],
+				c2ps_regulator_debug_max_uclamp,
+				c2ps_regulator_debug_max_uclamp);
+		}
+	}
 }
 
 /**
@@ -235,45 +277,141 @@ void c2ps_regulator_bgpolicy_simple(struct regulator_req *req)
 void c2ps_regulator_bgpolicy_um_stable_default(struct regulator_req *req)
 {
 	int cluster_index = 0;
+	int curr_um = 0;
+	bool decrease_um = true;
 
 	if (unlikely(!req->glb_info))
 		return;
 
+	curr_um = req->glb_info->curr_um_idle;
+
 	for (; cluster_index < c2ps_nr_clusters; cluster_index++) {
-		int *_cur_bg_um = &(req->glb_info->curr_um_val[cluster_index]);
-		int cpu = c2ps_get_first_cpu_of_cluster(cluster_index);
-
-		if (unlikely(cpu < 0))
-			continue;
-
-		if (req->glb_info->need_update_bg[1 + cluster_index] == 2) {
-			req->glb_info->curr_um = c2ps_regulator_um_max;
-		} else if (req->glb_info->need_update_bg[1 + cluster_index] == 1) {
-			*_cur_bg_um += c2ps_regulator_base_update_um;
-			*_cur_bg_um = min(*_cur_bg_um, c2ps_regulator_um_max);
-		} else if (req->glb_info->need_update_bg[1 + cluster_index] == -2) {
-			*_cur_bg_um -= 2 * c2ps_regulator_base_update_um;
-			*_cur_bg_um = max(*_cur_bg_um,
-						req->glb_info->min_um[cluster_index]);
-		} else if (req->glb_info->need_update_bg[1 + cluster_index] == -1) {
-			*_cur_bg_um -= c2ps_regulator_bg_update_uclamp;
-			*_cur_bg_um = max(*_cur_bg_um,
-						req->glb_info->min_um[cluster_index]);
-		} else {
-			continue;
+		if (req->glb_info->need_update_bg[1 + cluster_index] > 0) {
+			curr_um += c2ps_regulator_base_update_um;
+			decrease_um = false;
+			break;
 		}
-		*_cur_bg_um = min(*_cur_bg_um, c2ps_regulator_um_max);
-		c2ps_set_util_margin(cluster_index, *_cur_bg_um);
 	}
 
-	c2ps_bg_info_um_default_systrace(
-		"cluster_0_um=%d cluster_1_um=%d cluster_2_um=%d ",
-		req->glb_info->curr_um_val[0], req->glb_info->curr_um_val[1],
-		req->glb_info->curr_um_val[2]);
-	C2PS_LOGD("debug: um: %d, %d, %d ",
-			  req->glb_info->curr_um_val[0],
-			  req->glb_info->curr_um_val[1],
-			  req->glb_info->curr_um_val[2]);
+	if (decrease_um)
+		curr_um -= c2ps_regulator_base_update_um;
+
+	curr_um = min(c2ps_regulator_um_max, max(curr_um, c2ps_regulator_um_min));
+	c2ps_set_util_margin(0, curr_um);
+	c2ps_set_util_margin(1, curr_um);
+	c2ps_set_util_margin(2, curr_um);
+
+	req->glb_info->curr_um_idle = curr_um;
+
+	c2ps_bg_info_um_default_systrace("um=%d", curr_um);
+	C2PS_LOGD("debug: um: %d ", curr_um);
+}
+
+static int _cal_latency_um(
+	struct regulator_req *req,
+	struct um_table_item *cur_item,
+	struct um_table_item *prev_item)
+{
+	int latency_um = req->glb_info->curr_um;
+	u64 est_latency_diff = cur_item->latency - prev_item->latency;
+	u64 est_latency_1 = cur_item->latency + est_latency_diff;
+	u64 est_latency_2 = cur_item->latency +  2 * est_latency_diff;
+	u32 latency_spec = req->anc_info->latency_spec;
+	int64_t converge_lat_val =
+		(cur_item->lat_est.est_err - cur_item->lat_est.min_est_err) * 100 /
+				cur_item->lat_est.min_est_err;
+
+	if (converge_lat_val > c2ps_converge_target) {
+		C2PS_LOGD("latency not converge yet: %lld", converge_lat_val);
+		goto skip_lat_um;
+	}
+	if (cur_item->latency >= prev_item->latency) {
+		if (est_latency_1 < latency_spec &&
+			est_latency_2 < latency_spec)
+			latency_um -= c2ps_regulator_base_update_um;
+		else if (est_latency_1 > latency_spec)
+			latency_um += c2ps_regulator_base_update_um;
+	} else {
+		C2PS_LOGD("prev_latency is larger (%llu, %llu)",
+			prev_item->latency, cur_item->latency);
+		prev_item->latency = cur_item->latency;
+	}
+
+skip_lat_um:
+	// FIXME: debug only, reduce the necessary log later
+	C2PS_LOGD(
+		"check anchor %d latency: %llu prev_latency: %llu est_diff: %llu est_1: %llu est_2: %llu latency_spec: %u latency_um: %d, cur_um: %d, hit latency: %d",
+		req->anc_info->anchor_id, cur_item->latency, prev_item->latency,
+		est_latency_diff, est_latency_1, est_latency_2, latency_spec,
+		latency_um, req->glb_info->curr_um, latency_um>req->glb_info->curr_um);
+
+	return latency_um;
+}
+
+static int _cal_jitter_um(
+	struct regulator_req *req,
+	struct um_table_item *cur_item,
+	struct um_table_item *prev_item)
+{
+	int jitter_um = req->glb_info->curr_um;
+
+	cur_item->jitter_total_access++;
+	if (cur_item->jitter < req->anc_info->jitter_spec) {
+		bool decrease_jitter_um = true;
+		int _possible_next_um = max(jitter_um - c2ps_regulator_base_update_um,
+								c2ps_regulator_um_min);
+		struct um_table_item *_possible_next_item =
+				c2ps_find_um_table_by_um(req->anc_info, _possible_next_um);
+
+		cur_item->jitter_hit_cnt = cur_item->jitter_hit_cnt > 0?
+						cur_item->jitter_hit_cnt-1:cur_item->jitter_hit_cnt;
+
+		if (likely(_possible_next_item &&
+				_possible_next_item->jitter_total_access > 20)) {
+			// FIXME: debug only, remove it laters
+			C2PS_LOGD("check possible next um: %d, jitter pass rate: %llu",
+				_possible_next_um,
+				(_possible_next_item->jitter_hit_cnt*100)/
+				_possible_next_item->jitter_total_access);
+
+			// 33% chance jitter larger than spec
+			if (_possible_next_item->jitter_hit_cnt >
+				_possible_next_item->jitter_total_access/3) {
+				decrease_jitter_um = false;
+				if (cur_item->um_stay_cnt > 5)
+					_possible_next_item->jitter_hit_cnt -= 3;
+			}
+		}
+
+		if (decrease_jitter_um)
+			jitter_um -= c2ps_regulator_base_update_um;
+	} else {
+		cur_item->jitter_hit_cnt++;
+
+		if (likely(cur_item->jitter_total_access > 20)) {
+			// 33% chance jitter larger than spec
+			if (cur_item->jitter_hit_cnt > cur_item->jitter_total_access/3)
+				jitter_um += c2ps_regulator_base_update_um;
+		}
+	}
+
+	// reduce the jitter_total_access to prevent too large number
+	if (unlikely(cur_item->jitter_total_access >= 100)) {
+		cur_item->jitter_hit_cnt /= 2;
+		cur_item->jitter_total_access /= 2;
+	}
+
+	// FIXME: debug only, reduce the necessary log later
+	C2PS_LOGD(
+		"check anchor %d jitter: %llu jitter_spec: %u jitter_um: %d cur_um: %d est_err: %lld jitter_hit_cnt: %llu (%llu, %llu) hit jitter: %d",
+		req->anc_info->anchor_id, cur_item->jitter,
+		req->anc_info->jitter_spec, jitter_um, req->glb_info->curr_um,
+		cur_item->jit_est.est_err, cur_item->jitter_hit_cnt,
+		cur_item->jitter_total_access,
+		(cur_item->jitter_hit_cnt*100)/cur_item->jitter_total_access,
+		jitter_um>req->glb_info->curr_um);
+
+	return jitter_um;
 }
 
 /**
@@ -281,82 +419,42 @@ void c2ps_regulator_bgpolicy_um_stable_default(struct regulator_req *req)
  */
 void c2ps_regulator_bgpolicy_um_stable(struct regulator_req *req)
 {
-	int curr_um_0 = req->glb_info->curr_um;
-	int curr_um_1 = 0;
-	int curr_um_2 = 0;
-	int prev_um = min(curr_um_0 + c2ps_regulator_base_update_um, c2ps_regulator_um_max);
-	struct um_table_item *_item = c2ps_find_um_table_by_um(req->anc_info, curr_um_0);
+	int curr_um = req->glb_info->curr_um;
+	int action_um = 0;
+	int prev_um = min(curr_um + c2ps_regulator_base_update_um, c2ps_regulator_um_max);
+	struct um_table_item *_item = c2ps_find_um_table_by_um(req->anc_info, curr_um);
 	struct um_table_item *_prev_item = c2ps_find_um_table_by_um(req->anc_info, prev_um);
+	bool need_update_um = true;
 
 	if (unlikely(c2ps_fix_um)) {
-		curr_um_0 = c2ps_fix_um;
+		action_um = c2ps_fix_um;
 	} else {
-		int latency_um = curr_um_0;
+		int latency_um = curr_um;
 		int jitter_um = 0;
 
 		if (likely(_item && _prev_item)) {
-			if (req->anc_info->latency_spec > 0) {
-				u64 est_latency_diff = _item->latency - _prev_item->latency;
-				u64 est_latency_1 = _item->latency + est_latency_diff;
-				u64 est_latency_2 = _item->latency +  2 * est_latency_diff;
-				u32 latency_spec = req->anc_info->latency_spec;
-				int64_t converge_lat_val =
-					(_item->lat_est.est_err - _item->lat_est.min_est_err) * 100 /
-							_item->lat_est.min_est_err;
-
-				if (converge_lat_val > c2ps_converge_target) {
-					C2PS_LOGD("latency not converge yet: %lld", converge_lat_val);
-					goto skip_lat_um;
-				}
-				if (_item->latency >= _prev_item->latency) {
-					if (est_latency_1 < latency_spec &&
-						est_latency_2 < latency_spec)
-						latency_um -= c2ps_regulator_base_update_um;
-					else if (est_latency_1 > latency_spec)
-						latency_um += c2ps_regulator_base_update_um;
-				} else {
-					C2PS_LOGD("prev_latency is larger (%llu, %llu)",
-						_prev_item->latency, _item->latency);
-					_prev_item->latency = _item->latency;
-				}
-				C2PS_LOGD(
-					"check anchor %d latency: %llu prev_latency: %llu est_diff: %llu est_1: %llu est_2: %llu latency_spec: %u latency_um: %d",
-					req->anc_info->anchor_id, _item->latency, _prev_item->latency,
-					est_latency_diff, est_latency_1, est_latency_2, latency_spec,
-					latency_um);
-			}
-skip_lat_um:
-			if (req->anc_info->jitter_spec > 0) {
-				jitter_um = curr_um_0;
-
-				if (_item->jitter < req->anc_info->jitter_spec) {
-					++req->anc_info->consec_jitter_pass;
-					req->anc_info->consec_jitter_pass =
-						min(req->anc_info->consec_jitter_pass, c2ps_consecutive_pass_dbg);
-					if (req->anc_info->consec_jitter_pass >= c2ps_consecutive_pass_dbg)
-						jitter_um -= c2ps_regulator_base_update_um;
-				} else {
-					req->anc_info->consec_jitter_pass = 0;
-					jitter_um += c2ps_regulator_base_update_um;
-				}
-				C2PS_LOGD(
-					"check anchor %d jitter: %llu jitter_spec: %u jitter_um: %d est_err: %lld conse_jitter_pass: %d",
-					req->anc_info->anchor_id, _item->jitter,
-					req->anc_info->jitter_spec, jitter_um, _item->jit_est.est_err,
-					req->anc_info->consec_jitter_pass);
+			if (req->anc_info->latency_spec > 0)
+				latency_um = _cal_latency_um(req, _item, _prev_item);
+			if (req->anc_info->jitter_spec > 0 && !skip_jitter)
+				jitter_um = _cal_jitter_um(req, _item, _prev_item);
+		}
+		action_um = max(latency_um, jitter_um);
+		if (action_um > curr_um) {
+			if (req->glb_info->um_vote.vote_result > 0)
+				need_update_um = false;
+			req->glb_info->um_vote.vote_result = 1;
+		} else if (action_um == curr_um) {
+			if (req->glb_info->um_vote.vote_result < 0)
+				req->glb_info->um_vote.vote_result = 0;
+			need_update_um = false;
+		} else if (action_um < curr_um) {
+			if (req->glb_info->um_vote.vote_result < 0) {
+				req->glb_info->um_vote.vote_result = -1;
+				if (!req->anc_info->is_last_anchor)
+					need_update_um = false;
 			}
 		}
-		curr_um_0 = max(latency_um, jitter_um);
 	}
-
-	curr_um_0 = min(c2ps_regulator_um_max,
-						max(curr_um_0, c2ps_regulator_um_min));
-	curr_um_1 = curr_um_0*10/L_dvide_M_ratio;
-	curr_um_2 = curr_um_0;
-
-	c2ps_set_util_margin(0, curr_um_0);
-	c2ps_set_util_margin(1, curr_um_1);
-	c2ps_set_util_margin(2, curr_um_2);
 
 	if (_item) {
 		C2PS_LOGD("anchor_id=%d um=%d latency=%llu jitter=%llu est_err=%lld min_est_err=%lld",
@@ -370,7 +468,25 @@ skip_lat_um:
 				_item->lat_est.min_est_err);
 	}
 
-	req->glb_info->curr_um = curr_um_0;
+	if (need_update_um) {
+		action_um = min(c2ps_regulator_um_max,
+							max(action_um, c2ps_regulator_um_min));
+
+		c2ps_set_util_margin(0, action_um);
+		c2ps_set_util_margin(1, action_um*10/L_dvide_M_ratio);
+		c2ps_set_util_margin(2, action_um);
+
+		req->glb_info->curr_um = action_um;
+		c2ps_um_monitor = action_um;
+		_item->um_stay_cnt = 0;
+		C2PS_LOGD("anchor id: %d, update um to %d, is_last_anchor: %d",
+			req->anc_info->anchor_id, action_um, req->anc_info->is_last_anchor);
+	} else {
+		_item->um_stay_cnt++;
+	}
+
+	if (req->anc_info->is_last_anchor)
+		req->glb_info->um_vote.vote_result = -1;
 }
 
 /**
@@ -378,11 +494,17 @@ skip_lat_um:
  */
 void c2ps_regulator_bgpolicy_um_transient(struct regulator_req *req)
 {
-	// sample code for setting util margin
-	c2ps_set_util_margin(0, 125);
-	c2ps_set_util_margin(1, 125);
-	c2ps_set_util_margin(2, 125);
-	// req->glb_info->curr_um = 125;
-	C2PS_LOGD("check curr_um: %d", req->glb_info->curr_um);
-	c2ps_bg_info_um_systrace("transient state um=%d", req->glb_info->curr_um);
+	int action_um = 125;
+
+	if (unlikely(req->glb_info->overwrite_util_margin ||
+				req->glb_info->decided_um_placeholder_val)) {
+		action_um = max(req->glb_info->overwrite_util_margin,
+						req->glb_info->decided_um_placeholder_val);
+	}
+
+	c2ps_set_util_margin(0, action_um);
+	c2ps_set_util_margin(1, action_um);
+	c2ps_set_util_margin(2, action_um);
+	C2PS_LOGD("transient state um=%d", action_um);
+	c2ps_bg_info_um_systrace("transient state um=%d", action_um);
 }

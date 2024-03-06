@@ -28,7 +28,7 @@ static DEFINE_MUTEX(task_group_info_tbl_lock);
 static DEFINE_HASHTABLE(anchor_tbl, 3);
 static DEFINE_MUTEX(anchor_tbl_lock);
 
-static struct kobject *base_kobj;
+static struct kobject *common_base_kobj;
 static struct global_info *glb_info;
 static struct eas_settings *pre_eas_settings;
 
@@ -349,6 +349,62 @@ u64 c2ps_get_sum_exec_runtime(int pid)
 	return curr_sum_exec_runtime;
 }
 
+// be caution when using this function, DO NOT call it frequently
+struct task_struct *c2ps_find_waker_task(struct task_struct *cur_task)
+{
+	struct task_struct *temp = NULL, *task = NULL;
+
+	for_each_process_thread(temp, task) {
+		if (task->last_wakee == cur_task) {
+			C2PS_LOGD("%s(%d) is waked up by %s(%d)\n",
+				cur_task->comm, cur_task->pid, task->comm, task->pid);
+			return task;
+		}
+	}
+	return NULL;
+}
+
+// be caution when using this function, DO NOT call it frequently
+int c2ps_find_waker_pid(int cur_task_pid)
+{
+	struct task_struct *cur_task = NULL, *waker_task = NULL;
+
+	rcu_read_lock();
+	cur_task = find_task_by_vpid(cur_task_pid);
+	if (likely(cur_task))
+		get_task_struct(cur_task);
+	rcu_read_unlock();
+
+	if (likely(cur_task)) {
+		waker_task = c2ps_find_waker_task(cur_task);
+		put_task_struct(cur_task);
+	}
+
+	if (likely(waker_task != NULL))
+		return waker_task->pid;
+	else
+		return -1;
+}
+
+// be caution when using this function, DO NOT call it frequently
+void c2ps_add_waker_pid_to_task_info(struct c2ps_task_info *tsk_info)
+{
+	int _i = 0;
+	int waker_pid = c2ps_find_waker_pid(tsk_info->pid);
+
+	if (waker_pid <= 0)
+		return;
+
+	for (; _i < MAX_DEP_THREAD_NUM; _i++) {
+		if (tsk_info->dep_thread[_i] == waker_pid)
+			break;
+		if (tsk_info->dep_thread[_i] <= 0) {
+			tsk_info->dep_thread[_i] = waker_pid;
+			break;
+		}
+	}
+}
+
 inline void c2ps_task_info_tbl_lock(const char *tag)
 {
 	mutex_lock(&task_info_tbl_lock);
@@ -467,11 +523,6 @@ void c2ps_update_um_table(struct c2ps_anchor *anc)
 {
 	struct um_table_item *_item = c2ps_find_um_table_by_um(anc, glb_info->curr_um);
 
-	if (unlikely(anc == NULL || glb_info == NULL)) {
-		C2PS_LOGE("anchor or glb_info is not existed");
-		return;
-	}
-
 	if (unlikely(glb_info->stat == C2PS_STAT_TRANSIENT))
 		return;
 
@@ -493,7 +544,7 @@ void c2ps_update_um_table(struct c2ps_anchor *anc)
 			c2ps_init_kf(&(_item->end_diff_est), ANC_KF_QVAL,
 					ANC_KF_MEAS_ERR, ANC_KF_MIN_EST_ERR);
 			c2ps_init_kf(&(_item->jit_est), ANC_KF_QVAL,
-					ANC_KF_MEAS_ERR, ANC_KF_MIN_EST_ERR);
+					ANC_KF_MEAS_ERR*ANC_KF_MEAS_ERR/1000, ANC_KF_MIN_EST_ERR);
 			_item->end_diff_est.est_val = 33000;
 			_item->jit_est.est_val = anc->jitter_spec;
 		}
@@ -541,11 +592,19 @@ void c2ps_check_last_anc(struct c2ps_anchor *anc)
 	if (unlikely(glb_info->um_vote.total_voter_mul == 0)) {
 		glb_info->um_vote.total_voter_mul = 1;
 		glb_info->um_vote.curr_voter_mul = 1;
+		glb_info->um_vote.last_anchor_decided = false;
 		anc->is_last_anchor = false;
 	}
 
-	if (unlikely(glb_info->um_vote.total_voter_mul % Prime_Table[anc->anchor_id] != 0))
+	if (likely(glb_info->um_vote.last_anchor_decided))
+		goto out;
+
+	if (unlikely(glb_info->um_vote.total_voter_mul % Prime_Table[anc->anchor_id] != 0)) {
 		glb_info->um_vote.total_voter_mul *= Prime_Table[anc->anchor_id];
+
+		// find is_last_anchor only when all anchor are detected
+		goto out;
+	}
 
 	if (likely(glb_info->um_vote.curr_voter_mul % Prime_Table[anc->anchor_id] != 0)) {
 		glb_info->um_vote.curr_voter_mul *= Prime_Table[anc->anchor_id];
@@ -557,6 +616,12 @@ void c2ps_check_last_anc(struct c2ps_anchor *anc)
 	}
 
 	glb_info->um_vote.curr_voter_mul = 1;
+
+	// if the same anchor is determined is_last_anchor last time, finish the
+	// search
+	if (anc->is_last_anchor)
+		glb_info->um_vote.last_anchor_decided = true;
+
 	anc->is_last_anchor = true;
 
 out:
@@ -677,13 +742,9 @@ inline void set_glb_info_bg_util_margin(void)
 	}
 	c2ps_info_lock(&glb_info->mlock);
 	{
-		short _idx = 0;
-
 		glb_info->curr_um = 125;
-		for (; _idx < c2ps_nr_clusters; _idx++) {
-			glb_info->min_um[_idx] = 65;
-			glb_info->curr_um_val[_idx] = 125;
-		}
+		glb_info->curr_um_idle = 125;
+		glb_info->min_um = 65;
 	}
 	c2ps_info_unlock(&glb_info->mlock);
 }
@@ -1043,6 +1104,37 @@ int c2ps_get_first_cpu_of_cluster(int cluster)
 	return cpu;
 }
 
+void reset_task_eas_setting(struct c2ps_task_info *tsk_info)
+{
+	if (unlikely(!tsk_info)) {
+		C2PS_LOGE("tsk_info is null\n");
+		return;
+	}
+
+	if (tsk_info->pid < 0)
+		return;
+	set_curr_uclamp_hint(tsk_info->pid, 0);
+	reset_task_uclamp(tsk_info->pid);
+
+	if (tsk_info->is_vip_task && tsk_info->vip_set_by_monitor) {
+		C2PS_LOGD("unset VIP by monitor: %d", tsk_info->pid);
+		unset_task_basic_vip(tsk_info->pid);
+		tsk_info->vip_set_by_monitor = false;
+	}
+	if (unlikely(tsk_info->is_enable_dep_thread)) {
+		int _i = 0;
+
+		for (; _i < MAX_DEP_THREAD_NUM; _i++) {
+			if (tsk_info->dep_thread[_i] <= 0)
+				break;
+			set_curr_uclamp_hint(tsk_info->dep_thread[_i], 0);
+			reset_task_uclamp(tsk_info->dep_thread[_i]);
+			if (tsk_info->is_vip_task)
+				unset_task_basic_vip(tsk_info->dep_thread[_i]);
+		}
+	}
+}
+
 void set_uclamp(const int pid, unsigned int max_util, unsigned int min_util)
 {
 	int ret = -1;
@@ -1057,8 +1149,7 @@ void set_uclamp(const int pid, unsigned int max_util, unsigned int min_util)
 	max_util = clamp(max_util, 1U, 1024U);
 
 	attr.sched_policy = SCHED_NORMAL;
-	attr.sched_flags = SCHED_FLAG_KEEP_ALL   |
-			   SCHED_FLAG_UTIL_CLAMP;
+	attr.sched_flags = SCHED_FLAG_KEEP_ALL | SCHED_FLAG_UTIL_CLAMP;
 
 	attr.sched_util_min = min_util;
 	attr.sched_util_max = max_util;
@@ -1090,20 +1181,18 @@ void set_uclamp(const int pid, unsigned int max_util, unsigned int min_util)
 	c2ps_systrace_c(pid, max_util, "uclamp max");
 }
 
-void reset_task_eas_setting(int pid)
+void reset_task_uclamp(int pid)
 {
 	int ret = -1;
 	struct task_struct *p;
 	struct sched_attr attr = {};
 	struct global_info *glb_info = get_glb_info();
 
-	if (unlikely(pid < 0))
+	if (unlikely(glb_info == NULL))
 		return;
-	set_curr_uclamp_hint(pid, 0);
 
 	attr.sched_policy = SCHED_NORMAL;
-	attr.sched_flags = SCHED_FLAG_KEEP_ALL   |
-			   SCHED_FLAG_UTIL_CLAMP;
+	attr.sched_flags = SCHED_FLAG_KEEP_ALL | SCHED_FLAG_UTIL_CLAMP;
 
 	attr.sched_util_min = 1;
 	if (likely(glb_info != NULL)) {
@@ -1300,8 +1389,7 @@ void update_cpu_idle_rate(void)
 										_cluster_index);
 			} else if ((!c2ps_um_mode_on && (glb_info->curr_max_uclamp[_cluster_index] >
 						glb_info->max_uclamp[_cluster_index])) ||
-						(c2ps_um_mode_on && (glb_info->curr_um_val[_cluster_index] >
-						glb_info->min_um[_cluster_index]))) {
+						(c2ps_um_mode_on && (glb_info->curr_um_idle > glb_info->min_um))) {
 				glb_info->need_update_bg[0] = 1;
 				if (_l_sum_of_idlerate[_cluster_index] >
 						_alert * _num_of_cpu[_cluster_index] * 2)
@@ -1729,9 +1817,11 @@ int init_c2ps_common(void)
 			LxF_KF_MEAS_ERR, LxF_KF_MIN_EST_ERR);
 	}
 
-	if (!(ret = c2ps_sysfs_create_dir(NULL, "common", &base_kobj))) {
-		c2ps_sysfs_create_file(base_kobj, &kobj_attr_task_info);
-		c2ps_sysfs_create_file(base_kobj, &kobj_attr_gear_uclamp_max);
+	ret = c2ps_sysfs_create_dir(NULL, "common", &common_base_kobj);
+
+	if (!ret) {
+		c2ps_sysfs_create_file(common_base_kobj, &kobj_attr_task_info);
+		c2ps_sysfs_create_file(common_base_kobj, &kobj_attr_gear_uclamp_max);
 	}
 
 	set_glb_info_bg_uclamp_max();
@@ -1754,7 +1844,7 @@ void exit_c2ps_common(void)
 	}
 
 	is_release_uclamp_max = false;
-	c2ps_sysfs_remove_file(base_kobj, &kobj_attr_task_info);
-	c2ps_sysfs_remove_file(base_kobj, &kobj_attr_gear_uclamp_max);
-	c2ps_sysfs_remove_dir(&base_kobj);
+	c2ps_sysfs_remove_file(common_base_kobj, &kobj_attr_task_info);
+	c2ps_sysfs_remove_file(common_base_kobj, &kobj_attr_gear_uclamp_max);
+	c2ps_sysfs_remove_dir(&common_base_kobj);
 }

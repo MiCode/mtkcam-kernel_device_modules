@@ -14,7 +14,7 @@ extern int (*c2ps_notify_add_task_fp)(
 	u32 task_id, u32 task_target_time, u32 default_uclamp,
 	int group_head, u32 task_group_target_time,
 	bool is_vip_task, bool is_dynamic_tid,
-	const char *task_name);
+	bool is_enable_dep_thread, const char *task_name);
 extern int (*c2ps_notify_task_start_fp)(int pid, int task_id);
 extern int (*c2ps_notify_task_end_fp)(int pid, int task_id);
 extern int (*c2ps_notify_vsync_fp)(void);
@@ -26,6 +26,7 @@ extern int (*c2ps_notify_single_shot_control_fp)(
 	int *uclamp_max_placeholder2, int *uclamp_max_placeholder3,
 	bool reset_param, bool set_task_idle_prefer,
 	int *critical_task_ids, int *critical_task_uclamp, u32 util_margin,
+	u32 um_placeholder1, u32 um_placeholder2, u32 um_placeholder3,
 	int reserved_1, int reserved_2, int reserved_3);
 extern int (*c2ps_notify_single_shot_task_start_fp)(int pid, u32 uclamp);
 extern int (*c2ps_notify_single_shot_task_end_fp)(int pid);

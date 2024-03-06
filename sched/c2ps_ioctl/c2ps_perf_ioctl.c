@@ -16,7 +16,7 @@ int (*c2ps_notify_add_task_fp)(
     u32 task_id, u32 task_target_time, u32 default_uclamp,
 	int group_head, u32 task_group_target_time,
 	bool is_vip_task, bool is_dynamic_tid,
-	const char *task_name);
+	bool is_enable_dep_thread, const char *task_name);
 EXPORT_SYMBOL_GPL(c2ps_notify_add_task_fp);
 int (*c2ps_notify_task_start_fp)(int pid, int task_id);
 EXPORT_SYMBOL_GPL(c2ps_notify_task_start_fp);
@@ -34,6 +34,7 @@ int (*c2ps_notify_single_shot_control_fp)(
 	int *uclamp_max_placeholder2, int *uclamp_max_placeholder3,
 	bool reset_param, bool set_task_idle_prefer,
 	int *task_ids, int *critical_task_uclamp, u32 util_margin,
+	u32 um_placeholder1, u32 um_placeholder2, u32 um_placeholder3,
 	int reserved_1, int reserved_2, int reserved_3);
 EXPORT_SYMBOL_GPL(c2ps_notify_single_shot_control_fp);
 int (*c2ps_notify_single_shot_task_start_fp)(int pid, u32 uclamp);
@@ -125,6 +126,7 @@ static long device_ioctl(
 			(&c2ps_tsk_init_param)->task_group_target_time,
 			(&c2ps_tsk_init_param)->is_vip_task,
 			(&c2ps_tsk_init_param)->is_dynamic_tid,
+			(&c2ps_tsk_init_param)->is_enable_dep_thread,
 			(&c2ps_tsk_init_param)->task_name);
 		break;
 	case C2PS_TASK_START:
@@ -197,6 +199,9 @@ static long device_ioctl(
 			(&c2ps_single_shot)->critical_task_ids,
 			(&c2ps_single_shot)->critical_task_uclamp,
 			(&c2ps_single_shot)->util_margin,
+			(&c2ps_single_shot)->um_placeholder1,
+			(&c2ps_single_shot)->um_placeholder2,
+			(&c2ps_single_shot)->um_placeholder3,
 			(&c2ps_single_shot)->reserved_1,
 			(&c2ps_single_shot)->reserved_2,
 			(&c2ps_single_shot)->reserved_3);

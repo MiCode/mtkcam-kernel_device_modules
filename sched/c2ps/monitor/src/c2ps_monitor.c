@@ -60,10 +60,21 @@ int monitor_task_start(int pid, int task_id)
 		return -1;
 	}
 
-	if (tsk_info->is_vip_task && !is_task_vip(pid)) {
-		C2PS_LOGD("set VIP by monitor: %d", pid);
-		set_task_basic_vip(pid);
-		tsk_info->vip_set_by_monitor = true;
+	if (tsk_info->is_vip_task) {
+		if (!is_task_vip(pid)) {
+			C2PS_LOGD("set VIP by monitor: %d", pid);
+			set_task_basic_vip(pid);
+			tsk_info->vip_set_by_monitor = true;
+		}
+		if (unlikely(tsk_info->is_enable_dep_thread)) {
+			int _i = 0;
+
+			for (; _i < MAX_DEP_THREAD_NUM; _i++) {
+				if (tsk_info->dep_thread[_i] <= 0)
+					break;
+				set_task_basic_vip(tsk_info->dep_thread[_i]);
+			}
+		}
 	}
 
 	tsk_info->pid = pid;
@@ -127,13 +138,15 @@ int monitor_task_end(int pid, int task_id)
 			tsk_info->proc_time, tsk_info->real_exec_runtime);
 	c2ps_critical_task_systrace(tsk_info);
 
-	reset_task_eas_setting(tsk_info->pid);
-
-	if (tsk_info->is_vip_task && tsk_info->vip_set_by_monitor) {
-		C2PS_LOGD("unset VIP by monitor: %d", pid);
-		unset_task_basic_vip(pid);
-		tsk_info->vip_set_by_monitor = false;
+	if (unlikely(tsk_info->is_enable_dep_thread)) {
+		if (unlikely(tsk_info->dep_thread_search_count
+					< MAX_DEP_THREAD_SEARCH_COUNT)) {
+			tsk_info->dep_thread_search_count++;
+			c2ps_add_waker_pid_to_task_info(tsk_info);
+		}
 	}
+
+	reset_task_eas_setting(tsk_info);
 	C2PS_LOGD("-\n");
 	return 0;
 }
@@ -159,8 +172,18 @@ int monitor_anchor(
 	u64 cur_ts, u32 latency_spec, u32 jitter_spec)
 {
 	struct c2ps_anchor *anc_info = c2ps_find_anchor_by_id(anc_id);
+	struct global_info *g_info = get_glb_info();
 
 	C2PS_LOGD("check anchor notifier, anc_id: %d, anc_type: %d", anc_id, anc_type);
+
+	if (unlikely(g_info &&
+			(g_info->overwrite_util_margin > 0 ||
+			g_info->decided_um_placeholder_val > 0))) {
+		C2PS_LOGD("skip anchor monitor, use overwrite um: %u or um_placeholder: %u",
+				g_info->overwrite_util_margin, g_info->decided_um_placeholder_val);
+		return 0;
+	}
+
 	if (unlikely(anc_info == NULL)) {
 		C2PS_LOGD("[C2PS_CB] add anchor: %d\n", anc_id);
 		anc_info = kzalloc(sizeof(*anc_info), GFP_KERNEL);
@@ -180,6 +203,8 @@ int monitor_anchor(
 			return -EINVAL;
 		}
 	}
+
+	g_info->has_anchor_spec = true;
 
 	switch (anc_type) {
 	// anchor start

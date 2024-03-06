@@ -121,9 +121,19 @@ enum GENERI_LONG_PACKET_DT {
 	GLP_DT_0X17,
 };
 
+enum MCLK_SRC_TYPE {
+	MCLK_NORMAL = 0,
+	MCLK_ULPOSC,
+};
+
+struct subdrv_pw_val {
+	int para1;
+	int para2;
+};
+
 struct subdrv_pw_seq_entry {
 	int id;
-	int val;
+	struct subdrv_pw_val val;
 	int delay;
 };
 
@@ -541,6 +551,8 @@ struct subdrv_entry {
 	const struct subdrv_pw_seq_entry *pw_seq;
 	const struct subdrv_ops *ops;
 	int pw_seq_cnt;
+	const struct subdrv_pw_seq_entry *aov_pw_seq;
+	int aov_pw_seq_cnt;
 };
 
 #define subdrv_call(ctx, o, args...) \

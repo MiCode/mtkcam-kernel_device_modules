@@ -41,7 +41,7 @@ static const char * const state_names[] = {
 
 static int pmic_wake_en;
 static struct clk *get_clk_by_idx_freq(struct adaptor_ctx *ctx,
-				unsigned long long idx, int freq)
+				unsigned long long idx, int freq, int ulposc)
 {
 	if (idx == CLK_MCLK) {
 		switch (freq) {
@@ -54,12 +54,12 @@ static struct clk *get_clk_by_idx_freq(struct adaptor_ctx *ctx,
 		case 19:
 			return ctx->clk[CLK_19_2M];
 		case 24:
-			if (ctx->aov_mclk_ulposc_flag)
-				return ctx->clk[CLK_26M];
-			else
-				return ctx->clk[CLK_24M];
+			return ctx->clk[CLK_24M];
 		case 26:
-			return ctx->clk[CLK_26M];
+			if (ulposc == MCLK_ULPOSC)
+				return ctx->clk[CLK_26M_ULPOSC];
+			else
+				return ctx->clk[CLK_26M];
 		case 52:
 			return ctx->clk[CLK_52M];
 		}
@@ -77,13 +77,10 @@ static struct clk *get_clk_by_idx_freq(struct adaptor_ctx *ctx,
 #if IMGSENSOR_AOV_EINT_UT
 			return ctx->clk[CLK_24M];
 #else
-			if (ctx->aov_mclk_ulposc_flag)
-				return ctx->clk[CLK1_26M_ULPOSC];
-			else
-				return ctx->clk[CLK1_24M];
+			return ctx->clk[CLK1_24M];
 #endif
 		case 26:
-			if (ctx->aov_mclk_ulposc_flag)
+			if (ulposc == MCLK_ULPOSC)
 				return ctx->clk[CLK1_26M_ULPOSC];
 			else
 				return ctx->clk[CLK1_26M];
@@ -95,17 +92,31 @@ static struct clk *get_clk_by_idx_freq(struct adaptor_ctx *ctx,
 	return NULL;
 }
 
-static int set_mclk(struct adaptor_ctx *ctx, void *data, int val)
+static int set_mclk(struct adaptor_ctx *ctx, void *data, const struct subdrv_pw_val *val)
 {
 	int ret;
 	struct clk *mclk, *mclk_src;
 	unsigned long long idx;
 
+	if (!val)
+		return -EINVAL;
+
 	idx = (unsigned long long)data;
 	mclk = ctx->clk[idx];
-	mclk_src = get_clk_by_idx_freq(ctx, idx, val);
+	mclk_src = get_clk_by_idx_freq(ctx, idx, val->para1, val->para2);
 
-	adaptor_logm(ctx, "+ idx(%llu),val(%d)\n", idx, val);
+	if ((mclk == NULL) || IS_ERR(mclk)) {
+		adaptor_logi(ctx, "no mclk %s\n", clk_names[idx]);
+		return -EINVAL;
+	}
+
+	if ((mclk_src == NULL) || IS_ERR(mclk_src)) {
+		adaptor_logi(ctx, "no mclk src %dMHz, ulp(%d)\n", val->para1, val->para2);
+		return -EINVAL;
+	}
+
+	adaptor_logm(ctx, "+ idx(%llu),freq(%d),ulposc(%d)\n", idx,
+		     val->para1, val->para2);
 	ret = clk_prepare_enable(mclk);
 	if (ret) {
 		adaptor_logi(ctx,
@@ -130,16 +141,19 @@ static int set_mclk(struct adaptor_ctx *ctx, void *data, int val)
 	return 0;
 }
 
-static int unset_mclk(struct adaptor_ctx *ctx, void *data, int val)
+static int unset_mclk(struct adaptor_ctx *ctx, void *data, const struct subdrv_pw_val *val)
 {
-	struct clk *mclk, *mclk_src;
+	struct clk *mclk;
 	unsigned long long idx;
+
+	if (!val)
+		return -EINVAL;
 
 	idx = (unsigned long long)data;
 	mclk = ctx->clk[idx];
-	mclk_src = get_clk_by_idx_freq(ctx, idx, val);
 
-	adaptor_logm(ctx, "+ idx(%llu),val(%d)\n", idx, val);
+	adaptor_logm(ctx, "+ idx(%llu),freq(%d),ulposc(%d)\n",
+		     idx, val->para1, val->para2);
 
 	clk_disable_unprepare(mclk);
 
@@ -149,10 +163,15 @@ static int unset_mclk(struct adaptor_ctx *ctx, void *data, int val)
 	return 0;
 }
 
-static int set_reg(struct adaptor_ctx *ctx, void *data, int val)
+static int set_reg(struct adaptor_ctx *ctx, void *data, const struct subdrv_pw_val *val)
 {
-	unsigned long long ret, idx;
+	unsigned long long idx;
+	int ret;
 	struct regulator *reg;
+	int min_v, max_v;
+
+	if (!val)
+		return -EINVAL;
 
 	idx = (unsigned long long)data;
 
@@ -165,43 +184,57 @@ static int set_reg(struct adaptor_ctx *ctx, void *data, int val)
 	}
 
 	reg = ctx->regulator[idx];
-	adaptor_logm(ctx, "+ idx(%llu),val(%d)\n", idx, val);
-	ret = regulator_set_voltage(reg, val, val);
+	min_v = val->para1;
+	max_v = val->para2;
+
+	if (max_v < min_v) {
+		adaptor_logi(ctx,
+			"max voltage(val->para2)=%d is smaller than min voltage(val->para1)=%d, fall back max=min\n",
+			max_v, min_v);
+		max_v = min_v;
+	}
+
+	adaptor_logm(ctx, "+ idx(%llu),val_min-max(%d-%d)\n", idx, min_v, max_v);
+	ret = regulator_set_voltage(reg, min_v, max_v);
 	if (ret) {
 		adaptor_loge(ctx,
-			"regulator_set_voltage(%s),val(%d),ret(%llu)(fail)\n",
-			reg_names[idx], val, ret);
+			"regulator_set_voltage(%s),val_min-max(%d-%d),ret(%d)(fail)\n",
+			reg_names[idx], min_v, max_v, ret);
 	} else {
 		adaptor_logm(ctx,
-			"regulator_set_voltage(%s),val(%d),ret(%llu)(correct)\n",
-			reg_names[idx], val, ret);
+			"regulator_set_voltage(%s),val_min-max(%d-%d),ret(%d)(correct)\n",
+			reg_names[idx], min_v, max_v, ret);
 	}
 	ret = regulator_enable(reg);
 	if (ret) {
 		adaptor_loge(ctx,
-			"regulator_enable(%s),ret(%llu)(fail)\n",
+			"regulator_enable(%s),ret(%d)(fail)\n",
 			reg_names[idx], ret);
 		return ret;
 	}
 	adaptor_logm(ctx,
-		"- regulator_enable(%s),ret(%llu)(correct)\n",
+		"- regulator_enable(%s),ret(%d)(correct)\n",
 		reg_names[idx], ret);
 	return 0;
 }
 
-static int unset_reg(struct adaptor_ctx *ctx, void *data, int val)
+static int unset_reg(struct adaptor_ctx *ctx, void *data, const struct subdrv_pw_val *val)
 {
-	unsigned long long ret, idx;
+	unsigned long long idx;
+	int ret;
 	struct regulator *reg;
+
+	if (!val)
+		return -EINVAL;
 
 	idx = (unsigned long long)data;
 	reg = ctx->regulator[idx];
 
-	adaptor_logm(ctx, "+ idx(%llu),val(%d)\n", idx, val);
+	adaptor_logm(ctx, "+ idx(%llu),val(%d)\n", idx, (val->para1));
 	ret = regulator_disable(reg);
 	if (ret) {
 		adaptor_loge(ctx,
-			"disable(%s),ret(%llu)(fail)\n",
+			"disable(%s),ret(%d)(fail)\n",
 			reg_names[idx], ret);
 		return ret;
 	}
@@ -209,12 +242,12 @@ static int unset_reg(struct adaptor_ctx *ctx, void *data, int val)
 	devm_regulator_put(ctx->regulator[idx]);
 
 	adaptor_logm(ctx,
-		"- disable(%s),ret(%llu)(correct)\n",
+		"- disable(%s),ret(%d)(correct)\n",
 		reg_names[idx], ret);
 	return 0;
 }
 
-static int set_state(struct adaptor_ctx *ctx, void *data, int val)
+static int __set_state(struct adaptor_ctx *ctx, void *data, int val)
 {
 	unsigned long long idx, x;
 	int ret;
@@ -236,30 +269,44 @@ static int set_state(struct adaptor_ctx *ctx, void *data, int val)
 	return 0;
 }
 
-static int unset_state(struct adaptor_ctx *ctx, void *data, int val)
+static int set_state(struct adaptor_ctx *ctx, void *data, const struct subdrv_pw_val *val)
 {
-	return set_state(ctx, data, 0);
+	if (!val)
+		return -EINVAL;
+
+	return __set_state(ctx, data, val->para1);
 }
 
-static int set_state_div2(struct adaptor_ctx *ctx, void *data, int val)
+static int unset_state(struct adaptor_ctx *ctx, void *data, const struct subdrv_pw_val *val)
 {
-	return set_state(ctx, data, val >> 1);
+	return __set_state(ctx, data, 0);
 }
 
-static int set_state_boolean(struct adaptor_ctx *ctx, void *data, int val)
+static int set_state_div2(struct adaptor_ctx *ctx, void *data, const struct subdrv_pw_val *val)
 {
-	return set_state(ctx, data, !!val);
+	if (!val)
+		return -EINVAL;
+
+	return __set_state(ctx, data, (val->para1) >> 1);
 }
 
-static int set_state_mipi_switch(struct adaptor_ctx *ctx, void *data, int val)
+static int set_state_boolean(struct adaptor_ctx *ctx, void *data, const struct subdrv_pw_val *val)
 {
-	return set_state(ctx, (void *)STATE_MIPI_SWITCH_ON, 0);
+	if (!val)
+		return -EINVAL;
+
+	return __set_state(ctx, data, !!(val->para1));
+}
+
+static int set_state_mipi_switch(struct adaptor_ctx *ctx, void *data, const struct subdrv_pw_val *val)
+{
+	return __set_state(ctx, (void *)STATE_MIPI_SWITCH_ON, 0);
 }
 
 static int unset_state_mipi_switch(struct adaptor_ctx *ctx, void *data,
-	int val)
+	const struct subdrv_pw_val *val)
 {
-	return set_state(ctx, (void *)STATE_MIPI_SWITCH_OFF, 0);
+	return __set_state(ctx, (void *)STATE_MIPI_SWITCH_OFF, 0);
 }
 
 static int set_reg_pmic_wakeup(struct adaptor_ctx *ctx, unsigned long long data)
@@ -429,12 +476,13 @@ int adaptor_pmic_ctrl(struct adaptor_ctx *ctx, bool bPmicEnable)
 int do_hw_power_on(struct adaptor_ctx *ctx)
 {
 	int i;
-	const struct subdrv_pw_seq_entry *ent;
+	const struct subdrv_pw_seq_entry *ent, *ent_base;
 	struct adaptor_hw_ops *op;
 	struct adaptor_profile_tv tv;
 	struct adaptor_log_buf buf;
 	struct subdrv_ctx *subctx;
 	u64 time_boot_begin = 0;
+	int ppw_seq_cnt;
 
 	adaptor_logm(ctx, "+\n");
 	if (ctx->sensor_ws) {
@@ -462,20 +510,28 @@ int do_hw_power_on(struct adaptor_ctx *ctx)
 		time_boot_begin = ktime_get_boottime_ns();
 
 	adaptor_pmic_ctrl(ctx, true);
-	for (i = 0; i < ctx->subdrv->pw_seq_cnt; i++) {
+	if (ctx->aov_mclk_ulposc_flag && ctx->subdrv->aov_pw_seq) {
+		adaptor_logi(ctx, "using aov ulposc pw seq\n");
+		ppw_seq_cnt = ctx->subdrv->aov_pw_seq_cnt;
+		ent_base = &ctx->subdrv->aov_pw_seq[0];
+	} else {
+		ppw_seq_cnt = ctx->subdrv->pw_seq_cnt;
 		if (ctx->ctx_pw_seq)
-			ent = &ctx->ctx_pw_seq[i]; // use ctx pw seq
+			ent_base = &ctx->ctx_pw_seq[0]; // use ctx pw seq
 		else
-			ent = &ctx->subdrv->pw_seq[i];
+			ent_base = &ctx->subdrv->pw_seq[0];
+	}
+	for (i = 0; i < ppw_seq_cnt; i++) {
+		ent = (ent_base + i);
 		op = &ctx->hw_ops[ent->id];
 		if (!op->set) {
-			adaptor_logd(ctx, "cannot set comp %d val %d\n",
-				ent->id, ent->val);
+			adaptor_logd(ctx, "cannot set comp %d para (%d,%d)\n",
+				ent->id, ent->val.para1, ent->val.para2);
 			continue;
 		}
 
 		ADAPTOR_PROFILE_BEGIN(&tv);
-		op->set(ctx, op->data, ent->val);
+		op->set(ctx, op->data, &ent->val);
 		ADAPTOR_PROFILE_END(&tv);
 
 		{
@@ -494,8 +550,8 @@ int do_hw_power_on(struct adaptor_ctx *ctx)
 			}
 		}
 
-		adaptor_logm(ctx, "set comp %d val %d\n",
-			ent->id, ent->val);
+		adaptor_logm(ctx, "set comp %d para (%d,%d)\n",
+			ent->id, ent->val.para1, ent->val.para2);
 
 		if (ent->delay)
 			udelay(ent->delay);
@@ -534,8 +590,9 @@ int adaptor_hw_power_on(struct adaptor_ctx *ctx)
 int do_hw_power_off(struct adaptor_ctx *ctx)
 {
 	int i;
-	const struct subdrv_pw_seq_entry *ent;
+	const struct subdrv_pw_seq_entry *ent, *ent_base;
 	struct adaptor_hw_ops *op;
+	int ppw_seq_cnt;
 
 	adaptor_logm(ctx, "+\n");
 	/* call subdrv close function if sensor is streaming */
@@ -556,15 +613,23 @@ int do_hw_power_off(struct adaptor_ctx *ctx)
 	if (ctx->subdrv->ops->power_off)
 		subdrv_call(ctx, power_off, NULL);
 
-	for (i = ctx->subdrv->pw_seq_cnt - 1; i >= 0; i--) {
+	if (ctx->aov_mclk_ulposc_flag && ctx->subdrv->aov_pw_seq) {
+		adaptor_logi(ctx, "using aov ulposc pw seq\n");
+		ppw_seq_cnt = ctx->subdrv->aov_pw_seq_cnt;
+		ent_base = &ctx->subdrv->aov_pw_seq[0];
+	} else {
+		ppw_seq_cnt = ctx->subdrv->pw_seq_cnt;
 		if (ctx->ctx_pw_seq)
-			ent = &ctx->ctx_pw_seq[i]; // use ctx pw seq
+			ent_base = &ctx->ctx_pw_seq[0]; // use ctx pw seq
 		else
-			ent = &ctx->subdrv->pw_seq[i];
+			ent_base = &ctx->subdrv->pw_seq[0];
+	}
+	for (i = ppw_seq_cnt - 1; i >= 0; i--) {
+		ent = (ent_base + i);
 		op = &ctx->hw_ops[ent->id];
 		if (!op->unset)
 			continue;
-		op->unset(ctx, op->data, ent->val);
+		op->unset(ctx, op->data, &ent->val);
 		//msleep(ent->delay);
 	}
 	adaptor_pmic_ctrl(ctx, false);

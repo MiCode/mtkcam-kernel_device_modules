@@ -993,8 +993,8 @@ static ssize_t debug_pwr_ops_show(struct device *dev,
 			ent = &ctx->ctx_pw_seq[i]; // use ctx pw seq
 		else
 			ent = &ctx->subdrv->pw_seq[i];
-		SHOW(buf, len, "\t%s power %d with delay %d\n",
-		     hw_id_names[(unsigned int)ent->id], ent->val, ent->delay);
+		SHOW(buf, len, "\t%s power (%d,%d) with delay %d\n",
+		     hw_id_names[(unsigned int)ent->id], ent->val.para1, ent->val.para2, ent->delay);
 	}
 
 	return len;
@@ -1058,7 +1058,7 @@ static ssize_t debug_pwr_ops_store(struct device *dev,
 
 	if (seq_idx < ctx->subdrv->pw_seq_cnt) {
 		ent = &ctx->ctx_pw_seq[seq_idx];
-		ent->val = seq_val;
+		ent->val.para1 = seq_val;
 		ent->delay = seq_delay;
 	}
 

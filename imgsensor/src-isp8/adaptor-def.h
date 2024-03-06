@@ -18,6 +18,7 @@ enum {
 	CLK_19_2M,
 	CLK_24M,
 	CLK_26M,
+	CLK_26M_ULPOSC,
 	CLK_52M,
 	CLK_MCLK,
 	CLK1_6M,
@@ -39,6 +40,7 @@ enum {
 	"19.2", \
 	"24", \
 	"26", \
+	"26_ulposc", \
 	"52", \
 	"mclk", \
 	"clk1_6", \

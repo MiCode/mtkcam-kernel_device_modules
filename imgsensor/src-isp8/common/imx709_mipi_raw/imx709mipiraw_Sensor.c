@@ -1319,26 +1319,26 @@ static struct subdrv_ops ops = {
 };
 
 static struct subdrv_pw_seq_entry pw_seq[] = {
-	{HW_ID_SCL, 0, 0},	/* default i2c bus scl 4 on apmcu side */
-	{HW_ID_SDA, 0, 0},	/* default i2c bus sda 4 on apmcu side */
+	{HW_ID_SCL, {0}, 0},	/* default i2c bus scl 4 on apmcu side */
+	{HW_ID_SDA, {0}, 0},	/* default i2c bus sda 4 on apmcu side */
 #ifdef AOV_EINT_UT
-	{HW_ID_MCLK1, 24, 0},
+	{HW_ID_MCLK1, {24}, 0},
 #else
-	{HW_ID_MCLK1, 26, 0},
+	{HW_ID_MCLK1, {26}, 0},
 #endif
-	{HW_ID_PONV, 0, 1000},
-	{HW_ID_RST1, 0, 1000},
-	{HW_ID_AVDD, 2900000, 1000}, // pmic_ldo for avdd
-	{HW_ID_AVDD2, 1800000, 1000}, // pmic_gpo(2.8V ldo) for avdd
-	{HW_ID_DOVDD, 1800000, 1000}, // pmic_ldo/gpio(1.8V ldo) for dovdd
-	{HW_ID_DVDD2, 855000, 1000}, // pmic_ldo for dvdd
-	{HW_ID_MCLK1_DRIVING_CURRENT, 6, 1000},
+	{HW_ID_PONV, {0}, 1000},
+	{HW_ID_RST1, {0}, 1000},
+	{HW_ID_AVDD, {2900000, 2900000}, 1000}, // pmic_ldo for avdd
+	{HW_ID_AVDD2, {1800000, 1800000}, 1000}, // pmic_gpo(2.8V ldo) for avdd
+	{HW_ID_DOVDD, {1800000, 1800000}, 1000}, // pmic_ldo/gpio(1.8V ldo) for dovdd
+	{HW_ID_DVDD2, {855000, 855000}, 1000}, // pmic_ldo for dvdd
+	{HW_ID_MCLK1_DRIVING_CURRENT, {6}, 1000},
 #ifdef AOV_EINT_UT
-	{HW_ID_PONV, 0, 1000},
+	{HW_ID_PONV, {0}, 1000},
 #else
-	{HW_ID_PONV, 1, 1000},
+	{HW_ID_PONV, {1}, 1000},
 #endif
-	{HW_ID_RST1, 1, 4000}
+	{HW_ID_RST1, {1}, 4000}
 };
 
 const struct subdrv_entry imx709_mipi_raw_entry = {

@@ -99,8 +99,8 @@ struct sensor_mode {
 };
 
 struct adaptor_hw_ops {
-	int (*set)(struct adaptor_ctx *ctx, void *data, int val);
-	int (*unset)(struct adaptor_ctx *ctx, void *data, int val);
+	int (*set)(struct adaptor_ctx *ctx, void *data, const struct subdrv_pw_val *val);
+	int (*unset)(struct adaptor_ctx *ctx, void *data, const struct subdrv_pw_val *val);
 	void *data;
 };
 

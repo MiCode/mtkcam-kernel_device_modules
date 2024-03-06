@@ -1054,18 +1054,18 @@ static struct subdrv_ops ops = {
 };
 
 static struct subdrv_pw_seq_entry pw_seq[] = {
-	{HW_ID_MCLK, 24, 0},
-	{HW_ID_RST, 0, 1000},
-	{HW_ID_AVDD2, 1800000, 0}, // power AVDD 1.8V to enable 2.8V ldo
-	{HW_ID_AVDD, 2800000, 1000},
-	{HW_ID_AVDD3, 1800000, 1000}, // power AVDD2 1.8V to enable 2.8V ldo
-	{HW_ID_AFVDD1, 1800000, 0}, // power  1.8V to enable 2.8V ldo
-	{HW_ID_AFVDD, 2800000, 1000},
-	{HW_ID_DOVDD, 1800000, 1000},
-	{HW_ID_DVDD, 1100000, 1000},
-	{HW_ID_DVDD1, 1090000, 1000},
-	{HW_ID_MCLK_DRIVING_CURRENT, 4, 1000},
-	{HW_ID_RST, 1, 5000}
+	{HW_ID_MCLK, {24}, 0},
+	{HW_ID_RST, {0}, 1000},
+	{HW_ID_AVDD2, {1800000, 1800000}, 0}, // power AVDD 1.8V to enable 2.8V ldo
+	{HW_ID_AVDD, {2800000, 2800000}, 1000},
+	{HW_ID_AVDD3, {1800000, 1800000}, 1000}, // power AVDD2 1.8V to enable 2.8V ldo
+	{HW_ID_AFVDD1, {1800000, 1800000}, 0}, // power  1.8V to enable 2.8V ldo
+	{HW_ID_AFVDD, {2800000, 2800000}, 1000},
+	{HW_ID_DOVDD, {1800000, 1800000}, 1000},
+	{HW_ID_DVDD, {1100000, 1100000}, 1000},
+	{HW_ID_DVDD1, {1090000, 1090000}, 1000},
+	{HW_ID_MCLK_DRIVING_CURRENT, {4}, 1000},
+	{HW_ID_RST, {1}, 5000}
 };
 
 const struct subdrv_entry imx866_mipi_raw_entry = {

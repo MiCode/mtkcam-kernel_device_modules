@@ -1256,7 +1256,7 @@ static struct outmux_cfg *get_outmux_cfg_from_list(struct seninf_ctx *ctx,
 	}
 
 	if (!ret) {
-		ret = kmalloc(sizeof(struct outmux_cfg), GFP_KERNEL);
+		ret = kzalloc(sizeof(struct outmux_cfg), GFP_KERNEL);
 		if (ret) {
 			ret->outmux_idx = outmux;
 

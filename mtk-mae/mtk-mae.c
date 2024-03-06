@@ -17,6 +17,7 @@
 #include <linux/dma-heap.h>
 #include <uapi/linux/dma-heap.h>
 #include <linux/pm_runtime.h>
+#include <linux/suspend.h>
 
 #include <linux/device.h>
 #include <linux/version.h>
@@ -98,6 +99,7 @@ module_param(irq_handler_en, int, 0644);
 module_param(umap_debug, int, 0644);
 module_param(cmdq_profiling_result, int, 0644);
 
+static struct device *mae_pm_dev;
 aov_notify m_aov_notify = NULL;
 
 #if M2M_ENABLE
@@ -500,28 +502,30 @@ static void mtk_mae_frame_done_worker(struct work_struct *work)
 		mae_dev_dbg(mae_dev->dev, "%s, output 0x%llx (0x%x_%x)(0x%x_%x)\n",
 			__func__, (uint64_t)dump, *(dump), *(dump+1), *(dump+2), *(dump+3));
 
-		switch (param->maeMode) {
-		case FD_V0:
-			drv_ops.get_fd_v0_result(mae_dev, 0);
-			break;
-		case FD_V1_IPN:
-			drv_ops.get_fd_v1_result(mae_dev, 0);
-			break;
-		case ATTR_V0:
-			// fd->drv_ops->get_attr_result(fd, fd->aie_cfg);
-			break;
-		case FLD_V0:
-			// fd->drv_ops->get_fld_result(fd, fd->aie_cfg);
-			break;
-		default:
-			break;
+		if (!mae_dev->is_shutdown) {
+			switch (param->maeMode) {
+			case FD_V0:
+				drv_ops.get_fd_v0_result(mae_dev, 0);
+				break;
+			case FD_V1_IPN:
+				drv_ops.get_fd_v1_result(mae_dev, 0);
+				break;
+			case ATTR_V0:
+				// fd->drv_ops->get_attr_result(fd, fd->aie_cfg);
+				break;
+			case FLD_V0:
+				// fd->drv_ops->get_fld_result(fd, fd->aie_cfg);
+				break;
+			default:
+				break;
+			}
+
+			if (dump_reg_en)
+				drv_ops.dump_reg(mae_dev);
+
+			if (irq_handler_en)
+				drv_ops.irq_handle(mae_dev);
 		}
-
-		if (dump_reg_en)
-			drv_ops.dump_reg(mae_dev);
-
-		if (irq_handler_en)
-			drv_ops.irq_handle(mae_dev);
 
 		mtk_mae_hw_done(mae_dev, VB2_BUF_STATE_DONE);
 	}
@@ -562,6 +566,9 @@ static void mtk_mae_device_run(void *priv)
 
 	mae_dev->mae_out = vb2_dma_contig_plane_dma_addr(&dst_buf->vb2_buf, 0);
 	// plane_vaddr = vb2_plane_vaddr(&dst_buf->vb2_buf, 0);
+
+	if (mae_dev->is_shutdown)
+		return;
 
 	mae_dev->pkt[idx] = cmdq_pkt_create(mae_dev->mae_clt);
 
@@ -790,12 +797,14 @@ static int mtk_mae_hw_connect(struct mtk_mae_dev *mae_dev)
 	mae_dev->mae_stream_count++;
 	if (mae_dev->mae_stream_count == 1) {
 		/* power on */
-		pm_runtime_get_sync(dev);
-		mtk_mae_ccf_enable(dev);
-	// MAE_TO_DO: shutdown flow
-		cmdq_mbox_enable(mae_dev->mae_clt->chan);
-		cmdq_clear_event(mae_dev->mae_clt->chan, mae_dev->mae_event_id);
-	// MAE_TO_DO: hw enable
+		if (!mae_dev->is_shutdown) {
+			pm_runtime_get_sync(dev);
+			mtk_mae_ccf_enable(dev);
+
+			cmdq_mbox_enable(mae_dev->mae_clt->chan);
+			cmdq_clear_event(mae_dev->mae_clt->chan, mae_dev->mae_event_id);
+		}
+
 		buf_info->dmabuf = mae_imem_sec_alloc(mae_dev, INTERNAL_BUFFER_SIZE, CACHED_BUF);
 		if (IS_ERR(buf_info->dmabuf) || buf_info->dmabuf == NULL) {
 			mae_dev_info(mae_dev->dev, "%s, internal buffer alloc failed\n", __func__);
@@ -923,7 +932,7 @@ static void mtk_mae_hw_disconnect(struct mtk_mae_dev *mae_dev)
 	int ret;
 #endif
 
-	if (mae_dev->is_secure) {
+	if (mae_dev->is_secure && !mae_dev->is_shutdown) {
 		if (drv_ops.secure_disable)
 			drv_ops.secure_disable(mae_dev);
 #if MAE_CMDQ_SEC_READY
@@ -936,9 +945,11 @@ static void mtk_mae_hw_disconnect(struct mtk_mae_dev *mae_dev)
 
 	mae_dev->mae_stream_count--;
 	if (mae_dev->mae_stream_count == 0) {
-		cmdq_mbox_disable(mae_dev->mae_clt->chan);
-		mtk_mae_ccf_disable(mae_dev->dev);
-		pm_runtime_put_sync(mae_dev->dev);
+		if (!mae_dev->is_shutdown) {
+			cmdq_mbox_disable(mae_dev->mae_clt->chan);
+			mtk_mae_ccf_disable(mae_dev->dev);
+			pm_runtime_put_sync(mae_dev->dev);
+		}
 
 		// MAE_TO_DO: unmap buffer
 		mtk_mae_umap_detach(mae_dev, &mae_dev->map_table->model_table_dmabuf_info);
@@ -1517,9 +1528,9 @@ int mtk_mae_vidioc_qbuf(struct file *file, void *priv,
 
 			mae_dev->is_secure = true;
 
-			if (drv_ops.secure_init)
+			if (drv_ops.secure_init && !mae_dev->is_shutdown)
 				drv_ops.secure_init(mae_dev);
-			if (drv_ops.secure_enable)
+			if (drv_ops.secure_enable && !mae_dev->is_shutdown)
 				drv_ops.secure_enable(mae_dev);
 		}
 
@@ -1798,6 +1809,94 @@ err_unreg_v4l2_dev:
 	return ret;
 }
 
+
+static int mtk_mae_suspend(struct device *dev)
+{
+	struct mtk_mae_dev *mae_dev = dev_get_drvdata(dev);
+	int ret;
+
+	mae_dev_info(dev, "%s: suspend mae job start\n", __func__);
+
+	if (!mae_dev->is_shutdown) {
+		if (pm_runtime_suspended(dev))
+			return 0;
+
+		mtk_mae_ccf_disable(dev);
+		ret = pm_runtime_put_sync(dev);
+		if (ret) {
+			mae_dev_info(dev, "%s: pm_runtime_put_sync failed:(%d)\n",
+				__func__, ret);
+			return ret;
+		}
+	}
+
+	mae_dev_info(dev, "%s: suspend mae job end\n", __func__);
+
+	return 0;
+}
+
+static int mtk_mae_resume(struct device *dev)
+{
+	struct mtk_mae_dev *mae_dev = dev_get_drvdata(dev);
+	int ret;
+
+	mae_dev_info(dev, "%s: resume mae job start\n", __func__);
+
+	if (m_aov_notify != NULL)
+		m_aov_notify(mae_dev->aov_pdev, AOV_NOTIFY_AIE_AVAIL, 0);
+
+	if (!mae_dev->is_shutdown) {
+		if (pm_runtime_suspended(dev)) {
+			mae_dev_info(dev, "%s: pm_runtime_suspended is true, no action\n",
+				__func__);
+			return 0;
+		}
+
+		ret = pm_runtime_get_sync(dev);
+		if (ret) {
+			mae_dev_info(dev, "%s: pm_runtime_get_sync failed:(%d)\n",
+				__func__, ret);
+			return ret;
+		}
+
+		ret = mtk_mae_ccf_enable(dev);
+		if (ret)
+			return ret;
+	}
+
+	mae_dev_info(dev, "%s: resume aie job end)\n", __func__);
+
+	return 0;
+}
+
+#if IS_ENABLED(CONFIG_PM)
+static int mae_pm_event(struct notifier_block *notifier,
+			unsigned long pm_event, void *unused)
+{
+	switch (pm_event) {
+	case PM_HIBERNATION_PREPARE:
+		return NOTIFY_DONE;
+	case PM_RESTORE_PREPARE:
+		return NOTIFY_DONE;
+	case PM_POST_HIBERNATION:
+		return NOTIFY_DONE;
+	case PM_SUSPEND_PREPARE: /*enter suspend*/
+		mtk_mae_suspend(mae_pm_dev);
+		return NOTIFY_DONE;
+	case PM_POST_SUSPEND:    /*after resume*/
+		mtk_mae_resume(mae_pm_dev);
+		return NOTIFY_DONE;
+	}
+
+	return NOTIFY_OK;
+}
+
+static struct notifier_block mae_notifier_block = {
+	.notifier_call = mae_pm_event,
+	.priority = 0,
+};
+#endif
+
 int mtk_mae_probe(struct platform_device *pdev)
 {
 	struct mtk_mae_dev *mae_dev;
@@ -1823,6 +1922,7 @@ int mtk_mae_probe(struct platform_device *pdev)
 	ctx->mae_dev = mae_dev;
 	ctx->dev = mae_dev->dev;
 	mae_dev->ctx = ctx;
+	mae_dev->is_shutdown = false;
 
 	map_table = devm_kzalloc(dev, sizeof(*map_table), GFP_KERNEL);
 	if (!map_table)
@@ -1931,6 +2031,15 @@ int mtk_mae_probe(struct platform_device *pdev)
 		goto err_destroy_mutex;
 	}
 
+	mae_pm_dev = dev;
+#if IS_ENABLED(CONFIG_PM)
+	ret = register_pm_notifier(&mae_notifier_block);
+	if (ret) {
+		mae_dev_info(dev, "failed to register notifier block.\n");
+		return ret;
+	}
+#endif
+
 	mae_dev->smmu_dev = mtk_smmu_get_shared_device(dev);
 	if (!mae_dev->smmu_dev) {
 		mae_dev_info(dev,
@@ -1970,6 +2079,21 @@ int mtk_mae_remove(struct platform_device *pdev)
 	return 0;
 }
 
+static void mtk_mae_shutdown(struct platform_device *pdev)
+{
+	struct device *dev = &pdev->dev;
+	struct mtk_mae_dev *mae_dev = dev_get_drvdata(&pdev->dev);
+
+	mae_dev->is_shutdown = true;
+	if (mae_dev->mae_clt)
+		cmdq_mbox_stop(mae_dev->mae_clt);
+	else
+		mae_dev_info(dev, "%s: mae cmdq client is NULL\n", __func__);
+
+	mae_dev_info(dev, "%s: mae shutdown ready(%d)\n",
+		__func__, mae_dev->is_shutdown);
+}
+
 static const struct of_device_id mtk_mae_of_ids[] = {
 	{
 		.compatible = "mediatek,mtk-mae",
@@ -1983,14 +2107,12 @@ MODULE_DEVICE_TABLE(of, mtk_mae_of_ids);
 static struct platform_driver mtk_mae_driver = {
 	.probe = mtk_mae_probe,
 	.remove = mtk_mae_remove,
-	// MAE_TO_DO
-	// .shutdown = mtk_aie_shutdown,
+	.shutdown = mtk_mae_shutdown,
 
 	.driver = {
 		.name = "mtk-mae",
 		.of_match_table = of_match_ptr(mtk_mae_of_ids),
-		// MAE_TO_DO
-		// .pm = &mtk_aie_pm_ops,
+		// .pm = &mtk_aie_pm_ops, // no used
 	}
 };
 

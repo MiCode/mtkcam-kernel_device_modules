@@ -464,7 +464,7 @@ static void g_flk_fl_and_flk_diff(const unsigned int idx,
 }
 
 
-static unsigned int chk_if_need_to_sync_flk_en_status(const unsigned int idx)
+/*static*/ unsigned int chk_if_need_to_sync_flk_en_status(const unsigned int idx)
 {
 	unsigned int flk_en_fdelay = (0 - 1);
 	unsigned int i;
@@ -1753,6 +1753,12 @@ static inline void fs_alg_setup_basic_out_fl(const unsigned int idx,
 
 	if (fs_inst[idx].fl_active_delay != 2)
 		return;
+
+	if (unlikely( *p_out_fl_us == 0)) {
+		LOG_PF_INF(
+			"NOTICE: [%u] skip check since out_fl_us:0\n", idx);
+		return;
+	}
 
 	/* FL is N+1 type, check extra shutter & FL rules when FL output */
 	next_fl_lc =
@@ -4089,7 +4095,7 @@ static unsigned int do_fps_sync_sa(const struct fs_sa_cfg *p_sa_cfg,
 	const unsigned int valid_bits =
 		(p_sa_cfg->valid_sync_bits ^ p_sa_cfg->async_s_bits);
 	const unsigned int idx = p_sa_cfg->idx;
-	unsigned int max_target_min_fl_us = 0, max_min_fl_us = 0;
+	unsigned int max_target_min_fl_us = 0, max_pure_min_fl_us = 0;
 	unsigned int unstable_fps_bits;
 	unsigned int skip_adjust_vsync_diff;
 	unsigned int fps_sync_fl_result, flk_diff;
@@ -4111,16 +4117,16 @@ static unsigned int do_fps_sync_sa(const struct fs_sa_cfg *p_sa_cfg,
 			continue;
 
 		if (is_unstable) {
-			if (fps_info_arr[i].min_fl_us > max_min_fl_us)
-				max_min_fl_us = fps_info_arr[i].min_fl_us;
+			if (fps_info_arr[i].pure_min_fl_us > max_pure_min_fl_us)
+				max_pure_min_fl_us = fps_info_arr[i].pure_min_fl_us;
 			if (fps_info_arr[i].target_min_fl_us
 					> max_target_min_fl_us) {
 				max_target_min_fl_us =
 					fps_info_arr[i].target_min_fl_us;
 			}
 		} else {
-			if (last_fps_info_arr[i].min_fl_us > max_min_fl_us)
-				max_min_fl_us = last_fps_info_arr[i].min_fl_us;
+			if (last_fps_info_arr[i].pure_min_fl_us > max_pure_min_fl_us)
+				max_pure_min_fl_us = last_fps_info_arr[i].pure_min_fl_us;
 			if (last_fps_info_arr[i].target_min_fl_us
 					> max_target_min_fl_us) {
 				max_target_min_fl_us =
@@ -4130,8 +4136,8 @@ static unsigned int do_fps_sync_sa(const struct fs_sa_cfg *p_sa_cfg,
 	}
 
 	/* check "target min FL" can be retract to maximum "min FL" or not */
-	fps_sync_fl_result = (max_min_fl_us < max_target_min_fl_us)
-		? max_min_fl_us : max_target_min_fl_us;
+	fps_sync_fl_result = (max_pure_min_fl_us < max_target_min_fl_us)
+		? max_pure_min_fl_us : max_target_min_fl_us;
 	g_flk_fl_and_flk_diff(idx, &fps_sync_fl_result, &flk_diff, sync_flk_en);
 
 	fs_alg_sa_update_target_stable_fl_info(idx, p_para, fps_sync_fl_result);
@@ -4195,15 +4201,17 @@ static unsigned int fps_sync_sa_handler(const struct fs_sa_cfg *p_sa_cfg,
 	struct FrameSyncDynamicPara *p_para)
 {
 	const unsigned int idx = p_sa_cfg->idx;
-	const unsigned int sync_flk_en = chk_if_need_to_sync_flk_en_status(idx);
+	const unsigned int sync_flk_en = 1; // chk_if_need_to_sync_flk_en_status(idx);
 	unsigned int flk_diff, out_fl_us;
 	unsigned int do_skip;
 
 	fs_alg_sa_setup_basic_fl_info(idx, p_para, sync_flk_en, &flk_diff);
 	do_skip = do_fps_sync_sa(p_sa_cfg, p_para, sync_flk_en);
 
-	out_fl_us = p_para->stable_fl_us;
-	fs_alg_setup_basic_out_fl(idx, &out_fl_us, sync_flk_en, &flk_diff);
+	out_fl_us = ((fs_inst[idx].fl_active_delay == 3))
+		? p_para->stable_fl_us
+		: (p_para->pure_min_fl_us/p_para->f_cell);
+	fs_alg_setup_basic_out_fl(idx, &out_fl_us, 0, &flk_diff);
 
 	fs_alg_sa_update_fl_us(idx, out_fl_us, p_para);
 

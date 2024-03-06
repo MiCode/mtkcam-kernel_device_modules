@@ -1036,6 +1036,20 @@ static void fs_chk_fl_info_updated_from_drv(const unsigned int idx,
 	unsigned int chk_diff;
 	unsigned int i;
 
+	if (unlikely(output_ctrl->out_fl_lc == 0)) {
+		LOG_PF_INF(
+			"[%s] NOTICE: [%u] ID:%#x(sidx:%u), (%d/%u), out_fl_lc(FS:%u/drv:%u), skip check since out_fl_lc:0\n",
+			caller,
+			idx,
+			output_ctrl->sensor_id,
+			output_ctrl->sensor_idx,
+			output_ctrl->req_id,
+			fs_mgr.sof_cnt_arr[idx],
+			output_ctrl->out_fl_lc,
+			update_ctrl->out_fl_lc);
+		return;
+	}
+
 	chk_diff = (update_ctrl->out_fl_lc >= output_ctrl->out_fl_lc)
 		? (update_ctrl->out_fl_lc - output_ctrl->out_fl_lc)
 		: (output_ctrl->out_fl_lc - update_ctrl->out_fl_lc);
@@ -1769,9 +1783,6 @@ static void fs_set_framelength_lc(const unsigned int idx,
 	const unsigned int cmd_id = fs_mgr.cb_info[idx].cmd_id;
 	unsigned int out_fl_lc = 0;
 	unsigned int fl_lc_arr[FS_HDR_MAX] = {0};
-
-	if (unlikely(fl_lc == 0))
-		return;
 
 	/* get fs algo output fl info and sync results */
 	fs_alg_get_out_fl_info(idx, &out_fl_lc, fl_lc_arr, FS_HDR_MAX);

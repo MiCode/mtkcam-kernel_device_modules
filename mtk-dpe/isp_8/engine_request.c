@@ -88,6 +88,7 @@ signed int dpe_init_request(struct request_dpe *req)
 		return -1;
 
 	req->state = REQUEST_STATE_EMPTY;
+	req->pid = -1;
 	dpe_init_ring_ctl(&req->fctl);
 	dpe_set_ring_size(&req->fctl, MAX_FRAMES_PER_REQUEST);
 
@@ -255,6 +256,7 @@ signed int dpe_enque_request_isp8(struct engine_requests *eng, unsigned int fcnt
 		LOG_ERR("Failed to enque request, check cb");
 		goto ERROR;
 	}
+	LOG_INF("[ERIC] pid: %d, eqEGNIdx: %d\n", pid, r);
 
 	spin_lock_irqsave(lock, flags);
 
@@ -474,19 +476,22 @@ int dpe_update_request_isp8(struct engine_requests *eng, pid_t *pid)
 	unsigned int i, n;
 	unsigned int f = 0;
 	int req_jobs = -1;
+	int _icnt = eng->req_ctl.icnt;
 
 	if (eng == NULL)
 		return -1;
 
 	/* TODO: request ring */
-	for (i = eng->req_ctl.icnt; i < MAX_REQUEST_SIZE_PER_ENGINE; i++) {
+	// for (i = eng->req_ctl.icnt; i < MAX_REQUEST_SIZE_PER_ENGINE; i++) {
+	for (i = 0; i < MAX_REQUEST_SIZE_PER_ENGINE; i++) {
 		/* find 1st running request */
-		if (eng->reqs[i].state != REQUEST_STATE_RUNNING)
+		_icnt = (_icnt+i) % MAX_REQUEST_SIZE_PER_ENGINE;
+		if (eng->reqs[_icnt].state != REQUEST_STATE_RUNNING)
 			continue;
 
 		/* find 1st running frame, f. */
 		for (f = 0; f < MAX_FRAMES_PER_REQUEST; f++) {
-			if (eng->reqs[i].frames[f].state ==
+			if (eng->reqs[_icnt].frames[f].state ==
 							FRAME_STATUS_RUNNING)
 				break;
 		}
@@ -494,20 +499,20 @@ int dpe_update_request_isp8(struct engine_requests *eng, pid_t *pid)
 		if (f == MAX_FRAMES_PER_REQUEST) {
 			LOG_ERR(
 			"[%s]No running frames in a running request(%d).",
-								__func__, i);
+								__func__, _icnt);
 			break;
 		}
 
-		eng->reqs[i].frames[f].state = FRAME_STATUS_FINISHED;
-		LOG_INF("[%s]request %d of frame %d finished.\n",
-							__func__, i, f);
+		eng->reqs[_icnt].frames[f].state = FRAME_STATUS_FINISHED;
+		LOG_INF("[%s] pid: %d request %d of frame %d finished.\n",
+							__func__, eng->reqs[_icnt].pid, _icnt, f);
 		/*TODO: to obtain statistics */
 		if (eng->ops->req_feedback_cb == NULL) {
 			LOG_DBG("NULL req_feedback_cb");
 			goto NO_FEEDBACK;
 		}
 
-		if (eng->ops->req_feedback_cb(&eng->reqs[i].frames[f])) {
+		if (eng->ops->req_feedback_cb(&eng->reqs[_icnt].frames[f])) {
 			LOG_ERR("Failed to feedback statistics, check cb");
 			goto NO_FEEDBACK;
 		}
@@ -515,18 +520,18 @@ NO_FEEDBACK:
 		n = f + 1;
 		if ((n == MAX_FRAMES_PER_REQUEST) ||
 			((n < MAX_FRAMES_PER_REQUEST) &&
-			(eng->reqs[i].frames[n].state == FRAME_STATUS_EMPTY))) {
+			(eng->reqs[_icnt].frames[n].state == FRAME_STATUS_EMPTY))) {
 
 			req_jobs = 0;
-			(*pid) = eng->reqs[i].pid;
+			(*pid) = eng->reqs[_icnt].pid;
 
-			eng->reqs[i].state = REQUEST_STATE_FINISHED;
+			eng->reqs[_icnt].state = REQUEST_STATE_FINISHED;
 			eng->req_ctl.icnt = (eng->req_ctl.icnt + 1) %
 						MAX_REQUEST_SIZE_PER_ENGINE;
 		} else {
 			LOG_INF(
 			"[%s]more frames left of request(%d/%d).", __func__,
-							i, eng->req_ctl.icnt);
+							_icnt, eng->req_ctl.icnt);
 		}
 		break;
 	}
@@ -537,11 +542,13 @@ EXPORT_SYMBOL(dpe_update_request_isp8);
 
 /*TODO: called in DEQUE_REQ */
 signed int dpe_deque_request_isp8(
-	struct engine_requests *eng, unsigned int *fcnt, void *req)
+	struct engine_requests *eng, unsigned int *fcnt, void *req, pid_t pid)
 {
 	unsigned int r;
 	unsigned int f;
 	unsigned int m_real_ReqNum;
+	int i;
+	int _rcnt = eng->req_ctl.rcnt;
 
 	if (eng == NULL)
 		return -1;
@@ -550,10 +557,19 @@ signed int dpe_deque_request_isp8(
 	/* FIFO when rcnt starts from 0 */
 	f = eng->reqs[r].fctl.rcnt;
 
-	if (eng->reqs[r].state != REQUEST_STATE_FINISHED) {
-		LOG_ERR("[%s]Request(%d) NOT finished", __func__, r);
+	for (i = 0; i < MAX_REQUEST_SIZE_PER_ENGINE; i++) {
+		_rcnt = (_rcnt+i) % MAX_REQUEST_SIZE_PER_ENGINE;
+		if (eng->reqs[_rcnt].state == REQUEST_STATE_FINISHED
+			&& eng->reqs[_rcnt].pid == pid)
+			break;
+	}
+	if (i == MAX_REQUEST_SIZE_PER_ENGINE
+		|| eng->reqs[_rcnt].state != REQUEST_STATE_FINISHED
+		|| eng->reqs[_rcnt].pid != pid) {
+		LOG_ERR("[ERIC] No Request finished");
 		goto ERROR;
 	}
+	LOG_INF("[ERIC] pid: %d, dqEGNIdx: %d\n", pid, _rcnt);
 //#if 0
 //	for (f = 0; f < fcnt; f++)
 //		if (eng->reqs[r].frames[f].state != FRAME_STATUS_FINISHED) {
@@ -561,34 +577,33 @@ signed int dpe_deque_request_isp8(
 //			goto ERROR;
 //		}
 //#else
-	*fcnt = eng->reqs[r].fctl.size;
-	m_real_ReqNum = eng->reqs[r].fctl.size;
-	LOG_DBG("[%s]deque request(%d) has %d frames", __func__, r, *fcnt);
+	*fcnt = eng->reqs[_rcnt].fctl.size;
+	m_real_ReqNum = eng->reqs[_rcnt].fctl.size;
+	LOG_DBG("[%s]deque request(%d) has %d frames", __func__, _rcnt, *fcnt);
 //#endif
 	if (eng->ops->req_deque_cb == NULL || req == NULL) {
 		LOG_ERR("[%s]NULL req_deque_cb/req", __func__);
 		goto ERROR;
 	}
 
-	if (eng->ops->req_deque_cb(eng->reqs[r].frames, req, r)) {
+	if (eng->ops->req_deque_cb(eng->reqs[_rcnt].frames, req, _rcnt)) {
 		LOG_ERR("[%s]Failed to deque, check req_deque_cb", __func__);
 		goto ERROR;
 	}
 
 	//for (f = 0; f < *fcnt; f++)
 	for (f = 0; f < m_real_ReqNum; f++)
-		eng->reqs[r].frames[f].state = FRAME_STATUS_EMPTY;
-	eng->reqs[r].state = REQUEST_STATE_EMPTY;
-	eng->reqs[r].pid = 0;
+		eng->reqs[_rcnt].frames[f].state = FRAME_STATUS_EMPTY;
+	// eng->reqs[_rcnt].state = REQUEST_STATE_EMPTY;
+	eng->reqs[_rcnt].pid = -1;
 
-	eng->reqs[r].fctl.wcnt = 0;
-	eng->reqs[r].fctl.rcnt = 0;
-	eng->reqs[r].fctl.icnt = 0;
-	eng->reqs[r].fctl.gcnt = 0;
-	eng->reqs[r].fctl.size = 0;
-
-	eng->req_ctl.rcnt = (r + 1) % MAX_REQUEST_SIZE_PER_ENGINE;
-
+	eng->reqs[_rcnt].fctl.wcnt = 0;
+	eng->reqs[_rcnt].fctl.rcnt = 0;
+	eng->reqs[_rcnt].fctl.icnt = 0;
+	eng->reqs[_rcnt].fctl.gcnt = 0;
+	eng->reqs[_rcnt].fctl.size = 0;
+	eng->reqs[_rcnt].state = REQUEST_STATE_EMPTY;
+	eng->req_ctl.rcnt = (eng->req_ctl.rcnt + 1) % MAX_REQUEST_SIZE_PER_ENGINE;
 	return 0;
 ERROR:
 	return -1;

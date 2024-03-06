@@ -227,7 +227,7 @@ struct DPE_CLK_STRUCT dpe_clk;
 #define IRQ_LOG
 
 spinlock_t REQ_LOCK;
-unsigned int ii;
+unsigned int reqidx;
 #if DPE_IRQ_ENABLE
 /* static irqreturn_t DPE_Irq_CAM_A(signed int  Irq,void *DeviceId); */
 static irqreturn_t ISP_Irq_DVP(signed int Irq, void *DeviceId);
@@ -556,6 +556,7 @@ struct DPE_INFO_STRUCT {
 	struct workqueue_struct *wkqueue;
 	struct workqueue_struct *cmdq_wq;
 	unsigned int UserCount; /* User Count */
+	unsigned int ServeCount; /*Serve Count */
 	unsigned int DebugMask; /* Debug Mask */
 	signed int IrqNum;
 	struct DPE_IRQ_INFO_STRUCT IrqInfo;
@@ -7303,18 +7304,18 @@ static long DPE_ioctl(struct file *pFile, unsigned int Cmd, unsigned long Param)
 
 				if (kDpeReq.m_pDpeConfig->Dpe_engineSelect == MODE_DVS_ONLY)
 					dpe_deque_request_isp8(&dpe_reqs_dvs,
-					&kDpeReq.m_ReqNum, &kDpeReq);
+					&kDpeReq.m_ReqNum, &kDpeReq, pUserInfo->Pid);
 
 
 				if ((kDpeReq.m_pDpeConfig->Dpe_engineSelect == MODE_DVP_ONLY) ||
 					(kDpeReq.m_pDpeConfig->Dpe_engineSelect == 0))
 					dpe_deque_request_isp8(&dpe_reqs_dvp,
-					&kDpeReq.m_ReqNum, &kDpeReq);
+					&kDpeReq.m_ReqNum, &kDpeReq, pUserInfo->Pid);
 
 				if ((kDpeReq.m_pDpeConfig->Dpe_engineSelect == MODE_DVGF_ONLY) ||
 					(kDpeReq.m_pDpeConfig->Dpe_engineSelect == 0))
 					dpe_deque_request_isp8(&dpe_reqs_dvgf,
-					&kDpeReq.m_ReqNum, &kDpeReq);
+					&kDpeReq.m_ReqNum, &kDpeReq, pUserInfo->Pid);
 
 				dequeNum = kDpeReq.m_ReqNum;
 				dpe_DpeReq.m_ReqNum = dequeNum;
@@ -7624,7 +7625,9 @@ static signed int DPE_open(struct inode *pInode, struct file *pFile)
 		goto EXIT;
 	} else {
 		pUserInfo = (struct DPE_USER_INFO_STRUCT *) pFile->private_data;
-		pUserInfo->Pid = DPEInfo.UserCount;
+		// pUserInfo->Pid = DPEInfo.UserCount;
+		pUserInfo->Pid = DPEInfo.ServeCount;
+		DPEInfo.ServeCount = (DPEInfo.ServeCount+1) % IRQ_USER_NUM_MAX;
 		pUserInfo->Tid = current->tgid;
 	}
 	/*  */
@@ -7916,8 +7919,8 @@ static int vidioc_qbuf(struct file *file, void *priv, struct v4l2_buffer *p)
 	unsigned int qq;
 
 	spin_lock(&REQ_LOCK);
-	qq = ii;
-	ii = (ii+1) % MAX_REQ;
+	qq = reqidx;
+	reqidx = (reqidx+1) % MAX_REQ;
 	// LOG_INF("[%s][ERIC]qq= %d\n", __func__, qq);
 	spin_unlock(&REQ_LOCK);
 
@@ -8049,22 +8052,26 @@ static int vidioc_dqbuf(struct file *file, void *priv, struct v4l2_buffer *p)
 	static struct DPE_Config_ISP8 cfgs[MAX_REQ][3];//[MAX_FRAMES_PER_REQUEST];
 	//unsigned long flags;
 	//unsigned int m_real_ReqNum;
+	struct DPE_USER_INFO_STRUCT *pUserInfo;
 
 	unsigned int dd;
 
 	spin_lock(&REQ_LOCK);
-	dd = ii;
-	ii = (ii+1) % MAX_REQ;
+	dd = reqidx;
+	reqidx = (reqidx+1) % MAX_REQ;
 	// LOG_INF("[%s][ERIC]dd= %d\n", __func__, dd);
 	spin_unlock(&REQ_LOCK);
 	//struct DPE_Config_ISP8 *pDpeConfig;
+
+	pUserInfo = (struct DPE_USER_INFO_STRUCT *) (file->private_data);
+
 	if (DPE_debug_log_en == 1) {
 		LOG_INF("DPE_DumpReg  start\n");
 		DPE_DumpReg();//!test
 		LOG_INF("DPE_DumpReg end\n");
 	}
-	//LOG_INF("[%s]buf address/len = 0x%llu/0x%x, ureq[ii] =0x%x\n",
-	//__func__, p->m.userptr,  p->length, sizeof(ureq[ii]));
+	//LOG_INF("[%s]buf address/len = 0x%llu/0x%x, ureq[reqidx] =0x%x\n",
+	//__func__, p->m.userptr,  p->length, sizeof(ureq[reqidx]));
 	Ret = copy_from_user(&ureq[dd], (void __user *)p->m.userptr, sizeof(struct DPE_Request));
 	Ret = copy_from_user(&cfgs[dd][0], (void __user *)ureq[dd].m_pDpeConfig,
 				ureq[dd].m_ReqNum * sizeof(struct DPE_Config_ISP8));
@@ -8079,16 +8086,17 @@ static int vidioc_dqbuf(struct file *file, void *priv, struct v4l2_buffer *p)
 			cfgs[dd][0].Dpe_engineSelect);
 		}
 		if (cfgs[dd][0].Dpe_engineSelect == MODE_DVS_ONLY)
-			dpe_deque_request_isp8(&dpe_reqs_dvs, &kreq[dd].m_ReqNum, &kreq[dd]);
-
+			dpe_deque_request_isp8(&dpe_reqs_dvs, &kreq[dd].m_ReqNum,
+			&kreq[dd], pUserInfo->Pid);
 
 		if ((cfgs[dd][0].Dpe_engineSelect == MODE_DVP_ONLY) ||
-				(cfgs[dd][0].Dpe_engineSelect == MODE_DVS_DVP_BOTH)) {
-			dpe_deque_request_isp8(&dpe_reqs_dvp, &kreq[dd].m_ReqNum, &kreq[dd]);
-		}
+				(cfgs[dd][0].Dpe_engineSelect == MODE_DVS_DVP_BOTH))
+			dpe_deque_request_isp8(&dpe_reqs_dvp, &kreq[dd].m_ReqNum,
+			&kreq[dd], pUserInfo->Pid);
 
 		if (cfgs[dd][0].Dpe_engineSelect == MODE_DVGF_ONLY)
-			dpe_deque_request_isp8(&dpe_reqs_dvgf, &kreq[dd].m_ReqNum, &kreq[dd]);
+			dpe_deque_request_isp8(&dpe_reqs_dvgf, &kreq[dd].m_ReqNum,
+			&kreq[dd], pUserInfo->Pid);
 
 
 		//spin_unlock_irqrestore(&(DPEInfo.SpinLockIrq[DPE_IRQ_TYPE_INT_DVP_ST]),
@@ -8542,8 +8550,8 @@ if (DPE_dev->irq > 0) {
 #endif
 	//pm_runtime_enable(gdev);
 
-		ii = 0;
 		/* Init spinlocks */
+		reqidx = 0;
 		spin_lock_init(&(REQ_LOCK));
 		spin_lock_init(&(DPEInfo.SpinLockDPE));
 		spin_lock_init(&(DPEInfo.SpinLockFD));//!
@@ -8572,6 +8580,7 @@ if (DPE_dev->irq > 0) {
 		/* Init DPEInfo */
 		//mutex_lock(&(MutexDPERef));
 		DPEInfo.UserCount = 0;
+		DPEInfo.ServeCount = 0;
 //		mutex_unlock(&(MutexDPERef));
 		/*  */
 		DPEInfo.IrqInfo.Mask[DPE_IRQ_TYPE_INT_DVP_ST] = INT_ST_MASK_DPE;

@@ -87,7 +87,7 @@ int dpe_set_engine_ops_isp8(struct engine_requests *eng,
 signed int dpe_enque_request_isp8(struct engine_requests *eng, unsigned int fcnt,
 							void *req, pid_t pid, spinlock_t *lock);
 signed int dpe_deque_request_isp8(struct engine_requests *eng, unsigned int *fcnt,
-								void *req);
+								void *req, pid_t pid);
 int dpe_update_request_isp8(struct engine_requests *eng, pid_t *pid);
 bool dpe_request_running_isp8(struct engine_requests *eng);
 

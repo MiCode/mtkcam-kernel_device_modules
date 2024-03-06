@@ -30,8 +30,6 @@
 /********************************************************************
  * Global Define
  ********************************************************************/
-#define TRAW_INIT_ARRAY_COUNT	3
-
 #define TRAW_CTL_ADDR_END		0x470
 #define TRAW_DMA_ADDR_OFST		0x4000
 #define TRAW_DMA_ADDR_END		0x5D30
@@ -50,7 +48,7 @@
  * Global Variable
  ********************************************************************/
 const struct mtk_imgsys_init_array
-			mtk_imgsys_traw_init_ary[TRAW_INIT_ARRAY_COUNT] = {
+			mtk_imgsys_traw_init_ary[] = {
 	{0x00B0, 0x3F}, /* TRAWCTL_INT_STATUS_CLR_EN */
 	{0x00B4, 0x80000000}, /* TRAWCTL_INT1_EN */
 	{0x0348, 0x00000001}, /* TRAWCTL_QOF_DDREN */
@@ -825,7 +823,7 @@ void imgsys_traw_set_initial_value_hw(struct mtk_imgsys_dev *imgsys_dev)
 		return;
 	}
 
-	for (i = 0 ; i < TRAW_INIT_ARRAY_COUNT ; i++) {
+	for (i = 0; i < ARRAY_SIZE(mtk_imgsys_traw_init_ary); i++) {
 		ofset = trawRegBA + mtk_imgsys_traw_init_ary[i].ofset;
 		writel(mtk_imgsys_traw_init_ary[i].val, ofset);
 	}
@@ -843,7 +841,7 @@ void imgsys_ltraw_set_initial_value_hw(struct mtk_imgsys_dev *imgsys_dev)
 		return;
 	}
 
-	for (i = 0 ; i < TRAW_INIT_ARRAY_COUNT ; i++) {
+	for (i = 0; i < ARRAY_SIZE(mtk_imgsys_traw_init_ary); i++) {
 		ofset = trawRegBA + mtk_imgsys_traw_init_ary[i].ofset;
 		writel(mtk_imgsys_traw_init_ary[i].val, ofset);
 	}
@@ -872,7 +870,7 @@ void imgsys_traw_cmdq_set_initial_value_hw(struct mtk_imgsys_dev *imgsys_dev,
 		       0xffffffff);
 
 	/* ori traw set */
-	for (i = 0 ; i < TRAW_INIT_ARRAY_COUNT ; i++) {
+	for (i = 0; i < ARRAY_SIZE(mtk_imgsys_traw_init_ary); i++) {
 		ofset = TRAW_BASE + mtk_imgsys_traw_init_ary[i].ofset;
 		cmdq_pkt_write(package, NULL, ofset /*address*/,
 				mtk_imgsys_traw_init_ary[i].val, 0xffffffff);
@@ -894,7 +892,7 @@ void imgsys_ltraw_cmdq_set_initial_value_hw(struct mtk_imgsys_dev *imgsys_dev,
 	package = (struct cmdq_pkt *)pkt;
 
 	/* ori traw set */
-	for (i = 0 ; i < TRAW_INIT_ARRAY_COUNT ; i++) {
+	for (i = 0; i < ARRAY_SIZE(mtk_imgsys_traw_init_ary); i++) {
 		ofset = LTRAW_BASE + mtk_imgsys_traw_init_ary[i].ofset;
 		cmdq_pkt_write(package, NULL, ofset /*address*/,
 				mtk_imgsys_traw_init_ary[i].val, 0xffffffff);

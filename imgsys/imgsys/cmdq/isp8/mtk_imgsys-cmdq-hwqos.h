@@ -16,11 +16,9 @@ void mtk_imgsys_cmdq_hwqos_init(struct mtk_imgsys_dev *imgsys_dev);
 void mtk_imgsys_cmdq_hwqos_release(void);
 void mtk_imgsys_cmdq_hwqos_streamon(const struct mtk_imgsys_hwqos *hwqos_info);
 void mtk_imgsys_cmdq_hwqos_streamoff(void);
-void mtk_imgsys_cmdq_hwqos_is_report_max(const uint32_t task_cnt,
-					bool *is_max);
 void mtk_imgsys_cmdq_hwqos_report(
 	struct cmdq_pkt *pkt,
 	const struct mtk_imgsys_hwqos *hwqos_info,
-	bool *is_max);
+	const int *fps);
 
 #endif  // IMGSYS_PLATFORMS_ISP8_MTK_IMGSYS_CMDQ_HWQOS_H_

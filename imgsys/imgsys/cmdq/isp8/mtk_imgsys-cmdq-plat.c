@@ -1383,7 +1383,6 @@ int imgsys_cmdq_sendtask_plat8(struct mtk_imgsys_dev *imgsys_dev,
 	u64 tsflushStart = 0, tsFlushEnd = 0;
 	bool isTimeShared = 0;
 	u32 log_sz = 0;
-	bool is_report_max = false;
 
 	dvfs_info = &imgsys_dev->dvfs_info;
 	/* PMQOS API */
@@ -1399,10 +1398,6 @@ int imgsys_cmdq_sendtask_plat8(struct mtk_imgsys_dev *imgsys_dev,
 		mtk_imgsys_mmqos_set_by_scen_plat8(imgsys_dev, frm_info, 1);
 	);
 	#endif
-	MTK_IMGSYS_QOS_ENABLE(imgsys_dev->hwqos_info.hwqos_support,
-		mtk_imgsys_cmdq_hwqos_is_report_max(
-			dvfs_info->vss_task_cnt, &is_report_max);
-	);
 	mutex_unlock(&(imgsys_dev->dvfs_qos_lock));
 	IMGSYS_CMDQ_SYSTRACE_END();
 	tsDvfsQosEnd = ktime_get_boottime_ns()/1000;
@@ -1573,7 +1568,7 @@ int imgsys_cmdq_sendtask_plat8(struct mtk_imgsys_dev *imgsys_dev,
 
 			MTK_IMGSYS_QOS_ENABLE(imgsys_dev->hwqos_info.hwqos_support,
 				mtk_imgsys_cmdq_hwqos_report(
-					pkt, &imgsys_dev->hwqos_info, &is_report_max);
+					pkt, &imgsys_dev->hwqos_info, &frm_info->fps);
 			);
 			ret = imgsys_cmdq_parser_plat8(imgsys_dev, frm_info, pkt,
 				&cmd[cmd_idx], hw_comb, frm_info->user_info[frm_idx].sw_ridx,
@@ -2243,12 +2238,12 @@ void mtk_imgsys_power_ctrl_plat8(struct mtk_imgsys_dev *imgsys_dev, bool isPower
 				if ((BIT(i) & img_main_modules) && imgsys_dev->modules[i].set)
 					imgsys_dev->modules[i].set(imgsys_dev);
 
-			MTK_IMGSYS_QOS_ENABLE(imgsys_dev->hwqos_info.hwqos_support,
-				mtk_imgsys_cmdq_hwqos_streamon(&imgsys_dev->hwqos_info);
-			);
-
 			MTK_IMGSYS_QOF_NEED_RUN(imgsys_dev->qof_ver,
 				mtk_imgsys_cmdq_qof_stream_on(imgsys_dev);
+			);
+
+			MTK_IMGSYS_QOS_ENABLE(imgsys_dev->hwqos_info.hwqos_support,
+				mtk_imgsys_cmdq_hwqos_streamon(&imgsys_dev->hwqos_info);
 			);
 
 			mutex_unlock(&(imgsys_dev->power_ctrl_lock));
@@ -2263,15 +2258,15 @@ void mtk_imgsys_power_ctrl_plat8(struct mtk_imgsys_dev *imgsys_dev, bool isPower
 
 			mutex_lock(&(imgsys_dev->power_ctrl_lock));
 
+			MTK_IMGSYS_QOS_ENABLE(imgsys_dev->hwqos_info.hwqos_support,
+				mtk_imgsys_cmdq_hwqos_streamoff();
+			);
+
 			MTK_IMGSYS_QOF_NEED_RUN(imgsys_dev->qof_ver,
 				mtk_imgsys_cmdq_qof_stream_off(imgsys_dev);
 			);
 
 			mtk_imgsys_mod_put(imgsys_dev);
-
-			MTK_IMGSYS_QOS_ENABLE(imgsys_dev->hwqos_info.hwqos_support,
-				mtk_imgsys_cmdq_hwqos_streamoff();
-			);
 
 			pm_runtime_put_sync(imgsys_dev->dev);
 			//pm_runtime_mark_last_busy(imgsys_dev->dev);

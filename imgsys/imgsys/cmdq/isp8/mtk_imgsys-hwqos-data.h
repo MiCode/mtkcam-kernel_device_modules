@@ -49,9 +49,7 @@
 #define BWR_IMG_RW_DVFS_FREQ                4     // 16 MB/s
 
 #define BWR_IMG_SRT_ENG_BW_RAT              FLOAT2FIX(BW_RAT, BWR_BW_RAT_POINT)  // 0x7D
-#define BWR_IMG_SRT_ENG_INIT_RW_ENG_BW      0x0
-#define BWR_IMG_SRT_ENG_INIT_TTL_BW         0x0
-#define BWR_IMG_SRT_ENG_MAX_RW_ENG_BW       FLOAT2FIX(879.75, BWR_BW_POINT)     // 0x1B7E
+#define BWR_IMG_SRT_ENG_MAX_RW_ENG_BW       FLOAT2FIX(2200, BWR_BW_POINT)
 #define BWR_IMG_SRT_ENG_MAX_TTL_BW          FLOAT2FIX(11236,  BWR_BW_POINT)     // 0x15F20
 
 /* Enable engine 0~8 for BWR: 0b111111111 */
@@ -214,9 +212,9 @@ struct qos_map qos_map_data[] = {
 	{BLS_OSTDL_REG(4, 7, 8), BWR_BW_REG(0, 0, 4, 10)},
 	{BLS_OSTDL_REG(5, 7, 8), BWR_BW_REG(1, 1, 4, 15)},
 	{BLS_OSTDL_REG(6, 6, 8), BWR_BW_REG(1, 1, 1, 22)},
-	{BLS_OSTDL_REG(7, 7, 8), BWR_BW_REG(1, 1, 5, 18)},
-	{BLS_OSTDL_REG(8, 7, 8), BWR_BW_REG(2, 2, 7, 12)},
-	{BLS_OSTDL_REG(9, 7, 8), BWR_BW_REG(2, 2, 8, 18)},
+	// {BLS_OSTDL_REG(7, 7, 8), BWR_BW_REG(1, 1, 5, 18)},
+	// {BLS_OSTDL_REG(8, 7, 8), BWR_BW_REG(2, 2, 7, 12)},
+	// {BLS_OSTDL_REG(9, 7, 8), BWR_BW_REG(2, 2, 8, 18)},
 	{BLS_OSTDL_REG(10, 7, 8), BWR_BW_REG(0, 3, 4, 38)},
 	{BLS_OSTDL_REG(11, 7, 8), BWR_BW_REG(0, 3, 7, 12)},
 	{BLS_OSTDL_REG(12, 7, 8), BWR_BW_REG(0, 3, 3, 40)},

@@ -383,13 +383,14 @@ int qof_mtcmos_raw_voter(struct mtk_raw_device *raw, bool enable)
 	u32 state_dbg = 0;
 	u32 val = 0;
 	int ret = 0;
+	unsigned long flags;
 
 	if (!qof_is_enabled(raw)) {
 		dev_info(raw->dev, "[%s] qof not enabled", __func__);
 		return 0;
 	}
 
-	mutex_lock(&raw->apmcu_voter_lock);
+	spin_lock_irqsave(&raw->apmcu_voter_lock, flags);
 
 	if (enable)
 		raw->apmcu_voter_cnt++;
@@ -423,7 +424,8 @@ int qof_mtcmos_raw_voter(struct mtk_raw_device *raw, bool enable)
 	writel(val | qof_ctrl_write, raw->qof_base + REG_QOF_CAM_A_QOF_CTL_1);
 
 	if (pwr_state_wait) {
-		ret = readx_poll_timeout(readl, raw->qof_base + REG_QOF_CAM_A_QOF_STATE_DBG_1,
+		// NOTE: could be in isr context
+		ret = readx_poll_timeout_atomic(readl, raw->qof_base + REG_QOF_CAM_A_QOF_STATE_DBG_1,
 					 state_dbg, state_dbg & pwr_state_wait,
 					 50 /* delay, us */, PWR_STATE_POLLING_TIMEOUT_LONG_US);
 
@@ -432,7 +434,7 @@ int qof_mtcmos_raw_voter(struct mtk_raw_device *raw, bool enable)
 	}
 
 UNLOCK:
-	mutex_unlock(&raw->apmcu_voter_lock);
+	spin_unlock_irqrestore(&raw->apmcu_voter_lock, flags);
 	return ret;
 }
 
@@ -463,8 +465,9 @@ static int qof_reset_mtcmos_raw_voter(struct mtk_raw_device *raw)
 {
 	int ret = 0;
 	u32 val;
+	unsigned long flags;
 
-	mutex_lock(&raw->apmcu_voter_lock);
+	spin_lock_irqsave(&raw->apmcu_voter_lock, flags);
 
 	if (raw->apmcu_voter_cnt > 1)
 		dev_info(raw->dev, "WARNING: QOF apmcu voter is %d (>1)",
@@ -476,7 +479,7 @@ static int qof_reset_mtcmos_raw_voter(struct mtk_raw_device *raw)
 
 	raw->apmcu_voter_cnt = 0;
 
-	mutex_unlock(&raw->apmcu_voter_lock);
+	spin_unlock_irqrestore(&raw->apmcu_voter_lock, flags);
 	return ret;
 }
 

@@ -94,7 +94,7 @@ struct mtk_raw_device {
 	/* QOF */
 	const struct raw_io_ops *io_ops;
 	int apmcu_voter_cnt;
-	struct mutex apmcu_voter_lock;
+	spinlock_t apmcu_voter_lock;
 };
 
 struct mtk_yuv_device {

@@ -33,6 +33,7 @@
 //#include "mtk_cam-hsf.h"
 #include "mtk_cam-trace.h"
 #include "iommu_debug.h"
+#include "mtk-smi-dbg.h"
 
 //static int debug_dump_fbc;
 //module_param(debug_dump_fbc, int, 0644);
@@ -2104,6 +2105,67 @@ static const struct component_ops mtk_raw_component_ops = {
 	.unbind = mtk_raw_component_unbind,
 };
 
+static int mtk_raw_smi_pwr_get(void *data)
+{
+	struct mtk_raw_device *raw = data;
+
+	if (raw)
+		qof_mtcmos_raw_voter(raw, true);
+
+	return 0;
+}
+
+static int mtk_raw_smi_pwr_get_if_in_use(void *data)
+{
+	struct mtk_raw_device *raw = data;
+
+	if (raw && pm_runtime_active(raw->dev)) {
+		qof_mtcmos_raw_voter(raw, true);
+		return 1;
+	}
+
+	return 0;
+}
+
+static int mtk_raw_smi_pwr_put(void *data)
+{
+	struct mtk_raw_device *raw = data;
+
+	if (raw && pm_runtime_active(raw->dev)) {
+		qof_mtcmos_raw_voter(raw, false);
+		return 1;
+	}
+
+	return 0;
+}
+
+static struct smi_user_pwr_ctrl smi_raw_a_pwr_cb = {
+	 .name = "cam_rawa_cb",
+	 .data = NULL,
+	 .smi_user_id =  MTK_SMI_CAM_RAWA,
+	 .smi_user_get = mtk_raw_smi_pwr_get,
+	 .smi_user_get_if_in_use = mtk_raw_smi_pwr_get_if_in_use,
+	 .smi_user_put = mtk_raw_smi_pwr_put,
+};
+
+static struct smi_user_pwr_ctrl smi_raw_b_pwr_cb = {
+	 .name = "cam_rawb_cb",
+	 .data = NULL,
+	 .smi_user_id =  MTK_SMI_CAM_RAWB,
+	 .smi_user_get = mtk_raw_smi_pwr_get,
+	 .smi_user_get_if_in_use = mtk_raw_smi_pwr_get_if_in_use,
+	 .smi_user_put = mtk_raw_smi_pwr_put,
+};
+
+static struct smi_user_pwr_ctrl smi_raw_c_pwr_cb = {
+	 .name = "cam_rawc_cb",
+	 .data = NULL,
+	 .smi_user_id =  MTK_SMI_CAM_RAWC,
+	 .smi_user_get = mtk_raw_smi_pwr_get,
+	 .smi_user_get_if_in_use = mtk_raw_smi_pwr_get_if_in_use,
+	 .smi_user_put = mtk_raw_smi_pwr_put,
+};
+
 static int mtk_raw_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
@@ -2120,6 +2182,23 @@ static int mtk_raw_probe(struct platform_device *pdev)
 	ret = mtk_raw_of_probe(pdev, raw_dev);
 	if (ret)
 		return ret;
+
+	switch (raw_dev->id) {
+	case RAW_A:
+		smi_raw_a_pwr_cb.data = raw_dev;
+		mtk_smi_dbg_register_pwr_ctrl_cb(&smi_raw_a_pwr_cb);
+		break;
+	case RAW_B:
+		smi_raw_b_pwr_cb.data = raw_dev;
+		mtk_smi_dbg_register_pwr_ctrl_cb(&smi_raw_b_pwr_cb);
+		break;
+	case RAW_C:
+		smi_raw_c_pwr_cb.data = raw_dev;
+		mtk_smi_dbg_register_pwr_ctrl_cb(&smi_raw_c_pwr_cb);
+		break;
+	default:
+		break;
+	}
 
 	ret = mtk_cam_qos_probe(dev, &raw_dev->qos,
 				GET_PLAT_HW(raw_icc_path_num));
@@ -2140,7 +2219,7 @@ static int mtk_raw_probe(struct platform_device *pdev)
 	raw_dev->default_printk_cnt = get_detect_count();
 
 	raw_dev->apmcu_voter_cnt = 0;
-	mutex_init(&raw_dev->apmcu_voter_lock);
+	spin_lock_init(&raw_dev->apmcu_voter_lock);
 
 	pm_runtime_enable(dev);
 
@@ -2162,6 +2241,23 @@ static int mtk_raw_remove(struct platform_device *pdev)
 	int i;
 
 	unregister_pm_notifier(&raw_dev->pm_notifier);
+
+	switch (raw_dev->id) {
+	case RAW_A:
+		smi_raw_a_pwr_cb.data = NULL;
+		mtk_smi_dbg_unregister_pwr_ctrl_cb(&smi_raw_a_pwr_cb);
+		break;
+	case RAW_B:
+		smi_raw_b_pwr_cb.data = NULL;
+		mtk_smi_dbg_unregister_pwr_ctrl_cb(&smi_raw_b_pwr_cb);
+		break;
+	case RAW_C:
+		smi_raw_c_pwr_cb.data = NULL;
+		mtk_smi_dbg_unregister_pwr_ctrl_cb(&smi_raw_c_pwr_cb);
+		break;
+	default:
+		break;
+	}
 
 	pm_runtime_disable(dev);
 	mtk_cam_qos_remove(&raw_dev->qos);

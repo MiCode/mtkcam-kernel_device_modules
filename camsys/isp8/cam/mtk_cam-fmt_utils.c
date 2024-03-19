@@ -81,6 +81,14 @@ void fill_ext_mtkcam_fmtdesc(struct v4l2_fmtdesc *f)
 		descr = "22-bit Bayer GRBG MTISP unpack"; break;
 	case V4L2_PIX_FMT_MTISP_SRGGB22:
 		descr = "22-bit Bayer RGGB MTISP unpack"; break;
+	case V4L2_PIX_FMT_MTISP_SBGGR24:
+		descr = "24-bit Bayer BGGR MTISP pack"; break;
+	case V4L2_PIX_FMT_MTISP_SGBRG24:
+		descr = "24-bit Bayer GBRG MTISP pack"; break;
+	case V4L2_PIX_FMT_MTISP_SGRBG24:
+		descr = "24-bit Bayer GRBG MTISP pack"; break;
+	case V4L2_PIX_FMT_MTISP_SRGGB24:
+		descr = "24-bit Bayer RGGB MTISP pack"; break;
 	case V4L2_PIX_FMT_MTISP_SBGGR8F:
 		descr = "8-bit Enhanced BGGR Packed"; break;
 	case V4L2_PIX_FMT_MTISP_SGBRG8F:
@@ -309,6 +317,7 @@ unsigned int mtk_cam_get_pixel_bits(unsigned int ipi_fmt)
 	case MTKCAM_IPI_IMG_FMT_FG_BAYER12_3P:
 		return 16;
 	case MTKCAM_IPI_IMG_FMT_RGB888:
+	case MTKCAM_IPI_IMG_FMT_BAYER24:
 		return 24;
 
 	default:
@@ -490,6 +499,11 @@ unsigned int mtk_cam_get_img_fmt(unsigned int fourcc)
 	case V4L2_PIX_FMT_MTISP_SGRBG22:
 	case V4L2_PIX_FMT_MTISP_SRGGB22:
 		return MTKCAM_IPI_IMG_FMT_BAYER22;
+	case V4L2_PIX_FMT_MTISP_SBGGR24:
+	case V4L2_PIX_FMT_MTISP_SGBRG24:
+	case V4L2_PIX_FMT_MTISP_SGRBG24:
+	case V4L2_PIX_FMT_MTISP_SRGGB24:
+		return MTKCAM_IPI_IMG_FMT_BAYER24;
 	case V4L2_PIX_FMT_MTISP_RAW8:
 		return MTKCAM_IPI_IMG_FMT_RAW8;
 	case V4L2_PIX_FMT_MTISP_RAW12:
@@ -677,6 +691,19 @@ const struct mtk_format_info *mtk_format_info(u32 format)
 			.bitpp = { 24, 0, 0, 0 }, .hdiv = 1, .vdiv = 1,
 			.bus_align = 2 * 8 /* 8p */ },
 		{ .format = V4L2_PIX_FMT_MTISP_SRGGB22,  .mem_planes = 1, .comp_planes = 1,
+			.bitpp = { 24, 0, 0, 0 }, .hdiv = 1, .vdiv = 1,
+			.bus_align = 2 * 8 /* 8p */ },
+			/* bayer24, packed */
+		{ .format = V4L2_PIX_FMT_MTISP_SBGGR24,  .mem_planes = 1, .comp_planes = 1,
+			.bitpp = { 24, 0, 0, 0 }, .hdiv = 1, .vdiv = 1,
+			.bus_align = 2 * 8 /* 8p */ },
+		{ .format = V4L2_PIX_FMT_MTISP_SGBRG24,  .mem_planes = 1, .comp_planes = 1,
+			.bitpp = { 24, 0, 0, 0 }, .hdiv = 1, .vdiv = 1,
+			.bus_align = 2 * 8 /* 8p */ },
+		{ .format = V4L2_PIX_FMT_MTISP_SGRBG24,  .mem_planes = 1, .comp_planes = 1,
+			.bitpp = { 24, 0, 0, 0 }, .hdiv = 1, .vdiv = 1,
+			.bus_align = 2 * 8 /* 8p */ },
+		{ .format = V4L2_PIX_FMT_MTISP_SRGGB24,  .mem_planes = 1, .comp_planes = 1,
 			.bitpp = { 24, 0, 0, 0 }, .hdiv = 1, .vdiv = 1,
 			.bus_align = 2 * 8 /* 8p */ },
 		/* bayer10, mipi */

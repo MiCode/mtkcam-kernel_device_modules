@@ -975,7 +975,7 @@ static void mtk_qof_print_cg_status(void)
 	if (((addr_val & BIT(1)) == BIT(1)) ||
 		((addr_val & BIT(6)) == BIT(6))) {
 		QOF_LOGI(" wpe3 CG Status: WPE3[0x%x]\n",
-		(readl(g_maped_rg[MAPED_RG_IMG_CG_WPE2_DIP1])));
+		(readl(g_maped_rg[MAPED_RG_IMG_CG_WPE3_DIP1])));
 	} else
 		QOF_LOGI("qof mtcmos wpe3 is off. sta=0x%x\n", readl(addr));
 }

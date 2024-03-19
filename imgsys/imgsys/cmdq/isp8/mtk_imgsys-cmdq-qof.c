@@ -490,11 +490,15 @@ static int qof_smi_isp_module_get_if_in_use(void *data, int module)
 				if (qof_check_module_cg_status(module) == false) {
 					QOF_LOGE("qof_check_module_cg_status CG error\n");
 					mtk_imgsys_cmdq_qof_dump(0, false);
+					ret = -1;
+					goto RETURN_FLOW;
 				}
 			}
 			ret = 1;
 		}
 	}
+
+RETURN_FLOW:
 	QOF_LOGI("ret=%d, pm_res=%d, mem_cnt=%u, MAIN[0x%x], VCORE[0x%x]\n",
 		ret,
 		pm_res,
@@ -503,7 +507,6 @@ static int qof_smi_isp_module_get_if_in_use(void *data, int module)
 		(readl(g_maped_rg[MAPED_RG_ISP_MAIN_PWR_CON])),
 		(readl(g_maped_rg[MAPED_RG_ISP_VCORE_PWR_CON])));
 	spin_unlock_irqrestore(&qof_lock, flag);
-
 	return ret;
 }
 

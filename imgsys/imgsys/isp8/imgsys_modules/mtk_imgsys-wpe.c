@@ -123,7 +123,6 @@ struct mtk_imgsys_wpe_dtable {
 
 void __iomem *gWpeRegBA[WPE_HW_NUM] = {0L};
 unsigned int gWpeRegBase[WPE_HW_NUM] = {0x34200000, 0x34500000, 0x34600000};
-unsigned int gWpeRegBaseAddr[3] = { 0x3420000, 0x34520000, 0x34620000 };
 
 int imgsys_wpe_tfault_callback(int port,
 	dma_addr_t mva, void *data)
@@ -385,7 +384,6 @@ void imgsys_wpe_cmdq_set_hw_initial_value(struct mtk_imgsys_dev *imgsys_dev,
 	unsigned int i = 0;
 	unsigned int ary_idx = 0;
 	struct cmdq_pkt *package = NULL;
-	unsigned int pWpeCtrl = 0L;
 
 	if (imgsys_dev == NULL || pkt == NULL) {
 		dump_stack();
@@ -399,14 +397,6 @@ void imgsys_wpe_cmdq_set_hw_initial_value(struct mtk_imgsys_dev *imgsys_dev,
 
 	if (hw_idx != REG_MAP_E_WPE_TNR) { // if not wpe_tnr
 		ary_idx = hw_idx - REG_MAP_E_WPE_EIS;
-
-		/* Wpe Macro HW Reset */
-		pWpeCtrl = gWpeRegBase[ary_idx] + SW_RST;
-		cmdq_pkt_write(package, NULL, pWpeCtrl /*address*/,
-			       0xF, 0xffffffff);
-		/* Clear HW Reset */
-		cmdq_pkt_write(package, NULL, pWpeCtrl /*address*/,
-			       0x0, 0xffffffff);
 		/* iomap registers */
 		for (i = 0 ; i < WPE_INIT_ARRAY_COUNT ; i++) {
 			ofset = gWpeRegBase[ary_idx] + mtk_imgsys_wpe_init_ary[i].ofset;

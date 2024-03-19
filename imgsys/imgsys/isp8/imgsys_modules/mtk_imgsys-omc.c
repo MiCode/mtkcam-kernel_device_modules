@@ -24,7 +24,6 @@
 #define OMC_HW_NUM        (2)
 void __iomem *gOmcRegBA[OMC_HW_NUM] = {0L}; //mapped physical addr
 unsigned int gOmcRegBase[OMC_HW_NUM] = {0x34540000, 0x34640000};
-unsigned int gOmcRegBaseAddr[OMC_HW_NUM] = {0x34560000, 0x34660000}; //macro TODO:
 
 //CTL_MOD_EN //TODO:
 #define DIP_DL    0x80000
@@ -440,9 +439,6 @@ void imgsys_omc_cmdq_set_hw_initial_value(struct mtk_imgsys_dev *imgsys_dev,
 	unsigned int i = 0;
 	unsigned int ary_idx = 0;
 	struct cmdq_pkt *package = NULL;
-	unsigned int HwIdx = 0;
-	unsigned int OmcRegBA = 0L;
-	unsigned int pOmcCtrl = 0L;
 
 	if (imgsys_dev == NULL || pkt == NULL) {
 		dump_stack();
@@ -453,16 +449,6 @@ void imgsys_omc_cmdq_set_hw_initial_value(struct mtk_imgsys_dev *imgsys_dev,
 
 	dev_dbg(imgsys_dev->dev, "%s: +\n", __func__);
 
-	HwIdx = hw_idx - REG_MAP_E_OMC_TNR;
-	OmcRegBA = gOmcRegBaseAddr[HwIdx];
-
-	/* Omc Macro HW Reset */
-	pOmcCtrl = OmcRegBA + SW_RST;
-	cmdq_pkt_write(package, NULL, pOmcCtrl /*address*/,
-			    0xF, 0xffffffff);
-	/* Clear HW Reset */
-	cmdq_pkt_write(package, NULL, pOmcCtrl /*address*/,
-			    0x0, 0xffffffff);
 	ary_idx = hw_idx - REG_MAP_E_OMC_TNR;
 	if (hw_idx < REG_MAP_E_OMC_LITE) {
 		for (i = 0 ; i < OMC_INIT_ARRAY_COUNT ; i++) {

@@ -53,6 +53,32 @@ TRACE_EVENT(tracing_mark_write,
 bool imgsys_core_ftrace_enabled(void);
 void __imgsys_systrace(const char *fmt, ...);
 
+DECLARE_EVENT_CLASS(imgsys_qof_event,
+	TP_PROTO(struct va_format *vaf),
+	TP_ARGS(vaf),
+	TP_STRUCT__entry(__vstring(msg, vaf->fmt, vaf->va)),
+	TP_fast_assign(
+		__assign_vstr(msg, vaf->fmt, vaf->va);
+	),
+	TP_printk("%s", __get_str(msg))
+);
+
+#define DEFINE_IMGSYS_QOF_EVENT(name) \
+	DEFINE_EVENT(imgsys_qof_event, imgsys__qof_##name, \
+		TP_PROTO(struct va_format *vaf), \
+		TP_ARGS(vaf) \
+	)
+
+DEFINE_IMGSYS_QOF_EVENT(mod0);
+void ftrace_imgsys_qof_mod0(const char *fmt, ...);
+DEFINE_IMGSYS_QOF_EVENT(mod1);
+void ftrace_imgsys_qof_mod1(const char *fmt, ...);
+DEFINE_IMGSYS_QOF_EVENT(mod2);
+void ftrace_imgsys_qof_mod2(const char *fmt, ...);
+DEFINE_IMGSYS_QOF_EVENT(mod3);
+void ftrace_imgsys_qof_mod3(const char *fmt, ...);
+DEFINE_IMGSYS_QOF_EVENT(mod4);
+void ftrace_imgsys_qof_mod4(const char *fmt, ...);
 
 DECLARE_EVENT_CLASS(imgsys_hwqos_event,
 	TP_PROTO(struct va_format *vaf),

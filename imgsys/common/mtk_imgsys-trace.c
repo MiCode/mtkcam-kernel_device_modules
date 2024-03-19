@@ -39,6 +39,29 @@ bool imgsys_core_ftrace_enabled(void)
 }
 EXPORT_SYMBOL(imgsys_core_ftrace_enabled);
 
+#define FTRACE_IMGSYS_QOF(name) \
+	void ftrace_imgsys_qof_##name(const char *fmt, ...) \
+	{ \
+		struct va_format vaf; \
+		va_list args; \
+		va_start(args, fmt); \
+		vaf.fmt = fmt; \
+		vaf.va = &args; \
+		trace_imgsys__qof_##name(&vaf); \
+		va_end(args); \
+	}
+
+FTRACE_IMGSYS_QOF(mod0);
+EXPORT_SYMBOL(ftrace_imgsys_qof_mod0);
+FTRACE_IMGSYS_QOF(mod1);
+EXPORT_SYMBOL(ftrace_imgsys_qof_mod1);
+FTRACE_IMGSYS_QOF(mod2);
+EXPORT_SYMBOL(ftrace_imgsys_qof_mod2);
+FTRACE_IMGSYS_QOF(mod3);
+EXPORT_SYMBOL(ftrace_imgsys_qof_mod3);
+FTRACE_IMGSYS_QOF(mod4);
+EXPORT_SYMBOL(ftrace_imgsys_qof_mod4);
+
 #define FTRACE_IMGSYS_HWQOS(name) \
 	void ftrace_imgsys_hwqos_##name(const char *fmt, ...) \
 	{ \

@@ -1613,8 +1613,13 @@ static unsigned int frec_calc_seamless_frame_length(const unsigned int idx,
 	orig_last_exp_idx = frec_g_mode_last_exp_idx(idx, pfrec, depth_idx);
 	curr_exp_read_offset =
 		pfrec->curr_predicted_rd_offset_us[orig_last_exp_idx];
-	fl_us_composition[0] =
-		curr_exp_read_offset + ss_prop->orig_readout_time_us;
+	if ((curr_exp_read_offset + ss_prop->orig_readout_time_us)
+			< ss_prop->ctrl_receive_time_us)
+		fl_us_composition[0] = ss_prop->ctrl_receive_time_us;
+	else {
+		fl_us_composition[0] =
+			curr_exp_read_offset + ss_prop->orig_readout_time_us;
+	}
 
 	/* Part-3: calculate seamless (new) mode re-shutter time us */
 	if (unlikely(first_exp_idx < 0)) {
@@ -1699,13 +1704,15 @@ static unsigned int frec_calc_seamless_frame_length(const unsigned int idx,
 	}
 
 	FS_SNPRF(log_str_len, log_buf, len,
-		"NOTICE: [%u] ID:%#x(sidx:%u/inf:%u), seamless_fl_us:%u(%u/%u/%u(%u)), new_mode_line_t:%u, r_offset[%u]:%u, type_id:%u, orig_readout_t:%u, hw_re_init_t:%u, prsh_length_lc:%u, (exp_lc:%u, (a:%u/m:%u(%u,%u), exp:%u/%u/%u/%u/%u)",
+		"NOTICE: [%u] ID:%#x(sidx:%u/inf:%u), seamless_fl_us:%u(%u(%u/%u)/%u/%u(%u)), new_mode_line_t:%u, r_offset[%u]:%u, type_id:%u, orig_readout_t:%u, hw_re_init_t:%u, prsh_length_lc:%u, (exp_lc:%u, (a:%u/m:%u(%u,%u), exp:%u/%u/%u/%u/%u)",
 		idx,
 		fs_get_reg_sensor_id(idx),
 		fs_get_reg_sensor_idx(idx),
 		fs_get_reg_sensor_inf_idx(idx),
 		result,
 		fl_us_composition[0],
+		curr_exp_read_offset + ss_prop->orig_readout_time_us,
+		ss_prop->ctrl_receive_time_us,
 		fl_us_composition[1],
 		fl_us_composition[2],
 		seamless_shutter_lc,
@@ -2180,7 +2187,8 @@ void frec_init_recorder(const unsigned int idx,
 }
 
 
-void frec_seamless_switch(const unsigned int idx, const unsigned int def_fl_lc,
+void frec_seamless_switch(const unsigned int idx,
+	const unsigned int def_fl_lc, const unsigned int fl_act_delay,
 	const struct frec_seamless_st *p_seamless_rec)
 {
 	struct FrameRecorder *pfrec = frec_g_recorder_ctx(idx, __func__);
@@ -2206,6 +2214,7 @@ void frec_seamless_switch(const unsigned int idx, const unsigned int def_fl_lc,
 
 		pfrec->sys_ts_recs[i] = 0;
 	}
+	pfrec->fl_act_delay = fl_act_delay;
 	pfrec->def_fl_lc = def_fl_lc;
 	frec_init_recorder_seamless_fl_related_info(
 		idx, seamless_fl_us, &p_seamless_rec->frame_rec);

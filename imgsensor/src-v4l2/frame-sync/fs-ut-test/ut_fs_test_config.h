@@ -1022,6 +1022,18 @@ struct ut_fs_test_env_cfg env_ext_ctrl_cfg_01 = {
 	/* EXT CTRL */
 	.ext_ctrls = ext_ctrl_cfg_01,
 };
+
+
+/* perframe_ctrl trigger with no lock_exp and no lock_flk */
+struct ut_fs_test_env_cfg env_ext_ctrl_cfg_02 = {
+	.run_times = 24,
+	.sync_th = 550,
+	.passed_vsync = 0,
+	.passed_vsync_ratio = 0,
+	.passed_vsync_max_cnt = 0,
+	.lock_exp = 0,
+	.lock_flk = 0,
+};
 /******************************************************************************/
 
 struct ut_fs_test_list test_list[] = {
@@ -1534,6 +1546,21 @@ struct ut_fs_test_list test_list[] = {
 		.sync_type = {FS_SYNC_TYPE_LE|FS_SYNC_TYPE_VSYNC, 1},
 		.sensor_cfg = sensor_cfg_05,
 		.env_cfg = &env_ext_ctrl_cfg_01,
+		.exe_all_skip_ext_ctrl_test = 1,
+	},
+
+	/* EXT CTRL case (auto test not must run) */
+	{
+		.test_name =
+			"(Option) AUTO_CLR_ASYNC_BIT: STG-3-exp-LE N+2 / Normal N+1, per-frame CTRL (NO lock exp / NO lock flk)",
+		.sync_type = {
+			FS_SYNC_TYPE_ASYNC_MODE|FS_SYNC_TYPE_AUTO_CLR_ASYNC_BIT,
+			FS_SYNC_TYPE_ASYNC_MODE|FS_SYNC_TYPE_AUTO_CLR_ASYNC_BIT
+		},
+		// .async_master_sidx = 3, // from 1
+		.async_master_sidx = 1, // from 1
+		.sensor_cfg = sensor_cfg_05,
+		.env_cfg = &env_ext_ctrl_cfg_02,
 		.exe_all_skip_ext_ctrl_test = 1,
 	},
 

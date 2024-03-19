@@ -20,6 +20,15 @@
  * TSREC structure / define / static variables
  *****************************************************************************/
 /* structure / define */
+#ifndef FS_UT
+/**
+ * For common ctrl RG, e.g., TOP_TSREC_CFG
+ * that using one register to control several tsrec hw.
+ */
+DEFINE_SPINLOCK(tsrec_top_cfg_concurrency_lock);
+#endif
+
+
 #define TSREC_HW_DBG_MAX_CNT            (32)
 #define TSREC_TOP_HW_FOUND_BIT_SHIFT    (31)
 struct tsrec_iomem_info_st {
@@ -345,11 +354,15 @@ void mtk_cam_seninf_s_tsrec_top_cfg_clk_en_bit(const unsigned int tsrec_n,
 	if (unlikely(!chk_tsrec_w_buffer_valid(&w_buf, __func__)))
 		return;
 
+	TSREC_SPIN_LOCK(&tsrec_top_cfg_concurrency_lock);
+
 	tsrec_write_reg(&w_buf, __func__);
 
 	/* sync reg ctrl info to tsrec_status */
 	notify_tsrec_update_tsrec_n_clk_en_status(tsrec_n, clk_en);
 	notify_tsrec_update_top_cfg(w_buf.after);
+
+	TSREC_SPIN_UNLOCK(&tsrec_top_cfg_concurrency_lock);
 
 	if (unlikely(_TSREC_LOG_ENABLED(LOG_TSREC_REG))) {
 		char msg[TSREC_MSG_LOG_STR_LEN] = {0};

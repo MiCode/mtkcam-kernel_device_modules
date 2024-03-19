@@ -16,6 +16,17 @@
 #define TSREC_LOG_DBG_DEF_CAT LOG_TSREC_REG
 
 
+#ifndef FS_UT
+/**
+ * For common ctrl RG, e.g., TOP_TSREC_CFG, TSREC_INTR_EN, TSREC_INT_EN_2
+ * that using one register to control several tsrec hw.
+ */
+DEFINE_SPINLOCK(tsrec_top_cfg_concurrency_lock);
+DEFINE_SPINLOCK(tsrec_intr_en_concurrency_lock);
+DEFINE_SPINLOCK(tsrec_intr_en_2_concurrency_lock);
+#endif
+
+
 /******************************************************************************
  * TSREC static variables
  *****************************************************************************/
@@ -166,11 +177,17 @@ void mtk_cam_seninf_s_tsrec_top_cfg_clk_en_bit(const unsigned int tsrec_n,
 	w_buf.shift = TSREC_TOP_CFG_OFFSET;
 	w_buf.mask = tsrec_get_mask(tsrec_n, clk_en);
 	w_buf.op = (clk_en) ? 1 : 0;
+
+	TSREC_SPIN_LOCK(&tsrec_top_cfg_concurrency_lock);
+
 	tsrec_write_reg(&w_buf, __func__);
 
 	/* sync reg ctrl info to tsrec_status */
 	notify_tsrec_update_tsrec_n_clk_en_status(tsrec_n, clk_en);
 	notify_tsrec_update_top_cfg(w_buf.after);
+
+	TSREC_SPIN_UNLOCK(&tsrec_top_cfg_concurrency_lock);
+
 
 	TSREC_LOG_DBG(
 		"[%#x(+%#x)]:(%#x => %#x), mask:%#x (%u)(SET:1/CLR:0/OVW:2)   [tsrec_n:%u, clk_en:%u]\n",
@@ -431,10 +448,15 @@ void mtk_cam_seninf_s_tsrec_intr_en(const unsigned int tsrec_n,
 	w_buf.shift = TSREC_INT_EN_OFFSET;
 	w_buf.mask = (en) ? (reg.val) : ~(reg.val);
 	w_buf.op = (en) ? 1 : 0;
+
+	TSREC_SPIN_LOCK(&tsrec_intr_en_concurrency_lock);
+
 	tsrec_write_reg(&w_buf, __func__);
 
 	/* sync reg ctrl info to tsrec_status */
 	notify_tsrec_update_intr_en(w_buf.after);
+
+	TSREC_SPIN_UNLOCK(&tsrec_intr_en_concurrency_lock);
 
 	TSREC_LOG_DBG(
 		"[%#x(+%#x)]:(%#x => %#x), mask:%#x (%u)(SET:1/CLR:0/OVW:2)   [tsrec_n:%u, exp_en(%u/%u/%u), trig_src:%u, en:%u]\n",
@@ -601,10 +623,15 @@ void mtk_cam_seninf_s_tsrec_intr_en_2(const unsigned int tsrec_n,
 	w_buf.shift = TSREC_INT_EN_2_OFFSET;
 	w_buf.mask = (en) ? (reg.val) : ~(reg.val);
 	w_buf.op = (en) ? 1 : 0;
+
+	TSREC_SPIN_LOCK(&tsrec_intr_en_2_concurrency_lock);
+
 	tsrec_write_reg(&w_buf, __func__);
 
 	/* sync reg ctrl info to tsrec_status */
 	notify_tsrec_update_intr_en_2(w_buf.after);
+
+	TSREC_SPIN_UNLOCK(&tsrec_intr_en_2_concurrency_lock);
 
 	TSREC_LOG_DBG(
 		"[%#x(+%#x)]:(%#x => %#x), mask:%#x (%u)(SET:1/CLR:0/OVW:2)   [tsrec_n:%u, exp_en(%u/%u/%u), trig_src:%u, en:%u]\n",

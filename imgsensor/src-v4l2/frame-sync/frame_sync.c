@@ -160,7 +160,10 @@ struct FrameSyncMgr {
 	FS_Atomic_T master_idx;                 // SA master idx
 	FS_Atomic_T async_mode_bits;            // SA async mode bits
 	FS_Atomic_T async_master_idx;           // SA async mode m_idx
-#endif // SUPPORT_FS_NEW_METHOD
+
+	/* optional flags */
+	FS_Atomic_T auto_clr_async_mode_bits;   // SA async mode auto clr bits
+#endif
 
 
 	unsigned int sof_cnt_arr[SENSOR_MAX_NUM];   // debug, from p1 sof cnt
@@ -296,11 +299,12 @@ static void fs_dump_status(const int idx, const int flag, const char *caller,
 	}
 
 	FS_SNPRF(log_str_len, log_buf, len,
-		", SA(%d):(%#x/m_idx:%d, async(%#x, m_idx:%d(sidx:%d))), seamless:%#x, hdr_ft_mode(%u/%u/%u/%u/%u/%u)",
+		", SA(%d):(%#x/m_idx:%d, async(%#x(auto_clr:%#x), m_idx:%d(sidx:%d))), seamless:%#x, hdr_ft_mode(%u/%u/%u/%u/%u/%u)",
 		FS_ATOMIC_READ(&fs_mgr.using_sa_ver),
 		FS_ATOMIC_READ(&fs_mgr.sa_bits),
 		FS_ATOMIC_READ(&fs_mgr.master_idx),
 		FS_ATOMIC_READ(&fs_mgr.async_mode_bits),
+		FS_ATOMIC_READ(&fs_mgr.auto_clr_async_mode_bits),
 		FS_ATOMIC_READ(&fs_mgr.async_master_idx),
 		FS_ATOMIC_READ(&fs_mgr.user_async_master_sidx),
 		FS_ATOMIC_READ(&fs_mgr.seamless_bits),
@@ -746,36 +750,18 @@ static unsigned int fs_get_preset_perframe_data(const unsigned int idx,
 /******************************************************************************/
 // preset/overwrite set sync operation functions (set_sync_idx_table)
 /******************************************************************************/
-static void fs_update_set_sync_idx_table(const unsigned int idx,
+static inline void fs_update_set_sync_idx_table(const unsigned int idx,
 	const unsigned int flag)
 {
 	FS_ATOMIC_SET(flag, &fs_mgr.set_sync_idx_table[idx]);
-
-	LOG_INF(
-		"[%u] ID:%#x(sidx:%u), flag:%u, => set_sync_idx_table[%u]:%d\n",
-		idx,
-		fs_get_reg_sensor_id(idx),
-		fs_get_reg_sensor_idx(idx),
-		flag, idx,
-		FS_ATOMIC_READ(&fs_mgr.set_sync_idx_table[idx]));
 }
 
 
-static int fs_check_set_sync_idx_table(const unsigned int idx)
+static inline int fs_g_set_sync_idx_table_val(const unsigned int idx)
 {
 	int ret = -1;
 
 	ret = FS_ATOMIC_READ(&fs_mgr.set_sync_idx_table[idx]);
-
-	LOG_INF(
-		"[%u] ID:%#x(sidx:%u), set_sync_idx_table[%u]:%d, => ret:%d\n",
-		idx,
-		fs_get_reg_sensor_id(idx),
-		fs_get_reg_sensor_idx(idx),
-		idx,
-		FS_ATOMIC_READ(&fs_mgr.set_sync_idx_table[idx]),
-		ret);
-
 	return ret;
 }
 
@@ -1420,7 +1406,9 @@ static void fs_do_seamless_switch_proc(const unsigned int idx,
 
 	frec_setup_seamless_rec_by_fs_seamless_st(
 		&seamless_rec, p_seamless_info);
-	frec_seamless_switch(idx, p_seamless_ctrl->min_fl_lc, &seamless_rec);
+	frec_seamless_switch(idx,
+		p_seamless_ctrl->min_fl_lc, p_seamless_info->fl_active_delay,
+		&seamless_rec);
 
 	fs_alg_set_perframe_st_data(idx, &p_seamless_info->seamless_pf_ctrl);
 	fs_alg_seamless_switch(idx, p_seamless_info, p_sa_cfg);
@@ -1631,13 +1619,16 @@ static inline void fs_sa_set_async_info(const unsigned int idx,
 	const unsigned int flag)
 {
 	const unsigned int async_en = (flag & FS_SYNC_TYPE_ASYNC_MODE);
+	const unsigned int auto_clr_async_en =
+		(flag & FS_SYNC_TYPE_AUTO_CLR_ASYNC_BIT);
 
 	FS_WRITE_BIT(idx, async_en, &fs_mgr.async_mode_bits);
+	FS_WRITE_BIT(idx, auto_clr_async_en, &fs_mgr.auto_clr_async_mode_bits);
 }
 #endif // SUPPORT_FS_NEW_METHOD
 
 
-static void fs_set_sync_status(unsigned int idx, unsigned int flag)
+static void fs_set_sync_status(const unsigned int idx, const unsigned int flag)
 {
 	/* unset sync => reset pf_ctrl_bits data of this idx */
 	if (flag == 0) {
@@ -1671,17 +1662,19 @@ static void fs_set_sync_status(unsigned int idx, unsigned int flag)
 	}
 #endif
 
+	/* update enSync info */
 	fs_set_status_bits(idx, flag, &fs_mgr.enSync_bits);
 }
 
 
-static void fs_set_sync_idx(unsigned int idx, unsigned int flag)
+static inline void fs_set_sync_idx(const unsigned int idx,
+	const unsigned int flag)
 {
-	fs_set_sync_status(idx, flag);
+	fs_set_sync_status(idx, flag);        // setup enSync & other process
 
-	fs_alg_set_sync_type(idx, flag);
+	fs_alg_set_sync_type(idx, flag);      // sync/copy flag for fs algo
 
-	fs_sa_set_async_info(idx, flag);
+	fs_sa_set_async_info(idx, flag);      // setup async mode related info
 
 #if defined(FS_UT)
 	fs_reset_ft_mode_data(idx, flag);
@@ -1697,14 +1690,13 @@ static void fs_set_sync_idx(unsigned int idx, unsigned int flag)
 }
 
 
-void fs_set_sync(unsigned int ident, unsigned int flag)
+void fs_set_sync(const unsigned int ident, unsigned int flag)
 {
 	unsigned int idx;
 
 	/* get registered idx and check if it is valid */
 	if (unlikely(fs_g_registered_idx_by_ident(ident, &idx, __func__)))
 		return;
-
 	if (unlikely(!fs_chk_con_user_ovwr_set_sync_op(idx, &flag, __func__)))
 		return;
 
@@ -1713,7 +1705,7 @@ void fs_set_sync(unsigned int ident, unsigned int flag)
 }
 
 
-unsigned int fs_is_set_sync(unsigned int ident)
+unsigned int fs_is_set_sync(const unsigned int ident)
 {
 	unsigned int idx;
 
@@ -1722,6 +1714,37 @@ unsigned int fs_is_set_sync(unsigned int ident)
 		return 0;
 
 	return FS_CHECK_BIT(idx, &fs_mgr.enSync_bits);
+}
+
+
+static void fs_set_sync_extra_ctrl_handle(const unsigned int idx,
+	const unsigned int result, const unsigned int flag)
+{
+	int sync_type = fs_g_set_sync_idx_table_val(idx);
+
+	/* for keeping enSync is ON (0:off / > 0:on) */
+	sync_type |= 0x1;
+
+	/* !!! check optional flags !!! */
+	if (flag & FS_SYNC_TYPE_AUTO_CLR_ASYNC_BIT) {
+		unsigned int clr_bits = 0;
+
+		if (likely(!(sync_type & FS_SYNC_TYPE_AUTO_CLR_ASYNC_BIT)))
+			return;
+		if (unlikely(result != 0))    // <= solve FL ends unexpectedly.
+			return;
+
+		/* setup clr bit for changing sync type */
+		clr_bits = (FS_SYNC_TYPE_AUTO_CLR_ASYNC_BIT)
+			| (FS_SYNC_TYPE_ASYNC_MODE);
+
+		/* change sync type value */
+		sync_type &= (~(clr_bits));
+	}
+
+	/* apply/update the final sync type settings */
+	fs_update_set_sync_idx_table(idx, sync_type);
+	fs_set_sync_idx(idx, sync_type);
 }
 
 
@@ -1892,7 +1915,7 @@ static inline void fs_check_n_1_status_extra_ctrl(unsigned int idx)
 }
 
 
-static inline void fs_feature_status_extra_ctrl(unsigned int idx)
+static inline void fs_feature_status_extra_ctrl(const unsigned int idx)
 {
 	fs_check_n_1_status_extra_ctrl(idx);
 }
@@ -2034,6 +2057,7 @@ static inline void fs_sa_setup_perframe_cfg_info(const unsigned int idx,
 
 static void fs_try_trigger_frame_sync_sa(const unsigned int idx)
 {
+	const unsigned int flag = FS_SYNC_TYPE_AUTO_CLR_ASYNC_BIT;
 	struct fs_sa_cfg sa_cfg = {0};
 	unsigned int fl_lc = 0;
 	unsigned int ret = 0;
@@ -2059,18 +2083,11 @@ static void fs_try_trigger_frame_sync_sa(const unsigned int idx)
 	fs_sa_setup_perframe_cfg_info(idx, &sa_cfg);
 	ret = fs_alg_solve_frame_length_sa(&sa_cfg, &fl_lc);
 
-	if (ret != 0) { // !0 => had error
-		LOG_INF(
-			"ERROR: [%u] ID:%#x(sidx:%u), fs_alg_solve_frame_length_sa return error:%u, auto set fl_lc:%u to min_fl_lc for sensor driver",
-			idx,
-			fs_get_reg_sensor_id(idx),
-			fs_get_reg_sensor_idx(idx),
-			ret,
-			fl_lc);
-	}
-
 	/* set framelength (all FL operation must use this API) */
 	fs_set_framelength_lc(idx, fl_lc);
+
+	/* check if current sync type need to handle extra ctrl */
+	fs_set_sync_extra_ctrl_handle(idx, ret, flag);
 
 	/* check/change feature mode status */
 	fs_feature_status_extra_ctrl(idx);
@@ -2488,7 +2505,7 @@ static void fs_streaming_chk_restore_preset_set_sync_status(
 #endif
 
 	/* check if set sync before streaming on */
-	ret = fs_check_set_sync_idx_table(idx);
+	ret = fs_g_set_sync_idx_table_val(idx);
 	if (ret > 0) {
 		LOG_MUST(
 			"NOTICE: [%u] ID:%#x(sidx:%u), apply set sync procedure, due to set_sync_idx_table[%u]:%d\n",

@@ -773,7 +773,8 @@ static void fsync_mgr_setup_fs_streaming_st(struct adaptor_ctx *ctx,
 	/* 7s use fsync_listen_target to update ccu tg id, so init from this */
 	s_info->target_tg = ctx->fsync_listen_target->val;
 
-	s_info->fl_active_delay = ctx->subctx.frame_time_delay_frame;
+	s_info->fl_active_delay =
+		g_sensor_frame_length_delay(ctx, mode_id, __func__);
 
 	/* for any settings before streaming on */
 	s_info->def_fl_lc = ctx->subctx.frame_length_rg;
@@ -921,11 +922,12 @@ void fsync_mgr_dump_fs_seamless_st(struct adaptor_ctx *ctx,
 	const char *caller)
 {
 	FSYNC_MGR_LOGD(ctx,
-		"[%s] sidx:%d, seamless switch prop:(type_id:%u, orig_readout_time_us:%u, hw_re_init_time_us:%u, prsh_length_lc:%u)\n",
+		"[%s] sidx:%d, seamless switch prop:(type_id:%u, orig_readout_time_us:%u, ctrl_receive_time_us:%u, hw_re_init_time_us:%u, prsh_length_lc:%u)\n",
 		caller,
 		ctx->idx,
 		seamless_info->prop.type_id,
 		seamless_info->prop.orig_readout_time_us,
+		seamless_info->prop.ctrl_receive_time_us,
 		seamless_info->prop.hw_re_init_time_us,
 		seamless_info->prop.prsh_length_lc);
 
@@ -996,6 +998,8 @@ static inline void fsync_mgr_setup_seamless_property(struct adaptor_ctx *ctx,
 	/* !!! setup all seamless switch property that needed !!! */
 	/* setup original mode readout time */
 	seamless_info->prop.orig_readout_time_us = orig_readout_time_us;
+	seamless_info->prop.ctrl_receive_time_us = (unsigned int)
+		((ktime_get_boottime_ns() - ctx->sys_ts_update_sof_cnt)/1000);
 
 	switch ( ctx->subctx.s_ctx.seamless_switch_type ) {
 	case SEAMLESS_SWITCH_CUT_VB_INIT_SHUT :
@@ -1243,6 +1247,10 @@ void notify_fsync_mgr_seamless_switch(struct adaptor_ctx *ctx,
 
 
 	/* !!! start here !!! */
+	/* setup info that may be changed through seamless switch */
+	seamless_info.fl_active_delay =
+		g_sensor_frame_length_delay(ctx, target_scenario_id, __func__);
+
 	/* setup basic structure, exp info */
 	fsync_mgr_setup_basic_fs_perframe_st(ctx,
 		&seamless_info.seamless_pf_ctrl, target_scenario_id);

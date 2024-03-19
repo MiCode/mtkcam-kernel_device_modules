@@ -922,11 +922,12 @@ void fsync_mgr_dump_fs_seamless_st(struct adaptor_ctx *ctx,
 	const char *caller)
 {
 	FSYNC_MGR_LOGD(ctx,
-		"[%s] sidx:%d, seamless switch prop:(type_id:%u, orig_readout_time_us:%u, hw_re_init_time_us:%u, prsh_length_lc:%u)\n",
+		"[%s] sidx:%d, seamless switch prop:(type_id:%u, orig_readout_time_us:%u, ctrl_receive_time_us:%u, hw_re_init_time_us:%u, prsh_length_lc:%u)\n",
 		caller,
 		ctx->idx,
 		seamless_info->prop.type_id,
 		seamless_info->prop.orig_readout_time_us,
+		seamless_info->prop.ctrl_receive_time_us,
 		seamless_info->prop.hw_re_init_time_us,
 		seamless_info->prop.prsh_length_lc);
 
@@ -997,6 +998,8 @@ static inline void fsync_mgr_setup_seamless_property(struct adaptor_ctx *ctx,
 	/* !!! setup all seamless switch property that needed !!! */
 	/* setup original mode readout time */
 	seamless_info->prop.orig_readout_time_us = orig_readout_time_us;
+	seamless_info->prop.ctrl_receive_time_us = (unsigned int)
+		((ktime_get_boottime_ns() - ctx->sys_ts_update_sof_cnt)/1000);
 
 	switch ( ctx->subctx.s_ctx.seamless_switch_type ) {
 	case SEAMLESS_SWITCH_CUT_VB_INIT_SHUT :

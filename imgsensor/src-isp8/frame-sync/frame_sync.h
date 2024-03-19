@@ -113,6 +113,12 @@ enum FS_SYNC_TYPE {
 
 	/* SA - Async mode */
 	FS_SYNC_TYPE_ASYNC_MODE = 1 << 8,
+
+	/* Optional flags */
+	FS_SYNC_TYPE_AUTO_CLR_ASYNC_BIT = 1 << 12,
+
+	/* Custom input parameter */
+	FS_SYNC_TYPE_CUST_INPUT_PARA_BIT = 1 << 20,
 };
 /******************************************************************************/
 #endif // FS_UT
@@ -252,6 +258,7 @@ struct fs_seamless_property_st {
 	enum fs_seamless_switch_type type_id;
 
 	unsigned int orig_readout_time_us;
+	unsigned int ctrl_receive_time_us;
 	unsigned int hw_re_init_time_us;
 	unsigned int prsh_length_lc; // new mode's prsh length if has
 };
@@ -295,7 +302,7 @@ struct FrameSync {
 
 
 	/* enable / disable frame sync processing for this sensor ident */
-	void (*fs_set_sync)(unsigned int sensor_ident, unsigned int flag);
+	void (*fs_set_sync)(const unsigned int ident, unsigned int flag);
 
 	/* for MW assign async mode master sensor idx */
 	void (*fs_sa_set_user_async_master)(const unsigned int sidx,
@@ -397,7 +404,7 @@ struct FrameSync {
 	/* get frame sync status for this sensor_id */
 	/* return: (0 / 1) => (disable / enable) */
 	/**********************************************************************/
-	unsigned int (*fs_is_set_sync)(unsigned int sensor_id);
+	unsigned int (*fs_is_set_sync)(const unsigned int ident);
 
 	unsigned int (*fs_is_hw_sync)(const unsigned int ident);
 

@@ -477,6 +477,12 @@ enum FS_SYNC_TYPE {
 
 	/* SA - Async mode */
 	FS_SYNC_TYPE_ASYNC_MODE = 1 << 8,
+
+	/* Optional flags */
+	FS_SYNC_TYPE_AUTO_CLR_ASYNC_BIT = 1 << 12,
+
+	/* Custom input parameter */
+	FS_SYNC_TYPE_CUST_INPUT_PARA_BIT = 1 << 20,
 };
 
 struct mtk_fs_frame_length_info {

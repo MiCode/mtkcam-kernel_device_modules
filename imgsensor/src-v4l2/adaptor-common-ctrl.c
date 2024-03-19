@@ -214,17 +214,12 @@ int g_sensor_fine_integ_line(struct adaptor_ctx *ctx,
 	return fine_integ_line;
 }
 
-
-u32 g_sensor_dcg_property(struct adaptor_ctx *ctx, const int scenario_id)
+u32 g_sensor_dcg_property(struct adaptor_ctx *ctx, const u32 scenario_id)
 {
 	const struct subdrv_mode_struct *mode_st = NULL;
 
-	if (unlikely(scenario_id >= ctx->subctx.s_ctx.sensor_mode_num)) {
-		adaptor_logi(ctx,
-			"invalid scenario_id:%u, sensor_mode_num:%u\n",
-			scenario_id, ctx->subctx.s_ctx.sensor_mode_num);
+	if (unlikely(!chk_is_valid_scenario_id(ctx, scenario_id, __func__)))
 		return 0;
-	}
 
 	/* get the mode's const pointer of the scenario_id */
 	mode_st = &ctx->subctx.s_ctx.mode[scenario_id];
@@ -235,17 +230,13 @@ u32 g_sensor_dcg_property(struct adaptor_ctx *ctx, const int scenario_id)
 	return 1;
 }
 
-u32 g_sensor_lbmf_property(struct adaptor_ctx *ctx, const int scenario_id,
+u32 g_sensor_lbmf_property(struct adaptor_ctx *ctx, const u32 scenario_id,
 	struct adaptor_sensor_lbmf_property_st *prop)
 {
 	const struct subdrv_mode_struct *mode_st = NULL;
 
-	if (unlikely(scenario_id >= ctx->subctx.s_ctx.sensor_mode_num)) {
-		adaptor_logi(ctx,
-			"invalid scenario_id:%u, sensor_mode_num:%u\n",
-			scenario_id, ctx->subctx.s_ctx.sensor_mode_num);
+	if (unlikely(!chk_is_valid_scenario_id(ctx, scenario_id, __func__)))
 		return 0;
-	}
 
 	/* get the mode's const pointer of the scenario_id */
 	mode_st = &ctx->subctx.s_ctx.mode[scenario_id];

@@ -96,6 +96,8 @@ struct FrameSyncDynamicPara {
 	/* predicted frame length (0:current / 1:next) */
 	unsigned int pred_fl_us[2];
 	unsigned int pred_next_exp_rd_offset_us[FS_HDR_MAX];
+	unsigned int pred_fl_err_chk_bits_m;
+	long long pred_fl_err_us_m;
 
 	/* sync target ts bias (for feature that sync to non-LE) */
 	unsigned int ts_bias_us;
@@ -1374,7 +1376,7 @@ void fs_alg_sa_dump_dynamic_para(const unsigned int idx)
 	}
 
 	FS_SNPRF(log_str_len, log_buf, len,
-		"[%u] ID:%#x(sidx:%u), #%u, req_id:%d, out_fl:%u(%u) +%lld(%u), flk(%u), ref([%d](#%u)), adj_diff(%lld(%u/%u/%u)/%lld,unstable:%u), ((%u:%u)c:%u/n:%u/o:%u/s:%u/e:%u(%u/%u)/t:%u(%u/%u),%u), lineT:%u, routT:%u",
+		"[%u] ID:%#x(sidx:%u), #%u, req_id:%d, out_fl:%u(%u) +%lld(%u), flk(%u), ref([%d](#%u)), adj_diff(%lld(%u/%u/%u)/%lld,+%lld(%#x),unstable:%u), ((%u:%u)c:%u/n:%u/o:%u/s:%u/e:%u(%u/%u)/t:%u(%u/%u),%u), lineT:%u, routT:%u",
 		idx,
 		fs_get_reg_sensor_id(idx),
 		fs_get_reg_sensor_idx(idx),
@@ -1394,6 +1396,8 @@ void fs_alg_sa_dump_dynamic_para(const unsigned int idx)
 		fs_sa_inst.dynamic_paras[idx].chg_master,
 		fs_sa_inst.dynamic_paras[idx].ask_for_chg,
 		fs_sa_inst.dynamic_paras[idx].adj_diff_m,
+		fs_sa_inst.dynamic_paras[idx].pred_fl_err_us_m,
+		fs_sa_inst.dynamic_paras[idx].pred_fl_err_chk_bits_m,
 		fs_sa_inst.dynamic_paras[idx].unstable_fps,
 		fs_inst[idx].fl_active_delay,
 		fs_sa_inst.dynamic_paras[idx].delta,
@@ -2258,6 +2262,84 @@ static unsigned int fs_alg_sa_dynamic_paras_checker(
 }
 
 
+static inline int chk_pr_fl_error_is_in_range(const long long pr_act_fl_diff,
+	const unsigned int threshold, const unsigned int max_th)
+{
+	const long long val = (pr_act_fl_diff >= 0)
+		? pr_act_fl_diff : (0 - pr_act_fl_diff);
+
+	return (val >= threshold && val < max_th) ? 1 : 0;
+}
+
+
+static void fs_alg_sa_calc_pr_fl_error(
+	const unsigned int m_idx, const unsigned int idx,
+	const struct FrameSyncDynamicPara *p_para_m,
+	struct FrameSyncDynamicPara *p_para_s)
+{
+	const struct FrameSyncInst *p_fs_inst_m = &fs_inst[m_idx];
+	const unsigned int TH_US = 500, MAX_TH = p_para_m->stable_fl_us;
+	const unsigned int CHK_TO = 0;		// 0:current / 1:next
+	long long act_diff[VSYNCS_MAX-1] = {0};
+	long long pr_act_fl_diff[VSYNCS_MAX-1] = {0};
+	unsigned int i, run = 0, ret = 0;
+
+	/* init/setup default value */
+	p_para_s->pred_fl_err_us_m = 0;
+
+	/* case to skip */
+	if (unlikely(p_para_m->last_ts == 0))
+		return;
+
+	/* find out which ts data is match to that in dynamic para */
+	/* => if current dynamic para is newest */
+	if (p_fs_inst_m->timestamps[0] == p_para_m->last_ts)
+		return;
+	for (i = 1; (i < VSYNCS_MAX && (run <= CHK_TO && run < (VSYNCS_MAX-1))); ++i) {
+		if (p_fs_inst_m->timestamps[i] != p_para_m->last_ts)
+			continue;
+		/* !!! timestamp data are match !!! */
+
+		/* calc. ts diff from this ts data */
+		act_diff[run] =
+			(p_fs_inst_m->timestamps[i-1] - p_fs_inst_m->timestamps[i]);
+		pr_act_fl_diff[run] =
+			(act_diff[run] - p_para_m->pred_fl_us[run]);
+
+		/* check if wants to take this error into account */
+		if (unlikely(chk_pr_fl_error_is_in_range(
+				pr_act_fl_diff[run], TH_US, MAX_TH))) {
+			p_para_s->pred_fl_err_us_m += pr_act_fl_diff[run];
+			ret |= (1UL << (i+16));
+		}
+		ret |= (1UL << i);
+
+		/* !!! procedure are all done !!! */
+		run++;		// 0:current / 1:next
+	}
+
+	if (unlikely(ret >> 16)) {
+		LOG_MUST(
+			"NOTICE: [%u] ID:%#x(sidx:%u), pred_fl_err:%lld(chk_to:%u(0:c/1:n)), #%u/#%u(m_idx:%u) m_idx's:(pr_act_fl_diff:(%lld/%lld/%lld), act_diff:(%lld/%lld/%lld), pr_fl:(%u/%u), ts:(%llu/%llu/%llu/%llu, last:%llu)), th:(%u~%u), ret:%#x\n",
+			idx,
+			fs_get_reg_sensor_id(idx),
+			fs_get_reg_sensor_idx(idx),
+			p_para_s->pred_fl_err_us_m, CHK_TO,
+			p_para_s->magic_num,
+			p_para_m->magic_num,
+			m_idx,
+			pr_act_fl_diff[0], pr_act_fl_diff[1], pr_act_fl_diff[2],
+			act_diff[0], act_diff[1], act_diff[2],
+			p_para_m->pred_fl_us[0], p_para_m->pred_fl_us[1],
+			p_fs_inst_m->timestamps[0], p_fs_inst_m->timestamps[1],
+			p_fs_inst_m->timestamps[2], p_fs_inst_m->timestamps[3],
+			p_para_m->last_ts, TH_US, MAX_TH, ret);
+	}
+
+	p_para_s->pred_fl_err_chk_bits_m = ret;
+}
+
+
 /*
  * input:
  *     p_para_m: a pointer to dynamic para structure of master sensor
@@ -2401,6 +2483,8 @@ static long long fs_alg_sa_calc_adjust_diff_slave(
 	adjust_diff_s =
 		(ts_diff_m + p_para_m->delta + p_para_m->out_fl_us) -
 		(ts_diff_s + p_para_s->delta + p_para_s->out_fl_us);
+	if (p_para_s->pred_fl_err_chk_bits_m)
+		adjust_diff_s += p_para_s->pred_fl_err_us_m;
 
 	/* ==> check situation (N+2/N+1 mixed), modify adjust diff */
 	// if ((fs_inst[s_idx].fl_active_delay != fs_inst[m_idx].fl_active_delay)
@@ -2495,6 +2579,8 @@ static long long fs_alg_sa_calc_adjust_diff_async(
 	adjust_diff_s =
 		(ts_diff_m + p_para_s->async_m_delta + p_para_m->out_fl_us) -
 		(ts_diff_s + p_para_s->delta + p_para_s->out_fl_us);
+	if (p_para_s->pred_fl_err_chk_bits_m != 0)
+		adjust_diff_s += p_para_s->pred_fl_err_us_m;
 
 	/* ==> check situation (N+2/N+1 mixed), modify adjust diff */
 	// if ((fs_inst[s_idx].fl_active_delay != fs_inst[m_idx].fl_active_delay)
@@ -2605,6 +2691,7 @@ static long long fs_alg_sa_adjust_slave_diff_resolver(
 	/* ==> calculate/get current receive timestamp diff */
 	fs_alg_sa_calc_m_s_ts_diff(p_para_m, p_para_s,
 		&ts_diff_m, &ts_diff_s);
+	fs_alg_sa_calc_pr_fl_error(m_idx, s_idx, p_para_m, p_para_s);
 
 	/* ==> calculate master/slave adjust_diff */
 	adjust_diff_s =
@@ -2686,7 +2773,7 @@ static long long fs_alg_sa_adjust_slave_diff_resolver(
 	}
 
 	FS_SNPRF(log_str_len, log_buf, len,
-		"[%u] ID:%#x(sidx:%u), out_fl:%u(%u) +%lld(%u), flk(%u):+%u, s/m, #%u/#%u([%u]), req_id(%d/%d), adj_diff(%lld(%u/%u/%u)/%lld), t(%lld/%lld)",
+		"[%u] ID:%#x(sidx:%u), out_fl:%u(%u) +%lld(%u), flk(%u):+%u, s/m, #%u/#%u([%u]), req_id(%d/%d), adj_diff(%lld(%u/%u/%u)/%lld), t(%lld/%lld(+%lld(%#x)))",
 		s_idx,
 		fs_get_reg_sensor_id(s_idx),
 		fs_get_reg_sensor_idx(s_idx),
@@ -2707,7 +2794,9 @@ static long long fs_alg_sa_adjust_slave_diff_resolver(
 		p_para_s->ask_for_chg,
 		p_para_s->adj_diff_m,
 		ts_diff_s,
-		ts_diff_m);
+		ts_diff_m,
+		p_para_s->pred_fl_err_us_m,
+		p_para_s->pred_fl_err_chk_bits_m);
 
 #if !defined(FORCE_ADJUST_SMALLER_DIFF)
 	FS_SNPRF(log_str_len, log_buf, len,
@@ -4219,7 +4308,7 @@ static unsigned int fps_sync_sa_handler(const struct fs_sa_cfg *p_sa_cfg,
 }
 
 
-static void adjust_vsync_diff_sa(
+static unsigned int adjust_vsync_diff_sa(
 	unsigned int idx, unsigned int m_idx, int sa_method,
 	struct FrameSyncDynamicPara *p_para)
 {
@@ -4234,7 +4323,7 @@ static void adjust_vsync_diff_sa(
 	/* master only do fps sync */
 	if (idx == m_idx) {
 		/* TODO: if want/need any extra operation on master, do here */
-		return;
+		return 0;
 	}
 
 
@@ -4258,7 +4347,7 @@ static void adjust_vsync_diff_sa(
 				fs_inst[idx].output_fl_us)
 		);
 
-		return;
+		return 1;
 	}
 
 
@@ -4284,7 +4373,7 @@ static void adjust_vsync_diff_sa(
 				fs_inst[idx].output_fl_us));
 #endif
 
-		return;
+		return 0;
 	}
 
 
@@ -4325,10 +4414,12 @@ static void adjust_vsync_diff_sa(
 
 
 	fs_alg_sa_update_fl_us(idx, out_fl_us, p_para);
+	return 0;
 }
 
 
-static void adjust_async_vsync_diff_sa(
+/* return: 0 => calculation completed as expected; others => error. */
+static unsigned int adjust_async_vsync_diff_sa(
 	const unsigned int idx, const unsigned int m_idx,
 	struct FrameSyncDynamicPara *p_para)
 {
@@ -4351,7 +4442,7 @@ static void adjust_async_vsync_diff_sa(
 	fs_alg_sa_update_fl_us(idx, out_fl_us_final, p_para);
 
 	if (idx == m_idx)
-		return;
+		return 0;
 
 
 	/* !!! Check master & slave information !!! */
@@ -4372,7 +4463,7 @@ static void adjust_async_vsync_diff_sa(
 			convert2LineCount(
 				fs_inst[idx].lineTimeInNs,
 				fs_inst[idx].output_fl_us));
-		return;
+		return 1;
 	}
 
 
@@ -4380,6 +4471,7 @@ static void adjust_async_vsync_diff_sa(
 	/* ==> calculate/get current receive timestamp diff */
 	fs_alg_sa_calc_m_s_ts_diff(p_para_m, p_para,
 		&ts_diff_m, &ts_diff_s);
+	fs_alg_sa_calc_pr_fl_error(m_idx, idx, p_para_m, p_para);
 
 	/* ==> calculate master/slave adjust_diff */
 	adjust_diff =
@@ -4431,11 +4523,11 @@ static void adjust_async_vsync_diff_sa(
 	ret = alloc_log_buf(log_str_len, &log_buf);
 	if (unlikely(ret != 0)) {
 		LOG_MUST("ERROR: log_buf allocate memory failed\n");
-		return;
+		goto end_adjust_async_vsync_diff_sa;
 	}
 
 	FS_SNPRF(log_str_len, log_buf, len,
-		"[%u] ID:%#x(sidx:%u), out_fl:%u(%u) +%lld(%u), flk(%u):(+%u/+%u), s/m, #%u/#%u([%u]), req_id(%d/%d), adj_diff(%lld(%u)), async_m_delta:%u, t:(%lld/%lld)",
+		"[%u] ID:%#x(sidx:%u), out_fl:%u(%u) +%lld(%u), flk(%u):(+%u/+%u), s/m, #%u/#%u([%u]), req_id(%d/%d), adj_diff(%lld(%u)), async_m_delta:%u, t:(%lld/%lld(+%lld(%#x)))",
 		idx,
 		fs_get_reg_sensor_id(idx),
 		fs_get_reg_sensor_idx(idx),
@@ -4455,7 +4547,9 @@ static void adjust_async_vsync_diff_sa(
 		adjust_or_not,
 		p_para->async_m_delta,
 		ts_diff_s,
-		ts_diff_m);
+		ts_diff_m,
+		p_para->pred_fl_err_us_m,
+		p_para->pred_fl_err_chk_bits_m);
 
 	fs_alg_sa_adjust_diff_m_s_general_msg_connector(
 		m_idx, idx, p_para_m, p_para,
@@ -4466,8 +4560,10 @@ static void adjust_async_vsync_diff_sa(
 
 	FS_FREE(log_buf);
 
+end_adjust_async_vsync_diff_sa:
 	/* setup final FL result avoid influence log info */
 	fs_alg_sa_update_fl_us(idx, out_fl_us_final, p_para);
+	return 0;
 }
 
 
@@ -4507,9 +4603,12 @@ unsigned int fs_alg_solve_frame_length_sa(
 
 	/* check this idx is normal sync or async slave idx */
 	if (!((p_sa_cfg->async_s_bits >> p_sa_cfg->idx) & 0x01)) {
-		ret = fps_sync_sa_handler(p_sa_cfg, &para);
-		if (ret == 0) {
-			adjust_vsync_diff_sa(
+		unsigned int skip_adjust_vsync_diff;
+
+		skip_adjust_vsync_diff =
+			fps_sync_sa_handler(p_sa_cfg, &para);
+		if (likely(!skip_adjust_vsync_diff)) {
+			ret = adjust_vsync_diff_sa(
 				p_sa_cfg->idx, p_sa_cfg->m_idx,
 				p_sa_cfg->sa_method,
 				&para);
@@ -4517,7 +4616,7 @@ unsigned int fs_alg_solve_frame_length_sa(
 
 	} else {
 		/* 1. adjust async slave vsync diff */
-		adjust_async_vsync_diff_sa(
+		ret = adjust_async_vsync_diff_sa(
 			p_sa_cfg->idx, p_sa_cfg->async_m_idx,
 			&para);
 	}
@@ -4528,7 +4627,7 @@ unsigned int fs_alg_solve_frame_length_sa(
 	/* update dynamic para for sharing to other sensor */
 	fs_alg_sa_update_dynamic_para(p_sa_cfg->idx, &para);
 
-	return 0;
+	return ret;
 }
 #endif // SUPPORT_FS_NEW_METHOD
 

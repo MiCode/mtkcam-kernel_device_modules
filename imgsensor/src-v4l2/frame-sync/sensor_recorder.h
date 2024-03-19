@@ -228,7 +228,8 @@ void frec_init_recorder(const unsigned int idx,
 	const struct FrameRecord *p_frame_rec,
 	const unsigned int def_fl_lc, unsigned int fl_act_delay);
 
-void frec_seamless_switch(const unsigned int idx, const unsigned int def_fl_lc,
+void frec_seamless_switch(const unsigned int idx,
+	const unsigned int def_fl_lc, const unsigned int fl_act_delay,
 	const struct frec_seamless_st *p_seamless_rec);
 
 void frec_notify_vsync(const unsigned int idx);

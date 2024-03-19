@@ -1184,6 +1184,7 @@ static bool mtk_mae_config_rsz(struct mtk_mae_dev *mae_dev,
 	struct padding_setting_out padding_out = {0};
 	struct rsz_setting_in rsz_in;
 	struct rsz_setting_out rsz_out = {0};
+	uint32_t i;
 
 	// crop
 	if (param->image[loop].enRoi) {
@@ -1231,12 +1232,18 @@ static bool mtk_mae_config_rsz(struct mtk_mae_dev *mae_dev,
 		if (padding_in.right < 0 || padding_in.down < 0) {
 			mae_dev_info(mae_dev->dev, "can not padding negative value r(%d) d(%d)",
 				padding_in.right, padding_in.down);
-			mae_dev_info(mae_dev->dev, "loop(%d) img(%d,%d) roi(%d)(%d,%d -> %d,%d) pad(%d)(%d,%d,%d,%d)",
-				loop, param->image[loop].resizeWidth, param->image[loop].resizeHeight,
-				param->image[loop].enRoi, param->image[loop].roi.x1, param->image[loop].roi.y1,
-				param->image[loop].roi.x2, param->image[loop].roi.y2, param->image[loop].enPadding,
-				param->image[loop].padding.left, param->image[loop].padding.right,
-				param->image[loop].padding.down, param->image[loop].padding.up);
+			mae_dev_info(mae_dev->dev, "mae mode(%d) pyramid number(%d) loop(%d)",
+				param->maeMode, param->pyramidNumber, loop);
+			for (i = 0; i < param->pyramidNumber; i++)
+				mae_dev_info(mae_dev->dev,
+					"py(%d) img(%d,%d) rsz(%d,%d) roi(%d)(%d,%d -> %d,%d) pad(%d)(%d,%d,%d,%d)",
+					i, param->image[i].imgWidth, param->image[i].imgHeight,
+					param->image[i].resizeWidth, param->image[i].resizeHeight,
+					param->image[i].enRoi, param->image[i].roi.x1,
+					param->image[i].roi.y1, param->image[i].roi.x2,
+					param->image[i].roi.y2, param->image[i].enPadding,
+					param->image[i].padding.left, param->image[i].padding.right,
+					param->image[i].padding.down, param->image[i].padding.up);
 			// force to 640x480
 			// return false;
 			padding_in.right = 0;
@@ -1264,12 +1271,18 @@ static bool mtk_mae_config_rsz(struct mtk_mae_dev *mae_dev,
 		if (padding_in.right < 0 || padding_in.down < 0) {
 			mae_dev_info(mae_dev->dev, "can not padding negative value r(%d) d(%d)",
 				padding_in.right, padding_in.down);
-			mae_dev_info(mae_dev->dev, "loop(%d) img(%d,%d) roi(%d)(%d,%d -> %d,%d) pad(%d)(%d,%d,%d,%d)",
-				loop, param->image[loop].resizeWidth, param->image[loop].resizeHeight,
-				param->image[loop].enRoi, param->image[loop].roi.x1, param->image[loop].roi.y1,
-				param->image[loop].roi.x2, param->image[loop].roi.y2, param->image[loop].enPadding,
-				param->image[loop].padding.left, param->image[loop].padding.right,
-				param->image[loop].padding.down, param->image[loop].padding.up);
+			mae_dev_info(mae_dev->dev, "mae mode(%d) pyramid number(%d) loop(%d)",
+				param->maeMode, param->pyramidNumber, loop);
+			for (i = 0; i < param->pyramidNumber; i++)
+				mae_dev_info(mae_dev->dev,
+					"py(%d) img(%d,%d) rsz(%d,%d) roi(%d)(%d,%d -> %d,%d) pad(%d)(%d,%d,%d,%d)",
+					i, param->image[i].imgWidth, param->image[i].imgHeight,
+					param->image[i].resizeWidth, param->image[i].resizeHeight,
+					param->image[i].enRoi, param->image[i].roi.x1,
+					param->image[i].roi.y1, param->image[i].roi.x2,
+					param->image[i].roi.y2, param->image[i].enPadding,
+					param->image[i].padding.left, param->image[i].padding.right,
+					param->image[i].padding.down, param->image[i].padding.up);
 			// force to 640x480
 			// return false;
 			padding_in.right = 0;
@@ -1524,8 +1537,8 @@ static void mtk_mae_fd_post(struct mtk_mae_dev *mae_dev,
 		MAE_CMDQ_WRITE_REG(pkt, MAE_REG_V_MAX0 + core_offset,
 				(uint32_t)image->imgHeight);
 
-		// 0x1008 is representation of -16 by 2's complement
-		MAE_CMDQ_WRITE_REG(pkt, MAE_REG_SCORE_TH0 + core_offset, 0x1008);
+		// 0x3F0 is representation of -16 by 2's complement
+		MAE_CMDQ_WRITE_REG(pkt, MAE_REG_SCORE_TH0 + core_offset, 0x3F0);
 	} else if (mode == FD_V1_FPN) {
 		MAE_CMDQ_WRITE_REG(pkt, MAE_REG_H_MIN0 + core_offset, 0x0);
 		MAE_CMDQ_WRITE_REG(pkt, MAE_REG_V_MIN0 + core_offset, 0x0);
@@ -2371,7 +2384,7 @@ static void mtk_mae_dump_param(struct mtk_mae_dev *mae_dev)
 	case FD_V1_IPN:
 	case FD_V1_FPN:
 		// core_sel
-		mae_dev_info(mae_dev->dev, "pyramid number(%d), fd degree(%d)",
+		mae_dev_info(mae_dev->dev, "pyramid number(%d), fd degree(%d)\n",
 			param->pyramidNumber, param->fdInputDegree);
 		for (i = 0; i < param->pyramidNumber; i++) {
 			mae_dev_info(mae_dev->dev, "fmt(%d), img W/H(%d/%d), roi(%d)(%d,%d->%d,%d), rsz W/H(%d/%d)\n",
@@ -2379,37 +2392,46 @@ static void mtk_mae_dump_param(struct mtk_mae_dev *mae_dev)
 				param->image[i].enRoi, param->image[i].roi.x1, param->image[i].roi.y1,
 				param->image[i].roi.x2, param->image[i].roi.y2, param->image[i].resizeWidth,
 				param->image[i].resizeHeight);
-			mae_dev_info(mae_dev->dev, "pad(%d) (l,r,d,u)=(%d,%d->%d,%d)", param->image[i].enPadding,
+			mae_dev_info(mae_dev->dev, "pad(%d) (l,r,d,u)=(%d,%d->%d,%d)\n", param->image[i].enPadding,
 				param->image[i].padding.left, param->image[i].padding.right,
 				param->image[i].padding.down, param->image[i].padding.up);
 		}
 		break;
 	case ATTR_V0:
 	case FAC_V1:
-		mae_dev_info(mae_dev->dev, "attr face number(%d)", param->attrFaceNumber);
+		mae_dev_info(mae_dev->dev, "attr face number(%d)\n", param->attrFaceNumber);
 		for (i = 0; i < param->attrFaceNumber; i++) {
-			mae_dev_info(mae_dev->dev, "attr rotate(%d)", param->attrInputDegree[i]);
+			mae_dev_info(mae_dev->dev, "attr rotate(%d)\n", param->attrInputDegree[i]);
 			mae_dev_info(mae_dev->dev, "fmt(%d), img W/H(%d/%d), roi(%d)(%d,%d->%d,%d), rsz W/H(%d/%d)\n",
 				param->image[i].srcImgFmt, param->image[i].imgWidth, param->image[i].imgHeight,
 				param->image[i].enRoi, param->image[i].roi.x1, param->image[i].roi.y1,
 				param->image[i].roi.x2, param->image[i].roi.y2, param->image[i].resizeWidth,
 				param->image[i].resizeHeight);
-			mae_dev_info(mae_dev->dev, "pad(%d) (l,r,d,u)=(%d,%d->%d,%d)", param->image[i].enPadding,
+			mae_dev_info(mae_dev->dev, "pad(%d) (l,r,d,u)=(%d,%d->%d,%d)\n", param->image[i].enPadding,
 				param->image[i].padding.left, param->image[i].padding.right,
 				param->image[i].padding.down, param->image[i].padding.up);
 		}
 		break;
 	case AISEG:
-		mae_dev_info(mae_dev->dev, "aiseg rotate(%d)", param->aisegInputDegree);
-		mae_dev_info(mae_dev->dev, "fmt(%d), img W/H(%d/%d), roi(%d)(%d,%d->%d,%d), rsz W/H(%d/%d)\n",
-			param->image[0].srcImgFmt, param->image[0].imgWidth, param->image[0].imgHeight,
-			param->image[0].enRoi, param->image[0].roi.x1, param->image[0].roi.y1,
-			param->image[0].roi.x2, param->image[0].roi.y2, param->image[0].resizeWidth,
-			param->image[0].resizeHeight);
-		mae_dev_info(mae_dev->dev, "pad(%d) (l,r,d,u)=(%d,%d->%d,%d)", param->image[0].enPadding,
-			param->image[0].padding.left, param->image[0].padding.right,
-			param->image[0].padding.down, param->image[0].padding.up);
+		mae_dev_info(mae_dev->dev, "aiseg rotate(%d)\n", param->aisegInputDegree);
+		mae_dev_info(mae_dev->dev, "fmt(%d), img W/H(%d/%d)\n",
+			param->image[0].srcImgFmt, param->image[0].imgWidth, param->image[0].imgHeight);
+
+		for (i = 0; i < AISEG_CROP_NUM; i++) {
+			mae_dev_info(mae_dev->dev, "corp[%d] (%d,%d -> %d,%d) featureMapSize(%d) outputSizeX(%d)\n",
+					i, param->aisegCrop[i].x0, param->aisegCrop[i].y0,
+					param->aisegCrop[i].x1, param->aisegCrop[i].y1,
+					param->aisegCrop[i].featureMapSize,
+					param->aisegCrop[i].outputSizeX);
+			mae_dev_info(mae_dev->dev, "outputSizeY(%d) shiftBit(%d)\n",
+					param->aisegCrop[i].outputSizeY,
+					param->aisegCrop[i].shiftBit);
+		}
+
+		mae_dev_info(mae_dev->dev, "outputNum(%d)\n", param->outputNum);
 		for (i = 0; i < param->outputNum; i++) {
+			mae_dev_info(mae_dev->dev, "lnOffset[%d] = (%d)\n",
+				i, param->lnOffset[i]);
 			mae_dev_info(mae_dev->dev, "output fd(%d) size(%ld) offset(%ld)",
 				model_table->aisegOutput[i].fd,
 				model_table->aisegOutput[i].size,

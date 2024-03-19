@@ -638,6 +638,7 @@ static void mtk_mae_device_run(void *priv)
 	mtk_mae_get_kernel_time(mae_dev, param, MAE_CMDQ_PKT_CREATE_END);
 
 	reinit_completion(&mae_dev->mae_job_finished);
+	mae_dev->is_hw_hang = false;
 
 	if (param->maeMode == FLD_V0) {
 		drv_ops.config_fld(mae_dev, idx);
@@ -1323,19 +1324,17 @@ static int mtk_mae_video_device_release(struct file *filp)
  */
 static __poll_t mtk_mae_video_device_poll(struct file *file, poll_table *wait)
 {
-	// struct mtk_mae_ctx *ctx =
-	// 	container_of(file->private_data, struct mtk_mae_ctx, fh);
-	// int ret;
+	struct mtk_mae_dev *mae_dev = video_drvdata(file);
 
-	// pr_info("%s+\n", __func__);
+	if(!wait_for_completion_timeout(&mae_dev->mae_job_finished, msecs_to_jiffies(1500))) {
+		mae_dev_info(mae_dev->dev, "%s: wait job finish timeout\n", __func__);
+		return EPOLLERR;
+	}
 
-	// MAE_TO_DO: frame done notify
-	// ret = mtk_aie_job_wait_finish(ctx->mae_dev);
-	// if (!ret) {
-	// 	mae_dev_info(ctx->dev, "wait job finish timeout\n");
-	// 	return EPOLLERR;
-	// }
-
+	if (mae_dev->is_hw_hang) {
+		mae_dev_info(mae_dev->dev, "%s: hw timeout\n", __func__);
+		return EPOLLERR;
+	}
 #if M2M_ENABLE
 	return v4l2_m2m_fop_poll(file, wait);
 #else

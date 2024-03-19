@@ -36,6 +36,7 @@ static const struct dev_pm_ops mtk_imgsys_pm_ops = {
 
 static const struct of_device_id mtk_imgsys_of_match[] = {
 	{ .compatible = "mediatek,imgsys-isp8-mt6991", .data = (void *)&imgsys_data_mt6991},
+	{ .compatible = "mediatek,imgsys-isp8-mt6899", .data = (void *)&imgsys_data_mt6899},
 	{}
 };
 MODULE_DEVICE_TABLE(of, mtk_imgsys_of_match);

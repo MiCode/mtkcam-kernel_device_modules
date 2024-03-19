@@ -39,7 +39,7 @@
 #define MSB_ADDR(ADDR) ((ADDR & MSB_MASK) >> MSB_ADDR_SHIFT_BITS)
 #define REG_RANGE(VALUE,MSB,LSB) (uint32_t)((VALUE >> LSB) & ((1<<(MSB-LSB+1)) - 1))
 
-#define INTERNAL_BUFFER_SIZE (512 * 1024)
+#define INTERNAL_BUFFER_SIZE (3 * 512 * 1024)
 
 /* ============ should align userspace define (start) ================== */
 #define MAE_BASE_ADDR_ALIGN 16
@@ -141,7 +141,7 @@
 #define MAX_FLD_V0_FACE_NUM 15
 #define FLD_V0_POINT 500
 
-#define AISEG_MAP_NUM 11
+#define AISEG_MAP_NUM 12
 #define SEMANTIC_MERGE_NUM 16
 #define PERSON_MERGE_NUM 16
 #define MERGE_CONFIDENCE_NUM 16
@@ -614,6 +614,7 @@ struct aiseg_crop_setting_out {
 	uint32_t reg_pre_crop_h_crop_en;
 	uint32_t reg_pre_crop_h_st;
 	uint32_t reg_pre_crop_h_length;
+	uint32_t reg_pre_crop_hfde_size;
 	uint32_t reg_h_size;
 	uint32_t reg_scale_factor_ho_0;
 	uint32_t reg_scale_factor_ho_1;

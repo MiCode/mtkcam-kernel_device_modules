@@ -284,10 +284,18 @@ static bool mtk_mae_config_dma(struct mtk_mae_dev *mae_dev, int idx)
 		// config the base address of input buffer
 		addr = mae_dev->map_table->image_dmabuf_info[idx].pa;
 
-		if (param->image[loop].imgWidth % 16 != 0) {
-			mae_dev_info(mae_dev->dev, "Loop %d: image width(%d) should be 16-aligned",
-					loop, param->image[loop].imgWidth);
-			return false;
+		if (param->maeMode == AISEG) {
+			if (param->image[loop].imgWidth % 8 != 0) {
+				mae_dev_info(mae_dev->dev, "Loop %d: image width(%d) should be 8-aligned",
+						loop, param->image[loop].imgWidth);
+				return false;
+			}
+		} else {
+			if (param->image[loop].imgWidth % 16 != 0) {
+				mae_dev_info(mae_dev->dev, "Loop %d: image width(%d) should be 16-aligned",
+						loop, param->image[loop].imgWidth);
+				return false;
+			}
 		}
 
 		if (param->image[loop].enRoi)
@@ -327,7 +335,7 @@ static bool mtk_mae_config_dma(struct mtk_mae_dev *mae_dev, int idx)
 
 		// config the base address of output buffer
 		if (param->maeMode == AISEG) {
-			for (i = 0; i < AISEG_MAP_NUM; i++) {
+			for (i = 0; i < param->outputNum; i++) {
 				addr = mae_dev->map_table->aiseg_output_dmabuf_info[idx][i].pa +
 					model_table->aisegOutput[i].offset;
 				if (CHECK_BASE_ADDR(addr) || addr == 0)
@@ -1529,6 +1537,9 @@ static void mtk_mae_aiseg_crop(struct mtk_mae_dev *mae_dev,
 	out->reg_order = 1;
 	out->reg_postproc_en = 1;
 
+	mae_dev_dbg(mae_dev->dev, "[%s] crop(%d,%d -> %d,%d) map(%d) output x/y(%d/%d) shift(%d)\n",
+		__func__, x0, y0, x1, y1, feature_map_size, output_size_x, output_size_y, shift_bit);
+
 	mae_dev_dbg(mae_dev->dev, "=== Default Setting ===\n");
 	mae_dev_dbg(mae_dev->dev, "reg_mode_c_ho = %d, reg_mode_c_ve = %d\n",
 		out->reg_mode_c_ho, out->reg_mode_c_ve);
@@ -1554,6 +1565,7 @@ static void mtk_mae_aiseg_crop(struct mtk_mae_dev *mae_dev,
 		- (((feature_map_size - 1) << shift_bit) - (((scale_x_1 >> shift_bit) + rounding) << shift_bit));
 	init_factor = (scale_x_0 - crop_st) * ((uint32_t)1 << (20 - shift_bit));
 
+	out->reg_pre_crop_hfde_size =  DIV_CEIL_POS(feature_map_size, 4) * 4; // 4 align
 	out->reg_nve_op_attr_auto_mode_ve = 0;
 	out->reg_nve_op_attr_auto_mode_ho = 0;
 	out->reg_pre_crop_h_crop_en = 1;
@@ -1572,8 +1584,8 @@ static void mtk_mae_aiseg_crop(struct mtk_mae_dev *mae_dev,
 		out->reg_pre_crop_h_st, out->reg_pre_crop_h_length, out->reg_h_size);
 	mae_dev_dbg(mae_dev->dev, "reg_scale_factor_ho_0 = 0x%x, reg_scale_factor_ho_1 = 0x%x\n",
 		out->reg_scale_factor_ho_0, out->reg_scale_factor_ho_1);
-	mae_dev_dbg(mae_dev->dev, "reg_ini_factor_ho_0 = 0x%x, reg_ini_factor_ho_1 = 0x%x\n",
-		out->reg_ini_factor_ho_0, out->reg_ini_factor_ho_1);
+	mae_dev_dbg(mae_dev->dev, "reg_ini_factor_ho_0 = 0x%x, reg_ini_factor_ho_1 = 0x%x reg_pre_crop_hfde_size=%d\n",
+		out->reg_ini_factor_ho_0, out->reg_ini_factor_ho_1, out->reg_pre_crop_hfde_size);
 
 	// Veritical resizer
 	scale_y_0 = y0 * (feature_map_size - 1);
@@ -1698,7 +1710,7 @@ static void mtk_mae_config_aiseg_crop(struct mtk_mae_dev *mae_dev,
 
 		MAE_CMDQ_WRITE_REG(pkt,
 				REG_00D0_RSZ1 + i * RSZ_BASE_ADDR_OFFSET,
-				param->aisegCrop[i].featureMapSize);
+				crop_reg.reg_pre_crop_hfde_size);
 
 		MAE_CMDQ_WRITE_REG(pkt,
 				REG_00D4_RSZ1 + i * RSZ_BASE_ADDR_OFFSET,
@@ -1768,12 +1780,6 @@ static bool mtk_mae_config_hw(struct mtk_mae_dev *mae_dev, int idx)
 			param->image[loop].imgHeight % 2 != 0) {
 			mae_dev_info(mae_dev->dev, "imgHeight(%d) should be 2 pixel aligned in NV12",
 							param->image[loop].imgHeight);
-			return false;
-		}
-
-		if (param->image[loop].imgWidth % 16 != 0) {
-			mae_dev_info(mae_dev->dev, "imgWidth(%d) should be 16 pixel aligned",
-							param->image[loop].imgWidth);
 			return false;
 		}
 

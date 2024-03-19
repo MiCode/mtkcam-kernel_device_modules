@@ -1520,8 +1520,9 @@ int mtk_mae_vidioc_qbuf(struct file *file, void *priv,
 		}
 		break;
 	case AISEG:
-		mae_dev_dbg(mae_dev->dev, "srcImgFmt(%d), imgWidth(%d), imgHeight(%d), ",
-			param->image[0].srcImgFmt, param->image[0].imgWidth, param->image[0].imgHeight);
+		mae_dev_dbg(mae_dev->dev, "outputNum(%d) srcImgFmt(%d), imgWidth(%d), imgHeight(%d), ",
+			param->outputNum, param->image[0].srcImgFmt,
+			param->image[0].imgWidth, param->image[0].imgHeight);
 		mae_dev_dbg(mae_dev->dev, "enResize(%d), resizeWidth(%d), resizeHeight(%d)\n",
 			param->image[0].enResize, param->image[0].resizeWidth, param->image[0].resizeHeight);
 		break;
@@ -1615,7 +1616,7 @@ int mtk_mae_vidioc_qbuf(struct file *file, void *priv,
 
 	// get AISEG output
 	if (param->maeMode == AISEG) {
-		for (i = 0; i < AISEG_MAP_NUM; i++) {
+		for (i = 0; i < param->outputNum; i++) {
 			mtk_mae_umap_detach(mae_dev, &map_table->aiseg_output_dmabuf_info[idx][i]);
 			ret = mtk_mae_set_dmabuf_info(mae_dev,
 						model_table->aisegOutput[i].fd,

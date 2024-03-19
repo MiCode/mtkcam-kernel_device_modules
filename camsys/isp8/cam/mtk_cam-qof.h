@@ -30,7 +30,7 @@ void qof_init_timer_freq(struct mtk_raw_device *dev);
 void qof_setup_hw_timer(struct mtk_raw_device *dev, u32 interval_us);
 void qof_setup_rtc(struct mtk_raw_device *dev);
 int qof_setup_twin(struct mtk_raw_device *dev, bool is_master, bool next_raw);
-void qof_set_cq_start_max(struct mtk_raw_device *dev, u32 start_max);
+void qof_set_cq_start_max(struct mtk_raw_device *dev, int scq_ms);
 
 bool qof_is_enabled(struct mtk_raw_device *dev);
 int qof_enable(struct mtk_raw_device *dev, bool enable);
@@ -49,6 +49,7 @@ void qof_dump_hw_timer(struct mtk_raw_device *raw);
 void qof_dump_cq_addr(struct mtk_raw_device *raw);
 void qof_dump_ctrl(struct mtk_raw_device *raw);
 void qof_dump_qoftop_status(struct mtk_raw_device *raw);
+void qof_force_dump_all(struct mtk_raw_device *raw);
 
 void mtk_cam_enable_itc(struct mtk_raw_device *raw);
 

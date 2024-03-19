@@ -4925,6 +4925,8 @@
 #define REG_FHG_FHG_SPARE_3                        0x41C8
 #define REG_FHG_FHG_SPARE_4                        0x41CC
 
+#define REG_FRAME_IDX                              REG_CAMCTL_SPARE3
+
 /* module: CAMCQ_R1A */
 #define REG_CAMCQ_CQ_EN                            0x1000
 #define F_CAMCQ_CQ_DBG_MAIN_SUB_SEL_POS                              29

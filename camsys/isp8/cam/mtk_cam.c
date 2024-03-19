@@ -1408,6 +1408,8 @@ static int mtk_cam_initialize(struct mtk_cam_device *cam)
 
 	mtk_cam_bwr_enable(&cam->bwr);
 
+	enable_irq(cam->qoftop_irq);
+
 	return ret;
 }
 
@@ -1418,6 +1420,7 @@ static int mtk_cam_uninitialize(struct mtk_cam_device *cam)
 
 	dev_info(cam->dev, "camsys uninitialize\n");
 
+	disable_irq(cam->qoftop_irq);
 	mtk_cam_bwr_disable(&cam->bwr);
 	mtk_cam_power_rproc(cam, 0);
 	mtk_cam_plat_resource_ctrl(cam, 0);
@@ -4715,15 +4718,16 @@ static int mtk_cam_probe(struct platform_device *pdev)
 		goto SKIP_ADLRD_IRQ;
 	}
 
-	ret = devm_request_irq(dev, irq, mtk_irq_qof, IRQF_NO_AUTOEN,
+	cam_dev->qoftop_irq = irq;
+	ret = devm_request_irq(dev, cam_dev->qoftop_irq, mtk_irq_qof, IRQF_NO_AUTOEN,
 			       dev_name(dev), cam_dev);
 	if (ret) {
 		dev_err(dev, "%s: Request qoftop failed\n", __func__);
 		WRAP_AEE_EXCEPTION("mtk_cam_probe", "Request IRQF_NO_AUTOEN");
 		return ret;
 	}
-	dev_dbg(dev, "registered qoftop irq=%d\n", irq);
-	enable_irq(irq);
+	dev_dbg(dev, "registered qoftop irq=%d\n", cam_dev->qoftop_irq);
+
 	cam_dev->cmdq_clt = cmdq_mbox_create(dev, 0);
 	if (!cam_dev->cmdq_clt)
 		pr_err("probe cmdq_mbox_create fail\n");

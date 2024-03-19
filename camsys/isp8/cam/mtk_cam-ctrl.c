@@ -1493,7 +1493,7 @@ static void mtk_cam_ctrl_seamless_switch_flow(struct mtk_cam_job *job)
 
 		qof_sof_src_sel(raw, mtk_cam_job_is_dcif_required(job),
 					!res_raw_is_dc_mode(&res->raw_res), sv_last_tag);
-		qof_set_cq_start_max(raw, 0xFFFFFFFF);
+		qof_set_cq_start_max(raw, -1);
 		qof_enable_cq_trigger_by_qof(raw, false);
 	}
 

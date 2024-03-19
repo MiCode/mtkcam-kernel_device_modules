@@ -66,11 +66,11 @@ bool has_multiple_expo_mode(struct seninf_ctx *ctx)
 		sensor_sd->ops->core->command(sensor_sd,
 			V4L2_CMD_GET_SENSOR_MODE_CONFIG_INFO, &info);
 
-		seninf_logi(ctx, "info.cur_mode = %u, info.count = %u\n",
+		seninf_logd(ctx, "info.cur_mode = %u, info.count = %u\n",
 			 info.current_scenario_id, info.count);
 
 		for (i = 0; i < info.count; i++) {
-			seninf_logi(ctx, "mode[%d] mode id = %u, exp_num = %u\n",
+			seninf_logd(ctx, "mode[%d] mode id = %u, exp_num = %u\n",
 				 i,
 				 info.seamless_scenario_infos[i].scenario_id,
 				 info.seamless_scenario_infos[i].mode_exposure_num);

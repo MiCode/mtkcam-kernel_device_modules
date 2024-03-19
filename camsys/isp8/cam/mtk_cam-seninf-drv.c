@@ -246,7 +246,7 @@ static int get_sensor_idx(struct seninf_ctx *ctx)
 
 	val = v4l2_ctrl_g_ctrl(ctrl);
 
-	dev_info(ctx->dev, "[%s]: %d\n", __func__, val);
+	seninf_logd(ctx, "%d\n", val);
 
 	return val;
 }

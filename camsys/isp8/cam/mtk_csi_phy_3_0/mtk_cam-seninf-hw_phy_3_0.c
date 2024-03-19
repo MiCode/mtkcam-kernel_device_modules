@@ -520,8 +520,9 @@ static int mtk_cam_seninf_disable_outmux(struct seninf_ctx *ctx, int outmux, boo
 		}
 	}
 
-	seninf_logi(ctx, "clear outmux:%d (disable en:%d) immediately(%d)\n",
-		    outmux, ctx->outmux_disable_list[outmux], immed);
+	seninf_logi(ctx, "clear outmux:%d (disable en:%d) immediately(%d),current irq(0x%x)\n",
+		    outmux, ctx->outmux_disable_list[outmux], immed,
+		    _seninf_ops->_get_outmux_irq_st(ctx, outmux, 1));
 
 	return 0;
 }
@@ -1084,6 +1085,52 @@ static int mtk_cam_seninf_set_async_cg(struct seninf_ctx *ctx, int async, int en
 	return 0;
 }
 
+static int mtk_cam_seninf_en_async_overrun_irq(struct seninf_ctx *ctx, int async)
+{
+	void *pSeninf_top = ctx->reg_if_top;
+
+	if (async >= _seninf_ops->async_num)
+		return -1;
+
+	mutex_lock(&ctx->core->seninf_top_rg_mutex);
+	switch (async) {
+	case 0:
+		SENINF_BITS(pSeninf_top, SENINF_TOP_ASYNC_OVERRUN_IRQ_EN,
+			    SENINF_TOP_ASYNC_OVERRUN_IRQ_EN_0, 1);
+		break;
+	case 1:
+		SENINF_BITS(pSeninf_top, SENINF_TOP_ASYNC_OVERRUN_IRQ_EN,
+			    SENINF_TOP_ASYNC_OVERRUN_IRQ_EN_1, 1);
+		break;
+	case 2:
+		SENINF_BITS(pSeninf_top, SENINF_TOP_ASYNC_OVERRUN_IRQ_EN,
+			    SENINF_TOP_ASYNC_OVERRUN_IRQ_EN_2, 1);
+		break;
+	case 3:
+		SENINF_BITS(pSeninf_top, SENINF_TOP_ASYNC_OVERRUN_IRQ_EN,
+			    SENINF_TOP_ASYNC_OVERRUN_IRQ_EN_3, 1);
+		break;
+	case 4:
+		SENINF_BITS(pSeninf_top, SENINF_TOP_ASYNC_OVERRUN_IRQ_EN,
+			    SENINF_TOP_ASYNC_OVERRUN_IRQ_EN_4, 1);
+		break;
+	case 5:
+		SENINF_BITS(pSeninf_top, SENINF_TOP_ASYNC_OVERRUN_IRQ_EN,
+			    SENINF_TOP_ASYNC_OVERRUN_IRQ_EN_5, 1);
+		break;
+	default:
+		mutex_unlock(&ctx->core->seninf_top_rg_mutex);
+		return -1;
+	}
+	mutex_unlock(&ctx->core->seninf_top_rg_mutex);
+
+	seninf_logd(ctx, "input async:%d, ASYNC TOP OVERRUN IRQ_EN = 0x%x\n",
+		async,
+		SENINF_READ_REG(pSeninf_top, SENINF_TOP_ASYNC_OVERRUN_IRQ_EN));
+
+	return 0;
+}
+
 static int mtk_cam_seninf_set_async(struct seninf_ctx *ctx, int async, int split, int tm)
 {
 	void *pSeninf;
@@ -1116,10 +1163,21 @@ static int mtk_cam_seninf_set_async(struct seninf_ctx *ctx, int async, int split
 
 	SENINF_BITS(pSeninf, SENINF_ASYTOP_SENINF_ASYNC_CFG,
 		    SENINF_ASYTOP_TESTMDL_SEL, val);
+
+	// enable debug
+	val = SENINF_READ_BITS(pSeninf, SENINF_ASYTOP_SENINF_ASYNC_CFG,
+			       SENINF_ASYTOP_DEBUG_EN);
+	val |= (0x1 << async);
+	SENINF_BITS(pSeninf, SENINF_ASYTOP_SENINF_ASYNC_CFG,
+		    SENINF_ASYTOP_DEBUG_EN, val);
+
 	mutex_unlock(&ctx->core->seninf_top_rg_mutex);
 
-	dev_info(ctx->dev, "%s: ASYNC CFG = 0x%x\n", __func__,
-		 SENINF_READ_REG(pSeninf, SENINF_ASYTOP_SENINF_ASYNC_CFG));
+	seninf_logi(ctx, "input async:%d, ASYNC CFG = 0x%x\n",
+		async,
+		SENINF_READ_REG(pSeninf, SENINF_ASYTOP_SENINF_ASYNC_CFG));
+
+	mtk_cam_seninf_en_async_overrun_irq(ctx, async);
 
 	return true;
 }
@@ -4457,6 +4515,7 @@ static int mtk_cam_seninf_debug(struct seninf_ctx *ctx)
 	unsigned int cphy_irq = 0;
 	unsigned int temp = 0;
 	void *pSeninf_top = ctx->reg_if_top;
+	void *pSeninf_asytop = ctx->reg_if_async;
 
 	mtk_cam_sensor_get_frame_cnt(ctx, &frame_cnt1);
 
@@ -4773,6 +4832,25 @@ static int mtk_cam_seninf_debug(struct seninf_ctx *ctx)
 		SENINF_READ_REG(base_csi_mac, CSIRX_MAC_CSI2_SIZE_CHK_RCV3),
 		SENINF_READ_REG(base_csi_mac, CSIRX_MAC_CSI2_SIZE_CHK_RCV4));
 
+	dev_info(ctx->dev,
+		"current async%d:ASYNC0_DBG0(0x%x),ASYNC1_DBG0(0x%x),ASYNC2_DBG0(0x%x),ASYNC3_DBG0(0x%x),ASYNC4_DBG0(0x%x),ASYNC5_DBG0(0x%x)",
+		ctx->seninfAsyncIdx,
+		SENINF_READ_REG(pSeninf_asytop, SENINF_ASYTOP_SENINF_ASYNC_DBG_PORT0_0),
+		SENINF_READ_REG(pSeninf_asytop, SENINF_ASYTOP_SENINF_ASYNC_DBG_PORT0_1),
+		SENINF_READ_REG(pSeninf_asytop, SENINF_ASYTOP_SENINF_ASYNC_DBG_PORT0_2),
+		SENINF_READ_REG(pSeninf_asytop, SENINF_ASYTOP_SENINF_ASYNC_DBG_PORT0_3),
+		SENINF_READ_REG(pSeninf_asytop, SENINF_ASYTOP_SENINF_ASYNC_DBG_PORT0_4),
+		SENINF_READ_REG(pSeninf_asytop, SENINF_ASYTOP_SENINF_ASYNC_DBG_PORT0_5));
+	dev_info(ctx->dev,
+		"current async%d:ASYNC0_DBG1(0x%x),ASYNC1_DBG1(0x%x),ASYNC2_DBG1(0x%x),ASYNC3_DBG1(0x%x),ASYNC4_DBG1(0x%x),ASYNC5_DBG1(0x%x)",
+		ctx->seninfAsyncIdx,
+		SENINF_READ_REG(pSeninf_asytop, SENINF_ASYTOP_SENINF_ASYNC_DBG_PORT1_0),
+		SENINF_READ_REG(pSeninf_asytop, SENINF_ASYTOP_SENINF_ASYNC_DBG_PORT1_1),
+		SENINF_READ_REG(pSeninf_asytop, SENINF_ASYTOP_SENINF_ASYNC_DBG_PORT1_2),
+		SENINF_READ_REG(pSeninf_asytop, SENINF_ASYTOP_SENINF_ASYNC_DBG_PORT1_3),
+		SENINF_READ_REG(pSeninf_asytop, SENINF_ASYTOP_SENINF_ASYNC_DBG_PORT1_4),
+		SENINF_READ_REG(pSeninf_asytop, SENINF_ASYTOP_SENINF_ASYNC_DBG_PORT1_5));
+
 	/* check OUTMUX irq status */
 	for (j = 0; j < ctx->vcinfo.cnt; j++) {
 		if (ctx->vcinfo.vc[j].enable) {
@@ -4903,8 +4981,7 @@ static int mtk_cam_seninf_debug(struct seninf_ctx *ctx)
 static int mtk_cam_seninf_debug_current_status(struct seninf_ctx *ctx)
 {
 	void *base_ana, *base_cphy, *base_dphy, *base_csi_mac;
-	int ret = 0;
-	int j, i;
+	int i, ret = 0;
 	enum CSI_PORT csi_port = CSI_PORT_0;
 	char *fmeter_dbg = kzalloc(sizeof(char) * 256, GFP_KERNEL);
 
@@ -5080,44 +5157,42 @@ static int mtk_cam_seninf_debug_current_status(struct seninf_ctx *ctx)
 
 	/* dump all outmux */
 	for (i = 0; i < _seninf_ops->outmux_num; i++) {
-		u32 filt, res, exp_sz, irq_st;
+		u32 irq_st = mtk_cam_seninf_get_outmux_irq_st(ctx, i, 0);
 
-		for (j = 0; j < 8; j++) {
-			filt = mtk_cam_seninf_get_outmux_vcdt_filt(ctx, i, j);
-			if (filt & 0x1) {
-				// tag enabled
-				res = mtk_cam_seninf_get_outmux_res(ctx, i, j);
-				exp_sz = mtk_cam_seninf_get_outmux_exp(ctx, i, j);
-
-				irq_st = mtk_cam_seninf_get_outmux_irq_st(ctx, i, 0);
-				seninf_logi(ctx,
-					 "dump outmux%d,tag%u,CFG_M/PIX_M/CFG0/CFG1/CFG2/SRC/CFG_DONE/CFG_CTL/CFG_RDY/DBG_PORT0/DBG_PORT1:(0x%x/0x%x/0x%x/0x%x/0x%x/0x%x/0x%x/0x%x/0x%x/0x%x/0x%x),filt=0x%x,expSize=0x%x,dbgRecSize=0x%x,irq=0x%x\n",
-					 i, j,
-					 seninf_get_outmux_rg_val(ctx, i,
-								  SENINF_OUTMUX_SW_CONFIG_MODE),
-					 seninf_get_outmux_rg_val(ctx, i,
-								  SENINF_OUTMUX_PIX_MODE),
-					 seninf_get_outmux_rg_val(ctx, i,
-								  SENINF_OUTMUX_SOURCE_CONFIG_0),
-					 seninf_get_outmux_rg_val(ctx, i,
-								  SENINF_OUTMUX_SOURCE_CONFIG_1),
-					 seninf_get_outmux_rg_val(ctx, i,
-								  SENINF_OUTMUX_SOURCE_CONFIG_2),
-					 seninf_get_outmux_rg_val(ctx, i,
-								  SENINF_OUTMUX_SRC_SEL),
-					 seninf_get_outmux_rg_val(ctx, i,
-								  SENINF_OUTMUX_SW_CFG_DONE),
-					 seninf_get_outmux_rg_val(ctx, i,
-								  SENINF_OUTMUX_CSR_CFG_CTRL),
-					 seninf_get_outmux_rg_val(ctx, i,
-								  SENINF_OUTMUX_CAM_CFG_RDY),
-					 seninf_get_outmux_rg_val(ctx, i,
-								  SENINF_OUTMUX_PATH_DBG_PORT_0),
-					 seninf_get_outmux_rg_val(ctx, i,
-								  SENINF_OUTMUX_PATH_DBG_PORT_1),
-					 filt, exp_sz, res, irq_st);
-			}
-		}
+		seninf_logi(ctx,
+			 "dump outmux%d,CFG_M/PIX_M/CFG0/CFG1/CFG2/SRC/CFG_DONE/CFG_CTL/CFG_RDY/DBG_PORT0/DBG_PORT1:(0x%x/0x%x/0x%x/0x%x/0x%x/0x%x/0x%x/0x%x/0x%x/0x%x/0x%x),tag0_filt/exp(0x%x/0x%x),tag2_filt/exp(0x%x/0x%x),irq=0x%x\n",
+			 i,
+			 seninf_get_outmux_rg_val(ctx, i,
+						  SENINF_OUTMUX_SW_CONFIG_MODE),
+			 seninf_get_outmux_rg_val(ctx, i,
+						  SENINF_OUTMUX_PIX_MODE),
+			 seninf_get_outmux_rg_val(ctx, i,
+						  SENINF_OUTMUX_SOURCE_CONFIG_0),
+			 seninf_get_outmux_rg_val(ctx, i,
+						  SENINF_OUTMUX_SOURCE_CONFIG_1),
+			 seninf_get_outmux_rg_val(ctx, i,
+						  SENINF_OUTMUX_SOURCE_CONFIG_2),
+			 seninf_get_outmux_rg_val(ctx, i,
+						  SENINF_OUTMUX_SRC_SEL),
+			 seninf_get_outmux_rg_val(ctx, i,
+						  SENINF_OUTMUX_SW_CFG_DONE),
+			 seninf_get_outmux_rg_val(ctx, i,
+						  SENINF_OUTMUX_CSR_CFG_CTRL),
+			 seninf_get_outmux_rg_val(ctx, i,
+						  SENINF_OUTMUX_CAM_CFG_RDY),
+			 seninf_get_outmux_rg_val(ctx, i,
+						  SENINF_OUTMUX_PATH_DBG_PORT_0),
+			 seninf_get_outmux_rg_val(ctx, i,
+						  SENINF_OUTMUX_PATH_DBG_PORT_1),
+			 seninf_get_outmux_rg_val(ctx, i,
+						  SENINF_OUTMUX_TAG_VCDT_FILT_0),
+			 seninf_get_outmux_rg_val(ctx, i,
+						  SENINF_OUTMUX_TAG_SIZE_0),
+			 seninf_get_outmux_rg_val(ctx, i,
+						  SENINF_OUTMUX_TAG_VCDT_FILT_2),
+			 seninf_get_outmux_rg_val(ctx, i,
+						  SENINF_OUTMUX_TAG_SIZE_2),
+			 irq_st);
 	}
 	seninf_logi(ctx, "ret = %d", ret);
 

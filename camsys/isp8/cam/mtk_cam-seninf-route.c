@@ -1421,7 +1421,7 @@ static int _mtk_cam_seninf_reset_outmux(struct seninf_ctx *ctx, int pad_id)
 			g_seninf_ops->_disable_outmux(ctx, old_outmux, false);
 		}
 
-		dev_info(ctx->dev, "disable outer of pad_id(%d) old camtg(%d)\n",
+		seninf_logd(ctx, "disable outer of pad_id(%d) old camtg(%d)\n",
 			 pad_id, old_outmux);
 	}
 

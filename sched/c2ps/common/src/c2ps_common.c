@@ -556,7 +556,7 @@ void c2ps_update_um_table(struct c2ps_anchor *anc)
 	}
 
 	_item->latency = c2ps_cal_kf_est(&(_item->lat_est), anc->latest_duration/1000);
-	C2PS_LOGW("check um table, ancid: %d, um:%d, ori: %llu, after_proc:%llu",
+	C2PS_LOGD("check um table, ancid: %d, um:%d, ori: %llu, after_proc:%llu",
 		anc->anchor_id, _item->um, anc->latest_duration, _item->latency);
 
 	if (anc->jitter_spec > 0) {
@@ -575,7 +575,7 @@ void c2ps_update_um_table(struct c2ps_anchor *anc)
 					(_end_diff - _item->end_diff);
 		_item->jitter = c2ps_cal_kf_est(&(_item->jit_est), _square/1000);
 
-		C2PS_LOGW(
+		C2PS_LOGD(
 			"check um table, ancid: %d, um:%d, after_proc jitter:%llu, end diff: %llu jitter raw data: %llu",
 			anc->anchor_id, _item->um, _item->jitter, _item->end_diff,
 			(_end_diff-_item->end_diff) * (_end_diff-_item->end_diff));
@@ -1534,7 +1534,7 @@ inline void c2ps_set_util_margin(int cluster, int um)
 	if (unlikely(cluster < 0 || cluster >= c2ps_nr_clusters))
 		return;
 
-	C2PS_LOGW("check util margin: %d", margin);
+	C2PS_LOGD("check util margin: %d", margin);
 
 	set_sched_capacity_margin_dvfs(margin);
 
@@ -1751,8 +1751,10 @@ inline void c2ps_remove_qos_setting(void)
 	if (unlikely(glb_info == NULL))
 		return;
 
-	for (_cluster = 0; _cluster < c2ps_nr_clusters; _cluster++)
-		freq_qos_remove_request(&glb_info->qos_req[_cluster]);
+	for (_cluster = 0; _cluster < c2ps_nr_clusters; _cluster++) {
+		if (freq_qos_request_active(&glb_info->qos_req[_cluster]))
+			freq_qos_remove_request(&glb_info->qos_req[_cluster]);
+	}
 }
 
 static ssize_t task_info_show(struct kobject *kobj,

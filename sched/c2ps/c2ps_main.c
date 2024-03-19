@@ -212,7 +212,7 @@ static void c2ps_notifier_task_single_shot(
 	}
 
 	if (unlikely(!g_info)) {
-		C2PS_LOGE("glb_info is null\n");
+		C2PS_LOGD("glb_info is null\n");
 		return;
 	}
 

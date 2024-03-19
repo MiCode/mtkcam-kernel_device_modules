@@ -8,7 +8,9 @@
 
 extern int (*c2ps_notify_init_fp)(
 	int cfg_camfps, int max_uclamp_cluster0,
-	int max_uclamp_cluster1, int max_uclamp_cluster2);
+	int max_uclamp_cluster1, int max_uclamp_cluster2,
+	int ineff_cpu_ceiling_freq0,
+	int ineff_cpu_ceiling_freq1, int ineff_cpu_ceiling_freq2);
 extern int (*c2ps_notify_uninit_fp)(void);
 extern int (*c2ps_notify_add_task_fp)(
 	u32 task_id, u32 task_target_time, u32 default_uclamp,

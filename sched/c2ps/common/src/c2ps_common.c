@@ -744,7 +744,7 @@ inline void set_glb_info_bg_util_margin(void)
 	{
 		glb_info->curr_um = 125;
 		glb_info->curr_um_idle = 125;
-		glb_info->min_um = 65;
+		glb_info->min_um = 5;
 	}
 	c2ps_info_unlock(&glb_info->mlock);
 }
@@ -1377,12 +1377,13 @@ void update_cpu_idle_rate(void)
 			* cur_cpu_freq;
 
 		if (_need_update_long_period) {
+			glb_info->avg_cluster_idle_rate[_cluster_index] =
+				_l_sum_of_idlerate[_cluster_index]/_num_of_cpu[_cluster_index];
 			// per-gear uclamp max only reference cpu l_idle rate
 			if (_dangerous_idle_rate_state) {
 				glb_info->need_update_bg[0] = 1;
 				glb_info->need_update_bg[1 + _cluster_index] = 2;
-			} else if (_l_sum_of_idlerate[_cluster_index] <
-				_alert * _num_of_cpu[_cluster_index]) {
+			} else if (glb_info->avg_cluster_idle_rate[_cluster_index] < _alert) {
 				glb_info->need_update_bg[0] = 1;
 				glb_info->need_update_bg[1 + _cluster_index] = 1;
 				c2ps_main_systrace("cluster: %u touches alert l_idle rate",
@@ -1391,16 +1392,19 @@ void update_cpu_idle_rate(void)
 						glb_info->max_uclamp[_cluster_index])) ||
 						(c2ps_um_mode_on && (glb_info->curr_um_idle > glb_info->min_um))) {
 				glb_info->need_update_bg[0] = 1;
-				if (_l_sum_of_idlerate[_cluster_index] >
-						_alert * _num_of_cpu[_cluster_index] * 2)
+				if (glb_info->avg_cluster_idle_rate[_cluster_index] > _alert * 2)
 					glb_info->need_update_bg[1 + _cluster_index] = -2;
 				else
 					glb_info->need_update_bg[1 + _cluster_index] = -1;
 			}
 
 			glb_info->l_loadxfreq[_cluster_index] =
-				(100-_l_sum_of_idlerate[_cluster_index]/_num_of_cpu[_cluster_index])
-				* cur_cpu_freq;
+				(100 - glb_info->avg_cluster_idle_rate[_cluster_index]) * cur_cpu_freq;
+
+			// FIXME: only for current debug, remove it later
+			C2PS_LOGD("check l_idle average: %d, cluster: %d, loading*freq: %llu, freq: %u",
+				glb_info->avg_cluster_idle_rate[_cluster_index], _cluster_index,
+				glb_info->l_loadxfreq[_cluster_index], cur_cpu_freq);
 		}
 	}
 
@@ -1695,6 +1699,62 @@ inline int get_vip_task_prio_by_pid(int pid)
 }
 #endif
 
+void c2ps_set_ineff_cpu_freq_ceiling(int cluster, int ineff_cpu_ceiling_freq)
+{
+	int cpu;
+	struct cpumask *cpus;
+	struct cpufreq_policy *policy;
+
+	if (unlikely(glb_info == NULL || cluster >= c2ps_nr_clusters || ineff_cpu_ceiling_freq <= 0))
+		return;
+
+	glb_info->ineff_cpu_freq[cluster] = ineff_cpu_ceiling_freq;
+
+	cpus = get_gear_cpumask(cluster);
+	for_each_cpu(cpu, cpus) {
+		policy = cpufreq_cpu_get(cpu);
+		if (policy && policy->cpu == cpu) {
+			int ret = freq_qos_add_request(&policy->constraints,
+				&glb_info->qos_req[cluster], FREQ_QOS_MAX, ineff_cpu_ceiling_freq);
+
+			if (ret < 0) {
+				C2PS_LOGW("Fail to set cluster %d cpu ceiling %d",
+					cluster, ineff_cpu_ceiling_freq);
+			} else {
+				C2PS_LOGD("set cluster %d cpu ceiling %d",
+					cluster, ineff_cpu_ceiling_freq);
+			}
+			break;
+		}
+	}
+}
+
+inline void c2ps_update_cpu_freq_ceiling(int cluster, int cpu_ceiling_freq)
+{
+	if (unlikely(glb_info == NULL || cluster >= c2ps_nr_clusters || cpu_ceiling_freq <= 0))
+		return;
+	freq_qos_update_request(&glb_info->qos_req[cluster], cpu_ceiling_freq);
+}
+
+inline void c2ps_reset_cpu_freq_ceiling(int cluster)
+{
+	if (unlikely(glb_info == NULL || cluster >= c2ps_nr_clusters ||
+		glb_info->ineff_cpu_freq[cluster] <= 0))
+		return;
+	freq_qos_update_request(&glb_info->qos_req[cluster], glb_info->ineff_cpu_freq[cluster]);
+}
+
+inline void c2ps_remove_qos_setting(void)
+{
+	int _cluster;
+
+	if (unlikely(glb_info == NULL))
+		return;
+
+	for (_cluster = 0; _cluster < c2ps_nr_clusters; _cluster++)
+		freq_qos_remove_request(&glb_info->qos_req[_cluster]);
+}
+
 static ssize_t task_info_show(struct kobject *kobj,
 	struct kobj_attribute *attr,
 	char *buf)
@@ -1835,6 +1895,7 @@ void exit_c2ps_common(void)
 	c2ps_clear_task_info_table();
 	c2ps_clear_task_group_info_table();
 	c2ps_clear_anchor_table();
+	c2ps_remove_qos_setting();
 	kfree(glb_info);
 	glb_info = NULL;
 

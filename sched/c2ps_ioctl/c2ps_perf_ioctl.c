@@ -8,7 +8,9 @@
 
 int (*c2ps_notify_init_fp)(
 	int cfg_camfps, int max_uclamp_cluster0,
-	int max_uclamp_cluster1, int max_uclamp_cluster2);
+	int max_uclamp_cluster1, int max_uclamp_cluster2,
+	int ineff_cpu_ceiling_freq0,
+	int ineff_cpu_ceiling_freq1, int ineff_cpu_ceiling_freq2);
 EXPORT_SYMBOL_GPL(c2ps_notify_init_fp);
 int (*c2ps_notify_uninit_fp)(void);
 EXPORT_SYMBOL_GPL(c2ps_notify_uninit_fp);
@@ -98,7 +100,10 @@ static long device_ioctl(
 					(&c2ps_init_param)->camfps,
 					(&c2ps_init_param)->max_uclamp_cluster0,
 					(&c2ps_init_param)->max_uclamp_cluster1,
-					(&c2ps_init_param)->max_uclamp_cluster2);
+					(&c2ps_init_param)->max_uclamp_cluster2,
+					(&c2ps_init_param)->ineff_cpu_ceiling_freq0,
+					(&c2ps_init_param)->ineff_cpu_ceiling_freq1,
+					(&c2ps_init_param)->ineff_cpu_ceiling_freq2);
 		break;
 	case C2PS_DESTROY:
 		C2PS_LOGD("C2PS_DESTROY");

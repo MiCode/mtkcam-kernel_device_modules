@@ -27,6 +27,7 @@ static int c2ps_fix_um;
 static int L_dvide_M_ratio = 10;
 static int c2ps_converge_target = 50;
 static int c2ps_um_monitor;
+static int c2ps_safe_idle_rate = 7;
 static bool skip_jitter;
 /**************************************************************************/
 
@@ -44,6 +45,7 @@ module_param(c2ps_regulator_base_update_um, int, 0644);
 module_param(c2ps_regulator_um_min, int, 0644);
 module_param(c2ps_regulator_um_max, int, 0644);
 module_param(c2ps_converge_target, int, 0644);
+module_param(c2ps_safe_idle_rate, int, 0644);
 module_param(skip_jitter, bool, 0644);
 
 /**************************************************************************/
@@ -320,6 +322,16 @@ static int _cal_latency_um(
 	int64_t converge_lat_val =
 		(cur_item->lat_est.est_err - cur_item->lat_est.min_est_err) * 100 /
 				cur_item->lat_est.min_est_err;
+	bool is_safe_idle_rate = true;
+	short _cluster_index = 0;
+
+	for (; _cluster_index < c2ps_nr_clusters; _cluster_index++) {
+		if (req->glb_info->avg_cluster_idle_rate[_cluster_index] <
+			c2ps_safe_idle_rate) {
+			is_safe_idle_rate = false;
+			break;
+		}
+	}
 
 	if (converge_lat_val > c2ps_converge_target) {
 		C2PS_LOGD("latency not converge yet: %lld", converge_lat_val);
@@ -327,9 +339,9 @@ static int _cal_latency_um(
 	}
 	if (cur_item->latency >= prev_item->latency) {
 		if (est_latency_1 < latency_spec &&
-			est_latency_2 < latency_spec)
+			est_latency_2 < latency_spec && is_safe_idle_rate)
 			latency_um -= c2ps_regulator_base_update_um;
-		else if (est_latency_1 > latency_spec)
+		else if (est_latency_1 > latency_spec || !is_safe_idle_rate)
 			latency_um += c2ps_regulator_base_update_um;
 	} else {
 		C2PS_LOGD("prev_latency is larger (%llu, %llu)",

@@ -366,14 +366,15 @@ static int c2ps_thread_loop(void *arg)
 
 int c2ps_notify_init(
 	int cfg_camfps, int max_uclamp_cluster0, int max_uclamp_cluster1,
-	int max_uclamp_cluster2)
+	int max_uclamp_cluster2, int ineff_cpu_ceiling_freq0,
+	int ineff_cpu_ceiling_freq1, int ineff_cpu_ceiling_freq2)
 {
 	C2PS_LOGD(
-		"config camfps (frames per 1000 seconds): %d, "
-		"max_uclamp_cluster0: %d, max_uclamp_cluster1: %d, "
-		"max_uclamp_cluster2: %d",
-		cfg_camfps, max_uclamp_cluster0, max_uclamp_cluster1,
-		max_uclamp_cluster2);
+		"config camfps (frames per 1000 seconds): %d, max_uclamp_cluster0: %d, max_uclamp_cluster1: %d, max_uclamp_cluster2: %d",
+		cfg_camfps, max_uclamp_cluster0, max_uclamp_cluster1, max_uclamp_cluster2);
+	C2PS_LOGD(
+		"ineff_cpu_ceiling_freq0: %d, ineff_cpu_ceiling_freq1: %d, ineff_cpu_ceiling_freq2: %d",
+		ineff_cpu_ceiling_freq0, ineff_cpu_ceiling_freq1, ineff_cpu_ceiling_freq2);
 
 	// set_config_camfps(cfg_camfps);
 
@@ -386,8 +387,13 @@ int c2ps_notify_init(
 	// enable sugov curr_uclamp feature
 	set_curr_uclamp_ctrl(1);
 	set_eas_setting();
-
 	c2ps_notifier_init();
+
+	// QoS setting
+	c2ps_set_ineff_cpu_freq_ceiling(0, ineff_cpu_ceiling_freq0);
+	c2ps_set_ineff_cpu_freq_ceiling(1, ineff_cpu_ceiling_freq1);
+	c2ps_set_ineff_cpu_freq_ceiling(2, ineff_cpu_ceiling_freq2);
+
 	trigger_bg_policy();
 	return 0;
 }

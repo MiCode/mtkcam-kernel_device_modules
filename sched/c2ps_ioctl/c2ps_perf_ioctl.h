@@ -29,6 +29,9 @@ struct C2PS_INIT_PARAM {
 	u32 max_uclamp_cluster0;
 	u32 max_uclamp_cluster1;
 	u32 max_uclamp_cluster2;
+	u32 ineff_cpu_ceiling_freq0;
+	u32 ineff_cpu_ceiling_freq1;
+	u32 ineff_cpu_ceiling_freq2;
 };
 
 struct C2PS_UNINIT_PARAM {

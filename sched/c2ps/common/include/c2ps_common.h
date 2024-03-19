@@ -19,6 +19,7 @@
 #include <linux/hashtable.h>
 #include <uapi/linux/sched/types.h>
 #include <linux/version.h>
+#include <linux/pm_qos.h>
 
 #define MAX_WINDOW_SIZE 70
 #define MAX_CPU_NUM CONFIG_MAX_NR_CPUS
@@ -167,6 +168,7 @@ struct global_info {
 	u64 vsync_time;
 	/******** cpu idle rate related ********/
 	struct per_cpu_idle_rate cpu_idle_rates[MAX_CPU_NUM];
+	int avg_cluster_idle_rate[MAX_CPU_NUM];
 	int last_sum_idle_rate;
 	// TODO(MTK): check if this can be simplified
 	u64 s_loadxfreq[MAX_CPU_NUM];
@@ -198,6 +200,9 @@ struct global_info {
 	int uclamp_max_floor[MAX_NUMBER_OF_CLUSTERS];
 	int uclamp_max_ceiling[MAX_NUMBER_OF_CLUSTERS];
 	int overwrite_idle_alert;
+	/******** QoS related ********/
+	int ineff_cpu_freq[MAX_NUMBER_OF_CLUSTERS];
+	struct freq_qos_request qos_req[MAX_NUMBER_OF_CLUSTERS];
 	/********  um related ********/
 	// TODO(MTK): anc_fixed functionality is not ready
 	// struct c2ps_anchor *anc_fixed;
@@ -336,6 +341,10 @@ void c2ps_set_turn_point_freq(int cluster, unsigned int freq);
 void set_glb_info_bg_util_margin(void);
 void c2ps_set_vip_task(int pid, int vip_prior, unsigned int vip_throttle_time);
 bool is_task_vip(int pid);
+void c2ps_set_ineff_cpu_freq_ceiling(int cluster, int ineff_cpu_ceiling_freq);
+void c2ps_update_cpu_freq_ceiling(int cluster, int cpu_ceiling_freq);
+void c2ps_reset_cpu_freq_ceiling(int cluster);
+void c2ps_remove_qos_setting(void);
 bool use_overwrite_uclamp_max(void);
 void update_critical_task_uclamp_by_tsk_id(
 	int *critical_task_ids, int *critical_task_uclamp);
@@ -343,6 +352,7 @@ void set_uclamp(const int pid, unsigned int max_util, unsigned int min_util);
 void reset_task_eas_setting(struct c2ps_task_info *tsk_info);
 void reset_task_uclamp(int pid);
 
+// EAS
 extern void set_curr_uclamp_ctrl(int val);
 extern void set_gear_uclamp_ctrl(int val);
 extern void set_gear_uclamp_max(int gearid, int val);
@@ -386,5 +396,12 @@ extern bool prio_is_vip(int vip_prio, int type);
 extern void unset_task_priority_based_vip(int pid);
 extern void unset_task_vvip(int pid);
 #endif
+
+// QoS
+extern int freq_qos_add_request(struct freq_constraints *qos,
+			struct freq_qos_request *req,
+			enum freq_qos_req_type type, s32 value);
+extern int freq_qos_update_request(struct freq_qos_request *req, s32 new_value);
+extern int freq_qos_remove_request(struct freq_qos_request *req);
 
 #endif  // C2PS_COMMON_INCLUDE_C2PS_COMMON_H_

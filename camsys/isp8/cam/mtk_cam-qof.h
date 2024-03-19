@@ -39,6 +39,7 @@ int qof_enable_cq_trigger_by_qof(struct mtk_raw_device *dev, bool enable);
 int qof_mtcmos_voter(struct mtk_cam_ctx *ctx, bool enable);
 int qof_mtcmos_raw_voter(struct mtk_raw_device *raw, bool enable);
 int qof_reset_mtcmos_voter(struct mtk_cam_ctx *ctx);
+int qof_reset_mtcmos_raw_voter(struct mtk_raw_device *raw);
 void qof_ddren_setting(struct mtk_raw_device *raw, int frm_time_us);
 
 void qof_dump_trigger_cnt(struct mtk_raw_device *dev);

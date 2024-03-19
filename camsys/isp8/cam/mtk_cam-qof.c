@@ -492,7 +492,7 @@ int qof_mtcmos_voter(struct mtk_cam_ctx *ctx, bool enable)
 	return 0;
 }
 
-static int qof_reset_mtcmos_raw_voter(struct mtk_raw_device *raw)
+int qof_reset_mtcmos_raw_voter(struct mtk_raw_device *raw)
 {
 	int ret = 0;
 	u32 val;

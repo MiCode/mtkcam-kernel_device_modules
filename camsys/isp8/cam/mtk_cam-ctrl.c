@@ -1259,26 +1259,15 @@ static void mtk_cam_ctrl_stream_on_flow(struct mtk_cam_job *job)
 
 	dev_info(dev, "[%s] ctx %d finish\n", __func__, ctrl->ctx->stream_id);
 }
-static void mtk_cam_ctrl_dynamic_raws_change_flow(struct mtk_cam_job *job)
+
+static int dynamic_raw_change_stream_on(struct mtk_cam_job *job)
 {
 	struct mtk_cam_ctx *ctx = job->src_ctx;
 	struct mtk_cam_ctrl *ctrl = &ctx->cam_ctrl;
-	struct device *dev = ctx->cam->dev;
 	struct mtk_cam_device *cam = ctx->cam;
-	struct seamless_check_args check_args;
-	int i, j, no, prev_seq;
+	int i;
 
-	dev_info(dev, "[%s] begin waiting 1.dynamic raw changes no:%d seq 0x%x cq done\n",
-		__func__, job->req_seq, job->frame_seq_no);
-	no = job->frame_seq_no;
 	if (job->raw_change) {
-		dev_info(dev, "[%s] master raw changed case : wait engines:0x%x setting done\n",
-			__func__, ctx->used_engine);
-		if (mtk_cam_ctrl_wait_event(ctrl, check_setting_done, &no, 1000)) {
-			dev_info(dev, "[%s] check for dynamic_raws_change timeout: outer = 0x%x\n",
-				 __func__, no);
-			goto SWITCH_FAILURE;
-		}
 		if (job->raw_change == JOB_RAW_MASTER_UNCHANGED) {
 			for (i = 0; i < cam->engines.num_raw_devices; i++) {
 				if (BIT(i) & ctx->used_engine) {
@@ -1295,23 +1284,32 @@ static void mtk_cam_ctrl_dynamic_raws_change_flow(struct mtk_cam_job *job)
 			call_jobop(job, stream_on, true);
 		}
 	}
-	prev_seq = prev_frame_seq(job->frame_seq_no);
-	dev_info(dev, "[%s] wait 2.prev engines done req:%d\n",
-			__func__, prev_seq);
-	if (mtk_cam_ctrl_wait_event(ctrl, check_done, &prev_seq, 1000)) {
-		dev_info(dev, "[%s] check for dynamic_raws_change timeout: expected in=0x%x ack=0x%x\n",
-			 __func__,
-			 check_args.expect_inner, check_args.expect_ack);
-		goto SWITCH_FAILURE;
-	}
+
+	return 0;
+}
+
+static int dynamic_raw_change_uninit_engine(struct mtk_cam_job *job)
+{
+	struct mtk_cam_ctx *ctx = job->src_ctx;
+	struct mtk_cam_device *cam = ctx->cam;
+	struct device *dev = ctx->cam->dev;
+	int i, j;
+
 	dev_info(dev, "[%s] begin uninit raw:0x%x\n",
-		__func__, job->raw_change_uninit_engine);
+			 __func__, job->raw_change_uninit_engine);
 	/* disable raw/yuv irq and reset */
 	for (i = 0; i < cam->engines.num_raw_devices; i++) {
 		if (BIT(i) & job->raw_change_uninit_engine) {
 			struct mtk_raw_device *raw_dev;
 
 			raw_dev = dev_get_drvdata(cam->engines.raw_devs[i]);
+
+			if (qof_is_enabled(raw_dev)) {
+				qof_enable(raw_dev, false);
+				qof_reset_mtcmos_raw_voter(raw_dev);
+				qof_reset(raw_dev);
+			}
+
 			disable_irq(raw_dev->irq);
 			reset(raw_dev);
 		}
@@ -1333,16 +1331,96 @@ static void mtk_cam_ctrl_dynamic_raws_change_flow(struct mtk_cam_job *job)
 		mtk_cam_pm_runtime_engines(&ctx->cam->engines, job->raw_change_uninit_engine, 0);
 		mtk_cam_event_camsys_resource_ready(&ctx->cam_ctrl, job->raw_change_uninit_engine);
 	}
+
+	return 0;
+}
+
+static void mtk_cam_ctrl_dynamic_raws_change_flow(struct mtk_cam_job *job)
+{
+	struct mtk_cam_ctx *ctx = job->src_ctx;
+	struct mtk_cam_ctrl *ctrl = &ctx->cam_ctrl;
+	struct device *dev = ctx->cam->dev;
+	struct mtk_cam_device *cam = ctx->cam;
+	struct seamless_check_args check_args;
+	int prev_seq;
+	int no = job->frame_seq_no;
+	int i;
+
+	int raw_after_change = bit_map_subset_of(MAP_HW_RAW, ctx->used_engine);
+	int raw_uninit = bit_map_subset_of(MAP_HW_RAW, job->raw_change_uninit_engine);
+
+	dev_info(dev, "[%s] begin waiting 1.dynamic raw changes no:%d seq 0x%x cq done\n",
+		__func__, job->req_seq, job->frame_seq_no);
+
+	for (i = 0; i < cam->engines.num_raw_devices; i++) {
+		if (BIT(i) & (raw_after_change | raw_uninit)) {
+			struct mtk_raw_device *raw_dev;
+
+			raw_dev = dev_get_drvdata(cam->engines.raw_devs[i]);
+
+			qof_mtcmos_raw_voter(raw_dev, true);
+		}
+	}
+
+	dev_info(dev, "[%s] master raw changed case : wait engines:0x%x setting done\n",
+			 __func__, ctx->used_engine);
+	if (mtk_cam_ctrl_wait_event(ctrl, check_setting_done, &no, 1000)) {
+		dev_info(dev, "[%s] check for dynamic_raws_change timeout: outer = 0x%x\n",
+				 __func__, no);
+		goto SWITCH_FAILURE;
+	}
+
+	if (dynamic_raw_change_stream_on(job))
+		goto SWITCH_FAILURE;
+
+	prev_seq = prev_frame_seq(job->frame_seq_no);
+	dev_info(dev, "[%s] wait 2.prev engines done req:%d\n",
+			__func__, prev_seq);
+	if (mtk_cam_ctrl_wait_event(ctrl, check_done, &prev_seq, 1000)) {
+		dev_info(dev, "[%s] check for dynamic_raws_change timeout: prev_seq=0x%x\n",
+			 __func__, prev_seq);
+		goto SWITCH_FAILURE;
+	}
+
+	if (dynamic_raw_change_uninit_engine(job))
+		goto SWITCH_FAILURE;
+
 	dev_info(dev, "[%s] wait 3.new engines(0x%x) processing seq:%d\n",
 			__func__, ctx->used_engine, job->frame_seq_no);
 	check_args.expect_inner = job->frame_seq_no;
 	check_args.expect_ack = job->frame_seq_no;
-	if (mtk_cam_ctrl_wait_event(ctrl, check_done, &check_args, 1000)) {
+	if (mtk_cam_ctrl_wait_event(ctrl, check_for_inner, &check_args, 1000)) {
 		dev_info(dev, "[%s] check for dynamic_raws_change timeout: expected in=0x%x ack=0x%x\n",
 			 __func__,
 			 check_args.expect_inner, check_args.expect_ack);
 		goto SWITCH_FAILURE;
 	}
+
+	for (i = 0; i < cam->engines.num_raw_devices; i++) {
+		bool is_master = false;
+		struct mtk_raw_device *raw_dev;
+
+		if (BIT(i) & raw_after_change) {
+			bool next_raw =
+				(i + 1 < cam->engines.num_raw_devices) &&
+				(BIT(i + 1) & raw_after_change);
+
+			raw_dev = dev_get_drvdata(cam->engines.raw_devs[i]);
+			is_master = (BIT(i) & raw_after_change) && !raw_dev->is_slave;
+
+			qof_setup_twin(raw_dev, is_master, next_raw);
+		}
+	}
+
+	for (i = 0; i < cam->engines.num_raw_devices; i++) {
+		if (BIT(i) & raw_after_change) {
+			struct mtk_raw_device *raw_dev;
+
+			raw_dev = dev_get_drvdata(cam->engines.raw_devs[i]);
+			qof_mtcmos_raw_voter(raw_dev, false);
+		}
+	}
+
 	mtk_cam_job_update_clk(job);
 	dev_info(dev, "[%s] finish, uninit raw:0x%x, new frame inner:%d\n",
 		__func__, job->raw_change_uninit_engine, check_args.expect_inner);
@@ -1360,9 +1438,13 @@ static void mtk_cam_ctrl_seamless_switch_flow(struct mtk_cam_job *job)
 	struct mtk_cam_ctx *ctx = job->src_ctx;
 	struct mtk_cam_ctrl *ctrl = &ctx->cam_ctrl;
 	struct device *dev = ctx->cam->dev;
+	struct mtk_cam_device *cam = ctx->cam;
 	struct seamless_check_args check_args;
 	int prev_seq;
 	int i;
+	int raw_after_change = bit_map_subset_of(MAP_HW_RAW, ctx->used_engine);
+	int raw_uninit = bit_map_subset_of(MAP_HW_RAW, job->raw_change_uninit_engine);
+	int raw_all = raw_after_change | raw_uninit;
 
 	dev_info(dev, "[%s] begin waiting switch no:%d seq 0x%x\n",
 		__func__, job->req_seq, job->frame_seq_no);
@@ -1371,7 +1453,15 @@ static void mtk_cam_ctrl_seamless_switch_flow(struct mtk_cam_job *job)
 	check_args.expect_inner = prev_seq;
 	check_args.expect_ack = job->frame_seq_no;
 
-	qof_mtcmos_voter(job->src_ctx, true);
+	for (i = 0; i < cam->engines.num_raw_devices; i++) {
+		if (BIT(i) & raw_all) {
+			struct mtk_raw_device *raw_dev;
+
+			raw_dev = dev_get_drvdata(cam->engines.raw_devs[i]);
+
+			qof_mtcmos_raw_voter(raw_dev, true);
+		}
+	}
 
 	if (mtk_cam_ctrl_wait_event(ctrl, check_for_seamless, &check_args,
 				    1000)) {
@@ -1380,6 +1470,9 @@ static void mtk_cam_ctrl_seamless_switch_flow(struct mtk_cam_job *job)
 			 check_args.expect_inner, check_args.expect_ack);
 		goto SWITCH_FAILURE;
 	}
+
+	if (dynamic_raw_change_stream_on(job))
+		goto SWITCH_FAILURE;
 
 	mtk_cam_job_update_clk_switching(job, 1);
 	call_job_seamless_ops(job, before_sensor);
@@ -1420,6 +1513,9 @@ static void mtk_cam_ctrl_seamless_switch_flow(struct mtk_cam_job *job)
 
 	call_job_seamless_ops(job, after_prev_frame_done);
 
+	if (dynamic_raw_change_uninit_engine(job))
+		goto SWITCH_FAILURE;
+
 	trigger_fake_sof_event(ctrl);
 	check_args.expect_inner = job->frame_seq_no;
 	dev_info(dev, "[%s] begin waiting check for inner no:%d seq 0x%x\n",
@@ -1438,7 +1534,31 @@ static void mtk_cam_ctrl_seamless_switch_flow(struct mtk_cam_job *job)
 
 		qof_enable_cq_trigger_by_qof(raw, true);
 	}
-	qof_mtcmos_voter(job->src_ctx, false);
+
+	for (i = 0; i < cam->engines.num_raw_devices; i++) {
+		bool is_master = false;
+		struct mtk_raw_device *raw_dev;
+
+		if (BIT(i) & raw_after_change) {
+			bool next_raw =
+				(i + 1 < cam->engines.num_raw_devices) &&
+				(BIT(i + 1) & raw_after_change);
+
+			raw_dev = dev_get_drvdata(cam->engines.raw_devs[i]);
+			is_master = (BIT(i) & raw_after_change) && !raw_dev->is_slave;
+
+			qof_setup_twin(raw_dev, is_master, next_raw);
+		}
+	}
+
+	for (i = 0; i < cam->engines.num_raw_devices; i++) {
+		if (BIT(i) & raw_after_change) {
+			struct mtk_raw_device *raw_dev;
+
+			raw_dev = dev_get_drvdata(cam->engines.raw_devs[i]);
+			qof_mtcmos_raw_voter(raw_dev, false);
+		}
+	}
 
 	dev_info(dev, "[%s] finish, used_engine:0x%x\n",
 		 __func__, job->used_engine);
@@ -1449,7 +1569,14 @@ SWITCH_FAILURE:
 		 __func__, ctx->stream_id, job->req_seq, job->frame_seq_no);
 
 	WRAP_AEE_EXCEPTION(MSG_SWITCH_FAILURE, __func__);
-	qof_mtcmos_voter(job->src_ctx, false);
+	for (i = 0; i < cam->engines.num_raw_devices; i++) {
+		if (BIT(i) & raw_all) {
+			struct mtk_raw_device *raw_dev;
+
+			raw_dev = dev_get_drvdata(cam->engines.raw_devs[i]);
+			qof_mtcmos_raw_voter(raw_dev, false);
+		}
+	}
 }
 
 static void mtk_cam_ctrl_raw_switch_flow(struct mtk_cam_job *job)
@@ -1591,12 +1718,11 @@ static void mtk_cam_ctrl_queue_for_flow_control(struct mtk_cam_ctrl *ctrl,
 
 	if (job->seamless_switch)
 		func = mtk_cam_ctrl_seamless_switch_flow;
+	else if (job->raw_change)
+		func = mtk_cam_ctrl_dynamic_raws_change_flow;
 
 	if (job->raw_switch)
 		func = mtk_cam_ctrl_raw_switch_flow;
-
-	if (job->raw_change)
-		func = mtk_cam_ctrl_dynamic_raws_change_flow;
 
 	if (CAM_DEBUG_ENABLED(CTRL) || func)
 		pr_info("%s: job #%d %d/%d/%d/%d %ps\n",

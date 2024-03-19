@@ -1123,7 +1123,7 @@ _stream_on(struct mtk_cam_job *job, bool on)
 			apply_cam_mux_switch(job);
 		}
 	}
-	if (job->raw_change) {
+	if (job->raw_change && !job->seamless_switch) {
 		disable_seninf_cammux(job);
 		apply_cam_mux_switch(job);
 	}
@@ -4427,6 +4427,7 @@ static int job_sen_req_pack(struct mtk_cam_job *job)
 	job->composed = false;
 	job->seamless_switch = false;
 	job->raw_change = JOB_RAW_NO_CHANGE;
+	job->raw_change_uninit_engine = 0;
 	job->first_frm_switch = false;
 	job->scq_period = SCQ_DEADLINE_US(get_sensor_interval_us(job)) / 1000;
 

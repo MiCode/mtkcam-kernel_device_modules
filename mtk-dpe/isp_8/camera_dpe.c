@@ -39,6 +39,7 @@
 #include <media/v4l2-device.h>
 #include <media/videobuf2-v4l2.h>
 #include <media/v4l2-ioctl.h>
+#include <linux/completion.h>
 #define KERNEL_DMA_BUFFER
 #ifdef KERNEL_DMA_BUFFER
 #include <media/videobuf2-memops.h>
@@ -268,6 +269,9 @@ static void DVGF_ScheduleWork(struct work_struct *data);
 /*
  */
 /*  */
+
+struct completion DPEinit_done;
+
 typedef void (*tasklet_cb)(unsigned long);
 struct Tasklet_table {
 	tasklet_cb tkt_cb;
@@ -7744,6 +7748,15 @@ static signed int DPE_open(struct inode *pInode, struct file *pFile)
 		LOG_DBG("Cur Usr(%d), (proc, pid, tgid)=(%s, %d, %d), exist",
 			DPEInfo.UserCount, current->comm, current->pid,
 								current->tgid);
+
+		spin_lock(&(DPEInfo.SpinLockDPE));
+		if (g_u4EnableClockCount == 0) {
+			LOG_INF("wait for clock/power enable: %d", g_u4EnableClockCount);
+			spin_unlock(&(DPEInfo.SpinLockDPE));
+			wait_for_completion(&DPEinit_done);
+		} else
+			spin_unlock(&(DPEInfo.SpinLockDPE));
+
 		goto EXIT;
 	} else {
 		DPEInfo.UserCount++;
@@ -7829,6 +7842,7 @@ static signed int DPE_open(struct inode *pInode, struct file *pFile)
 	spin_lock(&(DPEInfo.SpinLockDPE));
 	LOG_INF("DPE open g_u4EnableClockCount: %d", g_u4EnableClockCount);
 	spin_unlock(&(DPEInfo.SpinLockDPE));
+	complete_all(&DPEinit_done);
 	/*  */
 /*#define KERNEL_LOG*/
 #ifdef KERNEL_LOG
@@ -7865,6 +7879,7 @@ static signed int DPE_release(struct inode *pInode, struct file *pFile)
 		mutex_unlock(&(MutexDPERef));
 		goto EXIT;
 	} else {
+		reinit_completion(&DPEinit_done);
 		dpe_unregister_requests_isp8(&dpe_reqs_dvs);
 		dpe_unregister_requests_isp8(&dpe_reqs_dvp);
 		dpe_unregister_requests_isp8(&dpe_reqs_dvgf);
@@ -8706,6 +8721,7 @@ if (DPE_dev->irq > 0) {
 		for (n = 0; n < DPE_IRQ_TYPE_AMOUNT; n++)
 			spin_lock_init(&(DPEInfo.SpinLockIrq[n]));
 		/*  */
+		init_completion(&DPEinit_done);
 		init_waitqueue_head(&DPEInfo.WaitQueueHead);
 		INIT_WORK(&DPEInfo.ScheduleDpeWork, DVS_ScheduleWork);
 		INIT_WORK(&DPEInfo.DVP_ScheduleDpeWork, DVP_ScheduleWork);

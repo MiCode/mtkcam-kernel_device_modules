@@ -71,7 +71,7 @@ static int mcnr_init_isp8(struct mtk_img_frm_sync *mtk_img_frm_sync_dev)
 		}
 		mcnr_algo_exist_flag = 1;
 	}
-	mcnr_init_count++;
+
 	return 0;
 }
 
@@ -112,7 +112,64 @@ static int vsdof_init_isp8(struct mtk_img_frm_sync *mtk_img_frm_sync_dev)
 		}
 		vsdof_algo_exist_flag = 1;
 	}
-	vsdof_init_count++;
+
+	return 0;
+}
+
+static int mcnr_reset_tbl(void)
+{
+	int i = 0;
+
+	for (i = 0 ; i < IMGSYS_SYNC_TOKEN_MAX ; i++) {
+		imgsys_sync_token_pool.token_pool[i].token_id = IMGSYS_SYNC_TOKEN_POOL_1 + i;
+		imgsys_sync_token_pool.token_pool[i].status = buf_st_avai;
+		imgsys_sync_token_pool.pool.idx_pool[i] = i;
+	}
+
+	for (i = 0 ; i < IMGSYS_ALL_SYNC_TOKEN_MAX ; i++) {
+		mcnr_tokenmap[i].type = sync_type_none;
+		mcnr_tokenmap[i].hw_token = TOKEN_INVALID_ID;
+		mcnr_tokenmap[i].frm_owner = 0x0;
+		mcnr_tokenmap[i].imgstm_inst = 0x0;
+		mcnr_tokenmap[i].frame_no = 0;
+		mcnr_tokenmap[i].request_no = 0;
+		mcnr_tokenmap[i].request_fd = 0;
+		mcnr_tokenmap[i].stage = 0;
+		mcnr_tokenmap[i].subfrm_sidx = 0;
+		mcnr_tokenmap[i].evt_order = 0;
+		mcnr_tokenmap[i].evt_histb_idx = 0;
+		mcnr_tokenmap[i].hw_comb = 0x0;
+	}
+
+	return 0;
+}
+
+static int vsdof_reset_tbl(void)
+{
+	int i = 0;
+
+	dpe_sync_token_pool.pool.r_idx = -1;
+	dpe_sync_token_pool.pool.r_max = DPE_SYNC_TOKEN_MAX;
+	for (i = 0 ; i < DPE_SYNC_TOKEN_MAX ; i++){
+		dpe_sync_token_pool.token_pool[i].token_id = IMGSYS_DPE_SYNC_TOKEN_DPE_POOL_1 + i;
+		dpe_sync_token_pool.token_pool[i].status = buf_st_avai;
+		dpe_sync_token_pool.pool.idx_pool[i] = i;
+	}
+
+	for (i = 0 ; i < DPE_SYNC_TOKEN_MAX ; i++) {
+		vsdof_tokenmap[i].type = sync_type_none;
+		vsdof_tokenmap[i].hw_token = TOKEN_INVALID_ID;
+		vsdof_tokenmap[i].frm_owner = 0x0;
+		vsdof_tokenmap[i].imgstm_inst = 0x0;
+		vsdof_tokenmap[i].frame_no = 0;
+		vsdof_tokenmap[i].request_no = 0;
+		vsdof_tokenmap[i].request_fd = 0;
+		vsdof_tokenmap[i].stage = 0;
+		vsdof_tokenmap[i].subfrm_sidx = 0;
+		vsdof_tokenmap[i].evt_order = 0;
+		vsdof_tokenmap[i].evt_histb_idx = 0;
+		vsdof_tokenmap[i].hw_comb = 0x0;
+	}
 	return 0;
 }
 
@@ -220,15 +277,74 @@ int dpe_open_isp8(void)
 	return 0;
 }
 
+static void vsdof_tbl_dump(struct mtk_img_frm_sync *mtk_img_frm_sync_dev)
+{
+	int j = 0;
+
+	for (j = 0 ; j < DPE_SYNC_TOKEN_MAX ; j++) {
+		if (vsdof_tokenmap[j].hw_token != TOKEN_INVALID_ID) {
+			dev_info(mtk_img_frm_sync_dev->dev,
+			"token swkey(%d), hwfence(%d) type(%d), frmowner(%s), imgstm_inst(%llx),",
+			j + 1, vsdof_tokenmap[j].hw_token, vsdof_tokenmap[j].type,
+			(char *)(&(vsdof_tokenmap[j].frm_owner)), vsdof_tokenmap[j].imgstm_inst);
+			pr_info(" frame_no(%d), stg(%d), subfrm_idx(%d), hw_comb(0x%x), evt_order(%d)\n",
+				vsdof_tokenmap[j].frame_no, vsdof_tokenmap[j].stage,
+				vsdof_tokenmap[j].subfrm_sidx,
+				vsdof_tokenmap[j].hw_comb, vsdof_tokenmap[j].evt_order);
+		}
+	}
+
+	for (j = 0 ; j < DPE_SYNC_TOKEN_MAX ; j++){
+		if (dpe_sync_token_pool.token_pool[j].status != buf_st_avai) {
+			dev_info(mtk_img_frm_sync_dev->dev,
+			"dpe sync token table val/r_max(%d/%d)",
+			dpe_sync_token_pool.token_pool[j].token_id,
+			dpe_sync_token_pool.pool.r_max
+			);
+		}
+	}
+}
+
 int init_isp8(struct mtk_img_frm_sync *mtk_img_frm_sync_dev, struct group k_group)
 {
+	if (k_group.algo_group_id == algo_all) {
+		mcnr_init_count++;
+		vsdof_init_count++;
+	} else if (k_group.algo_group_id == algo_mcnr) {
+		mcnr_init_count++;
+	} else if (k_group.algo_group_id == algo_vsdof) {
+		if (((mcnr_init_count == 0) && (vsdof_init_count == 0)) ||
+		((mcnr_init_count == 1) && (vsdof_init_count == 1)))
+			vsdof_init_count++;
+		else
+			dev_err(mtk_img_frm_sync_dev->dev, "user init flow not current(%d/%d)",
+				mcnr_init_count, vsdof_init_count);
+	}
+	dev_info(mtk_img_frm_sync_dev->dev, "re-init table index stage(%d/%d)\n",
+		mcnr_init_count, vsdof_init_count);
 	return 0;
 }
 
 int uninit_isp8(struct mtk_img_frm_sync *mtk_img_frm_sync_dev, struct group k_group)
 {
+	if (k_group.algo_group_id == algo_all) {
+		mcnr_init_count--;
+		vsdof_init_count--;
+	} else if (k_group.algo_group_id == algo_mcnr) {
+		mcnr_init_count--;
+	} else if (k_group.algo_group_id == algo_vsdof) {
+		vsdof_init_count--;
+	}
+	if (mcnr_init_count == 0)
+		mcnr_reset_tbl();
+	if (vsdof_init_count == 0) {
+		vsdof_tbl_dump(mtk_img_frm_sync_dev);
+		vsdof_reset_tbl();
+	}
+
 	dpe_gcebuf_index = 0;
-	dev_info(mtk_img_frm_sync_dev->dev, "uninit stage\n");
+	dev_info(mtk_img_frm_sync_dev->dev, "uninit stage(%d/%d)\n",
+		mcnr_init_count, vsdof_init_count);
 	return 0;
 }
 
@@ -942,9 +1058,9 @@ int release_frame_token_imgsys_isp8(struct mtk_img_frm_sync *mtk_img_frm_sync_de
 	if (r_idx >= MAX_GCE_RING_IMGSYS)
 		return ret;
 
-
 	oft_tb = &imgsys_gcebuf_ofst_tb_n;
 	oft_info = oft_tb->info;
+
 	if (!oft_info[r_idx].used_sw_token_cnt)
 		return ret;
 

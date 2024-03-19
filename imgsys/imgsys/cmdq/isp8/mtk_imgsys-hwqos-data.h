@@ -219,7 +219,7 @@ struct qos_map qos_map_data[] = {
 	{BLS_OSTDL_REG(11, 7, 8), BWR_BW_REG(0, 3, 7, 12)},
 	{BLS_OSTDL_REG(12, 7, 8), BWR_BW_REG(0, 3, 3, 40)},
 	{BLS_OSTDL_REG(13, 7, 8), BWR_BW_REG(1, 4, 4, 39)},
-	{BLS_OSTDL_REG(14, 7, 8), BWR_BW_REG(1, 4, 2, 23)},
+	{BLS_OSTDL_REG(14, 6, 8), BWR_BW_REG(1, 4, 2, 23)},
 	{BLS_OSTDL_REG(15, 7, 8), BWR_BW_REG(1, 4, 5, 9)},
 };
 

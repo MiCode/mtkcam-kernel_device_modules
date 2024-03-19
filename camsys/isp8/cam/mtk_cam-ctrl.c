@@ -2625,6 +2625,6 @@ int mtk_cam_ctrl_notify_hw_hang(struct mtk_cam_device *cam,
 	 * count frames before doing recovery to avoid various hw timing.
 	 * 'set 2 to enable recovery'
 	 */
-	ctrl->hw_hang_count_down = (disable_recover_flow) ? 0 : 2;
+	ctrl->hw_hang_count_down = (disable_recover_flow) ? 0 : 5;
 	return 0;
 }

@@ -2839,6 +2839,18 @@ static int mtk_imgsys_video_device_v4l2_register(struct mtk_imgsys_pipe *pipe,
 	node->vdev_fmt.type = node->desc->buf_type;
 	mtk_imgsys_pipe_load_default_fmt(pipe, node, &node->vdev_fmt);
 
+	node->vdev_pad.flags = V4L2_TYPE_IS_OUTPUT(node->desc->buf_type) ?
+		MEDIA_PAD_FL_SOURCE : MEDIA_PAD_FL_SINK;
+
+	snprintf(vdev->name, sizeof(vdev->name), "%s %s", pipe->desc->name,
+		 node->desc->name);
+	vdev->entity.name = vdev->name;
+	vdev->entity.function = MEDIA_ENT_F_IO_V4L;
+	vdev->entity.ops = NULL;
+	vdev->release = video_device_release_empty;
+	vdev->fops = &mtk_imgsys_v4l2_fops;
+	vdev->lock = &node->dev_q.lock;
+
 	ret = media_entity_pads_init(&vdev->entity, 1, &node->vdev_pad);
 	if (ret) {
 		dev_info(pipe->imgsys_dev->dev,
@@ -2846,8 +2858,6 @@ static int mtk_imgsys_video_device_v4l2_register(struct mtk_imgsys_pipe *pipe,
 		goto err_mutex_destroy;
 	}
 
-	node->vdev_pad.flags = V4L2_TYPE_IS_OUTPUT(node->desc->buf_type) ?
-		MEDIA_PAD_FL_SOURCE : MEDIA_PAD_FL_SINK;
 
 	vbq->type = node->vdev_fmt.type;
 	vbq->io_modes = VB2_MMAP | VB2_DMABUF;
@@ -2876,14 +2886,6 @@ static int mtk_imgsys_video_device_v4l2_register(struct mtk_imgsys_pipe *pipe,
 		goto err_media_entity_cleanup;
 	}
 
-	snprintf(vdev->name, sizeof(vdev->name), "%s %s", pipe->desc->name,
-		 node->desc->name);
-	vdev->entity.name = vdev->name;
-	vdev->entity.function = MEDIA_ENT_F_IO_V4L;
-	vdev->entity.ops = NULL;
-	vdev->release = video_device_release_empty;
-	vdev->fops = &mtk_imgsys_v4l2_fops;
-	vdev->lock = &node->dev_q.lock;
 	if (node->desc->supports_ctrls)
 		vdev->ctrl_handler = &node->ctrl_handler;
 	else
@@ -2895,18 +2897,18 @@ static int mtk_imgsys_video_device_v4l2_register(struct mtk_imgsys_pipe *pipe,
 
 	if (node->desc->smem_alloc) {
 		vdev->queue->dev = &pipe->imgsys_dev->scp_pdev->dev;
-        if (imgsys_dbg_enable())
-		dev_dbg(pipe->imgsys_dev->dev,
-			"%s:%s: select smem_vb2_alloc_ctx(%p)\n",
-			pipe->desc->name, node->desc->name,
-			vdev->queue->dev);
+		if (imgsys_dbg_enable())
+			dev_info(pipe->imgsys_dev->dev,
+				"%s:%s: select smem_vb2_alloc_ctx(%p)\n",
+				pipe->desc->name, node->desc->name,
+				vdev->queue->dev);
 	} else {
 		vdev->queue->dev = pipe->imgsys_dev->smmu_dev;
-        if (imgsys_dbg_enable())
-		dev_dbg(pipe->imgsys_dev->dev,
-			"%s:%s: select default_vb2_alloc_ctx(%p)\n",
-			pipe->desc->name, node->desc->name,
-			pipe->imgsys_dev->dev);
+		if (imgsys_dbg_enable())
+			dev_info(pipe->imgsys_dev->dev,
+				"%s:%s: select default_vb2_alloc_ctx(%p)\n",
+				pipe->desc->name, node->desc->name,
+				pipe->imgsys_dev->dev);
 	}
 
 	video_set_drvdata(vdev, pipe);
@@ -2917,18 +2919,18 @@ static int mtk_imgsys_video_device_v4l2_register(struct mtk_imgsys_pipe *pipe,
 			"failed to register video device (%d)\n", ret);
 		goto err_vb2_queue_release;
 	}
-    if (imgsys_dbg_enable())
-	dev_dbg(pipe->imgsys_dev->dev, "registered vdev: %s\n",
-		vdev->name);
+	if (imgsys_dbg_enable())
+		dev_info(pipe->imgsys_dev->dev, "registered vdev: %s\n",
+			vdev->name);
 
 	if (V4L2_TYPE_IS_OUTPUT(node->desc->buf_type)) {
-        //coverity[callee_ptr_arith : SUPPRESS]
+		/* coverity[callee_ptr_arith : SUPPRESS] */
 		ret = media_create_pad_link(&vdev->entity, 0,
 					    &pipe->subdev.entity,
 					    node->desc->id, node->flags);
 	}
 	else {
-        //coverity[callee_ptr_arith : SUPPRESS]
+		/* coverity[callee_ptr_arith : SUPPRESS] */
 		ret = media_create_pad_link(&pipe->subdev.entity,
 					    node->desc->id, &vdev->entity,
 					    0, node->flags);
@@ -2937,16 +2939,16 @@ static int mtk_imgsys_video_device_v4l2_register(struct mtk_imgsys_pipe *pipe,
 		goto err_video_unregister_device;
 
 	vdev->intf_devnode = media_devnode_create(&pipe->imgsys_dev->mdev,
-						  MEDIA_INTF_T_V4L_VIDEO, 0,
-						  VIDEO_MAJOR, vdev->minor);
+						MEDIA_INTF_T_V4L_VIDEO, 0,
+						VIDEO_MAJOR, vdev->minor);
 	if (!vdev->intf_devnode) {
 		ret = -ENOMEM;
 		goto err_rm_links;
 	}
 
 	link = media_create_intf_link(&vdev->entity,
-				      &vdev->intf_devnode->intf,
-				      node->flags);
+				&vdev->intf_devnode->intf,
+				node->flags);
 	if (!link) {
 		ret = -ENOMEM;
 		goto err_rm_devnode;
@@ -3048,15 +3050,6 @@ int mtk_imgsys_pipe_v4l2_register(struct mtk_imgsys_pipe *pipe,
 		ret = -ENOMEM;
 		goto err_release_ctrl;
 	}
-	ret = media_entity_pads_init(&pipe->subdev.entity,
-				     pipe->desc->total_queues,
-				     pipe->subdev_pads);
-	if (ret) {
-		dev_info(pipe->imgsys_dev->dev,
-			"failed initialize subdev media entity (%d)\n", ret);
-		goto err_free_subdev_pads;
-	}
-
 	/* Initialize subdev */
 	v4l2_subdev_init(&pipe->subdev, &mtk_imgsys_subdev_ops);
 
@@ -3067,11 +3060,21 @@ int mtk_imgsys_pipe_v4l2_register(struct mtk_imgsys_pipe *pipe,
 		V4L2_SUBDEV_FL_HAS_DEVNODE | V4L2_SUBDEV_FL_HAS_EVENTS;
 	pipe->subdev.ctrl_handler = NULL;
 	pipe->subdev.internal_ops = &mtk_imgsys_subdev_int_ops;
+	pipe->subdev.entity.flags =
+		V4L2_SUBDEV_FL_HAS_DEVNODE | V4L2_SUBDEV_FL_HAS_EVENTS;
 
 	for (i = 0; i < pipe->desc->total_queues; i++)
 		pipe->subdev_pads[i].flags =
 			V4L2_TYPE_IS_OUTPUT(pipe->nodes[i].desc->buf_type) ?
 			MEDIA_PAD_FL_SINK : MEDIA_PAD_FL_SOURCE;
+	ret = media_entity_pads_init(&pipe->subdev.entity,
+				pipe->desc->total_queues,
+				pipe->subdev_pads);
+	if (ret) {
+		dev_info(pipe->imgsys_dev->dev,
+			"failed initialize subdev media entity (%d)\n", ret);
+		goto err_free_subdev_pads;
+	}
 
 	j = snprintf(pipe->subdev.name, sizeof(pipe->subdev.name),
 		 "%s", pipe->desc->name);
@@ -3087,10 +3090,10 @@ int mtk_imgsys_pipe_v4l2_register(struct mtk_imgsys_pipe *pipe,
 		goto err_media_entity_cleanup;
 	}
 
-        if (imgsys_dbg_enable())
-	dev_info(pipe->imgsys_dev->dev,
-		"register subdev: %s, ctrl_handler %p total queue(%d)\n",
-		 pipe->subdev.name, pipe->subdev.ctrl_handler, pipe->desc->total_queues);
+	if (imgsys_dbg_enable())
+		dev_info(pipe->imgsys_dev->dev,
+			"register subdev: %s, ctrl_handler %p total queue(%d)\n",
+			pipe->subdev.name, pipe->subdev.ctrl_handler, pipe->desc->total_queues);
 
 
 	/* Create video nodes and links */

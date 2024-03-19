@@ -258,13 +258,27 @@ enum MAE_BUF_TYPE {
 	UNCACHED_BUF
 };
 
-static int mtk_mae_dev_larb_init(struct mtk_mae_dev *fd)
+void mtk_mae_get_kernel_time(struct mtk_mae_dev *mae_dev,
+		struct EnqueParam *param,
+		uint32_t idx)
+{
+	if (idx < MAE_TIME_INTERVAL_MAX) {
+		param->mae_ktime[idx].requestNum = param->requestNum;
+		param->mae_ktime[idx].ktime = ktime_get_boottime_ns();
+		param->mae_ktime[idx].maeMode = param->maeMode;
+	} else {
+		mae_dev_info(mae_dev->dev, "[%s] over max debug timeval (%d/%d)\n",
+			__func__, idx, MAE_TIME_INTERVAL_MAX);
+	}
+}
+
+static int mtk_mae_dev_larb_init(struct mtk_mae_dev *mae_dev)
 {
 	struct device_node *node;
 	struct platform_device *pdev;
 	struct device_link *link;
 
-	node = of_parse_phandle(fd->dev->of_node, "mediatek,larb", 0);
+	node = of_parse_phandle(mae_dev->dev->of_node, "mediatek,larb", 0);
 	if (!node)
 		return -EINVAL;
 	pdev = of_find_device_by_node(node);
@@ -274,12 +288,12 @@ static int mtk_mae_dev_larb_init(struct mtk_mae_dev *fd)
 	}
 	of_node_put(node);
 
-	fd->larb = &pdev->dev;
+	mae_dev->larb = &pdev->dev;
 
-	link = device_link_add(fd->dev, &pdev->dev,
+	link = device_link_add(mae_dev->dev, &pdev->dev,
 					DL_FLAG_PM_RUNTIME | DL_FLAG_STATELESS);
 	if (!link) {
-		dev_info(fd->dev, "unable to link SMI LARB idx\n");
+		dev_info(mae_dev->dev, "unable to link SMI LARB idx\n");
 		return -EINVAL;
 	}
 
@@ -479,17 +493,15 @@ static void mtk_mae_frame_done_worker(struct work_struct *work)
 	uint32_t *dump;
 
 	// MAE_TO_DO: support multiple users by multiple works
+	mtk_mae_get_kernel_time(mae_dev, param, MAE_CMDQ_PKT_WAIT_COMPLETE_START);
 	cmdq_pkt_wait_complete(mae_dev->pkt[0]);
+	mtk_mae_get_kernel_time(mae_dev, param, MAE_CMDQ_PKT_DESTROY_START);
 	cmdq_pkt_destroy(mae_dev->pkt[0]);
+	mtk_mae_get_kernel_time(mae_dev, param, MAE_CMDQ_PKT_DESTROY_END);
 
 	if (mae_dev->is_hw_hang) {
-		// MAE_TO_DO: timeout dump flow
 		mtk_mae_hw_done(mae_dev, VB2_BUF_STATE_ERROR);
 	} else {
-		// MAE_TO_DO: parsing flow
-		// dma_buf_begin_cpu_access(mae_dev->map_table->output_dmabuf_info[0][0].dmabuf,
-		//							DMA_BIDIRECTIONAL);
-		// DEBUG_ONLY: default 100ms
 		if (delay_time != 0)
 			msleep(delay_time);
 
@@ -530,6 +542,8 @@ static void mtk_mae_frame_done_worker(struct work_struct *work)
 
 		mtk_mae_hw_done(mae_dev, VB2_BUF_STATE_DONE);
 	}
+
+	mtk_mae_get_kernel_time(mae_dev, param, MAE_FRAME_DONE_WORKER_END);
 }
 
 static const struct v4l2_pix_format_mplane *mtk_mae_find_fmt(u32 format)
@@ -565,26 +579,31 @@ static void mtk_mae_device_run(void *priv)
 	idx = src_buf->vb2_buf.index;
 	param = (struct EnqueParam*)mae_dev->map_table->param_dmabuf_info[idx].kva;
 
-	mae_dev->mae_out = vb2_dma_contig_plane_dma_addr(&dst_buf->vb2_buf, 0);
+	// mae_dev->mae_out = vb2_dma_contig_plane_dma_addr(&dst_buf->vb2_buf, 0);
 	// plane_vaddr = vb2_plane_vaddr(&dst_buf->vb2_buf, 0);
 
 	if (mae_dev->is_shutdown)
 		return;
 
+	mtk_mae_get_kernel_time(mae_dev, param, MAE_CMDQ_PKT_CREATE_START);
 	mae_dev->pkt[idx] = cmdq_pkt_create(mae_dev->mae_clt);
+	mtk_mae_get_kernel_time(mae_dev, param, MAE_CMDQ_PKT_CREATE_END);
 
 	reinit_completion(&mae_dev->mae_job_finished);
 
 	if (param->maeMode == FLD_V0) {
 		drv_ops.config_fld(mae_dev, idx);
 	} else {
+		mtk_mae_get_kernel_time(mae_dev, param, MAE_SET_DMA_ADDRESS_START);
 		if (!drv_ops.set_dma_address(mae_dev, idx)) {
 			mae_dev_info(mae_dev->dev, "set dma address fail\n");
 			return;
 		}
 
+		mtk_mae_get_kernel_time(mae_dev, param, MAE_CONFIG_HW_START);
 		if (!drv_ops.config_hw(mae_dev, idx))
 			mae_dev_info(mae_dev->dev, "config hw fail\n");
+		mtk_mae_get_kernel_time(mae_dev, param, MAE_CONFIG_HW_END);
 	}
 }
 
@@ -1476,6 +1495,8 @@ int mtk_mae_vidioc_qbuf(struct file *file, void *priv,
 	}
 	param = (struct EnqueParam *)map_table->param_dmabuf_info[idx].kva;
 
+	mtk_mae_get_kernel_time(mae_dev, param, MAE_QBUF_START);
+
 	mae_dev_dbg(mae_dev->dev, "%s, [check param] user(%d), imgMaxWidth(%d)",
 				__func__, param->user, param->imgMaxWidth);
 	mae_dev_dbg(mae_dev->dev, "imgMaxHeight(%d), isSecure(%d), FDModelSel(%d), FACModelSel(%d), ",
@@ -1643,7 +1664,7 @@ int mtk_mae_vidioc_qbuf(struct file *file, void *priv,
 		}
 	}
 
-
+	mtk_mae_get_kernel_time(mae_dev, param, MAE_QBUF_END);
 #if M2M_ENABLE
 	return v4l2_m2m_ioctl_qbuf(file, priv, buf);
 #else

@@ -459,6 +459,27 @@ struct AisegCrop {
 	uint32_t shiftBit;
 };
 
+struct mae_kernel_time {
+	uint32_t requestNum;
+	MAE_MODE maeMode;
+	int64_t ktime;
+};
+
+enum MAE_TIME_INTERVAL {
+	MAE_QBUF_START = 0,
+	MAE_QBUF_END = 1,
+	MAE_CMDQ_PKT_CREATE_START = 2,
+	MAE_CMDQ_PKT_CREATE_END = 3,
+	MAE_SET_DMA_ADDRESS_START = 4,
+	MAE_CONFIG_HW_START = 5,
+	MAE_CONFIG_HW_END = 6,
+	MAE_CMDQ_PKT_WAIT_COMPLETE_START = 7,
+	MAE_CMDQ_PKT_DESTROY_START = 8,
+	MAE_CMDQ_PKT_DESTROY_END = 9,
+	MAE_FRAME_DONE_WORKER_END = 10,
+	MAE_TIME_INTERVAL_MAX
+};
+
 struct EnqueParam {
 	// init parameters
 	MAE_USER user;
@@ -493,11 +514,14 @@ struct EnqueParam {
 	uint8_t personMerge[AISEG_POP_GROUP_SIZE][PERSON_MERGE_NUM];
 	uint8_t mergeConfidence[AISEG_POP_GROUP_SIZE][MERGE_CONFIDENCE_NUM];
 
-	// for dump bin file
+	// for userspace dump bin file
 	uint32_t coef_dump_offset[MAX_OUTER_LOOP_NUM];
 	uint32_t coef_dump_size[MAX_OUTER_LOOP_NUM];
 	uint32_t config_dump_offset[MAX_OUTER_LOOP_NUM];
 	uint32_t config_dump_size[MAX_OUTER_LOOP_NUM];
+
+	// for userspace dump kernel time
+	struct mae_kernel_time mae_ktime[MAE_TIME_INTERVAL_MAX];
 
 	uint32_t lnOffset[AISEG_MAP_NUM];
 	uint32_t outputNum;
@@ -773,5 +797,8 @@ struct mtk_mae_drv_ops {
 };
 
 void mtk_mae_register_drv_ops(const struct mtk_mae_drv_ops *ops);
+void mtk_mae_get_kernel_time(struct mtk_mae_dev *mae_dev,
+		struct EnqueParam *param,
+		uint32_t idx);
 
 #endif /* __MTK_MAE_H__ */

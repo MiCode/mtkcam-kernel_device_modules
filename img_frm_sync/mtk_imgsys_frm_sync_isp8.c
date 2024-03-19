@@ -939,14 +939,12 @@ int release_frame_token_imgsys_isp8(struct mtk_img_frm_sync *mtk_img_frm_sync_de
 	int r_idx = in_data->sw_ridx;
 	int ret = 0;
 
+	if (r_idx >= MAX_GCE_RING_IMGSYS)
+		return ret;
+
+
 	oft_tb = &imgsys_gcebuf_ofst_tb_n;
 	oft_info = oft_tb->info;
-
-	if (r_idx > MAX_GCE_RING_IMGSYS) {
-		dev_info(mtk_img_frm_sync_dev->dev, "sw_idx:%d", r_idx);
-		return ret;
-	}
-
 	if (!oft_info[r_idx].used_sw_token_cnt)
 		return ret;
 

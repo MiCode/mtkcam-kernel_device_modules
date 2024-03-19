@@ -367,6 +367,7 @@ static void qof_start_smi_cb_loop(struct mtk_imgsys_dev *imgsys_dev,
 
 	/* Program end */
 	smi_cb_pkt->priority = IMGSYS_PRI_HIGH;
+	smi_cb_pkt->no_irq = true;
 	cmdq_pkt_finalize_loop(smi_cb_pkt);
 	//cmdq_dump_pkt(smi_cb_pkt, 0, true);
 	cmdq_pkt_flush_async(smi_cb_pkt, NULL, (void *)smi_cb_pkt);
@@ -1176,6 +1177,7 @@ static void qof_start_pwr_restore_task(struct mtk_imgsys_dev *imgsys_dev,
 
 	/* Program end */
 	restore_pkt->priority = IMGSYS_PRI_HIGH;
+	restore_pkt->no_irq = true;
 	cmdq_pkt_finalize_loop(restore_pkt);
 	cmdq_pkt_flush_async(restore_pkt, NULL, (void *)restore_pkt);
 }

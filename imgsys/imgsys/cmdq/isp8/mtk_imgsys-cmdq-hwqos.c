@@ -768,6 +768,7 @@ static void imgsys_qos_loop(const struct mtk_imgsys_hwqos *hwqos_info)
 		pr_err("[%s] [ERROR] cmdq_pkt_create fail\n", __func__);
 		return;
 	}
+	g_hwqos_pkt->no_irq = true;
 	// check if hwqos_buf is IMGSYS_QOS_REPORT_MAX
 	GCE_COND_ASSIGN(g_hwqos_pkt, CMDQ_THR_SPR_IDX1);
 	cmdq_pkt_acquire_event(g_hwqos_pkt, hwqos_info->hwqos_sync_token);

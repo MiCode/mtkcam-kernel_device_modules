@@ -82,11 +82,14 @@ void __iomem *CAMSYS_CONFIG_BASE;
 struct device *g_dev1, *g_dev2;
 struct device *g_smmu_dev1;
 
+static unsigned int g_u4pm_cnt;
+
 static spinlock_t g_PDA_SpinLock;
 
 wait_queue_head_t g_wait_queue_head;
 
 static DEFINE_MUTEX(pda_mutex);
+static DEFINE_MUTEX(pda_pm_mutex);
 
 // PDA HW quantity
 static unsigned int g_PDA_quantity;
@@ -170,9 +173,11 @@ static inline void PDA_Prepare_Enable_ccf_clock(void)
 		ret = pm_runtime_get_sync(g_dev2); //Note: It‘s not larb's device.
 		if (ret) {
 			LOG_INF("pm_runtime_get_sync dev2 failed:(%d)\n", ret);
+			pm_runtime_put_sync(g_dev1);
 			return;
 		}
 	}
+	g_u4pm_cnt++;
 	if (pda_log_dbg_en == 1)
 		LOG_INF("pm_runtime_get_sync done\n");
 #endif
@@ -185,6 +190,11 @@ static inline void PDA_Disable_Unprepare_ccf_clock(void)
 #if IS_ENABLED(CONFIG_OF)
 	int ret = 0;
 #endif
+	if (!g_u4pm_cnt) {
+		LOG_INF("The power on flow is abnormal, no need to do power off flow\n");
+		return;
+	}
+
 	pda_clk_disable_unprepare();
 
 #if IS_ENABLED(CONFIG_OF)
@@ -192,16 +202,15 @@ static inline void PDA_Disable_Unprepare_ccf_clock(void)
 		ret = pm_runtime_put_sync(g_dev2);
 		if (ret) {
 			LOG_INF("pm_runtime_put_sync dev2 failed:(%d)\n", ret);
-			return;
 		}
 	}
 	if (g_PDA_quantity > 0) {
 		ret = pm_runtime_put_sync(g_dev1);
 		if (ret) {
 			LOG_INF("pm_runtime_put_sync dev1 failed:(%d)\n", ret);
-			return;
 		}
 	}
+	g_u4pm_cnt--;
 	if (pda_log_dbg_en == 1)
 		LOG_INF("pm_runtime_put_sync done\n");
 #endif
@@ -226,7 +235,9 @@ static void EnableClock(bool En)
 		if (pda_log_dbg_en == 1)
 			LOG_INF("It's real ic load, Enable Clock");
 
+		mutex_lock(&pda_pm_mutex);
 		PDA_Prepare_Enable_ccf_clock();
+		mutex_unlock(&pda_pm_mutex);
 #else
 		// Enable clock by hardcode:
 		LOG_INF("It's LDVT load, Enable Clock");
@@ -251,7 +262,9 @@ static void EnableClock(bool En)
 		if (pda_log_dbg_en == 1)
 			LOG_INF("It's real ic load, Disable Clock");
 
+		mutex_lock(&pda_pm_mutex);
 		PDA_Disable_Unprepare_ccf_clock();
+		mutex_unlock(&pda_pm_mutex);
 #else
 		// Disable clock by hardcode:
 		LOG_INF("It's LDVT load, Disable Clock");
@@ -2344,7 +2357,9 @@ static int PDA_Open(struct inode *a_pstInode, struct file *a_pstFile)
 {
 	//Enable clock
 	EnableClock(MTRUE);
+	spin_lock(&g_PDA_SpinLock);
 	LOG_INF("PDA open g_u4EnableClockCount: %d", g_u4EnableClockCount);
+	spin_unlock(&g_PDA_SpinLock);
 
 #ifdef CHECK_IRQ_COUNT
 	g_reasonable_IRQCount = 0;
@@ -2396,7 +2411,9 @@ static int PDA_Release(struct inode *a_pstInode, struct file *a_pstFile)
 
 	//Disable clock
 	EnableClock(MFALSE);
+	spin_lock(&g_PDA_SpinLock);
 	LOG_INF("PDA release g_u4EnableClockCount: %d", g_u4EnableClockCount);
+	spin_unlock(&g_PDA_SpinLock);
 	return 0;
 }
 

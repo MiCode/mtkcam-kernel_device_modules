@@ -1660,11 +1660,7 @@ static void raw_handle_tg_overrun_err(struct mtk_raw_device *raw_dev,
 	if (cnt < (OVERRUN_DUMP_CNT + raw_dev->sub_sensor_ctrl_en * 10))
 		dump_topdebug_rdyreq_status(raw_dev);
 
-	if (cnt < (MAX_RETRY_SENSOR_CNT + raw_dev->sub_sensor_ctrl_en * 10))
-		do_engine_callback(raw_dev->engine_cb, reset_sensor,
-				   raw_dev->cam, CAMSYS_ENGINE_RAW, raw_dev->id,
-				   fh_cookie);
-	else if (cnt == (MAX_RETRY_SENSOR_CNT + raw_dev->sub_sensor_ctrl_en * 10))
+	else if (cnt == (OVERRUN_DUMP_CNT + raw_dev->sub_sensor_ctrl_en * 10))
 		do_engine_callback(raw_dev->engine_cb, dump_request,
 				   raw_dev->cam, CAMSYS_ENGINE_RAW, raw_dev->id,
 				   fh_cookie, MSG_TG_OVERRUN);

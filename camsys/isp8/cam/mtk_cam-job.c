@@ -5743,6 +5743,8 @@ static bool test_do_engine_reset_for_recovery(struct mtk_cam_ctx *ctx)
 
 static void job_mark_dc_engine_error_buffer(struct mtk_cam_job *job)
 {
+	struct mtk_cam_ctx *ctx = job->src_ctx;
+	struct mtk_cam_ctrl *ctrl = &ctx->cam_ctrl;
 	int raw_id = get_master_raw_id(job->used_engine);
 	int sv_id = get_master_sv_id(job->used_engine);
 
@@ -5750,6 +5752,11 @@ static void job_mark_dc_engine_error_buffer(struct mtk_cam_job *job)
 
 	job_mark_engine_done(job, CAMSYS_ENGINE_RAW, raw_id, job->frame_seq_no);
 	job_mark_engine_done(job, CAMSYS_ENGINE_CAMSV, sv_id, job->frame_seq_no);
+
+	// update runtime info to trigger wait event in switch case
+	spin_lock(&ctrl->info_lock);
+	ctrl->r_info.done_seq_no = job->frame_seq_no;
+	spin_unlock(&ctrl->info_lock);
 }
 
 static int job_sw_recovery(struct mtk_cam_job *job)

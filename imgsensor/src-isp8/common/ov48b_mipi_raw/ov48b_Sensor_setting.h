@@ -1870,22 +1870,22 @@ u16 addr_data_pair_init_ov48b2q[] = {
 	0x4888, 0x80,//CPHY control
 	0x4889, 0x01,//CPHY control
 	// emb
-	0x3680, 0x00,
-	0x3685, 0x92, /* [7] emb_en [5:0] emb_dt                     */
-	//0x3685, 0xb0, /* [7] emb_en [5:0] emb_dt                     */
-	0x3216, 0x02, /* emb_line_num                                */
-	0x3208, 0x04, /* group4 used for SOF embedded line record    */
-	0x387E, 0x02, /* contents from 387E~387F, total 0x02 bytes. frame_cnt */
-	0x3500, 0x03, /* contents from 3500~3502, total 0x03 bytes. cit */
-	0x3508, 0x02, /* contents from 3508~3509, total 0x02 bytes. again */
-	0x3840, 0x01, /* contents from 3840~3840, total 0x01 bytes. vts */
-	0x380E, 0x02, /* contents from 380E~380F, total 0x02 bytes. vts */
-	0x4D13, 0x02, /* contents from 4D13~4D14, total 0x02 bytes. thermal */
-	0x3208, 0x14, /* group4 record end                           */
-	0x3208, 0x05, /* group5 used for EOF embedded line record    */
-	0x387E, 0x02, /* contents from 387E~387F, total 0x02 bytes. frame_cnt */
-	0x3208, 0x15, /* group5 record end */
-	0x3218, 0x02, /* [1] sof trigger, [0] tag_en */
+	// 0x3680, 0x00,
+	// 0x3685, 0x92, /* [7] emb_en [5:0] emb_dt                     */
+	// 0x3685, 0xb0, /* [7] emb_en [5:0] emb_dt                     */
+	// 0x3216, 0x02, /* emb_line_num                                */
+	// 0x3208, 0x04, /* group4 used for SOF embedded line record    */
+	// 0x387E, 0x02, /* contents from 387E~387F, total 0x02 bytes. frame_cnt */
+	// 0x3500, 0x03, /* contents from 3500~3502, total 0x03 bytes. cit */
+	// 0x3508, 0x02, /* contents from 3508~3509, total 0x02 bytes. again */
+	// 0x3840, 0x01, /* contents from 3840~3840, total 0x01 bytes. vts */
+	// 0x380E, 0x02, /* contents from 380E~380F, total 0x02 bytes. vts */
+	// 0x4D13, 0x02, /* contents from 4D13~4D14, total 0x02 bytes. thermal */
+	// 0x3208, 0x14, /* group4 record end                           */
+	// 0x3208, 0x05, /* group5 used for EOF embedded line record    */
+	// 0x387E, 0x02, /* contents from 387E~387F, total 0x02 bytes. frame_cnt */
+	// 0x3208, 0x15, /* group5 record end */
+	// 0x3218, 0x02, /* [1] sof trigger, [0] tag_en */
 };
 /* Binning 4000*3000@60fps PD disabled */
 u16 addr_data_pair_preview_ov48b2q[] = {
@@ -2040,7 +2040,7 @@ u16 addr_data_pair_preview_ov48b2q[] = {
 	0x5C52, 0x06,
 	0x5C53, 0x05,
 	0x0325, 0xe0,
-	0x3685, 0x92, /* [7] emb_en [5:0] emb_dt                     */
+	// 0x3685, 0x92, /* [7] emb_en [5:0] emb_dt                     */
 };
 u16 addr_data_pair_capture_ov48b2q[] = {
 	0x0344, 0x01,
@@ -2206,7 +2206,7 @@ u16 addr_data_pair_capture_ov48b2q[] = {
 	0x5C52, 0x06,
 	0x5C53, 0x05,
 	0x0325, 0xe0,
-	0x3685, 0x92, /* [7] emb_en [5:0] emb_dt                     */
+	// 0x3685, 0x92, /* [7] emb_en [5:0] emb_dt                     */
 };
 u16 addr_data_pair_video_ov48b2q[] = {
 	0x0344, 0x01,
@@ -2360,7 +2360,7 @@ u16 addr_data_pair_video_ov48b2q[] = {
 	0x5C52, 0x06,
 	0x5C53, 0x05,
 	0x0325, 0xe0,
-	0x3685, 0x92, /* [7] emb_en [5:0] emb_dt                     */
+	// 0x3685, 0x92, /* [7] emb_en [5:0] emb_dt                     */
 };
 u16 addr_data_pair_hs_video_ov48b2q[] = {
 	0x0344, 0x01,
@@ -2486,7 +2486,7 @@ u16 addr_data_pair_hs_video_ov48b2q[] = {
 	0x3820, 0x07,
 	0x3821, 0x10,
 	0x0325, 0xe0,
-	0x3685, 0x12, /* [7] emb_en [5:0] emb_dt                     */
+	// 0x3685, 0x12, /* [7] emb_en [5:0] emb_dt                     */
 };
 u16 addr_data_pair_slim_video_ov48b2q[] = {
 	0x0344, 0x01,
@@ -2640,7 +2640,7 @@ u16 addr_data_pair_slim_video_ov48b2q[] = {
 	0x5C52, 0x06,
 	0x5C53, 0x05,
 	0x0325, 0xe0,
-	0x3685, 0x92, /* [7] emb_en [5:0] emb_dt                     */
+	// 0x3685, 0x92, /* [7] emb_en [5:0] emb_dt                     */
 };
 u16 addr_data_pair_custom1[] = {
 	0x0344, 0x01,
@@ -2772,7 +2772,7 @@ u16 addr_data_pair_custom1[] = {
 	0x3820, 0x06,
 	0x3821, 0x10,
 	0x0325, 0xe0,
-	0x3685, 0x92, /* [7] emb_en [5:0] emb_dt                     */
+	// 0x3685, 0x92, /* [7] emb_en [5:0] emb_dt                     */
 };
 u16 addr_data_pair_custom2[] = {
 	0x0344, 0x01,
@@ -2926,7 +2926,7 @@ u16 addr_data_pair_custom2[] = {
 	0x5C52, 0x06,
 	0x5C53, 0x05,
 	0x0325, 0xe0,
-	0x3685, 0x92, /* [7] emb_en [5:0] emb_dt                     */
+	// 0x3685, 0x92, /* [7] emb_en [5:0] emb_dt                     */
 };
 u16 addr_data_pair_custom3[] = {
 	0x0344, 0x00,
@@ -3080,7 +3080,7 @@ u16 addr_data_pair_custom3[] = {
 	0x5C52, 0x06,
 	0x5C53, 0x05,
 	0x0325, 0xe0,
-	0x3685, 0x92, /* [7] emb_en [5:0] emb_dt                     */
+	// 0x3685, 0x92, /* [7] emb_en [5:0] emb_dt                     */
 };
 
 u16 addr_data_pair_custom4[] = {
@@ -3236,7 +3236,7 @@ u16 addr_data_pair_custom4[] = {
 	0x5C52, 0x06,
 	0x5C53, 0x05,
 	0x0325, 0xe0,
-	0x3685, 0x12, /* [7] emb_en [5:0] emb_dt                     */
+	// 0x3685, 0x12, /* [7] emb_en [5:0] emb_dt                     */
 };
 
 u16 addr_data_pair_custom5[] = {
@@ -3365,7 +3365,7 @@ u16 addr_data_pair_custom5[] = {
 	0x3820, 0x46, //;07;03
 	0x3821, 0x19, //;10;14
 	0x0325, 0xe0,
-	0x3685, 0x12, /* [7] emb_en [5:0] emb_dt                     */
+	// 0x3685, 0x12, /* [7] emb_en [5:0] emb_dt                     */
 };
 
 u16 addr_data_pair_custom6[] = {
@@ -3491,7 +3491,7 @@ u16 addr_data_pair_custom6[] = {
 	0x3820, 0x46, //;07;03
 	0x3821, 0x19, //;10;14
 	0x0325, 0xe0,
-	0x3685, 0x12, /* [7] emb_en [5:0] emb_dt                     */
+	// 0x3685, 0x12, /* [7] emb_en [5:0] emb_dt                     */
 };
 u16 addr_data_pair_custom7[] = {
 	0x0304, 0x00,
@@ -3616,7 +3616,7 @@ u16 addr_data_pair_custom7[] = {
 	0x3820,	0x07, //;03
 	0x3821,	0x10, //;14
 	0x0325, 0xe0,
-	0x3685, 0x12, /* [7] emb_en [5:0] emb_dt                     */
+	// 0x3685, 0x12, /* [7] emb_en [5:0] emb_dt                     */
 };
 u16 addr_data_pair_custom8[] = {
 	0x0304, 0x00,
@@ -3741,7 +3741,7 @@ u16 addr_data_pair_custom8[] = {
 	0x3820, 0x07,//;03
 	0x3821, 0x10,//;14
 	0x0325, 0xe0,
-	0x3685, 0x12, /* [7] emb_en [5:0] emb_dt                     */
+	// 0x3685, 0x12, /* [7] emb_en [5:0] emb_dt                     */
 };
 u16 addr_data_pair_custom9[] = {
 	0x0344, 0x01,
@@ -3873,7 +3873,7 @@ u16 addr_data_pair_custom9[] = {
 	0x3820, 0x06,
 	0x3821, 0x10,
 	0x0325, 0xe0,
-	0x3685, 0x92, /* [7] emb_en [5:0] emb_dt                     */
+	// 0x3685, 0x92, /* [7] emb_en [5:0] emb_dt                     */
 };
 u16 addr_data_pair_custom10[] = {
 	0x0344, 0x00,
@@ -4027,7 +4027,7 @@ u16 addr_data_pair_custom10[] = {
 	0x5C52, 0x06,
 	0x5C53, 0x05,
 	0x0325, 0xe0,
-	0x3685, 0x92, /* [7] emb_en [5:0] emb_dt                     */
+	// 0x3685, 0x92, /* [7] emb_en [5:0] emb_dt                     */
 };
 u16 addr_data_pair_custom11[] = {
 	0x0344, 0x01,
@@ -4184,7 +4184,7 @@ u16 addr_data_pair_custom11[] = {
 	0x5C52, 0x06,
 	0x5C53, 0x05,
 	0x0325, 0xe0,
-	0x3685, 0x92, /* [7] emb_en [5:0] emb_dt                     */
+	// 0x3685, 0x92, /* [7] emb_en [5:0] emb_dt                     */
 };
 u16 addr_data_pair_custom12[] = {
 	0x0344, 0x01,
@@ -4341,7 +4341,7 @@ u16 addr_data_pair_custom12[] = {
 	0x5C52, 0x06,
 	0x5C53, 0x05,
 	0x0325, 0xe0,
-	0x3685, 0x92, /* [7] emb_en [5:0] emb_dt                     */
+	// 0x3685, 0x92, /* [7] emb_en [5:0] emb_dt                     */
 };
 u16 addr_data_pair_custom13[] = {
 	0x0344, 0x01,
@@ -4473,7 +4473,7 @@ u16 addr_data_pair_custom13[] = {
 	0x3820, 0x06,
 	0x3821, 0x10,
 	0x0325, 0xe0,
-	0x3685, 0x92, /* [7] emb_en [5:0] emb_dt                     */
+	// 0x3685, 0x92, /* [7] emb_en [5:0] emb_dt                     */
 };
 u16 addr_data_pair_custom14[] = {
 	0x0344, 0x01,
@@ -4603,7 +4603,7 @@ u16 addr_data_pair_custom14[] = {
 	0x3508, 0x01,
 	0x3509, 0x00,
 	0x0100, 0x01,
-	0x3685, 0x92, /* [7] emb_en [5:0] emb_dt                     */
+	// 0x3685, 0x92, /* [7] emb_en [5:0] emb_dt                     */
 };
 u16 addr_data_pair_custom15[] = {
 	0x0344, 0x01,
@@ -4733,7 +4733,7 @@ u16 addr_data_pair_custom15[] = {
 	0x3508, 0x01,
 	0x3509, 0x00,
 	0x0100, 0x01,
-	0x3685, 0x92, /* [7] emb_en [5:0] emb_dt                     */
+	// 0x3685, 0x92, /* [7] emb_en [5:0] emb_dt                     */
 };
 u16 addr_data_pair_custom16[] = {
 	0x0344, 0x01,
@@ -4863,7 +4863,7 @@ u16 addr_data_pair_custom16[] = {
 	0x3508, 0x01,
 	0x3509, 0x00,
 	0x0100, 0x01,
-	0x3685, 0x92, /* [7] emb_en [5:0] emb_dt                     */
+	// 0x3685, 0x92, /* [7] emb_en [5:0] emb_dt                     */
 };
 u16 addr_data_pair_custom17[] = {
 	0x0344, 0x01,
@@ -4993,7 +4993,7 @@ u16 addr_data_pair_custom17[] = {
 	0x3508, 0x01,
 	0x3509, 0x00,
 	0x0100, 0x01,
-	0x3685, 0x92, /* [7] emb_en [5:0] emb_dt                     */
+	// 0x3685, 0x92, /* [7] emb_en [5:0] emb_dt                     */
 };
 u16 addr_data_pair_custom18[] = {
 	0x0344, 0x01,
@@ -5123,7 +5123,7 @@ u16 addr_data_pair_custom18[] = {
 	0x3508, 0x01,
 	0x3509, 0x00,
 	0x0100, 0x01,
-	0x3685, 0x92, /* [7] emb_en [5:0] emb_dt                     */
+	// 0x3685, 0x92, /* [7] emb_en [5:0] emb_dt                     */
 };
 u16 addr_data_pair_custom19[] = {
 	0x0344, 0x01,
@@ -5253,7 +5253,7 @@ u16 addr_data_pair_custom19[] = {
 	0x3508, 0x01,
 	0x3509, 0x00,
 	0x0100, 0x01,
-	0x3685, 0x92, /* [7] emb_en [5:0] emb_dt                     */
+	// 0x3685, 0x92, /* [7] emb_en [5:0] emb_dt                     */
 };
 u16 addr_data_pair_seamless_switch_step1_ov48b2q[] = {
 	//group 0

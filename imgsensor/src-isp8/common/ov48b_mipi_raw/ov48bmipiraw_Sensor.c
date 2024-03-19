@@ -22,7 +22,7 @@
  ****************************************************************************/
 #include "ov48bmipiraw_Sensor.h"
 
-#define OV48B_EMBEDDED_DATA_EN 1
+#define OV48B_EMBEDDED_DATA_EN 0
 
 static void set_sensor_cali(void *arg);
 static int get_sensor_temperature(void *arg);

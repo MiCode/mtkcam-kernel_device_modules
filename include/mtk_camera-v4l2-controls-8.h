@@ -186,6 +186,11 @@ enum mtk_cam_slc_mode {
 	SLC_WITH_DISCARD,
 };
 
+enum mtk_cam_sen_apply_ctrl {
+	MTK_CAM_SEN_APPLY_NORMAL,
+	MTK_CAM_SEN_APPLY_DIRECT_APPLY,
+};
+
 struct mtk_cam_resource_sensor_v2 {
 	__u32 width;
 	__u32 height;
@@ -220,6 +225,7 @@ struct mtk_cam_resource_raw_v2 {
 	__u8 rms_saving;
 	__u8 slc_mode;
 	__u8 luma_debug;
+	__u8 sen_apply_ctrl;
 };
 
 struct mtk_cam_resource_v2 {

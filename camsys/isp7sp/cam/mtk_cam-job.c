@@ -3768,12 +3768,17 @@ static void update_job_state_init_sensor_param(struct mtk_cam_job *job)
 		ctrl_data->trigger_cq_deadline :
 		infer_cq_trigger_deadline_ns(job, ctrl->frame_interval_ns);
 
+	job->job_state.s_params.always_allow =
+		(ctrl_data && ctrl_data->resource.user_data.raw_res.sen_apply_ctrl ==
+		MTK_CAM_SEN_APPLY_DIRECT_APPLY);
+
 	if (CAM_DEBUG_ENABLED(JOB))
-		pr_info("%s: job i2c_thres_ns %llu, latched_timing:%d, cq_trigger_thres:%llu\n",
+		pr_info("%s: job i2c_thres_ns %llu, latched_timing:%d, cq_trigger_thres:%llu always:%d\n",
 			__func__,
 			job->job_state.s_params.i2c_thres_ns,
 			job->job_state.s_params.latched_timing,
-			job->job_state.cq_trigger_thres_ns);
+			job->job_state.cq_trigger_thres_ns,
+			job->job_state.s_params.always_allow);
 }
 
 struct initialize_params stagger_init = {

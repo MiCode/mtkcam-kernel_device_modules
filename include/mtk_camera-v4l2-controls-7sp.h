@@ -179,6 +179,11 @@ enum mtk_cam_data_pattern {
 	MTK_CAM_PATTERN_4CELL,
 };
 
+enum mtk_cam_sen_apply_ctrl {
+	MTK_CAM_SEN_APPLY_NORMAL,
+	MTK_CAM_SEN_APPLY_DIRECT_APPLY,
+};
+
 struct mtk_cam_resource_sensor_v2 {
 	__u32 width;
 	__u32 height;
@@ -210,6 +215,7 @@ struct mtk_cam_resource_raw_v2 {
 	__u32 img_wbuf_size;
 	__u32 img_wbuf_num;
 	__u32 slb_size;
+	__u8 sen_apply_ctrl;
 };
 
 struct mtk_cam_resource_v2 {

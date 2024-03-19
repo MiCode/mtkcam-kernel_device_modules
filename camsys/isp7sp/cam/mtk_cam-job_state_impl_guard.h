@@ -174,6 +174,14 @@ static inline bool allow_applying_hw(struct state_accessor *s_acc)
 	return s_acc->s->apply_by_fsm;
 }
 
+static inline bool bypass_guard_check(struct transition_param *p)
+{
+	if (unlikely(!p->s_params))
+		return false;
+
+	return p->s_params->always_allow;
+}
+
 static inline bool valid_i2c_period(struct transition_param *p)
 {
 	if (unlikely(!p->s_params))
@@ -211,17 +219,19 @@ static inline int guard_apply_sensor_subsample(struct state_accessor *s_acc,
 static inline int guard_apply_sensor(struct state_accessor *s_acc,
 				     struct transition_param *p)
 {
-	return allow_applying_hw(s_acc) &&
-		ops_call(s_acc, prev_allow_apply_sensor) &&
-		valid_i2c_period(p);
+	return bypass_guard_check(p) ||
+		(allow_applying_hw(s_acc) &&
+		 ops_call(s_acc, prev_allow_apply_sensor) &&
+		 valid_i2c_period(p));
 }
 
 static inline int guard_apply_sensor_l(struct state_accessor *s_acc,
 				     struct transition_param *p)
 {
-	return allow_applying_hw(s_acc) &&
-		ops_call(s_acc, prev_allow_apply_sensor) &&
-		valid_i2c_period_l(p);
+	return bypass_guard_check(p) ||
+		(allow_applying_hw(s_acc) &&
+		 ops_call(s_acc, prev_allow_apply_sensor) &&
+		 valid_i2c_period_l(p));
 }
 
 static inline bool is_sensor_set(int sensor_state)

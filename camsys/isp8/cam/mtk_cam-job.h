@@ -164,6 +164,7 @@ enum mtk_cam_sensor_latch {
 struct sensor_apply_params {
 	u64 i2c_thres_ns; /* valid period from vsync */
 	int latched_timing;
+	bool always_allow;
 };
 
 struct transition_param {

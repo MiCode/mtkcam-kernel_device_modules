@@ -2086,7 +2086,7 @@ void mtk_cam_ctrl_stop(struct mtk_cam_ctrl *cam_ctrl)
 	if (mtk_cam_ctx_is_adl_flow(ctx)) {
 		mtk_cam_ctrl_wait_list_empty(cam_ctrl);
 		disable_adlrd(ctx);
-		mtk_cam_bwr_clr_bw(&ctx->cam->bwr, ENGINE_CAM_MAIN, SYS_PORT);
+		mtk_cam_bwr_clr_bw(ctx->cam->bwr, ENGINE_CAM_MAIN, SYS_PORT);
 	}
 	/* should wait stream-on/seamless switch finished before stopping */
 	kthread_flush_worker(&ctx->flow_worker);

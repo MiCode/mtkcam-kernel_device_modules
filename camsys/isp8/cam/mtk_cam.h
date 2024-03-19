@@ -334,7 +334,7 @@ struct mtk_cam_device {
 
 	struct mtk_cam_debug dbg;
 
-	struct mtk_bwr_device bwr;
+	struct mtk_bwr_device *bwr;
 
 	/* shutdown flow */
 	wait_queue_head_t shutdown_wq;

@@ -6,6 +6,14 @@ package(
     ],
 )
 
+filegroup(
+    name = "public_headers",
+    srcs = glob([
+        "isp8/cam/mtk_cam-bwr.h",
+    ]),
+)
+
+
 mt6879_outs = [
     "isp7_1/cam/mtk-cam-plat-mt6879.ko",
 ]

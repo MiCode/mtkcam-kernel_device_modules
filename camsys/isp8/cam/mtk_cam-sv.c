@@ -2411,12 +2411,12 @@ int mtk_camsv_runtime_suspend(struct device *dev)
 
 	mtk_cam_reset_qos(dev, &sv_dev->qos);
 
-	mtk_cam_bwr_set_chn_bw(&sv_dev->cam->bwr,
+	mtk_cam_bwr_set_chn_bw(sv_dev->cam->bwr,
 		get_sv_bwr_engine(sv_dev->id), get_sv_axi_port(sv_dev->id),
 		0, -sv_dev->sv_avg_applied_bw_w,
 		0, -sv_dev->sv_peak_applied_bw_w, false);
 
-	mtk_cam_bwr_set_ttl_bw(&sv_dev->cam->bwr,
+	mtk_cam_bwr_set_ttl_bw(sv_dev->cam->bwr,
 		get_sv_bwr_engine(sv_dev->id), -sv_dev->sv_avg_applied_bw_w,
 		-sv_dev->sv_peak_applied_bw_w, false);
 

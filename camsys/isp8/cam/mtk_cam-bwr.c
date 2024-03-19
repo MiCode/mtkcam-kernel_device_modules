@@ -2,6 +2,7 @@
 //
 // Copyright (c) 2019 MediaTek Inc.
 
+#include <linux/clk.h>
 #include <linux/iopoll.h>
 #include <linux/module.h>
 #include <linux/of_platform.h>
@@ -10,21 +11,18 @@
 #include <linux/pm_runtime.h>
 #include <linux/vmalloc.h>
 #include <linux/suspend.h>
+#include <linux/component.h>
 
-
+#include "mtk_cam.h"
 #include "mtk_cam-bwr.h"
 #include "mtk_cam-bwr_regs.h"
 #include "mtk_cam-debug_option.h"
 
-static int bwr_hw_test;
-module_param(bwr_hw_test, int, 0644);
-MODULE_PARM_DESC(bwr_hw_test, "debug bwr hw test");
-
-static int debug_bwr_mode = BWR_HW_MODE;
+static int debug_bwr_mode = 0x7ff;
 module_param(debug_bwr_mode, int, 0644);
-MODULE_PARM_DESC(debug_bwr_mode, "0: sw mode, 1 : hw mode");
+MODULE_PARM_DESC(debug_bwr_mode, "0: sw mode, 0x7ff: all engine hw mode");
 
-static int debug_bwr_eng_filter = 0xfff;
+static int debug_bwr_eng_filter = 0x7ff;
 module_param(debug_bwr_eng_filter, int, 0644);
 MODULE_PARM_DESC(debug_bwr_eng_filter, "debug bwr engine channel bw");
 
@@ -154,6 +152,7 @@ static void bwr_set_chn_bw(struct mtk_bwr_device *bwr,
 	bw = clr ? hrt_w_bw :
 			to_bw_val(readl(bwr->base + REG_BWR_CAM_HRT_W0_ENG_BW0_0 + offset)) + hrt_w_bw;
 	writel(to_bw_csr(bw), bwr->base + REG_BWR_CAM_HRT_W0_ENG_BW0_0 + offset);
+
 	if (CAM_DEBUG_ENABLED(MMQOS))
 		pr_info("%s: engine:%d, axi:%d SRT(r/w): %d/%d HRT(r/w): %d/%d, clear: %d\n",
 		__func__, engine, axi, srt_r_bw, srt_w_bw, hrt_r_bw, hrt_w_bw, clr);
@@ -181,6 +180,7 @@ static void bwr_set_ttl_bw(struct mtk_bwr_device *bwr,
 	bw = clr ? hrt_ttl :
 			to_bw_val(readl(bwr->base + REG_BWR_CAM_HRT_TTL_ENG_BW0 + offset)) + hrt_ttl;
 	writel(to_bw_csr(bw), bwr->base + REG_BWR_CAM_HRT_TTL_ENG_BW0 + offset);
+
 	if (CAM_DEBUG_ENABLED(MMQOS))
 		pr_info("%s: engine:%d, SRT_TTL/HRT_TTL: %d/%d, clear: %d\n",
 				__func__, engine, srt_ttl, hrt_ttl, clr);
@@ -216,6 +216,7 @@ static void bwr_zero_bw(struct mtk_bwr_device *bwr,
 
 	writel(0, bwr->base +
 		REG_BWR_CAM_HRT_TTL_ENG_BW0 + ENGINE_OFFSET * engine);
+
 	if (CAM_DEBUG_ENABLED(MMQOS))
 		pr_info("%s: engine:%d, axi:%d set zero\n", __func__, engine, axi);
 
@@ -225,20 +226,6 @@ static void bwr_zero_bw(struct mtk_bwr_device *bwr,
 
 static void bwr_set_default(struct mtk_bwr_device *bwr)
 {
-	/* DPE */
-	bwr_set_chn_bw(bwr, ENGINE_DPE, DISP_PORT,
-		BWR_DEFAULT_DPE_SRT_R, BWR_DEFAULT_DPE_SRT_W, 0, 0, true);
-
-	bwr_set_ttl_bw(bwr, ENGINE_DPE,
-		BWR_DEFAULT_DPE_SRT_R + BWR_DEFAULT_DPE_SRT_W, 0, true);
-
-	/* PDA */
-	bwr_set_chn_bw(bwr, ENGINE_PDA, DISP_PORT,
-		BWR_DEFAULT_PDA_SRT_R, BWR_DEFAULT_PDA_SRT_W, 0, 0, true);
-
-	bwr_set_ttl_bw(bwr, ENGINE_PDA,
-		BWR_DEFAULT_PDA_SRT_R + BWR_DEFAULT_PDA_SRT_W, 0, true);
-
 	/* USIP */
 	bwr_set_chn_bw(bwr, ENGINE_UISP, MDP0_PORT,
 		BWR_DEFAULT_UISP_SRT_R, BWR_DEFAULT_UISP_SRT_W,
@@ -251,12 +238,6 @@ static void bwr_set_default(struct mtk_bwr_device *bwr)
 
 static void bwr_clr_default(struct mtk_bwr_device *bwr)
 {
-	/* DPE */
-	bwr_zero_bw(bwr, ENGINE_DPE, DISP_PORT);
-
-	/* PDA */
-	bwr_zero_bw(bwr, ENGINE_PDA, DISP_PORT);
-
 	/* USIP */
 	bwr_zero_bw(bwr, ENGINE_UISP, MDP0_PORT);
 }
@@ -268,7 +249,7 @@ static void bwr_clr_default(struct mtk_bwr_device *bwr)
 #define BWR_TEST_HRT_R    100
 #define BWR_TEST_HRT_W    200
 #define BWR_TEST_HRT_TTL  300
-static void bwr_set_test(struct mtk_bwr_device *bwr)
+static __maybe_unused void bwr_set_test(struct mtk_bwr_device *bwr)
 {
 	bwr_set_chn_bw(bwr, ENGINE_SUB_A, DISP_PORT,
 			BWR_TEST_SRT_R, BWR_TEST_SRT_W, BWR_TEST_HRT_R, BWR_TEST_HRT_W, true);
@@ -314,7 +295,7 @@ static void bwr_set_test(struct mtk_bwr_device *bwr)
 	mtk_cam_bwr_dbg_dump(bwr);
 }
 
-static void bwr_clr_test(struct mtk_bwr_device *bwr)
+static __maybe_unused void bwr_clr_test(struct mtk_bwr_device *bwr)
 {
 	int i ,j;
 
@@ -369,9 +350,9 @@ static int bwr_start(struct mtk_bwr_device *bwr)
 
 	//BWR mode
 	for (i = 0; i < NUM_BW_CHANNEL ; ++i) {
-		writel(debug_bwr_mode == BWR_HW_MODE ? 0x7ff : 0x0,
+		writel(debug_bwr_mode,
 			bwr->base + REG_BWR_CAM_SRT_TTL_BW_QOS_SEL + CHANNEL_OFFSET * i);
-		writel(debug_bwr_mode == BWR_SW_MODE ? 0x7ff : 0x0,
+		writel(debug_bwr_mode,
 			bwr->base + REG_BWR_CAM_SRT_TTL_SW_QOS_EN + CHANNEL_OFFSET * i);
 	}
 
@@ -417,52 +398,94 @@ static int bwr_stop(struct mtk_bwr_device *bwr)
 	return 0;
 }
 
-/* notice: enable once by cam main */
+struct mtk_bwr_device *mtk_cam_bwr_get_dev(struct platform_device *pdev)
+{
+	struct device_node *node;
+	struct platform_device *bwr_pdev;
+	struct mtk_bwr_device *bwr;
+
+	node = of_parse_phandle(pdev->dev.of_node, "mediatek,cam-bwr", 0);
+	if (!node) {
+		pr_info("%s :fail to parse mediatek,cam-bwr\n", __func__);
+		return NULL;
+	}
+
+	bwr_pdev = of_find_device_by_node(node);
+	of_node_put(node);
+	if (!bwr_pdev) {
+		pr_info("%s :no bwr device\n",  __func__);
+		return NULL;
+	}
+
+	bwr = dev_get_drvdata(&bwr_pdev->dev);
+	if (!bwr) {
+		pr_info("%s :no bwr drv data\n",  __func__);
+		return NULL;
+	}
+
+	return bwr;
+}
+EXPORT_SYMBOL_GPL(mtk_cam_bwr_get_dev);
+
 void mtk_cam_bwr_enable(struct mtk_bwr_device *bwr)
 {
-	bwr_start(bwr);
-	bwr_set_default(bwr);
+	if (!bwr) {
+		pr_info("%s :null device", __func__);
+		return;
+	}
 
-	if (bwr_hw_test)
-		bwr_set_test(bwr);
+	if (pm_runtime_get_sync(bwr->dev) < 0)
+		pr_info("%s runtime get fail\n", __func__);
 }
+EXPORT_SYMBOL_GPL(mtk_cam_bwr_enable);
 
-/* notice: disable once by cam main */
 void mtk_cam_bwr_disable(struct mtk_bwr_device *bwr)
 {
-	if (bwr_hw_test)
-		bwr_clr_test(bwr);
+	if (!bwr) {
+		pr_info("%s :null device", __func__);
+		return;
+	}
 
-	bwr_clr_default(bwr);
-	bwr_stop(bwr);
+	pm_runtime_put_sync(bwr->dev);
 }
+EXPORT_SYMBOL_GPL(mtk_cam_bwr_disable);
 
 void mtk_cam_bwr_set_chn_bw(struct mtk_bwr_device *bwr,
 			  enum BWR_ENGINE_TYPE engine, enum BWR_AXI_PORT axi,
 			  int srt_r_bw, int srt_w_bw, int hrt_r_bw, int hrt_w_bw, bool clear)
 {
-	if (bwr_hw_test)
+	if (!bwr) {
+		pr_info("%s :null device, engine(%d)", __func__, engine);
 		return;
+	}
 
 	bwr_set_chn_bw(bwr, engine, axi, srt_r_bw, srt_w_bw, hrt_r_bw, hrt_w_bw, clear);
 }
+EXPORT_SYMBOL_GPL(mtk_cam_bwr_set_chn_bw);
 
 void mtk_cam_bwr_set_ttl_bw(struct mtk_bwr_device *bwr,
 			  enum BWR_ENGINE_TYPE engine, int srt_ttl, int hrt_ttl, bool clear)
 {
-	if (bwr_hw_test)
+	if (!bwr) {
+		pr_info("%s :null device, engine(%d)", __func__, engine);
 		return;
+	}
 
 	bwr_set_ttl_bw(bwr, engine, srt_ttl, hrt_ttl, clear);
 }
+EXPORT_SYMBOL_GPL(mtk_cam_bwr_set_ttl_bw);
 
 void mtk_cam_bwr_clr_bw(
 	struct mtk_bwr_device *bwr, enum BWR_ENGINE_TYPE engine, enum BWR_AXI_PORT axi)
 {
-	if (bwr_hw_test)
-		return
+	if (!bwr) {
+		pr_info("%s : null device, engine(%d)", __func__, engine);
+		return;
+	}
+
 	bwr_zero_bw(bwr, engine, axi);
 }
+EXPORT_SYMBOL_GPL(mtk_cam_bwr_clr_bw);
 
 /* hw mode trigger for HRT/SRT */
 void mtk_cam_bwr_trigger(struct mtk_bwr_device *bwr,
@@ -492,7 +515,7 @@ void mtk_cam_bwr_dbg_dump(struct mtk_bwr_device *bwr)
 	int engine, axi;
 
 	for (engine = 0 ; engine < ENGINE_NUM; engine++) { //11
-		pr_info("%s: %s : SRT_TLL/HRT_TLL 0x%08x, 0x%08x\n",
+		pr_info("%s: %s : SRT_TLL/HRT_TLL : %d, %d\n",
 			__func__, str_engine(engine),
 			to_bw_val(readl(bwr->base + REG_BWR_CAM_SRT_TTL_ENG_BW0 +
 				ENGINE_OFFSET * engine)),
@@ -500,7 +523,7 @@ void mtk_cam_bwr_dbg_dump(struct mtk_bwr_device *bwr)
 				ENGINE_OFFSET * engine)));
 
 		for (axi = 0 ; axi < NUM_PORT; axi++) { //44
-			pr_info("%s: %s %s : SRT_R/SRT_W/HRT_R/HRT_W : 0x%08x, 0x%08x, 0x%08x, 0x%08x\n",
+			pr_info("%s: %s %s : SRT_R/SRT_W/HRT_R/HRT_W : %d, %d, %d, %d\n",
 				__func__, str_engine(engine), str_axi_port(axi),
 				to_bw_val(readl(bwr->base + REG_BWR_CAM_SRT_R0_ENG_BW0_0 +
 					CHANNEL_OFFSET * axi + ENGINE_OFFSET * engine)),
@@ -514,10 +537,37 @@ void mtk_cam_bwr_dbg_dump(struct mtk_bwr_device *bwr)
 	}
 }
 
-int mtk_cam_bwr_probe(struct device *dev, struct mtk_bwr_device *bwr)
+static int mtk_bwr_component_bind(struct device *dev, struct device *master,
+				  void *data)
 {
-	struct platform_device *pdev = to_platform_device(dev);
+	struct mtk_bwr_device *drvdata = dev_get_drvdata(dev);
+	struct mtk_cam_device *cam_dev = data;
+
+	cam_dev->bwr = drvdata;
+	return 0;
+}
+
+static void mtk_bwr_component_unbind(struct device *dev, struct device *master,
+				     void *data)
+{
+}
+
+static const struct component_ops mtk_bwr_component_ops = {
+	.bind = mtk_bwr_component_bind,
+	.unbind = mtk_bwr_component_unbind,
+};
+
+static int mtk_bwr_of_probe(struct platform_device *pdev,
+					struct mtk_bwr_device *drvdata)
+{
 	struct resource *res;
+	struct device *dev = &pdev->dev;
+	struct platform_device *vcore_pdev;
+	struct device_node *node;
+	struct device_link *link;
+	int i, clks;
+
+	dev_info(dev, "bwr probe\n");
 
 	/* base register */
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "bwr_base");
@@ -526,13 +576,147 @@ int mtk_cam_bwr_probe(struct device *dev, struct mtk_bwr_device *bwr)
 		return -ENODEV;
 	}
 
-	bwr->base = devm_ioremap_resource(dev, res);
-	if (IS_ERR(bwr->base)) {
+	drvdata->base = devm_ioremap_resource(dev, res);
+	if (IS_ERR(drvdata->base)) {
 		dev_dbg(dev, "failed to map register base\n");
-		return PTR_ERR(bwr->base);
+		return PTR_ERR(drvdata->base);
 	}
 
-	mutex_init(&bwr->op_lock);
+	clks = of_count_phandle_with_args(pdev->dev.of_node, "clocks",
+			"#clock-cells");
+
+	drvdata->num_clks = (clks == -ENOENT) ? 0 : clks;
+	dev_info(dev, "clk_num:%d\n", drvdata->num_clks);
+
+	if (drvdata->num_clks) {
+		drvdata->clks = devm_kcalloc(dev,
+					     drvdata->num_clks, sizeof(*drvdata->clks),
+					     GFP_KERNEL);
+		if (!drvdata->clks)
+			return -ENOMEM;
+	}
+
+	for (i = 0; i < drvdata->num_clks; i++) {
+		drvdata->clks[i] = of_clk_get(pdev->dev.of_node, i);
+		if (IS_ERR(drvdata->clks[i])) {
+			dev_info(dev, "failed to get clk %d\n", i);
+			return -ENODEV;
+		}
+	}
+
+	node = of_parse_phandle(
+				pdev->dev.of_node, "mediatek,camisp-vcore", 0);
+	if (!node) {
+		dev_info(dev, "failed to get camisp vcore phandle\n");
+		return -ENODEV;
+	}
+
+	vcore_pdev = of_find_device_by_node(node);
+	if (WARN_ON(!vcore_pdev)) {
+		of_node_put(node);
+		dev_info(dev, "failed to get camisp vcore pdev\n");
+		return -ENODEV;
+	}
+	of_node_put(node);
+
+	link = device_link_add(dev, &vcore_pdev->dev,
+					DL_FLAG_PM_RUNTIME | DL_FLAG_STATELESS);
+	if (!link)
+		dev_info(dev, "unable to link cam vcore\n");
+
+	dev_info(dev, "bwr probe done\n");
 
 	return 0;
 }
+
+static int mtk_bwr_probe(struct platform_device *pdev)
+{
+	struct device *dev = &pdev->dev;
+	struct mtk_bwr_device *drvdata;
+	int ret;
+
+	drvdata = devm_kzalloc(dev, sizeof(*drvdata), GFP_KERNEL);
+	if (!drvdata)
+		return -ENOMEM;
+
+	drvdata->dev = dev;
+	dev_set_drvdata(dev, drvdata);
+
+	ret = mtk_bwr_of_probe(pdev, drvdata);
+	if (ret) {
+		dev_info(dev, "mtk_bwr_of_probe failed\n");
+		return ret;
+	}
+
+	pm_runtime_enable(dev);
+
+	ret = component_add(dev, &mtk_bwr_component_ops);
+
+	mutex_init(&drvdata->op_lock);
+
+	return ret;
+}
+
+static int mtk_bwr_remove(struct platform_device *pdev)
+{
+	struct device *dev = &pdev->dev;
+	struct mtk_bwr_device *bwr = dev_get_drvdata(dev);
+	int i;
+
+	pm_runtime_disable(dev);
+
+	component_del(dev, &mtk_bwr_component_ops);
+
+	for (i = 0; i < bwr->num_clks; i++)
+		clk_put(bwr->clks[i]);
+
+	return 0;
+}
+
+static int mtk_bwr_runtime_suspend(struct device *dev)
+{
+	struct mtk_bwr_device *bwr = dev_get_drvdata(dev);
+	int i;
+
+	bwr_clr_default(bwr);
+	bwr_stop(bwr);
+
+	for (i = bwr->num_clks - 1; i >= 0; i--)
+		clk_disable_unprepare(bwr->clks[i]);
+
+	return 0;
+}
+
+static int mtk_bwr_runtime_resume(struct device *dev)
+{
+	struct mtk_bwr_device *bwr = dev_get_drvdata(dev);
+	int i;
+
+	for (i = 0; i < bwr->num_clks; i++)
+		clk_prepare_enable(bwr->clks[i]);
+
+	bwr_start(bwr);
+	bwr_set_default(bwr);
+
+	return 0;
+}
+
+static const struct dev_pm_ops mtk_bwr_pm_ops = {
+	SET_RUNTIME_PM_OPS(mtk_bwr_runtime_suspend, mtk_bwr_runtime_resume, NULL)
+};
+
+static const struct of_device_id mtk_cam_bwr_of_ids[] = {
+	{.compatible = "mediatek,mt6991-cam-bwr",},
+	{}
+};
+MODULE_DEVICE_TABLE(of, mtk_cam_bwr_of_ids);
+
+struct platform_driver mtk_cam_bwr_driver = {
+	.probe   = mtk_bwr_probe,
+	.remove  = mtk_bwr_remove,
+	.driver  = {
+		.name  = "mtk-cam bwr",
+		.of_match_table = of_match_ptr(mtk_cam_bwr_of_ids),
+		.pm     = &mtk_bwr_pm_ops,
+	}
+};

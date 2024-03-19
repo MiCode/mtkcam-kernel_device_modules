@@ -44,6 +44,7 @@
 #include "mtk_cam-fmt_utils.h"
 #include "mtk_cam-job_utils.h"
 #include "mtk_cam-raw_ctrl.h"
+#include "mtk_cam-bwr.h"
 #include "mtk_cam-hsf.h"
 #include "mtk_cam-qof.h"
 #include "mtk_cam-qof_regs.h"
@@ -1406,7 +1407,7 @@ static int mtk_cam_initialize(struct mtk_cam_device *cam)
 
 	mtk_cam_debug_exp_reset(&cam->dbg);
 
-	mtk_cam_bwr_enable(&cam->bwr);
+	mtk_cam_bwr_enable(cam->bwr);
 
 	enable_irq(cam->qoftop_irq);
 
@@ -1421,7 +1422,8 @@ static int mtk_cam_uninitialize(struct mtk_cam_device *cam)
 	dev_info(cam->dev, "camsys uninitialize\n");
 
 	disable_irq(cam->qoftop_irq);
-	mtk_cam_bwr_disable(&cam->bwr);
+	mtk_cam_bwr_disable(cam->bwr);
+
 	mtk_cam_power_rproc(cam, 0);
 	mtk_cam_plat_resource_ctrl(cam, 0);
 	pm_runtime_put_sync(cam->dev);
@@ -3759,8 +3761,6 @@ static int mtk_cam_master_bind(struct device *dev)
 	mtk_cam_dvfs_probe(cam_dev->dev,
 			   &cam_dev->dvfs, cam_dev->max_stream_num);
 
-	mtk_cam_bwr_probe(cam_dev->dev, &cam_dev->bwr);
-
 	mtk_raw_hdr_tsfifo_init(cam_dev->pipelines.raw,
 					cam_dev->pipelines.num_raw);
 
@@ -3914,6 +3914,8 @@ static struct component_match *mtk_cam_match_add(struct device *dev)
 
 	eng->num_seninf_devices =
 		add_match_by_driver(dev, &match, &seninf_pdrv);
+
+	add_match_by_driver(dev, &match, &mtk_cam_bwr_driver);
 
 	if (IS_ERR(match) || mtk_cam_alloc_for_engine(dev))
 		mtk_cam_match_remove(dev);
@@ -4330,6 +4332,12 @@ static int register_sub_drivers(struct device *dev)
 		goto REGISTER_RMS_FAIL;
 	}
 
+	ret = platform_driver_register(&mtk_cam_bwr_driver);
+	if (ret) {
+		dev_err(dev, "%s mtk_cam_bwr_driver fail\n", __func__);
+		goto REGISTER_BWR_FAIL;
+	}
+
 	match = mtk_cam_match_add(dev);
 	if (IS_ERR(match)) {
 		ret = PTR_ERR(match);
@@ -4346,6 +4354,9 @@ MASTER_ADD_MATCH_FAIL:
 	mtk_cam_match_remove(dev);
 
 ADD_MATCH_FAIL:
+	platform_driver_unregister(&mtk_cam_bwr_driver);
+
+REGISTER_BWR_FAIL:
 	platform_driver_unregister(&mtk_cam_rms_driver);
 
 REGISTER_RMS_FAIL:
@@ -4843,6 +4854,7 @@ static int mtk_cam_remove(struct platform_device *pdev)
 	platform_driver_unregister(&mtk_cam_larb_driver);
 	platform_driver_unregister(&seninf_core_pdrv);
 	platform_driver_unregister(&seninf_pdrv);
+	platform_driver_unregister(&mtk_cam_bwr_driver);
 
 	return 0;
 }

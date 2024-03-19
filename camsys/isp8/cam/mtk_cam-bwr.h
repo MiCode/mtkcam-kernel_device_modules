@@ -40,7 +40,10 @@ enum BWR_AXI_PORT {
 };
 
 struct mtk_bwr_device {
+	struct device *dev;
 	void __iomem *base;
+	unsigned int num_clks;
+	struct clk **clks;
 	struct mutex op_lock;
 };
 
@@ -110,9 +113,11 @@ static inline int get_sv_bwr_engine(int sv_id)
 	}
 }
 
+extern struct platform_driver mtk_cam_bwr_driver;
+
 #ifdef CAMSYS_BWR_SUPPORT
 
-int mtk_cam_bwr_probe(struct device *dev, struct mtk_bwr_device *bwr);
+struct mtk_bwr_device *mtk_cam_bwr_get_dev(struct platform_device *pdev);
 
 void mtk_cam_bwr_enable(struct mtk_bwr_device *bwr);
 
@@ -137,7 +142,7 @@ void mtk_cam_bwr_trigger(
 void mtk_cam_bwr_dbg_dump(struct mtk_bwr_device *bwr);
 
 #else
-static inline int mtk_cam_bwr_probe(struct device *dev, struct mtk_bwr_device *bwr){ return 0; }
+static inline struct mtk_bwr_device *mtk_cam_bwr_get_dev(struct platform_device *pdev){ return NULL; }
 static inline void mtk_cam_bwr_enable(struct mtk_bwr_device *bwr){}
 static inline void mtk_cam_bwr_disable(struct mtk_bwr_device *bwr){}
 static inline void mtk_cam_bwr_set_chn_bw(

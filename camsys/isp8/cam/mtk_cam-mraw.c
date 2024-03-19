@@ -1760,11 +1760,11 @@ int mtk_mraw_runtime_suspend(struct device *dev)
 
 	mtk_cam_reset_qos(dev, &mraw_dev->qos);
 
-	mtk_cam_bwr_set_chn_bw(&mraw_dev->cam->bwr,
+	mtk_cam_bwr_set_chn_bw(mraw_dev->cam->bwr,
 		ENGINE_MRAW, get_mraw_axi_port(mraw_dev->id),
 		0, -mraw_dev->mraw_avg_applied_bw_w,
 		0, -mraw_dev->mraw_peak_applied_bw_w, false);
-	mtk_cam_bwr_set_ttl_bw(&mraw_dev->cam->bwr,
+	mtk_cam_bwr_set_ttl_bw(mraw_dev->cam->bwr,
 		ENGINE_MRAW, -mraw_dev->mraw_avg_applied_bw_w,
 		-mraw_dev->mraw_peak_applied_bw_w, false);
 

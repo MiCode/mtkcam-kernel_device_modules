@@ -315,6 +315,7 @@ static struct mtk_mbus_frame_desc_entry frame_desc_cus4[] = {
 	},
 #endif
 };
+
 static struct subdrv_mode_struct mode_struct[] = {
 	{
 		.frame_desc = frame_desc_prev,
@@ -627,9 +628,9 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.hdr_mode = HDR_NONE,
 		.raw_cnt = 1,
 		.exp_cnt = 1,
-		.pclk = 656000000,
+		.pclk = 412800000,
 		.linelength = 2912,
-		.framelength = 7508,
+		.framelength = 4724,
 		.max_framerate = 300,
 		.mipi_pixel_rate = 880000000,
 		.readout_length = 0,

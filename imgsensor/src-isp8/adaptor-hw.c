@@ -21,6 +21,7 @@
 #include <linux/mutex.h>
 
 static DEFINE_MUTEX(PmicMutex);
+#define DEF_MCLK_FREQ 24
 
 #define INST_OPS(__ctx, __field, __idx, __hw_id, __set, __unset) do {\
 	if (__ctx->__field[__idx]) { \
@@ -146,8 +147,9 @@ static int set_mclk(struct adaptor_ctx *ctx, void *data, const struct subdrv_pw_
 
 static int unset_mclk(struct adaptor_ctx *ctx, void *data, const struct subdrv_pw_val *val)
 {
-	struct clk *mclk;
+	struct clk *mclk, *reset_src;
 	unsigned long long idx;
+	int mclk_freq;
 
 	if (!val)
 		return -EINVAL;
@@ -157,6 +159,19 @@ static int unset_mclk(struct adaptor_ctx *ctx, void *data, const struct subdrv_p
 
 	adaptor_logm(ctx, "+ idx(%llu),freq(%d),ulposc(%d)\n",
 		     idx, val->para1, val->para2);
+
+	//reset osc clk src to normal-src (i.e. normal-src)
+	if (val->para2 == MCLK_ULPOSC) {
+		mclk_freq = (ctx->subctx.s_ctx.mclk) ? ctx->subctx.s_ctx.mclk : DEF_MCLK_FREQ;
+		reset_src = get_clk_by_idx_freq(ctx, idx, mclk_freq, MCLK_NORMAL);
+		if ((reset_src == NULL) || IS_ERR(reset_src)) {
+			adaptor_logi(ctx, "no mclk src %dMHz\n", mclk_freq);
+		} else {
+			clk_set_parent(mclk, reset_src);
+			adaptor_logi(ctx, "reset osc_clk(%dMHZ) to normal_clk(%dMHZ), ulp(%d)",
+					val->para1, mclk_freq, val->para2);
+		}
+	}
 
 	clk_disable_unprepare(mclk);
 

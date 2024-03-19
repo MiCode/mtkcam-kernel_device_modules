@@ -1532,17 +1532,22 @@ int mtk_cam_seninf_set_camtg_camsv(struct v4l2_subdev *sd, int pad_id, int camtg
 }
 
 int mtk_cam_seninf_get_tag_order(struct v4l2_subdev *sd,
-		__u32 fmt_code, int pad_id)
+		__u32 fmt_code, int input_pad_id)
 {
 	/* seninf todo: tag order */
 	/* 0: first exposure 1: second exposure 2: last exposure */
 	struct seninf_ctx *ctx;
 	struct v4l2_subdev *sensor_sd;
 	struct mtk_sensor_mode_config_info info;
-	int ret = 2;  /* default return last exposure */
+	struct seninf_vc *vc;
+	struct mtk_sensor_vc_info_by_scenario vc_sid = {0};
+	u64 fsync_ext_vsync_pad_code = 0;
+	int ret = EXPOSURE_LAST;  /* default return last exposure */
 	int i = 0;
 	int exposure_num = 0;
 	int scenario = 0;
+	int desc;
+	int pad_id;
 
 
 	if (sd == NULL) {
@@ -1557,58 +1562,99 @@ int mtk_cam_seninf_get_tag_order(struct v4l2_subdev *sd,
 		return -EINVAL;
 	}
 
-	if (!ctx->is_test_model) {
-		sensor_sd = ctx->sensor_sd;
-		if (sensor_sd == NULL) {
-			pr_info("[%s][ERROR] sensor_sd is NULL\n", __func__);
-			return -EINVAL;
-		}
-
-		sensor_sd->ops->core->command(sensor_sd, V4L2_CMD_GET_SENSOR_MODE_CONFIG_INFO, &info);
-		scenario = get_scenario_from_fmt_code(fmt_code);
-
-		for (i = 0; i < info.count; i++) {
-			if (info.seamless_scenario_infos[i].scenario_id == scenario) {
-				exposure_num = info.seamless_scenario_infos[i].mode_exposure_num;
-				break;
-			}
-		}
-	}
-
-	switch (pad_id) {
+	/*due to PD / W data will use the same VC with raw */
+	switch (input_pad_id) {
 	case PAD_SRC_RAW0:
 	case PAD_SRC_RAW_W0:
 	case PAD_SRC_PDAF1:
-		ret = 0;
+		pad_id = PAD_SRC_RAW0;
 		break;
+
 	case PAD_SRC_RAW1:
 	case PAD_SRC_RAW_W1:
 	case PAD_SRC_PDAF3:
-		switch (exposure_num) {
-		case 3:
-			ret = 1;
-			break;
-
-		default:
-			break;
-		}
+		pad_id = PAD_SRC_RAW1;
 		break;
+
 	case PAD_SRC_RAW2:
 	case PAD_SRC_RAW_W2:
 	case PAD_SRC_PDAF5:
-		ret = 2;
+		pad_id = PAD_SRC_RAW2;
 		break;
+
 	default:
+		pad_id = input_pad_id;
 		break;
 	}
+
+	/* if test pattern, do default return flow */
+	if (ctx->is_test_model)
+		return (pad_id == PAD_SRC_RAW0) ? EXPOSURE_FIRST: EXPOSURE_LAST;
+
+
+	/*The following flow is for real sensor only */
+	sensor_sd = ctx->sensor_sd;
+	if (sensor_sd == NULL) {
+		pr_info("[%s][ERROR] sensor_sd is NULL\n", __func__);
+		return -EINVAL;
+	}
+
+	scenario = get_scenario_from_fmt_code(fmt_code);
+
+	for (i = 0; i < info.count; i++) {
+		if (info.seamless_scenario_infos[i].scenario_id == scenario) {
+			exposure_num = info.seamless_scenario_infos[i].mode_exposure_num;
+			break;
+		}
+	}
+
+	/* get fs_seq info by pad */
+	vc_sid.scenario_id = scenario;
+	ctx->sensor_sd->ops->core->command(ctx->sensor_sd,
+					V4L2_CMD_G_SENSOR_VC_INFO_BY_SCENARIO,
+					&vc_sid);
+
+	vc = kmalloc(sizeof(struct seninf_vc), GFP_KERNEL);
+	if (vc == NULL)
+		return -EINVAL;
+
+	for (i = 0; i < vc_sid.fd.num_entries; i++) {
+		desc = vc_sid.fd.entry[i].bus.csi2.user_data_desc;
+		mtk_cam_seninf_fill_outpad_to_vc(
+				ctx, vc, desc, &fsync_ext_vsync_pad_code);
+
+		if (vc->out_pad != pad_id)
+			continue;
+
+		if (vc_sid.fd.entry[i].bus.csi2.fs_seq == MTK_FRAME_DESC_FS_SEQ_ONLY_ONE) {
+			ret = EXPOSURE_FIRST;
+			break;
+		}
+
+		if ((pad_id == PAD_SRC_RAW1) && (exposure_num == 2)) {
+			ret = EXPOSURE_LAST;
+			break;
+		}
+
+		if (pad_id == PAD_SRC_RAW2) {
+			ret = EXPOSURE_LAST;
+			break;
+		}
+
+		ret = EXPOSURE_MIDDLE;
+		break;
+	}
+
+
 	dev_info(ctx->dev,
 			"[%s] input:pad_id(%d),scen(%d),exp_num(%d) output:tag_order(%d)\n",
 			__func__,
-			pad_id,
+			input_pad_id,
 			scenario,
 			exposure_num,
 			ret);
 
+	kfree(vc);
 	return ret;
 }
 

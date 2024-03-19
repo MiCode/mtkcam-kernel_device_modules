@@ -109,7 +109,6 @@ struct seninf_struct_pair_u64 {
 	u64 first;
 	u64 second;
 };
-
 struct mtk_seninf_cdphy_dvfs_step {
 	struct seninf_struct_pair cphy_data_rate;
 	struct seninf_struct_pair dphy_data_rate;
@@ -437,4 +436,11 @@ enum VSYNC_DETECT_LOG_LEVEL {
 	ENABLE_VSYNC_DETECT_PER_FRAME_INFO = 1,
 	ENABLE_VSYNC_DETECT_ONLY_CSI_IRQ_STATUS_ERROR_INFO = 2,
 };
+
+enum seninf_tag_order_type {
+	EXPOSURE_FIRST,
+	EXPOSURE_MIDDLE,
+	EXPOSURE_LAST,
+};
+
 #endif

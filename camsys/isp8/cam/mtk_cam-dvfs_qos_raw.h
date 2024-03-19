@@ -27,6 +27,8 @@ enum SMI_RAW_MERGE_PORT_ID {
 	SMI_PORT_GMPO_R1,
 	SMI_PORT_DRZB2NCO_R1,
 	SMI_PORT_AWBO_R1,
+	SMI_PORT_ADL_START,
+	SMI_PORT_IPUI_I1 = SMI_PORT_ADL_START,
 	SMI_PORT_RAW_NUM,
 };
 
@@ -45,6 +47,7 @@ enum PORT_DOMAIN {
 	RAW_DOMAIN,
 	RAW_W_DOMAIN,
 	YUV_DOMAIN,
+	ADL_DOMAIN,
 };
 
 enum STATS_DMA_PORT {
@@ -292,8 +295,8 @@ static struct qos_dma_desc rawi_5_dmas[] = {
 static struct qos_dma_desc ipui_1_dmas[] = {
 	{
 		.dma_name = "ipui_r1",
-		.domain = 0,
-		.dst_port = 0,
+		.domain = ADL_DOMAIN,
+		.dst_port = SMI_PORT_IPUI_I1,
 	},
 };
 
@@ -478,14 +481,6 @@ static struct qos_dma_desc drzb2no_1_dmas[] = {
 	},
 };
 
-static struct qos_dma_desc ipuo_1_dmas[] = {
-	{
-		.dma_name = "ipuo_r1",
-		.domain = 0,
-		.dst_port = 0,
-	},
-};
-
 static struct qos_dma_desc gmpo_1_dmas[] = {
 	{
 		.dma_name = "gmpo_r1",
@@ -562,7 +557,7 @@ static struct qos_dma_desc rawi_r5_w_dmas[] = {
 	},
 };
 
-#define MTKCAM_IPI_RAW_NUM 24
+#define MTKCAM_IPI_RAW_NUM 22
 static struct mtkcam_qos_desc mmqos_img_table[MTKCAM_IPI_RAW_NUM] = {
 	{
 		.id = MTKCAM_IPI_RAW_RAWI_2,
@@ -581,8 +576,8 @@ static struct mtkcam_qos_desc mmqos_img_table[MTKCAM_IPI_RAW_NUM] = {
 	},
 	{
 		.id = MTKCAM_IPI_RAW_IPUI,
-		//.dma_desc = ipui_1_dmas,
-		.desc_size = 0,
+		.dma_desc = ipui_1_dmas,
+		.desc_size = ARRAY_SIZE(ipui_1_dmas),
 	},
 	{
 		.id = MTKCAM_IPI_RAW_GRMGI,
@@ -615,10 +610,6 @@ static struct mtkcam_qos_desc mmqos_img_table[MTKCAM_IPI_RAW_NUM] = {
 		.desc_size = ARRAY_SIZE(yuvo_4_dmas),
 	},
 	{
-		.id = MTKCAM_IPI_RAW_YUVO_5,
-		.dma_desc = 0,
-	},
-	{
 		.id = MTKCAM_IPI_RAW_RZH1N2TO_2,
 		.dma_desc = rzh1n2to_2_dmas,
 		.desc_size = ARRAY_SIZE(rzh1n2to_2_dmas),
@@ -647,11 +638,6 @@ static struct mtkcam_qos_desc mmqos_img_table[MTKCAM_IPI_RAW_NUM] = {
 		.id = MTKCAM_IPI_RAW_DRZB2NO_1,
 		.dma_desc = drzb2no_1_dmas,
 		.desc_size = ARRAY_SIZE(drzb2no_1_dmas),
-	},
-	{
-		.id = MTKCAM_IPI_RAW_IPUO,
-		//.dma_desc = ipuo_1_dmas,
-		.desc_size = 0,
 	},
 	{
 		.id = MTKCAM_IPI_RAW_GMPO,

@@ -7,7 +7,6 @@
 #define _HW_SENSOR_SYNC_ALGO_H
 
 #include "frame_sync.h"
-
 #define ENO_HW_FS_UNHANDLEED 1
 
 #if defined(FS_UT)

@@ -12,11 +12,11 @@
 #include <linux/string.h>
 #endif // FS_UT
 
+#include "frame_sync.h"
 #include "frame_sync_log.h"
 #include "frame_sync_util.h"
 #include "frame_sync_algo.h"
 #include "frame_monitor.h"
-#include "hw_sensor_sync_algo.h"
 #include "custom/custom_hw_sync.h"
 
 #if !defined(FS_UT)
@@ -27,24 +27,249 @@
 
 #undef EN_DBG_LOG
 
+
+/* copy from frame_sync_algo.c */
+#define FLK_TABLE_CNT 3
+#define FLK_TABLE_SIZE 8
+static unsigned int fs_flk_table[FLK_TABLE_CNT][FLK_TABLE_SIZE][2] = {
+	{ /* [0] => flicker_en == 1 */
+		/* 14.6 ~ 15.3 */
+		{68493, 65359},
+
+		/* 23.6 ~ 24.3 */
+		{42372, 41152},
+
+		/* 24.6 ~ 25.3 */
+		{40650, 39525},
+
+		/* 29.6 ~ 30.5 */
+		{33783, 32786},
+
+		/* 59.2 ~ 60.7 */
+		{16891, 16474},
+
+		/* END */
+		{0, 0}
+	},
+
+	{ /* [1] => flicker_en == 2 */
+		/* 14.6 ~ 15.3 */
+		{68493, 65359},
+
+		/* 23.6 ~ 24.3 */
+		{42372, 41152},
+
+		/* 24.6 ~ 25.3 */
+		{40650, 39525},
+
+		/* 29.9 ~ 30.5 */
+		{33445, 32786},
+
+		/* 59.2 ~ 60.7 */
+		{16891, 16474},
+
+		/* END */
+		{0, 0}
+	},
+
+	{ /* [2] => flicker_en == 3 */
+		/* 14.6 ~ 15.3 */
+		{68493, 65359},
+
+		/* 23.6 ~ 24.3 */
+		{42372, 41152},
+
+		/* 24.6 ~ 25.3 */
+		{40650, 39525},
+
+		/* 29.99 ~ 30.5 */
+		{33345, 32786},
+
+		/* 59.2 ~ 60.7 */
+		{16891, 16474},
+
+		/* END */
+		{0, 0}
+	}
+};
+/******************************************************************************/
+
 struct HwSyncSensorInfo {
 	unsigned int sensor_id;       // imx586 -> 0x0586; s5k3m5sx -> 0x30D5
 	unsigned int sensor_idx;      // main1 -> 0; sub1 -> 1;
 	unsigned int fl_active_delay; // SONY/auto_ext:(3, 1); others:(2, 0);
 	unsigned int sync_mode;       // sync operate mode. none/master/slave
 	unsigned int sync_group_id;
+	unsigned int hw_sync_method;
 	unsigned int line_time_in_ns; // ~= 10^9 * (linelength/pclk)
 	unsigned int min_fl_lc;       // dynamic FPS using
 	unsigned int shutter_lc;
 	unsigned int margin_lc;
 	unsigned int flicker_en;
 	unsigned int out_fl_lc;
+	struct fs_hdr_exp_st curr_hdr_exp;
+	struct fs_hdr_exp_st prev_hdr_exp;
+	unsigned int cal_min_fl_lc;
 
 	unsigned int magic_num;       // for debug using
 	unsigned int act_cnt;         // for debug using
 };
 
 static struct HwSyncSensorInfo sensor_infos[SENSOR_MAX_NUM];
+//----------------------------------------------------------------------------
+//	This func. ref to
+//	static unsigned int frec_calc_valid_min_fl_lc_for_shutters()
+//	in sensor_recorder.c
+//----------------------------------------------------------------------------
+static unsigned int hw_sync_chk_stg_fl_rule_1(
+	const struct fs_hdr_exp_st *curr_hdr_exp,
+	const struct fs_hdr_exp_st *prev_hdr_exp)
+{
+	const unsigned int prev_mode_exp_cnt = prev_hdr_exp->mode_exp_cnt;
+	unsigned int shutter_margin_lc;
+	unsigned int i;
+
+	/* check for auto-extended rule */
+	shutter_margin_lc = curr_hdr_exp->exp_lc[0];
+	for (i = 1; i < prev_mode_exp_cnt; ++i) {
+		int hdr_idx = hdr_exp_idx_map[prev_mode_exp_cnt][i];
+
+		if (unlikely(hdr_idx < 0))
+			return 0;
+
+
+		shutter_margin_lc += prev_hdr_exp->exp_lc[hdr_idx];
+	}
+	shutter_margin_lc += prev_hdr_exp->read_margin_lc;
+
+	return shutter_margin_lc;
+}
+
+static unsigned int hw_sync_chk_stg_fl_rule_2(
+	const struct fs_hdr_exp_st *curr_hdr_exp,
+	const struct fs_hdr_exp_st *prev_hdr_exp)
+{
+	const unsigned int curr_mode_exp_cnt = curr_hdr_exp->mode_exp_cnt;
+	const unsigned int readout_len_lc = curr_hdr_exp->readout_len_lc;
+	const unsigned int read_margin_lc = curr_hdr_exp->read_margin_lc;
+	unsigned int readout_fl_lc = 0, readout_min_fl_lc = 0;
+	unsigned int i;
+	int read_offset_diff = 0;
+
+	/* error case highlight */
+	if (unlikely((readout_len_lc == 0) || (read_margin_lc == 0)))
+		return 0;
+
+	/* check trigger auto-extended for preventing readout overlap */
+	for (i = 1; i < curr_mode_exp_cnt; ++i) {
+		int hdr_idx = hdr_exp_idx_map[curr_mode_exp_cnt][i];
+
+		if (unlikely(hdr_idx < 0))
+			return 0;
+
+		read_offset_diff +=
+			prev_hdr_exp->exp_lc[hdr_idx] -
+			curr_hdr_exp->exp_lc[hdr_idx];
+
+		readout_fl_lc = (read_offset_diff > 0)
+			? (readout_len_lc + read_margin_lc + read_offset_diff)
+			: (readout_len_lc + read_margin_lc);
+
+		if (readout_min_fl_lc < readout_fl_lc)
+			readout_min_fl_lc = readout_fl_lc;
+	}
+
+	return readout_min_fl_lc;
+}
+
+static unsigned int hw_sync_calc_stg_valid_min_fl_lc_for_shutters(
+	const struct fs_hdr_exp_st *curr_hdr_exp,
+	const struct fs_hdr_exp_st *prev_hdr_exp)
+{
+	unsigned int result_1, result_2;
+	unsigned int min_fl_lc = 0;
+
+	/* ONLY when stagger/HDR mode ===> mode exp cnt > 1 */
+	if (curr_hdr_exp->mode_exp_cnt <= 1)
+		return 0;
+
+	/* only take HW needed min frame length for shutters into account */
+	result_1 = hw_sync_chk_stg_fl_rule_1(curr_hdr_exp, prev_hdr_exp);
+	result_2 = hw_sync_chk_stg_fl_rule_2(curr_hdr_exp, prev_hdr_exp);
+
+	min_fl_lc = (min_fl_lc > result_1) ? min_fl_lc : result_1;
+	min_fl_lc = (min_fl_lc > result_2) ? min_fl_lc : result_2;
+
+	return min_fl_lc;
+}
+
+static unsigned int hw_sync_calc_valid_min_fl_lc_for_shutters(int idx)
+{
+	const unsigned int m_exp_type = sensor_infos[idx].curr_hdr_exp.multi_exp_type;
+	unsigned int min_fl_lc = 0;
+
+	/* multi-exp / HDR sensor => mode exp cnt > 1 */
+	if (sensor_infos[idx].curr_hdr_exp.mode_exp_cnt > 1) {
+		switch (m_exp_type) {
+		case MULTI_EXP_TYPE_LBMF:
+			// TODO
+			break;
+		case MULTI_EXP_TYPE_STG:
+		default:
+			/* ONLY when stagger/HDR ===> mode exp cnt > 1 */
+			min_fl_lc = hw_sync_calc_stg_valid_min_fl_lc_for_shutters(
+				&(sensor_infos[idx].curr_hdr_exp), &(sensor_infos[idx].prev_hdr_exp) );
+			break;
+		}
+	} else {
+		/* 1-exp / normal sensor => mode exp cnt = 1 */
+		min_fl_lc = sensor_infos[idx].shutter_lc + sensor_infos[idx].margin_lc;
+	}
+
+	return min_fl_lc;
+}
+
+static inline unsigned int chk_get_flk_en_type(const unsigned int flk_en_type,
+	const char *caller)
+{
+	/* flk_en_type: 0/1/2 */
+	unsigned int flk_en = flk_en_type;
+
+	/* error hanndling, for checking flk table boundary */
+	if (unlikely(flk_en_type > FLK_TABLE_CNT)) {
+		flk_en = 1;
+		LOG_MUST("[%s] get invalid flk_en:%u => assign to %u\n",
+			caller, flk_en_type, flk_en);
+	}
+
+	return flk_en;
+}
+
+static unsigned int hw_sync_get_anti_flicker_fl(const unsigned int flk_en_type,
+	unsigned int fl_us)
+{
+	unsigned int table_idx, flk_en;
+	unsigned int i;
+
+	/* unexpected case, call this function ONLY when FLK enable */
+	if (unlikely(flk_en_type == 0))
+		return fl_us;
+
+	flk_en = chk_get_flk_en_type(flk_en_type, __func__);
+	table_idx = flk_en - 1;
+
+	for (i = 0; i < FLK_TABLE_SIZE; ++i) {
+		if (fs_flk_table[table_idx][i][0] == 0)
+			break;
+		if ((fs_flk_table[table_idx][i][0] > fl_us)
+				&& (fl_us >= fs_flk_table[table_idx][i][1])) {
+			fl_us = fs_flk_table[table_idx][i][0];
+			break;
+		}
+	}
+
+	return fl_us;
+}
 
 void
 hw_fs_dump_dynamic_para(unsigned int idx)
@@ -113,7 +338,9 @@ hw_fs_alg_set_streaming_st_data(unsigned int idx, struct fs_streaming_st (*pData
 	sensor_infos[idx].sensor_idx = pData->sensor_idx;
 	sensor_infos[idx].fl_active_delay = pData->fl_active_delay;
 	sensor_infos[idx].sync_mode = pData->sync_mode;
+	sensor_infos[idx].hw_sync_method = pData->hw_sync_method;
 	sensor_infos[idx].sync_group_id = pData->hw_sync_group_id;
+	sensor_infos[idx].curr_hdr_exp = pData->hdr_exp;
 
 	/* clear/reset magic num & act cnt */
 	sensor_infos[idx].magic_num = 0;
@@ -171,6 +398,7 @@ hw_fs_alg_set_perframe_st_data(unsigned int idx, struct fs_perframe_st (*pData))
 	sensor_infos[idx].margin_lc = pData->margin_lc;
 	sensor_infos[idx].line_time_in_ns = pData->lineTimeInNs;
 	sensor_infos[idx].flicker_en = pData->flicker_en;
+	sensor_infos[idx].curr_hdr_exp = pData->hdr_exp;
 
 	/* increase magic num */
 	sensor_infos[idx].magic_num++;
@@ -252,7 +480,6 @@ hw_fs_alg_solve_frame_length(
 
 	log_buf[0] = '\0';
 
-
 	/* Handle by hw sensor sync */
 	for (i = 0; i < len; ++i) {
 		idx = solveIdxs[i];
@@ -285,14 +512,29 @@ hw_fs_alg_solve_frame_length(
 		para[i].min_fl_lc = sensor_infos[idx].min_fl_lc;
 		para[i].sensor_margin_lc = sensor_infos[idx].margin_lc;
 		para[i].flicker_en = sensor_infos[idx].flicker_en;
-
 		para[i].out_fl_lc = 0;
+
+		para[i].cal_min_fl_lc =
+			max(hw_sync_calc_valid_min_fl_lc_for_shutters(idx), para[i].min_fl_lc);
+		sensor_infos[idx].prev_hdr_exp = sensor_infos[idx].curr_hdr_exp;
+
+		para[i].cal_min_fl_us = convert2TotalTime(para[i].line_time_in_ns, para[i].cal_min_fl_lc);
+
+		if (para[i].flicker_en) {
+			para[i].cal_min_fl_us = hw_sync_get_anti_flicker_fl(para[i].flicker_en, para[i].cal_min_fl_us);
+			para[i].cal_min_fl_lc = convert2LineCount(para[i].line_time_in_ns, para[i].cal_min_fl_us);
+		}
 
 		para[i].magic_num = sensor_infos[idx].magic_num;
 	}
 
-	/* call custom hw sensor sync frame length calculator */
-	custom_frame_time_calculator(para, len);
+	if (sensor_infos[idx].hw_sync_method == 1) {
+		/* if ret == 1, update is no need */
+		mcss_global_fl_calculator(para, len);
+	} else {
+		/* call custom hw sensor sync frame length calculator */
+		custom_frame_time_calculator(para, len);
+	}
 
 	/* copy results */
 	for (i = 0; i < len; ++i) {
@@ -344,4 +586,3 @@ hw_fs_alg_solve_frame_length(
 
 	return 0;
 }
-

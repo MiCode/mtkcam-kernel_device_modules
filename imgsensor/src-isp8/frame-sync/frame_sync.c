@@ -106,6 +106,7 @@ struct FrameSyncMgr {
 	unsigned int trigger_ctrl_bits;
 
 	/* For support HW sync */
+	unsigned int hw_sync_method[SENSOR_MAX_NUM];
 	unsigned int hw_sync_group_id[SENSOR_MAX_NUM];
 	FS_Atomic_T hw_sync_bits;
 	FS_Atomic_T hw_sync_group_bits[FS_HW_SYNC_GROUP_ID_MAX];
@@ -1098,7 +1099,7 @@ unsigned int fs_is_hw_sync(const unsigned int ident)
 
 
 static void fs_set_hw_sync_info(const unsigned int idx, const unsigned int flag,
-	const unsigned int hw_sync_mode, const unsigned int hw_sync_group_id)
+	const unsigned int hw_sync_mode, const unsigned int hw_sync_group_id, const unsigned int hw_sync_method)
 {
 	/* means no using HW solution */
 	/* hw sync mode equal to 0 (means using SW solution) */
@@ -1122,7 +1123,7 @@ static void fs_set_hw_sync_info(const unsigned int idx, const unsigned int flag,
 	else
 		FS_WRITE_BIT(idx, 0, &fs_mgr.hw_sync_bits);
 
-
+	fs_mgr.hw_sync_method[idx] = hw_sync_method;
 	/* set hw sync group bits */
 	fs_mgr.hw_sync_group_id[idx] = hw_sync_group_id;
 	if (hw_sync_group_id >= FS_HW_SYNC_GROUP_ID_MAX) {
@@ -1807,17 +1808,23 @@ static void fs_set_framelength_lc(const unsigned int idx,
 	unsigned int out_fl_lc = 0;
 	unsigned int fl_lc_arr[FS_HDR_MAX] = {0};
 
-	/* get fs algo output fl info and sync results */
-	fs_alg_get_out_fl_info(idx, &out_fl_lc, fl_lc_arr, FS_HDR_MAX);
+	if (FS_CHECK_BIT(idx, &fs_mgr.hw_sync_bits)) {
+		/* update to pf ctrl */
+		fs_mgr.pf_ctrl[idx].out_fl_lc = fl_lc;
+		fs_cb_fsync_ctrl_to_set_fl_info(idx, FSYNC_CTRL_FL_CMD_ID_FL,
+			fl_lc, fl_lc_arr, FS_HDR_MAX);
+	} else {
+		/* get fs algo output fl info and sync results */
+		fs_alg_get_out_fl_info(idx, &out_fl_lc, fl_lc_arr, FS_HDR_MAX);
 
-	/* update to pf ctrl */
-	fs_mgr.pf_ctrl[idx].out_fl_lc = out_fl_lc;
-	memcpy(fs_mgr.pf_ctrl[idx].hdr_exp.fl_lc, fl_lc_arr,
-		(sizeof(unsigned int) * FS_HDR_MAX));
+		/* update to pf ctrl */
+		fs_mgr.pf_ctrl[idx].out_fl_lc = out_fl_lc;
+		memcpy(fs_mgr.pf_ctrl[idx].hdr_exp.fl_lc, fl_lc_arr,
+			(sizeof(unsigned int) * FS_HDR_MAX));
 
-	fs_cb_fsync_ctrl_to_set_fl_info(idx, cmd_id,
-		fl_lc, fl_lc_arr, FS_HDR_MAX);
-
+		fs_cb_fsync_ctrl_to_set_fl_info(idx, cmd_id,
+			fl_lc, fl_lc_arr, FS_HDR_MAX);
+	}
 #ifdef FS_UT
 	fs_alg_setup_frame_monitor_fmeas_data(idx);
 #endif
@@ -2553,7 +2560,7 @@ unsigned int fs_streaming(const unsigned int flag,
 
 	/* set/clear hw sensor sync info */
 	fs_set_hw_sync_info(idx, flag,
-		sensor_info->sync_mode, sensor_info->hw_sync_group_id);
+		sensor_info->sync_mode, sensor_info->hw_sync_group_id, sensor_info->hw_sync_method);
 
 	/* if streaming ON, set information of this idx correctlly */
 	if (flag > 0) {
@@ -2608,7 +2615,7 @@ unsigned int fs_streaming(const unsigned int flag,
 	return 0;
 }
 
-
+int fs_try_trigger_hw_frame_sync(void);
 static void fs_notify_sensor_ctrl_setup_complete(unsigned int idx)
 {
 	unsigned int hw_sync_group_id = FS_HW_SYNC_GROUP_ID_MIN;
@@ -2630,6 +2637,11 @@ static void fs_notify_sensor_ctrl_setup_complete(unsigned int idx)
 			FS_WRITE_BIT(idx, 1,
 				&fs_mgr.setup_complete_hw_group_bits[
 					hw_sync_group_id]);
+		}
+
+		if(fs_mgr.hw_sync_method[idx] == 1) {
+			/* Using MCSS method */
+			fs_try_trigger_hw_frame_sync();
 		}
 	}
 
@@ -2895,9 +2907,16 @@ int fs_try_trigger_hw_frame_sync(void)
 			}
 
 			/* check group match for triggering pf ctrl */
-			trigger_ctrl_bits =
-				(pf_ctrl_bits
-				& FS_READ_BITS(&fs_mgr.hw_sync_group_bits[i]));
+
+			if (i == FS_HW_SYNC_GROUP_ID_MCSS) {
+	/*  MCSS method trigger, if any one been set shutter, it would trigger once */
+				trigger_ctrl_bits =
+					FS_READ_BITS(&fs_mgr.hw_sync_group_bits[i]);
+			} else {
+				trigger_ctrl_bits =
+					(pf_ctrl_bits
+					& FS_READ_BITS(&fs_mgr.hw_sync_group_bits[i]));
+			}
 
 			if (trigger_ctrl_bits ==
 				(FS_READ_BITS(&fs_mgr.hw_sync_group_bits[i])
@@ -3266,8 +3285,10 @@ static void fs_do_fl_restore_proc_if_needed(const unsigned int idx)
 
 static void fs_debug_hw_sync(unsigned int idx)
 {
-#if !defined(FS_UT)
+#if !defined(FS_UT) && defined(SUPPORT_USING_CCU)
 	unsigned int arr[1] = {idx};
+	if (frm_get_ts_src_type() != FS_TS_SRC_CCU)
+		return;
 
 	fs_alg_setup_frame_monitor_fmeas_data(idx);
 	frec_notify_vsync(idx);
@@ -3326,7 +3347,6 @@ void fs_notify_vsync(const unsigned int ident)
 #if defined(SUPPORT_USING_CCU) || defined(FS_UT)
 	if (frm_get_ts_src_type() != FS_TS_SRC_CCU)
 		return;
-
 
 	/* !!! start here !!! */
 	fs_alg_sa_notify_setup_all_frame_info(idx);

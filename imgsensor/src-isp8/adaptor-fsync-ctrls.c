@@ -297,28 +297,27 @@ static void fsync_mgr_chk_wait_tsrec_hw_pre_latch_updated(
 /*******************************************************************************
  * sensor driver feature ctrls
  ******************************************************************************/
-static u32 fsync_mgr_g_sensor_hw_sync_mode(struct adaptor_ctx *ctx)
+static void fsync_mgr_g_sensor_hw_sync_mode(
+	struct adaptor_ctx *ctx, struct fs_streaming_st *s_info)
 {
 	union feature_para para;
-	u32 sync_mode = 0;
 	u32 len;
 
 	para.u32[0] = 0;
+	para.u32[1] = 0;
+	para.u32[2] = 0;
 
 	subdrv_call(ctx, feature_control,
 		SENSOR_FEATURE_GET_SENSOR_SYNC_MODE,
 		para.u8, &len);
 
-	sync_mode = para.u32[0];
+	s_info->sync_mode = para.u32[0]; // sync operate mode. none/master/slave
+	s_info->hw_sync_group_id = para.u32[1]; //FS_HW_SYNC_GROUP_ID_MCSS;   // hw sync group ID
+	s_info->hw_sync_method = para.u32[2]; //1;     // legacy:0, MCSS:1
 
-#if !defined(REDUCE_FSYNC_CTRLS_LOG)
 	FSYNC_MGR_LOGI(ctx,
-		"sidx:%d, get hw sync mode:%u(N:0/M:1/S:2)\n",
-		ctx->idx,
-		sync_mode);
-#endif
-
-	return sync_mode;
+		"sensor_idx:%d, set hw_sync_mode s_info->sync_mode:%u s_info->hw_sync_group_id:%u s_info->hw_sync_method:%u\n",
+		ctx->idx, s_info->sync_mode,s_info->hw_sync_group_id, s_info->hw_sync_method);
 }
 
 static void fsync_mgr_s_frame_length(struct adaptor_ctx *ctx)
@@ -781,8 +780,7 @@ static void fsync_mgr_setup_fs_streaming_st(struct adaptor_ctx *ctx,
 	s_info->max_fl_lc = ctx->subctx.max_frame_length;
 
 	/* frame sync sensor operate mode. none/master/slave */
-	s_info->sync_mode = fsync_mgr_g_sensor_hw_sync_mode(ctx);
-
+	fsync_mgr_g_sensor_hw_sync_mode(ctx, s_info);
 
 	/* using ctx->subctx.shutter instead of ctx->subctx.exposure_def */
 	/* for any settings before streaming on */

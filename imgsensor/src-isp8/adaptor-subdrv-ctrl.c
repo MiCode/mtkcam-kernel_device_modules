@@ -887,6 +887,51 @@ void set_max_framerate_base100(struct subdrv_ctx *ctx, u16 framerate, bool min_f
 			framerate, current_fps, ctx->current_fps, min_framelength_en);
 }	/*	set_max_framerate_base100  */
 
+void set_max_framerate_mcss_by_scenario(struct subdrv_ctx *ctx,
+		enum SENSOR_SCENARIO_ID_ENUM scenario_id, u32 framerate)
+{
+	u32 frame_length;
+	u32 frame_length_step;
+	u32 frame_length_min;
+	u32 frame_length_max;
+
+	if (scenario_id >= ctx->s_ctx.sensor_mode_num) {
+		DRV_LOGE(ctx, "invalid sid:%u, mode_num:%u\n",
+			scenario_id, ctx->s_ctx.sensor_mode_num);
+		scenario_id = SENSOR_SCENARIO_ID_NORMAL_PREVIEW;
+	}
+
+	ctx->s_ctx.mcss_update_subdrv_para((void *) ctx, scenario_id);
+
+	frame_length_step = ctx->s_ctx.mode[scenario_id].framelength_step;
+	/* set on the step of frame length */
+	frame_length = ctx->s_ctx.mode[scenario_id].pclk / framerate * 10
+		/ ctx->line_length;
+	frame_length = frame_length_step ?
+		(frame_length - (frame_length % frame_length_step)) : frame_length;
+	frame_length_min = ctx->frame_length;
+	frame_length_max = ctx->s_ctx.frame_length_max;
+	frame_length_max = frame_length_step ?
+		(frame_length_max - (frame_length_max % frame_length_step)) : frame_length_max;
+	/* set in the range of frame length */
+	ctx->frame_length = max(frame_length, frame_length_min);
+	ctx->frame_length = min(ctx->frame_length, frame_length_max);
+
+	ctx->current_fps = ctx->pclk / ctx->frame_length * 10 / ctx->line_length;
+	ctx->min_frame_length = ctx->frame_length;
+	DRV_LOG(ctx, "max_fps(input/output):%u/%u(sid:%u), min_fl_en:1\n",
+		framerate, ctx->current_fps, scenario_id);
+	if (ctx->s_ctx.reg_addr_auto_extend ||
+			(ctx->frame_length > (ctx->exposure[0] + ctx->s_ctx.exposure_margin))) {
+		if (ctx->s_ctx.aov_sensor_support &&
+			ctx->s_ctx.mode[scenario_id].aov_mode &&
+			!ctx->s_ctx.mode[scenario_id].s_dummy_support)
+			DRV_LOG_MUST(ctx, "AOV mode not support set_dummy!\n");
+		else
+			set_dummy(ctx);
+	}
+}
+
 void set_max_framerate_by_scenario(struct subdrv_ctx *ctx,
 		enum SENSOR_SCENARIO_ID_ENUM scenario_id, u32 framerate)
 {
@@ -911,6 +956,12 @@ void set_max_framerate_by_scenario(struct subdrv_ctx *ctx,
 	}
 	if (ctx->s_ctx.mode[scenario_id].hdr_mode == HDR_RAW_LBMF) {
 		set_max_framerate_in_lut_by_scenario(ctx, scenario_id, framerate);
+		return;
+	}
+
+	/* MCSS low power mode update para */
+	if (ctx->s_ctx.mcss_update_subdrv_para != NULL) {
+		set_max_framerate_mcss_by_scenario(ctx, scenario_id, framerate);
 		return;
 	}
 	frame_length_step = ctx->s_ctx.mode[scenario_id].framelength_step;
@@ -2247,6 +2298,13 @@ void streaming_control(struct subdrv_ctx *ctx, bool enable)
 	}
 
 	if (enable) {
+		/* MCSS low power mode update para */
+		if (ctx->s_ctx.mcss_update_subdrv_para != NULL)
+			ctx->s_ctx.mcss_update_subdrv_para((void *) ctx, ctx->current_scenario_id);
+		/* MCSS register init */
+		if (ctx->s_ctx.mcss_init != NULL)
+			ctx->s_ctx.mcss_init((void *) ctx);
+
 		set_dummy(ctx);
 		subdrv_ixc_wr_u8(ctx, ctx->s_ctx.reg_addr_stream, 0x01);
 		ctx->stream_ctrl_start_time = ktime_get_boottime_ns();
@@ -2281,6 +2339,10 @@ void streaming_control(struct subdrv_ctx *ctx, bool enable)
 			check_stream_off(ctx);
 		ctx->stream_ctrl_start_time = 0;
 		ctx->stream_ctrl_end_time = 0;
+
+		ctx->mcss_init_info.enable_mcss = 0;
+		if (ctx->s_ctx.mcss_init != NULL)
+			ctx->s_ctx.mcss_init((void *) ctx); // disable MCSS
 	}
 	ctx->sof_no = 0;
 	ctx->is_streaming = enable;
@@ -3246,6 +3308,7 @@ int common_get_info(struct subdrv_ctx *ctx,
 		}
 		sensor_info->fine_integ_line[i] = ctx->s_ctx.mode[i].fine_integ_line;
 		sensor_info->aov_mode[i] = ctx->s_ctx.mode[i].aov_mode;
+		sensor_info->support_mcss[i] = ctx->s_ctx.mode[i].support_mcss;
 	}
 	sensor_info->SensorDrivingCurrent = ctx->s_ctx.isp_driving_current;
 	sensor_info->IHDR_Support = 0;
@@ -3431,6 +3494,10 @@ void update_mode_info(struct subdrv_ctx *ctx, enum SENSOR_SCENARIO_ID_ENUM scena
 		memcpy(ctx->frame_length_in_lut_rg, ctx->frame_length_in_lut,
 			sizeof(ctx->frame_length_in_lut_rg));
 	}
+
+	/* MCSS low power mode update para */
+	if (ctx->s_ctx.mcss_update_subdrv_para != NULL)
+		ctx->s_ctx.mcss_update_subdrv_para((void *) ctx, scenario_id);
 }
 
 bool check_is_no_crop(struct subdrv_ctx *ctx, enum SENSOR_SCENARIO_ID_ENUM scenario_id)

@@ -278,9 +278,10 @@ struct subdrv_mode_struct {
 	u32 exposure_order_in_lbmf;
 	u32 mode_type_in_lbmf;
 	u32 sw_fl_delay;
+	u8 support_mcss;
 };
 
-#define REG_ADDR_MAXCNT 3
+#define REG_ADDR_MAXCNT 4
 struct reg_ {
 	u16 addr[REG_ADDR_MAXCNT];
 };
@@ -399,6 +400,23 @@ struct subdrv_static_ctx {
 
 	/* record glp data type */
 	u32 glp_dt[GLP_DT_MAX_CNT];
+
+	/* MCSS */
+	u8 use_mcss_gph_sync;
+	u16 reg_addr_mcss_slave_add_en_2nd;
+	u16 reg_addr_mcss_slave_add_acken_2nd;
+	u16 reg_addr_mcss_controller_target_sel;
+	u16 reg_addr_mcss_xvs_io_ctrl;
+	u16 reg_addr_mcss_extout_en;
+	u16 reg_addr_mcss_sgmsync_sel;
+	u16 reg_addr_mcss_swdio_io_ctrl;
+	u16 reg_addr_mcss_gph_sync_mode;
+	u16 reg_addr_mcss_complete_sleep_en;
+	u16 reg_addr_mcss_mc_frm_lp_en;
+	u16 reg_addr_mcss_frm_length_reflect_timing;
+	u16 reg_addr_mcss_mc_frm_mask_num;
+	int (*mcss_init)(void *arg);
+	int (*mcss_update_subdrv_para)(void *arg, int scenario_id);
 };
 
 #define HDR_CAP_IHDR 0x1
@@ -508,6 +526,9 @@ struct subdrv_ctx {
 	u64 stream_ctrl_start_time;
 	u64 stream_ctrl_end_time;
 	struct hw_init_time_struct hw_time_info[SENSOR_SCENARIO_ID_MAX];
+
+	/* for MCSS */
+	struct mtk_fsync_hw_mcss_init_info mcss_init_info;
 };
 
 struct subdrv_feature_control {
@@ -551,6 +572,9 @@ struct subdrv_ops {
 		struct mtk_recv_sensor_ebd_line *data,
 		struct mtk_ebd_dump *obj);
 	int (*set_ctrl_locker)(struct subdrv_ctx *ctx, u32 cid, bool *is_lock);
+	int (*mcss_init)(struct subdrv_ctx *ctx);
+	int (*mcss_update_subdrv_para)(struct subdrv_ctx *ctx, int scenario_id);
+	int (*mcss_set_mask_frame)(struct subdrv_ctx *ctx, u32 num);
 };
 
 struct subdrv_entry {

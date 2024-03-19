@@ -634,6 +634,11 @@ struct mtk_1sof_vsync_ts_info {
 	__u32 target_timing_us;
 };
 
+struct mtk_fsync_hw_mcss_init_info {
+	__u32 enable_mcss;
+	__u32 is_mcss_master; // master or slave
+};
+
 
 /* GET */
 

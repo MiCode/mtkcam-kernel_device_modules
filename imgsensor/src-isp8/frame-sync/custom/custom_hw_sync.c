@@ -13,6 +13,9 @@
 
 #undef EN_CUSTOM_DBG_LOG
 
+#define MCSS_TH 16
+#define MAX_FL_LC (0xFFFC - MCSS_TH)
+
 
 /* flicker table */
 #define CUSTOM_FLK_TABLE_SIZE 8
@@ -53,6 +56,7 @@ static unsigned int get_anti_flicker_fl(unsigned int framelength)
 
 	return framelength;
 }
+
 
 /*
  * Sample code for normal single exposure sensor
@@ -129,3 +133,103 @@ int custom_frame_time_calculator(
 	return 0;
 }
 
+
+static unsigned int global_fl_line_time_in_ns;
+
+int mcss_global_fl_calculator(
+	struct SyncSensorPara sensor_paras[], unsigned int len)
+{
+	int i;
+	unsigned int tmp;
+	unsigned int min_fl;
+	unsigned int max_frame_time = 0;
+	unsigned int boundary = 0;
+	unsigned int min_boundary = 0xffffffff; // UINT_MAX
+	unsigned int min_line_time_in_ns = 0xffffffff; // UINT_MAX
+	struct SyncSensorPara *para;
+
+	/* Test parameter */
+	if (!sensor_paras) {
+		LOG_PR_WARN("The parameter sensor_pars is invalid\n");
+		return 1;
+	}
+
+	/* calculate min frame time for all */
+	for (i = 0; i < len; ++i) {
+		para = &sensor_paras[i];
+
+#ifdef EN_CUSTOM_DBG_LOG
+		LOG_MUST(
+			"sensor_idx(%u), #%u, sensor_type(%u), hw_sync:%u(N:0/M:1/S:2), line_time_ns(%u), shutter_lc(%u), min_fl_lc(%u), margin_lc(%u)\n",
+			para->sensor_idx,
+			para->magic_num,
+			para->sensor_type,
+			para->sync_mode,
+			para->line_time_in_ns,
+			para->shutter_lc,
+			para->min_fl_lc,
+			para->sensor_margin_lc);
+#endif // EN_CUSTOM_DBG_LOG
+
+		min_fl = para->cal_min_fl_lc;
+		tmp = convert2TotalTime(para->line_time_in_ns, min_fl);
+
+		boundary = convert2TotalTime(para->line_time_in_ns, MAX_FL_LC);
+
+		if (tmp > max_frame_time)
+			max_frame_time = tmp;
+
+		if ((boundary < min_boundary) && (boundary > 0))
+			min_boundary = boundary;
+
+		if ((para->line_time_in_ns < min_line_time_in_ns) && (para->line_time_in_ns > 0))
+			min_line_time_in_ns = para->line_time_in_ns;
+	}
+
+	if (min_boundary < max_frame_time) {
+		LOG_MUST(
+				"!!! ASSERT IT !!! touch frame_length_max(%u > %u)\n",
+					max_frame_time, min_boundary);
+
+		return 22; // EINVAL
+	}
+
+	if (global_fl_line_time_in_ns == max_frame_time) {
+		LOG_MUST(
+				"update no need, global_fl_line_time_in_ns:%u\n",
+					global_fl_line_time_in_ns);
+
+		// return 1;
+	} else {
+		global_fl_line_time_in_ns = max_frame_time;
+	}
+
+	/* calculate min frame time for all */
+	for (i = 0; i < len; ++i) {
+		para = &sensor_paras[i];
+
+		(para->out_fl_lc) = convert2LineCount(para->line_time_in_ns, global_fl_line_time_in_ns);
+
+		/* make master sensor slightly larger than slave */
+		if (para->sync_mode == SENSOR_SYNC_MASTER) {
+			unsigned int TH = (MCSS_TH * min_line_time_in_ns)/para->line_time_in_ns;
+			(para->out_fl_lc) = (para->out_fl_lc) + TH;
+	// LOG_MUST("MCSS_TH(%u), min_line_time_in_ns:%upara->line_time_in_ns:%u TH:%u\n",
+	// MCSS_TH, min_line_time_in_ns, para->line_time_in_ns, TH);
+		}
+
+#ifdef EN_CUSTOM_DBG_LOG
+		LOG_MUST("sensor_idx(%u), #%u, out_fl:%u(%u), hw_sync:%u(N:0/M:1/S:2)\n",
+			para->sensor_idx,
+			para->magic_num,
+			convert2TotalTime(
+				para->line_time_in_ns,
+				para->out_fl_lc),
+			para->out_fl_lc,
+			para->sync_mode);
+#endif // EN_CUSTOM_DBG_LOG
+
+	}
+
+	return 0;
+}

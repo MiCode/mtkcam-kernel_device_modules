@@ -30,11 +30,14 @@ struct SyncSensorPara {
 	unsigned int sensor_margin_lc;
 	unsigned int flicker_en;
 	unsigned int out_fl_lc;
+	unsigned int cal_min_fl_lc; // by shutter
+	unsigned int cal_min_fl_us; // by shutter + flicker
 
 	unsigned int magic_num;       // for debug using
 };
 
 int custom_frame_time_calculator(
 	struct SyncSensorPara sensor_paras[], unsigned int len);
-
+int mcss_global_fl_calculator(
+	struct SyncSensorPara sensor_paras[], unsigned int len);
 #endif

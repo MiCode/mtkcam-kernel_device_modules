@@ -1368,6 +1368,20 @@ static int imgsensor_set_ctrl(struct v4l2_ctrl *ctrl)
 
 	ADAPTOR_SYSTRACE_BEGIN("SensorWorker::%s %d", __func__, ctrl->id);
 	switch (ctrl->id) {
+	case V4L2_CID_FSYNC_HW_MCSS_INIT:
+		{
+			memset(&(ctx->subctx.mcss_init_info), 0, sizeof(struct mtk_fsync_hw_mcss_init_info));
+			memcpy(&(ctx->subctx.mcss_init_info),
+				ctrl->p_new.p, sizeof(struct mtk_fsync_hw_mcss_init_info));
+			adaptor_logi(ctx, "[%s] V4L2_CID_MTK_MCSS_INIT enable_mcss = %u, is_mcss_master = %u\n",
+				__func__, ctx->subctx.mcss_init_info.enable_mcss,
+						ctx->subctx.mcss_init_info.is_mcss_master);
+			notify_fsync_mgr_set_sync(ctx, 1);
+		}
+		break;
+	case V4L2_CID_FSYNC_HW_MCSS_MASKFRAME:
+		subdrv_call(ctx, mcss_set_mask_frame, (u32)ctrl->val);
+		break;
 	case V4L2_CID_UPDATE_SOF_CNT:
 		/* update ctx sof cnt */
 		ctx->sof_cnt = ctrl->val;
@@ -2514,6 +2528,28 @@ static const struct v4l2_ctrl_config cfg_mtkcam_1sof_vsync_ts_info  = {
 	.dims = {sizeof_u32(struct mtk_1sof_vsync_ts_info )},
 };
 
+static const struct v4l2_ctrl_config cfg_fsync_hw_mcss_init_info = {
+	.ops = &ctrl_ops,
+	.id = V4L2_CID_FSYNC_HW_MCSS_INIT,
+	.name = "fsync_hw_mcss_init_info",
+	.type = V4L2_CTRL_TYPE_U32,
+	.flags = V4L2_CTRL_FLAG_EXECUTE_ON_WRITE,
+	.max = 0xffffffff,
+	.step = 1,
+	.dims = {sizeof_u32(struct mtk_fsync_hw_mcss_init_info)},
+};
+
+static const struct v4l2_ctrl_config cfg_fsync_hw_mcss_maskframe = {
+	.ops = &ctrl_ops,
+	.id = V4L2_CID_FSYNC_HW_MCSS_MASKFRAME,
+	.name = "fsync_hw_mcss_maskframe",
+	.type = V4L2_CTRL_TYPE_INTEGER,
+	.flags = V4L2_CTRL_FLAG_EXECUTE_ON_WRITE,
+	.max = 0x7fffffff,
+	.step = 1,
+};
+
+
 void adaptor_sensor_init(struct adaptor_ctx *ctx)
 {
 	adaptor_logm(ctx, "+\n");
@@ -2652,6 +2688,8 @@ int adaptor_init_ctrls(struct adaptor_ctx *ctx)
 
 	ctrl_hdlr->lock = &ctx->mutex;
 	cur_mode = ctx->cur_mode;
+
+
 
 	/* pixel rate */
 	min = max = def = cur_mode->mipi_pixel_rate;
@@ -2853,6 +2891,9 @@ int adaptor_init_ctrls(struct adaptor_ctx *ctx)
 	ctx->fsync_listen_target = v4l2_ctrl_new_custom(&ctx->ctrls,
 		&cfg_fsync_listen_target, NULL);
 
+
+	v4l2_ctrl_new_custom(&ctx->ctrls, &cfg_fsync_hw_mcss_init_info, NULL);
+	v4l2_ctrl_new_custom(&ctx->ctrls, &cfg_fsync_hw_mcss_maskframe, NULL);
 	v4l2_ctrl_new_custom(&ctx->ctrls, &cfg_vsync_notify, NULL);
 	v4l2_ctrl_new_custom(&ctx->ctrls, &cfg_update_sof_cnt, NULL);
 	v4l2_ctrl_new_custom(&ctx->ctrls, &cfg_stagger_info, NULL);

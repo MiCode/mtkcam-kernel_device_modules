@@ -84,6 +84,7 @@ enum FS_HW_SYNC_GROUP_ID {
 	FS_HW_SYNC_GROUP_ID_4,
 	FS_HW_SYNC_GROUP_ID_5,
 
+	FS_HW_SYNC_GROUP_ID_MCSS,
 	FS_HW_SYNC_GROUP_ID_MAX
 };
 /******************************************************************************/
@@ -205,6 +206,7 @@ struct fs_streaming_st {
 	/* for HW sensor sync */
 	unsigned int sync_mode;          // sync operate mode. none/master/slave
 	unsigned int hw_sync_group_id;   // hw sync group ID
+	unsigned int hw_sync_method;     // legacy:0, MCSS:1
 
 	struct fs_hdr_exp_st hdr_exp;    // hdr exposure settings
 
@@ -433,8 +435,6 @@ void fs_setup_sensor_info_st_by_fs_streaming_st(
 
 void fs_setup_fl_restore_status(const unsigned int idx,
 	const struct fs_fl_restore_info_st *p_fl_restore_info);
-
-
 /******************************************************************************/
 /*
  * Frame Sync init function.

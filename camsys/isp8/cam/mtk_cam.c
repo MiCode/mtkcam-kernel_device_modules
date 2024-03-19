@@ -2009,15 +2009,16 @@ static void mtk_cam_ctx_release_slb(struct mtk_cam_ctx *ctx)
 
 	/* reset aid: not necessary */
 }
-static int mtk_cam_ctx_request_slc(struct mtk_cam_ctx *ctx)
+static int mtk_cam_ctx_request_slc(struct mtk_cam_ctx *ctx, u8 slc_mode)
 {
 	int ret = 0;
 #if IS_ENABLED(CONFIG_MTK_SLBC)
 	ctx->slc_data.sign = SLC_DATA_MAGIC;
+        ctx->slc_data.flag = (slc_mode == SLC_WITH_DISCARD) ? (GS_RD | GS_M) : GS_M;
 	ctx->slc_gid = -1;
 	ret = slbc_gid_request(ID_CAM, &ctx->slc_gid, &ctx->slc_data);
-	dev_info(ctx->cam->dev, "%s: slc_data gid/bw/dma size:%d/%d/%d\n", __func__,
-		ctx->slc_gid, ctx->slc_data.bw, ctx->slc_data.dma_size);
+	dev_info(ctx->cam->dev, "%s: slc_data gid/bw/flag/dma size:%d/%d/%d/%d\n", __func__,
+		ctx->slc_gid, ctx->slc_data.bw, ctx->slc_data.flag, ctx->slc_data.dma_size);
 	ctx->slc_data_valid = true;
 #endif
 	return ret;
@@ -2920,7 +2921,7 @@ int mtk_cam_ctx_init_scenario(struct mtk_cam_ctx *ctx)
 
 	} else if (res_raw_is_dc_mode(res) && res->slc_mode) {
 		/* dcif + slc buffer case */
-		ret = mtk_cam_ctx_request_slc(ctx);
+		ret = mtk_cam_ctx_request_slc(ctx, res->slc_mode);
 		if (ret) {
 			dev_info(cam->dev, "%s: slbc_gid_request warn.\n", __func__);
 			ret = mtk_cam_ctx_release_slc(ctx);

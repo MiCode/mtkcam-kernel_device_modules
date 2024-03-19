@@ -680,6 +680,7 @@ struct mtk_mae_dev {
 	uint32_t mae_sec_wait;
 	uint32_t mae_sec_set;
 	uint32_t mae_stream_count;
+	struct mutex mae_stream_lock;
 
 	struct cmdq_client *mae_clt;
 	struct cmdq_client *mae_secure_clt;

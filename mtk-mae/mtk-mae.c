@@ -789,6 +789,7 @@ static int mtk_mae_hw_connect(struct mtk_mae_dev *mae_dev)
 	struct device *dev = mae_dev->dev;
 	int ret;
 
+	mutex_lock(&mae_dev->mae_stream_lock);
 	mae_dev_info(mae_dev->dev, "%s+ count(%d)", __func__, mae_dev->mae_stream_count);
 
 	/* unavailable: 0 available: 1 */
@@ -797,6 +798,7 @@ static int mtk_mae_hw_connect(struct mtk_mae_dev *mae_dev)
 
 	mae_dev->mae_stream_count++;
 	if (mae_dev->mae_stream_count == 1) {
+		memset(mae_dev->map_table, 0, sizeof(*mae_dev->map_table));
 		/* power on */
 		if (!mae_dev->is_shutdown) {
 			pm_runtime_get_sync(dev);
@@ -809,9 +811,9 @@ static int mtk_mae_hw_connect(struct mtk_mae_dev *mae_dev)
 		buf_info->dmabuf = mae_imem_sec_alloc(mae_dev, INTERNAL_BUFFER_SIZE, CACHED_BUF);
 		if (IS_ERR(buf_info->dmabuf) || buf_info->dmabuf == NULL) {
 			mae_dev_info(mae_dev->dev, "%s, internal buffer alloc failed\n", __func__);
+			mutex_unlock(&mae_dev->mae_stream_lock);
 			return -ENOMEM;
 		}
-
 
 		buf_info->attach =
 			dma_buf_attach(buf_info->dmabuf, mae_dev->smmu_dev);
@@ -865,6 +867,8 @@ static int mtk_mae_hw_connect(struct mtk_mae_dev *mae_dev)
 			&(mae_dev->mae_time_ed_pa));
 	}
 
+	mutex_unlock(&mae_dev->mae_stream_lock);
+
 	return 0;
 
 ERROR_DMA_BUF_MAP_ATTACHMENT_FAIL:
@@ -874,6 +878,8 @@ ERROR_DMA_BUF_ATTACH_FAIL:
 	dma_buf_put(buf_info->dmabuf);
 
 	mae_dev->mae_stream_count--;
+
+	mutex_unlock(&mae_dev->mae_stream_lock);
 
 	return ret;
 }
@@ -932,6 +938,8 @@ static void mtk_mae_hw_disconnect(struct mtk_mae_dev *mae_dev)
 #if IS_ENABLED(CONFIG_MTK_SLBC)
 	int ret;
 #endif
+
+	mutex_lock(&mae_dev->mae_stream_lock);
 
 	if (mae_dev->is_secure && !mae_dev->is_shutdown) {
 		if (drv_ops.secure_disable)
@@ -995,6 +1003,8 @@ static void mtk_mae_hw_disconnect(struct mtk_mae_dev *mae_dev)
 			mae_dev->mae_time_ed_va,
 			mae_dev->mae_time_ed_pa);
 	}
+
+	mutex_unlock(&mae_dev->mae_stream_lock);
 }
 
 
@@ -1135,7 +1145,6 @@ static int mtk_mae_video_device_open(struct file *filp)
 	struct mtk_mae_dev *mae_dev = video_drvdata(filp);
 	struct video_device *vdev = video_devdata(filp);
 	struct mtk_mae_ctx *ctx = mae_dev->ctx;
-	struct mtk_mae_map_table *map_table = mae_dev->map_table;
 	int ret;
 
 	mutex_lock(&mae_dev->mae_device_lock);
@@ -1145,8 +1154,6 @@ static int mtk_mae_video_device_open(struct file *filp)
 
 
 	if (mae_dev->open_video_device_cnt == 0) {
-		memset(map_table, 0, sizeof(*map_table));
-
 		v4l2_fh_init(&ctx->fh, vdev);
 		mtk_mae_init_v4l2_fmt(ctx);
 #if M2M_ENABLE
@@ -2009,7 +2016,10 @@ int mtk_mae_probe(struct platform_device *pdev)
 	init_completion(&mae_dev->mae_job_finished);
 
 	mutex_init(&mae_dev->mae_device_lock);
+	mutex_init(&mae_dev->mae_stream_lock);
 	mae_dev->open_video_device_cnt = 0;
+	mae_dev->mae_stream_count = 0;
+
 	// MAE_TO_DO: Init workqueue
 	mae_dev->frame_done_wq =
 			alloc_ordered_workqueue(dev_name(mae_dev->dev),

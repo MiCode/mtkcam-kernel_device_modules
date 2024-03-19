@@ -289,13 +289,13 @@ const struct coef_info attr_v0_coef_info = {
 };
 
 const struct config_info fac_v1_config_info = {
-	.size = 619,
-	.rotate_offset = 2210,
-	.rotate_size = 619,
+	.size = 588,
+	.rotate_offset = 2206,
+	.rotate_size = 588,
 };
 
 const struct coef_info fac_v1_coef_info = {
-	.size = 7937,
+	.size = 7262,
 };
 
 const struct config_info fd_v1_fpn_config_info = {

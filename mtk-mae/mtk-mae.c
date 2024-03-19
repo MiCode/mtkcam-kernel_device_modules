@@ -86,7 +86,7 @@ int umap_debug;
 int cmdq_profiling_result;
 
 #if IS_ENABLED(CONFIG_MTK_SLBC)
-int mae_slc_dbg_en;
+int mae_slc_dbg_en = 1;
 static int mae_gid;
 static struct slbc_gid_data *mae_slbc_gid_data;
 

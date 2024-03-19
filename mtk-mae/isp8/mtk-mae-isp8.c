@@ -15,11 +15,10 @@
 
 #include "mtk-mae-isp8.h"
 
-// MAE_TO_DO
-// #ifdef AIE_TF_DUMP_7SP_1
-// #include <dt-bindings/memory/mt6989-larb-port.h>
-// #endif
-// #include "iommu_debug.h"
+#ifdef MAE_TF_DUMP_8
+#include <dt-bindings/memory/mt6991-larb-port.h>
+#endif
+#include "iommu_debug.h"
 
 #define CHECK_BASE_ADDR(ADDR) (ADDR % MAE_BASE_ADDR_ALIGN != 0)
 
@@ -76,8 +75,44 @@ module_param(cmdq_profiling_en, int, 0644);
 
 static void mtk_mae_dump(struct mtk_mae_dev *mae_dev);
 static void mtk_mae_fld_reset(struct mtk_mae_dev *mae_dev);
+static void mtk_mae_dump_param(struct mtk_mae_dev *mae_dev);
+static void mtk_mae_dump_buf_iova(struct mtk_mae_dev *mae_dev);
 
 static void mtk_mae_reg_dump_to_buffer(struct mtk_mae_dev *mae_dev);
+
+#ifdef MAE_TF_DUMP_8
+static int MAE_M4U_TranslationFault_callback_8(int port,
+							dma_addr_t mva,
+							void *data)
+{
+	struct mtk_mae_dev *mae_dev;
+
+	if (data == NULL) {
+		pr_info("MAE TF CB Data is NULL\n");
+		return 0;
+	}
+
+	mae_dev = (struct mtk_mae_dev *)data;
+
+	mae_dev_info(mae_dev->dev ,"[MAE_M4U]fault call port=%d, mva=0x%llx", port, mva);
+
+	mtk_mae_dump_param(mae_dev);
+
+	mtk_mae_dump_buf_iova(mae_dev);
+
+	return 1;
+}
+
+void mtk_mae_register_tf_cb_8(void *data)
+{
+	mtk_iommu_register_fault_callback(SMMU_L12_P0_FDVT_RDA_0,
+		(mtk_iommu_fault_callback_t)MAE_M4U_TranslationFault_callback_8,
+		data, false);
+	mtk_iommu_register_fault_callback(SMMU_L12_P1_FDVT_WRA_0,
+		(mtk_iommu_fault_callback_t)MAE_M4U_TranslationFault_callback_8,
+		data, false);
+}
+#endif
 
 static void MAECmdqCB(struct cmdq_cb_data data)
 {
@@ -298,9 +333,17 @@ static bool mtk_mae_config_dma(struct mtk_mae_dev *mae_dev, int idx)
 			}
 		}
 
-		if (param->image[loop].enRoi)
-			addr += (MAX(param->image[loop].roi.y1, 0) / 2 * 2) * param->image[loop].imgWidth +
-					(MAX(param->image[loop].roi.x1, 0) / 16) * 16;
+		if (param->image[loop].enRoi) {
+			if (param->maeMode == FAC_V1) {
+				addr += (MAX((int)(param->image[loop].roi.y1) - 2, 0) / 2 * 2) *
+						param->image[loop].imgWidth +
+						(MAX(param->image[loop].roi.x1, 0) / 16) * 16;
+			} else {
+				addr += (MAX(param->image[loop].roi.y1, 0) / 2 * 2) *
+						param->image[loop].imgWidth +
+						(MAX(param->image[loop].roi.x1, 0) / 16) * 16;
+			}
+		}
 
 		if (CHECK_BASE_ADDR(addr) || addr == 0)
 			mae_dev_info(mae_dev->dev, "Loop %d: %s(0x%llx) is not %d-aligned or zero",
@@ -317,9 +360,18 @@ static bool mtk_mae_config_dma(struct mtk_mae_dev *mae_dev, int idx)
 
 		addr = mae_dev->map_table->image_dmabuf_info[idx].pa +
 				param->image[loop].imgWidth * param->image[loop].imgHeight;
-		if (param->image[loop].enRoi)
-			addr += (MAX(param->image[loop].roi.y1, 0) / 2 * 2) * (param->image[loop].imgWidth / 2) +
-					(MAX(param->image[loop].roi.x1, 0) / 16) * 16;
+
+		if (param->image[loop].enRoi) {
+			if (param->maeMode == FAC_V1) {
+				addr += (MAX((int)(param->image[loop].roi.y1) - 2, 0) / 2 * 2) *
+						(param->image[loop].imgWidth / 2) +
+						(MAX(param->image[loop].roi.x1, 0) / 16) * 16;
+			} else {
+				addr += (MAX(param->image[loop].roi.y1, 0) / 2 * 2) *
+						(param->image[loop].imgWidth / 2) +
+						(MAX(param->image[loop].roi.x1, 0) / 16) * 16;
+			}
+		}
 
 		if (CHECK_BASE_ADDR(addr) || addr == 0)
 			mae_dev_info(mae_dev->dev, "Loop %d: %s(0x%llx) is not %d-aligned or zero",
@@ -1800,7 +1852,7 @@ static bool mtk_mae_config_hw(struct mtk_mae_dev *mae_dev, int idx)
 					DIV_CEIL_POS(
 						MIN(param->image[loop].roi.y2 + 2, param->image[loop].imgHeight),
 						2) * 2 -
-					(MAX((int)(param->image[loop].roi.y1 - 2), 0) / 2) * 2);
+					(MAX(((int)(param->image[loop].roi.y1) - 2), 0) / 2) * 2);
 			} else {
 				MAE_CMDQ_WRITE_REG(mae_dev->pkt[idx],
 					MAE_REG_OUTER_SRC_HSIZE_00 + loop * 2 * COMMON_REG_SIZE,
@@ -2240,6 +2292,18 @@ static void mtk_mae_print_iova(struct mtk_mae_dev *mae_dev,
 			buf_name, buf_info->pa);
 }
 
+static void mtk_mae_print_cache(struct mtk_mae_dev *mae_dev,
+			struct list_head *list,
+			const char *buf_name)
+{
+	struct dmabuf_info_cache *cache, *tmp;
+
+	list_for_each_entry_safe(cache, tmp, list, list_entry) {
+		mae_dev_info(mae_dev->dev, "[%s] fd: %d, pa: 0x%llx\n",
+			buf_name, cache->fd, cache->info.pa);
+	}
+}
+
 static void mtk_mae_dump_buf_iova(struct mtk_mae_dev *mae_dev)
 {
 	struct mtk_mae_map_table *map_table = mae_dev->map_table;
@@ -2267,6 +2331,21 @@ static void mtk_mae_dump_buf_iova(struct mtk_mae_dev *mae_dev)
 	}
 
 	mtk_mae_print_iova(mae_dev, &map_table->internal_dmabuf_info, "internal");
+
+	for (i = 0; i < AISEG_MAP_NUM; i++)
+		mae_dev_info(mae_dev->dev, "aiseg output_%d pa: 0x%llx\n",
+			i, map_table->aiseg_output_dmabuf_info[0][i].pa);
+
+	mae_dev_info(mae_dev->dev, "aiseg config pa: 0x%llx\n",
+		map_table->config_dmabuf_info[MODEL_TYPE_AISEG].pa);
+
+	mae_dev_info(mae_dev->dev, "aiseg coef pa: 0x%llx\n",
+		map_table->coef_dmabuf_info[MODEL_TYPE_AISEG].pa);
+
+	mae_dev_info(mae_dev->dev, "print MAE cache\n");
+	mtk_mae_print_cache(mae_dev, &mae_dev->aiseg_config_cache_list, "aiseg_config");
+	mtk_mae_print_cache(mae_dev, &mae_dev->aiseg_coef_cache_list, "aiseg_coef");
+	mtk_mae_print_cache(mae_dev, &mae_dev->aiseg_output_cache_list, "aiseg_output");
 }
 
 static void mtk_mae_dump_param(struct mtk_mae_dev *mae_dev)
@@ -2274,6 +2353,8 @@ static void mtk_mae_dump_param(struct mtk_mae_dev *mae_dev)
 	struct EnqueParam *param =
 		(struct EnqueParam *)mae_dev->map_table->param_dmabuf_info[0].kva;
 	uint32_t i;
+	struct ModelTable *model_table =
+		(struct ModelTable *)mae_dev->map_table->model_table_dmabuf_info.kva;
 
 	mae_dev_info(mae_dev->dev, "Dump user setting, user(%d)\n", param->user);
 
@@ -2328,6 +2409,12 @@ static void mtk_mae_dump_param(struct mtk_mae_dev *mae_dev)
 		mae_dev_info(mae_dev->dev, "pad(%d) (l,r,d,u)=(%d,%d->%d,%d)", param->image[0].enPadding,
 			param->image[0].padding.left, param->image[0].padding.right,
 			param->image[0].padding.down, param->image[0].padding.up);
+		for (i = 0; i < param->outputNum; i++) {
+			mae_dev_info(mae_dev->dev, "output fd(%d) size(%ld) offset(%ld)",
+				model_table->aisegOutput[i].fd,
+				model_table->aisegOutput[i].size,
+				model_table->aisegOutput[i].offset);
+		}
 		break;
 	case FLD_V0:
 		mae_dev_info(mae_dev->dev, "fmt(%d) fldFaceNum(%d) img W/H(%d/%d)\n",
@@ -2952,6 +3039,11 @@ int mtk_mae_isp8_probe(struct platform_device *pdev)
 	dev_info(&pdev->dev ,"%s +", __func__);
 
 	mtk_mae_register_drv_ops(&mae_ops_isp8);
+
+#ifdef MAE_TF_DUMP_8
+	dev_info(&pdev->dev , "register MAE isp8 tf cb");
+	register_mtk_mae_reg_tf_cb(mtk_mae_register_tf_cb_8);
+#endif
 
 	dev_info(&pdev->dev ,"%s -", __func__);
 

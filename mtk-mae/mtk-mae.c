@@ -102,6 +102,8 @@ module_param(cmdq_profiling_result, int, 0644);
 static struct device *mae_pm_dev;
 aov_notify m_aov_notify = NULL;
 
+mtk_mae_register_tf_cb m_mae_reg_tf_cb;
+
 #if M2M_ENABLE
 #define V4L2_META_FMT_MTFD_RESULT  v4l2_fourcc('M', 'T', 'f', 'd')
 #endif
@@ -182,6 +184,12 @@ void aov_notify_register(aov_notify aov_notify_fn)
 	m_aov_notify = aov_notify_fn;
 }
 EXPORT_SYMBOL(aov_notify_register);
+
+void register_mtk_mae_reg_tf_cb(mtk_mae_register_tf_cb mtk_mae_register_tf_cb_fn)
+{
+	m_mae_reg_tf_cb = mtk_mae_register_tf_cb_fn;
+}
+EXPORT_SYMBOL(register_mtk_mae_reg_tf_cb);
 
 void mtk_aie_aov_memcpy(char *buffer)
 {
@@ -451,6 +459,46 @@ ERROR_DMA_BUF_VMAP_FAIL:
 	dma_buf_put(info->dmabuf);
 
 	return ret;
+}
+
+static int mtk_mae_acquire_cache(struct mtk_mae_dev *mae_dev,
+			struct list_head *list,
+			s32 fd,
+			struct dmabuf_info_cache **cache,
+			enum MAE_ADDR_TYPE addr_type)
+{
+	int ret;
+	bool dmabuf_found = false;
+	struct dmabuf_info_cache *tmp;
+
+	list_for_each_entry(tmp, list, list_entry) {
+		if (fd == tmp->fd) {
+			dmabuf_found = true;
+			*cache = tmp;
+			break;
+		}
+	}
+	if (!dmabuf_found) {
+		tmp = vzalloc(sizeof(**cache));
+		if (tmp == NULL)
+			return -ENOMEM;
+		tmp->fd = fd;
+		ret = mtk_mae_set_dmabuf_info(mae_dev,
+					tmp->fd,
+					&tmp->info,
+					addr_type);
+		if (ret) {
+			vfree(tmp);
+			mae_dev_dbg(mae_dev->dev, "%s, set dmabuf info fail\n",
+				__func__);
+			return ret;
+		}
+		list_add_tail(&tmp->list_entry, list);
+		mae_dev_dbg(mae_dev->dev, "%s, new fd: %d\n",
+			__func__, tmp->fd);
+		*cache = tmp;
+	}
+	return 0;
 }
 
 static void mtk_mae_hw_done(struct mtk_mae_dev *mae_dev,
@@ -818,6 +866,11 @@ static int mtk_mae_hw_connect(struct mtk_mae_dev *mae_dev)
 	mae_dev->mae_stream_count++;
 	if (mae_dev->mae_stream_count == 1) {
 		memset(mae_dev->map_table, 0, sizeof(*mae_dev->map_table));
+		if (m_mae_reg_tf_cb) {
+			mae_dev_info(mae_dev->dev, "MAE register tf callback\n");
+			m_mae_reg_tf_cb(mae_dev);
+		}
+
 		/* power on */
 		if (!mae_dev->is_shutdown) {
 			pm_runtime_get_sync(dev);
@@ -951,6 +1004,26 @@ static void mtk_mae_umap_detach(struct mtk_mae_dev *mae_dev,
 	info->pa = 0;
 }
 
+static void mtk_mae_release_cache(struct mtk_mae_dev *mae_dev,
+			struct list_head *list)
+{
+	struct dmabuf_info_cache *cache, *tmp;
+
+	list_for_each_entry_safe(cache, tmp, list, list_entry) {
+		mae_dev_dbg(mae_dev->dev, "fd: %d\n", cache->fd);
+		mtk_mae_umap_detach(mae_dev, &cache->info);
+		list_del(&cache->list_entry);
+		vfree(cache);
+	}
+}
+
+static void mtk_mae_release_all_caches(struct mtk_mae_dev *mae_dev)
+{
+	mtk_mae_release_cache(mae_dev, &mae_dev->aiseg_config_cache_list);
+	mtk_mae_release_cache(mae_dev, &mae_dev->aiseg_coef_cache_list);
+	mtk_mae_release_cache(mae_dev, &mae_dev->aiseg_output_cache_list);
+}
+
 static void mtk_mae_hw_disconnect(struct mtk_mae_dev *mae_dev)
 {
 	uint32_t i;
@@ -981,22 +1054,22 @@ static void mtk_mae_hw_disconnect(struct mtk_mae_dev *mae_dev)
 
 		// MAE_TO_DO: unmap buffer
 		mtk_mae_umap_detach(mae_dev, &mae_dev->map_table->model_table_dmabuf_info);
-		mtk_mae_umap_detach(mae_dev, &mae_dev->map_table->image_dmabuf_info[0]);
 		mtk_mae_umap_detach(mae_dev, &mae_dev->map_table->param_dmabuf_info[0]);
 		mtk_mae_umap_detach(mae_dev, &mae_dev->map_table->internal_dmabuf_info);
 		mtk_mae_umap_detach(mae_dev, &mae_dev->map_table->debug_dmabuf_info[0]);
-
 
 		for (i = 0; i < MAX_PYRAMID_NUM; i++)
 			mtk_mae_umap_detach(mae_dev, &mae_dev->map_table->output_dmabuf_info[0][i]);
 
 		for (i = 0; i < MODEL_TYPE_MAX; i++) {
+			if (i == MODEL_TYPE_AISEG)
+				continue;
+
 			mtk_mae_umap_detach(mae_dev, &mae_dev->map_table->config_dmabuf_info[i]);
 			mtk_mae_umap_detach(mae_dev, &mae_dev->map_table->coef_dmabuf_info[i]);
 		}
 
-		for (i = 0; i < AISEG_MAP_NUM; i++)
-			mtk_mae_umap_detach(mae_dev, &mae_dev->map_table->aiseg_output_dmabuf_info[0][i]);
+		mtk_mae_release_all_caches(mae_dev);
 
 		// MAE_TO_DO: fd->drv_ops->uninit(fd);
 		/*slc uninit API*/
@@ -1435,6 +1508,7 @@ int mtk_mae_vidioc_qbuf(struct file *file, void *priv,
 	struct ModelTable *model_table;
 	struct EnqueParam *param;
 	uint32_t i;
+	struct dmabuf_info_cache *cache = NULL;
 
 	mae_dev_dbg(mae_dev->dev, "%s+ buffer index(%d)", __func__, idx);
 
@@ -1472,6 +1546,11 @@ int mtk_mae_vidioc_qbuf(struct file *file, void *priv,
 		return -ENOMEM;
 	}
 	model_table = (struct ModelTable *)map_table->model_table_dmabuf_info.kva;
+
+	if (model_table->clearCache) {
+		mtk_mae_release_all_caches(mae_dev);
+		model_table->clearCache = false;
+	}
 
 	// get va of param plane
 	if (!map_table->param_dmabuf_info[idx].is_map) {
@@ -1541,11 +1620,16 @@ int mtk_mae_vidioc_qbuf(struct file *file, void *priv,
 		}
 		break;
 	case AISEG:
-		mae_dev_dbg(mae_dev->dev, "outputNum(%d) srcImgFmt(%d), imgWidth(%d), imgHeight(%d), ",
-			param->outputNum, param->image[0].srcImgFmt,
-			param->image[0].imgWidth, param->image[0].imgHeight);
+		mae_dev_dbg(mae_dev->dev, "srcImgFmt(%d), imgWidth(%d), imgHeight(%d), ",
+			param->image[0].srcImgFmt, param->image[0].imgWidth, param->image[0].imgHeight);
 		mae_dev_dbg(mae_dev->dev, "enResize(%d), resizeWidth(%d), resizeHeight(%d)\n",
 			param->image[0].enResize, param->image[0].resizeWidth, param->image[0].resizeHeight);
+		for (i = 0; i < AISEG_CROP_NUM; i++)
+			mae_dev_dbg(mae_dev->dev, "(%d,%d->%d,%d), Map(%d), output(%d/%d), shiftBit(%d)\n",
+				param->aisegCrop[i].x0, param->aisegCrop[i].y0,
+				param->aisegCrop[i].x1, param->aisegCrop[i].y1,
+				param->aisegCrop[i].featureMapSize, param->aisegCrop[i].outputSizeX,
+				param->aisegCrop[i].outputSizeY, param->aisegCrop[i].shiftBit);
 		break;
 	default:
 		break;
@@ -1567,44 +1651,84 @@ int mtk_mae_vidioc_qbuf(struct file *file, void *priv,
 		mae_dev->is_first_qbuf = false;
 	}
 
-	// get pa of model
-	for (i = 0; i < MODEL_TYPE_MAX; i++) {
-		if (model_table->configTable[i].fd > 0 && model_table->configTable[i].isReady == 0) {
-			if (param->maeMode != AISEG && i == MODEL_TYPE_AISEG)
-				continue;
-
-			mtk_mae_umap_detach(mae_dev, &map_table->config_dmabuf_info[i]);
-			ret = mtk_mae_set_dmabuf_info(mae_dev,
-						model_table->configTable[i].fd,
-						&map_table->config_dmabuf_info[i],
-						GET_PA);
-			if (ret) {
-				mae_dev_info(mae_dev->dev, "%s, set config(%d) dmabuf info fail\n",
-					__func__, i);
-				return ret;
-			}
-
-			if (i != MODEL_TYPE_AISEG)	// AISEG Model should update perframe
-				model_table->configTable[i].isReady = 1;
+	if (param->maeMode == AISEG) {
+		// get pa of model
+		ret = mtk_mae_acquire_cache(mae_dev,
+				&mae_dev->aiseg_config_cache_list,
+				model_table->configTable[MODEL_TYPE_AISEG].fd,
+				&cache,
+				GET_PA);
+		if (ret || cache == NULL) {
+			mae_dev_info(mae_dev->dev, "%s, aiseg model config acquire cache fail\n",
+					__func__);
+			return ret;
 		}
+		map_table->config_dmabuf_info[MODEL_TYPE_AISEG].pa = cache->info.pa;
 
-		if (model_table->coefTable[i].fd > 0 && model_table->coefTable[i].isReady == 0) {
-			if (param->maeMode != AISEG && i == MODEL_TYPE_AISEG)
+		ret = mtk_mae_acquire_cache(mae_dev,
+				&mae_dev->aiseg_coef_cache_list,
+				model_table->coefTable[MODEL_TYPE_AISEG].fd,
+				&cache,
+				GET_PA);
+		if (ret || cache == NULL) {
+			mae_dev_info(mae_dev->dev, "%s, aiseg model coef acquire cache fail\n",
+					__func__);
+			return ret;
+		}
+		map_table->coef_dmabuf_info[MODEL_TYPE_AISEG].pa = cache->info.pa;
+
+		// get pa of aiseg output
+		for (i = 0; i < AISEG_MAP_NUM; i++) {
+			if (model_table->aisegOutput[i].fd > 0) {
+				ret = mtk_mae_acquire_cache(mae_dev,
+					&mae_dev->aiseg_output_cache_list,
+					model_table->aisegOutput[i].fd,
+					&cache,
+					GET_PA);
+				if (ret || cache == NULL) {
+					mae_dev_info(mae_dev->dev, "%s, aiseg output acquire cache fail\n",
+							__func__);
+					return ret;
+				}
+				map_table->aiseg_output_dmabuf_info[idx][i].pa = cache->info.pa;
+			}
+		}
+	} else {
+		// get pa of model
+		for (i = 0; i < MODEL_TYPE_MAX; i++) {
+			if (i == MODEL_TYPE_AISEG)
 				continue;
 
-			mtk_mae_umap_detach(mae_dev, &map_table->coef_dmabuf_info[i]);
-			ret = mtk_mae_set_dmabuf_info(mae_dev,
-						model_table->coefTable[i].fd,
-						&map_table->coef_dmabuf_info[i],
-						GET_PA);
-			if (ret) {
-				mae_dev_info(mae_dev->dev, "%s, set coef(%d) dmabuf info fail\n",
-					__func__, i);
-				return ret;
+			if (model_table->configTable[i].fd > 0 && model_table->configTable[i].isReady == 0) {
+
+				mtk_mae_umap_detach(mae_dev, &map_table->config_dmabuf_info[i]);
+				ret = mtk_mae_set_dmabuf_info(mae_dev,
+							model_table->configTable[i].fd,
+							&map_table->config_dmabuf_info[i],
+							GET_PA);
+				if (ret) {
+					mae_dev_info(mae_dev->dev, "%s, set config(%d) dmabuf info fail\n",
+						__func__, i);
+					return ret;
+				}
+
+				model_table->configTable[i].isReady = 1;
 			}
 
-			if (i != MODEL_TYPE_AISEG)	// AISEG Model should update perframe
+			if (model_table->coefTable[i].fd > 0 && model_table->coefTable[i].isReady == 0) {
+				mtk_mae_umap_detach(mae_dev, &map_table->coef_dmabuf_info[i]);
+				ret = mtk_mae_set_dmabuf_info(mae_dev,
+							model_table->coefTable[i].fd,
+							&map_table->coef_dmabuf_info[i],
+							GET_PA);
+				if (ret) {
+					mae_dev_info(mae_dev->dev, "%s, set coef(%d) dmabuf info fail\n",
+						__func__, i);
+					return ret;
+				}
+
 				model_table->coefTable[i].isReady = 1;
+			}
 		}
 	}
 
@@ -1620,8 +1744,7 @@ int mtk_mae_vidioc_qbuf(struct file *file, void *priv,
 		return ret;
 	}
 
-
-	// get output pa
+	// get pa of output
 	for (i = 0; i < MAX_PYRAMID_NUM; i++)
 		if (!map_table->output_dmabuf_info[idx][i].is_attach) {
 			ret = mtk_mae_set_dmabuf_info(mae_dev,
@@ -1634,22 +1757,6 @@ int mtk_mae_vidioc_qbuf(struct file *file, void *priv,
 				return ret;
 			}
 		}
-
-	// get AISEG output
-	if (param->maeMode == AISEG) {
-		for (i = 0; i < param->outputNum; i++) {
-			mtk_mae_umap_detach(mae_dev, &map_table->aiseg_output_dmabuf_info[idx][i]);
-			ret = mtk_mae_set_dmabuf_info(mae_dev,
-						model_table->aisegOutput[i].fd,
-						&map_table->aiseg_output_dmabuf_info[idx][i],
-						GET_PA);
-			if (ret) {
-				mae_dev_info(mae_dev->dev, "%s, set aiseg output dmabuf info fail\n",
-					__func__);
-				return ret;
-			}
-		}
-	}
 
 	// debug patch
 	if (!map_table->debug_dmabuf_info[idx].is_map) {
@@ -2080,6 +2187,10 @@ int mtk_mae_probe(struct platform_device *pdev)
 			__func__);
 		return -EINVAL;
 	}
+
+	INIT_LIST_HEAD(&mae_dev->aiseg_config_cache_list);
+	INIT_LIST_HEAD(&mae_dev->aiseg_coef_cache_list);
+	INIT_LIST_HEAD(&mae_dev->aiseg_output_cache_list);
 
 	mae_dev_info(dev ,"%s-", __func__);
 	return 0;

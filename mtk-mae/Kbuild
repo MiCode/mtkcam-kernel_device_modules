@@ -22,6 +22,10 @@ ccflags-y += -DMAE_DMA_BUF_UNLOCK_API
 ccflags-y += -DMAE_USE_CMDQ_POLL_TIMEOUT
 endif
 
+ifneq ($(wildcard $(DEVICE_MODULES_PATH)/include/dt-bindings/memory/mt6991-larb-port.h),)
+ccflags-y += -DMAE_TF_DUMP_8
+endif
+
 ccflags-y += -I$(DEVICE_MODULES_PATH)/drivers/misc/mediatek/mtk-interconnect/
 ccflags-y += -I$(DEVICE_MODULES_PATH)/drivers/misc/mediatek/cmdq/mailbox/
 ccflags-y += -I$(DEVICE_MODULES_PATH)/drivers/dma-buf/heaps/

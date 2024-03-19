@@ -16,6 +16,9 @@
 #include <linux/types.h>
 #include <linux/time.h>
 
+typedef void (*mtk_mae_register_tf_cb)(void *);
+void register_mtk_mae_reg_tf_cb(mtk_mae_register_tf_cb mtk_mae_register_tf_cb_fn);
+
 #define M2M_ENABLE 1
 #define MEMCPY_KERNEL_STRUCT_ENABLE 1
 #define MAE_CMDQ_SEC_READY 1
@@ -347,6 +350,8 @@ struct ModelTable {
 
 	// MAE_TO_DO: rearrange the usage of the buffers
 	struct ModelEntry aisegOutput[AISEG_MAP_NUM];
+
+	bool clearCache;
 };
 
 #if MEMCPY_KERNEL_STRUCT_ENABLE
@@ -696,6 +701,10 @@ struct mtk_mae_dev {
 	struct mtk_mae_ctx *ctx;
 	struct mtk_mae_map_table *map_table;
 
+	struct list_head aiseg_config_cache_list;
+	struct list_head aiseg_coef_cache_list;
+	struct list_head aiseg_output_cache_list;
+
 	struct completion mae_job_finished;
 	struct workqueue_struct *frame_done_wq;
 	struct mtk_mae_req_work req_work;
@@ -769,6 +778,12 @@ struct mtk_mae_map_table {
 	struct dmabuf_info aiseg_output_dmabuf_info[REQUEST_BUFFER_NUM][AISEG_MAP_NUM];
 	struct dmabuf_info debug_dmabuf_info[REQUEST_BUFFER_NUM];
 	struct dmabuf_info internal_dmabuf_info;
+};
+
+struct dmabuf_info_cache {
+	s32 fd;
+	struct dmabuf_info info;
+	struct list_head list_entry;
 };
 
 struct mtk_mae_drv_ops {

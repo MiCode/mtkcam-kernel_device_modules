@@ -438,6 +438,9 @@ void c2ps_regulator_bgpolicy_um_stable(struct regulator_req *req)
 	struct um_table_item *_prev_item = c2ps_find_um_table_by_um(req->anc_info, prev_um);
 	bool need_update_um = true;
 
+	if (unlikely(!_item))
+		return;
+
 	if (unlikely(c2ps_fix_um)) {
 		action_um = c2ps_fix_um;
 	} else {
@@ -468,17 +471,15 @@ void c2ps_regulator_bgpolicy_um_stable(struct regulator_req *req)
 		}
 	}
 
-	if (_item) {
-		C2PS_LOGD("anchor_id=%d um=%d latency=%llu jitter=%llu est_err=%lld min_est_err=%lld",
-				req->anc_info->anchor_id, req->glb_info->curr_um,
-				_item->latency, _item->jitter,
-				_item->lat_est.est_err, _item->lat_est.min_est_err);
-		c2ps_bg_info_um_systrace(
-				"stable state anchor_id=%d um=%d latency=%llu jitter=%llu est_err=%lld min_est_err=%lld",
-				req->anc_info->anchor_id, req->glb_info->curr_um,
-				_item->latency, _item->jitter, _item->lat_est.est_err,
-				_item->lat_est.min_est_err);
-	}
+	C2PS_LOGD("anchor_id=%d um=%d latency=%llu jitter=%llu est_err=%lld min_est_err=%lld",
+			req->anc_info->anchor_id, req->glb_info->curr_um,
+			_item->latency, _item->jitter,
+			_item->lat_est.est_err, _item->lat_est.min_est_err);
+	c2ps_bg_info_um_systrace(
+			"stable state anchor_id=%d um=%d latency=%llu jitter=%llu est_err=%lld min_est_err=%lld",
+			req->anc_info->anchor_id, req->glb_info->curr_um,
+			_item->latency, _item->jitter, _item->lat_est.est_err,
+			_item->lat_est.min_est_err);
 
 	if (need_update_um) {
 		action_um = min(c2ps_regulator_um_max,

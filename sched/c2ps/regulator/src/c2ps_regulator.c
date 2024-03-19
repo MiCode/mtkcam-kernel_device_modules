@@ -39,7 +39,7 @@ decide_process_type(struct regulator_req *req)
 		case C2PS_STAT_NODEF:
 			break;
 		case C2PS_STAT_STABLE:
-			if (req->anc_info)
+			if (req->glb_info && req->anc_info)
 				return C2PS_REGULATOR_BGMODE_UM_STABLE;
 			if (req->glb_info && (req->glb_info->overwrite_util_margin ||
 								req->glb_info->decided_um_placeholder_val))

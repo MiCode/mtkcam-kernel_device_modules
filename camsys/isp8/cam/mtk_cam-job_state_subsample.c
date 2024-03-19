@@ -61,7 +61,7 @@ static struct state_transition STATE_TRANS(subsample, S_ISP_OUTER)[] = {
 static struct state_transition STATE_TRANS(subsample, S_ISP_PROCESSING)[] = {
 	{
 		S_ISP_DONE, CAMSYS_EVENT_IRQ_FRAME_DONE,
-		guard_inner_eq, 0
+		guard_inner_ge, 0
 	},
 	{ /* note: should handle frame_done first if sof/p1done come together */
 		S_ISP_SENSOR_MISMATCHED, CAMSYS_EVENT_IRQ_L_SOF,
@@ -76,7 +76,7 @@ static struct state_transition STATE_TRANS(subsample, S_ISP_PROCESSING)[] = {
 static struct state_transition STATE_TRANS(subsample, S_ISP_SENSOR_MISMATCHED)[] = {
 	{
 		S_ISP_DONE_MISMATCHED, CAMSYS_EVENT_IRQ_FRAME_DONE,
-		guard_inner_eq, 0
+		guard_inner_ge, 0
 	},
 #ifdef TO_REMOVE
 	{

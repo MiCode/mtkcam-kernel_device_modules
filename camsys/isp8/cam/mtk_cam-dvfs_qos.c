@@ -732,6 +732,9 @@ static int fill_sv_qos(struct mtk_cam_job *job,
 		x_size = in->fmt.stride[0];
 		img_h = in->fmt.s.h;
 
+		CALL_PLAT_V4L2(
+			get_sv_smi_setting, sv_dev->id, &is_two_smi_out);
+
 		if (i < SVTAG_IMG_END) {
 			avg_bw =
 				calc_bw(x_size * img_h, linet, sensor_h + sensor_vb);
@@ -747,9 +750,14 @@ static int fill_sv_qos(struct mtk_cam_job *job,
 			}
 			/* stash */
 			if (x_size != 0) {
-				strideLCM = LCM(x_size, 4096);
-				stash_peak_bw = stash_avg_bw =
-					to_qos_icc(img_h / (strideLCM/x_size) * 16 * sensor_fps);
+				if (is_two_smi_out)
+					stash_peak_bw = stash_avg_bw =
+						to_qos_icc(img_h * 16 * sensor_fps);
+				else {
+					strideLCM = LCM(x_size, 4096);
+					stash_peak_bw = stash_avg_bw =
+						to_qos_icc(img_h / (strideLCM/x_size) * 16 * sensor_fps);
+				}
 			}
 
 		} else {
@@ -759,14 +767,17 @@ static int fill_sv_qos(struct mtk_cam_job *job,
 				calc_bw(x_size * img_h, linet, sensor_h);
 			/* stash */
 			if (x_size != 0) {
-				strideLCM = LCM(x_size, 4096);
-				stash_peak_bw = stash_avg_bw =
-					to_qos_icc(img_h / (strideLCM/x_size) * 16 * sensor_fps);
+				if (is_two_smi_out)
+					stash_peak_bw = stash_avg_bw =
+						to_qos_icc(img_h * 16 * sensor_fps);
+				else {
+					strideLCM = LCM(x_size, 4096);
+					stash_peak_bw = stash_avg_bw =
+						to_qos_icc(img_h / (strideLCM/x_size) * 16 * sensor_fps);
+				}
 			}
 		}
 
-		CALL_PLAT_V4L2(
-			get_sv_smi_setting, sv_dev->id, &is_two_smi_out);
 		if (is_two_smi_out) {
 			job->sv_mmqos[SMI_PORT_SV_MDP_WDMA_0].avg_bw += avg_bw / 2;
 			job->sv_mmqos[SMI_PORT_SV_MDP_WDMA_0].peak_bw += peak_bw / 2;

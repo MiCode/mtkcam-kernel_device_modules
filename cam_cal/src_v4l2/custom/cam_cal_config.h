@@ -34,7 +34,7 @@ struct STRUCT_CALIBRATION_LAYOUT_STRUCT {
 struct STRUCT_CAM_CAL_CONFIG_STRUCT {
 	const char *name;
 	unsigned int (*check_layout_function)(struct EEPROM_DRV_FD_DATA *pdata,
-				unsigned int sensorID);
+				unsigned int sensorID, unsigned int *_cfg);
 	unsigned int (*read_function)(struct i2c_client *client, unsigned int addr,
 				unsigned char *data, unsigned int size);
 	struct STRUCT_CALIBRATION_LAYOUT_STRUCT *layout;
@@ -53,9 +53,9 @@ unsigned int show_cmd_error_log(enum ENUM_CAMERA_CAM_CAL_TYPE_ENUM cmd);
 int get_mtk_format_version(struct EEPROM_DRV_FD_DATA *pdata, unsigned int *pGetSensorCalData);
 
 unsigned int layout_check(struct EEPROM_DRV_FD_DATA *pdata,
-		unsigned int sensorID);
+		unsigned int sensorID, unsigned int *_cfg);
 unsigned int layout_no_ck(struct EEPROM_DRV_FD_DATA *pdata,
-		unsigned int sensorID);
+		unsigned int sensorID, unsigned int *_cfg);
 unsigned int do_module_version(struct EEPROM_DRV_FD_DATA *pdata,
 		unsigned int start_addr, unsigned int block_size, unsigned int *pGetSensorCalData);
 unsigned int do_part_number(struct EEPROM_DRV_FD_DATA *pdata,
@@ -82,6 +82,7 @@ int read_data(struct EEPROM_DRV_FD_DATA *pdata,
 		unsigned int sensor_id, unsigned int device_id,
 		unsigned int offset, unsigned int length, unsigned char *data);
 unsigned int read_data_region(struct EEPROM_DRV_FD_DATA *pdata,
-		unsigned char *buf, unsigned int offset, unsigned int size);
+		unsigned char *buf, unsigned int offset, unsigned int size,
+		struct STRUCT_CAM_CAL_CONFIG_STRUCT *cfg);
 
 #endif /* __CAM_CAL_LAYOUT_H */

@@ -175,15 +175,21 @@ void set_i2c_buffer(struct subdrv_ctx *ctx, u16 reg, u16 val)
 
 u16 i2c_multi_read_eeprom(struct subdrv_ctx *ctx, u16 addr, u16 size, u8 *pbuf)
 {
-	u16 idx;
 	u8 write_id;
+	int ret = read_cam_cal(ctx->s_ctx.sensor_id, pbuf, addr, size);
 
-	if (read_cam_cal(ctx->s_ctx.sensor_id, pbuf, addr, size) >= 0)
-		return 0;
-
-	idx = ctx->eeprom_index;
-	write_id = ctx->s_ctx.eeprom_info[idx].i2c_write_id;
-	adaptor_i2c_rd_p8(ctx->i2c_client, write_id >> 1, addr, pbuf, size);
+	if (ret < 0) {
+		if (ctx->eeprom_index < ctx->s_ctx.eeprom_num) {
+			DRV_LOG_MUST(ctx, "addr = 0x%x size = 0x%x", addr, size);
+			write_id = ctx->s_ctx.eeprom_info[ctx->eeprom_index].i2c_write_id;
+			adaptor_i2c_rd_p8(ctx->i2c_client, write_id >> 1, addr, pbuf, size);
+		} else {
+			DRV_LOGE(ctx, "eeprom_index(%u) out of bound eeprom_num(%u)\n",
+				ctx->eeprom_index, ctx->s_ctx.eeprom_num);
+		}
+	} else if (ret == 0) {
+		DRV_LOGE(ctx, "read_cam_cal failed\n");
+	}
 
 	return 0;
 }
@@ -248,23 +254,29 @@ bool probe_eeprom(struct subdrv_ctx *ctx)
 	struct eeprom_info_struct *info = ctx->s_ctx.eeprom_info;
 
 	if (info == NULL) {
-		DRV_LOG(ctx, "sensor no support eeprom\n");
+		DRV_LOG_MUST(ctx, "sensor no support eeprom\n");
 		return FALSE;
 	}
-	ctx->eeprom_index = 0;
+
 	eeprom_num = ctx->s_ctx.eeprom_num;
+	if (ctx->eeprom_index < ctx->s_ctx.eeprom_num) {
+		DRV_LOG_MUST(ctx, "index:%u\n", ctx->eeprom_index);
+		return TRUE;
+	}
+
 	for (idx = 0; idx < eeprom_num; idx++) {
 		ctx->eeprom_index = idx;
 		addr_header_id = info[idx].addr_header_id;
 		i2c_multi_read_eeprom(ctx, addr_header_id, sizeof(header_id), (u8 *)&header_id);
-		DRV_LOG(ctx, "eeprom index[cur/total]:%u/%u, header id[cur/exp]:0x%08x/0x%08x\n",
+		DRV_LOG_MUST(ctx, "eeprom index[cur/total]:%u/%u, header id[cur/exp]:0x%08x/0x%08x\n",
 			idx, eeprom_num, header_id, info[idx].header_id);
 		if (header_id == info[idx].header_id) {
-			DRV_LOG(ctx, "probe done. index:%u\n", idx);
+			DRV_LOG_MUST(ctx, "Probe done. index:%u\n", ctx->eeprom_index);
 			return TRUE;
 		}
 	}
-	DRV_LOGE(ctx, "probe failed! no match eeprom device\n");
+	ctx->eeprom_index = idx;
+	DRV_LOG_MUST(ctx, "Probe failed! No EEPROM device.\n");
 	return FALSE;
 }
 
@@ -3056,6 +3068,7 @@ void subdrv_ctx_init(struct subdrv_ctx *ctx)
 		ctx->s_ctx.sensor_debug_sensing_ut_on_scp;
 	ctx->sensor_debug_dphy_global_timing_continuous_clk =
 		ctx->s_ctx.sensor_debug_dphy_global_timing_continuous_clk;
+	ctx->eeprom_index = ctx->s_ctx.eeprom_num;
 }
 
 void sensor_init(struct subdrv_ctx *ctx)

@@ -1220,7 +1220,7 @@ static void apply_sv_qos(struct mtk_cam_job *job)
 
 		if (apply_bwr) {
 			int a_bw_w_KB = KBps_to_bwr(sv_avg_bw_w);
-			int p_bw_w_KB = KBps_to_bwr(sv_avg_bw_w);
+			int p_bw_w_KB = KBps_to_bwr(sv_peak_bw_w);
 
 			sv_avg_diff_bw_w = a_bw_w_KB - sv_dev->sv_avg_applied_bw_w;
 			sv_peak_diff_bw_w = p_bw_w_KB - sv_dev->sv_peak_applied_bw_w;

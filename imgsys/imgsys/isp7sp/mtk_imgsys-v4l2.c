@@ -2224,6 +2224,11 @@ static int mtkdip_ioc_alloc_buffer(struct v4l2_subdev *subdev, void *arg)
                     }
             pipe->imgsys_dev->imgsys_pipe[0].capture_alloc++;
             pipe->imgsys_dev->imgsys_pipe[0].imgsys_user_count++;
+		pr_info("cap buf fd(%d/%d/%d/%d)",
+			working_buf_info.module_info_capture[0].c_wbuf_fd,
+			working_buf_info.module_info_capture[0].t_wbuf_fd,
+			working_buf_info.module_info_capture[3].c_wbuf_fd,
+			working_buf_info.module_info_capture[3].t_wbuf_fd);
         } else {
             if (info->is_smvr) {
                 if (!pipe->imgsys_dev->imgsys_pipe[0].smvr_alloc) {
@@ -2240,6 +2245,11 @@ static int mtkdip_ioc_alloc_buffer(struct v4l2_subdev *subdev, void *arg)
                 }
                 pipe->imgsys_dev->imgsys_pipe[0].smvr_alloc++;
                 pipe->imgsys_dev->imgsys_pipe[0].imgsys_user_count++;
+		pr_info("smvr buf fd(%d/%d/%d/%d)",
+			working_buf_info.module_info_smvr[0].c_wbuf_fd,
+			working_buf_info.module_info_smvr[0].t_wbuf_fd,
+			working_buf_info.module_info_smvr[3].c_wbuf_fd,
+			working_buf_info.module_info_smvr[3].t_wbuf_fd);
             } else {
                 if (!pipe->imgsys_dev->imgsys_pipe[0].streaming_alloc) {
                     //if (pipe->imgsys_dev->imgsys_pipe[0].imgsys_user_count == 0) {
@@ -2255,6 +2265,11 @@ static int mtkdip_ioc_alloc_buffer(struct v4l2_subdev *subdev, void *arg)
                 }
                 pipe->imgsys_dev->imgsys_pipe[0].streaming_alloc++;
                 pipe->imgsys_dev->imgsys_pipe[0].imgsys_user_count++;
+		pr_info("streaming buf fd(%d/%d/%d/%d)",
+			working_buf_info.module_info_streaming[0].c_wbuf_fd,
+			working_buf_info.module_info_streaming[0].t_wbuf_fd,
+			working_buf_info.module_info_streaming[3].c_wbuf_fd,
+			working_buf_info.module_info_streaming[3].t_wbuf_fd);
             }
         }
     }

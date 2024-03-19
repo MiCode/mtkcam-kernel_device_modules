@@ -1661,8 +1661,8 @@ static int isp8_module_driver_allocate_working_buffer_streaming(struct mtk_hcp *
 	int ret = 0;
 	unsigned int block_num = 0;
 
-	pr_info("mtk_hcp-%s-%d", __func__, block_num);
 	block_num = hcp_dev->data->block_num;
+	pr_info("mtk_hcp-%s-%d", __func__, block_num);
 	for (id = 0; id < block_num; id++) {
 		if (str_mblock[id].is_dma_buf) {
 			switch (id) {
@@ -1693,7 +1693,7 @@ static int isp8_module_driver_allocate_working_buffer_streaming(struct mtk_hcp *
 						PTR_ERR(attach));
 						return -1;
 					}
-					#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 4, 0)
+					#ifdef HCP_NEW_DMA_BUF_API
 					str_mblock[id].sgt =
 						dma_buf_map_attachment_unlocked(attach, DMA_BIDIRECTIONAL);
 					#else
@@ -1709,13 +1709,13 @@ static int isp8_module_driver_allocate_working_buffer_streaming(struct mtk_hcp *
 					}
 					str_mblock[id].start_phys = sg_dma_address(sgt->sgl);
 					str_mblock[id].start_dma = str_mblock[id].start_phys;
-					#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 4, 0)
+					#ifdef HCP_NEW_DMA_BUF_API
 					ret = dma_buf_vmap_unlocked(str_mblock[id].d_buf, &map);
 					#else
 					ret = dma_buf_vmap(str_mblock[id].d_buf, &map);
 					#endif
 					if (ret) {
-						pr_info("sg_dma_address fail\n");
+						pr_info("vmap_dma_address fail(%d)\n", ret);
 						return ret;
 					}
 					str_mblock[id].start_virt = (void *)map.vaddr;
@@ -1726,7 +1726,7 @@ static int isp8_module_driver_allocate_working_buffer_streaming(struct mtk_hcp *
 					dma_buf_begin_cpu_access(str_mblock[id].d_buf, DMA_BIDIRECTIONAL);
 					kref_init(&str_mblock[id].kref);
 					if (hcp_dbg_enable()) {
-						pr_debug("%s:[HCP_GCE][%s] phys:0x%llx, virt:0x%p, dma:0x%llx,"
+						pr_info("%s:[HCP_GCE][%s] phys:0x%llx, virt:0x%p, dma:0x%llx,"
 							" size:0x%llx, is_dma_buf:%d, fd:%d, d_buf:0x%p\n",
 							__func__, str_mblock[id].name,
 							isp8_get_reserve_mem_phys(id, str_mode),
@@ -1776,7 +1776,7 @@ static int isp8_module_driver_allocate_working_buffer_streaming(struct mtk_hcp *
 						PTR_ERR(attach));
 						return -1;
 					}
-					#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 4, 0)
+					#ifdef HCP_NEW_DMA_BUF_API
 					str_mblock[id].sgt =
 						dma_buf_map_attachment_unlocked(attach, DMA_BIDIRECTIONAL);
 					#else
@@ -1792,13 +1792,13 @@ static int isp8_module_driver_allocate_working_buffer_streaming(struct mtk_hcp *
 					}
 					str_mblock[id].start_phys = sg_dma_address(sgt->sgl);
 					str_mblock[id].start_dma = str_mblock[id].start_phys;
-					#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 4, 0)
+					#ifdef HCP_NEW_DMA_BUF_API
 					ret = dma_buf_vmap_unlocked(str_mblock[id].d_buf, &map);
 					#else
 					ret = dma_buf_vmap(str_mblock[id].d_buf, &map);
 					#endif
 					if (ret) {
-						pr_info("sg_dma_address fail\n");
+						pr_info("vmap_dma_address fail\n");
 						return ret;
 					}
 					str_mblock[id].start_virt = (void *)map.vaddr;
@@ -1845,7 +1845,7 @@ static int isp8_module_driver_allocate_working_buffer_streaming(struct mtk_hcp *
 						PTR_ERR(attach));
 						return -1;
 					}
-					#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 4, 0)
+					#ifdef HCP_NEW_DMA_BUF_API
 					str_mblock[id].sgt =
 						dma_buf_map_attachment_unlocked(attach, DMA_BIDIRECTIONAL);
 					#else
@@ -1861,7 +1861,7 @@ static int isp8_module_driver_allocate_working_buffer_streaming(struct mtk_hcp *
 					}
 					str_mblock[id].start_phys = sg_dma_address(sgt->sgl);
 					str_mblock[id].start_dma = str_mblock[id].start_phys;
-					#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 4, 0)
+					#ifdef HCP_NEW_DMA_BUF_API
 					ret = dma_buf_vmap_unlocked(str_mblock[id].d_buf, &map);
 					#else
 					ret = dma_buf_vmap(str_mblock[id].d_buf, &map);
@@ -1955,7 +1955,7 @@ static int isp8_module_driver_allocate_working_buffer_capture(struct mtk_hcp *hc
 						PTR_ERR(attach));
 						return -1;
 					}
-					#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 4, 0)
+					#ifdef HCP_NEW_DMA_BUF_API
 					cap_mblock[id].sgt =
 						dma_buf_map_attachment_unlocked(attach, DMA_BIDIRECTIONAL);
 					#else
@@ -1971,7 +1971,7 @@ static int isp8_module_driver_allocate_working_buffer_capture(struct mtk_hcp *hc
 					}
 					cap_mblock[id].start_phys = sg_dma_address(sgt->sgl);
 					cap_mblock[id].start_dma = cap_mblock[id].start_phys;
-					#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 4, 0)
+					#ifdef HCP_NEW_DMA_BUF_API
 					ret = dma_buf_vmap_unlocked(cap_mblock[id].d_buf, &map);
 					#else
 					ret = dma_buf_vmap(cap_mblock[id].d_buf, &map);
@@ -2038,7 +2038,7 @@ static int isp8_module_driver_allocate_working_buffer_capture(struct mtk_hcp *hc
 						PTR_ERR(attach));
 						return -1;
 					}
-					#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 4, 0)
+					#ifdef HCP_NEW_DMA_BUF_API
 					cap_mblock[id].sgt =
 						dma_buf_map_attachment_unlocked(attach, DMA_BIDIRECTIONAL);
 					#else
@@ -2054,13 +2054,13 @@ static int isp8_module_driver_allocate_working_buffer_capture(struct mtk_hcp *hc
 					}
 					cap_mblock[id].start_phys = sg_dma_address(sgt->sgl);
 					cap_mblock[id].start_dma = cap_mblock[id].start_phys;
-					#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 4, 0)
+					#ifdef HCP_NEW_DMA_BUF_API
 					ret = dma_buf_vmap_unlocked(cap_mblock[id].d_buf, &map);
 					#else
 					ret = dma_buf_vmap(cap_mblock[id].d_buf, &map);
 					#endif
 					if (ret) {
-						pr_info("sg_dma_address fail\n");
+						pr_info("vmap_dma_address fail\n");
 						return ret;
 					}
 					cap_mblock[id].start_virt = (void *)map.vaddr;
@@ -2107,7 +2107,7 @@ static int isp8_module_driver_allocate_working_buffer_capture(struct mtk_hcp *hc
 						PTR_ERR(attach));
 						return -1;
 					}
-					#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 4, 0)
+					#ifdef HCP_NEW_DMA_BUF_API
 					cap_mblock[id].sgt =
 						dma_buf_map_attachment_unlocked(attach, DMA_BIDIRECTIONAL);
 					#else
@@ -2123,7 +2123,7 @@ static int isp8_module_driver_allocate_working_buffer_capture(struct mtk_hcp *hc
 					}
 					cap_mblock[id].start_phys = sg_dma_address(sgt->sgl);
 					cap_mblock[id].start_dma = cap_mblock[id].start_phys;
-					#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 4, 0)
+					#ifdef HCP_NEW_DMA_BUF_API
 					ret = dma_buf_vmap_unlocked(cap_mblock[id].d_buf, &map);
 					#else
 					ret = dma_buf_vmap(cap_mblock[id].d_buf, &map);
@@ -2216,7 +2216,7 @@ static int isp8_module_driver_allocate_working_buffer_smvr(struct mtk_hcp *hcp_d
 						PTR_ERR(attach));
 						return -1;
 					}
-					#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 4, 0)
+					#ifdef HCP_NEW_DMA_BUF_API
 					smvr_mblock[id].sgt =
 						dma_buf_map_attachment_unlocked(attach, DMA_BIDIRECTIONAL);
 					#else
@@ -2232,7 +2232,7 @@ static int isp8_module_driver_allocate_working_buffer_smvr(struct mtk_hcp *hcp_d
 					}
 					smvr_mblock[id].start_phys = sg_dma_address(sgt->sgl);
 					smvr_mblock[id].start_dma = smvr_mblock[id].start_phys;
-					#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 4, 0)
+					#ifdef HCP_NEW_DMA_BUF_API
 					ret = dma_buf_vmap_unlocked(smvr_mblock[id].d_buf, &map);
 					#else
 					ret = dma_buf_vmap(smvr_mblock[id].d_buf, &map);
@@ -2299,7 +2299,8 @@ static int isp8_module_driver_allocate_working_buffer_smvr(struct mtk_hcp *hcp_d
 						PTR_ERR(attach));
 						return -1;
 					}
-					#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 4, 0)
+
+					#ifdef HCP_NEW_DMA_BUF_API
 					smvr_mblock[id].sgt =
 						dma_buf_map_attachment_unlocked(attach, DMA_BIDIRECTIONAL);
 					#else
@@ -2315,7 +2316,7 @@ static int isp8_module_driver_allocate_working_buffer_smvr(struct mtk_hcp *hcp_d
 					}
 					smvr_mblock[id].start_phys = sg_dma_address(sgt->sgl);
 					smvr_mblock[id].start_dma = smvr_mblock[id].start_phys;
-					#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 4, 0)
+					#ifdef HCP_NEW_DMA_BUF_API
 					ret = dma_buf_vmap_unlocked(smvr_mblock[id].d_buf, &map);
 					#else
 					ret = dma_buf_vmap(smvr_mblock[id].d_buf, &map);
@@ -2368,7 +2369,7 @@ static int isp8_module_driver_allocate_working_buffer_smvr(struct mtk_hcp *hcp_d
 						PTR_ERR(attach));
 						return -1;
 					}
-					#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 4, 0)
+					#ifdef HCP_NEW_DMA_BUF_API
 					smvr_mblock[id].sgt =
 						dma_buf_map_attachment_unlocked(attach, DMA_BIDIRECTIONAL);
 					#else
@@ -2384,13 +2385,13 @@ static int isp8_module_driver_allocate_working_buffer_smvr(struct mtk_hcp *hcp_d
 					}
 					smvr_mblock[id].start_phys = sg_dma_address(sgt->sgl);
 					smvr_mblock[id].start_dma = smvr_mblock[id].start_phys;
-					#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 4, 0)
+					#ifdef HCP_NEW_DMA_BUF_API
 					ret = dma_buf_vmap_unlocked(smvr_mblock[id].d_buf, &map);
 					#else
 					ret = dma_buf_vmap(smvr_mblock[id].d_buf, &map);
 					#endif
 					if (ret) {
-						pr_info("sg_dma_address fail\n");
+						pr_info("vma_dma_address fail\n");
 						return ret;
 					}
 					smvr_mblock[id].start_virt = (void *)map.vaddr;
@@ -2483,7 +2484,7 @@ int isp8_allocate_gce_working_buffer(struct mtk_hcp *hcp_dev, unsigned int mode)
 							PTR_ERR(attach));
 							return -1;
 						}
-						#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 4, 0)
+						#ifdef HCP_NEW_DMA_BUF_API
 						gmblock[g_id].sgt =
 							dma_buf_map_attachment_unlocked(attach, DMA_BIDIRECTIONAL);
 						#else
@@ -2499,7 +2500,7 @@ int isp8_allocate_gce_working_buffer(struct mtk_hcp *hcp_dev, unsigned int mode)
 						}
 						gmblock[g_id].start_phys = sg_dma_address(sgt->sgl);
 						gmblock[g_id].start_dma = gmblock[g_id].start_phys;
-						#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 4, 0)
+						#ifdef HCP_NEW_DMA_BUF_API
 						ret = dma_buf_vmap_unlocked(gmblock[g_id].d_buf, &map);
 						#else
 						ret = dma_buf_vmap(gmblock[g_id].d_buf, &map);
@@ -2560,6 +2561,7 @@ int isp8_allocate_working_buffer(struct mtk_hcp *hcp_dev, unsigned int mode, uns
 		struct mtk_hcp_streaming_reserve_mblock *mblock = NULL;
 		struct mtk_hcp_smvr_reserve_mblock *smblock = NULL;
 		struct mtk_hcp_capture_reserve_mblock *cmblock = NULL;
+		int ret = 0;
 
 		if (mode == imgsys_streaming) {
 			mblock = hcp_dev->data->mblock;
@@ -2579,16 +2581,16 @@ int isp8_allocate_working_buffer(struct mtk_hcp *hcp_dev, unsigned int mode, uns
 
 		if (mode == imgsys_streaming) {
 			pr_info("mtk_hcp: allocate streaming buffer\n");
-			isp8_module_driver_allocate_working_buffer_streaming(hcp_dev, mode, mblock);
+			ret = isp8_module_driver_allocate_working_buffer_streaming(hcp_dev, mode, mblock);
 		} else if (mode == imgsys_capture) {
 			pr_info("mtk_hcp: allocate capture buffer\n");
-			isp8_module_driver_allocate_working_buffer_capture(hcp_dev, mode, cmblock);
+			ret = isp8_module_driver_allocate_working_buffer_capture(hcp_dev, mode, cmblock);
 		} else {
 			pr_info("mtk_hcp: allocate smvr buffer\n");
-			isp8_module_driver_allocate_working_buffer_smvr(hcp_dev, mode, smblock);
+			ret = isp8_module_driver_allocate_working_buffer_smvr(hcp_dev, mode, smblock);
 		}
 
-		return 0;
+		return ret;
 }
 
 EXPORT_SYMBOL(isp8_allocate_working_buffer);
@@ -2613,7 +2615,7 @@ static void gce_release_streaming(struct kref *ref)
 		mblock->sgt = NULL;
 		return;
 	} else {
-		#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 4, 0)
+		#ifdef HCP_NEW_DMA_BUF_API
 		dma_buf_vunmap_unlocked(mblock->d_buf, &mblock->map);
 		/* free iova */
 		dma_buf_unmap_attachment_unlocked(mblock->attach, mblock->sgt, DMA_BIDIRECTIONAL);
@@ -2680,7 +2682,7 @@ static void gce_release_capture(struct kref *ref)
 		mblock->attach = NULL;
 		mblock->sgt = NULL;
 	} else {
-		#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 4, 0)
+		#ifdef HCP_NEW_DMA_BUF_API
 		dma_buf_vunmap_unlocked(mblock->d_buf, &mblock->map);
 		/* free iova */
 		dma_buf_unmap_attachment_unlocked(mblock->attach, mblock->sgt, DMA_BIDIRECTIONAL);
@@ -2751,7 +2753,7 @@ static void gce_release_smvr(struct kref *ref)
 		mblock->sgt = NULL;
 		return;
 	} else {
-		#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 4, 0)
+		#ifdef HCP_NEW_DMA_BUF_API
 		dma_buf_vunmap_unlocked(mblock->d_buf, &mblock->map);
 		/* free iova */
 		dma_buf_unmap_attachment_unlocked(mblock->attach, mblock->sgt, DMA_BIDIRECTIONAL);
@@ -3009,7 +3011,7 @@ int isp8_allocate_working_buffer(struct mtk_hcp *hcp_dev, unsigned int mode)
 					return -1;
 				}
 
-				#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 4, 0)
+				#ifdef HCP_NEW_DMA_BUF_API
 				mblock[id].sgt =
 					dma_buf_map_attachment_unlocked(attach, DMA_BIDIRECTIONAL);
 				#else
@@ -3025,7 +3027,7 @@ int isp8_allocate_working_buffer(struct mtk_hcp *hcp_dev, unsigned int mode)
 				}
 				mblock[id].start_phys = sg_dma_address(sgt->sgl);
 				mblock[id].start_dma = mblock[id].start_phys;
-				#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 4, 0)
+				#ifdef HCP_NEW_DMA_BUF_API
 				ret = dma_buf_vmap_unlocked(mblock[id].d_buf, &map);
 				#else
 				ret = dma_buf_vmap(mblock[id].d_buf, &map);
@@ -3091,7 +3093,7 @@ int isp8_allocate_working_buffer(struct mtk_hcp *hcp_dev, unsigned int mode)
 					return -1;
 				}
 
-				#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 4, 0)
+				#ifdef HCP_NEW_DMA_BUF_API
 				mblock[id].sgt =
 					dma_buf_map_attachment_unlocked(attach, DMA_BIDIRECTIONAL);
 				#else
@@ -3106,7 +3108,7 @@ int isp8_allocate_working_buffer(struct mtk_hcp *hcp_dev, unsigned int mode)
 				}
 				mblock[id].start_phys = sg_dma_address(sgt->sgl);
 				mblock[id].start_dma = mblock[id].start_phys;
-				#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 4, 0)
+				#ifdef HCP_NEW_DMA_BUF_API
 				ret = dma_buf_vmap_unlocked(mblock[id].d_buf, &map);
 				#else
 				ret = dma_buf_vmap(mblock[id].d_buf, &map);
@@ -3149,7 +3151,7 @@ int isp8_allocate_working_buffer(struct mtk_hcp *hcp_dev, unsigned int mode)
 					return -1;
 				}
 
-				#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 4, 0)
+				#ifdef HCP_NEW_DMA_BUF_API
 				mblock[id].sgt =
 					dma_buf_map_attachment_unlocked(attach, DMA_BIDIRECTIONAL);
 				#else
@@ -3164,7 +3166,7 @@ int isp8_allocate_working_buffer(struct mtk_hcp *hcp_dev, unsigned int mode)
 				}
 				mblock[id].start_phys = sg_dma_address(sgt->sgl);
 				mblock[id].start_dma = mblock[id].start_phys;
-				#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 4, 0)
+				#ifdef HCP_NEW_DMA_BUF_API
 				ret = dma_buf_vmap_unlocked(mblock[id].d_buf, &map);
 				#else
 				ret = dma_buf_vmap(mblock[id].d_buf, &map);
@@ -3214,7 +3216,7 @@ static void gce_release(struct kref *ref)
 	struct mtk_hcp_reserve_mblock *mblock =
 		container_of(ref, struct mtk_hcp_reserve_mblock, kref);
 
-	#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 4, 0)
+	#ifdef HCP_NEW_DMA_BUF_API
 	dma_buf_vunmap_unlocked(mblock->d_buf, &mblock->map);
 	/* free iova */
 	dma_buf_unmap_attachment_unlocked(mblock->attach, mblock->sgt, DMA_BIDIRECTIONAL);
@@ -3273,78 +3275,81 @@ static int isp8_module_driver_release_working_buffer_streaming(struct mtk_hcp *h
 
 	/* release reserved memory */
 	for (id = 0; id < block_num; id++) {
-		if (str_mblock[id].is_dma_buf) {
-			switch (id) {
-			case IMG_MEM_G_ID:
-					kref_put(&str_mblock[id].kref, gce_release_streaming);
-					break;
-			case WPE_MEM_C_ID:
-			case WPE_MEM_T_ID:
-			case OMC_MEM_C_ID:
-			case OMC_MEM_T_ID:
-			case DIP_MEM_C_ID:
-			case DIP_MEM_T_ID:
-			case TRAW_MEM_C_ID:
-			case TRAW_MEM_T_ID:
-			case PQDIP_MEM_C_ID:
-			case PQDIP_MEM_T_ID:
-			case ME_MEM_C_ID:
-			default:
-					if (IS_ERR(str_mblock[id].d_buf) || IS_ERR(str_mblock[id].sgt)) {
-						pr_info("streaming dma_heap_buffer_alloc already fail :%ld\n",
-							PTR_ERR(str_mblock[id].d_buf));
-						str_mblock[id].mem_priv = NULL;
-						str_mblock[id].mmap_cnt = 0;
-						str_mblock[id].start_dma = 0x0;
-						str_mblock[id].start_virt = 0x0;
-						str_mblock[id].start_phys = 0x0;
-						str_mblock[id].d_buf = NULL;
-						str_mblock[id].fd = -1;
-						str_mblock[id].pIonHandle = NULL;
-						str_mblock[id].attach = NULL;
-						str_mblock[id].sgt = NULL;
-						return -1;
-					} else {
-						#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 4, 0)
-						/* free va */
-						dma_buf_vunmap_unlocked(str_mblock[id].d_buf, &str_mblock[id].map);
-						/* free iova */
-						dma_buf_unmap_attachment_unlocked(str_mblock[id].attach,
-						str_mblock[id].sgt, DMA_BIDIRECTIONAL);
-						#else
-						/* free va */
-						dma_buf_vunmap(str_mblock[id].d_buf, &str_mblock[id].map);
-						/* free iova */
-						dma_buf_unmap_attachment(str_mblock[id].attach,
-						str_mblock[id].sgt, DMA_BIDIRECTIONAL);
-						#endif
-						dma_buf_detach(str_mblock[id].d_buf,
-						str_mblock[id].attach);
-						dma_buf_put(str_mblock[id].d_buf);
-						// close fd in user space driver, you can't close fd in kernel site
-						// dma_heap_buffer_free(mblock[id].d_buf);
-						//dma_buf_put(my_dma_buf);
-						//also can use this api, but not recommended
-						str_mblock[id].mem_priv = NULL;
-						str_mblock[id].mmap_cnt = 0;
-						str_mblock[id].start_dma = 0x0;
-						str_mblock[id].start_virt = 0x0;
-						str_mblock[id].start_phys = 0x0;
-						str_mblock[id].d_buf = NULL;
-						str_mblock[id].fd = -1;
-						str_mblock[id].pIonHandle = NULL;
-						str_mblock[id].attach = NULL;
-						str_mblock[id].sgt = NULL;
-					}
-					break;
-			}
-		} else {
+		if (!str_mblock[id].is_dma_buf) {
 			kfree(str_mblock[id].start_virt);
 			str_mblock[id].start_virt = 0x0;
 			str_mblock[id].start_phys = 0x0;
 			str_mblock[id].start_dma = 0x0;
 			str_mblock[id].mmap_cnt = 0;
+			return 0;
 		}
+
+		switch (id) {
+		case IMG_MEM_G_ID:
+				kref_put(&str_mblock[id].kref, gce_release_streaming);
+				break;
+		case WPE_MEM_C_ID:
+		case WPE_MEM_T_ID:
+		case OMC_MEM_C_ID:
+		case OMC_MEM_T_ID:
+		case DIP_MEM_C_ID:
+		case DIP_MEM_T_ID:
+		case TRAW_MEM_C_ID:
+		case TRAW_MEM_T_ID:
+		case PQDIP_MEM_C_ID:
+		case PQDIP_MEM_T_ID:
+		case ME_MEM_C_ID:
+		default:
+				if (IS_ERR(str_mblock[id].d_buf) || IS_ERR(str_mblock[id].sgt)) {
+					pr_info("streaming dma_heap_buffer_alloc already fail :%ld\n",
+						PTR_ERR(str_mblock[id].d_buf));
+					str_mblock[id].mem_priv = NULL;
+					str_mblock[id].mmap_cnt = 0;
+					str_mblock[id].start_dma = 0x0;
+					str_mblock[id].start_virt = 0x0;
+					str_mblock[id].start_phys = 0x0;
+					str_mblock[id].d_buf = NULL;
+					str_mblock[id].fd = -1;
+					str_mblock[id].pIonHandle = NULL;
+					str_mblock[id].attach = NULL;
+					str_mblock[id].sgt = NULL;
+					return -1;
+				}
+				if (str_mblock[id].fd != -1) {
+					#ifdef HCP_NEW_DMA_BUF_API
+					/* free va */
+					dma_buf_vunmap_unlocked(str_mblock[id].d_buf, &str_mblock[id].map);
+					/* free iova */
+					dma_buf_unmap_attachment_unlocked(str_mblock[id].attach,
+					str_mblock[id].sgt, DMA_BIDIRECTIONAL);
+					#else
+					/* free va */
+					dma_buf_vunmap(str_mblock[id].d_buf, &str_mblock[id].map);
+					/* free iova */
+					dma_buf_unmap_attachment(str_mblock[id].attach,
+					str_mblock[id].sgt, DMA_BIDIRECTIONAL);
+					#endif
+					dma_buf_detach(str_mblock[id].d_buf,
+					str_mblock[id].attach);
+					dma_buf_put(str_mblock[id].d_buf);
+				}
+				// close fd in user space driver, you can't close fd in kernel site
+				// dma_heap_buffer_free(mblock[id].d_buf);
+				//dma_buf_put(my_dma_buf);
+				//also can use this api, but not recommended
+				str_mblock[id].mem_priv = NULL;
+				str_mblock[id].mmap_cnt = 0;
+				str_mblock[id].start_dma = 0x0;
+				str_mblock[id].start_virt = 0x0;
+				str_mblock[id].start_phys = 0x0;
+				str_mblock[id].d_buf = NULL;
+				str_mblock[id].fd = -1;
+				str_mblock[id].pIonHandle = NULL;
+				str_mblock[id].attach = NULL;
+				str_mblock[id].sgt = NULL;
+				break;
+		}
+
 		if (hcp_dbg_enable()) {
 			pr_debug(
 				"%s: [HCP][mem_reserve-%s(%d)] phys:0x%llx, virt:0x%p,"
@@ -3359,7 +3364,7 @@ static int isp8_module_driver_release_working_buffer_streaming(struct mtk_hcp *h
 		}
 	}
 
-		return 0;
+	return 0;
 }
 
 static int isp8_module_driver_release_working_buffer_capture(struct mtk_hcp *hcp_dev,
@@ -3402,8 +3407,9 @@ static int isp8_module_driver_release_working_buffer_capture(struct mtk_hcp *hcp
 						cap_mblock[id].attach = NULL;
 						cap_mblock[id].sgt = NULL;
 						return -1;
-					} else {
-						#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 4, 0)
+					}
+					if (cap_mblock[id].fd != -1) {
+						#ifdef HCP_NEW_DMA_BUF_API
 						/* free va */
 						dma_buf_vunmap_unlocked(cap_mblock[id].d_buf, &cap_mblock[id].map);
 						/* free iova */
@@ -3419,21 +3425,21 @@ static int isp8_module_driver_release_working_buffer_capture(struct mtk_hcp *hcp
 						dma_buf_detach(cap_mblock[id].d_buf,
 							cap_mblock[id].attach);
 						dma_buf_put(cap_mblock[id].d_buf);
-						// close fd in user space driver, you can't close fd in kernel site
-						// dma_heap_buffer_free(mblock[id].d_buf);
-						//dma_buf_put(my_dma_buf);
-						//also can use this api, but not recommended
-						cap_mblock[id].mem_priv = NULL;
-						cap_mblock[id].mmap_cnt = 0;
-						cap_mblock[id].start_dma = 0x0;
-						cap_mblock[id].start_virt = 0x0;
-						cap_mblock[id].start_phys = 0x0;
-						cap_mblock[id].d_buf = NULL;
-						cap_mblock[id].fd = -1;
-						cap_mblock[id].pIonHandle = NULL;
-						cap_mblock[id].attach = NULL;
-						cap_mblock[id].sgt = NULL;
 					}
+					// close fd in user space driver, you can't close fd in kernel site
+					// dma_heap_buffer_free(mblock[id].d_buf);
+					//dma_buf_put(my_dma_buf);
+					//also can use this api, but not recommended
+					cap_mblock[id].mem_priv = NULL;
+					cap_mblock[id].mmap_cnt = 0;
+					cap_mblock[id].start_dma = 0x0;
+					cap_mblock[id].start_virt = 0x0;
+					cap_mblock[id].start_phys = 0x0;
+					cap_mblock[id].d_buf = NULL;
+					cap_mblock[id].fd = -1;
+					cap_mblock[id].pIonHandle = NULL;
+					cap_mblock[id].attach = NULL;
+					cap_mblock[id].sgt = NULL;
 					break;
 			}
 		} else {
@@ -3500,8 +3506,9 @@ static int isp8_module_driver_release_working_buffer_smvr(struct mtk_hcp *hcp_de
 						smvr_mblock[id].attach = NULL;
 						smvr_mblock[id].sgt = NULL;
 						return -1;
-					} else {
-						#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 4, 0)
+					}
+					if (smvr_mblock[id].fd != -1) {
+						#ifdef HCP_NEW_DMA_BUF_API
 						/* free va */
 						dma_buf_vunmap_unlocked(smvr_mblock[id].d_buf, &smvr_mblock[id].map);
 						/* free iova */
@@ -3517,21 +3524,21 @@ static int isp8_module_driver_release_working_buffer_smvr(struct mtk_hcp *hcp_de
 						dma_buf_detach(smvr_mblock[id].d_buf,
 						smvr_mblock[id].attach);
 						dma_buf_put(smvr_mblock[id].d_buf);
-						// close fd in user space driver, you can't close fd in kernel site
-						// dma_heap_buffer_free(mblock[id].d_buf);
-						//dma_buf_put(my_dma_buf);
-						//also can use this api, but not recommended
-						smvr_mblock[id].mem_priv = NULL;
-						smvr_mblock[id].mmap_cnt = 0;
-						smvr_mblock[id].start_dma = 0x0;
-						smvr_mblock[id].start_virt = 0x0;
-						smvr_mblock[id].start_phys = 0x0;
-						smvr_mblock[id].d_buf = NULL;
-						smvr_mblock[id].fd = -1;
-						smvr_mblock[id].pIonHandle = NULL;
-						smvr_mblock[id].attach = NULL;
-						smvr_mblock[id].sgt = NULL;
 					}
+					// close fd in user space driver, you can't close fd in kernel site
+					// dma_heap_buffer_free(mblock[id].d_buf);
+					//dma_buf_put(my_dma_buf);
+					//also can use this api, but not recommended
+					smvr_mblock[id].mem_priv = NULL;
+					smvr_mblock[id].mmap_cnt = 0;
+					smvr_mblock[id].start_dma = 0x0;
+					smvr_mblock[id].start_virt = 0x0;
+					smvr_mblock[id].start_phys = 0x0;
+					smvr_mblock[id].d_buf = NULL;
+					smvr_mblock[id].fd = -1;
+					smvr_mblock[id].pIonHandle = NULL;
+					smvr_mblock[id].attach = NULL;
+					smvr_mblock[id].sgt = NULL;
 					break;
 			}
 		} else {
@@ -3587,8 +3594,9 @@ int isp8_release_gce_working_buffer(struct mtk_hcp *hcp_dev)
 					gmblock[gid].attach = NULL;
 					gmblock[gid].sgt = NULL;
 					return -1;
-				} else {
-					#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 4, 0)
+				}
+				if (gmblock[gid].fd != -1) {
+					#ifdef HCP_NEW_DMA_BUF_API
 					/* free va */
 					dma_buf_vunmap_unlocked(gmblock[gid].d_buf, &gmblock[gid].map);
 					/* free iova */
@@ -3605,20 +3613,23 @@ int isp8_release_gce_working_buffer(struct mtk_hcp *hcp_dev)
 						gmblock[gid].attach);
 					dma_buf_end_cpu_access(gmblock[gid].d_buf, DMA_BIDIRECTIONAL);
 					dma_buf_put(gmblock[gid].d_buf);
-					gmblock[gid].mem_priv = NULL;
-					gmblock[gid].mmap_cnt = 0;
-					gmblock[gid].start_dma = 0x0;
-					gmblock[gid].start_virt = 0x0;
-					gmblock[gid].start_phys = 0x0;
-					gmblock[gid].d_buf = NULL;
-					gmblock[gid].fd = -1;
-					gmblock[gid].pIonHandle = NULL;
-					gmblock[gid].attach = NULL;
-					gmblock[gid].sgt = NULL;
-					pr_info("%s:[HCP][%s]\n",
-						__func__, gmblock[gid].name);
 				}
-				//kref_put(&gmblock[gid].kref, gce_release_token);
+				// close fd in user space driver, you can't close fd in kernel site
+				// dma_heap_buffer_free(mblock[id].d_buf);
+				//dma_buf_put(my_dma_buf);
+				//also can use this api, but not recommended
+				gmblock[gid].mem_priv = NULL;
+				gmblock[gid].mmap_cnt = 0;
+				gmblock[gid].start_dma = 0x0;
+				gmblock[gid].start_virt = 0x0;
+				gmblock[gid].start_phys = 0x0;
+				gmblock[gid].d_buf = NULL;
+				gmblock[gid].fd = -1;
+				gmblock[gid].pIonHandle = NULL;
+				gmblock[gid].attach = NULL;
+				gmblock[gid].sgt = NULL;
+				pr_info("%s:[HCP][%s]\n",
+					__func__, gmblock[gid].name);
 				break;
 		default:
 				break;
@@ -4238,7 +4249,7 @@ int isp8_release_working_buffer(struct mtk_hcp *hcp_dev)
 				kref_put(&mblock[id].kref, gce_release);
 				break;
 			default:
-				#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 4, 0)
+				#ifdef HCP_NEW_DMA_BUF_API
 				/* free va */
 				dma_buf_vunmap_unlocked(mblock[id].d_buf, &mblock[id].map);
 				/* free iova */

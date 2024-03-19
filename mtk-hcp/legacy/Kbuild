@@ -40,6 +40,16 @@ ccflags-y += -I$(DEVICE_MODULES_PATH)/drivers/misc/mediatek/include/mt-plat/$(MT
              -I$(DEVICE_MODULES_PATH)/drivers/dma-buf/heaps/ \
              -I$(DEVICE_MODULES_PATH)/drivers/iommu
 
+$(info hcp-isp-legacy DEVICE_MODULES_PATH=$(DEVICE_MODULES_PATH))
+NOTDIR_DEVICE_MODULES_PATH = $(notdir $(DEVICE_MODULES_PATH))
+$(info hcp-isp-legacy NOTDIR_DEVICE_MODULES_PATH=$(NOTDIR_DEVICE_MODULES_PATH))
+KERNEL_VERSION = $(patsubst kernel_device_modules-%,%,$(NOTDIR_DEVICE_MODULES_PATH))
+$(info hcp-isp-legacy KERNEL_VERSION=$(KERNEL_VERSION))
+
+ifeq (6.6,$(word 1,$(sort 6.6 $(KERNEL_VERSION))))
+ccflags-y += -DHCP_NEW_DMA_BUF_API
+endif
+
 $(IMGSYS_HCP_MODULE)-objs := \
 mtk-hcp.o \
 mtk-hcp_isp71.o \

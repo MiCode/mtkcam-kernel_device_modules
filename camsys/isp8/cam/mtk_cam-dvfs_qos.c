@@ -1093,12 +1093,12 @@ static void apply_raw_qos(struct mtk_cam_job *job)
 
 		if (apply_bwr) {
 			mtk_cam_bwr_set_chn_bw(&cam->bwr,
-				get_bwr_engine(raw_dev->id), get_axi_port(raw_dev->id, false),
+				get_bwr_engine(raw_dev->id), get_axi_port(raw_dev->id, true),
 				KBps_to_bwr(raw_avg_bw_r), KBps_to_bwr(raw_avg_bw_w),
 				KBps_to_bwr(raw_peak_bw_r), KBps_to_bwr(raw_peak_bw_w), true);
 
 			mtk_cam_bwr_set_chn_bw(&cam->bwr,
-				get_bwr_engine(yuv_dev->id), get_axi_port(yuv_dev->id, true),
+				get_bwr_engine(yuv_dev->id), get_axi_port(yuv_dev->id, false),
 				KBps_to_bwr(yuv_avg_bw_r), KBps_to_bwr(yuv_avg_bw_w),
 				KBps_to_bwr(yuv_peak_bw_r), KBps_to_bwr(yuv_peak_bw_w), true);
 

@@ -144,7 +144,7 @@ static struct qos_dma_desc stats_cfg_dmas[] = {
 		.dma_name = "lsci_r1",
 		.domain = RAW_DOMAIN,
 		.src_port = PORT_LSCI,
-		.dst_port = SMI_PORT_BPCI_R3,
+		.dst_port = SMI_PORT_LSCI_R1,
 	},
 	{
 		.dma_name = "aei_r1",

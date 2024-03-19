@@ -1117,6 +1117,8 @@ static void apply_raw_qos(struct mtk_cam_job *job)
 				get_bwr_engine(raw_dev->id),
 				KBps_to_bwr(a_bw_ttl), KBps_to_bwr(p_bw_ttl), true);
 
+			raw_avg_bw_r = raw_avg_bw_w = raw_peak_bw_r = raw_peak_bw_w = 0;
+			yuv_avg_bw_r = yuv_avg_bw_w = yuv_peak_bw_r = yuv_peak_bw_w = 0;
 			a_bw_ttl = p_bw_ttl = 0;
 		}
 	}

@@ -54,14 +54,12 @@ const unsigned int mtk_imgsys_wpe_base_ofst[] = {0x0, 0x300000, 0x400000};
 
 const struct mtk_imgsys_init_array
 			mtk_imgsys_wpe_init_ary[] = {
-#if 0
 	{0x0014, 0x80000000}, /* WPE_TOP_CTL_INT_EN, en w-clr */
 	{0x001C, 0xFFFFFFFF}, /* WPE_TOP_CTL_INT_STATUSX, w-clr */
 	{0x00C8, 0x80000000}, /* WPE_TOP_CQ_IRQ_EN, en w-clr */
 	{0x00D8, 0xFFFFFFFF}, /* WPE_TOP_CQ_IRQ_STX, w-clr */
 	{0x00E0, 0xFFFFFFFF}, /* WPE_TOP_CQ_IRQ_STX2, w-clr */
 	{0x00E8, 0xFFFFFFFF}, /* WPE_TOP_CQ_IRQ_STX3, w-clr */
-#endif
 	{0x0118, 0x080A0A82}, /* WPE_TOP_STG_CTL */
 	{0x011C, 0x00002001}, /* WPE_TOP_STG_CTL_RANGE_UD */
 	{0x0124, 0x00010010}, /* WPE_TOP_STG_CTL_RANGE_LR */

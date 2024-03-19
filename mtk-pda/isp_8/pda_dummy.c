@@ -47,7 +47,7 @@ void pda_mmqos_init(struct device *pdev)
 {
 }
 
-void pda_mmqos_bw_set(struct PDA_HW_Register_Group *PDA_HW_Register)
+void pda_mmqos_bw_set(struct PDA_Data_t *pda_Pdadata)
 {
 }
 

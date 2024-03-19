@@ -2138,7 +2138,7 @@ static long PDA_Ioctl(struct file *a_pstFile,
 		}
 
 #ifdef PDA_MMQOS
-		pda_mmqos_bw_set(&g_pda_Pdadata.PDA_HW_Register);
+		pda_mmqos_bw_set(&g_pda_Pdadata);
 #endif
 
 		// buffer control

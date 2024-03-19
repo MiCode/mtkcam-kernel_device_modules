@@ -19,6 +19,7 @@
 #include <linux/clk-provider.h>
 #include "adaptor-i2c.h"
 #include <linux/mutex.h>
+#include <linux/atomic.h>
 
 static DEFINE_MUTEX(PmicMutex);
 #define DEF_MCLK_FREQ 24
@@ -43,7 +44,7 @@ static const char * const state_names[] = {
 	ADAPTOR_STATE_NAMES
 };
 
-static int pmic_wake_en;
+atomic_t pmic_wake_en = ATOMIC_INIT(0);
 static struct clk *get_clk_by_idx_freq(struct adaptor_ctx *ctx,
 				unsigned long long idx, int freq, int ulposc)
 {
@@ -431,7 +432,8 @@ int adaptor_cam_pmic_on(struct adaptor_ctx *ctx)
 	unsigned long long ret;
 
 	mutex_lock(&PmicMutex);
-	pmic_wake_en = 1;
+	atomic_inc(&pmic_wake_en);
+	ctx->pmic_on = 1;
 	adaptor_logi(ctx, "pmic_wake_en = true\n");
 	ret = do_cam_pmic_on(ctx);
 	mutex_unlock(&PmicMutex);
@@ -454,8 +456,8 @@ int adaptor_pmic_ctrl(struct adaptor_ctx *ctx, bool bPmicEnable)
 	unsigned long long pmic_timedffus;
 	mutex_lock(&PmicMutex);
 
-	adaptor_logi(ctx, "[%s]+ bPmicEnable:%d, pmic_enable_cnt:%d+\n", __func__, bPmicEnable,
-	pmic_enable_cnt);
+	adaptor_logi(ctx, "[%s]+ bPmicEnable:%d, pmic_enable_cnt:%d ctx_pmic_on:%d+\n",
+	__func__, bPmicEnable, pmic_enable_cnt, ctx->pmic_on);
 	if (ctx->pmic_delayus == 0) {
 		adaptor_logi(ctx, "add extra delay to every sensor driver. pmic_delayus:%llu\n",
 			ctx->pmic_delayus);
@@ -464,7 +466,7 @@ int adaptor_pmic_ctrl(struct adaptor_ctx *ctx, bool bPmicEnable)
 	}
 	if (bPmicEnable) {
 		if (pmic_enable_cnt == 0) {
-			if (pmic_wake_en) {
+			if ((atomic_read(&pmic_wake_en) && (ctx->pmic_on == 1))) {
 				ctx->first_sensor_power_on_tick = ktime_get_boottime_ns();
 				pmic_timedffus = (ctx->first_sensor_power_on_tick -
 				ctx->pmic_on_tick)/1000;
@@ -497,14 +499,15 @@ int adaptor_pmic_ctrl(struct adaptor_ctx *ctx, bool bPmicEnable)
 	} else {
 		do_cam_pmic_off(ctx);
 		pmic_enable_cnt--;
+		ctx->pmic_on = 0;
 		if (pmic_enable_cnt == 0) {
-			pmic_wake_en = 0;
+			atomic_dec(&pmic_wake_en);
 			adaptor_logi(ctx, "pmic_enable_cnt:%d pmic_wake_en:%d\n",
-				pmic_enable_cnt, pmic_wake_en);
+				pmic_enable_cnt, atomic_read(&pmic_wake_en));
 		}
 	}
-	adaptor_logi(ctx, "[%s]- bPmicEnable:%d, pmic_enable_cnt:%d-\n", __func__, bPmicEnable,
-	pmic_enable_cnt);
+	adaptor_logi(ctx, "[%s]- bPmicEnable:%d, pmic_enable_cnt:%d ctx_pmic_on:%d-\n",
+	__func__, bPmicEnable, pmic_enable_cnt, ctx->pmic_on);
 	mutex_unlock(&PmicMutex);
 	return 0;
 }

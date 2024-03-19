@@ -166,6 +166,7 @@ struct adaptor_ctx {
 	unsigned long long pmic_on_tick;
 	unsigned long long first_sensor_power_on_tick;
 	unsigned long long pmic_delayus;
+	bool pmic_on;
 
 	/* seninf info */
 	int seninf_idx;

@@ -2745,9 +2745,18 @@ int mtk_cam_ctrl_notify_hw_hang(struct mtk_cam_device *cam,
 {
 	unsigned int ctx_id = ctx_from_fh_cookie(inner_cookie);
 	struct mtk_cam_ctrl *ctrl = &cam->ctxs[ctx_id].cam_ctrl;
+	struct mtk_cam_job *job;
 
 	dev_info(cam->dev, "%s: warn. eng %d-%d seq 0x%x\n",
 		 __func__, engine_type, engine_id, inner_cookie);
+
+	/* mark err frame */
+	job = mtk_cam_ctrl_get_job(ctrl, cond_frame_no_belong, &inner_cookie);
+	if (job && is_dc_mode(job)) {
+		job->is_error = 1;
+		mtk_cam_job_put(job);
+		dev_info(cam->dev, "%s:mark error frame(seq 0x%x)\n", __func__, inner_cookie);
+	}
 
 	/*
 	 * count frames before doing recovery to avoid various hw timing.

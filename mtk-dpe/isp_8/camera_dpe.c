@@ -51,6 +51,7 @@
 /*#include <mach/hardware.h>*/
 /* #include <mach/mt6593_pll.h> */
 #include "camera_dpe.h"
+#include "mtk_cam-bwr.h"
 /*#include <mach/irqs.h>*/
 /* #include <mach/mt_reg_base.h> */
 /* #if IS_ENABLED(CONFIG_MTK_LEGACY) */
@@ -70,6 +71,7 @@
 //#include <linux/soc/mediatek/mtk-cmdq.h>
 #include <soc/mediatek/smi.h>
 #include<soc/mediatek/mmdvfs_v3.h>
+#include "mtk-interconnect.h"
 #include "iommu_debug.h"
 #include "mtk-smmu-v3.h"
 #include "mtk_imgsys_frm_sync.h"
@@ -164,6 +166,29 @@ struct DPE_CLK_STRUCT {
 
 struct DPE_CLK_STRUCT dpe_clk;
 #endif
+
+// mmqos relate
+static const char * const mmqos_dpe_names_rdma[] = {
+	"l19_dvs_rd_p4",
+	"l19_dvp_rd_p6",
+	"l19_dvgf_rd_p10"
+};
+#define DPE_MMQOS_RDMA_NUM ARRAY_SIZE(mmqos_dpe_names_rdma)
+struct icc_path *icc_path_dpe_rdma[DPE_MMQOS_RDMA_NUM];
+
+static const char * const mmqos_dpe_names_wdma[] = {
+	"l19_dvs_wt_p5",
+	"l19_dvp_wt_p7",
+	"l19_dvgf_wt_p11"
+};
+#define DPE_MMQOS_WDMA_NUM ARRAY_SIZE(mmqos_dpe_names_wdma)
+struct icc_path *icc_path_dpe_wdma[DPE_MMQOS_WDMA_NUM];
+
+static unsigned int g_dvs_rdma_ttl_bw, g_dvs_wdma_ttl_bw;
+static unsigned int g_dvp_rdma_ttl_bw, g_dvp_wdma_ttl_bw;
+static unsigned int g_dvgf_rdma_ttl_bw, g_dvgf_wdma_ttl_bw;
+
+struct mtk_bwr_device *dpe_bwr_device;
 
 #ifndef MTRUE
 #define MTRUE 1
@@ -324,6 +349,7 @@ static int nr_DPE_devs;
 #ifdef SMI_CLK
 struct platform_device *DPE_pdev;
 #endif
+
 
 struct device *gdev;
 struct device *smmudev;
@@ -5252,6 +5278,8 @@ signed int CmdqDPEHW(struct frame *frame)
 	unsigned int w_imgi, h_imgi, w_mvio, h_mvio, w_bvo, h_bvo;
 	unsigned int dma_bandwidth, trig_num;
 #endif
+	unsigned int frame_w = 0, frame_h = 0;
+	unsigned int rdma_bandwidth = 0, wdma_bandwidth = 0;
 	//int cmd_cnt = 0;
 
 	//LOG_INF("%s CmdqtoHw start", __func__);
@@ -5328,6 +5356,11 @@ signed int CmdqDPEHW(struct frame *frame)
 		if (result != 0)
 			return -1;
 		pDpeConfig->DPE_MODE = 1;
+
+		frame_w = pDpeUserConfig->Dpe_DVSSettings.frm_width;
+		frame_h = pDpeUserConfig->Dpe_DVSSettings.frm_height;
+		rdma_bandwidth = (((frame_w * frame_h * 2) + (frame_w * frame_h / 4)) * 2) * 30 / 1000000;
+		wdma_bandwidth = ((frame_w * frame_h * 2) + (frame_w * frame_h / 4 * 2)) * 30 / 1000000;
 	} else if (pDpeUserConfig->Dpe_engineSelect == MODE_DVP_ONLY) {
 		if (pDpeUserConfig->Dpe_DVPSettings.frm_width == 0) {
 			LOG_ERR("DVP frm_width =%d ", pDpeUserConfig->Dpe_DVPSettings.frm_width);
@@ -5337,6 +5370,12 @@ signed int CmdqDPEHW(struct frame *frame)
 		if (result != 0)
 			return -1;
 		pDpeConfig->DPE_MODE = 2;
+
+		frame_w = pDpeUserConfig->Dpe_DVPSettings.frm_width;
+		frame_h = pDpeUserConfig->Dpe_DVPSettings.frm_height;
+		rdma_bandwidth = ((frame_w * frame_h * 2) + (frame_w * frame_h / 2)) * 30 / 1000000;
+		wdma_bandwidth = frame_w * frame_h * 30 / 1000000;
+
 	} else if (pDpeUserConfig->Dpe_engineSelect == MODE_DVGF_ONLY) {
 		if (pDpeUserConfig->Dpe_DVGFSettings.frm_width == 0) {
 			LOG_ERR("DVGF frm_width =%d ", pDpeUserConfig->Dpe_DVGFSettings.frm_width);
@@ -5346,6 +5385,11 @@ signed int CmdqDPEHW(struct frame *frame)
 		if (result != 0)
 			return -1;
 		pDpeConfig->DPE_MODE = 3;
+
+		frame_w = pDpeUserConfig->Dpe_DVGFSettings.frm_width;
+		frame_h = pDpeUserConfig->Dpe_DVGFSettings.frm_height;
+		rdma_bandwidth = ((frame_w * frame_h * 5) + (frame_w * frame_h / 2 * 2)) * 30 / 1000000;
+		wdma_bandwidth = frame_w * frame_h * 2 * 30 / 1000000;
 	}
 
 	if (DPE_debug_log_en == 1) {
@@ -5810,6 +5854,64 @@ for (k = 0;k < enq_out_data_size;k++) {
 			(w_bvo * h_bvo)) * trig_num * 30 / 1000000;
 	cmdq_task_update_property(handle, &dma_bandwidth, sizeof(unsigned int));
 #endif
+
+	// MMQOS set bw
+	if (pDpeConfig->DPE_MODE == 1) /* DVS ONLY MODE */ {
+		if (g_dvs_rdma_ttl_bw == 0 || g_dvs_wdma_ttl_bw == 0) {
+			g_dvs_rdma_ttl_bw = (unsigned int)(rdma_bandwidth);
+			if (icc_path_dpe_rdma[0]) {
+				mtk_icc_set_bw(icc_path_dpe_rdma[0],
+					(int)(rdma_bandwidth*1000), 0);
+			}
+			g_dvs_wdma_ttl_bw = (unsigned int)(wdma_bandwidth);
+			if (icc_path_dpe_wdma[0]) {
+				mtk_icc_set_bw(icc_path_dpe_wdma[0],
+					(int)(wdma_bandwidth*1000), 0);
+			}
+			// larb19 setting
+			mtk_cam_bwr_set_chn_bw(dpe_bwr_device, ENGINE_DPE, DISP_PORT,
+				(int)(g_dvs_rdma_ttl_bw), (int)(g_dvs_wdma_ttl_bw), 0, 0, false);
+			mtk_cam_bwr_set_ttl_bw(dpe_bwr_device, ENGINE_DPE,
+				(int)(g_dvs_rdma_ttl_bw + g_dvs_wdma_ttl_bw), 0, false);
+		}
+	} else if (pDpeConfig->DPE_MODE == 3) {
+		if (g_dvgf_rdma_ttl_bw == 0 || g_dvgf_wdma_ttl_bw == 0) {
+			g_dvgf_rdma_ttl_bw = (unsigned int)(rdma_bandwidth);
+			if (icc_path_dpe_rdma[2]) {
+				mtk_icc_set_bw(icc_path_dpe_rdma[2],
+					(int)(rdma_bandwidth*1000), 0);
+			}
+			g_dvgf_wdma_ttl_bw = (unsigned int)(wdma_bandwidth);
+			if (icc_path_dpe_wdma[2]) {
+				mtk_icc_set_bw(icc_path_dpe_wdma[2],
+					(int)(wdma_bandwidth*1000), 0);
+			}
+			// larb19 setting
+			mtk_cam_bwr_set_chn_bw(dpe_bwr_device, ENGINE_DPE, DISP_PORT,
+				(int)(g_dvgf_rdma_ttl_bw), (int)(g_dvgf_wdma_ttl_bw), 0, 0, false);
+			mtk_cam_bwr_set_ttl_bw(dpe_bwr_device, ENGINE_DPE,
+				(int)(g_dvgf_rdma_ttl_bw + g_dvgf_wdma_ttl_bw), 0, false);
+		}
+	} else {
+		if (g_dvp_rdma_ttl_bw == 0 || g_dvp_wdma_ttl_bw == 0) {
+			g_dvgf_rdma_ttl_bw = (unsigned int)(rdma_bandwidth);
+			if (icc_path_dpe_rdma[1]) {
+				mtk_icc_set_bw(icc_path_dpe_rdma[1],
+					(int)(rdma_bandwidth*1000), 0);
+			}
+			g_dvp_wdma_ttl_bw = (unsigned int)(wdma_bandwidth);
+			if (icc_path_dpe_wdma[1]) {
+				mtk_icc_set_bw(icc_path_dpe_wdma[1],
+					(int)(wdma_bandwidth*1000), 0);
+			}
+			// larb19 setting
+			mtk_cam_bwr_set_chn_bw(dpe_bwr_device, ENGINE_DPE, DISP_PORT,
+				(int)(g_dvp_rdma_ttl_bw), (int)(g_dvp_wdma_ttl_bw), 0, 0, false);
+			mtk_cam_bwr_set_ttl_bw(dpe_bwr_device, ENGINE_DPE,
+				(int)(g_dvp_rdma_ttl_bw + g_dvp_wdma_ttl_bw), 0, false);
+		}
+	}
+
 	/* non-blocking API, Please  use cmdqRecFlushAsync() */
 	//cmdq_task_flush_async_destroy(handle);
 	/* flush and destroy in cmdq */
@@ -5868,6 +5970,28 @@ void cmdq_pm_qos_stop(struct TaskStruct *task, struct TaskStruct *task_list[],
 	LOG_DBG("- PMQOS Bandwidth : %d\n", 0);
 }
 #endif
+
+void dpe_mmqos_init(struct device *pdev)
+{
+	int i = 0;
+
+	// get interconnect path for MMQOS
+	for (i = 0; i < DPE_MMQOS_RDMA_NUM; ++i) {
+		LOG_INF("rdma index: %d, mmqos name: %s\n", i, mmqos_dpe_names_rdma[i]);
+		icc_path_dpe_rdma[i] = of_mtk_icc_get(pdev, mmqos_dpe_names_rdma[i]);
+	}
+	for (i = 0; i < DPE_MMQOS_WDMA_NUM; ++i) {
+		LOG_INF("wdma index: %d, mmqos name: %s\n", i, mmqos_dpe_names_wdma[i]);
+		icc_path_dpe_wdma[i] = of_mtk_icc_get(pdev, mmqos_dpe_names_wdma[i]);
+	}
+
+	g_dvs_rdma_ttl_bw = 0;
+	g_dvs_wdma_ttl_bw = 0;
+	g_dvp_rdma_ttl_bw = 0;
+	g_dvp_wdma_ttl_bw = 0;
+	g_dvgf_rdma_ttl_bw = 0;
+	g_dvgf_wdma_ttl_bw = 0;
+}
 
 unsigned int Compute_Para(struct DPE_Config_ISP8 *pDpeConfig,
 	unsigned int tile_occ_width)
@@ -6478,6 +6602,8 @@ static inline int DPE_Prepare_Enable_ccf_clock(void)
 		// return ret;
 	// }
 
+	mtk_cam_bwr_enable(dpe_bwr_device);
+
 	ret = clk_prepare_enable(dpe_clk.CLK_CK2_DPE_SEL);
 	if (ret)
 		LOG_INF("cannot prepare and enable CLK_CK2_DPE_SEL clock\n");
@@ -6519,6 +6645,8 @@ static inline void DPE_Disable_Unprepare_ccf_clock(void)
 	clk_disable_unprepare(dpe_clk.CLK_CAMSYS_IPE_DPE_CAMERA_P2);
 	clk_disable_unprepare(dpe_clk.CLK_CAM_MAIN_CAM);
 	clk_disable_unprepare(dpe_clk.CLK_CK2_DPE_SEL);
+
+	mtk_cam_bwr_disable(dpe_bwr_device);
 
 	pm_runtime_put_sync(gdev);
 	// mtk_mmdvfs_enable_vcp(false, VCP_PWR_USR_CAM);
@@ -7833,6 +7961,13 @@ static signed int DPE_open(struct inode *pInode, struct file *pFile)
 
 	spin_unlock(&(DPEInfo.SpinLockFD));
 
+	g_dvs_rdma_ttl_bw = 0;
+	g_dvs_wdma_ttl_bw = 0;
+	g_dvp_rdma_ttl_bw = 0;
+	g_dvp_wdma_ttl_bw = 0;
+	g_dvgf_rdma_ttl_bw = 0;
+	g_dvgf_wdma_ttl_bw = 0;
+
 	/* Enable clock */
 	LOG_INF("DPE OPNE CLK UserCount: %d\n", DPEInfo.UserCount);
 	DPE_EnableClock(MTRUE);
@@ -7860,6 +7995,7 @@ static signed int DPE_release(struct inode *pInode, struct file *pFile)
 {
 	struct DPE_USER_INFO_STRUCT *pUserInfo;
 	struct group token_group;
+	int i = 0;
 	/*unsigned int Reg;*/
 	LOG_DBG("- E. release UserCount: %d.", DPEInfo.UserCount);
 	/*  */
@@ -7893,6 +8029,19 @@ static signed int DPE_release(struct inode *pInode, struct file *pFile)
 		DPEInfo.UserCount, current->comm, current->pid, current->tgid);
 
 	mutex_unlock(&(MutexDPERef));
+
+	// MMQOS reset bw
+	for (i = 0; i < DPE_MMQOS_RDMA_NUM; ++i) {
+		if (icc_path_dpe_rdma[i])
+			mtk_icc_set_bw(icc_path_dpe_rdma[i], 0, 0);
+	}
+	for (i = 0; i < DPE_MMQOS_WDMA_NUM; ++i) {
+		if (icc_path_dpe_wdma[i])
+			mtk_icc_set_bw(icc_path_dpe_wdma[i], 0, 0);
+	}
+
+	// larb19 setting
+	mtk_cam_bwr_clr_bw(dpe_bwr_device, ENGINE_DPE, DISP_PORT);
 
 	cmdq_mbox_disable(dpe_clt->chan);
 	/* Disable clock. */
@@ -8641,6 +8790,12 @@ if (DPE_dev->irq > 0) {
 // #endif
 #endif
 #endif
+
+		dpe_mmqos_init(&pDev->dev);
+
+		//get bwr device
+		dpe_bwr_device = mtk_cam_bwr_get_dev(pDev);
+
 		/* Create class register */
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 4, 0)
 		pDPEClass = class_create("DPEdrv");

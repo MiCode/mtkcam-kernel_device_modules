@@ -4371,9 +4371,10 @@ int mtk_cam_seninf_aov_runtime_resume(unsigned int sensor_id,
 	core->pwr_refcnt_for_aov--;
 	if (core->pwr_refcnt_for_aov < 0) {
 		dev_info(ctx->dev,
-			"[%s] please check aov_deinit times?(%d)\n",
+			"[%s] please check aov_deinit times?(%d), reset to zero\n",
 			__func__,
 			core->pwr_refcnt_for_aov);
+		core->pwr_refcnt_for_aov = 0;
 		mutex_unlock(&core->mutex);
 		return -ENODEV;
 	}

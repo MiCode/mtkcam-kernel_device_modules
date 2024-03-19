@@ -18,6 +18,9 @@
 #include "adaptor-util.h"
 #include <linux/clk-provider.h>
 #include "adaptor-i2c.h"
+#include <linux/mutex.h>
+
+static DEFINE_MUTEX(PmicMutex);
 
 #define INST_OPS(__ctx, __field, __idx, __hw_id, __set, __unset) do {\
 	if (__ctx->__field[__idx]) { \
@@ -410,9 +413,14 @@ int do_cam_pmic_on(struct adaptor_ctx *ctx)
 
 int adaptor_cam_pmic_on(struct adaptor_ctx *ctx)
 {
+	unsigned long long ret;
+
+	mutex_lock(&PmicMutex);
 	pmic_wake_en = 1;
 	adaptor_logi(ctx, "pmic_wake_en = true\n");
-	return do_cam_pmic_on(ctx);
+	ret = do_cam_pmic_on(ctx);
+	mutex_unlock(&PmicMutex);
+	return ret;
 }
 
 int do_cam_pmic_off(struct adaptor_ctx *ctx)
@@ -429,12 +437,14 @@ int adaptor_pmic_ctrl(struct adaptor_ctx *ctx, bool bPmicEnable)
 {
 	static int pmic_enable_cnt;
 	unsigned long long pmic_timedffus;
+	mutex_lock(&PmicMutex);
 
 	adaptor_logi(ctx, "[%s]+ bPmicEnable:%d, pmic_enable_cnt:%d+\n", __func__, bPmicEnable,
 	pmic_enable_cnt);
 	if (ctx->pmic_delayus == 0) {
 		adaptor_logi(ctx, "add extra delay to every sensor driver. pmic_delayus:%llu\n",
 			ctx->pmic_delayus);
+		mutex_unlock(&PmicMutex);
 		return 0;
 	}
 	if (bPmicEnable) {
@@ -480,6 +490,7 @@ int adaptor_pmic_ctrl(struct adaptor_ctx *ctx, bool bPmicEnable)
 	}
 	adaptor_logi(ctx, "[%s]- bPmicEnable:%d, pmic_enable_cnt:%d-\n", __func__, bPmicEnable,
 	pmic_enable_cnt);
+	mutex_unlock(&PmicMutex);
 	return 0;
 }
 

@@ -2593,7 +2593,9 @@ int mtk_cam_ctrl_dump_request(struct mtk_cam_device *cam,
 		goto SKIP_SCHEDULE_WORK;
 	}
 
-	if (ctrl->hw_hang_count_down != 0) {
+	/* hw hang is notified and waiting raw hang */
+	if (ctrl->hw_hang_count_down != 0 && !strcmp(desc, MSG_DC_SKIP_FRAME)) {
+		ctrl->hw_hang_count_down = 1;
 		mtk_cam_ctrl_put(ctrl);
 		complete(&wd->work_complete);
 		goto SKIP_SCHEDULE_WORK;
@@ -2625,6 +2627,6 @@ int mtk_cam_ctrl_notify_hw_hang(struct mtk_cam_device *cam,
 	 * count frames before doing recovery to avoid various hw timing.
 	 * 'set 2 to enable recovery'
 	 */
-	ctrl->hw_hang_count_down = (disable_recover_flow) ? 0 : 5;
+	ctrl->hw_hang_count_down = (disable_recover_flow) ? 0 : 20;
 	return 0;
 }

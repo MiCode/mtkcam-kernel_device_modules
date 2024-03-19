@@ -18,11 +18,13 @@
 #include "mtk_cam-bwr_regs.h"
 #include "mtk_cam-debug_option.h"
 
-static int debug_bwr_mode = 0x7ff;
+#define BWR_ENGINES   0x7FF
+
+static int debug_bwr_mode = BWR_ENGINES;
 module_param(debug_bwr_mode, int, 0644);
 MODULE_PARM_DESC(debug_bwr_mode, "0: sw mode, 0x7ff: all engine hw mode");
 
-static int debug_bwr_eng_filter = 0x7ff;
+static int debug_bwr_eng_filter = BWR_ENGINES;
 module_param(debug_bwr_eng_filter, int, 0644);
 MODULE_PARM_DESC(debug_bwr_eng_filter, "debug bwr engine channel bw");
 
@@ -42,14 +44,10 @@ MODULE_PARM_DESC(debug_bwr_eng_filter, "debug bwr engine channel bw");
 #define BWR_HRT_BW_OCC_FACTOR        181  //1.42
 
 //unit : MB/s
-#define BWR_DEFAULT_DPE_SRT_R        537
-#define BWR_DEFAULT_DPE_SRT_W        234
-#define BWR_DEFAULT_PDA_SRT_R        258
-#define BWR_DEFAULT_PDA_SRT_W        39
-#define BWR_DEFAULT_UISP_SRT_R       3
-#define BWR_DEFAULT_UISP_SRT_W       231
-#define BWR_DEFAULT_UISP_HRT_R       1
-#define BWR_DEFAULT_UISP_HRT_W       7
+#define BWR_DEFAULT_UISP_SRT_R       1
+#define BWR_DEFAULT_UISP_SRT_W       7
+#define BWR_DEFAULT_UISP_HRT_R       3
+#define BWR_DEFAULT_UISP_HRT_W       231
 
 /* workaround */
 #define BWR_CAM_PROTOCOL0		0x3100020
@@ -352,7 +350,7 @@ static int bwr_start(struct mtk_bwr_device *bwr)
 	for (i = 0; i < NUM_BW_CHANNEL ; ++i) {
 		writel(debug_bwr_mode,
 			bwr->base + REG_BWR_CAM_SRT_TTL_BW_QOS_SEL + CHANNEL_OFFSET * i);
-		writel(debug_bwr_mode,
+		writel(~debug_bwr_mode & BWR_ENGINES,
 			bwr->base + REG_BWR_CAM_SRT_TTL_SW_QOS_EN + CHANNEL_OFFSET * i);
 	}
 

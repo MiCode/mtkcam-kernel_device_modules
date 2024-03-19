@@ -102,6 +102,15 @@ struct sv_dma_th_setting {
 	u32 cq2_dvfs_th;
 };
 
+struct sv_dma_bw_setting {
+	u32 urgent_high;
+	u32 urgent_low;
+	u32 ultra_high;
+	u32 ultra_low;
+	u32 pultra_high;
+	u32 pultra_low;
+};
+
 struct mraw_dma_th_setting {
 	u32 urgent_th;
 	u32 ultra_th;
@@ -173,7 +182,7 @@ struct plat_v4l2_data {
 	int (*set_sv_meta_stats_info)(int ipi_id, void *addr, struct dma_info *info);
 	int (*get_sv_dma_th_setting)(unsigned int dev_id, unsigned int fifo_img_p1,
 		unsigned int fifo_img_p2, unsigned int fifo_len_p1, unsigned int fifo_len_p2,
-		struct sv_dma_th_setting *th_setting);
+		struct sv_dma_th_setting *th_setting, struct sv_dma_bw_setting *bw_setting);
 	int (*get_sv_max_pixel_mode)(unsigned int dev_id, unsigned int *max_pixel_mode);
 	int (*get_sv_smi_setting)(unsigned int dev_id, unsigned int *is_two_smi_out);
 	int (*get_single_sv_opp_idx)(unsigned int *opp_idx);

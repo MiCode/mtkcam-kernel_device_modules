@@ -32,6 +32,19 @@
 static int debug_cam_sv;
 module_param(debug_cam_sv, int, 0644);
 
+static int urgent_high;
+module_param(urgent_high, int, 0644);
+static int urgent_low;
+module_param(urgent_low, int, 0644);
+static int ultra_high;
+module_param(ultra_high, int, 0644);
+static int ultra_low;
+module_param(ultra_low, int, 0644);
+static int pultra_high;
+module_param(pultra_high, int, 0644);
+static int pultra_low;
+module_param(pultra_low, int, 0644);
+
 static int debug_ddren_camsv_hw_mode;
 module_param(debug_ddren_camsv_hw_mode, int, 0644);
 MODULE_PARM_DESC(debug_ddren_camsv_hw_mode, "debug: 1 : active camsv hw mode");
@@ -519,12 +532,21 @@ int mtk_cam_sv_dmao_common_config(struct mtk_camsv_device *sv_dev,
 {
 	int ret = 0;
 	struct sv_dma_th_setting th_setting;
+	struct sv_dma_bw_setting bw_setting;
 
 	memset(&th_setting, 0, sizeof(struct sv_dma_th_setting));
+	memset(&bw_setting, 0, sizeof(struct sv_dma_bw_setting));
+
+	bw_setting.urgent_high = urgent_high;
+	bw_setting.urgent_low = urgent_low;
+	bw_setting.ultra_high = ultra_high;
+	bw_setting.ultra_low = ultra_low;
+	bw_setting.pultra_high =  pultra_high;
+	bw_setting.pultra_low = pultra_low;
 
 	CALL_PLAT_V4L2(
 		get_sv_dma_th_setting, sv_dev->id, fifo_img_p1, fifo_img_p2,
-		fifo_len_p1, fifo_len_p2, &th_setting);
+		fifo_len_p1, fifo_len_p2, &th_setting, &bw_setting);
 
 	switch (sv_dev->id) {
 	case CAMSV_0:

@@ -127,6 +127,11 @@ ccflags-y += -DCAMSYS_ISP8_MT6991
 $(CAM_MODULE)-objs += mtk_cam-plat-mt6991.o
 endif
 
+ifneq ($(wildcard $(PLATFORM_PATH)/mtk_cam-plat-mt6899.c),)
+ccflags-y += -DCAMSYS_ISP8_MT6899
+$(CAM_MODULE)-objs += mtk_cam-plat-mt6899.o
+endif
+
 ifeq (6.6,$(word 1,$(sort 6.6 $(KERNEL_VERSION))))
 ccflags-y += -DNEW_DMA_BUF_API
 endif

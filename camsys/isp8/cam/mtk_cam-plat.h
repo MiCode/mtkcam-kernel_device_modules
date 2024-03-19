@@ -244,6 +244,10 @@ void set_platform_data(const struct camsys_platform_data *platform_data);
 	extern struct camsys_platform_data mt6991_data;
 #endif
 
+#ifdef CAMSYS_ISP8_MT6899
+	extern struct camsys_platform_data mt6899_data;
+#endif
+
 #define FIFO_THRESHOLD(FIFO_SIZE, HEIGHT_RATIO, LOW_RATIO) \
 	(((FIFO_SIZE * HEIGHT_RATIO) & 0xFFF) << 16 | \
 	((FIFO_SIZE * LOW_RATIO) & 0xFFF))

@@ -741,6 +741,7 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.coarse_integ_step = 4,
 		.framelength_step = 4*2,
 		.multi_exposure_shutter_range[IMGSENSOR_EXPOSURE_ME].max = 2550 *2,
+		.multi_exposure_shutter_range[IMGSENSOR_EXPOSURE_LE].max = 0xFFFFF *2,
 		.imgsensor_winsize_info = {
 			.full_w = 9248,
 			.full_h = 6944,

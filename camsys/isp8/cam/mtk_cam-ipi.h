@@ -155,6 +155,7 @@ enum dc_path_type {
 	DC_SLB_EMI,
 	DC_SLB_DEDICATED_PORT,
 	DC_SLC,
+	DC_SLC_DISCARD,
 };
 
 struct mtkcam_ipi_dcif_ring_param {

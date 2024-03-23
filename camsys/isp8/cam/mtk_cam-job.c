@@ -5446,7 +5446,10 @@ static int update_slc_info_to_ipi_frame(struct req_buffer_helper *helper)
 {
 	/* update slc info */
 	if (helper->job->src_ctx->slc_data_valid) {
-		helper->fp->dcif_param.dc_path_type = DC_SLC;
+		u8 slc_mode = helper->job->src_ctx->ctrldata.slc_mode;
+
+		helper->fp->dcif_param.dc_path_type =
+			(slc_mode == SLC_WITH_DISCARD) ? DC_SLC_DISCARD : DC_SLC;
 		pr_info("[%s] path_type:%d",
 			__func__, helper->fp->dcif_param.dc_path_type);
 	}

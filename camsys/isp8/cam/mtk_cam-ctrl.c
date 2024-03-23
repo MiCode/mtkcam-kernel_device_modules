@@ -2752,16 +2752,20 @@ int mtk_cam_ctrl_notify_hw_hang(struct mtk_cam_device *cam,
 
 	/* mark err frame */
 	job = mtk_cam_ctrl_get_job(ctrl, cond_frame_no_belong, &inner_cookie);
-	if (job && is_dc_mode(job)) {
-		job->is_error = 1;
-		mtk_cam_job_put(job);
-		dev_info(cam->dev, "%s:mark error frame(seq 0x%x)\n", __func__, inner_cookie);
-	}
+	if (!job)
+		return 0;
 
-	/*
-	 * count frames before doing recovery to avoid various hw timing.
-	 * 'set 2 to enable recovery'
-	 */
-	ctrl->hw_hang_count_down = (disable_recover_flow) ? 0 : 20;
+	if (is_dc_mode(job)) {
+		job->is_error = 1;
+		dev_info(cam->dev, "%s:mark error frame(seq 0x%x)\n", __func__, inner_cookie);
+
+		/*
+		 * count frames before doing recovery to avoid various hw timing.
+		 * 'set 2 to enable recovery'
+		 */
+		ctrl->hw_hang_count_down = (disable_recover_flow) ? 0 : 20;
+	}
+	mtk_cam_job_put(job);
+
 	return 0;
 }

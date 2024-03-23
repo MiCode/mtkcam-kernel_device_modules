@@ -1148,11 +1148,11 @@ int get_bayer_ufbc_stride_and_size(u32 w, u32 h,
 
 	/* UFO format width should align 64 pixel */
 	aligned_width = ALIGN(w, 64);
-	*stride = aligned_width * info->bitpp[0] / 8;
+	*stride = ALIGN((aligned_width * info->bitpp[0] / 8), 32);
 
 	*bufsize = (*stride) * h;
-	aligned_len_w = ALIGN((aligned_width / 64),
-		  UFBC_TABLE_STRIDE_ALIGNMENT);
+	aligned_len_w = UFBC_TABLE_STRIDE_ALIGNMENT +
+		ALIGN((aligned_width / 64), UFBC_TABLE_STRIDE_ALIGNMENT);
 	/* NOTE: size of P2/WPE len table to be aligned to 64 */
 	*bufsize += ALIGN(aligned_len_w * h, 64);
 	*bufsize += sizeof(struct UfbcBufferHeader);

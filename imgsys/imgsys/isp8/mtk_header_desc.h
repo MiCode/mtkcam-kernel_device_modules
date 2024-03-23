@@ -444,6 +444,14 @@ struct singlenode_desc_norm {
 	/* Bayer-22bit-Packed, (G)(R)(B)(G) */
 #define V4L2_PIX_FMT_MTISP_SRGGB22  v4l2_fourcc('M', 'B', 'R', 'M')
 	/* Bayer-22bit-Packed, (R)(G)(G)(B) */
+#define V4L2_PIX_FMT_MTISP_SBGGR24  v4l2_fourcc('M', 'B', 'B', 'T')
+	/* Bayer-24bit-Packed, (B)(G)(G)(R) */
+#define V4L2_PIX_FMT_MTISP_SGBRG24  v4l2_fourcc('M', 'B', 'G', 'T')
+	/* Bayer-24bit-Packed, (G)(B)(R)(G) */
+#define V4L2_PIX_FMT_MTISP_SGRBG24  v4l2_fourcc('M', 'B', 'g', 'T')
+	/* Bayer-24bit-Packed, (G)(R)(B)(G) */
+#define V4L2_PIX_FMT_MTISP_SRGGB24  v4l2_fourcc('M', 'B', 'R', 'T')
+	/* Bayer-24bit-Packed, (R)(G)(G)(B) */
 #define V4L2_PIX_FMT_UFBC_NV12    v4l2_fourcc('U', 'F', '2', '8')
 	/* YUV-8bit UFBC packed 4:2:0 2plane, (Y)(UV)  */
 #define V4L2_PIX_FMT_UFBC_NV21    v4l2_fourcc('V', 'F', '2', '8')

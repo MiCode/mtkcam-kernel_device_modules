@@ -8202,6 +8202,12 @@ static int vidioc_qbuf(struct file *file, void *priv, struct v4l2_buffer *p)
 
 	unsigned int qq;
 
+	if (DPEInfo.UserCount <= 0) {
+		LOG_ERR("[%s]UserCount is zero\n", __func__);
+		ret = -1;
+		goto EXIT;
+	}
+
 	spin_lock(&REQ_LOCK);
 	qq = reqidx;
 	reqidx = (reqidx+1) % MAX_REQ;
@@ -8209,6 +8215,13 @@ static int vidioc_qbuf(struct file *file, void *priv, struct v4l2_buffer *p)
 	spin_unlock(&REQ_LOCK);
 
 	//int tmep_cnt;
+
+	if ((p == NULL) || (file == NULL)) {
+		LOG_ERR("[%s]input pointer is NULL\n", __func__);
+		ret = -EFAULT;
+		goto EXIT;
+	}
+
 	if (DPE_debug_log_en == 1) {
 		LOG_INF("[%s]buf address/len = %lu/0x%x\n",
 		__func__, p->m.userptr,  p->length);
@@ -8222,18 +8235,21 @@ static int vidioc_qbuf(struct file *file, void *priv, struct v4l2_buffer *p)
 
 	if (ureq[qq].m_ReqNum > 3) {
 		LOG_ERR("[%s]user req nums is bigger than 3\n", __func__);
+		ret = -1;
 		goto EXIT;
 	}
 
 	//LOG_INF("[%s]This request has %d configs.\n", __func__, ureq[qq].m_ReqNum);
 	if (ureq[qq].m_pDpeConfig == NULL) {
 		LOG_ERR("[%s]user's DpeConfig is NULL\n", __func__);
+		ret = -EFAULT;
 		goto EXIT;
 	}
 	ret = copy_from_user(&cfgs[qq][0], (void __user *)ureq[qq].m_pDpeConfig,
 				ureq[qq].m_ReqNum * sizeof(struct DPE_Config_ISP8));
 	if (ret != 0) {
 		LOG_ERR("[%s]DpeConfig copy_from_user fail\n", __func__);
+		ret = -EFAULT;
 		goto EXIT;
 	}
 
@@ -8340,12 +8356,24 @@ static int vidioc_dqbuf(struct file *file, void *priv, struct v4l2_buffer *p)
 
 	unsigned int dd;
 
+	if (DPEInfo.UserCount <= 0) {
+		LOG_ERR("[%s]UserCount is zero\n", __func__);
+		Ret = -1;
+		goto EXIT;
+	}
+
 	spin_lock(&REQ_LOCK);
 	dd = reqidx;
 	reqidx = (reqidx+1) % MAX_REQ;
 	// LOG_INF("[%s][ERIC]dd= %d\n", __func__, dd);
 	spin_unlock(&REQ_LOCK);
 	//struct DPE_Config_ISP8 *pDpeConfig;
+
+	if ((p == NULL) || (file == NULL)) {
+		LOG_ERR("[%s]input pointer is NULL\n", __func__);
+		Ret = -EFAULT;
+		goto EXIT;
+	}
 
 	pUserInfo = (struct DPE_USER_INFO_STRUCT *) (file->private_data);
 
@@ -8354,6 +8382,13 @@ static int vidioc_dqbuf(struct file *file, void *priv, struct v4l2_buffer *p)
 		DPE_DumpReg();//!test
 		LOG_INF("DPE_DumpReg end\n");
 	}
+
+	if (ureq[dd].m_ReqNum > 3) {
+		LOG_ERR("[%s]user req nums is bigger than 3\n", __func__);
+		Ret = -1;
+		goto EXIT;
+	}
+
 	//LOG_INF("[%s]buf address/len = 0x%llu/0x%x, ureq[reqidx] =0x%x\n",
 	//__func__, p->m.userptr,  p->length, sizeof(ureq[reqidx]));
 	Ret = copy_from_user(&ureq[dd], (void __user *)p->m.userptr, sizeof(struct DPE_Request));
@@ -8408,22 +8443,25 @@ static int vidioc_dqbuf(struct file *file, void *priv, struct v4l2_buffer *p)
 			LOG_ERR
 			    ("DPE_DEQUE_REQ copy_to_user frameconfig failed\n");
 			Ret = -EFAULT;
+			goto EXIT;
 		}
 		if (copy_to_user
 		    ((void *)p->m.userptr, &ureq[dd], sizeof(struct DPE_Request)) != 0) {
 			LOG_ERR("DPE_DEQUE_REQ copy_to_user failed\n");
 			Ret = -EFAULT;
+			goto EXIT;
 		}
 
 	} else {
 		LOG_ERR("DPE_CMD_DPE_DEQUE_REQ copy_from_user failed\n");
 		Ret = -EFAULT;
+		goto EXIT;
 	}
 
 	//LOG_INF("[%s]buf address/len = %lu/0x%x\n",
 	//	__func__, p->m.userptr,  p->length);
 EXIT:
-	return 0;
+	return Ret;
 }
 
 static int vidioc_querycap(struct file *file, void  *priv,

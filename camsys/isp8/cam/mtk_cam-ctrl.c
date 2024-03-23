@@ -2472,7 +2472,7 @@ static int mtk_cam_watchdog_monitor_job(struct mtk_cam_watchdog *wd)
 		container_of(wd, struct mtk_cam_ctrl, watchdog);
 	struct mtk_cam_ctx *ctx = ctrl->ctx;
 	struct mtk_cam_job *job;
-	int req_seq;
+	int req_seq, is_dc;
 	u64 job_ts;
 	u64 ts;
 	bool completed;
@@ -2486,6 +2486,7 @@ static int mtk_cam_watchdog_monitor_job(struct mtk_cam_watchdog *wd)
 
 	req_seq = job->req_seq;
 	job_ts = job->timestamp;
+	is_dc = is_dc_mode(job);
 	mtk_cam_job_put(job);
 
 	if (req_seq != wd->req_seq) {
@@ -2513,7 +2514,7 @@ static int mtk_cam_watchdog_monitor_job(struct mtk_cam_watchdog *wd)
 	dev_info(ctx->cam->dev, "schedule work for job_dump: ctx-%d req %d\n",
 		 ctx->stream_id, wd->req_seq);
 	mtk_cam_watchdog_schedule_job_dump(wd,
-		is_dc_mode(job) ? MSG_DC_SKIP_FRAME : MSG_DEQUE_ERROR);
+		is_dc ? MSG_DC_SKIP_FRAME : MSG_DEQUE_ERROR);
 	return -1;
 
 SKIP_SCHEDULE_WORK:

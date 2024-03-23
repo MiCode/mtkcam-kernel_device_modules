@@ -1055,6 +1055,7 @@ static void mtk_mae_hw_disconnect(struct mtk_mae_dev *mae_dev)
 
 		// MAE_TO_DO: unmap buffer
 		mtk_mae_umap_detach(mae_dev, &mae_dev->map_table->model_table_dmabuf_info);
+		mtk_mae_umap_detach(mae_dev, &mae_dev->map_table->image_dmabuf_info[0]);
 		mtk_mae_umap_detach(mae_dev, &mae_dev->map_table->param_dmabuf_info[0]);
 		mtk_mae_umap_detach(mae_dev, &mae_dev->map_table->internal_dmabuf_info);
 		mtk_mae_umap_detach(mae_dev, &mae_dev->map_table->debug_dmabuf_info[0]);

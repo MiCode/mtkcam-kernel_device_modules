@@ -972,8 +972,6 @@ static void initHWDMASettings(void)
 		PDA_WR32(PDA_devs[i].m_pda_base + PDA_PDA_ERR_STAT_EN_REG, 0x00000001);
 
 	}
-
-	LOG_INF("HW DMA setting done\n");
 }
 
 static void HWDMASettings(struct PDA_Data_t *pda_PdaConfig)
@@ -2279,7 +2277,8 @@ static long PDA_Ioctl(struct file *a_pstFile,
 		// PDA HW and DMA setting
 		for (i = 0; i < g_PDA_quantity; i++) {
 			if (PDA_RD32(PDA_devs[i].m_pda_base + PDA_PDA_DMA_EN_REG) == 0) {
-				LOG_INF("Because it has been reset, need to config setting again\n");
+				if (pda_log_dbg_en == 1)
+					LOG_INF("Because it has been reset, need to config setting again\n");
 				initHWDMASettings();
 			}
 		}
@@ -2313,6 +2312,10 @@ static long PDA_Ioctl(struct file *a_pstFile,
 EXIT:
 		if (pda_log_dbg_en == 1)
 			LOG_INF("Exit\n");
+
+		// MRAW PDA reset
+		for (i = 0; i < g_PDA_quantity; i++)
+			pda_nontransaction_reset(i);
 
 		mutex_unlock(&pda_mutex);
 

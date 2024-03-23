@@ -1172,17 +1172,6 @@ static void raw_handle_skip_frame(struct mtk_raw_device *raw_dev,
 
 	dev_info(raw_dev->dev, "%s: dcif_status:0x%x, fh_cookie:0x%x\n",
 			__func__, err_status, fh_cookie);
-
-	qof_mtcmos_raw_voter(raw_dev, true);
-	if (err_status & FBIT(CAMCTL_P1_SKIP_FRAME_DC_STAG_INT_ST)) {
-		dump_topdebug_rdyreq_status(raw_dev);
-		raw_dump_debug_ufbc_status(raw_dev);
-		do_engine_callback(raw_dev->engine_cb, dump_request,
-				raw_dev->cam, CAMSYS_ENGINE_RAW, raw_dev->id,
-				fh_cookie, MSG_DC_SKIP_FRAME);
-		mtk_smi_dbg_hang_detect("camsys-raw");
-	}
-	qof_mtcmos_raw_voter(raw_dev, false);
 }
 
 static void raw_handle_ringbuffer_ofl(struct mtk_raw_device *raw,
@@ -3241,8 +3230,11 @@ void raw_dump_debug_status(struct mtk_raw_device *dev, bool is_srt)
 
 	qof_force_dump_all(dev);
 
-	if (is_srt)
+	if (is_srt) {
 		dump_topdebug_rdyreq_status(dev);
+		raw_dump_debug_ufbc_status(dev);
+		mtk_smi_dbg_hang_detect("camsys-raw");
+	}
 
 #ifdef DEBUG_RAWI_R5
 	mtk_cam_dump_dma_debug(dev,
@@ -3250,6 +3242,7 @@ void raw_dump_debug_status(struct mtk_raw_device *dev, bool is_srt)
 			       "RAWI_R5",
 			       dbg_RAWI_R5, ARRAY_SIZE(dbg_RAWI_R5));
 #endif
+
 	qof_mtcmos_raw_voter(dev, false);
 }
 

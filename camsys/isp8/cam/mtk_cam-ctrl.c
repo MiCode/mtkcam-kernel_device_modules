@@ -2512,7 +2512,8 @@ static int mtk_cam_watchdog_monitor_job(struct mtk_cam_watchdog *wd)
 	/* job is not updated */
 	dev_info(ctx->cam->dev, "schedule work for job_dump: ctx-%d req %d\n",
 		 ctx->stream_id, wd->req_seq);
-	mtk_cam_watchdog_schedule_job_dump(wd, MSG_DEQUE_ERROR);
+	mtk_cam_watchdog_schedule_job_dump(wd,
+		is_dc_mode(job) ? MSG_DC_SKIP_FRAME : MSG_DEQUE_ERROR);
 	return -1;
 
 SKIP_SCHEDULE_WORK:
@@ -2732,14 +2733,6 @@ int mtk_cam_ctrl_dump_request(struct mtk_cam_device *cam,
 		goto SKIP_SCHEDULE_WORK;
 	}
 
-	/* hw hang is notified and waiting raw hang */
-	if (ctrl->hw_hang_count_down != 0 && !strcmp(desc, MSG_DC_SKIP_FRAME)) {
-		ctrl->hw_hang_count_down = 1;
-		mtk_cam_ctrl_put(ctrl);
-		complete(&wd->work_complete);
-		goto SKIP_SCHEDULE_WORK;
-	}
-
 	mtk_cam_watchdog_schedule_job_dump(wd, desc);
 
 	mtk_cam_ctrl_put(ctrl);
@@ -2763,20 +2756,17 @@ int mtk_cam_ctrl_notify_hw_hang(struct mtk_cam_device *cam,
 	dev_info(cam->dev, "%s: warn. eng %d-%d seq 0x%x\n",
 		 __func__, engine_type, engine_id, inner_cookie);
 
-	/* mark err frame */
 	job = mtk_cam_ctrl_get_job(ctrl, cond_frame_no_belong, &inner_cookie);
 	if (!job)
 		return 0;
 
 	if (is_dc_mode(job)) {
-		job->is_error = 1;
-		dev_info(cam->dev, "%s:mark error frame(seq 0x%x)\n", __func__, inner_cookie);
-
 		/*
 		 * count frames before doing recovery to avoid various hw timing.
 		 * 'set 2 to enable recovery'
 		 */
-		ctrl->hw_hang_count_down = (disable_recover_flow) ? 0 : 20;
+		ctrl->hw_hang_count_down = (disable_recover_flow) ? 0 : 2;
+		job->is_error = 1;
 	}
 	mtk_cam_job_put(job);
 

@@ -3624,6 +3624,10 @@ int common_control(struct subdrv_ctx *ctx,
 
 	set_mirror_flip(ctx, ctx->s_ctx.mirror);
 
+	if (ctx->s_ctx.reg_addr_fast_mode_in_lbmf &&
+		ctx->s_ctx.mode[ctx->current_scenario_id].hdr_mode == HDR_RAW_LBMF)
+		subdrv_i2c_wr_u8(ctx, ctx->s_ctx.reg_addr_fast_mode_in_lbmf, 0x4);
+
 	return ret;
 }
 

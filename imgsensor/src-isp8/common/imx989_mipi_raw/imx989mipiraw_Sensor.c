@@ -2531,7 +2531,7 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.max_framerate = 300,
 		.mipi_pixel_rate = 2445531428,
 		.readout_length = 2304,
-		.read_margin = 64*2,
+		.read_margin = 176,
 		.framelength_step = 8,
 		.coarse_integ_step = 4,
 		.multi_exposure_shutter_range[IMGSENSOR_EXPOSURE_LE].min = 8,
@@ -3171,7 +3171,7 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.max_framerate = 300,
 		.mipi_pixel_rate = 2445531428,
 		.readout_length = 3072,
-		.read_margin = 64*2,
+		.read_margin = 176,
 		.framelength_step = 8,
 		.coarse_integ_step = 4,
 		.multi_exposure_shutter_range[IMGSENSOR_EXPOSURE_LE].min = 8,
@@ -3705,8 +3705,8 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.framelength = 3264*2,
 		.max_framerate = 289,
 		.mipi_pixel_rate = 2445531428,
-		.readout_length = 3262-64*2,
-		.read_margin = 64*2,
+		.readout_length = 3072,
+		.read_margin = 190,
 		.framelength_step = 8,
 		.coarse_integ_step = 2,
 		.multi_exposure_shutter_range[IMGSENSOR_EXPOSURE_LE].min = 6,
@@ -3761,8 +3761,8 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.framelength = 3264*2,
 		.max_framerate = 289,
 		.mipi_pixel_rate = 2445531428,
-		.readout_length = 3262-64*2,
-		.read_margin = 64*2,
+		.readout_length = 3072,
+		.read_margin = 190,
 		.framelength_step = 8,
 		.coarse_integ_step = 2,
 		.multi_exposure_shutter_range[IMGSENSOR_EXPOSURE_LE].min = 6,
@@ -3818,8 +3818,8 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.framelength = 2496*2,
 		.max_framerate = 300,
 		.mipi_pixel_rate = 2445531428,
-		.readout_length = 2494-64*2,
-		.read_margin = 64*2,
+		.readout_length = 2304,
+		.read_margin = 190,
 		.framelength_step = 8,
 		.coarse_integ_step = 2,
 		.multi_exposure_shutter_range[IMGSENSOR_EXPOSURE_LE].min = 6,
@@ -4075,7 +4075,7 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.max_framerate = 300,
 		.mipi_pixel_rate = 2445530000,
 		.readout_length = 2560,
-		.read_margin = 64*2,
+		.read_margin = 176,
 		.framelength_step = 8,
 		.coarse_integ_step = 4,
 		.multi_exposure_shutter_range[IMGSENSOR_EXPOSURE_LE].min = 8,
@@ -4241,7 +4241,7 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.max_framerate = 300,
 		.mipi_pixel_rate = 2445530000,
 		.readout_length = 2560,
-		.read_margin = 64*2,
+		.read_margin = 190,
 		.framelength_step = 8,
 		.coarse_integ_step = 4,
 		.multi_exposure_shutter_range[IMGSENSOR_EXPOSURE_LE].min = 8,
@@ -4346,7 +4346,7 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.max_framerate = 300,
 		.mipi_pixel_rate = 2445530000,
 		.readout_length = 2304,
-		.read_margin = 64*2,
+		.read_margin = 190,
 		.framelength_step = 8,
 		.coarse_integ_step = 4,
 		.multi_exposure_shutter_range[IMGSENSOR_EXPOSURE_LE].min = 8,
@@ -4880,15 +4880,14 @@ static int imx989_seamless_switch(struct subdrv_ctx *ctx, u8 *para, u32 *len)
 
 	subdrv_i2c_wr_u8(ctx, 0x0104, 0x01);
 	subdrv_i2c_wr_u8(ctx, ctx->s_ctx.reg_addr_fast_mode, 0x02);
-	if (ctx->s_ctx.reg_addr_fast_mode_in_lbmf &&
-		(ctx->s_ctx.mode[scenario_id].hdr_mode == HDR_RAW_LBMF ||
-		ctx->s_ctx.mode[ctx->current_scenario_id].hdr_mode == HDR_RAW_LBMF))
-		subdrv_i2c_wr_u8(ctx, ctx->s_ctx.reg_addr_fast_mode_in_lbmf, 0x4);
 
 	update_mode_info(ctx, scenario_id);
 	i2c_table_write(ctx,
 		ctx->s_ctx.mode[scenario_id].seamless_switch_mode_setting_table,
 		ctx->s_ctx.mode[scenario_id].seamless_switch_mode_setting_len);
+	if (ctx->s_ctx.reg_addr_fast_mode_in_lbmf &&
+		ctx->s_ctx.mode[scenario_id].hdr_mode == HDR_RAW_LBMF)
+		subdrv_i2c_wr_u8(ctx, ctx->s_ctx.reg_addr_fast_mode_in_lbmf, 0x4);
 
 	if (ae_ctrl) {
 		switch (ctx->s_ctx.mode[scenario_id].hdr_mode) {

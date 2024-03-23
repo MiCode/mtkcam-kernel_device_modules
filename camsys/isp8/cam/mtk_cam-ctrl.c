@@ -1388,7 +1388,7 @@ static void mtk_cam_ctrl_dynamic_raws_change_flow(struct mtk_cam_job *job)
 			__func__, ctx->used_engine, job->frame_seq_no);
 	check_args.expect_inner = job->frame_seq_no;
 	check_args.expect_ack = job->frame_seq_no;
-	if (mtk_cam_ctrl_wait_event(ctrl, check_for_inner, &check_args, 150)) {
+	if (mtk_cam_ctrl_wait_event(ctrl, check_for_inner, &check_args, 1000)) {
 		dev_info(dev, "[%s] check for dynamic_raws_change timeout: expected in=0x%x ack=0x%x\n",
 			 __func__,
 			 check_args.expect_inner, check_args.expect_ack);
@@ -2672,8 +2672,14 @@ int mtk_cam_ctrl_ae_workaround(struct mtk_cam_device *cam,
 		// TODO: QOF voter
 		if (ctx->hw_raw[i] && (ctx->enable_hsf_raw == 0)) {
 			raw_dev = dev_get_drvdata(ctx->hw_raw[i]);
-			ae_disable(raw_dev);
-			// dump_af_reg(raw_dev);
+			/* raw change case at bad performance */
+			/* raw b sof will disable raw c ae_stat */
+			if ((engine_id != raw_dev->id) &&
+				(raw_dev->is_slave == false))
+				dev_info(cam->dev, "%s: engine %d id %d seq 0x%x\n",
+					__func__, engine_type, engine_id, inner_cookie);
+			else
+				ae_disable(raw_dev);
 		}
 	}
 	mtk_cam_ctrl_put(ctrl);

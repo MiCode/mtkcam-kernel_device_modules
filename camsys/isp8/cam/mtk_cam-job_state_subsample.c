@@ -47,14 +47,14 @@ static struct state_transition STATE_TRANS(subsample, S_ISP_APPLYING)[] = {
 	},
 	{
 		S_ISP_PROCESSING, CAMSYS_EVENT_IRQ_L_SOF,
-		guard_inner_eq, 0
+		guard_inner_ge, 0
 	},
 };
 
 static struct state_transition STATE_TRANS(subsample, S_ISP_OUTER)[] = {
 	{
 		S_ISP_PROCESSING, CAMSYS_EVENT_IRQ_L_SOF,
-		guard_inner_eq, 0
+		guard_inner_ge, 0
 	},
 };
 

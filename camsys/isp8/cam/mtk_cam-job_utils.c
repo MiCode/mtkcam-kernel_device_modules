@@ -630,6 +630,9 @@ static const int otf_2exp_rawi[1] = {
 static const int otf_3exp_rawi[2] = {
 	MTKCAM_IPI_RAW_RAWI_2, MTKCAM_IPI_RAW_RAWI_3
 };
+static const int otf_3exp_simple[2] = {
+	MTKCAM_IPI_RAW_RAWI_2, 0
+};
 static const int dc_1exp_rawi[1] = {
 	MTKCAM_IPI_RAW_RAWI_5
 };
@@ -638,6 +641,9 @@ static const int dc_2exp_rawi[2] = {
 };
 static const int dc_3exp_rawi[3] = {
 	MTKCAM_IPI_RAW_RAWI_2, MTKCAM_IPI_RAW_RAWI_3, MTKCAM_IPI_RAW_RAWI_5
+};
+static const int dc_3exp_simple[3] = {
+	MTKCAM_IPI_RAW_RAWI_2, 0, MTKCAM_IPI_RAW_RAWI_5
 };
 
 int raw_video_id_w_port(int rawi_id)
@@ -682,6 +688,46 @@ static int fill_sv_to_rawi_wbuf(struct req_buffer_helper *helper,
 	return ret;
 }
 
+static int get_exp_support(u32 raw_dev)
+{
+	int r = 0;
+	int min_exp = INT_MAX;
+
+	while (raw_dev) {
+		if (raw_dev & 1 << r)
+			min_exp =
+				min(min_exp, CALL_PLAT_HW(query_max_exp_support, r));
+
+		raw_dev &=~(1 << r);
+		++r;
+	}
+
+	return (min_exp == INT_MAX) ? 0 : min_exp;
+}
+
+static u16 get_raw_dev(struct mtkcam_ipi_config_param *ipi_cfg)
+{
+	int i = 0;
+	u16 raw_dev = 0;
+
+	for (i = 0; i < ipi_cfg->n_maps; i++) {
+		if (is_raw_subdev(ipi_cfg->maps[i].pipe_id)) {
+			raw_dev = ipi_cfg->maps[i].dev_mask;
+			break;
+		}
+	}
+
+	return raw_dev;
+}
+
+static bool is_first_last_exp_only(struct mtk_cam_job *job)
+{
+	int job_exp = job_exp_num(job);
+	int exp_support = get_exp_support(get_raw_dev(&job->src_ctx->ipi_config));
+
+	return exp_support ? (job_exp > exp_support) : false;
+}
+
 void get_stagger_rawi_table(struct mtk_cam_job *job,
 		const int **rawi_table, int *cnt)
 {
@@ -705,9 +751,15 @@ void get_stagger_rawi_table(struct mtk_cam_job *job,
 		}
 		break;
 	case 3:
-		(*rawi_table) = without_tg ? dc_3exp_rawi : otf_3exp_rawi;
-		*cnt = without_tg ?
-			ARRAY_SIZE(dc_3exp_rawi) : ARRAY_SIZE(otf_3exp_rawi);
+		if (!is_first_last_exp_only(job)) {
+			(*rawi_table) = without_tg ? dc_3exp_rawi : otf_3exp_rawi;
+			*cnt = without_tg ?
+				ARRAY_SIZE(dc_3exp_rawi) : ARRAY_SIZE(otf_3exp_rawi);
+		} else {
+			(*rawi_table) = without_tg ? dc_3exp_simple : otf_3exp_simple;
+			*cnt = without_tg ?
+				ARRAY_SIZE(dc_3exp_simple) : ARRAY_SIZE(otf_3exp_simple);
+		}
 		break;
 	default:
 		break;
@@ -794,6 +846,8 @@ update_work_buffer_by_workbuf(struct req_buffer_helper *helper,
 
 	fmt_desc = get_fmt_desc(&ctx->img_work_buf_desc);
 	for (i = 0 ; i < rawi_table_size; i++) {
+		if (!rawi_table[i])
+			continue;
 
 		ret = mtk_cam_buffer_pool_fetch(&job->img_wbuf_pool_wrapper->pool,
 						&img_work_buf);
@@ -1272,38 +1326,6 @@ int get_buf_offset_idx(int plane, int plane_per_exp, int plane_buf_offset,
 	return idx;
 }
 
-static int get_exp_support(u32 raw_dev)
-{
-	int r = 0;
-	int min_exp = INT_MAX;
-
-	while (raw_dev) {
-		if (raw_dev & 1 << r)
-			min_exp =
-				min(min_exp, CALL_PLAT_HW(query_max_exp_support, r));
-
-		raw_dev &=~(1 << r);
-		++r;
-	}
-
-	return (min_exp == INT_MAX) ? 0 : min_exp;
-}
-
-static u16 get_raw_dev(struct mtkcam_ipi_config_param *ipi_cfg)
-{
-	int i = 0;
-	u16 raw_dev = 0;
-
-	for (i = 0; i < ipi_cfg->n_maps; i++) {
-		if (is_raw_subdev(ipi_cfg->maps[i].pipe_id)) {
-			raw_dev = ipi_cfg->maps[i].dev_mask;
-			break;
-		}
-	}
-
-	return raw_dev;
-}
-
 int fill_img_in_by_exposure(struct req_buffer_helper *helper,
 	struct mtk_cam_buffer *buf,
 	struct mtk_cam_video_device *node)
@@ -1314,16 +1336,13 @@ int fill_img_in_by_exposure(struct req_buffer_helper *helper,
 	struct mtk_cam_job *job = helper->job;
 	bool is_w = is_rgbw(job) ? true : false;//for coverity...
 	const int *rawi_table = NULL;
-	int i = 0, e = 0, rawi_cnt = 0;
+	int i = 0, rawi_cnt = 0;
 	int exp_order = get_exp_order(&job->job_scen);
-	int job_exp = job_exp_num(job);
-	int exp_support = get_exp_support(get_raw_dev(&job->src_ctx->ipi_config));
-	bool first_last_exp_only = (exp_support) ? (job_exp > exp_support) : false;
 
 	// the order rawi is in exposure sequence
 	get_stagger_rawi_table(job, &rawi_table, &rawi_cnt);
-	for (i = 0, e = job_exp; i < rawi_cnt; i++, e--) {
-		if (first_last_exp_only && (e > 1) && (e < job_exp))
+	for (i = 0; i < rawi_cnt; i++) {
+		if (!rawi_table[i])
 			continue;
 
 		in = &fp->img_ins[helper->ii_idx++];

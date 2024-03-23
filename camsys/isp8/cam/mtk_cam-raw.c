@@ -528,6 +528,7 @@ void subsample_enable(struct mtk_raw_device *dev, int subsample_ratio)
 
 	val = raw_readl_relaxed(dev, dev->base, REG_CAMCQ_CQ_EN);
 	SET_FIELD(&val, CAMCQ_SCQ_SUBSAMPLE_EN, 1);
+	SET_FIELD(&val, CAMCQ_CQ_DROP_FRAME_EN, 0);
 	raw_writel_relaxed(val, dev, dev->base, REG_CAMCQ_CQ_EN);
 
 	val = FBIT(CAMCTL_DOWN_SAMPLE_EN);

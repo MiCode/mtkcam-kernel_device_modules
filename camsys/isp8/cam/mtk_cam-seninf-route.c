@@ -547,8 +547,8 @@ int mtk_cam_seninf_get_csi_param(struct seninf_ctx *ctx)
 
 #if AOV_GET_PARAM
 	if (!(core->aov_sensor_id < 0) &&
-		!(core->current_sensor_id < 0) &&
-		(core->current_sensor_id == core->aov_sensor_id)) {
+		!(ctx->current_sensor_id < 0) &&
+		(ctx->current_sensor_id == core->aov_sensor_id)) {
 		g_aov_param.cphy_settle = csi_param->cphy_settle;
 		g_aov_param.dphy_clk_settle = csi_param->dphy_clk_settle;
 		g_aov_param.dphy_data_settle = csi_param->dphy_data_settle;
@@ -1824,8 +1824,8 @@ int mtk_cam_seninf_s_stream_mux(struct seninf_ctx *ctx)
 
 		if (ctx->is_aov_real_sensor) {
 			if (!(core->aov_sensor_id < 0) &&
-				!(core->current_sensor_id < 0) &&
-				(core->current_sensor_id == core->aov_sensor_id)) {
+				!(ctx->current_sensor_id < 0) &&
+				(ctx->current_sensor_id == core->aov_sensor_id)) {
 				dev_info(ctx->dev,
 					"[%s] aov streaming mux & cammux workaround on scp\n",
 					__func__);

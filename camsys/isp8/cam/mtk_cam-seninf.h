@@ -209,7 +209,6 @@ struct seninf_core {
 	/* aov sensor use */
 	int pwr_refcnt_for_aov;
 	int aov_sensor_id;
-	int current_sensor_id;
 
 	/* debug flag for vsync */
 	u32 *seninf_vsync_debug_flag;
@@ -278,6 +277,7 @@ struct seninf_ctx {
 	/* remote sensor */
 	struct v4l2_subdev *sensor_sd;
 	int sensor_pad_idx;
+	int current_sensor_id;
 
 	/* provided by sensor */
 	struct seninf_vcinfo vcinfo;

@@ -1722,8 +1722,8 @@ static int config_hw_csi(struct seninf_ctx *ctx)
 
 #if AOV_GET_PARAM
 	if (!(core->aov_sensor_id < 0) &&
-		!(core->current_sensor_id < 0) &&
-		(core->current_sensor_id == core->aov_sensor_id)) {
+		!(ctx->current_sensor_id < 0) &&
+		(ctx->current_sensor_id == core->aov_sensor_id)) {
 		g_aov_param.port = ctx->port;
 		g_aov_param.portA = ctx->portA;
 		g_aov_param.portB = ctx->portB;
@@ -1850,8 +1850,8 @@ static int get_buffered_pixel_rate(struct seninf_ctx *ctx,
 
 #if AOV_GET_PARAM
 	if (!(core->aov_sensor_id < 0) &&
-		!(core->current_sensor_id < 0) &&
-		(core->current_sensor_id == core->aov_sensor_id)) {
+		!(ctx->current_sensor_id < 0) &&
+		(ctx->current_sensor_id == core->aov_sensor_id)) {
 		g_aov_param.width = width;
 		g_aov_param.height = height;
 		g_aov_param.hblank = hblank;
@@ -1883,8 +1883,8 @@ static int get_customized_pixel_rate(struct seninf_ctx *ctx, struct v4l2_subdev 
 
 #if AOV_GET_PARAM
 	if (!(core->aov_sensor_id < 0) &&
-		!(core->current_sensor_id < 0) &&
-		(core->current_sensor_id == core->aov_sensor_id))
+		!(ctx->current_sensor_id < 0) &&
+		(ctx->current_sensor_id == core->aov_sensor_id))
 		g_aov_param.customized_pixel_rate = *result;
 #endif
 
@@ -1909,8 +1909,8 @@ static int get_pixel_rate(struct seninf_ctx *ctx, struct v4l2_subdev *sd,
 
 #if AOV_GET_PARAM
 	if (!(core->aov_sensor_id < 0) &&
-		!(core->current_sensor_id < 0) &&
-		(core->current_sensor_id == core->aov_sensor_id))
+		!(ctx->current_sensor_id < 0) &&
+		(ctx->current_sensor_id == core->aov_sensor_id))
 		g_aov_param.mipi_pixel_rate = *result;
 #endif
 
@@ -1937,8 +1937,8 @@ static int get_mbus_config(struct seninf_ctx *ctx, struct v4l2_subdev *sd)
 
 #if AOV_GET_PARAM
 	if (!(core->aov_sensor_id < 0) &&
-		!(core->current_sensor_id < 0) &&
-		(core->current_sensor_id == core->aov_sensor_id)) {
+		!(ctx->current_sensor_id < 0) &&
+		(ctx->current_sensor_id == core->aov_sensor_id)) {
 		g_aov_param.is_cphy = ctx->is_cphy;
 		g_aov_param.num_data_lanes = ctx->num_data_lanes;
 	}
@@ -2155,8 +2155,8 @@ static int seninf_csi_s_stream(struct v4l2_subdev *sd, int enable)
 		update_isp_clk(ctx);
 #if AOV_GET_PARAM
 		if (!(core->aov_sensor_id < 0) &&
-			!(core->current_sensor_id < 0) &&
-			(core->current_sensor_id == core->aov_sensor_id))
+			!(ctx->current_sensor_id < 0) &&
+			(ctx->current_sensor_id == core->aov_sensor_id))
 			g_aov_param.isp_freq = ISP_CLK_LOW;
 #endif
 
@@ -2223,7 +2223,7 @@ static int seninf_s_stream(struct v4l2_subdev *sd, int enable)
 	struct seninf_ctx *ctx = sd_to_ctx(sd);
 	struct seninf_core *core = ctx->core;
 	unsigned long flags;
-	int i, tmp;
+	int i;
 	bool pad_inited = false;
 #ifdef INIT_DESKEW_DEBUG
 	int deskew_dump_idx;
@@ -2231,15 +2231,12 @@ static int seninf_s_stream(struct v4l2_subdev *sd, int enable)
 
 	/* get current sensor idx by get_sensor_idx */
 	if (!ctx->is_test_model) {
-		tmp = get_sensor_idx(ctx);
-		spin_lock_irqsave(&core->spinlock_aov, flags);
-		core->current_sensor_id = tmp;
-		spin_unlock_irqrestore(&core->spinlock_aov, flags);
-		if (core->current_sensor_id < 0) {
+		ctx->current_sensor_id = get_sensor_idx(ctx);
+		if (ctx->current_sensor_id < 0) {
 			dev_info(ctx->dev,
 				"[%s] get_sensor_idx[%d] fail\n",
-				__func__, core->current_sensor_id);
-			return core->current_sensor_id;
+				__func__, ctx->current_sensor_id);
+			return ctx->current_sensor_id;
 		}
 	}
 
@@ -2650,19 +2647,14 @@ static int mtk_cam_seninf_set_ctrl(struct v4l2_ctrl *ctrl)
 		/* get current sensor idx by get_sensor_idx */
 		if (ctx->is_test_model) {
 			// arbitrary sensor id in test model flow
-			spin_lock_irqsave(&core->spinlock_aov, flags);
-			core->current_sensor_id = 1;
-			spin_unlock_irqrestore(&core->spinlock_aov, flags);
+			ctx->current_sensor_id = 1;
 		} else {
-			tmp = get_sensor_idx(ctx);
-			spin_lock_irqsave(&core->spinlock_aov, flags);
-			core->current_sensor_id = tmp;
-			spin_unlock_irqrestore(&core->spinlock_aov, flags);
-			if (core->current_sensor_id < 0) {
+			ctx->current_sensor_id = get_sensor_idx(ctx);
+			if (ctx->current_sensor_id < 0) {
 				dev_info(ctx->dev,
 					"[%s] get_sensor_idx[%d] fail\n",
-					__func__, core->current_sensor_id);
-				return core->current_sensor_id;
+					__func__, ctx->current_sensor_id);
+				return ctx->current_sensor_id;
 			}
 		}
 		switch (s_stream_ctrl->stream_mode) {
@@ -2720,13 +2712,13 @@ static int mtk_cam_seninf_set_ctrl(struct v4l2_ctrl *ctrl)
 						return core->aov_sensor_id;
 					}
 				}
-				if (core->current_sensor_id == core->aov_sensor_id)
+				if (ctx->current_sensor_id == core->aov_sensor_id)
 					ret = seninf_s_stream(&ctx->subdev, s_stream_ctrl->enable);
 				else
 					dev_info(ctx->dev,
 						"[%s] aov user input wrong sensor id!\n", __func__);
 			} else {
-				if (core->current_sensor_id == core->aov_sensor_id)
+				if (ctx->current_sensor_id == core->aov_sensor_id)
 					ret = seninf_s_stream(&ctx->subdev, s_stream_ctrl->enable);
 				else
 					dev_info(ctx->dev,
@@ -3272,8 +3264,8 @@ static int enable_phya_clk(struct seninf_ctx *ctx)
 	/* set the parent of clk as parent_clk */
 	if (core->pwr_refcnt_for_aov &&
 		!(core->aov_sensor_id < 0) &&
-		!(core->current_sensor_id < 0) &&
-		(core->current_sensor_id != core->aov_sensor_id))
+		!(ctx->current_sensor_id < 0) &&
+		(ctx->current_sensor_id != core->aov_sensor_id))
 		seninf_logi(ctx, "aov is using phya osc source clk now\n");
 	else {
 		ret = g_seninf_ops->_set_phya_clock_src(ctx, 1);
@@ -3675,11 +3667,11 @@ static int runtime_suspend(struct device *dev)
 		if (core->refcnt == 0)
 			seninf_logi(ctx,
 				"last user(%d),cnt(%d)\n",
-				core->current_sensor_id, core->refcnt);
+				ctx->current_sensor_id, core->refcnt);
 		else
 			seninf_logi(ctx,
 				"multi user(%d),cnt(%d)\n",
-				core->current_sensor_id, core->refcnt);
+				ctx->current_sensor_id, core->refcnt);
 
 		spin_lock_irqsave(&core->spinlock_irq, flags);
 		ctx->power_status_flag = 0;
@@ -3775,7 +3767,7 @@ static int runtime_resume(struct device *dev)
 		if (core->refcnt == 1) {
 			dev_info(dev,
 				"[%s] 1st user(%d),cnt(%d)\n",
-				__func__, core->current_sensor_id, core->refcnt);
+				__func__, ctx->current_sensor_id, core->refcnt);
 			/* power-domains enable */
 			ret = seninf_core_pm_runtime_get_sync(core);
 			if (ret < 0) {
@@ -3827,7 +3819,7 @@ static int runtime_resume(struct device *dev)
 		} else
 			seninf_logi(ctx,
 				"multi user(%d),cnt(%d)\n",
-				core->current_sensor_id, core->refcnt);
+				ctx->current_sensor_id, core->refcnt);
 		/*
 		 * set vcore according to data rate
 		 * set csi clk according to vcore range
@@ -3881,8 +3873,8 @@ static int runtime_resume(struct device *dev)
 		if (core->refcnt == 1) {
 			if (core->pwr_refcnt_for_aov &&
 				!(core->aov_sensor_id < 0) &&
-				!(core->current_sensor_id < 0) &&
-				(core->current_sensor_id != core->aov_sensor_id))
+				!(ctx->current_sensor_id < 0) &&
+				(ctx->current_sensor_id != core->aov_sensor_id))
 				seninf_logi(ctx, "aov sensor streaming on scp now, won't disable mux/cammux\n");
 			else {
 				seninf_logi(ctx, "common sensor streaming, disable mux/cammux for initialization\n");

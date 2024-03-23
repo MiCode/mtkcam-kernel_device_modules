@@ -1698,12 +1698,16 @@ static void qof_poll_status(u32 pwr, bool enable)
 	void __iomem *io_addr;
 	u32 tmp;
 	u32 val = (enable?BIT(1):BIT(4));
+	struct cmdq_instruction *inst = NULL;
+	dma_addr_t pc = 0;
 
 	io_addr = QOF_GET_REMAP_ADDR(qof_reg_table[pwr][QOF_IMG_POWER_STATE].addr);
 	if (readl_poll_timeout_atomic
 		(io_addr, tmp, (tmp & val) == val, POLL_DELAY_US, TIMEOUT_1000US) < 0) {
 		QOF_LOGE("mod[%d] waiting for qof state ap add done timeout, disable support\n",pwr);
 		mtk_imgsys_cmdq_qof_dump(0, false);
+		cmdq_thread_dump(smi_cb_pwr_ctl->chan, g_smi_cb_pkt, (u64 **)&inst, &pc);
+		cmdq_dump_pkt(g_smi_cb_pkt, pc, true);
 		return;
 	}
 }

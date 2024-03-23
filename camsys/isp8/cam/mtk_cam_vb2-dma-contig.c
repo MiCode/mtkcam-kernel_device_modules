@@ -93,6 +93,10 @@ static void *mtk_cam_vb2_vaddr(struct vb2_buffer *vb, void *buf_priv)
 	else
 		buf->vaddr = buf->map.vaddr;
 	MTK_CAM_TRACE_END(BUFFER);
+
+	if (ret)
+		pr_info("%s warning ret=0x%x", __func__, ret);
+
 	return buf->vaddr;
 }
 

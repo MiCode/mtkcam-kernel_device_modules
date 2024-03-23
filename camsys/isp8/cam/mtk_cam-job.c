@@ -3342,7 +3342,8 @@ static void job_cancel(struct mtk_cam_job *job)
 		return;
 
 	pr_info("%s: #%d\n", __func__, job->req_seq);
-
+	if (!job->src_ctx)
+		return;
 	used_pipe = job->req->used_pipe & job->src_ctx->used_pipe;
 
 	frame_sync_dec_target(&job->req->fs);

@@ -860,12 +860,12 @@ static int mtk_mae_hw_connect(struct mtk_mae_dev *mae_dev)
 	mutex_lock(&mae_dev->mae_stream_lock);
 	mae_dev_info(mae_dev->dev, "%s+ count(%d)", __func__, mae_dev->mae_stream_count);
 
-	/* unavailable: 0 available: 1 */
-	if (m_aov_notify != NULL)
-		m_aov_notify(mae_dev->aov_pdev, AOV_NOTIFY_AIE_AVAIL, 0);
-
 	mae_dev->mae_stream_count++;
 	if (mae_dev->mae_stream_count == 1) {
+		/* unavailable: 0 available: 1 */
+		if (m_aov_notify != NULL)
+			m_aov_notify(mae_dev->aov_pdev, AOV_NOTIFY_AIE_AVAIL, 0);
+
 		memset(mae_dev->map_table, 0, sizeof(*mae_dev->map_table));
 		if (m_mae_reg_tf_cb) {
 			mae_dev_info(mae_dev->dev, "MAE register tf callback\n");
@@ -874,7 +874,13 @@ static int mtk_mae_hw_connect(struct mtk_mae_dev *mae_dev)
 
 		/* power on */
 		if (!mae_dev->is_shutdown) {
-			pm_runtime_get_sync(dev);
+			ret = pm_runtime_get_sync(dev);
+			if (ret) {
+				mae_dev_info(dev, "%s: pm_runtime_get_sync failed:(%d)\n",
+					__func__, ret);
+				return ret;
+			}
+
 			mtk_mae_ccf_enable(dev);
 
 			cmdq_mbox_enable(mae_dev->mae_clt->chan);
@@ -1028,29 +1034,34 @@ static void mtk_mae_release_all_caches(struct mtk_mae_dev *mae_dev)
 static void mtk_mae_hw_disconnect(struct mtk_mae_dev *mae_dev)
 {
 	uint32_t i;
-#if IS_ENABLED(CONFIG_MTK_SLBC)
 	int ret;
-#endif
 
 	mutex_lock(&mae_dev->mae_stream_lock);
-
-	if (mae_dev->is_secure && !mae_dev->is_shutdown) {
-		if (drv_ops.secure_disable)
-			drv_ops.secure_disable(mae_dev);
-#if MAE_CMDQ_SEC_READY
-		cmdq_sec_mbox_stop(mae_dev->mae_secure_clt);
-#endif
-	}
 
 	// DEBUG_ONLY
 	mae_dev_info(mae_dev->dev, "%s+ count(%d)", __func__, mae_dev->mae_stream_count);
 
 	mae_dev->mae_stream_count--;
 	if (mae_dev->mae_stream_count == 0) {
+		if (mae_dev->is_secure && !mae_dev->is_shutdown) {
+			if (drv_ops.secure_disable)
+				drv_ops.secure_disable(mae_dev);
+#if MAE_CMDQ_SEC_READY
+			cmdq_sec_mbox_stop(mae_dev->mae_secure_clt);
+#endif
+		}
+
 		if (!mae_dev->is_shutdown) {
 			cmdq_mbox_disable(mae_dev->mae_clt->chan);
 			mtk_mae_ccf_disable(mae_dev->dev);
-			pm_runtime_put_sync(mae_dev->dev);
+			ret = pm_runtime_put_sync(mae_dev->dev);
+			if (ret)
+				mae_dev_info(mae_dev->dev, "%s: pm_runtime_put_sync failed:(%d)\n",
+					__func__, ret);
+
+			/* unavailable: 0 available: 1 */
+			if (m_aov_notify != NULL)
+				m_aov_notify(mae_dev->aov_pdev, AOV_NOTIFY_AIE_AVAIL, 1);
 		}
 
 		// MAE_TO_DO: unmap buffer
@@ -1496,6 +1507,39 @@ static int mtk_mae_g_fmt_meta_cap(struct file *file, void *fh,
 }
 
 /*
+ * V4L2 ioctl operations: vidioc_dqbuf
+ */
+int mtk_mae_vioctl_dqbuf(struct file *file, void *priv,
+			       struct v4l2_buffer *buf)
+{
+	struct mtk_mae_dev *mae_dev;
+
+	if (file == NULL) {
+		pr_info("%s: file is NULL\n", __func__);
+		return -EFAULT;
+	}
+
+	if (buf == NULL) {
+		pr_info("%s: buf is NULL\n", __func__);
+		return -EFAULT;
+	}
+
+	if (file->private_data == NULL) {
+		pr_info("%s: private data is NULL\n", __func__);
+		return -EFAULT;
+	}
+
+	mae_dev = video_drvdata(file);
+
+	if (mae_dev->mae_stream_count <= 0) {
+		pr_info("%s: deque but not stream on\n", __func__);
+		return -EPERM;
+	}
+
+	return v4l2_m2m_ioctl_dqbuf(file, priv, buf);
+}
+
+/*
  * V4L2 ioctl operations: vidioc_qbuf
  */
 int mtk_mae_vidioc_qbuf(struct file *file, void *priv,
@@ -1793,7 +1837,7 @@ static const struct v4l2_ioctl_ops mtk_mae_v4l2_video_out_ioctl_ops = {
 	.vidioc_s_fmt_meta_cap = mtk_mae_g_fmt_meta_cap,
 	.vidioc_try_fmt_meta_cap = mtk_mae_g_fmt_meta_cap,
 	.vidioc_reqbufs = v4l2_m2m_ioctl_reqbufs,
-	.vidioc_dqbuf = v4l2_m2m_ioctl_dqbuf,
+	.vidioc_dqbuf = mtk_mae_vioctl_dqbuf,
 	.vidioc_streamon = v4l2_m2m_ioctl_streamon,
 	.vidioc_streamoff = v4l2_m2m_ioctl_streamoff,
 	.vidioc_create_bufs = v4l2_m2m_ioctl_create_bufs,
@@ -1958,6 +2002,8 @@ static int mtk_mae_suspend(struct device *dev)
 		if (pm_runtime_suspended(dev))
 			return 0;
 
+		cmdq_mbox_disable(mae_dev->mae_clt->chan);
+
 		mtk_mae_ccf_disable(dev);
 		ret = pm_runtime_put_sync(dev);
 		if (ret) {
@@ -1965,7 +2011,12 @@ static int mtk_mae_suspend(struct device *dev)
 				__func__, ret);
 			return ret;
 		}
+
+		/* unavailable: 0 available: 1 */
+		if (m_aov_notify != NULL)
+			m_aov_notify(mae_dev->aov_pdev, AOV_NOTIFY_AIE_AVAIL, 1);
 	}
+
 
 	mae_dev_info(dev, "%s: suspend mae job end\n", __func__);
 
@@ -1979,15 +2030,15 @@ static int mtk_mae_resume(struct device *dev)
 
 	mae_dev_info(dev, "%s: resume mae job start\n", __func__);
 
-	if (m_aov_notify != NULL)
-		m_aov_notify(mae_dev->aov_pdev, AOV_NOTIFY_AIE_AVAIL, 0);
-
 	if (!mae_dev->is_shutdown) {
 		if (pm_runtime_suspended(dev)) {
 			mae_dev_info(dev, "%s: pm_runtime_suspended is true, no action\n",
 				__func__);
 			return 0;
 		}
+
+		if (m_aov_notify != NULL)
+			m_aov_notify(mae_dev->aov_pdev, AOV_NOTIFY_AIE_AVAIL, 0);
 
 		ret = pm_runtime_get_sync(dev);
 		if (ret) {
@@ -1999,6 +2050,9 @@ static int mtk_mae_resume(struct device *dev)
 		ret = mtk_mae_ccf_enable(dev);
 		if (ret)
 			return ret;
+
+		cmdq_mbox_enable(mae_dev->mae_clt->chan);
+		cmdq_clear_event(mae_dev->mae_clt->chan, mae_dev->mae_event_id);
 	}
 
 	mae_dev_info(dev, "%s: resume aie job end)\n", __func__);

@@ -19,7 +19,6 @@ $(info mtk_mae KERNEL_VERSION=$(KERNEL_VERSION))
 
 ifeq (6.6,$(word 1,$(sort 6.6 $(KERNEL_VERSION))))
 ccflags-y += -DMAE_DMA_BUF_UNLOCK_API
-ccflags-y += -DMAE_USE_CMDQ_POLL_TIMEOUT
 endif
 
 ifneq ($(wildcard $(DEVICE_MODULES_PATH)/include/dt-bindings/memory/mt6991-larb-port.h),)

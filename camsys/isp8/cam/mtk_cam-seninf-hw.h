@@ -200,7 +200,8 @@ struct mtk_cam_seninf_ops {
 	int (*_get_mux_meter)(struct seninf_ctx *ctx, int mux,
 					 struct mtk_cam_seninf_mux_meter *meter);
 	ssize_t (*_show_status)(struct device *dev, struct device_attribute *attr, char *buf);
-	ssize_t (*_show_outmux_status)(struct device *dev, struct device_attribute *attr, char *buf);
+	ssize_t (*_show_outmux_status)(struct device *dev, struct device_attribute *attr, char *buf,
+				   unsigned int *outmuxs, unsigned int cnt);
 	int (*_irq_handler)(int irq, void *data);
 	int (*_thread_irq_handler)(int irq, void *data);
 	void (*_init_irq_fifo)(struct seninf_core *core);

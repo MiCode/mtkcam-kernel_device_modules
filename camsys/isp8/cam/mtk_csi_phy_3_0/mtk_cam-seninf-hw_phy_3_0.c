@@ -4410,21 +4410,32 @@ static ssize_t mtk_cam_seninf_show_status(struct device *dev,
 }
 
 static ssize_t mtk_cam_seninf_show_outmux_status(struct device *dev,
-				   struct device_attribute *attr, char *buf)
+				   struct device_attribute *attr, char *buf,
+				   unsigned int *outmuxs, unsigned int cnt)
 {
-	int i, len;
+	unsigned int i;
+	int len;
 	struct seninf_core *core;
-	void *outmux_outer;
+	void *outmux_outer, *outmux_inner;
+	unsigned int outmux_id = 0;
 
 	core = dev_get_drvdata(dev);
 	len = 0;
 
-	for (i = SENINF_OUTMUX0; i < _seninf_ops->outmux_num; i++) {
-		outmux_outer = core->reg_seninf_outmux[i];
+	if (!core->refcnt)
+		return len;
+
+	for (i = 0; i < cnt; i++) {
+		outmux_id = outmuxs[i];
+		if (outmux_id >= _seninf_ops->outmux_num)
+			continue;
+
+		outmux_outer = core->reg_seninf_outmux[outmux_id];
+		outmux_inner = core->reg_seninf_outmux_inner[outmux_id];
 
 		SHOW(buf, len,
 		     "\n[Outer] Outmux%d: CFG_MODE(0x%x),PIX_MODE(0x%x),CFG0/1/2(0x%x/0x%x/0x%x),SRC_SEL(0x%x),CFG_DONE(0x%x),CFG_RDY(0x%x),IRQ_EN(0x%x),IRQ_ST(0x%x)\n",
-		     i,
+		     outmux_id,
 		     SENINF_READ_REG(outmux_outer, SENINF_OUTMUX_SW_CONFIG_MODE),
 		     SENINF_READ_REG(outmux_outer, SENINF_OUTMUX_PIX_MODE),
 		     SENINF_READ_REG(outmux_outer, SENINF_OUTMUX_SOURCE_CONFIG_0),
@@ -4444,6 +4455,29 @@ static ssize_t mtk_cam_seninf_show_outmux_status(struct device *dev,
 		DUMP_TAG_REG(outmux_outer, 5);
 		DUMP_TAG_REG(outmux_outer, 6);
 		DUMP_TAG_REG(outmux_outer, 7);
+
+		SHOW(buf, len,
+		     "\n[Inner] Outmux%d: CFG_MODE(0x%x),PIX_MODE(0x%x),CFG0/1/2(0x%x/0x%x/0x%x),SRC_SEL(0x%x),CFG_DONE(0x%x),CFG_RDY(0x%x),IRQ_EN(0x%x),IRQ_ST(0x%x)\n",
+		     outmux_id,
+		     SENINF_READ_REG(outmux_inner, SENINF_OUTMUX_SW_CONFIG_MODE),
+		     SENINF_READ_REG(outmux_inner, SENINF_OUTMUX_PIX_MODE),
+		     SENINF_READ_REG(outmux_inner, SENINF_OUTMUX_SOURCE_CONFIG_0),
+		     SENINF_READ_REG(outmux_inner, SENINF_OUTMUX_SOURCE_CONFIG_1),
+		     SENINF_READ_REG(outmux_inner, SENINF_OUTMUX_SOURCE_CONFIG_2),
+		     SENINF_READ_REG(outmux_inner, SENINF_OUTMUX_SRC_SEL),
+		     SENINF_READ_REG(outmux_inner, SENINF_OUTMUX_SW_CFG_DONE),
+		     SENINF_READ_REG(outmux_inner, SENINF_OUTMUX_CAM_CFG_RDY),
+		     SENINF_READ_REG(outmux_inner, SENINF_OUTMUX_IRQ_EN),
+		     SENINF_READ_REG(outmux_inner, SENINF_OUTMUX_IRQ_STATUS));
+
+		DUMP_TAG_REG(outmux_inner, 0);
+		DUMP_TAG_REG(outmux_inner, 1);
+		DUMP_TAG_REG(outmux_inner, 2);
+		DUMP_TAG_REG(outmux_inner, 3);
+		DUMP_TAG_REG(outmux_inner, 4);
+		DUMP_TAG_REG(outmux_inner, 5);
+		DUMP_TAG_REG(outmux_inner, 6);
+		DUMP_TAG_REG(outmux_inner, 7);
 	}
 
 	return len;

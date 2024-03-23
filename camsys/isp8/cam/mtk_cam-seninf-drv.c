@@ -58,6 +58,9 @@
 #define DEBUG_OPS_SHOW_LOG_SIZE 1024
 static char debug_ops_show_log[DEBUG_OPS_SHOW_LOG_SIZE];
 
+#define OUTMUX_DBG_DUMP_MAX_CNT 3
+static unsigned int outmux_st_dump[OUTMUX_DBG_DUMP_MAX_CNT];
+
 struct mtk_cam_seninf_ops *g_seninf_ops;
 
 /* aov sensor use */
@@ -167,10 +170,45 @@ static DEVICE_ATTR_RO(err_status);
 static ssize_t outmux_status_show(struct device *dev,
 			   struct device_attribute *attr, char *buf)
 {
-	return g_seninf_ops->_show_outmux_status(dev, attr, buf);
+	return g_seninf_ops->_show_outmux_status(dev, attr, buf,
+					outmux_st_dump, OUTMUX_DBG_DUMP_MAX_CNT);
 }
 
-static DEVICE_ATTR_RO(outmux_status);
+static ssize_t outmux_status_store(struct device *dev,
+			   struct device_attribute *attr,
+			   const char *buf, size_t count)
+{
+	char delim[] = "\n\t\r\x0a\x0d ";
+	char *token = NULL;
+	char *sbuf = kzalloc(sizeof(char) * (count + 1), GFP_KERNEL);
+	char *s = sbuf;
+	int i;
+	u64 val = 0;
+
+	if (!sbuf)
+		goto ERR_OUTMUX_ST_STORE;
+
+	memcpy(sbuf, buf, count);
+	memset(outmux_st_dump, 0, sizeof(unsigned int) * OUTMUX_DBG_DUMP_MAX_CNT);
+
+	i = 0;
+	token = strsep(&s, delim);
+	while (token != NULL && i < OUTMUX_DBG_DUMP_MAX_CNT) {
+		if (kstrtoull(token, 0, &val) == 0)
+			outmux_st_dump[i] = (unsigned int) val;
+
+		token = strsep(&s, delim);
+		i++;
+	}
+
+ERR_OUTMUX_ST_STORE:
+
+	kfree(sbuf);
+
+	return count;
+}
+
+static DEVICE_ATTR_RW(outmux_status);
 
 static ssize_t debug_ops_show(struct device *dev,
 			   struct device_attribute *attr, char *buf)

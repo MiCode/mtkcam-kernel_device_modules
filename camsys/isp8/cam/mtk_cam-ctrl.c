@@ -1247,7 +1247,6 @@ static void mtk_cam_ctrl_stream_on_flow(struct mtk_cam_job *job)
 	struct device *dev = ctx->cam->dev;
 
 	dev_info(dev, "[%s] ctx %d begin\n", __func__, ctrl->ctx->stream_id);
-
 	mtk_cam_job_update_clk(job);
 	if (mtk_cam_ctrl_stream_on_job(job))
 		return;
@@ -1269,6 +1268,9 @@ static int dynamic_raw_change_stream_on(struct mtk_cam_job *job)
 
 	if (job->raw_change) {
 		if (job->raw_change == JOB_RAW_MASTER_UNCHANGED) {
+			/* bc -> b case , ealier raise clk */
+			if (job->raw_change_uninit_engine)
+				mtk_cam_job_update_clk(job);
 			for (i = 0; i < cam->engines.num_raw_devices; i++) {
 				if (BIT(i) & ctx->used_engine) {
 					struct mtk_raw_device *raw_dev;
@@ -1374,7 +1376,7 @@ static void mtk_cam_ctrl_dynamic_raws_change_flow(struct mtk_cam_job *job)
 		goto SWITCH_FAILURE;
 
 	prev_seq = prev_frame_seq(job->frame_seq_no);
-	dev_info(dev, "[%s] wait 2.prev engines done req:%d\n",
+	dev_info(dev, "[%s] wait 2.prev engines done req:0x%x\n",
 			__func__, prev_seq);
 	if (mtk_cam_ctrl_wait_event(ctrl, check_done, &prev_seq, 1000)) {
 		dev_info(dev, "[%s] check for dynamic_raws_change timeout: prev_seq=0x%x\n",
@@ -1382,14 +1384,11 @@ static void mtk_cam_ctrl_dynamic_raws_change_flow(struct mtk_cam_job *job)
 		goto SWITCH_FAILURE;
 	}
 
-	if (dynamic_raw_change_uninit_engine(job))
-		goto SWITCH_FAILURE;
-
-	dev_info(dev, "[%s] wait 3.new engines(0x%x) processing seq:%d\n",
+	dev_info(dev, "[%s] wait 3.new engines(0x%x) processing seq:0x%x\n",
 			__func__, ctx->used_engine, job->frame_seq_no);
 	check_args.expect_inner = job->frame_seq_no;
 	check_args.expect_ack = job->frame_seq_no;
-	if (mtk_cam_ctrl_wait_event(ctrl, check_for_inner, &check_args, 1000)) {
+	if (mtk_cam_ctrl_wait_event(ctrl, check_for_inner, &check_args, 150)) {
 		dev_info(dev, "[%s] check for dynamic_raws_change timeout: expected in=0x%x ack=0x%x\n",
 			 __func__,
 			 check_args.expect_inner, check_args.expect_ack);
@@ -1422,14 +1421,22 @@ static void mtk_cam_ctrl_dynamic_raws_change_flow(struct mtk_cam_job *job)
 	}
 
 	mtk_cam_job_update_clk(job);
+	if (dynamic_raw_change_uninit_engine(job)) {
+		dev_info(dev, "[%s] uninit engine failed, uninit raw:0x%x\n",
+			__func__, job->raw_change_uninit_engine);
+		goto SWITCH_FAILURE;
+	}
+
 	dev_info(dev, "[%s] finish, uninit raw:0x%x, new frame inner:%d\n",
 		__func__, job->raw_change_uninit_engine, check_args.expect_inner);
+
 	return;
 
 SWITCH_FAILURE:
 	dev_info(dev, "[%s] failed: ctx-%d job %d frame_seq 0x%x\n",
 		 __func__, ctx->stream_id, job->req_seq, job->frame_seq_no);
-
+	mtk_cam_seninf_dump(ctx->seninf, job->frame_seq_no, true);
+	mtk_engine_dump_debug_status(ctx->cam, job->used_engine, false);
 	WRAP_AEE_EXCEPTION(MSG_RAW_CHANGE_FAILURE, __func__);
 }
 

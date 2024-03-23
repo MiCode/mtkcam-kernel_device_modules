@@ -338,54 +338,80 @@ void pda_mmqos_bw_set(struct PDA_Data_t *pda_Pdadata)
 			WDMA_PEAK_BW);
 	}
 
-	// MMQOS set bw
+	// MMQOS set bw, image and table port
 	for (i = 0; i < PDA_MMQOS_PDA1_RDMA_NUM; ++i) {
 		if (icc_path_pda1_rdma[i]) {
-			mtk_icc_set_bw(icc_path_pda1_rdma[i],
-				(int)(IMAGE_TABLE_RDMA_AVG_BW),
-				(int)(IMAGE_TABLE_RDMA_PEAK_BW));
+			if (PDA_MMQOS_PDA2_RDMA_NUM > 0) {
+				// two pda, share mmqos
+				mtk_icc_set_bw(icc_path_pda1_rdma[i],
+					(int)(IMAGE_TABLE_RDMA_AVG_BW/2),
+					(int)(IMAGE_TABLE_RDMA_PEAK_BW));
+			} else {
+				// one pda, no need to share
+				mtk_icc_set_bw(icc_path_pda1_rdma[i],
+					(int)(IMAGE_TABLE_RDMA_AVG_BW),
+					(int)(IMAGE_TABLE_RDMA_PEAK_BW));
+			}
 			pda_rdma_ttl_bw += (unsigned int)(IMAGE_TABLE_RDMA_AVG_BW);
 		}
 	}
 	for (i = 0; i < PDA_MMQOS_PDA2_RDMA_NUM; ++i) {
 		if (icc_path_pda2_rdma[i]) {
+			// share mmqos
 			mtk_icc_set_bw(icc_path_pda2_rdma[i],
-				(int)(IMAGE_TABLE_RDMA_AVG_BW),
+				(int)(IMAGE_TABLE_RDMA_AVG_BW/2),
 				(int)(IMAGE_TABLE_RDMA_PEAK_BW));
 		}
 	}
 
+	// MMQOS set bw, image and image port
 	if (B_N <= 3) {
 		// MMQOS set bw
 		for (i = 0; i < B_N; ++i) {
 			if (icc_path_pda1_rdma_b[i]) {
-				mtk_icc_set_bw(icc_path_pda1_rdma_b[i],
-					(int)(IMAGE_IMAGE_RDMA_AVG_BW),
-					(int)(IMAGE_IMAGE_RDMA_PEAK_BW));
+				if (PDA_MMQOS_PDA2_RDMA_B_NUM > 0) {
+					mtk_icc_set_bw(icc_path_pda1_rdma_b[i],
+						(int)(IMAGE_IMAGE_RDMA_AVG_BW/2),
+						(int)(IMAGE_IMAGE_RDMA_PEAK_BW));
+				} else {
+					mtk_icc_set_bw(icc_path_pda1_rdma_b[i],
+						(int)(IMAGE_IMAGE_RDMA_AVG_BW),
+						(int)(IMAGE_IMAGE_RDMA_PEAK_BW));
+				}
 				pda_rdma_ttl_bw += (unsigned int)(IMAGE_IMAGE_RDMA_AVG_BW);
 			}
-			if (icc_path_pda2_rdma_b[i]) {
-				mtk_icc_set_bw(icc_path_pda2_rdma_b[i],
-					(int)(IMAGE_IMAGE_RDMA_AVG_BW),
-					(int)(IMAGE_IMAGE_RDMA_PEAK_BW));
+
+			if (PDA_MMQOS_PDA2_RDMA_B_NUM > 0) {
+				if (icc_path_pda2_rdma_b[i]) {
+					mtk_icc_set_bw(icc_path_pda2_rdma_b[i],
+						(int)(IMAGE_IMAGE_RDMA_AVG_BW/2),
+						(int)(IMAGE_IMAGE_RDMA_PEAK_BW));
+				}
 			}
 		}
 	} else {
 		LOG_INF("B_N out of range, B_N:%d\n", B_N);
 	}
 
+	// MMQOS set bw, output port
 	for (i = 0; i < PDA_MMQOS_PDA1_WDMA_NUM; ++i) {
 		if (icc_path_pda1_wdma[i]) {
-			mtk_icc_set_bw(icc_path_pda1_wdma[i],
-				(int)(WDMA_AVG_BW),
-				(int)(WDMA_PEAK_BW));
+			if (PDA_MMQOS_PDA2_WDMA_NUM > 0) {
+				mtk_icc_set_bw(icc_path_pda1_wdma[i],
+					(int)(WDMA_AVG_BW/2),
+					(int)(WDMA_PEAK_BW));
+			} else {
+				mtk_icc_set_bw(icc_path_pda1_wdma[i],
+					(int)(WDMA_AVG_BW),
+					(int)(WDMA_PEAK_BW));
+			}
 			pda_wdma_ttl_bw += (unsigned int)(WDMA_AVG_BW);
 		}
 	}
 	for (i = 0; i < PDA_MMQOS_PDA2_WDMA_NUM; ++i) {
 		if (icc_path_pda2_wdma[i]) {
 			mtk_icc_set_bw(icc_path_pda2_wdma[i],
-				(int)(WDMA_AVG_BW),
+				(int)(WDMA_AVG_BW/2),
 				(int)(WDMA_PEAK_BW));
 		}
 	}

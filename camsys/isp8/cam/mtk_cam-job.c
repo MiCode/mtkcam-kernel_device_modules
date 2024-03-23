@@ -3780,7 +3780,11 @@ static void m2m_on_transit(struct mtk_cam_job_state *s, int state_type,
 static int
 unset_cq_threshold_and_cammux(struct mtk_cam_job *job)
 {
+	struct mtk_cam_ctx *ctx = job->src_ctx;
+
 	disable_seninf_cammux(job);
+	if (ctx)
+		mtk_cam_seninf_apply_disable_mux(ctx->seninf);
 
 	return 0;
 }

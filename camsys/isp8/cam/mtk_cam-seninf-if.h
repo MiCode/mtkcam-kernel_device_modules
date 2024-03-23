@@ -41,6 +41,13 @@ int mtk_cam_seninf_set_camtg_cfg(struct v4l2_subdev *sd, int camtg,
 				int param_cnt);
 
 /**
+ * trigger apply disable outmux
+ *
+ * @sd: sensor interface's V4L2 subdev
+ */
+int mtk_cam_seninf_apply_disable_mux(struct v4l2_subdev *sd);
+
+/**
  * set config ready
  *
  * @sd: sensor interface's V4L2 subdev

@@ -1066,6 +1066,16 @@ static int seninf_core_probe(struct platform_device *pdev)
 			else {
 				core->outmux[i].idx = i;
 
+				// mapping base inner
+				index = of_property_match_string(tmp_node, "reg-names", "base-inner");
+				if (index < 0) {
+					// Fail
+					dev_info(dev, "get seninf outmux reg base inner failed\n");
+				} else {
+					core->reg_seninf_outmux_inner[i] =
+						devm_of_iomap(dev, tmp_node, index, NULL);
+				}
+
 				of_property_read_string(tmp_node,
 						"connected-cam-type", &str);
 				for (j = 0; (str) && (j < ARRAY_SIZE(outmux_cam_type_name)); j++) {
@@ -3195,6 +3205,7 @@ static int seninf_probe(struct platform_device *pdev)
 					core->reg_seninf_async,
 					core->reg_seninf_tm,
 					core->reg_seninf_outmux,
+					core->reg_seninf_outmux_inner,
 					core->reg_csi_base);
 	if (ret) {
 		dev_info(dev, "g_seninf_ops->_init_iomem failed ret %d\n", ret);

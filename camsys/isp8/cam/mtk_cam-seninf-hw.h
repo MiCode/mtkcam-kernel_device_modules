@@ -28,6 +28,9 @@
 #define MAX_MUX_VCINFO_DEBUG 15
 #define MAX_TS_SIZE 4
 
+/* isp8 used. suspose isp8s no need, use grp rdy instead */
+#define SEAMLESS_OUTMUX_V2
+
 /*ULPS-mode support*/
 #undef CDPHY_ULPS_MODE_SUPPORT
 //#define CDPHY_ULPS_MODE_SUPPORT
@@ -171,6 +174,7 @@ struct mtk_cam_seninf_ops {
 	int (*_init_iomem)(struct seninf_ctx *ctx,
 			      void __iomem *if_top_base, void __iomem *if_async_base,
 			      void __iomem *if_tm_base, void __iomem *if_outmux[],
+			      void __iomem *if_outmux_inner[],
 				  struct csi_reg_base *csi_base);
 	int (*_init_port)(struct seninf_ctx *ctx, int port, struct csi_reg_base *csi_base);
 	int (*_disable_outmux)(struct seninf_ctx *ctx, int outmux, bool immed);
@@ -185,6 +189,9 @@ struct mtk_cam_seninf_ops {
 	int (*_wait_outmux_cfg_done)(struct seninf_ctx *ctx, u8 outmux_idx);
 	int (*_config_outmux)(struct seninf_ctx *ctx, u8 outmux_idx, u8 src_mipi, u8 src_sen,
 			u8 cfg_mode, struct outmux_tag_cfg *tag_cfg);
+	int (*_apply_outmux_for_v2)(struct seninf_ctx *ctx, u8 outmux_idx,
+			u8 cfg_mode, struct outmux_tag_cfg *tag_cfg, bool is_sensor_delay);
+	bool (*_chk_sensor_delay_with_wait)(struct seninf_ctx *ctx, u8 outmux_idx, bool *sensor_delay);
 	int (*_set_outmux_ref_vsync)(struct seninf_ctx *ctx, u8 outmux_idx);
 	int (*_set_outmux_cfg_done)(struct seninf_ctx *ctx, u8 outmux_idx);
 	int (*_set_outmux_pixel_mode)(struct seninf_ctx *ctx,

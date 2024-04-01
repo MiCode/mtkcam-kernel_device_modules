@@ -102,7 +102,6 @@ int Handler_frame_token_sync_DPE(struct platform_device *pdev, struct dpe_in_dat
 		|| (frm_sync_dev->data->Handler_frame_token_sync_DPE == NULL)) {
 		dev_info(frm_sync_dev->dev, "%s frm token DPE not support", __func__);
 	} else {
-		dev_info(frm_sync_dev->dev, "%s frm token DPE in", __func__);
 		ret = frm_sync_dev->data->Handler_frame_token_sync_DPE(frm_sync_dev, in_data, out_data);
 	}
 

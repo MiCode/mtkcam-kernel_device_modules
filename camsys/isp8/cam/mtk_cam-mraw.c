@@ -1236,6 +1236,9 @@ void mraw_handle_error(struct mtk_mraw_device *mraw_dev,
 	ctx_id = ctx_from_fh_cookie(frame_idx_inner);
 	ctx = &mraw_dev->cam->ctxs[ctx_id];
 
+	/* dump error status */
+	dev_info_ratelimited(mraw_dev->dev, "error_status:0x%x\n", err_status);
+
 	/* handle tg overrun error */
 	if (err_status & MRAWCTL_TG_ERR_ST)
 		mraw_handle_tg_overrun_error(mraw_dev);

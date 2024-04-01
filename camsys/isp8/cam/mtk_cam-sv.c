@@ -1198,6 +1198,7 @@ int mtk_cam_sv_dev_config(struct mtk_camsv_device *sv_dev,
 	sv_dev->sv_avg_applied_bw_w = 0;
 	sv_dev->sv_peak_applied_bw_w = 0;
 
+	atomic_set(&sv_dev->is_otf, 0);
 	atomic_set(&sv_dev->is_seamless, 0);
 	atomic_set(&sv_dev->is_sw_clr, 0);
 
@@ -1627,6 +1628,20 @@ void camsv_handle_err(
 		mtk_cam_sv_execute_fifo_dump(sv_dev, data->ts_ns);
 #endif
 		dev_info_ratelimited(sv_dev->dev, "camsv dma fifo full\n");
+
+		if (atomic_read(&sv_dev->is_otf) && !DISABLE_RECOVER_FLOW)
+			mtk_smi_dbg_hang_detect("camsys-camsv");
+
+		if (DISABLE_RECOVER_FLOW) {
+			mtk_smi_dbg_hang_detect("camsys-camsv");
+			if (atomic_read(&sv_dev->is_seamless))
+				mtk_cam_ctrl_dump_request(sv_dev->cam, CAMSYS_ENGINE_CAMSV, sv_dev->id,
+					frame_idx_inner, MSG_CAMSV_SEAMLESS_ERROR);
+			else
+				mtk_cam_ctrl_dump_request(sv_dev->cam, CAMSYS_ENGINE_CAMSV, sv_dev->id,
+					frame_idx_inner, MSG_CAMSV_ERROR);
+		}
+
 
 		mtk_cam_ctrl_notify_hw_hang(sv_dev->cam,
 					    CAMSYS_ENGINE_CAMSV, sv_dev->id,

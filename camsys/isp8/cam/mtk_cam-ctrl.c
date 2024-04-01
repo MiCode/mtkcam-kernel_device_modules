@@ -27,10 +27,6 @@
 #include "mtk_cam-job_utils.h"
 #include "mtk_cam-raw_ctrl.h"
 
-static unsigned int disable_recover_flow;
-module_param(disable_recover_flow, uint, 0644);
-MODULE_PARM_DESC(disable_recover_flow, "disable_recover_flow");
-
 #define WATCHDOG_INTERVAL_MS		800
 /*
  * note:
@@ -2766,7 +2762,7 @@ int mtk_cam_ctrl_notify_hw_hang(struct mtk_cam_device *cam,
 		 * count frames before doing recovery to avoid various hw timing.
 		 * 'set 10 to enable recovery'
 		 */
-		ctrl->hw_hang_count_down = (disable_recover_flow) ? 0 : 10;
+		ctrl->hw_hang_count_down = (DISABLE_RECOVER_FLOW) ? 0 : 10;
 		job->is_error = 1;
 	}
 	mtk_cam_job_put(job);

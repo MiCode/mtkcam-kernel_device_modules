@@ -204,6 +204,7 @@ struct mtk_camsv_device {
 	int sv_avg_applied_bw_w;
 	int sv_peak_applied_bw_w;
 
+	atomic_t is_otf;
 	atomic_t is_seamless;
 	atomic_t is_queue_mode;
 };

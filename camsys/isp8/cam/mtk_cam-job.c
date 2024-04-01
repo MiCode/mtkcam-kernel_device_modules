@@ -1780,7 +1780,6 @@ static int _apply_raw_cq(struct mtk_cam_job *job,
 
 		if (job->seamless_switch)
 			atomic_set(&sv_dev->is_seamless, 1);
-
 		else
 			atomic_set(&sv_dev->is_seamless, 0);
 	}
@@ -1816,10 +1815,10 @@ static int _apply_sv_cq(struct mtk_cam_job *job,
 
 	sv_dev = dev_get_drvdata(cam->engines.sv_devs[sv_dev_id]);
 
-	if (job->seamless_switch)
-		atomic_set(&sv_dev->is_seamless, 1);
+	if (!is_dc_mode(job))
+		atomic_set(&sv_dev->is_otf, 1);
 	else
-		atomic_set(&sv_dev->is_seamless, 0);
+		atomic_set(&sv_dev->is_otf, 0);
 
 	apply_camsv_cq(sv_dev,
 		       cq->daddr,

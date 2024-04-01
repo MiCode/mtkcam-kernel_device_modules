@@ -1687,6 +1687,9 @@ int mtk_cam_seninf_get_tag_order(struct v4l2_subdev *sd,
 		return -EINVAL;
 	}
 
+	sensor_sd->ops->core->command(
+		sensor_sd, V4L2_CMD_GET_SENSOR_MODE_CONFIG_INFO, &info);
+
 	scenario = get_scenario_from_fmt_code(fmt_code);
 
 	for (i = 0; i < info.count; i++) {
@@ -1708,6 +1711,9 @@ int mtk_cam_seninf_get_tag_order(struct v4l2_subdev *sd,
 
 	for (i = 0; i < vc_sid.fd.num_entries; i++) {
 		desc = vc_sid.fd.entry[i].bus.csi2.user_data_desc;
+		vc->vc = vc_sid.fd.entry[i].bus.csi2.channel;
+		vc->dt = vc_sid.fd.entry[i].bus.csi2.data_type;
+
 		mtk_cam_seninf_fill_outpad_to_vc(
 				ctx, vc, desc, &fsync_ext_vsync_pad_code);
 

@@ -7251,7 +7251,8 @@ int mtk_cam_seninf_set_outmux_cfg_done(struct seninf_ctx *ctx, u8 outmux_idx)
 {
 	void *pSeninf_mux;
 
-	seninf_logi(ctx, "raise outmux%u cfg done", outmux_idx);
+	seninf_logi(ctx, "raise outmux%u cfg done, curr irq st:0x%x", outmux_idx,
+		_seninf_ops->_get_outmux_irq_st(ctx, outmux_idx, 0));
 
 	pSeninf_mux = ctx->reg_if_outmux[outmux_idx];
 

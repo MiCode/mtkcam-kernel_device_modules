@@ -808,9 +808,8 @@ static void imgsys_cmdq_modules_cg_ungating(struct cmdq_pkt *pkt,
 	/* Wait clk un-gating */
 	reg = addr + sta_ofs;
 
-	cmdq_pkt_poll_timeout(pkt, 0/*poll val*/, SUBSYS_NO_SUPPORT, (reg)/*addr*/,
-			val /*mask*/, IMG_CG_UNGATING_DELAY_CNT /*delay cnt*/,
-			CMDQ_GPR_R13 /*GPR*/);
+	cmdq_pkt_poll_sleep(pkt, 0/*poll val*/,
+			(reg)/*addr*/, val /*mask*/);
 }
 
 static void imgsys_cmdq_dip_cg_unating(struct cmdq_pkt *pkt,
@@ -1738,16 +1737,10 @@ static void qof_module_vote_add(struct cmdq_pkt *pkt, u32 pwr, u32 user)
 		cmdq_pkt_write(pkt, NULL, (qof_reg_table[ISP8_PWR_WPE_2_TNR][QOF_IMG_EVENT_CNT_ADD].addr) /*address*/,
 			qof_reg_table[ISP8_PWR_WPE_2_TNR][QOF_IMG_EVENT_CNT_ADD].val,
 			qof_reg_table[ISP8_PWR_WPE_2_TNR][QOF_IMG_EVENT_CNT_ADD].mask);
-		cmdq_pkt_poll_timeout(pkt, BIT(1)/*poll val*/, SUBSYS_NO_SUPPORT,
-			(qof_reg_table[ISP8_PWR_WPE_1_EIS][QOF_IMG_QOF_STATE_DBG].addr)/*addr*/,
-			BIT(1) /*mask*/,
-			IMG_MTCMOS_STABLE_CNT /*delay cnt 1 for 12us*/,
-			CMDQ_GPR_R13 /*GPR*/);
-		cmdq_pkt_poll_timeout(pkt, BIT(1)/*poll val*/, SUBSYS_NO_SUPPORT,
-			(qof_reg_table[ISP8_PWR_WPE_2_TNR][QOF_IMG_QOF_STATE_DBG].addr)/*addr*/,
-			BIT(1) /*mask*/,
-			IMG_MTCMOS_STABLE_CNT /*delay cnt 1 for 12us*/,
-			CMDQ_GPR_R13 /*GPR*/);
+		cmdq_pkt_poll_sleep(pkt, BIT(1)/*poll val*/,
+			(qof_reg_table[ISP8_PWR_WPE_1_EIS][QOF_IMG_QOF_STATE_DBG].addr), BIT(1) /*mask*/);
+		cmdq_pkt_poll_sleep(pkt, BIT(1)/*poll val*/,
+			(qof_reg_table[ISP8_PWR_WPE_2_TNR][QOF_IMG_QOF_STATE_DBG].addr), BIT(1) /*mask*/);
 		/* End of critical section */
 		cmdq_pkt_clear_event(pkt, qof_event->sw_event_lock);
 	} else {
@@ -1760,11 +1753,8 @@ static void qof_module_vote_add(struct cmdq_pkt *pkt, u32 pwr, u32 user)
 		cmdq_pkt_write(pkt, NULL, (qof_reg_table[pwr][QOF_IMG_EVENT_CNT_ADD].addr) /*address*/,
 			qof_reg_table[pwr][QOF_IMG_EVENT_CNT_ADD].val,
 			qof_reg_table[pwr][QOF_IMG_EVENT_CNT_ADD].mask);
-		cmdq_pkt_poll_timeout(pkt, BIT(1)/*poll val*/, SUBSYS_NO_SUPPORT,
-			(qof_reg_table[pwr][QOF_IMG_QOF_STATE_DBG].addr)/*addr*/,
-			BIT(1) /*mask*/,
-			IMG_MTCMOS_STABLE_CNT /*delay cnt 1 for 12us*/,
-			CMDQ_GPR_R13 /*GPR*/);
+		cmdq_pkt_poll_sleep(pkt, BIT(1)/*poll val*/,
+			(qof_reg_table[pwr][QOF_IMG_QOF_STATE_DBG].addr)/*addr*/, BIT(1) /*mask*/);
 		/* End of critical section */
 		cmdq_pkt_clear_event(pkt, qof_event->sw_event_lock);
 	}
@@ -1801,14 +1791,10 @@ static void qof_module_vote_sub(struct cmdq_pkt *pkt, u32 pwr, u32 user)
 			qof_reg_table[ISP8_PWR_WPE_2_TNR][QOF_IMG_EVENT_CNT_SUB].val,
 			qof_reg_table[ISP8_PWR_WPE_2_TNR][QOF_IMG_EVENT_CNT_SUB].mask);
 
-		cmdq_pkt_poll_timeout(pkt, 0/*poll val*/, SUBSYS_NO_SUPPORT,
-			(qof_reg_table[ISP8_PWR_WPE_1_EIS][QOF_IMG_QOF_STATE_DBG].addr)/*addr*/,
-			BIT(3) /*mask*/, IMG_MTCMOS_STABLE_CNT /*delay cnt 1 for 12us*/,
-			CMDQ_GPR_R13 /*GPR*/);
-		cmdq_pkt_poll_timeout(pkt, 0/*poll val*/, SUBSYS_NO_SUPPORT,
-			(qof_reg_table[ISP8_PWR_WPE_2_TNR][QOF_IMG_QOF_STATE_DBG].addr)/*addr*/,
-			BIT(3) /*mask*/, IMG_MTCMOS_STABLE_CNT /*delay cnt 1 for 12us*/,
-			CMDQ_GPR_R13 /*GPR*/);
+		cmdq_pkt_poll_sleep(pkt, 0/*poll val*/,
+			(qof_reg_table[ISP8_PWR_WPE_1_EIS][QOF_IMG_QOF_STATE_DBG].addr)/*addr*/, BIT(3) /*mask*/);
+		cmdq_pkt_poll_sleep(pkt, 0/*poll val*/,
+			(qof_reg_table[ISP8_PWR_WPE_2_TNR][QOF_IMG_QOF_STATE_DBG].addr)/*addr*/, BIT(3) /*mask*/);
 
 		/* End of critical section */
 		cmdq_pkt_clear_event(pkt, qof_event->sw_event_lock);
@@ -1826,10 +1812,8 @@ static void qof_module_vote_sub(struct cmdq_pkt *pkt, u32 pwr, u32 user)
 			qof_reg_table[pwr][QOF_IMG_EVENT_CNT_SUB].val,
 			qof_reg_table[pwr][QOF_IMG_EVENT_CNT_SUB].mask);
 
-		cmdq_pkt_poll_timeout(pkt, 0/*poll val*/, SUBSYS_NO_SUPPORT,
-			(qof_reg_table[pwr][QOF_IMG_QOF_STATE_DBG].addr)/*addr*/,
-			BIT(3) /*mask*/, IMG_MTCMOS_STABLE_CNT /*delay cnt 1 for 12us*/,
-			CMDQ_GPR_R13 /*GPR*/);
+		cmdq_pkt_poll_sleep(pkt, 0/*poll val*/,
+			(qof_reg_table[pwr][QOF_IMG_QOF_STATE_DBG].addr)/*addr*/, BIT(3) /*mask*/);
 
 		/* End of critical section */
 		cmdq_pkt_clear_event(pkt, qof_event->sw_event_lock);

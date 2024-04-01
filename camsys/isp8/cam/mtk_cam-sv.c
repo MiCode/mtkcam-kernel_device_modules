@@ -1463,7 +1463,13 @@ int mtk_cam_sv_dev_stream_on(struct mtk_camsv_device *sv_dev, bool on,
 		/* keep enabled tag info. for stream off use */
 		sv_dev->enabled_tags = enabled_tags;
 		sv_dev->used_tag_cnt = used_tag_cnt;
-
+		/* enable camsv smi snoc config */
+		if (sv_dev->id == 0)
+			CAMSV_WRITE_REG(sv_dev->cam->base + REG_CAM_MAIN_LARB14_VC_SEL, 0x37);
+		else if (sv_dev->id == 1)
+			CAMSV_WRITE_REG(sv_dev->cam->base + REG_CAM_MAIN_LARB13_VC_SEL, 0x67);
+		else
+			CAMSV_WRITE_REG(sv_dev->cam->base + REG_CAM_MAIN_LARB29_VC_SEL, 0x3CFF);
 	}
 
 	for (i = SVTAG_START; i < SVTAG_END; i++) {

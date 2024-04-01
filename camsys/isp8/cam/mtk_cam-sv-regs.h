@@ -8,6 +8,9 @@
 
 /* cam main */
 #define REG_CAM_MAIN_SW_RST_1					0x0058
+#define REG_CAM_MAIN_LARB13_VC_SEL				0x0590
+#define REG_CAM_MAIN_LARB14_VC_SEL				0x0594
+#define REG_CAM_MAIN_LARB29_VC_SEL				0x059C
 
 /* central */
 #define REG_CAMSVCENTRAL_DMA_EN_IMG				0x0040

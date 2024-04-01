@@ -12,7 +12,7 @@
 
 #include "mtk_cam-job.h"
 
-#define DISABLE_RECOVER_FLOW 0
+#define DISABLE_RECOVER_FLOW 1
 
 struct mtk_cam_device;
 struct mtk_raw_device;

@@ -1622,11 +1622,6 @@ void camsv_handle_err(
 #endif
 		dev_info_ratelimited(sv_dev->dev, "camsv dma fifo full\n");
 
-		if (atomic_read(&sv_dev->is_seamless)) {
-			mtk_cam_ctrl_dump_request(sv_dev->cam, CAMSYS_ENGINE_CAMSV, sv_dev->id,
-				frame_idx_inner, MSG_CAMSV_SEAMLESS_ERROR);
-		}
-
 		mtk_cam_ctrl_notify_hw_hang(sv_dev->cam,
 					    CAMSYS_ENGINE_CAMSV, sv_dev->id,
 					    frame_idx_inner);

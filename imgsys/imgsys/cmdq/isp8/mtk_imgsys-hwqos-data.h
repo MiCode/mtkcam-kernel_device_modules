@@ -32,7 +32,7 @@
 // original setting BWR_IMG_PROTOCOL1_OFT:  0x140412
 #define BWR_IMG_PROTOCOL1                   0x150512
 
-#define OCC_FACTOR                          1.25
+#define OCC_FACTOR                          1.2890625  // 1.25 * (1 + 1/32) (with TCU BW)
 #define BUS_URATE                           1.421875
 #define BW_RAT                              0.9765625
 #define BLS_UNIT                            16  // byte

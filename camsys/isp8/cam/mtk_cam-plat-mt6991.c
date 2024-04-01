@@ -74,6 +74,19 @@ static void meta_state0_reset_all(struct mtk_cam_uapi_meta_raw_stats_0 *stats)
 	set_payload(&stats->tcys_stats.tcyso_buf, 0, &offset);
 	set_payload(&stats->pde_stats.pdo_buf, 0, &offset);
 }
+static int get_ltms_free_run(const struct set_meta_stats_info_param *p)
+{
+	struct mtk_cam_uapi_meta_raw_stats_cfg *cfg = p->meta_cfg;
+
+	return cfg->ltms_param.select_control;
+}
+
+static int get_ltmsgo_offset(void *addr)
+{
+	struct mtk_cam_uapi_meta_raw_stats_0 *stats = addr;
+
+	return stats->ltm_stats.ltmsgo_buf.offset;
+}
 
 static int set_meta_stat0_info(struct mtk_cam_uapi_meta_raw_stats_0 *stats,
 			       size_t size,
@@ -726,7 +739,6 @@ static const struct plat_v4l2_data mt6991_v4l2_data = {
 
 	.timestamp_buffer_ofst = offsetof(struct mtk_cam_uapi_meta_raw_stats_0,
 					  timestamp),
-
 	.reserved_camsv_dev_id = 3,
 
 	.vb2_queues_support_list = vb2_queues_support_list,
@@ -734,7 +746,8 @@ static const struct plat_v4l2_data mt6991_v4l2_data = {
 
 	.set_meta_stats_info = set_meta_stats_info,
 	.get_meta_stats_port_size = get_meta_stats_port_size,
-
+	.get_ltmsgo_freerun_need_copy = get_ltms_free_run,
+	.ltmsgo_buffer_ofst = get_ltmsgo_offset,
 	.set_sv_meta_stats_info = set_sv_meta_stats_info,
 	.get_sv_dma_th_setting = get_sv_dma_th_setting,
 	.get_sv_max_pixel_mode = get_sv_max_pixel_mode,

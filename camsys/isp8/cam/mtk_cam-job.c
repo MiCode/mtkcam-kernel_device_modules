@@ -40,6 +40,10 @@ static unsigned int mmap_reduction = 1;
 module_param(mmap_reduction, int, 0644);
 MODULE_PARM_DESC(mmap_reduction, "mmap_reduction");
 
+static unsigned int ltmsgo_low_latency = 1;
+module_param(ltmsgo_low_latency, int, 0644);
+MODULE_PARM_DESC(ltmsgo_low_latency, "ltmsgo_low_latency");
+
 /* forward declarations */
 static void reset_unused_io_of_ipi_frame(struct req_buffer_helper *helper);
 static int update_cq_buffer_to_ipi_frame(struct mtk_cam_pool_buffer *cq,
@@ -871,7 +875,14 @@ handle_raw_frame_done(struct mtk_cam_job *job)
 						job_vb2_buf_state(job), true);
 		}
 	}
-
+	if (ltmsgo_low_latency && ctx->has_raw_subdev && job->need_copy_ltmsgo) {
+		memcpy(job->ltmsgo_buf, job->ltmsgo.vaddr, job->ltmsgo.size);
+		dev_info(cam->dev, "%s:need_copy_ltmsgo:%s:ctx(%d): seq_no:0x%x, state:0x%x, from/to/size:0x%p/0x%p/%d\n",
+			 __func__, job->req->debug_str, job->src_ctx->stream_id,
+			 job->frame_seq_no,
+			 mtk_cam_job_state_get(&job->job_state, ISP_STATE),
+			 job->ltmsgo.vaddr, job->ltmsgo_buf, job->ltmsgo.size);
+	}
 	if (ctx->has_raw_subdev && job->src_ctx->enable_luma_dump) {
 		call_jobop(job, dump_aa_info);
 		qof_mtcmos_voter(job->src_ctx, false);
@@ -5426,6 +5437,9 @@ static int fill_raw_meta_header(struct req_buffer_helper *helper)
 		p.rgbw = is_rgbw(job);
 
 		helper->meta_cfg_buf_va = p.meta_cfg;
+		if (ltmsgo_low_latency)
+			job->need_copy_ltmsgo =
+			CALL_PLAT_V4L2(get_ltmsgo_freerun_need_copy, &p) == 0;
 	}
 
 	if (helper->meta_stats0_buf) {
@@ -5435,6 +5449,11 @@ static int fill_raw_meta_header(struct req_buffer_helper *helper)
 		job->timestamp_buf = helper->meta_stats0_buf_va ?
 			(helper->meta_stats0_buf_va +
 				GET_PLAT_V4L2(timestamp_buffer_ofst)) : NULL;
+		if (ltmsgo_low_latency && job->need_copy_ltmsgo) {
+			job->ltmsgo_buf = helper->meta_stats0_buf_va ?
+				(helper->meta_stats0_buf_va +
+				CALL_PLAT_V4L2(ltmsgo_buffer_ofst, helper->meta_stats0_buf_va)) : NULL;
+		}
 	}
 
 	if (helper->meta_stats1_buf)
@@ -5951,10 +5970,10 @@ int job_handle_done(struct mtk_cam_job *job)
 		debug_ts[0] = '\0';
 		debug_str_local_ts(job, debug_ts, sizeof(debug_ts));
 
-		dev_info(ctx->cam->dev, "%s: ctx-%d f_seq:0x%x req:%s(%d) pipe:0x%x ts:%lld%s%s\n",
+		dev_info(ctx->cam->dev, "%s: ctx-%d f_seq:0x%x req:%s(%d) ltms:%d pipe:0x%x ts:%lld%s%s\n",
 			 __func__, ctx->stream_id,
 			 job->frame_seq_no,
-			 job->req->debug_str, job->req_seq,
+			 job->req->debug_str, job->req_seq, job->need_copy_ltmsgo,
 			 job->done_pipe, job->timestamp,
 			 debug_ts,
 			 job->req->is_buf_empty ? " (empty)" : "");

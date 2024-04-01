@@ -190,6 +190,8 @@ struct plat_v4l2_data {
 		struct mraw_cq_th_setting *mraw_cq_setting);
 	int (*set_mraw_meta_stats_info)(int ipi_id, void *addr, struct dma_info *info);
 	int (*get_mraw_stats_cfg_param)(void *addr, struct mraw_stats_cfg_param *param);
+	int (*get_ltmsgo_freerun_need_copy)(const struct set_meta_stats_info_param *p);
+	int (*ltmsgo_buffer_ofst)(void *addr);
 };
 
 struct plat_data_hw {

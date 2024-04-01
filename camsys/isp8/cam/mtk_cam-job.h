@@ -402,7 +402,8 @@ struct mtk_cam_job {
 	struct v4l2_subdev *seninf_prev; /* TODO: (Fred) check if we can remove it */
 
 	bool is_sv_pure_raw;
-
+	bool need_copy_ltmsgo;
+	void *ltmsgo_buf;
 	struct mtk_cam_scen job_scen;		/* job 's scen by res control */
 	struct mtk_cam_scen prev_scen;
 	char scen_str[40];

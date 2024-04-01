@@ -1137,9 +1137,6 @@ _stream_on(struct mtk_cam_job *job, bool on)
 				ccu_stream_on(ctx, on);
 			} else {
 				update_scq_start_period(raw_dev, job->scq_period);
-				update_done_tolerance(raw_dev,
-					(job->scq_period == -1) ?
-					get_sensor_interval_us(job) / 1000 : job->scq_period);
 				stream_on(raw_dev, on, true);
 			}
 		}

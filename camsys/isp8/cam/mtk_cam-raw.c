@@ -737,34 +737,23 @@ static u32 scq_cnt_rate_khz(u32 time_stamp_cnt)
 
 void update_scq_start_period(struct mtk_raw_device *dev, int scq_ms)
 {
-	u32 val, start_period;
+	u32 val, start_period, max_p1_delay;
 
 	val = raw_readl_relaxed(dev, dev->base, REG_TG_TIME_STAMP_CNT);
-	start_period = (scq_ms == -1) ? 0xFFFFFFFF :
-		scq_ms * scq_cnt_rate_khz(val);
+	start_period = (scq_ms == -1) ? 0xFFFFFFFF : scq_ms * scq_cnt_rate_khz(val);
+	max_p1_delay = start_period - 1;
 
 	dev_info(dev->dev, "[%s] REG_TG_TIME_STAMP_CNT:0x%08x\n", __func__, val);
 
 	raw_writel_relaxed(start_period,
 		       dev, dev->base, REG_CAMCQ_SCQ_START_PERIOD);
+
+	raw_writel_relaxed(max_p1_delay,
+		       dev, dev->base, REG_CAMCTL_DC_STAG_CTL);
+
 	qof_set_cq_start_max(dev, scq_ms);
 	dev_info(dev->dev, "[%s] REG_CAMCQ_SCQ_START_PERIOD:0x%08x (%dms)\n",
 		 __func__, raw_readl(dev, dev->base, REG_CAMCQ_SCQ_START_PERIOD), scq_ms);
-}
-
-#define MAX_P1_DELAY_RATIO 80
-void update_done_tolerance(struct mtk_raw_device *dev, int delay_ms)
-{
-	u32 val;
-	int tolerance_ms;
-
-	val = raw_readl_relaxed(dev, dev->base, REG_TG_TIME_STAMP_CNT);
-	tolerance_ms = delay_ms * MAX_P1_DELAY_RATIO / 100;
-	raw_writel_relaxed(tolerance_ms * scq_cnt_rate_khz(val),
-			dev, dev->base, REG_CAMCTL_DC_STAG_CTL);
-
-	dev_info(dev->dev, "[%s] REG_CAMCTL_DC_STAG_CTL:0x%08x (%dms)\n",
-		 __func__, raw_readl(dev, dev->base, REG_CAMCTL_DC_STAG_CTL), tolerance_ms);
 }
 
 static bool not_support_rwfbc(struct mtk_raw_device *dev)

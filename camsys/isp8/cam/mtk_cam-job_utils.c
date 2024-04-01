@@ -401,11 +401,11 @@ int get_subsample_ratio(struct mtk_cam_scen *scen)
 	}
 	return 1;
 }
-
-#define SENSOR_I2C_TIME_NS		(6 * 1000000ULL)
+/* more control with 30fps scenario : stagger, long exposure */
+#define SENSOR_I2C_TIME_NS		(9 * 1000000ULL)
 #define SENSOR_I2C_TIME_NS_60FPS	(6 * 1000000ULL)
 #define SENSOR_I2C_TIME_NS_HIGH_FPS	(3 * 1000000ULL)
-#define CQ_PROCESSING_TIME_NS	(2 * 1000000ULL) // 2ms
+#define CQ_PROCESSING_TIME_NS	(1 * 100000ULL) // 0.1ms
 
 #define INTERVAL_NS(fps)	(1000000000ULL / fps)
 

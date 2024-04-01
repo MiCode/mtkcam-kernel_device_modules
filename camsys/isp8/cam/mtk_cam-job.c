@@ -5758,7 +5758,7 @@ static int job_dump_aa_info(struct mtk_cam_job *job)
 	int i;
 	char *str_buf;
 	size_t str_buf_size;
-	int n;
+	int n = 0;
 
 	if (WARN_ON(!sink))
 		return 0;
@@ -5795,15 +5795,15 @@ static int job_dump_aa_info(struct mtk_cam_job *job)
 			fill_aa_info(raw_dev, &ae_data);
 		}
 	}
-
-	n = ae_data_to_str(str_buf, str_buf_size, &ae_data);
-	n += scnprintf(str_buf + n, str_buf_size - n, "|");
-	ae_data_to_str(str_buf + n, str_buf_size - n, &ae_data_w);
-
-	pr_info("%s:%s:ctx(%d):pipe(%d),seq(%d),size(%d,%d),%s\n",
+	n += scnprintf(str_buf, str_buf_size, "%s:%s:ctx(%d):pipe(%d),seq(%d),size(%d,%d),",
 		__func__, job->req->debug_str,
 		ctx->stream_id, ctx->raw_subdev_idx, job->req_seq,
-		sink->width, sink->height, str_buf);
+		sink->width, sink->height);
+	n = ae_data_to_str(str_buf + n, str_buf_size - n, &ae_data);
+	n += scnprintf(str_buf + n, str_buf_size - n, "|");
+	ae_data_to_str(str_buf + n, str_buf_size - n, &ae_data_w);
+	if (CAM_DEBUG_ENABLED(JOB))
+		pr_info("%s\n", str_buf);
 
 	return 0;
 }
@@ -5974,13 +5974,14 @@ int job_handle_done(struct mtk_cam_job *job)
 		debug_ts[0] = '\0';
 		debug_str_local_ts(job, debug_ts, sizeof(debug_ts));
 
-		dev_info(ctx->cam->dev, "%s: ctx-%d f_seq:0x%x req:%s(%d) ltms:%d pipe:0x%x ts:%lld%s%s\n",
+		dev_info(ctx->cam->dev, "%s: ctx-%d f_seq:0x%x req:%s(%d) ltms:%d pipe:0x%x ts:%lld%s%s,%s\n",
 			 __func__, ctx->stream_id,
 			 job->frame_seq_no,
 			 job->req->debug_str, job->req_seq, job->need_copy_ltmsgo,
 			 job->done_pipe, job->timestamp,
 			 debug_ts,
-			 job->req->is_buf_empty ? " (empty)" : "");
+			 job->req->is_buf_empty ? " (empty)" : "",
+			 ctx->enable_luma_dump ? ctx->str_ae_data : "");
 
 		if (job->done_pipe != used_pipe)
 			dev_info(ctx->cam->dev, "%s: warn. done mismatched. used_pipe:0x%x\n",

@@ -224,7 +224,8 @@ void pda_mmqos_bw_set(struct PDA_Data_t *pda_Pdadata)
 
 	unsigned int total_area = 0;
 
-	unsigned int pda_rdma_ttl_bw = 0, pda_wdma_ttl_bw = 0;
+	unsigned int pda_rdma_bw_port = 0, pda_wdma_bw_port = 0;
+	unsigned int rdma_bw_temp = 0, wdma_bw_temp = 0, ttl_bw_temp = 0;
 
 	// -------------------------- parameter estimate ------------------------
 	Inter_Frame_Size_Width = pda_Pdadata->PDA_HW_Register.PDA_CFG_0.Bits.PDA_WIDTH;
@@ -322,37 +323,23 @@ void pda_mmqos_bw_set(struct PDA_Data_t *pda_Pdadata)
 	IMAGE_IMAGE_RDMA_PEAK_BW = 0;
 	WDMA_PEAK_BW = 0;
 
-	if (B_N > 0) {
-		LOG_INF("RDMA_BW IT,II AVG/PEAK: %d/%d, %d/%d, WDMA_BW AVG/PEAK: %d/%d\n",
-			IMAGE_TABLE_RDMA_AVG_BW,
-			IMAGE_TABLE_RDMA_PEAK_BW,
-			IMAGE_IMAGE_RDMA_AVG_BW,
-			IMAGE_IMAGE_RDMA_PEAK_BW,
-			WDMA_AVG_BW,
-			WDMA_PEAK_BW);
-	} else {
-		LOG_INF("RDMA_BW IT AVG/PEAK: %d/%d, WDMA_BW AVG/PEAK: %d/%d\n",
-			IMAGE_TABLE_RDMA_AVG_BW,
-			IMAGE_TABLE_RDMA_PEAK_BW,
-			WDMA_AVG_BW,
-			WDMA_PEAK_BW);
-	}
-
 	// MMQOS set bw, image and table port
 	for (i = 0; i < PDA_MMQOS_PDA1_RDMA_NUM; ++i) {
 		if (icc_path_pda1_rdma[i]) {
 			if (PDA_MMQOS_PDA2_RDMA_NUM > 0) {
 				// two pda, share mmqos
+				rdma_bw_temp = (unsigned int)(IMAGE_TABLE_RDMA_AVG_BW/2);
 				mtk_icc_set_bw(icc_path_pda1_rdma[i],
-					(int)(IMAGE_TABLE_RDMA_AVG_BW/2),
+					(int)(rdma_bw_temp),
 					(int)(IMAGE_TABLE_RDMA_PEAK_BW));
 			} else {
 				// one pda, no need to share
+				rdma_bw_temp = (unsigned int)(IMAGE_TABLE_RDMA_AVG_BW);
 				mtk_icc_set_bw(icc_path_pda1_rdma[i],
-					(int)(IMAGE_TABLE_RDMA_AVG_BW),
+					(int)(rdma_bw_temp),
 					(int)(IMAGE_TABLE_RDMA_PEAK_BW));
 			}
-			pda_rdma_ttl_bw += (unsigned int)(IMAGE_TABLE_RDMA_AVG_BW);
+			pda_rdma_bw_port += rdma_bw_temp;
 		}
 	}
 	for (i = 0; i < PDA_MMQOS_PDA2_RDMA_NUM; ++i) {
@@ -364,21 +351,26 @@ void pda_mmqos_bw_set(struct PDA_Data_t *pda_Pdadata)
 		}
 	}
 
+	LOG_INF("RDMA_BW_PORT ImageTable AVG/PEAK: %d/%d\n",
+		rdma_bw_temp, IMAGE_TABLE_RDMA_PEAK_BW);
+
 	// MMQOS set bw, image and image port
 	if (B_N <= 3) {
 		// MMQOS set bw
 		for (i = 0; i < B_N; ++i) {
 			if (icc_path_pda1_rdma_b[i]) {
 				if (PDA_MMQOS_PDA2_RDMA_B_NUM > 0) {
+					rdma_bw_temp = (unsigned int)(IMAGE_IMAGE_RDMA_AVG_BW/2);
 					mtk_icc_set_bw(icc_path_pda1_rdma_b[i],
-						(int)(IMAGE_IMAGE_RDMA_AVG_BW/2),
+						(int)(rdma_bw_temp),
 						(int)(IMAGE_IMAGE_RDMA_PEAK_BW));
 				} else {
+					rdma_bw_temp = (unsigned int)(IMAGE_IMAGE_RDMA_AVG_BW);
 					mtk_icc_set_bw(icc_path_pda1_rdma_b[i],
-						(int)(IMAGE_IMAGE_RDMA_AVG_BW),
+						(int)(rdma_bw_temp),
 						(int)(IMAGE_IMAGE_RDMA_PEAK_BW));
 				}
-				pda_rdma_ttl_bw += (unsigned int)(IMAGE_IMAGE_RDMA_AVG_BW);
+				pda_rdma_bw_port += rdma_bw_temp;
 			}
 
 			if (PDA_MMQOS_PDA2_RDMA_B_NUM > 0) {
@@ -389,6 +381,9 @@ void pda_mmqos_bw_set(struct PDA_Data_t *pda_Pdadata)
 				}
 			}
 		}
+		if (B_N > 0)
+			LOG_INF("RDMA_BW_PORT ImageImage AVG/PEAK: %d/%d\n",
+				rdma_bw_temp, IMAGE_IMAGE_RDMA_PEAK_BW);
 	} else {
 		LOG_INF("B_N out of range, B_N:%d\n", B_N);
 	}
@@ -397,15 +392,17 @@ void pda_mmqos_bw_set(struct PDA_Data_t *pda_Pdadata)
 	for (i = 0; i < PDA_MMQOS_PDA1_WDMA_NUM; ++i) {
 		if (icc_path_pda1_wdma[i]) {
 			if (PDA_MMQOS_PDA2_WDMA_NUM > 0) {
+				wdma_bw_temp = (unsigned int)(WDMA_AVG_BW/2);
 				mtk_icc_set_bw(icc_path_pda1_wdma[i],
-					(int)(WDMA_AVG_BW/2),
+					(int)(wdma_bw_temp),
 					(int)(WDMA_PEAK_BW));
 			} else {
+				wdma_bw_temp = (unsigned int)(WDMA_AVG_BW);
 				mtk_icc_set_bw(icc_path_pda1_wdma[i],
-					(int)(WDMA_AVG_BW),
+					(int)(wdma_bw_temp),
 					(int)(WDMA_PEAK_BW));
 			}
-			pda_wdma_ttl_bw += (unsigned int)(WDMA_AVG_BW);
+			pda_wdma_bw_port += wdma_bw_temp;
 		}
 	}
 	for (i = 0; i < PDA_MMQOS_PDA2_WDMA_NUM; ++i) {
@@ -416,27 +413,33 @@ void pda_mmqos_bw_set(struct PDA_Data_t *pda_Pdadata)
 		}
 	}
 
-	// unit: KB/s to MB/s
-	pda_rdma_ttl_bw /= 1000;
-	pda_wdma_ttl_bw /= 1000;
+	LOG_INF("WDMA_BW_PORT AVG/PEAK: %d/%d\n", wdma_bw_temp, WDMA_PEAK_BW);
 
-	if (pda_log_dbg_en == 1)
-		LOG_INF("RDMA_BW TOTAL AVG: %d MB/s, WDMA_BW TOTAL AVG: %d MB/s\n",
-			pda_rdma_ttl_bw, pda_wdma_ttl_bw);
+	// unit: KB/s to MB/s
+	pda_rdma_bw_port /= 1000;
+	pda_wdma_bw_port /= 1000;
 
 	// larb25 setting
 	mtk_cam_bwr_set_chn_bw(bwr_device, ENGINE_PDA, DISP_PORT,
-		(int)(pda_rdma_ttl_bw), (int)(pda_wdma_ttl_bw), 0, 0, true);
+		(int)(pda_rdma_bw_port), (int)(pda_wdma_bw_port), 0, 0, true);
 
 	// larb26 setting
 	if (PDA_MMQOS_PDA2_RDMA_B_NUM > 0) {
 		mtk_cam_bwr_set_chn_bw(bwr_device, ENGINE_PDA, MDP0_PORT,
-			(int)(pda_rdma_ttl_bw), (int)(pda_wdma_ttl_bw), 0, 0, true);
-		mtk_cam_bwr_set_ttl_bw(bwr_device, ENGINE_PDA,
-			(int)(pda_rdma_ttl_bw + pda_wdma_ttl_bw)*2, 0, true);
+			(int)(pda_rdma_bw_port), (int)(pda_wdma_bw_port), 0, 0, true);
+
+		// two pda, need to multiply by two
+		ttl_bw_temp = (pda_rdma_bw_port + pda_wdma_bw_port) * 2;
 	} else {
-		mtk_cam_bwr_set_ttl_bw(bwr_device, ENGINE_PDA,
-			(int)(pda_rdma_ttl_bw + pda_wdma_ttl_bw), 0, true);
+		ttl_bw_temp = (pda_rdma_bw_port + pda_wdma_bw_port);
+	}
+	mtk_cam_bwr_set_ttl_bw(bwr_device, ENGINE_PDA,
+		(int)(ttl_bw_temp), 0, true);
+
+	if (pda_log_dbg_en == 1) {
+		LOG_INF("RDMA_BW TOTAL AVG: %d MB/s, WDMA_BW TOTAL AVG: %d MB/s\n",
+			pda_rdma_bw_port, pda_wdma_bw_port);
+		LOG_INF("Total(RDMA+WDMA) BW AVG: %d MB/s\n", ttl_bw_temp);
 	}
 
 	g_Frame_Width = Inter_Frame_Size_Width;

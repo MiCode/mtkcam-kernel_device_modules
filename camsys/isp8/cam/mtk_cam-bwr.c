@@ -38,8 +38,10 @@ MODULE_PARM_DESC(debug_bwr_eng_filter, "debug bwr engine channel bw");
 #define BWR_BW_DECIMAL_WIDTH     15
 #define BWR_RAT_DECIMAL_POS      7
 
-#define BWR_SRT_TTL_OCC_FACTOR       170  //1.33
-#define BWR_HRT_TTL_OCC_FACTOR       149  //1.17
+//1.33 * 1.03 = 1.369 (1.03 for SMMU TCU)
+#define BWR_SRT_TTL_OCC_FACTOR       175
+//1.17 * 1.03 = 1.205 (1.03 for SMMU TCU)
+#define BWR_HRT_TTL_OCC_FACTOR       154
 #define BWR_SRT_BW_OCC_FACTOR        181  //1.42
 #define BWR_HRT_BW_OCC_FACTOR        181  //1.42
 

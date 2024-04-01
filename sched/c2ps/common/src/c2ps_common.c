@@ -1737,8 +1737,11 @@ inline void c2ps_update_cpu_freq_ceiling(int cluster, int cpu_ceiling_freq)
 {
 	if (unlikely(glb_info == NULL || cluster >= c2ps_nr_clusters || cpu_ceiling_freq <= 0))
 		return;
-	if (freq_qos_request_active(&glb_info->qos_req[cluster]))
+	if (freq_qos_request_active(&glb_info->qos_req[cluster])) {
+		c2ps_main_systrace("update_cpu_freq_ceiling: cluster=%d freq=%d",
+						cluster, cpu_ceiling_freq);
 		freq_qos_update_request(&glb_info->qos_req[cluster], cpu_ceiling_freq);
+	}
 }
 
 inline void c2ps_reset_cpu_freq_ceiling(int cluster)
@@ -1746,8 +1749,11 @@ inline void c2ps_reset_cpu_freq_ceiling(int cluster)
 	if (unlikely(glb_info == NULL || cluster >= c2ps_nr_clusters ||
 		glb_info->ineff_cpu_freq[cluster] <= 0))
 		return;
-	if (freq_qos_request_active(&glb_info->qos_req[cluster]))
+	if (freq_qos_request_active(&glb_info->qos_req[cluster])) {
+		c2ps_main_systrace("reset_cpu_freq_ceiling: cluster=%d freq=%d",
+					cluster, glb_info->ineff_cpu_freq[cluster]);
 		freq_qos_update_request(&glb_info->qos_req[cluster], glb_info->ineff_cpu_freq[cluster]);
+	}
 }
 
 inline void c2ps_remove_qos_setting(void)

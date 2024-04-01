@@ -221,6 +221,7 @@ struct global_info {
 	u32 um_placeholder3;
 	enum c2ps_env_status stat;
 	bool has_anchor_spec;
+	u32 single_shot_enable_ineff_cpufreq_cnt;
 	struct mutex mlock;
 };
 

@@ -40,6 +40,7 @@ struct C2PS_NOTIFIER_PUSH_TAG {
 	u32 um_placeholder3;
 	bool reset_param;
 	bool set_task_idle_prefer;
+	bool enable_ineff_cpufreq;
 	int critical_task_ids[MAX_CRITICAL_TASKS];
 	int critical_task_uclamp[MAX_CRITICAL_TASKS];
 	int reserved_1;
@@ -195,7 +196,7 @@ static void c2ps_notifier_task_single_shot(
 	bool reset_param, bool set_task_idle_prefer,
 	int *critical_task_ids, int *critical_task_uclamp, u32 util_margin,
 	u32 um_placeholder1, u32 um_placeholder2, u32 um_placeholder3,
-	int reserved_1, int reserved_2, int reserved_3)
+	bool enable_ineff_cpufreq, int reserved_1, int reserved_2, int reserved_3)
 {
 	struct global_info *g_info = get_glb_info();
 	unsigned int _vip_throttle_time = vip_throttle_time > 0 ?
@@ -245,6 +246,22 @@ static void c2ps_notifier_task_single_shot(
 		}
 	} else if (reset_param) {
 		g_info->overwrite_util_margin = 0;
+	}
+
+	if (enable_ineff_cpufreq) {
+		short cluster_index = 0;
+
+		if (!reset_param) {
+			g_info->single_shot_enable_ineff_cpufreq_cnt++;
+			for (; cluster_index < c2ps_nr_clusters; cluster_index++)
+				c2ps_update_cpu_freq_ceiling(cluster_index, FREQ_QOS_MAX_DEFAULT_VALUE);
+		} else {
+			g_info->single_shot_enable_ineff_cpufreq_cnt--;
+			if (!g_info->single_shot_enable_ineff_cpufreq_cnt) {
+				for (; cluster_index < c2ps_nr_clusters; cluster_index++)
+					c2ps_reset_cpu_freq_ceiling(cluster_index);
+			}
+		}
 	}
 
 	if (um_placeholder1)
@@ -337,7 +354,7 @@ static void c2ps_notifier_wq_cb(void)
 			vpPush->set_task_idle_prefer, vpPush->critical_task_ids,
 			vpPush->critical_task_uclamp, vpPush->util_margin,
 			vpPush->um_placeholder1, vpPush->um_placeholder2,
-			vpPush->um_placeholder3,
+			vpPush->um_placeholder3, vpPush->enable_ineff_cpufreq,
 			vpPush->reserved_1, vpPush->reserved_2, vpPush->reserved_3);
 		break;
 	case C2PS_NOTIFIER_ANCHOR:
@@ -505,7 +522,7 @@ int c2ps_notify_single_shot_control(
 	bool reset_param, bool set_task_idle_prefer,
 	int *critical_task_ids, int *critical_task_uclamp, u32 util_margin,
 	u32 um_placeholder1, u32 um_placeholder2, u32 um_placeholder3,
-	int reserved_1, int reserved_2, int reserved_3)
+	bool enable_ineff_cpufreq, int reserved_1, int reserved_2, int reserved_3)
 {
 	struct C2PS_NOTIFIER_PUSH_TAG *vpPush = NULL;
 	int ret = 0;
@@ -570,6 +587,7 @@ int c2ps_notify_single_shot_control(
 	vpPush->um_placeholder1 = um_placeholder1;
 	vpPush->um_placeholder2 = um_placeholder2;
 	vpPush->um_placeholder3 = um_placeholder3;
+	vpPush->enable_ineff_cpufreq = enable_ineff_cpufreq;
 	vpPush->ePushType = C2PS_NOTIFIER_TASK_SINGLE_SHOT;
 
 	c2ps_queue_work(vpPush);

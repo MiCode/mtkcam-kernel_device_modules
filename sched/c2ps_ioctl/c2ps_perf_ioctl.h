@@ -80,6 +80,7 @@ struct C2PS_SINGLE_SHOT_PARAM {
 	u32 um_placeholder1;
 	u32 um_placeholder2;
 	u32 um_placeholder3;
+	bool enable_ineff_cpufreq;
 	int reserved_1;
 	int reserved_2;
 	int reserved_3;

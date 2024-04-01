@@ -288,7 +288,8 @@ void c2ps_regulator_bgpolicy_um_stable_default(struct regulator_req *req)
 	curr_um = req->glb_info->curr_um_idle;
 
 	for (; cluster_index < c2ps_nr_clusters; cluster_index++) {
-		if (req->glb_info->need_update_bg[1 + cluster_index] == 2)
+		if (req->glb_info->need_update_bg[1 + cluster_index] == 2 ||
+			req->glb_info->single_shot_enable_ineff_cpufreq_cnt)
 			c2ps_update_cpu_freq_ceiling(cluster_index, FREQ_QOS_MAX_DEFAULT_VALUE);
 		else
 			c2ps_reset_cpu_freq_ceiling(cluster_index);
@@ -426,7 +427,8 @@ static int _cal_idle_rate_um(struct regulator_req *req)
 	int idle_rate_um = req->glb_info->curr_um;
 
 	for (; _cluster_index < c2ps_nr_clusters; _cluster_index++) {
-		if (req->glb_info->need_update_bg[1 + _cluster_index] == 2)
+		if (req->glb_info->need_update_bg[1 + _cluster_index] == 2 ||
+			req->glb_info->single_shot_enable_ineff_cpufreq_cnt)
 			c2ps_update_cpu_freq_ceiling(_cluster_index, FREQ_QOS_MAX_DEFAULT_VALUE);
 		else
 			c2ps_reset_cpu_freq_ceiling(_cluster_index);

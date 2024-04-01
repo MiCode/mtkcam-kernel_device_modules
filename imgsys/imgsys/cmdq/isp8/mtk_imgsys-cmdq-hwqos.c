@@ -594,8 +594,13 @@ static void imgsys_qos_sum_to_MBps(struct cmdq_pkt *pkt)
 	cmdq_pkt_read(pkt, NULL,
 		BLS_IMG_E1A_BASE + BLS_IMG_LEN_SUM_W_OFT, CMDQ_THR_SPR_IDX3);
 	cmdq_pkt_logic_command(pkt, CMDQ_LOGIC_ADD, CMDQ_THR_SPR_IDX2, &lop, &rop);
+
+	// BW = (BW * STEP_FACTOR_MULTIPLY) >> STEP_FACTOR_RIGHT_SHIFT
 	rop.reg = false;
-	rop.value = RIGHT_SHIFT_BY_3;
+	rop.value = STEP_FACTOR_MULTIPLY;
+	cmdq_pkt_logic_command(pkt, CMDQ_LOGIC_MULTIPLY,
+		CMDQ_THR_SPR_IDX2, &lop, &rop);
+	rop.value = RIGHT_SHIFT_BY_3 + STEP_FACTOR_RIGHT_SHIFT;
 	cmdq_pkt_logic_command(pkt, CMDQ_LOGIC_RIGHT_SHIFT,
 				CMDQ_THR_SPR_IDX2, &lop, &rop);
 	cmdq_pkt_write_reg_addr(pkt, BWR_IMG_E1A_BASE + BWR_IMG_SRT_TTL_ENG_BW5_OFT,

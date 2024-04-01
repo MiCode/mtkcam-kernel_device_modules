@@ -460,6 +460,9 @@ static int mtk_cam_job_pack_init(struct mtk_cam_job *job,
 	job->timestamp_buf = NULL;
 	job->raw_switch = false;
 
+	job->need_copy_ltmsgo = 0;
+	job->ltmsgo_buf = NULL;
+
 	memset(&job->ufbc_header, 0, sizeof(job->ufbc_header));
 
 	job->is_error = 0;
@@ -875,13 +878,14 @@ handle_raw_frame_done(struct mtk_cam_job *job)
 						job_vb2_buf_state(job), true);
 		}
 	}
-	if (ltmsgo_low_latency && ctx->has_raw_subdev && job->need_copy_ltmsgo) {
-		memcpy(job->ltmsgo_buf, job->ltmsgo.vaddr, job->ltmsgo.size);
+	if (ltmsgo_low_latency && ctx->has_raw_subdev && job->ltmsgo_buf) {
 		dev_info(cam->dev, "%s:need_copy_ltmsgo:%s:ctx(%d): seq_no:0x%x, state:0x%x, from/to/size:0x%p/0x%p/%d\n",
 			 __func__, job->req->debug_str, job->src_ctx->stream_id,
 			 job->frame_seq_no,
 			 mtk_cam_job_state_get(&job->job_state, ISP_STATE),
 			 job->ltmsgo.vaddr, job->ltmsgo_buf, job->ltmsgo.size);
+
+		memcpy(job->ltmsgo_buf, job->ltmsgo.vaddr, job->ltmsgo.size);
 	}
 	if (ctx->has_raw_subdev && job->src_ctx->enable_luma_dump) {
 		call_jobop(job, dump_aa_info);

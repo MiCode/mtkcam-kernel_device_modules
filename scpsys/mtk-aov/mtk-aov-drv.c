@@ -35,8 +35,6 @@
 
 uint32_t g_frame_mode;
 bool g_aov_start;
-uint32_t g_uisp_smi_pwr_cnt;
-uint32_t g_mae_smi_pwr_cnt;
 /* smi full dump */
 struct device *uisp_larb_dev;
 struct device *mae_larb_dev;
@@ -366,81 +364,52 @@ static const struct file_operations aov_fops = {
 #endif
 };
 
-static int uisp_get_for_smi_dbg(void *data)
-{
-	pm_runtime_get_noresume(uisp_larb_dev);
-	g_uisp_smi_pwr_cnt += 1;
-	return 0;
-}
-
 static int uisp_get_if_in_use_for_smi_dbg(void *data)
 {
 	int ret = 0;
+	struct mtk_aov *aov_dev = aov_core_get_device();
+	struct aov_core *core_info = &aov_dev->core_info;
 
-	if (g_aov_start) {
+	if (g_aov_start && (core_info->smi_dump_id == 1))
 		ret = 1;
-		pm_runtime_get_noresume(uisp_larb_dev);
-		g_uisp_smi_pwr_cnt += 1;
-	}
 	return ret;
 }
 
 static int uisp_put_for_smi_dbg(void *data)
 {
-	int ret = 0;
-
-	if (g_uisp_smi_pwr_cnt) {
-		pm_runtime_put_noidle(uisp_larb_dev);
-		g_uisp_smi_pwr_cnt -= 1;
-	}
-	return ret;
+	return 0;
 }
 
 static struct smi_user_pwr_ctrl uisp_pwr_ctrl = {
 	.name = "aov_uisp",
 	.data = NULL,
 	.smi_user_id = MTK_SMI_CAM_AOV,
-	.smi_user_get = uisp_get_for_smi_dbg,
+	.smi_user_get = NULL,
 	.smi_user_get_if_in_use = uisp_get_if_in_use_for_smi_dbg,
 	.smi_user_put = uisp_put_for_smi_dbg,
 };
 
-static int mae_get_for_smi_dbg(void *data)
-{
-	pm_runtime_get_noresume(mae_larb_dev);
-	g_mae_smi_pwr_cnt += 1;
-	return 0;
-}
-
 static int mae_get_if_in_use_for_smi_dbg(void *data)
 {
 	int ret = 0;
+	struct mtk_aov *aov_dev = aov_core_get_device();
+	struct aov_core *core_info = &aov_dev->core_info;
 
-	if (g_aov_start &&
-		(g_frame_mode & (eOBJECT_FACE_SIMPLE | eOBJECT_FACE_FULL | eOBJECT_FACE_RECOGNITION))) {
+	if (g_aov_start && (core_info->smi_dump_id == 2))
 		ret = 1;
-		pm_runtime_get_noresume(mae_larb_dev);
-		g_mae_smi_pwr_cnt += 1;
-	}
 	return ret;
 }
 
 static int mae_put_for_smi_dbg(void *data)
 {
-	int ret = 0;
-
-	if (g_mae_smi_pwr_cnt) {
-		pm_runtime_put_noidle(mae_larb_dev);
-		g_mae_smi_pwr_cnt -= 1;
-	}
-	return ret;
+	return 0;
 }
 
 static struct smi_user_pwr_ctrl mae_pwr_ctrl = {
 	.name = "aov_mae",
 	.data = NULL,
 	.smi_user_id = MTK_SMI_IMG_AOV,
-	.smi_user_get = mae_get_for_smi_dbg,
+	.smi_user_get = NULL,
 	.smi_user_get_if_in_use = mae_get_if_in_use_for_smi_dbg,
 	.smi_user_put = mae_put_for_smi_dbg,
 };
@@ -461,8 +430,6 @@ static int mtk_aov_probe(struct platform_device *pdev)
 
 	g_frame_mode = 0;
 	g_aov_start = false;
-	g_uisp_smi_pwr_cnt = 0;
-	g_mae_smi_pwr_cnt = 0;
 	uisp_larb_dev = NULL;
 	mae_larb_dev = NULL;
 
@@ -599,8 +566,8 @@ static int mtk_aov_probe(struct platform_device *pdev)
 		goto err_device;
 	}
 
-	// mtk_smi_dbg_register_pwr_ctrl_cb(&uisp_pwr_ctrl);
-	// mtk_smi_dbg_register_pwr_ctrl_cb(&mae_pwr_ctrl);
+	mtk_smi_dbg_register_pwr_ctrl_cb(&uisp_pwr_ctrl);
+	mtk_smi_dbg_register_pwr_ctrl_cb(&mae_pwr_ctrl);
 	dev_info(&pdev->dev,
 		"mtk_smi_dbg_register_pwr_ctrl_cb name(uisp:%s, mae:%s)",
 			uisp_pwr_ctrl.name, mae_pwr_ctrl.name);
@@ -631,8 +598,8 @@ static int mtk_aov_remove(struct platform_device *pdev)
 
 	pr_info("%s remove aov driver+\n", __func__);
 
-	// mtk_smi_dbg_unregister_pwr_ctrl_cb(&uisp_pwr_ctrl);
-	// mtk_smi_dbg_unregister_pwr_ctrl_cb(&mae_pwr_ctrl);
+	mtk_smi_dbg_unregister_pwr_ctrl_cb(&uisp_pwr_ctrl);
+	mtk_smi_dbg_unregister_pwr_ctrl_cb(&mae_pwr_ctrl);
 
 	if (mtk_aov_is_open(aov_dev) == true) {
 		aov_dev->is_open = false;

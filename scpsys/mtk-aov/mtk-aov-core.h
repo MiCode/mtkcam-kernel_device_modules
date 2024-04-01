@@ -60,8 +60,6 @@ struct aov_core {
 	struct list_head event_list;
 	spinlock_t event_lock;
 
-	struct aov_notify *notify;
-
 	wait_queue_head_t ack_wq[AOV_SCP_CMD_MAX];
 	atomic_t ack_cmd[AOV_SCP_CMD_MAX];
 
@@ -69,6 +67,7 @@ struct aov_core {
 	struct queue event;
 	struct queue queue;
 
+	uint32_t smi_dump_id;
 	atomic_t do_smi_dump;
 	wait_queue_head_t smi_dump_wq;
 	struct task_struct *smi_dump_thread;
@@ -76,6 +75,8 @@ struct aov_core {
 	atomic_t do_reset_sensor;
 	wait_queue_head_t reset_sensor_wq;
 	struct task_struct *reset_sensor_thread;
+
+	struct mutex seninf_ctrl_mutex;
 };
 
 int aov_core_init(struct mtk_aov *device);

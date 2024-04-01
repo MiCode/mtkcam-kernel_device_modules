@@ -1701,6 +1701,52 @@ unsigned long engines_to_trigger_cq(struct mtk_cam_job *job,
 }
 
 static
+unsigned long raw_change_cq_engine(struct mtk_cam_job *job,
+				    struct mtkcam_ipi_frame_ack_result *cq_ret)
+{
+	struct mtk_cam_ctx *ctx = job->src_ctx;
+	unsigned long used_engine, subset;
+	unsigned long cq_engine;
+	int dev_idx;
+	int i;
+
+	dev_info(ctx->cam->dev, "[%s] ctx-%d/seq:0x%x\n",
+			__func__, ctx->stream_id, job->frame_seq_no);
+	used_engine = job->used_engine;
+	cq_engine = 0;
+
+	/* raw */
+	subset = bit_map_subset_of(MAP_HW_RAW, used_engine);
+	if (subset)
+		if (is_valid_cq(&cq_ret->main) && is_valid_cq(&cq_ret->sub)) {
+			dev_idx = find_first_bit_set(subset);
+			cq_engine |= bit_map_bit(MAP_HW_RAW, dev_idx);
+		}
+
+	/* mraw */
+	if (bit_map_subset_of(MAP_HW_MRAW, used_engine))
+		for (i = 0; i < ARRAY_SIZE(cq_ret->mraw); ++i)
+			if (is_valid_cq(&cq_ret->mraw[i])) {
+				dev_idx = ctx->mraw_subdev_idx[i];
+				cq_engine |= bit_map_bit(MAP_HW_MRAW, dev_idx);
+			}
+
+	/* camsv */
+	subset = bit_map_subset_of(MAP_HW_CAMSV, used_engine);
+	if (subset)
+		for (i = 0; i < ARRAY_SIZE(cq_ret->camsv); ++i)
+			if (is_valid_cq(&cq_ret->camsv[i])) {
+				dev_idx = find_first_bit_set(subset);
+				cq_engine |= bit_map_bit(MAP_HW_CAMSV, dev_idx);
+
+				/* only single sv device */
+				break;
+			}
+
+	return cq_engine;
+}
+
+static
 unsigned long engines_to_check_inner(struct mtk_cam_job *job)
 {
 	struct mtk_cam_ctx *ctx = job->src_ctx;
@@ -1996,7 +2042,10 @@ static int apply_engines_cq(struct mtk_cam_job *job,
 	}
 	cq_engine = engines_to_trigger_cq(job, cq_rst);
 	used_engine = engines_to_check_inner(job);
-
+	/* raw change job already modify ctx->used_engines */
+	/* so may use wrong cq_engines when the job before it */
+	if ((cq_engine & get_master_engines(job->used_engine)) == 0)
+		cq_engine = raw_change_cq_engine(job, cq_rst);
 	apply_cq_ref_init(&job->cq_ref,
 			  to_fh_cookie(ctx->stream_id, frame_seq_no),
 			  cq_engine, used_engine);
@@ -2357,7 +2406,7 @@ static int job_related_hw_init(struct mtk_cam_job *job)
 }
 
 static void wait_engines_off(struct mtk_cam_device *cam,
-			       unsigned long engine_mask)
+		unsigned long engine_mask)
 {
 	int raw_master_id = get_master_raw_id(engine_mask);
 	int sw_ctl;
@@ -2394,7 +2443,6 @@ static void wait_engines_off(struct mtk_cam_device *cam,
 		__func__, raw_master_id, readl(dev_iomem));
 	if (ret < 0)
 		dev_info(cam->dev, "%s-2: stop wait\n", __func__);
-
 }
 
 static int job_raw_change_hw_init(struct mtk_cam_job *job)

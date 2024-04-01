@@ -427,8 +427,9 @@ int qof_mtcmos_raw_voter(struct mtk_raw_device *raw, bool enable)
 	int ret = 0;
 	unsigned long flags;
 
-	if (!qof_is_enabled(raw) && CAM_DEBUG_ENABLED(QOF)) {
-		dev_info(raw->dev, "[%s] qof not enabled", __func__);
+	if (!qof_is_enabled(raw)) {
+		if (CAM_DEBUG_ENABLED(QOF))
+			dev_info(raw->dev, "[%s] qof not enabled", __func__);
 		return 0;
 	}
 

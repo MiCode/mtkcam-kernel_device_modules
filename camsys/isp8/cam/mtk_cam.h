@@ -215,6 +215,7 @@ struct mtk_cam_ctx {
 	u64 sw_recovery_ts;
 
 	bool enable_luma_dump;
+	bool rms_disable;
 };
 
 struct mtk_cam_v4l2_pipelines {
@@ -386,6 +387,10 @@ static inline int mtk_cam_occupy_engine(struct mtk_cam_device *cam,
 
 int mtk_cam_pm_runtime_engines(struct mtk_cam_engines *eng,
 			       unsigned long engine_mask, int enable);
+int mtk_cam_pm_runtime_rms_engines(
+	struct mtk_cam_ctx *ctx, struct mtk_cam_engines *eng,
+	unsigned long engine_mask, int enable);
+
 
 /* note: flag V4L2_MBUS_FRAMEFMT_PAD_ENABLE is defined by mtk internally */
 static inline void

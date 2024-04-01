@@ -44,6 +44,10 @@ static unsigned int ltmsgo_low_latency = 1;
 module_param(ltmsgo_low_latency, int, 0644);
 MODULE_PARM_DESC(ltmsgo_low_latency, "ltmsgo_low_latency");
 
+static unsigned int rms_freerun;
+module_param(rms_freerun, int, 0644);
+MODULE_PARM_DESC(rms_freerun, "rms_freerun");
+
 /* forward declarations */
 static void reset_unused_io_of_ipi_frame(struct req_buffer_helper *helper);
 static int update_cq_buffer_to_ipi_frame(struct mtk_cam_pool_buffer *cq,
@@ -446,6 +450,7 @@ static int mtk_cam_job_pack_init(struct mtk_cam_job *job,
 	memset(&job->ufbc_header, 0, sizeof(job->ufbc_header));
 
 	job->is_error = 0;
+	job->rms_disable = 0;
 
 	job->local_enqueue_ts = local_clock();
 	job->local_apply_sensor_ts = 0;
@@ -2065,9 +2070,9 @@ static int apply_engines_cq(struct mtk_cam_job *job,
 	ts = local_clock();
 	mtk_cam_apply_qos(job);
 
-	dev_info(ctx->cam->dev, "[%s] ctx-%d CQ-0x%x cq_eng 0x%lx used_eng 0x%lx (%s) cq_thr(%llu) ts(%llu)\n",
+	dev_info(ctx->cam->dev, "[%s] ctx-%d CQ-0x%x cq_eng 0x%lx used_eng 0x%lx (%s)[rms_dis:%d] cq_thr(%llu) ts(%llu)\n",
 		__func__, ctx->stream_id, frame_seq_no, cq_engine,
-		used_engine, job->scen_str, job->job_state.cq_trigger_thres_ns, ts);
+		used_engine, job->scen_str, job->rms_disable, job->job_state.cq_trigger_thres_ns, ts);
 
 	qof_dump_ctx(ctx, qof_dump_cq_addr);
 	qof_dump_ctx(ctx, qof_dump_ctrl);
@@ -2076,11 +2081,34 @@ static int apply_engines_cq(struct mtk_cam_job *job,
 	return 0;
 }
 
+static void handle_rms_disable(struct mtk_cam_job *job)
+{
+	if ((job->rms_disable == 1) &&
+		(job->src_ctx->rms_disable == 0) &&
+		rms_freerun) {
+		mtk_cam_pm_runtime_rms_engines(
+			job->src_ctx, &job->src_ctx->cam->engines,
+			job->used_engine, 0);
+	}
+}
+
+static void handle_rms_enable(struct mtk_cam_job *job)
+{
+	if ((job->rms_disable == 0) &&
+		(job->src_ctx->rms_disable == 1) &&
+		rms_freerun) {
+		mtk_cam_pm_runtime_rms_engines(
+			job->src_ctx, &job->src_ctx->cam->engines,
+			job->used_engine, 1);
+	}
+}
+
 static int _apply_cq(struct mtk_cam_job *job)
 {
 	if (WARN_ON(!job->composed))
 		return -1;
 	job->local_trigger_cq_ts = local_clock();
+	handle_rms_enable(job);
 	apply_engines_cq(job, job->frame_seq_no, &job->cq, &job->cq_rst);
 
 	return 0;
@@ -2352,6 +2380,7 @@ _compose_done(struct mtk_cam_job *job,
 	job->composed = !compose_ret;
 	job->cq_rst = *cq_ret;
 	job->local_ack_isp_ts = local_clock();
+	job->rms_disable = cq_ret->rms_disable;
 	if (job->composed)
 		write_ufbc_header_to_buf(&job->ufbc_header);
 
@@ -3725,6 +3754,7 @@ static void singleframe_on_transit(struct mtk_cam_job_state *s, int state_type,
 				job->timestamp = info->sof_ts_ns;
 				job->timestamp_mono = ktime_get_ns(); /* FIXME */
 				fill_hdr_timestamp(job, info);
+				handle_rms_disable(job);
 			}
 			break;
 		}

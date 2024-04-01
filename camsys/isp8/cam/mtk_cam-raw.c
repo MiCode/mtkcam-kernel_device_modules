@@ -3169,8 +3169,8 @@ int mtk_rms_runtime_resume(struct device *dev)
 	struct mtk_rms_device *drvdata = dev_get_drvdata(dev);
 	int i, ret;
 
-	if (CAM_DEBUG_ENABLED(RAW_CG))
-		dev_dbg(dev, "%s:enable clock\n", __func__);
+	if (CAM_DEBUG_ENABLED(RAW_CG) || 1)
+		dev_info(dev, "%s:enable clock\n", __func__);
 
 	if (CAM_DEBUG_ENABLED(RAW_CG))
 		cg_dump_and_test(dev, CG_RMS, 1);

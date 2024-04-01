@@ -2732,6 +2732,7 @@ static void mtk_cam_ctx_reset(struct mtk_cam_ctx *ctx)
 	memset(ctx, 0, sizeof(*ctx));
 	ctx->cam = cam;
 	ctx->stream_id = stream_id;
+	ctx->rms_disable = 0;
 }
 
 static void config_pool_job(void *data, int index, void *element)
@@ -4231,6 +4232,43 @@ int mtk_cam_pm_runtime_engines(struct mtk_cam_engines *eng,
 		loop_each_engine(eng, engine_mask, pm_runtime_put_sync, enable);
 		pr_info("%s:put: engine_mask:0x%lx", __func__,
 			engine_mask);
+	}
+	return 0;
+}
+
+static int loop_each_engine_rms(struct mtk_cam_engines *eng,
+			    unsigned long engine_mask,
+			    int (*func)(struct device *dev), int enable)
+{
+
+	unsigned long submask;
+	int i;
+
+
+	submask = bit_map_subset_of(MAP_HW_RAW, engine_mask);
+	for (i = 0; i < eng->num_raw_devices && submask; i++, submask >>= 1) {
+		if (!(submask & 0x1))
+			continue;
+		func(eng->rms_devs[i]);
+	}
+
+	return 0;
+}
+
+int mtk_cam_pm_runtime_rms_engines(
+	struct mtk_cam_ctx *ctx, struct mtk_cam_engines *eng,
+	unsigned long engine_mask, int enable)
+{
+	if (enable) {
+		loop_each_engine_rms(eng, engine_mask, pm_runtime_get, enable);
+		pr_info("%s:get: engine_mask:0x%lx", __func__,
+			engine_mask);
+		ctx->rms_disable = 0;
+	} else {
+		loop_each_engine_rms(eng, engine_mask, pm_runtime_put, enable);
+		pr_info("%s:put: engine_mask:0x%lx", __func__,
+			engine_mask);
+		ctx->rms_disable = 1;
 	}
 	return 0;
 }

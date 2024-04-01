@@ -148,6 +148,9 @@ void qof_setup_ctrl(struct mtk_raw_device *raw, int on)
 	SET_FIELD(&val, QOF_CAM_A_QOF_CQ_EN_1, on);
 	SET_FIELD(&val, QOF_CAM_A_HW_SEQ_EN_1, on);
 
+	//NOTE: 0: RMS mtcmos independent; 1: RMS/RAW controlled by QOF
+	SET_FIELD(&val, QOF_CAM_A_OPT_MTC_ACT_1, 1);
+
 	SET_FIELD(&val, QOF_CAM_A_CQ_HW_CLR_EN_1, on);
 	SET_FIELD(&val, QOF_CAM_A_CQ_HW_SET_EN_1, on);
 	SET_FIELD(&val, QOF_CAM_A_RAW_HW_CLR_EN_1, on);

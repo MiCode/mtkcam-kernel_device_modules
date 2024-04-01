@@ -246,5 +246,7 @@ int raw_to_tg_idx(int raw_id);
 
 int cg_dump_and_test(struct device *dev, int type, bool test);
 
+void diable_rms_module(struct mtk_raw_device *dev);
+void diable_rms_pcrp(struct mtk_raw_device *raw);
 
 #endif /*__MTK_CAM_RAW_H*/

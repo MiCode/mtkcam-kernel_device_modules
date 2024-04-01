@@ -44,9 +44,9 @@ static unsigned int ltmsgo_low_latency = 1;
 module_param(ltmsgo_low_latency, int, 0644);
 MODULE_PARM_DESC(ltmsgo_low_latency, "ltmsgo_low_latency");
 
-static unsigned int rms_freerun;
-module_param(rms_freerun, int, 0644);
-MODULE_PARM_DESC(rms_freerun, "rms_freerun");
+//static unsigned int rms_freerun;
+//module_param(rms_freerun, int, 0644);
+//MODULE_PARM_DESC(rms_freerun, "rms_freerun");
 
 /* forward declarations */
 static void reset_unused_io_of_ipi_frame(struct req_buffer_helper *helper);
@@ -2084,8 +2084,7 @@ static int apply_engines_cq(struct mtk_cam_job *job,
 static void handle_rms_disable(struct mtk_cam_job *job)
 {
 	if ((job->rms_disable == 1) &&
-		(job->src_ctx->rms_disable == 0) &&
-		rms_freerun) {
+		(job->src_ctx->rms_disable == 0)) {
 		mtk_cam_pm_runtime_rms_engines(
 			job->src_ctx, &job->src_ctx->cam->engines,
 			job->used_engine, 0);
@@ -2095,8 +2094,7 @@ static void handle_rms_disable(struct mtk_cam_job *job)
 static void handle_rms_enable(struct mtk_cam_job *job)
 {
 	if ((job->rms_disable == 0) &&
-		(job->src_ctx->rms_disable == 1) &&
-		rms_freerun) {
+		(job->src_ctx->rms_disable == 1)) {
 		mtk_cam_pm_runtime_rms_engines(
 			job->src_ctx, &job->src_ctx->cam->engines,
 			job->used_engine, 1);
@@ -2109,6 +2107,18 @@ static int _apply_cq(struct mtk_cam_job *job)
 		return -1;
 	job->local_trigger_cq_ts = local_clock();
 	handle_rms_enable(job);
+
+	if ((!job->enable_hsf_raw) &&
+		(job->rms_disable == 1) &&
+		(job->src_ctx->rms_disable == 0)) {
+		clear_camctl3_mod_en(job->src_ctx,
+							 &job->src_ctx->cam->engines,
+							 job->used_engine);
+		clear_pcrp(job->src_ctx,
+							 &job->src_ctx->cam->engines,
+							 job->used_engine);
+	}
+
 	apply_engines_cq(job, job->frame_seq_no, &job->cq, &job->cq_rst);
 
 	return 0;

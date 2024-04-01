@@ -210,6 +210,29 @@ static void init_camsys_settings(struct mtk_raw_device *dev, bool is_srt)
 		readl(cam_dev->base + REG_HALT13_EN));
 }
 
+#define BPC_R2_PCRP				0x41EC
+#define CBM_R1_PCRP				0x1018
+
+void diable_rms_pcrp(struct mtk_raw_device *raw)
+{
+	struct mtk_rms_device *rms = get_rms_dev(raw);
+
+	basic_writel(raw, 0x0, rms->base, BPC_R2_PCRP);
+	basic_writel(raw, 0x0, rms->base, CBM_R1_PCRP);
+}
+
+void diable_rms_module(struct mtk_raw_device *raw)
+{
+	struct mtk_rms_device *rms = get_rms_dev(raw);
+
+	basic_writel(raw, 0x0, rms->base, REG_CAMCTL3_MOD_EN);
+	basic_writel(raw, 0x0, rms->base, REG_CAMCTL3_MOD2_EN);
+	basic_writel(raw, 0x0, rms->base, REG_CAMCTL3_MOD3_EN);
+	basic_writel(raw, 0x0, rms->base, REG_CAMCTL3_MOD4_EN);
+	basic_writel(raw, 0x0, rms->base, REG_CAMCTL3_MOD5_EN);
+	basic_writel(raw, 0x0, rms->base, REG_CAMCTL3_MOD6_EN);
+}
+
 static void init_ADLWR_settings(struct mtk_cam_device *cam)
 {
 	if (IS_ERR_OR_NULL(cam->adlwr_base)) {

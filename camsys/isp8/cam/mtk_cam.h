@@ -390,7 +390,10 @@ int mtk_cam_pm_runtime_engines(struct mtk_cam_engines *eng,
 int mtk_cam_pm_runtime_rms_engines(
 	struct mtk_cam_ctx *ctx, struct mtk_cam_engines *eng,
 	unsigned long engine_mask, int enable);
-
+void clear_camctl3_mod_en(struct mtk_cam_ctx *ctx,
+		struct mtk_cam_engines *eng, unsigned long engine_mask);
+void clear_pcrp(struct mtk_cam_ctx *ctx,
+		struct mtk_cam_engines *eng, unsigned long engine_mask);
 
 /* note: flag V4L2_MBUS_FRAMEFMT_PAD_ENABLE is defined by mtk internally */
 static inline void

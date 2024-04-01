@@ -680,6 +680,34 @@ int imgsys_traw_tfault_callback(int port, dma_addr_t mva, void *cb_data)
 			pr_info("%s\n", DbgStr);
 	}
 
+	for (i = 0x0; i <= TRAW_CTL_ADDR_END; i += 16) {
+		if (sprintf(DbgStr, "[0x%08X] 0x%08X 0x%08X 0x%08X 0x%08X",
+			(unsigned int)(TRAW_A_BASE_ADDR + i),
+			(unsigned int)ioread32((void *)(g_trawRegBA + i)),
+			(unsigned int)ioread32((void *)(g_trawRegBA + i + 4)),
+			(unsigned int)ioread32((void *)(g_trawRegBA + i + 8)),
+			(unsigned int)ioread32((void *)(g_trawRegBA + i + 12))) > 0)
+			pr_info("%s\n", DbgStr);
+	}
+
+	return 0;
+}
+
+int imgsys_ltraw_tfault_callback(int port, dma_addr_t mva, void *cb_data)
+{
+	unsigned int i = 0;
+	char DbgStr[128];
+
+	if (g_IOMMUDumpPort != port)
+		g_IOMMUDumpPort = port;
+	else
+		return 0;
+
+	if (!g_ltrawRegBA || !g_trawRegBA) {
+		pr_info("%s: base already unmapped, return directly", __func__);
+		return 0;
+	}
+
 	/* Dma registers */
 	for (i = TRAW_DMA_ADDR_OFST; i <= TRAW_DMA_ADDR_END; i += 16) {
 		if (sprintf(DbgStr, "[0x%08X] 0x%08X 0x%08X 0x%08X 0x%08X",
@@ -688,16 +716,6 @@ int imgsys_traw_tfault_callback(int port, dma_addr_t mva, void *cb_data)
 			(unsigned int)ioread32((void *)(g_ltrawRegBA + i + 4)),
 			(unsigned int)ioread32((void *)(g_ltrawRegBA + i + 8)),
 			(unsigned int)ioread32((void *)(g_ltrawRegBA + i + 12))) > 0)
-			pr_info("%s\n", DbgStr);
-	}
-
-	for (i = 0x0; i <= TRAW_CTL_ADDR_END; i += 16) {
-		if (sprintf(DbgStr, "[0x%08X] 0x%08X 0x%08X 0x%08X 0x%08X",
-			(unsigned int)(TRAW_A_BASE_ADDR + i),
-			(unsigned int)ioread32((void *)(g_trawRegBA + i)),
-			(unsigned int)ioread32((void *)(g_trawRegBA + i + 4)),
-			(unsigned int)ioread32((void *)(g_trawRegBA + i + 8)),
-			(unsigned int)ioread32((void *)(g_trawRegBA + i + 12))) > 0)
 			pr_info("%s\n", DbgStr);
 	}
 

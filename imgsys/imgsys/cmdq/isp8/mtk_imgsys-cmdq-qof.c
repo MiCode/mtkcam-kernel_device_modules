@@ -899,15 +899,13 @@ void mtk_imgsys_qof_print_hw_info(u32 mod)
 		qof_reg_table[mod][QOF_IMG_QOF_EVENT_CNT].addr,
 		readl(QOF_GET_REMAP_ADDR(qof_reg_table[mod][QOF_IMG_QOF_EVENT_CNT].addr)));
 
-	QOF_LOGI("qof_hw_info:rg(0x%x):0x%x;rg(0x%x):0x%x;rg(0x%x):0x%x;rg(0x%x):0x%x;rg(0x%x):0x%x;rg(0x%x):0x%x;\n",
+	QOF_LOGI("qof_hw_info:rg(0x%x):0x%x;rg(0x%x):0x%x;rg(0x%x):0x%x;rg(0x%x):0x%x;rg(0x%x):0x%x\n",
 		qof_reg_table[mod][QOF_IMG_QOF_VOTER_DBG].addr,
 		readl(QOF_GET_REMAP_ADDR(qof_reg_table[mod][QOF_IMG_QOF_VOTER_DBG].addr)),
 		qof_reg_table[mod][QOF_IMG_QOF_DONE_STATUS].addr,
 		readl(QOF_GET_REMAP_ADDR(qof_reg_table[mod][QOF_IMG_QOF_DONE_STATUS].addr)),
 		qof_reg_table[mod][QOF_IMG_ITC_STATUS].addr,
 		readl(QOF_GET_REMAP_ADDR(qof_reg_table[mod][QOF_IMG_ITC_STATUS].addr)),
-		qof_reg_table[mod][QOF_IMG_QOF_STATE_DBG].addr,
-		readl(QOF_GET_REMAP_ADDR(qof_reg_table[mod][QOF_IMG_QOF_STATE_DBG].addr)),
 		qof_reg_table[mod][QOF_IMG_QOF_MTC_ST_LSB].addr,
 		readl(QOF_GET_REMAP_ADDR(qof_reg_table[mod][QOF_IMG_QOF_MTC_ST_LSB].addr)),
 		qof_reg_table[mod][QOF_IMG_QOF_MTC_ST_MSB2].addr,
@@ -1578,8 +1576,6 @@ static void qof_locked_set_engine_off(const u32 mod)
 			(*g_qof_work_buf_va == NULL));
 		return;
 	}
-
-	mtk_imgsys_cmdq_qof_dump(0, false);
 
 	if (mod == ISP8_PWR_WPE_1_EIS) { // wa for gce thd lacked
 		io_addr =  QOF_GET_REMAP_ADDR(qof_reg_table[ISP8_PWR_WPE_1_EIS][QOF_IMG_APMCU_SET].addr);

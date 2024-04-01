@@ -21,6 +21,7 @@ static unsigned int c2ps_remote_monitor_proc_time;
 static unsigned int c2ps_remote_monitor_uclamp;
 static char c2ps_remote_monitor_task[30] = "None";
 bool c2ps_um_mode_on = true;
+bool c2ps_regulator_is_flushed;
 
 module_param(c2ps_regulator_process_mode, int, 0644);
 module_param(c2ps_remote_monitor_proc_time, int, 0644);
@@ -65,6 +66,12 @@ static void regulator_process(struct regulator_req *req)
 		regulator_flush_finish = true;
 		wake_up_interruptible(&regulator_flush_wq);
 		kmem_cache_free(regulator_reqs, req);
+		c2ps_regulator_is_flushed = true;
+		return;
+	}
+
+	if (unlikely(c2ps_regulator_is_flushed)) {
+		C2PS_LOGW("c2ps regulator is already flushed");
 		return;
 	}
 
@@ -190,6 +197,11 @@ void c2ps_regulator_flush(void)
 	send_regulator_req(flush_req);
 	wait_event_interruptible(regulator_flush_wq, regulator_flush_finish);
 	regulator_flush_finish = false;
+}
+
+void c2ps_regulator_init(void)
+{
+	c2ps_regulator_is_flushed = false;
 }
 
 int regulator_init(void)

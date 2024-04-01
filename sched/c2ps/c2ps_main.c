@@ -119,6 +119,7 @@ static void c2ps_notifier_init(int cfg_camfps)
 		set_wl_manual(picked_wl_table);
 	else
 		set_wl_manual(0);
+	c2ps_regulator_init();
 }
 
 static void c2ps_notifier_uninit(void)

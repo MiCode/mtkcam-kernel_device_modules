@@ -2057,6 +2057,28 @@ static int PDAProcessFunction(unsigned int nUserROINumber,
 	return 1;
 }
 
+static bool isHWBuffAddrRGValid(void)
+{
+	int i = 0;
+
+	for (i = 0; i < g_PDA_quantity; i++) {
+		if (PDA_RD32(PDA_devs[i].m_pda_base + PDA_PDAI_P1_BASE_ADDR_REG) == 0 ||
+			PDA_RD32(PDA_devs[i].m_pda_base + PDA_PDATI_P1_BASE_ADDR_REG) == 0 ||
+			PDA_RD32(PDA_devs[i].m_pda_base + PDA_PDAI_P2_BASE_ADDR_REG) == 0 ||
+			PDA_RD32(PDA_devs[i].m_pda_base + PDA_PDATI_P2_BASE_ADDR_REG) == 0 ||
+			PDA_RD32(PDA_devs[i].m_pda_base + PDA_PDAO_P1_BASE_ADDR_REG) == 0) {
+			LOG_INF("PDA%d, LI/LT/RI/RT/Out: %d/%d/%d/%d/%d\n", i,
+				PDA_RD32(PDA_devs[i].m_pda_base + PDA_PDAI_P1_BASE_ADDR_REG),
+				PDA_RD32(PDA_devs[i].m_pda_base + PDA_PDATI_P1_BASE_ADDR_REG),
+				PDA_RD32(PDA_devs[i].m_pda_base + PDA_PDAI_P2_BASE_ADDR_REG),
+				PDA_RD32(PDA_devs[i].m_pda_base + PDA_PDATI_P2_BASE_ADDR_REG),
+				PDA_RD32(PDA_devs[i].m_pda_base + PDA_PDAO_P1_BASE_ADDR_REG));
+			return false;
+		}
+	}
+	return true;
+}
+
 static int g_isBufferMapped;
 
 static long PDA_Ioctl(struct file *a_pstFile,
@@ -2254,7 +2276,8 @@ static long PDA_Ioctl(struct file *a_pstFile,
 			}
 
 			if (g_pda_Pdadata.is_inputBuffer_updated ||
-				g_pda_Pdadata.is_outputBuffer_updated) {
+				g_pda_Pdadata.is_outputBuffer_updated ||
+				isHWBuffAddrRGValid() == false) {
 				if (Get_Input_Addr_From_DMABUF(&g_pda_Pdadata) < 0) {
 					g_pda_Pdadata.status = -26;
 					LOG_INF("Get_Input_Addr_From_DMABUF fail\n");
@@ -2377,6 +2400,9 @@ static int PDA_Open(struct inode *a_pstInode, struct file *a_pstFile)
 
 static int PDA_Release(struct inode *a_pstInode, struct file *a_pstFile)
 {
+	int i = 0;
+	unsigned int nIRQstatus = 0;
+
 #ifdef PDA_MMQOS
 	pda_mmqos_bw_reset();
 #endif
@@ -2411,6 +2437,20 @@ static int PDA_Release(struct inode *a_pstInode, struct file *a_pstFile)
 
 		pda_put_dma_buffer(&g_table_mmu);
 	}
+
+	spin_lock(&g_PDA_SpinLock);
+	if (g_u4EnableClockCount > 0) {
+		for (i = 0; i < g_PDA_quantity; i++) {
+			nIRQstatus = PDA_RD32(PDA_devs[i].m_pda_base + PDA_PDA_ERR_STAT_EN_REG);
+			if (nIRQstatus != 0x0) {
+				LOG_INF("PDA%d, ERR_STAT_EN: 0x%x\n", i, nIRQstatus);
+				// disable pda done irq
+				PDA_WR32(PDA_devs[i].m_pda_base + PDA_PDA_ERR_STAT_EN_REG,
+					0x00000000);
+			}
+		}
+	}
+	spin_unlock(&g_PDA_SpinLock);
 
 	//Disable clock
 	EnableClock(MFALSE);

@@ -8,6 +8,7 @@
 #include <linux/slab.h>
 #include <linux/kthread.h>
 #include <linux/timer.h>
+#include <linux/atomic.h>
 
 #include "c2ps_common.h"
 #include "c2ps_monitor.h"
@@ -65,6 +66,7 @@ static void self_uninit_timer_callback(struct timer_list *t);
 static int picked_wl_table = 0;
 static unsigned int background_monitor_duration = BACKGROUND_MONITOR_DURATION;
 static unsigned int c2ps_vip_throttle_time = 12;
+static atomic_t processing_count = ATOMIC_INIT(0);
 unsigned int c2ps_nr_clusters;
 
 struct timer_list background_info_update_timer;
@@ -332,6 +334,15 @@ static void c2ps_notifier_wq_cb(void)
 	if (unlikely(!list_empty(&head))) {
 		vpPush = list_first_entry(&head,
 			struct C2PS_NOTIFIER_PUSH_TAG, queue_list);
+
+		if (vpPush->ePushType == C2PS_NOTIFIER_UNINIT &&
+			atomic_read(&processing_count) > 0)  {
+			mutex_unlock(&notifier_wq_lock);
+			C2PS_LOGW("work still processing, shouldn't uninit now, use count: %d",
+				atomic_read(&processing_count));
+			return;
+		}
+
 		list_del(&vpPush->queue_list);
 		if (list_empty(&head))
 			condition_notifier_wq = 0;
@@ -403,6 +414,7 @@ int c2ps_notify_init(
 	// enable sugov curr_uclamp feature
 	set_curr_uclamp_ctrl(1);
 	set_eas_setting();
+	atomic_set(&processing_count, 0);
 	c2ps_notifier_init(cfg_camfps);
 
 	// QoS setting
@@ -463,26 +475,34 @@ int c2ps_notify_add_task(
 int c2ps_notify_task_start(int pid, int task_id)
 {
 	C2PS_LOGD("task_id: %d\n", task_id);
+
+	atomic_inc(&processing_count);
 	if (likely(timer_pending(&self_uninit_timer)))
 		mod_timer(&self_uninit_timer, jiffies + 5*HZ);
 	if (unlikely(monitor_task_start(pid, task_id))) {
 		C2PS_LOGW_ONCE("monitor_task_start failed\n");
 		C2PS_LOGW("monitor_task_start failed\n");
+		atomic_dec(&processing_count);
 		return -1;
 	}
 	trigger_bg_policy();
+	atomic_dec(&processing_count);
 	return 0;
 }
 
 int c2ps_notify_task_end(int pid, int task_id)
 {
 	C2PS_LOGD("task_id: %d\n", task_id);
+
+	atomic_inc(&processing_count);
 	if (unlikely(monitor_task_end(pid, task_id))) {
 		C2PS_LOGW_ONCE("monitor_task_end failed\n");
 		C2PS_LOGW("monitor_task_end failed\n");
+		atomic_dec(&processing_count);
 		return -1;
 	}
 	trigger_bg_policy();
+	atomic_dec(&processing_count);
 	return 0;
 }
 

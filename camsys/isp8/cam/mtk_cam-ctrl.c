@@ -1259,24 +1259,12 @@ static int dynamic_raw_change_stream_on(struct mtk_cam_job *job)
 {
 	struct mtk_cam_ctx *ctx = job->src_ctx;
 	struct mtk_cam_ctrl *ctrl = &ctx->cam_ctrl;
-	struct mtk_cam_device *cam = ctx->cam;
-	int i;
 
 	if (job->raw_change) {
 		if (job->raw_change == JOB_RAW_MASTER_UNCHANGED) {
 			/* bc -> b case , ealier raise clk */
 			if (job->raw_change_uninit_engine)
 				mtk_cam_job_update_clk(job);
-			for (i = 0; i < cam->engines.num_raw_devices; i++) {
-				if (BIT(i) & ctx->used_engine) {
-					struct mtk_raw_device *raw_dev;
-
-					raw_dev = dev_get_drvdata(cam->engines.raw_devs[i]);
-					if (raw_dev->is_slave)
-						continue;
-					stream_on(raw_dev, 1, true);
-				}
-			}
 		} else {
 			vsync_set_desired(&ctrl->vsync_col, job->master_engine);
 			call_jobop(job, stream_on, true);

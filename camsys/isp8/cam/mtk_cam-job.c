@@ -144,23 +144,6 @@ static int apply_sensor_async(struct mtk_cam_job *job)
 
 	return mtk_cam_ctx_queue_sensor_worker(ctx, &job->sensor_work);
 }
-static void job_raw_change_hw_toggle_db(struct mtk_cam_ctx *ctx)
-{
-	struct mtk_raw_device *raw_dev;
-	int i;
-
-	for (i = 0; i < ARRAY_SIZE(ctx->hw_raw); i++) {
-		if (ctx->hw_raw[i]) {
-			raw_dev = dev_get_drvdata(ctx->hw_raw[i]);
-			if (raw_dev->is_slave) {
-				dev_info(ctx->cam->dev, "%s slave toggle db and rwfbc inc (raw_id:%d)",
-					__func__, raw_dev->id);
-				toggle_db(raw_dev);
-				rwfbc_inc_setup(raw_dev);
-			}
-		}
-	}
-}
 
 static int check_processing(struct mtk_cam_job *job)
 {
@@ -188,10 +171,7 @@ static int handle_cq_done(struct mtk_cam_job *job)
 	ctx->cam_ctrl.frame_sync_id = job->req_info_id;
 	if (job->first_job || job->first_frm_switch)
 		goto EXIT;
-	if (job->raw_change) {
-		/* for A->AB case : raw b should be db toggle and rwfbc inc like stream on */
-		job_raw_change_hw_toggle_db(ctx);
-	}
+
 	/* turn on mraw vf when first frame setting applied */
 	for (i = 0; i < ctx->num_mraw_subdevs; i++) {
 		mraw_idx = ctx->mraw_subdev_idx[i];
@@ -2000,8 +1980,20 @@ static int apply_engines_cq(struct mtk_cam_job *job,
 	struct mtk_cam_ctx *ctx = job->src_ctx;
 	unsigned long cq_engine, used_engine, sv_engine;
 	unsigned long subset;
+	int i;
 	u64 ts;
 
+	if (job->raw_change == JOB_RAW_MASTER_UNCHANGED) {
+		for (i = 0; i < ctx->cam->engines.num_raw_devices; i++) {
+			if (BIT(i) & ctx->used_engine) {
+				struct mtk_raw_device *raw_dev;
+
+				raw_dev = dev_get_drvdata(ctx->cam->engines.raw_devs[i]);
+				if (raw_dev->is_slave)
+					set_sig_sel_slave(raw_dev);
+			}
+		}
+	}
 	cq_engine = engines_to_trigger_cq(job, cq_rst);
 	used_engine = engines_to_check_inner(job);
 

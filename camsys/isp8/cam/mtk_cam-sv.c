@@ -15,6 +15,7 @@
 
 #include <soc/mediatek/smi.h>
 #include <soc/mediatek/mmdvfs_v3.h>
+#include <soc/mediatek/emi.h>
 
 #include "mtk_cam.h"
 #include "mtk_cam-sv-regs.h"
@@ -1628,6 +1629,10 @@ void camsv_handle_err(
 		mtk_cam_sv_execute_fifo_dump(sv_dev, data->ts_ns);
 #endif
 		dev_info_ratelimited(sv_dev->dev, "camsv dma fifo full\n");
+
+#if !IS_ENABLED(CONFIG_MTK_EMI_LEGACY)
+		mtk_emiisu_record_off();
+#endif
 
 		if (atomic_read(&sv_dev->is_otf) && !DISABLE_RECOVER_FLOW)
 			mtk_smi_dbg_hang_detect("camsys-camsv");

@@ -1158,6 +1158,10 @@ static int mtk_cam_seninf_set_async(struct seninf_ctx *ctx, int async, int split
 {
 	void *pSeninf;
 	int val = 0;
+	struct mtk_cam_seninf_async_split split_info = {
+		.async_idx = async,
+		.is_split = split,
+	};
 
 	if (async >= _seninf_ops->async_num)
 		return false;
@@ -1165,16 +1169,15 @@ static int mtk_cam_seninf_set_async(struct seninf_ctx *ctx, int async, int split
 	pSeninf = ctx->reg_if_async;
 
 	mutex_lock(&ctx->core->seninf_top_rg_mutex);
+
 	// set if split
 	val = SENINF_READ_BITS(pSeninf, SENINF_ASYTOP_SENINF_ASYNC_CFG,
 			       SENINF_ASYTOP_MIPI_SPLIT);
-	if (split)
-		val |= (0x1 << (async << 1));
-	else
-		val &= (~(0x3 << (async << 1)));
-
-	SENINF_BITS(pSeninf, SENINF_ASYTOP_SENINF_ASYNC_CFG,
-		    SENINF_ASYTOP_MIPI_SPLIT, val);
+	if (((val >> (async << 1)) & 0x3) != split) {
+		// modify only when the split need to update
+		mtk_cam_seninf_rproc_ccu_ctrl_with_para(ctx->dev, &ctx->core->ccu_rproc_ctrl,
+					MSG_TO_CCU_SENINF_MIPI_SPLIT_CTRL, &split_info, __func__);
+	}
 
 	// set if test model
 	val = SENINF_READ_BITS(pSeninf, SENINF_ASYTOP_SENINF_ASYNC_CFG,
@@ -3915,7 +3918,7 @@ static int mtk_cam_seninf_set_csi_mipi(struct seninf_ctx *ctx)
 
 	/* seninf async */
 	seninf_async_setting(ctx);
-	mtk_cam_seninf_set_async(ctx, ctx->seninfAsyncIdx, ctx->is_4d1c, ctx->is_test_model);
+	mtk_cam_seninf_set_async(ctx, ctx->seninfAsyncIdx, !ctx->is_4d1c, ctx->is_test_model);
 
 	/* phy */
 	csirx_phy_setting(ctx);

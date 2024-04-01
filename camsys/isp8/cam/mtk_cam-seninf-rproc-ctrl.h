@@ -29,6 +29,7 @@ enum ccu_msg_id_seninfctrl {
 	/* Receive by CCU (start from 1) */
 	MSG_TO_CCU_SENINF_TSREC_IRQ_SEL_CTRL, /* 1 */
 	MSG_TO_CCU_SENINF_DEVICE_GRP_SEL_CTRL,
+	MSG_TO_CCU_SENINF_MIPI_SPLIT_CTRL,
 
 	SENINFCTRL_MSG_MAX
 };
@@ -79,6 +80,10 @@ void mtk_cam_seninf_rproc_init_ccu_ctrl(struct device *dev,
 void mtk_cam_seninf_rproc_ccu_ctrl(struct device *dev,
 	struct seninf_rproc_ccu_ctrl *p_ccu_ctrl, const unsigned int ccu_msg_id[],
 	const unsigned int msg_id_cnt, const char *caller);
+
+void mtk_cam_seninf_rproc_ccu_ctrl_with_para(struct device *dev,
+	struct seninf_rproc_ccu_ctrl *p_ccu_ctrl, const unsigned int ccu_msg_id,
+	const void *para, const char *caller);
 
 
 #endif /* __MTK_CAM_SENINF_RPROC_CTRL_H__ */

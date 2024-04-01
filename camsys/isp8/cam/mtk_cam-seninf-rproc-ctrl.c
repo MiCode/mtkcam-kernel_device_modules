@@ -314,3 +314,66 @@ void mtk_cam_seninf_rproc_ccu_ctrl(struct device *dev,
 		msg_id_cnt);
 }
 
+void mtk_cam_seninf_rproc_ccu_ctrl_with_para(struct device *dev,
+	struct seninf_rproc_ccu_ctrl *p_ccu_ctrl, const unsigned int ccu_msg_id,
+	const void *para, const char *caller)
+{
+	const int curr_pwn_cnt = atomic_read(&p_ccu_ctrl->pwn_cnt);
+	void *p_data = NULL;
+	unsigned int data_size = 0;
+	int ret;
+
+	/* first, check if seninf rproc exist */
+	if (unlikely(is_seninf_rproc_node_valid(dev, __func__) != 0))
+		return;
+
+	/* boot ccu */
+	ret = mtk_cam_seninf_rproc_ccu_pwr_en(dev, p_ccu_ctrl, 1, __func__);
+	if (unlikely(ret != 0))
+		return;
+
+	if (para) {
+		switch (ccu_msg_id) {
+		case MSG_TO_CCU_SENINF_MIPI_SPLIT_CTRL:
+			{
+				struct mtk_cam_seninf_async_split *split_info = NULL;
+
+				split_info = kmalloc(sizeof(struct mtk_cam_seninf_async_split), GFP_KERNEL);
+				if (unlikely(split_info == NULL)) {
+					dev_info(dev, "[%s] ERROR: alloc resource failed msg_id: %u\n",
+						 __func__, ccu_msg_id);
+					break;
+				}
+				memcpy(split_info, para, sizeof(struct mtk_cam_seninf_async_split));
+
+				p_data = split_info;
+				data_size = sizeof(struct mtk_cam_seninf_async_split);
+			}
+			break;
+		default:
+			dev_info(dev,
+				"[%s] ERROR: unknown msg_id:%u, skip ipc send\n",
+				__func__, ccu_msg_id);
+			break;
+		}
+
+		/* send ipc msg to ccu */
+		if (likely(p_data)) {
+			mtk_cam_seninf_rproc_ccu_ipc_send(dev,
+				p_ccu_ctrl, ccu_msg_id,
+				p_data, data_size, __func__);
+
+			kfree(p_data);
+			p_data = NULL;
+		}
+	}
+
+	/* shutdown ccu */
+	mtk_cam_seninf_rproc_ccu_pwr_en(dev, p_ccu_ctrl, 0, __func__);
+
+	dev_info(dev,
+		"[%s] pwn_cnt:(%d => %d), ccu_msg_id:%u\n",
+		__func__, curr_pwn_cnt, atomic_read(&p_ccu_ctrl->pwn_cnt),
+		ccu_msg_id);
+}
+

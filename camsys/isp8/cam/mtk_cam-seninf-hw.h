@@ -170,6 +170,11 @@ struct mtk_cam_seninf_dev {
 	unsigned int val[MAX_SENINF_DEV_GRP_CNT];
 };
 
+struct mtk_cam_seninf_async_split {
+	unsigned int async_idx;
+	unsigned int is_split;
+};
+
 struct mtk_cam_seninf_ops {
 	int (*_init_iomem)(struct seninf_ctx *ctx,
 			      void __iomem *if_top_base, void __iomem *if_async_base,

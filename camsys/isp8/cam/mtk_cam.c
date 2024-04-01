@@ -3118,7 +3118,7 @@ int ctx_stream_on_seninf_sensor(struct mtk_cam_job *job,
 
 int ctx_stream_off_seninf_sensor(struct mtk_cam_ctx *ctx)
 {
-	int ret = 0, i;
+	int ret = 0;
 
 	if (ctx->enable_hsf_raw) {
 		ret = mtk_cam_hsf_uninit(ctx);
@@ -3130,10 +3130,6 @@ int ctx_stream_off_seninf_sensor(struct mtk_cam_ctx *ctx)
 
 	if (!ctx->seninf)
 		return ret;
-
-	/* disable cam mux */
-	for (i = PAD_SRC_RAW0; i < PAD_MAXCNT; i++)
-		mtk_cam_seninf_set_camtg(ctx->seninf, i, 0xFF);
 
 	ret = v4l2_subdev_call(ctx->seninf, video, s_stream, 0);
 	if (ret) {

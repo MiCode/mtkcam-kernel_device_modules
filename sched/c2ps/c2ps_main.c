@@ -99,9 +99,9 @@ static void trigger_bg_policy(void)
 	}
 }
 
-static void c2ps_notifier_init(void)
+static void c2ps_notifier_init(int cfg_camfps)
 {
-	if (unlikely(init_c2ps_common())) {
+	if (unlikely(init_c2ps_common(cfg_camfps))) {
 		C2PS_LOGD("init_c2ps_common failed\n");
 		return;
 	}
@@ -376,8 +376,6 @@ int c2ps_notify_init(
 		"ineff_cpu_ceiling_freq0: %d, ineff_cpu_ceiling_freq1: %d, ineff_cpu_ceiling_freq2: %d",
 		ineff_cpu_ceiling_freq0, ineff_cpu_ceiling_freq1, ineff_cpu_ceiling_freq2);
 
-	// set_config_camfps(cfg_camfps);
-
 	// enable sugov per-gear uclamp max feature
 	set_gear_uclamp_ctrl(1);
 	set_gear_uclamp_max(0, max_uclamp_cluster0);
@@ -387,7 +385,7 @@ int c2ps_notify_init(
 	// enable sugov curr_uclamp feature
 	set_curr_uclamp_ctrl(1);
 	set_eas_setting();
-	c2ps_notifier_init();
+	c2ps_notifier_init(cfg_camfps);
 
 	// QoS setting
 	c2ps_set_ineff_cpu_freq_ceiling(0, ineff_cpu_ceiling_freq0);

@@ -545,7 +545,7 @@ void c2ps_update_um_table(struct c2ps_anchor *anc)
 					ANC_KF_MEAS_ERR, ANC_KF_MIN_EST_ERR);
 			c2ps_init_kf(&(_item->jit_est), ANC_KF_QVAL,
 					ANC_KF_MEAS_ERR*ANC_KF_MEAS_ERR/1000, ANC_KF_MIN_EST_ERR);
-			_item->end_diff_est.est_val = 33000;
+			_item->end_diff_est.est_val = 1000000 / glb_info->cfg_camfps;
 			_item->jit_est.est_val = anc->jitter_spec;
 		}
 
@@ -568,7 +568,7 @@ void c2ps_update_um_table(struct c2ps_anchor *anc)
 		// add an end_diff upper bound to avoid initial value too large
 		// 100000 represents 100ms
 		if (unlikely(_end_diff > 100000))
-			_end_diff = 33000;
+			_end_diff = 1000000 / glb_info->cfg_camfps;
 
 		_item->end_diff = c2ps_cal_kf_est(&(_item->end_diff_est), _end_diff);
 		_square = (_end_diff - _item->end_diff) *
@@ -576,6 +576,10 @@ void c2ps_update_um_table(struct c2ps_anchor *anc)
 		_item->jitter = c2ps_cal_kf_est(&(_item->jit_est), _square/1000);
 
 		C2PS_LOGD(
+			"check um table, ancid: %d, um:%d, after_proc jitter:%llu, end diff: %llu jitter raw data: %llu",
+			anc->anchor_id, _item->um, _item->jitter, _item->end_diff,
+			(_end_diff-_item->end_diff) * (_end_diff-_item->end_diff));
+		c2ps_main_systrace(
 			"check um table, ancid: %d, um:%d, after_proc jitter:%llu, end diff: %llu jitter raw data: %llu",
 			anc->anchor_id, _item->um, _item->jitter, _item->end_diff,
 			(_end_diff-_item->end_diff) * (_end_diff-_item->end_diff));
@@ -680,7 +684,7 @@ inline void set_config_camfps(int camfps)
 	c2ps_info_unlock(&glb_info->mlock);
 }
 
-inline void decide_special_uclamp_max(int placeholder_type)
+void decide_special_uclamp_max(int placeholder_type)
 {
 	size_t cluster_size = c2ps_nr_clusters * sizeof(int);
 
@@ -1733,7 +1737,8 @@ inline void c2ps_update_cpu_freq_ceiling(int cluster, int cpu_ceiling_freq)
 {
 	if (unlikely(glb_info == NULL || cluster >= c2ps_nr_clusters || cpu_ceiling_freq <= 0))
 		return;
-	freq_qos_update_request(&glb_info->qos_req[cluster], cpu_ceiling_freq);
+	if (freq_qos_request_active(&glb_info->qos_req[cluster]))
+		freq_qos_update_request(&glb_info->qos_req[cluster], cpu_ceiling_freq);
 }
 
 inline void c2ps_reset_cpu_freq_ceiling(int cluster)
@@ -1741,7 +1746,8 @@ inline void c2ps_reset_cpu_freq_ceiling(int cluster)
 	if (unlikely(glb_info == NULL || cluster >= c2ps_nr_clusters ||
 		glb_info->ineff_cpu_freq[cluster] <= 0))
 		return;
-	freq_qos_update_request(&glb_info->qos_req[cluster], glb_info->ineff_cpu_freq[cluster]);
+	if (freq_qos_request_active(&glb_info->qos_req[cluster]))
+		freq_qos_update_request(&glb_info->qos_req[cluster], glb_info->ineff_cpu_freq[cluster]);
 }
 
 inline void c2ps_remove_qos_setting(void)
@@ -1855,7 +1861,7 @@ static ssize_t gear_uclamp_max_show(struct kobject *kobj,
 
 static KOBJ_ATTR_RW(gear_uclamp_max);
 
-int init_c2ps_common(void)
+int init_c2ps_common(int cfg_camfps)
 {
 	int ret = 0;
 	u8 _cluster_idx = 0;
@@ -1888,6 +1894,7 @@ int init_c2ps_common(void)
 
 	set_glb_info_bg_uclamp_max();
 	set_glb_info_bg_util_margin();
+	set_config_camfps(cfg_camfps);
 
 	return ret;
 }

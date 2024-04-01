@@ -21,7 +21,7 @@ static unsigned int c2ps_uclamp_bg_up_margin_cluster2 = 1000;
 
 /**************************************************************************/
 static int c2ps_regulator_base_update_um = 5;
-static int c2ps_regulator_um_min = 65;
+static int c2ps_regulator_um_min = 5;
 static int c2ps_regulator_um_max = 125;
 static int c2ps_fix_um;
 static int L_dvide_M_ratio = 10;
@@ -288,15 +288,18 @@ void c2ps_regulator_bgpolicy_um_stable_default(struct regulator_req *req)
 	curr_um = req->glb_info->curr_um_idle;
 
 	for (; cluster_index < c2ps_nr_clusters; cluster_index++) {
-		if (req->glb_info->need_update_bg[1 + cluster_index] > 0) {
-			curr_um += c2ps_regulator_base_update_um;
+		if (req->glb_info->need_update_bg[1 + cluster_index] == 2)
+			c2ps_update_cpu_freq_ceiling(cluster_index, FREQ_QOS_MAX_DEFAULT_VALUE);
+		else
+			c2ps_reset_cpu_freq_ceiling(cluster_index);
+		if (req->glb_info->need_update_bg[1 + cluster_index] > 0)
 			decrease_um = false;
-			break;
-		}
 	}
 
 	if (decrease_um)
 		curr_um -= c2ps_regulator_base_update_um;
+	else
+		curr_um += c2ps_regulator_base_update_um;
 
 	curr_um = min(c2ps_regulator_um_max, max(curr_um, c2ps_regulator_um_min));
 	c2ps_set_util_margin(0, curr_um);
@@ -322,16 +325,6 @@ static int _cal_latency_um(
 	int64_t converge_lat_val =
 		(cur_item->lat_est.est_err - cur_item->lat_est.min_est_err) * 100 /
 				cur_item->lat_est.min_est_err;
-	bool is_safe_idle_rate = true;
-	short _cluster_index = 0;
-
-	for (; _cluster_index < c2ps_nr_clusters; _cluster_index++) {
-		if (req->glb_info->avg_cluster_idle_rate[_cluster_index] <
-			c2ps_safe_idle_rate) {
-			is_safe_idle_rate = false;
-			break;
-		}
-	}
 
 	if (converge_lat_val > c2ps_converge_target) {
 		C2PS_LOGD("latency not converge yet: %lld", converge_lat_val);
@@ -339,9 +332,9 @@ static int _cal_latency_um(
 	}
 	if (cur_item->latency >= prev_item->latency) {
 		if (est_latency_1 < latency_spec &&
-			est_latency_2 < latency_spec && is_safe_idle_rate)
+			est_latency_2 < latency_spec)
 			latency_um -= c2ps_regulator_base_update_um;
-		else if (est_latency_1 > latency_spec || !is_safe_idle_rate)
+		else if (est_latency_1 > latency_spec)
 			latency_um += c2ps_regulator_base_update_um;
 	} else {
 		C2PS_LOGD("prev_latency is larger (%llu, %llu)",
@@ -426,6 +419,31 @@ static int _cal_jitter_um(
 	return jitter_um;
 }
 
+static int _cal_idle_rate_um(struct regulator_req *req)
+{
+	short _cluster_index = 0;
+	bool is_safe_idle_rate = true;
+	int idle_rate_um = req->glb_info->curr_um;
+
+	for (; _cluster_index < c2ps_nr_clusters; _cluster_index++) {
+		if (req->glb_info->need_update_bg[1 + _cluster_index] == 2)
+			c2ps_update_cpu_freq_ceiling(_cluster_index, FREQ_QOS_MAX_DEFAULT_VALUE);
+		else
+			c2ps_reset_cpu_freq_ceiling(_cluster_index);
+		if (req->glb_info->avg_cluster_idle_rate[_cluster_index] <
+			c2ps_safe_idle_rate) {
+			is_safe_idle_rate = false;
+		}
+	}
+
+	if (!is_safe_idle_rate)
+		idle_rate_um += c2ps_regulator_base_update_um;
+	else
+		idle_rate_um -= c2ps_regulator_base_update_um;
+
+	return idle_rate_um;
+}
+
 /**
  * @brief      map to C2PS_REGULATOR_BGMODE_UM_STABLE
  */
@@ -444,16 +462,20 @@ void c2ps_regulator_bgpolicy_um_stable(struct regulator_req *req)
 	if (unlikely(c2ps_fix_um)) {
 		action_um = c2ps_fix_um;
 	} else {
-		int latency_um = curr_um;
+		int latency_um = 0;
 		int jitter_um = 0;
+		int idle_rate_um = 0;
 
 		if (likely(_item && _prev_item)) {
+			idle_rate_um = _cal_idle_rate_um(req);
 			if (req->anc_info->latency_spec > 0)
 				latency_um = _cal_latency_um(req, _item, _prev_item);
 			if (req->anc_info->jitter_spec > 0 && !skip_jitter)
 				jitter_um = _cal_jitter_um(req, _item, _prev_item);
 		}
-		action_um = max(latency_um, jitter_um);
+
+		action_um = max(idle_rate_um, max(latency_um, jitter_um));
+
 		if (action_um > curr_um) {
 			if (req->glb_info->um_vote.vote_result > 0)
 				need_update_um = false;
@@ -463,11 +485,10 @@ void c2ps_regulator_bgpolicy_um_stable(struct regulator_req *req)
 				req->glb_info->um_vote.vote_result = 0;
 			need_update_um = false;
 		} else if (action_um < curr_um) {
-			if (req->glb_info->um_vote.vote_result < 0) {
-				req->glb_info->um_vote.vote_result = -1;
-				if (!req->anc_info->is_last_anchor)
-					need_update_um = false;
-			}
+			need_update_um = false;
+			if (req->glb_info->um_vote.vote_result < 0 &&
+				req->anc_info->is_last_anchor)
+				need_update_um = true;
 		}
 	}
 

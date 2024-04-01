@@ -270,7 +270,7 @@ struct regulator_req {
 #define C2PS_LOGE(fmt, ...) pr_err("[C2PS]: %s %s %d " fmt, \
 	__FILE__, __func__, __LINE__, ##__VA_ARGS__)
 
-int init_c2ps_common(void);
+int init_c2ps_common(int cfg_camfps);
 void exit_c2ps_common(void);
 int set_curr_uclamp_hint(int pid, int set);
 int set_curr_uclamp_hint_wo_lock(struct task_struct *p, int set);

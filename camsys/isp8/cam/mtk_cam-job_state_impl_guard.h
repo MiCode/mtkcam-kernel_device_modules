@@ -160,6 +160,13 @@ static inline int guard_inner_ge(struct state_accessor *s_acc,
 	return p->info->inner_seq_no >= cur_seq_no(s_acc);
 }
 
+static inline int guard_inner_greater(struct state_accessor *s_acc,
+				 struct transition_param *p)
+{
+	return p->info->inner_seq_no > cur_seq_no(s_acc);
+}
+
+
 /* TODO(AY): may be removed */
 static inline int prev_isp_state_ge(struct mtk_cam_job_state *s,
 				    struct list_head *list_head,
@@ -328,6 +335,12 @@ static inline int guard_ack_apply_m2m_directly(struct state_accessor *s_acc,
 					       struct transition_param *p)
 {
 	return guard_ack_eq(s_acc, p) && guard_apply_m2m(s_acc, p);
+}
+
+static inline int handle_frame_done_loss_subsample(struct state_accessor *s_acc,
+					   struct transition_param *p)
+{
+	return guard_inner_greater(s_acc, p);
 }
 
 static inline int guard_hw_retry_mismatched(struct state_accessor *s_acc,

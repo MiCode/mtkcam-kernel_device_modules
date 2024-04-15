@@ -79,6 +79,10 @@ static struct state_transition STATE_TRANS(subsample, S_ISP_PROCESSING)[] = {
 		S_ISP_PROCESSING, CAMSYS_EVENT_IRQ_L_SOF,
 		guard_hw_retry_matched, 0
 	},
+	{ /* note: should handle frame_done first if p1done x 2 come together */
+		S_ISP_DONE, CAMSYS_EVENT_IRQ_L_SOF,
+		handle_frame_done_loss_subsample, 0
+	},
 };
 
 static struct state_transition STATE_TRANS(subsample, S_ISP_SENSOR_MISMATCHED)[] = {

@@ -264,6 +264,7 @@ static int sv_process_fsm(struct mtk_camsv_device *sv_dev,
 					recovered =
 						engine_fsm_sof(&sv_dev->fsm,
 							       irq_info->frame_idx_inner,
+							       irq_info->frame_idx,
 							       irq_info->fbc_empty,
 							       recovered_done);
 					break;

@@ -855,7 +855,7 @@ void m2m_update_sof_state(struct mtk_raw_device *dev)
 
 	/* update fsm's cookie_inner since m2m flow has no sof to update it */
 	cookie = raw_readl(dev, dev->base_inner, REG_FRAME_IDX);
-	engine_fsm_sof(&dev->fsm, cookie, 0, NULL);
+	engine_fsm_sof(&dev->fsm, cookie, 0, 0, NULL);
 
 	engine_handle_sof(&dev->cq_ref,
 			  bit_map_bit(MAP_HW_RAW, dev->id),
@@ -1560,6 +1560,7 @@ static int raw_process_fsm(struct mtk_raw_device *raw_dev,
 
 	if (irq_info->irq_type & BIT(CAMSYS_IRQ_FRAME_START))
 		recovered = engine_fsm_sof(fsm, irq_info->frame_idx_inner,
+					   irq_info->frame_idx,
 					   irq_info->fbc_empty,
 					   recovered_done);
 

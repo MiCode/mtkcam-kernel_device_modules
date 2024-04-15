@@ -74,6 +74,7 @@ static int mraw_process_fsm(struct mtk_mraw_device *mraw_dev,
 
 	if (irq_info->irq_type & BIT(CAMSYS_IRQ_FRAME_START))
 		recovered = engine_fsm_sof(fsm, irq_info->frame_idx_inner,
+					   irq_info->frame_idx,
 					   irq_info->fbc_empty,
 					   recovered_done);
 

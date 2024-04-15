@@ -164,7 +164,7 @@ static inline int engine_update_for_done(struct engine_fsm *fsm)
 
 /* return: 0: nothing, 1: have done */
 static inline int engine_fsm_sof(struct engine_fsm *fsm,
-				 int cookie_inner, int fbc_emtpy,
+				 int cookie_inner, int cookie_outer, int fbc_emtpy,
 				 int *cookie_done)
 {
 	bool inner_updated;
@@ -185,7 +185,8 @@ static inline int engine_fsm_sof(struct engine_fsm *fsm,
 
 #if ENABLE_FSM
 	/* note: if ret is already 1, may still handle it in next sof */
-	if (cookie_done && !ret && fbc_emtpy && engine_in_processing(fsm)) {
+	if (cookie_done && !ret && fbc_emtpy && engine_in_processing(fsm)
+		  && cookie_inner >= cookie_outer) {
 
 		*cookie_done = engine_update_for_done(fsm);
 		ret = 1;

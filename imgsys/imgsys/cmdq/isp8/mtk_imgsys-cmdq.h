@@ -107,6 +107,7 @@ struct mtk_imgsys_cb_param {
 	bool isFrmLast;
 	bool isTaskLast;
 	bool isOccupy;
+	bool isDynamic;
 };
 
 enum mtk_imgsys_cmd {

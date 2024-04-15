@@ -1380,7 +1380,19 @@ static int imgsensor_set_ctrl(struct v4l2_ctrl *ctrl)
 		}
 		break;
 	case V4L2_CID_FSYNC_HW_MCSS_MASKFRAME:
-		subdrv_call(ctx, mcss_set_mask_frame, (u32)ctrl->val);
+		{
+			static u32 mask_frm_num_last;
+			u32 mask_frm_num;
+
+			mask_frm_num =
+			(( (u32)ctrl->val == mask_frm_num_last) && ( (u32)ctrl->val != 0)) ?
+				( (u32)ctrl->val + 1) :  (u32)ctrl->val;
+			mask_frm_num_last = mask_frm_num;
+			ADAPTOR_SYSTRACE_BEGIN("SensorWorker::V4L2_CID_FSYNC_HW_MCSS_MASKFRAME set:%u receive:%u",
+					mask_frm_num, (u32)ctrl->val);
+			subdrv_call(ctx, mcss_set_mask_frame, mask_frm_num);
+			ADAPTOR_SYSTRACE_END();
+		}
 		break;
 	case V4L2_CID_UPDATE_SOF_CNT:
 		/* update ctx sof cnt */

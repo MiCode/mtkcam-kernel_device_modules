@@ -3331,6 +3331,111 @@ int common_get_info(struct subdrv_ctx *ctx,
 	return ERROR_NONE;
 }
 
+void mcss_get_prsh_length_lines(struct subdrv_ctx *ctx,
+	struct mtk_hdr_ae *ae_ctrl,
+	enum SENSOR_SCENARIO_ID_ENUM pre_seamless_scenario_id,
+	enum SENSOR_SCENARIO_ID_ENUM scenario_id)
+{
+#define MCSS_TH 50
+	u32 ae_ctrl_cit;
+	u32 prsh_length_lc = 0;
+	u32 cit_step = 1;
+	u64 frame_duration_us = 0;
+	u64 orig_readout_time_us = 0;
+	u64 current_fps;
+	u8 hw_fixed_value = ctx->s_ctx.seamless_switch_prsh_hw_fixed_value;
+	enum IMGSENSOR_HDR_MODE_ENUM hdr_mode;
+
+	current_fps = (u64)ctx->current_fps;
+	frame_duration_us = 10 * (1000000 / current_fps);
+	orig_readout_time_us = 1000000
+					* (u64)ctx->s_ctx.mode[pre_seamless_scenario_id].imgsensor_winsize_info.h1_size
+					* (ctx->line_length) // ctx->s_ctx.mode[pre_seamless_scenario_id].linelength
+					/ctx->s_ctx.mode[pre_seamless_scenario_id].pclk;
+
+	DRV_LOG_MUST(ctx,
+		"calc_prsh_length_lc(%d->%d): orig:pclk(%llu),linelength(%u),frame_length(%u),fps(%llu),frame_duration_us(%llu),readout_us(%llu) new:pclk(%llu),linelength(%u)\n",
+					pre_seamless_scenario_id,scenario_id,
+					ctx->s_ctx.mode[pre_seamless_scenario_id].pclk,
+					ctx->line_length,
+					ctx->s_ctx.mode[pre_seamless_scenario_id].framelength,
+					current_fps,
+					10 * (1000000 / current_fps),
+					orig_readout_time_us,
+					ctx->s_ctx.mode[scenario_id].pclk,
+					ctx->line_length);
+
+	if (frame_duration_us < orig_readout_time_us) {
+		DRV_LOG_MUST(ctx,
+				"pre-shutter no need : max_framerate:(%u->%u), current_fl(%llu) < (orig_readout_time(%llu)\n",
+				ctx->s_ctx.mode[pre_seamless_scenario_id].max_framerate,
+				ctx->s_ctx.mode[scenario_id].max_framerate,
+				frame_duration_us,orig_readout_time_us);
+		ctx->s_ctx.seamless_switch_prsh_length_lc = 0;
+		return;
+	}
+	frame_duration_us -= orig_readout_time_us;
+	if (frame_duration_us < (ctx->s_ctx.seamless_switch_hw_re_init_time_ns / 1000)) {
+		DRV_LOG_MUST(ctx,
+			"pre-shutter no need: current_fl(%llu) < (orig_readout_time(%llu) + hw_re_init_time(%u))\n",
+			frame_duration_us,orig_readout_time_us,
+			(ctx->s_ctx.seamless_switch_hw_re_init_time_ns / 1000));
+		ctx->s_ctx.seamless_switch_prsh_length_lc = 0;
+		return;
+	}
+	frame_duration_us -= (ctx->s_ctx.seamless_switch_hw_re_init_time_ns / 1000); // CIS boot time
+
+	hdr_mode = ctx->s_ctx.mode[scenario_id].hdr_mode;
+	switch (hdr_mode) {
+	case HDR_RAW_LBMF:
+		{
+			DRV_LOGE(ctx, "HDR_RAW_LBMF not support !\n");
+			return;
+		}
+		break;
+	case HDR_NONE:
+	case HDR_RAW:
+	case HDR_CAMSV:
+	case HDR_RAW_ZHDR:
+	case HDR_MultiCAMSV:
+	case HDR_RAW_STAGGER:
+	case HDR_RAW_DCG_RAW:
+	case HDR_RAW_DCG_COMPOSE:
+	default:
+		ae_ctrl_cit =ae_ctrl->exposure.le_exposure;
+		break;
+	}
+
+	ae_ctrl_cit = FINE_INTEG_CONVERT(ae_ctrl_cit, ctx->s_ctx.mode[scenario_id].fine_integ_line);
+	prsh_length_lc = frame_duration_us
+					* ctx->s_ctx.mode[scenario_id].pclk
+					/ ctx->line_length
+					/ 1000000;
+
+	ae_ctrl_cit = max(ae_ctrl_cit, ctx->s_ctx.exposure_min);
+	ae_ctrl_cit = min(ae_ctrl_cit, ctx->s_ctx.exposure_max);
+	cit_step = ctx->s_ctx.mode[ctx->current_scenario_id].coarse_integ_step ?: 1;
+	if (cit_step) {
+		ae_ctrl_cit = roundup(ae_ctrl_cit, cit_step);
+		prsh_length_lc = roundup(prsh_length_lc, cit_step);
+	}
+
+	prsh_length_lc = (prsh_length_lc > (ae_ctrl_cit + hw_fixed_value)) ? prsh_length_lc : 0;
+	if (prsh_length_lc < (ae_ctrl_cit + hw_fixed_value)) {
+		DRV_LOG_MUST(ctx,
+			"pre-shutter no need: prsh_length_lc(%u) < (ae_ctrl_cit(%u(max=%u,min=%u)) + hw_fixed_value(%u))\n",
+			prsh_length_lc, ae_ctrl_cit, ctx->s_ctx.exposure_max, ctx->s_ctx.exposure_min, hw_fixed_value);
+		ctx->s_ctx.seamless_switch_prsh_length_lc = 0;
+		return;
+	}
+
+	if ((ctx->mcss_init_info.enable_mcss) && (ctx->mcss_init_info.is_mcss_master))
+		prsh_length_lc += MCSS_TH;
+	if ((ctx->mcss_init_info.enable_mcss) && (!(ctx->mcss_init_info.is_mcss_master)))
+		prsh_length_lc = (prsh_length_lc > MCSS_TH) ? (prsh_length_lc - MCSS_TH) : 0;
+	ctx->s_ctx.seamless_switch_prsh_length_lc = prsh_length_lc;
+}
+
 void common_get_prsh_length_lines(struct subdrv_ctx *ctx,
 	struct mtk_hdr_ae *ae_ctrl,
 	enum SENSOR_SCENARIO_ID_ENUM pre_seamless_scenario_id,

@@ -146,6 +146,7 @@ int mcss_global_fl_calculator(
 	unsigned int boundary = 0;
 	unsigned int min_boundary = 0xffffffff; // UINT_MAX
 	unsigned int min_line_time_in_ns = 0xffffffff; // UINT_MAX
+	unsigned int max_line_time_in_ns = 0;
 	struct SyncSensorPara *para;
 
 	/* Test parameter */
@@ -184,6 +185,9 @@ int mcss_global_fl_calculator(
 
 		if ((para->line_time_in_ns < min_line_time_in_ns) && (para->line_time_in_ns > 0))
 			min_line_time_in_ns = para->line_time_in_ns;
+
+		if (para->line_time_in_ns > max_line_time_in_ns)
+			max_line_time_in_ns = para->line_time_in_ns;
 	}
 
 	if (min_boundary < max_frame_time) {
@@ -212,10 +216,10 @@ int mcss_global_fl_calculator(
 
 		/* make master sensor slightly larger than slave */
 		if (para->sync_mode == SENSOR_SYNC_MASTER) {
-			unsigned int TH = (MCSS_TH * min_line_time_in_ns)/para->line_time_in_ns;
+			unsigned int TH = (MCSS_TH * max_line_time_in_ns)/min_line_time_in_ns;
 			(para->out_fl_lc) = (para->out_fl_lc) + TH;
-	// LOG_MUST("MCSS_TH(%u), min_line_time_in_ns:%upara->line_time_in_ns:%u TH:%u\n",
-	// MCSS_TH, min_line_time_in_ns, para->line_time_in_ns, TH);
+	LOG_MUST("MCSS_TH(%u), min_line_time_in_ns:%u max_line_time_in_ns:%u para->line_time_in_ns:%u TH:%u\n",
+	MCSS_TH, min_line_time_in_ns,max_line_time_in_ns, para->line_time_in_ns, TH);
 		}
 
 #ifdef EN_CUSTOM_DBG_LOG

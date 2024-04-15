@@ -206,6 +206,10 @@ int common_get_info(struct subdrv_ctx *ctx,
 	enum MSDK_SCENARIO_ID_ENUM scenario_id,
 	MSDK_SENSOR_INFO_STRUCT *sensor_info,
 	MSDK_SENSOR_CONFIG_STRUCT *sensor_config_data);
+void mcss_get_prsh_length_lines(struct subdrv_ctx *ctx,
+	struct mtk_hdr_ae *ae_ctrl,
+	enum SENSOR_SCENARIO_ID_ENUM pre_seamless_scenario_id,
+	enum SENSOR_SCENARIO_ID_ENUM scenario_id);
 void common_get_prsh_length_lines(struct subdrv_ctx *ctx,
 	struct mtk_hdr_ae *ae_ctrl,
 	enum SENSOR_SCENARIO_ID_ENUM pre_seamless_scenario_id,

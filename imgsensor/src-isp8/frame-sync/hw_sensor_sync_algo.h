@@ -47,6 +47,10 @@ void hw_fs_alg_update_min_fl_lc(unsigned int idx,
 void hw_fs_alg_set_perframe_st_data(
 	unsigned int idx, struct fs_perframe_st *pData);
 
+void hw_fs_alg_set_seamless_switch_info(const unsigned int idx,
+	struct fs_seamless_st *p_seamless_info,
+	const unsigned int seamless_sof_cnt);
+
 int handle_by_hw_sensor_sync(unsigned int solveIdxs[], unsigned int len);
 
 unsigned int hw_fs_alg_solve_frame_length(

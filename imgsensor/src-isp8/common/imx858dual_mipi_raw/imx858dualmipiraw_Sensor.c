@@ -56,6 +56,7 @@ static struct mtk_mbus_frame_desc_entry frame_desc_prev[] = { //mode 0
 			.hsize = 0x0e80, // 3712
 			.vsize = 0x0ae0, //2784
 			.user_data_desc = VC_STAGGER_NE,
+			.fs_seq = MTK_FRAME_DESC_FS_SEQ_ONLY_ONE,
 		},
 	},
 	{
@@ -77,6 +78,7 @@ static struct mtk_mbus_frame_desc_entry frame_desc_cap[] = {
 			.hsize = 0x0e80, // 3712
 			.vsize = 0x0ae0, //2784
 			.user_data_desc = VC_STAGGER_NE,
+			.fs_seq = MTK_FRAME_DESC_FS_SEQ_ONLY_ONE,
 		},
 	},
 	{
@@ -98,6 +100,7 @@ static struct mtk_mbus_frame_desc_entry frame_desc_vid[] = { //mode 2
 			.hsize = 0x1000, //4096
 			.vsize = 0x0900, //2304
 			.user_data_desc = VC_STAGGER_NE,
+			.fs_seq = MTK_FRAME_DESC_FS_SEQ_ONLY_ONE,
 		},
 	},
 	{
@@ -119,6 +122,7 @@ static struct mtk_mbus_frame_desc_entry frame_desc_hs_vid[] = { //mode 3
 			.hsize = 0x0e80, // 3712
 			.vsize = 0x0ae0, //2784
 			.user_data_desc = VC_STAGGER_NE,
+			.fs_seq = MTK_FRAME_DESC_FS_SEQ_ONLY_ONE,
 		},
 	},
 	{
@@ -140,6 +144,7 @@ static struct mtk_mbus_frame_desc_entry frame_desc_slim_vid[] = { //mode 4
 			.hsize = 0x0e80, // 3712
 			.vsize = 0x0ae0, //2784
 			.user_data_desc = VC_STAGGER_NE,
+			.fs_seq = MTK_FRAME_DESC_FS_SEQ_ONLY_ONE,
 		},
 	},
 	{
@@ -162,6 +167,7 @@ static struct mtk_mbus_frame_desc_entry frame_desc_cus1[] = { //mode 5
 			.hsize = 0x0e80, // 3712
 			.vsize = 0x0ae0, // 2784
 			.user_data_desc = VC_STAGGER_NE,
+			.fs_seq = MTK_FRAME_DESC_FS_SEQ_FIRST,
 		},
 	},
 	{
@@ -171,6 +177,7 @@ static struct mtk_mbus_frame_desc_entry frame_desc_cus1[] = { //mode 5
 			.hsize = 0x0e80, // 3712
 			.vsize = 0x0ae0, // 2784
 			.user_data_desc = VC_STAGGER_ME,
+			.fs_seq = MTK_FRAME_DESC_FS_SEQ_LAST,
 		},
 	},
 };
@@ -183,6 +190,7 @@ static struct mtk_mbus_frame_desc_entry frame_desc_cus2[] = {
 			.hsize = 0x0e80, // 3712
 			.vsize = 0x0ae0, // 2784
 			.user_data_desc = VC_STAGGER_NE,
+			.fs_seq = MTK_FRAME_DESC_FS_SEQ_ONLY_ONE,
 		},
 	},
 	{
@@ -214,7 +222,7 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.framelength = 3902,
 		.max_framerate = 300,
 		.mipi_pixel_rate = 1019660000, // OPSYCK system pixel rate
-		.readout_length = 0, // normal mode no need
+		.readout_length = 2856,
 		.read_margin = 10,  // normal mode no need
 		.framelength_step = 4,  // no need
 		.coarse_integ_step = 4,  // no need
@@ -222,12 +230,12 @@ static struct subdrv_mode_struct mode_struct[] = {
 			.full_w = 8192,
 			.full_h = 6144,
 			.x0_offset = 0,
-			.y0_offset = 0,
-			.w0_size = 7424,
+			.y0_offset = 288,
+			.w0_size = 8192,
 			.h0_size = 5568,
-			.scale_w = 3712,
+			.scale_w = 4096,
 			.scale_h = 2784,
-			.x1_offset = 0,
+			.x1_offset = 192,
 			.y1_offset = 0,
 			.w1_size = 3712,
 			.h1_size = 2784,
@@ -238,8 +246,9 @@ static struct subdrv_mode_struct mode_struct[] = {
 		},
 		.pdaf_cap = TRUE,
 		.ae_binning_ratio = 1000,  // Outout Pixel Level Ratio
-		.fine_integ_line = 388,  //?
+		.fine_integ_line = 388,
 		.delay_frame = 3,
+		.sensor_output_dataformat = SENSOR_OUTPUT_FORMAT_RAW_4CELL_HW_BAYER_R,
 		.csi_param = {
 			.cphy_settle = 74,
 		},
@@ -261,7 +270,7 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.framelength = 3902,
 		.max_framerate = 300,
 		.mipi_pixel_rate = 1019660000, // OPSYCK system pixel rate
-		.readout_length = 0, // normal mode no need
+		.readout_length = 2856,
 		.read_margin = 10,  // normal mode no need
 		.framelength_step = 4,  // no need
 		.coarse_integ_step = 4,  // no need
@@ -269,12 +278,12 @@ static struct subdrv_mode_struct mode_struct[] = {
 			.full_w = 8192,
 			.full_h = 6144,
 			.x0_offset = 0,
-			.y0_offset = 0,
-			.w0_size = 7424,
+			.y0_offset = 288,
+			.w0_size = 8192,
 			.h0_size = 5568,
-			.scale_w = 3712,
+			.scale_w = 4096,
 			.scale_h = 2784,
-			.x1_offset = 0,
+			.x1_offset = 192,
 			.y1_offset = 0,
 			.w1_size = 3712,
 			.h1_size = 2784,
@@ -285,8 +294,9 @@ static struct subdrv_mode_struct mode_struct[] = {
 		},
 		.pdaf_cap = TRUE,
 		.ae_binning_ratio = 1000,  // Outout Pixel Level Ratio
-		.fine_integ_line = 388,  //?
+		.fine_integ_line = 388,
 		.delay_frame = 3,
+		.sensor_output_dataformat = SENSOR_OUTPUT_FORMAT_RAW_4CELL_HW_BAYER_R,
 		.csi_param = {
 			.cphy_settle = 74,
 		},
@@ -308,7 +318,7 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.framelength = 3902,
 		.max_framerate = 300,
 		.mipi_pixel_rate = 1851430000, // OPSYCK system pixel rate
-		.readout_length = 0, // normal mode no need
+		.readout_length = 2856,
 		.read_margin = 10,  // normal mode no need
 		.framelength_step = 1,  // no need
 		.coarse_integ_step = 1,  // no need
@@ -334,6 +344,7 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.ae_binning_ratio = 1000,
 		.fine_integ_line = 826,
 		.delay_frame = 3,
+		.sensor_output_dataformat = SENSOR_OUTPUT_FORMAT_RAW_4CELL_HW_BAYER_R,
 		.csi_param = {
 			.cphy_settle = 74,
 		},
@@ -356,7 +367,7 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.framelength = 3902,
 		.max_framerate = 300,
 		.mipi_pixel_rate = 1019660000, // OPSYCK system pixel rate
-		.readout_length = 0, // normal mode no need
+		.readout_length = 2856,
 		.read_margin = 10,  // normal mode no need
 		.framelength_step = 4,  // no need
 		.coarse_integ_step = 4,  // no need
@@ -364,12 +375,12 @@ static struct subdrv_mode_struct mode_struct[] = {
 			.full_w = 8192,
 			.full_h = 6144,
 			.x0_offset = 0,
-			.y0_offset = 0,
-			.w0_size = 7424,
+			.y0_offset = 288,
+			.w0_size = 8192,
 			.h0_size = 5568,
-			.scale_w = 3712,
+			.scale_w = 4096,
 			.scale_h = 2784,
-			.x1_offset = 0,
+			.x1_offset = 192,
 			.y1_offset = 0,
 			.w1_size = 3712,
 			.h1_size = 2784,
@@ -382,6 +393,7 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.ae_binning_ratio = 1000,  // Outout Pixel Level Ratio
 		.fine_integ_line = 388,
 		.delay_frame = 3,
+		.sensor_output_dataformat = SENSOR_OUTPUT_FORMAT_RAW_4CELL_HW_BAYER_R,
 		.csi_param = {
 			.cphy_settle = 74,
 		},
@@ -403,7 +415,7 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.framelength = 3902,
 		.max_framerate = 300,
 		.mipi_pixel_rate = 1019660000, // OPSYCK system pixel rate
-		.readout_length = 0, // normal mode no need
+		.readout_length = 2856,
 		.read_margin = 10,  // normal mode no need
 		.framelength_step = 4,  // no need
 		.coarse_integ_step = 4,  // no need
@@ -411,12 +423,12 @@ static struct subdrv_mode_struct mode_struct[] = {
 			.full_w = 8192,
 			.full_h = 6144,
 			.x0_offset = 0,
-			.y0_offset = 0,
-			.w0_size = 7424,
+			.y0_offset = 288,
+			.w0_size = 8192,
 			.h0_size = 5568,
-			.scale_w = 3712,
+			.scale_w = 4096,
 			.scale_h = 2784,
-			.x1_offset = 0,
+			.x1_offset = 192,
 			.y1_offset = 0,
 			.w1_size = 3712,
 			.h1_size = 2784,
@@ -427,8 +439,9 @@ static struct subdrv_mode_struct mode_struct[] = {
 		},
 		.pdaf_cap = TRUE,
 		.ae_binning_ratio = 1000,  // Outout Pixel Level Ratio
-		.fine_integ_line = 388,  //?
+		.fine_integ_line = 388,
 		.delay_frame = 3,
+		.sensor_output_dataformat = SENSOR_OUTPUT_FORMAT_RAW_4CELL_HW_BAYER_R,
 		.csi_param = {
 			.cphy_settle = 74,
 		},
@@ -458,12 +471,12 @@ static struct subdrv_mode_struct mode_struct[] = {
 			.full_w = 8192,
 			.full_h = 6144,
 			.x0_offset = 0,
-			.y0_offset = 0,
-			.w0_size = 7424,
+			.y0_offset = 288,
+			.w0_size = 8192,
 			.h0_size = 5568,
-			.scale_w = 3712,
+			.scale_w = 4096,
 			.scale_h = 2784,
-			.x1_offset = 0,
+			.x1_offset = 192,
 			.y1_offset = 0,
 			.w1_size = 3712,
 			.h1_size = 2784,
@@ -476,6 +489,7 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.ae_binning_ratio = 1000,
 		.fine_integ_line = 388,
 		.delay_frame = 3,
+		.sensor_output_dataformat = SENSOR_OUTPUT_FORMAT_RAW_4CELL_HW_BAYER_R,
 		.csi_param = {
 			.cphy_settle = 78,
 		},
@@ -497,20 +511,20 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.framelength = 3252, // frame_length_lines
 		.max_framerate = 300,
 		.mipi_pixel_rate = 1019660000, // OPSYCK system pixel rate
-		.readout_length = 0, // normal mode no need
+		.readout_length = 2856,
 		.read_margin = 48,
 		.framelength_step = 4,
 		.coarse_integ_step = 4,
 		.imgsensor_winsize_info = {
 			.full_w = 8192,
 			.full_h = 6144,
-			.x0_offset = 0,
-			.y0_offset = 0,
-			.w0_size = 7424,
-			.h0_size = 5568,
-			.scale_w = 3712,
+			.x0_offset = 2048,
+			.y0_offset = 1680,
+			.w0_size = 4096,
+			.h0_size = 2784,
+			.scale_w = 4096,
 			.scale_h = 2784,
-			.x1_offset = 0,
+			.x1_offset = 192,
 			.y1_offset = 0,
 			.w1_size = 3712,
 			.h1_size = 2784,
@@ -549,7 +563,7 @@ static struct subdrv_static_ctx static_ctx = {
 	.mipi_lane_num = SENSOR_MIPI_3_LANE,
 	.ob_pedestal = 0x40,
 
-	.sensor_output_dataformat = SENSOR_OUTPUT_FORMAT_RAW_4CELL_HW_BAYER_R, //?
+	.sensor_output_dataformat = SENSOR_OUTPUT_FORMAT_RAW_4CELL_HW_BAYER_R,
 	.ana_gain_def = BASEGAIN * 4, // hardcode
 	.ana_gain_min = BASEGAIN * 2, // 3.1dB --> 10^(3.1/10) = 2.042
 	.ana_gain_max = BASEGAIN * 1000, // 30dB --> 10^(30/10) = 1000
@@ -557,6 +571,7 @@ static struct subdrv_static_ctx static_ctx = {
 	.ana_gain_step = 1,
 	.ana_gain_table = imx858dual_ana_gain_table,
 	.ana_gain_table_size = sizeof(imx858dual_ana_gain_table),
+	.tuning_iso_base = 100,
 	.exposure_def = 0x3D0,
 	.exposure_min = 4, // Constraints of COARSE_INTEG_TIME
 	.exposure_max = 128 * (0xFFFC - 48), // Constraints of COARSE_INTEG_TIME
@@ -620,7 +635,7 @@ static struct subdrv_static_ctx static_ctx = {
 	.chk_s_off_sta = 1,
 	.chk_s_off_end = 0,
 
-	.checksum_value = 0xAF3E324F, //?
+	.checksum_value = 0xAF3E324F,
 
 	/* MCSS */
 	.use_mcss_gph_sync = 0,
@@ -926,7 +941,7 @@ static int imx858dual_seamless_switch(struct subdrv_ctx *ctx, u8 *para, u32 *len
 			set_gain(ctx, ae_ctrl->gain.le_gain);
 			break;
 		}
-		common_get_prsh_length_lines(ctx, ae_ctrl, pre_seamless_scenario_id, scenario_id);
+		mcss_get_prsh_length_lines(ctx, ae_ctrl, pre_seamless_scenario_id, scenario_id);
 	}
 
 	if (ctx->s_ctx.seamless_switch_prsh_length_lc > 0) {
@@ -1008,8 +1023,9 @@ static int vsync_notify(struct subdrv_ctx *ctx,	unsigned int sof_cnt)
 	}
 
 	if ((sof_cnt == 1) && (ctx->mcss_init_info.enable_mcss)) {
-		DRV_LOG(ctx, "pre-shutter disabled.");
+		DRV_LOG_MUST(ctx, "pre-shutter disabled.");
 		subdrv_i2c_wr_u8(ctx, ctx->s_ctx.reg_addr_prsh_mode, 0x00);
+		commit_i2c_buffer(ctx);
 	}
 	return 0;
 }
@@ -1172,12 +1188,6 @@ static int imx858dual_get_sensor_sync_mode(struct subdrv_ctx *ctx, u8 *para, u32
 
 static int imx858dual_mcss_set_mask_frame(struct subdrv_ctx *ctx, u32 num)
 {
-	if (num > 0x7f) {
-		DRV_LOGE(ctx, "set mask frame num:%d > 0x7f, invalid\n", num);
-		return 1;
-	}
-
 	set_i2c_buffer(ctx, ctx->s_ctx.reg_addr_mcss_mc_frm_mask_num,  (0x7f & num));
-	DRV_LOG_MUST(ctx, "set mask frame num:%d\n", (0x7f & num));
 	return 0;
 }

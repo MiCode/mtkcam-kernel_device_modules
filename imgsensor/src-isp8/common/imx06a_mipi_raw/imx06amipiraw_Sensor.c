@@ -56,6 +56,7 @@ static struct mtk_mbus_frame_desc_entry frame_desc_prev[] = { //mode 0
 			.hsize = 0x1000, //4096
 			.vsize = 0x0c00, //3072
 			.user_data_desc = VC_STAGGER_NE,
+			.fs_seq = MTK_FRAME_DESC_FS_SEQ_ONLY_ONE,
 		},
 	},
 	{
@@ -77,6 +78,7 @@ static struct mtk_mbus_frame_desc_entry frame_desc_cap[] = { //mode 0
 			.hsize = 0x1000, //4096
 			.vsize = 0x0c00, //3072
 			.user_data_desc = VC_STAGGER_NE,
+			.fs_seq = MTK_FRAME_DESC_FS_SEQ_ONLY_ONE,
 		},
 	},
 	{
@@ -98,6 +100,7 @@ static struct mtk_mbus_frame_desc_entry frame_desc_vid[] = { //mode 2
 			.hsize = 0x1000, //4096
 			.vsize = 0x0900, //2304
 			.user_data_desc = VC_STAGGER_NE,
+			.fs_seq = MTK_FRAME_DESC_FS_SEQ_ONLY_ONE,
 		},
 	},
 	{
@@ -119,6 +122,7 @@ static struct mtk_mbus_frame_desc_entry frame_desc_hs_vid[] = { //mode 0
 			.hsize = 0x1000, //4096
 			.vsize = 0x0c00, //3072
 			.user_data_desc = VC_STAGGER_NE,
+			.fs_seq = MTK_FRAME_DESC_FS_SEQ_ONLY_ONE,
 		},
 	},
 	{
@@ -140,6 +144,7 @@ static struct mtk_mbus_frame_desc_entry frame_desc_slim_vid[] = { //mode 0
 			.hsize = 0x1000, //4096
 			.vsize = 0x0c00, //3072
 			.user_data_desc = VC_STAGGER_NE,
+			.fs_seq = MTK_FRAME_DESC_FS_SEQ_ONLY_ONE,
 		},
 	},
 	{
@@ -161,6 +166,7 @@ static struct mtk_mbus_frame_desc_entry frame_desc_cus1[] = { //mode 1
 			.hsize = 0x1000, //4096
 			.vsize = 0x0c00, //3072
 			.user_data_desc = VC_STAGGER_NE,
+			.fs_seq = MTK_FRAME_DESC_FS_SEQ_FIRST,
 		},
 	},
 	{
@@ -170,6 +176,7 @@ static struct mtk_mbus_frame_desc_entry frame_desc_cus1[] = { //mode 1
 			.hsize = 0x1000,
 			.vsize = 0x0c00,
 			.user_data_desc = VC_STAGGER_ME,
+			.fs_seq = MTK_FRAME_DESC_FS_SEQ_LAST,
 		},
 	},
 	{
@@ -201,6 +208,7 @@ static struct mtk_mbus_frame_desc_entry frame_desc_cus2[] = { //mode 2
 			.hsize = 0x1000, //4096
 			.vsize = 0x0c00, //3072
 			.user_data_desc = VC_STAGGER_NE,
+			.fs_seq = MTK_FRAME_DESC_FS_SEQ_ONLY_ONE,
 		},
 	},
 	{
@@ -234,7 +242,7 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.framelength = 12608,//frame_length_lines
 		.max_framerate = 300,
 		.mipi_pixel_rate = 2445940000,// OPSYCK system pixel rate
-		.readout_length = 0, // normal mode no need
+		.readout_length = 3142, // normal mode no need
 		.read_margin = 32,  // normal mode no need
 		.framelength_step = 4,
 		.coarse_integ_step = 4,
@@ -260,6 +268,7 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.ae_binning_ratio = 1000,// Output Pixel Level Ratio
 		.fine_integ_line = 6326, // rg read:55872. 55872/8832=6.326
 		.delay_frame = 3,
+		.sensor_output_dataformat = SENSOR_OUTPUT_FORMAT_RAW_4CELL_HW_BAYER_R,
 		.csi_param = {
 			.cphy_settle = 76,
 		},
@@ -282,7 +291,7 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.framelength = 12608,//frame_length_lines
 		.max_framerate = 300,
 		.mipi_pixel_rate = 2445940000,// OPSYCK system pixel rate
-		.readout_length = 0, // normal mode no need
+		.readout_length = 3142, // normal mode no need
 		.read_margin = 32,  // normal mode no need
 		.framelength_step = 4,
 		.coarse_integ_step = 4,
@@ -308,6 +317,7 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.ae_binning_ratio = 1000,// Output Pixel Level Ratio
 		.fine_integ_line = 6326, // rg read:55872. 55872/8832=6.326
 		.delay_frame = 3,
+		.sensor_output_dataformat = SENSOR_OUTPUT_FORMAT_RAW_4CELL_HW_BAYER_R,
 		.csi_param = {
 			.cphy_settle = 76,
 		},
@@ -329,7 +339,7 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.framelength = 12608,//frame_length_lines
 		.max_framerate = 300,
 		.mipi_pixel_rate = 2445940000,// OPSYCK system pixel rate
-		.readout_length = 0, // normal mode no need
+		.readout_length = 3142, // normal mode no need
 		.read_margin = 32,  // normal mode no need
 		.framelength_step = 1,  // no need
 		.coarse_integ_step = 1,  // no need
@@ -355,6 +365,7 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.ae_binning_ratio = 1000,
 		.fine_integ_line = 6326,//TBD
 		.delay_frame = 3,
+		.sensor_output_dataformat = SENSOR_OUTPUT_FORMAT_RAW_4CELL_HW_BAYER_R,
 		.csi_param = {
 			.cphy_settle = 76,
 		},
@@ -377,7 +388,7 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.framelength = 12608,//frame_length_lines
 		.max_framerate = 300,
 		.mipi_pixel_rate = 2445940000,// OPSYCK system pixel rate
-		.readout_length = 0, // normal mode no need
+		.readout_length = 3142, // normal mode no need
 		.read_margin = 32,  // normal mode no need
 		.framelength_step = 4,
 		.coarse_integ_step = 4,
@@ -403,6 +414,7 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.ae_binning_ratio = 1000,// Output Pixel Level Ratio
 		.fine_integ_line = 6326, // rg read:55872. 55872/8832=6.326
 		.delay_frame = 3,
+		.sensor_output_dataformat = SENSOR_OUTPUT_FORMAT_RAW_4CELL_HW_BAYER_R,
 		.csi_param = {
 			.cphy_settle = 76,
 		},
@@ -425,7 +437,7 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.framelength = 12608,//frame_length_lines
 		.max_framerate = 300,
 		.mipi_pixel_rate = 2445940000,// OPSYCK system pixel rate
-		.readout_length = 0, // normal mode no need
+		.readout_length = 3142, // normal mode no need
 		.read_margin = 32,  // normal mode no need
 		.framelength_step = 4,
 		.coarse_integ_step = 4,
@@ -451,6 +463,7 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.ae_binning_ratio = 1000,// Output Pixel Level Ratio
 		.fine_integ_line = 6326, // rg read:55872. 55872/8832=6.326
 		.delay_frame = 3,
+		.sensor_output_dataformat = SENSOR_OUTPUT_FORMAT_RAW_4CELL_HW_BAYER_R,
 		.csi_param = {
 			.cphy_settle = 76,
 		},
@@ -500,6 +513,7 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.ae_binning_ratio = 1000,// Output Pixel Level Ratio
 		.fine_integ_line = 6326,//TBD
 		.delay_frame = 3,
+		.sensor_output_dataformat = SENSOR_OUTPUT_FORMAT_RAW_4CELL_HW_BAYER_R,
 		.csi_param = {
 			.cphy_settle = 76,
 		},
@@ -523,7 +537,7 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.framelength = 6456,//frame_length_lines
 		.max_framerate = 300,
 		.mipi_pixel_rate = 2445940000,// OPSYCK system pixel rate
-		.readout_length = 0, // normal mode no need
+		.readout_length = 3142, // normal mode no need
 		.read_margin = 32,  // normal mode no need
 		.framelength_step = 4,
 		.coarse_integ_step = 2,
@@ -575,7 +589,7 @@ static struct subdrv_static_ctx static_ctx = {
 	.mipi_lane_num = SENSOR_MIPI_3_LANE,
 	.ob_pedestal = 0x40,
 
-	.sensor_output_dataformat = SENSOR_OUTPUT_FORMAT_RAW_4CELL_HW_BAYER_R, //?
+	.sensor_output_dataformat = SENSOR_OUTPUT_FORMAT_RAW_4CELL_HW_BAYER_R,
 	.ana_gain_def = BASEGAIN * 4, // hardcode
 	.ana_gain_min = BASEGAIN * 1, // 0dB
 	.ana_gain_max = BASEGAIN * 256, // 24dB --> 10^(24/10) = 251.189
@@ -583,6 +597,7 @@ static struct subdrv_static_ctx static_ctx = {
 	.ana_gain_step = 4,
 	.ana_gain_table = imx06a_ana_gain_table,
 	.ana_gain_table_size = sizeof(imx06a_ana_gain_table),
+	.tuning_iso_base = 100,
 	.exposure_def = 0x3D0,
 	.exposure_min = 4, // Constraints of COARSE_INTEG_TIME
 	.exposure_max = 128 * (0xFFFC - 64), // Constraints of COARSE_INTEG_TIME
@@ -646,7 +661,7 @@ static struct subdrv_static_ctx static_ctx = {
 	.chk_s_off_sta = 1,
 	.chk_s_off_end = 0,
 
-	.checksum_value = 0xAF3E324F, //?
+	.checksum_value = 0xAF3E324F,
 
 	/* MCSS */
 	.use_mcss_gph_sync = 0,
@@ -694,21 +709,9 @@ static struct subdrv_pw_seq_entry pw_seq[] = {
 	{HW_ID_AFVDD, {3100000, 3100000}, 0}, // pmic_ldo for afvdd
 	{HW_ID_AFVDD1, {1800000, 1800000}, 0}, // pmic_gpo(3.1V ldo) for afvdd
 	{HW_ID_DOVDD, {1800000, 1800000}, 0}, // pmic_ldo/gpio(1.8V ldo) for dovdd
-	{HW_ID_DVDD, {1090000, 1090000}, 1000}, // pmic_ldo for dvdd
+	{HW_ID_DVDD, {830000, 830000}, 1000}, // pmic_ldo for dvdd
 	{HW_ID_OISVDD, {3100000, 3100000}, 1000},
 	{HW_ID_RST, {1}, 2000}
-
-	/* 3T board use */
-	// {HW_ID_MCLK, 24, 0},
-	// {HW_ID_RST, 0, 0},
-	// {HW_ID_MCLK_DRIVING_CURRENT, 4, 3},
-	// {HW_ID_DOVDD, 1800000, 3}, // camera_common_dovdd ????
-	// {HW_ID_AVDD, 2900000, 3}, // rt5133_ldo6 ?????
-	// // {HW_ID_AVDD4, 1800000, 3}, // rt5133_gpio2 -> VCAMA (auto-on after rework)
-	// {HW_ID_DVDD, 2800000, 3}, // rt5133_ldo7 -> VCAMA2
-	// {HW_ID_DVDD2, 830000, 3}, // {HW_ID_DVDD2, 1100000, 3}, // rt5133_ldo8 -> VCAMD
-	// // {HW_ID_AFVDD1, 1800000, 3}, //rt5133_gpio1 -> VCAM_AF (auto-on after rework)
-	// {HW_ID_RST, 1, 6}
 };
 
 
@@ -853,7 +856,7 @@ static int imx06a_seamless_switch(struct subdrv_ctx *ctx, u8 *para, u32 *len)
 			set_gain(ctx, ae_ctrl->gain.le_gain);
 			break;
 		}
-		common_get_prsh_length_lines(ctx, ae_ctrl, pre_seamless_scenario_id, scenario_id);
+		mcss_get_prsh_length_lines(ctx, ae_ctrl, pre_seamless_scenario_id, scenario_id);
 	}
 
 	if (ctx->s_ctx.seamless_switch_prsh_length_lc > 0) {
@@ -945,7 +948,7 @@ static int init_ctx(struct subdrv_ctx *ctx,	struct i2c_client *i2c_client, u8 i2
 
 static int vsync_notify(struct subdrv_ctx *ctx,	unsigned int sof_cnt)
 {
-	DRV_LOG_MUST(ctx, "sof_cnt(%u) ctx->ref_sof_cnt(%u) ctx->fast_mode_on(%d)",
+	DRV_LOG(ctx, "sof_cnt(%u) ctx->ref_sof_cnt(%u) ctx->fast_mode_on(%d)",
 		sof_cnt, ctx->ref_sof_cnt, ctx->fast_mode_on);
 	if (ctx->fast_mode_on && (sof_cnt > ctx->ref_sof_cnt)) {
 		ctx->fast_mode_on = FALSE;
@@ -959,6 +962,7 @@ static int vsync_notify(struct subdrv_ctx *ctx,	unsigned int sof_cnt)
 	if (sof_cnt == 1) {
 		DRV_LOG(ctx, "pre-shutter disabled.");
 		subdrv_i2c_wr_u8(ctx, ctx->s_ctx.reg_addr_prsh_mode, 0x00);
+		commit_i2c_buffer(ctx);
 	}
 	return 0;
 }
@@ -1122,12 +1126,6 @@ static int imx06a_get_sensor_sync_mode(struct subdrv_ctx *ctx, u8 *para, u32 *le
 
 static int imx06a_mcss_set_mask_frame(struct subdrv_ctx *ctx, u32 num)
 {
-	if (num > 0x7f) {
-		DRV_LOGE(ctx, "set mask frame num:%d > 0x7f, invalid\n", num);
-		return 1;
-	}
-
 	set_i2c_buffer(ctx, ctx->s_ctx.reg_addr_mcss_mc_frm_mask_num,  (0x7f & num));
-	DRV_LOG_MUST(ctx, "set mask frame num:%d\n", (0x7f & num));
 	return 0;
 }

@@ -29,7 +29,7 @@
 
 
 /* copy from frame_sync_algo.c */
-#define FLK_TABLE_CNT 3
+#define FLK_TABLE_CNT 4
 #define FLK_TABLE_SIZE 8
 static unsigned int fs_flk_table[FLK_TABLE_CNT][FLK_TABLE_SIZE][2] = {
 	{ /* [0] => flicker_en == 1 */
@@ -84,6 +84,26 @@ static unsigned int fs_flk_table[FLK_TABLE_CNT][FLK_TABLE_SIZE][2] = {
 
 		/* 29.99 ~ 30.5 */
 		{33345, 32786},
+
+		/* 59.2 ~ 60.7 */
+		{16891, 16474},
+
+		/* END */
+		{0, 0}
+	},
+
+	{ /* [3] => flicker_en == 4 */
+		/* 14.6 ~ 15.3 */
+		{68493, 65359},
+
+		/* 23.6 ~ 24.3 */
+		{42372, 41152},
+
+		/* 24.6 ~ 25.3 */
+		{40650, 39525},
+
+		/* 30.0 ~ 30.5 */
+		{33333, 32786},
 
 		/* 59.2 ~ 60.7 */
 		{16891, 16474},
@@ -399,6 +419,43 @@ hw_fs_alg_set_perframe_st_data(unsigned int idx, struct fs_perframe_st (*pData))
 	sensor_infos[idx].line_time_in_ns = pData->lineTimeInNs;
 	sensor_infos[idx].flicker_en = pData->flicker_en;
 	sensor_infos[idx].curr_hdr_exp = pData->hdr_exp;
+
+	/* increase magic num */
+	sensor_infos[idx].magic_num++;
+
+	if (sensor_infos[idx].margin_lc == 0) {
+		LOG_MUST(
+			"WARNING: [%u] ID:%#x(sidx:%u), get non valid margin_lc:%u, plz check sensor driver\n",
+			idx,
+			sensor_infos[idx].sensor_id,
+			sensor_infos[idx].sensor_idx,
+			sensor_infos[idx].margin_lc);
+	}
+
+#ifdef EN_DBG_LOG
+	LOG_MUST(
+		"s_idx(%u),id(0x%x),#%u,min_fl(%u),shutter(%u),margin(%u),line_time(%u),flicker_en(%u)\n",
+		sensor_infos[idx].sensor_idx,
+		sensor_infos[idx].sensor_id,
+		sensor_infos[idx].magic_num,
+		sensor_infos[idx].min_fl_lc,
+		sensor_infos[idx].shutter_lc,
+		sensor_infos[idx].margin_lc,
+		sensor_infos[idx].line_time_in_ns);
+#endif
+}
+
+void
+hw_fs_alg_set_seamless_switch_info(const unsigned int idx,
+	struct fs_seamless_st *p_seamless_info,
+	const unsigned int seamless_sof_cnt)
+{
+	sensor_infos[idx].min_fl_lc = p_seamless_info->seamless_pf_ctrl.min_fl_lc;
+	sensor_infos[idx].shutter_lc = p_seamless_info->seamless_pf_ctrl.shutter_lc;
+	sensor_infos[idx].margin_lc = p_seamless_info->seamless_pf_ctrl.margin_lc;
+	sensor_infos[idx].line_time_in_ns = p_seamless_info->seamless_pf_ctrl.lineTimeInNs;
+	sensor_infos[idx].flicker_en = p_seamless_info->seamless_pf_ctrl.flicker_en;
+	sensor_infos[idx].curr_hdr_exp = p_seamless_info->seamless_pf_ctrl.hdr_exp;
 
 	/* increase magic num */
 	sensor_infos[idx].magic_num++;

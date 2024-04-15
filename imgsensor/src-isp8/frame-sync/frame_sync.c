@@ -2362,7 +2362,7 @@ void fs_chk_valid_for_doing_seamless_switch(const unsigned int ident)
 	}
 }
 
-
+void fs_try_trigger_hw_frame_sync_while_seamless(const unsigned int ident);
 void fs_seamless_switch(const unsigned int ident,
 	struct fs_seamless_st *p_seamless_info,
 	const unsigned int seamless_sof_cnt)
@@ -2374,6 +2374,10 @@ void fs_seamless_switch(const unsigned int ident,
 		return;
 
 	fs_set_seamless_switch_info(idx, p_seamless_info, seamless_sof_cnt);
+
+	hw_fs_alg_set_seamless_switch_info(idx, p_seamless_info, seamless_sof_cnt);
+
+	fs_try_trigger_hw_frame_sync_while_seamless(ident);
 
 	fs_chk_valid_for_doing_seamless_switch(ident);
 }
@@ -2845,7 +2849,7 @@ unsigned int fs_try_trigger_frame_sync(void)
  */
 int fs_try_trigger_hw_frame_sync(void)
 {
-	int pf_ctrl_bits = 0, trigger_ctrl_bits = 0;
+	int pf_ctrl_bits = 0, trigger_ctrl_bits = 0, seamless_bits = 0;
 	int setup_complete_hw_group_bits = 0;
 	unsigned int i = 0, j = 0, ret = 1;
 	unsigned int len = 0; /* how many sensors wait for doing frame sync */
@@ -2875,8 +2879,12 @@ int fs_try_trigger_hw_frame_sync(void)
 				FS_READ_BITS(&fs_mgr.pf_ctrl_bits) &
 				FS_READ_BITS(&fs_mgr.validSync_bits);
 
+			seamless_bits =
+				FS_READ_BITS(&fs_mgr.seamless_bits) &
+				FS_READ_BITS(&fs_mgr.validSync_bits);
+
 			/* do NOT expect */
-			if (pf_ctrl_bits == 0) {
+			if ((pf_ctrl_bits == 0) && (seamless_bits == 0)){
 				LOG_MUST(
 					"WARNING: try trigger, but validSync:%d, pf_ctrl:%d, setup_complete:%d(%d/%d/%d/%d/%d/%d), abort\n",
 					FS_READ_BITS(&fs_mgr.validSync_bits),
@@ -3013,6 +3021,38 @@ int fs_try_trigger_hw_frame_sync(void)
 
 
 	return (ret == 0) ? trigger_ctrl_bits : 0;
+}
+
+void fs_try_trigger_hw_frame_sync_while_seamless(const unsigned int ident)
+{
+	unsigned int idx;
+	unsigned int hw_sync_group_id = FS_HW_SYNC_GROUP_ID_MIN;
+
+	/* get registered idx and check if it is valid */
+	if (unlikely(fs_g_registered_idx_by_ident(ident, &idx, __func__)))
+		return;
+
+	if (FS_CHECK_BIT(idx, &fs_mgr.validSync_bits) == 0) {
+		/* no start frame sync, return */
+		return;
+	}
+
+	/* checking for hw sync method */
+	if (FS_CHECK_BIT(idx, &fs_mgr.hw_sync_bits)) {
+		hw_sync_group_id = fs_mgr.hw_sync_group_id[idx];
+
+		if (hw_sync_group_id < FS_HW_SYNC_GROUP_ID_MAX) {
+			/* hw group id is a valid value */
+			FS_WRITE_BIT(idx, 1,
+				&fs_mgr.setup_complete_hw_group_bits[
+					hw_sync_group_id]);
+		}
+
+		if(fs_mgr.hw_sync_method[idx] == 1) {
+			/* Using MCSS method */
+			fs_try_trigger_hw_frame_sync();
+		}
+	}
 }
 
 

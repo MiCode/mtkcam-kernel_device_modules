@@ -2131,7 +2131,7 @@ static int init_ltms_buf_pool(struct mtk_cam_ctx *ctx)
 			&ctx->ltms_buf->buffer, &ctx->ltms_buf->pool,
 			get_dev_to_attach(ctx),
 			LTMSGO_BUF_SZ, LTMSGO_BUF_RESERVE_CNT,
-			true); // TODO: check if cachable
+			false); // TODO: check if cachable
 	if (ret)
 		goto fail_to_alloc;
 

@@ -828,6 +828,7 @@ handle_raw_frame_done(struct mtk_cam_job *job)
 	struct mtk_cam_device *cam = ctx->cam;
 	unsigned int used_pipe = job->req->used_pipe & job->src_ctx->used_pipe;
 	int i;
+	unsigned long long *meta, *work_buf;
 
 	if (used_pipe == 0)
 		return 0;
@@ -864,12 +865,14 @@ handle_raw_frame_done(struct mtk_cam_job *job)
 		}
 	}
 	if (ltmsgo_low_latency && ctx->has_raw_subdev && job->ltmsgo_buf) {
-		dev_info(cam->dev, "%s:need_copy_ltmsgo:%s:ctx(%d): seq_no:0x%x, state:0x%x, from/to/size:0x%p/0x%p/%d\n",
+		if (CAM_DEBUG_ENABLED(JOB))
+			dev_info(cam->dev, "%s:need_copy_ltmsgo:%s:ctx(%d): seq_no:0x%x, state:0x%x, from/to/size:0x%p/0x%p/%d\n",
 			 __func__, job->req->debug_str, job->src_ctx->stream_id,
 			 job->frame_seq_no,
 			 mtk_cam_job_state_get(&job->job_state, ISP_STATE),
 			 job->ltmsgo.vaddr, job->ltmsgo_buf, job->ltmsgo.size);
-
+		meta = job->ltmsgo_buf;
+		work_buf = job->ltmsgo.vaddr;
 		memcpy(job->ltmsgo_buf, job->ltmsgo.vaddr, job->ltmsgo.size);
 	}
 	if (ctx->has_raw_subdev && job->src_ctx->enable_luma_dump) {
@@ -5519,7 +5522,7 @@ static int fill_raw_meta_header(struct req_buffer_helper *helper)
 		helper->meta_cfg_buf_va = p.meta_cfg;
 		if (ltmsgo_low_latency)
 			job->need_copy_ltmsgo =
-			CALL_PLAT_V4L2(get_ltmsgo_freerun_need_copy, &p) == 0;
+			CALL_PLAT_V4L2(get_ltmsgo_freerun_need_copy, &p) == 1;
 	}
 
 	if (helper->meta_stats0_buf) {

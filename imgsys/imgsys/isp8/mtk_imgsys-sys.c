@@ -2968,15 +2968,13 @@ static int mtk_imgsys_hw_connect(struct mtk_imgsys_dev *imgsys_dev)
 	u32 user_cnt = 0;
 	struct task_struct *power_task;
 
-IMGSYS_SYSTRACE_BEGIN("imgsys_fw-init:\n");
+	IMGSYS_SYSTRACE_BEGIN("imgsys_fw-init:\n");
 	user_cnt = atomic_read(&imgsys_dev->imgsys_user_cnt);
 	if (user_cnt != 0)
 		dev_info(imgsys_dev->dev,
 			"%s: [ERROR] imgsys user count is not zero(%d)\n",
 			__func__, user_cnt);
 
-	atomic_set(&imgsys_dev->imgsys_user_cnt, 0);
-#if 1
 	init_completion(&imgsys_dev->comp);
 	power_task =
 		kthread_create(mtk_imgsys_worker_power_on, (void *)imgsys_dev, "imgsys_power_on");
@@ -2996,7 +2994,6 @@ IMGSYS_SYSTRACE_BEGIN("imgsys_fw-init:\n");
 
 	dev_info(imgsys_dev->dev, "%s-", __func__);
 	return 0;
-#endif
 
 err_power_off:
 	if (!imgsys_quick_onoff_enable()) {

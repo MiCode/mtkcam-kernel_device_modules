@@ -6155,6 +6155,8 @@ int mtk_cam_job_manually_apply_isp(struct mtk_cam_job *job, bool wait_completion
 				}
 			}
 		}
+		call_jobop(job, dump, 1,
+			is_dc_mode(job) ? MSG_DC_SKIP_FRAME : MSG_DEQUE_ERROR);
 		return -1;
 	}
 

@@ -204,7 +204,7 @@ static inline bool valid_i2c_period_l(struct transition_param *p)
 	if (unlikely(!p->s_params))
 		return false;
 
-	return (p->event_ts - p->info->sof_ts_ns) > (p->event_ts - p->info->sof_l_ts_ns);
+	return (p->event_ts - p->info->sof_ts_ns) >= (p->event_ts - p->info->sof_l_ts_ns);
 }
 
 static inline bool valid_cq_execution(struct transition_param *p)

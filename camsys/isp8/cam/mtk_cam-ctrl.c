@@ -1201,8 +1201,9 @@ static void trigger_fake_sof_event(struct mtk_cam_ctrl *ctrl)
 	 */
 
 	/* note: on purpose not to update ctrl's runtime info */
-	pr_info("%s:ctx=%d, sof:%lld, ts:%lld\n", __func__,
-		ctrl->ctx->stream_id, ctrl->r_info.sof_ts_ns, ktime_get_boottime_ns());
+	pr_info("%s:ctx=%d, sof:%lld, sof_l:%lld, ts:%lld\n", __func__,
+		ctrl->ctx->stream_id, ctrl->r_info.sof_ts_ns,
+		ctrl->r_info.sof_l_ts_ns, ktime_get_boottime_ns());
 	mtk_cam_ctrl_send_event(ctrl, CAMSYS_EVENT_IRQ_L_SOF);
 }
 
@@ -1470,7 +1471,7 @@ static void mtk_cam_ctrl_seamless_switch_flow(struct mtk_cam_job *job)
 	}
 	/* should set ts for next job's apply_sensor */
 	ctrl->r_info.sof_ts_ns = ktime_get_boottime_ns();
-	ctrl->r_info.sof_l_ts_ns = ktime_get_boottime_ns();
+	ctrl->r_info.sof_l_ts_ns = ctrl->r_info.sof_ts_ns;
 
 	call_job_seamless_ops(job, after_prev_frame_done);
 

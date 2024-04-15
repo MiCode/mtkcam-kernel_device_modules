@@ -5563,7 +5563,8 @@ static int update_slc_info_to_ipi_frame(struct req_buffer_helper *helper)
 
 		helper->fp->dcif_param.dc_path_type =
 			(slc_mode == SLC_WITH_DISCARD) ? DC_SLC_DISCARD : DC_SLC;
-		pr_info("[%s] path_type:%d",
+		if (CAM_DEBUG_ENABLED(JOB))
+			pr_info("[%s] path_type:%d",
 			__func__, helper->fp->dcif_param.dc_path_type);
 	}
 	return 0;

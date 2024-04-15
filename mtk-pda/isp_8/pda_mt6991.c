@@ -413,7 +413,8 @@ void pda_mmqos_bw_set(struct PDA_Data_t *pda_Pdadata)
 		}
 	}
 
-	LOG_INF("WDMA_BW_PORT AVG/PEAK: %d/%d\n", wdma_bw_temp, WDMA_PEAK_BW);
+	if (pda_log_dbg_en == 1)
+		LOG_INF("WDMA_BW_PORT AVG/PEAK: %d/%d\n", wdma_bw_temp, WDMA_PEAK_BW);
 
 	// unit: KB/s to MB/s
 	pda_rdma_bw_port /= 1000;

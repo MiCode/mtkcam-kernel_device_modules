@@ -480,6 +480,7 @@ enum PDA_CMD_ENUM {
 	PDA_CMD_RESET,		/* Reset */
 	PDA_CMD_ENQUE_WAITIRQ,	/* PDA Enque And Wait Irq */
 	PDA_CMD_GET_VERSION,	/* PDA Get Kernel Version */
+	PDA_CMD_PUT_DMA_BUF,
 	PDA_CMD_TOTAL,
 };
 
@@ -488,7 +489,8 @@ enum PDA_CMD_ENUM {
 	_IOWR(PDA_MAGIC, PDA_CMD_ENQUE_WAITIRQ, struct PDA_Data_t)
 #define PDA_GET_VERSION    \
 	_IOWR(PDA_MAGIC, PDA_CMD_GET_VERSION, struct PDA_Init_Data)
-
+#define PDA_PUT_DMA_BUF    \
+	_IO(PDA_MAGIC, PDA_CMD_PUT_DMA_BUF)
 
 // pda api function
 void pda_mmqos_init(struct device *pdev);

@@ -132,19 +132,32 @@ unsigned int g_rgn_nbx_buf[PDA_MAXROI_PER_ROUND];
 unsigned int g_rgn_nby_buf[PDA_MAXROI_PER_ROUND];
 
 // buffer mmu
-struct pda_mmu g_image_mmu;
-struct pda_mmu g_image_b1_mmu;
-struct pda_mmu g_image_b2_mmu;
-struct pda_mmu g_image_b3_mmu;
-struct pda_mmu g_table_mmu;
-struct pda_mmu g_output_mmu;
+struct pda_mmu g_image_mmu[64];
+struct pda_mmu g_table_mmu[16];
+struct pda_mmu g_output_mmu[16];
 
 // Output buffer
-unsigned long g_Address_LI[4];
-unsigned long g_Address_RI[4];
-unsigned long g_Address_LT;
-unsigned long g_Address_RT;
-static unsigned long g_OutputBufferAddr;
+unsigned long g_Address_LI[64];
+unsigned long g_Address_RI[64];
+unsigned long g_Address_LT[16];
+unsigned long g_Address_RT[16];
+unsigned long g_OutputBufferAddr[16];
+
+// Record 16 set of fd to avoid repeated mapping and achieve MISP optimization
+int fd_l_img_rec[64];
+int fd_l_tbl_rec[16];
+int fd_out_rec[16];
+
+int g_cur_li_fd[4];
+int g_cur_lt_fd;
+int g_cur_out_fd;
+
+int g_cur_out_idx;
+
+// Ring buffer index record
+static unsigned int g_ring_img_idx;
+static unsigned int g_ring_tbl_idx;
+static unsigned int g_ring_out_idx;
 
 // current Process ROI number
 unsigned int g_CurrentProcRoiNum[PDA_MAX_QUANTITY];
@@ -426,406 +439,6 @@ static void pda_put_dma_buffer(struct pda_mmu *mmu)
 		dma_buf_detach(mmu->dma_buf, mmu->attach);
 		dma_buf_put(mmu->dma_buf);
 	}
-}
-
-static int Get_Input_Addr_From_DMABUF(struct PDA_Data_t *pda_PdaConfig)
-{
-	int ret = 0;
-	unsigned int i = 0;
-	unsigned long nAddress_Image = 0;
-#ifdef FOR_DEBUG_VA_DATA
-	// buffer address
-	unsigned int *g_buf_LI_va;
-	unsigned int *g_buf_LT_va;
-	struct iosys_map map_i, map_t;
-#endif
-
-	ret = pda_get_dma_buffer(&g_image_mmu, pda_PdaConfig->fd_left_image[0]);
-	if (ret < 0) {
-		LOG_INF("Left image, pda_get_dma_buffer fail!\n");
-		return ret;
-	}
-	nAddress_Image = (unsigned long) sg_dma_address(g_image_mmu.sgt->sgl);
-
-	// Left image buffer
-	g_Address_LI[0] = nAddress_Image + pda_PdaConfig->address_offset[0];
-	//pda_PdaConfig->PDA_PDAI_P1_BASE_ADDR = (unsigned int)g_Address_LI[0];
-	for (i = 0; i < g_PDA_quantity; i++) {
-		PDA_WR32(PDA_devs[i].m_pda_base + PDA_PDAI_P1_BASE_ADDR_MSB_REG,
-			(unsigned int)(g_Address_LI[0] >> 32));
-		PDA_WR32(PDA_devs[i].m_pda_base + PDA_PDAI_P1_BASE_ADDR_REG,
-			(unsigned int)(g_Address_LI[0]));
-	}
-#ifdef FOR_DEBUG_VA_DATA
-	LOG_INF("Left image MVA = 0x%lx\n", g_Address_LI[0]);
-	for (i = 0; i < g_PDA_quantity; i++) {
-		LOG_INF("Left image MVA MSB = 0x%x\n",
-			PDA_RD32(PDA_devs[i].m_pda_base + PDA_PDAI_P1_BASE_ADDR_MSB_REG));
-		LOG_INF("Left image MVA = 0x%x\n",
-			PDA_RD32(PDA_devs[i].m_pda_base + PDA_PDAI_P1_BASE_ADDR_REG));
-	}
-	// get kernel va
-#ifdef DMA_BUF_UNLOCKED_API
-	ret = dma_buf_vmap_unlocked(g_image_mmu.dma_buf, &map_i);
-#else
-	ret = dma_buf_vmap(g_image_mmu.dma_buf, &map_i);
-#endif
-	if (ret) {
-		LOG_INF("Left image map failed\n");
-		return -1;
-	}
-	g_buf_LI_va = map_i.vaddr;
-	//va
-	LOG_INF("Left image buffer va = %x\n", g_buf_LI_va);
-	LOG_INF("Left image buffer va data = %x\n", *g_buf_LI_va);
-#endif
-
-	// Right image buffer
-	g_Address_RI[0] = g_Address_LI[0] + pda_PdaConfig->image_size;
-	//pda_PdaConfig->PDA_PDAI_P2_BASE_ADDR = (unsigned int)(g_Address_RI[0]);
-	for (i = 0; i < g_PDA_quantity; i++) {
-		PDA_WR32(PDA_devs[i].m_pda_base + PDA_PDAI_P2_BASE_ADDR_MSB_REG,
-			(unsigned int)(g_Address_RI[0] >> 32));
-		PDA_WR32(PDA_devs[i].m_pda_base + PDA_PDAI_P2_BASE_ADDR_REG,
-			(unsigned int)(g_Address_RI[0]));
-	}
-#ifdef FOR_DEBUG_VA_DATA
-	LOG_INF("Right image MVA = 0x%lx\n", g_Address_RI[0]);
-	for (i = 0; i < g_PDA_quantity; i++) {
-		LOG_INF("Right image MVA MSB = 0x%x\n",
-			PDA_RD32(PDA_devs[i].m_pda_base + PDA_PDAI_P2_BASE_ADDR_MSB_REG));
-		LOG_INF("Right image MVA = 0x%x\n",
-			PDA_RD32(PDA_devs[i].m_pda_base + PDA_PDAI_P2_BASE_ADDR_REG));
-	}
-	//va
-	LOG_INF("Right image buffer va = %x\n",
-		(g_buf_LI_va + pda_PdaConfig->image_size / sizeof(unsigned int)));
-	LOG_INF("Right image buffer va data = %x\n",
-		*(g_buf_LI_va + pda_PdaConfig->image_size / sizeof(unsigned int)));
-#endif
-
-	g_B_N = pda_PdaConfig->PDA_HW_Register.PDA_CFG_14.Bits.PDA_B_N;
-
-	if (pda_log_dbg_en == 1)
-		LOG_INF("B_N = %d\n", g_B_N);
-
-	if (g_B_N > 3) {
-		LOG_INF("Fail: B_N out of range\n");
-		pda_put_dma_buffer(&g_image_mmu);
-		return -1;
-	}
-
-	if (g_B_N == 0)
-		goto TABLE_BUFFER;
-
-	// L/R image index 1 --------------------------------------------------------
-	ret = pda_get_dma_buffer(&g_image_b1_mmu, pda_PdaConfig->fd_left_image[1]);
-	if (ret < 0) {
-		LOG_INF("Left image B1, pda_get_dma_buffer fail!\n");
-		return ret;
-	}
-
-	// Left image B1 buffer
-	g_Address_LI[1] = (unsigned long) sg_dma_address(g_image_b1_mmu.sgt->sgl) +
-						pda_PdaConfig->address_offset[1];
-	for (i = 0; i < g_PDA_quantity; i++) {
-		PDA_WR32(PDA_devs[i].m_pda_base + PDA_PDALI_P3_BASE_ADDR_MSB_REG,
-			(unsigned int)(g_Address_LI[1] >> 32));
-		PDA_WR32(PDA_devs[i].m_pda_base + PDA_PDALI_P3_BASE_ADDR_REG,
-			(unsigned int)(g_Address_LI[1]));
-	}
-#ifdef FOR_DEBUG_VA_DATA
-	LOG_INF("Left image 1 MVA = 0x%lx\n", g_Address_LI[1]);
-	for (i = 0; i < g_PDA_quantity; i++) {
-		LOG_INF("Left image 1 MVA MSB = 0x%x\n",
-			PDA_RD32(PDA_devs[i].m_pda_base + PDA_PDALI_P3_BASE_ADDR_MSB_REG));
-		LOG_INF("Left image 1 MVA = 0x%x\n",
-			PDA_RD32(PDA_devs[i].m_pda_base + PDA_PDALI_P3_BASE_ADDR_REG));
-	}
-	//va
-	LOG_INF("Left image 1 buffer va = %x\n",
-		(g_buf_LI_va + 2*pda_PdaConfig->image_size / sizeof(unsigned int)));
-	LOG_INF("Left image 1 buffer va data = %x\n",
-		*(g_buf_LI_va + 2*pda_PdaConfig->image_size / sizeof(unsigned int)));
-#endif
-
-	// Right image buffer
-	g_Address_RI[1] = g_Address_LI[1] + pda_PdaConfig->image_size;
-	for (i = 0; i < g_PDA_quantity; i++) {
-		PDA_WR32(PDA_devs[i].m_pda_base + PDA_PDARI_P3_BASE_ADDR_MSB_REG,
-			(unsigned int)(g_Address_RI[1] >> 32));
-		PDA_WR32(PDA_devs[i].m_pda_base + PDA_PDARI_P3_BASE_ADDR_REG,
-			(unsigned int)(g_Address_RI[1]));
-	}
-#ifdef FOR_DEBUG_VA_DATA
-	LOG_INF("Right image 1 MVA = 0x%lx\n", g_Address_RI[1]);
-	for (i = 0; i < g_PDA_quantity; i++) {
-		LOG_INF("Right image 1 MVA MSB = 0x%x\n",
-			PDA_RD32(PDA_devs[i].m_pda_base + PDA_PDARI_P3_BASE_ADDR_MSB_REG));
-		LOG_INF("Right image 1 MVA = 0x%x\n",
-			PDA_RD32(PDA_devs[i].m_pda_base + PDA_PDARI_P3_BASE_ADDR_REG));
-	}
-	//va
-	LOG_INF("Right image 1 buffer va = %x\n",
-		(g_buf_LI_va + 3*pda_PdaConfig->image_size / sizeof(unsigned int)));
-	LOG_INF("Right image 1 buffer va data = %x\n",
-		*(g_buf_LI_va + 3*pda_PdaConfig->image_size / sizeof(unsigned int)));
-#endif
-
-	if (g_B_N == 1)
-		goto TABLE_BUFFER;
-
-	// L/R image index 2 --------------------------------------------------------
-	ret = pda_get_dma_buffer(&g_image_b2_mmu, pda_PdaConfig->fd_left_image[2]);
-	if (ret < 0) {
-		LOG_INF("Left image B2, pda_get_dma_buffer fail!\n");
-		return ret;
-	}
-
-	// Left image B2 buffer
-	g_Address_LI[2] = (unsigned long) sg_dma_address(g_image_b2_mmu.sgt->sgl) +
-						pda_PdaConfig->address_offset[2];
-	for (i = 0; i < g_PDA_quantity; i++) {
-		PDA_WR32(PDA_devs[i].m_pda_base + PDA_PDALI_P4_BASE_ADDR_MSB_REG,
-			(unsigned int)(g_Address_LI[2] >> 32));
-		PDA_WR32(PDA_devs[i].m_pda_base + PDA_PDALI_P4_BASE_ADDR_REG,
-			(unsigned int)(g_Address_LI[2]));
-	}
-#ifdef FOR_DEBUG_VA_DATA
-	LOG_INF("Left image 2 MVA = 0x%lx\n", g_Address_LI[2]);
-	for (i = 0; i < g_PDA_quantity; i++) {
-		LOG_INF("Left image 2 MVA MSB = 0x%x\n",
-			PDA_RD32(PDA_devs[i].m_pda_base + PDA_PDALI_P4_BASE_ADDR_MSB_REG));
-		LOG_INF("Left image 2 MVA = 0x%x\n",
-			PDA_RD32(PDA_devs[i].m_pda_base + PDA_PDALI_P4_BASE_ADDR_REG));
-	}
-	//va
-	LOG_INF("Left image 2 buffer va = %x\n",
-		(g_buf_LI_va + 4*pda_PdaConfig->image_size / sizeof(unsigned int)));
-	LOG_INF("Left image 2 buffer va data = %x\n",
-		*(g_buf_LI_va + 4*pda_PdaConfig->image_size / sizeof(unsigned int)));
-#endif
-
-	// Right image buffer
-	g_Address_RI[2] = g_Address_LI[2] + pda_PdaConfig->image_size;
-	for (i = 0; i < g_PDA_quantity; i++) {
-		PDA_WR32(PDA_devs[i].m_pda_base + PDA_PDARI_P4_BASE_ADDR_MSB_REG,
-			(unsigned int)(g_Address_RI[2] >> 32));
-		PDA_WR32(PDA_devs[i].m_pda_base + PDA_PDARI_P4_BASE_ADDR_REG,
-			(unsigned int)(g_Address_RI[2]));
-	}
-#ifdef FOR_DEBUG_VA_DATA
-	LOG_INF("Right image 2 MVA = 0x%lx\n", g_Address_RI[2]);
-	for (i = 0; i < g_PDA_quantity; i++) {
-		LOG_INF("Right image 2 MVA MSB = 0x%x\n",
-			PDA_RD32(PDA_devs[i].m_pda_base + PDA_PDARI_P4_BASE_ADDR_MSB_REG));
-		LOG_INF("Right image 2 MVA = 0x%x\n",
-			PDA_RD32(PDA_devs[i].m_pda_base + PDA_PDARI_P4_BASE_ADDR_REG));
-	}
-	//va
-	LOG_INF("Right image 2 buffer va = %x\n",
-		(g_buf_LI_va + 5*pda_PdaConfig->image_size / sizeof(unsigned int)));
-	LOG_INF("Right image 2 buffer va data = %x\n",
-		*(g_buf_LI_va + 5*pda_PdaConfig->image_size / sizeof(unsigned int)));
-#endif
-
-	if (g_B_N == 2)
-		goto TABLE_BUFFER;
-
-	// L/R image index 3 --------------------------------------------------------
-	ret = pda_get_dma_buffer(&g_image_b3_mmu, pda_PdaConfig->fd_left_image[3]);
-	if (ret < 0) {
-		LOG_INF("Left image B3, pda_get_dma_buffer fail!\n");
-		return ret;
-	}
-
-	// Left image B3 buffer
-	g_Address_LI[3] = (unsigned long) sg_dma_address(g_image_b3_mmu.sgt->sgl) +
-						pda_PdaConfig->address_offset[3];
-	for (i = 0; i < g_PDA_quantity; i++) {
-		PDA_WR32(PDA_devs[i].m_pda_base + PDA_PDALI_P5_BASE_ADDR_MSB_REG,
-			(unsigned int)(g_Address_LI[3] >> 32));
-		PDA_WR32(PDA_devs[i].m_pda_base + PDA_PDALI_P5_BASE_ADDR_REG,
-			(unsigned int)(g_Address_LI[3]));
-	}
-#ifdef FOR_DEBUG_VA_DATA
-	LOG_INF("Left image 3 MVA = 0x%lx\n", g_Address_LI[3]);
-	for (i = 0; i < g_PDA_quantity; i++) {
-		LOG_INF("Left image 3 MVA MSB = 0x%x\n",
-			PDA_RD32(PDA_devs[i].m_pda_base + PDA_PDALI_P5_BASE_ADDR_MSB_REG));
-		LOG_INF("Left image 3 MVA = 0x%x\n",
-			PDA_RD32(PDA_devs[i].m_pda_base + PDA_PDALI_P5_BASE_ADDR_REG));
-	}
-	//va
-	LOG_INF("Left image 3 buffer va = %x\n",
-		(g_buf_LI_va + 6*pda_PdaConfig->image_size / sizeof(unsigned int)));
-	LOG_INF("Left image 3 buffer va data = %x\n",
-		*(g_buf_LI_va + 6*pda_PdaConfig->image_size / sizeof(unsigned int)));
-#endif
-
-	// Right image buffer
-	g_Address_RI[3] = g_Address_LI[3] + pda_PdaConfig->image_size;
-	for (i = 0; i < g_PDA_quantity; i++) {
-		PDA_WR32(PDA_devs[i].m_pda_base + PDA_PDARI_P5_BASE_ADDR_MSB_REG,
-			(unsigned int)(g_Address_RI[3] >> 32));
-		PDA_WR32(PDA_devs[i].m_pda_base + PDA_PDARI_P5_BASE_ADDR_REG,
-			(unsigned int)(g_Address_RI[3]));
-	}
-#ifdef FOR_DEBUG_VA_DATA
-	LOG_INF("Right image 3 MVA = 0x%lx\n", g_Address_RI[3]);
-	for (i = 0; i < g_PDA_quantity; i++) {
-		LOG_INF("Right image 3 MVA MSB = 0x%x\n",
-			PDA_RD32(PDA_devs[i].m_pda_base + PDA_PDARI_P5_BASE_ADDR_MSB_REG));
-		LOG_INF("Right image 3 MVA = 0x%x\n",
-			PDA_RD32(PDA_devs[i].m_pda_base + PDA_PDARI_P5_BASE_ADDR_REG));
-	}
-	//va
-	LOG_INF("Right image 3 buffer va = %x\n",
-		(g_buf_LI_va + 7*pda_PdaConfig->image_size / sizeof(unsigned int)));
-	LOG_INF("Right image 3 buffer va data = %x\n",
-		*(g_buf_LI_va + 7*pda_PdaConfig->image_size / sizeof(unsigned int)));
-#endif
-
-TABLE_BUFFER:
-	// Left table buffer
-	ret = pda_get_dma_buffer(&g_table_mmu, pda_PdaConfig->fd_left_table);
-	if (ret < 0) {
-		LOG_INF("Left table, pda_get_dma_buffer fail!\n");
-		return ret;
-	}
-	g_Address_LT = (unsigned long) sg_dma_address(g_table_mmu.sgt->sgl);
-	//pda_PdaConfig->PDA_PDATI_P1_BASE_ADDR = (unsigned int)g_Address_LT;
-	for (i = 0; i < g_PDA_quantity; i++) {
-		PDA_WR32(PDA_devs[i].m_pda_base + PDA_PDATI_P1_BASE_ADDR_MSB_REG,
-			(unsigned int)(g_Address_LT >> 32));
-		PDA_WR32(PDA_devs[i].m_pda_base + PDA_PDATI_P1_BASE_ADDR_REG,
-			(unsigned int)(g_Address_LT));
-	}
-#ifdef FOR_DEBUG_VA_DATA
-	LOG_INF("Left table MVA = 0x%lx\n", g_Address_LT);
-	for (i = 0; i < g_PDA_quantity; i++) {
-		LOG_INF("Left table MVA MSB = 0x%x\n",
-			PDA_RD32(PDA_devs[i].m_pda_base + PDA_PDATI_P1_BASE_ADDR_MSB_REG));
-		LOG_INF("Left table MVA = 0x%x\n",
-			PDA_RD32(PDA_devs[i].m_pda_base + PDA_PDATI_P1_BASE_ADDR_REG));
-	}
-	// get kernel va
-#ifdef DMA_BUF_UNLOCKED_API
-	ret = dma_buf_vmap_unlocked(g_table_mmu.dma_buf, &map_t);
-#else
-	ret = dma_buf_vmap(g_table_mmu.dma_buf, &map_t);
-#endif
-	if (ret) {
-		LOG_INF("Left table map failed\n");
-		return -1;
-	}
-	g_buf_LT_va = map_t.vaddr;
-	//va
-	LOG_INF("Left table buffer va = %x\n", g_buf_LT_va);
-	LOG_INF("Left table buffer va data = %x\n", *g_buf_LT_va);
-#endif
-
-	// Right table buffer
-	g_Address_RT = g_Address_LT + pda_PdaConfig->table_size;
-	//pda_PdaConfig->PDA_PDATI_P2_BASE_ADDR = (unsigned int)(g_Address_RT);
-	for (i = 0; i < g_PDA_quantity; i++) {
-		PDA_WR32(PDA_devs[i].m_pda_base + PDA_PDATI_P2_BASE_ADDR_MSB_REG,
-			(unsigned int)(g_Address_RT >> 32));
-		PDA_WR32(PDA_devs[i].m_pda_base + PDA_PDATI_P2_BASE_ADDR_REG,
-			(unsigned int)(g_Address_RT));
-	}
-#ifdef FOR_DEBUG_VA_DATA
-	LOG_INF("Right table MVA = 0x%lx\n", g_Address_RT);
-	for (i = 0; i < g_PDA_quantity; i++) {
-		LOG_INF("Right table MVA MSB = 0x%x\n",
-			PDA_RD32(PDA_devs[i].m_pda_base + PDA_PDATI_P2_BASE_ADDR_MSB_REG));
-		LOG_INF("Right table MVA = 0x%x\n",
-			PDA_RD32(PDA_devs[i].m_pda_base + PDA_PDATI_P2_BASE_ADDR_REG));
-	}
-	//va
-	LOG_INF("Right table buffer va = %x\n",
-		(g_buf_LT_va + pda_PdaConfig->table_size / sizeof(unsigned int)));
-	LOG_INF("Right table buffer va data = %x\n",
-		*(g_buf_LT_va + pda_PdaConfig->table_size / sizeof(unsigned int)));
-#endif
-
-#ifdef FOR_DEBUG_VA_DATA
-
-#ifdef DMA_BUF_UNLOCKED_API
-	dma_buf_vunmap_unlocked(g_image_mmu.dma_buf, &map_i);
-	dma_buf_vunmap_unlocked(g_image_b1_mmu.dma_buf, &map_i);
-	dma_buf_vunmap_unlocked(g_image_b2_mmu.dma_buf, &map_i);
-	dma_buf_vunmap_unlocked(g_image_b3_mmu.dma_buf, &map_i);
-	dma_buf_vunmap_unlocked(g_table_mmu.dma_buf, &map_t);
-#else
-	dma_buf_vunmap(g_image_mmu.dma_buf, &map_i);
-	dma_buf_vunmap(g_image_b1_mmu.dma_buf, &map_i);
-	dma_buf_vunmap(g_image_b2_mmu.dma_buf, &map_i);
-	dma_buf_vunmap(g_image_b3_mmu.dma_buf, &map_i);
-	dma_buf_vunmap(g_table_mmu.dma_buf, &map_t);
-#endif
-#endif
-	return ret;
-}
-
-static int Get_Output_Addr_From_DMABUF(struct PDA_Data_t *pda_PdaConfig)
-{
-	int ret = 0;
-	unsigned int i = 0;
-#ifdef FOR_DEBUG_VA_DATA
-	// buffer address
-	unsigned int *g_buf_Out_va;
-	struct iosys_map map_o;
-#endif
-
-	// Output buffer
-	ret = pda_get_dma_buffer(&g_output_mmu, pda_PdaConfig->fd_output);
-	if (ret < 0) {
-		LOG_INF("Output, pda_get_dma_buffer fail!\n");
-		return ret;
-	}
-	g_OutputBufferAddr = (unsigned long) sg_dma_address(g_output_mmu.sgt->sgl);
-	//pda_PdaConfig->PDA_PDAO_P1_BASE_ADDR = (unsigned int)g_OutputBufferAddr;
-	for (i = 0; i < g_PDA_quantity; i++) {
-		PDA_WR32(PDA_devs[i].m_pda_base + PDA_PDAO_P1_BASE_ADDR_MSB_REG,
-			(unsigned int)(g_OutputBufferAddr >> 32));
-		PDA_WR32(PDA_devs[i].m_pda_base + PDA_PDAO_P1_BASE_ADDR_REG,
-			(unsigned int)(g_OutputBufferAddr));
-	}
-#ifdef FOR_DEBUG_VA_DATA
-	LOG_INF("Output buffer MVA = 0x%lx\n", g_OutputBufferAddr);
-	for (i = 0; i < g_PDA_quantity; i++) {
-		LOG_INF("Output buffer MVA MSB = 0x%x\n",
-			PDA_RD32(PDA_devs[i].m_pda_base + PDA_PDAO_P1_BASE_ADDR_MSB_REG));
-		LOG_INF("Output buffer MVA = 0x%x\n",
-			PDA_RD32(PDA_devs[i].m_pda_base + PDA_PDAO_P1_BASE_ADDR_REG));
-	}
-
-	// get kernel va
-#ifdef DMA_BUF_UNLOCKED_API
-	ret = dma_buf_vmap_unlocked(g_output_mmu.dma_buf, &map_o);
-#else
-	ret = dma_buf_vmap(g_output_mmu.dma_buf, &map_o);
-#endif
-	if (ret) {
-		LOG_INF("Output map failed\n");
-		return -1;
-	}
-	g_buf_Out_va = map_o.vaddr;
-	//va
-	LOG_INF("Output buffer va = %x\n", g_buf_Out_va);
-	LOG_INF("Output buffer va data = %x\n", *g_buf_Out_va);
-
-
-
-#ifdef DMA_BUF_UNLOCKED_API
-	dma_buf_vunmap_unlocked(g_output_mmu.dma_buf, &map_o);
-#else
-	dma_buf_vunmap(g_output_mmu.dma_buf, &map_o);
-#endif
-#endif
-
-	return ret;
 }
 
 static void initHWDMASettings(void)
@@ -1941,7 +1554,7 @@ static int PDAProcessFunction(unsigned int nUserROINumber,
 
 			// output address is equal to
 			// total ROI number multiple by OUT_BYTE_PER_ROI
-			nOutputAddr = g_OutputBufferAddr;
+			nOutputAddr = g_OutputBufferAddr[g_cur_out_idx];
 			for (j = 0; j < nCurrentProcRoiIndex; j++) {
 				nTotalROIrecord += (g_pda_Pdadata.roi_nbx[j] * g_pda_Pdadata.roi_nby[j]);
 				if (pda_log_dbg_en == 1)
@@ -2036,6 +1649,73 @@ static int PDAProcessFunction(unsigned int nUserROINumber,
 				g_pda_Pdadata.status = -30;
 				return -1;
 			}
+
+			// blending part
+			if (g_B_N > 0) {
+				CheckAddress =
+				PDA_RD32(PDA_devs[i].m_pda_base + PDA_PDALI_P3_BASE_ADDR_REG);
+				CheckAddressMSB =
+				PDA_RD32(PDA_devs[i].m_pda_base + PDA_PDALI_P3_BASE_ADDR_MSB_REG);
+				if (CheckAddress == 0 && CheckAddressMSB == 0) {
+					LOG_INF("PDA_%d PDA_PDALI_P3_BASE_ADDR B1 is zero\n", i);
+					g_pda_Pdadata.status = -30;
+					return -1;
+				}
+
+				CheckAddress =
+				PDA_RD32(PDA_devs[i].m_pda_base + PDA_PDARI_P3_BASE_ADDR_REG);
+				CheckAddressMSB =
+				PDA_RD32(PDA_devs[i].m_pda_base + PDA_PDARI_P3_BASE_ADDR_MSB_REG);
+				if (CheckAddress == 0 && CheckAddressMSB == 0) {
+					LOG_INF("PDA_%d PDA_PDARI_P3_BASE_ADDR B1 is zero\n", i);
+					g_pda_Pdadata.status = -30;
+					return -1;
+				}
+			}
+
+			if (g_B_N > 1) {
+				CheckAddress =
+				PDA_RD32(PDA_devs[i].m_pda_base + PDA_PDALI_P4_BASE_ADDR_REG);
+				CheckAddressMSB =
+				PDA_RD32(PDA_devs[i].m_pda_base + PDA_PDALI_P4_BASE_ADDR_MSB_REG);
+				if (CheckAddress == 0 && CheckAddressMSB == 0) {
+					LOG_INF("PDA_%d PDA_PDALI_P4_BASE_ADDR B2 is zero\n", i);
+					g_pda_Pdadata.status = -30;
+					return -1;
+				}
+
+				CheckAddress =
+				PDA_RD32(PDA_devs[i].m_pda_base + PDA_PDARI_P4_BASE_ADDR_REG);
+				CheckAddressMSB =
+				PDA_RD32(PDA_devs[i].m_pda_base + PDA_PDARI_P4_BASE_ADDR_MSB_REG);
+				if (CheckAddress == 0 && CheckAddressMSB == 0) {
+					LOG_INF("PDA_%d PDA_PDARI_P4_BASE_ADDR B2 is zero\n", i);
+					g_pda_Pdadata.status = -30;
+					return -1;
+				}
+			}
+
+			if (g_B_N > 2) {
+				CheckAddress =
+				PDA_RD32(PDA_devs[i].m_pda_base + PDA_PDALI_P5_BASE_ADDR_REG);
+				CheckAddressMSB =
+				PDA_RD32(PDA_devs[i].m_pda_base + PDA_PDALI_P5_BASE_ADDR_MSB_REG);
+				if (CheckAddress == 0 && CheckAddressMSB == 0) {
+					LOG_INF("PDA_%d PDA_PDALI_P5_BASE_ADDR B3 is zero\n", i);
+					g_pda_Pdadata.status = -30;
+					return -1;
+				}
+
+				CheckAddress =
+				PDA_RD32(PDA_devs[i].m_pda_base + PDA_PDARI_P5_BASE_ADDR_REG);
+				CheckAddressMSB =
+				PDA_RD32(PDA_devs[i].m_pda_base + PDA_PDARI_P5_BASE_ADDR_MSB_REG);
+				if (CheckAddress == 0 && CheckAddressMSB == 0) {
+					LOG_INF("PDA_%d PDA_PDARI_P5_BASE_ADDR B3 is zero\n", i);
+					g_pda_Pdadata.status = -30;
+					return -1;
+				}
+			}
 		}
 
 		// trigger PDA work
@@ -2060,29 +1740,103 @@ static int PDAProcessFunction(unsigned int nUserROINumber,
 	return 1;
 }
 
-static bool isHWBuffAddrRGValid(void)
+static bool findfd(int cur_fd, int fd_rec[], int size, int *fd_idx)
 {
 	int i = 0;
 
-	for (i = 0; i < g_PDA_quantity; i++) {
-		if (PDA_RD32(PDA_devs[i].m_pda_base + PDA_PDAI_P1_BASE_ADDR_REG) == 0 ||
-			PDA_RD32(PDA_devs[i].m_pda_base + PDA_PDATI_P1_BASE_ADDR_REG) == 0 ||
-			PDA_RD32(PDA_devs[i].m_pda_base + PDA_PDAI_P2_BASE_ADDR_REG) == 0 ||
-			PDA_RD32(PDA_devs[i].m_pda_base + PDA_PDATI_P2_BASE_ADDR_REG) == 0 ||
-			PDA_RD32(PDA_devs[i].m_pda_base + PDA_PDAO_P1_BASE_ADDR_REG) == 0) {
-			LOG_INF("PDA%d, LI/LT/RI/RT/Out: %d/%d/%d/%d/%d\n", i,
-				PDA_RD32(PDA_devs[i].m_pda_base + PDA_PDAI_P1_BASE_ADDR_REG),
-				PDA_RD32(PDA_devs[i].m_pda_base + PDA_PDATI_P1_BASE_ADDR_REG),
-				PDA_RD32(PDA_devs[i].m_pda_base + PDA_PDAI_P2_BASE_ADDR_REG),
-				PDA_RD32(PDA_devs[i].m_pda_base + PDA_PDATI_P2_BASE_ADDR_REG),
-				PDA_RD32(PDA_devs[i].m_pda_base + PDA_PDAO_P1_BASE_ADDR_REG));
+	for (i = 0; i < size; ++i) {
+		if (pda_log_dbg_en == 1)
+			LOG_INF("index:%d, fd:%d\n", i, fd_rec[i]);
+
+		if (fd_rec[i] == 0) {
+			// fd isn't found and pass the current index
+			if (i == 0)
+				LOG_INF("no fd in array table\n");
+			*fd_idx = i;
 			return false;
 		}
+
+		if (cur_fd == fd_rec[i]) {
+			if (pda_log_dbg_en == 1)
+				LOG_INF("find fd:%d in array, index:%d\n",
+					cur_fd, i);
+			*fd_idx = i;
+			return true;
+		}
 	}
-	return true;
+
+	// did not find fd in array
+	*fd_idx = size;
+
+	return false;
 }
 
-static int g_isBufferMapped;
+static void free_alldmabufferandfdarraytable(void)
+{
+
+	int i = 0;
+
+	if (pda_log_dbg_en == 1)
+		LOG_INF("+\n");
+
+	// ------------- free image related (include blending) -------------------
+	for (i = 0; i < ARRAY_SIZE(fd_l_img_rec); ++i) {
+		if (pda_log_dbg_en == 1)
+			LOG_INF("index:%d, img fd:%d\n", i, fd_l_img_rec[i]);
+
+		if (fd_l_img_rec[i] == 0) {
+			// array is empty
+			if (pda_log_dbg_en == 1)
+				LOG_INF("unmap img done\n");
+			break;
+		}
+		fd_l_img_rec[i] = 0;
+		pda_put_dma_buffer(&g_image_mmu[i]);
+		g_Address_LI[i] = 0;
+		g_Address_RI[i] = 0;
+	}
+
+	// ------------- free table related -------------------
+	for (i = 0; i < ARRAY_SIZE(fd_l_tbl_rec); ++i) {
+		if (pda_log_dbg_en == 1)
+			LOG_INF("index:%d, tbl fd:%d\n", i, fd_l_tbl_rec[i]);
+
+		if (fd_l_tbl_rec[i] == 0) {
+			// array is empty
+			if (pda_log_dbg_en == 1)
+				LOG_INF("unmap tbl done\n");
+			break;
+		}
+		fd_l_tbl_rec[i] = 0;
+		pda_put_dma_buffer(&g_table_mmu[i]);
+		g_Address_LT[i] = 0;
+		g_Address_RT[i] = 0;
+	}
+
+	// ------------- free output related -------------------
+	for (i = 0; i < ARRAY_SIZE(fd_out_rec); ++i) {
+		if (pda_log_dbg_en == 1)
+			LOG_INF("index:%d, output fd:%d\n", i, fd_out_rec[i]);
+
+		if (fd_out_rec[i] == 0) {
+			// array is empty
+			if (pda_log_dbg_en == 1)
+				LOG_INF("unmap output done\n");
+			break;
+		}
+		fd_out_rec[i] = 0;
+		pda_put_dma_buffer(&g_output_mmu[i]);
+		g_OutputBufferAddr[i] = 0;
+	}
+
+	//clear ring buffer index
+	g_ring_img_idx = 0;
+	g_ring_tbl_idx = 0;
+	g_ring_out_idx = 0;
+
+	if (pda_log_dbg_en == 1)
+		LOG_INF("-\n");
+}
 
 static long PDA_Ioctl(struct file *a_pstFile,
 			unsigned int a_u4Command,
@@ -2093,6 +1847,10 @@ static long PDA_Ioctl(struct file *a_pstFile,
 	unsigned int i;
 	int ret = 0;
 	struct PDA_Init_Data Init_Data;
+
+	int cur_img_idx = 0;
+	int cur_tbl_idx = 0;
+	int cur_out_idx = 0;
 
 	if (g_PDA_quantity == 0) {
 		LOG_INF("no PDA support\n");
@@ -2177,6 +1935,482 @@ static long PDA_Ioctl(struct file *a_pstFile,
 		pda_mmqos_bw_set(&g_pda_Pdadata);
 #endif
 
+		// Record all fd info.
+		g_cur_li_fd[0] = g_pda_Pdadata.fd_left_image[0];
+		g_cur_lt_fd = g_pda_Pdadata.fd_left_table;
+		g_cur_out_fd = g_pda_Pdadata.fd_output;
+
+		g_B_N = g_pda_Pdadata.PDA_HW_Register.PDA_CFG_14.Bits.PDA_B_N;
+		switch (g_B_N) {
+		case 3:
+			g_cur_li_fd[3] = g_pda_Pdadata.fd_left_image[3];
+			if (pda_log_dbg_en == 1)
+				LOG_INF("sync blending 3, image fd\n");
+			fallthrough;
+		case 2:
+			g_cur_li_fd[2] = g_pda_Pdadata.fd_left_image[2];
+			if (pda_log_dbg_en == 1)
+				LOG_INF("sync blending 2, image fd\n");
+			fallthrough;
+		case 1:
+			g_cur_li_fd[1] = g_pda_Pdadata.fd_left_image[1];
+			if (pda_log_dbg_en == 1)
+				LOG_INF("sync blending 1, image fd\n");
+			break;
+		default:
+			if (pda_log_dbg_en == 1)
+				LOG_INF("no need to sync blending fd\n");
+			break;
+		}
+
+		// image fd---------------------------------
+		// Find the index of img fd in fd array table and store it in cur_img_idx
+		if (pda_log_dbg_en == 1)
+			LOG_INF("img fd buffer check\n");
+		if (findfd(g_cur_li_fd[0], fd_l_img_rec, ARRAY_SIZE(fd_l_img_rec),
+				&cur_img_idx)) {
+			if (pda_log_dbg_en == 1)
+				LOG_INF("find fd in img array, fd:%d, idx:%d, MVA = 0x%lx\n",
+					g_cur_li_fd[0],
+					cur_img_idx,
+					g_Address_LI[cur_img_idx]);
+
+		} else {
+			if (cur_img_idx == ARRAY_SIZE(fd_l_img_rec))
+				cur_img_idx = g_ring_img_idx;
+
+			// override, need to unmap buffer first
+			if (fd_l_img_rec[cur_img_idx] > 0) {
+				pda_put_dma_buffer(&g_image_mmu[cur_img_idx]);
+				if (pda_log_dbg_en == 1)
+					LOG_INF("clear, img array, fd:%d, idx:%d, MVA = 0x%lx\n",
+						fd_l_img_rec[cur_img_idx],
+						cur_img_idx,
+						g_Address_LI[cur_img_idx]);
+				fd_l_img_rec[cur_img_idx] = 0;
+				g_Address_LI[cur_img_idx] = 0;
+			}
+
+			// input buffer mapping iova
+			if (pda_get_dma_buffer(&g_image_mmu[cur_img_idx],
+					g_cur_li_fd[0]) < 0) {
+				LOG_INF("Left image, pda_get_dma_buffer fail!\n");
+				g_pda_Pdadata.status = -26;
+				goto EXIT;
+			}
+			g_Address_LI[cur_img_idx] =
+				(unsigned long) sg_dma_address(g_image_mmu[cur_img_idx].sgt->sgl) +
+				+ g_pda_Pdadata.address_offset[0];
+
+			// update fd array table
+			fd_l_img_rec[cur_img_idx] = g_cur_li_fd[0];
+
+			// update g_ring_img_idx
+			g_ring_img_idx++;
+			if (g_ring_img_idx >= (unsigned int)ARRAY_SIZE(fd_l_img_rec))
+				g_ring_img_idx = 0;
+
+			if (pda_log_dbg_en == 1) {
+				LOG_INF("new, img array, fd:%d, idx:%d, MVA = 0x%lx\n",
+					g_cur_li_fd[0],
+					cur_img_idx,
+					g_Address_LI[cur_img_idx]);
+				LOG_INF("g_ring_img_idx: %d, ARRAY_SIZE(fd_l_img_rec):%d\n",
+					g_ring_img_idx, (unsigned int)ARRAY_SIZE(fd_l_img_rec));
+			}
+		}
+
+		for (i = 0; i < g_PDA_quantity; i++) {
+			// Left image buffer
+			PDA_WR32(PDA_devs[i].m_pda_base + PDA_PDAI_P1_BASE_ADDR_MSB_REG,
+				(unsigned int)(g_Address_LI[cur_img_idx] >> 32));
+			PDA_WR32(PDA_devs[i].m_pda_base + PDA_PDAI_P1_BASE_ADDR_REG,
+				(unsigned int)(g_Address_LI[cur_img_idx]));
+
+			// Right image buffer
+			g_Address_RI[cur_img_idx] =
+				g_Address_LI[cur_img_idx] + g_pda_Pdadata.image_size;
+			PDA_WR32(PDA_devs[i].m_pda_base + PDA_PDAI_P2_BASE_ADDR_MSB_REG,
+				(unsigned int)(g_Address_RI[cur_img_idx] >> 32));
+			PDA_WR32(PDA_devs[i].m_pda_base + PDA_PDAI_P2_BASE_ADDR_REG,
+				(unsigned int)(g_Address_RI[cur_img_idx]));
+		}
+
+		// image blending fd---------------------------------
+		if (pda_log_dbg_en == 1)
+			LOG_INF("img blending fd buffer check\n");
+		switch (g_B_N) {
+		case 3:
+			if (pda_log_dbg_en == 1)
+				LOG_INF("blending 3, image fd mapping process\n");
+
+			// Find the index of img fd and store it in cur_img_idx
+			if (findfd(g_cur_li_fd[3], fd_l_img_rec, ARRAY_SIZE(fd_l_img_rec),
+					&cur_img_idx)) {
+				if (pda_log_dbg_en == 1)
+					LOG_INF("find b3 fd in img array, fd:%d, idx:%d, MVA = 0x%lx\n",
+						g_cur_li_fd[3],
+						cur_img_idx,
+						g_Address_LI[cur_img_idx]);
+
+			} else {
+				if (cur_img_idx == ARRAY_SIZE(fd_l_img_rec))
+					cur_img_idx = g_ring_img_idx;
+
+				// override, need to unmap buffer first
+				if (fd_l_img_rec[cur_img_idx] > 0) {
+					pda_put_dma_buffer(&g_image_mmu[cur_img_idx]);
+					if (pda_log_dbg_en == 1)
+						LOG_INF("clear, img array b3, fd:%d, idx:%d, MVA = 0x%lx\n",
+							fd_l_img_rec[cur_img_idx],
+							cur_img_idx,
+							g_Address_LI[cur_img_idx]);
+					fd_l_img_rec[cur_img_idx] = 0;
+					g_Address_LI[cur_img_idx] = 0;
+				}
+
+				// input buffer mapping iova
+				if (pda_get_dma_buffer(&g_image_mmu[cur_img_idx],
+						g_cur_li_fd[3]) < 0) {
+					LOG_INF("Left image b3, pda_get_dma_buffer fail!\n");
+					g_pda_Pdadata.status = -26;
+					goto EXIT;
+				}
+				g_Address_LI[cur_img_idx] =
+					(unsigned long) sg_dma_address(
+						g_image_mmu[cur_img_idx].sgt->sgl) +
+						g_pda_Pdadata.address_offset[3];
+
+				// update fd array table
+				fd_l_img_rec[cur_img_idx] = g_cur_li_fd[3];
+
+				// update g_ring_img_idx
+				g_ring_img_idx++;
+				if (g_ring_img_idx >= ARRAY_SIZE(fd_l_img_rec))
+					g_ring_img_idx = 0;
+
+				if (pda_log_dbg_en == 1) {
+					LOG_INF("new, img array b3, fd:%d, idx:%d, MVA = 0x%lx\n",
+						g_cur_li_fd[3],
+						cur_img_idx,
+						g_Address_LI[cur_img_idx]);
+					LOG_INF("g_ring_img_idx: %d\n", g_ring_img_idx);
+				}
+			}
+
+			for (i = 0; i < g_PDA_quantity; i++) {
+				// Left image buffer
+				PDA_WR32(PDA_devs[i].m_pda_base + PDA_PDALI_P5_BASE_ADDR_MSB_REG,
+					(unsigned int)(g_Address_LI[cur_img_idx] >> 32));
+				PDA_WR32(PDA_devs[i].m_pda_base + PDA_PDALI_P5_BASE_ADDR_REG,
+					(unsigned int)(g_Address_LI[cur_img_idx]));
+
+				// Right image buffer
+				g_Address_RI[cur_img_idx] =
+					g_Address_LI[cur_img_idx] + g_pda_Pdadata.image_size;
+				PDA_WR32(PDA_devs[i].m_pda_base + PDA_PDARI_P5_BASE_ADDR_MSB_REG,
+					(unsigned int)(g_Address_RI[cur_img_idx] >> 32));
+				PDA_WR32(PDA_devs[i].m_pda_base + PDA_PDARI_P5_BASE_ADDR_REG,
+					(unsigned int)(g_Address_RI[cur_img_idx]));
+			}
+
+			fallthrough;
+		case 2:
+			if (pda_log_dbg_en == 1)
+				LOG_INF("blending 2, image fd mapping process\n");
+
+			// Find the index of img fd and store it in cur_img_idx
+			if (findfd(g_cur_li_fd[2], fd_l_img_rec, ARRAY_SIZE(fd_l_img_rec),
+					&cur_img_idx)) {
+				// Find the index of img fd and store it in cur_img_idx
+				if (pda_log_dbg_en == 1)
+					LOG_INF("find b2 fd in img array, fd:%d, idx:%d, MVA = 0x%lx\n",
+						g_cur_li_fd[2],
+						cur_img_idx,
+						g_Address_LI[cur_img_idx]);
+
+			} else {
+				if (cur_img_idx == ARRAY_SIZE(fd_l_img_rec))
+					cur_img_idx = g_ring_img_idx;
+
+				// override, need to unmap buffer first
+				if (fd_l_img_rec[cur_img_idx] > 0) {
+					pda_put_dma_buffer(&g_image_mmu[cur_img_idx]);
+					if (pda_log_dbg_en == 1)
+						LOG_INF("clear, img array b2, fd:%d, idx:%d, MVA = 0x%lx\n",
+							fd_l_img_rec[cur_img_idx],
+							cur_img_idx,
+							g_Address_LI[cur_img_idx]);
+					fd_l_img_rec[cur_img_idx] = 0;
+					g_Address_LI[cur_img_idx] = 0;
+				}
+
+				// input buffer mapping iova
+				if (pda_get_dma_buffer(&g_image_mmu[cur_img_idx],
+						g_cur_li_fd[2]) < 0) {
+					LOG_INF("Left image b2, pda_get_dma_buffer fail!\n");
+					g_pda_Pdadata.status = -26;
+					goto EXIT;
+				}
+				g_Address_LI[cur_img_idx] =
+					(unsigned long) sg_dma_address(
+						g_image_mmu[cur_img_idx].sgt->sgl) +
+						g_pda_Pdadata.address_offset[2];
+
+				// update fd array table
+				fd_l_img_rec[cur_img_idx] = g_cur_li_fd[2];
+
+				// update g_ring_img_idx
+				g_ring_img_idx++;
+				if (g_ring_img_idx >= ARRAY_SIZE(fd_l_img_rec))
+					g_ring_img_idx = 0;
+
+				if (pda_log_dbg_en == 1) {
+					LOG_INF("new, img array b2, fd:%d, idx:%d, MVA = 0x%lx\n",
+						g_cur_li_fd[2],
+						cur_img_idx,
+						g_Address_LI[cur_img_idx]);
+					LOG_INF("g_ring_img_idx: %d\n", g_ring_img_idx);
+				}
+			}
+
+			for (i = 0; i < g_PDA_quantity; i++) {
+				// Left image buffer
+				PDA_WR32(PDA_devs[i].m_pda_base + PDA_PDALI_P4_BASE_ADDR_MSB_REG,
+					(unsigned int)(g_Address_LI[cur_img_idx] >> 32));
+				PDA_WR32(PDA_devs[i].m_pda_base + PDA_PDALI_P4_BASE_ADDR_REG,
+					(unsigned int)(g_Address_LI[cur_img_idx]));
+
+				// Right image buffer
+				g_Address_RI[cur_img_idx] =
+					g_Address_LI[cur_img_idx] + g_pda_Pdadata.image_size;
+				PDA_WR32(PDA_devs[i].m_pda_base + PDA_PDARI_P4_BASE_ADDR_MSB_REG,
+					(unsigned int)(g_Address_RI[cur_img_idx] >> 32));
+				PDA_WR32(PDA_devs[i].m_pda_base + PDA_PDARI_P4_BASE_ADDR_REG,
+					(unsigned int)(g_Address_RI[cur_img_idx]));
+			}
+
+			fallthrough;
+		case 1:
+			if (pda_log_dbg_en == 1)
+				LOG_INF("blending 1, image fd mapping process\n");
+
+			// Find the index of img fd and store it in cur_img_idx
+			if (findfd(g_cur_li_fd[1], fd_l_img_rec, ARRAY_SIZE(fd_l_img_rec),
+					&cur_img_idx)) {
+				// Find the index of img fd and store it in cur_img_idx
+				if (pda_log_dbg_en == 1)
+					LOG_INF("find b1 fd in img array, fd:%d, idx:%d, MVA = 0x%lx\n",
+						g_cur_li_fd[1],
+						cur_img_idx,
+						g_Address_LI[cur_img_idx]);
+
+			} else {
+				if (cur_img_idx == ARRAY_SIZE(fd_l_img_rec))
+					cur_img_idx = g_ring_img_idx;
+
+				// override, need to unmap buffer first
+				if (fd_l_img_rec[cur_img_idx] > 0) {
+					pda_put_dma_buffer(&g_image_mmu[cur_img_idx]);
+					if (pda_log_dbg_en == 1)
+						LOG_INF("clear, img array b1, fd:%d, idx:%d, MVA = 0x%lx\n",
+							fd_l_img_rec[cur_img_idx],
+							cur_img_idx,
+							g_Address_LI[cur_img_idx]);
+					fd_l_img_rec[cur_img_idx] = 0;
+					g_Address_LI[cur_img_idx] = 0;
+				}
+
+				// input buffer mapping iova
+				if (pda_get_dma_buffer(&g_image_mmu[cur_img_idx],
+						g_cur_li_fd[1]) < 0) {
+					LOG_INF("Left image b1, pda_get_dma_buffer fail!\n");
+					g_pda_Pdadata.status = -26;
+					goto EXIT;
+				}
+				g_Address_LI[cur_img_idx] =
+					(unsigned long) sg_dma_address(
+						g_image_mmu[cur_img_idx].sgt->sgl) +
+						g_pda_Pdadata.address_offset[1];
+
+				// update fd array table
+				fd_l_img_rec[cur_img_idx] = g_cur_li_fd[1];
+
+				// update g_ring_img_idx
+				g_ring_img_idx++;
+				if (g_ring_img_idx >= ARRAY_SIZE(fd_l_img_rec))
+					g_ring_img_idx = 0;
+
+				if (pda_log_dbg_en == 1) {
+					LOG_INF("new, img array b1, fd:%d, idx:%d, MVA = 0x%lx\n",
+						g_cur_li_fd[1],
+						cur_img_idx,
+						g_Address_LI[cur_img_idx]);
+					LOG_INF("g_ring_img_idx: %d\n", g_ring_img_idx);
+				}
+			}
+
+			for (i = 0; i < g_PDA_quantity; i++) {
+				// Left image buffer
+				PDA_WR32(PDA_devs[i].m_pda_base + PDA_PDALI_P3_BASE_ADDR_MSB_REG,
+					(unsigned int)(g_Address_LI[cur_img_idx] >> 32));
+				PDA_WR32(PDA_devs[i].m_pda_base + PDA_PDALI_P3_BASE_ADDR_REG,
+					(unsigned int)(g_Address_LI[cur_img_idx]));
+
+				// Right image buffer
+				g_Address_RI[cur_img_idx] =
+					g_Address_LI[cur_img_idx] + g_pda_Pdadata.image_size;
+				PDA_WR32(PDA_devs[i].m_pda_base + PDA_PDARI_P3_BASE_ADDR_MSB_REG,
+					(unsigned int)(g_Address_RI[cur_img_idx] >> 32));
+				PDA_WR32(PDA_devs[i].m_pda_base + PDA_PDARI_P3_BASE_ADDR_REG,
+					(unsigned int)(g_Address_RI[cur_img_idx]));
+			}
+
+			break;
+		default:
+			if (pda_log_dbg_en == 1)
+				LOG_INF("no need to find blending fd\n");
+			break;
+		}
+
+		//table fd---------------------------------
+		if (pda_log_dbg_en == 1)
+			LOG_INF("tbl fd buffer check\n");
+
+		if (findfd(g_cur_lt_fd, fd_l_tbl_rec, ARRAY_SIZE(fd_l_tbl_rec),
+				&cur_tbl_idx)) {
+			if (pda_log_dbg_en == 1)
+				LOG_INF("find fd in tbl array, fd:%d, idx:%d, MVA = 0x%lx\n",
+					g_cur_lt_fd,
+					cur_tbl_idx,
+					g_Address_LT[cur_tbl_idx]);
+
+		} else {
+			if (cur_tbl_idx == ARRAY_SIZE(fd_l_tbl_rec))
+				cur_tbl_idx = g_ring_tbl_idx;
+
+			// override, need to unmap buffer first
+			if (fd_l_tbl_rec[cur_tbl_idx] > 0) {
+				pda_put_dma_buffer(&g_table_mmu[cur_tbl_idx]);
+				if (pda_log_dbg_en == 1)
+					LOG_INF("clear, tbl array, fd:%d, idx:%d, MVA = 0x%lx\n",
+						fd_l_tbl_rec[cur_tbl_idx],
+						cur_tbl_idx,
+						g_Address_LT[cur_tbl_idx]);
+				fd_l_tbl_rec[cur_tbl_idx] = 0;
+				g_Address_LT[cur_tbl_idx] = 0;
+			}
+
+			// input buffer mapping iova
+			if (pda_get_dma_buffer(&g_table_mmu[cur_tbl_idx],
+					g_cur_lt_fd) < 0) {
+				LOG_INF("Left table, pda_get_dma_buffer fail!\n");
+				g_pda_Pdadata.status = -26;
+				goto EXIT;
+			}
+			g_Address_LT[cur_tbl_idx] =
+				(unsigned long) sg_dma_address(g_table_mmu[cur_tbl_idx].sgt->sgl);
+
+			// update fd array table
+			fd_l_tbl_rec[cur_tbl_idx] = g_cur_lt_fd;
+
+			// update g_ring_tbl_idx
+			g_ring_tbl_idx++;
+			if (g_ring_tbl_idx >= ARRAY_SIZE(fd_l_tbl_rec))
+				g_ring_tbl_idx = 0;
+
+			if (pda_log_dbg_en == 1) {
+				LOG_INF("new, tbl array, fd:%d, idx:%d, MVA = 0x%lx\n",
+					g_cur_lt_fd,
+					cur_tbl_idx,
+					g_Address_LT[cur_tbl_idx]);
+					LOG_INF("g_ring_tbl_idx: %d\n", g_ring_tbl_idx);
+			}
+		}
+
+		for (i = 0; i < g_PDA_quantity; i++) {
+			// Left image buffer
+			PDA_WR32(PDA_devs[i].m_pda_base + PDA_PDATI_P1_BASE_ADDR_MSB_REG,
+				(unsigned int)(g_Address_LT[cur_tbl_idx] >> 32));
+			PDA_WR32(PDA_devs[i].m_pda_base + PDA_PDATI_P1_BASE_ADDR_REG,
+				(unsigned int)(g_Address_LT[cur_tbl_idx]));
+
+			// Right image buffer
+			g_Address_RT[cur_tbl_idx] =
+				g_Address_LT[cur_tbl_idx] + g_pda_Pdadata.table_size;
+			PDA_WR32(PDA_devs[i].m_pda_base + PDA_PDATI_P2_BASE_ADDR_MSB_REG,
+				(unsigned int)(g_Address_RT[cur_tbl_idx] >> 32));
+			PDA_WR32(PDA_devs[i].m_pda_base + PDA_PDATI_P2_BASE_ADDR_REG,
+				(unsigned int)(g_Address_RT[cur_tbl_idx]));
+		}
+
+		//output fd---------------------------------
+		if (pda_log_dbg_en == 1)
+			LOG_INF("output fd buffer check\n");
+
+		if (findfd(g_cur_out_fd, fd_out_rec, ARRAY_SIZE(fd_out_rec),
+				&cur_out_idx) && g_pda_Pdadata.is_outputBuffer_updated == 0) {
+			if (pda_log_dbg_en == 1)
+				LOG_INF("find fd in output array, fd:%d, idx:%d, MVA = 0x%lx\n",
+					g_cur_out_fd,
+					cur_out_idx,
+					g_OutputBufferAddr[cur_out_idx]);
+
+		} else {
+			// override, need to unmap buffer first
+			if (cur_out_idx == ARRAY_SIZE(fd_out_rec))
+				cur_out_idx = g_ring_out_idx;
+
+			if (fd_out_rec[cur_out_idx] > 0) {
+				// override, need to unmap buffer first
+				pda_put_dma_buffer(&g_output_mmu[cur_out_idx]);
+				if (pda_log_dbg_en == 1)
+					LOG_INF("clear, output array, fd:%d, idx:%d, MVA = 0x%lx\n",
+						fd_out_rec[cur_out_idx],
+						cur_out_idx,
+						g_OutputBufferAddr[cur_out_idx]);
+				fd_out_rec[cur_out_idx] = 0;
+				g_OutputBufferAddr[cur_out_idx] = 0;
+			}
+
+			// output buffer mapping iova
+			if (pda_get_dma_buffer(&g_output_mmu[cur_out_idx],
+					g_cur_out_fd) < 0) {
+				LOG_INF("Output, pda_get_dma_buffer fail!\n");
+				g_pda_Pdadata.status = -27;
+				goto EXIT;
+			}
+			g_OutputBufferAddr[cur_out_idx] =
+				(unsigned long) sg_dma_address(g_output_mmu[cur_out_idx].sgt->sgl);
+
+			// update fd array table
+			fd_out_rec[cur_out_idx] = g_cur_out_fd;
+
+			// update g_ring_out_idx
+			g_ring_out_idx++;
+			if (g_ring_out_idx >= ARRAY_SIZE(fd_out_rec))
+				g_ring_out_idx = 0;
+
+			if (pda_log_dbg_en == 1) {
+				LOG_INF("new, output array, fd:%d, idx:%d, MVA = 0x%lx\n",
+					g_cur_out_fd,
+					cur_out_idx,
+					g_OutputBufferAddr[cur_out_idx]);
+					LOG_INF("g_ring_out_idx: %d\n", g_ring_out_idx);
+			}
+		}
+
+		for (i = 0; i < g_PDA_quantity; i++) {
+			// Left image buffer
+			PDA_WR32(PDA_devs[i].m_pda_base + PDA_PDAO_P1_BASE_ADDR_MSB_REG,
+				(unsigned int)(g_OutputBufferAddr[cur_out_idx] >> 32));
+			PDA_WR32(PDA_devs[i].m_pda_base + PDA_PDAO_P1_BASE_ADDR_REG,
+				(unsigned int)(g_OutputBufferAddr[cur_out_idx]));
+		}
+
+		// cur_out_idx will be used in PDAProcessFunction
+		g_cur_out_idx = cur_out_idx;
+
 		// buffer control
 		if (pda_log_dbg_en == 1) {
 			LOG_INF("Last/sensor dev: %d/%d, isBufferUpdated in/out: %d/%d\n",
@@ -2184,114 +2418,6 @@ static long PDA_Ioctl(struct file *a_pstFile,
 						g_pda_Pdadata.sensor_dev,
 						g_pda_Pdadata.is_inputBuffer_updated,
 						g_pda_Pdadata.is_outputBuffer_updated);
-		}
-
-		// different cam，do mapping
-		if (g_last_sensor_dev != g_pda_Pdadata.sensor_dev) {
-			if (g_isBufferMapped > 0) {
-				// free output iova
-				if (pda_log_dbg_en == 1)
-					LOG_INF("free output iova\n");
-				pda_put_dma_buffer(&g_output_mmu);
-
-				//free input iova
-				if (pda_log_dbg_en == 1)
-					LOG_INF("free input iova\n");
-				pda_put_dma_buffer(&g_image_mmu);
-
-				// free blending iova
-				switch (g_B_N) {
-				case 3:
-					pda_put_dma_buffer(&g_image_b3_mmu);
-					LOG_INF("release g_image_b3_mmu buffer\n");
-					fallthrough;
-				case 2:
-					pda_put_dma_buffer(&g_image_b2_mmu);
-					LOG_INF("release g_image_b2_mmu buffer\n");
-					fallthrough;
-				case 1:
-					pda_put_dma_buffer(&g_image_b1_mmu);
-					LOG_INF("release g_image_b1_mmu buffer\n");
-					break;
-				default:
-					break;
-				}
-
-				pda_put_dma_buffer(&g_table_mmu);
-				g_isBufferMapped = 0;
-			}
-
-			if (Get_Input_Addr_From_DMABUF(&g_pda_Pdadata) < 0) {
-				g_pda_Pdadata.status = -26;
-				LOG_INF("Get_Input_Addr_From_DMABUF fail\n");
-				// update sensor dev
-				g_last_sensor_dev = g_pda_Pdadata.sensor_dev;
-				goto EXIT;
-			}
-
-			// output buffer mapping iova
-			if (Get_Output_Addr_From_DMABUF(&g_pda_Pdadata) < 0) {
-				g_pda_Pdadata.status = -27;
-				LOG_INF("Get_Output_Addr_From_DMABUF fail\n");
-				// update sensor dev
-				g_last_sensor_dev = g_pda_Pdadata.sensor_dev;
-				goto EXIT;
-			}
-			g_isBufferMapped = 1;
-
-		// same cam
-		} else {
-			if (g_pda_Pdadata.is_inputBuffer_updated ||
-				g_pda_Pdadata.is_outputBuffer_updated ||
-				g_isBufferMapped == 0 ||
-				isHWBuffAddrRGValid() == false) {
-				if (g_isBufferMapped > 0) {
-					// free output iova
-					if (pda_log_dbg_en == 1)
-						LOG_INF("free output iova\n");
-					pda_put_dma_buffer(&g_output_mmu);
-
-					//free input iova
-					if (pda_log_dbg_en == 1)
-						LOG_INF("free input iova\n");
-					pda_put_dma_buffer(&g_image_mmu);
-
-					// free blending iova
-					switch (g_B_N) {
-					case 3:
-						pda_put_dma_buffer(&g_image_b3_mmu);
-						LOG_INF("release g_image_b3_mmu buffer\n");
-						fallthrough;
-					case 2:
-						pda_put_dma_buffer(&g_image_b2_mmu);
-						LOG_INF("release g_image_b2_mmu buffer\n");
-						fallthrough;
-					case 1:
-						pda_put_dma_buffer(&g_image_b1_mmu);
-						LOG_INF("release g_image_b1_mmu buffer\n");
-						break;
-					default:
-						break;
-					}
-
-					pda_put_dma_buffer(&g_table_mmu);
-					g_isBufferMapped = 0;
-				}
-
-				if (Get_Input_Addr_From_DMABUF(&g_pda_Pdadata) < 0) {
-					g_pda_Pdadata.status = -26;
-					LOG_INF("Get_Input_Addr_From_DMABUF fail\n");
-					goto EXIT;
-				}
-
-				// output buffer mapping iova
-				if (Get_Output_Addr_From_DMABUF(&g_pda_Pdadata) < 0) {
-					g_pda_Pdadata.status = -27;
-					LOG_INF("Get_Output_Addr_From_DMABUF fail\n");
-					goto EXIT;
-				}
-				g_isBufferMapped = 1;
-			}
 		}
 
 		// update sensor dev
@@ -2363,6 +2489,10 @@ EXIT:
 			nRet = -EFAULT;
 		}
 		break;
+	case PDA_PUT_DMA_BUF:
+		// all fd array and iova array need to be cleared and unmap
+		free_alldmabufferandfdarraytable();
+		break;
 	default:
 		LOG_INF("Unknown Cmd(%d)\n", a_u4Command);
 		break;
@@ -2393,8 +2523,6 @@ static int PDA_Open(struct inode *a_pstInode, struct file *a_pstFile)
 	g_PDA1_IRQCount = 0;
 #endif
 
-	g_isBufferMapped = 0;
-
 	return 0;
 }
 
@@ -2403,36 +2531,8 @@ static int PDA_Release(struct inode *a_pstInode, struct file *a_pstFile)
 	int i = 0;
 	unsigned int nIRQstatus = 0;
 
-	if (g_isBufferMapped > 0) {
-		// free output iova
-		LOG_INF("free output iova\n");
-		pda_put_dma_buffer(&g_output_mmu);
-
-		// free input iova
-		LOG_INF("free input iova\n");
-		pda_put_dma_buffer(&g_image_mmu);
-
-		// free blending iova
-		switch (g_B_N) {
-		case 3:
-			pda_put_dma_buffer(&g_image_b3_mmu);
-			LOG_INF("release g_image_b3_mmu buffer\n");
-			fallthrough;
-		case 2:
-			pda_put_dma_buffer(&g_image_b2_mmu);
-			LOG_INF("release g_image_b2_mmu buffer\n");
-			fallthrough;
-		case 1:
-			pda_put_dma_buffer(&g_image_b1_mmu);
-			LOG_INF("release g_image_b1_mmu buffer\n");
-			break;
-		default:
-			LOG_INF("no blending buffer to release\n");
-			break;
-		}
-
-		pda_put_dma_buffer(&g_table_mmu);
-	}
+	// all fd array and iova array need to be cleared and unmap
+	free_alldmabufferandfdarraytable();
 
 	spin_lock(&g_PDA_SpinLock);
 	if (g_u4EnableClockCount > 0) {

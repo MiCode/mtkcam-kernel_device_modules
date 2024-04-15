@@ -295,6 +295,17 @@ int get_sw_feature(struct mtk_cam_job *job)
 		MTKCAM_IPI_SW_FEATURE_VHDR : MTKCAM_IPI_SW_FEATURE_NORMAL;
 }
 
+int get_img_wbuf_num(struct mtk_cam_job *job)
+{
+	struct mtk_cam_resource_v2 *res;
+
+	res = _get_job_res(job);
+	if (!res)
+		return -1;
+
+	return res->raw_res.img_wbuf_num;
+}
+
 static int scen_exp_num(struct mtk_cam_scen *scen)
 {
 	int exp = 1;

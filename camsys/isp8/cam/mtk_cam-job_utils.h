@@ -144,6 +144,7 @@ int get_sv_tag_idx(unsigned int exp_no, unsigned int tag_order, bool is_w);
 
 int get_hw_scenario(struct mtk_cam_job *job);
 int get_sw_feature(struct mtk_cam_job *job);
+int get_img_wbuf_num(struct mtk_cam_job *job);
 int get_exp_order(struct mtk_cam_scen *scen);
 
 bool is_vhdr(struct mtk_cam_job *job);

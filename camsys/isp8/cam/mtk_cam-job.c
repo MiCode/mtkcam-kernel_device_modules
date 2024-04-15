@@ -4368,13 +4368,23 @@ static void update_job_wbuf_pool_wrapper(struct mtk_cam_job *job)
 {
 	struct mtk_cam_ctx *ctx = job->src_ctx;
 	struct mtk_raw_ctrl_data *ctrl_data = get_raw_ctrl_data(job);
+	struct mtk_cam_driver_buf_desc *desc = &ctx->img_work_buf_desc;
+	int wbuf_num = get_img_wbuf_num(job);
 
-	if (ctx->pack_job_img_wbuf_pool_wrapper)
+	if (CAM_DEBUG_ENABLED(IPI_BUF))
+		pr_info("[%s] ctx:%d, seamless_switch:%d wbuf_size/num:%zu/%d\n",
+			__func__, ctx->stream_id, job->seamless_switch, desc->max_size, wbuf_num);
+
+	if (!job->seamless_switch)
 		return;
 
-	if (job->seamless_switch) {
+	if (ctx->pack_job_img_wbuf_pool_wrapper) {
+		mtk_cam_buffer_pool_realloc(
+			&ctx->pack_job_img_wbuf_pool_wrapper->pool,
+			&ctx->pack_job_img_wbuf_pool_wrapper->mem,
+			desc->max_size * wbuf_num, wbuf_num);
+	} else {
 		mtk_cam_ctx_alloc_img_pool(ctx, ctrl_data);
-
 		job->img_wbuf_pool_wrapper = ctx->pack_job_img_wbuf_pool_wrapper;
 
 		if (job->img_wbuf_pool_wrapper)
@@ -4675,8 +4685,6 @@ static int job_sen_req_pack(struct mtk_cam_job *job)
 		(job->first_job || sensor_change) && is_sensor_mode_update(job);
 	job->seamless_switch =
 		(!job->first_job && !sensor_change) && is_sensor_mode_update(job);
-	/* determine img wbuf is needed */
-	update_job_wbuf_pool_wrapper(job);
 
 	if (CAM_DEBUG_ENABLED(JOB))
 		pr_info("[%s] ctx:%d|type:%d|%s|exp(cur:%d,prev:%d)|sw/scene:%d/%d, req_id:%d",
@@ -4737,6 +4745,9 @@ static int job_isp_req_pack(struct mtk_cam_job *job)
 	/* determine if it is a raw change job */
 	if (update_job_raw_change(job))
 		return -1;
+	/* determine img wbuf is needed */
+	update_job_wbuf_pool_wrapper(job);
+
 	ret = pack_helper->pack_job(job, pack_helper);
 
 	if (CAM_DEBUG_ENABLED(JOB))

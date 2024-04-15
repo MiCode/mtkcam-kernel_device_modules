@@ -671,7 +671,9 @@ static void mtk_cam_update_wbuf_fmt_desc(struct mtk_cam_ctx *ctx)
 
 	if (!ctx->configured ||
 		(ctx->ipi_config.input.fmt !=
-		 sensor_mbus_to_ipi_fmt(sink_pad->mbus_fmt.code)))
+		 sensor_mbus_to_ipi_fmt(sink_pad->mbus_fmt.code)) ||
+		 (sink_pad->mbus_fmt.width != ctx->ipi_config.input.in_crop.s.w) ||
+		 (sink_pad->mbus_fmt.height != ctx->ipi_config.input.in_crop.s.h))
 		update_buf_fmt_desc(&ctx->img_work_buf_desc, &sink_pad->mbus_fmt);
 }
 

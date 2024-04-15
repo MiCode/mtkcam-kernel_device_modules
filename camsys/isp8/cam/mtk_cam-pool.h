@@ -108,6 +108,9 @@ struct mtk_cam_pool_buffer {
 int mtk_cam_buffer_pool_alloc(struct mtk_cam_pool *pool,
 			      struct mtk_cam_device_buf *buf, int n_buffers);
 
+int mtk_cam_buffer_pool_realloc(struct mtk_cam_pool *pool,
+			      struct mtk_cam_device_buf *buf, int total_size, int n_buffers);
+
 static inline void mtk_cam_pool_buffer_init(struct mtk_cam_pool_buffer *buf)
 {
 	mtk_cam_pool_priv_init(&buf->priv);

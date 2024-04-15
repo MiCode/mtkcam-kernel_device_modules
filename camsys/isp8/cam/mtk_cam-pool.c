@@ -397,3 +397,45 @@ int mtk_cam_buffer_pool_alloc(struct mtk_cam_pool *pool,
 
 	return ret;
 }
+
+int mtk_cam_buffer_pool_realloc(struct mtk_cam_pool *pool,
+			      struct mtk_cam_device_buf *buf, int total_size, int n_buffers)
+{
+	struct buffer_pool_data data;
+	int ret = 0;
+
+	if (WARN_ON(!buf || !buf->daddr)) {
+		pr_info("buf is not mapped yet\n");
+		return -EINVAL;
+	}
+
+	pool_dbg("%s realloc pool (%zu/%zu)->(%d/%d)\n",
+		__func__, buf->size, pool->n_element, total_size, n_buffers);
+
+	if (total_size <= 0 || n_buffers <= 0)
+		return -EINVAL;
+
+	if (buf->size == total_size && pool->n_element == n_buffers)
+		return ret;
+
+	buf->size = total_size;
+	data.buf = buf;
+	data.offset = buf->size / n_buffers;
+
+	mtk_cam_pool_destroy(pool);
+
+	ret = mtk_cam_pool_alloc(pool,
+				 sizeof(struct mtk_cam_pool_buffer), n_buffers);
+	if (ret)
+		return ret;
+
+	ret = mtk_cam_pool_config(pool, pool_config_device_buf, &data);
+	if (ret)
+		mtk_cam_pool_destroy(pool);
+
+	pr_info("%s realloc pool done, total size:%d,num:%d\n",
+		__func__, total_size, n_buffers);
+
+	return ret;
+}
+

@@ -1423,7 +1423,8 @@ int mtk_cam_sv_cq_disable(struct mtk_camsv_device *sv_dev)
 int mtk_cam_sv_dev_pertag_stream_on(
 	struct mtk_camsv_device *sv_dev,
 	unsigned int tag_idx,
-	bool on)
+	bool on,
+	u32 enable_hsf_raw)
 {
 	int ret = 0;
 
@@ -1431,7 +1432,8 @@ int mtk_cam_sv_dev_pertag_stream_on(
 		sv_dev->streaming_tag_cnt++;
 		if (sv_dev->streaming_tag_cnt == sv_dev->used_tag_cnt) {
 #ifdef SV_FIFO_DETECTION
-			ret |= mtk_cam_sv_start_fifo_detection(sv_dev);
+			if (!enable_hsf_raw)
+				ret |= mtk_cam_sv_start_fifo_detection(sv_dev);
 #endif
 			ret |= mtk_cam_sv_central_common_enable(sv_dev);
 		}
@@ -1442,7 +1444,8 @@ int mtk_cam_sv_dev_pertag_stream_on(
 			ret |= mtk_cam_sv_cq_disable(sv_dev);
 			ret |= mtk_cam_sv_central_common_disable(sv_dev);
 #ifdef SV_FIFO_DETECTION
-			ret |= mtk_cam_sv_stop_fifo_detection(sv_dev);
+			if (!enable_hsf_raw)
+				ret |= mtk_cam_sv_stop_fifo_detection(sv_dev);
 #endif
 		}
 
@@ -1457,7 +1460,7 @@ EXIT:
 }
 
 int mtk_cam_sv_dev_stream_on(struct mtk_camsv_device *sv_dev, bool on,
-	unsigned int enabled_tags, unsigned int used_tag_cnt)
+	unsigned int enabled_tags, unsigned int used_tag_cnt, u32 enable_hsf_raw)
 {
 	int ret = 0, i;
 
@@ -1476,7 +1479,7 @@ int mtk_cam_sv_dev_stream_on(struct mtk_camsv_device *sv_dev, bool on,
 
 	for (i = SVTAG_START; i < SVTAG_END; i++) {
 		if (sv_dev->enabled_tags & (1 << i))
-			mtk_cam_sv_dev_pertag_stream_on(sv_dev, i, on);
+			mtk_cam_sv_dev_pertag_stream_on(sv_dev, i, on, enable_hsf_raw);
 	}
 
 	return ret;

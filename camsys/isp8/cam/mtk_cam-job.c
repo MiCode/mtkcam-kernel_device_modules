@@ -1151,7 +1151,7 @@ _stream_on(struct mtk_cam_job *job, bool on)
 		sv_dev = dev_get_drvdata(ctx->hw_sv);
 			mtk_cam_sv_update_start_period(sv_dev, job->scq_period);
 		mtk_cam_sv_dev_stream_on(sv_dev, on,
-			job->enabled_tags, job->used_tag_cnt);
+			job->enabled_tags, job->used_tag_cnt, job->enable_hsf_raw);
 	}
 
 	if (job->raw_change != JOB_RAW_MASTER_CHANGED) {
@@ -1179,7 +1179,7 @@ _stream_on_only_sv(struct mtk_cam_job *job, bool on)
 	if (ctx->hw_sv) {
 		sv_dev = dev_get_drvdata(ctx->hw_sv);
 		mtk_cam_sv_dev_stream_on(sv_dev, on,
-			job->enabled_tags, job->used_tag_cnt);
+			job->enabled_tags, job->used_tag_cnt, job->enable_hsf_raw);
 	}
 
 	if (job->stream_on_seninf)
@@ -3931,7 +3931,7 @@ _common_seamless_after_frame_done(struct mtk_cam_job *job)
 
 	if (ctx->hw_sv) {
 		mtk_cam_sv_dev_stream_on(sv_dev, false,
-			job->enabled_tags, job->used_tag_cnt);
+			job->enabled_tags, job->used_tag_cnt, job->enable_hsf_raw);
 		mtk_cam_sv_dev_config(sv_dev, 0, get_sensor_interval_us(job));
 	}
 	mtk_cam_ctx_slc_stream(ctx, 0, 0xFF);
@@ -3952,7 +3952,7 @@ _common_seamless_after_frame_done(struct mtk_cam_job *job)
 	stream_on(raw_dev, 1, false);
 	if (ctx->hw_sv)
 		mtk_cam_sv_dev_stream_on(sv_dev, true,
-			job->enabled_tags, job->used_tag_cnt);
+			job->enabled_tags, job->used_tag_cnt, job->enable_hsf_raw);
 
 OUT:
 	update_seninf_fmt(job);

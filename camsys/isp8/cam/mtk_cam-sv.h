@@ -218,9 +218,9 @@ int mtk_cam_sv_ddren_qos_config(struct mtk_camsv_device *sv_dev, int frm_time_us
 void mtk_cam_sv_update_start_period(struct mtk_camsv_device *sv_dev, int scq_ms);
 int mtk_cam_sv_cq_disable(struct mtk_camsv_device *sv_dev);
 int mtk_cam_sv_dev_pertag_stream_on(
-	struct mtk_camsv_device *sv_dev, unsigned int tag_idx, bool on);
+	struct mtk_camsv_device *sv_dev, unsigned int tag_idx, bool on, u32 enable_hsf_raw);
 int mtk_cam_sv_dev_stream_on(struct mtk_camsv_device *sv_dev, bool on,
-	unsigned int enabled_tags, unsigned int used_tag_cnt);
+	unsigned int enabled_tags, unsigned int used_tag_cnt, u32 enable_hsf_raw);
 int mtk_cam_sv_dmao_common_config(struct mtk_camsv_device *sv_dev,
 	unsigned int fifo_img_p1, unsigned int fifo_img_p2,
 	unsigned int fifo_len_p1, unsigned int fifo_len_p2, unsigned int leading_line_cnt);

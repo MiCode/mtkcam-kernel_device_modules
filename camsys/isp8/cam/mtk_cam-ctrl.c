@@ -1306,7 +1306,7 @@ static int dynamic_raw_change_uninit_engine(struct mtk_cam_job *job)
 			struct mtk_camsv_device *sv_dev;
 
 			sv_dev = dev_get_drvdata(cam->engines.sv_devs[i]);
-			mtk_cam_sv_dev_stream_on(sv_dev, false, 0, 0);
+			mtk_cam_sv_dev_stream_on(sv_dev, false, 0, 0, job->enable_hsf_raw);
 			for (j = 0; j < ARRAY_SIZE(sv_dev->irq); j++)
 				disable_irq(sv_dev->irq[j]);
 			sv_reset(sv_dev);

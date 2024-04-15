@@ -3229,7 +3229,7 @@ void mtk_cam_ctx_engine_off(struct mtk_cam_ctx *ctx)
 
 	if (ctx->hw_sv) {
 		sv_dev = dev_get_drvdata(ctx->hw_sv);
-		mtk_cam_sv_dev_stream_on(sv_dev, false, 0, 0);
+		mtk_cam_sv_dev_stream_on(sv_dev, false, 0, 0, ctx->enable_hsf_raw);
 	}
 
 	for (i = 0; i < ctx->num_mraw_subdevs; i++) {
@@ -3355,7 +3355,7 @@ void mtk_cam_ctx_engine_dc_sw_recovery(struct mtk_cam_ctx *ctx)
 		sv_dev = dev_get_drvdata(ctx->hw_sv);
 
 		mtk_cam_sv_backup(sv_dev);
-		mtk_cam_sv_dev_stream_on(sv_dev, 0, 0, 0);
+		mtk_cam_sv_dev_stream_on(sv_dev, 0, 0, 0, ctx->enable_hsf_raw);
 	}
 
 	for (i = 0; i < ARRAY_SIZE(ctx->hw_raw); i++) {
@@ -3397,7 +3397,7 @@ void mtk_cam_ctx_engine_dc_sw_recovery(struct mtk_cam_ctx *ctx)
 		mtk_cam_sv_dev_config(sv_dev, 0, -1);
 		mtk_cam_sv_restore(sv_dev);
 		mtk_cam_sv_dev_stream_on(sv_dev, 1,
-					 ctx->enabled_tags, ctx->used_tag_cnt);
+					 ctx->enabled_tags, ctx->used_tag_cnt, ctx->enable_hsf_raw);
 	}
 }
 

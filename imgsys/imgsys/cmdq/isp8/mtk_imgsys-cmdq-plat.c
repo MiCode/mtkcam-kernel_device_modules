@@ -940,6 +940,13 @@ void imgsys_cmdq_task_cb_plat8(struct cmdq_cb_data data)
 				__func__,
 				cb_param->pkt->err_data.wfe_timeout,
 				cb_param->pkt->err_data.event, isHWhang);
+		} else if ((event >= IMGSYS_CMDQ_VSDOF_EVENT_BEGIN) &&
+			(event <= IMGSYS_CMDQ_VSDOF_EVENT_END)) {
+			pr_info(
+				"%s: [ERROR] Cross Token event timeout! wfe(%d) event(%d)",
+				__func__,
+				cb_param->pkt->err_data.wfe_timeout,
+				cb_param->pkt->err_data.event);
 		} else if ((is_stream_off == 1) && (event == 0)) {
 			pr_info(
 				"%s: [ERROR] pipe had been turned off(%d)! wfe(%d) event(%d) isHW(%d)",
@@ -1314,7 +1321,7 @@ int imgsys_cmdq_task_aee_cb_plat8(struct cmdq_cb_data data)
 		ret = CMDQ_NO_AEE;
 		imgsys_cmdq_frm_sync_dump_event_info(event);
 		pr_info(
-			"%s: [ERROR] QOF event timeout! wfe(%d) event(%d)",
+			"%s: [ERROR] cross token event timeout! wfe(%d) event(%d)",
 			__func__,
 			cb_param->pkt->err_data.wfe_timeout,
 			cb_param->pkt->err_data.event);

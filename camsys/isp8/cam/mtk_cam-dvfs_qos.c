@@ -740,7 +740,7 @@ static int fill_sv_qos(struct mtk_cam_job *job,
 				calc_bw(x_size * img_h, linet, sensor_h + sensor_vb);
 			peak_bw =
 				calc_bw(x_size * img_h, linet, sensor_h);
-			if (is_raw_ufo(in->fmt.format)) {
+			if (ipifmt_is_raw_ufo(in->fmt.format)) {
 				/* compression ratio: 0.7x */
 				avg_bw = avg_bw * 7 / 10;
 				/* table */

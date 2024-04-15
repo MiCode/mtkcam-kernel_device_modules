@@ -429,7 +429,8 @@ void initialize(struct mtk_raw_device *dev, struct engine_callback *cb,
 	/* enable interrupt */
 	val = FBIT(CAMCTL_CQ_THR0_DONE_EN) | FBIT(CAMCTL_CQ_THRSUB_DONE_EN) |
 		FBIT(CAMCTL_CQ_ALL_THR_DONE_EN)| FBIT(CAMCTL_CQ_MAIN_VS_ERR_EN) |
-		FBIT(CAMCTL_CQ_SUB_VS_ERR_EN)| FBIT(CAMCTL_CQ_SUB_CODE_ERR_EN);
+		FBIT(CAMCTL_CQ_SUB_VS_ERR_EN)| FBIT(CAMCTL_CQ_SUB_CODE_ERR_EN) |
+		FBIT(CAMCTL_CQ_DB_LOAD_ERR_EN);
 	raw_writel_relaxed(val, dev, dev->base, REG_CAMCTL_INT21_EN);
 
 #ifdef RAW_DEBUG_INIT
@@ -1237,6 +1238,7 @@ static bool is_sub_sample_sensor_timing(struct mtk_raw_device *dev)
 	(FBIT(CAMCTL_CQ_MAX_START_DLY_SMALL_INT_ST)	|	\
 	 FBIT(CAMCTL_CQ_MAX_START_DLY_ERR_INT_ST)	|	\
 	 FBIT(CAMCTL_CQ_MAIN_CODE_ERR_ST)		|	\
+	 FBIT(CAMCTL_CQ_DB_LOAD_ERR_ST)		|	\
 	 FBIT(CAMCTL_CQ_MAIN_VS_ERR_ST)			|	\
 	 FBIT(CAMCTL_CQ_MAIN_VS_ERR_ST)			|	\
 	 FBIT(CAMCTL_CQ_TRIG_DLY_INT_ST)		|	\

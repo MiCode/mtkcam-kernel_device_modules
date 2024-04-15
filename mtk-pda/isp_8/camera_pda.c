@@ -263,6 +263,9 @@ static void EnableClock(bool En)
 			LOG_INF("It's real ic load, Disable Clock");
 
 		mutex_lock(&pda_pm_mutex);
+#ifdef PDA_MMQOS
+		pda_mmqos_bw_reset();
+#endif
 		PDA_Disable_Unprepare_ccf_clock();
 		mutex_unlock(&pda_pm_mutex);
 #else
@@ -2211,8 +2214,6 @@ static long PDA_Ioctl(struct file *a_pstFile,
 					LOG_INF("release g_image_b1_mmu buffer\n");
 					break;
 				default:
-					if (pda_log_dbg_en == 1)
-						LOG_INF("no blending buffer to release\n");
 					break;
 				}
 
@@ -2240,44 +2241,43 @@ static long PDA_Ioctl(struct file *a_pstFile,
 
 		// same cam
 		} else {
-			if (g_isBufferMapped > 0) {
-				// free output iova
-				if (pda_log_dbg_en == 1)
-					LOG_INF("free output iova\n");
-				pda_put_dma_buffer(&g_output_mmu);
-
-				//free input iova
-				if (pda_log_dbg_en == 1)
-					LOG_INF("free input iova\n");
-				pda_put_dma_buffer(&g_image_mmu);
-
-				// free blending iova
-				switch (g_B_N) {
-				case 3:
-					pda_put_dma_buffer(&g_image_b3_mmu);
-					LOG_INF("release g_image_b3_mmu buffer\n");
-					fallthrough;
-				case 2:
-					pda_put_dma_buffer(&g_image_b2_mmu);
-					LOG_INF("release g_image_b2_mmu buffer\n");
-					fallthrough;
-				case 1:
-					pda_put_dma_buffer(&g_image_b1_mmu);
-					LOG_INF("release g_image_b1_mmu buffer\n");
-					break;
-				default:
-					if (pda_log_dbg_en == 1)
-						LOG_INF("no blending buffer to release\n");
-					break;
-				}
-
-				pda_put_dma_buffer(&g_table_mmu);
-				g_isBufferMapped = 0;
-			}
-
 			if (g_pda_Pdadata.is_inputBuffer_updated ||
 				g_pda_Pdadata.is_outputBuffer_updated ||
+				g_isBufferMapped == 0 ||
 				isHWBuffAddrRGValid() == false) {
+				if (g_isBufferMapped > 0) {
+					// free output iova
+					if (pda_log_dbg_en == 1)
+						LOG_INF("free output iova\n");
+					pda_put_dma_buffer(&g_output_mmu);
+
+					//free input iova
+					if (pda_log_dbg_en == 1)
+						LOG_INF("free input iova\n");
+					pda_put_dma_buffer(&g_image_mmu);
+
+					// free blending iova
+					switch (g_B_N) {
+					case 3:
+						pda_put_dma_buffer(&g_image_b3_mmu);
+						LOG_INF("release g_image_b3_mmu buffer\n");
+						fallthrough;
+					case 2:
+						pda_put_dma_buffer(&g_image_b2_mmu);
+						LOG_INF("release g_image_b2_mmu buffer\n");
+						fallthrough;
+					case 1:
+						pda_put_dma_buffer(&g_image_b1_mmu);
+						LOG_INF("release g_image_b1_mmu buffer\n");
+						break;
+					default:
+						break;
+					}
+
+					pda_put_dma_buffer(&g_table_mmu);
+					g_isBufferMapped = 0;
+				}
+
 				if (Get_Input_Addr_From_DMABUF(&g_pda_Pdadata) < 0) {
 					g_pda_Pdadata.status = -26;
 					LOG_INF("Get_Input_Addr_From_DMABUF fail\n");
@@ -2402,10 +2402,6 @@ static int PDA_Release(struct inode *a_pstInode, struct file *a_pstFile)
 {
 	int i = 0;
 	unsigned int nIRQstatus = 0;
-
-#ifdef PDA_MMQOS
-	pda_mmqos_bw_reset();
-#endif
 
 	if (g_isBufferMapped > 0) {
 		// free output iova

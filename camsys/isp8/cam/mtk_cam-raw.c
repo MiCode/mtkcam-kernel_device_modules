@@ -235,7 +235,27 @@ void diable_rms_module(struct mtk_raw_device *raw)
 	basic_writel(raw, 0x0, rms->base, REG_CAMCTL3_MOD5_EN);
 	basic_writel(raw, 0x0, rms->base, REG_CAMCTL3_MOD6_EN);
 }
+static void dump_rms_reg(struct mtk_raw_device *dev)
+{
+	struct mtk_rms_device *rms = get_rms_dev(dev);
+	u32 rms_en, rms_en2, rms_en3, rms_en4, rms_en5, rms_en6;
+	u32 bpc_r2_pcrop, cbm_r1_pcrop;
 
+	rms_en = raw_readl_relaxed(dev, rms->base_inner, REG_CAMCTL3_MOD_EN);
+	rms_en2 = raw_readl_relaxed(dev, rms->base_inner, REG_CAMCTL3_MOD2_EN);
+	rms_en3 = raw_readl_relaxed(dev, rms->base_inner, REG_CAMCTL3_MOD3_EN);
+	rms_en4 = raw_readl_relaxed(dev, rms->base_inner, REG_CAMCTL3_MOD4_EN);
+	rms_en5 = raw_readl_relaxed(dev, rms->base_inner, REG_CAMCTL3_MOD5_EN);
+	rms_en6 = raw_readl_relaxed(dev, rms->base_inner, REG_CAMCTL3_MOD6_EN);
+	bpc_r2_pcrop = raw_readl_relaxed(dev, rms->base_inner, BPC_R2_PCRP);
+	cbm_r1_pcrop = raw_readl_relaxed(dev, rms->base_inner, CBM_R1_PCRP);
+
+	dev_info(dev->dev,
+		"[%s] raw%d - [in] rms_en/2/3/4/5/6:0x%x/0x%x/0x%x/0x%x/0x%x/0x%x, 0x%x/0x%x\n",
+		__func__, dev->id, rms_en, rms_en2, rms_en3,
+		rms_en4, rms_en5, rms_en6,
+		bpc_r2_pcrop, cbm_r1_pcrop);
+}
 static void init_ADLWR_settings(struct mtk_cam_device *cam)
 {
 	if (IS_ERR_OR_NULL(cam->adlwr_base)) {
@@ -533,7 +553,8 @@ static void reset_reg(struct mtk_raw_device *dev)
 	raw_writel(0, dev, dev->base_inner, REG_CAMCTL_INT21_EN);
 	raw_writel(0, dev, dev->base, REG_CAMCTL_INT21_EN);
 	wmb(); /* make sure committed */
-
+	diable_rms_module(dev);
+	diable_rms_module(dev);
 	reset_error_handling(dev);
 	if (CAM_DEBUG_ENABLED(RAW_INT))
 		dev_info(dev->dev,
@@ -3309,6 +3330,7 @@ int raw_dump_debug_status(struct mtk_raw_device *dev, bool is_srt)
 	dump_tg_setting(dev, "debug");
 	dump_dmatop_dc_st(dev);
 	dump_interrupt(dev);
+	dump_rms_reg(dev);
 	dump_ae_reg(dev, 1);
 	dump_awb_reg(dev, 1);
 

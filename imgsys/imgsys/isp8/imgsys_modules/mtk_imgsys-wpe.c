@@ -26,7 +26,7 @@
 #include "mtk_imgsys-wpe.h"
 #include "mtk-hcp.h"
 #include "mtk_imgsys-v4l2-debug.h"
-
+#include "../../cmdq/isp8/mtk_imgsys-cmdq-qof.h"
 
 #define WPE_A_BASE        (0x34200000)
 const unsigned int mtk_imgsys_wpe_base_ofst[] = {0x0, 0x300000, 0x400000};
@@ -130,9 +130,10 @@ int imgsys_wpe_tfault_callback(int port,
 	unsigned int i =0, j = 0;
 	unsigned int wpeBase = 0;
 	unsigned int engine = 0;
+	int ret = 0;
+	bool is_qof = false;
 
 	pr_debug("%s: +\n", __func__);
-
 	/* port: [10:5] larb / larb11: wpe_eis; larb22: wpe_tnr; larb23: wpe_lite */
 	larb = ((port>>5) & 0x3F);
 
@@ -147,6 +148,11 @@ int imgsys_wpe_tfault_callback(int port,
 		return 1;
 	}
 
+	ret = smi_isp_wpe2_tnr_get_if_in_use((void *)&is_qof);
+	if (ret == -1) {
+		pr_info("smi_isp_wpe2_tnr_get_if_in_use = -1. return. stop dump\n");
+		return 1;
+	}
 	pr_info("%s: ==== Dump WPE_%d, TF port: 0x%x =====",
 		__func__, (engine - REG_MAP_E_WPE_EIS), port);
 
@@ -162,6 +168,7 @@ int imgsys_wpe_tfault_callback(int port,
 				(unsigned int)ioread32((void *)(wpeRegBA + i + 0xC)));
 		}
 	}
+	smi_isp_wpe2_tnr_put((void *)&is_qof);
 
 	return 1;
 }

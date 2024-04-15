@@ -673,15 +673,17 @@ static int smi_isp_dip_get(void *data)
 	return qof_smi_isp_module_get(data, ISP8_PWR_DIP);
 }
 
-static int smi_isp_dip_get_if_in_use(void *data)
+int smi_isp_dip_get_if_in_use(void *data)
 {
 	return qof_smi_isp_module_get_if_in_use(data, ISP8_PWR_DIP);
 }
+EXPORT_SYMBOL(smi_isp_dip_get_if_in_use);
 
-static int smi_isp_dip_put(void *data)
+int smi_isp_dip_put(void *data)
 {
 	return qof_smi_isp_module_put(data, ISP8_PWR_DIP);
 }
+EXPORT_SYMBOL(smi_isp_dip_put);
 
 /* SMI TRAW CB */
 static int smi_isp_traw_get(void *data)
@@ -689,15 +691,17 @@ static int smi_isp_traw_get(void *data)
 	return qof_smi_isp_module_get(data, ISP8_PWR_TRAW);
 }
 
-static int smi_isp_traw_get_if_in_use(void *data)
+int smi_isp_traw_get_if_in_use(void *data)
 {
 	return qof_smi_isp_module_get_if_in_use(data, ISP8_PWR_TRAW);
 }
+EXPORT_SYMBOL(smi_isp_traw_get_if_in_use);
 
-static int smi_isp_traw_put(void *data)
+int smi_isp_traw_put(void *data)
 {
 	return qof_smi_isp_module_put(data, ISP8_PWR_TRAW);
 }
+EXPORT_SYMBOL(smi_isp_traw_put);
 
 /* SMI WPE1 CB */
 static int smi_isp_wpe1_eis_get(void *data)
@@ -705,15 +709,17 @@ static int smi_isp_wpe1_eis_get(void *data)
 	return qof_smi_isp_module_get(data, ISP8_PWR_WPE_1_EIS);
 }
 
-static int smi_isp_wpe1_eis_get_if_in_use(void *data)
+int smi_isp_wpe1_eis_get_if_in_use(void *data)
 {
 	return qof_smi_isp_module_get_if_in_use(data, ISP8_PWR_WPE_1_EIS);
 }
+EXPORT_SYMBOL(smi_isp_wpe1_eis_get_if_in_use);
 
-static int smi_isp_wpe1_eis_put(void *data)
+int smi_isp_wpe1_eis_put(void *data)
 {
 	return qof_smi_isp_module_put(data, ISP8_PWR_WPE_1_EIS);
 }
+EXPORT_SYMBOL(smi_isp_wpe1_eis_put);
 
 /* SMI WPE2 CB */
 static int smi_isp_wpe2_tnr_get(void *data)
@@ -721,15 +727,17 @@ static int smi_isp_wpe2_tnr_get(void *data)
 	return qof_smi_isp_module_get(data, ISP8_PWR_WPE_2_TNR);
 }
 
-static int smi_isp_wpe2_tnr_get_if_in_use(void *data)
+int smi_isp_wpe2_tnr_get_if_in_use(void *data)
 {
 	return qof_smi_isp_module_get_if_in_use(data, ISP8_PWR_WPE_2_TNR);
 }
+EXPORT_SYMBOL(smi_isp_wpe2_tnr_get_if_in_use);
 
-static int smi_isp_wpe2_tnr_put(void *data)
+int smi_isp_wpe2_tnr_put(void *data)
 {
 	return qof_smi_isp_module_put(data, ISP8_PWR_WPE_2_TNR);
 }
+EXPORT_SYMBOL(smi_isp_wpe2_tnr_put);
 
 /* SMI WPE3 CB */
 static int smi_isp_wpe3_lite_get(void *data)
@@ -737,16 +745,17 @@ static int smi_isp_wpe3_lite_get(void *data)
 	return qof_smi_isp_module_get(data, ISP8_PWR_WPE_3_LITE);
 }
 
-static int smi_isp_wpe3_lite_get_if_in_use(void *data)
+int smi_isp_wpe3_lite_get_if_in_use(void *data)
 {
 	return qof_smi_isp_module_get_if_in_use(data, ISP8_PWR_WPE_3_LITE);
 }
+EXPORT_SYMBOL(smi_isp_wpe3_lite_get_if_in_use);
 
-static int smi_isp_wpe3_lite_put(void *data)
+int smi_isp_wpe3_lite_put(void *data)
 {
 	return qof_smi_isp_module_put(data, ISP8_PWR_WPE_3_LITE);
 }
-
+EXPORT_SYMBOL(smi_isp_wpe3_lite_put);
 
 static struct smi_user_pwr_ctrl smi_isp_dip_pwr_cb = {
 	 .name = "qof_isp_dip",

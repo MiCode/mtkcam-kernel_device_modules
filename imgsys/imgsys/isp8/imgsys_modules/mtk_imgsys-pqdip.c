@@ -23,7 +23,7 @@
 #include "mtk_imgsys-pqdip.h"
 #include "mtk-hcp.h"
 #include "mtk_imgsys-v4l2-debug.h"
-
+#include "../../cmdq/isp8/mtk_imgsys-cmdq-qof.h"
 
 /********************************************************************
  * Global Define
@@ -790,6 +790,8 @@ int imgsys_pqdip_tfault_callback(int port,
 {
 	void __iomem *pqdipRegBA = 0L;
 	u32 hw_idx = 0, i = 0, larb = 0;
+	int ret = 0;
+	bool is_qof = false;
 
 	/* port: [10:5] larb / larb11: pqdipa; else: pqdipb */
 	larb = ((port>>5) & 0x3F);
@@ -806,6 +808,11 @@ int imgsys_pqdip_tfault_callback(int port,
 		return 1;
 	}
 
+	ret = smi_isp_wpe1_eis_get_if_in_use((void *)&is_qof);
+	if (ret == -1) {
+		pr_info("smi_isp_wpe1_eis_get_if_in_use = -1. can't dump. return\n");
+		return 1;
+	}
 #ifdef DUMP_PQ_ALL
 	for (i = 0x0; i < PQDIP_ALL_REG_CNT; i += 0x20) {
 		pr_info("%s: [0x%08x] 0x%08x 0x%08x 0x%08x 0x%08x | 0x%08x 0x%08x 0x%08x 0x%08x",
@@ -1066,7 +1073,8 @@ int imgsys_pqdip_tfault_callback(int port,
 	}
 #endif
 
-	pr_info("%s: -\n", __func__);
+	smi_isp_wpe1_eis_put((void *)&is_qof);
+	pr_info("%s: -. is_qof=%d\n", __func__, is_qof);
 
 	return 1;
 }

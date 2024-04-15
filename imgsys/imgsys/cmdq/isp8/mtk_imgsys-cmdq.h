@@ -259,7 +259,6 @@ struct mtk_imgcmdq_dev {
 	const struct imgsys_cmdq_cust_data *cust_data;
 };
 
-
 struct imgsys_cmdq_cust_data {
 	void (*cmdq_init)(struct mtk_imgsys_dev *imgsys_dev, const int nr_imgsys_dev);
 	void (*cmdq_release)(struct mtk_imgsys_dev *imgsys_dev);

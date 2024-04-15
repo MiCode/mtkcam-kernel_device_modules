@@ -65,5 +65,13 @@ void mtk_imgsys_cmdq_qof_stream_off(struct mtk_imgsys_dev *imgsys_dev);
 void mtk_imgsys_cmdq_qof_add(struct cmdq_pkt *pkt, bool *qof_need_sub, u32 hw_comb);
 void mtk_imgsys_cmdq_qof_sub(struct cmdq_pkt *pkt, bool *qof_need_sub);
 void mtk_imgsys_cmdq_qof_dump(uint32_t hwcomb, bool need_dump_cg);
-
-
+int smi_isp_dip_get_if_in_use(void *data);
+int smi_isp_dip_put(void *data);
+int smi_isp_traw_get_if_in_use(void *data);
+int smi_isp_traw_put(void *data);
+int smi_isp_wpe1_eis_get_if_in_use(void *data);
+int smi_isp_wpe1_eis_put(void *data);
+int smi_isp_wpe2_tnr_get_if_in_use(void *data);
+int smi_isp_wpe2_tnr_put(void *data);
+int smi_isp_wpe3_lite_get_if_in_use(void *data);
+int smi_isp_wpe3_lite_put(void *data);

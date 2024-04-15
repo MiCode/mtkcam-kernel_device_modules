@@ -20,6 +20,7 @@
 #include "mtk_imgsys-omc.h"
 #include "mtk-hcp.h"
 #include "mtk_imgsys-v4l2-debug.h"
+#include "../../cmdq/isp8/mtk_imgsys-cmdq-qof.h"
 
 #define OMC_HW_NUM        (2)
 void __iomem *gOmcRegBA[OMC_HW_NUM] = {0L}; //mapped physical addr
@@ -185,6 +186,8 @@ int imgsys_omc_tfault_callback(int port,
 	unsigned int i =0, j = 0;
 	unsigned int omcBase = 0;
 	unsigned int engine = 0;
+	int ret = 0;
+	bool is_qof = false;
 
 	pr_debug("%s: +\n", __func__);
 
@@ -199,6 +202,12 @@ int imgsys_omc_tfault_callback(int port,
 	omcRegBA = gOmcRegBA[engine - REG_MAP_E_OMC_TNR];
 	if (!omcRegBA) {
 		pr_info("%s: OMC_%d, RegBA=0", __func__, port);
+		return 1;
+	}
+
+	ret = smi_isp_wpe3_lite_get_if_in_use((void *)&is_qof);
+	if (ret == -1) {
+		pr_info("smi_isp_wpe3_lite_get_if_in_use = -1, stop dump\n");
 		return 1;
 	}
 
@@ -218,6 +227,7 @@ int imgsys_omc_tfault_callback(int port,
 		}
 	}
 
+	smi_isp_wpe3_lite_put((void *)&is_qof);
 	return 1;
 }
 

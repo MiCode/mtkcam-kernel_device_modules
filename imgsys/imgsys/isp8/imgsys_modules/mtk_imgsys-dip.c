@@ -18,6 +18,8 @@
 // GCE header
 #include <linux/soc/mediatek/mtk-cmdq-ext.h>
 
+#include "../../cmdq/isp8/mtk_imgsys-cmdq-qof.h"
+
 const struct mtk_imgsys_init_array mtk_imgsys_dip_init_ary[] = {
 	{0x084, 0x00000001}, /* DIPCTL_D1A_DIPCTL_INT1_EN */
 	{0x294, 0x00000001}, /* DIPCTL_QOF_CTL */
@@ -172,8 +174,16 @@ int imgsys_dip_tfault_callback(int port,
 	void __iomem *dipRegBA = 0L;
 	unsigned larb = 0;
 	unsigned int i, j, k;
+	int ret = 0;
+	bool is_qof = false;
 
 	pr_debug("%s: +\n", __func__);
+
+	ret = smi_isp_dip_get_if_in_use((void *)&is_qof);
+	if (ret == -1) {
+		pr_info("smi_isp_dip_get_if_in_use = -1.stop dump. return\n");
+		return 1;
+	}
 
 	larb = ((port>>5) & 0x3F);
 	pr_info("%s: iommu port:0x%x, larb:%d, idx:%d, addr:0x%08lx\n", __func__,
@@ -227,6 +237,7 @@ int imgsys_dip_tfault_callback(int port,
 		}
 	}
 
+	smi_isp_dip_put((void *)&is_qof);
 	pr_info("%s: -\n", __func__);
 	return 1;
 }

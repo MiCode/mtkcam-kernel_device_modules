@@ -27,6 +27,8 @@
 // Local header file
 #include "mtk_imgsys-traw.h"
 
+#include "../../cmdq/isp8/mtk_imgsys-cmdq-qof.h"
+
 /********************************************************************
  * Global Define
  ********************************************************************/
@@ -659,6 +661,8 @@ int imgsys_traw_tfault_callback(int port, dma_addr_t mva, void *cb_data)
 {
 	unsigned int i = 0;
 	char DbgStr[128];
+	int ret = 0;
+	bool is_qof = false;
 
 	if (g_IOMMUDumpPort != port)
 		g_IOMMUDumpPort = port;
@@ -667,6 +671,12 @@ int imgsys_traw_tfault_callback(int port, dma_addr_t mva, void *cb_data)
 
 	if (!g_ltrawRegBA || !g_trawRegBA) {
 		pr_info("%s: base already unmapped, return directly", __func__);
+		return 0;
+	}
+
+	ret = smi_isp_traw_get_if_in_use((void *)&is_qof);
+	if (ret == -1) {
+		pr_info("smi_isp_traw_get_if_in_use = -1. stop dump\n");
 		return 0;
 	}
 
@@ -689,6 +699,7 @@ int imgsys_traw_tfault_callback(int port, dma_addr_t mva, void *cb_data)
 			(unsigned int)ioread32((void *)(g_trawRegBA + i + 12))) > 0)
 			pr_info("%s\n", DbgStr);
 	}
+	smi_isp_traw_put((void *)&is_qof);
 
 	return 0;
 }

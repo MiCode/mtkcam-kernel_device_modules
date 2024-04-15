@@ -451,7 +451,8 @@ static void debug_send_event(const struct transition_param *p)
 static const int waitable_event =
 	BIT(CAMSYS_EVENT_IRQ_L_SOF) |
 	BIT(CAMSYS_EVENT_IRQ_FRAME_DONE) |
-	BIT(CAMSYS_EVENT_IRQ_L_CQ_DONE);
+	BIT(CAMSYS_EVENT_IRQ_L_CQ_DONE) |
+	BIT(CAMSYS_EVENT_ACK);
 
 static void mtk_cam_ctrl_wake_up_on_event(struct mtk_cam_ctrl *ctrl, int event)
 {

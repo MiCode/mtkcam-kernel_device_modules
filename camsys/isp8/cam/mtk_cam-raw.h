@@ -90,6 +90,7 @@ struct mtk_raw_device {
 	int default_printk_cnt;
 	/* preisp synchronized used */
 	int tg_count;
+	char str_debug_irq_data[128];
 
 	/* QOF */
 	const struct raw_io_ops *io_ops;

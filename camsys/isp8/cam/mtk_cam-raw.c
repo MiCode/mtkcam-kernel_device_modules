@@ -13,6 +13,7 @@
 #include <linux/pm_runtime.h>
 #include <linux/vmalloc.h>
 #include <linux/suspend.h>
+#include <linux/sched/clock.h>
 #include <linux/rtc.h>
 
 #include <mtk_printk_ctrl.h>
@@ -49,7 +50,7 @@ MODULE_PARM_DESC(debug_ddren_sw_mode, "debug: 1 : active sw mode");
 
 #define DMA_OFFSET_ERR_STAT	0x34
 
-#define RAW_DEBUG 1
+#define RAW_DEBUG 0
 #define AEO_SW_WORKAROUND 1
 static int reset_msgfifo(struct mtk_raw_device *dev);
 
@@ -1579,6 +1580,8 @@ static irqreturn_t mtk_thread_irq_raw(int irq, void *data)
 	struct mtk_camsys_irq_info irq_info;
 	int recovered_done;
 	int do_recover;
+	char *str_buf;
+	size_t str_buf_size;
 
 	if (unlikely(atomic_cmpxchg(&raw_dev->is_fifo_overflow, 1, 0)))
 		dev_info(raw_dev->dev, "msg fifo overflow\n");
@@ -1602,6 +1605,26 @@ static irqreturn_t mtk_thread_irq_raw(int irq, void *data)
 			raw_readl_relaxed(raw_dev, raw_dev->base_inner, REG_FHG_FHG_SPARE_1),
 			raw_readl_relaxed(raw_dev, raw_dev->base, REG_FHG_FHG_SPARE_1),
 			raw_readl_relaxed(raw_dev, raw_dev->base, REG_CAMCTL_MOD5_EN));
+#else
+		if (irq_info.irq_type & BIT(CAMSYS_IRQ_FRAME_START) ||
+			irq_info.irq_type & BIT(CAMSYS_IRQ_DEBUG_1) ||
+			irq_info.irq_type & BIT(CAMSYS_IRQ_ERROR)) {
+			str_buf = raw_dev->str_debug_irq_data;
+			str_buf_size = sizeof(raw_dev->str_debug_irq_data);
+			memset(str_buf, 0, str_buf_size);
+			scnprintf(str_buf, str_buf_size,
+			"[%llu] ts=%llu irq %d, req:0x%x/0x%x en:0x%x td:%llu (0x%x/0x%x/0x%x)",
+				local_clock(),
+				irq_info.ts_ns / 1000,
+				irq_info.irq_type,
+				irq_info.frame_idx_inner,
+				irq_info.frame_idx,
+				irq_info.debug_en,
+				ktime_get_boottime_ns() - irq_info.ts_ns,
+				raw_readl_relaxed(raw_dev, raw_dev->base_inner, REG_FHG_FHG_SPARE_1),
+				raw_readl_relaxed(raw_dev, raw_dev->base, REG_FHG_FHG_SPARE_1),
+				raw_readl_relaxed(raw_dev, raw_dev->base, REG_CAMCTL_MOD5_EN));
+		}
 #endif
 
 		/* error case */

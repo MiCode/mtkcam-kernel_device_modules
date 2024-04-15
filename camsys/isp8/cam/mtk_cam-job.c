@@ -2029,6 +2029,8 @@ static int apply_engines_cq(struct mtk_cam_job *job,
 			    struct mtkcam_ipi_frame_ack_result *cq_rst)
 {
 	struct mtk_cam_ctx *ctx = job->src_ctx;
+	struct mtk_raw_device *raw_dev = NULL;
+	int raw_id;
 	unsigned long cq_engine, used_engine, sv_engine;
 	unsigned long subset;
 	int i;
@@ -2059,8 +2061,11 @@ static int apply_engines_cq(struct mtk_cam_job *job,
 	sv_engine = bit_map_subset_of(MAP_HW_CAMSV, used_engine);
 
 	subset = bit_map_subset_of(MAP_HW_RAW, cq_engine);
-	if (subset)
+	if (subset) {
 		_apply_raw_cq(job, subset, cq, cq_rst, sv_engine);
+		raw_id = find_first_bit_set(subset);
+		raw_dev = dev_get_drvdata(ctx->cam->engines.raw_devs[raw_id]);
+	}
 
 	subset = bit_map_subset_of(MAP_HW_CAMSV, cq_engine);
 	if (subset)
@@ -2071,11 +2076,13 @@ static int apply_engines_cq(struct mtk_cam_job *job,
 		_apply_mraw_cq(job, subset, cq, cq_rst);
 
 	ts = local_clock();
+
 	mtk_cam_apply_qos(job);
 
-	dev_info(ctx->cam->dev, "[%s] ctx-%d CQ-0x%x cq_eng 0x%lx used_eng 0x%lx (%s)[rms_dis:%d] cq_thr(%llu) ts(%llu)\n",
+	dev_info(ctx->cam->dev, "[%s] ctx-%d CQ-0x%x cq_eng 0x%lx used_eng 0x%lx (%s)[rms_dis:%d] cq_thr(%llu) ts(%llu);%s\n",
 		__func__, ctx->stream_id, frame_seq_no, cq_engine,
-		used_engine, job->scen_str, job->rms_disable, job->job_state.cq_trigger_thres_ns, ts);
+		used_engine, job->scen_str, job->rms_disable, job->job_state.cq_trigger_thres_ns, ts,
+		raw_dev ? raw_dev->str_debug_irq_data : "");
 
 	qof_dump_ctx(ctx, qof_dump_cq_addr);
 	qof_dump_ctx(ctx, qof_dump_ctrl);
@@ -2296,6 +2303,9 @@ static void dump_job_info(struct mtk_cam_job *job)
 {
 	struct mtk_cam_ctx *ctx = job->src_ctx;
 	struct device *dev = ctx->cam->dev;
+	struct mtk_cam_request *req = job->req;
+	struct mtk_cam_buffer *buf;
+	struct mtk_cam_video_device *node;
 
 	dev_info(dev, "%s: ctx-%d pipe %x job type %d req-%d-0x%x eng %x\n",
 		 __func__,
@@ -2308,6 +2318,11 @@ static void dump_job_info(struct mtk_cam_job *job)
 		 __func__,
 		 atomic_long_read(&job->done_set), job->done_handled,
 		 atomic_long_read(&job->afo_done));
+	list_for_each_entry(buf, &req->buf_list, list) {
+		node = mtk_cam_buf_to_vdev(buf);
+		dev_info(dev, "%s:%s iova:0x%llx", __func__,
+			node->desc.name, buf->daddr);
+	}
 }
 
 static void job_dump(struct mtk_cam_job *job, int seq_no, const char *desc)

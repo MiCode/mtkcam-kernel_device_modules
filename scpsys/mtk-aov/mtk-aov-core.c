@@ -496,7 +496,6 @@ int aov_core_send_cmd(struct mtk_aov *aov_dev, uint32_t cmd,
 				/* suspend and set clk parent here to prevent enque
 				 * racing issue when power on/off on scp side.
 				 */
-				mutex_lock(&core_info->seninf_ctrl_mutex);
 				AOV_DEBUG_LOG(*(aov_dev->enable_aov_log_flag),
 					"mtk_cam_seninf_aov_runtime_suspend(%d)+\n",
 					core_info->sensor_id);
@@ -510,7 +509,6 @@ int aov_core_send_cmd(struct mtk_aov *aov_dev, uint32_t cmd,
 				AOV_DEBUG_LOG(*(aov_dev->enable_aov_log_flag),
 					"mtk_cam_seninf_aov_runtime_suspend(%d)-\n",
 					core_info->sensor_id);
-				mutex_unlock(&core_info->seninf_ctrl_mutex);
 
 				AOV_DEBUG_LOG(*(aov_dev->enable_aov_log_flag),
 					"MTK FD COPY, version(%u)+\n", aov_dev->fd_version);
@@ -773,7 +771,6 @@ int aov_core_send_cmd(struct mtk_aov *aov_dev, uint32_t cmd,
 		queue_deinit(&(core_info->queue));
 		queue_init(&(core_info->queue));
 
-		mutex_lock(&core_info->seninf_ctrl_mutex);
 		AOV_DEBUG_LOG(*(aov_dev->enable_aov_log_flag),
 			"mtk_cam_seninf_aov_runtime_resume(%d/%d)+\n",
 			core_info->sensor_id, DEINIT_NORMAL);
@@ -782,7 +779,6 @@ int aov_core_send_cmd(struct mtk_aov *aov_dev, uint32_t cmd,
 		AOV_DEBUG_LOG(*(aov_dev->enable_aov_log_flag),
 			"mtk_cam_seninf_aov_runtime_resume(%d/%d)-\n",
 			core_info->sensor_id, DEINIT_NORMAL);
-		mutex_unlock(&core_info->seninf_ctrl_mutex);
 	} else if (cmd == AOV_SCP_CMD_START) {
 		dev_info(aov_dev->dev, "%s: notify seninf to close mclk", __func__);
 		mtk_cam_seninf_aov_sensor_set_mclk(core_info->sensor_id, 0);
@@ -844,7 +840,6 @@ static int aov_core_recover(struct mtk_aov *aov_dev)
 
 	pm_stay_awake(aov_dev->dev);
 
-	mutex_lock(&core_info->seninf_ctrl_mutex);
 	AOV_DEBUG_LOG(*(aov_dev->enable_aov_log_flag),
 		"mtk_cam_seninf_aov_runtime_resume(%d/%d)+\n",
 		core_info->sensor_id, DEINIT_ABNORMAL_SCP_STOP);
@@ -864,7 +859,6 @@ static int aov_core_recover(struct mtk_aov *aov_dev)
 			pm_relax(aov_dev->dev);
 			dev_info(aov_dev->dev, "%s: invalid null aov start_v2 parameter\n",
 				__func__);
-			mutex_unlock(&core_info->seninf_ctrl_mutex);
 			return -1;
 		}
 	} else {
@@ -877,7 +871,6 @@ static int aov_core_recover(struct mtk_aov *aov_dev)
 			pm_relax(aov_dev->dev);
 			dev_info(aov_dev->dev, "%s: invalid null aov start parameter\n",
 				__func__);
-			mutex_unlock(&core_info->seninf_ctrl_mutex);
 			return -1;
 		}
 	}
@@ -911,7 +904,6 @@ static int aov_core_recover(struct mtk_aov *aov_dev)
 	AOV_DEBUG_LOG(*(aov_dev->enable_aov_log_flag),
 		"mtk_cam_seninf_aov_runtime_suspend(%d)-\n",
 		core_info->sensor_id);
-	mutex_unlock(&core_info->seninf_ctrl_mutex);
 
 	if (aov_dev->fd_version == 2) {
 		// Setup display mode
@@ -950,6 +942,7 @@ static int scp_state_notify(struct notifier_block *this,
 	int ret;
 
 	if (event == SCP_EVENT_STOP) {
+		mutex_lock(&core_info->start_stop_mutex);
 		(void)aov_aee_record(aov_dev, 0, SCP_STOP);
 		(void)aov_aee_flush(aov_dev);
 
@@ -984,6 +977,7 @@ static int scp_state_notify(struct notifier_block *this,
 			dev_info(aov_dev->dev,
 				"%s: failed to init scp session(%d): %d\n",
 				__func__, session, ret);
+				mutex_unlock(&core_info->start_stop_mutex);
 			return NOTIFY_DONE;
 		}
 
@@ -1001,6 +995,7 @@ static int scp_state_notify(struct notifier_block *this,
 
 		atomic_set(&(core_info->scp_ready), 2);
 		aov_ulposc_cali(aov_dev);
+		mutex_unlock(&core_info->start_stop_mutex);
 	}
 
 	return NOTIFY_DONE;
@@ -1026,7 +1021,7 @@ int aov_core_init(struct mtk_aov *aov_dev)
 	atomic_set(&(core_info->aov_ready), 0);
 	atomic_set(&(core_info->cmd_seq), 0);
 	atomic_set(&(core_info->qea_ready), 0);
-	mutex_init(&core_info->seninf_ctrl_mutex);
+	mutex_init(&core_info->start_stop_mutex);
 
 	if (curr_dev->op_mode == 0) {
 		dev_info(aov_dev->dev, "%s: bypass init operation", __func__);
@@ -1580,6 +1575,7 @@ int aov_core_reset(struct mtk_aov *aov_dev)
 	}
 
 	if (atomic_read(&(core_info->aov_ready))) {
+		mutex_lock(&core_info->start_stop_mutex);
 #if AOV_SLB_ALLOC_FREE
 		struct slbc_data slb;
 #endif  // AOV_SLB_ALLOC_FREE
@@ -1593,7 +1589,6 @@ int aov_core_reset(struct mtk_aov *aov_dev)
 			msleep(100);
 		}
 
-		mutex_lock(&core_info->seninf_ctrl_mutex);
 		AOV_DEBUG_LOG(*(aov_dev->enable_aov_log_flag),
 			"mtk_cam_seninf_aov_runtime_resume(%d/%d)+\n",
 			core_info->sensor_id, DEINIT_ABNORMAL_USR_FD_KILL);
@@ -1602,7 +1597,6 @@ int aov_core_reset(struct mtk_aov *aov_dev)
 		AOV_DEBUG_LOG(*(aov_dev->enable_aov_log_flag),
 			"mtk_cam_seninf_aov_runtime_resume(%d/%d)-\n",
 			core_info->sensor_id, DEINIT_ABNORMAL_USR_FD_KILL);
-		mutex_unlock(&core_info->seninf_ctrl_mutex);
 
 #if AOV_SLB_ALLOC_FREE
 		slb.uid = UID_AOV_DC;
@@ -1651,6 +1645,7 @@ int aov_core_reset(struct mtk_aov *aov_dev)
 		atomic_set(&(core_info->aov_ready), 0);
 
 		ret = 1;
+		mutex_unlock(&core_info->start_stop_mutex);
 	}
 
 	return ret;
@@ -1661,7 +1656,7 @@ int aov_core_uninit(struct mtk_aov *aov_dev)
 	struct aov_core *core_info = &aov_dev->core_info;
 
 	//devm_kfree(aov_dev->dev, core_info->event_data);
-	mutex_destroy(&core_info->seninf_ctrl_mutex);
+	mutex_destroy(&core_info->start_stop_mutex);
 
 	if (aov_dev->op_mode == 0) {
 		dev_info(aov_dev->dev, "%s: bypass uninit operation", __func__);

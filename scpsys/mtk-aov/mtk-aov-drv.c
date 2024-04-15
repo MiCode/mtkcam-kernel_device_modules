@@ -145,6 +145,7 @@ static long mtk_aov_ioctl(struct file *file, unsigned int cmd,
 		unsigned long arg)
 {
 	struct mtk_aov *aov_dev = (struct mtk_aov *)file->private_data;
+	struct aov_core *core_info = &aov_dev->core_info;
 	int ret = 0;
 
 	AOV_DEBUG_LOG(*(aov_dev->enable_aov_log_flag),
@@ -156,6 +157,7 @@ static long mtk_aov_ioctl(struct file *file, unsigned int cmd,
 			dev_info(aov_dev->dev, "skip flow below AOV kernel!\n");
 			break;
 		}
+		mutex_lock(&core_info->start_stop_mutex);
 		dev_info(aov_dev->dev, "AOV start+\n");
 		vmm_isp_ctrl_notify(1);
 		mtk_mmdvfs_aov_enable(1);
@@ -168,6 +170,7 @@ static long mtk_aov_ioctl(struct file *file, unsigned int cmd,
 			if (ret) {
 				dev_info(aov_dev->dev, "%s: failed to copy aov user data: %d\n",
 					__func__, ret);
+				mutex_unlock(&core_info->start_stop_mutex);
 				return -EFAULT;
 			}
 			g_frame_mode = user.frame_mode;
@@ -192,6 +195,7 @@ static long mtk_aov_ioctl(struct file *file, unsigned int cmd,
 		}
 
 		dev_info(aov_dev->dev, "AOV start-(%d)\n", ret);
+		mutex_unlock(&core_info->start_stop_mutex);
 		break;
 	}
 	case AOV_DEV_SENSOR_ON:
@@ -226,6 +230,7 @@ static long mtk_aov_ioctl(struct file *file, unsigned int cmd,
 			dev_info(aov_dev->dev, "skip flow below AOV kernel!\n");
 			break;
 		}
+		mutex_lock(&core_info->start_stop_mutex);
 		dev_info(aov_dev->dev, "AOV stop+\n");
 
 		g_aov_start = false;
@@ -249,6 +254,7 @@ static long mtk_aov_ioctl(struct file *file, unsigned int cmd,
 		}
 
 		dev_info(aov_dev->dev, "AOV stop-(%d)\n", ret);
+		mutex_unlock(&core_info->start_stop_mutex);
 		break;
 	case AOV_DEV_QEA:
 		AOV_DEBUG_LOG(*(aov_dev->enable_aov_log_flag), "trigger AOV QEA\n");

@@ -76,7 +76,7 @@ struct aov_core {
 	wait_queue_head_t reset_sensor_wq;
 	struct task_struct *reset_sensor_thread;
 
-	struct mutex seninf_ctrl_mutex;
+	struct mutex start_stop_mutex;
 };
 
 int aov_core_init(struct mtk_aov *device);

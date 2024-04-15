@@ -235,28 +235,32 @@ static inline void PDA_Disable_Unprepare_ccf_clock(void)
  **************************************************************/
 static void EnableClock(bool En)
 {
+	int i = 0;
+	unsigned int nIRQstatus = 0;
+
 	if (En) {			/* Enable clock. */
 
 		// Enable clock count
 		spin_lock(&g_PDA_SpinLock);
 		switch (g_u4EnableClockCount) {
 		case 0:
-			g_u4EnableClockCount++;
 			spin_unlock(&g_PDA_SpinLock);
 
 #ifndef FPGA_UT
-		if (pda_log_dbg_en == 1)
-			LOG_INF("It's real ic load, Enable Clock");
+			if (pda_log_dbg_en == 1)
+				LOG_INF("It's real ic load, Enable Clock");
 
-		mutex_lock(&pda_pm_mutex);
-		PDA_Prepare_Enable_ccf_clock();
-		mutex_unlock(&pda_pm_mutex);
+			mutex_lock(&pda_pm_mutex);
+			PDA_Prepare_Enable_ccf_clock();
+			mutex_unlock(&pda_pm_mutex);
 #else
-		// Enable clock by hardcode:
-		LOG_INF("It's LDVT load, Enable Clock");
-		//PDA_WR32(REG_CAMSYS_CG_CLR, 0xFFFFFFFF);
+			// Enable clock by hardcode:
+			LOG_INF("It's LDVT load, Enable Clock");
+			//PDA_WR32(REG_CAMSYS_CG_CLR, 0xFFFFFFFF);
 #endif
-
+			spin_lock(&g_PDA_SpinLock);
+			g_u4EnableClockCount++;
+			spin_unlock(&g_PDA_SpinLock);
 			break;
 		default:
 			g_u4EnableClockCount++;
@@ -272,19 +276,30 @@ static void EnableClock(bool En)
 		case 0:
 			spin_unlock(&g_PDA_SpinLock);
 #ifndef FPGA_UT
-		if (pda_log_dbg_en == 1)
-			LOG_INF("It's real ic load, Disable Clock");
+			if (pda_log_dbg_en == 1)
+				LOG_INF("It's real ic load, Disable Clock");
 
-		mutex_lock(&pda_pm_mutex);
+			mutex_lock(&pda_pm_mutex);
 #ifdef PDA_MMQOS
-		pda_mmqos_bw_reset();
+			pda_mmqos_bw_reset();
 #endif
-		PDA_Disable_Unprepare_ccf_clock();
-		mutex_unlock(&pda_pm_mutex);
+
+			for (i = 0; i < g_PDA_quantity; i++) {
+				nIRQstatus = PDA_RD32(PDA_devs[i].m_pda_base + PDA_PDA_ERR_STAT_EN_REG);
+				if (nIRQstatus != 0x0) {
+					LOG_INF("PDA%d, ERR_STAT_EN: 0x%x\n", i, nIRQstatus);
+					// disable pda done irq
+					PDA_WR32(PDA_devs[i].m_pda_base + PDA_PDA_ERR_STAT_EN_REG,
+						0x00000000);
+				}
+			}
+
+			PDA_Disable_Unprepare_ccf_clock();
+			mutex_unlock(&pda_pm_mutex);
 #else
-		// Disable clock by hardcode:
-		LOG_INF("It's LDVT load, Disable Clock");
-		//PDA_WR32(REG_CAMSYS_CG_SET, 0xFFFFFFFF);
+			// Disable clock by hardcode:
+			LOG_INF("It's LDVT load, Disable Clock");
+			//PDA_WR32(REG_CAMSYS_CG_SET, 0xFFFFFFFF);
 #endif
 
 			break;
@@ -300,8 +315,9 @@ static void pda_reset(unsigned int PDA_Index)
 	unsigned long end = 0;
 
 	spin_lock(&g_PDA_SpinLock);
-	if (g_u4EnableClockCount == 0) {
-		LOG_INF("Cannot process without enable pda clock\n");
+	if (g_u4EnableClockCount == 0 || g_u4pm_cnt == 0) {
+		LOG_INF("Cannot process without enable pda clock, clk/pm:%d/%d\n",
+			g_u4EnableClockCount, g_u4pm_cnt);
 		spin_unlock(&g_PDA_SpinLock);
 		return;
 	}
@@ -354,8 +370,9 @@ static void pda_nontransaction_reset(unsigned int PDA_Index)
 	unsigned int Reset_Bitmask = 0;
 
 	spin_lock(&g_PDA_SpinLock);
-	if (g_u4EnableClockCount == 0) {
-		LOG_INF("Cannot process without enable pda clock\n");
+	if (g_u4EnableClockCount == 0 || g_u4pm_cnt == 0) {
+		LOG_INF("Cannot process without enable pda clock, clk/pm:%d/%d\n",
+			g_u4EnableClockCount, g_u4pm_cnt);
 		spin_unlock(&g_PDA_SpinLock);
 		return;
 	}
@@ -441,11 +458,51 @@ static void pda_put_dma_buffer(struct pda_mmu *mmu)
 	}
 }
 
-static void initHWDMASettings(void)
+static void HWDMASettings(struct PDA_Data_t *pda_PdaConfig)
 {
 	unsigned int i;
 
 	for (i = 0; i < g_PDA_quantity; i++) {
+		// --------- Frame setting part -----------
+		PDA_WR32(PDA_devs[i].m_pda_base + PDA_CFG_0_REG,
+			pda_PdaConfig->PDA_HW_Register.PDA_CFG_0.Raw);
+		PDA_WR32(PDA_devs[i].m_pda_base + PDA_CFG_1_REG,
+			pda_PdaConfig->PDA_HW_Register.PDA_CFG_1.Raw);
+		// need set roi number every process
+		// PDA_WR32(PDA_devs[i].m_pda_base + PDA_CFG_2_REG,
+		//     pda_PdaConfig->PDA_HW_Register.PDA_CFG_2.Raw);
+		PDA_WR32(PDA_devs[i].m_pda_base + PDA_CFG_3_REG,
+			pda_PdaConfig->PDA_HW_Register.PDA_CFG_3.Raw);
+		PDA_WR32(PDA_devs[i].m_pda_base + PDA_CFG_4_REG,
+			pda_PdaConfig->PDA_HW_Register.PDA_CFG_4.Raw);
+		PDA_WR32(PDA_devs[i].m_pda_base + PDA_CFG_5_REG,
+			pda_PdaConfig->PDA_HW_Register.PDA_CFG_5.Raw);
+		PDA_WR32(PDA_devs[i].m_pda_base + PDA_CFG_6_REG,
+			pda_PdaConfig->PDA_HW_Register.PDA_CFG_6.Raw);
+		PDA_WR32(PDA_devs[i].m_pda_base + PDA_CFG_7_REG,
+			pda_PdaConfig->PDA_HW_Register.PDA_CFG_7.Raw);
+		PDA_WR32(PDA_devs[i].m_pda_base + PDA_CFG_8_REG,
+			pda_PdaConfig->PDA_HW_Register.PDA_CFG_8.Raw);
+		PDA_WR32(PDA_devs[i].m_pda_base + PDA_CFG_9_REG,
+			pda_PdaConfig->PDA_HW_Register.PDA_CFG_9.Raw);
+		PDA_WR32(PDA_devs[i].m_pda_base + PDA_CFG_10_REG,
+			pda_PdaConfig->PDA_HW_Register.PDA_CFG_10.Raw);
+		PDA_WR32(PDA_devs[i].m_pda_base + PDA_CFG_11_REG,
+			pda_PdaConfig->PDA_HW_Register.PDA_CFG_11.Raw);
+		PDA_WR32(PDA_devs[i].m_pda_base + PDA_CFG_12_REG,
+			pda_PdaConfig->PDA_HW_Register.PDA_CFG_12.Raw);
+		PDA_WR32(PDA_devs[i].m_pda_base + PDA_CFG_13_REG,
+			pda_PdaConfig->PDA_HW_Register.PDA_CFG_13.Raw);
+		PDA_WR32(PDA_devs[i].m_pda_base + PDA_CFG_14_REG,
+			pda_PdaConfig->PDA_HW_Register.PDA_CFG_14.Raw);
+		PDA_WR32(PDA_devs[i].m_pda_base + PDA_CFG_15_REG,
+			pda_PdaConfig->PDA_HW_Register.PDA_CFG_15.Raw);
+		PDA_WR32(PDA_devs[i].m_pda_base + PDA_CFG_16_REG,
+			pda_PdaConfig->PDA_HW_Register.PDA_CFG_16.Raw);
+		PDA_WR32(PDA_devs[i].m_pda_base + PDA_CFG_17_REG,
+			pda_PdaConfig->PDA_HW_Register.PDA_CFG_17.Raw);
+		PDA_WR32(PDA_devs[i].m_pda_base + PDA_CFG_18_REG,
+			pda_PdaConfig->PDA_HW_Register.PDA_CFG_18.Raw);
 
 		// --------- DMA Secure part -------------
 		PDA_WR32(PDA_devs[i].m_pda_base + PDA_PDA_SECURE_REG, 0x00000000);
@@ -574,6 +631,7 @@ static void initHWDMASettings(void)
 
 		PDA_WR32(PDA_devs[i].m_pda_base + PDA_PDA_AUTO_TRIG_REG, 0x0);
 
+		// clear AXSLC
 		PDA_WR32(PDA_devs[i].m_pda_base + 0x06d8, 0x0);
 		PDA_WR32(PDA_devs[i].m_pda_base + 0x06dc, 0x0);
 		PDA_WR32(PDA_devs[i].m_pda_base + 0x06e0, 0x0);
@@ -586,55 +644,6 @@ static void initHWDMASettings(void)
 
 		// setting read clear
 		PDA_WR32(PDA_devs[i].m_pda_base + PDA_PDA_ERR_STAT_EN_REG, 0x00000001);
-
-	}
-}
-
-static void HWDMASettings(struct PDA_Data_t *pda_PdaConfig)
-{
-	unsigned int i;
-
-	for (i = 0; i < g_PDA_quantity; i++) {
-		// --------- Frame setting part -----------
-		PDA_WR32(PDA_devs[i].m_pda_base + PDA_CFG_0_REG,
-			pda_PdaConfig->PDA_HW_Register.PDA_CFG_0.Raw);
-		PDA_WR32(PDA_devs[i].m_pda_base + PDA_CFG_1_REG,
-			pda_PdaConfig->PDA_HW_Register.PDA_CFG_1.Raw);
-		// need set roi number every process
-		// PDA_WR32(PDA_devs[i].m_pda_base + PDA_CFG_2_REG,
-		//     pda_PdaConfig->PDA_HW_Register.PDA_CFG_2.Raw);
-		PDA_WR32(PDA_devs[i].m_pda_base + PDA_CFG_3_REG,
-			pda_PdaConfig->PDA_HW_Register.PDA_CFG_3.Raw);
-		PDA_WR32(PDA_devs[i].m_pda_base + PDA_CFG_4_REG,
-			pda_PdaConfig->PDA_HW_Register.PDA_CFG_4.Raw);
-		PDA_WR32(PDA_devs[i].m_pda_base + PDA_CFG_5_REG,
-			pda_PdaConfig->PDA_HW_Register.PDA_CFG_5.Raw);
-		PDA_WR32(PDA_devs[i].m_pda_base + PDA_CFG_6_REG,
-			pda_PdaConfig->PDA_HW_Register.PDA_CFG_6.Raw);
-		PDA_WR32(PDA_devs[i].m_pda_base + PDA_CFG_7_REG,
-			pda_PdaConfig->PDA_HW_Register.PDA_CFG_7.Raw);
-		PDA_WR32(PDA_devs[i].m_pda_base + PDA_CFG_8_REG,
-			pda_PdaConfig->PDA_HW_Register.PDA_CFG_8.Raw);
-		PDA_WR32(PDA_devs[i].m_pda_base + PDA_CFG_9_REG,
-			pda_PdaConfig->PDA_HW_Register.PDA_CFG_9.Raw);
-		PDA_WR32(PDA_devs[i].m_pda_base + PDA_CFG_10_REG,
-			pda_PdaConfig->PDA_HW_Register.PDA_CFG_10.Raw);
-		PDA_WR32(PDA_devs[i].m_pda_base + PDA_CFG_11_REG,
-			pda_PdaConfig->PDA_HW_Register.PDA_CFG_11.Raw);
-		PDA_WR32(PDA_devs[i].m_pda_base + PDA_CFG_12_REG,
-			pda_PdaConfig->PDA_HW_Register.PDA_CFG_12.Raw);
-		PDA_WR32(PDA_devs[i].m_pda_base + PDA_CFG_13_REG,
-			pda_PdaConfig->PDA_HW_Register.PDA_CFG_13.Raw);
-		PDA_WR32(PDA_devs[i].m_pda_base + PDA_CFG_14_REG,
-			pda_PdaConfig->PDA_HW_Register.PDA_CFG_14.Raw);
-		PDA_WR32(PDA_devs[i].m_pda_base + PDA_CFG_15_REG,
-			pda_PdaConfig->PDA_HW_Register.PDA_CFG_15.Raw);
-		PDA_WR32(PDA_devs[i].m_pda_base + PDA_CFG_16_REG,
-			pda_PdaConfig->PDA_HW_Register.PDA_CFG_16.Raw);
-		PDA_WR32(PDA_devs[i].m_pda_base + PDA_CFG_17_REG,
-			pda_PdaConfig->PDA_HW_Register.PDA_CFG_17.Raw);
-		PDA_WR32(PDA_devs[i].m_pda_base + PDA_CFG_18_REG,
-			pda_PdaConfig->PDA_HW_Register.PDA_CFG_18.Raw);
 
 		// read 0x3b4, avoid the impact of previous data
 		PDA_RD32(PDA_devs[i].m_pda_base + PDA_PDA_ERR_STAT_REG);
@@ -1372,7 +1381,7 @@ static irqreturn_t pda_irqhandle(signed int Irq, void *DeviceId)
 	unsigned int nPdaStatus = 0;
 
 	spin_lock(&g_PDA_SpinLock);
-	if (g_u4EnableClockCount > 0) {
+	if (g_u4EnableClockCount > 0 && g_u4pm_cnt > 0) {
 		// read pda status
 		nPdaStatus = PDA_RD32(PDA_devs[0].m_pda_base + PDA_PDA_ERR_STAT_REG) &
 			PDA_STATUS_REG;
@@ -1392,11 +1401,13 @@ static irqreturn_t pda_irqhandle(signed int Irq, void *DeviceId)
 	++g_PDA0_IRQCount;
 	if (g_PDA0_IRQCount > g_reasonable_IRQCount) {
 		PDA_devs[0].HWstatus = -29;
-		LOG_INF("Irq abnormal, rsn: %d, pda0count: %d, roi/status: %d/%d\n",
+		LOG_INF("Irq abnormal, rsn: %d, pda0count: %d, roi/status/clk/pm: %d/%d/%d/%d\n",
 			g_reasonable_IRQCount,
 			g_PDA0_IRQCount,
 			g_pda_Pdadata.roi_num,
-			g_pda_Pdadata.status);
+			g_pda_Pdadata.status,
+			g_u4EnableClockCount,
+			g_u4pm_cnt);
 		pda_nontransaction_reset(0);
 	}
 #endif
@@ -1411,7 +1422,7 @@ static irqreturn_t pda2_irqhandle(signed int Irq, void *DeviceId)
 	unsigned int nPdaStatus = 0;
 
 	spin_lock(&g_PDA_SpinLock);
-	if (g_u4EnableClockCount > 0) {
+	if (g_u4EnableClockCount > 0 && g_u4pm_cnt > 0) {
 		// read pda status
 		nPdaStatus = PDA_RD32(PDA_devs[1].m_pda_base + PDA_PDA_ERR_STAT_REG) &
 			PDA_STATUS_REG;
@@ -1431,11 +1442,13 @@ static irqreturn_t pda2_irqhandle(signed int Irq, void *DeviceId)
 	++g_PDA1_IRQCount;
 	if (g_PDA1_IRQCount > g_reasonable_IRQCount) {
 		PDA_devs[1].HWstatus = -29;
-		LOG_INF("Irq abnormal, rsn: %d, pda1count: %d, roi/status: %d/%d\n",
+		LOG_INF("Irq abnormal, rsn: %d, pda1count: %d, roi/status/clk/pm: %d/%d/%d/%d\n",
 			g_reasonable_IRQCount,
 			g_PDA1_IRQCount,
 			g_pda_Pdadata.roi_num,
-			g_pda_Pdadata.status);
+			g_pda_Pdadata.status,
+			g_u4EnableClockCount,
+			g_u4pm_cnt);
 		pda_nontransaction_reset(1);
 	}
 #endif
@@ -1893,6 +1906,12 @@ static long PDA_Ioctl(struct file *a_pstFile,
 
 #ifdef GET_PDA_TIME
 		ktime_get_real_ts64(&total_time_begin);
+#endif
+
+#ifndef FPGA_UT
+		// MRAW PDA reset
+		for (i = 0; i < g_PDA_quantity; i++)
+			pda_nontransaction_reset(i);
 #endif
 
 		// reset HW status
@@ -2423,14 +2442,6 @@ static long PDA_Ioctl(struct file *a_pstFile,
 		// update sensor dev
 		g_last_sensor_dev = g_pda_Pdadata.sensor_dev;
 
-		// PDA HW and DMA setting
-		for (i = 0; i < g_PDA_quantity; i++) {
-			if (PDA_RD32(PDA_devs[i].m_pda_base + PDA_PDA_DMA_EN_REG) == 0) {
-				if (pda_log_dbg_en == 1)
-					LOG_INF("Because it has been reset, need to config setting again\n");
-				initHWDMASettings();
-			}
-		}
 		HWDMASettings(&g_pda_Pdadata);
 
 		// ------------------------ PDA pre-process done -----------------
@@ -2461,10 +2472,6 @@ static long PDA_Ioctl(struct file *a_pstFile,
 EXIT:
 		if (pda_log_dbg_en == 1)
 			LOG_INF("Exit\n");
-
-		// MRAW PDA reset
-		for (i = 0; i < g_PDA_quantity; i++)
-			pda_nontransaction_reset(i);
 
 		mutex_unlock(&pda_mutex);
 
@@ -2528,25 +2535,8 @@ static int PDA_Open(struct inode *a_pstInode, struct file *a_pstFile)
 
 static int PDA_Release(struct inode *a_pstInode, struct file *a_pstFile)
 {
-	int i = 0;
-	unsigned int nIRQstatus = 0;
-
 	// all fd array and iova array need to be cleared and unmap
 	free_alldmabufferandfdarraytable();
-
-	spin_lock(&g_PDA_SpinLock);
-	if (g_u4EnableClockCount > 0) {
-		for (i = 0; i < g_PDA_quantity; i++) {
-			nIRQstatus = PDA_RD32(PDA_devs[i].m_pda_base + PDA_PDA_ERR_STAT_EN_REG);
-			if (nIRQstatus != 0x0) {
-				LOG_INF("PDA%d, ERR_STAT_EN: 0x%x\n", i, nIRQstatus);
-				// disable pda done irq
-				PDA_WR32(PDA_devs[i].m_pda_base + PDA_PDA_ERR_STAT_EN_REG,
-					0x00000000);
-			}
-		}
-	}
-	spin_unlock(&g_PDA_SpinLock);
 
 	//Disable clock
 	EnableClock(MFALSE);

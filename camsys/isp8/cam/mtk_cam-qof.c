@@ -335,7 +335,8 @@ int qof_enable_cq_trigger_by_qof(struct mtk_raw_device *raw, bool enable)
 	u32 on = (enable) ? 1 : 0;
 
 	if (!qof_is_enabled(raw)) {
-		dev_info(raw->dev, "%s: raw id %d not enabled", __func__, raw->id);
+		if (CAM_DEBUG_ENABLED(QOF))
+			dev_info(raw->dev, "%s: raw id %d not enabled", __func__, raw->id);
 		return 0;
 	}
 
@@ -417,8 +418,9 @@ void qof_set_cq_start_max(struct mtk_raw_device *dev, int scq_ms)
 		scq_ms * (TM_FREQ_KHZ / ((QOF_TIMER_FREQ_DIV + 1) * 2));
 
 	writel(start_period, dev->qof_base + REG_QOF_CAM_A_QOF_CQ_START_MAX_1);
-	dev_info(dev->dev, "[%s] REG_QOF_CAM_A_QOF_CQ_START_MAX_1:0x%08x (%dms)\n",
-		 __func__, readl(dev->qof_base + REG_QOF_CAM_A_QOF_CQ_START_MAX_1), scq_ms);
+	if (CAM_DEBUG_ENABLED(QOF))
+		dev_info(dev->dev, "[%s] REG_QOF_CAM_A_QOF_CQ_START_MAX_1:0x%08x (%dms)\n",
+				 __func__, readl(dev->qof_base + REG_QOF_CAM_A_QOF_CQ_START_MAX_1), scq_ms);
 }
 
 int qof_mtcmos_raw_voter(struct mtk_raw_device *raw, bool enable)
@@ -777,9 +779,10 @@ void qof_setup_rtc(struct mtk_raw_device *dev)
 	u32 base = (u32)((u64)dev->base_reg_addr - (u64)cam->base_reg_addr);
 	u32 base_inner = (u32)((u64)dev->base_inner_reg_addr - (u64)cam->base_reg_addr);
 
-	dev_info(dev->dev,
-			 "qof: %s: base_reg_addr 0x%x base_inner_reg_addr 0x%x",
-			 __func__, base, base_inner);
+	if (CAM_DEBUG_ENABLED(QOF))
+		dev_info(dev->dev,
+				 "qof: %s: base_reg_addr 0x%x base_inner_reg_addr 0x%x",
+				 __func__, base, base_inner);
 
 	writel_relaxed(base + REG_FRAME_IDX,
 				   dev->qof_base + REG_QOF_CAM_A_TRANS1_ADDR_1);

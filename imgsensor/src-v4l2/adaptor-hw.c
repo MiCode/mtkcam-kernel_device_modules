@@ -439,7 +439,8 @@ int do_hw_power_off(struct adaptor_ctx *ctx)
 	/* call subdrv close function before pwr off */
 	subdrv_call(ctx, close);
 
-	if (ctx->subctx.s_ctx.mode[ctx->subctx.current_scenario_id].rosc_mode) {
+	if (ctx->subctx.s_ctx.mode &&
+		ctx->subctx.s_ctx.mode[ctx->subctx.current_scenario_id].rosc_mode) {
 		for (i = 0; i < ctx->mclk_refcnt; i++) {
 			// enable mclk
 			if (clk_prepare_enable(ctx->clk[CLK1_MCLK1]))

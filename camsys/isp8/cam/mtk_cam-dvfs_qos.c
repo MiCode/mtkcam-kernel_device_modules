@@ -24,6 +24,7 @@
 #include "mtk_cam-plat.h"
 #include "mtk_cam-bwr.h"
 
+#define BOOST_DVFS_OPP    2
 #define ICCPATH_NAME_SIZE 32
 #define LCM(a,b) ((a) / gcd(a, b) * (b))
 
@@ -241,7 +242,7 @@ static int find_max_oppidx(struct mtk_camsys_dvfs *dvfs,
 		return max_opp;
 
 	boost_opp = s_info->boostable ?
-		min(s_info->opp_idx + 1, (int)dvfs->opp_num) :
+		min(s_info->opp_idx + BOOST_DVFS_OPP, (int)dvfs->opp_num) :
 		s_info->opp_idx;
 
 	max_opp = max3(max_opp, boost_opp, s_info->switching_opp_idx);

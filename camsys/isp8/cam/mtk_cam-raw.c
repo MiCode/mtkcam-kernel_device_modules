@@ -1395,6 +1395,7 @@ static irqreturn_t mtk_irq_raw_yuv(int irq, void *data)
 	tg2_e_status = tg2_status & INT_ST_MASK_CAM_ERR_TG2;
 	cq_e_status = cq_status & INT_ST_MASK_CAM_ERR_CQ;
 	err_status = frame_e_status | tg1_e_status | cq_e_status;
+
 	if (CAM_DEBUG_ENABLED(RAW_INT))
 		dev_info(dev,
 			"RAW-INT: 17/18/19/20/21/2/3/8 0x%x(err:0x%x)/0x%x/0x%x/0x%x/0x%x/0x%x/0x%x/0x%x, in:0x%x\n",

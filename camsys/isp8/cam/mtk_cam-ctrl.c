@@ -1453,7 +1453,7 @@ static void mtk_cam_ctrl_seamless_switch_flow(struct mtk_cam_job *job)
 		get_sv_tag_idx(exp, MTKCAM_IPI_ORDER_FIRST_TAG, false) :
 		get_sv_tag_idx(exp, MTKCAM_IPI_ORDER_LAST_TAG, false);
 
-		qof_sof_src_sel(raw, mtk_cam_job_is_dcif_required(job),
+		qof_sof_src_sel(raw, job_exp_num(job),
 					!res_raw_is_dc_mode(&res->raw_res), sv_last_tag);
 		qof_set_cq_start_max(raw, -1);
 		qof_enable_cq_trigger_by_qof(raw, false);
@@ -2451,7 +2451,7 @@ static int mtk_cam_watchdog_monitor_job(struct mtk_cam_watchdog *wd)
 
 	ts = ktime_get_boottime_ns();
 	if (!job_ts || in_valid_hw_processing_time(ts - job_ts)) {
-		dev_info(ctx->cam->dev, "job #%d job_ts %llu ts %llu, skip\n",
+		dev_info(ctx->cam->dev, "[inner check] job #%d job_ts %llu ts %llu, skip\n",
 			 req_seq, job_ts, ts);
 		return 0;
 	}

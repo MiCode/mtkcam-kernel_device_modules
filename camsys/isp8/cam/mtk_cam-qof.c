@@ -110,17 +110,22 @@ static inline u32 avoid_power_state(struct mtk_raw_device *raw, u32 state)
 int qof_reset(struct mtk_raw_device *raw)
 {
 	struct mtk_cam_device *cam = raw->cam;
-	u32 rst_val;
+	u32 rst_val, rst_val_off;
 
+	rst_val = readl(cam->qoftop_base + REG_QOF_CAM_TOP_QOF_SW_RST);
+	rst_val_off = rst_val;
 	switch (raw->id) {
 	case RAW_A:
 		SET_FIELD(&rst_val, QOF_CAM_TOP_QOF_SW_RST_RAWA_SW_RST, 1);
+		SET_FIELD(&rst_val_off, QOF_CAM_TOP_QOF_SW_RST_RAWA_SW_RST, 0);
 		break;
 	case RAW_B:
 		SET_FIELD(&rst_val, QOF_CAM_TOP_QOF_SW_RST_RAWB_SW_RST, 1);
+		SET_FIELD(&rst_val_off, QOF_CAM_TOP_QOF_SW_RST_RAWB_SW_RST, 0);
 		break;
 	case RAW_C:
 		SET_FIELD(&rst_val, QOF_CAM_TOP_QOF_SW_RST_RAWC_SW_RST, 1);
+		SET_FIELD(&rst_val_off, QOF_CAM_TOP_QOF_SW_RST_RAWC_SW_RST, 0);
 		break;
 	default:
 		dev_info(raw->dev, "%s: raw id %d not found", __func__, raw->id);
@@ -135,7 +140,9 @@ int qof_reset(struct mtk_raw_device *raw)
 
 	// NOTE: QOF_SW_RST should be TOGGLED
 	writel(rst_val, cam->qoftop_base + REG_QOF_CAM_TOP_QOF_SW_RST);
-	writel(0, cam->qoftop_base + REG_QOF_CAM_TOP_QOF_SW_RST);
+	writel(rst_val_off, cam->qoftop_base + REG_QOF_CAM_TOP_QOF_SW_RST);
+
+	qof_init_timer_freq(raw);
 
 	return 0;
 }
@@ -166,7 +173,7 @@ void qof_setup_ctrl(struct mtk_raw_device *raw, int on)
 				 readl(raw->qof_base + REG_QOF_CAM_A_QOF_CTL_1));
 }
 
-void qof_sof_src_sel(struct mtk_raw_device *raw, bool with_dcif,
+void qof_sof_src_sel(struct mtk_raw_device *raw, int exp_num,
 					 bool with_tg, int sv_last_tag)
 {
 	struct mtk_cam_device *cam = raw->cam;
@@ -175,7 +182,7 @@ void qof_sof_src_sel(struct mtk_raw_device *raw, bool with_dcif,
 	u32 val;
 
 	if (with_tg) {
-		if (with_dcif)
+		if (exp_num > 1)
 			otf_dc_mode = 1;
 	} else {
 		otf_dc_mode = 2;
@@ -204,9 +211,9 @@ void qof_sof_src_sel(struct mtk_raw_device *raw, bool with_dcif,
 
 	writel(val, cam->qoftop_base + REG_QOF_CAM_TOP_QOF_TOP_CTL);
 
-	if (CAM_DEBUG_ENABLED(QOF) || FORCE_DUMP(raw->id))
-		dev_info(raw->dev, "qof: %s: TOP_CTL 0x%08x", __func__,
-				 readl(cam->qoftop_base + REG_QOF_CAM_TOP_QOF_TOP_CTL));
+	dev_info(raw->dev, "qof: %s: TOP_CTL 0x%08x exp:%d/tg:%d", __func__,
+				 readl(cam->qoftop_base + REG_QOF_CAM_TOP_QOF_TOP_CTL),
+				 exp_num, with_tg);
 }
 
 void mtk_cam_enable_itc(struct mtk_raw_device *raw)
@@ -309,6 +316,7 @@ int qof_enable(struct mtk_raw_device *raw, bool enable)
 		return -1;
 	}
 
+	qof_reset(raw);
 	qof_setup_ctrl(raw, en);
 
 	SET_FIELD(&val, QOF_CAM_TOP_SEQUENCE_MODE, QOF_SEQ_MODE_RTC_THEN_ITC);
@@ -1082,6 +1090,8 @@ void qof_dump_cq_addr(struct mtk_raw_device *raw)
 void qof_dump_ctrl(struct mtk_raw_device *raw)
 {
 	if (CAM_DEBUG_ENABLED(QOF) || FORCE_DUMP(raw->id)) {
+		dev_info(raw->dev, "qof: %s: TOP_CTL 0x%08x", __func__,
+				 readl(raw->cam->qoftop_base + REG_QOF_CAM_TOP_QOF_TOP_CTL));
 		dev_info(raw->dev, "qof: %s: 0x%08x",
 				__func__, readl_relaxed(raw->qof_base + REG_QOF_CAM_A_QOF_CTL_1));
 	}

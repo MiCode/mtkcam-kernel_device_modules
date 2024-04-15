@@ -4233,6 +4233,14 @@ static void update_job_state_init_sensor_param(struct mtk_cam_job *job)
 		(ctrl_data && ctrl_data->resource.user_data.raw_res.sen_apply_ctrl ==
 		MTK_CAM_SEN_APPLY_DIRECT_APPLY) ? 1 : 0;
 
+	if (check_update_mstream_mode(job)) {
+		ctrl->frame_interval_ns =
+			mtk_cam_query_interval_from_sensor(job->src_ctx->sensor);
+
+		// NOTE: due to sensor interval fixed at max framerate
+		ctrl->frame_interval_ns *= ((job_exp_num(job) == 1)? 2:1);
+	}
+
 	if (CAM_DEBUG_ENABLED(JOB))
 		pr_info("%s: job i2c_thres_ns %llu, latched_timing:%d, cq_trigger_thres:%llu always:%d\n",
 			__func__,

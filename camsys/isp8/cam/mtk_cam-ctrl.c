@@ -1139,37 +1139,6 @@ int mtk_cam_ctrl_isr_event(struct mtk_cam_device *cam,
 	return ret;
 }
 
-static u64 query_interval_from_sensor(struct v4l2_subdev *sensor)
-{
-	struct v4l2_subdev_frame_interval fi; /* in seconds */
-	u64 frame_interval_ns = 1000000000ULL / 30ULL;
-
-	if (!sensor) {
-		pr_info("%s: warn. without sensor\n", __func__);
-		return frame_interval_ns;
-	}
-
-	memset(&fi, 0, sizeof(fi));
-
-	fi.pad = 0;
-	v4l2_subdev_call(sensor, video, g_frame_interval, &fi);
-
-	if (fi.interval.denominator)
-		frame_interval_ns = (fi.interval.numerator * 1000000000ULL) /
-			fi.interval.denominator;
-	else {
-		pr_info("%s: warn. wrong fi (%u/%u)\n", __func__,
-			fi.interval.numerator,
-			fi.interval.denominator);
-		frame_interval_ns = 1000000000ULL / 30ULL;
-	}
-
-	if (CAM_DEBUG_ENABLED(CTRL))
-		pr_info("%s: fi %llu ns\n", __func__, frame_interval_ns);
-
-	return frame_interval_ns;
-}
-
 /* raw switch also resue it to stream on */
 static int mtk_cam_ctrl_stream_on_job(struct mtk_cam_job *job)
 {
@@ -1184,7 +1153,7 @@ static int mtk_cam_ctrl_stream_on_job(struct mtk_cam_job *job)
 		goto STREAM_ON_FAIL;
 
 	ctrl->frame_interval_ns =
-			query_interval_from_sensor(ctx->sensor);
+			mtk_cam_query_interval_from_sensor(ctx->sensor);
 
 	/* should set ts for second job's apply_sensor */
 	ctrl->r_info.sof_ts_ns = ktime_get_boottime_ns();
@@ -1996,7 +1965,7 @@ void mtk_cam_ctrl_start(struct mtk_cam_ctrl *cam_ctrl, struct mtk_cam_ctx *ctx)
 	cam_ctrl->fs_event_subframe_cnt = 0;
 	cam_ctrl->fs_event_subframe_idx = 0;
 	cam_ctrl->frame_interval_ns =
-			query_interval_from_sensor(ctx->sensor);
+			mtk_cam_query_interval_from_sensor(ctx->sensor);
 	cam_ctrl->sensor_sync_id = 0;
 	cam_ctrl->frame_sync_id = 0;
 	cam_ctrl->sensor_seq = 0;

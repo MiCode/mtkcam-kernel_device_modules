@@ -244,6 +244,9 @@ int mtk_cam_job_state_init_basic(struct mtk_cam_job_state *s,
 			      S_SENSOR_NOT_SET : S_SENSOR_NONE);
 	mtk_cam_job_state_set(s, ISP_STATE, S_ISP_NOT_SET);
 
+	// for mstream 1exp(JOB_BASIC) -> 2exp(JOB_MSTREAM)
+	mtk_cam_job_state_set(s, ISP_2ND_STATE, S_ISP_DONE);
+
 	s->cb = cb;
 	s->apply_by_fsm = 1;
 	s->compose_by_fsm = 1;

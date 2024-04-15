@@ -1484,12 +1484,18 @@ static void dip_runner_func_batch(struct work_struct *work)
 	struct img_ipi_frameparam *frame;
 	struct mtk_imgsys_request *req = runner_work->req;
 	struct mtk_imgsys_dev *imgsys_dev = req->imgsys_pipe->imgsys_dev;
+	int pm_ret = 0;
 
 	/*
 	 * Call MDP/GCE API to do HW excecution
 	 * Pass the framejob to MDP driver
 	 */
-	pm_runtime_get_sync(imgsys_dev->dev);
+	pm_ret = pm_runtime_get_sync(imgsys_dev->dev);
+	if (pm_ret < 0) {
+		dev_err(imgsys_dev->dev,
+			"%s: [ERROR] PM_RUNTIME_GET_SYNC FAIL: %d\n", __func__, pm_ret);
+		return pm_ret;
+	}
 
     if (imgsys_dbg_enable())
 	dev_dbg(imgsys_dev->dev, "%s +", __func__);
@@ -2724,9 +2730,7 @@ static int mtk_imgsys_worker_power_on(void *data)
 		if (ret)
 			dev_info(imgsys_dev->dev, "%s: failed (%d)", __func__, ret);
 	}
-	imgsys_dev->sw_pm_flow_cnt |= PRE_PWR_ON_0;
-	pm_runtime_get_sync(imgsys_dev->dev);
-	imgsys_dev->sw_pm_flow_cnt |= PRE_PWR_ON_1;
+
 	/*set default value for hw module*/
 	for (i = 0; i < (imgsys_dev->modules_num); i++)
 		imgsys_dev->modules[i].init(imgsys_dev);
@@ -2746,14 +2750,19 @@ static int mtk_imgsys_worker_power_on(void *data)
 		"%s: [%d] register iommu cb(0x%x)\n",
 		__func__, i, imgsys_dev->dma_ports[i].port);
 	}
-	imgsys_dev->sw_pm_flow_cnt |= PRE_PWR_OFF_0;
-	pm_runtime_put_sync(imgsys_dev->dev);
-	imgsys_dev->sw_pm_flow_cnt |= PRE_PWR_OFF_1;
+
 	if (!imgsys_quick_onoff_enable()) {
 		#if DVFS_QOS_READY
 		mtk_imgsys_power_ctrl(imgsys_dev, true);
 		#else
-		pm_runtime_get_sync(imgsys_dev->dev);
+		int pm_ret = 0;
+
+		pm_ret = pm_runtime_get_sync(imgsys_dev->dev);
+		if (pm_ret < 0) {
+			dev_err(imgsys_dev->dev,
+				"%s: [ERROR] PM_RUNTIME_GET_SYNC FAIL: %d\n", __func__, pm_ret);
+			return pm_ret;
+		}
 		#endif
 	} else
 		dev_info(imgsys_dev->dev,
@@ -2994,7 +3003,14 @@ err_power_off:
 	#if DVFS_QOS_READY
 		mtk_imgsys_power_ctrl(imgsys_dev, false);
 	#else
-		pm_runtime_put_sync(imgsys_dev->dev);
+		int pm_ret = 0;
+
+		pm_ret = pm_runtime_put_sync(imgsys_dev->dev);
+		if (pm_ret < 0) {
+			dev_err(imgsys_dev->dev,
+				"%s: [ERROR] PM_RUNTIME_PUT_SYNC FAIL: %d\n", __func__, pm_ret);
+			return pm_ret;
+		}
 	#endif
 	} else
 		dev_info(imgsys_dev->dev,
@@ -3130,7 +3146,14 @@ static void mtk_imgsys_hw_disconnect(struct mtk_imgsys_dev *imgsys_dev)
 		#if DVFS_QOS_READY
 		mtk_imgsys_power_ctrl(imgsys_dev, false);
 		#else
-		pm_runtime_put_sync(imgsys_dev->dev);
+		int pm_ret = 0;
+
+		pm_ret = pm_runtime_put_sync(imgsys_dev->dev);
+		if (pm_ret < 0) {
+			dev_err(imgsys_dev->dev,
+				"%s: [ERROR] PM_RUNTIME_PUT_SYNC FAIL: %d\n", __func__, pm_ret);
+			return pm_ret;
+		}
 		#endif
 	} else
 		dev_info(imgsys_dev->dev,

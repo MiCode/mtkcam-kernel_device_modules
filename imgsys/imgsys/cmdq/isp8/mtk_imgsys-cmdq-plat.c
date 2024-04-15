@@ -2223,6 +2223,7 @@ void mtk_imgsys_power_ctrl_plat8(struct mtk_imgsys_dev *imgsys_dev, bool isPower
 	u32 user_cnt = 0;
 	int i;
 	u32 img_main_modules = 0xFFFF;
+	int pm_ret = 0;
 
 	if (isPowerOn) {
 		user_cnt = atomic_inc_return(&imgsys_dev->imgsys_user_cnt);
@@ -2237,7 +2238,12 @@ void mtk_imgsys_power_ctrl_plat8(struct mtk_imgsys_dev *imgsys_dev, bool isPower
 			cmdq_mbox_enable(imgsys_clt[0]->chan);
 
 			imgsys_dev->sw_pm_flow_cnt |= PRE_PWR_ON_2;
-			pm_runtime_get_sync(imgsys_dev->dev);
+			pm_ret = pm_runtime_get_sync(imgsys_dev->dev);
+			if (pm_ret < 0) {
+				dev_err(imgsys_dev->dev,
+					"%s: [ERROR] PM_RUNTIME_GET_SYNC FAIL: %d\n", __func__, pm_ret);
+				return;
+			}
 			imgsys_dev->sw_pm_flow_cnt |= PRE_PWR_ON_3;
 
 			/*set default value for hw module*/
@@ -2278,7 +2284,12 @@ void mtk_imgsys_power_ctrl_plat8(struct mtk_imgsys_dev *imgsys_dev, bool isPower
 			mtk_imgsys_mod_put(imgsys_dev);
 
 			imgsys_dev->sw_pm_flow_cnt |= PRE_PWR_OFF_2;
-			pm_runtime_put_sync(imgsys_dev->dev);
+			pm_ret = pm_runtime_put_sync(imgsys_dev->dev);
+			if (pm_ret < 0) {
+				dev_err(imgsys_dev->dev,
+					"%s: [ERROR] PM_RUNTIME_PUT_SYNC FAIL: %d\n", __func__, pm_ret);
+				return;
+			}
 			imgsys_dev->sw_pm_flow_cnt |= PRE_PWR_OFF_3;
 			//pm_runtime_mark_last_busy(imgsys_dev->dev);
 			//pm_runtime_put_autosuspend(imgsys_dev->dev);

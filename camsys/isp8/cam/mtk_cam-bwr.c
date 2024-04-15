@@ -132,6 +132,11 @@ static void bwr_set_chn_bw(struct mtk_bwr_device *bwr,
 		return;
 
 	mutex_lock(&bwr->op_lock);
+	if (!bwr->started) {
+		pr_info("%s: engine:%d BWR is disabled\n", __func__, engine);
+		mutex_unlock(&bwr->op_lock);
+		return;
+	}
 
 	offset = CHANNEL_OFFSET * axi + ENGINE_OFFSET * engine;
 
@@ -169,6 +174,11 @@ static void bwr_set_ttl_bw(struct mtk_bwr_device *bwr,
 		return;
 
 	mutex_lock(&bwr->op_lock);
+	if (!bwr->started) {
+		pr_info("%s: engine:%d BWR is disabled\n", __func__, engine);
+		mutex_unlock(&bwr->op_lock);
+		return;
+	}
 
 	offset = ENGINE_OFFSET * engine;
 
@@ -192,6 +202,11 @@ static void bwr_zero_bw(struct mtk_bwr_device *bwr,
 			  enum BWR_ENGINE_TYPE engine, enum BWR_AXI_PORT axi)
 {
 	mutex_lock(&bwr->op_lock);
+	if (!bwr->started) {
+		pr_info("%s: engine:%d BWR is disabled\n", __func__, engine);
+		mutex_unlock(&bwr->op_lock);
+		return;
+	}
 
 	//SRT bandwidth
 	writel(0, bwr->base +
@@ -361,6 +376,8 @@ static int bwr_start(struct mtk_bwr_device *bwr)
 		readl_relaxed(bwr->base + REG_BWR_CAM_RPT_TIMER),
 		readl_relaxed(bwr->base + REG_BWR_CAM_DBC_CYC));
 
+	bwr->started = true;
+
 	mutex_unlock(&bwr->op_lock);
 
 	return 0;
@@ -390,6 +407,8 @@ static int bwr_stop(struct mtk_bwr_device *bwr)
 			 __func__, rpt_state);
 
 	writel(FBIT(BWR_CAM_RPT_RST), bwr->base + REG_BWR_CAM_RPT_CTRL);
+
+	bwr->started = false;
 
 	pr_info("%s rpt_state: %d\n", __func__, rpt_state);
 
@@ -492,6 +511,11 @@ void mtk_cam_bwr_trigger(struct mtk_bwr_device *bwr,
 	enum BWR_ENGINE_TYPE engine, enum BWR_AXI_PORT axi)
 {
 	mutex_lock(&bwr->op_lock);
+	if (!bwr->started) {
+		pr_info("%s: engine:%d BWR is disabled\n", __func__, engine);
+		mutex_unlock(&bwr->op_lock);
+		return;
+	}
 
 	writel(0x1, bwr->base +
 		REG_BWR_CAM_SRT_R0_SW_QOS_TRIG0 + CHANNEL_OFFSET * axi +
@@ -514,6 +538,13 @@ void mtk_cam_bwr_dbg_dump(struct mtk_bwr_device *bwr)
 {
 	int engine, axi;
 
+	mutex_lock(&bwr->op_lock);
+	if (!bwr->started) {
+		pr_info("%s: BWR is disabled\n", __func__);
+		mutex_unlock(&bwr->op_lock);
+		return;
+	}
+
 	for (engine = 0 ; engine < ENGINE_NUM; engine++) { //11
 		pr_info("%s: %s : SRT_TLL/HRT_TLL : %d, %d\n",
 			__func__, str_engine(engine),
@@ -535,6 +566,7 @@ void mtk_cam_bwr_dbg_dump(struct mtk_bwr_device *bwr)
 					CHANNEL_OFFSET * axi + ENGINE_OFFSET * engine)));
 		}
 	}
+	mutex_unlock(&bwr->op_lock);
 }
 
 static int mtk_bwr_component_bind(struct device *dev, struct device *master,
@@ -653,6 +685,7 @@ static int mtk_bwr_probe(struct platform_device *pdev)
 	ret = component_add(dev, &mtk_bwr_component_ops);
 
 	mutex_init(&drvdata->op_lock);
+	drvdata->started = false;
 
 	return ret;
 }

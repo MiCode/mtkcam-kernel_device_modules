@@ -45,6 +45,8 @@ struct mtk_bwr_device {
 	unsigned int num_clks;
 	struct clk **clks;
 	struct mutex op_lock;
+	/* protect by op_lock */
+	bool started;
 };
 
 static inline int get_axi_port(int raw_id, int is_raw)

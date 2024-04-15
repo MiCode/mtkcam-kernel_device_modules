@@ -24,7 +24,9 @@
 #include "mtk_cam-trace.h"
 #include "mtk_cam-hsf.h"
 
+#include "mmqos-mtk.h"
 #include "iommu_debug.h"
+#include "mtk-mmdvfs-debug.h"
 
 #define MTK_CAMSV_STOP_HW_TIMEOUT			(33 * USEC_PER_MSEC)
 #define CAMSV_DEBUG 0
@@ -1203,6 +1205,7 @@ int mtk_cam_sv_dev_config(struct mtk_camsv_device *sv_dev,
 	atomic_set(&sv_dev->is_otf, 0);
 	atomic_set(&sv_dev->is_seamless, 0);
 	atomic_set(&sv_dev->is_sw_clr, 0);
+	atomic_set(&sv_dev->is_fifo_full, 0);
 
 	mtk_cam_sv_dmao_common_config(sv_dev, 0, 0, 0, 0, 0);
 	mtk_cam_sv_cq_config(sv_dev, sub_ratio);
@@ -1517,7 +1520,7 @@ void camsv_dump_dma_debug_data(struct mtk_camsv_device *sv_dev)
 		cmd_cnt_len1);
 }
 
-void mtk_cam_sv_debug_dump(struct mtk_camsv_device *sv_dev, unsigned int dump_tags)
+int mtk_cam_sv_debug_dump(struct mtk_camsv_device *sv_dev, unsigned int dump_tags)
 {
 	unsigned int i;
 	unsigned int tg_sen_mode, tg_vf_con, tg_path_cfg;
@@ -1527,6 +1530,7 @@ void mtk_cam_sv_debug_dump(struct mtk_camsv_device *sv_dev, unsigned int dump_ta
 	unsigned int frm_size, frm_size_r, grab_pix, grab_lin;
 	unsigned int dcif_set, dcif_sel;
 	unsigned int first_tag, last_tag, group_info;
+	int need_smi_dump = false;
 
 	dump_tags = (dump_tags) ? dump_tags : BIT(CAMSV_MAX_TAGS) - 1;
 
@@ -1605,6 +1609,13 @@ void mtk_cam_sv_debug_dump(struct mtk_camsv_device *sv_dev, unsigned int dump_ta
 
 	/* dump dma debug data */
 	camsv_dump_dma_debug_data(sv_dev);
+
+	if (atomic_read(&sv_dev->is_fifo_full)) {
+		need_smi_dump = true;
+		atomic_set(&sv_dev->is_fifo_full, 0);
+	}
+
+	return need_smi_dump;
 }
 
 void camsv_handle_err(
@@ -1637,12 +1648,13 @@ void camsv_handle_err(
 #if !IS_ENABLED(CONFIG_MTK_EMI_LEGACY)
 		mtk_emiisu_record_off();
 #endif
-
-		if (atomic_read(&sv_dev->is_otf) && !DISABLE_RECOVER_FLOW)
-			mtk_smi_dbg_hang_detect("camsys-camsv");
+		atomic_set(&sv_dev->is_fifo_full, 1);
 
 		if (DISABLE_RECOVER_FLOW) {
-			mtk_smi_dbg_hang_detect("camsys-camsv");
+			mmdvfs_debug_status_dump(NULL);
+#if KERNEL_VERSION(6, 6, 0) == LINUX_VERSION_CODE
+			mmqos_hrt_dump();
+#endif
 			if (atomic_read(&sv_dev->is_seamless))
 				mtk_cam_ctrl_dump_request(sv_dev->cam, CAMSYS_ENGINE_CAMSV, sv_dev->id,
 					frame_idx_inner, MSG_CAMSV_SEAMLESS_ERROR);
@@ -1653,8 +1665,7 @@ void camsv_handle_err(
 
 
 		mtk_cam_ctrl_notify_hw_hang(sv_dev->cam,
-					    CAMSYS_ENGINE_CAMSV, sv_dev->id,
-					    frame_idx_inner);
+			CAMSYS_ENGINE_CAMSV, sv_dev->id, frame_idx_inner);
 	}
 }
 

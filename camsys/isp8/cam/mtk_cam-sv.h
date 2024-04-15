@@ -207,10 +207,11 @@ struct mtk_camsv_device {
 	atomic_t is_otf;
 	atomic_t is_seamless;
 	atomic_t is_queue_mode;
+	atomic_t is_fifo_full;
 };
 
 void sv_reset(struct mtk_camsv_device *sv_dev);
-void mtk_cam_sv_debug_dump(struct mtk_camsv_device *sv_dev, unsigned int dump_tags);
+int mtk_cam_sv_debug_dump(struct mtk_camsv_device *sv_dev, unsigned int dump_tags);
 int mtk_cam_sv_dev_config(struct mtk_camsv_device *sv_dev, unsigned int sub_ratio,
 	int frm_time_us);
 int mtk_cam_sv_cq_config(struct mtk_camsv_device *sv_dev, unsigned int sub_ratio);

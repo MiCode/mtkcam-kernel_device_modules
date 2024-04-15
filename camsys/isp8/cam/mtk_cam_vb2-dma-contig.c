@@ -82,7 +82,7 @@ static void *mtk_cam_vb2_vaddr(struct vb2_buffer *vb, void *buf_priv)
 
 	MTK_CAM_TRACE_FUNC_BEGIN(BUFFER);
 	if (!buf->vaddr && buf->db_attach) {
-#ifdef DMA_BUF_UNLOCKED_API
+#if KERNEL_VERSION(6, 6, 0) <= LINUX_VERSION_CODE
 		ret = dma_buf_vmap_unlocked(buf->db_attach->dmabuf, &buf->map);
 #else
 		ret = dma_buf_vmap(buf->db_attach->dmabuf, &buf->map);
@@ -164,7 +164,7 @@ static int mtk_cam_vb2_map_dmabuf(void *mem_priv)
 	MTK_CAM_TRACE_FUNC_BEGIN(BUFFER);
 
 	/* get the associated scatterlist for this buffer */
-#ifdef DMA_BUF_UNLOCKED_API
+#if KERNEL_VERSION(6, 6, 0) <= LINUX_VERSION_CODE
 	sgt = dma_buf_map_attachment_unlocked(buf->db_attach, buf->dma_dir);
 #else
 	sgt = dma_buf_map_attachment(buf->db_attach, buf->dma_dir);
@@ -179,7 +179,7 @@ static int mtk_cam_vb2_map_dmabuf(void *mem_priv)
 	if (contig_size < buf->size) {
 		pr_info("contiguous chunk is too small %lu/%lu\n",
 		       contig_size, buf->size);
-#ifdef DMA_BUF_UNLOCKED_API
+#if KERNEL_VERSION(6, 6, 0) <= LINUX_VERSION_CODE
 				dma_buf_unmap_attachment_unlocked(buf->db_attach, sgt, buf->dma_dir);
 #else
 				dma_buf_unmap_attachment(buf->db_attach, sgt, buf->dma_dir);
@@ -220,14 +220,14 @@ static void mtk_cam_vb2_unmap_dmabuf(void *mem_priv)
 	MTK_CAM_TRACE_FUNC_BEGIN(BUFFER);
 
 	if (buf->vaddr) {
-#ifdef DMA_BUF_UNLOCKED_API
+#if KERNEL_VERSION(6, 6, 0) <= LINUX_VERSION_CODE
 		dma_buf_vunmap_unlocked(buf->db_attach->dmabuf, &buf->map);
 #else
 		dma_buf_vunmap(buf->db_attach->dmabuf, &buf->map);
 #endif
 		buf->vaddr = NULL;
 	}
-#ifdef DMA_BUF_UNLOCKED_API
+#if KERNEL_VERSION(6, 6, 0) <= LINUX_VERSION_CODE
 		dma_buf_unmap_attachment_unlocked(buf->db_attach, sgt, buf->dma_dir);
 #else
 		dma_buf_unmap_attachment(buf->db_attach, sgt, buf->dma_dir);

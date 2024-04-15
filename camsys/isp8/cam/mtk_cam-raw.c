@@ -34,7 +34,9 @@
 //#include "mtk_cam-hsf.h"
 #include "mtk_cam-trace.h"
 #include "iommu_debug.h"
+#include "mmqos-mtk.h"
 #include "mtk-smi-dbg.h"
+#include "mtk-mmdvfs-debug.h"
 
 //static int debug_dump_fbc;
 //module_param(debug_dump_fbc, int, 0644);
@@ -856,7 +858,7 @@ void m2m_update_sof_state(struct mtk_raw_device *dev)
 
 	/* update fsm's cookie_inner since m2m flow has no sof to update it */
 	cookie = raw_readl(dev, dev->base_inner, REG_FRAME_IDX);
-	engine_fsm_sof(&dev->fsm, cookie, 0, 0, NULL);
+	engine_fsm_sof(&dev->fsm, cookie, cookie, 0, NULL);
 
 	engine_handle_sof(&dev->cq_ref,
 			  bit_map_bit(MAP_HW_RAW, dev->id),
@@ -1728,11 +1730,15 @@ static void raw_handle_tg_overrun_err(struct mtk_raw_device *raw_dev,
 	if (cnt < (OVERRUN_DUMP_CNT + raw_dev->sub_sensor_ctrl_en * 10))
 		dump_topdebug_rdyreq_status(raw_dev);
 
-	else if (cnt == (OVERRUN_DUMP_CNT + raw_dev->sub_sensor_ctrl_en * 10))
+	else if (cnt == (OVERRUN_DUMP_CNT + raw_dev->sub_sensor_ctrl_en * 10)) {
+		mmdvfs_debug_status_dump(NULL);
+#if KERNEL_VERSION(6, 6, 0) == LINUX_VERSION_CODE
+		mmqos_hrt_dump();
+#endif
 		do_engine_callback(raw_dev->engine_cb, dump_request,
 				   raw_dev->cam, CAMSYS_ENGINE_RAW, raw_dev->id,
 				   fh_cookie, MSG_TG_OVERRUN);
-
+	}
 	qof_mtcmos_raw_voter(raw_dev, false);
 }
 
@@ -3271,8 +3277,10 @@ int raw_to_tg_idx(int raw_id)
 }
 
 //#define DEBUG_RAWI_R5
-void raw_dump_debug_status(struct mtk_raw_device *dev, bool is_srt)
+int raw_dump_debug_status(struct mtk_raw_device *dev, bool is_srt)
 {
+	int need_smi_dump;
+
 	qof_mtcmos_raw_voter(dev, true);
 
 	dump_seqence(dev);
@@ -3289,7 +3297,6 @@ void raw_dump_debug_status(struct mtk_raw_device *dev, bool is_srt)
 	if (is_srt) {
 		dump_topdebug_rdyreq_status(dev);
 		raw_dump_debug_ufbc_status(dev);
-		mtk_smi_dbg_hang_detect("camsys-raw");
 	}
 
 #ifdef DEBUG_RAWI_R5
@@ -3300,5 +3307,9 @@ void raw_dump_debug_status(struct mtk_raw_device *dev, bool is_srt)
 #endif
 
 	qof_mtcmos_raw_voter(dev, false);
+
+	need_smi_dump = dev->tg_overrun_handle_cnt > 0 ? 1 : 0;
+
+	return need_smi_dump;
 }
 

@@ -31,6 +31,7 @@
 #include <media/media-entity.h>
 #include <uapi/linux/sched/types.h>
 
+#include <soc/mediatek/smi.h>
 #include <mtk_heap.h>
 #include <linux/soc/mediatek/mtk-cmdq-ext.h>
 #include <slbc_ops.h>
@@ -4359,6 +4360,7 @@ void mtk_engine_dump_debug_status(struct mtk_cam_device *cam,
 	struct mtk_mraw_device *mraw_dev;
 	unsigned long subset;
 	int i;
+	bool need_smi_dump = false;
 
 	subset = bit_map_subset_of(MAP_HW_RAW, engines);
 	for (i = 0; i < cam->engines.num_raw_devices; i++) {
@@ -4366,7 +4368,7 @@ void mtk_engine_dump_debug_status(struct mtk_cam_device *cam,
 		if (subset & BIT(i)) {
 			dev = dev_get_drvdata(cam->engines.raw_devs[i]);
 
-			raw_dump_debug_status(dev, is_srt);
+			need_smi_dump |= raw_dump_debug_status(dev, is_srt);
 		}
 	}
 
@@ -4376,7 +4378,7 @@ void mtk_engine_dump_debug_status(struct mtk_cam_device *cam,
 		if (subset & BIT(i)) {
 			sv_dev = dev_get_drvdata(cam->engines.sv_devs[i]);
 
-			mtk_cam_sv_debug_dump(sv_dev, 0);
+			need_smi_dump |= mtk_cam_sv_debug_dump(sv_dev, 0);
 		}
 	}
 
@@ -4389,6 +4391,9 @@ void mtk_engine_dump_debug_status(struct mtk_cam_device *cam,
 			mtk_cam_mraw_debug_dump(mraw_dev);
 		}
 	}
+
+	if(need_smi_dump)
+		mtk_smi_dbg_hang_detect("camsys");
 }
 
 static int register_sub_drivers(struct device *dev)

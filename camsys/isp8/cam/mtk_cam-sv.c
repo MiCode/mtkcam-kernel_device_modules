@@ -30,7 +30,6 @@
 
 #define MTK_CAMSV_STOP_HW_TIMEOUT			(33 * USEC_PER_MSEC)
 #define CAMSV_DEBUG 0
-#define SV_FIFO_DETECTION 0
 
 static int debug_cam_sv;
 module_param(debug_cam_sv, int, 0644);
@@ -47,6 +46,9 @@ static int pultra_high;
 module_param(pultra_high, int, 0644);
 static int pultra_low;
 module_param(pultra_low, int, 0644);
+
+static int camsv_fifo_detect;
+module_param(camsv_fifo_detect, int, 0644);
 
 static int debug_ddren_camsv_hw_mode;
 module_param(debug_ddren_camsv_hw_mode, int, 0644);
@@ -1427,30 +1429,21 @@ int mtk_cam_sv_cq_disable(struct mtk_camsv_device *sv_dev)
 int mtk_cam_sv_dev_pertag_stream_on(
 	struct mtk_camsv_device *sv_dev,
 	unsigned int tag_idx,
-	bool on,
-	u32 enable_hsf_raw)
+	bool on)
 {
 	int ret = 0;
 
 	if (on) {
 		sv_dev->streaming_tag_cnt++;
-		if (sv_dev->streaming_tag_cnt == sv_dev->used_tag_cnt) {
-#ifdef SV_FIFO_DETECTION
-			if (!enable_hsf_raw)
-				ret |= mtk_cam_sv_start_fifo_detection(sv_dev);
-#endif
+
+		if (sv_dev->streaming_tag_cnt == sv_dev->used_tag_cnt)
 			ret |= mtk_cam_sv_central_common_enable(sv_dev);
-		}
 	} else {
 		if (sv_dev->streaming_tag_cnt == 0)
 			goto EXIT;
 		if (sv_dev->streaming_tag_cnt == sv_dev->used_tag_cnt) {
 			ret |= mtk_cam_sv_cq_disable(sv_dev);
 			ret |= mtk_cam_sv_central_common_disable(sv_dev);
-#ifdef SV_FIFO_DETECTION
-			if (!enable_hsf_raw)
-				ret |= mtk_cam_sv_stop_fifo_detection(sv_dev);
-#endif
 		}
 
 		ret |= mtk_cam_sv_fbc_disable(sv_dev, tag_idx);
@@ -1464,7 +1457,7 @@ EXIT:
 }
 
 int mtk_cam_sv_dev_stream_on(struct mtk_camsv_device *sv_dev, bool on,
-	unsigned int enabled_tags, unsigned int used_tag_cnt, u32 enable_hsf_raw)
+	unsigned int enabled_tags, unsigned int used_tag_cnt)
 {
 	int ret = 0, i;
 
@@ -1483,7 +1476,7 @@ int mtk_cam_sv_dev_stream_on(struct mtk_camsv_device *sv_dev, bool on,
 
 	for (i = SVTAG_START; i < SVTAG_END; i++) {
 		if (sv_dev->enabled_tags & (1 << i))
-			mtk_cam_sv_dev_pertag_stream_on(sv_dev, i, on, enable_hsf_raw);
+			mtk_cam_sv_dev_pertag_stream_on(sv_dev, i, on);
 	}
 
 	return ret;
@@ -1640,9 +1633,9 @@ void camsv_handle_err(
 
 	/* check dma fifo status */
 	if (!(data->err_tags) && (err_status & CAMSVCENTRAL_DMA_SRAM_FULL_ST)) {
-#ifdef SV_FIFO_DETECTION
-		mtk_cam_sv_execute_fifo_dump(sv_dev, data->ts_ns);
-#endif
+		if (camsv_fifo_detect)
+			mtk_cam_sv_execute_fifo_dump(sv_dev, data->ts_ns);
+
 		dev_info_ratelimited(sv_dev->dev, "camsv dma fifo full\n");
 
 #if !IS_ENABLED(CONFIG_MTK_EMI_LEGACY)
@@ -2441,9 +2434,16 @@ static int mtk_camsv_remove(struct platform_device *pdev)
 int mtk_camsv_runtime_suspend(struct device *dev)
 {
 	struct mtk_camsv_device *sv_dev = dev_get_drvdata(dev);
-	int i;
+	int i, ret = 0;
 
 	dev_info_ratelimited(dev, "%s:disable clock\n", __func__);
+
+	if (camsv_fifo_detect) {
+		if (atomic_read(&sv_dev->enable_fifo_detect))
+			ret |= mtk_cam_sv_stop_fifo_detection(sv_dev);
+		if (ret)
+			dev_info(dev, "disable fifo_detection fail\n");
+	}
 
 	mtk_cam_reset_qos(dev, &sv_dev->qos);
 
@@ -2495,6 +2495,13 @@ int mtk_camsv_runtime_resume(struct device *dev)
 	}
 
 	dev_info(dev, "%s:enable irq\n", __func__);
+
+	if (camsv_fifo_detect) {
+		if (atomic_read(&sv_dev->enable_fifo_detect))
+			ret |= mtk_cam_sv_start_fifo_detection(sv_dev);
+		if (ret)
+			dev_info(dev, "enable fifo_detection fail\n");
+	}
 
 	return 0;
 }

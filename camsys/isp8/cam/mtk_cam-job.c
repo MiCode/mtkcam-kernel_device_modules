@@ -1154,7 +1154,7 @@ _stream_on(struct mtk_cam_job *job, bool on)
 		sv_dev = dev_get_drvdata(ctx->hw_sv);
 			mtk_cam_sv_update_start_period(sv_dev, job->scq_period);
 		mtk_cam_sv_dev_stream_on(sv_dev, on,
-			job->enabled_tags, job->used_tag_cnt, job->enable_hsf_raw);
+			job->enabled_tags, job->used_tag_cnt);
 	}
 
 	if (job->raw_change != JOB_RAW_MASTER_CHANGED) {
@@ -1182,7 +1182,7 @@ _stream_on_only_sv(struct mtk_cam_job *job, bool on)
 	if (ctx->hw_sv) {
 		sv_dev = dev_get_drvdata(ctx->hw_sv);
 		mtk_cam_sv_dev_stream_on(sv_dev, on,
-			job->enabled_tags, job->used_tag_cnt, job->enable_hsf_raw);
+			job->enabled_tags, job->used_tag_cnt);
 	}
 
 	if (job->stream_on_seninf)
@@ -2460,6 +2460,7 @@ static int job_related_hw_init(struct mtk_cam_job *job)
 		readl(cam_dev->vcore_cg_con + 0x00),
 		readl(cam_dev->base + 0x00),
 		readl(cam_dev->base + 0x4c));
+	mtk_cam_sv_set_fifo_detect_status(&ctx->cam->engines, selected, ctx->enable_hsf_raw);
 	mtk_cam_pm_runtime_engines(&ctx->cam->engines, selected, 1);
 	if (CAM_DEBUG_ENABLED(RAW_CG))
 		pr_info("%s--:get: vcore cg/main cg0 cg1:0x%x/0x%x/0x%x", __func__,
@@ -3922,7 +3923,7 @@ _common_seamless_after_frame_done(struct mtk_cam_job *job)
 
 	if (ctx->hw_sv) {
 		mtk_cam_sv_dev_stream_on(sv_dev, false,
-			job->enabled_tags, job->used_tag_cnt, job->enable_hsf_raw);
+			job->enabled_tags, job->used_tag_cnt);
 		mtk_cam_sv_dev_config(sv_dev, 0, get_sensor_interval_us(job));
 	}
 	mtk_cam_ctx_slc_stream(ctx, 0, 0xFF);
@@ -3943,7 +3944,7 @@ _common_seamless_after_frame_done(struct mtk_cam_job *job)
 	stream_on(raw_dev, 1, false);
 	if (ctx->hw_sv)
 		mtk_cam_sv_dev_stream_on(sv_dev, true,
-			job->enabled_tags, job->used_tag_cnt, job->enable_hsf_raw);
+			job->enabled_tags, job->used_tag_cnt);
 
 OUT:
 	update_seninf_fmt(job);

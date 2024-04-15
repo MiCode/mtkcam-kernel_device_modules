@@ -207,7 +207,9 @@ struct mtk_camsv_device {
 	atomic_t is_otf;
 	atomic_t is_seamless;
 	atomic_t is_queue_mode;
+	atomic_t enable_fifo_detect;
 	atomic_t is_fifo_full;
+
 };
 
 void sv_reset(struct mtk_camsv_device *sv_dev);
@@ -219,9 +221,9 @@ int mtk_cam_sv_ddren_qos_config(struct mtk_camsv_device *sv_dev, int frm_time_us
 void mtk_cam_sv_update_start_period(struct mtk_camsv_device *sv_dev, int scq_ms);
 int mtk_cam_sv_cq_disable(struct mtk_camsv_device *sv_dev);
 int mtk_cam_sv_dev_pertag_stream_on(
-	struct mtk_camsv_device *sv_dev, unsigned int tag_idx, bool on, u32 enable_hsf_raw);
+	struct mtk_camsv_device *sv_dev, unsigned int tag_idx, bool on);
 int mtk_cam_sv_dev_stream_on(struct mtk_camsv_device *sv_dev, bool on,
-	unsigned int enabled_tags, unsigned int used_tag_cnt, u32 enable_hsf_raw);
+	unsigned int enabled_tags, unsigned int used_tag_cnt);
 int mtk_cam_sv_dmao_common_config(struct mtk_camsv_device *sv_dev,
 	unsigned int fifo_img_p1, unsigned int fifo_img_p2,
 	unsigned int fifo_len_p1, unsigned int fifo_len_p2, unsigned int leading_line_cnt);

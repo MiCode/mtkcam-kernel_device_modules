@@ -2918,6 +2918,7 @@ void mtk_cam_stop_ctx(struct mtk_cam_ctx *ctx, struct media_entity *entity)
 		readl(cam->base + 0x00),
 		readl(cam->base + 0x4c));
 		mtk_cam_pm_runtime_engines(&cam->engines, ctx->used_engine, 0);
+		mtk_cam_sv_set_fifo_detect_status(&cam->engines, ctx->used_engine, 1);
 		if (CAM_DEBUG_ENABLED(RAW_CG))
 			pr_info("%s--:get: vcore cg/main cg0 cg1:0x%x/0x%x/0x%x", __func__,
 		readl(cam->vcore_cg_con + 0x00),
@@ -3263,7 +3264,7 @@ void mtk_cam_ctx_engine_off(struct mtk_cam_ctx *ctx)
 
 	if (ctx->hw_sv) {
 		sv_dev = dev_get_drvdata(ctx->hw_sv);
-		mtk_cam_sv_dev_stream_on(sv_dev, false, 0, 0, ctx->enable_hsf_raw);
+		mtk_cam_sv_dev_stream_on(sv_dev, false, 0, 0);
 	}
 
 	for (i = 0; i < ctx->num_mraw_subdevs; i++) {
@@ -3389,7 +3390,7 @@ void mtk_cam_ctx_engine_dc_sw_recovery(struct mtk_cam_ctx *ctx)
 		sv_dev = dev_get_drvdata(ctx->hw_sv);
 
 		mtk_cam_sv_backup(sv_dev);
-		mtk_cam_sv_dev_stream_on(sv_dev, 0, 0, 0, ctx->enable_hsf_raw);
+		mtk_cam_sv_dev_stream_on(sv_dev, 0, 0, 0);
 	}
 
 	for (i = 0; i < ARRAY_SIZE(ctx->hw_raw); i++) {
@@ -3431,7 +3432,7 @@ void mtk_cam_ctx_engine_dc_sw_recovery(struct mtk_cam_ctx *ctx)
 		mtk_cam_sv_dev_config(sv_dev, 0, -1);
 		mtk_cam_sv_restore(sv_dev);
 		mtk_cam_sv_dev_stream_on(sv_dev, 1,
-					 ctx->enabled_tags, ctx->used_tag_cnt, ctx->enable_hsf_raw);
+					 ctx->enabled_tags, ctx->used_tag_cnt);
 	}
 }
 
@@ -4225,6 +4226,27 @@ int mtk_cam_update_engine_status(struct mtk_cam_device *cam,
 		 __func__, engine_mask, available);
 	return 0;
 }
+
+int mtk_cam_sv_set_fifo_detect_status(struct mtk_cam_engines *eng,
+			    unsigned long engine_mask, unsigned int is_hsf_enable)
+{
+	unsigned long submask;
+	int i;
+	struct mtk_camsv_device *sv_dev;
+
+	submask = bit_map_subset_of(MAP_HW_CAMSV, engine_mask);
+	for (i = 0; i < eng->num_camsv_devices && submask; i++, submask >>= 1) {
+		if (!(submask & 0x1))
+			continue;
+		sv_dev = dev_get_drvdata(eng->sv_devs[i]);
+		if (is_hsf_enable)
+			atomic_set(&sv_dev->enable_fifo_detect, 0);
+		else
+			atomic_set(&sv_dev->enable_fifo_detect, 1);
+	}
+	return 0;
+}
+
 
 static int loop_each_engine(struct mtk_cam_engines *eng,
 			    unsigned long engine_mask,

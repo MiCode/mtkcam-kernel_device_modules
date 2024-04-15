@@ -417,7 +417,8 @@ struct mtk_cam_ctx *mtk_cam_find_ctx(struct mtk_cam_device *cam,
 struct mtk_cam_ctx *mtk_cam_start_ctx(struct mtk_cam_device *cam,
 				      struct mtk_cam_video_device *node);
 void mtk_cam_stop_ctx(struct mtk_cam_ctx *ctx, struct media_entity *entity);
-
+int mtk_cam_sv_set_fifo_detect_status(struct mtk_cam_engines *eng,
+					unsigned long engine_mask, unsigned int is_hsf_enable);
 static inline bool mtk_cam_ctx_is_adl_flow(struct mtk_cam_ctx *ctx)
 {
 	return !!ctx->adl_work.raw_dev;

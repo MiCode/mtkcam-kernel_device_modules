@@ -43,6 +43,11 @@ enum ISP8_IMG_PWR {
 #define IMGSYS_QOS_THD			(1)
 #define IMGSYS_SEC_THD			(1)
 
+#define PRE_PWR_ON_2 (1UL << 4)
+#define PRE_PWR_ON_3 (1UL << 5)
+#define PRE_PWR_OFF_2 (1UL << 6)
+#define PRE_PWR_OFF_3 (1UL << 7)
+
 #define IMGSYS_QOS_MAX 56
 #define IMGSYS_MAX_FPS 60
 

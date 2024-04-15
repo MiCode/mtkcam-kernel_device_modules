@@ -16,6 +16,10 @@
 #include "mtk-img-ipi.h"
 
 #define DUMP_USING_CMDQ_TH
+#define PRE_PWR_ON_0 (1UL << 0)
+#define PRE_PWR_ON_1 (1UL << 1)
+#define PRE_PWR_OFF_0 (1UL << 2)
+#define PRE_PWR_OFF_1 (1UL << 3)
 
 extern unsigned int nodes_num;
 

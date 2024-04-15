@@ -13,6 +13,7 @@
 #include <linux/pm_runtime.h>
 #include <linux/remoteproc.h>
 #include <linux/suspend.h>
+#include <linux/pm_domain.h>
 #include <linux/rtc.h>
 //#include <linux/remoteproc/mtk_scp.h>
 #include <linux/videodev2.h>
@@ -3471,6 +3472,20 @@ out:
 	return;
 }
 
+static int mtk_imgsys_pd_callback(struct notifier_block *nb,
+		unsigned long flags, void *data)
+{
+	int ret = 0;
+	struct mtk_imgsys_dev *imgsys_dev = NULL;
+
+	imgsys_dev = container_of(nb, struct mtk_imgsys_dev, notifier);
+	if (flags == GENPD_NOTIFY_PRE_OFF)
+		dev_info(imgsys_dev->dev, "IMGSYS_FLOW: 0x%x", imgsys_dev->sw_pm_flow_cnt);
+
+
+	return ret;
+}
+
 int mtk_imgsys_probe(struct platform_device *pdev)
 {
 	struct mtk_imgsys_dev *imgsys_dev;
@@ -3506,6 +3521,7 @@ int mtk_imgsys_probe(struct platform_device *pdev)
 	imgsys_dev->imgsys_resource = &pdev->resource[0];
 	dev_set_drvdata(&pdev->dev, imgsys_dev);
 	imgsys_dev->imgsys_stream_cnt = 0;
+	imgsys_dev->sw_pm_flow_cnt = 0;
 	imgsys_dev->clks = data->clks;
 	imgsys_dev->num_clks = data->clk_num;
 	imgsys_dev->num_mods = data->mod_num;
@@ -3690,6 +3706,12 @@ bypass_larbs:
 	mtk_imgsys_mmqos_init(imgsys_dev);
 	#endif
 
+
+	imgsys_dev->notifier.notifier_call = mtk_imgsys_pd_callback;
+	ret = dev_pm_genpd_add_notifier(imgsys_dev->dev, &imgsys_dev->notifier);
+	if (ret)
+		dev_info(imgsys_dev->dev, "imgsys gen pd add notifier fail(%d)\n", ret);
+
 	//pm_runtime_set_autosuspend_delay(&pdev->dev, 3000);
 	//pm_runtime_use_autosuspend(&pdev->dev);
 	pm_runtime_enable(&pdev->dev);
@@ -3719,6 +3741,7 @@ int mtk_imgsys_remove(struct platform_device *pdev)
 	struct mtk_imgsys_dev *imgsys_dev = dev_get_drvdata(&pdev->dev);
 
 	mtk_imgsys_res_release(imgsys_dev);
+	dev_pm_genpd_remove_notifier(&pdev->dev);
 	pm_runtime_disable(&pdev->dev);
 	mtk_imgsys_dev_v4l2_release(imgsys_dev);
 	mtk_imgsys_hw_working_buf_pool_release(imgsys_dev);

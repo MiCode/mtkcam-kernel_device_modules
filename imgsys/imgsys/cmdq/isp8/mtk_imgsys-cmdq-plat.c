@@ -2229,7 +2229,9 @@ void mtk_imgsys_power_ctrl_plat8(struct mtk_imgsys_dev *imgsys_dev, bool isPower
 
 			cmdq_mbox_enable(imgsys_clt[0]->chan);
 
+			imgsys_dev->sw_pm_flow_cnt |= PRE_PWR_ON_2;
 			pm_runtime_get_sync(imgsys_dev->dev);
+			imgsys_dev->sw_pm_flow_cnt |= PRE_PWR_ON_3;
 
 			/*set default value for hw module*/
 			mtk_imgsys_mod_get(imgsys_dev);
@@ -2268,7 +2270,9 @@ void mtk_imgsys_power_ctrl_plat8(struct mtk_imgsys_dev *imgsys_dev, bool isPower
 
 			mtk_imgsys_mod_put(imgsys_dev);
 
+			imgsys_dev->sw_pm_flow_cnt |= PRE_PWR_OFF_2;
 			pm_runtime_put_sync(imgsys_dev->dev);
+			imgsys_dev->sw_pm_flow_cnt |= PRE_PWR_OFF_3;
 			//pm_runtime_mark_last_busy(imgsys_dev->dev);
 			//pm_runtime_put_autosuspend(imgsys_dev->dev);
 

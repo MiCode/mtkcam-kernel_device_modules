@@ -18,6 +18,7 @@
 #include <linux/pm_opp.h>
 #include <linux/regulator/consumer.h>
 #include <linux/remoteproc/mtk_ccu.h>
+#include <linux/notifier.h>
 #include <media/v4l2-ctrls.h>
 #include <media/v4l2-subdev.h>
 #include <media/v4l2-device.h>
@@ -343,6 +344,7 @@ struct mtk_imgsys_dev {
 	struct device *smmu_dev;
 	struct device *acp_smmu_dev;
 	struct resource *imgsys_resource;
+	struct notifier_block notifier;
 	struct media_device mdev;
 	struct v4l2_device v4l2_dev;
 	struct mtk_imgsys_pipe imgsys_pipe[MTK_IMGSYS_PIPE_ID_TOTAL_NUM];
@@ -350,6 +352,7 @@ struct mtk_imgsys_dev {
 	int num_clks;
 	int num_mods;
 	int modules_num;
+	unsigned int sw_pm_flow_cnt;
 	struct workqueue_struct *enqueue_wq;
 	struct workqueue_struct *composer_wq;
 	struct workqueue_struct *mdp_wq[RUNNER_WQ_NR];

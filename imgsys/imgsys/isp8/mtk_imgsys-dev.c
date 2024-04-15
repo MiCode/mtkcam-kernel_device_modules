@@ -766,7 +766,7 @@ void *get_kva(struct mtk_imgsys_dev_buffer *buf, struct iosys_map *imap)
 	ret = dma_buf_vmap(dmabuf, &map);
 	#endif
 	if (ret) {
-		pr_info("%s, map kernel va failed\n", __func__);
+		pr_info("%s, map kernel va failed(%d)\n", __func__, ret);
 		ret = -ENOMEM;
 		goto ERROR;
 	}
@@ -793,7 +793,7 @@ static void put_kva(struct buf_va_info_t *buf_va_info)
 	struct dma_buf *dmabuf;
 
 	dmabuf = buf_va_info->dma_buf_putkva;
-	if (!IS_ERR(dmabuf)) {
+	if (!IS_ERR_OR_NULL(&buf_va_info->map.vaddr)) {
 		#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 4, 0)
 		dma_buf_vunmap_unlocked(dmabuf, &buf_va_info->map);
 		dma_buf_end_cpu_access(dmabuf, DMA_BIDIRECTIONAL);

@@ -806,6 +806,25 @@ void rwfbc_inc_setup(struct mtk_raw_device *dev)
 			raw_readl_relaxed(dev, dev->base, REG_FHG_FHG_SPARE_1),
 			raw_readl_relaxed(dev, dev->base_inner, REG_FHG_FHG_SPARE_1));
 }
+void set_sig_sel_master(struct mtk_raw_device *dev)
+{
+	unsigned int camctl_sel3 = raw_readl_relaxed(dev, dev->base, REG_CAMCTL_SEL3);
+
+	raw_writel(0x0, dev, dev->base, REG_CAMCTL_CTRL_SIG_SEL);
+	raw_writel(0x0, dev, dev->base_inner, REG_CAMCTL_CTRL_SIG_SEL);
+	if (dev->id == RAW_C) {
+		raw_writel(camctl_sel3 | 0x0, dev, dev->base, REG_CAMCTL_SEL3);
+		raw_writel(camctl_sel3 | 0x0, dev, dev->base_inner, REG_CAMCTL_SEL3);
+	}
+	dev_info(dev->dev, "[%s] (CTRL_SIG_SEL, SEL3) out/in:(0x%x/0x%x, 0x%x->0x%x/0x%x)\n",
+		__func__,
+		raw_readl_relaxed(dev, dev->base, REG_CAMCTL_CTRL_SIG_SEL),
+		raw_readl_relaxed(dev, dev->base_inner, REG_CAMCTL_CTRL_SIG_SEL),
+		camctl_sel3,
+		raw_readl_relaxed(dev, dev->base, REG_CAMCTL_SEL3),
+		raw_readl_relaxed(dev, dev->base_inner, REG_CAMCTL_SEL3));
+}
+
 void set_sig_sel_slave(struct mtk_raw_device *dev)
 {
 	unsigned int camctl_sel3 = raw_readl_relaxed(dev, dev->base, REG_CAMCTL_SEL3);

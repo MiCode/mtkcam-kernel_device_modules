@@ -2047,6 +2047,17 @@ static int apply_engines_cq(struct mtk_cam_job *job,
 			}
 		}
 	}
+	if (job->raw_change == JOB_RAW_MASTER_CHANGED) {
+		for (i = 0; i < ctx->cam->engines.num_raw_devices; i++) {
+			if (BIT(i) & ctx->used_engine) {
+				struct mtk_raw_device *raw_dev;
+
+				raw_dev = dev_get_drvdata(ctx->cam->engines.raw_devs[i]);
+				if (!raw_dev->is_slave)
+					set_sig_sel_master(raw_dev);
+			}
+		}
+	}
 	cq_engine = engines_to_trigger_cq(job, cq_rst);
 	used_engine = engines_to_check_inner(job);
 	/* raw change job already modify ctx->used_engines */
@@ -2319,9 +2330,11 @@ static void dump_job_info(struct mtk_cam_job *job)
 		 atomic_long_read(&job->done_set), job->done_handled,
 		 atomic_long_read(&job->afo_done));
 	list_for_each_entry(buf, &req->buf_list, list) {
-		node = mtk_cam_buf_to_vdev(buf);
-		dev_info(dev, "%s:%s iova:0x%llx", __func__,
-			node->desc.name, buf->daddr);
+		if (buf->vbb.vb2_buf.vb2_queue) {
+			node = mtk_cam_buf_to_vdev(buf);
+			dev_info(dev, "%s:%s iova:0x%llx", __func__,
+				node->desc.name, buf->daddr);
+		}
 	}
 }
 
@@ -2459,46 +2472,6 @@ static int job_related_hw_init(struct mtk_cam_job *job)
 	return 0;
 }
 
-static void wait_engines_off(struct mtk_cam_device *cam,
-		unsigned long engine_mask)
-{
-	int raw_master_id = get_master_raw_id(engine_mask);
-	int sw_ctl;
-	int ret;
-	void __iomem *dev_iomem = cam->rawa_cg_con;
-
-	if (raw_master_id == 0)
-		dev_iomem = cam->rawa_cg_con;
-	else if (raw_master_id == 1)
-		dev_iomem = cam->rawb_cg_con;
-	else if (raw_master_id == 2)
-		dev_iomem = cam->rawc_cg_con;
-	else
-		return;
-
-	dev_info(cam->dev, "%s+1 raw-%d cg:0x%x",
-		__func__, raw_master_id, readl(dev_iomem));
-	ret = readx_poll_timeout(readl, dev_iomem, sw_ctl,
-				sw_ctl == 0x1f,
-				200 /* delay, us */,
-				3000 /* timeout, us */);
-	dev_info(cam->dev, "%s-1 raw-%d cg:0x%x",
-		__func__, raw_master_id, readl(dev_iomem));
-	if (ret < 0)
-		dev_info(cam->dev, "%s-1: stop wait\n", __func__);
-
-	dev_info(cam->dev, "%s+2 raw-%d cg:0x%x",
-		__func__, raw_master_id, readl(dev_iomem));
-	ret = readx_poll_timeout(readl, dev_iomem, sw_ctl,
-				sw_ctl == 0x0,
-				200 /* delay, us */,
-				3000 /* timeout, us */);
-	dev_info(cam->dev, "%s-2 raw-%d cg:0x%x",
-		__func__, raw_master_id, readl(dev_iomem));
-	if (ret < 0)
-		dev_info(cam->dev, "%s-2: stop wait\n", __func__);
-}
-
 static int job_raw_change_hw_init(struct mtk_cam_job *job)
 {
 	struct mtk_cam_ctx *ctx = job->src_ctx;
@@ -2526,7 +2499,7 @@ static int job_raw_change_hw_init(struct mtk_cam_job *job)
 	ctx->used_engine = selected;
 	if (selected_need_init) {
 		/* new raw get_sync/clk_prepare/reset and initialize */
-		wait_engines_off(ctx->cam, selected_need_init);
+		// wait_engines_off(ctx->cam, selected_need_init);
 		mtk_cam_pm_runtime_engines(&ctx->cam->engines, selected_need_init, 1);
 		/* init new slave raw */
 		if (job->raw_change == JOB_RAW_MASTER_UNCHANGED) {

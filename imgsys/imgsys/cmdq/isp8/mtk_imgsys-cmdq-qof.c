@@ -1771,6 +1771,31 @@ void mtk_imgsys_cmdq_qof_stream_on(struct mtk_imgsys_dev *imgsys_dev)
 	QOF_LOGI("stream on success. imgsys_voter_cnt_locked=%u\n", imgsys_voter_cnt_locked);
 }
 
+void mtk_imgsys_cmdq_get_non_qof_module(u32 *non_qof_modules)
+{
+	if (non_qof_modules == NULL) {
+		QOF_LOGE("ver[%u], param is null!\n", g_qof_ver);
+		return;
+	}
+
+	*non_qof_modules = 0;
+	if ((g_qof_ver & BIT(QOF_SUPPORT_DIP)) == BIT(QOF_SUPPORT_DIP))
+		*non_qof_modules |= BIT(IMGSYS_MOD_DIP);
+	if ((g_qof_ver & BIT(QOF_SUPPORT_TRAW)) == BIT(QOF_SUPPORT_TRAW))
+		*non_qof_modules |= BIT(IMGSYS_MOD_TRAW);
+	if (((g_qof_ver & BIT(QOF_SUPPORT_WPE_EIS)) == BIT(QOF_SUPPORT_WPE_EIS)) &&
+		((g_qof_ver & BIT(QOF_SUPPORT_WPE_TNR)) == BIT(QOF_SUPPORT_WPE_TNR)) &&
+		((g_qof_ver & BIT(QOF_SUPPORT_WPE_LITE)) == BIT(QOF_SUPPORT_WPE_LITE))) {
+		*non_qof_modules |=
+			(
+				BIT(IMGSYS_MOD_PQDIP) |
+				BIT(IMGSYS_MOD_WPE) |
+				BIT(IMGSYS_MOD_OMC)
+			);
+	}
+	*non_qof_modules = ~*non_qof_modules;
+}
+
 void mtk_imgsys_cmdq_qof_stream_off(struct mtk_imgsys_dev *imgsys_dev)
 {
 	unsigned long flag;

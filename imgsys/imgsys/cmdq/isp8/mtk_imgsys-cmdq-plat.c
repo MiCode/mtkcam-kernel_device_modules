@@ -412,7 +412,6 @@ static void imgsys_cmdq_cb_work_plat8(struct work_struct *work)
 	cb_param->cmdqTs.tsCmdqCbWorkStart = ktime_get_boottime_ns()/1000;
 	imgsys_dev = cb_param->imgsys_dev;
 
-
     if (imgsys_cmdq_dbg_enable_plat8()) {
 	dev_dbg(imgsys_dev->dev,
 		"%s: cb(%p) gid(%d) in block(%d/%d) for frm(%d/%d) lst(%d/%d/%d) task(%d/%d/%d) ofst(%lx/%lx/%lx/%lx/%lx)\n",
@@ -2232,6 +2231,11 @@ void mtk_imgsys_power_ctrl_plat8(struct mtk_imgsys_dev *imgsys_dev, bool isPower
 				dev_info(dvfs_info->dev,
 					"[%s] isPowerOn(%d) user(%d)\n",
 					__func__, isPowerOn, user_cnt);
+
+			MTK_IMGSYS_QOF_NEED_RUN(imgsys_dev->qof_ver,
+				mtk_imgsys_cmdq_get_non_qof_module(&img_main_modules);
+				dev_info(dvfs_info->dev, "[%s] support module = 0x%x\n", __func__, img_main_modules);
+			);
 
 			mutex_lock(&(imgsys_dev->power_ctrl_lock));
 

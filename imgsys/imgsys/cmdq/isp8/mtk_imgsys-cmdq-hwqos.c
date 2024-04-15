@@ -31,11 +31,8 @@
 #define CMDQ_GCEM_CPR_IMG_QOS_START 0x8005
 #define CMDQ_GCEM_CPR_IMG_QOS_END 0x803D
 
-#define CMDQ_CPR_IMG_QOS_IDX (CMDQ_GCEM_CPR_IMG_QOS_START)
-#define CMDQ_CPR_IMG_QOS_SUM_R (CMDQ_GCEM_CPR_IMG_QOS_START + 1)
-#define CMDQ_CPR_IMG_QOS_SUM_W (CMDQ_GCEM_CPR_IMG_QOS_START + 2)
-#define CMDQ_CPR_IMG_QOS_AVG_R (CMDQ_GCEM_CPR_IMG_QOS_START + 3)
-#define CMDQ_CPR_IMG_QOS_AVG_W (CMDQ_GCEM_CPR_IMG_QOS_START + 4)
+#define CMDQ_CPR_IMG_QOS_R_STATE (CMDQ_GCEM_CPR_IMG_QOS_START)
+#define CMDQ_CPR_IMG_QOS_W_STATE (CMDQ_GCEM_CPR_IMG_QOS_START + 1)
 
 #define RIGHT_SHIFT_BY_3 (3)
 
@@ -45,7 +42,7 @@
 #define OSTDL_MAX_VALUE 0x40
 #define OSTDL_MIN_VALUE 0x1
 
-#define STEP_FACTOR_MULTIPLY (11)
+#define STEP_FACTOR_MULTIPLY (8)
 #define STEP_FACTOR_RIGHT_SHIFT (3)
 
 #define field_get(_mask, _reg) (((_reg) & (_mask)) >> (ffs(_mask) - 1))
@@ -431,8 +428,6 @@ static void imgsys_qos_set_report_mode(struct cmdq_pkt *pkt)
 static void imgsys_qos_to_MBps(struct cmdq_pkt *pkt,
 				const uint32_t bls_addr,
 				const uint32_t bwr_addr,
-				const uint16_t cpr_avg_idx,
-				const uint16_t cpr_sum_idx,
 				const uint32_t ostdl_addr,
 				const uint8_t ostdl_right_shift,
 				const uint8_t ostdl_reg_left_shift,
@@ -442,11 +437,11 @@ static void imgsys_qos_to_MBps(struct cmdq_pkt *pkt,
 
 	GCE_COND_DECLARE;
 
+	cmdq_pkt_read(pkt, NULL, bls_addr, CMDQ_THR_SPR_IDX2);
 	lop.reg = true;
 	lop.idx = CMDQ_THR_SPR_IDX2;
 	rop.reg = false;
 	rop.value = RIGHT_SHIFT_BY_3;
-	cmdq_pkt_read(pkt, NULL, bls_addr, CMDQ_THR_SPR_IDX2);
 	cmdq_pkt_logic_command(pkt, CMDQ_LOGIC_RIGHT_SHIFT,
 		CMDQ_THR_SPR_IDX2, &lop, &rop);
 
@@ -458,29 +453,8 @@ static void imgsys_qos_to_MBps(struct cmdq_pkt *pkt,
 	rop.value = STEP_FACTOR_RIGHT_SHIFT;
 	cmdq_pkt_logic_command(pkt, CMDQ_LOGIC_RIGHT_SHIFT,
 		CMDQ_THR_SPR_IDX2, &lop, &rop);
-
-	rop.reg = true;
-	rop.idx = cpr_sum_idx;
-	cmdq_pkt_logic_command(pkt, CMDQ_LOGIC_ADD,
-		cpr_sum_idx, &lop, &rop);
-
-	// case: 1 ms bw > avg bw
-	rop.idx = cpr_avg_idx;
-	GCE_COND_ASSIGN(pkt, CMDQ_THR_SPR_IDX1);
-	GCE_IF(lop, R_CMDQ_GREATER, rop);
-	{
-		cmdq_pkt_write_reg_addr(pkt, bwr_addr,
-			CMDQ_THR_SPR_IDX2, CMDQ_REG_MASK);
-	}
-	GCE_ELSE;
-	// case: 1 ms bw <= avg bw
 	cmdq_pkt_write_reg_addr(pkt, bwr_addr,
-		cpr_avg_idx, CMDQ_REG_MASK);
-	lop.reg = false;
-	lop.value = 0;
-	cmdq_pkt_logic_command(pkt, CMDQ_LOGIC_ADD,
-		CMDQ_THR_SPR_IDX2, &lop, &rop);
-	GCE_FI;
+		CMDQ_THR_SPR_IDX2, CMDQ_REG_MASK);
 
 	lop.reg = true;
 	lop.idx = CMDQ_THR_SPR_IDX2;
@@ -494,6 +468,7 @@ static void imgsys_qos_to_MBps(struct cmdq_pkt *pkt,
 
 	rop.value = OSTDL_MAX_VALUE;
 	// case: ostdl > OSTDL_MAX_VALUE
+	GCE_COND_ASSIGN(pkt, CMDQ_THR_SPR_IDX1);
 	GCE_IF(lop, R_CMDQ_GREATER, rop);
 	{
 		cmdq_pkt_assign_command(pkt, CMDQ_THR_SPR_IDX2, OSTDL_MAX_VALUE);
@@ -564,20 +539,13 @@ static void imgsys_qos_set_fix_bw(struct cmdq_pkt *pkt,
 			total_bw, CMDQ_REG_MASK);
 }
 
-static void imgsys_qos_init_counter(struct cmdq_pkt *pkt, bool clear_avg)
+static void imgsys_qos_init_state(struct cmdq_pkt *pkt)
 {
 	uint32_t i;
 
-	cmdq_pkt_assign_command(pkt, CMDQ_CPR_IMG_QOS_IDX, 0);
 	for (i = 0; i < ARRAY_SIZE(qos_map_data); i++) {
-		cmdq_pkt_assign_command(pkt, CMDQ_CPR_IMG_QOS_SUM_R + i * 4, 0);
-		cmdq_pkt_assign_command(pkt, CMDQ_CPR_IMG_QOS_SUM_W + i * 4, 0);
-	}
-	if (clear_avg) {
-		for (i = 0; i < ARRAY_SIZE(qos_map_data); i++) {
-			cmdq_pkt_assign_command(pkt, CMDQ_CPR_IMG_QOS_AVG_R + i * 4, 0);
-			cmdq_pkt_assign_command(pkt, CMDQ_CPR_IMG_QOS_AVG_W + i * 4, 0);
-		}
+		cmdq_pkt_assign_command(pkt, CMDQ_CPR_IMG_QOS_R_STATE + i * 2, 0);
+		cmdq_pkt_assign_command(pkt, CMDQ_CPR_IMG_QOS_W_STATE + i * 2, 0);
 	}
 }
 
@@ -607,73 +575,75 @@ static void imgsys_qos_sum_to_MBps(struct cmdq_pkt *pkt)
 				CMDQ_THR_SPR_IDX2, CMDQ_REG_MASK);
 }
 
-static void imgsys_qos_calculate_avg_bw(struct cmdq_pkt *pkt,
-				const uint16_t cpr_sum_idx,
-				const uint16_t cpr_avg_idx)
+static void imgsys_qos_check_bw(struct cmdq_pkt *pkt,
+				const uint32_t bls_addr,
+				const uint32_t bwr_addr,
+				const uint32_t bwr_bw,
+				const uint16_t cpr_idx,
+				const uint32_t ostdl_addr,
+				const uint8_t ostdl_right_shift,
+				const uint8_t ostdl_reg_left_shift,
+				const uint32_t ostdl_reg_mask)
 {
 	struct cmdq_operand lop, rop;
 
+	GCE_COND_DECLARE;
+
+	GCE_COND_ASSIGN(pkt, CMDQ_THR_SPR_IDX1);
 	lop.reg = true;
-	lop.idx = cpr_sum_idx;
 	rop.reg = false;
-	/* 128 ms */
-	rop.value = 7;
-	cmdq_pkt_logic_command(pkt, CMDQ_LOGIC_RIGHT_SHIFT,
-		cpr_avg_idx, &lop, &rop);
+	if (bwr_bw != 0) {
+		cmdq_pkt_read(pkt, NULL, bwr_addr, CMDQ_THR_SPR_IDX2);
+		lop.idx = CMDQ_THR_SPR_IDX2;
+		rop.value = bwr_bw;
+		GCE_IF(lop, R_CMDQ_EQUAL, rop);
+		{
+			lop.idx = cpr_idx;
+			rop.value = 1;
+			cmdq_pkt_logic_command(pkt, CMDQ_LOGIC_ADD, cpr_idx, &lop, &rop);
+		}
+		GCE_FI;
+	}
+	lop.idx = cpr_idx;
+	rop.value = 1;
+	GCE_IF(lop, R_CMDQ_NOT_EQUAL, rop);
+	{
+		imgsys_qos_to_MBps(pkt,
+			bls_addr,
+			bwr_addr,
+			ostdl_addr,
+			ostdl_right_shift,
+			ostdl_reg_left_shift,
+			ostdl_reg_mask);
+		cmdq_pkt_assign_command(pkt, cpr_idx, 0);
+	}
+	GCE_FI;
 }
 
 static void imgsys_qos_set_bw(struct cmdq_pkt *pkt)
 {
 	uint32_t i;
-	struct cmdq_operand lop, rop;
-
-	GCE_COND_DECLARE;
 
 	for (i = 0; i < ARRAY_SIZE(qos_map_data); i++) {
-		imgsys_qos_to_MBps(pkt,
+		imgsys_qos_check_bw(pkt,
 			qos_map_data[i].bls_base + BLS_IMG_LEN_SUM_R_OFT,
 			BWR_IMG_E1A_BASE + qos_map_data[i].bwr_r_offset,
-			CMDQ_CPR_IMG_QOS_AVG_R + i * 4,
-			CMDQ_CPR_IMG_QOS_SUM_R + i * 4,
+			qos_map_data[i].bwr_r_fix_bw,
+			CMDQ_CPR_IMG_QOS_R_STATE + i * 2,
 			qos_map_data[i].ostdl_addr,
 			qos_map_data[i].ostdl_r_right_shift,
 			OSTDL_R_REG_L,
 			OSTDL_R_REG_MASK);
-		imgsys_qos_to_MBps(pkt,
+		imgsys_qos_check_bw(pkt,
 			qos_map_data[i].bls_base + BLS_IMG_LEN_SUM_W_OFT,
 			BWR_IMG_E1A_BASE + qos_map_data[i].bwr_w_offset,
-			CMDQ_CPR_IMG_QOS_AVG_W + i * 4,
-			CMDQ_CPR_IMG_QOS_SUM_W + i * 4,
+			qos_map_data[i].bwr_w_fix_bw,
+			CMDQ_CPR_IMG_QOS_W_STATE + i * 2,
 			qos_map_data[i].ostdl_addr,
 			qos_map_data[i].ostdl_w_right_shift,
 			OSTDL_W_REG_L,
 			OSTDL_W_REG_MASK);
 	}
-
-	lop.reg = true;
-	lop.idx = CMDQ_CPR_IMG_QOS_IDX;
-	rop.reg = false;
-	rop.value = 1;
-	cmdq_pkt_logic_command(pkt, CMDQ_LOGIC_ADD, CMDQ_CPR_IMG_QOS_IDX, &lop, &rop);
-
-	GCE_COND_ASSIGN(pkt, CMDQ_THR_SPR_IDX1);
-	/* 128 ms */
-	rop.value = 128;
-	// case: CMDQ_CPR_IMG_QOS_IDX == 128
-	GCE_IF(lop, R_CMDQ_EQUAL, rop);
-	{
-		for (i = 0; i < ARRAY_SIZE(qos_map_data); i++) {
-			// calculate avg read/write BW
-			imgsys_qos_calculate_avg_bw(pkt,
-				CMDQ_CPR_IMG_QOS_SUM_R + i * 4,
-				CMDQ_CPR_IMG_QOS_AVG_R + i * 4);
-			imgsys_qos_calculate_avg_bw(pkt,
-				CMDQ_CPR_IMG_QOS_SUM_W + i * 4,
-				CMDQ_CPR_IMG_QOS_AVG_W + i * 4);
-		}
-		imgsys_qos_init_counter(pkt, false);
-	}
-	GCE_FI;
 	imgsys_qos_sum_to_MBps(pkt);
 }
 
@@ -748,7 +718,6 @@ static void imgsys_qos_report_switch(struct cmdq_pkt *pkt,
 			BWR_IMG_SRT_ENG_MAX_TTL_BW);
 		cmdq_pkt_sleep(pkt, CMDQ_US_TO_TICK(1000), 0 /*don't care*/);
 		imgsys_qos_config_bls(pkt, BLS_TRIG);
-		imgsys_qos_init_counter(pkt, false);
 		break;
 	case QOS_STATE_NORMAL:
 		cmdq_pkt_sleep(pkt, CMDQ_US_TO_TICK(1000), 0 /*don't care*/);
@@ -866,7 +835,7 @@ void mtk_imgsys_cmdq_hwqos_streamon(const struct mtk_imgsys_hwqos *hwqos_info)
 	imgsys_qos_config_bls(pkt, BLS_INIT);
 	imgsys_qos_config_bwr(pkt, BWR_START);
 	imgsys_qos_set_ostdl_en(pkt, 1);
-	imgsys_qos_init_counter(pkt, true);
+	imgsys_qos_init_state(pkt);
 	cmdq_pkt_flush(pkt);
 	cmdq_pkt_destroy(pkt);
 	MTK_IMGSYS_QOS_ENABLE(g_hwqos_dbg_en,

@@ -6590,8 +6590,8 @@ static inline int DPE_Prepare_Enable_ccf_clock(void)
 	/* mtk_mmdvfs_enable_vcp(true, VCP_PWR_USR_CAM); */
 
 	ret = pm_runtime_get_sync(dev);
-	if (ret) {
-		dev_info(dev, "pm_runtime_get_sync fail\n");
+	if (ret < 0) {
+		dev_info(dev, "pm_runtime_get_sync fail, %d\n", ret);
 		return ret;
 	}
 

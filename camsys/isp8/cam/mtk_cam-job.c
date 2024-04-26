@@ -451,8 +451,6 @@ static int mtk_cam_job_pack_init(struct mtk_cam_job *job,
 
 	job->is_error = 0;
 	job->rms_disable = 0;
-	job->dump_luma = ctx->enable_luma_dump && ctx->has_raw_subdev;
-	job->qof_voter_on = false;
 
 	job->local_enqueue_ts = local_clock();
 	job->local_apply_sensor_ts = 0;
@@ -877,12 +875,14 @@ handle_raw_frame_done(struct mtk_cam_job *job)
 		work_buf = job->ltmsgo.vaddr;
 		memcpy(job->ltmsgo_buf, job->ltmsgo.vaddr, job->ltmsgo.size);
 	}
-
-	if (job->dump_luma)
+	if (ctx->has_raw_subdev && job->src_ctx->enable_luma_dump) {
 		call_jobop(job, dump_aa_info);
-
-	if (job->qof_voter_on)
-		qof_mtcmos_voter(&job->src_ctx->cam->engines, job->used_engine, false);
+		qof_mtcmos_voter(job->src_ctx, false);
+		// TODO: not support per frame changing luma dump enable now;
+		// check SOF-Frame done racing if have to support
+		//job->src_ctx->enable_luma_dump =
+			//job->src_ctx->ctrldata.resource.user_data.raw_res.luma_debug;
+	}
 
 	if (CAM_DEBUG_ENABLED(QOF)) {
 		for (i = 0; i < ARRAY_SIZE(ctx->hw_raw); i++) {
@@ -3757,12 +3757,6 @@ static void singleframe_on_transit(struct mtk_cam_job_state *s, int state_type,
 				job->timestamp_mono = ktime_get_ns(); /* FIXME */
 				fill_hdr_timestamp(job, info);
 				handle_rms_disable(job);
-
-				if (job->dump_luma) {
-					qof_mtcmos_voter(&job->src_ctx->cam->engines,
-									 job->used_engine, true);
-					job->qof_voter_on = true;
-				}
 			}
 			break;
 		}
@@ -6077,7 +6071,7 @@ int job_handle_done(struct mtk_cam_job *job)
 			 job->done_pipe, job->timestamp,
 			 debug_ts,
 			 job->req->is_buf_empty ? " (empty)" : "",
-			 job->dump_luma ? ctx->str_ae_data : "");
+			 ctx->enable_luma_dump ? ctx->str_ae_data : "");
 
 		if (job->done_pipe != used_pipe)
 			dev_info(ctx->cam->dev, "%s: warn. done mismatched. used_pipe:0x%x\n",

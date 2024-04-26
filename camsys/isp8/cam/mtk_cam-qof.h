@@ -36,19 +36,8 @@ bool qof_is_enabled(struct mtk_raw_device *dev);
 int qof_enable(struct mtk_raw_device *dev, bool enable);
 int qof_enable_cq_trigger_by_qof(struct mtk_raw_device *dev, bool enable);
 
-
-int __qof_mtcmos_voter(struct mtk_cam_engines *eng,
-	unsigned int used_engine, bool enable,
-	const char *caller);
-
-#define qof_mtcmos_voter(eng, used_engine, enable) \
-	__qof_mtcmos_voter(eng, used_engine, enable, __func__)
-
-int __qof_mtcmos_raw_voter(struct mtk_raw_device *raw, bool enable, const char *caller);
-
-#define qof_mtcmos_raw_voter(raw, enable) \
-	__qof_mtcmos_raw_voter(raw, enable, __func__)
-
+int qof_mtcmos_voter(struct mtk_cam_ctx *ctx, bool enable);
+int qof_mtcmos_raw_voter(struct mtk_raw_device *raw, bool enable);
 int qof_reset_mtcmos_voter(struct mtk_cam_ctx *ctx);
 int qof_reset_mtcmos_raw_voter(struct mtk_raw_device *raw);
 void qof_ddren_setting(struct mtk_raw_device *raw, int frm_time_us);
@@ -60,8 +49,6 @@ void qof_dump_hw_timer(struct mtk_raw_device *raw);
 void qof_dump_cq_addr(struct mtk_raw_device *raw);
 void qof_dump_ctrl(struct mtk_raw_device *raw);
 void qof_dump_qoftop_status(struct mtk_raw_device *raw);
-
-void qof_set_force_dump(struct mtk_raw_device *raw, bool en);
 void qof_force_dump_all(struct mtk_raw_device *raw);
 
 void mtk_cam_enable_itc(struct mtk_raw_device *raw);

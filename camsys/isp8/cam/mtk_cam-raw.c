@@ -1628,6 +1628,8 @@ static irqreturn_t mtk_thread_irq_raw(int irq, void *data)
 	struct mtk_camsys_irq_info irq_info;
 	int recovered_done;
 	int do_recover;
+	char *str_buf;
+	size_t str_buf_size;
 
 	if (unlikely(atomic_cmpxchg(&raw_dev->is_fifo_overflow, 1, 0)))
 		dev_info(raw_dev->dev, "msg fifo overflow\n");
@@ -1640,9 +1642,6 @@ static irqreturn_t mtk_thread_irq_raw(int irq, void *data)
 		if (irq_info.irq_type & BIT(CAMSYS_IRQ_FRAME_START) ||
 			irq_info.irq_type & BIT(CAMSYS_IRQ_DEBUG_1) ||
 			irq_info.irq_type & BIT(CAMSYS_IRQ_ERROR)) {
-			char *str_buf;
-			size_t str_buf_size;
-
 			str_buf = raw_dev->str_debug_irq_data;
 			str_buf_size = sizeof(raw_dev->str_debug_irq_data);
 			memset(str_buf, 0, str_buf_size);

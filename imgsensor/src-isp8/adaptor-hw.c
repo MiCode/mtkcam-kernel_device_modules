@@ -686,6 +686,9 @@ int do_hw_power_off(struct adaptor_ctx *ctx)
 		deinit_pinctrl(ctx);
 	}
 
+	// reset the sensor pw seq
+	ctx->aov_mclk_ulposc_flag = 0;
+
 	if (ctx->sensor_ws) {
 		if (ctx->aov_pm_ops_flag == 1) {
 			ctx->aov_pm_ops_flag = 0;

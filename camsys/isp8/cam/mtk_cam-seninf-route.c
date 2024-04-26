@@ -2138,6 +2138,12 @@ mtk_cam_seninf_streaming_mux_change(struct mtk_cam_seninf_mux_param *param, bool
 				g_seninf_ops->_set_outmux_cfg_done(ctx, i);
 				ctx->outmux_disable_list[i] = false;
 			}
+#ifdef SEAMLESS_OUTMUX_V2
+			else if (ctx->outmux_disable_list_for_v2[i]) {
+				g_seninf_ops->_set_outmux_ref_vsync_inner(ctx, i);
+				ctx->outmux_disable_list_for_v2[i] = false;
+			}
+#endif
 		}
 	}
 

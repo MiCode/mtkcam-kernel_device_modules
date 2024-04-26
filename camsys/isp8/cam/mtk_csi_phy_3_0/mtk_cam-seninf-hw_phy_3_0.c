@@ -4592,6 +4592,47 @@ static int mtk_cam_seninf_debug(struct seninf_ctx *ctx)
 	if (SENINF_READ_BITS(pSeninf_top, SENINF_TOP_CTRL, SENINF_TOP_SW_CFG_LEVEL) == 0)
 		dev_info(ctx->dev, "warning: SENINF_TOP_SW_CFG_LEVEL is zero\n");
 
+	dev_info(ctx->dev,
+		"SENINF_TOP:ASYNC_SW_RST(0x%x),OUTMUX_SW_RST(0x%x),ASYNC_CG_EN(0x%x),OUTMUX_CG_EN(0x%x),ASYNC_OVERRUN_EN(0x%x)\n",
+		SENINF_READ_REG(pSeninf_top, SENINF_TOP_ASYNC_SW_RST),
+		SENINF_READ_REG(pSeninf_top, SENINF_TOP_OUTMUX_SW_RST),
+		SENINF_READ_REG(pSeninf_top, SENINF_TOP_ASYNC_CG_EN),
+		SENINF_READ_REG(pSeninf_top, SENINF_TOP_OUTMUX_CG_EN),
+		SENINF_READ_REG(pSeninf_top, SENINF_TOP_ASYNC_OVERRUN_IRQ_EN));
+	dev_info(ctx->dev,
+		"current async%d:ASYNC0_DBG0(0x%x),ASYNC1_DBG0(0x%x),ASYNC2_DBG0(0x%x),ASYNC3_DBG0(0x%x),ASYNC4_DBG0(0x%x),ASYNC5_DBG0(0x%x)\n",
+		ctx->seninfAsyncIdx,
+		SENINF_READ_REG(pSeninf_asytop, SENINF_ASYTOP_SENINF_ASYNC_DBG_PORT0_0),
+		SENINF_READ_REG(pSeninf_asytop, SENINF_ASYTOP_SENINF_ASYNC_DBG_PORT0_1),
+		SENINF_READ_REG(pSeninf_asytop, SENINF_ASYTOP_SENINF_ASYNC_DBG_PORT0_2),
+		SENINF_READ_REG(pSeninf_asytop, SENINF_ASYTOP_SENINF_ASYNC_DBG_PORT0_3),
+		SENINF_READ_REG(pSeninf_asytop, SENINF_ASYTOP_SENINF_ASYNC_DBG_PORT0_4),
+		SENINF_READ_REG(pSeninf_asytop, SENINF_ASYTOP_SENINF_ASYNC_DBG_PORT0_5));
+	dev_info(ctx->dev,
+		"current async%d:ASYNC0_DBG1(0x%x),ASYNC1_DBG1(0x%x),ASYNC2_DBG1(0x%x),ASYNC3_DBG1(0x%x),ASYNC4_DBG1(0x%x),ASYNC5_DBG1(0x%x)\n",
+		ctx->seninfAsyncIdx,
+		SENINF_READ_REG(pSeninf_asytop, SENINF_ASYTOP_SENINF_ASYNC_DBG_PORT1_0),
+		SENINF_READ_REG(pSeninf_asytop, SENINF_ASYTOP_SENINF_ASYNC_DBG_PORT1_1),
+		SENINF_READ_REG(pSeninf_asytop, SENINF_ASYTOP_SENINF_ASYNC_DBG_PORT1_2),
+		SENINF_READ_REG(pSeninf_asytop, SENINF_ASYTOP_SENINF_ASYNC_DBG_PORT1_3),
+		SENINF_READ_REG(pSeninf_asytop, SENINF_ASYTOP_SENINF_ASYNC_DBG_PORT1_4),
+		SENINF_READ_REG(pSeninf_asytop, SENINF_ASYTOP_SENINF_ASYNC_DBG_PORT1_5));
+	dev_info(ctx->dev,
+		"current async%d:BIST_RST0(0x%x),BIST_RST1(0x%x),BIST_RST2(0x%x),BIST_RST3(0x%x),BIST_RST4(0x%x),BIST_RST5(0x%x)\n",
+		ctx->seninfAsyncIdx,
+		SENINF_READ_BITS(pSeninf_asytop, SENINF_ASYTOP_SENINF_ASYNC_FIFO_BIST_CTRL_0,
+				 SENINF_ASYTOP_AFIFO_BIST_RST_0),
+		SENINF_READ_BITS(pSeninf_asytop, SENINF_ASYTOP_SENINF_ASYNC_FIFO_BIST_CTRL_1,
+				 SENINF_ASYTOP_AFIFO_BIST_RST_1),
+		SENINF_READ_BITS(pSeninf_asytop, SENINF_ASYTOP_SENINF_ASYNC_FIFO_BIST_CTRL_2,
+				 SENINF_ASYTOP_AFIFO_BIST_RST_2),
+		SENINF_READ_BITS(pSeninf_asytop, SENINF_ASYTOP_SENINF_ASYNC_FIFO_BIST_CTRL_3,
+				 SENINF_ASYTOP_AFIFO_BIST_RST_3),
+		SENINF_READ_BITS(pSeninf_asytop, SENINF_ASYTOP_SENINF_ASYNC_FIFO_BIST_CTRL_4,
+				 SENINF_ASYTOP_AFIFO_BIST_RST_4),
+		SENINF_READ_BITS(pSeninf_asytop, SENINF_ASYTOP_SENINF_ASYNC_FIFO_BIST_CTRL_5,
+				 SENINF_ASYTOP_AFIFO_BIST_RST_5));
+
 	/* clear outmux irq */
 	for (j = 0; j < ctx->vcinfo.cnt; j++) {
 		if (ctx->vcinfo.vc[j].enable) {
@@ -4802,47 +4843,6 @@ static int mtk_cam_seninf_debug(struct seninf_ctx *ctx)
 		SENINF_READ_REG(base_csi_mac, CSIRX_MAC_CSI2_SIZE_CHK_RCV2),
 		SENINF_READ_REG(base_csi_mac, CSIRX_MAC_CSI2_SIZE_CHK_RCV3),
 		SENINF_READ_REG(base_csi_mac, CSIRX_MAC_CSI2_SIZE_CHK_RCV4));
-
-	dev_info(ctx->dev,
-		"SENINF_TOP:ASYNC_SW_RST(0x%x),OUTMUX_SW_RST(0x%x),ASYNC_CG_EN(0x%x),OUTMUX_CG_EN(0x%x),ASYNC_OVERRUN_EN(0x%x)\n",
-		SENINF_READ_REG(pSeninf_top, SENINF_TOP_ASYNC_SW_RST),
-		SENINF_READ_REG(pSeninf_top, SENINF_TOP_OUTMUX_SW_RST),
-		SENINF_READ_REG(pSeninf_top, SENINF_TOP_ASYNC_CG_EN),
-		SENINF_READ_REG(pSeninf_top, SENINF_TOP_OUTMUX_CG_EN),
-		SENINF_READ_REG(pSeninf_top, SENINF_TOP_ASYNC_OVERRUN_IRQ_EN));
-	dev_info(ctx->dev,
-		"current async%d:ASYNC0_DBG0(0x%x),ASYNC1_DBG0(0x%x),ASYNC2_DBG0(0x%x),ASYNC3_DBG0(0x%x),ASYNC4_DBG0(0x%x),ASYNC5_DBG0(0x%x)\n",
-		ctx->seninfAsyncIdx,
-		SENINF_READ_REG(pSeninf_asytop, SENINF_ASYTOP_SENINF_ASYNC_DBG_PORT0_0),
-		SENINF_READ_REG(pSeninf_asytop, SENINF_ASYTOP_SENINF_ASYNC_DBG_PORT0_1),
-		SENINF_READ_REG(pSeninf_asytop, SENINF_ASYTOP_SENINF_ASYNC_DBG_PORT0_2),
-		SENINF_READ_REG(pSeninf_asytop, SENINF_ASYTOP_SENINF_ASYNC_DBG_PORT0_3),
-		SENINF_READ_REG(pSeninf_asytop, SENINF_ASYTOP_SENINF_ASYNC_DBG_PORT0_4),
-		SENINF_READ_REG(pSeninf_asytop, SENINF_ASYTOP_SENINF_ASYNC_DBG_PORT0_5));
-	dev_info(ctx->dev,
-		"current async%d:ASYNC0_DBG1(0x%x),ASYNC1_DBG1(0x%x),ASYNC2_DBG1(0x%x),ASYNC3_DBG1(0x%x),ASYNC4_DBG1(0x%x),ASYNC5_DBG1(0x%x)\n",
-		ctx->seninfAsyncIdx,
-		SENINF_READ_REG(pSeninf_asytop, SENINF_ASYTOP_SENINF_ASYNC_DBG_PORT1_0),
-		SENINF_READ_REG(pSeninf_asytop, SENINF_ASYTOP_SENINF_ASYNC_DBG_PORT1_1),
-		SENINF_READ_REG(pSeninf_asytop, SENINF_ASYTOP_SENINF_ASYNC_DBG_PORT1_2),
-		SENINF_READ_REG(pSeninf_asytop, SENINF_ASYTOP_SENINF_ASYNC_DBG_PORT1_3),
-		SENINF_READ_REG(pSeninf_asytop, SENINF_ASYTOP_SENINF_ASYNC_DBG_PORT1_4),
-		SENINF_READ_REG(pSeninf_asytop, SENINF_ASYTOP_SENINF_ASYNC_DBG_PORT1_5));
-	dev_info(ctx->dev,
-		"current async%d:BIST_RST0(0x%x),BIST_RST1(0x%x),BIST_RST2(0x%x),BIST_RST3(0x%x),BIST_RST4(0x%x),BIST_RST5(0x%x)\n",
-		ctx->seninfAsyncIdx,
-		SENINF_READ_BITS(pSeninf_asytop, SENINF_ASYTOP_SENINF_ASYNC_FIFO_BIST_CTRL_0,
-				 SENINF_ASYTOP_AFIFO_BIST_RST_0),
-		SENINF_READ_BITS(pSeninf_asytop, SENINF_ASYTOP_SENINF_ASYNC_FIFO_BIST_CTRL_1,
-				 SENINF_ASYTOP_AFIFO_BIST_RST_1),
-		SENINF_READ_BITS(pSeninf_asytop, SENINF_ASYTOP_SENINF_ASYNC_FIFO_BIST_CTRL_2,
-				 SENINF_ASYTOP_AFIFO_BIST_RST_2),
-		SENINF_READ_BITS(pSeninf_asytop, SENINF_ASYTOP_SENINF_ASYNC_FIFO_BIST_CTRL_3,
-				 SENINF_ASYTOP_AFIFO_BIST_RST_3),
-		SENINF_READ_BITS(pSeninf_asytop, SENINF_ASYTOP_SENINF_ASYNC_FIFO_BIST_CTRL_4,
-				 SENINF_ASYTOP_AFIFO_BIST_RST_4),
-		SENINF_READ_BITS(pSeninf_asytop, SENINF_ASYTOP_SENINF_ASYNC_FIFO_BIST_CTRL_5,
-				 SENINF_ASYTOP_AFIFO_BIST_RST_5));
 
 	/* check OUTMUX irq status */
 	for (j = 0; j < ctx->vcinfo.cnt; j++) {
@@ -7033,6 +7033,48 @@ int mtk_cam_seninf_apply_outmux_for_v2(struct seninf_ctx *ctx, u8 outmux_idx,
 	return 0;
 }
 
+int mtk_cam_seninf_set_outmux_ref_vsync_inner(struct seninf_ctx *ctx, u8 outmux_idx)
+{
+	void *pSeninf_mux_outer, *pSeninf_mux_inner;
+
+	if (unlikely(outmux_idx > _seninf_ops->outmux_num)) {
+		dev_info(ctx->dev, "[Error][%s] invalid outmux_idx (%d)\n", __func__, outmux_idx);
+		return -EINVAL;
+	}
+
+	pSeninf_mux_outer = ctx->reg_if_outmux[outmux_idx];
+	pSeninf_mux_inner = ctx->reg_if_outmux_inner[outmux_idx];
+
+	if (SENINF_READ_BITS(pSeninf_mux_outer, SENINF_OUTMUX_SW_CFG_DONE, SENINF_OUTMUX_SW_CFG_DONE)) {
+		SENINF_BITS(pSeninf_mux_inner, SENINF_OUTMUX_SOURCE_CONFIG_0,
+			    SENINF_OUTMUX_REF_VC, ctx->cur_first_vs);
+		SENINF_BITS(pSeninf_mux_inner, SENINF_OUTMUX_SOURCE_CONFIG_0,
+			    SENINF_OUTMUX_LAST_VC, ctx->cur_last_vs);
+
+		SENINF_BITS(pSeninf_mux_inner, SENINF_OUTMUX_SOURCE_CONFIG_1,
+			    SENINF_OUTMUX_TAG_VC_0, ctx->cur_first_vs);
+		SENINF_BITS(pSeninf_mux_inner, SENINF_OUTMUX_SOURCE_CONFIG_1,
+			    SENINF_OUTMUX_TAG_VC_1, ctx->cur_first_vs);
+		SENINF_BITS(pSeninf_mux_inner, SENINF_OUTMUX_SOURCE_CONFIG_1,
+			    SENINF_OUTMUX_TAG_VC_2, ctx->cur_first_vs);
+		SENINF_BITS(pSeninf_mux_inner, SENINF_OUTMUX_SOURCE_CONFIG_1,
+			    SENINF_OUTMUX_TAG_VC_3, ctx->cur_first_vs);
+		SENINF_BITS(pSeninf_mux_inner, SENINF_OUTMUX_SOURCE_CONFIG_2,
+			    SENINF_OUTMUX_TAG_VC_4, ctx->cur_first_vs);
+		SENINF_BITS(pSeninf_mux_inner, SENINF_OUTMUX_SOURCE_CONFIG_2,
+			    SENINF_OUTMUX_TAG_VC_5, ctx->cur_first_vs);
+		SENINF_BITS(pSeninf_mux_inner, SENINF_OUTMUX_SOURCE_CONFIG_2,
+			    SENINF_OUTMUX_TAG_VC_6, ctx->cur_first_vs);
+		SENINF_BITS(pSeninf_mux_inner, SENINF_OUTMUX_SOURCE_CONFIG_2,
+			    SENINF_OUTMUX_TAG_VC_7, ctx->cur_first_vs);
+	}
+
+	dev_info(ctx->dev, "[%s] outmux%d update ref vc to first/last %d/%d\n",
+		 __func__, outmux_idx, ctx->cur_first_vs, ctx->cur_last_vs);
+
+	return 0;
+}
+
 int mtk_cam_seninf_config_outmux(struct seninf_ctx *ctx, u8 outmux_idx, u8 src_mipi, u8 src_sen,
 			u8 cfg_mode, struct outmux_tag_cfg *tag_cfg)
 {
@@ -7228,6 +7270,7 @@ struct mtk_cam_seninf_ops mtk_csi_phy_3_0 = {
 	._wait_outmux_cfg_done = mtk_cam_seninf_wait_outmux_cfg_done,
 	._config_outmux = mtk_cam_seninf_config_outmux,
 	._apply_outmux_for_v2 = mtk_cam_seninf_apply_outmux_for_v2,
+	._set_outmux_ref_vsync_inner = mtk_cam_seninf_set_outmux_ref_vsync_inner,
 	._chk_sensor_delay_with_wait = chk_sensor_delay_with_wait,
 	._set_outmux_ref_vsync = mtk_cam_seninf_set_outmux_ref_vsync,
 	._set_outmux_cfg_done = mtk_cam_seninf_set_outmux_cfg_done,

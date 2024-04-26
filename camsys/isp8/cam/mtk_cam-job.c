@@ -2333,10 +2333,12 @@ static void dump_job_info(struct mtk_cam_job *job)
 		 atomic_long_read(&job->done_set), job->done_handled,
 		 atomic_long_read(&job->afo_done));
 	list_for_each_entry(buf, &req->buf_list, list) {
-		if (buf->vbb.vb2_buf.vb2_queue) {
+		if (buf->vbb.vb2_buf.vb2_queue &&
+			mtk_cam_job_is_done(job) == false) {
 			node = mtk_cam_buf_to_vdev(buf);
-			dev_info(dev, "%s:%s iova:0x%llx", __func__,
-				node->desc.name, buf->daddr);
+			if (buf->daddr)
+				dev_info(dev, "%s:%s iova:0x%llx", __func__,
+					node->desc.name, buf->daddr);
 		}
 	}
 }

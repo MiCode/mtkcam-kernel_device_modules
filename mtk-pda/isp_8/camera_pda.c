@@ -1568,6 +1568,7 @@ static int PDAProcessFunction(unsigned int nUserROINumber,
 			// output address is equal to
 			// total ROI number multiple by OUT_BYTE_PER_ROI
 			nOutputAddr = g_OutputBufferAddr[g_cur_out_idx];
+			nTotalROIrecord = 0;
 			for (j = 0; j < nCurrentProcRoiIndex; j++) {
 				nTotalROIrecord += (g_pda_Pdadata.roi_nbx[j] * g_pda_Pdadata.roi_nby[j]);
 				if (pda_log_dbg_en == 1)

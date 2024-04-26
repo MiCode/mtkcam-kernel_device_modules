@@ -53,6 +53,9 @@
 #define OSTDL_IMG_E14A_ADDR    (IMG_SUB_COMM4_BASE + SMI_L1ARB1_OFT)
 #define OSTDL_IMG_E15A_ADDR    (IMG_SUB_COMM4_BASE + SMI_L1ARB2_OFT)
 
+#define OSTDL_IMG_COMM0_ADDR    0x30020114
+#define OSTDL_IMG_COMM1_ADDR    0x30021118
+
 /* BWR register base address & offset */
 /* base address */
 #define BWR_IMG_E1A_BASE                    0x3400D000

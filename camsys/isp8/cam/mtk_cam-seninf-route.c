@@ -2348,6 +2348,37 @@ int aov_switch_pm_ops(struct seninf_ctx *ctx,
 }
 
 /**
+ * @brief: switch aov mclk ulposc.
+ *
+ * switch mclk to ulposc or normal clock.
+ * 1: switch to ulposc clock.
+ * 0: switch to normal clock.
+ *
+ */
+int aov_switch_mclk_ulposc(struct seninf_ctx *ctx,
+	unsigned int enable)
+{
+	struct v4l2_subdev *sensor_sd = ctx->sensor_sd;
+	struct v4l2_ctrl *ctrl;
+
+	ctrl = v4l2_ctrl_find(sensor_sd->ctrl_handler,
+		V4L2_CID_MTK_AOV_SWITCH_MCLK_ULPOSC);
+	if (!ctrl) {
+		dev_info(ctx->dev,
+			"no(%s) in subdev(%s)\n",
+			__func__, sensor_sd->name);
+		return -EINVAL;
+	}
+	dev_info(ctx->dev,
+		"[%s] SWITCH MCLK to %s clock\n",
+		__func__,
+		enable ? "ulposc" : "normal");
+	v4l2_ctrl_s_ctrl(ctrl, enable);
+
+	return 0;
+}
+
+/**
  * @brief: send apmcu param to scp.
  *
  * As a callee, For sending value/address to caller: scp.
@@ -2396,6 +2427,8 @@ int mtk_cam_seninf_s_aov_param(unsigned int sensor_id,
 			spin_lock_irqsave(&core->spinlock_aov, flags);
 			core->aov_abnormal_init_flag = 1;
 			spin_unlock_irqrestore(&core->spinlock_aov, flags);
+			/* switch to ulposc clk*/
+			aov_switch_mclk_ulposc(ctx, 1);
 			/* seninf/sensor streaming on */
 			v4l2_subdev_call(&ctx->subdev, video, s_stream, 1);
 			break;

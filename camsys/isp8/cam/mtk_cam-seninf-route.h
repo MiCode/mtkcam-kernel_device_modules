@@ -44,4 +44,7 @@ int aov_switch_i2c_bus_sda_aux(struct seninf_ctx *ctx,
 int aov_switch_pm_ops(struct seninf_ctx *ctx,
 	enum mtk_cam_sensor_pm_ops pm_ops);
 
+int aov_switch_mclk_ulposc(struct seninf_ctx *ctx,
+	unsigned int enable);
+
 #endif

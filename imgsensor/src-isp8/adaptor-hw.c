@@ -905,6 +905,7 @@ int adaptor_hw_init(struct adaptor_ctx *ctx)
 int adaptor_hw_sensor_reset(struct adaptor_ctx *ctx)
 {
 	int ret;
+	int ulposc_flag = ctx->aov_mclk_ulposc_flag;
 
 	adaptor_logi(ctx, "%d|%d|%d\n",
 		ctx->is_streaming,
@@ -916,6 +917,8 @@ int adaptor_hw_sensor_reset(struct adaptor_ctx *ctx)
 		ctx->power_refcnt > 0) {
 
 		do_hw_power_off(ctx);
+		/* restore aov mclk ulposc flag */
+		ctx->aov_mclk_ulposc_flag = ulposc_flag;
 		do_hw_power_on(ctx);
 		ret = adaptor_ixc_do_daa (&ctx->ixc_client);
 		if (ret)

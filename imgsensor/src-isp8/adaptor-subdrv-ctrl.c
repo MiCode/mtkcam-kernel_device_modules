@@ -3631,6 +3631,7 @@ int common_control(struct subdrv_ctx *ctx,
 	u16 addr = 0;
 	u64 time_boot_begin = 0;
 	u64 ixc_time = 0;
+	u32 fast_mode_in_lbmf = 0;
 	struct eeprom_info_struct *info = ctx->s_ctx.eeprom_info;
 	struct adaptor_ctx *_adaptor_ctx = NULL;
 	struct v4l2_subdev *sd = NULL;
@@ -3730,8 +3731,14 @@ int common_control(struct subdrv_ctx *ctx,
 	set_mirror_flip(ctx, ctx->s_ctx.mirror);
 
 	if (ctx->s_ctx.reg_addr_fast_mode_in_lbmf &&
-		ctx->s_ctx.mode[ctx->current_scenario_id].hdr_mode == HDR_RAW_LBMF)
-		subdrv_i2c_wr_u8(ctx, ctx->s_ctx.reg_addr_fast_mode_in_lbmf, 0x4);
+		ctx->s_ctx.mode[ctx->current_scenario_id].hdr_mode == HDR_RAW_LBMF) {
+		// enable bit[2] on lbmf mode
+		fast_mode_in_lbmf =
+			subdrv_ixc_rd_u8(ctx, ctx->s_ctx.reg_addr_fast_mode_in_lbmf) | 0x4;
+		subdrv_ixc_wr_u8(ctx,
+			ctx->s_ctx.reg_addr_fast_mode_in_lbmf,
+			fast_mode_in_lbmf);
+	}
 
 	return ret;
 }

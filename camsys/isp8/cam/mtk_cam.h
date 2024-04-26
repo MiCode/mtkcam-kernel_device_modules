@@ -213,6 +213,7 @@ struct mtk_cam_ctx {
 	int slc_gid;
 	struct slbc_gid_data slc_data;
 	bool slc_data_valid;
+	bool slc_validated;
 	u64 sw_recovery_ts;
 
 	bool enable_luma_dump;

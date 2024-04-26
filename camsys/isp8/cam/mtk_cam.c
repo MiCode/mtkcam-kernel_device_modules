@@ -2088,9 +2088,12 @@ static int mtk_cam_ctx_validate_slc(struct mtk_cam_ctx *ctx)
 {
 	int ret = 0;
 #if IS_ENABLED(CONFIG_MTK_SLBC)
-	ret = slbc_validate(ID_CAM, ctx->slc_gid);
-	dev_info(ctx->cam->dev, "%s: gid:%d slc_data bw/dma size:%d/%d\n", __func__,
-		ctx->slc_gid, ctx->slc_data.bw, ctx->slc_data.dma_size);
+	if (ctx->slc_validated == false) {
+		ret = slbc_validate(ID_CAM, ctx->slc_gid);
+		dev_info(ctx->cam->dev, "%s: gid:%d slc_data bw/dma size:%d/%d\n", __func__,
+			ctx->slc_gid, ctx->slc_data.bw, ctx->slc_data.dma_size);
+		ctx->slc_validated = true;
+	}
 #endif
 	return ret;
 }
@@ -2100,9 +2103,12 @@ static int mtk_cam_ctx_invalidate_slc(struct mtk_cam_ctx *ctx)
 	int ret = 0;
 
 #if IS_ENABLED(CONFIG_MTK_SLBC)
-	ret = slbc_invalidate(ID_CAM, ctx->slc_gid);
-	dev_info(ctx->cam->dev, "%s: gid:%d slc_data bw/dma size:%d/%d\n", __func__,
-		ctx->slc_gid, ctx->slc_data.bw, ctx->slc_data.dma_size);
+	if (ctx->slc_validated) {
+		ret = slbc_invalidate(ID_CAM, ctx->slc_gid);
+		dev_info(ctx->cam->dev, "%s: gid:%d slc_data bw/dma size:%d/%d\n", __func__,
+			ctx->slc_gid, ctx->slc_data.bw, ctx->slc_data.dma_size);
+		ctx->slc_validated = false;
+	}
 #endif
 	return ret;
 }

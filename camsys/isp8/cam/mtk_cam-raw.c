@@ -398,9 +398,10 @@ static void dump_tg_setting(struct mtk_raw_device *dev, const char *msg)
 
 static void dump_seqence(struct mtk_raw_device *dev)
 {
-	dev_info(dev->dev, "in 0x%08x out 0x%08x\n",
+	dev_info(dev->dev, "in 0x%08x out 0x%08x (mod5_en:0x%x)\n",
 		 raw_readl_relaxed(dev, dev->base_inner, REG_FRAME_IDX),
-		 raw_readl_relaxed(dev, dev->base, REG_FRAME_IDX));
+		 raw_readl_relaxed(dev, dev->base, REG_FRAME_IDX),
+		 raw_readl_relaxed(dev, dev->base_inner, REG_CAMCTL_MOD5_EN));
 }
 
 static void reset_error_handling(struct mtk_raw_device *dev)
@@ -551,7 +552,7 @@ static void reset_reg(struct mtk_raw_device *dev)
 	raw_writel(0, dev, dev->base_inner, REG_CAMCTL_INT21_EN);
 	raw_writel(0, dev, dev->base, REG_CAMCTL_INT21_EN);
 	wmb(); /* make sure committed */
-	diable_rms_module(dev);
+	diable_rms_pcrp(dev);
 	diable_rms_module(dev);
 	reset_error_handling(dev);
 	if (CAM_DEBUG_ENABLED(RAW_INT))
@@ -719,6 +720,7 @@ void apply_cq(struct mtk_raw_device *dev,
 		       dev, dev->base, REG_CAMCQ_CQ_SUB_THR0_DESC_SIZE_2);
 
 	raw_writel(FBIT(CAMCTL_CQ_THR0_START), dev, dev->base, REG_CAMCTL_START);
+	dev->apply_ts = ktime_get_boottime_ns();
 }
 
 void dbload_force(struct mtk_raw_device *dev)
@@ -1619,7 +1621,7 @@ static int raw_process_fsm(struct mtk_raw_device *raw_dev,
 
 	return recovered;
 }
-
+#define LOG_THREADED_IRQ (60 * 1000000)
 static irqreturn_t mtk_thread_irq_raw(int irq, void *data)
 {
 	struct mtk_raw_device *raw_dev = (struct mtk_raw_device *)data;
@@ -1637,29 +1639,28 @@ static irqreturn_t mtk_thread_irq_raw(int irq, void *data)
 
 		WARN_ON(len != sizeof(irq_info));
 
-#if RAW_DEBUG
-		if (irq_info.irq_type & BIT(CAMSYS_IRQ_FRAME_START) ||
-			irq_info.irq_type & BIT(CAMSYS_IRQ_DEBUG_1) ||
-			irq_info.irq_type & BIT(CAMSYS_IRQ_ERROR))
-			dev_info(raw_dev->dev, "ts=%llu irq_type %d, req:0x%x/0x%x ctl_mod_5:0x%x diff:%llu (0x%x/0x%x/0x%x)\n",
-			irq_info.ts_ns / 1000,
-			irq_info.irq_type,
-			irq_info.frame_idx_inner,
-			irq_info.frame_idx,
-			irq_info.debug_en,
-			ktime_get_boottime_ns() - irq_info.ts_ns,
-			raw_readl_relaxed(raw_dev, raw_dev->base_inner, REG_FHG_FHG_SPARE_1),
-			raw_readl_relaxed(raw_dev, raw_dev->base, REG_FHG_FHG_SPARE_1),
-			raw_readl_relaxed(raw_dev, raw_dev->base, REG_CAMCTL_MOD5_EN));
-#else
 		if (irq_info.irq_type & BIT(CAMSYS_IRQ_FRAME_START) ||
 			irq_info.irq_type & BIT(CAMSYS_IRQ_DEBUG_1) ||
 			irq_info.irq_type & BIT(CAMSYS_IRQ_ERROR)) {
 			str_buf = raw_dev->str_debug_irq_data;
 			str_buf_size = sizeof(raw_dev->str_debug_irq_data);
 			memset(str_buf, 0, str_buf_size);
-			scnprintf(str_buf, str_buf_size,
-			"[%llu] ts=%llu irq %d, req:0x%x/0x%x en:0x%x td:%llu (0x%x/0x%x/0x%x)",
+
+			if ((irq_info.ts_ns - raw_dev->apply_ts) >= LOG_THREADED_IRQ)
+				dev_info(raw_dev->dev,
+					"ts=%llu irq %d, req:0x%x/0x%x mod_5:0x%x td:%llu (0x%x/0x%x/0x%x)\n",
+					irq_info.ts_ns / 1000,
+					irq_info.irq_type,
+					irq_info.frame_idx_inner,
+					irq_info.frame_idx,
+					irq_info.debug_en,
+					ktime_get_boottime_ns() - irq_info.ts_ns,
+					raw_readl_relaxed(raw_dev, raw_dev->base_inner, REG_FHG_FHG_SPARE_1),
+					raw_readl_relaxed(raw_dev, raw_dev->base, REG_FHG_FHG_SPARE_1),
+					raw_readl_relaxed(raw_dev, raw_dev->base, REG_CAMCTL_MOD5_EN));
+			else
+				scnprintf(str_buf, str_buf_size,
+				"[%llu] ts=%llu irq %d, req:0x%x/0x%x en:0x%x td:%llu (0x%x/0x%x/0x%x)",
 				local_clock(),
 				irq_info.ts_ns / 1000,
 				irq_info.irq_type,
@@ -1671,7 +1672,6 @@ static irqreturn_t mtk_thread_irq_raw(int irq, void *data)
 				raw_readl_relaxed(raw_dev, raw_dev->base, REG_FHG_FHG_SPARE_1),
 				raw_readl_relaxed(raw_dev, raw_dev->base, REG_CAMCTL_MOD5_EN));
 		}
-#endif
 
 		/* error case */
 		if (unlikely(irq_info.irq_type == (1 << CAMSYS_IRQ_ERROR))) {

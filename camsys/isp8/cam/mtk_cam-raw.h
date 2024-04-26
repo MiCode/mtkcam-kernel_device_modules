@@ -86,7 +86,7 @@ struct mtk_raw_device {
 	int tg_grab_err_handle_cnt;
 	int dma_err_handle_cnt;
 	int tg_overrun_handle_cnt;
-
+	u64 apply_ts;
 	int default_printk_cnt;
 	/* preisp synchronized used */
 	int tg_count;

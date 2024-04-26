@@ -8392,6 +8392,11 @@ static int vidioc_dqbuf(struct file *file, void *priv, struct v4l2_buffer *p)
 	//LOG_INF("[%s]buf address/len = 0x%llu/0x%x, ureq[reqidx] =0x%x\n",
 	//__func__, p->m.userptr,  p->length, sizeof(ureq[reqidx]));
 	Ret = copy_from_user(&ureq[dd], (void __user *)p->m.userptr, sizeof(struct DPE_Request));
+	if (Ret != 0) {
+		LOG_ERR("DPE_deque_request copy_from_user failed\n");
+		Ret = -EFAULT;
+		goto EXIT;
+	}
 	Ret = copy_from_user(&cfgs[dd][0], (void __user *)ureq[dd].m_pDpeConfig,
 				ureq[dd].m_ReqNum * sizeof(struct DPE_Config_ISP8));
 

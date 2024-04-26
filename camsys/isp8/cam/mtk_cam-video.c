@@ -418,8 +418,9 @@ static int mtk_cam_vb2_buf_prepare(struct vb2_buffer *vb)
 	const struct v4l2_format *fmt = &node->active_fmt;
 	unsigned int size, plane;
 
-	if (V4L2_TYPE_IS_OUTPUT(vb->type) &&
-	    !(mtk_buf->flags & FLAG_NO_CACHE_CLEAN)) {
+	if ((V4L2_TYPE_IS_OUTPUT(vb->type) &&
+	    !(mtk_buf->flags & FLAG_NO_CACHE_CLEAN)) ||
+	    node->desc.id == MTK_RAW_PURE_RAW_OUT) {
 
 		if (CAM_DEBUG_ENABLED(V4L2))
 			dev_dbg(vb->vb2_queue->dev, "%s: %s\n",

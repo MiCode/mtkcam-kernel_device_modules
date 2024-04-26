@@ -5,7 +5,7 @@
 
 #include "c2ps_stat_selector.h"
 
-int stat_selector_mode = 1;
+int stat_selector_mode;
 module_param(stat_selector_mode, int, 0644);
 
 inline enum c2ps_env_status c2ps_stat_selector_v1(struct global_info *glb_info)

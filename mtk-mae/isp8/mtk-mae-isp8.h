@@ -126,9 +126,20 @@ static const unsigned int fld_face_info_idx_1[MAX_FLD_V0_FACE_NUM] = {
 #define MAE_RSZ0_LEN                     (0x01F4)
 #define MAE_REG_01A8_RSZ0                (MAE_RSZ0 + 0x1A8)
 
+// 0x4C00 MAE_UDMA_W
+#define MAE_UDMA_W_BASE                 (0x4C00)
+#define MAE_REG_0054_UDMA_W             (MAE_UDMA_W_BASE + 0x0054)
+
 // 0x5000 MAE_CMP
 #define MAE_CMP_BASE                    (0x5000)
 #define MAE_CMP_LEN                     (0x0190)
+
+// 0x5200 MAE_UDMA_R
+#define MAE_UDMA_R_BASE                 (0x5200)
+#define MAE_REG_0054_UDMA_R             (MAE_UDMA_R_BASE + 0x0054)
+#define MAE_REG_01C0_UDMA_R             (MAE_UDMA_R_BASE + 0x01C0)
+#define MAE_REG_01C4_UDMA_R             (MAE_UDMA_R_BASE + 0x01C4)
+#define MAE_REG_01D4_UDMA_R             (MAE_UDMA_R_BASE + 0x01D4)
 
 // 0x5800 MAE_RDMA_5
 #define MAE_RDMA_5_BASE                   (0x5800)
@@ -447,6 +458,9 @@ static const unsigned int fld_face_info_idx_1[MAX_FLD_V0_FACE_NUM] = {
 #define MAE_REG_OUTER_SRC_VSIZE_01        (MAE_DRV_R_BASE + 0x0154)
 #define MAE_REG_OUTER_SRC_HSIZE_02        (MAE_DRV_R_BASE + 0x0158)
 #define MAE_REG_OUTER_SRC_VSIZE_02        (MAE_DRV_R_BASE + 0x015C)
+
+#define MAE_REG_0178_MAE_DRV_R            (MAE_DRV_R_BASE + 0x0178)
+#define MAE_REG_017C_MAE_DRV_R            (MAE_DRV_R_BASE + 0x017C)
 
 #define MAE_REG_OUTER_CONFIG_BASE_00_0    (MAE_DRV_R_BASE + 0x0180)
 #define MAE_REG_OUTER_CONFIG_BASE_00_1    (MAE_DRV_R_BASE + 0x0184)

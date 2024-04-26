@@ -12,6 +12,7 @@
 #include <linux/soc/mediatek/mtk-cmdq-ext.h>
 #include "cmdq-sec.h"
 #include "cmdq-sec-iwc-common.h"
+#include <soc/mediatek/smi.h>
 
 #include "mtk-mae-isp8.h"
 
@@ -63,6 +64,10 @@ int set_default_value = 1;
 int fld_reset_en = 1;
 int cmdq_polling_en = 1;
 int cmdq_profiling_en;
+uint32_t mae_preultra_read;
+uint32_t mae_preultra_write;
+uint32_t mae_rdma_debug_sel;
+uint32_t mae_read_back_val;
 
 module_param(mae_log_level_value, int, 0644);
 module_param(mae_trigger_cmdq_timeout, int, 0644);
@@ -72,6 +77,10 @@ module_param(set_default_value, int, 0644);
 module_param(fld_reset_en, int, 0644);
 module_param(cmdq_polling_en, int, 0644);
 module_param(cmdq_profiling_en, int, 0644);
+module_param(mae_preultra_read, uint, 0644);
+module_param(mae_preultra_write, uint, 0644);
+module_param(mae_rdma_debug_sel, uint, 0644);
+module_param(mae_read_back_val, uint, 0644);
 
 static void mtk_mae_dump(struct mtk_mae_dev *mae_dev);
 static void mtk_mae_fld_reset(struct mtk_mae_dev *mae_dev);
@@ -2049,6 +2058,17 @@ static bool mtk_mae_config_hw(struct mtk_mae_dev *mae_dev, int idx)
 		}
 	}
 
+	// preultra
+	if (mae_preultra_write)
+		MAE_CMDQ_WRITE_REG(mae_dev->pkt[idx], MAE_REG_0054_UDMA_W, mae_preultra_write);
+	else
+		MAE_CMDQ_WRITE_REG(mae_dev->pkt[idx], MAE_REG_0054_UDMA_W, 0x1428);
+
+	if (mae_preultra_read)
+		MAE_CMDQ_WRITE_REG(mae_dev->pkt[idx], MAE_REG_0054_UDMA_R, mae_preultra_read);
+	else
+		MAE_CMDQ_WRITE_REG(mae_dev->pkt[idx], MAE_REG_0054_UDMA_R, 0x1428);
+
 	MAE_CMDQ_WRITE_REG(mae_dev->pkt[idx], MAE_REG_0004_MAE_RDMA_5, 0x6221);
 	if (mae_dbf_on == 1)
 		MAE_CMDQ_WRITE_REG(mae_dev->pkt[idx], MAE_IRQ_DDREN_CMDQ_CTRL, 0x2200);
@@ -2095,8 +2115,63 @@ static void mtk_mae_reg_dump_to_buffer(struct mtk_mae_dev *mae_dev)
 {
 	uint8_t *debug_buffer = (uint8_t *)mae_dev->map_table->debug_dmabuf_info[0].kva;
 	uint32_t i;
+	uint32_t val;
 
 	mae_dev_info(mae_dev->dev, "%s +\n", __func__);
+
+	val = (uint32_t)readl(mae_dev->mae_base + MAE_REG_01C0_UDMA_R);
+	writel(val | mae_read_back_val, mae_dev->mae_base + MAE_REG_01C0_UDMA_R);
+	snprintf(debug_buffer, DEBUG_BUFFER_LINE_LEN,
+			"\n[0x%08x] 0x%08x",
+			MAE_BASE + MAE_REG_01C4_UDMA_R,
+			(uint32_t)readl(mae_dev->mae_base + MAE_REG_01C4_UDMA_R));
+	mae_dev_info(mae_dev->dev,
+				"\n[0x%08x] 0x%08x",
+				MAE_BASE + MAE_REG_01C4_UDMA_R,
+				(uint32_t)readl(mae_dev->mae_base + MAE_REG_01C4_UDMA_R));
+	debug_buffer += DEBUG_BUFFER_LINE_LEN;
+	snprintf(debug_buffer, DEBUG_BUFFER_LINE_LEN,
+			"\n[0x%08x] 0x%08x",
+			MAE_BASE + MAE_REG_01D4_UDMA_R,
+			(uint32_t)readl(mae_dev->mae_base + MAE_REG_01D4_UDMA_R));
+	mae_dev_info(mae_dev->dev,
+				"\n[0x%08x] 0x%08x",
+				MAE_BASE + MAE_REG_01D4_UDMA_R,
+				(uint32_t)readl(mae_dev->mae_base + MAE_REG_01D4_UDMA_R));
+	debug_buffer += DEBUG_BUFFER_LINE_LEN;
+
+
+	val = (uint32_t)readl(mae_dev->mae_base + MAE_REG_0178_MAE_DRV_R);
+	writel(val | mae_rdma_debug_sel, mae_dev->mae_base + MAE_REG_0178_MAE_DRV_R);
+	snprintf(debug_buffer, DEBUG_BUFFER_LINE_LEN,
+			"\n[0x%08x] 0x%08x",
+			MAE_BASE + MAE_REG_017C_MAE_DRV_R,
+			(uint32_t)readl(mae_dev->mae_base + MAE_REG_017C_MAE_DRV_R));
+	mae_dev_info(mae_dev->dev,
+				"\n[0x%08x] 0x%08x",
+				MAE_BASE + MAE_REG_017C_MAE_DRV_R,
+				(uint32_t)readl(mae_dev->mae_base + MAE_REG_017C_MAE_DRV_R));
+	debug_buffer += DEBUG_BUFFER_LINE_LEN;
+
+	snprintf(debug_buffer, DEBUG_BUFFER_LINE_LEN,
+			"\n[0x%08x] 0x%08x",
+			MAE_BASE + MAE_REG_0054_UDMA_W,
+			(uint32_t)readl(mae_dev->mae_base + MAE_REG_0054_UDMA_W));
+	mae_dev_info(mae_dev->dev,
+				"\n[0x%08x] 0x%08x",
+				MAE_BASE + MAE_REG_0054_UDMA_W,
+				(uint32_t)readl(mae_dev->mae_base + MAE_REG_0054_UDMA_W));
+	debug_buffer += DEBUG_BUFFER_LINE_LEN;
+
+	snprintf(debug_buffer, DEBUG_BUFFER_LINE_LEN,
+			"\n[0x%08x] 0x%08x",
+			MAE_BASE + MAE_REG_0054_UDMA_R,
+			(uint32_t)readl(mae_dev->mae_base + MAE_REG_0054_UDMA_R));
+	mae_dev_info(mae_dev->dev,
+				"\n[0x%08x] 0x%08x",
+				MAE_BASE + MAE_REG_0054_UDMA_R,
+				(uint32_t)readl(mae_dev->mae_base + MAE_REG_0054_UDMA_R));
+	debug_buffer += DEBUG_BUFFER_LINE_LEN;
 
 	// 21 line
 	for (i = 0; i < FDVT_LEN; i += 0x10) {
@@ -2479,6 +2554,8 @@ static void mtk_mae_dump(struct mtk_mae_dev *mae_dev)
 	mtk_mae_dump_buf_iova(mae_dev);
 
 	mtk_mae_reg_dump_to_buffer(mae_dev);
+
+	mtk_smi_dbg_hang_detect("mae driver");
 
 	mae_dev_info(mae_dev->dev, "Dump reg\n");
 

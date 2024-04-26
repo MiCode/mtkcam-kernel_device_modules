@@ -475,11 +475,14 @@ void sv_reset(struct mtk_camsv_device *sv_dev)
 	if (ret < 0) {
 
 		dev_info(sv_dev->dev,
-			 "%s: camsv dma timeout tg_sen_mode: 0x%x, dma_sw_ctl:0x%x camsv_dcm_status:0x%x\n",
+			 "%s: camsv dma timeout tg_sen_mode: 0x%x, dma_sw_ctl:0x%x camsv_dcm_status:0x%x cam_main_gals_dbg_status 0x%x, cam_main_ppc_prot_rdy_0 0x%x, cam_main_ppc_prot_rdy_1 0x%x\n",
 			 __func__,
 			 readl(sv_dev->base + REG_CAMSVCENTRAL_SEN_MODE),
 			 readl(sv_dev->base_dma + REG_CAMSVDMATOP_SW_RST_CTL),
-			 readl(sv_dev->base + REG_CAMSVCENTRAL_DCM_DIS_STATUS));
+			 readl(sv_dev->base + REG_CAMSVCENTRAL_DCM_DIS_STATUS),
+			 readl(sv_dev->cam->base + 0x414),
+			 readl(sv_dev->cam->base + 0x588),
+			 readl(sv_dev->cam->base + 0x58c));
 		writel(0xf, sv_dev->base_dma + REG_CAMSVDMATOP_DMA_DEBUG_SEL);
 		dev_info(sv_dev->dev, "camsv dma port0x%x",
 			readl(sv_dev->base_dma + REG_CAMSVDMATOP_DMA_DEBUG_PORT));
@@ -511,10 +514,13 @@ void sv_reset(struct mtk_camsv_device *sv_dev)
 				100000 /* timeout, us */);
 	if (ret < 0) {
 		dev_info(sv_dev->dev,
-			 "%s: cq dma timeout tg_sen_mode: 0x%x, cq_dma_sw_ctl:0x%x\n",
+			 "%s: cq dma timeout tg_sen_mode: 0x%x, cq_dma_sw_ctl:0x%x cam_main_gals_dbg_status 0x%x, cam_main_ppc_prot_rdy_0 0x%x, cam_main_ppc_prot_rdy_1 0x%x\n",
 			 __func__,
 			 readl(sv_dev->base + REG_CAMSVCENTRAL_SEN_MODE),
-			 readl(sv_dev->base_scq + REG_CAMSVCQTOP_SW_RST_CTL));
+			 readl(sv_dev->base_scq + REG_CAMSVCQTOP_SW_RST_CTL),
+			 readl(sv_dev->cam->base + 0x414),
+			 readl(sv_dev->cam->base + 0x588),
+			 readl(sv_dev->cam->base + 0x58c));
 	}
 	writel(0, sv_dev->base_scq + REG_CAMSVCQTOP_SW_RST_CTL);
 	wmb(); /* make sure committed */
@@ -2487,7 +2493,7 @@ int mtk_camsv_runtime_suspend(struct device *dev)
 
 	mtk_cam_sv_golden_set(sv_dev, false);
 
-	for (i = 0; i < sv_dev->num_clks; i++)
+	for (i = sv_dev->num_clks - 1; i >= 0; i--)
 		clk_disable_unprepare(sv_dev->clks[i]);
 
 	return 0;

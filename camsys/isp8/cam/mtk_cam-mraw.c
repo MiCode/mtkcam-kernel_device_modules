@@ -661,7 +661,13 @@ void mraw_reset(struct mtk_mraw_device *mraw_dev)
 			 readl(mraw_dev->base + REG_MRAW_CTL_SW_CTL),
 			 readl(mraw_dev->base + REG_MRAW_FRAME_SEQ_NUM)
 			);
-
+		dev_info(mraw_dev->dev,
+			"%s  cam_main_gals_dbg_status 0x%x, cam_main_ppc_prot_rdy_0 0x%x, cam_main_ppc_prot_rdy_1 0x%x",
+			__func__,
+			readl(mraw_dev->cam->base + 0x414),
+			readl(mraw_dev->cam->base + 0x588),
+			readl(mraw_dev->cam->base + 0x58c)
+		);
 		mtk_smi_dbg_hang_detect("camsys-mraw");
 
 		goto RESET_FAILURE;
@@ -1773,7 +1779,7 @@ int mtk_mraw_runtime_suspend(struct device *dev)
 		ENGINE_MRAW, -mraw_dev->mraw_avg_applied_bw_w,
 		-mraw_dev->mraw_peak_applied_bw_w, false);
 
-	for (i = 0; i < mraw_dev->num_clks; i++)
+	for (i = mraw_dev->num_clks - 1; i >= 0; i--)
 		clk_disable_unprepare(mraw_dev->clks[i]);
 
 	return 0;

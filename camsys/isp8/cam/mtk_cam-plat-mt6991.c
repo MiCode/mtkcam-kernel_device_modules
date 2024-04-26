@@ -735,6 +735,18 @@ static int query_raw_dma_list(size_t *num, struct reg_to_dump **reg_list)
 	return 0;
 }
 
+static struct adl_cmdq_worker_param adl_worker_param = {
+	0x3a003380,
+	0x3a00032c,
+	0x4c260000,
+};
+
+static int query_adl_cmdq_worker_param(struct adl_cmdq_worker_param **param)
+{
+	*param = &adl_worker_param;
+	return 0;
+}
+
 static u8 vb2_queues_support_list[] = {
 	/* capture queues */
 	MTK_RAW_MAIN_STREAM_OUT,
@@ -808,6 +820,7 @@ static const struct plat_data_hw mt6991_hw_data = {
 	.query_max_exp_support = query_max_exp_support,
 	.query_icc_path_idx = query_icc_path_idx,
 	.query_raw_dma_list = query_raw_dma_list,
+	.query_adl_cmdq_worker_param = query_adl_cmdq_worker_param,
 	.dcif_slb_support = true,
 	.bwr_support = true,
 	.qof_support = true,

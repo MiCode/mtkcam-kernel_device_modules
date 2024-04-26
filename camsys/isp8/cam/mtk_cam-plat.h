@@ -163,6 +163,13 @@ struct reg_to_dump {
 	unsigned int reg;
 };
 
+/* physical addressing mode */
+struct adl_cmdq_worker_param {
+	int apu_dc_larb_base;
+	int cam_main_adlrd_ctrl_base;
+	int apu_mbox_dc_mode_base;
+};
+
 struct plat_v4l2_data {
 	int raw_pipeline_num;
 	int camsv_pipeline_num;
@@ -223,6 +230,7 @@ struct plat_data_hw {
 	int (*query_icc_path_idx)(int domain, int smi_port);
 
 	int (*query_raw_dma_list)(size_t *num, struct reg_to_dump **reg_list);
+	int (*query_adl_cmdq_worker_param)(struct adl_cmdq_worker_param **param);
 
 	bool dcif_slb_support;
 	bool bwr_support;

@@ -937,12 +937,11 @@ static void write_pkt_apu_raw(struct mtk_raw_device *dev,
 			      bool is_apu_dc)
 {
 	int raw_id = dev->id;
-	int raw_base;
 	int adlrd_ctrl;
 	int trig;
+	struct adl_cmdq_worker_param *param = NULL;
 
-	raw_base = (raw_id == 0) ? 0x3a800000 :
-		   (raw_id == 1) ? 0x3a900000 : 0x3aa00000;
+	CALL_PLAT_HW(query_adl_cmdq_worker_param, &param);
 
 	adlrd_ctrl =
 		(raw_id << 1) | /* ADLRD_MUX_SEL */
@@ -952,16 +951,17 @@ static void write_pkt_apu_raw(struct mtk_raw_device *dev,
 		FBIT(CAMCTL_APU_TRIG) :
 		(FBIT(CAMCTL_APU_TRIG) | FBIT(CAMCTL_RAW_TRIG));
 
-	if (is_apu_dc)
-		cmdq_pkt_write(pkt, NULL, 0x3a003380, 0xf0000, 0xffffffff);
-	else
-		cmdq_pkt_write(pkt, NULL, 0x3a003380, 0x00001, 0xffffffff);
+	cmdq_pkt_write(
+			pkt, NULL, param->apu_dc_larb_base,
+			is_apu_dc ? 0xf0000 : 0x00001, 0xffffffff);
 
 	/* CAM_MAIN_ADLRD_CTRL */
-	cmdq_pkt_write(pkt, NULL, 0x3a00032c, adlrd_ctrl, 0xffffffff);
+	cmdq_pkt_write(
+			pkt, NULL,
+			param->cam_main_adlrd_ctrl_base, adlrd_ctrl, 0xffffffff);
 
 	/* CAMCTL_RAWI_TRIG: CAMCTL_APU_TRIG */
-	cmdq_pkt_write(pkt, NULL, raw_base + REG_CAMCTL_RAW_TRIG, trig,
+	cmdq_pkt_write(pkt, NULL, dev->base_reg_addr + REG_CAMCTL_RAW_TRIG, trig,
 		       0xffffffff);
 
 	if (CAM_DEBUG_ENABLED(RAW_INT))
@@ -973,13 +973,18 @@ void write_pkt_trigger_apu_dc(struct mtk_raw_device *dev,
 			      struct cmdq_pkt *pkt)
 {
 #define APU_SW_EVENT (675)
+
+	struct adl_cmdq_worker_param *param = NULL;
+
+	CALL_PLAT_HW(query_adl_cmdq_worker_param, &param);
+
 	/* wait APU ready */
 	cmdq_pkt_wfe(pkt, APU_SW_EVENT);
 
 	write_pkt_apu_raw(dev, pkt, true /* is_apu_dc */);
 
 	/* trigger APU */
-	cmdq_pkt_write(pkt, NULL, 0x4c260000, 0x1, 0xffffffff);
+	cmdq_pkt_write(pkt, NULL, param->apu_mbox_dc_mode_base, 0x1, 0xffffffff);
 }
 
 void write_pkt_trigger_apu_frame_mode(struct mtk_raw_device *dev,

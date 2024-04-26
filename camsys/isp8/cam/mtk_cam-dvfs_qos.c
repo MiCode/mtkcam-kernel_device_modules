@@ -23,6 +23,9 @@
 #include "mtk_cam-ufbc-def.h"
 #include "mtk_cam-plat.h"
 #include "mtk_cam-bwr.h"
+#if KERNEL_VERSION(6, 6, 0) == LINUX_VERSION_CODE
+#include "subsys/swpm_isp_wrapper.h"
+#endif
 
 #define BOOST_DVFS_OPP    2
 #define ICCPATH_NAME_SIZE 32
@@ -35,6 +38,9 @@ struct dvfs_stream_info {
 	int switching_opp_idx;
 	bool switching_boostable;
 };
+static unsigned int cam_sspm_en;
+module_param(cam_sspm_en, int, 0644);
+MODULE_PARM_DESC(cam_sspm_en, "sspm report enable");
 
 static int mtk_cam_build_freq_table(struct device *dev,
 				    struct camsys_opp_table *tbl,
@@ -929,6 +935,9 @@ void mtk_cam_fill_qos(struct req_buffer_helper *helper)
 	struct mtkcam_ipi_frame_param *fp = helper->fp;
 	struct mtk_cam_job *job = helper->job;
 	struct mtk_cam_ctx *ctx = job->src_ctx;
+#if KERNEL_VERSION(6, 6, 0) == LINUX_VERSION_CODE
+	struct ISP_P1 idx;
+#endif
 	u32 senser_vb, sensor_h, sensor_fps;
 	u64 avg_linet;
 	int i;
@@ -944,7 +953,20 @@ void mtk_cam_fill_qos(struct req_buffer_helper *helper)
 	sensor_h = ctx->act_line_info.active_line_num ? : get_sensor_h(job);
 	senser_vb = get_sensor_vb(job);
 	sensor_fps = get_sensor_fps(job);
-
+#if KERNEL_VERSION(6, 6, 0) == LINUX_VERSION_CODE
+	if (cam_sspm_en && (job->frame_seq_no % 10 == 0)) {
+		memset(&idx, 0, sizeof(idx));
+		idx.raw_num = get_used_raw_num(job);
+		idx.exposure_num = job_exp_num(job);
+		idx.fps = sensor_fps;
+		idx.data = get_sensor_w(job) * sensor_h;
+		dev_info(job->src_ctx->cam->dev,
+			"[%s:p1_pmidx] FPS:%u, raw_num:%u, exp_num:%u, data:%u\n",
+			__func__, idx.fps, idx.raw_num,
+			idx.exposure_num, idx.data);
+		set_p1_idx(idx);
+	}
+#endif
 	if (avg_linet == 0 || sensor_h == 0 || sensor_fps == 0) {
 		pr_info("%s: wrong sensor param h/vb/linetime/fps: %d/%d/%llu/%d",
 			__func__, sensor_h, senser_vb, avg_linet, sensor_fps);

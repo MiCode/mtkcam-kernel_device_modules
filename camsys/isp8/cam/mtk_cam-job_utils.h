@@ -180,6 +180,7 @@ bool has_valid_mstream_exp(struct mtk_cam_job *job);
 
 u32 get_used_raw_num(struct mtk_cam_job *job);
 u64 get_line_time(struct mtk_cam_job *job);
+u32 get_sensor_w(struct mtk_cam_job *job);
 u32 get_sensor_h(struct mtk_cam_job *job);
 u32 get_sensor_vb(struct mtk_cam_job *job);
 u32 get_sensor_fps(struct mtk_cam_job *job);

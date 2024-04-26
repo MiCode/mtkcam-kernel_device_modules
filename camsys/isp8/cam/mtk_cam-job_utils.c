@@ -100,6 +100,17 @@ u64 get_line_time(struct mtk_cam_job *job)
 
 	return linet;
 }
+u32 get_sensor_w(struct mtk_cam_job *job)
+{
+	struct mtk_cam_resource_sensor_v2 *sensor_res;
+
+	sensor_res = _get_job_sensor_res(job);
+	if (sensor_res)
+		return sensor_res->width;
+
+	return 0;
+}
+
 
 u32 get_sensor_h(struct mtk_cam_job *job)
 {

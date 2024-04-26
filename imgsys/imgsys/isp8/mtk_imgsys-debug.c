@@ -481,44 +481,46 @@ void imgsys_cg_debug_dump(struct mtk_imgsys_dev *imgsys_dev, unsigned int hw_com
 		(unsigned int)ioread32((void *)(imgsysmainRegBA + i + 0xc)));
 	}
 
-	if (!dipRegBA) {
-		dev_info(imgsys_dev->dev, "%s Unable to ioremap dip registers\n",
-								__func__);
-		dev_info(imgsys_dev->dev, "%s of_iomap fail, devnode(%s).\n",
-				__func__, imgsys_dev->dev->of_node->name);
-		return;
-	}
+	if (hw_comb & IMGSYS_ENG_DIP) {
+		if (!dipRegBA) {
+			dev_info(imgsys_dev->dev, "%s Unable to ioremap dip registers\n",
+									__func__);
+			dev_info(imgsys_dev->dev, "%s of_iomap fail, devnode(%s).\n",
+					__func__, imgsys_dev->dev->of_node->name);
+			return;
+		}
 
-	for (i = 0; i <= 0x100; i += 0x10) {
-		dev_info(imgsys_dev->dev, "%s: [0x%08X 0x%08X][0x%08X 0x%08X][0x%08X 0x%08X][0x%08X 0x%08X]",
-		__func__, (unsigned int)(g_imgsys_dip_top_reg_base + i),
-		(unsigned int)ioread32((void *)(dipRegBA + i)),
-		(unsigned int)(g_imgsys_dip_top_reg_base + i + 0x4),
-		(unsigned int)ioread32((void *)(dipRegBA + i + 0x4)),
-		(unsigned int)(g_imgsys_dip_top_reg_base + i + 0x8),
-		(unsigned int)ioread32((void *)(dipRegBA + i + 0x8)),
-		(unsigned int)(g_imgsys_dip_top_reg_base + i + 0xc),
-		(unsigned int)ioread32((void *)(dipRegBA + i + 0xc)));
-	}
+		for (i = 0; i <= 0x100; i += 0x10) {
+			dev_info(imgsys_dev->dev, "%s: [0x%08X 0x%08X][0x%08X 0x%08X][0x%08X 0x%08X][0x%08X 0x%08X]",
+			__func__, (unsigned int)(g_imgsys_dip_top_reg_base + i),
+			(unsigned int)ioread32((void *)(dipRegBA + i)),
+			(unsigned int)(g_imgsys_dip_top_reg_base + i + 0x4),
+			(unsigned int)ioread32((void *)(dipRegBA + i + 0x4)),
+			(unsigned int)(g_imgsys_dip_top_reg_base + i + 0x8),
+			(unsigned int)ioread32((void *)(dipRegBA + i + 0x8)),
+			(unsigned int)(g_imgsys_dip_top_reg_base + i + 0xc),
+			(unsigned int)ioread32((void *)(dipRegBA + i + 0xc)));
+		}
 
-	if (!dip1RegBA) {
-		dev_info(imgsys_dev->dev, "%s Unable to ioremap dip1 registers\n",
-								__func__);
-		dev_info(imgsys_dev->dev, "%s of_iomap fail, devnode(%s).\n",
-				__func__, imgsys_dev->dev->of_node->name);
-		return;
-	}
+		if (!dip1RegBA) {
+			dev_info(imgsys_dev->dev, "%s Unable to ioremap dip1 registers\n",
+									__func__);
+			dev_info(imgsys_dev->dev, "%s of_iomap fail, devnode(%s).\n",
+					__func__, imgsys_dev->dev->of_node->name);
+			return;
+		}
 
-	for (i = 0; i <= 0x100; i += 0x10) {
-		dev_info(imgsys_dev->dev, "%s: [0x%08X 0x%08X][0x%08X 0x%08X][0x%08X 0x%08X][0x%08X 0x%08X]",
-		__func__, (unsigned int)(g_imgsys_dip_nr_reg_base + i),
-		(unsigned int)ioread32((void *)(dip1RegBA + i)),
-		(unsigned int)(g_imgsys_dip_nr_reg_base + i + 0x4),
-		(unsigned int)ioread32((void *)(dip1RegBA + i + 0x4)),
-		(unsigned int)(g_imgsys_dip_nr_reg_base + i + 0x8),
-		(unsigned int)ioread32((void *)(dip1RegBA + i + 0x8)),
-		(unsigned int)(g_imgsys_dip_nr_reg_base + i + 0xc),
-		(unsigned int)ioread32((void *)(dip1RegBA + i + 0xc)));
+		for (i = 0; i <= 0x100; i += 0x10) {
+			dev_info(imgsys_dev->dev, "%s: [0x%08X 0x%08X][0x%08X 0x%08X][0x%08X 0x%08X][0x%08X 0x%08X]",
+			__func__, (unsigned int)(g_imgsys_dip_nr_reg_base + i),
+			(unsigned int)ioread32((void *)(dip1RegBA + i)),
+			(unsigned int)(g_imgsys_dip_nr_reg_base + i + 0x4),
+			(unsigned int)ioread32((void *)(dip1RegBA + i + 0x4)),
+			(unsigned int)(g_imgsys_dip_nr_reg_base + i + 0x8),
+			(unsigned int)ioread32((void *)(dip1RegBA + i + 0x8)),
+			(unsigned int)(g_imgsys_dip_nr_reg_base + i + 0xc),
+			(unsigned int)ioread32((void *)(dip1RegBA + i + 0xc)));
+		}
 	}
 
 	if (hw_comb & IMGSYS_ENG_WPE_EIS) {

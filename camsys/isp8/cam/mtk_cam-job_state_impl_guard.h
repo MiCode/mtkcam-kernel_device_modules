@@ -216,6 +216,7 @@ static inline bool valid_cq_execution(struct transition_param *p)
 	return (p->event_ts - p->info->sof_ts_ns) < p->cq_trigger_thres ||
 		((p->event_ts - p->info->sof_l_ts_ns) < SQC_THRES_FROM_L_SOF_NS);
 }
+#define SCQ_THRES_FOR_AEWA 27000000
 
 static inline bool valid_cq_execution_avoid_race_with_topirq(
 	struct transition_param *p)
@@ -225,10 +226,10 @@ static inline bool valid_cq_execution_avoid_race_with_topirq(
 	if (unlikely(!p->s_params))
 		return ret;
 
-	ret = (p->event_ts - p->info->sof_l_ts_ns) > 30000000 ? false : true;
+	ret = (p->event_ts - p->info->sof_l_ts_ns) > SCQ_THRES_FOR_AEWA ? false : true;
 
 	if (ret == false)
-		pr_info("[DEBUG] race with top-half case, event/f_sof/l_sof:%llu/%llu/%llu (%llu)",
+		pr_info("[mtk-cam:WA] race with top-half case, event/f_sof/l_sof:%llu/%llu/%llu (%llu)",
 			p->event_ts, p->info->sof_ts_ns, p->info->sof_l_ts_ns,
 			ktime_get_boottime_ns());
 

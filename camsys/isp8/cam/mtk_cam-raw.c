@@ -459,7 +459,7 @@ void initialize(struct mtk_raw_device *dev, struct engine_callback *cb,
 	dump_interrupt(dev);
 	dump_cq_setting(dev);
 #endif
-
+	dev->log_en = false;
 	dev->is_slave = is_slave;
 	dev->sof_count = 0;
 	dev->tg_count = 0;
@@ -1646,7 +1646,8 @@ static irqreturn_t mtk_thread_irq_raw(int irq, void *data)
 			str_buf_size = sizeof(raw_dev->str_debug_irq_data);
 			memset(str_buf, 0, str_buf_size);
 
-			if ((irq_info.ts_ns - raw_dev->apply_ts) >= LOG_THREADED_IRQ)
+			if ((irq_info.ts_ns - raw_dev->apply_ts) >= LOG_THREADED_IRQ ||
+				raw_dev->log_en)
 				dev_info(raw_dev->dev,
 					"ts=%llu irq %d, req:0x%x/0x%x mod_5:0x%x td:%llu (0x%x/0x%x/0x%x)\n",
 					irq_info.ts_ns / 1000,

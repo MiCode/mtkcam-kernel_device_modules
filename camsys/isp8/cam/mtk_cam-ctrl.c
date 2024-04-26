@@ -1316,6 +1316,7 @@ static void mtk_cam_ctrl_dynamic_raws_change_flow(struct mtk_cam_job *job)
 			raw_dev = dev_get_drvdata(cam->engines.raw_devs[i]);
 
 			qof_mtcmos_raw_voter(raw_dev, true);
+			raw_dev->log_en = true;
 		}
 	}
 
@@ -1372,6 +1373,7 @@ static void mtk_cam_ctrl_dynamic_raws_change_flow(struct mtk_cam_job *job)
 
 			raw_dev = dev_get_drvdata(cam->engines.raw_devs[i]);
 			qof_mtcmos_raw_voter(raw_dev, false);
+			raw_dev->log_en = false;
 		}
 	}
 
@@ -1422,6 +1424,7 @@ static void mtk_cam_ctrl_seamless_switch_flow(struct mtk_cam_job *job)
 			raw_dev = dev_get_drvdata(cam->engines.raw_devs[i]);
 
 			qof_mtcmos_raw_voter(raw_dev, true);
+			raw_dev->log_en = true;
 		}
 	}
 
@@ -1438,7 +1441,10 @@ static void mtk_cam_ctrl_seamless_switch_flow(struct mtk_cam_job *job)
 
 	mtk_cam_job_update_clk_switching(job, 1);
 	call_job_seamless_ops(job, before_sensor);
-
+	dev_info(dev, "[%s] begin sensor mode switch seq 0x%x, %llu/%llu\n",
+		__func__, job->frame_seq_no,
+		ktime_get_boottime_ns() - ctrl->r_info.sof_ts_ns,
+		ktime_get_boottime_ns() - ctrl->r_info.sof_l_ts_ns);
 	mtk_cam_job_manually_apply_sensor(job);
 
 	for (i = 0; i < ARRAY_SIZE(ctx->hw_raw) && ctx->hw_raw[i]; ++i) {
@@ -1519,6 +1525,7 @@ static void mtk_cam_ctrl_seamless_switch_flow(struct mtk_cam_job *job)
 
 			raw_dev = dev_get_drvdata(cam->engines.raw_devs[i]);
 			qof_mtcmos_raw_voter(raw_dev, false);
+			raw_dev->log_en = false;
 		}
 	}
 

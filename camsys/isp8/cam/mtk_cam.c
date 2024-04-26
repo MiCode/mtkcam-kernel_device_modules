@@ -1434,8 +1434,7 @@ static int mtk_cam_initialize(struct mtk_cam_device *cam)
 
 	mtk_cam_dvfs_reset_runtime_info(&cam->dvfs);
 
-	if (WARN_ON(pm_runtime_get_sync(cam->dev)))
-		return -1;
+	WARN_ON(pm_runtime_get_sync(cam->dev));
 
 	mtk_cam_plat_resource_ctrl(cam, 1);
 

@@ -717,7 +717,7 @@ static int fill_sv_qos(struct mtk_cam_job *job,
 	struct mtkcam_ipi_img_output *in;
 	struct mtk_camsv_device *sv_dev;
 	unsigned int i, x_size, img_h;
-	u64 avg_bw, peak_bw, stash_avg_bw, stash_peak_bw, strideLCM;
+	u64 avg_bw, peak_bw, stash_avg_bw, stash_peak_bw;
 	unsigned int is_two_smi_out = 0;
 
 	if (ctx->hw_sv == NULL)
@@ -749,34 +749,19 @@ static int fill_sv_qos(struct mtk_cam_job *job,
 					calc_bw(DIV_ROUND_UP(in->fmt.s.w, 64) * img_h,
 						linet, img_h + sensor_vb);
 			}
-			/* stash */
-			if (x_size != 0) {
-				if (is_two_smi_out)
-					stash_peak_bw = stash_avg_bw =
-						to_qos_icc(img_h * 16 * sensor_fps);
-				else {
-					strideLCM = LCM(x_size, 4096);
-					stash_peak_bw = stash_avg_bw =
-						to_qos_icc(img_h / (strideLCM/x_size) * 16 * sensor_fps);
-				}
-			}
+			/* camsv stash fixed at 5ostdl = 5mb */
+			if (avg_bw || peak_bw)
+				stash_peak_bw = stash_avg_bw = to_qos_icc(5242880);
+
 
 		} else {
 			avg_bw =
 				calc_bw(x_size * img_h, linet, sensor_h + sensor_vb);
 			peak_bw =
 				calc_bw(x_size * img_h, linet, sensor_h);
-			/* stash */
-			if (x_size != 0) {
-				if (is_two_smi_out)
-					stash_peak_bw = stash_avg_bw =
-						to_qos_icc(img_h * 16 * sensor_fps);
-				else {
-					strideLCM = LCM(x_size, 4096);
-					stash_peak_bw = stash_avg_bw =
-						to_qos_icc(img_h / (strideLCM/x_size) * 16 * sensor_fps);
-				}
-			}
+			/* camsv stash fixed at 5ostdl = 5mb */
+			if (avg_bw || peak_bw)
+				stash_peak_bw = stash_avg_bw = to_qos_icc(5242880);
 		}
 
 		if (is_two_smi_out) {
@@ -784,10 +769,10 @@ static int fill_sv_qos(struct mtk_cam_job *job,
 			job->sv_mmqos[SMI_PORT_SV_MDP_WDMA_0].peak_bw += peak_bw / 2;
 			job->sv_mmqos[SMI_PORT_SV_MDP_WDMA_1].avg_bw += avg_bw / 2;
 			job->sv_mmqos[SMI_PORT_SV_MDP_WDMA_1].peak_bw += peak_bw / 2;
-			job->sv_mmqos[SMI_PORT_SV_MDP_STG_0].avg_bw += stash_avg_bw / 2;
-			job->sv_mmqos[SMI_PORT_SV_MDP_STG_0].peak_bw += stash_peak_bw / 2;
-			job->sv_mmqos[SMI_PORT_SV_MDP_STG_1].avg_bw += stash_avg_bw / 2;
-			job->sv_mmqos[SMI_PORT_SV_MDP_STG_1].peak_bw += stash_peak_bw / 2;
+			job->sv_mmqos[SMI_PORT_SV_MDP_STG_0].avg_bw += stash_avg_bw;
+			job->sv_mmqos[SMI_PORT_SV_MDP_STG_0].peak_bw += stash_peak_bw;
+			job->sv_mmqos[SMI_PORT_SV_MDP_STG_1].avg_bw += stash_avg_bw;
+			job->sv_mmqos[SMI_PORT_SV_MDP_STG_1].peak_bw += stash_peak_bw;
 		} else {
 			job->sv_mmqos[SMI_PORT_SV_DISP_WDMA_0].avg_bw += avg_bw;
 			job->sv_mmqos[SMI_PORT_SV_DISP_WDMA_0].peak_bw += peak_bw;

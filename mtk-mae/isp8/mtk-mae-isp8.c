@@ -1230,12 +1230,17 @@ static bool mtk_mae_config_rsz(struct mtk_mae_dev *mae_dev,
 				param->image[loop].resizeWidth) - padding_in.crop_output_v_size;
 
 		if (padding_in.right < 0 || padding_in.down < 0) {
-			mae_dev_info(mae_dev->dev, "can not padding negative value r(%d) d(%d)",
-				padding_in.right, padding_in.down);
-			mae_dev_info(mae_dev->dev, "mae mode(%d) pyramid number(%d) loop(%d)",
-				param->maeMode, param->pyramidNumber, loop);
+			mae_dev_info(mae_dev->dev,
+				"pad neg val r:%d d:%d m:%d py:%d l:%d img:%d,%d rsz:%d,%d roi:%d,%d,%d,%d,%d",
+				padding_in.right, padding_in.down,
+				param->maeMode, param->pyramidNumber, loop,
+				param->image[0].imgWidth, param->image[0].imgHeight,
+				param->image[0].resizeWidth, param->image[0].resizeHeight,
+				param->image[0].enRoi, param->image[0].roi.x1,
+				param->image[0].roi.y1, param->image[0].roi.x2,
+				param->image[0].roi.y2);
 			for (i = 0; i < param->pyramidNumber; i++)
-				mae_dev_info(mae_dev->dev,
+				mae_dev_dbg(mae_dev->dev,
 					"py(%d) img(%d,%d) rsz(%d,%d) roi(%d)(%d,%d -> %d,%d) pad(%d)(%d,%d,%d,%d)",
 					i, param->image[i].imgWidth, param->image[i].imgHeight,
 					param->image[i].resizeWidth, param->image[i].resizeHeight,
@@ -1269,12 +1274,17 @@ static bool mtk_mae_config_rsz(struct mtk_mae_dev *mae_dev,
 				param->image[loop].resizeWidth) - padding_in.crop_output_v_size;
 
 		if (padding_in.right < 0 || padding_in.down < 0) {
-			mae_dev_info(mae_dev->dev, "can not padding negative value r(%d) d(%d)",
-				padding_in.right, padding_in.down);
-			mae_dev_info(mae_dev->dev, "mae mode(%d) pyramid number(%d) loop(%d)",
-				param->maeMode, param->pyramidNumber, loop);
+			mae_dev_info(mae_dev->dev,
+				"pad neg val r:%d d:%d m:%d py:%d l:%d img:%d,%d rsz:%d,%d roi:%d,%d,%d,%d,%d",
+				padding_in.right, padding_in.down,
+				param->maeMode, param->pyramidNumber, loop,
+				param->image[0].imgWidth, param->image[0].imgHeight,
+				param->image[0].resizeWidth, param->image[0].resizeHeight,
+				param->image[0].enRoi, param->image[0].roi.x1,
+				param->image[0].roi.y1, param->image[0].roi.x2,
+				param->image[0].roi.y2);
 			for (i = 0; i < param->pyramidNumber; i++)
-				mae_dev_info(mae_dev->dev,
+				mae_dev_dbg(mae_dev->dev,
 					"py(%d) img(%d,%d) rsz(%d,%d) roi(%d)(%d,%d -> %d,%d) pad(%d)(%d,%d,%d,%d)",
 					i, param->image[i].imgWidth, param->image[i].imgHeight,
 					param->image[i].resizeWidth, param->image[i].resizeHeight,

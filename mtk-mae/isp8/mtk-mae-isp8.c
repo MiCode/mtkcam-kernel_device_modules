@@ -2062,12 +2062,12 @@ static bool mtk_mae_config_hw(struct mtk_mae_dev *mae_dev, int idx)
 	if (mae_preultra_write)
 		MAE_CMDQ_WRITE_REG(mae_dev->pkt[idx], MAE_REG_0054_UDMA_W, mae_preultra_write);
 	else
-		MAE_CMDQ_WRITE_REG(mae_dev->pkt[idx], MAE_REG_0054_UDMA_W, 0x1428);
+		MAE_CMDQ_WRITE_REG(mae_dev->pkt[idx], MAE_REG_0054_UDMA_W, 0x1E8C);
 
 	if (mae_preultra_read)
 		MAE_CMDQ_WRITE_REG(mae_dev->pkt[idx], MAE_REG_0054_UDMA_R, mae_preultra_read);
 	else
-		MAE_CMDQ_WRITE_REG(mae_dev->pkt[idx], MAE_REG_0054_UDMA_R, 0x1428);
+		MAE_CMDQ_WRITE_REG(mae_dev->pkt[idx], MAE_REG_0054_UDMA_R, 0x1E8C);
 
 	MAE_CMDQ_WRITE_REG(mae_dev->pkt[idx], MAE_REG_0004_MAE_RDMA_5, 0x6221);
 	if (mae_dbf_on == 1)

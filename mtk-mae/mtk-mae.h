@@ -76,31 +76,31 @@ void register_mtk_mae_reg_tf_cb(mtk_mae_register_tf_cb mtk_mae_register_tf_cb_fn
 #define V0_ATTR_128_128_COEF_SIZE   (15290 * MAE_BASE_ADDR_ALIGN)
 #define V0_ATTR_128_128_CONFIG_SIZE (2000 * MAE_BASE_ADDR_ALIGN)
 
-#define V1_FD_IPN_640_480_COEF_SIZE (10955 * MAE_BASE_ADDR_ALIGN)
-#define V1_FD_IPN_640_480_CONFIG_SINGLE_SIZE (7937 * MAE_BASE_ADDR_ALIGN)
-#define V1_FD_IPN_640_480_CONFIG_SIZE (3 * V1_FD_IPN_640_480_CONFIG_SINGLE_SIZE)
+#define V1_FD_IPN_640_480_COEF_SIZE (10964 * MAE_BASE_ADDR_ALIGN)
+#define V1_FD_IPN_640_480_CONFIG_SIZE (24609 * MAE_BASE_ADDR_ALIGN)
+#define V1_FD_IPN_640_480_CONFIG_SINGLE_SIZE (8203 * MAE_BASE_ADDR_ALIGN)
 #define V1_FD_IPN_640_480_COEF_PAT_OFFSET   0
 #define V1_FD_IPN_640_480_CONFIG_PAT_OFFSET 0
 
-#define V1_FD_IPN_480_360_COEF_SIZE (10947 * MAE_BASE_ADDR_ALIGN)
-#define V1_FD_IPN_480_360_CONFIG_SINGLE_SIZE (6676 * MAE_BASE_ADDR_ALIGN)
-#define V1_FD_IPN_480_360_CONFIG_SIZE (3 * V1_FD_IPN_480_360_CONFIG_SINGLE_SIZE)
+#define V1_FD_IPN_480_360_COEF_SIZE (10964 * MAE_BASE_ADDR_ALIGN)
+#define V1_FD_IPN_480_360_CONFIG_SIZE (22848 * MAE_BASE_ADDR_ALIGN)
+#define V1_FD_IPN_480_360_CONFIG_SINGLE_SIZE (7616 * MAE_BASE_ADDR_ALIGN)
 #define V1_FD_IPN_480_360_COEF_PAT_OFFSET \
 		(V1_FD_IPN_640_480_COEF_PAT_OFFSET + V1_FD_IPN_640_480_COEF_SIZE)
 #define V1_FD_IPN_480_360_CONFIG_PAT_OFFSET \
 		(V1_FD_IPN_640_480_CONFIG_PAT_OFFSET + V1_FD_IPN_640_480_CONFIG_SIZE)
 
-#define V1_FD_IPN_240_180_COEF_SIZE (10947 * MAE_BASE_ADDR_ALIGN)
-#define V1_FD_IPN_240_180_CONFIG_SINGLE_SIZE (5942 * MAE_BASE_ADDR_ALIGN)
-#define V1_FD_IPN_240_180_CONFIG_SIZE (3 * V1_FD_IPN_240_180_CONFIG_SINGLE_SIZE)
+#define V1_FD_IPN_240_180_COEF_SIZE (10956 * MAE_BASE_ADDR_ALIGN)
+#define V1_FD_IPN_240_180_CONFIG_SIZE (18090 * MAE_BASE_ADDR_ALIGN)
+#define V1_FD_IPN_240_180_CONFIG_SINGLE_SIZE (6030 * MAE_BASE_ADDR_ALIGN)
 #define V1_FD_IPN_240_180_COEF_PAT_OFFSET \
 		(V1_FD_IPN_480_360_COEF_PAT_OFFSET + V1_FD_IPN_480_360_COEF_SIZE)
 #define V1_FD_IPN_240_180_CONFIG_PAT_OFFSET \
 		(V1_FD_IPN_480_360_CONFIG_PAT_OFFSET + V1_FD_IPN_480_360_CONFIG_SIZE)
 
-#define V1_FD_IPN_120_90_COEF_SIZE (10939 * MAE_BASE_ADDR_ALIGN)
-#define V1_FD_IPN_120_90_CONFIG_SINGLE_SIZE (4827 * MAE_BASE_ADDR_ALIGN)
-#define V1_FD_IPN_120_90_CONFIG_SIZE (3 * V1_FD_IPN_120_90_CONFIG_SINGLE_SIZE)
+#define V1_FD_IPN_120_90_COEF_SIZE (10948 * MAE_BASE_ADDR_ALIGN)
+#define V1_FD_IPN_120_90_CONFIG_SIZE (14580 * MAE_BASE_ADDR_ALIGN)
+#define V1_FD_IPN_120_90_CONFIG_SINGLE_SIZE (4860 * MAE_BASE_ADDR_ALIGN)
 #define V1_FD_IPN_120_90_COEF_PAT_OFFSET \
 		(V1_FD_IPN_240_180_COEF_PAT_OFFSET + V1_FD_IPN_240_180_COEF_SIZE)
 #define V1_FD_IPN_120_90_CONFIG_PAT_OFFSET \
@@ -109,8 +109,8 @@ void register_mtk_mae_reg_tf_cb(mtk_mae_register_tf_cb mtk_mae_register_tf_cb_fn
 #define V1_FD_FPN_480_360_COEF_SIZE (59130 * MAE_BASE_ADDR_ALIGN)
 #define V1_FD_FPN_480_360_CONFIG_SIZE (8182 * MAE_BASE_ADDR_ALIGN)
 
-#define V1_FLD_FAC_112_112_COEF_SIZE (25411 * MAE_BASE_ADDR_ALIGN)
-#define V1_FLD_FAC_112_112_CONFIG_SIZE (4412 * MAE_BASE_ADDR_ALIGN)
+#define V1_FLD_FAC_112_112_COEF_SIZE (21770 * MAE_BASE_ADDR_ALIGN)
+#define V1_FLD_FAC_112_112_CONFIG_SIZE (4420 * MAE_BASE_ADDR_ALIGN)
 
 #define MAX_OUTER_LOOP_NUM 3
 #define MAX_IMG_NUM MAX_OUTER_LOOP_NUM
@@ -245,39 +245,39 @@ const struct coef_info fd_v0_coef_info[FD_PATTERN_NUM] = {
 // fd_v1_ipn size and rotate offset
 const struct config_info fd_v1_ipn_config_info[FD_PATTERN_NUM] = {
 	{
-		.size = 1004,
-		.rotate_offset = 3968,
-		.rotate_size = 1005,
+		.size = 787,
+		.rotate_offset = 4100,
+		.rotate_size = 787,
 	},
 	{
-		.size = 968,
-		.rotate_offset = 3338,
-		.rotate_size = 968,
+		.size = 895,
+		.rotate_offset = 3807,
+		.rotate_size = 897,
 	},
 	{
-		.size = 671,
-		.rotate_offset = 2971,
-		.rotate_size = 671,
+		.size = 709,
+		.rotate_offset = 3015,
+		.rotate_size = 709,
 	},
 	{
-		.size = 543,
-		.rotate_offset = 2413,
-		.rotate_size = 544,
+		.size = 559,
+		.rotate_offset = 2429,
+		.rotate_size = 561,
 	}
 };
 
 const struct coef_info fd_v1_ipn_coef_info[FD_PATTERN_NUM] = {
 	{
-		.size = 1309,
+		.size = 289,
 	},
 	{
-		.size = 5583,
+		.size = 1312,
 	},
 	{
-		.size = 5583,
+		.size = 5589,
 	},
 	{
-		.size = 9540,
+		.size = 9549,
 	}
 };
 

@@ -56,6 +56,7 @@ static struct workqueue_struct *imgsys_cmdq_wq;
 static u32 is_stream_off = 0;
 #if IMGSYS_SECURE_ENABLE
 static u32 is_sec_task_create;
+static bool is_pwr_sec_mode;
 #endif
 static struct imgsys_event_history event_hist[IMGSYS_CMDQ_SYNC_POOL_NUM];
 
@@ -135,6 +136,9 @@ void imgsys_cmdq_init_plat8(struct mtk_imgsys_dev *imgsys_dev, const int nr_imgs
 	default:
 		break;
 	}
+	#if IMGSYS_SECURE_ENABLE
+	is_pwr_sec_mode = false;
+	#endif
 
 	mtk_imgsys_cmdq_qof_init(imgsys_dev, imgsys_clt[0]);
 	mtk_imgsys_cmdq_hwqos_init(imgsys_dev);
@@ -1387,6 +1391,7 @@ int imgsys_cmdq_sendtask_plat8(struct mtk_imgsys_dev *imgsys_dev,
 	u32 task_num = 0;
 	u32 task_cnt = 0;
 	bool qof_need_sub[ISP8_PWR_NUM] = {0};
+	bool is_qof_sec_mode = false;
 	size_t pkt_ofst[MAX_FRAME_IN_TASK] = {0};
 	char logBuf_temp[MTK_IMGSYS_LOG_LENGTH];
 	u64 tsflushStart = 0, tsFlushEnd = 0;
@@ -1421,12 +1426,20 @@ int imgsys_cmdq_sendtask_plat8(struct mtk_imgsys_dev *imgsys_dev,
 	#if IMGSYS_SECURE_ENABLE
 	mutex_lock(&(imgsys_dev->sec_task_lock));
 	if (frm_info->is_secReq && (is_sec_task_create == 0)) {
+		/* disable qof */
+		MTK_IMGSYS_QOF_NEED_RUN(imgsys_dev->qof_ver,
+			mtk_imgsys_cmdq_qof_stream_off(imgsys_dev);
+		);
+		is_pwr_sec_mode = true;
+
+		/* start sec work */
 		imgsys_cmdq_sec_sendtask_plat8(imgsys_dev);
 		is_sec_task_create = 1;
 		pr_info(
 			"%s: create imgsys secure task is_secReq(%d)\n",
 			__func__, frm_info->is_secReq);
 	}
+	is_qof_sec_mode = is_pwr_sec_mode;
 	mutex_unlock(&(imgsys_dev->sec_task_lock));
 	#endif
 
@@ -1560,9 +1573,12 @@ int imgsys_cmdq_sendtask_plat8(struct mtk_imgsys_dev *imgsys_dev,
 				pkt_ts_num = 0;
 			}
 
-			MTK_IMGSYS_QOF_NEED_RUN(imgsys_dev->qof_ver,
-				mtk_imgsys_cmdq_qof_add(pkt, qof_need_sub, frm_info->user_info[frm_idx].hw_comb);
-			);
+			if (is_qof_sec_mode == false) {
+				MTK_IMGSYS_QOF_NEED_RUN(imgsys_dev->qof_ver,
+					mtk_imgsys_cmdq_qof_add(pkt, qof_need_sub,
+						frm_info->user_info[frm_idx].hw_comb);
+				);
+			}
 
 			IMGSYS_CMDQ_SYSTRACE_BEGIN(
 				"%s_%s|Imgsys MWFrame:#%d MWReq:#%d ReqFd:%d fidx:%d hw_comb:0x%x Own:%llx frm(%d/%d) blk(%d)",
@@ -1778,9 +1794,11 @@ int imgsys_cmdq_sendtask_plat8(struct mtk_imgsys_dev *imgsys_dev,
 					frm_info->frm_owner, cb_param, frm_idx, frm_num,
 					blk_idx, blk_num);
 
-				MTK_IMGSYS_QOF_NEED_RUN(imgsys_dev->qof_ver,
-					mtk_imgsys_cmdq_qof_sub(pkt, qof_need_sub);
-				);
+				if (is_qof_sec_mode == false) {
+					MTK_IMGSYS_QOF_NEED_RUN(imgsys_dev->qof_ver,
+						mtk_imgsys_cmdq_qof_sub(pkt, qof_need_sub);
+					);
+				}
 
 				ret_flush = cmdq_pkt_flush_async(pkt, imgsys_cmdq_task_cb_plat8,
 								(void *)cb_param);
@@ -2256,6 +2274,7 @@ void mtk_imgsys_power_ctrl_plat8(struct mtk_imgsys_dev *imgsys_dev, bool isPower
 	int i;
 	u32 img_main_modules = 0xFFFF;
 	int pm_ret = 0;
+	bool is_sec_mode = false;
 
 	if (isPowerOn) {
 		user_cnt = atomic_inc_return(&imgsys_dev->imgsys_user_cnt);
@@ -2308,15 +2327,24 @@ void mtk_imgsys_power_ctrl_plat8(struct mtk_imgsys_dev *imgsys_dev, bool isPower
 					"[%s] isPowerOn(%d) user(%d)\n",
 					__func__, isPowerOn, user_cnt);
 
+			#if IMGSYS_SECURE_ENABLE
+			mutex_lock(&(imgsys_dev->sec_task_lock));
+			is_sec_mode = is_pwr_sec_mode;
+			is_pwr_sec_mode = false;
+			mutex_unlock(&(imgsys_dev->sec_task_lock));
+			#endif
+
 			mutex_lock(&(imgsys_dev->power_ctrl_lock));
 
 			MTK_IMGSYS_QOS_ENABLE(imgsys_dev->hwqos_info.hwqos_support,
 				mtk_imgsys_cmdq_hwqos_streamoff();
 			);
 
-			MTK_IMGSYS_QOF_NEED_RUN(imgsys_dev->qof_ver,
-				mtk_imgsys_cmdq_qof_stream_off(imgsys_dev);
-			);
+			if (is_sec_mode == false) {
+				MTK_IMGSYS_QOF_NEED_RUN(imgsys_dev->qof_ver,
+					mtk_imgsys_cmdq_qof_stream_off(imgsys_dev);
+				);
+			}
 
 			mtk_imgsys_mod_put(imgsys_dev);
 

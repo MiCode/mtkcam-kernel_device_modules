@@ -696,6 +696,45 @@ static int query_icc_path_idx(int domain, int smi_port)
 	else
 		return map_raw_icc_path(smi_port);
 }
+
+static struct reg_to_dump raw_dma_list[] = {
+	ADD_DMA_ERR(RAWI_R2), ADD_DMA_ERR(UFDI_R2),
+	ADD_DMA_ERR(RAWI_R3), ADD_DMA_ERR(UFDI_R3),
+	ADD_DMA_ERR(RAWI_R4), ADD_DMA_ERR(UFDI_R4),
+	ADD_DMA_ERR(RAWI_R5), ADD_DMA_ERR(UFDI_R5),
+	ADD_DMA_ERR(BPCI_R1), ADD_DMA_ERR(BPCI_R2),
+	ADD_DMA_ERR(BPCI_R3), ADD_DMA_ERR(BPCI_R4),
+	ADD_DMA_ERR(FPRI_R1),
+	ADD_DMA_ERR(LSCI_R1), ADD_DMA_ERR(LSCI_R2),
+	ADD_DMA_ERR(PDI_R1),
+	ADD_DMA_ERR(AEI_R1),
+	ADD_DMA_ERR(GRMGI_R1),
+	ADD_DMA_ERR(LTMSCTI_R1),
+	ADD_DMA_ERR(CACI_R1), ADD_DMA_ERR(MLSCI_R1),
+	ADD_DMA_ERR(IMGO_R1), ADD_DMA_ERR(UFEO_R1),
+	ADD_DMA_ERR(IMGO_R2), ADD_DMA_ERR(UFEO_R2),
+	ADD_DMA_ERR(MGGMO_R1),
+	ADD_DMA_ERR(FHO_R1), ADD_DMA_ERR(FHO_R2),
+	ADD_DMA_ERR(FLKO_R1),
+	ADD_DMA_ERR(PDO_R1), ADD_DMA_ERR(AEO_R1),
+	ADD_DMA_ERR(AEHO_R1),
+	ADD_DMA_ERR(AWBO_R1), ADD_DMA_ERR(AWBO_R2),
+	ADD_DMA_ERR(AFO_R1),
+	ADD_DMA_ERR(TSFSO_R1), ADD_DMA_ERR(LTMSBO_R1),
+	ADD_DMA_ERR(LTMSGO_R1), ADD_DMA_ERR(DRZB2NO_R1),
+	ADD_DMA_ERR(DRZB2NBO_R1), ADD_DMA_ERR(DRZB2NCO_R1),
+	ADD_DMA_ERR(DRZB2NDO_R1),
+	ADD_DMA_ERR(GMPO_R1), ADD_DMA_ERR(GRMGO_R1),
+	ADD_DMA_ERR(STG_R1), ADD_DMA_ERR(STG_R2),
+};
+
+static int query_raw_dma_list(size_t *num, struct reg_to_dump **reg_list)
+{
+	*num = ARRAY_SIZE(raw_dma_list);
+	*reg_list = raw_dma_list;
+	return 0;
+}
+
 static u8 vb2_queues_support_list[] = {
 	/* capture queues */
 	MTK_RAW_MAIN_STREAM_OUT,
@@ -768,6 +807,7 @@ static const struct plat_data_hw mt6991_hw_data = {
 	.query_caci_size = query_caci_size,
 	.query_max_exp_support = query_max_exp_support,
 	.query_icc_path_idx = query_icc_path_idx,
+	.query_raw_dma_list = query_raw_dma_list,
 	.dcif_slb_support = true,
 	.bwr_support = true,
 	.qof_support = true,

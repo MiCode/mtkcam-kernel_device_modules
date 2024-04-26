@@ -158,6 +158,11 @@ struct dma_group {
 	u32 dma[DMA_GROUP_SIZE];
 };
 
+struct reg_to_dump {
+	const char *name;
+	unsigned int reg;
+};
+
 struct plat_v4l2_data {
 	int raw_pipeline_num;
 	int camsv_pipeline_num;
@@ -217,6 +222,8 @@ struct plat_data_hw {
 
 	int (*query_icc_path_idx)(int domain, int smi_port);
 
+	int (*query_raw_dma_list)(size_t *num, struct reg_to_dump **reg_list);
+
 	bool dcif_slb_support;
 	bool bwr_support;
 	bool qof_support;
@@ -256,5 +263,8 @@ void set_platform_data(const struct camsys_platform_data *platform_data);
 	(((FIFO_SIZE * HEIGHT_RATIO) & 0xFFF) << 16 | \
 	((FIFO_SIZE * LOW_RATIO) & 0xFFF))
 
+#define ADD_DMA_ERR(name) { #name, REG_ ## name ## _BASE + DMA_OFFSET_ERR_STAT }
+
+#define DMA_OFFSET_ERR_STAT	0x38
 
 #endif /*__MTK_CAM_PLAT_H*/

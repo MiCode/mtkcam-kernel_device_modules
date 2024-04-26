@@ -6,11 +6,10 @@
 #include <linux/io.h>
 
 #include "mtk_cam-raw.h"
+#include "mtk_cam-plat.h"
 #include "mtk_cam-raw_regs.h"
 #include "mtk_cam-reg_utils.h"
 #include "mtk_cam-raw_debug.h"
-
-#define DMA_OFFSET_ERR_STAT	0x38
 
 #define LOGGER_PREFIX_SIZE 16
 #define LOGGER_BUFSIZE 128
@@ -79,42 +78,16 @@ void mtk_cam_log_push(struct buffered_logger *log, const char *fmt, ...)
 
 void dump_raw_dma_err_st(struct mtk_raw_device *raw)
 {
-	static const struct reg_to_dump raw_dma_list[] = {
-		ADD_DMA_ERR(RAWI_R2), ADD_DMA_ERR(UFDI_R2),
-		ADD_DMA_ERR(RAWI_R3), ADD_DMA_ERR(UFDI_R3),
-		ADD_DMA_ERR(RAWI_R4), ADD_DMA_ERR(UFDI_R4),
-		ADD_DMA_ERR(RAWI_R5), ADD_DMA_ERR(UFDI_R5),
-		ADD_DMA_ERR(BPCI_R1), ADD_DMA_ERR(BPCI_R2),
-		ADD_DMA_ERR(BPCI_R3), ADD_DMA_ERR(BPCI_R4),
-		ADD_DMA_ERR(FPRI_R1),
-		ADD_DMA_ERR(LSCI_R1), ADD_DMA_ERR(LSCI_R2),
-		ADD_DMA_ERR(PDI_R1),
-		ADD_DMA_ERR(AEI_R1),
-		ADD_DMA_ERR(GRMGI_R1),
-		ADD_DMA_ERR(LTMSCTI_R1),
-		ADD_DMA_ERR(CACI_R1), ADD_DMA_ERR(MLSCI_R1),
-		ADD_DMA_ERR(IMGO_R1), ADD_DMA_ERR(UFEO_R1),
-		ADD_DMA_ERR(IMGO_R2), ADD_DMA_ERR(UFEO_R2),
-		ADD_DMA_ERR(MGGMO_R1),
-		ADD_DMA_ERR(FHO_R1), ADD_DMA_ERR(FHO_R2),
-		ADD_DMA_ERR(FLKO_R1),
-		ADD_DMA_ERR(PDO_R1), ADD_DMA_ERR(AEO_R1),
-		ADD_DMA_ERR(AEHO_R1),
-		ADD_DMA_ERR(AWBO_R1), ADD_DMA_ERR(AWBO_R2),
-		ADD_DMA_ERR(AFO_R1),
-		ADD_DMA_ERR(TSFSO_R1), ADD_DMA_ERR(LTMSBO_R1),
-		ADD_DMA_ERR(LTMSGO_R1), ADD_DMA_ERR(DRZB2NO_R1),
-		ADD_DMA_ERR(DRZB2NBO_R1), ADD_DMA_ERR(DRZB2NCO_R1),
-		ADD_DMA_ERR(DRZB2NDO_R1),
-		ADD_DMA_ERR(GMPO_R1), ADD_DMA_ERR(GRMGO_R1),
-		ADD_DMA_ERR(STG_R1), ADD_DMA_ERR(STG_R2),
-	};
+	size_t list_size = 0;
+	struct reg_to_dump *raw_dma_list = NULL;
 	struct buffered_logger log;
 	int i = 0, err_st;
 
+	CALL_PLAT_HW(query_raw_dma_list, &list_size, &raw_dma_list);
+
 	INIT_LOGGER(&log, raw->dev);
 	mtk_cam_log_set_prefix(&log, "%s", "RAW DMA ERR: ");
-	for (i = 0; i < ARRAY_SIZE(raw_dma_list); i++) {
+	for (i = 0; i < list_size; i++) {
 		err_st = readl_relaxed(raw->dmatop_base + raw_dma_list[i].reg);
 		if (err_st & 0xffff) {
 			mtk_cam_log_push(&log, " %s: 0x%08x",

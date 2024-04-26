@@ -18,13 +18,6 @@ enum topdebug_event {
 	YUV_DMA_ERR	= 1 << 5,
 };
 
-struct reg_to_dump {
-	const char *name;
-	unsigned int reg;
-};
-
-#define ADD_DMA_ERR(name) { #name, REG_ ## name ## _BASE + DMA_OFFSET_ERR_STAT }
-
 void dump_raw_dma_err_st(struct mtk_raw_device *raw);
 void dump_yuv_dma_err_st(struct mtk_yuv_device *yuv);
 

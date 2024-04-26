@@ -50,8 +50,6 @@ MODULE_PARM_DESC(debug_ddren_sw_mode, "debug: 1 : active sw mode");
 
 #define KERNEL_LOG_MAX	                400
 
-#define DMA_OFFSET_ERR_STAT	0x34
-
 #define RAW_DEBUG 0
 #define AEO_SW_WORKAROUND 1
 static int reset_msgfifo(struct mtk_raw_device *dev);
@@ -3354,4 +3352,3 @@ int raw_dump_debug_status(struct mtk_raw_device *dev, bool is_srt)
 
 	return need_smi_dump;
 }
-

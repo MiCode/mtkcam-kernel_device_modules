@@ -219,6 +219,7 @@ struct plat_data_hw {
 
 	bool dcif_slb_support;
 	bool bwr_support;
+	bool qof_support;
 };
 
 struct camsys_platform_data {

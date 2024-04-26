@@ -65,7 +65,7 @@ static inline int job_debug_exception_dump(struct mtk_cam_job *job,
 
 static inline bool check_qof_support(struct mtk_cam_job *job)
 {
-	return (!disable_qof && !job->enable_hsf_raw);
+	return (GET_PLAT_HW(qof_support) && !disable_qof && !job->enable_hsf_raw);
 }
 
 static struct mtk_raw_request_data *req_get_raw_data(struct mtk_cam_ctx *ctx,
@@ -6241,4 +6241,3 @@ int mtk_cam_job_update_clk_switching(struct mtk_cam_job *job, bool begin)
 	return mtk_cam_dvfs_switch_begin(&cam->dvfs, ctx->stream_id,
 					 freq_hz, boostable);
 }
-

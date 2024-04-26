@@ -270,6 +270,11 @@ void mtk_mae_get_kernel_time(struct mtk_mae_dev *mae_dev,
 		struct EnqueParam *param,
 		uint32_t idx)
 {
+	if (!param){
+		mae_dev_info(mae_dev->dev, "[%s] param is null\n", __func__);
+		return;
+	}
+
 	if (idx < MAE_TIME_INTERVAL_MAX) {
 		param->mae_ktime[idx].requestNum = param->requestNum;
 		param->mae_ktime[idx].ktime = ktime_get_boottime_ns();
@@ -540,12 +545,21 @@ static void mtk_mae_frame_done_worker(struct work_struct *work)
 		(struct EnqueParam *)mae_dev->map_table->param_dmabuf_info[0].kva;
 	uint32_t *dump;
 
+	mutex_lock(&mae_dev->mae_stream_lock);
+
 	// MAE_TO_DO: support multiple users by multiple works
-	mtk_mae_get_kernel_time(mae_dev, param, MAE_CMDQ_PKT_WAIT_COMPLETE_START);
+	if (mae_dev->mae_stream_count != 0)
+		mtk_mae_get_kernel_time(mae_dev, param, MAE_CMDQ_PKT_WAIT_COMPLETE_START);
+
 	cmdq_pkt_wait_complete(mae_dev->pkt[0]);
-	mtk_mae_get_kernel_time(mae_dev, param, MAE_CMDQ_PKT_DESTROY_START);
+
+	if (mae_dev->mae_stream_count != 0)
+		mtk_mae_get_kernel_time(mae_dev, param, MAE_CMDQ_PKT_DESTROY_START);
+
 	cmdq_pkt_destroy(mae_dev->pkt[0]);
-	mtk_mae_get_kernel_time(mae_dev, param, MAE_CMDQ_PKT_DESTROY_END);
+
+	if (mae_dev->mae_stream_count != 0)
+		mtk_mae_get_kernel_time(mae_dev, param, MAE_CMDQ_PKT_DESTROY_END);
 
 	if (mae_dev->is_hw_hang) {
 		mtk_mae_hw_done(mae_dev, VB2_BUF_STATE_ERROR);
@@ -562,7 +576,8 @@ static void mtk_mae_frame_done_worker(struct work_struct *work)
 		mae_dev_dbg(mae_dev->dev, "%s, output 0x%llx (0x%x_%x)(0x%x_%x)\n",
 			__func__, (uint64_t)dump, *(dump), *(dump+1), *(dump+2), *(dump+3));
 
-		if (!mae_dev->is_shutdown) {
+
+		if (!mae_dev->is_shutdown && mae_dev->mae_stream_count != 0) {
 			switch (param->maeMode) {
 			case FD_V0:
 				drv_ops.get_fd_v0_result(mae_dev, 0);
@@ -586,12 +601,18 @@ static void mtk_mae_frame_done_worker(struct work_struct *work)
 
 			if (irq_handler_en)
 				drv_ops.irq_handle(mae_dev);
+		} else {
+			mae_dev_info(mae_dev->dev, "%s, skip read hw reg, is_shutdown(%d), stream_count(%d)\n",
+				__func__, mae_dev->is_shutdown, mae_dev->mae_stream_count);
 		}
 
 		mtk_mae_hw_done(mae_dev, VB2_BUF_STATE_DONE);
 	}
 
-	mtk_mae_get_kernel_time(mae_dev, param, MAE_FRAME_DONE_WORKER_END);
+	if (mae_dev->mae_stream_count != 0)
+		mtk_mae_get_kernel_time(mae_dev, param, MAE_FRAME_DONE_WORKER_END);
+
+	mutex_unlock(&mae_dev->mae_stream_lock);
 }
 
 static const struct v4l2_pix_format_mplane *mtk_mae_find_fmt(u32 format)

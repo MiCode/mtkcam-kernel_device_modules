@@ -1022,6 +1022,7 @@ int aov_core_init(struct mtk_aov *aov_dev)
 	atomic_set(&(core_info->cmd_seq), 0);
 	atomic_set(&(core_info->qea_ready), 0);
 	mutex_init(&core_info->start_stop_mutex);
+	mutex_lock(&core_info->start_stop_mutex);
 
 	if (curr_dev->op_mode == 0) {
 		dev_info(aov_dev->dev, "%s: bypass init operation", __func__);

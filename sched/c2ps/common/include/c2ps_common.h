@@ -48,6 +48,7 @@ extern int proc_time_window_size;
 extern int debug_log_on;
 extern unsigned int c2ps_nr_clusters;
 extern bool c2ps_um_mode_on;
+extern int c2ps_regulator_base_update_um;
 
 enum c2ps_env_status : int {
 	C2PS_STAT_NODEF = 0,

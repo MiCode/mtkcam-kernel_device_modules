@@ -529,6 +529,10 @@ void c2ps_update_um_table(struct c2ps_anchor *anc)
 	C2PS_LOGD("check um table, anc_id: %d, um: %u",
 				anc->anchor_id, glb_info->curr_um);
 	if (unlikely(_item == NULL)) {
+		struct um_table_item *_prev_item =
+			c2ps_find_um_table_by_um(anc,
+				glb_info->curr_um + c2ps_regulator_base_update_um);
+
 		C2PS_LOGD("[C2PS_CB] add um table (ancid:%d), um:%d\n",
 					anc->anchor_id, glb_info->curr_um);
 		_item = kzalloc(sizeof(*_item), GFP_KERNEL);
@@ -540,6 +544,12 @@ void c2ps_update_um_table(struct c2ps_anchor *anc)
 		_item->um = glb_info->curr_um;
 		c2ps_init_kf(&(_item->lat_est), ANC_KF_QVAL,
 				ANC_KF_MEAS_ERR, ANC_KF_MIN_EST_ERR);
+
+		if (likely(_prev_item)) {
+			_item->lat_est.est_val = (_prev_item->latency + anc->latest_duration/1000)/2;
+			C2PS_LOGD("init um:%u latency to %llu", _item->um, _item->lat_est.est_val);
+		}
+
 		if (anc->jitter_spec > 0) {
 			c2ps_init_kf(&(_item->end_diff_est), ANC_KF_QVAL,
 					ANC_KF_MEAS_ERR, ANC_KF_MIN_EST_ERR);

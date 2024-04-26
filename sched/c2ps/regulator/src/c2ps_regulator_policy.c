@@ -20,7 +20,7 @@ static unsigned int c2ps_uclamp_bg_up_margin_cluster1 = 1000;
 static unsigned int c2ps_uclamp_bg_up_margin_cluster2 = 1000;
 
 /**************************************************************************/
-static int c2ps_regulator_base_update_um = 5;
+int c2ps_regulator_base_update_um = 5;
 static int c2ps_regulator_um_min = 5;
 static int c2ps_regulator_um_max = 125;
 static int c2ps_fix_um;
@@ -29,7 +29,10 @@ static int c2ps_converge_target = 50;
 static int c2ps_um_monitor;
 static int c2ps_safe_idle_rate = 7;
 static bool skip_jitter;
+static int lat_th = 1500;
 /**************************************************************************/
+
+
 
 module_param(c2ps_regulator_debug_max_uclamp, int, 0644);
 module_param(c2ps_regulator_debug_min_uclamp, int, 0644);
@@ -47,6 +50,7 @@ module_param(c2ps_regulator_um_max, int, 0644);
 module_param(c2ps_converge_target, int, 0644);
 module_param(c2ps_safe_idle_rate, int, 0644);
 module_param(skip_jitter, bool, 0644);
+module_param(lat_th, int, 0644);
 
 /**************************************************************************/
 module_param(c2ps_fix_um, int, 0644);
@@ -326,6 +330,11 @@ static int _cal_latency_um(
 	int64_t converge_lat_val =
 		(cur_item->lat_est.est_err - cur_item->lat_est.min_est_err) * 100 /
 				cur_item->lat_est.min_est_err;
+
+	if (unlikely(cur_item->latency > prev_item->latency + lat_th)) {
+		prev_item->latency = (cur_item->latency + prev_item->latency)/2;
+		prev_item->lat_est.est_val = prev_item->latency;
+	}
 
 	if (converge_lat_val > c2ps_converge_target) {
 		C2PS_LOGD("latency not converge yet: %lld", converge_lat_val);

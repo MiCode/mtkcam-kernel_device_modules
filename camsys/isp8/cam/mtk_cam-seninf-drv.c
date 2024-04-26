@@ -42,6 +42,12 @@
 #include "mtk_cam-seninf_control-8.h"
 #include "mtk_cam-seninf-sentest-ioctrl.h"
 #include "mtk_cam-seninf-sentest-ctrl.h"
+#if KERNEL_VERSION(6, 6, 0) == LINUX_VERSION_CODE
+#define CSI_POWER_STATE
+#ifdef CSI_POWER_STATE
+#include "subsys/swpm_isp_wrapper.h"
+#endif
+#endif
 
 #define is_irq_ready 1
 
@@ -66,6 +72,10 @@ struct mtk_cam_seninf_ops *g_seninf_ops;
 /* aov sensor use */
 struct mtk_seninf_aov_param g_aov_param;
 struct seninf_ctx *aov_ctx[AOV_SENINF_NUM];
+
+#if KERNEL_VERSION(6, 6, 0) == LINUX_VERSION_CODE
+static void gather_csi_ps_info(struct seninf_ctx *ctx);
+#endif
 
 #ifdef CSI_EFUSE_SET
 #include <linux/nvmem-consumer.h>
@@ -590,6 +600,10 @@ MODULE_PARM_DESC(seninf_vsync_debug, "seninf_vsync_debug");
 static u32 seninf_dbg_log;
 module_param(seninf_dbg_log, uint, 0644);
 MODULE_PARM_DESC(seninf_dbg_log, "seninf_dbg_log");
+
+static u32 seninf_pmsr_en;
+module_param(seninf_pmsr_en, uint, 0644);
+MODULE_PARM_DESC(seninf_pmsr_en, "seninf_pmsr_en");
 
 #define SENINF_DVFS_READY
 #ifdef SENINF_DVFS_READY
@@ -1565,7 +1579,10 @@ static int mtk_cam_seninf_set_fmt(struct v4l2_subdev *sd,
 
 		if (bSinkFormatChanged && !ctx->is_test_model && !ctx->streaming)
 			mtk_cam_seninf_get_vcinfo(ctx);
-
+#if KERNEL_VERSION(6, 6, 0) == LINUX_VERSION_CODE
+		if (seninf_pmsr_en && fmt->pad == PAD_SINK)
+			gather_csi_ps_info(ctx);
+#endif
 		mtk_cam_seninf_get_sensor_usage(&ctx->subdev);
 		mtk_cam_sensor_get_vc_info_by_scenario(ctx, fmt->format.code);
 
@@ -2139,7 +2156,159 @@ static int debug_err_detect_initialize(struct seninf_ctx *ctx)
 
 	return 0;
 }
+#if KERNEL_VERSION(6, 6, 0) == LINUX_VERSION_CODE
+static void gather_csi_ps_info(struct seninf_ctx *ctx)
+{
+	struct v4l2_subdev *sd = ctx->sensor_sd;
+	int ret;
+	struct v4l2_ctrl *ctrl;
+	struct v4l2_subdev_format fmt;
+	struct v4l2_subdev_frame_interval fi;
+	s64 width, height, hblank, vblank;
+	struct seninf_vc *vc, *vc1;
+	int bit_per_pixel = 10;
+	u64 data_rate;
+	u32 csi_clk, fps, ulps_mode, phy_type, lane_num, bit_depth, w, h, hb, vb;
+#ifdef CSI_POWER_STATE
+	struct CSI ps;
 
+	memset(&ps, 0, sizeof(ps));
+#endif
+
+	if (ctx->is_test_model)
+		return;
+
+	get_mbus_config(ctx, sd);
+	get_pixel_rate(ctx, sd, &ctx->mipi_pixel_rate);
+
+	fmt.pad = ctx->sensor_pad_idx;
+	fmt.which = V4L2_SUBDEV_FORMAT_ACTIVE;
+	ret = v4l2_subdev_call(sd, pad, get_fmt, NULL, &fmt);
+	if (ret) {
+		dev_info(ctx->dev, "no get_fmt in %s\n", sd->name);
+		return;
+	}
+
+	width = fmt.format.width;
+	height = fmt.format.height;
+
+	memset(&fi, 0, sizeof(fi));
+	fi.pad = ctx->sensor_pad_idx;
+	fi.reserved[0] = V4L2_SUBDEV_FORMAT_ACTIVE;
+	ret = v4l2_subdev_call(sd, video, g_frame_interval, &fi);
+	if (ret) {
+		dev_info(ctx->dev, "no g_frame_interval in %s\n", sd->name);
+		return;
+	}
+
+	ctrl = v4l2_ctrl_find(sd->ctrl_handler, V4L2_CID_HBLANK);
+	if (!ctrl) {
+		dev_info(ctx->dev, "no hblank in %s\n", sd->name);
+		return;
+	}
+
+	hblank = v4l2_ctrl_g_ctrl(ctrl);
+
+	ctrl = v4l2_ctrl_find(sd->ctrl_handler, V4L2_CID_VBLANK);
+	if (!ctrl) {
+		dev_info(ctx->dev, "no vblank in %s\n", sd->name);
+		return;
+	}
+
+	vblank = v4l2_ctrl_g_ctrl(ctrl);
+
+	/* update fps */
+	ctx->fps_n = fi.interval.denominator;
+	ctx->fps_d = fi.interval.numerator;
+
+	/* update csi ck */
+	ctx->csi_clk = 242;
+
+	/* bit depth */
+	vc = mtk_cam_seninf_get_vc_by_pad(ctx, PAD_SRC_RAW0);
+	vc1 = mtk_cam_seninf_get_vc_by_pad(ctx, PAD_SRC_RAW_EXT0);
+	if (vc)
+		bit_per_pixel = vc->bit_depth;
+	else if (vc1)
+		bit_per_pixel = vc1->bit_depth;
+
+	/* data rate */
+	data_rate = ctx->mipi_pixel_rate * bit_per_pixel;
+	if (!ctx->is_cphy) { //Dphy
+		do_div(data_rate, ctx->num_data_lanes);
+	} else { //Cphy
+		data_rate *= 7;
+		do_div(data_rate, ctx->num_data_lanes*16);
+	}
+	do_div(data_rate, 1000000);
+
+	csi_clk = ctx->csi_clk;
+	fps = (u32) (ctx->fps_n / ctx->fps_d);
+	ulps_mode = 0; /* always 0 in isp7s */
+	phy_type = (ctx->is_cphy) ? 1 : 0; /* 0: dphy, 1: cphy */
+	lane_num = ctx->num_data_lanes;
+	bit_depth = bit_per_pixel;
+	w = (u32) width;
+	h = (u32) height;
+	hb = ctx->hblank_pct = (u32) (hblank * 10000 / (width + hblank));
+	vb = ctx->vblank_pct = (u32) (vblank * 10000 / (height + vblank));
+
+	dev_info(ctx->dev,
+		"%s: csi_clk=%u,frame_ratio=%u,ulps_mode=%u,c_d_phy=%u,phy_lane_num=%u,data_rate=%u,width=%u,height=%u,bit=%u,hb=%u,vb=%u\n",
+		__func__, csi_clk, fps, ulps_mode, phy_type, lane_num,
+		(u32)data_rate, w, h, bit_depth, hb, vb);
+
+#ifdef CSI_POWER_STATE
+	ps.csi_clk = csi_clk;
+	ps.frame_ratio = fps;
+	ps.ulps_mode = ulps_mode;
+	ps.c_d_phy = phy_type;
+	ps.phy_data_lane_num = lane_num;
+	ps.bit_data_rate = (u32) data_rate;
+	ps.frame_width = w;
+	ps.frame_hight = h;
+	ps.data_bit = bit_depth;
+	ps.h_blanking = hb;
+	ps.v_blanking = vb;
+
+	set_csi_idx(ps);
+
+	dev_info(ctx->dev, "set_csi_idx done\n");
+#endif
+}
+#endif
+#if KERNEL_VERSION(6, 6, 0) == LINUX_VERSION_CODE
+static void reset_csi_ps_info(struct seninf_ctx *ctx)
+{
+	struct seninf_core *core = ctx->core;
+	struct seninf_ctx *sctx;
+	bool all_closed = true;
+#ifdef CSI_POWER_STATE
+	struct CSI ps;
+
+	memset(&ps, 0, sizeof(ps));
+#endif
+
+	mutex_lock(&core->mutex);
+	list_for_each_entry(sctx, &core->list, list) {
+		if ((sctx != ctx) && sctx->csi_streaming) {
+			all_closed = false;
+			break;
+		}
+	}
+	mutex_unlock(&core->mutex);
+
+	if (all_closed) {
+#ifdef CSI_POWER_STATE
+		set_csi_idx(ps);
+		dev_info(ctx->dev, "set_csi_idx reset done\n");
+#endif
+	} else
+		gather_csi_ps_info(sctx);
+
+	dev_info(ctx->dev, "[%s] reset done\n", __func__);
+}
+#endif
 static int seninf_csi_s_stream(struct v4l2_subdev *sd, int enable)
 {
 #ifdef SENSOR_SECURE_MTEE_SUPPORT
@@ -2241,6 +2410,10 @@ static int seninf_csi_s_stream(struct v4l2_subdev *sd, int enable)
 		g_seninf_ops->_poweroff(ctx);
 		ctx->dbg_last_dump_req = 0;
 		pm_runtime_put_sync(ctx->dev);
+#if KERNEL_VERSION(6, 6, 0) == LINUX_VERSION_CODE
+		if (seninf_pmsr_en)
+			reset_csi_ps_info(ctx);
+#endif
 	}
 
 	ctx->csi_streaming = enable;

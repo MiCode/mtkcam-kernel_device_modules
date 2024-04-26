@@ -291,6 +291,9 @@ struct seninf_ctx {
 	int fsync_vsync_src_pad; // e.g., raw, 3A-meta(general-embedded)
 	int fps_n;
 	int fps_d;
+	u32 csi_clk;
+	u32 hblank_pct;
+	u32 vblank_pct;
 
 	/* ref vs */
 	int cur_first_vs;

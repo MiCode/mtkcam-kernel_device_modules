@@ -1537,8 +1537,8 @@ static void mtk_mae_fd_post(struct mtk_mae_dev *mae_dev,
 		MAE_CMDQ_WRITE_REG(pkt, MAE_REG_V_MAX0 + core_offset,
 				(uint32_t)image->imgHeight);
 
-		// 0x3F0 is representation of -16 by 2's complement
-		MAE_CMDQ_WRITE_REG(pkt, MAE_REG_SCORE_TH0 + core_offset, 0x3F0);
+		// 0x3E2 is representation of -30 by 2's complement
+		MAE_CMDQ_WRITE_REG(pkt, MAE_REG_SCORE_TH0 + core_offset, 0x3E2); // -30
 	} else if (mode == FD_V1_FPN) {
 		MAE_CMDQ_WRITE_REG(pkt, MAE_REG_H_MIN0 + core_offset, 0x0);
 		MAE_CMDQ_WRITE_REG(pkt, MAE_REG_V_MIN0 + core_offset, 0x0);
@@ -1546,7 +1546,7 @@ static void mtk_mae_fd_post(struct mtk_mae_dev *mae_dev,
 				(uint32_t)image->imgWidth);
 		MAE_CMDQ_WRITE_REG(pkt, MAE_REG_V_MAX0 + core_offset,
 				(uint32_t)image->imgHeight);
-		MAE_CMDQ_WRITE_REG(pkt, MAE_REG_SCORE_TH0 + core_offset, 0xAA);
+		MAE_CMDQ_WRITE_REG(pkt, MAE_REG_SCORE_TH0 + core_offset, 0xAA); // 170
 	}
 }
 

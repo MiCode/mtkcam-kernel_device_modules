@@ -2436,7 +2436,7 @@ int mtk_camsv_runtime_suspend(struct device *dev)
 	struct mtk_camsv_device *sv_dev = dev_get_drvdata(dev);
 	int i, ret = 0;
 
-	dev_info_ratelimited(dev, "%s:disable clock\n", __func__);
+	dev_dbg(dev, "%s:disable clock\n", __func__);
 
 	if (camsv_fifo_detect) {
 		if (atomic_read(&sv_dev->enable_fifo_detect))
@@ -2474,7 +2474,7 @@ int mtk_camsv_runtime_resume(struct device *dev)
 	if (ret)
 		return ret;
 
-	dev_info_ratelimited(dev, "%s:enable clock\n", __func__);
+	dev_dbg(dev, "%s:enable clock\n", __func__);
 	for (i = 0; i < sv_dev->num_clks; i++) {
 		ret = clk_prepare_enable(sv_dev->clks[i]);
 		if (ret) {
@@ -2491,7 +2491,7 @@ int mtk_camsv_runtime_resume(struct device *dev)
 
 	for (i = 0; i < CAMSV_IRQ_NUM; i++) {
 		enable_irq(sv_dev->irq[i]);
-		dev_info_ratelimited(dev, "%s:enable irq %d\n", __func__, sv_dev->irq[i]);
+		dev_dbg(dev, "%s:enable irq %d\n", __func__, sv_dev->irq[i]);
 	}
 
 	dev_info(dev, "%s:enable irq\n", __func__);

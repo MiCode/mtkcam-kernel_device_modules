@@ -1788,7 +1788,7 @@ int mtk_mraw_runtime_resume(struct device *dev)
 	if (ret)
 		return ret;
 
-	dev_info_ratelimited(dev, "%s:enable clock\n", __func__);
+	dev_dbg(dev, "%s:enable clock\n", __func__);
 	for (i = 0; i < mraw_dev->num_clks; i++) {
 		ret = clk_prepare_enable(mraw_dev->clks[i]);
 		if (ret) {
@@ -1804,7 +1804,7 @@ int mtk_mraw_runtime_resume(struct device *dev)
 	mraw_reset_by_mraw_top(mraw_dev);
 
 	enable_irq(mraw_dev->irq);
-	dev_info(dev, "%s:enable irq\n", __func__);
+	dev_dbg(dev, "%s:enable irq\n", __func__);
 
 	return 0;
 }

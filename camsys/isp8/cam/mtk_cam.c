@@ -946,7 +946,7 @@ void mtk_cam_sensor_req_buffer_done(struct mtk_cam_job *job,
 		pipe_id >= MTKCAM_SUBDEV_RAW_END)
 		return;
 
-	if (CAM_DEBUG_ENABLED(JOB) || buf_error || job->timestamp == 0)
+	if (CAM_DEBUG_ENABLED(JOB))
 		dev_info(dev,
 		"%s: req:%s pipe_id:%d check sensor req buffers\n",
 		__func__, job->req_sensor->debug_str, pipe_id);
@@ -979,7 +979,7 @@ void mtk_cam_sensor_req_buffer_done(struct mtk_cam_job *job,
 		job->timestamp, job->timestamp_mono);
 	if (is_buf_empty_sensor)
 		mtk_cam_req_dump_incomplete_ctrl(req);
-	if (CAM_DEBUG_ENABLED(JOB) || buf_error || job->timestamp == 0)
+	if (CAM_DEBUG_ENABLED(JOB))
 		dev_info(dev,
 		"%s: req:%s pipe_id:%d sensor req done and completed\n",
 		__func__, job->req_sensor->debug_str, pipe_id);
@@ -1010,7 +1010,7 @@ void mtk_cam_req_buffer_done(struct mtk_cam_job *job,
 	if (node_id == -1)
 		job->done_pipe |= BIT(pipe_id);
 
-	if (job->timestamp == 0 || buf_error || CAM_DEBUG_ENABLED(V4L2))
+	if (CAM_DEBUG_ENABLED(V4L2))
 		dev_info(dev, "%s: ctx-%d req:%s(%d) pipe_id:%d node_id:%d bufs:0x%lx ts:%lld%s%s\n",
 			 __func__, job->src_ctx->stream_id,
 			 req->debug_str, job->req_seq,

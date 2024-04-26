@@ -1589,6 +1589,12 @@ int mtk_mae_vidioc_qbuf(struct file *file, void *priv,
 
 	map_table = mae_dev->map_table;
 
+	if (buf->length < MAX_PLANE) {
+		mae_dev_info(mae_dev->dev, "%s, buf length is too small (%d/%d)\n",
+			__func__, buf->length, MAX_PLANE);
+		return -EINVAL;
+	}
+
 	// MAE_TO_DO: lock for shared variable
 	// get va of model table
 	if (!map_table->model_table_dmabuf_info.is_map) {

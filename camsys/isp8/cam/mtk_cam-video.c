@@ -1239,7 +1239,8 @@ int mtk_cam_vidioc_s_meta_fmt(struct file *file, void *fh,
 			node->active_fmt.fmt.meta.dataformat = fmt->fmt.meta.dataformat;
 			node->active_fmt.fmt.meta.buffersize = f->fmt.meta.buffersize;
 		}
-		log_fmt_ops(node, f, __func__);
+		if (CAM_DEBUG_ENABLED(V4L2_TRY))
+			log_fmt_ops(node, f, __func__);
 		return (fmt) ? 0 : -EINVAL;
 	default:
 		break;

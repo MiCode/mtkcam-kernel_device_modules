@@ -80,7 +80,8 @@ static int mtk_mraw_try_fmt(struct v4l2_subdev *sd,
 		container_of(sd, struct mtk_mraw_pipeline, subdev);
 	unsigned int sensor_fmt = sensor_mbus_to_ipi_fmt(fmt->format.code);
 
-	dev_dbg(sd->v4l2_dev->dev, "%s try format 0x%x, w:%d, h:%d field:%d\n",
+	if (CAM_DEBUG_ENABLED(V4L2_TRY))
+		dev_dbg(sd->v4l2_dev->dev, "%s try format 0x%x, w:%d, h:%d field:%d\n",
 		sd->name, fmt->format.code, fmt->format.width,
 		fmt->format.height, fmt->format.field);
 

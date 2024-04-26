@@ -933,7 +933,8 @@ int mtk_cam_mraw_ddren_qos_config(struct mtk_mraw_device *mraw_dev, int frm_time
 {
 	int ddr_gen_pulse, qos_gen_pulse;
 
-	pr_info("%s frm_time_us %d\n", __func__, frm_time_us);
+	if (CAM_DEBUG_ENABLED(MMQOS))
+		pr_info("%s frm_time_us %d\n", __func__, frm_time_us);
 
 	ddr_gen_pulse = (frm_time_us - DDR_GEN_BEFORE_US - MARGIN) * SCQ_DEFAULT_CLK_RATE /
 		(2 * (HW_TIMER_INC_PERIOD + 1)) - 1;

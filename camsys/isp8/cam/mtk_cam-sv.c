@@ -1371,7 +1371,8 @@ int mtk_cam_sv_ddren_qos_config(struct mtk_camsv_device *sv_dev, int frm_time_us
 {
 	int ddr_gen_pulse, qos_gen_pulse;
 
-	pr_info("%s frm_time_us %d\n", __func__, frm_time_us);
+	if (CAM_DEBUG_ENABLED(MMQOS))
+		pr_info("%s frm_time_us %d\n", __func__, frm_time_us);
 
 	if (frm_time_us == -1)
 		return 0;

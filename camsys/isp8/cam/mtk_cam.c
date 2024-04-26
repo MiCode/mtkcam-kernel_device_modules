@@ -1417,8 +1417,8 @@ static void mtk_cam_plat_resource_ctrl(struct mtk_cam_device *cam, int on_off)
 			return;
 		}
 	}
-
-	dev_info(cam->dev, "%s: ddren:0x%x, ack:0x%x", __func__,
+	if (CAM_DEBUG_ENABLED(V4L2_TRY))
+		dev_info(cam->dev, "%s: ddren:0x%x, ack:0x%x", __func__,
 		readl_relaxed(cam->vcore_ddren_en),
 		readl_relaxed(cam->vcore_ddren_ack));
 }
@@ -4227,8 +4227,8 @@ int mtk_cam_update_engine_status(struct mtk_cam_device *cam,
 			 __func__, available, engine_mask, err_mask);
 		return -1;
 	}
-
-	dev_info(cam->dev, "%s: mark engine 0x%lx available %d\n",
+	if (CAM_DEBUG_ENABLED(V4L2_TRY))
+		dev_info(cam->dev, "%s: mark engine 0x%lx available %d\n",
 		 __func__, engine_mask, available);
 	return 0;
 }
@@ -4329,8 +4329,6 @@ int mtk_cam_pm_runtime_rms_engines(
 		if (rms_freerun) {
 			loop_each_engine_rms(eng, engine_mask, pm_runtime_get, enable);
 			pr_info("%s:get: engine_mask:0x%lx", __func__, engine_mask);
-		} else {
-			pr_info("%s:get: rms_freerun = 0, skip pm_runtime", __func__);
 		}
 
 		ctx->rms_disable = 0;
@@ -4338,8 +4336,6 @@ int mtk_cam_pm_runtime_rms_engines(
 		if (rms_freerun) {
 			loop_each_engine_rms(eng, engine_mask, pm_runtime_put, enable);
 			pr_info("%s:put: engine_mask:0x%lx", __func__, engine_mask);
-		} else {
-			pr_info("%s:put: rms_freerun = 0, skip pm_runtime", __func__);
 		}
 		ctx->rms_disable = 1;
 	}

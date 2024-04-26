@@ -791,8 +791,6 @@ void update_scq_start_period(struct mtk_raw_device *dev, int scq_ms)
 	start_period = (scq_ms == -1) ? 0xFFFFFFFF : scq_ms * scq_cnt_rate_khz(val);
 	max_p1_delay = start_period - 1;
 
-	dev_info(dev->dev, "[%s] REG_TG_TIME_STAMP_CNT:0x%08x\n", __func__, val);
-
 	raw_writel_relaxed(start_period,
 		       dev, dev->base, REG_CAMCQ_SCQ_START_PERIOD);
 
@@ -800,8 +798,8 @@ void update_scq_start_period(struct mtk_raw_device *dev, int scq_ms)
 		       dev, dev->base, REG_CAMCTL_DC_STAG_CTL);
 
 	qof_set_cq_start_max(dev, scq_ms);
-	dev_info(dev->dev, "[%s] REG_CAMCQ_SCQ_START_PERIOD:0x%08x (%dms)\n",
-		 __func__, raw_readl(dev, dev->base, REG_CAMCQ_SCQ_START_PERIOD), scq_ms);
+	dev_info(dev->dev, "[%s] REG_TG_TIME_STAMP_CNT:0x%08x, REG_CAMCQ_SCQ_START_PERIOD:0x%08x (%dms)\n",
+		 __func__, val, raw_readl(dev, dev->base, REG_CAMCQ_SCQ_START_PERIOD), scq_ms);
 }
 
 static bool not_support_rwfbc(struct mtk_raw_device *dev)
@@ -867,8 +865,6 @@ void set_sig_sel_slave(struct mtk_raw_device *dev)
 
 void stream_on(struct mtk_raw_device *dev, int on, bool reset_at_off)
 {
-	dump_dc_setting(dev);
-
 	if (on) {
 		/* toggle db before stream-on */
 		enable_tg_db(dev, 0);

@@ -2038,7 +2038,7 @@ static int apply_engines_cq(struct mtk_cam_job *job,
 
 	if (job->raw_change == JOB_RAW_MASTER_UNCHANGED) {
 		for (i = 0; i < ctx->cam->engines.num_raw_devices; i++) {
-			if (BIT(i) & ctx->used_engine) {
+			if (BIT(i) & job->used_engine) {
 				struct mtk_raw_device *raw_dev;
 
 				raw_dev = dev_get_drvdata(ctx->cam->engines.raw_devs[i]);
@@ -2049,7 +2049,7 @@ static int apply_engines_cq(struct mtk_cam_job *job,
 	}
 	if (job->raw_change == JOB_RAW_MASTER_CHANGED) {
 		for (i = 0; i < ctx->cam->engines.num_raw_devices; i++) {
-			if (BIT(i) & ctx->used_engine) {
+			if (BIT(i) & job->used_engine) {
 				struct mtk_raw_device *raw_dev;
 
 				raw_dev = dev_get_drvdata(ctx->cam->engines.raw_devs[i]);
@@ -2499,8 +2499,6 @@ static int job_raw_change_hw_init(struct mtk_cam_job *job)
 	/* ToDo - YM */
 	ctx->used_engine = selected;
 	if (selected_need_init) {
-		/* new raw get_sync/clk_prepare/reset and initialize */
-		// wait_engines_off(ctx->cam, selected_need_init);
 		mtk_cam_pm_runtime_engines(&ctx->cam->engines, selected_need_init, 1);
 		/* init new slave raw */
 		if (job->raw_change == JOB_RAW_MASTER_UNCHANGED) {

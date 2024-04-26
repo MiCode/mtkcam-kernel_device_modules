@@ -123,6 +123,14 @@ struct mtk_imgsys_dma_buf_iova_list {
 	spinlock_t lock;
 };
 
+// fix memory fragmentation issue
+#define REQ_HBITS (32)
+struct mtk_imgsys_req_dma_buf_iova_list {
+	struct list_head list;
+	struct hlist_head hlists[REQ_HBITS];
+	spinlock_t lock;
+};
+
 struct mtk_imgsys_dma_buf_iova_get_info {
 	s32 ionfd;
 	dma_addr_t dma_addr;
@@ -155,7 +163,7 @@ struct mtk_imgsys_dev_buffer {
 // desc added {
 //Keep dmabuf used in latter for put kva
 	struct dma_buf *dma_buf_putkva;
-	struct mtk_imgsys_dma_buf_iova_list iova_map_table;
+	struct mtk_imgsys_req_dma_buf_iova_list iova_map_table;
 // } desc added
 };
 
@@ -233,16 +241,16 @@ struct mtk_imgsys_pipe {
 	//struct mutex job_lock;
 	const struct mtk_imgsys_pipe_desc *desc;
 	struct mtk_imgsys_dma_buf_iova_list iova_cache;
-        #if SMVR_DECOUPLE
-        struct init_info ini_info;
-        struct mem_info meminfo;
-        unsigned int capture_alloc;
-        unsigned int smvr_alloc;
-        unsigned int streaming_alloc;
-        unsigned int imgsys_user_count;
-        #else
+	#if SMVR_DECOUPLE
+	struct init_info ini_info;
+	struct mem_info meminfo;
+	unsigned int capture_alloc;
+	unsigned int smvr_alloc;
+	unsigned int streaming_alloc;
+	unsigned int imgsys_user_count;
+	#else
 	struct init_info init_info;
-        #endif
+	#endif
 };
 
 struct imgsys_event_status {

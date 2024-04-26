@@ -3951,7 +3951,8 @@ static struct component_match *mtk_cam_match_add(struct device *dev)
 	eng->num_seninf_devices =
 		add_match_by_driver(dev, &match, &seninf_pdrv);
 
-	add_match_by_driver(dev, &match, &mtk_cam_bwr_driver);
+	if (GET_PLAT_HW(bwr_support))
+		add_match_by_driver(dev, &match, &mtk_cam_bwr_driver);
 
 	if (IS_ERR(match) || mtk_cam_alloc_for_engine(dev))
 		mtk_cam_match_remove(dev);
@@ -4471,10 +4472,12 @@ static int register_sub_drivers(struct device *dev)
 		goto REGISTER_RMS_FAIL;
 	}
 
-	ret = platform_driver_register(&mtk_cam_bwr_driver);
-	if (ret) {
-		dev_err(dev, "%s mtk_cam_bwr_driver fail\n", __func__);
-		goto REGISTER_BWR_FAIL;
+	if (GET_PLAT_HW(bwr_support)) {
+		ret = platform_driver_register(&mtk_cam_bwr_driver);
+		if (ret) {
+			dev_err(dev, "%s mtk_cam_bwr_driver fail\n", __func__);
+			goto REGISTER_BWR_FAIL;
+		}
 	}
 
 	match = mtk_cam_match_add(dev);
@@ -4493,7 +4496,8 @@ MASTER_ADD_MATCH_FAIL:
 	mtk_cam_match_remove(dev);
 
 ADD_MATCH_FAIL:
-	platform_driver_unregister(&mtk_cam_bwr_driver);
+	if (GET_PLAT_HW(bwr_support))
+		platform_driver_unregister(&mtk_cam_bwr_driver);
 
 REGISTER_BWR_FAIL:
 	platform_driver_unregister(&mtk_cam_rms_driver);
@@ -4993,7 +4997,8 @@ static int mtk_cam_remove(struct platform_device *pdev)
 	platform_driver_unregister(&mtk_cam_larb_driver);
 	platform_driver_unregister(&seninf_core_pdrv);
 	platform_driver_unregister(&seninf_pdrv);
-	platform_driver_unregister(&mtk_cam_bwr_driver);
+	if (GET_PLAT_HW(bwr_support))
+		platform_driver_unregister(&mtk_cam_bwr_driver);
 
 	return 0;
 }

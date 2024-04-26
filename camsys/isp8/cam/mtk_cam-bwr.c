@@ -511,8 +511,9 @@ void mtk_cam_bwr_trigger(struct mtk_bwr_device *bwr,
 	enum BWR_ENGINE_TYPE engine, enum BWR_AXI_PORT axi)
 {
 	mutex_lock(&bwr->op_lock);
-	if (!bwr->started) {
-		pr_info("%s: engine:%d BWR is disabled\n", __func__, engine);
+	if (!bwr || !bwr->started) {
+		pr_info("%s: engine:%d %s\n", __func__,
+			engine, bwr ?	"BWR is disabled" : "null device");
 		mutex_unlock(&bwr->op_lock);
 		return;
 	}
@@ -539,8 +540,9 @@ void mtk_cam_bwr_dbg_dump(struct mtk_bwr_device *bwr)
 	int engine, axi;
 
 	mutex_lock(&bwr->op_lock);
-	if (!bwr->started) {
-		pr_info("%s: BWR is disabled\n", __func__);
+	if (!bwr || !bwr->started) {
+		pr_info("%s: %s\n", __func__,
+			bwr ?	"BWR is disabled" : "null device");
 		mutex_unlock(&bwr->op_lock);
 		return;
 	}

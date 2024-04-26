@@ -218,6 +218,7 @@ struct plat_data_hw {
 	int (*query_icc_path_idx)(int domain, int smi_port);
 
 	bool dcif_slb_support;
+	bool bwr_support;
 };
 
 struct camsys_platform_data {

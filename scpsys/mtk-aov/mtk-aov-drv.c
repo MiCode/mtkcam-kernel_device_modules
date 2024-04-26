@@ -327,7 +327,13 @@ static long mtk_aov_compat_ioctl(struct file *file, unsigned int cmd,
 
 static unsigned int mtk_aov_poll(struct file *file, poll_table *wait)
 {
-	struct mtk_aov *aov_dev = (struct mtk_aov *)file->private_data;
+	struct mtk_aov *aov_dev = NULL;
+
+	if (file == NULL) {
+		pr_info("%s input file is null pointer\n", __func__);
+		return 0;
+	}
+	aov_dev = (struct mtk_aov *)file->private_data;
 
 	return aov_core_poll(aov_dev, file, wait);
 }

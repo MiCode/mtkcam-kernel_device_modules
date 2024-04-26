@@ -444,24 +444,7 @@ static int mtk_cam_seninf_enable_cam_mux_vsync_irq(struct seninf_ctx *ctx, bool 
 
 static int mtk_cam_seninf_set_outmux_cg(struct seninf_ctx *ctx, int outmux, int en)
 {
-	void *pSeninf_top = ctx->reg_if_top;
-	int val = 0;
-
-	if (outmux >= _seninf_ops->outmux_num)
-		return false;
-
-	mutex_lock(&ctx->core->seninf_top_rg_mutex);
-	val = SENINF_READ_BITS(pSeninf_top, SENINF_TOP_OUTMUX_CG_EN, SENINF_TOP_OUTMUX_CG_EN);
-
-	if (en)
-		val |= (0x1 << outmux);
-	else
-		val &= (~(0x1 << outmux));
-
-	SENINF_BITS(pSeninf_top, SENINF_TOP_OUTMUX_CG_EN, SENINF_TOP_OUTMUX_CG_EN, val);
-	mutex_unlock(&ctx->core->seninf_top_rg_mutex);
-
-	seninf_logd(ctx, "write OUTMUX_CG: 0x%x\n", val);
+	// Always on outmux cg to avoid write racing between aov scp side
 
 	return 0;
 }
@@ -1086,70 +1069,14 @@ static int mtk_cam_seninf_set_outmux_cfg_rdy(struct seninf_ctx *ctx,
 
 static int mtk_cam_seninf_set_async_cg(struct seninf_ctx *ctx, int async, int en)
 {
-	void *pSeninf_top = ctx->reg_if_top;
-	int val = 0;
-
-	if (async >= _seninf_ops->async_num)
-		return false;
-
-	mutex_lock(&ctx->core->seninf_top_rg_mutex);
-	val = SENINF_READ_BITS(pSeninf_top, SENINF_TOP_ASYNC_CG_EN, SENINF_TOP_ASYNC_CG_EN);
-
-	if (en)
-		val |= (0x1 << async);
-	else
-		val &= (~(0x1 << async));
-
-	SENINF_BITS(pSeninf_top, SENINF_TOP_ASYNC_CG_EN, SENINF_TOP_ASYNC_CG_EN, val);
-	mutex_unlock(&ctx->core->seninf_top_rg_mutex);
-
-	seninf_logd(ctx, "write ASYNC_CG: 0x%x\n", val);
+	// Always on async cg to avoid write racing between aov scp side
 
 	return 0;
 }
 
 static int mtk_cam_seninf_en_async_overrun_irq(struct seninf_ctx *ctx, int async)
 {
-	void *pSeninf_top = ctx->reg_if_top;
-
-	if (async >= _seninf_ops->async_num)
-		return -1;
-
-	mutex_lock(&ctx->core->seninf_top_rg_mutex);
-	switch (async) {
-	case 0:
-		SENINF_BITS(pSeninf_top, SENINF_TOP_ASYNC_OVERRUN_IRQ_EN,
-			    SENINF_TOP_ASYNC_OVERRUN_IRQ_EN_0, 1);
-		break;
-	case 1:
-		SENINF_BITS(pSeninf_top, SENINF_TOP_ASYNC_OVERRUN_IRQ_EN,
-			    SENINF_TOP_ASYNC_OVERRUN_IRQ_EN_1, 1);
-		break;
-	case 2:
-		SENINF_BITS(pSeninf_top, SENINF_TOP_ASYNC_OVERRUN_IRQ_EN,
-			    SENINF_TOP_ASYNC_OVERRUN_IRQ_EN_2, 1);
-		break;
-	case 3:
-		SENINF_BITS(pSeninf_top, SENINF_TOP_ASYNC_OVERRUN_IRQ_EN,
-			    SENINF_TOP_ASYNC_OVERRUN_IRQ_EN_3, 1);
-		break;
-	case 4:
-		SENINF_BITS(pSeninf_top, SENINF_TOP_ASYNC_OVERRUN_IRQ_EN,
-			    SENINF_TOP_ASYNC_OVERRUN_IRQ_EN_4, 1);
-		break;
-	case 5:
-		SENINF_BITS(pSeninf_top, SENINF_TOP_ASYNC_OVERRUN_IRQ_EN,
-			    SENINF_TOP_ASYNC_OVERRUN_IRQ_EN_5, 1);
-		break;
-	default:
-		mutex_unlock(&ctx->core->seninf_top_rg_mutex);
-		return -1;
-	}
-	mutex_unlock(&ctx->core->seninf_top_rg_mutex);
-
-	seninf_logd(ctx, "input async:%d, ASYNC TOP OVERRUN IRQ_EN = 0x%x\n",
-		async,
-		SENINF_READ_REG(pSeninf_top, SENINF_TOP_ASYNC_OVERRUN_IRQ_EN));
+	// Always on async overrun irq to avoid write racing between aov scp side
 
 	return 0;
 }
@@ -2006,19 +1933,7 @@ static int csirx_phy_init(struct seninf_ctx *ctx)
 
 static int seninf_async_setting(struct seninf_ctx *ctx)
 {
-	void *pSeninfTop = ctx->reg_if_top;
-	int asyncIdx = ctx->seninfAsyncIdx;
-	int tmp = (1 << asyncIdx);
-	int val;
-
-	// enable/disable seninf async cg
-	mutex_lock(&ctx->core->seninf_top_rg_mutex);
-	val = SENINF_READ_BITS(pSeninfTop, SENINF_TOP_ASYNC_CG_EN, SENINF_TOP_ASYNC_CG_EN);
-	if (!(val & tmp)) {
-		val |= tmp;
-		SENINF_BITS(pSeninfTop, SENINF_TOP_ASYNC_CG_EN, SENINF_TOP_ASYNC_CG_EN, val);
-	}
-	mutex_unlock(&ctx->core->seninf_top_rg_mutex);
+	// Always on async cg to avoid write racing between aov scp side
 
 	return 0;
 }
@@ -4893,11 +4808,12 @@ static int mtk_cam_seninf_debug(struct seninf_ctx *ctx)
 		SENINF_READ_REG(base_csi_mac, CSIRX_MAC_CSI2_SIZE_CHK_RCV4));
 
 	dev_info(ctx->dev,
-		"SENINF_TOP:ASYNC_SW_RST(0x%x),OUTMUX_SW_RST(0x%x),ASYNC_CG_EN(0x%x),OUTMUX_CG_EN(0x%x)\n",
+		"SENINF_TOP:ASYNC_SW_RST(0x%x),OUTMUX_SW_RST(0x%x),ASYNC_CG_EN(0x%x),OUTMUX_CG_EN(0x%x),ASYNC_OVERRUN_EN(0x%x)\n",
 		SENINF_READ_REG(pSeninf_top, SENINF_TOP_ASYNC_SW_RST),
 		SENINF_READ_REG(pSeninf_top, SENINF_TOP_OUTMUX_SW_RST),
 		SENINF_READ_REG(pSeninf_top, SENINF_TOP_ASYNC_CG_EN),
-		SENINF_READ_REG(pSeninf_top, SENINF_TOP_OUTMUX_CG_EN));
+		SENINF_READ_REG(pSeninf_top, SENINF_TOP_OUTMUX_CG_EN),
+		SENINF_READ_REG(pSeninf_top, SENINF_TOP_ASYNC_OVERRUN_IRQ_EN));
 	dev_info(ctx->dev,
 		"current async%d:ASYNC0_DBG0(0x%x),ASYNC1_DBG0(0x%x),ASYNC2_DBG0(0x%x),ASYNC3_DBG0(0x%x),ASYNC4_DBG0(0x%x),ASYNC5_DBG0(0x%x)\n",
 		ctx->seninfAsyncIdx,
@@ -7265,11 +7181,23 @@ static int mtk_cam_seninf_common_reg_setup(struct seninf_ctx *ctx)
 {
 	void *pSeninf_top = ctx->reg_if_top;
 
-	seninf_logi(ctx, "setup common reg");
-
 	mutex_lock(&ctx->core->seninf_top_rg_mutex);
 	SENINF_BITS(pSeninf_top, SENINF_TOP_CTRL, SENINF_TOP_SW_CFG_LEVEL, 1);
+
+	// enable all async and outmux cg
+	SENINF_BITS(pSeninf_top, SENINF_TOP_ASYNC_CG_EN, SENINF_TOP_ASYNC_CG_EN, 0xffffffff);
+	SENINF_BITS(pSeninf_top, SENINF_TOP_OUTMUX_CG_EN, SENINF_TOP_OUTMUX_CG_EN, 0xffffffff);
+
+	// async overrun irq en
+	SENINF_WRITE_REG(pSeninf_top, SENINF_TOP_ASYNC_OVERRUN_IRQ_EN, 0xffffffff);
+
 	mutex_unlock(&ctx->core->seninf_top_rg_mutex);
+
+	seninf_logi(ctx, "setup common reg. TOP_CTL(0x%x),ASY_CG(0x%x),OUTMUX_CG(0x%x),ASY_OVERRUN_IRQEN(0x%x)",
+		    SENINF_READ_REG(pSeninf_top, SENINF_TOP_CTRL),
+		    SENINF_READ_REG(pSeninf_top, SENINF_TOP_ASYNC_CG_EN),
+		    SENINF_READ_REG(pSeninf_top, SENINF_TOP_OUTMUX_CG_EN),
+		    SENINF_READ_REG(pSeninf_top, SENINF_TOP_ASYNC_OVERRUN_IRQ_EN));
 
 	return 0;
 }

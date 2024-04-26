@@ -211,11 +211,11 @@ static inline bool valid_cq_execution(struct transition_param *p)
 {
 	if (unlikely(!p->s_params))
 		return false;
-
 	/* for sentest NE -> SE duration 25ms case*/
 	return (p->event_ts - p->info->sof_ts_ns) < p->cq_trigger_thres ||
 		((p->event_ts - p->info->sof_l_ts_ns) < SQC_THRES_FROM_L_SOF_NS);
 }
+
 #define SCQ_THRES_FOR_AEWA 27000000
 
 static inline bool valid_cq_execution_ref_sof(struct transition_param *p)
@@ -238,7 +238,8 @@ static inline bool valid_cq_execution_avoid_race_with_topirq(
 
 	if (unlikely(!p->s_params))
 		return ret;
-
+	if (p->info->ae_wa_enable == 0)
+		return true;
 	ret = (p->event_ts - p->info->sof_l_ts_ns) > SCQ_THRES_FOR_AEWA ? false : true;
 
 	if (ret == false)
@@ -248,7 +249,24 @@ static inline bool valid_cq_execution_avoid_race_with_topirq(
 
 	return ret;
 }
+static inline bool valid_cq_execution_threaded_irq_race_with_topirq(struct transition_param *p)
+{
+	bool ret = true;
 
+	if (unlikely(!p->s_params))
+		return false;
+	if (p->info->ae_wa_enable == 0)
+		return true;
+	/* for case that one engines lost sof signal case */
+	if ((p->info->sof_l_ts_ns - p->info->sof_ts_ns) > 30000000 &&
+		(p->event_ts - p->info->sof_ts_ns) > p->cq_trigger_thres) {
+		ret = false;
+		pr_info("[mtk-cam:WA] lost sof case, event/f_sof/l_sof:%llu/%llu/%llu (%llu)",
+			p->event_ts, p->info->sof_ts_ns, p->info->sof_l_ts_ns,
+			ktime_get_boottime_ns());
+	}
+	return ret;
+}
 
 static inline int guard_apply_sensor_subsample(struct state_accessor *s_acc,
 					       struct transition_param *p)
@@ -314,7 +332,8 @@ static inline int guard_apply_isp(struct state_accessor *s_acc,
 	return allow_applying_hw(s_acc) &&
 		ops_call(s_acc, prev_allow_apply_isp) &&
 		current_sensor_ready(s_acc) &&
-			valid_cq_execution(p);
+			valid_cq_execution(p) &&
+			valid_cq_execution_threaded_irq_race_with_topirq(p);
 }
 
 static inline int guard_apply_m2m(struct state_accessor *s_acc,

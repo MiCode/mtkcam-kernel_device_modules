@@ -152,6 +152,7 @@ struct mtk_cam_ctrl_runtime_info {
 	u64 sof_ts_mono_ns;
 	u64 sof_l_ts_ns;
 	u64 sof_l_ts_mono_ns;
+	bool ae_wa_enable;
 	int extisp_enable; /* extisp used */
 	int extisp_tg_cnt[NR_EXTISP_DATA]; /* extisp used */
 };

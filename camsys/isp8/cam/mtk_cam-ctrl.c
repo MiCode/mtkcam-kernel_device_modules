@@ -466,6 +466,8 @@ static void mtk_cam_ctrl_wake_up_on_event(struct mtk_cam_ctrl *ctrl, int event)
 
 /* note: just to support little margin for sw latency here */
 #define VALID_SWITCH_PERIOD_FROM_VSYNC_MS	23
+#define VALID_SWITCH_PERIOD_FROM_1ST_VSYNC_MS 25
+
 struct seamless_check_args {
 	int expect_inner;
 	int expect_ack;
@@ -492,7 +494,8 @@ static bool check_for_seamless(struct mtk_cam_ctrl *ctrl, void *arg)
 	ts = ktime_get_boottime_ns();
 	if (ts - last_sof_ts >= VALID_SWITCH_PERIOD_FROM_VSYNC_MS * 1000000)
 		return 0;
-
+	if (ts - first_sof_ts >= VALID_SWITCH_PERIOD_FROM_1ST_VSYNC_MS * 1000000)
+		return 0;
 	/*
 	 * check if already got ack
 	 * if not, await another vsync for switching
@@ -1227,7 +1230,7 @@ static void mtk_cam_ctrl_stream_on_flow(struct mtk_cam_job *job)
 	dev_info(dev, "[%s] ctx %d finish\n", __func__, ctrl->ctx->stream_id);
 }
 
-static int dynamic_raw_change_stream_on(struct mtk_cam_job *job)
+static int dynamic_raw_change_stream_on(struct mtk_cam_job *job, int unit_engs)
 {
 	struct mtk_cam_ctx *ctx = job->src_ctx;
 	struct mtk_cam_ctrl *ctrl = &ctx->cam_ctrl;
@@ -1235,7 +1238,7 @@ static int dynamic_raw_change_stream_on(struct mtk_cam_job *job)
 	if (job->raw_change) {
 		if (job->raw_change == JOB_RAW_MASTER_UNCHANGED) {
 			/* bc -> b case , ealier raise clk */
-			if (job->raw_change_uninit_engine)
+			if (unit_engs)
 				mtk_cam_job_update_clk(job);
 		} else {
 			vsync_set_desired(&ctrl->vsync_col, job->master_engine);
@@ -1246,7 +1249,7 @@ static int dynamic_raw_change_stream_on(struct mtk_cam_job *job)
 	return 0;
 }
 
-static int dynamic_raw_change_uninit_engine(struct mtk_cam_job *job)
+static int dynamic_raw_change_uninit_engine(struct mtk_cam_job *job, int unit_engs)
 {
 	struct mtk_cam_ctx *ctx = job->src_ctx;
 	struct mtk_cam_device *cam = ctx->cam;
@@ -1254,10 +1257,10 @@ static int dynamic_raw_change_uninit_engine(struct mtk_cam_job *job)
 	int i, j;
 
 	dev_info(dev, "[%s] begin uninit raw:0x%x\n",
-			 __func__, job->raw_change_uninit_engine);
+			 __func__, unit_engs);
 	/* disable raw/yuv irq and reset */
 	for (i = 0; i < cam->engines.num_raw_devices; i++) {
-		if (BIT(i) & job->raw_change_uninit_engine) {
+		if (BIT(i) & unit_engs) {
 			struct mtk_raw_device *raw_dev;
 
 			raw_dev = dev_get_drvdata(cam->engines.raw_devs[i]);
@@ -1274,7 +1277,7 @@ static int dynamic_raw_change_uninit_engine(struct mtk_cam_job *job)
 	}
 	for (i = 0; i < cam->engines.num_camsv_devices; i++) {
 		if (bit_map_bit(MAP_HW_CAMSV, i) &
-			job->raw_change_uninit_engine) {
+			unit_engs) {
 			struct mtk_camsv_device *sv_dev;
 
 			sv_dev = dev_get_drvdata(cam->engines.sv_devs[i]);
@@ -1285,9 +1288,9 @@ static int dynamic_raw_change_uninit_engine(struct mtk_cam_job *job)
 		}
 	}
 	/* disable camsv/mraw irq and reset - James */
-	if (job->raw_change_uninit_engine) {
-		mtk_cam_pm_runtime_engines(&ctx->cam->engines, job->raw_change_uninit_engine, 0);
-		mtk_cam_event_camsys_resource_ready(&ctx->cam_ctrl, job->raw_change_uninit_engine);
+	if (unit_engs) {
+		mtk_cam_pm_runtime_engines(&ctx->cam->engines, unit_engs, 0);
+		mtk_cam_event_camsys_resource_ready(&ctx->cam_ctrl, unit_engs);
 	}
 
 	return 0;
@@ -1303,7 +1306,7 @@ static void mtk_cam_ctrl_dynamic_raws_change_flow(struct mtk_cam_job *job)
 	int prev_seq;
 	int no = job->frame_seq_no;
 	int i;
-
+	int engine_uninit = job->raw_change_uninit_engine;
 	int raw_after_change = bit_map_subset_of(MAP_HW_RAW, ctx->used_engine);
 	int raw_uninit = bit_map_subset_of(MAP_HW_RAW, job->raw_change_uninit_engine);
 
@@ -1329,7 +1332,7 @@ static void mtk_cam_ctrl_dynamic_raws_change_flow(struct mtk_cam_job *job)
 		goto SWITCH_FAILURE;
 	}
 
-	if (dynamic_raw_change_stream_on(job))
+	if (dynamic_raw_change_stream_on(job, engine_uninit))
 		goto SWITCH_FAILURE;
 
 	prev_seq = prev_frame_seq(job->frame_seq_no);
@@ -1378,15 +1381,16 @@ static void mtk_cam_ctrl_dynamic_raws_change_flow(struct mtk_cam_job *job)
 		}
 	}
 
+
 	mtk_cam_job_update_clk(job);
-	if (dynamic_raw_change_uninit_engine(job)) {
+	if (dynamic_raw_change_uninit_engine(job, engine_uninit)) {
 		dev_info(dev, "[%s] uninit engine failed, uninit raw:0x%x\n",
 			__func__, job->raw_change_uninit_engine);
 		goto SWITCH_FAILURE;
 	}
 
-	dev_info(dev, "[%s] finish, uninit raw:0x%x, new frame inner:%d\n",
-		__func__, job->raw_change_uninit_engine, check_args.expect_inner);
+	dev_info(dev, "[%s] finish, uninit engines:0x%x, new frame inner:%d\n",
+		__func__, engine_uninit, check_args.expect_inner);
 
 	return;
 
@@ -1407,6 +1411,7 @@ static void mtk_cam_ctrl_seamless_switch_flow(struct mtk_cam_job *job)
 	struct seamless_check_args check_args;
 	int prev_seq;
 	int i;
+	int engine_uninit = job->raw_change_uninit_engine;
 	int raw_after_change = bit_map_subset_of(MAP_HW_RAW, ctx->used_engine);
 	int raw_uninit = bit_map_subset_of(MAP_HW_RAW, job->raw_change_uninit_engine);
 	int raw_all = raw_after_change | raw_uninit;
@@ -1437,7 +1442,7 @@ static void mtk_cam_ctrl_seamless_switch_flow(struct mtk_cam_job *job)
 		goto SWITCH_FAILURE;
 	}
 
-	if (dynamic_raw_change_stream_on(job))
+	if (dynamic_raw_change_stream_on(job, engine_uninit))
 		goto SWITCH_FAILURE;
 
 	mtk_cam_job_update_clk_switching(job, 1);
@@ -1482,7 +1487,7 @@ static void mtk_cam_ctrl_seamless_switch_flow(struct mtk_cam_job *job)
 
 	call_job_seamless_ops(job, after_prev_frame_done);
 
-	if (dynamic_raw_change_uninit_engine(job))
+	if (dynamic_raw_change_uninit_engine(job, engine_uninit))
 		goto SWITCH_FAILURE;
 
 	trigger_fake_sof_event(ctrl);
@@ -1959,6 +1964,7 @@ static void reset_runtime_info(struct mtk_cam_ctrl *ctrl)
 	info->outer_seq_no = -1;
 	info->inner_seq_no = -1;
 	info->done_seq_no = -1;
+	info->ae_wa_enable = ctrl->ctx->cam->sw_ver != 0x0001;
 
 	spin_unlock(&ctrl->info_lock);
 }

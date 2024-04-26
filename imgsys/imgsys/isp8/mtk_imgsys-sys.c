@@ -3149,7 +3149,7 @@ static void mtk_imgsys_hw_disconnect(struct mtk_imgsys_dev *imgsys_dev)
 		if (pm_ret < 0) {
 			dev_err(imgsys_dev->dev,
 				"%s: [ERROR] PM_RUNTIME_PUT_SYNC FAIL: %d\n", __func__, pm_ret);
-			return pm_ret;
+			return;
 		}
 		#endif
 	} else

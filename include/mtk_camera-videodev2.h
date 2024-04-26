@@ -29,7 +29,8 @@ struct mtk_cam_event_frame_sync_data {
 	__u32	sensor_sequence;
 	__u32	frame_sync_id;
 	__u32	sensor_sync_id;
-	__u32	reserved[12];
+	__u64	ts_ns;
+	__u32	reserved[10];
 };
 struct mtk_cam_event_camsys_resource_ready {
 	__u32	raw_ready;

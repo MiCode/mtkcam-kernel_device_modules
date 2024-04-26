@@ -174,6 +174,7 @@ struct transition_param {
 	u64 event_ts;
 	struct sensor_apply_params *s_params;
 	u64 cq_trigger_thres;
+	u64 reference_sof_ns;
 };
 
 struct mtk_cam_job_state;
@@ -236,6 +237,7 @@ struct mtk_cam_job_state {
 	/* for different sensor latched timing */
 	struct sensor_apply_params s_params;
 	u64 cq_trigger_thres_ns; /* cq valid period from vsync */
+	u64 reference_sof_ns; /* for eg. MCSS reflect sync */
 	struct state_table *sensor_tbl;
 	/* for extisp */
 	int tg_cnt;

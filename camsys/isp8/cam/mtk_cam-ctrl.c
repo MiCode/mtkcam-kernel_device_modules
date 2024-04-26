@@ -336,8 +336,9 @@ void mtk_cam_event_frame_sync(struct mtk_cam_ctrl *cam_ctrl,
 		.sensor_sequence = cam_ctrl->sensor_seq,
 		.frame_sync_id = cam_ctrl->frame_sync_id,
 		.sensor_sync_id = cam_ctrl->sensor_sync_id,
+		.ts_ns = cam_ctrl->r_info.sof_ts_ns,
 	};
-	memcpy(event.u.data, &data, 16);
+	memcpy(event.u.data, &data, 24);
 	if (ctx->has_raw_subdev)
 		mtk_cam_ctx_send_raw_event(ctx, &event);
 	else

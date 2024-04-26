@@ -65,6 +65,10 @@ static struct state_transition STATE_TRANS(basic, S_ISP_COMPOSING)[] = {
 		guard_ack_apply_directly, ACTION_APPLY_ISP
 	},
 	{
+		S_ISP_APPLYING, CAMSYS_EVENT_ACK,
+		guard_ack_apply_directly_ref_sof, ACTION_APPLY_ISP
+	},
+	{
 		S_ISP_COMPOSED, CAMSYS_EVENT_ACK,
 		guard_ack_eq, 0
 	},
@@ -203,6 +207,7 @@ static int basic_send_event(struct mtk_cam_job_state *s,
 	s_acc.ops = &_acc_ops;
 	p->s_params = &s->s_params;
 	p->cq_trigger_thres = s->cq_trigger_thres_ns;
+	p->reference_sof_ns = s->reference_sof_ns;
 
 	loop_each_transition(s->sensor_tbl, &s_acc, SENSOR_STATE, p);
 	loop_each_transition(&basic_isp_tbl, &s_acc, ISP_STATE, p);

@@ -106,6 +106,7 @@ static inline int bin_ratio(u8 bin_type)
 struct mtk_raw_ctrl_data_read_clear {
 	bool sensor_mode_update;
 	bool sensor_update;
+	u64 ref_sof_ts_ns;
 };
 
 struct mtk_raw_ctrl_data {

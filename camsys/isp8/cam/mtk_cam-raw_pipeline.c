@@ -848,6 +848,7 @@ static int mtk_raw_try_ctrl(struct v4l2_ctrl *ctrl)
 	case V4L2_CID_MTK_CAM_REQ_INFO:
 	case V4L2_CID_MTK_CAM_CQ_TRIGGER_DEADLINE:
 	case V4L2_CID_MTK_CAM_LTMS_LOW_LATENCY:
+	case V4L2_CID_MTK_CAM_REF_SOF_TS:
 		ret = 0;
 		break;
 	default:
@@ -1011,6 +1012,19 @@ static int mtk_raw_set_ctrl(struct v4l2_ctrl *ctrl)
 			if (CAM_DEBUG_ENABLED(V4L2))
 				dev_info(dev, "%s: ltms_low_latency: %d\n",
 					__func__, ctrl_data->ltms_low_latency);
+		}
+		break;
+	case V4L2_CID_MTK_CAM_REF_SOF_TS:
+		{
+			struct mtk_cam_ref_sof_ts *sof_ts =
+				(struct mtk_cam_ref_sof_ts *)ctrl->p_new.p;
+
+			ctrl_data->rc_data.ref_sof_ts_ns = sof_ts->sof_ts_ns;
+
+			if (CAM_DEBUG_ENABLED(V4L2))
+				dev_info(dev, "%s: ref sof timestamp: %llu(ns) sof_ts_ns %llu\n",
+					__func__, ctrl_data->rc_data.ref_sof_ts_ns,
+						 sof_ts->sof_ts_ns);
 		}
 		break;
 	case V4L2_CID_MTK_CAM_RAW_RESOURCE_UPDATE:
@@ -1272,6 +1286,17 @@ static const struct v4l2_ctrl_config ltms_low_latency = {
 	.max = 0x1fffffff,
 	.step = 1,
 	.def = 0,
+};
+
+static const struct v4l2_ctrl_config ref_sof_ts = {
+	.ops = &cam_ctrl_ops,
+	.id = V4L2_CID_MTK_CAM_REF_SOF_TS,
+	.name = "reference SOF timestamp",
+	.type = V4L2_CTRL_COMPOUND_TYPES,
+	.flags = V4L2_CTRL_FLAG_VOLATILE | V4L2_CTRL_FLAG_EXECUTE_ON_WRITE,
+	.max = 0xFFFFFFFF,
+	.step = 1,
+	.dims = {sizeof(struct mtk_cam_ref_sof_ts)},
 };
 
 static const struct v4l2_ctrl_config mtk_cam_tg_flash_enable = {
@@ -3802,6 +3827,9 @@ static void mtk_raw_pipeline_ctrl_setup(struct mtk_raw_pipeline *pipe)
 
 	/* ltms low latency */
 	v4l2_ctrl_new_custom(ctrl_hdlr, &ltms_low_latency, NULL);
+
+	/* reference SOF timestamp */
+	v4l2_ctrl_new_custom(ctrl_hdlr, &ref_sof_ts, NULL);
 
 	ctrl = v4l2_ctrl_new_custom(ctrl_hdlr, &cfg_hdr_timestamp_info, NULL);
 	if (ctrl)

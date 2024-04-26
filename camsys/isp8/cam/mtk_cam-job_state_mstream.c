@@ -70,6 +70,8 @@ static int mstream_send_event(struct mtk_cam_job_state *s,
 	s_acc.ops = &_acc_ops_1st;
 	p->s_params = &s->s_params;
 	p->cq_trigger_thres = s->cq_trigger_thres_ns;
+	p->reference_sof_ns = 0;
+
 	loop_each_transition(&basic_sensor_tbl, &s_acc,
 			   SENSOR_1ST_STATE, p);
 

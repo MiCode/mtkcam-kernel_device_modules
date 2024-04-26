@@ -218,6 +218,19 @@ static inline bool valid_cq_execution(struct transition_param *p)
 }
 #define SCQ_THRES_FOR_AEWA 27000000
 
+static inline bool valid_cq_execution_ref_sof(struct transition_param *p)
+{
+	if (unlikely(!p->s_params))
+		return false;
+
+	if (!p->reference_sof_ns)
+		return false;
+
+	/* for sentest NE -> SE duration 25ms case*/
+	return (p->event_ts - p->reference_sof_ns) < p->cq_trigger_thres ||
+		((p->event_ts - p->info->sof_l_ts_ns) < SQC_THRES_FROM_L_SOF_NS);
+}
+
 static inline bool valid_cq_execution_avoid_race_with_topirq(
 	struct transition_param *p)
 {
@@ -323,6 +336,15 @@ static inline int guard_ack_apply_directly(struct state_accessor *s_acc,
 	return guard_ack_eq(s_acc, p) && guard_apply_isp(s_acc, p) &&
 			valid_cq_execution(p) &&
 			valid_cq_execution_avoid_race_with_topirq(p);
+}
+
+static inline int guard_ack_apply_directly_ref_sof(struct state_accessor *s_acc,
+					   struct transition_param *p)
+{
+	return guard_ack_eq(s_acc, p) &&
+		valid_cq_execution_ref_sof(p) &&
+		allow_applying_hw(s_acc) &&
+		ops_call(s_acc, prev_allow_apply_isp);
 }
 
 static inline int guard_ack_apply_directly_subsample(struct state_accessor *s_acc,

@@ -2140,6 +2140,9 @@ static int _apply_cq(struct mtk_cam_job *job)
 							 job->used_engine);
 	}
 
+	if (job->job_state.reference_sof_ns)
+		set_cq_deadline(job, -1);
+
 	apply_engines_cq(job, job->frame_seq_no, &job->cq, &job->cq_rst);
 
 	return 0;
@@ -4558,6 +4561,19 @@ static int job_factory(struct mtk_cam_job *job)
 	return ret;
 }
 #endif
+
+static void update_reference_sof(struct mtk_cam_job *job)
+{
+	struct mtk_raw_request_data *raw_data = req_get_raw_data(job->src_ctx, job->req);
+
+	job->job_state.reference_sof_ns = raw_data->ctrl.rc_data.ref_sof_ts_ns;
+
+	if (CAM_DEBUG_ENABLED(JOB))
+		pr_info("%s: seq %d ref_ts %llu", __func__,
+			job->frame_seq_no,
+			job->job_state.reference_sof_ns);
+}
+
 static int job_sen_req_pack(struct mtk_cam_job *job)
 {
 	struct mtk_cam_ctx *ctx = job->src_ctx;
@@ -4719,6 +4735,8 @@ static int job_isp_req_pack(struct mtk_cam_job *job)
 		return -1;
 	/* determine img wbuf is needed */
 	update_job_wbuf_pool_wrapper(job);
+
+	update_reference_sof(job);
 
 	ret = pack_helper->pack_job(job, pack_helper);
 

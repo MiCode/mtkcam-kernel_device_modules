@@ -56,6 +56,8 @@ static int send_cmd_internal(struct aov_core *core_info,
 	int cmd_seq;
 	int ret;
 
+	mutex_lock(&core_info->sned_ipi_mutex);
+
 	cmd_seq = atomic_add_return(1, &(core_info->cmd_seq));
 
 	dev_info(aov_dev->dev, "%s: send seq(%d), cmd(%d)+\n",
@@ -84,12 +86,14 @@ static int send_cmd_internal(struct aov_core *core_info,
 					AOV_TRACE_END();
 					dev_info(aov_dev->dev, "%s: send cmd(%d/%d) timeout!\n",
 						__func__, cmd_code, scp_ready);
+					mutex_unlock(&core_info->sned_ipi_mutex);
 					return -EIO;
 				} else if (-ERESTARTSYS == ret) {
 					if (count++ >= 100) {
 						AOV_TRACE_END();
 						dev_info(aov_dev->dev, "%s: send cmd(%d/%d/%d) failed\n",
 							__func__, cmd_code, scp_ready, count);
+						mutex_unlock(&core_info->sned_ipi_mutex);
 						return -ERESTARTSYS;
 					}
 
@@ -126,6 +130,7 @@ static int send_cmd_internal(struct aov_core *core_info,
 				AOV_TRACE_END();
 				dev_info(aov_dev->dev, "%s: failed to send cmd(%d): %d\n",
 					__func__, cmd_code, ret);
+				mutex_unlock(&core_info->sned_ipi_mutex);
 				return -EBUSY;
 			}
 			if (retry % 100 == 0)
@@ -142,12 +147,14 @@ static int send_cmd_internal(struct aov_core *core_info,
 					AOV_TRACE_END();
 					dev_info(aov_dev->dev, "%s: wait ack cmd(%d) timeout\n",
 						__func__, cmd_code);
+					mutex_unlock(&core_info->sned_ipi_mutex);
 					return -EIO;
 				} else if (-ERESTARTSYS == ret) {
 					if (count++ >= 100) {
 						AOV_TRACE_END();
 						dev_info(aov_dev->dev, "%s: wait cmd(%d/%d) ack failed\n",
 							__func__, cmd_code, count);
+						mutex_unlock(&core_info->sned_ipi_mutex);
 						return -ERESTARTSYS;
 					}
 
@@ -172,6 +179,8 @@ static int send_cmd_internal(struct aov_core *core_info,
 
 	dev_info(aov_dev->dev, "%s: send seq(%d), cmd(%d)-\n",
 		__func__, cmd_seq, cmd_code);
+
+	mutex_unlock(&core_info->sned_ipi_mutex);
 
 	return 0;
 }
@@ -1021,6 +1030,7 @@ int aov_core_init(struct mtk_aov *aov_dev)
 	atomic_set(&(core_info->aov_ready), 0);
 	atomic_set(&(core_info->cmd_seq), 0);
 	atomic_set(&(core_info->qea_ready), 0);
+	mutex_init(&core_info->sned_ipi_mutex);
 	mutex_init(&core_info->start_stop_mutex);
 	mutex_lock(&core_info->start_stop_mutex);
 
@@ -1658,6 +1668,7 @@ int aov_core_uninit(struct mtk_aov *aov_dev)
 
 	//devm_kfree(aov_dev->dev, core_info->event_data);
 	mutex_destroy(&core_info->start_stop_mutex);
+	mutex_destroy(&core_info->sned_ipi_mutex);
 
 	if (aov_dev->op_mode == 0) {
 		dev_info(aov_dev->dev, "%s: bypass uninit operation", __func__);

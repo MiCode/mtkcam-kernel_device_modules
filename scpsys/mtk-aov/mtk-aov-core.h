@@ -76,6 +76,7 @@ struct aov_core {
 	wait_queue_head_t reset_sensor_wq;
 	struct task_struct *reset_sensor_thread;
 
+	struct mutex sned_ipi_mutex;
 	struct mutex start_stop_mutex;
 };
 

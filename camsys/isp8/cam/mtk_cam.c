@@ -3265,7 +3265,7 @@ void mtk_cam_ctx_engine_off(struct mtk_cam_ctx *ctx)
 		 __func__, ctx->stream_id,
 		 ctx->used_pipe, ctx->used_engine);
 
-	qof_mtcmos_voter(ctx, true);
+	qof_mtcmos_voter(&ctx->cam->engines, ctx->used_engine, true);
 
 	if (ctx->hw_sv) {
 		sv_dev = dev_get_drvdata(ctx->hw_sv);
@@ -3292,6 +3292,7 @@ void mtk_cam_ctx_engine_off(struct mtk_cam_ctx *ctx)
 				stream_on(raw_dev, false, true);
 		}
 	}
+
 	mtk_cam_ctx_raw_qof_disable(ctx);
 
 	if (ctx->set_adl_aid) {
@@ -4568,16 +4569,34 @@ static irqreturn_t mtk_irq_qof(int irq, void *data)
 			qof_dump_power_state(raw);
 			qof_dump_hw_timer(raw);
 			dev_info(dev, "qof: QOF_CAM_TOP_MTC_CYC_OV_INT_ST: raw %u\n", raw->id);
+			qof_set_force_dump(raw, true);
+			qof_dump_trigger_cnt(raw);
+			qof_dump_voter(raw);
+			qof_dump_hw_timer(raw);
+			qof_dump_ctrl(raw);
+			qof_set_force_dump(raw, false);
 		} else if (int_status & FBIT(QOF_CAM_TOP_MTC_CYC_OV_INT_ST_2) && raw->id == 1) {
 			qof_dump_voter(raw);
 			qof_dump_power_state(raw);
 			qof_dump_hw_timer(raw);
 			dev_info(dev, "qof: QOF_CAM_TOP_MTC_CYC_OV_INT_ST: raw %u\n", raw->id);
+			qof_set_force_dump(raw, true);
+			qof_dump_trigger_cnt(raw);
+			qof_dump_voter(raw);
+			qof_dump_hw_timer(raw);
+			qof_dump_ctrl(raw);
+			qof_set_force_dump(raw, false);
 		} else if (int_status & FBIT(QOF_CAM_TOP_MTC_CYC_OV_INT_ST_3) && raw->id == 2) {
 			qof_dump_voter(raw);
 			qof_dump_power_state(raw);
 			qof_dump_hw_timer(raw);
 			dev_info(dev, "qof: QOF_CAM_TOP_MTC_CYC_OV_INT_ST: raw %u\n", raw->id);
+			qof_set_force_dump(raw, true);
+			qof_dump_trigger_cnt(raw);
+			qof_dump_voter(raw);
+			qof_dump_hw_timer(raw);
+			qof_dump_ctrl(raw);
+			qof_set_force_dump(raw, false);
 		}
 	}
 

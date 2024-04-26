@@ -1373,7 +1373,8 @@ static int imgsensor_set_ctrl(struct v4l2_ctrl *ctrl)
 			memset(&(ctx->subctx.mcss_init_info), 0, sizeof(struct mtk_fsync_hw_mcss_init_info));
 			memcpy(&(ctx->subctx.mcss_init_info),
 				ctrl->p_new.p, sizeof(struct mtk_fsync_hw_mcss_init_info));
-			adaptor_logi(ctx, "[%s] V4L2_CID_MTK_MCSS_INIT enable_mcss = %u, is_mcss_master = %u\n",
+			adaptor_logi(ctx,
+			"[%s] V4L2_CID_MTK_MCSS_INIT enable_mcss = %u, is_mcss_master = %u\n",
 				__func__, ctx->subctx.mcss_init_info.enable_mcss,
 						ctx->subctx.mcss_init_info.is_mcss_master);
 			notify_fsync_mgr_set_sync(ctx, 1);
@@ -1381,16 +1382,17 @@ static int imgsensor_set_ctrl(struct v4l2_ctrl *ctrl)
 		break;
 	case V4L2_CID_FSYNC_HW_MCSS_MASKFRAME:
 		{
-			static u32 mask_frm_num_last;
 			u32 mask_frm_num;
 
 			mask_frm_num =
-			(( (u32)ctrl->val == mask_frm_num_last) && ( (u32)ctrl->val != 0)) ?
+			(( (u32)ctrl->val == ctx->mask_frm_num_last) && ( (u32)ctrl->val != 0)) ?
 				( (u32)ctrl->val + 1) :  (u32)ctrl->val;
-			mask_frm_num_last = mask_frm_num;
-			ADAPTOR_SYSTRACE_BEGIN("SensorWorker::V4L2_CID_FSYNC_HW_MCSS_MASKFRAME set:%u receive:%u",
-					mask_frm_num, (u32)ctrl->val);
+
+			ADAPTOR_SYSTRACE_BEGIN(
+		"SensorWorker::V4L2_CID_FSYNC_HW_MCSS_MASKFRAME last:%u, now set:%u, receive:%u",
+					ctx->mask_frm_num_last, mask_frm_num, (u32)ctrl->val);
 			subdrv_call(ctx, mcss_set_mask_frame, mask_frm_num);
+			ctx->mask_frm_num_last = mask_frm_num;
 			ADAPTOR_SYSTRACE_END();
 		}
 		break;

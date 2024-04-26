@@ -240,6 +240,9 @@ struct adaptor_ctx {
 	u32 cust_aov_csi_clk;
 	const char *phy_ctrl_ver;
 
+	/* MCSS only */
+	u32 mask_frm_num_last;
+
 	/* embedded data dump */
 	struct mutex ebd_lock;
 	struct mtk_ebd_dump_record latest_ebd;

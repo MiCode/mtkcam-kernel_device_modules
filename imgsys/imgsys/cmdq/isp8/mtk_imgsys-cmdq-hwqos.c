@@ -545,8 +545,8 @@ static void imgsys_qos_set_ostdl_en(struct cmdq_pkt *pkt,
 	for (i = 0; i < ARRAY_SIZE(img_ostdl_array); i++) {
 		cmdq_pkt_write(pkt, NULL,
 				img_ostdl_array[i],
-				(ostdl_en ? FIELD_PREP(OSTDL_EN_REG_MASK, OSTDL_EN) : 0),
-				OSTDL_EN_REG_MASK);
+				ostdl_val,
+				ostdl_mask);
 	}
 }
 

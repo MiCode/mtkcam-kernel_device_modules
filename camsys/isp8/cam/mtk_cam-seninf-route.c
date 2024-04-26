@@ -1171,7 +1171,7 @@ static int mtk_cam_seninf_outmux_switch_prepare(struct seninf_ctx *ctx, struct o
 {
 	int outmux_idx = cfg->outmux_idx;
 
-	seninf_logi(ctx, "outmux_idx %d", outmux_idx);
+	seninf_logd(ctx, "outmux_idx %d", outmux_idx);
 
 	// make sure outmux cg enabled
 	if (!g_seninf_ops->_is_outmux_used(ctx, outmux_idx))
@@ -1212,8 +1212,8 @@ static int mtk_cam_seninf_outmux_switch_apply(struct seninf_ctx *ctx, struct out
 		ctx->outmux_disable_list[outmux_idx] = false;
 	}
 
-	seninf_logi(ctx, "outmux_idx %d, src_mipi %d, src_sen %d, pixmode %d, cfg_mode %d",
-		    outmux_idx, src_mipi, src_sen, pix_mode, cfg_mode);
+	seninf_logi(ctx, "outmux_idx %d, src_mipi %d, src_sen %d, pixmode %d, cfg_mode %d, grp_en %d",
+		    outmux_idx, src_mipi, src_sen, pix_mode, cfg_mode, grp_en);
 
 #ifdef SEAMLESS_OUTMUX_V2
 	if (is_using_swith_v2(ctx, grp_en, from_switch, outmux_idx)) {
@@ -1257,8 +1257,6 @@ static void mtk_cam_seninf_outmux_config_all(struct seninf_ctx *ctx,
 	struct outmux_cfg *ent;
 	bool skip_chk = false;
 	bool sensor_delay = false;
-
-	seninf_logi(ctx, "+");
 
 	list_for_each_entry(ent, outmux_cfgs, list) {
 		mtk_cam_seninf_outmux_switch_prepare(ctx, ent, grp_en, from_switch,
@@ -1316,7 +1314,7 @@ static struct outmux_cfg *get_outmux_cfg_from_list(struct seninf_ctx *ctx,
 		if (ret) {
 			ret->outmux_idx = outmux;
 
-			seninf_logi(ctx, "allocate outmux %d", outmux);
+			seninf_logd(ctx, "allocate outmux %d", outmux);
 
 			list_add_tail(&ret->list, outmux_cfgs);
 		} else

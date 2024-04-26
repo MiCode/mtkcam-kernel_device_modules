@@ -1039,7 +1039,7 @@ static int mtk_cam_seninf_set_outmux_grp_en(struct seninf_ctx *ctx,
 	SENINF_BITS(pSeninf_outmux, SENINF_OUTMUX_CSR_CFG_CTRL, SENINF_OUTMUX_CAM_RDY_GRP_EN,
 		    grp_en);
 
-	seninf_logi(ctx, "outmux%u, grp_en=%u", outmux, grp_en);
+	seninf_logd(ctx, "outmux%u, grp_en=%u", outmux, grp_en);
 
 	return 0;
 }
@@ -2276,7 +2276,7 @@ static int csirx_mac_csi_lrte_setting(struct seninf_ctx *ctx)
 	void *cphy_base = ctx->reg_ana_cphy_top[(unsigned int)ctx->port];
 	void *dphy_base = ctx->reg_ana_dphy_top[(unsigned int)ctx->port];
 
-	seninf_logi(ctx, "lrte_support flag = %d\n",
+	seninf_logd(ctx, "lrte_support flag = %d\n",
 			ctx->csi_param.cphy_lrte_support);
 
 	if (ctx->is_cphy && ctx->csi_param.cphy_lrte_support) {
@@ -2302,17 +2302,13 @@ static int csirx_mac_csi_lrte_setting(struct seninf_ctx *ctx)
 		SENINF_BITS(cphy_base, CPHY_RX_CAL_ALP_CTRL, RG_CPHY_ALP_EN, 0x1);
 		SENINF_BITS(cphy_base, CPHY_RX_INIT, RG_CPHY_CSI2_TINIT_CNT_EN, 0x1);
 		SENINF_BITS(cphy_base, CPHY_POST_ENCODE, CPHY_POST_REPLACE_EN, 0x0);
-		seninf_logi(ctx, "LRTE RG_POST_CNT(0x%x)\n",
-			SENINF_READ_BITS(dphy_base, DPHY_RX_SPARE1, RG_POST_CNT));
-		seninf_logi(ctx, "LRTE RG_ALP_POS_DET_MASK(0x%x)\n",
-			SENINF_READ_BITS(cphy_base, CPHY_RX_STATE_CHK_EN, RG_ALP_POS_DET_MASK));
-		seninf_logi(ctx, "LRTE RG_CPHY_ALP_SETTLE_PARAMETER(0x%x)\n",
-			SENINF_READ_BITS(cphy_base, CPHY_RX_CAL_ALP_CTRL, RG_CPHY_ALP_SETTLE_PARAMETER));
-		seninf_logi(ctx, "LRTE RG_ALP_RX_EN_SEL(0x%x)\n",
-			SENINF_READ_BITS(cphy_base, CPHY_RX_CAL_ALP_CTRL, RG_ALP_RX_EN_SEL));
-		seninf_logi(ctx, "LRTE RG_CPHY_ALP_EN(0x%x)\n",
-			SENINF_READ_BITS(cphy_base, CPHY_RX_CAL_ALP_CTRL, RG_CPHY_ALP_EN));
-		seninf_logi(ctx, "LRTE RG_CPHY_CSI2_TINIT_CNT_EN(0x%x)\n",
+		seninf_logi(ctx,
+			"LRTE POST_CNT(0x%x),ALP_POS_DET_MASK(0x%x),ALP_SETTLE_PARAMETER(0x%x),ALP_RX_EN_SEL(0x%x),CPHY_ALP_EN(0x%x),CPHY_CSI2_TINIT_CNT_EN(0x%x)\n",
+			SENINF_READ_BITS(dphy_base, DPHY_RX_SPARE1, RG_POST_CNT),
+			SENINF_READ_BITS(cphy_base, CPHY_RX_STATE_CHK_EN, RG_ALP_POS_DET_MASK),
+			SENINF_READ_BITS(cphy_base, CPHY_RX_CAL_ALP_CTRL, RG_CPHY_ALP_SETTLE_PARAMETER),
+			SENINF_READ_BITS(cphy_base, CPHY_RX_CAL_ALP_CTRL, RG_ALP_RX_EN_SEL),
+			SENINF_READ_BITS(cphy_base, CPHY_RX_CAL_ALP_CTRL, RG_CPHY_ALP_EN),
 			SENINF_READ_BITS(cphy_base, CPHY_RX_INIT, RG_CPHY_CSI2_TINIT_CNT_EN));
 	} else {
 		SENINF_BITS(csirx_mac_csi,
@@ -3865,7 +3861,7 @@ static int _reset_seninf(struct seninf_ctx *ctx, int seninfAsyncIdx)
 	/* Reset async seninf */
 	// ignore reset async
 
-	dev_info(ctx->dev, "reset seninf %d\n", seninfAsyncIdx);
+	seninf_logd(ctx, "reset seninf %d\n", seninfAsyncIdx);
 
 	/* Reset outmux */
 	for (i = SENINF_OUTMUX0; i < _seninf_ops->outmux_num; i++)
@@ -3901,10 +3897,10 @@ static int mtk_cam_seninf_reset(struct seninf_ctx *ctx, int seninfAsyncIdx)
 	_reset_seninf(ctx, seninfAsyncIdx);
 
 	if (!ctx->is_test_model) {
-		dev_info(ctx->dev, "start reset csi\n");
+		seninf_logd(ctx, "start reset csi\n");
 		_reset_csi(ctx);
 	} else
-		dev_info(ctx->dev, "skip reset csi due to tm mode\n");
+		seninf_logd(ctx, "skip reset csi due to tm mode\n");
 
 	return 0;
 }
@@ -6949,17 +6945,18 @@ int mtk_cam_seninf_apply_outmux_for_v2(struct seninf_ctx *ctx, u8 outmux_idx,
 		udelay(1);
 		SENINF_BITS(pSeninf_mux, SENINF_OUTMUX_SW_RST,
 			    SENINF_OUTMUX_LOCAL_SW_RST, 0);
-		seninf_logi(ctx, "outmux%d force reset, DBG0 (0x%x)", outmux_idx,
+		seninf_logd(ctx, "outmux%d force reset, DBG0 (0x%x)", outmux_idx,
 			    SENINF_READ_REG(pSeninf_mux, SENINF_OUTMUX_PATH_DBG_PORT_0));
 	} else {
 		// normal apply
 		pSeninf_mux_inout = ctx->reg_if_outmux_inner[outmux_idx];
 	}
 
-	seninf_logi(ctx, "outmux%d set %s first/last vs %u/%u, set outer cfg_mode %d, cfg_done st=%d",
+	seninf_logi(ctx, "outmux%d set %s first/last vs %u/%u, set outer cfg_mode %d, cfg_done st=%d, DBG0(0x%x)",
 		    outmux_idx, (is_sensor_delay ? "outer" : "inner"),
 		    ctx->cur_first_vs, ctx->cur_last_vs, cfg_mode,
-		    SENINF_READ_BITS(pSeninf_mux, SENINF_OUTMUX_SW_CFG_DONE, SENINF_OUTMUX_SW_CFG_DONE));
+		    SENINF_READ_BITS(pSeninf_mux, SENINF_OUTMUX_SW_CFG_DONE, SENINF_OUTMUX_SW_CFG_DONE),
+		    SENINF_READ_REG(pSeninf_mux, SENINF_OUTMUX_PATH_DBG_PORT_0));
 
 	SENINF_BITS(pSeninf_mux_inout, SENINF_OUTMUX_SOURCE_CONFIG_0,
 					SENINF_OUTMUX_REF_VC, ctx->cur_first_vs);
@@ -7043,11 +7040,7 @@ int mtk_cam_seninf_config_outmux(struct seninf_ctx *ctx, u8 outmux_idx, u8 src_m
 	int i;
 	int is_tag_en = 0;
 
-	seninf_logi(ctx, "outmux%d set outer src/sen %u/%u with cfg mode %d",
-		    outmux_idx, src_mipi, src_sen, cfg_mode);
-
 	pSeninf_mux = ctx->reg_if_outmux[outmux_idx];
-
 
 	if (cfg_mode == 0) {
 		is_tag_en |= SENINF_READ_BITS(pSeninf_mux, SENINF_OUTMUX_TAG_VCDT_FILT_0,
@@ -7067,7 +7060,7 @@ int mtk_cam_seninf_config_outmux(struct seninf_ctx *ctx, u8 outmux_idx, u8 src_m
 		is_tag_en |= SENINF_READ_BITS(pSeninf_mux, SENINF_OUTMUX_TAG_VCDT_FILT_7,
 					      SENINF_OUTMUX_FILT_EN_7);
 		if (!is_tag_en) {
-			seninf_logi(ctx, "outmux%d force reset, DBG0 (0x%x)", outmux_idx,
+			seninf_logd(ctx, "outmux%d force reset, DBG0 (0x%x)", outmux_idx,
 				SENINF_READ_REG(pSeninf_mux, SENINF_OUTMUX_PATH_DBG_PORT_0));
 			SENINF_BITS(pSeninf_mux, SENINF_OUTMUX_SW_RST,
 				    SENINF_OUTMUX_LOCAL_SW_RST, 1);
@@ -7076,6 +7069,10 @@ int mtk_cam_seninf_config_outmux(struct seninf_ctx *ctx, u8 outmux_idx, u8 src_m
 				    SENINF_OUTMUX_LOCAL_SW_RST, 0);
 		}
 	}
+
+	seninf_logi(ctx, "outmux%d set outer src/sen %u/%u with cfg mode %d, DBG0(0x%x)",
+		    outmux_idx, src_mipi, src_sen, cfg_mode,
+		    SENINF_READ_REG(pSeninf_mux, SENINF_OUTMUX_PATH_DBG_PORT_0));
 
 	SENINF_BITS(pSeninf_mux, SENINF_OUTMUX_SOURCE_CONFIG_0,
 					SENINF_OUTMUX_VSYNC_SRC_SEL_MIPI, src_mipi);

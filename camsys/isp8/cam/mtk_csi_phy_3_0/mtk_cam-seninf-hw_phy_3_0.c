@@ -574,6 +574,22 @@ static u32 seninf_get_outmux_rg_val(struct seninf_ctx *ctx, int outmux_idx,
 	return SENINF_READ_REG(pSeninf_outmux, rg);
 }
 
+static u32 seninf_get_outmux_rg_val_inner(struct seninf_ctx *ctx, int outmux_idx,
+		u32 rg)
+{
+	void *pSeninf_outmux = NULL;
+
+	/* test parameter */
+	if (outmux_idx >= _seninf_ops->outmux_num) {
+		dev_info(ctx->dev, "%s invalid outmux %d\n", __func__, outmux_idx);
+		return -EINVAL;
+	}
+
+	pSeninf_outmux = ctx->reg_if_outmux_inner[outmux_idx];
+
+	return SENINF_READ_REG(pSeninf_outmux, rg);
+}
+
 static int mtk_cam_get_outmux_sel(struct seninf_ctx *ctx, int outmux_idx,
 		int *asyncIdx, int *sensorSel)
 {
@@ -601,7 +617,7 @@ static int mtk_cam_get_outmux_sel(struct seninf_ctx *ctx, int outmux_idx,
 	return 0;
 }
 
-static u32 mtk_cam_seninf_get_outmux_vcdt_filt(struct seninf_ctx *ctx, int outmux, int tag)
+static u32 mtk_cam_seninf_get_outmux_vcdt_filt(struct seninf_ctx *ctx, int outmux, int tag, bool inner)
 {
 	u32 ret = 0;
 	void *pSeninf_outmux = NULL;
@@ -614,7 +630,11 @@ static u32 mtk_cam_seninf_get_outmux_vcdt_filt(struct seninf_ctx *ctx, int outmu
 			_seninf_ops->outmux_num);
 		return 0;
 	}
-	pSeninf_outmux = ctx->reg_if_outmux[outmux];
+
+	if (inner)
+		pSeninf_outmux = ctx->reg_if_outmux_inner[outmux];
+	else
+		pSeninf_outmux = ctx->reg_if_outmux[outmux];
 
 	switch (tag) {
 	case 0:
@@ -4642,15 +4662,18 @@ static int mtk_cam_seninf_debug(struct seninf_ctx *ctx)
 
 				for (i = 0; i < _seninf_ops->outmux_num; i++) {
 					if ((used_outmux == i) && mtk_cam_seninf_is_outmux_used(ctx, i)) {
-						u32 filt, res, exp_sz, irq_st;
+						u32 filt, filt_in, res, exp_sz, irq_st;
 
-						filt = mtk_cam_seninf_get_outmux_vcdt_filt(ctx, used_outmux, used_tag);
+						filt = mtk_cam_seninf_get_outmux_vcdt_filt(ctx, used_outmux,
+								used_tag, false);
+						filt_in = mtk_cam_seninf_get_outmux_vcdt_filt(ctx, used_outmux,
+								used_tag, true);
 						res = mtk_cam_seninf_get_outmux_res(ctx, used_outmux, used_tag);
 						exp_sz = mtk_cam_seninf_get_outmux_exp(ctx, used_outmux, used_tag);
 
 						irq_st = mtk_cam_seninf_get_outmux_irq_st(ctx, used_outmux, 0);
 						dev_info(ctx->dev,
-							"dump outmux%d,tag%u,CFG_M/PIX_M/CFG0/CFG1/CFG2/SRC/CFG_DONE/CFG_CTL/CFG_RDY/DBG_PORT0/DBG_PORT1:(0x%x/0x%x/0x%x/0x%x/0x%x/0x%x/0x%x/0x%x/0x%x/0x%x/0x%x),filt=0x%x,expSize=0x%x,dbgRecSize=0x%x,irq=0x%x\n",
+							"dump outmux%d,tag%u,CFG_M/PIX_M/CFG0_out-in/CFG1_out-in/CFG2_out-in/SRC_out-in/CFG_DONE/CFG_CTL/CFG_RDY/DBG_PORT0/DBG_PORT1:(0x%x/0x%x/0x%x-0x%x/0x%x-0x%x/0x%x-0x%x/0x%x-0x%x/0x%x/0x%x/0x%x/0x%x/0x%x),filt_out/in=(0x%x/0x%x),expSize=0x%x,dbgRecSize=0x%x,irq=0x%x\n",
 							i, used_tag,
 							seninf_get_outmux_rg_val(ctx, used_outmux,
 								SENINF_OUTMUX_SW_CONFIG_MODE),
@@ -4658,11 +4681,19 @@ static int mtk_cam_seninf_debug(struct seninf_ctx *ctx)
 								SENINF_OUTMUX_PIX_MODE),
 							seninf_get_outmux_rg_val(ctx, used_outmux,
 								SENINF_OUTMUX_SOURCE_CONFIG_0),
+							seninf_get_outmux_rg_val_inner(ctx, used_outmux,
+								SENINF_OUTMUX_SOURCE_CONFIG_0),
 							seninf_get_outmux_rg_val(ctx, used_outmux,
+								SENINF_OUTMUX_SOURCE_CONFIG_1),
+							seninf_get_outmux_rg_val_inner(ctx, used_outmux,
 								SENINF_OUTMUX_SOURCE_CONFIG_1),
 							seninf_get_outmux_rg_val(ctx, used_outmux,
 								SENINF_OUTMUX_SOURCE_CONFIG_2),
+							seninf_get_outmux_rg_val_inner(ctx, used_outmux,
+								SENINF_OUTMUX_SOURCE_CONFIG_2),
 							seninf_get_outmux_rg_val(ctx, used_outmux,
+								SENINF_OUTMUX_SRC_SEL),
+							seninf_get_outmux_rg_val_inner(ctx, used_outmux,
 								SENINF_OUTMUX_SRC_SEL),
 							seninf_get_outmux_rg_val(ctx, used_outmux,
 								SENINF_OUTMUX_SW_CFG_DONE),
@@ -4674,7 +4705,7 @@ static int mtk_cam_seninf_debug(struct seninf_ctx *ctx)
 								SENINF_OUTMUX_PATH_DBG_PORT_0),
 							seninf_get_outmux_rg_val(ctx, used_outmux,
 								SENINF_OUTMUX_PATH_DBG_PORT_1),
-							filt, exp_sz, res, irq_st);
+							filt, filt_in, exp_sz, res, irq_st);
 					}
 				}
 			}
@@ -4853,15 +4884,18 @@ static int mtk_cam_seninf_debug(struct seninf_ctx *ctx)
 
 				for (i = 0; i < _seninf_ops->outmux_num; i++) {
 					if ((used_outmux == i) && mtk_cam_seninf_is_outmux_used(ctx, i)) {
-						u32 filt, res, exp_sz, irq_st;
+						u32 filt, filt_in, res, exp_sz, irq_st;
 
-						filt = mtk_cam_seninf_get_outmux_vcdt_filt(ctx, used_outmux, used_tag);
+						filt = mtk_cam_seninf_get_outmux_vcdt_filt(ctx, used_outmux,
+								used_tag, false);
+						filt_in = mtk_cam_seninf_get_outmux_vcdt_filt(ctx, used_outmux,
+								used_tag, true);
 						res = mtk_cam_seninf_get_outmux_res(ctx, used_outmux, used_tag);
 						exp_sz = mtk_cam_seninf_get_outmux_exp(ctx, used_outmux, used_tag);
 
 						irq_st = mtk_cam_seninf_get_outmux_irq_st(ctx, used_outmux, 0);
 						dev_info(ctx->dev,
-							"dump outmux%d,tag%u,CFG_M/PIX_M/CFG0/CFG1/CFG2/SRC/CFG_DONE/CFG_CTL/CFG_RDY/DBG_PORT0/DBG_PORT1:(0x%x/0x%x/0x%x/0x%x/0x%x/0x%x/0x%x/0x%x/0x%x/0x%x/0x%x),filt=0x%x,expSize=0x%x,dbgRecSize=0x%x,irq=0x%x\n",
+							"dump outmux%d,tag%u,CFG_M/PIX_M/CFG0_out-in/CFG1_out-in/CFG2_out-in/SRC_out-in/CFG_DONE/CFG_CTL/CFG_RDY/DBG_PORT0/DBG_PORT1:(0x%x/0x%x/0x%x-0x%x/0x%x-0x%x/0x%x-0x%x/0x%x-0x%x/0x%x/0x%x/0x%x/0x%x/0x%x),filt_out/in=(0x%x/0x%x),expSize=0x%x,dbgRecSize=0x%x,irq=0x%x\n",
 							i, used_tag,
 							seninf_get_outmux_rg_val(ctx, used_outmux,
 								SENINF_OUTMUX_SW_CONFIG_MODE),
@@ -4869,11 +4903,19 @@ static int mtk_cam_seninf_debug(struct seninf_ctx *ctx)
 								SENINF_OUTMUX_PIX_MODE),
 							seninf_get_outmux_rg_val(ctx, used_outmux,
 								SENINF_OUTMUX_SOURCE_CONFIG_0),
+							seninf_get_outmux_rg_val_inner(ctx, used_outmux,
+								SENINF_OUTMUX_SOURCE_CONFIG_0),
 							seninf_get_outmux_rg_val(ctx, used_outmux,
+								SENINF_OUTMUX_SOURCE_CONFIG_1),
+							seninf_get_outmux_rg_val_inner(ctx, used_outmux,
 								SENINF_OUTMUX_SOURCE_CONFIG_1),
 							seninf_get_outmux_rg_val(ctx, used_outmux,
 								SENINF_OUTMUX_SOURCE_CONFIG_2),
+							seninf_get_outmux_rg_val_inner(ctx, used_outmux,
+								SENINF_OUTMUX_SOURCE_CONFIG_2),
 							seninf_get_outmux_rg_val(ctx, used_outmux,
+								SENINF_OUTMUX_SRC_SEL),
+							seninf_get_outmux_rg_val_inner(ctx, used_outmux,
 								SENINF_OUTMUX_SRC_SEL),
 							seninf_get_outmux_rg_val(ctx, used_outmux,
 								SENINF_OUTMUX_SW_CFG_DONE),
@@ -4885,7 +4927,7 @@ static int mtk_cam_seninf_debug(struct seninf_ctx *ctx)
 								SENINF_OUTMUX_PATH_DBG_PORT_0),
 							seninf_get_outmux_rg_val(ctx, used_outmux,
 								SENINF_OUTMUX_PATH_DBG_PORT_1),
-							filt, exp_sz, res, irq_st);
+							filt, filt_in, exp_sz, res, irq_st);
 					}
 				}
 			}
@@ -5150,10 +5192,10 @@ static int mtk_cam_seninf_debug_current_status(struct seninf_ctx *ctx)
 
 	/* dump all outmux */
 	for (i = 0; i < _seninf_ops->outmux_num; i++) {
-		u32 irq_st = mtk_cam_seninf_get_outmux_irq_st(ctx, i, 0);
+		u32 irq_st = mtk_cam_seninf_get_outmux_irq_st(ctx, i, 1);
 
 		seninf_logi(ctx,
-			 "dump outmux%d,CFG_M/PIX_M/CFG0/CFG1/CFG2/SRC/CFG_DONE/CFG_CTL/CFG_RDY/DBG_PORT0/DBG_PORT1:(0x%x/0x%x/0x%x/0x%x/0x%x/0x%x/0x%x/0x%x/0x%x/0x%x/0x%x),tag0_filt/exp(0x%x/0x%x),tag2_filt/exp(0x%x/0x%x),irq=0x%x\n",
+			 "dump outmux%d with irq clear,CFG_M/PIX_M/CFG0_out-in/CFG1_out-in/CFG2_out-in/SRC_out-in/CFG_DONE/CFG_CTL/CFG_RDY/DBG_PORT0/DBG_PORT1:(0x%x/0x%x/0x%x-0x%x/0x%x-0x%x/0x%x-0x%x/0x%x-0x%x/0x%x/0x%x/0x%x/0x%x/0x%x),tag0_filt_out-in/exp(0x%x-0x%x/0x%x-0x%x),tag2_filt_out-in/exp(0x%x-0x%x/0x%x-0x%x),irq=0x%x\n",
 			 i,
 			 seninf_get_outmux_rg_val(ctx, i,
 						  SENINF_OUTMUX_SW_CONFIG_MODE),
@@ -5161,11 +5203,19 @@ static int mtk_cam_seninf_debug_current_status(struct seninf_ctx *ctx)
 						  SENINF_OUTMUX_PIX_MODE),
 			 seninf_get_outmux_rg_val(ctx, i,
 						  SENINF_OUTMUX_SOURCE_CONFIG_0),
+			 seninf_get_outmux_rg_val_inner(ctx, i,
+						  SENINF_OUTMUX_SOURCE_CONFIG_0),
 			 seninf_get_outmux_rg_val(ctx, i,
+						  SENINF_OUTMUX_SOURCE_CONFIG_1),
+			 seninf_get_outmux_rg_val_inner(ctx, i,
 						  SENINF_OUTMUX_SOURCE_CONFIG_1),
 			 seninf_get_outmux_rg_val(ctx, i,
 						  SENINF_OUTMUX_SOURCE_CONFIG_2),
+			 seninf_get_outmux_rg_val_inner(ctx, i,
+						  SENINF_OUTMUX_SOURCE_CONFIG_2),
 			 seninf_get_outmux_rg_val(ctx, i,
+						  SENINF_OUTMUX_SRC_SEL),
+			 seninf_get_outmux_rg_val_inner(ctx, i,
 						  SENINF_OUTMUX_SRC_SEL),
 			 seninf_get_outmux_rg_val(ctx, i,
 						  SENINF_OUTMUX_SW_CFG_DONE),
@@ -5179,11 +5229,19 @@ static int mtk_cam_seninf_debug_current_status(struct seninf_ctx *ctx)
 						  SENINF_OUTMUX_PATH_DBG_PORT_1),
 			 seninf_get_outmux_rg_val(ctx, i,
 						  SENINF_OUTMUX_TAG_VCDT_FILT_0),
+			 seninf_get_outmux_rg_val_inner(ctx, i,
+						  SENINF_OUTMUX_TAG_VCDT_FILT_0),
 			 seninf_get_outmux_rg_val(ctx, i,
+						  SENINF_OUTMUX_TAG_SIZE_0),
+			 seninf_get_outmux_rg_val_inner(ctx, i,
 						  SENINF_OUTMUX_TAG_SIZE_0),
 			 seninf_get_outmux_rg_val(ctx, i,
 						  SENINF_OUTMUX_TAG_VCDT_FILT_2),
+			 seninf_get_outmux_rg_val_inner(ctx, i,
+						  SENINF_OUTMUX_TAG_VCDT_FILT_2),
 			 seninf_get_outmux_rg_val(ctx, i,
+						  SENINF_OUTMUX_TAG_SIZE_2),
+			 seninf_get_outmux_rg_val_inner(ctx, i,
 						  SENINF_OUTMUX_TAG_SIZE_2),
 			 irq_st);
 	}
@@ -6921,8 +6979,7 @@ static bool chk_sensor_delay_with_wait(struct seninf_ctx *ctx, u8 outmux_idx, bo
 		udelay(100);
 		if (SENINF_READ_BITS(pSeninf_mux, SENINF_OUTMUX_IRQ_STATUS, SENINF_OUTMUX_REF_VSYNC_IRQ_STATUS)) {
 			// sensor no delay, but outmux change delay
-			seninf_logi(ctx, "ref irq raised\n");
-			ret = false;
+			seninf_logi(ctx, "ref irq raised, sensor cfg is not completed, reset to recover\n");
 			break;
 		}
 	}
@@ -6977,56 +7034,56 @@ int mtk_cam_seninf_apply_outmux_for_v2(struct seninf_ctx *ctx, u8 outmux_idx,
 			case 0:
 				SET_TAG_V2(ctx, pSeninf_mux, pSeninf_mux_inout,
 						1, 0,
-						ctx->cur_first_vs,
+						(is_sensor_delay ? tag_cfg[i].filt_vc : ctx->cur_first_vs),
 						tag_cfg[i].filt_vc, tag_cfg[i].filt_dt,
 						tag_cfg[i].exp_hsize, tag_cfg[i].exp_vsize);
 				break;
 			case 1:
 				SET_TAG_V2(ctx, pSeninf_mux, pSeninf_mux_inout,
 						1, 1,
-						ctx->cur_first_vs,
+						(is_sensor_delay ? tag_cfg[i].filt_vc : ctx->cur_first_vs),
 						tag_cfg[i].filt_vc, tag_cfg[i].filt_dt,
 						tag_cfg[i].exp_hsize, tag_cfg[i].exp_vsize);
 				break;
 			case 2:
 				SET_TAG_V2(ctx, pSeninf_mux, pSeninf_mux_inout,
 						1, 2,
-						ctx->cur_first_vs,
+						(is_sensor_delay ? tag_cfg[i].filt_vc : ctx->cur_first_vs),
 						tag_cfg[i].filt_vc, tag_cfg[i].filt_dt,
 						tag_cfg[i].exp_hsize, tag_cfg[i].exp_vsize);
 				break;
 			case 3:
 				SET_TAG_V2(ctx, pSeninf_mux, pSeninf_mux_inout,
 						1, 3,
-						ctx->cur_first_vs,
+						(is_sensor_delay ? tag_cfg[i].filt_vc : ctx->cur_first_vs),
 						tag_cfg[i].filt_vc, tag_cfg[i].filt_dt,
 						tag_cfg[i].exp_hsize, tag_cfg[i].exp_vsize);
 				break;
 			case 4:
 				SET_TAG_V2(ctx, pSeninf_mux, pSeninf_mux_inout,
 						2, 4,
-						ctx->cur_first_vs,
+						(is_sensor_delay ? tag_cfg[i].filt_vc : ctx->cur_first_vs),
 						tag_cfg[i].filt_vc, tag_cfg[i].filt_dt,
 						tag_cfg[i].exp_hsize, tag_cfg[i].exp_vsize);
 				break;
 			case 5:
 				SET_TAG_V2(ctx, pSeninf_mux, pSeninf_mux_inout,
 						2, 5,
-						ctx->cur_first_vs,
+						(is_sensor_delay ? tag_cfg[i].filt_vc : ctx->cur_first_vs),
 						tag_cfg[i].filt_vc, tag_cfg[i].filt_dt,
 						tag_cfg[i].exp_hsize, tag_cfg[i].exp_vsize);
 				break;
 			case 6:
 				SET_TAG_V2(ctx, pSeninf_mux, pSeninf_mux_inout,
 						2, 6,
-						ctx->cur_first_vs,
+						(is_sensor_delay ? tag_cfg[i].filt_vc : ctx->cur_first_vs),
 						tag_cfg[i].filt_vc, tag_cfg[i].filt_dt,
 						tag_cfg[i].exp_hsize, tag_cfg[i].exp_vsize);
 				break;
 			case 7:
 				SET_TAG_V2(ctx, pSeninf_mux, pSeninf_mux_inout,
 						2, 7,
-						ctx->cur_first_vs,
+						(is_sensor_delay ? tag_cfg[i].filt_vc : ctx->cur_first_vs),
 						tag_cfg[i].filt_vc, tag_cfg[i].filt_dt,
 						tag_cfg[i].exp_hsize, tag_cfg[i].exp_vsize);
 				break;

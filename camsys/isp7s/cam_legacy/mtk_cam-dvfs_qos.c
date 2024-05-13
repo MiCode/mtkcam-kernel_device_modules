@@ -410,7 +410,11 @@ static void __mtk_cam_qos_bw_calc(struct mtk_cam_ctx *ctx, struct mtk_raw_device
 	if (ctx->sensor) {
 		fi.pad = 0;
 		fi.reserved[0] = V4L2_SUBDEV_FORMAT_ACTIVE;
+#if (KERNEL_VERSION(6, 7, 0) < LINUX_VERSION_CODE)
+		v4l2_subdev_call_state_active(ctx->sensor, pad, get_frame_interval, &fi);
+#else
 		v4l2_subdev_call(ctx->sensor, video, g_frame_interval, &fi);
+#endif
 		fps = fi.interval.denominator / fi.interval.numerator;
 		pipe->res_config.interval.denominator = fi.interval.denominator;
 		pipe->res_config.interval.numerator = fi.interval.numerator;
@@ -1058,7 +1062,11 @@ void mtk_cam_qos_sv_bw_calc(struct mtk_cam_ctx *ctx,
 	if (ctx->sensor) {
 		fi.pad = 0;
 		fi.reserved[0] = V4L2_SUBDEV_FORMAT_ACTIVE;
+#if (KERNEL_VERSION(6, 7, 0) < LINUX_VERSION_CODE)
+		v4l2_subdev_call_state_active(ctx->sensor, pad, get_frame_interval, &fi);
+#else
 		v4l2_subdev_call(ctx->sensor, video, g_frame_interval, &fi);
+#endif
 		fps = fi.interval.denominator / fi.interval.numerator;
 		ctrl = v4l2_ctrl_find(ctx->sensor->ctrl_handler, V4L2_CID_VBLANK);
 		if (!ctrl)
@@ -1229,7 +1237,11 @@ void mtk_cam_qos_mraw_bw_calc(struct mtk_cam_ctx *ctx,
 	if (ctx->sensor) {
 		fi.pad = 0;
 		fi.reserved[0] = V4L2_SUBDEV_FORMAT_ACTIVE;
+#if (KERNEL_VERSION(6, 7, 0) < LINUX_VERSION_CODE)
+		v4l2_subdev_call_state_active(ctx->sensor, pad, get_frame_interval, &fi);
+#else
 		v4l2_subdev_call(ctx->sensor, video, g_frame_interval, &fi);
+#endif
 		fps = fi.interval.denominator / fi.interval.numerator;
 		ctrl = v4l2_ctrl_find(ctx->sensor->ctrl_handler, V4L2_CID_VBLANK);
 		if (!ctrl)

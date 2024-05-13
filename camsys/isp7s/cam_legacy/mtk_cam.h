@@ -9,6 +9,7 @@
 #include <linux/list.h>
 #include <linux/of.h>
 #include <linux/rpmsg.h>
+#include <linux/version.h>
 #include <media/media-device.h>
 #include <media/media-request.h>
 #include <media/v4l2-async.h>

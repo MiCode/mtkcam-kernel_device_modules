@@ -6244,7 +6244,11 @@ int mtk_camsys_ctrl_start(struct mtk_cam_ctx *ctx)
 	memset(&fi, 0, sizeof(fi));
 
 	fi.pad = 0;
+#if (KERNEL_VERSION(6, 7, 0) < LINUX_VERSION_CODE)
+	v4l2_subdev_call_state_active(ctx->sensor, pad, get_frame_interval, &fi);
+#else
 	v4l2_subdev_call(ctx->sensor, video, g_frame_interval, &fi);
+#endif
 	fps_factor = (fi.interval.numerator > 0) ?
 			(fi.interval.denominator / fi.interval.numerator / 30) : 1;
 	if (mtk_cam_ctx_has_raw(ctx) &&
@@ -6328,7 +6332,11 @@ void mtk_camsys_ctrl_update(struct mtk_cam_ctx *ctx, int sensor_ctrl_factor)
 			fps_factor = sensor_ctrl_factor;
 		} else {
 			/* TBC: v4l2_set_frame_interval_which(fi, V4L2_SUBDEV_FORMAT_ACTIVE); */
+#if (KERNEL_VERSION(6, 7, 0) < LINUX_VERSION_CODE)
+			v4l2_subdev_call_state_active(ctx->sensor, pad, get_frame_interval, &fi);
+#else
 			v4l2_subdev_call(ctx->sensor, video, g_frame_interval, &fi);
+#endif
 			fps_factor = (fi.interval.numerator > 0) ?
 					(fi.interval.denominator / fi.interval.numerator / 30) : 1;
 		}

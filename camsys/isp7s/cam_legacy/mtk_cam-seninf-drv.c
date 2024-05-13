@@ -1026,7 +1026,11 @@ static int mtk_cam_seninf_init_cfg(struct v4l2_subdev *sd,
 	unsigned int i;
 
 	for (i = 0; i < sd->entity.num_pads; i++) {
+#if (KERNEL_VERSION(6, 7, 0) < LINUX_VERSION_CODE)
+		mf = v4l2_subdev_state_get_format(state, i);
+#else
 		mf = v4l2_subdev_get_try_format(sd, state, i);
+#endif
 		*mf = fmt_default;
 	}
 
@@ -1047,7 +1051,11 @@ static int mtk_cam_seninf_set_fmt(struct v4l2_subdev *sd,
 	format = &ctx->fmt[fmt->pad].format;
 
 	if (fmt->which == V4L2_SUBDEV_FORMAT_TRY) {
+#if (KERNEL_VERSION(6, 7, 0) < LINUX_VERSION_CODE)
+		*v4l2_subdev_state_get_format(state, fmt->pad) = fmt->format;
+#else
 		*v4l2_subdev_get_try_format(sd, state, fmt->pad) = fmt->format;
+#endif
 		dev_dbg(ctx->dev, "s_fmt pad %d code/res 0x%x/%dx%d which %d=> 0x%x/%dx%d\n",
 			fmt->pad,
 			fmt->format.code,
@@ -1096,7 +1104,11 @@ static int mtk_cam_seninf_get_fmt(struct v4l2_subdev *sd,
 	format = &ctx->fmt[fmt->pad].format;
 
 	if (fmt->which == V4L2_SUBDEV_FORMAT_TRY) {
+#if (KERNEL_VERSION(6, 7, 0) < LINUX_VERSION_CODE)
+		fmt->format = *v4l2_subdev_state_get_format(state, fmt->pad);
+#else
 		fmt->format = *v4l2_subdev_get_try_format(sd, state, fmt->pad);
+#endif
 	} else {
 		fmt->format.code = format->code;
 		fmt->format.width = format->width;
@@ -1383,7 +1395,11 @@ static int get_buffered_pixel_rate(struct seninf_ctx *ctx,
 	memset(&fi, 0, sizeof(fi));
 	fi.pad = sd_pad_idx;
 	fi.reserved[0] = V4L2_SUBDEV_FORMAT_ACTIVE;
+#if (KERNEL_VERSION(6, 7, 0) < LINUX_VERSION_CODE)
+	ret = v4l2_subdev_call_state_active(sd, pad, get_frame_interval, &fi);
+#else
 	ret = v4l2_subdev_call(sd, video, g_frame_interval, &fi);
+#endif
 	if (ret) {
 		dev_info(ctx->dev, "no g_frame_interval in %s\n", sd->name);
 		return ret;
@@ -1855,7 +1871,9 @@ static int seninf_s_stream(struct v4l2_subdev *sd, int enable)
 
 static const struct v4l2_subdev_pad_ops seninf_subdev_pad_ops = {
 	.link_validate = mtk_cam_seninf_link_validate,
+#if (KERNEL_VERSION(6, 7, 0) >= LINUX_VERSION_CODE)
 	.init_cfg = mtk_cam_seninf_init_cfg,
+#endif
 	.set_fmt = mtk_cam_seninf_set_fmt,
 	.get_fmt = mtk_cam_seninf_get_fmt,
 };
@@ -2283,6 +2301,9 @@ static int seninf_close(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 static const struct v4l2_subdev_internal_ops seninf_internal_ops = {
 	.open = seninf_open,
 	.close = seninf_close,
+#if (KERNEL_VERSION(6, 7, 0) < LINUX_VERSION_CODE)
+	.init_state = mtk_cam_seninf_init_cfg,
+#endif
 };
 
 static const char * const seninf_test_pattern_menu[] = {

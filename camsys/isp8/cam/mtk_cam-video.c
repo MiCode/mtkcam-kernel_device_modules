@@ -967,7 +967,11 @@ int mtk_cam_video_register(struct mtk_cam_video_device *video,
 		q->timestamp_flags |= V4L2_BUF_FLAG_TSTAMP_SRC_SOE;
 
 	/* No minimum buffers limitation */
+#if (KERNEL_VERSION(6, 7, 0) < LINUX_VERSION_CODE)
+	q->min_queued_buffers = 0;
+#else
 	q->min_buffers_needed = 0;
+#endif
 
 	ret = vb2_queue_init(q);
 	if (ret < 0) {

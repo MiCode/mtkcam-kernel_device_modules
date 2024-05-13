@@ -11,6 +11,7 @@
 #include <linux/of_graph.h>
 #include <linux/thermal.h>
 #include <linux/delay.h>
+#include <linux/version.h>
 #include "mtk-i3c-i2c-wrap.h"
 
 #include "kd_imgsensor_define_v4l2.h"
@@ -423,8 +424,13 @@ static int init_sensor_info(struct adaptor_ctx *ctx)
 static int imgsensor_open(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 {
 	struct adaptor_ctx *ctx = to_ctx(sd);
+#if (KERNEL_VERSION(6, 7, 0) < LINUX_VERSION_CODE)
+	struct v4l2_mbus_framefmt *try_fmt =
+		v4l2_subdev_state_get_format(fh->state, 0);
+#else
 	struct v4l2_mbus_framefmt *try_fmt =
 		v4l2_subdev_get_try_format(sd, fh->state, 0);
+#endif
 
 	adaptor_logm(ctx, "+\n");
 
@@ -560,8 +566,12 @@ static int __imgsensor_get_pad_format(struct adaptor_ctx *ctx,
 				   struct v4l2_subdev_format *fmt)
 {
 	if (fmt->which == V4L2_SUBDEV_FORMAT_TRY)
+#if (KERNEL_VERSION(6, 7, 0) < LINUX_VERSION_CODE)
+		fmt->format = *v4l2_subdev_state_get_format(state, fmt->pad);
+#else
 		fmt->format = *v4l2_subdev_get_try_format(&ctx->sd, state,
-							  fmt->pad);
+					  fmt->pad);
+#endif
 	else
 		update_pad_format(ctx, ctx->cur_mode, fmt);
 
@@ -622,7 +632,11 @@ static int imgsensor_set_pad_format(struct v4l2_subdev *sd,
 
 	update_pad_format(ctx, mode, fmt);
 	if (fmt->which == V4L2_SUBDEV_FORMAT_TRY) {
+#if (KERNEL_VERSION(6, 7, 0) < LINUX_VERSION_CODE)
+		framefmt = v4l2_subdev_state_get_format(state, fmt->pad);
+#else
 		framefmt = v4l2_subdev_get_try_format(sd, state, fmt->pad);
+#endif
 		*framefmt = fmt->format;
 
 		ctx->try_format_mode = mode;
@@ -862,6 +876,38 @@ static int imgsensor_stop_streaming(struct adaptor_ctx *ctx)
 	return 0;
 }
 
+#if (KERNEL_VERSION(6, 7, 0) < LINUX_VERSION_CODE)
+static int imgsensor_get_frame_interval(struct v4l2_subdev *sd,
+		struct v4l2_subdev_state *sd_state,
+		struct v4l2_subdev_frame_interval *fi)
+{
+	struct adaptor_ctx *ctx = to_ctx(sd);
+
+	mutex_lock(&ctx->mutex);
+	fi->interval.numerator = 10;
+
+	if (fi->reserved[0] == V4L2_SUBDEV_FORMAT_TRY)
+		fi->interval.denominator = ctx->try_format_mode->max_framerate;
+	else
+		fi->interval.denominator = ctx->cur_mode->max_framerate;
+
+	mutex_unlock(&ctx->mutex);
+
+	return 0;
+}
+
+static int imgsensor_set_frame_interval(struct v4l2_subdev *sd,
+		struct v4l2_subdev_state *sd_state,
+		struct v4l2_subdev_frame_interval *fi)
+{
+	struct adaptor_ctx *ctx = to_ctx(sd);
+
+	adaptor_logi(ctx, "set_frame_interval = %u\n", fi->interval.denominator);
+
+	return imgsensor_get_frame_interval(sd, sd_state, fi);
+}
+
+#else
 static int imgsensor_get_frame_interval(struct v4l2_subdev *sd,
 		struct v4l2_subdev_frame_interval *fi)
 {
@@ -889,6 +935,8 @@ static int imgsensor_set_frame_interval(struct v4l2_subdev *sd,
 
 	return imgsensor_get_frame_interval(sd, fi);
 }
+
+#endif
 
 static int imgsensor_set_stream(struct v4l2_subdev *sd, int enable)
 {
@@ -963,8 +1011,10 @@ static const struct v4l2_subdev_core_ops imgsensor_core_ops = {
 };
 
 static const struct v4l2_subdev_video_ops imgsensor_video_ops = {
+#if (KERNEL_VERSION(6, 7, 0) >= LINUX_VERSION_CODE)
 	.g_frame_interval = imgsensor_get_frame_interval,
 	.s_frame_interval = imgsensor_set_frame_interval,
+#endif
 	.s_stream = imgsensor_set_stream,
 };
 
@@ -976,6 +1026,10 @@ static const struct v4l2_subdev_pad_ops imgsensor_pad_ops = {
 	.enum_frame_interval = imgsensor_enum_frame_interval,
 	.get_selection = imgsensor_get_selection,
 	.get_mbus_config = imgsensor_g_mbus_config,
+#if (KERNEL_VERSION(6, 7, 0) < LINUX_VERSION_CODE)
+	.get_frame_interval = imgsensor_get_frame_interval,
+	.set_frame_interval = imgsensor_set_frame_interval,
+#endif
 };
 
 static const struct v4l2_subdev_ops imgsensor_subdev_ops = {

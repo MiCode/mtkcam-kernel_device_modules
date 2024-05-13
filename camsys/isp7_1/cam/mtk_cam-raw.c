@@ -3394,7 +3394,11 @@ static int mtk_raw_init_cfg(struct v4l2_subdev *sd,
 	struct mtk_raw *raw = pipe->raw;
 
 	for (i = 0; i < sd->entity.num_pads; i++) {
+#if (KERNEL_VERSION(6, 7, 0) < LINUX_VERSION_CODE)
+		mf = v4l2_subdev_state_get_format(state, i);
+#else
 		mf = v4l2_subdev_get_try_format(sd, state, i);
+#endif
 		*mf = mfmt_default;
 		pipe->cfg[i].mbus_fmt = mfmt_default;
 
@@ -3434,7 +3438,11 @@ mtk_raw_pipeline_get_fmt(struct mtk_raw_pipeline *pipe,
 {
 	/* format invalid and return default format */
 	if (which == V4L2_SUBDEV_FORMAT_TRY)
+#if (KERNEL_VERSION(6, 7, 0) < LINUX_VERSION_CODE)
+		return v4l2_subdev_state_get_format(state, padid);
+#else
 		return v4l2_subdev_get_try_format(&pipe->subdev, state, padid);
+#endif
 
 	if (WARN_ON(padid >= pipe->subdev.entity.num_pads))
 		return &pipe->cfg[0].mbus_fmt;
@@ -3449,7 +3457,11 @@ mtk_raw_pipeline_get_selection(struct mtk_raw_pipeline *pipe,
 {
 	/* format invalid and return default format */
 	if (which == V4L2_SUBDEV_FORMAT_TRY)
+#if (KERNEL_VERSION(6, 7, 0) < LINUX_VERSION_CODE)
+		return v4l2_subdev_state_get_crop(state, pad);
+#else
 		return v4l2_subdev_get_try_crop(&pipe->subdev, state, pad);
+#endif
 
 	if (WARN_ON(pad >= pipe->subdev.entity.num_pads))
 		return &pipe->cfg[0].crop;
@@ -4252,8 +4264,8 @@ mtk_cam_get_link_enabled_raw(struct v4l2_subdev *seninf)
 	return NULL;
 }
 
-static int
-mtk_raw_s_frame_interval(struct v4l2_subdev *sd,
+#if (KERNEL_VERSION(6, 7, 0) >= LINUX_VERSION_CODE)
+static int mtk_raw_s_frame_interval(struct v4l2_subdev *sd,
 			 struct v4l2_subdev_frame_interval *interval)
 {
 	struct mtk_raw_pipeline *pipe =
@@ -4275,6 +4287,7 @@ mtk_raw_s_frame_interval(struct v4l2_subdev *sd,
 
 	return 0;
 }
+#endif
 
 static const struct v4l2_subdev_core_ops mtk_raw_subdev_core_ops = {
 	.subscribe_event = mtk_raw_sd_subscribe_event,
@@ -4283,12 +4296,16 @@ static const struct v4l2_subdev_core_ops mtk_raw_subdev_core_ops = {
 
 static const struct v4l2_subdev_video_ops mtk_raw_subdev_video_ops = {
 	.s_stream =  mtk_raw_sd_s_stream,
+#if (KERNEL_VERSION(6, 7, 0) >= LINUX_VERSION_CODE)
 	.s_frame_interval = mtk_raw_s_frame_interval,
+#endif
 };
 
 static const struct v4l2_subdev_pad_ops mtk_raw_subdev_pad_ops = {
 	.link_validate = mtk_cam_link_validate,
+#if (KERNEL_VERSION(6, 7, 0) >= LINUX_VERSION_CODE)
 	.init_cfg = mtk_raw_init_cfg,
+#endif
 	.set_fmt = mtk_raw_set_fmt,
 	.get_fmt = mtk_raw_get_fmt,
 	.set_selection = mtk_raw_set_pad_selection,
@@ -4300,6 +4317,12 @@ static const struct v4l2_subdev_ops mtk_raw_subdev_ops = {
 	.video = &mtk_raw_subdev_video_ops,
 	.pad = &mtk_raw_subdev_pad_ops,
 };
+
+#if (KERNEL_VERSION(6, 7, 0) < LINUX_VERSION_CODE)
+static const struct v4l2_subdev_internal_ops mtk_raw_internal_ops = {
+	.init_state = mtk_raw_init_cfg,
+};
+#endif
 
 static const struct media_entity_operations mtk_cam_media_entity_ops = {
 	.link_setup = mtk_cam_media_link_setup,
@@ -6020,6 +6043,9 @@ static int mtk_raw_pipeline_register(unsigned int id, struct device *dev,
 	v4l2_subdev_init(sd, &mtk_raw_subdev_ops);
 	sd->entity.function = MEDIA_ENT_F_PROC_VIDEO_PIXEL_FORMATTER;
 	sd->entity.ops = &mtk_cam_media_entity_ops;
+#if (KERNEL_VERSION(6, 7, 0) < LINUX_VERSION_CODE)
+	sd->internal_ops = &mtk_raw_internal_ops;
+#endif
 	sd->flags = V4L2_SUBDEV_FL_HAS_DEVNODE | V4L2_SUBDEV_FL_HAS_EVENTS;
 	snprintf(sd->name, sizeof(sd->name),
 		 "%s-%d", dev_driver_string(dev), pipe->id);

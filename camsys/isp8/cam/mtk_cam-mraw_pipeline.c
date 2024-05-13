@@ -62,7 +62,11 @@ static int mtk_mraw_init_cfg(struct v4l2_subdev *sd,
 		container_of(sd, struct mtk_mraw_pipeline, subdev);
 
 	for (i = 0; i < sd->entity.num_pads; i++) {
+#if (KERNEL_VERSION(6, 7, 0) < LINUX_VERSION_CODE)
+		mf = v4l2_subdev_state_get_format(state, i);
+#else
 		mf = v4l2_subdev_get_try_format(sd, state, i);
+#endif
 		*mf = mraw_mfmt_default;
 		pipe->pad_cfg[i].mbus_fmt = mraw_mfmt_default;
 
@@ -116,7 +120,11 @@ static struct v4l2_mbus_framefmt *get_mraw_fmt(struct mtk_mraw_pipeline *pipe,
 {
 	/* format invalid and return default format */
 	if (which == V4L2_SUBDEV_FORMAT_TRY)
+#if (KERNEL_VERSION(6, 7, 0) < LINUX_VERSION_CODE)
+		return v4l2_subdev_state_get_format(state, padid);
+#else
 		return v4l2_subdev_get_try_format(&pipe->subdev, state, padid);
+#endif
 
 	if (WARN_ON(padid >= pipe->subdev.entity.num_pads))
 		return &pipe->pad_cfg[0].mbus_fmt;
@@ -182,7 +190,11 @@ static int mtk_mraw_get_fmt(struct v4l2_subdev *sd,
 	struct v4l2_mbus_framefmt *mf;
 
 	if (fmt->which == V4L2_SUBDEV_FORMAT_TRY)
+#if (KERNEL_VERSION(6, 7, 0) < LINUX_VERSION_CODE)
+		mf = v4l2_subdev_state_get_format(state, fmt->pad);
+#else
 		mf = v4l2_subdev_get_try_format(sd, state, fmt->pad);
+#endif
 	else {
 		if (WARN_ON(fmt->pad >= sd->entity.num_pads))
 			mf = &pipe->pad_cfg[0].mbus_fmt;
@@ -232,7 +244,9 @@ static const struct v4l2_subdev_video_ops mtk_mraw_subdev_video_ops = {
 
 static const struct v4l2_subdev_pad_ops mtk_mraw_subdev_pad_ops = {
 	.link_validate = mtk_cam_mraw_link_validate,
+#if (KERNEL_VERSION(6, 7, 0) >= LINUX_VERSION_CODE)
 	.init_cfg = mtk_mraw_init_cfg,
+#endif
 	.set_fmt = mtk_mraw_set_fmt,
 	.get_fmt = mtk_mraw_get_fmt,
 };
@@ -281,6 +295,12 @@ static const struct v4l2_ioctl_ops mtk_mraw_v4l2_meta_out_ioctl_ops = {
 	.vidioc_streamoff = vb2_ioctl_streamoff,
 	.vidioc_expbuf = vb2_ioctl_expbuf,
 };
+
+#if (KERNEL_VERSION(6, 7, 0) < LINUX_VERSION_CODE)
+static const struct v4l2_subdev_internal_ops mtk_mraw_internal_ops = {
+	.init_state = mtk_mraw_init_cfg,
+};
+#endif
 
 static const struct mtk_cam_format_desc meta_fmts[] = {
 	{
@@ -390,6 +410,9 @@ static int  mtk_mraw_pipeline_register(const char *str,
 	v4l2_subdev_init(sd, &mtk_mraw_subdev_ops);
 	sd->entity.function = MEDIA_ENT_F_PROC_VIDEO_PIXEL_FORMATTER;
 	sd->entity.ops = &mtk_mraw_media_entity_ops;
+#if (KERNEL_VERSION(6, 7, 0) < LINUX_VERSION_CODE)
+	sd->internal_ops = &mtk_mraw_internal_ops;
+#endif
 	sd->flags = V4L2_SUBDEV_FL_HAS_DEVNODE | V4L2_SUBDEV_FL_HAS_EVENTS;
 	ret = snprintf(sd->name, sizeof(sd->name), "%s-%d",
 		str, pipe->id - MTKCAM_SUBDEV_MRAW_START);

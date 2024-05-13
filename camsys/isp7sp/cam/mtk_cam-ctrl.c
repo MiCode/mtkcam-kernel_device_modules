@@ -1115,7 +1115,11 @@ static u64 query_interval_from_sensor(struct v4l2_subdev *sensor)
 	memset(&fi, 0, sizeof(fi));
 
 	fi.pad = 0;
+#if (KERNEL_VERSION(6, 7, 0) < LINUX_VERSION_CODE)
+	v4l2_subdev_call_state_active(sensor, pad, get_frame_interval, &fi);
+#else
 	v4l2_subdev_call(sensor, video, g_frame_interval, &fi);
+#endif
 
 	if (fi.interval.denominator)
 		frame_interval_ns = (fi.interval.numerator * 1000000000ULL) /

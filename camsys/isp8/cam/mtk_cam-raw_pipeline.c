@@ -1436,8 +1436,13 @@ static int mtk_raw_init_cfg(struct v4l2_subdev *sd,
 	unsigned int i;
 
 	for (i = 0; i < sd->entity.num_pads; i++) {
+#if (KERNEL_VERSION(6, 7, 0) < LINUX_VERSION_CODE)
+		mf = v4l2_subdev_state_get_format(state, i);
+		crop = v4l2_subdev_state_get_crop(state, i);
+#else
 		mf = v4l2_subdev_get_try_format(sd, state, i);
 		crop = v4l2_subdev_get_try_crop(sd, state, i);
+#endif
 
 		*mf = pipe->pad_cfg[i].mbus_fmt;
 		*crop = pipe->pad_cfg[i].crop;
@@ -1450,7 +1455,11 @@ raw_try_fmt_getter(struct v4l2_subdev *sd,
 		   struct v4l2_subdev_state *state,
 		   unsigned int pad)
 {
+#if (KERNEL_VERSION(6, 7, 0) < LINUX_VERSION_CODE)
+	return v4l2_subdev_state_get_format(state, pad);
+#else
 	return v4l2_subdev_get_try_format(sd, state, pad);
+#endif
 }
 
 static struct v4l2_rect *
@@ -1458,7 +1467,11 @@ raw_try_crop_getter(struct v4l2_subdev *sd,
 		    struct v4l2_subdev_state *state,
 		    unsigned int pad)
 {
+#if (KERNEL_VERSION(6, 7, 0) < LINUX_VERSION_CODE)
+	return v4l2_subdev_state_get_crop(state, pad);
+#else
 	return v4l2_subdev_get_try_crop(sd, state, pad);
+#endif
 }
 
 static struct v4l2_mbus_framefmt *
@@ -1911,12 +1924,13 @@ static int mtk_cam_media_link_setup(struct media_entity *entity,
 	return 0;
 }
 
-static int
-mtk_raw_s_frame_interval(struct v4l2_subdev *sd,
+#if (KERNEL_VERSION(6, 7, 0) >= LINUX_VERSION_CODE)
+static int mtk_raw_s_frame_interval(struct v4l2_subdev *sd,
 			 struct v4l2_subdev_frame_interval *interval)
 {
 	return 0;
 }
+#endif
 
 static const struct v4l2_subdev_core_ops mtk_raw_subdev_core_ops = {
 	.subscribe_event = mtk_raw_sd_subscribe_event,
@@ -1925,12 +1939,16 @@ static const struct v4l2_subdev_core_ops mtk_raw_subdev_core_ops = {
 
 static const struct v4l2_subdev_video_ops mtk_raw_subdev_video_ops = {
 	.s_stream =  mtk_raw_sd_s_stream,
+#if (KERNEL_VERSION(6, 7, 0) >= LINUX_VERSION_CODE)
 	.s_frame_interval = mtk_raw_s_frame_interval,
+#endif
 };
 
 static const struct v4l2_subdev_pad_ops mtk_raw_subdev_pad_ops = {
 	.link_validate = mtk_cam_link_validate,
+#if (KERNEL_VERSION(6, 7, 0) >= LINUX_VERSION_CODE)
 	.init_cfg = mtk_raw_init_cfg,
+#endif
 	.set_fmt = mtk_raw_set_fmt,
 	.get_fmt = mtk_raw_get_fmt,
 	.set_selection = mtk_raw_set_pad_selection,
@@ -3871,6 +3889,9 @@ static int mtk_raw_close(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 static const struct v4l2_subdev_internal_ops mtk_raw_internal_ops = {
 	.open = mtk_raw_open,
 	.close = mtk_raw_close,
+#if (KERNEL_VERSION(6, 7, 0) < LINUX_VERSION_CODE)
+	.init_state = mtk_raw_init_cfg,
+#endif
 };
 static bool check_vb2_queue_support(u8 id, u8 *vb2_q_support_list, int vb2_q_support_list_num)
 {

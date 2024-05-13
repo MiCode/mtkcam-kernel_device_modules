@@ -502,7 +502,11 @@ void mtk_cam_qos_bw_calc(struct mtk_cam_ctx *ctx, unsigned long raw_dmas, bool f
 	if (ctx->sensor) {
 		fi.pad = 0;
 		fi.reserved[0] = V4L2_SUBDEV_FORMAT_ACTIVE;
+#if (KERNEL_VERSION(6, 7, 0) < LINUX_VERSION_CODE)
+		v4l2_subdev_call_state_active(ctx->sensor, pad, get_frame_interval, &fi);
+#else
 		v4l2_subdev_call(ctx->sensor, video, g_frame_interval, &fi);
+#endif
 		fps = fi.interval.denominator / fi.interval.numerator;
 		pipe->res_config.interval.denominator = fi.interval.denominator;
 		pipe->res_config.interval.numerator = fi.interval.numerator;

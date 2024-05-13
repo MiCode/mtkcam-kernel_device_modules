@@ -121,10 +121,17 @@ static const unsigned int fld_face_info_idx_1[MAX_FLD_V0_FACE_NUM] = {
 #define MAE_SYS_SHADOW_CTRL              (MAE_CTRL_CENTER_BASE + 0x001C)
 #define MAE_TRIG_SEL_4_6                 (MAE_CTRL_CENTER_BASE + 0x004C)
 
+// 0x4200 MAE_RSZ0
+#define MAE_MAISR_BASE                   (0x4200)
+#define MAE_0170_MAISR                   (MAE_MAISR_BASE + 0x170)
+#define MAE_MAISR_LEN                     (0x0600)
+
 // 0x4800 MAE_RSZ0
 #define MAE_RSZ0_BASE                    (0x4800)
-#define MAE_RSZ0_LEN                     (0x01F4)
+#define MAE_REG_0080_RSZ0                (MAE_RSZ0 + 0x080)
+#define MAE_REG_0084_RSZ0                (MAE_RSZ0 + 0x084)
 #define MAE_REG_01A8_RSZ0                (MAE_RSZ0 + 0x1A8)
+#define MAE_RSZ0_LEN                     (0x01F4)
 
 // 0x4C00 MAE_UDMA_W
 #define MAE_UDMA_W_BASE                 (0x4C00)
@@ -137,14 +144,25 @@ static const unsigned int fld_face_info_idx_1[MAX_FLD_V0_FACE_NUM] = {
 // 0x5200 MAE_UDMA_R
 #define MAE_UDMA_R_BASE                 (0x5200)
 #define MAE_REG_0054_UDMA_R             (MAE_UDMA_R_BASE + 0x0054)
+#define MAE_REG_0100_UDMA_R             (MAE_UDMA_R_BASE + 0x0100)
+#define MAE_REG_0120_UDMA_R             (MAE_UDMA_R_BASE + 0x0120)
+#define MAE_REG_0124_UDMA_R             (MAE_UDMA_R_BASE + 0x0124)
+#define MAE_REG_0128_UDMA_R             (MAE_UDMA_R_BASE + 0x0128)
+#define MAE_REG_012C_UDMA_R             (MAE_UDMA_R_BASE + 0x012C)
+#define MAE_REG_0130_UDMA_R             (MAE_UDMA_R_BASE + 0x0130)
+#define MAE_REG_0180_UDMA_R             (MAE_UDMA_R_BASE + 0x0180)
+#define MAE_REG_0184_UDMA_R             (MAE_UDMA_R_BASE + 0x0184)
+#define MAE_REG_01A0_UDMA_R             (MAE_UDMA_R_BASE + 0x01A0)
+#define MAE_REG_01A4_UDMA_R             (MAE_UDMA_R_BASE + 0x01A4)
 #define MAE_REG_01C0_UDMA_R             (MAE_UDMA_R_BASE + 0x01C0)
 #define MAE_REG_01C4_UDMA_R             (MAE_UDMA_R_BASE + 0x01C4)
+#define MAE_REG_01C8_UDMA_R             (MAE_UDMA_R_BASE + 0x01C8)
 #define MAE_REG_01D4_UDMA_R             (MAE_UDMA_R_BASE + 0x01D4)
 
 // 0x5800 MAE_RDMA_5
 #define MAE_RDMA_5_BASE                   (0x5800)
-#define MAE_RDMA_5_LEN                    (0x1FC)
 #define MAE_REG_0004_MAE_RDMA_5           (MAE_RDMA_5_BASE + 0x0004)
+#define MAE_RDMA_5_LEN                    (0x1FC)
 
 // 0X6000 RSZ1
 #define RSZ1_BASE                         (0x6000)

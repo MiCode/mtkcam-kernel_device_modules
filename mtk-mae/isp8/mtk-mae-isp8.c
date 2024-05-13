@@ -51,6 +51,8 @@
 #define CMDQ_GPR_R03_IDX 11
 #define AIE_POLL_TIME_INFINI	(0xFFFF)
 
+#define MAE_READ_BACK_REG_EN 1
+
 /*
  * MAE Debug level:
  * MAE_INFO = 0
@@ -1849,6 +1851,17 @@ static bool mtk_mae_config_hw(struct mtk_mae_dev *mae_dev, int idx)
 	uint32_t core_offset = 0;
 	uint32_t loop = 0;
 	uint32_t i = 0;
+	uint32_t val;
+
+	if (mae_read_back_val) {
+		val = (uint32_t)readl(mae_dev->mae_base + MAE_REG_01C0_UDMA_R);
+		writel(val | mae_read_back_val, mae_dev->mae_base + MAE_REG_01C0_UDMA_R);
+	}
+
+	if (mae_rdma_debug_sel) {
+		val = (uint32_t)readl(mae_dev->mae_base + MAE_REG_0178_MAE_DRV_R);
+		writel(val | mae_rdma_debug_sel, mae_dev->mae_base + MAE_REG_0178_MAE_DRV_R);
+	}
 
 	mae_dev_dbg(mae_dev->dev, "%s+", __func__);
 	mae_dev_dbg(mae_dev->dev, "adb: mae_trigger_cmdq_timeout(%d)\n", mae_trigger_cmdq_timeout);
@@ -1858,6 +1871,10 @@ static bool mtk_mae_config_hw(struct mtk_mae_dev *mae_dev, int idx)
 	mae_dev_dbg(mae_dev->dev, "adb: fld_reset_en(%d)\n", fld_reset_en);
 	mae_dev_dbg(mae_dev->dev, "adb: cmdq_polling_en(%d)\n", cmdq_polling_en);
 	mae_dev_dbg(mae_dev->dev, "adb: cmdq_profiling_en(%d)\n", cmdq_profiling_en);
+	mae_dev_dbg(mae_dev->dev, "adb: mae_preultra_read(%d)\n", mae_preultra_read);
+	mae_dev_dbg(mae_dev->dev, "adb: mae_preultra_write(%d)\n", mae_preultra_write);
+	mae_dev_dbg(mae_dev->dev, "adb: mae_rdma_debug_sel(%d)\n", mae_rdma_debug_sel);
+	mae_dev_dbg(mae_dev->dev, "adb: mae_read_back_val(%d)\n", mae_read_back_val);
 
 	for (loop = 0; loop < mae_dev->outer_loop[idx]; loop++) {
 		if (param->image[loop].srcImgFmt == NV12 &&
@@ -2062,12 +2079,12 @@ static bool mtk_mae_config_hw(struct mtk_mae_dev *mae_dev, int idx)
 	if (mae_preultra_write)
 		MAE_CMDQ_WRITE_REG(mae_dev->pkt[idx], MAE_REG_0054_UDMA_W, mae_preultra_write);
 	else
-		MAE_CMDQ_WRITE_REG(mae_dev->pkt[idx], MAE_REG_0054_UDMA_W, 0x1E8C);
+		MAE_CMDQ_WRITE_REG(mae_dev->pkt[idx], MAE_REG_0054_UDMA_W, 0x1428);
 
 	if (mae_preultra_read)
 		MAE_CMDQ_WRITE_REG(mae_dev->pkt[idx], MAE_REG_0054_UDMA_R, mae_preultra_read);
 	else
-		MAE_CMDQ_WRITE_REG(mae_dev->pkt[idx], MAE_REG_0054_UDMA_R, 0x1E8C);
+		MAE_CMDQ_WRITE_REG(mae_dev->pkt[idx], MAE_REG_0054_UDMA_R, 0x1428);
 
 	MAE_CMDQ_WRITE_REG(mae_dev->pkt[idx], MAE_REG_0004_MAE_RDMA_5, 0x6221);
 	if (mae_dbf_on == 1)
@@ -2115,12 +2132,109 @@ static void mtk_mae_reg_dump_to_buffer(struct mtk_mae_dev *mae_dev)
 {
 	uint8_t *debug_buffer = (uint8_t *)mae_dev->map_table->debug_dmabuf_info[0].kva;
 	uint32_t i;
-	uint32_t val;
 
 	mae_dev_info(mae_dev->dev, "%s +\n", __func__);
 
-	val = (uint32_t)readl(mae_dev->mae_base + MAE_REG_01C0_UDMA_R);
-	writel(val | mae_read_back_val, mae_dev->mae_base + MAE_REG_01C0_UDMA_R);
+	snprintf(debug_buffer, DEBUG_BUFFER_LINE_LEN,
+			"\n[0x%08x] 0x%08x",
+			MAE_BASE + MAE_REG_0120_UDMA_R,
+			(uint32_t)readl(mae_dev->mae_base + MAE_REG_0120_UDMA_R));
+	mae_dev_info(mae_dev->dev,
+				"\n[0x%08x] 0x%08x",
+				MAE_BASE + MAE_REG_0120_UDMA_R,
+				(uint32_t)readl(mae_dev->mae_base + MAE_REG_0120_UDMA_R));
+	debug_buffer += DEBUG_BUFFER_LINE_LEN;
+
+	snprintf(debug_buffer, DEBUG_BUFFER_LINE_LEN,
+			"\n[0x%08x] 0x%08x",
+			MAE_BASE + MAE_REG_0124_UDMA_R,
+			(uint32_t)readl(mae_dev->mae_base + MAE_REG_0124_UDMA_R));
+	mae_dev_info(mae_dev->dev,
+				"\n[0x%08x] 0x%08x",
+				MAE_BASE + MAE_REG_0124_UDMA_R,
+				(uint32_t)readl(mae_dev->mae_base + MAE_REG_0124_UDMA_R));
+	debug_buffer += DEBUG_BUFFER_LINE_LEN;
+
+	snprintf(debug_buffer, DEBUG_BUFFER_LINE_LEN,
+			"\n[0x%08x] 0x%08x",
+			MAE_BASE + MAE_REG_0128_UDMA_R,
+			(uint32_t)readl(mae_dev->mae_base + MAE_REG_0128_UDMA_R));
+	mae_dev_info(mae_dev->dev,
+				"\n[0x%08x] 0x%08x",
+				MAE_BASE + MAE_REG_0128_UDMA_R,
+				(uint32_t)readl(mae_dev->mae_base + MAE_REG_0128_UDMA_R));
+	debug_buffer += DEBUG_BUFFER_LINE_LEN;
+
+	snprintf(debug_buffer, DEBUG_BUFFER_LINE_LEN,
+			"\n[0x%08x] 0x%08x",
+			MAE_BASE + MAE_REG_012C_UDMA_R,
+			(uint32_t)readl(mae_dev->mae_base + MAE_REG_012C_UDMA_R));
+	mae_dev_info(mae_dev->dev,
+				"\n[0x%08x] 0x%08x",
+				MAE_BASE + MAE_REG_012C_UDMA_R,
+				(uint32_t)readl(mae_dev->mae_base + MAE_REG_012C_UDMA_R));
+	debug_buffer += DEBUG_BUFFER_LINE_LEN;
+
+	snprintf(debug_buffer, DEBUG_BUFFER_LINE_LEN,
+			"\n[0x%08x] 0x%08x",
+			MAE_BASE + MAE_REG_0130_UDMA_R,
+			(uint32_t)readl(mae_dev->mae_base + MAE_REG_0130_UDMA_R));
+	mae_dev_info(mae_dev->dev,
+				"\n[0x%08x] 0x%08x",
+				MAE_BASE + MAE_REG_0130_UDMA_R,
+				(uint32_t)readl(mae_dev->mae_base + MAE_REG_0130_UDMA_R));
+	debug_buffer += DEBUG_BUFFER_LINE_LEN;
+
+	snprintf(debug_buffer, DEBUG_BUFFER_LINE_LEN,
+			"\n[0x%08x] 0x%08x",
+			MAE_BASE + MAE_REG_0180_UDMA_R,
+			(uint32_t)readl(mae_dev->mae_base + MAE_REG_0180_UDMA_R));
+	mae_dev_info(mae_dev->dev,
+				"\n[0x%08x] 0x%08x",
+				MAE_BASE + MAE_REG_0180_UDMA_R,
+				(uint32_t)readl(mae_dev->mae_base + MAE_REG_0180_UDMA_R));
+	debug_buffer += DEBUG_BUFFER_LINE_LEN;
+
+	snprintf(debug_buffer, DEBUG_BUFFER_LINE_LEN,
+			"\n[0x%08x] 0x%08x",
+			MAE_BASE + MAE_REG_0184_UDMA_R,
+			(uint32_t)readl(mae_dev->mae_base + MAE_REG_0184_UDMA_R));
+	mae_dev_info(mae_dev->dev,
+				"\n[0x%08x] 0x%08x",
+				MAE_BASE + MAE_REG_0184_UDMA_R,
+				(uint32_t)readl(mae_dev->mae_base + MAE_REG_0184_UDMA_R));
+	debug_buffer += DEBUG_BUFFER_LINE_LEN;
+
+	snprintf(debug_buffer, DEBUG_BUFFER_LINE_LEN,
+			"\n[0x%08x] 0x%08x",
+			MAE_BASE + MAE_REG_01A0_UDMA_R,
+			(uint32_t)readl(mae_dev->mae_base + MAE_REG_01A0_UDMA_R));
+	mae_dev_info(mae_dev->dev,
+				"\n[0x%08x] 0x%08x",
+				MAE_BASE + MAE_REG_01A0_UDMA_R,
+				(uint32_t)readl(mae_dev->mae_base + MAE_REG_01A0_UDMA_R));
+	debug_buffer += DEBUG_BUFFER_LINE_LEN;
+
+	snprintf(debug_buffer, DEBUG_BUFFER_LINE_LEN,
+			"\n[0x%08x] 0x%08x",
+			MAE_BASE + MAE_REG_01A4_UDMA_R,
+			(uint32_t)readl(mae_dev->mae_base + MAE_REG_01A4_UDMA_R));
+	mae_dev_info(mae_dev->dev,
+				"\n[0x%08x] 0x%08x",
+				MAE_BASE + MAE_REG_01A4_UDMA_R,
+				(uint32_t)readl(mae_dev->mae_base + MAE_REG_01A4_UDMA_R));
+	debug_buffer += DEBUG_BUFFER_LINE_LEN;
+
+	snprintf(debug_buffer, DEBUG_BUFFER_LINE_LEN,
+			"\n[0x%08x] 0x%08x",
+			MAE_BASE + MAE_REG_01C0_UDMA_R,
+			(uint32_t)readl(mae_dev->mae_base + MAE_REG_01C0_UDMA_R));
+	mae_dev_info(mae_dev->dev,
+				"\n[0x%08x] 0x%08x",
+				MAE_BASE + MAE_REG_01C0_UDMA_R,
+				(uint32_t)readl(mae_dev->mae_base + MAE_REG_01C0_UDMA_R));
+	debug_buffer += DEBUG_BUFFER_LINE_LEN;
+
 	snprintf(debug_buffer, DEBUG_BUFFER_LINE_LEN,
 			"\n[0x%08x] 0x%08x",
 			MAE_BASE + MAE_REG_01C4_UDMA_R,
@@ -2130,6 +2244,17 @@ static void mtk_mae_reg_dump_to_buffer(struct mtk_mae_dev *mae_dev)
 				MAE_BASE + MAE_REG_01C4_UDMA_R,
 				(uint32_t)readl(mae_dev->mae_base + MAE_REG_01C4_UDMA_R));
 	debug_buffer += DEBUG_BUFFER_LINE_LEN;
+
+	snprintf(debug_buffer, DEBUG_BUFFER_LINE_LEN,
+			"\n[0x%08x] 0x%08x",
+			MAE_BASE + MAE_REG_01C8_UDMA_R,
+			(uint32_t)readl(mae_dev->mae_base + MAE_REG_01C8_UDMA_R));
+	mae_dev_info(mae_dev->dev,
+				"\n[0x%08x] 0x%08x",
+				MAE_BASE + MAE_REG_01C8_UDMA_R,
+				(uint32_t)readl(mae_dev->mae_base + MAE_REG_01C8_UDMA_R));
+	debug_buffer += DEBUG_BUFFER_LINE_LEN;
+
 	snprintf(debug_buffer, DEBUG_BUFFER_LINE_LEN,
 			"\n[0x%08x] 0x%08x",
 			MAE_BASE + MAE_REG_01D4_UDMA_R,
@@ -2140,9 +2265,16 @@ static void mtk_mae_reg_dump_to_buffer(struct mtk_mae_dev *mae_dev)
 				(uint32_t)readl(mae_dev->mae_base + MAE_REG_01D4_UDMA_R));
 	debug_buffer += DEBUG_BUFFER_LINE_LEN;
 
+	snprintf(debug_buffer, DEBUG_BUFFER_LINE_LEN,
+			"\n[0x%08x] 0x%08x",
+			MAE_BASE + MAE_REG_0178_MAE_DRV_R,
+			(uint32_t)readl(mae_dev->mae_base + MAE_REG_0178_MAE_DRV_R));
+	mae_dev_info(mae_dev->dev,
+				"\n[0x%08x] 0x%08x",
+				MAE_BASE + MAE_REG_0178_MAE_DRV_R,
+				(uint32_t)readl(mae_dev->mae_base + MAE_REG_0178_MAE_DRV_R));
+	debug_buffer += DEBUG_BUFFER_LINE_LEN;
 
-	val = (uint32_t)readl(mae_dev->mae_base + MAE_REG_0178_MAE_DRV_R);
-	writel(val | mae_rdma_debug_sel, mae_dev->mae_base + MAE_REG_0178_MAE_DRV_R);
 	snprintf(debug_buffer, DEBUG_BUFFER_LINE_LEN,
 			"\n[0x%08x] 0x%08x",
 			MAE_BASE + MAE_REG_017C_MAE_DRV_R,
@@ -2155,22 +2287,22 @@ static void mtk_mae_reg_dump_to_buffer(struct mtk_mae_dev *mae_dev)
 
 	snprintf(debug_buffer, DEBUG_BUFFER_LINE_LEN,
 			"\n[0x%08x] 0x%08x",
-			MAE_BASE + MAE_REG_0054_UDMA_W,
-			(uint32_t)readl(mae_dev->mae_base + MAE_REG_0054_UDMA_W));
+			MAE_BASE + 0x59d0,
+			(uint32_t)readl(mae_dev->mae_base + 0x59d0));
 	mae_dev_info(mae_dev->dev,
 				"\n[0x%08x] 0x%08x",
-				MAE_BASE + MAE_REG_0054_UDMA_W,
-				(uint32_t)readl(mae_dev->mae_base + MAE_REG_0054_UDMA_W));
+				MAE_BASE + 0x59d0,
+				(uint32_t)readl(mae_dev->mae_base + 0x59d0));
 	debug_buffer += DEBUG_BUFFER_LINE_LEN;
 
 	snprintf(debug_buffer, DEBUG_BUFFER_LINE_LEN,
 			"\n[0x%08x] 0x%08x",
-			MAE_BASE + MAE_REG_0054_UDMA_R,
-			(uint32_t)readl(mae_dev->mae_base + MAE_REG_0054_UDMA_R));
+			MAE_BASE + 0x59d4,
+			(uint32_t)readl(mae_dev->mae_base + 0x59d4));
 	mae_dev_info(mae_dev->dev,
 				"\n[0x%08x] 0x%08x",
-				MAE_BASE + MAE_REG_0054_UDMA_R,
-				(uint32_t)readl(mae_dev->mae_base + MAE_REG_0054_UDMA_R));
+				MAE_BASE + 0x59d4,
+				(uint32_t)readl(mae_dev->mae_base + 0x59d4));
 	debug_buffer += DEBUG_BUFFER_LINE_LEN;
 
 	// 21 line
@@ -2189,6 +2321,25 @@ static void mtk_mae_reg_dump_to_buffer(struct mtk_mae_dev *mae_dev)
 				(uint32_t)readl(mae_dev->mae_base + FDVT_START + i + 0x4),
 				(uint32_t)readl(mae_dev->mae_base + FDVT_START + i + 0x8),
 				(uint32_t)readl(mae_dev->mae_base + FDVT_START + i + 0xc));
+		debug_buffer += DEBUG_BUFFER_LINE_LEN;
+	}
+
+	// 96 line
+	for (i = 0; i < MAE_MAISR_LEN; i += 0x10) {
+		snprintf(debug_buffer, DEBUG_BUFFER_LINE_LEN,
+				"\n[0x%08x] 0x%08x 0x%08x 0x%08x 0x%08x",
+				MAE_BASE + MAE_MAISR_BASE + i,
+				(uint32_t)readl(mae_dev->mae_base + MAE_MAISR_BASE + i),
+				(uint32_t)readl(mae_dev->mae_base + MAE_MAISR_BASE + i + 0x4),
+				(uint32_t)readl(mae_dev->mae_base + MAE_MAISR_BASE+ i + 0x8),
+				(uint32_t)readl(mae_dev->mae_base + MAE_MAISR_BASE + i + 0xc));
+		mae_dev_info(mae_dev->dev,
+				"[0x%08x] 0x%08x 0x%08x 0x%08x 0x%08x\n",
+				MAE_BASE + MAE_MAISR_BASE + i,
+				(uint32_t)readl(mae_dev->mae_base + MAE_MAISR_BASE + i),
+				(uint32_t)readl(mae_dev->mae_base + MAE_MAISR_BASE + i + 0x4),
+				(uint32_t)readl(mae_dev->mae_base + MAE_MAISR_BASE + i + 0x8),
+				(uint32_t)readl(mae_dev->mae_base + MAE_MAISR_BASE + i + 0xc));
 		debug_buffer += DEBUG_BUFFER_LINE_LEN;
 	}
 
@@ -2246,6 +2397,25 @@ static void mtk_mae_reg_dump_to_buffer(struct mtk_mae_dev *mae_dev)
 				(uint32_t)readl(mae_dev->mae_base + MAE_CMP_BASE + i + 0x4),
 				(uint32_t)readl(mae_dev->mae_base + MAE_CMP_BASE + i + 0x8),
 				(uint32_t)readl(mae_dev->mae_base + MAE_CMP_BASE + i + 0xc));
+		debug_buffer += DEBUG_BUFFER_LINE_LEN;
+	}
+
+	// 32 line
+	for (i = 0; i < MAE_RDMA_5_LEN; i += 0x10) {
+		snprintf(debug_buffer, DEBUG_BUFFER_LINE_LEN,
+				"\n[0x%08x] 0x%08x 0x%08x 0x%08x 0x%08x",
+				MAE_BASE + MAE_RDMA_5_BASE + i,
+				(uint32_t)readl(mae_dev->mae_base + MAE_RDMA_5_BASE + i),
+				(uint32_t)readl(mae_dev->mae_base + MAE_RDMA_5_BASE + i + 0x4),
+				(uint32_t)readl(mae_dev->mae_base + MAE_RDMA_5_BASE + i + 0x8),
+				(uint32_t)readl(mae_dev->mae_base + MAE_RDMA_5_BASE + i + 0xc));
+		mae_dev_info(mae_dev->dev,
+				"[0x%08x] 0x%08x 0x%08x 0x%08x 0x%08x\n",
+				MAE_BASE + MAE_RDMA_5_BASE + i,
+				(uint32_t)readl(mae_dev->mae_base + MAE_RDMA_5_BASE + i),
+				(uint32_t)readl(mae_dev->mae_base + MAE_RDMA_5_BASE + i + 0x4),
+				(uint32_t)readl(mae_dev->mae_base + MAE_RDMA_5_BASE + i + 0x8),
+				(uint32_t)readl(mae_dev->mae_base + MAE_RDMA_5_BASE + i + 0xc));
 		debug_buffer += DEBUG_BUFFER_LINE_LEN;
 	}
 
@@ -2546,8 +2716,14 @@ static void mtk_mae_dump(struct mtk_mae_dev *mae_dev)
 		(struct EnqueParam *)mae_dev->map_table->param_dmabuf_info[0].kva;
 	uint32_t i, j;
 	uint32_t reg_addr;
+	uint32_t val;
 
 	mae_dev_info(mae_dev->dev, "%s +\n", __func__);
+
+	// reset driver domain for read back compiler domain reg
+	val = (uint32_t)readl(mae_dev->mae_base + 0x6b70);
+	writel(val | (0x1 << 3), mae_dev->mae_base + 0x6b70);
+	writel(val & ~(0x1 << 3), mae_dev->mae_base + 0x6b70);
 
 	mtk_mae_dump_param(mae_dev);
 

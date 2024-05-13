@@ -2058,6 +2058,30 @@ static struct mtk_mbus_frame_desc_entry frame_desc_cus44[] = {
 	},
 #endif
 };
+static struct mtk_mbus_frame_desc_entry frame_desc_cus45[] = {
+	{
+		.bus.csi2 = {
+			.channel = 0,
+			.data_type = 0x2b,
+			.hsize = 0x0780,
+			.vsize = 0x0438,
+			.user_data_desc = VC_STAGGER_NE,
+			.fs_seq = MTK_FRAME_DESC_FS_SEQ_ONLY_ONE,
+		},
+	},
+#if IMX989_EMBEDDED_DATA_EN
+	{
+		.bus.csi2 = {
+			.channel = 0,
+			.data_type = 0x12,
+			.hsize = 0x0780,
+			.vsize = 0x2,
+			.user_data_desc = VC_GENERAL_EMBEDDED,
+			.ebd_parsing_type = MTK_EBD_PARSING_TYPE_MIPI_RAW10,
+		},
+	},
+#endif
+};
 #ifdef IMX989_CPHY_LRTE_DVT
 static struct mtk_mbus_frame_desc_entry frame_desc_lrte[] = {
 	{
@@ -4676,6 +4700,55 @@ static struct subdrv_mode_struct mode_struct[] = {
 		},
 		.pdaf_cap = TRUE,
 		.imgsensor_pd_info = &imgsensor_pd_info,
+		.ae_binning_ratio = 1000,
+		.fine_integ_line = -982,
+		.delay_frame = 3,
+		.csi_param = {
+			.cphy_lrte_support = 1,
+		},
+		.dpc_enabled = true,
+	},
+	{
+		.frame_desc = frame_desc_cus45,
+		.num_entries = ARRAY_SIZE(frame_desc_cus45),
+		.mode_setting_table = imx989_custom45_setting,
+		.mode_setting_len = ARRAY_SIZE(imx989_custom45_setting),
+		.seamless_switch_group = PARAM_UNDEFINED,
+		.seamless_switch_mode_setting_table = PARAM_UNDEFINED,
+		.seamless_switch_mode_setting_len = PARAM_UNDEFINED,
+		.hdr_mode = HDR_NONE,
+		.raw_cnt = 1,
+		.exp_cnt = 1,
+		.pclk = 3456000000,
+		.linelength = 11168,
+		.framelength = 2576,
+		.max_framerate = 1200,
+		.mipi_pixel_rate = 2445530000,
+		.readout_length = 0,
+		.read_margin = 64,
+		.framelength_step = 8,
+		.coarse_integ_step = 4,
+		.multi_exposure_shutter_range[IMGSENSOR_EXPOSURE_LE].min = 8,
+		.imgsensor_winsize_info = {
+			.full_w = 8192,
+			.full_h = 6144,
+			.x0_offset = 0,
+			.y0_offset = 1984,
+			.w0_size = 8192,
+			.h0_size = 2176,
+			.scale_w = 4096,
+			.scale_h = 1088,
+			.x1_offset = 1088,
+			.y1_offset = 4,
+			.w1_size = 1920,
+			.h1_size = 1080,
+			.x2_tg_offset = 0,
+			.y2_tg_offset = 0,
+			.w2_tg_size = 1920,
+			.h2_tg_size = 1080,
+		},
+		.pdaf_cap = FALSE,
+		.imgsensor_pd_info = PARAM_UNDEFINED,
 		.ae_binning_ratio = 1000,
 		.fine_integ_line = -982,
 		.delay_frame = 3,

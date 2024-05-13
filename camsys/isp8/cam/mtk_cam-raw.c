@@ -238,6 +238,7 @@ static void dump_dmai_reg(struct mtk_raw_device *dev)
 	u32 caci_base, caci_base_m, caci_oft, caci_oft_m, caci_xsize, caci_ysize, caci_stride;
 	u32 rawi5_base, rawi5_base_m, rawi5_oft, rawi5_oft_m, rawi5_xsize, rawi5_ysize, rawi5_stride;
 
+	/* caci r1 */
 	caci_base = raw_readl_relaxed(dev, dev->dmatop_base_inner, 0x0bc0);
 	caci_base_m = raw_readl_relaxed(dev, dev->dmatop_base_inner, 0x0bc4);
 	caci_oft = raw_readl_relaxed(dev, dev->dmatop_base_inner, 0x0bc8);
@@ -250,6 +251,46 @@ static void dump_dmai_reg(struct mtk_raw_device *dev)
 		"[%s] raw%d - caci [in] 0x%x/0x%x/0x%x/0x%x/0x%x/0x%x/0x%x\n",
 		__func__, dev->id, caci_base, caci_base_m, caci_oft,
 		caci_oft_m, caci_xsize, caci_ysize, caci_stride);
+	/* bpci r3 */
+	caci_base = raw_readl_relaxed(dev, dev->dmatop_base_inner, 0x0980);
+	caci_base_m = raw_readl_relaxed(dev, dev->dmatop_base_inner, 0x0984);
+	caci_oft = raw_readl_relaxed(dev, dev->dmatop_base_inner, 0x0988);
+	caci_oft_m = raw_readl_relaxed(dev, dev->dmatop_base_inner, 0x098c);
+	caci_xsize = raw_readl_relaxed(dev, dev->dmatop_base_inner, 0x0990);
+	caci_ysize = raw_readl_relaxed(dev, dev->dmatop_base_inner, 0x0994);
+	caci_stride = raw_readl_relaxed(dev, dev->dmatop_base_inner, 0x0998);
+
+	dev_info(dev->dev,
+		"[%s] raw%d - bpci3 [in] 0x%x/0x%x/0x%x/0x%x/0x%x/0x%x/0x%x\n",
+		__func__, dev->id, caci_base, caci_base_m, caci_oft,
+		caci_oft_m, caci_xsize, caci_ysize, caci_stride);
+	/* bpci r4 */
+	caci_base = raw_readl_relaxed(dev, dev->dmatop_base_inner, 0x09c0);
+	caci_base_m = raw_readl_relaxed(dev, dev->dmatop_base_inner, 0x09c4);
+	caci_oft = raw_readl_relaxed(dev, dev->dmatop_base_inner, 0x09c8);
+	caci_oft_m = raw_readl_relaxed(dev, dev->dmatop_base_inner, 0x09cc);
+	caci_xsize = raw_readl_relaxed(dev, dev->dmatop_base_inner, 0x09d0);
+	caci_ysize = raw_readl_relaxed(dev, dev->dmatop_base_inner, 0x09d4);
+	caci_stride = raw_readl_relaxed(dev, dev->dmatop_base_inner, 0x09d8);
+
+	dev_info(dev->dev,
+		"[%s] raw%d - bpci4 [in] 0x%x/0x%x/0x%x/0x%x/0x%x/0x%x/0x%x\n",
+		__func__, dev->id, caci_base, caci_base_m, caci_oft,
+		caci_oft_m, caci_xsize, caci_ysize, caci_stride);
+	/* pdi r1 */
+	caci_base = raw_readl_relaxed(dev, dev->dmatop_base_inner, 0x0ac0);
+	caci_base_m = raw_readl_relaxed(dev, dev->dmatop_base_inner, 0x0ac4);
+	caci_oft = raw_readl_relaxed(dev, dev->dmatop_base_inner, 0x0ac8);
+	caci_oft_m = raw_readl_relaxed(dev, dev->dmatop_base_inner, 0x0acc);
+	caci_xsize = raw_readl_relaxed(dev, dev->dmatop_base_inner, 0x0ad0);
+	caci_ysize = raw_readl_relaxed(dev, dev->dmatop_base_inner, 0x0ad4);
+	caci_stride = raw_readl_relaxed(dev, dev->dmatop_base_inner, 0x0ad8);
+
+	dev_info(dev->dev,
+		"[%s] raw%d - pdi [in] 0x%x/0x%x/0x%x/0x%x/0x%x/0x%x/0x%x\n",
+		__func__, dev->id, caci_base, caci_base_m, caci_oft,
+		caci_oft_m, caci_xsize, caci_ysize, caci_stride);
+	/* rawi r5 */
 	rawi5_base = raw_readl_relaxed(dev, dev->dmatop_base_inner, 0x0820);
 	rawi5_base_m = raw_readl_relaxed(dev, dev->dmatop_base_inner, 0x0824);
 	rawi5_oft = raw_readl_relaxed(dev, dev->dmatop_base_inner, 0x0828);
@@ -260,6 +301,19 @@ static void dump_dmai_reg(struct mtk_raw_device *dev)
 
 	dev_info(dev->dev,
 		"[%s] raw%d - rawi5 [in] 0x%x/0x%x/0x%x/0x%x/0x%x/0x%x/0x%x\n",
+		__func__, dev->id, rawi5_base, rawi5_base_m, rawi5_oft,
+		rawi5_oft_m, rawi5_xsize, rawi5_ysize, rawi5_stride);
+	/* ufdi r5 */
+	rawi5_base = raw_readl_relaxed(dev, dev->dmatop_base_inner, 0x0890);
+	rawi5_base_m = raw_readl_relaxed(dev, dev->dmatop_base_inner, 0x0894);
+	rawi5_oft = raw_readl_relaxed(dev, dev->dmatop_base_inner, 0x0898);
+	rawi5_oft_m = raw_readl_relaxed(dev, dev->dmatop_base_inner, 0x089c);
+	rawi5_xsize = raw_readl_relaxed(dev, dev->dmatop_base_inner, 0x08a0);
+	rawi5_ysize = raw_readl_relaxed(dev, dev->dmatop_base_inner, 0x08a4);
+	rawi5_stride = raw_readl_relaxed(dev, dev->dmatop_base_inner, 0x08a8);
+
+	dev_info(dev->dev,
+		"[%s] raw%d - ufdi5 [in] 0x%x/0x%x/0x%x/0x%x/0x%x/0x%x/0x%x\n",
 		__func__, dev->id, rawi5_base, rawi5_base_m, rawi5_oft,
 		rawi5_oft_m, rawi5_xsize, rawi5_ysize, rawi5_stride);
 
@@ -566,6 +620,9 @@ static void reset_reg(struct mtk_raw_device *dev)
 	raw_writel(0, dev, dev->base_inner, REG_CAMCTL_SW_SUB_CTL);
 	raw_writel(0, dev, dev->base, REG_CAMCTL_SW_SUB_CTL);
 
+	raw_writel(0, dev, dev->base_inner, REG_CAMCTL_MOD10_EN);
+	raw_writel(0, dev, dev->base, REG_CAMCTL_MOD10_EN);
+
 	raw_writel(0, dev, dev->base_inner, REG_CAMCTL_CTRL_SIG_SEL);
 	raw_writel(0, dev, dev->base, REG_CAMCTL_CTRL_SIG_SEL);
 
@@ -589,18 +646,20 @@ static void reset_reg(struct mtk_raw_device *dev)
 	reset_error_handling(dev);
 	if (CAM_DEBUG_ENABLED(RAW_INT))
 		dev_info(dev->dev,
-			 "[%s] CQ_EN/SW_SUB_CTL/SW_DONE/DDREN_ST/SIG_SEL [in] 0x%x/0x%x/0x%x/0x%x/0x%x [out] 0x%x/0x%x/0x%x/0x%x/0x%x\n",
+			 "[%s] CQ_EN/SW_SUB_CTL/SW_DONE/DDREN_ST/SIG_SEL/MOD10 [in] 0x%x/0x%x/0x%x/0x%x/0x%x/0x%x [out] 0x%x/0x%x/0x%x/0x%x/0x%x/0x%x\n",
 			 __func__,
 			 raw_readl_relaxed(dev, dev->base_inner, REG_CAMCQ_CQ_EN),
 			 raw_readl_relaxed(dev, dev->base_inner, REG_CAMCTL_SW_SUB_CTL),
 			 raw_readl_relaxed(dev, dev->base_inner, REG_CAMCTL_SW_PASS1_DONE),
 			 raw_readl_relaxed(dev, dev->base_inner, REG_CAMCTL_DDREN_ST),
 			 raw_readl_relaxed(dev, dev->base_inner, REG_CAMCTL_CTRL_SIG_SEL),
+			 raw_readl_relaxed(dev, dev->base_inner, REG_CAMCTL_MOD10_EN),
 			 raw_readl_relaxed(dev, dev->base, REG_CAMCQ_CQ_EN),
 			 raw_readl_relaxed(dev, dev->base, REG_CAMCTL_SW_SUB_CTL),
 			 raw_readl_relaxed(dev, dev->base, REG_CAMCTL_SW_PASS1_DONE),
 			 raw_readl_relaxed(dev, dev->base, REG_CAMCTL_DDREN_ST),
-			 raw_readl_relaxed(dev, dev->base, REG_CAMCTL_CTRL_SIG_SEL));
+			 raw_readl_relaxed(dev, dev->base, REG_CAMCTL_CTRL_SIG_SEL),
+			 raw_readl_relaxed(dev, dev->base, REG_CAMCTL_MOD10_EN));
 }
 
 void subsample_enable(struct mtk_raw_device *dev, int subsample_ratio)

@@ -273,8 +273,10 @@ void monitor_system_info(void)
 	// functions
 	update_cpu_idle_rate();
 
-	if (likely(g_info))
-		g_info->stat = determine_cur_system_state(g_info);
+	if (likely(g_info)) {
+		g_info->stat = g_info->is_cpu_boost ? C2PS_STAT_TRANSIENT
+							: determine_cur_system_state(g_info);
+	}
 }
 
 int monitor_task_scene_change(int task_id, int scene_mode)

@@ -18,10 +18,11 @@ static unsigned int c2ps_regulator_bg_update_uclamp_fast;
 static unsigned int c2ps_uclamp_bg_up_margin_cluster0 = 1000;
 static unsigned int c2ps_uclamp_bg_up_margin_cluster1 = 1000;
 static unsigned int c2ps_uclamp_bg_up_margin_cluster2 = 1000;
+static unsigned int c2ps_max_cpu_idle_rate = 30;
 
 /**************************************************************************/
 int c2ps_regulator_base_update_um = 5;
-static int c2ps_regulator_um_min = 5;
+int c2ps_regulator_um_min = 65;
 static int c2ps_regulator_um_max = 125;
 static int c2ps_fix_um;
 static int L_dvide_M_ratio = 10;
@@ -44,6 +45,7 @@ module_param(c2ps_regulator_bg_update_uclamp_fast, int, 0644);
 module_param(c2ps_uclamp_bg_up_margin_cluster0, int, 0644);
 module_param(c2ps_uclamp_bg_up_margin_cluster1, int, 0644);
 module_param(c2ps_uclamp_bg_up_margin_cluster2, int, 0644);
+module_param(c2ps_max_cpu_idle_rate, int, 0644);
 module_param(c2ps_regulator_base_update_um, int, 0644);
 module_param(c2ps_regulator_um_min, int, 0644);
 module_param(c2ps_regulator_um_max, int, 0644);
@@ -429,11 +431,14 @@ static int _cal_jitter_um(
 	return jitter_um;
 }
 
-static int _cal_idle_rate_um(struct regulator_req *req)
+static int _cal_idle_rate_um(
+	struct regulator_req *req, bool *force_use_idle_rate_um)
 {
 	short _cluster_index = 0;
 	bool is_safe_idle_rate = true;
 	int idle_rate_um = req->glb_info->curr_um;
+
+	*force_use_idle_rate_um = true;
 
 	for (; _cluster_index < c2ps_nr_clusters; _cluster_index++) {
 		if (req->glb_info->need_update_bg[1 + _cluster_index] == 2 ||
@@ -444,6 +449,10 @@ static int _cal_idle_rate_um(struct regulator_req *req)
 		if (req->glb_info->avg_cluster_idle_rate[_cluster_index] <
 			c2ps_safe_idle_rate) {
 			is_safe_idle_rate = false;
+		}
+		if (req->glb_info->avg_cluster_idle_rate[_cluster_index] <
+					c2ps_max_cpu_idle_rate) {
+			*force_use_idle_rate_um = false;
 		}
 	}
 
@@ -476,9 +485,10 @@ void c2ps_regulator_bgpolicy_um_stable(struct regulator_req *req)
 		int latency_um = 0;
 		int jitter_um = 0;
 		int idle_rate_um = 0;
+		bool force_use_idle_rate_um = false;
 
 		if (likely(_item && _prev_item)) {
-			idle_rate_um = _cal_idle_rate_um(req);
+			idle_rate_um = _cal_idle_rate_um(req, &force_use_idle_rate_um);
 			if (req->anc_info->latency_spec > 0)
 				latency_um = _cal_latency_um(req, _item, _prev_item);
 			if (req->anc_info->jitter_spec > 0 && !skip_jitter)
@@ -486,6 +496,12 @@ void c2ps_regulator_bgpolicy_um_stable(struct regulator_req *req)
 		}
 
 		action_um = max(idle_rate_um, max(latency_um, jitter_um));
+		if (force_use_idle_rate_um) {
+			action_um = idle_rate_um;
+			C2PS_LOGD(
+				"force_use_idle_rate_um action_um : %d, idle_rate_um: %d, latency_um: %d, jitter_um: %d",
+				action_um, idle_rate_um, latency_um, jitter_um);
+		}
 
 		if (action_um > curr_um) {
 			if (req->glb_info->um_vote.vote_result > 0)

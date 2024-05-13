@@ -743,6 +743,7 @@ inline void set_glb_info_bg_uclamp_max(void)
 			glb_info->curr_max_uclamp[_idx] = glb_info->max_uclamp[_idx];
 			glb_info->uclamp_max_ceiling[_idx] = glb_info->max_uclamp[_idx];
 			glb_info->overwrite_uclamp_max[_idx] = glb_info->max_uclamp[_idx];
+			glb_info->scn_cpu_freq_floor[_idx] = INT_MAX;
 		}
 	}
 	c2ps_info_unlock(&glb_info->mlock);
@@ -758,7 +759,6 @@ inline void set_glb_info_bg_util_margin(void)
 	{
 		glb_info->curr_um = 125;
 		glb_info->curr_um_idle = 125;
-		glb_info->min_um = 5;
 	}
 	c2ps_info_unlock(&glb_info->mlock);
 }
@@ -1017,24 +1017,33 @@ unsigned long c2ps_get_uclamp_freq(int cpu, unsigned int uclamp)
 	return pd_get_util_freq(cpu, am_util);
 }
 
-bool c2ps_get_cur_cpu_floor(const int cpu, int *floor_uclamp, int *floor_freq)
+bool c2ps_get_cur_cpu_floor_uclamp(const int cpu, int *floor_uclamp, int floor_freq)
 {
-	struct cpufreq_policy *_policy;
-
-	if (unlikely(!floor_uclamp || !floor_freq))
+	if (unlikely(!floor_uclamp))
 		return false;
 
-	_policy = cpufreq_cpu_get(cpu);
-	if (likely(_policy)) {
-		*floor_freq = _policy->min;
-		cpufreq_cpu_put(_policy);
-		C2PS_LOGD("cpu%d floor freq: %d", cpu, *floor_freq);
-		*floor_uclamp = (pd_get_freq_util(cpu, *floor_freq) << SCHED_CAPACITY_SHIFT) /
+	if (likely(floor_freq)) {
+		C2PS_LOGD("cpu%d floor freq: %d", cpu, floor_freq);
+		*floor_uclamp = (pd_get_freq_util(cpu, floor_freq) << SCHED_CAPACITY_SHIFT) /
 						get_adaptive_margin(cpu) - MIN_UCLAMP_MARGIN;
 		return true;
 	}
 
 	return false;
+}
+
+u32 c2ps_get_cur_cpu_freq_floor(const int cpu)
+{
+	u32 cur_cpu_floor = 0;
+	struct cpufreq_policy *_policy;
+
+	_policy = cpufreq_cpu_get(cpu);
+	if (likely(_policy)) {
+		cur_cpu_floor = _policy->min;
+		cpufreq_cpu_put(_policy);
+		C2PS_LOGD("cpu%d floor freq: %d", cpu, cur_cpu_floor);
+	}
+	return cur_cpu_floor;
 }
 
 u32 c2ps_get_cur_cpu_freq(const int cpu)
@@ -1061,11 +1070,12 @@ inline int c2ps_get_cpu_max_uclamp(const int cpu)
 					get_adaptive_margin(cpu);
 }
 
-bool c2ps_boost_cur_uclamp_max(const int cluster, struct global_info *g_info)
+bool c2ps_boost_cur_uclamp_max(
+	const int cluster, int cpu_floor_freq, struct global_info *g_info)
 {
 	int cpu_index = 0;
 	int cur_floor_uclamp = 0;
-	int cur_uclamp_max_freq = 0, cur_cpu_floor_freq = 0;
+	int cur_uclamp_max_freq = 0;
 	int *cur_uclamp_max = &(g_info->curr_max_uclamp[cluster]);
 
 	if (unlikely(!need_boost_uclamp_max))
@@ -1076,12 +1086,12 @@ bool c2ps_boost_cur_uclamp_max(const int cluster, struct global_info *g_info)
 	if (unlikely(cpu_index == -1))
 		return false;
 
-	if (unlikely(!c2ps_get_cur_cpu_floor(
-				cpu_index, &cur_floor_uclamp, &cur_cpu_floor_freq)))
+	if (unlikely(!c2ps_get_cur_cpu_floor_uclamp(
+				cpu_index, &cur_floor_uclamp, cpu_floor_freq)))
 		return false;
 
 	cur_uclamp_max_freq = c2ps_get_uclamp_freq(cpu_index, *cur_uclamp_max);
-	if (cur_uclamp_max_freq < cur_cpu_floor_freq &&
+	if (cur_uclamp_max_freq < cpu_floor_freq &&
 		*cur_uclamp_max < cur_floor_uclamp) {
 		*cur_uclamp_max = cur_floor_uclamp;
 		*cur_uclamp_max = min(*cur_uclamp_max, c2ps_get_cpu_max_uclamp(cpu_index));
@@ -1342,6 +1352,8 @@ void update_cpu_idle_rate(void)
 			glb_info->overwrite_idle_alert : background_idlerate_alert;
 	C2PS_LOGD("check idle rate alert: %d", _alert);
 
+	glb_info->is_cpu_boost = false;
+
 	// Only timer callback will call this function, shouldn't lock
 	for (; _cpu_index < MAX_CPU_NUM; _cpu_index++) {
 		struct per_cpu_idle_rate *idle_rate =
@@ -1383,8 +1395,19 @@ void update_cpu_idle_rate(void)
 	for (; _cluster_index < c2ps_nr_clusters; _cluster_index++) {
 		u32 cur_cpu_freq = c2ps_get_cur_cpu_freq(
 					c2ps_get_first_cpu_of_cluster(_cluster_index));
-		if (c2ps_boost_cur_uclamp_max(_cluster_index, glb_info))
+		u32 cur_cpu_floor = c2ps_get_cur_cpu_freq_floor(
+					c2ps_get_first_cpu_of_cluster(_cluster_index));
+
+		if (c2ps_boost_cur_uclamp_max(_cluster_index, cur_cpu_floor, glb_info))
 			continue;
+
+		glb_info->scn_cpu_freq_floor[_cluster_index] =
+			min(cur_cpu_floor, glb_info->scn_cpu_freq_floor[_cluster_index]);
+		glb_info->is_cpu_boost =
+			(cur_cpu_floor > glb_info->scn_cpu_freq_floor[_cluster_index]);
+
+		if (glb_info->is_cpu_boost)
+			break;
 
 		glb_info->s_loadxfreq[_cluster_index] =
 			(100-_s_sum_of_idlerate[_cluster_index]/ _num_of_cpu[_cluster_index])
@@ -1404,7 +1427,7 @@ void update_cpu_idle_rate(void)
 										_cluster_index);
 			} else if ((!c2ps_um_mode_on && (glb_info->curr_max_uclamp[_cluster_index] >
 						glb_info->max_uclamp[_cluster_index])) ||
-						(c2ps_um_mode_on && (glb_info->curr_um_idle > glb_info->min_um))) {
+						(c2ps_um_mode_on && (glb_info->curr_um_idle > c2ps_regulator_um_min))) {
 				glb_info->need_update_bg[0] = 1;
 				if (glb_info->avg_cluster_idle_rate[_cluster_index] > _alert * 2)
 					glb_info->need_update_bg[1 + _cluster_index] = -2;

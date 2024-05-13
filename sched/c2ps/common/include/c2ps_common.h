@@ -49,6 +49,7 @@ extern int debug_log_on;
 extern unsigned int c2ps_nr_clusters;
 extern bool c2ps_um_mode_on;
 extern int c2ps_regulator_base_update_um;
+extern int c2ps_regulator_um_min;
 
 enum c2ps_env_status : int {
 	C2PS_STAT_NODEF = 0,
@@ -176,6 +177,9 @@ struct global_info {
 	u64 l_loadxfreq[MAX_CPU_NUM];
 	struct kf_est slow_lxf_est[MAX_CPU_NUM];
 	struct kf_est fast_lxf_est[MAX_CPU_NUM];
+	// CPU floor frequency of the scenario
+	u32 scn_cpu_freq_floor[MAX_NUMBER_OF_CLUSTERS];
+	bool is_cpu_boost;
 
 	/**
 	 * need_update_bg definition:
@@ -212,7 +216,6 @@ struct global_info {
 	int curr_um;
 	// um setting for idle rate control
 	int curr_um_idle;
-	int min_um;
 	struct um_update_vote um_vote;
 	/******** single shot um related ********/
 	u32 overwrite_util_margin;
@@ -329,11 +332,13 @@ void reset_need_update_status(void);
 void set_eas_setting(void);
 void reset_eas_setting(void);
 unsigned long c2ps_get_uclamp_freq(int cpu,  unsigned int uclamp);
-bool c2ps_get_cur_cpu_floor(const int cpu, int *floor_uclamp, int *floor_freq);
+bool c2ps_get_cur_cpu_floor_uclamp(const int cpu, int *floor_uclamp, int floor_freq);
+u32 c2ps_get_cur_cpu_freq_floor(const int cpu);
 u32 c2ps_get_cur_cpu_freq(const int cpu);
 int c2ps_get_cpu_min_uclamp(const int cpu);
 int c2ps_get_cpu_max_uclamp(const int cpu);
-bool c2ps_boost_cur_uclamp_max(const int cluster, struct global_info *g_info);
+bool c2ps_boost_cur_uclamp_max(
+	const int cluster, int cpu_floor_freq, struct global_info *g_info);
 int c2ps_get_first_cpu_of_cluster(int cluster);
 unsigned long c2ps_get_cluster_uclamp_freq(int cluster,  unsigned int uclamp);
 bool need_update_single_shot_uclamp_max(int *uclamp_max);

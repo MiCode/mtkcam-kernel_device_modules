@@ -3366,6 +3366,19 @@ void mtk_cam_ctx_engine_disable_irq(struct mtk_cam_ctx *ctx)
 	}
 }
 
+void mtk_cam_ctx_engine_clear(struct mtk_cam_ctx *ctx)
+{
+	struct mtk_raw_device *raw_dev;
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(ctx->hw_raw); i++) {
+		if (ctx->hw_raw[i]) {
+			raw_dev = dev_get_drvdata(ctx->hw_raw[i]);
+			clear_reg(raw_dev);
+		}
+	}
+}
+
 void mtk_cam_ctx_engine_reset(struct mtk_cam_ctx *ctx)
 {
 	struct mtk_raw_device *raw_dev;

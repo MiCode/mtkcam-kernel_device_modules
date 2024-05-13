@@ -205,6 +205,7 @@ int raw_dump_debug_status(struct mtk_raw_device *dev, bool is_srt);
 /* reset */
 void reset(struct mtk_raw_device *dev);
 void adlrd_reset(struct mtk_cam_device *dev);
+void clear_reg(struct mtk_raw_device *dev);
 
 /* workaround */
 void ae_disable(struct mtk_raw_device *dev);

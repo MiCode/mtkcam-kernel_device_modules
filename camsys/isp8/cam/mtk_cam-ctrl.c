@@ -2119,6 +2119,8 @@ void mtk_cam_ctrl_stop(struct mtk_cam_ctrl *cam_ctrl)
 
 	/* reset hw */
 	mtk_cam_ctx_engine_reset(ctx);
+	/* clear hw some regs */
+	mtk_cam_ctx_engine_clear(ctx);
 
 	mtk_cam_event_eos(cam_ctrl);
 

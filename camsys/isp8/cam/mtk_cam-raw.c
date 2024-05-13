@@ -599,7 +599,17 @@ static void subsample_set_sensor_time(struct mtk_raw_device *dev,
 	dev->set_sensor_idx = subsample_ratio - 2;
 	dev->cur_vsync_idx = -1;
 }
+void clear_reg(struct mtk_raw_device *dev)
+{
+	raw_writel(0, dev, dev->base_inner, REG_CAMCTL_MOD10_EN);
+	raw_writel(0, dev, dev->base, REG_CAMCTL_MOD10_EN);
 
+	raw_writel(0, dev, dev->base_inner, REG_CAMCTL_CTRL_SIG_SEL);
+	raw_writel(0, dev, dev->base, REG_CAMCTL_CTRL_SIG_SEL);
+
+	diable_rms_pcrp(dev);
+	diable_rms_module(dev);
+}
 static void reset_reg(struct mtk_raw_device *dev)
 {
 	u32 cq_en, sw_done, sw_sub_ctl;
@@ -620,12 +630,6 @@ static void reset_reg(struct mtk_raw_device *dev)
 	raw_writel(0, dev, dev->base_inner, REG_CAMCTL_SW_SUB_CTL);
 	raw_writel(0, dev, dev->base, REG_CAMCTL_SW_SUB_CTL);
 
-	raw_writel(0, dev, dev->base_inner, REG_CAMCTL_MOD10_EN);
-	raw_writel(0, dev, dev->base, REG_CAMCTL_MOD10_EN);
-
-	raw_writel(0, dev, dev->base_inner, REG_CAMCTL_CTRL_SIG_SEL);
-	raw_writel(0, dev, dev->base, REG_CAMCTL_CTRL_SIG_SEL);
-
 	raw_writel(0, dev, dev->base_inner, REG_CAMCTL_INT17_EN);
 	raw_writel(0, dev, dev->base, REG_CAMCTL_INT17_EN);
 
@@ -641,8 +645,6 @@ static void reset_reg(struct mtk_raw_device *dev)
 	raw_writel(0, dev, dev->base_inner, REG_CAMCTL_INT21_EN);
 	raw_writel(0, dev, dev->base, REG_CAMCTL_INT21_EN);
 	wmb(); /* make sure committed */
-	diable_rms_pcrp(dev);
-	diable_rms_module(dev);
 	reset_error_handling(dev);
 	if (CAM_DEBUG_ENABLED(RAW_INT))
 		dev_info(dev->dev,

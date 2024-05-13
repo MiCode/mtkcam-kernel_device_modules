@@ -7,6 +7,7 @@
 #include "frame_sync_util.h"
 
 #ifndef FS_UT
+#include <linux/of.h>
 #include <linux/of_platform.h>
 
 /* ==> define in frame_sync_def.h which is included by frame_monitor.h */

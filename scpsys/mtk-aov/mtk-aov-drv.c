@@ -5,6 +5,7 @@
  * Author: ChenHung Yang <chenhung.yang@mediatek.com>
  */
 
+#include <linux/of.h>
 #include <linux/of_platform.h>
 #include <linux/module.h>
 #include <linux/suspend.h>

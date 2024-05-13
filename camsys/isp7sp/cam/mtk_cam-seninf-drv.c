@@ -11,6 +11,7 @@
 #include <linux/of_graph.h>
 #include <linux/of_irq.h>
 #include <linux/of_device.h>
+#include <linux/of_platform.h>
 #include <linux/component.h>
 #include <linux/pm_opp.h>
 #include <linux/regulator/consumer.h>

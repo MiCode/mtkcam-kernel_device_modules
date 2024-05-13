@@ -6,7 +6,10 @@
  *
  */
 #include <linux/printk.h>
+#include <linux/of.h>
 #include <linux/of_device.h>
+#include <linux/of_platform.h>
+#include <linux/platform_device.h>
 #include "mtk_imgsys_cmdq_token.h"
 /* TODO */
 #include "mtk_imgsys_frm_sync.h"

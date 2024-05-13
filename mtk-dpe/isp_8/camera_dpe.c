@@ -156,7 +156,7 @@
 #if !IS_ENABLED(CONFIG_MTK_LEGACY) && IS_ENABLED(CONFIG_COMMON_CLK) /*CCF*/
 #include <linux/clk.h>
 struct DPE_CLK_STRUCT {
-	struct clk *CLK_CK2_DPE_SEL;
+	// struct clk *CLK_CK2_DPE_SEL;
 	struct clk *CLK_CAM_MAIN_CAM;
 	struct clk *CLK_CAMSYS_IPE_DPE_CAMERA_P2;
 	struct clk *CLK_CAMSYS_IPE_FUS_CAMERA_P2;
@@ -1514,7 +1514,7 @@ static int DPE_cmdq_buf_idx;
 #define DPE_MAX_REG_CNT              (0xBE0 >> 2)
 
 static struct clk_bulk_data isp8_dpe_clks[] = {
-	{ .id = "CLK_CK2_DPE_SEL" },
+	// { .id = "CLK_CK2_DPE_SEL" },
 	{ .id = "CLK_CAM_MAIN_CAM" },
 	{ .id = "CLK_CAMSYS_IPE_DPE" },
 	{ .id = "CLK_CAMSYS_IPE_FUS" },
@@ -6604,9 +6604,9 @@ static inline int DPE_Prepare_Enable_ccf_clock(void)
 
 	mtk_cam_bwr_enable(dpe_bwr_device);
 
-	ret = clk_prepare_enable(dpe_clk.CLK_CK2_DPE_SEL);
-	if (ret)
-		LOG_INF("cannot prepare and enable CLK_CK2_DPE_SEL clock\n");
+	// ret = clk_prepare_enable(dpe_clk.CLK_CK2_DPE_SEL);
+	// if (ret)
+	// LOG_INF("cannot prepare and enable CLK_CK2_DPE_SEL clock\n");
 
 	ret = clk_prepare_enable(dpe_clk.CLK_CAM_MAIN_CAM);
 	if (ret)
@@ -6644,7 +6644,7 @@ static inline void DPE_Disable_Unprepare_ccf_clock(void)
 	clk_disable_unprepare(dpe_clk.CLK_CAMSYS_IPE_FUS_CAMERA_P2);
 	clk_disable_unprepare(dpe_clk.CLK_CAMSYS_IPE_DPE_CAMERA_P2);
 	clk_disable_unprepare(dpe_clk.CLK_CAM_MAIN_CAM);
-	clk_disable_unprepare(dpe_clk.CLK_CK2_DPE_SEL);
+	// clk_disable_unprepare(dpe_clk.CLK_CK2_DPE_SEL);
 
 	mtk_cam_bwr_disable(dpe_bwr_device);
 
@@ -8801,10 +8801,10 @@ if (DPE_dev->irq > 0) {
 ///
 
 // #if CHECK_SERVICE_IF_0
-		dpe_clk.CLK_CK2_DPE_SEL = devm_clk_get(&pDev->dev,
-							"CLK_CK2_DPE_SEL");
-		if (IS_ERR(dpe_clk.CLK_CK2_DPE_SEL))
-			LOG_ERR("cannot get CLK_CK2_DPE_SEL clock\n");
+		// dpe_clk.CLK_CK2_DPE_SEL = devm_clk_get(&pDev->dev,
+		// "CLK_CK2_DPE_SEL");
+		// if (IS_ERR(dpe_clk.CLK_CK2_DPE_SEL))
+		// LOG_ERR("cannot get CLK_CK2_DPE_SEL clock\n");
 
 		dpe_clk.CLK_CAM_MAIN_CAM = devm_clk_get(&pDev->dev,
 							"CLK_CAM_MAIN_CAM");

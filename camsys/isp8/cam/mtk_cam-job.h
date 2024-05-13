@@ -234,6 +234,7 @@ struct mtk_cam_job_state {
 	 */
 	bool apply_by_fsm;
 	bool compose_by_fsm;
+	bool bypass_by_aewa;
 
 	/* for different sensor latched timing */
 	struct sensor_apply_params s_params;

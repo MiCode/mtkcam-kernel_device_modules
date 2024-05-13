@@ -232,7 +232,7 @@ static inline bool valid_cq_execution_ref_sof(struct transition_param *p)
 }
 
 static inline bool valid_cq_execution_avoid_race_with_topirq(
-	struct transition_param *p)
+	struct state_accessor *s_acc, struct transition_param *p)
 {
 	bool ret = false;
 
@@ -240,6 +240,7 @@ static inline bool valid_cq_execution_avoid_race_with_topirq(
 		return ret;
 	if (p->info->ae_wa_enable == 0)
 		return true;
+
 	ret = (p->event_ts - p->info->sof_l_ts_ns) > SCQ_THRES_FOR_AEWA ? false : true;
 
 	if (ret == false)
@@ -249,13 +250,16 @@ static inline bool valid_cq_execution_avoid_race_with_topirq(
 
 	return ret;
 }
-static inline bool valid_cq_execution_threaded_irq_race_with_topirq(struct transition_param *p)
+static inline bool valid_cq_execution_threaded_irq_race_with_topirq(
+	struct state_accessor *s_acc, struct transition_param *p)
 {
 	bool ret = true;
 
 	if (unlikely(!p->s_params))
 		return false;
 	if (p->info->ae_wa_enable == 0)
+		return true;
+	if (s_acc->s->bypass_by_aewa == 0)
 		return true;
 	/* for case that one engines lost sof signal case */
 	if ((p->info->sof_l_ts_ns - p->info->sof_ts_ns) > 30000000 &&
@@ -333,7 +337,7 @@ static inline int guard_apply_isp(struct state_accessor *s_acc,
 		ops_call(s_acc, prev_allow_apply_isp) &&
 		current_sensor_ready(s_acc) &&
 			valid_cq_execution(p) &&
-			valid_cq_execution_threaded_irq_race_with_topirq(p);
+			valid_cq_execution_threaded_irq_race_with_topirq(s_acc, p);
 }
 
 static inline int guard_apply_m2m(struct state_accessor *s_acc,
@@ -354,7 +358,7 @@ static inline int guard_ack_apply_directly(struct state_accessor *s_acc,
 {
 	return guard_ack_eq(s_acc, p) && guard_apply_isp(s_acc, p) &&
 			valid_cq_execution(p) &&
-			valid_cq_execution_avoid_race_with_topirq(p);
+			valid_cq_execution_avoid_race_with_topirq(s_acc, p);
 }
 
 static inline int guard_ack_apply_directly_ref_sof(struct state_accessor *s_acc,

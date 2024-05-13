@@ -255,6 +255,7 @@ int mtk_cam_job_state_init_basic(struct mtk_cam_job_state *s,
 	s->cb = cb;
 	s->apply_by_fsm = 1;
 	s->compose_by_fsm = 1;
+	s->bypass_by_aewa = 0;
 
 	if (s->s_params.latched_timing == SENSOR_LATCHED_L_SOF)
 		s->sensor_tbl = &basic_sensor_l_tbl;

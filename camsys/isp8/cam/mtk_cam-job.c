@@ -2103,9 +2103,10 @@ static int apply_engines_cq(struct mtk_cam_job *job,
 
 	mtk_cam_apply_qos(job);
 	ctx->cam_ctrl.frame_sync_id = job->req_info_id;
-	dev_info(ctx->cam->dev, "[%s] ctx-%d CQ-0x%x(%d) cq_eng 0x%lx used_eng 0x%lx (%s)[rms_dis:%d] cq_thr(%llu) ts(%llu);%s\n",
+	dev_info(ctx->cam->dev, "[%s] ctx-%d CQ-0x%x(%d) cq_eng 0x%lx used_eng 0x%lx (%s)[rms_dis:%d] cq_thr(%llu) ts(%llu) ref_sof(%llu);%s\n",
 		__func__, ctx->stream_id, frame_seq_no, job->req_info_id, cq_engine,
-		used_engine, job->scen_str, job->rms_disable, job->job_state.cq_trigger_thres_ns, ts,
+		used_engine, job->scen_str, job->rms_disable, job->job_state.cq_trigger_thres_ns,
+		ts, job->job_state.reference_sof_ns,
 		raw_dev ? raw_dev->str_debug_irq_data : "");
 
 	qof_dump_ctx(ctx, qof_dump_cq_addr);
@@ -2133,6 +2134,31 @@ static void handle_rms_enable(struct mtk_cam_job *job)
 			job->src_ctx, &job->src_ctx->cam->engines,
 			job->used_engine, 1);
 	}
+}
+
+#define CQ_THRES_AEWA 3000000 // 3ms
+static void check_avoid_cq_race_aewa(struct mtk_cam_job *job)
+{
+	struct mtk_cam_ctx *ctx = job->src_ctx;
+	u64 ts_diff = ktime_get_boottime_ns() - ctx->cam_ctrl.r_info.sof_l_ts_ns;
+	u64 ts_diff_check = ctx->cam_ctrl.frame_interval_ns - CQ_THRES_AEWA;
+	unsigned long timeout = msecs_to_jiffies(4);
+
+	if (ctx->cam_ctrl.r_info.ae_wa_enable &&
+		!is_dc_mode(job) && job_exp_num(job) == 1)
+		job->job_state.bypass_by_aewa = 1;
+	else
+		job->job_state.bypass_by_aewa = 0;
+
+	if (job->job_state.bypass_by_aewa &&
+		(ts_diff > ts_diff_check)) {
+		/* wait timeout */
+		if (!wait_for_completion_timeout(&job->compose_completion, timeout)) {
+			pr_info("[%s] enque delay for WA. ctx-%d seq:%d(%d)\n", __func__,
+				ctx->stream_id, job->frame_seq_no, job->req_info_id);
+		}
+	}
+
 }
 
 static int _apply_cq(struct mtk_cam_job *job)
@@ -2986,6 +3012,8 @@ _job_pack_normal(struct mtk_cam_job *job,
 	update_job_used_engine(job);
 
 	ret = mtk_cam_job_fill_ipi_frame(job, job_helper);
+
+	check_avoid_cq_race_aewa(job);
 
 	return ret;
 }

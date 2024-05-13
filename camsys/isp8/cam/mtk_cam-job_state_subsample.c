@@ -186,6 +186,7 @@ int mtk_cam_job_state_init_subsample(struct mtk_cam_job_state *s,
 	s->cb = cb;
 	s->apply_by_fsm = 1;
 	s->compose_by_fsm = 1;
+	s->bypass_by_aewa = 0;
 
 	return 0;
 }

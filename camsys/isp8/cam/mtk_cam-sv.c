@@ -277,12 +277,20 @@ static int sv_process_fsm(struct mtk_camsv_device *sv_dev,
 		}
 	}
 
-	if (recovered)
+	if (recovered) {
 		dev_info(sv_dev->dev, "recovered done 0x%x in/out: 0x%x 0x%x\n",
 			 *recovered_done,
 			 irq_info->frame_idx_inner,
 			 irq_info->frame_idx);
-
+		writel(0xDEADBEEF, sv_dev->base + REG_CAMSVCENTRAL_CAMSV_SPARE0);
+		dev_info(sv_dev->dev, "camsv spare reigister WR test write 0xDEADBEEF, read 0x%x",
+			readl(sv_dev->base + REG_CAMSVCENTRAL_CAMSV_SPARE0));
+		if (sv_dev->debug_use_mraw_out_base && sv_dev->debug_use_mraw_in_base) {
+			dev_info(sv_dev->dev, "mraw frame_no in/out 0x%x_0x%x\n",
+				readl(sv_dev->debug_use_mraw_in_base + REG_MRAW_FHG_SPARE3),
+				readl(sv_dev->debug_use_mraw_out_base + REG_MRAW_FHG_SPARE3));
+		}
+	}
 	return recovered;
 }
 

@@ -210,6 +210,9 @@ struct mtk_camsv_device {
 	atomic_t enable_fifo_detect;
 	atomic_t is_fifo_full;
 
+	void __iomem *debug_use_mraw_out_base;
+	void __iomem *debug_use_mraw_in_base;
+
 };
 
 void sv_reset(struct mtk_camsv_device *sv_dev);

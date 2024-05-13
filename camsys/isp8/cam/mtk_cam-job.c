@@ -509,6 +509,9 @@ static unsigned long mtk_cam_select_hw(struct mtk_cam_job *job)
 		dev_info(cam->dev, "skip camsv select in hw offline scen(%d)\n",
 				 job->job_scen.id);
 	} else if (selected) {
+		struct device *dev;
+		struct mtk_camsv_device *sv_dev;
+
 		/* if has raw */
 		int raw_idx = get_master_raw_id(selected);
 
@@ -523,13 +526,18 @@ static unsigned long mtk_cam_select_hw(struct mtk_cam_job *job)
 			selected = 0;
 			goto SELECT_HW_FAILED;
 		}
-
+		dev = cam->engines.sv_devs[raw_idx];
+		sv_dev = dev_get_drvdata(dev);
+		sv_dev->debug_use_mraw_out_base = NULL;
+		sv_dev->debug_use_mraw_in_base = NULL;
 		selected |= bit_map_bit(MAP_HW_CAMSV, raw_idx);
 		dev_info(cam->dev,
 			 "select sv hw end (raw_idx:%d/sv_available:0x%lx/selected:0x%lx)\n",
 			 raw_idx, sv_available, selected);
 	} else {
 		int rsv_id = GET_PLAT_V4L2(reserved_camsv_dev_id);
+		struct device *dev;
+		struct mtk_camsv_device *sv_dev;
 
 		if (!(sv_available & BIT(rsv_id))) {
 			dev_info(cam->dev,
@@ -538,24 +546,34 @@ static unsigned long mtk_cam_select_hw(struct mtk_cam_job *job)
 			selected = 0;
 			goto SELECT_HW_FAILED;
 		}
-
+		dev = cam->engines.sv_devs[rsv_id];
+		sv_dev = dev_get_drvdata(dev);
+		sv_dev->debug_use_mraw_out_base = NULL;
+		sv_dev->debug_use_mraw_in_base = NULL;
 		selected |= bit_map_bit(MAP_HW_CAMSV, rsv_id);
 	}
 
 	/* mraw */
 	for (i =  0; i < ctx->num_mraw_subdevs; i++) {
 		int mraw_idx;
+		int sv_engine, sv_idx;
 
 		mraw_idx = ctx->mraw_subdev_idx[i];
 		if (mraw_available & BIT(mraw_idx)) {
 			struct device *dev;
 			struct mtk_mraw_device *mraw_dev;
+			struct mtk_camsv_device *sv_dev;
 
 			selected |= bit_map_bit(MAP_HW_MRAW, mraw_idx);
-
+			sv_engine = bit_map_subset_of(MAP_HW_CAMSV, selected);
+			sv_idx = find_first_bit_set(sv_engine);
 			dev = cam->engines.mraw_devs[mraw_idx];
 			mraw_dev = dev_get_drvdata(dev);
+			dev = cam->engines.sv_devs[sv_idx];
+			sv_dev = dev_get_drvdata(dev);
 			mraw_dev->pipeline = &cam->pipelines.mraw[mraw_idx];
+			sv_dev->debug_use_mraw_out_base = mraw_dev->base;
+			sv_dev->debug_use_mraw_in_base = mraw_dev->base_inner;
 		}
 	}
 

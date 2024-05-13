@@ -234,6 +234,11 @@ int common_get_csi_param(struct subdrv_ctx *ctx,
 int common_update_sof_cnt(struct subdrv_ctx *ctx, u32 sof_cnt);
 int common_parse_ebd_line(struct subdrv_ctx *ctx, struct mtk_recv_sensor_ebd_line *data,
 	struct mtk_ebd_dump *obj);
+void common_get_prsh_length_lines_by_time(struct subdrv_ctx *ctx,
+	struct mtk_hdr_ae *ae_ctrl,
+	enum SENSOR_SCENARIO_ID_ENUM pre_seamless_scenario_id,
+	enum SENSOR_SCENARIO_ID_ENUM scenario_id,
+	int time_ms);
 
 extern int read_cam_cal(unsigned int sensor_id, unsigned char *buf,
 	unsigned int offset, unsigned int size);

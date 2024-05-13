@@ -4837,6 +4837,11 @@ static struct subdrv_static_ctx static_ctx = {
 	.reg_addr_frame_count = 0x0005,
 	.reg_addr_fast_mode = 0x3010,
 	.reg_addr_fast_mode_in_lbmf = 0x3248,
+	.seamless_switch_prsh_hw_fixed_value = 72,
+	.seamless_switch_prsh_length_lc = 0,
+	.reg_addr_prsh_length_lines = {0x3059, 0x305a, 0x305b},
+	.reg_addr_prsh_mode = 0x3056,
+
 
 	.init_setting_table = imx989_init_setting,
 	.init_setting_len = ARRAY_SIZE(imx989_init_setting),
@@ -5027,11 +5032,13 @@ static u16 get_gain2reg(u32 gain)
 static int imx989_seamless_switch(struct subdrv_ctx *ctx, u8 *para, u32 *len)
 {
 	enum SENSOR_SCENARIO_ID_ENUM scenario_id;
+	enum SENSOR_SCENARIO_ID_ENUM current_scenario_id;
 	struct mtk_hdr_ae *ae_ctrl = NULL;
 	u64 *feature_data = (u64 *)para;
 	u32 frame_length_in_lut[IMGSENSOR_STAGGER_EXPOSURE_CNT] = {0};
 	u32 exp_cnt = 0;
 
+	current_scenario_id = ctx->current_scenario_id;
 	if (feature_data == NULL) {
 		DRV_LOGE(ctx, "input scenario is null!");
 		return ERROR_NONE;
@@ -5102,7 +5109,28 @@ static int imx989_seamless_switch(struct subdrv_ctx *ctx, u8 *para, u32 *len)
 			set_gain(ctx, ae_ctrl->gain.le_gain);
 			break;
 		}
+		/* the time between the end of last frame readout and the next vsync need greater than 10ms */
+		common_get_prsh_length_lines_by_time(ctx, ae_ctrl, current_scenario_id, scenario_id, 10);
 	}
+
+	if (ctx->s_ctx.seamless_switch_prsh_length_lc > 0) {
+		subdrv_i2c_wr_u8(ctx, ctx->s_ctx.reg_addr_prsh_mode, 0x01);
+
+		subdrv_i2c_wr_u8(ctx,
+				ctx->s_ctx.reg_addr_prsh_length_lines.addr[0],
+				(ctx->s_ctx.seamless_switch_prsh_length_lc >> 16) & 0xFF);
+		subdrv_i2c_wr_u8(ctx,
+				ctx->s_ctx.reg_addr_prsh_length_lines.addr[1],
+				(ctx->s_ctx.seamless_switch_prsh_length_lc >> 8)  & 0xFF);
+		subdrv_i2c_wr_u8(ctx,
+				ctx->s_ctx.reg_addr_prsh_length_lines.addr[2],
+				(ctx->s_ctx.seamless_switch_prsh_length_lc) & 0xFF);
+
+		DRV_LOG_MUST(ctx, "seamless switch pre-shutter set(%u)\n",
+			ctx->s_ctx.seamless_switch_prsh_length_lc);
+	} else
+		subdrv_i2c_wr_u8(ctx, ctx->s_ctx.reg_addr_prsh_mode, 0x00);
+
 	subdrv_i2c_wr_u8(ctx, 0x0104, 0x00);
 
 	ctx->fast_mode_on = TRUE;
@@ -5195,6 +5223,7 @@ static int vsync_notify(struct subdrv_ctx *ctx,	unsigned int sof_cnt)
 		ctx->fast_mode_on = FALSE;
 		ctx->ref_sof_cnt = 0;
 		DRV_LOG(ctx, "seamless_switch disabled.");
+		subdrv_i2c_wr_u8(ctx, ctx->s_ctx.reg_addr_prsh_mode, 0x00);
 		set_i2c_buffer(ctx, ctx->s_ctx.reg_addr_fast_mode, 0x00);
 		commit_i2c_buffer(ctx);
 	}

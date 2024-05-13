@@ -2322,7 +2322,10 @@ static void dump_job_info(struct mtk_cam_job *job)
 	struct mtk_cam_request *req = job->req;
 	struct mtk_cam_buffer *buf;
 	struct mtk_cam_video_device *node;
+	struct mtkcam_ipi_frame_param *fp = NULL;
+	int i;
 
+	fp = (struct mtkcam_ipi_frame_param *)job->ipi.vaddr;
 	dev_info(dev, "%s: ctx-%d pipe %x job type %d req-%d-0x%x eng %x\n",
 		 __func__,
 		 ctx->stream_id, ctx->used_pipe,
@@ -2334,6 +2337,18 @@ static void dump_job_info(struct mtk_cam_job *job)
 		 __func__,
 		 atomic_long_read(&job->done_set), job->done_handled,
 		 atomic_long_read(&job->afo_done));
+	/* working buffer iova */
+	if (fp) {
+		for (i = 0; i < CAM_MAX_IMAGE_INPUT; i++) {
+			dev_info(dev, "%s:img_in[%d] uid/fmt/size/iova:%d/%d/%d/0x%llx",
+				__func__,
+				i, fp->img_ins[i].uid.id,
+				fp->img_ins[i].fmt.format,
+				fp->img_ins[i].buf[0].size,
+				fp->img_ins[i].buf[0].iova);
+		}
+	}
+	/* user buffer iova*/
 	list_for_each_entry(buf, &req->buf_list, list) {
 		if (buf->vbb.vb2_buf.vb2_queue &&
 			mtk_cam_job_is_done(job) == false) {

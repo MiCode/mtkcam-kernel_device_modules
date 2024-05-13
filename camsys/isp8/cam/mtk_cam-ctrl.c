@@ -1409,6 +1409,7 @@ static void mtk_cam_ctrl_dynamic_raws_change_flow(struct mtk_cam_job *job)
 SWITCH_FAILURE:
 	dev_info(dev, "[%s] failed: ctx-%d job %d frame_seq 0x%x\n",
 		 __func__, ctx->stream_id, job->req_seq, job->frame_seq_no);
+	vsync_collector_dump(&ctrl->vsync_col);
 	mtk_cam_seninf_dump(ctx->seninf, job->frame_seq_no, true);
 	mtk_engine_dump_debug_status(ctx->cam, job->used_engine, false);
 	WRAP_AEE_EXCEPTION(MSG_RAW_CHANGE_FAILURE, __func__);
@@ -1554,7 +1555,7 @@ static void mtk_cam_ctrl_seamless_switch_flow(struct mtk_cam_job *job)
 SWITCH_FAILURE:
 	dev_info(dev, "[%s] failed: ctx-%d job %d frame_seq 0x%x\n",
 		 __func__, ctx->stream_id, job->req_seq, job->frame_seq_no);
-
+	vsync_collector_dump(&ctrl->vsync_col);
 	WRAP_AEE_EXCEPTION(MSG_SWITCH_FAILURE, __func__);
 	for (i = 0; i < cam->engines.num_raw_devices; i++) {
 		if (BIT(i) & raw_all) {

@@ -233,6 +233,38 @@ void diable_rms_module(struct mtk_raw_device *raw)
 	basic_writel(raw, 0x0, rms->base, REG_CAMCTL3_MOD5_EN);
 	basic_writel(raw, 0x0, rms->base, REG_CAMCTL3_MOD6_EN);
 }
+static void dump_dmai_reg(struct mtk_raw_device *dev)
+{
+	u32 caci_base, caci_base_m, caci_oft, caci_oft_m, caci_xsize, caci_ysize, caci_stride;
+	u32 rawi5_base, rawi5_base_m, rawi5_oft, rawi5_oft_m, rawi5_xsize, rawi5_ysize, rawi5_stride;
+
+	caci_base = raw_readl_relaxed(dev, dev->dmatop_base_inner, 0x0bc0);
+	caci_base_m = raw_readl_relaxed(dev, dev->dmatop_base_inner, 0x0bc4);
+	caci_oft = raw_readl_relaxed(dev, dev->dmatop_base_inner, 0x0bc8);
+	caci_oft_m = raw_readl_relaxed(dev, dev->dmatop_base_inner, 0x0bcc);
+	caci_xsize = raw_readl_relaxed(dev, dev->dmatop_base_inner, 0x0bd0);
+	caci_ysize = raw_readl_relaxed(dev, dev->dmatop_base_inner, 0x0bd4);
+	caci_stride = raw_readl_relaxed(dev, dev->dmatop_base_inner, 0x0bd8);
+
+	dev_info(dev->dev,
+		"[%s] raw%d - caci [in] 0x%x/0x%x/0x%x/0x%x/0x%x/0x%x/0x%x\n",
+		__func__, dev->id, caci_base, caci_base_m, caci_oft,
+		caci_oft_m, caci_xsize, caci_ysize, caci_stride);
+	rawi5_base = raw_readl_relaxed(dev, dev->dmatop_base_inner, 0x0820);
+	rawi5_base_m = raw_readl_relaxed(dev, dev->dmatop_base_inner, 0x0824);
+	rawi5_oft = raw_readl_relaxed(dev, dev->dmatop_base_inner, 0x0828);
+	rawi5_oft_m = raw_readl_relaxed(dev, dev->dmatop_base_inner, 0x082c);
+	rawi5_xsize = raw_readl_relaxed(dev, dev->dmatop_base_inner, 0x0830);
+	rawi5_ysize = raw_readl_relaxed(dev, dev->dmatop_base_inner, 0x0834);
+	rawi5_stride = raw_readl_relaxed(dev, dev->dmatop_base_inner, 0x0838);
+
+	dev_info(dev->dev,
+		"[%s] raw%d - rawi5 [in] 0x%x/0x%x/0x%x/0x%x/0x%x/0x%x/0x%x\n",
+		__func__, dev->id, rawi5_base, rawi5_base_m, rawi5_oft,
+		rawi5_oft_m, rawi5_xsize, rawi5_ysize, rawi5_stride);
+
+}
+
 static void dump_rms_reg(struct mtk_raw_device *dev)
 {
 	struct mtk_rms_device *rms = get_rms_dev(dev);
@@ -3350,6 +3382,7 @@ int raw_dump_debug_status(struct mtk_raw_device *dev, bool is_srt)
 	dump_dmatop_dc_st(dev);
 	dump_interrupt(dev);
 	dump_rms_reg(dev);
+	dump_dmai_reg(dev);
 	dump_ae_reg(dev, 1);
 	dump_awb_reg(dev, 1);
 

@@ -529,6 +529,8 @@ struct subdrv_ctx {
 
 	/* for MCSS */
 	struct mtk_fsync_hw_mcss_init_info mcss_init_info;
+
+	struct mutex i2c_buffer_lock;
 };
 
 struct subdrv_feature_control {

@@ -1460,6 +1460,8 @@ static int imgsensor_probe(struct i3c_i2c_device *client)
 
 	mutex_init(&ctx->mutex);
 	mutex_init(&ctx->ebd_lock);
+	mutex_init(&ctx->subctx.i2c_buffer_lock);
+
 
 	if (sentest_probe_init(ctx))
 		adaptor_loge(ctx, "sentest_probe_init return failed\n");

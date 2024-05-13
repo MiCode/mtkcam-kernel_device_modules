@@ -156,10 +156,14 @@ static void dump_i2c_buf(struct subdrv_ctx *ctx)
 void commit_i2c_buffer(struct subdrv_ctx *ctx)
 {
 	if (ctx->_size_to_write && !ctx->fast_mode_on) {
+		mutex_lock(&ctx->i2c_buffer_lock);
+
 		subdrv_ixc_wr_regs_u8(ctx, ctx->_i2c_data, ctx->_size_to_write);
 		DUMP_I2C_BUF_IF_DEBUG(ctx);
 		memset(ctx->_i2c_data, 0x0, sizeof(ctx->_i2c_data));
 		ctx->_size_to_write = 0;
+
+		mutex_unlock(&ctx->i2c_buffer_lock);
 	}
 }
 
@@ -169,9 +173,12 @@ void set_i2c_buffer(struct subdrv_ctx *ctx, u16 reg, u16 val)
 		DRV_LOGE(ctx, "i2c buffer is full and forced to commit\n");
 		commit_i2c_buffer(ctx);
 	}
+
 	if (!ctx->fast_mode_on) {
+		mutex_lock(&ctx->i2c_buffer_lock);
 		ctx->_i2c_data[ctx->_size_to_write++] = reg;
 		ctx->_i2c_data[ctx->_size_to_write++] = val;
+		mutex_unlock(&ctx->i2c_buffer_lock);
 	}
 }
 

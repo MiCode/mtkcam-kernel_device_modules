@@ -90,7 +90,11 @@ static int mtk_imgsys_subdev_get_fmt(struct v4l2_subdev *sd,
 	if (fmt->which == V4L2_SUBDEV_FORMAT_ACTIVE) {
 		fmt->format = imgsys_pipe->nodes[pad].pad_fmt;
 	} else {
+#if (KERNEL_VERSION(6, 8, 0) > LINUX_VERSION_CODE)
 		mf = v4l2_subdev_get_try_format(sd, state, pad);
+#else
+		mf = v4l2_subdev_state_get_format(state, pad);
+#endif
 		fmt->format = *mf;
 	}
 
@@ -117,7 +121,11 @@ static int mtk_imgsys_subdev_set_fmt(struct v4l2_subdev *sd,
 		fmt->format.width, fmt->format.height);
 
 	if (fmt->which == V4L2_SUBDEV_FORMAT_TRY)
+#if (KERNEL_VERSION(6, 8, 0) > LINUX_VERSION_CODE)
 		mf = v4l2_subdev_get_try_format(sd, state, pad);
+#else
+		mf = v4l2_subdev_state_get_format(state, pad);
+#endif
 	else
 		mf = &imgsys_pipe->nodes[pad].pad_fmt;
 
@@ -169,7 +177,11 @@ static int mtk_imgsys_subdev_get_selection(struct v4l2_subdev *sd,
 
 	switch (sel->target) {
 	case V4L2_SEL_TGT_CROP:
+#if (KERNEL_VERSION(6, 8, 0) > LINUX_VERSION_CODE)
 		try_sel = v4l2_subdev_get_try_crop(sd, state, sel->pad);
+#else
+		try_sel = v4l2_subdev_state_get_crop(state, sel->pad);
+#endif
 		/* effective resolution */
 		r = &imgsys_pipe->nodes[sel->pad].crop;
 		break;
@@ -214,7 +226,11 @@ static int mtk_imgsys_subdev_set_selection(struct v4l2_subdev *sd,
 
 	switch (sel->target) {
 	case V4L2_SEL_TGT_CROP:
+#if (KERNEL_VERSION(6, 8, 0) > LINUX_VERSION_CODE)
 		try_sel = v4l2_subdev_get_try_crop(sd, state, sel->pad);
+#else
+		try_sel = v4l2_subdev_state_get_crop(state, sel->pad);
+#endif
 		rect = &imgsys_pipe->nodes[sel->pad].crop;
 		break;
 	default:
@@ -2886,7 +2902,11 @@ static int mtk_imgsys_video_device_v4l2_register(struct mtk_imgsys_pipe *pipe,
 	vbq->supports_requests = true;
 	vbq->buf_struct_size = sizeof(struct mtk_imgsys_dev_buffer);
 	vbq->timestamp_flags = V4L2_BUF_FLAG_TIMESTAMP_COPY;
+#if (KERNEL_VERSION(6, 8, 0) > LINUX_VERSION_CODE)
 	vbq->min_buffers_needed = 0;
+#else
+	vbq->min_queued_buffers = 0;
+#endif
 	vbq->drv_priv = pipe;
 	vbq->lock = &node->dev_q.lock;
 

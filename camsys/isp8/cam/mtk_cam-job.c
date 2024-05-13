@@ -171,7 +171,6 @@ static int handle_cq_done(struct mtk_cam_job *job)
 	int ret = 0;
 
 	job->local_ispdone_ts = local_clock();
-	ctx->cam_ctrl.frame_sync_id = job->req_info_id;
 	if (job->first_job || job->first_frm_switch)
 		goto EXIT;
 
@@ -2103,9 +2102,9 @@ static int apply_engines_cq(struct mtk_cam_job *job,
 	ts = local_clock();
 
 	mtk_cam_apply_qos(job);
-
-	dev_info(ctx->cam->dev, "[%s] ctx-%d CQ-0x%x cq_eng 0x%lx used_eng 0x%lx (%s)[rms_dis:%d] cq_thr(%llu) ts(%llu);%s\n",
-		__func__, ctx->stream_id, frame_seq_no, cq_engine,
+	ctx->cam_ctrl.frame_sync_id = job->req_info_id;
+	dev_info(ctx->cam->dev, "[%s] ctx-%d CQ-0x%x(%d) cq_eng 0x%lx used_eng 0x%lx (%s)[rms_dis:%d] cq_thr(%llu) ts(%llu);%s\n",
+		__func__, ctx->stream_id, frame_seq_no, job->req_info_id, cq_engine,
 		used_engine, job->scen_str, job->rms_disable, job->job_state.cq_trigger_thres_ns, ts,
 		raw_dev ? raw_dev->str_debug_irq_data : "");
 

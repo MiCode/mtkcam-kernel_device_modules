@@ -779,8 +779,10 @@ void toggle_db(struct mtk_raw_device *dev)
 	val = raw_readl(dev, dev->base, REG_CAMCTL_DB_LOAD_CTL1);
 	raw_writel(val | FBIT(CAMCTL_DB_EN), dev, dev->base, REG_CAMCTL_DB_LOAD_CTL1);
 
-	dev_info(dev->dev, "%s: 0x%x\n", __func__,
-		raw_readl(dev, dev->base, REG_CAMCTL_DB_LOAD_CTL1));
+	dev_info(dev->dev, "%s: 0x%x seq:0x%x/0x%x\n", __func__,
+		raw_readl(dev, dev->base, REG_CAMCTL_DB_LOAD_CTL1),
+		raw_readl_relaxed(dev, dev->base, REG_FHG_FHG_SPARE_1),
+		raw_readl_relaxed(dev, dev->base_inner, REG_FHG_FHG_SPARE_1));
 }
 
 
@@ -856,12 +858,26 @@ void rwfbc_inc_setup(struct mtk_raw_device *dev)
 			 __func__, wfbc_en_raw, wfbc_en_yuv,
 			raw_readl_relaxed(dev, dev->base, REG_FHG_FHG_SPARE_1),
 			raw_readl_relaxed(dev, dev->base_inner, REG_FHG_FHG_SPARE_1));
+	if (CAM_DEBUG_ENABLED(RAW_INT))
+		dev_info(dev->dev, "[%s] (CTRL_SIG_SEL, SEL, SEL2, SEL3) out/in:(0x%x/0x%x,0x%x/0x%x,0x%x/0x%x,0x%x/0x%x)\n",
+		__func__,
+		raw_readl_relaxed(dev, dev->base, REG_CAMCTL_CTRL_SIG_SEL),
+		raw_readl_relaxed(dev, dev->base_inner, REG_CAMCTL_CTRL_SIG_SEL),
+		raw_readl_relaxed(dev, dev->base, REG_CAMCTL_SEL),
+		raw_readl_relaxed(dev, dev->base_inner, REG_CAMCTL_SEL),
+		raw_readl_relaxed(dev, dev->base, REG_CAMCTL_SEL2),
+		raw_readl_relaxed(dev, dev->base_inner, REG_CAMCTL_SEL2),
+		raw_readl_relaxed(dev, dev->base, REG_CAMCTL_SEL3),
+		raw_readl_relaxed(dev, dev->base_inner, REG_CAMCTL_SEL3));
+	if (CAM_DEBUG_ENABLED(RAW_INT))
+		dump_dc_setting(dev);
 }
 void set_sig_sel_master(struct mtk_raw_device *dev)
 {
 	unsigned int camctl_sel3 = raw_readl_relaxed(dev, dev->base, REG_CAMCTL_SEL3);
 
 	raw_writel(0x0, dev, dev->base, REG_CAMCTL_CTRL_SIG_SEL);
+	/* sig_sel -> cq -> toggle db -> failed */
 	raw_writel(0x0, dev, dev->base_inner, REG_CAMCTL_CTRL_SIG_SEL);
 	if (dev->id == RAW_C) {
 		raw_writel(camctl_sel3 | 0x0, dev, dev->base, REG_CAMCTL_SEL3);
@@ -876,23 +892,38 @@ void set_sig_sel_master(struct mtk_raw_device *dev)
 		raw_readl_relaxed(dev, dev->base_inner, REG_CAMCTL_SEL3));
 }
 
+void set_dcif_en_slave(struct mtk_raw_device *dev)
+{
+	raw_writel(0x1, dev, dev->base, REG_CAMCTL_DCIF2_CTL);
+	raw_writel(0x1, dev, dev->base_inner, REG_CAMCTL_DCIF2_CTL);
+
+	dev_info(dev->dev, "[%s] (DCIF_CTL, DCIF_CTL2) out/in:(0x%x/0x%x, 0x%x/0x%x)\n",
+		__func__,
+		raw_readl_relaxed(dev, dev->base, REG_CAMCTL_DCIF_CTL),
+		raw_readl_relaxed(dev, dev->base_inner, REG_CAMCTL_DCIF_CTL),
+		raw_readl_relaxed(dev, dev->base, REG_CAMCTL_DCIF2_CTL),
+		raw_readl_relaxed(dev, dev->base_inner, REG_CAMCTL_DCIF2_CTL));
+}
+
 void set_sig_sel_slave(struct mtk_raw_device *dev)
 {
 	unsigned int camctl_sel3 = raw_readl_relaxed(dev, dev->base, REG_CAMCTL_SEL3);
 
 	raw_writel(0x1, dev, dev->base, REG_CAMCTL_CTRL_SIG_SEL);
 	raw_writel(0x1, dev, dev->base_inner, REG_CAMCTL_CTRL_SIG_SEL);
+
 	if (dev->id == RAW_C) {
 		raw_writel(camctl_sel3 | 0x1, dev, dev->base, REG_CAMCTL_SEL3);
 		raw_writel(camctl_sel3 | 0x1, dev, dev->base_inner, REG_CAMCTL_SEL3);
 	}
-	dev_info(dev->dev, "[%s] (CTRL_SIG_SEL, SEL3) out/in:(0x%x/0x%x, 0x%x->0x%x/0x%x)\n",
+	dev_info(dev->dev, "[%s] (CTRL_SIG_SEL, SEL3, SEL) out/in:(0x%x/0x%x, 0x%x/0x%x, 0x%x/0x%x)\n",
 		__func__,
 		raw_readl_relaxed(dev, dev->base, REG_CAMCTL_CTRL_SIG_SEL),
 		raw_readl_relaxed(dev, dev->base_inner, REG_CAMCTL_CTRL_SIG_SEL),
-		camctl_sel3,
 		raw_readl_relaxed(dev, dev->base, REG_CAMCTL_SEL3),
-		raw_readl_relaxed(dev, dev->base_inner, REG_CAMCTL_SEL3));
+		raw_readl_relaxed(dev, dev->base_inner, REG_CAMCTL_SEL3),
+		raw_readl_relaxed(dev, dev->base, REG_CAMCTL_SEL),
+		raw_readl_relaxed(dev, dev->base_inner, REG_CAMCTL_SEL));
 }
 
 void check_master_raw_vf_en(struct mtk_raw_device *dev)

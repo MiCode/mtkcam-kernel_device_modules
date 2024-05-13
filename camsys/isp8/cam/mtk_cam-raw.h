@@ -181,6 +181,7 @@ void enable_tg_db(struct mtk_raw_device *dev, int en);
 void rwfbc_inc_setup(struct mtk_raw_device *dev);
 void set_sig_sel_master(struct mtk_raw_device *dev);
 void set_sig_sel_slave(struct mtk_raw_device *dev);
+void set_dcif_en_slave(struct mtk_raw_device *dev);
 void check_master_raw_vf_en(struct mtk_raw_device *dev);
 
 

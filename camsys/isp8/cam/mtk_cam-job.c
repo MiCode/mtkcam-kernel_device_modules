@@ -162,7 +162,6 @@ static int check_processing(struct mtk_cam_job *job)
 	return 0;
 }
 
-
 static int handle_cq_done(struct mtk_cam_job *job)
 {
 	struct mtk_cam_ctx *ctx = job->src_ctx;
@@ -2025,18 +2024,10 @@ static int _apply_cq_extisp_procraw(struct mtk_cam_job *job)
 	return 0;
 }
 
-static int apply_engines_cq(struct mtk_cam_job *job,
-			    int frame_seq_no,
-			    struct mtk_cam_pool_buffer *cq,
-			    struct mtkcam_ipi_frame_ack_result *cq_rst)
+static int raw_change_handle_before_cq(struct mtk_cam_job *job)
 {
 	struct mtk_cam_ctx *ctx = job->src_ctx;
-	struct mtk_raw_device *raw_dev = NULL;
-	int raw_id;
-	unsigned long cq_engine, used_engine, sv_engine;
-	unsigned long subset;
 	int i;
-	u64 ts;
 
 	if (job->raw_change == JOB_RAW_MASTER_UNCHANGED) {
 		for (i = 0; i < ctx->cam->engines.num_raw_devices; i++) {
@@ -2044,8 +2035,11 @@ static int apply_engines_cq(struct mtk_cam_job *job,
 				struct mtk_raw_device *raw_dev;
 
 				raw_dev = dev_get_drvdata(ctx->cam->engines.raw_devs[i]);
-				if (raw_dev->is_slave)
+				if (raw_dev->is_slave) {
 					set_sig_sel_slave(raw_dev);
+					if (is_dc_mode(job))
+						set_dcif_en_slave(raw_dev);
+				}
 			}
 		}
 	}
@@ -2060,12 +2054,30 @@ static int apply_engines_cq(struct mtk_cam_job *job,
 			}
 		}
 	}
+
+	return 0;
+}
+
+static int apply_engines_cq(struct mtk_cam_job *job,
+			    int frame_seq_no,
+			    struct mtk_cam_pool_buffer *cq,
+			    struct mtkcam_ipi_frame_ack_result *cq_rst)
+{
+	struct mtk_cam_ctx *ctx = job->src_ctx;
+	struct mtk_raw_device *raw_dev = NULL;
+	int raw_id;
+	unsigned long cq_engine, used_engine, sv_engine;
+	unsigned long subset;
+	u64 ts;
+
 	cq_engine = engines_to_trigger_cq(job, cq_rst);
 	used_engine = engines_to_check_inner(job);
 	/* raw change job already modify ctx->used_engines */
 	/* so may use wrong cq_engines when the job before it */
 	if ((cq_engine & get_master_engines(job->used_engine)) == 0)
 		cq_engine = raw_change_cq_engine(job, cq_rst);
+	/*raw change handle to avoid unexpected sof coming */
+	raw_change_handle_before_cq(job);
 	apply_cq_ref_init(&job->cq_ref,
 			  to_fh_cookie(ctx->stream_id, frame_seq_no),
 			  cq_engine, used_engine);

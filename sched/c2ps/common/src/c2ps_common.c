@@ -1420,8 +1420,11 @@ void update_cpu_idle_rate(void)
 		glb_info->is_cpu_boost =
 			(cur_cpu_floor > glb_info->scn_cpu_freq_floor[_cluster_index]);
 
-		if (glb_info->is_cpu_boost)
+		if (glb_info->is_cpu_boost) {
+			C2PS_LOGD("is_cpu_boost");
+			glb_info->need_update_bg[0] = 1;
 			break;
+		}
 
 		glb_info->s_loadxfreq[_cluster_index] =
 			(100-_s_sum_of_idlerate[_cluster_index]/ _num_of_cpu[_cluster_index])
@@ -1441,7 +1444,7 @@ void update_cpu_idle_rate(void)
 										_cluster_index);
 			} else if ((!c2ps_um_mode_on && (glb_info->curr_max_uclamp[_cluster_index] >
 						glb_info->max_uclamp[_cluster_index])) ||
-						(c2ps_um_mode_on && (glb_info->curr_um_idle > c2ps_regulator_um_min))) {
+					(c2ps_um_mode_on && (glb_info->curr_um_idle >= c2ps_regulator_um_min))) {
 				glb_info->need_update_bg[0] = 1;
 				if (glb_info->avg_cluster_idle_rate[_cluster_index] > _alert * 2)
 					glb_info->need_update_bg[1 + _cluster_index] = -2;
@@ -1520,7 +1523,8 @@ bool need_update_background(void)
 	if (is_release_uclamp_max)
 		reset_need_update_status();
 
-	return glb_info->need_update_bg[0];
+	return (glb_info->need_update_bg[0] &&
+			!(c2ps_um_mode_on && glb_info->has_anchor_spec));
 }
 
 void reset_need_update_status(void)

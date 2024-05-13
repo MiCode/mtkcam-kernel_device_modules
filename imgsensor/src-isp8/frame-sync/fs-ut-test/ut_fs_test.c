@@ -175,6 +175,12 @@ static unsigned int g_n_1_f_cell_size[SENSOR_MAX_NUM] = {0};
 // about FrameSync Algorithm stability test
 /******************************************************************************/
 static unsigned int g_fs_alg_stability_test_flag;
+
+/**
+ * sync type config,
+ * e.g., sync point set to 'readout center'
+ */
+static unsigned int g_sync_type_en_rout_center;
 /******************************************************************************/
 
 
@@ -812,11 +818,11 @@ static void run_fs_data_racing_test(void)
  */
 static void *ut_set_fs_streaming_and_synced(void *ut_fs_test_sensor_cfg)
 {
-	struct ut_fs_test_sensor_cfg *sensor_cfg =
+	const struct ut_fs_test_sensor_cfg *sensor_cfg =
 		(struct ut_fs_test_sensor_cfg *)ut_fs_test_sensor_cfg;
 	struct fs_streaming_st s_sensor = {0};
 	struct SensorInfo reg_info;
-	unsigned int alg_method = 0;
+	unsigned int alg_method = 0, sync_type_cfg;
 	unsigned int ret;
 
 	ret = FrameSyncInit(&frameSync);
@@ -854,21 +860,24 @@ static void *ut_set_fs_streaming_and_synced(void *ut_fs_test_sensor_cfg)
 
 	g_set_synced_sensors[sensor_cfg->sensor_idx] = 1;
 
+	sync_type_cfg = sensor_cfg->sync_type;
+	if (g_sync_type_en_rout_center)
+		sync_type_cfg |= FS_SYNC_TYPE_READOUT_CENTER;
 
 	printf(GREEN
-		"[UT set_fs_streaming_and_synced] sensor_idx:%u, sync_type:%u\n"
+		"[UT set_fs_streaming_and_synced] sensor_idx:%u, sync_type:%#x\n"
 		NONE,
 		s_sensor.sensor_idx,
-		sensor_cfg->sync_type);
+		sync_type_cfg);
 
 	switch (REGISTER_METHOD) {
 	case BY_SENSOR_ID:
-		frameSync->fs_set_sync(s_sensor.sensor_id, sensor_cfg->sync_type);
+		frameSync->fs_set_sync(s_sensor.sensor_id, sync_type_cfg);
 		// ret = frameSync->fs_is_set_sync(s_sensor.sensor_id);
 		break;
 	case BY_SENSOR_IDX:
 	default:
-		frameSync->fs_set_sync(s_sensor.sensor_idx, sensor_cfg->sync_type);
+		frameSync->fs_set_sync(s_sensor.sensor_idx, sync_type_cfg);
 		// ret = frameSync->fs_is_set_sync(s_sensor.sensor_idx);
 		break;
 	}

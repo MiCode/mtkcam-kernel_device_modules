@@ -695,46 +695,29 @@ unsigned int fs_alg_write_shutter(unsigned int idx)
 #endif // FS_UT
 
 
-static unsigned int calc_vts_sync_bias(unsigned int idx)
+static unsigned int calc_vts_sync_bias_lc(const unsigned int idx)
 {
-	unsigned int vts_exp_bias = 0, vts_signal_bias = 0, total_bias = 0;
+	const enum FS_SYNC_TYPE sync_type = fs_inst[idx].sync_type;
+	unsigned int exp_bias_lc = 0, total_bias_lc = 0;
 
-	if (fs_inst[idx].sync_type & FS_SYNC_TYPE_LE) {
-		vts_exp_bias =
+	if (sync_type & FS_SYNC_TYPE_LE) {
+		exp_bias_lc =
 			fs_inst[idx].fl_info.next_exp_rd_offset_lc[FS_HDR_LE];
 	}
-	if (fs_inst[idx].sync_type & FS_SYNC_TYPE_SE) {
-		vts_exp_bias =
+	if (sync_type & FS_SYNC_TYPE_SE) {
+		exp_bias_lc =
 			fs_inst[idx].fl_info.next_exp_rd_offset_lc[FS_HDR_SE];
 	}
 
-	/* for signal sync type (vsync / readout center) */
-	if (fs_inst[idx].sync_type & FS_SYNC_TYPE_READOUT_CENTER) {
-		// TODO: calculate by add a variable of sensor readout time
-		vts_signal_bias = 0;
-	} else if (fs_inst[idx].sync_type & FS_SYNC_TYPE_VSYNC)
-		vts_signal_bias = 0;
+	total_bias_lc = (exp_bias_lc);
 
-
-#ifndef REDUCE_FS_ALGO_LOG
-	LOG_INF(
-		"[%u] ID:%#x(sidx:%u), vts_exp_bias:%u, margin_lc/exp_cnt:%u, vts_signal_bias:%u\n",
-		idx,
-		fs_inst[idx].sensor_id,
-		fs_inst[idx].sensor_idx,
-		vts_exp_bias,
-		margin_lc_per_exp,
-		vts_signal_bias);
-#endif // REDUCE_FS_ALGO_LOG
-
-	total_bias = (vts_exp_bias + vts_signal_bias);
-
-	if (fs_inst[idx].custom_bias_us != 0) {
-		total_bias += convert2LineCount(
+#if defined(SYNC_WITH_CUSTOM_DIFF)
+	if (unlikely(fs_inst[idx].custom_bias_us != 0)) {
+		total_bias_lc += convert2LineCount(
 				fs_inst[idx].lineTimeInNs,
 				fs_inst[idx].custom_bias_us);
 
-		LOG_INF(
+		LOG_MUST(
 			"NOTICE: [%u] ID:%#x(sidx:%u), set custom_bias:%u(%u)\n",
 			idx,
 			fs_inst[idx].sensor_id,
@@ -744,9 +727,9 @@ static unsigned int calc_vts_sync_bias(unsigned int idx)
 				fs_inst[idx].lineTimeInNs,
 				fs_inst[idx].custom_bias_us));
 	}
+#endif
 
-
-	return total_bias;
+	return total_bias_lc;
 }
 
 
@@ -1147,7 +1130,7 @@ static inline void fs_alg_sa_adjust_diff_m_s_general_msg_connector(
 	const char *caller)
 {
 	FS_SNPRF(log_str_len, log_buf, len,
-		", [((%u:%u)c:%u/n:%u/o:%u/s:%u/e:%u(%u/%u)/t:%u(%u/%u),%u)/((%u:%u)c:%u/n:%u/o:%u/s:%u/e:%u(%u/%u)/t:%u(%u/%u),%u)], minFL:%u/%u, lineT:%u/%u, routT:%u/%u",
+		", [((%u:%u)c:%u/n:%u/o:%u/s:%u/e:%u(%u/%u)/t:%u(%u/%u),%u)/((%u:%u)c:%u/n:%u/o:%u/s:%u/e:%u(%u/%u)/t:%u(%u/%u),%u)], minFL:%u/%u, lineT:%u/%u, routT(%#x):%u/%u",
 		fs_inst[s_idx].fl_active_delay,
 		p_para_s->delta,
 		p_para_s->pred_fl_us[0],
@@ -1178,6 +1161,7 @@ static inline void fs_alg_sa_adjust_diff_m_s_general_msg_connector(
 		fs_inst[m_idx].min_fl_lc,
 		fs_inst[s_idx].lineTimeInNs,
 		fs_inst[m_idx].lineTimeInNs,
+		p_para_s->sa_cfg.rout_center_en_bits,
 		fs_inst[s_idx].readout_time_us,
 		fs_inst[m_idx].readout_time_us);
 
@@ -1417,12 +1401,13 @@ void fs_alg_sa_dump_dynamic_para(const unsigned int idx)
 
 	/* print per-frame config info */
 	FS_SNPRF(log_str_len, log_buf, len,
-		", cfg(idx(%u/m:%d)/a_S(m:%d/s:%#x)/v_S:%#x)",
+		", cfg(idx(%u/m:%d)/a_S(m:%d/s:%#x)/v_S:%#x/rout_c:%#x)",
 		fs_sa_inst.dynamic_paras[idx].sa_cfg.idx,
 		fs_sa_inst.dynamic_paras[idx].sa_cfg.m_idx,
 		fs_sa_inst.dynamic_paras[idx].sa_cfg.async_m_idx,
 		fs_sa_inst.dynamic_paras[idx].sa_cfg.async_s_bits,
-		fs_sa_inst.dynamic_paras[idx].sa_cfg.valid_sync_bits);
+		fs_sa_inst.dynamic_paras[idx].sa_cfg.valid_sync_bits,
+		fs_sa_inst.dynamic_paras[idx].sa_cfg.rout_center_en_bits);
 
 	/* print timestamp related info */
 	fs_alg_sa_ts_info_dynamic_msg_connector(idx,
@@ -1889,7 +1874,7 @@ static void fs_alg_sa_update_pred_fl_and_ts_bias(const unsigned int idx,
 		sizeof(fs_inst[idx].fl_info.next_exp_rd_offset_us));
 
 	/* calculate and get timestamp bias */
-	ts_bias_lc = calc_vts_sync_bias(idx);
+	ts_bias_lc = calc_vts_sync_bias_lc(idx);
 	p_para->ts_bias_us =
 		convert2TotalTime(fs_inst[idx].lineTimeInNs, ts_bias_lc);
 
@@ -2023,7 +2008,7 @@ static void fs_alg_sa_update_seamless_dynamic_para(const unsigned int idx,
 
 	/* !!! setup dynamic parameters !!! */
 	/* calculate and get timestamp bias */
-	ts_bias_lc = calc_vts_sync_bias(idx);
+	ts_bias_lc = calc_vts_sync_bias_lc(idx);
 	p_para->ts_bias_us =
 		convert2TotalTime(fs_inst[idx].lineTimeInNs, ts_bias_lc);
 
@@ -2461,6 +2446,7 @@ static long long fs_alg_sa_calc_adjust_diff_slave(
 	const unsigned int f_cell_s = get_valid_frame_cell_size(s_idx);
 	const long long m_stable_fl_us = (long long)p_para_m->stable_fl_us * f_cell_m;
 	const long long s_stable_fl_us = (long long)p_para_s->stable_fl_us * f_cell_s;
+	const int rout_center_en = p_para_s->sa_cfg.rout_center_en_bits;
 	long long adjust_diff_s = 0;
 
 	/* unexpected case */
@@ -2483,6 +2469,11 @@ static long long fs_alg_sa_calc_adjust_diff_slave(
 	adjust_diff_s =
 		(ts_diff_m + p_para_m->delta + p_para_m->out_fl_us) -
 		(ts_diff_s + p_para_s->delta + p_para_s->out_fl_us);
+	if (rout_center_en) {
+		adjust_diff_s +=
+			((long long)(fs_inst[m_idx].readout_time_us) -
+			fs_inst[s_idx].readout_time_us) / 2;
+	}
 	if (p_para_s->pred_fl_err_chk_bits_m)
 		adjust_diff_s += p_para_s->pred_fl_err_us_m;
 
@@ -2554,6 +2545,7 @@ static long long fs_alg_sa_calc_adjust_diff_async(
 	const unsigned int f_cell_s = get_valid_frame_cell_size(s_idx);
 	const long long m_pure_min_fl_us = (long long)p_para_m->pure_min_fl_us * f_cell_m;
 	const long long m_stable_fl_us = (long long)p_para_m->stable_fl_us * f_cell_s;
+	const int rout_center_en = p_para_s->sa_cfg.rout_center_en_bits;
 	long long quotient = 0;
 	long long adjust_diff_s = 0;
 
@@ -2579,6 +2571,11 @@ static long long fs_alg_sa_calc_adjust_diff_async(
 	adjust_diff_s =
 		(ts_diff_m + p_para_s->async_m_delta + p_para_m->out_fl_us) -
 		(ts_diff_s + p_para_s->delta + p_para_s->out_fl_us);
+	if (rout_center_en) {
+		adjust_diff_s +=
+			((long long)(fs_inst[m_idx].readout_time_us) -
+			fs_inst[s_idx].readout_time_us) / 2;
+	}
 	if (p_para_s->pred_fl_err_chk_bits_m != 0)
 		adjust_diff_s += p_para_s->pred_fl_err_us_m;
 
@@ -2866,29 +2863,14 @@ void fs_alg_set_n_1_on_off_flag(unsigned int idx, unsigned int flag)
 }
 
 
-void fs_alg_set_sync_type(unsigned int idx, unsigned int type)
+void fs_alg_set_sync_type(const unsigned int idx, const unsigned int type)
 {
 	fs_inst[idx].sync_type = type;
-
-
-#if !defined(REDUCE_FS_ALGO_LOG)
-	LOG_INF(
-		"[%u] ID:%#x(sidx:%u), set sync type:%u (V:%u/C:%u/L:%u/S:%u)\n",
-		idx,
-		fs_inst[idx].sensor_id,
-		fs_inst[idx].sensor_idx,
-		fs_inst[idx].sync_type,
-		fs_inst[idx].sync_type & FS_SYNC_TYPE_VSYNC,
-		fs_inst[idx].sync_type & FS_SYNC_TYPE_READOUT_CENTER,
-		fs_inst[idx].sync_type & FS_SYNC_TYPE_LE,
-		fs_inst[idx].sync_type & FS_SYNC_TYPE_SE);
-#endif // REDUCE_FS_ALGO_LOG
-
 
 #if defined(SYNC_WITH_CUSTOM_DIFF)
 	if (fs_inst[idx].sensor_idx == CUSTOM_DIFF_SENSOR_IDX)
 		fs_alg_set_sync_with_diff(idx, CUSTOM_DIFF_US);
-#endif // SYNC_WITH_CUSTOM_DIFF
+#endif
 }
 
 
@@ -3891,7 +3873,7 @@ static void adjust_vsync_diff(unsigned int solveIdxs[], unsigned int len)
 
 		fs_inst[idx].vdiff += predicted_fl_us[0] + predicted_fl_us[1];
 
-		vts_bias = calc_vts_sync_bias(idx);
+		vts_bias = calc_vts_sync_bias_lc(idx);
 		vts_bias_us =
 			convert2TotalTime(fs_inst[idx].lineTimeInNs, vts_bias);
 

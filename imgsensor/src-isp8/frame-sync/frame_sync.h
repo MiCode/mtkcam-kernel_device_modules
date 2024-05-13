@@ -52,6 +52,7 @@ struct fs_sa_cfg {
 	int valid_sync_bits;
 	int async_m_idx;
 	int async_s_bits;
+	int rout_center_en_bits;
 };
 /*----------------------------------------------------------------------------*/
 

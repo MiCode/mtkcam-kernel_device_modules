@@ -101,6 +101,9 @@ struct FrameSyncMgr {
 	FS_Atomic_T setup_complete_bits;
 	FS_Atomic_T seamless_bits;  // notify which sensor is doing seamless switch
 
+	/* sync to readout center; otherwise vsync */
+	FS_Atomic_T rout_center_en_bits;
+
 	unsigned int last_pf_ctrl_bits;
 	unsigned int last_setup_complete_bits;
 	unsigned int trigger_ctrl_bits;
@@ -255,7 +258,7 @@ static void fs_dump_status(const int idx, const int flag, const char *caller,
 	}
 
 	FS_SNPRF(log_str_len, log_buf, len,
-		"[%s:%d/%d %s]: stat:%u, stream:%#x/enSync:%#x(%#x/%#x/%#x/%#x/%#x/%#x)/valid:%#x",
+		"[%s:%d/%d %s]: stat:%u, stream:%#x/enSync:%#x(%#x/%#x/%#x/%#x/%#x/%#x)/valid:%#x/routCenter:%#x",
 		caller, idx, flag, msg,
 		get_fs_status(),
 		FS_ATOMIC_READ(&fs_mgr.streaming_bits),
@@ -266,7 +269,8 @@ static void fs_dump_status(const int idx, const int flag, const char *caller,
 		FS_ATOMIC_READ(&fs_mgr.set_sync_idx_table[3]),
 		FS_ATOMIC_READ(&fs_mgr.set_sync_idx_table[4]),
 		FS_ATOMIC_READ(&fs_mgr.set_sync_idx_table[5]),
-		FS_ATOMIC_READ(&fs_mgr.validSync_bits));
+		FS_ATOMIC_READ(&fs_mgr.validSync_bits),
+		FS_ATOMIC_READ(&fs_mgr.rout_center_en_bits));
 
 	/* has sensor in HW sync mode ==> add more info */
 	if (FS_POPCOUNT(FS_ATOMIC_READ(&fs_mgr.hw_sync_bits))) {
@@ -822,6 +826,8 @@ static void fs_init_members(void)
 	FS_ATOMIC_INIT(0, &fs_mgr.fl_restore_ctrl_bits);
 	FS_ATOMIC_INIT(0, &fs_mgr.setup_complete_bits);
 	FS_ATOMIC_INIT(0, &fs_mgr.seamless_bits);
+
+	FS_ATOMIC_INIT(0, &fs_mgr.rout_center_en_bits);
 
 	FS_ATOMIC_INIT(0, &fs_mgr.hw_sync_bits);
 	for (i = 0; i < FS_HW_SYNC_GROUP_ID_MAX; ++i) {
@@ -1629,6 +1635,23 @@ static inline void fs_sa_set_async_info(const unsigned int idx,
 #endif // SUPPORT_FS_NEW_METHOD
 
 
+/**
+ * sync type:
+ *     'vsync', 'readout_center', 'readout_center and exposure_center'.
+ *
+ * for the type that once setup, all sensor should apply the same configuration.
+ */
+static void fs_update_sync_type_config(const unsigned int idx,
+	const unsigned int flag)
+{
+	/* check if need to use readout center */
+	if (flag & FS_SYNC_TYPE_READOUT_CENTER)
+		FS_WRITE_BIT(idx, 1, &fs_mgr.rout_center_en_bits);
+	else
+		FS_WRITE_BIT(idx, 0, &fs_mgr.rout_center_en_bits);
+}
+
+
 static void fs_set_sync_status(const unsigned int idx, const unsigned int flag)
 {
 	/* unset sync => reset pf_ctrl_bits data of this idx */
@@ -1674,6 +1697,8 @@ static inline void fs_set_sync_idx(const unsigned int idx,
 	fs_set_sync_status(idx, flag);        // setup enSync & other process
 
 	fs_alg_set_sync_type(idx, flag);      // sync/copy flag for fs algo
+
+	fs_update_sync_type_config(idx, flag);
 
 	fs_sa_set_async_info(idx, flag);      // setup async mode related info
 
@@ -2047,18 +2072,7 @@ static inline void fs_sa_setup_perframe_cfg_info(const unsigned int idx,
 	p_sa_cfg->valid_sync_bits = FS_READ_BITS(&fs_mgr.validSync_bits);
 	p_sa_cfg->async_m_idx = fs_get_valid_async_master_instance_idx(idx);
 	p_sa_cfg->async_s_bits = FS_READ_BITS(&fs_mgr.async_mode_bits);
-
-#if !defined(REDUCE_FS_DRV_LOG)
-	LOG_MUST(
-		"[%u] idx:%u, sa_mthod:%u, m_idx:%d, valid_sync_bits:%#x, async_m_idx:%d, async_s_bits:%#x\n",
-		idx,
-		p_sa_cfg->idx,
-		p_sa_cfg->sa_method,
-		p_sa_cfg->m_idx,
-		p_sa_cfg->valid_sync_bits,
-		p_sa_cfg->async_m_idx,
-		p_sa_cfg->async_s_bits);
-#endif
+	p_sa_cfg->rout_center_en_bits = FS_READ_BITS(&fs_mgr.rout_center_en_bits);
 }
 
 

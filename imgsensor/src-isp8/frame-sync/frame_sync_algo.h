@@ -58,7 +58,7 @@ void fs_alg_get_fl_rec_st_info(const unsigned int idx,
 /*******************************************************************************
  * fs algo operation functions (set information data)
  ******************************************************************************/
-void fs_alg_set_sync_type(unsigned int idx, unsigned int type);
+void fs_alg_set_sync_type(const unsigned int idx, const unsigned int type);
 
 void fs_alg_set_anti_flicker(unsigned int idx, unsigned int flag);
 

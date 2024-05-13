@@ -4585,7 +4585,9 @@ static void update_reference_sof(struct mtk_cam_job *job)
 {
 	struct mtk_raw_request_data *raw_data = req_get_raw_data(job->src_ctx, job->req);
 
-	job->job_state.reference_sof_ns = raw_data->ctrl.rc_data.ref_sof_ts_ns;
+	if (raw_data) {
+		job->job_state.reference_sof_ns = raw_data->ctrl.rc_data.ref_sof_ts_ns;
+	}
 
 	if (CAM_DEBUG_ENABLED(JOB))
 		pr_info("%s: seq %d ref_ts %llu", __func__,

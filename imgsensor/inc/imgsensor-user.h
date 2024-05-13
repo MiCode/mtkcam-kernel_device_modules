@@ -639,6 +639,10 @@ struct mtk_fsync_hw_mcss_init_info {
 	__u32 is_mcss_master; // master or slave
 };
 
+struct mtk_fsync_hw_mcss_mask_frm_info {
+	__u32 mask_frm_num;
+	__u32 is_critical; // write I2C immediately
+};
 
 /* GET */
 

@@ -36,7 +36,7 @@ static int vsync_notify(struct subdrv_ctx *ctx,	unsigned int sof_cnt);
 static int imx06a_mcss_update_subdrv_para(void *arg, int scenario_id);
 static int imx06a_mcss_init(void *arg);
 static int imx06a_get_sensor_sync_mode(struct subdrv_ctx *ctx, u8 *para, u32 *len);
-static int imx06a_mcss_set_mask_frame(struct subdrv_ctx *ctx, u32 num);
+static int imx06a_mcss_set_mask_frame(struct subdrv_ctx *ctx, u32 num, u32 is_critical);
 
 /* STRUCT */
 
@@ -1124,12 +1124,14 @@ static int imx06a_get_sensor_sync_mode(struct subdrv_ctx *ctx, u8 *para, u32 *le
 }
 
 
-static int imx06a_mcss_set_mask_frame(struct subdrv_ctx *ctx, u32 num)
+static int imx06a_mcss_set_mask_frame(struct subdrv_ctx *ctx, u32 num, u32 is_critical)
 {
 	ctx->s_ctx.s_gph((void *)ctx, 1);
 	set_i2c_buffer(ctx, ctx->s_ctx.reg_addr_mcss_mc_frm_mask_num,  (0x7f & num));
 	ctx->s_ctx.s_gph((void *)ctx, 0);
-	commit_i2c_buffer(ctx);
+
+	if (is_critical)
+		commit_i2c_buffer(ctx);
 
 	DRV_LOG(ctx, "set mask frame num:%d\n", (0x7f & num));
 	return 0;

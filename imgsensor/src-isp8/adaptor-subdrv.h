@@ -574,7 +574,7 @@ struct subdrv_ops {
 	int (*set_ctrl_locker)(struct subdrv_ctx *ctx, u32 cid, bool *is_lock);
 	int (*mcss_init)(struct subdrv_ctx *ctx);
 	int (*mcss_update_subdrv_para)(struct subdrv_ctx *ctx, int scenario_id);
-	int (*mcss_set_mask_frame)(struct subdrv_ctx *ctx, u32 num);
+	int (*mcss_set_mask_frame)(struct subdrv_ctx *ctx, u32 num, u32 is_critical);
 };
 
 struct subdrv_entry {

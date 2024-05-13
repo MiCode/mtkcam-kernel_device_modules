@@ -38,7 +38,7 @@ static int open(struct subdrv_ctx *ctx);
 static int imx858dual_mcss_update_subdrv_para(void *arg, int scenario_id);
 static int imx858dual_mcss_init(void *arg);
 static int imx858dual_get_sensor_sync_mode(struct subdrv_ctx *ctx, u8 *para, u32 *len);
-static int imx858dual_mcss_set_mask_frame(struct subdrv_ctx *ctx, u32 num);
+static int imx858dual_mcss_set_mask_frame(struct subdrv_ctx *ctx, u32 num, u32 is_critical);
 /* STRUCT */
 
 static struct subdrv_feature_control feature_control_list[] = {
@@ -1186,12 +1186,14 @@ static int imx858dual_get_sensor_sync_mode(struct subdrv_ctx *ctx, u8 *para, u32
 	return ERROR_NONE;
 }
 
-static int imx858dual_mcss_set_mask_frame(struct subdrv_ctx *ctx, u32 num)
+static int imx858dual_mcss_set_mask_frame(struct subdrv_ctx *ctx, u32 num, u32 is_critical)
 {
 	ctx->s_ctx.s_gph((void *)ctx, 1);
 	set_i2c_buffer(ctx, ctx->s_ctx.reg_addr_mcss_mc_frm_mask_num,  (0x7f & num));
 	ctx->s_ctx.s_gph((void *)ctx, 0);
-	commit_i2c_buffer(ctx);
+
+	if (is_critical)
+		commit_i2c_buffer(ctx);
 
 	DRV_LOG(ctx, "set mask frame num:%d\n", (0x7f & num));
 	return 0;

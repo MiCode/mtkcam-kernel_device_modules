@@ -1382,16 +1382,20 @@ static int imgsensor_set_ctrl(struct v4l2_ctrl *ctrl)
 		break;
 	case V4L2_CID_FSYNC_HW_MCSS_MASKFRAME:
 		{
+			struct mtk_fsync_hw_mcss_mask_frm_info *info = ctrl->p_new.p;
 			u32 mask_frm_num;
 
 			mask_frm_num =
-			(( (u32)ctrl->val == ctx->mask_frm_num_last) && ( (u32)ctrl->val != 0)) ?
-				( (u32)ctrl->val + 1) :  (u32)ctrl->val;
+			((info->mask_frm_num == ctx->mask_frm_num_last) && (info->mask_frm_num != 0)) ?
+				(info->mask_frm_num + 1) : info->mask_frm_num;
 
 			ADAPTOR_SYSTRACE_BEGIN(
-		"SensorWorker::V4L2_CID_FSYNC_HW_MCSS_MASKFRAME last:%u, now set:%u, receive:%u",
-					ctx->mask_frm_num_last, mask_frm_num, (u32)ctrl->val);
-			subdrv_call(ctx, mcss_set_mask_frame, mask_frm_num);
+		"SensorWorker::V4L2_CID_FSYNC_HW_MCSS_MASKFRAME last:%u, now set:%u, receive:%u(%u)",
+					ctx->mask_frm_num_last, mask_frm_num, info->mask_frm_num, info->is_critical);
+			adaptor_logi(ctx,
+			"V4L2_CID_FSYNC_HW_MCSS_MASKFRAME last:%u, now set:%u, receive:%u(%u)",
+					ctx->mask_frm_num_last, mask_frm_num, info->mask_frm_num, info->is_critical);
+			subdrv_call(ctx, mcss_set_mask_frame, mask_frm_num, info->is_critical);
 			ctx->mask_frm_num_last = mask_frm_num;
 			ADAPTOR_SYSTRACE_END();
 		}
@@ -2557,10 +2561,11 @@ static const struct v4l2_ctrl_config cfg_fsync_hw_mcss_maskframe = {
 	.ops = &ctrl_ops,
 	.id = V4L2_CID_FSYNC_HW_MCSS_MASKFRAME,
 	.name = "fsync_hw_mcss_maskframe",
-	.type = V4L2_CTRL_TYPE_INTEGER,
+	.type = V4L2_CTRL_TYPE_U32,
 	.flags = V4L2_CTRL_FLAG_EXECUTE_ON_WRITE,
 	.max = 0x7fffffff,
 	.step = 1,
+	.dims = {sizeof_u32(struct mtk_fsync_hw_mcss_mask_frm_info)},
 };
 
 

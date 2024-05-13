@@ -12,6 +12,8 @@ void adaptor_sensor_init(struct adaptor_ctx *ctx);
 
 u32 get_mode_vb(struct adaptor_ctx *ctx, const struct sensor_mode *mode);
 
+int get_sof_timeout(struct adaptor_ctx *ctx, const struct sensor_mode *mode);
+
 int update_framelength_for_timeout(struct adaptor_ctx *ctx);
 
 int update_shutter_for_timeout(struct adaptor_ctx *ctx);

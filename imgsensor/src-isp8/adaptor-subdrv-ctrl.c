@@ -17,9 +17,11 @@
 #include "kd_imgsensor_define_v4l2.h"
 #include "kd_imgsensor_errcode.h"
 
+
+#include "adaptor.h"
 #include "adaptor-subdrv-ctrl.h"
 #include "adaptor-i2c.h"
-#include "adaptor.h"
+#include "adaptor-ctrls.h"
 
 static const char * const clk_names[] = {
 	ADAPTOR_CLK_NAMES
@@ -2274,8 +2276,21 @@ void check_stream_off(struct subdrv_ctx *ctx)
 void streaming_control(struct subdrv_ctx *ctx, bool enable)
 {
 	u64 stream_ctrl_delay_timing = 0;
+	u64 stream_ctrl_delay = 0;
+	struct adaptor_ctx *_adaptor_ctx = NULL;
+	struct v4l2_subdev *sd = NULL;
 
 	DRV_LOG(ctx, "E! enable:%u\n", enable);
+
+	if (ctx->i2c_client)
+		sd = i2c_get_clientdata(ctx->i2c_client);
+	if (sd)
+		_adaptor_ctx = to_ctx(sd);
+	if (!_adaptor_ctx) {
+		DRV_LOGE(ctx, "null _adaptor_ctx\n");
+		return;
+	}
+
 	check_current_scenario_id_bound(ctx);
 	if (ctx->s_ctx.aov_sensor_support && ctx->s_ctx.streaming_ctrl_imp) {
 		if (ctx->s_ctx.s_streaming_control != NULL)
@@ -2308,19 +2323,22 @@ void streaming_control(struct subdrv_ctx *ctx, bool enable)
 		set_dummy(ctx);
 		subdrv_ixc_wr_u8(ctx, ctx->s_ctx.reg_addr_stream, 0x01);
 		ctx->stream_ctrl_start_time = ktime_get_boottime_ns();
+		if (ctx->s_ctx.custom_stream_ctrl_delay)
+			mdelay(ctx->s_ctx.custom_stream_ctrl_delay);
 	} else {
 		ctx->stream_ctrl_end_time = ktime_get_boottime_ns();
 		if (ctx->s_ctx.custom_stream_ctrl_delay &&
 			ctx->stream_ctrl_start_time && ctx->stream_ctrl_end_time) {
 			stream_ctrl_delay_timing =
 				(ctx->stream_ctrl_end_time - ctx->stream_ctrl_start_time) / 1000000;
+			stream_ctrl_delay = (u64)get_sof_timeout(_adaptor_ctx, _adaptor_ctx->cur_mode) / 1000;
 			DRV_LOG_MUST(ctx,
-				"custom_stream_ctrl_delay/stream_ctrl_delay_timing:%llu/%llu\n",
+				"custom_/stream_ctrl_delay(sof)/stream_ctrl_delay_timing(end-start):%llums/%llums/%llums\n",
 				ctx->s_ctx.custom_stream_ctrl_delay,
+				stream_ctrl_delay,
 				stream_ctrl_delay_timing);
-			if (stream_ctrl_delay_timing < ctx->s_ctx.custom_stream_ctrl_delay)
-				mdelay(
-					ctx->s_ctx.custom_stream_ctrl_delay - stream_ctrl_delay_timing);
+			if (stream_ctrl_delay_timing < stream_ctrl_delay)
+				mdelay(stream_ctrl_delay - stream_ctrl_delay_timing);
 		}
 		subdrv_ixc_wr_u8(ctx, ctx->s_ctx.reg_addr_stream, 0x00);
 		if (ctx->s_ctx.reg_addr_fast_mode && ctx->fast_mode_on) {
@@ -3744,8 +3762,10 @@ int common_control(struct subdrv_ctx *ctx,
 		sd = adaptor_ixc_get_clientdata(&ctx->ixc_client);
 	if (sd)
 		_adaptor_ctx = to_ctx(sd);
-	if (!_adaptor_ctx)
+	if (!_adaptor_ctx) {
+		DRV_LOGE(ctx, "null _adaptor_ctx\n");
 		return -ENODEV;
+	}
 
 	if (scenario_id >= ctx->s_ctx.sensor_mode_num) {
 		DRV_LOGE(ctx, "invalid sid:%u, mode_num:%u\n",

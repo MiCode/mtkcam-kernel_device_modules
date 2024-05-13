@@ -1149,6 +1149,37 @@ u32 get_mode_vb(struct adaptor_ctx *ctx, const struct sensor_mode *mode)
 	return vb;
 }
 
+int get_sof_timeout(struct adaptor_ctx *ctx, const struct sensor_mode *mode)
+{
+	int timeout = 0;
+	u64 tmp = 0;
+
+	if (ctx->shutter_for_timeout > 0) {
+		tmp = mode->linetime_in_ns * ctx->shutter_for_timeout;
+		timeout = tmp / 1000;
+	}
+	if (ctx->framelength_for_timeout > 0) {
+		tmp = mode->linetime_in_ns * ctx->framelength_for_timeout / 1000;
+		timeout = (timeout < tmp) ? tmp : timeout;
+	}
+	if (ctx->subctx.current_fps > 0) {
+		tmp = 10000000 / ctx->subctx.current_fps;
+		timeout = (timeout < tmp) ? tmp : timeout;
+	}
+	if (timeout < 0)
+		timeout = 0;
+
+	adaptor_logi(ctx,
+		"X! sof timeout value in us %llu|%llu|%llu|%d|%d\n",
+		ctx->shutter_for_timeout,
+		ctx->framelength_for_timeout,
+		mode->linetime_in_ns,
+		timeout,
+		ctx->subctx.current_fps > 0 ? 10000000 / ctx->subctx.current_fps : 0);
+
+	return timeout;
+}
+
 static int ext_ctrl(struct adaptor_ctx *ctx, struct v4l2_ctrl *ctrl, struct sensor_mode *mode)
 {
 	int ret = 0;
@@ -1161,26 +1192,7 @@ static int ext_ctrl(struct adaptor_ctx *ctx, struct v4l2_ctrl *ctrl, struct sens
 		ctrl->val = ctx->idx;
 		break;
 	case V4L2_CID_MTK_SOF_TIMEOUT_VALUE:
-		if (ctx->shutter_for_timeout != 0) {
-			u64 tmp = mode->linetime_in_ns * ctx->shutter_for_timeout;
-
-			ctrl->val = tmp / 1000;
-		}
-		if (ctx->framelength_for_timeout != 0) {
-			u64 tmp2 = mode->linetime_in_ns * ctx->framelength_for_timeout;
-
-			if (ctrl->val < (tmp2 / 1000))
-				ctrl->val = tmp2 / 1000;
-		}
-		adaptor_logi(ctx, "sof timeout value in us %llu|%llu|%llu|%d|%d\n",
-			ctx->shutter_for_timeout,
-			ctx->framelength_for_timeout,
-			mode->linetime_in_ns,
-			ctrl->val,
-			10000000 / ctx->subctx.current_fps);
-
-		if (ctrl->val < (10000000 / ctx->subctx.current_fps))
-			ctrl->val = 10000000 / ctx->subctx.current_fps;
+		ctrl->val = get_sof_timeout(ctx, mode);
 		break;
 	case V4L2_CID_VBLANK:
 		ctrl->val = get_mode_vb(ctx, mode);

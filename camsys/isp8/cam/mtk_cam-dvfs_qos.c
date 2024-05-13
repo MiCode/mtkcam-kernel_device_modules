@@ -757,7 +757,7 @@ static int fill_sv_qos(struct mtk_cam_job *job,
 			}
 			/* camsv stash fixed at 5ostdl = 5mb */
 			if (avg_bw || peak_bw)
-				stash_peak_bw = stash_avg_bw = to_qos_icc(5242880);
+				stash_peak_bw = stash_avg_bw = to_qos_icc(2097152);
 
 
 		} else {
@@ -767,7 +767,7 @@ static int fill_sv_qos(struct mtk_cam_job *job,
 				calc_bw(x_size * img_h, linet, sensor_h);
 			/* camsv stash fixed at 5ostdl = 5mb */
 			if (avg_bw || peak_bw)
-				stash_peak_bw = stash_avg_bw = to_qos_icc(5242880);
+				stash_peak_bw = stash_avg_bw = to_qos_icc(2097152);
 		}
 
 		if (is_two_smi_out) {

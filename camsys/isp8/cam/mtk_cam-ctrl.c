@@ -1448,7 +1448,7 @@ static void mtk_cam_ctrl_seamless_switch_flow(struct mtk_cam_job *job)
 	}
 
 	if (mtk_cam_ctrl_wait_event(ctrl, check_for_seamless, &check_args,
-				    1000)) {
+				    5000)) {
 		dev_info(dev, "[%s] check_for_seamless timeout: expected in=0x%x ack=0x%x\n",
 			 __func__,
 			 check_args.expect_inner, check_args.expect_ack);
@@ -1489,7 +1489,7 @@ static void mtk_cam_ctrl_seamless_switch_flow(struct mtk_cam_job *job)
 
 	vsync_set_desired(&ctrl->vsync_col, job->master_engine);
 
-	if (mtk_cam_ctrl_wait_event(ctrl, check_done, &prev_seq, 999)) {
+	if (mtk_cam_ctrl_wait_event(ctrl, check_done, &prev_seq, 4999)) {
 		dev_info(dev, "[%s] check_done timeout: prev_seq=0x%x\n",
 			 __func__, prev_seq);
 		goto SWITCH_FAILURE;

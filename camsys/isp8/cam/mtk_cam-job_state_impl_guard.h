@@ -207,6 +207,19 @@ static inline bool valid_i2c_period_l(struct transition_param *p)
 	return (p->event_ts - p->info->sof_ts_ns) >= (p->event_ts - p->info->sof_l_ts_ns);
 }
 
+static inline bool valid_cq_execution_subsample(
+	struct state_accessor *s_acc, struct transition_param *p)
+{
+	bool ret = false;
+
+	if (unlikely(!p->s_params))
+		return ret;
+	ret = ((p->event_ts - p->info->sof_ts_ns) < p->cq_trigger_thres)&&
+		(s_acc->seq_no == p->info->inner_seq_no + 1);
+	/* for sentest NE -> SE duration 25ms case*/
+	return ret;
+}
+
 static inline bool valid_cq_execution(struct transition_param *p)
 {
 	if (unlikely(!p->s_params))
@@ -350,7 +363,8 @@ static inline int guard_apply_isp_subsample(struct state_accessor *s_acc,
 				  struct transition_param *p)
 {
 	return allow_applying_hw(s_acc) &&
-		ops_call(s_acc, prev_allow_apply_isp);
+		ops_call(s_acc, prev_allow_apply_isp) &&
+		valid_cq_execution_subsample(s_acc, p);
 }
 
 static inline int guard_ack_apply_directly(struct state_accessor *s_acc,
@@ -373,8 +387,8 @@ static inline int guard_ack_apply_directly_ref_sof(struct state_accessor *s_acc,
 static inline int guard_ack_apply_directly_subsample(struct state_accessor *s_acc,
 					   struct transition_param *p)
 {
-	return guard_ack_eq(s_acc, p) && guard_apply_isp_subsample(s_acc, p) &&
-			valid_cq_execution(p);
+	return guard_ack_eq(s_acc, p) &&
+		guard_apply_isp_subsample(s_acc, p);
 }
 
 static inline int guard_ack_apply_m2m_directly(struct state_accessor *s_acc,

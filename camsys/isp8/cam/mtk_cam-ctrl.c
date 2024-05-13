@@ -1360,7 +1360,7 @@ static void mtk_cam_ctrl_dynamic_raws_change_flow(struct mtk_cam_job *job)
 			__func__, ctx->used_engine, job->frame_seq_no);
 	check_args.expect_inner = job->frame_seq_no;
 	check_args.expect_ack = job->frame_seq_no;
-	if (mtk_cam_ctrl_wait_event(ctrl, check_for_inner, &check_args, 1000)) {
+	if (mtk_cam_ctrl_wait_event(ctrl, check_for_inner, &check_args, 30000)) {
 		dev_info(dev, "[%s] check for dynamic_raws_change timeout: expected in=0x%x ack=0x%x\n",
 			 __func__,
 			 check_args.expect_inner, check_args.expect_ack);
@@ -1508,7 +1508,7 @@ static void mtk_cam_ctrl_seamless_switch_flow(struct mtk_cam_job *job)
 	dev_info(dev, "[%s] begin waiting check for inner no:%d seq 0x%x\n",
 		__func__, job->req_seq, job->frame_seq_no);
 	if (mtk_cam_ctrl_wait_event(ctrl, check_for_inner, &check_args,
-				    5001)) {
+				    30000)) {
 		dev_info(dev, "[%s] check_for_inner timeout: expected in=0x%x\n",
 			 __func__, check_args.expect_inner);
 		goto SWITCH_FAILURE;

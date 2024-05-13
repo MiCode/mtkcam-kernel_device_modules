@@ -106,7 +106,8 @@ static int mtk_cam_vb2_queue_setup(struct vb2_queue *vq,
 		if (meta_fmt) {
 			size = meta_fmt->fmt.meta.buffersize;
 		} else {
-			dev_info(cam->dev, "[%s] id:%d, name:%s, get fmt(0x%x) from desc failed",
+			if (CAM_DEBUG_ENABLED(V4L2))
+				dev_info(cam->dev, "[%s] id:%d, name:%s, get fmt(0x%x) from desc failed",
 				 __func__, node->desc.id, node->desc.name,
 				 fmt->fmt.meta.dataformat);
 			size = fmt->fmt.meta.buffersize;

@@ -1582,8 +1582,8 @@ static int ipi_config(struct mtk_cam_job *job)
 	memcpy(config, src_config, sizeof(*src_config));
 
 	rpmsg_send(ctx->rpmsg_dev->rpdev.ept, &event, sizeof(event));
-
-	dev_info(job->src_ctx->cam->dev, "%s: rpmsg_send id: %d\n",
+	if (CAM_DEBUG_ENABLED(JOB))
+		dev_info(job->src_ctx->cam->dev, "%s: rpmsg_send id: %d\n",
 		 __func__, event.cmd_id);
 	return 0;
 }

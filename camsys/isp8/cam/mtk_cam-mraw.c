@@ -850,7 +850,7 @@ int mtk_cam_mraw_top_enable(struct mtk_mraw_device *mraw_dev)
 	mtk_cam_mraw_toggle_tg_db(mraw_dev);
 
 	/* enable cmos */
-	dev_info(mraw_dev->dev, "%s: enable CMOS and VF\n", __func__);
+	dev_dbg(mraw_dev->dev, "%s: enable CMOS and VF\n", __func__);
 	MRAW_WRITE_BITS(mraw_dev->base + REG_MRAW_TG_SEN_MODE,
 		MRAW_TG_SEN_MODE, TG_CMOS_EN, 1);
 
@@ -1115,7 +1115,7 @@ int mtk_cam_mraw_dev_config(struct mtk_mraw_device *mraw_dev,
 	mtk_cam_mraw_cq_config(mraw_dev, sub_ratio);
 	mtk_cam_mraw_ddren_qos_config(mraw_dev, frm_time_us);
 
-	dev_info(mraw_dev->dev, "[%s] sub_ratio:%d\n", __func__, sub_ratio);
+	dev_dbg(mraw_dev->dev, "[%s] sub_ratio:%d\n", __func__, sub_ratio);
 
 	return 0;
 }

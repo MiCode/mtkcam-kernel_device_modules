@@ -168,7 +168,8 @@ static int mtk_mraw_set_fmt(struct v4l2_subdev *sd,
 
 		if (fmt->pad == MTK_MRAW_SINK &&
 			fmt->which == V4L2_SUBDEV_FORMAT_ACTIVE) {
-			dev_dbg(sd->v4l2_dev->dev, "%s: set mraw res_config", __func__);
+			if (CAM_DEBUG_ENABLED(V4L2_TRY))
+				dev_info(sd->v4l2_dev->dev, "%s: set mraw res_config", __func__);
 			/* set cfg buffer for tg/crp info. */
 			ipi_fmt = sensor_mbus_to_ipi_fmt(fmt->format.code);
 			if (ipi_fmt == MTKCAM_IPI_IMG_FMT_UNKNOWN) {
@@ -203,7 +204,8 @@ static int mtk_mraw_get_fmt(struct v4l2_subdev *sd,
 	}
 
 	fmt->format = *mf;
-	dev_dbg(sd->v4l2_dev->dev, "sd:%s pad:%d get format 0x%x\n",
+	if (CAM_DEBUG_ENABLED(V4L2_TRY))
+		dev_info(sd->v4l2_dev->dev, "sd:%s pad:%d get format 0x%x\n",
 		sd->name, fmt->pad, fmt->format.code);
 
 	return 0;
@@ -217,7 +219,8 @@ static int mtk_mraw_media_link_setup(struct media_entity *entity,
 		container_of(entity, struct mtk_mraw_pipeline, subdev.entity);
 	u32 pad = local->index;
 
-	dev_info(pipe->subdev.v4l2_dev->dev, "%s: mraw %d: %d->%d flags:0x%x\n",
+	if (CAM_DEBUG_ENABLED(V4L2_TRY))
+		dev_info(pipe->subdev.v4l2_dev->dev, "%s: mraw %d: %d->%d flags:0x%x\n",
 		__func__, pipe->id, remote->index, local->index, flags);
 
 	if (pad == MTK_MRAW_SINK)

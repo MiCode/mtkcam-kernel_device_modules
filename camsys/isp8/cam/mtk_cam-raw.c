@@ -200,8 +200,8 @@ static void init_camsys_settings(struct mtk_raw_device *dev, bool is_srt)
 	}
 
 	wmb(); /* TBC */
-
-	dev_info_ratelimited(dev->dev, "%s: is srt:%d halt1~10,13:0x%x/0x%x/0x%x/0x%x/0x%x/0x%x/0x%x/0x%x/0x%x/0x%x/0x%x\n",
+	if (CAM_DEBUG_ENABLED(RAW_INT))
+		dev_info_ratelimited(dev->dev, "%s: is srt:%d halt1~10,13:0x%x/0x%x/0x%x/0x%x/0x%x/0x%x/0x%x/0x%x/0x%x/0x%x/0x%x\n",
 		__func__, is_srt,
 		readl(cam_dev->base + REG_HALT1_EN), readl(cam_dev->base + REG_HALT2_EN),
 		readl(cam_dev->base + REG_HALT3_EN), readl(cam_dev->base + REG_HALT4_EN),
@@ -512,8 +512,8 @@ static void init_raw_ddren(struct mtk_raw_device *dev, int is_srt, int frm_time_
 		if (!dev->is_slave && !is_srt)
 			qof_ddren_setting(dev, frm_time_us);
 	}
-
-	dev_info(dev->dev, "ddren_sw_mode:%d\n", debug_ddren_sw_mode);
+	if (CAM_DEBUG_ENABLED(RAW_INT))
+		dev_info(dev->dev, "ddren_sw_mode:%d\n", debug_ddren_sw_mode);
 }
 
 #define CAMCQ_CQ_EN_DEFAULT	0x14
@@ -823,7 +823,8 @@ void dbload_force(struct mtk_raw_device *dev)
 	raw_writel_relaxed(val, dev, dev->base, REG_CAMCTL_DB_LOAD_CTL2);
 	raw_writel_relaxed(val, dev, dev->base_inner, REG_CAMCTL_DB_LOAD_CTL2);
 	wmb(); /* TBC */
-	dev_info(dev->dev, "%s: 0x%x\n", __func__, val);
+	if (CAM_DEBUG_ENABLED(RAW_INT))
+		dev_info(dev->dev, "%s: 0x%x\n", __func__, val);
 }
 
 
@@ -864,8 +865,8 @@ static void set_tg_vfdata_en(struct mtk_raw_device *dev, int on)
 	val = raw_readl(dev, dev->base, REG_TG_VF_CON);
 	SET_FIELD(&val, TG_VFDATA_EN, on);
 	raw_writel(val, dev, dev->base, REG_TG_VF_CON);
-
-	dev_info(dev->dev, "%s: 0x%08x, seq:0x%x/0x%x\n",
+	if (on)
+		dev_info(dev->dev, "%s: 0x%08x, seq:0x%x/0x%x\n",
 		 __func__, raw_readl(dev, dev->base, REG_TG_VF_CON),
 		raw_readl_relaxed(dev, dev->base, REG_FHG_FHG_SPARE_1),
 		raw_readl_relaxed(dev, dev->base_inner, REG_FHG_FHG_SPARE_1));
@@ -1917,6 +1918,9 @@ static void raw_handle_tg_overrun_err(struct mtk_raw_device *raw_dev,
 #if KERNEL_VERSION(6, 6, 0) == LINUX_VERSION_CODE
 		mmqos_hrt_dump();
 #endif
+		do_engine_callback(raw_dev->engine_cb, reset_sensor,
+				   raw_dev->cam, CAMSYS_ENGINE_RAW, raw_dev->id,
+				   fh_cookie);
 		do_engine_callback(raw_dev->engine_cb, dump_request,
 				   raw_dev->cam, CAMSYS_ENGINE_RAW, raw_dev->id,
 				   fh_cookie, MSG_TG_OVERRUN);

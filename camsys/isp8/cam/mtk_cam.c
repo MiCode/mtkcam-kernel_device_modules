@@ -202,7 +202,7 @@ static void append_to_running_list(struct mtk_cam_device *cam,
 	list_add_tail(&req->list, &cam->running_job_list);
 	spin_unlock(&cam->running_job_lock);
 
-	if (CAM_DEBUG || cnt == 1)
+	if (CAM_DEBUG)
 		dev_info(cam->dev, "%s: req:%s running cnt %d\n",
 			 __func__, req->debug_str, cnt);
 }
@@ -217,7 +217,7 @@ static void remove_from_running_list(struct mtk_cam_device *cam,
 	list_del(&req->list);
 	spin_unlock(&cam->running_job_lock);
 
-	if (CAM_DEBUG || !cnt)
+	if (CAM_DEBUG)
 		dev_info(cam->dev, "%s: req:%s running cnt %d\n",
 			 __func__, req->debug_str, cnt);
 
@@ -957,7 +957,7 @@ void mtk_cam_sensor_req_buffer_done(struct mtk_cam_job *job,
 			pipe_id, node_id,
 			is_sv_pure_raw(job) && is_proc,
 			&done_list_sensor, &ids_sensor);
-	if (job->timestamp == 0 || buf_error || CAM_DEBUG_ENABLED(V4L2))
+	if (buf_error || CAM_DEBUG_ENABLED(V4L2))
 		dev_info(dev, "%s: ctx-%d req:%s(%d) pipe_id:%d node_id:%d bufs:0x%lx ts:%lld%s%s\n",
 			 __func__, job->src_ctx->stream_id,
 			 req->debug_str, job->req_seq,
@@ -1186,8 +1186,8 @@ void isp_composer_flush_session(struct mtk_cam_ctx *ctx)
 	event.cmd_id = CAM_CMD_FLUSH;
 	session->session_id = ctx->stream_id;
 	rpmsg_send(ctx->rpmsg_dev->rpdev.ept, &event, sizeof(event));
-
-	dev_info(cam->dev, "rpmsg_send: ctx-%d FLUSH\n", ctx->stream_id);
+	if (CAM_DEBUG_ENABLED(JOB))
+		dev_info(cam->dev, "rpmsg_send: ctx-%d FLUSH\n", ctx->stream_id);
 }
 
 /* forward decl. */
@@ -1230,8 +1230,8 @@ static int isp_composer_init(struct mtk_cam_ctx *ctx)
 			 __func__, ctx->stream_id);
 		goto faile_release_msg_dev;
 	}
-
-	dev_info(dev, "%s initialized composer of ctx:%d\n",
+	if (CAM_DEBUG_ENABLED(V4L2_TRY))
+		dev_info(dev, "%s initialized composer of ctx:%d\n",
 		 __func__, ctx->stream_id);
 
 	return 0;
@@ -1517,12 +1517,14 @@ static int isp_composer_handler(struct rpmsg_device *rpdev, void *data,
 	} else if (ipi_msg->ack_data.ack_cmd_id == CAM_CMD_FLUSH) {
 		ctx = &cam->ctxs[ipi_msg->cookie.session_id];
 		complete(&ctx->session_flush);
-		dev_info(dev, "%s:ctx(%d): session flushed",
+		if (CAM_DEBUG_ENABLED(JOB))
+			dev_info(dev, "%s:ctx(%d): session flushed",
 			 __func__, ctx->stream_id);
 	} else if (ipi_msg->ack_data.ack_cmd_id == CAM_CMD_DESTROY_SESSION) {
 		ctx = &cam->ctxs[ipi_msg->cookie.session_id];
 		complete(&ctx->session_complete);
-		dev_info(dev, "%s:ctx(%d): session destroyed",
+		if (CAM_DEBUG_ENABLED(JOB))
+			dev_info(dev, "%s:ctx(%d): session destroyed",
 			 __func__, ctx->stream_id);
 	}
 
@@ -2767,7 +2769,8 @@ static void mtk_cam_update_pipe_used(struct mtk_cam_ctx *ctx,
 				ppls->mraw[i].id - MTKCAM_SUBDEV_MRAW_START);
 
 	ctx->used_pipe = used_pipe;
-	dev_info(ctx->cam->dev, "%s: ctx %d pipe_used %x\n",
+	if (CAM_DEBUG_ENABLED(V4L2))
+		dev_info(ctx->cam->dev, "%s: ctx %d pipe_used %x\n",
 		 __func__, ctx->stream_id, ctx->used_pipe);
 }
 
@@ -3195,7 +3198,8 @@ int mtk_cam_ctx_stream_on(struct mtk_cam_ctx *ctx)
 {
 	int ret;
 
-	dev_info(ctx->cam->dev, "%s: ctx-%d\n", __func__, ctx->stream_id);
+	if (CAM_DEBUG_ENABLED(V4L2))
+		dev_info(ctx->cam->dev, "%s: ctx-%d\n", __func__, ctx->stream_id);
 
 	/* if already stream on */
 	if (atomic_cmpxchg(&ctx->streaming, 0, 1))
@@ -4295,15 +4299,11 @@ static int loop_each_engine(struct mtk_cam_engines *eng,
 int mtk_cam_pm_runtime_engines(struct mtk_cam_engines *eng,
 			       unsigned long engine_mask, int enable)
 {
-	if (enable) {
+	if (enable)
 		loop_each_engine(eng, engine_mask, pm_runtime_get_sync, enable);
-		pr_info("%s:get: engine_mask:0x%lx", __func__,
-			engine_mask);
-	} else {
+	else
 		loop_each_engine(eng, engine_mask, pm_runtime_put_sync, enable);
-		pr_info("%s:put: engine_mask:0x%lx", __func__,
-			engine_mask);
-	}
+
 	return 0;
 }
 

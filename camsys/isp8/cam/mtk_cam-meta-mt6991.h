@@ -276,6 +276,7 @@ struct mtk_cam_uapi_awb_param {
  */
 struct mtk_cam_uapi_dgn_param {
 	__u32 gain;
+	__u32 input_max_val;
 };
 
 /*
@@ -977,7 +978,7 @@ struct mtk_cam_uapi_meta_camsv_stats_0 {
 };
 
 #define MTK_CAM_META_VERSION_MAJOR 1
-#define MTK_CAM_META_VERSION_MINOR 3
+#define MTK_CAM_META_VERSION_MINOR 4
 #define MTK_CAM_META_PLATFORM_NAME "isp80"
 #define MTK_CAM_META_CHIP_NAME "mt6991"
 

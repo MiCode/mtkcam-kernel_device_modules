@@ -282,51 +282,7 @@ void seninf_sentest_seamless_ut_disable_outmux(struct seninf_ctx *ctx)
 
 }
 
-static void seninf_sentest_set_sensor_seamless_switch(struct kthread_work *work)
-{
-	struct seninf_sentest_work *sentest_work =
-		container_of(work, struct seninf_sentest_work, work);
 
-	struct seninf_ctx *ctx = NULL;
-	struct v4l2_subdev *sensor_sd = NULL;
-	struct v4l2_ctrl *ctrl;
-
-	pr_info("[%s] +", __func__);
-	if (unlikely(sentest_work == NULL)) {
-		pr_info("[Error][%s] sentest_work is NULL", __func__);
-		return;
-	}
-
-	ctx = sentest_work->ctx;
-	if (unlikely(ctx == NULL)) {
-		pr_info("[Error][%s] ctx is NULL", __func__);
-		return;
-	}
-
-	sensor_sd = ctx->sensor_sd;
-	if (unlikely(sensor_sd == NULL)) {
-		pr_info("[Error][%s] sensor_sd is NULL", __func__);
-		seninf_sentest_seamless_switch_error_handler(ctx);
-		return;
-	}
-
-	ctrl = v4l2_ctrl_find(sensor_sd->ctrl_handler,
-			V4L2_CID_START_SEAMLESS_SWITCH);
-
-	if (!ctrl) {
-		pr_info("no TART_SEAMLESS_SWITCH CID in %s\n", sensor_sd->name);
-		seninf_sentest_seamless_switch_error_handler(ctx);
-		return;
-	}
-
-	v4l2_ctrl_s_ctrl_compound(ctrl, V4L2_CTRL_TYPE_U32, &ctx->sentest_seamless_cfg);
-
-	seninf_sentest_watchingdog_en(&ctx->sentest_watchdog, true);
-
-	kfree(sentest_work);
-
-	pr_info("[%s] -", __func__);
-}
 
 static u32 compose_format_code_by_scenario(u32 target_scenario)
 {
@@ -350,19 +306,94 @@ static int get_lastest_outmux_id_by_vc_cnt(struct seninf_ctx *ctx, u32 target_co
 	return -EINVAL;
 }
 
+static int seninf_sentest_disable_old_camtg(struct seninf_ctx *ctx)
+{
+	struct seninf_vcinfo *vcinfo = &ctx->vcinfo;
+	int i, out_pad;
+
+	if (ctx == NULL) {
+		pr_info("[Error][%s] ctx is NULL", __func__);
+		return -EFAULT;
+	}
+
+	for (i = 0; i < vcinfo->cnt; i++) {
+		out_pad = vcinfo->vc[i].out_pad;
+		mtk_cam_seninf_set_camtg_camsv(
+				&ctx->subdev,
+				out_pad,
+				0xff,
+				ctx->pad_tag_id[out_pad][0]);
+	}
+
+	mtk_cam_seninf_apply_disable_mux(&ctx->subdev);
+	return 0;
+}
+
+static int seninf_sentest_set_fmt(struct seninf_ctx *ctx)
+{
+	int i;
+	u32 code;
+	struct seninf_vcinfo *cur_vcinfo = &ctx->cur_vcinfo;
+
+	if (ctx == NULL) {
+		pr_info("[Error][%s] ctx is NULL", __func__);
+		return -EFAULT;
+	}
+
+	mtk_cam_seninf_get_sensor_usage(&ctx->subdev);
+	code = compose_format_code_by_scenario(ctx->sentest_seamless_cfg.target_scenario_id);
+	ctx->fmt[PAD_SRC_RAW0].format.code = code;
+	mtk_cam_sensor_get_vc_info_by_scenario(ctx, code);
+
+	for (i = 0; i < cur_vcinfo->cnt; i++) {
+		if (cur_vcinfo->vc[i].out_pad != PAD_SRC_RAW0)
+			continue;
+
+		switch (cur_vcinfo->vc[i].dt) {
+		case 0x2c:
+			ctx->fmt[PAD_SRC_RAW0].format.code |= MEDIA_BUS_FMT_SBGGR12_1X12;
+			break;
+		case 0x2d:
+			ctx->fmt[PAD_SRC_RAW0].format.code |= MEDIA_BUS_FMT_SBGGR14_1X14;
+			break;
+		default:
+			ctx->fmt[PAD_SRC_RAW0].format.code |= MEDIA_BUS_FMT_SBGGR10_1X10;
+			break;
+		}
+	}
+	return 0;
+}
+
 static int seninf_sentest_set_camtg_for_seamless(struct seninf_ctx *ctx)
 {
 	int i, ret = 0;
 	int outmux_id = 0;
-	struct seninf_vcinfo *vcinfo = &ctx->cur_vcinfo;
+	struct seninf_vcinfo *cur_vcinfo = &ctx->cur_vcinfo;
 	struct mtk_cam_seninf_mux_param param;
 	struct mtk_cam_seninf_mux_setting settings[12];
+	struct v4l2_ctrl *ctrl;
 
 	memset(&param, 0, sizeof(struct mtk_cam_seninf_mux_param));
 
 	memset(settings, 0, sizeof(struct mtk_cam_seninf_mux_setting) * ARRAY_SIZE(settings));
 
-	for (i = 0; i < vcinfo->cnt; i++) {
+	if (seninf_sentest_disable_old_camtg(ctx)) {
+		pr_info("[Error][%s] seninf_sentest_disable_old_camtg return failed", __func__);
+		return -EFAULT;
+	}
+
+	if (seninf_sentest_set_fmt(ctx)) {
+		pr_info("[Error][%s] seninf_sentest_set_fmt return failed", __func__);
+		return -EFAULT;
+	}
+
+	ctrl = v4l2_ctrl_find(ctx->sensor_sd->ctrl_handler,
+			V4L2_CID_START_SEAMLESS_SWITCH);
+
+	v4l2_ctrl_s_ctrl_compound(ctrl, V4L2_CTRL_TYPE_U32, &ctx->sentest_seamless_cfg);
+	seninf_sentest_watchingdog_en(&ctx->sentest_watchdog, true);
+
+	for (i = 0; i < cur_vcinfo->cnt; i++) {
 
 		if (get_lastest_outmux_id_by_vc_cnt(ctx, i, &outmux_id)) {
 			pr_info("[Error][%s] get_lastest_outmux_id_by_vc_cnt return failed", __func__);
@@ -370,8 +401,8 @@ static int seninf_sentest_set_camtg_for_seamless(struct seninf_ctx *ctx)
 		}
 
 		settings[i].seninf = &ctx->subdev;
-		settings[i].source = vcinfo->vc[i].out_pad;
-		settings[i].camtg = outmux_id;
+		settings[i].source = cur_vcinfo->vc[i].out_pad;
+		settings[i].camtg = i;
 		settings[i].enable = 1;
 		settings[i].tag_id = 0;
 		param.num++;
@@ -392,16 +423,11 @@ static int seninf_sentest_set_camtg_for_seamless(struct seninf_ctx *ctx)
 
 static int seninf_sentest_ops_before_sensor_seamless(struct seninf_ctx *ctx)
 {
-	u32 code;
 
 	if (unlikely(ctx == NULL)) {
 		pr_info("[Error][%s] ctx is NULL", __func__);
 		return -EFAULT;
 	}
-
-	code = compose_format_code_by_scenario(ctx->sentest_seamless_cfg.target_scenario_id);
-
-	mtk_cam_sensor_get_vc_info_by_scenario(ctx, code);
 
 	if (seninf_sentest_set_camtg_for_seamless(ctx)) {
 		pr_info("[Error][%s] seninf_sentest_set_camtg_for_seamless returned false",
@@ -429,14 +455,6 @@ static int seninf_sentest_seamless_ut_start(struct seninf_ctx *ctx)
 		pr_info("[Error][%s] sentest_work is NULL", __func__);
 		return -EFAULT;
 	}
-
-	kthread_init_work(&sentest_work->work,
-					seninf_sentest_set_sensor_seamless_switch);
-
-	sentest_work->ctx = ctx;
-
-	kthread_queue_work(&ctx->sentest_worker,
-					&sentest_work->work);
 
 	ret = seninf_sentest_ops_before_sensor_seamless(ctx);
 

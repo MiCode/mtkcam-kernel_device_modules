@@ -2215,6 +2215,12 @@ void mtk_cam_sensor_get_vc_info_by_scenario(struct seninf_ctx *ctx, u32 code)
 		vc->exp_vsize = vc_sid.fd.entry[i].bus.csi2.vsize;
 		vc->dt_remap_to_type = vc_sid.fd.entry[i].bus.csi2.dt_remap_to_type;
 
+		if (vc_sid.fd.entry[i].bus.csi2.data_type >= 0x10 &&
+			vc_sid.fd.entry[i].bus.csi2.data_type <= 0x17)
+			vc->exp_hsize = conv_ebd_hsize_raw14(
+								vc->exp_hsize,
+								vc_sid.fd.entry[i].bus.csi2.ebd_parsing_type);
+
 		if (i == 0)
 			tmp_vc = vc->vc;
 		else if (tmp_vc != vc->vc)

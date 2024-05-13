@@ -44,6 +44,7 @@ int background_idlerate_dangerous = 5;
 int c2ps_placeholder;
 bool recovery_uclamp_max_immediately;
 bool need_boost_uclamp_max = true;
+int um_min_virtual_ceiling = 80;
 module_param(proc_time_window_size, int, 0644);
 module_param(debug_log_on, int, 0644);
 module_param(background_idlerate_alert, int, 0644);
@@ -51,6 +52,7 @@ module_param(background_idlerate_dangerous, int, 0644);
 module_param(c2ps_placeholder, int, 0644);
 module_param(recovery_uclamp_max_immediately, bool, 0644);
 module_param(need_boost_uclamp_max, bool, 0644);
+module_param(um_min_virtual_ceiling, int, 0644);
 
 struct c2ps_task_info *c2ps_find_task_info_by_tskid(int task_id)
 {
@@ -1009,6 +1011,18 @@ void c2ps_free(void *pvBuf, int i32Size)
 		vfree(pvBuf);
 }
 
+unsigned long c2ps_get_um_virtual_ceiling(int cpu, unsigned int um)
+{
+	unsigned long _util = 0;
+
+	if (um >= 100)
+		return INT_MAX;
+
+	um = max_t(int, um, um_min_virtual_ceiling);
+	_util = pd_get_freq_util(cpu, INT_MAX) * um / 100;
+	return pd_get_util_freq(cpu, _util);
+}
+
 unsigned long c2ps_get_uclamp_freq(int cpu, unsigned int uclamp)
 {
 	unsigned long am_util = 0;
@@ -1566,20 +1580,25 @@ inline void c2ps_set_util_margin(int cluster, int um)
 {
 	int margin = 100 - (10000/um);
 	int cpu;
+	unsigned int virtual_ceiling_freq;
 	struct cpumask *cpus;
 
 	if (unlikely(cluster < 0 || cluster >= c2ps_nr_clusters))
 		return;
 
-	C2PS_LOGD("check util margin: %d", margin);
-
-	set_sched_capacity_margin_dvfs(margin);
-
 	cpus = get_gear_cpumask(cluster);
+
+	if (!cpus)
+		return;
+
+	cpu = cpumask_first(cpus);
+	virtual_ceiling_freq = c2ps_get_um_virtual_ceiling(cpu, um);
+	C2PS_LOGD("check util margin:%d, cluster%d virtual ceiling:%u",
+			margin, cluster, virtual_ceiling_freq);
 	for_each_cpu(cpu, cpus) {
 		set_target_margin_low(cpu, margin);
-		set_target_margin(cpu, margin);
-		set_turn_point_freq(cpu, INT_MAX);
+		set_target_margin(cpu, 0);
+		set_turn_point_freq(cpu, virtual_ceiling_freq);
 	}
 }
 

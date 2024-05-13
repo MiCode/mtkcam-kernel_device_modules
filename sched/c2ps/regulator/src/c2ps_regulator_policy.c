@@ -355,7 +355,6 @@ static int _cal_latency_um(
 	}
 
 skip_lat_um:
-	// FIXME: debug only, reduce the necessary log later
 	C2PS_LOGD(
 		"check anchor %d latency: %llu prev_latency: %llu est_diff: %llu est_1: %llu est_2: %llu latency_spec: %u latency_um: %d, cur_um: %d, hit latency: %d",
 		req->anc_info->anchor_id, cur_item->latency, prev_item->latency,
@@ -524,9 +523,10 @@ void c2ps_regulator_bgpolicy_um_stable(struct regulator_req *req)
 			_item->latency, _item->jitter,
 			_item->lat_est.est_err, _item->lat_est.min_est_err);
 	c2ps_bg_info_um_systrace(
-			"stable state anchor_id=%d um=%d latency=%llu jitter=%llu est_err=%lld min_est_err=%lld",
+			"stable state anchor_id=%d um=%d latency=%llu(%u) jitter=%llu(%u) est_err=%lld min_est_err=%lld",
 			req->anc_info->anchor_id, req->glb_info->curr_um,
-			_item->latency, _item->jitter, _item->lat_est.est_err,
+			_item->latency, req->anc_info->latency_spec, _item->jitter,
+			req->anc_info->jitter_spec, _item->lat_est.est_err,
 			_item->lat_est.min_est_err);
 
 	if (need_update_um) {

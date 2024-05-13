@@ -331,6 +331,7 @@ bool need_update_background(void);
 void reset_need_update_status(void);
 void set_eas_setting(void);
 void reset_eas_setting(void);
+unsigned long c2ps_get_um_virtual_ceiling(int cpu, unsigned int um);
 unsigned long c2ps_get_uclamp_freq(int cpu,  unsigned int uclamp);
 bool c2ps_get_cur_cpu_floor_uclamp(const int cpu, int *floor_uclamp, int floor_freq);
 u32 c2ps_get_cur_cpu_freq_floor(const int cpu);

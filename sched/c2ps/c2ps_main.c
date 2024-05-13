@@ -87,11 +87,13 @@ static void background_info_update_timer_callback(struct timer_list *t)
 static void trigger_bg_policy(void)
 {
 	if (need_update_background()) {
-		struct regulator_req *req = get_regulator_req();
+		struct regulator_req *req = NULL;
 		struct global_info *g_info = get_glb_info();
 
 		if (unlikely(!g_info))
 			return;
+
+		req = get_regulator_req();
 
 		if (likely(req != NULL)) {
 			req->glb_info = g_info;
@@ -238,7 +240,9 @@ static void c2ps_notifier_task_single_shot(
 		update_critical_task_uclamp_by_tsk_id(
 			critical_task_ids, critical_task_uclamp);
 
-	if (util_margin) {
+	if (util_margin == RESET_VAL) {
+		g_info->overwrite_util_margin = 0;
+	} else if (util_margin > 0) {
 		struct regulator_req *req = get_regulator_req();
 
 		g_info->overwrite_util_margin = util_margin;
@@ -247,8 +251,6 @@ static void c2ps_notifier_task_single_shot(
 			req->stat = C2PS_STAT_TRANSIENT;
 			send_regulator_req(req);
 		}
-	} else if (reset_param) {
-		g_info->overwrite_util_margin = 0;
 	}
 
 	if (enable_ineff_cpufreq) {

@@ -44,6 +44,8 @@
 #define LxF_F_KF_QVAL 20
 #define LxF_DIFF_THRES 10000
 
+#define RESET_VAL 999999
+
 extern int proc_time_window_size;
 extern int debug_log_on;
 extern unsigned int c2ps_nr_clusters;

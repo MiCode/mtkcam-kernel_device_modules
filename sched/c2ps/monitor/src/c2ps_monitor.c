@@ -154,10 +154,12 @@ int monitor_task_end(int pid, int task_id)
 inline void cal_um(struct c2ps_anchor *anc)
 {
 	struct global_info *g_info = get_glb_info();
-	struct regulator_req *req = get_regulator_req();
+	struct regulator_req *req = NULL;
 
-	if (unlikely(anc == NULL || g_info == NULL || req == NULL))
+	if (unlikely(anc == NULL || g_info == NULL))
 		return;
+
+	req = get_regulator_req();
 
 	if (likely(req != NULL)) {
 		req->anc_info = anc;

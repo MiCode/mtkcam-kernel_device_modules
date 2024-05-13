@@ -615,6 +615,9 @@ void c2ps_check_last_anc(struct c2ps_anchor *anc)
 	if (likely(glb_info->um_vote.last_anchor_decided))
 		goto out;
 
+	if (unlikely(anc->anchor_id < 0))
+		return;
+
 	if (unlikely(glb_info->um_vote.total_voter_mul % Prime_Table[anc->anchor_id] != 0)) {
 		glb_info->um_vote.total_voter_mul *= Prime_Table[anc->anchor_id];
 
@@ -1407,7 +1410,7 @@ void update_cpu_idle_rate(void)
 	}
 
 	for (; _cluster_index < c2ps_nr_clusters; _cluster_index++) {
-		u32 cur_cpu_freq = c2ps_get_cur_cpu_freq(
+		u64 cur_cpu_freq = c2ps_get_cur_cpu_freq(
 					c2ps_get_first_cpu_of_cluster(_cluster_index));
 		u32 cur_cpu_floor = c2ps_get_cur_cpu_freq_floor(
 					c2ps_get_first_cpu_of_cluster(_cluster_index));
@@ -1456,7 +1459,7 @@ void update_cpu_idle_rate(void)
 				(100 - glb_info->avg_cluster_idle_rate[_cluster_index]) * cur_cpu_freq;
 
 			// FIXME: only for current debug, remove it later
-			C2PS_LOGD("check l_idle average: %d, cluster: %d, loading*freq: %llu, freq: %u",
+			C2PS_LOGD("check l_idle average: %d, cluster: %d, loading*freq: %llu, freq: %llu",
 				glb_info->avg_cluster_idle_rate[_cluster_index], _cluster_index,
 				glb_info->l_loadxfreq[_cluster_index], cur_cpu_freq);
 		}

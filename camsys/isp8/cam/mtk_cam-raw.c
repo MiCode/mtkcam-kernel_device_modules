@@ -1135,6 +1135,26 @@ void write_pkt_trigger_apu_frame_mode(struct mtk_raw_device *dev,
 	write_pkt_apu_raw(dev, pkt, false /* is_apu_dc */);
 }
 
+bool is_rawi_ufdi_rdone_zero(struct mtk_raw_device *dev)
+{
+	u32 rawi_r2_dbg, ufdi_r2_dbg, rawi_r5_dbg, ufdi_r5_dbg;
+
+	writel(DBG_SEL_RAWI_R2_SMI_DBG_DATA, dev->dmatop_base + REG_CAMRAWDMATOP_DMA_DBG_SEL);
+	rawi_r2_dbg = readl(dev->dmatop_base + REG_CAMRAWDMATOP_DMA_DBG_PORT);
+	writel(DBG_SEL_UFDI_R2_SMI_DBG_DATA, dev->dmatop_base + REG_CAMRAWDMATOP_DMA_DBG_SEL);
+	ufdi_r2_dbg = readl(dev->dmatop_base + REG_CAMRAWDMATOP_DMA_DBG_PORT);
+	writel(DBG_SEL_RAWI_R5_SMI_DBG_DATA, dev->dmatop_base + REG_CAMRAWDMATOP_DMA_DBG_SEL);
+	rawi_r5_dbg = readl(dev->dmatop_base + REG_CAMRAWDMATOP_DMA_DBG_PORT);
+	writel(DBG_SEL_UFDI_R5_SMI_DBG_DATA, dev->dmatop_base + REG_CAMRAWDMATOP_DMA_DBG_SEL);
+	ufdi_r5_dbg = readl(dev->dmatop_base + REG_CAMRAWDMATOP_DMA_DBG_PORT);
+
+	if (rawi_r2_dbg & BIT(19) && ufdi_r2_dbg & BIT(19) &&
+	    rawi_r5_dbg & BIT(19) && ufdi_r5_dbg & BIT(19))
+		return true;
+
+	return false;
+}
+
 /* check again for rawi dcif case */
 bool is_all_dma_idle(struct mtk_raw_device *dev)
 {
@@ -1197,7 +1217,7 @@ bool is_all_dma_idle(struct mtk_raw_device *dev)
 	if (raw_rst_stat == REG_CAMRAWDMATOP_DMA_SOFT_RST_STAT_MASK &&
 		raw_rst_stat2 == REG_CAMRAWDMATOP_DMA_SOFT_RST2_STAT_MASK &&
 		yuv_rst_stat == REG_CAMYUVDMATOP_DMA_SOFT_RST_STAT_MASK)
-		return true;
+		return is_rawi_ufdi_rdone_zero(dev);
 
 	return false;
 }
@@ -1223,10 +1243,9 @@ void reset(struct mtk_raw_device *dev)
 	dev_info(dev->dev, "%s\n", __func__);
 
 	/* Disable all DMA DCM before reset */
-	raw_writel(0xffffffff, dev, dev->base, REG_CAMCTL_MOD5_DCM_DIS);
-	raw_writel(0xffffffff, dev, dev->base, REG_CAMCTL_MOD6_DCM_DIS);
-	raw_writel(0xffffffff, dev, dev->yuv_base, REG_CAMCTL2_MOD5_DCM_DIS);
-	raw_writel(0xffffffff, dev, dev->yuv_base, REG_CAMCTL2_MOD6_DCM_DIS);
+	raw_writel(0xffffffff, dev, dev->base, REG_CAMCTL_MOD10_DCM_DIS);
+	raw_writel(0xffffffff, dev, dev->base, REG_CAMCTL_MOD11_DCM_DIS);
+	raw_writel(0xffffffff, dev, dev->yuv_base, REG_CAMCTL2_MOD11_DCM_DIS);
 
 	/* enable CQI_R1 ~ R4 before reset and make sure loaded to inner */
 	mod10_en = raw_readl(dev, dev->base, REG_CAMCTL_MOD10_EN);
@@ -1263,10 +1282,9 @@ RESET_FAILURE:
 	raw_writel(mod10_en, dev, dev->base_inner, REG_CAMCTL_MOD10_EN);
 
 	/* Enable all DMA DCM back */
-	raw_writel(0x0, dev, dev->base, REG_CAMCTL_MOD5_DCM_DIS);
-	raw_writel(0x0, dev, dev->base, REG_CAMCTL_MOD6_DCM_DIS);
-	raw_writel(0x0, dev, dev->yuv_base, REG_CAMCTL2_MOD5_DCM_DIS);
-	raw_writel(0x0, dev, dev->yuv_base, REG_CAMCTL2_MOD6_DCM_DIS);
+	raw_writel(0x0, dev, dev->base, REG_CAMCTL_MOD10_DCM_DIS);
+	raw_writel(0x0, dev, dev->base, REG_CAMCTL_MOD11_DCM_DIS);
+	raw_writel(0x0, dev, dev->yuv_base, REG_CAMCTL2_MOD11_DCM_DIS);
 
 	wmb(); /* make sure committed */
 }

@@ -66,7 +66,7 @@ struct mtk_ltms_buf_pool;
 
 #define CAM_VCORE_BASE       0x3c805000
 #define CAM_VCORE_DDREN_EN   0x38
-#define CAM_VCORE_DDREN_ACK  0x38
+#define CAM_VCORE_DDREN_ACK  0x3c
 #define CAM_VCORE_CG_CON	0xa0
 
 #define CAM_MAIN_RAWA_BASE       0x3a8c0000

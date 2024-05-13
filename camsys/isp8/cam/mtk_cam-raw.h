@@ -180,8 +180,9 @@ void enable_tg_db(struct mtk_raw_device *dev, int en);
 /* fbc */
 void rwfbc_inc_setup(struct mtk_raw_device *dev);
 void set_sig_sel_master(struct mtk_raw_device *dev);
-
 void set_sig_sel_slave(struct mtk_raw_device *dev);
+void check_master_raw_vf_en(struct mtk_raw_device *dev);
+
 
 /* trigger */
 void stream_on(struct mtk_raw_device *dev, int on, bool reset_at_off);

@@ -863,6 +863,25 @@ void set_sig_sel_slave(struct mtk_raw_device *dev)
 		raw_readl_relaxed(dev, dev->base_inner, REG_CAMCTL_SEL3));
 }
 
+void check_master_raw_vf_en(struct mtk_raw_device *dev)
+{
+	unsigned int vf_con = raw_readl_relaxed(dev, dev->base, REG_TG_VF_CON);
+	unsigned int vf_con_inner = raw_readl_relaxed(dev, dev->base_inner, REG_TG_VF_CON);
+
+	dev_info(dev->dev, "%s: 0x%08x/0x%08x, seq:0x%x/0x%x\n",
+			__func__, vf_con, vf_con_inner,
+			raw_readl_relaxed(dev, dev->base, REG_FHG_FHG_SPARE_1),
+			raw_readl_relaxed(dev, dev->base_inner, REG_FHG_FHG_SPARE_1));
+	if ((vf_con & BIT(0)) == 0 || (vf_con_inner & BIT(0)) == 0) {
+		set_tg_vfdata_en(dev, 1);
+		dev_info(dev->dev, "%s:fix: 0x%08x/0x%08x, seq:0x%x/0x%x\n",
+			__func__, raw_readl(dev, dev->base, REG_TG_VF_CON),
+			raw_readl(dev, dev->base_inner, REG_TG_VF_CON),
+			raw_readl_relaxed(dev, dev->base, REG_FHG_FHG_SPARE_1),
+			raw_readl_relaxed(dev, dev->base_inner, REG_FHG_FHG_SPARE_1));
+	}
+}
+
 void stream_on(struct mtk_raw_device *dev, int on, bool reset_at_off)
 {
 	if (on) {

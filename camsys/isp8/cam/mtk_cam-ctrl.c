@@ -1233,10 +1233,22 @@ static void mtk_cam_ctrl_stream_on_flow(struct mtk_cam_job *job)
 static int dynamic_raw_change_stream_on(struct mtk_cam_job *job, int unit_engs)
 {
 	struct mtk_cam_ctx *ctx = job->src_ctx;
+	struct mtk_cam_device *cam = ctx->cam;
 	struct mtk_cam_ctrl *ctrl = &ctx->cam_ctrl;
+	int i;
 
 	if (job->raw_change) {
 		if (job->raw_change == JOB_RAW_MASTER_UNCHANGED) {
+			for (i = 0; i < cam->engines.num_raw_devices; i++) {
+				if (BIT(i) & job->master_engine) {
+					struct mtk_raw_device *raw_dev;
+
+					raw_dev = dev_get_drvdata(cam->engines.raw_devs[i]);
+					/* OTF mode - master raw check*/
+					if (!raw_dev->is_slave && !is_dc_mode(job))
+						check_master_raw_vf_en(raw_dev);
+				}
+			}
 			/* bc -> b case , ealier raise clk */
 			if (unit_engs)
 				mtk_cam_job_update_clk(job);
@@ -1964,7 +1976,8 @@ static void reset_runtime_info(struct mtk_cam_ctrl *ctrl)
 	info->outer_seq_no = -1;
 	info->inner_seq_no = -1;
 	info->done_seq_no = -1;
-	info->ae_wa_enable = ctrl->ctx->cam->sw_ver != 0x0001;
+	info->ae_wa_enable = ctrl->ctx->raw_subdev_idx >= 0 &&
+		ctrl->ctx->cam->sw_ver != 0x0001;
 
 	spin_unlock(&ctrl->info_lock);
 }

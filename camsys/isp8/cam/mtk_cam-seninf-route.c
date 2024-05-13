@@ -1082,26 +1082,20 @@ int mtk_cam_seninf_set_pixelmode_camsv(struct v4l2_subdev *sd,
 
 	for (i = 0; i < vc->dest_cnt; i++) {
 
-		dev_info(ctx->dev, "%s camtg: %d, ctx->pad2cam[pad:%d][des_cnt:%d] %d\n",
-				__func__,
-				camtg,
-				pad_id,
-				i,
-				ctx->pad2cam[pad_id][i]);
-
 		if ((outmux2camtype(ctx, camtg) !=
 			outmux2camtype(ctx, ctx->pad2cam[pad_id][i]))) {
-			dev_info(ctx->dev,
-			"%s camtg %d camtype is mismatch ctx->pad2cam[pad:%d][des_cnt:%d] %d\n",
-			__func__, camtg, pad_id, i, ctx->pad2cam[pad_id][i]);
+			seninf_logd(ctx,
+			"camtg %d camtype is mismatch ctx->pad2cam[pad:%d][des_cnt:%d] %d\n",
+			camtg, pad_id, i, ctx->pad2cam[pad_id][i]);
 			continue;
 		}
 
 		vc->dest[i].pix_mode = pixelMode;
-		dev_info(ctx->dev, "%s update pixel mode %d for cam %d\n",
-				__func__,
-				vc->dest[i].pix_mode,
-				ctx->pad2cam[pad_id][i]);
+		seninf_logi(ctx, "camtg:%d, update pixel mode %d for pad2cam[%d][%d]:%d\n",
+			    camtg,
+			    vc->dest[i].pix_mode,
+			    pad_id, i,
+			    ctx->pad2cam[pad_id][i]);
 	}
 
 	return 0;
@@ -1145,10 +1139,10 @@ int mtk_cam_seninf_set_pixelmode(struct v4l2_subdev *sd,
 		// Only available for raw and mraw in stream off state
 		if (outmux2camtype(ctx, dest_outmux) != TYPE_CAMSV) {
 			vc->dest[i].pix_mode = pixelMode;
-			dev_info(ctx->dev, "%s update pixel mode %d for cam %d\n",
-				__func__,
-				vc->dest[i].pix_mode,
-				dest_outmux);
+			seninf_logi(ctx, "update pixel mode %d for pad2cam[%d][%d]:%d\n",
+				    vc->dest[i].pix_mode,
+				    pad_id, i,
+				    dest_outmux);
 		}
 	}
 

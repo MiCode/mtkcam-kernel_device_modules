@@ -175,7 +175,6 @@ int mtk_cam_seninf_get_active_line_info(struct v4l2_subdev *sd,
 					mode_info.active_line_num,
 					result->active_line_num,
 					mode_info.avg_linetime_in_ns);
-		seninf_logi(ctx, "mode_info.scenario_id = %u\n", mode_info.scenario_id);
 	}
 
 	return -1;

@@ -1949,7 +1949,7 @@ static int csirx_mac_top_setting(struct seninf_ctx *ctx)
 	}
 
 	csirx_mac_top = ctx->reg_csirx_mac_top[ctx->port];
-	dev_info(ctx->dev, "[%s] ctx->port %d\n", __func__, ctx->port);
+	seninf_logd(ctx, "ctx->port %d\n", ctx->port);
 
 	/* Select share bus option */
 	SENINF_BITS(csirx_mac_top,
@@ -6814,13 +6814,16 @@ int mtk_cam_seninf_wait_outmux_cfg_done(struct seninf_ctx *ctx, u8 outmux_idx)
 
 	pSeninf_mux = ctx->reg_if_outmux[outmux_idx];
 
-	dev_info(ctx->dev, "[%s] outmux idx %u, read CFG_M/FILT_M/CFG_CTL/CFG0/DBG0(0x%x/0x%x/0x%x/0x%x/0x%x)\n",
-		__func__, outmux_idx,
-		SENINF_READ_REG(pSeninf_mux, SENINF_OUTMUX_SW_CONFIG_MODE),
-		SENINF_READ_REG(pSeninf_mux, SENINF_OUTMUX_FILT_MODE),
-		SENINF_READ_REG(pSeninf_mux, SENINF_OUTMUX_CSR_CFG_CTRL),
-		SENINF_READ_REG(pSeninf_mux, SENINF_OUTMUX_SOURCE_CONFIG_0),
-		SENINF_READ_REG(pSeninf_mux, SENINF_OUTMUX_PATH_DBG_PORT_0));
+	if (SENINF_READ_BITS(pSeninf_mux, SENINF_OUTMUX_SW_CFG_DONE, SENINF_OUTMUX_SW_CFG_DONE)) {
+		seninf_logi(ctx,
+			"outmux idx %u, read CFG_M/FILT_M/CFG_CTL/CFG0/DBG0(0x%x/0x%x/0x%x/0x%x/0x%x)\n",
+			outmux_idx,
+			SENINF_READ_REG(pSeninf_mux, SENINF_OUTMUX_SW_CONFIG_MODE),
+			SENINF_READ_REG(pSeninf_mux, SENINF_OUTMUX_FILT_MODE),
+			SENINF_READ_REG(pSeninf_mux, SENINF_OUTMUX_CSR_CFG_CTRL),
+			SENINF_READ_REG(pSeninf_mux, SENINF_OUTMUX_SOURCE_CONFIG_0),
+			SENINF_READ_REG(pSeninf_mux, SENINF_OUTMUX_PATH_DBG_PORT_0));
+	}
 
 	while (SENINF_READ_BITS(pSeninf_mux, SENINF_OUTMUX_SW_CFG_DONE, SENINF_OUTMUX_SW_CFG_DONE))
 		udelay(100);
@@ -6901,15 +6904,18 @@ static bool chk_sensor_delay_with_wait(struct seninf_ctx *ctx, u8 outmux_idx, bo
 		return false;
 	}
 
-	seninf_logi(ctx, "outmux idx %u, read CFG_M/FILT_M/CFG_CTL/CFG0/DBG0(0x%x/0x%x/0x%x/0x%x/0x%x)\n",
-		    outmux_idx,
-		    SENINF_READ_REG(pSeninf_mux, SENINF_OUTMUX_SW_CONFIG_MODE),
-		    SENINF_READ_REG(pSeninf_mux, SENINF_OUTMUX_FILT_MODE),
-		    SENINF_READ_REG(pSeninf_mux, SENINF_OUTMUX_CSR_CFG_CTRL),
-		    SENINF_READ_REG(pSeninf_mux, SENINF_OUTMUX_SOURCE_CONFIG_0),
-		    SENINF_READ_REG(pSeninf_mux, SENINF_OUTMUX_PATH_DBG_PORT_0));
-
 	SENINF_BITS(pSeninf_mux, SENINF_OUTMUX_IRQ_STATUS, SENINF_OUTMUX_REF_VSYNC_IRQ_STATUS, 1);
+
+	if (SENINF_READ_BITS(pSeninf_mux, SENINF_OUTMUX_SW_CFG_DONE, SENINF_OUTMUX_SW_CFG_DONE)) {
+		seninf_logi(ctx,
+			"outmux idx %u, read CFG_M/FILT_M/CFG_CTL/CFG0/DBG0(0x%x/0x%x/0x%x/0x%x/0x%x)\n",
+			outmux_idx,
+			SENINF_READ_REG(pSeninf_mux, SENINF_OUTMUX_SW_CONFIG_MODE),
+			SENINF_READ_REG(pSeninf_mux, SENINF_OUTMUX_FILT_MODE),
+			SENINF_READ_REG(pSeninf_mux, SENINF_OUTMUX_CSR_CFG_CTRL),
+			SENINF_READ_REG(pSeninf_mux, SENINF_OUTMUX_SOURCE_CONFIG_0),
+			SENINF_READ_REG(pSeninf_mux, SENINF_OUTMUX_PATH_DBG_PORT_0));
+	}
 
 	while (SENINF_READ_BITS(pSeninf_mux, SENINF_OUTMUX_SW_CFG_DONE, SENINF_OUTMUX_SW_CFG_DONE)) {
 		udelay(100);

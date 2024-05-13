@@ -1675,8 +1675,9 @@ void camsv_handle_err(
 		atomic_set(&sv_dev->is_fifo_full, 1);
 
 		if (DISABLE_RECOVER_FLOW) {
+			mtk_cam_bwr_dbg_dump(sv_dev->cam->bwr);
 			mmdvfs_debug_status_dump(NULL);
-#if KERNEL_VERSION(6, 6, 0) == LINUX_VERSION_CODE
+#if KERNEL_VERSION(6, 7, 0) >= LINUX_VERSION_CODE
 			mmqos_hrt_dump();
 #endif
 			if (atomic_read(&sv_dev->is_seamless))

@@ -1409,6 +1409,19 @@ static void raw_handle_skip_frame(struct mtk_raw_device *raw_dev,
 
 	dev_info(raw_dev->dev, "%s: dcif_status:0x%x, fh_cookie:0x%x\n",
 			__func__, err_status, fh_cookie);
+
+	if (err_status & FBIT(CAMCTL_P1_SKIP_FRAME_DC_STAG_INT_ST)) {
+		mtk_cam_bwr_dbg_dump(raw_dev->cam->bwr);
+		mmdvfs_debug_status_dump(NULL);
+#if KERNEL_VERSION(6, 7, 0) >= LINUX_VERSION_CODE
+		mmqos_hrt_dump();
+#endif
+
+		if (DISABLE_RECOVER_FLOW)
+			do_engine_callback(raw_dev->engine_cb, dump_request,
+				raw_dev->cam, CAMSYS_ENGINE_RAW, raw_dev->id,
+				fh_cookie, MSG_DC_SKIP_FRAME);
+	}
 }
 
 static void raw_handle_ringbuffer_ofl(struct mtk_raw_device *raw,
@@ -1934,8 +1947,9 @@ static void raw_handle_tg_overrun_err(struct mtk_raw_device *raw_dev,
 		dump_topdebug_rdyreq_status(raw_dev);
 
 	else if (cnt == (OVERRUN_DUMP_CNT + raw_dev->sub_sensor_ctrl_en * 10)) {
+		mtk_cam_bwr_dbg_dump(raw_dev->cam->bwr);
 		mmdvfs_debug_status_dump(NULL);
-#if KERNEL_VERSION(6, 6, 0) == LINUX_VERSION_CODE
+#if KERNEL_VERSION(6, 7, 0) >= LINUX_VERSION_CODE
 		mmqos_hrt_dump();
 #endif
 		do_engine_callback(raw_dev->engine_cb, reset_sensor,

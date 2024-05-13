@@ -196,6 +196,21 @@ static int max96712_sensor_init(struct subdrv_ctx *ctx)
 	write_cmos_sensor(ctx, 0x1F00, 0xF5);
 	mdelay(16);
 
+	write_cmos_sensor(ctx, 0x04A0, 0x04);
+	write_cmos_sensor(ctx, 0x04A2, 0x00);
+	mdelay(10);
+	write_cmos_sensor(ctx, 0x04AA, 0x00);
+	write_cmos_sensor(ctx, 0x04AB, 0x00);
+	write_cmos_sensor(ctx, 0x04AF, 0xC0);
+	write_cmos_sensor(ctx, 0x04A7, 0x0C);
+	write_cmos_sensor(ctx, 0x04A6, 0xB7);
+	write_cmos_sensor(ctx, 0x04A5, 0x35);
+	write_cmos_sensor(ctx, 0x04B1, 0x20); //FSYNC TX ID is MFP4
+
+	write_cmos_sensor(ctx, 0x00FA, 0x70);//debug MFP4=VS,MFP13=HS,MFP14=DE
+	write_cmos_sensor(ctx, 0x0001, 0xCC);//Disable 3rd I2C
+	msleep(100);
+
 	//link lock check
 	linka = read_cmos_sensor(ctx, 0x1A);
 	linkb = read_cmos_sensor(ctx, 0x0A);
@@ -206,10 +221,16 @@ static int max96712_sensor_init(struct subdrv_ctx *ctx)
 		//link lock check
 
 	write_cmos_max96717_sensor(ctx, 0x0002, 0xf3);//96717 videopipez only en
+	write_cmos_max96717_sensor(ctx, 0x0003, 0x04);
 	write_cmos_max96717_sensor(ctx, 0x0383, 0x00);//select pixel mode
 	write_cmos_max96717_sensor(ctx, 0x0318, 0x1e);//dt select 0x1e
 	write_cmos_max96717_sensor(ctx, 0x0570, 0x0c);//pio05_slew
+	write_cmos_max96717_sensor(ctx, 0x0010, 0x31);//reset
+	msleep(100);
 	write_cmos_max96717_sensor(ctx, 0x0006, 0xb0);//I2C mode
+	write_cmos_max96717_sensor(ctx, 0x02CA, 0x00);
+	msleep(150);
+	write_cmos_max96717_sensor(ctx, 0x02CA, 0x10);
 
 	//write_cmos_max96717_sensor(ctx, 0x02D4, 0xA0);//GPIO7 pull-down GPIO TRANSMIT id 0
 	//write_cmos_max96717_sensor(ctx, 0x02D3, 0x10);//GPIO7 output 1 disable for GMSL TX/RX
@@ -223,6 +244,10 @@ static int max96712_sensor_init(struct subdrv_ctx *ctx)
 
 	write_cmos_sc22at_sensor(ctx, 0x3034, 0x0b);
 	write_cmos_sc22at_sensor(ctx, 0x3641, 0x92);
+	write_cmos_sc22at_sensor(ctx, 0x3222, 0x05);
+
+	write_cmos_sensor(ctx, 0x08A2, 0xF4);//turn on mipi phys luna F4
+	write_cmos_max96717_sensor(ctx, 0x02CA, 0x84); //Enable GPIO_RX_EN on Ser MFP4
 
 	DRV_LOG(ctx, "--MAX96712-- sensor init end\n");
 	return 0;
@@ -452,9 +477,9 @@ static struct subdrv_mode_struct mode_struct[] = {
 			.legacy_phy = 0,
 			.not_fixed_trail_settle = 1,
 			.not_fixed_dphy_settle = 1,
-			.dphy_trail = 40,
-			.dphy_data_settle = 8,
-			.cphy_settle = 13,
+			.dphy_trail = 4,
+			.dphy_data_settle = 36,
+			.cphy_settle = 36,
 			.clk_lane_no_initial_flow = 0,
 		},
 		.dpc_enabled = true, /* reg 0x0b06 */
@@ -508,9 +533,9 @@ static struct subdrv_mode_struct mode_struct[] = {
 			.legacy_phy = 0,
 			.not_fixed_trail_settle = 1,
 			.not_fixed_dphy_settle = 1,
-			.dphy_trail = 40,
-			.dphy_data_settle = 8,
-			.cphy_settle = 13,
+			.dphy_trail = 4,
+			.dphy_data_settle = 36,
+			.cphy_settle = 36,
 			.clk_lane_no_initial_flow = 0,
 		},
 		.dpc_enabled = true, /* reg 0x0b06 */
@@ -565,9 +590,9 @@ static struct subdrv_mode_struct mode_struct[] = {
 			.legacy_phy = 0,
 			.not_fixed_trail_settle = 1,
 			.not_fixed_dphy_settle = 1,
-			.dphy_trail = 40,
-			.dphy_data_settle = 8,
-			.cphy_settle = 13,
+			.dphy_trail = 4,
+			.dphy_data_settle = 36,
+			.cphy_settle = 36,
 			.clk_lane_no_initial_flow = 0,
 		},
 		.dpc_enabled = true, /* reg 0x0b06 */

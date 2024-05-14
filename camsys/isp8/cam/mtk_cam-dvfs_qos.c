@@ -739,6 +739,9 @@ static int fill_sv_qos(struct mtk_cam_job *job,
 		x_size = in->fmt.stride[0];
 		img_h = in->fmt.s.h;
 
+		if (x_size >= 4096)
+			sv_dev->enable_stash_eco_fun = true;
+
 		CALL_PLAT_V4L2(
 			get_sv_smi_setting, sv_dev->id, &is_two_smi_out);
 
@@ -1271,7 +1274,7 @@ static void apply_sv_qos(struct mtk_cam_job *job)
 			if (leading_line_cnt > 8)
 				pr_info("%s: unexpected leading_line_cnt:%d", __func__, leading_line_cnt);
 			mtk_cam_sv_dmao_common_config(sv_dev, fifo_img_p1, fifo_img_p2, fifo_len_p1, fifo_len_p2,
-				(leading_line_cnt - 1) & 0x7);
+				(leading_line_cnt - 1) & 0x7, sv_dev->enable_stash_eco_fun);
 
 			/* apply golden setting */
 			mtk_cam_sv_golden_set(sv_dev, is_dc_mode(job) ? true : false);

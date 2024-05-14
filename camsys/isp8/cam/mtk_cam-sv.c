@@ -560,7 +560,7 @@ RESET_FAILURE:
 int mtk_cam_sv_dmao_common_config(struct mtk_camsv_device *sv_dev,
 	unsigned int fifo_img_p1, unsigned int fifo_img_p2,
 	unsigned int fifo_len_p1, unsigned int fifo_len_p2,
-	unsigned int leading_line_cnt)
+	unsigned int leading_line_cnt, bool enable_stash_eco_fun)
 {
 	int ret = 0;
 	struct sv_dma_th_setting th_setting;
@@ -627,14 +627,19 @@ int mtk_cam_sv_dmao_common_config(struct mtk_camsv_device *sv_dev,
 			0xFFF);
 		CAMSV_WRITE_REG(sv_dev->base_dma + REG_CAMSVSTG1_LEADING_CNT_SRC,
 			leading_line_cnt);
+		/* ECO item */
+		if (enable_stash_eco_fun)
+			CAMSV_WRITE_REG(sv_dev->base_dma + REG_CAMSVSTG1_SW_CTRL,
+				0x8000);
 
 		/* stg wdma 2 */
 		CAMSV_WRITE_REG(sv_dev->base_dma + REG_CAMSVSTG2_EN_CTRL,
 			0xFFF);
 		CAMSV_WRITE_REG(sv_dev->base_dma + REG_CAMSVSTG2_NONE_SAME_PG_SEND_EN_CTRL,
 			0xFFF);
-		CAMSV_WRITE_REG(sv_dev->base_dma + REG_CAMSVSTG2_LEADING_CNT_SRC,
-			leading_line_cnt);
+		if (enable_stash_eco_fun)
+			CAMSV_WRITE_REG(sv_dev->base_dma + REG_CAMSVSTG2_SW_CTRL,
+				0x8000);
 		break;
 	case CAMSV_1:
 		/* wdma 1 */
@@ -682,14 +687,19 @@ int mtk_cam_sv_dmao_common_config(struct mtk_camsv_device *sv_dev,
 			0xFFF);
 		CAMSV_WRITE_REG(sv_dev->base_dma + REG_CAMSVSTG1_LEADING_CNT_SRC,
 			leading_line_cnt);
+		/* ECO item */
+		if (enable_stash_eco_fun)
+			CAMSV_WRITE_REG(sv_dev->base_dma + REG_CAMSVSTG1_SW_CTRL,
+				0x8000);
 
 		/* stg wdma 2 */
 		CAMSV_WRITE_REG(sv_dev->base_dma + REG_CAMSVSTG2_EN_CTRL,
 			0xFFF);
 		CAMSV_WRITE_REG(sv_dev->base_dma + REG_CAMSVSTG2_NONE_SAME_PG_SEND_EN_CTRL,
 			0xFFF);
-		CAMSV_WRITE_REG(sv_dev->base_dma + REG_CAMSVSTG2_LEADING_CNT_SRC,
-			leading_line_cnt);
+		if (enable_stash_eco_fun)
+			CAMSV_WRITE_REG(sv_dev->base_dma + REG_CAMSVSTG2_SW_CTRL,
+				0x8000);
 		break;
 	case CAMSV_2:
 		CAMSV_WRITE_REG(sv_dev->base_dma + REG_CAMSVDMATOP_CON3_IMG,
@@ -717,6 +727,10 @@ int mtk_cam_sv_dmao_common_config(struct mtk_camsv_device *sv_dev,
 			0xFFF);
 		CAMSV_WRITE_REG(sv_dev->base_dma + REG_CAMSVSTG1_LEADING_CNT_SRC,
 			leading_line_cnt);
+		/* ECO item */
+		if (enable_stash_eco_fun)
+			CAMSV_WRITE_REG(sv_dev->base_dma + REG_CAMSVSTG1_SW_CTRL,
+				0x8000);
 		break;
 	case CAMSV_3:
 		CAMSV_WRITE_REG(sv_dev->base_dma + REG_CAMSVDMATOP_CON3_IMG,
@@ -744,6 +758,10 @@ int mtk_cam_sv_dmao_common_config(struct mtk_camsv_device *sv_dev,
 			0xFFF);
 		CAMSV_WRITE_REG(sv_dev->base_dma + REG_CAMSVSTG1_LEADING_CNT_SRC,
 			leading_line_cnt);
+		/* ECO item */
+		if (enable_stash_eco_fun)
+			CAMSV_WRITE_REG(sv_dev->base_dma + REG_CAMSVSTG1_SW_CTRL,
+				0x8000);
 		break;
 	case CAMSV_4:
 		CAMSV_WRITE_REG(sv_dev->base_dma + REG_CAMSVDMATOP_CON3_IMG,
@@ -762,6 +780,10 @@ int mtk_cam_sv_dmao_common_config(struct mtk_camsv_device *sv_dev,
 			0xFFF);
 		CAMSV_WRITE_REG(sv_dev->base_dma + REG_CAMSVSTG1_LEADING_CNT_SRC,
 			leading_line_cnt);
+		/* ECO item */
+		if (enable_stash_eco_fun)
+			CAMSV_WRITE_REG(sv_dev->base_dma + REG_CAMSVSTG1_SW_CTRL,
+				0x8000);
 		break;
 	case CAMSV_5:
 		CAMSV_WRITE_REG(sv_dev->base_dma + REG_CAMSVDMATOP_CON3_IMG,
@@ -780,6 +802,10 @@ int mtk_cam_sv_dmao_common_config(struct mtk_camsv_device *sv_dev,
 			0xFFF);
 		CAMSV_WRITE_REG(sv_dev->base_dma + REG_CAMSVSTG1_LEADING_CNT_SRC,
 			leading_line_cnt);
+		/* ECO item */
+		if (enable_stash_eco_fun)
+			CAMSV_WRITE_REG(sv_dev->base_dma + REG_CAMSVSTG1_SW_CTRL,
+				0x8000);
 		break;
 	}
 
@@ -806,7 +832,10 @@ int mtk_cam_sv_dmao_common_config(struct mtk_camsv_device *sv_dev,
 	CAMSV_WRITE_REG(sv_dev->base_scq + REG_CAMSVCQI_E2_ORIRDMA_CON4,
 		th_setting.cq2_dvfs_th);
 
-	dev_dbg(sv_dev->dev, "img:0x%x_0x%x_0x%x_0x%x img2:0x%x_0x%x_0x%x_0x%x len:0x%x_0x%x_0x%x_0x%x len2:0x%x_0x%x_0x%x_0x%x\n",
+	sv_dev->enable_stash_eco_fun = 0;
+
+	dev_dbg(sv_dev->dev, "stash eco status:%d img:0x%x_0x%x_0x%x_0x%x img2:0x%x_0x%x_0x%x_0x%x len:0x%x_0x%x_0x%x_0x%x len2:0x%x_0x%x_0x%x_0x%x\n",
+		enable_stash_eco_fun,
 		CAMSV_READ_REG(sv_dev->base_dma + REG_CAMSVDMATOP_CON3_IMG),
 		CAMSV_READ_REG(sv_dev->base_dma + REG_CAMSVDMATOP_CON2_IMG),
 		CAMSV_READ_REG(sv_dev->base_dma + REG_CAMSVDMATOP_CON1_IMG),
@@ -1239,7 +1268,7 @@ int mtk_cam_sv_dev_config(struct mtk_camsv_device *sv_dev,
 	atomic_set(&sv_dev->is_sw_clr, 0);
 	atomic_set(&sv_dev->is_fifo_full, 0);
 
-	mtk_cam_sv_dmao_common_config(sv_dev, 0, 0, 0, 0, 0);
+	mtk_cam_sv_dmao_common_config(sv_dev, 0, 0, 0, 0, 0, 0);
 	mtk_cam_sv_cq_config(sv_dev, sub_ratio);
 	mtk_cam_sv_ddren_qos_config(sv_dev, frm_time_us);
 

@@ -213,6 +213,8 @@ struct mtk_camsv_device {
 	void __iomem *debug_use_mraw_out_base;
 	void __iomem *debug_use_mraw_in_base;
 
+	bool enable_stash_eco_fun;
+
 };
 
 void sv_reset(struct mtk_camsv_device *sv_dev);
@@ -229,7 +231,8 @@ int mtk_cam_sv_dev_stream_on(struct mtk_camsv_device *sv_dev, bool on,
 	unsigned int enabled_tags, unsigned int used_tag_cnt);
 int mtk_cam_sv_dmao_common_config(struct mtk_camsv_device *sv_dev,
 	unsigned int fifo_img_p1, unsigned int fifo_img_p2,
-	unsigned int fifo_len_p1, unsigned int fifo_len_p2, unsigned int leading_line_cnt);
+	unsigned int fifo_len_p1, unsigned int fifo_len_p2, unsigned int leading_line_cnt,
+	bool enable_stash_eco_fun);
 int mtk_cam_sv_smi_path_sel(struct mtk_camsv_device *sv_dev, bool is_two_smi_comm);
 int mtk_cam_sv_toggle_tg_db(struct mtk_camsv_device *sv_dev);
 int mtk_cam_sv_toggle_db(struct mtk_camsv_device *sv_dev);

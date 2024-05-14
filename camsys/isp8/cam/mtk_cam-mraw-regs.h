@@ -279,6 +279,9 @@ union MRAW_TG_TIMER_CTL {
 #define REG_MRAW_SEP_CROP						0x0604
 #define REG_MRAW_SEP_VSIZE						0x0608
 
+#define REG_MRAW_MQE_CFG						0x0640
+#define REG_MRAW_MQE_IN_IMG						0x0644
+
 #define REG_MRAW_CPI_CFG_0						0x1000
 #define REG_MRAW_CPI_CFG_1						0x1004
 
@@ -289,6 +292,8 @@ union MRAW_TG_TIMER_CTL {
 /* fhg spare 3 for seq num use */
 #define REG_MRAW_FRAME_SEQ_NUM					0x1188
 
+#define REG_MRAW_DMA_DBG_SEL					0x2070
+#define REG_MRAW_DMA_DBG_PORT					0x2074
 #define REG_MRAW_IMGO_BASE_ADDR					0x22E0
 #define REG_MRAW_IMGO_BASE_ADDR_MSB				0x22E4
 #define REG_MRAW_IMGO_OFST_ADDR					0x22E8

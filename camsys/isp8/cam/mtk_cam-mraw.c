@@ -1145,6 +1145,8 @@ int mtk_cam_mraw_dev_stream_on(struct mtk_mraw_device *mraw_dev, bool on)
 
 void mtk_cam_mraw_debug_dump(struct mtk_mraw_device *mraw_dev)
 {
+	int imgo_error_status, imgbo_error_status, cpio_error_status;
+
 	dev_info_ratelimited(mraw_dev->dev,
 		"seq_no:%d_%d tg_sen_mode:0x%x tg_vf_con:0x%x tg_path_cfg:0x%x frm_size:0x%x frm_size_r:0x%x grab_pix:0x%x grab_lin:0x%x\n",
 		readl_relaxed(mraw_dev->base_inner + REG_MRAW_FRAME_SEQ_NUM),
@@ -1194,11 +1196,118 @@ void mtk_cam_mraw_debug_dump(struct mtk_mraw_device *mraw_dev)
 		readl_relaxed(mraw_dev->base_inner + REG_MRAW_CPIO_OFST_ADDR_MSB),
 		readl_relaxed(mraw_dev->base_inner + REG_MRAW_CPIO_OFST_ADDR));
 
+	imgo_error_status = readl_relaxed(mraw_dev->base_inner + REG_MRAW_IMGO_ERR_STAT);
+	imgbo_error_status = readl_relaxed(mraw_dev->base_inner + REG_MRAW_IMGBO_ERR_STAT);
+	cpio_error_status = readl_relaxed(mraw_dev->base_inner + REG_MRAW_CPIO_ERR_STAT);
 	dev_info_ratelimited(mraw_dev->dev,
 		"imgo_error_status:0x%x imgbo_error_status:0x%x cpio_error_status:0x%x\n",
 		readl_relaxed(mraw_dev->base_inner + REG_MRAW_IMGO_ERR_STAT),
 		readl_relaxed(mraw_dev->base_inner + REG_MRAW_IMGBO_ERR_STAT),
 		readl_relaxed(mraw_dev->base_inner + REG_MRAW_CPIO_ERR_STAT));
+
+	if (imgo_error_status || imgbo_error_status || cpio_error_status) {
+		writel(0x3000103, mraw_dev->base + REG_MRAW_DMA_DBG_SEL);
+		dev_info(mraw_dev->dev, "state checksum 0x%x",
+			readl_relaxed(mraw_dev->base + REG_MRAW_DMA_DBG_PORT));
+		writel(0x3000203, mraw_dev->base + REG_MRAW_DMA_DBG_SEL);
+		dev_info(mraw_dev->dev, "line_pix_cnt_tmp 0x%x",
+			readl_relaxed(mraw_dev->base + REG_MRAW_DMA_DBG_PORT));
+		writel(0x3000303, mraw_dev->base + REG_MRAW_DMA_DBG_SEL);
+		dev_info(mraw_dev->dev, "line_pix_cnt 0x%x",
+			readl_relaxed(mraw_dev->base + REG_MRAW_DMA_DBG_PORT));
+		writel(0x3000403, mraw_dev->base + REG_MRAW_DMA_DBG_SEL);
+		dev_info(mraw_dev->dev, "important_status 0x%x",
+			readl_relaxed(mraw_dev->base + REG_MRAW_DMA_DBG_PORT));
+		writel(0x3000503, mraw_dev->base + REG_MRAW_DMA_DBG_SEL);
+		dev_info(mraw_dev->dev, "cmd_data_cnt 0x%x",
+			readl_relaxed(mraw_dev->base + REG_MRAW_DMA_DBG_PORT));
+		writel(0x3000603, mraw_dev->base + REG_MRAW_DMA_DBG_SEL);
+		dev_info(mraw_dev->dev, "cmd_cnt_for_bvalid_phase 0x%x",
+			readl_relaxed(mraw_dev->base + REG_MRAW_DMA_DBG_PORT));
+		writel(0x3000703, mraw_dev->base + REG_MRAW_DMA_DBG_SEL);
+		dev_info(mraw_dev->dev, "input_h_cnt 0x%x",
+			readl_relaxed(mraw_dev->base + REG_MRAW_DMA_DBG_PORT));
+		writel(0x3000803, mraw_dev->base + REG_MRAW_DMA_DBG_SEL);
+		dev_info(mraw_dev->dev, "input_v_cnt 0x%x",
+			readl_relaxed(mraw_dev->base + REG_MRAW_DMA_DBG_PORT));
+		writel(0x3000903, mraw_dev->base + REG_MRAW_DMA_DBG_SEL);
+		dev_info(mraw_dev->dev, "xfer_y_cnt 0x%x",
+			readl_relaxed(mraw_dev->base + REG_MRAW_DMA_DBG_PORT));
+		writel(0x3000A03, mraw_dev->base + REG_MRAW_DMA_DBG_SEL);
+		dev_info(mraw_dev->dev, "pcrp_debug_data 0x%x",
+			readl_relaxed(mraw_dev->base + REG_MRAW_DMA_DBG_PORT));
+		writel(0x3000B03, mraw_dev->base + REG_MRAW_DMA_DBG_SEL);
+		dev_info(mraw_dev->dev, "ag_rdy sram_fifo_full 0x%x",
+			readl_relaxed(mraw_dev->base + REG_MRAW_DMA_DBG_PORT));
+
+		writel(0x3000104, mraw_dev->base + REG_MRAW_DMA_DBG_SEL);
+		dev_info(mraw_dev->dev, "state checksum 0x%x",
+			readl_relaxed(mraw_dev->base + REG_MRAW_DMA_DBG_PORT));
+		writel(0x3000204, mraw_dev->base + REG_MRAW_DMA_DBG_SEL);
+		dev_info(mraw_dev->dev, "line_pix_cnt_tmp 0x%x",
+			readl_relaxed(mraw_dev->base + REG_MRAW_DMA_DBG_PORT));
+		writel(0x3000304, mraw_dev->base + REG_MRAW_DMA_DBG_SEL);
+		dev_info(mraw_dev->dev, "line_pix_cnt 0x%x",
+			readl_relaxed(mraw_dev->base + REG_MRAW_DMA_DBG_PORT));
+		writel(0x3000404, mraw_dev->base + REG_MRAW_DMA_DBG_SEL);
+		dev_info(mraw_dev->dev, "important_status 0x%x",
+			readl_relaxed(mraw_dev->base + REG_MRAW_DMA_DBG_PORT));
+		writel(0x3000504, mraw_dev->base + REG_MRAW_DMA_DBG_SEL);
+		dev_info(mraw_dev->dev, "cmd_data_cnt 0x%x",
+			readl_relaxed(mraw_dev->base + REG_MRAW_DMA_DBG_PORT));
+		writel(0x3000604, mraw_dev->base + REG_MRAW_DMA_DBG_SEL);
+		dev_info(mraw_dev->dev, "cmd_cnt_for_bvalid_phase 0x%x",
+			readl_relaxed(mraw_dev->base + REG_MRAW_DMA_DBG_PORT));
+		writel(0x3000704, mraw_dev->base + REG_MRAW_DMA_DBG_SEL);
+		dev_info(mraw_dev->dev, "input_h_cnt 0x%x",
+			readl_relaxed(mraw_dev->base + REG_MRAW_DMA_DBG_PORT));
+		writel(0x3000804, mraw_dev->base + REG_MRAW_DMA_DBG_SEL);
+		dev_info(mraw_dev->dev, "input_v_cnt 0x%x",
+			readl_relaxed(mraw_dev->base + REG_MRAW_DMA_DBG_PORT));
+		writel(0x3000904, mraw_dev->base + REG_MRAW_DMA_DBG_SEL);
+		dev_info(mraw_dev->dev, "xfer_y_cnt 0x%x",
+			readl_relaxed(mraw_dev->base + REG_MRAW_DMA_DBG_PORT));
+		writel(0x3000A04, mraw_dev->base + REG_MRAW_DMA_DBG_SEL);
+		dev_info(mraw_dev->dev, "pcrp_debug_data 0x%x",
+			readl_relaxed(mraw_dev->base + REG_MRAW_DMA_DBG_PORT));
+		writel(0x3000B04, mraw_dev->base + REG_MRAW_DMA_DBG_SEL);
+		dev_info(mraw_dev->dev, "ag_rdy sram_fifo_full 0x%x",
+			readl_relaxed(mraw_dev->base + REG_MRAW_DMA_DBG_PORT));
+
+		writel(0x3000105, mraw_dev->base + REG_MRAW_DMA_DBG_SEL);
+		dev_info(mraw_dev->dev, "state checksum 0x%x",
+			readl_relaxed(mraw_dev->base + REG_MRAW_DMA_DBG_PORT));
+		writel(0x3000205, mraw_dev->base + REG_MRAW_DMA_DBG_SEL);
+		dev_info(mraw_dev->dev, "line_pix_cnt_tmp 0x%x",
+			readl_relaxed(mraw_dev->base + REG_MRAW_DMA_DBG_PORT));
+		writel(0x3000305, mraw_dev->base + REG_MRAW_DMA_DBG_SEL);
+		dev_info(mraw_dev->dev, "line_pix_cnt 0x%x",
+			readl_relaxed(mraw_dev->base + REG_MRAW_DMA_DBG_PORT));
+		writel(0x3000405, mraw_dev->base + REG_MRAW_DMA_DBG_SEL);
+		dev_info(mraw_dev->dev, "important_status 0x%x",
+			readl_relaxed(mraw_dev->base + REG_MRAW_DMA_DBG_PORT));
+		writel(0x3000505, mraw_dev->base + REG_MRAW_DMA_DBG_SEL);
+		dev_info(mraw_dev->dev, "cmd_data_cnt 0x%x",
+			readl_relaxed(mraw_dev->base + REG_MRAW_DMA_DBG_PORT));
+		writel(0x3000605, mraw_dev->base + REG_MRAW_DMA_DBG_SEL);
+		dev_info(mraw_dev->dev, "cmd_cnt_for_bvalid_phase 0x%x",
+			readl_relaxed(mraw_dev->base + REG_MRAW_DMA_DBG_PORT));
+		writel(0x3000705, mraw_dev->base + REG_MRAW_DMA_DBG_SEL);
+		dev_info(mraw_dev->dev, "input_h_cnt 0x%x",
+			readl_relaxed(mraw_dev->base + REG_MRAW_DMA_DBG_PORT));
+		writel(0x3000805, mraw_dev->base + REG_MRAW_DMA_DBG_SEL);
+		dev_info(mraw_dev->dev, "input_v_cnt 0x%x",
+			readl_relaxed(mraw_dev->base + REG_MRAW_DMA_DBG_PORT));
+		writel(0x3000905, mraw_dev->base + REG_MRAW_DMA_DBG_SEL);
+		dev_info(mraw_dev->dev, "xfer_y_cnt 0x%x",
+			readl_relaxed(mraw_dev->base + REG_MRAW_DMA_DBG_PORT));
+		writel(0x3000A05, mraw_dev->base + REG_MRAW_DMA_DBG_SEL);
+		dev_info(mraw_dev->dev, "pcrp_debug_data 0x%x",
+			readl_relaxed(mraw_dev->base + REG_MRAW_DMA_DBG_PORT));
+		writel(0x3000B05, mraw_dev->base + REG_MRAW_DMA_DBG_SEL);
+		dev_info(mraw_dev->dev, "ag_rdy sram_fifo_full 0x%x",
+			readl_relaxed(mraw_dev->base + REG_MRAW_DMA_DBG_PORT));
+	}
 
 	dev_info_ratelimited(mraw_dev->dev, "sep_ctl:0x%x sep_crop:0x%x sep_vsize:0x%x\n",
 		readl_relaxed(mraw_dev->base_inner + REG_MRAW_SEP_CTL),
@@ -1213,6 +1322,10 @@ void mtk_cam_mraw_debug_dump(struct mtk_mraw_device *mraw_dev)
 	dev_info_ratelimited(mraw_dev->dev, "cpi_cfg_0:0x%x cpi_cfg_1:0x%x\n",
 		readl_relaxed(mraw_dev->base_inner + REG_MRAW_CPI_CFG_0),
 		readl_relaxed(mraw_dev->base_inner + REG_MRAW_CPI_CFG_1));
+
+	dev_info_ratelimited(mraw_dev->dev, "mqe_cfg:0x%x mqe_in_img:0x%x\n",
+		readl_relaxed(mraw_dev->base_inner + REG_MRAW_MQE_CFG),
+		readl_relaxed(mraw_dev->base_inner + REG_MRAW_MQE_IN_IMG));
 }
 
 void mraw_handle_tg_overrun_error(struct mtk_mraw_device *mraw_dev)
@@ -1253,6 +1366,9 @@ void mraw_handle_error(struct mtk_mraw_device *mraw_dev,
 
 	/* dump mraw debug data */
 	mtk_cam_mraw_debug_dump(mraw_dev);
+
+	/* dump seninf debug data */
+	mtk_cam_seninf_dump_current_status(ctx->seninf);
 
 	dev_info_ratelimited(mraw_dev->dev, "fbc empty or not:%d\n",
 		(data->fbc_empty) ? 1 : 0);

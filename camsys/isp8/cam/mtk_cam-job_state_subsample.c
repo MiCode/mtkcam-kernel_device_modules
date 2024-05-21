@@ -182,7 +182,7 @@ int mtk_cam_job_state_init_subsample(struct mtk_cam_job_state *s,
 			      with_sensor_ctrl ?
 			      S_SENSOR_NOT_SET : S_SENSOR_NONE);
 	mtk_cam_job_state_set(s, ISP_STATE, S_ISP_NOT_SET);
-
+	atomic_set(&s->todo_action, 0);
 	s->cb = cb;
 	s->apply_by_fsm = 1;
 	s->compose_by_fsm = 1;

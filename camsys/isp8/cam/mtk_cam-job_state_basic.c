@@ -251,7 +251,7 @@ int mtk_cam_job_state_init_basic(struct mtk_cam_job_state *s,
 
 	// for mstream 1exp(JOB_BASIC) -> 2exp(JOB_MSTREAM)
 	mtk_cam_job_state_set(s, ISP_2ND_STATE, S_ISP_DONE);
-
+	atomic_set(&s->todo_action, 0);
 	s->cb = cb;
 	s->apply_by_fsm = 1;
 	s->compose_by_fsm = 1;

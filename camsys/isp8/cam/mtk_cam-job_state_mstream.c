@@ -125,7 +125,7 @@ int mtk_cam_job_state_init_mstream(struct mtk_cam_job_state *s,
 	mtk_cam_job_state_set(s, ISP_1ST_STATE, S_ISP_NOT_SET);
 	mtk_cam_job_state_set(s, SENSOR_2ND_STATE, init_sensor_state);
 	mtk_cam_job_state_set(s, ISP_2ND_STATE, S_ISP_NOT_SET);
-
+	atomic_set(&s->todo_action, 0);
 	s->cb = cb;
 	s->apply_by_fsm = 1;
 	s->compose_by_fsm = 1;

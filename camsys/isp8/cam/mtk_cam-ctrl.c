@@ -466,7 +466,6 @@ static void mtk_cam_ctrl_wake_up_on_event(struct mtk_cam_ctrl *ctrl, int event)
 
 /* note: just to support little margin for sw latency here */
 #define VALID_SWITCH_PERIOD_FROM_VSYNC_MS	23
-#define VALID_SWITCH_PERIOD_FROM_1ST_VSYNC_MS 25
 
 struct seamless_check_args {
 	int expect_inner;
@@ -493,8 +492,6 @@ static bool check_for_seamless(struct mtk_cam_ctrl *ctrl, void *arg)
 
 	ts = ktime_get_boottime_ns();
 	if (ts - last_sof_ts >= VALID_SWITCH_PERIOD_FROM_VSYNC_MS * 1000000)
-		return 0;
-	if (ts - first_sof_ts >= VALID_SWITCH_PERIOD_FROM_1ST_VSYNC_MS * 1000000)
 		return 0;
 	/*
 	 * check if already got ack

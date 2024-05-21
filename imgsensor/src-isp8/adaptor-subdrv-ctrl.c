@@ -2332,8 +2332,6 @@ void streaming_control(struct subdrv_ctx *ctx, bool enable)
 		set_dummy(ctx);
 		subdrv_ixc_wr_u8(ctx, ctx->s_ctx.reg_addr_stream, 0x01);
 		ctx->stream_ctrl_start_time = ktime_get_boottime_ns();
-		if (ctx->s_ctx.custom_stream_ctrl_delay)
-			mdelay(ctx->s_ctx.custom_stream_ctrl_delay);
 	} else {
 		ctx->stream_ctrl_end_time = ktime_get_boottime_ns();
 		if (ctx->s_ctx.custom_stream_ctrl_delay &&
@@ -2342,8 +2340,7 @@ void streaming_control(struct subdrv_ctx *ctx, bool enable)
 				(ctx->stream_ctrl_end_time - ctx->stream_ctrl_start_time) / 1000000;
 			stream_ctrl_delay = (u64)get_sof_timeout(_adaptor_ctx, _adaptor_ctx->cur_mode) / 1000;
 			DRV_LOG_MUST(ctx,
-				"custom_/stream_ctrl_delay(sof)/stream_ctrl_delay_timing(end-start):%llums/%llums/%llums\n",
-				ctx->s_ctx.custom_stream_ctrl_delay,
+				"stream_ctrl_delay(sof)/stream_ctrl_delay_timing(end-start):%llums/%llums\n",
 				stream_ctrl_delay,
 				stream_ctrl_delay_timing);
 			if (stream_ctrl_delay_timing < stream_ctrl_delay)

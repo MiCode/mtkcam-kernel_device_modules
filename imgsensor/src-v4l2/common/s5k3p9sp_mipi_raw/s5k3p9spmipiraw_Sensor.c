@@ -841,7 +841,7 @@ static struct subdrv_static_ctx static_ctx = {
 	.checksum_value = 0x31E3FBE2,
 
 	/* custom stream control to mipi delay time for hw limitation */
-	.custom_stream_ctrl_delay = 100,
+	.custom_stream_ctrl_delay = TRUE,
 };
 
 static struct subdrv_ops ops = {

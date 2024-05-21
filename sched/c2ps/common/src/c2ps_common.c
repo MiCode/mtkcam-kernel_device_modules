@@ -612,11 +612,11 @@ void c2ps_check_last_anc(struct c2ps_anchor *anc)
 		anc->is_last_anchor = false;
 	}
 
-	if (likely(glb_info->um_vote.last_anchor_decided))
-		goto out;
-
 	if (unlikely(anc->anchor_id < 0))
 		return;
+
+	if (likely(glb_info->um_vote.last_anchor_decided))
+		goto out;
 
 	if (unlikely(glb_info->um_vote.total_voter_mul % Prime_Table[anc->anchor_id] != 0)) {
 		glb_info->um_vote.total_voter_mul *= Prime_Table[anc->anchor_id];
@@ -1077,14 +1077,12 @@ u32 c2ps_get_cur_cpu_freq(const int cpu)
 
 inline int c2ps_get_cpu_min_uclamp(const int cpu)
 {
-	return (pd_get_freq_util(cpu, 0) << SCHED_CAPACITY_SHIFT) /
-					get_adaptive_margin(cpu);
+	return pd_get_freq_util(cpu, 0);
 }
 
 inline int c2ps_get_cpu_max_uclamp(const int cpu)
 {
-	return (pd_get_freq_util(cpu, INT_MAX) << SCHED_CAPACITY_SHIFT) /
-					get_adaptive_margin(cpu);
+	return pd_get_freq_util(cpu, INT_MAX);
 }
 
 bool c2ps_boost_cur_uclamp_max(

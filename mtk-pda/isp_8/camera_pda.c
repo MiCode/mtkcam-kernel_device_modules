@@ -152,7 +152,7 @@ int g_cur_li_fd[4];
 int g_cur_lt_fd;
 int g_cur_out_fd;
 
-int g_cur_out_idx;
+unsigned int g_cur_out_idx;
 
 // Ring buffer index record
 static unsigned int g_ring_img_idx;
@@ -1970,9 +1970,9 @@ static long PDA_Ioctl(struct file *a_pstFile,
 	int ret = 0;
 	struct PDA_Init_Data Init_Data;
 
-	int cur_img_idx = 0;
-	int cur_tbl_idx = 0;
-	int cur_out_idx = 0;
+	unsigned int cur_img_idx = 0;
+	unsigned int cur_tbl_idx = 0;
+	unsigned int cur_out_idx = 0;
 
 	if (g_PDA_quantity == 0) {
 		LOG_INF("no PDA support\n");
@@ -2962,7 +2962,9 @@ static void PDA_shutdown(struct platform_device *pdev)
 {
 	//Disable clock
 	EnableClock(MFALSE);
+	spin_lock(&g_PDA_SpinLock);
 	LOG_INF("PDA shutdown g_u4EnableClockCount: %d", g_u4EnableClockCount);
+	spin_unlock(&g_PDA_SpinLock);
 	pm_runtime_disable(&pdev->dev);
 }
 

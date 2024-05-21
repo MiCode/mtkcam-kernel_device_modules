@@ -471,10 +471,16 @@ void sv_reset(struct mtk_camsv_device *sv_dev)
 
 	dev_dbg(sv_dev->dev, "%s camsv_id:%d\n", __func__, sv_dev->id);
 
+	CAMSV_WRITE_BITS(sv_dev->base + REG_CAMSVCENTRAL_SEN_MODE,
+		CAMSVCENTRAL_SEN_MODE, CAM_SUB_EN, 0);
+	CAMSV_WRITE_BITS(sv_dev->base + REG_CAMSVCENTRAL_SEN_MODE,
+		CAMSVCENTRAL_SEN_MODE, SOF_SUB_EN, 0);
 	CAMSV_WRITE_BITS(sv_dev->base_inner + REG_CAMSVCENTRAL_SEN_MODE,
 		CAMSVCENTRAL_SEN_MODE, CAM_SUB_EN, 0);
+	CAMSV_WRITE_BITS(sv_dev->base_inner + REG_CAMSVCENTRAL_SEN_MODE,
+		CAMSVCENTRAL_SEN_MODE, SOF_SUB_EN, 0);
 
-	CAMSV_WRITE_BITS(sv_dev->base_scq + REG_CAMSVCQ_CQ_EN,
+	CAMSV_WRITE_BITS(sv_dev->base_scq_inner + REG_CAMSVCQ_CQ_EN,
 		CAMSVCQ_CQ_EN, CAMSVCQ_SCQ_SUBSAMPLE_EN, 0);
 
 	writel(0, sv_dev->base_dma + REG_CAMSVDMATOP_SW_RST_CTL);
@@ -535,6 +541,59 @@ void sv_reset(struct mtk_camsv_device *sv_dev)
 			 readl(sv_dev->cam->base + 0x414),
 			 readl(sv_dev->cam->base + 0x588),
 			 readl(sv_dev->cam->base + 0x58c));
+
+		CAMSV_WRITE_BITS(sv_dev->base_scq + REG_CAMSVCQTOP_DEBUG_SET,
+			CAMSVCQTOP_DEBUG_SET, CAMSVCQTOP_DEBUG_TOP_SEL, 0);
+		CAMSV_WRITE_BITS(sv_dev->base_scq_inner + REG_CAMSVCQ_CQ_EN,
+			CAMSVCQ_CQ_EN, CAMSVCQ_CQ_DBG_MAIN_SUB_SEL, 1);
+		CAMSV_WRITE_BITS(sv_dev->base_scq_inner + REG_CAMSVCQ_CQ_EN,
+			CAMSVCQ_CQ_EN, CAMSVCQ_CQ_DBG_SEL, 1);
+		CAMSV_WRITE_BITS(sv_dev->base_scq + REG_CAMSVCQTOP_DEBUG_SET,
+			CAMSVCQTOP_DEBUG_SET, CAMSVCQTOP_DEBUG_SEL, 0x0);
+		dev_info(sv_dev->dev, "cqd0 checksum 0x%x",
+			readl(sv_dev->base_scq + REG_CAMSVCQTOP_DEBUG));
+		CAMSV_WRITE_BITS(sv_dev->base_scq + REG_CAMSVCQTOP_DEBUG_SET,
+			CAMSVCQTOP_DEBUG_SET, CAMSVCQTOP_DEBUG_SEL, 0x4);
+		dev_info(sv_dev->dev, "cqd1 checksum 0x%x",
+			readl(sv_dev->base_scq + REG_CAMSVCQTOP_DEBUG));
+		CAMSV_WRITE_BITS(sv_dev->base_scq + REG_CAMSVCQTOP_DEBUG_SET,
+			CAMSVCQTOP_DEBUG_SET, CAMSVCQTOP_DEBUG_SEL, 0x8);
+		dev_info(sv_dev->dev, "cqa0 checksum 0x%x",
+			readl(sv_dev->base_scq + REG_CAMSVCQTOP_DEBUG));
+		CAMSV_WRITE_BITS(sv_dev->base_scq + REG_CAMSVCQTOP_DEBUG_SET,
+			CAMSVCQTOP_DEBUG_SET, CAMSVCQTOP_DEBUG_SEL, 0xc);
+		dev_info(sv_dev->dev, "cqa1 checksum 0x%x",
+			readl(sv_dev->base_scq + REG_CAMSVCQTOP_DEBUG));
+		CAMSV_WRITE_BITS(sv_dev->base_scq_inner + REG_CAMSVCQ_CQ_EN,
+			CAMSVCQ_CQ_EN, CAMSVCQ_CQ_DBG_SEL, 0);
+		CAMSV_WRITE_BITS(sv_dev->base_scq + REG_CAMSVCQTOP_DEBUG_SET,
+			CAMSVCQTOP_DEBUG_SET, CAMSVCQTOP_DEBUG_SEL, 0x1);
+		dev_info(sv_dev->dev, "thr_state 0x%x",
+			readl(sv_dev->base_scq + REG_CAMSVCQTOP_DEBUG));
+		writel(0xDEADBEEF, sv_dev->base + REG_CAMSVCENTRAL_CAMSV_SPARE0);
+		dev_info(sv_dev->dev, "camsv spare reigister WR test write 0xDEADBEEF, read 0x%x",
+			readl(sv_dev->base + REG_CAMSVCENTRAL_CAMSV_SPARE0));
+		writel(0x3000100, sv_dev->base_scq + REG_CAMSVCQDMATOP_DMA_DBG_SEL);
+		writel(1, sv_dev->base_scq + REG_CAMSVCQ_SCQ_MISC);
+		writel(1, sv_dev->base_scq + REG_CAMSVCQ_SCQ_SUB_MISC);
+
+		dev_info(sv_dev->dev, "cqi_e1 state checksum 0x%x dbg_sel0x%x",
+			readl(sv_dev->base_scq + REG_CAMSVCQDMATOP_DMA_DBG_PORT),
+			readl(sv_dev->base_scq + REG_CAMSVCQDMATOP_DMA_DBG_SEL));
+		writel(0x3000500, sv_dev->base_scq + REG_CAMSVCQDMATOP_DMA_DBG_SEL);
+		dev_info(sv_dev->dev, "cqi_e1 smi debug data 0x%x dbg_sel0x%x",
+			readl(sv_dev->base_scq + REG_CAMSVCQDMATOP_DMA_DBG_PORT),
+			readl(sv_dev->base_scq + REG_CAMSVCQDMATOP_DMA_DBG_SEL));
+		writel(0x3000101, sv_dev->base_scq + REG_CAMSVCQDMATOP_DMA_DBG_SEL);
+		dev_info(sv_dev->dev, "cqi_e2 state checksum 0x%x dbg_sel0x%x",
+			readl(sv_dev->base_scq + REG_CAMSVCQDMATOP_DMA_DBG_PORT),
+			readl(sv_dev->base_scq + REG_CAMSVCQDMATOP_DMA_DBG_SEL));
+		writel(0x3000501, sv_dev->base_scq + REG_CAMSVCQDMATOP_DMA_DBG_SEL);
+		dev_info(sv_dev->dev, "cqi_e2 smi debug data 0x%x dbg_sel0x%x",
+			readl(sv_dev->base_scq + REG_CAMSVCQDMATOP_DMA_DBG_PORT),
+			readl(sv_dev->base_scq + REG_CAMSVCQDMATOP_DMA_DBG_SEL));
+		writel(0, sv_dev->base_scq + REG_CAMSVCQ_SCQ_MISC);
+		writel(0, sv_dev->base_scq + REG_CAMSVCQ_SCQ_SUB_MISC);
 		mtk_smi_dbg_hang_detect("camsys-camsv");
 		goto RESET_FAILURE;
 	}
@@ -551,6 +610,8 @@ void sv_reset(struct mtk_camsv_device *sv_dev)
 	CAMSV_WRITE_BITS(sv_dev->base_scq + REG_CAMSVCQ_CQ_EN,
 		CAMSVCQ_CQ_EN, CAMSVCQ_CQ_RESET, 0);
 
+	/* disable cq dcm dis*/
+	writel(0x0, sv_dev->base_scq + REG_CAMSVCQTOP_DCM_DIS);
 	wmb(); /* make sure committed */
 
 RESET_FAILURE:
@@ -923,6 +984,9 @@ int mtk_cam_sv_central_common_enable(struct mtk_camsv_device *sv_dev)
 
 	CAMSV_WRITE_BITS(sv_dev->base + REG_CAMSVCENTRAL_SEN_MODE,
 		CAMSVCENTRAL_SEN_MODE, CMOS_EN, 1);
+	if (atomic_read(&sv_dev->is_sub_en))
+		CAMSV_WRITE_BITS(sv_dev->base + REG_CAMSVCENTRAL_SEN_MODE,
+			CAMSVCENTRAL_SEN_MODE, CAM_SUB_EN, 1);
 	CAMSV_WRITE_BITS(sv_dev->base + REG_CAMSVCENTRAL_VF_CON,
 		CAMSVCENTRAL_VF_CON, VFDATA_EN, 1);
 
@@ -1267,6 +1331,7 @@ int mtk_cam_sv_dev_config(struct mtk_camsv_device *sv_dev,
 	atomic_set(&sv_dev->is_seamless, 0);
 	atomic_set(&sv_dev->is_sw_clr, 0);
 	atomic_set(&sv_dev->is_fifo_full, 0);
+	atomic_set(&sv_dev->is_sub_en, 0);
 
 	mtk_cam_sv_dmao_common_config(sv_dev, 0, 0, 0, 0, 0, 0);
 	mtk_cam_sv_cq_config(sv_dev, sub_ratio);
@@ -1368,6 +1433,9 @@ int mtk_cam_sv_cq_config(struct mtk_camsv_device *sv_dev, unsigned int sub_ratio
 	CAMSV_WRITE_BITS(sv_dev->base_scq + REG_CAMSVCQ_CQ_SUB_EN,
 		CAMSVCQ_CQ_SUB_EN, CAMSVCQ_CQ_SUB_DB_EN, 1);
 
+	/* cq dma dcm dis enable */
+	CAMSV_WRITE_REG(sv_dev->base_scq + REG_CAMSVCQTOP_DCM_DIS, 0x7);
+
 	/* scq start period */
 	CAMSV_WRITE_REG(sv_dev->base_scq  + REG_CAMSVCQ_SCQ_START_PERIOD,
 		0xFFFFFFFF);
@@ -1383,13 +1451,14 @@ int mtk_cam_sv_cq_config(struct mtk_camsv_device *sv_dev, unsigned int sub_ratio
 		CAMSVCQTOP_INT_0_EN, CAMSVCQTOP_CSR_SCQ_SUB_THR_DONE_INT_EN, 1);
 	wmb(); /* TBC */
 
-	dev_dbg(sv_dev->dev, "[%s] cq_en:0x%x_%x start_period:0x%x cq_sub_thr0_ctl:0x%x cq_int_en:0x%x\n",
+	dev_dbg(sv_dev->dev, "[%s] cq_en:0x%x_%x start_period:0x%x cq_sub_thr0_ctl:0x%x cq_int_en:0x%x cq_dcm0x%x\n",
 		__func__,
 		CAMSV_READ_REG(sv_dev->base_scq + REG_CAMSVCQ_CQ_EN),
 		CAMSV_READ_REG(sv_dev->base_scq + REG_CAMSVCQ_CQ_SUB_EN),
 		CAMSV_READ_REG(sv_dev->base_scq + REG_CAMSVCQ_SCQ_START_PERIOD),
 		CAMSV_READ_REG(sv_dev->base_scq + REG_CAMSVCQ_CQ_SUB_THR0_CTL),
-		CAMSV_READ_REG(sv_dev->base_scq + REG_CAMSVCQTOP_INT_0_EN));
+		CAMSV_READ_REG(sv_dev->base_scq + REG_CAMSVCQTOP_INT_0_EN),
+		CAMSV_READ_REG(sv_dev->base_scq + REG_CAMSVCQTOP_DCM_DIS));
 
 	return 0;
 }

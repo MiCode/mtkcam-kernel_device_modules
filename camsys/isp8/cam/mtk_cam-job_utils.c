@@ -2325,6 +2325,10 @@ int handle_sv_tag(struct mtk_cam_job *job)
 			tag_idx);
 	}
 
+	/* DX4 camsv cam_sub_en hw bug WA*/
+	if (job->sub_ratio > 1)
+		atomic_set(&sv_dev->is_sub_en, 1);
+
 	ctx->is_sensor_meta_dump = job->is_sensor_meta_dump;
 	ctx->seninf_meta_buf_desc = job->seninf_meta_buf_desc;
 	ctx->used_tag_cnt = job->used_tag_cnt;

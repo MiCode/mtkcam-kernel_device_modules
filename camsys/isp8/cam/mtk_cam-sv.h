@@ -209,6 +209,7 @@ struct mtk_camsv_device {
 	atomic_t is_queue_mode;
 	atomic_t enable_fifo_detect;
 	atomic_t is_fifo_full;
+	atomic_t is_sub_en;
 
 	void __iomem *debug_use_mraw_out_base;
 	void __iomem *debug_use_mraw_in_base;

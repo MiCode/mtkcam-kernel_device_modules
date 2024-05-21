@@ -1285,6 +1285,7 @@ static int dynamic_raw_change_uninit_engine(struct mtk_cam_job *job, int unit_en
 
 			disable_irq(raw_dev->irq);
 			reset(raw_dev);
+			clear_reg(raw_dev);
 		}
 	}
 	for (i = 0; i < cam->engines.num_camsv_devices; i++) {

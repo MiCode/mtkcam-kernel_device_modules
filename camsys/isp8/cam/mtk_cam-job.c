@@ -6223,6 +6223,8 @@ int mtk_cam_job_manually_apply_isp(struct mtk_cam_job *job, bool wait_completion
 
 	if (!wait_for_completion_timeout(&job->cq_exe_completion, timeout)) {
 		pr_info("[%s] error: wait for job cq exe\n", __func__);
+		pr_info("[%s] cq_not_ready:%lx", __func__,
+			atomic_long_read(&job->cq_ref.cq_not_ready));
 		if (CAM_DEBUG_ENABLED(QOF)) {
 			int i;
 			struct mtk_cam_ctx *ctx = job->src_ctx;

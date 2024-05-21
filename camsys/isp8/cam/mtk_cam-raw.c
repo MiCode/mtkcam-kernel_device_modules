@@ -607,6 +607,12 @@ void clear_reg(struct mtk_raw_device *dev)
 	raw_writel(0, dev, dev->base_inner, REG_CAMCTL_CTRL_SIG_SEL);
 	raw_writel(0, dev, dev->base, REG_CAMCTL_CTRL_SIG_SEL);
 
+	raw_writel(0, dev, dev->base_inner, REG_CAMCTL_DCIF_CTL);
+	raw_writel(0, dev, dev->base, REG_CAMCTL_DCIF_CTL);
+
+	raw_writel(0, dev, dev->base_inner, REG_CAMCTL_DCIF2_CTL);
+	raw_writel(0, dev, dev->base, REG_CAMCTL_DCIF2_CTL);
+
 	diable_rms_pcrp(dev);
 	diable_rms_module(dev);
 }

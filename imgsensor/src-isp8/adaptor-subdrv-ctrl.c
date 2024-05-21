@@ -4321,7 +4321,7 @@ int common_get_csi_param(struct subdrv_ctx *ctx,
 	struct mtk_csi_param *csi_param)
 {
 	if (scenario_id >= ctx->s_ctx.sensor_mode_num) {
-		DRV_LOGE(ctx, "invalid sid:%u, mode_num:%u\n",
+		DRV_LOG(ctx, "invalid sid:%u, mode_num:%u\n",
 			scenario_id, ctx->s_ctx.sensor_mode_num);
 		return 0;
 	}

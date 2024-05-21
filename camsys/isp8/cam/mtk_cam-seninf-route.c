@@ -2471,121 +2471,60 @@ int mtk_cam_seninf_s_aov_param(unsigned int sensor_id,
 	}
 
 	if (aov_seninf_param != NULL) {
-		pr_info("[%s] memcpy aov_seninf_param\n", __func__);
 		memcpy((void *)aov_seninf_param, (void *)&g_aov_param,
 			sizeof(struct mtk_seninf_aov_param));
 		// debug use
 		pr_debug(
-			"[%s] port(%d)\n", __func__, aov_seninf_param->port);
+			"[%s] port(%d)/portA(%d)/portB(%d)/is_4d1c(%u)/seninfAsyncIdx(%d)/vcinfo_cnt(%d)/is_cphy(%u)/num_data_lanes(%d)/customized_pixel_rate(%lld)/mipi_pixel_rate(%lld)/isp_freq(%d)/legacy_phy(%d)\n",
+			__func__,
+			aov_seninf_param->port,
+			aov_seninf_param->portA,
+			aov_seninf_param->portB,
+			aov_seninf_param->is_4d1c,
+			aov_seninf_param->seninfAsyncIdx,
+			aov_seninf_param->cnt,
+			aov_seninf_param->is_cphy,
+			aov_seninf_param->num_data_lanes,
+			aov_seninf_param->customized_pixel_rate,
+			aov_seninf_param->mipi_pixel_rate,
+			aov_seninf_param->isp_freq,
+			aov_seninf_param->legacy_phy);
 		pr_debug(
-			"[%s] portA(%d)\n", __func__, aov_seninf_param->portA);
+			"[%s] seninf_dphy_settle_delay_dt(%d)/cphy_settle_delay_dt(%d)/dphy_settle_delay_dt(%d)/settle_delay_ck(%d)/hs_trail_parameter(%d)/cphy_settle(%u)/dphy_clk_settle(%u)/dphy_data_settle(%u)/dphy_trail(%d)/not_fixed_trail_settle(%d)/dphy_csi2_resync_dmy_cycle(%u)/not_fixed_dphy_settle(%u)\n",
+			__func__,
+			aov_seninf_param->seninf_dphy_settle_delay_dt,
+			aov_seninf_param->cphy_settle_delay_dt,
+			aov_seninf_param->dphy_settle_delay_dt,
+			aov_seninf_param->settle_delay_ck,
+			aov_seninf_param->hs_trail_parameter,
+			aov_seninf_param->cphy_settle,
+			aov_seninf_param->dphy_clk_settle,
+			aov_seninf_param->dphy_data_settle,
+			aov_seninf_param->dphy_trail,
+			aov_seninf_param->not_fixed_trail_settle,
+			aov_seninf_param->dphy_csi2_resync_dmy_cycle,
+			aov_seninf_param->not_fixed_dphy_settle);
 		pr_debug(
-			"[%s] portB(%d)\n", __func__, aov_seninf_param->portB);
-		pr_debug(
-			"[%s] is_4d1c(%u)\n", __func__, aov_seninf_param->is_4d1c);
-		pr_debug(
-			"[%s] seninfAsyncIdx(%d)\n", __func__, aov_seninf_param->seninfAsyncIdx);
-		pr_debug(
-			"[%s] vcinfo_cnt(%d)\n", __func__, aov_seninf_param->cnt);
-		pr_debug(
-			"[%s] seninf_dphy_settle_delay_dt(%d)\n",
-			__func__, aov_seninf_param->seninf_dphy_settle_delay_dt);
-		pr_debug(
-			"[%s] cphy_settle_delay_dt(%d)\n",
-			__func__, aov_seninf_param->cphy_settle_delay_dt);
-		pr_debug(
-			"[%s] dphy_settle_delay_dt(%d)\n",
-			__func__, aov_seninf_param->dphy_settle_delay_dt);
-		pr_debug(
-			"[%s] settle_delay_ck(%d)\n",
-			__func__, aov_seninf_param->settle_delay_ck);
-		pr_debug(
-			"[%s] hs_trail_parameter(%d)\n",
-			__func__, aov_seninf_param->hs_trail_parameter);
-		pr_debug(
-			"[%s] width(%lld)\n", __func__, aov_seninf_param->width);
-		pr_debug(
-			"[%s] height(%lld)\n", __func__, aov_seninf_param->height);
-		pr_debug(
-			"[%s] hblank(%lld)\n", __func__, aov_seninf_param->hblank);
-		pr_debug(
-			"[%s] vblank(%lld)\n", __func__, aov_seninf_param->vblank);
-		pr_debug(
-			"[%s] fps_n(%d)\n", __func__, aov_seninf_param->fps_n);
-		pr_debug(
-			"[%s] fps_d(%d)\n", __func__, aov_seninf_param->fps_d);
-		pr_debug(
-			"[%s] customized_pixel_rate(%lld)\n",
-			__func__, aov_seninf_param->customized_pixel_rate);
-		pr_debug(
-			"[%s] mipi_pixel_rate(%lld)\n",
-			__func__, aov_seninf_param->mipi_pixel_rate);
-		pr_debug(
-			"[%s] is_cphy(%u)\n",
-			__func__, aov_seninf_param->is_cphy);
-		pr_debug(
-			"[%s] num_data_lanes(%d)\n",
-			__func__, aov_seninf_param->num_data_lanes);
-		pr_debug(
-			"[%s] isp_freq(%d)\n",
-			__func__, aov_seninf_param->isp_freq);
-		pr_debug(
-			"[%s] cphy_settle(%u)\n",
-			__func__, aov_seninf_param->cphy_settle);
-		pr_debug(
-			"[%s] dphy_clk_settle(%u)\n",
-			__func__, aov_seninf_param->dphy_clk_settle);
-		pr_debug(
-			"[%s] dphy_data_settle(%u)\n",
-			__func__, aov_seninf_param->dphy_data_settle);
-		pr_debug(
-			"[%s] dphy_trail(%d)\n",
-			__func__, aov_seninf_param->dphy_trail);
-		pr_debug(
-			"[%s] legacy_phy(%d)\n",
-			__func__, aov_seninf_param->legacy_phy);
-		pr_debug(
-			"[%s] not_fixed_trail_settle(%d)\n",
-			__func__, aov_seninf_param->not_fixed_trail_settle);
-		pr_debug(
-			"[%s] dphy_csi2_resync_dmy_cycle(%u)\n",
-			__func__, aov_seninf_param->dphy_csi2_resync_dmy_cycle);
-		pr_debug(
-			"[%s] not_fixed_dphy_settle(%u)\n",
-			__func__, aov_seninf_param->not_fixed_dphy_settle);
-		pr_debug(
-			"[%s] vc(%d)\n", __func__, aov_seninf_param->vc.vc);
-		pr_debug(
-			"[%s] dt(%d)\n", __func__, aov_seninf_param->vc.dt);
-		pr_debug(
-			"[%s] feature(%d)\n", __func__, aov_seninf_param->vc.feature);
-		pr_debug(
-			"[%s] out_pad(%d)\n", __func__, aov_seninf_param->vc.out_pad);
-		pr_debug(
-			"[%s] pixel_mode(%d)\n", __func__, aov_seninf_param->vc.dest[0].pix_mode);
-		pr_debug(
-			"[%s] group(%d)\n", __func__, aov_seninf_param->vc.group);
-		//pr_debug(
-		//	"[%s] mux(%d)\n", __func__, aov_seninf_param->vc.dest[0].mux);
-		//pr_debug(
-		//	"[%s] mux_vr(%d)\n", __func__, aov_seninf_param->vc.dest[0].mux_vr);
-		//pr_debug(
-		//	"[%s] cam(%d)\n", __func__, aov_seninf_param->vc.dest[0].cam);
-		pr_debug(
-			"[%s] tag(%d)\n", __func__, aov_seninf_param->vc.dest[0].tag);
-		pr_debug(
-			"[%s] cam_type(%d)\n", __func__, aov_seninf_param->vc.dest[0].cam_type);
-		pr_debug(
-			"[%s] enable(%d)\n", __func__, aov_seninf_param->vc.enable);
-		pr_debug(
-			"[%s] exp_hsize(%d)\n", __func__, aov_seninf_param->vc.exp_hsize);
-		pr_debug(
-			"[%s] exp_vsize(%d)\n", __func__, aov_seninf_param->vc.exp_vsize);
-		pr_debug(
-			"[%s] bit_depth(%d)\n", __func__, aov_seninf_param->vc.bit_depth);
-		pr_debug(
-			"[%s] dt_remap_to_type(%d)\n",
-			__func__, aov_seninf_param->vc.dt_remap_to_type);
+			"[%s] width(%lld)/height(%lld)/hblank(%lld)/vblank(%lld)/fps_n(%d)/fps_d(%d)/vc(%d)/dt(%d)/feature(%d)/out_pad(%d)/pixel_mode(%d)/tag(%d)/cam_type(%d)/enable(%d)/exp_hsize(%d)/exp_vsize(%d)/bit_depth(%d)/dt_remap_to_type(%d)\n",
+			__func__,
+			aov_seninf_param->width,
+			aov_seninf_param->height,
+			aov_seninf_param->hblank,
+			aov_seninf_param->vblank,
+			aov_seninf_param->fps_n,
+			aov_seninf_param->fps_d,
+			aov_seninf_param->vc.vc,
+			aov_seninf_param->vc.dt,
+			aov_seninf_param->vc.feature,
+			aov_seninf_param->vc.out_pad,
+			aov_seninf_param->vc.dest[0].pix_mode,
+			aov_seninf_param->vc.dest[0].tag,
+			aov_seninf_param->vc.dest[0].cam_type,
+			aov_seninf_param->vc.enable,
+			aov_seninf_param->vc.exp_hsize,
+			aov_seninf_param->vc.exp_vsize,
+			aov_seninf_param->vc.bit_depth,
+			aov_seninf_param->vc.dt_remap_to_type);
 	} else {
 		pr_info("[%s] Must allocate buffer first!\n", __func__);
 		return -ENOMEM;

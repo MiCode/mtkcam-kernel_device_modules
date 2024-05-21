@@ -2291,6 +2291,8 @@ void streaming_control(struct subdrv_ctx *ctx, bool enable)
 
 	if (ctx->i2c_client)
 		sd = i2c_get_clientdata(ctx->i2c_client);
+	if (ctx->ixc_client.protocol)
+		sd = adaptor_ixc_get_clientdata(&ctx->ixc_client);
 	if (sd)
 		_adaptor_ctx = to_ctx(sd);
 	if (!_adaptor_ctx) {

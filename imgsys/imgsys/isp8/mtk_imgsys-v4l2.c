@@ -3784,13 +3784,13 @@ EXPORT_SYMBOL(mtk_imgsys_remove);
 void mtk_imgsys_shutdown(struct platform_device *pdev)
 {
 	struct mtk_imgsys_dev *imgsys_dev = dev_get_drvdata(&pdev->dev);
-    struct mtk_imgsys_pipe *pipe = &imgsys_dev->imgsys_pipe[0];
+	struct mtk_imgsys_pipe *pipe = &imgsys_dev->imgsys_pipe[0];
 
 	dev_info(imgsys_dev->dev, "%s shutdown +\n", __func__);
-    if (pipe->streaming != 0) {
-        mtk_imgsys_hw_streamoff(pipe);
-    }
-    dev_info(imgsys_dev->dev, "%s shutdown -\n", __func__);
+	if (pipe->streaming != 0)
+		mtk_imgsys_hw_streamoff(pipe);
+
+	dev_info(imgsys_dev->dev, "%s shutdown -\n", __func__);
 }
 EXPORT_SYMBOL(mtk_imgsys_shutdown);
 

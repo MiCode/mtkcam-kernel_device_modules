@@ -1686,7 +1686,9 @@ void camsv_handle_err(
 	/* dump error status */
 	dev_info_ratelimited(sv_dev->dev, "error_status:0x%x\n", err_status);
 
-	mtk_cam_seninf_dump_current_status(ctx->seninf);
+	/* dump seninf debug data */
+	if (ctx && ctx->seninf)
+		mtk_cam_seninf_dump_current_status(ctx->seninf);
 
 	/* dump camsv debug data */
 	mtk_cam_sv_debug_dump(sv_dev, data->err_tags);

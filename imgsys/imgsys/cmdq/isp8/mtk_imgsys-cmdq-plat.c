@@ -1636,8 +1636,7 @@ int imgsys_cmdq_sendtask_plat8(struct mtk_imgsys_dev *imgsys_dev,
 				for (cb_param_cnt = 0; cb_param_cnt < IMGSYS_CMDQ_CBPARAM_NUM;
 					cb_param_cnt++) {
 					g_cb_param_idx = (g_cb_param_idx+1)%IMGSYS_CMDQ_CBPARAM_NUM;
-					if ((g_cb_param_idx < 0)
-						|| g_cb_param_idx >= IMGSYS_CMDQ_CBPARAM_NUM) {
+					if (g_cb_param_idx >= IMGSYS_CMDQ_CBPARAM_NUM) {
 						dev_info(imgsys_dev->dev,
 							"%s: force set g_cb_param_idx(%d) to 0! in block(%d) for frm(%d/%d)\n",
 							__func__, g_cb_param_idx, blk_idx,

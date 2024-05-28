@@ -764,14 +764,14 @@ static void raw_dump_stx(struct mtk_ut_raw_device *raw)
 	statusx.irq = readl_relaxed(CAM_REG_CTL_RAW_INT18_STATUSX(base));
 	statusx.wdma = readl_relaxed(CAM_REG_CTL_RAW_INT2_STATUSX(base));
 	statusx.rdma = readl_relaxed(CAM_REG_CTL_RAW_INT3_STATUSX(base));
-//statusx.drop = readl_relaxed(CAM_REG_CTL_RAW_INT4_STATUSX(base));
+	/* statusx.drop = readl_relaxed(CAM_REG_CTL_RAW_INT4_STATUSX(base)); */
 	statusx.ofl = readl_relaxed(CAM_REG_CTL_RAW_INT5_STATUSX(base));
 	statusx.cq_done = readl_relaxed(CAM_REG_CTL_RAW_INT21_STATUSX(base));
 	statusx.dcif = readl_relaxed(CAM_REG_CTL_RAW_INT20_STATUSX(base));
 
 	dev_info(raw->dev,
-		 "STATUSX INT1-7 0x%x/0x%x/0x%x/0x%x/0x%x/0x%x/0x%x\n",
-		 statusx.irq, statusx.wdma, statusx.rdma, statusx.drop,
+		 "STATUSX INT1-7 0x%x/0x%x/0x%x/0x%x/0x%x/0x%x\n",
+		 statusx.irq, statusx.wdma, statusx.rdma,
 		 statusx.ofl, statusx.cq_done, statusx.dcif);
 }
 
@@ -845,11 +845,10 @@ static irqreturn_t mtk_ut_yuv_irq(int irq, void *data)
 
 		statusx.irq = readl_relaxed(CAM_REG_CTL2_RAW_INT17_STATUSX(base));
 		statusx.wdma = readl_relaxed(CAM_REG_CTL2_RAW_INT2_STATUSX(base));
-		//statusx.drop = readl_relaxed(CAM_REG_CTL2_RAW_INT4_STATUSX(base));
 		statusx.ofl = readl_relaxed(CAM_REG_CTL2_RAW_INT5_STATUSX(base));
 
-		dev_info(drvdata->dev, "STATUSX INT-DONE 1245 0x%x/0x%x/0x%x/0x%x\n",
-			 statusx.irq, statusx.wdma, statusx.drop, statusx.ofl);
+		dev_info(drvdata->dev, "STATUSX INT-DONE 1245 0x%x/0x%x/0x%x\n",
+			 statusx.irq, statusx.wdma, statusx.ofl);
 	}
 
 	/* overflow interrupts may be annoying */
@@ -883,7 +882,7 @@ static irqreturn_t mtk_ut_raw_irq(int irq, void *data)
 	status.done = readl_relaxed(CAM_REG_CTL_RAW_INT17_STATUS(base));
 	status.wdma = readl_relaxed(CAM_REG_CTL_RAW_INT2_STATUS(base));
 	status.rdma = readl_relaxed(CAM_REG_CTL_RAW_INT3_STATUS(base));
-	//status.drop = readl_relaxed(CAM_REG_CTL_RAW_INT4_STATUS(base));
+	/* status.drop = readl_relaxed(CAM_REG_CTL_RAW_INT4_STATUS(base)); */
 	status.ofl = readl_relaxed(CAM_REG_CTL_RAW_INT5_STATUS(base));
 	status.cq_done = readl_relaxed(CAM_REG_CTL_RAW_INT21_STATUS(base));
 	status.dcif = readl_relaxed(CAM_REG_CTL_RAW_INT20_STATUS(base));
@@ -968,8 +967,8 @@ static irqreturn_t mtk_ut_raw_irq(int irq, void *data)
 	mtk_ut_yuv_irq(irq,data);
 nomem:
 
-	dev_info(raw->dev, "INT1-7 0x%x/0x%x/0x%x/0x%x/0x%x/0x%x/0x%x/0x%x\n",
-		 status.irq, status.done, status.wdma, status.rdma, status.drop,
+	dev_info(raw->dev, "INT1-7 0x%x/0x%x/0x%x/0x%x/0x%x/0x%x/0x%x\n",
+		 status.irq, status.done, status.wdma, status.rdma,
 		 status.ofl, status.cq_done, status.dcif);
 
 	return wake_thread ? IRQ_WAKE_THREAD : IRQ_HANDLED;

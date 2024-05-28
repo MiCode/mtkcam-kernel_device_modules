@@ -501,8 +501,8 @@ static void dump_tg_setting(struct mtk_raw_device *dev, const char *msg)
 static void dump_seqence(struct mtk_raw_device *dev)
 {
 	dev_info(dev->dev, "in 0x%08x out 0x%08x (mod5_en:0x%x)\n",
-		 raw_readl_relaxed(dev, dev->base_inner, REG_FRAME_IDX),
-		 raw_readl_relaxed(dev, dev->base, REG_FRAME_IDX),
+		 basic_readl_relaxed(dev, dev->base_inner, REG_FRAME_IDX),
+		 basic_readl_relaxed(dev, dev->base, REG_FRAME_IDX),
 		 raw_readl_relaxed(dev, dev->base_inner, REG_CAMCTL_MOD5_EN));
 }
 
@@ -1826,8 +1826,6 @@ static irqreturn_t mtk_thread_irq_raw(int irq, void *data)
 	struct mtk_camsys_irq_info irq_info;
 	int recovered_done;
 	int do_recover;
-	char *str_buf;
-	size_t str_buf_size;
 
 	if (unlikely(atomic_cmpxchg(&raw_dev->is_fifo_overflow, 1, 0)))
 		dev_info(raw_dev->dev, "msg fifo overflow\n");
@@ -1840,6 +1838,9 @@ static irqreturn_t mtk_thread_irq_raw(int irq, void *data)
 		if (irq_info.irq_type & BIT(CAMSYS_IRQ_FRAME_START) ||
 			irq_info.irq_type & BIT(CAMSYS_IRQ_DEBUG_1) ||
 			irq_info.irq_type & BIT(CAMSYS_IRQ_ERROR)) {
+			char *str_buf;
+			size_t str_buf_size;
+
 			str_buf = raw_dev->str_debug_irq_data;
 			str_buf_size = sizeof(raw_dev->str_debug_irq_data);
 			memset(str_buf, 0, str_buf_size);

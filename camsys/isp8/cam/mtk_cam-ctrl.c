@@ -977,9 +977,6 @@ static int mtk_cam_event_handle_raw(struct mtk_cam_ctrl *ctrl,
 
 		handle_engine_frame_start(ctrl, irq_info,
 					  &vsync_res);
-
-		if (ctrl->ctx->has_raw_subdev && ctrl->ctx->enable_luma_dump)
-			qof_mtcmos_voter(ctrl->ctx, true);
 	}
 
 	/* note: should handle SOF before CQ done for trigger delay cases */
@@ -1357,17 +1354,6 @@ static void mtk_cam_ctrl_dynamic_raws_change_flow(struct mtk_cam_job *job)
 		goto SWITCH_FAILURE;
 	}
 
-	dev_info(dev, "[%s] wait 3.new engines(0x%x) processing seq:0x%x\n",
-			__func__, ctx->used_engine, job->frame_seq_no);
-	check_args.expect_inner = job->frame_seq_no;
-	check_args.expect_ack = job->frame_seq_no;
-	if (mtk_cam_ctrl_wait_event(ctrl, check_for_inner, &check_args, 30000)) {
-		dev_info(dev, "[%s] check for dynamic_raws_change timeout: expected in=0x%x ack=0x%x\n",
-			 __func__,
-			 check_args.expect_inner, check_args.expect_ack);
-		goto SWITCH_FAILURE;
-	}
-
 	for (i = 0; i < cam->engines.num_raw_devices; i++) {
 		bool is_master = false;
 		struct mtk_raw_device *raw_dev;
@@ -1381,7 +1367,28 @@ static void mtk_cam_ctrl_dynamic_raws_change_flow(struct mtk_cam_job *job)
 			is_master = (BIT(i) & raw_after_change) && !raw_dev->is_slave;
 
 			qof_setup_twin(raw_dev, is_master, next_raw);
+		} else if (BIT(i) & raw_uninit) {
+			raw_dev = dev_get_drvdata(cam->engines.raw_devs[i]);
+			qof_setup_twin(raw_dev, true, false);
 		}
+	}
+
+	dev_info(dev, "[%s] wait 3.new engines(0x%x) processing seq:0x%x\n",
+			__func__, ctx->used_engine, job->frame_seq_no);
+	check_args.expect_inner = job->frame_seq_no;
+	check_args.expect_ack = job->frame_seq_no;
+	if (mtk_cam_ctrl_wait_event(ctrl, check_for_inner, &check_args, 30000)) {
+		dev_info(dev, "[%s] check for dynamic_raws_change timeout: expected in=0x%x ack=0x%x\n",
+			 __func__,
+			 check_args.expect_inner, check_args.expect_ack);
+		goto SWITCH_FAILURE;
+	}
+
+	mtk_cam_job_update_clk(job);
+	if (dynamic_raw_change_uninit_engine(job, engine_uninit)) {
+		dev_info(dev, "[%s] uninit engine failed, uninit raw:0x%x\n",
+			__func__, job->raw_change_uninit_engine);
+		goto SWITCH_FAILURE;
 	}
 
 	for (i = 0; i < cam->engines.num_raw_devices; i++) {
@@ -1392,14 +1399,6 @@ static void mtk_cam_ctrl_dynamic_raws_change_flow(struct mtk_cam_job *job)
 			qof_mtcmos_raw_voter(raw_dev, false);
 			raw_dev->log_en = false;
 		}
-	}
-
-
-	mtk_cam_job_update_clk(job);
-	if (dynamic_raw_change_uninit_engine(job, engine_uninit)) {
-		dev_info(dev, "[%s] uninit engine failed, uninit raw:0x%x\n",
-			__func__, job->raw_change_uninit_engine);
-		goto SWITCH_FAILURE;
 	}
 
 	dev_info(dev, "[%s] finish, uninit engines:0x%x, new frame inner:%d\n",
@@ -1481,6 +1480,7 @@ static void mtk_cam_ctrl_seamless_switch_flow(struct mtk_cam_job *job)
 
 		qof_sof_src_sel(raw, job_exp_num(job),
 					!res_raw_is_dc_mode(&res->raw_res), sv_last_tag);
+		qof_setup_hw_timer(raw, get_sensor_interval_us(job));
 		qof_set_cq_start_max(raw, -1);
 		qof_enable_cq_trigger_by_qof(raw, false);
 	}
@@ -1498,6 +1498,25 @@ static void mtk_cam_ctrl_seamless_switch_flow(struct mtk_cam_job *job)
 	/* should set ts for next job's apply_sensor */
 	ctrl->r_info.sof_ts_ns = ktime_get_boottime_ns();
 	ctrl->r_info.sof_l_ts_ns = ctrl->r_info.sof_ts_ns;
+
+	for (i = 0; i < cam->engines.num_raw_devices; i++) {
+		bool is_master = false;
+		struct mtk_raw_device *raw_dev;
+
+		if (BIT(i) & raw_after_change) {
+			bool next_raw =
+				(i + 1 < cam->engines.num_raw_devices) &&
+				(BIT(i + 1) & raw_after_change);
+
+			raw_dev = dev_get_drvdata(cam->engines.raw_devs[i]);
+			is_master = (BIT(i) & raw_after_change) && !raw_dev->is_slave;
+
+			qof_setup_twin(raw_dev, is_master, next_raw);
+		} else if (BIT(i) & raw_uninit) {
+			raw_dev = dev_get_drvdata(cam->engines.raw_devs[i]);
+			qof_setup_twin(raw_dev, true, false);
+		}
+	}
 
 	call_job_seamless_ops(job, after_prev_frame_done);
 
@@ -1521,22 +1540,6 @@ static void mtk_cam_ctrl_seamless_switch_flow(struct mtk_cam_job *job)
 		struct mtk_raw_device *raw = dev_get_drvdata(ctx->hw_raw[i]);
 
 		qof_enable_cq_trigger_by_qof(raw, true);
-	}
-
-	for (i = 0; i < cam->engines.num_raw_devices; i++) {
-		bool is_master = false;
-		struct mtk_raw_device *raw_dev;
-
-		if (BIT(i) & raw_after_change) {
-			bool next_raw =
-				(i + 1 < cam->engines.num_raw_devices) &&
-				(BIT(i + 1) & raw_after_change);
-
-			raw_dev = dev_get_drvdata(cam->engines.raw_devs[i]);
-			is_master = (BIT(i) & raw_after_change) && !raw_dev->is_slave;
-
-			qof_setup_twin(raw_dev, is_master, next_raw);
-		}
 	}
 
 	for (i = 0; i < cam->engines.num_raw_devices; i++) {

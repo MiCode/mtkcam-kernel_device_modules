@@ -446,6 +446,8 @@ struct mtk_cam_job {
 	u64 local_ack_isp_ts;
 	u64 local_trigger_cq_ts;
 	u64 local_ispdone_ts;
+	bool dump_luma;
+	bool qof_voter_on;
 };
 
 static inline struct mtk_cam_job *mtk_cam_job_get(struct mtk_cam_job *job)

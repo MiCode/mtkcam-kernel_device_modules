@@ -21,6 +21,7 @@
 #include "mtk_cam-fmt_utils.h"
 #include "mtk_cam-dvfs_qos.h"
 #include "mtk_cam-ufbc-def.h"
+#include "mtk_cam-qof.h"
 #include "mtk_cam-plat.h"
 #include "mtk_cam-bwr.h"
 #if KERNEL_VERSION(6, 6, 0) == LINUX_VERSION_CODE
@@ -1345,8 +1346,11 @@ int mtk_cam_apply_qos(struct mtk_cam_job *job)
 	struct mtk_cam_ctx *ctx = job->src_ctx;
 	struct mtk_cam_device *cam = ctx->cam;
 
+	qof_mtcmos_voter(&cam->engines, job->used_engine, true);
 	apply_raw_qos(job);
 	apply_adl_qos(job);
+	qof_mtcmos_voter(&cam->engines, job->used_engine, false);
+
 	apply_sv_qos(job);
 	apply_mraw_qos(job);
 

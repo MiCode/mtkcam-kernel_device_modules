@@ -39,6 +39,7 @@
 #define V4L2_CID_MTK_CAM_CQ_TRIGGER_DEADLINE (V4L2_CID_USER_MTK_CAM_BASE + 29)
 #define V4L2_CID_MTK_CAM_FL_PROLONG (V4L2_CID_USER_MTK_CAM_BASE + 30)
 #define V4L2_CID_MTK_CAM_REF_SOF_TS (V4L2_CID_USER_MTK_CAM_BASE + 31)
+#define V4L2_CID_MTK_CAM_EXP_SHUTTER (V4L2_CID_USER_MTK_CAM_BASE + 32)
 
 #define V4L2_CID_MTK_CAM_RAW_RESOURCE_CALC_TEST (V4L2_CID_USER_MTK_CAM_BASE + 47)
 
@@ -299,6 +300,14 @@ struct mtk_cam_req_info {
 
 struct mtk_cam_ref_sof_ts {
 	__u64 sof_ts_ns;
+};
+
+struct mtk_cam_exp_shutter {
+	__u64 le_exp_ns;
+	__u64 me_exp_ns;
+	__u64 se_exp_ns;
+	__u64 sse_exp_ns;
+	__u64 ssse_exp_ns;
 };
 
 #endif /* __MTK_CAMERA_V4l2_CONTROLS_8_H */

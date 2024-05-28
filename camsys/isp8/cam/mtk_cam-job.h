@@ -16,6 +16,7 @@
 #include "mtk_camera-v4l2-controls-8.h"
 #include "mtk_cam-engine.h"
 #include "mtk_cam-dvfs_qos.h"
+#include "mtk_cam-qof.h"
 
 #define JOB_NUM_PER_STREAM 8
 #define JOB_NUM_PER_STREAM_DISPLAY_IC 16
@@ -435,6 +436,10 @@ struct mtk_cam_job {
 
 	struct mtk_cam_ufbc_header ufbc_header;
 
+	s64 exp_diff_ns_le;
+	s64 exp_diff_ns_me;
+	s64 exp_diff_ns_se;
+
 	/* error status */
 	bool is_error;
 	bool rms_disable;
@@ -447,7 +452,11 @@ struct mtk_cam_job {
 	u64 local_trigger_cq_ts;
 	u64 local_ispdone_ts;
 	bool dump_luma;
-	bool qof_voter_on;
+
+	/* QOF voter engine */
+	struct qof_voter_handle luma_dump;
+	struct qof_voter_handle sen_exposure;
+	int qof_v_eng_sen_exp_change;
 };
 
 static inline struct mtk_cam_job *mtk_cam_job_get(struct mtk_cam_job *job)

@@ -116,6 +116,16 @@ static inline bool scen_is_stagger_lbmf(const struct mtk_cam_scen *scen)
 	return false;
 }
 
+static inline bool scen_is_stagger_dol(const struct mtk_cam_scen *scen)
+{
+	if (scen_is_normal(scen) &&
+		scen->scen.normal.exp_num > 1 &&
+		scen->scen.normal.stagger_type == MTK_CAM_STAGGER_NORMAL)
+		return true;
+
+	return false;
+}
+
 #define SCEN_MAX_LEN 40
 static inline int scen_to_str(char *buff, size_t size,
 			      const struct mtk_cam_scen *scen)

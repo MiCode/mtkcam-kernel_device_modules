@@ -1988,6 +1988,16 @@ bool is_stagger_lbmf(struct mtk_cam_job *job)
 	}
 }
 
+bool is_stagger_dol(struct mtk_cam_job *job)
+{
+	struct mtk_cam_ctx *ctx = job->src_ctx;
+
+	if (ctx->has_raw_subdev)
+		return scen_is_stagger_dol(&job->job_scen);
+
+	return false;
+}
+
 bool is_camsv_16p(struct mtk_cam_job *job)
 {
 	struct mtk_cam_resource_v2 *res;

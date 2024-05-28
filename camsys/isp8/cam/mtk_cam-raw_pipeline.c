@@ -849,6 +849,7 @@ static int mtk_raw_try_ctrl(struct v4l2_ctrl *ctrl)
 	case V4L2_CID_MTK_CAM_CQ_TRIGGER_DEADLINE:
 	case V4L2_CID_MTK_CAM_FL_PROLONG:
 	case V4L2_CID_MTK_CAM_REF_SOF_TS:
+	case V4L2_CID_MTK_CAM_EXP_SHUTTER:
 		ret = 0;
 		break;
 	default:
@@ -1043,6 +1044,20 @@ static int mtk_raw_set_ctrl(struct v4l2_ctrl *ctrl)
 		ctrl_data->enable_hsf_raw = ctrl->val;
 		dev_info(dev, "%s:pipe(%d):HSF_EN(%d)\n",
 			 __func__, pipeline->id, ctrl_data->enable_hsf_raw);
+		break;
+	case V4L2_CID_MTK_CAM_EXP_SHUTTER:
+		{
+			struct mtk_cam_exp_shutter *shutter_ns = &ctrl_data->rc_data.exp_ns;
+
+			*shutter_ns = *(struct mtk_cam_exp_shutter *)ctrl->p_new.p;
+
+			if (CAM_DEBUG_ENABLED(V4L2))
+				dev_info_ratelimited(dev, "%s: EXP_SHUTTER (%llu,%llu,%llu)\n",
+					 __func__,
+					 shutter_ns->le_exp_ns,
+					 shutter_ns->me_exp_ns,
+					 shutter_ns->se_exp_ns);
+		}
 		break;
 	default:
 		dev_info_ratelimited(dev, "%s: error. ctrl(\"%s\", id:0x%x) not supported yet\n",
@@ -1321,6 +1336,17 @@ static const struct v4l2_ctrl_config cfg_hdr_timestamp_info = {
 	.step = 1,
 	.def = 0,
 	.dims = {sizeof_u32(struct mtk_cam_hdr_timestamp_info)},
+};
+
+static struct v4l2_ctrl_config cfg_exp_shutter = {
+	.ops = &cam_ctrl_ops,
+	.id = V4L2_CID_MTK_CAM_EXP_SHUTTER,
+	.name = "exposure shutter",
+	.type = V4L2_CTRL_COMPOUND_TYPES,
+	.flags = V4L2_CTRL_FLAG_EXECUTE_ON_WRITE | V4L2_CTRL_FLAG_VOLATILE,
+	.max = 0x1FFFFFFF,
+	.step = 1,
+	.dims = {sizeof(struct mtk_cam_exp_shutter)},
 };
 
 struct v4l2_subdev *mtk_cam_find_sensor(struct mtk_cam_ctx *ctx,
@@ -3851,6 +3877,11 @@ static void mtk_raw_pipeline_ctrl_setup(struct mtk_raw_pipeline *pipe)
 	v4l2_ctrl_new_custom(ctrl_hdlr, &ref_sof_ts, NULL);
 
 	ctrl = v4l2_ctrl_new_custom(ctrl_hdlr, &cfg_hdr_timestamp_info, NULL);
+	if (ctrl)
+		ctrl->flags |= V4L2_CTRL_FLAG_VOLATILE |
+			V4L2_CTRL_FLAG_EXECUTE_ON_WRITE;
+
+	ctrl = v4l2_ctrl_new_custom(ctrl_hdlr, &cfg_exp_shutter, NULL);
 	if (ctrl)
 		ctrl->flags |= V4L2_CTRL_FLAG_VOLATILE |
 			V4L2_CTRL_FLAG_EXECUTE_ON_WRITE;

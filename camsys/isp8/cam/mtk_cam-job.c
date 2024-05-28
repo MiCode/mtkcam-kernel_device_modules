@@ -450,7 +450,9 @@ static int mtk_cam_job_pack_init(struct mtk_cam_job *job,
 	job->is_error = 0;
 	job->rms_disable = 0;
 	job->dump_luma = ctx->enable_luma_dump && ctx->has_raw_subdev;
-	job->qof_voter_on = false;
+
+	memset(&job->luma_dump, 0, sizeof(job->luma_dump));
+	memset(&job->sen_exposure, 0, sizeof(job->sen_exposure));
 
 	job->local_enqueue_ts = local_clock();
 	job->local_apply_sensor_ts = 0;
@@ -841,6 +843,7 @@ handle_raw_frame_done(struct mtk_cam_job *job)
 {
 	struct mtk_cam_ctx *ctx = job->src_ctx;
 	struct mtk_cam_device *cam = ctx->cam;
+	struct mtk_cam_engines	*eng = &cam->engines;
 	unsigned int used_pipe = job->req->used_pipe & job->src_ctx->used_pipe;
 	int i;
 	unsigned long long *meta, *work_buf;
@@ -894,8 +897,8 @@ handle_raw_frame_done(struct mtk_cam_job *job)
 	if (job->dump_luma)
 		call_jobop(job, dump_aa_info);
 
-	if (job->qof_voter_on)
-		qof_mtcmos_voter(&job->src_ctx->cam->engines, job->used_engine, false);
+	qof_mtcmos_voter_handle(eng, 0, &job->luma_dump);
+	qof_mtcmos_voter_handle(eng, 0, &job->sen_exposure);
 
 	if (CAM_DEBUG_ENABLED(QOF)) {
 		for (i = 0; i < ARRAY_SIZE(ctx->hw_raw); i++) {
@@ -3843,9 +3846,9 @@ static void singleframe_on_transit(struct mtk_cam_job_state *s, int state_type,
 				handle_rms_disable(job);
 
 				if (job->dump_luma) {
-					qof_mtcmos_voter(&job->src_ctx->cam->engines,
-									 job->used_engine, true);
-					job->qof_voter_on = true;
+					qof_mtcmos_voter_handle(&job->src_ctx->cam->engines,
+						(int)bit_map_subset_of(MAP_HW_RAW, job->used_engine),
+						&job->luma_dump);
 				}
 			}
 			break;
@@ -4678,6 +4681,88 @@ static void update_sensor_fl_low_latency(struct mtk_cam_job *job)
 	}
 }
 
+static inline s64 calc_exp_diff(u64 last, u64 next)
+{
+	return (last == 0 || next == 0) ? 0 : ((s64)next - (s64)last);
+}
+
+static inline void update_sen_expo_qof_voter(struct mtk_cam_job *job)
+{
+	struct mtk_cam_ctx *ctx = job->src_ctx;
+	int used_raw = (int)bit_map_subset_of(MAP_HW_RAW, ctx->used_engine);
+
+	/* NOTE: ctx->used_engine may change after ISP req (ex. dynamic twin) */
+	pr_info("%s: as-is: 0x%x to-be: 0x%x",
+				__func__, job->sen_exposure.used_raw, used_raw);
+	qof_mtcmos_voter_handle(&job->src_ctx->cam->engines,
+							used_raw,
+							&job->sen_exposure);
+}
+
+#define MARGIN_TO_VOTE_QOF_US		100
+static void check_sen_expo_change(struct mtk_cam_job *job)
+{
+	s64 last_exp_diff_ns;
+	s64 voter_on_margin_ns = 0;
+
+	if (!is_stagger_lbmf(job) && !is_stagger_dol(job))
+		return;
+
+	if (likely(qof_get_mtcmos_margin() > MARGIN_TO_VOTE_QOF_US)) {
+		voter_on_margin_ns =
+			(qof_get_mtcmos_margin() - MARGIN_TO_VOTE_QOF_US) * -1000;
+	} else {
+		WARN_ON(1);
+		return;
+	}
+
+	switch (get_exp_order(&job->job_scen)) {
+	case MTKCAM_IPI_ORDER_NE_SE:
+	case MTKCAM_IPI_ORDER_NE_ME_SE:
+		last_exp_diff_ns = job->exp_diff_ns_se;
+	break;
+	case MTKCAM_IPI_ORDER_SE_NE:
+		last_exp_diff_ns = job->exp_diff_ns_le;
+	break;
+	default:
+		return;
+	}
+
+	if (last_exp_diff_ns && (last_exp_diff_ns < voter_on_margin_ns)) {
+		pr_info("%s: exp diff %lld vote on margin %lld",
+				__func__, last_exp_diff_ns, voter_on_margin_ns);
+		update_sen_expo_qof_voter(job);
+	}
+}
+
+static void update_sen_expo_diff(struct mtk_cam_job *job)
+{
+	struct mtk_cam_ctx *ctx = job->src_ctx;
+	struct mtk_raw_ctrl_data *ctrl_data = get_raw_ctrl_data(job);
+	struct mtk_cam_exp_shutter *next = &ctrl_data->rc_data.exp_ns;
+	struct mtk_cam_exp_shutter *last = &ctx->ctrldata.rc_data.exp_ns;
+
+	if (is_sensor_changed(job)) {
+		job->exp_diff_ns_le = 0;
+		job->exp_diff_ns_me = 0;
+		job->exp_diff_ns_se = 0;
+	} else if (job_exp_num(job) == 2) {
+		job->exp_diff_ns_le = calc_exp_diff(next->le_exp_ns, last->le_exp_ns);
+		job->exp_diff_ns_se = calc_exp_diff(next->me_exp_ns, last->me_exp_ns);
+		job->exp_diff_ns_me = 0;
+	} else if (job_exp_num(job) == 3) {
+		job->exp_diff_ns_le = calc_exp_diff(next->le_exp_ns, last->le_exp_ns);
+		job->exp_diff_ns_me = calc_exp_diff(next->me_exp_ns, last->me_exp_ns);
+		job->exp_diff_ns_se = calc_exp_diff(next->se_exp_ns, last->se_exp_ns);
+	} else {
+		job->exp_diff_ns_le = 0;
+		job->exp_diff_ns_me = 0;
+		job->exp_diff_ns_se = 0;
+	}
+
+	check_sen_expo_change(job);
+}
+
 static int job_sen_req_pack(struct mtk_cam_job *job)
 {
 	struct mtk_cam_ctx *ctx = job->src_ctx;
@@ -4780,7 +4865,10 @@ static int job_sen_req_pack(struct mtk_cam_job *job)
 		(job->first_job || sensor_change) && is_sensor_mode_update(job);
 	job->seamless_switch =
 		(!job->first_job && !sensor_change) && is_sensor_mode_update(job);
+
 	update_sensor_fl_low_latency(job);
+	update_sen_expo_diff(job);
+
 	if (CAM_DEBUG_ENABLED(JOB))
 		pr_info("[%s] ctx:%d|type:%d|%s|exp(cur:%d,prev:%d)|sw/scene:%d/%d, req_id:%d",
 				__func__,
@@ -4846,6 +4934,9 @@ static int job_isp_req_pack(struct mtk_cam_job *job)
 	update_reference_sof(job);
 
 	ret = pack_helper->pack_job(job, pack_helper);
+
+	if (job->sen_exposure.used_raw)
+		update_sen_expo_qof_voter(job);
 
 	if (CAM_DEBUG_ENABLED(JOB))
 		pr_info("[%s] ctx:%d|type:%d|%s|exp(cur:%d,prev:%d)|sw/scene:%d/%d, req_id:%d",

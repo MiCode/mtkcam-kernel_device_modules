@@ -1848,7 +1848,7 @@ static irqreturn_t mtk_thread_irq_raw(int irq, void *data)
 			if ((irq_info.ts_ns - raw_dev->apply_ts) >= LOG_THREADED_IRQ ||
 				raw_dev->log_en)
 				dev_info(raw_dev->dev,
-					"ts=%llu irq %d, req:0x%x/0x%x mod_5:0x%x td:%llu (0x%x/0x%x/0x%x)\n",
+					"ts=%llu irq %d, req:0x%x/0x%x mod_5:0x%x td:%llu (0x%x/0x%x/0x%x) qof:0x%x\n",
 					irq_info.ts_ns / 1000,
 					irq_info.irq_type,
 					irq_info.frame_idx_inner,
@@ -1857,10 +1857,11 @@ static irqreturn_t mtk_thread_irq_raw(int irq, void *data)
 					ktime_get_boottime_ns() - irq_info.ts_ns,
 					raw_readl_relaxed(raw_dev, raw_dev->base_inner, REG_FHG_FHG_SPARE_1),
 					raw_readl_relaxed(raw_dev, raw_dev->base, REG_FHG_FHG_SPARE_1),
-					raw_readl_relaxed(raw_dev, raw_dev->base, REG_CAMCTL_MOD5_EN));
+					raw_readl_relaxed(raw_dev, raw_dev->base, REG_CAMCTL_MOD5_EN),
+					qof_on_off_cnt(raw_dev));
 			else
 				scnprintf(str_buf, str_buf_size,
-				"[%llu] ts=%llu irq %d, req:0x%x/0x%x en:0x%x td:%llu (0x%x/0x%x/0x%x)",
+				"[%llu] ts=%llu irq %d, req:0x%x/0x%x en:0x%x td:%llu (0x%x/0x%x/0x%x) qof:0x%x",
 				local_clock(),
 				irq_info.ts_ns / 1000,
 				irq_info.irq_type,
@@ -1870,7 +1871,8 @@ static irqreturn_t mtk_thread_irq_raw(int irq, void *data)
 				ktime_get_boottime_ns() - irq_info.ts_ns,
 				raw_readl_relaxed(raw_dev, raw_dev->base_inner, REG_FHG_FHG_SPARE_1),
 				raw_readl_relaxed(raw_dev, raw_dev->base, REG_FHG_FHG_SPARE_1),
-				raw_readl_relaxed(raw_dev, raw_dev->base, REG_CAMCTL_MOD5_EN));
+				raw_readl_relaxed(raw_dev, raw_dev->base, REG_CAMCTL_MOD5_EN),
+				qof_on_off_cnt(raw_dev));
 		}
 
 		/* error case */

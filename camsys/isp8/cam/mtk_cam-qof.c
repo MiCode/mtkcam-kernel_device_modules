@@ -19,7 +19,7 @@
 #define QOF_TIMER_FREQ_DIV				3
 
 /* TODO: tune this threshold */
-#define HW_TIMER_MARGIN					3500
+#define HW_TIMER_MARGIN_US					1000
 /* NOTE: reverse 500ns in HW_TIMER_MARGIN for PWR_ISO_0_DEF = 0xD */
 #define PWR_ISO_0_DEF		0xD
 
@@ -109,6 +109,11 @@ static inline int avoid_power_state(struct mtk_raw_device *raw, u32 state)
 				 __func__, val, state);
 
 	return ret;
+}
+
+u32 qof_get_mtcmos_margin(void)
+{
+	return HW_TIMER_MARGIN_US;
 }
 
 int qof_reset(struct mtk_raw_device *raw)
@@ -284,8 +289,8 @@ void qof_setup_hw_timer(struct mtk_raw_device *raw, u32 interval_us)
 		mtcmos_cycle = 0;
 		pwr_off_max = 0;
 	} else {
-		mtcmos_cycle = (interval_us - HW_TIMER_MARGIN) * timer_freq_khz / 1000;
-		pwr_off_max = (interval_us - HW_TIMER_MARGIN - PWR_OFF_MAX_THRESHOLD_US)
+		mtcmos_cycle = (interval_us - qof_get_mtcmos_margin()) * timer_freq_khz / 1000;
+		pwr_off_max = (interval_us - qof_get_mtcmos_margin() - PWR_OFF_MAX_THRESHOLD_US)
 		* timer_freq_khz / 1000;
 	}
 
@@ -516,6 +521,23 @@ int __qof_mtcmos_raw_voter(struct mtk_raw_device *raw, bool enable, const char *
 UNLOCK:
 	spin_unlock_irqrestore(&raw->apmcu_voter_lock, flags);
 	return ret;
+}
+
+void __qof_mtcmos_voter_handle(struct mtk_cam_engines *eng,
+	unsigned int used_raw, struct qof_voter_handle *handle,
+	const char *caller)
+{
+	int temp = 0;
+
+	used_raw = bit_map_subset_of(MAP_HW_RAW, used_raw);
+	if (handle->used_raw != used_raw) {
+		temp = handle->used_raw;
+		__qof_mtcmos_voter(eng, used_raw, true, caller);
+		handle->used_raw = used_raw;
+	}
+
+	if (temp)
+		__qof_mtcmos_voter(eng, temp, false, caller);
 }
 
 // TODO: synchronization
@@ -1026,6 +1048,11 @@ void qof_dump_trigger_cnt(struct mtk_raw_device *raw)
 		dev_info(raw->dev, "qof: on_cnf: %d off_cnt: %d",
 				qof_trig_cnt & 0xFF, (qof_trig_cnt >> 16) & 0xFF);
 	}
+}
+
+u32 qof_on_off_cnt(struct mtk_raw_device *raw)
+{
+	return readl_relaxed(raw->qof_base + REG_QOF_CAM_A_QOF_TRIG_CNT_1);
 }
 
 void qof_dump_voter(struct mtk_raw_device *raw)

@@ -1354,6 +1354,7 @@ static void mtk_cam_ctrl_dynamic_raws_change_flow(struct mtk_cam_job *job)
 		goto SWITCH_FAILURE;
 	}
 
+	/* NOTE: qof_setup_twin has been called in job_raw_change_hw_init */
 	for (i = 0; i < cam->engines.num_raw_devices; i++) {
 		bool is_master = false;
 		struct mtk_raw_device *raw_dev;

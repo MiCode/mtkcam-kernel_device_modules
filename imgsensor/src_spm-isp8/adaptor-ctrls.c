@@ -566,6 +566,11 @@ static int do_set_ae_ctrl(struct adaptor_ctx *ctx,
 
 	adaptor_logm(ctx, "+\n");
 
+	if (!ctx) {
+		pr_info("[%s] ctx might be null!\n", __func__);
+		return -EINVAL;
+	}
+
 	setup_ae_ctrl_dbg_info(ctx);
 
 	/* update ctx req id */
@@ -1348,6 +1353,10 @@ static int imgsensor_try_ctrl(struct v4l2_ctrl *ctrl)
 static void proc_debug_cmd(struct adaptor_ctx *ctx, char *text)
 {
 	adaptor_logi(ctx, "%s\n", text);
+	if (!ctx) {
+		pr_info("[%s] ctx might be null!\n", __func__);
+		return;
+	}
 	if (!strcmp(text, "unregister_subdev"))
 		v4l2_async_unregister_subdev(&ctx->sd);
 }
@@ -1749,6 +1758,11 @@ static int imgsensor_set_ctrl(struct v4l2_ctrl *ctrl)
 				SENSOR_FEATURE_SEAMLESS_SWITCH,
 				para.u8, &len);
 
+			if (info->target_scenario_id > ctx->subctx.s_ctx.sensor_mode_num) {
+				pr_info("[%s] target_scenario_id is bigger than total mode num!\n",
+						__func__);
+				return -EINVAL;
+			}
 			notify_fsync_mgr_seamless_switch(ctx,
 				fsync_exp, IMGSENSOR_STAGGER_EXPOSURE_CNT,
 				orig_readout_time_us, info->target_scenario_id);
@@ -2546,6 +2560,10 @@ static const struct v4l2_ctrl_config cfg_sensor_set_aov_mclk = {
 void adaptor_sensor_init(struct adaptor_ctx *ctx)
 {
 	adaptor_logm(ctx, "+\n");
+	if (!ctx || !(ctx->subdrv)) {
+		pr_info("[%s] ctx might be null!\n", __func__);
+		return;
+	}
 
 	if (ctx && !ctx->is_sensor_inited) {
 		ctx->is_sensor_inited = 1;

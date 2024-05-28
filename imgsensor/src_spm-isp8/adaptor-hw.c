@@ -219,6 +219,10 @@ static int set_state(struct adaptor_ctx *ctx, void *data, int val)
 	x = idx + val;
 
 	adaptor_logm(ctx, "+ idx(%llu),val(%d)\n", idx, val);
+	if (!ctx) {
+		pr_info("[%s] ctx might be null!\n", __func__);
+		return -EINVAL;
+	}
 	ret = pinctrl_select_state(ctx->pinctrl, ctx->state[x]);
 	if (ret < 0) {
 		adaptor_loge(ctx,
@@ -371,6 +375,10 @@ int adaptor_pmic_ctrl(struct adaptor_ctx *ctx, bool bPmicEnable)
 
 	adaptor_logi(ctx, "[%s]+ bPmicEnable:%d, pmic_enable_cnt:%d+\n", __func__, bPmicEnable,
 	pmic_enable_cnt);
+	if (!ctx) {
+		pr_info("[%s] ctx might be null!\n", __func__);
+		return -EINVAL;
+	}
 	if (ctx->pmic_delayus == 0) {
 		adaptor_logi(ctx, "add extra delay to every sensor driver. pmic_delayus:%llu\n",
 			ctx->pmic_delayus);
@@ -433,6 +441,11 @@ int do_hw_power_on(struct adaptor_ctx *ctx)
 	u64 time_boot_begin = 0;
 
 	adaptor_logm(ctx, "+\n");
+	if (!ctx || !(ctx->subdrv)) {
+		pr_info("[%s] ctx might be null!\n", __func__);
+		return -EINVAL;
+	}
+
 	if (ctx->sensor_ws) {
 		if (ctx->aov_pm_ops_flag == 0) {
 			ctx->aov_pm_ops_flag = 1;
@@ -519,6 +532,10 @@ int adaptor_hw_power_on(struct adaptor_ctx *ctx)
 	int ret;
 #endif
 	adaptor_logm(ctx, "+\n");
+	if (!ctx) {
+		pr_info("[%s] ctx might be null!\n", __func__);
+		return -EINVAL;
+	}
 #ifndef IMGSENSOR_USE_PM_FRAMEWORK
 	adaptor_logd(ctx, "power ref cnt = %d\n", ctx->power_refcnt);
 	ctx->power_refcnt++;
@@ -631,6 +648,11 @@ int do_hw_power_off(struct adaptor_ctx *ctx)
 	struct adaptor_hw_ops *op;
 
 	adaptor_logm(ctx, "+\n");
+	if (!ctx || !(ctx->subdrv)) {
+		pr_info("[%s] ctx might be null!\n", __func__);
+		return -EINVAL;
+	}
+
 	/* call subdrv close function if sensor is streaming */
 	if (ctx->subctx.is_streaming)
 		subdrv_call(ctx, close);
@@ -691,6 +713,10 @@ int adaptor_hw_power_off(struct adaptor_ctx *ctx)
 {
 	adaptor_logm(ctx, "+\n");
 #ifndef IMGSENSOR_USE_PM_FRAMEWORK
+	if (!ctx) {
+		pr_info("[%s] ctx might be null!\n", __func__);
+		return -EINVAL;
+	}
 	if (!ctx->power_refcnt) {
 		adaptor_logd(ctx, "power ref cnt = %d, skip due to not power on yet\n",
 			ctx->power_refcnt);
@@ -734,6 +760,11 @@ int adaptor_hw_init(struct adaptor_ctx *ctx)
 	struct device *dev = ctx->dev;
 
 	adaptor_logm(ctx, "+\n");
+	if (!ctx) {
+		pr_info("[%s] ctx might be null!\n", __func__);
+		return -EINVAL;
+	}
+
 	/* clocks */
 	for (i = 0; i < CLK_MAXCNT; i++) {
 		ctx->clk[i] = devm_clk_get(dev, clk_names[i]);
@@ -911,7 +942,12 @@ int adaptor_hw_init(struct adaptor_ctx *ctx)
 
 int adaptor_hw_sensor_reset(struct adaptor_ctx *ctx)
 {
-	int ret;
+	int ret = 0;
+
+	if (!ctx || !(ctx->subdrv)) {
+		pr_info("[%s] ctx might be null!\n", __func__);
+		return -EINVAL;
+	}
 
 	adaptor_logi(ctx, "%d|%d|%d\n",
 		ctx->is_streaming,

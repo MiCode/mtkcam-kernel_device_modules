@@ -974,7 +974,7 @@ int frm_query_vsync_data(const unsigned int tgs[], const unsigned int len,
 	if (frm_get_ts_src_type() == FS_TS_SRC_CCU) {
 		/* 2. get vsync data from CCU using rproc ipc send */
 		ret = query_ccu_vsync_data(&vsyncs_data);
-		if (unlikely(ret != 0))
+		if (ret != 0)
 			return ret;
 	}
 #else
@@ -1266,7 +1266,7 @@ void frm_init(void)
 	if (likely(frm_inst.ts_src_type == FS_TS_SRC_UNKNOWN)) {
 		ret = get_dts_ccu_device_info(__func__);
 
-#ifndef SUPPORT_USING_CCU
+#if !defined(SUPPORT_USING_CCU) && !defined(FS_UT)
 		/* force to choose TSREC */
 		ret = 1;
 		LOG_MUST(

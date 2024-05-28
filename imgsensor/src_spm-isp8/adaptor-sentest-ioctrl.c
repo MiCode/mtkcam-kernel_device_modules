@@ -159,6 +159,7 @@ static int sentest_s_lbmf_delay_do_ae_en(struct adaptor_ctx *ctx, void *arg)
 static const struct adaptor_sentest_ioctl sentest_ioctl_table[] = {
 	{SENTEST_G_SENSOR_PROFILE, sentest_g_sensor_profile},
 	{SENTEST_G_TSREC_TIME_STAMP, sentest_g_tsrec_info},
+	{SENTEST_G_CTRL_ID_MAX, NULL},
 	{SENTEST_S_SENSOR_PROFILE_EN, sentest_s_sensor_profile_en},
 	{SENTEST_S_SENSOR_LBMF_DO_DELAY_AE_EN, sentest_s_lbmf_delay_do_ae_en},
 	{SENTEST_S_TSREC_TRAGET_FRAME_ID, sentest_s_tsrec_traget_frame_id},
@@ -168,6 +169,7 @@ static const struct adaptor_sentest_ioctl sentest_ioctl_table[] = {
 int sentest_ioctl_entry(struct adaptor_ctx *ctx, void *arg)
 {
 	int i;
+	int len = ARRAY_SIZE(sentest_ioctl_table);
 	struct mtk_adaptor_sentest_ctrl *ctrl_info = (struct mtk_adaptor_sentest_ctrl *)arg;
 
 	if (unlikely(ctx == NULL)) {
@@ -180,9 +182,13 @@ int sentest_ioctl_entry(struct adaptor_ctx *ctx, void *arg)
 		return -EINVAL;
 	}
 
-	for (i = SENTEST_G_CTRL_ID_MIN; i < SENTEST_S_CTRL_ID_MAX; i ++) {
-		if (ctrl_info->ctrl_id == sentest_ioctl_table[i].ctrl_id)
-			return sentest_ioctl_table[i].func(ctx, (void *)ctrl_info->param_ptr);
+	for (i = SENTEST_G_CTRL_ID_MIN; i < SENTEST_S_CTRL_ID_MAX && i < len; i ++) {
+		if (ctrl_info->ctrl_id == sentest_ioctl_table[i].ctrl_id) {
+			if (unlikely(sentest_ioctl_table[i].func == NULL))
+				pr_info("[%s][ERROR] sentest_ioctl_table[i].func is NULL\n", __func__);
+			else
+				return sentest_ioctl_table[i].func(ctx, (void *)ctrl_info->param_ptr);
+		}
 	}
 
 	pr_info("[ERROR][%s] ctrl_id %d not found\n", __func__, ctrl_info->ctrl_id);

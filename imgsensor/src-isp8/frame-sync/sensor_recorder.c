@@ -240,7 +240,7 @@ void frec_dump_frame_record_info(const struct FrameRecord *p_frame_rec,
 	const char *caller)
 {
 	LOG_MUST(
-		"[%s]: req_id:%d, (exp_lc:%u/fl_lc:%u), (a:%u/m:%u(%u,%u), exp:%u/%u/%u/%u/%u, fl:%u/%u/%u/%u/%u), margin_lc:(%u, read:%u), readout_len_lc:%u, pclk:%llu, line_length:%u\n",
+		"[%s]: req_id:%d, (exp_lc:%u/fl_lc:%u), (a:%u/m:%u(%u/%u,%u), exp:%u/%u/%u/%u/%u, fl:%u/%u/%u/%u/%u), margin_lc:(%u, read:%u), readout_len_lc:%u, min_vblank_lc:%u, pclk:%llu, line_length:%u\n",
 		caller,
 		p_frame_rec->mw_req_id,
 		p_frame_rec->shutter_lc,
@@ -248,6 +248,7 @@ void frec_dump_frame_record_info(const struct FrameRecord *p_frame_rec,
 		p_frame_rec->ae_exp_cnt,
 		p_frame_rec->mode_exp_cnt,
 		p_frame_rec->m_exp_type,
+		p_frame_rec->dol_type,
 		p_frame_rec->exp_order,
 		p_frame_rec->exp_lc_arr[0],
 		p_frame_rec->exp_lc_arr[1],
@@ -262,6 +263,7 @@ void frec_dump_frame_record_info(const struct FrameRecord *p_frame_rec,
 		p_frame_rec->margin_lc,
 		p_frame_rec->read_margin_lc,
 		p_frame_rec->readout_len_lc,
+		p_frame_rec->min_vblank_lc,
 		p_frame_rec->pclk,
 		p_frame_rec->line_length);
 }
@@ -290,7 +292,7 @@ void frec_dump_recorder(const unsigned int idx, const char *caller)
 	}
 
 	FS_SNPRF(log_str_len, log_buf, len,
-		"[%s]: [%u] ID:%#x(sidx:%u), fdelay:%u/def_fl:%u/lineT:%u/mar(%u,r:%u)/routL:%u",
+		"[%s]: [%u] ID:%#x(sidx:%u), fdelay:%u/def_fl:%u/lineT:%u/mar(%u,r:%u)/routL:%u/min_vb:%u",
 		caller,
 		idx,
 		fs_get_reg_sensor_id(idx),
@@ -302,7 +304,8 @@ void frec_dump_recorder(const unsigned int idx, const char *caller)
 			pfrec->frame_recs[depth_idx].line_length),
 		pfrec->frame_recs[depth_idx].margin_lc,
 		pfrec->frame_recs[depth_idx].read_margin_lc,
-		pfrec->frame_recs[depth_idx].readout_len_lc);
+		pfrec->frame_recs[depth_idx].readout_len_lc,
+		pfrec->frame_recs[depth_idx].min_vblank_lc);
 
 	for (i = 0; i < RECORDER_DEPTH; ++i) {
 		/* dump data from newest to old */
@@ -310,7 +313,7 @@ void frec_dump_recorder(const unsigned int idx, const char *caller)
 		const unsigned int idx = RING_BACK(depth_idx, i);
 
 		FS_SNPRF(log_str_len, log_buf, len,
-			", ([%u](%llu/req:%d):(%u/%u),(a:%u/m:%u(t:%u,o:%u),%u/%u/%u/%u/%u",
+			", ([%u](%llu/req:%d):(%u/%u),(a:%u/m:%u(t:%u/%u,o:%u),%u/%u/%u/%u/%u",
 			idx,
 			pfrec->sys_ts_recs[idx]/1000,
 			pfrec->frame_recs[idx].mw_req_id,
@@ -319,6 +322,7 @@ void frec_dump_recorder(const unsigned int idx, const char *caller)
 			pfrec->frame_recs[idx].ae_exp_cnt,
 			pfrec->frame_recs[idx].mode_exp_cnt,
 			pfrec->frame_recs[idx].m_exp_type,
+			pfrec->frame_recs[idx].dol_type,
 			pfrec->frame_recs[idx].exp_order,
 			pfrec->frame_recs[idx].exp_lc_arr[0],
 			pfrec->frame_recs[idx].exp_lc_arr[1],
@@ -624,7 +628,9 @@ void frec_setup_frame_rec_by_fs_streaming_st(struct FrameRecord *p_frame_rec,
 	p_frame_rec->readout_len_lc = sensor_info->hdr_exp.readout_len_lc;
 	p_frame_rec->mode_exp_cnt = sensor_info->hdr_exp.mode_exp_cnt;
 	p_frame_rec->m_exp_type = sensor_info->hdr_exp.multi_exp_type;
+	p_frame_rec->dol_type = sensor_info->hdr_exp.dol_type;
 	p_frame_rec->exp_order = sensor_info->hdr_exp.exp_order;
+	p_frame_rec->min_vblank_lc = sensor_info->hdr_exp.min_vblank_lc;
 
 	p_frame_rec->pclk = sensor_info->pclk;
 	p_frame_rec->line_length = sensor_info->linelength;
@@ -654,8 +660,10 @@ void frec_setup_frame_rec_by_fs_perframe_st(struct FrameRecord *p_frame_rec,
 	p_frame_rec->read_margin_lc = pf_ctrl->hdr_exp.read_margin_lc;
 	p_frame_rec->readout_len_lc = pf_ctrl->hdr_exp.readout_len_lc;
 	p_frame_rec->mode_exp_cnt = pf_ctrl->hdr_exp.mode_exp_cnt;
+	p_frame_rec->dol_type = pf_ctrl->hdr_exp.dol_type;
 	p_frame_rec->m_exp_type = pf_ctrl->hdr_exp.multi_exp_type;
 	p_frame_rec->exp_order = pf_ctrl->hdr_exp.exp_order;
+	p_frame_rec->min_vblank_lc = pf_ctrl->hdr_exp.min_vblank_lc;
 
 	p_frame_rec->pclk = pf_ctrl->pclk;
 	p_frame_rec->line_length = pf_ctrl->linelength;
@@ -1119,8 +1127,16 @@ static unsigned int frec_calc_lbmf_valid_min_fl_lc_for_shutters(
 
 
 /*----------------------------------------------------------------------------*/
-// FDOL / Stagger functions
+/* FDOL, DOL / Stagger functions                                              */
 /*----------------------------------------------------------------------------*/
+static inline unsigned int is_dol_stg_type(const struct FrameRecord *curr_rec)
+{
+	return (curr_rec->m_exp_type == MULTI_EXP_TYPE_STG
+			&& curr_rec->dol_type == STAGGER_DOL_TYPE_DOL)
+		? 1 : 0;
+}
+
+
 static void frec_calc_stg_read_offset(const unsigned int idx,
 	const struct FrameRecord *curr_rec,
 	unsigned int *p_next_pr_rd_offset_lc,
@@ -1284,6 +1300,50 @@ static unsigned int frec_chk_stg_fl_rule_2(const unsigned int idx,
 }
 
 
+static unsigned int frec_chk_dol_stg_fl_rule(const unsigned int idx,
+	const struct FrameRecord *curr_rec, const struct FrameRecord *prev_rec)
+{
+	const unsigned int prev_mode_exp_cnt = prev_rec->mode_exp_cnt;
+	const unsigned int margin_lc_per_exp = (prev_mode_exp_cnt != 0)
+		? (prev_rec->margin_lc / prev_mode_exp_cnt)
+		: prev_rec->margin_lc;
+	unsigned int last_exp_read_offset = 0, min_fl_lc_for_dol = 0;
+	unsigned int i;
+
+	/* chech stagger type (is it DOL) */
+	if (is_dol_stg_type(curr_rec) == 0)
+		return 0;
+
+	/* calculate read offset by values in frame records */
+	for (i = 1; i < prev_mode_exp_cnt; ++i) {
+		const int hdr_idx = g_exp_order_idx_mapping(idx,
+			prev_rec->exp_order, prev_mode_exp_cnt, i, __func__);
+
+		if (unlikely(hdr_idx < 0))
+			return 0;
+		last_exp_read_offset +=
+			(margin_lc_per_exp + prev_rec->exp_lc_arr[hdr_idx]);
+	}
+
+	/* for DOL rule */
+	min_fl_lc_for_dol = last_exp_read_offset +
+		(prev_rec->readout_len_lc + prev_rec->min_vblank_lc);
+
+	LOG_INF_CAT(LOG_SEN_REC,
+		"[%u] ID:%#x(sidx:%u/inf:%u), dol_min_fl_lc:%u(offset:%u + rout_L:%u + min_vb:%u))\n",
+		idx,
+		fs_get_reg_sensor_id(idx),
+		fs_get_reg_sensor_idx(idx),
+		fs_get_reg_sensor_inf_idx(idx),
+		min_fl_lc_for_dol,
+		last_exp_read_offset,
+		prev_rec->readout_len_lc,
+		prev_rec->min_vblank_lc);
+
+	return min_fl_lc_for_dol;
+}
+
+
 static unsigned int frec_chk_stg_fl_sw_rule_1(const unsigned int idx,
 	const struct FrameRecord *curr_rec)
 {
@@ -1320,19 +1380,21 @@ static unsigned int frec_calc_stg_valid_min_fl_lc_for_shutters(
 	const unsigned int idx,
 	const struct FrameRecord *curr_rec, const struct FrameRecord *prev_rec)
 {
-	unsigned int result_1, result_2;
+	unsigned int result_1, result_2, result_3;
 	unsigned int min_fl_lc = 0;
 
 	/* ONLY when stagger/HDR mode ===> mode exp cnt > 1 */
-	if (curr_rec->mode_exp_cnt <= 1)
+	if (unlikely(curr_rec->mode_exp_cnt <= 1))
 		return 0;
 
 	/* only take HW needed min frame length for shutters into account */
 	result_1 = frec_chk_stg_fl_rule_1(idx, curr_rec, prev_rec);
 	result_2 = frec_chk_stg_fl_rule_2(idx, curr_rec, prev_rec);
+	result_3 = frec_chk_dol_stg_fl_rule(idx, curr_rec,prev_rec);
 
 	min_fl_lc = (min_fl_lc > result_1) ? min_fl_lc : result_1;
 	min_fl_lc = (min_fl_lc > result_2) ? min_fl_lc : result_2;
+	min_fl_lc = (min_fl_lc > result_3) ? min_fl_lc : result_3;
 
 	return min_fl_lc;
 }

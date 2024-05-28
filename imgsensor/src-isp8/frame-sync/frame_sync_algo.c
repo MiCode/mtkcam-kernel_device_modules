@@ -1429,16 +1429,22 @@ void fs_alg_sa_dump_dynamic_para(const unsigned int idx)
 // fs frame length record functions
 /******************************************************************************/
 static unsigned int fs_alg_chk_if_need_to_setup_fl_restore_ctrl(
-	const unsigned int idx, const struct FrameSyncDynamicPara *p_para)
+	const unsigned int idx, const unsigned int out_fl_us,
+	const struct FrameSyncDynamicPara *p_para)
 {
 #if !defined(FS_FL_AUTO_RESTORE_DISABLE)
 	struct fs_fl_restore_info_st fl_restore_info = {0};
 	const unsigned int line_time = fs_inst[idx].lineTimeInNs;
 	unsigned int fl_lc = convert2LineCount(line_time, p_para->stable_fl_us);
 	unsigned int fl_lc_arr[FS_HDR_MAX] = {0};
+	unsigned int diff;
 
 	/* check case */
-	if (p_para->adj_diff_final < FS_FL_AUTO_RESTORE_TH)
+	diff = (out_fl_us > p_para->stable_fl_us)
+		? (out_fl_us - p_para->stable_fl_us)
+		: (p_para->stable_fl_us - out_fl_us);
+	/* if (p_para->adj_diff_final < FS_FL_AUTO_RESTORE_TH) */
+	if (diff < FS_FL_AUTO_RESTORE_TH)
 		return 0;
 	/* !!! FL auto restore mechanism not support LB-MF mode !!! */
 	if (fs_inst[idx].p_frecs[0]->m_exp_type == MULTI_EXP_TYPE_LBMF)
@@ -2753,12 +2759,13 @@ static long long fs_alg_sa_adjust_slave_diff_resolver(
 	p_para_s->ask_for_chg = request_switch_master || (!adjust_or_not);
 	p_para_s->adj_diff_final = (request_switch_master || (!adjust_or_not))
 		? 0 : adjust_diff_s;
-	p_para_s->need_auto_restore_fl =
-		fs_alg_chk_if_need_to_setup_fl_restore_ctrl(s_idx, p_para_s);
 
 
 	/* !!! (For LOG) Calculate final slave adjust diff !!! */
 	out_fl_us_final = fs_inst[s_idx].output_fl_us + p_para_s->adj_diff_final;
+	p_para_s->need_auto_restore_fl =
+		fs_alg_chk_if_need_to_setup_fl_restore_ctrl(
+			s_idx, out_fl_us_final, p_para_s);
 	g_flk_fl_and_flk_diff(s_idx, &out_fl_us_final, &flk_diff_final, 0);
 
 
@@ -4492,12 +4499,13 @@ static unsigned int adjust_async_vsync_diff_sa(
 	p_para->chg_master = 0;
 	p_para->ask_for_chg = 0;
 	p_para->adj_diff_final = (!adjust_or_not) ? 0 : adjust_diff;
-	p_para->need_auto_restore_fl =
-		fs_alg_chk_if_need_to_setup_fl_restore_ctrl(idx, p_para);
 
 
 	/* !!! Calculate final slave FL !!! */
 	out_fl_us_final = fs_inst[idx].output_fl_us + p_para->adj_diff_final;
+	p_para->need_auto_restore_fl =
+		fs_alg_chk_if_need_to_setup_fl_restore_ctrl(
+			idx, out_fl_us_final, p_para);
 	g_flk_fl_and_flk_diff(idx, &out_fl_us_final, &flk_diff_final, 0);
 
 

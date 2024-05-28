@@ -187,6 +187,8 @@ struct fs_perframe_st imx766_sensor_mode[] = {
 		},
 		.hdr_exp.readout_len_lc = 4742,
 		.hdr_exp.read_margin_lc = 30,
+		/* .hdr_exp.min_vblank_lc = 100, */
+		/* .hdr_exp.dol_type = 1, */
 		.flicker_en = 0,
 		.pclk = 1281600000,
 		.linelength = 8816,

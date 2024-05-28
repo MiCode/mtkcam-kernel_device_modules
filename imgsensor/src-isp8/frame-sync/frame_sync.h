@@ -183,9 +183,11 @@ struct fs_hdr_exp_st {
 	unsigned int readout_len_lc;
 	unsigned int read_margin_lc;
 
-	/* see sensor recorder header */
-	unsigned int multi_exp_type;     // by pass for sensor recorder header
-	unsigned int exp_order;          // by pass for sensor recorder header
+	/* see sensor recorder header (only by pass) */
+	unsigned int multi_exp_type;
+	unsigned int dol_type;
+	unsigned int exp_order;
+	unsigned int min_vblank_lc;
 };
 /******************************************************************************/
 

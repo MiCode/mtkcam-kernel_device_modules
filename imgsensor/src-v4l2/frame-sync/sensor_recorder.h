@@ -44,13 +44,23 @@ enum multi_exp_type {
 	MULTI_EXP_TYPE_LBMF,
 };
 
-#define FL_ARR_IN_LUT_ORDER
+
+/* if multi exp type is stagger, than check which stagger dol type it is. */
+enum stagger_dol_type {
+	/* STAGGER_DOL_TYPE_NONE, */
+	STAGGER_DOL_TYPE_FDOL,
+	STAGGER_DOL_TYPE_DOL,
+	STAGGER_DOL_TYPE_NDOL,
+};
+
 /*----------------------------------------------------------------------------*/
 
 
 /*----------------------------------------------------------------------------*/
 // exp order
 /*----------------------------------------------------------------------------*/
+#define FL_ARR_IN_LUT_ORDER
+
 enum exp_order {
 	EXP_ORDER_LE_1ST = 0,
 	EXP_ORDER_SE_1ST,
@@ -107,9 +117,11 @@ struct FrameRecord {
 	unsigned int read_margin_lc;
 	unsigned int readout_len_lc;
 	unsigned int mode_exp_cnt;
-	// enum multi_exp_type m_exp_type;
-	unsigned int m_exp_type;
-	unsigned int exp_order;
+
+	unsigned int m_exp_type;        /* enum multi_exp_type m_exp_type; */
+	unsigned int dol_type;          /* enum stagger_dol_type dol_type; */
+	unsigned int exp_order;         /* for NDOL/LBMF/AEB */
+	unsigned int min_vblank_lc;     /* for DOL */
 
 	unsigned long long pclk;
 	unsigned int line_length;

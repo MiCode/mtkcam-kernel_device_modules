@@ -510,6 +510,11 @@ EXPORT_SYMBOL_GPL(mtk_cam_bwr_clr_bw);
 void mtk_cam_bwr_trigger(struct mtk_bwr_device *bwr,
 	enum BWR_ENGINE_TYPE engine, enum BWR_AXI_PORT axi)
 {
+	if (!bwr) {
+		pr_info("%s : null device, engine(%d)", __func__, engine);
+		return;
+	}
+
 	mutex_lock(&bwr->op_lock);
 	if (!bwr || !bwr->started) {
 		pr_info("%s: engine:%d %s\n", __func__,
@@ -537,7 +542,12 @@ void mtk_cam_bwr_trigger(struct mtk_bwr_device *bwr,
 
 void mtk_cam_bwr_dbg_dump(struct mtk_bwr_device *bwr)
 {
-	int engine, axi;
+	int engine = 0, axi = 0;
+
+	if (!bwr) {
+		pr_info("%s : null device, engine(%d)", __func__, engine);
+		return;
+	}
 
 	mutex_lock(&bwr->op_lock);
 	if (!bwr || !bwr->started) {
@@ -725,10 +735,20 @@ static int mtk_bwr_runtime_suspend(struct device *dev)
 static int mtk_bwr_runtime_resume(struct device *dev)
 {
 	struct mtk_bwr_device *bwr = dev_get_drvdata(dev);
-	int i;
+	int i, ret;
 
-	for (i = 0; i < bwr->num_clks; i++)
-		clk_prepare_enable(bwr->clks[i]);
+	for (i = 0; i < bwr->num_clks; i++) {
+		ret = clk_prepare_enable(bwr->clks[i]);
+		if (ret) {
+			dev_info(dev, "enable failed at clk #%d, ret = %d\n",
+				 i, ret);
+			i--;
+			while (i >= 0)
+				clk_disable_unprepare(bwr->clks[i--]);
+
+			return ret;
+		}
+	}
 
 	bwr_start(bwr);
 	bwr_set_default(bwr);

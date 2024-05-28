@@ -525,7 +525,13 @@ static int cam_composer_init(struct mtk_cam_ut *ut)
 
 	ccd = (struct mtk_ccd *)ut->rproc_handle->priv;
 	rpmsg_subdev = ccd->rpmsg_subdev;
-	snprintf(msg->name, RPMSG_NAME_SIZE, "mtk-camsys0");
+	ret = snprintf(msg->name, RPMSG_NAME_SIZE, "mtk-camsys0");
+	if (ret < 0) {
+		dev_info(dev, "failed to get name\n");
+		ret = -EINVAL;
+		goto fail_shutdown;
+	}
+
 	msg->src = CCD_IPI_ISP_MAIN;
 	ut->rpmsg_dev = mtk_get_client_msgdevice(rpmsg_subdev, msg);
 	if (!ut->rpmsg_dev) {
@@ -1767,10 +1773,20 @@ static int mtk_cam_vcore_runtime_suspend(struct device *dev)
 static int mtk_cam_vcore_runtime_resume(struct device *dev)
 {
 	struct mtk_cam_ut_vcore_device *cam_vcore  = dev_get_drvdata(dev);
-	int i;
+	int i, ret;
 
-	for (i = 0; i < cam_vcore->num_clks; i++)
-		clk_prepare_enable(cam_vcore->clks[i]);
+	for (i = 0; i < cam_vcore->num_clks; i++) {
+		ret = clk_prepare_enable(cam_vcore->clks[i]);
+		if (ret) {
+			dev_info(dev, "enable failed at clk #%d, ret = %d\n",
+				 i, ret);
+			i--;
+			while (i >= 0)
+				clk_disable_unprepare(cam_vcore->clks[i--]);
+
+			return ret;
+		}
+	}
 
 	return 0;
 }

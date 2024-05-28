@@ -650,3 +650,21 @@ void mtk_cam_seninf_sof_notify(struct mtk_seninf_sof_notify_param *param)
 		}
 	}
 }
+
+void notify_sensor_set_fl_prolong(struct v4l2_subdev *sd,
+	unsigned int action)
+{
+	struct seninf_ctx *ctx = container_of(sd, struct seninf_ctx, subdev);
+
+	if (!ctx)
+		return;
+
+	if (likely(chk_subdev_ops_command_exist(ctx->sensor_sd))) {
+		ctx->sensor_sd->ops->core->command(ctx->sensor_sd,
+						V4L2_CMD_SET_SENSOR_FL_PROLONG,
+						&action);
+	} else {
+		seninf_logi(ctx,
+			"ERROR: v4l2 subdev ops core command not exist\n");
+	}
+}

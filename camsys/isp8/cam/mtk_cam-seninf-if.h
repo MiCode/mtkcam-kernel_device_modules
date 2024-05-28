@@ -287,5 +287,13 @@ void mtk_cam_seninf_parse_ebd_line(struct v4l2_subdev *sd,
 				char *req_fd_desc,
 				char *buf, u32 buf_sz,
 				u32 stride, u32 scenario_mbus_code);
+/**
+ * do sensor prolong
+ *
+ * @param sd v4l2_subdev
+ * @param action prolong type
+ */
+void notify_sensor_set_fl_prolong(struct v4l2_subdev *sd,
+	unsigned int action);
 
 #endif

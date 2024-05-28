@@ -485,6 +485,74 @@ static int s_cmd_tsrec_setup_cb_info(struct adaptor_ctx *ctx, void *arg)
 	return ret;
 }
 
+static u64 set_sensor_fl_prolong (struct adaptor_ctx *ctx)
+{
+	static const u64 seamless_thr_ns = 25000000;
+	u32 exp_count = g_scenario_exposure_cnt(ctx, ctx->subctx.current_scenario_id);
+	u32 ecnt = exp_count;
+	u64 ext_ftime = 0;
+	u64 tline_ns = ctx->cur_mode->linetime_in_ns;
+	u32 e_margin = ctx->subctx.margin * exp_count;
+	u32 acc_lines = 0;
+	u64 t_last_exp_2_next = 0;
+	enum IMGSENSOR_HDR_MODE_ENUM hdr_mode;
+
+	hdr_mode = (ctx->subctx.s_ctx.mode == NULL)
+		? HDR_NONE
+		: ctx->subctx.s_ctx.mode[ctx->cur_mode->id].hdr_mode;
+
+	if (hdr_mode == HDR_RAW_STAGGER) {
+		/* apply extend logic only in stagger mode */
+		while (exp_count && (--ecnt))
+			acc_lines += (e_margin +ctx->subctx.exposure[ecnt]);
+
+		if (acc_lines && (ctx->subctx.frame_length > acc_lines)) {
+			t_last_exp_2_next = (ctx->subctx.frame_length - acc_lines) * tline_ns;
+			if (t_last_exp_2_next < seamless_thr_ns)
+				ext_ftime = seamless_thr_ns - t_last_exp_2_next;
+			if (ext_ftime > seamless_thr_ns) {
+				adaptor_logi(ctx,
+					"calculate ext_ftime (%llu) is large than threshold (%llu)\n",
+					ext_ftime, seamless_thr_ns);
+				ext_ftime = seamless_thr_ns;
+			}
+		}
+	}
+
+	adaptor_logi(ctx,
+		"hdr_mode/exp_cnt/tline/exp_margin/acc_lines/fll/last_exp_2_next/result (%u/%u/%llu/%u/%u/%u/%llu/%llu)\n",
+		hdr_mode, exp_count, tline_ns, e_margin, acc_lines,
+		ctx->subctx.frame_length, t_last_exp_2_next, ext_ftime);
+
+	/* extend frame time in ns */
+	return ext_ftime;
+}
+
+static int s_cmd_sensor_fl_prolong(struct adaptor_ctx *ctx, void *arg)
+{
+	u32 act = *((u32 *)arg), len = 0;
+	u64 ext_time = 0;
+	union feature_para para;
+	int ret = 0;
+
+	if (act & IMGSENSOR_EXTEND_FRAME_LENGTH_TO_DOL) {
+		ext_time = set_sensor_fl_prolong(ctx);
+		para.u64[0] = ext_time;
+		subdrv_call(ctx, feature_control,
+						SENSOR_FEATURE_SET_SEAMLESS_EXTEND_FRAME_LENGTH,
+						para.u8, &len);
+	}
+	if (act & IMGSENSOR_EXTEND_FRAME_LENGTH_TO_DOL_DISABLE) {
+		ctx->subctx.extend_frame_length_en = FALSE;
+		adaptor_logi(ctx, "Disabled extend framelength.");
+	}
+	adaptor_logi(ctx, "set sensor fl prolong, ext_time:%llu, act:%u",
+		ext_time,
+		act);
+
+	return ret;
+}
+
 /*---------------------------------------------------------------------------*/
 // adaptor command framework/entry
 /*---------------------------------------------------------------------------*/
@@ -515,6 +583,7 @@ static const struct command_entry command_list[] = {
 	{V4L2_CMD_TSREC_SEND_TIMESTAMP_INFO, s_cmd_tsrec_send_timestamp_info},
 	{V4L2_CMD_SENSOR_PARSE_EBD, s_cmd_sensor_parse_ebd},
 	{V4L2_CMD_TSREC_SETUP_CB_FUNC_OF_SENSOR, s_cmd_tsrec_setup_cb_info},
+	{V4L2_CMD_SET_SENSOR_FL_PROLONG, s_cmd_sensor_fl_prolong}
 };
 
 long adaptor_command(struct v4l2_subdev *sd, unsigned int cmd, void *arg)

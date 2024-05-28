@@ -47,7 +47,7 @@ int apply_cam_mux_switch(struct mtk_cam_job *job)
 	int first_tag_idx_w, last_tag_idx_w;
 	bool is_dc = is_dc_mode(job) ? true : false;
 	bool config_grp_en = job->raw_change == JOB_RAW_MASTER_CHANGED;
-	unsigned int max_pixel_mode;
+	unsigned int max_pixel_mode = 0;
 
 	/**
 	 * To identify the "max" exposure_num, we use
@@ -66,13 +66,13 @@ int apply_cam_mux_switch(struct mtk_cam_job *job)
 	if (ctx->hw_sv)
 		sv_dev = dev_get_drvdata(ctx->hw_sv);
 
-	CALL_PLAT_V4L2(
-		get_sv_max_pixel_mode, sv_dev->id, &max_pixel_mode);
+	if (sv_dev != NULL)
+		CALL_PLAT_V4L2(get_sv_max_pixel_mode, sv_dev->id, &max_pixel_mode);
 
 	memset(settings, 0,
 		sizeof(struct mtk_cam_seninf_mux_setting) * ARRAY_SIZE(settings));
 	if (config_exposure_num == 3) {
-		int i = 0, sv_idx, mraw_idx;
+		unsigned int i = 0, sv_idx, mraw_idx;
 		if (cur_exp == 2) {
 			// TODO: TCG <=> DCG OTF
 			first_tag_idx =
@@ -327,7 +327,7 @@ int apply_cam_mux_switch(struct mtk_cam_job *job)
 			settings[7].source, settings[7].camtg, settings[7].enable,
 			settings[8].source, settings[8].camtg, settings[8].enable);
 	} else if (config_exposure_num == 2) {
-		int i = 0, sv_idx, mraw_idx;
+		unsigned int i = 0, sv_idx, mraw_idx;
 		if (cur_exp == 1) {
 			first_tag_idx =
 				get_sv_tag_idx(1, MTKCAM_IPI_ORDER_FIRST_TAG, false);
@@ -538,7 +538,7 @@ int apply_cam_mux_switch(struct mtk_cam_job *job)
 			settings[7].source, settings[7].camtg, settings[7].enable,
 			settings[8].source, settings[8].camtg, settings[8].enable);
 	} else if (config_exposure_num == 1) {
-		int i = 0, sv_idx, mraw_idx;
+		unsigned int i = 0, sv_idx, mraw_idx;
 		first_tag_idx =
 			get_sv_tag_idx(1, MTKCAM_IPI_ORDER_FIRST_TAG, false);
 		first_tag_idx_w =

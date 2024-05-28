@@ -1131,7 +1131,8 @@ _stream_on(struct mtk_cam_job *job, bool on)
 		ctrl_data = get_raw_ctrl_data(job);
 		pad_bitmask = 0;
 		raw_tg_idx = -1;
-		mtk_cam_ctx_slc_stream(ctx, on, ctrl_data->slc_mode);
+		if (ctrl_data != NULL)
+			mtk_cam_ctx_slc_stream(ctx, on, ctrl_data->slc_mode);
 	}
 
 	/* TODO: separate seninf api to cammux setting and enable */
@@ -4017,7 +4018,8 @@ _common_seamless_after_frame_done(struct mtk_cam_job *job)
 	set_cq_deadline(job, job->scq_period);
 	toggle_raw_engines_db(ctx);
 	ctrl_data = get_raw_ctrl_data(job);
-	mtk_cam_ctx_slc_stream(ctx, 1, ctrl_data->slc_mode);
+	if (ctrl_data != NULL)
+		mtk_cam_ctx_slc_stream(ctx, 1, ctrl_data->slc_mode);
 	stream_on(raw_dev, 1, false);
 	if (ctx->hw_sv)
 		mtk_cam_sv_dev_stream_on(sv_dev, true,

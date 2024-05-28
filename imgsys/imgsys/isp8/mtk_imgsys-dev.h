@@ -357,6 +357,7 @@ struct mtk_imgsys_dev {
 	struct v4l2_device v4l2_dev;
 	struct mtk_imgsys_pipe imgsys_pipe[MTK_IMGSYS_PIPE_ID_TOTAL_NUM];
 	struct clk_bulk_data *clks;
+	int dev_ver;
 	int num_clks;
 	int num_mods;
 	int modules_num;

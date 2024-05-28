@@ -3590,6 +3590,10 @@ int mtk_imgsys_probe(struct platform_device *pdev)
 			dev_info(imgsys_dev->dev, "Failed to set DMA segment size\n");
 	}
 
+	if (of_property_read_u32_index(imgsys_dev->dev->of_node,
+		"mediatek,imgsys-ver", 0, &imgsys_dev->dev_ver) == 0)
+		pr_info("[%s] imgsys-ver = %u\n", __func__, imgsys_dev->dev_ver);
+
 #if MTK_CM4_SUPPORT
 	imgsys_dev->scp_pdev = scp_get_pdev(pdev);
 	if (!imgsys_dev->scp_pdev) {

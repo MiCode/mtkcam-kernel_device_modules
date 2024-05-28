@@ -44,6 +44,12 @@
 #define TRAW_TOP_BASE		(0x34710000)
 #define TRAW_BASE			(0x34700000)
 #define LTRAW_BASE			(0x34040000)
+
+#define IMG_MAIN_BASE_P		(0x15000000)
+#define TRAW_TOP_BASE_P		(0x15710000)
+#define TRAW_BASE_P		(0x15700000)
+#define LTRAW_BASE_P		(0x15040000)
+
 #define TRAW_DL_RST			(0x260)
 #define SW_RST				(0x000C)
 /********************************************************************
@@ -883,6 +889,8 @@ void imgsys_traw_cmdq_set_initial_value_hw(struct mtk_imgsys_dev *imgsys_dev,
 {
 	unsigned int ofset;
 	unsigned int i = 0;
+	unsigned int traw_top_base = TRAW_TOP_BASE;
+	unsigned int traw_base = TRAW_BASE;
 	struct cmdq_pkt *package = NULL;
 
 	if (imgsys_dev == NULL || pkt == NULL) {
@@ -893,16 +901,21 @@ void imgsys_traw_cmdq_set_initial_value_hw(struct mtk_imgsys_dev *imgsys_dev,
 	package = (struct cmdq_pkt *)pkt;
 
 	/* module reset */
+	if (imgsys_dev->dev_ver == 1) {
+		traw_top_base = TRAW_TOP_BASE_P;
+		traw_base = TRAW_BASE_P;
+	}
+
 	cmdq_pkt_write(package, NULL,
-		      (TRAW_TOP_BASE + SW_RST) /*address*/, 0x3C,
+		      (traw_top_base + SW_RST) /*address*/, 0x3C,
 		       0xffffffff);
 	cmdq_pkt_write(package, NULL,
-		       (TRAW_TOP_BASE + SW_RST) /*address*/, 0x0,
+		       (traw_top_base + SW_RST) /*address*/, 0x0,
 		       0xffffffff);
 
 	/* ori traw set */
 	for (i = 0; i < ARRAY_SIZE(mtk_imgsys_traw_init_ary); i++) {
-		ofset = TRAW_BASE + mtk_imgsys_traw_init_ary[i].ofset;
+		ofset = traw_base + mtk_imgsys_traw_init_ary[i].ofset;
 		cmdq_pkt_write(package, NULL, ofset /*address*/,
 				mtk_imgsys_traw_init_ary[i].val, 0xffffffff);
 	}
@@ -913,6 +926,7 @@ void imgsys_ltraw_cmdq_set_initial_value_hw(struct mtk_imgsys_dev *imgsys_dev,
 {
 	unsigned int ofset;
 	unsigned int i = 0;
+	unsigned int ltraw_base = LTRAW_BASE;
 	struct cmdq_pkt *package = NULL;
 
 	if (imgsys_dev == NULL || pkt == NULL) {
@@ -922,9 +936,13 @@ void imgsys_ltraw_cmdq_set_initial_value_hw(struct mtk_imgsys_dev *imgsys_dev,
 	}
 	package = (struct cmdq_pkt *)pkt;
 
+	if (imgsys_dev->dev_ver == 1)
+		ltraw_base = LTRAW_BASE_P;
+
+
 	/* ori traw set */
 	for (i = 0; i < ARRAY_SIZE(mtk_imgsys_traw_init_ary); i++) {
-		ofset = LTRAW_BASE + mtk_imgsys_traw_init_ary[i].ofset;
+		ofset = ltraw_base + mtk_imgsys_traw_init_ary[i].ofset;
 		cmdq_pkt_write(package, NULL, ofset /*address*/,
 				mtk_imgsys_traw_init_ary[i].val, 0xffffffff);
 	}
@@ -953,12 +971,18 @@ void imgsys_traw_debug_dump(struct mtk_imgsys_dev *imgsys_dev,
 	/* ltraw */
 	if (engine & IMGSYS_ENG_LTR) {
 		RegMap = REG_MAP_E_LTRAW;
-		g_RegBaseAddr = TRAW_B_BASE_ADDR;
+		if (imgsys_dev->dev_ver)
+			g_RegBaseAddr = TRAW_B_BASE_ADDR_P;
+		else
+			g_RegBaseAddr = TRAW_B_BASE_ADDR;
 		trawRegBA = g_ltrawRegBA;
 	}
 	/* traw */
 	else {
-		g_RegBaseAddr = TRAW_A_BASE_ADDR;
+		if (imgsys_dev->dev_ver)
+			g_RegBaseAddr = TRAW_A_BASE_ADDR_P;
+		 else
+			g_RegBaseAddr = TRAW_A_BASE_ADDR;
 		trawRegBA = g_trawRegBA;
 	}
 
@@ -1036,12 +1060,18 @@ bool imgsys_traw_done_chk(struct mtk_imgsys_dev *imgsys_dev, uint32_t engine)
 
 	/* ltraw */
 	if (engine & IMGSYS_ENG_LTR) {
-		g_RegBaseAddr = TRAW_B_BASE_ADDR;
+		if (imgsys_dev->dev_ver)
+			g_RegBaseAddr = TRAW_B_BASE_ADDR_P;
+		else
+			g_RegBaseAddr = TRAW_B_BASE_ADDR;
 		trawRegBA = g_ltrawRegBA;
 	}
 	/* traw */
 	else {
-		g_RegBaseAddr = TRAW_A_BASE_ADDR;
+		if (imgsys_dev->dev_ver)
+			g_RegBaseAddr = TRAW_A_BASE_ADDR_P;
+		else
+			g_RegBaseAddr = TRAW_A_BASE_ADDR;
 		trawRegBA = g_trawRegBA;
 	}
 

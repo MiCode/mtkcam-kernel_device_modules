@@ -5249,14 +5249,13 @@ static bool mtk_camsys_is_all_cq_done(struct mtk_cam_ctx *ctx,
 		ctx->is_first_cq_done = 1;
 		ret = true;
 	}
-
+	spin_unlock(&ctx->first_cq_lock);
 	dev_info(ctx->cam->dev, "[1st-CQD] all done:%d, pipe_id:%d, done status:0x%x, need_done:0x%x (using raw/mraw/sv:%d/%d/%d) sv_tag_cnt:%d\n",
-		ctx->is_first_cq_done, pipe_id, ctx->cq_done_status, all_subdevs,
+		ret, pipe_id, ctx->cq_done_status, all_subdevs,
 		ctx->used_raw_num, ctx->used_mraw_num,
 		(ctx->sv_dev) ? ctx->sv_dev->id + MTKCAM_SUBDEV_CAMSV_START : 0,
 		(ctx->sv_dev) ? ctx->sv_dev->used_tag_cnt : 0);
 
-	spin_unlock(&ctx->first_cq_lock);
 EXIT:
 	return ret;
 }

@@ -66,6 +66,18 @@ u32 g_sensor_margin(struct adaptor_ctx *ctx, unsigned int scenario);
 int g_sensor_fine_integ_line(struct adaptor_ctx *ctx,
 	const unsigned int scenario);
 
+/*
+ * return 1:
+ *     p_type:
+ *         FDOL: HDR_SUPPORT_STAGGER_FDOL
+ *          DOL: HDR_SUPPORT_STAGGER_DOL
+ *         NDOL: HDR_SUPPORT_STAGGER_NDOL
+ * return 0:
+ *     p_type: the value has not been modified.
+ */
+u32 g_sensor_stagger_type(struct adaptor_ctx *ctx,
+	const u32 scenario_id, enum IMGSENSOR_HDR_SUPPORT_TYPE_ENUM *p_type);
+
 /* return: 0 => NON DCG; 1 => DCG */
 u32 g_sensor_dcg_property(struct adaptor_ctx *ctx, const u32 scenario_id);
 

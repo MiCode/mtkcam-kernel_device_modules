@@ -462,6 +462,7 @@ static void fsync_mgr_setup_sensor_hdr_info(struct adaptor_ctx *ctx,
 	p_hdr_exp->mode_exp_cnt = g_scenario_exposure_cnt(ctx, mode_id);
 	p_hdr_exp->readout_len_lc = ctx->subctx.readout_length;
 	p_hdr_exp->read_margin_lc = ctx->subctx.read_margin;
+	p_hdr_exp->min_vblank_lc = ctx->subctx.min_vblanking_line;
 
 	/* setup multi exp type (HDR type, e.g., stagger, LB-MF, etc.) */
 	if (g_sensor_lbmf_property(ctx, mode_id, &lbmf_prop)) {
@@ -492,6 +493,30 @@ static void fsync_mgr_setup_sensor_hdr_info(struct adaptor_ctx *ctx,
 		p_hdr_exp->mode_exp_cnt = 1;
 	} else {
 		/* => stagger */
+		enum IMGSENSOR_HDR_SUPPORT_TYPE_ENUM type = HDR_SUPPORT_NA;
+		u32 ret;
+
+		ret = g_sensor_stagger_type(ctx, mode_id, &type);
+		switch (type) {
+		case HDR_SUPPORT_STAGGER_FDOL:
+			p_hdr_exp->dol_type = STAGGER_DOL_TYPE_FDOL;
+			break;
+		case HDR_SUPPORT_STAGGER_DOL:
+			p_hdr_exp->dol_type = STAGGER_DOL_TYPE_DOL;
+			break;
+		case HDR_SUPPORT_STAGGER_NDOL:
+			p_hdr_exp->dol_type = STAGGER_DOL_TYPE_NDOL;
+			break;
+		default:
+			p_hdr_exp->dol_type = STAGGER_DOL_TYPE_FDOL;
+#ifndef REDUCE_FSYNC_CTRLS_LOG
+			FSYNC_MGR_LOGI(ctx,
+				"ERROR: sidx:%d, g_stagger_info return vc info is stagger, but type is unexpected (ret:%u/type:%d), treat as FDOL\n",
+				ctx->idx, ret, type);
+#endif
+			break;
+		}
+
 		p_hdr_exp->multi_exp_type = MULTI_EXP_TYPE_STG;
 	}
 

@@ -256,7 +256,7 @@ signed int dpe_enque_request_isp8(struct engine_requests *eng, unsigned int fcnt
 		LOG_ERR("Failed to enque request, check cb");
 		goto ERROR;
 	}
-	LOG_INF("[ERIC] pid: %d, eqEGNIdx: %d\n", pid, r);
+	LOG_INF("[%s] pid: %d, eqEGNIdx: %d\n", __func__, pid, r);
 
 	spin_lock_irqsave(lock, flags);
 
@@ -435,7 +435,7 @@ signed int dpe_request_handler_isp8(struct engine_requests *eng, spinlock_t *loc
 		//!
 		spin_unlock_irqrestore(lock, flags);
 		ret = eng->ops->frame_handler(&eng->reqs[r].frames[f]);
-			spin_lock_irqsave(lock, flags);
+		spin_lock_irqsave(lock, flags);
 		if (ret)
 			LOG_WRN("[%s]request failed\n", __func__);
 
@@ -476,11 +476,11 @@ int dpe_update_request_isp8(struct engine_requests *eng, pid_t *pid)
 	unsigned int i, n;
 	unsigned int f = 0;
 	int req_jobs = -1;
-	int _icnt = eng->req_ctl.icnt;
+	unsigned int _icnt = 0;
 
 	if (eng == NULL)
 		return -1;
-
+	_icnt = eng->req_ctl.icnt;
 	/* TODO: request ring */
 	// for (i = eng->req_ctl.icnt; i < MAX_REQUEST_SIZE_PER_ENGINE; i++) {
 	for (i = 0; i < MAX_REQUEST_SIZE_PER_ENGINE; i++) {
@@ -547,11 +547,11 @@ signed int dpe_deque_request_isp8(
 	unsigned int r;
 	unsigned int f;
 	unsigned int m_real_ReqNum;
-	int i;
-	int _rcnt = eng->req_ctl.rcnt;
-
+	unsigned int i;
+	unsigned int _rcnt = 0;
 	if (eng == NULL)
 		return -1;
+	_rcnt = eng->req_ctl.rcnt;
 
 	r = eng->req_ctl.rcnt;
 	/* FIFO when rcnt starts from 0 */
@@ -566,10 +566,10 @@ signed int dpe_deque_request_isp8(
 	if (i == MAX_REQUEST_SIZE_PER_ENGINE
 		|| eng->reqs[_rcnt].state != REQUEST_STATE_FINISHED
 		|| eng->reqs[_rcnt].pid != pid) {
-		LOG_ERR("[ERIC] No Request finished");
+		LOG_ERR("[%s]No Request finished", __func__);
 		goto ERROR;
 	}
-	LOG_INF("[ERIC] pid: %d, dqEGNIdx: %d\n", pid, _rcnt);
+	LOG_INF("[%s]pid: %d, dqEGNIdx: %d\n", __func__, pid, _rcnt);
 //#if 0
 //	for (f = 0; f < fcnt; f++)
 //		if (eng->reqs[r].frames[f].state != FRAME_STATUS_FINISHED) {

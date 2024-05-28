@@ -2715,11 +2715,11 @@ signed int dpe_deque_cb(struct frame *frames, void *req, unsigned int reqcnt)
 	//spin_lock(&(DPEInfo.SpinLockFD));
 
 	if (DPE_debug_log_en == 1) {
-		LOG_INF("put fd DVS_only_en =%d, DVP_only_en =%d\n",
-		DVS_only_en, DVP_only_en);
-	  LOG_INF("put fd DVS_Num =%d DVP_Num =%d\n", DVS_Num, DVP_Num);
-	  LOG_INF("[dpe_deque] Dpe_engineSelect %d\n",
-	  pDpeConfig->Dpe_engineSelect);
+		/*LOG_INF("put fd DVS_only_en =%d, DVP_only_en =%d\n",*/
+		/*DVS_only_en, DVP_only_en);*/
+		/*LOG_INF("put fd DVS_Num =%d DVP_Num =%d\n", DVS_Num, DVP_Num);*/
+		LOG_INF("[dpe_deque] Dpe_engineSelect %d\n",
+		pDpeConfig->Dpe_engineSelect);
 	}
 
 	if ((pDpeConfig->Dpe_engineSelect == MODE_DVS_ONLY) ||
@@ -5263,7 +5263,7 @@ signed int CmdqDPEHW(struct frame *frame)
 	#endif
 	/*frm sync token variable*/
 	struct dpe_in_data enq_in_data;
-	struct dpe_out_data enq_out_data[enq_out_data_size];
+	struct dpe_out_data enq_out_data[enq_out_data_size] = {0};
 	int k = 0;
 	int dpe_sw_token_cnt = 0;
 	//int ret = 0;
@@ -5304,34 +5304,31 @@ signed int CmdqDPEHW(struct frame *frame)
 
 	for (k = 0;k < enq_out_data_size;k++) {
 		if (pDpeUserConfig->DPE_Token_Info[k].token_id != 0) {
-			if (pDpeUserConfig->DPE_Token_Info[k].d_token == token_wait) {
+			if (pDpeUserConfig->DPE_Token_Info[k].d_token == token_wait ||
+			pDpeUserConfig->DPE_Token_Info[k].d_token == token_set) {
 				enq_in_data.token_info.mSyncTokenList[0].token_value =
 					pDpeUserConfig->DPE_Token_Info[k].token_id;
-				enq_in_data.token_info.mSyncTokenList[0].type = imgsys_token_wait;
+				enq_in_data.token_info.mSyncTokenList[0].type =
+				pDpeUserConfig->DPE_Token_Info[k].d_token == token_wait ?
+					imgsys_token_wait : imgsys_token_set;
 				dpe_sw_token_cnt = 1;
 				//event_type = token_wait;
 				enq_in_data.token_info.mSyncTokenNum = dpe_sw_token_cnt;
-				result = Handler_frame_token_sync_DPE(DPE_devs[0].frm_sync_pdev,
+				result = Handler_frame_token_sync_DPE(
+					DPE_devs[0].frm_sync_pdev,
 					&enq_in_data, &enq_out_data[k]);
-			} else if (pDpeUserConfig->DPE_Token_Info[k].d_token == token_set) {
-				enq_in_data.token_info.mSyncTokenList[0].token_value =
-					pDpeUserConfig->DPE_Token_Info[k].token_id;
-				enq_in_data.token_info.mSyncTokenList[0].type = imgsys_token_set;
-				dpe_sw_token_cnt = 1;
-				//event_type = token_set;
-				enq_in_data.token_info.mSyncTokenNum = dpe_sw_token_cnt;
-				result = Handler_frame_token_sync_DPE(DPE_devs[0].frm_sync_pdev, &enq_in_data,
-					&enq_out_data[k]);
-		} else {
-			LOG_ERR("not support event");
+
+				LOG_INF("%s-%d-%d-%d-%d-%d", __func__,
+				k,
+				pDpeUserConfig->DPE_Token_Info[k].token_id,
+				pDpeUserConfig->DPE_Token_Info[k].d_token,
+				enq_in_data.token_info.mSyncTokenNum,
+				enq_out_data[k].event_id);
+			} else {
+				LOG_ERR("not support event");
+			}
 		}
-	}
-		LOG_INF("%s-%d-%d-%d-%d-%d", __func__,
-			k,
-			pDpeUserConfig->DPE_Token_Info[k].token_id,
-			pDpeUserConfig->DPE_Token_Info[k].d_token,
-			enq_in_data.token_info.mSyncTokenNum,
-			enq_out_data[k].event_id);
+
 		//LOG_INF("dpe-Handler_frame_token_sync_DPE(%d/%d)", enq_in_data.token_info.mSyncTokenNum,
 		//	enq_out_data[k].event_id);
 	}
@@ -5816,7 +5813,7 @@ for (k = 0;k < enq_out_data_size;k++) {
 			enq_in_data.token_info.mSyncTokenNum,
 			enq_out_data[k].event_id);
 		cmdq_pkt_wfe(handle, enq_out_data[k].event_id);
-}
+	}
 }
 cmdq_pkt_write(handle, dpe_clt_base, DVS_CTRL00_HW, 0x20000000, 0x20000000);
 //LOG_INF("DPE FW Tri = %x\n", pDpeConfig->DVS_CTRL00);
@@ -5836,7 +5833,7 @@ for (k = 0;k < enq_out_data_size;k++) {
 			enq_out_data[k].event_id,
 			enq_out_data[k].req_fd);
 		cmdq_pkt_set_event(handle, enq_out_data[k].event_id);
-}
+	}
 }
 //cmdq_pkt_write(handle, dpe_clt_base, DVS_CTRL00_HW, 0x00000000, 0x20000000);
 #endif
@@ -5894,7 +5891,7 @@ for (k = 0;k < enq_out_data_size;k++) {
 		}
 	} else {
 		if (g_dvp_rdma_ttl_bw == 0 || g_dvp_wdma_ttl_bw == 0) {
-			g_dvgf_rdma_ttl_bw = (unsigned int)(rdma_bandwidth);
+			g_dvp_rdma_ttl_bw = (unsigned int)(rdma_bandwidth);
 			if (icc_path_dpe_rdma[1]) {
 				mtk_icc_set_bw(icc_path_dpe_rdma[1],
 					(int)(rdma_bandwidth*1000), 0);
@@ -9115,10 +9112,18 @@ static int dpe_suspend_pm_event(struct notifier_block *notifier,
 	case PM_POST_HIBERNATION:
 		return NOTIFY_DONE;
 	case PM_SUSPEND_PREPARE: /*enter suspend*/
+		spin_lock(&(DPEInfo.SpinLockDPE));
 		if (g_u4EnableClockCount > 0) {
+			spin_unlock(&(DPEInfo.SpinLockDPE));
 			DPE_EnableClock(MFALSE);
+
+			spin_lock(&(DPEInfo.SpinLockDPE));
 			g_SuspendCnt++;
-		}
+			spin_unlock(&(DPEInfo.SpinLockDPE));
+		} else
+			spin_unlock(&(DPEInfo.SpinLockDPE));
+
+		spin_lock(&(DPEInfo.SpinLockDPE));
 		bPass1_On_In_Resume_TG1 = 0;
 		if (g_DPE_PMState == 0) {
 			LOG_INF("%s:suspend g_u4EnableClockCount(%d) g_SuspendCnt(%d).\n",
@@ -9127,12 +9132,21 @@ static int dpe_suspend_pm_event(struct notifier_block *notifier,
 				g_SuspendCnt);
 			g_DPE_PMState = 1;
 		}
+		spin_unlock(&(DPEInfo.SpinLockDPE));
 		return NOTIFY_DONE;
 	case PM_POST_SUSPEND:    /*after resume*/
+		spin_lock(&(DPEInfo.SpinLockDPE));
 		if (g_SuspendCnt > 0) {
+			spin_unlock(&(DPEInfo.SpinLockDPE));
 			DPE_EnableClock(MTRUE);
+
+			spin_lock(&(DPEInfo.SpinLockDPE));
 			g_SuspendCnt--;
-		}
+			spin_unlock(&(DPEInfo.SpinLockDPE));
+		} else
+			spin_unlock(&(DPEInfo.SpinLockDPE));
+
+		spin_lock(&(DPEInfo.SpinLockDPE));
 		if (g_DPE_PMState == 1) {
 			LOG_INF("%s:resume g_u4EnableClockCount(%d) g_SuspendCnt(%d).\n",
 				__func__,
@@ -9140,6 +9154,7 @@ static int dpe_suspend_pm_event(struct notifier_block *notifier,
 				g_SuspendCnt);
 			g_DPE_PMState = 0;
 		}
+		spin_unlock(&(DPEInfo.SpinLockDPE));
 		return NOTIFY_DONE;
 	}
 	return NOTIFY_OK;
@@ -9262,7 +9277,7 @@ static int dpe_dump_read(struct seq_file *m, void *v)
 			   (unsigned int)DPE_RD32(ISP_DPE_BASE + i));
 	}
 	seq_puts(m, "\n");
-	seq_printf(m, "Dpe Clock Count:%d\n", g_u4EnableClockCount);
+	/*seq_printf(m, "Dpe Clock Count:%d\n", g_u4EnableClockCount);*/
 	seq_printf(m, "[0x%08X %08X]\n", (unsigned int)(DVS_IRQ_STATUS_HW),
 		   (unsigned int)DPE_RD32(DVS_IRQ_STATUS_REG));
 	seq_printf(m, "[0x%08X %08X]\n", (unsigned int)(DVS_CTRL_STATUS0_HW),

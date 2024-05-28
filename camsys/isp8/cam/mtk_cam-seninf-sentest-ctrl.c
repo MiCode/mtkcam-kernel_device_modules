@@ -448,18 +448,24 @@ static int seninf_sentest_seamless_ut_start(struct seninf_ctx *ctx)
 
 	if (unlikely(ctx == NULL)) {
 		pr_info("[Error][%s] ctx is NULL", __func__);
-		return -EFAULT;
+		goto SENTEST_SEAMLESS_UT_START_ERR_EXIT;
 	}
 
 	if (unlikely(sentest_work == NULL)) {
 		pr_info("[Error][%s] sentest_work is NULL", __func__);
-		return -EFAULT;
+		goto SENTEST_SEAMLESS_UT_START_ERR_EXIT;
 	}
 
 	ret = seninf_sentest_ops_before_sensor_seamless(ctx);
 
 	ctx->sentest_seamless_is_set_camtg_done = true;
+
+	kfree(sentest_work);
 	return ret;
+
+SENTEST_SEAMLESS_UT_START_ERR_EXIT:
+	kfree(sentest_work);
+	return -EFAULT;
 }
 
 static int is_target_vsync(struct seninf_ctx *ctx,

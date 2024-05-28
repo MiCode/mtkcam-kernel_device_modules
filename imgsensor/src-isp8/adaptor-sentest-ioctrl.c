@@ -74,24 +74,23 @@ static int sentest_s_tsrec_traget_frame_id(struct adaptor_ctx *ctx, void *arg)
 
 	if (unlikely(ctx == NULL)) {
 		pr_info("[%s][ERROR] ctx is NULL\n", __func__);
-		return -EINVAL;
+		goto SENTEST_G_TSREC_FRAME_ID_ERROR_EXIT;
 	}
 
 	if (unlikely(frame_id == NULL)) {
 		pr_info("[%s][ERROR] frame_id is NULL\n", __func__);
-		return -EINVAL;
+		goto SENTEST_G_TSREC_FRAME_ID_ERROR_EXIT;
 	}
 
 	sentest_info = &ctx->sentest_cfg_info;
 	if (unlikely(sentest_info == NULL)) {
 		pr_info("[%s][ERROR] sentest_info is NULL\n", __func__);
-		return -EINVAL;
+		goto SENTEST_G_TSREC_FRAME_ID_ERROR_EXIT;
 	}
 
 	if (copy_from_user(frame_id, arg, sizeof(u32))) {
 		pr_info("[%s][ERROR] copy_from_user return failed\n", __func__);
-		kfree(frame_id);
-		return -EFAULT;
+		goto SENTEST_G_TSREC_FRAME_ID_ERROR_EXIT;
 	}
 
 	sentest_info->listen_tsrec_frame_id = *frame_id;
@@ -99,6 +98,10 @@ static int sentest_s_tsrec_traget_frame_id(struct adaptor_ctx *ctx, void *arg)
 		"listen_tsrec_frame_id: %u\n", sentest_info->listen_tsrec_frame_id);
 	kfree(frame_id);
 	return 0;
+
+SENTEST_G_TSREC_FRAME_ID_ERROR_EXIT:
+	kfree(frame_id);
+	return -EFAULT;
 }
 
 static int sentest_s_sensor_profile_en(struct adaptor_ctx *ctx, void *arg)
@@ -108,24 +111,23 @@ static int sentest_s_sensor_profile_en(struct adaptor_ctx *ctx, void *arg)
 
 	if (unlikely(ctx == NULL)) {
 		pr_info("[%s][ERROR] ctx is NULL\n", __func__);
-		return -EINVAL;
+		goto SENTEST_S_SENSOR_PROFILE_ERROR_EXIT;
 	}
 
 	if (unlikely(en == NULL)) {
 		pr_info("[%s][ERROR] en is NULL\n", __func__);
-		return -EINVAL;
+		goto SENTEST_S_SENSOR_PROFILE_ERROR_EXIT;
 	}
 
 	sentest_cfg_info = &ctx->sentest_cfg_info;
 	if (unlikely(sentest_cfg_info == NULL)) {
 		pr_info("[%s][ERROR] sentest_cfg_info is NULL\n", __func__);
-		return -EINVAL;
+		goto SENTEST_S_SENSOR_PROFILE_ERROR_EXIT;
 	}
 
 	if (copy_from_user(en, arg, sizeof(int))) {
 		pr_info("[%s][ERROR] copy_from_user return failed\n", __func__);
-		kfree(en);
-		return -EFAULT;
+		goto SENTEST_S_SENSOR_PROFILE_ERROR_EXIT;
 	}
 
 	sentest_cfg_info->power_on_profile_en = (*en) ? true : false;
@@ -135,6 +137,10 @@ static int sentest_s_sensor_profile_en(struct adaptor_ctx *ctx, void *arg)
 
 	kfree(en);
 	return 0;
+
+SENTEST_S_SENSOR_PROFILE_ERROR_EXIT:
+	kfree(en);
+	return -EFAULT;
 }
 
 static int sentest_s_lbmf_delay_do_ae_en(struct adaptor_ctx *ctx, void *arg)
@@ -144,24 +150,23 @@ static int sentest_s_lbmf_delay_do_ae_en(struct adaptor_ctx *ctx, void *arg)
 
 	if (unlikely(ctx == NULL)) {
 		pr_info("[%s][ERROR] ctx is NULL\n", __func__);
-		return -EINVAL;
+		goto SENTEST_S_LBMF_DEALY_DO_AE_ERROR_EXIT;
 	}
 
 	if (unlikely(en == NULL)) {
 		pr_info("[%s][ERROR] en is NULL\n", __func__);
-		return -EINVAL;
+		goto SENTEST_S_LBMF_DEALY_DO_AE_ERROR_EXIT;
 	}
 
 	sentest_cfg_info = &ctx->sentest_cfg_info;
 	if (unlikely(sentest_cfg_info == NULL)) {
 		pr_info("[%s][ERROR] sentest_cfg_info is NULL\n", __func__);
-		return -EINVAL;
+		goto SENTEST_S_LBMF_DEALY_DO_AE_ERROR_EXIT;
 	}
 
 	if (copy_from_user(en, arg, sizeof(int))) {
 		pr_info("[%s][ERROR] copy_from_user return failed\n", __func__);
-		kfree(en);
-		return -EFAULT;
+		goto SENTEST_S_LBMF_DEALY_DO_AE_ERROR_EXIT;
 	}
 
 	sentest_cfg_info->lbmf_delay_do_ae_en = (*en) ? true : false;
@@ -171,9 +176,14 @@ static int sentest_s_lbmf_delay_do_ae_en(struct adaptor_ctx *ctx, void *arg)
 
 	kfree(en);
 	return 0;
+
+SENTEST_S_LBMF_DEALY_DO_AE_ERROR_EXIT:
+	kfree(en);
+	return -EFAULT;
 }
 
-static const struct adaptor_sentest_ioctl sentest_ioctl_table[] = {
+static const struct adaptor_sentest_ioctl
+	sentest_ioctl_table[SENTEST_S_CTRL_ID_MAX] = {
 	{SENTEST_G_SENSOR_PROFILE, sentest_g_sensor_profile},
 	{SENTEST_G_TSREC_TIME_STAMP, sentest_g_tsrec_info},
 	{SENTEST_S_SENSOR_PROFILE_EN, sentest_s_sensor_profile_en},

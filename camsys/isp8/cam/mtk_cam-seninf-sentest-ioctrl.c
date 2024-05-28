@@ -149,24 +149,29 @@ static int s_sentest_seamless_ut_cfg(struct seninf_ctx *ctx, void *arg)
 
 	if (unlikely(ctx == NULL)) {
 		pr_info("[%s][ERROR] ctx is NULL\n", __func__);
-		return -EINVAL;
+		goto SENTEST_SEAMLESS_UT_CFG_ERR_EXIT;
 	}
 
 	memset(&ctx->sentest_seamless_cfg, 0, sizeof(struct mtk_seamless_switch_param));
 
 	if (unlikely(config == NULL)) {
 		pr_info("[%s][ERROR] config is NULL\n", __func__);
-		return -EINVAL;
+		goto SENTEST_SEAMLESS_UT_CFG_ERR_EXIT;
 	}
 
 	if (copy_from_user(config, arg, sizeof(struct mtk_seamless_switch_param))) {
 		pr_info("[%s][ERROR] copy_from_user return failed\n", __func__);
-		return -EFAULT;
+		goto SENTEST_SEAMLESS_UT_CFG_ERR_EXIT;
 	}
 
 	memcpy(&ctx->sentest_seamless_cfg, config, sizeof(struct mtk_seamless_switch_param));
 
+	kfree(config);
 	return 0;
+
+SENTEST_SEAMLESS_UT_CFG_ERR_EXIT:
+	kfree(config);
+	return -EFAULT;
 }
 
 static int g_sentest_seamless_current_status(struct seninf_ctx *ctx, void *arg)
@@ -192,7 +197,8 @@ static int g_sentest_seamless_current_status(struct seninf_ctx *ctx, void *arg)
 	return 0;
 }
 
-static const struct seninf_sentest_ioctl sentest_ioctl_table[] = {
+static const struct seninf_sentest_ioctl
+	sentest_ioctl_table[SENINF_SENTEST_S_CTRL_ID_MAX] = {
 	{SENINF_SENTEST_S_MAX_ISP_EN, s_sentest_max_isp_clk_en},
 	{SENINF_SENTEST_S_SINGLE_STREAM_RAW, s_sentest_mipi_measure_en},
 	{SENINF_SENTEST_S_SEAMLESS_UT_EN, s_sentest_seamless_ut_en},

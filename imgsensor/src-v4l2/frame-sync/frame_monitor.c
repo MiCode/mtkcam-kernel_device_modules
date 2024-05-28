@@ -357,6 +357,7 @@ void frm_dump_measurement_data(const unsigned int idx,
 static int get_dts_ccu_device_info(const char *caller)
 {
 #ifndef FS_UT
+#ifdef SUPPORT_USING_CCU
 	struct device_node *node = NULL, *rproc_np = NULL;
 	phandle handle;
 	int ret = 0;
@@ -406,10 +407,17 @@ static int get_dts_ccu_device_info(const char *caller)
 
 	return ret;
 
-#else /* ==> FS_UT */
-	/* for FS_UT test, direct change return value for testing */
+#else
+	/* force to choose TSREC */
+	LOG_MUST(
+		"NOTICE: NOT define SUPPORT_USING_CCU => timestamp source set to TSREC, return 1\n");
+	return 1;
+#endif /* SUPPORT_USING_CCU */
+
+#else
+	/* for FS UT test, direct change return value for testing */
 	return 0;
-#endif
+#endif /* !FS_UT */
 }
 
 
@@ -475,6 +483,11 @@ static void frm_save_vsync_timestamp(struct vsync_rec (*pData))
 }
 
 
+#ifdef SUPPORT_USING_CCU
+/*
+ * This function is used by function frm_query_vsync_data()
+ * that ONLY For case SUPPORT_USING_CCU
+ */
 static void frm_set_wait_for_setting_fmeas_by_tg(const unsigned int tgs[],
 	const unsigned int len)
 {
@@ -492,6 +505,7 @@ static void frm_set_wait_for_setting_fmeas_by_tg(const unsigned int tgs[],
 		}
 	}
 }
+#endif
 
 
 static void frm_set_wait_for_setting_fmeas_by_idx(const unsigned int idxs[],
@@ -937,8 +951,9 @@ unsigned int frm_chk_and_get_tg_value(const unsigned int cammux_id,
 }
 
 
+#ifdef SUPPORT_USING_CCU
 /*
- * This API is only for timestamp source from CCU!
+ * This API is ONLY FOR timestamp source from CCU!
  *
  * input:
  *     tgs: array of tg num for query timestamp
@@ -969,20 +984,12 @@ int frm_query_vsync_data(const unsigned int tgs[], const unsigned int len,
 	for (i = 0; i < len; ++i)
 		vsyncs_data.recs[i].id = tgs[i];
 
-#ifdef SUPPORT_USING_CCU
 	if (frm_get_ts_src_type() == FS_TS_SRC_CCU) {
 		/* 2. get vsync data from CCU using rproc ipc send */
 		ret = query_ccu_vsync_data(&vsyncs_data);
 		if (unlikely(ret != 0))
 			return ret;
 	}
-#else
-	ret = 2;
-	LOG_MUST(
-		"ERROR: unexpected call (using CCU is not supported), ts_src_type:%d(0:unknown/1:CCU/2:TSREC), ret:%d\n",
-		frm_get_ts_src_type(), ret);
-	return ret;
-#endif
 
 	/* 3. save data (in buffer) querying before to frame monitor */
 	frm_save_vsync_timestamp(&vsyncs_data);
@@ -998,6 +1005,7 @@ int frm_query_vsync_data(const unsigned int tgs[], const unsigned int len,
 
 	return 0;
 }
+#endif /* SUPPORT_USING_CCU */
 
 
 void frm_query_vsync_data_by_tsrec(
@@ -1264,14 +1272,6 @@ void frm_init(void)
 
 	if (likely(frm_inst.ts_src_type == FS_TS_SRC_UNKNOWN)) {
 		ret = get_dts_ccu_device_info(__func__);
-
-#if !defined(SUPPORT_USING_CCU) && !defined(FS_UT)
-		/* force to choose TSREC */
-		ret = 1;
-		LOG_MUST(
-			"NOTICE: using CCU is not supported, timestamp source force to choose TSREC, ret:%d\n",
-			ret);
-#endif
 
 		switch (ret) {
 		case 1:

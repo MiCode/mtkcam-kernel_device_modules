@@ -182,7 +182,7 @@ void *queue_pop(struct queue *queue)
 
 	spin_lock_irqsave(&queue->lock, flag);
 
-	if ((queue == NULL) || (false == queue->init)) {
+	if (false == queue->init) {
 		spin_unlock_irqrestore(&queue->lock, flag);
 		return NULL;
 	}

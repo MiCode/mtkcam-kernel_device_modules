@@ -1537,11 +1537,13 @@ int aov_core_poll(struct mtk_aov *aov_dev, struct file *file,
 	// only copy latest event
 	event = queue_pop(&(core_info->event));
 	while (!queue_empty(&(core_info->event))) {
-		dev_info(aov_dev->dev, "%s: release old aov event id(%d)\n", __func__, event->event_id);
-		info.notify = AOV_NOTIFY_EVT_AVAIL;
-		info.status = event->event_id;
-		(void)aov_core_send_cmd(aov_dev, AOV_SCP_CMD_NOTIFY,
-			(void *)&info, sizeof(struct aov_notify), true);
+		if (event != NULL) {
+			dev_info(aov_dev->dev, "%s: release old aov event id(%d)\n", __func__, event->event_id);
+			info.notify = AOV_NOTIFY_EVT_AVAIL;
+			info.status = event->event_id;
+			(void)aov_core_send_cmd(aov_dev, AOV_SCP_CMD_NOTIFY,
+				(void *)&info, sizeof(struct aov_notify), true);
+		}
 		event = queue_pop(&(core_info->event));
 	}
 	if (event != NULL) {
@@ -1555,11 +1557,13 @@ int aov_core_poll(struct mtk_aov *aov_dev, struct file *file,
 	// only copy latest event
 	event = queue_pop(&(core_info->event));
 	while (!queue_empty(&(core_info->event))) {
-		dev_info(aov_dev->dev, "%s: release old aov event id(%d)\n", __func__, event->event_id);
-		info.notify = AOV_NOTIFY_EVT_AVAIL;
-		info.status = event->event_id;
-		(void)aov_core_send_cmd(aov_dev, AOV_SCP_CMD_NOTIFY,
-			(void *)&info, sizeof(struct aov_notify), true);
+		if (event != NULL) {
+			dev_info(aov_dev->dev, "%s: release old aov event id(%d)\n", __func__, event->event_id);
+			info.notify = AOV_NOTIFY_EVT_AVAIL;
+			info.status = event->event_id;
+			(void)aov_core_send_cmd(aov_dev, AOV_SCP_CMD_NOTIFY,
+				(void *)&info, sizeof(struct aov_notify), true);
+		}
 		event = queue_pop(&(core_info->event));
 	}
 	if (event != NULL) {

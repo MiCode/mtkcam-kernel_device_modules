@@ -564,6 +564,8 @@ static int do_set_ae_ctrl(struct adaptor_ctx *ctx,
 	union feature_para para;
 	u32 len = 0, exp_count = 0, scenario_exp_cnt = 0;
 
+	if (!ctx)
+		return -1;
 	adaptor_logm(ctx, "+\n");
 
 	setup_ae_ctrl_dbg_info(ctx);
@@ -1214,8 +1216,12 @@ static int ext_ctrl(struct adaptor_ctx *ctx, struct v4l2_ctrl *ctrl, struct sens
 	case V4L2_CID_MTK_STAGGER_INFO:
 	{
 		struct mtk_stagger_info *info = ctrl->p_new.p;
+		int ret;
 
-		g_stagger_info(ctx, mode->id, info);
+		ret = g_stagger_info(ctx, mode->id, info);
+		if (!ret)
+			adaptor_loge(ctx,
+					"V4L2_CID_MTK_STAGGER_INFO fail(%d)\n", ret);
 	}
 		break;
 	case V4L2_CID_MTK_FRAME_DESC:
@@ -1352,6 +1358,8 @@ static int imgsensor_try_ctrl(struct v4l2_ctrl *ctrl)
 
 static void proc_debug_cmd(struct adaptor_ctx *ctx, char *text)
 {
+	if (!ctx)
+		return;
 	adaptor_logi(ctx, "%s\n", text);
 	if (!strcmp(text, "unregister_subdev"))
 		v4l2_async_unregister_subdev(&ctx->sd);
@@ -1806,6 +1814,9 @@ static int imgsensor_set_ctrl(struct v4l2_ctrl *ctrl)
 	case V4L2_CID_MTK_SENSOR_POWER:
 		{
 		int ret;
+
+		if (!ctx)
+			return -1;
 
 		adaptor_logi(ctx, "V4L2_CID_MTK_SENSOR_POWER val = %d\n", ctrl->val);
 		if (ctrl->val){

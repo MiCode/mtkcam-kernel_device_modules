@@ -1224,8 +1224,12 @@ static int ext_ctrl(struct adaptor_ctx *ctx, struct v4l2_ctrl *ctrl, struct sens
 	case V4L2_CID_MTK_STAGGER_INFO:
 	{
 		struct mtk_stagger_info *info = ctrl->p_new.p;
+		int ret;
 
-		g_stagger_info(ctx, mode->id, info);
+		ret = g_stagger_info(ctx, mode->id, info);
+		if (!ret)
+			adaptor_logi(ctx,
+					"[Error]: V4L2_CID_MTK_STAGGER_INFO fail(%d)\n", ret);
 	}
 		break;
 	case V4L2_CID_MTK_FRAME_DESC:
@@ -1363,6 +1367,8 @@ static int imgsensor_try_ctrl(struct v4l2_ctrl *ctrl)
 #ifdef IMGSENSOR_DEBUG
 static void proc_debug_cmd(struct adaptor_ctx *ctx, char *text)
 {
+	if (!ctx)
+		return;
 	adaptor_logi(ctx, "E! text:%s\n", text);
 	if (!strcmp(text, "unregister_subdev"))
 		v4l2_async_unregister_subdev(&ctx->sd);

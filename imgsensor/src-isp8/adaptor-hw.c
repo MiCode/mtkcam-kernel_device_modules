@@ -150,7 +150,7 @@ static int unset_mclk(struct adaptor_ctx *ctx, void *data, const struct subdrv_p
 {
 	struct clk *mclk, *reset_src;
 	unsigned long long idx;
-	int mclk_freq;
+	int mclk_freq, ret;
 
 	if (!val)
 		return -EINVAL;
@@ -168,7 +168,14 @@ static int unset_mclk(struct adaptor_ctx *ctx, void *data, const struct subdrv_p
 		if ((reset_src == NULL) || IS_ERR(reset_src)) {
 			adaptor_logi(ctx, "no mclk src %dMHz\n", mclk_freq);
 		} else {
-			clk_set_parent(mclk, reset_src);
+			ret = clk_set_parent(mclk, reset_src);
+			if (ret) {
+				adaptor_loge(ctx,
+					"mclk(%s) clk_set_parent (%s),ret(%d)(fail)\n",
+					__clk_get_name(mclk), __clk_get_name(reset_src), ret);
+				WRAP_AEE_EXCEPTION("clk_set_parent", "Err");
+				return ret;
+			}
 			adaptor_logi(ctx, "reset osc_clk(%dMHZ) to normal_clk(%dMHZ), ulp(%d)",
 					val->para1, mclk_freq, val->para2);
 		}
@@ -270,6 +277,9 @@ static int __set_state(struct adaptor_ctx *ctx, void *data, int val)
 {
 	unsigned long long idx, x;
 	int ret;
+
+	if (!ctx)
+		return -1;
 
 	idx = (unsigned long long)data;
 	x = idx + val;
@@ -456,6 +466,9 @@ int adaptor_pmic_ctrl(struct adaptor_ctx *ctx, bool bPmicEnable)
 	unsigned long long pmic_timedffus;
 	mutex_lock(&PmicMutex);
 
+	if (!ctx)
+		return -1;
+
 	adaptor_logi(ctx, "[%s]+ bPmicEnable:%d, pmic_enable_cnt:%d ctx_pmic_on:%d+\n",
 	__func__, bPmicEnable, pmic_enable_cnt, ctx->pmic_on);
 	if (ctx->pmic_delayus == 0) {
@@ -522,6 +535,13 @@ int do_hw_power_on(struct adaptor_ctx *ctx)
 	struct subdrv_ctx *subctx;
 	u64 time_boot_begin = 0;
 	int ppw_seq_cnt;
+
+	if (!ctx)
+		return -1;
+	if (ctx->subdrv == NULL) {
+		adaptor_loge(ctx, "ctx->subdrv is NULL!\n");
+		return 0;
+	}
 
 	adaptor_logm(ctx, "+\n");
 	if (ctx->sensor_ws) {
@@ -614,6 +634,9 @@ int do_hw_power_on(struct adaptor_ctx *ctx)
 
 int adaptor_hw_power_on(struct adaptor_ctx *ctx)
 {
+	if (!ctx)
+		return -1;
+
 	adaptor_logm(ctx, "+\n");
 	adaptor_logd(ctx, "power ref cnt = %d\n", ctx->power_refcnt);
 	ctx->power_refcnt++;
@@ -632,6 +655,13 @@ int do_hw_power_off(struct adaptor_ctx *ctx)
 	const struct subdrv_pw_seq_entry *ent, *ent_base;
 	struct adaptor_hw_ops *op;
 	int ppw_seq_cnt;
+
+	if (!ctx)
+		return -1;
+	if (ctx->subdrv == NULL) {
+		adaptor_loge(ctx, "ctx->subdrv is NULL!\n");
+		return 0;
+	}
 
 	adaptor_logm(ctx, "+\n");
 	/* call subdrv close function if sensor is streaming */
@@ -703,6 +733,9 @@ int do_hw_power_off(struct adaptor_ctx *ctx)
 }
 int adaptor_hw_power_off(struct adaptor_ctx *ctx)
 {
+	if (!ctx)
+		return -1;
+
 	adaptor_logm(ctx, "+\n");
 	if (!ctx->power_refcnt) {
 		adaptor_logd(ctx, "power ref cnt = %d, skip due to not power on yet\n",

@@ -708,13 +708,19 @@ void imgsys_dl_checksum_dump(struct mtk_imgsys_dev *imgsys_dev,
 	if (dl_path == IMGSYS_DL_WPET_TRAW) {
 	} else {
 		if (debug0_req[0] == 1) {
-			snprintf(logBuf_temp, log_length,
+			ret = snprintf(logBuf_temp, log_length,
 				"%s req to send data to %s/",
 				logBuf_inport, logBuf_outport);
+			if (ret > log_length)
+				dev_dbg(imgsys_dev->dev,
+					"%s: string truncated\n", __func__);
 		} else {
-			snprintf(logBuf_temp, log_length,
+			ret = snprintf(logBuf_temp, log_length,
 				"%s not send data to %s/",
 				logBuf_inport, logBuf_outport);
+			if (ret > log_length)
+				dev_dbg(imgsys_dev->dev,
+					"%s: string truncated\n", __func__);
 		}
 		strncat(logBuf_final, logBuf_temp, strlen(logBuf_temp));
 		memset((char *)logBuf_temp, 0x0, log_length);

@@ -3346,10 +3346,14 @@ void mtk_imgsys_hw_enqueue(struct mtk_imgsys_dev *imgsys_dev,
 int mtk_imgsys_can_enqueue(struct mtk_imgsys_dev *imgsys_dev,
 	int unprocessedcnt)
 {
+	int ret = 1;
+
+	spin_lock(&imgsys_dev->imgsys_freebufferlist.lock);
 	if ((imgsys_dev->imgsys_freebufferlist.cnt < unprocessedcnt) ||
 		(list_empty(&imgsys_dev->imgsys_freebufferlist.list)))
-		return false;
-	return true;
+		ret = false;
+	spin_unlock(&imgsys_dev->imgsys_freebufferlist.lock);
+	return ret;
 }
 
 struct mtk_imgsys_hw_subframe*

@@ -710,13 +710,19 @@ void imgsys_dl_checksum_dump(struct mtk_imgsys_dev *imgsys_dev,
 		debug2_pix_cnt[1] = (debug2_value[1] & 0x0000ffff);
 
 		if (debug0_req[0] == 1) {
-			snprintf(logBuf_temp, sizeof(logBuf_temp),
+			ret = snprintf(logBuf_temp, sizeof(logBuf_temp),
 				"%s req to send data to %s/",
 				logBuf_inport, logBuf_outport);
+			if (ret > sizeof(logBuf_temp))
+				dev_dbg(imgsys_dev->dev,
+					"%s: string truncated\n", __func__);
 		} else {
-			snprintf(logBuf_temp, sizeof(logBuf_temp),
+			ret = snprintf(logBuf_temp, sizeof(logBuf_temp),
 				"%s not send data to %s/",
 				logBuf_inport, logBuf_outport);
+			if (ret > sizeof(logBuf_temp))
+				dev_dbg(imgsys_dev->dev,
+					"%s: string truncated\n", __func__);
 		}
 		strncat(logBuf_final, logBuf_temp, strlen(logBuf_temp));
 		memset((char *)logBuf_temp, 0x0, sizeof(logBuf_temp));
@@ -853,6 +859,7 @@ void imgsys_dl_debug_dump(struct mtk_imgsys_dev *imgsys_dev, unsigned int hw_com
 	char logBuf_outport[LOG_LEGNTH];
 	char logBuf_eng[LOG_LEGNTH];
 	int i = 0, get = false;
+	int ret = 0;
 
 	memset((char *)logBuf_path, 0x0, sizeof(logBuf_path));
 	logBuf_path[strlen(logBuf_path)] = '\0';
@@ -866,11 +873,17 @@ void imgsys_dl_debug_dump(struct mtk_imgsys_dev *imgsys_dev, unsigned int hw_com
 		logBuf_eng[strlen(logBuf_eng)] = '\0';
 		if (hw_comb & dbg_engine_name_list[i].eng_e) {
 			if (get) {
-				snprintf(logBuf_eng, sizeof(logBuf_eng), "-%s",
+				ret = snprintf(logBuf_eng, sizeof(logBuf_eng), "-%s",
 					dbg_engine_name_list[i].eng_name);
+				if (ret >= sizeof(logBuf_eng))
+					dev_dbg(imgsys_dev->dev,
+						"%s: string truncated\n", __func__);
 			} else {
-				snprintf(logBuf_eng, sizeof(logBuf_eng), "%s",
+				ret = snprintf(logBuf_eng, sizeof(logBuf_eng), "%s",
 					dbg_engine_name_list[i].eng_name);
+				if (ret >= sizeof(logBuf_eng))
+					dev_dbg(imgsys_dev->dev,
+						"%s: string truncated\n", __func__);
 			}
 			get = true;
 		}
@@ -878,7 +891,10 @@ void imgsys_dl_debug_dump(struct mtk_imgsys_dev *imgsys_dev, unsigned int hw_com
 	}
 	memset((char *)logBuf_eng, 0x0, sizeof(logBuf_eng));
 	logBuf_eng[strlen(logBuf_eng)] = '\0';
-	snprintf(logBuf_eng, sizeof(logBuf_eng), "%s", " FAIL");
+	ret = snprintf(logBuf_eng, sizeof(logBuf_eng), "%s", " FAIL");
+	if (ret >= sizeof(logBuf_eng))
+		dev_dbg(imgsys_dev->dev,
+			"%s: string truncated\n", __func__);
 	strncat(logBuf_path, logBuf_eng, strlen(logBuf_eng));
 
 	dev_info(imgsys_dev->dev, "%s: %s\n",
@@ -887,39 +903,63 @@ void imgsys_dl_debug_dump(struct mtk_imgsys_dev *imgsys_dev, unsigned int hw_com
 	/*DL checksum case*/
 	case (IMGSYS_ENG_WPE_EIS | IMGSYS_ENG_TRAW):
 		dl_path = IMGSYS_DL_WPE_EIS_TO_TRAW_LTRAW;
-		snprintf(logBuf_inport, sizeof(logBuf_inport), "%s",
+		ret = snprintf(logBuf_inport, sizeof(logBuf_inport), "%s",
 			"WPE_EIS");
-		snprintf(logBuf_outport, sizeof(logBuf_outport), "%s",
+		if (ret >= sizeof(logBuf_inport))
+			dev_dbg(imgsys_dev->dev,
+				"%s: string truncated\n", __func__);
+		ret = snprintf(logBuf_outport, sizeof(logBuf_outport), "%s",
 			"TRAW");
+		if (ret >= sizeof(logBuf_outport))
+			dev_dbg(imgsys_dev->dev,
+				"%s: string truncated\n", __func__);
 		imgsys_dl_checksum_dump(imgsys_dev, hw_comb,
 			logBuf_path, logBuf_inport, logBuf_outport, dl_path);
 		break;
 	case (IMGSYS_ENG_WPE_EIS | IMGSYS_ENG_LTR):
 		dl_path = IMGSYS_DL_WPE_EIS_TO_TRAW_LTRAW;
-		snprintf(logBuf_inport, sizeof(logBuf_inport), "%s",
+		ret = snprintf(logBuf_inport, sizeof(logBuf_inport), "%s",
 			"WPE_EIS");
-		snprintf(logBuf_outport, sizeof(logBuf_outport), "%s",
+		if (ret >= sizeof(logBuf_inport))
+			dev_dbg(imgsys_dev->dev,
+				"%s: string truncated\n", __func__);
+		ret = snprintf(logBuf_outport, sizeof(logBuf_outport), "%s",
 			"LTRAW");
+		if (ret >= sizeof(logBuf_outport))
+			dev_dbg(imgsys_dev->dev,
+				"%s: string truncated\n", __func__);
 		imgsys_dl_checksum_dump(imgsys_dev, hw_comb,
 			logBuf_path, logBuf_inport, logBuf_outport, dl_path);
 		break;
 #if HAVE_IMGSYS_ENG_XTR
 	case (IMGSYS_ENG_WPE_EIS | IMGSYS_ENG_XTR):
 		dl_path = IMGSYS_DL_WPEE_XTRAW;
-		snprintf(logBuf_inport, sizeof(logBuf_inport), "%s",
+		ret = snprintf(logBuf_inport, sizeof(logBuf_inport), "%s",
 			"WPE_EIS");
-		snprintf(logBuf_outport, sizeof(logBuf_outport), "%s",
+		if (ret >= sizeof(logBuf_inport))
+			dev_dbg(imgsys_dev->dev,
+				"%s: string truncated\n", __func__);
+		ret = snprintf(logBuf_outport, sizeof(logBuf_outport), "%s",
 			"XTRAW");
+		if (ret >= sizeof(logBuf_outport))
+			dev_dbg(imgsys_dev->dev,
+				"%s: string truncated\n", __func__);
 		imgsys_dl_checksum_dump(imgsys_dev, hw_comb,
 			logBuf_path, logBuf_inport, logBuf_outport, dl_path);
 		break;
 #endif
 	case (IMGSYS_ENG_WPE_LITE | IMGSYS_ENG_TRAW):
 		dl_path = IMGSYS_DL_WPE_LITE_TO_TRAW_LTRAW;
-		snprintf(logBuf_inport, sizeof(logBuf_inport), "%s",
+		ret = snprintf(logBuf_inport, sizeof(logBuf_inport), "%s",
 			"WPE_LITE");
-		snprintf(logBuf_outport, sizeof(logBuf_outport), "%s",
+		if (ret >= sizeof(logBuf_inport))
+			dev_dbg(imgsys_dev->dev,
+				"%s: string truncated\n", __func__);
+		ret = snprintf(logBuf_outport, sizeof(logBuf_outport), "%s",
 			"TRAW");
+		if (ret >= sizeof(logBuf_outport))
+			dev_dbg(imgsys_dev->dev,
+				"%s: string truncated\n", __func__);
 		imgsys_dl_checksum_dump(imgsys_dev, hw_comb,
 			logBuf_path, logBuf_inport, logBuf_outport, dl_path);
 		dev_info(imgsys_dev->dev,
@@ -928,10 +968,16 @@ void imgsys_dl_debug_dump(struct mtk_imgsys_dev *imgsys_dev, unsigned int hw_com
 		break;
 	case (IMGSYS_ENG_WPE_LITE | IMGSYS_ENG_LTR):
 		dl_path = IMGSYS_DL_WPE_LITE_TO_TRAW_LTRAW;
-		snprintf(logBuf_inport, sizeof(logBuf_inport), "%s",
+		ret = snprintf(logBuf_inport, sizeof(logBuf_inport), "%s",
 			"WPE_LITE");
-		snprintf(logBuf_outport, sizeof(logBuf_outport), "%s",
+		if (ret >= sizeof(logBuf_inport))
+			dev_dbg(imgsys_dev->dev,
+				"%s: string truncated\n", __func__);
+		ret = snprintf(logBuf_outport, sizeof(logBuf_outport), "%s",
 			"LTRAW");
+		if (ret >= sizeof(logBuf_outport))
+			dev_dbg(imgsys_dev->dev,
+				"%s: string truncated\n", __func__);
 		imgsys_dl_checksum_dump(imgsys_dev, hw_comb,
 			logBuf_path, logBuf_inport, logBuf_outport, dl_path);
 		dev_info(imgsys_dev->dev,
@@ -941,10 +987,16 @@ void imgsys_dl_debug_dump(struct mtk_imgsys_dev *imgsys_dev, unsigned int hw_com
 #if HAVE_IMGSYS_ENG_XTR
 	case (IMGSYS_ENG_WPE_LITE | IMGSYS_ENG_XTR):
 		dl_path = IMGSYS_DL_WPET_TRAW;
-		snprintf(logBuf_inport, sizeof(logBuf_inport), "%s",
+		ret = snprintf(logBuf_inport, sizeof(logBuf_inport), "%s",
 			"WPE_LITE");
-		snprintf(logBuf_outport, sizeof(logBuf_outport), "%s",
+		if (ret >= sizeof(logBuf_inport))
+			dev_dbg(imgsys_dev->dev,
+				"%s: string truncated\n", __func__);
+		ret = snprintf(logBuf_outport, sizeof(logBuf_outport), "%s",
 			"XTRAW");
+		if (ret >= sizeof(logBuf_outport))
+			dev_dbg(imgsys_dev->dev,
+				"%s: string truncated\n", __func__);
 		imgsys_dl_checksum_dump(imgsys_dev, hw_comb,
 			logBuf_path, logBuf_inport, logBuf_outport, dl_path);
 		dev_info(imgsys_dev->dev,
@@ -954,37 +1006,61 @@ void imgsys_dl_debug_dump(struct mtk_imgsys_dev *imgsys_dev, unsigned int hw_com
 #endif
 	case (IMGSYS_ENG_OMC_TNR | IMGSYS_ENG_TRAW):
 		dl_path = IMGSYS_DL_OMC_TNR_TO_TRAW_LTRAW;
-		snprintf(logBuf_inport, sizeof(logBuf_inport), "%s",
+		ret = snprintf(logBuf_inport, sizeof(logBuf_inport), "%s",
 			"OMC_TNR");
-		snprintf(logBuf_outport, sizeof(logBuf_outport), "%s",
+		if (ret >= sizeof(logBuf_inport))
+			dev_dbg(imgsys_dev->dev,
+				"%s: string truncated\n", __func__);
+		ret = snprintf(logBuf_outport, sizeof(logBuf_outport), "%s",
 			"TRAW");
+		if (ret >= sizeof(logBuf_outport))
+			dev_dbg(imgsys_dev->dev,
+				"%s: string truncated\n", __func__);
 		imgsys_dl_checksum_dump(imgsys_dev, hw_comb,
 			logBuf_path, logBuf_inport, logBuf_outport, dl_path);
 		break;
 	case (IMGSYS_ENG_OMC_TNR | IMGSYS_ENG_LTR):
 		dl_path = IMGSYS_DL_OMC_TNR_TO_TRAW_LTRAW;
-		snprintf(logBuf_inport, sizeof(logBuf_inport), "%s",
+		ret = snprintf(logBuf_inport, sizeof(logBuf_inport), "%s",
 			"OMC_TNR");
-		snprintf(logBuf_outport, sizeof(logBuf_outport), "%s",
+		if (ret >= sizeof(logBuf_inport))
+			dev_dbg(imgsys_dev->dev,
+				"%s: string truncated\n", __func__);
+		ret = snprintf(logBuf_outport, sizeof(logBuf_outport), "%s",
 			"LTRAW");
+		if (ret >= sizeof(logBuf_outport))
+			dev_dbg(imgsys_dev->dev,
+				"%s: string truncated\n", __func__);
 		imgsys_dl_checksum_dump(imgsys_dev, hw_comb,
 			logBuf_path, logBuf_inport, logBuf_outport, dl_path);
 		break;
 	case (IMGSYS_ENG_OMC_LITE | IMGSYS_ENG_TRAW):
 		dl_path = IMGSYS_DL_OMC_LITE_TO_TRAW_LTRAW;
-		snprintf(logBuf_inport, sizeof(logBuf_inport), "%s",
+		ret = snprintf(logBuf_inport, sizeof(logBuf_inport), "%s",
 			"OMC_LITE");
-		snprintf(logBuf_outport, sizeof(logBuf_outport), "%s",
+		if (ret >= sizeof(logBuf_inport))
+			dev_dbg(imgsys_dev->dev,
+				"%s: string truncated\n", __func__);
+		ret = snprintf(logBuf_outport, sizeof(logBuf_outport), "%s",
 			"TRAW");
+		if (ret >= sizeof(logBuf_outport))
+			dev_dbg(imgsys_dev->dev,
+				"%s: string truncated\n", __func__);
 		imgsys_dl_checksum_dump(imgsys_dev, hw_comb,
 			logBuf_path, logBuf_inport, logBuf_outport, dl_path);
 		break;
 	case (IMGSYS_ENG_OMC_LITE | IMGSYS_ENG_LTR):
 		dl_path = IMGSYS_DL_OMC_LITE_TO_TRAW_LTRAW;
-		snprintf(logBuf_inport, sizeof(logBuf_inport), "%s",
+		ret = snprintf(logBuf_inport, sizeof(logBuf_inport), "%s",
 			"OMC_LITE");
-		snprintf(logBuf_outport, sizeof(logBuf_outport), "%s",
+		if (ret >= sizeof(logBuf_inport))
+			dev_dbg(imgsys_dev->dev,
+				"%s: string truncated\n", __func__);
+		ret = snprintf(logBuf_outport, sizeof(logBuf_outport), "%s",
 			"LTRAW");
+		if (ret >= sizeof(logBuf_outport))
+			dev_dbg(imgsys_dev->dev,
+				"%s: string truncated\n", __func__);
 		imgsys_dl_checksum_dump(imgsys_dev, hw_comb,
 			logBuf_path, logBuf_inport, logBuf_outport, dl_path);
 		break;
@@ -994,10 +1070,16 @@ void imgsys_dl_debug_dump(struct mtk_imgsys_dev *imgsys_dev, unsigned int hw_com
 	case (IMGSYS_ENG_WPE_EIS | IMGSYS_ENG_DIP | IMGSYS_ENG_PQDIP_A |
 		IMGSYS_ENG_PQDIP_B):
 		dl_path = IMGSYS_DL_WPE_EIS_TO_DIP;
-		snprintf(logBuf_inport, sizeof(logBuf_inport), "%s",
+		ret = snprintf(logBuf_inport, sizeof(logBuf_inport), "%s",
 			"WPE_EIS");
-		snprintf(logBuf_outport, sizeof(logBuf_outport), "%s",
+		if (ret >= sizeof(logBuf_inport))
+			dev_dbg(imgsys_dev->dev,
+				"%s: string truncated\n", __func__);
+		ret = snprintf(logBuf_outport, sizeof(logBuf_outport), "%s",
 			 "DIP");
+		if (ret >= sizeof(logBuf_outport))
+			dev_dbg(imgsys_dev->dev,
+				"%s: string truncated\n", __func__);
 		imgsys_dl_checksum_dump(imgsys_dev, hw_comb,
 			logBuf_path, logBuf_inport, logBuf_outport, dl_path);
 		/**/
@@ -1006,10 +1088,16 @@ void imgsys_dl_debug_dump(struct mtk_imgsys_dev *imgsys_dev, unsigned int hw_com
 		memset((char *)logBuf_outport, 0x0, sizeof(logBuf_outport));
 		logBuf_outport[strlen(logBuf_outport)] = '\0';
 		dl_path = IMGSYS_DL_DIP_TO_PQDIP_A;
-		snprintf(logBuf_inport, sizeof(logBuf_inport), "%s",
+		ret = snprintf(logBuf_inport, sizeof(logBuf_inport), "%s",
 			"DIP");
-		snprintf(logBuf_outport, sizeof(logBuf_outport), "%s",
+		if (ret >= sizeof(logBuf_inport))
+			dev_dbg(imgsys_dev->dev,
+				"%s: string truncated\n", __func__);
+		ret = snprintf(logBuf_outport, sizeof(logBuf_outport), "%s",
 			"PQDIPA");
+		if (ret >= sizeof(logBuf_outport))
+			dev_dbg(imgsys_dev->dev,
+				"%s: string truncated\n", __func__);
 		imgsys_dl_checksum_dump(imgsys_dev, hw_comb,
 			logBuf_path, logBuf_inport, logBuf_outport, dl_path);
 		/**/
@@ -1018,10 +1106,16 @@ void imgsys_dl_debug_dump(struct mtk_imgsys_dev *imgsys_dev, unsigned int hw_com
 		memset((char *)logBuf_outport, 0x0, sizeof(logBuf_outport));
 		logBuf_outport[strlen(logBuf_outport)] = '\0';
 		dl_path = IMGSYS_DL_DIP_TO_PQDIP_B;
-		snprintf(logBuf_inport, sizeof(logBuf_inport), "%s",
+		ret = snprintf(logBuf_inport, sizeof(logBuf_inport), "%s",
 			"DIP");
-		snprintf(logBuf_outport, sizeof(logBuf_outport), "%s",
+		if (ret >= sizeof(logBuf_inport))
+			dev_dbg(imgsys_dev->dev,
+				"%s: string truncated\n", __func__);
+		ret = snprintf(logBuf_outport, sizeof(logBuf_outport), "%s",
 			"PQDIPB");
+		if (ret >= sizeof(logBuf_outport))
+			dev_dbg(imgsys_dev->dev,
+				"%s: string truncated\n", __func__);
 		imgsys_dl_checksum_dump(imgsys_dev, hw_comb,
 			logBuf_path, logBuf_inport, logBuf_outport, dl_path);
 		break;
@@ -1031,10 +1125,16 @@ void imgsys_dl_debug_dump(struct mtk_imgsys_dev *imgsys_dev, unsigned int hw_com
 	case (IMGSYS_ENG_OMC_TNR | IMGSYS_ENG_DIP | IMGSYS_ENG_PQDIP_A |
 		IMGSYS_ENG_PQDIP_B):
 		dl_path = IMGSYS_DL_OMC_TNR_TO_DIP;
-		snprintf(logBuf_inport, sizeof(logBuf_inport), "%s",
+		ret = snprintf(logBuf_inport, sizeof(logBuf_inport), "%s",
 			"OMC_TNR");
-		snprintf(logBuf_outport, sizeof(logBuf_outport), "%s",
+		if (ret >= sizeof(logBuf_inport))
+			dev_dbg(imgsys_dev->dev,
+				"%s: string truncated\n", __func__);
+		ret = snprintf(logBuf_outport, sizeof(logBuf_outport), "%s",
 			"DIP");
+		if (ret >= sizeof(logBuf_outport))
+			dev_dbg(imgsys_dev->dev,
+				"%s: string truncated\n", __func__);
 		imgsys_dl_checksum_dump(imgsys_dev, hw_comb,
 			logBuf_path, logBuf_inport, logBuf_outport, dl_path);
 		/**/
@@ -1043,10 +1143,16 @@ void imgsys_dl_debug_dump(struct mtk_imgsys_dev *imgsys_dev, unsigned int hw_com
 		memset((char *)logBuf_outport, 0x0, sizeof(logBuf_outport));
 		logBuf_outport[strlen(logBuf_outport)] = '\0';
 		dl_path = IMGSYS_DL_DIP_TO_PQDIP_A;
-		snprintf(logBuf_inport, sizeof(logBuf_inport), "%s",
+		ret = snprintf(logBuf_inport, sizeof(logBuf_inport), "%s",
 			"DIP");
-		snprintf(logBuf_outport, sizeof(logBuf_outport), "%s",
+		if (ret >= sizeof(logBuf_inport))
+			dev_dbg(imgsys_dev->dev,
+				"%s: string truncated\n", __func__);
+		ret = snprintf(logBuf_outport, sizeof(logBuf_outport), "%s",
 			"PQDIPA");
+		if (ret >= sizeof(logBuf_outport))
+			dev_dbg(imgsys_dev->dev,
+				"%s: string truncated\n", __func__);
 		imgsys_dl_checksum_dump(imgsys_dev, hw_comb,
 			logBuf_path, logBuf_inport, logBuf_outport, dl_path);
 		/**/
@@ -1055,10 +1161,16 @@ void imgsys_dl_debug_dump(struct mtk_imgsys_dev *imgsys_dev, unsigned int hw_com
 		memset((char *)logBuf_outport, 0x0, sizeof(logBuf_outport));
 		logBuf_outport[strlen(logBuf_outport)] = '\0';
 		dl_path = IMGSYS_DL_DIP_TO_PQDIP_B;
-		snprintf(logBuf_inport, sizeof(logBuf_inport), "%s",
+		ret = snprintf(logBuf_inport, sizeof(logBuf_inport), "%s",
 			"DIP");
-		snprintf(logBuf_outport, sizeof(logBuf_outport), "%s",
+		if (ret >= sizeof(logBuf_inport))
+			dev_dbg(imgsys_dev->dev,
+				"%s: string truncated\n", __func__);
+		ret = snprintf(logBuf_outport, sizeof(logBuf_outport), "%s",
 			"PQDIPB");
+		if (ret >= sizeof(logBuf_outport))
+			dev_dbg(imgsys_dev->dev,
+				"%s: string truncated\n", __func__);
 		imgsys_dl_checksum_dump(imgsys_dev, hw_comb,
 			logBuf_path, logBuf_inport, logBuf_outport, dl_path);
 		break;
@@ -1067,10 +1179,16 @@ void imgsys_dl_debug_dump(struct mtk_imgsys_dev *imgsys_dev, unsigned int hw_com
 	case (IMGSYS_ENG_WPE_EIS | IMGSYS_ENG_PQDIP_A |
 		IMGSYS_ENG_PQDIP_B):
 		dl_path = IMGSYS_DL_NO_CHECK_SUM_DUMP;
-		snprintf(logBuf_inport, sizeof(logBuf_inport), "%s",
+		ret = snprintf(logBuf_inport, sizeof(logBuf_inport), "%s",
 			"WPE_EIS");
-		snprintf(logBuf_outport, sizeof(logBuf_outport), "%s",
+		if (ret >= sizeof(logBuf_inport))
+			dev_dbg(imgsys_dev->dev,
+				"%s: string truncated\n", __func__);
+		ret = snprintf(logBuf_outport, sizeof(logBuf_outport), "%s",
 			"PQDIP");
+		if (ret >= sizeof(logBuf_outport))
+			dev_dbg(imgsys_dev->dev,
+				"%s: string truncated\n", __func__);
 		imgsys_dl_checksum_dump(imgsys_dev, hw_comb,
 			logBuf_path, logBuf_inport, logBuf_outport, dl_path);
 		break;
@@ -1079,10 +1197,16 @@ void imgsys_dl_debug_dump(struct mtk_imgsys_dev *imgsys_dev, unsigned int hw_com
 	case (IMGSYS_ENG_WPE_LITE | IMGSYS_ENG_PQDIP_A |
 		IMGSYS_ENG_PQDIP_B):
 		dl_path = IMGSYS_DL_WPE_LITE_TO_PQDIP_A_B;
-		snprintf(logBuf_inport, sizeof(logBuf_inport), "%s",
+		ret = snprintf(logBuf_inport, sizeof(logBuf_inport), "%s",
 			"WPE_LITE");
-		snprintf(logBuf_outport, sizeof(logBuf_outport), "%s",
+		if (ret >= sizeof(logBuf_inport))
+			dev_dbg(imgsys_dev->dev,
+				"%s: string truncated\n", __func__);
+		ret = snprintf(logBuf_outport, sizeof(logBuf_outport), "%s",
 			"PQDIP");
+		if (ret >= sizeof(logBuf_outport))
+			dev_dbg(imgsys_dev->dev,
+				"%s: string truncated\n", __func__);
 		imgsys_dl_checksum_dump(imgsys_dev, hw_comb,
 			logBuf_path, logBuf_inport, logBuf_outport, dl_path);
 		break;
@@ -1091,10 +1215,16 @@ void imgsys_dl_debug_dump(struct mtk_imgsys_dev *imgsys_dev, unsigned int hw_com
 	case (IMGSYS_ENG_OMC_TNR | IMGSYS_ENG_PQDIP_A |
 		IMGSYS_ENG_PQDIP_B):
 		dl_path = IMGSYS_DL_NO_CHECK_SUM_DUMP;
-		snprintf(logBuf_inport, sizeof(logBuf_inport), "%s",
+		ret = snprintf(logBuf_inport, sizeof(logBuf_inport), "%s",
 			"WPE_TNR");
-		snprintf(logBuf_outport, sizeof(logBuf_outport), "%s",
+		if (ret >= sizeof(logBuf_inport))
+			dev_dbg(imgsys_dev->dev,
+				"%s: string truncated\n", __func__);
+		ret = snprintf(logBuf_outport, sizeof(logBuf_outport), "%s",
 			"PQDIP");
+		if (ret >= sizeof(logBuf_outport))
+			dev_dbg(imgsys_dev->dev,
+				"%s: string truncated\n", __func__);
 		imgsys_dl_checksum_dump(imgsys_dev, hw_comb,
 			logBuf_path, logBuf_inport, logBuf_outport, dl_path);
 		break;
@@ -1106,10 +1236,16 @@ void imgsys_dl_debug_dump(struct mtk_imgsys_dev *imgsys_dev, unsigned int hw_com
 	case (IMGSYS_ENG_WPE_EIS | IMGSYS_ENG_TRAW | IMGSYS_ENG_DIP |
 		IMGSYS_ENG_PQDIP_A | IMGSYS_ENG_PQDIP_B):
 		dl_path = IMGSYS_DL_WPE_EIS_TO_TRAW_LTRAW;
-		snprintf(logBuf_inport, sizeof(logBuf_inport), "%s",
+		ret = snprintf(logBuf_inport, sizeof(logBuf_inport), "%s",
 			"WPE_EIS");
-		snprintf(logBuf_outport, sizeof(logBuf_outport), "%s",
+		if (ret >= sizeof(logBuf_inport))
+			dev_dbg(imgsys_dev->dev,
+				"%s: string truncated\n", __func__);
+		ret = snprintf(logBuf_outport, sizeof(logBuf_outport), "%s",
 			"TRAW");
+		if (ret >= sizeof(logBuf_outport))
+			dev_dbg(imgsys_dev->dev,
+				"%s: string truncated\n", __func__);
 		imgsys_dl_checksum_dump(imgsys_dev, hw_comb,
 			logBuf_path, logBuf_inport, logBuf_outport, dl_path);
 		/**/
@@ -1118,10 +1254,16 @@ void imgsys_dl_debug_dump(struct mtk_imgsys_dev *imgsys_dev, unsigned int hw_com
 		memset((char *)logBuf_outport, 0x0, sizeof(logBuf_outport));
 		logBuf_outport[strlen(logBuf_outport)] = '\0';
 		dl_path = IMGSYS_DL_TRAW_TO_DIP;
-		snprintf(logBuf_inport, sizeof(logBuf_inport), "%s",
+		ret = snprintf(logBuf_inport, sizeof(logBuf_inport), "%s",
 			"TRAW");
-		snprintf(logBuf_outport, sizeof(logBuf_outport), "%s",
+		if (ret >= sizeof(logBuf_inport))
+			dev_dbg(imgsys_dev->dev,
+				"%s: string truncated\n", __func__);
+		ret = snprintf(logBuf_outport, sizeof(logBuf_outport), "%s",
 			"DIP");
+		if (ret >= sizeof(logBuf_outport))
+			dev_dbg(imgsys_dev->dev,
+				"%s: string truncated\n", __func__);
 		imgsys_dl_checksum_dump(imgsys_dev, hw_comb,
 			logBuf_path, logBuf_inport, logBuf_outport, dl_path);
 		/**/
@@ -1130,10 +1272,16 @@ void imgsys_dl_debug_dump(struct mtk_imgsys_dev *imgsys_dev, unsigned int hw_com
 		memset((char *)logBuf_outport, 0x0, sizeof(logBuf_outport));
 		logBuf_outport[strlen(logBuf_outport)] = '\0';
 		dl_path = IMGSYS_DL_DIP_TO_PQDIP_A;
-		snprintf(logBuf_inport, sizeof(logBuf_inport), "%s",
+		ret = snprintf(logBuf_inport, sizeof(logBuf_inport), "%s",
 			"DIP");
-		snprintf(logBuf_outport, sizeof(logBuf_outport), "%s",
+		if (ret >= sizeof(logBuf_inport))
+			dev_dbg(imgsys_dev->dev,
+				"%s: string truncated\n", __func__);
+		ret = snprintf(logBuf_outport, sizeof(logBuf_outport), "%s",
 			"PQDIPA");
+		if (ret >= sizeof(logBuf_outport))
+			dev_dbg(imgsys_dev->dev,
+				"%s: string truncated\n", __func__);
 		imgsys_dl_checksum_dump(imgsys_dev, hw_comb,
 			logBuf_path, logBuf_inport, logBuf_outport, dl_path);
 		/**/
@@ -1142,10 +1290,16 @@ void imgsys_dl_debug_dump(struct mtk_imgsys_dev *imgsys_dev, unsigned int hw_com
 		memset((char *)logBuf_outport, 0x0, sizeof(logBuf_outport));
 		logBuf_outport[strlen(logBuf_outport)] = '\0';
 		dl_path = IMGSYS_DL_DIP_TO_PQDIP_B;
-		snprintf(logBuf_inport, sizeof(logBuf_inport), "%s",
+		ret = snprintf(logBuf_inport, sizeof(logBuf_inport), "%s",
 			"DIP");
-		snprintf(logBuf_outport, sizeof(logBuf_outport), "%s",
+		if (ret >= sizeof(logBuf_inport))
+			dev_dbg(imgsys_dev->dev,
+				"%s: string truncated\n", __func__);
+		ret = snprintf(logBuf_outport, sizeof(logBuf_outport), "%s",
 			"PQDIPB");
+		if (ret >= sizeof(logBuf_outport))
+			dev_dbg(imgsys_dev->dev,
+				"%s: string truncated\n", __func__);
 		imgsys_dl_checksum_dump(imgsys_dev, hw_comb,
 			logBuf_path, logBuf_inport, logBuf_outport, dl_path);
 		break;
@@ -1157,10 +1311,16 @@ void imgsys_dl_debug_dump(struct mtk_imgsys_dev *imgsys_dev, unsigned int hw_com
 	case (IMGSYS_ENG_WPE_EIS | IMGSYS_ENG_LTR | IMGSYS_ENG_DIP |
 		IMGSYS_ENG_PQDIP_A | IMGSYS_ENG_PQDIP_B):
 		dl_path = IMGSYS_DL_WPE_EIS_TO_TRAW_LTRAW;
-		snprintf(logBuf_inport, sizeof(logBuf_inport), "%s",
+		ret = snprintf(logBuf_inport, sizeof(logBuf_inport), "%s",
 			"WPE_EIS");
-		snprintf(logBuf_outport, sizeof(logBuf_outport), "%s",
+		if (ret >= sizeof(logBuf_inport))
+			dev_dbg(imgsys_dev->dev,
+				"%s: string truncated\n", __func__);
+		ret = snprintf(logBuf_outport, sizeof(logBuf_outport), "%s",
 			"LTRAW");
+		if (ret >= sizeof(logBuf_outport))
+			dev_dbg(imgsys_dev->dev,
+				"%s: string truncated\n", __func__);
 		imgsys_dl_checksum_dump(imgsys_dev, hw_comb,
 			logBuf_path, logBuf_inport, logBuf_outport, dl_path);
 		/**/
@@ -1169,10 +1329,16 @@ void imgsys_dl_debug_dump(struct mtk_imgsys_dev *imgsys_dev, unsigned int hw_com
 		memset((char *)logBuf_outport, 0x0, sizeof(logBuf_outport));
 		logBuf_outport[strlen(logBuf_outport)] = '\0';
 		dl_path = IMGSYS_DL_LTRAW_TO_DIP;
-		snprintf(logBuf_inport, sizeof(logBuf_inport), "%s",
+		ret = snprintf(logBuf_inport, sizeof(logBuf_inport), "%s",
 			"LTRAW");
-		snprintf(logBuf_outport, sizeof(logBuf_outport), "%s",
+		if (ret >= sizeof(logBuf_inport))
+			dev_dbg(imgsys_dev->dev,
+				"%s: string truncated\n", __func__);
+		ret = snprintf(logBuf_outport, sizeof(logBuf_outport), "%s",
 			"DIP");
+		if (ret >= sizeof(logBuf_outport))
+			dev_dbg(imgsys_dev->dev,
+				"%s: string truncated\n", __func__);
 		imgsys_dl_checksum_dump(imgsys_dev, hw_comb,
 			logBuf_path, logBuf_inport, logBuf_outport, dl_path);
 		/**/
@@ -1181,10 +1347,16 @@ void imgsys_dl_debug_dump(struct mtk_imgsys_dev *imgsys_dev, unsigned int hw_com
 		memset((char *)logBuf_outport, 0x0, sizeof(logBuf_outport));
 		logBuf_outport[strlen(logBuf_outport)] = '\0';
 		dl_path = IMGSYS_DL_DIP_TO_PQDIP_A;
-		snprintf(logBuf_inport, sizeof(logBuf_inport), "%s",
+		ret = snprintf(logBuf_inport, sizeof(logBuf_inport), "%s",
 			"DIP");
-		snprintf(logBuf_outport, sizeof(logBuf_outport), "%s",
+		if (ret >= sizeof(logBuf_inport))
+			dev_dbg(imgsys_dev->dev,
+				"%s: string truncated\n", __func__);
+		ret = snprintf(logBuf_outport, sizeof(logBuf_outport), "%s",
 			"PQDIPA");
+		if (ret >= sizeof(logBuf_outport))
+			dev_dbg(imgsys_dev->dev,
+				"%s: string truncated\n", __func__);
 		imgsys_dl_checksum_dump(imgsys_dev, hw_comb,
 			logBuf_path, logBuf_inport, logBuf_outport, dl_path);
 		/**/
@@ -1193,10 +1365,16 @@ void imgsys_dl_debug_dump(struct mtk_imgsys_dev *imgsys_dev, unsigned int hw_com
 		memset((char *)logBuf_outport, 0x0, sizeof(logBuf_outport));
 		logBuf_outport[strlen(logBuf_outport)] = '\0';
 		dl_path = IMGSYS_DL_DIP_TO_PQDIP_B;
-		snprintf(logBuf_inport, sizeof(logBuf_inport), "%s",
+		ret = snprintf(logBuf_inport, sizeof(logBuf_inport), "%s",
 			"DIP");
-		snprintf(logBuf_outport, sizeof(logBuf_outport), "%s",
+		if (ret >= sizeof(logBuf_inport))
+			dev_dbg(imgsys_dev->dev,
+				"%s: string truncated\n", __func__);
+		ret = snprintf(logBuf_outport, sizeof(logBuf_outport), "%s",
 			"PQDIPB");
+		if (ret >= sizeof(logBuf_outport))
+			dev_dbg(imgsys_dev->dev,
+				"%s: string truncated\n", __func__);
 		imgsys_dl_checksum_dump(imgsys_dev, hw_comb,
 			logBuf_path, logBuf_inport, logBuf_outport, dl_path);
 		break;
@@ -1208,10 +1386,16 @@ void imgsys_dl_debug_dump(struct mtk_imgsys_dev *imgsys_dev, unsigned int hw_com
 	case (IMGSYS_ENG_OMC_TNR | IMGSYS_ENG_TRAW | IMGSYS_ENG_DIP |
 		IMGSYS_ENG_PQDIP_A | IMGSYS_ENG_PQDIP_B):
 		dl_path = IMGSYS_DL_OMC_TNR_TO_TRAW_LTRAW;
-		snprintf(logBuf_inport, sizeof(logBuf_inport), "%s",
+		ret = snprintf(logBuf_inport, sizeof(logBuf_inport), "%s",
 			"OMC_TNR");
-		snprintf(logBuf_outport, sizeof(logBuf_outport), "%s",
+		if (ret >= sizeof(logBuf_inport))
+			dev_dbg(imgsys_dev->dev,
+				"%s: string truncated\n", __func__);
+		ret = snprintf(logBuf_outport, sizeof(logBuf_outport), "%s",
 			"TRAW");
+		if (ret >= sizeof(logBuf_outport))
+			dev_dbg(imgsys_dev->dev,
+				"%s: string truncated\n", __func__);
 		imgsys_dl_checksum_dump(imgsys_dev, hw_comb,
 			logBuf_path, logBuf_inport, logBuf_outport, dl_path);
 		/**/
@@ -1220,10 +1404,16 @@ void imgsys_dl_debug_dump(struct mtk_imgsys_dev *imgsys_dev, unsigned int hw_com
 		memset((char *)logBuf_outport, 0x0, sizeof(logBuf_outport));
 		logBuf_outport[strlen(logBuf_outport)] = '\0';
 		dl_path = IMGSYS_DL_TRAW_TO_DIP;
-			snprintf(logBuf_inport, sizeof(logBuf_inport), "%s",
+		ret = snprintf(logBuf_inport, sizeof(logBuf_inport), "%s",
 				"TRAW");
-		snprintf(logBuf_outport, sizeof(logBuf_outport), "%s",
+		if (ret >= sizeof(logBuf_inport))
+			dev_dbg(imgsys_dev->dev,
+				"%s: string truncated\n", __func__);
+		ret = snprintf(logBuf_outport, sizeof(logBuf_outport), "%s",
 			"DIP");
+		if (ret >= sizeof(logBuf_outport))
+			dev_dbg(imgsys_dev->dev,
+				"%s: string truncated\n", __func__);
 		imgsys_dl_checksum_dump(imgsys_dev, hw_comb,
 			logBuf_path, logBuf_inport, logBuf_outport, dl_path);
 		/**/
@@ -1232,10 +1422,16 @@ void imgsys_dl_debug_dump(struct mtk_imgsys_dev *imgsys_dev, unsigned int hw_com
 		memset((char *)logBuf_outport, 0x0, sizeof(logBuf_outport));
 		logBuf_outport[strlen(logBuf_outport)] = '\0';
 		dl_path = IMGSYS_DL_DIP_TO_PQDIP_A;
-		snprintf(logBuf_inport, sizeof(logBuf_inport), "%s",
+		ret = snprintf(logBuf_inport, sizeof(logBuf_inport), "%s",
 			"DIP");
-		snprintf(logBuf_outport, sizeof(logBuf_outport), "%s",
+		if (ret >= sizeof(logBuf_inport))
+			dev_dbg(imgsys_dev->dev,
+				"%s: string truncated\n", __func__);
+		ret = snprintf(logBuf_outport, sizeof(logBuf_outport), "%s",
 			"PQDIPA");
+		if (ret >= sizeof(logBuf_outport))
+			dev_dbg(imgsys_dev->dev,
+				"%s: string truncated\n", __func__);
 		imgsys_dl_checksum_dump(imgsys_dev, hw_comb,
 			logBuf_path, logBuf_inport, logBuf_outport, dl_path);
 		/**/
@@ -1244,10 +1440,16 @@ void imgsys_dl_debug_dump(struct mtk_imgsys_dev *imgsys_dev, unsigned int hw_com
 		memset((char *)logBuf_outport, 0x0, sizeof(logBuf_outport));
 		logBuf_outport[strlen(logBuf_outport)] = '\0';
 		dl_path = IMGSYS_DL_DIP_TO_PQDIP_B;
-		snprintf(logBuf_inport, sizeof(logBuf_inport), "%s",
+		ret = snprintf(logBuf_inport, sizeof(logBuf_inport), "%s",
 			"DIP");
-		snprintf(logBuf_outport, sizeof(logBuf_outport), "%s",
+		if (ret >= sizeof(logBuf_inport))
+			dev_dbg(imgsys_dev->dev,
+				"%s: string truncated\n", __func__);
+		ret = snprintf(logBuf_outport, sizeof(logBuf_outport), "%s",
 			"PQDIPB");
+		if (ret >= sizeof(logBuf_outport))
+			dev_dbg(imgsys_dev->dev,
+				"%s: string truncated\n", __func__);
 		imgsys_dl_checksum_dump(imgsys_dev, hw_comb,
 			logBuf_path, logBuf_inport, logBuf_outport, dl_path);
 		break;
@@ -1259,10 +1461,16 @@ void imgsys_dl_debug_dump(struct mtk_imgsys_dev *imgsys_dev, unsigned int hw_com
 	case (IMGSYS_ENG_OMC_TNR | IMGSYS_ENG_LTR | IMGSYS_ENG_DIP |
 		IMGSYS_ENG_PQDIP_A | IMGSYS_ENG_PQDIP_B):
 		dl_path = IMGSYS_DL_OMC_TNR_TO_TRAW_LTRAW;
-		snprintf(logBuf_inport, sizeof(logBuf_inport), "%s",
+		ret = snprintf(logBuf_inport, sizeof(logBuf_inport), "%s",
 			"OMC_TNR");
-		snprintf(logBuf_outport, sizeof(logBuf_outport), "%s",
+		if (ret >= sizeof(logBuf_inport))
+			dev_dbg(imgsys_dev->dev,
+				"%s: string truncated\n", __func__);
+		ret = snprintf(logBuf_outport, sizeof(logBuf_outport), "%s",
 			"LTRAW");
+		if (ret >= sizeof(logBuf_outport))
+			dev_dbg(imgsys_dev->dev,
+				"%s: string truncated\n", __func__);
 		imgsys_dl_checksum_dump(imgsys_dev, hw_comb,
 			logBuf_path, logBuf_inport, logBuf_outport, dl_path);
 		/**/
@@ -1271,10 +1479,16 @@ void imgsys_dl_debug_dump(struct mtk_imgsys_dev *imgsys_dev, unsigned int hw_com
 		memset((char *)logBuf_outport, 0x0, sizeof(logBuf_outport));
 		logBuf_outport[strlen(logBuf_outport)] = '\0';
 		dl_path = IMGSYS_DL_LTRAW_TO_DIP;
-		snprintf(logBuf_inport, sizeof(logBuf_inport), "%s",
+		ret = snprintf(logBuf_inport, sizeof(logBuf_inport), "%s",
 			"LTRAW");
-		snprintf(logBuf_outport, sizeof(logBuf_outport), "%s",
+		if (ret >= sizeof(logBuf_inport))
+			dev_dbg(imgsys_dev->dev,
+				"%s: string truncated\n", __func__);
+		ret = snprintf(logBuf_outport, sizeof(logBuf_outport), "%s",
 			"DIP");
+		if (ret >= sizeof(logBuf_outport))
+			dev_dbg(imgsys_dev->dev,
+				"%s: string truncated\n", __func__);
 		imgsys_dl_checksum_dump(imgsys_dev, hw_comb,
 			logBuf_path, logBuf_inport, logBuf_outport, dl_path);
 		/**/
@@ -1283,10 +1497,16 @@ void imgsys_dl_debug_dump(struct mtk_imgsys_dev *imgsys_dev, unsigned int hw_com
 		memset((char *)logBuf_outport, 0x0, sizeof(logBuf_outport));
 		logBuf_outport[strlen(logBuf_outport)] = '\0';
 		dl_path = IMGSYS_DL_DIP_TO_PQDIP_A;
-		snprintf(logBuf_inport, sizeof(logBuf_inport), "%s",
+		ret = snprintf(logBuf_inport, sizeof(logBuf_inport), "%s",
 			"DIP");
-		snprintf(logBuf_outport, sizeof(logBuf_outport), "%s",
+		if (ret >= sizeof(logBuf_inport))
+			dev_dbg(imgsys_dev->dev,
+				"%s: string truncated\n", __func__);
+		ret = snprintf(logBuf_outport, sizeof(logBuf_outport), "%s",
 			"PQDIPA");
+		if (ret >= sizeof(logBuf_outport))
+			dev_dbg(imgsys_dev->dev,
+				"%s: string truncated\n", __func__);
 		imgsys_dl_checksum_dump(imgsys_dev, hw_comb,
 			logBuf_path, logBuf_inport, logBuf_outport, dl_path);
 		/**/
@@ -1295,10 +1515,16 @@ void imgsys_dl_debug_dump(struct mtk_imgsys_dev *imgsys_dev, unsigned int hw_com
 		memset((char *)logBuf_outport, 0x0, sizeof(logBuf_outport));
 		logBuf_outport[strlen(logBuf_outport)] = '\0';
 		dl_path = IMGSYS_DL_DIP_TO_PQDIP_B;
-		snprintf(logBuf_inport, sizeof(logBuf_inport), "%s",
+		ret = snprintf(logBuf_inport, sizeof(logBuf_inport), "%s",
 			"DIP");
-		snprintf(logBuf_outport, sizeof(logBuf_outport), "%s",
+		if (ret >= sizeof(logBuf_inport))
+			dev_dbg(imgsys_dev->dev,
+				"%s: string truncated\n", __func__);
+		ret = snprintf(logBuf_outport, sizeof(logBuf_outport), "%s",
 			"PQDIPB");
+		if (ret >= sizeof(logBuf_outport))
+			dev_dbg(imgsys_dev->dev,
+				"%s: string truncated\n", __func__);
 		imgsys_dl_checksum_dump(imgsys_dev, hw_comb,
 			logBuf_path, logBuf_inport, logBuf_outport, dl_path);
 		break;
@@ -1310,10 +1536,16 @@ void imgsys_dl_debug_dump(struct mtk_imgsys_dev *imgsys_dev, unsigned int hw_com
 	case (IMGSYS_ENG_WPE_LITE | IMGSYS_ENG_TRAW | IMGSYS_ENG_DIP |
 		IMGSYS_ENG_PQDIP_A | IMGSYS_ENG_PQDIP_B):
 		dl_path = IMGSYS_DL_WPE_LITE_TO_TRAW_LTRAW;
-		snprintf(logBuf_inport, sizeof(logBuf_inport), "%s",
+		ret = snprintf(logBuf_inport, sizeof(logBuf_inport), "%s",
 			"WPE_LITE");
-		snprintf(logBuf_outport, sizeof(logBuf_outport), "%s",
+		if (ret >= sizeof(logBuf_inport))
+			dev_dbg(imgsys_dev->dev,
+				"%s: string truncated\n", __func__);
+		ret = snprintf(logBuf_outport, sizeof(logBuf_outport), "%s",
 			"TRAW");
+		if (ret >= sizeof(logBuf_outport))
+			dev_dbg(imgsys_dev->dev,
+				"%s: string truncated\n", __func__);
 		imgsys_dl_checksum_dump(imgsys_dev, hw_comb,
 			logBuf_path, logBuf_inport, logBuf_outport, dl_path);
 		memset((char *)logBuf_inport, 0x0, sizeof(logBuf_inport));
@@ -1321,10 +1553,16 @@ void imgsys_dl_debug_dump(struct mtk_imgsys_dev *imgsys_dev, unsigned int hw_com
 		memset((char *)logBuf_outport, 0x0, sizeof(logBuf_outport));
 		logBuf_outport[strlen(logBuf_outport)] = '\0';
 		dl_path = IMGSYS_DL_TRAW_TO_DIP;
-		snprintf(logBuf_inport, sizeof(logBuf_inport), "%s",
+		ret = snprintf(logBuf_inport, sizeof(logBuf_inport), "%s",
 			"TRAW");
-		snprintf(logBuf_outport, sizeof(logBuf_outport), "%s",
+		if (ret >= sizeof(logBuf_inport))
+			dev_dbg(imgsys_dev->dev,
+				"%s: string truncated\n", __func__);
+		ret = snprintf(logBuf_outport, sizeof(logBuf_outport), "%s",
 			"DIP");
+		if (ret >= sizeof(logBuf_outport))
+			dev_dbg(imgsys_dev->dev,
+				"%s: string truncated\n", __func__);
 		imgsys_dl_checksum_dump(imgsys_dev, hw_comb,
 			logBuf_path, logBuf_inport, logBuf_outport, dl_path);
 		/**/
@@ -1333,10 +1571,16 @@ void imgsys_dl_debug_dump(struct mtk_imgsys_dev *imgsys_dev, unsigned int hw_com
 		memset((char *)logBuf_outport, 0x0, sizeof(logBuf_outport));
 		logBuf_outport[strlen(logBuf_outport)] = '\0';
 		dl_path = IMGSYS_DL_DIP_TO_PQDIP_A;
-		snprintf(logBuf_inport, sizeof(logBuf_inport), "%s",
+		ret = snprintf(logBuf_inport, sizeof(logBuf_inport), "%s",
 			"DIP");
-		snprintf(logBuf_outport, sizeof(logBuf_outport), "%s",
+		if (ret >= sizeof(logBuf_inport))
+			dev_dbg(imgsys_dev->dev,
+				"%s: string truncated\n", __func__);
+		ret = snprintf(logBuf_outport, sizeof(logBuf_outport), "%s",
 			"PQDIPA");
+		if (ret >= sizeof(logBuf_outport))
+			dev_dbg(imgsys_dev->dev,
+				"%s: string truncated\n", __func__);
 		imgsys_dl_checksum_dump(imgsys_dev, hw_comb,
 			logBuf_path, logBuf_inport, logBuf_outport, dl_path);
 		/**/
@@ -1345,10 +1589,16 @@ void imgsys_dl_debug_dump(struct mtk_imgsys_dev *imgsys_dev, unsigned int hw_com
 		memset((char *)logBuf_outport, 0x0, sizeof(logBuf_outport));
 		logBuf_outport[strlen(logBuf_outport)] = '\0';
 		dl_path = IMGSYS_DL_DIP_TO_PQDIP_B;
-		snprintf(logBuf_inport, sizeof(logBuf_inport), "%s",
+		ret = snprintf(logBuf_inport, sizeof(logBuf_inport), "%s",
 			"DIP");
-		snprintf(logBuf_outport, sizeof(logBuf_outport), "%s",
+		if (ret >= sizeof(logBuf_inport))
+			dev_dbg(imgsys_dev->dev,
+				"%s: string truncated\n", __func__);
+		ret = snprintf(logBuf_outport, sizeof(logBuf_outport), "%s",
 			"PQDIPB");
+		if (ret >= sizeof(logBuf_outport))
+			dev_dbg(imgsys_dev->dev,
+				"%s: string truncated\n", __func__);
 		imgsys_dl_checksum_dump(imgsys_dev, hw_comb,
 			logBuf_path, logBuf_inport, logBuf_outport, dl_path);
 		break;
@@ -1360,10 +1610,16 @@ void imgsys_dl_debug_dump(struct mtk_imgsys_dev *imgsys_dev, unsigned int hw_com
 	case (IMGSYS_ENG_WPE_LITE | IMGSYS_ENG_LTR | IMGSYS_ENG_DIP |
 		IMGSYS_ENG_PQDIP_A | IMGSYS_ENG_PQDIP_B):
 		dl_path = IMGSYS_DL_WPE_LITE_TO_TRAW_LTRAW;
-		snprintf(logBuf_inport, sizeof(logBuf_inport), "%s",
+		ret = snprintf(logBuf_inport, sizeof(logBuf_inport), "%s",
 			"WPE_LITE");
-		snprintf(logBuf_outport, sizeof(logBuf_outport), "%s",
+		if (ret >= sizeof(logBuf_inport))
+			dev_dbg(imgsys_dev->dev,
+				"%s: string truncated\n", __func__);
+		ret = snprintf(logBuf_outport, sizeof(logBuf_outport), "%s",
 			"LTRAW");
+		if (ret >= sizeof(logBuf_outport))
+			dev_dbg(imgsys_dev->dev,
+				"%s: string truncated\n", __func__);
 		imgsys_dl_checksum_dump(imgsys_dev, hw_comb,
 			logBuf_path, logBuf_inport, logBuf_outport, dl_path);
 		memset((char *)logBuf_inport, 0x0, sizeof(logBuf_inport));
@@ -1371,10 +1627,16 @@ void imgsys_dl_debug_dump(struct mtk_imgsys_dev *imgsys_dev, unsigned int hw_com
 		memset((char *)logBuf_outport, 0x0, sizeof(logBuf_outport));
 		logBuf_outport[strlen(logBuf_outport)] = '\0';
 		dl_path = IMGSYS_DL_LTRAW_TO_DIP;
-		snprintf(logBuf_inport, sizeof(logBuf_inport), "%s",
+		ret = snprintf(logBuf_inport, sizeof(logBuf_inport), "%s",
 			"LTRAW");
-		snprintf(logBuf_outport, sizeof(logBuf_outport), "%s",
+		if (ret >= sizeof(logBuf_inport))
+			dev_dbg(imgsys_dev->dev,
+				"%s: string truncated\n", __func__);
+		ret = snprintf(logBuf_outport, sizeof(logBuf_outport), "%s",
 			"DIP");
+		if (ret >= sizeof(logBuf_outport))
+			dev_dbg(imgsys_dev->dev,
+				"%s: string truncated\n", __func__);
 		imgsys_dl_checksum_dump(imgsys_dev, hw_comb,
 			logBuf_path, logBuf_inport, logBuf_outport, dl_path);
 		/**/
@@ -1383,10 +1645,16 @@ void imgsys_dl_debug_dump(struct mtk_imgsys_dev *imgsys_dev, unsigned int hw_com
 		memset((char *)logBuf_outport, 0x0, sizeof(logBuf_outport));
 		logBuf_outport[strlen(logBuf_outport)] = '\0';
 		dl_path = IMGSYS_DL_DIP_TO_PQDIP_A;
-		snprintf(logBuf_inport, sizeof(logBuf_inport), "%s",
+		ret = snprintf(logBuf_inport, sizeof(logBuf_inport), "%s",
 			"DIP");
-		snprintf(logBuf_outport, sizeof(logBuf_outport), "%s",
+		if (ret >= sizeof(logBuf_inport))
+			dev_dbg(imgsys_dev->dev,
+				"%s: string truncated\n", __func__);
+		ret = snprintf(logBuf_outport, sizeof(logBuf_outport), "%s",
 			"PQDIPA");
+		if (ret >= sizeof(logBuf_outport))
+			dev_dbg(imgsys_dev->dev,
+				"%s: string truncated\n", __func__);
 		imgsys_dl_checksum_dump(imgsys_dev, hw_comb,
 			logBuf_path, logBuf_inport, logBuf_outport, dl_path);
 		/**/
@@ -1395,10 +1663,16 @@ void imgsys_dl_debug_dump(struct mtk_imgsys_dev *imgsys_dev, unsigned int hw_com
 		memset((char *)logBuf_outport, 0x0, sizeof(logBuf_outport));
 		logBuf_outport[strlen(logBuf_outport)] = '\0';
 		dl_path = IMGSYS_DL_DIP_TO_PQDIP_B;
-		snprintf(logBuf_inport, sizeof(logBuf_inport), "%s",
+		ret = snprintf(logBuf_inport, sizeof(logBuf_inport), "%s",
 			"DIP");
-		snprintf(logBuf_outport, sizeof(logBuf_outport), "%s",
+		if (ret >= sizeof(logBuf_inport))
+			dev_dbg(imgsys_dev->dev,
+				"%s: string truncated\n", __func__);
+		ret = snprintf(logBuf_outport, sizeof(logBuf_outport), "%s",
 			"PQDIPB");
+		if (ret >= sizeof(logBuf_outport))
+			dev_dbg(imgsys_dev->dev,
+				"%s: string truncated\n", __func__);
 		imgsys_dl_checksum_dump(imgsys_dev, hw_comb,
 			logBuf_path, logBuf_inport, logBuf_outport, dl_path);
 		break;
@@ -1410,10 +1684,16 @@ void imgsys_dl_debug_dump(struct mtk_imgsys_dev *imgsys_dev, unsigned int hw_com
 	case (IMGSYS_ENG_WPE_EIS | IMGSYS_ENG_OMC_TNR | IMGSYS_ENG_DIP |
 		IMGSYS_ENG_PQDIP_A | IMGSYS_ENG_PQDIP_B):
 		dl_path = IMGSYS_DL_WPE_EIS_TO_DIP;
-		snprintf(logBuf_inport, sizeof(logBuf_inport), "%s",
+		ret = snprintf(logBuf_inport, sizeof(logBuf_inport), "%s",
 			"WPE_EIS");
-		snprintf(logBuf_outport, sizeof(logBuf_outport), "%s",
+		if (ret >= sizeof(logBuf_inport))
+			dev_dbg(imgsys_dev->dev,
+				"%s: string truncated\n", __func__);
+		ret = snprintf(logBuf_outport, sizeof(logBuf_outport), "%s",
 			"DIP");
+		if (ret >= sizeof(logBuf_outport))
+			dev_dbg(imgsys_dev->dev,
+				"%s: string truncated\n", __func__);
 		imgsys_dl_checksum_dump(imgsys_dev, hw_comb,
 			logBuf_path, logBuf_inport, logBuf_outport, dl_path);
 		/**/
@@ -1422,10 +1702,16 @@ void imgsys_dl_debug_dump(struct mtk_imgsys_dev *imgsys_dev, unsigned int hw_com
 		memset((char *)logBuf_outport, 0x0, sizeof(logBuf_outport));
 		logBuf_outport[strlen(logBuf_outport)] = '\0';
 		dl_path = IMGSYS_DL_OMC_TNR_TO_DIP;
-		snprintf(logBuf_inport, sizeof(logBuf_inport), "%s",
+		ret = snprintf(logBuf_inport, sizeof(logBuf_inport), "%s",
 			"OMC_TNR");
-		snprintf(logBuf_outport, sizeof(logBuf_outport), "%s",
+		if (ret >= sizeof(logBuf_inport))
+			dev_dbg(imgsys_dev->dev,
+				"%s: string truncated\n", __func__);
+		ret = snprintf(logBuf_outport, sizeof(logBuf_outport), "%s",
 			"DIP");
+		if (ret >= sizeof(logBuf_outport))
+			dev_dbg(imgsys_dev->dev,
+				"%s: string truncated\n", __func__);
 		imgsys_dl_checksum_dump(imgsys_dev, hw_comb,
 			logBuf_path, logBuf_inport, logBuf_outport, dl_path);
 		/**/
@@ -1434,10 +1720,16 @@ void imgsys_dl_debug_dump(struct mtk_imgsys_dev *imgsys_dev, unsigned int hw_com
 		memset((char *)logBuf_outport, 0x0, sizeof(logBuf_outport));
 		logBuf_outport[strlen(logBuf_outport)] = '\0';
 		dl_path = IMGSYS_DL_DIP_TO_PQDIP_A;
-		snprintf(logBuf_inport, sizeof(logBuf_inport), "%s",
+		ret = snprintf(logBuf_inport, sizeof(logBuf_inport), "%s",
 			"DIP");
-		snprintf(logBuf_outport, sizeof(logBuf_outport), "%s",
+		if (ret >= sizeof(logBuf_inport))
+			dev_dbg(imgsys_dev->dev,
+				"%s: string truncated\n", __func__);
+		ret = snprintf(logBuf_outport, sizeof(logBuf_outport), "%s",
 			"PQDIPA");
+		if (ret >= sizeof(logBuf_outport))
+			dev_dbg(imgsys_dev->dev,
+				"%s: string truncated\n", __func__);
 		imgsys_dl_checksum_dump(imgsys_dev, hw_comb,
 			logBuf_path, logBuf_inport, logBuf_outport, dl_path);
 		/**/
@@ -1446,10 +1738,16 @@ void imgsys_dl_debug_dump(struct mtk_imgsys_dev *imgsys_dev, unsigned int hw_com
 		memset((char *)logBuf_outport, 0x0, sizeof(logBuf_outport));
 		logBuf_outport[strlen(logBuf_outport)] = '\0';
 		dl_path = IMGSYS_DL_DIP_TO_PQDIP_B;
-		snprintf(logBuf_inport, sizeof(logBuf_inport), "%s",
+		ret = snprintf(logBuf_inport, sizeof(logBuf_inport), "%s",
 			"DIP");
-		snprintf(logBuf_outport, sizeof(logBuf_outport), "%s",
+		if (ret >= sizeof(logBuf_inport))
+			dev_dbg(imgsys_dev->dev,
+				"%s: string truncated\n", __func__);
+		ret = snprintf(logBuf_outport, sizeof(logBuf_outport), "%s",
 			"PQDIPB");
+		if (ret >= sizeof(logBuf_outport))
+			dev_dbg(imgsys_dev->dev,
+				"%s: string truncated\n", __func__);
 		imgsys_dl_checksum_dump(imgsys_dev, hw_comb,
 			logBuf_path, logBuf_inport, logBuf_outport, dl_path);
 		break;
@@ -1462,19 +1760,31 @@ void imgsys_dl_debug_dump(struct mtk_imgsys_dev *imgsys_dev, unsigned int hw_com
 	case (IMGSYS_ENG_WPE_EIS | IMGSYS_ENG_WPE_LITE | IMGSYS_ENG_TRAW |
 		IMGSYS_ENG_DIP | IMGSYS_ENG_PQDIP_A | IMGSYS_ENG_PQDIP_B):
 		dl_path = IMGSYS_DL_WPE_EIS_TO_TRAW_LTRAW;
-		snprintf(logBuf_inport, sizeof(logBuf_inport), "%s",
+		ret = snprintf(logBuf_inport, sizeof(logBuf_inport), "%s",
 			"WPE_EIS");
-		snprintf(logBuf_outport, sizeof(logBuf_outport), "%s",
+		if (ret >= sizeof(logBuf_inport))
+			dev_dbg(imgsys_dev->dev,
+				"%s: string truncated\n", __func__);
+		ret = snprintf(logBuf_outport, sizeof(logBuf_outport), "%s",
 			"TRAW");
+		if (ret >= sizeof(logBuf_outport))
+			dev_dbg(imgsys_dev->dev,
+				"%s: string truncated\n", __func__);
 		memset((char *)logBuf_inport, 0x0, sizeof(logBuf_inport));
 		logBuf_inport[strlen(logBuf_inport)] = '\0';
 		memset((char *)logBuf_outport, 0x0, sizeof(logBuf_outport));
 		logBuf_outport[strlen(logBuf_outport)] = '\0';
 		dl_path = IMGSYS_DL_WPE_LITE_TO_TRAW_LTRAW;
-		snprintf(logBuf_inport, sizeof(logBuf_inport), "%s",
+		ret = snprintf(logBuf_inport, sizeof(logBuf_inport), "%s",
 			"WPE_LITE");
-		snprintf(logBuf_outport, sizeof(logBuf_outport), "%s",
+		if (ret >= sizeof(logBuf_inport))
+			dev_dbg(imgsys_dev->dev,
+				"%s: string truncated\n", __func__);
+		ret = snprintf(logBuf_outport, sizeof(logBuf_outport), "%s",
 			"TRAW");
+		if (ret >= sizeof(logBuf_outport))
+			dev_dbg(imgsys_dev->dev,
+				"%s: string truncated\n", __func__);
 		imgsys_dl_checksum_dump(imgsys_dev, hw_comb,
 			logBuf_path, logBuf_inport, logBuf_outport, dl_path);
 		memset((char *)logBuf_inport, 0x0, sizeof(logBuf_inport));
@@ -1482,10 +1792,16 @@ void imgsys_dl_debug_dump(struct mtk_imgsys_dev *imgsys_dev, unsigned int hw_com
 		memset((char *)logBuf_outport, 0x0, sizeof(logBuf_outport));
 		logBuf_outport[strlen(logBuf_outport)] = '\0';
 		dl_path = IMGSYS_DL_TRAW_TO_DIP;
-		snprintf(logBuf_inport, sizeof(logBuf_inport), "%s",
+		ret = snprintf(logBuf_inport, sizeof(logBuf_inport), "%s",
 			"TRAW");
-		snprintf(logBuf_outport, sizeof(logBuf_outport), "%s",
+		if (ret >= sizeof(logBuf_inport))
+			dev_dbg(imgsys_dev->dev,
+				"%s: string truncated\n", __func__);
+		ret = snprintf(logBuf_outport, sizeof(logBuf_outport), "%s",
 			"DIP");
+		if (ret >= sizeof(logBuf_outport))
+			dev_dbg(imgsys_dev->dev,
+				"%s: string truncated\n", __func__);
 		imgsys_dl_checksum_dump(imgsys_dev, hw_comb,
 			logBuf_path, logBuf_inport, logBuf_outport, dl_path);
 		/**/
@@ -1494,10 +1810,16 @@ void imgsys_dl_debug_dump(struct mtk_imgsys_dev *imgsys_dev, unsigned int hw_com
 		memset((char *)logBuf_outport, 0x0, sizeof(logBuf_outport));
 		logBuf_outport[strlen(logBuf_outport)] = '\0';
 		dl_path = IMGSYS_DL_DIP_TO_PQDIP_A;
-		snprintf(logBuf_inport, sizeof(logBuf_inport), "%s",
+		ret = snprintf(logBuf_inport, sizeof(logBuf_inport), "%s",
 			"DIP");
-		snprintf(logBuf_outport, sizeof(logBuf_outport), "%s",
+		if (ret >= sizeof(logBuf_inport))
+			dev_dbg(imgsys_dev->dev,
+				"%s: string truncated\n", __func__);
+		ret = snprintf(logBuf_outport, sizeof(logBuf_outport), "%s",
 			"PQDIPA");
+		if (ret >= sizeof(logBuf_outport))
+			dev_dbg(imgsys_dev->dev,
+				"%s: string truncated\n", __func__);
 		imgsys_dl_checksum_dump(imgsys_dev, hw_comb,
 			logBuf_path, logBuf_inport, logBuf_outport, dl_path);
 		/**/
@@ -1506,10 +1828,16 @@ void imgsys_dl_debug_dump(struct mtk_imgsys_dev *imgsys_dev, unsigned int hw_com
 		memset((char *)logBuf_outport, 0x0, sizeof(logBuf_outport));
 		logBuf_outport[strlen(logBuf_outport)] = '\0';
 		dl_path = IMGSYS_DL_DIP_TO_PQDIP_B;
-		snprintf(logBuf_inport, sizeof(logBuf_inport), "%s",
+		ret = snprintf(logBuf_inport, sizeof(logBuf_inport), "%s",
 			"DIP");
-		snprintf(logBuf_outport, sizeof(logBuf_outport), "%s",
+		if (ret >= sizeof(logBuf_inport))
+			dev_dbg(imgsys_dev->dev,
+				"%s: string truncated\n", __func__);
+		ret = snprintf(logBuf_outport, sizeof(logBuf_outport), "%s",
 			"PQDIPB");
+		if (ret >= sizeof(logBuf_outport))
+			dev_dbg(imgsys_dev->dev,
+				"%s: string truncated\n", __func__);
 		imgsys_dl_checksum_dump(imgsys_dev, hw_comb,
 			logBuf_path, logBuf_inport, logBuf_outport, dl_path);
 		break;
@@ -1522,19 +1850,31 @@ void imgsys_dl_debug_dump(struct mtk_imgsys_dev *imgsys_dev, unsigned int hw_com
 	case (IMGSYS_ENG_WPE_EIS | IMGSYS_ENG_WPE_LITE | IMGSYS_ENG_LTR |
 		IMGSYS_ENG_DIP | IMGSYS_ENG_PQDIP_A | IMGSYS_ENG_PQDIP_B):
 		dl_path = IMGSYS_DL_WPE_EIS_TO_TRAW_LTRAW;
-		snprintf(logBuf_inport, sizeof(logBuf_inport), "%s",
+		ret = snprintf(logBuf_inport, sizeof(logBuf_inport), "%s",
 			"WPE_EIS");
-		snprintf(logBuf_outport, sizeof(logBuf_outport), "%s",
+		if (ret >= sizeof(logBuf_inport))
+			dev_dbg(imgsys_dev->dev,
+				"%s: string truncated\n", __func__);
+		ret = snprintf(logBuf_outport, sizeof(logBuf_outport), "%s",
 			"LTRAW");
+		if (ret >= sizeof(logBuf_outport))
+			dev_dbg(imgsys_dev->dev,
+				"%s: string truncated\n", __func__);
 		memset((char *)logBuf_inport, 0x0, sizeof(logBuf_inport));
 		logBuf_inport[strlen(logBuf_inport)] = '\0';
 		memset((char *)logBuf_outport, 0x0, sizeof(logBuf_outport));
 		logBuf_outport[strlen(logBuf_outport)] = '\0';
 		dl_path = IMGSYS_DL_WPE_LITE_TO_TRAW_LTRAW;
-		snprintf(logBuf_inport, sizeof(logBuf_inport), "%s",
+		ret = snprintf(logBuf_inport, sizeof(logBuf_inport), "%s",
 			"WPE_LITE");
-		snprintf(logBuf_outport, sizeof(logBuf_outport), "%s",
+		if (ret >= sizeof(logBuf_inport))
+			dev_dbg(imgsys_dev->dev,
+				"%s: string truncated\n", __func__);
+		ret = snprintf(logBuf_outport, sizeof(logBuf_outport), "%s",
 			"LTRAW");
+		if (ret >= sizeof(logBuf_outport))
+			dev_dbg(imgsys_dev->dev,
+				"%s: string truncated\n", __func__);
 		imgsys_dl_checksum_dump(imgsys_dev, hw_comb,
 			logBuf_path, logBuf_inport, logBuf_outport, dl_path);
 		memset((char *)logBuf_inport, 0x0, sizeof(logBuf_inport));
@@ -1542,10 +1882,16 @@ void imgsys_dl_debug_dump(struct mtk_imgsys_dev *imgsys_dev, unsigned int hw_com
 		memset((char *)logBuf_outport, 0x0, sizeof(logBuf_outport));
 		logBuf_outport[strlen(logBuf_outport)] = '\0';
 		dl_path = IMGSYS_DL_LTRAW_TO_DIP;
-		snprintf(logBuf_inport, sizeof(logBuf_inport), "%s",
+		ret = snprintf(logBuf_inport, sizeof(logBuf_inport), "%s",
 			"LTRAW");
-		snprintf(logBuf_outport, sizeof(logBuf_outport), "%s",
+		if (ret >= sizeof(logBuf_inport))
+			dev_dbg(imgsys_dev->dev,
+				"%s: string truncated\n", __func__);
+		ret = snprintf(logBuf_outport, sizeof(logBuf_outport), "%s",
 			"DIP");
+		if (ret >= sizeof(logBuf_outport))
+			dev_dbg(imgsys_dev->dev,
+				"%s: string truncated\n", __func__);
 		imgsys_dl_checksum_dump(imgsys_dev, hw_comb,
 			logBuf_path, logBuf_inport, logBuf_outport, dl_path);
 		/**/
@@ -1554,10 +1900,16 @@ void imgsys_dl_debug_dump(struct mtk_imgsys_dev *imgsys_dev, unsigned int hw_com
 		memset((char *)logBuf_outport, 0x0, sizeof(logBuf_outport));
 		logBuf_outport[strlen(logBuf_outport)] = '\0';
 		dl_path = IMGSYS_DL_DIP_TO_PQDIP_A;
-		snprintf(logBuf_inport, sizeof(logBuf_inport), "%s",
+		ret = snprintf(logBuf_inport, sizeof(logBuf_inport), "%s",
 			"DIP");
-		snprintf(logBuf_outport, sizeof(logBuf_outport), "%s",
+		if (ret >= sizeof(logBuf_inport))
+			dev_dbg(imgsys_dev->dev,
+				"%s: string truncated\n", __func__);
+		ret = snprintf(logBuf_outport, sizeof(logBuf_outport), "%s",
 			"PQDIPA");
+		if (ret >= sizeof(logBuf_outport))
+			dev_dbg(imgsys_dev->dev,
+				"%s: string truncated\n", __func__);
 		imgsys_dl_checksum_dump(imgsys_dev, hw_comb,
 			logBuf_path, logBuf_inport, logBuf_outport, dl_path);
 		/**/
@@ -1566,10 +1918,16 @@ void imgsys_dl_debug_dump(struct mtk_imgsys_dev *imgsys_dev, unsigned int hw_com
 		memset((char *)logBuf_outport, 0x0, sizeof(logBuf_outport));
 		logBuf_outport[strlen(logBuf_outport)] = '\0';
 		dl_path = IMGSYS_DL_DIP_TO_PQDIP_B;
-		snprintf(logBuf_inport, sizeof(logBuf_inport), "%s",
+		ret = snprintf(logBuf_inport, sizeof(logBuf_inport), "%s",
 			"DIP");
-		snprintf(logBuf_outport, sizeof(logBuf_outport), "%s",
+		if (ret >= sizeof(logBuf_inport))
+			dev_dbg(imgsys_dev->dev,
+				"%s: string truncated\n", __func__);
+		ret = snprintf(logBuf_outport, sizeof(logBuf_outport), "%s",
 			"PQDIPB");
+		if (ret >= sizeof(logBuf_outport))
+			dev_dbg(imgsys_dev->dev,
+				"%s: string truncated\n", __func__);
 		imgsys_dl_checksum_dump(imgsys_dev, hw_comb,
 			logBuf_path, logBuf_inport, logBuf_outport, dl_path);
 		break;
@@ -1603,10 +1961,16 @@ void imgsys_dl_debug_dump(struct mtk_imgsys_dev *imgsys_dev, unsigned int hw_com
 	case (IMGSYS_ENG_TRAW | IMGSYS_ENG_DIP | IMGSYS_ENG_PQDIP_A |
 		IMGSYS_ENG_PQDIP_B):
 		dl_path = IMGSYS_DL_TRAW_TO_DIP;
-		snprintf(logBuf_inport, sizeof(logBuf_inport), "%s",
+		ret = snprintf(logBuf_inport, sizeof(logBuf_inport), "%s",
 			"TRAW");
-		snprintf(logBuf_outport, sizeof(logBuf_outport), "%s",
+		if (ret >= sizeof(logBuf_inport))
+			dev_dbg(imgsys_dev->dev,
+				"%s: string truncated\n", __func__);
+		ret = snprintf(logBuf_outport, sizeof(logBuf_outport), "%s",
 			"DIP");
+		if (ret >= sizeof(logBuf_outport))
+			dev_dbg(imgsys_dev->dev,
+				"%s: string truncated\n", __func__);
 		imgsys_dl_checksum_dump(imgsys_dev, hw_comb,
 			logBuf_path, logBuf_inport, logBuf_outport, dl_path);
 		/**/
@@ -1615,10 +1979,16 @@ void imgsys_dl_debug_dump(struct mtk_imgsys_dev *imgsys_dev, unsigned int hw_com
 		memset((char *)logBuf_outport, 0x0, sizeof(logBuf_outport));
 		logBuf_outport[strlen(logBuf_outport)] = '\0';
 		dl_path = IMGSYS_DL_DIP_TO_PQDIP_A;
-		snprintf(logBuf_inport, sizeof(logBuf_inport), "%s",
+		ret = snprintf(logBuf_inport, sizeof(logBuf_inport), "%s",
 			"DIP");
-		snprintf(logBuf_outport, sizeof(logBuf_outport), "%s",
+		if (ret >= sizeof(logBuf_inport))
+			dev_dbg(imgsys_dev->dev,
+				"%s: string truncated\n", __func__);
+		ret = snprintf(logBuf_outport, sizeof(logBuf_outport), "%s",
 			"PQDIPA");
+		if (ret >= sizeof(logBuf_outport))
+			dev_dbg(imgsys_dev->dev,
+				"%s: string truncated\n", __func__);
 		imgsys_dl_checksum_dump(imgsys_dev, hw_comb,
 			logBuf_path, logBuf_inport, logBuf_outport, dl_path);
 		/**/
@@ -1627,10 +1997,16 @@ void imgsys_dl_debug_dump(struct mtk_imgsys_dev *imgsys_dev, unsigned int hw_com
 		memset((char *)logBuf_outport, 0x0, sizeof(logBuf_outport));
 		logBuf_outport[strlen(logBuf_outport)] = '\0';
 		dl_path = IMGSYS_DL_DIP_TO_PQDIP_B;
-		snprintf(logBuf_inport, sizeof(logBuf_inport), "%s",
+		ret = snprintf(logBuf_inport, sizeof(logBuf_inport), "%s",
 			"DIP");
-		snprintf(logBuf_outport, sizeof(logBuf_outport), "%s",
+		if (ret >= sizeof(logBuf_inport))
+			dev_dbg(imgsys_dev->dev,
+				"%s: string truncated\n", __func__);
+		ret = snprintf(logBuf_outport, sizeof(logBuf_outport), "%s",
 			"PQDIPB");
+		if (ret >= sizeof(logBuf_outport))
+			dev_dbg(imgsys_dev->dev,
+				"%s: string truncated\n", __func__);
 		imgsys_dl_checksum_dump(imgsys_dev, hw_comb,
 			logBuf_path, logBuf_inport, logBuf_outport, dl_path);
 		break;
@@ -1640,10 +2016,16 @@ void imgsys_dl_debug_dump(struct mtk_imgsys_dev *imgsys_dev, unsigned int hw_com
 	case (IMGSYS_ENG_LTR | IMGSYS_ENG_DIP | IMGSYS_ENG_PQDIP_A |
 		IMGSYS_ENG_PQDIP_B):
 		dl_path = IMGSYS_DL_LTRAW_TO_DIP;
-		snprintf(logBuf_inport, sizeof(logBuf_inport), "%s",
+		ret = snprintf(logBuf_inport, sizeof(logBuf_inport), "%s",
 			"LTRAW");
-		snprintf(logBuf_outport, sizeof(logBuf_outport), "%s",
+		if (ret >= sizeof(logBuf_inport))
+			dev_dbg(imgsys_dev->dev,
+				"%s: string truncated\n", __func__);
+		ret = snprintf(logBuf_outport, sizeof(logBuf_outport), "%s",
 			"DIP");
+		if (ret >= sizeof(logBuf_outport))
+			dev_dbg(imgsys_dev->dev,
+				"%s: string truncated\n", __func__);
 		imgsys_dl_checksum_dump(imgsys_dev, hw_comb,
 			logBuf_path, logBuf_inport, logBuf_outport, dl_path);
 		/**/
@@ -1652,10 +2034,16 @@ void imgsys_dl_debug_dump(struct mtk_imgsys_dev *imgsys_dev, unsigned int hw_com
 		memset((char *)logBuf_outport, 0x0, sizeof(logBuf_outport));
 		logBuf_outport[strlen(logBuf_outport)] = '\0';
 		dl_path = IMGSYS_DL_DIP_TO_PQDIP_A;
-		snprintf(logBuf_inport, sizeof(logBuf_inport), "%s",
+		ret = snprintf(logBuf_inport, sizeof(logBuf_inport), "%s",
 			"DIP");
-		snprintf(logBuf_outport, sizeof(logBuf_outport), "%s",
+		if (ret >= sizeof(logBuf_inport))
+			dev_dbg(imgsys_dev->dev,
+				"%s: string truncated\n", __func__);
+		ret = snprintf(logBuf_outport, sizeof(logBuf_outport), "%s",
 			"PQDIPA");
+		if (ret >= sizeof(logBuf_outport))
+			dev_dbg(imgsys_dev->dev,
+				"%s: string truncated\n", __func__);
 		imgsys_dl_checksum_dump(imgsys_dev, hw_comb,
 			logBuf_path, logBuf_inport, logBuf_outport, dl_path);
 		/**/
@@ -1664,10 +2052,16 @@ void imgsys_dl_debug_dump(struct mtk_imgsys_dev *imgsys_dev, unsigned int hw_com
 		memset((char *)logBuf_outport, 0x0, sizeof(logBuf_outport));
 		logBuf_outport[strlen(logBuf_outport)] = '\0';
 		dl_path = IMGSYS_DL_DIP_TO_PQDIP_B;
-		snprintf(logBuf_inport, sizeof(logBuf_inport), "%s",
+		ret = snprintf(logBuf_inport, sizeof(logBuf_inport), "%s",
 			"DIP");
-		snprintf(logBuf_outport, sizeof(logBuf_outport), "%s",
+		if (ret >= sizeof(logBuf_inport))
+			dev_dbg(imgsys_dev->dev,
+				"%s: string truncated\n", __func__);
+		ret = snprintf(logBuf_outport, sizeof(logBuf_outport), "%s",
 			"PQDIPB");
+		if (ret >= sizeof(logBuf_outport))
+			dev_dbg(imgsys_dev->dev,
+				"%s: string truncated\n", __func__);
 		imgsys_dl_checksum_dump(imgsys_dev, hw_comb,
 			logBuf_path, logBuf_inport, logBuf_outport, dl_path);
 		break;
@@ -1675,10 +2069,16 @@ void imgsys_dl_debug_dump(struct mtk_imgsys_dev *imgsys_dev, unsigned int hw_com
 	case (IMGSYS_ENG_DIP | IMGSYS_ENG_PQDIP_B):
 	case (IMGSYS_ENG_DIP | IMGSYS_ENG_PQDIP_A | IMGSYS_ENG_PQDIP_B):
 		dl_path = IMGSYS_DL_DIP_TO_PQDIP_A;
-		snprintf(logBuf_inport, sizeof(logBuf_inport), "%s",
+		ret = snprintf(logBuf_inport, sizeof(logBuf_inport), "%s",
 			"DIP");
-		snprintf(logBuf_outport, sizeof(logBuf_outport), "%s",
+		if (ret >= sizeof(logBuf_inport))
+			dev_dbg(imgsys_dev->dev,
+				"%s: string truncated\n", __func__);
+		ret = snprintf(logBuf_outport, sizeof(logBuf_outport), "%s",
 			"PQDIPA");
+		if (ret >= sizeof(logBuf_outport))
+			dev_dbg(imgsys_dev->dev,
+				"%s: string truncated\n", __func__);
 		imgsys_dl_checksum_dump(imgsys_dev, hw_comb,
 			logBuf_path, logBuf_inport, logBuf_outport, dl_path);
 		/**/
@@ -1687,10 +2087,16 @@ void imgsys_dl_debug_dump(struct mtk_imgsys_dev *imgsys_dev, unsigned int hw_com
 		memset((char *)logBuf_outport, 0x0, sizeof(logBuf_outport));
 		logBuf_outport[strlen(logBuf_outport)] = '\0';
 		dl_path = IMGSYS_DL_DIP_TO_PQDIP_B;
-		snprintf(logBuf_inport, sizeof(logBuf_inport), "%s",
+		ret = snprintf(logBuf_inport, sizeof(logBuf_inport), "%s",
 			"DIP");
-		snprintf(logBuf_outport, sizeof(logBuf_outport), "%s",
+		if (ret >= sizeof(logBuf_inport))
+			dev_dbg(imgsys_dev->dev,
+				"%s: string truncated\n", __func__);
+		ret = snprintf(logBuf_outport, sizeof(logBuf_outport), "%s",
 			"PQDIPB");
+		if (ret >= sizeof(logBuf_outport))
+			dev_dbg(imgsys_dev->dev,
+				"%s: string truncated\n", __func__);
 		imgsys_dl_checksum_dump(imgsys_dev, hw_comb,
 			logBuf_path, logBuf_inport, logBuf_outport, dl_path);
 		break;

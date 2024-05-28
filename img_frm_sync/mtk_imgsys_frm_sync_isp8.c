@@ -363,7 +363,7 @@ static unsigned int imgsys_frm_sync_which_event(uint32_t event)
 }
 
 static int mcnr_token_dump(struct mtk_img_frm_sync *mtk_img_frm_sync_dev,
-	struct tokenmap_t *k_tokenmap, int acq_idx)
+	struct tokenmap_t *k_tokenmap, unsigned int acq_idx)
 {
 	int j = 0;
 
@@ -373,7 +373,7 @@ static int mcnr_token_dump(struct mtk_img_frm_sync *mtk_img_frm_sync_dev,
 			acq_idx, imgsys_sync_token_pool.token_pool[acq_idx].token_id,
 			imgsys_sync_token_pool.pool.r_max);
 		dev_info(mtk_img_frm_sync_dev->dev, "===dump token map table===\n");
-		for (j = 0 ; j < IMGSTR_TOKEN_MAX ; j++) {
+		for (j = 0 ; j < IMGSYS_ALL_SYNC_TOKEN_MAX ; j++) {
 			if (k_tokenmap[j].hw_token != TOKEN_INVALID_ID) {
 				dev_info(mtk_img_frm_sync_dev->dev,
 					"token swkey(%d), hwfence(%d) type(%d), frmowner(%s), imgstm_inst(%llx)",
@@ -434,7 +434,7 @@ static int acquire_token_from_sync_token_pool_mcnr(struct mtk_img_frm_sync *mtk_
 }
 
 static int vsdof_token_dump(struct mtk_img_frm_sync *mtk_img_frm_sync_dev,
-	struct tokenmap_t *k_tokenmap, int acq_idx)
+	struct tokenmap_t *k_tokenmap, unsigned int acq_idx)
 {
 	int j = 0;
 
@@ -463,8 +463,8 @@ static int acquire_token_from_sync_token_pool_vsdof(struct mtk_img_frm_sync *mtk
 	struct sw_sync_token_pool_dpe *dpe_token_pool, struct tokenmap_t *k_tokenmap)
 {
 	/* acquire available sw token */
-	int acq_r_idx = 0;
-	int token_id = 0;
+	unsigned int acq_r_idx = 0;
+	unsigned int token_id = 0;
 	unsigned long start_time = 0;
 	int i = 0;
 	/* need mutex */
@@ -509,7 +509,7 @@ static int acquire_tokenmap_index(struct mtk_img_frm_sync *mtk_img_frm_sync_dev,
 {
 	struct token_map_index_data_t *token_map_index_data;
 
-	token_map_index_data = kzalloc(sizeof(struct token_map_index_data_t), GFP_KERNEL);
+	token_map_index_data = vzalloc(sizeof(struct token_map_index_data_t));
 	if (token_map_index_data == NULL)
 		return -ENOMEM;
 
@@ -543,7 +543,7 @@ static int acquire_frm_sync_tbl_index(struct mtk_img_frm_sync *mtk_img_frm_sync_
 int Handler_frame_token_sync_imgsys_isp8(struct mtk_img_frm_sync *mtk_img_frm_sync_dev,
 					struct imgsys_in_data *in_data, struct imgsys_out_data *out_data)
 {
-	//uint32_t stoken_num = in_data->token_list.mSyncTokenNum;
+	/*uint32_t stoken_num = in_data->token_list.mSyncTokenNum;*/
 	bool acquired = false;
 	enum sync_event_type_e event_type;
 	bool need_release = false;
@@ -555,7 +555,8 @@ int Handler_frame_token_sync_imgsys_isp8(struct mtk_img_frm_sync *mtk_img_frm_sy
 	struct tokenmap_t *tokenmap = NULL;
 	int token_cnt = 0;
 	unsigned int tokenmap_keyidx = 0;
-	struct token_list_k token_list[16];
+	/*struct token_list_k token_list[16];*/
+	struct token_list_k token_list;
 	int r_idx = in_data->r_idx;
 	int algo_id = 0;
 	struct mutex *tokenmap_lock = NULL;
@@ -577,70 +578,79 @@ int Handler_frame_token_sync_imgsys_isp8(struct mtk_img_frm_sync *mtk_img_frm_sy
 		event_type = sync_type_set;
 		need_release = false;
 		need_token = true;
-		token_list[i].token_type = sync_type_set;
+		token_list.token_type = sync_type_set;
 		if (imgsys_frm_sync_which_event(in_data->token_list.mSyncTokenList[i].token_value) ==
 			mtk_imgsys_frm_sync_event_group_mcnr) {
-			token_list[i].mSyncToken =
+			token_list.mSyncToken =
 				in_data->token_list.mSyncTokenList[i].token_value;
 			tokenmap = mcnr_tokenmap;
-			algo_id = mtk_imgsys_frm_sync_event_group_mcnr;
+			algo_id = algo_mcnr;
 			tokenmap_lock = &mcnr_tokenmap_lock;
 		} else if (imgsys_frm_sync_which_event(in_data->token_list.mSyncTokenList[i].token_value) ==
 			mtk_imgsys_frm_sync_event_group_vsdof) {
-			token_list[i].mSyncToken =
+			token_list.mSyncToken =
 				(in_data->token_list.mSyncTokenList[i].token_value & 0x0000FFFF);
 			tokenmap = vsdof_tokenmap;
-			algo_id = mtk_imgsys_frm_sync_event_group_vsdof;
+			algo_id = algo_vsdof;
 			tokenmap_lock = &vsdof_tokenmap_lock;
 		} else if (imgsys_frm_sync_which_event(in_data->token_list.mSyncTokenList[i].token_value) ==
 			mtk_imgsys_frm_sync_event_group_aiseg) {
-			token_list[i].mSyncToken =
+			token_list.mSyncToken =
 				(in_data->token_list.mSyncTokenList[i].token_value & 0x0000FFFF);
 			tokenmap = aiseg_tokenmap;
-			algo_id = mtk_imgsys_frm_sync_event_group_aiseg;
+			algo_id = algo_aiseg;
 			tokenmap_lock = &aiseg_tokenmap_lock;
-		} else
+		} else {
 			dev_info(mtk_img_frm_sync_dev->dev, "not support algo");
+			return -1;
+		}
 	} else {
 		dev_info(mtk_img_frm_sync_dev->dev, "imgsys-token-wait(%d)\n",
 			in_data->token_list.mSyncTokenList[i].token_value);
 		event_type = sync_type_wait;
 		need_release = true;
 		need_token = true;
-		token_list[i].token_type = sync_type_wait;
+		token_list.token_type = sync_type_wait;
 		if (imgsys_frm_sync_which_event(in_data->token_list.mSyncTokenList[i].token_value) ==
 			mtk_imgsys_frm_sync_event_group_mcnr) {
-			token_list[i].mSyncToken =
+			token_list.mSyncToken =
 				in_data->token_list.mSyncTokenList[i].token_value;
 			tokenmap = mcnr_tokenmap;
-			algo_id = mtk_imgsys_frm_sync_event_group_mcnr;
+			algo_id = algo_mcnr;
 			tokenmap_lock = &mcnr_tokenmap_lock;
 		} else if (imgsys_frm_sync_which_event(in_data->token_list.mSyncTokenList[i].token_value) ==
 			mtk_imgsys_frm_sync_event_group_vsdof) {
-			token_list[i].mSyncToken =
+			token_list.mSyncToken =
 				(in_data->token_list.mSyncTokenList[i].token_value & 0x0000FFFF);
 			tokenmap = vsdof_tokenmap;
-			algo_id = mtk_imgsys_frm_sync_event_group_vsdof;
+			algo_id = algo_vsdof;
 			tokenmap_lock = &vsdof_tokenmap_lock;
 		} else if (imgsys_frm_sync_which_event(in_data->token_list.mSyncTokenList[i].token_value) ==
 			mtk_imgsys_frm_sync_event_group_aiseg) {
-			token_list[i].mSyncToken =
+			token_list.mSyncToken =
 				(in_data->token_list.mSyncTokenList[i].token_value & 0x0000FFFF);
 			tokenmap = aiseg_tokenmap;
-			algo_id = mtk_imgsys_frm_sync_event_group_aiseg;
+			algo_id = algo_aiseg;
 			tokenmap_lock = &aiseg_tokenmap_lock;
-		} else
+		} else {
 			dev_info(mtk_img_frm_sync_dev->dev, "not support algo");
+			return -1;
+		}
 	}
 
 	if (ITF_LOG_LEVEL >= 1) {
 		dev_info(mtk_img_frm_sync_dev->dev, "token_key = %x(%d), need_token = %d\n",
-			token_list[i].mSyncToken, event_type, need_token);
+			token_list.mSyncToken, event_type, need_token);
 	}
 
 	if (need_token) {
 		tokenmap_keyidx = acquire_tokenmap_index(mtk_img_frm_sync_dev,
-			token_list[i].mSyncToken, algo_id);
+			token_list.mSyncToken, algo_id);
+		if (tokenmap_keyidx < 0) {
+			dev_info(mtk_img_frm_sync_dev->dev,
+				"mcnr acquire map index fail(%d)\n", tokenmap_keyidx);
+			return -ENOMEM;
+		}
 		//mutex lock
 
 		mutex_lock(tokenmap_lock);
@@ -648,7 +658,7 @@ int Handler_frame_token_sync_imgsys_isp8(struct mtk_img_frm_sync *mtk_img_frm_sy
 		if (ITF_LOG_LEVEL >= 2) {
 			dev_info(mtk_img_frm_sync_dev->dev,
 				"key/type(%d/%d) tokenMap[%d] = (%d, %d), need_token = %d, base/ofst(%d/%d)\n",
-				token_list[i].mSyncToken, event_type,
+				token_list.mSyncToken, event_type,
 				tokenmap_keyidx,
 				tokenmap[tokenmap_keyidx].type,
 				tokenmap[tokenmap_keyidx].hw_token,
@@ -659,8 +669,8 @@ int Handler_frame_token_sync_imgsys_isp8(struct mtk_img_frm_sync *mtk_img_frm_sy
 			if (tokenmap[tokenmap_keyidx].type == event_type) {
 				aee_kernel_exception("CRDISPATCH_KEY:IMGSYS_FRAME_SYNC",
 					"DISPATCH:MW send continued key(%d) with wrong status(input:%d <-> Map:%d)",
-					token_list[i].mSyncToken,
-					token_list[i].token_type,
+					token_list.mSyncToken,
+					token_list.token_type,
 					tokenmap[tokenmap_keyidx].type);
 				mutex_unlock(tokenmap_lock);
 				return -1;
@@ -683,8 +693,8 @@ int Handler_frame_token_sync_imgsys_isp8(struct mtk_img_frm_sync *mtk_img_frm_sy
 			if (ITF_LOG_LEVEL >= 1) {
 				dev_info(mtk_img_frm_sync_dev->dev,
 				"key/type(%d/%d) clear tokenMap[%d] = (%d, %d), token_id = %d\n",
-				token_list[i].mSyncToken, event_type,
-				token_list[i].mSyncToken, tokenmap[tokenmap_keyidx].type,
+				token_list.mSyncToken, event_type,
+				token_list.mSyncToken, tokenmap[tokenmap_keyidx].type,
 				tokenmap[tokenmap_keyidx].hw_token, token_id);
 			}
 		} else {
@@ -709,7 +719,7 @@ int Handler_frame_token_sync_imgsys_isp8(struct mtk_img_frm_sync *mtk_img_frm_sy
 			if (ITF_LOG_LEVEL >= 1) {
 				dev_info(mtk_img_frm_sync_dev->dev,
 					"key/type(%d/%d) update tokenMap[%d] = (%d, %d), token_id = %d\n",
-					token_list[i].mSyncToken, event_type,
+					token_list.mSyncToken, event_type,
 					tokenmap_keyidx,
 					tokenmap[tokenmap_keyidx].type,
 					tokenmap[tokenmap_keyidx].hw_token,
@@ -744,24 +754,22 @@ static int dpe_token_dump(struct mtk_img_frm_sync *mtk_img_frm_sync_dev, int acq
 {
 	int j = 0;
 
-	if (ITF_LOG_LEVEL >= 0) {
-		dev_info(mtk_img_frm_sync_dev->dev,
-			".no avail sw token: token_ridx(%d), token_id(%d), avail_token_num:%d\n",
-			acq_idx, dpe_sync_token_pool.token_pool[acq_idx].token_id,
-			dpe_sync_token_pool.pool.r_max);
-		dev_info(mtk_img_frm_sync_dev->dev, "===dump token map table===\n");
-		for (j = 0 ; j < DPE_SYNC_TOKEN_MAX ; j++) {
-			if (vsdof_tokenmap[j].hw_token != TOKEN_INVALID_ID) {
-				dev_info(mtk_img_frm_sync_dev->dev,
-					"token swkey(%d), hwfence(%d) type(%d), frmowner(%s), imgstm_inst(%llx),",
-					j + 1, vsdof_tokenmap[j].hw_token, vsdof_tokenmap[j].type,
-					(char *)(&(vsdof_tokenmap[j].frm_owner)),
-					vsdof_tokenmap[j].imgstm_inst);
-				pr_info("frame_no(%d), stg(%d), subfrm_idx(%d), hw_comb(0x%x), evt_order(%d)\n",
-					vsdof_tokenmap[j].frame_no, vsdof_tokenmap[j].stage,
-					vsdof_tokenmap[j].subfrm_sidx,
-					vsdof_tokenmap[j].hw_comb, vsdof_tokenmap[j].evt_order);
-			}
+	dev_info(mtk_img_frm_sync_dev->dev,
+		".no avail sw token: token_ridx(%d), token_id(%d), avail_token_num:%d\n",
+		acq_idx, dpe_sync_token_pool.token_pool[acq_idx].token_id,
+		dpe_sync_token_pool.pool.r_max);
+	dev_info(mtk_img_frm_sync_dev->dev, "===dump token map table===\n");
+	for (j = 0 ; j < DPE_SYNC_TOKEN_MAX ; j++) {
+		if (vsdof_tokenmap[j].hw_token != TOKEN_INVALID_ID) {
+			dev_info(mtk_img_frm_sync_dev->dev,
+				"token swkey(%d), hwfence(%d) type(%d), frmowner(%s), imgstm_inst(%llx),",
+				j + 1, vsdof_tokenmap[j].hw_token, vsdof_tokenmap[j].type,
+				(char *)(&(vsdof_tokenmap[j].frm_owner)),
+				vsdof_tokenmap[j].imgstm_inst);
+			pr_info("frame_no(%d), stg(%d), subfrm_idx(%d), hw_comb(0x%x), evt_order(%d)\n",
+				vsdof_tokenmap[j].frame_no, vsdof_tokenmap[j].stage,
+				vsdof_tokenmap[j].subfrm_sidx,
+				vsdof_tokenmap[j].hw_comb, vsdof_tokenmap[j].evt_order);
 		}
 	}
 	return 0;
@@ -777,12 +785,13 @@ int Handler_frame_token_sync_DPE_isp8(struct mtk_img_frm_sync *mtk_img_frm_sync_
 	int need_token = false;
 	int token_id = -1;
 	int i = 0, j = 0;
-	int acq_r_idx = 0;
+	unsigned int acq_r_idx = 0;
 	struct buf_ofst_table_t *oft_tb = NULL;
 	struct buf_ofst_info_t *oft_info = NULL;
 	int token_cnt = 0;
 	unsigned int tokenmap_keyidx = 0;
-	struct token_list_k token_list[16];
+	/*struct token_list_k token_list[16];*/
+	struct token_list_k token_list;
 	int r_idx = 0;
 	unsigned long start_time = 0;
 	unsigned int gce_index;
@@ -801,36 +810,41 @@ int Handler_frame_token_sync_DPE_isp8(struct mtk_img_frm_sync *mtk_img_frm_sync_
 		event_type = sync_type_set;
 		need_release = false;
 		need_token = true;
-		token_list[i].token_type = sync_type_set;
+		token_list.token_type = sync_type_set;
 		dev_info(mtk_img_frm_sync_dev->dev, "imgsys-dpe-token-set(%d)\n",
 			in_data->token_info.mSyncTokenList[i].token_value);
 		if (imgsys_frm_sync_which_event(in_data->token_info.mSyncTokenList[i].token_value))
-			token_list[i].mSyncToken =
+			token_list.mSyncToken =
 				(in_data->token_info.mSyncTokenList[i].token_value & 0x0000FFFF);
 		else
-			token_list[i].mSyncToken = in_data->token_info.mSyncTokenList[i].token_value;
+			token_list.mSyncToken = in_data->token_info.mSyncTokenList[i].token_value;
 	} else {
 		event_type = sync_type_wait;
 		need_release = true;
 		need_token = true;
-		token_list[i].token_type = sync_type_wait;
+		token_list.token_type = sync_type_wait;
 			dev_info(mtk_img_frm_sync_dev->dev, "imgsys-dpe-token-wait(%d/%d)\n",
 				in_data->token_info.mSyncTokenList[i].token_value, need_release);
 		if (imgsys_frm_sync_which_event(in_data->token_info.mSyncTokenList[i].token_value))
-			token_list[i].mSyncToken =
+			token_list.mSyncToken =
 				(in_data->token_info.mSyncTokenList[i].token_value & 0x0000FFFF);
 		else
-			token_list[i].mSyncToken = in_data->token_info.mSyncTokenList[i].token_value;
+			token_list.mSyncToken = in_data->token_info.mSyncTokenList[i].token_value;
 	}
 
 	if (ITF_LOG_LEVEL >= 1) {
 		dev_info(mtk_img_frm_sync_dev->dev, "token_key = %x(%d), need_token = %d\n",
-			token_list[i].mSyncToken, event_type, need_token);
+			token_list.mSyncToken, event_type, need_token);
 	}
 
 	if (need_token) {
 		tokenmap_keyidx = acquire_tokenmap_index(mtk_img_frm_sync_dev,
-			token_list[i].mSyncToken, mtk_imgsys_frm_sync_event_group_vsdof);
+			token_list.mSyncToken, mtk_imgsys_frm_sync_event_group_vsdof);
+		if (tokenmap_keyidx < 0) {
+			dev_info(mtk_img_frm_sync_dev->dev,
+				"vsdof acquire map index fail(%d)\n", tokenmap_keyidx);
+			return -ENOMEM;
+		}
 
 		/* mutex lock */
 		mutex_lock(&vsdof_tokenmap_lock);
@@ -838,7 +852,7 @@ int Handler_frame_token_sync_DPE_isp8(struct mtk_img_frm_sync *mtk_img_frm_sync_
 		if (ITF_LOG_LEVEL >= 2) {
 			dev_info(mtk_img_frm_sync_dev->dev,
 				"key/type(%d/%d) tokenMap[%d] = (%d, %d), need_token = %d\n",
-				token_list[i].mSyncToken, event_type,
+				token_list.mSyncToken, event_type,
 				tokenmap_keyidx,
 				vsdof_tokenmap[tokenmap_keyidx].type,
 				vsdof_tokenmap[tokenmap_keyidx].hw_token,
@@ -849,7 +863,7 @@ int Handler_frame_token_sync_DPE_isp8(struct mtk_img_frm_sync *mtk_img_frm_sync_
 			if (vsdof_tokenmap[tokenmap_keyidx].type == event_type) {
 				dev_info(mtk_img_frm_sync_dev->dev,
 				"wrong status: continued key(%d) with type(input:%d <-> Map:%d)\n",
-				token_list[i].mSyncToken,
+				token_list.mSyncToken,
 				event_type,
 				vsdof_tokenmap[tokenmap_keyidx].type);
 				mutex_unlock(&vsdof_tokenmap_lock);
@@ -874,8 +888,8 @@ int Handler_frame_token_sync_DPE_isp8(struct mtk_img_frm_sync *mtk_img_frm_sync_
 			if (ITF_LOG_LEVEL >= 1) {
 				dev_info(mtk_img_frm_sync_dev->dev,
 				"key/type(%d/%d) clear tokenMap[%d] = (%d, %d), token_id = %d\n",
-				token_list[i].mSyncToken, event_type,
-				token_list[i].mSyncToken, vsdof_tokenmap[tokenmap_keyidx].type,
+				token_list.mSyncToken, event_type,
+				token_list.mSyncToken, vsdof_tokenmap[tokenmap_keyidx].type,
 				vsdof_tokenmap[tokenmap_keyidx].hw_token, token_id);
 			}
 
@@ -920,7 +934,7 @@ int Handler_frame_token_sync_DPE_isp8(struct mtk_img_frm_sync *mtk_img_frm_sync_
 					acq_r_idx,
 					dpe_sync_token_pool.pool.idx_pool[0],
 					dpe_sync_token_pool.pool.r_max,
-					token_list[i].mSyncToken, vsdof_tokenmap[tokenmap_keyidx].type,
+					token_list.mSyncToken, vsdof_tokenmap[tokenmap_keyidx].type,
 					vsdof_tokenmap[tokenmap_keyidx].hw_token,
 					token_id);
 			}

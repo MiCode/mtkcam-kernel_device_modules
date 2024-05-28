@@ -43,14 +43,14 @@ int mtk_imgsys_frm_sync_init(struct platform_device *pdev, struct group group)
 	struct mtk_img_frm_sync *frm_sync_dev = platform_get_drvdata(pdev);
 	int ret = 0;
 
-	dev_info(frm_sync_dev->dev, "%s-group num(%d)", __func__, group.hw_group_id);
 	if ((frm_sync_dev == NULL)
 		|| (frm_sync_dev->data == NULL)
 		|| (frm_sync_dev->data->init == NULL)) {
-		dev_info(frm_sync_dev->dev, "%s init not support", __func__);
+		dev_info(&pdev->dev, "%s init not support", __func__);
 	} else {
 		ret = frm_sync_dev->data->init(frm_sync_dev, group);
 	}
+	dev_info(frm_sync_dev->dev, "%s-group num(%d)", __func__, group.hw_group_id);
 
 	return 0;
 }
@@ -64,7 +64,7 @@ int mtk_imgsys_frm_sync_uninit(struct platform_device *pdev, struct group group)
 	if ((frm_sync_dev == NULL)
 		|| (frm_sync_dev->data == NULL)
 		|| (frm_sync_dev->data->uninit == NULL)) {
-		dev_info(frm_sync_dev->dev, "%s uninit not support", __func__);
+		dev_info(&pdev->dev, "%s uninit not support", __func__);
 	} else {
 		ret = frm_sync_dev->data->uninit(frm_sync_dev, group);
 	}
@@ -82,7 +82,7 @@ int Handler_frame_token_sync_imgsys(struct platform_device *pdev, struct imgsys_
 	if ((frm_sync_dev == NULL)
 		|| (frm_sync_dev->data == NULL)
 		|| (frm_sync_dev->data->Handler_frame_token_sync_imgsys == NULL)) {
-		dev_info(frm_sync_dev->dev, "%s frm token imgsys not support", __func__);
+		dev_info(&pdev->dev, "%s frm token imgsys not support", __func__);
 	} else {
 		ret = frm_sync_dev->data->Handler_frame_token_sync_imgsys(frm_sync_dev, in_data, out_data);
 	}
@@ -100,7 +100,7 @@ int Handler_frame_token_sync_DPE(struct platform_device *pdev, struct dpe_in_dat
 	if ((frm_sync_dev == NULL)
 		|| (frm_sync_dev->data == NULL)
 		|| (frm_sync_dev->data->Handler_frame_token_sync_DPE == NULL)) {
-		dev_info(frm_sync_dev->dev, "%s frm token DPE not support", __func__);
+		dev_info(&pdev->dev, "%s frm token DPE not support", __func__);
 	} else {
 		ret = frm_sync_dev->data->Handler_frame_token_sync_DPE(frm_sync_dev, in_data, out_data);
 	}
@@ -118,7 +118,7 @@ int Handler_frame_token_sync_MAE(struct platform_device *pdev, struct mae_in_dat
 	if ((frm_sync_dev == NULL)
 		|| (frm_sync_dev->data == NULL)
 		|| (frm_sync_dev->data->Handler_frame_token_sync_MAE == NULL)) {
-		dev_info(frm_sync_dev->dev, "%s frm token MAE not support", __func__);
+		dev_info(&pdev->dev, "%s frm token MAE not support", __func__);
 	} else {
 		ret = frm_sync_dev->data->Handler_frame_token_sync_MAE(frm_sync_dev, in_data, out_data);
 	}
@@ -135,7 +135,7 @@ int release_frame_token_imgsys(struct platform_device *pdev, struct imgsys_deque
 	if ((frm_sync_dev == NULL)
 		|| (frm_sync_dev->data == NULL)
 		|| (frm_sync_dev->data->release_frame_token_imgsys == NULL)) {
-		dev_info(frm_sync_dev->dev, "%s frm token imgsys not support", __func__);
+		dev_info(&pdev->dev, "%s frm token imgsys not support", __func__);
 	} else {
 		ret = frm_sync_dev->data->release_frame_token_imgsys(frm_sync_dev, in_data);
 	}
@@ -152,7 +152,7 @@ int release_frame_token_DPE(struct platform_device *pdev, struct dpe_deque_done_
 	if ((frm_sync_dev == NULL)
 		|| (frm_sync_dev->data == NULL)
 		|| (frm_sync_dev->data->release_frame_token_DPE == NULL)) {
-		dev_info(frm_sync_dev->dev, "%s frm token DPE not support", __func__);
+		dev_info(&pdev->dev, "%s frm token DPE not support", __func__);
 	} else {
 		ret = frm_sync_dev->data->release_frame_token_DPE(frm_sync_dev, in_data);
 	}
@@ -169,7 +169,7 @@ int release_frame_token_MAE(struct platform_device *pdev, struct mae_deque_done_
 	if ((frm_sync_dev == NULL)
 		|| (frm_sync_dev->data == NULL)
 		|| (frm_sync_dev->data->release_frame_token_MAE == NULL)) {
-		dev_info(frm_sync_dev->dev, "%s frm token MAE not support", __func__);
+		dev_info(&pdev->dev, "%s frm token MAE not support", __func__);
 	} else {
 		ret = frm_sync_dev->data->release_frame_token_MAE(frm_sync_dev, in_data);
 	}
@@ -188,7 +188,7 @@ int clear_token_user(struct platform_device *pdev, unsigned long frm_owner, unsi
 	if ((frm_sync_dev == NULL)
 		|| (frm_sync_dev->data == NULL)
 		|| (frm_sync_dev->data->clear_token_user == NULL)) {
-		dev_info(frm_sync_dev->dev, "%s frm token imgsys not support", __func__);
+		dev_info(&pdev->dev, "%s frm token imgsys not support", __func__);
 	} else {
 		ret = frm_sync_dev->data->clear_token_user(frm_sync_dev, frm_owner, imgstm_inst);
 	}
@@ -204,7 +204,7 @@ int mtk_imgsys_frm_sync_timeout(struct platform_device *pdev, int gce_event_id)
 	if ((frm_sync_dev == NULL)
 		|| (frm_sync_dev->data == NULL)
 		|| (frm_sync_dev->data->frm_sync_timeout == NULL)) {
-		dev_info(frm_sync_dev->dev, "%s frm sync timeout not support", __func__);
+		dev_info(&pdev->dev, "%s frm sync timeout not support", __func__);
 	} else {
 		ret = frm_sync_dev->data->frm_sync_timeout(frm_sync_dev, gce_event_id);
 	}

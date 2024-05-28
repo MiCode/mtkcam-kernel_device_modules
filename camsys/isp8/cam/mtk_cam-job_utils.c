@@ -1880,6 +1880,10 @@ int get_sv_tag_idx(unsigned int exp_no, unsigned int tag_order, bool is_w)
 	int i, tag_idx = -1;
 
 	hw_scen = 1 << HWPATH_ID(MTKCAM_IPI_HW_PATH_STAGGER);
+	if (exp_no > 3) {
+		pr_info("[%s] invalid exp no %d\n", __func__, exp_no);
+		goto EXIT;
+	}
 	req_amount = (exp_no < 3) ? exp_no * 2 : exp_no;
 	if (mtk_cam_sv_get_tag_param(img_tag_param, hw_scen, exp_no, req_amount))
 		goto EXIT;

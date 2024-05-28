@@ -1386,6 +1386,14 @@ static void mtk_cam_ctrl_dynamic_raws_change_flow(struct mtk_cam_job *job)
 	}
 
 	mtk_cam_job_update_clk(job);
+
+	if (is_stagger_dol(job))
+		qof_mtcmos_voter_handle(&ctx->cam->engines,
+			raw_after_change, &ctx->DOL_not_support);
+	else
+		qof_mtcmos_voter_handle(&ctx->cam->engines,
+			0, &ctx->DOL_not_support);
+
 	if (dynamic_raw_change_uninit_engine(job, engine_uninit)) {
 		dev_info(dev, "[%s] uninit engine failed, uninit raw:0x%x\n",
 			__func__, job->raw_change_uninit_engine);
@@ -1520,6 +1528,13 @@ static void mtk_cam_ctrl_seamless_switch_flow(struct mtk_cam_job *job)
 	}
 
 	call_job_seamless_ops(job, after_prev_frame_done);
+
+	if (is_stagger_dol(job))
+		qof_mtcmos_voter_handle(&ctx->cam->engines,
+			raw_after_change, &ctx->DOL_not_support);
+	else
+		qof_mtcmos_voter_handle(&ctx->cam->engines,
+			0, &ctx->DOL_not_support);
 
 	if (dynamic_raw_change_uninit_engine(job, engine_uninit))
 		goto SWITCH_FAILURE;

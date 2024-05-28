@@ -688,6 +688,9 @@ mtk_cam_job_initialize_engines(struct mtk_cam_ctx *ctx,
 			}
 		}
 
+		if (qof_enabled && is_stagger_dol(job))
+			qof_mtcmos_voter_handle(&ctx->cam->engines,
+				ctx->used_engine, &ctx->DOL_not_support);
 
 		if (job->enable_hsf_raw)
 			mtk_cam_hsf_init(ctx);
@@ -2622,6 +2625,10 @@ static int job_raw_change_hw_init(struct mtk_cam_job *job)
 					}
 				}
 			}
+
+			if (qof_enabled && is_stagger_dol(job))
+				qof_mtcmos_voter_handle(&ctx->cam->engines,
+					ctx->used_engine, &ctx->DOL_not_support);
 
 			if (job->enable_hsf_raw)
 				mtk_cam_hsf_init(ctx);

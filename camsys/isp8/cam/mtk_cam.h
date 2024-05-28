@@ -218,6 +218,8 @@ struct mtk_cam_ctx {
 
 	bool enable_luma_dump;
 	bool rms_disable;
+
+	struct qof_voter_handle DOL_not_support;
 };
 
 struct mtk_cam_v4l2_pipelines {

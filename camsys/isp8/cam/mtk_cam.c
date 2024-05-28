@@ -3244,6 +3244,7 @@ static void mtk_cam_ctx_raw_qof_disable(struct mtk_cam_ctx *ctx)
 	struct mtk_raw_device *raw;
 	struct mtk_camsv_device *sv;
 
+	qof_mtcmos_voter_handle(&ctx->cam->engines, 0, &ctx->DOL_not_support);
 	for (i = 0; i < ARRAY_SIZE(ctx->hw_raw); i++) {
 		if (!ctx->hw_raw[i])
 			continue;

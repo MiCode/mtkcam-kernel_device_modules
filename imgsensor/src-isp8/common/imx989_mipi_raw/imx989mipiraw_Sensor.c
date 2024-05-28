@@ -533,14 +533,24 @@ static struct mtk_mbus_frame_desc_entry frame_desc_cus6[] = {
 	},
 	{
 		.bus.csi2 = {
-			.channel = 1,
+			.channel = 0,
 			.data_type = 0x30,
 			.hsize = 0x1000,
 			.vsize = 0x0240,
 			.dt_remap_to_type = MTK_MBUS_FRAME_DESC_REMAP_TO_RAW10,
-			.user_data_desc = VC_PDAF_STATS_ME_PIX_1,
+			.user_data_desc = VC_PDAF_STATS_NE_PIX_1,
 		},
 	},
+	// {
+		// .bus.csi2 = {
+			// .channel = 1,
+			// .data_type = 0x30,
+			// .hsize = 0x1000,
+			// .vsize = 0x0240,
+			// .dt_remap_to_type = MTK_MBUS_FRAME_DESC_REMAP_TO_RAW10,
+			// .user_data_desc = VC_PDAF_STATS_ME_PIX_1,
+		// },
+	// },
 #if IMX989_EMBEDDED_DATA_EN
 	{
 		.bus.csi2 = {
@@ -1033,14 +1043,24 @@ static struct mtk_mbus_frame_desc_entry frame_desc_cus18[] = {
 	},
 	{
 		.bus.csi2 = {
-			.channel = 1,
+			.channel = 0,
 			.data_type = 0x30,
 			.hsize = 0x1000,
 			.vsize = 0x0300,
 			.dt_remap_to_type = MTK_MBUS_FRAME_DESC_REMAP_TO_RAW10,
-			.user_data_desc = VC_PDAF_STATS_ME_PIX_1,
+			.user_data_desc = VC_PDAF_STATS_NE_PIX_1,
 		},
 	},
+	// {
+		// .bus.csi2 = {
+			// .channel = 1,
+			// .data_type = 0x30,
+			// .hsize = 0x1000,
+			// .vsize = 0x0300,
+			// .dt_remap_to_type = MTK_MBUS_FRAME_DESC_REMAP_TO_RAW10,
+			// .user_data_desc = VC_PDAF_STATS_ME_PIX_1,
+		// },
+	// },
 #if IMX989_EMBEDDED_DATA_EN
 	{
 		.bus.csi2 = {
@@ -1413,12 +1433,12 @@ static struct mtk_mbus_frame_desc_entry frame_desc_cus28[] = {
 	},
 	{
 		.bus.csi2 = {
-			.channel = 1,
+			.channel = 0,
 			.data_type = 0x30,
 			.hsize = 0x0800,
 			.vsize = 0x0300,
 			.dt_remap_to_type = MTK_MBUS_FRAME_DESC_REMAP_TO_RAW10,
-			.user_data_desc = VC_PDAF_STATS_ME_PIX_1,
+			.user_data_desc = VC_PDAF_STATS_NE_PIX_1,
 		},
 	},
 #if IMX989_EMBEDDED_DATA_EN
@@ -1457,12 +1477,12 @@ static struct mtk_mbus_frame_desc_entry frame_desc_cus29[] = {
 	},
 	{
 		.bus.csi2 = {
-			.channel = 1,
+			.channel = 0,
 			.data_type = 0x30,
 			.hsize = 0x0800,
 			.vsize = 0x0300,
 			.dt_remap_to_type = MTK_MBUS_FRAME_DESC_REMAP_TO_RAW10,
-			.user_data_desc = VC_PDAF_STATS_ME_PIX_1,
+			.user_data_desc = VC_PDAF_STATS_NE_PIX_1,
 		},
 	},
 #if IMX989_EMBEDDED_DATA_EN
@@ -1501,12 +1521,12 @@ static struct mtk_mbus_frame_desc_entry frame_desc_cus30[] = {
 	},
 	{
 		.bus.csi2 = {
-			.channel = 1,
+			.channel = 0,
 			.data_type = 0x30,
 			.hsize = 0x0800,
 			.vsize = 0x0240,
 			.dt_remap_to_type = MTK_MBUS_FRAME_DESC_REMAP_TO_RAW10,
-			.user_data_desc = VC_PDAF_STATS_ME_PIX_1,
+			.user_data_desc = VC_PDAF_STATS_NE_PIX_1,
 		},
 	},
 #if IMX989_EMBEDDED_DATA_EN
@@ -1671,12 +1691,12 @@ static struct mtk_mbus_frame_desc_entry frame_desc_cus35[] = {
 	},
 	{
 		.bus.csi2 = {
-			.channel = 1,
+			.channel = 0,
 			.data_type = 0x30,
 			.hsize = 0x1000,
 			.vsize = 0x0280,
 			.dt_remap_to_type = MTK_MBUS_FRAME_DESC_REMAP_TO_RAW10,
-			.user_data_desc = VC_PDAF_STATS_ME_PIX_1,
+			.user_data_desc = VC_PDAF_STATS_NE_PIX_1,
 		},
 	},
 #if IMX989_EMBEDDED_DATA_EN
@@ -1793,12 +1813,12 @@ static struct mtk_mbus_frame_desc_entry frame_desc_cus38[] = {
 	},
 	{
 		.bus.csi2 = {
-			.channel = 1,
+			.channel = 0,
 			.data_type = 0x30,
 			.hsize = 0x0800,
 			.vsize = 0x0280,
 			.dt_remap_to_type = MTK_MBUS_FRAME_DESC_REMAP_TO_RAW10,
-			.user_data_desc = VC_PDAF_STATS_ME_PIX_1,
+			.user_data_desc = VC_PDAF_STATS_NE_PIX_1,
 		},
 	},
 #if IMX989_EMBEDDED_DATA_EN
@@ -1871,12 +1891,12 @@ static struct mtk_mbus_frame_desc_entry frame_desc_cus40[] = {
 	},
 	{
 		.bus.csi2 = {
-			.channel = 1,
+			.channel = 0,
 			.data_type = 0x30,
 			.hsize = 0x0800,
 			.vsize = 0x0240,
 			.dt_remap_to_type = MTK_MBUS_FRAME_DESC_REMAP_TO_RAW10,
-			.user_data_desc = VC_PDAF_STATS_ME_PIX_1,
+			.user_data_desc = VC_PDAF_STATS_NE_PIX_1,
 		},
 	},
 #if IMX989_EMBEDDED_DATA_EN

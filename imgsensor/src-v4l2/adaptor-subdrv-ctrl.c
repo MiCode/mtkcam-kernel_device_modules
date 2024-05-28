@@ -1244,7 +1244,7 @@ void set_multi_shutter_frame_length(struct subdrv_ctx *ctx,
 	int i = 0;
 	int fine_integ_line = 0;
 	u16 last_exp_cnt = 1;
-	u32 calc_fl[3] = {0};
+	u32 calc_fl[4] = {0};
 	int readout_diff = 0;
 	bool gph = !ctx->is_seamless && (ctx->s_ctx.s_gph != NULL);
 	u32 rg_shutters[3] = {0};
@@ -1294,6 +1294,21 @@ void set_multi_shutter_frame_length(struct subdrv_ctx *ctx,
 			readout_diff = ctx->exposure[i] - (u32) shutters[i];
 			calc_fl[2] += readout_diff > 0 ? readout_diff : 0;
 		}
+	/* - (4) For DOL (non-FDOL), N-th frame SE and N+1-th frame LE readout cannot be overlapped */
+	if ((ctx->s_ctx.hdr_type & HDR_SUPPORT_STAGGER_DOL) &&
+		ctx->s_ctx.mode[ctx->current_scenario_id].hdr_mode == HDR_RAW_STAGGER) {
+		for (i = 1; i < last_exp_cnt; i++)
+			calc_fl[3] += ctx->exposure[i];
+		calc_fl[3] += ctx->s_ctx.exposure_margin*exp_cnt*(exp_cnt-1);
+		calc_fl[3] += ctx->readout_length +	ctx->min_vblanking_line;
+		DRV_LOG(ctx,
+			"calc_fl[3]: %u, pre-LE/ME/SE (%u/%u/%u), cur-LE/ME/SE (%llu/%llu/%llu), readout_length:%u, min_vblanking_line:%u\n",
+			calc_fl[3],
+			ctx->exposure[0], ctx->exposure[1], ctx->exposure[2],
+			shutters[0], shutters[1], shutters[2],
+			ctx->readout_length,
+			ctx->min_vblanking_line);
+	}
 	for (i = 0; i < ARRAY_SIZE(calc_fl); i++)
 		ctx->frame_length = max(ctx->frame_length, calc_fl[i]);
 	ctx->frame_length =	max(ctx->frame_length, ctx->min_frame_length);
@@ -3142,6 +3157,7 @@ void update_mode_info(struct subdrv_ctx *ctx, enum SENSOR_SCENARIO_ID_ENUM scena
 	ctx->min_frame_length = ctx->frame_length;
 	ctx->autoflicker_en = FALSE;
 	ctx->l_shift = 0;
+	ctx->min_vblanking_line = ctx->s_ctx.mode[scenario_id].min_vblanking_line;
 	if (ctx->s_ctx.mode[scenario_id].hdr_mode == HDR_RAW_LBMF) {
 		memset(ctx->frame_length_in_lut, 0,
 			sizeof(ctx->frame_length_in_lut));

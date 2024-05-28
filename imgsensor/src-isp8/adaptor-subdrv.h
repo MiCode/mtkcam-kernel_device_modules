@@ -241,6 +241,7 @@ struct subdrv_mode_struct {
 	u32 framelength_step;
 	u32 coarse_integ_step;
 	u32 min_exposure_line;
+	u32 min_vblanking_line;
 	struct SENSOR_WINSIZE_INFO_STRUCT imgsensor_winsize_info;
 
 	enum IMGSENSOR_RGBW_OUTPUT_MODE rgbw_output_mode;
@@ -500,6 +501,7 @@ struct subdrv_ctx {
 	bool fast_mode_on;
 	bool ae_ctrl_gph_en;
 	u16 l_shift;
+	u32 min_vblanking_line;
 
 	u32 is_read_preload_eeprom;
 	u32 is_read_four_cell;

@@ -107,6 +107,7 @@ struct mtk_raw_ctrl_data_read_clear {
 	bool sensor_mode_update;
 	bool sensor_update;
 	u64 ref_sof_ts_ns;
+	u32 fl_low_latency;
 };
 
 struct mtk_raw_ctrl_data {
@@ -134,7 +135,6 @@ struct mtk_raw_ctrl_data {
 
 	u32 enable_hsf_raw;
 	u32 trigger_cq_deadline;
-	u8 ltms_low_latency;
 	u8 slc_mode;
 	struct mtk_raw_ctrl_data_read_clear rc_data;
 };

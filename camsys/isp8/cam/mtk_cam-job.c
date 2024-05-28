@@ -4660,6 +4660,18 @@ static void update_reference_sof(struct mtk_cam_job *job)
 			job->job_state.reference_sof_ns);
 }
 
+static void update_sensor_fl_low_latency(struct mtk_cam_job *job)
+{
+	struct mtk_raw_request_data *raw_data = req_get_raw_data(job->src_ctx, job->req);
+	unsigned int prolong_data;
+
+	if (raw_data && job->seamless_switch) {
+		prolong_data = raw_data->ctrl.rc_data.fl_low_latency;
+		pr_info("%s: prolong_data %u", __func__, prolong_data);
+		notify_sensor_set_fl_prolong(job->seninf, prolong_data);
+	}
+}
+
 static int job_sen_req_pack(struct mtk_cam_job *job)
 {
 	struct mtk_cam_ctx *ctx = job->src_ctx;
@@ -4762,7 +4774,7 @@ static int job_sen_req_pack(struct mtk_cam_job *job)
 		(job->first_job || sensor_change) && is_sensor_mode_update(job);
 	job->seamless_switch =
 		(!job->first_job && !sensor_change) && is_sensor_mode_update(job);
-
+	update_sensor_fl_low_latency(job);
 	if (CAM_DEBUG_ENABLED(JOB))
 		pr_info("[%s] ctx:%d|type:%d|%s|exp(cur:%d,prev:%d)|sw/scene:%d/%d, req_id:%d",
 				__func__,

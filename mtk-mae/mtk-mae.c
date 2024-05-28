@@ -634,8 +634,7 @@ static void mtk_mae_device_run(void *priv)
 	struct mtk_mae_dev *mae_dev = ctx->mae_dev;
 	struct vb2_v4l2_buffer *src_buf, *dst_buf;
 	struct EnqueParam *param;
-
-	int idx;
+	uint32_t idx;
 
 	src_buf = v4l2_m2m_next_src_buf(ctx->fh.m2m_ctx);
 	if (src_buf == NULL)
@@ -1566,19 +1565,20 @@ int mtk_mae_vioctl_dqbuf(struct file *file, void *priv,
 int mtk_mae_vidioc_qbuf(struct file *file, void *priv,
 			struct v4l2_buffer *buf)
 {
-	struct mtk_mae_dev *mae_dev = video_drvdata(file);
+	struct mtk_mae_dev *mae_dev;
 	struct mtk_mae_map_table *map_table;
-	uint32_t idx = buf->index;
+	uint32_t idx;
 	int ret;
 	struct ModelTable *model_table;
 	struct EnqueParam *param;
 	uint32_t i;
 	struct dmabuf_info_cache *cache = NULL;
 
-	mae_dev_dbg(mae_dev->dev, "%s+ buffer index(%d)", __func__, idx);
-
 	if (file == NULL || buf == NULL)
 		return -EFAULT;
+
+	mae_dev = video_drvdata(file);
+	idx = buf->index;
 
 #if M2M_ENABLE
 	if (buf->type != V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE)

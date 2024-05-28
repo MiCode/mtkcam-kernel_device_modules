@@ -792,11 +792,11 @@ struct mtk_mae_drv_ops {
 	// int (*alloc_buf)(struct mtk_aie_dev *fd);
 	// int (*init)(struct mtk_aie_dev *fd);
 	// void (*uninit)(struct mtk_aie_dev *fd);
-	bool (*set_dma_address)(struct mtk_mae_dev *mae_dev, int idx);
-	bool (*config_hw)(struct mtk_mae_dev *mae_dev, int idx);
-	void (*config_fld)(struct mtk_mae_dev *mae_dev, int idx);
-	void (*get_fd_v0_result)(struct mtk_mae_dev *mae_dev, int idx);
-	void (*get_fd_v1_result)(struct mtk_mae_dev *mae_dev, int idx);
+	bool (*set_dma_address)(struct mtk_mae_dev *mae_dev, uint32_t idx);
+	bool (*config_hw)(struct mtk_mae_dev *mae_dev, uint32_t idx);
+	void (*config_fld)(struct mtk_mae_dev *mae_dev, uint32_t idx);
+	void (*get_fd_v0_result)(struct mtk_mae_dev *mae_dev, uint32_t idx);
+	void (*get_fd_v1_result)(struct mtk_mae_dev *mae_dev, uint32_t idx);
 	// void (*get_attr_result)(struct mtk_aie_dev *fd,
 	// 		struct aie_enq_info *aie_cfg);
 	// void (*get_fld_result)(struct mtk_aie_dev *fd,

@@ -1115,6 +1115,11 @@ int mtk_cam_seninf_set_pixelmode(struct v4l2_subdev *sd,
 		return -EINVAL;
 	}
 
+	if (pad_id < PAD_SRC_RAW0 || pad_id >= PAD_MAXCNT) {
+		seninf_logi(ctx, "[err]: no such pad id:%d\n", pad_id);
+		return -EINVAL;
+	}
+
 	if (ctx->streaming) {
 		seninf_logi(ctx, "Unsupport to change in streaming state, pad_id %d pixmode %d",
 			    pad_id, pixelMode);
@@ -1154,7 +1159,8 @@ static bool is_using_swith_v2(struct seninf_ctx *ctx, bool grp_en, bool from_swi
 {
 	bool ret = false;
 
-	ret = from_switch && (!grp_en) && (ctx->outmux_disable_list_for_v2[outmux]);
+	if (ctx)
+		ret = from_switch && (!grp_en) && (ctx->outmux_disable_list_for_v2[outmux]);
 
 	return ret;
 }
@@ -1693,9 +1699,16 @@ int mtk_cam_seninf_get_tag_order(struct v4l2_subdev *sd,
 
 	/* get fs_seq info by pad */
 	vc_sid.scenario_id = scenario;
-	ctx->sensor_sd->ops->core->command(ctx->sensor_sd,
-					V4L2_CMD_G_SENSOR_VC_INFO_BY_SCENARIO,
-					&vc_sid);
+	if (ctx->sensor_sd &&
+	    ctx->sensor_sd->ops &&
+	    ctx->sensor_sd->ops->core &&
+	    ctx->sensor_sd->ops->core->command) {
+		ctx->sensor_sd->ops->core->command(ctx->sensor_sd,
+						   V4L2_CMD_G_SENSOR_VC_INFO_BY_SCENARIO,
+						   &vc_sid);
+	} else {
+		seninf_logi(ctx, "find sensor command failed\n");
+	}
 
 	vc = kmalloc(sizeof(struct seninf_vc), GFP_KERNEL);
 	if (vc == NULL)
@@ -1941,19 +1954,23 @@ int mtk_cam_seninf_s_stream_mux(struct seninf_ctx *ctx)
 				// get outmux_cfg
 				cfg = get_outmux_cfg_from_list(ctx, &outmux_cfgs, dest->outmux);
 
-				cfg->src_mipi = intf;
-				cfg->src_sen = sen;
-				cfg->pix_mode = dest->pix_mode;
-				cfg->tag_cfg[dest->tag].enable = true;
-				cfg->tag_cfg[dest->tag].filt_vc = vc_sel;
-				cfg->tag_cfg[dest->tag].filt_dt = dt_sel;
-				cfg->tag_cfg[dest->tag].exp_hsize = vc->exp_hsize;
-				cfg->tag_cfg[dest->tag].exp_vsize = vc->exp_vsize;
+				if (cfg) {
+					cfg->src_mipi = intf;
+					cfg->src_sen = sen;
+					cfg->pix_mode = dest->pix_mode;
+					cfg->tag_cfg[dest->tag].enable = true;
+					cfg->tag_cfg[dest->tag].filt_vc = vc_sel;
+					cfg->tag_cfg[dest->tag].filt_dt = dt_sel;
+					cfg->tag_cfg[dest->tag].exp_hsize = vc->exp_hsize;
+					cfg->tag_cfg[dest->tag].exp_vsize = vc->exp_vsize;
 
-				seninf_logi(ctx,
-					"vc[%d] dest[%u] pad %d intf %d sen %d outmux %d tag %d vc 0x%x dt 0x%x pix_mode %u\n",
-					i, j, vc->out_pad, intf, sen, dest->outmux,
-					dest->tag, vc_sel, dt_sel, dest->pix_mode);
+					seninf_logi(ctx,
+						    "vc[%d] dest[%u] pad %d intf %d sen %d outmux %d tag %d vc 0x%x dt 0x%x pix_mode %u\n",
+						    i, j, vc->out_pad, intf, sen, dest->outmux,
+						    dest->tag, vc_sel, dt_sel, dest->pix_mode);
+				} else {
+					seninf_logi(ctx, "get outmux%d cfg failed\n", dest->outmux);
+				}
 			} else {
 				seninf_logi(ctx, "invalid outmux, vc[%d] pad %d intf %d outmux %d\n",
 					 i, vc->out_pad, intf, dest->outmux);
@@ -1963,8 +1980,15 @@ int mtk_cam_seninf_s_stream_mux(struct seninf_ctx *ctx)
 
 	if (!ctx->is_test_model) {
 		/* query if sensor in reset */
-		ctx->sensor_sd->ops->core->command(ctx->sensor_sd,
-				V4L2_CMD_G_SENSOR_STREAM_STATUS, &is_sensor_stream);
+		if (ctx->sensor_sd &&
+		    ctx->sensor_sd->ops &&
+		    ctx->sensor_sd->ops->core &&
+		    ctx->sensor_sd->ops->core->command) {
+			ctx->sensor_sd->ops->core->command(ctx->sensor_sd,
+						V4L2_CMD_G_SENSOR_STREAM_STATUS, &is_sensor_stream);
+		} else {
+			seninf_logi(ctx, "find sensor command failed\n");
+		}
 		grp_en = !!(is_sensor_stream) && (seninf_list_count(&outmux_cfgs) > 1);
 		seninf_logd(ctx, "is sensor streamed: %u, config outmux cnt: %lu\n",
 			    is_sensor_stream, seninf_list_count(&outmux_cfgs));

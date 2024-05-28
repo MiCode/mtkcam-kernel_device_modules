@@ -479,7 +479,10 @@ static ssize_t debug_ops_store(struct device *dev,
 			}
 		}
 		if (eye_scan_rg_idx < 0){
-			snprintf(debug_ops_show_log, DEBUG_OPS_SHOW_LOG_SIZE, "[EYE_SCAN FAIL] no such command\n");
+			ret = snprintf(debug_ops_show_log, DEBUG_OPS_SHOW_LOG_SIZE,
+				       "[EYE_SCAN FAIL] no such command\n");
+			if (ret < 0)
+				dev_info(dev, "failed to snprintf\n");
 			dev_info(dev, "[%s] wrong eye_scan_rg_idx, line=%d\n", __func__, __LINE__);
 			goto ERR_DEBUG_OPS_STORE;
 		}
@@ -496,14 +499,20 @@ static ssize_t debug_ops_store(struct device *dev,
 			  (eye_scan_rg_idx == EYE_SCAN_KEYS_GET_EQ_OFFSET))) {
 			ret = kstrtoint(arg[EYE_SCAN_VAL], 0, &val_signed);
 			if (ret){
-				snprintf(debug_ops_show_log, DEBUG_OPS_SHOW_LOG_SIZE, "[EYE_SCAN FAIL] decode value (str2int) fail\n");
+				ret = snprintf(debug_ops_show_log, DEBUG_OPS_SHOW_LOG_SIZE,
+					       "[EYE_SCAN FAIL] decode value (str2int) fail\n");
+				if (ret < 0)
+					dev_info(dev, "failed to snprintf\n");
 				dev_info(dev, "[%s] str2int fail, line=%d\n", __func__, __LINE__);
 				goto ERR_DEBUG_OPS_STORE;
 			}
 		}
 		ret = kstrtouint(arg[EYE_SCAN_SENSORIDX], 0, &sensor_idx);
 		if (ret) {
-			snprintf(debug_ops_show_log, DEBUG_OPS_SHOW_LOG_SIZE, "[EYE_SCAN FAIL] decode sensor_idx (str2int) fail\n");
+			ret = snprintf(debug_ops_show_log, DEBUG_OPS_SHOW_LOG_SIZE,
+				       "[EYE_SCAN FAIL] decode sensor_idx (str2int) fail\n");
+			if (ret < 0)
+				dev_info(dev, "failed to snprintf\n");
 			dev_info(dev, "[%s] str2int fail, line=%d\n", __func__, __LINE__);
 			goto ERR_DEBUG_OPS_STORE;
 		}
@@ -517,7 +526,9 @@ static ssize_t debug_ops_store(struct device *dev,
 				eye_scan_log = kzalloc(DEBUG_OPS_SHOW_LOG_SIZE + 1, GFP_KERNEL);
 				if (eye_scan_log != NULL) {
 					g_seninf_ops->_eye_scan(ctx, eye_scan_rg_idx, val_signed, eye_scan_log, (int)DEBUG_OPS_SHOW_LOG_SIZE );
-					snprintf(debug_ops_show_log, DEBUG_OPS_SHOW_LOG_SIZE, eye_scan_log);
+					ret = snprintf(debug_ops_show_log, DEBUG_OPS_SHOW_LOG_SIZE, eye_scan_log);
+					if (ret < 0)
+						dev_info(dev, "failed to snprintf\n");
 				}
 				kfree(eye_scan_log);
 
@@ -527,7 +538,10 @@ static ssize_t debug_ops_store(struct device *dev,
 
 		if (!find_sensor_subdev) {
 			dev_info(dev, "[EYE_SCAN FAIL] could not find sensor subdev\n");
-			snprintf(debug_ops_show_log, DEBUG_OPS_SHOW_LOG_SIZE, "[EYE_SCAN FAIL] could not find sensor subdev\n");
+			ret = snprintf(debug_ops_show_log, DEBUG_OPS_SHOW_LOG_SIZE,
+				       "[EYE_SCAN FAIL] could not find sensor subdev\n");
+			if (ret < 0)
+				dev_info(dev, "failed to snprintf\n");
 		}
 	}
 
@@ -3020,6 +3034,9 @@ static int seninf_parse_fwnode(struct device *dev, struct v4l2_async_notifier *n
 		bool is_available;
 
 		dev_fwnode = fwnode_graph_get_port_parent(fwnode);
+		if (!dev_fwnode)
+			continue;
+
 		is_available = fwnode_device_is_available(dev_fwnode);
 		fwnode_handle_put(dev_fwnode);
 		if (!is_available)
@@ -3032,7 +3049,8 @@ static int seninf_parse_fwnode(struct device *dev, struct v4l2_async_notifier *n
 		}
 	}
 
-	fwnode_handle_put(fwnode);
+	if (fwnode)
+		fwnode_handle_put(fwnode);
 
 	return ret;
 }

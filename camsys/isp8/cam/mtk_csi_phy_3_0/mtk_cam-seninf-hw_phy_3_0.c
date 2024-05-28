@@ -540,7 +540,7 @@ static int mtk_cam_seninf_get_outmux_irq_st(struct seninf_ctx *ctx, int outmux_i
 	u32 val = 0;
 
 	/* test parameter */
-	if (outmux_idx >= _seninf_ops->outmux_num) {
+	if (outmux_idx < 0 || outmux_idx >= _seninf_ops->outmux_num) {
 		dev_info(ctx->dev, "%s invalid outmux %d\n", __func__, outmux_idx);
 		return -EINVAL;
 	}
@@ -564,7 +564,7 @@ static u32 seninf_get_outmux_rg_val(struct seninf_ctx *ctx, int outmux_idx,
 	void *pSeninf_outmux = NULL;
 
 	/* test parameter */
-	if (outmux_idx >= _seninf_ops->outmux_num) {
+	if (outmux_idx < 0 || outmux_idx >= _seninf_ops->outmux_num) {
 		dev_info(ctx->dev, "%s invalid outmux %d\n", __func__, outmux_idx);
 		return -EINVAL;
 	}
@@ -580,7 +580,7 @@ static u32 seninf_get_outmux_rg_val_inner(struct seninf_ctx *ctx, int outmux_idx
 	void *pSeninf_outmux = NULL;
 
 	/* test parameter */
-	if (outmux_idx >= _seninf_ops->outmux_num) {
+	if (outmux_idx < 0 || outmux_idx >= _seninf_ops->outmux_num) {
 		dev_info(ctx->dev, "%s invalid outmux %d\n", __func__, outmux_idx);
 		return -EINVAL;
 	}
@@ -596,7 +596,11 @@ static int mtk_cam_get_outmux_sel(struct seninf_ctx *ctx, int outmux_idx,
 	void *pSeninf_outmux = NULL;
 
 	/* test parameter */
-	if (outmux_idx >= _seninf_ops->outmux_num) {
+	if (unlikely(ctx == NULL)) {
+		/* invalid seninf ctx */
+		return -EINVAL;
+	}
+	if (outmux_idx < 0 || outmux_idx >= _seninf_ops->outmux_num) {
 		dev_info(ctx->dev, "%s invalid outmux %d\n", __func__, outmux_idx);
 		return -EINVAL;
 	}
@@ -1046,7 +1050,7 @@ static int mtk_cam_seninf_set_outmux_grp_en(struct seninf_ctx *ctx,
 {
 	void *pSeninf_outmux = NULL;
 
-	if (outmux < 0 || outmux >= _seninf_ops->outmux_num) {
+	if (outmux >= _seninf_ops->outmux_num) {
 		dev_info(ctx->dev,
 			"%s err outmux %u invalid (0~SENINF_OUTMUX_NUM:%d)\n",
 			__func__,
@@ -1069,7 +1073,7 @@ static int mtk_cam_seninf_set_outmux_cfg_rdy(struct seninf_ctx *ctx,
 {
 	void *pSeninf_outmux = NULL;
 
-	if (outmux < 0 || outmux >= _seninf_ops->outmux_num) {
+	if (outmux >= _seninf_ops->outmux_num) {
 		dev_info(ctx->dev,
 			"%s err outmux %u invalid (0~SENINF_OUTMUX_NUM:%d)\n",
 			__func__,
@@ -4085,7 +4089,7 @@ static int mtk_cam_seninf_debug_core_dump(struct seninf_ctx *ctx,
 	for (i = 0; i < ctx->vcinfo.cnt; i++) {
 		vc = &ctx->vcinfo.vc[i];
 
-		for (j = 0; j < vc->dest_cnt; j++) {
+		for (j = 0; (j < vc->dest_cnt) && (j < MAX_DEST_NUM); j++) {
 
 			if (vc_vaild_cnt >= MAX_MUX_VCINFO_DEBUG) {
 				dev_info(ctx->dev,
@@ -4095,6 +4099,14 @@ static int mtk_cam_seninf_debug_core_dump(struct seninf_ctx *ctx,
 			}
 
 			dest = &vc->dest[j];
+
+			if (dest->outmux >= SENINF_OUTMUX_NUM) {
+				seninf_logi(ctx,
+					"dest->outmux (%u) is invalid and larger than SENINF_OUTMUX_NUM (%u)\n",
+					dest->outmux, SENINF_OUTMUX_NUM);
+				return -EINVAL;
+			}
+
 			outmux = ctx->reg_if_outmux[dest->outmux];
 
 			if (!outmux) {
@@ -7226,6 +7238,14 @@ int mtk_cam_seninf_set_outmux_ref_vsync(struct seninf_ctx *ctx, u8 outmux_idx)
 int mtk_cam_seninf_set_outmux_cfg_done(struct seninf_ctx *ctx, u8 outmux_idx)
 {
 	void *pSeninf_mux;
+
+	if (unlikely(ctx == NULL))
+		return -EINVAL;
+
+	if (unlikely(outmux_idx > _seninf_ops->outmux_num)) {
+		dev_info(ctx->dev, "[Error][%s] invalid outmux_idx (%d)\n", __func__, outmux_idx);
+		return -EINVAL;
+	}
 
 	seninf_logi(ctx, "raise outmux%u cfg done, curr irq st:0x%x", outmux_idx,
 		_seninf_ops->_get_outmux_irq_st(ctx, outmux_idx, 0));

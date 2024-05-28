@@ -339,6 +339,12 @@ static void control_sensor(struct adaptor_ctx *ctx)
 	u64 data[4];
 	u32 len;
 
+	if (ctx == NULL) {
+		adaptor_loge(ctx, "null pointer ctx is invalid\n");
+		return;
+	}
+
+
 	adaptor_logm(ctx,
 		"+ is_sensor_scenario_inited(%u),is_streaming(%u)\n",
 		ctx->is_sensor_scenario_inited, ctx->is_streaming);
@@ -697,7 +703,7 @@ static int imgsensor_streaming_delay(struct adaptor_ctx *ctx)
 		streaming_sensor_fl_ns = (ctx->streamon_1sof_vsync_ts_info.fps)
 				? (10000000000/(ctx->streamon_1sof_vsync_ts_info.fps)) : 0;
 		hw_reinit_time_ns = ctx->subctx.hw_time_info[ctx->cur_mode->id].init_time_ns;
-		target_timing_ns = ctx->streamon_1sof_vsync_ts_info.target_timing_us * 1000;
+		target_timing_ns = (u64)ctx->streamon_1sof_vsync_ts_info.target_timing_us * 1000;
 		if(!hw_reinit_time_ns) {
 			memcpy( namebuff, (ctx->subdrv->name), 2);
 			namebuff[2] = '\0';
@@ -1393,6 +1399,12 @@ static int search_sensor(struct adaptor_ctx *ctx)
 		u32 sensor_id = 0xffffffff;
 
 		ctx->subdrv = subdrvs[i];
+
+		if (ctx->subdrv == NULL) {
+			adaptor_loge(ctx, "ctx->subdrv == NULL");
+			continue;
+		}
+
 		ctx->subctx.i2c_client = ctx->i2c_client;
 		ctx->subctx.ixc_client = ctx->ixc_client;
 		adaptor_cam_pmic_on(ctx);
@@ -1670,6 +1682,16 @@ static void imgsensor_remove(struct i3c_i2c_device *client)
 {
 	struct v4l2_subdev *sd = adaptor_ixc_get_clientdata(client);
 	struct adaptor_ctx *ctx = to_ctx(sd);
+
+	if (sd == NULL) {
+		adaptor_loge(ctx, "invalid pointer sd\n");
+		return;
+	}
+
+	if (ctx == NULL) {
+		adaptor_loge(ctx, "invalid pointer ctx\n");
+		return;
+	}
 
 	v4l2_async_unregister_subdev(sd);
 	media_entity_cleanup(&sd->entity);

@@ -1147,7 +1147,7 @@ static int imx858dual_mcss_update_subdrv_para(void *arg, int scenario_id)
 	old_line_length = ctx->line_length;
 	origin_den = ctx->s_ctx.mode[scenario_id].pclk / 1000000;
 	origin_num = ctx->s_ctx.mode[scenario_id].linelength;
-	tmp1 = ctx->s_ctx.mode[scenario_id].linelength * ctx->s_ctx.mclk;
+	tmp1 = (u64)ctx->s_ctx.mode[scenario_id].linelength * (u64)ctx->s_ctx.mclk;
 	tmp2= ctx->s_ctx.mode[scenario_id].pclk / 1000000;
 	new_num = 1+(tmp1/tmp2); // line_length_inck = round_up(tmp1, tmp2)
 	new_den = ctx->s_ctx.mclk;

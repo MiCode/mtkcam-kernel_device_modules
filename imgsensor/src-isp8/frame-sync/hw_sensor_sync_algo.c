@@ -225,8 +225,15 @@ static unsigned int hw_sync_calc_stg_valid_min_fl_lc_for_shutters(
 
 static unsigned int hw_sync_calc_valid_min_fl_lc_for_shutters(int idx)
 {
-	const unsigned int m_exp_type = sensor_infos[idx].curr_hdr_exp.multi_exp_type;
+	unsigned int m_exp_type;
 	unsigned int min_fl_lc = 0;
+
+	if (idx >= SENSOR_MAX_NUM) {
+		LOG_PR_ERR("The parameter idx is invalid (%d/%u)\n", idx, SENSOR_MAX_NUM);
+		return -1;
+	}
+
+	m_exp_type = sensor_infos[idx].curr_hdr_exp.multi_exp_type;
 
 	/* multi-exp / HDR sensor => mode exp cnt > 1 */
 	if (sensor_infos[idx].curr_hdr_exp.mode_exp_cnt > 1) {

@@ -3607,7 +3607,7 @@ void common_get_prsh_length_lines_by_time(struct subdrv_ctx *ctx,
 	}
 
 	current_fps = (u64)ctx->current_fps;
-	prsh_time_us = 1000 * time_ms;
+	prsh_time_us = 1000 * (u64)time_ms;
 	orig_readout_time_us = 1000000
 					* (u64)ctx->s_ctx.mode[pre_seamless_scenario_id].imgsensor_winsize_info.h1_size
 					*ctx->s_ctx.mode[pre_seamless_scenario_id].linelength

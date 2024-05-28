@@ -3023,12 +3023,9 @@ void update_hw_init_time(struct subdrv_ctx *ctx, u64 fisrt_vsync_time)
 
 
 	cur_id = ctx->current_scenario_id;
-	shutter_lines = 0;
 	times = ctx->hw_time_info[cur_id].times;
 	line_time_ns = ((u64)ctx->s_ctx.mode[cur_id].linelength*1000000000)
 					/ ctx->s_ctx.mode[cur_id].pclk;
-	shutter_time = 0;
-	cur_init_time = 0;
 	new_init_time = 0;
 	old_init_time = ctx->hw_time_info[cur_id].init_time_ns;
 

@@ -426,6 +426,9 @@ static void control_sensor(struct adaptor_ctx *ctx)
 	u64 data[4];
 	u32 len;
 
+	if (ctx == NULL)
+		return;
+
 	adaptor_logm(ctx,
 		"+ is_sensor_scenario_inited(%u),is_streaming(%u)\n",
 		ctx->is_sensor_scenario_inited, ctx->is_streaming);
@@ -858,9 +861,12 @@ static int imgsensor_open(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 
 static int imgsensor_close(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 {
-	struct adaptor_ctx *ctx = to_ctx(sd);
+	struct adaptor_ctx *ctx;
 	int i;
+	if (sd == NULL)
+		return -EINVAL;
 
+	ctx = to_ctx(sd);
 	adaptor_logm(ctx, "+\n");
 
 	mutex_lock(&ctx->mutex);
@@ -1011,11 +1017,15 @@ static int imgsensor_set_pad_format(struct v4l2_subdev *sd,
 				 struct v4l2_subdev_state *state,
 				 struct v4l2_subdev_format *fmt)
 {
-	struct adaptor_ctx *ctx = to_ctx(sd);
+	struct adaptor_ctx *ctx;
 	struct sensor_mode *mode;
 	struct v4l2_mbus_framefmt *framefmt;
 	int sensor_mode_id = 0;
 
+	if (sd == NULL)
+		return -EINVAL;
+
+	ctx = to_ctx(sd);
 	mutex_lock(&ctx->mutex);
 
 	/* Only one raw bayer order is supported */
@@ -1068,7 +1078,6 @@ static int imgsensor_set_pad_format(struct v4l2_subdev *sd,
 		ADAPTOR_SYSTRACE_END();
 	}
 	mutex_unlock(&ctx->mutex);
-
 	return 0;
 }
 
@@ -1423,6 +1432,9 @@ static int imgsensor_start_streaming(struct adaptor_ctx *ctx)
 #if VC_MULTI_CAMERA
 	int i;
 #endif
+
+	if (ctx == NULL || ctx->subdrv == NULL)
+		return -EINVAL;
 
 	adaptor_logm(ctx, "+\n");
 #if VC_MULTI_CAMERA
@@ -2251,8 +2263,9 @@ static int search_sensor(struct adaptor_ctx *ctx)
 
 	for (i = 0; i < subdrvs_cnt; i++) {
 		u32 sensor_id = 0xffffffff;
-
 		ctx->subdrv = subdrvs[i];
+		if (!ctx->subdrv)
+			continue;
 		ctx->subctx.i2c_client = ctx->i2c_client;
 		ctx->subctx.ixc_client = ctx->ixc_client;
 		adaptor_cam_pmic_on(ctx);
@@ -2566,8 +2579,12 @@ free_ctrl:
 static void imgsensor_remove(struct i3c_i2c_device *client)
 {
 	struct v4l2_subdev *sd = adaptor_ixc_get_clientdata(client);
-	struct adaptor_ctx *ctx = to_ctx(sd);
+	struct adaptor_ctx *ctx;
 
+	if (sd == NULL)
+		return;
+
+	ctx = to_ctx(sd);
 	v4l2_async_unregister_subdev(sd);
 	media_entity_cleanup(&sd->entity);
 	v4l2_ctrl_handler_free(sd->ctrl_handler);
@@ -2598,7 +2615,6 @@ static void imgsensor_remove(struct i3c_i2c_device *client)
 	device_remove_file(ctx->dev, &dev_attr_debug_sensor_mode_ops);
 
 	mutex_destroy(&ctx->mutex);
-
 }
 #if ALWAYS_ON_POWER
 static const struct dev_pm_ops imgsensor_pm_ops = {

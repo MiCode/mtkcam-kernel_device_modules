@@ -67,8 +67,11 @@ int apply_cam_mux_switch(struct mtk_cam_job *job)
 	if (ctx->hw_sv)
 		sv_dev = dev_get_drvdata(ctx->hw_sv);
 
-	if (sv_dev != NULL)
-		CALL_PLAT_V4L2(get_sv_max_pixel_mode, sv_dev->id, &max_pixel_mode);
+	if (sv_dev == NULL) {
+		pr_info("%s: ERR sv_dev is NULL\n", __func__);
+		return 0;
+	}
+	CALL_PLAT_V4L2(get_sv_max_pixel_mode, sv_dev->id, &max_pixel_mode);
 
 	memset(settings, 0,
 		sizeof(struct mtk_cam_seninf_mux_setting) * ARRAY_SIZE(settings));

@@ -2025,7 +2025,7 @@ static int get_mbus_config(struct seninf_ctx *ctx, struct v4l2_subdev *sd)
 	}
 #endif
 
-	dev_info(ctx->dev, "%s num_data_lanes %d\n", __func__, ctx->num_data_lanes);
+	seninf_logd(ctx, "num_data_lanes %d\n", ctx->num_data_lanes);
 
 	return 0;
 }
@@ -4408,8 +4408,6 @@ int mtk_cam_seninf_aov_runtime_suspend(unsigned int sensor_id)
 	int ret = 0;
 	int i = 0;
 
-	pr_info("[%s] sensor_id(%d)\n", __func__, sensor_id);
-
 	if (g_aov_param.is_test_model) {
 		real_sensor_id = 5;
 	} else {
@@ -4522,18 +4520,18 @@ int mtk_cam_seninf_aov_runtime_suspend(unsigned int sensor_id)
 			/* one of the source clk of TSREC */
 			if (core->clk[CLK_TOP_CAMTM]) {
 				clk_disable_unprepare(core->clk[CLK_TOP_CAMTM]);
-				dev_info(ctx->dev,
-					"[%s] clk_disable_unprepare clk[CLK_TOP_CAMTM:%u]:%s\n",
-					__func__, CLK_TOP_CAMTM, clk_names[CLK_TOP_CAMTM]);
+				seninf_logd(ctx,
+					"clk_disable_unprepare clk[CLK_TOP_CAMTM:%u]:%s\n",
+					CLK_TOP_CAMTM, clk_names[CLK_TOP_CAMTM]);
 			}
 
 			/* disable cg (cam, seninf, camtg) */
 			for (i = CLK_TOP_SENINF - 1; i >= 0; --i) {
 				if (core->clk[i]) {
 					clk_disable_unprepare(core->clk[i]);
-					dev_info(ctx->dev,
-						"[%s] clk_disable_unprepare clk[%d]:%s\n",
-						__func__, i, clk_names[i]);
+					seninf_logd(ctx,
+						"clk_disable_unprepare clk[%d]:%s\n",
+						i, clk_names[i]);
 				}
 			}
 
@@ -4567,7 +4565,6 @@ int mtk_cam_seninf_aov_runtime_resume(unsigned int sensor_id,
 	} else {
 		if (sensor_id == g_aov_param.sensor_idx) {
 			real_sensor_id = g_aov_param.sensor_idx;
-			pr_info("input sensor id(%u)(success)\n", real_sensor_id);
 		} else {
 			real_sensor_id = sensor_id;
 			pr_info("input sensor id(%u)(fail)\n", real_sensor_id);
@@ -4642,9 +4639,9 @@ int mtk_cam_seninf_aov_runtime_resume(unsigned int sensor_id,
 						mutex_unlock(&core->mutex);
 						return ret;
 					}
-					dev_info(ctx->dev,
-						"[%s] clk_prepare_enable clk[%u]:%s(success),ret(%d)\n",
-						__func__, i, clk_names[i], ret);
+					seninf_logd(ctx,
+						"clk_prepare_enable clk[%u]:%s(success),ret(%d)\n",
+						i, clk_names[i], ret);
 				}
 			}
 			/* one of the source clk of TSREC */
@@ -4657,9 +4654,9 @@ int mtk_cam_seninf_aov_runtime_resume(unsigned int sensor_id,
 					mutex_unlock(&core->mutex);
 					return ret;
 				}
-				dev_info(ctx->dev,
-					"[%s] clk_prepare_enable clk[CLK_TOP_CAMTM:%u]:%s(success),ret(%d)\n",
-					__func__, CLK_TOP_CAMTM, clk_names[CLK_TOP_CAMTM], ret);
+				seninf_logd(ctx,
+					"clk_prepare_enable clk[CLK_TOP_CAMTM:%u]:%s(success),ret(%d)\n",
+					CLK_TOP_CAMTM, clk_names[CLK_TOP_CAMTM], ret);
 				/* enable tsrec timer clk */
 				mtk_cam_seninf_tsrec_timer_enable(1);
 			}

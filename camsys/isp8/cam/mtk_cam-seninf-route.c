@@ -577,8 +577,8 @@ int mtk_cam_seninf_get_sensor_usage(struct v4l2_subdev *sd)
 
 	ctrl = v4l2_ctrl_find(sensor_sd->ctrl_handler, V4L2_CID_MTK_SENSOR_USAGE);
 	if (!ctrl) {
-		dev_info(ctx->dev, "%s, no V4L2_CID_MTK_SENSOR_USAGE %s set SINGLE\n",
-			__func__, sensor_sd->name);
+		seninf_logd(ctx, "no V4L2_CID_MTK_SENSOR_USAGE %s set SINGLE\n",
+			sensor_sd->name);
 		ctx->sensor_usage = MTK_SENSOR_USAGE_SINGLE;
 		return ret;
 	}
@@ -1966,7 +1966,7 @@ int mtk_cam_seninf_s_stream_mux(struct seninf_ctx *ctx)
 		ctx->sensor_sd->ops->core->command(ctx->sensor_sd,
 				V4L2_CMD_G_SENSOR_STREAM_STATUS, &is_sensor_stream);
 		grp_en = !!(is_sensor_stream) && (seninf_list_count(&outmux_cfgs) > 1);
-		seninf_logi(ctx, "is sensor streamed: %u, config outmux cnt: %lu\n",
+		seninf_logd(ctx, "is sensor streamed: %u, config outmux cnt: %lu\n",
 			    is_sensor_stream, seninf_list_count(&outmux_cfgs));
 	}
 
@@ -2394,9 +2394,6 @@ int mtk_cam_seninf_s_aov_param(unsigned int sensor_id,
 	struct mtk_seninf_aov_param *aov_seninf_param = (struct mtk_seninf_aov_param *)param;
 	unsigned long flags;
 
-	pr_info("[%s]+ sensor_id(%d),aov_seninf_init_type(%u)\n",
-		__func__, sensor_id, aov_seninf_init_type);
-
 	if (g_aov_param.is_test_model) {
 		real_sensor_id = 5;
 	} else {
@@ -2415,7 +2412,6 @@ int mtk_cam_seninf_s_aov_param(unsigned int sensor_id,
 	}
 
 	if (aov_ctx[real_sensor_id] != NULL) {
-		pr_info("[%s] sensor idx(%u)\n", __func__, real_sensor_id);
 		ctx = aov_ctx[real_sensor_id];
 		core = ctx->core;
 #ifdef SENSING_MODE_READY

@@ -517,7 +517,7 @@ int notify_fsync_listen_target(struct seninf_ctx *ctx)
 		return -EINVAL;
 	}
 
-	seninf_logi(ctx, "raw cammux usage = %d\n", cam_idx);
+	seninf_logd(ctx, "raw cammux usage = %d\n", cam_idx);
 
 	v4l2_ctrl_s_ctrl(ctrl, cam_idx);
 

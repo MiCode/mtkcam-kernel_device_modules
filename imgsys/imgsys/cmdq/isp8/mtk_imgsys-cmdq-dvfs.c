@@ -428,7 +428,7 @@ void mtk_imgsys_mmdvfs_mmqos_cal_plat8(struct mtk_imgsys_dev *imgsys_dev,
 						(fps_smvr >= IMGSYS_SMVR_FPS_FLOOR1))
 						smvr_freq_floor = IMGSYS_SMVR_FREQ_FLOOR2;
 					else if (fps_smvr >= IMGSYS_SMVR_FPS_FLOOR1)
-						smvr_freq_floor = dvfs_info->freq;
+						smvr_freq_floor = IMGSYS_SMVR_FREQ_FLOOR2;
 					else
 						smvr_freq_floor = IMGSYS_SMVR_FREQ_FLOOR1;
 				} else if (dvfs_info->pix_mode == 2) {
@@ -438,7 +438,7 @@ void mtk_imgsys_mmdvfs_mmqos_cal_plat8(struct mtk_imgsys_dev *imgsys_dev,
 						(fps_smvr >= IMGSYS_SMVR_FPS_FLOOR3)))
 						smvr_freq_floor = IMGSYS_SMVR_FREQ_FLOOR2;
 					else if (fps_smvr >= IMGSYS_SMVR_FPS_FLOOR1)
-						smvr_freq_floor = dvfs_info->freq;
+						smvr_freq_floor = IMGSYS_SMVR_FREQ_FLOOR2;
 					else
 						smvr_freq_floor = IMGSYS_SMVR_FREQ_FLOOR1;
 				} else
@@ -479,7 +479,7 @@ void mtk_imgsys_mmdvfs_mmqos_cal_plat8(struct mtk_imgsys_dev *imgsys_dev,
 						(fps_smvr >= IMGSYS_SMVR_FPS_FLOOR1))
 						smvr_freq_floor = IMGSYS_SMVR_FREQ_FLOOR2;
 					else if (fps_smvr >= IMGSYS_SMVR_FPS_FLOOR1)
-						smvr_freq_floor = dvfs_info->freq;
+						smvr_freq_floor = IMGSYS_SMVR_FREQ_FLOOR2;
 					else
 						smvr_freq_floor = IMGSYS_SMVR_FREQ_FLOOR1;
 				} else if (dvfs_info->pix_mode == 2) {
@@ -489,7 +489,7 @@ void mtk_imgsys_mmdvfs_mmqos_cal_plat8(struct mtk_imgsys_dev *imgsys_dev,
 						(fps_smvr >= IMGSYS_SMVR_FPS_FLOOR3)))
 						smvr_freq_floor = IMGSYS_SMVR_FREQ_FLOOR2;
 					else if (fps_smvr >= IMGSYS_SMVR_FPS_FLOOR1)
-						smvr_freq_floor = dvfs_info->freq;
+						smvr_freq_floor = IMGSYS_SMVR_FREQ_FLOOR2;
 					else
 						smvr_freq_floor = IMGSYS_SMVR_FREQ_FLOOR1;
 				} else

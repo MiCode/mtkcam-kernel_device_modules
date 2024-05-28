@@ -1548,6 +1548,21 @@ static int mtk_cam_seninf_init_cfg(struct v4l2_subdev *sd,
 	return 0;
 }
 
+static void update_cfg_done_max_wait_time(struct seninf_ctx *ctx)
+{
+	u64 def_max_wait = 1000000; /* one sec */
+	u64 frame_time = 0;
+
+	if (!ctx->is_test_model) {
+		frame_time = mtk_cam_seninf_get_frame_time(&ctx->subdev, 0 /* seq, unused */);
+		frame_time = frame_time + (frame_time / 10);  /* 110 percent frame time */
+	}
+
+	seninf_logd(ctx, "The frame time is %llu us\n", frame_time);
+
+	ctx->cfg_done_max_delay = (def_max_wait > frame_time) ? def_max_wait : frame_time;
+}
+
 static int mtk_cam_seninf_set_fmt(struct v4l2_subdev *sd,
 				  struct v4l2_subdev_state *state,
 			  struct v4l2_subdev_format *fmt)
@@ -1591,8 +1606,11 @@ static int mtk_cam_seninf_set_fmt(struct v4l2_subdev *sd,
 		if (seninf_pmsr_en && fmt->pad == PAD_SINK)
 			gather_csi_ps_info(ctx);
 #endif
-		mtk_cam_seninf_get_sensor_usage(&ctx->subdev);
-		mtk_cam_sensor_get_vc_info_by_scenario(ctx, fmt->format.code);
+		if (bSinkFormatChanged) {
+			mtk_cam_seninf_get_sensor_usage(&ctx->subdev);
+			mtk_cam_sensor_get_vc_info_by_scenario(ctx, fmt->format.code);
+			update_cfg_done_max_wait_time(ctx);
+		}
 
 		dev_info(ctx->dev, "s_fmt pad %d code/res 0x%x/%dx%d which %d=> 0x%x/%dx%d\n",
 			fmt->pad,
@@ -4418,7 +4436,7 @@ int mtk_cam_seninf_aov_runtime_suspend(unsigned int sensor_id)
 		} else {
 			real_sensor_id = sensor_id;
 			pr_info("input sensor id(%u)(fail)\n", real_sensor_id);
-			seninf_aee_print(
+			seninf_aee_print(SENINF_AEE_GENERAL,
 				"[AEE] [%s] input sensor id(%u)(fail)",
 				__func__, real_sensor_id);
 			return -ENODEV;
@@ -4568,7 +4586,7 @@ int mtk_cam_seninf_aov_runtime_resume(unsigned int sensor_id,
 		} else {
 			real_sensor_id = sensor_id;
 			pr_info("input sensor id(%u)(fail)\n", real_sensor_id);
-			seninf_aee_print(
+			seninf_aee_print(SENINF_AEE_GENERAL,
 				"[AEE] [%s] input sensor id(%u)(fail)",
 				__func__, real_sensor_id);
 			return -ENODEV;
@@ -4795,7 +4813,7 @@ int mtk_cam_seninf_aov_reset_sensor(unsigned int sensor_id)
 		} else {
 			real_sensor_id = sensor_id;
 			pr_info("input sensor id(%u)(fail)\n", real_sensor_id);
-			seninf_aee_print(
+			seninf_aee_print(SENINF_AEE_GENERAL,
 				"[AEE] [%s] input sensor id(%u)(fail)",
 				__func__, real_sensor_id);
 			return -ENODEV;
@@ -4858,7 +4876,7 @@ int mtk_cam_seninf_aov_sensor_set_mclk(unsigned int sensor_id, bool enable)
 		} else {
 			real_sensor_id = sensor_id;
 			pr_info("input sensor id(%u)(fail)\n", real_sensor_id);
-			seninf_aee_print(
+			seninf_aee_print(SENINF_AEE_GENERAL,
 				"[AEE] [%s] input sensor id(%u)(fail)",
 				__func__, real_sensor_id);
 			return -ENODEV;

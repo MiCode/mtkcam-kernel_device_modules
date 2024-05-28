@@ -10,19 +10,19 @@
 #include <linux/sched.h>
 #include <aee.h>
 
-#ifndef CONFIG_MTK_AEE_FEATURE
-#define seninf_aee_print(string, args...) \
-	pr_info("[SENINF] error:"string, ##args)
-#else
-#define seninf_aee_print(string, args...) do { \
+#define SENINF_AEE_GENERAL "Seninf"
+#define SENINF_AEE_OUTMUX "Seninf: outmux error"
+
+#if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
+#define seninf_aee_print(title, string, args...) do { \
 		aee_kernel_exception_api(__FILE__, __LINE__, \
 			DB_OPT_DEFAULT | DB_OPT_FTRACE, \
-			DB_OPT_PROCESS_COREDUMP | DB_OPT_PROCMEM, \
-			DB_OPT_NE_JBT_TRACES | DB_OPT_PID_SMAPS, \
-			DB_OPT_DUMPSYS_PROCSTATS | DB_OPT_DUMP_DISPLAY, \
-			"Seninf", "[SENINF] error:"string, ##args); \
-		pr_info("[SENINF] error:"string, ##args);  \
+			title, "["title"]: "string, ##args); \
+		pr_info("["title"]: "string, ##args);  \
 	} while (0)
+#else
+#define seninf_aee_print(title, string, args...) \
+	pr_info("["title"]: "string, ##args)
 #endif
 
 #define MAX_MUX_VCINFO_DEBUG 15

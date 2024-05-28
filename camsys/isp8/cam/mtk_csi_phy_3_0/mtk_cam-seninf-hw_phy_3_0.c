@@ -3515,7 +3515,7 @@ static int csirx_dphy_init_deskew_setting(struct seninf_ctx *ctx, u64 seninf_ck)
 		SENINF_BITS(base, DPHY_RX_DESKEW_LANE1_CTRL, DPHY_RX_DESKEW_L1_DELAY_EN, 0);
 		SENINF_BITS(base, DPHY_RX_DESKEW_LANE2_CTRL, DPHY_RX_DESKEW_L2_DELAY_EN, 0);
 		SENINF_BITS(base, DPHY_RX_DESKEW_LANE3_CTRL, DPHY_RX_DESKEW_L3_DELAY_EN, 0);
-		seninf_aee_print("[AEE] error, [%s] Data rate (%llu) < 1.5G, no need deskew",
+		seninf_aee_print(SENINF_AEE_GENERAL, "[%s] Data rate (%llu) < 1.5G, no need deskew",
 			__func__, data_rate);
 	}
 	return 0;
@@ -5195,7 +5195,7 @@ static int mtk_cam_seninf_debug_current_status(struct seninf_ctx *ctx)
 		u32 irq_st = mtk_cam_seninf_get_outmux_irq_st(ctx, i, 1);
 
 		seninf_logi(ctx,
-			 "dump outmux%d with irq clear,CFG_M/PIX_M/CFG0_out-in/CFG1_out-in/CFG2_out-in/SRC_out-in/CFG_DONE/CFG_CTL/CFG_RDY/DBG_PORT0/DBG_PORT1:(0x%x/0x%x/0x%x-0x%x/0x%x-0x%x/0x%x-0x%x/0x%x-0x%x/0x%x/0x%x/0x%x/0x%x/0x%x),tag0_filt_out-in/exp(0x%x-0x%x/0x%x-0x%x),tag2_filt_out-in/exp(0x%x-0x%x/0x%x-0x%x),irq=0x%x\n",
+			 "dump outmux%d with irq clear,CFG_M/PIX_M/CFG0_out-in/CFG1_out-in/CFG2_out-in/SRC_out-in/CFG_DONE/CFG_CTL/CFG_RDY/DBG_PORT0/DBG_PORT1:(0x%x/0x%x/0x%x-0x%x/0x%x-0x%x/0x%x-0x%x/0x%x-0x%x/0x%x/0x%x/0x%x/0x%x/0x%x),tag0_filt_out-in/exp(0x%x-0x%x/0x%x-0x%x),tag1_filt_out-in/exp(0x%x-0x%x/0x%x-0x%x),tag4_filt_out-in/exp(0x%x-0x%x/0x%x-0x%x),irq=0x%x\n",
 			 i,
 			 seninf_get_outmux_rg_val(ctx, i,
 						  SENINF_OUTMUX_SW_CONFIG_MODE),
@@ -5236,13 +5236,21 @@ static int mtk_cam_seninf_debug_current_status(struct seninf_ctx *ctx)
 			 seninf_get_outmux_rg_val_inner(ctx, i,
 						  SENINF_OUTMUX_TAG_SIZE_0),
 			 seninf_get_outmux_rg_val(ctx, i,
-						  SENINF_OUTMUX_TAG_VCDT_FILT_2),
+						  SENINF_OUTMUX_TAG_VCDT_FILT_1),
 			 seninf_get_outmux_rg_val_inner(ctx, i,
-						  SENINF_OUTMUX_TAG_VCDT_FILT_2),
+						  SENINF_OUTMUX_TAG_VCDT_FILT_1),
 			 seninf_get_outmux_rg_val(ctx, i,
-						  SENINF_OUTMUX_TAG_SIZE_2),
+						  SENINF_OUTMUX_TAG_SIZE_1),
 			 seninf_get_outmux_rg_val_inner(ctx, i,
-						  SENINF_OUTMUX_TAG_SIZE_2),
+						  SENINF_OUTMUX_TAG_SIZE_1),
+			 seninf_get_outmux_rg_val(ctx, i,
+						  SENINF_OUTMUX_TAG_VCDT_FILT_4),
+			 seninf_get_outmux_rg_val_inner(ctx, i,
+						  SENINF_OUTMUX_TAG_VCDT_FILT_4),
+			 seninf_get_outmux_rg_val(ctx, i,
+						  SENINF_OUTMUX_TAG_SIZE_4),
+			 seninf_get_outmux_rg_val_inner(ctx, i,
+						  SENINF_OUTMUX_TAG_SIZE_4),
 			 irq_st);
 	}
 	seninf_logi(ctx, "ret = %d", ret);
@@ -5522,7 +5530,7 @@ static void dump_current_mipi_error_cnt(struct seninf_core *core,
 				" test_count: %d",
 				ctx->test_cnt);
 #endif
-			seninf_aee_print("[AEE] %s", buf);
+			seninf_aee_print(SENINF_AEE_GENERAL, "[AEE] %s", buf);
 			// if(ctx->pid)
 			// kill_pid(ctx->pid, SIGKILL, 1);
 	}
@@ -6869,22 +6877,40 @@ static int mtk_cam_seninf_set_csi_afifo_pop(struct seninf_ctx *ctx)
 int mtk_cam_seninf_wait_outmux_cfg_done(struct seninf_ctx *ctx, u8 outmux_idx)
 {
 	void *pSeninf_mux;
+	const u64 max_wait = ctx->cfg_done_max_delay;
+	u64 waited = 0;
 
 	pSeninf_mux = ctx->reg_if_outmux[outmux_idx];
 
 	if (SENINF_READ_BITS(pSeninf_mux, SENINF_OUTMUX_SW_CFG_DONE, SENINF_OUTMUX_SW_CFG_DONE)) {
 		seninf_logi(ctx,
-			"outmux idx %u, read CFG_M/FILT_M/CFG_CTL/CFG0/DBG0(0x%x/0x%x/0x%x/0x%x/0x%x)\n",
+			"outmux idx %u, read CFG_M/FILT_M/CFG_CTL/CFG0/DBG0(0x%x/0x%x/0x%x/0x%x/0x%x), max wait %llu us\n",
 			outmux_idx,
 			SENINF_READ_REG(pSeninf_mux, SENINF_OUTMUX_SW_CONFIG_MODE),
 			SENINF_READ_REG(pSeninf_mux, SENINF_OUTMUX_FILT_MODE),
 			SENINF_READ_REG(pSeninf_mux, SENINF_OUTMUX_CSR_CFG_CTRL),
 			SENINF_READ_REG(pSeninf_mux, SENINF_OUTMUX_SOURCE_CONFIG_0),
-			SENINF_READ_REG(pSeninf_mux, SENINF_OUTMUX_PATH_DBG_PORT_0));
+			SENINF_READ_REG(pSeninf_mux, SENINF_OUTMUX_PATH_DBG_PORT_0),
+			max_wait);
 	}
 
-	while (SENINF_READ_BITS(pSeninf_mux, SENINF_OUTMUX_SW_CFG_DONE, SENINF_OUTMUX_SW_CFG_DONE))
+	while ((waited < max_wait) &&
+	       SENINF_READ_BITS(pSeninf_mux, SENINF_OUTMUX_SW_CFG_DONE, SENINF_OUTMUX_SW_CFG_DONE)) {
 		udelay(100);
+		waited += 100;
+		if (waited < 100) {
+			/* overflow. never here */
+			seninf_aee_print(SENINF_AEE_OUTMUX,
+				"Outmux%d doesn't cfg done\n", outmux_idx);
+			break;
+		}
+	}
+
+	if (waited > max_wait) {
+		/* Assert */
+		seninf_aee_print(SENINF_AEE_OUTMUX,
+			"Outmux%d doesn't cfg done within %llu msec\n", outmux_idx, max_wait);
+	}
 
 	return 0;
 }
@@ -6953,6 +6979,8 @@ static bool chk_sensor_delay_with_wait(struct seninf_ctx *ctx, u8 outmux_idx, bo
 {
 	void *pSeninf_mux;
 	int ret = true;
+	const u64 max_wait = ctx->cfg_done_max_delay;
+	u64 waited = 0;
 
 	pSeninf_mux = ctx->reg_if_outmux[outmux_idx];
 
@@ -6966,22 +6994,37 @@ static bool chk_sensor_delay_with_wait(struct seninf_ctx *ctx, u8 outmux_idx, bo
 
 	if (SENINF_READ_BITS(pSeninf_mux, SENINF_OUTMUX_SW_CFG_DONE, SENINF_OUTMUX_SW_CFG_DONE)) {
 		seninf_logi(ctx,
-			"outmux idx %u, read CFG_M/FILT_M/CFG_CTL/CFG0/DBG0(0x%x/0x%x/0x%x/0x%x/0x%x)\n",
+			"outmux idx %u, read CFG_M/FILT_M/CFG_CTL/CFG0/DBG0(0x%x/0x%x/0x%x/0x%x/0x%x), max wait %llu us\n",
 			outmux_idx,
 			SENINF_READ_REG(pSeninf_mux, SENINF_OUTMUX_SW_CONFIG_MODE),
 			SENINF_READ_REG(pSeninf_mux, SENINF_OUTMUX_FILT_MODE),
 			SENINF_READ_REG(pSeninf_mux, SENINF_OUTMUX_CSR_CFG_CTRL),
 			SENINF_READ_REG(pSeninf_mux, SENINF_OUTMUX_SOURCE_CONFIG_0),
-			SENINF_READ_REG(pSeninf_mux, SENINF_OUTMUX_PATH_DBG_PORT_0));
+			SENINF_READ_REG(pSeninf_mux, SENINF_OUTMUX_PATH_DBG_PORT_0),
+			max_wait);
 	}
 
-	while (SENINF_READ_BITS(pSeninf_mux, SENINF_OUTMUX_SW_CFG_DONE, SENINF_OUTMUX_SW_CFG_DONE)) {
+	while ((waited < max_wait) &&
+	       SENINF_READ_BITS(pSeninf_mux, SENINF_OUTMUX_SW_CFG_DONE, SENINF_OUTMUX_SW_CFG_DONE)) {
 		udelay(100);
+		waited += 100;
+		if (waited < 100) {
+			/* overflow. never here */
+			seninf_aee_print(SENINF_AEE_OUTMUX,
+				"Outmux%d doesn't cfg done\n", outmux_idx);
+			break;
+		}
 		if (SENINF_READ_BITS(pSeninf_mux, SENINF_OUTMUX_IRQ_STATUS, SENINF_OUTMUX_REF_VSYNC_IRQ_STATUS)) {
 			// sensor no delay, but outmux change delay
 			seninf_logi(ctx, "ref irq raised, sensor cfg is not completed, reset to recover\n");
 			break;
 		}
+	}
+
+	if (waited > max_wait) {
+		/* Assert */
+		seninf_aee_print(SENINF_AEE_OUTMUX,
+			"Outmux%d doesn't cfg done within %llu msec\n", outmux_idx, max_wait);
 	}
 
 	if (sensor_delay)

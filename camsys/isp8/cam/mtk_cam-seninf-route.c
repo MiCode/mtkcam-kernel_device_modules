@@ -2404,7 +2404,7 @@ int mtk_cam_seninf_s_aov_param(unsigned int sensor_id,
 		} else {
 			real_sensor_id = sensor_id;
 			pr_info("input sensor id(%u)(fail)\n", real_sensor_id);
-			seninf_aee_print(
+			seninf_aee_print(SENINF_AEE_GENERAL,
 				"[AEE] [%s] input sensor id(%u)(fail)",
 				__func__, real_sensor_id);
 			return -ENODEV;

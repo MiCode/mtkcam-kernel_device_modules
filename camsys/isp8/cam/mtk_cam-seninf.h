@@ -299,6 +299,9 @@ struct seninf_ctx {
 	int cur_first_vs;
 	int cur_last_vs;
 
+	/* */
+	u64 cfg_done_max_delay; /* in us */
+
 	/* dfs */
 	int isp_freq;
 

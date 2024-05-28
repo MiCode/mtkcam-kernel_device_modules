@@ -13,6 +13,7 @@
 #include <media/v4l2-device.h>
 
 #include "mtk_cam-seninf-event-handle.h"
+#include "mtk_cam-seninf-hw.h"
 #include "mtk_cam-seninf-if.h"
 #include "mtk_cam-seninf-utils.h"
 #include "mtk_cam-seninf-sentest-ctrl.h"
@@ -551,6 +552,22 @@ void notify_fsync_listen_target_with_kthread(struct seninf_ctx *ctx,
 	}
 }
 
+int notify_mipi_err_detect_handler(struct seninf_ctx *ctx,
+		const struct mtk_cam_seninf_tsrec_irq_notify_info *p_info)
+{
+	struct mtk_cam_seninf_vsync_info vsync_info = {0};
+
+	if (unlikely(ctx == NULL)) {
+		pr_info("[Error][%s] ctx is NULL", __func__);
+		return -EFAULT;
+	}
+
+	if (ctx->core->vsync_irq_en_flag || ctx->core->csi_irq_en_flag)
+		g_seninf_ops->_seninf_dump_mipi_err(ctx->core, &vsync_info);
+
+	return 0;
+}
+
 
 /*----------------------------------------------------------------------------*/
 // => tsrec event/handle
@@ -560,6 +577,7 @@ void mtk_cam_seninf_tsrec_irq_notify(
 {
 	/* Please add your handler function here carefully */
 	notify_sentest_irq(p_info->inf_ctx, p_info);
+	notify_mipi_err_detect_handler(p_info->inf_ctx, p_info);
 }
 
 

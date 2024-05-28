@@ -237,6 +237,7 @@ struct mtk_cam_seninf_ops {
 	int (*_get_csi_irq_status)(struct seninf_ctx *ctx);
 	int (*_common_reg_setup)(struct seninf_ctx *ctx);
 	int (*_get_device_sel_setting)(struct device *dev, struct mtk_cam_seninf_dev *dev_setting);
+	void (*_seninf_dump_mipi_err)(struct seninf_core *core, struct mtk_cam_seninf_vsync_info *vsync_info);
 	unsigned int async_num;
 	unsigned int outmux_num;
 	const char *iomem_ver;

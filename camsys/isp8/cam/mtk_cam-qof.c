@@ -84,9 +84,10 @@ static inline u32 wait_itc_done(struct mtk_raw_device *raw)
 	return ret;
 }
 
-static inline u32 avoid_power_state(struct mtk_raw_device *raw, u32 state)
+static inline int avoid_power_state(struct mtk_raw_device *raw, u32 state)
 {
-	u32 ret, val;
+	int ret;
+	u32 val;
 
 	if (state & (PS_GCE_SAVE | PS_ON_PROC | PS_GCE_RESTORE)) {
 		// NOTE: PS_ON_PROC could take as long as 300us to finish

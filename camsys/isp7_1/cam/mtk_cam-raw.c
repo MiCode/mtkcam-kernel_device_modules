@@ -6047,7 +6047,7 @@ static int mtk_raw_pipeline_register(unsigned int id, struct device *dev,
 	sd->internal_ops = &mtk_raw_internal_ops;
 #endif
 	sd->flags = V4L2_SUBDEV_FL_HAS_DEVNODE | V4L2_SUBDEV_FL_HAS_EVENTS;
-	snprintf(sd->name, sizeof(sd->name),
+	(void)snprintf(sd->name, sizeof(sd->name),
 		 "%s-%d", dev_driver_string(dev), pipe->id);
 	v4l2_set_subdevdata(sd, pipe);
 	mtk_raw_pipeline_ctrl_setup(pipe);

@@ -432,7 +432,7 @@ static void mtk_raw_calc_num_raw_max_min(struct mtk_cam_resource_raw_v2 *r,
 		return;
 	}
 
-	if (scenario_disable_twin(scen_id, res_raw_is_dc_mode(r))) {
+	if (scenario_disable_twin(scen_id, res_raw_is_dc_mode(r) ? true : false)) {
 		*n_min = 1;
 		*n_max = 1;
 		return;

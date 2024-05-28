@@ -5032,8 +5032,6 @@ static int mtk_cam_job_fill_ipi_config(struct mtk_cam_job *job,
 
 		if (job->seamless_switch || job->raw_switch || job->raw_change)
 			config->flags = MTK_CAM_IPI_CONFIG_TYPE_REINIT;
-		else if (job->raw_change == JOB_RAW_MASTER_UNCHANGED)
-			config->flags = MTK_CAM_IPI_CONFIG_TYPE_INPUT_CHANGE;
 		else
 			config->flags = MTK_CAM_IPI_CONFIG_TYPE_INIT;
 		config->need_sw_workaround = ctx->cam->sw_ver != 0x0001;

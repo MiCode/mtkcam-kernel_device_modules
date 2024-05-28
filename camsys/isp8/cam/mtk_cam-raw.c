@@ -1106,6 +1106,8 @@ static void write_pkt_apu_raw(struct mtk_raw_device *dev,
 	struct adl_cmdq_worker_param *param = NULL;
 
 	CALL_PLAT_HW(query_adl_cmdq_worker_param, &param);
+	if (WARN_ON(!param))
+		return;
 
 	adlrd_ctrl =
 		(raw_id << 1) | /* ADLRD_MUX_SEL */
@@ -1141,6 +1143,8 @@ void write_pkt_trigger_apu_dc(struct mtk_raw_device *dev,
 	struct adl_cmdq_worker_param *param = NULL;
 
 	CALL_PLAT_HW(query_adl_cmdq_worker_param, &param);
+	if (WARN_ON(!param))
+		return;
 
 	/* wait APU ready */
 	cmdq_pkt_wfe(pkt, APU_SW_EVENT);

@@ -6437,7 +6437,7 @@ static int isp_composer_init(struct mtk_cam_ctx *ctx, unsigned int pipe_id)
 	if (ipi_id < 0)
 		return -EINVAL;
 
-	snprintf(msg->name, RPMSG_NAME_SIZE, "mtk-camsys\%d", pipe_id);
+	(void)snprintf(msg->name, RPMSG_NAME_SIZE, "mtk-camsys\%d", pipe_id);
 	msg->src = ipi_id;
 	ctx->rpmsg_dev = mtk_get_client_msgdevice(rpmsg_subdev, msg);
 	if (!ctx->rpmsg_dev) {
@@ -7780,7 +7780,7 @@ static int mtk_cam_master_bind(struct device *dev)
 	media_dev->dev = cam_dev->dev;
 	strscpy(media_dev->model, dev_driver_string(dev),
 		sizeof(media_dev->model));
-	snprintf(media_dev->bus_info, sizeof(media_dev->bus_info),
+	(void)snprintf(media_dev->bus_info, sizeof(media_dev->bus_info),
 		 "platform:%s", dev_name(dev));
 	media_dev->hw_revision = 0;
 	media_dev->ops = &mtk_cam_dev_ops;

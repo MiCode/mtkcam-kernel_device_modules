@@ -233,7 +233,7 @@ void mtk_cam_pool_destroy(struct mtk_cam_pool *pool)
 	int i;
 
 	if (pool->elements) {
-
+		spin_lock(&pool->lock);
 		// check buf status
 		if (pool->available_cnt != pool->n_element)
 			for (i = 0; i < pool->n_element; i++) {
@@ -243,7 +243,7 @@ void mtk_cam_pool_destroy(struct mtk_cam_pool *pool)
 					pr_info("buf idx %d is not returned yet\n",
 						i);
 			}
-
+		spin_unlock(&pool->lock);
 		kvfree(pool->elements);
 	}
 
@@ -327,10 +327,10 @@ void mtk_cam_pool_return(void *buf, size_t size)
 	ele = element_at(pool, i);
 	priv = element_priv(ele);
 
+	spin_lock(&pool->lock);
 	/* already return */
 	WARN_ON(priv->available);
 
-	spin_lock(&pool->lock);
 	priv->available = true;
 	++pool->available_cnt;
 	spin_unlock(&pool->lock);

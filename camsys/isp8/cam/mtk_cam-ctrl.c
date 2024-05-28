@@ -383,11 +383,15 @@ void mtk_cam_event_error(struct mtk_cam_ctrl *cam_ctrl, const char *msg)
 		log_event(__func__, ctx->stream_id, &event);
 }
 
-static void dump_runtime_info(struct mtk_cam_ctrl_runtime_info *info)
+static void dump_runtime_info(struct mtk_cam_ctrl *ctrl)
 {
+	struct mtk_cam_ctrl_runtime_info *info = &ctrl->r_info;
+
+	spin_lock(&ctrl->info_lock);
 	pr_info("[%s] ack 0x%x out/in 0x%x/0x%x\n", __func__,
 		info->ack_seq_no, info->outer_seq_no, info->inner_seq_no);
 	pr_info("[%s] sof_ts_ns %lld\n", __func__, info->sof_ts_ns);
+	spin_unlock(&ctrl->info_lock);
 }
 
 static void ctrl_send_event(struct mtk_cam_ctrl *ctrl,
@@ -573,9 +577,6 @@ static int mtk_cam_ctrl_send_event(struct mtk_cam_ctrl *ctrl, int event)
 	p.info = &local_info;
 	p.event = event;
 	p.event_ts = ktime_get_boottime_ns();
-
-	if (0 && CAM_DEBUG_ENABLED(STATE))
-		dump_runtime_info(p.info);
 
 	if (CAM_DEBUG_ENABLED(STATE))
 		debug_send_event(&p);
@@ -2255,7 +2256,7 @@ static void mtk_dump_debug_for_no_vsync(struct mtk_cam_ctx *ctx)
 	struct mtk_cam_ctrl *ctrl = &ctx->cam_ctrl;
 	struct mtk_cam_job *job;
 
-	dump_runtime_info(&ctrl->r_info);
+	dump_runtime_info(ctrl);
 
 	job = mtk_cam_ctrl_get_job(ctrl, cond_first_job, 0);
 	if (job) {

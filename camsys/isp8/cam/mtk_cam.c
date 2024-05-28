@@ -4691,10 +4691,13 @@ static int mtk_cam_vcore_runtime_suspend(struct device *dev)
 static int mtk_cam_vcore_runtime_resume(struct device *dev)
 {
 	struct mtk_cam_vcore_device *cam_vcore  = dev_get_drvdata(dev);
-	int i;
+	int i, ret;
 
-	for (i = 0; i < cam_vcore->num_clks; i++)
-		clk_prepare_enable(cam_vcore->clks[i]);
+	for (i = 0; i < cam_vcore->num_clks; i++) {
+		ret = clk_prepare_enable(cam_vcore->clks[i]);
+		if (ret)
+			dev_info(dev, "%s:i=%d check this", __func__, i);
+	}
 
 	return 0;
 }
@@ -5047,6 +5050,7 @@ static int mtk_cam_runtime_suspend(struct device *dev)
 {
 	struct mtk_cam_device *cam_dev  = dev_get_drvdata(dev);
 	int i;
+
 	if (CAM_DEBUG_ENABLED(RAW_CG))
 		dev_dbg(dev, "%s++:get: vcore cg/main cg0 cg1:0x%x/0x%x/0x%x", __func__,
 		readl(cam_dev->vcore_cg_con + 0x00),
@@ -5054,6 +5058,7 @@ static int mtk_cam_runtime_suspend(struct device *dev)
 		readl(cam_dev->base + 0x4c));
 	for (i = cam_dev->num_clks - 1; i >= 0; i--)
 		clk_disable_unprepare(cam_dev->clks[i]);
+
 	if (CAM_DEBUG_ENABLED(RAW_CG))
 		dev_dbg(dev, "%s--:get: vcore cg/main cg0 cg1:0x%x/0x%x/0x%x", __func__,
 		readl(cam_dev->vcore_cg_con + 0x00),
@@ -5084,14 +5089,18 @@ static void init_camsys_main_adl_setting(struct mtk_cam_device *cam_dev)
 static int mtk_cam_runtime_resume(struct device *dev)
 {
 	struct mtk_cam_device *cam_dev  = dev_get_drvdata(dev);
-	int i;
+	int i, ret;
+
 	if (CAM_DEBUG_ENABLED(RAW_CG))
 		dev_dbg(dev, "%s++:get: vcore cg/main cg0 cg1:0x%x/0x%x/0x%x", __func__,
 		readl(cam_dev->vcore_cg_con + 0x00),
 		readl(cam_dev->base + 0x00),
 		readl(cam_dev->base + 0x4c));
-	for (i = 0; i < cam_dev->num_clks; i++)
-		clk_prepare_enable(cam_dev->clks[i]);
+	for (i = 0; i < cam_dev->num_clks; i++) {
+		ret = clk_prepare_enable(cam_dev->clks[i]);
+		if (ret)
+			dev_info(dev, "%s:i=%d check this", __func__, i);
+	}
 	if (CAM_DEBUG_ENABLED(RAW_CG))
 		dev_dbg(dev,"%s--:get: vcore cg/main cg0 cg1:0x%x/0x%x/0x%x", __func__,
 		readl(cam_dev->vcore_cg_con + 0x00),

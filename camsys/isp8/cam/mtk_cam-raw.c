@@ -393,6 +393,7 @@ static void dump_awb_reg(struct mtk_raw_device *dev, bool force)
 {
 	u32 awb_stat_en, awb_win_org, awb_win_size, awb_win_pit, awb_win_num;
 	u32 qbn_r8_ctl, qbn_r8_pcrp_ctl, pcrp0_xpos, pcrp0_ypos, pcrp1_xpos, pcrp1_ypos;
+	u32 awbo_x, awbo_y, awbo_s, awbo_basic, con0, con1, con2, con3, con4;
 
 	awb_stat_en = raw_readl_relaxed(dev, dev->base_inner, 0x5a80);
 	awb_win_org = raw_readl_relaxed(dev, dev->base_inner, 0x5a88);
@@ -405,6 +406,16 @@ static void dump_awb_reg(struct mtk_raw_device *dev, bool force)
 	pcrp0_ypos = raw_readl_relaxed(dev, dev->base_inner, 0x5a4c);
 	pcrp1_xpos = raw_readl_relaxed(dev, dev->base_inner, 0x5a50);
 	pcrp1_ypos = raw_readl_relaxed(dev, dev->base_inner, 0x5a54);
+	awbo_x = raw_readl_relaxed(dev, dev->dmatop_base_inner, 0x1560);
+	awbo_y = raw_readl_relaxed(dev, dev->dmatop_base_inner, 0x1564);
+	awbo_s = raw_readl_relaxed(dev, dev->dmatop_base_inner, 0x1568);
+	awbo_basic = raw_readl_relaxed(dev, dev->dmatop_base_inner, 0x156c);
+	con0 = raw_readl_relaxed(dev, dev->dmatop_base_inner, 0x1570);
+	con1 = raw_readl_relaxed(dev, dev->dmatop_base_inner, 0x1574);
+	con2 = raw_readl_relaxed(dev, dev->dmatop_base_inner, 0x1578);
+	con3 = raw_readl_relaxed(dev, dev->dmatop_base_inner, 0x157c);
+	con4 = raw_readl_relaxed(dev, dev->dmatop_base_inner, 0x1580);
+
 	if (CAM_DEBUG_ENABLED(RAW_INT) || force)
 		dev_info(dev->dev,
 		"[%s] raw%d - [in] awb_stat_en/awb_win_org/awb_win_size/awb_win_pit/awb_win_num:0x%x/0x%x/0x%x/0x%x/0x%x\n",
@@ -415,6 +426,11 @@ static void dump_awb_reg(struct mtk_raw_device *dev, bool force)
 		"[%s] raw%d - [in] qbn_r8_ctl/qbn_r8_pcrp_ctl/pcrp0_xpos/pcrp0_ypos/pcrp1_xpos/pcrp1_ypos:0x%x/0x%x/0x%x/0x%x/0x%x/0x%x\n",
 		__func__, dev->id, qbn_r8_ctl, qbn_r8_pcrp_ctl,
 		pcrp0_xpos, pcrp0_ypos, pcrp1_xpos, pcrp1_ypos);
+	if (CAM_DEBUG_ENABLED(RAW_INT) || force)
+		dev_info(dev->dev,
+		"[%s] raw%d - [in] awbo_x/y/stride/basic/con0/1/2/3/4:0x%x/0x%x/0x%x/0x%x/0x%x/0x%x/0x%x/0x%x/0x%x\n",
+		__func__, dev->id, awbo_x, awbo_y, awbo_s, awbo_basic,
+		con0, con1, con2, con3, con4);
 }
 
 static void dump_dc_setting(struct mtk_raw_device *dev)
@@ -1098,16 +1114,16 @@ static void write_pkt_apu_raw(struct mtk_raw_device *dev,
 	trig = is_apu_dc ?
 		FBIT(CAMCTL_APU_TRIG) :
 		(FBIT(CAMCTL_APU_TRIG) | FBIT(CAMCTL_RAW_TRIG));
+	if (param) {
+		cmdq_pkt_write(
+				pkt, NULL, param->apu_dc_larb_base,
+				is_apu_dc ? 0xf0000 : 0x00001, 0xffffffff);
 
-	cmdq_pkt_write(
-			pkt, NULL, param->apu_dc_larb_base,
-			is_apu_dc ? 0xf0000 : 0x00001, 0xffffffff);
-
-	/* CAM_MAIN_ADLRD_CTRL */
-	cmdq_pkt_write(
-			pkt, NULL,
-			param->cam_main_adlrd_ctrl_base, adlrd_ctrl, 0xffffffff);
-
+		/* CAM_MAIN_ADLRD_CTRL */
+		cmdq_pkt_write(
+				pkt, NULL,
+				param->cam_main_adlrd_ctrl_base, adlrd_ctrl, 0xffffffff);
+	}
 	/* CAMCTL_RAWI_TRIG: CAMCTL_APU_TRIG */
 	cmdq_pkt_write(pkt, NULL, dev->base_reg_addr + REG_CAMCTL_RAW_TRIG, trig,
 		       0xffffffff);
@@ -1132,7 +1148,8 @@ void write_pkt_trigger_apu_dc(struct mtk_raw_device *dev,
 	write_pkt_apu_raw(dev, pkt, true /* is_apu_dc */);
 
 	/* trigger APU */
-	cmdq_pkt_write(pkt, NULL, param->apu_mbox_dc_mode_base, 0x1, 0xffffffff);
+	if (param)
+		cmdq_pkt_write(pkt, NULL, param->apu_mbox_dc_mode_base, 0x1, 0xffffffff);
 }
 
 void write_pkt_trigger_apu_frame_mode(struct mtk_raw_device *dev,

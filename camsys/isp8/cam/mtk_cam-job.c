@@ -5635,14 +5635,15 @@ static int fill_raw_meta_header(struct req_buffer_helper *helper)
 	if (helper->meta_stats0_buf) {
 		ret = ret || fill_raw_stats_header(helper->meta_stats0_buf, &p,
 						   &helper->meta_stats0_buf_va);
-
-		job->timestamp_buf = helper->meta_stats0_buf_va ?
-			(helper->meta_stats0_buf_va +
-				GET_PLAT_V4L2(timestamp_buffer_ofst)) : NULL;
-		if (ltmsgo_low_latency && job->need_copy_ltmsgo) {
-			job->ltmsgo_buf = helper->meta_stats0_buf_va ?
+		if (helper->meta_stats0_buf_va) {
+			job->timestamp_buf = helper->meta_stats0_buf_va ?
 				(helper->meta_stats0_buf_va +
-				CALL_PLAT_V4L2(ltmsgo_buffer_ofst, helper->meta_stats0_buf_va)) : NULL;
+					GET_PLAT_V4L2(timestamp_buffer_ofst)) : NULL;
+			if (ltmsgo_low_latency && job->need_copy_ltmsgo) {
+				job->ltmsgo_buf = helper->meta_stats0_buf_va ?
+					(helper->meta_stats0_buf_va +
+					CALL_PLAT_V4L2(ltmsgo_buffer_ofst, helper->meta_stats0_buf_va)) : NULL;
+			}
 		}
 	}
 

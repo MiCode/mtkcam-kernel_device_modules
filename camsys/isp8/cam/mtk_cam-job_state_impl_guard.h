@@ -11,6 +11,7 @@
 #define SCQ_THRES_FROM_F_SOF_NS 15000000
 
 struct state_accessor;
+
 struct state_accessor_ops {
 	/*
 	 * to check if previous frame's status is allowing to apply current sensor setting
@@ -121,49 +122,90 @@ static inline int guard_next_compose_m2m(struct state_accessor *s_acc,
 static inline int guard_next_compose(struct state_accessor *s_acc,
 			       struct transition_param *p)
 {
-	return allow_composing(s_acc) &&
+	int ret = 0;
+
+	spin_lock(p->info_lock);
+	ret = allow_composing(s_acc) &&
 		(unsigned int)(cur_seq_no(s_acc) - p->info->ack_seq_no) == 1;
+	spin_unlock(p->info_lock);
+
+	return ret;
 }
 
 static inline int guard_ack_eq(struct state_accessor *s_acc,
 			       struct transition_param *p)
 {
-	return p->info->ack_seq_no == cur_seq_no(s_acc);
+	int ret = 0;
+
+	spin_lock(p->info_lock);
+	ret = p->info->ack_seq_no == cur_seq_no(s_acc);
+	spin_unlock(p->info_lock);
+
+	return ret;
 }
 
 static inline int guard_outer_eq(struct state_accessor *s_acc,
 				 struct transition_param *p)
 {
-	return p->info->outer_seq_no == cur_seq_no(s_acc);
+	int ret = 0;
+
+	spin_lock(p->info_lock);
+	ret = p->info->outer_seq_no == cur_seq_no(s_acc);
+	spin_unlock(p->info_lock);
+
+	return ret;
 }
 
 static inline int guard_outer_eq_subsample(struct state_accessor *s_acc,
 				 struct transition_param *p)
 {
-	/* outer regs doesn't updated when cq done in subsample mode */
-	int cur_seq = p->info->outer_seq_no == p->info->inner_seq_no ?
-			p->info->outer_seq_no + 1 : p->info->outer_seq_no;
+	int cur_seq = 0, ret = 0;
 
-	return ( cur_seq == cur_seq_no(s_acc)) &&
+	spin_lock(p->info_lock);
+	/* outer regs doesn't updated when cq done in subsample mode */
+	cur_seq = p->info->outer_seq_no == p->info->inner_seq_no ?
+			p->info->outer_seq_no + 1 : p->info->outer_seq_no;
+	ret = ( cur_seq == cur_seq_no(s_acc)) &&
 		ops_call(s_acc, cur_isp_state) >= S_ISP_APPLYING;
+	spin_unlock(p->info_lock);
+
+	return ret;
 }
 
 static inline int guard_inner_eq(struct state_accessor *s_acc,
 				 struct transition_param *p)
 {
-	return p->info->inner_seq_no == cur_seq_no(s_acc);
+	int ret = 0;
+
+	spin_lock(p->info_lock);
+	ret = p->info->inner_seq_no == cur_seq_no(s_acc);
+	spin_unlock(p->info_lock);
+
+	return ret;
 }
 
 static inline int guard_inner_ge(struct state_accessor *s_acc,
 				 struct transition_param *p)
 {
-	return p->info->inner_seq_no >= cur_seq_no(s_acc);
+	int ret = 0;
+
+	spin_lock(p->info_lock);
+	ret = p->info->inner_seq_no >= cur_seq_no(s_acc);
+	spin_unlock(p->info_lock);
+
+	return ret;
 }
 
 static inline int guard_inner_greater(struct state_accessor *s_acc,
 				 struct transition_param *p)
 {
-	return p->info->inner_seq_no > cur_seq_no(s_acc);
+	int ret = 0;
+
+	spin_lock(p->info_lock);
+	ret = p->info->inner_seq_no > cur_seq_no(s_acc);
+	spin_unlock(p->info_lock);
+
+	return ret;
 }
 
 

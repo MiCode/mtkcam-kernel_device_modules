@@ -413,7 +413,7 @@ static void debug_send_event(const struct transition_param *p)
 	info = p->info;
 
 	print_ts = (p->event == CAMSYS_EVENT_ENQUE);
-
+	spin_lock(p->info_lock);
 	if (print_ts)
 		pr_info("[%s] out/in:0x%x/0x%x event: %s@%llu (sof %llu)\n",
 			__func__,
@@ -425,6 +425,7 @@ static void debug_send_event(const struct transition_param *p)
 			__func__,
 			info->outer_seq_no, info->inner_seq_no,
 			str_event(p->event));
+	spin_unlock(p->info_lock);
 }
 
 static const int waitable_event =
@@ -542,6 +543,7 @@ static int mtk_cam_ctrl_send_event(struct mtk_cam_ctrl *ctrl, int event)
 	p.info = &local_info;
 	p.event = event;
 	p.event_ts = ktime_get_boottime_ns();
+	p.info_lock = &ctrl->info_lock;
 
 	if (CAM_DEBUG_ENABLED(STATE))
 		debug_send_event(&p);

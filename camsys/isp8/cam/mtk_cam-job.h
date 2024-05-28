@@ -176,6 +176,7 @@ struct transition_param {
 	struct sensor_apply_params *s_params;
 	u64 cq_trigger_thres;
 	u64 reference_sof_ns;
+	spinlock_t *info_lock; /* only for info lock */
 };
 
 struct mtk_cam_job_state;

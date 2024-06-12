@@ -258,6 +258,28 @@ enum CAM_TYPE_ENUM {
 	"pdp", \
 	"uisp", \
 
+/*
+ * seninf irq handler enable for debug
+ * ONLY can be enabled for debug purpose
+ */
+#undef SENINF_IRQ_DBG_EN
+
+enum SENINF_IRQ_ENUM {
+	SENINF_IRQ_TOP,
+	SENINF_IRQ_DEVICE0,
+	SENINF_IRQ_DEVICE1,
+	SENINF_IRQ_DEVICE2,
+	SENINF_IRQ_DEVICE3,
+	SENINF_IRQ_MAX_NUM,
+};
+
+#define SENINF_IRQ_NAMES \
+	"seninf-top-irq", \
+	"seninf-dev0-irq", \
+	"seninf-dev1-irq", \
+	"seninf-dev2-irq", \
+	"seninf-dev3-irq", \
+
 #define VC_STREAM_MAX_NUM 8
 
 enum VC_CH_GROUP {

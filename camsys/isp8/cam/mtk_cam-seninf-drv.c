@@ -162,6 +162,14 @@ static const char * const cdphy_dvfs_step_name[] = {
 	CDPHY_DVFS_STEP
 };
 
+#if is_irq_ready
+#ifdef SENINF_IRQ_DBG_EN
+static const char * const seninf_irq_names[] = {
+	SENINF_IRQ_NAMES
+};
+#endif
+#endif
+
 static bool pkvm_enabled;
 
 bool is_pkvm_enabled(void)
@@ -874,6 +882,7 @@ static int seninf_core_pm_runtime_put(struct seninf_core *core)
 }
 
 #if is_irq_ready
+#ifdef SENINF_IRQ_DBG_EN
 static irqreturn_t mtk_irq_seninf(int irq, void *data)
 {
 	unsigned int wake_thread = 0;
@@ -887,6 +896,7 @@ static irqreturn_t mtk_thread_irq_seninf(int irq, void *data)
 	g_seninf_ops->_thread_irq_handler(irq, data);
 	return IRQ_HANDLED;
 }
+#endif
 #endif
 
 static int get_seninf_ops(struct device *dev, struct seninf_core *core)
@@ -1030,12 +1040,39 @@ static int get_seninf_ops(struct device *dev, struct seninf_core *core)
 	return 0;
 }
 
+#if is_irq_ready
+static int mtk_cam_seninf_irq_init(struct platform_device *pdev, struct seninf_core *core)
+{
+#ifdef SENINF_IRQ_DBG_EN
+	int i, irq, ret;
+
+	for (i = 0; i < SENINF_IRQ_MAX_NUM; i++) {
+		/* Return: non-zero IRQ number on success, negative error number on failure. */
+		irq = platform_get_irq_byname(pdev, seninf_irq_names[i]);
+		if (irq <= 0) {
+			dev_err(core->dev, "%s: failed to get %s number, ret:%d\n",
+				__func__, seninf_irq_names[i], irq);
+		} else {
+			ret = devm_request_threaded_irq(core->dev, irq, mtk_irq_seninf,
+						mtk_thread_irq_seninf, 0, dev_name(core->dev), core);
+			if (ret) {
+				dev_err(core->dev, "%s: Request %s failed\n", __func__,
+					seninf_irq_names[i]);
+				WRAP_AEE_EXCEPTION("seninf_core_probe", "Request seninf-irq");
+				/* return ret; */
+			}
+			dev_info(core->dev, "registered seninf-irq=%d\n", irq);
+		}
+	}
+#endif
+
+	return 0;
+}
+#endif
+
 static int seninf_core_probe(struct platform_device *pdev)
 {
 	int i, j, ret;
-#if is_irq_ready
-	int irq;
-#endif
 	struct resource *res;
 	struct seninf_core *core;
 	struct device *dev = &pdev->dev;
@@ -1200,21 +1237,7 @@ static int seninf_core_probe(struct platform_device *pdev)
 	spin_lock_init(&core->spinlock_aov);
 
 #if is_irq_ready
-	/* Return: non-zero IRQ number on success, negative error number on failure. */
-	irq = platform_get_irq_byname(pdev, "seninf-irq");
-	if (irq <= 0) {
-		dev_err(dev, "%s: failed to get seninf-irq number, ret:%d\n", __func__, irq);
-		//return -ENODEV;
-	} else {
-		ret = devm_request_threaded_irq(dev, irq, mtk_irq_seninf,
-					mtk_thread_irq_seninf, 0, dev_name(dev), core);
-		if (ret) {
-			dev_err(dev, "%s: Request seninf-irq failed\n", __func__);
-			WRAP_AEE_EXCEPTION("seninf_core_probe", "Request seninf-irq");
-			return ret;
-		}
-		dev_info(dev, "registered seninf-irq=%d\n", irq);
-	}
+	mtk_cam_seninf_irq_init(pdev, core);
 
 	mtk_cam_seninf_tsrec_irq_init(core);
 #endif

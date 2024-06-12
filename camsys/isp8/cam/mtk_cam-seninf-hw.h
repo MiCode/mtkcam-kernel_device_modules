@@ -136,8 +136,8 @@ struct mtk_cam_seninf_vcinfo_debug {
 	u32 rec_size_v;
 	u32 outmux_id;
 	u32 done_irq_status;
-	u32 oversize_irq_status;
-	u32 incomplete_frame_status;
+	u32 oversize_irq_status; /* not used */
+	u32 incomplete_frame_status; /* not used */
 	u32 ref_vsync_irq_status;
 };
 

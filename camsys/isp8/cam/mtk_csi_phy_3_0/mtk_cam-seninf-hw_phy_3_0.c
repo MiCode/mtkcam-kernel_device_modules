@@ -60,44 +60,42 @@ static struct mtk_cam_seninf_irq_event_st vsync_detect_seninf_irq_event;
 			RG_CSI2_S##s##_VC_INTERLEAVE_EN, 1); \
 } while (0)
 
+#ifdef SENINF_IRQ_DBG_EN
+/* IRQ debug enable, don't enable oversize and incomp irq en */
+#define SET_OUT_MUX_IRQ_EN_BY_TAG(pOutMux, tag_id, en) { \
+	SENINF_BITS(pOutMux, SENINF_OUTMUX_IRQ_EN, SENINF_OUTMUX_TAG_DONE_IRQ_EN_##tag_id, en); \
+}
+#else
+/* IRQ debug disable */
 #define SET_OUT_MUX_IRQ_EN_BY_TAG(pOutMux, tag_id, en) do { \
 	SENINF_BITS(pOutMux, SENINF_OUTMUX_IRQ_EN, SENINF_OUTMUX_INCOMP_IRQ_EN_##tag_id, en); \
 	SENINF_BITS(pOutMux, SENINF_OUTMUX_IRQ_EN, SENINF_OUTMUX_OVERSIZE_IRQ_EN_##tag_id, en); \
 	SENINF_BITS(pOutMux, SENINF_OUTMUX_IRQ_EN, SENINF_OUTMUX_TAG_DONE_IRQ_EN_##tag_id, en); \
 } while (0)
+#endif
 
-#define DUMP_DEBUG_REG_INFO_BY_TAG(tag_id) do {			\
-	u32 irq_status;						\
-									\
+#define DUMP_DEBUG_REG_INFO_BY_TAG(tag_id) do { \
+	u32 irq_status; \
+\
 	vcinfo_debug->exp_size_h = \
-			SENINF_READ_BITS(outmux, \
-					SENINF_OUTMUX_TAG_SIZE_##tag_id, \
-					SENINF_OUTMUX_HSIZE_##tag_id); \
-									\
+		SENINF_READ_BITS(outmux, \
+			SENINF_OUTMUX_TAG_SIZE_##tag_id, \
+			SENINF_OUTMUX_HSIZE_##tag_id); \
 	vcinfo_debug->exp_size_v = \
-			SENINF_READ_BITS(outmux, \
-					SENINF_OUTMUX_TAG_SIZE_##tag_id, \
-					SENINF_OUTMUX_VSIZE_##tag_id); \
-									\
+		SENINF_READ_BITS(outmux, \
+			SENINF_OUTMUX_TAG_SIZE_##tag_id, \
+			SENINF_OUTMUX_VSIZE_##tag_id); \
 	irq_status = SENINF_READ_REG(outmux, SENINF_OUTMUX_IRQ_STATUS); \
-									\
+\
 	vcinfo_debug->done_irq_status =	0x01 & \
 		(irq_status >> SENINF_OUTMUX_TAG_DONE_IRQ_STATUS_##tag_id##_SHIFT); \
-									\
-	vcinfo_debug->incomplete_frame_status =	0x01 & \
-		(irq_status >> SENINF_OUTMUX_INCOMP_IRQ_STATUS_##tag_id##_SHIFT); \
-									\
-	vcinfo_debug->oversize_irq_status =	0x01 & \
-		(irq_status >> SENINF_OUTMUX_OVERSIZE_IRQ_STATUS_##tag_id##_SHIFT); \
-									\
-	irq_status = 0x00;\
+\
+	irq_status = 0x00; \
 	irq_status |= SENINF_OUTMUX_TAG_DONE_IRQ_STATUS_##tag_id##_MASK; \
-									\
 	SENINF_WRITE_REG(outmux, \
-					SENINF_OUTMUX_IRQ_STATUS, \
-					irq_status); \
+			SENINF_OUTMUX_IRQ_STATUS, \
+			irq_status); \
 } while (0)
-
 
 #define SET_TAG_V2(ctx, ptr, ptr_inout, cfgn, sel, refvc, vc, dt, hsize, vsize) do { \
 	SENINF_BITS(ptr_inout, SENINF_OUTMUX_SOURCE_CONFIG_##cfgn, \
@@ -4170,11 +4168,9 @@ static int mtk_cam_seninf_debug_core_dump(struct seninf_ctx *ctx,
 					);
 
 			dev_info(ctx->dev,
-					"[%s]done_irq %d, inconp_irq %d oversize_irq %d, exp %dx%d\n",
+					"[%s]done_irq %d, exp %dx%d\n",
 					__func__,
 					vcinfo_debug->done_irq_status,
-					vcinfo_debug->incomplete_frame_status,
-					vcinfo_debug->oversize_irq_status,
 					vcinfo_debug->exp_size_h,
 					vcinfo_debug->exp_size_v);
 
@@ -4361,8 +4357,6 @@ static ssize_t mtk_cam_seninf_show_status(struct device *dev,
 					vcinfo_debug->exp_size_h, vcinfo_debug->exp_size_v);
 
 			SHOW(buf, len, "\tdone_irq 0x%x\n", vcinfo_debug->done_irq_status);
-			SHOW(buf, len, "\tinconp_irq 0x%x\n", vcinfo_debug->incomplete_frame_status);
-			SHOW(buf, len, "\toversize_irq 0x%x\n", vcinfo_debug->oversize_irq_status);
 			SHOW(buf, len, "\tref_vsync_irq 0x%x\n", vcinfo_debug->ref_vsync_irq_status);
 
 			SHOW(buf, len, "\tTAG_DBG_PORT 0x%x TAG_CRC_PORT 0x%x, OUTMUX_SW_CFG_DONE 0x%x\n",
@@ -5860,6 +5854,30 @@ static void seninf_record_vsync_info(struct seninf_core *core,
 	seninf_record_cammux_info(core, vsync_info);
 }
 
+static void handle_all_outmux_irq(struct seninf_core *core)
+{
+	void *pSeninf_outmux = NULL;
+	u32 rg_val;
+	int i;
+
+	for (i = 0; i < _seninf_ops->outmux_num; i++) {
+		pSeninf_outmux = core->reg_seninf_outmux[i];
+
+		rg_val = SENINF_READ_REG(pSeninf_outmux, SENINF_OUTMUX_IRQ_STATUS);
+		if (!rg_val)
+			continue;
+
+		SENINF_WRITE_REG(pSeninf_outmux, SENINF_OUTMUX_IRQ_STATUS, rg_val);
+
+		/*
+		 * Add code to observe what you want to check here
+		 *
+		 * dev_info(core->dev, "[%s] read outmux%d irq st 0x%x\n",
+		 * __func__, i, rg_val);
+		 */
+	}
+}
+
 static int mtk_cam_seninf_irq_handler(int irq, void *data)
 {
 	struct seninf_core *core = (struct seninf_core *)data;
@@ -5874,6 +5892,7 @@ static int mtk_cam_seninf_irq_handler(int irq, void *data)
 		if (seninf_push_vsync_info_msgfifo(&vsync_info) == 0)
 			wake_thread = 1;
 	}
+	handle_all_outmux_irq(core);
 
 	spin_unlock_irqrestore(&core->spinlock_irq, flags);
 

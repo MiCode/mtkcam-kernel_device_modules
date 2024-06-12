@@ -5165,6 +5165,9 @@ static int mtk_cam_job_fill_ipi_config(struct mtk_cam_job *job,
 		update_frame_order_to_config(&job->job_scen, config);
 		update_vsync_order_to_config(ctx, &job->job_scen, config);
 
+		config->line_interleave =
+			ctrl->resource.user_data.sensor_res.line_interleave;
+
 		if (scen_support_rgbw(&job->job_scen)) {
 			if (WARN_ON(!job->w_caci_buf))
 				return -1;

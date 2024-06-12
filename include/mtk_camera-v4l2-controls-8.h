@@ -204,6 +204,7 @@ struct mtk_cam_resource_sensor_v2 {
 	__u8 no_bufferd_prate_calc;
 	__u64 driver_buffered_pixel_rate;
 	__u8 pattern;
+	__u8 line_interleave;
 };
 
 #define MTK_CAM_RAW_A 0x0001

@@ -288,6 +288,9 @@ static void *mtk_cam_vb2_attach_dmabuf(
 		buf->dev = cam->smmu_dev_acp;
 		dev_info(buf->dev, "%s node:%s flags:0x%x", __func__,
 			node->desc.name, mtk_buf->flags);
+		/* acp usage need to do cache flush/invalidate also */
+		/* meta port using no_cache_clean/no_cache_invalidate for attatch acp otf<->dc case */
+		mtk_buf->flags &= (~(FLAG_NO_CACHE_CLEAN | FLAG_NO_CACHE_INVALIDATE));
 	} else {
 		buf->dev = dev;
 	}

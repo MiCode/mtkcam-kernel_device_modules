@@ -1353,7 +1353,11 @@ static void mtk_cam_ctrl_dynamic_raws_change_flow(struct mtk_cam_job *job)
 			 __func__, prev_seq);
 		goto SWITCH_FAILURE;
 	}
-
+	if (dynamic_raw_change_uninit_engine(job, engine_uninit)) {
+		dev_info(dev, "[%s] uninit engine failed, uninit raw:0x%x\n",
+			__func__, job->raw_change_uninit_engine);
+		goto SWITCH_FAILURE;
+	}
 	/* NOTE: qof_setup_twin has been called in job_raw_change_hw_init */
 	for (i = 0; i < cam->engines.num_raw_devices; i++) {
 		bool is_master = false;
@@ -1393,12 +1397,6 @@ static void mtk_cam_ctrl_dynamic_raws_change_flow(struct mtk_cam_job *job)
 	else
 		qof_mtcmos_voter_handle(&ctx->cam->engines,
 			0, &ctx->DOL_not_support);
-
-	if (dynamic_raw_change_uninit_engine(job, engine_uninit)) {
-		dev_info(dev, "[%s] uninit engine failed, uninit raw:0x%x\n",
-			__func__, job->raw_change_uninit_engine);
-		goto SWITCH_FAILURE;
-	}
 
 	for (i = 0; i < cam->engines.num_raw_devices; i++) {
 		if (BIT(i) & raw_after_change) {

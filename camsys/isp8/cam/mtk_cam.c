@@ -3079,7 +3079,8 @@ int ctx_stream_on_seninf_sensor(struct mtk_cam_job *job,
 	struct mtk_cam_ctx *ctx = job->src_ctx;
 	struct mtk_cam_device *cam = ctx->cam;
 	struct v4l2_subdev *seninf = ctx->seninf;
-	unsigned int mraw_idx;
+	unsigned int mraw_idx, max_pixel_mode = 0;
+	int cur_exp = job_exp_num(job);
 	int ret;
 	int i;
 
@@ -3128,17 +3129,66 @@ int ctx_stream_on_seninf_sensor(struct mtk_cam_job *job,
 	/* camsv */
 	if (ctx->hw_sv) {
 		struct mtk_camsv_device *sv_dev;
+		int tag_idx;
 
 		sv_dev = dev_get_drvdata(ctx->hw_sv);
-		for (i = SVTAG_START; i < SVTAG_END; i++) {
-			if (job->enabled_tags & (1 << i)) {
+		CALL_PLAT_V4L2(get_sv_max_pixel_mode, sv_dev->id, &max_pixel_mode);
+
+		if (ctx->has_raw_subdev &&
+			(scen_is_normal(&job->job_scen)) &&
+			(job_prev_exp_num_seamless(job) != job_exp_num(job))) {
+			/* image */
+			for (i = 0; i < cur_exp; i++) {
+				tag_idx = (cur_exp > 1 && (i + 1) == cur_exp) ?
+					get_sv_tag_idx(cur_exp, MTKCAM_IPI_ORDER_LAST_TAG, false) :
+					get_sv_tag_idx(cur_exp, i, false);
+
 				mtk_cam_seninf_set_camtg_camsv(seninf,
-					job->tag_info[i].seninf_padidx,
-					sv_dev->cammux_id, i);
+					PAD_SRC_RAW0 + i,
+					sv_dev->cammux_id, tag_idx);
 				mtk_cam_seninf_set_pixelmode_camsv(seninf,
-					job->tag_info[i].seninf_padidx,
-					job->tag_info[i].pixel_mode,
+					PAD_SRC_RAW0 + i,
+					max_pixel_mode,
 					sv_dev->cammux_id);
+
+				if (is_rgbw(job)) {
+					tag_idx = (cur_exp > 1 && (i + 1) == cur_exp) ?
+						get_sv_tag_idx(cur_exp, MTKCAM_IPI_ORDER_LAST_TAG, true) :
+						get_sv_tag_idx(cur_exp, i, true);
+
+					mtk_cam_seninf_set_camtg_camsv(seninf,
+						PAD_SRC_RAW_W0 + i,
+						sv_dev->cammux_id, tag_idx);
+					mtk_cam_seninf_set_pixelmode_camsv(seninf,
+						PAD_SRC_RAW_W0 + i,
+						max_pixel_mode,
+						sv_dev->cammux_id);
+				}
+			}
+
+			/* meta */
+			for (i = SVTAG_META_START; i < SVTAG_META_END; i++) {
+				if (job->enabled_tags & (1 << i)) {
+					mtk_cam_seninf_set_camtg_camsv(seninf,
+						job->tag_info[i].seninf_padidx,
+						sv_dev->cammux_id, i);
+					mtk_cam_seninf_set_pixelmode_camsv(seninf,
+						job->tag_info[i].seninf_padidx,
+						max_pixel_mode,
+						sv_dev->cammux_id);
+				}
+			}
+		} else {
+			for (i = SVTAG_START; i < SVTAG_END; i++) {
+				if (job->enabled_tags & (1 << i)) {
+					mtk_cam_seninf_set_camtg_camsv(seninf,
+						job->tag_info[i].seninf_padidx,
+						sv_dev->cammux_id, i);
+					mtk_cam_seninf_set_pixelmode_camsv(seninf,
+						job->tag_info[i].seninf_padidx,
+						max_pixel_mode,
+						sv_dev->cammux_id);
+				}
 			}
 		}
 	}

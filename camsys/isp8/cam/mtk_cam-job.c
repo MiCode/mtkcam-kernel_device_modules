@@ -1082,7 +1082,7 @@ static int get_seninf_pad_bitmask(struct mtk_cam_job *job)
 	int pad_bitmask = 0;
 
 	if (job->job_scen.id == MTK_CAM_SCEN_NORMAL)
-		last_exp = scen_max_exp_num(&job->job_scen);
+		last_exp = job_exp_num(job);
 	else if (job->job_scen.id == MTK_CAM_SCEN_EXT_ISP)
 		return PAD_SRC_RAW_EXT0;
 	else
@@ -1141,14 +1141,9 @@ _stream_on(struct mtk_cam_job *job, bool on)
 	}
 
 	/* TODO: separate seninf api to cammux setting and enable */
-	if (job->stream_on_seninf || job->raw_switch) {
+	if (job->stream_on_seninf || job->raw_switch)
 		ctx_stream_on_seninf_sensor(job, pad_bitmask, raw_tg_idx);
 
-		if (job->first_frm_switch) {
-			disable_seninf_cammux(job);
-			apply_cam_mux_switch(job);
-		}
-	}
 	if (job->raw_change && !job->seamless_switch) {
 		disable_seninf_cammux(job);
 		apply_cam_mux_switch(job);

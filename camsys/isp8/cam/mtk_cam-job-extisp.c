@@ -8,7 +8,7 @@ int handle_sv_tag_extisp(struct mtk_cam_job *job)
 	struct mtk_camsv_device *sv_dev;
 	struct mtk_camsv_pipeline *sv_pipe;
 	struct mtk_camsv_sink_data *sv_sink;
-	struct mtk_camsv_tag_param img_tag_param[SVTAG_IMG_END];
+	struct mtk_camsv_tag_param img_tag_param[SVTAG_IMG_END] = {};
 	struct mtk_camsv_tag_param meta_tag_param;
 	struct v4l2_format *img_fmt;
 	struct mtk_raw_sink_data preisp_sink_data;

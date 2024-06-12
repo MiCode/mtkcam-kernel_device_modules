@@ -197,7 +197,7 @@ int get_sv_subdev_idx(unsigned long used_pipe)
 
 int get_sv_tag_idx_hdr(unsigned int exp_no, unsigned int tag_order, bool is_w)
 {
-	struct mtk_camsv_tag_param img_tag_param[SVTAG_IMG_END];
+	struct mtk_camsv_tag_param img_tag_param[SVTAG_IMG_END] = {};
 	unsigned int hw_scen, req_amount;
 	int i, tag_idx = -1;
 
@@ -1875,12 +1875,12 @@ int fill_imgo_buf_as_working_buf(
 
 int get_sv_tag_idx(unsigned int exp_no, unsigned int tag_order, bool is_w)
 {
-	struct mtk_camsv_tag_param img_tag_param[SVTAG_IMG_END];
+	struct mtk_camsv_tag_param img_tag_param[SVTAG_IMG_END] = {};
 	unsigned int hw_scen, req_amount;
 	int i, tag_idx = -1;
 
 	hw_scen = 1 << HWPATH_ID(MTKCAM_IPI_HW_PATH_STAGGER);
-	if (exp_no > 3) {
+	if (exp_no > 3 || exp_no >= SVTAG_IMG_END) {
 		pr_info("[%s] invalid exp no %d\n", __func__, exp_no);
 		goto EXIT;
 	}
@@ -2181,7 +2181,7 @@ int handle_sv_tag(struct mtk_cam_job *job)
 	struct mtk_camsv_device *sv_dev;
 	struct mtk_camsv_pipeline *sv_pipe;
 	struct mtk_camsv_sink_data *sv_sink;
-	struct mtk_camsv_tag_param img_tag_param[SVTAG_IMG_END];
+	struct mtk_camsv_tag_param img_tag_param[SVTAG_IMG_END] = {};
 	struct mtk_camsv_tag_param meta_tag_param;
 	struct mtk_seninf_pad_data_info pad_data_info;
 	unsigned int tag_idx, sv_pipe_idx, hw_scen;
@@ -2358,10 +2358,11 @@ int handle_sv_tag_display_ic(struct mtk_cam_job *job)
 	struct mtk_cam_ctx *ctx = job->src_ctx;
 	struct mtk_camsv_device *sv_dev;
 	struct mtk_camsv_pipeline *sv_pipe;
-	struct mtk_camsv_tag_param tag_param[3];
+	struct mtk_camsv_tag_param tag_param[SVTAG_IMG_END] = {};
 	struct v4l2_format *img_fmt;
 	unsigned int width, height, mbus_code;
 	unsigned int hw_scen, max_pixel_mode = 3;
+	unsigned int req_amount;
 	int ret = 0, i, sv_pipe_idx;
 
 	if (ctx->hw_sv) {
@@ -2379,9 +2380,10 @@ int handle_sv_tag_display_ic(struct mtk_cam_job *job)
 	sv_pipe_idx = ctx->sv_subdev_idx[0];
 	sv_pipe = &ctx->cam->pipelines.camsv[sv_pipe_idx];
 	hw_scen = (1 << MTKCAM_SV_SPECIAL_SCENARIO_DISPLAY_IC);
-	ret = mtk_cam_sv_get_tag_param(tag_param, hw_scen, 1, 3);
+	req_amount = 3;
+	ret = mtk_cam_sv_get_tag_param(tag_param, hw_scen, 1, req_amount);
 
-	for (i = 0; i < ARRAY_SIZE(tag_param); i++) {
+	for (i = 0; i < req_amount; i++) {
 		if (tag_param[i].tag_idx == SVTAG_0) {
 			img_fmt = &sv_pipe->vdev_nodes[
 				MTK_CAMSV_MAIN_STREAM_OUT - MTK_CAMSV_SINK_NUM].active_fmt;
@@ -2443,10 +2445,11 @@ int handle_sv_tag_non_comb_ic(struct mtk_cam_job *job)
 	struct mtk_cam_ctx *ctx = job->src_ctx;
 	struct mtk_camsv_device *sv_dev;
 	struct mtk_camsv_pipeline *sv_pipe = NULL;
-	struct mtk_camsv_tag_param tag_param[4];
+	struct mtk_camsv_tag_param tag_param[SVTAG_IMG_END] = {};
 	struct mtk_camsv_sink_data *sv_sink;
 	unsigned int width, height, mbus_code;
 	unsigned int hw_scen, max_pixel_mode = 3;
+	unsigned int req_amount;
 	int ret = 0, i, sv_pipe_idx;
 
 	if (ctx->hw_sv) {
@@ -2470,9 +2473,10 @@ int handle_sv_tag_non_comb_ic(struct mtk_cam_job *job)
 	sv_pipe_idx = ctx->sv_subdev_idx[0];
 	sv_pipe = &ctx->cam->pipelines.camsv[sv_pipe_idx];
 	hw_scen = (1 << MTKCAM_SV_SPECIAL_SCENARIO_NON_COMB_IC);
-	ret = mtk_cam_sv_get_tag_param(tag_param, hw_scen, 1, 4);
+	req_amount = 4;
+	ret = mtk_cam_sv_get_tag_param(tag_param, hw_scen, 1, req_amount);
 
-	for (i = 0; i < ARRAY_SIZE(tag_param); i++) {
+	for (i = 0; i < req_amount; i++) {
 		width = sv_sink->width / 4;
 		height = sv_sink->height;
 		mbus_code = sv_sink->mbus_code;

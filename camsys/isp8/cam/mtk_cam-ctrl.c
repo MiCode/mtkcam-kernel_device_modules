@@ -2652,16 +2652,21 @@ int mtk_cam_watchdog_start(struct mtk_cam_watchdog *wd, bool monitor_vsync)
 
 void mtk_cam_watchdog_stop(struct mtk_cam_watchdog *wd)
 {
+	u64 ts_timer, ts_wait_monitor;
+
 	if (!atomic_cmpxchg(&wd->started, 1, 0))
 		return;
 
 	del_timer_sync(&wd->timer);
-
+	ts_timer = ktime_get_boottime_ns();
 	atomic_set(&wd->timer_signaled, 1);
 	wake_up_interruptible(&wd->monitor_wq);
 
 	wait_for_completion(&wd->monitor_complete);
+	ts_wait_monitor = ktime_get_boottime_ns();
 	wait_for_completion(&wd->work_complete);
+	pr_info("[%s] %llu/%llu/%llu\n",
+		__func__, ts_timer, ts_wait_monitor, ktime_get_boottime_ns());
 }
 
 int mtk_cam_ctrl_ae_workaround(struct mtk_cam_device *cam,

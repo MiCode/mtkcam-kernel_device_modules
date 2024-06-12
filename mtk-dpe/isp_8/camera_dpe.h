@@ -38,7 +38,7 @@
 
 #define DPE_REG_RANGE           (0x1000)
 
-#define DPE_BASE_HW             0x3A770000
+/* #define DPE_BASE_HW             0x3A770000 */
 
 /*This macro is for setting irq status represnted
  * by a local variable,DPEInfo.IrqInfo.Status[DPE_IRQ_TYPE_INT_DPE_ST]

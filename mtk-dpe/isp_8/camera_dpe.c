@@ -337,6 +337,8 @@ struct DPE_device {
 };
 static struct DPE_device *DPE_devs;
 static int nr_DPE_devs;
+static unsigned int DPE_BASE_HW;
+static const struct of_device_id DPE_of_ids[];
 /* Get HW modules' base address from device nodes */
 #define DPE_DEV_NODE_IDX 0
 #define IPESYS_DEV_MODE_IDX 1
@@ -344,6 +346,7 @@ static int nr_DPE_devs;
 #define ISP_IPESYS_BASE (DPE_devs[IPESYS_DEV_MODE_IDX].regs)
 #else
 #define ISP_DPE_BASE 0x3A770000
+#define DPE_BASE_HW 0x3A770000
 #endif
 
 #ifdef SMI_CLK
@@ -7969,9 +7972,9 @@ static signed int DPE_open(struct inode *pInode, struct file *pFile)
 	LOG_INF("DPE OPNE CLK UserCount: %d\n", DPEInfo.UserCount);
 	DPE_EnableClock(MTRUE);
 	cmdq_mbox_enable(dpe_clt->chan);
-	g_SuspendCnt = 0;
 	//DPE_debug_log_en = 1;
 	spin_lock(&(DPEInfo.SpinLockDPE));
+	g_SuspendCnt = 0;
 	LOG_INF("DPE open g_u4EnableClockCount: %d", g_u4EnableClockCount);
 	spin_unlock(&(DPEInfo.SpinLockDPE));
 	complete_all(&DPEinit_done);
@@ -8580,6 +8583,7 @@ static signed int DPE_probe(struct platform_device *pDev)
 	struct CAM_device *Cam_dev;
 	struct IPE_device *Ipe_dev;
 	#endif
+	const struct of_device_id *dts_match = NULL;
 #endif
 	LOG_INF("- E. DPE driver probe.\n");
 	/* Check platform_device parameters */
@@ -8662,6 +8666,21 @@ static signed int DPE_probe(struct platform_device *pDev)
 				"dvsdoneasyncshot",
 				&dvs_event_id);
 		LOG_INF("[Debug]dvs_event_id %d\n", dvs_event_id);
+
+		dts_match = &DPE_of_ids[1];
+		if (of_device_is_compatible(pDev->dev.of_node, dts_match->compatible)) {
+			if (strcmp(dts_match->compatible, "mediatek,dvs") == 0) {
+				DPE_BASE_HW = 0x3A770000;
+				LOG_INF("[Debug]mt6991 match\n");
+			}
+		}
+		dts_match = &DPE_of_ids[4];
+		if (of_device_is_compatible(pDev->dev.of_node, dts_match->compatible)) {
+			if (strcmp(dts_match->compatible, "mediatek,dvs_mt6899") == 0) {
+				DPE_BASE_HW = 0x1A770000;
+				LOG_INF("[Debug]mt6899 match\n");
+			}
+		}
 	} else if (nr_DPE_devs == 2) {
 /* parse hardware event */
 		of_property_read_u32(pDev->dev.of_node,
@@ -9204,6 +9223,9 @@ static const struct of_device_id DPE_of_ids[] = {
 	{.compatible = "mediatek,dvp",},
 	{.compatible = "mediatek,dvs",},
 	{.compatible = "mediatek,dvgf",},
+	{.compatible = "mediatek,dvp_mt6899",},
+	{.compatible = "mediatek,dvs_mt6899",},
+	{.compatible = "mediatek,dvgf_mt6899",},
 	{}
 };
 #endif

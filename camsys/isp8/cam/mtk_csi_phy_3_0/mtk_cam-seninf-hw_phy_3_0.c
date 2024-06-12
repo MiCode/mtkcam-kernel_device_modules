@@ -6166,7 +6166,7 @@ static int mtk_cam_seninf_eye_scan(struct seninf_ctx *ctx, u32 key, int val_sign
 				SENINF_BITS(base, CDPHY_RX_ANA_13,
 						RG_CSI0_CPHY_T0_CDR_SEL_CODE, val);
 				// T1
-				SENINF_BITS(base, CDPHY_RX_ANA_6,
+				SENINF_BITS(base, CDPHY_RX_ANA_7,
 						RG_CSI0_CPHY_T1_CDR_CK_DELAY, val);
 				SENINF_BITS(base, CDPHY_RX_ANA_13,
 						RG_CSI0_CPHY_T1_CDR_SEL_CODE, val);
@@ -6412,7 +6412,7 @@ static int mtk_cam_seninf_eye_scan(struct seninf_ctx *ctx, u32 key, int val_sign
 				"SENINF_READ_BITS get T0 CDR_DELAY, val=0x%x\n", get_rg_val & 0b111111);
 
 				// T1
-				get_rg_val = SENINF_READ_BITS(base, CDPHY_RX_ANA_6,
+				get_rg_val = SENINF_READ_BITS(base, CDPHY_RX_ANA_7,
 						RG_CSI0_CPHY_T1_CDR_CK_DELAY);
 				log_len += snprintf(plog + log_len, logbuf_size - log_len,
 				"SENINF_READ_BITS get T1 CDR_DELAY, val=0x%x\n", get_rg_val & 0b111111);

@@ -30,6 +30,7 @@
 #include "slbc_ops.h"
 #include "scp.h"
 #include <soc/mediatek/smi.h>
+#include <soc/mediatek/emi.h>
 
 #if AOV_EVENT_IN_PLACE
 #define ALIGN16(x) ((void *)(((uint64_t)x + 0x0F) & ~0x0F))
@@ -990,6 +991,13 @@ static int scp_state_notify(struct notifier_block *this,
 			return NOTIFY_DONE;
 		}
 
+		/* Recover emiisu when scp bootup */
+#if IS_ENABLED(CONFIG_MTK_LOAD_TRACKER_DEBUG)
+#if !IS_ENABLED(CONFIG_MTK_EMI_LEGACY)
+		mtk_emiisu_record_on();
+#endif
+#endif
+
 		// Recovery the interruped session
 		if (atomic_read(&(core_info->aov_ready))) {
 			(void)aov_core_recover(aov_dev);
@@ -1735,6 +1743,13 @@ int aov_smi_kernel_dump(void *arg)
 		#pragma clang diagnostic pop
 		dev_info(aov_dev->dev, "%s: do aov smi kernel dump- id(%u)", __func__, core_info->smi_dump_id);
 		core_info->smi_dump_id = 0;
+
+		/* Stop emiisu to save current emi debug info */
+#if IS_ENABLED(CONFIG_MTK_LOAD_TRACKER_DEBUG)
+#if !IS_ENABLED(CONFIG_MTK_EMI_LEGACY)
+		mtk_emiisu_record_off();
+#endif
+#endif
 
 		ret = send_cmd_internal(core_info, AOV_SCP_CMD_SMI_DUMP_DONE, 0, 0, false, false);
 		if (ret < 0)

@@ -580,6 +580,7 @@ static int qof_smi_isp_module_get_if_in_use(void *data, int module)
 					qof_smi_counter_ctrl(QOF_CNT_CTRL_SUB);
 					smi_use_qof = false;
 					get_result = -1;
+					pm_runtime_put(g_imgsys_dev->dev);
 					goto RETURN_FLOW;
 				} else {
 					// qof get power success

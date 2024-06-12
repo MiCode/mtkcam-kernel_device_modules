@@ -5226,7 +5226,7 @@ static bool mtk_camsys_is_all_cq_done(struct mtk_cam_ctx *ctx,
 {
 	unsigned int all_subdevs = 0;
 	bool ret = false;
-	int i;
+	int i, cqdone_status;
 
 	spin_lock(&ctx->first_cq_lock);
 	if (ctx->is_first_cq_done) {
@@ -5237,6 +5237,7 @@ static bool mtk_camsys_is_all_cq_done(struct mtk_cam_ctx *ctx,
 
 	// update cq done status
 	ctx->cq_done_status |= (1 << pipe_id);
+	cqdone_status = ctx->cq_done_status;
 
 	// check cq done status
 	if (ctx->used_raw_num && ctx->pipe)
@@ -5251,7 +5252,7 @@ static bool mtk_camsys_is_all_cq_done(struct mtk_cam_ctx *ctx,
 	}
 	spin_unlock(&ctx->first_cq_lock);
 	dev_info(ctx->cam->dev, "[1st-CQD] all done:%d, pipe_id:%d, done status:0x%x, need_done:0x%x (using raw/mraw/sv:%d/%d/%d) sv_tag_cnt:%d\n",
-		ret, pipe_id, ctx->cq_done_status, all_subdevs,
+		ret, pipe_id, cqdone_status, all_subdevs,
 		ctx->used_raw_num, ctx->used_mraw_num,
 		(ctx->sv_dev) ? ctx->sv_dev->id + MTKCAM_SUBDEV_CAMSV_START : 0,
 		(ctx->sv_dev) ? ctx->sv_dev->used_tag_cnt : 0);

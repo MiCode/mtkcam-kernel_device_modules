@@ -554,7 +554,7 @@ int Handler_frame_token_sync_imgsys_isp8(struct mtk_img_frm_sync *mtk_img_frm_sy
 	struct buf_ofst_info_t *oft_info = NULL;
 	struct tokenmap_t *tokenmap = NULL;
 	int token_cnt = 0;
-	unsigned int tokenmap_keyidx = 0;
+	int tokenmap_keyidx = 0;
 	/*struct token_list_k token_list[16];*/
 	struct token_list_k token_list;
 	int r_idx = in_data->r_idx;
@@ -789,7 +789,7 @@ int Handler_frame_token_sync_DPE_isp8(struct mtk_img_frm_sync *mtk_img_frm_sync_
 	struct buf_ofst_table_t *oft_tb = NULL;
 	struct buf_ofst_info_t *oft_info = NULL;
 	int token_cnt = 0;
-	unsigned int tokenmap_keyidx = 0;
+	int tokenmap_keyidx = 0;
 	/*struct token_list_k token_list[16];*/
 	struct token_list_k token_list;
 	int r_idx = 0;

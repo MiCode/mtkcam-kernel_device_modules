@@ -18,14 +18,7 @@ extern "C" {
 #include <kree/system.h>
 #include <kree/mem.h>
 
-enum SENINF_TEE_CMD {
-
-	SENINF_TEE_CMD_SYNC_TO_PA = 0x10,
-	SENINF_TEE_CMD_SYNC_TO_VA,
-	SENINF_TEE_CMD_CHECKPIPE,
-	SENINF_TEE_CMD_FREE,
-
-};
+#include "mtk_cam-seninf-common.h"
 
 enum SENINF_CA_RETURN {
 

@@ -25,10 +25,10 @@
 #include "mtk_cam-seninf-tsrec.h"
 #include "imgsensor-user.h"
 #include "mtk_cam-seninf-ca.h"
+#include "mtk_cam-seninf-pkvm.h"
 #include <aee.h>
 
 #include "mtk_cam-defs.h"
-
 
 static inline size_t seninf_list_count(struct list_head *head)
 {
@@ -2009,11 +2009,23 @@ int mtk_cam_seninf_s_stream_mux(struct seninf_ctx *ctx)
 		dev_info(ctx->dev,
 			"is not secure, won't Sensor kernel init seninf_ca");
 	else {
-		if (!seninf_ca_open_session())
-			dev_info(ctx->dev, "seninf_ca_open_session fail");
+		if (!is_pkvm_enabled()) {
+			if (!seninf_ca_open_session())
+				dev_info(ctx->dev, "seninf_ca_open_session fail");
 
-		dev_info(ctx->dev, "Sensor kernel ca_checkpipe");
-		seninf_ca_checkpipe(ctx->SecInfo_addr);
+			dev_info(ctx->dev, "Sensor kernel ca_checkpipe");
+			seninf_ca_checkpipe(ctx->SecInfo_addr);
+		} else {
+			if (!seninf_pkvm_open_session())
+				dev_info(ctx->dev, "seninf_pkvm_open_session fail");
+
+			dev_info(ctx->dev, "Sensor kernel pkvm_checkpipe");
+#ifdef SECURE_UT
+			seninf_pkvm_checkpipe(ctx->SecInfo_addr);
+#else
+			seninf_pkvm_checkpipe(get_chk_pa());
+#endif
+		}
 	}
 #endif
 

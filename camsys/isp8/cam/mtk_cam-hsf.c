@@ -28,6 +28,14 @@
 #include <linux/soc/mediatek/mtk_sip_svc.h>
 #include <linux/arm-smccc.h>
 #include "iommu_debug.h"
+#include <public/trusted_mem_api.h>
+
+uint64_t chk_pa;
+
+uint64_t get_chk_pa(void)
+{
+	return chk_pa;
+}
 
 struct dma_buf *mtk_cam_dmabuf_alloc(struct mtk_cam_ctx *ctx, unsigned int size)
 {
@@ -93,6 +101,29 @@ int mtk_cam_dmabuf_get_iova(struct mtk_cam_ctx *ctx,
 	dmap->dma_addr = sg_dma_address(table->sgl);
 	dev_info(cam->dev, "dma_addr:0x%llx\n", dmap->dma_addr);
 	return 0;
+}
+
+uint64_t mtk_cam_dmabuf_get_pa(struct mtk_cam_ctx *ctx,
+			       struct mtk_cam_dma_map *dmap)
+{
+	struct mtk_cam_device *cam = ctx->cam;
+	uint64_t handle;
+	uint64_t pa = 0;
+	int ret = 0;
+
+	handle = dmabuf_to_secure_handle(dmap->dbuf);
+	if (!handle) {
+		dev_info(cam->dev, "get handle failed\n");
+		return 0;
+	}
+
+	ret = trusted_mem_api_query_pa(0, 0, 0, 0, &handle, 0, 0, 0, &pa);
+	if (ret || !pa) {
+		dev_info(cam->dev, "get pa failed\n");
+		return 0;
+	}
+
+	return pa;
 }
 
 void mtk_cam_dmabuf_free_iova(struct mtk_cam_ctx *ctx, struct mtk_cam_dma_map *dmap)
@@ -558,6 +589,12 @@ int mtk_cam_hsf_config(struct mtk_cam_ctx *ctx, unsigned int raw_id)
 
 	share_buf->chunk_hsfhandle = dma_map_chk->hsf_handle;
 	share_buf->chunk_iova =  dma_map_chk->dma_addr;
+
+	chk_pa = mtk_cam_dmabuf_get_pa(ctx, dma_map_chk);
+	if (!chk_pa) {
+		dev_info(cam->dev, "Get chk pa failed\n");
+		return -1;
+	}
 
 	arm_smccc_smc(MTK_SIP_KERNEL_DAPC_CAM_CONTROL, 1, 0, 0, 0, 0, 0, 0, &res);
 

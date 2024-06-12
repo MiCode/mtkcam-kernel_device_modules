@@ -39,6 +39,9 @@ ccflags-y += -DSENSOR_SECURE_MTEE_SUPPORT
 ccflags-y += -I$(DEVICE_MODULES_PATH)/drivers/misc/mediatek/tee_gp/include
 # ccflags-y += -DSECURE_UT
 
+ccflags-y += -I$(DEVICE_MODULES_PATH)/drivers/misc/mediatek/trusted_mem/
+ccflags-y += -I$(DEVICE_MODULES_PATH)/include/linux/soc/mediatek/
+
 $(info camsys Kbuild CFLAGS=$(CFLAGS))
 
 $(CAM_MODULE)-objs := \
@@ -67,6 +70,7 @@ $(CAM_MODULE)-objs := \
     mtk_cam-seninf-tsrec-regs.o \
     mtk_cam-seninf-tsrec.o \
     mtk_cam-seninf-ca.o \
+    mtk_cam-seninf-pkvm.o \
     mtk_cam-seninf-sentest-ctrl.o\
     mtk_cam-seninf-sentest-ioctrl.o\
     mtk_cam-timesync.o \

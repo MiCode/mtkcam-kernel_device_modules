@@ -1043,7 +1043,7 @@ static int _aov_switch_rx_param(struct v4l2_ctrl *ctrl)
 
 	subdrv_call(ctx, feature_control, SENSOR_FEATURE_SET_AOV_CSI_CLK,
 		para.u8, &len);
-	adaptor_logi(ctx, "csi clk select(%u)\n", csi_clk);
+	adaptor_logd(ctx, "csi clk select(%u)\n", csi_clk);
 
 	/* update mode csi_param */
 	for (i = SENSOR_SCENARIO_ID_MIN; i < SENSOR_SCENARIO_ID_MAX; i++) {
@@ -1051,7 +1051,7 @@ static int _aov_switch_rx_param(struct v4l2_ctrl *ctrl)
 		mode->id = i;
 		subdrv_call(ctx, get_csi_param, mode->id, &mode->csi_param);
 	}
-	adaptor_logi(ctx, "update mode csi_param(done)\n");
+	adaptor_logd(ctx, "update mode csi_param(done)\n");
 
 	return 0;
 }
@@ -1927,7 +1927,7 @@ static int imgsensor_set_ctrl(struct v4l2_ctrl *ctrl)
 				"_aov_switch_rx_param(fail),ret(%d)\n",
 				ret);
 		else
-			adaptor_logi(ctx,
+			adaptor_logd(ctx,
 				"_aov_switch_rx_param(correct),ret(%d)\n",
 				ret);
 		break;

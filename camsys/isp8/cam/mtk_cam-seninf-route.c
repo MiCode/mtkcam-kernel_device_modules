@@ -1927,7 +1927,7 @@ int mtk_cam_seninf_s_stream_mux(struct seninf_ctx *ctx)
 			if (!(core->aov_sensor_id < 0) &&
 				!(ctx->current_sensor_id < 0) &&
 				(ctx->current_sensor_id == core->aov_sensor_id)) {
-				dev_info(ctx->dev,
+				seninf_logd(ctx,
 					"[%s] aov streaming mux & cammux workaround on scp\n",
 					__func__);
 				break;
@@ -2006,7 +2006,7 @@ int mtk_cam_seninf_s_stream_mux(struct seninf_ctx *ctx)
 
 #ifdef SENSOR_SECURE_MTEE_SUPPORT
 	if (ctx->is_secure != 1)
-		dev_info(ctx->dev,
+		seninf_logd(ctx,
 			"is not secure, won't Sensor kernel init seninf_ca");
 	else {
 		if (!is_pkvm_enabled()) {

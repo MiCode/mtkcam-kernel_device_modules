@@ -2986,7 +2986,7 @@ static int mtk_cam_seninf_set_ctrl(struct v4l2_ctrl *ctrl)
 				}
 				ctx->is_aov_real_sensor = 1;
 				if (!core->pwr_refcnt_for_aov) {
-					dev_info(ctx->dev,
+					seninf_logd(ctx,
 						"[%s] set aov real sensor on\n", __func__);
 					/* get aov sensor idx by get_sensor_idx */
 					tmp = get_sensor_idx(ctx);

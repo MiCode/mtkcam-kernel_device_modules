@@ -6718,7 +6718,7 @@ static int mtk_cam_set_phya_clock_src(struct seninf_ctx *ctx, u64 val)
 	default:
 		return -EINVAL;
 	}
-	dev_info(ctx->dev, "[%s] phya clk set to %llu\n", __func__, val);
+	seninf_logd(ctx, "[%s] phya clk set to %llu\n", __func__, val);
 
 	return 0;
 }

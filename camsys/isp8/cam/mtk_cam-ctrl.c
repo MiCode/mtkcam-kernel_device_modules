@@ -890,6 +890,10 @@ static int frame_no_to_fs_req_no(struct mtk_cam_ctrl *ctrl, int frame_no,
 		ctrl->frame_sync_event_cnt = job->req_seq;
 
 		mtk_cam_job_put(job);
+	} else {
+		spin_lock(&ctrl->info_lock);
+		ctrl->frame_sync_event_cnt = ctrl->r_info.done_seq_no;
+		spin_unlock(&ctrl->info_lock);
 	}
 
 SKIP_FIND_JOB:

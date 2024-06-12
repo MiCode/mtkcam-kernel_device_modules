@@ -856,8 +856,8 @@ static irqreturn_t mtk_ut_yuv_irq(int irq, void *data)
 			     status.ofl);
 
 	if (status.irq || status.wdma)
-		dev_info(drvdata->dev, "INT 1245 0x%x/0x%x/0x%x/0x%x\n",
-			 status.irq, status.wdma, status.drop, status.ofl);
+		dev_info(drvdata->dev, "INT 1245 0x%x/0x%x/0x%x\n",
+			 status.irq, status.wdma, status.ofl);
 
 	return IRQ_HANDLED;
 }

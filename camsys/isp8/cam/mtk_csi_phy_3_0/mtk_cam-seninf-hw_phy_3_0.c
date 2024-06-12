@@ -6142,28 +6142,22 @@ static int mtk_cam_seninf_eye_scan(struct seninf_ctx *ctx, u32 key, int val_sign
 				port = i ? ctx->portB : ctx->port;
 				base = ctx->reg_ana_csi_rx[(unsigned int)port];
 				// T0
-				SENINF_BITS(base, CDPHY_RX_ANA_4,
-                        RG_CSI0_CPHY_T0_CDR_RSTB_CODE, ((val & 0b111000) >> 3));
-				SENINF_BITS(base, CDPHY_RX_ANA_4,
-						RG_CSI0_CPHY_T0_CDR_SEC_EDGE_CODE, (val & 0b111));
 				SENINF_BITS(base, CDPHY_RX_ANA_6,
 						RG_CSI0_CPHY_T0_CDR_CK_DELAY, val);
+				SENINF_BITS(base, CDPHY_RX_ANA_13,
+						RG_CSI0_CPHY_T0_CDR_SEL_CODE, val);
 				// T1
-				SENINF_BITS(base, CDPHY_RX_ANA_4,
-                        RG_CSI0_CPHY_T1_CDR_RSTB_CODE, ((val & 0b111000) >> 3));
-				SENINF_BITS(base, CDPHY_RX_ANA_4,
-						RG_CSI0_CPHY_T1_CDR_SEC_EDGE_CODE, (val & 0b111));
 				SENINF_BITS(base, CDPHY_RX_ANA_6,
 						RG_CSI0_CPHY_T1_CDR_CK_DELAY, val);
+				SENINF_BITS(base, CDPHY_RX_ANA_13,
+						RG_CSI0_CPHY_T1_CDR_SEL_CODE, val);
 
 				log_len += snprintf(plog + log_len, logbuf_size - log_len,
-				"SENINF_BITS set RG_CSI0_CPHY_T0_CDR_RSTB_CODE, ((val=0x%x & 0b111000) >> 3)\n"
-				"SENINF_BITS set RG_CSI0_CPHY_T0_CDR_SEC_EDGE_CODE, (val=0x%x & 0b111)\n"
 				"SENINF_BITS set RG_CSI0_CPHY_T0_CDR_CK_DELAY, val=0x%x\n"
-				"SENINF_BITS set RG_CSI0_CPHY_T1_CDR_RSTB_CODE, ((val=0x%x & 0b111000) >> 3)\n"
-				"SENINF_BITS set RG_CSI0_CPHY_T1_CDR_SEC_EDGE_CODE, (val=0x%x & 0b111)\n"
-				"SENINF_BITS set RG_CSI0_CPHY_T1_CDR_CK_DELAY, val=0x%x\n",
-				val, val, val, val, val, val);
+				"SENINF_BITS set RG_CSI0_CPHY_T0_CDR_SEL_CODE, val=0x%x\n"
+				"SENINF_BITS set RG_CSI0_CPHY_T1_CDR_CK_DELAY, val=0x%x\n"
+				"SENINF_BITS set RG_CSI0_CPHY_T1_CDR_SEL_CODE, val=0x%x\n",
+				val, val, val, val);
 
 				dev_info(ctx->dev,
 				"EYE_SCAN_KEYS_CDR_DELAY input val_signed=%d, write to reg val=0x%x\n",

@@ -3213,8 +3213,6 @@ int mtk_imgsys_hw_streamoff(struct mtk_imgsys_pipe *pipe)
 			"%s:%s: streamoff, removing all running jobs\n",
 			__func__, pipe->desc->name);
 
-		pipe->streaming = 0;
-
 		ret = mtk_imgsys_hw_flush_pipe_jobs(pipe);
 		if (ret != 0) {
 			dev_info(imgsys_dev->dev,
@@ -3246,6 +3244,8 @@ int mtk_imgsys_hw_streamoff(struct mtk_imgsys_pipe *pipe)
 				__func__, imgsys_dev->imgsys_stream_cnt);
 
 			flush_fd_kva_list(imgsys_dev);
+			pipe->streaming = 0;
+			wake_up(&imgsys_dev->shutdown_waitq);
 		}
     	if (imgsys_dbg_enable())
 		dev_dbg(pipe->imgsys_dev->dev,

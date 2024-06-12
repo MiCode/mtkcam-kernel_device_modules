@@ -3364,6 +3364,8 @@ int common_get_info(struct subdrv_ctx *ctx,
 	sensor_info->FrameTimeDelayFrame = ctx->s_ctx.frame_time_delay_frame;
 	sensor_info->OB_pedestal = ctx->s_ctx.ob_pedestal;
 	sensor_info->Def_MirrorFlip = ctx->s_ctx.mirror;
+	sensor_info->SensorLineInterleaveNum = (ctx->s_ctx.line_interleave_num)
+		? ctx->s_ctx.line_interleave_num : 2;
 
 	return ERROR_NONE;
 }

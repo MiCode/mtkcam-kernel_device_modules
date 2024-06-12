@@ -304,6 +304,8 @@ struct subdrv_static_ctx {
 	u8 mipi_sensor_type; /* 0,MIPI_OPHY_NCSI2; 1,MIPI_OPHY_CSI2, default is NCSI2 */
 	u8 mipi_lane_num;
 	u32 ob_pedestal;
+	/* 1,2,4,8-line interleaving for DCG AP merge mode output type, default is 2 */
+	u8 line_interleave_num;
 
 	u8 sensor_output_dataformat;
 	u32 ana_gain_def; /* ana_gain = 4x, ISO400 = 0dB */

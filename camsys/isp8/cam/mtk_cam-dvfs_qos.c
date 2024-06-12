@@ -1011,6 +1011,9 @@ static bool apply_qos_chk(
 			*pending = bw;
 			ret = false;
 		}
+	} else if (bw > 0 && bw == *applied) {
+		*pending = -1;
+		ret = false;
 	}
 
 	return ret;

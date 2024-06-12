@@ -549,7 +549,6 @@ static int update_job_used_engine(struct mtk_cam_job *job)
 	struct mtk_cam_ctx *ctx = job->src_ctx;
 	struct mtk_raw_device *raw_dev;
 	struct mtk_camsv_device *sv_dev;
-	struct mtk_mraw_device *mraw_dev;
 	unsigned long used_engine = 0;
 	unsigned long used_pipe = job->req->used_pipe & ctx->used_pipe;
 	int i;
@@ -574,10 +573,9 @@ static int update_job_used_engine(struct mtk_cam_job *job)
 	}
 
 	for (i = 0; i < ctx->num_mraw_subdevs; i++) {
-		mraw_dev = dev_get_drvdata(ctx->hw_mraw[i]);
 		if (used_pipe &
 		    bit_map_bit(MAP_SUBDEV_MRAW, ctx->mraw_subdev_idx[i]))
-			used_engine |= bit_map_bit(MAP_HW_MRAW, mraw_dev->id);
+			used_engine |= bit_map_bit(MAP_HW_MRAW, ctx->mraw_subdev_idx[i]);
 	}
 
 	job->used_engine = used_engine;
@@ -1013,12 +1011,14 @@ static int
 _stream_on(struct mtk_cam_job *job, bool on)
 {
 	struct mtk_cam_ctx *ctx = job->src_ctx;
+	struct mtk_cam_device *cam = ctx->cam;
 	struct mtk_raw_device *raw_dev;
 	struct mtk_camsv_device *sv_dev;
 	struct mtk_mraw_device *mraw_dev;
 	int pad_bitmask = get_seninf_pad_bitmask(job);
 	int raw_tg_idx = -1;
 	int i;
+	unsigned int mraw_idx;
 
 	for (i = 0; i < ARRAY_SIZE(ctx->hw_raw); i++) {
 		if (ctx->hw_raw[i]) {
@@ -1073,8 +1073,9 @@ _stream_on(struct mtk_cam_job *job, bool on)
 	}
 
 	for (i = 0; i < ctx->num_mraw_subdevs; i++) {
-		if (ctx->hw_mraw[i]) {
-			mraw_dev = dev_get_drvdata(ctx->hw_mraw[i]);
+		mraw_idx = ctx->mraw_subdev_idx[i];
+		if (cam->engines.mraw_devs[mraw_idx]) {
+			mraw_dev = dev_get_drvdata(cam->engines.mraw_devs[mraw_idx]);
 			if (job->used_engine &
 				bit_map_bit(MAP_HW_MRAW, ctx->mraw_subdev_idx[i]))
 				atomic_set(&mraw_dev->is_vf_on, 1);
@@ -1406,12 +1407,14 @@ static int
 disable_seninf_cammux(struct mtk_cam_job *job)
 {
 	struct mtk_cam_ctx *ctx = job->src_ctx;
+	struct mtk_cam_device *cam = ctx->cam;
 	struct v4l2_subdev *seninf = ctx->seninf;
 	struct mtk_camsv_device *sv_dev;
 	struct mtk_mraw_pipeline *mraw_pipe;
 	int i, max_exp = scen_max_exp_num(&job->job_scen);
 	bool is_w = is_rgbw(job);
 	unsigned int tag_idx;
+	unsigned int mraw_idx;
 
 	for (i = 0; i < max_exp; ++i) {
 		mtk_cam_seninf_set_camtg(seninf, PAD_SRC_RAW0 + i, 0xFF);
@@ -1435,7 +1438,8 @@ disable_seninf_cammux(struct mtk_cam_job *job)
 	}
 
 	for (i = 0; i < ctx->num_mraw_subdevs; i++) {
-		if (ctx->hw_mraw[i]) {
+		mraw_idx = ctx->mraw_subdev_idx[i];
+		if (cam->engines.mraw_devs[mraw_idx]) {
 			mraw_pipe =
 				&ctx->cam->pipelines.mraw[ctx->mraw_subdev_idx[i]];
 
@@ -1451,9 +1455,11 @@ disable_seninf_cammux(struct mtk_cam_job *job)
 static void set_cq_deadline(struct mtk_cam_job *job, int cq_deadline)
 {
 	struct mtk_cam_ctx *ctx = job->src_ctx;
+	struct mtk_cam_device *cam = ctx->cam;
 	struct mtk_raw_device *dev;
 	struct mtk_camsv_device *sv_dev;
 	struct mtk_mraw_device *mraw_dev;
+	unsigned int mraw_idx;
 	int i;
 
 	if (job->enable_hsf_raw)
@@ -1474,8 +1480,9 @@ static void set_cq_deadline(struct mtk_cam_job *job, int cq_deadline)
 	}
 
 	for (i = 0; i < ctx->num_mraw_subdevs; i++) {
-		if (ctx->hw_mraw[i]) {
-			mraw_dev = dev_get_drvdata(ctx->hw_mraw[i]);
+		mraw_idx = ctx->mraw_subdev_idx[i];
+		if (cam->engines.mraw_devs[mraw_idx]) {
+			mraw_dev = dev_get_drvdata(cam->engines.mraw_devs[mraw_idx]);
 			mtk_cam_mraw_update_start_period(mraw_dev, cq_deadline);
 		}
 	}

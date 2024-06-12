@@ -366,6 +366,10 @@ void imgsys_cmdq_smi_cb_pwr_ctrl_locked(struct mtk_imgsys_dev *imgsys_dev,
 	/* thus conditional jump should jump current offset */
 	inst = cmdq_pkt_get_va_by_offset(pkt, inst_condi_jump);
 	jump_pa = cmdq_pkt_get_pa_by_offset(pkt, pkt->cmd_buf_size);
+	if (inst == NULL) {
+		QOF_LOGE("param inst is null\n");
+		return;
+	}
 	*inst = *inst & ((u64)0xFFFFFFFF << 32);
 	*inst = *inst | CMDQ_REG_SHIFT_ADDR(jump_pa);
 
@@ -378,6 +382,10 @@ void imgsys_cmdq_smi_cb_pwr_ctrl_locked(struct mtk_imgsys_dev *imgsys_dev,
 	/* this is the end of whole condition, thus condition FALSE part should jump here */
 	jump_pa = cmdq_pkt_get_pa_by_offset(pkt, pkt->cmd_buf_size);
 	inst = cmdq_pkt_get_va_by_offset(pkt, inst_jump_end);
+	if (inst == NULL) {
+		QOF_LOGE("param inst is null\n");
+		return;
+	}
 	*inst = *inst & ((u64)0xFFFFFFFF << 32);
 	*inst = *inst | CMDQ_REG_SHIFT_ADDR(jump_pa);
 }
@@ -1379,6 +1387,10 @@ static void qof_stop_all_gce_loop(void)
 	/* pwr thread */
 	for (thd_idx = IMGSYS_NOR_THD; thd_idx < IMGSYS_NOR_THD + IMGSYS_PWR_THD; thd_idx++) {
 		idx = thd_idx - IMGSYS_NOR_THD;
+		if (idx >= QOF_TOTAL_THREAD || idx < 0) {
+			QOF_LOGE("idx is wrong %d\n", idx);
+			continue;
+		}
 		if (thd_idx == QOF_GCE_THREAD_SMI_CB)
 			continue;
 		if (imgsys_pwr_clt[idx] != NULL) {
@@ -1506,6 +1518,10 @@ void mtk_imgsys_cmdq_qof_release(struct mtk_imgsys_dev *imgsys_dev, struct cmdq_
 	/* pwr thread */
 	for (thd_idx = IMGSYS_NOR_THD; thd_idx < IMGSYS_NOR_THD + IMGSYS_PWR_THD; thd_idx++) {
 		idx = thd_idx - IMGSYS_NOR_THD;
+		if (idx >= QOF_TOTAL_THREAD || idx < 0) {
+			QOF_LOGE("idx is wrong %d\n", idx);
+			continue;
+		}
 		if ((thd_idx != QOF_GCE_THREAD_SMI_CB) &&
 			imgsys_pwr_clt[idx] != NULL) {
 			cmdq_mbox_destroy(imgsys_pwr_clt[idx]);
@@ -1685,9 +1701,8 @@ static void qof_locked_set_engine_off(const u32 mod)
 	QOF_LOGI("engine off mod[%d]+\n", mod);
 
 	if ((g_qof_work_buf_va == NULL) || (*g_qof_work_buf_va == NULL)) {
-		QOF_LOGE("param wrong[%u/%u]\n",
-			(g_qof_work_buf_va == NULL),
-			(*g_qof_work_buf_va == NULL));
+		QOF_LOGE("param is null %d\n",
+			(g_qof_work_buf_va == NULL));
 		return;
 	}
 
@@ -2028,7 +2043,7 @@ static void imgsys_qof_dbg_print_trace(int mod)
 	ret = snprintf(buf, sizeof(buf),
 		"qof_mod_%d",
 		mod);
-	if (ret < 0) {
+	if (ret < 0 || mod < 0 || mod >= QOF_TOTAL_MODULE) {
 		pr_err("snprintf failed\n");
 		return;
 	}
@@ -2107,7 +2122,10 @@ int mtk_imgsys_qof_ctrl(const char *val, const struct kernel_param *kp)
 		g_qof_debug_level,
 		g_qof_ver,
 		g_ftrace_time);
-
+	if (ret <= 0) {
+		QOF_LOGE("sscanf ret is wrong %d\n", ret);
+		return 0;
+	}
 	if (g_qof_debug_level == QOF_DEBUG_MODE_IMMEDIATE_DUMP)
 		mtk_imgsys_cmdq_qof_dump(0, false);
 	else if (g_qof_debug_level == QOF_DEBUG_MODE_IMMEDIATE_CG_DUMP)

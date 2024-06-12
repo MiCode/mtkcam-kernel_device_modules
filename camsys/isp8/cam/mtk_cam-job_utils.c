@@ -2186,6 +2186,7 @@ int handle_sv_tag(struct mtk_cam_job *job)
 	struct mtk_seninf_pad_data_info pad_data_info;
 	unsigned int tag_idx, sv_pipe_idx, hw_scen;
 	unsigned int exp_no, req_amount, max_pixel_mode = 3;
+	unsigned int cfg_exp_no = scen_max_exp_num(&job->job_scen);
 	int ret = 0, i;
 
 	if (ctx->hw_sv) {
@@ -2198,13 +2199,13 @@ int handle_sv_tag(struct mtk_cam_job *job)
 	mtk_cam_sv_reset_tag_info(job);
 
 	/* img tag(s) */
-	if (job->job_scen.scen.normal.max_exp_num == 2) {
+	if (cfg_exp_no == 2) {
 		exp_no = req_amount = 2;
 		req_amount *= is_rgbw(job) ? 2 : 1;
 		hw_scen = is_dc_mode(job) ?
 			(1 << HWPATH_ID(MTKCAM_IPI_HW_PATH_DC_STAGGER)) :
 			(1 << HWPATH_ID(MTKCAM_IPI_HW_PATH_STAGGER));
-	} else if (job->job_scen.scen.normal.max_exp_num == 3) {
+	} else if (cfg_exp_no == 3) {
 		exp_no = req_amount = 3;
 		if (is_rgbw(job)) {
 			pr_info("[%s] rgbw not supported under 3-exp stagger case",

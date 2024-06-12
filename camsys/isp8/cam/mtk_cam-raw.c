@@ -1301,7 +1301,9 @@ void reset(struct mtk_raw_device *dev)
 	reset_error_handling(dev);
 	/* do hw rst */
 	raw_writel(FBIT(CAMCTL_HW_RST), dev, dev->base, REG_CAMCTL_SW_CTL);
+	raw_writel(FBIT(CAMCTL_GLOBAL_HW_RST), dev, dev->base, REG_CAMCTL_GLOBAL_HW_RST_CTL);
 	raw_writel(0, dev, dev->base, REG_CAMCTL_SW_CTL);
+	raw_writel(0, dev, dev->base, REG_CAMCTL_GLOBAL_HW_RST_CTL);
 
 RESET_FAILURE:
 

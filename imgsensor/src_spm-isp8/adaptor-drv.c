@@ -517,6 +517,8 @@ int check_multicam_suspend(struct adaptor_ctx *ctx)
 	int i, j;
 	unsigned int sensor_idx = 0xff;
 
+	if (!(ctx->subdrv))
+		return 0;
 	for (i = 0; i < MULTICAM_SENSOR_NUM; i++) {
 		if (strcmp((char *)(ctx->subdrv->name),
 			multicam_map_table[i].sensor_name) == 0) {
@@ -578,6 +580,9 @@ int check_multicam_power(struct adaptor_ctx *ctx, int flag)
 
 	int i, j;
 	unsigned int sensor_idx = 0xff;
+
+	if (!(ctx->subdrv))
+		return 0;
 
 	for (i = 0; i < MULTICAM_SENSOR_NUM; i++) {
 		if (strcmp((char *)(ctx->subdrv->name),
@@ -1182,6 +1187,8 @@ void imgsensor_multicam_mutex_lock_for_power(struct adaptor_ctx *ctx)
 #if VC_MULTI_CAMERA
 	int i;
 
+	if (!(ctx->subdrv))
+		return;
 	for (i = 0 ; i < bridge_ch_num; i++) {
 		if (strcmp((char *)(ctx->subdrv->name), lookup_names[i]) == 0) {
 			dev_info(ctx->dev, "mutex_lock power subdrv:%s ++\n", ctx->subdrv->name);
@@ -1210,6 +1217,8 @@ void imgsensor_multicam_mutex_unlock_for_power(struct adaptor_ctx *ctx)
 #if VC_MULTI_CAMERA
 	int i;
 
+	if (!(ctx->subdrv))
+		return;
 	for (i = 0 ; i < bridge_ch_num; i++) {
 		if (strcmp((char *)(ctx->subdrv->name), lookup_names[i]) == 0) {
 			dev_info(ctx->dev, "mutex_unlock power subdrv:%s ++\n", ctx->subdrv->name);
@@ -1240,6 +1249,8 @@ void imgsensor_multicam_mutex_lock(struct adaptor_ctx *ctx)
 #if VC_MULTI_CAMERA
 	int i;
 
+	if (!(ctx->subdrv))
+		return;
 	for (i = 0 ; i < bridge_ch_num; i++) {
 		if (strcmp((char *)(ctx->subdrv->name), lookup_names[i]) == 0) {
 			dev_info(ctx->dev, "mutex_lock subdrv:%s ++\n", ctx->subdrv->name);
@@ -1268,6 +1279,8 @@ void imgsensor_multicam_mutex_unlock(struct adaptor_ctx *ctx)
 #if VC_MULTI_CAMERA
 	int i;
 
+	if (!(ctx->subdrv))
+		return;
 	for (i = 0 ; i < bridge_ch_num; i++) {
 		if (strcmp((char *)(ctx->subdrv->name), lookup_names[i]) == 0) {
 			dev_info(ctx->dev, "mutex_unlock subdrv:%s ++\n", ctx->subdrv->name);
@@ -1296,6 +1309,8 @@ int check_multicam_sensor_init(struct adaptor_ctx *ctx)
 #if VC_MULTI_CAMERA
 	int i;
 
+	if (!(ctx->subdrv))
+		return 0;
 	for (i = 0; i < bridge_ch_num; i++) {
 		if (strcmp((char *)(ctx->subdrv->name),
 			lookup_names[i]) == 0) {
@@ -1338,7 +1353,8 @@ int check_multicam_streaming(struct adaptor_ctx *ctx, int flag)
 #if VC_MULTI_CAMERA
 	int i;
 #endif
-
+	if (!(ctx->subdrv))
+		return 0;
 	if (flag == 0) {
 #if VC_MULTI_CAMERA
 		for (i = 0 ; i < bridge_ch_num; i++) {

@@ -232,12 +232,12 @@ bool imgsys_wpe_done_chk(struct mtk_imgsys_dev *imgsys_dev, uint32_t engine)
  	uint32_t reg_ofst = 0x1c; //WPE_E1A_WPE_TOP_CTL_INT_STATUSX
 
 	if (engine & IMGSYS_ENG_WPE_EIS)
-		hw_idx = REG_MAP_E_WPE_EIS;
+		hw_idx = (unsigned int) REG_MAP_E_WPE_EIS;
 	else
-		hw_idx = REG_MAP_E_WPE_LITE;
+		hw_idx = (unsigned int) REG_MAP_E_WPE_LITE;
 
 	/* iomap registers */
-	ofst_idx = hw_idx - REG_MAP_E_WPE_EIS;
+	ofst_idx = hw_idx - (unsigned int) REG_MAP_E_WPE_EIS;
 	if (ofst_idx >= WPE_HW_NUM) {
 		pr_info("%s: ofst_idx(%d) >= WPE_HW_NUM(%d)",
 			__func__, ofst_idx, (uint32_t)WPE_HW_NUM);

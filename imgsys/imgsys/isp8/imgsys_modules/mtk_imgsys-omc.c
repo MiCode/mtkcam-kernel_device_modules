@@ -293,12 +293,12 @@ bool imgsys_omc_done_chk(struct mtk_imgsys_dev *imgsys_dev, uint32_t engine)
  	uint32_t reg_ofst = 0x1c; //OMC_E1A_OMC_TOP_CTL_INT_STATUSX
 
 	if ((engine & IMGSYS_ENG_OMC_TNR))
-		hw_idx = REG_MAP_E_OMC_TNR;
+		hw_idx = (unsigned int) REG_MAP_E_OMC_TNR;
 	else
-		hw_idx = REG_MAP_E_OMC_LITE;
+		hw_idx = (unsigned int) REG_MAP_E_OMC_LITE;
 
 	/* iomap registers */
-	ofst_idx = hw_idx - REG_MAP_E_OMC_TNR;
+	ofst_idx = hw_idx - (unsigned int) REG_MAP_E_OMC_TNR;
 	if (ofst_idx >= OMC_HW_NUM) {
 		pr_info("%s: OMC_%d, ofst_idx(%d) >= OMC_HW_NUM(%d)",
 			__func__, hw_idx, ofst_idx, OMC_HW_NUM);

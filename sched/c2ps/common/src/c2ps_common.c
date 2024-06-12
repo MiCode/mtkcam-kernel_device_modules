@@ -1419,10 +1419,12 @@ void update_cpu_idle_rate(void)
 		glb_info->scn_cpu_freq_floor[_cluster_index] =
 			min(cur_cpu_floor, glb_info->scn_cpu_freq_floor[_cluster_index]);
 		glb_info->is_cpu_boost =
-			(cur_cpu_floor > glb_info->scn_cpu_freq_floor[_cluster_index]);
+			(cur_cpu_floor > glb_info->scn_cpu_freq_floor[_cluster_index] ||
+			cur_cpu_floor > glb_info->possible_config_cpu_freq[_cluster_index]);
 
 		if (glb_info->is_cpu_boost) {
 			C2PS_LOGD("is_cpu_boost");
+			c2ps_main_systrace("cpu boost: %u", cur_cpu_floor);
 			glb_info->need_update_bg[0] = 1;
 			break;
 		}
@@ -1823,6 +1825,30 @@ inline void c2ps_remove_qos_setting(void)
 	for (_cluster = 0; _cluster < c2ps_nr_clusters; _cluster++) {
 		if (freq_qos_request_active(&glb_info->qos_req[_cluster]))
 			freq_qos_remove_request(&glb_info->qos_req[_cluster]);
+	}
+}
+
+inline void cache_possible_config_cpu_freq_info(void)
+{
+	int _cluster_index = 0;
+
+	if (unlikely(glb_info == NULL))
+		return;
+
+	for (; _cluster_index < c2ps_nr_clusters; _cluster_index++) {
+		int first_cpu = c2ps_get_first_cpu_of_cluster(_cluster_index);
+		unsigned long _util = 0;
+
+		glb_info->possible_config_cpu_freq[_cluster_index] = INT_MAX;
+
+		if (unlikely(first_cpu == -1))
+			continue;
+
+		_util = pd_get_freq_util(first_cpu, INT_MAX) * 70 / 100;
+
+		glb_info->possible_config_cpu_freq[_cluster_index] = pd_get_util_freq(first_cpu, _util);
+		C2PS_LOGD("possible_config_cpu_freq cpu: %d freq %u",
+			first_cpu, glb_info->possible_config_cpu_freq[_cluster_index]);
 	}
 }
 

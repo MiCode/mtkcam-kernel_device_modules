@@ -181,6 +181,7 @@ struct global_info {
 	struct kf_est fast_lxf_est[MAX_CPU_NUM];
 	// CPU floor frequency of the scenario
 	u32 scn_cpu_freq_floor[MAX_NUMBER_OF_CLUSTERS];
+	u32 possible_config_cpu_freq[MAX_NUMBER_OF_CLUSTERS];
 	bool is_cpu_boost;
 
 	/**
@@ -361,6 +362,7 @@ void update_critical_task_uclamp_by_tsk_id(
 void set_uclamp(const int pid, unsigned int max_util, unsigned int min_util);
 void reset_task_eas_setting(struct c2ps_task_info *tsk_info);
 void reset_task_uclamp(int pid);
+void cache_possible_config_cpu_freq_info(void);
 
 // EAS
 extern void set_curr_uclamp_ctrl(int val);

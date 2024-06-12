@@ -424,6 +424,8 @@ int c2ps_notify_init(
 	c2ps_set_ineff_cpu_freq_ceiling(1, ineff_cpu_ceiling_freq1);
 	c2ps_set_ineff_cpu_freq_ceiling(2, ineff_cpu_ceiling_freq2);
 
+	cache_possible_config_cpu_freq_info();
+
 	trigger_bg_policy();
 	return 0;
 }

@@ -2532,7 +2532,7 @@ static void fs_streaming_chk_restore_preset_set_sync_status(
 	/* check if set sync before streaming on */
 	ret = fs_g_set_sync_idx_table_val(idx);
 	if (ret > 0) {
-		LOG_MUST(
+		LOG_PF_INF(
 			"NOTICE: [%u] ID:%#x(sidx:%u), apply set sync procedure, due to set_sync_idx_table[%u]:%d\n",
 			idx,
 			sensor_info->sensor_id,

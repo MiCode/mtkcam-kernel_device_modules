@@ -4283,7 +4283,7 @@ int common_feature_control(struct subdrv_ctx *ctx, MSDK_SENSOR_FEATURE_ENUM feat
 		update_hw_init_time(ctx, *(feature_data));
 		break;
 	default:
-		DRV_LOGE(ctx, "feature_id %u is invalid\n", feature_id);
+		DRV_LOG(ctx, "feature_id %u is invalid\n", feature_id);
 		ret = ERROR_INVALID_FEATURE_ID;
 		break;
 	}

@@ -924,9 +924,11 @@ unsigned int frm_convert_cammux_id_to_ccu_tg_id(const unsigned int cammux_id)
 
 	ccu_tg_id = (camsv_id >= 0) ? (camsv_id + CAMSV_TG_MIN) : cammux_id;
 
+#ifdef SUPPORT_USING_CCU
 	LOG_MUST(
 		"get cammux_id:%u(from 1), camsv_id:%d(from 0), ccu_tg_id:%u(CAMSV_TG_MIN:%u, CAMSV_TG_MAX:%u)\n",
 		cammux_id, camsv_id, ccu_tg_id, CAMSV_TG_MIN, CAMSV_TG_MAX);
+#endif
 
 	return ccu_tg_id;
 }
@@ -943,9 +945,11 @@ unsigned int frm_chk_and_get_tg_value(const unsigned int cammux_id,
 	if ((target_tg != 0) && (target_tg != CAMMUX_ID_INVALID))
 		tg = target_tg;
 
+#ifdef SUPPORT_USING_CCU
 	LOG_MUST(
 		"get cammux_id:%u, target_tg:%u, => ret tg:%u\n",
 		cammux_id, target_tg, tg);
+#endif
 
 	return tg;
 }

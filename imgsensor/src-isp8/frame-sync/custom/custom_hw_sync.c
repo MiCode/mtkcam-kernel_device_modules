@@ -199,13 +199,16 @@ int mcss_global_fl_calculator(
 	}
 
 	if (global_fl_line_time_in_ns == max_frame_time) {
-		LOG_MUST(
+		LOG_PF_INF(
 				"update no need, global_fl_line_time_in_ns:%u\n",
 					global_fl_line_time_in_ns);
 
 		// return 1;
 	} else {
 		global_fl_line_time_in_ns = max_frame_time;
+		LOG_PF_INF(
+				"update global_fl_line_time_in_ns:%u\n",
+					global_fl_line_time_in_ns);
 	}
 
 	/* calculate min frame time for all */
@@ -218,8 +221,9 @@ int mcss_global_fl_calculator(
 		if (para->sync_mode == SENSOR_SYNC_MASTER) {
 			unsigned int TH = (MCSS_TH * max_line_time_in_ns)/min_line_time_in_ns;
 			(para->out_fl_lc) = (para->out_fl_lc) + TH;
-	LOG_MUST("MCSS_TH(%u), min_line_time_in_ns:%u max_line_time_in_ns:%u para->line_time_in_ns:%u TH:%u\n",
-	MCSS_TH, min_line_time_in_ns,max_line_time_in_ns, para->line_time_in_ns, TH);
+			LOG_PF_INF(
+				"MCSS_TH(%u), min_line_time_in_ns:%u max_line_time_in_ns:%u para->line_time_in_ns:%u TH:%u\n",
+			MCSS_TH, min_line_time_in_ns, max_line_time_in_ns, para->line_time_in_ns, TH);
 		}
 
 #ifdef EN_CUSTOM_DBG_LOG

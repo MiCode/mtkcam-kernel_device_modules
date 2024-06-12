@@ -315,7 +315,7 @@ static void fsync_mgr_g_sensor_hw_sync_mode(
 	s_info->hw_sync_group_id = para.u32[1]; //FS_HW_SYNC_GROUP_ID_MCSS;   // hw sync group ID
 	s_info->hw_sync_method = para.u32[2]; //1;     // legacy:0, MCSS:1
 
-	FSYNC_MGR_LOGI(ctx,
+	FSYNC_MGR_LOGD(ctx,
 		"sensor_idx:%d, set hw_sync_mode s_info->sync_mode:%u s_info->hw_sync_group_id:%u s_info->hw_sync_method:%u\n",
 		ctx->idx, s_info->sync_mode,s_info->hw_sync_group_id, s_info->hw_sync_method);
 }

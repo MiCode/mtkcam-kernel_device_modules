@@ -2081,7 +2081,7 @@ int update_isp_clk(struct seninf_ctx *ctx)
 	}
 
 	if (!ctx->sentest_adjust_isp_en) {
-		dev_info(ctx->dev, "%s adjust_isp_en %d, skip update isp clk flow\n",
+		seninf_logd(ctx, "%s adjust_isp_en %d, skip update isp clk flow\n",
 			__func__, ctx->sentest_adjust_isp_en);
 		return 0;
 	}

@@ -83,7 +83,7 @@ bool has_multiple_expo_mode(struct seninf_ctx *ctx)
 		}
 	}
 
-	seninf_logi(ctx, "%s , ret = %d\n", __func__, ret);
+	seninf_logd(ctx, "%s , ret = %d\n", __func__, ret);
 
 	return ret;
 }
@@ -128,7 +128,7 @@ void mtk_cam_sensor_get_glp_dt(struct seninf_ctx *ctx,
 			cnt++;
 	}
 
-	seninf_logi(ctx,
+	seninf_logd(ctx,
 		"glp[0/1/2/3]:0x%x/0x%x/0x%x/0x%x,cnt:%d\n",
 		glp[0], glp[1], glp[2], glp[3], cnt);
 

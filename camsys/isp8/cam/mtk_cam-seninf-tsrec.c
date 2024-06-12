@@ -2330,7 +2330,7 @@ static void tsrec_force_clr_intr_status(const unsigned int tsrec_no)
 		return;
 	}
 
-	TSREC_LOG_INF(
+	TSREC_LOG_DBG(
 		"tsrec_no:%u, intr_en_bits:%#x, intr_status:%#x\n",
 		tsrec_no,
 		TSREC_ATOMIC_READ(&tsrec_status.intr_en_bits),
@@ -2981,7 +2981,7 @@ void mtk_cam_seninf_tsrec_g_irq_sel_info(struct tsrec_irq_sel_info *p_irq_info)
 	p_irq_info->val[0] =
 		(0xffffffff & TSREC_BIT_MASK(tsrec_status.tsrec_hw_cnt));
 
-	TSREC_LOG_INF(
+	TSREC_LOG_DBG(
 		"NOTICE: irq_info:(type:%u, mask:%#x, val:(%#x/%#x/%#x/%#x))\n",
 		p_irq_info->type, p_irq_info->mask,
 		p_irq_info->val[0], p_irq_info->val[1],

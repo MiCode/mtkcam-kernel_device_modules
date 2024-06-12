@@ -2340,7 +2340,7 @@ static int csirx_mac_csi_lrte_setting(struct seninf_ctx *ctx)
 				RG_CSI2_RESYNC_LRTE_EN,
 				0);
 		SENINF_BITS(cphy_base, CPHY_RX_CAL_ALP_CTRL, RG_CPHY_ALP_EN, 0x0);
-		seninf_logi(ctx, "lrte not support, disable LRTE_EN ALP_EN, port:%d\n",
+		seninf_logd(ctx, "lrte not support, disable LRTE_EN ALP_EN, port:%d\n",
 			 ctx->port);
 	}
 
@@ -3340,7 +3340,7 @@ static int csirx_dphy_init_deskew_setting(struct seninf_ctx *ctx, u64 seninf_ck)
 	struct seninf_vc *vc1 = mtk_cam_seninf_get_vc_by_pad(ctx, PAD_SRC_RAW_EXT0);
 	u64 data_rate = 0;
 
-	dev_info(ctx->dev, "[%s] dphy_init_deskew_support = %d\n",
+	seninf_logd(ctx, "[%s] dphy_init_deskew_support = %d\n",
 			__func__, ctx->csi_param.dphy_init_deskew_support);
 
 	if (!ctx->csi_param.dphy_init_deskew_support) {

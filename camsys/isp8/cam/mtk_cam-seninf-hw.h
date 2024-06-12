@@ -12,6 +12,7 @@
 
 #define SENINF_AEE_GENERAL "Seninf"
 #define SENINF_AEE_OUTMUX "Seninf: outmux error"
+#define SENINF_AEE_FS_SEQ "Seninf: sensor fs sequence"
 
 #if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
 #define seninf_aee_print(title, string, args...) do { \

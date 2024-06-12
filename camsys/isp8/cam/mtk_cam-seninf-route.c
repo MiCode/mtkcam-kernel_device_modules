@@ -2259,16 +2259,20 @@ void mtk_cam_sensor_get_vc_info_by_scenario(struct seninf_ctx *ctx, u32 code)
 
 		if (vc_sid.fd.entry[i].bus.csi2.fs_seq == MTK_FRAME_DESC_FS_SEQ_FIRST) {
 			if (first_vc != -1 && first_vc != vc->vc) {
-				// TODO: assert
+				/* Assert */
 				dev_info(ctx->dev, "dup first_vc(%d) vc->vc(%d)\n",
 					 first_vc, vc->vc);
+				seninf_aee_print(SENINF_AEE_FS_SEQ,
+					"Check sensor's frame desc fs_seq setting\n");
 			}
 			first_vc = vc->vc;
 		} else if (vc_sid.fd.entry[i].bus.csi2.fs_seq == MTK_FRAME_DESC_FS_SEQ_LAST) {
 			if (last_vc != -1 && last_vc != vc->vc) {
-				// TODO: assert
+				/* Assert */
 				dev_info(ctx->dev, "dup last_vc(%d) vc->vc(%d) is not valid\n",
 					 last_vc, vc->vc);
+				seninf_aee_print(SENINF_AEE_FS_SEQ,
+					"Check sensor's frame desc fs_seq setting\n");
 			}
 			last_vc = vc->vc;
 		}
@@ -2281,9 +2285,11 @@ void mtk_cam_sensor_get_vc_info_by_scenario(struct seninf_ctx *ctx, u32 code)
 		last_vc = first_vc;
 
 	if (first_vc == -1 || last_vc == -1) {
-		// TODO: assert
+		/* Assert */
 		dev_info(ctx->dev, "first_vc(%d) last_vc(%d) is not valid\n",
 			 first_vc, last_vc);
+		seninf_aee_print(SENINF_AEE_FS_SEQ,
+			"Check sensor's frame desc fs_seq setting\n");
 	}
 
 	ctx->cur_first_vs = first_vc;

@@ -1336,7 +1336,7 @@ static void mtk_cam_ctrl_dynamic_raws_change_flow(struct mtk_cam_job *job)
 
 	dev_info(dev, "[%s] master raw changed case : wait engines:0x%x setting done\n",
 			 __func__, ctx->used_engine);
-	if (mtk_cam_ctrl_wait_event(ctrl, check_setting_done, &no, 1000)) {
+	if (mtk_cam_ctrl_wait_event(ctrl, check_setting_done, &no, 30000)) {
 		dev_info(dev, "[%s] check for dynamic_raws_change timeout: outer = 0x%x\n",
 				 __func__, no);
 		goto SWITCH_FAILURE;
@@ -1348,7 +1348,7 @@ static void mtk_cam_ctrl_dynamic_raws_change_flow(struct mtk_cam_job *job)
 	prev_seq = prev_frame_seq(job->frame_seq_no);
 	dev_info(dev, "[%s] wait 2.prev engines done req:0x%x\n",
 			__func__, prev_seq);
-	if (mtk_cam_ctrl_wait_event(ctrl, check_done, &prev_seq, 1000)) {
+	if (mtk_cam_ctrl_wait_event(ctrl, check_done, &prev_seq, 30000)) {
 		dev_info(dev, "[%s] check for dynamic_raws_change timeout: prev_seq=0x%x\n",
 			 __func__, prev_seq);
 		goto SWITCH_FAILURE;

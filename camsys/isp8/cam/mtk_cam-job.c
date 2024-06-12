@@ -2104,7 +2104,8 @@ static int apply_engines_cq(struct mtk_cam_job *job,
 	used_engine = engines_to_check_inner(job);
 	/* raw change job already modify ctx->used_engines */
 	/* so may use wrong cq_engines when the job before it */
-	if ((cq_engine & get_master_engines(job->used_engine)) == 0)
+	if (((cq_engine & 0x7) &
+		(get_master_engines(job->used_engine) & 0x7)) == 0)
 		cq_engine = raw_change_cq_engine(job, cq_rst);
 	/*raw change handle to avoid unexpected sof coming */
 	raw_change_handle_before_cq(job);

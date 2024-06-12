@@ -390,6 +390,13 @@ static int seninf_sentest_set_camtg_for_seamless(struct seninf_ctx *ctx)
 	ctrl = v4l2_ctrl_find(ctx->sensor_sd->ctrl_handler,
 			V4L2_CID_START_SEAMLESS_SWITCH);
 
+	if (!ctrl) {
+		pr_info("[%s][ERROR], no V4L2_CID_START_SEAMLESS_SWITCH cid found in %s\n",
+			__func__,
+			ctx->sensor_sd->name);
+		return -EFAULT;
+	}
+
 	v4l2_ctrl_s_ctrl_compound(ctrl, V4L2_CTRL_TYPE_U32, &ctx->sentest_seamless_cfg);
 	seninf_sentest_watchingdog_en(&ctx->sentest_watchdog, true);
 

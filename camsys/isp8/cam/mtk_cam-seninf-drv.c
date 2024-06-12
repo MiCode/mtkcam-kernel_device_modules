@@ -4335,12 +4335,15 @@ u64 mtk_cam_seninf_get_frame_time(struct v4l2_subdev *sd, u32 seq_id)
 	struct v4l2_ctrl *ctrl;
 	int val = 0;
 
-	ctrl = v4l2_ctrl_find(sensor_sd->ctrl_handler, V4L2_CID_MTK_SOF_TIMEOUT_VALUE);
-	if (ctrl) {
-		val = v4l2_ctrl_g_ctrl(ctrl);
-		if (val > 0)
-			tmp = val;
+	if (sensor_sd) {
+		ctrl = v4l2_ctrl_find(sensor_sd->ctrl_handler, V4L2_CID_MTK_SOF_TIMEOUT_VALUE);
+		if (ctrl) {
+			val = v4l2_ctrl_g_ctrl(ctrl);
+			if (val > 0)
+				tmp = val;
+		}
 	}
+
 	return tmp * 1000;
 }
 

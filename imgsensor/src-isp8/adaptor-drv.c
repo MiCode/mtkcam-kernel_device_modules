@@ -817,6 +817,11 @@ static int imgsensor_start_streaming(struct adaptor_ctx *ctx)
 	u64 data[4];
 	u32 len;
 
+	if (ctx == NULL) {
+		adaptor_loge(ctx, "null pointer ctx is invalid\n");
+		return -EINVAL;
+	}
+
 	adaptor_logm(ctx, "+\n");
 
 	adaptor_sensor_init(ctx);

@@ -228,7 +228,7 @@ static unsigned int hw_sync_calc_valid_min_fl_lc_for_shutters(int idx)
 	unsigned int m_exp_type;
 	unsigned int min_fl_lc = 0;
 
-	if (idx >= SENSOR_MAX_NUM) {
+	if ((idx >= SENSOR_MAX_NUM) || (idx < 0)) {
 		LOG_PR_ERR("The parameter idx is invalid (%d/%u)\n", idx, SENSOR_MAX_NUM);
 		return -1;
 	}

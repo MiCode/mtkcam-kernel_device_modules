@@ -4718,7 +4718,7 @@ static void check_sen_expo_change(struct mtk_cam_job *job)
 
 	if (likely(qof_get_mtcmos_margin() > MARGIN_TO_VOTE_QOF_US)) {
 		voter_on_margin_ns =
-			(qof_get_mtcmos_margin() - MARGIN_TO_VOTE_QOF_US) * -1000;
+			(s64)(qof_get_mtcmos_margin() - MARGIN_TO_VOTE_QOF_US) * -1000;
 	} else {
 		WARN_ON(1);
 		return;

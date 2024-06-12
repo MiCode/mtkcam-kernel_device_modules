@@ -158,7 +158,7 @@ int qof_reset(struct mtk_raw_device *raw)
 
 static inline void qof_setup_pwr_th(struct mtk_raw_device *raw)
 {
-	u32 val;
+	u32 val = 0;
 
 	SET_FIELD(&val, QOF_CAM_A_PWR_ISO_0_TH_1, PWR_ISO_0_DEF);
 	writel(val, raw->qof_base + REG_QOF_CAM_A_QOF_POWER_ISO_CYCLE_1);

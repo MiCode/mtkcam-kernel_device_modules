@@ -1577,13 +1577,12 @@ int mtk_mae_vidioc_qbuf(struct file *file, void *priv,
 	if (file == NULL || buf == NULL)
 		return -EFAULT;
 
-	mae_dev = video_drvdata(file);
-	idx = buf->index;
-
 #if M2M_ENABLE
 	if (buf->type != V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE)
 		return v4l2_m2m_ioctl_qbuf(file, priv, buf);
 #endif
+
+	idx = buf->index;
 
 	mae_dev = video_drvdata(file);
 

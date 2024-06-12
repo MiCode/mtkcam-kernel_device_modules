@@ -1102,15 +1102,18 @@ static bool mtk_mae_config_rsz(struct mtk_mae_dev *mae_dev,
 				struct cmdq_pkt *pkt,
 				uint32_t rsz_offset,
 				uint32_t loop,
-				int idx)
+				uint32_t idx)
 {
-	struct crop_setting_in crop_in;
+	struct crop_setting_in crop_in = {0};
 	struct crop_setting_out crop_out = {0};
-	struct padding_setting_in padding_in;
+	struct padding_setting_in padding_in = {0};
 	struct padding_setting_out padding_out = {0};
 	struct rsz_setting_in rsz_in = {0};
 	struct rsz_setting_out rsz_out = {0};
 	uint32_t i;
+
+	if (mae_dev->core_sel[idx][loop] < 0 || mae_dev->core_sel[idx][loop] >= FD_PATTERN_NUM)
+		return false;
 
 	// crop
 	if (param->image[loop].enRoi) {
@@ -1762,6 +1765,9 @@ static bool mtk_mae_config_hw(struct mtk_mae_dev *mae_dev, uint32_t idx)
 	uint32_t loop = 0;
 	uint32_t i = 0;
 	uint32_t val;
+
+	if (mae_dev->core_sel[idx][loop] < 0 || mae_dev->core_sel[idx][loop] >= FD_PATTERN_NUM)
+		return false;
 
 	if (mae_read_back_val) {
 		val = (uint32_t)readl(mae_dev->mae_base + MAE_REG_01C0_UDMA_R);

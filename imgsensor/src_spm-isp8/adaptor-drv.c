@@ -886,6 +886,8 @@ static int imgsensor_close(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 #endif
 #endif
 
+	if (ctx->subdrv == NULL)
+		return -ENODEV;
 	ctx->open_refcnt--;
 	if (ctx->open_refcnt <= 0) {
 		for (i = 0; ctx->power_refcnt; i++)

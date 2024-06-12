@@ -71,6 +71,7 @@ struct mtk_cam_buffer {
 		struct mtk_cam_cached_meta_info meta_info;
 	};
 	int v4l2_buffer_idx;
+	int is_acp;
 };
 
 struct mtk_cam_format_desc {

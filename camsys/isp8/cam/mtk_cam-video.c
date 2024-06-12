@@ -419,12 +419,12 @@ static int mtk_cam_vb2_buf_prepare(struct vb2_buffer *vb)
 	const struct v4l2_format *fmt = &node->active_fmt;
 	unsigned int size, plane;
 
-	if (V4L2_TYPE_IS_OUTPUT(vb->type) &&
-	    !(mtk_buf->flags & FLAG_NO_CACHE_CLEAN)) {
+	if ((V4L2_TYPE_IS_OUTPUT(vb->type) &&
+	    !(mtk_buf->flags & FLAG_NO_CACHE_CLEAN)) || mtk_buf->is_acp) {
 
 		if (CAM_DEBUG_ENABLED(V4L2))
-			dev_dbg(vb->vb2_queue->dev, "%s: %s\n",
-				__func__, node->desc.name);
+			dev_info(vb->vb2_queue->dev, "%s: %s: index:%d is_acp:%d\n", __func__,
+				node->desc.name, mtk_buf->v4l2_buffer_idx, mtk_buf->is_acp);
 		mtk_cam_vb2_sync_for_device(vb);
 	}
 
@@ -492,12 +492,12 @@ static void mtk_cam_vb2_buf_finish(struct vb2_buffer *vb)
 	struct mtk_cam_video_device *node = mtk_cam_vbq_to_vdev(vb->vb2_queue);
 	struct mtk_cam_buffer *mtk_buf = mtk_cam_vb2_buf_to_dev_buf(vb);
 
-	if (V4L2_TYPE_IS_CAPTURE(vb->type) &&
-	    !(mtk_buf->flags & FLAG_NO_CACHE_INVALIDATE)) {
+	if ((V4L2_TYPE_IS_CAPTURE(vb->type) &&
+	    !(mtk_buf->flags & FLAG_NO_CACHE_INVALIDATE)) || mtk_buf->is_acp) {
 
 		if (CAM_DEBUG_ENABLED(V4L2))
-			dev_dbg(vb->vb2_queue->dev, "%s: %s\n",
-				__func__, node->desc.name);
+			dev_info(vb->vb2_queue->dev, "%s: %s: index:%d is_acp:%d\n", __func__,
+				node->desc.name, mtk_buf->v4l2_buffer_idx, mtk_buf->is_acp);
 		mtk_cam_vb2_sync_for_cpu(vb);
 	}
 }
@@ -1344,8 +1344,8 @@ int mtk_cam_vidioc_qbuf(struct file *file, void *priv,
 		cam_buf->flags |= FLAG_NO_CACHE_INVALIDATE;
 
 	if (CAM_DEBUG_ENABLED(V4L2))
-		pr_info("%s: flag:0x%x, node:%s\n",
-		__func__, cam_buf->flags, node->desc.name);
+		pr_info("%s: flag:0x%x, node:%s, idx:%d\n",
+		__func__, cam_buf->flags, node->desc.name, buf->index);
 
 	return vb2_qbuf(vdev->queue, vdev->v4l2_dev->mdev, buf);
 }

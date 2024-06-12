@@ -286,13 +286,12 @@ static void *mtk_cam_vb2_attach_dmabuf(
 		node->desc.dma_port == MTKCAM_IPI_RAW_META_STATS_1) &&
 		(!region_heap_is_prot(dbuf))) {
 		buf->dev = cam->smmu_dev_acp;
-		dev_info(buf->dev, "%s node:%s flags:0x%x", __func__,
-			node->desc.name, mtk_buf->flags);
-		/* acp usage need to do cache flush/invalidate also */
-		/* meta port using no_cache_clean/no_cache_invalidate for attatch acp otf<->dc case */
-		mtk_buf->flags &= (~(FLAG_NO_CACHE_CLEAN | FLAG_NO_CACHE_INVALIDATE));
+		dev_info(buf->dev, "%s node:%s flags:0x%x index:%d", __func__,
+			node->desc.name, mtk_buf->flags, mtk_buf->v4l2_buffer_idx);
+		mtk_buf->is_acp = 1;
 	} else {
 		buf->dev = dev;
+		mtk_buf->is_acp = 0;
 	}
 	/* create attachment for the dmabuf with the user device */
 	dba = dma_buf_attach(dbuf, buf->dev);
@@ -341,6 +340,7 @@ const struct vb2_mem_ops mtk_cam_dma_contig_memops = {
 void mtk_cam_vb2_sync_for_device(struct vb2_buffer *vb)
 {
 	struct mtk_cam_video_device *node = mtk_cam_vbq_to_vdev(vb->vb2_queue);
+	struct mtk_cam_buffer *mtk_buf = mtk_cam_vb2_buf_to_dev_buf(vb);
 	struct mtk_cam_vb2_buf *buf;
 	struct sg_table *sgt;
 	unsigned int plane;
@@ -357,6 +357,7 @@ void mtk_cam_vb2_sync_for_device(struct vb2_buffer *vb)
 
 		if (buf->sync) {
 			dma_sync_sgtable_for_device(
+				mtk_buf->is_acp ? buf->dev :
 				vb->vb2_queue->alloc_devs[plane] ? : vb->vb2_queue->dev,
 				sgt, buf->dma_dir);
 		}
@@ -366,6 +367,7 @@ void mtk_cam_vb2_sync_for_device(struct vb2_buffer *vb)
 void mtk_cam_vb2_sync_for_cpu(struct vb2_buffer *vb)
 {
 	struct mtk_cam_video_device *node = mtk_cam_vbq_to_vdev(vb->vb2_queue);
+	struct mtk_cam_buffer *mtk_buf = mtk_cam_vb2_buf_to_dev_buf(vb);
 	struct mtk_cam_vb2_buf *buf;
 	struct sg_table *sgt;
 	unsigned int plane;
@@ -382,6 +384,7 @@ void mtk_cam_vb2_sync_for_cpu(struct vb2_buffer *vb)
 
 		if (buf->sync) {
 			dma_sync_sgtable_for_cpu(
+				mtk_buf->is_acp ? buf->dev :
 				vb->vb2_queue->alloc_devs[plane] ? : vb->vb2_queue->dev,
 				sgt, buf->dma_dir);
 		}

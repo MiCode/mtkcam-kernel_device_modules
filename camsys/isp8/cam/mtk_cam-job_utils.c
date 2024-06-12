@@ -2199,13 +2199,15 @@ int handle_sv_tag(struct mtk_cam_job *job)
 	mtk_cam_sv_reset_tag_info(job);
 
 	/* img tag(s) */
-	if (cfg_exp_no == 2) {
+	if (job->job_scen.id == MTK_CAM_SCEN_NORMAL &&
+		cfg_exp_no == 2) {
 		exp_no = req_amount = 2;
 		req_amount *= is_rgbw(job) ? 2 : 1;
 		hw_scen = is_dc_mode(job) ?
 			(1 << HWPATH_ID(MTKCAM_IPI_HW_PATH_DC_STAGGER)) :
 			(1 << HWPATH_ID(MTKCAM_IPI_HW_PATH_STAGGER));
-	} else if (cfg_exp_no == 3) {
+	} else if (job->job_scen.id == MTK_CAM_SCEN_NORMAL &&
+		cfg_exp_no == 3) {
 		exp_no = req_amount = 3;
 		if (is_rgbw(job)) {
 			pr_info("[%s] rgbw not supported under 3-exp stagger case",

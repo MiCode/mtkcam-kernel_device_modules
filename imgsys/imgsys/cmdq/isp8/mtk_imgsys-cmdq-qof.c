@@ -263,7 +263,7 @@ bool check_cg_status(u32 cg_reg_idx, u32 val)
 {
 	if((readl(g_maped_rg[cg_reg_idx]) & val) != 0) {
 		QOF_LOGE("g_maped_rg[%d] CG not ungate(0x%x)!!!\n", cg_reg_idx, readl(g_maped_rg[cg_reg_idx]));
-		mtk_imgsys_cmdq_qof_dump(0, true);
+		mtk_imgsys_cmdq_qof_dump(0, false);
 		return false;
 	}
 	return true;
@@ -1592,8 +1592,6 @@ static void qof_set_engine_on(const u32 mod)
 	if(IS_MOD_SUPPORT_QOF(mod) == false)
 		return;
 
-	QOF_LOGI("engine on mod[%d]+\n", mod);
-
 	if (mod == ISP8_PWR_WPE_1_EIS) { // wa for gce thd lacked
 		qof_engine_on_setting(ISP8_PWR_WPE_1_EIS);
 		qof_engine_on_setting(ISP8_PWR_WPE_2_TNR);
@@ -1667,8 +1665,6 @@ static void qof_set_engine_on(const u32 mod)
 			// engine off
 		}
 	}
-
-	QOF_LOGI("engine on mod[%d]-\n", mod);
 }
 
 static void qof_engine_off_setting(const u32 mod)
@@ -1697,8 +1693,6 @@ static void qof_locked_set_engine_off(const u32 mod)
 
 	if (IS_MOD_SUPPORT_QOF(mod) == false)
 		return;
-
-	QOF_LOGI("engine off mod[%d]+\n", mod);
 
 	if ((g_qof_work_buf_va == NULL) || (*g_qof_work_buf_va == NULL)) {
 		QOF_LOGE("param is null %d\n",
@@ -1749,25 +1743,28 @@ static void qof_locked_set_engine_off(const u32 mod)
 		}
 		qof_engine_off_setting(mod);
 	}
-	QOF_LOGI("engine off mod[%d]-\n", mod);
 }
 
 static void qof_locked_stream_off_sync(void)
 {
 	u32 qof_module = QOF_SUPPORT_START;
 
+	QOF_LOGI("qof stream off+\n");
 	for (; qof_module < QOF_TOTAL_MODULE; qof_module++) {
 		/* engine off */
 		if (qof_module == QOF_SUPPORT_WPE_TNR) // wa for gce thd lackd
 			continue;
 		qof_locked_set_engine_off(qof_module);
 	}
+	QOF_LOGI("qof stream off-\n");
 }
 
 void mtk_imgsys_cmdq_qof_stream_on(struct mtk_imgsys_dev *imgsys_dev)
 {
 	u32 mod = 0;
 	unsigned long flag;
+
+	QOF_LOGI("qof stream on+\n");
 
 	qof_start_all_gce_loop(imgsys_dev);
 
@@ -1792,7 +1789,7 @@ void mtk_imgsys_cmdq_qof_stream_on(struct mtk_imgsys_dev *imgsys_dev)
 
 	imgsys_qof_set_dbg_thread(true);
 
-	QOF_LOGI("stream on success. imgsys_voter_cnt_locked=%u\n", imgsys_voter_cnt_locked);
+	QOF_LOGI("stream on-. success. imgsys_voter_cnt_locked=%u\n", imgsys_voter_cnt_locked);
 }
 
 void mtk_imgsys_cmdq_get_non_qof_module(u32 *non_qof_modules)
@@ -1831,8 +1828,6 @@ void mtk_imgsys_cmdq_qof_stream_off(struct mtk_imgsys_dev *imgsys_dev)
 	imgsys_voter_cnt_locked--;
 
 	qof_locked_stream_off_sync();
-
-	mtk_imgsys_cmdq_qof_dump(0, false);
 
 	pm_runtime_put_noidle(g_imgsys_dev->dev);
 

@@ -457,7 +457,18 @@ int do_cam_pmic_off(struct adaptor_ctx *ctx)
 
 int adaptor_cam_pmic_off(struct adaptor_ctx *ctx)
 {
-	return do_cam_pmic_off(ctx);
+	/*use adaptor_pmic_ctrl on and off to turn off pmic*/
+	/*situation1: at the same time, two camera app open different sensor id*/
+	/*situation2: camera hal crash, camera hal can't release resource correctly in user space*/
+#if 0
+	if (ctx->pmic_on == 1) {
+		do_cam_pmic_off(ctx);
+		ctx->pmic_on = 0;
+	} else
+		adaptor_loge(ctx, "error, you can't do pmic_off when pmic_on is 0, ctx->pmic_on:%d\n",
+			ctx->pmic_on);
+#endif
+	return 0;
 }
 
 int adaptor_pmic_ctrl(struct adaptor_ctx *ctx, bool bPmicEnable)

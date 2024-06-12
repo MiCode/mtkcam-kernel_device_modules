@@ -16,7 +16,8 @@
 #endif
 
 #define MTK_CCU_IPI_TAG "[ccu_ipc]"
-#define LOG_DBG_IPI(format, args...) \
+#define LOG_DBG_IPI(format, args...)
+#define LOG_DBG_IPI_MUST(format, args...) \
 	pr_info(MTK_CCU_IPI_TAG "[%s] " format, __func__, ##args)
 
 #define MTK_CCU_IPC_NO_ACK 0x66669999
@@ -222,7 +223,7 @@ static int mtk_ccu_mb_rx(struct mtk_ccu *ccu,
 		ccu->mb->front = next;
 
 		if (ccu->compact_ipc)
-			LOG_DBG_IPI(
+			LOG_DBG_IPI_MUST(
 			"[%u] received cmd: f(%d), r(%d), cmd(%d), in(%x)\n",
 			(uint32_t)arch_timer_read_counter(),
 			ccu->mb->front,
@@ -230,7 +231,7 @@ static int mtk_ccu_mb_rx(struct mtk_ccu *ccu,
 			task->msg_id,
 			task->in_data_ptr);
 		else
-			LOG_DBG_IPI(
+			LOG_DBG_IPI_MUST(
 			"[%u] received cmd: f(%d), r(%d), cmd(%d), in(%x)\n",
 			(uint32_t)arch_timer_read_counter(),
 			ccu->mb->front,
@@ -240,14 +241,14 @@ static int mtk_ccu_mb_rx(struct mtk_ccu *ccu,
 
 		ret = rear - front + 1;
 #if IS_ENABLED(CONFIG_MTK_CCU_DEBUG)
-		LOG_DBG_IPI("fs[%d,%d,%d],sc[%d,%d,%d],cam[%d,%d,%d],senif[%d,%d,%d]\n",
+		LOG_DBG_IPI_MUST("fs[%d,%d,%d],sc[%d,%d,%d],cam[%d,%d,%d],senif[%d,%d,%d]\n",
 			ccu->bootcnt[0][0].counter, ccu->bootcnt[0][1].counter,
 			ccu->bootcnt[0][2].counter, ccu->bootcnt[1][0].counter,
 			ccu->bootcnt[1][1].counter, ccu->bootcnt[1][2].counter,
 			ccu->bootcnt[2][0].counter, ccu->bootcnt[2][1].counter,
 			ccu->bootcnt[2][2].counter, ccu->bootcnt[3][0].counter,
 			ccu->bootcnt[3][1].counter, ccu->bootcnt[3][2].counter);
-		LOG_DBG_IPI("img[%d,%d,%d],icmdq[%d,%d,%d],dvfs[%d,%d,%d],gce[%d,%d,%d]\n",
+		LOG_DBG_IPI_MUST("img[%d,%d,%d],icmdq[%d,%d,%d],dvfs[%d,%d,%d],gce[%d,%d,%d]\n",
 			ccu->bootcnt[4][0].counter, ccu->bootcnt[4][1].counter,
 			ccu->bootcnt[4][2].counter, ccu->bootcnt[5][0].counter,
 			ccu->bootcnt[5][1].counter, ccu->bootcnt[5][2].counter,
@@ -275,12 +276,12 @@ irqreturn_t mtk_ccu_isr_handler(int irq, void *priv)
 #endif
 
 	if (!spin_trylock(&ccu->ccu_poweron_lock)) {
-		LOG_DBG_IPI("trylock failed.\n");
+		LOG_DBG_IPI_MUST("trylock failed.\n");
 		goto ISR_EXIT;
 	}
 
 	if (!ccu->poweron) {
-		LOG_DBG_IPI("ccu->poweron false.\n");
+		LOG_DBG_IPI_MUST("ccu->poweron false.\n");
 #ifdef REQUEST_IRQ_IN_INIT
 		if (spin_trylock(&ccu->ccu_irq_lock)) {
 			if (ccu->disirq) {
@@ -452,7 +453,7 @@ int mtk_ccu_rproc_ipc_send(struct platform_device *pdev,
 	}
 
 	if (featureType == MTK_CCU_FEATURE_SYSCTRL)
-		LOG_DBG_IPI("[%u] ft(%d), msgId(%d)\n",
+		LOG_DBG_IPI_MUST("[%u] ft(%d), msgId(%d)\n",
 			(uint32_t)arch_timer_read_counter(), featureType, msgId);
 
 	if ((inDataSize) && (!inDataPtr)) {
@@ -484,27 +485,31 @@ int mtk_ccu_rproc_ipc_send(struct platform_device *pdev,
 	ret = mtk_ccu_copyCmdOutData(ccu, inDataPtr, inDataSize);
 
 	if (ccu->compact_ipc) {
-		dev_err(ccu->dev, "aft_ipc r_assert:0x%x, i25:0x%x, i26:0x%x, i27:0x%x",
-			read_ccu_info_regd(ccu, MTK_CCU_SPARE_REG20),
-			read_ccu_info_regd(ccu, MTK_CCU_SPARE_REG25),
-			read_ccu_info_regd(ccu, MTK_CCU_SPARE_REG26),
-			read_ccu_info_regd(ccu, MTK_CCU_SPARE_REG27));
-		dev_err(ccu->dev, "aft_ipc i28:0x%x, i29:0x%x, i30:0x%x, i31:0x%x",
-			read_ccu_info_regd(ccu, MTK_CCU_SPARE_REG28),
-			read_ccu_info_regd(ccu, MTK_CCU_SPARE_REG29),
-			read_ccu_info_regd(ccu, MTK_CCU_SPARE_REG30),
-			read_ccu_info_regd(ccu, MTK_CCU_SPARE_REG31));
+		if (read_ccu_info_regd(ccu, MTK_CCU_SPARE_REG20)) {
+			dev_err(ccu->dev, "aft_ipc r_assert:0x%x,i25:0x%x,i26:0x%x,i27:0x%x",
+				read_ccu_info_regd(ccu, MTK_CCU_SPARE_REG20),
+				read_ccu_info_regd(ccu, MTK_CCU_SPARE_REG25),
+				read_ccu_info_regd(ccu, MTK_CCU_SPARE_REG26),
+				read_ccu_info_regd(ccu, MTK_CCU_SPARE_REG27));
+			dev_err(ccu->dev, "aft_ipc i28:0x%x, i29:0x%x, i30:0x%x, i31:0x%x",
+				read_ccu_info_regd(ccu, MTK_CCU_SPARE_REG28),
+				read_ccu_info_regd(ccu, MTK_CCU_SPARE_REG29),
+				read_ccu_info_regd(ccu, MTK_CCU_SPARE_REG30),
+				read_ccu_info_regd(ccu, MTK_CCU_SPARE_REG31));
+		}
 	} else {
-		dev_err(ccu->dev, "aft_ipc r_assert:0x%x, i25:0x%x, i26:0x%x, i27:0x%x",
-			readl(ccu->ccu_base + MTK_CCU_SPARE_REG20),
-			readl(ccu->ccu_base + MTK_CCU_SPARE_REG25),
-			readl(ccu->ccu_base + MTK_CCU_SPARE_REG26),
-			readl(ccu->ccu_base + MTK_CCU_SPARE_REG27));
-		dev_err(ccu->dev, "aft_ipc i28:0x%x, i29:0x%x, i30:0x%x, i31:0x%x",
-			readl(ccu->ccu_base + MTK_CCU_SPARE_REG28),
-			readl(ccu->ccu_base + MTK_CCU_SPARE_REG29),
-			readl(ccu->ccu_base + MTK_CCU_SPARE_REG30),
-			readl(ccu->ccu_base + MTK_CCU_SPARE_REG31));
+		if (readl(ccu->ccu_base + MTK_CCU_SPARE_REG20)) {
+			dev_err(ccu->dev, "aft_ipc r_assert:0x%x,i25:0x%x,i26:0x%x,i27:0x%x",
+				readl(ccu->ccu_base + MTK_CCU_SPARE_REG20),
+				readl(ccu->ccu_base + MTK_CCU_SPARE_REG25),
+				readl(ccu->ccu_base + MTK_CCU_SPARE_REG26),
+				readl(ccu->ccu_base + MTK_CCU_SPARE_REG27));
+			dev_err(ccu->dev, "aft_ipc i28:0x%x, i29:0x%x, i30:0x%x, i31:0x%x",
+				readl(ccu->ccu_base + MTK_CCU_SPARE_REG28),
+				readl(ccu->ccu_base + MTK_CCU_SPARE_REG29),
+				readl(ccu->ccu_base + MTK_CCU_SPARE_REG30),
+				readl(ccu->ccu_base + MTK_CCU_SPARE_REG31));
+		}
 	}
 
 	spin_unlock(&ccu->ipc_send_lock);

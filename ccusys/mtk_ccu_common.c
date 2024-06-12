@@ -17,6 +17,8 @@
 #define MTK_CCU_TAG "[ccu_rproc]"
 #define LOG_ERR(format, args...) \
 	pr_err(MTK_CCU_TAG "[%s] " format, __func__, ##args)
+#define DEV_INFO(dev, format, args...)
+/* #define DEV_INFO dev_info(dev, format, args...) */
 
 uint32_t ccu_mailbox_max;
 
@@ -113,8 +115,7 @@ static int mtk_ccu_waitirq(struct mtk_ccu *ccu)
 
 
 	if (timeout > 0) {
-		dev_info(ccu->dev, "remain time:%d, log_idx: %d\n",
-			timeout, ccu->g_LogBufIdx);
+		DEV_INFO(ccu->dev, "remain_t:%d,log_idx:%d\n", timeout, ccu->g_LogBufIdx);
 		ret = ccu->g_LogBufIdx;
 	}
 
@@ -290,7 +291,7 @@ void mtk_ccu_ipc_log_handle(uint32_t data, uint32_t len, void *priv)
 	}
 #endif
 
-	dev_info(ccu->dev, "got APMCU_FLUSH_LOG:%d\n", data);
+	DEV_INFO(ccu->dev, "got APMCU_FLUSH_LOG:%d\n", data);
 #if IS_ENABLED(CONFIG_MTK_CCU_DEBUG)
 	ccu->bWaitCond = true;
 	ccu->g_LogBufIdx = (uint32_t)data;

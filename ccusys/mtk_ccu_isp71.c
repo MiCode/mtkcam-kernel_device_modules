@@ -48,7 +48,8 @@
 #define ERROR_DESC_LEN	80
 
 #define MTK_CCU_TAG "[ccu_rproc]"
-#define LOG_DBG(format, args...) \
+#define LOG_DBG(format, args...)
+#define LOG_DBG_MUST(format, args...) \
 	pr_info(MTK_CCU_TAG "[%s] " format, __func__, ##args)
 
 static char *buf_name = "CCU_LOG_DBGDUMP";
@@ -204,7 +205,7 @@ mtk_ccu_allocate_mem(struct device *dev, struct mtk_ccu_mem_handle *memHandle, b
 	goto alloc_show;
 
 alloc_with_smmu:
-	LOG_DBG("alloc by DMA-BUF\n");
+	LOG_DBG_MUST("alloc by DMA-BUF\n");
 
 	/* dma_heap_find() will fail if mtk_ccu.ko is in ramdisk. */
 	dmaheap = dma_heap_find("mtk_mm-uncached");
@@ -338,7 +339,7 @@ int mtk_ccu_sw_hw_reset(struct mtk_ccu *ccu)
 
 	/* check halt is up */
 	ccu_status = readl(ccu_base + MTK_CCU_MON_ST);
-	LOG_DBG("polling CCU halt(0x%08x)\n", ccu_status);
+	LOG_DBG_MUST("polling CCU halt(0x%08x)\n", ccu_status);
 	duration = 0;
 	while ((ccu_status & halt_mask) != halt_mask) {
 		duration++;
@@ -351,7 +352,7 @@ int mtk_ccu_sw_hw_reset(struct mtk_ccu *ccu)
 		udelay(10);
 		ccu_status = readl(ccu_base + MTK_CCU_MON_ST);
 	}
-	LOG_DBG("polling CCU halt done(0x%08x)\n", ccu_status);
+	LOG_DBG_MUST("polling CCU halt done(0x%08x)\n", ccu_status);
 
 	return true;
 }
@@ -449,14 +450,14 @@ static int mtk_ccu_run(struct mtk_ccu *ccu)
 			read_ccu_info_regd(ccu, MTK_CCU_SPARE_REG00));
 		ccu->mb = (struct mtk_ccu_mailbox *)ccu->mb_compact;
 		ccu->ccu_sram_log_offset = read_ccu_info_regd(ccu, MTK_CCU_SPARE_REG25) & 0xFFFF;
-		LOG_DBG("ccu initial debug mb_ap2ccu: %x, sram_log_offset %x\n",
+		LOG_DBG_MUST("ccu initial debug mb_ap2ccu: %x, sram_log_offset %x\n",
 			read_ccu_info_regd(ccu, MTK_CCU_SPARE_REG00),
 			ccu->ccu_sram_log_offset);
 	} else {
 		ccu->mb = (struct mtk_ccu_mailbox *)(uintptr_t)(ccu->dmem_base +
 			readl(ccu_spare_base + MTK_CCU_SPARE_REG00));
 		ccu->ccu_sram_log_offset = readl(ccu_spare_base + MTK_CCU_SPARE_REG25) & 0xFFFF;
-		LOG_DBG("ccu initial debug mb_ap2ccu: %x, sram_log_offset %x\n",
+		LOG_DBG_MUST("ccu initial debug mb_ap2ccu: %x, sram_log_offset %x\n",
 			readl(ccu_spare_base + MTK_CCU_SPARE_REG00),
 			ccu->ccu_sram_log_offset);
 	}
@@ -501,19 +502,19 @@ static int mtk_ccu_clk_prepare(struct mtk_ccu *ccu)
 	int i = 0;
 	struct device *dev = ccu->dev;
 
-	LOG_DBG("Power on CCU0.\n");
+	LOG_DBG_MUST("Power on CCU0.\n");
 	ret = mtk_ccu_get_power(ccu, dev);
 	if (ret)
 		return ret;
 
 #if defined(CCU1_DEVICE)
-	LOG_DBG("Power on CCU1\n");
+	LOG_DBG_MUST("Power on CCU1\n");
 	ret = mtk_ccu_get_power(ccu, &ccu->pdev1->dev);
 	if (ret)
 		goto ERROR_poweroff_ccu;
 #endif
 
-	LOG_DBG("Clock on CCU(%d)\n", ccu->clock_num);
+	LOG_DBG_MUST("Clock on CCU(%d)\n", ccu->clock_num);
 	for (i = 0; (i < ccu->clock_num) && (i < MTK_CCU_CLK_PWR_NUM); ++i) {
 		ret = clk_prepare_enable(ccu->ccu_clk_pwr_ctrl[i]);
 		if (ret) {
@@ -542,7 +543,7 @@ static void mtk_ccu_clk_unprepare(struct mtk_ccu *ccu)
 {
 	int i;
 
-	LOG_DBG("Clock off CCU(%d)\n", ccu->clock_num);
+	LOG_DBG_MUST("Clock off CCU(%d)\n", ccu->clock_num);
 	for (i = 0; (i < ccu->clock_num) && (i < MTK_CCU_CLK_PWR_NUM); ++i)
 		clk_disable_unprepare(ccu->ccu_clk_pwr_ctrl[i]);
 	mtk_ccu_put_power(ccu, ccu->dev);
@@ -579,11 +580,9 @@ static int mtk_ccu_start(struct rproc *rproc)
 	}
 #endif
 
-	LOG_DBG("LogBuf_mva[0](0x%pad)(0x%x << 8)\n",
-		&ccu->log_info[0].mva, readl(ccu_spare_base + MTK_CCU_SPARE_REG02));
-	LOG_DBG("LogBuf_mva[1](0x%pad)(0x%x << 8)\n",
-		&ccu->log_info[1].mva, readl(ccu_spare_base + MTK_CCU_SPARE_REG03));
-	LOG_DBG("LogBuf_mva[2](0x%pad)(0x%x << 8)\n",
+	LOG_DBG_MUST("LogBuf_mva[](0x%pad)(0x%x<<8),(0x%pad)(0x%x<<8),(0x%pad)(0x%x<<8)\n",
+		&ccu->log_info[0].mva, readl(ccu_spare_base + MTK_CCU_SPARE_REG02),
+		&ccu->log_info[1].mva, readl(ccu_spare_base + MTK_CCU_SPARE_REG03),
 		&ccu->log_info[2].mva, readl(ccu_spare_base + MTK_CCU_SPARE_REG07));
 	ccu->g_LogBufIdx = 0;
 
@@ -707,7 +706,7 @@ static int mtk_ccu_stopx(struct rproc *rproc, bool normal_stop)
 	if (res.a0 != 0)
 		dev_err(ccu->dev, "stop CCU failed (%lu).\n", res.a0);
 	else
-		LOG_DBG("stop CCU OK\n");
+		LOG_DBG_MUST("stop CCU OK\n");
 #else
 	ccu_reset = readl(ccu_base + MTK_CCU_REG_RESET);
 	writel(ccu_reset|MTK_CCU_HW_RESET_BIT, ccu_base + MTK_CCU_REG_RESET);
@@ -722,7 +721,7 @@ static int mtk_ccu_stopx(struct rproc *rproc, bool normal_stop)
 		}
 
 		if (i > MTK_CCU_MB_RX_TIMEOUT_SPEC)
-			LOG_DBG("mb_rx_empty timeout.\n");
+			LOG_DBG_MUST("mb_rx_empty timeout.\n");
 	}
 
 #if defined(CCU_SET_MMQOS)
@@ -863,7 +862,7 @@ static int mtk_ccu_load(struct rproc *rproc, const struct firmware *fw)
 		return ret;
 	}
 
-	LOG_DBG("Load CCU binary start\n");
+	LOG_DBG_MUST("Load CCU binary start\n");
 #if defined(SECURE_CCU)
 	if (ccu->compact_ipc)
 		writel(CCU_GO_TO_LOAD, ccu->ccu_spare_base + MTK_CCU_SPARE_REG30);
@@ -897,7 +896,7 @@ static int mtk_ccu_load(struct rproc *rproc, const struct firmware *fw)
 #endif
 		goto ccu_load_err;
 	} else
-		LOG_DBG("load CCU binary OK\n");
+		LOG_DBG_MUST("load CCU binary OK\n");
 #else
 	/*2. allocate CCU's dram memory if needed*/
 	ccu->buffer_handle[MTK_CCU_DDR].meminfo.size = MTK_CCU_CACHE_SIZE;
@@ -1084,8 +1083,8 @@ static int mtk_ccu_probe(struct platform_device *pdev)
 	phy_addr = ccu->ccu_hw_base;
 	phy_size = ccu->ccu_hw_size;
 	ccu->ccu_base = devm_ioremap(dev, phy_addr, phy_size);
-	LOG_DBG("ccu_base pa: 0x%x, size: 0x%x\n", phy_addr, phy_size);
-	LOG_DBG("ccu_base va: 0x%llx\n", (uint64_t)ccu->ccu_base);
+	LOG_DBG_MUST("ccu_base pa: 0x%x, size: 0x%x\n", phy_addr, phy_size);
+	LOG_DBG_MUST("ccu_base va: 0x%llx\n", (uint64_t)ccu->ccu_base);
 
 	/* remap ccu_exch_base */
 	if (ccu->ccu_version < CCU_VER_ISP8) {
@@ -1099,30 +1098,30 @@ static int mtk_ccu_probe(struct platform_device *pdev)
 		ccu->ccu_exch_base = devm_ioremap(dev, phy_addr, phy_size);
 		ccu->ccu_spare_base = ccu->ccu_exch_base;
 	}
-	LOG_DBG("ccu_exch_base pa: 0x%x, size: 0x%x\n", phy_addr, phy_size);
-	LOG_DBG("ccu_exch_base va: 0x%llx\n", (uint64_t)ccu->ccu_exch_base);
+	LOG_DBG_MUST("ccu_exch_base pa: 0x%x, size: 0x%x\n", phy_addr, phy_size);
+	LOG_DBG_MUST("ccu_exch_base va: 0x%llx\n", (uint64_t)ccu->ccu_exch_base);
 
 	/*remap dmem_base*/
 	phy_addr = (ccu->ccu_hw_base & MTK_CCU_BASE_MASK) + ccu->ccu_sram_offset;
 	phy_size = ccu->ccu_sram_size;
 	ccu->dmem_base = devm_ioremap(dev, phy_addr, phy_size);
-	LOG_DBG("dmem_base pa: 0x%x, size: 0x%x\n", phy_addr, phy_size);
-	LOG_DBG("dmem_base va: 0x%llx\n", (uint64_t)ccu->dmem_base);
+	LOG_DBG_MUST("dmem_base pa: 0x%x, size: 0x%x\n", phy_addr, phy_size);
+	LOG_DBG_MUST("dmem_base va: 0x%llx\n", (uint64_t)ccu->dmem_base);
 
 	/*remap pmem_base*/
 	phy_addr = ccu->ccu_hw_base & MTK_CCU_BASE_MASK;
 	phy_size = ccu->ccu_sram_size;
 	ccu->pmem_base = devm_ioremap(dev, phy_addr, phy_size);
-	LOG_DBG("pmem_base pa: 0x%x, size: 0x%x\n", phy_addr, phy_size);
-	LOG_DBG("pmem_base va: 0x%llx\n", (uint64_t)ccu->pmem_base);
+	LOG_DBG_MUST("pmem_base pa: 0x%x, size: 0x%x\n", phy_addr, phy_size);
+	LOG_DBG_MUST("pmem_base va: 0x%llx\n", (uint64_t)ccu->pmem_base);
 
 	/*remap spm_base*/
 	if (ccu->ccu_version >= CCU_VER_ISP7SP) {
 		phy_addr = (ccu->ccu_version >= CCU_VER_ISP8) ? SPM_BASE_ISP8 : SPM_BASE;
 		phy_size = SPM_SIZE;
 		ccu->spm_base = devm_ioremap(dev, phy_addr, phy_size);
-		LOG_DBG("spm_base pa: 0x%x, size: 0x%x\n", phy_addr, phy_size);
-		LOG_DBG("spm_base va: 0x%llx\n", (uint64_t)ccu->spm_base);
+		LOG_DBG_MUST("spm_base pa: 0x%x, size: 0x%x\n", phy_addr, phy_size);
+		LOG_DBG_MUST("spm_base va: 0x%llx\n", (uint64_t)ccu->spm_base);
 	}
 
 	/*remap mmpc_base*/
@@ -1130,8 +1129,8 @@ static int mtk_ccu_probe(struct platform_device *pdev)
 		phy_addr = MMPC_BASE;
 		phy_size = MMPC_SIZE;
 		ccu->mmpc_base = devm_ioremap(dev, phy_addr, phy_size);
-		LOG_DBG("mmpc_base pa: 0x%x, size: 0x%x\n", phy_addr, phy_size);
-		LOG_DBG("mmpc_base va: 0x%llx\n", (uint64_t)ccu->mmpc_base);
+		LOG_DBG_MUST("mmpc_base pa: 0x%x, size: 0x%x\n", phy_addr, phy_size);
+		LOG_DBG_MUST("mmpc_base va: 0x%llx\n", (uint64_t)ccu->mmpc_base);
 	}
 
 	/* Get other power node if needed. */
@@ -1202,7 +1201,7 @@ static int mtk_ccu_probe(struct platform_device *pdev)
 	}
 
 	ccu->clock_num = clki;
-	LOG_DBG("CCU got %d clocks\n", clki);
+	LOG_DBG_MUST("CCU got %d clocks\n", clki);
 
 #if defined(CCU_SET_MMQOS)
 	if (ccu->ccu_version < CCU_VER_ISP7SP)
@@ -1226,7 +1225,7 @@ static int mtk_ccu_probe(struct platform_device *pdev)
 	/* get irq from device irq*/
 	ccu->irq_num = irq_of_parse_and_map(node, 0);
 
-	LOG_DBG("ccu_probe irq_num: %d\n", ccu->irq_num);
+	LOG_DBG_MUST("ccu_probe irq_num: %d\n", ccu->irq_num);
 
 	/*prepare mutex & log's waitqueuehead*/
 	mutex_init(&ccu->ipc_desc_lock);
@@ -1411,7 +1410,7 @@ static int mtk_ccu_get_power(struct mtk_ccu *ccu, struct device *dev)
 
 	if ((ccu->ccu_version >= CCU_VER_ISP7SP) && (ccu->ccu_version <= CCU_VER_ISP7SPL)) {
 		rc = pm_runtime_get_sync(ccu->dev_cammainpwr);
-		LOG_DBG("CCU power-on cammainpwr %d\n", rc);
+		LOG_DBG_MUST("CCU power-on cammainpwr %d\n", rc);
 		ccu->cammainpwr_powered = (rc >= 0);
 	}
 

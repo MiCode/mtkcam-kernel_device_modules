@@ -286,7 +286,7 @@ void imgsys_omc_set_hw_initial_value(struct mtk_imgsys_dev *imgsys_dev)
 bool imgsys_omc_done_chk(struct mtk_imgsys_dev *imgsys_dev, uint32_t engine)
 {
 	void __iomem *omcRegBA = 0L;
-	unsigned int hw_idx = (unsigned int) IMGSYS_ENG_OMC_TNR, ofst_idx;
+	unsigned int hw_idx = 0, ofst_idx;
 	unsigned int omcBase = 0;
 	bool ret = true; //true: done
 	uint32_t value = 0;

@@ -42,76 +42,7 @@ void register_mtk_mae_reg_tf_cb(mtk_mae_register_tf_cb mtk_mae_register_tf_cb_fn
 #define MSB_ADDR(ADDR) ((ADDR & MSB_MASK) >> MSB_ADDR_SHIFT_BITS)
 #define REG_RANGE(VALUE,MSB,LSB) (uint32_t)((VALUE >> LSB) & ((1<<(MSB-LSB+1)) - 1))
 
-#define INTERNAL_BUFFER_SIZE (3 * 512 * 1024)
-
 /* ============ should align userspace define (start) ================== */
-#define MAE_BASE_ADDR_ALIGN 16
-
-#define V0_FD_640_480_COEF_SIZE     (11479 * MAE_BASE_ADDR_ALIGN)
-#define V0_FD_640_480_CONFIG_SIZE   (4086 * MAE_BASE_ADDR_ALIGN)
-#define V0_FD_640_480_COEF_PAT_OFFSET   0
-#define V0_FD_640_480_CONFIG_PAT_OFFSET 0
-
-#define V0_FD_480_360_COEF_SIZE     (11471 * MAE_BASE_ADDR_ALIGN)
-#define V0_FD_480_360_CONFIG_SIZE   (2862 * MAE_BASE_ADDR_ALIGN)
-#define V0_FD_480_360_COEF_PAT_OFFSET   \
-		(V0_FD_640_480_COEF_PAT_OFFSET + V0_FD_640_480_COEF_SIZE)
-#define V0_FD_480_360_CONFIG_PAT_OFFSET \
-		(V0_FD_640_480_CONFIG_PAT_OFFSET + V0_FD_640_480_CONFIG_SIZE)
-
-#define V0_FD_240_180_COEF_SIZE     (11471 * MAE_BASE_ADDR_ALIGN)
-#define V0_FD_240_180_CONFIG_SIZE   (2180 * MAE_BASE_ADDR_ALIGN)
-#define V0_FD_240_180_COEF_PAT_OFFSET   \
-		(V0_FD_480_360_COEF_PAT_OFFSET + V0_FD_480_360_COEF_SIZE)
-#define V0_FD_240_180_CONFIG_PAT_OFFSET \
-		(V0_FD_480_360_CONFIG_PAT_OFFSET + V0_FD_480_360_CONFIG_SIZE)
-
-#define V0_FD_120_90_COEF_SIZE      (11471 * MAE_BASE_ADDR_ALIGN)
-#define V0_FD_120_90_CONFIG_SIZE    (1834 * MAE_BASE_ADDR_ALIGN)
-#define V0_FD_120_90_COEF_PAT_OFFSET   \
-		(V0_FD_240_180_COEF_PAT_OFFSET + V0_FD_240_180_COEF_SIZE)
-#define V0_FD_120_90_CONFIG_PAT_OFFSET \
-		(V0_FD_240_180_CONFIG_PAT_OFFSET + V0_FD_240_180_CONFIG_SIZE)
-
-#define V0_ATTR_128_128_COEF_SIZE   (15290 * MAE_BASE_ADDR_ALIGN)
-#define V0_ATTR_128_128_CONFIG_SIZE (2000 * MAE_BASE_ADDR_ALIGN)
-
-#define V1_FD_IPN_640_480_COEF_SIZE (10955 * MAE_BASE_ADDR_ALIGN)
-#define V1_FD_IPN_640_480_CONFIG_SINGLE_SIZE (7937 * MAE_BASE_ADDR_ALIGN)
-#define V1_FD_IPN_640_480_CONFIG_SIZE (3 * V1_FD_IPN_640_480_CONFIG_SINGLE_SIZE)
-#define V1_FD_IPN_640_480_COEF_PAT_OFFSET   0
-#define V1_FD_IPN_640_480_CONFIG_PAT_OFFSET 0
-
-#define V1_FD_IPN_480_360_COEF_SIZE (10947 * MAE_BASE_ADDR_ALIGN)
-#define V1_FD_IPN_480_360_CONFIG_SINGLE_SIZE (6676 * MAE_BASE_ADDR_ALIGN)
-#define V1_FD_IPN_480_360_CONFIG_SIZE (3 * V1_FD_IPN_480_360_CONFIG_SINGLE_SIZE)
-#define V1_FD_IPN_480_360_COEF_PAT_OFFSET \
-		(V1_FD_IPN_640_480_COEF_PAT_OFFSET + V1_FD_IPN_640_480_COEF_SIZE)
-#define V1_FD_IPN_480_360_CONFIG_PAT_OFFSET \
-		(V1_FD_IPN_640_480_CONFIG_PAT_OFFSET + V1_FD_IPN_640_480_CONFIG_SIZE)
-
-#define V1_FD_IPN_240_180_COEF_SIZE (10947 * MAE_BASE_ADDR_ALIGN)
-#define V1_FD_IPN_240_180_CONFIG_SINGLE_SIZE (5942 * MAE_BASE_ADDR_ALIGN)
-#define V1_FD_IPN_240_180_CONFIG_SIZE (3 * V1_FD_IPN_240_180_CONFIG_SINGLE_SIZE)
-#define V1_FD_IPN_240_180_COEF_PAT_OFFSET \
-		(V1_FD_IPN_480_360_COEF_PAT_OFFSET + V1_FD_IPN_480_360_COEF_SIZE)
-#define V1_FD_IPN_240_180_CONFIG_PAT_OFFSET \
-		(V1_FD_IPN_480_360_CONFIG_PAT_OFFSET + V1_FD_IPN_480_360_CONFIG_SIZE)
-
-#define V1_FD_IPN_120_90_COEF_SIZE (10939 * MAE_BASE_ADDR_ALIGN)
-#define V1_FD_IPN_120_90_CONFIG_SINGLE_SIZE (4827 * MAE_BASE_ADDR_ALIGN)
-#define V1_FD_IPN_120_90_CONFIG_SIZE (3 * V1_FD_IPN_120_90_CONFIG_SINGLE_SIZE)
-#define V1_FD_IPN_120_90_COEF_PAT_OFFSET \
-		(V1_FD_IPN_240_180_COEF_PAT_OFFSET + V1_FD_IPN_240_180_COEF_SIZE)
-#define V1_FD_IPN_120_90_CONFIG_PAT_OFFSET \
-		(V1_FD_IPN_240_180_CONFIG_PAT_OFFSET + V1_FD_IPN_240_180_CONFIG_SIZE)
-
-#define V1_FD_FPN_480_360_COEF_SIZE (59130 * MAE_BASE_ADDR_ALIGN)
-#define V1_FD_FPN_480_360_CONFIG_SIZE (8182 * MAE_BASE_ADDR_ALIGN)
-
-#define V1_FLD_FAC_112_112_COEF_SIZE (25411 * MAE_BASE_ADDR_ALIGN)
-#define V1_FLD_FAC_112_112_CONFIG_SIZE (4412 * MAE_BASE_ADDR_ALIGN)
-
 #define MAX_OUTER_LOOP_NUM 3
 #define MAX_IMG_NUM MAX_OUTER_LOOP_NUM
 #define REQUEST_BUFFER_NUM 1
@@ -154,162 +85,6 @@ void register_mtk_mae_reg_tf_cb(mtk_mae_register_tf_cb mtk_mae_register_tf_cb_fn
 
 #define FPN_PYRAMID_WIDTH 480
 #define FPN_PYRAMID_HEIGHT 360
-
-const uint32_t fd_pattern_width[FD_PATTERN_NUM] = {640, 480, 240, 120};
-const uint32_t fd_pattern_height[FD_PATTERN_NUM] = {480, 360, 180, 90};
-
-const uint32_t v0_fd_coef_offset[FD_PATTERN_NUM] = {
-						V0_FD_640_480_COEF_PAT_OFFSET,
-						V0_FD_480_360_COEF_PAT_OFFSET,
-						V0_FD_240_180_COEF_PAT_OFFSET,
-						V0_FD_120_90_COEF_PAT_OFFSET
-						};
-
-const uint32_t v0_fd_config_offset[FD_PATTERN_NUM] = {
-					V0_FD_640_480_CONFIG_PAT_OFFSET,
-					V0_FD_480_360_CONFIG_PAT_OFFSET,
-					V0_FD_240_180_CONFIG_PAT_OFFSET,
-					V0_FD_120_90_CONFIG_PAT_OFFSET
-					};
-
-
-const uint32_t v1_fd_ipn_coef_offset[FD_PATTERN_NUM] = {
-					V1_FD_IPN_640_480_COEF_PAT_OFFSET,
-					V1_FD_IPN_480_360_COEF_PAT_OFFSET,
-					V1_FD_IPN_240_180_COEF_PAT_OFFSET,
-					V1_FD_IPN_120_90_COEF_PAT_OFFSET
-					};
-
-const uint32_t v1_fd_ipn_config_offset[FD_PATTERN_NUM] = {
-					V1_FD_IPN_640_480_CONFIG_PAT_OFFSET,
-					V1_FD_IPN_480_360_CONFIG_PAT_OFFSET,
-					V1_FD_IPN_240_180_CONFIG_PAT_OFFSET,
-					V1_FD_IPN_120_90_CONFIG_PAT_OFFSET
-					};
-
-const uint32_t v1_fd_ipn_config_single_size[FD_PATTERN_NUM] = {
-					V1_FD_IPN_640_480_CONFIG_SINGLE_SIZE,
-					V1_FD_IPN_480_360_CONFIG_SINGLE_SIZE,
-					V1_FD_IPN_240_180_CONFIG_SINGLE_SIZE,
-					V1_FD_IPN_120_90_CONFIG_SINGLE_SIZE
-					};
-
-struct config_info {
-	const uint32_t size;
-	const uint32_t rotate_offset;
-	const uint32_t rotate_size;
-};
-
-struct coef_info {
-	const uint32_t size;
-};
-
-const struct config_info fd_v0_config_info[FD_PATTERN_NUM] = {
-	{
-		.size = 1004,
-		.rotate_offset = 2043,
-		.rotate_size = 1004,
-	},
-	{
-		.size = 968,
-		.rotate_offset = 1431,
-		.rotate_size = 968,
-	},
-	{
-		.size = 671,
-		.rotate_offset = 1090,
-		.rotate_size = 671,
-	},
-	{
-		.size = 543,
-		.rotate_offset = 917,
-		.rotate_size = 543,
-	}
-};
-
-const struct coef_info fd_v0_coef_info[FD_PATTERN_NUM] = {
-	{
-		.size = 1309,
-	},
-	{
-		.size = 5583,
-	},
-	{
-		.size = 5583,
-	},
-	{
-		.size = 9540,
-	}
-};
-
-// fd_v1_ipn size and rotate offset
-const struct config_info fd_v1_ipn_config_info[FD_PATTERN_NUM] = {
-	{
-		.size = 1004,
-		.rotate_offset = 3968,
-		.rotate_size = 1005,
-	},
-	{
-		.size = 968,
-		.rotate_offset = 3338,
-		.rotate_size = 968,
-	},
-	{
-		.size = 671,
-		.rotate_offset = 2971,
-		.rotate_size = 671,
-	},
-	{
-		.size = 543,
-		.rotate_offset = 2413,
-		.rotate_size = 544,
-	}
-};
-
-const struct coef_info fd_v1_ipn_coef_info[FD_PATTERN_NUM] = {
-	{
-		.size = 1309,
-	},
-	{
-		.size = 5583,
-	},
-	{
-		.size = 5583,
-	},
-	{
-		.size = 9540,
-	}
-};
-
-const struct config_info attr_v0_config_info = {
-	.size = 558,
-	.rotate_offset = 1000,
-	.rotate_size = 558,
-};
-
-const struct coef_info attr_v0_coef_info = {
-	.size = 5180,
-};
-
-const struct config_info fac_v1_config_info = {
-	.size = 588,
-	.rotate_offset = 2206,
-	.rotate_size = 588,
-};
-
-const struct coef_info fac_v1_coef_info = {
-	.size = 7262,
-};
-
-const struct config_info fd_v1_fpn_config_info = {
-	.size = 777,
-	.rotate_offset = 4091,
-	.rotate_size = 777,
-};
-
-const struct coef_info fd_v1_fpn_coef_info = {
-	.size = 6449,
-};
 
 typedef enum {
 	IMAGE_PLANE_0 = 0,
@@ -681,6 +456,19 @@ struct mtk_mae_req_work {
 	struct mtk_mae_dev *mae_dev;
 };
 
+struct mae_data {
+	const uint32_t internal_buffer_size;
+	const uint32_t base_address;
+};
+
+struct mae_plat_data {
+	struct clk_bulk_data *clks;
+	unsigned int clk_num;
+	const struct mtk_mae_drv_ops *drv_ops;
+	struct mae_data *data;
+	void *priv_data;
+};
+
 struct mtk_mae_dev {
 	struct device *dev;
 	struct device *smmu_dev;
@@ -787,31 +575,19 @@ struct dmabuf_info_cache {
 };
 
 struct mtk_mae_drv_ops {
-	// MAE_TO_DO
-	// void (*reset)(struct mtk_aie_dev *fd);
-	// int (*alloc_buf)(struct mtk_aie_dev *fd);
-	// int (*init)(struct mtk_aie_dev *fd);
-	// void (*uninit)(struct mtk_aie_dev *fd);
 	bool (*set_dma_address)(struct mtk_mae_dev *mae_dev, uint32_t idx);
 	bool (*config_hw)(struct mtk_mae_dev *mae_dev, uint32_t idx);
-	void (*config_fld)(struct mtk_mae_dev *mae_dev, uint32_t idx);
-	void (*get_fd_v0_result)(struct mtk_mae_dev *mae_dev, uint32_t idx);
-	void (*get_fd_v1_result)(struct mtk_mae_dev *mae_dev, uint32_t idx);
-	// void (*get_attr_result)(struct mtk_aie_dev *fd,
-	// 		struct aie_enq_info *aie_cfg);
-	// void (*get_fld_result)(struct mtk_aie_dev *fd,
-	// 		struct aie_enq_info *aie_cfg);
-	void (*irq_handle)(struct mtk_mae_dev *mae_dev);
-	// void (*config_fld_buf_reg)(struct mtk_aie_dev *fd);
-	void (*dump_reg)(struct mtk_mae_dev *mae_dev);
-	// void (*dump_cg_reg)(struct mtk_aie_dev *fd);
-	// void (*enable_ddren)(struct mtk_aie_dev *fd);
-	void (*secure_init)(struct mtk_mae_dev *fd);
-	void (*secure_enable)(struct mtk_mae_dev *fd);
-	void (*secure_disable)(struct mtk_mae_dev *fd);
+	bool (*config_fld)(struct mtk_mae_dev *mae_dev, uint32_t idx);
+	bool (*get_fd_v0_result)(struct mtk_mae_dev *mae_dev, uint32_t idx);
+	bool (*get_fd_v1_result)(struct mtk_mae_dev *mae_dev, uint32_t idx);
+	bool (*irq_handle)(struct mtk_mae_dev *mae_dev);
+	bool (*dump_reg)(struct mtk_mae_dev *mae_dev);
+	bool (*secure_init)(struct mtk_mae_dev *fd);
+	bool (*secure_enable)(struct mtk_mae_dev *fd);
+	bool (*secure_disable)(struct mtk_mae_dev *fd);
 };
 
-void mtk_mae_register_drv_ops(const struct mtk_mae_drv_ops *ops);
+void mtk_mae_set_data(const struct mae_plat_data *data);
 void mtk_mae_get_kernel_time(struct mtk_mae_dev *mae_dev,
 		struct EnqueParam *param,
 		uint32_t idx);

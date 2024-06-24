@@ -137,47 +137,28 @@ static const struct v4l2_pix_format_mplane mtk_mae_img_fmts[] = {
 };
 #define NUM_FORMATS ARRAY_SIZE(mtk_mae_img_fmts)
 
-struct mae_data {
-	struct clk_bulk_data *clks;
-	unsigned int clk_num;
-	const struct mtk_mae_drv_ops *drv_ops;
-};
+#define call_mae_drv_ops(dev, ops, op, args...)		\
+({													\
+	int ret = 0;									\
+	if ((ops) && (ops)->op)							\
+		ret = (ops)->op(args);						\
+	else if (ops)									\
+		mae_dev_info(dev, "%s is Null\n", #op);		\
+	else											\
+		mae_dev_info(dev, "%s is Null\n", #ops);	\
+	ret;											\
+})
 
-static struct clk_bulk_data isp8_mae_clks[] = {
-	{ .id = "VCORE_GALS_DISP" },
-	{ .id = "VCORE_MAIN" },
-	{ .id = "VCORE_SUB0_CAMERA_P2" },
-	{ .id = "VCORE_SUB1_CAMERA_P2" },
-	{ .id = "FDVT_CAMERA_P2" },
-	{ .id = "LARB12_CAMERA_P2" },
-	{ .id = "IPE_CAMERA_P2" },
-	{ .id = "SUB_COMMON2_CAMERA_P2" },
-	{ .id = "SUB_COMMON3_CAMERA_P2" },
-	{ .id = "GALS_TRX_IPE0_CAMERA_P2" },
-	{ .id = "GALS_TRX_IPE1_CAMERA_P2" },
-	{ .id = "GALS_CAMERA_P2" },
-};
+static struct mae_plat_data g_mae_data;
 
-static struct mtk_mae_drv_ops drv_ops;
-void mtk_mae_register_drv_ops(const struct mtk_mae_drv_ops *ops) {
-	drv_ops.set_dma_address = ops->set_dma_address;
-	drv_ops.config_hw = ops->config_hw;
-	drv_ops.dump_reg = ops->dump_reg;
-	drv_ops.irq_handle = ops->irq_handle;
-	drv_ops.config_fld = ops->config_fld;
-	drv_ops.get_fd_v0_result = ops->get_fd_v0_result;
-	drv_ops.get_fd_v1_result = ops->get_fd_v1_result;
-	drv_ops.secure_init = ops->secure_init;
-	drv_ops.secure_enable = ops->secure_enable;
-	drv_ops.secure_disable = ops->secure_disable;
+void mtk_mae_set_data(const struct mae_plat_data *plat_data)
+{
+	g_mae_data.drv_ops = plat_data->drv_ops;
+	g_mae_data.clks = plat_data->clks;
+	g_mae_data.clk_num = plat_data->clk_num;
+	g_mae_data.data = plat_data->data;
 }
-EXPORT_SYMBOL(mtk_mae_register_drv_ops);
-
-static struct mae_data data_isp8 = {
-	.clks = isp8_mae_clks,
-	.clk_num = ARRAY_SIZE(isp8_mae_clks),
-	.drv_ops = &drv_ops,
-};
+EXPORT_SYMBOL(mtk_mae_set_data);
 
 void aov_notify_register(aov_notify aov_notify_fn)
 {
@@ -580,27 +561,29 @@ static void mtk_mae_frame_done_worker(struct work_struct *work)
 		if (!mae_dev->is_shutdown && mae_dev->mae_stream_count != 0) {
 			switch (param->maeMode) {
 			case FD_V0:
-				drv_ops.get_fd_v0_result(mae_dev, 0);
+				call_mae_drv_ops(mae_dev->dev, g_mae_data.drv_ops,
+					get_fd_v0_result,
+					mae_dev, 0);
 				break;
 			case FD_V1_IPN:
 			case FD_V1_FPN:
-				drv_ops.get_fd_v1_result(mae_dev, 0);
-				break;
-			case ATTR_V0:
-				// fd->drv_ops->get_attr_result(fd, fd->aie_cfg);
-				break;
-			case FLD_V0:
-				// fd->drv_ops->get_fld_result(fd, fd->aie_cfg);
+				call_mae_drv_ops(mae_dev->dev, g_mae_data.drv_ops,
+					get_fd_v1_result,
+					mae_dev, 0);
 				break;
 			default:
 				break;
 			}
 
 			if (dump_reg_en)
-				drv_ops.dump_reg(mae_dev);
+				call_mae_drv_ops(mae_dev->dev, g_mae_data.drv_ops,
+					dump_reg,
+					mae_dev);
 
 			if (irq_handler_en)
-				drv_ops.irq_handle(mae_dev);
+				call_mae_drv_ops(mae_dev->dev, g_mae_data.drv_ops,
+					irq_handle,
+					mae_dev);
 		} else {
 			mae_dev_info(mae_dev->dev, "%s, skip read hw reg, is_shutdown(%d), stream_count(%d)\n",
 				__func__, mae_dev->is_shutdown, mae_dev->mae_stream_count);
@@ -661,17 +644,26 @@ static void mtk_mae_device_run(void *priv)
 	mae_dev->is_hw_hang = false;
 
 	if (param->maeMode == FLD_V0) {
-		drv_ops.config_fld(mae_dev, idx);
+		call_mae_drv_ops(mae_dev->dev, g_mae_data.drv_ops,
+			config_fld,
+			mae_dev, idx);
 	} else {
 		mtk_mae_get_kernel_time(mae_dev, param, MAE_SET_DMA_ADDRESS_START);
-		if (!drv_ops.set_dma_address(mae_dev, idx)) {
+
+		if (!call_mae_drv_ops(mae_dev->dev, g_mae_data.drv_ops,
+					set_dma_address,
+					mae_dev, idx)) {
 			mae_dev_info(mae_dev->dev, "set dma address fail\n");
 			return;
 		}
 
 		mtk_mae_get_kernel_time(mae_dev, param, MAE_CONFIG_HW_START);
-		if (!drv_ops.config_hw(mae_dev, idx))
+
+		if (!call_mae_drv_ops(mae_dev->dev, g_mae_data.drv_ops,
+					config_hw,
+					mae_dev, idx))
 			mae_dev_info(mae_dev->dev, "config hw fail\n");
+
 		mtk_mae_get_kernel_time(mae_dev, param, MAE_CONFIG_HW_END);
 	}
 }
@@ -907,7 +899,8 @@ static int mtk_mae_hw_connect(struct mtk_mae_dev *mae_dev)
 			cmdq_clear_event(mae_dev->mae_clt->chan, mae_dev->mae_event_id);
 		}
 
-		buf_info->dmabuf = mae_imem_sec_alloc(mae_dev, INTERNAL_BUFFER_SIZE, CACHED_BUF);
+		buf_info->dmabuf =
+			mae_imem_sec_alloc(mae_dev, g_mae_data.data->internal_buffer_size, CACHED_BUF);
 		if (IS_ERR(buf_info->dmabuf) || buf_info->dmabuf == NULL) {
 			mae_dev_info(mae_dev->dev, "%s, internal buffer alloc failed\n", __func__);
 			mutex_unlock(&mae_dev->mae_stream_lock);
@@ -1064,8 +1057,9 @@ static void mtk_mae_hw_disconnect(struct mtk_mae_dev *mae_dev)
 	mae_dev->mae_stream_count--;
 	if (mae_dev->mae_stream_count == 0) {
 		if (mae_dev->is_secure && !mae_dev->is_shutdown) {
-			if (drv_ops.secure_disable)
-				drv_ops.secure_disable(mae_dev);
+			call_mae_drv_ops(mae_dev->dev, g_mae_data.drv_ops,
+					secure_disable,
+					mae_dev);
 #if MAE_CMDQ_SEC_READY
 			cmdq_sec_mbox_stop(mae_dev->mae_secure_clt);
 #endif
@@ -1104,7 +1098,6 @@ static void mtk_mae_hw_disconnect(struct mtk_mae_dev *mae_dev)
 
 		mtk_mae_release_all_caches(mae_dev);
 
-		// MAE_TO_DO: fd->drv_ops->uninit(fd);
 		/*slc uninit API*/
 	#if IS_ENABLED(CONFIG_MTK_SLBC)
 		if (mae_slc_dbg_en) {
@@ -1711,11 +1704,14 @@ int mtk_mae_vidioc_qbuf(struct file *file, void *priv,
 			mae_dev_info(mae_dev->dev, "MAE SECURE MODE INIT!\n");
 
 			mae_dev->is_secure = true;
-
-			if (drv_ops.secure_init && !mae_dev->is_shutdown)
-				drv_ops.secure_init(mae_dev);
-			if (drv_ops.secure_enable && !mae_dev->is_shutdown)
-				drv_ops.secure_enable(mae_dev);
+			if (!mae_dev->is_shutdown) {
+				call_mae_drv_ops(mae_dev->dev, g_mae_data.drv_ops,
+					secure_init,
+					mae_dev);
+				call_mae_drv_ops(mae_dev->dev, g_mae_data.drv_ops,
+					secure_enable,
+					mae_dev);
+			}
 		}
 
 		mae_dev->is_first_qbuf = false;
@@ -2120,7 +2116,6 @@ int mtk_mae_probe(struct platform_device *pdev)
 	struct device *dev = &pdev->dev;
 	int ret;
 	struct resource *res;
-	const struct mae_data *data;
 	struct mtk_mae_ctx *ctx;
 	struct mtk_mae_map_table *map_table;
 
@@ -2148,12 +2143,6 @@ int mtk_mae_probe(struct platform_device *pdev)
 	memset(map_table, 0, sizeof(*map_table));
 	mae_dev->map_table = map_table;
 
-	data = of_device_get_match_data(&pdev->dev);
-	if (!data) {
-		dev_info(dev, "match data is NULL\n");
-		return PTR_ERR(data);
-	}
-
 	if (dma_set_mask_and_coherent(dev, DMA_BIT_MASK(34)))
 		mae_dev_info(dev, "%s: No suitable DMA available\n", __func__);
 
@@ -2180,14 +2169,12 @@ int mtk_mae_probe(struct platform_device *pdev)
 
 	/* Larb init */
 	ret = mtk_mae_dev_larb_init(mae_dev);
-	if (ret) {
+	if (ret)
 		dev_info(dev, "Failed to init larb : %d\n", ret);
-		return ret;
-	}
 
 	/* Clock get */
-	mae_dev->clks_data.clk_num = data->clk_num;
-	mae_dev->clks_data.clks = data->clks;
+	mae_dev->clks_data.clk_num = g_mae_data.clk_num;
+	mae_dev->clks_data.clks = g_mae_data.clks;
 	ret = devm_clk_bulk_get(dev,
 			mae_dev->clks_data.clk_num,
 			mae_dev->clks_data.clks);
@@ -2321,7 +2308,6 @@ static void mtk_mae_shutdown(struct platform_device *pdev)
 static const struct of_device_id mtk_mae_of_ids[] = {
 	{
 		.compatible = "mediatek,mtk-mae",
-		.data = &data_isp8,
 	},{
 		/* sentinel */
 	}

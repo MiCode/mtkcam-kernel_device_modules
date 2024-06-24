@@ -12,6 +12,7 @@
 #include <linux/soc/mediatek/mtk-cmdq-ext.h>
 #include "cmdq-sec.h"
 #include "cmdq-sec-iwc-common.h"
+#include <linux/videodev2.h>
 #include <soc/mediatek/smi.h>
 
 #include "mtk-mae-isp8.h"
@@ -23,14 +24,14 @@
 
 #define CHECK_BASE_ADDR(ADDR) (ADDR % MAE_BASE_ADDR_ALIGN != 0)
 
-#define MAE_DUMP_REG(REG)								\
+#define MAE_DUMP_REG(MAE_DEV, REG)								\
 		mae_dev_info(mae_dev->dev, "%s [0x%08X %08X]\n",			\
 					#REG, (uint32_t)REG,				\
-					(uint32_t)readl(mae_dev->mae_base + REG))
+					(uint32_t)readl(MAE_DEV->mae_base + REG))
 
 #define MAE_CMDQ_WRITE_REG(PKT, MAE_REG_OFFSET, VALUE)			\
 	do {								\
-		cmdq_pkt_write(PKT, NULL, MAE_BASE + MAE_REG_OFFSET,	\
+		cmdq_pkt_write(PKT, NULL, g_data->data->base_address + MAE_REG_OFFSET,	\
 						VALUE, CMDQ_REG_MASK);	\
 	} while(0)
 
@@ -52,6 +53,252 @@
 #define AIE_POLL_TIME_INFINI	(0xFFFF)
 
 #define MAE_READ_BACK_REG_EN 1
+
+static struct clk_bulk_data mae_clks_isp8[] = {
+	{ .id = "VCORE_GALS_DISP" },
+	{ .id = "VCORE_MAIN" },
+	{ .id = "VCORE_SUB0_CAMERA_P2" },
+	{ .id = "VCORE_SUB1_CAMERA_P2" },
+	{ .id = "FDVT_CAMERA_P2" },
+	{ .id = "LARB12_CAMERA_P2" },
+	{ .id = "IPE_CAMERA_P2" },
+	{ .id = "SUB_COMMON2_CAMERA_P2" },
+	{ .id = "SUB_COMMON3_CAMERA_P2" },
+	{ .id = "GALS_TRX_IPE0_CAMERA_P2" },
+	{ .id = "GALS_TRX_IPE1_CAMERA_P2" },
+	{ .id = "GALS_CAMERA_P2" },
+};
+
+static struct clk_bulk_data mae_clks_isp8_m6899[] = {
+	{ .id = "VCORE_GALS_DISP_CAMERA_MAE" },
+	{ .id = "VCORE_MAIN_CAMERA_MAE" },
+	{ .id = "VCORE_SUB0_CAMERA_MAE" },
+	{ .id = "VCORE_SUB1_CAMERA_MAE" },
+	{ .id = "FDVT_CAMERA_MAE" },
+	{ .id = "LARB12_CAMERA_MAE" },
+	{ .id = "IPE_CAMERA_MAE" },
+	{ .id = "SUB_COMMON2_CAMERA_MAE" },
+	{ .id = "SUB_COMMON3_CAMERA_MAE" },
+	{ .id = "GALS_TRX_IPE0_CAMERA_MAE" },
+	{ .id = "GALS_TRX_IPE1_CAMERA_MAE" },
+	{ .id = "GALS_CAMERA_MAE" },
+};
+
+static struct mae_data mae_data_isp8 = {
+	.internal_buffer_size = 3 * 512 * 1024,
+	.base_address = 0x34310000,
+};
+
+static struct mae_data mae_data_isp8_mt6899 = {
+	.internal_buffer_size = 3 * 512 * 1024,
+	.base_address = 0x15310000,
+};
+
+struct mae_priv_data priv_data_isp8 = {
+	.fd_v0_config_info = {
+		{
+			.size = 1004,
+			.rotate_offset = 2043,
+			.rotate_size = 1004,
+		},
+		{
+			.size = 968,
+			.rotate_offset = 1431,
+			.rotate_size = 968,
+		},
+		{
+			.size = 671,
+			.rotate_offset = 1090,
+			.rotate_size = 671,
+		},
+		{
+			.size = 543,
+			.rotate_offset = 917,
+			.rotate_size = 543,
+		}
+	},
+	.fd_v0_coef_info = {
+		{
+			.size = 1309,
+		},
+		{
+			.size = 5583,
+		},
+		{
+			.size = 5583,
+		},
+		{
+			.size = 9540,
+		}
+	},
+	.attr_v0_config_info = {
+		.size = 558,
+		.rotate_offset = 1000,
+		.rotate_size = 558,
+	},
+	.attr_v0_coef_info = {
+		.size = 5180,
+	},
+	.v0_fd_coef_offset = {
+		V0_FD_640_480_COEF_PAT_OFFSET,
+		V0_FD_480_360_COEF_PAT_OFFSET,
+		V0_FD_240_180_COEF_PAT_OFFSET,
+		V0_FD_120_90_COEF_PAT_OFFSET
+	},
+	.v0_fd_config_offset = {
+		V0_FD_640_480_CONFIG_PAT_OFFSET,
+		V0_FD_480_360_CONFIG_PAT_OFFSET,
+		V0_FD_240_180_CONFIG_PAT_OFFSET,
+		V0_FD_120_90_CONFIG_PAT_OFFSET
+	},
+	.fd_v1_ipn_config_info = {
+		{
+			.size = 1004,
+			.rotate_offset = 3968,
+			.rotate_size = 1005,
+		},
+		{
+			.size = 968,
+			.rotate_offset = 3338,
+			.rotate_size = 968,
+		},
+		{
+			.size = 671,
+			.rotate_offset = 2971,
+			.rotate_size = 671,
+		},
+		{
+			.size = 543,
+			.rotate_offset = 2413,
+			.rotate_size = 544,
+		}
+	},
+	.fd_v1_ipn_coef_info = {
+		{
+			.size = 1309,
+		},
+		{
+			.size = 5583,
+		},
+		{
+			.size = 5583,
+		},
+		{
+			.size = 9540,
+		}
+	},
+	.fac_v1_config_info = {
+		.size = 588,
+		.rotate_offset = 2206,
+		.rotate_size = 588,
+	},
+	.fac_v1_coef_info = {
+		.size = 7262,
+	},
+	.fd_v1_fpn_config_info = {
+		.size = 777,
+		.rotate_offset = 4091,
+		.rotate_size = 777,
+	},
+	.fd_v1_fpn_coef_info = {
+		.size = 6449,
+	},
+	.v1_fd_ipn_coef_offset = {
+		V1_FD_IPN_640_480_COEF_PAT_OFFSET,
+		V1_FD_IPN_480_360_COEF_PAT_OFFSET,
+		V1_FD_IPN_240_180_COEF_PAT_OFFSET,
+		V1_FD_IPN_120_90_COEF_PAT_OFFSET
+	},
+	.v1_fd_ipn_config_offset = {
+		V1_FD_IPN_640_480_CONFIG_PAT_OFFSET,
+		V1_FD_IPN_480_360_CONFIG_PAT_OFFSET,
+		V1_FD_IPN_240_180_CONFIG_PAT_OFFSET,
+		V1_FD_IPN_120_90_CONFIG_PAT_OFFSET
+	},
+	.v1_fd_ipn_config_single_size = {
+		V1_FD_IPN_640_480_CONFIG_SINGLE_SIZE,
+		V1_FD_IPN_480_360_CONFIG_SINGLE_SIZE,
+		V1_FD_IPN_240_180_CONFIG_SINGLE_SIZE,
+		V1_FD_IPN_120_90_CONFIG_SINGLE_SIZE
+	},
+	.cmdq_polling_option = 2,
+};
+
+struct mae_priv_data priv_data_isp8_mt6899 = {
+	.fd_v1_ipn_config_info = {
+		{
+			.size = 451,
+			.rotate_offset = 3977,
+			.rotate_size = 451,
+		},
+		{
+			.size = 435,
+			.rotate_offset = 3566,
+			.rotate_size = 435,
+		},
+		{
+			.size = 470,
+			.rotate_offset = 3154,
+			.rotate_size = 470,
+		},
+		{
+			.size = 436,
+			.rotate_offset = 3118,
+			.rotate_size = 436,
+		}
+	},
+	.fd_v1_ipn_coef_info = {
+		{
+			.size = 289,
+		},
+		{
+			.size = 289,
+		},
+		{
+			.size = 2179,
+		},
+		{
+			.size = 1309,
+		}
+	},
+	.fac_v1_config_info = {
+		.size = 428,
+		.rotate_offset = 3184,
+		.rotate_size = 433,
+	},
+	.fac_v1_coef_info = {
+		.size = 1599,
+	},
+	.fd_v1_fpn_config_info = {
+		.size = 448,
+		.rotate_offset = 6275,
+		.rotate_size = 453,
+	},
+	.fd_v1_fpn_coef_info = {
+		.size = 2306,
+	},
+	.v1_fd_ipn_coef_offset = {
+		V1_FD_IPN_640_480_COEF_PAT_OFFSET_mt6899,
+		V1_FD_IPN_480_360_COEF_PAT_OFFSET_mt6899,
+		V1_FD_IPN_240_180_COEF_PAT_OFFSET_mt6899,
+		V1_FD_IPN_120_90_COEF_PAT_OFFSET_mt6899
+	},
+	.v1_fd_ipn_config_offset = {
+		V1_FD_IPN_640_480_CONFIG_PAT_OFFSET_mt6899,
+		V1_FD_IPN_480_360_CONFIG_PAT_OFFSET_mt6899,
+		V1_FD_IPN_240_180_CONFIG_PAT_OFFSET_mt6899,
+		V1_FD_IPN_120_90_CONFIG_PAT_OFFSET_mt6899
+	},
+	.v1_fd_ipn_config_single_size = {
+		V1_FD_IPN_640_480_CONFIG_SINGLE_SIZE_mt6899,
+		V1_FD_IPN_480_360_CONFIG_SINGLE_SIZE_mt6899,
+		V1_FD_IPN_240_180_CONFIG_SINGLE_SIZE_mt6899,
+		V1_FD_IPN_120_90_CONFIG_SINGLE_SIZE_mt6899
+	},
+	.cmdq_polling_option = 1,
+};
+
+const struct mae_plat_data *g_data;
 
 /*
  * MAE Debug level:
@@ -84,11 +331,10 @@ module_param(mae_preultra_write, uint, 0644);
 module_param(mae_rdma_debug_sel, uint, 0644);
 module_param(mae_read_back_val, uint, 0644);
 
-static void mtk_mae_dump(struct mtk_mae_dev *mae_dev);
+static bool mtk_mae_dump(struct mtk_mae_dev *mae_dev);
 static void mtk_mae_fld_reset(struct mtk_mae_dev *mae_dev);
 static void mtk_mae_dump_param(struct mtk_mae_dev *mae_dev);
 static void mtk_mae_dump_buf_iova(struct mtk_mae_dev *mae_dev);
-
 static void mtk_mae_reg_dump_to_buffer(struct mtk_mae_dev *mae_dev);
 
 #ifdef MAE_TF_DUMP_8
@@ -281,6 +527,7 @@ static bool mtk_mae_config_dma(struct mtk_mae_dev *mae_dev, uint32_t idx)
 	uint32_t i = 0;
 	uint32_t wdma_base_addr_reg_offset = 0;
 	struct ModelTable *model_table = (struct ModelTable *)mae_dev->map_table->model_table_dmabuf_info.kva;
+	struct mae_priv_data *priv_data = g_data->priv_data;
 
 	mae_dev_dbg(mae_dev->dev, "%s+", __func__);
 	if (set_default_value)
@@ -345,15 +592,9 @@ static bool mtk_mae_config_dma(struct mtk_mae_dev *mae_dev, uint32_t idx)
 		}
 
 		if (param->image[loop].enRoi) {
-			if (param->maeMode == FAC_V1) {
-				addr += (MAX((int)(param->image[loop].roi.y1) - 2, 0) / 2 * 2) *
-						param->image[loop].imgWidth +
-						(MAX(param->image[loop].roi.x1, 0) / 16) * 16;
-			} else {
 				addr += (MAX(param->image[loop].roi.y1, 0) / 2 * 2) *
 						param->image[loop].imgWidth +
 						(MAX(param->image[loop].roi.x1, 0) / 16) * 16;
-			}
 		}
 
 		if (CHECK_BASE_ADDR(addr) || addr == 0)
@@ -373,15 +614,9 @@ static bool mtk_mae_config_dma(struct mtk_mae_dev *mae_dev, uint32_t idx)
 				(uint64_t)param->image[loop].imgWidth * param->image[loop].imgHeight;
 
 		if (param->image[loop].enRoi) {
-			if (param->maeMode == FAC_V1) {
-				addr += (MAX((int)(param->image[loop].roi.y1) - 2, 0) / 2 * 2) *
-						(param->image[loop].imgWidth / 2) +
-						(MAX(param->image[loop].roi.x1, 0) / 16) * 16;
-			} else {
 				addr += (MAX(param->image[loop].roi.y1, 0) / 2 * 2) *
 						(param->image[loop].imgWidth / 2) +
 						(MAX(param->image[loop].roi.x1, 0) / 16) * 16;
-			}
 		}
 
 		if (CHECK_BASE_ADDR(addr) || addr == 0)
@@ -535,19 +770,22 @@ static bool mtk_mae_config_dma(struct mtk_mae_dev *mae_dev, uint32_t idx)
 
 		switch (param->maeMode) {
 		case FD_V0:
-			config_offset = v0_fd_config_offset[mae_dev->core_sel[idx][loop]];
-			coef_offset = v0_fd_coef_offset[mae_dev->core_sel[idx][loop]];
+			config_offset = priv_data->v0_fd_config_offset[mae_dev->core_sel[idx][loop]];
+			coef_offset = priv_data->v0_fd_coef_offset[mae_dev->core_sel[idx][loop]];
 
 			if (param->fdInputDegree == DEGREE_90 ||
 				param->fdInputDegree == DEGREE_180) {
-				config_rt_offset = fd_v0_config_info[mae_dev->core_sel[idx][loop]].rotate_offset;
-				config_size = fd_v0_config_info[mae_dev->core_sel[idx][loop]].rotate_size;
+				config_rt_offset =
+					priv_data->fd_v0_config_info[mae_dev->core_sel[idx][loop]].rotate_offset;
+				config_size =
+					priv_data->fd_v0_config_info[mae_dev->core_sel[idx][loop]].rotate_size;
 			} else {
 				config_rt_offset = 0;
-				config_size = fd_v0_config_info[mae_dev->core_sel[idx][loop]].size;
+				config_size =
+					priv_data->fd_v0_config_info[mae_dev->core_sel[idx][loop]].size;
 			}
 
-			coef_size = fd_v0_coef_info[mae_dev->core_sel[idx][loop]].size;
+			coef_size = priv_data->fd_v0_coef_info[mae_dev->core_sel[idx][loop]].size;
 
 			config_addr =
 				mae_dev->map_table->config_dmabuf_info[MODEL_TYPE_FD_V0].pa + config_offset;
@@ -556,20 +794,23 @@ static bool mtk_mae_config_dma(struct mtk_mae_dev *mae_dev, uint32_t idx)
 			break;
 		case FD_V1_IPN:
 			config_offset =
-				v1_fd_ipn_config_offset[mae_dev->core_sel[idx][loop]] +
-				loop * v1_fd_ipn_config_single_size[mae_dev->core_sel[idx][loop]];
-			coef_offset = v1_fd_ipn_coef_offset[mae_dev->core_sel[idx][loop]];
+				priv_data->v1_fd_ipn_config_offset[mae_dev->core_sel[idx][loop]] +
+				loop * priv_data->v1_fd_ipn_config_single_size[mae_dev->core_sel[idx][loop]];
+			coef_offset = priv_data->v1_fd_ipn_coef_offset[mae_dev->core_sel[idx][loop]];
 
 			if (param->fdInputDegree == DEGREE_90 ||
 				param->fdInputDegree == DEGREE_180) {
-				config_rt_offset = fd_v1_ipn_config_info[mae_dev->core_sel[idx][loop]].rotate_offset;
-				config_size = fd_v1_ipn_config_info[mae_dev->core_sel[idx][loop]].rotate_size;
+				config_rt_offset =
+					priv_data->fd_v1_ipn_config_info[mae_dev->core_sel[idx][loop]].rotate_offset;
+				config_size =
+					priv_data->fd_v1_ipn_config_info[mae_dev->core_sel[idx][loop]].rotate_size;
 			} else {
 				config_rt_offset = 0;
-				config_size = fd_v1_ipn_config_info[mae_dev->core_sel[idx][loop]].size;
+				config_size =
+					priv_data->fd_v1_ipn_config_info[mae_dev->core_sel[idx][loop]].size;
 			}
 
-			coef_size = fd_v1_ipn_coef_info[mae_dev->core_sel[idx][loop]].size;
+			coef_size = priv_data->fd_v1_ipn_coef_info[mae_dev->core_sel[idx][loop]].size;
 
 			config_addr =
 				mae_dev->map_table->config_dmabuf_info[MODEL_TYPE_FD_V1_IPN].pa + config_offset;
@@ -587,13 +828,13 @@ static bool mtk_mae_config_dma(struct mtk_mae_dev *mae_dev, uint32_t idx)
 
 			if (param->fdInputDegree == DEGREE_90 ||
 				param->fdInputDegree == DEGREE_180) {
-				config_rt_offset = fd_v1_fpn_config_info.rotate_offset;
-				config_size = fd_v1_fpn_config_info.rotate_size;
+				config_rt_offset = priv_data->fd_v1_fpn_config_info.rotate_offset;
+				config_size = priv_data->fd_v1_fpn_config_info.rotate_size;
 			} else {
 				config_rt_offset = 0;
-				config_size = fd_v1_fpn_config_info.size;
+				config_size = priv_data->fd_v1_fpn_config_info.size;
 			}
-			coef_size = fd_v1_fpn_coef_info.size;
+			coef_size = priv_data->fd_v1_fpn_coef_info.size;
 
 			config_addr =
 				mae_dev->map_table->config_dmabuf_info[MODEL_TYPE_FD_V1_FPN].pa + config_offset;
@@ -607,14 +848,14 @@ static bool mtk_mae_config_dma(struct mtk_mae_dev *mae_dev, uint32_t idx)
 			if (param->attrInputDegree[loop] == DEGREE_90 ||
 				param->attrInputDegree[loop] == DEGREE_180) {
 				// MAE_TO_CHECK: rotate_offset is 16B align but offset is not
-				config_rt_offset = attr_v0_config_info.rotate_offset;
-				config_size = attr_v0_config_info.rotate_size;
+				config_rt_offset = priv_data->attr_v0_config_info.rotate_offset;
+				config_size = priv_data->attr_v0_config_info.rotate_size;
 			} else {
 				config_rt_offset = 0;
-				config_size = attr_v0_config_info.size;
+				config_size = priv_data->attr_v0_config_info.size;
 			}
 
-			coef_size = attr_v0_coef_info.size;
+			coef_size = priv_data->attr_v0_config_info.size;
 
 			config_addr =
 				mae_dev->map_table->config_dmabuf_info[MODEL_TYPE_FLD_FAC_V0].pa +
@@ -630,14 +871,14 @@ static bool mtk_mae_config_dma(struct mtk_mae_dev *mae_dev, uint32_t idx)
 			if (param->attrInputDegree[loop] == DEGREE_90 ||
 				param->attrInputDegree[loop] == DEGREE_180) {
 				// MAE_TO_CHECK: rotate_offset is 16B align but offset is not
-				config_rt_offset = fac_v1_config_info.rotate_offset;
-				config_size = fac_v1_config_info.rotate_size;
+				config_rt_offset = priv_data->fac_v1_config_info.rotate_offset;
+				config_size = priv_data->fac_v1_config_info.rotate_size;
 			} else {
 				config_rt_offset = 0;
-				config_size = fac_v1_config_info.size;
+				config_size = priv_data->fac_v1_config_info.size;
 			}
 
-			coef_size = fac_v1_coef_info.size;
+			coef_size = priv_data->fac_v1_coef_info.size;
 
 			config_addr =
 				mae_dev->map_table->config_dmabuf_info[MODEL_TYPE_FLD_FAC_V1].pa +
@@ -1154,7 +1395,7 @@ static bool mtk_mae_config_rsz(struct mtk_mae_dev *mae_dev,
 				param->image[loop].resizeWidth) - padding_in.crop_output_v_size;
 
 		if (padding_in.right < 0 || padding_in.down < 0) {
-			mae_dev_info(mae_dev->dev,
+			mae_dev_dbg(mae_dev->dev,
 				"pad neg val r:%d d:%d m:%d py:%d l:%d img:%d,%d rsz:%d,%d roi:%d,%d,%d,%d,%d",
 				padding_in.right, padding_in.down,
 				param->maeMode, param->pyramidNumber, loop,
@@ -1198,7 +1439,7 @@ static bool mtk_mae_config_rsz(struct mtk_mae_dev *mae_dev,
 				param->image[loop].resizeWidth) - padding_in.crop_output_v_size;
 
 		if (padding_in.right < 0 || padding_in.down < 0) {
-			mae_dev_info(mae_dev->dev,
+			mae_dev_dbg(mae_dev->dev,
 				"pad neg val r:%d d:%d m:%d py:%d l:%d img:%d,%d rsz:%d,%d roi:%d,%d,%d,%d,%d",
 				padding_in.right, padding_in.down,
 				param->maeMode, param->pyramidNumber, loop,
@@ -1765,6 +2006,7 @@ static bool mtk_mae_config_hw(struct mtk_mae_dev *mae_dev, uint32_t idx)
 	uint32_t loop = 0;
 	uint32_t i = 0;
 	uint32_t val;
+	struct mae_priv_data *priv_data = g_data->priv_data;
 
 	if (mae_dev->core_sel[idx][loop] < 0 || mae_dev->core_sel[idx][loop] >= FD_PATTERN_NUM)
 		return false;
@@ -2001,17 +2243,17 @@ static bool mtk_mae_config_hw(struct mtk_mae_dev *mae_dev, uint32_t idx)
 		// sw trigger
 		MAE_CMDQ_WRITE_REG(mae_dev->pkt[idx], MAE_TRIG_RST_CTRL, 0x8000);
 
-	if (cmdq_polling_en)
-#ifdef MAE_USE_CMDQ_POLL_TIMEOUT
+	if (cmdq_polling_en) {
+		if (priv_data->cmdq_polling_option == 1)
 		cmdq_pkt_poll_timeout(mae_dev->pkt[idx], 0x1, SUBSYS_NO_SUPPORT,
-			MAE_BASE + MAE_IRQ_CTRL1, 0x1, AIE_POLL_TIME_INFINI,
+				g_data->data->base_address + MAE_IRQ_CTRL1, 0x1, AIE_POLL_TIME_INFINI,
 			CMDQ_GPR_R03 + CMDQ_GPR_R03_IDX);
-#else
+		else if (priv_data->cmdq_polling_option == 2)
 		cmdq_pkt_poll_sleep(mae_dev->pkt[idx], MAE_IRQ_STATUS_VALUE,
-			MAE_BASE + MAE_IRQ_CTRL1, MAE_IRQ_MASK);
-#endif
-	else
+				g_data->data->base_address + MAE_IRQ_CTRL1, MAE_IRQ_MASK);
+	} else {
 		cmdq_pkt_wfe(mae_dev->pkt[idx], mae_dev->mae_event_id);
+	}
 
 	/* gce profiling end */
 	if (cmdq_profiling_en) {
@@ -2038,7 +2280,7 @@ static void mtk_mae_reg_dump_to_buffer(struct mtk_mae_dev *mae_dev)
 
 	ret = snprintf(debug_buffer, DEBUG_BUFFER_LINE_LEN,
 			"\n[0x%08x] 0x%08x",
-			MAE_BASE + MAE_REG_0120_UDMA_R,
+			g_data->data->base_address + MAE_REG_0120_UDMA_R,
 			(uint32_t)readl(mae_dev->mae_base + MAE_REG_0120_UDMA_R));
 	if (ret <= 0) {
 		mae_dev_info(mae_dev->dev, "[%s] snprintf fail (%d)\n", __func__, ret);
@@ -2046,13 +2288,13 @@ static void mtk_mae_reg_dump_to_buffer(struct mtk_mae_dev *mae_dev)
 	}
 	mae_dev_info(mae_dev->dev,
 				"\n[0x%08x] 0x%08x",
-				MAE_BASE + MAE_REG_0120_UDMA_R,
+				g_data->data->base_address + MAE_REG_0120_UDMA_R,
 				(uint32_t)readl(mae_dev->mae_base + MAE_REG_0120_UDMA_R));
 	debug_buffer += DEBUG_BUFFER_LINE_LEN;
 
 	ret = snprintf(debug_buffer, DEBUG_BUFFER_LINE_LEN,
 			"\n[0x%08x] 0x%08x",
-			MAE_BASE + MAE_REG_0124_UDMA_R,
+			g_data->data->base_address + MAE_REG_0124_UDMA_R,
 			(uint32_t)readl(mae_dev->mae_base + MAE_REG_0124_UDMA_R));
 	if (ret <= 0) {
 		mae_dev_info(mae_dev->dev, "[%s] snprintf fail (%d)\n", __func__, ret);
@@ -2060,13 +2302,13 @@ static void mtk_mae_reg_dump_to_buffer(struct mtk_mae_dev *mae_dev)
 	}
 	mae_dev_info(mae_dev->dev,
 				"\n[0x%08x] 0x%08x",
-				MAE_BASE + MAE_REG_0124_UDMA_R,
+				g_data->data->base_address + MAE_REG_0124_UDMA_R,
 				(uint32_t)readl(mae_dev->mae_base + MAE_REG_0124_UDMA_R));
 	debug_buffer += DEBUG_BUFFER_LINE_LEN;
 
 	ret = snprintf(debug_buffer, DEBUG_BUFFER_LINE_LEN,
 			"\n[0x%08x] 0x%08x",
-			MAE_BASE + MAE_REG_0128_UDMA_R,
+			g_data->data->base_address + MAE_REG_0128_UDMA_R,
 			(uint32_t)readl(mae_dev->mae_base + MAE_REG_0128_UDMA_R));
 	if (ret <= 0) {
 		mae_dev_info(mae_dev->dev, "[%s] snprintf fail (%d)\n", __func__, ret);
@@ -2074,13 +2316,13 @@ static void mtk_mae_reg_dump_to_buffer(struct mtk_mae_dev *mae_dev)
 	}
 	mae_dev_info(mae_dev->dev,
 				"\n[0x%08x] 0x%08x",
-				MAE_BASE + MAE_REG_0128_UDMA_R,
+				g_data->data->base_address + MAE_REG_0128_UDMA_R,
 				(uint32_t)readl(mae_dev->mae_base + MAE_REG_0128_UDMA_R));
 	debug_buffer += DEBUG_BUFFER_LINE_LEN;
 
 	ret = snprintf(debug_buffer, DEBUG_BUFFER_LINE_LEN,
 			"\n[0x%08x] 0x%08x",
-			MAE_BASE + MAE_REG_012C_UDMA_R,
+			g_data->data->base_address + MAE_REG_012C_UDMA_R,
 			(uint32_t)readl(mae_dev->mae_base + MAE_REG_012C_UDMA_R));
 	if (ret <= 0) {
 		mae_dev_info(mae_dev->dev, "[%s] snprintf fail (%d)\n", __func__, ret);
@@ -2088,13 +2330,13 @@ static void mtk_mae_reg_dump_to_buffer(struct mtk_mae_dev *mae_dev)
 	}
 	mae_dev_info(mae_dev->dev,
 				"\n[0x%08x] 0x%08x",
-				MAE_BASE + MAE_REG_012C_UDMA_R,
+				g_data->data->base_address + MAE_REG_012C_UDMA_R,
 				(uint32_t)readl(mae_dev->mae_base + MAE_REG_012C_UDMA_R));
 	debug_buffer += DEBUG_BUFFER_LINE_LEN;
 
 	ret = snprintf(debug_buffer, DEBUG_BUFFER_LINE_LEN,
 			"\n[0x%08x] 0x%08x",
-			MAE_BASE + MAE_REG_0130_UDMA_R,
+			g_data->data->base_address + MAE_REG_0130_UDMA_R,
 			(uint32_t)readl(mae_dev->mae_base + MAE_REG_0130_UDMA_R));
 	if (ret <= 0) {
 		mae_dev_info(mae_dev->dev, "[%s] snprintf fail (%d)\n", __func__, ret);
@@ -2102,13 +2344,13 @@ static void mtk_mae_reg_dump_to_buffer(struct mtk_mae_dev *mae_dev)
 	}
 	mae_dev_info(mae_dev->dev,
 				"\n[0x%08x] 0x%08x",
-				MAE_BASE + MAE_REG_0130_UDMA_R,
+				g_data->data->base_address + MAE_REG_0130_UDMA_R,
 				(uint32_t)readl(mae_dev->mae_base + MAE_REG_0130_UDMA_R));
 	debug_buffer += DEBUG_BUFFER_LINE_LEN;
 
 	ret = snprintf(debug_buffer, DEBUG_BUFFER_LINE_LEN,
 			"\n[0x%08x] 0x%08x",
-			MAE_BASE + MAE_REG_0180_UDMA_R,
+			g_data->data->base_address + MAE_REG_0180_UDMA_R,
 			(uint32_t)readl(mae_dev->mae_base + MAE_REG_0180_UDMA_R));
 	if (ret <= 0) {
 		mae_dev_info(mae_dev->dev, "[%s] snprintf fail (%d)\n", __func__, ret);
@@ -2116,13 +2358,13 @@ static void mtk_mae_reg_dump_to_buffer(struct mtk_mae_dev *mae_dev)
 	}
 	mae_dev_info(mae_dev->dev,
 				"\n[0x%08x] 0x%08x",
-				MAE_BASE + MAE_REG_0180_UDMA_R,
+				g_data->data->base_address + MAE_REG_0180_UDMA_R,
 				(uint32_t)readl(mae_dev->mae_base + MAE_REG_0180_UDMA_R));
 	debug_buffer += DEBUG_BUFFER_LINE_LEN;
 
 	ret = snprintf(debug_buffer, DEBUG_BUFFER_LINE_LEN,
 			"\n[0x%08x] 0x%08x",
-			MAE_BASE + MAE_REG_0184_UDMA_R,
+			g_data->data->base_address + MAE_REG_0184_UDMA_R,
 			(uint32_t)readl(mae_dev->mae_base + MAE_REG_0184_UDMA_R));
 	if (ret <= 0) {
 		mae_dev_info(mae_dev->dev, "[%s] snprintf fail (%d)\n", __func__, ret);
@@ -2130,13 +2372,13 @@ static void mtk_mae_reg_dump_to_buffer(struct mtk_mae_dev *mae_dev)
 	}
 	mae_dev_info(mae_dev->dev,
 				"\n[0x%08x] 0x%08x",
-				MAE_BASE + MAE_REG_0184_UDMA_R,
+				g_data->data->base_address + MAE_REG_0184_UDMA_R,
 				(uint32_t)readl(mae_dev->mae_base + MAE_REG_0184_UDMA_R));
 	debug_buffer += DEBUG_BUFFER_LINE_LEN;
 
 	ret = snprintf(debug_buffer, DEBUG_BUFFER_LINE_LEN,
 			"\n[0x%08x] 0x%08x",
-			MAE_BASE + MAE_REG_01A0_UDMA_R,
+			g_data->data->base_address + MAE_REG_01A0_UDMA_R,
 			(uint32_t)readl(mae_dev->mae_base + MAE_REG_01A0_UDMA_R));
 	if (ret <= 0) {
 		mae_dev_info(mae_dev->dev, "[%s] snprintf fail (%d)\n", __func__, ret);
@@ -2144,13 +2386,13 @@ static void mtk_mae_reg_dump_to_buffer(struct mtk_mae_dev *mae_dev)
 	}
 	mae_dev_info(mae_dev->dev,
 				"\n[0x%08x] 0x%08x",
-				MAE_BASE + MAE_REG_01A0_UDMA_R,
+				g_data->data->base_address + MAE_REG_01A0_UDMA_R,
 				(uint32_t)readl(mae_dev->mae_base + MAE_REG_01A0_UDMA_R));
 	debug_buffer += DEBUG_BUFFER_LINE_LEN;
 
 	ret = snprintf(debug_buffer, DEBUG_BUFFER_LINE_LEN,
 			"\n[0x%08x] 0x%08x",
-			MAE_BASE + MAE_REG_01A4_UDMA_R,
+			g_data->data->base_address + MAE_REG_01A4_UDMA_R,
 			(uint32_t)readl(mae_dev->mae_base + MAE_REG_01A4_UDMA_R));
 	if (ret <= 0) {
 		mae_dev_info(mae_dev->dev, "[%s] snprintf fail (%d)\n", __func__, ret);
@@ -2158,13 +2400,13 @@ static void mtk_mae_reg_dump_to_buffer(struct mtk_mae_dev *mae_dev)
 	}
 	mae_dev_info(mae_dev->dev,
 				"\n[0x%08x] 0x%08x",
-				MAE_BASE + MAE_REG_01A4_UDMA_R,
+				g_data->data->base_address + MAE_REG_01A4_UDMA_R,
 				(uint32_t)readl(mae_dev->mae_base + MAE_REG_01A4_UDMA_R));
 	debug_buffer += DEBUG_BUFFER_LINE_LEN;
 
 	ret = snprintf(debug_buffer, DEBUG_BUFFER_LINE_LEN,
 			"\n[0x%08x] 0x%08x",
-			MAE_BASE + MAE_REG_01C0_UDMA_R,
+			g_data->data->base_address + MAE_REG_01C0_UDMA_R,
 			(uint32_t)readl(mae_dev->mae_base + MAE_REG_01C0_UDMA_R));
 	if (ret <= 0) {
 		mae_dev_info(mae_dev->dev, "[%s] snprintf fail (%d)\n", __func__, ret);
@@ -2172,13 +2414,13 @@ static void mtk_mae_reg_dump_to_buffer(struct mtk_mae_dev *mae_dev)
 	}
 	mae_dev_info(mae_dev->dev,
 				"\n[0x%08x] 0x%08x",
-				MAE_BASE + MAE_REG_01C0_UDMA_R,
+				g_data->data->base_address + MAE_REG_01C0_UDMA_R,
 				(uint32_t)readl(mae_dev->mae_base + MAE_REG_01C0_UDMA_R));
 	debug_buffer += DEBUG_BUFFER_LINE_LEN;
 
 	ret = snprintf(debug_buffer, DEBUG_BUFFER_LINE_LEN,
 			"\n[0x%08x] 0x%08x",
-			MAE_BASE + MAE_REG_01C4_UDMA_R,
+			g_data->data->base_address + MAE_REG_01C4_UDMA_R,
 			(uint32_t)readl(mae_dev->mae_base + MAE_REG_01C4_UDMA_R));
 	if (ret <= 0) {
 		mae_dev_info(mae_dev->dev, "[%s] snprintf fail (%d)\n", __func__, ret);
@@ -2186,13 +2428,13 @@ static void mtk_mae_reg_dump_to_buffer(struct mtk_mae_dev *mae_dev)
 	}
 	mae_dev_info(mae_dev->dev,
 				"\n[0x%08x] 0x%08x",
-				MAE_BASE + MAE_REG_01C4_UDMA_R,
+				g_data->data->base_address + MAE_REG_01C4_UDMA_R,
 				(uint32_t)readl(mae_dev->mae_base + MAE_REG_01C4_UDMA_R));
 	debug_buffer += DEBUG_BUFFER_LINE_LEN;
 
 	ret = snprintf(debug_buffer, DEBUG_BUFFER_LINE_LEN,
 			"\n[0x%08x] 0x%08x",
-			MAE_BASE + MAE_REG_01C8_UDMA_R,
+			g_data->data->base_address + MAE_REG_01C8_UDMA_R,
 			(uint32_t)readl(mae_dev->mae_base + MAE_REG_01C8_UDMA_R));
 	if (ret <= 0) {
 		mae_dev_info(mae_dev->dev, "[%s] snprintf fail (%d)\n", __func__, ret);
@@ -2200,13 +2442,13 @@ static void mtk_mae_reg_dump_to_buffer(struct mtk_mae_dev *mae_dev)
 	}
 	mae_dev_info(mae_dev->dev,
 				"\n[0x%08x] 0x%08x",
-				MAE_BASE + MAE_REG_01C8_UDMA_R,
+				g_data->data->base_address + MAE_REG_01C8_UDMA_R,
 				(uint32_t)readl(mae_dev->mae_base + MAE_REG_01C8_UDMA_R));
 	debug_buffer += DEBUG_BUFFER_LINE_LEN;
 
 	ret = snprintf(debug_buffer, DEBUG_BUFFER_LINE_LEN,
 			"\n[0x%08x] 0x%08x",
-			MAE_BASE + MAE_REG_01D4_UDMA_R,
+			g_data->data->base_address + MAE_REG_01D4_UDMA_R,
 			(uint32_t)readl(mae_dev->mae_base + MAE_REG_01D4_UDMA_R));
 	if (ret <= 0) {
 		mae_dev_info(mae_dev->dev, "[%s] snprintf fail (%d)\n", __func__, ret);
@@ -2214,13 +2456,13 @@ static void mtk_mae_reg_dump_to_buffer(struct mtk_mae_dev *mae_dev)
 	}
 	mae_dev_info(mae_dev->dev,
 				"\n[0x%08x] 0x%08x",
-				MAE_BASE + MAE_REG_01D4_UDMA_R,
+				g_data->data->base_address + MAE_REG_01D4_UDMA_R,
 				(uint32_t)readl(mae_dev->mae_base + MAE_REG_01D4_UDMA_R));
 	debug_buffer += DEBUG_BUFFER_LINE_LEN;
 
 	ret = snprintf(debug_buffer, DEBUG_BUFFER_LINE_LEN,
 			"\n[0x%08x] 0x%08x",
-			MAE_BASE + MAE_REG_0178_MAE_DRV_R,
+			g_data->data->base_address + MAE_REG_0178_MAE_DRV_R,
 			(uint32_t)readl(mae_dev->mae_base + MAE_REG_0178_MAE_DRV_R));
 	if (ret <= 0) {
 		mae_dev_info(mae_dev->dev, "[%s] snprintf fail (%d)\n", __func__, ret);
@@ -2228,13 +2470,13 @@ static void mtk_mae_reg_dump_to_buffer(struct mtk_mae_dev *mae_dev)
 	}
 	mae_dev_info(mae_dev->dev,
 				"\n[0x%08x] 0x%08x",
-				MAE_BASE + MAE_REG_0178_MAE_DRV_R,
+				g_data->data->base_address + MAE_REG_0178_MAE_DRV_R,
 				(uint32_t)readl(mae_dev->mae_base + MAE_REG_0178_MAE_DRV_R));
 	debug_buffer += DEBUG_BUFFER_LINE_LEN;
 
 	ret = snprintf(debug_buffer, DEBUG_BUFFER_LINE_LEN,
 			"\n[0x%08x] 0x%08x",
-			MAE_BASE + MAE_REG_017C_MAE_DRV_R,
+			g_data->data->base_address + MAE_REG_017C_MAE_DRV_R,
 			(uint32_t)readl(mae_dev->mae_base + MAE_REG_017C_MAE_DRV_R));
 	if (ret <= 0) {
 		mae_dev_info(mae_dev->dev, "[%s] snprintf fail (%d)\n", __func__, ret);
@@ -2242,13 +2484,13 @@ static void mtk_mae_reg_dump_to_buffer(struct mtk_mae_dev *mae_dev)
 	}
 	mae_dev_info(mae_dev->dev,
 				"\n[0x%08x] 0x%08x",
-				MAE_BASE + MAE_REG_017C_MAE_DRV_R,
+				g_data->data->base_address + MAE_REG_017C_MAE_DRV_R,
 				(uint32_t)readl(mae_dev->mae_base + MAE_REG_017C_MAE_DRV_R));
 	debug_buffer += DEBUG_BUFFER_LINE_LEN;
 
 	ret = snprintf(debug_buffer, DEBUG_BUFFER_LINE_LEN,
 			"\n[0x%08x] 0x%08x",
-			MAE_BASE + 0x59d0,
+			g_data->data->base_address + 0x59d0,
 			(uint32_t)readl(mae_dev->mae_base + 0x59d0));
 	if (ret <= 0) {
 		mae_dev_info(mae_dev->dev, "[%s] snprintf fail (%d)\n", __func__, ret);
@@ -2256,13 +2498,13 @@ static void mtk_mae_reg_dump_to_buffer(struct mtk_mae_dev *mae_dev)
 	}
 	mae_dev_info(mae_dev->dev,
 				"\n[0x%08x] 0x%08x",
-				MAE_BASE + 0x59d0,
+				g_data->data->base_address + 0x59d0,
 				(uint32_t)readl(mae_dev->mae_base + 0x59d0));
 	debug_buffer += DEBUG_BUFFER_LINE_LEN;
 
 	ret = snprintf(debug_buffer, DEBUG_BUFFER_LINE_LEN,
 			"\n[0x%08x] 0x%08x",
-			MAE_BASE + 0x59d4,
+			g_data->data->base_address + 0x59d4,
 			(uint32_t)readl(mae_dev->mae_base + 0x59d4));
 	if (ret <= 0) {
 		mae_dev_info(mae_dev->dev, "[%s] snprintf fail (%d)\n", __func__, ret);
@@ -2270,7 +2512,7 @@ static void mtk_mae_reg_dump_to_buffer(struct mtk_mae_dev *mae_dev)
 	}
 	mae_dev_info(mae_dev->dev,
 				"\n[0x%08x] 0x%08x",
-				MAE_BASE + 0x59d4,
+				g_data->data->base_address + 0x59d4,
 				(uint32_t)readl(mae_dev->mae_base + 0x59d4));
 	debug_buffer += DEBUG_BUFFER_LINE_LEN;
 
@@ -2278,7 +2520,7 @@ static void mtk_mae_reg_dump_to_buffer(struct mtk_mae_dev *mae_dev)
 	for (i = 0; i < FDVT_LEN; i += 0x10) {
 		ret = snprintf(debug_buffer, DEBUG_BUFFER_LINE_LEN,
 				"\n[0x%08x] 0x%08x 0x%08x 0x%08x 0x%08x",
-				MAE_BASE + FDVT_START + i,
+				g_data->data->base_address + FDVT_START + i,
 				(uint32_t)readl(mae_dev->mae_base + FDVT_START + i),
 				(uint32_t)readl(mae_dev->mae_base + FDVT_START + i + 0x4),
 				(uint32_t)readl(mae_dev->mae_base + FDVT_START + i + 0x8),
@@ -2289,7 +2531,7 @@ static void mtk_mae_reg_dump_to_buffer(struct mtk_mae_dev *mae_dev)
 		}
 		mae_dev_info(mae_dev->dev,
 				"[0x%08x] 0x%08x 0x%08x 0x%08x 0x%08x\n",
-				MAE_BASE + FDVT_START + i,
+				g_data->data->base_address + FDVT_START + i,
 				(uint32_t)readl(mae_dev->mae_base + FDVT_START + i),
 				(uint32_t)readl(mae_dev->mae_base + FDVT_START + i + 0x4),
 				(uint32_t)readl(mae_dev->mae_base + FDVT_START + i + 0x8),
@@ -2301,7 +2543,7 @@ static void mtk_mae_reg_dump_to_buffer(struct mtk_mae_dev *mae_dev)
 	for (i = 0; i < MAE_MAISR_LEN; i += 0x10) {
 		ret = snprintf(debug_buffer, DEBUG_BUFFER_LINE_LEN,
 				"\n[0x%08x] 0x%08x 0x%08x 0x%08x 0x%08x",
-				MAE_BASE + MAE_MAISR_BASE + i,
+				g_data->data->base_address + MAE_MAISR_BASE + i,
 				(uint32_t)readl(mae_dev->mae_base + MAE_MAISR_BASE + i),
 				(uint32_t)readl(mae_dev->mae_base + MAE_MAISR_BASE + i + 0x4),
 				(uint32_t)readl(mae_dev->mae_base + MAE_MAISR_BASE+ i + 0x8),
@@ -2312,7 +2554,7 @@ static void mtk_mae_reg_dump_to_buffer(struct mtk_mae_dev *mae_dev)
 		}
 		mae_dev_info(mae_dev->dev,
 				"[0x%08x] 0x%08x 0x%08x 0x%08x 0x%08x\n",
-				MAE_BASE + MAE_MAISR_BASE + i,
+				g_data->data->base_address + MAE_MAISR_BASE + i,
 				(uint32_t)readl(mae_dev->mae_base + MAE_MAISR_BASE + i),
 				(uint32_t)readl(mae_dev->mae_base + MAE_MAISR_BASE + i + 0x4),
 				(uint32_t)readl(mae_dev->mae_base + MAE_MAISR_BASE + i + 0x8),
@@ -2324,7 +2566,7 @@ static void mtk_mae_reg_dump_to_buffer(struct mtk_mae_dev *mae_dev)
 	for (i = 0; i < MAE_CTRL_CENTER_LEN; i += 0x10) {
 		ret = snprintf(debug_buffer, DEBUG_BUFFER_LINE_LEN,
 				"\n[0x%08x] 0x%08x 0x%08x 0x%08x 0x%08x",
-				MAE_BASE + MAE_CTRL_CENTER_BASE + i,
+				g_data->data->base_address + MAE_CTRL_CENTER_BASE + i,
 				(uint32_t)readl(mae_dev->mae_base + MAE_CTRL_CENTER_BASE + i),
 				(uint32_t)readl(mae_dev->mae_base + MAE_CTRL_CENTER_BASE + i + 0x4),
 				(uint32_t)readl(mae_dev->mae_base + MAE_CTRL_CENTER_BASE + i + 0x8),
@@ -2335,7 +2577,7 @@ static void mtk_mae_reg_dump_to_buffer(struct mtk_mae_dev *mae_dev)
 		}
 		mae_dev_info(mae_dev->dev,
 				"[0x%08x] 0x%08x 0x%08x 0x%08x 0x%08x\n",
-				MAE_BASE + MAE_CTRL_CENTER_BASE + i,
+				g_data->data->base_address + MAE_CTRL_CENTER_BASE + i,
 				(uint32_t)readl(mae_dev->mae_base + MAE_CTRL_CENTER_BASE + i),
 				(uint32_t)readl(mae_dev->mae_base + MAE_CTRL_CENTER_BASE + i + 0x4),
 				(uint32_t)readl(mae_dev->mae_base + MAE_CTRL_CENTER_BASE + i + 0x8),
@@ -2347,7 +2589,7 @@ static void mtk_mae_reg_dump_to_buffer(struct mtk_mae_dev *mae_dev)
 	for (i = 0; i < MAE_RSZ0_LEN; i += 0x10) {
 		ret = snprintf(debug_buffer, DEBUG_BUFFER_LINE_LEN,
 				"\n[0x%08x] 0x%08x 0x%08x 0x%08x 0x%08x",
-				MAE_BASE + MAE_RSZ0_BASE + i,
+				g_data->data->base_address + MAE_RSZ0_BASE + i,
 				(uint32_t)readl(mae_dev->mae_base + MAE_RSZ0_BASE + i),
 				(uint32_t)readl(mae_dev->mae_base + MAE_RSZ0_BASE + i + 0x4),
 				(uint32_t)readl(mae_dev->mae_base + MAE_RSZ0_BASE + i + 0x8),
@@ -2358,7 +2600,7 @@ static void mtk_mae_reg_dump_to_buffer(struct mtk_mae_dev *mae_dev)
 		}
 		mae_dev_info(mae_dev->dev,
 				"[0x%08x] 0x%08x 0x%08x 0x%08x 0x%08x\n",
-				MAE_BASE + MAE_RSZ0_BASE + i,
+				g_data->data->base_address + MAE_RSZ0_BASE + i,
 				(uint32_t)readl(mae_dev->mae_base + MAE_RSZ0_BASE + i),
 				(uint32_t)readl(mae_dev->mae_base + MAE_RSZ0_BASE + i + 0x4),
 				(uint32_t)readl(mae_dev->mae_base + MAE_RSZ0_BASE + i + 0x8),
@@ -2370,7 +2612,7 @@ static void mtk_mae_reg_dump_to_buffer(struct mtk_mae_dev *mae_dev)
 	for (i = 0; i < MAE_CMP_LEN; i += 0x10) {
 		ret = snprintf(debug_buffer, DEBUG_BUFFER_LINE_LEN,
 				"\n[0x%08x] 0x%08x 0x%08x 0x%08x 0x%08x",
-				MAE_BASE + MAE_CMP_BASE + i,
+				g_data->data->base_address + MAE_CMP_BASE + i,
 				(uint32_t)readl(mae_dev->mae_base + MAE_CMP_BASE + i),
 				(uint32_t)readl(mae_dev->mae_base + MAE_CMP_BASE + i + 0x4),
 				(uint32_t)readl(mae_dev->mae_base + MAE_CMP_BASE + i + 0x8),
@@ -2381,7 +2623,7 @@ static void mtk_mae_reg_dump_to_buffer(struct mtk_mae_dev *mae_dev)
 		}
 		mae_dev_info(mae_dev->dev,
 				"[0x%08x] 0x%08x 0x%08x 0x%08x 0x%08x\n",
-				MAE_BASE + MAE_CMP_BASE + i,
+				g_data->data->base_address + MAE_CMP_BASE + i,
 				(uint32_t)readl(mae_dev->mae_base + MAE_CMP_BASE + i),
 				(uint32_t)readl(mae_dev->mae_base + MAE_CMP_BASE + i + 0x4),
 				(uint32_t)readl(mae_dev->mae_base + MAE_CMP_BASE + i + 0x8),
@@ -2393,7 +2635,7 @@ static void mtk_mae_reg_dump_to_buffer(struct mtk_mae_dev *mae_dev)
 	for (i = 0; i < MAE_RDMA_5_LEN; i += 0x10) {
 		ret = snprintf(debug_buffer, DEBUG_BUFFER_LINE_LEN,
 				"\n[0x%08x] 0x%08x 0x%08x 0x%08x 0x%08x",
-				MAE_BASE + MAE_RDMA_5_BASE + i,
+				g_data->data->base_address + MAE_RDMA_5_BASE + i,
 				(uint32_t)readl(mae_dev->mae_base + MAE_RDMA_5_BASE + i),
 				(uint32_t)readl(mae_dev->mae_base + MAE_RDMA_5_BASE + i + 0x4),
 				(uint32_t)readl(mae_dev->mae_base + MAE_RDMA_5_BASE + i + 0x8),
@@ -2404,7 +2646,7 @@ static void mtk_mae_reg_dump_to_buffer(struct mtk_mae_dev *mae_dev)
 		}
 		mae_dev_info(mae_dev->dev,
 				"[0x%08x] 0x%08x 0x%08x 0x%08x 0x%08x\n",
-				MAE_BASE + MAE_RDMA_5_BASE + i,
+				g_data->data->base_address + MAE_RDMA_5_BASE + i,
 				(uint32_t)readl(mae_dev->mae_base + MAE_RDMA_5_BASE + i),
 				(uint32_t)readl(mae_dev->mae_base + MAE_RDMA_5_BASE + i + 0x4),
 				(uint32_t)readl(mae_dev->mae_base + MAE_RDMA_5_BASE + i + 0x8),
@@ -2416,7 +2658,7 @@ static void mtk_mae_reg_dump_to_buffer(struct mtk_mae_dev *mae_dev)
 	for (i = 0; i < RSZ1_BASE_LEN; i += 0x10) {
 		ret = snprintf(debug_buffer, DEBUG_BUFFER_LINE_LEN,
 				"\n[0x%08x] 0x%08x 0x%08x 0x%08x 0x%08x",
-				MAE_BASE + RSZ1_BASE + i,
+				g_data->data->base_address + RSZ1_BASE + i,
 				(uint32_t)readl(mae_dev->mae_base + RSZ1_BASE + i),
 				(uint32_t)readl(mae_dev->mae_base + RSZ1_BASE + i + 0x4),
 				(uint32_t)readl(mae_dev->mae_base + RSZ1_BASE + i + 0x8),
@@ -2427,7 +2669,7 @@ static void mtk_mae_reg_dump_to_buffer(struct mtk_mae_dev *mae_dev)
 		}
 		mae_dev_info(mae_dev->dev,
 				"[0x%08x] 0x%08x 0x%08x 0x%08x 0x%08x\n",
-				MAE_BASE + RSZ1_BASE + i,
+				g_data->data->base_address + RSZ1_BASE + i,
 				(uint32_t)readl(mae_dev->mae_base + RSZ1_BASE + i),
 				(uint32_t)readl(mae_dev->mae_base + RSZ1_BASE + i + 0x4),
 				(uint32_t)readl(mae_dev->mae_base + RSZ1_BASE + i + 0x8),
@@ -2439,7 +2681,7 @@ static void mtk_mae_reg_dump_to_buffer(struct mtk_mae_dev *mae_dev)
 	for (i = 0; i < RSZ2_BASE_LEN; i += 0x10) {
 		ret = snprintf(debug_buffer, DEBUG_BUFFER_LINE_LEN,
 				"\n[0x%08x] 0x%08x 0x%08x 0x%08x 0x%08x",
-				MAE_BASE + RSZ2_BASE + i,
+				g_data->data->base_address + RSZ2_BASE + i,
 				(uint32_t)readl(mae_dev->mae_base + RSZ2_BASE + i),
 				(uint32_t)readl(mae_dev->mae_base + RSZ2_BASE + i + 0x4),
 				(uint32_t)readl(mae_dev->mae_base + RSZ2_BASE + i + 0x8),
@@ -2450,7 +2692,7 @@ static void mtk_mae_reg_dump_to_buffer(struct mtk_mae_dev *mae_dev)
 		}
 		mae_dev_info(mae_dev->dev,
 				"[0x%08x] 0x%08x 0x%08x 0x%08x 0x%08x\n",
-				MAE_BASE + RSZ2_BASE + i,
+				g_data->data->base_address + RSZ2_BASE + i,
 				(uint32_t)readl(mae_dev->mae_base + RSZ2_BASE + i),
 				(uint32_t)readl(mae_dev->mae_base + RSZ2_BASE + i + 0x4),
 				(uint32_t)readl(mae_dev->mae_base + RSZ2_BASE + i + 0x8),
@@ -2462,7 +2704,7 @@ static void mtk_mae_reg_dump_to_buffer(struct mtk_mae_dev *mae_dev)
 	for (i = 0; i < RSZ3_BASE_LEN; i += 0x10) {
 		ret = snprintf(debug_buffer, DEBUG_BUFFER_LINE_LEN,
 				"\n[0x%08x] 0x%08x 0x%08x 0x%08x 0x%08x",
-				MAE_BASE + RSZ3_BASE + i,
+				g_data->data->base_address + RSZ3_BASE + i,
 				(uint32_t)readl(mae_dev->mae_base + RSZ3_BASE + i),
 				(uint32_t)readl(mae_dev->mae_base + RSZ3_BASE + i + 0x4),
 				(uint32_t)readl(mae_dev->mae_base + RSZ3_BASE + i + 0x8),
@@ -2473,7 +2715,7 @@ static void mtk_mae_reg_dump_to_buffer(struct mtk_mae_dev *mae_dev)
 		}
 		mae_dev_info(mae_dev->dev,
 				"[0x%08x] 0x%08x 0x%08x 0x%08x 0x%08x\n",
-				MAE_BASE + RSZ3_BASE + i,
+				g_data->data->base_address + RSZ3_BASE + i,
 				(uint32_t)readl(mae_dev->mae_base + RSZ3_BASE + i),
 				(uint32_t)readl(mae_dev->mae_base + RSZ3_BASE + i + 0x4),
 				(uint32_t)readl(mae_dev->mae_base + RSZ3_BASE + i + 0x8),
@@ -2484,7 +2726,7 @@ static void mtk_mae_reg_dump_to_buffer(struct mtk_mae_dev *mae_dev)
 	// 1 line
 	ret = snprintf(debug_buffer, DEBUG_BUFFER_LINE_LEN,
 			"\n[0x%08x] 0x%08x 0x%08x 0x%08x 0x%08x",
-			MAE_BASE + MAE_MAISR_APB_BASE,
+			g_data->data->base_address + MAE_MAISR_APB_BASE,
 			(uint32_t)readl(mae_dev->mae_base + MAE_MAISR_APB_BASE),
 			(uint32_t)readl(mae_dev->mae_base + MAE_MAISR_APB_BASE + 0x4),
 			(uint32_t)readl(mae_dev->mae_base + MAE_MAISR_APB_BASE + 0x8),
@@ -2495,7 +2737,7 @@ static void mtk_mae_reg_dump_to_buffer(struct mtk_mae_dev *mae_dev)
 	}
 	mae_dev_info(mae_dev->dev,
 			"[0x%08x] 0x%08x 0x%08x 0x%08x 0x%08x\n",
-			MAE_BASE + MAE_MAISR_APB_BASE,
+			g_data->data->base_address + MAE_MAISR_APB_BASE,
 			(uint32_t)readl(mae_dev->mae_base + MAE_MAISR_APB_BASE),
 			(uint32_t)readl(mae_dev->mae_base + MAE_MAISR_APB_BASE + 0x4),
 			(uint32_t)readl(mae_dev->mae_base + MAE_MAISR_APB_BASE + 0x8),
@@ -2506,7 +2748,7 @@ static void mtk_mae_reg_dump_to_buffer(struct mtk_mae_dev *mae_dev)
 	for (i = 0; i < MMFD_POST_LEN; i += 0x10) {
 		ret = snprintf(debug_buffer, DEBUG_BUFFER_LINE_LEN,
 				"\n[0x%08x] 0x%08x 0x%08x 0x%08x 0x%08x",
-				MAE_BASE + MMFD_POST_BASE + i,
+				g_data->data->base_address + MMFD_POST_BASE + i,
 				(uint32_t)readl(mae_dev->mae_base + MMFD_POST_BASE + i),
 				(uint32_t)readl(mae_dev->mae_base + MMFD_POST_BASE + i + 0x4),
 				(uint32_t)readl(mae_dev->mae_base + MMFD_POST_BASE + i + 0x8),
@@ -2517,7 +2759,7 @@ static void mtk_mae_reg_dump_to_buffer(struct mtk_mae_dev *mae_dev)
 		}
 		mae_dev_info(mae_dev->dev,
 				"[0x%08x] 0x%08x 0x%08x 0x%08x 0x%08x\n",
-				MAE_BASE + MMFD_POST_BASE + i,
+				g_data->data->base_address + MMFD_POST_BASE + i,
 				(uint32_t)readl(mae_dev->mae_base + MMFD_POST_BASE + i),
 				(uint32_t)readl(mae_dev->mae_base + MMFD_POST_BASE + i + 0x4),
 				(uint32_t)readl(mae_dev->mae_base + MMFD_POST_BASE + i + 0x8),
@@ -2529,7 +2771,7 @@ static void mtk_mae_reg_dump_to_buffer(struct mtk_mae_dev *mae_dev)
 	for (i = 0; i < MAE_DRV_W_LEN; i += 0x10) {
 		ret = snprintf(debug_buffer, DEBUG_BUFFER_LINE_LEN,
 				"\n[0x%08x] 0x%08x 0x%08x 0x%08x 0x%08x",
-				MAE_BASE + MAE_DRV_W_BASE + i,
+				g_data->data->base_address + MAE_DRV_W_BASE + i,
 				(uint32_t)readl(mae_dev->mae_base + MAE_DRV_W_BASE + i),
 				(uint32_t)readl(mae_dev->mae_base + MAE_DRV_W_BASE + i + 0x4),
 				(uint32_t)readl(mae_dev->mae_base + MAE_DRV_W_BASE + i + 0x8),
@@ -2540,7 +2782,7 @@ static void mtk_mae_reg_dump_to_buffer(struct mtk_mae_dev *mae_dev)
 		}
 		mae_dev_info(mae_dev->dev,
 				"[0x%08x] 0x%08x 0x%08x 0x%08x 0x%08x\n",
-				MAE_BASE + MAE_DRV_W_BASE + i,
+				g_data->data->base_address + MAE_DRV_W_BASE + i,
 				(uint32_t)readl(mae_dev->mae_base + MAE_DRV_W_BASE + i),
 				(uint32_t)readl(mae_dev->mae_base + MAE_DRV_W_BASE + i + 0x4),
 				(uint32_t)readl(mae_dev->mae_base + MAE_DRV_W_BASE + i + 0x8),
@@ -2552,7 +2794,7 @@ static void mtk_mae_reg_dump_to_buffer(struct mtk_mae_dev *mae_dev)
 	for (i = 0; i < MAE_DRV_R_LEN; i += 0x10) {
 		ret = snprintf(debug_buffer, DEBUG_BUFFER_LINE_LEN,
 				"\n[0x%08x] 0x%08x 0x%08x 0x%08x 0x%08x",
-				MAE_BASE + MAE_DRV_R_BASE + i,
+				g_data->data->base_address + MAE_DRV_R_BASE + i,
 				(uint32_t)readl(mae_dev->mae_base + MAE_DRV_R_BASE + i),
 				(uint32_t)readl(mae_dev->mae_base + MAE_DRV_R_BASE + i + 0x4),
 				(uint32_t)readl(mae_dev->mae_base + MAE_DRV_R_BASE + i + 0x8),
@@ -2563,7 +2805,7 @@ static void mtk_mae_reg_dump_to_buffer(struct mtk_mae_dev *mae_dev)
 		}
 		mae_dev_info(mae_dev->dev,
 				"[0x%08x] 0x%08x 0x%08x 0x%08x 0x%08x\n",
-				MAE_BASE + MAE_DRV_R_BASE + i,
+				g_data->data->base_address + MAE_DRV_R_BASE + i,
 				(uint32_t)readl(mae_dev->mae_base + MAE_DRV_R_BASE + i),
 				(uint32_t)readl(mae_dev->mae_base + MAE_DRV_R_BASE + i + 0x4),
 				(uint32_t)readl(mae_dev->mae_base + MAE_DRV_R_BASE + i + 0x8),
@@ -2748,7 +2990,7 @@ static void mtk_mae_dump_param(struct mtk_mae_dev *mae_dev)
 	}
 }
 
-static void mtk_mae_dump(struct mtk_mae_dev *mae_dev)
+static bool mtk_mae_dump(struct mtk_mae_dev *mae_dev)
 {
 	struct EnqueParam *param =
 		(struct EnqueParam *)mae_dev->map_table->param_dmabuf_info[0].kva;
@@ -2774,269 +3016,269 @@ static void mtk_mae_dump(struct mtk_mae_dev *mae_dev)
 	mae_dev_info(mae_dev->dev, "Dump reg\n");
 
 	if (param->maeMode == FLD_V0) {
-		MAE_DUMP_REG(FLD_IMG_BASE_ADDR);
-		MAE_DUMP_REG(FLD_MS_BASE_ADDR);
-		MAE_DUMP_REG(FLD_FP_BASE_ADDR);
-		MAE_DUMP_REG(FLD_TR_BASE_ADDR);
-		MAE_DUMP_REG(FLD_SH_BASE_ADDR);
-		MAE_DUMP_REG(FLD_CV_BASE_ADDR);
-		MAE_DUMP_REG(FLD_BS_BASE_ADDR);
-		MAE_DUMP_REG(FLD_PP_BASE_ADDR);
-		MAE_DUMP_REG(FLD_FP_FORT_OFST);
-		MAE_DUMP_REG(FLD_TR_FORT_OFST);
-		MAE_DUMP_REG(FLD_SH_FORT_OFST);
-		MAE_DUMP_REG(FLD_CV_FORT_OFST);
+		MAE_DUMP_REG(mae_dev, FLD_IMG_BASE_ADDR);
+		MAE_DUMP_REG(mae_dev, FLD_MS_BASE_ADDR);
+		MAE_DUMP_REG(mae_dev, FLD_FP_BASE_ADDR);
+		MAE_DUMP_REG(mae_dev, FLD_TR_BASE_ADDR);
+		MAE_DUMP_REG(mae_dev, FLD_SH_BASE_ADDR);
+		MAE_DUMP_REG(mae_dev, FLD_CV_BASE_ADDR);
+		MAE_DUMP_REG(mae_dev, FLD_BS_BASE_ADDR);
+		MAE_DUMP_REG(mae_dev, FLD_PP_BASE_ADDR);
+		MAE_DUMP_REG(mae_dev, FLD_FP_FORT_OFST);
+		MAE_DUMP_REG(mae_dev, FLD_TR_FORT_OFST);
+		MAE_DUMP_REG(mae_dev, FLD_SH_FORT_OFST);
+		MAE_DUMP_REG(mae_dev, FLD_CV_FORT_OFST);
 
-		MAE_DUMP_REG(FLD_FACE_0_INFO_0);
-		MAE_DUMP_REG(FLD_FACE_0_INFO_1);
-		MAE_DUMP_REG(FLD_FACE_1_INFO_0);
-		MAE_DUMP_REG(FLD_FACE_1_INFO_1);
-		MAE_DUMP_REG(FLD_FACE_2_INFO_0);
-		MAE_DUMP_REG(FLD_FACE_2_INFO_1);
-		MAE_DUMP_REG(FLD_FACE_3_INFO_0);
-		MAE_DUMP_REG(FLD_FACE_3_INFO_1);
-		MAE_DUMP_REG(FLD_FACE_4_INFO_0);
-		MAE_DUMP_REG(FLD_FACE_4_INFO_1);
-		MAE_DUMP_REG(FLD_FACE_5_INFO_0);
-		MAE_DUMP_REG(FLD_FACE_5_INFO_1);
-		MAE_DUMP_REG(FLD_FACE_6_INFO_0);
-		MAE_DUMP_REG(FLD_FACE_6_INFO_1);
-		MAE_DUMP_REG(FLD_FACE_7_INFO_0);
-		MAE_DUMP_REG(FLD_FACE_7_INFO_1);
-		MAE_DUMP_REG(FLD_FACE_8_INFO_0);
-		MAE_DUMP_REG(FLD_FACE_8_INFO_1);
-		MAE_DUMP_REG(FLD_FACE_9_INFO_0);
-		MAE_DUMP_REG(FLD_FACE_9_INFO_1);
-		MAE_DUMP_REG(FLD_FACE_10_INFO_0);
-		MAE_DUMP_REG(FLD_FACE_10_INFO_1);
-		MAE_DUMP_REG(FLD_FACE_11_INFO_0);
-		MAE_DUMP_REG(FLD_FACE_11_INFO_1);
-		MAE_DUMP_REG(FLD_FACE_12_INFO_0);
-		MAE_DUMP_REG(FLD_FACE_12_INFO_1);
-		MAE_DUMP_REG(FLD_FACE_13_INFO_0);
-		MAE_DUMP_REG(FLD_FACE_13_INFO_1);
-		MAE_DUMP_REG(FLD_FACE_14_INFO_0);
-		MAE_DUMP_REG(FLD_FACE_14_INFO_1);
+		MAE_DUMP_REG(mae_dev, FLD_FACE_0_INFO_0);
+		MAE_DUMP_REG(mae_dev, FLD_FACE_0_INFO_1);
+		MAE_DUMP_REG(mae_dev, FLD_FACE_1_INFO_0);
+		MAE_DUMP_REG(mae_dev, FLD_FACE_1_INFO_1);
+		MAE_DUMP_REG(mae_dev, FLD_FACE_2_INFO_0);
+		MAE_DUMP_REG(mae_dev, FLD_FACE_2_INFO_1);
+		MAE_DUMP_REG(mae_dev, FLD_FACE_3_INFO_0);
+		MAE_DUMP_REG(mae_dev, FLD_FACE_3_INFO_1);
+		MAE_DUMP_REG(mae_dev, FLD_FACE_4_INFO_0);
+		MAE_DUMP_REG(mae_dev, FLD_FACE_4_INFO_1);
+		MAE_DUMP_REG(mae_dev, FLD_FACE_5_INFO_0);
+		MAE_DUMP_REG(mae_dev, FLD_FACE_5_INFO_1);
+		MAE_DUMP_REG(mae_dev, FLD_FACE_6_INFO_0);
+		MAE_DUMP_REG(mae_dev, FLD_FACE_6_INFO_1);
+		MAE_DUMP_REG(mae_dev, FLD_FACE_7_INFO_0);
+		MAE_DUMP_REG(mae_dev, FLD_FACE_7_INFO_1);
+		MAE_DUMP_REG(mae_dev, FLD_FACE_8_INFO_0);
+		MAE_DUMP_REG(mae_dev, FLD_FACE_8_INFO_1);
+		MAE_DUMP_REG(mae_dev, FLD_FACE_9_INFO_0);
+		MAE_DUMP_REG(mae_dev, FLD_FACE_9_INFO_1);
+		MAE_DUMP_REG(mae_dev, FLD_FACE_10_INFO_0);
+		MAE_DUMP_REG(mae_dev, FLD_FACE_10_INFO_1);
+		MAE_DUMP_REG(mae_dev, FLD_FACE_11_INFO_0);
+		MAE_DUMP_REG(mae_dev, FLD_FACE_11_INFO_1);
+		MAE_DUMP_REG(mae_dev, FLD_FACE_12_INFO_0);
+		MAE_DUMP_REG(mae_dev, FLD_FACE_12_INFO_1);
+		MAE_DUMP_REG(mae_dev, FLD_FACE_13_INFO_0);
+		MAE_DUMP_REG(mae_dev, FLD_FACE_13_INFO_1);
+		MAE_DUMP_REG(mae_dev, FLD_FACE_14_INFO_0);
+		MAE_DUMP_REG(mae_dev, FLD_FACE_14_INFO_1);
 
-		MAE_DUMP_REG(FLD_NUM_CONFIG_0);
-		MAE_DUMP_REG(FLD_FACE_NUM);
+		MAE_DUMP_REG(mae_dev, FLD_NUM_CONFIG_0);
+		MAE_DUMP_REG(mae_dev, FLD_FACE_NUM);
 
-		MAE_DUMP_REG(FLD_PCA_MEAN_SCALE_0);
-		MAE_DUMP_REG(FLD_PCA_MEAN_SCALE_1);
-		MAE_DUMP_REG(FLD_PCA_MEAN_SCALE_2);
-		MAE_DUMP_REG(FLD_PCA_MEAN_SCALE_3);
-		MAE_DUMP_REG(FLD_PCA_MEAN_SCALE_4);
-		MAE_DUMP_REG(FLD_PCA_MEAN_SCALE_5);
-		MAE_DUMP_REG(FLD_PCA_MEAN_SCALE_6);
-		MAE_DUMP_REG(FLD_PCA_VEC_0);
-		MAE_DUMP_REG(FLD_PCA_VEC_1);
-		MAE_DUMP_REG(FLD_PCA_VEC_2);
-		MAE_DUMP_REG(FLD_PCA_VEC_3);
-		MAE_DUMP_REG(FLD_PCA_VEC_4);
-		MAE_DUMP_REG(FLD_PCA_VEC_5);
-		MAE_DUMP_REG(FLD_PCA_VEC_6);
-		MAE_DUMP_REG(FLD_CV_BIAS_FR_0);
-		MAE_DUMP_REG(FLD_CV_BIAS_PF_0);
-		MAE_DUMP_REG(FLD_CV_RANGE_FR_0);
-		MAE_DUMP_REG(FLD_CV_RANGE_FR_1);
-		MAE_DUMP_REG(FLD_CV_RANGE_PF_0);
-		MAE_DUMP_REG(FLD_CV_RANGE_PF_1);
-		MAE_DUMP_REG(FLD_PP_COEF);
-		MAE_DUMP_REG(FLD_SRC_SIZE);
-		MAE_DUMP_REG(FLD_CMDQ_SRC_SIZE);
-		MAE_DUMP_REG(FLD_SRC_PITCH);
-		MAE_DUMP_REG(FLD_BS_CONFIG0);
-		MAE_DUMP_REG(FLD_BS_CONFIG1);
-		MAE_DUMP_REG(FLD_BS_CONFIG2);
+		MAE_DUMP_REG(mae_dev, FLD_PCA_MEAN_SCALE_0);
+		MAE_DUMP_REG(mae_dev, FLD_PCA_MEAN_SCALE_1);
+		MAE_DUMP_REG(mae_dev, FLD_PCA_MEAN_SCALE_2);
+		MAE_DUMP_REG(mae_dev, FLD_PCA_MEAN_SCALE_3);
+		MAE_DUMP_REG(mae_dev, FLD_PCA_MEAN_SCALE_4);
+		MAE_DUMP_REG(mae_dev, FLD_PCA_MEAN_SCALE_5);
+		MAE_DUMP_REG(mae_dev, FLD_PCA_MEAN_SCALE_6);
+		MAE_DUMP_REG(mae_dev, FLD_PCA_VEC_0);
+		MAE_DUMP_REG(mae_dev, FLD_PCA_VEC_1);
+		MAE_DUMP_REG(mae_dev, FLD_PCA_VEC_2);
+		MAE_DUMP_REG(mae_dev, FLD_PCA_VEC_3);
+		MAE_DUMP_REG(mae_dev, FLD_PCA_VEC_4);
+		MAE_DUMP_REG(mae_dev, FLD_PCA_VEC_5);
+		MAE_DUMP_REG(mae_dev, FLD_PCA_VEC_6);
+		MAE_DUMP_REG(mae_dev, FLD_CV_BIAS_FR_0);
+		MAE_DUMP_REG(mae_dev, FLD_CV_BIAS_PF_0);
+		MAE_DUMP_REG(mae_dev, FLD_CV_RANGE_FR_0);
+		MAE_DUMP_REG(mae_dev, FLD_CV_RANGE_FR_1);
+		MAE_DUMP_REG(mae_dev, FLD_CV_RANGE_PF_0);
+		MAE_DUMP_REG(mae_dev, FLD_CV_RANGE_PF_1);
+		MAE_DUMP_REG(mae_dev, FLD_PP_COEF);
+		MAE_DUMP_REG(mae_dev, FLD_SRC_SIZE);
+		MAE_DUMP_REG(mae_dev, FLD_CMDQ_SRC_SIZE);
+		MAE_DUMP_REG(mae_dev, FLD_SRC_PITCH);
+		MAE_DUMP_REG(mae_dev, FLD_BS_CONFIG0);
+		MAE_DUMP_REG(mae_dev, FLD_BS_CONFIG1);
+		MAE_DUMP_REG(mae_dev, FLD_BS_CONFIG2);
 	} else {
 		mae_dev_info(mae_dev->dev, "Dump MAE_RDMA_5\n");
-		MAE_DUMP_REG(MAE_REG_0004_MAE_RDMA_5);
+		MAE_DUMP_REG(mae_dev, MAE_REG_0004_MAE_RDMA_5);
 
 		mae_dev_info(mae_dev->dev, "Dump RSZ1_BASE\n");
 		for (i = 0; i < RSZ_NUM; i++) {
-			MAE_DUMP_REG(REG_0004_RSZ1 + i * RSZ_BASE_ADDR_OFFSET);
-			MAE_DUMP_REG(REG_0008_RSZ1 + i * RSZ_BASE_ADDR_OFFSET);
-			MAE_DUMP_REG(REG_000C_RSZ1 + i * RSZ_BASE_ADDR_OFFSET);
-			MAE_DUMP_REG(REG_0010_RSZ1 + i * RSZ_BASE_ADDR_OFFSET);
-			MAE_DUMP_REG(REG_001C_RSZ1 + i * RSZ_BASE_ADDR_OFFSET);
-			MAE_DUMP_REG(REG_0020_RSZ1 + i * RSZ_BASE_ADDR_OFFSET);
-			MAE_DUMP_REG(REG_0024_RSZ1 + i * RSZ_BASE_ADDR_OFFSET);
-			MAE_DUMP_REG(REG_0028_RSZ1 + i * RSZ_BASE_ADDR_OFFSET);
-			MAE_DUMP_REG(REG_002C_RSZ1 + i * RSZ_BASE_ADDR_OFFSET);
-			MAE_DUMP_REG(REG_0034_RSZ1 + i * RSZ_BASE_ADDR_OFFSET);
-			MAE_DUMP_REG(REG_005C_RSZ1 + i * RSZ_BASE_ADDR_OFFSET);
-			MAE_DUMP_REG(REG_0060_RSZ1 + i * RSZ_BASE_ADDR_OFFSET);
-			MAE_DUMP_REG(REG_0064_RSZ1 + i * RSZ_BASE_ADDR_OFFSET);
-			MAE_DUMP_REG(REG_0068_RSZ1 + i * RSZ_BASE_ADDR_OFFSET);
-			MAE_DUMP_REG(REG_0080_RSZ1 + i * RSZ_BASE_ADDR_OFFSET);
-			MAE_DUMP_REG(REG_0084_RSZ1 + i * RSZ_BASE_ADDR_OFFSET);
-			MAE_DUMP_REG(REG_00A0_RSZ1 + i * RSZ_BASE_ADDR_OFFSET);
-			MAE_DUMP_REG(REG_00A4_RSZ1 + i * RSZ_BASE_ADDR_OFFSET);
-			MAE_DUMP_REG(REG_00A8_RSZ1 + i * RSZ_BASE_ADDR_OFFSET);
-			MAE_DUMP_REG(REG_00AC_RSZ1 + i * RSZ_BASE_ADDR_OFFSET);
-			MAE_DUMP_REG(REG_00C0_RSZ1 + i * RSZ_BASE_ADDR_OFFSET);
-			MAE_DUMP_REG(REG_00C4_RSZ1 + i * RSZ_BASE_ADDR_OFFSET);
-			MAE_DUMP_REG(REG_00C8_RSZ1 + i * RSZ_BASE_ADDR_OFFSET);
-			MAE_DUMP_REG(REG_00CC_RSZ1 + i * RSZ_BASE_ADDR_OFFSET);
-			MAE_DUMP_REG(REG_00D0_RSZ1 + i * RSZ_BASE_ADDR_OFFSET);
-			MAE_DUMP_REG(REG_00D4_RSZ1 + i * RSZ_BASE_ADDR_OFFSET);
-			MAE_DUMP_REG(REG_00D8_RSZ1 + i * RSZ_BASE_ADDR_OFFSET);
-			MAE_DUMP_REG(REG_0104_RSZ1 + i * RSZ_BASE_ADDR_OFFSET);
-			MAE_DUMP_REG(REG_0108_RSZ1 + i * RSZ_BASE_ADDR_OFFSET);
-			MAE_DUMP_REG(REG_010C_RSZ1 + i * RSZ_BASE_ADDR_OFFSET);
-			MAE_DUMP_REG(REG_0110_RSZ1 + i * RSZ_BASE_ADDR_OFFSET);
-			MAE_DUMP_REG(REG_0114_RSZ1 + i * RSZ_BASE_ADDR_OFFSET);
-			MAE_DUMP_REG(REG_0118_RSZ1 + i * RSZ_BASE_ADDR_OFFSET);
-			MAE_DUMP_REG(REG_011C_RSZ1 + i * RSZ_BASE_ADDR_OFFSET);
-			MAE_DUMP_REG(REG_0120_RSZ1 + i * RSZ_BASE_ADDR_OFFSET);
-			MAE_DUMP_REG(REG_0180_RSZ1 + i * RSZ_BASE_ADDR_OFFSET);
-			MAE_DUMP_REG(REG_0184_RSZ1 + i * RSZ_BASE_ADDR_OFFSET);
+			MAE_DUMP_REG(mae_dev, REG_0004_RSZ1 + i * RSZ_BASE_ADDR_OFFSET);
+			MAE_DUMP_REG(mae_dev, REG_0008_RSZ1 + i * RSZ_BASE_ADDR_OFFSET);
+			MAE_DUMP_REG(mae_dev, REG_000C_RSZ1 + i * RSZ_BASE_ADDR_OFFSET);
+			MAE_DUMP_REG(mae_dev, REG_0010_RSZ1 + i * RSZ_BASE_ADDR_OFFSET);
+			MAE_DUMP_REG(mae_dev, REG_001C_RSZ1 + i * RSZ_BASE_ADDR_OFFSET);
+			MAE_DUMP_REG(mae_dev, REG_0020_RSZ1 + i * RSZ_BASE_ADDR_OFFSET);
+			MAE_DUMP_REG(mae_dev, REG_0024_RSZ1 + i * RSZ_BASE_ADDR_OFFSET);
+			MAE_DUMP_REG(mae_dev, REG_0028_RSZ1 + i * RSZ_BASE_ADDR_OFFSET);
+			MAE_DUMP_REG(mae_dev, REG_002C_RSZ1 + i * RSZ_BASE_ADDR_OFFSET);
+			MAE_DUMP_REG(mae_dev, REG_0034_RSZ1 + i * RSZ_BASE_ADDR_OFFSET);
+			MAE_DUMP_REG(mae_dev, REG_005C_RSZ1 + i * RSZ_BASE_ADDR_OFFSET);
+			MAE_DUMP_REG(mae_dev, REG_0060_RSZ1 + i * RSZ_BASE_ADDR_OFFSET);
+			MAE_DUMP_REG(mae_dev, REG_0064_RSZ1 + i * RSZ_BASE_ADDR_OFFSET);
+			MAE_DUMP_REG(mae_dev, REG_0068_RSZ1 + i * RSZ_BASE_ADDR_OFFSET);
+			MAE_DUMP_REG(mae_dev, REG_0080_RSZ1 + i * RSZ_BASE_ADDR_OFFSET);
+			MAE_DUMP_REG(mae_dev, REG_0084_RSZ1 + i * RSZ_BASE_ADDR_OFFSET);
+			MAE_DUMP_REG(mae_dev, REG_00A0_RSZ1 + i * RSZ_BASE_ADDR_OFFSET);
+			MAE_DUMP_REG(mae_dev, REG_00A4_RSZ1 + i * RSZ_BASE_ADDR_OFFSET);
+			MAE_DUMP_REG(mae_dev, REG_00A8_RSZ1 + i * RSZ_BASE_ADDR_OFFSET);
+			MAE_DUMP_REG(mae_dev, REG_00AC_RSZ1 + i * RSZ_BASE_ADDR_OFFSET);
+			MAE_DUMP_REG(mae_dev, REG_00C0_RSZ1 + i * RSZ_BASE_ADDR_OFFSET);
+			MAE_DUMP_REG(mae_dev, REG_00C4_RSZ1 + i * RSZ_BASE_ADDR_OFFSET);
+			MAE_DUMP_REG(mae_dev, REG_00C8_RSZ1 + i * RSZ_BASE_ADDR_OFFSET);
+			MAE_DUMP_REG(mae_dev, REG_00CC_RSZ1 + i * RSZ_BASE_ADDR_OFFSET);
+			MAE_DUMP_REG(mae_dev, REG_00D0_RSZ1 + i * RSZ_BASE_ADDR_OFFSET);
+			MAE_DUMP_REG(mae_dev, REG_00D4_RSZ1 + i * RSZ_BASE_ADDR_OFFSET);
+			MAE_DUMP_REG(mae_dev, REG_00D8_RSZ1 + i * RSZ_BASE_ADDR_OFFSET);
+			MAE_DUMP_REG(mae_dev, REG_0104_RSZ1 + i * RSZ_BASE_ADDR_OFFSET);
+			MAE_DUMP_REG(mae_dev, REG_0108_RSZ1 + i * RSZ_BASE_ADDR_OFFSET);
+			MAE_DUMP_REG(mae_dev, REG_010C_RSZ1 + i * RSZ_BASE_ADDR_OFFSET);
+			MAE_DUMP_REG(mae_dev, REG_0110_RSZ1 + i * RSZ_BASE_ADDR_OFFSET);
+			MAE_DUMP_REG(mae_dev, REG_0114_RSZ1 + i * RSZ_BASE_ADDR_OFFSET);
+			MAE_DUMP_REG(mae_dev, REG_0118_RSZ1 + i * RSZ_BASE_ADDR_OFFSET);
+			MAE_DUMP_REG(mae_dev, REG_011C_RSZ1 + i * RSZ_BASE_ADDR_OFFSET);
+			MAE_DUMP_REG(mae_dev, REG_0120_RSZ1 + i * RSZ_BASE_ADDR_OFFSET);
+			MAE_DUMP_REG(mae_dev, REG_0180_RSZ1 + i * RSZ_BASE_ADDR_OFFSET);
+			MAE_DUMP_REG(mae_dev, REG_0184_RSZ1 + i * RSZ_BASE_ADDR_OFFSET);
 		}
 
-		MAE_DUMP_REG(MAE_COEF_ROTATE);
+		MAE_DUMP_REG(mae_dev, MAE_COEF_ROTATE);
 
 		mae_dev_info(mae_dev->dev, "Dump MMFD_POST\n");
-		MAE_DUMP_REG(MAE_REG_X_OFFSET_0);
-		MAE_DUMP_REG(MAE_REG_X_OFFSET_1);
-		MAE_DUMP_REG(MAE_REG_X_OFFSET_2);
-		MAE_DUMP_REG(MAE_REG_Y_OFFSET_0);
-		MAE_DUMP_REG(MAE_REG_Y_OFFSET_1);
-		MAE_DUMP_REG(MAE_REG_Y_OFFSET_2);
+		MAE_DUMP_REG(mae_dev, MAE_REG_X_OFFSET_0);
+		MAE_DUMP_REG(mae_dev, MAE_REG_X_OFFSET_1);
+		MAE_DUMP_REG(mae_dev, MAE_REG_X_OFFSET_2);
+		MAE_DUMP_REG(mae_dev, MAE_REG_Y_OFFSET_0);
+		MAE_DUMP_REG(mae_dev, MAE_REG_Y_OFFSET_1);
+		MAE_DUMP_REG(mae_dev, MAE_REG_Y_OFFSET_2);
 
-		MAE_DUMP_REG(MAE_REG_MMFD_O_SCALE_0);
-		MAE_DUMP_REG(MAE_REG_MMFD_O_SCALE_1);
-		MAE_DUMP_REG(MAE_REG_MMFD_O_SCALE_2);
+		MAE_DUMP_REG(mae_dev, MAE_REG_MMFD_O_SCALE_0);
+		MAE_DUMP_REG(mae_dev, MAE_REG_MMFD_O_SCALE_1);
+		MAE_DUMP_REG(mae_dev, MAE_REG_MMFD_O_SCALE_2);
 
-		MAE_DUMP_REG(MAE_REG_H_SIZE0);
-		MAE_DUMP_REG(MAE_REG_H_SIZE1);
-		MAE_DUMP_REG(MAE_REG_H_SIZE2);
-		MAE_DUMP_REG(MAE_REG_V_SIZE0);
-		MAE_DUMP_REG(MAE_REG_V_SIZE1);
-		MAE_DUMP_REG(MAE_REG_V_SIZE2);
+		MAE_DUMP_REG(mae_dev, MAE_REG_H_SIZE0);
+		MAE_DUMP_REG(mae_dev, MAE_REG_H_SIZE1);
+		MAE_DUMP_REG(mae_dev, MAE_REG_H_SIZE2);
+		MAE_DUMP_REG(mae_dev, MAE_REG_V_SIZE0);
+		MAE_DUMP_REG(mae_dev, MAE_REG_V_SIZE1);
+		MAE_DUMP_REG(mae_dev, MAE_REG_V_SIZE2);
 
-		MAE_DUMP_REG(MAE_REG_H_MIN0);
-		MAE_DUMP_REG(MAE_REG_H_MIN1);
-		MAE_DUMP_REG(MAE_REG_H_MIN2);
-		MAE_DUMP_REG(MAE_REG_V_MIN0);
-		MAE_DUMP_REG(MAE_REG_V_MIN1);
-		MAE_DUMP_REG(MAE_REG_V_MIN2);
+		MAE_DUMP_REG(mae_dev, MAE_REG_H_MIN0);
+		MAE_DUMP_REG(mae_dev, MAE_REG_H_MIN1);
+		MAE_DUMP_REG(mae_dev, MAE_REG_H_MIN2);
+		MAE_DUMP_REG(mae_dev, MAE_REG_V_MIN0);
+		MAE_DUMP_REG(mae_dev, MAE_REG_V_MIN1);
+		MAE_DUMP_REG(mae_dev, MAE_REG_V_MIN2);
 
-		MAE_DUMP_REG(MAE_REG_SCORE_TH0);
-		MAE_DUMP_REG(MAE_REG_SCORE_TH1);
-		MAE_DUMP_REG(MAE_REG_SCORE_TH2);
+		MAE_DUMP_REG(mae_dev, MAE_REG_SCORE_TH0);
+		MAE_DUMP_REG(mae_dev, MAE_REG_SCORE_TH1);
+		MAE_DUMP_REG(mae_dev, MAE_REG_SCORE_TH2);
 
-		MAE_DUMP_REG(MAE_REG_H_MAX0);
-		MAE_DUMP_REG(MAE_REG_H_MAX1);
-		MAE_DUMP_REG(MAE_REG_H_MAX2);
-		MAE_DUMP_REG(MAE_REG_V_MAX0);
-		MAE_DUMP_REG(MAE_REG_V_MAX1);
-		MAE_DUMP_REG(MAE_REG_V_MAX2);
+		MAE_DUMP_REG(mae_dev, MAE_REG_H_MAX0);
+		MAE_DUMP_REG(mae_dev, MAE_REG_H_MAX1);
+		MAE_DUMP_REG(mae_dev, MAE_REG_H_MAX2);
+		MAE_DUMP_REG(mae_dev, MAE_REG_V_MAX0);
+		MAE_DUMP_REG(mae_dev, MAE_REG_V_MAX1);
+		MAE_DUMP_REG(mae_dev, MAE_REG_V_MAX2);
 
 		mae_dev_info(mae_dev->dev, "Dump MAE_DRV\n");
-		MAE_DUMP_REG(MAE_REG_EXTRN_BASE0_00_0_W);
-		MAE_DUMP_REG(MAE_REG_EXTRN_BASE0_00_1_W);
-		MAE_DUMP_REG(MAE_REG_EXTRN_BASE0_01_0_W);
-		MAE_DUMP_REG(MAE_REG_EXTRN_BASE0_01_1_W);
-		MAE_DUMP_REG(MAE_REG_EXTRN_BASE0_02_0_W);
-		MAE_DUMP_REG(MAE_REG_EXTRN_BASE0_02_1_W);
-		MAE_DUMP_REG(MAE_REG_EXTRN_BASE0_03_0_W);
-		MAE_DUMP_REG(MAE_REG_EXTRN_BASE0_03_1_W);
-		MAE_DUMP_REG(MAE_REG_EXTRN_BASE0_04_0_W);
-		MAE_DUMP_REG(MAE_REG_EXTRN_BASE0_04_1_W);
-		MAE_DUMP_REG(MAE_REG_EXTRN_BASE0_05_0_W);
-		MAE_DUMP_REG(MAE_REG_EXTRN_BASE0_05_1_W);
-		MAE_DUMP_REG(MAE_REG_EXTRN_BASE0_06_0_W);
-		MAE_DUMP_REG(MAE_REG_EXTRN_BASE0_06_1_W);
-		MAE_DUMP_REG(MAE_REG_EXTRN_BASE0_07_0_W);
-		MAE_DUMP_REG(MAE_REG_EXTRN_BASE0_07_1_W);
-		MAE_DUMP_REG(MAE_REG_EXTRN_BASE0_08_0_W);
-		MAE_DUMP_REG(MAE_REG_EXTRN_BASE0_08_1_W);
-		MAE_DUMP_REG(MAE_REG_EXTRN_BASE0_09_0_W);
-		MAE_DUMP_REG(MAE_REG_EXTRN_BASE0_09_1_W);
-		MAE_DUMP_REG(MAE_REG_EXTRN_BASE0_10_0_W);
-		MAE_DUMP_REG(MAE_REG_EXTRN_BASE0_10_1_W);
-		MAE_DUMP_REG(MAE_REG_EXTRN_BASE0_11_0_W);
-		MAE_DUMP_REG(MAE_REG_EXTRN_BASE0_11_1_W);
-		MAE_DUMP_REG(MAE_REG_EXTRN_BASE0_12_0_W);
-		MAE_DUMP_REG(MAE_REG_EXTRN_BASE0_12_1_W);
-		MAE_DUMP_REG(MAE_REG_EXTRN_BASE0_13_0_W);
-		MAE_DUMP_REG(MAE_REG_EXTRN_BASE0_13_1_W);
-		MAE_DUMP_REG(MAE_REG_EXTRN_BASE0_14_0_W);
-		MAE_DUMP_REG(MAE_REG_EXTRN_BASE0_14_1_W);
+		MAE_DUMP_REG(mae_dev, MAE_REG_EXTRN_BASE0_00_0_W);
+		MAE_DUMP_REG(mae_dev, MAE_REG_EXTRN_BASE0_00_1_W);
+		MAE_DUMP_REG(mae_dev, MAE_REG_EXTRN_BASE0_01_0_W);
+		MAE_DUMP_REG(mae_dev, MAE_REG_EXTRN_BASE0_01_1_W);
+		MAE_DUMP_REG(mae_dev, MAE_REG_EXTRN_BASE0_02_0_W);
+		MAE_DUMP_REG(mae_dev, MAE_REG_EXTRN_BASE0_02_1_W);
+		MAE_DUMP_REG(mae_dev, MAE_REG_EXTRN_BASE0_03_0_W);
+		MAE_DUMP_REG(mae_dev, MAE_REG_EXTRN_BASE0_03_1_W);
+		MAE_DUMP_REG(mae_dev, MAE_REG_EXTRN_BASE0_04_0_W);
+		MAE_DUMP_REG(mae_dev, MAE_REG_EXTRN_BASE0_04_1_W);
+		MAE_DUMP_REG(mae_dev, MAE_REG_EXTRN_BASE0_05_0_W);
+		MAE_DUMP_REG(mae_dev, MAE_REG_EXTRN_BASE0_05_1_W);
+		MAE_DUMP_REG(mae_dev, MAE_REG_EXTRN_BASE0_06_0_W);
+		MAE_DUMP_REG(mae_dev, MAE_REG_EXTRN_BASE0_06_1_W);
+		MAE_DUMP_REG(mae_dev, MAE_REG_EXTRN_BASE0_07_0_W);
+		MAE_DUMP_REG(mae_dev, MAE_REG_EXTRN_BASE0_07_1_W);
+		MAE_DUMP_REG(mae_dev, MAE_REG_EXTRN_BASE0_08_0_W);
+		MAE_DUMP_REG(mae_dev, MAE_REG_EXTRN_BASE0_08_1_W);
+		MAE_DUMP_REG(mae_dev, MAE_REG_EXTRN_BASE0_09_0_W);
+		MAE_DUMP_REG(mae_dev, MAE_REG_EXTRN_BASE0_09_1_W);
+		MAE_DUMP_REG(mae_dev, MAE_REG_EXTRN_BASE0_10_0_W);
+		MAE_DUMP_REG(mae_dev, MAE_REG_EXTRN_BASE0_10_1_W);
+		MAE_DUMP_REG(mae_dev, MAE_REG_EXTRN_BASE0_11_0_W);
+		MAE_DUMP_REG(mae_dev, MAE_REG_EXTRN_BASE0_11_1_W);
+		MAE_DUMP_REG(mae_dev, MAE_REG_EXTRN_BASE0_12_0_W);
+		MAE_DUMP_REG(mae_dev, MAE_REG_EXTRN_BASE0_12_1_W);
+		MAE_DUMP_REG(mae_dev, MAE_REG_EXTRN_BASE0_13_0_W);
+		MAE_DUMP_REG(mae_dev, MAE_REG_EXTRN_BASE0_13_1_W);
+		MAE_DUMP_REG(mae_dev, MAE_REG_EXTRN_BASE0_14_0_W);
+		MAE_DUMP_REG(mae_dev, MAE_REG_EXTRN_BASE0_14_1_W);
 
-		MAE_DUMP_REG(MAE_REG_INTRN_BASE_0_W);
-		MAE_DUMP_REG(MAE_REG_INTRN_BASE_1_W);
+		MAE_DUMP_REG(mae_dev, MAE_REG_INTRN_BASE_0_W);
+		MAE_DUMP_REG(mae_dev, MAE_REG_INTRN_BASE_1_W);
 
 		mae_dev_info(mae_dev->dev, "Dump MAE_DRV_R\n");
-		MAE_DUMP_REG(MAE_REG_EXTRN_BASE0_00_0_R);
-		MAE_DUMP_REG(MAE_REG_EXTRN_BASE0_00_1_R);
-		MAE_DUMP_REG(MAE_REG_EXTRN_BASE0_01_0_R);
-		MAE_DUMP_REG(MAE_REG_EXTRN_BASE0_01_1_R);
-		MAE_DUMP_REG(MAE_REG_EXTRN_BASE0_02_0_R);
-		MAE_DUMP_REG(MAE_REG_EXTRN_BASE0_02_1_R);
+		MAE_DUMP_REG(mae_dev, MAE_REG_EXTRN_BASE0_00_0_R);
+		MAE_DUMP_REG(mae_dev, MAE_REG_EXTRN_BASE0_00_1_R);
+		MAE_DUMP_REG(mae_dev, MAE_REG_EXTRN_BASE0_01_0_R);
+		MAE_DUMP_REG(mae_dev, MAE_REG_EXTRN_BASE0_01_1_R);
+		MAE_DUMP_REG(mae_dev, MAE_REG_EXTRN_BASE0_02_0_R);
+		MAE_DUMP_REG(mae_dev, MAE_REG_EXTRN_BASE0_02_1_R);
 
-		MAE_DUMP_REG(MAE_REG_INTRN_BASE_0_R);
-		MAE_DUMP_REG(MAE_REG_INTRN_BASE_1_R);
+		MAE_DUMP_REG(mae_dev, MAE_REG_INTRN_BASE_0_R);
+		MAE_DUMP_REG(mae_dev, MAE_REG_INTRN_BASE_1_R);
 
-		MAE_DUMP_REG(MAE_REG_EXTRN_BASE1_00_0_R);
-		MAE_DUMP_REG(MAE_REG_EXTRN_BASE1_00_1_R);
-		MAE_DUMP_REG(MAE_REG_EXTRN_BASE1_01_0_R);
-		MAE_DUMP_REG(MAE_REG_EXTRN_BASE1_01_1_R);
-		MAE_DUMP_REG(MAE_REG_EXTRN_BASE1_02_0_R);
-		MAE_DUMP_REG(MAE_REG_EXTRN_BASE1_02_1_R);
+		MAE_DUMP_REG(mae_dev, MAE_REG_EXTRN_BASE1_00_0_R);
+		MAE_DUMP_REG(mae_dev, MAE_REG_EXTRN_BASE1_00_1_R);
+		MAE_DUMP_REG(mae_dev, MAE_REG_EXTRN_BASE1_01_0_R);
+		MAE_DUMP_REG(mae_dev, MAE_REG_EXTRN_BASE1_01_1_R);
+		MAE_DUMP_REG(mae_dev, MAE_REG_EXTRN_BASE1_02_0_R);
+		MAE_DUMP_REG(mae_dev, MAE_REG_EXTRN_BASE1_02_1_R);
 
-		MAE_DUMP_REG(MAE_REG_EXTRN_LN_OFFSET_00_R);
-		MAE_DUMP_REG(MAE_REG_EXTRN_LN_OFFSET_01_R);
-		MAE_DUMP_REG(MAE_REG_EXTRN_LN_OFFSET_02_R);
+		MAE_DUMP_REG(mae_dev, MAE_REG_EXTRN_LN_OFFSET_00_R);
+		MAE_DUMP_REG(mae_dev, MAE_REG_EXTRN_LN_OFFSET_01_R);
+		MAE_DUMP_REG(mae_dev, MAE_REG_EXTRN_LN_OFFSET_02_R);
 
-		MAE_DUMP_REG(MAE_REG_EXTRN_MEM_CONFIG);
+		MAE_DUMP_REG(mae_dev, MAE_REG_EXTRN_MEM_CONFIG);
 
-		MAE_DUMP_REG(MAE_REG_OUTER_SRC_HSIZE_00);
-		MAE_DUMP_REG(MAE_REG_OUTER_SRC_VSIZE_00);
-		MAE_DUMP_REG(MAE_REG_OUTER_SRC_HSIZE_01);
-		MAE_DUMP_REG(MAE_REG_OUTER_SRC_VSIZE_01);
-		MAE_DUMP_REG(MAE_REG_OUTER_SRC_HSIZE_02);
-		MAE_DUMP_REG(MAE_REG_OUTER_SRC_VSIZE_02);
+		MAE_DUMP_REG(mae_dev, MAE_REG_OUTER_SRC_HSIZE_00);
+		MAE_DUMP_REG(mae_dev, MAE_REG_OUTER_SRC_VSIZE_00);
+		MAE_DUMP_REG(mae_dev, MAE_REG_OUTER_SRC_HSIZE_01);
+		MAE_DUMP_REG(mae_dev, MAE_REG_OUTER_SRC_VSIZE_01);
+		MAE_DUMP_REG(mae_dev, MAE_REG_OUTER_SRC_HSIZE_02);
+		MAE_DUMP_REG(mae_dev, MAE_REG_OUTER_SRC_VSIZE_02);
 
-		MAE_DUMP_REG(MAE_REG_OUTER_CONFIG_BASE_00_0);
-		MAE_DUMP_REG(MAE_REG_OUTER_CONFIG_BASE_00_1);
-		MAE_DUMP_REG(MAE_REG_OUTER_CONFIG_BASE_01_0);
-		MAE_DUMP_REG(MAE_REG_OUTER_CONFIG_BASE_01_1);
-		MAE_DUMP_REG(MAE_REG_OUTER_CONFIG_BASE_02_0);
-		MAE_DUMP_REG(MAE_REG_OUTER_CONFIG_BASE_02_1);
+		MAE_DUMP_REG(mae_dev, MAE_REG_OUTER_CONFIG_BASE_00_0);
+		MAE_DUMP_REG(mae_dev, MAE_REG_OUTER_CONFIG_BASE_00_1);
+		MAE_DUMP_REG(mae_dev, MAE_REG_OUTER_CONFIG_BASE_01_0);
+		MAE_DUMP_REG(mae_dev, MAE_REG_OUTER_CONFIG_BASE_01_1);
+		MAE_DUMP_REG(mae_dev, MAE_REG_OUTER_CONFIG_BASE_02_0);
+		MAE_DUMP_REG(mae_dev, MAE_REG_OUTER_CONFIG_BASE_02_1);
 
-		MAE_DUMP_REG(MAE_REG_OUTER_CONFIG_OFFSET_00_0);
-		MAE_DUMP_REG(MAE_REG_OUTER_CONFIG_OFFSET_00_1);
-		MAE_DUMP_REG(MAE_REG_OUTER_CONFIG_OFFSET_01_0);
-		MAE_DUMP_REG(MAE_REG_OUTER_CONFIG_OFFSET_01_1);
-		MAE_DUMP_REG(MAE_REG_OUTER_CONFIG_OFFSET_02_0);
-		MAE_DUMP_REG(MAE_REG_OUTER_CONFIG_OFFSET_02_1);
+		MAE_DUMP_REG(mae_dev, MAE_REG_OUTER_CONFIG_OFFSET_00_0);
+		MAE_DUMP_REG(mae_dev, MAE_REG_OUTER_CONFIG_OFFSET_00_1);
+		MAE_DUMP_REG(mae_dev, MAE_REG_OUTER_CONFIG_OFFSET_01_0);
+		MAE_DUMP_REG(mae_dev, MAE_REG_OUTER_CONFIG_OFFSET_01_1);
+		MAE_DUMP_REG(mae_dev, MAE_REG_OUTER_CONFIG_OFFSET_02_0);
+		MAE_DUMP_REG(mae_dev, MAE_REG_OUTER_CONFIG_OFFSET_02_1);
 
-		MAE_DUMP_REG(MAE_REG_OUTER_CONFIG_SIZE_00);
-		MAE_DUMP_REG(MAE_REG_OUTER_CONFIG_SIZE_01);
-		MAE_DUMP_REG(MAE_REG_OUTER_CONFIG_SIZE_02);
+		MAE_DUMP_REG(mae_dev, MAE_REG_OUTER_CONFIG_SIZE_00);
+		MAE_DUMP_REG(mae_dev, MAE_REG_OUTER_CONFIG_SIZE_01);
+		MAE_DUMP_REG(mae_dev, MAE_REG_OUTER_CONFIG_SIZE_02);
 
-		MAE_DUMP_REG(MAE_REG_OUTER_COEF_BASE_00_0);
-		MAE_DUMP_REG(MAE_REG_OUTER_COEF_BASE_00_1);
-		MAE_DUMP_REG(MAE_REG_OUTER_COEF_BASE_01_0);
-		MAE_DUMP_REG(MAE_REG_OUTER_COEF_BASE_01_1);
-		MAE_DUMP_REG(MAE_REG_OUTER_COEF_BASE_02_0);
-		MAE_DUMP_REG(MAE_REG_OUTER_COEF_BASE_02_1);
+		MAE_DUMP_REG(mae_dev, MAE_REG_OUTER_COEF_BASE_00_0);
+		MAE_DUMP_REG(mae_dev, MAE_REG_OUTER_COEF_BASE_00_1);
+		MAE_DUMP_REG(mae_dev, MAE_REG_OUTER_COEF_BASE_01_0);
+		MAE_DUMP_REG(mae_dev, MAE_REG_OUTER_COEF_BASE_01_1);
+		MAE_DUMP_REG(mae_dev, MAE_REG_OUTER_COEF_BASE_02_0);
+		MAE_DUMP_REG(mae_dev, MAE_REG_OUTER_COEF_BASE_02_1);
 
-		MAE_DUMP_REG(MAE_REG_OUTER_COEF_OFFSET_00_0);
-		MAE_DUMP_REG(MAE_REG_OUTER_COEF_OFFSET_00_1);
-		MAE_DUMP_REG(MAE_REG_OUTER_COEF_OFFSET_01_0);
-		MAE_DUMP_REG(MAE_REG_OUTER_COEF_OFFSET_01_1);
-		MAE_DUMP_REG(MAE_REG_OUTER_COEF_OFFSET_02_0);
-		MAE_DUMP_REG(MAE_REG_OUTER_COEF_OFFSET_02_1);
+		MAE_DUMP_REG(mae_dev, MAE_REG_OUTER_COEF_OFFSET_00_0);
+		MAE_DUMP_REG(mae_dev, MAE_REG_OUTER_COEF_OFFSET_00_1);
+		MAE_DUMP_REG(mae_dev, MAE_REG_OUTER_COEF_OFFSET_01_0);
+		MAE_DUMP_REG(mae_dev, MAE_REG_OUTER_COEF_OFFSET_01_1);
+		MAE_DUMP_REG(mae_dev, MAE_REG_OUTER_COEF_OFFSET_02_0);
+		MAE_DUMP_REG(mae_dev, MAE_REG_OUTER_COEF_OFFSET_02_1);
 
-		MAE_DUMP_REG(MAE_REG_OUTER_COEF_SIZE_00);
-		MAE_DUMP_REG(MAE_REG_OUTER_COEF_SIZE_01);
-		MAE_DUMP_REG(MAE_REG_OUTER_COEF_SIZE_02);
+		MAE_DUMP_REG(mae_dev, MAE_REG_OUTER_COEF_SIZE_00);
+		MAE_DUMP_REG(mae_dev, MAE_REG_OUTER_COEF_SIZE_01);
+		MAE_DUMP_REG(mae_dev, MAE_REG_OUTER_COEF_SIZE_02);
 
-		MAE_DUMP_REG(MAE_REG_RESERVE);
+		MAE_DUMP_REG(mae_dev, MAE_REG_RESERVE);
 
-		MAE_DUMP_REG(MAE_IRQ_CTRL1);
+		MAE_DUMP_REG(mae_dev, MAE_IRQ_CTRL1);
 
 	}
 
@@ -3046,32 +3288,35 @@ static void mtk_mae_dump(struct mtk_mae_dev *mae_dev)
 		for (i = 0; i < AISEG_POP_GROUP_SIZE; i++) {
 			reg_addr = REG_01A0_RSZ1 + i * RSZ_BASE_ADDR_OFFSET;
 			for (j = 0; j < SEMANTIC_MERGE_NUM / 2; j++) {
-				MAE_DUMP_REG(reg_addr);
+				MAE_DUMP_REG(mae_dev, reg_addr);
 				reg_addr += COMMON_REG_SIZE;
 			}
 
 			for (j = 0; j < PERSON_MERGE_NUM / 2; j++) {
-				MAE_DUMP_REG(reg_addr);
+				MAE_DUMP_REG(mae_dev, reg_addr);
 				reg_addr += COMMON_REG_SIZE;
 			}
 
 			for (j = 0; j < AISEG_POP_GROUP_SIZE / 2; j++) {
-				MAE_DUMP_REG(reg_addr);
+				MAE_DUMP_REG(mae_dev, reg_addr);
 				reg_addr += COMMON_REG_SIZE;
 			}
 		}
 	}
 
 	mae_dev_info(mae_dev->dev, "%s -\n", __func__);
+	return true;
 }
 
-static void mtk_mae_irq_handle(struct mtk_mae_dev *mae_dev)
+static bool mtk_mae_irq_handle(struct mtk_mae_dev *mae_dev)
 {
 	writel(0x1, mae_dev->mae_base + MAE_IRQ_CTRL0);
 	writel(0x0, mae_dev->mae_base + MAE_IRQ_CTRL0);
+
+	return true;
 }
 
-static void mtk_mae_config_fld_v0(struct mtk_mae_dev *mae_dev, uint32_t idx)
+static bool mtk_mae_config_fld_v0(struct mtk_mae_dev *mae_dev, uint32_t idx)
 {
 	struct EnqueParam *param =
 		(struct EnqueParam*)mae_dev->map_table->param_dmabuf_info[idx].kva;
@@ -3218,9 +3463,11 @@ static void mtk_mae_config_fld_v0(struct mtk_mae_dev *mae_dev, uint32_t idx)
 
 	cmdq_pkt_wfe(mae_dev->pkt[idx], mae_dev->mae_event_id);
 	cmdq_pkt_flush_async(mae_dev->pkt[idx], MAECmdqCB, (void *)mae_dev);
+
+	return true;
 }
 
-static void mtk_mae_get_fd_v0_result(struct mtk_mae_dev *mae_dev, uint32_t idx)
+static bool mtk_mae_get_fd_v0_result(struct mtk_mae_dev *mae_dev, uint32_t idx)
 {
 	struct EnqueParam *param =
 		(struct EnqueParam *)mae_dev->map_table->param_dmabuf_info[idx].kva;
@@ -3250,9 +3497,10 @@ static void mtk_mae_get_fd_v0_result(struct mtk_mae_dev *mae_dev, uint32_t idx)
 			break;
 		}
 	}
+	return true;
 }
 
-static void mtk_mae_get_fd_v1_result(struct mtk_mae_dev *mae_dev, uint32_t idx)
+static bool mtk_mae_get_fd_v1_result(struct mtk_mae_dev *mae_dev, uint32_t idx)
 {
 	struct EnqueParam *param =
 		(struct EnqueParam *)mae_dev->map_table->param_dmabuf_info[idx].kva;
@@ -3266,6 +3514,8 @@ static void mtk_mae_get_fd_v1_result(struct mtk_mae_dev *mae_dev, uint32_t idx)
 			param->faceNum[i][j] =
 					(uint32_t)readl(mae_dev->mae_base + reg_base + j * FACE_NUM_REG_OFFSET);
 	}
+
+	return true;
 }
 
 static void mtk_mae_fld_reset(struct mtk_mae_dev *mae_dev)
@@ -3301,16 +3551,18 @@ static void mtk_mae_sec_pkt_cb(struct cmdq_cb_data data)
 	mae_dev->sec_pkt = NULL;
 }
 
-static void mtk_mae_secure_cmdq_init(struct mtk_mae_dev *mae_dev)
+static bool mtk_mae_secure_cmdq_init(struct mtk_mae_dev *mae_dev)
 {
 	mae_dev->sec_pkt = cmdq_pkt_create(mae_dev->mae_secure_clt);
 	cmdq_sec_pkt_set_data(mae_dev->sec_pkt, 0, 0, CMDQ_SEC_DEBUG, CMDQ_METAEX_TZMP);
 	cmdq_sec_pkt_set_mtee(mae_dev->sec_pkt, true);
 	cmdq_pkt_finalize_loop(mae_dev->sec_pkt);
 	cmdq_pkt_flush_threaded(mae_dev->sec_pkt, mtk_mae_sec_pkt_cb, (void *)mae_dev);
+
+	return true;
 }
 
-static void mtk_mae_enable_secure_domain(struct mtk_mae_dev *mae_dev)
+static bool mtk_mae_enable_secure_domain(struct mtk_mae_dev *mae_dev)
 {
 	struct cmdq_pkt *pkt = cmdq_pkt_create(mae_dev->mae_clt);
 
@@ -3319,9 +3571,11 @@ static void mtk_mae_enable_secure_domain(struct mtk_mae_dev *mae_dev)
 	cmdq_pkt_flush_async(pkt, mtk_mae_sec_cmdq_cb, (void *)mae_dev);
 	cmdq_pkt_wait_complete(pkt);
 	cmdq_pkt_destroy(pkt);
+
+	return true;
 }
 
-static void mtk_mae_disable_secure_domain(struct mtk_mae_dev *mae_dev)
+static bool mtk_mae_disable_secure_domain(struct mtk_mae_dev *mae_dev)
 {
 	struct cmdq_pkt *pkt = cmdq_pkt_create(mae_dev->mae_clt);
 
@@ -3330,26 +3584,19 @@ static void mtk_mae_disable_secure_domain(struct mtk_mae_dev *mae_dev)
 	cmdq_pkt_flush_async(pkt, mtk_mae_sec_cmdq_cb, (void *)mae_dev);
 	cmdq_pkt_wait_complete(pkt);
 	cmdq_pkt_destroy(pkt);
+
+	return true;
 }
 #endif
 
 const struct mtk_mae_drv_ops mae_ops_isp8 = {
-	// .reset = mtk_mae_reset,
-	// .alloc_buf = aie_alloc_aie_buf,
-	// .init = aie_init,
-	// .uninit = aie_uninit,
 	.set_dma_address = mtk_mae_config_dma,
 	.config_hw = mtk_mae_config_hw,
 	.config_fld = mtk_mae_config_fld_v0,
 	.get_fd_v0_result = mtk_mae_get_fd_v0_result,
 	.get_fd_v1_result = mtk_mae_get_fd_v1_result,
-	// .get_attr_result = aie_get_attr_result,
-	// .get_fld_result = aie_get_fld_result,
 	.irq_handle = mtk_mae_irq_handle,
-	// .config_fld_buf_reg = aie_config_fld_buf_reg,
 	.dump_reg = mtk_mae_dump,
-	// .dump_cg_reg = aie_dump_cg_reg,
-	// .enable_ddren = aie_enable_ddren_7sp_1,
 #if MAE_CMDQ_SEC_READY
 	.secure_init = mtk_mae_secure_cmdq_init,
 	.secure_enable = mtk_mae_enable_secure_domain,
@@ -3361,7 +3608,13 @@ int mtk_mae_isp8_probe(struct platform_device *pdev)
 {
 	dev_info(&pdev->dev ,"%s +", __func__);
 
-	mtk_mae_register_drv_ops(&mae_ops_isp8);
+	g_data = of_device_get_match_data(&pdev->dev);
+	if (!g_data) {
+		dev_info(&pdev->dev, "match data is NULL\n");
+		return PTR_ERR(g_data);
+	}
+
+	mtk_mae_set_data(g_data);
 
 #ifdef MAE_TF_DUMP_8
 	dev_info(&pdev->dev , "register MAE isp8 tf cb");
@@ -3380,13 +3633,34 @@ int mtk_mae_isp8_remove(struct platform_device *pdev)
 	return 0;
 }
 
+static struct mae_plat_data mae_plat_data_isp8 = {
+	.clks = mae_clks_isp8,
+	.clk_num = ARRAY_SIZE(mae_clks_isp8),
+	.drv_ops = &mae_ops_isp8,
+	.data = &mae_data_isp8,
+	.priv_data = &priv_data_isp8,
+};
+
+static struct mae_plat_data mae_plat_data_isp8_mt6899 = {
+	.clks = mae_clks_isp8_m6899,
+	.clk_num = ARRAY_SIZE(mae_clks_isp8_m6899),
+	.drv_ops = &mae_ops_isp8,
+	.data = &mae_data_isp8_mt6899,
+	.priv_data = &priv_data_isp8_mt6899,
+};
+
 static const struct of_device_id of_match_mtk_mae_isp8_drv[] = {
 	{
 		.compatible = "mediatek,mtk-mae-plat",
+		.data = &mae_plat_data_isp8,
 	}, {
+		.compatible = "mediatek,mtk-mae-plat-isp8-mt6899",
+		.data = &mae_plat_data_isp8_mt6899,
+	},{
 		/* sentinel */
 	}
 };
+MODULE_DEVICE_TABLE(of, of_match_mtk_mae_isp8_drv);
 
 static struct platform_driver mtk_mae_isp8_drv = {
 	.probe = mtk_mae_isp8_probe,

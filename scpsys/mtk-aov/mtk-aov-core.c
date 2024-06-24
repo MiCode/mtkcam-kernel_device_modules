@@ -70,6 +70,7 @@ static int send_cmd_internal(struct aov_core *core_info,
 	packet.command  = cmd_code;
 	packet.buffer   = buffer;
 	packet.length   = length;
+	packet.auth     = AOV_SCP_CMD_ACK - cmd_code;
 
 	AOV_TRACE_BEGIN("AOV Send Cmd");
 

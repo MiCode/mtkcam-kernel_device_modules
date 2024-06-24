@@ -60,7 +60,7 @@
 #define AOV_SCP_CMD_TURN_ON_ULPOSC   (15)
 #define AOV_SCP_CMD_TURN_OFF_ULPOSC  (16)
 #define AOV_SCP_CMD_MAX              (17)
-#define AOV_SCP_CMD_ACK              (0x80000000)
+#define AOV_SCP_CMD_ACK              (0x8000)
 
 #define AOV_DEBUG_MODE_DUMP       (1)  // General debug
 #define AOV_DEBUG_MODE_NDD        (2)  // NDD debug mode
@@ -470,7 +470,8 @@ struct aov_notify {
 struct packet {
 	uint16_t session;
 	uint16_t sequence;
-	uint32_t command;
+	uint16_t command;
+	uint16_t auth;
 	uint32_t buffer;
 	uint32_t length;
 } __packed;

@@ -55,6 +55,7 @@ static int update_cq_buffer_to_ipi_frame(struct mtk_cam_pool_buffer *cq,
 static int job_debug_dump(struct mtk_cam_job *job, const char *desc,
 			  bool is_exception, int raw_pipe_idx);
 static void job_dump_engines_debug_status(struct mtk_cam_job *job);
+static void set_cq_deadline(struct mtk_cam_job *job, int cq_deadline);
 
 static inline int job_debug_exception_dump(struct mtk_cam_job *job,
 					   const char *desc)
@@ -206,6 +207,25 @@ bool mtk_cam_job_has_pending_action(struct mtk_cam_job *job)
 	return mtk_cam_job_state_has_action(&job->job_state);
 }
 
+static int update_ref_sof_cq_threshold(struct mtk_cam_job *job)
+{
+	int scq_period;
+
+	switch (job->job_type) {
+	case JOB_TYPE_BASIC:
+	case JOB_TYPE_STAGGER:
+		break;
+	default:
+		return 0;
+	}
+
+	scq_period = (job->job_state.reference_sof_ns)? -1 : job->scq_period;
+	if (scq_period != job->src_ctx->last_cq_deadline)
+		set_cq_deadline(job, scq_period);
+
+	return 0;
+}
+
 int mtk_cam_job_apply_pending_action(struct mtk_cam_job *job)
 {
 	int action, ret = 0;
@@ -217,8 +237,11 @@ int mtk_cam_job_apply_pending_action(struct mtk_cam_job *job)
 		ret = ret || apply_sensor_async(job);
 	}
 
-	if (action & ACTION_APPLY_ISP)
-		ret = ret || call_jobop(job, apply_isp);
+	if (action & ACTION_APPLY_ISP) {
+		ret = ret ||
+			update_ref_sof_cq_threshold(job) ||
+			call_jobop(job, apply_isp);
+	}
 
 	if (action & ACTION_TRIGGER)
 		ret = ret || call_jobop(job, trigger_isp);
@@ -1574,6 +1597,8 @@ static void set_cq_deadline(struct mtk_cam_job *job, int cq_deadline)
 	if (job->enable_hsf_raw)
 		return;
 
+	job->src_ctx->last_cq_deadline = cq_deadline;
+
 	subset = bit_map_subset_of(MAP_HW_RAW, job->used_engine);
 	for (i = 0; i < cam->engines.num_raw_devices; i++) {
 		if (BIT(i) & subset) {
@@ -2211,9 +2236,6 @@ static int _apply_cq(struct mtk_cam_job *job)
 							 &job->src_ctx->cam->engines,
 							 job->used_engine);
 	}
-
-	if (job->job_state.reference_sof_ns)
-		set_cq_deadline(job, -1);
 
 	apply_engines_cq(job, job->frame_seq_no, &job->cq, &job->cq_rst);
 

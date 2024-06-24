@@ -215,6 +215,7 @@ struct mtk_cam_ctx {
 	bool slc_data_valid;
 	bool slc_validated;
 	u64 sw_recovery_ts;
+	int last_cq_deadline;
 
 	bool enable_luma_dump;
 	bool rms_disable;

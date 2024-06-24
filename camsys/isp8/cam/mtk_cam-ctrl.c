@@ -1262,54 +1262,6 @@ static int dynamic_raw_change_stream_on(struct mtk_cam_job *job, int unit_engs)
 	return 0;
 }
 
-static int dynamic_raw_change_uninit_engine(struct mtk_cam_job *job, int unit_engs)
-{
-	struct mtk_cam_ctx *ctx = job->src_ctx;
-	struct mtk_cam_device *cam = ctx->cam;
-	struct device *dev = ctx->cam->dev;
-	int i, j;
-
-	dev_info(dev, "[%s] begin uninit raw:0x%x\n",
-			 __func__, unit_engs);
-	/* disable raw/yuv irq and reset */
-	for (i = 0; i < cam->engines.num_raw_devices; i++) {
-		if (BIT(i) & unit_engs) {
-			struct mtk_raw_device *raw_dev;
-
-			raw_dev = dev_get_drvdata(cam->engines.raw_devs[i]);
-
-			if (qof_is_enabled(raw_dev)) {
-				qof_enable(raw_dev, false);
-				qof_reset_mtcmos_raw_voter(raw_dev);
-				qof_reset(raw_dev);
-			}
-
-			disable_irq(raw_dev->irq);
-			reset(raw_dev);
-			clear_reg(raw_dev);
-		}
-	}
-	for (i = 0; i < cam->engines.num_camsv_devices; i++) {
-		if (bit_map_bit(MAP_HW_CAMSV, i) &
-			unit_engs) {
-			struct mtk_camsv_device *sv_dev;
-
-			sv_dev = dev_get_drvdata(cam->engines.sv_devs[i]);
-			mtk_cam_sv_dev_stream_on(sv_dev, false, 0, 0);
-			for (j = 0; j < ARRAY_SIZE(sv_dev->irq); j++)
-				disable_irq(sv_dev->irq[j]);
-			sv_reset(sv_dev);
-		}
-	}
-	/* disable camsv/mraw irq and reset - James */
-	if (unit_engs) {
-		mtk_cam_pm_runtime_engines(&ctx->cam->engines, unit_engs, 0);
-		mtk_cam_event_camsys_resource_ready(&ctx->cam_ctrl, unit_engs);
-	}
-
-	return 0;
-}
-
 static void mtk_cam_ctrl_dynamic_raws_change_flow(struct mtk_cam_job *job)
 {
 	struct mtk_cam_ctx *ctx = job->src_ctx;
@@ -1360,11 +1312,16 @@ static void mtk_cam_ctrl_dynamic_raws_change_flow(struct mtk_cam_job *job)
 			 __func__, prev_seq);
 		goto SWITCH_FAILURE;
 	}
-	if (dynamic_raw_change_uninit_engine(job, engine_uninit)) {
+
+	if (mtk_cam_job_uninit_engine(job, engine_uninit)) {
 		dev_info(dev, "[%s] uninit engine failed, uninit raw:0x%x\n",
 			__func__, job->raw_change_uninit_engine);
 		goto SWITCH_FAILURE;
 	}
+
+	if (engine_uninit)
+		mtk_cam_event_camsys_resource_ready(&ctx->cam_ctrl, engine_uninit);
+
 	/* NOTE: qof_setup_twin has been called in job_raw_change_hw_init */
 	for (i = 0; i < cam->engines.num_raw_devices; i++) {
 		bool is_master = false;
@@ -1540,15 +1497,16 @@ static void mtk_cam_ctrl_seamless_switch_flow(struct mtk_cam_job *job)
 
 	call_job_seamless_ops(job, after_prev_frame_done);
 
+	/* uninit_eng in after_prev_frame_done */
+	if (engine_uninit)
+		mtk_cam_event_camsys_resource_ready(&ctx->cam_ctrl, engine_uninit);
+
 	if (is_stagger_dol(job))
 		qof_mtcmos_voter_handle(&ctx->cam->engines,
 			raw_after_change, &ctx->DOL_not_support);
 	else
 		qof_mtcmos_voter_handle(&ctx->cam->engines,
 			0, &ctx->DOL_not_support);
-
-	if (dynamic_raw_change_uninit_engine(job, engine_uninit))
-		goto SWITCH_FAILURE;
 
 	trigger_fake_sof_event(ctrl);
 	check_args.expect_inner = job->frame_seq_no;

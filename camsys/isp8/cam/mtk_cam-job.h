@@ -705,4 +705,7 @@ void mtk_cam_job_clean_prev_img_pool(struct mtk_cam_job *job);
 
 bool mtk_cam_job_is_dcif_required(struct mtk_cam_job *job);
 
+int mtk_cam_job_uninit_engine(
+	struct mtk_cam_job *job, int unit_engs);
+
 #endif //__MTK_CAM_JOB_H

@@ -4036,8 +4036,13 @@ _common_seamless_after_frame_done(struct mtk_cam_job *job)
 	set_cq_deadline(job, job->scq_period);
 	toggle_raw_engines_db(ctx);
 	ctrl_data = get_raw_ctrl_data(job);
+
 	if (ctrl_data != NULL)
 		mtk_cam_ctx_slc_stream(ctx, 1, ctrl_data->slc_mode);
+
+	mtk_cam_job_uninit_engine(
+		job, job->raw_change_uninit_engine);
+
 	stream_on(raw_dev, 1, false);
 	if (ctx->hw_sv)
 		mtk_cam_sv_dev_stream_on(sv_dev, true,
@@ -4057,6 +4062,52 @@ static struct mtk_cam_seamless_ops common_seamless = {
 };
 
 #endif
+
+int mtk_cam_job_uninit_engine(struct mtk_cam_job *job, int unit_engs)
+{
+	struct mtk_cam_ctx *ctx = job->src_ctx;
+	struct mtk_cam_device *cam = ctx->cam;
+	struct device *dev = ctx->cam->dev;
+	int i, j;
+
+	dev_info(dev, "[%s] begin uninit raw:0x%x\n",
+			 __func__, unit_engs);
+	/* disable raw/yuv irq and reset */
+	for (i = 0; i < cam->engines.num_raw_devices; i++) {
+		if (BIT(i) & unit_engs) {
+			struct mtk_raw_device *raw_dev;
+
+			raw_dev = dev_get_drvdata(cam->engines.raw_devs[i]);
+
+			if (qof_is_enabled(raw_dev)) {
+				qof_enable(raw_dev, false);
+				qof_reset_mtcmos_raw_voter(raw_dev);
+				qof_reset(raw_dev);
+			}
+
+			disable_irq(raw_dev->irq);
+			reset(raw_dev);
+			clear_reg(raw_dev);
+		}
+	}
+	for (i = 0; i < cam->engines.num_camsv_devices; i++) {
+		if (bit_map_bit(MAP_HW_CAMSV, i) &
+			unit_engs) {
+			struct mtk_camsv_device *sv_dev;
+
+			sv_dev = dev_get_drvdata(cam->engines.sv_devs[i]);
+			mtk_cam_sv_dev_stream_on(sv_dev, false, 0, 0);
+			for (j = 0; j < ARRAY_SIZE(sv_dev->irq); j++)
+				disable_irq(sv_dev->irq[j]);
+			sv_reset(sv_dev);
+		}
+	}
+	/* disable camsv/mraw irq and reset - James */
+	if (unit_engs)
+		mtk_cam_pm_runtime_engines(&ctx->cam->engines, unit_engs, 0);
+
+	return 0;
+}
 
 static struct mtk_cam_job_ops basic_job_ops = {
 	.cancel = job_cancel,

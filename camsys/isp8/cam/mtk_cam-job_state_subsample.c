@@ -151,8 +151,12 @@ static int _is_next_sensor_applicable(struct mtk_cam_job_state *s)
 	/* since in subsample, sensor setting is applied after cq
 	 * we don't need to consider previous job.'s isp status.
 	 * make sure previous job's sensor i2c transmission is done.
+	 * And it is S_SENSOR_NONE for those sensor requests before
+	 * stream on.
 	 */
-	return is_sensor_ge_applied(mtk_cam_job_state_get(s, SENSOR_STATE));
+
+	return (mtk_cam_job_state_get(s, SENSOR_STATE) == S_SENSOR_NONE ||
+		is_sensor_ge_applied(mtk_cam_job_state_get(s, SENSOR_STATE)));
 }
 
 static int _is_next_isp_applicable(struct mtk_cam_job_state *s)

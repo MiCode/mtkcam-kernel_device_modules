@@ -3318,11 +3318,9 @@ static void mtk_cam_ctx_raw_qof_disable(struct mtk_cam_ctx *ctx)
 
 void mtk_cam_ctx_engine_off(struct mtk_cam_ctx *ctx)
 {
-	struct mtk_cam_device *cam = ctx->cam;
 	struct mtk_raw_device *raw_dev;
 	struct mtk_camsv_device *sv_dev;
 	struct mtk_mraw_device *mraw_dev;
-	unsigned int mraw_idx;
 	int i;
 
 	dev_info(ctx->cam->dev, "%s: ctx-%d pipe 0x%x engine 0x%x\n",
@@ -3336,10 +3334,9 @@ void mtk_cam_ctx_engine_off(struct mtk_cam_ctx *ctx)
 		mtk_cam_sv_dev_stream_on(sv_dev, false, 0, 0);
 	}
 
-	for (i = 0; i < ctx->num_mraw_subdevs; i++) {
-		mraw_idx = ctx->mraw_subdev_idx[i];
-		if (cam->engines.mraw_devs[mraw_idx]) {
-			mraw_dev = dev_get_drvdata(cam->engines.mraw_devs[mraw_idx]);
+	for (i = 0 ; i < ARRAY_SIZE(ctx->hw_mraw); i++) {
+		if (ctx->hw_mraw[i]) {
+			mraw_dev = dev_get_drvdata(ctx->hw_mraw[i]);
 			mtk_cam_mraw_dev_stream_on(mraw_dev, false);
 		}
 	}

@@ -1105,9 +1105,6 @@ int mtk_cam_mraw_dev_config(struct mtk_mraw_device *mraw_dev,
 	atomic_set(&mraw_dev->is_vf_on, 0);
 	atomic_set(&mraw_dev->is_sw_clr, 0);
 
-	mraw_dev->mraw_avg_applied_bw_w = 0;
-	mraw_dev->mraw_peak_applied_bw_w = 0;
-
 	mtk_cam_mraw_top_config(mraw_dev);
 	mtk_cam_mraw_dma_config(mraw_dev);
 	mtk_cam_mraw_fbc_config(mraw_dev);
@@ -1895,6 +1892,9 @@ int mtk_mraw_runtime_suspend(struct device *dev)
 	mtk_cam_bwr_set_ttl_bw(mraw_dev->cam->bwr,
 		ENGINE_MRAW, -mraw_dev->mraw_avg_applied_bw_w,
 		-mraw_dev->mraw_peak_applied_bw_w, false);
+
+	mraw_dev->mraw_avg_applied_bw_w = 0;
+	mraw_dev->mraw_peak_applied_bw_w = 0;
 
 	for (i = mraw_dev->num_clks - 1; i >= 0; i--)
 		clk_disable_unprepare(mraw_dev->clks[i]);

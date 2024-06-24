@@ -1324,9 +1324,6 @@ int mtk_cam_sv_dev_config(struct mtk_camsv_device *sv_dev,
 	sv_dev->sof_count = 0;
 	sv_dev->tg_cnt = 0;
 
-	sv_dev->sv_avg_applied_bw_w = 0;
-	sv_dev->sv_peak_applied_bw_w = 0;
-
 	atomic_set(&sv_dev->is_otf, 0);
 	atomic_set(&sv_dev->is_seamless, 0);
 	atomic_set(&sv_dev->is_sw_clr, 0);
@@ -2587,6 +2584,9 @@ int mtk_camsv_runtime_suspend(struct device *dev)
 	mtk_cam_bwr_set_ttl_bw(sv_dev->cam->bwr,
 		get_sv_bwr_engine(sv_dev->id), -sv_dev->sv_avg_applied_bw_w,
 		-sv_dev->sv_peak_applied_bw_w, false);
+
+	sv_dev->sv_avg_applied_bw_w = 0;
+	sv_dev->sv_peak_applied_bw_w = 0;
 
 	mtk_cam_sv_golden_set(sv_dev, false);
 

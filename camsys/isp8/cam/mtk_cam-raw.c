@@ -3560,6 +3560,8 @@ int raw_dump_debug_status(struct mtk_raw_device *dev, bool is_srt)
 			       dbg_RAWI_R5, ARRAY_SIZE(dbg_RAWI_R5));
 #endif
 
+	/* avoid rdma TF */
+	clear_reg(dev);
 	qof_mtcmos_raw_voter(dev, false);
 
 	need_smi_dump = dev->tg_overrun_handle_cnt > 0 ? 1 : 0;

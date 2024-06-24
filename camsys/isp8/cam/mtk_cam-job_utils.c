@@ -423,28 +423,6 @@ int get_subsample_ratio(struct mtk_cam_scen *scen)
 	}
 	return 1;
 }
-/* more control with 30fps scenario : stagger, long exposure */
-#define SENSOR_I2C_TIME_NS		(9 * 1000000ULL)
-#define SENSOR_I2C_TIME_NS_60FPS	(6 * 1000000ULL)
-#define SENSOR_I2C_TIME_NS_HIGH_FPS	(3 * 1000000ULL)
-#define CQ_PROCESSING_TIME_NS	(1 * 100000ULL) // 0.1ms
-
-#define INTERVAL_NS(fps)	(1000000000ULL / fps)
-
-static u64 reserved_i2c_time(u64 frame_interval_ns)
-{
-	u64 i2c_time;
-
-	/* > 60fps */
-	if (frame_interval_ns < INTERVAL_NS(60))
-		i2c_time = SENSOR_I2C_TIME_NS_HIGH_FPS;
-	else if (INTERVAL_NS(60) <= frame_interval_ns &&
-		 frame_interval_ns < INTERVAL_NS(30))
-		i2c_time = SENSOR_I2C_TIME_NS_60FPS;
-	else
-		i2c_time = SENSOR_I2C_TIME_NS;
-	return i2c_time;
-}
 
 u64 infer_i2c_deadline_ns(struct mtk_cam_job *job, u64 frame_interval_ns)
 {

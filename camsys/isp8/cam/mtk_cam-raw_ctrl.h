@@ -8,6 +8,14 @@
 
 #include "mtk_camera-v4l2-controls-8.h"
 
+/* more control with 30fps scenario : stagger, long exposure */
+#define SENSOR_I2C_TIME_NS		(9 * 1000000ULL)
+#define SENSOR_I2C_TIME_NS_60FPS	(6 * 1000000ULL)
+#define SENSOR_I2C_TIME_NS_HIGH_FPS	(3 * 1000000ULL)
+#define CQ_PROCESSING_TIME_NS	(1 * 100000ULL)
+
+#define INTERVAL_NS(fps)	(1000000000ULL / fps)
+
 static inline
 bool res_raw_is_dc_mode(const struct mtk_cam_resource_raw_v2 *res_raw)
 {
@@ -124,6 +132,22 @@ static inline bool scen_is_stagger_dol(const struct mtk_cam_scen *scen)
 		return true;
 
 	return false;
+}
+
+static inline u64 reserved_i2c_time(u64 frame_interval_ns)
+{
+	u64 i2c_time;
+
+	/* > 60fps */
+	if (frame_interval_ns < INTERVAL_NS(60))
+		i2c_time = SENSOR_I2C_TIME_NS_HIGH_FPS;
+	else if (INTERVAL_NS(60) <= frame_interval_ns &&
+		 frame_interval_ns < INTERVAL_NS(30))
+		i2c_time = SENSOR_I2C_TIME_NS_60FPS;
+	else
+		i2c_time = SENSOR_I2C_TIME_NS;
+
+	return i2c_time;
 }
 
 #define SCEN_MAX_LEN 40

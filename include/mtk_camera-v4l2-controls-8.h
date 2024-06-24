@@ -229,6 +229,7 @@ struct mtk_cam_resource_raw_v2 {
 	__u8 slc_mode;
 	__u8 luma_debug;
 	__u8 sen_apply_ctrl;
+	__u64 sen_deadline_ns;
 };
 
 struct mtk_cam_resource_v2 {

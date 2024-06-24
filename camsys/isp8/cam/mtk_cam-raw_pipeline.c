@@ -93,7 +93,7 @@ static inline struct v4l2_rect fullsize_as_crop(unsigned int w, unsigned int h)
 
 static int res_calc_fill_sensor(struct mtk_cam_res_calc *c,
 				const struct mtk_cam_resource_sensor_v2 *s,
-				const struct mtk_cam_resource_raw_v2 *r)
+				struct mtk_cam_resource_raw_v2 *r)
 {
 	long interval;
 	u32 interval_n, interval_d;
@@ -116,6 +116,10 @@ static int res_calc_fill_sensor(struct mtk_cam_res_calc *c,
 		c->line_time;
 	c->width = s->width;
 	c->height = s->height;
+
+	/* fill sensor deadline */
+	r->sen_deadline_ns = reserved_i2c_time((u64)interval);
+
 	return 0;
 }
 

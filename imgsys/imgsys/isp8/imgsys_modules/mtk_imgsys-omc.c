@@ -166,7 +166,7 @@ const struct imgsys_reg_range omc_regs[] = {
 	{0x0BC0, 0x0BCC}, /* PAK */
 	{0x0C00, 0x0C0C}, /* PAK2 */
 	{0x0C40, 0x0C64}, /* CQ */
-	{0x0E60, 0x0E84}, /* DMA */
+	{0x0E60, 0x0ED8}, /* DMA */
 	{0x0F00, 0x0FC4}, /* DEC */
 };
 
@@ -216,7 +216,7 @@ int imgsys_omc_tfault_callback(int port,
 
 	//
 	omcBase = gOmcRegBase[(engine - REG_MAP_E_OMC_TNR)];
-	for (j = 0; j < OMC_REG_ARRAY_COUNT; j++) {
+	for (j = 0; j < (unsigned int) OMC_REG_ARRAY_COUNT; j++) {
 		for (i = omc_regs[j].str; i <= omc_regs[j].end; i += 0x10) {
 			pr_info("%s: [0x%08X] 0x%08X 0x%08X 0x%08X 0x%08X", __func__,
 				(unsigned int)(omcBase + i),
@@ -286,7 +286,7 @@ void imgsys_omc_set_hw_initial_value(struct mtk_imgsys_dev *imgsys_dev)
 bool imgsys_omc_done_chk(struct mtk_imgsys_dev *imgsys_dev, uint32_t engine)
 {
 	void __iomem *omcRegBA = 0L;
-	unsigned int hw_idx = IMGSYS_ENG_OMC_TNR, ofst_idx;
+	unsigned int hw_idx = (unsigned int) IMGSYS_ENG_OMC_TNR, ofst_idx;
 	unsigned int omcBase = 0;
 	bool ret = true; //true: done
 	uint32_t value = 0;
@@ -483,10 +483,10 @@ void imgsys_omc_debug_ufo_dump(struct mtk_imgsys_dev *imgsys_dev,
 	unsigned int debug_value[55] = {0x0};
 	unsigned int sel_value = 0x0;
 
-	writel((0xB<<12), (omcRegBA + OMC_REG_DBG_SET));
+	writel((0x1<<16), (omcRegBA + OMC_REG_DBG_SET));
 	sel_value = (unsigned int)ioread32((void *)(omcRegBA + OMC_REG_DBG_SET));
 	for (i = 0; i < 55; i++) {
-		writel((i + 0xC00), (omcRegBA + OMC_REG_DEC_CTL1));
+		writel((i + 0x0), (omcRegBA + OMC_REG_DEC_CTL1));
 		debug_value[i] = (unsigned int)ioread32((void *)(omcRegBA + OMC_REG_DBG_PORT));
 	}
 
@@ -495,7 +495,7 @@ void imgsys_omc_debug_ufo_dump(struct mtk_imgsys_dev *imgsys_dev,
 
 	for (i = 0; i <= 10; i++) {
 		pr_info("%s: [l][0x%x] 0x%08X 0x%08X 0x%08X 0x%08X 0x%08X",
-		  __func__, (unsigned int)(0xC00+i*5),
+		  __func__, (unsigned int)(0x0+i*5),
 		  debug_value[i*5+0], debug_value[i*5+1], debug_value[i*5+2],
 		  debug_value[i*5+3], debug_value[i*5+4]);
 	}
@@ -505,63 +505,57 @@ void imgsys_omc_debug_ufo_dump(struct mtk_imgsys_dev *imgsys_dev,
 void imgsys_omc_debug_dl_dump(struct mtk_imgsys_dev *imgsys_dev,
 							void __iomem *omcRegBA)
 {
-	unsigned int dbg_sel_value[3] = {0x0, 0x0, 0x0};
-	unsigned int debug_value[3] = {0x0, 0x0, 0x0};
-	unsigned int sel_value[3] = {0x0, 0x0, 0x0};
+	unsigned int dbg_sel_value = 0x0;
+	unsigned int debug_value = 0x0;
+	unsigned int sel_value = 0x0;
 
-	dbg_sel_value[0] = (0xC << 12); //pqdip
-	dbg_sel_value[1] = (0xD << 12); //DIP
-	dbg_sel_value[2] = (0xE << 12); //TRAW
+	dbg_sel_value = (0xC << 12);  /* DL */
 
 	//line & pix cnt
-	writel((dbg_sel_value[0] | (0x1 << 8)), (omcRegBA + OMC_REG_DBG_SET));
-	sel_value[0] = (unsigned int)ioread32((void *)(omcRegBA + OMC_REG_DBG_SET));
-	debug_value[0] = (unsigned int)ioread32((void *)(omcRegBA + OMC_REG_DBG_PORT));
+	writel((dbg_sel_value | (0x1 << 8)), (omcRegBA + OMC_REG_DBG_SET));
+	sel_value = (unsigned int)ioread32((void *)(omcRegBA + OMC_REG_DBG_SET));
+	debug_value = (unsigned int)ioread32((void *)(omcRegBA + OMC_REG_DBG_PORT));
 
-	writel((dbg_sel_value[1] | (0x1 << 8)), (omcRegBA + OMC_REG_DBG_SET));
-	sel_value[1] = (unsigned int)ioread32((void *)(omcRegBA + OMC_REG_DBG_SET));
-	debug_value[1] = (unsigned int)ioread32((void *)(omcRegBA + OMC_REG_DBG_PORT));
-
-	writel((dbg_sel_value[2] | (0x1 << 8)), (omcRegBA + OMC_REG_DBG_SET));
-	sel_value[2] = (unsigned int)ioread32((void *)(omcRegBA + OMC_REG_DBG_SET));
-	debug_value[2] = (unsigned int)ioread32((void *)(omcRegBA + OMC_REG_DBG_PORT));
-
-	pr_info("%s:[0x%x]dbg_sel,[0x%x](31:16)LnCnt(15:0)PixCnt:PQDIP[0x%x]0x%x,DIP[0x%x]0x%x,TRAW[0x%x]0x%x",
+	pr_info("%s:[0x%x]dbg_sel,[0x%x](31:16)LnCnt(15:0)PixCnt:DL[0x%x]0x%x",
 	  __func__, OMC_REG_DBG_SET, OMC_REG_DBG_PORT,
-	  sel_value[0], debug_value[0], sel_value[1], debug_value[1],
-	  sel_value[2], debug_value[2]);
+	  sel_value, debug_value);
 
 	//req/rdy status (output)
-	writel((dbg_sel_value[0] | (0x0 << 8)), (omcRegBA + OMC_REG_DBG_SET));
-	sel_value[0] = (unsigned int)ioread32((void *)(omcRegBA + OMC_REG_DBG_SET));
-	debug_value[0] = (unsigned int)ioread32((void *)(omcRegBA + OMC_REG_DBG_PORT));
+	writel((dbg_sel_value | (0x0 << 8)), (omcRegBA + OMC_REG_DBG_SET));
+	sel_value = (unsigned int)ioread32((void *)(omcRegBA + OMC_REG_DBG_SET));
+	debug_value = (unsigned int)ioread32((void *)(omcRegBA + OMC_REG_DBG_PORT));
 
-	writel((dbg_sel_value[1] | (0x0 << 8)), (omcRegBA + OMC_REG_DBG_SET));
-	sel_value[1] = (unsigned int)ioread32((void *)(omcRegBA + OMC_REG_DBG_SET));
-	debug_value[1] = (unsigned int)ioread32((void *)(omcRegBA + OMC_REG_DBG_PORT));
-
-	writel((dbg_sel_value[2] | (0x0 << 8)), (omcRegBA + OMC_REG_DBG_SET));
-	sel_value[2] = (unsigned int)ioread32((void *)(omcRegBA + OMC_REG_DBG_SET));
-	debug_value[2] = (unsigned int)ioread32((void *)(omcRegBA + OMC_REG_DBG_PORT));
-
-	pr_info("%s:[0x%x]dbg_sel,[0x%x]val/REQ/RDY:PQDIP[0x%x]0x%x/%d/%d,DIP[0x%x]0x%x/%d/%d,TRAW[0x%x]0x%x/%d/%d",
+	pr_info("%s:[0x%x]dbg_sel,[0x%x]val/REQ/RDY:DL[0x%x]0x%x/%d/%d",
 	  __func__, OMC_REG_DBG_SET, OMC_REG_DBG_PORT,
-	  sel_value[0], debug_value[0],
-	   ((debug_value[0] >> 24) & 0x1), ((debug_value[0] >> 23) & 0x1),
-	  sel_value[1], debug_value[1],
-	   ((debug_value[1] >> 24) & 0x1), ((debug_value[1] >> 23) & 0x1),
-	  sel_value[2], debug_value[2],
-	   ((debug_value[2] >> 24) & 0x1), ((debug_value[2] >> 23) & 0x1));
+	  sel_value, debug_value,
+	   ((debug_value >> 24) & 0x1), ((debug_value >> 23) & 0x1));
 }
 
 void imgsys_omc_debug_module_dump(struct mtk_imgsys_dev *imgsys_dev,
 							void __iomem *omcRegBA, unsigned int ofst)
 {
 	unsigned int i = 0;
-	unsigned int debug_value[4] = {0x0};
-	unsigned int sel_value[4] = {0x0};
+	unsigned int debug_value[16] = {0x0};
+	unsigned int sel_value[16] = {0x0};
 
-	//cache
+	/* debug data */
+	for (i = 0; i < 16; i++) {
+		writel((i<<12), (omcRegBA + OMC_REG_DEC_CTL1));
+		sel_value[i] = (unsigned int)ioread32((void *)(omcRegBA + OMC_REG_DBG_SET + ofst));
+		debug_value[i] = (unsigned int)ioread32((void *)(omcRegBA + OMC_REG_DBG_PORT));
+	}
+	pr_info("%s:[0x%x]dbg_sel,[0x%x]dbg_port, debug data[0x%x]0x%x, [0x%x]0x%x, [0x%x]0x%x, [0x%x]0x%x, [0x%x]0x%x, [0x%x]0x%x, [0x%x]0x%x, [0x%x]0x%x, [0x%x]0x%x, [0x%x]0x%x, [0x%x]0x%x, [0x%x]0x%x, [0x%x]0x%x, [0x%x]0x%x, [0x%x]0x%x, [0x%x]0x%x",
+		__func__, (OMC_REG_DBG_SET + ofst), (OMC_REG_DBG_PORT + ofst),
+		sel_value[0], debug_value[0], sel_value[1], debug_value[1],
+		sel_value[2], debug_value[2], sel_value[3], debug_value[3],
+		sel_value[4], debug_value[4], sel_value[5], debug_value[5],
+		sel_value[6], debug_value[6], sel_value[7], debug_value[7],
+		sel_value[8], debug_value[8], sel_value[9], debug_value[9],
+		sel_value[10], debug_value[10], sel_value[11], debug_value[11],
+		sel_value[12], debug_value[12], sel_value[13], debug_value[13],
+		sel_value[14], debug_value[14], sel_value[15], debug_value[15]);
+
+	/* cache: [b'0] = 0 ~ 3 */
 for (i = 0; i <= 3; i += 2) {
 	writel(((0x2<<12) | (0x0<<8) | (i<<0)), (omcRegBA + OMC_REG_DBG_SET + ofst));
 	sel_value[0] = (unsigned int)ioread32((void *)(omcRegBA + OMC_REG_DBG_SET + ofst));
@@ -585,6 +579,7 @@ for (i = 0; i <= 3; i += 2) {
 		sel_value[2], debug_value[2], sel_value[3], debug_value[3]);
 	}
 
+	/* cache: [b'0] = 0xc ~ 0xf */
 for (i = 0xc; i <= 0xf; i += 2) {
 	writel(((0x2<<12) | (0x0<<8) | (i<<0)), (omcRegBA + OMC_REG_DBG_SET + ofst));
 	sel_value[0] = (unsigned int)ioread32((void *)(omcRegBA + OMC_REG_DBG_SET + ofst));
@@ -652,6 +647,20 @@ for (i = 0x1d; i <= 0x20; i += 2) {
 		__func__, (OMC_REG_DBG_SET + ofst), (OMC_REG_DBG_PORT + ofst),
 		sel_value[0], debug_value[0], sel_value[1], debug_value[1],
 		sel_value[2], debug_value[2], sel_value[3], debug_value[3]);
+
+	/* core debug (0~8) */
+	for (i = 0; i < 9; i++) {
+		writel((0x5<<12) | (i<<8), (omcRegBA + OMC_REG_DEC_CTL1));
+		sel_value[i] = (unsigned int)ioread32((void *)(omcRegBA + OMC_REG_DBG_SET + ofst));
+		debug_value[i] = (unsigned int)ioread32((void *)(omcRegBA + OMC_REG_DBG_PORT));
+	}
+	pr_info("%s:[0x%x]dbg_sel,[0x%x]dbg_port, core[0x%x]0x%x, [0x%x]0x%x, [0x%x]0x%x, [0x%x]0x%x, [0x%x]0x%x, [0x%x]0x%x, [0x%x]0x%x, [0x%x]0x%x, [0x%x]0x%x",
+		__func__, (OMC_REG_DBG_SET + ofst), (OMC_REG_DBG_PORT + ofst),
+		sel_value[0], debug_value[0], sel_value[1], debug_value[1],
+		sel_value[2], debug_value[2], sel_value[3], debug_value[3],
+		sel_value[4], debug_value[4], sel_value[5], debug_value[5],
+		sel_value[6], debug_value[6], sel_value[7], debug_value[7],
+		sel_value[8], debug_value[8]);
 
 	//traw_chksum
 	writel(((0xe<<12) | (0x0<<8)), (omcRegBA + OMC_REG_DBG_SET + ofst));

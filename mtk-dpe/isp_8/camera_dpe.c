@@ -512,12 +512,15 @@ unsigned int DVGF_Num;
 //unsigned int Get_DVGF_IRQ;
 //unsigned int No_SMMU;
 //unsigned int DVGF_Frame_cnt;
-unsigned int DPE_debug_log_en;
 #define CMASYS_CLK_Debug 1
 #ifdef CMASYS_CLK_Debug
 // add Rang to dts
 // <0 0x3A000000 0 0x1000>,
 // <0 0x3A7A0000 0 0x1000>,
+
+static unsigned int DPE_debug_log_en;
+module_param(DPE_debug_log_en, uint, 0644);
+MODULE_PARM_DESC(DPE_debug_log_en, "dpe dumpreg enable");
 
 struct CAM_device {
 		void __iomem *regs;
@@ -8268,7 +8271,7 @@ static int vidioc_qbuf(struct file *file, void *priv, struct v4l2_buffer *p)
 	//cfgs[qq].Dpe_engineSelect);
 	//LOG_INF("[vidi qbuf] Dpe_RegDump = %d\n",
 	//cfgs[qq].Dpe_RegDump);
-	DPE_debug_log_en = cfgs[qq][0].Dpe_RegDump;
+	/* DPE_debug_log_en = cfgs[qq][0].Dpe_RegDump; */
 
 	//kreq.m_ReqNum = ureq[qq].m_ReqNum;
 	//mutex_lock(&gDpeMutex);	/* Protect the Multi Process */

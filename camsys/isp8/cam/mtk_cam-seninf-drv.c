@@ -4744,9 +4744,11 @@ int mtk_cam_seninf_aov_runtime_resume(unsigned int sensor_id,
 				seninf_logd(ctx,
 					"clk_prepare_enable clk[CLK_TOP_CAMTM:%u]:%s(success),ret(%d)\n",
 					CLK_TOP_CAMTM, clk_names[CLK_TOP_CAMTM], ret);
-				/* enable tsrec timer clk */
-				mtk_cam_seninf_tsrec_timer_enable(1);
 			}
+			/* enable tsrec timer clk */
+			mtk_cam_seninf_tsrec_timer_enable(1);
+			/* setup common reg */
+			core_common_reg_setup(ctx);
 		} else
 			dev_info(ctx->dev,
 				"[%s] multi user(%d),cnt(%d)\n",

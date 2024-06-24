@@ -1250,9 +1250,6 @@ static int dynamic_raw_change_stream_on(struct mtk_cam_job *job, int unit_engs)
 						check_master_raw_vf_en(raw_dev);
 				}
 			}
-			/* bc -> b case , ealier raise clk */
-			if (unit_engs)
-				mtk_cam_job_update_clk(job);
 		} else {
 			vsync_set_desired(&ctrl->vsync_col, job->master_engine);
 			call_jobop(job, stream_on, true);
@@ -1300,6 +1297,8 @@ static void mtk_cam_ctrl_dynamic_raws_change_flow(struct mtk_cam_job *job)
 				 __func__, no);
 		goto SWITCH_FAILURE;
 	}
+
+	mtk_cam_job_update_clk_switching(job, 1);
 
 	if (dynamic_raw_change_stream_on(job, engine_uninit))
 		goto SWITCH_FAILURE;
@@ -1353,7 +1352,7 @@ static void mtk_cam_ctrl_dynamic_raws_change_flow(struct mtk_cam_job *job)
 		goto SWITCH_FAILURE;
 	}
 
-	mtk_cam_job_update_clk(job);
+	mtk_cam_job_update_clk_switching(job, 0);
 
 	if (is_stagger_dol(job))
 		qof_mtcmos_voter_handle(&ctx->cam->engines,
@@ -1432,10 +1431,11 @@ static void mtk_cam_ctrl_seamless_switch_flow(struct mtk_cam_job *job)
 		goto SWITCH_FAILURE;
 	}
 
+	mtk_cam_job_update_clk_switching(job, 1);
+
 	if (dynamic_raw_change_stream_on(job, engine_uninit))
 		goto SWITCH_FAILURE;
 
-	mtk_cam_job_update_clk_switching(job, 1);
 	call_job_seamless_ops(job, before_sensor);
 	dev_info(dev, "[%s] begin sensor mode switch seq 0x%x, %llu/%llu\n",
 		__func__, job->frame_seq_no,

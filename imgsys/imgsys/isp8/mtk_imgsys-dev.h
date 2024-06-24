@@ -224,6 +224,7 @@ struct mtk_imgsys_pipe {
 	unsigned long long nodes_streaming;
 	unsigned long long nodes_enabled;
 	int streaming;
+	int is_snd_alive; /* flag to store single_node_device's life cycle */
 	struct media_pad *subdev_pads;
 	struct media_pipeline pipeline;
 	struct v4l2_subdev subdev;

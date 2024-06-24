@@ -3079,6 +3079,7 @@ int mtk_imgsys_pipe_v4l2_register(struct mtk_imgsys_pipe *pipe,
 	}
 
 	pipe->streaming = 0;
+	pipe->is_snd_alive = 0;
 
 	/* Initialize subdev media entity */
 	pipe->subdev_pads = devm_kcalloc(pipe->imgsys_dev->dev,

@@ -68,6 +68,7 @@ int mtk_cam_dmabuf_get_iova(struct mtk_cam_ctx *ctx,
 	struct mtk_cam_device *cam = ctx->cam;
 	struct dma_buf_attachment *attach;
 	struct sg_table *table;
+#if IS_ENABLED(CONFIG_MTK_TRUSTED_MEMORY_SUBSYSTEM)
 	uint64_t handle;
 
 	handle = dmabuf_to_secure_handle(dmap->dbuf);
@@ -77,7 +78,7 @@ int mtk_cam_dmabuf_get_iova(struct mtk_cam_ctx *ctx,
 		dev_info(cam->dev, "get hsf handle failed\n");
 		return -1;
 	}
-
+#endif
 	attach = dma_buf_attach(dmap->dbuf, dev);
 	dev_info(cam->dev, "get dbuf dma_buf_attach done(%s)\n",
 		smmu_v3_enabled() ? "SMMU" : "IOMMU");
@@ -94,8 +95,9 @@ int mtk_cam_dmabuf_get_iova(struct mtk_cam_ctx *ctx,
 		dma_buf_detach(dmap->dbuf, attach);
 		return -1;
 	}
-
+#if IS_ENABLED(CONFIG_MTK_TRUSTED_MEMORY_SUBSYSTEM)
 	dmap->hsf_handle = handle;
+#endif
 	dmap->attach = attach;
 	dmap->table = table;
 	dmap->dma_addr = sg_dma_address(table->sgl);
@@ -106,6 +108,7 @@ int mtk_cam_dmabuf_get_iova(struct mtk_cam_ctx *ctx,
 uint64_t mtk_cam_dmabuf_get_pa(struct mtk_cam_ctx *ctx,
 			       struct mtk_cam_dma_map *dmap)
 {
+#if IS_ENABLED(CONFIG_MTK_TRUSTED_MEMORY_SUBSYSTEM)
 	struct mtk_cam_device *cam = ctx->cam;
 	uint64_t handle;
 	uint64_t pa = 0;
@@ -122,8 +125,10 @@ uint64_t mtk_cam_dmabuf_get_pa(struct mtk_cam_ctx *ctx,
 		dev_info(cam->dev, "get pa failed\n");
 		return 0;
 	}
-
 	return pa;
+#else
+	return 0;
+#endif
 }
 
 void mtk_cam_dmabuf_free_iova(struct mtk_cam_ctx *ctx, struct mtk_cam_dma_map *dmap)

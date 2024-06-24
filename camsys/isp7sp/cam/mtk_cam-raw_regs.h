@@ -7483,15 +7483,18 @@ static inline u32 _set_field(u32 *val, int pos, int width, u32 fval)
 /* camsv_a/b */
 #define HALT1_EN		0x6
 #define HALT2_EN		0x6
+/* mraw/pda */
+#define HALT3_EN		0xC0A
+#define HALT4_EN		0xC0A
 /* raw_a/yuv_a */
-#define HALT5_EN		0xF860
-#define HALT6_EN		0x6F
+#define HALT5_EN		0x2860
+#define HALT6_EN		0x3
 /* raw_b/yuv_b */
-#define HALT7_EN		0xF860
-#define HALT8_EN		0x6F
+#define HALT7_EN		0x2860
+#define HALT8_EN		0x3
 /* raw_c/yuv_c */
-#define HALT9_EN		0xF860
-#define HALT10_EN		0x6F
+#define HALT9_EN		0x2860
+#define HALT10_EN		0x3
 /* camsv_c/d/e/f */
 #define HALT13_EN		0xF0
 

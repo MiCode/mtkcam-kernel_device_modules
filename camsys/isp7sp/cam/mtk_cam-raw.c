@@ -102,9 +102,10 @@ static void init_camsys_settings(struct mtk_raw_device *dev, bool is_srt, bool i
 	set_fifo_threshold(dev->base + REG_CQI_R3_BASE, 64);
 	set_fifo_threshold(dev->base + REG_CQI_R4_BASE, 64);
 
-	// TODO: move HALT1,2,13 to camsv
 	writel_relaxed(HALT1_EN, cam_dev->base + REG_HALT1_EN);
 	writel_relaxed(HALT2_EN, cam_dev->base + REG_HALT2_EN);
+	writel_relaxed(HALT3_EN, cam_dev->base + REG_HALT3_EN);
+	writel_relaxed(HALT4_EN, cam_dev->base + REG_HALT4_EN);
 	writel_relaxed(HALT13_EN, cam_dev->base + REG_HALT13_EN);
 
 	//Disable low latency
@@ -166,7 +167,14 @@ static void init_camsys_settings(struct mtk_raw_device *dev, bool is_srt, bool i
 	}
 
 	wmb(); /* TBC */
-	dev_info(dev->dev, "%s: is srt:%d\n", __func__, is_srt);
+	dev_info(dev->dev, "%s: is srt:%d halt1~10,13:0x%x/0x%x/0x%x/0x%x/0x%x/0x%x/0x%x/0x%x/0x%x/0x%x/0x%x\n",
+		__func__, is_srt,
+		readl(cam_dev->base + REG_HALT1_EN), readl(cam_dev->base + REG_HALT2_EN),
+		readl(cam_dev->base + REG_HALT3_EN), readl(cam_dev->base + REG_HALT4_EN),
+		readl(cam_dev->base + REG_HALT5_EN), readl(cam_dev->base + REG_HALT6_EN),
+		readl(cam_dev->base + REG_HALT7_EN), readl(cam_dev->base + REG_HALT8_EN),
+		readl(cam_dev->base + REG_HALT9_EN), readl(cam_dev->base + REG_HALT10_EN),
+		readl(cam_dev->base + REG_HALT13_EN));
 }
 
 static void init_ADLWR_settings(struct mtk_cam_device *cam)

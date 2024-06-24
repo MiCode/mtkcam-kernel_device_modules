@@ -9048,6 +9048,9 @@ static u16 imx989_custom24_setting[] = {
 	0x0855, 0x29,
 	0x0858, 0x00,
 	0x0859, 0x1F,
+	/* Workaround - stream on 2 times */
+	0x0100, 0x01,
+	0x0100, 0x00,
 };
 static u16 imx989_custom25_setting[] = {
 /* reg_U_RAW: DCGHDR_RAW_RATIO4_4K_4096_3072_30FPS_PD */

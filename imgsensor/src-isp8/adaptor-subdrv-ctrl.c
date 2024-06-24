@@ -22,6 +22,7 @@
 #include "adaptor-subdrv-ctrl.h"
 #include "adaptor-i2c.h"
 #include "adaptor-ctrls.h"
+#include "adaptor-util.h"
 
 static const char * const clk_names[] = {
 	ADAPTOR_CLK_NAMES
@@ -1344,6 +1345,11 @@ void set_long_exposure(struct subdrv_ctx *ctx)
 	u16 l_shift = 0;
 
 	if (shutter > (ctx->s_ctx.frame_length_max - ctx->s_ctx.exposure_margin)) {
+		if (ctx->mcss_init_info.enable_mcss) {
+			DRV_LOGE(ctx, " MCSS no support of exposure lshift!\n");
+			WRAP_AEE_EXCEPTION("[AEE] MCSS no support of exposure lshift!", "Err");
+			return;
+		}
 		if (ctx->s_ctx.long_exposure_support == FALSE) {
 			DRV_LOGE(ctx, "sensor no support of exposure lshift!\n");
 			return;

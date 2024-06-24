@@ -8,6 +8,7 @@
 #include "custom_hw_sync.h"
 #include "frame_sync_log.h"
 #include "frame_sync_util.h"
+#include "frame_sync_aee.h"
 
 #define PFX "CustomHwSync"
 
@@ -194,7 +195,7 @@ int mcss_global_fl_calculator(
 		LOG_MUST(
 				"!!! ASSERT IT !!! touch frame_length_max(%u > %u)\n",
 					max_frame_time, min_boundary);
-
+		FS_WRAP_AEE_EXCEPTION("[AEE] MCSS exposure make FL touch boundary", "Err");
 		return 22; // EINVAL
 	}
 

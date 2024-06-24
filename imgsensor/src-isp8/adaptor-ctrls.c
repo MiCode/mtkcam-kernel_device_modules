@@ -1397,7 +1397,6 @@ static int imgsensor_set_ctrl(struct v4l2_ctrl *ctrl)
 			"[%s] V4L2_CID_MTK_MCSS_INIT enable_mcss = %u, is_mcss_master = %u\n",
 				__func__, ctx->subctx.mcss_init_info.enable_mcss,
 						ctx->subctx.mcss_init_info.is_mcss_master);
-			notify_fsync_mgr_set_sync(ctx, 1);
 		}
 		break;
 	case V4L2_CID_FSYNC_HW_MCSS_MASKFRAME:

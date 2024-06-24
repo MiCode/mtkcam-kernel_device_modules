@@ -275,7 +275,7 @@ static void fs_dump_status(const int idx, const int flag, const char *caller,
 	/* has sensor in HW sync mode ==> add more info */
 	if (FS_POPCOUNT(FS_ATOMIC_READ(&fs_mgr.hw_sync_bits))) {
 		FS_SNPRF(log_str_len, log_buf, len,
-			", hw_sync:%#x(%#x)(%#x/%#x/%#x/%#x/%#x/%#x), trigger:%#x, pf_ctrl:%#x(%#x), complete:%#x(%#x)(hw:%#x/%#x/%#x/%#x/%#x/%#x), act(%u/%u/%u/%u/%u/%u)",
+			", hw_sync:%#x(%#x)(%#x/%#x/%#x/%#x/%#x/%#x/%#x), trigger:%#x, pf_ctrl:%#x(%#x), complete:%#x(%#x)(hw:%#x/%#x/%#x/%#x/%#x/%#x/%#x), act(%u/%u/%u/%u/%u/%u/%u)",
 			FS_ATOMIC_READ(&fs_mgr.hw_sync_bits),
 			FS_ATOMIC_READ(&fs_mgr.hw_sync_non_valid_group_bits),
 			FS_ATOMIC_READ(&fs_mgr.hw_sync_group_bits[FS_HW_SYNC_GROUP_ID_0]),
@@ -284,6 +284,7 @@ static void fs_dump_status(const int idx, const int flag, const char *caller,
 			FS_ATOMIC_READ(&fs_mgr.hw_sync_group_bits[FS_HW_SYNC_GROUP_ID_3]),
 			FS_ATOMIC_READ(&fs_mgr.hw_sync_group_bits[FS_HW_SYNC_GROUP_ID_4]),
 			FS_ATOMIC_READ(&fs_mgr.hw_sync_group_bits[FS_HW_SYNC_GROUP_ID_5]),
+			FS_ATOMIC_READ(&fs_mgr.hw_sync_group_bits[FS_HW_SYNC_GROUP_ID_MCSS]),
 			fs_mgr.trigger_ctrl_bits,
 			FS_ATOMIC_READ(&fs_mgr.pf_ctrl_bits),
 			fs_mgr.last_pf_ctrl_bits,
@@ -295,12 +296,14 @@ static void fs_dump_status(const int idx, const int flag, const char *caller,
 			FS_ATOMIC_READ(&fs_mgr.setup_complete_hw_group_bits[FS_HW_SYNC_GROUP_ID_3]),
 			FS_ATOMIC_READ(&fs_mgr.setup_complete_hw_group_bits[FS_HW_SYNC_GROUP_ID_4]),
 			FS_ATOMIC_READ(&fs_mgr.setup_complete_hw_group_bits[FS_HW_SYNC_GROUP_ID_5]),
+			FS_ATOMIC_READ(&fs_mgr.setup_complete_hw_group_bits[FS_HW_SYNC_GROUP_ID_MCSS]),
 			fs_mgr.act_cnt[FS_HW_SYNC_GROUP_ID_0],
 			fs_mgr.act_cnt[FS_HW_SYNC_GROUP_ID_1],
 			fs_mgr.act_cnt[FS_HW_SYNC_GROUP_ID_2],
 			fs_mgr.act_cnt[FS_HW_SYNC_GROUP_ID_3],
 			fs_mgr.act_cnt[FS_HW_SYNC_GROUP_ID_4],
-			fs_mgr.act_cnt[FS_HW_SYNC_GROUP_ID_5]);
+			fs_mgr.act_cnt[FS_HW_SYNC_GROUP_ID_5],
+			fs_mgr.act_cnt[FS_HW_SYNC_GROUP_ID_MCSS]);
 	}
 
 	FS_SNPRF(log_str_len, log_buf, len,
@@ -1175,7 +1178,7 @@ static void fs_set_hw_sync_info(const unsigned int idx, const unsigned int flag,
 
 
 	LOG_MUST(
-		"[%u] ID:%#x(sidx:%u) en:%u, hw_sync(mode:%u(N:0/M:1/S:2), group_id:%u) [hw_sync(bits:%u, group_bits(%d/%d/%d/%d/%d/%d), setup_complete(%d/%d/%d/%d/%d/%d), act_cnt(%u/%u/%u/%u/%u/%u)), non_valid_group_bits:%d]\n",
+		"[%u] ID:%#x(sidx:%u) en:%u, hw_sync(mode:%u(N:0/M:1/S:2), group_id:%u) [hw_sync(bits:%u, group_bits(%d/%d/%d/%d/%d/%d/%d), setup_complete(%d/%d/%d/%d/%d/%d/%d), act_cnt(%u/%u/%u/%u/%u/%u/%u)), non_valid_group_bits:%d]\n",
 		idx,
 		fs_get_reg_sensor_id(idx),
 		fs_get_reg_sensor_idx(idx),
@@ -1196,6 +1199,8 @@ static void fs_set_hw_sync_info(const unsigned int idx, const unsigned int flag,
 		FS_READ_BITS(
 			&fs_mgr.hw_sync_group_bits[FS_HW_SYNC_GROUP_ID_5]),
 		FS_READ_BITS(
+			&fs_mgr.hw_sync_group_bits[FS_HW_SYNC_GROUP_ID_MCSS]),
+		FS_READ_BITS(
 			&fs_mgr.setup_complete_hw_group_bits[
 				FS_HW_SYNC_GROUP_ID_0]),
 		FS_READ_BITS(
@@ -1213,12 +1218,16 @@ static void fs_set_hw_sync_info(const unsigned int idx, const unsigned int flag,
 		FS_READ_BITS(
 			&fs_mgr.setup_complete_hw_group_bits[
 				FS_HW_SYNC_GROUP_ID_5]),
+		FS_READ_BITS(
+			&fs_mgr.setup_complete_hw_group_bits[
+				FS_HW_SYNC_GROUP_ID_MCSS]),
 		fs_mgr.act_cnt[FS_HW_SYNC_GROUP_ID_0],
 		fs_mgr.act_cnt[FS_HW_SYNC_GROUP_ID_1],
 		fs_mgr.act_cnt[FS_HW_SYNC_GROUP_ID_2],
 		fs_mgr.act_cnt[FS_HW_SYNC_GROUP_ID_3],
 		fs_mgr.act_cnt[FS_HW_SYNC_GROUP_ID_4],
 		fs_mgr.act_cnt[FS_HW_SYNC_GROUP_ID_5],
+		fs_mgr.act_cnt[FS_HW_SYNC_GROUP_ID_MCSS],
 		FS_READ_BITS(&fs_mgr.hw_sync_non_valid_group_bits));
 }
 #endif // SUPPORT_FS_NEW_METHOD
@@ -2666,7 +2675,7 @@ static void fs_notify_sensor_ctrl_setup_complete(unsigned int idx)
 
 #if !defined(REDUCE_FS_DRV_LOG)
 	LOG_INF(
-		"[%u] ID:%#x(sidx:%u), hw_sync(bits:%d, group_id:%u)  [setup_complete(%d, hw_group(%d/%d/%d/%d/%d/%d))]\n",
+		"[%u] ID:%#x(sidx:%u), hw_sync(bits:%d, group_id:%u)  [setup_complete(%d, hw_group(%d/%d/%d/%d/%d/%d/%d))]\n",
 		idx,
 		fs_get_reg_sensor_id(idx),
 		fs_get_reg_sensor_idx(idx),
@@ -2690,7 +2699,10 @@ static void fs_notify_sensor_ctrl_setup_complete(unsigned int idx)
 				FS_HW_SYNC_GROUP_ID_4]),
 		FS_READ_BITS(
 			&fs_mgr.setup_complete_hw_group_bits[
-				FS_HW_SYNC_GROUP_ID_5]));
+				FS_HW_SYNC_GROUP_ID_5]),
+		FS_READ_BITS(
+			&fs_mgr.setup_complete_hw_group_bits[
+				FS_HW_SYNC_GROUP_ID_MCSS]));
 #endif
 
 
@@ -2900,7 +2912,7 @@ int fs_try_trigger_hw_frame_sync(void)
 			/* do NOT expect */
 			if ((pf_ctrl_bits == 0) && (seamless_bits == 0)){
 				LOG_MUST(
-					"WARNING: try trigger, but validSync:%d, pf_ctrl:%d, setup_complete:%d(%d/%d/%d/%d/%d/%d), abort\n",
+					"WARNING: try trigger, but validSync:%d, pf_ctrl:%d, setup_complete:%d(%d/%d/%d/%d/%d/%d/%d), abort\n",
 					FS_READ_BITS(&fs_mgr.validSync_bits),
 					FS_READ_BITS(&fs_mgr.pf_ctrl_bits),
 					FS_READ_BITS(
@@ -2922,7 +2934,10 @@ int fs_try_trigger_hw_frame_sync(void)
 							FS_HW_SYNC_GROUP_ID_4]),
 					FS_READ_BITS(
 						&fs_mgr.setup_complete_hw_group_bits[
-							FS_HW_SYNC_GROUP_ID_5]));
+							FS_HW_SYNC_GROUP_ID_5]),
+					FS_READ_BITS(
+						&fs_mgr.setup_complete_hw_group_bits[
+							FS_HW_SYNC_GROUP_ID_MCSS]));
 
 				ret = 1;
 				break;
@@ -2945,7 +2960,7 @@ int fs_try_trigger_hw_frame_sync(void)
 				& FS_READ_BITS(&fs_mgr.validSync_bits))) {
 
 				LOG_PF_INF(
-					"Trigger group id:%u, cnt:%u, valid_sync:%d, trigger_ctrl:%u/%u, pf_ctrl:%d, setup_complete:%d(%d/%d/%d/%d/%d/%d)\n",
+					"Trigger group id:%u, cnt:%u, valid_sync:%d, trigger_ctrl:%u/%u, pf_ctrl:%d, setup_complete:%d(%d/%d/%d/%d/%d/%d/%d)\n",
 					i,
 					fs_mgr.act_cnt[i] + 1,
 					FS_READ_BITS(&fs_mgr.validSync_bits),
@@ -2971,7 +2986,10 @@ int fs_try_trigger_hw_frame_sync(void)
 							FS_HW_SYNC_GROUP_ID_4]),
 					FS_READ_BITS(
 						&fs_mgr.setup_complete_hw_group_bits[
-							FS_HW_SYNC_GROUP_ID_5]));
+							FS_HW_SYNC_GROUP_ID_5]),
+					FS_READ_BITS(
+						&fs_mgr.setup_complete_hw_group_bits[
+							FS_HW_SYNC_GROUP_ID_MCSS]));
 
 				/* pick up sensor information */
 				for (j = 0; j < SENSOR_MAX_NUM; ++j) {

@@ -10,6 +10,7 @@
 /* INSTEAD of using stdio.h, you have to use the following include */
 #include <linux/slab.h>     /* Needed by memory allocate */
 #include <linux/string.h>
+#include <linux/spinlock.h>
 #endif // FS_UT
 
 #include "frame_sync.h"
@@ -21,12 +22,16 @@
 
 #if !defined(FS_UT)
 #include "kd_imgsensor_define_v4l2.h"
-#endif // FS_UT
+#endif
 
 #define PFX "HwSensorSyncAlgo"
 
 #undef EN_DBG_LOG
 
+
+#ifndef FS_UT
+static DEFINE_SPINLOCK(fs_hw_sync_sensor_info_lock);
+#endif
 
 /* copy from frame_sync_algo.c */
 #define FLK_TABLE_CNT 4
@@ -136,11 +141,12 @@ struct HwSyncSensorInfo {
 };
 
 static struct HwSyncSensorInfo sensor_infos[SENSOR_MAX_NUM];
-//----------------------------------------------------------------------------
-//	This func. ref to
-//	static unsigned int frec_calc_valid_min_fl_lc_for_shutters()
-//	in sensor_recorder.c
-//----------------------------------------------------------------------------
+/*----------------------------------------------------------------------------
+ *	This func. ref to
+ *	static unsigned int frec_calc_valid_min_fl_lc_for_shutters()
+ *	in sensor_recorder.c
+ *----------------------------------------------------------------------------
+ */
 static unsigned int hw_sync_chk_stg_fl_rule_1(
 	const struct fs_hdr_exp_st *curr_hdr_exp,
 	const struct fs_hdr_exp_st *prev_hdr_exp)
@@ -544,6 +550,7 @@ hw_fs_alg_solve_frame_length(
 
 	log_buf[0] = '\0';
 
+	fs_spin_lock(&fs_hw_sync_sensor_info_lock);
 	/* Handle by hw sensor sync */
 	for (i = 0; i < len; ++i) {
 		idx = solveIdxs[i];
@@ -591,6 +598,7 @@ hw_fs_alg_solve_frame_length(
 
 		para[i].magic_num = sensor_infos[idx].magic_num;
 	}
+	fs_spin_unlock(&fs_hw_sync_sensor_info_lock);
 
 	if (sensor_infos[idx].hw_sync_method == 1) {
 		/* if ret == 1, update is no need */
@@ -600,6 +608,7 @@ hw_fs_alg_solve_frame_length(
 		custom_frame_time_calculator(para, len);
 	}
 
+	fs_spin_lock(&fs_hw_sync_sensor_info_lock);
 	/* copy results */
 	for (i = 0; i < len; ++i) {
 		idx = solveIdxs[i];
@@ -607,35 +616,37 @@ hw_fs_alg_solve_frame_length(
 		framelength_lc[i] = para[i].out_fl_lc;
 		sensor_infos[idx].out_fl_lc = para[i].out_fl_lc;
 		sensor_infos[idx].act_cnt++;
+	}
+	fs_spin_unlock(&fs_hw_sync_sensor_info_lock);
 
+	for (i = 0; i < len; ++i) {
+		idx = solveIdxs[i];
 		ret = snprintf(log_buf + strlen(log_buf),
-			LOG_BUF_STR_LEN - strlen(log_buf),
-			"s_idx:%u(#%u(act:%u:%u), out_fl:%u(%u), hw_sync(%u(N:0/M:1/S:2), groupID:%u), (%u/%u/%u(%u), %u), flk_en:%u, s_type:%u); ",
-			para[i].sensor_idx,
-			para[i].magic_num,
-			para[i].sync_group_id,
-			sensor_infos[idx].act_cnt,
-			convert2TotalTime(
+				LOG_BUF_STR_LEN - strlen(log_buf),
+				"s_idx:%u(#%u(act:%u:%u), out_fl:%u(%u), hw_sync(%u(N:0/M:1/S:2), groupID:%u), (%u/%u/%u(%u), %u), flk_en:%u, s_type:%u); ",
+				para[i].sensor_idx,
+				para[i].magic_num,
+				para[i].sync_group_id,
+				sensor_infos[idx].act_cnt,
+				convert2TotalTime(
+					para[i].line_time_in_ns,
+					para[i].out_fl_lc),
+				para[i].out_fl_lc,
+				para[i].sync_mode,
+				para[i].sync_group_id,
+				para[i].shutter_lc,
+				para[i].sensor_margin_lc,
+				para[i].min_fl_lc,
+				convert2TotalTime(
+					para[i].line_time_in_ns,
+					para[i].min_fl_lc),
 				para[i].line_time_in_ns,
-				para[i].out_fl_lc),
-			para[i].out_fl_lc,
-			para[i].sync_mode,
-			para[i].sync_group_id,
-			para[i].shutter_lc,
-			para[i].sensor_margin_lc,
-			para[i].min_fl_lc,
-			convert2TotalTime(
-				para[i].line_time_in_ns,
-				para[i].min_fl_lc),
-			para[i].line_time_in_ns,
-			para[i].flicker_en,
-			para[i].sensor_type);
+				para[i].flicker_en,
+				para[i].sensor_type);
 
 		if (ret < 0)
 			LOG_MUST("ERROR: LOG encoding error, ret:%d\n", ret);
-
 	}
-
 // #ifdef EN_DBG_LOG
 	LOG_MUST("%s\n", log_buf);
 // #endif

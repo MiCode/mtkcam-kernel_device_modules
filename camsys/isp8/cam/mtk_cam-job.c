@@ -6505,15 +6505,13 @@ static int job_fetch_freq(struct mtk_cam_job *job,
 		unsigned int adj_freq;
 
 		adj_freq = mtk_cam_dvfs_query(&cam->dvfs, opp_idx);
-
 		if (adj_freq == 0)
 			adj_freq = 1;
 
-		if (CAM_DEBUG_ENABLED(JOB) && freq != adj_freq)
-			pr_info("%s: adjust by apu opp_index %d freq %u to %u\n",
-				__func__, opp_idx, freq, adj_freq);
+		freq = max(freq, adj_freq);
 
-		freq = adj_freq;
+		pr_info("%s: adjust by apu freq max(%u, %u)\n",
+				__func__, freq, adj_freq);
 	}
 
 	*freq_hz = freq;

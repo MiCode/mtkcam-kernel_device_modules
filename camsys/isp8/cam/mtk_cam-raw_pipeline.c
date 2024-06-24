@@ -111,7 +111,7 @@ static int res_calc_fill_sensor(struct mtk_cam_res_calc *c,
 		* interval_d / interval_n;
 #endif
 	c->line_time = interval / max(s->height + s->vblank, 1U);
-	c->raw_line_time = res_raw_is_dc_mode(r) ?
+	c->raw_line_time = (res_raw_is_dc_mode(r) || scen_is_m2m(&r->scen)) ?
 		interval / max(s->height + DC_MODE_VB_MARGIN, 1U) :
 		c->line_time;
 	c->width = s->width;

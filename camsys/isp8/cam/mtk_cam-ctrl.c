@@ -1273,7 +1273,7 @@ static void mtk_cam_ctrl_dynamic_raws_change_flow(struct mtk_cam_job *job)
 	int no = job->frame_seq_no;
 	int i;
 	int engine_uninit = job->raw_change_uninit_engine;
-	int raw_after_change = bit_map_subset_of(MAP_HW_RAW, ctx->used_engine);
+	int raw_after_change = bit_map_subset_of(MAP_HW_RAW, job->used_engine);
 	int raw_uninit = bit_map_subset_of(MAP_HW_RAW, job->raw_change_uninit_engine);
 
 	dev_info(dev, "[%s] begin waiting 1.dynamic raw changes no:%d seq 0x%x cq done\n",
@@ -1399,7 +1399,7 @@ static void mtk_cam_ctrl_seamless_switch_flow(struct mtk_cam_job *job)
 	int prev_seq;
 	int i;
 	int engine_uninit = job->raw_change_uninit_engine;
-	int raw_after_change = bit_map_subset_of(MAP_HW_RAW, ctx->used_engine);
+	int raw_after_change = bit_map_subset_of(MAP_HW_RAW, job->used_engine);
 	int raw_uninit = bit_map_subset_of(MAP_HW_RAW, job->raw_change_uninit_engine);
 	int raw_all = raw_after_change | raw_uninit;
 
@@ -1443,11 +1443,17 @@ static void mtk_cam_ctrl_seamless_switch_flow(struct mtk_cam_job *job)
 		ktime_get_boottime_ns() - ctrl->r_info.sof_l_ts_ns);
 	mtk_cam_job_manually_apply_sensor(job);
 
-	for (i = 0; i < ARRAY_SIZE(ctx->hw_raw) && ctx->hw_raw[i]; ++i) {
-		struct mtk_raw_device *raw = dev_get_drvdata(ctx->hw_raw[i]);
-		struct mtk_raw_ctrl_data *ctrl = get_raw_ctrl_data(job);
-		const struct mtk_cam_resource_v2 *res;
+	for (i = 0; i < cam->engines.num_raw_devices; ++i) {
+		struct mtk_raw_device *raw = NULL;
+		struct mtk_raw_ctrl_data *ctrl = NULL;
+		const struct mtk_cam_resource_v2 *res = NULL;
 		int exp, sv_last_tag;
+
+		if (!(BIT(i) & raw_after_change))
+			continue;
+
+		raw = dev_get_drvdata(cam->engines.raw_devs[i]);
+		ctrl = get_raw_ctrl_data(job);
 
 		res = &ctrl->resource.user_data;
 		exp = job_exp_num(job);
@@ -1521,9 +1527,13 @@ static void mtk_cam_ctrl_seamless_switch_flow(struct mtk_cam_job *job)
 
 	mtk_cam_job_update_clk_switching(job, 0);
 
-	for (i = 0; i < ARRAY_SIZE(ctx->hw_raw) && ctx->hw_raw[i]; ++i) {
-		struct mtk_raw_device *raw = dev_get_drvdata(ctx->hw_raw[i]);
+	for (i = 0; i < cam->engines.num_raw_devices; ++i) {
+		struct mtk_raw_device *raw = NULL;
 
+		if (!(BIT(i) & raw_after_change))
+			continue;
+
+		raw = dev_get_drvdata(cam->engines.raw_devs[i]);
 		qof_enable_cq_trigger_by_qof(raw, true);
 	}
 

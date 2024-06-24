@@ -64,14 +64,14 @@ int apply_cam_mux_switch(struct mtk_cam_job *job)
 		pr_info("%s: WARNING: scen is NOT normal", __func__);
 	}
 
-	if (ctx->hw_sv)
-		sv_dev = dev_get_drvdata(ctx->hw_sv);
-
-	if (sv_dev == NULL) {
-		pr_info("%s: ERR sv_dev is NULL\n", __func__);
+	if (raw_id >= 0) {
+		sv_dev = dev_get_drvdata(cam->engines.sv_devs[raw_id]);
+		CALL_PLAT_V4L2(
+			get_sv_max_pixel_mode, sv_dev->id, &max_pixel_mode);
+	} else {
+		pr_info("%s: WARNING: raw_id is NOT expected:%d", __func__, raw_id);
 		return 0;
 	}
-	CALL_PLAT_V4L2(get_sv_max_pixel_mode, sv_dev->id, &max_pixel_mode);
 
 	memset(settings, 0,
 		sizeof(struct mtk_cam_seninf_mux_setting) * ARRAY_SIZE(settings));

@@ -2076,9 +2076,9 @@ mtk_cam_seninf_streaming_mux_change(struct mtk_cam_seninf_mux_param *param, bool
 		_mtk_cam_seninf_reset_outmux(ctx, pad_id);
 
 		// log
-		num = snprintf(strptr, remind, "pad_id[%d] %d, ctx->camtg[%d] %d, ",
-			       i, param->settings[i].source,
-			       i, param->settings[i].camtg);
+		num = snprintf(strptr, remind, "(pad %d -> outmux %d), ",
+			       param->settings[i].source,
+			       param->settings[i].camtg);
 		if (num < 0) {
 			dev_info(ctx->dev, "snprintf retuns error ret = %d\n", num);
 			break;
@@ -2187,7 +2187,8 @@ SENINF_MUX_CHANGE_LOG_AND_EXIT:
 		 ktime_get_ns());
 
 	kfree(buf);
-
+	/* show mac chk status and clear it (is_clear = 1) */
+	g_seninf_ops->_show_mac_chk_status(ctx, 1);
 	return false;
 }
 

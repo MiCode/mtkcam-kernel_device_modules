@@ -5150,7 +5150,7 @@ static int imx989_seamless_switch(struct subdrv_ctx *ctx, u8 *para, u32 *len)
 			set_multi_gain_in_lut(ctx, (u32 *)&ae_ctrl->gain, exp_cnt);
 			break;
 		case HDR_RAW_DCG_RAW:
-			set_shutter(ctx, ae_ctrl->exposure.le_exposure);
+			set_multi_shutter_frame_length(ctx, (u64 *)&ae_ctrl->exposure, 1, 0);
 			if (ctx->s_ctx.mode[scenario_id].dcg_info.dcg_gain_mode
 				== IMGSENSOR_DCG_DIRECT_MODE)
 				set_multi_gain(ctx, (u32 *)&ae_ctrl->gain, exp_cnt);
@@ -5158,7 +5158,7 @@ static int imx989_seamless_switch(struct subdrv_ctx *ctx, u8 *para, u32 *len)
 				set_gain(ctx, ae_ctrl->gain.le_gain);
 			break;
 		default:
-			set_shutter(ctx, ae_ctrl->exposure.le_exposure);
+			set_multi_shutter_frame_length(ctx, (u64 *)&ae_ctrl->exposure, 1, 0);
 			set_gain(ctx, ae_ctrl->gain.le_gain);
 			break;
 		}

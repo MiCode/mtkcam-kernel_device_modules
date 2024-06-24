@@ -3629,7 +3629,7 @@ void common_get_prsh_length_lines_by_time(struct subdrv_ctx *ctx,
 			IMGSENSOR_LBMF_EXPOSURE_SE_FIRST) {
 			/* 2exp: dig_gain_lut_a = SE / dig_gain_lut_b = LE */
 			/* 3exp: dig_gain_lut_a = SE / dig_gain_lut_b = ME / dig_gain_lut_c = LE */
-			ae_ctrl_cit =ae_ctrl->exposure.se_exposure;
+			ae_ctrl_cit =ae_ctrl->exposure.me_exposure;
 		} else if (ctx->s_ctx.mode[ctx->current_scenario_id].exposure_order_in_lbmf ==
 			IMGSENSOR_LBMF_EXPOSURE_LE_FIRST) {
 			/* 2exp: dig_gain_lut_a = LE / dig_gain_lut_b = SE */
@@ -3653,7 +3653,6 @@ void common_get_prsh_length_lines_by_time(struct subdrv_ctx *ctx,
 		break;
 	}
 
-	ae_ctrl_cit = FINE_INTEG_CONVERT(ae_ctrl_cit, ctx->s_ctx.mode[scenario_id].fine_integ_line);
 	prsh_length_lc = prsh_time_us
 					* ctx->s_ctx.mode[scenario_id].pclk
 					/ ctx->s_ctx.mode[scenario_id].linelength

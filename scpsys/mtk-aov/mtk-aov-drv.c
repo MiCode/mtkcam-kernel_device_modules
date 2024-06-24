@@ -278,18 +278,22 @@ static long mtk_aov_ioctl(struct file *file, unsigned int cmd,
 		AOV_DEBUG_LOG(*(aov_dev->enable_aov_log_flag), "disp off resource test done, ret(%d)\n", ret);
 		break;
 	case AOV_DEV_TURN_ON_ULPOSC:
+		mutex_lock(&core_info->start_stop_mutex);
 		AOV_DEBUG_LOG(*(aov_dev->enable_aov_log_flag),
 			"turn on ulposc\n");
 		aov_ulposc_check_cali_result(aov_dev);
 		AOV_DEBUG_LOG(*(aov_dev->enable_aov_log_flag),
 			"turn on ulposc done, ret(%d)\n", ret);
+		mutex_unlock(&core_info->start_stop_mutex);
 		break;
 	case AOV_DEV_TURN_OFF_ULPOSC:
+		mutex_lock(&core_info->start_stop_mutex);
 		AOV_DEBUG_LOG(*(aov_dev->enable_aov_log_flag),
 			"turn off ulposc\n");
 		ret = aov_core_send_cmd(aov_dev, AOV_SCP_CMD_TURN_OFF_ULPOSC, NULL, 0, true);
 		AOV_DEBUG_LOG(*(aov_dev->enable_aov_log_flag),
 			"turn off ulposc done, ret(%d)\n", ret);
+		mutex_unlock(&core_info->start_stop_mutex);
 		break;
 	default:
 		dev_info(aov_dev->dev, "unknown AOV control code(%d)\n", cmd);

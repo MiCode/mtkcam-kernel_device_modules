@@ -953,7 +953,6 @@ static int scp_state_notify(struct notifier_block *this,
 
 	if (event == SCP_EVENT_STOP) {
 		mutex_lock(&core_info->start_stop_mutex);
-		mutex_lock(&core_info->sned_ipi_mutex);
 		(void)aov_aee_record(aov_dev, 0, SCP_STOP);
 		(void)aov_aee_flush(aov_dev);
 
@@ -978,7 +977,6 @@ static int scp_state_notify(struct notifier_block *this,
 			}
 		}
 	} else if (event == SCP_EVENT_READY) {
-		mutex_unlock(&core_info->sned_ipi_mutex);
 		session = atomic_fetch_add(1, &(core_info->scp_session)) + 1;
 
 		dev_info(aov_dev->dev, "%s: receive scp start event(%lu), session(%d)\n",
@@ -1041,7 +1039,6 @@ int aov_core_init(struct mtk_aov *aov_dev)
 	atomic_set(&(core_info->cmd_seq), 0);
 	atomic_set(&(core_info->qea_ready), 0);
 	mutex_init(&core_info->sned_ipi_mutex);
-	mutex_lock(&core_info->sned_ipi_mutex);
 	mutex_init(&core_info->start_stop_mutex);
 	mutex_lock(&core_info->start_stop_mutex);
 

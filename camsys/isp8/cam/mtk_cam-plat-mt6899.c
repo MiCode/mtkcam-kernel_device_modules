@@ -88,7 +88,6 @@ static int get_ltmsgo_offset(void *addr)
 	return stats->ltm_stats.ltmsgo_buf.offset;
 }
 
-
 static int set_meta_stat0_info(struct mtk_cam_uapi_meta_raw_stats_0 *stats,
 			       size_t size,
 			       const struct set_meta_stats_info_param *p)
@@ -726,6 +725,7 @@ static struct reg_to_dump raw_dma_list[] = {
 	ADD_DMA_ERR(DRZB2NBO_R1), ADD_DMA_ERR(DRZB2NCO_R1),
 	ADD_DMA_ERR(DRZB2NDO_R1),
 	ADD_DMA_ERR(GMPO_R1), ADD_DMA_ERR(GRMGO_R1),
+	ADD_DMA_ERR(STG_R1), ADD_DMA_ERR(STG_R2),
 };
 
 static int query_raw_dma_list(size_t *num, struct reg_to_dump **reg_list)
@@ -735,11 +735,11 @@ static int query_raw_dma_list(size_t *num, struct reg_to_dump **reg_list)
 	return 0;
 }
 
-/* FIXME: need revise address */
+/* NOTE: mt6899 supports frame mode only */
 static struct adl_cmdq_worker_param adl_worker_param = {
-	0x3a003380,
-	0x3a00032c,
-	0x4c260000,
+	0x1a003380,
+	0x1a00032c,
+	0xdeadbeef, /* placeholder and no-op since no DC mode */
 };
 
 static int query_adl_cmdq_worker_param(struct adl_cmdq_worker_param **param)

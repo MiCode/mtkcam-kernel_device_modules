@@ -279,7 +279,8 @@ static void *mtk_cam_vb2_attach_dmabuf(
 	if (!buf)
 		return ERR_PTR(-ENOMEM);
 	/* acp - io coherence buffer */
-	if ((mtk_buf->flags & FLAG_NO_CACHE_CLEAN ||
+	if (cam->smmu_dev_acp &&
+		(mtk_buf->flags & FLAG_NO_CACHE_CLEAN ||
 		mtk_buf->flags & FLAG_NO_CACHE_INVALIDATE) &&
 		(node->desc.dma_port == MTKCAM_IPI_RAW_META_STATS_CFG ||
 		node->desc.dma_port == MTKCAM_IPI_RAW_META_STATS_0 ||

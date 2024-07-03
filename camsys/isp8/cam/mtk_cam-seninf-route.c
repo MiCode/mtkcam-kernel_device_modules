@@ -2510,6 +2510,8 @@ int mtk_cam_seninf_s_aov_param(unsigned int sensor_id,
 		//g_aov_param.vc.dest[0].cam = 44;
 		g_aov_param.vc.dest[0].outmux = 13;
 		g_aov_param.vc.dest[0].pix_mode = 3;
+		g_aov_param.vc.dest[0].tag = 0;
+		g_aov_param.vc.dest[0].cam_type = TYPE_UISP;
 		g_aov_param.camtg = 13;
 	}
 

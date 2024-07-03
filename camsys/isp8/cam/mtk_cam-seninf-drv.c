@@ -4322,12 +4322,35 @@ int mtk_cam_seninf_get_pixelrate(struct v4l2_subdev *sd, s64 *p_pixel_rate)
 #define SOF_TIMEOUT_RATIO 110
 int mtk_cam_seninf_check_timeout(struct v4l2_subdev *sd, u64 time_after_sof)
 {
-	struct seninf_ctx *ctx = sd_to_ctx(sd);
+	struct seninf_ctx *ctx;
 	u64 frame_time = 400000;//400ms
 	int val = 0;
 	int ret = 0;
-	struct v4l2_subdev *sensor_sd = ctx->sensor_sd;
+	struct v4l2_subdev *sensor_sd;
 	struct v4l2_ctrl *ctrl;
+
+	if (!sd)
+		return -EINVAL;
+
+	ctx = sd_to_ctx(sd);
+	if (!ctx) {
+		dev_info(ctx->dev, "null seninf_ctx\n");
+		return -EINVAL;
+	}
+
+	if (ctx->is_test_model) {
+		if ((time_after_sof) > ((frame_time * SOF_TIMEOUT_RATIO) / 100))
+			ret = -1;
+		dev_info(ctx->dev, "temp: test_model time_after_sof %llu ret %d\n", time_after_sof, ret);
+		return ret;
+	}
+
+	sensor_sd = ctx->sensor_sd;
+
+	if (!sensor_sd) {
+		dev_info(ctx->dev, "no sensor_sd\n");
+		return -EINVAL;
+	}
 
 	ctrl = v4l2_ctrl_find(sensor_sd->ctrl_handler, V4L2_CID_MTK_SOF_TIMEOUT_VALUE);
 	if (!ctrl) {
@@ -4377,12 +4400,21 @@ u64 mtk_cam_seninf_get_frame_time(struct v4l2_subdev *sd, u32 seq_id)
 int mtk_cam_seninf_dump(struct v4l2_subdev *sd, u32 seq_id, bool force_check)
 {
 	int ret = 0;
-	struct seninf_ctx *ctx = sd_to_ctx(sd);
-	struct v4l2_subdev *sensor_sd = ctx->sensor_sd;
+	struct seninf_ctx *ctx;
+	struct v4l2_subdev *sensor_sd;
 	struct v4l2_ctrl *ctrl;
 	int val = 0;
 	int reset_by_user = 0;
 	bool in_reset = 0;
+
+	if (!sd)
+		return -EINVAL;
+
+	ctx = sd_to_ctx(sd);
+	if (!ctx) {
+		dev_info(ctx->dev, "null seninf_ctx\n");
+		return -EINVAL;
+	}
 
 	if (!force_check && ctx->dbg_last_dump_req != 0 &&
 		ctx->dbg_last_dump_req == seq_id) {
@@ -4390,15 +4422,29 @@ int mtk_cam_seninf_dump(struct v4l2_subdev *sd, u32 seq_id, bool force_check)
 		return 0;
 	}
 
-	ctx->dbg_last_dump_req = seq_id;
-	ctx->dbg_timeout = 0; //in us
+	sensor_sd = ctx->sensor_sd;
 
-	ctrl = v4l2_ctrl_find(sensor_sd->ctrl_handler, V4L2_CID_MTK_SOF_TIMEOUT_VALUE);
-	if (ctrl) {
-		val = v4l2_ctrl_g_ctrl(ctrl);
-		if (val > 0)
-			ctx->dbg_timeout = val;
+	if (ctx->is_test_model) {
+		ctx->dbg_timeout = 400000000;
+		dev_info(ctx->dev, "temp: test_model ctx->dbg_timeout %u\n", ctx->dbg_timeout);
+	} else {
+		if (!sensor_sd) {
+			dev_info(ctx->dev, "no sensor_sd\n");
+			return -EINVAL;
+		}
+
+		ctx->dbg_last_dump_req = seq_id;
+		ctx->dbg_timeout = 0;
+
+		ctrl = v4l2_ctrl_find(sensor_sd->ctrl_handler, V4L2_CID_MTK_SOF_TIMEOUT_VALUE);
+		if (ctrl) {
+			val = v4l2_ctrl_g_ctrl(ctrl);
+			if (val > 0)
+				ctx->dbg_timeout = val;
+		}
 	}
+
+
 	ret = pm_runtime_get_sync(ctx->dev);
 	if (ret < 0) {
 		dev_info(ctx->dev, "%s pm_runtime_get_sync ret %d\n", __func__, ret);
@@ -4409,14 +4455,14 @@ int mtk_cam_seninf_dump(struct v4l2_subdev *sd, u32 seq_id, bool force_check)
 	}
 
 	/* query if sensor in reset */
-	sensor_sd->ops->core->command(sensor_sd,
-			V4L2_CMD_SENSOR_IN_RESET, &in_reset);
+	if (!ctx->is_test_model)
+		sensor_sd->ops->core->command(sensor_sd, V4L2_CMD_SENSOR_IN_RESET, &in_reset);
 
 	if (ctx->streaming) {
 		if (!in_reset) {
 			ret = g_seninf_ops->_debug(sd_to_ctx(sd));
 #if ESD_RESET_SUPPORT
-			if (ret != 0) {
+			if (ret != 0 && !ctx->is_test_model) {
 				reset_by_user = is_reset_by_user(sd_to_ctx(sd));
 				if (!reset_by_user){
 					reset_sensor(sd_to_ctx(sd));

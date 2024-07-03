@@ -4773,6 +4773,7 @@ static int mtk_cam_vcore_runtime_resume(struct device *dev)
 
 	return 0;
 }
+
 static int mtk_cam_probe(struct platform_device *pdev)
 {
 	struct platform_device *vcore_pdev;
@@ -4787,6 +4788,10 @@ static int mtk_cam_probe(struct platform_device *pdev)
 	struct resource *res_base;
 	const struct camsys_platform_data *platform_data;
 	int irq;
+	int cam_vcore_base,
+	cam_main_rawa_base, cam_main_rawb_base, cam_main_rawc_base,
+	cam_main_rmsa_base, cam_main_rmsb_base, cam_main_rmsc_base,
+	cam_main_yuva_base, cam_main_yuvb_base, cam_main_yuvc_base;
 
 	//dev_info(dev, "%s\n", __func__);
 	platform_data = of_device_get_match_data(dev);
@@ -4799,6 +4804,18 @@ static int mtk_cam_probe(struct platform_device *pdev)
 	dev_info(dev, "platform = %s\n", platform_data->platform);
 
 	camsys_root_dev = dev;
+
+	/* initialize module base address */
+	CALL_PLAT_HW(query_module_base, CAM_VCORE, &cam_vcore_base);
+	CALL_PLAT_HW(query_module_base, CAM_MAIN_RAWA, &cam_main_rawa_base);
+	CALL_PLAT_HW(query_module_base, CAM_MAIN_RAWB, &cam_main_rawb_base);
+	CALL_PLAT_HW(query_module_base, CAM_MAIN_RAWC, &cam_main_rawc_base);
+	CALL_PLAT_HW(query_module_base, CAM_MAIN_RMSA, &cam_main_rmsa_base);
+	CALL_PLAT_HW(query_module_base, CAM_MAIN_RMSB, &cam_main_rmsb_base);
+	CALL_PLAT_HW(query_module_base, CAM_MAIN_RMSC, &cam_main_rmsc_base);
+	CALL_PLAT_HW(query_module_base, CAM_MAIN_YUVA, &cam_main_yuva_base);
+	CALL_PLAT_HW(query_module_base, CAM_MAIN_YUVB, &cam_main_yuvb_base);
+	CALL_PLAT_HW(query_module_base, CAM_MAIN_YUVC, &cam_main_yuvc_base);
 
 	/* initialize structure */
 	cam_dev = devm_kzalloc(dev, sizeof(*cam_dev), GFP_KERNEL);
@@ -4866,62 +4883,62 @@ static int mtk_cam_probe(struct platform_device *pdev)
 		dev_err(dev, "%s: failed to map qoftop_base\n", __func__);
 		cam_dev->qoftop_base = NULL;
 	}
-	cam_dev->vcore_ddren_en = ioremap(CAM_VCORE_BASE + CAM_VCORE_DDREN_EN, 0x4);
+	cam_dev->vcore_ddren_en = ioremap(cam_vcore_base + CAM_VCORE_DDREN_EN, 0x4);
 	if (IS_ERR(cam_dev->vcore_ddren_en)) {
 		dev_err(dev, "%s: failed to map vcore_ddren_en\n", __func__);
 		cam_dev->vcore_ddren_en = NULL;
 	}
-	cam_dev->vcore_ddren_ack = ioremap(CAM_VCORE_BASE + CAM_VCORE_DDREN_ACK, 0x4);
+	cam_dev->vcore_ddren_ack = ioremap(cam_vcore_base + CAM_VCORE_DDREN_ACK, 0x4);
 	if (IS_ERR(cam_dev->vcore_ddren_ack)) {
 		dev_err(dev, "%s: failed to map vcore_ddren_ack\n", __func__);
 		cam_dev->vcore_ddren_ack = NULL;
 	}
-	cam_dev->vcore_cg_con = ioremap(CAM_VCORE_BASE + CAM_VCORE_CG_CON, 0x4);
+	cam_dev->vcore_cg_con = ioremap(cam_vcore_base + CAM_VCORE_CG_CON, 0x4);
 	if (IS_ERR(cam_dev->vcore_cg_con)) {
 		dev_err(dev, "%s: failed to map vcore_cg_con\n", __func__);
 		cam_dev->vcore_cg_con = NULL;
 	}
-	cam_dev->rawa_cg_con = ioremap(CAM_MAIN_RAWA_BASE, 0xc);
+	cam_dev->rawa_cg_con = ioremap(cam_main_rawa_base, 0xc);
 	if (IS_ERR(cam_dev->rawa_cg_con)) {
 		dev_err(dev, "%s: failed to map rawa_cg_con\n", __func__);
 		cam_dev->rawa_cg_con = NULL;
 	}
-	cam_dev->rawb_cg_con = ioremap(CAM_MAIN_RAWB_BASE, 0xc);
+	cam_dev->rawb_cg_con = ioremap(cam_main_rawb_base, 0xc);
 	if (IS_ERR(cam_dev->rawb_cg_con)) {
 		dev_err(dev, "%s: failed to map rawb_cg_con\n", __func__);
 		cam_dev->rawb_cg_con = NULL;
 	}
-	cam_dev->rawc_cg_con = ioremap(CAM_MAIN_RAWC_BASE, 0xc);
+	cam_dev->rawc_cg_con = ioremap(cam_main_rawc_base, 0xc);
 	if (IS_ERR(cam_dev->rawc_cg_con)) {
 		dev_err(dev, "%s: failed to map rawc_cg_con\n", __func__);
 		cam_dev->rawc_cg_con = NULL;
 	}
-	cam_dev->rmsa_cg_con = ioremap(CAM_MAIN_RMSA_BASE, 0xc);
+	cam_dev->rmsa_cg_con = ioremap(cam_main_rmsa_base, 0xc);
 	if (IS_ERR(cam_dev->rmsa_cg_con)) {
 		dev_err(dev, "%s: failed to map rmsa_cg_con\n", __func__);
 		cam_dev->rmsa_cg_con = NULL;
 	}
-	cam_dev->rmsb_cg_con = ioremap(CAM_MAIN_RMSB_BASE, 0xc);
+	cam_dev->rmsb_cg_con = ioremap(cam_main_rmsb_base, 0xc);
 	if (IS_ERR(cam_dev->rmsb_cg_con)) {
 		dev_err(dev, "%s: failed to map rmsb_cg_con\n", __func__);
 		cam_dev->rmsb_cg_con = NULL;
 	}
-	cam_dev->rmsc_cg_con = ioremap(CAM_MAIN_RMSC_BASE, 0xc);
+	cam_dev->rmsc_cg_con = ioremap(cam_main_rmsc_base, 0xc);
 	if (IS_ERR(cam_dev->rmsc_cg_con)) {
 		dev_err(dev, "%s: failed to map rmsc_cg_con\n", __func__);
 		cam_dev->rmsc_cg_con = NULL;
 	}
-	cam_dev->yuva_cg_con = ioremap(CAM_MAIN_YUVA_BASE, 0xc);
+	cam_dev->yuva_cg_con = ioremap(cam_main_yuva_base, 0xc);
 	if (IS_ERR(cam_dev->yuva_cg_con)) {
 		dev_err(dev, "%s: failed to map yuva_cg_con\n", __func__);
 		cam_dev->yuva_cg_con = NULL;
 	}
-	cam_dev->yuvb_cg_con = ioremap(CAM_MAIN_YUVB_BASE, 0xc);
+	cam_dev->yuvb_cg_con = ioremap(cam_main_yuvb_base, 0xc);
 	if (IS_ERR(cam_dev->yuvb_cg_con)) {
 		dev_err(dev, "%s: failed to map yuvb_cg_con\n", __func__);
 		cam_dev->yuvb_cg_con = NULL;
 	}
-	cam_dev->yuvc_cg_con = ioremap(CAM_MAIN_YUVC_BASE, 0xc);
+	cam_dev->yuvc_cg_con = ioremap(cam_main_yuvc_base, 0xc);
 	if (IS_ERR(cam_dev->yuvc_cg_con)) {
 		dev_err(dev, "%s: failed to map yuvc_cg_con\n", __func__);
 		cam_dev->yuvc_cg_con = NULL;

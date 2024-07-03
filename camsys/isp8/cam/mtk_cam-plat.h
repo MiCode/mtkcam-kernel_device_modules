@@ -14,6 +14,19 @@
 #define MULTI_SMI_SV_HW_NUM 2
 #define DMA_GROUP_SIZE 5
 
+enum camsys_module_id {
+	CAM_VCORE = 0,
+	CAM_MAIN_RAWA,
+	CAM_MAIN_RAWB,
+	CAM_MAIN_RAWC,
+	CAM_MAIN_RMSA,
+	CAM_MAIN_RMSB,
+	CAM_MAIN_RMSC,
+	CAM_MAIN_YUVA,
+	CAM_MAIN_YUVB,
+	CAM_MAIN_YUVC
+};
+
 enum mraw_dmao_id {
 	imgo_m1 = 0,
 	imgbo_m1,
@@ -231,6 +244,8 @@ struct plat_data_hw {
 
 	int (*query_raw_dma_list)(size_t *num, struct reg_to_dump **reg_list);
 	int (*query_adl_cmdq_worker_param)(struct adl_cmdq_worker_param **param);
+
+	int (*query_module_base)(int module_id, int *module_base_addr);
 
 	bool dcif_slb_support;
 	bool bwr_support;

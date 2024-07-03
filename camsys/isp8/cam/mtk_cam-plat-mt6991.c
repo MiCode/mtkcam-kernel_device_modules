@@ -747,6 +747,25 @@ static int query_adl_cmdq_worker_param(struct adl_cmdq_worker_param **param)
 	return 0;
 }
 
+static int module_base[] = {
+	[CAM_VCORE]     = 0x3c805000,
+	[CAM_MAIN_RAWA] = 0x3a8c0000,
+	[CAM_MAIN_RAWB] = 0x3a9c0000,
+	[CAM_MAIN_RAWC] = 0x3aac0000,
+	[CAM_MAIN_RMSA] = 0x3a8d0000,
+	[CAM_MAIN_RMSB] = 0x3a9d0000,
+	[CAM_MAIN_RMSC] = 0x3aad0000,
+	[CAM_MAIN_YUVA] = 0x3a8e0000,
+	[CAM_MAIN_YUVB] = 0x3a9e0000,
+	[CAM_MAIN_YUVC] = 0x3cae0000,
+};
+
+static int query_module_base(int module_id, int *module_base_addr)
+{
+	*module_base_addr = module_base[module_id];
+	return 0;
+}
+
 static u8 vb2_queues_support_list[] = {
 	/* capture queues */
 	MTK_RAW_MAIN_STREAM_OUT,
@@ -821,6 +840,7 @@ static const struct plat_data_hw mt6991_hw_data = {
 	.query_icc_path_idx = query_icc_path_idx,
 	.query_raw_dma_list = query_raw_dma_list,
 	.query_adl_cmdq_worker_param = query_adl_cmdq_worker_param,
+	.query_module_base = query_module_base,
 	.dcif_slb_support = true,
 	.bwr_support = true,
 	.qof_support = true,

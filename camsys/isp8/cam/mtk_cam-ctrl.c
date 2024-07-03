@@ -1385,6 +1385,7 @@ SWITCH_FAILURE:
 	vsync_collector_dump(&ctrl->vsync_col);
 	mtk_cam_seninf_dump(ctx->seninf, job->frame_seq_no, true);
 	mtk_engine_dump_debug_status(ctx->cam, job->used_engine, false);
+	mtk_cam_job_uninit_engine(job, engine_uninit);
 	WRAP_AEE_EXCEPTION(MSG_RAW_CHANGE_FAILURE, __func__);
 }
 

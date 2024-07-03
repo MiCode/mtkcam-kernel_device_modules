@@ -2406,7 +2406,7 @@ static void trigger_error_dump(struct mtk_cam_job *job,
 	}
 }
 
-static void dump_job_info(struct mtk_cam_job *job)
+static void dump_job_info(struct mtk_cam_job *job, const char *desc)
 {
 	struct mtk_cam_ctx *ctx = job->src_ctx;
 	struct device *dev = ctx->cam->dev;
@@ -2428,6 +2428,8 @@ static void dump_job_info(struct mtk_cam_job *job)
 		 __func__,
 		 atomic_long_read(&job->done_set), job->done_handled,
 		 atomic_long_read(&job->afo_done));
+	if (strcmp(desc, MSG_M4U_TF))
+		return;
 	/* working buffer iova */
 	if (fp) {
 		for (i = 0; i < CAM_MAX_IMAGE_INPUT; i++) {
@@ -2444,6 +2446,8 @@ static void dump_job_info(struct mtk_cam_job *job)
 		if (buf->vbb.vb2_buf.vb2_queue &&
 			mtk_cam_job_is_done(job) == false) {
 			node = mtk_cam_buf_to_vdev(buf);
+			if (node->uid.pipe_id != get_raw_subdev_idx(ctx->used_pipe))
+				continue;
 			if (buf->daddr)
 				dev_info(dev, "%s:%s iova:0x%llx", __func__,
 					node->desc.name, buf->daddr);
@@ -2469,7 +2473,7 @@ static void job_dump(struct mtk_cam_job *job, int seq_no, const char *desc)
 		return;
 	}
 
-	dump_job_info(job);
+	dump_job_info(job, desc);
 	dev_info(dev, "%s: (dump seq 0x%x) ISP_STATE %s\n",
 		 __func__, seq_no,
 		 str_isp_state(isp_state));
@@ -2499,7 +2503,7 @@ static void job_dump_mstream(struct mtk_cam_job *job,
 		return;
 	}
 
-	dump_job_info(job);
+	dump_job_info(job, desc);
 	dev_info(dev, "%s: (dump seq 0x%x) ISP_STATE = %s/%s\n",
 		 __func__, seq_no,
 		 mtk_cam_job_state_str(&job->job_state, ISP_1ST_STATE),

@@ -562,6 +562,8 @@ static void mtk_cam_clone_pipe_data_to_req(struct media_request *req)
 		data->ctrl = raw->ctrl_data;
 		mtk_cam_reset_rc_data(&raw->ctrl_data.rc_data);
 
+		pr_info("%s: data->ctrl %u", __func__, data->ctrl.rc_data.exp_ns.long_exposure_flow);
+
 		// TODO(Will): store entire v4l2_mbus_framefmt into mtk_raw_sink_data,
 		// if other members of mbus_fmt may be changed
 		data->sink.width = pad->mbus_fmt.width;

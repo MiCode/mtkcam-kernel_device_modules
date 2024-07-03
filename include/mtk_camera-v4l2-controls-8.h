@@ -310,6 +310,7 @@ struct mtk_cam_exp_shutter {
 	__u64 se_exp_ns;
 	__u64 sse_exp_ns;
 	__u64 ssse_exp_ns;
+	__u8 long_exposure_flow;
 };
 
 #endif /* __MTK_CAMERA_V4l2_CONTROLS_8_H */

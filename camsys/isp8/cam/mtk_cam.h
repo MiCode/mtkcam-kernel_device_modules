@@ -210,6 +210,7 @@ struct mtk_cam_ctx {
 	bool rms_disable;
 
 	struct qof_voter_handle DOL_not_support;
+	struct mtk_cam_exp_shutter last_req_exposue;
 };
 
 struct mtk_cam_v4l2_pipelines {

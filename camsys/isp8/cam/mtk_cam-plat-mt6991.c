@@ -336,6 +336,12 @@ static int get_sv_max_pixel_mode(unsigned int dev_id,
 	return 0;
 }
 
+static int get_is_smmu_enabled(bool *is_smmu_enabled)
+{
+	*is_smmu_enabled = true;
+	return 0;
+}
+
 static int get_sv_smi_setting(unsigned int dev_id,
 	unsigned int *is_two_smi_out)
 {
@@ -822,6 +828,7 @@ static const struct plat_v4l2_data mt6991_v4l2_data = {
 	.set_sv_meta_stats_info = set_sv_meta_stats_info,
 	.get_sv_dma_th_setting = get_sv_dma_th_setting,
 	.get_sv_max_pixel_mode = get_sv_max_pixel_mode,
+	.get_is_smmu_enabled = get_is_smmu_enabled,
 	.get_sv_smi_setting = get_sv_smi_setting,
 	.get_single_sv_opp_idx = get_single_sv_opp_idx,
 	.get_mraw_dmao_common_setting = get_mraw_dmao_common_setting,

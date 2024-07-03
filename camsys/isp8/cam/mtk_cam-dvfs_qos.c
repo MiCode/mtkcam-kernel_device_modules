@@ -726,6 +726,7 @@ static int fill_sv_qos(struct mtk_cam_job *job,
 	unsigned int i, x_size, img_h, sv_id;
 	u64 avg_bw, peak_bw, stash_avg_bw, stash_peak_bw;
 	unsigned int is_two_smi_out = 0;
+	bool is_smmu_enabled = true;
 
 	/* cqi */
 	avg_bw = peak_bw = to_qos_icc(CQ_BUF_SIZE * sensor_fps);
@@ -742,6 +743,8 @@ static int fill_sv_qos(struct mtk_cam_job *job,
 		return 0;
 	sv_id = get_master_sv_id(job->used_engine);
 	sv_dev = dev_get_drvdata(ctx->cam->engines.sv_devs[sv_id]);
+
+	CALL_PLAT_V4L2(get_is_smmu_enabled, &is_smmu_enabled);
 
 	/* wdma */
 	for (i = 0; i < CAMSV_MAX_TAGS; i++) {
@@ -772,9 +775,10 @@ static int fill_sv_qos(struct mtk_cam_job *job,
 						linet, img_h + sensor_vb);
 			}
 			/* camsv stash fixed at 5ostdl = 5mb */
-			if (avg_bw || peak_bw)
-				stash_peak_bw = stash_avg_bw = to_qos_icc(2097152);
-
+			if (is_smmu_enabled) {
+				if (avg_bw || peak_bw)
+					stash_peak_bw = stash_avg_bw = to_qos_icc(2097152);
+			}
 
 		} else {
 			avg_bw =
@@ -791,18 +795,21 @@ static int fill_sv_qos(struct mtk_cam_job *job,
 			job->sv_mmqos[SMI_PORT_SV_MDP_WDMA_0].peak_bw += peak_bw / 2;
 			job->sv_mmqos[SMI_PORT_SV_MDP_WDMA_1].avg_bw += avg_bw / 2;
 			job->sv_mmqos[SMI_PORT_SV_MDP_WDMA_1].peak_bw += peak_bw / 2;
-			job->sv_mmqos[SMI_PORT_SV_MDP_STG_0].avg_bw += stash_avg_bw;
-			job->sv_mmqos[SMI_PORT_SV_MDP_STG_0].peak_bw += stash_peak_bw;
-			job->sv_mmqos[SMI_PORT_SV_MDP_STG_1].avg_bw += stash_avg_bw;
-			job->sv_mmqos[SMI_PORT_SV_MDP_STG_1].peak_bw += stash_peak_bw;
+			if (is_smmu_enabled) {
+				job->sv_mmqos[SMI_PORT_SV_MDP_STG_0].avg_bw += stash_avg_bw;
+				job->sv_mmqos[SMI_PORT_SV_MDP_STG_0].peak_bw += stash_peak_bw;
+				job->sv_mmqos[SMI_PORT_SV_MDP_STG_1].avg_bw += stash_avg_bw;
+				job->sv_mmqos[SMI_PORT_SV_MDP_STG_1].peak_bw += stash_peak_bw;
+			}
 		} else {
 			job->sv_mmqos[SMI_PORT_SV_DISP_WDMA_0].avg_bw += avg_bw;
 			job->sv_mmqos[SMI_PORT_SV_DISP_WDMA_0].peak_bw += peak_bw;
-			job->sv_mmqos[SMI_PORT_SV_DISP_STG_0].avg_bw += stash_avg_bw;
-			job->sv_mmqos[SMI_PORT_SV_DISP_STG_0].peak_bw += stash_peak_bw;
+			if (is_smmu_enabled) {
+				job->sv_mmqos[SMI_PORT_SV_DISP_STG_0].avg_bw += stash_avg_bw;
+				job->sv_mmqos[SMI_PORT_SV_DISP_STG_0].peak_bw += stash_peak_bw;
+			}
 		}
-
-		if (CAM_DEBUG_ENABLED(MMQOS))
+		if (CAM_DEBUG_ENABLED(MMQOS) && is_smmu_enabled)
 			pr_info("%s: xsize:%u/height:%u sensor_h:%u/vb:%u/linet:%llu/fps:%u avg_bw:%llu_%u_%u_%u_%u_%u_%u_%u_%u/peak_bw:%llu_%u_%u_%u_%u_%u_%u_%u_%u\n",
 				__func__, x_size, img_h,
 				sensor_h, sensor_vb, linet, sensor_fps,
@@ -822,6 +829,18 @@ static int fill_sv_qos(struct mtk_cam_job *job,
 				job->sv_mmqos[SMI_PORT_SV_MDP_WDMA_1].peak_bw,
 				job->sv_mmqos[SMI_PORT_SV_DISP_STG_1].peak_bw,
 				job->sv_mmqos[SMI_PORT_SV_MDP_STG_1].peak_bw);
+		if (CAM_DEBUG_ENABLED(MMQOS) && !is_smmu_enabled)
+			pr_info("%s: xsize:%u/height:%u sensor_h:%u/vb:%u/linet:%llu/fps:%u avg_bw:%llu_%u_%u_%u_%u/peak_bw:%llu_%u_%u_%u_%u\n",
+				__func__, x_size, img_h,
+				sensor_h, sensor_vb, linet, sensor_fps,
+				avg_bw, job->sv_mmqos[SMI_PORT_SV_DISP_WDMA_0].avg_bw,
+				job->sv_mmqos[SMI_PORT_SV_MDP_WDMA_0].avg_bw,
+				job->sv_mmqos[SMI_PORT_SV_DISP_WDMA_1].avg_bw,
+				job->sv_mmqos[SMI_PORT_SV_MDP_WDMA_1].avg_bw,
+				peak_bw, job->sv_mmqos[SMI_PORT_SV_DISP_WDMA_0].peak_bw,
+				job->sv_mmqos[SMI_PORT_SV_MDP_WDMA_0].peak_bw,
+				job->sv_mmqos[SMI_PORT_SV_DISP_WDMA_1].peak_bw,
+				job->sv_mmqos[SMI_PORT_SV_MDP_WDMA_1].peak_bw);
 	}
 
 	return 0;
@@ -839,6 +858,9 @@ static int fill_mraw_qos(struct mtk_cam_job *job,
 	unsigned int i, j, k, port_id, x_size, img_h;
 	u64 avg_bw, peak_bw;
 	u64 stash_avg_bw, stash_peak_bw, strideLCM;
+	bool is_smmu_enabled = true;
+
+	CALL_PLAT_V4L2(get_is_smmu_enabled, &is_smmu_enabled);
 
 	for (i = 0 ; i < MRAW_MAX_PIPE_USED; i++) {
 		mraw_param = &fp->mraw_param[i];
@@ -871,16 +893,16 @@ static int fill_mraw_qos(struct mtk_cam_job *job,
 					job->mraw_mmqos[j][port_id].peak_bw += peak_bw;
 
 					/* stash */
-					if (x_size != 0) {
+					if (is_smmu_enabled && x_size != 0) {
 						strideLCM = LCM(x_size, 4096);
 						stash_peak_bw = stash_avg_bw =
 							to_qos_icc(img_h / (strideLCM/x_size) * 16 * sensor_fps);
-
 					}
+					if (is_smmu_enabled) {
 					job->mraw_mmqos[j][SMI_PORT_MRAW_STG].avg_bw += stash_avg_bw;
 					job->mraw_mmqos[j][SMI_PORT_MRAW_STG].peak_bw += stash_peak_bw;
-
-					if (CAM_DEBUG_ENABLED(MMQOS))
+					}
+					if (CAM_DEBUG_ENABLED(MMQOS) && is_smmu_enabled)
 						pr_info("%s: id:%d port_id:%d xsize:%u/height:%u sensor_h:%u/vb:%u/linet:%llu avg_bw:%llu_%u_%u/peak_bw:%llu_%u_%u\n",
 							__func__, k, port_id, x_size, img_h,
 							sensor_h, sensor_vb, linet,
@@ -890,6 +912,15 @@ static int fill_mraw_qos(struct mtk_cam_job *job,
 							peak_bw,
 							job->mraw_mmqos[j][port_id].peak_bw,
 							job->mraw_mmqos[j][SMI_PORT_MRAW_STG].peak_bw);
+					if (CAM_DEBUG_ENABLED(MMQOS) && !is_smmu_enabled)
+						pr_info("%s: id:%d port_id:%d xsize:%u/height:%u sensor_h:%u/vb:%u/linet:%llu avg_bw:%llu_%u/peak_bw:%llu_%u\n",
+							__func__, k, port_id, x_size, img_h,
+							sensor_h, sensor_vb, linet,
+							avg_bw,
+							job->mraw_mmqos[j][port_id].avg_bw,
+							peak_bw,
+							job->mraw_mmqos[j][port_id].peak_bw);
+
 				}
 
 				/* cqi */

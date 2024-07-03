@@ -336,6 +336,12 @@ static int get_sv_max_pixel_mode(unsigned int dev_id,
 	return 0;
 }
 
+static int get_is_smmu_enabled(bool *is_smmu_enabled)
+{
+	*is_smmu_enabled = false;
+	return 0;
+}
+
 static int get_sv_smi_setting(unsigned int dev_id,
 	unsigned int *is_two_smi_out)
 {
@@ -349,7 +355,7 @@ static int get_sv_smi_setting(unsigned int dev_id,
 
 static int get_single_sv_opp_idx(unsigned int *opp_idx)
 {
-	*opp_idx = 1;
+	*opp_idx = 0;
 
 	return 0;
 }
@@ -358,11 +364,11 @@ static int get_sv_dma_th_setting(unsigned int dev_id, unsigned int fifo_img_p1,
 	unsigned int fifo_img_p2, unsigned int fifo_len_p1, unsigned int fifo_len_p2,
 	struct sv_dma_th_setting *th_setting, struct sv_dma_bw_setting *bw_setting)
 {
-	const unsigned int max_fifo_img_p1[CAMSV_END] = {3412, 3412, 2560, 1600, 440, 440};
+	const unsigned int max_fifo_img_p1[CAMSV_END] = {3412, 3412, 2560, 1600, 440, 0};
 	const unsigned int max_fifo_img_p2[CAMSV_END] = {2132, 2132, 0, 0, 0, 0};
 	const unsigned int max_fifo_len_p1[CAMSV_END] = {128, 128, 128, 64, 0, 0};
 	const unsigned int max_fifo_len_p2[CAMSV_END] = {64, 64, 0, 0, 0, 0};
-	const unsigned int lb_fifo_img[CAMSV_END] = {682, 682, 512, 320, 88, 88};
+	const unsigned int lb_fifo_img[CAMSV_END] = {682, 682, 512, 320, 88, 0};
 	const unsigned int lb_fifo_len[CAMSV_END] = {26, 26, 26, 12, 0, 0};
 	const unsigned int max_fifo_cq1 = 64;
 	const unsigned int max_fifo_cq2 = 64;
@@ -792,7 +798,7 @@ static u8 vb2_queues_support_list[] = {
 static const struct plat_v4l2_data mt6899_v4l2_data = {
 	.raw_pipeline_num = 3,
 	.camsv_pipeline_num = 8,
-	.mraw_pipeline_num = 4,
+	.mraw_pipeline_num = 3,
 
 	.meta_major = MTK_CAM_META_VERSION_MAJOR,
 	.meta_minor = MTK_CAM_META_VERSION_MINOR,
@@ -817,6 +823,7 @@ static const struct plat_v4l2_data mt6899_v4l2_data = {
 	.set_sv_meta_stats_info = set_sv_meta_stats_info,
 	.get_sv_dma_th_setting = get_sv_dma_th_setting,
 	.get_sv_max_pixel_mode = get_sv_max_pixel_mode,
+	.get_is_smmu_enabled = get_is_smmu_enabled,
 	.get_sv_smi_setting = get_sv_smi_setting,
 	.get_single_sv_opp_idx = get_single_sv_opp_idx,
 	.get_mraw_dmao_common_setting = get_mraw_dmao_common_setting,

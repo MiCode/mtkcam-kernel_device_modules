@@ -691,8 +691,10 @@ mtk_cam_job_initialize_engines(struct mtk_cam_ctx *ctx,
 			raw = dev_get_drvdata(ctx->hw_raw[i]);
 			is_master = !!(raw_master_id == raw->id);
 
-			qof_init_timer_freq(raw);
-			mtk_cam_enable_itc(raw);
+			if (check_qof_support(job)) {
+				qof_init_timer_freq(raw);
+				mtk_cam_enable_itc(raw);
+			}
 
 			initialize(raw, &engine_cb, !is_master, is_srt,
 				get_sensor_interval_us(job));
@@ -2631,8 +2633,10 @@ static int job_raw_change_hw_init(struct mtk_cam_job *job)
 					continue;
 				raw = dev_get_drvdata(ctx->hw_raw[i]);
 
-				qof_init_timer_freq(raw);
-				mtk_cam_enable_itc(raw);
+				if (check_qof_support(job)) {
+					qof_init_timer_freq(raw);
+					mtk_cam_enable_itc(raw);
+				}
 
 				// TODO: replace "0x7"
 				if (BIT(raw->id) == (selected_need_init & 0x7))

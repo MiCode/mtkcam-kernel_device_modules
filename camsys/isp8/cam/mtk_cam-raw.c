@@ -2181,6 +2181,9 @@ static int mtk_raw_of_probe(struct platform_device *pdev,
 	unsigned int i;
 	int clks, larbs, iommus, smmus, ret;
 
+	/* TODO: remove platform part after mt6899 MM IT pass */
+	debug_ddren_sw_mode = GET_PLAT_HW(platform_id) == 6899 ? 1 : 0;
+
 	ret = of_property_read_u32(dev->of_node, "mediatek,cam-id",
 				   &raw->id);
 	if (ret) {

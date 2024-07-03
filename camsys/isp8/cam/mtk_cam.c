@@ -4873,26 +4873,31 @@ static int mtk_cam_probe(struct platform_device *pdev)
 		dev_err(dev, "%s: failed to map adlwr_base\n", __func__);
 		cam_dev->adlwr_base = NULL;
 	}
+
 	cam_dev->adlrd_base = devm_platform_ioremap_resource_byname(pdev, "adlrd");
 	if (IS_ERR(cam_dev->adlrd_base)) {
 		dev_err(dev, "%s: failed to map adlrd_base\n", __func__);
 		cam_dev->adlrd_base = NULL;
 	}
+
 	cam_dev->qoftop_base = devm_platform_ioremap_resource_byname(pdev, "qof_base");
 	if (IS_ERR(cam_dev->qoftop_base)) {
 		dev_err(dev, "%s: failed to map qoftop_base\n", __func__);
 		cam_dev->qoftop_base = NULL;
 	}
+
 	cam_dev->vcore_ddren_en = ioremap(cam_vcore_base + CAM_VCORE_DDREN_EN, 0x4);
 	if (IS_ERR(cam_dev->vcore_ddren_en)) {
 		dev_err(dev, "%s: failed to map vcore_ddren_en\n", __func__);
 		cam_dev->vcore_ddren_en = NULL;
 	}
+
 	cam_dev->vcore_ddren_ack = ioremap(cam_vcore_base + CAM_VCORE_DDREN_ACK, 0x4);
 	if (IS_ERR(cam_dev->vcore_ddren_ack)) {
 		dev_err(dev, "%s: failed to map vcore_ddren_ack\n", __func__);
 		cam_dev->vcore_ddren_ack = NULL;
 	}
+
 	cam_dev->vcore_cg_con = ioremap(cam_vcore_base + CAM_VCORE_CG_CON, 0x4);
 	if (IS_ERR(cam_dev->vcore_cg_con)) {
 		dev_err(dev, "%s: failed to map vcore_cg_con\n", __func__);
@@ -4903,41 +4908,49 @@ static int mtk_cam_probe(struct platform_device *pdev)
 		dev_err(dev, "%s: failed to map rawa_cg_con\n", __func__);
 		cam_dev->rawa_cg_con = NULL;
 	}
+
 	cam_dev->rawb_cg_con = ioremap(cam_main_rawb_base, 0xc);
 	if (IS_ERR(cam_dev->rawb_cg_con)) {
 		dev_err(dev, "%s: failed to map rawb_cg_con\n", __func__);
 		cam_dev->rawb_cg_con = NULL;
 	}
+
 	cam_dev->rawc_cg_con = ioremap(cam_main_rawc_base, 0xc);
 	if (IS_ERR(cam_dev->rawc_cg_con)) {
 		dev_err(dev, "%s: failed to map rawc_cg_con\n", __func__);
 		cam_dev->rawc_cg_con = NULL;
 	}
+
 	cam_dev->rmsa_cg_con = ioremap(cam_main_rmsa_base, 0xc);
 	if (IS_ERR(cam_dev->rmsa_cg_con)) {
 		dev_err(dev, "%s: failed to map rmsa_cg_con\n", __func__);
 		cam_dev->rmsa_cg_con = NULL;
 	}
+
 	cam_dev->rmsb_cg_con = ioremap(cam_main_rmsb_base, 0xc);
 	if (IS_ERR(cam_dev->rmsb_cg_con)) {
 		dev_err(dev, "%s: failed to map rmsb_cg_con\n", __func__);
 		cam_dev->rmsb_cg_con = NULL;
 	}
+
 	cam_dev->rmsc_cg_con = ioremap(cam_main_rmsc_base, 0xc);
 	if (IS_ERR(cam_dev->rmsc_cg_con)) {
 		dev_err(dev, "%s: failed to map rmsc_cg_con\n", __func__);
 		cam_dev->rmsc_cg_con = NULL;
 	}
+
 	cam_dev->yuva_cg_con = ioremap(cam_main_yuva_base, 0xc);
 	if (IS_ERR(cam_dev->yuva_cg_con)) {
 		dev_err(dev, "%s: failed to map yuva_cg_con\n", __func__);
 		cam_dev->yuva_cg_con = NULL;
 	}
+
 	cam_dev->yuvb_cg_con = ioremap(cam_main_yuvb_base, 0xc);
 	if (IS_ERR(cam_dev->yuvb_cg_con)) {
 		dev_err(dev, "%s: failed to map yuvb_cg_con\n", __func__);
 		cam_dev->yuvb_cg_con = NULL;
 	}
+
 	cam_dev->yuvc_cg_con = ioremap(cam_main_yuvc_base, 0xc);
 	if (IS_ERR(cam_dev->yuvc_cg_con)) {
 		dev_err(dev, "%s: failed to map yuvc_cg_con\n", __func__);
@@ -4960,6 +4973,7 @@ static int mtk_cam_probe(struct platform_device *pdev)
 	}
 	dev_dbg(dev, "registered adlrd_rdone irq=%d\n", irq);
 	//enable_irq(irq);
+
 	// adlrd
 	irq = platform_get_irq_byname(pdev, "adlrd");
 	if (irq < 0) {
@@ -4976,6 +4990,7 @@ static int mtk_cam_probe(struct platform_device *pdev)
 	}
 	dev_dbg(dev, "registered adlrd irq=%d\n", irq);
 	//enable_irq(irq);
+
 	// qof
 	irq = platform_get_irq_byname(pdev, "qoftop");
 	if (irq < 0) {
@@ -4996,6 +5011,7 @@ static int mtk_cam_probe(struct platform_device *pdev)
 	cam_dev->cmdq_clt = cmdq_mbox_create(dev, 0);
 	if (!cam_dev->cmdq_clt)
 		pr_err("probe cmdq_mbox_create fail\n");
+
 	clks = of_count_phandle_with_args(
 					pdev->dev.of_node, "clocks", "#clock-cells");
 	cam_dev->num_clks = (clks == -ENOENT) ? 0 : clks;
@@ -5016,6 +5032,7 @@ static int mtk_cam_probe(struct platform_device *pdev)
 		}
 	}
 
+	/* cam_vcore */
 	node = of_parse_phandle(
 				pdev->dev.of_node, "mediatek,camisp-vcore", 0);
 	if (!node) {
@@ -5041,6 +5058,7 @@ static int mtk_cam_probe(struct platform_device *pdev)
 		dev_info(cam_vcore_dev->dev, "[%s] find smmu_dev_acp cam vcore dev %p\n",
 			__func__, cam_dev->smmu_dev_acp);
 	}
+
 SKIP_ADLRD_IRQ:
 	cam_dev->dev = dev;
 	dev_set_drvdata(dev, cam_dev);
@@ -5073,12 +5091,14 @@ SKIP_ADLRD_IRQ:
 		dev_err(dev, "%s: fail to register_sub_drivers\n", __func__);
 		goto fail_return;
 	}
+
 	/* after v4l2_device_register to avoid get_sync/put_sync ops */
 	/* for freerun mtcmos/cg check by ccf */
 	pm_runtime_enable(dev);
 
 	mtk_cam_debug_init(&cam_dev->dbg, cam_dev);
 	init_waitqueue_head(&cam_dev->shutdown_wq);
+
 	mtk_cam_get_chipid(cam_dev);
 
 	return 0;

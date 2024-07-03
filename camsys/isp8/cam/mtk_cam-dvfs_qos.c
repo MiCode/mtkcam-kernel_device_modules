@@ -723,13 +723,25 @@ static int fill_sv_qos(struct mtk_cam_job *job,
 	struct mtkcam_ipi_camsv_frame_param *sv_param;
 	struct mtkcam_ipi_img_output *in;
 	struct mtk_camsv_device *sv_dev;
-	unsigned int i, x_size, img_h;
+	unsigned int i, x_size, img_h, sv_id;
 	u64 avg_bw, peak_bw, stash_avg_bw, stash_peak_bw;
 	unsigned int is_two_smi_out = 0;
 
-	if (ctx->hw_sv == NULL)
+	/* cqi */
+	avg_bw = peak_bw = to_qos_icc(CQ_BUF_SIZE * sensor_fps);
+	job->sv_mmqos[SMI_PORT_SV_CQI].avg_bw += avg_bw;
+	job->sv_mmqos[SMI_PORT_SV_CQI].peak_bw += peak_bw;
+	if (CAM_DEBUG_ENABLED(MMQOS))
+		pr_info("%s: sensor_h:%u/vb:%u/linet:%llu/fps:%u avg_bw:%llu_%u/peak_bw:%llu_%u\n",
+			__func__,
+			sensor_h, sensor_vb, linet, sensor_fps,
+			avg_bw, job->sv_mmqos[SMI_PORT_SV_CQI].avg_bw,
+			peak_bw, job->sv_mmqos[SMI_PORT_SV_CQI].peak_bw);
+
+	if (bit_map_subset_of(MAP_HW_CAMSV, job->used_engine) == 0)
 		return 0;
-	sv_dev = dev_get_drvdata(ctx->hw_sv);
+	sv_id = get_master_sv_id(job->used_engine);
+	sv_dev = dev_get_drvdata(ctx->cam->engines.sv_devs[sv_id]);
 
 	/* wdma */
 	for (i = 0; i < CAMSV_MAX_TAGS; i++) {
@@ -811,17 +823,6 @@ static int fill_sv_qos(struct mtk_cam_job *job,
 				job->sv_mmqos[SMI_PORT_SV_DISP_STG_1].peak_bw,
 				job->sv_mmqos[SMI_PORT_SV_MDP_STG_1].peak_bw);
 	}
-
-	/* cqi */
-	avg_bw = peak_bw = to_qos_icc(CQ_BUF_SIZE * sensor_fps);
-	job->sv_mmqos[SMI_PORT_SV_CQI].avg_bw += avg_bw;
-	job->sv_mmqos[SMI_PORT_SV_CQI].peak_bw += peak_bw;
-	if (CAM_DEBUG_ENABLED(MMQOS))
-		pr_info("%s: sensor_h:%u/vb:%u/linet:%llu/fps:%u avg_bw:%llu_%u/peak_bw:%llu_%u\n",
-			__func__,
-			sensor_h, sensor_vb, linet, sensor_fps,
-			avg_bw, job->sv_mmqos[SMI_PORT_SV_CQI].avg_bw,
-			peak_bw, job->sv_mmqos[SMI_PORT_SV_CQI].peak_bw);
 
 	return 0;
 }
@@ -1202,19 +1203,25 @@ static void apply_sv_qos(struct mtk_cam_job *job)
 {
 	struct mtk_cam_ctx *ctx = job->src_ctx;
 	struct mtk_cam_device *cam = ctx->cam;
-	struct mtk_camsv_device *sv_dev;
+	struct mtk_camsv_device *sv_dev = NULL;
 	unsigned int fifo_img_p1, fifo_img_p2, fifo_len_p1, fifo_len_p2;
 	unsigned int is_two_smi_out = 0;
 	u32 a_bw, p_bw;
 	int i, port_num;
-	unsigned int leading_line_cnt;
+	unsigned int leading_line_cnt, raw_id;
 	bool apply, apply_sv_th = false, apply_bwr = false;
 	int sv_avg_bw_w = 0, sv_peak_bw_w = 0, sv_avg_diff_bw_w = 0, sv_peak_diff_bw_w = 0;
 	u64 avg_linet;
 
-	if (ctx->hw_sv) {
-		sv_dev = dev_get_drvdata(ctx->hw_sv);
+	if (ctx->has_raw_subdev) {
+		raw_id = get_master_raw_id(job->used_engine);
+		sv_dev = dev_get_drvdata(cam->engines.sv_devs[raw_id]);
+	} else {
+		if (ctx->hw_sv)
+			sv_dev = dev_get_drvdata(ctx->hw_sv);
+	}
 
+	if (sv_dev) {
 		CALL_PLAT_V4L2(
 			get_sv_smi_setting, sv_dev->id, &is_two_smi_out);
 		port_num = (is_two_smi_out) ?

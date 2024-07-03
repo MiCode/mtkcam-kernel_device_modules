@@ -266,9 +266,9 @@ static inline bool valid_cq_execution(struct transition_param *p)
 {
 	if (unlikely(!p->s_params))
 		return false;
-	/* for sentest NE -> SE duration 25ms case*/
-	return (p->event_ts - p->info->sof_ts_ns) < p->cq_trigger_thres ||
-		((p->event_ts - p->info->sof_l_ts_ns) < SQC_THRES_FROM_L_SOF_NS);
+
+	return ((p->event_ts - p->info->sof_l_ts_ns) < p->cq_trigger_thres) &&
+		(p->info->sof_ts_ns <= p->info->sof_l_ts_ns);
 }
 
 #define SCQ_THRES_FOR_AEWA 27000000

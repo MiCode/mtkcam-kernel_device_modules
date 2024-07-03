@@ -29,6 +29,22 @@ enum tg_enum {
 	camsys_tg_max,
 };
 
+/* align mt6899 dts */
+enum tg_enum_remap {
+	camsv_tg_0_remap,
+	camsv_tg_1_remap,
+	camsv_tg_2_remap,
+	camsv_tg_3_remap,
+	camsv_tg_4_remap,
+	raw_tg_0_remap,
+	raw_tg_1_remap,
+	raw_tg_2_remap,
+	pdp_tg_0_remap,
+	pdp_tg_1_remap,
+	pdp_tg_2_remap,
+	camsys_tg_max_remap,
+};
+
 enum testmdl_exp_no {
 	testmdl_exp1 = 0,
 	testmdl_exp2,

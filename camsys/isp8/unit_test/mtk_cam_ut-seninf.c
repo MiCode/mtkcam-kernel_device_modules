@@ -17,6 +17,9 @@
 #include "mtk_cam_ut-engines.h"
 #include "mtk_cam_regs.h"
 
+#define MT6899_IOMOM_VERSIONS "mt6899"
+#define MT6991_IOMOM_VERSIONS "mt6991"
+const char *iomem_ver;
 static unsigned int testmdl_hblank = 0x400;
 module_param(testmdl_hblank, int, 0644);
 MODULE_PARM_DESC(testmdl_hblank, "h-blanking for testmdl");
@@ -55,6 +58,36 @@ enum CAMMUX_TYPE_ENUM {
 	TYPE_PDP,
 	TYPE_MAX_NUM,
 };
+
+static enum tg_enum_remap tg_remap(enum tg_enum tg)
+{
+	switch (tg) {
+	case camsv_tg_0:
+		return camsv_tg_0_remap;
+	case camsv_tg_1:
+		return camsv_tg_1_remap;
+	case camsv_tg_2:
+		return camsv_tg_2_remap;
+	case camsv_tg_3:
+		return camsv_tg_3_remap;
+	case camsv_tg_4:
+		return camsv_tg_4_remap;
+	case raw_tg_0:
+		return raw_tg_0_remap;
+	case raw_tg_1:
+		return raw_tg_1_remap;
+	case raw_tg_2:
+		return raw_tg_2_remap;
+	case pdp_tg_0:
+		return pdp_tg_0_remap;
+	case pdp_tg_1:
+		return pdp_tg_1_remap;
+	case pdp_tg_2:
+		return pdp_tg_2_remap;
+	default:
+		return camsv_tg_0_remap;
+	}
+}
 
 /* seninf */
 static int get_test_hmargin(int w, int h, int clk_cnt, int clk_mhz, int fps)
@@ -138,7 +171,10 @@ static int ut_seninf_set_testmdl(struct device *dev,
 
 	for (i = 0; i < para_cnt; i++) {
 		para = tm_para + i;
-		outmux_idx = para->tg_idx;
+		if (!strcasecmp(iomem_ver, MT6899_IOMOM_VERSIONS))
+			outmux_idx = tg_remap(para->tg_idx);
+		else
+			outmux_idx = para->tg_idx;
 		exp_no = para->exp_no;
 		tag = para->tag;
 		pix_m = (para->pixmode == tm_pix_mode_16) ? 1 : 0;
@@ -224,6 +260,10 @@ static int mtk_ut_seninf_of_probe(struct platform_device *pdev,
 	int i, clks;
 	struct device_node *tmp_node = NULL;
 	int index;
+
+	if (of_property_read_string(dev->of_node, "mtk-iomem-ver", &iomem_ver))
+		iomem_ver = "mt6991";
+	dev_info(dev, "mtk_iomem_ver = %s\n", iomem_ver);
 
 	/* top base register */
 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "seninf-top");

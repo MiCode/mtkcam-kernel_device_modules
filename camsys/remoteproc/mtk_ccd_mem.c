@@ -69,8 +69,14 @@ static struct mtk_ccd_buf *mtk_ccd_buf_alloc(
 		goto fail_alloc;
 	}
 
+#if KERNEL_VERSION(6, 6, 0) <= LINUX_VERSION_CODE
+	buf->dma_sgt = dma_buf_map_attachment_unlocked(buf->db_attach,
+				DMA_BIDIRECTIONAL);
+#else
 	buf->dma_sgt = dma_buf_map_attachment(buf->db_attach,
 				DMA_BIDIRECTIONAL);
+#endif
+
 	if (IS_ERR(buf->dma_sgt)) {
 		pr_info("dma_heap map failed\n");
 		goto fail_map_attach;

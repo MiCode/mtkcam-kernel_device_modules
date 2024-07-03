@@ -32,6 +32,12 @@
 #define CSR_CSI_FM_MUX_SEL_SHIFT 8
 #define CSR_CSI_FM_MUX_SEL_MASK (0xf << 8)
 
+#define CSI_CSR_CSI2ISP_PRBS_CTRL 0x0014
+#define CSR_CSIRX_PRBS_EN_SHIFT 0
+#define CSR_CSIRX_PRBS_EN_MASK (0x3f << 0)
+#define RO_CSIRX_PRBS_FAIL_SHIFT 16
+#define RO_CSIRX_PRBS_FAIL_MASK (0x3f << 0)
+
 #define RO_TOP_DBG_0 0x0020
 #define RO_TOP_DBG_0_SHIFT 0
 #define RO_TOP_DBG_0_MASK (0xffffffff << 0)

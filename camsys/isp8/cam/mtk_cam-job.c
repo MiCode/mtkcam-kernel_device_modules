@@ -4400,9 +4400,6 @@ static void update_job_state_init_sensor_param(struct mtk_cam_job *job)
 		(ctrl_data && ctrl_data->resource.user_data.raw_res.sen_apply_ctrl ==
 		MTK_CAM_SEN_APPLY_DIRECT_APPLY) ? 1 : 0;
 
-	job->job_state.s_params.always_allow |=
-		job->src_ctx->last_req_exposue.long_exposure_flow;
-
 	if (check_update_mstream_mode(job)) {
 		ctrl->frame_interval_ns =
 			mtk_cam_query_interval_from_sensor(job->src_ctx->sensor);
@@ -4848,7 +4845,7 @@ static void update_sen_expo_diff(struct mtk_cam_job *job)
 		return;
 
 	next = &ctrl_data->rc_data.exp_ns;
-	last = &ctx->last_req_exposue;
+	last = &ctx->ctrldata.rc_data.exp_ns;
 
 	if (is_sensor_changed(job)) {
 		job->exp_diff_ns_le = 0;
@@ -4869,8 +4866,6 @@ static void update_sen_expo_diff(struct mtk_cam_job *job)
 	}
 
 	check_sen_expo_change(job);
-
-	*last = *next;
 }
 
 static int job_sen_req_pack(struct mtk_cam_job *job)
@@ -4888,6 +4883,7 @@ static int job_sen_req_pack(struct mtk_cam_job *job)
 	 * and job->job->raw_switch
 	 */
 	update_job_sensor(job);
+
 	update_job_state_init_sensor_param(job);
 
 	job->sensor_hdl_obj = job->sensor ?

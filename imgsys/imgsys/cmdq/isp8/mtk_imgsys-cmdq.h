@@ -28,6 +28,8 @@
 
 #define CMDQ_CB_KTHREAD        (1)
 
+#define CMDQ_TIMEOUT_KTHREAD   (1)
+
 #ifdef GCE_SUPPORT_REPLACE_MODE
 #undef GCE_SUPPORT_REPLACE_MODE
 #endif
@@ -108,6 +110,9 @@ struct mtk_imgsys_cb_param {
 	bool isTaskLast;
 	bool isOccupy;
 	bool isDynamic;
+	u32 fail_subfidx;
+	bool isHWhang;
+	u32 hangEvent;
 };
 
 enum mtk_imgsys_cmd {

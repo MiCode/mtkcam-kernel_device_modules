@@ -428,6 +428,18 @@ static void imgsys_cmdq_cb_work_plat8(struct work_struct *work)
 		cb_param->pkt_ofst[3], cb_param->pkt_ofst[4]);
     }
 
+#if CMDQ_TIMEOUT_KTHREAD
+	if ((cb_param->err != 0) && cb_param->user_cmdq_err_cb) {
+		struct cmdq_cb_data user_cb_data;
+
+		user_cb_data.err = cb_param->err;
+		user_cb_data.data = (void *)cb_param->frm_info;
+		cb_param->user_cmdq_err_cb(
+			user_cb_data, cb_param->fail_subfidx, cb_param->isHWhang,
+			cb_param->hangEvent);
+	}
+#endif
+
 #ifndef CONFIG_FPGA_EARLY_PORTING
 	mtk_imgsys_power_ctrl_plat8(imgsys_dev, false);
 #endif
@@ -972,6 +984,11 @@ void imgsys_cmdq_task_cb_plat8(struct cmdq_cb_data data)
 		imgsys_cmdq_cmd_dump_plat8(cb_param->frm_info, real_frm_idx);
 
 		if (cb_param->user_cmdq_err_cb) {
+#if CMDQ_TIMEOUT_KTHREAD
+			cb_param->fail_subfidx = real_frm_idx;
+			cb_param->isHWhang = isHWhang;
+			cb_param->hangEvent = event_sft + IMGSYS_CMDQ_SYNC_TOKEN_IMGSYS_POOL_START;
+#else
 			struct cmdq_cb_data user_cb_data;
 
 			user_cb_data.err = cb_param->err;
@@ -979,10 +996,11 @@ void imgsys_cmdq_task_cb_plat8(struct cmdq_cb_data data)
 			cb_param->user_cmdq_err_cb(
 				user_cb_data, real_frm_idx, isHWhang,
 				event_sft + IMGSYS_CMDQ_SYNC_TOKEN_IMGSYS_POOL_START);
+#endif
 			if (isHWhang) {
 				event_val = cmdq_get_event(imgsys_clt[0]->chan, event);
 				pr_info(
-					"%s: [ERROR] HW event after reg dump is (%d/%d)",
+					"%s: [ERROR] HW event is (%d/%d)",
 					__func__,
 					cb_param->pkt->err_data.event, event_val);
 			}

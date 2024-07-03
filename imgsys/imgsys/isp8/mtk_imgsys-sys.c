@@ -647,9 +647,13 @@ release_req:
 	swork->req_sbuf_kva = frm_info_cb->req_sbuf_goft
 			+ mtk_hcp_get_gce_mem_virt(imgsys_dev->scp_pdev);
 #endif
+#if CMDQ_TIMEOUT_KTHREAD
+	if (1) {
+#else
 	if ((data.err == -800)
 		&& (frm_info_cb->user_info[fail_subfidx].hw_comb == 0x2000)
 		&& isHWhang) {
+#endif
 		cmdq_cb_timeout_worker(&swork->work);
 	} else {
 		//INIT_WORK(&swork->work, cmdq_cb_timeout_worker);

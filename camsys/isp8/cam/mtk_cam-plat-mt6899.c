@@ -843,6 +843,8 @@ static const struct plat_data_hw mt6899_hw_data = {
 	.max_main_pipe_twin_w = 6200,
 	.pixel_mode_max = 2,
 	.has_pixel_mode_contraints = true,
+	.default_opp_freq_hz = 550000000,
+	.default_opp_volt_uv = 650000,
 };
 
 struct camsys_platform_data mt6899_data = {

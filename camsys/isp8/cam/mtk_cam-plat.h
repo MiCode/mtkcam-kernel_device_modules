@@ -234,6 +234,10 @@ struct plat_data_hw {
 	 */
 	bool has_pixel_mode_contraints;
 
+	/* defaut camsys opp for mtcmos/clock always-on stage verification */
+	unsigned int default_opp_freq_hz;
+	unsigned int default_opp_volt_uv;
+
 	int (*query_raw_dma_group)(int m4u_id, struct dma_group *group);
 	int (*query_yuv_dma_group)(int m4u_id, struct dma_group *group);
 

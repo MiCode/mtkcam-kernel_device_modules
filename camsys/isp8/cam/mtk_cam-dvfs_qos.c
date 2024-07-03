@@ -117,8 +117,8 @@ int mtk_cam_dvfs_probe(struct device *dev,
 opp_default_table:
 	dvfs->opp_num = 1;
 	dvfs->opp[0] = (struct camsys_opp_table) {
-		.freq_hz = 688000000,
-		.volt_uv = 700000,
+		.freq_hz = GET_PLAT_HW(default_opp_freq_hz),
+		.volt_uv = GET_PLAT_HW(default_opp_volt_uv),
 	};
 	return 0;
 }
@@ -1392,4 +1392,3 @@ int mtk_cam_reset_qos(struct device *dev, struct mtk_camsys_qos *qos)
 
 	return 0;
 }
-

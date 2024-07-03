@@ -905,7 +905,7 @@ struct mtk_cam_uapi_meta_raw_stats_cfg {
 	struct mtk_cam_uapi_cac_param cac_param;
 	struct mtk_cam_uapi_ltms_param ltms_param;
 
-	__u8 bytes[1024 * 96];
+	__u8 bytes[47876];
 };
 
 /**

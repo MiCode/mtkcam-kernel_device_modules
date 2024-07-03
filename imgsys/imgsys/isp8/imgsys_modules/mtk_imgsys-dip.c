@@ -53,7 +53,7 @@ static struct DIPRegDumpInfo g_DIPRegDumpNr2Ifo[] = {
 	{ 0x5000, 0x5B7C},
 	{ 0x6000, 0x6060},
 	{ 0x741C, 0x74DC},
-	{ 0x7D00, 0x81A8},
+	{ 0x7D00, 0x8244},
 };
 
 static struct DIPDmaDebugInfo g_DMATopDbgIfo[] = {
@@ -167,6 +167,9 @@ struct mtk_imgsys_dip_dtable {
 
 static void __iomem *gdipRegBA[DIP_HW_SET] = {0L};
 static unsigned int g_RegBaseAddr = DIP_TOP_ADDR;
+static unsigned int g_RegBaseAddrTop = DIP_TOP_ADDR;
+static unsigned int g_RegBaseAddrNr1 = DIP_NR1_ADDR;
+static unsigned int g_RegBaseAddrNr2 = DIP_NR2_ADDR;
 
 int imgsys_dip_tfault_callback(int port,
 	dma_addr_t mva, void *data)
@@ -197,7 +200,7 @@ int imgsys_dip_tfault_callback(int port,
         k = g_DIPRegDumpTopIfo[j].oft & 0xFFF0;
 		for (i = k; i <= g_DIPRegDumpTopIfo[j].end; i += 0x10) {
 			pr_info("[0x%08X] 0x%08X 0x%08X 0x%08X 0x%08X",
-				(unsigned int)(DIP_TOP_ADDR + i),
+				(unsigned int)(g_RegBaseAddrTop + i),
 				(unsigned int)ioread32((void *)(dipRegBA + i)),
 				(unsigned int)ioread32((void *)(dipRegBA + i + 0x4)),
 				(unsigned int)ioread32((void *)(dipRegBA + i + 0x8)),
@@ -213,7 +216,7 @@ int imgsys_dip_tfault_callback(int port,
         k = g_DIPRegDumpNr1Ifo[j].oft & 0xFFF0;
 		for (i = k; i <= g_DIPRegDumpNr1Ifo[j].end; i += 0x10) {
 			pr_info("[0x%08X] 0x%08X 0x%08X 0x%08X 0x%08X",
-				(unsigned int)(DIP_NR1_ADDR + i),
+				(unsigned int)(g_RegBaseAddrNr1 + i),
 				(unsigned int)ioread32((void *)(dipRegBA + i)),
 				(unsigned int)ioread32((void *)(dipRegBA + i + 0x4)),
 				(unsigned int)ioread32((void *)(dipRegBA + i + 0x8)),
@@ -229,7 +232,7 @@ int imgsys_dip_tfault_callback(int port,
         k = g_DIPRegDumpNr2Ifo[j].oft & 0xFFF0;
 		for (i = k; i <= g_DIPRegDumpNr2Ifo[j].end; i += 0x10) {
 			pr_info("[0x%08X] 0x%08X 0x%08X 0x%08X 0x%08X",
-				(unsigned int)(DIP_NR2_ADDR + i),
+				(unsigned int)(g_RegBaseAddrNr2 + i),
 				(unsigned int)ioread32((void *)(dipRegBA + i)),
 				(unsigned int)ioread32((void *)(dipRegBA + i + 0x4)),
 				(unsigned int)ioread32((void *)(dipRegBA + i + 0x8)),
@@ -255,6 +258,12 @@ void imgsys_dip_set_initial_value(struct mtk_imgsys_dev *imgsys_dev)
 				__func__, hw_idx);
 			continue;
 		}
+	}
+
+	if (imgsys_dev->dev_ver == 1) {
+		g_RegBaseAddrTop = DIP_TOP_ADDR_P;
+		g_RegBaseAddrNr1 = DIP_NR1_ADDR_P;
+		g_RegBaseAddrNr2 = DIP_NR2_ADDR_P;
 	}
 
 }
@@ -346,8 +355,10 @@ void imgsys_dip_updatecq(struct mtk_imgsys_dev *imgsys_dev,
 
 void imgsys_dip_cmdq_set_hw_initial_value(struct mtk_imgsys_dev *imgsys_dev, void *pkt, int hw_idx)
 {
-	unsigned int dipRegBA, ofset;
+	unsigned int ofset;
 	unsigned int i;
+	unsigned int imgsys_dip_base = IMGSYS_DIP_BASE;
+	unsigned int dip_base = DIP_TOP_ADDR;
 	struct cmdq_pkt *package = NULL;
 
 	if (imgsys_dev == NULL || pkt == NULL) {
@@ -357,15 +368,19 @@ void imgsys_dip_cmdq_set_hw_initial_value(struct mtk_imgsys_dev *imgsys_dev, voi
 	}
 	package = (struct cmdq_pkt *)pkt;
 
-	cmdq_pkt_write(package, NULL, (IMGSYS_DIP_BASE + SW_RST) /*address*/,
+	if (imgsys_dev->dev_ver == 1) {
+		imgsys_dip_base = IMGSYS_DIP_BASE_P;
+		dip_base = DIP_TOP_ADDR_P;
+	}
+
+	cmdq_pkt_write(package, NULL, (imgsys_dip_base + SW_RST) /*address*/,
 			       0x3FC03, 0xffffffff);
-	cmdq_pkt_write(package, NULL, (IMGSYS_DIP_BASE + SW_RST) /*address*/,
+	cmdq_pkt_write(package, NULL, (imgsys_dip_base + SW_RST) /*address*/,
 			       0x0, 0xffffffff);
 
 	/* iomap registers */
-	dipRegBA = DIP_TOP_ADDR;
 	for (i = 0; i < ARRAY_SIZE(mtk_imgsys_dip_init_ary); i++) {
-		ofset = dipRegBA + mtk_imgsys_dip_init_ary[i].ofset;
+		ofset = dip_base + mtk_imgsys_dip_init_ary[i].ofset;
 		cmdq_pkt_write(package, NULL, ofset /*address*/,
 				mtk_imgsys_dip_init_ary[i].val, 0xffffffff);
 	}
@@ -785,7 +800,6 @@ void imgsys_dip_debug_dump(struct mtk_imgsys_dev *imgsys_dev,
 
 	/* 0x15100000~ */
 	dipRegBA = gdipRegBA[0];
-	g_RegBaseAddr = DIP_TOP_ADDR;
 
 	/* DL debug data */
 	imgsys_dip_dump_dl(imgsys_dev, dipRegBA, CtlDdbSel, CtlDbgOut);
@@ -795,7 +809,7 @@ void imgsys_dip_debug_dump(struct mtk_imgsys_dev *imgsys_dev,
         k = g_DIPRegDumpTopIfo[j].oft & 0xFFF0;
 		for (i = k; i <= g_DIPRegDumpTopIfo[j].end; i += 0x10) {
 			pr_info("[0x%08X] 0x%08X 0x%08X 0x%08X 0x%08X",
-				(unsigned int)(DIP_TOP_ADDR + i),
+				(unsigned int)(g_RegBaseAddrTop + i),
 				(unsigned int)ioread32((void *)(dipRegBA + i)),
 				(unsigned int)ioread32((void *)(dipRegBA + i + 0x4)),
 				(unsigned int)ioread32((void *)(dipRegBA + i + 0x8)),
@@ -811,7 +825,7 @@ void imgsys_dip_debug_dump(struct mtk_imgsys_dev *imgsys_dev,
         k = g_DIPRegDumpNr1Ifo[j].oft & 0xFFF0;
 		for (i = k; i <= g_DIPRegDumpNr1Ifo[j].end; i += 0x10) {
 			pr_info("[0x%08X] 0x%08X 0x%08X 0x%08X 0x%08X",
-				(unsigned int)(DIP_NR1_ADDR + i),
+				(unsigned int)(g_RegBaseAddrNr1 + i),
 				(unsigned int)ioread32((void *)(dipRegBA + i)),
 				(unsigned int)ioread32((void *)(dipRegBA + i + 0x4)),
 				(unsigned int)ioread32((void *)(dipRegBA + i + 0x8)),
@@ -827,7 +841,7 @@ void imgsys_dip_debug_dump(struct mtk_imgsys_dev *imgsys_dev,
         k = g_DIPRegDumpNr2Ifo[j].oft & 0xFFF0;
 		for (i = k; i <= g_DIPRegDumpNr2Ifo[j].end; i += 0x10) {
 			pr_info("[0x%08X] 0x%08X 0x%08X 0x%08X 0x%08X",
-				(unsigned int)(DIP_NR2_ADDR + i),
+				(unsigned int)(g_RegBaseAddrNr2 + i),
 				(unsigned int)ioread32((void *)(dipRegBA + i)),
 				(unsigned int)ioread32((void *)(dipRegBA + i + 0x4)),
 				(unsigned int)ioread32((void *)(dipRegBA + i + 0x8)),
@@ -840,18 +854,18 @@ void imgsys_dip_debug_dump(struct mtk_imgsys_dev *imgsys_dev,
 	dipRegBA = gdipRegBA[0];
 	DMADdbSel = DIP_DMATOP_DBG_SEL;
 	DMADbgOut = DIP_DMATOP_DBG_PORT;
-	g_RegBaseAddr = DIP_TOP_ADDR;
+	g_RegBaseAddr = g_RegBaseAddrTop;
 	imgsys_dip_dump_dma(imgsys_dev, dipRegBA, DMADdbSel, DMADbgOut, DMANrPort);
 	/* DMA_NR debug data */
 	DMANrPort = 1;
 	dipRegBA = gdipRegBA[2];
 	DMADdbSel = DIP_DMANR2_DBG_SEL;
 	DMADbgOut = DIP_DMANR2_DBG_PORT;
-	g_RegBaseAddr = DIP_NR2_ADDR;
+	g_RegBaseAddr = g_RegBaseAddrNr2;
 	imgsys_dip_dump_dma(imgsys_dev, dipRegBA, DMADdbSel, DMADbgOut, DMANrPort);
 
 	dipRegBA = gdipRegBA[0];
-	g_RegBaseAddr = DIP_TOP_ADDR;
+	g_RegBaseAddr = g_RegBaseAddrTop;
 	/* NR3D debug data */
 	imgsys_dip_dump_nr3d(imgsys_dev, dipRegBA);
 	/* SNR debug data */

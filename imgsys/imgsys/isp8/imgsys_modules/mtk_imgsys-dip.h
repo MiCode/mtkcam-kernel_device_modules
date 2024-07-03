@@ -29,7 +29,9 @@
  ********************************************************************/
 /* DIP */
 #define DIP_TOP_ADDR	0x34100000
-#define IMGSYS_DIP_BASE	(0x34110000)
+#define DIP_TOP_ADDR_P	0x15100000
+#define IMGSYS_DIP_BASE		(0x34110000)
+#define IMGSYS_DIP_BASE_P	(0x15110000)
 
 #define DIP_DBG_SEL		0x230
 #define DIP_DBG_OUT		0x234
@@ -46,9 +48,11 @@
 
 /* DIP NR1 */
 #define DIP_NR1_ADDR		0x34150000
+#define DIP_NR1_ADDR_P		0x15150000
 
 /* DIP NR2 */
 #define DIP_NR2_ADDR		0x34160000
+#define DIP_NR2_ADDR_P		0x15160000
 
 #define DIP_DMA_NAME_MAX_SIZE	20
 

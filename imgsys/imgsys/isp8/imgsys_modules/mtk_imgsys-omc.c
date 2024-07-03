@@ -25,6 +25,7 @@
 #define OMC_HW_NUM        (2)
 void __iomem *gOmcRegBA[OMC_HW_NUM] = {0L}; //mapped physical addr
 unsigned int gOmcRegBase[OMC_HW_NUM] = {0x34540000, 0x34640000};
+unsigned int gOmcRegBase_P[OMC_HW_NUM] = {0x15540000, 0x15640000};
 
 //CTL_MOD_EN //TODO:
 #define DIP_DL    0x80000
@@ -305,7 +306,11 @@ bool imgsys_omc_done_chk(struct mtk_imgsys_dev *imgsys_dev, uint32_t engine)
 		return false;
 	}
 
-	omcBase = gOmcRegBase[ofst_idx];
+	if (imgsys_dev->dev_ver == 1)
+		omcBase = gOmcRegBase_P[ofst_idx];
+	else
+		omcBase = gOmcRegBase[ofst_idx];
+
 	omcRegBA = gOmcRegBA[ofst_idx];
 	if (!omcRegBA) {
 		pr_info("%s: OMC_%d, RegBA = 0", __func__, hw_idx);
@@ -449,6 +454,7 @@ void imgsys_omc_cmdq_set_hw_initial_value(struct mtk_imgsys_dev *imgsys_dev,
 	unsigned int i = 0;
 	unsigned int ary_idx = 0;
 	struct cmdq_pkt *package = NULL;
+	unsigned int omcBase = 0;
 
 	if (imgsys_dev == NULL || pkt == NULL) {
 		dump_stack();
@@ -460,15 +466,20 @@ void imgsys_omc_cmdq_set_hw_initial_value(struct mtk_imgsys_dev *imgsys_dev,
 	dev_dbg(imgsys_dev->dev, "%s: +\n", __func__);
 
 	ary_idx = hw_idx - REG_MAP_E_OMC_TNR;
+	if (imgsys_dev->dev_ver == 1)
+		omcBase = gOmcRegBase_P[ary_idx];
+	else
+		omcBase = gOmcRegBase[ary_idx];
+
 	if (hw_idx < REG_MAP_E_OMC_LITE) {
 		for (i = 0 ; i < OMC_INIT_ARRAY_COUNT ; i++) {
-			ofset = gOmcRegBase[ary_idx] + mtk_imgsys_omc_init_ary[i].ofset;
+			ofset = omcBase + mtk_imgsys_omc_init_ary[i].ofset;
 			cmdq_pkt_write(package, NULL, ofset /*address*/,
 				mtk_imgsys_omc_init_ary[i].val, 0xffffffff);
 		}
 	} else {
 		for (i = 0 ; i < OMC_INIT_ARRAY_COUNT_2P ; i++) {
-			ofset = gOmcRegBase[ary_idx] + mtk_imgsys_omc_init_ary_2p[i].ofset;
+			ofset = omcBase + mtk_imgsys_omc_init_ary_2p[i].ofset;
 			cmdq_pkt_write(package, NULL, ofset /*address*/,
 					mtk_imgsys_omc_init_ary_2p[i].val, 0xffffffff);
 		}
@@ -884,8 +895,11 @@ void imgsys_omc_debug_dump(struct mtk_imgsys_dev *imgsys_dev,
 		return;
 	}
 
+	if (imgsys_dev->dev_ver == 1)
+		omcBase = gOmcRegBase_P[ofst_idx];
+	else
+		omcBase = gOmcRegBase[ofst_idx];
 
-	omcBase = gOmcRegBase[ofst_idx];
 	omcRegBA = gOmcRegBA[ofst_idx];
 	if (!omcRegBA) {
 		pr_info("%s: OMC_%d, RegBA = 0", __func__, hw_idx);

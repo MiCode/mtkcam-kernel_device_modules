@@ -29,6 +29,7 @@
 #include "../../cmdq/isp8/mtk_imgsys-cmdq-qof.h"
 
 #define WPE_A_BASE        (0x34200000)
+#define WPE_A_BASE_P      (0x15200000)  /* imgsys_dev->dev_ver is 1 */
 const unsigned int mtk_imgsys_wpe_base_ofst[] = {0x0, 0x300000, 0x400000};
 #define WPE_HW_NUM        ARRAY_SIZE(mtk_imgsys_wpe_base_ofst)
 
@@ -120,7 +121,6 @@ struct mtk_imgsys_wpe_dtable {
 };
 
 void __iomem *gWpeRegBA[WPE_HW_NUM] = {0L};
-unsigned int gWpeRegBase[WPE_HW_NUM] = {0x34200000, 0x34500000, 0x34600000};
 
 int imgsys_wpe_tfault_callback(int port,
 	dma_addr_t mva, void *data)
@@ -243,7 +243,12 @@ bool imgsys_wpe_done_chk(struct mtk_imgsys_dev *imgsys_dev, uint32_t engine)
 			__func__, ofst_idx, (uint32_t)WPE_HW_NUM);
 		return ret;
 	}
-	wpeBase = WPE_A_BASE + mtk_imgsys_wpe_base_ofst[ofst_idx];
+
+	if (imgsys_dev->dev_ver == 1)
+		wpeBase = WPE_A_BASE_P + mtk_imgsys_wpe_base_ofst[ofst_idx];
+	else
+		wpeBase = WPE_A_BASE + mtk_imgsys_wpe_base_ofst[ofst_idx];
+
 	wpeRegBA = gWpeRegBA[ofst_idx];
 	if (!wpeRegBA) {
 		pr_info("%s: WPE_%d, RegBA = 0", __func__, hw_idx);
@@ -389,6 +394,7 @@ void imgsys_wpe_cmdq_set_hw_initial_value(struct mtk_imgsys_dev *imgsys_dev,
 	unsigned int i = 0;
 	unsigned int ary_idx = 0;
 	struct cmdq_pkt *package = NULL;
+	unsigned int wpeBase = 0;
 
 	if (imgsys_dev == NULL || pkt == NULL) {
 		dump_stack();
@@ -400,11 +406,17 @@ void imgsys_wpe_cmdq_set_hw_initial_value(struct mtk_imgsys_dev *imgsys_dev,
 	if (imgsys_wpe_7sp_dbg_enable())
 		dev_info(imgsys_dev->dev, "%s: +\n", __func__);
 
+	ary_idx = hw_idx - REG_MAP_E_WPE_EIS;
+	if (imgsys_dev->dev_ver == 1) {
+		wpeBase = WPE_A_BASE_P + mtk_imgsys_wpe_base_ofst[ary_idx];
+	} else {
+		wpeBase = WPE_A_BASE+ mtk_imgsys_wpe_base_ofst[ary_idx];
+	}
+
 	if (hw_idx != REG_MAP_E_WPE_TNR) { // if not wpe_tnr
-		ary_idx = hw_idx - REG_MAP_E_WPE_EIS;
 		/* iomap registers */
 		for (i = 0 ; i < WPE_INIT_ARRAY_COUNT ; i++) {
-			ofset = gWpeRegBase[ary_idx] + mtk_imgsys_wpe_init_ary[i].ofset;
+			ofset = wpeBase + mtk_imgsys_wpe_init_ary[i].ofset;
 			cmdq_pkt_write(package, NULL, ofset /*address*/,
 					mtk_imgsys_wpe_init_ary[i].val, 0xffffffff);
 		}
@@ -810,7 +822,11 @@ void imgsys_wpe_debug_dump(struct mtk_imgsys_dev *imgsys_dev,
 		return;
 	}
 
-	wpeBase = WPE_A_BASE + mtk_imgsys_wpe_base_ofst[ofst_idx];
+	if (imgsys_dev->dev_ver == 1)
+		wpeBase = WPE_A_BASE_P + mtk_imgsys_wpe_base_ofst[ofst_idx];
+	else
+		wpeBase = WPE_A_BASE + mtk_imgsys_wpe_base_ofst[ofst_idx];
+
 	wpeRegBA = gWpeRegBA[ofst_idx];
 	if (!wpeRegBA) {
 		pr_info("%s: WPE_%d, RegBA = 0", __func__, hw_idx);

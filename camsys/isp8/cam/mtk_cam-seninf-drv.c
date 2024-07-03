@@ -50,6 +50,8 @@
 #endif
 #endif
 
+#define REDUCE_KO_DEPENDENCY_FOR_SMT
+
 #define is_irq_ready 1
 
 #define ESD_RESET_SUPPORT 1
@@ -815,13 +817,13 @@ static int seninf_core_pm_runtime_get_sync(struct seninf_core *core)
 	int ret = 0;
 
 	if (core->pm_domain_cnt == 1) {
-#ifndef REDUCE_KO_DEPENDANCY_FOR_SMT
 		mtk_mmdvfs_enable_vcp(true, VCP_PWR_USR_SENIF);
-#endif
 		ret = pm_runtime_get_sync(core->dev);
 		if (ret < 0) {
 			dev_info(core->dev, "pm_runtime_get_sync(fail),ret(%d)\n", ret);
+#ifndef REDUCE_KO_DEPENDENCY_FOR_SMT
 			return ret;
+#endif
 		}
 	} else if (core->pm_domain_cnt > 1) {
 		if (!core->pm_domain_devs)
@@ -829,15 +831,15 @@ static int seninf_core_pm_runtime_get_sync(struct seninf_core *core)
 
 		for (i = 0; i < core->pm_domain_cnt; i++) {
 			if (core->pm_domain_devs[i] != NULL) {
-#ifndef REDUCE_KO_DEPENDANCY_FOR_SMT
 				mtk_mmdvfs_enable_vcp(true, VCP_PWR_USR_SENIF);
-#endif
 				ret = pm_runtime_get_sync(core->pm_domain_devs[i]);
 				if (ret < 0) {
 					dev_info(core->dev,
 						"pm_runtime_get_sync(fail),ret(%d)\n",
 						ret);
+#ifndef REDUCE_KO_DEPENDENCY_FOR_SMT
 					return ret;
+#endif
 				}
 			}
 		}
@@ -856,9 +858,7 @@ static int seninf_core_pm_runtime_put(struct seninf_core *core)
 		ret = pm_runtime_put_sync(core->dev);
 		if (ret < 0)
 			dev_info(core->dev, "pm_runtime_put_sync(fail),ret(%d)\n", ret);
-#ifndef REDUCE_KO_DEPENDANCY_FOR_SMT
 		mtk_mmdvfs_enable_vcp(false, VCP_PWR_USR_SENIF);
-#endif
 	} else if (core->pm_domain_cnt > 1) {
 		if (!core->pm_domain_devs)
 			return -ENOMEM;
@@ -870,9 +870,7 @@ static int seninf_core_pm_runtime_put(struct seninf_core *core)
 					dev_info(core->dev,
 						"pm_runtime_put_sync(fail),ret(%d)\n",
 						ret);
-#ifndef REDUCE_KO_DEPENDANCY_FOR_SMT
 				mtk_mmdvfs_enable_vcp(false, VCP_PWR_USR_SENIF);
-#endif
 			}
 		}
 	} else
@@ -1738,8 +1736,10 @@ static int set_aov_test_model_param(struct seninf_ctx *ctx, char enable)
 		ret = pm_runtime_get_sync(ctx->dev);
 		if (ret < 0) {
 			dev_info(ctx->dev, "%s pm_runtime_get_sync ret %d\n", __func__, ret);
+#ifndef REDUCE_KO_DEPENDENCY_FOR_SMT
 			pm_runtime_put_noidle(ctx->dev);
 			return ret;
+#endif
 		}
 
 		g_aov_param.isp_freq = ISP_CLK_LOW;
@@ -1799,8 +1799,10 @@ static int set_test_model(struct seninf_ctx *ctx, char enable)
 		ret = pm_runtime_get_sync(ctx->dev);
 		if (ret < 0) {
 			dev_info(ctx->dev, "[%s] pm_runtime_get_sync ret %d\n", __func__, ret);
+#ifndef REDUCE_KO_DEPENDENCY_FOR_SMT
 			pm_runtime_put_noidle(ctx->dev);
 			return ret;
+#endif
 		}
 
 		if (dfs->cnt)
@@ -2453,8 +2455,10 @@ static int seninf_csi_s_stream(struct v4l2_subdev *sd, int enable)
 		ret = pm_runtime_get_sync(ctx->dev);
 		if (ret < 0) {
 			dev_info(ctx->dev, "%s pm_runtime_get_sync ret %d\n", __func__, ret);
+#ifndef REDUCE_KO_DEPENDENCY_FOR_SMT
 			pm_runtime_put_noidle(ctx->dev);
 			return ret;
+#endif
 		}
 
 		update_isp_clk(ctx);
@@ -3539,10 +3543,8 @@ static int seninf_probe(struct platform_device *pdev)
 #endif  /*CSI_EFUSE_VERIFY_GORDAN_TABLE_EN*/
 	if (csi_efuse_value_verify(ctx) < 0) {
 		dev_info(dev, "Failed to verify efuse data\n");
-#ifndef REDUCE_KO_DEPENDANCY_FOR_SMT
 		aee_kernel_warning_api(__FILE__, __LINE__, DB_OPT_DEFAULT,
 		"seninf", "Failed to verify efuse data");
-#endif
 	}
 #endif  /*CSI_EFUSE_VERIFY_EN*/
 #endif  /*CSI_EFUSE_SET*/
@@ -4099,8 +4101,10 @@ static int runtime_resume(struct device *dev)
 			ret = seninf_core_pm_runtime_get_sync(core);
 			if (ret < 0) {
 				seninf_logi(ctx, "seninf_core_pm_runtime_get_sync(fail),ret(%d)\n", ret);
+#ifndef REDUCE_KO_DEPENDENCY_FOR_SMT
 				mutex_unlock(&core->mutex);
 				return ret;
+#endif
 			}
 			seninf_logd(ctx, "seninf_core_pm_runtime_get_sync(success),ret(%d)\n", ret);
 
@@ -4398,8 +4402,10 @@ int mtk_cam_seninf_dump(struct v4l2_subdev *sd, u32 seq_id, bool force_check)
 	ret = pm_runtime_get_sync(ctx->dev);
 	if (ret < 0) {
 		dev_info(ctx->dev, "%s pm_runtime_get_sync ret %d\n", __func__, ret);
+#ifndef REDUCE_KO_DEPENDENCY_FOR_SMT
 		pm_runtime_put_noidle(ctx->dev);
 		return ret;
+#endif
 	}
 
 	/* query if sensor in reset */
@@ -4454,8 +4460,10 @@ int mtk_cam_seninf_dump_current_status(struct v4l2_subdev *sd)
 	ret = pm_runtime_get_sync(ctx->dev);
 	if (ret < 0) {
 		dev_info(ctx->dev, "%s pm_runtime_get_sync ret %d\n", __func__, ret);
+#ifndef REDUCE_KO_DEPENDENCY_FOR_SMT
 		pm_runtime_put_noidle(ctx->dev);
 		return ret;
+#endif
 	}
 
 	/* query if sensor in reset */

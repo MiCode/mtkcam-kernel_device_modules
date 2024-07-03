@@ -625,6 +625,15 @@ static void imgsys_cmdq_cb_work_plat8(struct work_struct *work)
 		IMGSYS_CMDQ_SYSTRACE_END();
 		tsDvfsQosEnd = ktime_get_boottime_ns()/1000;
 
+		if (!is_stream_off && isLastTaskInReq) {
+			int sw_ridx = 0;
+
+			for (idx = 0; idx < cb_param->frm_info->total_frmnum; idx++) {
+				sw_ridx = cb_param->frm_info->user_info[idx].sw_ridx;
+				imgsys_cmdq_release_token_vsdof(sw_ridx);
+			}
+		}
+
 		user_cb_data.err = cb_param->err;
 		user_cb_data.data = (void *)cb_param->frm_info;
 		cb_param->cmdqTs.tsUserCbStart = ktime_get_boottime_ns()/1000;
@@ -638,13 +647,6 @@ static void imgsys_cmdq_cb_work_plat8(struct work_struct *work)
 		IMGSYS_CMDQ_SYSTRACE_END();
 		cb_param->cmdqTs.tsUserCbEnd = ktime_get_boottime_ns()/1000;
 
-		if (!is_stream_off && isLastTaskInReq) {
-			int sw_ridx = 0;
-			for (idx = 0; idx < cb_param->frm_info->total_frmnum; idx++) {
-				sw_ridx = cb_param->frm_info->user_info[idx].sw_ridx;
-				imgsys_cmdq_release_token_vsdof(sw_ridx);
-			}
-		}
 	}
 
 	IMGSYS_CMDQ_SYSTRACE_BEGIN(

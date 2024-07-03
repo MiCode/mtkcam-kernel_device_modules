@@ -4841,8 +4841,14 @@ static void update_sen_expo_diff(struct mtk_cam_job *job)
 {
 	struct mtk_cam_ctx *ctx = job->src_ctx;
 	struct mtk_raw_ctrl_data *ctrl_data = get_raw_ctrl_data(job);
-	struct mtk_cam_exp_shutter *next = &ctrl_data->rc_data.exp_ns;
-	struct mtk_cam_exp_shutter *last = &ctx->last_req_exposue;
+	struct mtk_cam_exp_shutter *next;
+	struct mtk_cam_exp_shutter *last;
+
+	if (!ctrl_data)
+		return;
+
+	next = &ctrl_data->rc_data.exp_ns;
+	last = &ctx->last_req_exposue;
 
 	if (is_sensor_changed(job)) {
 		job->exp_diff_ns_le = 0;

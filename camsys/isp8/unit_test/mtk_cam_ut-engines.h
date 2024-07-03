@@ -272,7 +272,7 @@ extern struct platform_driver mtk_ut_mraw_driver;
 extern struct platform_driver mtk_ut_seninf_driver;
 #define WITH_LARB_DRIVER 0
 #define WITH_CAMSV_DRIVER 1
-#define WITH_MRAW_DRIVER 0
+#define WITH_MRAW_DRIVER 1
 #define SUPPORT_PM 0
 #define SUPPORT_RAWB 0
 #define WITH_POWER_DRIVER 1

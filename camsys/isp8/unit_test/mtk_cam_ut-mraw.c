@@ -686,8 +686,7 @@ static irqreturn_t ut_mtk_mraw_irq(int irq, void *data)
 
 	/* check mraw error*/
 	if ((irq_status & INT_ST_MASK_MRAW_ERR) ||
-		(irq_status & MRAWCTL_DMA_ERR_ST) ||
-		(irq_status & MRAWCTL_SW_ENQUE_ERR_ST)) {
+		(irq_status & MRAWCTL_DMA_ERR_ST)) {
 		dev_info(mraw->dev, "irq_status:0x%x", irq_status);
 		ut_mtk_cam_mraw_debug_dump(mraw);
 		return IRQ_HANDLED;

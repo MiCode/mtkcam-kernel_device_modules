@@ -109,11 +109,11 @@ static int mtk_ccu_rproc_ipc_trigger(struct mtk_ccu *ccu,
 				read_ccu_info_regd(ccu, MTK_CCU_SPARE_REG31));
 		else
 			dev_err(ccu->dev, "r_assert:0x%x, i28:0x%x, i29:0x%x, i30:0x%x, i31:0x%x",
-				readl(ccu->ccu_base + MTK_CCU_SPARE_REG20),
-				readl(ccu->ccu_base + MTK_CCU_SPARE_REG28),
-				readl(ccu->ccu_base + MTK_CCU_SPARE_REG29),
-				readl(ccu->ccu_base + MTK_CCU_SPARE_REG30),
-				readl(ccu->ccu_base + MTK_CCU_SPARE_REG31));
+				readl(ccu->ccu_spare_base + MTK_CCU_SPARE_REG20),
+				readl(ccu->ccu_spare_base + MTK_CCU_SPARE_REG28),
+				readl(ccu->ccu_spare_base + MTK_CCU_SPARE_REG29),
+				readl(ccu->ccu_spare_base + MTK_CCU_SPARE_REG30),
+				readl(ccu->ccu_spare_base + MTK_CCU_SPARE_REG31));
 		return -EINVAL;
 	}
 
@@ -162,11 +162,11 @@ static int mtk_ccu_rproc_ipc_trigger(struct mtk_ccu *ccu,
 				read_ccu_info_regd(ccu, MTK_CCU_SPARE_REG31));
 		else
 			dev_err(ccu->dev, "r_assert:0x%x, i28:0x%x, i29:0x%x, i30:0x%x, i31:0x%x",
-				readl(ccu->ccu_base + MTK_CCU_SPARE_REG20),
-				readl(ccu->ccu_base + MTK_CCU_SPARE_REG28),
-				readl(ccu->ccu_base + MTK_CCU_SPARE_REG29),
-				readl(ccu->ccu_base + MTK_CCU_SPARE_REG30),
-				readl(ccu->ccu_base + MTK_CCU_SPARE_REG31));
+				readl(ccu->ccu_spare_base + MTK_CCU_SPARE_REG20),
+				readl(ccu->ccu_spare_base + MTK_CCU_SPARE_REG28),
+				readl(ccu->ccu_spare_base + MTK_CCU_SPARE_REG29),
+				readl(ccu->ccu_spare_base + MTK_CCU_SPARE_REG30),
+				readl(ccu->ccu_spare_base + MTK_CCU_SPARE_REG31));
 		ccu->ipc_tout_fid = msg->feature_type;
 		ccu->ipc_tout_mid = msg->msg_id;
 		return -ETIMEDOUT;
@@ -298,7 +298,7 @@ irqreturn_t mtk_ccu_isr_handler(int irq, void *priv)
 
 	/*clear interrupt status*/
 #if defined(SECURE_CCU)
-	if (ccu->ccu_version == CCU_VER_ISP8)
+	if (ccu->ccu_version >= CCU_VER_ISP8)
 		writel(1, ccu->ccu_exch_base + MTK_CCU_INT_CLR_ISP8);
 	else if (ccu->ccu_version > CCU_VER_ISP71)
 		writel(1, ccu->ccu_base + MTK_CCU_INT_CLR_EXCH);
@@ -352,16 +352,16 @@ ISR_EXIT:
 void mtk_ccu_rproc_ipc_init(struct mtk_ccu *ccu)
 {
 	uint8_t *dmbase = (uint8_t *)ccu->dmem_base;
-	uint8_t *ctrlbase = (ccu->ccu_version == CCU_VER_ISP8) ?
+	uint8_t *ctrlbase = (ccu->ccu_version >= CCU_VER_ISP8) ?
 		(uint8_t *)ccu->ccu_exch_base : (uint8_t *)ccu->ccu_base;
 	uint32_t trig_reg_offset;
 	struct shared_buf_map *sb_map_ptr =
 		(struct shared_buf_map *)(dmbase + MTK_CCU_SHARED_BUF_OFFSET);
 	uint8_t *ipc_base = (ccu->compact_ipc) ?
 		((ccu->ccu_version == CCU_VER_ISP8) ? ccu->ccu_exch_base : ccu->ccu_base) :
-		ccu->dmem_base;
+		((ccu->ccu_version >= CCU_VER_ISP8L) ? ccu->ccu_exch_base : ccu->dmem_base);
 
-	if (ccu->ccu_version == CCU_VER_ISP8)
+	if (ccu->ccu_version >= CCU_VER_ISP8)
 		trig_reg_offset = MTK_CCU_INT_TRG_ISP8;
 	else if ((ccu->ccu_version == CCU_VER_ISP7SP) || (ccu->ccu_version == CCU_VER_ISP7SPL))
 		trig_reg_offset = MTK_CCU_INT_TRG_ISP7SP;
@@ -447,7 +447,7 @@ int mtk_ccu_rproc_ipc_send(struct platform_device *pdev,
 	}
 
 	if (!ccu->ccu_ipc.is_initialized) {
-		dev_err(ccu->dev, "sendCcuCommnadIpc failed, ft (%d) msgId(%d)",
+		dev_err(ccu->dev, "sendCcuCommnadIpc not init, ft (%d) msgId(%d)",
 			featureType, msgId);
 		return -EINVAL;
 	}
@@ -483,34 +483,6 @@ int mtk_ccu_rproc_ipc_send(struct platform_device *pdev,
 
 	//check if need to copy output data
 	ret = mtk_ccu_copyCmdOutData(ccu, inDataPtr, inDataSize);
-
-	if (ccu->compact_ipc) {
-		if (read_ccu_info_regd(ccu, MTK_CCU_SPARE_REG20)) {
-			dev_err(ccu->dev, "aft_ipc r_assert:0x%x,i25:0x%x,i26:0x%x,i27:0x%x",
-				read_ccu_info_regd(ccu, MTK_CCU_SPARE_REG20),
-				read_ccu_info_regd(ccu, MTK_CCU_SPARE_REG25),
-				read_ccu_info_regd(ccu, MTK_CCU_SPARE_REG26),
-				read_ccu_info_regd(ccu, MTK_CCU_SPARE_REG27));
-			dev_err(ccu->dev, "aft_ipc i28:0x%x, i29:0x%x, i30:0x%x, i31:0x%x",
-				read_ccu_info_regd(ccu, MTK_CCU_SPARE_REG28),
-				read_ccu_info_regd(ccu, MTK_CCU_SPARE_REG29),
-				read_ccu_info_regd(ccu, MTK_CCU_SPARE_REG30),
-				read_ccu_info_regd(ccu, MTK_CCU_SPARE_REG31));
-		}
-	} else {
-		if (readl(ccu->ccu_base + MTK_CCU_SPARE_REG20)) {
-			dev_err(ccu->dev, "aft_ipc r_assert:0x%x,i25:0x%x,i26:0x%x,i27:0x%x",
-				readl(ccu->ccu_base + MTK_CCU_SPARE_REG20),
-				readl(ccu->ccu_base + MTK_CCU_SPARE_REG25),
-				readl(ccu->ccu_base + MTK_CCU_SPARE_REG26),
-				readl(ccu->ccu_base + MTK_CCU_SPARE_REG27));
-			dev_err(ccu->dev, "aft_ipc i28:0x%x, i29:0x%x, i30:0x%x, i31:0x%x",
-				readl(ccu->ccu_base + MTK_CCU_SPARE_REG28),
-				readl(ccu->ccu_base + MTK_CCU_SPARE_REG29),
-				readl(ccu->ccu_base + MTK_CCU_SPARE_REG30),
-				readl(ccu->ccu_base + MTK_CCU_SPARE_REG31));
-		}
-	}
 
 	spin_unlock(&ccu->ipc_send_lock);
 

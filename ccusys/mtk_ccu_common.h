@@ -42,6 +42,8 @@
 #define CCU_VER_ISP7SP	73
 #define CCU_VER_ISP7SPL 74
 #define CCU_VER_ISP8    80
+#define CCU_VER_ISP8L   81
+#define CCU_VER_ISP8S   82
 
 #define MTK_CCU_CLK_PWR_NUM 20
 #define MTK_CCU_CLK_NAME_LEN 32
@@ -72,6 +74,8 @@
 #define SPARE_REG_OFFSET_AP		(SPARE_REG_OFFSET_SEC + 0x80)
 #define SPARE_REG_OFFSET_VM1	(SPARE_REG_OFFSET_AP + 0x80)
 #define SPARE_REG_OFFSET_VM2	(SPARE_REG_OFFSET_VM1 + 0x80)
+
+#define SYSTICK_FREQ_LEGACY     13000000
 
 struct mtk_ccu_ipc_desc {
 	mtk_ccu_ipc_handle_t handler;
@@ -110,6 +114,7 @@ struct mtk_ccu_buffer {
 	char *va;
 	u64 ktime;
 	uint32_t gtick;
+	uint32_t systick_freq;
 };
 
 struct mtk_ccu_ipc_data {
@@ -228,6 +233,7 @@ struct mtk_ccu {
 	uint32_t ipc_tout_mid;
 	u64 ktime;
 	uint32_t gtick;
+	uint32_t systick_freq;
 	atomic_t bootcnt[RPROC_UID_MAX][3];
 };
 

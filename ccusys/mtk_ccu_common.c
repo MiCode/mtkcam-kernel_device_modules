@@ -157,6 +157,7 @@ static long mtk_ccu_ioctl(struct file *flip, unsigned int cmd,
 		}
 		log_info.ktime = ccu->ktime;
 		log_info.gtick = ccu->gtick;
+		log_info.systick_freq = ccu->systick_freq;
 		ret = copy_to_user((void *)arg, &log_info,
 			sizeof(struct mtk_ccu_buffer));
 		if (ret) {

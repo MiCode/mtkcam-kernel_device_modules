@@ -48,6 +48,9 @@
 
 #define CCU_EXCH_OFFSET       (0x8000)
 #define CCU_EXCH_SIZE         (0x1000)
+#define CCU_EXCH_SIZE_IPC     (0x10000)
+#define CCU_IPC_SRAM_OFFSET   (0xC000)
+#define CCU_IPC_SRAM_SIZE     (0x1000)
 #define SPM_BASE              (0x1C001000)
 #define SPM_BASE_ISP8         (0x1C004000)
 #define SPM_SIZE              (0x1000)

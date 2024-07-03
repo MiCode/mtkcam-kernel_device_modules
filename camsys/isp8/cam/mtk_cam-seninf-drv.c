@@ -900,49 +900,12 @@ static irqreturn_t mtk_thread_irq_seninf(int irq, void *data)
 static int get_seninf_ops(struct device *dev, struct seninf_core *core)
 {
 	int i, ret;
-	//const char *ver;
 
-	//ret = of_property_read_string(dev->of_node, "mtk-csi-phy-ver", &ver);
-
-	//if (ret) {
-		g_seninf_ops = &mtk_csi_phy_3_0;
-		dev_info(dev, "%s: INFO: phy default mtk-csi-phy-3-0\n", __func__);
-	//} else {
-	//	for (i = 0; i < SENINF_PHY_VER_NUM; i++) {
-	//		if (!strcasecmp(ver, csi_phy_versions[i])) {
-	//			// Support phy 3.0 & phy 3.1
-	//			if (i == SENINF_PHY_3_1) {
-	//				g_seninf_ops = &mtk_csi_phy_3_1;
-	//				dev_info(dev, "%s: INFO: phy config mtk-csi-phy-3-1\n", __func__);
-	//			} else {
-	//				g_seninf_ops = &mtk_csi_phy_3_0;
-	//				dev_info(dev, "%s: INFO: phy config mtk-csi-phy-3-0\n", __func__);
-	//			}
-	//		}
-	//	}
-	//}
-
-	//of_property_read_u32(dev->of_node, "seninf-num",
-	//	&g_seninf_ops->seninf_num);
-	//of_property_read_u32(dev->of_node, "mux-num",
-	//	&g_seninf_ops->mux_num);
-	//of_property_read_u32(dev->of_node, "cam-mux-num",
-	//	&g_seninf_ops->cam_mux_num);
-	//of_property_read_u32(dev->of_node, "pref-mux-num",
-	//	&g_seninf_ops->pref_mux_num);
-	ret = of_property_read_string(dev->of_node, "mtk-iomem-ver",
-		&g_seninf_ops->iomem_ver);
-
-	if (!ret) {
-		dev_info(dev,
-			"%s: NOTICE: read property:(mtk_iomem_ver) success, ret:%d, using special mapping order\n",
-			__func__, ret);
-	} else {
-		dev_info(dev,
-			"%s: NOTICE: read property:(mtk_iomem_ver) not found, ret:%d, using default mapping order\n",
-			__func__, ret);
-	}
-
+	g_seninf_ops = &mtk_csi_phy_3_0;
+	dev_info(dev, "[%s] phy default mtk-csi-phy-3-0\n", __func__);
+	if (of_property_read_string(dev->of_node, "mtk-iomem-ver", &g_seninf_ops->iomem_ver))
+		g_seninf_ops->iomem_ver = "mt6991";
+	dev_info(dev, "[%s] mtk_iomem_ver = %s\n", __func__, g_seninf_ops->iomem_ver);
 
 	for (i = CDPHY_DVFS_STEP_0; i < CDPHY_DVFS_STEP_MAX_NUM; i++) {
 		/* cphy 4d1c data rate maximum */
@@ -950,8 +913,8 @@ static int get_seninf_ops(struct device *dev, struct seninf_core *core)
 			cdphy_dvfs_step_name[i], 0,
 			&core->cdphy_dvfs_step[i].cphy_data_rate.first);
 		if (ret) {
-			dev_info(dev,
-				"%s: ERROR: read property index:(cdphy_dvfs_step_name[%d].cphy_data_rate.first) failed,ret:%d\n",
+			dev_dbg(dev,
+				"[%s] read property index:(cdphy_dvfs_step_name[%d].cphy_data_rate.first) failed,ret:%d\n",
 				__func__, i, ret);
 			core->cdphy_dvfs_step[i].cphy_data_rate.first = 0;
 		}
@@ -960,8 +923,8 @@ static int get_seninf_ops(struct device *dev, struct seninf_core *core)
 			cdphy_dvfs_step_name[i], 1,
 			&core->cdphy_dvfs_step[i].cphy_data_rate.second);
 		if (ret) {
-			dev_info(dev,
-				"%s: ERROR: read property index:(cdphy_dvfs_step_name[%d].cphy_data_rate.second) failed,ret:%d\n",
+			dev_dbg(dev,
+				"[%s] read property index:(cdphy_dvfs_step_name[%d].cphy_data_rate.second) failed,ret:%d\n",
 				__func__, i, ret);
 			core->cdphy_dvfs_step[i].cphy_data_rate.second = 0;
 		}
@@ -970,8 +933,8 @@ static int get_seninf_ops(struct device *dev, struct seninf_core *core)
 			cdphy_dvfs_step_name[i], 2,
 			&core->cdphy_dvfs_step[i].dphy_data_rate.first);
 		if (ret) {
-			dev_info(dev,
-				"%s: ERROR: read property index:(cdphy_dvfs_step_name[%d].dphy_data_rate.first) failed,ret:%d\n",
+			dev_dbg(dev,
+				"[%s] read property index:(cdphy_dvfs_step_name[%d].dphy_data_rate.first) failed,ret:%d\n",
 				__func__, i, ret);
 			core->cdphy_dvfs_step[i].dphy_data_rate.first = 0;
 		}
@@ -980,8 +943,8 @@ static int get_seninf_ops(struct device *dev, struct seninf_core *core)
 			cdphy_dvfs_step_name[i], 3,
 			&core->cdphy_dvfs_step[i].dphy_data_rate.second);
 		if (ret) {
-			dev_info(dev,
-				"%s: ERROR: read property index:(cdphy_dvfs_step_name[%d].dphy_data_rate.second) failed,ret:%d\n",
+			dev_dbg(dev,
+				"[%s] read property index:(cdphy_dvfs_step_name[%d].dphy_data_rate.second) failed,ret:%d\n",
 				__func__, i, ret);
 			core->cdphy_dvfs_step[i].dphy_data_rate.second = 0;
 		}
@@ -990,8 +953,8 @@ static int get_seninf_ops(struct device *dev, struct seninf_core *core)
 			cdphy_dvfs_step_name[i], 4,
 			&core->cdphy_dvfs_step[i].csi_clk);
 		if (ret) {
-			dev_info(dev,
-				"%s: ERROR: read property index:(cdphy_dvfs_step_name[%d].csi_clk) failed,ret:%d\n",
+			dev_dbg(dev,
+				"[%s] read property index:(cdphy_dvfs_step_name[%d].csi_clk) failed,ret:%d\n",
 				__func__, i, ret);
 			core->cdphy_dvfs_step[i].csi_clk = 0;
 		}
@@ -1000,8 +963,8 @@ static int get_seninf_ops(struct device *dev, struct seninf_core *core)
 			cdphy_dvfs_step_name[i], 5,
 			&core->cdphy_dvfs_step[i].cdphy_voltage.first);
 		if (ret) {
-			dev_info(dev,
-				"%s: ERROR: read property index:(cdphy_dvfs_step_name[%d].cdphy_voltage.first) failed,ret:%d\n",
+			dev_dbg(dev,
+				"[%s] read property index:(cdphy_dvfs_step_name[%d].cdphy_voltage.first) failed,ret:%d\n",
 				__func__, i, ret);
 			core->cdphy_dvfs_step[i].cdphy_voltage.first = 0;
 		}
@@ -1010,13 +973,13 @@ static int get_seninf_ops(struct device *dev, struct seninf_core *core)
 			cdphy_dvfs_step_name[i], 6,
 			&core->cdphy_dvfs_step[i].cdphy_voltage.second);
 		if (ret) {
-			dev_info(dev,
-				"%s: ERROR: read property index:(cdphy_dvfs_step_name[%d].cdphy_voltage.second) failed,ret:%d\n",
+			dev_dbg(dev,
+				"[%s] read property index:(cdphy_dvfs_step_name[%d].cdphy_voltage.second) failed,ret:%d\n",
 				__func__, i, ret);
 			core->cdphy_dvfs_step[i].cdphy_voltage.second = 0;
 		}
 		dev_info(dev,
-			"[%s]: step[%d].c/dphy_data_rate.first/second:%u/%u/%u/%u,csi_clk:%u,voltage.first/second:%u/%u,ret:%d\n",
+			"[%s] step[%d].c/dphy_data_rate.first/second:%u/%u/%u/%u,csi_clk:%u,voltage.first/second:%u/%u\n",
 			__func__, i,
 			core->cdphy_dvfs_step[i].cphy_data_rate.first,
 			core->cdphy_dvfs_step[i].cphy_data_rate.second,
@@ -1024,16 +987,8 @@ static int get_seninf_ops(struct device *dev, struct seninf_core *core)
 			core->cdphy_dvfs_step[i].dphy_data_rate.second,
 			core->cdphy_dvfs_step[i].csi_clk,
 			core->cdphy_dvfs_step[i].cdphy_voltage.first,
-			core->cdphy_dvfs_step[i].cdphy_voltage.second, ret);
+			core->cdphy_dvfs_step[i].cdphy_voltage.second);
 	}
-
-	//dev_info(dev,
-	//	"%s: seninf_num = %d, mux_num = %d, cam_mux_num = %d, pref_mux_num =%d\n",
-	//	__func__,
-	//	g_seninf_ops->seninf_num,
-	//	g_seninf_ops->mux_num,
-	//	g_seninf_ops->cam_mux_num,
-	//	g_seninf_ops->pref_mux_num);
 
 	return 0;
 }
@@ -1048,18 +1003,18 @@ static int mtk_cam_seninf_irq_init(struct platform_device *pdev, struct seninf_c
 		/* Return: non-zero IRQ number on success, negative error number on failure. */
 		irq = platform_get_irq_byname(pdev, seninf_irq_names[i]);
 		if (irq <= 0) {
-			dev_err(core->dev, "%s: failed to get %s number, ret:%d\n",
+			dev_err(core->dev, "[%s] failed to get %s number, ret:%d\n",
 				__func__, seninf_irq_names[i], irq);
 		} else {
 			ret = devm_request_threaded_irq(core->dev, irq, mtk_irq_seninf,
 						mtk_thread_irq_seninf, 0, dev_name(core->dev), core);
 			if (ret) {
-				dev_err(core->dev, "%s: Request %s failed\n", __func__,
+				dev_err(core->dev, "[%s] Request %s failed\n", __func__,
 					seninf_irq_names[i]);
 				WRAP_AEE_EXCEPTION("seninf_core_probe", "Request seninf-irq");
 				/* return ret; */
 			}
-			dev_info(core->dev, "registered seninf-irq=%d\n", irq);
+			dev_info(core->dev, "[%s] registered seninf-irq=%d\n", __func__, irq);
 		}
 	}
 #endif
@@ -1087,7 +1042,6 @@ static int seninf_core_probe(struct platform_device *pdev)
 
 	core = devm_kzalloc(&pdev->dev, sizeof(*core), GFP_KERNEL);
 	if (!core) {
-		dev_err(dev, "%s: kzalloc core failed\n", __func__);
 		WRAP_AEE_EXCEPTION("seninf_core_probe", "Kzalloc");
 		return -ENOMEM;
 	}
@@ -1117,7 +1071,7 @@ static int seninf_core_probe(struct platform_device *pdev)
 
 	ret = get_seninf_ops(dev, core);
 	if (ret) {
-		dev_info(dev, "failed to get seninf ops\n");
+		dev_info(dev, "[%s] failed to get seninf ops\n", __func__);
 		return ret;
 	}
 
@@ -1128,14 +1082,14 @@ static int seninf_core_probe(struct platform_device *pdev)
 		index = of_property_match_string(tmp_node, "reg-names", "base");
 		if (index < 0) {
 			// Fail
-			dev_info(dev, "get seninf outmux reg base failed\n");
+			dev_err(dev, "[%s] get seninf outmux reg base failed\n", __func__);
 		} else {
 			// Success
-			dev_info(dev, "get seninf outmux reg base succeeded\n");
+			dev_dbg(dev, "[%s] get seninf outmux reg base succeeded\n", __func__);
 
 			core->reg_seninf_outmux[i] = devm_of_iomap(dev, tmp_node, index, NULL);
 			if (IS_ERR(core->reg_seninf_outmux[i]))
-				dev_info(dev, "seninf outmux[%d] index %d ioremap failed\n", i, index);
+				dev_info(dev, "[%s] seninf outmux[%d] index %d ioremap failed\n", __func__, i, index);
 			else {
 				core->outmux[i].idx = i;
 
@@ -1143,14 +1097,13 @@ static int seninf_core_probe(struct platform_device *pdev)
 				index = of_property_match_string(tmp_node, "reg-names", "base-inner");
 				if (index < 0) {
 					// Fail
-					dev_info(dev, "get seninf outmux reg base inner failed\n");
+					dev_err(dev, "[%s] get seninf outmux reg base inner failed\n", __func__);
 				} else {
 					core->reg_seninf_outmux_inner[i] =
 						devm_of_iomap(dev, tmp_node, index, NULL);
 				}
 
-				of_property_read_string(tmp_node,
-						"connected-cam-type", &str);
+				of_property_read_string(tmp_node, "connected-cam-type", &str);
 				for (j = 0; (str) && (j < ARRAY_SIZE(outmux_cam_type_name)); j++) {
 					if (strncmp(str, outmux_cam_type_name[j], strlen(str)) == 0) {
 						core->outmux[i].cam_type = j;
@@ -1159,7 +1112,7 @@ static int seninf_core_probe(struct platform_device *pdev)
 				}
 
 				list_add_tail(&core->outmux[i].list, &core->list_outmux);
-				dev_info(dev, "outmux full_name=%s cam type = %d\n",
+				dev_info(dev, "[%s] outmux full_name=%s cam type = %d\n", __func__,
 					 tmp_node->full_name, core->outmux[i].cam_type);
 
 				i++;
@@ -1174,14 +1127,14 @@ static int seninf_core_probe(struct platform_device *pdev)
 	while ((tmp_node = of_find_compatible_node(tmp_node, NULL, "mediatek,seninf-csi"))) {
 
 		if (of_property_read_u32(tmp_node, "csi-port", &port_id) < 0) {
-			dev_info(dev, "get csi port id failed\n");
+			dev_err(dev, "[%s] get csi port id failed\n", __func__);
 			// no need to call of_node_put, due to next
 			// of_find_compatble_node will call it.
 			continue;
 		}
 
 		if (port_id >= CSI_PORT_PHYSICAL_MAX_NUM) {
-			dev_info(dev, "get csi port id %d exceed CSI_PORT_PHYSICAL_MAX_NUM(%d)\n",
+			dev_err(dev, "[%s] get csi port id %d exceed CSI_PORT_PHYSICAL_MAX_NUM(%d)\n", __func__,
 				 port_id, CSI_PORT_PHYSICAL_MAX_NUM);
 			// no need to call of_node_put, due to next
 			// of_find_compatble_node will call it.
@@ -1189,14 +1142,14 @@ static int seninf_core_probe(struct platform_device *pdev)
 		}
 
 		if (of_property_read_u32(tmp_node, "connect-to-seninf-async", &seninf_async_idx) < 0) {
-			dev_info(dev, "get csi port id failed\n");
+			dev_err(dev, "[%s] get csi port id failed\n", __func__);
 			// no need to call of_node_put, due to next
 			// of_find_compatble_node will call it.
 			continue;
 		}
 
 		if (seninf_async_idx >= SENINF_ASYNC_NUM) {
-			dev_info(dev, "get connected async idx %d exceed SENINF_ASYNC_NUM(%d)\n",
+			dev_err(dev, "[%s] get connected async idx %d exceed SENINF_ASYNC_NUM(%d)\n", __func__,
 				 seninf_async_idx, SENINF_ASYNC_NUM);
 			// no need to call of_node_put, due to next
 			// of_find_compatble_node will call it.
@@ -1210,16 +1163,16 @@ static int seninf_core_probe(struct platform_device *pdev)
 						"reg-names", csi_reg_base_names[i]);
 			if (index < 0) {
 				// Fail
-				dev_info(dev, "get seninf csi reg base (%d) failed\n", i);
+				dev_err(dev, "[%s] get seninf csi reg base (%d) failed\n", __func__, i);
 			} else {
 				// Success
-				dev_info(dev, "get seninf csi reg base (%d) succeeded\n", i);
+				dev_dbg(dev, "[%s] get seninf csi reg base (%d) succeeded\n", __func__, i);
 
 				core->reg_csi_base[port_id].reg_csi_base[i] =
 					devm_of_iomap(dev, tmp_node, index, NULL);
 				if (IS_ERR(core->reg_csi_base[port_id].reg_csi_base[i])) {
-					dev_info(dev,
-						"seninf csi[%d] base reg %d index %d ioremap failed\n",
+					dev_err(dev,
+						"[%s] seninf csi[%d] base reg %d index %d ioremap failed\n", __func__,
 						port_id, i, index);
 				}
 			}
@@ -1272,7 +1225,7 @@ static int seninf_core_probe(struct platform_device *pdev)
 	/* vcore node get */
 	core->dvfsrc_vcore_power = devm_regulator_get_optional(dev, "dvfsrc-vcore");
 	if (IS_ERR(core->dvfsrc_vcore_power)) {
-		dev_err(dev, "%s: failed to get dvfsrc-vcore\n", __func__);
+		dev_err(dev, "[%s] failed to get dvfsrc-vcore\n", __func__);
 		core->dvfsrc_vcore_power = NULL;
 	}
 
@@ -1280,7 +1233,7 @@ static int seninf_core_probe(struct platform_device *pdev)
 	for (i = 0; i < CLK_MAXCNT; i++) {
 		core->clk[i] = devm_clk_get(dev, clk_names[i]);
 		if (IS_ERR(core->clk[i])) {
-			dev_err(dev, "%s: failed to get %s\n", __func__, clk_names[i]);
+			dev_err(dev, "[%s] failed to get %s\n", __func__, clk_names[i]);
 			core->clk[i] = NULL;
 			//return -EINVAL;
 		}
@@ -1298,7 +1251,7 @@ static int seninf_core_probe(struct platform_device *pdev)
 				"fmeter-type", &str);
 			of_node_put(tmp_node);
 		} else {
-			dev_info(dev, "[i:%d], tmp_node == NULL\n", i);
+			dev_err(dev, "[%s] [i:%d], tmp_node == NULL\n", __func__, i);
 			continue;
 		}
 		if (str) {
@@ -1315,7 +1268,7 @@ static int seninf_core_probe(struct platform_device *pdev)
 
 	ret = of_platform_populate(dev->of_node, NULL, NULL, dev);
 	if (ret) {
-		dev_err(dev, "%s: create sub devices failed\n", __func__);
+		dev_err(dev, "[%s] create sub devices failed\n", __func__);
 		WRAP_AEE_EXCEPTION("seninf_core_probe", "Create Sub Devices");
 		return ret;
 	}
@@ -1323,26 +1276,26 @@ static int seninf_core_probe(struct platform_device *pdev)
 #ifdef SENINF_DVFS_READY
 	ret = seninf_dfs_init(&core->dfs, dev);
 	if (ret) {
-		dev_err(dev, "%s: failed to init dfs\n", __func__);
+		dev_err(dev, "[%s] failed to init dfs\n", __func__);
 		//return ret;
 	}
 #endif
 
 	ret = device_create_file(dev, &dev_attr_status);
 	if (ret)
-		dev_err(dev, "%s: failed to create sysfs status\n", __func__);
+		dev_err(dev, "[%s] failed to create sysfs status\n", __func__);
 
 	ret = device_create_file(dev, &dev_attr_debug_ops);
 	if (ret)
-		dev_err(dev, "%s: failed to create sysfs debug ops\n", __func__);
+		dev_err(dev, "[%s] failed to create sysfs debug ops\n", __func__);
 
 	ret = device_create_file(dev, &dev_attr_err_status);
 	if (ret)
-		dev_err(dev, "%s: failed to create sysfs status\n", __func__);
+		dev_err(dev, "[%s] failed to create sysfs status\n", __func__);
 
 	ret = device_create_file(dev, &dev_attr_outmux_status);
 	if (ret)
-		dev_err(dev, "%s: failed to create sysfs status\n", __func__);
+		dev_err(dev, "[%s] failed to create sysfs status\n", __func__);
 
 
 	seninf_core_pm_runtime_enable(core);
@@ -1351,10 +1304,10 @@ static int seninf_core_probe(struct platform_device *pdev)
 	core->seninf_kworker_task = kthread_run(kthread_worker_fn,
 				&core->seninf_worker, "seninf_worker");
 	if (IS_ERR(core->seninf_kworker_task)) {
-		dev_err(dev, "%s: failed to start seninf kthread worker\n", __func__);
+		dev_err(dev, "[%s] failed to start seninf kthread worker\n", __func__);
 		core->seninf_kworker_task = NULL;
 	} else {
-		dev_info(dev, "%s: seninf kthread worker set prio to fifo\n", __func__);
+		dev_info(dev, "[%s] seninf kthread worker set prio to fifo\n", __func__);
 		sched_set_fifo(core->seninf_kworker_task);
 	}
 
@@ -2237,11 +2190,37 @@ static int debug_err_detect_initialize(struct seninf_ctx *ctx)
 		ctx->debug_cur_mac_csi2_size_chk_ctrl2 = 0;
 		ctx->debug_cur_mac_csi2_size_chk_ctrl3 = 0;
 		ctx->debug_cur_mac_csi2_size_chk_ctrl4 = 0;
+		ctx->debug_cur_mac_csi2_size_chk_ctrl5 = 0;
 		ctx->debug_cur_mac_csi2_size_chk_rcv0 = 0;
 		ctx->debug_cur_mac_csi2_size_chk_rcv1 = 0;
 		ctx->debug_cur_mac_csi2_size_chk_rcv2 = 0;
 		ctx->debug_cur_mac_csi2_size_chk_rcv3 = 0;
 		ctx->debug_cur_mac_csi2_size_chk_rcv4 = 0;
+		ctx->debug_cur_mac_csi2_size_chk_rcv5 = 0;
+		ctx->debug_cur_mac_csi2_size_chk_exp0 = 0;
+		ctx->debug_cur_mac_csi2_size_chk_exp1 = 0;
+		ctx->debug_cur_mac_csi2_size_chk_exp2 = 0;
+		ctx->debug_cur_mac_csi2_size_chk_exp3 = 0;
+		ctx->debug_cur_mac_csi2_size_chk_exp4 = 0;
+		ctx->debug_cur_mac_csi2_size_chk_exp5 = 0;
+		ctx->debug_cur_mac_csi2_size_chk_err0 = 0;
+		ctx->debug_cur_mac_csi2_size_chk_err1 = 0;
+		ctx->debug_cur_mac_csi2_size_chk_err2 = 0;
+		ctx->debug_cur_mac_csi2_size_chk_err3 = 0;
+		ctx->debug_cur_mac_csi2_size_chk_err4 = 0;
+		ctx->debug_cur_mac_csi2_size_chk_err5 = 0;
+		ctx->debug_cur_mac_csi2_size_irq_en0 = 0;
+		ctx->debug_cur_mac_csi2_size_irq_en1 = 0;
+		ctx->debug_cur_mac_csi2_size_irq_en2 = 0;
+		ctx->debug_cur_mac_csi2_size_irq_en3 = 0;
+		ctx->debug_cur_mac_csi2_size_irq_en4 = 0;
+		ctx->debug_cur_mac_csi2_size_irq_en5 = 0;
+		ctx->debug_cur_mac_csi2_size_irq0 = 0;
+		ctx->debug_cur_mac_csi2_size_irq1 = 0;
+		ctx->debug_cur_mac_csi2_size_irq2 = 0;
+		ctx->debug_cur_mac_csi2_size_irq3 = 0;
+		ctx->debug_cur_mac_csi2_size_irq4 = 0;
+		ctx->debug_cur_mac_csi2_size_irq5 = 0;
 	}
 
 	return 0;
@@ -3585,7 +3564,7 @@ err_free_handler:
 	return ret;
 }
 
-static int enable_phya_clk(struct seninf_ctx *ctx)
+static int set_phya_clk(struct seninf_ctx *ctx)
 {
 	int ret = 0;
 	struct seninf_core *core = ctx->core;
@@ -3597,24 +3576,11 @@ static int enable_phya_clk(struct seninf_ctx *ctx)
 		(ctx->current_sensor_id != core->aov_sensor_id))
 		seninf_logi(ctx, "aov is using phya osc source clk now\n");
 	else {
-		ret = g_seninf_ops->_set_phya_clock_src(ctx, 1);
+		ret = g_seninf_ops->_set_phya_clock_src(ctx);
 		if (ret < 0) {
-			seninf_logi(ctx, "fail to set phya osc source clk,ret(%d)\n", ret);
+			seninf_logi(ctx, "fail to set phya source clk, ret(%d)\n", ret);
 			return ret;
 		}
-	}
-
-	return 0;
-}
-
-static int disable_phya_clk(struct seninf_ctx *ctx)
-{
-	int ret = 0;
-
-	ret = g_seninf_ops->_set_phya_clock_src(ctx, 0);
-	if (ret < 0) {
-		seninf_logi(ctx, "fail to set phya pll source clk,ret(%d)\n", ret);
-		return ret;
 	}
 
 	return 0;
@@ -4006,8 +3972,6 @@ static int runtime_suspend(struct device *dev)
 		ctx->power_status_flag = 0;
 		spin_unlock_irqrestore(&core->spinlock_irq, flags);
 
-		/* disable camtg_sel as phya clk */
-		disable_phya_clk(ctx);
 		/* disable seninf csi clk */
 		switch (ctx->portNum) {
 		case CSI_PORT_0:
@@ -4189,13 +4153,8 @@ static int runtime_resume(struct device *dev)
 				return -EINVAL;
 			}
 		}
-		/* enable camtg_sel as phya clk */
-		ret = enable_phya_clk(ctx);
-		if (ret < 0) {
-			seninf_logi(ctx, "enable_phya_clk(fail),ret(%d)\n", ret);
-			mutex_unlock(&core->mutex);
-			return ret;
-		}
+		/* set phya clk source */
+		set_phya_clk(ctx);
 
 		spin_lock_irqsave(&core->spinlock_irq, flags);
 		ctx->power_status_flag = 1;
@@ -4872,15 +4831,8 @@ int mtk_cam_seninf_aov_runtime_resume(unsigned int sensor_id,
 				return -EINVAL;
 			}
 		}
-		/* set register to switch phya clock source */
-		ret = enable_phya_clk(ctx);
-		if (ret < 0) {
-			dev_info(ctx->dev,
-				"[%s] fail to set phya osc source clk\n", __func__);
-			mutex_unlock(&core->mutex);
-			return ret;
-		}
-		dev_info(ctx->dev, "[%s] phya clock source switch to scp side\n", __func__);
+		/* set phya clk source */
+		set_phya_clk(ctx);
 	}
 #endif
 	mutex_unlock(&core->mutex);

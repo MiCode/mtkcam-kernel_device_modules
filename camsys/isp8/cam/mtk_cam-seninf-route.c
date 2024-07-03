@@ -909,6 +909,9 @@ int mtk_cam_seninf_get_vcinfo(struct seninf_ctx *ctx)
 		case 0x24:
 			vc->bit_depth = 24;
 			break;
+		case 0x27:
+			vc->bit_depth = 24;
+			break;
 		default:
 			vc->bit_depth = 8;
 			break;

@@ -403,6 +403,30 @@ struct seninf_ctx {
 	u32 debug_cur_mac_csi2_size_chk_rcv3;
 	u32 debug_cur_mac_csi2_size_chk_rcv4;
 	u32 debug_cur_mac_csi2_size_chk_rcv5;
+	u32 debug_cur_mac_csi2_size_chk_exp0;
+	u32 debug_cur_mac_csi2_size_chk_exp1;
+	u32 debug_cur_mac_csi2_size_chk_exp2;
+	u32 debug_cur_mac_csi2_size_chk_exp3;
+	u32 debug_cur_mac_csi2_size_chk_exp4;
+	u32 debug_cur_mac_csi2_size_chk_exp5;
+	u32 debug_cur_mac_csi2_size_chk_err0;
+	u32 debug_cur_mac_csi2_size_chk_err1;
+	u32 debug_cur_mac_csi2_size_chk_err2;
+	u32 debug_cur_mac_csi2_size_chk_err3;
+	u32 debug_cur_mac_csi2_size_chk_err4;
+	u32 debug_cur_mac_csi2_size_chk_err5;
+	u32 debug_cur_mac_csi2_size_irq_en0;
+	u32 debug_cur_mac_csi2_size_irq_en1;
+	u32 debug_cur_mac_csi2_size_irq_en2;
+	u32 debug_cur_mac_csi2_size_irq_en3;
+	u32 debug_cur_mac_csi2_size_irq_en4;
+	u32 debug_cur_mac_csi2_size_irq_en5;
+	u32 debug_cur_mac_csi2_size_irq0;
+	u32 debug_cur_mac_csi2_size_irq1;
+	u32 debug_cur_mac_csi2_size_irq2;
+	u32 debug_cur_mac_csi2_size_irq3;
+	u32 debug_cur_mac_csi2_size_irq4;
+	u32 debug_cur_mac_csi2_size_irq5;
 };
 
 struct mtk_cam_seninf_irq_event_st {

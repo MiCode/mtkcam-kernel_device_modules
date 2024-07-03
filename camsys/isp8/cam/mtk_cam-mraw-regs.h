@@ -7,7 +7,6 @@
 #define _MRAW_REGS_H
 
 /* camsys mraw */
-#define REG_CAMSYS_MRAW_BASEADDR				0x3A740000
 #define REG_CAMSYS_MRAW_SW_RST					0xA0
 
 /* mraw */

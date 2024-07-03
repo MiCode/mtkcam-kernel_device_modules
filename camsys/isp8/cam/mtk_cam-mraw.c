@@ -19,6 +19,7 @@
 #include "mtk_cam-mraw-regs.h"
 #include "mtk_cam-mraw.h"
 #include "mtk_cam-trace.h"
+#include "mtk_cam-plat.h"
 
 #include "iommu_debug.h"
 
@@ -1645,6 +1646,7 @@ static int mtk_mraw_of_probe(struct platform_device *pdev,
 	struct resource *res;
 	unsigned int i;
 	int ret, num_clks, num_larbs, num_ports, smmus;
+	int camsys_mraw_baseaddr = 0;
 
 	ret = of_property_read_u32(dev->of_node, "mediatek,mraw-id",
 						       &mraw_dev->id);
@@ -1688,7 +1690,8 @@ static int mtk_mraw_of_probe(struct platform_device *pdev,
 	}
 	dev_dbg(dev, "mraw, map_addr(inner)=0x%pK\n", mraw_dev->base_inner);
 
-	mraw_dev->top = ioremap(REG_CAMSYS_MRAW_BASEADDR, 0x1000);
+	CALL_PLAT_HW(query_module_base, CAMSYS_MRAW, &camsys_mraw_baseaddr);
+	mraw_dev->top = ioremap(camsys_mraw_baseaddr, 0x1000);
 
 	mraw_dev->irq = platform_get_irq(pdev, 0);
 	if (!mraw_dev->irq) {

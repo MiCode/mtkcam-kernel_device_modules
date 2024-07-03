@@ -24,7 +24,8 @@ enum camsys_module_id {
 	CAM_MAIN_RMSC,
 	CAM_MAIN_YUVA,
 	CAM_MAIN_YUVB,
-	CAM_MAIN_YUVC
+	CAM_MAIN_YUVC,
+	CAMSYS_MRAW
 };
 
 enum mraw_dmao_id {

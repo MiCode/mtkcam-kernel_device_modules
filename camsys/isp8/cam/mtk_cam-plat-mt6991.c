@@ -758,6 +758,7 @@ static int module_base[] = {
 	[CAM_MAIN_YUVA] = 0x3a8e0000,
 	[CAM_MAIN_YUVB] = 0x3a9e0000,
 	[CAM_MAIN_YUVC] = 0x3cae0000,
+	[CAMSYS_MRAW] = 0x3a740000,
 };
 
 static int query_module_base(int module_id, int *module_base_addr)

@@ -1084,6 +1084,35 @@ u64 mtk_cam_query_interval_from_sensor(struct v4l2_subdev *sensor)
 	return frame_interval_ns;
 }
 
+u64 mtk_cam_query_interval_from_ctrl_data(struct mtk_cam_ctx *ctx)
+{
+	struct v4l2_fract fi; /* in seconds */
+	u64 frame_interval_ns = 1000000000ULL / 30ULL;
+	struct mtk_raw_pipeline *pipeline;
+	struct mtk_raw_ctrl_data *ctrl_data;
+
+	if (!ctx || !ctx->has_raw_subdev)
+		return frame_interval_ns;
+
+	pipeline = &ctx->cam->pipelines.raw[ctx->raw_subdev_idx];
+	ctrl_data = &pipeline->ctrl_data;
+	fi = ctrl_data->resource.user_data.sensor_res.interval;
+
+	if (fi.denominator)
+		frame_interval_ns = (fi.numerator * 1000000000ULL) /
+			fi.denominator;
+	else {
+		pr_info("%s: warn. wrong fi (%u/%u)\n", __func__,
+			fi.numerator, fi.denominator);
+		frame_interval_ns = 1000000000ULL / 30ULL;
+	}
+
+	if (CAM_DEBUG_ENABLED(CTRL))
+		pr_info("%s: fi %llu ns\n", __func__, frame_interval_ns);
+
+	return frame_interval_ns;
+}
+
 /* use engine's entity to find seninf or use seninf to find sensor */
 struct v4l2_subdev
 *mtk_cam_find_sensor_seninf(struct v4l2_subdev *subdev, int media_func)

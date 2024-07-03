@@ -1997,7 +1997,7 @@ void mtk_cam_ctrl_start(struct mtk_cam_ctrl *cam_ctrl, struct mtk_cam_ctx *ctx)
 	cam_ctrl->fs_event_subframe_cnt = 0;
 	cam_ctrl->fs_event_subframe_idx = 0;
 	cam_ctrl->frame_interval_ns =
-			mtk_cam_query_interval_from_sensor(ctx->sensor);
+			mtk_cam_query_interval_from_ctrl_data(ctx);
 	cam_ctrl->sensor_sync_id = 0;
 	cam_ctrl->frame_sync_id = 0;
 	cam_ctrl->sensor_seq = 0;

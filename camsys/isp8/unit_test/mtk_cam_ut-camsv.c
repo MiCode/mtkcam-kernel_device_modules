@@ -526,7 +526,7 @@ static irqreturn_t ut_mtk_irq_camsv_sof(int irq, void *data)
 
 	irq_sof_status = readl_relaxed(camsv->base + REG_CAMSVCENTRAL_SOF_STATUS);
 	event.mask = 0;
-	if (irq_sof_status)
+	if (irq_sof_status && !camsv->is_dc_mode)
 		event.mask |= EVENT_SV_SOF;
 	if (event.mask) {
 		dev_dbg(camsv->dev, "send event 0x%x\n", event.mask);
@@ -566,6 +566,7 @@ static irqreturn_t ut_mtk_irq_camsv_hybrid(int irq, void *data)
 		dev_dbg(camsv->dev, "send event 0x%x\n", event.mask);
 		send_event(&camsv->event_src, event);
 	}
+	dev_info(camsv->dev, "irq_done_status:0x%x", done_status);
 	return IRQ_HANDLED;
 }
 

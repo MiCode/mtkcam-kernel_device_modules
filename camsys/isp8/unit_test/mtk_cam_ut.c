@@ -2001,6 +2001,9 @@ static const struct of_device_id mtk_cam_vcore_of_ids[] = {
 #ifdef CAMSYS_ISP8_MT6991
 		{.compatible = "mediatek,mt6991-camisp-vcore",},
 #endif
+#ifdef CAMSYS_ISP8_MT6899
+		{.compatible = "mediatek,mt6899-camisp-vcore",},
+#endif
 	{}
 };
 MODULE_DEVICE_TABLE(of, mtk_cam_vcore_of_ids);

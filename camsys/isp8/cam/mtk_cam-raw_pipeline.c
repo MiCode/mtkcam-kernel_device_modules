@@ -1055,6 +1055,7 @@ static int mtk_raw_set_ctrl(struct v4l2_ctrl *ctrl)
 
 			*shutter_ns = *(struct mtk_cam_exp_shutter *)ctrl->p_new.p;
 
+			if (CAM_DEBUG_ENABLED(V4L2))
 				dev_info_ratelimited(dev, "%s: EXP_SHUTTER (%llu,%llu,%llu,LE %d)\n",
 					 __func__,
 					 shutter_ns->le_exp_ns,

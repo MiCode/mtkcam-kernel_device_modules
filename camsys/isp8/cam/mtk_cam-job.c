@@ -4400,8 +4400,6 @@ static void update_job_state_init_sensor_param(struct mtk_cam_job *job)
 		(ctrl_data && ctrl_data->resource.user_data.raw_res.sen_apply_ctrl ==
 		MTK_CAM_SEN_APPLY_DIRECT_APPLY) ? 1 : 0;
 
-	pr_info("%s: ctx->long_exposure_flow %d", __func__,
-			job->src_ctx->last_req_exposue.long_exposure_flow);
 	job->job_state.s_params.always_allow |=
 		job->src_ctx->last_req_exposue.long_exposure_flow;
 

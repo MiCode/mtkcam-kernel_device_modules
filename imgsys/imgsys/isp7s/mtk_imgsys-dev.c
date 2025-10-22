@@ -11,6 +11,7 @@
 #include <linux/dma-mapping.h>
 #include <linux/hashtable.h>
 #include <linux/platform_device.h>
+#include <linux/vmalloc.h>
 #include <media/videobuf2-dma-contig.h>
 #include <media/v4l2-event.h>
 #include "mtk_imgsys-dev.h"

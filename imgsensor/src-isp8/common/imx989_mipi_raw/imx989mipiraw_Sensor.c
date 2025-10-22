@@ -32,6 +32,7 @@ static int imx989_seamless_switch(struct subdrv_ctx *ctx, u8 *para, u32 *len);
 static int imx989_set_test_pattern(struct subdrv_ctx *ctx, u8 *para, u32 *len);
 static int imx989_set_test_pattern_data(struct subdrv_ctx *ctx, u8 *para, u32 *len);
 static int imx989_cphy_lrte_mode(struct subdrv_ctx *ctx, u8 *para, u32 *len);
+static int imx989_extend_frame_length(struct subdrv_ctx *ctx, u8 *para, u32 *len);
 static int init_ctx(struct subdrv_ctx *ctx,	struct i2c_client *i2c_client, u8 i2c_write_id);
 static int vsync_notify(struct subdrv_ctx *ctx,	unsigned int sof_cnt);
 
@@ -42,6 +43,7 @@ static struct subdrv_feature_control feature_control_list[] = {
 	{SENSOR_FEATURE_SET_TEST_PATTERN_DATA, imx989_set_test_pattern_data},
 	{SENSOR_FEATURE_SEAMLESS_SWITCH, imx989_seamless_switch},
 	{SENSOR_FEATURE_SET_CPHY_LRTE_MODE, imx989_cphy_lrte_mode},
+	{SENSOR_FEATURE_SET_SEAMLESS_EXTEND_FRAME_LENGTH, imx989_extend_frame_length},
 };
 
 static struct eeprom_info_struct eeprom_info[] = {
@@ -4530,7 +4532,7 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.linelength = 42400,
 		.framelength = 1600,
 		.max_framerate = 600,
-		.mipi_pixel_rate = 2445531428,
+		.mipi_pixel_rate = 2037942856,
 		.readout_length = 0,
 		.read_margin = 64,
 		.framelength_step = 4,
@@ -5134,9 +5136,6 @@ static int imx989_seamless_switch(struct subdrv_ctx *ctx, u8 *para, u32 *len)
 	i2c_table_write(ctx,
 		ctx->s_ctx.mode[scenario_id].seamless_switch_mode_setting_table,
 		ctx->s_ctx.mode[scenario_id].seamless_switch_mode_setting_len);
-	if (ctx->s_ctx.reg_addr_fast_mode_in_lbmf &&
-		ctx->s_ctx.mode[scenario_id].hdr_mode == HDR_RAW_LBMF)
-		subdrv_i2c_wr_u8(ctx, ctx->s_ctx.reg_addr_fast_mode_in_lbmf, 0x4);
 
 	if (ae_ctrl) {
 		switch (ctx->s_ctx.mode[scenario_id].hdr_mode) {
@@ -5256,6 +5255,52 @@ static int imx989_set_test_pattern_data(struct subdrv_ctx *ctx, u8 *para, u32 *l
 
 	DRV_LOG(ctx, "mode(%u) R/Gr/Gb/B = 0x%04x/0x%04x/0x%04x/0x%04x\n",
 		ctx->test_pattern, R, Gr, Gb, B);
+	return ERROR_NONE;
+}
+
+#define EXTEND_FLL_MORE 10000000
+static int imx989_extend_frame_length(struct subdrv_ctx *ctx, u8 *para, u32 *len)
+{
+	int i;
+	u32 ns = *((u32 *)para);
+	u32 last_exp_cnt = 1;
+	u32 old_fl = ctx->frame_length;
+	u32 calc_fl = 0;
+	u32 readoutLength = 0;
+	u32 readMargin = 0;
+	u32 per_frame_ns = (u64)ctx->frame_length *
+		(u64)ctx->line_length * 1000000000 / ctx->pclk;
+
+	check_current_scenario_id_bound(ctx);
+	if (ctx->s_ctx.mode[ctx->current_scenario_id].hdr_mode == HDR_RAW_DCG_RAW) {
+		ns += EXTEND_FLL_MORE;
+		DRV_LOG_MUST(ctx, "extend more %dns", EXTEND_FLL_MORE);
+	} else if (ctx->s_ctx.mode[ctx->current_scenario_id].hdr_mode == HDR_RAW_LBMF) {
+		DRV_LOG_MUST(ctx, "do not extend");
+		return ERROR_NONE;
+	}
+	readoutLength = ctx->s_ctx.mode[ctx->current_scenario_id].readout_length;
+	readMargin = ctx->s_ctx.mode[ctx->current_scenario_id].read_margin;
+
+	for (i = 1; i < ARRAY_SIZE(ctx->exposure); i++)
+		last_exp_cnt += ctx->exposure[i] ? 1 : 0;
+	if (ns)
+		ctx->frame_length = (u32)(((u64)(per_frame_ns + ns)) *
+			ctx->frame_length / per_frame_ns);
+	if (last_exp_cnt > 1) {
+		calc_fl = (readoutLength + readMargin);
+		for (i = 1; i < last_exp_cnt; i++)
+			calc_fl += (ctx->exposure[i] + ctx->s_ctx.exposure_margin * last_exp_cnt);
+		ctx->frame_length = max(calc_fl, ctx->frame_length);
+	}
+	set_dummy(ctx);
+	ctx->extend_frame_length_en = TRUE;
+
+	ns = (u64)(ctx->frame_length - old_fl) *
+		(u64)ctx->line_length * 1000000000 / ctx->pclk;
+
+	DRV_LOG_MUST(ctx, "fll(old/new):%u/%u, add %u ns", old_fl, ctx->frame_length, ns);
+
 	return ERROR_NONE;
 }
 

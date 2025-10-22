@@ -17,6 +17,7 @@
 #include "mtk_cam-engine.h"
 #include "mtk_cam-dvfs_qos.h"
 #include "mtk_cam-qof.h"
+#include "mtk_cam-tuning.h"
 
 #define JOB_NUM_PER_STREAM 8
 #define JOB_NUM_PER_STREAM_DISPLAY_IC 16
@@ -28,6 +29,8 @@
 #define MAX_RAW_PER_STREAM 3 // twin, 3raw
 #define MAX_SV_PIPES_PER_STREAM (MAX_PIPES_PER_STREAM - 1)
 #define MAX_MRAW_PIPES_PER_STREAM (MAX_PIPES_PER_STREAM - 1)
+
+#define JOB_WORK_BUF_NUM 3
 
 struct mtk_cam_job;
 
@@ -47,10 +50,13 @@ enum mtk_cam_isp_state {
 	S_ISP_COMPOSED,
 	S_ISP_APPLYING,
 	S_ISP_OUTER,
-	S_ISP_APPLYING_PROCRAW,
-	S_ISP_OUTER_PROCRAW,
+	S_ISP_APPLYING_PROCRAW,		/* extisp used */
+	S_ISP_OUTER_PROCRAW,		/* extisp used */
 	S_ISP_PROCESSING,
-	S_ISP_PROCESSING_PROCRAW, /* extisp used */
+	S_ISP_PROCESSING_PROCRAW,	/* extisp used */
+	S_ISP_DONE_READY,			/* timeshare used */
+	S_ISP_APPLYING_RAW,			/* timeshare used */
+	S_ISP_PROCESSING_RAW,		/* timeshare used */
 	S_ISP_SENSOR_MISMATCHED,
 	S_ISP_DONE,
 	S_ISP_DONE_MISMATCHED,
@@ -131,7 +137,9 @@ enum mtk_camsys_event_type {
 	CAMSYS_EVENT_IRQ_EXTMETA_SOF, /* extisp meta's vsync */
 	CAMSYS_EVENT_IRQ_EXTMETA_CQ_DONE, /* extisp meta's cq done */
 	CAMSYS_EVENT_IRQ_EXTMETA_FRAME_DONE, /* extisp meta's frame done */
+	CAMSYS_EVENT_IRQ_TRY_TS_TRIGGER, /* extisp meta's frame done */
 
+	CAMSYS_EVENT_OFF, /* stop event for flow worker quit */
 	CAMSYS_EVENT_HW_HANG, /* hw unrecoverable error */
 };
 const char *str_event(int event);
@@ -147,6 +155,7 @@ struct mtk_cam_ctrl_runtime_info {
 	int ack_seq_no;
 	int outer_seq_no;
 	int inner_seq_no;
+	int outer_seq_no_ts;
 	int done_seq_no;
 
 	u64 sof_ts_ns;
@@ -154,6 +163,7 @@ struct mtk_cam_ctrl_runtime_info {
 	u64 sof_l_ts_ns;
 	u64 sof_l_ts_mono_ns;
 	bool ae_wa_enable;
+	int timeshare_enable; /* timeshare used */
 	int extisp_enable; /* extisp used */
 	int extisp_tg_cnt[NR_EXTISP_DATA]; /* extisp used */
 };
@@ -167,6 +177,7 @@ struct sensor_apply_params {
 	u64 i2c_thres_ns; /* valid period from vsync */
 	int latched_timing;
 	bool always_allow;
+	int subsample;
 };
 
 struct transition_param {
@@ -377,6 +388,7 @@ struct mtk_cam_job {
 	struct mtk_cam_job_state job_state;
 	const struct mtk_cam_job_ops *ops;
 	const struct initialize_params *init_params;
+	bool do_pending_aid_config;
 
 	/* for cq_done handling */
 	struct apply_cq_ref cq_ref;
@@ -446,6 +458,7 @@ struct mtk_cam_job {
 	/* debug only: use local_clock() to be consitent with printk */
 	u64 local_enqueue_ts;
 	u64 local_apply_sensor_ts;
+	u64 local_1st_l_sof_ts;
 	u64 local_enqueue_isp_ts;
 	u64 local_compose_isp_ts;
 	u64 local_ack_isp_ts;
@@ -457,6 +470,13 @@ struct mtk_cam_job {
 	struct qof_voter_handle luma_dump;
 	struct qof_voter_handle sen_exposure;
 	int qof_v_eng_sen_exp_change;
+	bool disable_qof_cq_ctrl;
+	bool back_to_qof_cq_ctrl;
+
+	/* ois compensagtion */
+	struct kthread_work tuning_work;
+	struct mtk_cam_tuning tuning_param;
+	atomic_t tuning_work_queued;
 };
 
 static inline struct mtk_cam_job *mtk_cam_job_get(struct mtk_cam_job *job)
@@ -520,6 +540,7 @@ enum MTK_CAMSYS_JOB_TYPE {
 	JOB_TYPE_STAGGER,
 	JOB_TYPE_HW_PREISP,
 	JOB_TYPE_HW_SUBSAMPLE,
+	JOB_TYPE_SW_TIMESHARED,
 	JOB_TYPE_ONLY_SV = 0x100,
 
 	/* TODO(AY): remove following if we don't need */
@@ -619,6 +640,12 @@ static inline unsigned int frame_seq_ge(unsigned int a, unsigned int b)
 	 * a = 0, b = 1 => diff = -1 => false
 	 */
 	return frame_seq_diff(a, b) < (_MASK_FRAME_SEQ / 2);
+}
+
+/* return a > b */
+static inline unsigned int frame_seq_gt(unsigned int a, unsigned int b)
+{
+	return frame_seq_ge(a, b) && a != b;
 }
 
 static inline struct mtk_cam_job_data *job_to_data(struct mtk_cam_job *job)

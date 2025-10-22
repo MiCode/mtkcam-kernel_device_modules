@@ -931,13 +931,13 @@ int mtk_cam_sv_update_feature(struct mtk_cam_video_device *node)
 	struct mtk_camsv_pipeline *sv_pipe;
 	int i;
 
-	if (node->desc.id != MTK_CAMSV_EXT_STREAM_OUT)
-		return 0;
-
 	for (i = 0; i < cam->pipelines.num_camsv; i++) {
 		sv_pipe = &cam->pipelines.camsv[i];
 		if (sv_pipe->id == node->uid.pipe_id) {
-			sv_pipe->feature_pending |= DISPLAY_IC;
+			if (node->desc.id == MTK_CAMSV_EXT_STREAM_OUT)
+				sv_pipe->feature_pending |= DISPLAY_IC;
+			else
+				sv_pipe->feature_pending = 0;
 			break;
 		}
 	}

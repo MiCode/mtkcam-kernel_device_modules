@@ -90,7 +90,7 @@ static inline struct v4l2_rect fullsize_as_crop(unsigned int w, unsigned int h)
 
 #define USE_CTRL_PIXEL_RATE 0
 #define DC_MODE_VB_MARGIN 100
-
+#define M2M_MODE_VB_RATIO 35
 static int res_calc_fill_sensor(struct mtk_cam_res_calc *c,
 				const struct mtk_cam_resource_sensor_v2 *s,
 				struct mtk_cam_resource_raw_v2 *r)
@@ -111,9 +111,15 @@ static int res_calc_fill_sensor(struct mtk_cam_res_calc *c,
 		* interval_d / interval_n;
 #endif
 	c->line_time = interval / max(s->height + s->vblank, 1U);
-	c->raw_line_time = (res_raw_is_dc_mode(r) || scen_is_m2m(&r->scen)) ?
-		interval / max(s->height + DC_MODE_VB_MARGIN, 1U) :
-		c->line_time;
+
+	if (res_raw_is_dc_mode(r))
+		c->raw_line_time = interval / max(s->height + DC_MODE_VB_MARGIN, 1U);
+	else if (scen_is_m2m(&r->scen) || scen_is_timeshare(&r->scen))
+		c->raw_line_time = interval /
+			max(s->height + s->height * M2M_MODE_VB_RATIO / 100, 1U);
+	else
+		c->raw_line_time = c->line_time;
+
 	c->width = s->width;
 	c->height = s->height;
 
@@ -285,7 +291,7 @@ static void scen_validate_exp_num(struct mtk_cam_scen *scen)
 		}
 	}
 }
-
+#define BUFFER_NUM_FOR_TIMESHARED 2
 static void
 mtk_cam_resource_update_work_buf(struct mtk_cam_resource_v2 *user_ctrl)
 {
@@ -298,18 +304,21 @@ mtk_cam_resource_update_work_buf(struct mtk_cam_resource_v2 *user_ctrl)
 
 	switch (scen->id) {
 	case MTK_CAM_SCEN_NORMAL:
-		exp_num = (scen->scen.normal.max_exp_num == 0) ?
-					1 : scen->scen.normal.max_exp_num;
+		exp_num = (scen->scen.normal.exp_num == 0) ?
+					1 : scen->scen.normal.exp_num;
 		buf_require = res_raw_is_dc_mode(r) ? exp_num : exp_num - 1;
 		buf_require = !!(scen->scen.normal.w_chn_supported) ?
 					buf_require * 2 : buf_require;
+		buf_require = buf_require * (r->ois_compensation ? 2 : 1);
 		break;
 	case MTK_CAM_SCEN_MSTREAM:
 		buf_require = res_raw_is_dc_mode(r) ? 2 : 1;
 		break;
-	case MTK_CAM_SCEN_EXT_ISP:
-		/* TODO */
-		buf_require = 1;
+	case MTK_CAM_SCEN_TIMESHARE:
+		/* TODO - considering enlarge */
+		exp_num = (scen->scen.normal.max_exp_num == 0) ?
+					1 : scen->scen.normal.max_exp_num;
+		buf_require = BUFFER_NUM_FOR_TIMESHARED * exp_num;
 		break;
 	default:
 		break;
@@ -669,6 +678,11 @@ static int mtk_raw_calc_raw_resource(struct mtk_raw_pipeline *pipeline,
 		r->raws = debug_user_raws_must[pipeline->id];
 	}
 
+	if (!res_raw_is_dc_mode(r) && res_raw_ois_compensation(r)) {
+		dev_info(cam->dev, "%s: failed with ois compensation\n", __func__);
+		return -EINVAL;
+	}
+
 	ret = mtk_raw_calc_raw_mask_chk(cam->dev, cam->engines.num_raw_devices,
 				       &r->raws, &r->raws_must, &r->raws_max_num)
 		|| mtk_raw_calc_raw_mask_chk_scen(cam, r);
@@ -813,6 +827,14 @@ static int mtk_raw_get_ctrl(struct v4l2_ctrl *ctrl)
 
 	if (ctrl->id == V4L2_CID_MTK_CAM_INTERNAL_MEM_CTRL)
 		*((struct mtk_cam_internal_mem *)ctrl->p_new.p) = pipeline->ctrl_data.pre_alloc_mem;
+#ifdef MTK_ISP_DYNAMIC_RAW_SUPPORT
+	else if (ctrl->id == V4L2_CID_MTK_CAM_RAW_AVAILABLE) {
+		struct mtk_cam_device *cam_dev = subdev_to_cam_device(&pipeline->subdev);
+
+		if (cam_dev)
+			ctrl->val = cam_dev->efuse_data;
+	}
+#endif
 	else
 		dev_info(dev, "%s: error. ctrl(\"%s\", id:0x%x) not supported yet\n",
 			 __func__, ctrl->name, ctrl->id);
@@ -1055,12 +1077,14 @@ static int mtk_raw_set_ctrl(struct v4l2_ctrl *ctrl)
 
 			*shutter_ns = *(struct mtk_cam_exp_shutter *)ctrl->p_new.p;
 
-			if (CAM_DEBUG_ENABLED(V4L2))
-				dev_info_ratelimited(dev, "%s: EXP_SHUTTER (%llu,%llu,%llu)\n",
+			if (CAM_DEBUG_ENABLED(V4L2) ||
+				shutter_ns->long_exposure_flow)
+				dev_info_ratelimited(dev, "%s: EXP_SHUTTER (%llu,%llu,%llu,LE %d)\n",
 					 __func__,
 					 shutter_ns->le_exp_ns,
 					 shutter_ns->me_exp_ns,
-					 shutter_ns->se_exp_ns);
+					 shutter_ns->se_exp_ns,
+					 shutter_ns->long_exposure_flow);
 		}
 		break;
 	default:
@@ -1225,7 +1249,18 @@ static struct v4l2_ctrl_config cfg_pre_alloc_mem_ctrl = {
 	.step = 1,
 	.dims = {sizeof(struct mtk_cam_internal_mem)},
 };
-
+#ifdef MTK_ISP_DYNAMIC_RAW_SUPPORT
+static struct v4l2_ctrl_config cfg_get_available_raws_ctrl = {
+	.ops = &cam_ctrl_ops,
+	.id = V4L2_CID_MTK_CAM_RAW_AVAILABLE,
+	.name = "get available raws",
+	.type = V4L2_CTRL_TYPE_INTEGER, /* V4L2_CTRL_TYPE_U32,*/
+	.flags = V4L2_CTRL_FLAG_EXECUTE_ON_WRITE,
+	.max = 0xffffffff,
+	.step = 1,
+	.dims = { 0 },
+};
+#endif
 static struct v4l2_ctrl_config cfg_res_ctrl = {
 	.ops = &cam_ctrl_ops,
 	.id = V4L2_CID_MTK_CAM_RAW_RESOURCE_CALC,
@@ -3858,6 +3893,13 @@ static void mtk_raw_pipeline_ctrl_setup(struct mtk_raw_pipeline *pipe)
 	if (ctrl)
 		ctrl->flags |= V4L2_CTRL_FLAG_VOLATILE |
 			V4L2_CTRL_FLAG_EXECUTE_ON_WRITE;
+
+#ifdef MTK_ISP_DYNAMIC_RAW_SUPPORT
+	ctrl = v4l2_ctrl_new_custom(ctrl_hdlr, &cfg_get_available_raws_ctrl, NULL);
+	if (ctrl)
+		ctrl->flags |= V4L2_CTRL_FLAG_VOLATILE |
+			V4L2_CTRL_FLAG_EXECUTE_ON_WRITE;
+#endif
 	/* TG flash ctrls */
 	ctrl = v4l2_ctrl_new_custom(ctrl_hdlr, &mtk_cam_tg_flash_enable, NULL);
 	if (ctrl)

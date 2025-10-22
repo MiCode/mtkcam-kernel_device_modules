@@ -10,7 +10,8 @@ int (*c2ps_notify_init_fp)(
 	int cfg_camfps, int max_uclamp_cluster0,
 	int max_uclamp_cluster1, int max_uclamp_cluster2,
 	int ineff_cpu_ceiling_freq0,
-	int ineff_cpu_ceiling_freq1, int ineff_cpu_ceiling_freq2);
+	int ineff_cpu_ceiling_freq1, int ineff_cpu_ceiling_freq2,
+	int lcore_mcore_um_ratio, int um_floor);
 EXPORT_SYMBOL_GPL(c2ps_notify_init_fp);
 int (*c2ps_notify_uninit_fp)(void);
 EXPORT_SYMBOL_GPL(c2ps_notify_uninit_fp);
@@ -37,7 +38,8 @@ int (*c2ps_notify_single_shot_control_fp)(
 	bool reset_param, bool set_task_idle_prefer,
 	int *task_ids, int *critical_task_uclamp, u32 util_margin,
 	u32 um_placeholder1, u32 um_placeholder2, u32 um_placeholder3,
-	bool enable_ineff_cpufreq, int reserved_1, int reserved_2, int reserved_3);
+	bool enable_ineff_cpufreq, bool switch_um_idle_rate_mode,
+	int reserved_1, int reserved_2, int reserved_3);
 EXPORT_SYMBOL_GPL(c2ps_notify_single_shot_control_fp);
 int (*c2ps_notify_single_shot_task_start_fp)(int pid, u32 uclamp);
 EXPORT_SYMBOL_GPL(c2ps_notify_single_shot_task_start_fp);
@@ -103,7 +105,9 @@ static long device_ioctl(
 					(&c2ps_init_param)->max_uclamp_cluster2,
 					(&c2ps_init_param)->ineff_cpu_ceiling_freq0,
 					(&c2ps_init_param)->ineff_cpu_ceiling_freq1,
-					(&c2ps_init_param)->ineff_cpu_ceiling_freq2);
+					(&c2ps_init_param)->ineff_cpu_ceiling_freq2,
+					(&c2ps_init_param)->lcore_mcore_um_ratio,
+					(&c2ps_init_param)->um_floor);
 		break;
 	case C2PS_DESTROY:
 		C2PS_LOGD("C2PS_DESTROY");
@@ -208,6 +212,7 @@ static long device_ioctl(
 			(&c2ps_single_shot)->um_placeholder2,
 			(&c2ps_single_shot)->um_placeholder3,
 			(&c2ps_single_shot)->enable_ineff_cpufreq,
+			(&c2ps_single_shot)->switch_um_idle_rate_mode,
 			(&c2ps_single_shot)->reserved_1,
 			(&c2ps_single_shot)->reserved_2,
 			(&c2ps_single_shot)->reserved_3);

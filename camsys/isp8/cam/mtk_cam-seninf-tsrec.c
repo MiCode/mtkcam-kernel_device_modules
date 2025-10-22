@@ -104,6 +104,7 @@ struct tsrec_irq_info_st {
 
 	unsigned long long tsrec_ts_us;
 	unsigned long long sys_ts_ns;
+	unsigned long long mono_ts_ns;
 	unsigned long long duration_ns;
 	unsigned long long duration_2_ns;
 	unsigned long long worker_handle_ts_ns;
@@ -1139,6 +1140,7 @@ static void tsrec_work_executor(
 		vsync_info.tsrec_no = tsrec_no;
 		vsync_info.seninf_idx = seninf_idx;
 		vsync_info.irq_sys_time_ns = req->irq_info.sys_ts_ns;
+		vsync_info.irq_mono_time_ns = req->irq_info.mono_ts_ns;
 		vsync_info.irq_tsrec_ts_us = req->irq_info.tsrec_ts_us;
 
 		p_data = (void *)&vsync_info;
@@ -1149,6 +1151,7 @@ static void tsrec_work_executor(
 
 		/* preventing racing issue, overwrite irq info before sending */
 		ts_info.irq_sys_time_ns = req->irq_info.sys_ts_ns;
+		ts_info.irq_mono_time_ns = req->irq_info.mono_ts_ns;
 		ts_info.irq_tsrec_ts_us = req->irq_info.tsrec_ts_us;
 		ts_info.irq_pre_latch_exp_no = req->irq_info.pre_latch_exp_no;
 
@@ -1232,13 +1235,14 @@ static void tsrec_work_handler(struct tsrec_work_request *req)
 #endif
 	if (unlikely(req->irq_dev_ctx == NULL)) {
 		TSREC_LOG_INF(
-			"ERROR: irq_dev_ctx:%p is nullptr, req:(tsrec_no:%u, irq_info(%u, intr(%#x|status:%#x), sys_ts:%llu(ns)(+%llu/+%llu)(ns), tsrec_ts:%llu(us), intr(|%#x/%#x)), work_event_info:%#x), worker_handle_at:%llu(ns), return\n",
+			"ERROR: irq_dev_ctx:%p is nullptr, req:(tsrec_no:%u, irq_info(%u, intr(%#x|status:%#x), sys_ts:(%llu|%llu)(+%llu/+%llu)(ns), tsrec_ts:%llu(us), intr(|%#x/%#x)), work_event_info:%#x), worker_handle_at:%llu(ns), return\n",
 			req->irq_dev_ctx,
 			req->tsrec_no,
 			req->irq_info.tsrec_no,
 			req->irq_info.intr_en,
 			req->irq_info.status,
 			req->irq_info.sys_ts_ns,
+			req->irq_info.mono_ts_ns,
 			req->irq_info.duration_ns,
 			req->irq_info.duration_2_ns,
 			req->irq_info.tsrec_ts_us,
@@ -1257,12 +1261,13 @@ static void tsrec_work_handler(struct tsrec_work_request *req)
 
 	/* !!! START HERE !!! */
 	TSREC_LOG_DBG_CAT_LOCK(LOG_TSREC_WORK_HANDLE,
-		"Force DUMP: req(tsrec_no:%u, irq_info(%u, intr(%#x|status:%#x), sys_ts:%llu(ns)(+%llu/+%llu)(ns), tsrec_ts:%llu(us), intr(%#x/%#x|%#x/%#x)), work_event_info:%#x), worker_handle_at:%llu(ns)\n",
+		"Force DUMP: req(tsrec_no:%u, irq_info(%u, intr(%#x|status:%#x), sys_ts:(%llu|%llu)(+%llu/+%llu)(ns), tsrec_ts:%llu(us), intr(%#x/%#x|%#x/%#x)), work_event_info:%#x), worker_handle_at:%llu(ns)\n",
 		req->tsrec_no,
 		req->irq_info.tsrec_no,
 		req->irq_info.intr_en,
 		req->irq_info.status,
 		req->irq_info.sys_ts_ns,
+		req->irq_info.mono_ts_ns,
 		req->irq_info.duration_ns,
 		req->irq_info.duration_2_ns,
 		req->irq_info.tsrec_ts_us,
@@ -1304,12 +1309,13 @@ static void tsrec_work_handler(struct tsrec_work_request *req)
 
 	if (req->work_event_info & TSREC_WORK_DBG_DUMP_IRQ_INFO) {
 		TSREC_LOG_INF_LOCK(
-			"req(tsrec_no:%u, irq_info(%u, intr(%#x|status:%#x), sys_ts:%llu(ns)(+%llu/+%llu)(ns), tsrec_ts:%llu(us), intr(%#x/%#x|%#x/%#x)), work_event_info:%#x), worker_handle_at:%llu(ns)\n",
+			"req(tsrec_no:%u, irq_info(%u, intr(%#x|status:%#x), sys_ts:(%llu|%llu)(+%llu/+%llu)(ns), tsrec_ts:%llu(us), intr(%#x/%#x|%#x/%#x)), work_event_info:%#x), worker_handle_at:%llu(ns)\n",
 			req->tsrec_no,
 			req->irq_info.tsrec_no,
 			req->irq_info.intr_en,
 			req->irq_info.status,
 			req->irq_info.sys_ts_ns,
+			req->irq_info.mono_ts_ns,
 			req->irq_info.duration_ns,
 			req->irq_info.duration_2_ns,
 			req->irq_info.tsrec_ts_us,
@@ -2154,12 +2160,13 @@ static void tsrec_n_update_irq_info_st(const unsigned int tsrec_no,
 		return;
 	if (unlikely(!chk_tsrec_no_valid(tsrec_no, __func__))) {
 		TSREC_LOG_INF(
-			"ERROR: get non-valid tsrec_no:%u (tsrec_hw_cnt:%u), irq_info(%u, %#x, sys_ts:%llu(ns)(+%llu/+%llu)(ns), tsrec_ts:%llu(us), intr(|%#x/%#x)), worker_handle_at:%llu(ns), return\n",
+			"ERROR: get non-valid tsrec_no:%u (tsrec_hw_cnt:%u), irq_info(%u, %#x, sys_ts:(%llu|%llu)(+%llu/+%llu)(ns), tsrec_ts:%llu(us), intr(|%#x/%#x)), worker_handle_at:%llu(ns), return\n",
 			tsrec_no,
 			tsrec_status.tsrec_hw_cnt,
 			irq_info->tsrec_no,
 			irq_info->status,
 			irq_info->sys_ts_ns,
+			irq_info->mono_ts_ns,
 			irq_info->duration_ns,
 			irq_info->duration_2_ns,
 			irq_info->tsrec_ts_us,
@@ -2268,6 +2275,30 @@ static inline void tsrec_intr_en_bits_update(const unsigned int idx,
 	}
 }
 
+static inline void tsrec_force_clr_intr_status(const unsigned int tsrec_no)
+{
+	unsigned int intr_status;
+
+	/* after disable intr en bit, force clr intr status register for */
+	/* preventing irq handler find out intr en is clr and then skip handle */
+	intr_status = mtk_cam_seninf_g_tsrec_n_intr_status(tsrec_no);
+	if (intr_status) {
+		/* please call this API whether write clear is enabled or not */
+		mtk_cam_seninf_clr_tsrec_n_intr_status(tsrec_no, intr_status);
+		TSREC_LOG_INF(
+			"NOTICE: tsrec_no:%u, intr_en_bits:%#x, intr_status:%#x => skip IRQ handle\n",
+			tsrec_no,
+			TSREC_ATOMIC_READ(&tsrec_status.intr_en_bits),
+			intr_status);
+		return;
+	}
+
+	TSREC_LOG_DBG(
+		"tsrec_no:%u, intr_en_bits:%#x, intr_status:%#x\n",
+		tsrec_no,
+		TSREC_ATOMIC_READ(&tsrec_status.intr_en_bits),
+		intr_status);
+}
 
 static void tsrec_intr_reset(const unsigned int tsrec_no)
 {
@@ -2298,6 +2329,9 @@ static void tsrec_intr_reset(const unsigned int tsrec_no)
 	mtk_cam_seninf_s_tsrec_n_intr_en(tsrec_no,
 		1, 1, 1, 1, 0);
 
+	/* after INTR disable, force clr INTR status */
+	tsrec_force_clr_intr_status(tsrec_no);
+
 	/* last, clear intr_en_bits after interrupt be disabled */
 	tsrec_intr_en_bits_update(tsrec_no, 0);
 
@@ -2309,32 +2343,6 @@ static void tsrec_intr_reset(const unsigned int tsrec_no)
 		TSREC_ATOMIC_READ(&p_tsrec_n_regs->intr_en),
 		0,
 		TSREC_ATOMIC_READ(&tsrec_status.intr_en_bits));
-}
-
-
-static void tsrec_force_clr_intr_status(const unsigned int tsrec_no)
-{
-	unsigned int intr_status;
-
-	/* after disable intr en bit, force clr intr status register for */
-	/* preventing irq handler find out intr en is clr and then skip handle */
-	intr_status = mtk_cam_seninf_g_tsrec_n_intr_status(tsrec_no);
-	if (intr_status) {
-		/* please call this API whether write clear is enabled or not */
-		mtk_cam_seninf_clr_tsrec_n_intr_status(tsrec_no, intr_status);
-		TSREC_LOG_INF(
-			"NOTICE: tsrec_no:%u, intr_en_bits:%#x, intr_status:%#x => skip IRQ handle\n",
-			tsrec_no,
-			TSREC_ATOMIC_READ(&tsrec_status.intr_en_bits),
-			intr_status);
-		return;
-	}
-
-	TSREC_LOG_DBG(
-		"tsrec_no:%u, intr_en_bits:%#x, intr_status:%#x\n",
-		tsrec_no,
-		TSREC_ATOMIC_READ(&tsrec_status.intr_en_bits),
-		intr_status);
 }
 
 
@@ -2686,8 +2694,6 @@ static void tsrec_n_settings_clear(const unsigned int tsrec_no)
 	/* INTR disable */
 	tsrec_intr_reset(tsrec_no);
 
-	/* after INTR disable, force clr INTR status */
-	tsrec_force_clr_intr_status(tsrec_no);
 
 	/* reset exp vc dt info */
 	tsrec_seninf_exp_vc_dt_reset(tsrec_no);
@@ -3385,6 +3391,7 @@ int mtk_cam_seninf_tsrec_get_timestamp_info(const unsigned int tsrec_no,
 	ts_info->tsrec_no = tsrec_no;
 	ts_info->seninf_idx = ptr->seninf_idx;
 	ts_info->irq_sys_time_ns = ptr->irq_info.sys_ts_ns;
+	ts_info->irq_mono_time_ns = ptr->irq_info.mono_ts_ns;
 	ts_info->irq_tsrec_ts_us = ptr->irq_info.tsrec_ts_us;
 	ts_info->irq_pre_latch_exp_no = ptr->irq_info.pre_latch_exp_no;
 
@@ -3548,15 +3555,17 @@ static void tsrec_broadcast_info_setup(void *data,
 	info.vsync_status = (status & mask);
 	info.hsync_status = ((status >> TSREC_INT_EN_HSYNC_BASE_BIT) & mask);
 	info.sys_ts_ns = irq_info->sys_ts_ns;
+	info.mono_ts_ns = irq_info->mono_ts_ns;
 
 	TSREC_LOG_DBG_CAT(LOG_TSREC_BROADCAST_INFO,
-		"info(inf_ctx:%p/no:%u/status:%#x(v:%#x/h:%#x)/sys_ts_ns:%llu)\n",
+		"info(inf_ctx:%p/no:%u/status:%#x(v:%#x/h:%#x)/sys_ts_ns:(%llu|%llu))\n",
 		info.inf_ctx,
 		info.tsrec_no,
 		info.status,
 		info.vsync_status,
 		info.hsync_status,
-		info.sys_ts_ns);
+		info.sys_ts_ns,
+		info.mono_ts_ns);
 
 	start = ktime_get_boottime_ns();
 
@@ -3594,12 +3603,13 @@ static void tsrec_isr_event_handler(int irq, void *data,
 		return;
 	if (unlikely(p_tsrec_n_regs == NULL)) {
 		TSREC_LOG_INF(
-			"ERROR: tsrec_n_regs_st[%u] is nullptr (%p), return   [tsrec_no:%u, status:%#x, irq_info(%u, %#x, sys_ts:%llu(ns)(+%llu/+%llu)(ns), tsrec_ts:%llu(us), intr(|%#x/%#x))]\n",
+			"ERROR: tsrec_n_regs_st[%u] is nullptr (%p), return   [tsrec_no:%u, status:%#x, irq_info(%u, %#x, sys_ts:(%llu|%llu)(+%llu/+%llu)(ns), tsrec_ts:%llu(us), intr(|%#x/%#x))]\n",
 			tsrec_no, p_tsrec_n_regs,
 			tsrec_no, status,
 			irq_info->tsrec_no,
 			irq_info->status,
 			irq_info->sys_ts_ns,
+			irq_info->mono_ts_ns,
 			irq_info->duration_ns,
 			irq_info->duration_2_ns,
 			irq_info->tsrec_ts_us,
@@ -3683,6 +3693,7 @@ static void tsrec_isr_event_handler(int irq, void *data,
 
 static unsigned int tsrec_irq_intr_status_checker(int irq, void *data,
 	const unsigned long long irq_sys_ts,
+	const unsigned long long irq_mono_ts,
 	const unsigned long long irq_tsrec_tick)
 {
 	const unsigned int tsrec_hw_cnt = tsrec_status.tsrec_hw_cnt;
@@ -3708,6 +3719,7 @@ static unsigned int tsrec_irq_intr_status_checker(int irq, void *data,
 			irq_info.status = intr_status;
 			irq_info.tsrec_ts_us = TSREC_TICK_TO_US(irq_tsrec_tick);
 			irq_info.sys_ts_ns = irq_sys_ts;
+			irq_info.mono_ts_ns = irq_mono_ts;
 			if (likely(tsrec_push_irq_info_msgfifo(&irq_info) == 0))
 				wake_thread_bits |= (1UL << i);
 
@@ -3715,12 +3727,13 @@ static unsigned int tsrec_irq_intr_status_checker(int irq, void *data,
 			mtk_cam_seninf_clr_tsrec_n_intr_status(i, intr_status);
 
 			TSREC_LOG_DBG_CAT(LOG_TSREC_IRQ_TOP,
-				"i:%u, intr_en:%#x, irq_info(no:%u/status:%#x/ts(%llu(us)/%llu(ns))), wake_thread:%#x\n",
+				"i:%u, intr_en:%#x, irq_info(no:%u/status:%#x/ts(%llu(us)/boot:%llu(ns)/mono:%llu(ns))), wake_thread:%#x\n",
 				i, intr_en_bits,
 				irq_info.tsrec_no,
 				irq_info.status,
 				irq_info.tsrec_ts_us,
 				irq_info.sys_ts_ns,
+				irq_info.mono_ts_ns,
 				wake_thread_bits);
 		}
 	}
@@ -3743,14 +3756,16 @@ static inline void tsrec_irq_handler(int irq, void *data,
 /*---------------------------------------------------------------------------*/
 static irqreturn_t mtk_irq_seninf_tsrec(int irq, void *data)
 {
-	unsigned long long start, tsrec_tick;
+	unsigned long long start, start_mono, tsrec_tick;
 	unsigned int wake_thread = 0;
 
 	tsrec_tick = mtk_cam_seninf_tsrec_latch_time();
 	start = ktime_get_boottime_ns();
+	start_mono = ktime_get_ns();
 
 	/* get TSREC interrupt status info */
-	wake_thread = tsrec_irq_intr_status_checker(irq, data, start, tsrec_tick);
+	wake_thread = tsrec_irq_intr_status_checker(
+				irq, data, start, start_mono, tsrec_tick);
 
 	return (wake_thread) ? IRQ_WAKE_THREAD : IRQ_HANDLED;
 }
@@ -3966,7 +3981,7 @@ void mtk_cam_seninf_tsrec_dbg_dump_ts_records(const unsigned int tsrec_no)
 	tsrec_n_timestamp_ticks_re_order(p_ts_st, tick_ordered);
 
 	TSREC_SNPRF(log_str_len, log_buf, len,
-		"tsrec_no:%u, seninf_idx:%u, sys_ts:%llu(ns), tsrec_ts:%llu(%llu), intr(%#x/%#x|%#x/%#x), irq_info(%u, intr(%#x|status:%#x), %llu(ns)(+%llu/+%llu)(ns), %llu(us), intr(|%#x/%#x)), ",
+		"tsrec_no:%u, seninf_idx:%u, sys_ts:%llu(ns), tsrec_ts:%llu(%llu), intr(%#x/%#x|%#x/%#x), irq_info(%u, intr(%#x|status:%#x), (%llu/%llu)(ns)(+%llu/+%llu)(ns), %llu(us), intr(|%#x/%#x)), ",
 		tsrec_no,
 		p_ts_st->seninf_idx,
 		p_ts_st->curr_sys_time_ns,
@@ -3980,6 +3995,7 @@ void mtk_cam_seninf_tsrec_dbg_dump_ts_records(const unsigned int tsrec_no)
 		p_tsrec_n_regs->irq_info.intr_en,
 		p_tsrec_n_regs->irq_info.status,
 		p_tsrec_n_regs->irq_info.sys_ts_ns,
+		p_tsrec_n_regs->irq_info.mono_ts_ns,
 		p_tsrec_n_regs->irq_info.duration_ns,
 		p_tsrec_n_regs->irq_info.duration_2_ns,
 		p_tsrec_n_regs->irq_info.tsrec_ts_us,

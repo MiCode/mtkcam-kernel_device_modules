@@ -97,14 +97,6 @@ static inline int g_sentest_debug_result(struct seninf_ctx *ctx, void *arg)
 	return seninf_sentest_get_debug_reg_result(ctx, arg);
 }
 
-static int g_sentest_mipi_result(struct seninf_ctx *ctx, void *arg)
-{
-
-	/* Need add get mipi result from  phy*/
-
-	return -EINVAL;
-}
-
 static int s_sentest_seamless_ut_en(struct seninf_ctx *ctx, void *arg)
 {
 	int *en = kmalloc(sizeof(int), GFP_KERNEL);
@@ -197,16 +189,42 @@ static int g_sentest_seamless_current_status(struct seninf_ctx *ctx, void *arg)
 	return 0;
 }
 
-static const struct seninf_sentest_ioctl
-	sentest_ioctl_table[SENINF_SENTEST_S_CTRL_ID_MAX] = {
+static int g_sentest_sensor_meter_info(struct seninf_ctx *ctx, void *arg)
+{
+	struct mtk_cam_seninf_meter_info info;
+
+
+	if (unlikely(ctx == NULL)) {
+		pr_info("[%s][ERROR] ctx is NULL\n", __func__);
+		return -EINVAL;
+	}
+
+	if (copy_from_user(&info, arg, sizeof(struct mtk_cam_seninf_meter_info))) {
+		pr_info("[%s][ERROR] copy_to_user return failed\n", __func__);
+		return -EFAULT;
+	}
+
+	if (seninf_sentest_get_csi_mipi_measure_result(ctx, &info)) {
+		pr_info("[%s][ERROR] copy_to_user return failed\n", __func__);
+		return -EFAULT;
+	}
+
+	if (copy_to_user(arg, &info, sizeof(struct mtk_cam_seninf_meter_info))) {
+		pr_info("[%s][ERROR] copy_to_user return failed\n", __func__);
+		return -EFAULT;
+	}
+	return 0;
+}
+
+static const struct seninf_sentest_ioctl sentest_ioctl_table[] = {
 	{SENINF_SENTEST_S_MAX_ISP_EN, s_sentest_max_isp_clk_en},
 	{SENINF_SENTEST_S_SINGLE_STREAM_RAW, s_sentest_mipi_measure_en},
 	{SENINF_SENTEST_S_SEAMLESS_UT_EN, s_sentest_seamless_ut_en},
 	{SENINF_SENTEST_S_SEAMLESS_UT_CONFIG, s_sentest_seamless_ut_cfg},
 
 	{SENINF_SENTEST_G_DEBUG_RESULT, g_sentest_debug_result},
-	{SENINF_SENTEST_G_MIPI_RESULT, g_sentest_mipi_result},
 	{SENINF_SENTEST_G_SEAMLESS_STATUS, g_sentest_seamless_current_status},
+	{SENINF_SENTEST_G_SENSOR_METER_INFO_BY_LINE, g_sentest_sensor_meter_info},
 };
 
 int seninf_sentest_ioctl_entry(struct seninf_ctx *ctx, void *arg)

@@ -158,6 +158,7 @@
 struct DPE_CLK_STRUCT {
 	// struct clk *CLK_CK2_DPE_SEL;
 	struct clk *CLK_CAM_MAIN_CAM;
+	struct clk *CLK_CAMSYS_IPE_LARB19_CAMERA_P2;
 	struct clk *CLK_CAMSYS_IPE_DPE_CAMERA_P2;
 	struct clk *CLK_CAMSYS_IPE_FUS_CAMERA_P2;
 	struct clk *CLK_CAMSYS_IPE_DHZE_CAMERA_P2;
@@ -330,6 +331,7 @@ struct DPE_device {
 	unsigned int clk_num;
 	int irq;
 	struct platform_device *frm_sync_pdev;
+	int dev_ver;
 // V4L2
 	struct v4l2_device v4l2_dev;
 	struct mutex mutex;
@@ -385,7 +387,7 @@ dma_addr_t *g_dpewb_asfrm_Buffer_pa;
 dma_addr_t *g_dpewb_asfrmext_Buffer_pa;
 dma_addr_t *g_dpewb_wmfhf_Buffer_pa;
 #endif
-
+static unsigned int g_isshutdown;
 static unsigned int g_u4EnableClockCount;
 static unsigned int g_SuspendCnt;
 /* maximum number for supporting user to do interrupt operation */
@@ -1522,6 +1524,7 @@ static int DPE_cmdq_buf_idx;
 static struct clk_bulk_data isp8_dpe_clks[] = {
 	// { .id = "CLK_CK2_DPE_SEL" },
 	{ .id = "CLK_CAM_MAIN_CAM" },
+	{ .id = "CLK_CAMSYS_IPE_LARB19" },
 	{ .id = "CLK_CAMSYS_IPE_DPE" },
 	{ .id = "CLK_CAMSYS_IPE_FUS" },
 	{ .id = "CLK_CAMSYS_IPE_DHZE" },
@@ -5227,7 +5230,7 @@ void DPE_callback_func(struct cmdq_cb_data data)
 	if ((my_data->err != 0)) {
 		LOG_INF("%s: [ERROR] cb(%p) DPE mode %d timeout with err %d\n",
 			__func__, my_data, my_data->dpe_mode, my_data->err);
-		if (g_u4EnableClockCount > 0) {
+		if (g_u4EnableClockCount > 0 && !g_isshutdown) {
 			LOG_INF("DPE_callback_func 2\n");
 			#ifdef CMASYS_CLK_Debug
 			LOG_INF("cmd_pkt[0x3A000000 %08X]\n",
@@ -5241,7 +5244,7 @@ void DPE_callback_func(struct cmdq_cb_data data)
 			// do error handling
 			cmdq_dump_pkt(my_data->pkt, 0 , 1);
 		} else {
-			LOG_INF("DPE Power not Enable\n");
+			LOG_INF("DPE Power not Enable or is shutdown(%d)\n", g_isshutdown);
 		}
 	}
 
@@ -5289,6 +5292,12 @@ signed int CmdqDPEHW(struct frame *frame)
 	//int cmd_cnt = 0;
 
 	//LOG_INF("%s CmdqtoHw start", __func__);
+
+	if (g_isshutdown) {
+		LOG_INF("%s : system is shutdown: %d", __func__, g_isshutdown);
+		kfree((struct my_callback_data *)my_data);
+		return -1;
+	}
 
 	if (frame == NULL || frame->data == NULL || my_data == NULL) {
 		LOG_INF("frame->data = NULL or my_date = NULL");
@@ -5872,10 +5881,13 @@ for (k = 0;k < enq_out_data_size;k++) {
 					(int)(wdma_bandwidth*1000), 0);
 			}
 			// larb19 setting
-			mtk_cam_bwr_set_chn_bw(dpe_bwr_device, ENGINE_DPE, DISP_PORT,
-				(int)(g_dvs_rdma_ttl_bw), (int)(g_dvs_wdma_ttl_bw), 0, 0, false);
-			mtk_cam_bwr_set_ttl_bw(dpe_bwr_device, ENGINE_DPE,
-				(int)(g_dvs_rdma_ttl_bw + g_dvs_wdma_ttl_bw), 0, false);
+			if (DPE_devs[0].dev_ver == 0) {
+				mtk_cam_bwr_set_chn_bw(dpe_bwr_device, ENGINE_DPE, DISP_PORT,
+					(int)(g_dvs_rdma_ttl_bw), (int)(g_dvs_wdma_ttl_bw),
+					0, 0, false);
+				mtk_cam_bwr_set_ttl_bw(dpe_bwr_device, ENGINE_DPE,
+					(int)(g_dvs_rdma_ttl_bw + g_dvs_wdma_ttl_bw), 0, false);
+			}
 		}
 	} else if (pDpeConfig->DPE_MODE == 3) {
 		if (g_dvgf_rdma_ttl_bw == 0 || g_dvgf_wdma_ttl_bw == 0) {
@@ -5890,10 +5902,13 @@ for (k = 0;k < enq_out_data_size;k++) {
 					(int)(wdma_bandwidth*1000), 0);
 			}
 			// larb19 setting
-			mtk_cam_bwr_set_chn_bw(dpe_bwr_device, ENGINE_DPE, DISP_PORT,
-				(int)(g_dvgf_rdma_ttl_bw), (int)(g_dvgf_wdma_ttl_bw), 0, 0, false);
-			mtk_cam_bwr_set_ttl_bw(dpe_bwr_device, ENGINE_DPE,
-				(int)(g_dvgf_rdma_ttl_bw + g_dvgf_wdma_ttl_bw), 0, false);
+			if (DPE_devs[0].dev_ver == 0) {
+				mtk_cam_bwr_set_chn_bw(dpe_bwr_device, ENGINE_DPE, DISP_PORT,
+					(int)(g_dvgf_rdma_ttl_bw), (int)(g_dvgf_wdma_ttl_bw),
+					0, 0, false);
+				mtk_cam_bwr_set_ttl_bw(dpe_bwr_device, ENGINE_DPE,
+					(int)(g_dvgf_rdma_ttl_bw + g_dvgf_wdma_ttl_bw), 0, false);
+			}
 		}
 	} else {
 		if (g_dvp_rdma_ttl_bw == 0 || g_dvp_wdma_ttl_bw == 0) {
@@ -5908,10 +5923,13 @@ for (k = 0;k < enq_out_data_size;k++) {
 					(int)(wdma_bandwidth*1000), 0);
 			}
 			// larb19 setting
-			mtk_cam_bwr_set_chn_bw(dpe_bwr_device, ENGINE_DPE, DISP_PORT,
-				(int)(g_dvp_rdma_ttl_bw), (int)(g_dvp_wdma_ttl_bw), 0, 0, false);
-			mtk_cam_bwr_set_ttl_bw(dpe_bwr_device, ENGINE_DPE,
-				(int)(g_dvp_rdma_ttl_bw + g_dvp_wdma_ttl_bw), 0, false);
+			if (DPE_devs[0].dev_ver == 0) {
+				mtk_cam_bwr_set_chn_bw(dpe_bwr_device, ENGINE_DPE, DISP_PORT,
+					(int)(g_dvp_rdma_ttl_bw), (int)(g_dvp_wdma_ttl_bw),
+					0, 0, false);
+				mtk_cam_bwr_set_ttl_bw(dpe_bwr_device, ENGINE_DPE,
+					(int)(g_dvp_rdma_ttl_bw + g_dvp_wdma_ttl_bw), 0, false);
+			}
 		}
 	}
 
@@ -6605,7 +6623,8 @@ static inline int DPE_Prepare_Enable_ccf_clock(void)
 		// return ret;
 	// }
 
-	mtk_cam_bwr_enable(dpe_bwr_device);
+	if (DPE_devs[0].dev_ver == 0)
+		mtk_cam_bwr_enable(dpe_bwr_device);
 
 	// ret = clk_prepare_enable(dpe_clk.CLK_CK2_DPE_SEL);
 	// if (ret)
@@ -6615,6 +6634,12 @@ static inline int DPE_Prepare_Enable_ccf_clock(void)
 	if (ret)
 		LOG_INF("cannot prepare and enable CLK_CAM_MAIN_CAM clock\n");
 
+	if (DPE_devs[0].dev_ver == 1) {
+		ret = clk_prepare_enable(dpe_clk.CLK_CAMSYS_IPE_LARB19_CAMERA_P2);
+		if (ret)
+			LOG_INF("cannot prepare and enable CLK_CAMSYS_IPE_LARB19_CAMERA_P2 clock\n");
+	}
+
 	ret = clk_prepare_enable(dpe_clk.CLK_CAMSYS_IPE_DPE_CAMERA_P2);
 	if (ret)
 		LOG_INF("cannot prepare and enable CLK_CAMSYS_IPE_DPE_CAMERA_P2 clock\n");
@@ -6623,9 +6648,11 @@ static inline int DPE_Prepare_Enable_ccf_clock(void)
 	if (ret)
 		LOG_INF("cannot prepare and enable CLK_CAMSYS_IPE_FUS_CAMERA_P2 clock\n");
 
-	ret = clk_prepare_enable(dpe_clk.CLK_CAMSYS_IPE_DHZE_CAMERA_P2);
-	if (ret)
-		LOG_INF("cannot prepare and enable CLK_CAMSYS_IPE_DHZE_CAMERA_P2 clock\n");
+	if (DPE_devs[0].dev_ver == 0) {
+		ret = clk_prepare_enable(dpe_clk.CLK_CAMSYS_IPE_DHZE_CAMERA_P2);
+		if (ret)
+			LOG_INF("cannot prepare and enable CLK_CAMSYS_IPE_DHZE_CAMERA_P2 clock\n");
+	}
 
 	ret = clk_prepare_enable(dpe_clk.CLK_CAMSYS_IPE_GALS_CAMERA_P2);
 	if (ret)
@@ -6643,13 +6670,17 @@ static inline void DPE_Disable_Unprepare_ccf_clock(void)
 	// clk_bulk_disable_unprepare(dpe_dev->clk_num, dpe_dev->clks);
 
 	clk_disable_unprepare(dpe_clk.CLK_CAMSYS_IPE_GALS_CAMERA_P2);
-	clk_disable_unprepare(dpe_clk.CLK_CAMSYS_IPE_DHZE_CAMERA_P2);
+	if (DPE_devs[0].dev_ver == 0)
+		clk_disable_unprepare(dpe_clk.CLK_CAMSYS_IPE_DHZE_CAMERA_P2);
 	clk_disable_unprepare(dpe_clk.CLK_CAMSYS_IPE_FUS_CAMERA_P2);
 	clk_disable_unprepare(dpe_clk.CLK_CAMSYS_IPE_DPE_CAMERA_P2);
+	if (DPE_devs[0].dev_ver == 1)
+		clk_disable_unprepare(dpe_clk.CLK_CAMSYS_IPE_LARB19_CAMERA_P2);
 	clk_disable_unprepare(dpe_clk.CLK_CAM_MAIN_CAM);
 	// clk_disable_unprepare(dpe_clk.CLK_CK2_DPE_SEL);
 
-	mtk_cam_bwr_disable(dpe_bwr_device);
+	if (DPE_devs[0].dev_ver == 0)
+		mtk_cam_bwr_disable(dpe_bwr_device);
 
 	pm_runtime_put_sync(gdev);
 	// mtk_mmdvfs_enable_vcp(false, VCP_PWR_USR_CAM);
@@ -6669,6 +6700,10 @@ static void DPE_EnableClock(bool En)
 #if IS_ENABLED(CONFIG_MTK_IOMMU_V2)
 	int ret = 0;
 #endif
+	if (g_isshutdown) {
+		LOG_INF("%s : system is shutdown: %d", __func__, g_isshutdown);
+		return;
+	}
 	if (En) { /* Enable clock. */
 		/* LOG_DBG("clock enbled. g_u4EnableClockCount: %d.", g_u4EnableClockCount); */
 		//mutex_lock(&gDpeMutex);	//!
@@ -8044,7 +8079,8 @@ static signed int DPE_release(struct inode *pInode, struct file *pFile)
 	}
 
 	// larb19 setting
-	mtk_cam_bwr_clr_bw(dpe_bwr_device, ENGINE_DPE, DISP_PORT);
+	if (DPE_devs[0].dev_ver == 0)
+		mtk_cam_bwr_clr_bw(dpe_bwr_device, ENGINE_DPE, DISP_PORT);
 
 	cmdq_mbox_disable(dpe_clt->chan);
 	/* Disable clock. */
@@ -8562,6 +8598,7 @@ static signed int DPE_probe(struct platform_device *pDev)
 	/*struct resource *pRes = NULL;*/
 	signed int i = 0;
 	unsigned char n;
+	int larbs_num = 0;
 #if DPE_IRQ_ENABLE
 	unsigned int irq_info[3];
 #endif
@@ -8674,6 +8711,7 @@ static signed int DPE_probe(struct platform_device *pDev)
 		if (of_device_is_compatible(pDev->dev.of_node, dts_match->compatible)) {
 			if (strcmp(dts_match->compatible, "mediatek,dvs") == 0) {
 				DPE_BASE_HW = 0x3A770000;
+				DPE_devs[0].dev_ver = 0;
 				LOG_INF("[Debug]mt6991 match\n");
 			}
 		}
@@ -8681,6 +8719,7 @@ static signed int DPE_probe(struct platform_device *pDev)
 		if (of_device_is_compatible(pDev->dev.of_node, dts_match->compatible)) {
 			if (strcmp(dts_match->compatible, "mediatek,dvs_mt6899") == 0) {
 				DPE_BASE_HW = 0x1A770000;
+				DPE_devs[0].dev_ver = 1;
 				LOG_INF("[Debug]mt6899 match\n");
 			}
 		}
@@ -8799,6 +8838,13 @@ if (DPE_dev->irq > 0) {
 			return -EPROBE_DEFER;
 		}
 #endif
+		larbs_num = of_count_phandle_with_args(pDev->dev.of_node,
+											"mediatek-larb-supply", NULL);
+		LOG_INF("Find %d larbs", larbs_num);
+		if (larbs_num <= 0) {
+			larbs_num = 0;
+			goto bypass_larbs;
+		}
 		node = of_parse_phandle(pDev->dev.of_node, "mediatek-larb-supply", 0);
 		LOG_INF("larb19 node get\n");
 		if (!node) {
@@ -8823,6 +8869,7 @@ if (DPE_dev->irq > 0) {
 			return -EPROBE_DEFER;
 		}
 #endif
+bypass_larbs:
 		/*CCF: Grab clock pointer (struct clk*) */
 		LOG_INF(" get clock node star\n");
 ///
@@ -8838,6 +8885,14 @@ if (DPE_dev->irq > 0) {
 		if (IS_ERR(dpe_clk.CLK_CAM_MAIN_CAM))
 			LOG_ERR("cannot get CLK_CAM_MAIN_CAM clock\n");
 
+		if (DPE_devs[0].dev_ver == 1) {
+			dpe_clk.CLK_CAMSYS_IPE_LARB19_CAMERA_P2 = devm_clk_get(&pDev->dev,
+								"CLK_CAMSYS_IPE_LARB19");
+			if (IS_ERR(dpe_clk.CLK_CAMSYS_IPE_LARB19_CAMERA_P2))
+				LOG_ERR("cannot get CLK_CAMSYS_IPE_LARB19 clock\n");
+		}
+
+
 		dpe_clk.CLK_CAMSYS_IPE_DPE_CAMERA_P2 = devm_clk_get(&pDev->dev,
 							"CLK_CAMSYS_IPE_DPE");
 		if (IS_ERR(dpe_clk.CLK_CAMSYS_IPE_DPE_CAMERA_P2))
@@ -8848,10 +8903,12 @@ if (DPE_dev->irq > 0) {
 		if (IS_ERR(dpe_clk.CLK_CAMSYS_IPE_FUS_CAMERA_P2))
 			LOG_ERR("cannot get CLK_CAMSYS_IPE_FUS clock\n");
 
-		dpe_clk.CLK_CAMSYS_IPE_DHZE_CAMERA_P2 = devm_clk_get(&pDev->dev,
-							"CLK_CAMSYS_IPE_DHZE");
-		if (IS_ERR(dpe_clk.CLK_CAMSYS_IPE_DHZE_CAMERA_P2))
-			LOG_ERR("cannot get CLK_CAMSYS_IPE_DHZE clock\n");
+		if (DPE_devs[0].dev_ver == 0) {
+			dpe_clk.CLK_CAMSYS_IPE_DHZE_CAMERA_P2 = devm_clk_get(&pDev->dev,
+								"CLK_CAMSYS_IPE_DHZE");
+			if (IS_ERR(dpe_clk.CLK_CAMSYS_IPE_DHZE_CAMERA_P2))
+				LOG_ERR("cannot get CLK_CAMSYS_IPE_DHZE clock\n");
+		}
 
 		dpe_clk.CLK_CAMSYS_IPE_GALS_CAMERA_P2 = devm_clk_get(&pDev->dev,
 							"CLK_CAMSYS_IPE_GALS");
@@ -8864,7 +8921,8 @@ if (DPE_dev->irq > 0) {
 		dpe_mmqos_init(&pDev->dev);
 
 		//get bwr device
-		dpe_bwr_device = mtk_cam_bwr_get_dev(pDev);
+		if (DPE_devs[0].dev_ver == 0)
+			dpe_bwr_device = mtk_cam_bwr_get_dev(pDev);
 
 		/* Create class register */
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 4, 0)
@@ -9022,6 +9080,7 @@ if (DPE_dev->irq > 0) {
 			LOG_INF("video_register_device failed\n");
 		}
 	}
+	g_isshutdown = 0;
 	g_DPE_PMState = 0;
 	DPE_cmdq_buf_idx = 0;
 	//Get_DVS_IRQ = 0;
@@ -9044,6 +9103,7 @@ static signed int DPE_remove(struct platform_device *pDev)
 	int i;
 	/*  */
 	LOG_DBG("- E.");
+	pm_runtime_disable(&pDev->dev);
 	/* wait for unfinished works in the workqueue. */
 	destroy_workqueue(DPEInfo.wkqueue);
 	DPEInfo.wkqueue = NULL;
@@ -9112,6 +9172,18 @@ static signed int DPE_resume(struct platform_device *pDev)
 {
 
 	return 0;
+}
+
+static void DPE_shutdown(struct platform_device *pdev)
+{
+	g_isshutdown = 1;
+
+	if (dpe_clt)
+		cmdq_mbox_stop(dpe_clt);
+	else
+		dev_info(&pdev->dev, "%s: dpe cmdq client is NULL\n", __func__);
+
+	LOG_INF("DPE shutdown callback: %d", g_isshutdown);
 }
 /*---------------------------------------------------------------------------*/
 #if IS_ENABLED(CONFIG_PM)
@@ -9247,6 +9319,7 @@ const struct dev_pm_ops DPE_pm_ops = {
 static struct platform_driver DPEDriver = {
 	.probe = DPE_probe,
 	.remove = DPE_remove,
+	.shutdown = DPE_shutdown,
 	.suspend = DPE_suspend,
 	.resume = DPE_resume,
 	.driver = {

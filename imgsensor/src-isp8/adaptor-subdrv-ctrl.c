@@ -44,6 +44,33 @@ void check_current_scenario_id_bound(struct subdrv_ctx *ctx)
 		ctx->current_scenario_id = 0;
 	}
 }
+#ifdef __XIAOMI_CAMERA__
+bool mi_i2c_dump = false;
+#define ENABLE_I2C_DUMP_IF_DEBUG(ctx) do { \
+	struct v4l2_subdev *_sd = NULL; \
+	struct adaptor_ctx *_adaptor_ctx = NULL; \
+	mi_i2c_dump = false; \
+	if (ctx->i2c_client) \
+		_sd = i2c_get_clientdata(ctx->i2c_client); \
+	if (_sd) \
+		_adaptor_ctx = to_ctx(_sd); \
+	if (_adaptor_ctx && (_adaptor_ctx)->subdrv \
+		&& unlikely(2 == *((_adaptor_ctx)->sensor_debug_flag))) { \
+		mi_i2c_dump = true; \
+	} \
+} while (0)
+
+static int mi_i2c_table_write(struct subdrv_ctx *ctx, u16 *list, u32 len)
+{
+	int i = 0, ret = 0;
+	DRV_LOG(ctx, "mi_i2c_table_write + len = %d  \n",len);
+	for ( i = 0; i < len; i=i+2) {
+		ret |= subdrv_i2c_wr_u8(ctx, list[i], list[i+1]&0xff);
+	}
+	DRV_LOG(ctx, "mi_i2c_table_write - \n");
+	return ret;
+}
+#endif
 
 void i2c_table_write(struct subdrv_ctx *ctx, u16 *list, u32 len)
 {
@@ -53,7 +80,14 @@ void i2c_table_write(struct subdrv_ctx *ctx, u16 *list, u32 len)
 		break;
 	case I2C_DT_ADDR_16_DATA_8:
 	default:
-		subdrv_i2c_wr_regs_u8(ctx, list, len);
+#ifdef __XIAOMI_CAMERA__
+		if(ctx->s_ctx.mi_i2c_type){
+			mi_i2c_table_write(ctx, list, len);
+		}else{
+			subdrv_i2c_wr_regs_u8(ctx, list, len);
+		}
+#endif
+
 		break;
 	}
 }
@@ -69,7 +103,14 @@ u64 ixc_table_write(struct subdrv_ctx *ctx, u16 *list, u32 len)
 		break;
 	case I2C_DT_ADDR_16_DATA_8:
 	default:
-		subdrv_ixc_wr_regs_u8(ctx, list, len);
+
+#ifdef __XIAOMI_CAMERA__
+		if(ctx->s_ctx.mi_i2c_type){
+			mi_i2c_table_write(ctx, list, len);
+		}else{
+			subdrv_ixc_wr_regs_u8(ctx, list, len);
+		}
+#endif
 		break;
 	}
 	ixc_end = ktime_get_boottime_ns();
@@ -277,7 +318,15 @@ bool probe_eeprom(struct subdrv_ctx *ctx)
 	for (idx = 0; idx < eeprom_num; idx++) {
 		ctx->eeprom_index = idx;
 		addr_header_id = info[idx].addr_header_id;
+#ifdef __XIAOMI_CAMERA__
+		if (0 == info[idx].header_id) {
+			DRV_LOG(ctx, "xiaomi probe done. index:%u\n", idx);
+			return TRUE;
+		}
+		i2c_multi_read_eeprom(ctx, addr_header_id, 1, (u8 *)&header_id);
+#else
 		i2c_multi_read_eeprom(ctx, addr_header_id, sizeof(header_id), (u8 *)&header_id);
+#endif
 		DRV_LOG_MUST(ctx, "eeprom index[cur/total]:%u/%u, header id[cur/exp]:0x%08x/0x%08x\n",
 			idx, eeprom_num, header_id, info[idx].header_id);
 		if (header_id == info[idx].header_id) {
@@ -398,6 +447,17 @@ void write_frame_length(struct subdrv_ctx *ctx, u32 fll)
 	u32 fll_step = 0;
 	u32 dol_cnt = 1;
 
+	if (ctx->s_ctx.reg_addr_frame_length.addr[0] == 0 &&
+		ctx->s_ctx.reg_addr_frame_length.addr[1] == 0 &&
+		ctx->s_ctx.reg_addr_frame_length.addr[2] == 0)
+		return;
+
+#ifdef __XIAOMI_CAMERA__
+	if (ctx->s_ctx.mode[ctx->current_scenario_id].hdr_mode == HDR_RAW_STAGGER) {
+		DRV_LOG_MUST(ctx, "dol skip write_frame_length\n");
+		return;
+	}
+#endif
 	check_current_scenario_id_bound(ctx);
 	fll_step = ctx->s_ctx.mode[ctx->current_scenario_id].framelength_step;
 	if (fll_step)
@@ -544,6 +604,11 @@ void set_dummy(struct subdrv_ctx *ctx)
 {
 	bool gph = !ctx->is_seamless && (ctx->s_ctx.s_gph != NULL);
 
+	if (ctx->s_ctx.reg_addr_frame_length.addr[0] == 0 &&
+		ctx->s_ctx.reg_addr_frame_length.addr[1] == 0 &&
+		ctx->s_ctx.reg_addr_frame_length.addr[2] == 0)
+		return;
+
 	if (gph)
 		ctx->s_ctx.s_gph((void *)ctx, 1);
 	if (ctx->s_ctx.mode[ctx->current_scenario_id].hdr_mode == HDR_RAW_LBMF)
@@ -559,6 +624,11 @@ void set_dummy(struct subdrv_ctx *ctx)
 void set_frame_length(struct subdrv_ctx *ctx, u16 frame_length)
 {
 	bool gph = !ctx->is_seamless && (ctx->s_ctx.s_gph != NULL);
+
+	if (ctx->s_ctx.reg_addr_frame_length.addr[0] == 0 &&
+		ctx->s_ctx.reg_addr_frame_length.addr[1] == 0 &&
+		ctx->s_ctx.reg_addr_frame_length.addr[2] == 0)
+		return;
 
 	if (frame_length)
 		ctx->frame_length = frame_length;
@@ -932,7 +1002,8 @@ void set_max_framerate_mcss_by_scenario(struct subdrv_ctx *ctx,
 	DRV_LOG(ctx, "max_fps(input/output):%u/%u(sid:%u), min_fl_en:1\n",
 		framerate, ctx->current_fps, scenario_id);
 	if (ctx->s_ctx.reg_addr_auto_extend ||
-			(ctx->frame_length > (ctx->exposure[0] + ctx->s_ctx.exposure_margin))) {
+			(ctx->frame_length >
+			(ctx->exposure[0] + ctx->s_ctx.mode[scenario_id].exposure_margin))) {
 		if (ctx->s_ctx.aov_sensor_support &&
 			ctx->s_ctx.mode[scenario_id].aov_mode &&
 			!ctx->s_ctx.mode[scenario_id].s_dummy_support)
@@ -964,6 +1035,19 @@ void set_max_framerate_by_scenario(struct subdrv_ctx *ctx,
 			ctx->s_ctx.mode[scenario_id].linelength);
 		return;
 	}
+
+	if (framerate > ctx->s_ctx.mode[scenario_id].max_framerate) {
+		DRV_LOGE(ctx, "framerate (%u) is greater than max_framerate (%u)\n",
+			framerate, ctx->s_ctx.mode[scenario_id].max_framerate);
+		framerate = ctx->s_ctx.mode[scenario_id].max_framerate;
+	}
+
+#ifdef __XIAOMI_CAMERA__
+	if ((ctx->s_ctx.mode[scenario_id].hdr_mode == HDR_RAW_LBMF) &&
+	   (scenario_id != ctx->current_scenario_id))
+		scenario_id = ctx->current_scenario_id;
+#endif
+
 	if (ctx->s_ctx.mode[scenario_id].hdr_mode == HDR_RAW_LBMF) {
 		set_max_framerate_in_lut_by_scenario(ctx, scenario_id, framerate);
 		return;
@@ -984,18 +1068,27 @@ void set_max_framerate_by_scenario(struct subdrv_ctx *ctx,
 	frame_length_max = ctx->s_ctx.frame_length_max;
 	frame_length_max = frame_length_step ?
 		(frame_length_max - (frame_length_max % frame_length_step)) : frame_length_max;
+
+
 	/* set in the range of frame length */
 	ctx->frame_length = max(frame_length, frame_length_min);
 	ctx->frame_length = min(ctx->frame_length, frame_length_max);
 	ctx->frame_length = frame_length_step ?
 		roundup(ctx->frame_length,frame_length_step) : ctx->frame_length;
 
-	ctx->current_fps = ctx->pclk / ctx->frame_length * 10 / ctx->line_length;
+	/* set default frame length if given default framerate */
+	if (framerate == ctx->s_ctx.mode[scenario_id].max_framerate)
+		ctx->frame_length = ctx->s_ctx.mode[scenario_id].framelength;
+
+	ctx->current_fps = ctx->s_ctx.mode[scenario_id].pclk /
+						ctx->frame_length * 10 /
+						ctx->s_ctx.mode[scenario_id].linelength;
 	ctx->min_frame_length = ctx->frame_length;
 	DRV_LOG(ctx, "max_fps(input/output):%u/%u(sid:%u), min_fl_en:1, ctx->frame_length:%u\n",
 		framerate, ctx->current_fps, scenario_id, ctx->frame_length);
 	if (ctx->s_ctx.reg_addr_auto_extend ||
-			(ctx->frame_length > (ctx->exposure[0] + ctx->s_ctx.exposure_margin))) {
+			(ctx->frame_length >
+			(ctx->exposure[0] + ctx->s_ctx.mode[scenario_id].exposure_margin))) {
 		if (ctx->s_ctx.aov_sensor_support &&
 			ctx->s_ctx.mode[scenario_id].aov_mode &&
 			!ctx->s_ctx.mode[scenario_id].s_dummy_support)
@@ -1030,6 +1123,10 @@ void set_max_framerate_in_lut_by_scenario(struct subdrv_ctx *ctx,
 	ctx->frame_length =
 		max(frame_length, ctx->s_ctx.mode[scenario_id].framelength);
 
+	/* set default frame length if given default framerate */
+	if (framerate ==  ctx->s_ctx.mode[scenario_id].max_framerate)
+		ctx->frame_length = ctx->s_ctx.mode[scenario_id].framelength;
+
 	// manual mode
 	exp_cnt = ctx->s_ctx.mode[scenario_id].exp_cnt;
 	switch (exp_cnt) {
@@ -1057,7 +1154,9 @@ void set_max_framerate_in_lut_by_scenario(struct subdrv_ctx *ctx,
 			ctx->s_ctx.mode[scenario_id].read_margin;
 		/* fll_a = max(readout, previous shutter_b) */
 		calc_fl_in_lut[0] =
-			max(calc_fl_in_lut[0], cit_in_lut[1] + ctx->s_ctx.exposure_margin);
+			max(calc_fl_in_lut[0],
+				cit_in_lut[1] +
+				ctx->s_ctx.mode[scenario_id].exposure_margin);
 		/* fll_a = min(fll_a, fll_max) */
 		ctx->frame_length_in_lut[0] =
 			min(calc_fl_in_lut[0], ctx->s_ctx.frame_length_max);
@@ -1070,7 +1169,7 @@ void set_max_framerate_in_lut_by_scenario(struct subdrv_ctx *ctx,
 			ctx->s_ctx.mode[scenario_id].read_margin;
 		/* fll_b = max(readout, previous shutter_a) */
 		calc_fl_in_lut[1] =
-			max(calc_fl_in_lut[1], cit_in_lut[0] + ctx->s_ctx.exposure_margin);
+			max(calc_fl_in_lut[1], cit_in_lut[0] + ctx->s_ctx.mode[scenario_id].exposure_margin);
 		if (ctx->frame_length >= ctx->frame_length_in_lut[0]) {
 			/* fll_b = max(fll_b, fll_mode_max-fll_a) */
 			calc_fl_in_lut[1] =
@@ -1089,7 +1188,7 @@ void set_max_framerate_in_lut_by_scenario(struct subdrv_ctx *ctx,
 		/* update framelength */
 		ctx->frame_length =
 			ctx->frame_length_in_lut[0] + ctx->frame_length_in_lut[1];
-		ctx->current_fps = ctx->pclk / ctx->frame_length * 10 / ctx->line_length;
+		ctx->current_fps = ctx->s_ctx.mode[scenario_id].pclk / ctx->frame_length * 10 / ctx->s_ctx.mode[scenario_id].linelength;
 		ctx->min_frame_length = ctx->frame_length;
 		DRV_LOG(ctx,
 			"sid:%u,max_fps(input/output):%u/%u,min_fl_en:1,lut order:%u,fll(input/ctx/output_a/b/c/d/e):%u/%u/%u/%u/%u/%u/%un",
@@ -1144,7 +1243,9 @@ void set_max_framerate_in_lut_by_scenario(struct subdrv_ctx *ctx,
 			ctx->s_ctx.mode[scenario_id].read_margin;
 		/* fll_a = max(readout, previous shutter_b) */
 		calc_fl_in_lut[0] =
-			max(calc_fl_in_lut[0], cit_in_lut[1] + ctx->s_ctx.exposure_margin);
+			max(calc_fl_in_lut[0],
+				cit_in_lut[1] +
+				ctx->s_ctx.mode[scenario_id].exposure_margin);
 		/* fll_a = min(fll_a, fll_max) */
 		ctx->frame_length_in_lut[0] =
 			min(calc_fl_in_lut[0], ctx->s_ctx.frame_length_max);
@@ -1157,7 +1258,7 @@ void set_max_framerate_in_lut_by_scenario(struct subdrv_ctx *ctx,
 			ctx->s_ctx.mode[scenario_id].read_margin;
 		/* fll_b = max(readout, previous shutter_c) */
 		calc_fl_in_lut[1] =
-			max(calc_fl_in_lut[1], cit_in_lut[2] + ctx->s_ctx.exposure_margin);
+			max(calc_fl_in_lut[1], cit_in_lut[2] + ctx->s_ctx.mode[scenario_id].exposure_margin);
 		/* fll_b = min(fll_b, fll_max) */
 		ctx->frame_length_in_lut[1] =
 			min(calc_fl_in_lut[1], ctx->s_ctx.frame_length_max);
@@ -1170,7 +1271,7 @@ void set_max_framerate_in_lut_by_scenario(struct subdrv_ctx *ctx,
 			ctx->s_ctx.mode[scenario_id].read_margin;
 		/* fll_c = max(readout, previous shutter_a) */
 		calc_fl_in_lut[2] =
-			max(calc_fl_in_lut[2], cit_in_lut[0] + ctx->s_ctx.exposure_margin);
+			max(calc_fl_in_lut[2], cit_in_lut[0] + ctx->s_ctx.mode[scenario_id].exposure_margin);
 		if (ctx->frame_length >=
 			(ctx->frame_length_in_lut[0] + ctx->frame_length_in_lut[1])) {
 			/* fll_c = max(fll_c, fll_mode_max-fll_b-fll_a) */
@@ -1192,7 +1293,9 @@ void set_max_framerate_in_lut_by_scenario(struct subdrv_ctx *ctx,
 			ctx->frame_length_in_lut[0] +
 			ctx->frame_length_in_lut[1] +
 			ctx->frame_length_in_lut[2];
-		ctx->current_fps = ctx->pclk / ctx->frame_length * 10 / ctx->line_length;
+		ctx->current_fps = ctx->s_ctx.mode[scenario_id].pclk /
+							ctx->frame_length * 10 /
+							ctx->s_ctx.mode[scenario_id].linelength;
 		ctx->min_frame_length = ctx->frame_length;
 		DRV_LOG(ctx,
 			"sid:%u,max_fps(input/output):%u/%u,min_fl_en:1,lut order:%u,fll(input/ctx/output_a/b/c/d/e):%u/%u/%u/%u/%u/%u/%u\n",
@@ -1343,8 +1446,9 @@ void set_long_exposure(struct subdrv_ctx *ctx)
 	u32 shutter = ctx->exposure[IMGSENSOR_STAGGER_EXPOSURE_LE];
 	u32 l_shutter = 0;
 	u16 l_shift = 0;
+	u32 scenario_id = ctx->current_scenario_id;
 
-	if (shutter > (ctx->s_ctx.frame_length_max - ctx->s_ctx.exposure_margin)) {
+	if (shutter > (ctx->s_ctx.frame_length_max - ctx->s_ctx.mode[scenario_id].exposure_margin)) {
 		if (ctx->mcss_init_info.enable_mcss) {
 			DRV_LOGE(ctx, " MCSS no support of exposure lshift!\n");
 			WRAP_AEE_EXCEPTION("[AEE] MCSS no support of exposure lshift!", "Err");
@@ -1361,7 +1465,8 @@ void set_long_exposure(struct subdrv_ctx *ctx)
 		for (l_shift = 1; l_shift < 7; l_shift++) {
 			l_shutter = ((shutter - 1) >> l_shift) + 1;
 			if (l_shutter
-				< (ctx->s_ctx.frame_length_max - ctx->s_ctx.exposure_margin))
+				< (ctx->s_ctx.frame_length_max -
+					ctx->s_ctx.mode[scenario_id].exposure_margin))
 				break;
 		}
 		if (l_shift > 7) {
@@ -1369,7 +1474,7 @@ void set_long_exposure(struct subdrv_ctx *ctx)
 			l_shift = 7;
 		}
 		shutter = ((shutter - 1) >> l_shift) + 1;
-		ctx->frame_length = shutter + ctx->s_ctx.exposure_margin;
+		ctx->frame_length = shutter + ctx->s_ctx.mode[scenario_id].exposure_margin;
 		DRV_LOG(ctx, "long exposure mode: lshift %u times", l_shift);
 		set_i2c_buffer(ctx, ctx->s_ctx.reg_addr_exposure_lshift, l_shift);
 		ctx->l_shift = l_shift;
@@ -1408,7 +1513,9 @@ void set_shutter_frame_length(struct subdrv_ctx *ctx, u64 shutter, u32 frame_len
 	shutter = min_t(u64, shutter,
 		(u64)ctx->s_ctx.mode[ctx->current_scenario_id].multi_exposure_shutter_range[0].max);
 	/* check boundary of framelength */
-	ctx->frame_length = max((u32)shutter + ctx->s_ctx.exposure_margin, ctx->min_frame_length);
+	ctx->frame_length = max(
+		(u32)shutter + ctx->s_ctx.mode[ctx->current_scenario_id].exposure_margin,
+			ctx->min_frame_length);
 	ctx->frame_length = min(ctx->frame_length, ctx->s_ctx.frame_length_max);
 	/* restore shutter */
 	memset(ctx->exposure, 0, sizeof(ctx->exposure));
@@ -1419,6 +1526,12 @@ void set_shutter_frame_length(struct subdrv_ctx *ctx, u64 shutter, u32 frame_len
 	/* enable auto extend */
 	if (ctx->s_ctx.reg_addr_auto_extend)
 		set_i2c_buffer(ctx, ctx->s_ctx.reg_addr_auto_extend, 0x01);
+#ifdef __XIAOMI_CAMERA__
+	if (ctx->extraVB) {
+		ctx->frame_length += ctx->extraVB * (ctx->pclk / 1000)  / ctx->line_length + ctx->s_ctx.mode[ctx->current_scenario_id].imgsensor_winsize_info.h2_tg_size;
+		DRV_LOG(ctx, "ctx->exposure[0] = %d, framelength = %d, extraVB(%d), hsize(%d)", ctx->exposure[0], ctx->frame_length, ctx->extraVB, ctx->s_ctx.mode[ctx->current_scenario_id].imgsensor_winsize_info.h2_tg_size);
+	}
+#endif
 	/* write framelength */
 	if (set_auto_flicker(ctx, 0) || frame_length || !ctx->s_ctx.reg_addr_auto_extend)
 		write_frame_length(ctx, ctx->frame_length);
@@ -1512,13 +1625,13 @@ void set_multi_shutter_frame_length(struct subdrv_ctx *ctx,
 	calc_fl[0] = (u32) shutters[0];
 	for (i = 1; i < last_exp_cnt; i++)
 		calc_fl[0] += ctx->exposure[i];
-	calc_fl[0] += ctx->s_ctx.exposure_margin*exp_cnt*exp_cnt;
+	calc_fl[0] += ctx->s_ctx.mode[ctx->current_scenario_id].exposure_margin*exp_cnt*exp_cnt;
 
 	/* - (2) current se + current me + current le */
 	calc_fl[1] = (u32) shutters[0];
 	for (i = 1; i < exp_cnt; i++)
 		calc_fl[1] += (u32) shutters[i];
-	calc_fl[1] += ctx->s_ctx.exposure_margin*exp_cnt*exp_cnt;
+	calc_fl[1] += ctx->s_ctx.mode[ctx->current_scenario_id].exposure_margin*exp_cnt*exp_cnt;
 
 	/* - (3) readout time cannot be overlapped */
 	calc_fl[2] =
@@ -1534,7 +1647,7 @@ void set_multi_shutter_frame_length(struct subdrv_ctx *ctx,
 		ctx->s_ctx.mode[ctx->current_scenario_id].hdr_mode == HDR_RAW_STAGGER) {
 		for (i = 1; i < last_exp_cnt; i++)
 			calc_fl[3] += ctx->exposure[i];
-		calc_fl[3] += ctx->s_ctx.exposure_margin*exp_cnt*(exp_cnt-1);
+		calc_fl[3] += ctx->s_ctx.mode[ctx->current_scenario_id].exposure_margin*exp_cnt*(exp_cnt-1);
 		calc_fl[3] += ctx->readout_length + ctx->min_vblanking_line;
 		DRV_LOG(ctx,
 			"calc_fl[3]: %u, pre-LE/ME/SE (%u/%u/%u), cur-LE/ME/SE (%llu/%llu/%llu), readout_length:%u, min_vblanking_line:%u\n",
@@ -1582,6 +1695,12 @@ void set_multi_shutter_frame_length(struct subdrv_ctx *ctx,
 			fll, s_fll, fll_temp, frame_length);
 	}
 	ctx->frame_length = fll;
+#ifdef __XIAOMI_CAMERA__
+	if (ctx->extraVB) {
+		ctx->frame_length += ctx->extraVB * (ctx->pclk / 1000)  / ctx->line_length + ctx->s_ctx.mode[ctx->current_scenario_id].imgsensor_winsize_info.h2_tg_size;
+		DRV_LOG(ctx, "ctx->exposure[0] = %d, framelength = %d, extraVB(%d), hsize(%d)", ctx->exposure[0], ctx->frame_length, ctx->extraVB, ctx->s_ctx.mode[ctx->current_scenario_id].imgsensor_winsize_info.h2_tg_size);
+	}
+#endif
 	/* write framelength */
 	if (set_auto_flicker(ctx, 0) || frame_length || !ctx->s_ctx.reg_addr_auto_extend)
 		write_frame_length(ctx, ctx->frame_length);
@@ -1732,14 +1851,18 @@ void set_multi_shutter_frame_length_in_lut(struct subdrv_ctx *ctx,
 			ctx->s_ctx.mode[ctx->current_scenario_id].read_margin;
 		/* fll_a = max(readout, current shutter_b) */
 		calc_fl_in_lut[0] =
-			max(calc_fl_in_lut[0], cit_in_lut[1] + ctx->s_ctx.exposure_margin);
+			max(calc_fl_in_lut[0],
+				cit_in_lut[1] +
+				ctx->s_ctx.mode[ctx->current_scenario_id].exposure_margin);
 		/* fll_b_min = readout + xx lines(margin) */
 		calc_fl_in_lut[1] =
 			ctx->s_ctx.mode[ctx->current_scenario_id].readout_length +
 			ctx->s_ctx.mode[ctx->current_scenario_id].read_margin;
 		/* fll_b = max(readout, current shutter_a) */
 		calc_fl_in_lut[1] =
-			max(calc_fl_in_lut[1], cit_in_lut[0] + ctx->s_ctx.exposure_margin);
+			max(calc_fl_in_lut[1],
+				cit_in_lut[0] +
+				ctx->s_ctx.mode[ctx->current_scenario_id].exposure_margin);
 
 		/* fll_a = max(fll_a, userInput_fll_a) */
 		ctx->frame_length_in_lut[0] =
@@ -1781,21 +1904,27 @@ void set_multi_shutter_frame_length_in_lut(struct subdrv_ctx *ctx,
 			ctx->s_ctx.mode[ctx->current_scenario_id].read_margin;
 		/* fll_a = max(readout, current shutter_b) */
 		calc_fl_in_lut[0] =
-			max(calc_fl_in_lut[0], cit_in_lut[1] + ctx->s_ctx.exposure_margin);
+			max(calc_fl_in_lut[0],
+				cit_in_lut[1] +
+				ctx->s_ctx.mode[ctx->current_scenario_id].exposure_margin);
 		/* fll_b_min = readout + xx lines(margin) */
 		calc_fl_in_lut[1] =
 			ctx->s_ctx.mode[ctx->current_scenario_id].readout_length +
 			ctx->s_ctx.mode[ctx->current_scenario_id].read_margin;
 		/* fll_b = max(readout, current shutter_c) */
 		calc_fl_in_lut[1] =
-			max(calc_fl_in_lut[1], cit_in_lut[2] + ctx->s_ctx.exposure_margin);
+			max(calc_fl_in_lut[1],
+				cit_in_lut[2] +
+				ctx->s_ctx.mode[ctx->current_scenario_id].exposure_margin);
 		/* fll_c_min = readout + xx lines(margin) */
 		calc_fl_in_lut[2] =
 			ctx->s_ctx.mode[ctx->current_scenario_id].readout_length +
 			ctx->s_ctx.mode[ctx->current_scenario_id].read_margin;
 		/* fll_c = max(readout, current shutter_a) */
 		calc_fl_in_lut[2] =
-			max(calc_fl_in_lut[2], cit_in_lut[0] + ctx->s_ctx.exposure_margin);
+			max(calc_fl_in_lut[2],
+			cit_in_lut[0] +
+			ctx->s_ctx.mode[ctx->current_scenario_id].exposure_margin);
 
 		/* fll_a = max(fll_a, userInput_fll_a) */
 		ctx->frame_length_in_lut[0] =
@@ -2352,8 +2481,15 @@ void streaming_control(struct subdrv_ctx *ctx, bool enable)
 			ctx->s_ctx.mcss_init((void *) ctx);
 
 		set_dummy(ctx);
-		subdrv_ixc_wr_u8(ctx, ctx->s_ctx.reg_addr_stream, 0x01);
+
+		if (ctx->s_ctx.s_mi_stream) {
+			ctx->s_ctx.s_mi_stream((void *)ctx,enable);
+		} else {
+			subdrv_ixc_wr_u8(ctx, ctx->s_ctx.reg_addr_stream, 0x01);
+		}
+
 		ctx->stream_ctrl_start_time = ktime_get_boottime_ns();
+		ctx->stream_ctrl_start_time_mono = ktime_get_ns();
 	} else {
 		ctx->stream_ctrl_end_time = ktime_get_boottime_ns();
 		if (ctx->s_ctx.custom_stream_ctrl_delay &&
@@ -2368,7 +2504,12 @@ void streaming_control(struct subdrv_ctx *ctx, bool enable)
 			if (stream_ctrl_delay_timing < stream_ctrl_delay)
 				mdelay(stream_ctrl_delay - stream_ctrl_delay_timing);
 		}
-		subdrv_ixc_wr_u8(ctx, ctx->s_ctx.reg_addr_stream, 0x00);
+
+		if (ctx->s_ctx.s_mi_stream) {
+			ctx->s_ctx.s_mi_stream((void *)ctx,enable);
+		} else {
+			subdrv_ixc_wr_u8(ctx, ctx->s_ctx.reg_addr_stream, 0x00);
+		}
 		if (ctx->s_ctx.reg_addr_fast_mode && ctx->fast_mode_on) {
 			ctx->fast_mode_on = FALSE;
 			ctx->ref_sof_cnt = 0;
@@ -2376,6 +2517,8 @@ void streaming_control(struct subdrv_ctx *ctx, bool enable)
 			set_i2c_buffer(ctx, ctx->s_ctx.reg_addr_fast_mode, 0x00);
 			commit_i2c_buffer(ctx);
 		}
+		ctx->fast_mode_on = FALSE;
+		ctx->ref_sof_cnt = 0;
 		memset(ctx->exposure, 0, sizeof(ctx->exposure));
 		memset(ctx->ana_gain, 0, sizeof(ctx->ana_gain));
 		ctx->autoflicker_en = FALSE;
@@ -2385,6 +2528,7 @@ void streaming_control(struct subdrv_ctx *ctx, bool enable)
 			check_stream_off(ctx);
 		ctx->stream_ctrl_start_time = 0;
 		ctx->stream_ctrl_end_time = 0;
+		ctx->stream_ctrl_start_time_mono = 0;
 
 		ctx->mcss_init_info.enable_mcss = 0;
 		if (ctx->s_ctx.mcss_init != NULL)
@@ -2487,6 +2631,12 @@ void get_min_shutter_by_scenario(struct subdrv_ctx *ctx,
 	}
 
 	*min_shutter = ctx->s_ctx.exposure_min;
+#ifdef __XIAOMI_CAMERA__
+	if (ctx->s_ctx.mode[scenario_id].min_exposure_line) {
+		*min_shutter = ctx->s_ctx.mode[scenario_id].min_exposure_line;
+	}
+#endif
+
 	if (ctx->s_ctx.mode[scenario_id].coarse_integ_step) {
 		*exposure_step = ctx->s_ctx.mode[scenario_id].coarse_integ_step;
 		return;
@@ -2647,6 +2797,11 @@ void extend_frame_length(struct subdrv_ctx *ctx, u32 ns)
 	u32 per_frame_ns = (u64)ctx->frame_length *
 		(u64)ctx->line_length * 1000000000 / ctx->pclk;
 
+#ifdef __XIAOMI_CAMERA__
+	DRV_LOG_MUST(ctx, "skip extend_frame_length\n");
+	return;
+#endif
+
 	check_current_scenario_id_bound(ctx);
 	if (ctx->s_ctx.mode[ctx->current_scenario_id].hdr_mode == HDR_RAW_LBMF)
 		return;
@@ -2661,7 +2816,9 @@ void extend_frame_length(struct subdrv_ctx *ctx, u32 ns)
 	if (last_exp_cnt > 1) {
 		calc_fl = (readoutLength + readMargin);
 		for (i = 1; i < last_exp_cnt; i++)
-			calc_fl += (ctx->exposure[i] + ctx->s_ctx.exposure_margin * last_exp_cnt);
+			calc_fl += (ctx->exposure[i] +
+				ctx->s_ctx.mode[ctx->current_scenario_id].exposure_margin *
+				last_exp_cnt);
 		ctx->frame_length = max(calc_fl, ctx->frame_length);
 	}
 	set_dummy(ctx);
@@ -2725,7 +2882,7 @@ void get_frame_ctrl_info_by_scenario(struct subdrv_ctx *ctx,
 			scenario_id, ctx->s_ctx.sensor_mode_num);
 		scenario_id = SENSOR_SCENARIO_ID_NORMAL_PREVIEW;
 	}
-	*margin = ctx->s_ctx.exposure_margin;
+	*margin = ctx->s_ctx.mode[scenario_id].exposure_margin;
 }
 
 void get_feature_get_4cell_data(struct subdrv_ctx *ctx, u16 type, char *data)
@@ -3044,7 +3201,7 @@ void update_hw_init_time(struct subdrv_ctx *ctx, u64 fisrt_vsync_time)
 	}
 	shutter_time = shutter_lines*line_time_ns;
 	cur_init_time = fisrt_vsync_time
-					- ctx->stream_ctrl_start_time
+					- ctx->stream_ctrl_start_time_mono
 					- shutter_time;
 	if (cur_init_time < HW_INIT_TIME_MAX) {
 		new_init_time =
@@ -3054,10 +3211,11 @@ void update_hw_init_time(struct subdrv_ctx *ctx, u64 fisrt_vsync_time)
 				? MAX_UPDATED_TIMES : times+1;
 	}
 	DRV_LOG_MUST(ctx,
-			"sid:%d, fisrt_vsync_time:%llu, stream_ctrl_start_time:%llu, cur_init_time:%llu, new_init_time:%llu, old_init_time:%llu, times:%u, shutter_time:%llu, shutter_lines:%u, line_time_ns:%llu\n",
+			"sid:%d, fisrt_vsync_time:%llu, stream_ctrl_start_time:%llu, stream_ctrl_start_time_mono:%llu, cur_init_time:%llu, new_init_time:%llu, old_init_time:%llu, times:%u, shutter_time:%llu, shutter_lines:%u, line_time_ns:%llu\n",
 			cur_id,
 			fisrt_vsync_time,
 			ctx->stream_ctrl_start_time,
+			ctx->stream_ctrl_start_time_mono,
 			cur_init_time,
 			new_init_time,
 			old_init_time,
@@ -3065,6 +3223,19 @@ void update_hw_init_time(struct subdrv_ctx *ctx, u64 fisrt_vsync_time)
 			shutter_time,
 			shutter_lines,
 			line_time_ns);
+}
+
+void get_dcg_ratio_group_by_scenario(struct subdrv_ctx *ctx,
+		enum SENSOR_SCENARIO_ID_ENUM scenario_id, void *data)
+{
+	if (scenario_id >= ctx->s_ctx.sensor_mode_num) {
+		DRV_LOG(ctx, "invalid sid:%u, mode_num:%u\n",
+			scenario_id, ctx->s_ctx.sensor_mode_num);
+		scenario_id = SENSOR_SCENARIO_ID_NORMAL_PREVIEW;
+	}
+	memcpy(data,
+		(void *)ctx->s_ctx.mode[scenario_id].dcg_info.dcg_ratio_group,
+		sizeof(u32)*IMGSENSOR_EXPOSURE_CNT);
 }
 
 int common_get_imgsensor_id(struct subdrv_ctx *ctx, u32 *sensor_id)
@@ -3082,8 +3253,16 @@ int common_get_imgsensor_id(struct subdrv_ctx *ctx, u32 *sensor_id)
 				subdrv_ixc_rd_u8(ctx, addr_l);
 			if (addr_ll)
 				*sensor_id = ((*sensor_id) << 8) | subdrv_ixc_rd_u8(ctx, addr_ll);
-			DRV_LOG(ctx, "i2c_write_id:0x%x sensor_id(cur/exp):0x%x/0x%x\n",
-				ctx->i2c_write_id, *sensor_id, ctx->s_ctx.sensor_id);
+#ifdef __XIAOMI_CAMERA__
+                        DRV_LOG_MUST(ctx, "i2c_write_id:0x%x sensor_id(cur/exp):0x%x/0x%x\n",
+                               ctx->i2c_write_id, *sensor_id, ctx->s_ctx.sensor_id);
+                        if (ctx->s_ctx.s_mi_read_CGRatio) {
+                                ctx->s_ctx.s_mi_read_CGRatio((void *)ctx);
+                        }
+#else
+                        DRV_LOG(ctx, "i2c_write_id:0x%x sensor_id(cur/exp):0x%x/0x%x\n",
+                                ctx->i2c_write_id, *sensor_id, ctx->s_ctx.sensor_id);
+#endif
 			if (*sensor_id == ctx->s_ctx.sensor_id)
 				return ERROR_NONE;
 			retry--;
@@ -3147,6 +3326,8 @@ void subdrv_ctx_init(struct subdrv_ctx *ctx)
 			ctx->exposure_min = ctx->s_ctx.mode[i].min_exposure_line;
 		if (!ctx->s_ctx.mode[i].saturation_info)
 			ctx->s_ctx.mode[i].saturation_info = ctx->s_ctx.saturation_info;
+		if (!ctx->s_ctx.mode[i].exposure_margin)
+			ctx->s_ctx.mode[i].exposure_margin = ctx->s_ctx.exposure_margin;
 		exp_cnt = ctx->s_ctx.mode[i].exp_cnt ?
 					ctx->s_ctx.mode[i].exp_cnt : 1;
 		for (j = 0; j < exp_cnt; j++) {
@@ -3181,6 +3362,10 @@ void sensor_init(struct subdrv_ctx *ctx)
 	u64 time_boot_begin = 0;
 	u64 ixc_time = 0;
 
+#ifdef __XIAOMI_CAMERA__
+	ENABLE_I2C_DUMP_IF_DEBUG(ctx);
+#endif
+
 	/* write init setting */
 	if (ctx->s_ctx.init_setting_table != NULL) {
 		DRV_LOG(ctx, "S: size:%u\n", ctx->s_ctx.init_setting_len);
@@ -3188,7 +3373,18 @@ void sensor_init(struct subdrv_ctx *ctx)
 			(*ctx->power_on_profile_en))
 			time_boot_begin = ktime_get_boottime_ns();
 
+#ifdef __XIAOMI_CAMERA__
+		if (ctx->s_ctx.s_mi_init_setting) {
+			ctx->s_ctx.s_mi_init_setting((void *)ctx);
+		} else {
+			if (ctx->s_ctx.s_mi_init_seq) {
+				ctx->s_ctx.s_mi_init_seq((void *)ctx);
+			}
+			ixc_time = ixc_table_write(ctx, ctx->s_ctx.init_setting_table, ctx->s_ctx.init_setting_len);
+		}
+#else
 		ixc_time = ixc_table_write(ctx, ctx->s_ctx.init_setting_table, ctx->s_ctx.init_setting_len);
+#endif
 
 		if ((ctx->power_on_profile_en != NULL) &&
 			(*ctx->power_on_profile_en)) {
@@ -3198,8 +3394,7 @@ void sensor_init(struct subdrv_ctx *ctx)
 			 ctx->sensor_pw_on_profile.i2c_init_table_len =
 							ctx->s_ctx.init_setting_len;
 		}
-		DRV_LOG_MUST(ctx, "X: size:%u, time(us):%lld\n", ctx->s_ctx.init_setting_len,
-			ixc_time);
+		DRV_LOG_MUST(ctx, "X: size:%u, time(us):%lld\n", ctx->s_ctx.init_setting_len, ixc_time);
 	} else {
 		DRV_LOG_MUST(ctx, "please implement initial setting!\n");
 	}
@@ -3217,10 +3412,28 @@ int common_open(struct subdrv_ctx *ctx)
 {
 	u32 sensor_id = 0;
 	u32 scenario_id = 0;
+  #ifdef __XIAOMI_CAMERA__
+	struct v4l2_subdev *sd = NULL;
+	struct adaptor_ctx *adaptor_ctx = NULL;
+	u32 ret;
+  #endif
 
 	/* get sensor id */
+#ifdef __XIAOMI_CAMERA__
+	if (ctx->i2c_client) {
+		sd = i2c_get_clientdata(ctx->i2c_client);
+	}
+	if (sd) {
+		adaptor_ctx = to_ctx(sd);
+	}
+
+	ret = subdrv_call(adaptor_ctx, get_id, &sensor_id);
+	if(ret != ERROR_NONE)
+		return ERROR_SENSOR_CONNECT_FAIL;
+#else
 	if (common_get_imgsensor_id(ctx, &sensor_id) != ERROR_NONE)
 		return ERROR_SENSOR_CONNECT_FAIL;
+#endif
 
 	/* initail setting */
 	if (ctx->s_ctx.aov_sensor_support && !ctx->s_ctx.init_in_open)
@@ -3314,6 +3527,7 @@ int common_get_info(struct subdrv_ctx *ctx,
 		sensor_info->DelayFrame[i] = ctx->s_ctx.mode[i].delay_frame;
 		sensor_info->ModeInfo[i].SensorDpcEnabled = ctx->s_ctx.mode[i].dpc_enabled;
 		sensor_info->ModeInfo[i].SensorPdcEnabled = ctx->s_ctx.mode[i].pdc_enabled;
+		sensor_info->bit_align_type[i] = ctx->s_ctx.mode[i].bit_align_type;
 		if (ctx->s_ctx.mode[i].saturation_info) {
 			sensor_info->gain_ratio[i] =
 				ctx->s_ctx.mode[i].saturation_info->gain_ratio;
@@ -3352,6 +3566,7 @@ int common_get_info(struct subdrv_ctx *ctx,
 		sensor_info->fine_integ_line[i] = ctx->s_ctx.mode[i].fine_integ_line;
 		sensor_info->aov_mode[i] = ctx->s_ctx.mode[i].aov_mode;
 		sensor_info->support_mcss[i] = ctx->s_ctx.mode[i].support_mcss;
+		sensor_info->SensorAwbEnabled[i] = ctx->s_ctx.mode[i].awb_enabled;
 	}
 	sensor_info->SensorDrivingCurrent = ctx->s_ctx.isp_driving_current;
 	sensor_info->IHDR_Support = 0;
@@ -3720,7 +3935,12 @@ void update_mode_info(struct subdrv_ctx *ctx, enum SENSOR_SCENARIO_ID_ENUM scena
 	ctx->current_fps = ctx->pclk / ctx->line_length * 10 / ctx->frame_length;
 	ctx->readout_length = ctx->s_ctx.mode[scenario_id].readout_length;
 	ctx->read_margin = ctx->s_ctx.mode[scenario_id].read_margin;
+#ifdef __XIAOMI_CAMERA__
+//	ctx->min_frame_length = ctx->frame_length;
+#else
 	ctx->min_frame_length = ctx->frame_length;
+#endif
+	ctx->margin = ctx->s_ctx.mode[scenario_id].exposure_margin;
 	ctx->autoflicker_en = FALSE;
 	ctx->l_shift = 0;
 	ctx->min_vblanking_line = ctx->s_ctx.mode[scenario_id].min_vblanking_line;
@@ -4289,6 +4509,16 @@ int common_feature_control(struct subdrv_ctx *ctx, MSDK_SENSOR_FEATURE_ENUM feat
 	case SENSOR_FEATURE_UPDATE_HW_INIT_TIME:
 		update_hw_init_time(ctx, *(feature_data));
 		break;
+	case SENSOR_FEATURE_GET_DCG_RATIO_GROUP_BY_SCENARIO:
+		get_dcg_ratio_group_by_scenario(ctx,
+			(enum SENSOR_SCENARIO_ID_ENUM)*(feature_data),
+			(u32 *)((uintptr_t)(*(feature_data + 1))));
+		break;
+#ifdef __XIAOMI_CAMERA__
+	case SENSOR_XIAOMI_FEATURE_SET_EXTRA_VB:
+		ctx->extraVB = *feature_data_32;
+		break;
+#endif
 	default:
 		DRV_LOG(ctx, "feature_id %u is invalid\n", feature_id);
 		ret = ERROR_INVALID_FEATURE_ID;

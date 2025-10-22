@@ -87,11 +87,13 @@ static struct clk_bulk_data mae_clks_isp8_m6899[] = {
 static struct mae_data mae_data_isp8 = {
 	.internal_buffer_size = 3 * 512 * 1024,
 	.base_address = 0x34310000,
+	.fd_fpn_threshold = 0xAA,
 };
 
 static struct mae_data mae_data_isp8_mt6899 = {
 	.internal_buffer_size = 3 * 512 * 1024,
 	.base_address = 0x15310000,
+	.fd_fpn_threshold = 0x9B,
 };
 
 struct mae_priv_data priv_data_isp8 = {
@@ -271,7 +273,7 @@ struct mae_priv_data priv_data_isp8_mt6899 = {
 	},
 	.fd_v1_fpn_config_info = {
 		.size = 448,
-		.rotate_offset = 6275,
+		.rotate_offset = 6278,
 		.rotate_size = 453,
 	},
 	.fd_v1_fpn_coef_info = {
@@ -483,6 +485,8 @@ static void mtk_mae_set_default_value(struct mtk_mae_dev *mae_dev, struct cmdq_p
 		MAE_CMDQ_WRITE_REG(pkt, MAE_REG_H_MAX0 + COMMON_REG_SIZE * i, 0x01F4);
 		MAE_CMDQ_WRITE_REG(pkt, MAE_REG_V_MAX0 + COMMON_REG_SIZE * i, 0x01F4);
 	}
+
+	MAE_CMDQ_WRITE_REG(pkt, MAE_0174_MAISR, 0xc000);
 }
 
 static bool select_outer_loop_by_mae_mode(struct mtk_mae_dev *mae_dev,
@@ -1721,7 +1725,7 @@ static void mtk_mae_fd_post(struct mtk_mae_dev *mae_dev,
 				(uint32_t)image->imgWidth);
 		MAE_CMDQ_WRITE_REG(pkt, MAE_REG_V_MAX0 + core_offset,
 				(uint32_t)image->imgHeight);
-		MAE_CMDQ_WRITE_REG(pkt, MAE_REG_SCORE_TH0 + core_offset, 0xAA); // 170
+		MAE_CMDQ_WRITE_REG(pkt, MAE_REG_SCORE_TH0 + core_offset, g_data->data->fd_fpn_threshold);
 	}
 }
 
@@ -3606,6 +3610,8 @@ const struct mtk_mae_drv_ops mae_ops_isp8 = {
 
 int mtk_mae_isp8_probe(struct platform_device *pdev)
 {
+	int ret;
+
 	dev_info(&pdev->dev ,"%s +", __func__);
 
 	g_data = of_device_get_match_data(&pdev->dev);
@@ -3615,6 +3621,14 @@ int mtk_mae_isp8_probe(struct platform_device *pdev)
 	}
 
 	mtk_mae_set_data(g_data);
+
+	ret = devm_clk_bulk_get(&pdev->dev,
+			g_data->clk_num,
+			g_data->clks);
+	if (ret) {
+		dev_info(&pdev->dev, "Failed to get clks: %d\n", ret);
+		return ret;
+	}
 
 #ifdef MAE_TF_DUMP_8
 	dev_info(&pdev->dev , "register MAE isp8 tf cb");

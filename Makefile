@@ -18,6 +18,8 @@ obj-$(CONFIG_MTK_CAMERA_ISP_PDA_SUPPORT) += mtk-pda/
 obj-y += imgsensor/
 obj-$(CONFIG_MTK_CCU_RPROC) += ccusys/
 
+subdir-ccflags-y += -D__XIAOMI_CAMERA__
+
 ## normal Makefile
 #SUBDIRS := $(wildcard */.)
 #

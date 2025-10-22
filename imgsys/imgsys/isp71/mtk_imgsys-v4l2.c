@@ -17,6 +17,7 @@
 //#include <linux/remoteproc/mtk_scp.h>
 #include <linux/videodev2.h>
 #include <linux/version.h>
+#include <linux/vmalloc.h>
 #include <media/videobuf2-dma-contig.h>
 #include <media/v4l2-ioctl.h>
 #include <media/v4l2-subdev.h>

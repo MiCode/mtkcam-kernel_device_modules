@@ -50,7 +50,8 @@ struct mtk_cam_seninf_tsrec_irq_notify_info {
 	unsigned int vsync_status;	// INTR status (convert to vsync)
 	unsigned int hsync_status;	// INTR status (convert to hsync)
 
-	unsigned long long sys_ts_ns;
+	unsigned long long sys_ts_ns; /* ktime_get_boottime_ns() */
+	unsigned long long mono_ts_ns; /* ktime_get_ns() */
 };
 
 

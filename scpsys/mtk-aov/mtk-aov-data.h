@@ -24,6 +24,7 @@
 #define AOV_DEV_DISP_OFF_UT       _IO('H', 8)
 #define AOV_DEV_TURN_ON_ULPOSC    _IO('H', 9)
 #define AOV_DEV_TURN_OFF_ULPOSC   _IO('H', 10)
+#define AOV_DEV_FRAME_MODE _IOW('H', 11, struct frame_mode_notify)
 
 #if IS_ENABLED(CONFIG_COMPAT)
 #define COMPAT_AOV_DEV_START        _IOW('H', 0, struct aov_user)
@@ -37,6 +38,7 @@
 #define COMPAT_AOV_DEV_DISP_OFF_UT  _IO('H', 8)
 #define COMPAT_AOV_DEV_TURN_ON_ULPOSC _IO('H', 9)
 #define COMPAT_AOV_DEV_TURN_OFF_ULPOSC _IO('H', 10)
+#define AOV_DEV_FRAME_MODE _IOW('H', 11, struct frame_mode_notify)
 #endif
 
 /*
@@ -59,7 +61,8 @@
 #define AOV_SCP_CMD_RESET_SENSOR_END (14)
 #define AOV_SCP_CMD_TURN_ON_ULPOSC   (15)
 #define AOV_SCP_CMD_TURN_OFF_ULPOSC  (16)
-#define AOV_SCP_CMD_MAX              (17)
+#define AOV_SCP_CMD_FRAME_MODE       (17)
+#define AOV_SCP_CMD_MAX              (18)
 #define AOV_SCP_CMD_ACK              (0x8000)
 
 #define AOV_DEBUG_MODE_DUMP       (1)  // General debug
@@ -313,6 +316,11 @@ struct aov_user {
 	void *tuning_info;
 
 	uint32_t pipe_id;
+	uint32_t cust_param_1;
+    uint32_t cust_param_2;
+    uint32_t md_enable;
+    uint32_t detect_frame_num;
+    uint32_t total_frame_num;
 };
 
 struct senif_start {
@@ -457,6 +465,11 @@ struct aov_start_v2 {
 		struct base_event base_event[AOV_MAX_BASE_EVENT];
 		struct ndd_event ndd_event[AOV_MAX_NDD_EVENT];
 	};
+	uint32_t cust_param_1;
+	uint32_t cust_param_2;
+	uint32_t md_enable;
+	uint32_t detect_frame_num;
+	uint32_t total_frame_num;
 };
 
 #define AOV_NOTIFY_AIE_AVAIL    (1)
@@ -465,6 +478,12 @@ struct aov_start_v2 {
 struct aov_notify {
 	uint32_t notify;
 	uint32_t status;
+};
+
+struct frame_mode_notify {
+  uint32_t frame_mode;
+  uint32_t param1;
+  uint32_t param2;
 };
 
 struct packet {

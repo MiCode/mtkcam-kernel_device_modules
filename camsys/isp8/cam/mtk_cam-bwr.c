@@ -448,10 +448,8 @@ EXPORT_SYMBOL_GPL(mtk_cam_bwr_get_dev);
 
 void mtk_cam_bwr_enable(struct mtk_bwr_device *bwr)
 {
-	if (!bwr) {
-		pr_info("%s :null device", __func__);
+	if (!bwr)
 		return;
-	}
 
 	if (pm_runtime_get_sync(bwr->dev) < 0)
 		pr_info("%s runtime get fail\n", __func__);
@@ -460,10 +458,8 @@ EXPORT_SYMBOL_GPL(mtk_cam_bwr_enable);
 
 void mtk_cam_bwr_disable(struct mtk_bwr_device *bwr)
 {
-	if (!bwr) {
-		pr_info("%s :null device", __func__);
+	if (!bwr)
 		return;
-	}
 
 	pm_runtime_put_sync(bwr->dev);
 }
@@ -473,10 +469,8 @@ void mtk_cam_bwr_set_chn_bw(struct mtk_bwr_device *bwr,
 			  enum BWR_ENGINE_TYPE engine, enum BWR_AXI_PORT axi,
 			  int srt_r_bw, int srt_w_bw, int hrt_r_bw, int hrt_w_bw, bool clear)
 {
-	if (!bwr) {
-		pr_info("%s :null device, engine(%d)", __func__, engine);
+	if (!bwr)
 		return;
-	}
 
 	bwr_set_chn_bw(bwr, engine, axi, srt_r_bw, srt_w_bw, hrt_r_bw, hrt_w_bw, clear);
 }
@@ -485,10 +479,8 @@ EXPORT_SYMBOL_GPL(mtk_cam_bwr_set_chn_bw);
 void mtk_cam_bwr_set_ttl_bw(struct mtk_bwr_device *bwr,
 			  enum BWR_ENGINE_TYPE engine, int srt_ttl, int hrt_ttl, bool clear)
 {
-	if (!bwr) {
-		pr_info("%s :null device, engine(%d)", __func__, engine);
+	if (!bwr)
 		return;
-	}
 
 	bwr_set_ttl_bw(bwr, engine, srt_ttl, hrt_ttl, clear);
 }
@@ -497,10 +489,8 @@ EXPORT_SYMBOL_GPL(mtk_cam_bwr_set_ttl_bw);
 void mtk_cam_bwr_clr_bw(
 	struct mtk_bwr_device *bwr, enum BWR_ENGINE_TYPE engine, enum BWR_AXI_PORT axi)
 {
-	if (!bwr) {
-		pr_info("%s : null device, engine(%d)", __func__, engine);
+	if (!bwr)
 		return;
-	}
 
 	bwr_zero_bw(bwr, engine, axi);
 }
@@ -510,10 +500,8 @@ EXPORT_SYMBOL_GPL(mtk_cam_bwr_clr_bw);
 void mtk_cam_bwr_trigger(struct mtk_bwr_device *bwr,
 	enum BWR_ENGINE_TYPE engine, enum BWR_AXI_PORT axi)
 {
-	if (!bwr) {
-		pr_info("%s : null device, engine(%d)", __func__, engine);
+	if (!bwr)
 		return;
-	}
 
 	mutex_lock(&bwr->op_lock);
 	if (!bwr || !bwr->started) {
@@ -544,10 +532,8 @@ void mtk_cam_bwr_dbg_dump(struct mtk_bwr_device *bwr)
 {
 	int engine = 0, axi = 0;
 
-	if (!bwr) {
-		pr_info("%s : null device, engine(%d)", __func__, engine);
+	if (!bwr)
 		return;
-	}
 
 	mutex_lock(&bwr->op_lock);
 	if (!bwr || !bwr->started) {

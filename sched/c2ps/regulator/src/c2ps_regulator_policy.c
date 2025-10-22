@@ -18,14 +18,14 @@ static unsigned int c2ps_regulator_bg_update_uclamp_fast;
 static unsigned int c2ps_uclamp_bg_up_margin_cluster0 = 1000;
 static unsigned int c2ps_uclamp_bg_up_margin_cluster1 = 1000;
 static unsigned int c2ps_uclamp_bg_up_margin_cluster2 = 1000;
-static unsigned int c2ps_max_cpu_idle_rate = 30;
+static unsigned int c2ps_max_cpu_idle_rate = 50;
 
 /**************************************************************************/
 int c2ps_regulator_base_update_um = 5;
 int c2ps_regulator_um_min = 65;
+int c2ps_lcore_mcore_um_ratio = 10;
 static int c2ps_regulator_um_max = 125;
 static int c2ps_fix_um;
-static int L_dvide_M_ratio = 10;
 static int c2ps_converge_target = 50;
 static int c2ps_um_monitor;
 static int c2ps_safe_idle_rate = 7;
@@ -56,7 +56,7 @@ module_param(lat_th, int, 0644);
 
 /**************************************************************************/
 module_param(c2ps_fix_um, int, 0644);
-module_param(L_dvide_M_ratio, int, 0644);
+module_param(c2ps_lcore_mcore_um_ratio, int, 0644);
 module_param(c2ps_um_monitor, int, 0644);
 /**************************************************************************/
 
@@ -134,6 +134,7 @@ void c2ps_regulator_policy_simple(struct regulator_req *req)
 						  (100 + c2ps_uclamp_up_margin) / 100),
 				 new_uclamp));
 
+	new_uclamp = new_uclamp * 100 / req->curr_um;
 	new_uclamp = max(0, min(1024, new_uclamp));
 	req->tsk_info->latest_uclamp = new_uclamp;
 
@@ -287,6 +288,7 @@ void c2ps_regulator_bgpolicy_um_stable_default(struct regulator_req *req)
 	int cluster_index = 0;
 	int curr_um = 0;
 	bool decrease_um = true;
+	bool dangerous_idle_rate = false;
 
 	if (unlikely(!req->glb_info))
 		return;
@@ -301,12 +303,17 @@ void c2ps_regulator_bgpolicy_um_stable_default(struct regulator_req *req)
 			c2ps_reset_cpu_freq_ceiling(cluster_index);
 		if (req->glb_info->need_update_bg[1 + cluster_index] > 0)
 			decrease_um = false;
+		if (req->glb_info->need_update_bg[1 + cluster_index] == 2)
+			dangerous_idle_rate = true;
 	}
 
 	if (decrease_um)
 		curr_um -= c2ps_regulator_base_update_um;
 	else
 		curr_um += c2ps_regulator_base_update_um;
+
+	if (dangerous_idle_rate)
+		curr_um = max(curr_um, 100);
 
 	curr_um = min(c2ps_regulator_um_max, max(curr_um, c2ps_regulator_um_min));
 	c2ps_set_util_margin(0, curr_um);
@@ -436,6 +443,7 @@ static int _cal_idle_rate_um(
 	short _cluster_index = 0;
 	bool is_safe_idle_rate = true;
 	int idle_rate_um = req->glb_info->curr_um;
+	bool is_dangerous_idle_rate = false;
 
 	*force_use_idle_rate_um = true;
 
@@ -453,12 +461,17 @@ static int _cal_idle_rate_um(
 					c2ps_max_cpu_idle_rate) {
 			*force_use_idle_rate_um = false;
 		}
+		if (req->glb_info->need_update_bg[1 + _cluster_index] == 2)
+			is_dangerous_idle_rate = true;
 	}
 
 	if (!is_safe_idle_rate)
 		idle_rate_um += c2ps_regulator_base_update_um;
 	else
 		idle_rate_um -= c2ps_regulator_base_update_um;
+
+	if (is_dangerous_idle_rate)
+		idle_rate_um = max(idle_rate_um, 100);
 
 	return idle_rate_um;
 }
@@ -497,10 +510,14 @@ void c2ps_regulator_bgpolicy_um_stable(struct regulator_req *req)
 		action_um = max(idle_rate_um, max(latency_um, jitter_um));
 		if (force_use_idle_rate_um) {
 			action_um = idle_rate_um;
-			C2PS_LOGD(
-				"force_use_idle_rate_um action_um : %d, idle_rate_um: %d, latency_um: %d, jitter_um: %d",
-				action_um, idle_rate_um, latency_um, jitter_um);
 		}
+
+		C2PS_LOGD(
+			"force_use_idle_rate_um: %d, action_um: %d, idle_rate_um: %d, latency_um: %d, jitter_um: %d",
+			force_use_idle_rate_um, action_um, idle_rate_um, latency_um, jitter_um);
+		c2ps_main_systrace(
+			"force_use_idle_rate_um: %d, action_um: %d, idle_rate_um: %d, latency_um: %d, jitter_um: %d",
+			force_use_idle_rate_um, action_um, idle_rate_um, latency_um, jitter_um);
 
 		if (action_um > curr_um) {
 			if (req->glb_info->um_vote.vote_result > 0)
@@ -532,16 +549,15 @@ void c2ps_regulator_bgpolicy_um_stable(struct regulator_req *req)
 	if (need_update_um) {
 		action_um = min(c2ps_regulator_um_max,
 							max(action_um, c2ps_regulator_um_min));
-
 		c2ps_set_util_margin(0, action_um);
-		c2ps_set_util_margin(1, action_um*10/L_dvide_M_ratio);
+		c2ps_set_util_margin(1, action_um*10/c2ps_lcore_mcore_um_ratio);
 		c2ps_set_util_margin(2, action_um);
 
 		req->glb_info->curr_um = action_um;
 		c2ps_um_monitor = action_um;
 		_item->um_stay_cnt = 0;
-		C2PS_LOGD("anchor id: %d, update um to %d, is_last_anchor: %d",
-			req->anc_info->anchor_id, action_um, req->anc_info->is_last_anchor);
+		C2PS_LOGD("anchor id: %d, update um to %d, is_last_anchor: %d, c2ps_lcore_mcore_um_ratio: %d",
+			req->anc_info->anchor_id, action_um, req->anc_info->is_last_anchor, c2ps_lcore_mcore_um_ratio);
 	} else {
 		_item->um_stay_cnt++;
 	}
@@ -556,6 +572,7 @@ void c2ps_regulator_bgpolicy_um_stable(struct regulator_req *req)
 void c2ps_regulator_bgpolicy_um_transient(struct regulator_req *req)
 {
 	int action_um = 125;
+	int cluster_index = 0;
 
 	if (unlikely(req->glb_info->overwrite_util_margin ||
 				req->glb_info->decided_um_placeholder_val)) {
@@ -563,9 +580,20 @@ void c2ps_regulator_bgpolicy_um_transient(struct regulator_req *req)
 						req->glb_info->decided_um_placeholder_val);
 	}
 
+	for (; cluster_index < c2ps_nr_clusters; cluster_index++) {
+		if (req->glb_info->need_update_bg[1 + cluster_index] == 2 ||
+			req->glb_info->single_shot_enable_ineff_cpufreq_cnt)
+			c2ps_update_cpu_freq_ceiling(cluster_index, FREQ_QOS_MAX_DEFAULT_VALUE);
+		else
+			c2ps_reset_cpu_freq_ceiling(cluster_index);
+	}
+
 	c2ps_set_util_margin(0, action_um);
 	c2ps_set_util_margin(1, action_um);
 	c2ps_set_util_margin(2, action_um);
 	C2PS_LOGD("transient state um=%d", action_um);
 	c2ps_bg_info_um_systrace("transient state um=%d", action_um);
+
+	req->glb_info->curr_um = max(req->glb_info->curr_um, 100);
+	req->glb_info->curr_um_idle = max(req->glb_info->curr_um_idle, 100);
 }

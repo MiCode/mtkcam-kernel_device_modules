@@ -17,10 +17,8 @@ int mtk_cam_hsf_aid(struct mtk_cam_ctx *ctx, unsigned int enable,
 int mtk_cam_sv_start_fifo_detection(struct mtk_camsv_device *sv_dev);
 int mtk_cam_sv_execute_fifo_dump(struct mtk_camsv_device *sv_dev, uint64_t timestamp);
 int mtk_cam_sv_stop_fifo_detection(struct mtk_camsv_device *sv_dev);
-#ifdef QOF_CCU_READY
 int mtk_cam_hsf_qof_config(struct mtk_raw_device *raw,
 						   bool on_lock, bool off_lock, bool out_lock);
-#endif
 void ccu_apply_cq(struct mtk_cam_job *job, unsigned long raw_engines, dma_addr_t cq_addr,
 unsigned int cq_size, unsigned int cq_offset,  unsigned int sub_cq_size,
 unsigned int sub_cq_offset);

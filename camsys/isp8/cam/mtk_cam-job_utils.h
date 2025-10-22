@@ -128,6 +128,7 @@ int fill_sv_img_fp(struct req_buffer_helper *helper,
 int fill_imgo_buf_as_working_buf(
 	struct req_buffer_helper *helper, struct mtk_cam_buffer *buf,
 	struct mtk_cam_video_device *node);
+int update_ts_work_buffer_to_ipi_frame(struct req_buffer_helper *helper);
 int update_work_buffer_to_ipi_frame(struct req_buffer_helper *helper);
 int update_sensor_meta_buffer_to_ipi_frame(struct mtk_cam_job *job,
 	struct mtkcam_ipi_frame_param *fp);
@@ -149,7 +150,9 @@ int get_exp_order(struct mtk_cam_scen *scen);
 
 bool is_vhdr(struct mtk_cam_job *job);
 bool is_dc_mode(struct mtk_cam_job *job);
+bool is_ois_compensation(struct mtk_cam_job *job);
 bool is_sv_pure_raw(struct mtk_cam_job *job);
+bool is_offline_timeshare(struct mtk_cam_job *job);
 bool is_rgbw(struct mtk_cam_job *job);
 bool is_extisp(struct mtk_cam_job *job);
 bool is_dcg_sensor_merge(struct mtk_cam_job *job);
@@ -187,6 +190,11 @@ u32 get_sensor_vb(struct mtk_cam_job *job);
 u32 get_sensor_fps(struct mtk_cam_job *job);
 u32 get_sensor_interval_us(struct mtk_cam_job *job);
 u8 get_sensor_data_pattern(struct mtk_cam_job *job);
+u32 get_sensor_mode(struct mtk_cam_job *job);
+u32 get_tuning_begin_line(struct mtk_cam_job *job);
+u32 get_tuning_end_line(struct mtk_cam_job *job);
+u32 get_binning_w(struct mtk_cam_job *job);
+u32 get_binning_h(struct mtk_cam_job *job);
 void mtk_cam_sv_reset_tag_info(struct mtk_cam_job *job);
 int handle_sv_tag(struct mtk_cam_job *job);
 int handle_sv_tag_display_ic(struct mtk_cam_job *job);

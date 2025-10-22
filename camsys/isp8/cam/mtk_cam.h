@@ -41,6 +41,7 @@
 
 #include "mtk_cam-hsf-def.h"
 #include "mtk_cam-bwr.h"
+#include "mtk_cam-tuning.h"
 
 #define CCD_READY 1
 #define NO_CHECK_RETURN(ret) (void) ret
@@ -125,6 +126,8 @@ struct mtk_cam_ctx {
 	struct kthread_worker flow_worker;
 	struct task_struct *done_task;
 	struct kthread_worker done_worker;
+	struct task_struct *tuning_task;
+	struct kthread_worker tuning_worker;
 	char str_ae_data[1024];
 
 	struct mtk_cam_device_buf cq_buffer;
@@ -167,6 +170,7 @@ struct mtk_cam_ctx {
 	 */
 
 	atomic_t streaming;
+	atomic_t seninf_streaming;
 	unsigned int used_pipe;
 	int used_engine;
 
@@ -210,6 +214,9 @@ struct mtk_cam_ctx {
 	bool rms_disable;
 
 	struct qof_voter_handle DOL_not_support;
+	struct mtk_cam_exp_shutter last_req_exposue;
+	bool is_sv_mraw_error;
+	bool is_seninf_error_trigger;
 };
 
 struct mtk_cam_v4l2_pipelines {
@@ -251,6 +258,7 @@ struct mtk_cam_engines {
 
 	unsigned long full_set;
 	unsigned long occupied_engine;
+	unsigned long timeshared_engine;
 };
 
 struct cmdq_client;
@@ -337,6 +345,7 @@ struct mtk_cam_device {
 	u32 sw_ver;
 
 	int qoftop_irq;
+	u8 efuse_data;
 };
 
 static inline struct device *subdev_to_cam_dev(struct v4l2_subdev *sd)
@@ -359,7 +368,7 @@ int mtk_cam_set_dev_mraw(struct device *dev, int idx, struct device *mraw);
  /* special case: larb dev is push back into array */
 int mtk_cam_set_dev_larb(struct device *dev, struct device *larb);
 struct device *mtk_cam_get_larb(struct device *dev, int larb_id);
-
+void dump_pm_status(struct mtk_cam_device *cam);
 bool mtk_cam_is_any_streaming(struct mtk_cam_device *cam);
 bool mtk_cam_are_all_streaming(struct mtk_cam_device *cam,
 			       unsigned long stream_mask);
@@ -410,6 +419,7 @@ struct mtk_cam_ctx *mtk_cam_find_ctx(struct mtk_cam_device *cam,
 struct mtk_cam_ctx *mtk_cam_start_ctx(struct mtk_cam_device *cam,
 				      struct mtk_cam_video_device *node);
 void mtk_cam_stop_ctx(struct mtk_cam_ctx *ctx, struct media_entity *entity);
+void mtk_cam_ctx_put(struct mtk_cam_ctx *ctx);
 int mtk_cam_sv_set_fifo_detect_status(struct mtk_cam_engines *eng,
 					unsigned long engine_mask, unsigned int is_hsf_enable);
 static inline bool mtk_cam_ctx_is_adl_flow(struct mtk_cam_ctx *ctx)
@@ -438,6 +448,7 @@ void mtk_cam_ctx_engine_disable_irq(struct mtk_cam_ctx *ctx);
 void mtk_cam_ctx_engine_clear(struct mtk_cam_ctx *ctx);
 void mtk_cam_ctx_engine_reset(struct mtk_cam_ctx *ctx);
 void mtk_cam_ctx_engine_dc_sw_recovery(struct mtk_cam_ctx *ctx);
+void mtk_cam_ctx_engine_reset_msgfifo(struct mtk_cam_ctx *ctx);
 int mtk_cam_ctx_send_raw_event(struct mtk_cam_ctx *ctx,
 			       struct v4l2_event *event);
 int mtk_cam_ctx_send_sv_event(struct mtk_cam_ctx *ctx,
@@ -448,6 +459,8 @@ int mtk_cam_ctx_queue_sensor_worker(struct mtk_cam_ctx *ctx,
 int mtk_cam_ctx_queue_flow_worker(struct mtk_cam_ctx *ctx,
 				  struct kthread_work *work);
 int mtk_cam_ctx_queue_done_worker(struct mtk_cam_ctx *ctx,
+				  struct kthread_work *work);
+int mtk_cam_ctx_queue_tuning_worker(struct mtk_cam_ctx *ctx,
 				  struct kthread_work *work);
 
 int mtk_cam_ctx_fetch_devices(struct mtk_cam_ctx *ctx, unsigned long engines);
@@ -461,6 +474,7 @@ int mtk_cam_ctx_flush_session(struct mtk_cam_ctx *ctx);
 int isp_composer_create_session(struct mtk_cam_ctx *ctx);
 void isp_composer_destroy_session(struct mtk_cam_ctx *ctx);
 void isp_composer_flush_session(struct mtk_cam_ctx *ctx);
+int mtk_cam_ctx_unprepare_session(struct mtk_cam_ctx *ctx);
 
 int mtk_cam_call_seninf_set_pixelmode(struct mtk_cam_ctx *ctx,
 				      struct v4l2_subdev *sd,
@@ -495,7 +509,7 @@ int mtk_cam_mraw_link_validate(struct v4l2_subdev *sd,
 			  struct v4l2_subdev_format *sink_fmt);
 
 void mtk_engine_dump_debug_status(struct mtk_cam_device *cam,
-				  unsigned long engines, bool is_srt);
+				  unsigned long engines, int dma_debug_dump);
 
 u64 mtk_cam_query_interval_from_sensor(struct v4l2_subdev *sensor);
 u64 mtk_cam_query_interval_from_ctrl_data(struct mtk_cam_ctx *ctx);
@@ -555,5 +569,9 @@ void mtk_cam_device_refcnt_buf_put(struct mtk_cam_device_refcnt_buf *buf);
 int mtk_cam_assign_ltms_buffer(struct mtk_cam_ctx *ctx,
 			 struct mtk_cam_pool_buffer *in,
 			 struct mtk_cam_pool_buffer *out);
+
+int mtk_cam_power_rproc(struct mtk_cam_device *cam, int on);
+int mtk_cam_uninitialize(struct mtk_cam_device *cam);
+
 
 #endif /*__MTK_CAM_H*/

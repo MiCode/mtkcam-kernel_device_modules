@@ -905,7 +905,7 @@ struct mtk_cam_uapi_meta_raw_stats_cfg {
 	struct mtk_cam_uapi_cac_param cac_param;
 	struct mtk_cam_uapi_ltms_param ltms_param;
 
-	__u8 bytes[47876];
+	__u8 bytes[47880];
 };
 
 /**
@@ -978,7 +978,7 @@ struct mtk_cam_uapi_meta_camsv_stats_0 {
 };
 
 #define MTK_CAM_META_VERSION_MAJOR 1
-#define MTK_CAM_META_VERSION_MINOR 0
+#define MTK_CAM_META_VERSION_MINOR 1
 #define MTK_CAM_META_PLATFORM_NAME "isp80"
 #define MTK_CAM_META_CHIP_NAME "mt6899"
 

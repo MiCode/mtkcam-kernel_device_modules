@@ -44,6 +44,7 @@ struct mtk_raw_device {
 	void __iomem *yuv_base_inner;
 	void __iomem *rms_base;
 	void __iomem *rms_base_inner;
+	void __iomem *larb_vcsel;
 	u64 base_reg_addr;
 	u64 base_inner_reg_addr;
 	unsigned int num_clks;
@@ -67,7 +68,7 @@ struct mtk_raw_device {
 
 	int fps;
 	int subsample_ratio;
-
+	bool is_timeshared;
 	bool is_slave;
 
 	u64 sof_count;
@@ -78,8 +79,6 @@ struct mtk_raw_device {
 	int set_sensor_idx;
 	int cur_vsync_idx;
 
-	u8 time_shared_busy;
-	u8 time_shared_busy_ctx_id;
 	atomic_t vf_en;
 
 	/* error handling related */
@@ -98,6 +97,17 @@ struct mtk_raw_device {
 	bool trigger_cq_by_qof;
 	int apmcu_voter_cnt;
 	spinlock_t apmcu_voter_lock;
+	spinlock_t qof_ctrl_lock;
+
+	atomic_t time_share_used;/*identify first and last*/
+	atomic_t time_share_on_process;/*identify busy*/
+
+	/* ois compensation */
+	bool lock_done_ctrl;
+
+	/* recover */
+	unsigned int dc_max_delay;
+	bool enable_irq_failed;
 };
 
 struct mtk_yuv_device {
@@ -108,6 +118,7 @@ struct mtk_yuv_device {
 	void __iomem *base_inner;
 	void __iomem *dmatop_base;
 	void __iomem *dmatop_base_inner;
+	void __iomem *larb_vcsel;
 	unsigned int num_clks;
 	struct clk **clks;
 #ifdef CONFIG_PM_SLEEP
@@ -164,10 +175,11 @@ struct mtk_ae_debug_data {
 /* CQ setting */
 void initialize(struct mtk_raw_device *dev, struct engine_callback *cb,
 			    int is_slave, int is_srt, int frm_time_us);
+void init_camsys_settings(struct mtk_raw_device *dev, bool is_srt, int frm_time_us);
 void subsample_enable(struct mtk_raw_device *dev, int ratio);
 void stagger_enable(struct mtk_raw_device *dev);
 void stagger_disable(struct mtk_raw_device *dev);
-void update_scq_start_period(struct mtk_raw_device *dev, int scq_ms);
+void update_scq_start_period(struct mtk_raw_device *dev, int scq_ms, int frame_ms);
 void apply_cq(struct mtk_raw_device *dev,
 	      dma_addr_t cq_addr,
 	      unsigned int cq_size, unsigned int cq_offset,
@@ -199,8 +211,9 @@ struct cmdq_pkt;
 void write_pkt_trigger_apu_dc(struct mtk_raw_device *dev, struct cmdq_pkt *pkt);
 void write_pkt_trigger_apu_frame_mode(struct mtk_raw_device *dev,
 				      struct cmdq_pkt *pkt);
-
-int raw_dump_debug_status(struct mtk_raw_device *dev, bool is_srt);
+/* debug */
+void raw_test_int_trig(struct mtk_raw_device *dev);
+int raw_dump_debug_status(struct mtk_raw_device *dev, int dma_debug_dump);
 
 /* reset */
 void reset(struct mtk_raw_device *dev);
@@ -209,8 +222,8 @@ void clear_reg(struct mtk_raw_device *dev);
 
 /* workaround */
 void ae_disable(struct mtk_raw_device *dev);
-/* debug used */
-void dump_af_reg(struct mtk_raw_device *dev);
+/* ois compensation */
+void lock_done_ctrl_enable(struct mtk_raw_device *dev, int on);
 
 /* iommu debug */
 int mtk_raw_translation_fault_cb(int port, dma_addr_t mva, void *data);
@@ -250,10 +263,15 @@ int raw_to_tg_idx(int raw_id);
 #define CG_RAW 0
 #define CG_YUV 1
 #define CG_RMS 2
-
+void get_irq_status(struct mtk_raw_device *raw_dev, unsigned int irq);
 int cg_dump_and_test(struct device *dev, int type, bool test);
 
 void diable_rms_module(struct mtk_raw_device *dev);
 void diable_rms_pcrp(struct mtk_raw_device *raw);
+
+int mtk_cam_raw_reset_msgfifo(struct mtk_raw_device *dev);
+
+void backup_dc_max_delay(struct mtk_raw_device *dev);
+void restore_dc_max_delay(struct mtk_raw_device *dev);
 
 #endif /*__MTK_CAM_RAW_H*/

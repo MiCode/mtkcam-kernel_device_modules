@@ -4,6 +4,8 @@ CAM_MODULE := mtk-cam-isp8
 
 CAMSYS_TRACE_ENABLE = y
 
+KO_PATH := $(if $(filter /%,$(src)),,$(srctree)/)$(src)
+
 subdir-ccflags-y += \
     -I$(DEVICE_MODULES_PATH)/drivers/misc/mediatek/mmdvfs \
     -I$(DEVICE_MODULES_PATH)/drivers/misc/mediatek/smi/ \
@@ -11,16 +13,17 @@ subdir-ccflags-y += \
     -I$(DEVICE_MODULES_PATH)/drivers/misc/mediatek/mtk-interconnect \
     -I$(DEVICE_MODULES_PATH)/drivers/interconnect/mediatek \
     -I$(DEVICE_MODULES_PATH)/drivers/misc/mediatek/imgsensor/inc \
-    -I$(srctree)/$(src)/../../../imgsensor/src-v4l2/frame-sync/ \
-    -I$(srctree)/$(src)/../../../imgsensor/inc \
+    -I$(KO_PATH)/../../../imgsensor/src-v4l2/frame-sync/ \
+    -I$(KO_PATH)/../../../imgsensor/inc \
     -I$(DEVICE_MODULES_PATH)/drivers/dma-buf/heaps/ \
     -I$(DEVICE_MODULES_PATH)/drivers/misc/mediatek/iommu/ \
     -I$(DEVICE_MODULES_PATH)/drivers/clk/mediatek/ \
     -I$(DEVICE_MODULES_PATH)/drivers/misc/mediatek/slbc/ \
     -I$(DEVICE_MODULES_PATH)/drivers/misc/mediatek/swpm/modules/debug/v1/ \
-    -I$(srctree)/$(src) \
+    -I$(KO_PATH) \
     -I$(DEVICE_MODULES_PATH)/include/
 
+subdir-ccflags-y += -D__XIAOMI_CAMERA__
 
 #ifneq ($(wildcard $(DEVICE_MODULES_PATH)/include/dt-bindings/memory/mt6985-larb-port.h),)
 #  subdir-ccflags-y += -DCAMSYS_TF_DUMP_7SP
@@ -57,6 +60,7 @@ $(CAM_MODULE)-objs := \
     mtk_cam-job_state_subsample.o \
     mtk_cam-job_state_mstream.o \
     mtk_cam-job_state_extisp.o \
+    mtk_cam-job_state_timeshare.o \
     mtk_cam-job_utils.o \
     mtk_cam-job-subsample.o \
     mtk_cam-job-extisp.o \
@@ -90,6 +94,7 @@ $(CAM_MODULE)-objs := \
     mtk_cam-debug.o \
     mtk_cam-hsf.o \
     mtk_cam-bwr.o \
+    mtk_cam-tuning.o \
 
     #mtk_cam-size_assertion.o \
     #mtk_cam-raw_debug.o \
@@ -112,10 +117,10 @@ endif
 $(CAM_MODULE)-objs += \
 	mtk_csi_phy_3_0/mtk_cam-seninf-hw_phy_3_0.o
 
-PLATFORM_PATH = $(srctree)/$(src)
+PLATFORM_PATH = $(KO_PATH)
 # workaround for external build
 ifneq ($(M),)
-PLATFORM_PATH = $(srctree)/$(src)
+PLATFORM_PATH = $(KO_PATH)
 endif
 
 # platform data
@@ -131,3 +136,7 @@ $(CAM_MODULE)-objs += mtk_cam-plat-mt6899.o
 endif
 
 obj-$(CONFIG_VIDEO_MTK_ISP_CAMSYS) += $(CAM_MODULE).o
+
+ifeq ($(CONFIG_VIDEO_MTK_ISP_DYNAMIC_RAW_SUPPORT),y)
+    ccflags-y += -DMTK_ISP_DYNAMIC_RAW_SUPPORT
+endif

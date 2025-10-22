@@ -20,6 +20,12 @@
 #include "adaptor-i2c.h"
 #include <linux/mutex.h>
 #include <linux/atomic.h>
+#ifdef __XIAOMI_CAMERA__
+#include "linux/jiffies.h"
+#include "linux/moduleparam.h"
+#include "linux/wait.h"
+#include "linux/workqueue.h"
+#endif
 
 static DEFINE_MUTEX(PmicMutex);
 #define DEF_MCLK_FREQ 24
@@ -31,6 +37,11 @@ static DEFINE_MUTEX(PmicMutex);
 		__ctx->hw_ops[__hw_id].data = (void *)__idx; \
 	} \
 } while (0)
+
+#ifdef __XIAOMI_CAMERA__
+uint poweroff_timeout_ms = 1000;
+module_param(poweroff_timeout_ms, uint, 0644);
+#endif
 
 static const char * const clk_names[] = {
 	ADAPTOR_CLK_NAMES
@@ -640,6 +651,13 @@ int do_hw_power_on(struct adaptor_ctx *ctx)
 	adaptor_log_buf_flush(ctx, __func__, &buf);
 	adaptor_log_buf_deinit(&buf);
 
+#ifdef __XIAOMI_CAMERA__
+	if (ctx->subctx.s_ctx.s_mi_pre_init)
+		{
+		ctx->subctx.s_ctx.s_mi_pre_init((void *)&ctx->subctx);
+	}
+#endif
+
 	return 0;
 }
 
@@ -655,6 +673,25 @@ int adaptor_hw_power_on(struct adaptor_ctx *ctx)
 		adaptor_logd(ctx, "already powered, cnt = %d\n", ctx->power_refcnt);
 		return 0;
 	}
+
+#ifdef __XIAOMI_CAMERA__
+	ctx->during_poweron = 1;
+	wake_up(&ctx->poweroff_wq);
+	flush_work(&ctx->poweroff_work);
+	ctx->during_poweron = 0;
+
+	ctx->poweroff_timeout_ms = poweroff_timeout_ms;
+	//aov存在与normal camera高频互切的场景，不适合另起线程做poweroff
+	if (ctx->subctx.aov_sensor_support)
+		ctx->poweroff_timeout_ms = 0;
+
+	if (ctx->poweroff_skipped) {
+		adaptor_logm(ctx, "interrupted");
+		ctx->poweroff_skipped = 0;
+		adaptor_logm(ctx, "-\n");
+		return 0;
+	}
+#endif
 
 	adaptor_logm(ctx, "-\n");
 	return do_hw_power_on(ctx);
@@ -742,6 +779,86 @@ int do_hw_power_off(struct adaptor_ctx *ctx)
 	adaptor_logm(ctx, "-\n");
 	return 0;
 }
+
+#ifdef __XIAOMI_CAMERA__
+static int __adaptor_hw_power_off(struct adaptor_ctx *ctx)
+{
+	ctx->is_sensor_inited = 0;
+	return do_hw_power_off(ctx);
+}
+
+void adaptor_hw_power_off_work(struct work_struct *work)
+{
+	struct adaptor_ctx *ctx = container_of(work, struct adaptor_ctx, poweroff_work);
+
+	if (ctx->poweroff_timeout_ms) {
+		wait_event_interruptible_timeout(ctx->poweroff_wq, ctx->during_poweron, msecs_to_jiffies(ctx->poweroff_timeout_ms));
+		if (ctx->during_poweron && !ctx->poweroff_skipped) {
+			adaptor_logm(ctx, "interrupting");
+			ctx->poweroff_skipped = 1;
+			return;
+		}
+	}
+
+	__adaptor_hw_power_off(ctx);
+
+	return;
+}
+
+void adaptor_hw_drain_power_off_work(struct adaptor_ctx *ctx)
+{
+	ctx->during_poweron = 1;
+	ctx->poweroff_skipped = 1;
+	wake_up(&ctx->poweroff_wq);
+	flush_work(&ctx->poweroff_work);
+	ctx->poweroff_skipped = 0;
+	ctx->during_poweron = 0;
+}
+
+static int _adaptor_hw_power_off(struct adaptor_ctx *ctx, bool blocking)
+{
+	if (!ctx)
+		return -1;
+
+	adaptor_logm(ctx, "+\n");
+	if (!ctx->power_refcnt) {
+		adaptor_logd(ctx, "power ref cnt = %d, skip due to not power on yet\n",
+			ctx->power_refcnt);
+		return 0;
+	}
+	adaptor_logd(ctx, "power ref cnt = %d\n", ctx->power_refcnt);
+	ctx->power_refcnt--;
+	if (ctx->power_refcnt > 0) {
+		adaptor_logd(ctx, "skip due to cnt = %d\n", ctx->power_refcnt);
+		return 0;
+	}
+	ctx->power_refcnt = 0;
+	ctx->is_sensor_scenario_inited = 0;
+	ctx->is_streaming = 0;
+
+	adaptor_logm(ctx, "-\n");
+
+
+	if (!ctx->poweroff_timeout_ms || blocking) {
+		__adaptor_hw_power_off(ctx);
+	} else {
+		queue_work(system_long_wq, &ctx->poweroff_work);
+	}
+	return 0;
+}
+
+int adaptor_hw_power_off_deferred(struct adaptor_ctx *ctx)
+{
+	return _adaptor_hw_power_off(ctx, FALSE);
+}
+
+int adaptor_hw_power_off(struct adaptor_ctx *ctx)
+{
+	return _adaptor_hw_power_off(ctx, TRUE);
+}
+#endif
+
+#ifndef __XIAOMI_CAMERA__
 int adaptor_hw_power_off(struct adaptor_ctx *ctx)
 {
 	if (!ctx)
@@ -768,6 +885,7 @@ int adaptor_hw_power_off(struct adaptor_ctx *ctx)
 
 	return do_hw_power_off(ctx);
 }
+#endif
 
 int adaptor_hw_init(struct adaptor_ctx *ctx)
 {
@@ -963,6 +1081,10 @@ int adaptor_hw_sensor_reset(struct adaptor_ctx *ctx)
 		do_hw_power_off(ctx);
 		/* restore aov mclk ulposc flag */
 		ctx->aov_mclk_ulposc_flag = ulposc_flag;
+#ifdef __XIAOMI_CAMERA__
+		if (!ctx->subctx.aov_sensor_support)
+			usleep_range(100000,110000);
+#endif
 		do_hw_power_on(ctx);
 		ret = adaptor_ixc_do_daa (&ctx->ixc_client);
 		if (ret)

@@ -7,6 +7,7 @@
  */
 
 #include <linux/platform_device.h>
+#include <linux/vmalloc.h>
 #include <dt-bindings/interconnect/mtk,mmqos.h>
 #include <mt-plat/aee.h>
 //#include <linux/soc/mediatek/mtk-cmdq-ext.h>
@@ -39,6 +40,13 @@
 #include "cmdq-sec-iwc-common.h"
 #endif
 
+#ifndef CFG_SUPPORT_MBRAIN
+#define CFG_SUPPORT_MBRAIN 0
+#endif
+#if CFG_SUPPORT_MBRAIN
+#include "bridge/mbraink_bridge.h"
+#endif /* CFG_SUPPORT_MBRAIN */
+
 #define IMGSYS_SEC_THD_IDX_START (IMGSYS_NOR_THD + IMGSYS_PWR_THD + IMGSYS_QOS_THD)
 
 #define WPE_BWLOG_HW_COMB (IMGSYS_ENG_WPE_TNR | IMGSYS_ENG_DIP)
@@ -65,6 +73,17 @@ static struct mtk_imgsys_cb_param g_cb_param[IMGSYS_CMDQ_CBPARAM_NUM];
 static u32 g_cb_param_idx;
 static struct mutex g_cb_param_lock;
 #endif
+
+#if CFG_SUPPORT_MBRAIN
+static int g_imgsys_hw_time_mbrain_factor = 5;
+static bool g_imgsys_hw_time_mbrain_en = 1;
+
+module_param(g_imgsys_hw_time_mbrain_factor, int, 0644);
+MODULE_PARM_DESC(g_imgsys_hw_time_mbrain_factor, "imgsys hw time mbrain factor");
+
+module_param(g_imgsys_hw_time_mbrain_en, bool, 0644);
+MODULE_PARM_DESC(g_imgsys_hw_time_mbrain_en, "imgsys hw time mbrain enable, 1 (default)");
+#endif /* CFG_SUPPORT_MBRAIN */
 
 u32 imgsys_cmdq_is_stream_off(void)
 {
@@ -407,10 +426,13 @@ static void imgsys_cmdq_cb_work_plat8(struct work_struct *work)
 	char logBuf_temp[MTK_IMGSYS_LOG_LENGTH];
 	u32 idx = 0;
 	u32 real_frm_idx = 0;
+#if CFG_SUPPORT_MBRAIN
+	u64 tsFps = 0, tsTask = 0;
+	struct ht_mbrain ht_mbrain_info;
+#endif /* CFG_SUPPORT_MBRAIN */
 
-    if (imgsys_cmdq_dbg_enable_plat8()) {
-	pr_debug("%s: +\n", __func__);
-    }
+	if (imgsys_cmdq_dbg_enable_plat8())
+		pr_debug("%s: +\n", __func__);
 
 	cb_param = container_of(work, struct mtk_imgsys_cb_param, cmdq_cb_work);
 	cb_param->cmdqTs.tsCmdqCbWorkStart = ktime_get_boottime_ns()/1000;
@@ -514,6 +536,22 @@ static void imgsys_cmdq_cb_work_plat8(struct work_struct *work)
 			cb_param->task_id, cb_param->task_num, cb_param->task_cnt,
 			cb_param->pkt_ofst[0], cb_param->pkt_ofst[1], cb_param->pkt_ofst[2],
 			cb_param->pkt_ofst[3], cb_param->pkt_ofst[4]);
+#if CFG_SUPPORT_MBRAIN
+	else if(g_imgsys_hw_time_mbrain_en && (cb_param->fps != 0)) {
+		/* Add mbrain check */
+		tsFps = 1000000/cb_param->fps;
+		tsTask = cb_param->cmdqTs.tsCmdqCbStart - cb_param->cmdqTs.tsFlushStart;
+		if (tsTask > (tsFps * g_imgsys_hw_time_mbrain_factor)) {
+			ht_mbrain_info.req_fd = cb_param->req_fd;
+			ht_mbrain_info.req_no = cb_param->req_no;
+			ht_mbrain_info.frm_no = cb_param->frm_no;
+			ht_mbrain_info.hw_comb = cb_param->hw_comb;
+			ht_mbrain_info.group_id = cb_param->group_id;
+			ht_mbrain_info.tsHwTime = tsTask;
+			imgsys2mbrain_notify_hw_time_info(ht_mbrain_info);
+		}
+	}
+#endif /* CFG_SUPPORT_MBRAIN */
 	if (is_stream_off == 1)
 		pr_info("%s: [ERROR] cb(%p) pipe already streamoff(%d)!\n",
 			__func__, cb_param, is_stream_off);
@@ -670,7 +708,7 @@ static void imgsys_cmdq_cb_work_plat8(struct work_struct *work)
 	cb_param->cmdqTs.tsReqEnd = ktime_get_boottime_ns()/1000;
 	IMGSYS_CMDQ_SYSTRACE_END();
 
-	if (imgsys_cmdq_ts_dbg_enable_plat8())
+	if (imgsys_cmdq_ts_dbg_enable_plat8() && imgsys_cmdq_dbg_enable_plat8())
 		dev_dbg(imgsys_dev->dev,
 			"%s: TSus req fd/no(%d/%d) frame no(%d) thd(%d) cb(%p) err(%d) frm(%d/%d/%d) hw_comb(0x%x) DvfsSt(%lld) Req(%lld) SetCmd(%lld) HW(%lld/%d-%d-%d-%d) Cmdqcb(%lld) WK(%lld) CmdqCbWk(%lld) UserCb(%lld) DvfsEnd(%lld)\n",
 			__func__, req_fd, req_no, frm_no, cb_param->thd_idx,
@@ -1607,7 +1645,7 @@ int imgsys_cmdq_sendtask_plat8(struct mtk_imgsys_dev *imgsys_dev,
 				frm_info->user_info[frm_idx].hw_comb, frm_info->frm_owner,
 				frm_idx, frm_num, blk_idx);
 			// Add secure token begin
-			#if IMGSYS_SECURE_ENABLE
+			#if 0
 			if (frm_info->user_info[frm_idx].is_secFrm)
 				imgsys_cmdq_sec_cmd_plat8(pkt);
 			#endif
@@ -1633,7 +1671,7 @@ int imgsys_cmdq_sendtask_plat8(struct mtk_imgsys_dev *imgsys_dev,
 			cmd_idx += ret;
 
 			// Add secure token end
-			#if IMGSYS_SECURE_ENABLE
+			#if 0
 			if (frm_info->user_info[frm_idx].is_secFrm)
 				imgsys_cmdq_sec_cmd_plat8(pkt);
 			#endif
@@ -1734,6 +1772,7 @@ int imgsys_cmdq_sendtask_plat8(struct mtk_imgsys_dev *imgsys_dev,
 				cb_param->req_fd = frm_info->request_fd;
 				cb_param->req_no = frm_info->request_no;
 				cb_param->frm_no = frm_info->frame_no;
+				cb_param->fps = frm_info->fps;
 				cb_param->hw_comb = hw_comb;
 				cb_param->frm_idx = frm_idx;
 				cb_param->frm_num = frm_num;

@@ -79,8 +79,27 @@ static unsigned int read_region(struct EEPROM_DRV_FD_DATA *pdata,
 	} else {
 		must_log("no customized\n");
 		mutex_lock(&pdata->pdrv->eeprom_mutex);
+#ifdef __XIAOMI_CAMERA__
+		if(pdata->sensor_info.sensor_id == 0x5608){
+			must_log("customize for dali ov08f: 0x%x, 0x%x\n", pdata->pdrv->pi2c_client->addr, pdata->sensor_info.sensor_id);
+			ret = DALI_OV08F_OTP_read_region(pdata->pdrv->pi2c_client,
+						offset, buf, size);
+		}
+		else if (pdata->sensor_info.sensor_id == 0x5609)
+		{
+			must_log("customize for turner ov08f: 0x%x, 0x%x\n", pdata->pdrv->pi2c_client->addr, pdata->sensor_info.sensor_id);
+			ret = TURNER_OV08F_OTP_read_region(pdata->pdrv->pi2c_client,
+						offset, buf, size);
+		}
+		else {
+			must_log("no customized\n");
+			ret = Common_read_region(pdata->pdrv->pi2c_client,
+						offset, buf, size);
+		}
+#else
 		ret = Common_read_region(pdata->pdrv->pi2c_client,
 					 offset, buf, size);
+#endif
 		mutex_unlock(&pdata->pdrv->eeprom_mutex);
 	}
 

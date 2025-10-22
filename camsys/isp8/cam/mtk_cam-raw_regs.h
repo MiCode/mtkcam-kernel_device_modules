@@ -10160,10 +10160,10 @@
 #define REG_CAMRAWDMATOP_DMA_SOFT_RST2_STAT_MASK    0x7fffff
 #define REG_CAMYUVDMATOP_DMA_SOFT_RST_STAT_MASK     0xffffff
 
-#define DBG_SEL_RAWI_R2_SMI_DBG_DATA    0x0000050C
-#define DBG_SEL_UFDI_R2_SMI_DBG_DATA    0x0000050E
-#define DBG_SEL_RAWI_R5_SMI_DBG_DATA    0x00000515
-#define DBG_SEL_UFDI_R5_SMI_DBG_DATA    0x00000517
+#define DBG_SEL_RAWI_R2_SMI_PORT        0x000000A8
+#define DBG_SEL_UFDI_R2_SMI_PORT        0x000000A9
+#define DBG_SEL_RAWI_R5_SMI_PORT        0x000000AE
+#define DBG_SEL_UFDI_R5_SMI_PORT        0x000000AF
 
 #define REG_HALT1_EN					0x00c4
 #define REG_HALT2_EN					0x00c8
@@ -10280,8 +10280,6 @@
 #define REG_DRZH1NBO_R3_BASE   0x19e0
 #define REG_FHO_R3_BASE   	   0x1a30
 #define REG_STG_R3_BASE   	   0x1a80
-
-
 /* aa debug info */
 #define REG_OBC_R1A                    0x2000
 #define OFFSET_OBC_R1_R_SUM_L          (REG_OBC_R1A + 0x4)
@@ -10409,4 +10407,9 @@
 
 #define REG_AA_ACT_WIN_X               0x59dc
 #define REG_AA_ACT_WIN_Y               0x59e0
+
+#define REG_CAM_RAW_LARB_VCSEL       0x3a8c00d0
+#define REG_CAM_YUV_LARB_VCSEL       0x3a8e00d0
+#define LARB_VCSEL_OFFSET            0x100000
+
 #endif	/* _MTK_CAM_RAW_REGS_H */

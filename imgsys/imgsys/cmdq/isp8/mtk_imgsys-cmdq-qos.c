@@ -28,6 +28,7 @@ enum {
 };
 
 #define IMGSYS_QOS_SYNC_OWNER	(0x412d454d5f53)
+#define IMGSYS_QOS_SYNC_VRP1	(0x000031707276)
 #define IMGSYS_QOS_MAX_PERF	(MTK_MMQOS_MAX_SMI_FREQ_BW >> 1)
 
 #define IMGSYS_QOS_UPDATE_FREQ	4
@@ -235,10 +236,6 @@ void mtk_imgsys_mmqos_set_by_scen_plat8(struct mtk_imgsys_dev *imgsys_dev,
 			bw_final[2] = qos_info->qos_path[IMGSYS_COMMON_1_R].bw;
 			bw_final[3] = qos_info->qos_path[IMGSYS_COMMON_1_W].bw;
 
-			bw_final[0] = (bw_final[0] * imgsys_qos_factor) >> 2;
-			bw_final[1] = (bw_final[1] * imgsys_qos_factor) >> 2;
-			bw_final[2] = (bw_final[2] * imgsys_qos_factor) >> 2;
-			bw_final[3] = (bw_final[3] * imgsys_qos_factor) >> 2;
 			if (imgsys_qos_dbg_enable_plat8())
 				dev_info(qos_info->dev,
 					"imgsys_qos: frame_no:%d-sc0_r-%llu sc0_w-%llu, sc1_r-%llu sc0_w-%llu\n",
@@ -267,7 +264,9 @@ void mtk_imgsys_mmqos_set_by_scen_plat8(struct mtk_imgsys_dev *imgsys_dev,
 			frame_duration = 1000 / (fps << 1);
 			cur_interval = (ktime_get_boottime_ns()/1000000) - qos_info->time_prev_req;
 
-			if (frm_info->frm_owner == IMGSYS_QOS_SYNC_OWNER && sidx == 0 &&
+			if ((frm_info->frm_owner == IMGSYS_QOS_SYNC_OWNER ||
+			    (frm_info->frm_owner & IMGSYS_QOS_SYNC_VRP1) ==
+			    IMGSYS_QOS_SYNC_VRP1) && sidx == 0 &&
 			    frm_info->frame_no == 0) {
 				qos_info->req_cnt = 0;
 				qos_info->avg_cnt = 0;
@@ -319,11 +318,6 @@ void mtk_imgsys_mmqos_set_by_scen_plat8(struct mtk_imgsys_dev *imgsys_dev,
 					qos_info->qos_path[IMGSYS_COMMON_0_W].bw = bw_final[1];
 					qos_info->qos_path[IMGSYS_COMMON_1_R].bw = bw_final[2];
 					qos_info->qos_path[IMGSYS_COMMON_1_W].bw = bw_final[3];
-
-					bw_final[0] = (bw_final[0] * imgsys_qos_factor) >> 2;
-					bw_final[1] = (bw_final[1] * imgsys_qos_factor) >> 2;
-					bw_final[2] = (bw_final[2] * imgsys_qos_factor) >> 2;
-					bw_final[3] = (bw_final[3] * imgsys_qos_factor) >> 2;
 
 					if (imgsys_qos_dbg_enable_plat8())
 						dev_info(qos_info->dev,

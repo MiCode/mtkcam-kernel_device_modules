@@ -10,7 +10,8 @@ extern int (*c2ps_notify_init_fp)(
 	int cfg_camfps, int max_uclamp_cluster0,
 	int max_uclamp_cluster1, int max_uclamp_cluster2,
 	int ineff_cpu_ceiling_freq0,
-	int ineff_cpu_ceiling_freq1, int ineff_cpu_ceiling_freq2);
+	int ineff_cpu_ceiling_freq1, int ineff_cpu_ceiling_freq2,
+	int lcore_mcore_um_ratio, int um_floor);
 extern int (*c2ps_notify_uninit_fp)(void);
 extern int (*c2ps_notify_add_task_fp)(
 	u32 task_id, u32 task_target_time, u32 default_uclamp,
@@ -29,7 +30,8 @@ extern int (*c2ps_notify_single_shot_control_fp)(
 	bool reset_param, bool set_task_idle_prefer,
 	int *critical_task_ids, int *critical_task_uclamp, u32 util_margin,
 	u32 um_placeholder1, u32 um_placeholder2, u32 um_placeholder3,
-	bool enable_ineff_cpufreq, int reserved_1, int reserved_2, int reserved_3);
+	bool enable_ineff_cpufreq, bool switch_um_idle_rate_mode,
+	int reserved_1, int reserved_2, int reserved_3);
 extern int (*c2ps_notify_single_shot_task_start_fp)(int pid, u32 uclamp);
 extern int (*c2ps_notify_single_shot_task_end_fp)(int pid);
 extern int (*c2ps_notify_anchor_fp)(int anc_id, bool register_fixed,

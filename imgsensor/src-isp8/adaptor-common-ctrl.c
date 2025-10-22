@@ -196,6 +196,29 @@ u32 g_sensor_margin(struct adaptor_ctx *ctx, unsigned int scenario)
 	}
 }
 
+u32 g_sensor_frame_length_delay(struct adaptor_ctx *ctx,
+	const u32 scenario_id, const char *caller)
+{
+	const u32 g_fdelay = ctx->subctx.frame_time_delay_frame;
+	u32 fdelay = g_fdelay;            /* final result */
+	u32 m_fdelay = 0, sw_fdelay = 0;  /* from sensor drv mode info struct */
+
+	/* error handling */
+	if (unlikely(!chk_is_valid_scenario_id(ctx, scenario_id, caller)))
+		return g_fdelay;
+	if (unlikely(ctx->subctx.s_ctx.mode == NULL))
+		return g_fdelay;
+
+	m_fdelay = ctx->subctx.s_ctx.mode[scenario_id].delay_frame;
+	sw_fdelay = ctx->subctx.s_ctx.mode[scenario_id].sw_fl_delay;
+
+	/* priority: g_fdelay < m_fdelay < sw_fdelay */
+	fdelay = (m_fdelay) ? m_fdelay : fdelay;
+	fdelay = (sw_fdelay) ? sw_fdelay : fdelay;
+
+	return fdelay;
+}
+
 int g_sensor_fine_integ_line(struct adaptor_ctx *ctx,
 	const unsigned int scenario)
 {
@@ -315,17 +338,18 @@ int notify_imgsensor_start_streaming_delay(struct adaptor_ctx *ctx,
 		(ts_info->exp_recs[0].ts_us[3] == 0) &&
 		(ts_info->exp_recs[0].ts_us[0] > 0)) {
 
-		para.u64[0] = ts_info->irq_sys_time_ns;
+		para.u64[0] = ts_info->irq_mono_time_ns;
 		subdrv_call(ctx, feature_control,
 			SENSOR_FEATURE_UPDATE_HW_INIT_TIME,
 			para.u8, &len);
 
-		adaptor_logi(ctx, "1st SOF ts_info (%u/%u) (%u/%u/%llu/%llu/%llu) (%llu/%llu/%llu/%llu)\n",
+		adaptor_logi(ctx, "1st SOF ts_info (%u/%u) (%u/%u/%llu/%llu/%llu/%llu) (%llu/%llu/%llu/%llu)\n",
 					ts_info->tsrec_no,
 					ts_info->seninf_idx,
 					ts_info->tick_factor,
 					ts_info->irq_pre_latch_exp_no,
 					ts_info->irq_sys_time_ns,
+					ts_info->irq_mono_time_ns,
 					ts_info->irq_tsrec_ts_us,
 					ts_info->tsrec_curr_tick,
 					ts_info->exp_recs[0].ts_us[0],

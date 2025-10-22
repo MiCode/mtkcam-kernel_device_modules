@@ -12,6 +12,7 @@
 #include <linux/poll.h>
 #include <linux/dma-heap.h>
 #include <linux/dma-buf.h>
+#include <linux/semaphore.h>
 
 #include "mtk-aov-data.h"
 #include "mtk-aov-queue.h"
@@ -77,7 +78,7 @@ struct aov_core {
 	struct task_struct *reset_sensor_thread;
 
 	struct mutex sned_ipi_mutex;
-	struct mutex start_stop_mutex;
+	struct semaphore start_stop_sema;
 };
 
 int aov_core_init(struct mtk_aov *device);

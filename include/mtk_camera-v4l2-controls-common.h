@@ -329,6 +329,9 @@ struct mtk_seninf_lbmf_info {
 #define	V4L2_CMD_SET_SENSOR_FL_PROLONG \
 	(V4L2_CMD_USER_MTK_SENSOR_BASE + 17)
 
+#define V4L2_CMD_G_SENSOR_FAKE_SENSOR_INFO \
+	(V4L2_CMD_USER_MTK_SENSOR_BASE + 18)
+
 /**
  * TSREC - notify vsync structure
  *         V4L2_CMD_TSREC_NOTIFY_VSYNC
@@ -338,7 +341,8 @@ struct mtk_cam_seninf_tsrec_vsync_info {
 	__u32 tsrec_no;
 	__u32 seninf_idx;
 
-	__u64 irq_sys_time_ns; // ktime_get_boottime_ns()
+	__u64 irq_sys_time_ns; /* ktime_get_boottime_ns() */
+	__u64 irq_mono_time_ns; /* ktime_get_ns() */
 	__u64 irq_tsrec_ts_us;
 };
 
@@ -365,7 +369,8 @@ struct mtk_cam_seninf_tsrec_timestamp_info {
 	/* interrupt pre-latch exp no */
 	__u32 irq_pre_latch_exp_no;
 	/* record when receive a interrupt (top-half) */
-	__u64 irq_sys_time_ns; // ktime_get_boottime_ns()
+	__u64 irq_sys_time_ns; /* ktime_get_boottime_ns() */
+	__u64 irq_mono_time_ns; /* ktime_get_ns() */
 	__u64 irq_tsrec_ts_us;
 
 	/* current tick when query/send tsrec timestamp info */

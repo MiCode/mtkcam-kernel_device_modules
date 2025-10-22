@@ -101,7 +101,14 @@ int monitor_task_start(int pid, int task_id)
 		if (likely(req != NULL)) {
 			req->tsk_info = tsk_info;
 			req->glb_info = get_glb_info();
+			req->curr_um = 100;
 
+			if (likely(req->glb_info)) {
+				if (req->glb_info->has_anchor_spec && req->glb_info->curr_um > 0)
+					req->curr_um = req->glb_info->curr_um;
+				else if (req->glb_info->curr_um_idle > 0)
+					req->curr_um = req->glb_info->curr_um_idle;
+			}
 			send_regulator_req(req);
 		}
 	}
@@ -206,6 +213,11 @@ int monitor_anchor(
 			C2PS_LOGE("add anchor failed\n");
 			return -EINVAL;
 		}
+	}
+
+	if (unlikely(g_info->switch_um_idle_rate_mode)) {
+		g_info->has_anchor_spec = false;
+		return 0;
 	}
 
 	g_info->has_anchor_spec = true;

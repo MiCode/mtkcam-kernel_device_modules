@@ -47,6 +47,7 @@ int apply_cam_mux_switch(struct mtk_cam_job *job)
 	int first_tag_idx, second_tag_idx, last_tag_idx;
 	int first_tag_idx_w, last_tag_idx_w;
 	bool is_dc = is_dc_mode(job) ? true : false;
+	bool is_offline_ts = is_offline_timeshare(job) ? true : false;
 	bool config_grp_en = job->raw_change == JOB_RAW_MASTER_CHANGED;
 	unsigned int max_pixel_mode = 0;
 
@@ -93,7 +94,7 @@ int apply_cam_mux_switch(struct mtk_cam_job *job)
 			settings[i].seninf = ctx->seninf;
 			settings[i].source = PAD_SRC_RAW1;
 
-			if (is_dc) {
+			if (is_dc || is_offline_ts) {
 				settings[i].camtg  = sv_dev->cammux_id;
 				settings[i].tag_id = last_tag_idx;
 				settings[i].pixelmode = max_pixel_mode;
@@ -161,7 +162,7 @@ int apply_cam_mux_switch(struct mtk_cam_job *job)
 			settings[i].seninf = ctx->seninf;
 			settings[i].source = PAD_SRC_RAW0;
 
-			if (is_dc) {
+			if (is_dc || is_offline_ts) {
 				settings[i].camtg  = sv_dev->cammux_id;
 				settings[i].tag_id = first_tag_idx;
 				settings[i].pixelmode = max_pixel_mode;
@@ -254,7 +255,7 @@ int apply_cam_mux_switch(struct mtk_cam_job *job)
 			settings[i].seninf = ctx->seninf;
 			settings[i].source = PAD_SRC_RAW2;
 
-			if (is_dc) {
+			if (is_dc || is_offline_ts) {
 				settings[i].camtg  = sv_dev->cammux_id;
 				settings[i].tag_id = last_tag_idx;
 				settings[i].pixelmode = max_pixel_mode;
@@ -343,7 +344,7 @@ int apply_cam_mux_switch(struct mtk_cam_job *job)
 			settings[i].seninf = ctx->seninf;
 			settings[i].source = PAD_SRC_RAW0;
 
-			if (is_dc) {
+			if (is_dc || is_offline_ts) {
 				settings[i].camtg  = sv_dev->cammux_id;
 				settings[i].tag_id = first_tag_idx;
 				settings[i].pixelmode = max_pixel_mode;
@@ -450,7 +451,7 @@ int apply_cam_mux_switch(struct mtk_cam_job *job)
 			settings[i].seninf = ctx->seninf;
 			settings[i].source = PAD_SRC_RAW1;
 
-			if (is_dc) {
+			if (is_dc || is_offline_ts) {
 				settings[i].camtg  = sv_dev->cammux_id;
 				settings[i].tag_id = last_tag_idx;
 				settings[i].pixelmode = max_pixel_mode;
@@ -555,7 +556,7 @@ int apply_cam_mux_switch(struct mtk_cam_job *job)
 		settings[i].seninf = ctx->seninf;
 		settings[i].source = PAD_SRC_RAW0;
 
-		if (is_dc) {
+		if (is_dc || is_offline_ts) {
 			settings[i].camtg  = sv_dev->cammux_id;
 			settings[i].tag_id = first_tag_idx;
 			settings[i].pixelmode = max_pixel_mode;
@@ -644,7 +645,7 @@ int apply_cam_mux_switch(struct mtk_cam_job *job)
 	}
 
 	/* raw */
-	if (!is_dc)
+	if (!is_dc && !is_offline_ts)
 		mtk_cam_seninf_set_cfg_rdy(ctx->seninf, raw_tg_idx);
 	/* camsv */
 	if (sv_dev)

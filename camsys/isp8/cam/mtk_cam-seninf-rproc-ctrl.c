@@ -144,8 +144,8 @@ int mtk_cam_seninf_rproc_ccu_pwr_en(struct device *dev,
 	}
 
 	dev_dbg(dev,
-		"[%s][%s] pwr_cnt:%d, flag:%u(bootup(1)/shutdown(0))\n",
-		__func__, caller, atomic_read(&p_ccu_ctrl->pwn_cnt), flag);
+		"[%s] pwr_cnt:%d, flag:%u(bootup(1)/shutdown(0))\n",
+		__func__, atomic_read(&p_ccu_ctrl->pwn_cnt), flag);
 
 	return ret;
 }

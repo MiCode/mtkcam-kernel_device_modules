@@ -238,6 +238,8 @@ struct mtk_hdr_ae {
 	__u32 actions;
 	__u32 subsample_tags;
 	int req_id;
+	//xiaomi add
+	__u32 extra_VB;
 };
 
 struct mtk_seamless_switch_param {
@@ -447,6 +449,16 @@ struct mtk_csi_param {
 	__u8 cphy_lrte_support;
 	__u8 clk_lane_no_initial_flow;
 	__u8 initial_skew;
+#ifdef __XIAOMI_CAMERA__
+	__u8 eq_enable;
+	__u8 eq_bw;
+	__u8 eq_dg0_en;
+	__u8 eq_sr0;
+	__u8 eq_dg1_en;
+	__u8 eq_sr1;
+	__u8 cdr_delay_enable;
+	__u32 cdr_delay;
+#endif
 };
 
 struct mtk_sensor_saturation_info {
@@ -644,6 +656,19 @@ struct mtk_fsync_hw_mcss_mask_frm_info {
 	__u32 is_critical; // write I2C immediately
 };
 
+
+struct mtk_fake_sensor_info {
+	__u32 is_fake_sensor;
+	__u32 fps; /* 300 -> 30 FPS */
+	enum IMGSENSOR_HDR_MODE_ENUM hdr_mode;
+};
+
+struct mtk_dcg_ratio_group_by_scenario {
+	__u32 scenario_id;
+	__u32 *dcg_ratio_group;
+};
+
+
 /* GET */
 
 #define VIDIOC_MTK_G_DEF_FPS_BY_SCENARIO \
@@ -792,6 +817,9 @@ struct mtk_fsync_hw_mcss_mask_frm_info {
 
 #define VIDIOC_MTK_G_EXP_LINE_BY_SCENARIO \
 	_IOWR('M', BASE_VIDIOC_PRIVATE + 51, struct mtk_exp_line_by_scenario)
+
+#define VIDIOC_MTK_G_DCG_RATIO_GROUP_BY_SCENARIO \
+	_IOWR('M', BASE_VIDIOC_PRIVATE + 52, struct mtk_dcg_ratio_group_by_scenario)
 /* SET */
 
 #define VIDIOC_MTK_S_VIDEO_FRAMERATE \

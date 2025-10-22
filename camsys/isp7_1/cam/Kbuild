@@ -9,17 +9,19 @@ modules modules_install clean:
 
 CAMSYS_TRACE_ENABLE = n
 
+KO_PATH := $(if $(filter /%,$(src)),,$(srctree)/)$(src)
+
 subdir-ccflags-y += \
 	     -I$(DEVICE_MODULES_PATH)/drivers/misc/mediatek/mmdvfs \
 	     -I$(DEVICE_MODULES_PATH)/drivers/misc/mediatek/smi/ \
 	     -I$(DEVICE_MODULES_PATH)/drivers/misc/mediatek/include/mt-plat/ \
 	     -I$(DEVICE_MODULES_PATH)/drivers/misc/mediatek/mtk-interconnect \
 	     -I$(DEVICE_MODULES_PATH)/drivers/misc/mediatek/imgsensor/inc \
-	     -I$(srctree)/$(src)/../../../imgsensor/src-v4l2/frame-sync/ \
-	     -I$(srctree)/$(src)/../../../imgsensor/inc \
+	     -I$(KO_PATH)/../../../imgsensor/src-v4l2/frame-sync/ \
+	     -I$(KO_PATH)/../../../imgsensor/inc \
 	     -I$(DEVICE_MODULES_PATH)/drivers/dma-buf/heaps/ \
 	     -I$(DEVICE_MODULES_PATH)/drivers/misc/mediatek/iommu/ \
-	     -I$(srctree)/$(src)
+	     -I$(KO_PATH)
 
 
 ifneq ($(wildcard $(DEVICE_MODULES_PATH)/include/dt-bindings/memory/mt6983-larb-port.h),)
@@ -72,10 +74,10 @@ mtk-cam-isp-objs += \
 obj-$(CONFIG_VIDEO_MTK_ISP_CAMSYS) += mtk-cam-isp.o
 obj-$(CONFIG_VIDEO_MTK_ISP_CAMSYS) += mtk-cam-plat-util.o
 
-PLATFORM_PATH = $(srctree)/$(src)
+PLATFORM_PATH = $(KO_PATH)
 # workaround for external build
 ifneq ($(M),)
-PLATFORM_PATH = $(srctree)/$(src)
+PLATFORM_PATH = $(KO_PATH)
 endif
 
 # camsys platform module

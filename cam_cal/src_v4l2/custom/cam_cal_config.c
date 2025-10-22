@@ -92,9 +92,9 @@ unsigned int layout_check(struct EEPROM_DRV_FD_DATA *pdata,
 		debug_log("header_id read failed\n");
 		return result;
 	}
-
-	if (check_id == cfg->layout->header_id) {
-		debug_log("header_id matched 0x%08x 0x%08x\n",
+	unsigned int mask = 0x00FFFF00;
+	if ((check_id&mask) == (cfg->layout->header_id&mask)) {
+		must_log("header_id matched 0x%08x 0x%08x\n",
 			check_id, cfg->layout->header_id);
 		result = CAM_CAL_ERR_NO_ERR;
 	} else

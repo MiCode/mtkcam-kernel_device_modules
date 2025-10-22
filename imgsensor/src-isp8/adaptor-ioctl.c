@@ -1534,6 +1534,27 @@ static int g_exp_line_by_scenario(struct adaptor_ctx *ctx, void *arg)
 	return 0;
 }
 
+static int g_dcg_ratio_group_by_scenario(struct adaptor_ctx *ctx, void *arg)
+{
+	struct mtk_dcg_ratio_group_by_scenario *info = arg;
+	u32 dcg_ratio_group[5];
+	union feature_para para;
+	u32 len;
+
+	memset(&dcg_ratio_group, 0, sizeof(dcg_ratio_group));
+	para.u64[0] = info->scenario_id;
+	para.u64[1] = (uintptr_t)dcg_ratio_group;
+
+	subdrv_call(ctx, feature_control,
+		SENSOR_FEATURE_GET_DCG_RATIO_GROUP_BY_SCENARIO,
+		para.u8, &len);
+
+	if (copy_to_user(info->dcg_ratio_group,
+			dcg_ratio_group, sizeof(dcg_ratio_group)))
+		return -EFAULT;
+	return 0;
+}
+
 struct ioctl_entry {
 	unsigned int cmd;
 	int (*func)(struct adaptor_ctx *ctx, void *arg);
@@ -1591,6 +1612,7 @@ static const struct ioctl_entry ioctl_list[] = {
 	{VIDIOC_MTK_G_MULTI_EXP_GAIN_RANGE_BY_SCENARIO, g_multi_exp_gain_range_by_scenario},
 	{VIDIOC_MTK_G_MULTI_EXP_SHUTTER_RANGE_BY_SCENARIO, g_multi_exp_shutter_range_by_scenario},
 	{VIDIOC_MTK_G_EXP_LINE_BY_SCENARIO, g_exp_line_by_scenario},
+	{VIDIOC_MTK_G_DCG_RATIO_GROUP_BY_SCENARIO, g_dcg_ratio_group_by_scenario},
 	/* SET */
 	{VIDIOC_MTK_S_VIDEO_FRAMERATE, s_video_framerate},
 	{VIDIOC_MTK_S_MAX_FPS_BY_SCENARIO, s_max_fps_by_scenario},

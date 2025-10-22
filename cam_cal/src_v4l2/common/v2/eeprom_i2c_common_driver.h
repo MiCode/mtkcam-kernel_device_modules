@@ -17,4 +17,13 @@ unsigned int Common_write_region(struct i2c_client *client,
 				 unsigned char *data,
 				 unsigned int size);
 
+#ifdef __XIAOMI_CAMERA__
+unsigned int DALI_OV08F_OTP_read_region(struct i2c_client *client, unsigned int addr,
+				unsigned char *data, unsigned int size);
+
+unsigned int TURNER_OV08F_OTP_read_region(struct i2c_client *client, unsigned int addr,
+				unsigned char *data, unsigned int size);
+
+#endif
+
 #endif				/* __CAM_CAL_LIST_H */

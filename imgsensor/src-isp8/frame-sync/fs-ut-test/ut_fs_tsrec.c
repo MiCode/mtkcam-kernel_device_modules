@@ -78,6 +78,11 @@ unsigned long long ktime_get_boottime_ns(void)
 	return 0ULL;
 }
 
+unsigned long long ktime_get_ns(void)
+{
+	return 0ULL;
+}
+
 
 /******************************************************************************
  * for unit test - TSREC

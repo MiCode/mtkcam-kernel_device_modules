@@ -16,6 +16,7 @@
 
 /* Emulate a user and the user_id is 10. */
 static const uint32_t aov_fr_user_id = 10;
+static DEFINE_MUTEX(session_mutex);
 static KREE_SESSION_HANDLE session = -1;
 
 static int aov_fr_init(KREE_SESSION_HANDLE session)
@@ -111,6 +112,8 @@ int aov_mtee_init(struct mtk_aov *device)
 
 	pr_info("%s ++\n", __func__);
 
+	mutex_lock(&session_mutex);
+
 	if (session == -1) {
 		ret = KREE_CreateSession("com.mediatek.geniezone.aov_fr_sample", &session);
 		if (ret != TZ_RESULT_SUCCESS)
@@ -121,16 +124,21 @@ int aov_mtee_init(struct mtk_aov *device)
 	ret = aov_fr_init(session);
 	if (ret != 0) {
 		pr_info("%s failed to aov_fr_init, ret %d\n", __func__, ret);
-		return ret;
+		goto aov_mtee_init_out;
 	}
 
 	ret = aov_fr_set_active_user(session, aov_fr_user_id);
 	if (ret != 0) {
 		pr_info("%s failed to aov_fr_set_active_user, ret %d\n", __func__, ret);
-		return ret;
+		goto aov_mtee_init_out;
 	}
 
-	return 0;
+	ret = 0;
+
+aov_mtee_init_out:
+	mutex_unlock(&session_mutex);
+
+	return ret;
 }
 
 int aov_mtee_notify(struct mtk_aov *device, void *buffer)
@@ -162,15 +170,19 @@ int aov_mtee_notify(struct mtk_aov *device, void *buffer)
 	pr_debug("%s aov_fr_offset token %d\n", __func__, fr_offset.token);
 	pr_debug("%s aov_fr_offset result_offset 0x%llx\n", __func__, fr_offset.result_offset);
 
+	mutex_lock(&session_mutex);
+
 	start = ktime_get();
 	ret = aov_fr_authenticate(session, aov_fr_user_id, &fr_offset, &recognized);
 	end = ktime_get();
-	pr_info("%s Authenticate Time: %lld (ns)\n", __func__, ktime_to_ns(ktime_sub(end, start)));
+
+	mutex_unlock(&session_mutex);
 
 	if (ret != 0) {
 		pr_info("%s failed to aov_fr_authenticate, ret %d\n", __func__, ret);
 		return ret;
 	}
+	pr_info("%s Authenticate Time: %lld (ns)\n", __func__, ktime_to_ns(ktime_sub(end, start)));
 
 	return recognized;
 }
@@ -181,30 +193,36 @@ int aov_mtee_uninit(struct mtk_aov *aov_dev)
 
 	pr_info("%s ++\n", __func__);
 
+	mutex_lock(&session_mutex);
+
 	if (session == -1) {
 		pr_info("%s session is not available\n", __func__);
-		return -EINVAL;
+		goto aov_mtee_uninit_out;
 	}
 
 	ret = aov_fr_clear_active_user(session);
 	if (ret != 0) {
 		pr_info("%s failed to aov_fr_clear_active_user, ret %d\n", __func__, ret);
-		return ret;
+		goto aov_mtee_uninit_out;
 	}
 
 	ret = aov_fr_release(session);
 	if (ret != 0) {
 		pr_info("%s failed to aov_fr_release, ret %d\n", __func__, ret);
-		return ret;
+		goto aov_mtee_uninit_out;
 	}
 
 	ret = KREE_CloseSession(session);
 	if (ret != TZ_RESULT_SUCCESS) {
 		pr_info("%s failed to close session, ret %d\n", __func__, ret);
-		return ret;
+		goto aov_mtee_uninit_out;
 	}
 
 	session = -1;
+	ret = 0;
 
-	return 0;
+aov_mtee_uninit_out:
+	mutex_unlock(&session_mutex);
+
+	return ret;
 }

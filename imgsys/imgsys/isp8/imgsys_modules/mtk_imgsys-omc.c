@@ -522,6 +522,15 @@ void imgsys_omc_debug_dl_dump(struct mtk_imgsys_dev *imgsys_dev,
 
 	dbg_sel_value = (0xC << 12);  /* DL */
 
+	/* line & pix cnt */
+	writel((dbg_sel_value | (0x2 << 8)), (omcRegBA + OMC_REG_DBG_SET));
+	sel_value = (unsigned int)ioread32((void *)(omcRegBA + OMC_REG_DBG_SET));
+	debug_value = (unsigned int)ioread32((void *)(omcRegBA + OMC_REG_DBG_PORT));
+
+	pr_info("%s:[0x%x]dbg_sel,[0x%x]current(31:16)LnCnt(15:0)PixCnt:DL[0x%x]0x%x",
+	  __func__, OMC_REG_DBG_SET, OMC_REG_DBG_PORT,
+	  sel_value, debug_value);
+
 	//line & pix cnt
 	writel((dbg_sel_value | (0x1 << 8)), (omcRegBA + OMC_REG_DBG_SET));
 	sel_value = (unsigned int)ioread32((void *)(omcRegBA + OMC_REG_DBG_SET));
@@ -551,7 +560,7 @@ void imgsys_omc_debug_module_dump(struct mtk_imgsys_dev *imgsys_dev,
 
 	/* debug data */
 	for (i = 0; i < 16; i++) {
-		writel((i<<12), (omcRegBA + OMC_REG_DEC_CTL1));
+		writel((i<<12), (omcRegBA + OMC_REG_DBG_SET));
 		sel_value[i] = (unsigned int)ioread32((void *)(omcRegBA + OMC_REG_DBG_SET + ofst));
 		debug_value[i] = (unsigned int)ioread32((void *)(omcRegBA + OMC_REG_DBG_PORT));
 	}
@@ -637,7 +646,7 @@ for (i = 0x1d; i <= 0x20; i += 2) {
 		sel_value[2], debug_value[2], sel_value[3], debug_value[3]);
 	}
 
-	//psp, top
+	/* top */
 	writel(((0x4<<12) | (0x2<<8)), (omcRegBA + OMC_REG_DBG_SET + ofst));
 	sel_value[0] = (unsigned int)ioread32((void *)(omcRegBA + OMC_REG_DBG_SET + ofst));
 	debug_value[0] = (unsigned int)ioread32((void *)(omcRegBA + OMC_REG_DBG_PORT + ofst));
@@ -650,14 +659,10 @@ for (i = 0x1d; i <= 0x20; i += 2) {
 	sel_value[2] = (unsigned int)ioread32((void *)(omcRegBA + OMC_REG_DBG_SET + ofst));
 	debug_value[2] = (unsigned int)ioread32((void *)(omcRegBA + OMC_REG_DBG_PORT + ofst));
 
-	writel((0x5<<12), (omcRegBA + OMC_REG_DBG_SET + ofst));
-	sel_value[3] = (unsigned int)ioread32((void *)(omcRegBA + OMC_REG_DBG_SET + ofst));
-	debug_value[3] = (unsigned int)ioread32((void *)(omcRegBA + OMC_REG_DBG_PORT + ofst));
-
-	pr_info("%s:[0x%x]dbg_sel,[0x%x]dbg_port, psp[0x%x]0x%x, [0x%x]0x%x, [0x%x]0x%x, top[0x%x]0x%x",
+	pr_info("%s:[0x%x]dbg_sel,[0x%x]dbg_port, top[0x%x]0x%x, [0x%x]0x%x, [0x%x]0x%x",
 		__func__, (OMC_REG_DBG_SET + ofst), (OMC_REG_DBG_PORT + ofst),
 		sel_value[0], debug_value[0], sel_value[1], debug_value[1],
-		sel_value[2], debug_value[2], sel_value[3], debug_value[3]);
+		sel_value[2], debug_value[2]);
 
 	/* core debug (0~8) */
 	for (i = 0; i < 9; i++) {
@@ -673,34 +678,16 @@ for (i = 0x1d; i <= 0x20; i += 2) {
 		sel_value[6], debug_value[6], sel_value[7], debug_value[7],
 		sel_value[8], debug_value[8]);
 
-	//traw_chksum
-	writel(((0xe<<12) | (0x0<<8)), (omcRegBA + OMC_REG_DBG_SET + ofst));
-	sel_value[0] = (unsigned int)ioread32((void *)(omcRegBA + OMC_REG_DBG_SET + ofst));
-	debug_value[0] = (unsigned int)ioread32((void *)(omcRegBA + OMC_REG_DBG_PORT + ofst));
-
-	writel(((0xe<<12) | (0x1<<8)), (omcRegBA + OMC_REG_DBG_SET + ofst));
-	sel_value[1] = (unsigned int)ioread32((void *)(omcRegBA + OMC_REG_DBG_SET + ofst));
-	debug_value[1] = (unsigned int)ioread32((void *)(omcRegBA + OMC_REG_DBG_PORT + ofst));
-
-	writel(((0xe<<12) | (0x2<<8)), (omcRegBA + OMC_REG_DBG_SET + ofst));
-	sel_value[2] = (unsigned int)ioread32((void *)(omcRegBA + OMC_REG_DBG_SET + ofst));
-	debug_value[2] = (unsigned int)ioread32((void *)(omcRegBA + OMC_REG_DBG_PORT + ofst));
-
-	pr_info("%s:[0x%x]dbg_sel,[0x%x]dbg_port, traw_chksum[0x%x]0x%x, [0x%x]0x%x, [0x%x]0x%x",
-		__func__, (OMC_REG_DBG_SET + ofst), (OMC_REG_DBG_PORT + ofst),
-		sel_value[0], debug_value[0], sel_value[1], debug_value[1],
-		sel_value[2], debug_value[2]);
-
 	//veci_chksum
-	writel(0x100, (omcRegBA + OMC_REG_DMA_DBG_SET + ofst));
+	writel(0xE100, (omcRegBA + OMC_REG_DMA_DBG_SET + ofst));
 	sel_value[0] = (unsigned int)ioread32((void *)(omcRegBA + OMC_REG_DMA_DBG_SET + ofst));
 	debug_value[0] = (unsigned int)ioread32((void *)(omcRegBA + OMC_REG_DMA_DBG_PORT + ofst));
 
-	writel(0x200, (omcRegBA + OMC_REG_DMA_DBG_SET + ofst));
+	writel(0xE200, (omcRegBA + OMC_REG_DMA_DBG_SET + ofst));
 	sel_value[1] = (unsigned int)ioread32((void *)(omcRegBA + OMC_REG_DMA_DBG_SET + ofst));
 	debug_value[1] = (unsigned int)ioread32((void *)(omcRegBA + OMC_REG_DMA_DBG_PORT + ofst));
 
-	writel(0x300, (omcRegBA + OMC_REG_DMA_DBG_SET + ofst));
+	writel(0xE300, (omcRegBA + OMC_REG_DMA_DBG_SET + ofst));
 	sel_value[2] = (unsigned int)ioread32((void *)(omcRegBA + OMC_REG_DMA_DBG_SET + ofst));
 	debug_value[2] = (unsigned int)ioread32((void *)(omcRegBA + OMC_REG_DMA_DBG_PORT + ofst));
 
@@ -710,15 +697,15 @@ for (i = 0x1d; i <= 0x20; i += 2) {
 		sel_value[2], debug_value[2]);
 
 	//vec2i_chksum
-	writel(0x101, (omcRegBA + OMC_REG_DMA_DBG_SET + ofst));
+	writel(0xE101, (omcRegBA + OMC_REG_DMA_DBG_SET + ofst));
 	sel_value[0] = (unsigned int)ioread32((void *)(omcRegBA + OMC_REG_DMA_DBG_SET + ofst));
 	debug_value[0] = (unsigned int)ioread32((void *)(omcRegBA + OMC_REG_DMA_DBG_PORT + ofst));
 
-	writel(0x201, (omcRegBA + OMC_REG_DMA_DBG_SET + ofst));
+	writel(0xE201, (omcRegBA + OMC_REG_DMA_DBG_SET + ofst));
 	sel_value[1] = (unsigned int)ioread32((void *)(omcRegBA + OMC_REG_DMA_DBG_SET + ofst));
 	debug_value[1] = (unsigned int)ioread32((void *)(omcRegBA + OMC_REG_DMA_DBG_PORT + ofst));
 
-	writel(0x301, (omcRegBA + OMC_REG_DMA_DBG_SET + ofst));
+	writel(0xE301, (omcRegBA + OMC_REG_DMA_DBG_SET + ofst));
 	sel_value[2] = (unsigned int)ioread32((void *)(omcRegBA + OMC_REG_DMA_DBG_SET + ofst));
 	debug_value[2] = (unsigned int)ioread32((void *)(omcRegBA + OMC_REG_DMA_DBG_PORT + ofst));
 
@@ -728,15 +715,15 @@ for (i = 0x1d; i <= 0x20; i += 2) {
 		sel_value[2], debug_value[2]);
 
 	//omco_chksum
-	writel(0x103, (omcRegBA + OMC_REG_DMA_DBG_SET + ofst));
+	writel(0xE105, (omcRegBA + OMC_REG_DMA_DBG_SET + ofst));
 	sel_value[0] = (unsigned int)ioread32((void *)(omcRegBA + OMC_REG_DMA_DBG_SET + ofst));
 	debug_value[0] = (unsigned int)ioread32((void *)(omcRegBA + OMC_REG_DMA_DBG_PORT + ofst));
 
-	writel(0x203, (omcRegBA + OMC_REG_DMA_DBG_SET + ofst));
+	writel(0xE205, (omcRegBA + OMC_REG_DMA_DBG_SET + ofst));
 	sel_value[1] = (unsigned int)ioread32((void *)(omcRegBA + OMC_REG_DMA_DBG_SET + ofst));
 	debug_value[1] = (unsigned int)ioread32((void *)(omcRegBA + OMC_REG_DMA_DBG_PORT + ofst));
 
-	writel(0x303, (omcRegBA + OMC_REG_DMA_DBG_SET + ofst));
+	writel(0xE305, (omcRegBA + OMC_REG_DMA_DBG_SET + ofst));
 	sel_value[2] = (unsigned int)ioread32((void *)(omcRegBA + OMC_REG_DMA_DBG_SET + ofst));
 	debug_value[2] = (unsigned int)ioread32((void *)(omcRegBA + OMC_REG_DMA_DBG_PORT + ofst));
 
@@ -746,15 +733,15 @@ for (i = 0x1d; i <= 0x20; i += 2) {
 		sel_value[2], debug_value[2]);
 
 	//omco2_chksum
-	writel(0x104, (omcRegBA + OMC_REG_DMA_DBG_SET + ofst));
+	writel(0xE106, (omcRegBA + OMC_REG_DMA_DBG_SET + ofst));
 	sel_value[0] = (unsigned int)ioread32((void *)(omcRegBA + OMC_REG_DMA_DBG_SET + ofst));
 	debug_value[0] = (unsigned int)ioread32((void *)(omcRegBA + OMC_REG_DMA_DBG_PORT + ofst));
 
-	writel(0x204, (omcRegBA + OMC_REG_DMA_DBG_SET + ofst));
+	writel(0xE206, (omcRegBA + OMC_REG_DMA_DBG_SET + ofst));
 	sel_value[1] = (unsigned int)ioread32((void *)(omcRegBA + OMC_REG_DMA_DBG_SET + ofst));
 	debug_value[1] = (unsigned int)ioread32((void *)(omcRegBA + OMC_REG_DMA_DBG_PORT + ofst));
 
-	writel(0x304, (omcRegBA + OMC_REG_DMA_DBG_SET + ofst));
+	writel(0xE306, (omcRegBA + OMC_REG_DMA_DBG_SET + ofst));
 	sel_value[2] = (unsigned int)ioread32((void *)(omcRegBA + OMC_REG_DMA_DBG_SET + ofst));
 	debug_value[2] = (unsigned int)ioread32((void *)(omcRegBA + OMC_REG_DMA_DBG_PORT + ofst));
 
@@ -765,15 +752,15 @@ for (i = 0x1d; i <= 0x20; i += 2) {
 
 
 	//masko_chksum
-	writel(0x105, (omcRegBA + OMC_REG_DMA_DBG_SET + ofst));
+	writel(0xE107, (omcRegBA + OMC_REG_DMA_DBG_SET + ofst));
 	sel_value[0] = (unsigned int)ioread32((void *)(omcRegBA + OMC_REG_DMA_DBG_SET + ofst));
 	debug_value[0] = (unsigned int)ioread32((void *)(omcRegBA + OMC_REG_DMA_DBG_PORT + ofst));
 
-	writel(0x205, (omcRegBA + OMC_REG_DMA_DBG_SET + ofst));
+	writel(0xE207, (omcRegBA + OMC_REG_DMA_DBG_SET + ofst));
 	sel_value[1] = (unsigned int)ioread32((void *)(omcRegBA + OMC_REG_DMA_DBG_SET + ofst));
 	debug_value[1] = (unsigned int)ioread32((void *)(omcRegBA + OMC_REG_DMA_DBG_PORT + ofst));
 
-	writel(0x305, (omcRegBA + OMC_REG_DMA_DBG_SET + ofst));
+	writel(0xE307, (omcRegBA + OMC_REG_DMA_DBG_SET + ofst));
 	sel_value[2] = (unsigned int)ioread32((void *)(omcRegBA + OMC_REG_DMA_DBG_SET + ofst));
 	debug_value[2] = (unsigned int)ioread32((void *)(omcRegBA + OMC_REG_DMA_DBG_PORT + ofst));
 
@@ -782,39 +769,89 @@ for (i = 0x1d; i <= 0x20; i += 2) {
 		sel_value[0], debug_value[0], sel_value[1], debug_value[1],
 		sel_value[2], debug_value[2]);
 
-
-	//omco_crop, omco2_crop, traw_crop
-	writel(((0x15<<12) | (0x1<<8)), (omcRegBA + OMC_REG_DBG_SET + ofst));
+	/* pq2tif, core_pcrop, dl_pcrop, wdma_pcrop */
+	writel(((0xa<<12) | (0x0<<8)), (omcRegBA + OMC_REG_DBG_SET + ofst));
 	sel_value[0] = (unsigned int)ioread32((void *)(omcRegBA + OMC_REG_DBG_SET + ofst));
 	debug_value[0] = (unsigned int)ioread32((void *)(omcRegBA + OMC_REG_DBG_PORT + ofst));
 
-	writel(((0x16<<12) | (0x1<<8)), (omcRegBA + OMC_REG_DBG_SET + ofst));
+	writel(((0xa<<12) | (0x1<<8)), (omcRegBA + OMC_REG_DBG_SET + ofst));
 	sel_value[1] = (unsigned int)ioread32((void *)(omcRegBA + OMC_REG_DBG_SET + ofst));
 	debug_value[1] = (unsigned int)ioread32((void *)(omcRegBA + OMC_REG_DBG_PORT + ofst));
 
-	writel(((0x17<<12) | (0x1<<8)), (omcRegBA + OMC_REG_DBG_SET + ofst));
+	writel(((0xa<<12) | (0x2<<8)), (omcRegBA + OMC_REG_DBG_SET + ofst));
 	sel_value[2] = (unsigned int)ioread32((void *)(omcRegBA + OMC_REG_DBG_SET + ofst));
 	debug_value[2] = (unsigned int)ioread32((void *)(omcRegBA + OMC_REG_DBG_PORT + ofst));
 
-	pr_info("%s:[0x%x]dbg_sel,[0x%x]dbg_port, omco_crop[0x%x]0x%x, omco2_crop[0x%x]0x%x, traw_crop[0x%x]0x%x",
+	pr_info("%s:[0x%x]dbg_sel,[0x%x]dbg_port, pq2tif_crop[0x%x]0x%x, [0x%x]0x%x, [0x%x]0x%x",
+		__func__, (OMC_REG_DBG_SET + ofst), (OMC_REG_DBG_PORT + ofst),
+		sel_value[0], debug_value[0], sel_value[1], debug_value[1],
+		sel_value[2], debug_value[2]);
+
+	writel(((0xb<<12) | (0x0<<8)), (omcRegBA + OMC_REG_DBG_SET + ofst));
+	sel_value[0] = (unsigned int)ioread32((void *)(omcRegBA + OMC_REG_DBG_SET + ofst));
+	debug_value[0] = (unsigned int)ioread32((void *)(omcRegBA + OMC_REG_DBG_PORT + ofst));
+
+	writel(((0xb<<12) | (0x1<<8)), (omcRegBA + OMC_REG_DBG_SET + ofst));
+	sel_value[1] = (unsigned int)ioread32((void *)(omcRegBA + OMC_REG_DBG_SET + ofst));
+	debug_value[1] = (unsigned int)ioread32((void *)(omcRegBA + OMC_REG_DBG_PORT + ofst));
+
+	writel(((0xb<<12) | (0x2<<8)), (omcRegBA + OMC_REG_DBG_SET + ofst));
+	sel_value[2] = (unsigned int)ioread32((void *)(omcRegBA + OMC_REG_DBG_SET + ofst));
+	debug_value[2] = (unsigned int)ioread32((void *)(omcRegBA + OMC_REG_DBG_PORT + ofst));
+
+	pr_info("%s:[0x%x]dbg_sel,[0x%x]dbg_port, core_crop[0x%x]0x%x, [0x%x]0x%x, [0x%x]0x%x",
+		__func__, (OMC_REG_DBG_SET + ofst), (OMC_REG_DBG_PORT + ofst),
+		sel_value[0], debug_value[0], sel_value[1], debug_value[1],
+		sel_value[2], debug_value[2]);
+
+	writel(((0xc<<12) | (0x0<<8)), (omcRegBA + OMC_REG_DBG_SET + ofst));
+	sel_value[0] = (unsigned int)ioread32((void *)(omcRegBA + OMC_REG_DBG_SET + ofst));
+	debug_value[0] = (unsigned int)ioread32((void *)(omcRegBA + OMC_REG_DBG_PORT + ofst));
+
+	writel(((0xc<<12) | (0x1<<8)), (omcRegBA + OMC_REG_DBG_SET + ofst));
+	sel_value[1] = (unsigned int)ioread32((void *)(omcRegBA + OMC_REG_DBG_SET + ofst));
+	debug_value[1] = (unsigned int)ioread32((void *)(omcRegBA + OMC_REG_DBG_PORT + ofst));
+
+	writel(((0xc<<12) | (0x2<<8)), (omcRegBA + OMC_REG_DBG_SET + ofst));
+	sel_value[2] = (unsigned int)ioread32((void *)(omcRegBA + OMC_REG_DBG_SET + ofst));
+	debug_value[2] = (unsigned int)ioread32((void *)(omcRegBA + OMC_REG_DBG_PORT + ofst));
+
+	pr_info("%s:[0x%x]dbg_sel,[0x%x]dbg_port, dl_crop[0x%x]0x%x, [0x%x]0x%x, [0x%x]0x%x",
+		__func__, (OMC_REG_DBG_SET + ofst), (OMC_REG_DBG_PORT + ofst),
+		sel_value[0], debug_value[0], sel_value[1], debug_value[1],
+		sel_value[2], debug_value[2]);
+
+	writel(((0xd<<12) | (0x0<<8)), (omcRegBA + OMC_REG_DBG_SET + ofst));
+	sel_value[0] = (unsigned int)ioread32((void *)(omcRegBA + OMC_REG_DBG_SET + ofst));
+	debug_value[0] = (unsigned int)ioread32((void *)(omcRegBA + OMC_REG_DBG_PORT + ofst));
+
+	writel(((0xd<<12) | (0x1<<8)), (omcRegBA + OMC_REG_DBG_SET + ofst));
+	sel_value[1] = (unsigned int)ioread32((void *)(omcRegBA + OMC_REG_DBG_SET + ofst));
+	debug_value[1] = (unsigned int)ioread32((void *)(omcRegBA + OMC_REG_DBG_PORT + ofst));
+
+	writel(((0xd<<12) | (0x2<<8)), (omcRegBA + OMC_REG_DBG_SET + ofst));
+	sel_value[2] = (unsigned int)ioread32((void *)(omcRegBA + OMC_REG_DBG_SET + ofst));
+	debug_value[2] = (unsigned int)ioread32((void *)(omcRegBA + OMC_REG_DBG_PORT + ofst));
+
+	pr_info("%s:[0x%x]dbg_sel,[0x%x]dbg_port, wdma_crop[0x%x]0x%x, [0x%x]0x%x, [0x%x]0x%x",
 		__func__, (OMC_REG_DBG_SET + ofst), (OMC_REG_DBG_PORT + ofst),
 		sel_value[0], debug_value[0], sel_value[1], debug_value[1],
 		sel_value[2], debug_value[2]);
 
 	//pak_c, pak_y
-	writel(((0x1a<<12) | (0x1<<8)), (omcRegBA + OMC_REG_DBG_SET + ofst));
+	writel(((0x12<<12) | (0x0<<8)), (omcRegBA + OMC_REG_DBG_SET + ofst));
 	sel_value[0] = (unsigned int)ioread32((void *)(omcRegBA + OMC_REG_DBG_SET + ofst));
 	debug_value[0] = (unsigned int)ioread32((void *)(omcRegBA + OMC_REG_DBG_PORT + ofst));
 
-	writel(((0x1a<<12) | (0x2<<8)), (omcRegBA + OMC_REG_DBG_SET + ofst));
+	writel(((0x12<<12) | (0x1<<8)), (omcRegBA + OMC_REG_DBG_SET + ofst));
 	sel_value[1] = (unsigned int)ioread32((void *)(omcRegBA + OMC_REG_DBG_SET + ofst));
 	debug_value[1] = (unsigned int)ioread32((void *)(omcRegBA + OMC_REG_DBG_PORT + ofst));
 
-	writel(((0x1b<<12) | (0x1<<8)), (omcRegBA + OMC_REG_DBG_SET + ofst));
+	writel(((0x13<<12) | (0x0<<8)), (omcRegBA + OMC_REG_DBG_SET + ofst));
 	sel_value[2] = (unsigned int)ioread32((void *)(omcRegBA + OMC_REG_DBG_SET + ofst));
 	debug_value[2] = (unsigned int)ioread32((void *)(omcRegBA + OMC_REG_DBG_PORT + ofst));
 
-	writel(((0x1b<<12) | (0x2<<8)), (omcRegBA + OMC_REG_DBG_SET + ofst));
+	writel(((0x13<<12) | (0x1<<8)), (omcRegBA + OMC_REG_DBG_SET + ofst));
 	sel_value[3] = (unsigned int)ioread32((void *)(omcRegBA + OMC_REG_DBG_SET + ofst));
 	debug_value[3] = (unsigned int)ioread32((void *)(omcRegBA + OMC_REG_DBG_PORT + ofst));
 

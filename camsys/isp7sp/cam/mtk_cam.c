@@ -8,6 +8,7 @@
 #include <linux/module.h>
 #include <linux/of_platform.h>
 #include <linux/platform_device.h>
+#include <linux/vmalloc.h>
 
 #include <linux/platform_data/mtk_ccd.h>
 #include <linux/pm_runtime.h>
@@ -1123,31 +1124,19 @@ static int isp_composer_init(struct mtk_cam_ctx *ctx)
 	(void)snprintf(msg->name, RPMSG_NAME_SIZE, "mtk-camsys\%d", ctx->stream_id);
 	msg->src = ctx->ipi_id;
 
-	ctx->rpmsg_dev = mtk_get_client_msgdevice(rpmsg_subdev, msg);
+	ctx->rpmsg_dev = mtk_get_client_msgdevice(rpmsg_subdev, msg,
+						  isp_composer_handler, cam);
+
 	if (!ctx->rpmsg_dev) {
 		dev_info(dev, "%s failed get_client_msgdevice, ctx:%d\n",
 			 __func__, ctx->stream_id);
 		return -EINVAL;
 	}
 
-	ctx->rpmsg_dev->rpdev.ept = rpmsg_create_ept(&ctx->rpmsg_dev->rpdev,
-						     isp_composer_handler,
-						     cam, *msg);
-	if (IS_ERR(ctx->rpmsg_dev->rpdev.ept)) {
-		dev_info(dev, "%s failed rpmsg_create_ept, ctx:%d\n",
-			 __func__, ctx->stream_id);
-		goto faile_release_msg_dev;
-	}
-
 	dev_info(dev, "%s initialized composer of ctx:%d\n",
 		 __func__, ctx->stream_id);
 
 	return 0;
-
-faile_release_msg_dev:
-	mtk_destroy_client_msgdevice(rpmsg_subdev, &ctx->rpmsg_channel);
-	ctx->rpmsg_dev = NULL;
-	return -EINVAL;
 }
 
 static void isp_composer_uninit(struct mtk_cam_ctx *ctx)
@@ -3456,9 +3445,9 @@ static int mtk_cam_master_bind(struct device *dev)
 
 	mutex_lock(&cam_dev->v4l2_dev.mdev->graph_mutex);
 	mtk_cam_create_links(cam_dev);
+	mutex_unlock(&cam_dev->v4l2_dev.mdev->graph_mutex);
 	/* Expose all subdev's nodes */
 	ret = v4l2_device_register_subdev_nodes(&cam_dev->v4l2_dev);
-	mutex_unlock(&cam_dev->v4l2_dev.mdev->graph_mutex);
 	if (ret) {
 		dev_dbg(dev, "Failed to register subdev nodes\n");
 		goto fail_unreg_mraw_entities;

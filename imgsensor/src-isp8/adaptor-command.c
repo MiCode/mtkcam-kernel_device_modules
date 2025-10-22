@@ -74,6 +74,26 @@ static int get_sensor_mode_info(struct adaptor_ctx *ctx, u32 mode_id,
 // functions that called by in-kernel drivers.
 /*---------------------------------------------------------------------------*/
 /* GET */
+
+static int g_cmd_fake_sensor_info(struct adaptor_ctx *ctx, void *arg)
+{
+	int ret = 0;
+	struct mtk_fake_sensor_info *p_info = NULL;
+
+	/* unexpected case, arg is nullptr */
+	if (unlikely((chk_input_arg(ctx, arg, &ret, __func__)) != 0))
+		return ret;
+
+	p_info = arg;
+	memset(p_info, 0, sizeof(struct mtk_fake_sensor_info));
+
+	p_info->is_fake_sensor = (ctx->subctx.s_ctx.sensor_id == 0x00) ? 1 : 0;
+	p_info->fps = ctx->subctx.s_ctx.mode[ctx->cur_mode->id].max_framerate;
+	p_info->hdr_mode = ctx->subctx.s_ctx.mode[ctx->cur_mode->id].hdr_mode;
+
+	return ret;
+};
+
 static int g_cmd_sensor_mode_config_info(struct adaptor_ctx *ctx, void *arg)
 {
 	int i;
@@ -574,6 +594,7 @@ static const struct command_entry command_list[] = {
 	{V4L2_CMD_G_SENSOR_GLP_DT, g_cmd_sensor_glp_dt},
 	{V4L2_CMD_G_SENSOR_VC_INFO_BY_SCENARIO, g_cmd_sensor_vc_info_by_scenario},
 	{V4L2_CMD_G_SENSOR_STREAM_STATUS, g_cmd_g_sensor_stream_status},
+	{V4L2_CMD_G_SENSOR_FAKE_SENSOR_INFO, g_cmd_fake_sensor_info},
 
 	/* SET */
 	{V4L2_CMD_FSYNC_SYNC_FRAME_START_END, s_cmd_fsync_sync_frame_start_end},

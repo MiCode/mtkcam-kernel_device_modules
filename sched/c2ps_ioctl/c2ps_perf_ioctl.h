@@ -32,6 +32,8 @@ struct C2PS_INIT_PARAM {
 	u32 ineff_cpu_ceiling_freq0;
 	u32 ineff_cpu_ceiling_freq1;
 	u32 ineff_cpu_ceiling_freq2;
+	u32 lcore_mcore_um_ratio;
+	u32 um_floor;
 };
 
 struct C2PS_UNINIT_PARAM {
@@ -81,6 +83,7 @@ struct C2PS_SINGLE_SHOT_PARAM {
 	u32 um_placeholder2;
 	u32 um_placeholder3;
 	bool enable_ineff_cpufreq;
+	bool switch_um_idle_rate_mode;
 	int reserved_1;
 	int reserved_2;
 	int reserved_3;

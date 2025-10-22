@@ -199,6 +199,8 @@ struct plat_v4l2_data {
 	int meta_mraw_ext_size;
 
 	int timestamp_buffer_ofst;
+	int shading_tbl_ofst;
+
 	int reserved_camsv_dev_id;
 	u8 *vb2_queues_support_list;
 	int vb2_queues_support_list_num;
@@ -219,12 +221,18 @@ struct plat_v4l2_data {
 	int (*get_mraw_stats_cfg_param)(void *addr, struct mraw_stats_cfg_param *param);
 	int (*get_ltmsgo_freerun_need_copy)(const struct set_meta_stats_info_param *p);
 	int (*ltmsgo_buffer_ofst)(void *addr);
+	int (*get_raw_lock_sel_addr)(unsigned int dev_id, unsigned int *addr);
 };
 
 struct plat_data_hw {
 	u32 camsys_axi_mux;
 	u32 platform_id;
 	int cammux_id_raw_start;
+	/**
+	 * ICC patch number need to be same across the
+	 * same-generation ISP version chipsets to
+	 * have the correct qos calculation report software flow.
+	 */
 	int raw_icc_path_num;
 	int yuv_icc_path_num;
 	int max_main_pipe_w;
@@ -256,6 +264,7 @@ struct plat_data_hw {
 	bool dcif_slb_support;
 	bool bwr_support;
 	bool qof_support;
+	bool snoc_support;
 };
 
 struct camsys_platform_data {

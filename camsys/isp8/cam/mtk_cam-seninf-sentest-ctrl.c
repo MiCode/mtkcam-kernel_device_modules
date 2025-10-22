@@ -583,3 +583,39 @@ int notify_sentest_irq(struct seninf_ctx *ctx,
 
 	return 0;
 }
+
+int seninf_sentest_get_csi_mipi_measure_result(struct seninf_ctx *ctx,
+		struct mtk_cam_seninf_meter_info *info)
+{
+	struct v4l2_mbus_framefmt *format;
+	int i, valid_measure_req = 0;
+
+	if (unlikely(ctx == NULL)) {
+		pr_info("[%s][ERROR] ctx is NULL\n", __func__);
+		return -EINVAL;
+	}
+
+	if (unlikely(info == NULL)) {
+		pr_info("[%s][ERROR] info is NULL\n", __func__);
+		return -EINVAL;
+	}
+
+	format = &ctx->fmt[PAD_SRC_RAW0].format;
+
+	/* check if measure size is invalid */
+	for (i = 0; i < CSIMAC_MEASURE_MAX_NUM; i++) {
+		if ((info->probes[i].measure_line >= (format->height - 1)) ||
+			(info->probes[i].measure_line == 0))
+			continue;
+
+		valid_measure_req++;
+	}
+
+	info->valid_measure_line = valid_measure_req;
+	if (g_seninf_ops->_get_csi_HV_HB_meter(ctx, info, valid_measure_req)) {
+		pr_info("[%s][ERROR] _get_csi_HV_HB_meter return failed\n", __func__);
+		return -EFAULT;
+	}
+
+	return 0;
+}

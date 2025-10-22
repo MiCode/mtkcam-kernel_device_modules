@@ -19,14 +19,26 @@
 static inline
 bool res_raw_is_dc_mode(const struct mtk_cam_resource_raw_v2 *res_raw)
 {
-	return res_raw->hw_mode == MTK_CAM_HW_MODE_DIRECT_COUPLED;
+	return res_raw->hw_mode == MTK_CAM_HW_MODE_DIRECT_COUPLED &&
+		res_raw->scen.id != MTK_CAM_SCEN_TIMESHARE;
+}
+static inline bool scen_is_timeshare(const struct mtk_cam_scen *scen)
+{
+	return scen->id == MTK_CAM_SCEN_TIMESHARE;
+}
+
+static inline
+bool res_raw_ois_compensation(const struct mtk_cam_resource_raw_v2 *res_raw)
+{
+	return res_raw->ois_compensation == 1;
 }
 
 static inline bool scen_is_normal(const struct mtk_cam_scen *scen)
 {
 	return scen->id == MTK_CAM_SCEN_NORMAL ||
 		scen->id == MTK_CAM_SCEN_ODT_NORMAL ||
-		scen->id == MTK_CAM_SCEN_M2M_NORMAL;
+		scen->id == MTK_CAM_SCEN_M2M_NORMAL ||
+		scen->id == MTK_CAM_SCEN_TIMESHARE;
 }
 
 static inline bool scen_is_mstream(const struct mtk_cam_scen *scen)
@@ -64,6 +76,7 @@ static inline bool scen_is_vhdr(const struct mtk_cam_scen *scen)
 	case MTK_CAM_SCEN_NORMAL:
 	case MTK_CAM_SCEN_M2M_NORMAL:
 	case MTK_CAM_SCEN_ODT_NORMAL:
+	case MTK_CAM_SCEN_TIMESHARE:
 		return (scen->scen.normal.max_exp_num > 1 ||
 			scen_is_dcg_sensor_merge(scen));
 	case MTK_CAM_SCEN_MSTREAM:
@@ -182,7 +195,7 @@ static inline int scen_to_str(char *buff, size_t size,
 	return n;
 }
 
-#define RES_RAW_MAX_LEN (SCEN_MAX_LEN + 100)
+#define RES_RAW_MAX_LEN (SCEN_MAX_LEN + 120)
 static inline int raw_res_to_str(char *buff, size_t size,
 				 const struct mtk_cam_resource_raw_v2 *r)
 {
@@ -191,10 +204,11 @@ static inline int raw_res_to_str(char *buff, size_t size,
 	n = scen_to_str(buff, size, &r->scen);
 
 	n += scnprintf(buff + n, size - n,
-		       " pxlmode=%d freq=%d bin=%d hwmode=%d raw=(0x%x,0x%x,%d)",
+		       " pxlmode=%d freq=%d bin=%d hwmode=%d ois=%d raw=(0x%x,0x%x,%d) timeshare=%d",
 		       r->raw_pixel_mode, r->freq / 1000000,
-		       r->bin, r->hw_mode,
-		       r->raws, r->raws_must, r->raws_max_num);
+		       r->bin, r->hw_mode, r->ois_compensation,
+		       r->raws, r->raws_must, r->raws_max_num,
+		       scen_is_timeshare(&r->scen) ? r->scen.scen.timeshare.group : 0);
 
 	if (r->img_wbuf_num || r->img_wbuf_size)
 		n += scnprintf(buff + n, size - n, " wbuf=%dx%d",

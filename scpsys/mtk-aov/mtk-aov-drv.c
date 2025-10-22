@@ -158,7 +158,10 @@ static long mtk_aov_ioctl(struct file *file, unsigned int cmd,
 			dev_info(aov_dev->dev, "skip flow below AOV kernel!\n");
 			break;
 		}
-		mutex_lock(&core_info->start_stop_mutex);
+		if (down_interruptible(&core_info->start_stop_sema)) {
+			dev_info(aov_dev->dev, "%s: failed to acquire semaphore\n", __func__);
+			return -EFAULT;
+		}
 		dev_info(aov_dev->dev, "AOV start+\n");
 		vmm_isp_ctrl_notify(1);
 		mtk_mmdvfs_aov_enable(1);
@@ -171,7 +174,7 @@ static long mtk_aov_ioctl(struct file *file, unsigned int cmd,
 			if (ret) {
 				dev_info(aov_dev->dev, "%s: failed to copy aov user data: %d\n",
 					__func__, ret);
-				mutex_unlock(&core_info->start_stop_mutex);
+				up(&core_info->start_stop_sema);
 				return -EFAULT;
 			}
 			g_frame_mode = user.frame_mode;
@@ -196,7 +199,7 @@ static long mtk_aov_ioctl(struct file *file, unsigned int cmd,
 		}
 
 		dev_info(aov_dev->dev, "AOV start-(%d)\n", ret);
-		mutex_unlock(&core_info->start_stop_mutex);
+		up(&core_info->start_stop_sema);
 		break;
 	}
 	case AOV_DEV_SENSOR_ON:
@@ -231,7 +234,10 @@ static long mtk_aov_ioctl(struct file *file, unsigned int cmd,
 			dev_info(aov_dev->dev, "skip flow below AOV kernel!\n");
 			break;
 		}
-		mutex_lock(&core_info->start_stop_mutex);
+		if (down_interruptible(&core_info->start_stop_sema)) {
+			dev_info(aov_dev->dev, "%s: failed to acquire semaphore\n", __func__);
+			return -EFAULT;
+		}
 		dev_info(aov_dev->dev, "AOV stop+\n");
 
 		g_aov_start = false;
@@ -255,7 +261,7 @@ static long mtk_aov_ioctl(struct file *file, unsigned int cmd,
 		}
 
 		dev_info(aov_dev->dev, "AOV stop-(%d)\n", ret);
-		mutex_unlock(&core_info->start_stop_mutex);
+		up(&core_info->start_stop_sema);
 		break;
 	case AOV_DEV_QEA:
 		AOV_DEBUG_LOG(*(aov_dev->enable_aov_log_flag), "trigger AOV QEA\n");
@@ -278,23 +284,39 @@ static long mtk_aov_ioctl(struct file *file, unsigned int cmd,
 		AOV_DEBUG_LOG(*(aov_dev->enable_aov_log_flag), "disp off resource test done, ret(%d)\n", ret);
 		break;
 	case AOV_DEV_TURN_ON_ULPOSC:
-		mutex_lock(&core_info->start_stop_mutex);
+		if (down_interruptible(&core_info->start_stop_sema)) {
+			dev_info(aov_dev->dev, "%s: failed to acquire semaphore\n", __func__);
+			return -EFAULT;
+		}
 		AOV_DEBUG_LOG(*(aov_dev->enable_aov_log_flag),
 			"turn on ulposc\n");
-		aov_ulposc_check_cali_result(aov_dev);
+		ret = aov_ulposc_check_cali_result(aov_dev);
 		AOV_DEBUG_LOG(*(aov_dev->enable_aov_log_flag),
 			"turn on ulposc done, ret(%d)\n", ret);
-		mutex_unlock(&core_info->start_stop_mutex);
+		up(&core_info->start_stop_sema);
+		if (ret != 1)
+			ret = -EFAULT;
 		break;
 	case AOV_DEV_TURN_OFF_ULPOSC:
-		mutex_lock(&core_info->start_stop_mutex);
+		if (down_interruptible(&core_info->start_stop_sema)) {
+			dev_info(aov_dev->dev, "%s: failed to acquire semaphore\n", __func__);
+			return -EFAULT;
+		}
 		AOV_DEBUG_LOG(*(aov_dev->enable_aov_log_flag),
 			"turn off ulposc\n");
 		ret = aov_core_send_cmd(aov_dev, AOV_SCP_CMD_TURN_OFF_ULPOSC, NULL, 0, true);
 		AOV_DEBUG_LOG(*(aov_dev->enable_aov_log_flag),
 			"turn off ulposc done, ret(%d)\n", ret);
-		mutex_unlock(&core_info->start_stop_mutex);
+		up(&core_info->start_stop_sema);
 		break;
+	case AOV_DEV_FRAME_MODE: {
+		dev_info(aov_dev->dev, "AOV update frame mode+\n");
+		ret = aov_core_send_cmd(aov_dev, AOV_SCP_CMD_FRAME_MODE,
+			(void *)arg, sizeof(struct frame_mode_notify), true);
+
+		dev_info(aov_dev->dev, "update frame mode-(%d)\n", ret);
+		break;
+	}
 	default:
 		dev_info(aov_dev->dev, "unknown AOV control code(%d)\n", cmd);
 		return -EINVAL;

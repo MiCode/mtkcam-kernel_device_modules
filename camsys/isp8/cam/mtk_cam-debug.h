@@ -101,6 +101,12 @@ struct mtk_cam_debug {
 	struct mtk_cam_normal_dump dump;
 };
 
+enum dma_debug_dump {
+	DD_DUMP_NONE    = 0,
+	DD_DUMP_SRT     = 1 << 0,
+	DD_DUMP_CQ      = 1 << 1,
+};
+
 int mtk_cam_debug_init(struct mtk_cam_debug *dbg, struct mtk_cam_device *cam);
 void mtk_cam_debug_deinit(struct mtk_cam_debug *dbg);
 
@@ -143,7 +149,9 @@ int mtk_cam_debug_exp_dump(struct mtk_cam_debug *dbg,
 #define MSG_RINGBUFFER_OFL	"Camsys: dcif ringbuffer ofl"
 #define MSG_DC_SKIP_FRAME	"Camsys: dc mode skip frame"
 #define MSG_JOB_COMPOSE_FAILURE	"Camsys: ipi buffer not ready"
+#define MSG_SENINF_FRAME_ERROR "Seninf: frame error"
+#define MSG_ENABLE_IRQ_ERROR "Camsys: irq enable failed"
+
 
 
 #endif /* __MTK_CAM_DEBUG__ */
-

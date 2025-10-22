@@ -2,6 +2,8 @@
 //
 // Copyright (c) 2019 MediaTek Inc.
 
+#include <linux/fs.h>
+
 #include <media/v4l2-device.h>
 #include <media/v4l2-ioctl.h>
 #include <media/videobuf2-dma-contig.h>
@@ -571,7 +573,6 @@ static void mtk_cam_vb2_stop_streaming(struct vb2_queue *vq)
 	/* for no req in driver and stream off case */
 	mtk_cam_ctx_stream_off(ctx);
 	mtk_cam_stop_ctx(ctx, &node->vdev.entity);
-
 }
 
 static void mtk_cam_vb2_buf_queue(struct vb2_buffer *vb)
@@ -634,6 +635,82 @@ static int mtk_cam_vb2_buf_out_validate(struct vb2_buffer *vb)
 	return 0;
 }
 
+static long int mtk_cam_v4l2_file_ioctl(struct file *file,
+		      unsigned int cmd, unsigned long int arg)
+{
+	int ret;
+	struct mtk_cam_video_device *node = NULL;
+	struct mtk_cam_device *cam = NULL;
+	struct mtk_cam_ctx *ctx = NULL;
+
+	if (cmd == VIDIOC_STREAMOFF) {
+		node = file_to_mtk_cam_node(file);
+		cam = vb2_get_drv_priv(&node->vb2_q);
+		ctx = (cam) ? mtk_cam_find_ctx(cam, &node->vdev.entity) : NULL;
+	}
+
+	if (cmd == VIDIOC_STREAMOFF) {
+		/* NOTE: MTK_RAW_META_SV_OUT_0 for 2 phase enque sensor request */
+		if (ctx && (node->desc.id == MTK_RAW_META_SV_OUT_0)) {
+			MTK_CAM_TRACE_BEGIN(BASIC, "%s->power_on_ccu", __func__);
+			mtk_cam_power_ctrl_ccu(ctx->cam->dev, 1);
+			MTK_CAM_TRACE_END(BASIC);
+		}
+	}
+
+	MTK_CAM_TRACE_BEGIN(BASIC, "%s->video_ioctl2", __func__);
+	ret = video_ioctl2(file, cmd, arg);
+	MTK_CAM_TRACE_END(BASIC);
+
+	if (cmd == VIDIOC_STREAMOFF) {
+		if (ctx && mtk_cam_ctx_all_nodes_idle(ctx)) {
+			MTK_CAM_TRACE_BEGIN(BASIC, "%s->power_off_ccu", __func__);
+			mtk_cam_power_ctrl_ccu(ctx->cam->dev, 0);
+			MTK_CAM_TRACE_END(BASIC);
+			MTK_CAM_TRACE_BEGIN(BASIC, "%s->unprepare_session", __func__);
+			mtk_cam_ctx_unprepare_session(ctx);
+			mtk_cam_uninitialize(cam);
+			mtk_cam_event_eos(&ctx->cam_ctrl);
+			mtk_cam_ctx_put(ctx);
+			MTK_CAM_TRACE_END(BASIC);
+		}
+	}
+
+	return ret;
+}
+
+static int mtk_cam_vb2_fop_release(struct file *file)
+{
+	struct video_device *vdev = video_devdata(file);
+	struct mutex *lock = vdev->queue->lock ? vdev->queue->lock : vdev->lock;
+	struct mtk_cam_video_device *node = file_to_mtk_cam_node(file);
+	struct mtk_cam_device *cam = vb2_get_drv_priv(&node->vb2_q);
+	struct mtk_cam_ctx *ctx;
+
+	if (lock)
+		mutex_lock(lock);
+
+	ctx = (cam) ? mtk_cam_find_ctx(cam, &node->vdev.entity) : NULL;
+
+	if (!vdev->queue->owner || file->private_data == vdev->queue->owner) {
+		vb2_queue_release(vdev->queue);
+
+		if (ctx && mtk_cam_ctx_all_nodes_idle(ctx)) {
+			mtk_cam_power_ctrl_ccu(ctx->cam->dev, 0);
+			mtk_cam_ctx_unprepare_session(ctx);
+			mtk_cam_uninitialize(cam);
+			mtk_cam_event_eos(&ctx->cam_ctrl);
+			mtk_cam_ctx_put(ctx);
+		}
+
+		vdev->queue->owner = NULL;
+	}
+	if (lock)
+		mutex_unlock(lock);
+
+	return v4l2_fh_release(file);
+}
+
 static const struct vb2_ops mtk_cam_vb2_ops = {
 	.queue_setup = mtk_cam_vb2_queue_setup,
 
@@ -654,17 +731,17 @@ static const struct vb2_ops mtk_cam_vb2_ops = {
 };
 
 static const struct v4l2_file_operations mtk_cam_v4l2_fops = {
-	.unlocked_ioctl = video_ioctl2,
+	.unlocked_ioctl = mtk_cam_v4l2_file_ioctl,
 	.open = v4l2_fh_open,
-	.release = vb2_fop_release,
+	.release = mtk_cam_vb2_fop_release,
 	.poll = vb2_fop_poll,
 	.mmap = vb2_fop_mmap,
 };
 
 /* ref. v4l2_fill_pixfmt_mp */
 static int mtk_cam_fill_v4l2_pixfmt_mp(const struct v4l2_format_info *info,
-				       struct v4l2_pix_format_mplane *pixfmt,
-				       u32 pixelformat, u32 width, u32 height)
+			struct v4l2_pix_format_mplane *pixfmt,
+			u32 pixelformat, u32 width, u32 height, u32 bus_align)
 {
 	struct v4l2_plane_pix_format *plane;
 	unsigned int stride;
@@ -685,14 +762,15 @@ static int mtk_cam_fill_v4l2_pixfmt_mp(const struct v4l2_format_info *info,
 
 	plane = &pixfmt->plane_fmt[0];
 	stride = v4l2_format_calc_stride(info, 0, width,
-					 plane->bytesperline);
+					 plane->bytesperline, bus_align);
 
 	plane->bytesperline = stride;
 	plane->sizeimage = 0;
 	for (i = 0; i < info->comp_planes; i++) {
 		unsigned int stride_p;
 
-		stride_p = v4l2_format_calc_stride(info, i, width, stride);
+		stride_p =
+			v4l2_format_calc_stride(info, i, width, stride, bus_align);
 
 		plane->sizeimage +=
 			v4l2_format_calc_planesize(info, i, height, stride_p);
@@ -777,7 +855,7 @@ static int mtk_cam_fill_mtk_pixfmt_mp(const struct mtk_format_info *info,
 }
 
 static int _fill_image_pix_mp(struct v4l2_pix_format_mplane *mp,
-			      u32 pixelformat, u32 width, u32 height)
+			u32 pixelformat, u32 width, u32 height, u32 bus_align)
 {
 	const struct mtk_format_info *mtk_info;
 	const struct v4l2_format_info *v4l2_info;
@@ -791,7 +869,7 @@ static int _fill_image_pix_mp(struct v4l2_pix_format_mplane *mp,
 						 pixelformat, width, height);
 	else if (v4l2_info)
 		ret = mtk_cam_fill_v4l2_pixfmt_mp(v4l2_info, mp,
-						  pixelformat, width, height);
+						  pixelformat, width, height, bus_align);
 	else {
 		pr_info("%s: not found pixelformat " FMT_FOURCC "\n",
 			__func__, MEMBER_FOURCC(mp->pixelformat));
@@ -830,7 +908,8 @@ static u32 try_fmt_mp_pixelformat(struct mtk_cam_dev_node_desc *desc,
 static int fill_fmt_mp_constrainted_by_hw(struct v4l2_pix_format_mplane *fmt,
 					  struct mtk_cam_dev_node_desc *desc,
 					  u32 pixelformat, u32 width, u32 height,
-					  u32 pix_align_w, u32 pix_align_h)
+					  u32 pix_align_w, u32 pix_align_h,
+					  u32 bus_align)
 {
 	int ret;
 
@@ -838,7 +917,7 @@ static int fill_fmt_mp_constrainted_by_hw(struct v4l2_pix_format_mplane *fmt,
 			  IMG_MIN_WIDTH, desc->frmsizes->stepwise.max_width);
 	height = ALIGN(height, pix_align_h);
 
-	ret = _fill_image_pix_mp(fmt, pixelformat, width, height);
+	ret = _fill_image_pix_mp(fmt, pixelformat, width, height, bus_align);
 
 	return 0;
 }
@@ -869,7 +948,8 @@ static int mtk_video_init_format(struct mtk_cam_video_device *video)
 				       default_fmt->fmt.pix_mp.width,
 				       default_fmt->fmt.pix_mp.height,
 				       2,
-				       is_raw_subdev(video->uid.pipe_id) ? 2 : 1);
+				       is_raw_subdev(video->uid.pipe_id) ? 2 : 1,
+				       is_camsv_subdev(video->uid.pipe_id) ? 16 : 1);
 
 	/**
 	 * TODO: to support multi-plane: for example, yuv or do it as
@@ -1155,7 +1235,8 @@ int mtk_cam_video_set_fmt(struct mtk_cam_video_device *node,
 				       f->fmt.pix_mp.width,
 				       f->fmt.pix_mp.height,
 				       2,
-				       is_raw_subdev(node->uid.pipe_id) ? 2 : 1);
+				       is_raw_subdev(node->uid.pipe_id) ? 2 : 1,
+				       is_camsv_subdev(node->uid.pipe_id) ? 16 : 1);
 
 	/* Constant format fields */
 	try_fmt.fmt.pix_mp.field = V4L2_FIELD_NONE;
@@ -1308,9 +1389,15 @@ mtk_cam_vb2_queue_get_mtkbuf(struct vb2_queue *q, struct v4l2_buffer *b)
 {
 	struct vb2_buffer *vb;
 
+#if (KERNEL_VERSION(6, 10, 0) > LINUX_VERSION_CODE)
 	if (b->index >= q->num_buffers) {
 		dev_info(q->dev, "%s: buffer index out of range (idx/num: %d/%d)\n",
 			 __func__, b->index, q->num_buffers);
+#else
+	if (b->index >= vb2_get_num_buffers(q)) {
+		dev_info(q->dev, "%s: buffer index out of range (idx/num: %d/%d)\n",
+			 __func__, b->index, vb2_get_num_buffers(q));
+#endif
 		return NULL;
 	}
 

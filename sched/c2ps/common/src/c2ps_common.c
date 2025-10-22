@@ -10,6 +10,7 @@
 #include <linux/prefetch.h>
 #include <linux/preempt.h>
 #include <linux/kernel.h>
+#include <linux/vmalloc.h>
 #include <trace/trace.h>
 
 #include "sched/sched.h"
@@ -44,6 +45,7 @@ int background_idlerate_dangerous = 5;
 int c2ps_placeholder;
 bool recovery_uclamp_max_immediately;
 bool need_boost_uclamp_max = true;
+bool ignore_bcpu_idle_rate;
 int um_min_virtual_ceiling = 80;
 module_param(proc_time_window_size, int, 0644);
 module_param(debug_log_on, int, 0644);
@@ -53,6 +55,7 @@ module_param(c2ps_placeholder, int, 0644);
 module_param(recovery_uclamp_max_immediately, bool, 0644);
 module_param(need_boost_uclamp_max, bool, 0644);
 module_param(um_min_virtual_ceiling, int, 0644);
+module_param(ignore_bcpu_idle_rate, bool, 0644);
 
 struct c2ps_task_info *c2ps_find_task_info_by_tskid(int task_id)
 {
@@ -1143,6 +1146,22 @@ int c2ps_get_first_cpu_of_cluster(int cluster)
 	return cpu;
 }
 
+int c2ps_get_nr_cpus_of_cluster(int cluster)
+{
+	struct cpumask *gear_cpus;
+	int nr_cpus = 0;
+
+	if (unlikely(cluster >= c2ps_nr_clusters))
+		return 0;
+	gear_cpus = get_gear_cpumask(cluster);
+
+	if (!gear_cpus)
+		return 0;
+
+	nr_cpus = cpumask_weight(gear_cpus);
+	return nr_cpus;
+}
+
 void reset_task_eas_setting(struct c2ps_task_info *tsk_info)
 {
 	if (unlikely(!tsk_info)) {
@@ -1395,6 +1414,10 @@ void update_cpu_idle_rate(void)
 	}
 
 	if (_need_update_long_period) {
+		if (ignore_bcpu_idle_rate) {
+			_total_idlerate -= _l_sum_of_idlerate[2];
+			_total_num_of_cpu -= c2ps_get_nr_cpus_of_cluster(2);
+		}
 		if (_total_idlerate < background_idlerate_dangerous * _total_num_of_cpu &&
 			glb_info->last_sum_idle_rate <
 							background_idlerate_dangerous * _total_num_of_cpu) {
@@ -1412,21 +1435,22 @@ void update_cpu_idle_rate(void)
 					c2ps_get_first_cpu_of_cluster(_cluster_index));
 		u32 cur_cpu_floor = c2ps_get_cur_cpu_freq_floor(
 					c2ps_get_first_cpu_of_cluster(_cluster_index));
+		bool is_cpu_boost = false;
 
 		if (c2ps_boost_cur_uclamp_max(_cluster_index, cur_cpu_floor, glb_info))
 			continue;
 
 		glb_info->scn_cpu_freq_floor[_cluster_index] =
 			min(cur_cpu_floor, glb_info->scn_cpu_freq_floor[_cluster_index]);
-		glb_info->is_cpu_boost =
+		is_cpu_boost =
 			(cur_cpu_floor > glb_info->scn_cpu_freq_floor[_cluster_index] ||
 			cur_cpu_floor > glb_info->possible_config_cpu_freq[_cluster_index]);
 
-		if (glb_info->is_cpu_boost) {
+		if (is_cpu_boost) {
 			C2PS_LOGD("is_cpu_boost");
 			c2ps_main_systrace("cpu boost: %u", cur_cpu_floor);
+			glb_info->is_cpu_boost = true;
 			glb_info->need_update_bg[0] = 1;
-			break;
 		}
 
 		glb_info->s_loadxfreq[_cluster_index] =
@@ -1444,6 +1468,8 @@ void update_cpu_idle_rate(void)
 				glb_info->need_update_bg[0] = 1;
 				glb_info->need_update_bg[1 + _cluster_index] = 1;
 				c2ps_main_systrace("cluster: %u touches alert l_idle rate",
+										_cluster_index);
+				C2PS_LOGD("cluster: %u touches alert l_idle rate",
 										_cluster_index);
 			} else if ((!c2ps_um_mode_on && (glb_info->curr_max_uclamp[_cluster_index] >
 						glb_info->max_uclamp[_cluster_index])) ||

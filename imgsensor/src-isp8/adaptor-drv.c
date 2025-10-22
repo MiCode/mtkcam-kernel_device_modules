@@ -12,6 +12,7 @@
 #include <linux/thermal.h>
 #include <linux/delay.h>
 #include <linux/version.h>
+#include "thermal_core.h"
 #include "mtk-i3c-i2c-wrap.h"
 
 #include "kd_imgsensor_define_v4l2.h"
@@ -49,7 +50,10 @@ static struct subdrv_entry *imgsensor_subdrvs[] = {
 module_param(sensor_debug, uint, 0644);
 module_param(set_ctrl_unlock, uint, 0644);
 MODULE_PARM_DESC(sensor_debug, "imgsensor_debug");
-
+#ifdef __XIAOMI_CAMERA__
+bool parallel_setting_enable = TRUE;
+module_param(parallel_setting_enable, bool, 0644);
+#endif
 unsigned int gSensor_num;
 unsigned int is_multicam;
 unsigned int is_imgsensor_fusion_test_workaround;
@@ -106,6 +110,54 @@ static void get_outfmt_code(struct adaptor_ctx *ctx)
 		case SENSOR_OUTPUT_FORMAT_RAW_4CELL_HW_BAYER_R:
 			adaptor_logd(ctx, "unsupported 4cell output_format %d\n", outfmt);
 			ctx->fmt_code[i] = MEDIA_BUS_FMT_SRGGB10_1X10;
+			break;
+
+		case SENSOR_OUTPUT_FORMAT_RAW12_4CELL_B:
+		case SENSOR_OUTPUT_FORMAT_RAW12_4CELL_BAYER_B:
+		case SENSOR_OUTPUT_FORMAT_RAW12_4CELL_HW_BAYER_B:
+			ctx->fmt_code[i] = MEDIA_BUS_FMT_SBGGR12_1X12;
+			break;
+
+		case SENSOR_OUTPUT_FORMAT_RAW12_4CELL_Gb:
+		case SENSOR_OUTPUT_FORMAT_RAW12_4CELL_BAYER_Gb:
+		case SENSOR_OUTPUT_FORMAT_RAW12_4CELL_HW_BAYER_Gb:
+			ctx->fmt_code[i] = MEDIA_BUS_FMT_SGBRG12_1X12;
+			break;
+
+		case SENSOR_OUTPUT_FORMAT_RAW12_4CELL_Gr:
+		case SENSOR_OUTPUT_FORMAT_RAW12_4CELL_BAYER_Gr:
+		case SENSOR_OUTPUT_FORMAT_RAW12_4CELL_HW_BAYER_Gr:
+			ctx->fmt_code[i] = MEDIA_BUS_FMT_SGRBG12_1X12;
+			break;
+
+		case SENSOR_OUTPUT_FORMAT_RAW12_4CELL_R:
+		case SENSOR_OUTPUT_FORMAT_RAW12_4CELL_BAYER_R:
+		case SENSOR_OUTPUT_FORMAT_RAW12_4CELL_HW_BAYER_R:
+			ctx->fmt_code[i] = MEDIA_BUS_FMT_SRGGB12_1X12;
+			break;
+
+		case SENSOR_OUTPUT_FORMAT_RAW14_4CELL_B:
+		case SENSOR_OUTPUT_FORMAT_RAW14_4CELL_BAYER_B:
+		case SENSOR_OUTPUT_FORMAT_RAW14_4CELL_HW_BAYER_B:
+			ctx->fmt_code[i] = MEDIA_BUS_FMT_SBGGR14_1X14;
+			break;
+
+		case SENSOR_OUTPUT_FORMAT_RAW14_4CELL_Gb:
+		case SENSOR_OUTPUT_FORMAT_RAW14_4CELL_BAYER_Gb:
+		case SENSOR_OUTPUT_FORMAT_RAW14_4CELL_HW_BAYER_Gb:
+			ctx->fmt_code[i] = MEDIA_BUS_FMT_SGBRG14_1X14;
+			break;
+
+		case SENSOR_OUTPUT_FORMAT_RAW14_4CELL_Gr:
+		case SENSOR_OUTPUT_FORMAT_RAW14_4CELL_BAYER_Gr:
+		case SENSOR_OUTPUT_FORMAT_RAW14_4CELL_HW_BAYER_Gr:
+			ctx->fmt_code[i] = MEDIA_BUS_FMT_SGRBG14_1X14;
+			break;
+
+		case SENSOR_OUTPUT_FORMAT_RAW14_4CELL_R:
+		case SENSOR_OUTPUT_FORMAT_RAW14_4CELL_BAYER_R:
+		case SENSOR_OUTPUT_FORMAT_RAW14_4CELL_HW_BAYER_R:
+			ctx->fmt_code[i] = MEDIA_BUS_FMT_SRGGB14_1X14;
 			break;
 
 		case SENSOR_OUTPUT_FORMAT_RAW8_MONO:
@@ -175,7 +227,7 @@ static u32 get_active_line_num(struct adaptor_ctx *ctx, u32 scenario_id)
 {
 	int ret, j;
 	struct mtk_mbus_frame_desc fd_tmp;
-	u32 result = 0;
+	u32 result = 0, height = 0;
 
 	ret = subdrv_call(ctx, get_frame_desc, scenario_id, &fd_tmp);
 	if (!ret) {
@@ -189,7 +241,13 @@ static u32 get_active_line_num(struct adaptor_ctx *ctx, u32 scenario_id)
 			    (fd_tmp.entry[j].bus.csi2.user_data_desc != VC_PDAF_STATS_SE_PIX_2)) {
 				result += fd_tmp.entry[j].bus.csi2.vsize;
 			}
+			/*set default active line*/
+			if ((fd_tmp.entry[j].bus.csi2.user_data_desc == VC_STAGGER_NE) ||
+				(fd_tmp.entry[j].bus.csi2.user_data_desc == VC_RAW_DATA))
+				height = fd_tmp.entry[j].bus.csi2.vsize;
 		}
+		if (!result)
+			result = height;
 	}
 
 	return result;
@@ -332,13 +390,67 @@ static int init_sensor_mode(struct adaptor_ctx *ctx)
 	return 0;
 }
 
-static void control_sensor(struct adaptor_ctx *ctx)
+#ifdef __XIAOMI_CAMERA__
+void sensor_init_work(struct work_struct *work)
+{
+	struct adaptor_ctx *ctx = container_of(work, struct adaptor_ctx, init_work);
+
+	adaptor_logm(ctx, "[%s]+\n", __func__);
+
+	if (!ctx) {
+		return;
+	}
+
+	if (ctx->subctx.aov_sensor_support || ctx->is_sensor_inited == 0) {
+		subdrv_call(ctx, open);
+	} else {
+		adaptor_logm(ctx, "init_skipped\n");
+	}
+	ctx->is_sensor_inited = 1;
+
+#ifdef __XIAOMI_CAMERA__
+	ctx->is_sensor_scenario_inited = 0;
+	adaptor_logm(ctx, "is_sensor_scenario_inited(%u)\n", ctx->is_sensor_scenario_inited);
+#endif
+
+	adaptor_logm(ctx, "[%s]-\n", __func__);
+
+	return;
+}
+void sensor_ctrl_work(struct work_struct *work)
 {
 	MSDK_SENSOR_EXPOSURE_WINDOW_STRUCT image_window;
 	MSDK_SENSOR_CONFIG_STRUCT sensor_config_data;
 	u64 data[4];
 	u32 len;
+	struct adaptor_ctx *ctx = container_of(work, struct adaptor_ctx, ctrl_work);
 
+
+	adaptor_logm(ctx, "[%s]+\n", __func__);
+
+	if (!ctx) {
+		return;
+	}
+	subdrv_call(ctx, control, ctx->cur_mode->id, &image_window, &sensor_config_data);
+	data[0] = ctx->cur_mode->id;
+	subdrv_call(ctx, feature_control, SENSOR_FEATURE_SET_DESKEW_CTRL, (u8 *)data, &len);
+	subdrv_call(ctx, feature_control, SENSOR_FEATURE_SET_CPHY_LRTE_MODE, (u8 *)data, &len);
+	ctx->is_sensor_scenario_inited = 1;
+
+	adaptor_logm(ctx, "[%s]-\n", __func__);
+
+	return;
+}
+#endif
+
+static void control_sensor(struct adaptor_ctx *ctx)
+{
+#ifndef __XIAOMI_CAMERA__
+	MSDK_SENSOR_EXPOSURE_WINDOW_STRUCT image_window;
+	MSDK_SENSOR_CONFIG_STRUCT sensor_config_data;
+	u64 data[4];
+	u32 len;
+#endif
 	if (ctx == NULL) {
 		adaptor_loge(ctx, "null pointer ctx is invalid\n");
 		return;
@@ -349,7 +461,19 @@ static void control_sensor(struct adaptor_ctx *ctx)
 		"+ is_sensor_scenario_inited(%u),is_streaming(%u)\n",
 		ctx->is_sensor_scenario_inited, ctx->is_streaming);
 
+#ifdef __XIAOMI_CAMERA__
+	flush_work(&ctx->ctrl_work);
+	flush_work(&ctx->init_work);
+#endif
+
 	if (!ctx->is_sensor_scenario_inited && !ctx->is_streaming) {
+
+#ifdef __XIAOMI_CAMERA__
+	queue_work(system_wq, &ctx->ctrl_work);
+	if(!parallel_setting_enable || ctx->subctx.aov_sensor_support){
+		flush_work(&ctx->ctrl_work);
+	}
+#else
 		subdrv_call(ctx, control,
 				ctx->cur_mode->id,
 				&image_window,
@@ -363,6 +487,7 @@ static void control_sensor(struct adaptor_ctx *ctx)
 				SENSOR_FEATURE_SET_CPHY_LRTE_MODE,
 				(u8 *)data, &len);
 		ctx->is_sensor_scenario_inited = 1;
+#endif
 	}
 	if (!ctx->is_streaming) // no need to restore ae when seamless
 		restore_ae_ctrl(ctx);
@@ -374,6 +499,8 @@ static int set_sensor_mode(struct adaptor_ctx *ctx,
 		struct sensor_mode *mode, char update_ctrl_defs)
 {
 	s64 min, max, def;
+
+	adaptor_logd(ctx, "mode->id: %u, ctx->cur_mode->id: %u, update_ctrl_defs: %d\n", mode->id, ctx->cur_mode->id, update_ctrl_defs);
 
 	if (ctx->cur_mode == mode) {
 		if (update_ctrl_defs)
@@ -399,13 +526,13 @@ static int set_sensor_mode(struct adaptor_ctx *ctx,
 		__v4l2_ctrl_modify_range(ctx->hblank, min, max, 1, def);
 
 		/* vblank */
+#ifdef __XIAOMI_CAMERA__
+		min = def = mi_get_mode_vb(ctx, mode);
+#else
 		min = def = get_mode_vb(ctx, mode);
+#endif
 		max = ctx->subctx.max_frame_length - mode->height;
 		__v4l2_ctrl_modify_range(ctx->vblank, min, max, 1, def);
-
-		/* max fps */
-		max = def = mode->max_framerate;
-		__v4l2_ctrl_modify_range(ctx->max_fps, 1, max, 1, def);
 
 		/* init sensor scenario setting */
 		control_sensor(ctx);
@@ -591,10 +718,7 @@ static int imgsensor_get_pad_format(struct v4l2_subdev *sd,
 	struct adaptor_ctx *ctx = to_ctx(sd);
 	int ret;
 
-	mutex_lock(&ctx->mutex);
 	ret = __imgsensor_get_pad_format(ctx, state, fmt);
-	mutex_unlock(&ctx->mutex);
-
 	return ret;
 }
 
@@ -678,8 +802,11 @@ static int imgsensor_set_power(struct v4l2_subdev *sd, int on)
 		adaptor_loge(ctx, "ixc_do_daa(ret=%d), prot= %d\n",
 				ret, ctx->ixc_client.protocol);
 	} else
+#ifdef __XIAOMI_CAMERA__
+	ret = adaptor_hw_power_off_deferred(ctx);
+#else
 	ret = adaptor_hw_power_off(ctx);
-
+#endif
 	mutex_unlock(&ctx->mutex);
 
 	return ret;
@@ -687,7 +814,7 @@ static int imgsensor_set_power(struct v4l2_subdev *sd, int on)
 
 static int imgsensor_streaming_delay(struct adaptor_ctx *ctx)
 {
-	u64 sys_ts, ae_memento_le_ns, streaming_sensor_vsync_ts,
+	u64 sys_ts, mono_ts, ae_memento_le_ns, streaming_sensor_vsync_ts,
 		streaming_sensor_fl_ns, hw_reinit_time_ns, target_timing_ns;
 	u32 ae_ctrl_cit;
 	long long streamon_delay_ns = 0;
@@ -699,6 +826,7 @@ static int imgsensor_streaming_delay(struct adaptor_ctx *ctx)
 	if (ctx->streamon_1sof_vsync_ts_info.vsync_ts_ns) {
 		systrace_log = kzalloc(1024 + 1, GFP_KERNEL);
 		sys_ts = ktime_get_boottime_ns();
+		mono_ts = ktime_get_ns();
 		streaming_sensor_vsync_ts = ctx->streamon_1sof_vsync_ts_info.vsync_ts_ns;
 		streaming_sensor_fl_ns = (ctx->streamon_1sof_vsync_ts_info.fps)
 				? (10000000000/(ctx->streamon_1sof_vsync_ts_info.fps)) : 0;
@@ -754,7 +882,7 @@ static int imgsensor_streaming_delay(struct adaptor_ctx *ctx)
 		streamon_delay_ns = ((streaming_sensor_vsync_ts
 				+ streaming_sensor_fl_ns
 				- target_timing_ns)
-				- sys_ts - hw_reinit_time_ns - ae_memento_le_ns) ;
+				- mono_ts - hw_reinit_time_ns - ae_memento_le_ns) ;
 
 		tmp = 0;
 		while ((streamon_delay_ns < 0) && (streaming_sensor_fl_ns)) {
@@ -772,11 +900,12 @@ static int imgsensor_streaming_delay(struct adaptor_ctx *ctx)
 								streamon_delay_ns);
 		systrace_log_len += snprintf(systrace_log + systrace_log_len,
 								1024 - systrace_log_len,
-								",from streaming sensor (%llu/%llu/%llu) sys_ts:%llu hw_reinit:%llu ae_memento_le_ns:%llu(%u*%llu)",
+								",from streaming sensor (%llu/%llu/%llu) sys_ts:%llu mono_ts:%llu hw_reinit:%llu ae_memento_le_ns:%llu(%u*%llu)",
 								streaming_sensor_vsync_ts,
 								streaming_sensor_fl_ns,
 								target_timing_ns,
 								sys_ts,
+								mono_ts,
 								hw_reinit_time_ns,
 								ae_memento_le_ns,
 								ae_ctrl_cit,
@@ -790,12 +919,13 @@ static int imgsensor_streaming_delay(struct adaptor_ctx *ctx)
 		ADAPTOR_SYSTRACE_END();
 
 		adaptor_logi(ctx,
-					"cur_mode_id:%u (%llu/%llu/%llu) sys_ts:%llu hw_reinit:%llu ae_memento_le_ns:%llu(%u*%llu) streamon_delay_ns:%lld(%u) [SYSTRACE: %s]\n",
+					"cur_mode_id:%u (%llu/%llu/%llu) sys_ts:%llu mono_ts:%llu hw_reinit:%llu ae_memento_le_ns:%llu(%u*%llu) streamon_delay_ns:%lld(%u) [SYSTRACE: %s]\n",
 					ctx->cur_mode->id,
 					streaming_sensor_vsync_ts,
 					streaming_sensor_fl_ns,
 					target_timing_ns,
 					sys_ts,
+					mono_ts,
 					hw_reinit_time_ns,
 					ae_memento_le_ns,
 					ae_ctrl_cit,
@@ -1494,6 +1624,14 @@ static int imgsensor_probe(struct i3c_i2c_device *client)
 	ctx->p_set_ctrl_unlock_flag = &set_ctrl_unlock;
 	ctx->aov_pm_ops_flag = 0;
 	ctx->aov_mclk_ulposc_flag = 0;
+
+#ifdef __XIAOMI_CAMERA__
+	init_waitqueue_head(&ctx->poweroff_wq);
+	INIT_WORK(&ctx->poweroff_work, adaptor_hw_power_off_work);
+	ctx->poweroff_timeout_ms = poweroff_timeout_ms;
+	INIT_WORK(&ctx->init_work, sensor_init_work);
+	INIT_WORK(&ctx->ctrl_work, sensor_ctrl_work);
+#endif
 
 	if (!of_property_read_u32(
 		dev->of_node, "cust-aov-csi-clk", &ctx->cust_aov_csi_clk))

@@ -11,6 +11,13 @@
 #include <linux/jiffies.h>
 #include <uapi/linux/dma-heap.h>
 
+#include <linux/suspend.h>
+#ifdef CONFIG_PM_WAKELOCKS
+#include <linux/pm_wakeup.h>
+#else
+#include <linux/wakelock.h>
+#endif
+
 #include "mtk_heap.h"
 
 #include "mtk-aov-config.h"
@@ -37,6 +44,12 @@
 #else
 #define ALIGN16(x) (x)
 #endif  // AOV_EVENT_IN_PLACE
+
+#ifdef CONFIG_PM_WAKELOCKS
+struct wakeup_source *event_wake_lock;
+#else
+struct wake_lock event_wake_lock;
+#endif
 
 static struct mtk_aov *curr_dev;
 
@@ -103,7 +116,8 @@ static int send_cmd_internal(struct aov_core *core_info,
 						"%s: send cmd(%d/%d/%d) interrupted !\n",
 						__func__, cmd_code, scp_ready, count);
 
-					// retry again
+					/* retry again after 1ms */
+					udelay(1000);
 					continue;
 				} else {
 					AOV_DEBUG_LOG(*(aov_dev->enable_aov_log_flag),
@@ -164,7 +178,8 @@ static int send_cmd_internal(struct aov_core *core_info,
 						"%s: wait cmd(%d/%d) ack interrupted\n",
 						__func__, cmd_code, count);
 
-					// retry again
+					/* retry again after 1ms */
+					udelay(1000);
 					continue;
 				} else {
 					AOV_DEBUG_LOG(*(aov_dev->enable_aov_log_flag),
@@ -219,11 +234,11 @@ static int copy_event_data(struct mtk_aov *aov_dev,
 {
 	struct aov_core *core_info = &aov_dev->core_info;
 	struct aov_notify info;
-	uint32_t frame_mode;
+//	uint32_t frame_mode;
 	uint32_t debug_mode;
 	uint32_t power_mode;
 	void *buffer;
-	int ret;
+//	int ret;
 
 	AOV_TRACE_BEGIN("AOV Copy Event");
 
@@ -231,7 +246,7 @@ static int copy_event_data(struct mtk_aov *aov_dev,
 		AOV_TRACE_END();
 		return -EINVAL;
 	}
-
+/*
 	// Is FR mode
 	frame_mode = atomic_read(&(core_info->frame_mode));
 	if (frame_mode & 0x20) {
@@ -243,7 +258,7 @@ static int copy_event_data(struct mtk_aov *aov_dev,
 			return ret;
 		}
 	}
-
+*/
 	buffer = buffer_acquire(core_info);
 	if (buffer == NULL) {
 #if AOV_FORCE_SKIP_MODE
@@ -262,6 +277,7 @@ static int copy_event_data(struct mtk_aov *aov_dev,
 
 	debug_mode = atomic_read(&(core_info->debug_mode));
 	power_mode = atomic_read(&(core_info->power_mode));
+/*
 	if (debug_mode == AOV_DEBUG_MODE_NDD) {
 		// Copy yuvo1/yuvo2/imgo and etc.
 		memcpy(buffer, (void *)event, sizeof(struct ndd_event));
@@ -274,6 +290,9 @@ static int copy_event_data(struct mtk_aov *aov_dev,
 			memcpy(buffer, (void *)event, offsetof(struct base_event, yuvo1_width));
 		}
 	}
+*/
+	// Only copy aie/fld/apu output/yuvo1/yuvo2/aie/fld/apu out
+	memcpy(buffer, (void *)event, sizeof(struct base_event));
 
 	if (atomic_read(&(core_info->aov_ready))) {
 		dev_info(aov_dev->dev, "%s: release aov event id(%d)\n", __func__, event->event_id);
@@ -557,8 +576,16 @@ int aov_core_send_cmd(struct mtk_aov *aov_dev, uint32_t cmd,
 				 * dev_info(aov_dev->dev, "camtg %d\n",
 				 *  start->aov_seninf_param.camtg);
 				 */
-				if (aov_dev->fd_version == 2)
+				if (aov_dev->fd_version == 2){
 					start_v2->session = user.session;
+					start_v2->cust_param_1 = user.cust_param_1;
+					start_v2->cust_param_2 = user.cust_param_2;
+					start_v2->md_enable    = user.md_enable;
+					start_v2->detect_frame_num = user.detect_frame_num;
+					start_v2->total_frame_num = user.total_frame_num;
+					dev_info(aov_dev->dev, "cust_param_1 =%d,cust_param_2=%d md_enable=%d detect_frame_num =%d,total_frame_num=%d",start_v2->cust_param_1 ,start_v2->cust_param_2,
+						start_v2->md_enable,start_v2->detect_frame_num,start_v2->total_frame_num);
+				}
 				else
 					start->session = user.session;
 
@@ -568,7 +595,19 @@ int aov_core_send_cmd(struct mtk_aov *aov_dev, uint32_t cmd,
 					: sizeof(struct aov_start);
 			} else if (cmd == AOV_SCP_CMD_NOTIFY) {
 				memcpy(buf, (void *)data, sizeof(struct aov_notify));
-			} else {
+			} else if (cmd == AOV_SCP_CMD_FRAME_MODE) {
+				struct frame_mode_notify frame_notify = {0};
+				struct frame_mode_notify *notify = (struct frame_mode_notify *)buf;
+				ret = copy_from_user((void *)&frame_notify,
+					(void *)data, sizeof(struct frame_mode_notify));
+				memcpy(notify, &frame_notify, sizeof(struct frame_mode_notify));
+				if (ret) {
+					dev_info(aov_dev->dev, "%s: failed to copy aov frame mode data: %d\n",
+						__func__, ret);
+					return -EFAULT;
+				}
+			}
+			else {
 				AOV_DEBUG_LOG(*(aov_dev->enable_aov_log_flag),
 					"%s: data buffer %p, size %d\n",
 					__func__, buf, len);
@@ -755,7 +794,20 @@ int aov_core_send_cmd(struct mtk_aov *aov_dev, uint32_t cmd,
 		spin_unlock_irqrestore(&core_info->buf_lock, flag);
 		AOV_DEBUG_LOG(*(aov_dev->enable_aov_log_flag), "aov free buffer-\n");
 		AOV_TRACE_END();
-	} else if (cmd == AOV_SCP_CMD_STOP) {
+	} else if (cmd == AOV_SCP_CMD_FRAME_MODE) {
+		// Free frame_mode_notify buffer
+		AOV_TRACE_BEGIN("AOV Free Buffer");
+		dev_info(aov_dev->dev, "%s+ update frame_mode release buffer+", __func__);
+		spin_lock_irqsave(&core_info->buf_lock, flag);
+		if (buf != NULL)
+			tlsf_free(&(core_info->alloc), buf);
+		else
+			dev_info(aov_dev->dev, "aov update frame_mode free buffer is NULL");
+		spin_unlock_irqrestore(&core_info->buf_lock, flag);
+		dev_info(aov_dev->dev, "%s+ update frame_mode release buffer-", __func__);
+		AOV_TRACE_END();
+	}
+	else if (cmd == AOV_SCP_CMD_STOP) {
 		atomic_set(&(core_info->aov_ready), 0);
 
 		// Free aov_start buffer
@@ -772,6 +824,14 @@ int aov_core_send_cmd(struct mtk_aov *aov_dev, uint32_t cmd,
 			(void)queue_pop(&(core_info->event));
 		queue_deinit(&(core_info->event));
 		queue_init(&(core_info->event));
+
+		AOV_DEBUG_LOG(*(aov_dev->enable_aov_log_flag),
+			"%s: release event wakelock when stop.\n", __func__);
+#ifdef CONFIG_PM_WAKELOCKS
+		__pm_relax(event_wake_lock);
+#else
+		wake_unlock(&event_wake_lock);
+#endif
 
 		// Reset queue to empty
 		while (!queue_empty(&(core_info->queue))) {
@@ -953,7 +1013,10 @@ static int scp_state_notify(struct notifier_block *this,
 	int ret;
 
 	if (event == SCP_EVENT_STOP) {
-		mutex_lock(&core_info->start_stop_mutex);
+		if (down_interruptible(&core_info->start_stop_sema)) {
+			dev_info(aov_dev->dev, "%s: failed to acquire semaphore\n", __func__);
+			return -EFAULT;
+		}
 		(void)aov_aee_record(aov_dev, 0, SCP_STOP);
 		(void)aov_aee_flush(aov_dev);
 
@@ -988,7 +1051,7 @@ static int scp_state_notify(struct notifier_block *this,
 			dev_info(aov_dev->dev,
 				"%s: failed to init scp session(%d): %d\n",
 				__func__, session, ret);
-				mutex_unlock(&core_info->start_stop_mutex);
+				up(&core_info->start_stop_sema);
 			return NOTIFY_DONE;
 		}
 
@@ -1013,7 +1076,7 @@ static int scp_state_notify(struct notifier_block *this,
 
 		atomic_set(&(core_info->scp_ready), 2);
 		aov_ulposc_cali(aov_dev);
-		mutex_unlock(&core_info->start_stop_mutex);
+		up(&core_info->start_stop_sema);
 	}
 
 	return NOTIFY_DONE;
@@ -1040,8 +1103,17 @@ int aov_core_init(struct mtk_aov *aov_dev)
 	atomic_set(&(core_info->cmd_seq), 0);
 	atomic_set(&(core_info->qea_ready), 0);
 	mutex_init(&core_info->sned_ipi_mutex);
-	mutex_init(&core_info->start_stop_mutex);
-	mutex_lock(&core_info->start_stop_mutex);
+	sema_init(&core_info->start_stop_sema, 1);
+	if (down_interruptible(&core_info->start_stop_sema)) {
+		dev_info(aov_dev->dev, "%s: failed to acquire semaphore\n", __func__);
+		return -EFAULT;
+	}
+
+#ifdef CONFIG_PM_WAKELOCKS
+	event_wake_lock = wakeup_source_register(aov_dev->dev, "aov_event_wakelock");
+#else
+	wake_lock_init(&event_wake_lock, WAKE_LOCK_SUSPEND, "aov_event_wakelock");
+#endif
 
 	if (curr_dev->op_mode == 0) {
 		dev_info(aov_dev->dev, "%s: bypass init operation", __func__);
@@ -1200,6 +1272,7 @@ int aov_core_copy(struct mtk_aov *aov_dev, struct aov_dqevent *dequeue)
 	if ((event->detect_mode) || (debug_mode == AOV_DEBUG_MODE_DUMP) ||
 		(debug_mode == AOV_DEBUG_MODE_NDD)) {
 		// Setup aie output size
+/*
 		put_user(event->aie_size, (uint32_t *)((uintptr_t)dequeue +
 			offsetof(struct aov_dqevent, aie_size)));
 
@@ -1260,7 +1333,7 @@ int aov_core_copy(struct mtk_aov *aov_dev, struct aov_dqevent *dequeue)
 				return -EFAULT;
 			}
 		}
-
+*/
 		// Setup apu output size
 		put_user(event->apu_size, (uint32_t *)((uintptr_t)dequeue +
 			offsetof(struct aov_dqevent, apu_size)));
@@ -1291,41 +1364,77 @@ int aov_core_copy(struct mtk_aov *aov_dev, struct aov_dqevent *dequeue)
 				return -EFAULT;
 			}
 		}
+	
 
 		power_mode = atomic_read(&(core_info->power_mode));
 		if ((debug_mode == AOV_DEBUG_MODE_DUMP) ||
 			(debug_mode == AOV_DEBUG_MODE_NDD) || (!power_mode)) {
-			// Setup yuvo1 stride
-			put_user(event->yuvo1_width, (uint32_t *)((uintptr_t)dequeue +
-				offsetof(struct aov_dqevent, yuvo1_width)));
+			if(event->yuvo1_width != 0){
+				// Setup yuvo1 stride
+				put_user(event->yuvo1_width, (uint32_t *)((uintptr_t)dequeue +
+					offsetof(struct aov_dqevent, yuvo1_width)));
 
-			put_user(event->yuvo1_height, (uint32_t *)((uintptr_t)dequeue +
-				offsetof(struct aov_dqevent, yuvo1_height)));
+				put_user(event->yuvo1_height, (uint32_t *)((uintptr_t)dequeue +
+					offsetof(struct aov_dqevent, yuvo1_height)));
 
-			put_user(event->yuvo1_format, (uint32_t *)((uintptr_t)dequeue +
-				offsetof(struct aov_dqevent, yuvo1_format)));
+				put_user(event->yuvo1_format, (uint32_t *)((uintptr_t)dequeue +
+					offsetof(struct aov_dqevent, yuvo1_format)));
 
-			put_user(event->yuvo1_stride, (uint32_t *)((uintptr_t)dequeue +
-				offsetof(struct aov_dqevent, yuvo1_stride)));
+				put_user(event->yuvo1_stride, (uint32_t *)((uintptr_t)dequeue +
+					offsetof(struct aov_dqevent, yuvo1_stride)));
 
-			// Copy yuvo1 buffer output
-			get_user(buffer, (void **)((uintptr_t)dequeue +
-				offsetof(struct aov_dqevent, yuvo1_output)));
+				// Copy yuvo1 buffer output
+				get_user(buffer, (void **)((uintptr_t)dequeue +
+					offsetof(struct aov_dqevent, yuvo1_output)));
 
-			AOV_DEBUG_LOG(*(aov_dev->enable_aov_log_flag),
-				"%s: copy yuvo1 output from(%p) to(%p) size(%d)\n",
-				__func__, ALIGN16(&(event->yuvo1_output[0])),
-				buffer, AOV_MAX_YUVO1_OUTPUT);
+				AOV_DEBUG_LOG(*(aov_dev->enable_aov_log_flag),
+					"%s: copy yuvo1 output from(%p) to(%p) size(%d)\n",
+					__func__, ALIGN16(&(event->yuvo1_output[0])),
+					buffer, AOV_MAX_YUVO1_OUTPUT);
 
-			ret = copy_to_user((void *)buffer,
-				ALIGN16(&(event->yuvo1_output[0])), AOV_MAX_YUVO1_OUTPUT);
-			if (ret) {
-				buffer_release(core_info, event);
-				dev_info(aov_dev->dev,
-					"%s: failed to copy yuvo1 output(%d)\n", __func__, ret);
-				return -EFAULT;
+				ret = copy_to_user((void *)buffer,
+					ALIGN16(&(event->yuvo1_output[0])), AOV_MAX_YUVO1_OUTPUT);
+				if (ret) {
+					buffer_release(core_info, event);
+					dev_info(aov_dev->dev,
+						"%s: failed to copy yuvo1 output(%d)\n", __func__, ret);
+					return -EFAULT;
+				}	
+
+			}else if(event->yuvo2_width != 0){
+				// Setup yuvo2 stride
+				put_user(event->yuvo2_width, (uint32_t *)((uintptr_t)dequeue +
+					offsetof(struct aov_dqevent, yuvo2_width)));
+
+				put_user(event->yuvo2_height, (uint32_t *)((uintptr_t)dequeue +
+					offsetof(struct aov_dqevent, yuvo2_height)));
+
+				put_user(event->yuvo2_format, (uint32_t *)((uintptr_t)dequeue +
+					offsetof(struct aov_dqevent, yuvo2_format)));
+
+				put_user(event->yuvo2_stride, (uint32_t *)((uintptr_t)dequeue +
+					offsetof(struct aov_dqevent, yuvo2_stride)));
+
+				// Copy yuvo2 buffer output
+				get_user(buffer, (void **)((uintptr_t)dequeue +
+					offsetof(struct aov_dqevent, yuvo2_output)));
+
+				AOV_DEBUG_LOG(*(aov_dev->enable_aov_log_flag),
+					"%s: copy yuvo1 output from(%p) to(%p) size(%d)\n",
+					__func__, ALIGN16(&(event->yuvo2_output[0])),
+					buffer, AOV_MAX_YUVO2_OUTPUT);
+
+				ret = copy_to_user((void *)buffer,
+					ALIGN16(&(event->yuvo2_output[0])), AOV_MAX_YUVO2_OUTPUT);
+				if (ret) {
+					buffer_release(core_info, event);
+					dev_info(aov_dev->dev,
+						"%s: failed to copy yuvo2 output(%d)\n", __func__, ret);
+					return -EFAULT;
+				}
 			}
 
+/*
 			// Setup yuvo2 stride
 			put_user(event->yuvo2_width, (uint32_t *)((uintptr_t)dequeue +
 				offsetof(struct aov_dqevent, yuvo2_width)));
@@ -1356,9 +1465,11 @@ int aov_core_copy(struct mtk_aov *aov_dev, struct aov_dqevent *dequeue)
 					"%s: failed to copy yuvo2 output(%d)\n", __func__, ret);
 				return -EFAULT;
 			}
+*/			
+			
 		}
 	}
-
+/*
 	if (debug_mode == AOV_DEBUG_MODE_NDD) {
 		struct ndd_event *ndd_data = (struct ndd_event *)event;
 
@@ -1520,7 +1631,7 @@ int aov_core_copy(struct mtk_aov *aov_dev, struct aov_dqevent *dequeue)
 			}
 		}
 	}
-
+*/
 	buffer_release(core_info, event);
 
 	AOV_DEBUG_LOG(*(aov_dev->enable_aov_log_flag), "%s: copy aov event-\n", __func__);
@@ -1557,6 +1668,15 @@ int aov_core_poll(struct mtk_aov *aov_dev, struct file *file,
 	}
 	if (event != NULL) {
 		ret = copy_event_data(aov_dev, event);
+
+		AOV_DEBUG_LOG(*(aov_dev->enable_aov_log_flag),
+			"%s: hold event wakelock after copy_event_data.\n", __func__);
+#ifdef CONFIG_PM_WAKELOCKS
+		__pm_stay_awake(event_wake_lock);
+#else
+		wake_lock(&event_wake_lock);
+#endif
+
 		if (ret >= 0)
 			return POLLPRI;
 	}
@@ -1577,9 +1697,26 @@ int aov_core_poll(struct mtk_aov *aov_dev, struct file *file,
 	}
 	if (event != NULL) {
 		ret = copy_event_data(aov_dev, event);
+
+		AOV_DEBUG_LOG(*(aov_dev->enable_aov_log_flag),
+			"%s: hold event wakelock after copy_event_data.\n", __func__);
+#ifdef CONFIG_PM_WAKELOCKS
+		__pm_stay_awake(event_wake_lock);
+#else
+		wake_lock(&event_wake_lock);
+#endif
+
 		if (ret >= 0)
 			return POLLPRI;
 	}
+
+	AOV_DEBUG_LOG(*(aov_dev->enable_aov_log_flag),
+		"%s: release event wakelock when no event data.\n", __func__);
+#ifdef CONFIG_PM_WAKELOCKS
+	__pm_relax(event_wake_lock);
+#else
+	wake_unlock(&event_wake_lock);
+#endif
 
 	AOV_DEBUG_LOG(*(aov_dev->enable_aov_log_flag), "%s: poll start-: 0\n", __func__);
 
@@ -1599,7 +1736,10 @@ int aov_core_reset(struct mtk_aov *aov_dev)
 	}
 
 	if (atomic_read(&(core_info->aov_ready))) {
-		mutex_lock(&core_info->start_stop_mutex);
+		if (down_interruptible(&core_info->start_stop_sema)) {
+			dev_info(aov_dev->dev, "%s: failed to acquire semaphore\n", __func__);
+			return -EFAULT;
+		}
 #if AOV_SLB_ALLOC_FREE
 		struct slbc_data slb;
 #endif  // AOV_SLB_ALLOC_FREE
@@ -1669,7 +1809,7 @@ int aov_core_reset(struct mtk_aov *aov_dev)
 		atomic_set(&(core_info->aov_ready), 0);
 
 		ret = 1;
-		mutex_unlock(&core_info->start_stop_mutex);
+		up(&core_info->start_stop_sema);
 	}
 
 	return ret;
@@ -1680,7 +1820,6 @@ int aov_core_uninit(struct mtk_aov *aov_dev)
 	struct aov_core *core_info = &aov_dev->core_info;
 
 	//devm_kfree(aov_dev->dev, core_info->event_data);
-	mutex_destroy(&core_info->start_stop_mutex);
 	mutex_destroy(&core_info->sned_ipi_mutex);
 
 	if (aov_dev->op_mode == 0) {

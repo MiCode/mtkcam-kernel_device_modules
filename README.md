@@ -7,3 +7,4 @@
 | lapis-v-oss | REDMI Note 15 Pro | Android V | bsp-t-alps-release-u0.mp1.tc8sp3-V1 |[lapis-v-oss](https://github.com/MiCode/mtkcam-kernel_device_modules/tree/lapis-v-oss) |
 | dash-w-oss | REDMI Turbo 5 Max | Android W | t-alps-release-v0.mp1.rc-V13.94 |[dash-w-oss](https://github.com/MiCode/mtkcam-kernel_device_modules/tree/dash-w-oss) |
 | flare-w-oss | Redmi Pad SE 8.7 | Android W | t-alps-release-v0.mp1.tc8sp3-V1.121 |[flare-w-oss](https://github.com/MiCode/mtkcam-kernel_device_modules/tree/flare-w-oss) |
+| spark-w-oss | Redmi Pad SE 4G / Redmi Pad SE 8.7 4G | Android W | t-alps-release-v0.mp1.tc8sp3-V1.121 |[spark-w-oss](https://github.com/MiCode/mtkcam-kernel_device_modules/tree/spark-w-oss) |

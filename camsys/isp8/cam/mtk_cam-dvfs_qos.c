@@ -243,7 +243,9 @@ static int find_max_oppidx(struct mtk_camsys_dvfs *dvfs,
 	int i;
 
 	for (i = 0; i < dvfs->max_stream_num; i++)
-		max_opp = max(max_opp, dvfs->stream_infos[i].opp_idx);
+		max_opp = max3(max_opp,
+			dvfs->stream_infos[i].opp_idx,
+			dvfs->stream_infos[i].switching_opp_idx);
 
 	if (!is_switching)
 		return max_opp;
@@ -775,10 +777,8 @@ static int fill_sv_qos(struct mtk_cam_job *job,
 						linet, img_h + sensor_vb);
 			}
 			/* camsv stash fixed at 5ostdl = 5mb */
-			if (is_smmu_enabled) {
-				if (avg_bw || peak_bw)
-					stash_peak_bw = stash_avg_bw = to_qos_icc(2097152);
-			}
+			if (avg_bw || peak_bw)
+				stash_peak_bw = stash_avg_bw = to_qos_icc(4194304);
 
 		} else {
 			avg_bw =
@@ -787,7 +787,7 @@ static int fill_sv_qos(struct mtk_cam_job *job,
 				calc_bw(x_size * img_h, linet, sensor_h);
 			/* camsv stash fixed at 5ostdl = 5mb */
 			if (avg_bw || peak_bw)
-				stash_peak_bw = stash_avg_bw = to_qos_icc(2097152);
+				stash_peak_bw = stash_avg_bw = to_qos_icc(4194304);
 		}
 
 		if (is_two_smi_out) {
@@ -1198,11 +1198,11 @@ static void apply_adl_qos(struct mtk_cam_job *job)
 
 		is_w_port = is_w_merge_port(i, RAW_DOMAIN);
 		a_bw = job->raw_mmqos[i].avg_bw;
-		p_bw = job->raw_w_mmqos[i].peak_bw;
-		avg_bw_r += is_w_port ? p_bw : 0;
+		p_bw = job->raw_mmqos[i].peak_bw;
+		avg_bw_r += is_w_port ? 0 : a_bw;
 		avg_bw_w += is_w_port ? a_bw : 0;
 		peak_bw_r += is_w_port ? 0 : p_bw;
-		peak_bw_w += is_w_port ? 0 : a_bw;
+		peak_bw_w += is_w_port ? p_bw : 0;
 		a_bw_ttl += a_bw;
 		p_bw_ttl += p_bw;
 
@@ -1212,7 +1212,7 @@ static void apply_adl_qos(struct mtk_cam_job *job)
 		if (apply) {
 			mtk_icc_set_bw(raw_dev->qos.cam_path[i].path, a_bw, p_bw);
 
-			mtk_cam_bwr_set_chn_bw(cam->bwr, ENGINE_CAM_MAIN, SYS_PORT,
+			mtk_cam_bwr_set_chn_bw(cam->bwr, ENGINE_CAM_MAIN, MDP0_PORT,
 				KBps_to_bwr(avg_bw_r), KBps_to_bwr(avg_bw_w),
 				KBps_to_bwr(peak_bw_r), KBps_to_bwr(peak_bw_w), true);
 
@@ -1312,9 +1312,11 @@ static void apply_sv_qos(struct mtk_cam_job *job)
 			fifo_len_p1 = fifo_img_p1 / 80;
 			fifo_len_p2 = fifo_img_p2 / 80;
 			avg_linet = ctx->act_line_info.avg_linetime_in_ns ? : get_line_time(job);
-			leading_line_cnt = (avg_linet && avg_linet < 12500) ? 12500 / avg_linet : 1;
-			if (leading_line_cnt > 8)
+			leading_line_cnt = (avg_linet && avg_linet < 20000) ? 20000 / avg_linet : 1;
+			if (leading_line_cnt > 8) {
 				pr_info("%s: unexpected leading_line_cnt:%d", __func__, leading_line_cnt);
+				leading_line_cnt = 8;
+			}
 			mtk_cam_sv_dmao_common_config(sv_dev, fifo_img_p1, fifo_img_p2, fifo_len_p1, fifo_len_p2,
 				(leading_line_cnt - 1) & 0x7, sv_dev->enable_stash_eco_fun);
 

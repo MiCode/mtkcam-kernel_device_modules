@@ -795,13 +795,12 @@ int mtk_cam_sv_stop_fifo_detection(struct mtk_camsv_device *sv_dev)
 	return ret;
 }
 
-#ifdef QOF_CCU_READY
 int mtk_cam_hsf_qof_config(struct mtk_raw_device *raw,
 						   bool on_lock, bool off_lock, bool out_lock)
 {
-	struct qof_config config;
 	int ret = 0;
-
+#ifdef QOF_CCU_READY
+	struct qof_config config;
 	struct mtk_cam_device *cam = raw->cam;
 
 	config.raw_id = raw->id;
@@ -830,6 +829,8 @@ int mtk_cam_hsf_qof_config(struct mtk_raw_device *raw,
 
 FAILED:
 	mtk_cam_power_ctrl_ccu(cam->dev, 0);
+#endif
+
 	return ret;
 }
-#endif
+

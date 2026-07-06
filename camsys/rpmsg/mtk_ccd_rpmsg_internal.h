@@ -11,13 +11,14 @@
 #include <linux/rpmsg.h>
 #include <linux/idr.h>
 
+
 #define MTK_CCD_MSGDEV_ADDR (0x3f0)
 
 struct ccd_worker_item;
 struct mtk_ccd_channel_info;
 
 enum ccd_mept_state {
-	CCD_MENDPOINT_CREATED = 0,
+	CCD_MENDPOINT_CREATED = 1,
 	CCD_MENDPOINT_DESTROY
 };
 

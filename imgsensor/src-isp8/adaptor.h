@@ -25,6 +25,10 @@
 /* frame-sync */
 #include "frame_sync.h"
 
+#ifdef __XIAOMI_CAMERA__
+#include <linux/workqueue.h>
+#endif
+
 #define to_ctx(__sd) container_of(__sd, struct adaptor_ctx, sd)
 
 #define adaptor_logd(_ctx, format, args...) do { \
@@ -248,6 +252,19 @@ struct adaptor_ctx {
 	struct mtk_ebd_dump_record latest_ebd;
 	/* 1SOF timing prediction */
 	struct mtk_1sof_vsync_ts_info streamon_1sof_vsync_ts_info;
-};
 
+#ifdef __XIAOMI_CAMERA__
+	struct work_struct poweroff_work;
+	bool poweroff_skipped;
+	bool during_poweron;
+	struct wait_queue_head poweroff_wq;
+	u32 poweroff_timeout_ms;
+	struct work_struct ctrl_work;
+	struct work_struct init_work;
+	bool esd_debug_enable;
+#endif
+};
+#ifdef __XIAOMI_CAMERA__
+extern bool parallel_setting_enable;
+#endif
 #endif

@@ -52,17 +52,21 @@ static int mraw_process_fsm(struct mtk_mraw_device *mraw_dev,
 			    int *recovered_done)
 {
 	struct engine_fsm *fsm = &mraw_dev->fsm;
-	int done_type;
+	int sof_type, done_type;
 	int cookie_done;
 	int ret;
-	int recovered = 0;
+	int recovered = 0, postponed = 0;
 
+	sof_type = irq_info->irq_type & BIT(CAMSYS_IRQ_FRAME_START);
 	done_type = irq_info->irq_type & BIT(CAMSYS_IRQ_FRAME_DONE);
+
 	if (done_type) {
 
 		ret = engine_fsm_hw_done(fsm, &cookie_done);
 		if (ret > 0)
 			irq_info->cookie_done = cookie_done;
+		else if (sof_type && (irq_info->fbc_empty == 0))
+			postponed = 1;
 		else {
 			/* handle for fake p1 done */
 			dev_info_ratelimited(mraw_dev->dev, "warn: fake done in/out: 0x%x 0x%x\n",
@@ -73,11 +77,18 @@ static int mraw_process_fsm(struct mtk_mraw_device *mraw_dev,
 		}
 	}
 
-	if (irq_info->irq_type & BIT(CAMSYS_IRQ_FRAME_START))
+	if (sof_type)
 		recovered = engine_fsm_sof(fsm, irq_info->frame_idx_inner,
 					   irq_info->frame_idx,
 					   irq_info->fbc_empty,
 					   recovered_done);
+
+	if (postponed) {
+		irq_info->cookie_done = engine_update_for_done(fsm);
+		dev_info(mraw_dev->dev, "postponed sof in/out: 0x%x 0x%x\n",
+			 irq_info->frame_idx_inner,
+			 irq_info->frame_idx);
+	}
 
 	if (recovered)
 		dev_info(mraw_dev->dev, "recovered done 0x%x in/out: 0x%x 0x%x\n",
@@ -91,6 +102,9 @@ static int mraw_process_fsm(struct mtk_mraw_device *mraw_dev,
 int mtk_mraw_translation_fault_callback(int port, dma_addr_t mva, void *data)
 {
 	struct mtk_mraw_device *mraw_dev = (struct mtk_mraw_device *)data;
+	unsigned int frame_idx_inner;
+
+	frame_idx_inner = readl_relaxed(mraw_dev->base_inner + REG_MRAW_FRAME_SEQ_NUM);
 
 	dev_info_ratelimited(mraw_dev->dev, "seq_no:%d_%d tg_sen_mode:0x%x tg_vf_con:0x%x tg_path_cfg:0x%x tg_grab_pxl:0x%x tg_grab_lin:0x%x\n",
 		readl_relaxed(mraw_dev->base_inner + REG_MRAW_FRAME_SEQ_NUM),
@@ -136,6 +150,9 @@ int mtk_mraw_translation_fault_callback(int port, dma_addr_t mva, void *data)
 		readl_relaxed(mraw_dev->base_inner + REG_MRAW_CPIO_BASE_ADDR),
 		readl_relaxed(mraw_dev->base_inner + REG_MRAW_CPIO_OFST_ADDR_MSB),
 		readl_relaxed(mraw_dev->base_inner + REG_MRAW_CPIO_OFST_ADDR));
+
+	mtk_cam_ctrl_dump_request(mraw_dev->cam, CAMSYS_ENGINE_MRAW, mraw_dev->id,
+		frame_idx_inner, MSG_M4U_TF);
 
 	return 0;
 }
@@ -609,7 +626,7 @@ void mtk_cam_mraw_get_dbg_size(struct mtk_cam_device *cam, unsigned int pipe_id,
 	}
 }
 
-static int reset_msgfifo(struct mtk_mraw_device *mraw_dev)
+int mtk_cam_mraw_reset_msgfifo(struct mtk_mraw_device *mraw_dev)
 {
 	atomic_set(&mraw_dev->is_fifo_overflow, 0);
 	return kfifo_init(&mraw_dev->msg_fifo, mraw_dev->msg_buffer, mraw_dev->fifo_size);
@@ -1366,9 +1383,16 @@ void mraw_handle_error(struct mtk_mraw_device *mraw_dev,
 	mtk_cam_mraw_debug_dump(mraw_dev);
 
 	/* dump seninf debug data */
-	if (ctx && ctx->seninf)
-		mtk_cam_seninf_dump_current_status(ctx->seninf);
-
+	if (ctx && ctx->seninf) {
+		ctx->is_sv_mraw_error = 1;
+		mraw_dev->mraw_error_count += 1;
+		if (mraw_dev->mraw_error_count >= 2 && !ctx->is_seninf_error_trigger)
+			ctx->is_seninf_error_trigger = mtk_cam_seninf_dump_current_status(ctx->seninf,
+				true);
+		else
+			ctx->is_seninf_error_trigger = mtk_cam_seninf_dump_current_status(ctx->seninf,
+				false);
+	}
 	dev_info_ratelimited(mraw_dev->dev, "fbc empty or not:%d\n",
 		(data->fbc_empty) ? 1 : 0);
 }
@@ -1406,8 +1430,8 @@ static irqreturn_t mtk_irq_mraw(int irq, void *data)
 	imgo_overr_status = irq_status5 & MRAWCTL_IMGO_M1_OTF_OVERFLOW_ST;
 	imgbo_overr_status = irq_status5 & MRAWCTL_IMGBO_M1_OTF_OVERFLOW_ST;
 	cpio_overr_status = irq_status5 & MRAWCTL_CPIO_M1_OTF_OVERFLOW_ST;
-
-	dev_dbg(dev,
+	if (CAM_DEBUG_ENABLED(RAW_INT))
+		dev_info(dev,
 		"%i status:0x%x_%x(err:0x%x)/0x%x dma_err:0x%x seq_num:%d/%d\n",
 		mraw_dev->id, irq_status, irq_status2, err_status, irq_status6, dma_err_status,
 		dequeued_imgo_seq_no_inner, dequeued_imgo_seq_no);
@@ -1452,6 +1476,7 @@ static irqreturn_t mtk_irq_mraw(int irq, void *data)
 			readl_relaxed(mraw_dev->base + REG_MRAW_TG_HW_DDR_GEN_PLUS_CNT),
 			readl_relaxed(mraw_dev->base + REG_MRAW_CTL_DDREN_CTL),
 			readl_relaxed(mraw_dev->base + REG_MRAW_CTL_DDREN_ST));
+		mraw_dev->mraw_error_count = 0;
 	}
 	/* Frame start */
 	if (irq_status & MRAWCTL_SOF_INT_ST) {
@@ -1519,6 +1544,13 @@ static irqreturn_t mtk_thread_irq_mraw(int irq, void *data)
 		int len = kfifo_out(&mraw_dev->msg_fifo, &irq_info, sizeof(irq_info));
 
 		WARN_ON(len != sizeof(irq_info));
+		if (CAM_DEBUG_ENABLED(CTRL))
+			dev_info(mraw_dev->dev, "ts=%llu irq_type %d, req:0x%x/0x%x, tg_cnt:%d\n",
+					irq_info.ts_ns / 1000,
+					irq_info.irq_type,
+					irq_info.frame_idx_inner,
+					irq_info.frame_idx,
+					irq_info.tg_cnt);
 
 		/* error case */
 		if (unlikely(irq_info.irq_type == (1 << CAMSYS_IRQ_ERROR))) {
@@ -1550,8 +1582,6 @@ static irqreturn_t mtk_thread_irq_mraw(int irq, void *data)
 
 static int mtk_mraw_pm_suspend(struct device *dev)
 {
-	struct mtk_mraw_device *mraw_dev = dev_get_drvdata(dev);
-	u32 val;
 	int ret;
 
 	dev_info_ratelimited(dev, "- %s\n", __func__);
@@ -1559,32 +1589,13 @@ static int mtk_mraw_pm_suspend(struct device *dev)
 	if (pm_runtime_suspended(dev))
 		return 0;
 
-	/* Disable ISP's view finder and wait for TG idle */
-	dev_info_ratelimited(dev, "mraw suspend, disable VF\n");
-	val = readl(mraw_dev->base + REG_MRAW_TG_VF_CON);
-	writel(val & (~MRAWTG_VFDATA_EN),
-		mraw_dev->base + REG_MRAW_TG_VF_CON);
-	ret = readl_poll_timeout_atomic(
-					mraw_dev->base + REG_MRAW_TG_INTER_ST, val,
-					(val & MRAWTG_CS_MASK) == MRAWTG_IDLE_ST,
-					USEC_PER_MSEC, MTK_MRAW_STOP_HW_TIMEOUT);
-	if (ret)
-		dev_dbg(dev, "can't stop HW:%d:0x%x\n", ret, val);
-
-	/* Disable CMOS */
-	val = readl(mraw_dev->base + REG_MRAW_TG_SEN_MODE);
-	writel(val & (~MRAWTG_CMOS_EN),
-		mraw_dev->base + REG_MRAW_TG_SEN_MODE);
-
 	/* Force ISP HW to idle */
-	ret = pm_runtime_put_sync(dev);
+	ret = pm_runtime_force_suspend(dev);
 	return ret;
 }
 
 static int mtk_mraw_pm_resume(struct device *dev)
 {
-	struct mtk_mraw_device *mraw_dev = dev_get_drvdata(dev);
-	u32 val;
 	int ret;
 
 	dev_info_ratelimited(dev, "- %s\n", __func__);
@@ -1593,21 +1604,9 @@ static int mtk_mraw_pm_resume(struct device *dev)
 		return 0;
 
 	/* Force ISP HW to resume */
-	ret = pm_runtime_get_sync(dev);
+	ret = pm_runtime_force_resume(dev);
 	if (ret)
 		return ret;
-
-	/* Enable CMOS */
-	dev_info_ratelimited(dev, "mraw resume, enable CMOS/VF\n");
-	val = readl(mraw_dev->base + REG_MRAW_TG_SEN_MODE);
-	writel(val | MRAWTG_CMOS_EN,
-		mraw_dev->base + REG_MRAW_TG_SEN_MODE);
-
-	/* Enable VF */
-	val = readl(mraw_dev->base + REG_MRAW_TG_VF_CON);
-	writel(val | MRAWTG_VFDATA_EN,
-		mraw_dev->base + REG_MRAW_TG_VF_CON);
-
 	return 0;
 }
 
@@ -1911,11 +1910,11 @@ int mtk_mraw_runtime_resume(struct device *dev)
 	int i, ret;
 
 	/* reset_msgfifo before enable_irq */
-	ret = reset_msgfifo(mraw_dev);
+	ret = mtk_cam_mraw_reset_msgfifo(mraw_dev);
 	if (ret)
 		return ret;
 
-	dev_dbg(dev, "%s:enable clock\n", __func__);
+	dev_info_ratelimited(dev, "%s:enable clock\n", __func__);
 	for (i = 0; i < mraw_dev->num_clks; i++) {
 		ret = clk_prepare_enable(mraw_dev->clks[i]);
 		if (ret) {

@@ -13,6 +13,10 @@
 #define MAX_VAL_NUM_U8 (MAX_BUF_SIZE - 2)
 #define MAX_VAL_NUM_U16 ((MAX_BUF_SIZE - 2) >> 1)
 
+#ifdef __XIAOMI_CAMERA__
+extern bool mi_i2c_dump;
+#endif
+
 struct cache_wr_regs_u8 {
 	u8 buf[MAX_BUF_SIZE];
 	struct i2c_msg msg[MAX_MSG_NUM_U8];
@@ -208,6 +212,10 @@ int adaptor_i2c_wr_u8(struct i2c_client *i2c_client,
 	msg.flags = i2c_client->flags;
 	msg.buf = buf;
 	msg.len = sizeof(buf);
+#ifdef __XIAOMI_CAMERA__
+	if(unlikely(mi_i2c_dump))
+		dev_info(&i2c_client->dev, "[%s] [addr] = 0x%02x,[reg] = 0x%04x,[val] = 0x%02x", __func__, addr, reg, val);
+#endif
 
 	ret = i2c_transfer(i2c_client->adapter, &msg, 1);
 	if (ret < 0)
@@ -235,6 +243,11 @@ int adaptor_i2c_wr_u16(struct i2c_client *i2c_client,
 	msg.flags = i2c_client->flags;
 	msg.buf = buf;
 	msg.len = sizeof(buf);
+
+#ifdef __XIAOMI_CAMERA__
+	if(unlikely(mi_i2c_dump))
+		dev_info(&i2c_client->dev, "[%s] [addr] = 0x%04x,[reg] = 0x%04x,[val] = 0x%04x", __func__, addr, reg, val);
+#endif
 
 	ret = i2c_transfer(i2c_client->adapter, &msg, 1);
 	if (ret < 0)
@@ -452,6 +465,10 @@ int adaptor_i2c_wr_regs_u8(struct i2c_client *i2c_client,
 			pmsg->flags = i2c_client->flags;
 			pmsg->len = 3;
 			pmsg->buf = pbuf;
+#ifdef __XIAOMI_CAMERA__
+			if(unlikely(mi_i2c_dump))
+				dev_info(&i2c_client->dev, "[%s] [addr] = 0x%02x,[reg] = 0x%04x,[val] = 0x%02x", __func__, addr, plist[0], plist[1]);
+#endif
 
 			plist += 2;
 			pbuf += 3;
@@ -515,6 +532,11 @@ int adaptor_i2c_wr_regs_u16(struct i2c_client *i2c_client,
 			pmsg->flags = i2c_client->flags;
 			pmsg->len = 4;
 			pmsg->buf = pbuf;
+
+#ifdef __XIAOMI_CAMERA__
+			if(unlikely(mi_i2c_dump))
+				dev_info(&i2c_client->dev, "[%s] [addr] = 0x%02x,[reg] = 0x%04x,[val] = 0x%04x", __func__, addr, plist[0], plist[1]);
+#endif
 
 			plist += 2;
 			pbuf += 4;
@@ -685,6 +707,11 @@ int adaptor_ixc_wr_u8(struct i3c_i2c_device *client,
 	buf[0] = reg >> 8;
 	buf[1] = reg & 0xff;
 	buf[2] = val;
+
+#ifdef __XIAOMI_CAMERA__
+    if(unlikely(mi_i2c_dump))
+            dev_info(dev, "[%s] [addr] = 0x%02x,[reg] = 0x%04x,[val] = 0x%02x", __func__, addr, reg, val);
+#endif
 
 	msg.flags = 0;
 	msg.buf = buf;
@@ -946,6 +973,11 @@ int adaptor_ixc_wr_regs_u8(struct i3c_i2c_device *client,
 			pmsg->len = 3;
 			pmsg->buf = pbuf;
 
+#ifdef __XIAOMI_CAMERA__
+            if(unlikely(mi_i2c_dump))
+                dev_info(dev, "[%s] [addr] = 0x%02x,[reg] = 0x%04x,[val] = 0x%02x", __func__, addr, plist[0], plist[1]);
+#endif
+
 			plist += 2;
 			pbuf += 3;
 			pmsg++;
@@ -1030,3 +1062,61 @@ int adaptor_ixc_wr_regs_u16(struct i3c_i2c_device *client,
 
 	return 0;
 }
+
+#ifdef __XIAOMI_CAMERA__
+int adaptor_i2c_rd_u8_u8(struct i2c_client *i2c_client,
+		u16 addr, u16 reg, u8 *val)
+{
+	int ret;
+	u8 buf[1];
+	struct i2c_msg msg[2];
+
+	buf[0] = reg & 0xff;
+
+	msg[0].addr = addr;
+	msg[0].flags = i2c_client->flags;
+	msg[0].buf = buf;
+	msg[0].len = sizeof(buf);
+
+	msg[1].addr = addr;
+	msg[1].flags = i2c_client->flags | I2C_M_RD;
+	msg[1].buf = buf;
+	msg[1].len = 1;
+
+	ret = i2c_transfer(i2c_client->adapter, msg, 2);
+	if (ret < 0) {
+		dev_info(&i2c_client->dev, "i2c transfer failed (%d)\n", ret);
+		return ret;
+	}
+
+	*val = buf[0];
+
+	return 0;
+}
+
+int adaptor_i2c_wr_u8_u8(struct i2c_client *i2c_client,
+		u16 addr, u16 reg, u8 val)
+{
+	int ret;
+	u8 buf[2];
+	struct i2c_msg msg;
+
+	buf[0] = reg & 0xff;
+	buf[1] = val;
+
+	msg.addr = addr;
+	msg.flags = i2c_client->flags;
+	msg.buf = buf;
+	msg.len = sizeof(buf);
+
+	ret = i2c_transfer(i2c_client->adapter, &msg, 1);
+#ifdef __XIAOMI_CAMERA__
+	if(unlikely(mi_i2c_dump))
+		dev_info(&i2c_client->dev, "[%s] [addr] = 0x%02x,[reg] = 0x%04x,[val] = 0x%02x", __func__, addr ,reg, val);
+#endif
+	if (ret < 0)
+		dev_err(&i2c_client->dev, "i2c transfer failed (%d)\n", ret);
+
+	return ret;
+}
+#endif

@@ -31,8 +31,8 @@ enum seninf_sentest_ctrl_id {
 	/* GET CTRL */
 	SENINF_SENTEST_G_CTRL_ID_MIN,
 	SENINF_SENTEST_G_DEBUG_RESULT = SENINF_SENTEST_G_CTRL_ID_MIN,
-	SENINF_SENTEST_G_MIPI_RESULT,
 	SENINF_SENTEST_G_SEAMLESS_STATUS,
+	SENINF_SENTEST_G_SENSOR_METER_INFO_BY_LINE,
 	SENINF_SENTEST_G_CTRL_ID_MAX,
 
 	/* SET CTRL */
@@ -42,6 +42,27 @@ enum seninf_sentest_ctrl_id {
 	SENINF_SENTEST_S_SEAMLESS_UT_EN,
 	SENINF_SENTEST_S_SEAMLESS_UT_CONFIG,
 	SENINF_SENTEST_S_CTRL_ID_MAX,
+};
+
+enum CSIMAC_MEASURE {
+	CSIMAC_MEASURE_0,
+	CSIMAC_MEASURE_1,
+	CSIMAC_MEASURE_MAX_NUM
+};
+
+struct mipi_measure_meter {
+	__u32 measure_line;
+	__u32 measure_HV_cnt;
+	__u32 measure_HB_cnt;
+};
+
+struct mtk_cam_seninf_meter_info {
+	struct mipi_measure_meter probes[CSIMAC_MEASURE_MAX_NUM];
+	__u32 valid_measure_line;
+	__u32 target_vc;
+	__u32 target_dt;
+	__u32 measure_VV_cnt;
+	__u32 measure_VB_cnt;
 };
 
 struct mtk_seninf_sentest_ctrl {

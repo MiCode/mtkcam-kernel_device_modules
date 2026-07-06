@@ -29,12 +29,12 @@ ccflags-y += -I$(DEVICE_MODULES_PATH)/drivers/misc/mediatek/mtk-interconnect/
 ccflags-y += -I$(DEVICE_MODULES_PATH)/drivers/misc/mediatek/cmdq/mailbox/
 ccflags-y += -I$(DEVICE_MODULES_PATH)/drivers/dma-buf/heaps/
 ccflags-y += -I$(DEVICE_MODULES_PATH)/drivers/media/platform/mtk-videobuf/
-ccflags-y += -I$(srctree)/$(src)/../include/
+ccflags-y += -I$(KO_CODE_PATH)/../include/
 ccflags-y += -I$(DEVICE_MODULES_PATH)/drivers/iommu
 ccflags-y += -I$(DEVICE_MODULES_PATH)/drivers/misc/mediatek/iommu
 ccflags-y += -I$(DEVICE_MODULES_PATH)/drivers/misc/mediatek/slbc
 ccflags-y += -I$(DEVICE_MODULES_PATH)/include/
-ccflags-y += -I$(srctree)/$(src)/
+ccflags-y += -I$(KO_CODE_PATH)/
 
 $(MAE_MODULE)-objs := \
 mtk-mae.o

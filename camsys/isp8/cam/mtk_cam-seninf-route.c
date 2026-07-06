@@ -531,9 +531,8 @@ int mtk_cam_seninf_get_csi_param(struct seninf_ctx *ctx)
 	ctrl->p_new.p = csi_param;
 
 	ret = get_ctrl(ctrl);
-	dev_info(ctx->dev,
-		"%s get_ctrl ret:%d %d|%d|%d|%d|%d|%d|%d|%d|%d dphy_init_deskew_en:%d, cphy_lrte_en:%d\n",
-		__func__,
+	seninf_logi(ctx,
+		"get_ctrl ret:%d %d|%d|%d|%d|%d|%d|%d|%d|%d dphy_init_deskew_en:%d, cphy_lrte_en:%d\n",
 		ret, csi_param->cphy_settle,
 		csi_param->dphy_clk_settle,
 		csi_param->dphy_data_settle,
@@ -859,38 +858,89 @@ int mtk_cam_seninf_get_vcinfo(struct seninf_ctx *ctx)
 		if (mtk_cam_seninf_fill_outpad_to_vc(ctx, vc, desc, &fsync_ext_vsync_pad_code))
 			continue;
 
-		vc->exp_hsize = fd.entry[i].bus.csi2.hsize;
+		switch (vc->dt) {
+		/* Generic Long 0x10~0x17 */
+		case 0x10:
+		case 0x11:
+		case 0x12:
+		case 0x13:
+		case 0x14:
+		case 0x15:
+		case 0x16:
+		case 0x17:
+			vc->exp_hsize = conv_ebd_hsize_raw14(fd.entry[i].bus.csi2.hsize,
+						fd.entry[i].bus.csi2.ebd_parsing_type);
+			break;
+		/* YUV 0x18~0x1F */
+		case 0x1E:
+		case 0x1F:
+			vc->exp_hsize = fd.entry[i].bus.csi2.hsize * 2; /* YUV422 */
+			break;
+		/* RGB 0x20~0x27 */
+		case 0x24:
+			vc->exp_hsize = fd.entry[i].bus.csi2.hsize * 3; /* RGB888 */
+			break;
+		/* RAW 0x28~0x2F */
+		case 0x2A:
+		case 0x2B:
+		case 0x2C:
+		case 0x2D:
+		case 0x2E:
+		case 0x2F:
+		case 0x27:
+		default:
+			vc->exp_hsize = fd.entry[i].bus.csi2.hsize;
+			break;
+		}
+
+#ifdef DOUBLE_PIXEL_EN
+		/* double pixel mode */
+		switch (vc->dt) {
+		/* ExtDT */
+		case 0x18:
+		case 0x1A:
+		case 0x1C:
+		case 0x1E:
+		case 0x20:
+		case 0x21:
+		case 0x22:
+		case 0x23:
+		case 0x24:
+		case 0x25:
+		case 0x26:
+		case 0x28:
+		case 0x29:
+			if (!strcasecmp(_seninf_ops->iomem_ver, MT6899_IOMOM_VERSIONS))
+				vc->exp_hsize = vc->exp_hsize / 2;
+			break;
+		/* Raw8 */
+		case 0x2A:
+			vc->exp_hsize = vc->exp_hsize / 2;
+			break;
+		default:
+			break;
+		}
+#endif
+
 		vc->exp_vsize = fd.entry[i].bus.csi2.vsize;
 
-		/*YUV422 FMT*/
-		if (vc->dt == 0x1e) {
-			vc->exp_hsize = vc->exp_hsize * 2;
-		}
-
-		if (vc->dt >= 0x10 && vc->dt <= 0x17) {
-			vc->exp_hsize = conv_ebd_hsize_raw14(vc->exp_hsize,
-						fd.entry[i].bus.csi2.ebd_parsing_type);
-		}
-		if (vc->dt == 0x24)
-			vc->exp_hsize = fd.entry[i].bus.csi2.hsize * 3;
-
 		switch (vc->dt) {
-		case 0x28:
-			vc->bit_depth = 6;
+		/* YUV 0x18~0x1F */
+		case 0x1E:
+			vc->bit_depth = 8;
 			break;
-		case 0x29:
-			vc->bit_depth = 7;
+		case 0x1F:
+			vc->bit_depth = 10;
 			break;
+		/* RGB 0x20~0x27 */
+		case 0x24:
+			vc->bit_depth = 8;
+			break;
+		/* RAW 0x28~0x2F */
 		case 0x2A:
-		case 0x1C:
-		case 0x1A:
-		case 0x18:
 			vc->bit_depth = 8;
 			break;
 		case 0x2B:
-		case 0x1F:
-		case 0x19:
-		case 0x1D:
 			vc->bit_depth = 10;
 			break;
 		case 0x2C:
@@ -899,15 +949,11 @@ int mtk_cam_seninf_get_vcinfo(struct seninf_ctx *ctx)
 		case 0x2D:
 			vc->bit_depth = 14;
 			break;
-		case 0x1E:
 		case 0x2E:
 			vc->bit_depth = 16;
 			break;
 		case 0x2F:
 			vc->bit_depth = 20;
-			break;
-		case 0x24:
-			vc->bit_depth = 24;
 			break;
 		case 0x27:
 			vc->bit_depth = 24;
@@ -917,6 +963,7 @@ int mtk_cam_seninf_get_vcinfo(struct seninf_ctx *ctx)
 			break;
 		}
 
+		/* User Defined 0x30~0x37 */
 		switch (vc->dt_remap_to_type) {
 		case MTK_MBUS_FRAME_DESC_REMAP_TO_RAW10:
 			vc->bit_depth = 10;
@@ -931,6 +978,34 @@ int mtk_cam_seninf_get_vcinfo(struct seninf_ctx *ctx)
 			break;
 		}
 
+#ifdef DOUBLE_PIXEL_EN
+		/* double pixel mode */
+		switch (vc->dt) {
+		/* ExtDT */
+		case 0x18:
+		case 0x1A:
+		case 0x1C:
+		case 0x1E:
+		case 0x20:
+		case 0x21:
+		case 0x22:
+		case 0x23:
+		case 0x24:
+		case 0x25:
+		case 0x26:
+		case 0x28:
+		case 0x29:
+			if (!strcasecmp(_seninf_ops->iomem_ver, MT6899_IOMOM_VERSIONS))
+				vc->bit_depth = vc->bit_depth * 2;
+			break;
+		/* Raw8 */
+		case 0x2A:
+			vc->bit_depth = vc->bit_depth * 2;
+			break;
+		default:
+			break;
+		}
+#endif
 
 		/* update pad fotmat */
 		if (vc->exp_hsize && vc->exp_vsize) {
@@ -1157,14 +1232,25 @@ int mtk_cam_seninf_set_pixelmode(struct v4l2_subdev *sd,
 
 	return 0;
 }
-
-#ifdef SEAMLESS_OUTMUX_V2
+#ifndef SEAMLESS_OUTMUX_V3
 static bool is_using_swith_v2(struct seninf_ctx *ctx, bool grp_en, bool from_switch, int outmux)
 {
 	bool ret = false;
 
 	if (ctx)
 		ret = from_switch && (!grp_en) && (ctx->outmux_disable_list_for_v2[outmux]);
+
+	return ret;
+}
+#endif
+
+#ifdef SEAMLESS_OUTMUX_V3
+static bool is_using_swith_v3(struct seninf_ctx *ctx, bool from_switch, int outmux)
+{
+	bool ret = false;
+
+	if (ctx)
+		ret = from_switch && (ctx->outmux_disable_list_for_v2[outmux]);
 
 	return ret;
 }
@@ -1181,7 +1267,7 @@ static int mtk_cam_seninf_outmux_switch_prepare(struct seninf_ctx *ctx, struct o
 	if (!g_seninf_ops->_is_outmux_used(ctx, outmux_idx))
 		g_seninf_ops->_set_outmux_cg(ctx, outmux_idx, 1);
 
-#ifdef SEAMLESS_OUTMUX_V2
+#ifndef SEAMLESS_OUTMUX_V3
 	if (is_using_swith_v2(ctx, grp_en, from_switch, outmux_idx)) {
 		// for seamless switch v2 prepare
 		if ((!skip_chk) || (*skip_chk == false)) {
@@ -1195,7 +1281,7 @@ static int mtk_cam_seninf_outmux_switch_prepare(struct seninf_ctx *ctx, struct o
 		// Check if csr_sw_cfg_done == 0
 		g_seninf_ops->_wait_outmux_cfg_done(ctx, outmux_idx);
 
-#ifdef SEAMLESS_OUTMUX_V2
+#ifndef SEAMLESS_OUTMUX_V3
 	}
 #endif
 
@@ -1219,7 +1305,7 @@ static int mtk_cam_seninf_outmux_switch_apply(struct seninf_ctx *ctx, struct out
 	seninf_logi(ctx, "outmux_idx %d, src_mipi %d, src_sen %d, pixmode %d, cfg_mode %d, grp_en %d",
 		    outmux_idx, src_mipi, src_sen, pix_mode, cfg_mode, grp_en);
 
-#ifdef SEAMLESS_OUTMUX_V2
+#ifndef SEAMLESS_OUTMUX_V3
 	if (is_using_swith_v2(ctx, grp_en, from_switch, outmux_idx)) {
 		// using seamless outmux v2
 		cfg_mode = MTK_CAM_OUTMUX_CFG_MODE_EXP_NC;
@@ -1228,10 +1314,17 @@ static int mtk_cam_seninf_outmux_switch_apply(struct seninf_ctx *ctx, struct out
 	} else {
 #endif
 
+#ifdef SEAMLESS_OUTMUX_V3
+	if (is_using_swith_v3(ctx, from_switch, outmux_idx)) {
+		/* using seamless outmux v3 */
+		ctx->outmux_disable_list_for_v2[outmux_idx] = false;
+	}
+#endif
+
 		// Program double buffer register
 		g_seninf_ops->_config_outmux(ctx, outmux_idx, src_mipi, src_sen, cfg_mode, cfg->tag_cfg);
 
-#ifdef SEAMLESS_OUTMUX_V2
+#ifndef SEAMLESS_OUTMUX_V3
 	}
 #endif
 
@@ -1245,12 +1338,14 @@ static int mtk_cam_seninf_outmux_switch_apply(struct seninf_ctx *ctx, struct out
 	if (grp_en)
 		g_seninf_ops->_set_outmux_cfg_rdy(ctx, outmux_idx, 0);
 
-	//Wait I2C settings done
-	//Program csr_sw_cfg_done to 1
-	g_seninf_ops->_set_outmux_cfg_done(ctx, outmux_idx);
+	return 0;
+}
 
-	//Set csr_cam_cfg_rdy to 1 after cq_done (or other conditions) of all CAMs on this device
-	//Wait cfg_done interrupt
+static int mtk_cam_seninf_outmux_switch_config(struct seninf_ctx *ctx, struct outmux_cfg *cfg)
+{
+	int outmux_idx = cfg->outmux_idx;
+
+	g_seninf_ops->_set_outmux_cfg_done(ctx, outmux_idx);
 
 	return 0;
 }
@@ -1268,6 +1363,10 @@ static void mtk_cam_seninf_outmux_config_all(struct seninf_ctx *ctx,
 	}
 	list_for_each_entry(ent, outmux_cfgs, list) {
 		mtk_cam_seninf_outmux_switch_apply(ctx, ent, grp_en, from_switch, sensor_delay);
+	}
+	/* raise all outmux cfg done at same time */
+	list_for_each_entry(ent, outmux_cfgs, list) {
+		mtk_cam_seninf_outmux_switch_config(ctx, ent);
 	}
 }
 
@@ -1295,6 +1394,24 @@ static void mtk_cam_seninf_outmux_release_all(struct seninf_ctx *ctx,
 		list_del(pos);
 		kfree(ent);
 	}
+}
+
+static void mtk_cam_seninf_outmux_reset_all(struct seninf_ctx *ctx,
+		struct list_head *outmux_cfgs, int is_mux_change)
+{
+#ifdef SEAMLESS_OUTMUX_V3
+	struct outmux_cfg *ent;
+
+	list_for_each_entry(ent, outmux_cfgs, list) {
+		if (is_mux_change){
+			/*(seamless only) reset all selected outmux*/
+			if (ctx->outmux_disable_list_for_v2[ent->outmux_idx])
+				g_seninf_ops->_disable_outmux(ctx, ent->outmux_idx, true);
+		} else {
+			g_seninf_ops->_disable_outmux(ctx, ent->outmux_idx, true);
+		}
+	}
+#endif
 }
 
 static struct outmux_cfg *get_outmux_cfg_from_list(struct seninf_ctx *ctx,
@@ -1591,7 +1708,6 @@ int mtk_cam_seninf_set_camtg_camsv(struct v4l2_subdev *sd, int pad_id, int camtg
 
 int mtk_cam_seninf_apply_disable_mux(struct v4l2_subdev *sd)
 {
-#ifdef SEAMLESS_OUTMUX_V2
 	struct seninf_ctx *ctx = NULL;
 	int i;
 	int irq_st;
@@ -1616,7 +1732,6 @@ int mtk_cam_seninf_apply_disable_mux(struct v4l2_subdev *sd)
 			ctx->outmux_disable_list_for_v2[i] = true;
 		}
 	}
-#endif
 
 	return 0;
 }
@@ -1629,16 +1744,11 @@ int mtk_cam_seninf_get_tag_order(struct v4l2_subdev *sd,
 	struct seninf_ctx *ctx;
 	struct v4l2_subdev *sensor_sd;
 	struct mtk_sensor_mode_config_info info;
-	struct seninf_vc *vc;
-	struct mtk_sensor_vc_info_by_scenario vc_sid = {0};
-	u64 fsync_ext_vsync_pad_code = 0;
 	int ret = EXPOSURE_LAST;  /* default return last exposure */
 	int i = 0;
 	int exposure_num = 0;
 	int scenario = 0;
-	int desc;
 	int pad_id;
-
 
 	if (sd == NULL) {
 		pr_info("[%s][ERROR] sd is NULL\n", __func__);
@@ -1652,23 +1762,29 @@ int mtk_cam_seninf_get_tag_order(struct v4l2_subdev *sd,
 		return -EINVAL;
 	}
 
+	/* The pd and its image are the same tag order */
+
 	/*due to PD / W data will use the same VC with raw */
 	switch (input_pad_id) {
 	case PAD_SRC_RAW0:
 	case PAD_SRC_RAW_W0:
+	case PAD_SRC_PDAF0:
 	case PAD_SRC_PDAF1:
+	case PAD_SRC_PDAF2:
 		pad_id = PAD_SRC_RAW0;
 		break;
 
 	case PAD_SRC_RAW1:
 	case PAD_SRC_RAW_W1:
 	case PAD_SRC_PDAF3:
+	case PAD_SRC_PDAF4:
 		pad_id = PAD_SRC_RAW1;
 		break;
 
 	case PAD_SRC_RAW2:
 	case PAD_SRC_RAW_W2:
 	case PAD_SRC_PDAF5:
+	case PAD_SRC_PDAF6:
 		pad_id = PAD_SRC_RAW2;
 		break;
 
@@ -1701,53 +1817,19 @@ int mtk_cam_seninf_get_tag_order(struct v4l2_subdev *sd,
 		}
 	}
 
-	/* get fs_seq info by pad */
-	vc_sid.scenario_id = scenario;
-	if (ctx->sensor_sd &&
-	    ctx->sensor_sd->ops &&
-	    ctx->sensor_sd->ops->core &&
-	    ctx->sensor_sd->ops->core->command) {
-		ctx->sensor_sd->ops->core->command(ctx->sensor_sd,
-						   V4L2_CMD_G_SENSOR_VC_INFO_BY_SCENARIO,
-						   &vc_sid);
+	if (exposure_num == 1) {
+		/* all pad are the first group */
+		ret = EXPOSURE_FIRST;
 	} else {
-		seninf_logi(ctx, "find sensor command failed\n");
-	}
-
-	vc = kmalloc(sizeof(struct seninf_vc), GFP_KERNEL);
-	if (vc == NULL)
-		return -EINVAL;
-
-	for (i = 0; i < vc_sid.fd.num_entries; i++) {
-		desc = vc_sid.fd.entry[i].bus.csi2.user_data_desc;
-		vc->vc = vc_sid.fd.entry[i].bus.csi2.channel;
-		vc->dt = vc_sid.fd.entry[i].bus.csi2.data_type;
-
-		mtk_cam_seninf_fill_outpad_to_vc(
-				ctx, vc, desc, &fsync_ext_vsync_pad_code);
-
-		if (vc->out_pad != pad_id)
-			continue;
-
-		if (vc_sid.fd.entry[i].bus.csi2.fs_seq == MTK_FRAME_DESC_FS_SEQ_ONLY_ONE) {
+		if (pad_id == PAD_SRC_RAW0)
 			ret = EXPOSURE_FIRST;
-			break;
-		}
-
-		if ((pad_id == PAD_SRC_RAW1) && (exposure_num == 2)) {
+		else if ((pad_id == PAD_SRC_RAW1) && (exposure_num == 2))
 			ret = EXPOSURE_LAST;
-			break;
-		}
-
-		if (pad_id == PAD_SRC_RAW2) {
+		else if (pad_id == PAD_SRC_RAW2)
 			ret = EXPOSURE_LAST;
-			break;
-		}
-
-		ret = EXPOSURE_MIDDLE;
-		break;
+		else
+			ret = EXPOSURE_MIDDLE;
 	}
-
 
 	dev_info(ctx->dev,
 			"[%s] input:pad_id(%d),scen(%d),exp_num(%d) output:tag_order(%d)\n",
@@ -1757,7 +1839,6 @@ int mtk_cam_seninf_get_tag_order(struct v4l2_subdev *sd,
 			exposure_num,
 			ret);
 
-	kfree(vc);
 	return ret;
 }
 
@@ -1827,7 +1908,6 @@ int mtk_cam_seninf_get_vsync_order(struct v4l2_subdev *sd)
 			break;
 		}
 	}
-
 	return MTKCAM_IPI_ORDER_BAYER_FIRST;
 }
 
@@ -1997,7 +2077,8 @@ int mtk_cam_seninf_s_stream_mux(struct seninf_ctx *ctx)
 		seninf_logd(ctx, "is sensor streamed: %u, config outmux cnt: %lu\n",
 			    is_sensor_stream, seninf_list_count(&outmux_cfgs));
 	}
-
+	/* reset all selected outmux */
+	mtk_cam_seninf_outmux_reset_all(ctx, &outmux_cfgs, 0);
 	/* enable all selected outmux */
 	mtk_cam_seninf_outmux_config_all(ctx, &outmux_cfgs, grp_en, false);
 
@@ -2159,6 +2240,9 @@ mtk_cam_seninf_streaming_mux_change(struct mtk_cam_seninf_mux_param *param, bool
 	}
 
 	if (ctx) {
+		/* (seamless only) reset all selected outmux firstly*/
+		mtk_cam_seninf_outmux_reset_all(ctx, &outmux_cfgs, 1);
+
 		/* enable all selected outmux */
 		mtk_cam_seninf_outmux_config_all(ctx, &outmux_cfgs, grp_en, true);
 
@@ -2172,9 +2256,15 @@ mtk_cam_seninf_streaming_mux_change(struct mtk_cam_seninf_mux_param *param, bool
 				g_seninf_ops->_set_outmux_cfg_done(ctx, i);
 				ctx->outmux_disable_list[i] = false;
 			}
-#ifdef SEAMLESS_OUTMUX_V2
+#ifndef SEAMLESS_OUTMUX_V3
 			else if (ctx->outmux_disable_list_for_v2[i]) {
 				g_seninf_ops->_set_outmux_ref_vsync_inner(ctx, i);
+				ctx->outmux_disable_list_for_v2[i] = false;
+			}
+#endif
+#ifdef SEAMLESS_OUTMUX_V3
+			else if (ctx->outmux_disable_list_for_v2[i]) {
+				g_seninf_ops->_disable_outmux(ctx, i, true);
 				ctx->outmux_disable_list_for_v2[i] = false;
 			}
 #endif
@@ -2473,7 +2563,7 @@ int mtk_cam_seninf_s_aov_param(unsigned int sensor_id,
 			/* switch to ulposc clk*/
 			aov_switch_mclk_ulposc(ctx, 1);
 			/* seninf/sensor streaming on */
-			v4l2_subdev_call(&ctx->subdev, video, s_stream, 1);
+			seninf_s_stream(&ctx->subdev, 1);
 			break;
 		case INIT_NORMAL:
 		default:

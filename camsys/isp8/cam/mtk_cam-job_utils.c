@@ -100,6 +100,7 @@ u64 get_line_time(struct mtk_cam_job *job)
 
 	return linet;
 }
+
 u32 get_sensor_w(struct mtk_cam_job *job)
 {
 	struct mtk_cam_resource_sensor_v2 *sensor_res;
@@ -111,7 +112,6 @@ u32 get_sensor_w(struct mtk_cam_job *job)
 	return 0;
 }
 
-
 u32 get_sensor_h(struct mtk_cam_job *job)
 {
 	struct mtk_cam_resource_sensor_v2 *sensor_res;
@@ -121,6 +121,60 @@ u32 get_sensor_h(struct mtk_cam_job *job)
 		return sensor_res->height;
 
 	return 0;
+}
+
+u32 get_tuning_begin_line(struct mtk_cam_job *job)
+{
+	return min(get_sensor_h(job) * CAM_TUNING_BEGIN_F_RATIO / 100 +
+		CAM_TUNING_DELAY_NS / get_line_time(job), get_sensor_h(job));
+}
+
+u32 get_tuning_end_line(struct mtk_cam_job *job)
+{
+	return min(get_tuning_begin_line(job) +
+			CAM_TUNING_DEADLINE_NS / get_line_time(job), get_sensor_h(job));
+}
+
+u32 get_binning_w(struct mtk_cam_job *job)
+{
+	struct mtk_cam_resource_v2 *res;
+
+	res = _get_job_res(job);
+	if (!res)
+		return 0;
+
+	switch (res->raw_res.bin) {
+	case MTK_CAM_CBN_4X4_ON:
+		return res->sensor_res.width >> 2;
+	case MTK_CAM_CBN_3X3_ON:
+		return res->sensor_res.width / 3;
+	case MTK_CAM_CBN_2X2_ON:
+	case MTK_CAM_BIN_ON:
+		return res->sensor_res.width >> 1;
+	default:
+		return res->sensor_res.width;
+	}
+}
+
+u32 get_binning_h(struct mtk_cam_job *job)
+{
+	struct mtk_cam_resource_v2 *res;
+
+	res = _get_job_res(job);
+	if (!res)
+		return 0;
+
+	switch (res->raw_res.bin) {
+	case MTK_CAM_CBN_4X4_ON:
+		return res->sensor_res.height >> 2;
+	case MTK_CAM_CBN_3X3_ON:
+		return res->sensor_res.height / 3;
+	case MTK_CAM_CBN_2X2_ON:
+	case MTK_CAM_BIN_ON:
+		return res->sensor_res.height >> 1;
+	default:
+		return res->sensor_res.height;
+	}
 }
 
 u32 get_sensor_vb(struct mtk_cam_job *job)
@@ -172,6 +226,17 @@ u8 get_sensor_data_pattern(struct mtk_cam_job *job)
 		return sensor_res->pattern;
 
 	return MTK_CAM_PATTERN_BAYER;
+}
+
+u32 get_sensor_mode(struct mtk_cam_job *job)
+{
+	struct mtk_cam_resource_sensor_v2 *sensor_res;
+
+	sensor_res = _get_job_sensor_res(job);
+	if (sensor_res)
+		return (sensor_res->code >> 16) & 0xFF;
+
+	return 0;
 }
 
 void _set_timestamp(struct mtk_cam_job *job,
@@ -258,6 +323,7 @@ int get_hw_scenario(struct mtk_cam_job *job)
 		break;
 	case MTK_CAM_SCEN_ODT_NORMAL:
 	case MTK_CAM_SCEN_M2M_NORMAL:
+	case MTK_CAM_SCEN_TIMESHARE:
 		if (is_m2m_apu(job)) {
 			struct mtk_raw_ctrl_data *ctrl;
 
@@ -325,6 +391,7 @@ static int scen_exp_num(struct mtk_cam_scen *scen)
 	case MTK_CAM_SCEN_NORMAL:
 	case MTK_CAM_SCEN_ODT_NORMAL:
 	case MTK_CAM_SCEN_M2M_NORMAL:
+	case MTK_CAM_SCEN_TIMESHARE:
 		if (scen->scen.normal.exp_num == 0)
 			pr_info("%s: error: NORMAL SCEN(%d) w/o setting exp_num",
 					__func__, scen->id);
@@ -396,6 +463,7 @@ int scen_max_exp_num(struct mtk_cam_scen *scen)
 	case MTK_CAM_SCEN_NORMAL:
 	case MTK_CAM_SCEN_ODT_NORMAL:
 	case MTK_CAM_SCEN_M2M_NORMAL:
+	case MTK_CAM_SCEN_TIMESHARE:
 		exp = scen->scen.normal.max_exp_num;
 		break;
 	case MTK_CAM_SCEN_MSTREAM:
@@ -442,7 +510,15 @@ u64 infer_cq_trigger_deadline_ns(struct mtk_cam_job *job, u64 frame_interval_ns)
 
 	/* consider vsync is subsampled */
 	if (scen->id == MTK_CAM_SCEN_SMVR)
-		return frame_interval_ns * (scen->scen.smvr.subsample_num - 1) - CQ_PROCESSING_TIME_NS;
+		/* for subsample is 2 case , raw and mraw both use subsample mode */
+		/* once one engine incomplete frame happen, sub-sof will mismatch to not apply cq forever */
+		/* so relax cq thres here for subsample 2 case, apply in last frame also cause drop frame by the way */
+		if (scen->scen.smvr.subsample_num > 2)
+			return frame_interval_ns * (scen->scen.smvr.subsample_num - 1)
+				- CQ_PROCESSING_TIME_NS;
+		else
+			return frame_interval_ns * (scen->scen.smvr.subsample_num)
+				- frame_interval_ns * 3 / 4;
 	else
 		return frame_interval_ns * 3 / 4 - CQ_PROCESSING_TIME_NS;
 }
@@ -522,9 +598,10 @@ static int fill_img_in_driver_buf(struct mtkcam_ipi_img_input *ii,
 	ii->buf[0].iova = buf->daddr;
 	ii->buf[0].ccd_fd = -1;
 
-	buf_printk("%dx%d sz %zu/%d iova %pad\n",
+	buf_printk("%dx%d sz %zu/%d iova %pad fmt:%d/%d/%d/%d\n",
 		   fmt_desc->width, fmt_desc->height,
-		   fmt_desc->size, buf->size, &buf->daddr);
+		   fmt_desc->size, buf->size, &buf->daddr,
+		   fmt_desc->ipi_fmt, fmt_desc->width, fmt_desc->height, fmt_desc->stride[0]);
 
 	return 0;
 }
@@ -567,9 +644,10 @@ static int fill_img_out_driver_buf(struct mtkcam_ipi_img_output *io,
 		},
 	};
 
-	buf_printk("%dx%d sz %zu/%d iova %pad\n",
+	buf_printk("%dx%d sz %zu/%d iova %pad fmt:%d/%d/%d/%d\n",
 		   fmt_desc->width, fmt_desc->height,
-		   fmt_desc->size, buf->size, &buf->daddr);
+		   fmt_desc->size, buf->size, &buf->daddr,
+		   fmt_desc->ipi_fmt, fmt_desc->width, fmt_desc->height, fmt_desc->stride[0]);
 
 	return 0;
 }
@@ -601,7 +679,8 @@ static int fill_sv_img_fp_working_buffer(struct req_buffer_helper *helper,
 		goto EXIT;
 	}
 
-	tag_idx = (is_dc_mode(job) && job_exp_no > 1 && (exp_no + 1) == job_exp_no) ?
+	tag_idx = ((is_dc_mode(job) || is_offline_timeshare(job)) &&
+		job_exp_no > 1 && (exp_no + 1) == job_exp_no) ?
 		get_sv_tag_idx_hdr(job_exp_no, MTKCAM_IPI_ORDER_LAST_TAG, is_w) :
 		get_sv_tag_idx_hdr(job_exp_no, exp_no, is_w);
 	if (tag_idx == -1) {
@@ -733,7 +812,7 @@ void get_stagger_rawi_table(struct mtk_cam_job *job,
 {
 	int exp_num_cur = job_exp_num(job);
 	int hw_scen = get_hw_scenario(job);
-	bool without_tg = is_dc_mode(job) || is_m2m(job);
+	bool without_tg = is_dc_mode(job) || is_m2m(job) || is_offline_timeshare(job);
 
 	switch (exp_num_cur) {
 	case 1:
@@ -861,21 +940,6 @@ update_work_buffer_by_workbuf(struct req_buffer_helper *helper,
 				fmt_desc, &img_work_buf);
 
 		mtk_cam_buffer_pool_return(&img_work_buf);
-
-		if (!ret && job->job_scen.scen.normal.w_chn_enabled) {
-			ret = mtk_cam_buffer_pool_fetch(&job->img_wbuf_pool_wrapper->pool,
-							&img_work_buf);
-			if (ret) {
-				pr_info("[%s] fail to fetch\n", __func__);
-				return ret;
-			}
-
-			ret = fill_sv_to_rawi_wbuf(helper, get_raw_subdev_idx(ctx->used_pipe),
-					raw_video_id_w_port(rawi_table[i]), i, true,
-					fmt_desc, &img_work_buf);
-
-			mtk_cam_buffer_pool_return(&img_work_buf);
-		}
 	}
 
 	if (unlikely(debug_dram_ring_mode))
@@ -884,6 +948,27 @@ update_work_buffer_by_workbuf(struct req_buffer_helper *helper,
 				fmt_desc->size);
 
 	return ret;
+}
+int update_ts_work_buffer_to_ipi_frame(struct req_buffer_helper *helper)
+{
+	struct mtk_cam_job *job = helper->job;
+	const int *rawi_table = NULL;
+	int rawi_table_size = 0;
+
+	if (helper->filled_hdr_buffer)
+		return 0;
+	if (is_sv_pure_raw(job))
+		return 0;
+	get_stagger_rawi_table(job, &rawi_table, &rawi_table_size);
+
+	/* no need img working buffer */
+	if (!rawi_table || !rawi_table_size)
+		return 0;
+
+	if (!update_work_buffer_by_workbuf(helper, rawi_table, rawi_table_size))
+		return 0;
+
+	return -1;
 }
 
 int update_work_buffer_to_ipi_frame(struct req_buffer_helper *helper)
@@ -1183,8 +1268,9 @@ int fill_mp_img_in_hdr(struct mtkcam_ipi_img_input *ii,
 	ii->buf[0].iova = daddr + buf_offset;
 	ii->buf[0].ccd_fd = buf->vbb.vb2_buf.planes[valid_plane].m.fd;
 
-	buf_printk("id:%d buf->daddr:0x%llx, ii->buf[0].iova:0x%llx, size:%d",
-		   id, buf->daddr, ii->buf[0].iova, ii->buf[0].size);
+	buf_printk("id:%d buf->daddr:0x%llx, ii->buf[0].iova:0x%llx, size:%d, fmt: %d/%d/%d/%d",
+		   id, buf->daddr, ii->buf[0].iova, ii->buf[0].size,
+		   ii->fmt.format, ii->fmt.s.w, ii->fmt.s.h, ii->fmt.stride[0]);
 
 	return 0;
 }
@@ -1697,8 +1783,9 @@ static int fill_sv_mp_fp(
 	fp->camsv_param[0][tag_idx].tag_id = tag_idx;
 	fp->camsv_param[0][tag_idx].hardware_scenario = 0;
 
-	buf_printk("%s: tag_idx %d, iova %llx, size %u",
-		   __func__, tag_idx, out->buf[0][0].iova, out->buf[0][0].size);
+	buf_printk("%s: tag_idx %d, iova %llx, size %u, fmt fmt/w/h/stride:%d/%d/%d/%d",
+		   __func__, tag_idx, out->buf[0][0].iova, out->buf[0][0].size,
+		   out->fmt.format, out->fmt.s.w, out->fmt.s.h, out->fmt.stride[0]);
 
 	return ret;
 }
@@ -1771,6 +1858,7 @@ int fill_sv_img_fp(
 	for (i = 0; i < exp_no; i++) {
 		if (!is_sv_pure_raw(job) &&
 			!is_dc_mode(job) &&
+			!is_offline_timeshare(job) &&
 			(i + 1) == exp_no)
 			continue;
 		/* skip first exp under mstream case */
@@ -1892,6 +1980,12 @@ bool is_vhdr(struct mtk_cam_job *job)
 	return scen_is_vhdr(&job->job_scen);
 }
 
+bool is_offline_timeshare(struct mtk_cam_job *job)
+{
+
+	return scen_is_timeshare(&job->job_scen);
+}
+
 bool is_dc_mode(struct mtk_cam_job *job)
 {
 	struct mtk_cam_resource_v2 *res;
@@ -1901,6 +1995,17 @@ bool is_dc_mode(struct mtk_cam_job *job)
 		return false;
 
 	return res_raw_is_dc_mode(&res->raw_res);
+}
+
+bool is_ois_compensation(struct mtk_cam_job *job)
+{
+	struct mtk_cam_resource_v2 *res;
+
+	res = _get_job_res(job);
+	if (!res)
+		return false;
+
+	return res_raw_ois_compensation(&res->raw_res);
 }
 
 bool is_rgbw(struct mtk_cam_job *job)
@@ -2184,6 +2289,9 @@ int handle_sv_tag(struct mtk_cam_job *job)
 		hw_scen = is_dc_mode(job) ?
 			(1 << HWPATH_ID(MTKCAM_IPI_HW_PATH_DC_STAGGER)) :
 			(1 << HWPATH_ID(MTKCAM_IPI_HW_PATH_STAGGER));
+		hw_scen = is_offline_timeshare(job) ?
+			(1 << HWPATH_ID(MTKCAM_IPI_HW_PATH_OFFLINE_STAGGER)) :
+			hw_scen;
 	} else if (job->job_scen.id == MTK_CAM_SCEN_NORMAL &&
 		cfg_exp_no == 3) {
 		exp_no = req_amount = 3;
@@ -2616,6 +2724,8 @@ bool is_sv_img_tag_used(struct mtk_cam_job *job)
 	if (is_sv_pure_raw(job))
 		rst = true;
 	if (is_extisp(job))
+		rst = true;
+	if (is_offline_timeshare(job))
 		rst = true;
 	if (job->is_sensor_meta_dump)
 		rst = true;

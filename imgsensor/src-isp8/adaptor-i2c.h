@@ -69,4 +69,12 @@ int adaptor_ixc_wr_regs_u8(struct i3c_i2c_device *client,
 int adaptor_ixc_wr_regs_u16(struct i3c_i2c_device *client,
 		u16 addr, u16 *list, u32 len);
 
+#ifdef __XIAOMI_CAMERA__
+int adaptor_i2c_rd_u8_u8(struct i2c_client *i2c_client,
+		u16 addr, u16 reg, u8 *val);
+
+int adaptor_i2c_wr_u8_u8(struct i2c_client *i2c_client,
+		u16 addr, u16 reg, u8 val);
+#endif
+
 #endif

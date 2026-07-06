@@ -20,6 +20,7 @@
 #include <uapi/linux/sched/types.h>
 #include <linux/version.h>
 #include <linux/pm_qos.h>
+#include "pf_ctrl.h"
 
 #define MAX_WINDOW_SIZE 70
 #define MAX_CPU_NUM CONFIG_MAX_NR_CPUS
@@ -44,7 +45,9 @@
 #define LxF_F_KF_QVAL 20
 #define LxF_DIFF_THRES 10000
 
+#define DEFAULT_UM_MIN 65
 #define RESET_VAL 999999
+#define LMCORE_UM_RATIO_MAX 20
 
 extern int proc_time_window_size;
 extern int debug_log_on;
@@ -52,6 +55,7 @@ extern unsigned int c2ps_nr_clusters;
 extern bool c2ps_um_mode_on;
 extern int c2ps_regulator_base_update_um;
 extern int c2ps_regulator_um_min;
+extern int c2ps_lcore_mcore_um_ratio;
 
 enum c2ps_env_status : int {
 	C2PS_STAT_NODEF = 0,
@@ -229,6 +233,7 @@ struct global_info {
 	enum c2ps_env_status stat;
 	bool has_anchor_spec;
 	u32 single_shot_enable_ineff_cpufreq_cnt;
+	bool switch_um_idle_rate_mode;
 	struct mutex mlock;
 };
 
@@ -248,6 +253,7 @@ struct regulator_req {
 	struct list_head queue_list;
 	enum c2ps_env_status stat;
 	bool is_flush;
+	int curr_um;
 };
 
 #define C2PS_LOGD(fmt, ...)                                                 \
@@ -277,6 +283,13 @@ struct regulator_req {
 
 #define C2PS_LOGE(fmt, ...) pr_err("[C2PS]: %s %s %d " fmt, \
 	__FILE__, __func__, __LINE__, ##__VA_ARGS__)
+
+/* c2ps_main */
+int c2ps_notify_init(
+	int cfg_camfps, int max_uclamp_cluster0, int max_uclamp_cluster1,
+	int max_uclamp_cluster2, int ineff_cpu_ceiling_freq0,
+	int ineff_cpu_ceiling_freq1, int ineff_cpu_ceiling_freq2,
+	int lcore_mcore_um_ratio, int um_floor);
 
 int init_c2ps_common(int cfg_camfps);
 void exit_c2ps_common(void);
@@ -344,6 +357,7 @@ int c2ps_get_cpu_max_uclamp(const int cpu);
 bool c2ps_boost_cur_uclamp_max(
 	const int cluster, int cpu_floor_freq, struct global_info *g_info);
 int c2ps_get_first_cpu_of_cluster(int cluster);
+int c2ps_get_nr_cpus_of_cluster(int cluster);
 unsigned long c2ps_get_cluster_uclamp_freq(int cluster,  unsigned int uclamp);
 bool need_update_single_shot_uclamp_max(int *uclamp_max);
 bool need_update_critical_task_uclamp(int *critical_task_uclamp);
@@ -363,6 +377,8 @@ void set_uclamp(const int pid, unsigned int max_util, unsigned int min_util);
 void reset_task_eas_setting(struct c2ps_task_info *tsk_info);
 void reset_task_uclamp(int pid);
 void cache_possible_config_cpu_freq_info(void);
+/* pf policy */
+void c2ps_set_pf_policy(bool enable);
 
 // EAS
 extern void set_curr_uclamp_ctrl(int val);
@@ -407,6 +423,10 @@ extern int get_vip_task_prio(struct task_struct *p);
 extern bool prio_is_vip(int vip_prio, int type);
 extern void unset_task_priority_based_vip(int pid);
 extern void unset_task_vvip(int pid);
+#endif
+
+#if KERNEL_VERSION(6, 6, 0) <= LINUX_VERSION_CODE
+extern int mtk_set_pf_ctrl_enable(bool enable, unsigned int user);
 #endif
 
 // QoS

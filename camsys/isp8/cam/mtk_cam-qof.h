@@ -8,6 +8,7 @@
 
 struct mtk_raw_device;
 struct mtk_cam_ctx;
+struct mtk_cam_device;
 
 struct qof_voter_handle {
 	int used_raw;
@@ -69,6 +70,7 @@ void qof_dump_hw_timer(struct mtk_raw_device *raw);
 void qof_dump_cq_addr(struct mtk_raw_device *raw);
 void qof_dump_ctrl(struct mtk_raw_device *raw);
 void qof_dump_qoftop_status(struct mtk_raw_device *raw);
+void qof_dump_int_en_addr(struct mtk_raw_device *raw);
 
 void qof_set_force_dump(struct mtk_raw_device *raw, bool en);
 void qof_force_dump_all(struct mtk_raw_device *raw);
@@ -76,5 +78,6 @@ void qof_force_dump_all(struct mtk_raw_device *raw);
 u32 qof_get_mtcmos_margin(void);
 
 void mtk_cam_enable_itc(struct mtk_raw_device *raw);
+void mtk_cam_reset_itc(struct mtk_cam_device *cam);
 
 #endif /*__MTK_CAM_QOF_H */

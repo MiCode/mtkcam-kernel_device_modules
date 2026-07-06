@@ -10,9 +10,12 @@
 #include <linux/sched.h>
 #include <aee.h>
 
+#include "mtk_cam-seninf_control-8.h"
+
 #define SENINF_AEE_GENERAL "Seninf"
 #define SENINF_AEE_OUTMUX "Seninf: outmux error"
 #define SENINF_AEE_FS_SEQ "Seninf: sensor fs sequence"
+#define SENINF_AEE_FRMERR "Seninf: frame error"
 
 #if IS_ENABLED(CONFIG_MTK_AEE_FEATURE)
 #define seninf_aee_print(title, string, args...) do { \
@@ -30,7 +33,7 @@
 #define MAX_TS_SIZE 4
 
 /* isp8 used. suspose isp8s no need, use grp rdy instead */
-#define SEAMLESS_OUTMUX_V2
+ #define SEAMLESS_OUTMUX_V3
 
 /*ULPS-mode support*/
 #undef CDPHY_ULPS_MODE_SUPPORT
@@ -181,6 +184,7 @@ struct mtk_cam_seninf_ops {
 			      void __iomem *if_top_base, void __iomem *if_async_base,
 			      void __iomem *if_tm_base, void __iomem *if_outmux[],
 			      void __iomem *if_outmux_inner[],
+			      void __iomem *csi_top_0, void __iomem *csi_top_1,
 				  struct csi_reg_base *csi_base);
 	int (*_init_port)(struct seninf_ctx *ctx, int port, struct csi_reg_base *csi_base);
 	int (*_disable_outmux)(struct seninf_ctx *ctx, int outmux, bool immed);
@@ -206,6 +210,7 @@ struct mtk_cam_seninf_ops {
 	int (*_set_outmux_grp_en)(struct seninf_ctx *ctx, u8 outmux_idx, bool grp_en);
 	int (*_set_outmux_cfg_rdy)(struct seninf_ctx *ctx, u8 outmux_idx, bool cfg_rdy);
 	int (*_set_test_model)(struct seninf_ctx *ctx, int intf);
+	int (*_set_test_model_fake_sensor)(struct seninf_ctx *ctx, int intf);
 	int (*_get_async_irq_st)(struct seninf_ctx *ctx, int async, bool clear);
 	int (*_set_csi_mipi)(struct seninf_ctx *ctx);
 	int (*_poweroff)(struct seninf_ctx *ctx);
@@ -240,6 +245,8 @@ struct mtk_cam_seninf_ops {
 	int (*_get_device_sel_setting)(struct device *dev, struct mtk_cam_seninf_dev *dev_setting);
 	void (*_seninf_dump_mipi_err)(struct seninf_core *core, struct mtk_cam_seninf_vsync_info *vsync_info);
 	int (*_show_mac_chk_status)(struct seninf_ctx *ctx, int is_clear);
+	int (*_get_csi_HV_HB_meter)(struct seninf_ctx *ctx, struct mtk_cam_seninf_meter_info *info,
+										const int valid_measure_req);
 	unsigned int async_num;
 	unsigned int outmux_num;
 	const char *iomem_ver;

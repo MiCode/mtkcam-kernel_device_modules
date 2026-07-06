@@ -10,6 +10,7 @@ subdir-ccflags-y += \
         -I$(DEVICE_MODULES_PATH)/include/ \
         -I$(DEVICE_MODULES_PATH)/kernel/ \
         -I$(DEVICE_MODULES_PATH)/drivers/misc/mediatek/sched/ \
+        -I$(DEVICE_MODULES_PATH)/drivers/misc/mediatek/cpufreq_lite/ \
         -I$(C2PS_COMMON_TOP)/include/ \
         -I$(C2PS_MONITOR_TOP)/include/ \
         -I$(C2PS_REGULATOR_TOP)/include/

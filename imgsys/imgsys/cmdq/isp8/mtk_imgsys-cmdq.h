@@ -90,6 +90,7 @@ struct mtk_imgsys_cb_param {
 	int req_fd;
 	int req_no;
 	int frm_no;
+	int fps;
 	u32 hw_comb;
 	s32 err;
 	u32 frm_idx;

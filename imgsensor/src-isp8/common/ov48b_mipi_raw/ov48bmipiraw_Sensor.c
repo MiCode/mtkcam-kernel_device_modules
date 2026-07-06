@@ -690,7 +690,7 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.imgsensor_pd_info = &imgsensor_pd_info,
 		.ae_binning_ratio = 1,
 		.fine_integ_line = 0,
-		.delay_frame = 3,
+		.delay_frame = 2,
 		.csi_param = {
 			.cphy_settle = 98,
 		},
@@ -744,7 +744,7 @@ static struct subdrv_mode_struct mode_struct[] = {
 		.imgsensor_pd_info = &imgsensor_pd_info,
 		.ae_binning_ratio = 1,
 		.fine_integ_line = 0,
-		.delay_frame = 3,
+		.delay_frame = 2,
 		.csi_param = {
 			.cphy_settle = 98,
 		},

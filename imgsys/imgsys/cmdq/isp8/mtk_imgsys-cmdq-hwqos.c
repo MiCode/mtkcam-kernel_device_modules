@@ -55,6 +55,12 @@
 
 #define OSTDL_MAX_VALUE 0x40
 #define OSTDL_MIN_VALUE 0x1
+/* ostdl_r: bw * 0.7 = bw * 717 / 1024 */
+#define OSTDL_R_BW_MULTIPLY (717)
+#define OSTDL_R_BW_RIGHT_SHIFT (10)
+#define OSTDL_W_BW_MULTIPLY (1)
+#define OSTDL_W_BW_RIGHT_SHIFT (0)
+
 #define OSTDL_R_RIGHT_SHIFT (6)  // 64
 #define OSTDL_W_RIGHT_SHIFT (8)  // 256
 
@@ -245,15 +251,13 @@ static void imgsys_hwqos_dbg_reg_dump(uint8_t level)
 			BWR_IMG_E1A_BASE + BWR_IMG_SRT_TTL_ENG_BW5_OFT);
 	}
 
-	if (level >= 0) {
-		// BWR status
-		imgsys_hwqos_dbg_reg_read(
-				BWR_IMG_E1A_BASE + BWR_IMG_RPT_STATE_OFT);
-		imgsys_hwqos_dbg_reg_read(
-				BWR_IMG_E1A_BASE + BWR_IMG_SEND_BW_ZERO_OFT);
-		imgsys_hwqos_dbg_reg_read(
-				BWR_IMG_E1A_BASE + BWR_IMG_SEND_DONE_ST_OFT);
-	}
+	/* BWR status */
+	imgsys_hwqos_dbg_reg_read(
+		BWR_IMG_E1A_BASE + BWR_IMG_RPT_STATE_OFT);
+	imgsys_hwqos_dbg_reg_read(
+		BWR_IMG_E1A_BASE + BWR_IMG_SEND_BW_ZERO_OFT);
+	imgsys_hwqos_dbg_reg_read(
+		BWR_IMG_E1A_BASE + BWR_IMG_SEND_DONE_ST_OFT);
 }
 
 static int imgsys_hwqos_dbg_thread(void *data)
@@ -594,9 +598,9 @@ static void imgsys_qos_set_fix_bw(struct cmdq_pkt *pkt,
 				BWR_IMG_E1A_BASE + qos_map_data[i].bwr_w_offset,
 				bwr_bw, CMDQ_REG_MASK);
 	}
-	ostdl_r = bw >> OSTDL_R_RIGHT_SHIFT;
+	ostdl_r = ((bw >> OSTDL_R_RIGHT_SHIFT) * OSTDL_R_BW_MULTIPLY) >> OSTDL_R_BW_RIGHT_SHIFT;
 	ostdl_r = clamp_t(u32, ostdl_r, OSTDL_MIN_VALUE, OSTDL_MAX_VALUE);
-	ostdl_w = bw >> OSTDL_W_RIGHT_SHIFT;
+	ostdl_w = ((bw >> OSTDL_W_RIGHT_SHIFT) * OSTDL_W_BW_MULTIPLY) >> OSTDL_W_BW_RIGHT_SHIFT;
 	ostdl_w = clamp_t(u32, ostdl_w, OSTDL_MIN_VALUE, OSTDL_MAX_VALUE);
 	for (i = 0; i < ARRAY_SIZE(img_ostdl_array); i++) {
 		cmdq_pkt_write(pkt, NULL,
@@ -753,6 +757,8 @@ static void imgsys_qos_set_smi_chn_ostdl(struct cmdq_pkt *pkt,
 	const uint16_t cpr_sum_idx,
 	const uint32_t ostdl_addr,
 	const uint8_t ostdl_right_shift,
+	const uint16_t ostdl_bw_multiply,
+	const uint8_t ostdl_bw_right_shift,
 	const uint8_t ostdl_reg_left_shift,
 	const uint32_t ostdl_reg_mask)
 {
@@ -767,6 +773,24 @@ static void imgsys_qos_set_smi_chn_ostdl(struct cmdq_pkt *pkt,
 	rop.value = 3 + ostdl_right_shift;
 	cmdq_pkt_logic_command(pkt, CMDQ_LOGIC_RIGHT_SHIFT,
 		CMDQ_THR_SPR_IDX2, &lop, &rop);
+
+	if (ostdl_bw_multiply > 1) {
+		lop.reg = true;
+		lop.idx = CMDQ_THR_SPR_IDX2;
+		rop.reg = false;
+		rop.value = ostdl_bw_multiply;
+		cmdq_pkt_logic_command(pkt, CMDQ_LOGIC_MULTIPLY,
+			CMDQ_THR_SPR_IDX2, &lop, &rop);
+	}
+
+	if (ostdl_bw_right_shift > 0) {
+		lop.reg = true;
+		lop.idx = CMDQ_THR_SPR_IDX2;
+		rop.reg = false;
+		rop.value = ostdl_bw_right_shift;
+		cmdq_pkt_logic_command(pkt, CMDQ_LOGIC_RIGHT_SHIFT,
+			CMDQ_THR_SPR_IDX2, &lop, &rop);
+	}
 
 	lop.reg = true;
 	lop.idx = CMDQ_THR_SPR_IDX2;
@@ -821,12 +845,16 @@ static void imgsys_qos_set_ch_bw(struct cmdq_pkt *pkt,
 		cpr_sum_r_idx,
 		ostdl_addr,
 		OSTDL_R_RIGHT_SHIFT,
+		OSTDL_R_BW_MULTIPLY,
+		OSTDL_R_BW_RIGHT_SHIFT,
 		OSTDL_R_REG_L,
 		OSTDL_R_REG_MASK);
 	imgsys_qos_set_smi_chn_ostdl(pkt,
 		cpr_sum_w_idx,
 		ostdl_addr,
 		OSTDL_W_RIGHT_SHIFT,
+		OSTDL_W_BW_MULTIPLY,
+		OSTDL_W_BW_RIGHT_SHIFT,
 		OSTDL_W_REG_L,
 		OSTDL_W_REG_MASK);
 	va_end(args);
@@ -926,6 +954,8 @@ static void imgsys_qos_config_bwr(struct cmdq_pkt *pkt,
 	case BWR_STOP:
 		// Report 0
 		imgsys_qos_set_fix_bw(pkt, 0, 0);
+		/* Wait for 150 us (BWR_IMG_RPT_TIMER is 100 us) */
+		cmdq_pkt_sleep(pkt, CMDQ_US_TO_TICK(150), 0 /*don't care*/);
 		cmdq_pkt_poll_sleep(pkt, 0x1,
 			BWR_IMG_E1A_BASE + BWR_IMG_SEND_BW_ZERO_OFT, CMDQ_REG_MASK);
 		cmdq_pkt_poll_sleep(pkt, BIT(BWR_IMG_RPT_WAIT),

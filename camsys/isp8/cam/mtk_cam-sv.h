@@ -15,7 +15,7 @@
 #include "mtk_cam-plat.h"
 
 #define MAX_SV_HW_GROUPS 4
-#define CAMSV_IRQ_NUM 2
+#define CAMSV_IRQ_NUM 3
 #define MAX_SV_HW_NUM 6
 
 enum SV_SMI_PORT_ID {
@@ -139,10 +139,14 @@ struct mtk_camsv_backup_setting {
 	unsigned int grab_pxl[SVTAG_END - SVTAG_START];
 	unsigned int grab_lin[SVTAG_END - SVTAG_START];
 	unsigned int fbc0[SVTAG_END - SVTAG_START];
+	unsigned int exp0[SVTAG_END - SVTAG_START];
+	unsigned int exp1[SVTAG_END - SVTAG_START];
 
 	unsigned int done_status_en;
 	unsigned int err_status_en;
 	unsigned int sof_status_en;
+	unsigned int channel_status_en;
+	unsigned int common_status_en;
 	unsigned int dma_en_img;
 	unsigned int dcif_set;
 	unsigned int dcif_sel;
@@ -215,10 +219,16 @@ struct mtk_camsv_device {
 	void __iomem *debug_use_mraw_in_base;
 
 	bool enable_stash_eco_fun;
+	unsigned int camsv_error_count;
 
+	/* ois compensation */
+	bool is_skip_raw_unlock_done;
+	unsigned int ois_updated_seq;
+	void __iomem *raw_lock_done_sel;
 };
 
 void sv_reset(struct mtk_camsv_device *sv_dev);
+int mtk_cam_sv_reset_msgfifo(struct mtk_camsv_device *sv_dev);
 int mtk_cam_sv_debug_dump(struct mtk_camsv_device *sv_dev, unsigned int dump_tags);
 int mtk_cam_sv_dev_config(struct mtk_camsv_device *sv_dev, unsigned int sub_ratio,
 	int frm_time_us);
@@ -271,6 +281,7 @@ int mtk_camsv_translation_fault_callback(int port, dma_addr_t mva, void *data);
 void mtk_cam_sv_set_queue_mode(struct mtk_camsv_device *sv_dev, bool enable);
 void mtk_cam_sv_backup(struct mtk_camsv_device *sv_dev);
 void mtk_cam_sv_restore(struct mtk_camsv_device *sv_dev);
+void mtk_cam_sv_exp_setup(struct mtk_camsv_device *sv_dev, int exp0_h, int exp1_h);
 int mtk_cam_sv_golden_set(struct mtk_camsv_device *sv_dev, bool is_golden_set);
 int mtk_camsv_runtime_suspend(struct device *dev);
 int mtk_camsv_runtime_resume(struct device *dev);

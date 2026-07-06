@@ -35,3 +35,11 @@
 	writel(val, __p); \
 } while (0)
 #endif
+
+#define SENINF_GET_BITS(reg_v, field) \
+({ \
+	u32 __v = reg_v; \
+	__v &= field##_MASK; \
+	__v >>= field##_SHIFT; \
+	__v; \
+})

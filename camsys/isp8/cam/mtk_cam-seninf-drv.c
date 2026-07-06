@@ -50,8 +50,6 @@
 #endif
 #endif
 
-#define REDUCE_KO_DEPENDENCY_FOR_SMT
-
 #define is_irq_ready 1
 
 #define ESD_RESET_SUPPORT 1
@@ -173,6 +171,10 @@ static const char * const seninf_irq_names[] = {
 #endif
 
 static bool pkvm_enabled;
+
+#ifdef __XIAOMI_CAMERA__
+static bool debug_esd_enable = false;
+#endif
 
 bool is_pkvm_enabled(void)
 {
@@ -322,6 +324,7 @@ static void dbg_deinit_chmux(struct seninf_ctx *ctx)
 	if (!ctx)
 		return;
 
+	mutex_lock(&ctx->dbg_chmux_mutex);
 	if (ctx->dbg_chmux_param) {
 		kfree(ctx->dbg_chmux_param->settings);
 		ctx->dbg_chmux_param->settings = NULL;
@@ -330,6 +333,7 @@ static void dbg_deinit_chmux(struct seninf_ctx *ctx)
 		kfree(ctx->dbg_chmux_param);
 		ctx->dbg_chmux_param = NULL;
 	}
+	mutex_unlock(&ctx->dbg_chmux_mutex);
 }
 
 static void dbg_init_chmux(struct seninf_ctx *ctx)
@@ -339,8 +343,10 @@ static void dbg_init_chmux(struct seninf_ctx *ctx)
 
 	dbg_deinit_chmux(ctx);
 
+	mutex_lock(&ctx->dbg_chmux_mutex);
 	ctx->dbg_chmux_param = kzalloc(sizeof(struct mtk_cam_seninf_mux_param),
 				       GFP_KERNEL);
+	mutex_unlock(&ctx->dbg_chmux_mutex);
 }
 
 static void dbg_commit_chmux(struct seninf_ctx *ctx)
@@ -348,8 +354,10 @@ static void dbg_commit_chmux(struct seninf_ctx *ctx)
 	if (!ctx)
 		return;
 
-	if (ctx->dbg_chmux_param)
+	mutex_lock(&ctx->dbg_chmux_mutex);
+	if (ctx->dbg_chmux_param && ctx->streaming)
 		mtk_cam_seninf_streaming_mux_change(ctx->dbg_chmux_param, false);
+	mutex_unlock(&ctx->dbg_chmux_mutex);
 }
 
 static void dbg_set_camtg(struct seninf_ctx *ctx, int pad_id, int camtg, int tag_id)
@@ -360,6 +368,7 @@ static void dbg_set_camtg(struct seninf_ctx *ctx, int pad_id, int camtg, int tag
 	if (!ctx)
 		return;
 
+	mutex_lock(&ctx->dbg_chmux_mutex);
 	if (ctx->dbg_chmux_param) {
 		num = ctx->dbg_chmux_param->num + 1;
 		if (num < 1) {
@@ -391,6 +400,7 @@ static void dbg_set_camtg(struct seninf_ctx *ctx, int pad_id, int camtg, int tag
 		mtk_cam_seninf_set_camtg_camsv(&ctx->subdev,
 					       pad_id, camtg, tag_id);
 	}
+	mutex_unlock(&ctx->dbg_chmux_mutex);
 }
 
 static ssize_t debug_ops_store(struct device *dev,
@@ -736,8 +746,8 @@ static int __seninf_dfs_set(struct seninf_ctx *ctx, unsigned long freq)
 		return -EINVAL;
 	}
 
-	dev_info(ctx->dev, "freq %ld require %ld selected %ld\n",
-		 freq, require, dfs->freqs[i]);
+	dev_info(ctx->dev, "freq %ld require %ld selected %ld, volts %ld\n",
+		 freq, require, dfs->freqs[i], dfs->volts[i]);
 
 	return 0;
 }
@@ -817,7 +827,9 @@ static int seninf_core_pm_runtime_get_sync(struct seninf_core *core)
 	int ret = 0;
 
 	if (core->pm_domain_cnt == 1) {
+#ifndef REDUCE_KO_DEPENDENCY_FOR_SMT
 		mtk_mmdvfs_enable_vcp(true, VCP_PWR_USR_SENIF);
+#endif
 		ret = pm_runtime_get_sync(core->dev);
 		if (ret < 0) {
 			dev_info(core->dev, "pm_runtime_get_sync(fail),ret(%d)\n", ret);
@@ -831,7 +843,9 @@ static int seninf_core_pm_runtime_get_sync(struct seninf_core *core)
 
 		for (i = 0; i < core->pm_domain_cnt; i++) {
 			if (core->pm_domain_devs[i] != NULL) {
+#ifndef REDUCE_KO_DEPENDENCY_FOR_SMT
 				mtk_mmdvfs_enable_vcp(true, VCP_PWR_USR_SENIF);
+#endif
 				ret = pm_runtime_get_sync(core->pm_domain_devs[i]);
 				if (ret < 0) {
 					dev_info(core->dev,
@@ -858,7 +872,9 @@ static int seninf_core_pm_runtime_put(struct seninf_core *core)
 		ret = pm_runtime_put_sync(core->dev);
 		if (ret < 0)
 			dev_info(core->dev, "pm_runtime_put_sync(fail),ret(%d)\n", ret);
+#ifndef REDUCE_KO_DEPENDENCY_FOR_SMT
 		mtk_mmdvfs_enable_vcp(false, VCP_PWR_USR_SENIF);
+#endif
 	} else if (core->pm_domain_cnt > 1) {
 		if (!core->pm_domain_devs)
 			return -ENOMEM;
@@ -870,7 +886,9 @@ static int seninf_core_pm_runtime_put(struct seninf_core *core)
 					dev_info(core->dev,
 						"pm_runtime_put_sync(fail),ret(%d)\n",
 						ret);
+#ifndef REDUCE_KO_DEPENDENCY_FOR_SMT
 				mtk_mmdvfs_enable_vcp(false, VCP_PWR_USR_SENIF);
+#endif
 			}
 		}
 	} else
@@ -1068,6 +1086,16 @@ static int seninf_core_probe(struct platform_device *pdev)
 	core->reg_seninf_tm = devm_ioremap_resource(dev, res);
 	if (IS_ERR(core->reg_seninf_tm))
 		return PTR_ERR(core->reg_seninf_tm);
+
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "csi-top-0");
+	core->reg_csi_top_0 = devm_ioremap_resource(dev, res);
+	if (IS_ERR(core->reg_csi_top_0))
+		return PTR_ERR(core->reg_csi_top_0);
+
+	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "csi-top-1");
+	core->reg_csi_top_1 = devm_ioremap_resource(dev, res);
+	if (IS_ERR(core->reg_csi_top_1))
+		return PTR_ERR(core->reg_csi_top_1);
 
 	ret = get_seninf_ops(dev, core);
 	if (ret) {
@@ -1561,6 +1589,7 @@ static void update_cfg_done_max_wait_time(struct seninf_ctx *ctx)
 	if (!ctx->is_test_model) {
 		frame_time = mtk_cam_seninf_get_frame_time(&ctx->subdev, 0 /* seq, unused */);
 		frame_time = frame_time + (frame_time / 10);  /* 110 percent frame time */
+		frame_time = frame_time/1000; /* convert to micro second */
 	}
 
 	seninf_logd(ctx, "The frame time is %llu us\n", frame_time);
@@ -1860,6 +1889,10 @@ static int config_hw_csi(struct seninf_ctx *ctx)
 		return ret;
 	}
 
+
+	if (ctx->fake_sensor_info.is_fake_sensor)
+		g_seninf_ops->_set_test_model_fake_sensor(ctx, ctx->seninfAsyncIdx);
+
 	return 0;
 }
 
@@ -2063,6 +2096,7 @@ int update_isp_clk(struct seninf_ctx *ctx)
 	int i, ret;
 	struct seninf_dfs *dfs = &ctx->core->dfs;
 	struct seninf_core *core = ctx->core;
+	const unsigned long MAX_VALID_VMM_VOL = 750000;
 
 #ifndef USING_MAX_ISP_CLK
 	int pixelmode;
@@ -2088,8 +2122,11 @@ int update_isp_clk(struct seninf_ctx *ctx)
 
 
 #ifdef USING_MAX_ISP_CLK
-	/* always choose the highest freq index */
-	i = dfs->cnt - 1;
+	/* always choose the highest freq index but check if vol is available */
+	for (i = (dfs->cnt - 1); i >= 0; i--) {
+		if (dfs->volts[i] < MAX_VALID_VMM_VOL)
+			break;
+	}
 
 #else
 	vc = mtk_cam_seninf_get_vc_by_pad(ctx, PAD_SRC_RAW0);
@@ -2396,6 +2433,13 @@ static int seninf_csi_s_stream(struct v4l2_subdev *sd, int enable)
 		return 0;
 	}
 
+#ifdef __XIAOMI_CAMERA__
+	debug_esd_enable = is_esd_enable_by_cmd(ctx);
+	if(debug_esd_enable){
+		dev_info(ctx->dev, "%s debug_esd_enable(%d)\n", __func__, debug_esd_enable);
+	}
+#endif
+
 	if (ctx->is_test_model)
 		return 0; // skip
 
@@ -2502,8 +2546,12 @@ static int seninf_csi_s_stream(struct v4l2_subdev *sd, int enable)
 static int stream_sensor(struct seninf_ctx *ctx, bool enable)
 {
 	int ret;
+	struct v4l2_subdev *sensor_sd = ctx->sensor_sd;
 
-	ret = v4l2_subdev_call(ctx->sensor_sd, video, s_stream, enable);
+	/* ensure definitely execute s_stream */
+	sensor_sd->enabled_streams = !enable;
+
+	ret = v4l2_subdev_call(sensor_sd, video, s_stream, enable);
 	if (ret) {
 		dev_info(ctx->dev, "%s sensor stream-%s fail,ret(%d)\n",
 			 __func__,
@@ -2518,7 +2566,7 @@ static int stream_sensor(struct seninf_ctx *ctx, bool enable)
 	return ret;
 }
 
-static int seninf_s_stream(struct v4l2_subdev *sd, int enable)
+int seninf_s_stream(struct v4l2_subdev *sd, int enable)
 {
 	struct seninf_ctx *ctx = sd_to_ctx(sd);
 	struct seninf_core *core = ctx->core;
@@ -2662,6 +2710,7 @@ static int seninf_s_stream(struct v4l2_subdev *sd, int enable)
 
 	/* reset all sentest flag */
 	seninf_sentest_flag_init(ctx);
+	ctx->set_abort_flag = false;
 
 	return 0;
 }
@@ -2682,6 +2731,26 @@ long mtk_cam_seninf_ioctl(struct v4l2_subdev *sd, unsigned int cmd, void *arg)
 	}
 
 	return ret;
+}
+
+static int get_fake_sensor_info(struct seninf_ctx *ctx)
+{
+	struct mtk_fake_sensor_info fake_sensor_info;
+
+	if (ctx->sensor_sd == NULL) {
+		dev_err(ctx->dev, "[%s] ctx->sensor_sd is NULL\n", __func__);
+		return -EINVAL;
+	}
+
+	ctx->sensor_sd->ops->core->command(ctx->sensor_sd,
+						V4L2_CMD_G_SENSOR_FAKE_SENSOR_INFO,
+						&fake_sensor_info);
+
+	memcpy(&(ctx->fake_sensor_info), &fake_sensor_info, sizeof(struct mtk_fake_sensor_info));
+
+	if (ctx->fake_sensor_info.is_fake_sensor)
+		dev_info(ctx->dev, "%s is fake sensor\n", ctx->sensor_sd->name);
+	return 0;
 }
 
 static const struct v4l2_subdev_pad_ops seninf_subdev_pad_ops = {
@@ -2733,6 +2802,9 @@ static int seninf_link_setup(struct media_entity *entity,
 			if (flags & MEDIA_LNK_FL_ENABLED) {
 				ctx->sensor_sd =
 					media_entity_to_v4l2_subdev(remote->entity);
+
+				get_fake_sensor_info(ctx);
+
 				ctx->sensor_pad_idx = remote->index;
 				mtk_cam_seninf_get_vcinfo(ctx);
 			}
@@ -3121,10 +3193,15 @@ static int seninf_close(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 {
 	struct seninf_ctx *ctx = sd_to_ctx(sd);
 	unsigned int i;
+	int sensor_id = g_aov_param.sensor_idx;
 
+	if (ctx->is_aov_enable) {
+		dev_info(ctx->dev, "[%s]Warning: sensor_id(%d) aov_runtime_resume by seninf\n",
+			__func__, sensor_id);
+		mtk_cam_seninf_aov_runtime_resume(sensor_id, DEINIT_NORMAL);
+	}
 	mutex_lock(&ctx->mutex);
 	ctx->open_refcnt--;
-	ctx->is_aov_real_sensor = 0;
 
 	if (!ctx->open_refcnt) {
 		dev_info(ctx->dev, "%s open_refcnt %d\n", __func__, ctx->open_refcnt);
@@ -3152,6 +3229,8 @@ static int seninf_close(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
 			ctx->pid = NULL;
 		}
 	}
+
+	ctx->is_aov_real_sensor = 0;
 
 	mutex_unlock(&ctx->mutex);
 
@@ -3454,7 +3533,9 @@ static int seninf_probe(struct platform_device *pdev)
 	ctx->dbg_chmux_param = NULL;
 
 	ctx->open_refcnt = 0;
+	ctx->is_aov_enable = 0;
 	mutex_init(&ctx->mutex);
+	mutex_init(&ctx->dbg_chmux_mutex);
 
 	ret = get_csi_port(dev, &port);
 	if (ret) {
@@ -3467,6 +3548,8 @@ static int seninf_probe(struct platform_device *pdev)
 					core->reg_seninf_tm,
 					core->reg_seninf_outmux,
 					core->reg_seninf_outmux_inner,
+					core->reg_csi_top_0,
+					core->reg_csi_top_1,
 					core->reg_csi_base);
 	if (ret) {
 		dev_info(dev, "g_seninf_ops->_init_iomem failed ret %d\n", ret);
@@ -3522,8 +3605,10 @@ static int seninf_probe(struct platform_device *pdev)
 #endif  /*CSI_EFUSE_VERIFY_GORDAN_TABLE_EN*/
 	if (csi_efuse_value_verify(ctx) < 0) {
 		dev_info(dev, "Failed to verify efuse data\n");
+#ifndef REDUCE_KO_DEPENDENCY_FOR_SMT
 		aee_kernel_warning_api(__FILE__, __LINE__, DB_OPT_DEFAULT,
 		"seninf", "Failed to verify efuse data");
+#endif
 	}
 #endif  /*CSI_EFUSE_VERIFY_EN*/
 #endif  /*CSI_EFUSE_SET*/
@@ -4202,6 +4287,7 @@ static int seninf_remove(struct platform_device *pdev)
 	v4l2_ctrl_handler_free(&ctx->ctrl_handler);
 
 	mutex_destroy(&ctx->mutex);
+	mutex_destroy(&ctx->dbg_chmux_mutex);
 
 	return 0;
 }
@@ -4292,10 +4378,8 @@ int mtk_cam_seninf_check_timeout(struct v4l2_subdev *sd, u64 time_after_sof)
 		return -EINVAL;
 
 	ctx = sd_to_ctx(sd);
-	if (!ctx) {
-		dev_info(ctx->dev, "null seninf_ctx\n");
+	if (!ctx)
 		return -EINVAL;
-	}
 
 	if (ctx->is_test_model) {
 		if ((time_after_sof) > ((frame_time * SOF_TIMEOUT_RATIO) / 100))
@@ -4356,7 +4440,8 @@ u64 mtk_cam_seninf_get_frame_time(struct v4l2_subdev *sd, u32 seq_id)
 	return tmp * 1000;
 }
 
-int mtk_cam_seninf_dump(struct v4l2_subdev *sd, u32 seq_id, bool force_check)
+int mtk_cam_seninf_dump(struct v4l2_subdev *sd, u32 seq_id, bool force_check,
+			bool assert_when_error)
 {
 	int ret = 0;
 	struct seninf_ctx *ctx;
@@ -4365,15 +4450,14 @@ int mtk_cam_seninf_dump(struct v4l2_subdev *sd, u32 seq_id, bool force_check)
 	int val = 0;
 	int reset_by_user = 0;
 	bool in_reset = 0;
+	bool asserted = false;
 
 	if (!sd)
 		return -EINVAL;
 
 	ctx = sd_to_ctx(sd);
-	if (!ctx) {
-		dev_info(ctx->dev, "null seninf_ctx\n");
+	if (!ctx)
 		return -EINVAL;
-	}
 
 	if (!force_check && ctx->dbg_last_dump_req != 0 &&
 		ctx->dbg_last_dump_req == seq_id) {
@@ -4420,8 +4504,23 @@ int mtk_cam_seninf_dump(struct v4l2_subdev *sd, u32 seq_id, bool force_check)
 	if (ctx->streaming) {
 		if (!in_reset) {
 			ret = g_seninf_ops->_debug(sd_to_ctx(sd));
+			/* assert */
+			if (assert_when_error && ret != 0) {
+				seninf_aee_print(SENINF_AEE_FRMERR,
+						"Seninf dump with error code: %d\n", ret);
+				asserted = true;
+			}
 #if ESD_RESET_SUPPORT
-			if (ret != 0 && !ctx->is_test_model) {
+			else if (ret != 0 && !ctx->is_test_model) {
+				reset_by_user = is_reset_by_user(sd_to_ctx(sd));
+				if (!reset_by_user){
+					reset_sensor(sd_to_ctx(sd));
+					ctx->esd_status_flag = 1;
+				}
+			}
+#endif
+#if __XIAOMI_CAMERA__
+			else if (ret != 0 && !ctx->is_test_model && debug_esd_enable) {
 				reset_by_user = is_reset_by_user(sd_to_ctx(sd));
 				if (!reset_by_user){
 					reset_sensor(sd_to_ctx(sd));
@@ -4436,31 +4535,38 @@ int mtk_cam_seninf_dump(struct v4l2_subdev *sd, u32 seq_id, bool force_check)
 
 	pm_runtime_put_sync(ctx->dev);
 
-	dev_info(ctx->dev, "%s ret(%d), req(%u), force(%d) reset_by_user(%d)\n",
-		 __func__, ret, seq_id, force_check, reset_by_user);
+	dev_info(ctx->dev, "%s ret(%d), req(%u), force(%d) reset_by_user(%d) asserted(%d)\n",
+		 __func__, ret, seq_id, force_check, reset_by_user, asserted);
 
-	return (ret && reset_by_user);
+	/* return -ESTRPIPE if seninf already assertion,
+	 * or non-zero 1 if need to reset by user
+	 */
+	return asserted ? -ESTRPIPE : (ret && reset_by_user);
 }
 
 int mtk_cam_seninf_get_csi_irq_status(struct v4l2_subdev *sd, struct v4l2_ctrl *ctrl)
 {
+#ifdef __XIAOMI_CAMERA__
+	ctrl->val  = (g_seninf_ops->_get_csi_irq_status(sd_to_ctx(sd)));
+#else
 	struct seninf_ctx *ctx = sd_to_ctx(sd);
 
 	ctrl->val  = (g_seninf_ops->_get_csi_irq_status(sd_to_ctx(sd)) & 0x7fff)
 							| (ctx->esd_status_flag << 15);
 	ctx->esd_status_flag = 0;
 	dev_info(ctx->dev,"SENINF%d_CSI2_IRQ_STATUS(0x%x)\n", ctx->seninfAsyncIdx, ctrl->val);
+#endif
 
 	return 0;
 }
 
-int mtk_cam_seninf_dump_current_status(struct v4l2_subdev *sd)
+int mtk_cam_seninf_dump_current_status(struct v4l2_subdev *sd, bool assert_when_error)
 {
 	int ret = 0;
 	struct seninf_ctx *ctx = sd_to_ctx(sd);
 	struct v4l2_subdev *sensor_sd = ctx->sensor_sd;
-	int reset_by_user = 0;
 	bool in_reset = 0;
+	bool asserted = false;
 
 	ret = pm_runtime_get_sync(ctx->dev);
 	if (ret < 0) {
@@ -4478,6 +4584,12 @@ int mtk_cam_seninf_dump_current_status(struct v4l2_subdev *sd)
 	if (ctx->streaming) {
 		if (!in_reset) {
 			ret = g_seninf_ops->_debug_current_status(sd_to_ctx(sd));
+			/* assert */
+			if (assert_when_error && ret != 0) {
+				seninf_aee_print(SENINF_AEE_FRMERR,
+						"Seninf dump with error code: %d\n", ret);
+				asserted = true;
+			}
 		} else
 			dev_info(ctx->dev, "%s skip dump, sensor is in resetting\n", __func__);
 	} else
@@ -4485,10 +4597,33 @@ int mtk_cam_seninf_dump_current_status(struct v4l2_subdev *sd)
 
 	pm_runtime_put_sync(ctx->dev);
 
-	dev_info(ctx->dev, "%s ret(%d),reset_by_user(%d)\n",
-		 __func__, ret, reset_by_user);
+	dev_info(ctx->dev, "%s ret(%d),asserted(%d)\n",
+		 __func__, ret, asserted);
 
-	return (ret && reset_by_user);
+	/* return -ESTRPIPE if seninf already assertion,
+	 * or non-zero 1 if need to reset by user
+	 */
+	return asserted ? -ESTRPIPE : ret;
+}
+
+int mtk_cam_seninf_set_abort(struct v4l2_subdev *sd)
+{
+	int ret = 0;
+	struct seninf_ctx *ctx = NULL;
+
+	if(sd) {
+		ctx = sd_to_ctx(sd);
+	} else {
+		ret = -1;
+		pr_info("[%s] Null v4l2_subdev sd\n", __func__);
+		return ret;
+	}
+
+	ctx->set_abort_flag = 1;
+
+	dev_info(ctx->dev, "%s Streaming(%d) set_abort_flag(%d)\n",
+		__func__, ctx->streaming, ctx->set_abort_flag);
+	return ret;
 }
 
 void mtk_cam_seninf_set_secure(struct v4l2_subdev *sd, int enable, u64 SecInfo_addr)
@@ -4540,6 +4675,7 @@ int mtk_cam_seninf_aov_runtime_suspend(unsigned int sensor_id)
 	core = ctx->core;
 	mutex_lock(&core->mutex);
 
+	ctx->is_aov_enable = 1;
 	core->pwr_refcnt_for_aov++;
 	if (core->pwr_refcnt_for_aov < 0) {
 		dev_info(ctx->dev,
@@ -4700,6 +4836,13 @@ int mtk_cam_seninf_aov_runtime_resume(unsigned int sensor_id,
 	core = ctx->core;
 	mutex_lock(&core->mutex);
 
+	if (!ctx->is_aov_enable) {
+		mutex_unlock(&core->mutex);
+		pr_info("[%s] sensor_id(%d) already do aov_runtime_resume\n",
+			__func__, sensor_id);
+		return 0;
+	}
+	ctx->is_aov_enable = 0;
 	core->pwr_refcnt_for_aov--;
 	if (core->pwr_refcnt_for_aov < 0) {
 		dev_info(ctx->dev,
@@ -4800,37 +4943,8 @@ int mtk_cam_seninf_aov_runtime_resume(unsigned int sensor_id,
 			return -EINVAL;
 		}
 		/* SCP side to AP */
-		if (core->aov_csi_clk_switch_flag == CSI_CLK_130) {
-			/* set the parent of clk as parent_clk */
-			if (core->clk[ctx->clk_index] && core->clk[ctx->clk_src_index]) {
-				ret = clk_set_parent(
-					core->clk[ctx->clk_index],
-					core->clk[ctx->clk_src_index]);
-				if (ret < 0) {
-					dev_info(ctx->dev,
-						"[%s] clk[%u]:%s set_parent clk_src[%u]:%s(fail),ret(%d)\n",
-						__func__,
-						ctx->clk_index, clk_names[ctx->clk_index],
-						ctx->clk_src_index,
-						clk_names[ctx->clk_src_index],
-						ret);
-					mutex_unlock(&core->mutex);
-					return ret;
-				}
-				dev_info(ctx->dev,
-					"[%s] clk[%u]:%s set_parent clk_src[%u]:%s(correct),ret(%d)\n",
-					__func__,
-					ctx->clk_index, clk_names[ctx->clk_index],
-					ctx->clk_src_index, clk_names[ctx->clk_src_index],
-					ret);
-			} else {
-				dev_info(ctx->dev,
-					"[%s] Please check clk get whether NULL?\n",
-					__func__);
-				mutex_unlock(&core->mutex);
-				return -EINVAL;
-			}
-		}
+		dev_info(ctx->dev, "[%s] set csi_ck in power on.\n", __func__);
+
 		/* set phya clk source */
 		set_phya_clk(ctx);
 	}

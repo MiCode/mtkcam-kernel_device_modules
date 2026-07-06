@@ -10,6 +10,10 @@ void restore_ae_ctrl(struct adaptor_ctx *ctx);
 
 void adaptor_sensor_init(struct adaptor_ctx *ctx);
 
+#ifdef __XIAOMI_CAMERA__
+	u32 mi_get_mode_vb(struct adaptor_ctx *ctx, const struct sensor_mode *mode);
+#endif
+
 u32 get_mode_vb(struct adaptor_ctx *ctx, const struct sensor_mode *mode);
 
 int get_sof_timeout(struct adaptor_ctx *ctx, const struct sensor_mode *mode);

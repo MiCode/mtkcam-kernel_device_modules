@@ -6,6 +6,8 @@ else
 LINUXINCLUDE := $(DEVCIE_MODULES_INCLUDE) $(LINUXINCLUDE)
 endif
 
+KO_PATH := $(if $(filter /%,$(src)),,$(srctree)/)$(src)
+
 $(info $(DEVICE_MODULES_PATH))
 ccflags-y += -I$(DEVICE_MODULES_PATH)/drivers/misc/mediatek/smi/
 ccflags-y += -I$(DEVICE_MODULES_PATH)/drivers/misc/mediatek/mtk-interconnect/
@@ -13,7 +15,7 @@ ccflags-y += -I$(DEVICE_MODULES_PATH)/drivers/iommu
 ccflags-y += -I$(DEVICE_MODULES_PATH)/drivers/misc/mediatek/iommu
 ccflags-y += -I$(DEVICE_MODULES_PATH)/drivers/misc/mediatek/include/mt-plat/
 ccflags-$(CONFIG_MTK_IOMMU_V2) += -I$(DEVICE_MODULES_PATH)/drivers/misc/mediatek/include/mt-plat/$(MTK_PLATFORM)/include/
-ccflags-y += -I$(srctree)/$(src)/../camsys/isp8/cam
+ccflags-y += -I$(KO_PATH)/../camsys/isp8/cam
 
 NOTDIR_DEVICE_MODULES_PATH = $(notdir $(DEVICE_MODULES_PATH))
 KERNEL_VERSION = $(patsubst kernel_device_modules-%,%,$(NOTDIR_DEVICE_MODULES_PATH))
@@ -25,10 +27,10 @@ endif
 
 # driver module
 #obj-m := camera_pda_dummy.o
-ifneq ($(wildcard $(srctree)/$(src)/isp_8/pda_mt6991.c),)
+ifneq ($(wildcard $(KO_PATH)/isp_8/pda_mt6991.c),)
 obj-m += pda_drv_mt6991.o
 endif
-ifneq ($(wildcard $(srctree)/$(src)/isp_8/pda_mt6899.c),)
+ifneq ($(wildcard $(KO_PATH)/isp_8/pda_mt6899.c),)
 obj-m += pda_drv_mt6899.o
 endif
 obj-m += pda_drv_dummy.o

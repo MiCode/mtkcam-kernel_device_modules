@@ -194,6 +194,7 @@ struct dcg_info_struct {
 	u32 dcg_gain_ratio_step;
 	u32 *dcg_gain_table;
 	u32 dcg_gain_table_size;
+	u32 dcg_ratio_group[IMGSENSOR_EXPOSURE_CNT];
 };
 
 
@@ -242,6 +243,7 @@ struct subdrv_mode_struct {
 	u32 coarse_integ_step;
 	u32 min_exposure_line;
 	u32 min_vblanking_line;
+	u32 exposure_margin;
 	struct SENSOR_WINSIZE_INFO_STRUCT imgsensor_winsize_info;
 
 	enum IMGSENSOR_RGBW_OUTPUT_MODE rgbw_output_mode;
@@ -274,12 +276,20 @@ struct subdrv_mode_struct {
 
 	bool dpc_enabled; /* defect pixel correction */
 	bool pdc_enabled; /* pd correction */
+
+#ifdef __XIAOMI_CAMERA__
+	bool cms_enabled; /* cms enable */
+	u32 mi_mode_type; /*defu :0 ; full size: 1; bining 2; DXG: 3; CMS: 4;*/
+#endif
+
+	bool awb_enabled; /* awb_enabled */
 	struct mtk_sensor_saturation_info *saturation_info;
 	struct dcg_info_struct dcg_info;
 	u32 exposure_order_in_lbmf;
 	u32 mode_type_in_lbmf;
 	u32 sw_fl_delay;
 	u8 support_mcss;
+	u32 bit_align_type;
 };
 
 #define REG_ADDR_MAXCNT 4
@@ -315,6 +325,7 @@ struct subdrv_static_ctx {
 	u32 ana_gain_step;
 	u32 *ana_gain_table;
 	u32 ana_gain_table_size;
+	u32 min_gain_iso; /* ana_gain = 1x, support min ISO100 */
 	u32 tuning_iso_base; /* ana_gain = 1x, support min ISO100 */
 	u32 exposure_def;
 	u32 exposure_min;
@@ -360,6 +371,7 @@ struct subdrv_static_ctx {
 	struct reg_ reg_addr_exposure_in_lut[IMGSENSOR_STAGGER_EXPOSURE_CNT];
 	u16 long_exposure_support;
 	u16 reg_addr_exposure_lshift;
+	u16 reg_addr_framelength_lshift;
 	struct reg_ reg_addr_ana_gain[IMGSENSOR_STAGGER_EXPOSURE_CNT];
 	struct reg_ reg_addr_ana_gain_in_lut[IMGSENSOR_STAGGER_EXPOSURE_CNT];
 	struct reg_ reg_addr_dig_gain[IMGSENSOR_STAGGER_EXPOSURE_CNT];
@@ -394,6 +406,27 @@ struct subdrv_static_ctx {
 	u16 reg_addr_aov_mode_mirror_flip;
 	u8 init_in_open;
 	u8 streaming_ctrl_imp;
+#ifdef __XIAOMI_CAMERA__
+	void (*s_mi_init_setting)(void *arg);
+	void (*s_mi_mode_setting)(void *arg, enum SENSOR_SCENARIO_ID_ENUM scenario_id);
+	void (*s_mi_init_seq)(void *arg);
+	void (*s_mi_stream)(void *arg,bool enable);
+	void (*s_mi_read_CGRatio)(void *arg);
+	void (*s_mi_pre_init)(void *arg);
+	u32 (*mi_evaluate_frame_rate_by_scenario)(void *arg, enum SENSOR_SCENARIO_ID_ENUM scenario_id, u32 framerate);
+	u8 mi_vendor_id;
+	u8 mi_enable_async;
+	u8 mi_disable_set_dummy;
+	/*0 default, 1 samsung*/
+	u8 mi_long_exposure_type;
+	struct setting_workqueue *workqueue;
+	u8 mi_i2c_type;
+	bool mi_hb_vb_cal;
+	u16 mi_dxg_reg;
+	u16 mi_dxg_ratio;
+	u32 mi_dcg_gain[IMGSENSOR_STAGGER_EXPOSURE_CNT];
+	bool power_off_delay_enable;
+#endif
 
 	/* custom stream control delay timing for hw limitation */
 	u64 custom_stream_ctrl_delay;
@@ -529,12 +562,18 @@ struct subdrv_ctx {
 	/* for custom stream control delay timing */
 	u64 stream_ctrl_start_time;
 	u64 stream_ctrl_end_time;
+	u64 stream_ctrl_start_time_mono;
 	struct hw_init_time_struct hw_time_info[SENSOR_SCENARIO_ID_MAX];
 
 	/* for MCSS */
 	struct mtk_fsync_hw_mcss_init_info mcss_init_info;
 
 	struct mutex i2c_buffer_lock;
+#ifdef __XIAOMI_CAMERA__
+	u32 extraVB;
+	/*for ov08f dummy line*/
+	u32 vblank_convert;
+#endif
 };
 
 struct subdrv_feature_control {
@@ -693,6 +732,21 @@ struct subdrv_entry {
 #define subdrv_ixc_wr_regs_u16(subctx, list, len) \
 	adaptor_ixc_wr_regs_u16(&subctx->ixc_client, \
 		subctx->i2c_write_id >> 1, list, len)
+
+#ifdef __XIAOMI_CAMERA__
+#define subdrv_i2c_rd_u8_u8(subctx, reg) \
+({ \
+	u8 __val = 0xff; \
+	adaptor_i2c_rd_u8_u8(subctx->i2c_client, \
+		subctx->i2c_write_id >> 1, reg, &__val); \
+	__val; \
+})
+
+#define subdrv_i2c_wr_u8_u8(subctx, reg, val) \
+	adaptor_i2c_wr_u8_u8(subctx->i2c_client, \
+		subctx->i2c_write_id >> 1, reg, val)
+
+#endif
 
 #define FINE_INTEG_CONVERT(_shutter, _fine_integ) \
 ( \

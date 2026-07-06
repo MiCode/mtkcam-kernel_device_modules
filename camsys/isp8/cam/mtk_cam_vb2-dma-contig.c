@@ -365,6 +365,31 @@ void mtk_cam_vb2_sync_for_device(struct vb2_buffer *vb)
 	}
 }
 
+void mtk_cam_vb2_sync_range_for_device(
+		struct vb2_buffer *vb, unsigned long offset, size_t size)
+{
+	struct mtk_cam_video_device *node = mtk_cam_vbq_to_vdev(vb->vb2_queue);
+	struct mtk_cam_vb2_buf *buf;
+	struct sg_table *sgt;
+	unsigned int plane;
+
+	if (CAM_DEBUG_ENABLED(V4L2))
+		pr_info("%s: %s\n", __func__, node->desc.name);
+
+	for (plane = 0; plane < vb->num_planes; ++plane) {
+		buf = vb->planes[plane].mem_priv;
+		sgt = buf->dma_sgt;
+
+		if (!sgt)
+			continue;
+
+		if (buf->sync) {
+			dma_buf_end_cpu_access_partial(
+				buf->db_attach->dmabuf, buf->dma_dir, offset, size);
+		}
+	}
+}
+
 void mtk_cam_vb2_sync_for_cpu(struct vb2_buffer *vb)
 {
 	struct mtk_cam_video_device *node = mtk_cam_vbq_to_vdev(vb->vb2_queue);

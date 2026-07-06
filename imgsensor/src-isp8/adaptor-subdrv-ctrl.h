@@ -160,7 +160,7 @@ void get_sensor_hdr_capacity(struct subdrv_ctx *ctx,
 		enum SENSOR_SCENARIO_ID_ENUM scenario_id, u32 *hdr_mode);
 void get_frame_ctrl_info_by_scenario(struct subdrv_ctx *ctx,
 		enum SENSOR_SCENARIO_ID_ENUM scenario_id, u32 *margin);
-void get_feature_get_4cell_data(struct subdrv_ctx *ctx, u16 type, char *data);
+void get_feature_get_4cell_data(struct subdrv_ctx *ctx, u16 type, char *data, u16 size);
 void get_stagger_max_exp_time(struct subdrv_ctx *ctx,
 		enum SENSOR_SCENARIO_ID_ENUM scenario_id,
 		enum VC_FEATURE vc, u64 *exposure_max);
@@ -197,6 +197,8 @@ void get_exp_line_by_scenario(struct subdrv_ctx *ctx,
 		enum SENSOR_SCENARIO_ID_ENUM scenario_id,
 		u32 framerate, u64 *exposure_line);
 void update_hw_init_time(struct subdrv_ctx *ctx, u64 fisrt_vsync_time);
+void get_dcg_ratio_group_by_scenario(struct subdrv_ctx *ctx,
+		enum SENSOR_SCENARIO_ID_ENUM scenario_id, void *data);
 
 int common_get_imgsensor_id(struct subdrv_ctx *ctx, u32 *sensor_id);
 void subdrv_ctx_init(struct subdrv_ctx *ctx);

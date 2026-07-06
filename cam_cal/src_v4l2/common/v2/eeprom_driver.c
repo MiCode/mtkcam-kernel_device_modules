@@ -79,8 +79,39 @@ static unsigned int read_region(struct EEPROM_DRV_FD_DATA *pdata,
 	} else {
 		must_log("no customized\n");
 		mutex_lock(&pdata->pdrv->eeprom_mutex);
+#ifdef __XIAOMI_CAMERA__
+		if(pdata->sensor_info.sensor_id == 0x5608){
+			must_log("customize for dali ov08f: 0x%x, 0x%x\n", pdata->pdrv->pi2c_client->addr, pdata->sensor_info.sensor_id);
+			ret = DALI_OV08F_OTP_read_region(pdata->pdrv->pi2c_client,
+						offset, buf, size);
+		}
+		else if (pdata->sensor_info.sensor_id == 0x5609)
+		{
+			must_log("customize for turner ov08f: 0x%x, 0x%x\n", pdata->pdrv->pi2c_client->addr, pdata->sensor_info.sensor_id);
+			ret = TURNER_OV08F_OTP_read_region(pdata->pdrv->pi2c_client,
+						offset, buf, size);
+		}
+		else if (pdata->sensor_info.sensor_id == 0xd18a)
+		{
+			must_log("customize for klee sc821cs: 0x%x, 0x%x\n", pdata->pdrv->pi2c_client->addr, pdata->sensor_info.sensor_id);
+			ret = KLEE_SC821CS_OTP_read_region(pdata->pdrv->pi2c_client,
+						0x829C, buf, 0x1080);
+		}
+		else if (pdata->sensor_info.sensor_id == 0xD18B)
+		{
+			must_log("customize for dash sc821cs: 0x%x, 0x%x\n", pdata->pdrv->pi2c_client->addr, pdata->sensor_info.sensor_id);
+			ret = DASH_SC821CS_OTP_read_region(pdata->pdrv->pi2c_client,
+						0x829C, buf, 0x1080);
+		}
+		else {
+			must_log("no customized\n");
+			ret = Common_read_region(pdata->pdrv->pi2c_client,
+						offset, buf, size);
+		}
+#else
 		ret = Common_read_region(pdata->pdrv->pi2c_client,
 					 offset, buf, size);
+#endif
 		mutex_unlock(&pdata->pdrv->eeprom_mutex);
 	}
 

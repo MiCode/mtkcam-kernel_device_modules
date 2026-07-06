@@ -5,6 +5,7 @@
 #ifdef CONFIG_PROC_FS
 
 #include <linux/freezer.h>
+#include <linux/vmalloc.h>
 #include <media/v4l2-event.h>
 #include "mtk_cam.h"
 #include "mtk_cam-raw.h"

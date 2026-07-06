@@ -105,7 +105,8 @@ struct mtk_cam_seninf_tsrec_vsync_info {
 	__u32 tsrec_no;
 	__u32 seninf_idx;
 
-	__u64 irq_sys_time_ns; // ktime_get_boottime_ns()
+	__u64 irq_sys_time_ns; /* ktime_get_boottime_ns() */
+	__u64 irq_mono_time_ns; /* ktime_get_ns() */
 	__u64 irq_tsrec_ts_us;
 };
 
@@ -125,7 +126,8 @@ struct mtk_cam_seninf_tsrec_timestamp_info {
 	/* interrupt pre-latch exp no */
 	__u32 irq_pre_latch_exp_no;
 	/* record when receive a interrupt (top-half) */
-	__u64 irq_sys_time_ns; // ktime_get_boottime_ns()
+	__u64 irq_sys_time_ns; /* ktime_get_boottime_ns() */
+	__u64 irq_mono_time_ns; /* ktime_get_ns() */
 	__u64 irq_tsrec_ts_us;
 
 	/* current tick when query/send tsrec timestamp info */
@@ -198,6 +200,7 @@ static inline void disable_irq(unsigned int irq) {}
 static inline void enable_irq(unsigned int irq) {}
 
 unsigned long long ktime_get_boottime_ns(void);
+unsigned long long ktime_get_ns(void);
 
 
 /*******************************************************************************

@@ -14,6 +14,7 @@ $(info IMGSENSOR_PROJECT: $(IMGSENSOR_PROJECT))
 
 FRAME_SYNC := frame-sync
 VIRT_SENSOR := virt-sensor
+KO_CODE_PATH := $(if $(filter /%,$(src)),,$(srctree)/)$(src)
 
 $(info IMGSENSOR_DEVICE_MODULES_PATH: $(DEVICE_MODULES_PATH))
 
@@ -29,6 +30,7 @@ subdir-ccflags-y += \
 	-I$(MTK_ISP_DRIVER_PATH)/ \
 	-I$(MTK_ISP_DRIVER_PATH)/include/ \
 	-I$(DEVICE_MODULES_PATH)/drivers/misc/mediatek/include/mt-plat/ \
+	-I$(srctree)/drivers/thermal
 
 obj-y += imgsensor-glue/
 
@@ -89,7 +91,7 @@ endif
 
 define add_subdrv
 $(eval subdrv-rpath = $1)
-$(eval include $(srctree)/$(src)/$1/Makefile)
+$(eval include $(KO_CODE_PATH)/$1/Makefile)
 endef
 
 ifneq ($(unknown_drv),)

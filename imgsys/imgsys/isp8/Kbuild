@@ -14,11 +14,11 @@ KO_CODE_PATH := $(if $(filter /%,$(src)),,$(srctree)/)$(src)
 IMGSYS_ISP8_MODULE := mtk_imgsys_isp8
 
 #platform dependent
-ccflags-y += -I$(srctree)/$(src)/../../../mtk-hcp/isp8
+ccflags-y += -I$(KO_CODE_PATH)/../../../mtk-hcp/isp8
 ccflags-y += -I$(DEVICE_MODULES_PATH)/drivers/misc/mediatek/cmdq/mailbox/
-ccflags-y += -I$(srctree)/$(src)/../../common/
-ccflags-y += -I$(srctree)/$(src)/../cmdq/isp8
-ccflags-y += -I$(srctree)/$(src)/
+ccflags-y += -I$(KO_CODE_PATH)/../../common/
+ccflags-y += -I$(KO_CODE_PATH)/../cmdq/isp8
+ccflags-y += -I$(KO_CODE_PATH)/
 ccflags-y += -I$(DEVICE_MODULES_PATH)/drivers/misc/mediatek/mtk-interconnect/
 ccflags-y += -I$(DEVICE_MODULES_PATH)/drivers/misc/mediatek/smi/
 ccflags-y += -I$(DEVICE_MODULES_PATH)/drivers/iommu
@@ -26,6 +26,15 @@ ccflags-y += -I$(DEVICE_MODULES_PATH)/drivers/misc/mediatek/iommu
 ccflags-y += -I$(DEVICE_MODULES_PATH)/drivers/misc/mediatek/slbc
 ccflags-y += -I$(DEVICE_MODULES_PATH)/include/soc/mediatek
 ccflags-y += -I$(DEVICE_MODULES_PATH)/drivers/misc/mediatek/include/
+
+ifeq ($(CONFIG_MTK_MBRAINK_BRIDGE), m)
+ccflags-y += -DCFG_SUPPORT_MBRAIN=1
+ccflags-y += -I$(DEVICE_MODULES_PATH)/drivers/misc/mediatek/mbraink
+
+$(info "isp8 ccflags-y = $(ccflags-y)")
+
+check_path := $(shell if [ ! -d $(DEVICE_MODULES_PATH)/drivers/misc/mediatek/mbraink/bridge ]; then echo "Error: Path $(DEVICE_MODULES_PATH)/drivers/misc/mediatek/mbraink/bridge not found" >&2; exit 1; fi)
+endif
 
 ccflags-y += -ferror-limit=0
 

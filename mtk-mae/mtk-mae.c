@@ -18,6 +18,7 @@
 #include <uapi/linux/dma-heap.h>
 #include <linux/pm_runtime.h>
 #include <linux/suspend.h>
+#include <linux/vmalloc.h>
 
 #include <linux/device.h>
 #include <linux/version.h>
@@ -317,8 +318,8 @@ static int mtk_mae_ccf_enable(struct device *dev)
 	struct mtk_mae_dev *mae_dev = dev_get_drvdata(dev);
 	int ret;
 
-	ret = clk_bulk_prepare_enable(mae_dev->clks_data.clk_num,
-			mae_dev->clks_data.clks);
+	ret = clk_bulk_prepare_enable(g_mae_data.clk_num,
+			g_mae_data.clks);
 	if (ret) {
 		dev_info(mae_dev->dev, "failed to enable mae clock:%d\n", ret);
 		return ret;
@@ -329,10 +330,8 @@ static int mtk_mae_ccf_enable(struct device *dev)
 
 static void mtk_mae_ccf_disable(struct device *dev)
 {
-	struct mtk_mae_dev *mae_dev = dev_get_drvdata(dev);
-
-	clk_bulk_disable_unprepare(mae_dev->clks_data.clk_num,
-			mae_dev->clks_data.clks);
+	clk_bulk_disable_unprepare(g_mae_data.clk_num,
+			g_mae_data.clks);
 }
 
 static struct dma_buf *mae_imem_sec_alloc(struct mtk_mae_dev *mae_dev,
@@ -513,6 +512,8 @@ static void mtk_mae_hw_done(struct mtk_mae_dev *mae_dev,
 	v4l2_m2m_job_finish(mae_dev->m2m_dev, ctx->fh.m2m_ctx);
 
 	complete_all(&mae_dev->mae_job_finished);
+	wake_up(&mae_dev->flushing_waitq);
+
 #else
 	// MAE_TO_DO
 #endif
@@ -957,7 +958,10 @@ static int mtk_mae_hw_connect(struct mtk_mae_dev *mae_dev)
 		mtk_mae_cmdq_alloc_buf(mae_dev->mae_clt,
 			&(mae_dev->mae_time_ed_va),
 			&(mae_dev->mae_time_ed_pa));
+
+		atomic_inc(&mae_dev->num_composing);
 	}
+
 
 	mutex_unlock(&mae_dev->mae_stream_lock);
 
@@ -1120,7 +1124,10 @@ static void mtk_mae_hw_disconnect(struct mtk_mae_dev *mae_dev)
 		cmdq_mbox_buf_free(mae_dev->mae_clt,
 			mae_dev->mae_time_ed_va,
 			mae_dev->mae_time_ed_pa);
+
+		atomic_dec(&mae_dev->num_composing);
 	}
+
 
 	mutex_unlock(&mae_dev->mae_stream_lock);
 }
@@ -1351,7 +1358,7 @@ static __poll_t mtk_mae_video_device_poll(struct file *file, poll_table *wait)
 {
 	struct mtk_mae_dev *mae_dev = video_drvdata(file);
 
-	if(!wait_for_completion_timeout(&mae_dev->mae_job_finished, msecs_to_jiffies(1500))) {
+	if(!wait_for_completion_timeout(&mae_dev->mae_job_finished, msecs_to_jiffies(MTK_FD_HW_TIMEOUT))) {
 		mae_dev_info(mae_dev->dev, "%s: wait job finish timeout\n", __func__);
 		return EPOLLERR;
 	}
@@ -2013,27 +2020,27 @@ err_unreg_v4l2_dev:
 }
 
 
+
 static int mtk_mae_suspend(struct device *dev)
 {
 	struct mtk_mae_dev *mae_dev = dev_get_drvdata(dev);
-	int ret;
+	int ret, num;
 
-	mae_dev_info(dev, "%s: suspend mae job start\n", __func__);
+	num = atomic_read(&mae_dev->num_composing);
+	mae_dev_info(dev, "%s: suspend mae job start, num(%d)\n", __func__, num);
+
+	ret = wait_event_timeout
+		(mae_dev->flushing_waitq,
+		 !(num = atomic_read(&mae_dev->num_composing)),
+		 msecs_to_jiffies(MTK_FD_HW_TIMEOUT));
+	if (!ret && num) {
+		mae_dev_info(dev, "%s: flushing mae job timeout, num(%d)\n",
+			__func__, num);
+
+		return -EBUSY;
+	}
 
 	if (!mae_dev->is_shutdown) {
-		if (pm_runtime_suspended(dev))
-			return 0;
-
-		cmdq_mbox_disable(mae_dev->mae_clt->chan);
-
-		mtk_mae_ccf_disable(dev);
-		ret = pm_runtime_put_sync(dev);
-		if (ret) {
-			mae_dev_info(dev, "%s: pm_runtime_put_sync failed:(%d)\n",
-				__func__, ret);
-			return ret;
-		}
-
 		/* unavailable: 0 available: 1 */
 		if (m_aov_notify != NULL)
 			m_aov_notify(mae_dev->aov_pdev, AOV_NOTIFY_AIE_AVAIL, 1);
@@ -2048,33 +2055,12 @@ static int mtk_mae_suspend(struct device *dev)
 static int mtk_mae_resume(struct device *dev)
 {
 	struct mtk_mae_dev *mae_dev = dev_get_drvdata(dev);
-	int ret;
 
 	mae_dev_info(dev, "%s: resume mae job start\n", __func__);
 
 	if (!mae_dev->is_shutdown) {
-		if (pm_runtime_suspended(dev)) {
-			mae_dev_info(dev, "%s: pm_runtime_suspended is true, no action\n",
-				__func__);
-			return 0;
-		}
-
 		if (m_aov_notify != NULL)
 			m_aov_notify(mae_dev->aov_pdev, AOV_NOTIFY_AIE_AVAIL, 0);
-
-		ret = pm_runtime_get_sync(dev);
-		if (ret) {
-			mae_dev_info(dev, "%s: pm_runtime_get_sync failed:(%d)\n",
-				__func__, ret);
-			return ret;
-		}
-
-		ret = mtk_mae_ccf_enable(dev);
-		if (ret)
-			return ret;
-
-		cmdq_mbox_enable(mae_dev->mae_clt->chan);
-		cmdq_clear_event(mae_dev->mae_clt->chan, mae_dev->mae_event_id);
 	}
 
 	mae_dev_info(dev, "%s: resume aie job end)\n", __func__);
@@ -2172,17 +2158,6 @@ int mtk_mae_probe(struct platform_device *pdev)
 	if (ret)
 		dev_info(dev, "Failed to init larb : %d\n", ret);
 
-	/* Clock get */
-	mae_dev->clks_data.clk_num = g_mae_data.clk_num;
-	mae_dev->clks_data.clks = g_mae_data.clks;
-	ret = devm_clk_bulk_get(dev,
-			mae_dev->clks_data.clk_num,
-			mae_dev->clks_data.clks);
-	if (ret) {
-		dev_info(dev, "Failed to get clks: %d\n", ret);
-		return ret;
-	}
-
 	mae_dev->mae_clt = cmdq_mbox_create(dev, 0);
 	if (!mae_dev->mae_clt)
 		mae_dev_info(dev, "cmdq mbox create fail\n");
@@ -2210,6 +2185,8 @@ int mtk_mae_probe(struct platform_device *pdev)
 
 	mutex_init(&mae_dev->vdev_lock);
 	init_completion(&mae_dev->mae_job_finished);
+	init_waitqueue_head(&mae_dev->flushing_waitq);
+	atomic_set(&mae_dev->num_composing, 0);
 
 	mutex_init(&mae_dev->mae_device_lock);
 	mutex_init(&mae_dev->mae_stream_lock);

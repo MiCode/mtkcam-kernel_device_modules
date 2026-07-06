@@ -27,9 +27,9 @@ ccflags-y += -I$(DEVICE_MODULES_PATH)/drivers/iommu/arm/arm-smmu-v3/
 ccflags-y += -I$(DEVICE_MODULES_PATH)/drivers/misc/mediatek/mtk-interconnect/
 ccflags-$(CONFIG_MTK_IOMMU_V2) += -I$(DEVICE_MODULES_PATH)/drivers/iommu
 ccflags-$(CONFIG_MTK_IOMMU_V2) += -I$(DEVICE_MODULES_PATH)/drivers/misc/mediatek/include/mt-plat/$(MTK_PLATFORM)/include/
-ccflags-y += -I$(srctree)/$(src)/../img_frm_sync/
-ccflags-y += -I$(srctree)/$(src)/../imgsys/common
-ccflags-y += -I$(srctree)/$(src)/../camsys/isp8/cam
+ccflags-y += -I$(KO_CODE_PATH)/../img_frm_sync/
+ccflags-y += -I$(KO_CODE_PATH)/../imgsys/common
+ccflags-y += -I$(KO_CODE_PATH)/../camsys/isp8/cam
 
 
 $(warning "Bryan test")

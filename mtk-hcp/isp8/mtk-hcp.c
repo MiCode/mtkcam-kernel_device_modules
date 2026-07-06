@@ -420,6 +420,8 @@ struct my_wq_t {
 };
 
 /*  function prototype declaration */
+static void mtk_hcp_purge_msg_internal(struct mtk_hcp *hcp_dev);
+
 static void module_notify(struct mtk_hcp *hcp_dev,
 						struct share_buf *user_data_addr);
 static int hcp_send_internal(struct mtk_hcp *hcp_dev,
@@ -1819,8 +1821,8 @@ static int mtk_hcp_open(struct inode *inode, struct file *file)
 	struct mtk_hcp *hcp_dev = NULL;
 
 	hcp_dev = container_of(inode->i_cdev, struct mtk_hcp, hcp_cdev);
-    if (hcp_dbg_enable())
-	dev_dbg(hcp_dev->dev, "open inode->i_cdev = 0x%p\n", inode->i_cdev);
+	if (hcp_dbg_enable())
+		dev_dbg(hcp_dev->dev, "open inode->i_cdev = 0x%p\n", inode->i_cdev);
 
 	/*  */
 	file->private_data = hcp_dev;
@@ -1830,8 +1832,11 @@ static int mtk_hcp_open(struct inode *inode, struct file *file)
 
 	hcp_dev->current_task = current;
 
-    if (hcp_dbg_enable())
-	dev_dbg(hcp_dev->dev, "- X. hcp open.\n");
+	/* purge old messages */
+	mtk_hcp_purge_msg_internal(hcp_dev);
+
+	if (hcp_dbg_enable())
+		dev_dbg(hcp_dev->dev, "- X. hcp open.\n");
 
 	return 0;
 }
@@ -1892,16 +1897,6 @@ static int mtk_hcp_mmap(struct file *file, struct vm_area_struct *vma)
 static void module_notify(struct mtk_hcp *hcp_dev,
 					struct share_buf *user_data_addr)
 {
-	void *gce_buf = NULL;
-	int req_fd = 0;
-	struct img_sw_buffer *swbuf_data = NULL;
-	struct swfrm_info_t *swfrm_info = NULL;
-	struct mtk_imgsys_request *req = NULL;
-	u64 *req_stat = NULL;
-#if SMVR_DECOUPLE
-unsigned int mode = imgsys_streaming;
-#endif
-
 	if (!user_data_addr) {
 		dev_info(hcp_dev->dev, "%s invalid null share buffer", __func__);
 		return;
@@ -1912,60 +1907,10 @@ unsigned int mode = imgsys_streaming;
 		return;
 	}
 
-    if (hcp_dbg_enable())
-	dev_dbg(hcp_dev->dev, " %s with message id:%d\n",
-				__func__, user_data_addr->id);
+	if (hcp_dbg_enable())
+		dev_dbg(hcp_dev->dev, " %s with message id:%d\n",
+			__func__, user_data_addr->id);
 
-	swbuf_data = (struct img_sw_buffer *)user_data_addr->share_data;
-	if (swbuf_data && user_data_addr->id == HCP_IMGSYS_FRAME_ID) {
-#if SMVR_DECOUPLE
-		 switch (swbuf_data->scp_addr) {
-        case imgsys_streaming:
-        case imgsys_capture:
-        case imgsys_smvr:
-                mode  = swbuf_data->scp_addr;
-                break;
-        default:
-                dev_warn(hcp_dev->dev, " %s with message id:%d, w/ unexpected mode(%d/%d)\n",
-                    __func__, user_data_addr->id, swbuf_data->scp_addr, mode);
-                break;
-        }
-        //dev_dbg(hcp_dev->dev, " %s with message id:%d scp_addr(%d) mode(%d) swbuf_data->offset(0x%x)\n",
-        //    __func__, user_data_addr->id,
-        //    swbuf_data->scp_addr, mode,
-        //    swbuf_data->offset);
-		if (hcp_dev->data && hcp_dev->data->get_gce_virt)
-			gce_buf = hcp_dev->data->get_gce_virt(mode);
-            #else
-		if (hcp_dev->data && hcp_dev->data->get_gce_virt)
-			gce_buf = hcp_dev->data->get_gce_virt();
-            #endif
-
-		if (gce_buf)
-			swfrm_info = (struct swfrm_info_t *)(gce_buf + (swbuf_data->offset));
-#if SMVR_DECOUPLE
-//dev_info(hcp_dev->dev,
-//            " %s with message id:%d gce_buf/swfrm_info (%lx/%lx) scp_addr(%d) mode(%d) swbuf_data->offset(0x%x)",
-//            __func__, user_data_addr->id,
-//            (unsigned long)gce_buf, (unsigned long)swfrm_info, swbuf_data->scp_addr, mode,
-//            swbuf_data->offset);
-#endif
-		if (swfrm_info && swfrm_info->is_lastfrm)
-			req = (struct mtk_imgsys_request *)swfrm_info->req_vaddr;
-
-		if (req) {
-			req_fd = req->tstate.req_fd;
-			req_stat = req->req_stat;
-		}
-
-		if (req_stat) {
-			*req_stat = *req_stat + 1;
-            if (hcp_dbg_enable())
-			dev_dbg(hcp_dev->dev, "req:%d req_stat(%p):%llu\n",
-				req_fd, req_stat, *req_stat);
-		}
-
-	}
 	if (hcp_dev->hcp_desc_table[user_data_addr->id].handler) {
 		hcp_dev->hcp_desc_table[user_data_addr->id].handler(
 			user_data_addr->share_data,
@@ -2482,13 +2427,15 @@ int mtk_hcp_get_mem_info(struct platform_device *pdev,
 EXPORT_SYMBOL(mtk_hcp_get_mem_info);
 #endif
 
-void mtk_hcp_purge_msg(struct platform_device *pdev)
+static void mtk_hcp_purge_msg_internal(struct mtk_hcp *hcp_dev)
 {
-	struct mtk_hcp *hcp_dev = platform_get_drvdata(pdev);
 	unsigned long flag = 0;
 	int i = 0;
 	struct msg *msg = NULL;
 	struct msg *tmp = NULL;
+
+	if (!hcp_dev)
+		return;
 
 	spin_lock_irqsave(&hcp_dev->msglock, flag);
 	for (i = 0; i < MODULE_MAX_ID; i++) {
@@ -2500,6 +2447,13 @@ void mtk_hcp_purge_msg(struct platform_device *pdev)
 	}
 	atomic_set(&hcp_dev->seq, 0);
 	spin_unlock_irqrestore(&hcp_dev->msglock, flag);
+}
+
+void mtk_hcp_purge_msg(struct platform_device *pdev)
+{
+	struct mtk_hcp *hcp_dev = platform_get_drvdata(pdev);
+
+	mtk_hcp_purge_msg_internal(hcp_dev);
 }
 EXPORT_SYMBOL(mtk_hcp_purge_msg);
 
@@ -2527,7 +2481,7 @@ static int mtk_hcp_probe(struct platform_device *pdev)
 	int i = 0;
 
 	dev_info(&pdev->dev, "- E. hcp driver probe.\n");
-	hcp_dev = devm_kzalloc(&pdev->dev, sizeof(*hcp_dev), GFP_KERNEL);
+	hcp_dev = vzalloc(sizeof(*hcp_dev));
 	if (hcp_dev == NULL)
 		return -ENOMEM;
 
@@ -2610,9 +2564,10 @@ static int mtk_hcp_probe(struct platform_device *pdev)
 	spin_lock_init(&hcp_dev->msglock);
 	init_waitqueue_head(&hcp_dev->msg_wq);
 	INIT_LIST_HEAD(&hcp_dev->msg_list);
-	msgs = devm_kzalloc(hcp_dev->dev, sizeof(*msgs) * MSG_NR, GFP_KERNEL);
+	msgs = vzalloc(sizeof(*msgs) * MSG_NR);
 	for (i = 0; i < MSG_NR; i++)
 		list_add_tail(&msgs[i].entry, &hcp_dev->msg_list);
+	hcp_dev->msgs = msgs;
 
 	/* init character device */
 
@@ -2686,7 +2641,8 @@ err_alloc:
 		}
 	}
 
-	devm_kfree(&pdev->dev, hcp_dev);
+	vfree(hcp_dev->msgs);
+	vfree(hcp_dev);
 
 	dev_info(&pdev->dev, "- X. hcp driver probe fail.\n");
 
@@ -2723,8 +2679,8 @@ static int mtk_hcp_remove(struct platform_device *pdev)
         if (hcp_dbg_enable())
 		dev_dbg(&pdev->dev, "%s: opened device found\n", __func__);
 	}
-	devm_kfree(&pdev->dev, hcp_dev);
-
+	vfree(hcp_dev->msgs);
+	vfree(hcp_dev);
 	cdev_del(&hcp_dev->hcp_cdev);
 	unregister_chrdev_region(hcp_dev->hcp_devno, 1);
 

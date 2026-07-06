@@ -6,6 +6,7 @@
 
 #include "mtk_cam-seninf.h"
 #include "mtk_cam-seninf-tsrec.h"
+#include "mtk_cam-seninf_control-8.h"
 
 /******************************************************************************/
 // seninf sentest call back ctrl --- function
@@ -25,5 +26,8 @@ int seninf_sentest_uninit(struct seninf_ctx *ctx);
 
 int notify_sentest_irq(struct seninf_ctx *ctx,
 			const struct mtk_cam_seninf_tsrec_irq_notify_info *p_info);
+
+int seninf_sentest_get_csi_mipi_measure_result(struct seninf_ctx *ctx,
+			struct mtk_cam_seninf_meter_info *info);
 
 #endif

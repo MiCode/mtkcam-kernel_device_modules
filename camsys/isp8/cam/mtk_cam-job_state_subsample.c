@@ -9,6 +9,10 @@ static struct state_transition STATE_TRANS(subsample_sensor, S_SENSOR_NOT_SET)[]
 		S_SENSOR_APPLYING, CAMSYS_EVENT_TIMER_SENSOR,
 		guard_apply_sensor_subsample, ACTION_APPLY_SENSOR
 	},
+	{
+		S_SENSOR_APPLYING, CAMSYS_EVENT_ENQUE,
+		guard_apply_sensor_subsample_2, ACTION_APPLY_SENSOR
+	},
 };
 
 static struct state_transition STATE_TRANS(subsample, S_ISP_NOT_SET)[] = {

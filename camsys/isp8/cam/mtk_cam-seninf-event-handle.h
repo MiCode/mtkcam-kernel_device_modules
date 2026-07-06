@@ -49,5 +49,8 @@ void mtk_cam_seninf_tsrec_irq_notify(
 // => camsys event/handle
 //    some APIs are declared in mtk_cam-seninf-if.h
 /*----------------------------------------------------------------------------*/
+#ifdef __XIAOMI_CAMERA__
+bool is_esd_enable_by_cmd(struct seninf_ctx *ctx);
+#endif
 
 #endif /* __MTK_CAM_SENINF_EVENT_HANDLE_H__ */

@@ -7,6 +7,7 @@
  */
 
 #include <linux/platform_device.h>
+#include <linux/vmalloc.h>
 #include <dt-bindings/interconnect/mtk,mmqos.h>
 //#include <linux/soc/mediatek/mtk-cmdq-ext.h>
 #include <linux/pm_opp.h>

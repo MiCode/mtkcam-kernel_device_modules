@@ -920,7 +920,8 @@ unsigned int mtk_format_calc_planesize(const struct mtk_format_info *info,
 unsigned int v4l2_format_calc_stride(const struct v4l2_format_info *info,
 				     unsigned int i,
 				     unsigned int w,
-				     unsigned int stride0 /* may be 0 */)
+				     unsigned int stride0 /* may be 0 */,
+				     unsigned int bus_align)
 {
 	unsigned int hdiv = (i == 0) ? 1 : info->hdiv;
 	unsigned int bpp = info->bpp[i];
@@ -931,6 +932,8 @@ unsigned int v4l2_format_calc_stride(const struct v4l2_format_info *info,
 	/* wdma constraint: align 4 bytes for all yuv formats */
 	if (v4l2_is_format_yuv(info))
 		stride = ALIGN(stride, 4);
+
+	stride = ALIGN(stride, bus_align);
 
 	if (i == 0)
 		return max(stride, stride0);

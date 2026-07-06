@@ -40,6 +40,7 @@
 #define V4L2_CID_MTK_CAM_FL_PROLONG (V4L2_CID_USER_MTK_CAM_BASE + 30)
 #define V4L2_CID_MTK_CAM_REF_SOF_TS (V4L2_CID_USER_MTK_CAM_BASE + 31)
 #define V4L2_CID_MTK_CAM_EXP_SHUTTER (V4L2_CID_USER_MTK_CAM_BASE + 32)
+#define V4L2_CID_MTK_CAM_RAW_AVAILABLE (V4L2_CID_USER_MTK_CAM_BASE + 33)
 
 #define V4L2_CID_MTK_CAM_RAW_RESOURCE_CALC_TEST (V4L2_CID_USER_MTK_CAM_BASE + 47)
 
@@ -143,12 +144,16 @@ struct mtk_cam_scen_extisp {
 	enum mtk_cam_extisp_type type;
 };
 
-enum mtk_cam_timeshare_group {
-	MTK_CAM_TIMESHARE_GROUP_1 = 1,
-};
-
 struct mtk_cam_scen_timeshare {
-	__u8 group;
+	__u8 max_exp_num : 4;
+	__u8 exp_num : 4;
+	__u8 exp_order : 4;
+	__u8 w_chn_supported : 4;
+	__u8 w_chn_enabled : 4;
+	__u8 frame_order : 4;
+	__u8 mem_saving : 4;
+	__u8 stagger_type : 4;
+	__u8 group : 4;
 };
 
 struct mtk_cam_scen {
@@ -230,6 +235,7 @@ struct mtk_cam_resource_raw_v2 {
 	__u8 luma_debug;
 	__u8 sen_apply_ctrl;
 	__u64 sen_deadline_ns;
+	__u8 ois_compensation;
 };
 
 struct mtk_cam_resource_v2 {
@@ -310,6 +316,7 @@ struct mtk_cam_exp_shutter {
 	__u64 se_exp_ns;
 	__u64 sse_exp_ns;
 	__u64 ssse_exp_ns;
+	__u8 long_exposure_flow;
 };
 
 #endif /* __MTK_CAMERA_V4l2_CONTROLS_8_H */

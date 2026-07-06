@@ -460,17 +460,17 @@ static int get_sv_dma_th_setting(unsigned int dev_id, unsigned int fifo_img_p1,
 static int get_mraw_dmao_common_setting(struct mraw_dma_th_setting *mraw_th_setting,
 	struct mraw_cq_th_setting *mraw_cq_setting)
 {
-	mraw_th_setting[imgo_m1].urgent_th = 1<<31|FIFO_THRESHOLD(488, 6/10, 5/10);
-	mraw_th_setting[imgo_m1].ultra_th = 1<<28|FIFO_THRESHOLD(488, 4/10, 3/10);
-	mraw_th_setting[imgo_m1].pultra_th = 1<<28|FIFO_THRESHOLD(488, 2/10, 1/10);
-	mraw_th_setting[imgo_m1].dvfs_th = 1<<31|FIFO_THRESHOLD(488, 1/10, 0);
-	mraw_th_setting[imgo_m1].fifo_size = (0x10 << 24) | 488;
+	mraw_th_setting[imgo_m1].urgent_th = 1<<31|FIFO_THRESHOLD(320, 6/10, 5/10);
+	mraw_th_setting[imgo_m1].ultra_th = 1<<28|FIFO_THRESHOLD(320, 4/10, 3/10);
+	mraw_th_setting[imgo_m1].pultra_th = 1<<28|FIFO_THRESHOLD(320, 2/10, 1/10);
+	mraw_th_setting[imgo_m1].dvfs_th = 1<<31|FIFO_THRESHOLD(320, 1/10, 0);
+	mraw_th_setting[imgo_m1].fifo_size = (0x10 << 24) | 320;
 
-	mraw_th_setting[imgbo_m1].urgent_th = 1<<31|FIFO_THRESHOLD(392, 6/10, 5/10);
-	mraw_th_setting[imgbo_m1].ultra_th = 1<<28|FIFO_THRESHOLD(392, 4/10, 3/10);
-	mraw_th_setting[imgbo_m1].pultra_th = 1<<28|FIFO_THRESHOLD(392, 2/10, 1/10);
-	mraw_th_setting[imgbo_m1].dvfs_th = 1<<31|FIFO_THRESHOLD(392, 1/10, 0);
-	mraw_th_setting[imgbo_m1].fifo_size = (0x10 << 24) | 392;
+	mraw_th_setting[imgbo_m1].urgent_th = 1<<31|FIFO_THRESHOLD(320, 6/10, 5/10);
+	mraw_th_setting[imgbo_m1].ultra_th = 1<<28|FIFO_THRESHOLD(320, 4/10, 3/10);
+	mraw_th_setting[imgbo_m1].pultra_th = 1<<28|FIFO_THRESHOLD(320, 2/10, 1/10);
+	mraw_th_setting[imgbo_m1].dvfs_th = 1<<31|FIFO_THRESHOLD(320, 1/10, 0);
+	mraw_th_setting[imgbo_m1].fifo_size = (0x10 << 24) | 320;
 
 	mraw_th_setting[cpio_m1].urgent_th = 1<<31|FIFO_THRESHOLD(64, 6/10, 5/10);
 	mraw_th_setting[cpio_m1].ultra_th = 1<<28|FIFO_THRESHOLD(64, 4/10, 3/10);
@@ -811,6 +811,7 @@ static const struct plat_v4l2_data mt6899_v4l2_data = {
 
 	.timestamp_buffer_ofst = offsetof(struct mtk_cam_uapi_meta_raw_stats_0,
 					  timestamp),
+	.shading_tbl_ofst = 0x44e0,
 	.reserved_camsv_dev_id = 3,
 
 	.vb2_queues_support_list = vb2_queues_support_list,
@@ -833,7 +834,7 @@ static const struct plat_v4l2_data mt6899_v4l2_data = {
 
 static const struct plat_data_hw mt6899_hw_data = {
 	.cammux_id_raw_start = 5,  /* TBC(AY) */
-	.raw_icc_path_num = 15,
+	.raw_icc_path_num = 18,
 	.yuv_icc_path_num = 6,
 	.platform_id = 6899,
 	.query_raw_dma_group = query_raw_dma_group,
@@ -847,6 +848,7 @@ static const struct plat_data_hw mt6899_hw_data = {
 	.dcif_slb_support = true,
 	.bwr_support = false,
 	.qof_support = false,
+	.snoc_support = false,
 	.max_main_pipe_w = 6632,
 	.max_main_pipe_twin_w = 6200,
 	.pixel_mode_max = 2,

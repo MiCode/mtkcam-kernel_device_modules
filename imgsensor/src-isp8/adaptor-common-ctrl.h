@@ -26,19 +26,6 @@ static inline bool chk_is_valid_scenario_id(const struct adaptor_ctx *ctx,
 	}
 	return true;
 }
-
-static inline u32 g_sensor_frame_length_delay(struct adaptor_ctx *ctx,
-	const u32 scenario_id, const char *caller)
-{
-	const u32 g_fdelay = ctx->subctx.frame_time_delay_frame;
-	u32 m_fdelay; // from sensor drv mode info struct
-
-	if (unlikely(!chk_is_valid_scenario_id(ctx, scenario_id, caller)))
-		return g_fdelay;
-
-	m_fdelay = ctx->subctx.s_ctx.mode[scenario_id].sw_fl_delay;
-	return (m_fdelay) ? m_fdelay : g_fdelay;
-}
 /******************************************************************************/
 
 
@@ -61,6 +48,9 @@ int g_max_exposure_line(struct adaptor_ctx *ctx,
 					   struct mtk_max_exp_line *info);
 
 u32 g_sensor_margin(struct adaptor_ctx *ctx, unsigned int scenario);
+
+u32 g_sensor_frame_length_delay(struct adaptor_ctx *ctx,
+	const u32 scenario_id, const char *caller);
 
 int g_sensor_fine_integ_line(struct adaptor_ctx *ctx,
 	const unsigned int scenario);

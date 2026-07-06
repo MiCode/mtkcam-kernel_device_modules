@@ -15,10 +15,10 @@ ccflags-y += -I$(DEVICE_MODULES_PATH)/drivers/misc/mediatek/m4u/2.4
 ccflags-y += -I$(DEVICE_MODULES_PATH)/drivers/misc/mediatek/m4u/$(MTK_PLATFORM)
 ccflags-y += -I$(DEVICE_MODULES_PATH)/drivers/misc/mediatek/mtk-interconnect/
 ccflags-y += -I$(DEVICE_MODULES_PATH)/drivers/misc/mediatek/iommu/
-ccflags-y += -I$(srctree)/$(src)/../../imgsys/imgsys/isp8/
-ccflags-y += -I$(srctree)/$(src)/../../imgsys/common/
-ccflags-y += -I$(srctree)/$(src)/../../imgsys
-ccflags-y += -I$(srctree)/$(src)
+ccflags-y += -I$(KO_CODE_PATH)/../../imgsys/imgsys/isp8/
+ccflags-y += -I$(KO_CODE_PATH)/../../imgsys/common/
+ccflags-y += -I$(KO_CODE_PATH)/../../imgsys
+ccflags-y += -I$(KO_CODE_PATH)
 ccflags-y += -I$(srctree)/include/media
 
 $(info "hcp-isp8, device_module_path = $(DEVICE_MODULES_PATH)")

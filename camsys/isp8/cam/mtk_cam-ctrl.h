@@ -61,6 +61,13 @@ static inline void vsync_set_desired(struct vsync_collector *c,
 	c->collected = 0;
 	c->collected_first = 0;
 }
+static inline void vsync_set_desired_ts(struct vsync_collector *c,
+				     unsigned int desried)
+{
+	c->desired = desried & (~0x7);
+	c->collected = 0;
+	c->collected_first = 0;
+}
 
 static inline void vsync_clear_collected(struct vsync_collector *c)
 {
@@ -116,6 +123,7 @@ struct mtk_cam_ctrl {
 
 	atomic_t stopped;
 	atomic_t ref_cnt;
+	atomic_t is_error;
 
 	atomic_t stream_on_cnt;
 
@@ -141,6 +149,7 @@ struct mtk_cam_ctrl {
 
 	struct mtk_cam_watchdog watchdog;
 	unsigned int hw_hang_count_down;
+	unsigned int frame_seq;
 	unsigned int sensor_seq;
 	unsigned int frame_sync_id;
 	unsigned int sensor_sync_id;
@@ -187,17 +196,24 @@ void mtk_cam_ctrl_handle_done_loop(struct mtk_cam_ctrl *cam_ctrl);
 struct mtk_cam_job *mtk_cam_ctrl_get_job_by_req_id(
 				struct mtk_cam_ctrl *cam_ctrl,
 				unsigned int req_info_id);
+int mtk_cam_watchdog_schedule_job_dump(struct mtk_cam_watchdog *wd,
+						  const char *desc);
 
+void mtk_cam_event_eos(struct mtk_cam_ctrl *cam_ctrl);
 void mtk_cam_event_frame_sync(struct mtk_cam_ctrl *cam_ctrl,
 			      unsigned int frame_seq_no);
 void mtk_cam_event_error(struct mtk_cam_ctrl *cam_ctrl, const char *msg);
 void mtk_cam_event_request_dumped(struct mtk_cam_ctrl *cam_ctrl,
 				  unsigned int frame_seq_no);
+/* timeshare specifically used */
+
+int timeshare_pureraw_pd_cq_done(struct mtk_cam_ctrl *ctrl);
 
 /* extisp specifically used */
 void mtk_cam_event_sensor_trigger(struct mtk_cam_ctrl *cam_ctrl,
 			      unsigned int frame_seq_no);
 int extisp_listen_each_cq_done(struct mtk_cam_ctrl *ctrl);
+
 int vsync_update_extisp(struct mtk_cam_ctrl *ctrl,
 		  int engine_type, int irq_type, int idx,
 		  struct vsync_result *res);

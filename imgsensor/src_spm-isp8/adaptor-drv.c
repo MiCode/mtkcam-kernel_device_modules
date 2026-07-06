@@ -11,6 +11,7 @@
 #include <linux/of_graph.h>
 #include <linux/thermal.h>
 #include <linux/version.h>
+#include "thermal_core.h"
 #include "mtk-i3c-i2c-wrap.h"
 
 #include "kd_imgsensor_define_v4l2.h"

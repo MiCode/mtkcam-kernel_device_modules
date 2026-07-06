@@ -27,6 +27,7 @@
 #define CSI_EFUSE_SET
 //#define SENINF_UT_DUMP
 #define ERR_DETECT_TEST
+#undef DOUBLE_PIXEL_EN
 
 #define seninf_logi(_ctx, format, args...) do { \
 	if ((_ctx)) { \
@@ -140,6 +141,30 @@ struct outmux_cfg {
 	struct outmux_tag_cfg tag_cfg[MAX_OUTMUX_TAG_NUM];
 };
 
+struct mtk_cam_seninf_bit_error {
+	u32 bit_err_ctrl;
+	u32 bit_err_cnt;
+	u64 min_bit;
+	u64 max_bit;
+	u32 min_cycle_msb;
+	u32 min_cycle_lsb;
+	u32 max_cycle_msb;
+	u32 max_cycle_lsb;
+	u32 seninf_clk_mhz;
+	u32 bit_rate_mhz;
+};
+
+struct mtk_cam_seninf_spacer_detector {
+	u32 spacer;
+	u32 vc;
+	u32 dt;
+	u32 valid_cnt;
+	u32 num_hs1;
+	u32 num_hs2;
+	u32 wc;
+	u32 trio;
+};
+
 struct seninf_core {
 	struct device *dev;
 	int pm_domain_cnt;
@@ -161,6 +186,8 @@ struct seninf_core {
 	void __iomem *reg_seninf_outmux[SENINF_OUTMUX_NUM];
 	void __iomem *reg_seninf_outmux_inner[SENINF_OUTMUX_NUM];
 
+	void __iomem *reg_csi_top_0;
+	void __iomem *reg_csi_top_1;
 	struct csi_reg_base reg_csi_base[CSI_PORT_PHYSICAL_MAX_NUM];
 	//void __iomem *reg_if;
 	//void __iomem *reg_ana;
@@ -261,6 +288,9 @@ struct seninf_ctx {
 	unsigned int is_test_model:4;
 	unsigned int is_aov_test_model;
 	unsigned int is_aov_real_sensor;
+
+	/* record aov_runtime_supend enable or not*/
+	bool is_aov_enable;
 #ifdef SENINF_DEBUG
 	unsigned int is_test_streamon:1;
 #endif
@@ -274,6 +304,13 @@ struct seninf_ctx {
 	int seninfSelSensor;
 	int pad2cam[PAD_MAXCNT][MAX_DEST_NUM];
 	int pad_tag_id[PAD_MAXCNT][MAX_DEST_NUM];
+	/* bit error rate */
+	struct mtk_cam_seninf_bit_error ber;
+	/* cphy lrte spacer detector */
+	struct mtk_cam_seninf_spacer_detector lrte_sd;
+
+	/* fake sensor */
+	struct mtk_fake_sensor_info fake_sensor_info;
 
 	/* remote sensor */
 	struct v4l2_subdev *sensor_sd;
@@ -315,6 +352,8 @@ struct seninf_ctx {
 	void __iomem *reg_if_outmux[SENINF_OUTMUX_NUM];
 	void __iomem *reg_if_outmux_inner[SENINF_OUTMUX_NUM];
 	void __iomem *reg_if_tg[SENINF_ASYNC_NUM];
+	void __iomem *reg_csi_top_0;
+	void __iomem *reg_csi_top_1;
 
 	/* resources */
 	struct list_head list_outmux;
@@ -359,6 +398,7 @@ struct seninf_ctx {
 	unsigned int dbg_last_dump_req;
 	unsigned int power_status_flag;
 	unsigned int esd_status_flag;
+	unsigned int set_abort_flag;
 
 	/* for sentest use */
 	bool sentest_adjust_isp_en;
@@ -375,6 +415,7 @@ struct seninf_ctx {
 
 	/* cammux switch debug element */
 	struct mtk_cam_seninf_mux_param *dbg_chmux_param;
+	struct mutex dbg_chmux_mutex;
 #ifdef ERR_DETECT_TEST
 	unsigned int test_cnt;
 #endif

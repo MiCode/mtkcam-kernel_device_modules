@@ -4,6 +4,7 @@
 
 #include <linux/list.h>
 #include <linux/proc_fs.h>
+#include <linux/vmalloc.h>
 
 #include "mtk_cam.h"
 #include "mtk_cam-debug.h"

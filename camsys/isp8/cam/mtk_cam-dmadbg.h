@@ -8,6 +8,66 @@
 
 #include "mtk_cam-raw_debug.h"
 
+/* ISP8 */
+static __maybe_unused struct dma_debug_item dbg_CQI_R1[] = {
+	{0x00000000, "cqi_r1 32(hex) 0000"},
+	{0x00000100, "cqi_r1 state_checksum"},
+	{0x00000200, "cqi_r1 line_pix_cnt_tmp"},
+	{0x00000300, "cqi_r1 line_pix_cnt"},
+	{0x00000500, "cqi_r1 smi_debug_data (case 0)"},
+	{0x00010600, "cqi_r1 aff(fifo)_debug_data (case 1)"},
+	{0x00030600, "cqi_r1 aff(fifo)_debug_data (case 3)"},
+	{0x01000040, "cqi_r1_smi_port / plane-0 / data-crc"},
+	{0x00000080, "cqi_r1_smi_port / smi_latency_mon output"},
+	{0x000000A0, "cqi_r1_smi_port / plane-0 / { len-cnt, dle-cnt }"},
+	{0x000000C0, "cqi_r1_smi_port / plane-0 / maddr_max record"},
+	{0x000000C1, "cqi_r1_smi_port / plane-0 / maddr_min record"},
+};
+
+static __maybe_unused struct dma_debug_item dbg_CQI_R2[] = {
+	{0x00000001, "cqi_r2 32(hex) 0000"},
+	{0x00000101, "cqi_r2 state_checksum"},
+	{0x00000201, "cqi_r2 line_pix_cnt_tmp"},
+	{0x00000301, "cqi_r2 line_pix_cnt"},
+	{0x00000501, "cqi_r2 smi_debug_data (case 0)"},
+	{0x00010601, "cqi_r2 aff(fifo)_debug_data (case 1)"},
+	{0x00030601, "cqi_r2 aff(fifo)_debug_data (case 3)"},
+	{0x01000041, "cqi_r2_smi_port / plane-0 / data-crc"},
+	{0x00000081, "cqi_r2_smi_port / smi_latency_mon output"},
+	{0x000000A1, "cqi_r2_smi_port / plane-0 / { len-cnt, dle-cnt }"},
+	{0x000001C0, "cqi_r2_smi_port / plane-0 / maddr_max record"},
+	{0x000001C1, "cqi_r2_smi_port / plane-0 / maddr_min record"},
+};
+
+static __maybe_unused struct dma_debug_item dbg_CQI_R3[] = {
+	{0x00000003, "cqi_r3 32(hex) 0000"},
+	{0x00000103, "cqi_r3 state_checksum"},
+	{0x00000203, "cqi_r3 line_pix_cnt_tmp"},
+	{0x00000303, "cqi_r3 line_pix_cnt"},
+	{0x00000503, "cqi_r3 smi_debug_data (case 0)"},
+	{0x00010603, "cqi_r3 aff(fifo)_debug_data (case 1)"},
+	{0x00030603, "cqi_r3 aff(fifo)_debug_data (case 3)"},
+	{0x01000042, "cqi_r3_smi_port / plane-0 / data-crc"},
+	{0x000000A2, "cqi_r3_smi_port / plane-0 / { len-cnt, dle-cnt }"},
+	{0x000002C0, "cqi_r3_smi_port / plane-0 / maddr_max record"},
+	{0x000002C1, "cqi_r3_smi_port / plane-0 / maddr_min record"},
+};
+
+static __maybe_unused struct dma_debug_item dbg_CQI_R4[] = {
+	{0x00000004, "cqi_r4 32(hex) 0000"},
+	{0x00000104, "cqi_r4 state_checksum"},
+	{0x00000204, "cqi_r4 line_pix_cnt_tmp"},
+	{0x00000304, "cqi_r4 line_pix_cnt"},
+	{0x00000504, "cqi_r4 smi_debug_data (case 0)"},
+	{0x00010604, "cqi_r4 aff(fifo)_debug_data (case 1)"},
+	{0x00030604, "cqi_r4 aff(fifo)_debug_data (case 3)"},
+	{0x01000043, "cqi_r4_smi_port / plane-0 / data-crc"},
+	{0x000000A3, "cqi_r4_smi_port / plane-0 / { len-cnt, dle-cnt }"},
+	{0x000003C0, "cqi_r4_smi_port / plane-0 / maddr_max record"},
+	{0x000003C1, "cqi_r4_smi_port / plane-0 / maddr_min record"},
+};
+
+/* TODO: revise the following setting for ISP8 */
 static __maybe_unused struct dma_debug_item dbg_UFD_R2[] = {
 	{0x00002101, "ufd_r2_status"},
 	{0x00002201, "ufd_r2_ufdg_crop_cnt"},

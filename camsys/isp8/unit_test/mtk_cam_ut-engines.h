@@ -246,6 +246,8 @@ struct mtk_ut_seninf_device {
 
 	unsigned int seninf_mux_status[SENINF_MUX_NUM];
 	unsigned int seninf_status[SENINF_NUM];
+	int pm_domain_cnt;
+	struct device **pm_domain_devs;
 };
 
 static inline int seninf_mux_raw(struct device *dev, int raw_idx)

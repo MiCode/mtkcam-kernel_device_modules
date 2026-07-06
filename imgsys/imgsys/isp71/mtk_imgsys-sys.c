@@ -16,6 +16,7 @@
 #include <linux/spinlock.h>
 #include <linux/wait.h>
 #include <linux/sync_file.h>
+#include <linux/vmalloc.h>
 #include <media/v4l2-event.h>
 #include <mtk_imgsys-cmdq.h>
 #include "mtk_imgsys-dev.h"

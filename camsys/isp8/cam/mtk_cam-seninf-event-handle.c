@@ -668,3 +668,16 @@ void notify_sensor_set_fl_prolong(struct v4l2_subdev *sd,
 			"ERROR: v4l2 subdev ops core command not exist\n");
 	}
 }
+
+#ifdef __XIAOMI_CAMERA__
+bool is_esd_enable_by_cmd(struct seninf_ctx *ctx)
+{
+	struct v4l2_subdev *sensor_sd = ctx->sensor_sd;
+	struct v4l2_ctrl *ctrl;
+
+	ctrl = v4l2_ctrl_find(sensor_sd->ctrl_handler,
+			V4L2_CID_MTK_SENSOR_GET_ESD_DEBUG_ENABLE);
+
+	return (ctrl) ? v4l2_ctrl_g_ctrl(ctrl) : 0;
+}
+#endif

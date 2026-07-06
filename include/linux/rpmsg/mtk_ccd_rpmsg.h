@@ -65,7 +65,8 @@ void mtk_create_client_msgdevice(
 
 struct mtk_rpmsg_device *mtk_get_client_msgdevice(
 			     struct rproc_subdev *subdev,
-			     struct rpmsg_channel_info *info);
+			     struct rpmsg_channel_info *info,
+			    rpmsg_rx_cb_t cb, void *priv);
 
 int mtk_destroy_client_msgdevice(struct rproc_subdev *subdev,
 			     struct rpmsg_channel_info *info);

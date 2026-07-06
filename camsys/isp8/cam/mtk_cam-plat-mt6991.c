@@ -353,6 +353,27 @@ static int get_sv_smi_setting(unsigned int dev_id,
 	return 0;
 }
 
+static int get_raw_lock_sel_addr(unsigned int dev_id,
+	unsigned int *addr)
+{
+	switch (dev_id) {
+	case 0:
+		*addr = 0x3A800160;
+		break;
+	case 1:
+		*addr = 0x3A900160;
+		break;
+	case 2:
+		*addr = 0x3AA00160;
+		break;
+	default:
+		*addr = 0;
+		break;
+	}
+
+	return 0;
+}
+
 static int get_single_sv_opp_idx(unsigned int *opp_idx)
 {
 	*opp_idx = 1;
@@ -816,6 +837,7 @@ static const struct plat_v4l2_data mt6991_v4l2_data = {
 
 	.timestamp_buffer_ofst = offsetof(struct mtk_cam_uapi_meta_raw_stats_0,
 					  timestamp),
+	.shading_tbl_ofst = 0x44e8,
 	.reserved_camsv_dev_id = 3,
 
 	.vb2_queues_support_list = vb2_queues_support_list,
@@ -834,6 +856,7 @@ static const struct plat_v4l2_data mt6991_v4l2_data = {
 	.get_mraw_dmao_common_setting = get_mraw_dmao_common_setting,
 	.set_mraw_meta_stats_info = set_mraw_meta_stats_info,
 	.get_mraw_stats_cfg_param = get_mraw_stats_cfg_param,
+	.get_raw_lock_sel_addr = get_raw_lock_sel_addr,
 };
 
 static const struct plat_data_hw mt6991_hw_data = {
@@ -851,7 +874,8 @@ static const struct plat_data_hw mt6991_hw_data = {
 	.query_module_base = query_module_base,
 	.dcif_slb_support = true,
 	.bwr_support = true,
-	.qof_support = true,
+	.qof_support = false,
+	.snoc_support = true,
 	.max_main_pipe_w = 6632,
 	.max_main_pipe_twin_w = 6200,
 	.pixel_mode_max = 2,

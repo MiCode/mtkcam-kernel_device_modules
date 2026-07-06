@@ -16,6 +16,31 @@ subdir-ccflags-y += -I$(MTK_CUSTOM_PATH)/imgsensor/inc \
                     -I$(CAM_CAL_CUSTOM_SRC_PATH) \
                     -I$(CAM_CAL_SRC_PATH)/common/$(COMMON_VERSION)
 
+# XIAOMI ADD
+subdir-ccflags-y += -D__XIAOMI_CAMERA__
+ifeq ($(CONFIG_BUILD_XIAOMI_CAMERA_IMAGE_NAMES),"rodin")
+subdir-ccflags-y += -DRODIN_CAM
+endif
+ifeq ($(CONFIG_BUILD_XIAOMI_CAMERA_IMAGE_NAMES),"dali")
+subdir-ccflags-y += -DDALI_CAM
+endif
+ifeq ($(CONFIG_BUILD_XIAOMI_CAMERA_IMAGE_NAMES),"turner")
+subdir-ccflags-y += -DTURNER_CAM
+endif
+ifeq ($(CONFIG_BUILD_XIAOMI_CAMERA_IMAGE_NAMES),"klimt")
+subdir-ccflags-y += -DKLIMT_CAM
+endif
+ifeq ($(CONFIG_BUILD_XIAOMI_CAMERA_IMAGE_NAMES),"goya")
+subdir-ccflags-y += -DGOYA_CAM
+endif
+ifeq ($(CONFIG_BUILD_XIAOMI_CAMERA_IMAGE_NAMES),"klee")
+subdir-ccflags-y += -DKLEE_CAM
+endif
+ifeq ($(CONFIG_BUILD_XIAOMI_CAMERA_IMAGE_NAMES),"chagall")
+subdir-ccflags-y += -DKLEE_CAM
+endif
+# XIAOMI END
+
 # Common code
 obj-m += camera_eeprom_v4l2.o
 camera_eeprom_v4l2-objs := ../common/$(COMMON_VERSION)/eeprom_driver.o
@@ -25,6 +50,9 @@ camera_eeprom_v4l2-objs += ../common/$(COMMON_VERSION)/eeprom_utils.o
 # Platform code
 camera_eeprom_v4l2-objs += eeprom_i2c_custom_driver.o
 camera_eeprom_v4l2-objs += cam_cal_list.o
+# XIAOMI ADD
+camera_eeprom_v4l2-objs += xiaomi_cam_cal_config.o
+# XIAOMI END
 
 comma := ,
 empty :=

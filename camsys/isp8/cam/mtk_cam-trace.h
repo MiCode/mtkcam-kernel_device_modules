@@ -10,6 +10,7 @@
 
 #include <linux/tracepoint.h>
 #include <linux/trace_events.h>
+#include <linux/version.h>
 
 TRACE_EVENT(tracing_mark_write,
 	TP_PROTO(const char *fmt, va_list *va),
@@ -52,7 +53,11 @@ TRACE_EVENT_CONDITION(raw_irq,
 		__field(unsigned int, dcif_status)
 	),
 	TP_fast_assign(
+#if (KERNEL_VERSION(6, 10, 0) > LINUX_VERSION_CODE)
 		__assign_str(device, dev_name(dev));
+#else
+		__assign_str(device);
+#endif
 		__entry->cookie = cookie;
 		__entry->frame = frame;
 		__entry->tg1 = tg1;
@@ -105,7 +110,11 @@ TRACE_EVENT_CONDITION(yuv_irq,
 		__field(unsigned int, tsm_mismatch)
 	),
 	TP_fast_assign(
+#if (KERNEL_VERSION(6, 10, 0) > LINUX_VERSION_CODE)
 		__assign_str(device, dev_name(dev));
+#else
+		__assign_str(device);
+#endif
 		__entry->irq = irq;
 		__entry->dmao_done = dmao_done;
 		__entry->tsm_mismatch = tsm_mismatch;
@@ -138,7 +147,11 @@ TRACE_EVENT_CONDITION(raw_dma_status,
 		__field(unsigned int, underflow)
 	),
 	TP_fast_assign(
+#if (KERNEL_VERSION(6, 10, 0) > LINUX_VERSION_CODE)
 		__assign_str(device, dev_name(dev));
+#else
+		__assign_str(device);
+#endif
 		__entry->frame = frame;
 		__entry->overflow = overflow;
 		__entry->underflow = underflow;
@@ -160,7 +173,11 @@ TRACE_EVENT_CONDITION(raw_otf_overflow,
 		__field(unsigned int, otf_overflow)
 	),
 	TP_fast_assign(
+#if (KERNEL_VERSION(6, 10, 0) > LINUX_VERSION_CODE)
 		__assign_str(device, dev_name(dev));
+#else
+		__assign_str(device);
+#endif
 		__entry->otf_overflow = otf_overflow;
 	),
 	TP_printk("%s otf_overflow=0x%08x",
@@ -182,7 +199,11 @@ DECLARE_EVENT_CLASS(camsv_irq,
 		__field(unsigned int, status)
 	),
 	TP_fast_assign(
+#if (KERNEL_VERSION(6, 10, 0) > LINUX_VERSION_CODE)
 		__assign_str(device, dev_name(dev));
+#else
+		__assign_str(device);
+#endif
 		__entry->seq_no_inner = seq_no_inner;
 		__entry->seq_no = seq_no;
 		__entry->status = status;
@@ -240,7 +261,11 @@ TRACE_EVENT(camsv_irq_sof,
 		__field(unsigned int, tg_cnt)
 		),
 	TP_fast_assign(
+#if (KERNEL_VERSION(6, 10, 0) > LINUX_VERSION_CODE)
 		__assign_str(device, dev_name(dev));
+#else
+		__assign_str(device);
+#endif
 		__entry->seq_no_inner = seq_no_inner;
 		__entry->seq_no = seq_no;
 		__entry->sof_status = sof_status;
@@ -296,7 +321,11 @@ TRACE_EVENT(mraw_irq,
 		__field(unsigned int, seq)
 	),
 	TP_fast_assign(
+#if (KERNEL_VERSION(6, 10, 0) > LINUX_VERSION_CODE)
 		__assign_str(device, dev_name(dev));
+#else
+		__assign_str(device);
+#endif
 		__entry->irq_status = irq_status;
 		__entry->irq_status2 = irq_status2;
 		__entry->err_status = err_status;

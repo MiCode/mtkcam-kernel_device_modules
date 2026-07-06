@@ -33,6 +33,8 @@ const char *str_event(int event)
 		[CAMSYS_EVENT_ACK] = "ack",
 		[CAMSYS_EVENT_IRQ_EXTMETA_SOF] = "extisp meta sof",
 		[CAMSYS_EVENT_IRQ_EXTMETA_CQ_DONE] = "extisp cq done",
+		[CAMSYS_EVENT_IRQ_EXTMETA_FRAME_DONE] = "extisp frame done",
+		[CAMSYS_EVENT_IRQ_TRY_TS_TRIGGER] = "ts try trigger",
 
 		[CAMSYS_EVENT_HW_HANG] = "hw hang",
 	};
@@ -65,6 +67,9 @@ const char *str_isp_state(int state)
 		[S_ISP_OUTER_PROCRAW] = "outer proc raw",
 		[S_ISP_PROCESSING] = "processing",
 		[S_ISP_PROCESSING_PROCRAW] = "processing proc raw",
+		[S_ISP_DONE_READY] = "done ready (pure raw)",
+		[S_ISP_APPLYING_RAW] = "apply time share raw",
+		[S_ISP_PROCESSING_RAW] = "processing time share raw",
 		[S_ISP_SENSOR_MISMATCHED] = "s-mismatched",
 		[S_ISP_DONE] = "done",
 		[S_ISP_DONE_MISMATCHED] = "done-mismatched",

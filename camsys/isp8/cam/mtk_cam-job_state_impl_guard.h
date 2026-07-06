@@ -10,6 +10,8 @@
 #define SQC_THRES_FROM_L_SOF_NS 3000000
 #define SCQ_THRES_FROM_F_SOF_NS 15000000
 
+#include "mtk_cam-job.h"
+
 struct state_accessor;
 
 struct state_accessor_ops {
@@ -126,7 +128,11 @@ static inline int guard_next_compose(struct state_accessor *s_acc,
 
 	spin_lock(p->info_lock);
 	ret = allow_composing(s_acc) &&
-		(unsigned int)(cur_seq_no(s_acc) - p->info->ack_seq_no) == 1;
+		frame_seq_diff(cur_seq_no(s_acc), p->info->ack_seq_no) == 1;
+	if (ret == 0 && allow_composing(s_acc))
+		pr_info("[mtk-cam:guard_next_compose] allow/cur/ack:%d/%d/%d (%llu)",
+			allow_composing(s_acc), cur_seq_no(s_acc), p->info->ack_seq_no,
+			ktime_get_boottime_ns());
 	spin_unlock(p->info_lock);
 
 	return ret;
@@ -139,6 +145,17 @@ static inline int guard_ack_eq(struct state_accessor *s_acc,
 
 	spin_lock(p->info_lock);
 	ret = p->info->ack_seq_no == cur_seq_no(s_acc);
+	spin_unlock(p->info_lock);
+
+	return ret;
+}
+static inline int guard_outer_eq_ts(struct state_accessor *s_acc,
+				 struct transition_param *p)
+{
+	int ret = 0;
+
+	spin_lock(p->info_lock);
+	ret = p->info->outer_seq_no_ts == cur_seq_no(s_acc);
 	spin_unlock(p->info_lock);
 
 	return ret;
@@ -190,7 +207,7 @@ static inline int guard_inner_ge(struct state_accessor *s_acc,
 	int ret = 0;
 
 	spin_lock(p->info_lock);
-	ret = p->info->inner_seq_no >= cur_seq_no(s_acc);
+	ret = frame_seq_ge(p->info->inner_seq_no, cur_seq_no(s_acc));
 	spin_unlock(p->info_lock);
 
 	return ret;
@@ -202,7 +219,7 @@ static inline int guard_inner_greater(struct state_accessor *s_acc,
 	int ret = 0;
 
 	spin_lock(p->info_lock);
-	ret = p->info->inner_seq_no > cur_seq_no(s_acc);
+	ret = frame_seq_gt(p->info->inner_seq_no, cur_seq_no(s_acc));
 	spin_unlock(p->info_lock);
 
 	return ret;
@@ -234,19 +251,54 @@ static inline bool bypass_guard_check(struct transition_param *p)
 
 static inline bool valid_i2c_period(struct transition_param *p)
 {
+	int ret = false;
+
 	if (unlikely(!p->s_params))
 		return false;
-
-	return ((p->event_ts - p->info->sof_ts_ns) < p->s_params->i2c_thres_ns) ||
+	spin_lock(p->info_lock);
+	ret = ((p->event_ts - p->info->sof_ts_ns) < p->s_params->i2c_thres_ns) ||
 		((p->event_ts - p->info->sof_l_ts_ns) < I2C_THRES_FROM_L_SOF_NS);
+	spin_unlock(p->info_lock);
+
+	return ret;
+}
+
+static inline bool allow_subsample_2_i2c_by_ts(
+	struct state_accessor *s_acc, struct transition_param *p)
+{
+	bool ret = false;
+
+	spin_lock(p->info_lock);
+	ret = ((s_acc->s->s_params.subsample == 2) &&
+		frame_seq_diff(s_acc->seq_no, p->info->outer_seq_no) == 1 &&
+		(p->event_ts - p->info->sof_ts_ns) < 2000000);
+	spin_unlock(p->info_lock);
+
+	return ret;
+}
+static inline bool allow_subsample_4_i2c_by_inner(
+	struct state_accessor *s_acc, struct transition_param *p)
+{
+	bool ret = false;
+
+	spin_lock(p->info_lock);
+	ret = ((s_acc->s->s_params.subsample >= 4) &&
+		frame_seq_diff(s_acc->seq_no, p->info->inner_seq_no) == 1);
+	spin_unlock(p->info_lock);
+
+	return ret;
 }
 
 static inline bool valid_i2c_period_l(struct transition_param *p)
 {
+	bool ret = false;
 	if (unlikely(!p->s_params))
 		return false;
+	spin_lock(p->info_lock);
+	ret = (p->event_ts - p->info->sof_ts_ns) >= (p->event_ts - p->info->sof_l_ts_ns);
+	spin_unlock(p->info_lock);
 
-	return (p->event_ts - p->info->sof_ts_ns) >= (p->event_ts - p->info->sof_l_ts_ns);
+	return ret;
 }
 
 static inline bool valid_cq_execution_subsample(
@@ -256,34 +308,67 @@ static inline bool valid_cq_execution_subsample(
 
 	if (unlikely(!p->s_params))
 		return ret;
-	ret = ((p->event_ts - p->info->sof_ts_ns) < p->cq_trigger_thres)&&
-		(s_acc->seq_no == p->info->inner_seq_no + 1);
-	/* for sentest NE -> SE duration 25ms case*/
+
+	spin_lock(p->info_lock);
+	ret = (p->info->sof_ts_ns <= p->info->sof_l_ts_ns) &&
+		((p->event_ts - p->info->sof_l_ts_ns) < p->cq_trigger_thres) &&
+		frame_seq_diff(s_acc->seq_no, p->info->inner_seq_no) == 1;
+	if (ret == false)
+		pr_info("[mtk-cam:vld_cq_exesubsample:%d/%d] event/l_sof/cq:%llu/%llu/%llu sof:%llu(%llu)",
+			s_acc->seq_no, p->info->inner_seq_no,
+			p->event_ts, p->info->sof_l_ts_ns, p->cq_trigger_thres, p->info->sof_ts_ns,
+			ktime_get_boottime_ns());
+	spin_unlock(p->info_lock);
+
 	return ret;
 }
 
 static inline bool valid_cq_execution(struct transition_param *p)
 {
-	if (unlikely(!p->s_params))
-		return false;
+	bool ret = false;
 
-	return ((p->event_ts - p->info->sof_l_ts_ns) < p->cq_trigger_thres) &&
-		(p->info->sof_ts_ns <= p->info->sof_l_ts_ns);
+	if (unlikely(!p->s_params))
+		return ret;
+	/* check if ack between camsv/raw and mraw sof */
+	/* for sentest/dual stream: large NE -> SE duration over 25ms case*/
+	spin_lock(p->info_lock);
+	ret = (p->info->sof_ts_ns <= p->info->sof_l_ts_ns) &&
+	(((p->event_ts - p->info->sof_ts_ns) < p->cq_trigger_thres) ||
+	((p->event_ts - p->info->sof_l_ts_ns) < SQC_THRES_FROM_L_SOF_NS));
+
+	if (ret == false)
+		pr_info("[mtk-cam:valid_cq_execution] event/l_sof/cq:%llu/%llu/%llu sof:%llu(%llu)",
+			p->event_ts, p->info->sof_l_ts_ns, p->cq_trigger_thres, p->info->sof_ts_ns,
+			ktime_get_boottime_ns());
+	spin_unlock(p->info_lock);
+
+	return ret;
 }
 
 #define SCQ_THRES_FOR_AEWA 27000000
 
 static inline bool valid_cq_execution_ref_sof(struct transition_param *p)
 {
+	bool ret = false;
+
 	if (unlikely(!p->s_params))
 		return false;
 
 	if (!p->reference_sof_ns)
 		return false;
-
+	/* check if ack between camsv/raw and mraw sof */
 	/* for sentest NE -> SE duration 25ms case*/
-	return (p->event_ts - p->reference_sof_ns) < p->cq_trigger_thres ||
-		((p->event_ts - p->info->sof_l_ts_ns) < SQC_THRES_FROM_L_SOF_NS);
+	spin_lock(p->info_lock);
+	ret = (p->info->sof_ts_ns <= p->info->sof_l_ts_ns) &&
+		(((p->event_ts < (p->cq_trigger_thres + p->reference_sof_ns))) ||
+	((p->event_ts - p->info->sof_l_ts_ns) < SQC_THRES_FROM_L_SOF_NS));
+	if (ret == false)
+		pr_info("[mtk-cam:valid_cq_execution] event/l_sof/cq:%llu/%llu/%llu sof:%llu(%llu) ref:%llu",
+			p->event_ts, p->info->sof_l_ts_ns, p->cq_trigger_thres, p->info->sof_ts_ns,
+			ktime_get_boottime_ns(), p->reference_sof_ns);
+	spin_unlock(p->info_lock);
+
+	return ret;
 }
 
 static inline bool valid_cq_execution_avoid_race_with_topirq(
@@ -295,14 +380,14 @@ static inline bool valid_cq_execution_avoid_race_with_topirq(
 		return ret;
 	if (p->info->ae_wa_enable == 0)
 		return true;
-
+	spin_lock(p->info_lock);
 	ret = (p->event_ts - p->info->sof_l_ts_ns) > SCQ_THRES_FOR_AEWA ? false : true;
 
 	if (ret == false)
 		pr_info("[mtk-cam:WA] race with top-half case, event/f_sof/l_sof:%llu/%llu/%llu (%llu)",
 			p->event_ts, p->info->sof_ts_ns, p->info->sof_l_ts_ns,
 			ktime_get_boottime_ns());
-
+	spin_unlock(p->info_lock);
 	return ret;
 }
 static inline bool valid_cq_execution_threaded_irq_race_with_topirq(
@@ -317,6 +402,7 @@ static inline bool valid_cq_execution_threaded_irq_race_with_topirq(
 	if (s_acc->s->bypass_by_aewa == 0)
 		return true;
 	/* for case that one engines lost sof signal case */
+	spin_lock(p->info_lock);
 	if ((p->info->sof_l_ts_ns - p->info->sof_ts_ns) > 30000000 &&
 		(p->event_ts - p->info->sof_ts_ns) > p->cq_trigger_thres) {
 		ret = false;
@@ -324,7 +410,19 @@ static inline bool valid_cq_execution_threaded_irq_race_with_topirq(
 			p->event_ts, p->info->sof_ts_ns, p->info->sof_l_ts_ns,
 			ktime_get_boottime_ns());
 	}
+	spin_unlock(p->info_lock);
+
 	return ret;
+}
+static inline int guard_apply_sensor_subsample_2(struct state_accessor *s_acc,
+					       struct transition_param *p)
+{
+	/* TODO: add ts check */
+	return allow_applying_hw(s_acc) &&
+		ops_call(s_acc, prev_allow_apply_sensor) &&
+		((s_acc->s->s_params.subsample == 2) &&
+		ops_call(s_acc, prev_allow_apply_isp) &&
+		(p->event_ts - p->info->sof_ts_ns) < 4000000);
 }
 
 static inline int guard_apply_sensor_subsample(struct state_accessor *s_acc,
@@ -333,7 +431,9 @@ static inline int guard_apply_sensor_subsample(struct state_accessor *s_acc,
 	/* TODO: add ts check */
 	return allow_applying_hw(s_acc) &&
 		ops_call(s_acc, prev_allow_apply_sensor) &&
-		ops_call(s_acc, cur_isp_state) >= S_ISP_APPLYING;
+		(ops_call(s_acc, cur_isp_state) >= S_ISP_APPLYING ||
+		allow_subsample_2_i2c_by_ts(s_acc, p) ||
+		allow_subsample_4_i2c_by_inner(s_acc, p));
 }
 
 static inline int guard_apply_sensor(struct state_accessor *s_acc,
@@ -394,13 +494,19 @@ static inline int guard_apply_isp(struct state_accessor *s_acc,
 			valid_cq_execution(p) &&
 			valid_cq_execution_threaded_irq_race_with_topirq(s_acc, p);
 }
-
 static inline int guard_apply_m2m(struct state_accessor *s_acc,
 				  struct transition_param *p)
 {
 	return allow_applying_hw(s_acc) &&
 		ops_call(s_acc, prev_allow_apply_isp);
 }
+static inline int guard_apply_ts_m2m(struct state_accessor *s_acc,
+				  struct transition_param *p)
+{	/*TBD: time share raw atomic on_using */
+	return allow_applying_hw(s_acc) &&
+		ops_call(s_acc, prev_allow_apply_extisp_procraw);
+}
+
 static inline int guard_apply_isp_subsample(struct state_accessor *s_acc,
 				  struct transition_param *p)
 {

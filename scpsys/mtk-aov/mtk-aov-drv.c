@@ -158,7 +158,10 @@ static long mtk_aov_ioctl(struct file *file, unsigned int cmd,
 			dev_info(aov_dev->dev, "skip flow below AOV kernel!\n");
 			break;
 		}
-		mutex_lock(&core_info->start_stop_mutex);
+		if (down_interruptible(&core_info->start_stop_sema)) {
+			dev_info(aov_dev->dev, "%s: failed to acquire semaphore\n", __func__);
+			return -EFAULT;
+		}
 		dev_info(aov_dev->dev, "AOV start+\n");
 		vmm_isp_ctrl_notify(1);
 		mtk_mmdvfs_aov_enable(1);
@@ -171,7 +174,7 @@ static long mtk_aov_ioctl(struct file *file, unsigned int cmd,
 			if (ret) {
 				dev_info(aov_dev->dev, "%s: failed to copy aov user data: %d\n",
 					__func__, ret);
-				mutex_unlock(&core_info->start_stop_mutex);
+				up(&core_info->start_stop_sema);
 				return -EFAULT;
 			}
 			g_frame_mode = user.frame_mode;
@@ -196,7 +199,7 @@ static long mtk_aov_ioctl(struct file *file, unsigned int cmd,
 		}
 
 		dev_info(aov_dev->dev, "AOV start-(%d)\n", ret);
-		mutex_unlock(&core_info->start_stop_mutex);
+		up(&core_info->start_stop_sema);
 		break;
 	}
 	case AOV_DEV_SENSOR_ON:
@@ -231,7 +234,10 @@ static long mtk_aov_ioctl(struct file *file, unsigned int cmd,
 			dev_info(aov_dev->dev, "skip flow below AOV kernel!\n");
 			break;
 		}
-		mutex_lock(&core_info->start_stop_mutex);
+		if (down_interruptible(&core_info->start_stop_sema)) {
+			dev_info(aov_dev->dev, "%s: failed to acquire semaphore\n", __func__);
+			return -EFAULT;
+		}
 		dev_info(aov_dev->dev, "AOV stop+\n");
 
 		g_aov_start = false;
@@ -255,7 +261,7 @@ static long mtk_aov_ioctl(struct file *file, unsigned int cmd,
 		}
 
 		dev_info(aov_dev->dev, "AOV stop-(%d)\n", ret);
-		mutex_unlock(&core_info->start_stop_mutex);
+		up(&core_info->start_stop_sema);
 		break;
 	case AOV_DEV_QEA:
 		AOV_DEBUG_LOG(*(aov_dev->enable_aov_log_flag), "trigger AOV QEA\n");
@@ -278,23 +284,39 @@ static long mtk_aov_ioctl(struct file *file, unsigned int cmd,
 		AOV_DEBUG_LOG(*(aov_dev->enable_aov_log_flag), "disp off resource test done, ret(%d)\n", ret);
 		break;
 	case AOV_DEV_TURN_ON_ULPOSC:
-		mutex_lock(&core_info->start_stop_mutex);
+		if (down_interruptible(&core_info->start_stop_sema)) {
+			dev_info(aov_dev->dev, "%s: failed to acquire semaphore\n", __func__);
+			return -EFAULT;
+		}
 		AOV_DEBUG_LOG(*(aov_dev->enable_aov_log_flag),
 			"turn on ulposc\n");
-		aov_ulposc_check_cali_result(aov_dev);
+		ret = aov_ulposc_check_cali_result(aov_dev);
 		AOV_DEBUG_LOG(*(aov_dev->enable_aov_log_flag),
 			"turn on ulposc done, ret(%d)\n", ret);
-		mutex_unlock(&core_info->start_stop_mutex);
+		up(&core_info->start_stop_sema);
+		if (ret != 1)
+			ret = -EFAULT;
 		break;
 	case AOV_DEV_TURN_OFF_ULPOSC:
-		mutex_lock(&core_info->start_stop_mutex);
+		if (down_interruptible(&core_info->start_stop_sema)) {
+			dev_info(aov_dev->dev, "%s: failed to acquire semaphore\n", __func__);
+			return -EFAULT;
+		}
 		AOV_DEBUG_LOG(*(aov_dev->enable_aov_log_flag),
 			"turn off ulposc\n");
 		ret = aov_core_send_cmd(aov_dev, AOV_SCP_CMD_TURN_OFF_ULPOSC, NULL, 0, true);
 		AOV_DEBUG_LOG(*(aov_dev->enable_aov_log_flag),
 			"turn off ulposc done, ret(%d)\n", ret);
-		mutex_unlock(&core_info->start_stop_mutex);
+		up(&core_info->start_stop_sema);
 		break;
+	case AOV_DEV_FRAME_MODE: {
+		dev_info(aov_dev->dev, "AOV update frame mode+\n");
+		ret = aov_core_send_cmd(aov_dev, AOV_SCP_CMD_FRAME_MODE,
+			(void *)arg, sizeof(struct frame_mode_notify), true);
+
+		dev_info(aov_dev->dev, "update frame mode-(%d)\n", ret);
+		break;
+	}
 	default:
 		dev_info(aov_dev->dev, "unknown AOV control code(%d)\n", cmd);
 		return -EINVAL;
@@ -437,6 +459,9 @@ static int mtk_aov_probe(struct platform_device *pdev)
 	struct device_node *larb_node;
 	struct device_link *link;
 	struct mtk_aov *aov_dev;
+	int num_node;
+	struct device_node *dep_node;
+	struct platform_device *dep_pdev;
 	int ret = 0, num_mae = 0, num_larbs = 0, i = 0;
 
 	dev_info(&pdev->dev, "%s probe aov driver+\n", __func__);
@@ -535,6 +560,40 @@ static int mtk_aov_probe(struct platform_device *pdev)
 			else
 				mae_larb_dev = &larb_pdev->dev;
 		}
+
+		// sensor-i2c
+		num_node = of_count_phandle_with_args(
+						pdev->dev.of_node, "sensor-i2c", NULL);
+		num_node = (num_node < 0) ? 0 : num_node;
+		dev_info(&pdev->dev, "num of sensor i2c:%d\n", num_node);
+
+		for (i = 0; i < num_node; i++) {
+			dep_node = of_parse_phandle(
+						pdev->dev.of_node, "sensor-i2c", i);
+			if (!dep_node) {
+				dev_info(&pdev->dev, "failed to get i2c node(%d).\n", i);
+				continue;
+			}
+
+			dep_pdev = of_find_device_by_node(dep_node);
+			if (WARN_ON(!dep_pdev)) {
+				of_node_put(dep_node);
+				dev_info(&pdev->dev, "failed to get i2c pdev(%d)\n", i);
+				continue;
+			}
+			of_node_put(dep_node);
+
+			link = device_link_add(&pdev->dev, &dep_pdev->dev,
+							DL_FLAG_PM_RUNTIME | DL_FLAG_STATELESS);
+			if (!link)
+				dev_info(&pdev->dev, "failed to link i2c pdev(%d)\n", i);
+		}
+
+		// seninf device link
+		num_node = of_count_phandle_with_args(
+						pdev->dev.of_node, "depend-on", NULL);
+		num_node = (num_node < 0) ? 0 : num_node;
+		dev_info(&pdev->dev, "aov dependency nodes num:%d\n", num_node);
 	} else {
 		aov_dev->op_mode = 0;
 		aov_dev->fd_version = 0;

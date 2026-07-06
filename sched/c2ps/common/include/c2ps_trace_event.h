@@ -22,7 +22,11 @@ TRACE_EVENT(c2ps_systrace,
 	),
 
 	TP_fast_assign(
+#if (KERNEL_VERSION(6, 10, 0) > LINUX_VERSION_CODE)
 	__assign_str(buf, buf);
+#else
+	__assign_str(buf);
+#endif
 	),
 
 	TP_printk("%s",
@@ -42,7 +46,11 @@ TRACE_EVENT(c2ps_critical_task,
 	),
 
 	TP_fast_assign(
+#if (KERNEL_VERSION(6, 10, 0) > LINUX_VERSION_CODE)
 	__assign_str(buf, buf);
+#else
+	__assign_str(buf);
+#endif
 	),
 
 	TP_printk("%s",
@@ -62,7 +70,11 @@ TRACE_EVENT(c2ps_bg_info,
 	),
 
 	TP_fast_assign(
+#if (KERNEL_VERSION(6, 10, 0) > LINUX_VERSION_CODE)
 	__assign_str(buf, buf);
+#else
+	__assign_str(buf);
+#endif
 	),
 
 	TP_printk("%s",
@@ -82,7 +94,11 @@ TRACE_EVENT(c2ps_main_trace,
 	),
 
 	TP_fast_assign(
+#if (KERNEL_VERSION(6, 10, 0) > LINUX_VERSION_CODE)
 	__assign_str(buf, buf);
+#else
+	__assign_str(buf);
+#endif
 	),
 
 	TP_printk("%s",
@@ -102,7 +118,11 @@ TRACE_EVENT(c2ps_bg_info_um_default,
 	),
 
 	TP_fast_assign(
+#if (KERNEL_VERSION(6, 10, 0) > LINUX_VERSION_CODE)
 	__assign_str(buf, buf);
+#else
+	__assign_str(buf);
+#endif
 	),
 
 	TP_printk("%s",
@@ -122,7 +142,11 @@ TRACE_EVENT(c2ps_bg_info_um,
 	),
 
 	TP_fast_assign(
+#if (KERNEL_VERSION(6, 10, 0) > LINUX_VERSION_CODE)
 	__assign_str(buf, buf);
+#else
+	__assign_str(buf);
+#endif
 	),
 
 	TP_printk("%s",

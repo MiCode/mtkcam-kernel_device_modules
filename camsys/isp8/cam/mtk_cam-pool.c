@@ -299,13 +299,12 @@ int mtk_cam_pool_fetch(struct mtk_cam_pool *pool,
 		}
 		c++;
 	}
-	spin_unlock(&pool->lock);
-
 	pool_dbg("pool %p, idx %d fetch_idx %d available_cnt %d\n",
 		 pool,
 		 ((struct mtk_cam_pool_priv *)buf)->index,
 		 pool->fetch_idx,
 		 pool->available_cnt);
+	spin_unlock(&pool->lock);
 
 	return (c == n) ? -1 : 0;
 }
@@ -333,13 +332,12 @@ void mtk_cam_pool_return(void *buf, size_t size)
 
 	priv->available = true;
 	++pool->available_cnt;
-	spin_unlock(&pool->lock);
-
 	pool_dbg("pool %p, idx %d fetch_idx %d available_cnt %d\n",
 		 pool,
 		 i,
 		 pool->fetch_idx,
 		 pool->available_cnt);
+	spin_unlock(&pool->lock);
 }
 
 int mtk_cam_pool_available_cnt(struct mtk_cam_pool *pool)

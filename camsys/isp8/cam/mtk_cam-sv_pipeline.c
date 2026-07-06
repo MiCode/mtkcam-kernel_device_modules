@@ -921,8 +921,14 @@ mtk_camsv_pipeline_create(struct device *dev, int n)
 {
 	if (n <= 0)
 		return NULL;
-	return devm_kcalloc(dev, n, sizeof(struct mtk_camsv_pipeline),
-			    GFP_KERNEL);
+
+	return vzalloc(n * sizeof(struct mtk_camsv_pipeline));
+}
+
+void mtk_camsv_pipeline_delete(struct mtk_camsv_pipeline *pipeline)
+{
+	if (pipeline != NULL)
+		vfree(pipeline);
 }
 
 int mtk_cam_sv_update_feature(struct mtk_cam_video_device *node)
@@ -931,13 +937,13 @@ int mtk_cam_sv_update_feature(struct mtk_cam_video_device *node)
 	struct mtk_camsv_pipeline *sv_pipe;
 	int i;
 
-	if (node->desc.id != MTK_CAMSV_EXT_STREAM_OUT)
-		return 0;
-
 	for (i = 0; i < cam->pipelines.num_camsv; i++) {
 		sv_pipe = &cam->pipelines.camsv[i];
 		if (sv_pipe->id == node->uid.pipe_id) {
-			sv_pipe->feature_pending |= DISPLAY_IC;
+			if (node->desc.id == MTK_CAMSV_EXT_STREAM_OUT)
+				sv_pipe->feature_pending |= DISPLAY_IC;
+			else
+				sv_pipe->feature_pending = 0;
 			break;
 		}
 	}

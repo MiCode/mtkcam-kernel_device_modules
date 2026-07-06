@@ -392,7 +392,8 @@ EXPORT_SYMBOL_GPL(mtk_create_client_msgdevice);
 
 struct mtk_rpmsg_device *
 mtk_get_client_msgdevice(struct rproc_subdev *subdev,
-			    struct rpmsg_channel_info *info)
+			    struct rpmsg_channel_info *info,
+			    rpmsg_rx_cb_t cb, void *priv)
 {
 	struct mtk_rpmsg_rproc_subdev *mtk_subdev = to_mtk_subdev(subdev);
 	struct device *dev;
@@ -417,17 +418,27 @@ mtk_get_client_msgdevice(struct rproc_subdev *subdev,
 	dev_info(&mtk_subdev->pdev->dev, "%s: src:%d, %p\n",
 		__func__, info->src, rpdev);
 
+	mdev->rpdev.ept = rpmsg_create_ept(&mdev->rpdev, cb, priv, *info);
+
+	if (IS_ERR(mdev->rpdev.ept)) {
+		dev_info(&mtk_subdev->pdev->dev, "%s: creat ept faile(src:%lu)\n",
+		__func__, (unsigned long)mdev->rpdev.ept);
+		goto get_failed;
+	}
+
 	mutex_lock(&mtk_subdev->master_listen_lock);
 
 	listen_obj_rdy = atomic_read(&mtk_subdev->listen_obj_rdy);
 	if (listen_obj_rdy == CCD_LISTEN_OBJECT_READY) {
 		mutex_unlock(&mtk_subdev->master_listen_lock);
-		ret = wait_event_interruptible
+		ret = wait_event_interruptible_timeout
 			(mtk_subdev->ccd_listen_wq,
 			 (atomic_read(&mtk_subdev->listen_obj_rdy) ==
-			 CCD_LISTEN_OBJECT_PREPARING));
-
-		if (ret != 0)
+			 CCD_LISTEN_OBJECT_PREPARING),
+			 msecs_to_jiffies(2000));
+		if (ret == 0)
+			dev_info(&mtk_subdev->pdev->dev, "%s wait timeout\n", __func__);
+		else if (ret < 0)
 			dev_info(&mtk_subdev->pdev->dev,
 				"ccd listen wait error: %d\n", ret);
 

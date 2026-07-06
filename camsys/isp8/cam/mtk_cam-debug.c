@@ -4,6 +4,7 @@
 
 #include <linux/list.h>
 #include <linux/proc_fs.h>
+#include <linux/vmalloc.h>
 
 #include "mtk_cam.h"
 #include "mtk_cam-debug.h"
@@ -799,6 +800,7 @@ int mtk_cam_debug_dump(struct mtk_cam_debug *dbg,
 	size_t size;
 	struct dump_buffer *buf;
 	int ret = -1;
+	int i = 0;
 
 	dump = &dbg->dump;
 
@@ -820,7 +822,15 @@ int mtk_cam_debug_dump(struct mtk_cam_debug *dbg,
 		dev_info(dev, "%s: no buf to dump, size %zu\n", __func__, size);
 		goto EXIT;
 	}
-
+	if (CAM_DEBUG_ENABLED(JOB))
+		for (i = 0; i < CAM_MAX_IMAGE_OUTPUT; i++) {
+			if (p->frame_params->img_outs[i].fmt.s.w)
+				dev_info(dev, "%s++: ctx:%d, id=%d, w/h/size:%d/%d/%d\n",
+			 __func__,
+			 p->stream_id, p->frame_params->img_outs[i].uid.id,
+			 p->frame_params->img_outs[i].fmt.s.w, p->frame_params->img_outs[i].fmt.s.h,
+			 p->frame_params->img_outs[i].buf[0][0].size);
+		}
 	ret = mtk_cam_dump_to_buf(p, buf->addr, buf->size);
 	if (ret) {
 		spin_lock(&ctrl->lock);
@@ -837,7 +847,15 @@ int mtk_cam_debug_dump(struct mtk_cam_debug *dbg,
 
 EXIT:
 	mutex_unlock(&ctrl->op_lock);
-
+	if (CAM_DEBUG_ENABLED(JOB))
+		for (i = 0; i < CAM_MAX_IMAGE_OUTPUT; i++) {
+			if (p->frame_params->img_outs[i].fmt.s.w)
+				dev_info(dev, "%s--: ctx:%d, id=%d, w/h/size:%d/%d/%d\n",
+			 __func__,
+			 p->stream_id, p->frame_params->img_outs[i].uid.id,
+			 p->frame_params->img_outs[i].fmt.s.w, p->frame_params->img_outs[i].fmt.s.h,
+			 p->frame_params->img_outs[i].buf[0][0].size);
+		}
 	dev_info(dev, "%s: ctx %d seq %d, buf_size %zu ret = %d\n",
 		 __func__,
 		 p->stream_id, p->sequence, size, ret);

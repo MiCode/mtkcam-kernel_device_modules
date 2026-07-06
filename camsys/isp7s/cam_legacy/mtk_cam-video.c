@@ -2763,9 +2763,15 @@ mtk_cam_vb2_queue_get_mtkbuf(struct vb2_queue *q, struct v4l2_buffer *b)
 {
 	struct vb2_buffer *vb;
 
+#if (KERNEL_VERSION(6, 10, 0) > LINUX_VERSION_CODE)
 	if (b->index >= q->num_buffers) {
 		dev_info(q->dev, "%s: buffer index out of range (idx/num: %d/%d)\n",
 			 __func__, b->index, q->num_buffers);
+#else
+	if (b->index >= vb2_get_num_buffers(q)) {
+		dev_info(q->dev, "%s: buffer index out of range (idx/num: %d/%d)\n",
+			 __func__, b->index, vb2_get_num_buffers(q));
+#endif
 		return NULL;
 	}
 

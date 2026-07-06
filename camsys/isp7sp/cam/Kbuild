@@ -4,19 +4,21 @@ CAM_MODULE := mtk-cam-isp7sp
 
 CAMSYS_TRACE_ENABLE = y
 
+KO_PATH := $(if $(filter /%,$(src)),,$(srctree)/)$(src)
+
 subdir-ccflags-y += \
     -I$(DEVICE_MODULES_PATH)/drivers/misc/mediatek/mmdvfs \
     -I$(DEVICE_MODULES_PATH)/drivers/misc/mediatek/smi/ \
     -I$(DEVICE_MODULES_PATH)/drivers/misc/mediatek/include/mt-plat/ \
     -I$(DEVICE_MODULES_PATH)/drivers/misc/mediatek/mtk-interconnect \
     -I$(DEVICE_MODULES_PATH)/drivers/misc/mediatek/imgsensor/inc \
-    -I$(srctree)/$(src)/../../../imgsensor/src-v4l2/frame-sync/ \
-    -I$(srctree)/$(src)/../../../imgsensor/inc \
+    -I$(KO_PATH)/../../../imgsensor/src-v4l2/frame-sync/ \
+    -I$(KO_PATH)/../../../imgsensor/inc \
     -I$(DEVICE_MODULES_PATH)/drivers/dma-buf/heaps/ \
     -I$(DEVICE_MODULES_PATH)/drivers/misc/mediatek/iommu/ \
     -I$(DEVICE_MODULES_PATH)/drivers/clk/mediatek/ \
     -I$(DEVICE_MODULES_PATH)/drivers/misc/mediatek/slbc/ \
-    -I$(srctree)/$(src) \
+    -I$(KO_PATH) \
     -I$(DEVICE_MODULES_PATH)/include/
 
 
@@ -101,10 +103,10 @@ $(CAM_MODULE)-objs += \
 $(CAM_MODULE)-objs += \
 	mtk_csi_phy_3_1/mtk_cam-seninf-hw_phy_3_1.o
 
-PLATFORM_PATH = $(srctree)/$(src)
+PLATFORM_PATH = $(KO_PATH)
 # workaround for external build
 ifneq ($(M),)
-PLATFORM_PATH = $(srctree)/$(src)
+PLATFORM_PATH = $(KO_PATH)
 endif
 
 # platform data

@@ -418,20 +418,15 @@ static int cam_composer_init(struct mtk_cam_ut *ut)
 	rpmsg_subdev = ccd->rpmsg_subdev;
 	snprintf(msg->name, RPMSG_NAME_SIZE, "mtk-camsys0");
 	msg->src = CCD_IPI_ISP_MAIN;
-	ut->rpmsg_dev = mtk_get_client_msgdevice(rpmsg_subdev, msg);
+	ut->rpmsg_dev = mtk_get_client_msgdevice(rpmsg_subdev, msg,
+						 cam_composer_handler, ut);
 	if (!ut->rpmsg_dev) {
-		ret = -EINVAL;
-		goto fail_shutdown;
-	}
-	ut->rpmsg_dev->rpdev.ept = rpmsg_create_ept(&ut->rpmsg_dev->rpdev,
-						    cam_composer_handler,
-						    ut, *msg);
-	if (IS_ERR(ut->rpmsg_dev->rpdev.ept)) {
 		ret = -EINVAL;
 		goto fail_shutdown;
 	}
 
 	return ret;
+
 fail_shutdown:
 	rproc_shutdown(ut->rproc_handle);
 fail_rproc_put:

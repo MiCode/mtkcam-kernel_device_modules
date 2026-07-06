@@ -12,6 +12,7 @@
 #include <linux/of.h>
 #include <linux/platform_device.h>
 #include <linux/pm_runtime.h>
+#include <linux/pm_domain.h>
 
 #include "mtk_cam_ut.h"
 #include "mtk_cam_ut-engines.h"
@@ -109,7 +110,8 @@ static int ut_seninf_set_testmdl(struct device *dev,
 	int i;
 	struct mtk_cam_ut_tm_para *para;
 	struct mtk_ut_seninf_device *seninf = dev_get_drvdata(dev);
-	int seninf_idx, outmux_idx, tag, exp_no;
+	unsigned int seninf_idx, outmux_idx;
+	int tag, exp_no;
 	void __iomem *seninf_top;
 	void __iomem *seninf_async;
 	void __iomem *seninf_tm;
@@ -121,7 +123,7 @@ static int ut_seninf_set_testmdl(struct device *dev,
 					      height + h_margin,
 					      clk_div_cnt, 416, 30);
 	int width_tm = (width >> 1);
-	u8 set_outmux_list[SENINF_MUX_NUM];
+	u8 set_outmux_list[camsys_tg_max];
 	u8 pix_m = 0;
 	u8 last_vc = 0;
 
@@ -172,16 +174,16 @@ static int ut_seninf_set_testmdl(struct device *dev,
 	for (i = 0; i < para_cnt; i++) {
 		para = tm_para + i;
 		if (!strcasecmp(iomem_ver, MT6899_IOMOM_VERSIONS))
-			outmux_idx = tg_remap(para->tg_idx);
+			outmux_idx = (unsigned int)tg_remap(para->tg_idx);
 		else
-			outmux_idx = para->tg_idx;
+			outmux_idx = (unsigned int)para->tg_idx;
 		exp_no = para->exp_no;
 		tag = para->tag;
 		pix_m = (para->pixmode == tm_pix_mode_16) ? 1 : 0;
-		dev_info(dev, "%s seninf_idx %d outmux_idx %d tag %d pixmode %d\n",
+		dev_info(dev, "%s seninf_idx %u outmux_idx %u tag %d pixmode %d\n",
 			 __func__, seninf_idx, outmux_idx, tag, para->pixmode);
 
-		if (outmux_idx >= SENINF_MUX_NUM)
+		if (outmux_idx >= (unsigned int)camsys_tg_max)
 			continue;
 
 		set_outmux_list[outmux_idx] = 1;
@@ -199,7 +201,7 @@ static int ut_seninf_set_testmdl(struct device *dev,
 			writel((exp_no << ((tag - tag_4) * 8)), ISP_SENINF_OUTMUX_SOURCE_CFG2(outmux_base));
 	}
 
-	for (i = 0; i < SENINF_MUX_NUM; i++) {
+	for (i = 0; i < camsys_tg_max; i++) {
 		if (set_outmux_list[i]) {
 			outmux_base = seninf->base_outmux[i];
 			writel(0x1, ISP_SENINF_OUTMUX_CFG_RDY(outmux_base));
@@ -343,8 +345,9 @@ static int mtk_ut_seninf_of_probe(struct platform_device *pdev,
 
 	for (i = 0; i < seninf->num_clks; i++) {
 		seninf->clks[i] = of_clk_get(pdev->dev.of_node, i);
+		dev_info(dev, "get clk[%d](0x%p)\n", i, seninf->clks[i]);
 		if (IS_ERR(seninf->clks[i])) {
-			dev_info(dev, "failed to get clk %d\n", i);
+			dev_info(dev, "failed to get clk[%d]\n", i);
 			return -ENODEV;
 		}
 	}
@@ -356,6 +359,34 @@ static int mtk_ut_seninf_of_probe(struct platform_device *pdev,
 	// init seninf_status as all mux are free to used
 	for (i = 0; i < SENINF_NUM; i++)
 		seninf->seninf_status[i] = IDLE;
+
+	return 0;
+}
+
+static int mtk_ut_seninf_pm_runtime_enable(struct mtk_ut_seninf_device *seninf)
+{
+	int i;
+
+	seninf->pm_domain_cnt = of_count_phandle_with_args(seninf->dev->of_node,
+					"power-domains",
+					"#power-domain-cells");
+	dev_info(seninf->dev, "pm_domain_cnt = %d\n", seninf->pm_domain_cnt);
+	pm_runtime_enable(seninf->dev);
+	if (seninf->pm_domain_cnt > 1) {
+		seninf->pm_domain_devs = devm_kcalloc(seninf->dev, seninf->pm_domain_cnt,
+					sizeof(*seninf->pm_domain_devs), GFP_KERNEL);
+		if (!seninf->pm_domain_devs)
+			return -ENOMEM;
+
+		for (i = 0; i < seninf->pm_domain_cnt; i++) {
+			seninf->pm_domain_devs[i] = dev_pm_domain_attach_by_id(seninf->dev, i);
+
+			if (IS_ERR_OR_NULL(seninf->pm_domain_devs[i])) {
+				dev_info(seninf->dev, "%s: fail to probe pm id %d\n", __func__, i);
+				seninf->pm_domain_devs[i] = NULL;
+			}
+		}
+	}
 
 	return 0;
 }
@@ -381,7 +412,7 @@ static int mtk_ut_seninf_probe(struct platform_device *pdev)
 
 	ut_seninf_set_ops(dev);
 
-	pm_runtime_enable(dev);
+	mtk_ut_seninf_pm_runtime_enable(seninf);
 
 	ret = component_add(dev, &mtk_ut_seninf_component_ops);
 	if (ret)
@@ -405,6 +436,15 @@ static int mtk_ut_seninf_remove(struct platform_device *pdev)
 	}
 
 	pm_runtime_disable(dev);
+	if (seninf->pm_domain_cnt > 1) {
+		if (!seninf->pm_domain_devs)
+			return -EINVAL;
+
+		for (i = 0; i < seninf->pm_domain_cnt; i++) {
+			if (seninf->pm_domain_devs[i])
+				dev_pm_domain_detach(seninf->pm_domain_devs[i], 1);
+		}
+	}
 
 	component_del(dev, &mtk_ut_seninf_component_ops);
 	return 0;
@@ -426,6 +466,19 @@ static int mtk_ut_seninf_runtime_suspend(struct device *dev)
 {
 	struct mtk_ut_seninf_device *seninf = dev_get_drvdata(dev);
 	int i;
+	int ret = 0;
+
+	dev_info(dev, "pm_domain_cnt = %d\n", seninf->pm_domain_cnt);
+	if (seninf->pm_domain_cnt > 1) {
+		if (!seninf->pm_domain_devs)
+			return -ENOMEM;
+		for (i = seninf->pm_domain_cnt - 1; i >= 0; i--) {
+			if (seninf->pm_domain_devs[i] != NULL) {
+				ret = pm_runtime_put_sync(seninf->pm_domain_devs[i]);
+				dev_info(dev, "pm_runtime_put_sync[%d], ret(%d)\n", i, ret);
+			}
+		}
+	}
 
 	for (i = 0; i < seninf->num_clks; i++)
 		clk_disable_unprepare(seninf->clks[i]);
@@ -437,9 +490,24 @@ static int mtk_ut_seninf_runtime_resume(struct device *dev)
 {
 	struct mtk_ut_seninf_device *seninf = dev_get_drvdata(dev);
 	int i;
+	int ret = 0;
 
-	for (i = 0; i < seninf->num_clks; i++)
-		clk_prepare_enable(seninf->clks[i]);
+	dev_info(dev, "pm_domain_cnt = %d\n", seninf->pm_domain_cnt);
+	if (seninf->pm_domain_cnt > 1) {
+		if (!seninf->pm_domain_devs)
+			return -EINVAL;
+		for (i = 0; i < seninf->pm_domain_cnt; i++) {
+			if (seninf->pm_domain_devs[i] != NULL) {
+				ret = pm_runtime_get_sync(seninf->pm_domain_devs[i]);
+				dev_info(dev, "pm_runtime_get_sync[%d], ret(%d)\n", i, ret);
+			}
+		}
+	}
+
+	for (i = 0; i < seninf->num_clks; i++) {
+		ret = clk_prepare_enable(seninf->clks[i]);
+		dev_info(seninf->dev, "clk[%d](0x%p), ret(%d)\n", i, seninf->clks[i], ret);
+	}
 
 	return 0;
 }

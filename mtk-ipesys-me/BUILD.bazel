@@ -1,0 +1,62 @@
+load("//build/bazel_mgk_rules:mgk_ddk_ko.bzl", "define_mgk_ddk_ko")
+load("//build/kernel/kleaf:kernel.bzl", "ddk_headers")
+load("//build/bazel_mgk_rules:mgk_ko.bzl", "define_mgk_ko")
+load("@mgk_info//:kernel_version.bzl","kernel_version")
+package(
+    default_visibility = [
+        "//visibility:public",
+    ],
+)
+mgk_me_outs = [
+    # keep sorted
+    "mtk-ipesys-me.ko",
+]
+
+filegroup(
+    name = "public_headers",
+    srcs = glob([
+        "*.h",
+    ]),
+)
+
+filegroup(
+    name = "kbuild_makefiles",
+    srcs = [
+        "Kbuild",
+        "Makefile",
+    ],
+)
+
+ddk_headers(
+    name = "ddk_public_headers",
+    includes = ["."],
+    hdrs = glob(["**/*.h"]), # export all headers for other modules to use
+)
+
+# DDK conversion
+define_mgk_ddk_ko(
+    name = "mtk-ipesys-me",
+    srcs = [
+        "mtk-ipesys-me.c"
+    ],
+    includes = ["."],
+    hdrs = glob([
+        "mtk-ipesys-me.h",
+    ]),
+    ko_deps = [
+        "//kernel_device_modules-{}/drivers/misc/mediatek/iommu:mtk_iommu_util".format(kernel_version),
+        "//kernel_device_modules-{}/drivers/misc/mediatek/iommu:iommu_debug".format(kernel_version),
+        "//kernel_device_modules-{}/drivers/misc/mediatek/mtk-interconnect:mtk-icc-core".format(kernel_version),
+    ],
+    header_deps = [
+        "//kernel_device_modules-{}/drivers/iommu/arm/arm-smmu-v3:smmu_public_headers".format(kernel_version),
+        "//kernel_device_modules-{}/drivers/misc/mediatek/iommu:iommu_misc_headers".format(kernel_version),
+        "//vendor/mediatek/kernel_modules/mtkcam/imgsys/common:ddk_public_headers",
+        "//vendor/mediatek/kernel_modules/mtkcam/imgsys/imgsys/isp71:ddk_public_headers", # TBD
+    ],
+    copts = [
+        # "-I$(DEVICE_MODULES_PATH)/drivers/iommu",
+        "-I$(DEVICE_MODULES_PATH)/drivers/misc/mediatek/cmdq/mailbox",
+    ],
+    out = "mtk-ipesys-me.ko",
+)

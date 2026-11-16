@@ -1,0 +1,78 @@
+load("//build/bazel_mgk_rules:mgk_ddk_ko.bzl", "define_mgk_ddk_ko")
+load("//build/kernel/kleaf:kernel.bzl", "ddk_headers")
+load("//build/bazel_mgk_rules:mgk_ko.bzl", "define_mgk_ko")
+load("@mgk_info//:kernel_version.bzl","kernel_version")
+package(
+    default_visibility = [
+        "//visibility:public",
+    ],
+)
+mgk_hcp_outs = [
+    # keep sorted
+    "mtk_hcp_isp8.ko",
+]
+
+filegroup(
+    name = "public_headers",
+    srcs = glob([
+        "*.h",
+    ]),
+)
+
+filegroup(
+    name = "kbuild_makefiles",
+    srcs = [
+        "Kbuild",
+        "Makefile",
+    ],
+)
+
+ddk_headers(
+    name = "ddk_public_headers",
+    includes = ["."],
+    hdrs = glob(["**/*.h"]), # export all headers for other modules to use
+)
+
+# DDK conversion
+define_mgk_ddk_ko(
+    name = "mtk-hcp-isp8",
+
+    srcs = [
+        "mtk-hcp.c",
+        # "mtk-hcp_isp8.c",
+        "mtk-hcp_log.c",
+        "platform/mtk-hcp_isp8_plat_f.c",
+        "platform/mtk-hcp_isp8_plat_p.c"
+    ],
+
+    includes = [".", "platform"],
+
+    # export all headers for other modules to use
+    hdrs = glob(["**/*.h"]),
+
+    ko_deps = [
+        "//kernel_device_modules-{}/drivers/misc/mediatek/iommu:mtk_iommu_util".format(kernel_version),
+        "//kernel_device_modules-{}/drivers/misc/mediatek/iommu:iommu_debug".format(kernel_version),
+        "//kernel_device_modules-{}/drivers/dma-buf/heaps:system_heap".format(kernel_version),
+        "//kernel_device_modules-{}/drivers/misc/mediatek/slbc:mtk_slbc".format(kernel_version),
+        "//kernel_device_modules-{}/drivers/misc/mediatek/mtk-interconnect:mtk-icc-core".format(kernel_version),
+    ],
+
+    header_deps = [
+        "//kernel_device_modules-{}/drivers/iommu/arm/arm-smmu-v3:smmu_public_headers".format(kernel_version),
+        # "//vendor/mediatek/kernel_modules/mtkcam/imgsys:ddk_public_headers",
+        "//kernel_device_modules-{}/drivers/misc/mediatek/iommu:iommu_misc_headers".format(kernel_version),
+        "//vendor/mediatek/kernel_modules/mtkcam/imgsys/common:ddk_public_headers",
+        "//vendor/mediatek/kernel_modules/mtkcam/imgsys/imgsys/isp8:ddk_public_headers",
+    ],
+
+    copts = [
+        "-I$(srctree)/include/media",
+        "-I$(DEVICE_MODULES_PATH)/drivers/misc/mediatek/include/mt-plat/$(MTK_PLATFORM)/include/", # not seen in this branch
+        "-I$(DEVICE_MODULES_PATH)/drivers/misc/mediatek/include/mt-plat/",
+        "-I$(DEVICE_MODULES_PATH)/drivers/misc/mediatek/include/",
+        # "-I$(DEVICE_MODULES_PATH)/drivers/iommu",
+    ],
+
+    out = "mtk_hcp_isp8.ko"
+)

@@ -1,0 +1,34 @@
+load("//build/bazel_mgk_rules:mgk_ddk_ko.bzl", "define_mgk_ddk_ko")
+load("@mgk_info//:kernel_version.bzl", "kernel_version",)
+
+package(
+    default_visibility = [
+        "//visibility:public",
+    ],
+)
+
+filegroup(
+    name = "headers",
+    srcs = glob([
+        "*.h",
+    ]),
+)
+
+define_mgk_ddk_ko(
+    name = "imgsensor-glue",
+    srcs = [
+	    "imgsensor-glue.c",
+    ],
+    header_deps = [
+        "//vendor/mediatek/kernel_modules/mtkcam:mtkcam_header",
+        "//vendor/mediatek/kernel_modules/mtkcam/imgsensor:imgsensor_header",
+        "//vendor/mediatek/kernel_modules/mtkcam/imgsensor/src-v4l2:imgsensor_v4l2_header",
+        "//kernel_device_modules-{}/drivers/misc/mediatek/imgsensor:imgsensor_kd_header".format(kernel_version),
+    ],
+    hdrs = glob([
+        "*.h"
+    ]),
+    copts = [
+    ],
+    includes = ["."],
+)

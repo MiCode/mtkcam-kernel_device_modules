@@ -1,0 +1,117 @@
+load("//build/bazel_mgk_rules:mgk_ddk_ko.bzl", "define_mgk_ddk_ko")
+load("//build/kernel/kleaf:kernel.bzl", "ddk_headers")
+load("@mgk_info//:kernel_version.bzl", "kernel_version",)
+
+package(
+    default_visibility = [
+        "//visibility:public",
+    ],
+)
+
+
+## ddk ko
+
+# driver list to included
+config_cust_kernel_imgsensor = "s5khp9sp_mipi_raw s5k4h7sub_mipi_raw s5k4h7_mipi_raw imx06a_mipi_raw imx06c_mipi_raw imx858_mipi_raw imx858dual_mipi_raw imx989_mipi_raw imx989lite_mipi_raw imx758_mipi_raw imx758lite_mipi_raw imx598_mipi_raw imx598lite_mipi_raw imx866rgb_mipi_raw s5kjd1_mipi_raw imx686_mipi_raw imx519_mipi_raw s5k2t7sp_mipi_raw s5k2p7_mipi_raw ov8856_mipi_raw imx386_mipi_raw imx398_mipi_raw s5k2l7_mipi_raw imx586_mipi_raw imx576_mipi_raw imx481_mipi_raw s5khp3sp_mipi_raw s5k3m5sx_mipi_raw ov48b_mipi_raw ov50d_mipi_raw ov50ddual_mipi_raw ov64b_mipi_raw imx766_mipi_raw s5k3p9sp_mipi_raw imx766dual_mipi_raw imx766o_mipi_raw imx709o_mipi_raw imx766dualo_mipi_raw s5k3m5sxo_mipi_raw imx499_mipi_raw imx709_mipi_raw imx866_mipi_raw imx800_mipi_raw s5kgd2_mipi_raw imx6632x_mipi_raw hi847_mipi_raw imx966_mipiw_raw fake_mipi_raw"
+
+config_subdrvs = config_cust_kernel_imgsensor.split(" ")
+
+# common
+common_subdrvs = glob([
+    "common/**/Makefile",
+])
+common_subdrvs_split = [
+    subdrv.split("/")[-2] for subdrv in common_subdrvs
+]
+intersect_comm_drvs = [item for item in common_subdrvs_split if item in config_subdrvs]  # get intersection
+
+# project (project driver's name in project shouldn't equal to the one in common)
+proj1_subdrvs = glob([
+    "camera_project/k6983v1_64_alpha/**/Makefile",
+])
+proj1_subdrvs_split = [
+    subdrv.split("/")[-2] for subdrv in proj1_subdrvs
+]
+intersect_proj1_drvs = [item for item in proj1_subdrvs_split if item in config_subdrvs]  # get intersection
+
+proj2_subdrvs = glob([
+    "camera_project/k6985v1_64_alpha/**/Makefile",
+])
+proj2_subdrvs_split = [
+    subdrv.split("/")[-2] for subdrv in proj2_subdrvs
+]
+intersect_proj2_drvs = [item for item in proj2_subdrvs_split if item in config_subdrvs]  # get intersection
+
+
+subdrvs_c = [
+    "common/{}/*.c".format(p) if glob(["common/{}/**".format(p)]) else "" for p in intersect_comm_drvs
+] + [
+    "camera_project/k6983v1_64_alpha/{}/*.c".format(p) if glob(["camera_project/k6983v1_64_alpha/{}/**".format(p)]) else "" for p in intersect_proj1_drvs
+] + [
+    "camera_project/k6985v1_64_alpha/{}/*.c".format(p) if glob(["camera_project/k6985v1_64_alpha/{}/**".format(p)]) else "" for p in intersect_proj2_drvs
+]
+subdrvs_def_split = [
+    "E({})".format(subdrv) for subdrv in intersect_comm_drvs
+] + [
+    "E({})".format(subdrv) for subdrv in intersect_proj1_drvs
+] + [
+    "E({})".format(subdrv) for subdrv in intersect_proj2_drvs
+]
+subdrvs_def_str = ",".join(subdrvs_def_split)
+
+print("imgsensor_spm_isp8 drvs c = {}".format(subdrvs_c))
+print("imgsensor_spm_isp8 drvs def = {}".format(subdrvs_def_str))
+
+define_mgk_ddk_ko(
+    name = "imgsensor_spm_isp8",
+    srcs = glob([
+        "*.c",
+        "common/*.c",
+        "virt-sensor/*.c",
+        "frame-sync/*.c",
+        "frame-sync/custom/*.c",
+    ]) + glob(subdrvs_c),  # Build all subdrivers contains Makefile
+    ko_deps = [
+        "//vendor/mediatek/kernel_modules/mtkcam/imgsensor/src_spm-isp8/imgsensor-glue:imgsensor-glue_spm_isp8",
+        "//vendor/mediatek/kernel_modules/mtkcam/cam_cal/src_v4l2:mtk_cam_cal",
+        "//kernel_device_modules-{}/drivers/misc/mediatek/aee/aed:aee_aed".format(kernel_version),
+        "//kernel_device_modules-{}/drivers/i3c/master:mtk-i3c-master-mt69xx".format(kernel_version),
+        "//kernel_device_modules-{}/drivers/misc/mediatek/i3c_i2c_wrap:mtk-i3c-i2c-wrap".format(kernel_version),
+    ],
+    header_deps = [
+        "//vendor/mediatek/kernel_modules/mtkcam:mtkcam_header",
+        "//vendor/mediatek/kernel_modules/mtkcam/imgsensor:imgsensor_header",
+        "//vendor/mediatek/kernel_modules/mtkcam/imgsensor/src_spm-isp8:imgsensor_spm_isp8_header",
+        "//kernel_device_modules-{}/drivers/i3c/master:i3c_master_api_headers".format(kernel_version),
+        "//kernel_device_modules-{}/drivers/misc/mediatek/i3c_i2c_wrap:i3c_i2c_wrap_headers".format(kernel_version),
+        "//kernel_device_modules-{}/drivers/misc/mediatek/imgsensor:imgsensor_kd_header".format(kernel_version),
+    ],
+    hdrs = glob([
+        "**/*.h"
+    ]),
+    copts = [
+        "-I$(DEVICE_MODULES_PATH)/drivers/misc/mediatek/include/mt-plat",
+        "-I$(srctree)/drivers/thermal",
+    ],
+    includes = [
+        ".",
+        "frame-sync",
+        "virt-sensor",
+        "imgsensor-glue",
+    ],
+    local_defines = [
+        "IMGSENSOR_SUBDRVS={}".format(subdrvs_def_str),
+    ],
+)
+
+## ddk headers
+
+ddk_headers(
+    name = "imgsensor_spm_isp8_header",
+    hdrs = glob([
+        "**/*.h"
+    ]),
+    includes = ["."],
+    visibility = ["//visibility:public"],
+)
+

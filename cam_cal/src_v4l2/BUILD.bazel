@@ -1,0 +1,78 @@
+load("//build/bazel_mgk_rules:mgk_ddk_ko.bzl", "define_mgk_ddk_ko")
+load("//build/kernel/kleaf:kernel.bzl", "ddk_headers")
+load("@mgk_info//:kernel_version.bzl", "kernel_version",)
+
+package(
+    default_visibility = [
+        "//visibility:public",
+    ],
+)
+
+filegroup(
+    name = "public_headers",
+    srcs = glob([
+        "common/v2/**",
+        "common/v2/*.h",
+        "custom/*.h",
+    ]),
+)
+
+filegroup(
+    name = "kbuild_makefiles",
+    srcs = [
+        "Kbuild",
+        "Makefile",
+    ],
+)
+
+## ddk headers
+ddk_headers(
+    name = "cam_cal_custom_header",
+    hdrs = glob([
+        "custom/*.h"
+    ]),
+    includes = ["custom"],
+    visibility = ["//visibility:public"],
+)
+
+## ddk ko
+
+layouts = glob([
+    "custom/layout/*.c",
+])
+layouts_name = [
+    lay.split("/")[-1] for lay in layouts
+]
+layouts_def = [
+    "E({})".format(item.split(".")[-2]) for item in layouts_name
+]
+layouts_def_str = ",".join(layouts_def)
+
+print("eeprom layout def = {}".format(layouts_def_str))
+
+define_mgk_ddk_ko(
+    name = "mtk_cam_cal",
+    out = "camera_eeprom_v4l2.ko",
+    srcs = glob([
+        "common/v2/*.c",
+        "custom/*.c",
+    ]) + layouts,
+    header_deps = [
+        "//vendor/mediatek/kernel_modules/mtkcam/cam_cal:cam_cal_header",
+        "//kernel_device_modules-{}/drivers/misc/mediatek/imgsensor:imgsensor_kd_header".format(kernel_version),
+    ],
+    hdrs = glob([
+        "**/*.h",
+    ]),
+    copts = [
+    ],
+    includes = [
+        "custom",
+        "common/v2",
+        "custom/layout",
+    ],
+    local_defines = [
+        #"CAM_CAL_CONFIG_LIST=E(s5k3p9sp_mtk_eeprom)",
+        "CAM_CAL_CONFIG_LIST={}".format(layouts_def_str),
+    ],
+)

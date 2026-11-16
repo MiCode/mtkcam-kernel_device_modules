@@ -1,0 +1,36 @@
+# SPDX-License-Identifier: GPL-2.0-only
+# Support GKI mixed build
+ifeq ($(DEVICE_MODULES_PATH),)
+DEVICE_MODULES_PATH = $(srctree)
+else
+LINUXINCLUDE := $(DEVCIE_MODULES_INCLUDE) $(LINUXINCLUDE)
+endif
+
+KO_CODE_PATH := $(if $(filter /%,$(src)),,$(srctree)/)$(src)
+
+# MAE_MODULE := mtk_mae
+# MAE_ISP8_MODULE := mtk_mae_isp8
+
+ifneq ($(wildcard $(DEVICE_MODULES_PATH)/include/dt-bindings/memory/mt6991-larb-port.h),)
+ccflags-y += -DMAE_TF_DUMP_8
+endif
+
+# ccflags-y += -I$(DEVICE_MODULES_PATH)/drivers/misc/mediatek/mtk-interconnect/
+# ccflags-y += -I$(DEVICE_MODULES_PATH)/drivers/misc/mediatek/cmdq/mailbox/
+# ccflags-y += -I$(DEVICE_MODULES_PATH)/drivers/dma-buf/heaps/
+# ccflags-y += -I$(DEVICE_MODULES_PATH)/drivers/media/platform/mtk-videobuf/
+# ccflags-y += -I$(KO_CODE_PATH)/../include/
+# ccflags-y += -I$(DEVICE_MODULES_PATH)/drivers/iommu
+# ccflags-y += -I$(DEVICE_MODULES_PATH)/drivers/misc/mediatek/iommu
+# ccflags-y += -I$(DEVICE_MODULES_PATH)/drivers/misc/mediatek/slbc
+# ccflags-y += -I$(DEVICE_MODULES_PATH)/include/
+# ccflags-y += -I$(KO_CODE_PATH)/
+
+# $(MAE_MODULE)-objs := \
+# mtk-mae.o
+
+# $(MAE_ISP8_MODULE)-objs := \
+# isp8/mtk-mae-isp8.o
+
+# obj-$(CONFIG_MTK_CAMERA_MAE_SUPPORT) += $(MAE_MODULE).o
+# obj-$(CONFIG_MTK_CAMERA_MAE_SUPPORT) += $(MAE_ISP8_MODULE).o

@@ -1,0 +1,177 @@
+/* SPDX-License-Identifier: GPL-2.0 */
+/*
+ * Copyright (c) 2024 MediaTek Inc.
+ */
+
+#ifndef MTK_AOV_OSC3_CTRL_H
+#define MTK_AOV_OSC3_CTRL_H
+
+#define OSC3_MODE_CON0 0x0100
+#define RG_OSC3_AUTO_LOAD_BYP_SHIFT 0
+#define RG_OSC3_AUTO_LOAD_BYP_MASK (0x1 << 0)
+#define RG_OSC3_EN_BYP_SHIFT 4
+#define RG_OSC3_EN_BYP_MASK (0x1 << 4)
+#define RG_OSC3_CG_EN_REQ_BYP_SHIFT 8
+#define RG_OSC3_CG_EN_REQ_BYP_MASK (0x1 << 8)
+
+#define OSC3_CON0 0x0104
+#define RG_OSC3_CP_EN_SHIFT 0
+#define RG_OSC3_CP_EN_MASK (0x1 << 0)
+#define RG_OSC3_DIV2_EN_SHIFT 1
+#define RG_OSC3_DIV2_EN_MASK (0x1 << 1)
+#define RG_OSC3_MOD_SHIFT 2
+#define RG_OSC3_MOD_MASK (0x3 << 2)
+#define RG_OSC3_DIV_SHIFT 4
+#define RG_OSC3_DIV_MASK (0x3f << 4)
+#define RG_OSC3_OUTSEL_SHIFT 12
+#define RG_OSC3_OUTSEL_MASK (0xf << 12)
+#define RG_OSC3_CALI_SHIFT 16
+#define RG_OSC3_CALI_MASK (0x1ff << 16)
+
+#define OSC3_CON1 0x0108
+#define RG_OSC3_32KCALI_SHIFT 0
+#define RG_OSC3_32KCALI_MASK (0xff << 0)
+#define RG_OSC3_LJ_SHIFT 16
+#define RG_OSC3_LJ_MASK (0xff << 16)
+#define RG_OSC3_RSV_SHIFT 24
+#define RG_OSC3_RSV_MASK (0xff << 24)
+
+#define OSC3_CON2 0x010c
+#define RG_OSC3_BUF_SHIFT 0
+#define RG_OSC3_BUF_MASK (0xff << 0)
+#define RG_OSC3_BIAS_SHIFT 8
+#define RG_OSC3_BIAS_MASK (0xff << 8)
+#define RG_OSC3_FBAND_SHIFT 16
+#define RG_OSC3_FBAND_MASK (0x1f << 16)
+#define RG_OSC3_IBAND_SHIFT 24
+#define RG_OSC3_IBAND_MASK (0x7f << 24)
+
+#define OSC3_EFUSE_DATA_CON0 0x0110
+#define EFUSE_OSC3_SET_0_SHIFT 0
+#define EFUSE_OSC3_SET_0_MASK (0xffffffff << 0)
+
+#define OSC3_EFUSE_DATA_CON1 0x0114
+#define EFUSE_OSC3_SET_1_SHIFT 0
+#define EFUSE_OSC3_SET_1_MASK (0xffffffff << 0)
+
+#define OSC3_EFUSE_DATA_CON2 0x0118
+#define EFUSE_OSC3_SET_2_SHIFT 0
+#define EFUSE_OSC3_SET_2_MASK (0xffffffff << 0)
+
+#define OSC3_EFUSE_DATA_CON3 0x011c
+#define EFUSE_OSC3_SET_3_SHIFT 0
+#define EFUSE_OSC3_SET_3_MASK (0xffffffff << 0)
+
+#define OSC3_OSCPON_CON0 0x0120
+#define RG_OSC3_STB_TIME0_SHIFT 0
+#define RG_OSC3_STB_TIME0_MASK (0xf << 0)
+#define RG_OSC3_STB_TIME1_SHIFT 4
+#define RG_OSC3_STB_TIME1_MASK (0xf << 4)
+#define RG_OSC3_CALI_TIME0_SHIFT 8
+#define RG_OSC3_CALI_TIME0_MASK (0x1ff << 8)
+#define RG_OSC3_CALI_TIME1_SHIFT 17
+#define RG_OSC3_CALI_TIME1_MASK (0x1ff << 17)
+#define RG_OSC3_EN__SHIFT 27
+#define RG_OSC3_EN__MASK (0x1 << 27)
+#define RG_OSC3_CG_EN_SHIFT 28
+#define RG_OSC3_CG_EN_MASK (0x1 << 28)
+#define RG_BYP_OSC3_CG_EN_DLY_SHIFT 29
+#define RG_BYP_OSC3_CG_EN_DLY_MASK (0x1 << 29)
+#define RG_BYP_OSC3_EN_DLY_SHIFT 30
+#define RG_BYP_OSC3_EN_DLY_MASK (0x1 << 30)
+#define RG_OSC3_EN_SEL_SHIFT 31
+#define RG_OSC3_EN_SEL_MASK (0x1 << 31)
+
+#define OSC3_DBG_CON0 0x0124
+#define DA_OSC3_CALI_SHIFT 0
+#define DA_OSC3_CALI_MASK (0x1ff << 0)
+#define DA_OSC3_DIV_SHIFT 12
+#define DA_OSC3_DIV_MASK (0x3f << 12)
+#define OSC3_PWRITE_SHIFT 20
+#define OSC3_PWRITE_MASK (0x1 << 20)
+#define OSC3_PENABLE_SHIFT 21
+#define OSC3_PENABLE_MASK (0x1 << 21)
+#define OSC3_PSEL_SHIFT 22
+#define OSC3_PSEL_MASK (0x1 << 22)
+#define EFUSE_OSC3_PARTIIAL_VALID_SHIFT 23
+#define EFUSE_OSC3_PARTIIAL_VALID_MASK (0x1 << 23)
+#define OSC3_EN_SHIFT 24
+#define OSC3_EN_MASK (0x1 << 24)
+#define OSC3_CG_EN_REQ_SHIFT 25
+#define OSC3_CG_EN_REQ_MASK (0x1 << 25)
+#define OSC3_CG_EN_ACK_SHIFT 26
+#define OSC3_CG_EN_ACK_MASK (0x1 << 26)
+#define OSC3_EFUSE_LOCK_SHIFT 27
+#define OSC3_EFUSE_LOCK_MASK (0x1 << 27)
+#define DA_OSC3_EN_SHIFT 28
+#define DA_OSC3_EN_MASK (0x1 << 28)
+#define OSC3_CG_EN_RSTB_SHIFT 29
+#define OSC3_CG_EN_RSTB_MASK (0x1 << 29)
+#define OSC3_CG_EN_SHIFT 30
+#define OSC3_CG_EN_MASK (0x1 << 30)
+#define OSC3_SYNC_CG_EN_SHIFT 31
+#define OSC3_SYNC_CG_EN_MASK (0x1 << 31)
+
+#define OSC3_CLKMON_REG_CON0 0x0140
+#define CKGEN_TRI_CAL_SHIFT 4
+#define CKGEN_TRI_CAL_MASK (0x1 << 4)
+#define CKGEN_CLK_EXC_SHIFT 8
+#define CKGEN_CLK_EXC_MASK (0x1 << 8)
+#define RG_ABIST_CLK_EN_SHIFT 12
+#define RG_ABIST_CLK_EN_MASK (0x1 << 12)
+#define RG_FQMTR_RST_B_SHIFT 15
+#define RG_FQMTR_RST_B_MASK (0x1 << 15)
+#define RG_TIME_OUT_CNT_SHIFT 16
+#define RG_TIME_OUT_CNT_MASK (0xffff << 16)
+
+#define OSC3_CLKMON_REG_CON1 0x0144
+#define CAL_CNT_SHIFT 0
+#define CAL_CNT_MASK (0xffff << 0)
+#define CKGEN_LOAD_CNT_SHIFT 16
+#define CKGEN_LOAD_CNT_MASK (0x3ff << 16)
+
+#define OSC3_CLKMON_REG_CON2 0x0148
+#define CM_IN_CK_SEL_SHIFT 0
+#define CM_IN_CK_SEL_MASK (0x3 << 0)
+#define CM_REF_CK_SEL_SHIFT 2
+#define CM_REF_CK_SEL_MASK (0x1 << 2)
+#define MONITOR_MODE_SHIFT 3
+#define MONITOR_MODE_MASK (0x1 << 3)
+#define MONITOR_COND_SHIFT 4
+#define MONITOR_COND_MASK (0x1 << 4)
+#define CM_IRQ_ENABLE_SHIFT 5
+#define CM_IRQ_ENABLE_MASK (0x1 << 5)
+#define ROBUST_INT_COUNT_SHIFT 6
+#define ROBUST_INT_COUNT_MASK (0x3 << 6)
+#define CM_IRQ_SEL_SHIFT 8
+#define CM_IRQ_SEL_MASK (0x3 << 8)
+#define CKGEN_K1_SHIFT 24
+#define CKGEN_K1_MASK (0xff << 24)
+
+#define OSC3_CLKMON_REG_CON3 0x014c
+#define HW_MODE_SHIFT 0
+#define HW_MODE_MASK (0x1 << 0)
+
+#define OSC3_CLKMON_REG_CON4 0x0150
+#define LOWER_BOUND_SHIFT 0
+#define LOWER_BOUND_MASK (0xffff << 0)
+#define UPPER_BOUND_SHIFT 16
+#define UPPER_BOUND_MASK (0xffff << 16)
+
+#define OSC3_CLKMON_REG_CON5 0x0154
+#define RG_IRQ_WR_CLR_SHIFT 0
+#define RG_IRQ_WR_CLR_MASK (0x1 << 0)
+
+#define OSC3_CLKMON_REG_CON6 0x0158
+#define TRI_CAL_STATUS_SHIFT 0
+#define TRI_CAL_STATUS_MASK (0x1 << 0)
+#define RG_IRQ_RO_SHIFT 1
+#define RG_IRQ_RO_MASK (0x1 << 1)
+#define RG_FAIL_FLAG_RO_SHIFT 2
+#define RG_FAIL_FLAG_RO_MASK (0x1 << 2)
+#define RG_FAIL_CONTI_FLAG_RO_SHIFT 3
+#define RG_FAIL_CONTI_FLAG_RO_MASK (0x1 << 3)
+#define RG_FAIL_CONTI_ROW_RO_SHIFT 4
+#define RG_FAIL_CONTI_ROW_RO_MASK (0xf << 4)
+
+#endif /* MTK_AOV_OSC3_CTRL_H */

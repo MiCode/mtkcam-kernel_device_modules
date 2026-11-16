@@ -1,0 +1,87 @@
+load("//build/bazel_mgk_rules:mgk_ddk_ko.bzl", "define_mgk_ddk_ko")
+load("//build/kernel/kleaf:kernel.bzl", "ddk_headers")
+load("//build/bazel_mgk_rules:mgk_ko.bzl", "define_mgk_ko")
+load("@mgk_info//:kernel_version.bzl","kernel_version")
+
+package(
+    default_visibility = [
+        "//visibility:public",
+    ],
+)
+mgk_imgsys_outs = [
+    # keep sorted
+    "mtk_imgsys_v4l2.ko",
+]
+
+filegroup(
+    name = "public_headers",
+    srcs = glob([
+        "*.h",
+        "**/*.h",
+    ]),
+)
+
+filegroup(
+    name = "kbuild_makefiles",
+    srcs = [
+        "Kbuild",
+        "Makefile",
+    ],
+)
+
+# add ddk_headers to export headers for other modules to use in the future
+ddk_headers(
+    name = "ddk_public_headers",
+    includes = ["."],
+    hdrs = glob(["**/*.h"]), # export all headers for other modules to use
+)
+
+# Mark add DDK for android W
+define_mgk_ddk_ko(
+    name = "imgsys_common",
+    srcs = [
+        "mtk_imgsys-of.c",
+        "mtk_imgsys-worker.c",
+        "mtk_imgsys-trace.c",
+        "mtk_imgsys-v4l2.c"
+    ],
+
+    ko_deps = [
+        "//kernel_device_modules-{}/drivers/misc/mediatek/iommu:mtk_iommu_util".format(kernel_version),
+        "//kernel_device_modules-{}/drivers/misc/mediatek/iommu:iommu_debug".format(kernel_version),
+        "//kernel_device_modules-{}/drivers/misc/mediatek/mtk-interconnect:mtk-icc-core".format(kernel_version),
+    ],
+
+    # to include out-of-tree non-DDK modules headers & headers for ko_deps
+    header_deps = [
+        "//vendor/mediatek/kernel_modules/mtkcam/imgsys/imgsys/isp7sp:ddk_public_headers",
+        "//kernel_device_modules-{}/drivers/misc/mediatek/iommu:iommu_misc_headers".format(kernel_version),
+        # "//kernel_device_modules-{}/drivers/iommu:iommu_public_headers".format(kernel_version),
+        "//kernel_device_modules-{}/drivers/iommu/arm/arm-smmu-v3:smmu_public_headers".format(kernel_version),
+    ],
+
+    # define the header search path under this module folder for this and dependent modules
+    includes = ["."],
+
+    # export all headers for other modules to use
+    hdrs = glob(["**/*.h"]),
+
+    # add headers' path under non-DDK device module folder
+    copts = [
+        "-I$(DEVICE_MODULES_PATH)/drivers/misc/mediatek/cmdq/mailbox/",
+        # "-I$(DEVICE_MODULES_PATH)/drivers/misc/mediatek/mtk-interconnect/",
+        "-I$(DEVICE_MODULES_PATH)/drivers/misc/mediatek/smi/",
+        # "-I$(DEVICE_MODULES_PATH)/drivers/iommu",
+        # "-I$(DEVICE_MODULES_PATH)/drivers/misc/mediatek/iommu", # has become DDK module
+        # "-I$(DEVICE_MODULES_PATH)/include/soc/mediatek", # has become DDK module
+        "-I$(DEVICE_MODULES_PATH)/drivers/misc/mediatek/include/",
+        "-I$(DEVICE_MODULES_PATH)/drivers/misc/mediatek/vcp/include/",
+        "-I$(DEVICE_MODULES_PATH)/drivers/misc/mediatek/vcp/rv/",
+        "-ferror-limit=0",
+    ],
+
+    # define flag with -D option to the compiler
+    local_defines = ["MTK_IOVA_SINK2KERNEL"],
+
+    out = "mtk_imgsys_v4l2.ko"
+)

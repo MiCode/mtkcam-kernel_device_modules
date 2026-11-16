@@ -1,0 +1,19 @@
+/* SPDX-License-Identifier: GPL-2.0 */
+/*
+ * Copyright (c) 2020 MediaTek Inc.
+ */
+
+#ifndef __MTK_CAM_DVFS_QOS_PDA_H
+#define __MTK_CAM_DVFS_QOS_PDA_H
+
+enum SMI_PDA_MERGE_PORT_ID {
+	SMI_PORT_PDA_RDMA0 = 0,
+	SMI_PORT_PDA_RDMA1,
+	SMI_PORT_PDA_RDMA2,
+	SMI_PORT_PDA_RDMA3,
+	SMI_PORT_PDA_RDMA4,
+	SMI_PORT_PDA_WDMA,
+	SMI_PORT_PDA_NUM
+};
+
+#endif /* __MTK_CAM_DVFS_QOS_PDA_H */

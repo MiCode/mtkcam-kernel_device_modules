@@ -1,0 +1,57 @@
+load("//build/bazel_mgk_rules:mgk_ddk_ko.bzl", "define_mgk_ddk_ko")
+load("//build/kernel/kleaf:kernel.bzl", "ddk_headers")
+load("@mgk_info//:kernel_version.bzl", "kernel_version")
+
+package(
+    default_visibility = [
+        "//visibility:public",
+    ],
+)
+
+ddk_headers(
+    name = "c2ps_header",
+    hdrs = glob([
+        "c2ps/**/*.h"
+    ]),
+    includes = [
+        "c2ps/common/include",
+        "c2ps/monitor/include",
+        "c2ps/regulator/include",
+    ],
+    visibility = ["//visibility:public"],
+)
+
+define_mgk_ddk_ko(
+    name = "c2ps_perf_ioctl",
+    srcs = [
+        "c2ps_ioctl/c2ps_perf_ioctl.h",
+        "c2ps_ioctl/c2ps_perf_ioctl.c",
+    ],
+    out = "c2ps_ioctl/c2ps_perf_ioctl.ko"
+)
+
+define_mgk_ddk_ko(
+    name = "c2ps",
+    srcs = glob([
+        "c2ps/**/*.c",
+        "c2ps/**/*.h",
+    ]),
+    ko_deps = [
+        "//vendor/mediatek/kernel_modules/mtkcam/sched:c2ps_perf_ioctl",
+        "//kernel_device_modules-{}/drivers/misc/mediatek/sched:cpufreq_sugov_ext".format(kernel_version),
+        "//kernel_device_modules-{}/drivers/misc/mediatek/sched:scheduler".format(kernel_version),
+        "//kernel_device_modules-{}/drivers/misc/mediatek/sched:mtk_core_ctl".format(kernel_version),
+        "//kernel_device_modules-{}/drivers/misc/mediatek/cpufreq_lite:cpudvfs".format(kernel_version),
+    ],
+    header_deps = [
+        "//vendor/mediatek/kernel_modules/mtkcam/sched:c2ps_header",
+    ],
+    copts = [
+        "-I$(srctree)/include",
+        "-I$(srctree)/kernel",
+        "-I$(DEVICE_MODULES_PATH)/include/",
+        "-I$(DEVICE_MODULES_PATH)/kernel/",
+        "-I$(DEVICE_MODULES_PATH)/drivers/misc/mediatek/sched/",
+    ],
+    out = "c2ps/mtk_c2ps.ko"
+)

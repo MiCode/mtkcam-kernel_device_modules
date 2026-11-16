@@ -1,0 +1,93 @@
+load("//build/bazel_mgk_rules:mgk_ddk_ko.bzl", "define_mgk_ddk_ko")
+load("//build/kernel/kleaf:kernel.bzl", "ddk_headers")
+load("//build/bazel_mgk_rules:mgk_ko.bzl", "define_mgk_ko")
+load("@mgk_info//:kernel_version.bzl","kernel_version")
+package(
+    default_visibility = [
+        "//visibility:public",
+    ],
+)
+mgk_mae_outs = [
+    # keep sorted
+    "mtk_mae.ko",
+    "mtk_mae_isp8.ko",
+]
+
+# DDK conversion
+define_mgk_ddk_ko(
+    name = "mtk_mae",
+    srcs = [
+        "mtk-mae.c"
+    ]+glob(["**/*.h"]),
+
+    includes = ["."],
+
+    ko_deps = [
+        "//kernel_device_modules-{}/drivers/misc/mediatek/iommu:mtk_iommu_util".format(kernel_version),
+        "//kernel_device_modules-{}/drivers/misc/mediatek/iommu:iommu_debug".format(kernel_version),
+        "//kernel_device_modules-{}/drivers/dma-buf/heaps:system_heap".format(kernel_version),
+        "//kernel_device_modules-{}/drivers/misc/mediatek/slbc:mtk_slbc".format(kernel_version),
+        "//kernel_device_modules-{}/drivers/misc/mediatek/mtk-interconnect:mtk-icc-core".format(kernel_version),
+        "//kernel_device_modules-{}/drivers/misc/mediatek/cmdq/mailbox:mtk-cmdq-drv-ext".format(kernel_version),
+        "//kernel_device_modules-{}/drivers/misc/mediatek/cmdq/mailbox:cmdq-sec-drv".format(kernel_version),
+    ],
+
+    header_deps = [
+        "//kernel_device_modules-{}/drivers/iommu/arm/arm-smmu-v3:smmu_public_headers".format(kernel_version),
+        "//kernel_device_modules-{}/drivers/misc/mediatek/iommu:iommu_misc_headers".format(kernel_version),
+    ],
+
+    copts = [
+        "-I$(DEVICE_MODULES_PATH)/drivers/misc/mediatek/mtk-interconnect/",
+        "-I$(DEVICE_MODULES_PATH)/drivers/misc/mediatek/cmdq/mailbox/",
+        "-I$(DEVICE_MODULES_PATH)/drivers/dma-buf/heaps/",
+        "-I$(DEVICE_MODULES_PATH)/drivers/media/platform/mtk-videobuf/",
+        # "-I$(DEVICE_MODULES_PATH)/drivers/iommu",
+        "-I$(DEVICE_MODULES_PATH)/drivers/misc/mediatek/iommu",
+        "-I$(DEVICE_MODULES_PATH)/drivers/misc/mediatek/slbc",
+        "-I$(DEVICE_MODULES_PATH)/include/",
+        "-I$(KO_CODE_PATH)/",
+    ],
+
+    out = "mtk_mae.ko"
+)
+
+# DDK conversion
+define_mgk_ddk_ko(
+    name = "mtk_mae_isp8",
+    srcs = [
+        "isp8/mtk-mae-isp8.c"
+    ]+glob(["**/*.h"]),
+
+    includes = ["."],
+
+    ko_deps = [
+        "//kernel_device_modules-{}/drivers/misc/mediatek/iommu:mtk_iommu_util".format(kernel_version),
+        "//kernel_device_modules-{}/drivers/misc/mediatek/iommu:iommu_debug".format(kernel_version),
+        "//kernel_device_modules-{}/drivers/dma-buf/heaps:system_heap".format(kernel_version),
+        "//kernel_device_modules-{}/drivers/misc/mediatek/slbc:mtk_slbc".format(kernel_version),
+        "//kernel_device_modules-{}/drivers/misc/mediatek/mtk-interconnect:mtk-icc-core".format(kernel_version),
+        "//kernel_device_modules-{}/drivers/misc/mediatek/cmdq/mailbox:mtk-cmdq-drv-ext".format(kernel_version),
+        "//kernel_device_modules-{}/drivers/misc/mediatek/smi:mtk-smi-dbg".format(kernel_version),
+        "//vendor/mediatek/kernel_modules/mtkcam/mtk-mae:mtk_mae",
+        "//kernel_device_modules-{}/drivers/misc/mediatek/cmdq/mailbox:cmdq-sec-drv".format(kernel_version),
+    ],
+
+    header_deps = [
+        "//kernel_device_modules-{}/drivers/iommu/arm/arm-smmu-v3:smmu_public_headers".format(kernel_version),
+        "//kernel_device_modules-{}/drivers/misc/mediatek/iommu:iommu_misc_headers".format(kernel_version),
+    ],
+
+    copts = [
+        "-I$(DEVICE_MODULES_PATH)/drivers/misc/mediatek/mtk-interconnect/",
+        "-I$(DEVICE_MODULES_PATH)/drivers/misc/mediatek/cmdq/mailbox/",
+        "-I$(DEVICE_MODULES_PATH)/drivers/dma-buf/heaps/",
+        "-I$(DEVICE_MODULES_PATH)/drivers/media/platform/mtk-videobuf/",
+        # "-I$(DEVICE_MODULES_PATH)/drivers/iommu",
+        "-I$(DEVICE_MODULES_PATH)/drivers/misc/mediatek/iommu",
+        "-I$(DEVICE_MODULES_PATH)/drivers/misc/mediatek/slbc",
+        "-I$(DEVICE_MODULES_PATH)/include/",
+    ],
+
+    out = "mtk_mae_isp8.ko"
+)

@@ -1,0 +1,51 @@
+load("//build/bazel_mgk_rules:mgk_ddk_ko.bzl", "define_mgk_ddk_ko")
+load("@mgk_info//:kernel_version.bzl", "kernel_version")
+
+package(
+    default_visibility = [
+        "//visibility:public",
+    ],
+)
+
+kernel_path = "//kernel_device_modules-{}".format(kernel_version)
+
+define_mgk_ddk_ko(
+    name = "mtk_aov",
+    srcs = glob([
+        "**/*.c",
+        "**/*.h",
+    ]),
+    ko_deps = [
+        "//vendor/mediatek/kernel_modules/mtkcam/camsys:mtk-cam-isp7s",
+        "//vendor/mediatek/kernel_modules/mtkcam/camsys:mtk-cam-isp7sp",
+        "//vendor/mediatek/kernel_modules/mtkcam/camsys:mtk-cam-isp8",
+        "{}/drivers/clk/mediatek:clk-common".format(kernel_path),
+        "{}/drivers/dma-buf/heaps:system_heap".format(kernel_path),
+        "{}/drivers/memory/mediatek:emi".format(kernel_path),
+        "{}/drivers/misc/mediatek/geniezone:gz_tz_system".format(kernel_path),
+        "{}/drivers/misc/mediatek/scp/rv:scp".format(kernel_path),
+        "{}/drivers/misc/mediatek/slbc:mtk_slbc".format(kernel_path),
+        "{}/drivers/misc/mediatek/smi:mtk-smi-dbg".format(kernel_path),
+        "{}/drivers/soc/mediatek:mtk_tinysys_ipi".format(kernel_path),
+        "{}/drivers/soc/mediatek:mtk-mmdvfs".format(kernel_path),
+    ] +
+    (["//vendor/mediatek/kernel_modules/mtkcam/camsys:mtk-cam-isp8s",] if glob([".flag.mt6993"]) else []) +
+    (["{}/drivers/misc/mediatek/vmm:mtk-vmm-notifier-mt6993".format(kernel_path)] if glob([".flag.mt6993"]) else (
+      ["{}/drivers/misc/mediatek/vmm:mtk-vmm-notifier-mt6991".format(kernel_path)] if glob([".flag.mt6991"]) else (
+        ["{}/drivers/misc/mediatek/vmm:mtk-vmm-notifier".format(kernel_path)]))),
+    header_deps = [
+        "//vendor/mediatek/kernel_modules/mtkcam:mtkcam_header",
+        "{}/drivers/misc/mediatek/geniezone:gz-public_hdrs".format(kernel_path),
+        "{}/drivers/misc/mediatek/scp/include:scp_public_headers".format(kernel_path),
+    ],
+    includes = [
+        ".",
+        "mtk-aov-ulposc",
+    ],
+    copts = [
+        "-I$(DEVICE_MODULES_PATH)/drivers/misc/mediatek/include/mt-plat",
+        "-I$(DEVICE_MODULES_PATH)/include/dt-bindings/memory",
+        "-I$(DEVICE_MODULES_PATH)/include/linux/soc/mediatek",
+        "-Werror",
+    ],
+)

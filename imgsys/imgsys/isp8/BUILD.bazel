@@ -1,0 +1,85 @@
+load("//build/bazel_mgk_rules:mgk_ddk_ko.bzl", "define_mgk_ddk_ko")
+load("//build/kernel/kleaf:kernel.bzl", "ddk_headers")
+load("//build/bazel_mgk_rules:mgk_ko.bzl", "define_mgk_ko")
+load("@mgk_info//:kernel_version.bzl","kernel_version")
+load("@mgk_info//:dict.bzl",
+     "DEFCONFIG_OVERLAYS",
+)
+
+package(
+    default_visibility = [
+        "//visibility:public",
+    ],
+)
+mgk_imgsys_outs = [
+    # keep sorted
+    "mtk_imgsys_isp8.ko",
+]
+
+filegroup(
+    name = "public_headers",
+    srcs = glob([
+        "*.h",
+        "**/*.h",
+    ]),
+)
+
+filegroup(
+    name = "kbuild_makefiles",
+    srcs = [
+        "Kbuild",
+        "Makefile",
+    ],
+)
+
+ddk_headers(
+    name = "ddk_public_headers",
+    includes = ["."],
+    hdrs = glob(["**/*.h"]), # export all headers for other modules to use
+)
+
+# TODO: enable this part later
+define_mgk_ddk_ko(
+    name = "imgsys_8",
+
+    srcs = glob([
+        "**/*.c",
+        "**/*.h",
+        "local_defines.h",
+    ]),
+
+    includes = ["."],
+
+    ko_deps = [
+        "//vendor/mediatek/kernel_modules/mtkcam/mtk-hcp/isp8:mtk-hcp-isp8",
+        "//kernel_device_modules-{}/drivers/misc/mediatek/cmdq/mailbox:mtk-cmdq-drv-ext".format(kernel_version),
+        "//vendor/mediatek/kernel_modules/mtkcam/imgsys/common:imgsys_common",
+        "//vendor/mediatek/kernel_modules/mtkcam/imgsys/imgsys/cmdq/isp8:imgsys_cmdq_isp8",
+        "//kernel_device_modules-{}/drivers/misc/mediatek/mtk-interconnect:mtk-icc-core".format(kernel_version),
+        "//kernel_device_modules-{}/drivers/misc/mediatek/smi:mtk-smi-dbg".format(kernel_version), # TBD
+        "//kernel_device_modules-{}/drivers/misc/mediatek/iommu:mtk_iommu_util".format(kernel_version),
+        "//kernel_device_modules-{}/drivers/misc/mediatek/iommu:iommu_debug".format(kernel_version),
+        "//kernel_device_modules-{}/drivers/misc/mediatek/slbc:mtk_slbc".format(kernel_version),
+        ###
+        "//vendor/mediatek/kernel_modules/mtkcam/ccusys:mtk_ccuv",
+        "//kernel_device_modules-{}/drivers/memory:mtk-smi".format(kernel_version),
+    ]+
+    (["//kernel_device_modules-{}/drivers/soc/mediatek:mtk-mmdvfs-v3".format(kernel_version)] if "entry_level.config" not in DEFCONFIG_OVERLAYS else []),
+
+    header_deps = [
+        "//kernel_device_modules-{}/drivers/misc/mediatek/smi:smi_dbg_headers".format(kernel_version), # TBD
+        "//kernel_device_modules-{}/drivers/misc/mediatek/iommu:iommu_misc_headers".format(kernel_version),
+        "//kernel_device_modules-{}/drivers/iommu/arm/arm-smmu-v3:smmu_public_headers".format(kernel_version),
+    ],
+
+    copts = [
+        "-I$(DEVICE_MODULES_PATH)/include/soc/mediatek/",
+        "-I$(DEVICE_MODULES_PATH)/drivers/misc/mediatek/include/",
+        "-include",
+        "$(location local_defines.h)",
+    ],
+
+    local_defines = ["MTK_IOVA_SINK2KERNEL", "MTK_IOVA_NOTCHECK", "MTK_DESC_OPS"],
+
+    out = "mtk_imgsys_isp8.ko",
+)

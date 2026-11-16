@@ -1,0 +1,593 @@
+/* SPDX-License-Identifier: GPL-2.0 */
+/*
+ * Copyright (c) 2023 MediaTek Inc.
+ *
+ * Author: Yuhsuan.chang <yuhsuan.chang@mediatek.com>
+ *
+ */
+
+#ifndef MTK_IMGSYS_HWQOS_REG_H_
+#define MTK_IMGSYS_HWQOS_REG_H_
+
+#include <linux/bits.h>
+
+/* HFRP DVFSRC IMG BW register address */
+#define HFRP_DVFSRC_VMM_IMG_HW_BW_0         0x31AE0060
+#define HFRP_DVFSRC_VMM_IMG_HW_BW_1         0x31AE0078
+#define HFRP_DVFSRC_VMM_IMG_HW_BW_2         0x31AE0090
+#define HFRP_DVFSRC_VMM_IMG_HW_BW_3         0x31AE00A8
+#define HFRP_DVFSRC_VMM_IMG_HW_BW_4         0x31AE00C0
+#define HFRP_DVFSRC_VMM_IMG_HW_BW_5         0x31AE00D8
+#define HFRP_DVFSRC_VMM_IMG_HW_BW_6         0x31AE00F0
+#define HFRP_DVFSRC_VMM_IMG_HW_BW_7         0x31AE0108
+#define HFRP_DVFSRC_VMM_IMG_HW_BW_8         0x31AE0120
+#define HFRP_DVFSRC_VMM_IMG_HW_BW_9         0x31AE0138
+#define HFRP_DVFSRC_VMM_IMG_HW_BW_10        0x31AE0150
+#define HFRP_DVFSRC_VMM_IMG_HW_BW_11        0x31AE0168
+#define HFRP_DVFSRC_VMM_IMG_HW_BW_12        0x31AE0180
+#define HFRP_DVFSRC_VMM_IMG_HW_BW_13        0x31AE0198
+#define HFRP_DVFSRC_VMM_IMG_HW_BW_14        0x31AE01B0
+#define HFRP_DVFSRC_VMM_IMG_HW_BW_15        0x31AE01C8
+#define HFRP_DVFSRC_VMM_IMG_HW_BW_16        0x31AE01E0
+#define HFRP_DVFSRC_VMM_IMG_HW_BW_17        0x31AE01F8
+#define HFRP_DVFSRC_VMM_IMG_HW_BW_18        0x31AE0210
+#define HFRP_DVFSRC_VMM_IMG_HW_BW_19        0x31AE0228
+#define HFRP_DVFSRC_VMM_IMG_HW_BW_20        0x31AE0240
+#define HFRP_DVFSRC_VMM_IMG_HW_BW_21        0x31AE0258
+#define HFRP_DVFSRC_VMM_IMG_HW_BW_22        0x31AE0270
+#define HFRP_DVFSRC_VMM_IMG_HW_BW_23        0x31AE0288
+#define HFRP_DVFSRC_VMM_IMG_HW_BW_SRT       0x31AE02B8
+
+#define IMG_BW_REG_MASK0                    GENMASK(12, 0)
+
+/* MMINFRA Clock */
+#define MMINFRA_CLK_REG	                    0x10040040
+#define MMINFRA_CLK_REG_H 19
+#define MMINFRA_CLK_REG_L 16
+#define MMINFRA_CLK_REG_MASK                GENMASK(MMINFRA_CLK_REG_H, MMINFRA_CLK_REG_L)
+
+/* order follows IMG_VCORE_SUB_COMM number */
+#define OSTDL_EN_REG_MASK                   GENMASK(14, 14)
+
+#define OSTDL_IMG_COMM0_EN_ADDR             0x30028108
+#define OSTDL_IMG_COMM1_EN_ADDR             0x30021114
+#define OSTDL_IMG_COMM2_EN_ADDR             0x30020110
+
+#define OSTDL_IMG_COMM0_ADDR                0x30028128
+#define OSTDL_IMG_COMM1_ADDR                0x30021114
+#define OSTDL_IMG_COMM2_ADDR                0x30020110
+
+#define OSTDL_IMG_COMM0_R_REG_H 6
+#define OSTDL_IMG_COMM0_R_REG_L 0
+#define OSTDL_IMG_COMM0_R_REG_MASK          GENMASK(OSTDL_IMG_COMM0_R_REG_H, OSTDL_IMG_COMM0_R_REG_L)
+#define OSTDL_IMG_COMM0_W_REG_H 13
+#define OSTDL_IMG_COMM0_W_REG_L 7
+#define OSTDL_IMG_COMM0_W_REG_MASK          GENMASK(OSTDL_IMG_COMM0_W_REG_H, OSTDL_IMG_COMM0_W_REG_L)
+
+#define OSTDL_IMG_COMM1_R_REG_H 22
+#define OSTDL_IMG_COMM1_R_REG_L 16
+#define OSTDL_IMG_COMM1_R_REG_MASK          GENMASK(OSTDL_IMG_COMM1_R_REG_H, OSTDL_IMG_COMM1_R_REG_L)
+#define OSTDL_IMG_COMM1_W_REG_H 30
+#define OSTDL_IMG_COMM1_W_REG_L 24
+#define OSTDL_IMG_COMM1_W_REG_MASK          GENMASK(OSTDL_IMG_COMM1_W_REG_H, OSTDL_IMG_COMM1_W_REG_L)
+
+#define OSTDL_IMG_COMM2_R_REG_H 22
+#define OSTDL_IMG_COMM2_R_REG_L 16
+#define OSTDL_IMG_COMM2_R_REG_MASK          GENMASK(OSTDL_IMG_COMM2_R_REG_H, OSTDL_IMG_COMM2_R_REG_L)
+#define OSTDL_IMG_COMM2_W_REG_H 30
+#define OSTDL_IMG_COMM2_W_REG_L 24
+#define OSTDL_IMG_COMM2_W_REG_MASK          GENMASK(OSTDL_IMG_COMM2_W_REG_H, OSTDL_IMG_COMM2_W_REG_L)
+
+#define IMG_VCORE_AXI_MONITOR0_BASE         0x3478B000
+#define IMG_VCORE_AXI_MONITOR1_BASE         0x3478C000
+#define IMG_VCORE_AXI_MONITOR2_BASE         0x3478D000
+
+/* BWL & OSTDBL EN register */
+#define MON_BMAN2_OFT                        0x044
+#define RLIMITER_EN 0
+#define WLIMITER_EN 1
+#define REG_BRSTL_EN 10
+#define REG_BW_LMT_EN 11
+#define AXI_LIMITER_EN	(BIT(RLIMITER_EN) | BIT(WLIMITER_EN) | \
+			BIT(REG_BRSTL_EN))
+
+/* BWL register */
+#define MON_BWLMTE1_OFT                      0x0D0
+#define MON_BWLMTE2_OFT                      0x0D4
+#define BWL_SHIFT_REG_H 2
+#define BWL_SHIFT_REG_L 0
+#define BWL_SHIFT_REG_MASK                   GENMASK(BWL_SHIFT_REG_H, BWL_SHIFT_REG_L)
+
+#define BWL_BUDGET_REG_H 9
+#define BWL_BUDGET_REG_L 3
+#define BWL_BUDGET_REG_MASK                  GENMASK(BWL_BUDGET_REG_H, BWL_BUDGET_REG_L)
+
+#define BWL_UP_BND_REG_H 31
+#define BWL_UP_BND_REG_L 16
+#define BWL_UP_BND_REG_MASK                  GENMASK(BWL_UP_BND_REG_H, BWL_UP_BND_REG_L)
+
+
+/* OSTDBL register */
+#define MON_BWLMTE3_OFT                      0x0D8
+#define OSTDBL_R_REG_H 10
+#define OSTDBL_R_REG_L 0
+#define OSTDBL_R_REG_MASK                    GENMASK(OSTDBL_R_REG_H, OSTDBL_R_REG_L)
+#define OSTDBL_W_REG_H 26
+#define OSTDBL_W_REG_L 16
+#define OSTDBL_W_REG_MASK                    GENMASK(OSTDBL_W_REG_H, OSTDBL_W_REG_L)
+
+
+/* Debug register */
+#define MON_TTYPE2_CONB_OFT                  0x080
+#define MON_TTYPE3_CONA_OFT                  0x084
+#define MON_TTYPE3_CONB_OFT                  0x088
+
+/* BWR register base address & offset */
+/* base address */
+#define BWR_IMG_E1A_BASE                    0x34070000
+
+/* offset */
+#define BWR_IMG_RPT_CTRL_OFT                0x000
+
+/*
+ * RPT_TIMER
+ * 26M clock cycle count
+ */
+#define BWR_IMG_RPT_TIMER_OFT               0x004
+
+/*
+ * RPT_STATE
+ * 3'b001 : IDLE
+ * 3'b010 : WAIT
+ * 3'b100 : SEND
+ */
+#define BWR_IMG_RPT_STATE_OFT               0x008
+#define BWR_IMG_MTCMOS_EN_VLD_OFT           0x00C
+
+/*
+ * DBC_CYC
+ * engine clock debounce cycle count
+ */
+#define BWR_IMG_DBC_CYC_OFT                 0x010
+#define BWR_IMG_DCM_DIS_OFT                 0x020
+#define BWR_IMG_DCM_ST_OFT                  0x024
+#define BWR_IMG_DBG_SEL_OFT                 0x030
+#define BWR_IMG_DBG_DATA_OFT                0x034
+
+/*
+ * 0 : 16 Mb
+ * 1 : 32 Mb
+ * 2 : 64 Mb
+ */
+#define BWR_IMG_BW_TYPE_OFT                 0x040
+#define BWR_IMG_SEND_TRIG_OFT               0x050
+#define BWR_IMG_SEND_BW_OFT                 0x054
+#define BWR_IMG_SEND_BW_ZERO_OFT            0x060
+#define BWR_IMG_SEND_VLD_ST0_OFT            0x064
+#define BWR_IMG_SEND_VLD_ST1_OFT            0x068
+#define BWR_IMG_SEND_DONE_ST0_OFT           0x06C
+#define BWR_IMG_SEND_DONE_ST1_OFT           0x070
+#define BWR_IMG_SRT_EMI_OCC_FACTOR_OFT      0x080
+#define BWR_IMG_SRT_EMI_DVFS_FREQ_OFT       0x084
+#define BWR_IMG_SRT_COH_OCC_FACTOR_OFT      0x088
+#define BWR_IMG_SRT_COH_DVFS_FREQ_OFT       0x08C
+#define BWR_IMG_SRT_RW_OCC_FACTOR_OFT       0x090
+#define BWR_IMG_SRT_RW_DVFS_FREQ_OFT        0x094
+#define BWR_IMG_PROTOCOL_SET_EN_OFT         0x0C0
+#define BWR_IMG_PROTOCOL0_OFT               0x0C4
+#define BWR_IMG_PROTOCOL1_OFT               0x0C8
+#define BWR_IMG_PROTOCOL2_OFT               0x0CC
+#define BWR_IMG_PROTOCOL3_OFT               0x0D0
+#define BWR_IMG_PROTOCOL4_OFT               0x0D4
+#define BWR_IMG_PROTOCOL5_OFT               0x0D8
+#define BWR_IMG_PROTOCOL6_OFT               0x0DC
+#define BWR_IMG_PROTOCOL7_OFT               0x0E0
+#define BWR_IMG_PROTOCOL8_OFT               0x0E4
+#define BWR_IMG_SRT_SLC_OFLD_BW_OFT         0x100
+#define BWR_IMG_SRT_EMI_BW_QOS_SEL_OFT      0x110
+#define BWR_IMG_SRT_EMI_SW_QOS_TRIG_OFT     0x114
+#define BWR_IMG_SRT_EMI_SW_QOS_EN_OFT       0x118
+#define BWR_IMG_SRT_EMI_ENG_BW0_OFT         0x11C
+#define BWR_IMG_SRT_EMI_ENG_BW1_OFT         0x120
+#define BWR_IMG_SRT_EMI_ENG_BW2_OFT         0x124
+#define BWR_IMG_SRT_EMI_ENG_BW3_OFT         0x128
+#define BWR_IMG_SRT_EMI_ENG_BW4_OFT         0x12C
+#define BWR_IMG_SRT_EMI_ENG_BW5_OFT         0x130
+#define BWR_IMG_SRT_EMI_ENG_BW6_OFT         0x134
+#define BWR_IMG_SRT_EMI_ENG_BW7_OFT         0x138
+#define BWR_IMG_SRT_EMI_ENG_BW8_OFT         0x13C
+#define BWR_IMG_SRT_EMI_ENG_BW9_OFT         0x140
+#define BWR_IMG_SRT_EMI_ENG_BW10_OFT        0x144
+#define BWR_IMG_SRT_EMI_ENG_BW11_OFT        0x148
+#define BWR_IMG_SRT_EMI_ENG_BW_RAT0_OFT     0x14C
+#define BWR_IMG_SRT_EMI_ENG_BW_RAT1_OFT     0x150
+#define BWR_IMG_SRT_EMI_ENG_BW_RAT2_OFT     0x154
+#define BWR_IMG_SRT_EMI_ENG_BW_RAT3_OFT     0x158
+#define BWR_IMG_SRT_EMI_ENG_BW_RAT4_OFT     0x15C
+#define BWR_IMG_SRT_EMI_ENG_BW_RAT5_OFT     0x160
+#define BWR_IMG_SRT_EMI_ENG_BW_RAT6_OFT     0x164
+#define BWR_IMG_SRT_EMI_ENG_BW_RAT7_OFT     0x168
+#define BWR_IMG_SRT_EMI_ENG_BW_RAT8_OFT     0x16C
+#define BWR_IMG_SRT_EMI_ENG_BW_RAT9_OFT     0x170
+#define BWR_IMG_SRT_EMI_ENG_BW_RAT10_OFT    0x174
+#define BWR_IMG_SRT_EMI_ENG_BW_RAT11_OFT    0x178
+#define BWR_IMG_SRT_COH_BW_QOS_SEL_OFT      0x190
+#define BWR_IMG_SRT_COH_SW_QOS_TRIG_OFT     0x194
+#define BWR_IMG_SRT_COH_SW_QOS_EN_OFT       0x198
+#define BWR_IMG_SRT_COH_ENG_BW0_OFT         0x19C
+#define BWR_IMG_SRT_COH_ENG_BW1_OFT         0x1A0
+#define BWR_IMG_SRT_COH_ENG_BW2_OFT         0x1A4
+#define BWR_IMG_SRT_COH_ENG_BW3_OFT         0x1A8
+#define BWR_IMG_SRT_COH_ENG_BW4_OFT         0x1AC
+#define BWR_IMG_SRT_COH_ENG_BW5_OFT         0x1B0
+#define BWR_IMG_SRT_COH_ENG_BW6_OFT         0x1B4
+#define BWR_IMG_SRT_COH_ENG_BW7_OFT         0x1B8
+#define BWR_IMG_SRT_COH_ENG_BW8_OFT         0x1BC
+#define BWR_IMG_SRT_COH_ENG_BW9_OFT         0x1C0
+#define BWR_IMG_SRT_COH_ENG_BW10_OFT        0x1C4
+#define BWR_IMG_SRT_COH_ENG_BW11_OFT        0x1C8
+#define BWR_IMG_SRT_COH_ENG_BW_RAT0_OFT     0x1CC
+#define BWR_IMG_SRT_COH_ENG_BW_RAT1_OFT     0x1D0
+#define BWR_IMG_SRT_COH_ENG_BW_RAT2_OFT     0x1D4
+#define BWR_IMG_SRT_COH_ENG_BW_RAT3_OFT     0x1D8
+#define BWR_IMG_SRT_COH_ENG_BW_RAT4_OFT     0x1DC
+#define BWR_IMG_SRT_COH_ENG_BW_RAT5_OFT     0x1E0
+#define BWR_IMG_SRT_COH_ENG_BW_RAT6_OFT     0x1E4
+#define BWR_IMG_SRT_COH_ENG_BW_RAT7_OFT     0x1E8
+#define BWR_IMG_SRT_COH_ENG_BW_RAT8_OFT     0x1EC
+#define BWR_IMG_SRT_COH_ENG_BW_RAT9_OFT     0x1F0
+#define BWR_IMG_SRT_COH_ENG_BW_RAT10_OFT    0x1F4
+#define BWR_IMG_SRT_COH_ENG_BW_RAT11_OFT    0x1F8
+#define BWR_IMG_SRT_R0_BW_QOS_SEL0_OFT      0x210
+#define BWR_IMG_SRT_R0_SW_QOS_TRIG0_OFT     0x214
+#define BWR_IMG_SRT_R0_SW_QOS_EN0_OFT       0x218
+#define BWR_IMG_SRT_R0_ENG_BW0_0_OFT        0x21C
+#define BWR_IMG_SRT_R0_ENG_BW0_1_OFT        0x220
+#define BWR_IMG_SRT_R0_ENG_BW0_2_OFT        0x224
+#define BWR_IMG_SRT_R0_ENG_BW0_3_OFT        0x228
+#define BWR_IMG_SRT_R0_ENG_BW0_4_OFT        0x22C
+#define BWR_IMG_SRT_R0_ENG_BW0_5_OFT        0x230
+#define BWR_IMG_SRT_R0_ENG_BW0_6_OFT        0x234
+#define BWR_IMG_SRT_R0_ENG_BW0_7_OFT        0x238
+#define BWR_IMG_SRT_R0_ENG_BW0_8_OFT        0x23C
+#define BWR_IMG_SRT_R0_ENG_BW0_9_OFT        0x240
+#define BWR_IMG_SRT_R0_ENG_BW0_10_OFT       0x244
+#define BWR_IMG_SRT_R0_ENG_BW0_11_OFT       0x248
+#define BWR_IMG_SRT_R0_ENG_BW_RAT0_0_OFT    0x24C
+#define BWR_IMG_SRT_R0_ENG_BW_RAT0_1_OFT    0x250
+#define BWR_IMG_SRT_R0_ENG_BW_RAT0_2_OFT    0x254
+#define BWR_IMG_SRT_R0_ENG_BW_RAT0_3_OFT    0x258
+#define BWR_IMG_SRT_R0_ENG_BW_RAT0_4_OFT    0x25C
+#define BWR_IMG_SRT_R0_ENG_BW_RAT0_5_OFT    0x260
+#define BWR_IMG_SRT_R0_ENG_BW_RAT0_6_OFT    0x264
+#define BWR_IMG_SRT_R0_ENG_BW_RAT0_7_OFT    0x268
+#define BWR_IMG_SRT_R0_ENG_BW_RAT0_8_OFT    0x26C
+#define BWR_IMG_SRT_R0_ENG_BW_RAT0_9_OFT    0x270
+#define BWR_IMG_SRT_R0_ENG_BW_RAT0_10_OFT   0x274
+#define BWR_IMG_SRT_R0_ENG_BW_RAT0_11_OFT   0x278
+#define BWR_IMG_SRT_R0_BW_QOS_SEL1_OFT      0x290
+#define BWR_IMG_SRT_R0_SW_QOS_TRIG1_OFT     0x294
+#define BWR_IMG_SRT_R0_SW_QOS_EN1_OFT       0x298
+#define BWR_IMG_SRT_R0_ENG_BW1_0_OFT        0x29C
+#define BWR_IMG_SRT_R0_ENG_BW1_1_OFT        0x2A0
+#define BWR_IMG_SRT_R0_ENG_BW1_2_OFT        0x2A4
+#define BWR_IMG_SRT_R0_ENG_BW1_3_OFT        0x2A8
+#define BWR_IMG_SRT_R0_ENG_BW1_4_OFT        0x2AC
+#define BWR_IMG_SRT_R0_ENG_BW1_5_OFT        0x2B0
+#define BWR_IMG_SRT_R0_ENG_BW1_6_OFT        0x2B4
+#define BWR_IMG_SRT_R0_ENG_BW1_7_OFT        0x2B8
+#define BWR_IMG_SRT_R0_ENG_BW1_8_OFT        0x2BC
+#define BWR_IMG_SRT_R0_ENG_BW1_9_OFT        0x2C0
+#define BWR_IMG_SRT_R0_ENG_BW1_10_OFT       0x2C4
+#define BWR_IMG_SRT_R0_ENG_BW1_11_OFT       0x2C8
+#define BWR_IMG_SRT_R0_ENG_BW_RAT1_0_OFT    0x2CC
+#define BWR_IMG_SRT_R0_ENG_BW_RAT1_1_OFT    0x2D0
+#define BWR_IMG_SRT_R0_ENG_BW_RAT1_2_OFT    0x2D4
+#define BWR_IMG_SRT_R0_ENG_BW_RAT1_3_OFT    0x2D8
+#define BWR_IMG_SRT_R0_ENG_BW_RAT1_4_OFT    0x2DC
+#define BWR_IMG_SRT_R0_ENG_BW_RAT1_5_OFT    0x2E0
+#define BWR_IMG_SRT_R0_ENG_BW_RAT1_6_OFT    0x2E4
+#define BWR_IMG_SRT_R0_ENG_BW_RAT1_7_OFT    0x2E8
+#define BWR_IMG_SRT_R0_ENG_BW_RAT1_8_OFT    0x2EC
+#define BWR_IMG_SRT_R0_ENG_BW_RAT1_9_OFT    0x2F0
+#define BWR_IMG_SRT_R0_ENG_BW_RAT1_10_OFT   0x2F4
+#define BWR_IMG_SRT_R0_ENG_BW_RAT1_11_OFT   0x2F8
+#define BWR_IMG_SRT_R1_BW_QOS_SEL0_OFT      0x310
+#define BWR_IMG_SRT_R1_SW_QOS_TRIG0_OFT     0x314
+#define BWR_IMG_SRT_R1_SW_QOS_EN0_OFT       0x318
+#define BWR_IMG_SRT_R1_ENG_BW0_0_OFT        0x31C
+#define BWR_IMG_SRT_R1_ENG_BW0_1_OFT        0x320
+#define BWR_IMG_SRT_R1_ENG_BW0_2_OFT        0x324
+#define BWR_IMG_SRT_R1_ENG_BW0_3_OFT        0x328
+#define BWR_IMG_SRT_R1_ENG_BW0_4_OFT        0x32C
+#define BWR_IMG_SRT_R1_ENG_BW0_5_OFT        0x330
+#define BWR_IMG_SRT_R1_ENG_BW0_6_OFT        0x334
+#define BWR_IMG_SRT_R1_ENG_BW0_7_OFT        0x338
+#define BWR_IMG_SRT_R1_ENG_BW0_8_OFT        0x33C
+#define BWR_IMG_SRT_R1_ENG_BW0_9_OFT        0x340
+#define BWR_IMG_SRT_R1_ENG_BW0_10_OFT       0x344
+#define BWR_IMG_SRT_R1_ENG_BW0_11_OFT       0x348
+#define BWR_IMG_SRT_R1_ENG_BW_RAT0_0_OFT    0x34C
+#define BWR_IMG_SRT_R1_ENG_BW_RAT0_1_OFT    0x350
+#define BWR_IMG_SRT_R1_ENG_BW_RAT0_2_OFT    0x354
+#define BWR_IMG_SRT_R1_ENG_BW_RAT0_3_OFT    0x358
+#define BWR_IMG_SRT_R1_ENG_BW_RAT0_4_OFT    0x35C
+#define BWR_IMG_SRT_R1_ENG_BW_RAT0_5_OFT    0x360
+#define BWR_IMG_SRT_R1_ENG_BW_RAT0_6_OFT    0x364
+#define BWR_IMG_SRT_R1_ENG_BW_RAT0_7_OFT    0x368
+#define BWR_IMG_SRT_R1_ENG_BW_RAT0_8_OFT    0x36C
+#define BWR_IMG_SRT_R1_ENG_BW_RAT0_9_OFT    0x370
+#define BWR_IMG_SRT_R1_ENG_BW_RAT0_10_OFT   0x374
+#define BWR_IMG_SRT_R1_ENG_BW_RAT0_11_OFT   0x378
+#define BWR_IMG_SRT_R2_BW_QOS_SEL0_OFT      0x410
+#define BWR_IMG_SRT_R2_SW_QOS_TRIG0_OFT     0x414
+#define BWR_IMG_SRT_R2_SW_QOS_EN0_OFT       0x418
+#define BWR_IMG_SRT_R2_ENG_BW0_0_OFT        0x41C
+#define BWR_IMG_SRT_R2_ENG_BW0_1_OFT        0x420
+#define BWR_IMG_SRT_R2_ENG_BW0_2_OFT        0x424
+#define BWR_IMG_SRT_R2_ENG_BW0_3_OFT        0x428
+#define BWR_IMG_SRT_R2_ENG_BW0_4_OFT        0x42C
+#define BWR_IMG_SRT_R2_ENG_BW0_5_OFT        0x430
+#define BWR_IMG_SRT_R2_ENG_BW0_6_OFT        0x434
+#define BWR_IMG_SRT_R2_ENG_BW0_7_OFT        0x438
+#define BWR_IMG_SRT_R2_ENG_BW0_8_OFT        0x43C
+#define BWR_IMG_SRT_R2_ENG_BW0_9_OFT        0x440
+#define BWR_IMG_SRT_R2_ENG_BW0_10_OFT       0x444
+#define BWR_IMG_SRT_R2_ENG_BW0_11_OFT       0x448
+#define BWR_IMG_SRT_R2_ENG_BW_RAT0_0_OFT    0x44C
+#define BWR_IMG_SRT_R2_ENG_BW_RAT0_1_OFT    0x450
+#define BWR_IMG_SRT_R2_ENG_BW_RAT0_2_OFT    0x454
+#define BWR_IMG_SRT_R2_ENG_BW_RAT0_3_OFT    0x458
+#define BWR_IMG_SRT_R2_ENG_BW_RAT0_4_OFT    0x45C
+#define BWR_IMG_SRT_R2_ENG_BW_RAT0_5_OFT    0x460
+#define BWR_IMG_SRT_R2_ENG_BW_RAT0_6_OFT    0x464
+#define BWR_IMG_SRT_R2_ENG_BW_RAT0_7_OFT    0x468
+#define BWR_IMG_SRT_R2_ENG_BW_RAT0_8_OFT    0x46C
+#define BWR_IMG_SRT_R2_ENG_BW_RAT0_9_OFT    0x470
+#define BWR_IMG_SRT_R2_ENG_BW_RAT0_10_OFT   0x474
+#define BWR_IMG_SRT_R2_ENG_BW_RAT0_11_OFT   0x478
+#define BWR_IMG_SRT_R3_BW_QOS_SEL0_OFT      0x510
+#define BWR_IMG_SRT_R3_SW_QOS_TRIG0_OFT     0x514
+#define BWR_IMG_SRT_R3_SW_QOS_EN0_OFT       0x518
+#define BWR_IMG_SRT_R3_ENG_BW0_0_OFT        0x51C
+#define BWR_IMG_SRT_R3_ENG_BW0_1_OFT        0x520
+#define BWR_IMG_SRT_R3_ENG_BW0_2_OFT        0x524
+#define BWR_IMG_SRT_R3_ENG_BW0_3_OFT        0x528
+#define BWR_IMG_SRT_R3_ENG_BW0_4_OFT        0x52C
+#define BWR_IMG_SRT_R3_ENG_BW0_5_OFT        0x530
+#define BWR_IMG_SRT_R3_ENG_BW0_6_OFT        0x534
+#define BWR_IMG_SRT_R3_ENG_BW0_7_OFT        0x538
+#define BWR_IMG_SRT_R3_ENG_BW0_8_OFT        0x53C
+#define BWR_IMG_SRT_R3_ENG_BW0_9_OFT        0x540
+#define BWR_IMG_SRT_R3_ENG_BW0_10_OFT       0x544
+#define BWR_IMG_SRT_R3_ENG_BW0_11_OFT       0x548
+#define BWR_IMG_SRT_R3_ENG_BW_RAT0_0_OFT    0x54C
+#define BWR_IMG_SRT_R3_ENG_BW_RAT0_1_OFT    0x550
+#define BWR_IMG_SRT_R3_ENG_BW_RAT0_2_OFT    0x554
+#define BWR_IMG_SRT_R3_ENG_BW_RAT0_3_OFT    0x558
+#define BWR_IMG_SRT_R3_ENG_BW_RAT0_4_OFT    0x55C
+#define BWR_IMG_SRT_R3_ENG_BW_RAT0_5_OFT    0x560
+#define BWR_IMG_SRT_R3_ENG_BW_RAT0_6_OFT    0x564
+#define BWR_IMG_SRT_R3_ENG_BW_RAT0_7_OFT    0x568
+#define BWR_IMG_SRT_R3_ENG_BW_RAT0_8_OFT    0x56C
+#define BWR_IMG_SRT_R3_ENG_BW_RAT0_9_OFT    0x570
+#define BWR_IMG_SRT_R3_ENG_BW_RAT0_10_OFT   0x574
+#define BWR_IMG_SRT_R3_ENG_BW_RAT0_11_OFT   0x578
+#define BWR_IMG_SRT_W0_BW_QOS_SEL0_OFT      0x910
+#define BWR_IMG_SRT_W0_SW_QOS_TRIG0_OFT     0x914
+#define BWR_IMG_SRT_W0_SW_QOS_EN0_OFT       0x918
+#define BWR_IMG_SRT_W0_ENG_BW0_0_OFT        0x91C
+#define BWR_IMG_SRT_W0_ENG_BW0_1_OFT        0x920
+#define BWR_IMG_SRT_W0_ENG_BW0_2_OFT        0x924
+#define BWR_IMG_SRT_W0_ENG_BW0_3_OFT        0x928
+#define BWR_IMG_SRT_W0_ENG_BW0_4_OFT        0x92C
+#define BWR_IMG_SRT_W0_ENG_BW0_5_OFT        0x930
+#define BWR_IMG_SRT_W0_ENG_BW0_6_OFT        0x934
+#define BWR_IMG_SRT_W0_ENG_BW0_7_OFT        0x938
+#define BWR_IMG_SRT_W0_ENG_BW0_8_OFT        0x93C
+#define BWR_IMG_SRT_W0_ENG_BW0_9_OFT        0x940
+#define BWR_IMG_SRT_W0_ENG_BW0_10_OFT       0x944
+#define BWR_IMG_SRT_W0_ENG_BW0_11_OFT       0x948
+#define BWR_IMG_SRT_W0_ENG_BW_RAT0_0_OFT    0x94C
+#define BWR_IMG_SRT_W0_ENG_BW_RAT0_1_OFT    0x950
+#define BWR_IMG_SRT_W0_ENG_BW_RAT0_2_OFT    0x954
+#define BWR_IMG_SRT_W0_ENG_BW_RAT0_3_OFT    0x958
+#define BWR_IMG_SRT_W0_ENG_BW_RAT0_4_OFT    0x95C
+#define BWR_IMG_SRT_W0_ENG_BW_RAT0_5_OFT    0x960
+#define BWR_IMG_SRT_W0_ENG_BW_RAT0_6_OFT    0x964
+#define BWR_IMG_SRT_W0_ENG_BW_RAT0_7_OFT    0x968
+#define BWR_IMG_SRT_W0_ENG_BW_RAT0_8_OFT    0x96C
+#define BWR_IMG_SRT_W0_ENG_BW_RAT0_9_OFT    0x970
+#define BWR_IMG_SRT_W0_ENG_BW_RAT0_10_OFT   0x974
+#define BWR_IMG_SRT_W0_ENG_BW_RAT0_11_OFT   0x978
+#define BWR_IMG_SRT_W0_BW_QOS_SEL1_OFT      0x990
+#define BWR_IMG_SRT_W0_SW_QOS_TRIG1_OFT     0x994
+#define BWR_IMG_SRT_W0_SW_QOS_EN1_OFT       0x998
+#define BWR_IMG_SRT_W0_ENG_BW1_0_OFT        0x99C
+#define BWR_IMG_SRT_W0_ENG_BW1_1_OFT        0x9A0
+#define BWR_IMG_SRT_W0_ENG_BW1_2_OFT        0x9A4
+#define BWR_IMG_SRT_W0_ENG_BW1_3_OFT        0x9A8
+#define BWR_IMG_SRT_W0_ENG_BW1_4_OFT        0x9AC
+#define BWR_IMG_SRT_W0_ENG_BW1_5_OFT        0x9B0
+#define BWR_IMG_SRT_W0_ENG_BW1_6_OFT        0x9B4
+#define BWR_IMG_SRT_W0_ENG_BW1_7_OFT        0x9B8
+#define BWR_IMG_SRT_W0_ENG_BW1_8_OFT        0x9BC
+#define BWR_IMG_SRT_W0_ENG_BW1_9_OFT        0x9C0
+#define BWR_IMG_SRT_W0_ENG_BW1_10_OFT       0x9C4
+#define BWR_IMG_SRT_W0_ENG_BW1_11_OFT       0x9C8
+#define BWR_IMG_SRT_W0_ENG_BW_RAT1_0_OFT    0x9CC
+#define BWR_IMG_SRT_W0_ENG_BW_RAT1_1_OFT    0x9D0
+#define BWR_IMG_SRT_W0_ENG_BW_RAT1_2_OFT    0x9D4
+#define BWR_IMG_SRT_W0_ENG_BW_RAT1_3_OFT    0x9D8
+#define BWR_IMG_SRT_W0_ENG_BW_RAT1_4_OFT    0x9DC
+#define BWR_IMG_SRT_W0_ENG_BW_RAT1_5_OFT    0x9E0
+#define BWR_IMG_SRT_W0_ENG_BW_RAT1_6_OFT    0x9E4
+#define BWR_IMG_SRT_W0_ENG_BW_RAT1_7_OFT    0x9E8
+#define BWR_IMG_SRT_W0_ENG_BW_RAT1_8_OFT    0x9EC
+#define BWR_IMG_SRT_W0_ENG_BW_RAT1_9_OFT    0x9F0
+#define BWR_IMG_SRT_W0_ENG_BW_RAT1_10_OFT   0x9F4
+#define BWR_IMG_SRT_W0_ENG_BW_RAT1_11_OFT   0x9F8
+#define BWR_IMG_SRT_W1_BW_QOS_SEL0_OFT      0xA10
+#define BWR_IMG_SRT_W1_SW_QOS_TRIG0_OFT     0xA14
+#define BWR_IMG_SRT_W1_SW_QOS_EN0_OFT       0xA18
+#define BWR_IMG_SRT_W1_ENG_BW0_0_OFT        0xA1C
+#define BWR_IMG_SRT_W1_ENG_BW0_1_OFT        0xA20
+#define BWR_IMG_SRT_W1_ENG_BW0_2_OFT        0xA24
+#define BWR_IMG_SRT_W1_ENG_BW0_3_OFT        0xA28
+#define BWR_IMG_SRT_W1_ENG_BW0_4_OFT        0xA2C
+#define BWR_IMG_SRT_W1_ENG_BW0_5_OFT        0xA30
+#define BWR_IMG_SRT_W1_ENG_BW0_6_OFT        0xA34
+#define BWR_IMG_SRT_W1_ENG_BW0_7_OFT        0xA38
+#define BWR_IMG_SRT_W1_ENG_BW0_8_OFT        0xA3C
+#define BWR_IMG_SRT_W1_ENG_BW0_9_OFT        0xA40
+#define BWR_IMG_SRT_W1_ENG_BW0_10_OFT       0xA44
+#define BWR_IMG_SRT_W1_ENG_BW0_11_OFT       0xA48
+#define BWR_IMG_SRT_W1_ENG_BW_RAT0_0_OFT    0xA4C
+#define BWR_IMG_SRT_W1_ENG_BW_RAT0_1_OFT    0xA50
+#define BWR_IMG_SRT_W1_ENG_BW_RAT0_2_OFT    0xA54
+#define BWR_IMG_SRT_W1_ENG_BW_RAT0_3_OFT    0xA58
+#define BWR_IMG_SRT_W1_ENG_BW_RAT0_4_OFT    0xA5C
+#define BWR_IMG_SRT_W1_ENG_BW_RAT0_5_OFT    0xA60
+#define BWR_IMG_SRT_W1_ENG_BW_RAT0_6_OFT    0xA64
+#define BWR_IMG_SRT_W1_ENG_BW_RAT0_7_OFT    0xA68
+#define BWR_IMG_SRT_W1_ENG_BW_RAT0_8_OFT    0xA6C
+#define BWR_IMG_SRT_W1_ENG_BW_RAT0_9_OFT    0xA70
+#define BWR_IMG_SRT_W1_ENG_BW_RAT0_10_OFT   0xA74
+#define BWR_IMG_SRT_W1_ENG_BW_RAT0_11_OFT   0xA78
+#define BWR_IMG_SRT_W2_BW_QOS_SEL0_OFT      0xB10
+#define BWR_IMG_SRT_W2_SW_QOS_TRIG0_OFT     0xB14
+#define BWR_IMG_SRT_W2_SW_QOS_EN0_OFT       0xB18
+#define BWR_IMG_SRT_W2_ENG_BW0_0_OFT        0xB1C
+#define BWR_IMG_SRT_W2_ENG_BW0_1_OFT        0xB20
+#define BWR_IMG_SRT_W2_ENG_BW0_2_OFT        0xB24
+#define BWR_IMG_SRT_W2_ENG_BW0_3_OFT        0xB28
+#define BWR_IMG_SRT_W2_ENG_BW0_4_OFT        0xB2C
+#define BWR_IMG_SRT_W2_ENG_BW0_5_OFT        0xB30
+#define BWR_IMG_SRT_W2_ENG_BW0_6_OFT        0xB34
+#define BWR_IMG_SRT_W2_ENG_BW0_7_OFT        0xB38
+#define BWR_IMG_SRT_W2_ENG_BW0_8_OFT        0xB3C
+#define BWR_IMG_SRT_W2_ENG_BW0_9_OFT        0xB40
+#define BWR_IMG_SRT_W2_ENG_BW0_10_OFT       0xB44
+#define BWR_IMG_SRT_W2_ENG_BW0_11_OFT       0xB48
+#define BWR_IMG_SRT_W2_ENG_BW_RAT0_0_OFT    0xB4C
+#define BWR_IMG_SRT_W2_ENG_BW_RAT0_1_OFT    0xB50
+#define BWR_IMG_SRT_W2_ENG_BW_RAT0_2_OFT    0xB54
+#define BWR_IMG_SRT_W2_ENG_BW_RAT0_3_OFT    0xB58
+#define BWR_IMG_SRT_W2_ENG_BW_RAT0_4_OFT    0xB5C
+#define BWR_IMG_SRT_W2_ENG_BW_RAT0_5_OFT    0xB60
+#define BWR_IMG_SRT_W2_ENG_BW_RAT0_6_OFT    0xB64
+#define BWR_IMG_SRT_W2_ENG_BW_RAT0_7_OFT    0xB68
+#define BWR_IMG_SRT_W2_ENG_BW_RAT0_8_OFT    0xB6C
+#define BWR_IMG_SRT_W2_ENG_BW_RAT0_9_OFT    0xB70
+#define BWR_IMG_SRT_W2_ENG_BW_RAT0_10_OFT   0xB74
+#define BWR_IMG_SRT_W2_ENG_BW_RAT0_11_OFT   0xB78
+#define BWR_IMG_SRT_W3_BW_QOS_SEL0_OFT      0xC10
+#define BWR_IMG_SRT_W3_SW_QOS_TRIG0_OFT     0xC14
+#define BWR_IMG_SRT_W3_SW_QOS_EN0_OFT       0xC18
+#define BWR_IMG_SRT_W3_ENG_BW0_0_OFT        0xC1C
+#define BWR_IMG_SRT_W3_ENG_BW0_1_OFT        0xC20
+#define BWR_IMG_SRT_W3_ENG_BW0_2_OFT        0xC24
+#define BWR_IMG_SRT_W3_ENG_BW0_3_OFT        0xC28
+#define BWR_IMG_SRT_W3_ENG_BW0_4_OFT        0xC2C
+#define BWR_IMG_SRT_W3_ENG_BW0_5_OFT        0xC30
+#define BWR_IMG_SRT_W3_ENG_BW0_6_OFT        0xC34
+#define BWR_IMG_SRT_W3_ENG_BW0_7_OFT        0xC38
+#define BWR_IMG_SRT_W3_ENG_BW0_8_OFT        0xC3C
+#define BWR_IMG_SRT_W3_ENG_BW0_9_OFT        0xC40
+#define BWR_IMG_SRT_W3_ENG_BW0_10_OFT       0xC44
+#define BWR_IMG_SRT_W3_ENG_BW0_11_OFT       0xC48
+#define BWR_IMG_SRT_W3_ENG_BW_RAT0_0_OFT    0xC4C
+#define BWR_IMG_SRT_W3_ENG_BW_RAT0_1_OFT    0xC50
+#define BWR_IMG_SRT_W3_ENG_BW_RAT0_2_OFT    0xC54
+#define BWR_IMG_SRT_W3_ENG_BW_RAT0_3_OFT    0xC58
+#define BWR_IMG_SRT_W3_ENG_BW_RAT0_4_OFT    0xC5C
+#define BWR_IMG_SRT_W3_ENG_BW_RAT0_5_OFT    0xC60
+#define BWR_IMG_SRT_W3_ENG_BW_RAT0_6_OFT    0xC64
+#define BWR_IMG_SRT_W3_ENG_BW_RAT0_7_OFT    0xC68
+#define BWR_IMG_SRT_W3_ENG_BW_RAT0_8_OFT    0xC6C
+#define BWR_IMG_SRT_W3_ENG_BW_RAT0_9_OFT    0xC70
+#define BWR_IMG_SRT_W3_ENG_BW_RAT0_10_OFT   0xC74
+#define BWR_IMG_SRT_W3_ENG_BW_RAT0_11_OFT   0xC78
+
+/* BLS register base address & offset */
+/* base address */
+#define BLS_IMG_E1A_BASE                    0x3401D000
+#define BLS_IMG_E2A_BASE                    0x3401E000
+#define BLS_IMG_E3A_BASE                    0x3401E0F0
+#define BLS_IMG_E4A_BASE                    0x3401E1E0
+#define BLS_IMG_E5A_BASE                    0x3401E2D0
+#define BLS_IMG_E6A_BASE                    0x3401E3C0
+#define BLS_IMG_E7A_BASE                    0x3401E4B0
+#define BLS_IMG_E8A_BASE                    0x3401E5A0
+#define BLS_IMG_E9A_BASE                    0x3401E690
+#define BLS_IMG_E10A_BASE                   0x3401E780
+#define BLS_IMG_E11A_BASE                   0x3401E870
+#define BLS_IMG_E12A_BASE                   0x3401E960
+#define BLS_IMG_E13A_BASE                   0x3401EA50
+#define BLS_IMG_E14A_BASE                   0x3401EB40
+#define BLS_IMG_E15A_BASE                   0x3401EC30
+#define BLS_IMG_E16A_BASE                   0x3401ED20
+
+/* offset */
+#define BLS_IMG_CTRL_OFT                    0x000
+#define BLS_IMG_START_SEL_OFT               0x004
+#define BLS_IMG_SW_TRIG_START_OFT           0x008
+#define BLS_IMG_TRIG_CNT_RST_OFT            0x00C
+#define BLS_IMG_RID_EN_OFT                  0x010
+#define BLS_IMG_RID_G0_OFT                  0x014
+#define BLS_IMG_RID_G1_OFT                  0x018
+#define BLS_IMG_RID_G2_OFT                  0x01C
+#define BLS_IMG_RID_G3_OFT                  0x020
+#define BLS_IMG_RID_VLD_G0_OFT              0x024
+#define BLS_IMG_RID_VLD_G1_OFT              0x028
+#define BLS_IMG_RID_VLD_G2_OFT              0x02C
+#define BLS_IMG_RID_VLD_G3_OFT              0x030
+#define BLS_IMG_WID_EN_OFT                  0x034
+#define BLS_IMG_WID_G0_OFT                  0x038
+#define BLS_IMG_WID_G1_OFT                  0x03C
+#define BLS_IMG_WID_G2_OFT                  0x040
+#define BLS_IMG_WID_G3_OFT                  0x044
+#define BLS_IMG_WID_VLD_G0_OFT              0x048
+#define BLS_IMG_WID_VLD_G1_OFT              0x04C
+#define BLS_IMG_WID_VLD_G2_OFT              0x050
+#define BLS_IMG_WID_VLD_G3_OFT              0x054
+#define BLS_IMG_LEN_HIST_R0_OFT             0x058
+#define BLS_IMG_LEN_HIST_R1_OFT             0x05C
+#define BLS_IMG_LEN_HIST_R2_OFT             0x060
+#define BLS_IMG_LEN_HIST_R3_OFT             0x064
+#define BLS_IMG_LEN_HIST_R4_OFT             0x068
+#define BLS_IMG_LEN_HIST_R5_OFT             0x06C
+#define BLS_IMG_LEN_HIST_R6_OFT             0x070
+#define BLS_IMG_LEN_HIST_R7_OFT             0x074
+#define BLS_IMG_LEN_HIST_R8_OFT             0x078
+#define BLS_IMG_LEN_HIST_R9_OFT             0x07C
+#define BLS_IMG_LEN_HIST_R10_OFT            0x080
+#define BLS_IMG_LEN_HIST_R11_OFT            0x084
+#define BLS_IMG_LEN_HIST_R12_OFT            0x088
+#define BLS_IMG_LEN_HIST_R13_OFT            0x08C
+#define BLS_IMG_LEN_HIST_R14_OFT            0x090
+#define BLS_IMG_LEN_HIST_R15_OFT            0x094
+#define BLS_IMG_LEN_HIST_W0_OFT             0x098
+#define BLS_IMG_LEN_HIST_W1_OFT             0x09C
+#define BLS_IMG_LEN_HIST_W2_OFT             0x0A0
+#define BLS_IMG_LEN_HIST_W3_OFT             0x0A4
+#define BLS_IMG_LEN_HIST_W4_OFT             0x0A8
+#define BLS_IMG_LEN_HIST_W5_OFT             0x0AC
+#define BLS_IMG_LEN_HIST_W6_OFT             0x0B0
+#define BLS_IMG_LEN_HIST_W7_OFT             0x0B4
+#define BLS_IMG_LEN_HIST_W8_OFT             0x0B8
+#define BLS_IMG_LEN_HIST_W9_OFT             0x0BC
+#define BLS_IMG_LEN_HIST_W10_OFT            0x0C0
+#define BLS_IMG_LEN_HIST_W11_OFT            0x0C4
+#define BLS_IMG_LEN_HIST_W12_OFT            0x0C8
+#define BLS_IMG_LEN_HIST_W13_OFT            0x0CC
+#define BLS_IMG_LEN_HIST_W14_OFT            0x0D0
+#define BLS_IMG_LEN_HIST_W15_OFT            0x0D4
+#define BLS_IMG_LEN_SUM_R_OFT               0x0D8
+#define BLS_IMG_LEN_SUM_W_OFT               0x0DC
+#define BLS_IMG_ULTRA_CNT_R_OFT             0x0E0
+#define BLS_IMG_PREULTRA_CNT_R_OFT          0x0E4
+#define BLS_IMG_ULTRA_CNT_W_OFT             0x0E8
+#define BLS_IMG_PREULTRA_CNT_W_OFT          0x0EC
+
+#endif  // MTK_IMGSYS_HWQOS_REG_H_
